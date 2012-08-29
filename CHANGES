@@ -1,0 +1,2974 @@
+r555
+----
+- Fixed bug in computing real event times
+
+r554
+----
+- Added "true" time to events for proper processing
+
+r553
+----
+- Fixed issues with Zeno points and simplified Zeno point handling mechanism
+
+r552
+----
+- Altered Zeno point handling mechanism and removed semi-implicit integration
+- Fixed Runge-Kutta-Fehlberg integrator
+
+r551
+----
+- Bugfixes to the bugfixes to the previous bugfix (should now be working)
+
+r550
+----
+- Bugfixes to the previous bugfix (still broken)
+
+r549
+----
+- Major bugfix: event checking should now work properly independent of
+  integrator type
+
+r548
+----
+- Geometric primitives no longer report intersection if a point is
+  interpenetrating (but on its way out of the primitive)
+
+r547
+----
+- Fixed dynamics bugs for multi-branch bodies in independent coordinates
+
+r546
+----
+- Fixed build bug with Optimization.cpp when built using OMP
+
+r545
+----
+- Bugfixes to CRBAlgorithm for floating bases
+
+r544
+----
+- Fixed bug in CRBAlgorithm - inertias were not being computed properly
+
+r543
+----
+- Fixed bug in CRBAlgorithm inertia matrix inverse call from RCArticulatedBody
+
+r542
+----
+- Added option to build Moby as threadsafe and to simplify openmp support
+
+r541
+----
+- Fixed bug in PSDeformableBody for computing contact events
+
+r540
+----
+- DeformableBody should now be more efficient (simpler and likely bugfixed too)
+
+r539
+----
+- Modifications to parallelized version of O(n^2) inversion
+
+r538
+----
+- Fixed bug in loading PSDeformableBody objects from XML
+
+r537
+----
+- Fixed bug in inertia update for TriangleMeshPrimitive
+
+r536
+----
+- Added convexify-inertia attribute to TriangleMeshPrimitive to allow for
+  using the convex hull of a triangle mesh for purposes of inertial property
+  calculation
+
+r535
+----
+- Modified qp_convex_activeset(): should be faster and now takes account of
+  bounds constraints
+
+r534
+----
+- MCArticulatedBody (standard joint friction model) works properly again
+
+r533
+----
+- Small bugfix to event handling for joint limits for articulated bodies
+
+r532
+----
+- Bugfix to PSDeformableBody::load_from_xml() - node indices were not being
+  read properly
+- Fixed bug with driver and offscreen rendering
+
+r531
+----
+- Bugfix to DeformableBody's not having their collision geometries serialized
+- Kinematic now saves viewing options
+
+r530
+----
+- Serialization bugfixes
+
+r529
+----
+- Output bugfixes
+
+r528
+----
+- Bugfix for PSDeformableBody contact events
+
+r527
+----
+- SQP now working
+
+r526
+----
+- Updated banditII simulation (example/banditII.xml)
+
+r525
+----
+- Compilation-related bugfixes
+
+r524
+----
+- Updated Kinematic
+
+r523
+----
+- Fixed bug with OSGGroupWrapper
+- Updated banditII arm examples
+
+r522
+----
+- Default number of friction cone edges for contacts is now 2 (making it harder
+  to inadvertently trigger SQP solver)
+
+r521
+----
+- Fixed bug in ImpactEventHandler (QP solution): impulses were not retrieved
+  properly 
+
+r520
+----
+- Fixed visualization problems
+
+r519
+----
+- SQP algorithm still does not work properly
+- Updated ImpactEventHandler with new methods
+
+r518
+----
+- Fixed bug with CSG displaying improperly
+
+r517
+----
+- Fixed bug with supports in CRBAlgorithm
+
+r516
+----
+- Fixed major bug in computing dynamics: forces were only being accumulated
+  but never reset
+
+r515
+----
+- Implementation finished (not tested) of impacts/events with new joint friction
+  model
+
+r514
+----
+- Fixed bug in graphics output with driver using -y option
+
+r513
+----
+- Fixed potential bugs in SQP
+
+r512
+----
+- Added sequential quadratic programming method to Optimization
+
+r511
+----
+- Joint friction model more robust for loops (hopefully)
+
+r510
+----
+- Updated joint friction model for bodies with loops
+- Updated QP impact model
+
+r509
+----
+- Fixed dynamics for RCABs with loops
+- Hessian calculation for joint friction model is now closed form (fast)
+- driver no longer opens a window when "-r" option not used
+
+r508
+----
+- Joint friction model works properly on RCArticulatedBody's w/o loops
+- Gradient calculation for joint friction model is now closed form (fast)
+- **** Dynamics is BROKEN for RCAB's with loops ****
+
+r507
+----
+- Reverted nullspace computation
+- Fixed RCArticulatedBody forward dynamics computation when no explicit
+  constraints are present
+- MCArticulatedBody forward dynamics computation updated to reflect changes
+  in ArticulatedBody
+- added line in CMakeLists.txt to build plugin (optional)
+- RCArticulatedBody and MCArticulatedBody do not use new dynamics model by
+  default
+
+r506
+----
+- Updated RCArticulatedBody forward dynamics algorithm to properly account
+  for joint friction (NOTE: it uses numerical differentiation and is currently
+  quite slow)
+- MCArticulatedBody forward dynamics is now broken
+
+r505
+----
+- Fixed bug in TriangleMeshPrimitive
+- Added features to driver to enable reading parameters/options from XML
+
+r504
+----
+- Fixed creation of triangle meshes for OSG visualization
+
+r503
+----
+- Fixed viewer to work with OSG
+
+r502
+----
+- Implemented new dynamics model for absolute coordinate articulated bodies
+
+r501
+----
+- Fixed bug in PSDeformableBody.cpp
+
+r500
+----
+- Fixed joint friction model (sliding friction, loopless) for forward dynamics
+  in independent coordinates
+
+r499
+----
+- Fixed MCArticulatedBody calc_fwd_dyn()
+
+r498
+----
+- Updated joint friction model for forward dynamics in independent coordinates
+
+r497
+----
+- Verified proper computation of Dx in MCArticulatedBody; fixed forward
+  dynamics to no longer treat sticking / non-sticking friction separately
+  (Jx, Dx are *not* respective nullspaces)
+
+r496
+----
+- Fixed computation of Dx in MCArticulatedBody?
+
+r495
+----
+- Fixed computation of Dx in RCArticulatedBody
+
+r494
+----
+- Continued bugfixes for joint friction in forward dynamics
+
+r493
+----
+- Some bugfixes for joint friction in forward dynamics
+
+r492
+----
+- Completed cmake provisions, transition to OpenSceneGraph partially complete
+
+r491
+----
+- Incomplete cmake provisions, transition to OpenSceneGraph
+
+r490
+----
+- Corrected implementation of changes in r489
+
+r489
+----
+- Implemented joint friction for articulated bodies in absolute coordinates
+  in absence of events
+- Partially implemented kinematic loops for articulated bodies in reduced
+  coordinates
+
+r488
+----
+- Bugfixes to FSAB-based inverse generalized inertia algorithm
+
+r487
+----
+- Faster inverse generalized inertia matrix computations as well as good
+  opportunities for parallelization
+
+r486
+----
+- Bugfixes to event handling
+
+r485
+----
+- Incorporated Alistair's priority queue modifications to C2ACCD
+
+r484
+----
+- Moby 3.0 (alpha)
+- FSAB and CRB algos are now objects for each RCAB rather than derived from
+  Base class
+- Getting inverse generalized inertia matrix works w/both CRB and FSAB algos
+- Spatial arithmetic now computed much more quickly for reduced coordinate
+  bodies
+- Absolute coordinate bodies bug-fixed
+
+r483
+----
+- NOTE: does not compile!
+- Making generalized coordinates variable (axis-angle or Rodrigues)- this
+  should speed things considerably
+- Added classes for faster spatial algebra computation
+
+r482
+----
+- Fixed some bugs in CRBAlgorithm and RCArticulatedBody with regard to
+  events
+- MCArticulatedBody does not currently work
+- FSABAlgorithm::apply_generalized_impulse() now works for bodies with
+  non-floating bases (using CRBAlgorithm for check)
+- Updated FSABAlgorithm to take account of floating bases for generalized
+  impulses
+
+r481
+----
+- Limits w/friction works (at least on RCArticulatedBody types)
+- Added method for applying generalized impulse using FSABAlgorithm
+  (doesn't necessarily work yet!)
+
+r480
+----
+- Added Poisson restitution to ImpactEventHandler
+- Fixed bug in computing AABB from SSL
+- Added speedup to C2A collision detector
+
+r479
+----
+- Debugged Jacobian computation for MCArticulatedBody
+
+r478
+----
+- Transition to Moby 3.0
+
+r477
+----
+- Joint friction now works for MCArticulatedBody
+- Added method for computing joint friction to CRBAlgorithm (implemented, but
+  not debugged, and not activated)
+- Fixed bugs with joint axes being in inboard frame for maximal-coordinate
+  joint implementations and being in outboard frame for reduced-coordinate
+  implementations; SphericalJoint and UniversalJoint have *not* been fixed
+
+r476
+----
+- Removed some compile warnings
+- Added general matrix multiplication routines to Matrix3
+- Added method in ArticulatedBody to find first joint limit violation
+- Fixed FixedJoint::determine_Q(); now does essentially nothing
+- Joints no longer use pointers to spatial axes in global frame
+
+r475
+----
+- Fixed bugs in PSDeformableBody integration
+- MCArticulatedBody now works with new generalized coordinate formulation
+- Higher order integrators now work correctly
+
+r474
+----
+- Anitescu-Potra restitution model now working with new generalized coordinate
+  scheme
+
+r473
+----
+- Generalized coordinates functional but Anitescu-Potra restitution not
+  working
+
+r472
+----
+- Still working on transition to generalized coordinates (not functional)
+
+r471
+----
+- Fixed bug with RCArticulatedBody not updating base generalized coordinates
+
+r470
+----
+- Transitioned to using generalized coordinates exclusively (rather than the
+  old, Baraff-type approach); generalized coordinates formulated using unit
+  quaternions.  NOTE: there seems to be an issue with reduced-coordinate articulated
+  bodies.
+
+r469
+----
+- Introduced new modified Gaussian-elimination based algorithm for contact reduction
+- Anitescu-Potra now uses regularization in solving contact problems
+
+r468
+----
+- PSDeformableBody's were not being integrated properly; fixed that
+- Anitescu-Potra solver was not applying friction; fixed that
+
+r467
+----
+- Fixed bug in AnitescuPotraSolver (new model): was trying to use upper
+  triangular Cholesky factorization in a lower triangular solving method
+- Optimization::optimize_convex_pd() should now be more robust w.r.t.
+  satisfying inequality constraints (at the expense of some speed)
+- Added Optimization::qp_convex_ip() for solving convex quadratic programming
+  problems using an interior-point solver
+- QpRestitutionModel is currently in a state of flux
+
+r466
+----
+- Added QpRestitutionModel back to XMLReader
+- QpRestitutionModel now attempts to eliminate redundant contact points
+- LinAlg::pseudo_inverse() can now be passed the output matrix as an argument
+- LinAlg::pseudo_inverse() is now much faster for non-square matrices (UNTESTED)
+- Reverted changes to CvxOptRestitutionModel 
+- A-P contact model now reports change in work
+- Nearly all LCP solvers (iterative, Lemke) have been improved w.r.t. speed
+- LCP solvers no longer verify that constraints are met to within tolerances;
+  that is up to the calling application
+
+r465
+----
+- Fixed some bugs in DeformableBody code
+
+r464
+----
+- Re-added QpRestitutionMode; several bugfixes
+- Possible bugfix to TriangleMeshPrimitive::create_visualization()
+- Added methods for doing convex quadratic programming through LCP duality
+
+r463
+----
+- Fixed another bug with the Lemke LCP solver
+
+r462
+----
+- Enumerative LCP solver no longer called when Lemke solver fails
+- Changed matrix inversion to a much faster and much more stable
+  triangular matrix solver for Anitescu-Potra method
+- Bugfix in Optimization::lcp_lemke()
+- Minor bugfixes / alterations to Optimization::lcp_lemke(), AnitescuPotra 
+  model / solver, LinAlg, and PathLCPSolver (specifically, PATH interface
+  now permits epsilon tolerance option)
+
+r461
+----
+- Refactored geometric primitive code; should be more robust
+- Added DeformableCCD collision detector
+- CSG primitive is now more robust
+
+r460
+----
+- CylinderPrimitive made more robust for collision detection purposes
+
+r459
+----
+- Fixed bug caused by gcc: having same class- defined in source (rather than
+  header) files- would cause problems with virtual derived classes
+- Fixed bugs in point_inside() and intersect_seg() methods for BoxPrimitive
+  and incorporated intersection tolerance
+- Fixed bug in GeneralizedCCD: contact points and normals were computed in 
+  a body's frame at t0 rather than at tc (the time of contact)
+- Fixed bug in ImpulseContactSimulator::find_TOI() - integrating invalidates
+  contact map (the invalidation is now accounted for)
+- Fixed bug in OBB::intersect_seg() - point of intersection now accounts for
+  position of OBB center
+- Fixed bug in RCArticulatedBody::calc_jacobian_column() - state of articulated
+  body was inadvertently altered
+- Made RCArticulatedBody::apply_impulse() more efficient - now does nothing
+  if zero impulse is applied
+
+r458
+----
+- Modified vector and matrix copy() function to copy_from() - more descriptive
+- Modified sphere, cylinder, cone, box primitives to allow edge sampling
+
+r457
+----
+- Updated AltCvxOptRestitutionModel - now uses joint constraint forces to
+  determine joint friction model
+
+r456
+----
+- Added methods for multiplication to SparseMatrixN
+- Updated AltCvxRestitutionModel
+
+r455
+----
+- Fixed bug in CvxOptRestitutionModel that could permit interepenetration
+- Added AltCvxOptRestitutionModel (not fully incorporated or finished)
+
+r454
+----
+- Added impulse-based dampening via generalized coordinates
+- Predictions by generalized coordinates now match predictions by impulse
+  application and measurement
+- Convex optimization now uses least squares optimization when solving singular
+  system (rather than ridge regression)
+- Added methods for computing (K,u) to CollisionMethod (K is inverse contact 
+  space inertia matrix coupled with inverse generalized inertia matrices)
+- Fixed bug in virtual vertex generation for cylinder primitive
+- CRBAlgorithm and FSABAlgorithm now call methods to prepare articulated body
+  for impulse application; this is considerably slower but safer
+
+r453
+----
+- line segment/cylinder intersection is now more robust
+- virtual vertices now generated at endcaps of cylinder too
+
+r452
+----
+- SpherePrimitive now checks for interior point in intersect_seg
+- CSG now determines its own vertices- no mesh is necessary
+- CSG now takes transforms into account when doing line seg intersection
+
+r451
+----
+- ContactSimulator::collision_tolerance is now fed into the collision methods
+
+r450
+----
+- Fixed bug in determining vertices for cylinder
+
+r449
+----
+- GeneralizedCCD now takes relative collision geometry transforms into account
+- BoxPrimitive segment intersection now takes relative primitive transforms
+  into account
+- FixedJoint now works with rigid bodies that have been transformed in the
+  XML file
+- interior-point LCP method now checks for tolerances met (early termination
+  check) 
+
+r448
+----
+- Fixed small bugs in CylinderPrimitive (point inside query)
+
+r447
+----
+- Optimized symmetric iterative LCP solver
+- projected gradient LCP solver now checks for solution intermittently
+- CvxOptRestitutionModel now utilizes multiple LCP solvers
+- Fixed bug in Cylinder/line segment intersection
+
+r446
+----
+- Fixed bugs in CSG and generic BV intersection codes
+- Optimized Optimization::qp() slightly
+
+r445
+----
+- Fixed bugs in xPrimitive (except TriangleMeshPrimitive, for which no bug
+  was present) relating to double transforming
+- Fixed bug in C2ACCD related to collision geometries having relative
+  transformations
+- C2ACCD now only checks geometries that have been specifically assigned
+
+r444
+----
+- Added SparseMatrix/Vector classes
+
+r443
+----
+- Removed method for determining nonredundant contacts
+
+r442
+----
+- Bugfix to method for determining nonredundant contacts
+
+r441
+----
+- Added method for determining nonredundant contacts and removed max-points 
+  points attribute from ContactData
+
+r440
+----
+- MeshDCD has been reverted to old line segment intersection code
+- Edge subsampling for primitives has been added
+
+r439
+----
+- Euler angles were not being updated on set_position_state()
+- CompGeom::intersect_seg_plane() was reporting incorrect results
+- MeshDCD still does not work robustly
+
+r438
+----
+- MeshDCD now uses edge-based intersection
+
+r437
+----
+- Made variables static for extra speed, where possible and appropriate, when
+  not using multithreading (_OPENMP not defined)
+- Changed the way that the contact map is handled in ContactSimulator,
+  ImpulseContactSimulator, and CvxOptTimeStepper: the contact map is now
+  managed by ContactSimulator (including contact removal)
+- CvxOptTimeStepper now uses the collision detection updating system to speed
+  performance
+- Replaced my rotating caliper's algorithm implementation with a modified
+  version of Dave Eberly's implementation; seems to be more robust
+- Added method for computing optimal lower dimensional OBBs
+- Added method for computing minimal OBBs
+
+r436
+---
+- C2A collision detector is more robust
+
+r435
+---
+- Added SSR bounding volume type
+- Added C2A collision detector
+
+r434
+----
+- Bodies now take care of their own integration to simplify introduction
+  of velocity-level (or even position-level) dynamics
+
+r433
+----
+- Fixed bug in CompGeom::intersect_seg_plane(); when segment was of really
+  small length, intersect_seg_plane() would report that the segment was
+  parallel to the plane
+
+r432
+----
+- Added bouncing sphere example
+
+r431
+----
+- MeshDCD now eliminates contacts with degenerate normals
+- Added bouncing-sphere example
+
+r430
+----
+- Increased speed of qp_projgrad()
+
+r429
+----
+- Fixed bug in DeformableBody related to visualization and resulting from
+  last commit
+- Sped up DeformableBody performance
+- PSDeformableBody default-kp/default-kv parameters added to XML
+- Updated documentation for deformable bodies
+
+r428
+----
+- Sped up loading deformable model state in DeformableBody
+
+r427
+----
+- Sped up finding tetrahedra procedure in DeformableBody
+
+r423
+----
+- Modified Moby to support deformable body mechanics (currently mass-spring
+  systems only)
+
+******
+Port to stable/unstable system
+******
+
+r414
+----
+- Fixed bug in BV::intersects() related to bounding sphere / OBB intersections
+- Reverted change to Optimization::qp_gradproj() that solved to such high
+  tolerances
+- CSG now can use loaded meshes instead of having to do operation
+
+r413
+----
+- ImpulseContactSimulator now steps to TOI before checking whether contact
+  is impacting
+- Fixed bug in determining AABB of transformed OBB
+- RigidBody::set_transform() now updates Euler angles too
+- Optimization::qp_gradproj() now solves to closer tolerances
+
+r412
+----
+- Polyhedron Boolean operations now work properly; added CSG and AABB classes
+
+r411
+----
+- Added polyhedron Boolean operation methods; various bugfixes
+
+r410
+----
+- Fixed bug in GeneralizedCCD where occasionally BVH traversal would stop
+  prematurely
+
+r409
+----
+- Moved collision detection timing to ContactSimulator
+
+r408
+----
+- Implemented some sparse matrix optimizations to CvxOptTimeStepper
+
+r407
+----
+- Sped CvxOptTimeStepper when zero convex optimization BFGS iterations are used
+
+r406
+----
+- Fixed bug with SpherePrimitive::intersect_seg()
+- Added intersection_tolerance to all primitives (only implemented in Sphere,
+  Box, and TriangleMesh currently)
+- Heavily modified CvxOptTimeStepper
+- Sped LinAlg::pseudo_inverse() of square matrices
+
+r405
+----
+- Made CvxOptTimeStepper more efficient
+
+r404
+----
+- AnitescuPotraRestitutionModel no longer uses enumerative LCP solver
+  (change was accidentally committed)
+- Convex optimization routines now use indices to determine which objective /
+  constraint function to compute
+- CvxOptTimeStepper has been optimized and now uses method 2 (no stabilization):
+  stabilization seems to require a different parameterization
+ 
+r403
+----
+- Updated Optimization::lcp_enum() to no longer use an evaluation function and
+  AnitescuPotraRestitutionModel to check for energy gain
+
+r402
+----
+- Optimization::lcp_enum() now takes advantage of multiprocessor systems using
+  OpenMP
+
+r401
+----
+- CvxOptTimeStepper now uses BFGS algorithm for large scale stepping
+
+r400
+----
+- Updated Moby to work with pkg-config
+- Updated Moby to work with Qt4 on OS X
+- SConstruct now produces a pkg-config file
+
+r399
+----
+- Fixed bugs in BFGS implementation
+- Made line search algorithm for robust
+
+r398
+----
+- Added BFGS to Optimization
+
+r397
+----
+- Added More'-Thuente line search to Optimization
+
+r396
+----
+- Moby now converted to QT4 - scons does not support QT4 so Kinematic must
+  be built manually
+
+r395
+----
+- Convex optimization now uses far less memory
+
+r394
+----
+- Collision detection now uses sweep and prune for faster broad phase
+
+r393
+----
+- Joint friction model now incorporates step size for correct coefficient
+  selection and uses Polyak's algorithm for speed improvements over interior
+  point method
+- Bugfixes to Polyak's algorithm implementation
+
+r392
+----
+- Optimized collision detection routines considerably by eliminating testing
+  of vertices multiple times 
+
+r391
+----
+- Optimized collision detection routines using Shark
+
+r390
+----
+- Fixed Qt-related crashing bug that emerged with newer versions of Qt
+- CvxOptTimeStepper now uses analytical gradient/Hessian in place of numerical
+  versions
+
+r389
+----
+- Changed template filename for output of VRML files - number in sequence is
+  now before time
+- Fixed bug in RigidBody::get_generalized_inertia() - angular part of inertia
+  matrix was not being transformed as it should have
+- Added time stepping method (CvxOptTimeStepper)
+
+r388
+----
+- Fixed bug that was causing incorrect inverse dynamics calculation in
+  RNEAlgorithm
+- Fixed bug that was causing incorrect forward dynamics calculation for 
+  tree-structured bodies in FSABAlgorithm
+- Fixed bug that was causing incorrect generalized inertia matrix calculation
+  in RCArticulatedBody
+- Added more stable impulse-based joint friction model
+
+r387
+----
+- Fixed bug in RCArticulatedBody::calc_generalized_inertia() - inertia was
+  not being correctly calculated on subsequent calls
+
+r385
+----
+- Added square dampening terms to DampingForce
+- GeneralizedCCD now assumes that bodies are not in contact
+
+r384
+----
+- Contact impulses can now be obtained via a post-impulse callback function
+- Made some changes to facilitate operation in arbitrary precision calculations
+- Moby now links against SoQt3 rather than generic SoQt; this was causing
+  segfaults on systems with SoQt4 and both Qt3 and Qt4.
+- Added ODEPACK support
+
+r383
+----
+- Quat::epsilon_equals() did not correctly report that a quaternion was
+  equal to its conjugate; that has been changed
+- Removed missing .inl targets from SConstruct
+
+r382
+----
+- Added arbitrary precision arithmetic option to Moby
+
+r381
+----
+- Fixed minor bug in QpRestitutionModel
+
+r380
+----
+- Fixed bug that was causing collision tolerance to be unspecified for
+  TriangleMeshPrimitive
+- Re-incorporated QpRestitutionModel into the build
+- Made Optimization::qp() more robust and slightly faster
+- QpRestitutionModel now uses poisson-type restitution
+
+r379
+----
+- Kinematic now longer crashes when no joint limits are given
+
+r378
+----
+- Points now uniformly distributed on sphere in SpherePrimitive.cpp
+- Added adjust-center program to examples
+- Fixed bug in determining initial feasible point for use_lcp_solver=true in
+  CvxOptRestitutionModel
+- Primitive::create_visualization() now uses a random color for objects
+- Fixed bug in OBB expansion (OBB::calc_vel_exp_BV())
+- Added DampingForce to recurrent forces
+- Fixed bug in AnitescuPotraRestitutionModel: normals were not being computed
+  correctly for rigid bodies
+
+r376
+----
+- Altered scons build to not install example/view if USE_INVENTOR is false
+
+r375
+----
+- Multistep integrators now work properly
+- CvxOptRestitutionModel will now use alternative method for finding feasible
+  point if primary method fails
+- Transitioned license file (COPYING) to LGPL v2.1
+
+r374
+----
+- Fixed bug in CvxOptRestitutionModel
+- CvxOptRestitutionModel now uses Poisson-based restitution model (should be
+  energetically consistent, though this has not been verified)
+- Added parameters.txt to explain the effect of the various parameters upon
+  the simulation
+- Added 'install' option to SCons build
+
+r372/r373
+----
+- Fixed build problem
+
+r371
+----
+- Added install option to SCons build
+
+>>>>>>> .r374
+r370
+----
+- Fixed improper operation of variable step Euler integrator
+
+r369
+----
+- Added variable step Euler integrator (VariableEulerIntegrator)
+
+r368
+----
+- SConstruct file was looking for Qt during configure process even when
+  USE_INVENTOR=false; fixed
+
+r367
+----
+- Fixed bug in TriangleMeshPrimitive::intersect_seg() - returned intersection 
+  point would sometimes be incorrect
+
+r366
+----
+- Fixed bug with Matrix3::orthonormalize()
+
+r365
+----
+- Fixed issue with relative transforms and GeneralizedCCD (weasel ball now
+  works)
+- Fixed bug with Triangle::calc_sq_dist()- calculating squared distance between
+  triangle and point was buggy
+- Fixed bug with TriangleMeshPrimitive - calculating intersection with thick
+  triangle was sometimes being ignored
+- Transitioned GeneralizedCCD to recurse into bounding volume with minimum
+  volume, rather than alternating approach (sequential code only)
+
+r362
+----
+- Fixed compile error in AnitescuPotraRestitutionModel
+
+r361
+----
+- Fixed AnitescuPotraRestitutionModel bugs with maximal coordinate articulated
+  bodies
+
+r360
+----
+- Fixed bug in RCArticulatedBody::convert_to_generalized_force() - Jacobian
+  was inappropriately including unsupported links
+
+r359
+----
+- Fixed bug in BoxPrimitive::intersect_seg() - sometimes no intersection was
+  reported (incorrectly)
+- Updated RCArticulatedBody::get_generalized_inertia() - must verify whether it
+  is working correctly
+- More effectively parallelized GeneralizedCCD
+
+r358
+----
+- Fixed bug in RCArticulatedBody::get_generalized_inertia() where the base is 
+  the only link
+- MatrixN::get_sub_mat() and MatrixN::set_sub_mat() have been made into 
+  templated methods so that they work with Matrix2, Matrix3, and SMatrix6
+- RCArticulatedBody::get_generalized_inertia() now produces the correct 6x6
+  inertia matrix in AnitescuPotraRestitutionModel when base is the only link
+  of the articulated body
+
+r357
+----
+- More effectively parallelized GeneralizedCCD
+
+r356
+----
+- AnitescuPotraSimulator now divides contacts into connected contacts before
+  implicit stepping (now much faster)
+
+r355
+----
+- Added some speedups to MLIRestitutionModel
+
+r354
+----
+- Added recurrent force for drag from air (StokesDragForce)
+
+r353
+----
+- AnitescuPotraSimulator now uses actual Anitescu-Potra stepper, rather than
+  naive method
+- ContactSimulator contact_callback_fn() now is to be called with all
+  contacts, rather than some 
+
+r352
+----
+- Fixed bug in Primitive::load_from_xml() - transform was not being applied
+  to visualization
+- TriangleMeshPrimitive no longer builds BVH until get_BVH_root() called
+
+r351
+----
+- Added AnitescuPotraSimulator
+- CvxOptRestitutionModel again uses primal-dual method
+- Added PrimitivePlugin tag to XML format
+
+r350
+----
+- Added GeneralizedCCD
+
+r349
+----
+- AnitescuPotraRestitutionModel now works with MCArticulatedBody objects
+- AnitescuPotraRestitutionModel now computes normals correctly for
+  RCArticulatedBody objects
+- MLIRestitutionModel now uses SVD to solve for frictionless impulse
+
+r348
+----
+- Fixes Moby not building 
+
+r347
+----
+- Fixed restitution model of AnitescuPotraRestitutionModel
+
+r346 (2.0 release)
+------------------
+- ImpulseContactSimulator now checks to determine whether the contact data
+  is associated with a valid contact method
+- Removed timing output
+- Optimization::mlcp() now uses least squares for robustness
+
+r345
+----
+- Contact normal now oriented to point toward body that compares first
+  lexographically (makes for easier debugging)
+- MLIRestitutionModel now uses Lemke algorithm for solving LCPs
+- QpRestitutionModel readied for 2.0 release
+
+r344
+----
+- Added some NaN-robust checks in Optimization
+- Made changes to accommodate new symbolic dynamics code
+- Added operator overloading for assignment to VectorN from scalar Real values
+- Added RCArticulatedBodySymbolicPlugin tag to XMLReader
+- Added symbolic version of chain2.xml (chain2-symbolic.xml) to 
+  examples/chain_contact
+
+r343
+----
+- Added check in AnitescuPotraRestitutionModel::apply_model_old() for verifying
+  that matrix is solvable by Lemke algorithm
+- Added check that sum of constraint Hessians is PSD in 
+  Optimization::solve_KKT_pd()
+- Added maximum iteration parameter to Optimization::qp()
+- Added greater parallelism (untested) to VExactTOIFinder through OpenMP
+
+r342
+----
+- Added linear programming support to Optimization class via optional GLPK library
+
+r341
+----
+- Restored mobile robot example to working version
+- Fixed bug in CRBAlgorith::get_generalized_inertia() - some joints were being
+  counted twice when enumerating joint DOFs
+- Added Optimization::qp_redundant() for doing quadratic programming with
+  redundant equality/inequality constraints (doesn't seem to work yet)
+- Added QP restitution model
+- Modified LinAlg::factor_QR() to use LAPACK routine for determining matrix Q
+
+r340
+----
+- Fixed bug in CRBAlgorithm::apply_impulses_floating_base()
+- RCArticulatedBody::get_generalized_inertia() no longer relies upon the
+  underlying dynamics algorithm
+- AnitescuPotraRestitutionModel now works with FSAB algorithm (consequence
+  of above change)
+- CRBAlgorithm has been simplified by using 
+  RCArticulatedBody::get_generalized_inertia()
+
+r339
+----
+- Updated MirtichRestitutionModel to no longer use the centroid of the
+  contact manifold- all contact points will be processed sequentially
+- MirtichRestitutionModel should be slightly more robust (numerically)
+
+r338
+----
+- Fixed broken build
+- Removed additional constraints from search for feasible point
+- Restored early exit from Optimization::optimize_convex_pd()
+- Added option to CvxOptRestitutionModel to use LCP solver for initial point
+- Added CXX and CXXFLAGS options to scons build
+
+r337
+----
+- THIS BUILD APPEARS TO HAVE A SERIOUS BUG..  DO NOT USE
+- CvxOptRestitutionModel adds additional constraints to the search for initial
+  feasible point
+- Altered LinAlg::factor_chol() to remove compile warning
+- Restored SVD-based MLI restitution model
+
+r336
+----
+- LinAlg::factor_chol() now removes the lower triangular half of the symmetric
+  matrix after factorization
+- Fixed AnitescuPotraRestitutionModel bugs related to Cholesky factorization
+  of mass matrix
+
+r335
+----
+- LinAlg methods that throw SingularException now destroy matrix as appropriate
+- Optimization::optimize_convex_pd() now will not exit early when no apparent
+  progress is made; maximum number of iterations will be reached instead
+- Optimization::solve_KKT_pd() now uses only Cholesky decomposition plus
+  regularization to solve KKT equations
+- SCons build now accepts Boolean options
+- VExactTOIFinder now takes advantage of OpenMP (~6% speed improvement on
+  dual core AMD 64x2)
+
+r333
+----
+- Fixed bug in AnitescuPotraRestitutionModel; was mistakenly taking inverse
+  of Cholesky factorized matrix
+- Decreased S_BUFFER in CvxOptRestitutionModel from 1e-8 to 1e-12
+- Fixed compile bug in PathLCPSolver
+
+r332
+----
+- inv(JM^{-1}J') in MCArticulatedBody now uses SVD for stable solving
+
+r331
+----
+- Made changes to permit links in articulated bodies to have multiple
+  inner joints
+- Added example/extract-contacts.py for extracting contact data for
+  visualization
+
+r330
+----
+- Fixed bug in VectorN::swap() - capacity was not being swapped
+- Fixed bug in PathLCPSolver- Options structure was not being free'd
+
+r328
+----
+- Fixed bugs in PathLCPSolver (dshell)
+
+r327
+----
+- Added options to driver to start/stop logging
+- Fixed bug in VExactTOIFinder::update_contacts() that was occasionally causing
+  contacts not to be updated
+- JM'J inverse now computed using LDL' decomposition rather than Cholesky
+  factorization to avoid singularity
+
+r326
+----
+- Fixed compilation bug, simple assertion bug in PathLCPSolver (PATH
+  interface)
+
+r325
+----
+- Added interface to PATH solver
+
+r324
+----
+- Fixed bug in VExactTOIFinder::calc_vel_exp_OBB() - angularly updated OBB
+  was not being computed properly when center was not at origin
+
+r323
+----
+- Fixed subtle bug in AnitescuPotraRestitutionModel; needed to do Cholesky
+  factorization of 'G' matrix before taking its inverse 
+- CvxOptRestitutionModel and Optimization::optimize_convex_pd() now look
+  for PSD A / Hessian to ensure problem is convex
+- Fixed bug in Hessian computation in Optimization::solve_KKT_pd()
+
+r320
+----
+- Updated FSABAlgorithm::apply_impulse() with speed optimizations
+- Updated MatrixN::transpose() and SMatrixN::transpose() with speed
+  optimizations
+- Added stream input to MatrixN and VectorN
+
+r319
+----
+- Fixed bug in CvxOptRestitutionModel: i_fx() for determining initial feasible
+  point was not being computed correctly
+- Optimization::optimize_convex_pd() now returns the best found point, not
+  the current one (the two should be identical, but are not)
+
+r318
+----
+- Changes to make convex optimization (Optimize::make_feasible_convex())
+  more robust
+
+r317
+----
+- Using factorization of KKT matrix to speed Optimization::optimize_convex_pd()
+- Added diagonal matrix times vector functions to MatrixNN
+- Added faster, less robust least-squares function (LinAlg::solve_LS_fast2) -
+  this is untested
+
+r316
+----
+- Fixed bug in CvxOptRestitutionModel allowing 
+  Optimization::optimize_convex_pd() to be used in place of
+  Optimization::optimize_convex()
+
+r315
+----
+- Added coldet plugin to mobile robot example; mobile robot example now working
+- Now using primal convex optimization method - dual method is not working
+  as expected
+
+r314
+----
+- Fixed bug in SMatrixN- SMatrixN * SVector6 was always generating a SVector6,
+  which is not valid
+- Added Baumgarte stabilization to MCArticulatedBody
+- example/driver option "-i" now writes to .png files rather than .bmp
+- Fixed bug with reduced coordinate bodies and UniversalJoint and
+  SphericalJoint; was causing crash
+- Added OpenMP support for parallel simulation
+- Cleaned banditII example
+- Fixed HOAP2 example
+- Added HOAP3 model
+- Fixed bug in Joint::get_scaled_force() - maximum force was not being 
+  considered for negative force values
+- Fixed bugs related to finding feasible point for convex optimization in
+  Optimization class
+
+r313
+----
+- Incorporated bugfix from John Hsu in IndexedTriArray::read_from_obj()
+- Re-fixed maximal coordinate articulated body joints; they broke when fixed
+  RigidBody::set_inner_joint_to_com_vector_global()
+
+r312
+----
+- Fixed compile problems due to removal of RestingContactMethod.h
+- Fixed bug in RCArticulatedBody; base velocity was not getting updated in
+  set_state()
+- Fixed bug in RigidBody::set_inner_joint_to_com_vector_global() - the negation
+  of the necessary vector was being returned
+
+r311
+----
+- Fixed bug in LinAlg::factor_LDL(); matrix sent to LAPACK was not in packed
+  format
+- Fixed bug that was causing higher order integrators to fail assertion
+- Revised SMatrixN, SVectorN to deal with zero matrices / vectors
+- FixedJoint now works with reduced coordinate articulated bodies
+- Updated stack.xml example
+
+r310
+----
+- SphericalJoint, PrismaticJoint, RevoluteJoint, UniversalJoint now working 
+  with maximal coordinate bodies
+- Impulse application now works with maximal coordiante articulated bodies
+- Replaced PrismaticJoint::determine_Q() with more robust code
+- Added calc_impulse_dyn() function to articulated bodies and 
+  reduced-coordinate articulated body algorithms, thereby allowing computation
+  of impulses without calc_fwd_dyn() [in practice, this isn't very useful,
+  but it's there nonetheless]
+
+r309
+----
+- Replaced code for maximal coordinate articulated bodies in joints; tested
+- Added FixedJoint (tested)
+- Fixed restitution bug in AnitescuPotraRestitutionModel
+- Fixed multibody related bugs in AnitescuPotraRestitutionModel
+- Restructured articulated body code (ArticulatedBody, RCArticulatedBody,
+  MCArticulatedBody) to take advantage of commonalities
+- Fixed bug in AnitescuPotraRestitutionModel- velocities used in LCP solver
+  were incorrectly negated
+- Replaced assertions with exceptions where appropriate
+- spherical, universal, prismatic, and revolute joints currently not working 
+  with maximal coordinate bodies
+
+r308
+----
+- Replaced matrix pointers with booleans and stack-based matrix objects
+  in RigidBody to further increase speed in reduced coordinate articulated
+  body algorithms
+- Fixed bug in AnitescuPotraRestitutionModel: Coriolis forces were being
+  included in collision model
+- Code in place to support maximal coordinate articulated bodies;
+  not yet tested (and likely does not work!) 
+
+r307
+----
+- Fixed bugs related to introduction of capacity feature in MatrixN and
+  VectorN
+- Made OBB center and lengths determination both simpler and more robust 
+  (numerically) when creating OBBs to bound a curve in VExactTOIFinder
+- Attempted to make line segment / OBB intersection more robust
+  (changed a NEAR_ZERO comparison to machine epsilon)
+- Fixed bug in AnitescuPotraRestitutionModel that was causing velocity to
+  be incorrect after application of second phase of method
+- Added scons option to build Moby with double precision floats
+- Updated scons so no longer get the build error
+- Added local scons so that scons package is no longer necessary for users
+
+r306
+----
+- Fixed EulerAngles::partial_Rv()
+- Optimizations made to reduce memory allocations
+- Small bugfix to CompGeom::intersect_tri_tri() - could fail when trying to
+  normalize a zero vector
+
+r305
+----
+- Using new formulation for OBB expansion
+
+r304
+----
+- AnitescuPotraRestitutionModel now works again with articulated bodies
+
+r303
+----
+- Fixed bug in Primitive::calc_mass_properties() - LAPACK was attempting to
+  calculate NaN inertia matrix
+
+r302
+----
+- CRBAlgorithm and FSABAlgorithm no longer computes direct inverses of necessary  matrices (as long as matrices are not rank deficient); this should make the
+  algorithms more robust numerically
+
+r301
+----
+- Made necessary changes to get Moby to compile with Real=float
+- Default config of Moby now is of type float
+
+r300
+----
+- LinAlg now works with both float and double types of Real
+
+r299
+----
+- LinAlg now works fully on AMD-64 bit machines 
+
+r298
+----
+- AnitescuPotraRestitutionModel now can use Yamane and Nakamura Lemke-based
+  LCP solver with Lloyd structural improvements (however, defaults to
+  standard Lemke solver, unless unable to solve)
+
+r297
+----
+- Significantly sped LemkeLCPSolver
+
+r296
+----
+- Removed LCPRestingContact from source tree
+- Sped AnitescuPotraRestitutionModel Lemke-based solver
+- Added method for solving multiple RHS's in LinAlg
+- Modified VExactTOIFinder based on Ricochet library
+
+r295
+----
+- AnitescuPotraRestitutionModel now working with Lloyd's structural
+  improvements
+
+r294
+----
+- Fixed bugs in MatrixN::mult_transpose() with empty matrices
+- Fixed bugs in MatrixN with multiplication with empty matrices
+- Lloyd's structural improvements incorporated into A-P method
+- VectorN::outer_prod() now will not work without output matrix as parameter
+- Implemented QR decomposition in LinAlg
+
+r293
+----
+- Added active set qp method to Optimization
+- Added multiplication routines to MatrixN that do not create new objects
+- MatrixN / MatrixNN now can take an array in the constructor to keep from
+  having to reallocate storage
+- Updated MLI model
+
+r289
+----
+- MatrixN::select() should now be considerably faster: it does not allocate
+  as much memory from the heap
+- Added LU decomposition, inverse from LU decomposition, and solving from
+  LU decomposition to LinAlg class
+- Added MatrixN::mult_transpose() for VectorN objects
+
+r288
+----
+- AnitescuPotraRestitutionModel works with reduced-coordinate articulated bodies
+- Speed improvements to CvxOptRestitutionModel
+- Set maximum number of iterior point iterations to 1000 for convex optimization
+  method
+- Bugfix to Matrix2::set_identity()
+- Optimization::optimize_convex_pd() contains additional checks to ensure
+  halting
+- XMLTree / VectorN / MatrixN can now input and output +/- inf as its proper 
+  value
+- Small bugfix to VExactTOIFinder
+
+r287
+----
+- Bugfixes to LinAlg::solve_LS()
+- Speed improvements to convex optimization via KKT solver
+
+r286
+----
+- Contact::det_connected_contacts() now removes contacts with geometry
+  Contact::eNone from consideration
+- AnitescuPotraRestitutionModel now looks for contact islands
+- Removed deprecated compile warnings on g++ 4.3.3
+- Contact callbacks now will not delete contacts
+- Modified driver to accept multiple -p arguments
+- Fixed bug in Optimization::optimize_convex_pd()
+- inf/-inf are now acceptable values in XML files (for real number values)
+- Fixed out of array bounds bug in Matrix2
+
+r285
+----
+- MatrixN / VectorN now works with zero dimensions
+- Optimization::optimize_convex_pd() has been simplified by using only a
+  single function; hopefully the method is more robust
+- Optimization::solve_lcp_ip() has been reverted to the correct version
+
+r284
+----
+- SphereSphereCollisionDetection and PlaneSphereCollisionDetection should now 
+  work properly when the center-of-mass of a body that uses the sphere geometry 
+  does not coincide with the sphere center
+
+r283
+----
+- Fixed bug in SMatrixN::mult(SVector6); result was always a SVector6, which
+  is not correct.  Changed the result to be a VectorN.
+- Optimization::solve_lcp_lemke() now resizes z to be the correct size even
+  when it fails
+- Optimization::solve_MLCP() now verifies that inputs y and z are properly
+  sized
+- AnitescuPotraRestitutionModel works (in theory) with reduced-coordinate
+  articulated bodies
+
+r282
+----
+- Using new lazy OBB evaluation for VExactTOIFinder
+- Using slower version of adaptive bisection method (no progressive limiting
+  on the TOI, all contacts returned) to keep from missing contacts for 
+  Zeno point avoidance in ImpulseContactSimulator
+
+r281
+----
+- Derived Integrator types were not writing types to XML; fixed
+- CollisionDetector was not writing simulator ID to XML; fixed
+- Kinematic now will not crash due to drawing colliding triangles
+- Kinematic now draws sets of colliding triangles in different colors
+- Switched CompGeom::query_intersect_tri_tri() to use slower (but correct)
+  SAT rather than algorithm from [Moeller 1997]
+- Rigid body center-of-mass now output to higher precision when it is != 0;
+  this is so that the geometries can be adjusted
+
+r280
+----
+- Fixed bug with Optimization::solve_lcp_iter()
+- Sped top-level bounding box calculation slightly
+- Made VExactTOIFinder more robust
+- MLIRestitutionModel now uses LCP as it should for normal directions
+- Fixed bug in MLIRestitutionModel that led to energy increase
+- Added methods for maximal coordinate joint constraints to SphericalJoint
+- ContactSimulator::update_contact_map() now removes contact points between
+  bodies that were just treated
+- Added gyroscopic term to generalized forces for dynamics in generalized
+  coordinates
+- Added methods to read/write OBB hierarchies from/to XML
+- Added construct-obb to construct OBBs offline
+- Fixed numerical bug with AAngle::set()
+- Fixed bug with OBB::intersects(); this was causing the problems with the
+  bullets and the shield
+
+r279
+----
+- Added tolerance parameter to iterative LCP methods
+- Improved running time and behavior of MLI method
+- Added gyroscopic term to Newton-Euler equations for rigid bodies
+- Made convex optimization and MLI methods more robust to active/non-active
+  contacts
+
+r277
+----
+- Added method for solving rank-deficient linear systems to LinAlg
+- Added methods for getting adjacent facets to IndexedTriArray
+- Added interior point method for solving LCPs
+- VExactTOIFinder now finds only contact points with non-degenerate normals
+- Fixed bug in Triangle::det_barycentric_coords() - projecting to 2D when
+  minimum variance was in y-dimension was incorrect
+- Moved all inline functions in headers to special .inl files
+- Updated MLIRestitutionModel w/changes to SIGGRAPH 09 paper
+
+r276
+----
+- Minor fixes necessary to compile on gcc 4.2.3 (linux)
+- Fixed bug with reading IndexedFaceSet objects in 
+  IndexedTriArray::load_from_wrl() 
+- Inertia is being properly transformed again in 
+  Primitive::calc_mass_properties(). NOTE: we now assume that the com over
+  _all_ primitives of a body is located at (0,0,0); the centers-of-mass of
+  individual primitives may be located away from the origin.
+- Fixed bug in Kinematic/ObjectFormImpl - would not allow body to be edited
+  when simulator type was not ImpulseContactSimulator
+- Visualization (for bodies and joints) is now much simpler and faster;
+  visualization matrices are only setup when needed
+
+r275
+----
+- Minor bugfixes in ImpulseContactSimulator::step()
+- Removed Base::name data
+- Fixed bug in reading multiple collision detectors from ContactSimulator
+- Fixed bug in SphereSphereCollisionDetection::is_contact()
+- Fixed TOC in PlaneSphereCollisionDetection::is_contact()
+- Fixed NaN problem in PlaneSphereCollisionDetection::is_contact()`
+- VExactTOIFinder now ignores intersections with degenerate normals
+- Fixed bug in Cblas::gemv() when transposed matrices used
+- Added cone primitive to geometries
+- Added ability to read geometries from VRML to IndexedTriArray
+  (not fully tested)
+- Fixed bug in Matrix4::from_inventor_matrix()
+
+r274
+----
+- Removed moving OBB-OBB intersection code: it is fairly worthless
+- Replaced DEBUG_X code/build options with logging
+- Considerably simplified integration for ImpulseContactSimulator; should
+  be more robust now too
+
+r272
+----
+- Added sphere/sphere collision detection (untested)
+- Fixed insidious bug; if library were built with USE_INVENTOR and plugin
+  library included files w/o USE_INVENTOR defined, memory addresses would be
+  wrong
+- Added moving OBB-OBB intersection code to OBB
+
+r268
+----
+- Fixed bug in LinAlg::nullspace()
+- Fixed bugs in cblas transpose computations
+- Fixed bug in PlaneSphereCollisionDetection: wouldn't necessarily work for
+  more than one pair of geometries
+- Fixed bug in IndexedTriArray::write_to_obj()
+- Fixed compile errors in example/conv-decomp.cpp and example/convexify.cpp
+- Made example/conv-decomp.cpp more robust
+- Fixed bug in Optimization::lp()
+- CompGeom::calc_hs_intersection() now frees memory properly when an error
+  occurs
+- TriangleMesh::read_from_obj() will no longer store degenerate triangles
+- Fixed bug: TriangleMeshPrimitive::load_from_xml()/save_to_xml() was using node
+  name of "TriangleMeshPrimitive" rather than "TriangleMesh"
+- Primitives can again have different COMs than (0,0,0)
+- Re-added old ExactTOIFinder (vertex-triangle intersector) 
+
+r267
+----
+- Fixed bugs in CompGeom::intersect_seg_tri() (2D version)
+- Shared library now built properly
+- Now possible to have multiple collision detectors
+- ExactTOIFinder now operates on geometries instead of rigid bodies (as it should)
+- Box changed to BoxPrimitive
+- Sphere changed to SpherePrimitive
+- Cylinder changed to CylinderPrimitive
+- TriangleMesh changed to TriangleMeshPrimitive
+- Added plane primitive
+- Added PlaneSphereCollisionDetection
+
+r266
+----
+- Fixed bug in OBB::expand_to_fit()
+- ExactTOIFinder now tests object w/fewer triangles against object w/more
+  in check_narrow_phase()
+
+r265
+----
+- Inconsequential changes (for debugging purposes)
+
+r264
+----
+- Kinematic now draws colliding triangles (tested and fixed from r263)
+- Pointers to mesh stored in CollidingTriPair objects
+- Made CompGeom::seg_tri_cross() more robust
+- Primitive types have been corrected to work with centering
+- Primitive types now use MatrixNN to permit scaling 
+- CompGeom::area_sign() now uses relative tolerance test
+
+r263
+----
+- Kinematic now updated to draw colliding triangles (untested)
+
+r262
+----
+- Utilities in examples directory now build with new changes
+- Simplified collision checking mechanism in ExactTOIFinder (note:
+  is_collision() is currently broken)
+
+r261
+----
+- Removed contact normal derivative from Contact class
+- Fixed multiple bugsin ExactTOIFinder
+- Multiple speed increases in ExactTOIFinder
+- Integrators are now templates
+
+r260
+----
+- ExactTOIFinder now does triangle / triangle intersections
+- Refactored CompGeom code significantly
+- Added 2D line segment / triangle intersection to CompGeom
+- Triangle now uses Vector3 objects instead of Vector3ConstPtr
+- Added barycentric coordinate and AABB calculation to Triangle
+- TriangleMesh no longer uses Triangle objects
+- Fixed bug in Triangle::calc_AABB()
+- Contacts are now passed rather than ContactPtr objects
+- Added triangle/triangle intersection code to CompGeom
+
+r259
+----
+- Minor speedup to ExactTOIFinder
+
+r258
+----
+- ExactTOIFinder has been refactored to be more reliable
+
+r257
+----
+- Fixed driver so that it works properly when building w/o OpenInventor
+- CollisionDetection now automatically disables pairs of collision geometries
+  for checking under a single rigid body
+
+r256 (branch)
+-------------
+- Added FASTCollisionDetection
+
+r255
+----
+- Added NonconvexityException
+
+r253
+----
+- Changed integrator type from symplectic to semi-implicit to avoid confusing
+  people
+
+r252
+----
+- Bugfixes to generalized coordinates for rigid bodies
+- Bugfixes to EulerAngles class (now using Shoemake's method)
+- Quat class is now more robust to norms near zero
+- Added exceptions to LinAlg class
+
+r251
+----
+- Fixed bug in Matrix4::to_inventor_matrix()
+
+r250
+----
+- Minor compile fixes for linux
+
+r249
+----
+- Added AnitescuPotraRestitutionModel to repository
+
+r248
+----
+- Major API changes to transition away from heap-allocated vectors and toward
+  stack allocated vectors (should be much faster); everything is not yet
+  tested, though it all builds
+
+r247
+----
+- Small optimizations to simulator
+
+r246
+----
+- Introduced small optimization to ExactTOIFinder::determine_TOI()
+
+r245
+----
+- Fixed bug in AnitescuPotraRestitutionModel: E matrix was being setup
+  improperly
+- Implemented faster computation for CvxOptRestitutionModel when mu = 0
+- Implemented faster exit for Optimization::optimize_convex_pd()
+
+r244
+----
+- Fixed VectorN::resize() and MatrixN::resize() when 'preserve' argument set
+  to true
+- Fixed solve_lcp_lemke() to report trivial solution when all values of 
+  q >= -NEAR_ZERO
+- Fixed some bugs in solve_lcp_lemke()
+- Corrected a few bugs in AnitescuPotraRestitutionModel
+- Made a few optimizations to speedup computation of collision matrix/vector
+  A/b for disabled bodies
+- AnitescuPotraRestitutionModel working nearly 100% (remaining issues with friction)
+
+r243
+----
+- Anitescu-Potra model now added to build; added to XMLReader (but untested)
+- Stewart-Trinkle model removed from build
+
+r242
+----
+- Added function to MatrixN to set_sub_mat() on a vector
+- Added transpose option to MatrixN::set_sub_mat() functions (default=false)
+- adding contact handling to Stewart/Trinkle simulator (incomplete)
+
+r241
+----
+- Added AnitescuPotra simulator (not included in the build yet) 
+- Changed Optimization::solve_MLCP() to use Lemke's algorithm
+
+r240
+----
+- Added Lemke's algorithm for solving LCPs to Optimization
+- Added select() function via include file "include/Moby/select"
+- Speeded negation of vectors and matrices using STL negate rather than multiply
+
+r239
+----
+- Fixed bugs in Optimization::optimize_convex_pd()
+- Fixed bugs in Optimization::solve_MLCP()
+- Fixed bugs in Optimization::make_feasible_convex()
+- Corrected slight miscalculation in Hessian of CvxOptRestitutionModel
+
+r238
+----
+- Added method for finding initial feasible point to Optimization class
+
+r237
+----
+- Added method for solving mixed linear complementarity problems
+  to Optimization class
+- Modified Stewart-Trinkle class in anticipation of integration of contact
+  constraints
+
+
+r236
+----
+- Bugfixes to primal-dual convex optimization model
+
+r235
+----
+- Bugfixes to CvxOptRestitutionModel
+
+r234
+----
+- Speedups to ExactTOIFinder
+- More bugfixes to ExactTOIFinder
+
+r232
+----
+- Bugfixes to new formulation for ExactTOIFinder::determine_TOI()
+- Bugfixes to ExactTOIFinder::is_contact() and ExactTOIFinder::update_contacts()
+  related to only checking TOI up to earliest time
+
+r231
+----
+- More bugfixes related to r228
+
+r230
+----
+- Used new formulation for ExactTOIFinder::determine_TOI() for increased speed
+
+r229
+----
+- Bugfixes related to r228
+
+r228
+----
+- Made default operator= action (for non-const objects) for VectorN and
+  MatrixN (and all derivatives) to be assignment rather than copy
+
+r227
+----
+- Multiple bugfixes to ExactTOIFinder
+
+r226
+----
+- Updated ExactTOIFinder to increase speed
+- Updated CvxOptRestitutionModel with new equations
+- Fixed bug in Primitive::calc_inertia() - volume integrals were being used without
+  being computed
+- Fixed bug in CompGeom::calc_centroid_2D() - method was only working with ccw
+  polygons, where it should work equally well on cw oriented polygons
+- Fixed bug that was causing (near) minimum bounding box not to be built
+
+r225
+----
+- Added nullspace() function to LinAlg
+- Added method for convex optimization to Optimization class
+- Replaced PoissonRestitutionModel with CvxOptRestitutionModel
+
+r224
+----
+- Fixed bug that caused contact not to be handled unless built with DEBUG_SIMULATOR=true
+- Fixed bug with symplectic contact stepping w/o resting contacts (failed assertion)
+- Made MLIRestitutionModel more robust
+
+r223
+----
+- Added concatenation function to concatenate two vectors together
+- Fixed Quat::set(Matrix3*)
+- Added methods for generalized coordinates to dynamic bodies; this simplifies
+  the implementation of StewartTrinkleSimulator considerably
+
+r222
+----
+- Fixed bugs in ExactTOIFinder related to finding earliest TOI
+- Fixed bug in ExactTOIFinder::update_contacts() - some bodies were not being
+  checked when they should have been
+- Fixed bug in ExactTOIFinder::update_contacts() - normal was getting
+	inadvertently reversed approximately half of the time
+- Added StewartTrinkleSimulator
+- ImpulseContactSimulator now works correctly with symplectic integrators
+
+r221
+----
+- Fixed bug in ExactTOIFinder where linear velocity is zero and angular 
+  velocity is nonzero
+- More speed improvements to ExactTOIFinder
+- More conservative expansion of bounding boxes in ExactTOIFinder; narrow
+  phase should be entered less frequently
+
+r220
+----
+- Speed improvements to ExactTOIFinder
+
+r219
+----
+- Updated ExactTOIFinder::is_collision() to work with thick triangles
+- Added option to use smooth or tessellated Sphere and Cylinder visualization
+- Fixed bug in MLIRestitutionModel- minimum mu was not being computed correctly
+- Fixed bug in ThickTriangle::intersect_seg()
+- Fixed bug in ImpulseContactSimulator::update_contacts() - contacts were
+  being removed incorrectly
+- Fixed bug in ImpulseContactSimulator- toi_tolerance was mistakenly declared
+  as boolean, which means that all contact points were treated (not just the
+  first)
+- Fixed bug in ImpulseContactSimulator::step() - amount stepped was not being
+  subtracted from dt for non-symplectic integrator
+- Fixed bug in ExactTOIFinder::build_OBB_tree() - it was possible for a OBB
+  to be split twice
+- Fixed bugs in ExactTOIFinder::determine_TOI()- intervals were not being
+  subdivided properly
+
+r218
+----
+- Fixed bug in CollisionMethod::determine_A_b() - relative velocity was being
+  incorrectly set to zero in misguided attempt to reduce computation
+
+r217
+----
+- Fixed bug in MLIRestitutionModel
+
+r216
+----
+- Fixed bug in CompGeom::calc_centroid_2D() - was normalizing incorrectly
+- Fixed bug in intersecting line segment with OBB (new bug!)
+
+r215
+----
+- Fixed bug in intersecting line segment with OBB
+- MLIRestitutionModel will not consider the same contact point twice in a
+  row on a single call
+
+r214
+----
+- Re-introduced option to use non-symplectic integrator in 
+  ImpulseContactSimulator
+- Simulator::step() now respects use of symplectic integrator
+- Symplectic integration attribute now in Integrator class, where it should be
+- Resting contact now works with ExactTOIFinder (at least w/non-symplectic
+  integration)
+
+r213
+----
+- Added thick triangles to ExactTOIFinder
+
+r212
+----
+- Fixed bug in RCArticulatedBody (_nDOF was not being computed) caused by
+  new changes
+- Fixed bug in AAngle; angle was not being set in set(Vector, Real)
+- Fixed bug in Simulator; calc_fwd_dyn() was not being called in integrate()
+- Updated examples to work with new simulator
+- Each dynamic body can now have its own controller; controllers are now
+  called whenever external forces are computed for a body
+- Changed ExactTOIFinder and ImpulseContactSimulator to be (hopefully)
+  considerably faster and deal with resting contact better
+- NOTE: examples that use controllers will definitely be broken
+
+r211
+----
+- Major changes: removed PenaltyRestingContact, VClipCollisionDetection,
+  PQPCollisionDetection (and embedded PQP library), ADFContactFinder,
+  ContactFinder, TOIFinder, ThreshContactSimulator classes
+- Now using minimum work sizes in LAPACK calls in LinAlg due to difficulties
+  with 64-bit LAPACK builds
+- Fixed bug with creating triangle mesh for Sphere
+- Made Matrix3/4::set(AAngle*) more robust numerically by reducing cancellation
+	errors
+- MLIRestitutionModel was not utilizing coefficient of restitution: fixed
+- Fixed identical bugs in TriangleMesh::transform_mesh() and
+  TriangleMesh::transform_const_mesh()
+- Added ability to integrate positions and velocities separately
+- Added method for computing triangle/triangle distances (untested!)
+- Added integration interleave (a la [Guendelman et al. 2003])
+- Removed clone(), load_state(), and save_state() methods
+
+r210
+----
+- Updated ExactTOIFinder (currently removed)
+- Modified RigidBody collision geometries to use STL lists for memory savings
+- Continued to simplify code
+
+r209
+----
+- Added method for computing minimum area rectangle enclosing set of points
+  to CompGeom
+- Added OBB class
+- Added methods for loading / saving dynamic state of dynamic bodies
+- Removed VClipCollisionDetection
+
+r208
+----
+- improved VClipCollisionDetection; compiles but does not quite work
+- fixed bug (!) in CompGeom::calc_convex_hull_2D() - qhull does not always 
+	output polygons with ccw orientation
+
+r207
+----
+- Added O(n^2) [slow!] method for triangulation of polygons
+- Added more reliable cycle detection to V-Clip
+- Fixed bug in CompGeom::intersect_seg_polygon()
+- geometry in CollisionGeometry objects must now be convex
+- CollisionGeometry objects now will use convex hull if passed primitive in
+  set_geometry() is inconsistent, degenerate, or non-convex
+- Fixed some contact determination bugs in VClipCollisionDetection
+- Added O(n^2) [slow!] method for triangulation of polygons
+- Added a function for computing closest point to a line segment
+
+r206
+----
+- Fixed several bugs in VClipCollisionDetection
+
+r205
+----
+- Sphere now uses convex hull to determine sphere 
+- Cylinder now uses convex hull to determine sphere
+- Fixed a few bugs in VClipCollisionDetection; still not working
+- Fixed bug in TriangleMesh::subdivide_mesh()
+- Fixed bug in MultilinearInterp::interp()
+- Converted EulerAngles to new system that promotes code reuse (untested)
+- MirtichRestitutionModel now builds again; needs to be fixed, however
+
+r204
+----
+- Altered TriangleMesh and Polyhedron to work better with STL
+- Added camera transform output to view program
+
+r203
+----
+- Removed det_collision_method() from RigidBody, ArticulatedBody, and
+  CollisionMethod -- these methods are redundant (by determine_A_b())
+- Fixed bug in Contact::determine_connected_contacts()- articulated bodies
+  were not being marked as connected
+- Mobile robot example works again with its controller
+- Added callback before contact impulses are applied
+- Fixed bugs in MLIRestitutionModel and MultilinearInterp.h
+- Inertia matrices can now be singular (represents fixing an axis of rotation)
+- Added Runge-Kutta-Fehlberg variable time-stepping method (tested)
+- Added intersect_seg_convex_polygon() method to CompGeom (tested)
+- Converted computational geometry code to work better with STL (tested)
+- Added VClipCollisionDetection (untested)
+
+r202
+----
+- Added USE_INVENTOR build option to permit Moby to be built without
+  OpenInventor support 
+- Fixed building on OS X
+
+r198
+----
+- Fixed minor bug in ADFContactFinder::determine_bottom_points() - it was possible
+  that two 3D points could transform to the same 2D point, breaking the code
+- Boundary cases (frictionless and sticking friction) contact now very fast in 
+	PoissonRestitutionModel
+- Fixed bug that was causing ADFContactFinder to take too much time to load models
+- Fixed bug in ContactSimulator::save_state_minimal() - was loading state rather
+  than saving it
+
+r197
+----
+- Added MLIRestitutionModel (untested)
+- Converted MultilinearInterp to use STL more
+
+r196 (MAJOR UPDATE)
+----
+- Fixed bug with incorrect normal computation in 
+  CollisionMethod::calc_collision_point()
+- Added TOIFinder to allow for different methods of finding time-of-impact
+- Added ExactTOIFinder (not currently working)
+- Added MultilinearInterp (multi-linear interpolation) class
+
+r195 (MAJOR UPDATE)
+----
+- Both ThreshContactSimulator and ImpulseContactSimulator now derive from
+  ContactSimulator class
+
+r194 (MAJOR UPDATE)
+----
+- Collision detection has been split into two parts: intersection testing
+  (CollisionDetection class) and contact finding (ContactFinder class)
+
+r192
+----
+- conv-decomp utility is now fully working
+
+r190
+----
+- Improvements to conv-decomp utility
+- view utility (view) replaces both objview and ivview utilities (can display
+  Wavefront OBJ and VRML 1.0/97 files simultaneously), and adds picking
+  capability to report picked vertices (outputs to console)
+- Fixed bugs with Optimization::lp(); method is now well tested
+- Fully tested CompGeom::calc_hs_interior_point()
+- VectorN::get_sub_vec() and MatrixN::get_sub_matrix() now use exclusive
+  indices for the second index, keeping with STL
+
+r189
+----
+- Added conv-decomp utility (not fully working)
+
+r188
+----
+- Increased speed and fixed small bug in CompGeom::calc_convex_hull_3D()
+- Added new method CompGeom::calc_hs_intersection()
+- Added new method CompGeom::calc_hs_interior_point()
+
+r187
+----
+- Added method for intersecting ray w/polyhedron to Polyhedron class (untested)
+- Added Seidel's O(d!n) linear programming algorithm to Optimization class 
+  (untested)
+- Sped algorithm for determining line segment endpoints from O(n lg n) to O(n)
+  (untested)
+
+r186
+----
+- Sliding-type friction added to LCPRestingContact
+
+r185
+----
+- LCPRestingContact now uses ODE's friction model (NOTE: currently only
+  sticking friction supported)
+
+r183
+----
+- RCArticulatedBody::set_links() now sorts links in order of ancestry (base
+  is first)
+- LCPRestingContact has been updated to be more reliable, faster, and
+  (hopefully) more physically accurate
+
+r180
+----
+- Added output_symbolic utility for outputting reduced-coordinate articulated
+  body data for conversion to symbolic kinematics and dynamics
+- Added methods for construction of vectors / matrices using double values
+- Added symbolic code for mrobot example (builds automatically)
+- Added RCArticulatedBodySymbolic class for symbolic code plugins
+- Added RCArticulatedBodySymbolic loading/saving from/to XML
+
+r178
+----
+- Made some floating-point comparisons relative rather than absolute
+
+r177
+----
+- Fixed bugs in CompGeom::intersect_noncoplanar_tris()
+
+r176
+----
+- Improved ADF model memory usage
+- All contacts are now single point (no more eVertex, eEdge, ePolygon, 
+  ePolyhedron)
+- Number of samples in contact data now ignored (this has been temporarily 
+  replaced by a constant in ThreshContactSimulator and ImpulseContactSimulator 
+  that limits the number of contact points per pair of rigid bodies)
+- Frictional forces for penalty resting contact currently disabled (friction 
+  tends to make the ODEs even more stiff than the penalty correction terms, and 
+  the complexity of the code was getting too much to maintain)
+- New, experimental method for determining normal for single-point contact 
+  methods (NewtonRestitutionModel, MirtichRestitutionModel); single normal 
+  computed as center of all point contact normals
+
+r175
+----
+- CRBAlgorithm was still not working properly for floating bases in link frame; 
+  link forces on base were not being computed in global frame ==> fixed 
+
+r174
+----
+- Spatial velocities are now computed before computation proceeds in 
+  FSABAlgorithm::apply_impulse(); computation is slightly slower now, but
+  correct.
+- Fixed CRBAlgorithm::apply_impulse() for floating bases; note: only works
+  for computation in global frame!
+
+r173
+----
+- CRBAlgorithm was not working properly for floating bases in link frame; 
+  spatial composite inertia matrices needed to be computed in global frame for
+  K and Ic0 ==> fixed
+
+r172
+----
+- Poisson restitution model now checks to see whether any progress is being made in normal 
+  direction (determined by whether squared separation velocity vector decreases after every 
+  application) and quits if it is not; this check is necessary because it may not be possible,
+  due to numerical issues, to reduce the penetration velocity to exactly zero.
+
+r171
+----
+- Contact methods (both resting contact methods and collision methods) now
+  store applied forces / impulses in the _forces field of a Contact
+
+r170
+----
+- Poisson restitution model now much faster, and restitution and Coulomb
+  coefficients are now fully independent
+
+r169
+----
+- Contact::det_connected_contacts() now produces smaller "islands" of contacts
+  when one of the bodies in a contact is disabled
+
+r168
+----
+- All kinks now worked out of Poisson restitution model
+
+r167
+----
+- Fixed restitution phase of Poisson restitution model
+- stack.xml currently broken
+
+r166
+----
+- Sped compression phase of Poisson restitution model by approx. 40%
+- Added frame rate output to driver
+
+r165
+----
+- Fixed bug in restitution phase of Poisson restitution model
+- Added impulse magnitude constraint for phase 2 of Poisson restitution model
+- PQP collision detector now handles non-convex geometries!  It is now
+  recommended that this collision detector be used in place of the ADF
+  collision detector for purposes of numerical robustness
+- Sped FSABAlgorithm::apply_impulse() by roughly 20%
+- RCArticulatedBody::load_from_xml() now updates link transforms and velocities
+  at end of load; this generally was not a big problem, but forward / inverse
+  would be wrong for first iteration
+- Fixed mrobot/robot.xml and contact_simple/stack.xml examples
+- Made SConstruct faster and more robust during configuration process
+- Joint::set_q() and Joint::set_qd() now check for proper length vectors
+
+r164
+----
+- Upgraded to latest version of HOAP2
+
+r162
+----
+- Sped contact simulators slightly that use regression factors of one
+- Changed example/contact_simple/stack.xml to use ImpulseContactSimulator
+  instead of ThreshContactSimulator
+- Added new building options to SConstruct
+  + SHARED_LIBRARY to build Moby as a shared library
+  + BUILD_EXAMPLES to build Moby examples
+  + DEBUG_LINALG to debug linear algebra (LAPACK) code
+- Fixed failed assertion in mrobot example controller
+
+r161
+----
+- Completed HOAP2 model
+- Few small bug fixes to ImpulseContactSimulator
+- Got Moby ready for first release
+
+r160
+----
+- ImpulseContactSimulator now working
+- Sped collision detection methods slightly
+
+r159
+----
+- Moved ContactSimulator to ThreshContactSimulator
+- Added ImpulseContactSimulator (not quite working)
+- Modified Newton restitution model to potentially apply impulses until no
+  more bodies are impacting
+- Modified Poisson restitution model to apply impulses until there are no
+  more impacts at any contact points
+
+r157
+----
+- Fixed universal joint; the kinematics work, and the dynamics seem to work
+- Fixed spherical joint; the kinematics work, and the dynamics seem to work
+
+r156
+----
+- Tested universal joint kinematics - it works
+- Added is_singular_config() function to all joints; this function is used 
+  instead of function that computes dot products for speed and simplicity
+
+r155
+----
+- Fixed DOF count for universal joint
+
+r154
+----
+- Updated HOAP-2 model (still not complete)
+- SphericalJoint kinematics working properly; dynamics not tested
+- UniversalJoint added; not tested
+
+r153
+----
+- Speeded PoissonRestitutionModel by using upper bound for backtracking line
+  search
+- Speeded VectorN and MatrixN by using memset rather than for statement
+
+r152
+----
+- Added spherical joint (not yet working)
+
+r151
+----
+- Added HOAP2 model
+
+r150
+----
+- Fixed bug in PoissonRestitutionModel: bias for nonepentration constraints not
+  determined properly
+- Fixed model in PoissonRestitutionModel: model has been modified to limit 
+  norm of normal impulses to the norm of the particular solution
+- Added singularity robustness to forward dynamics algorithms for
+  soon-to-be-introduced fixed and spherical joints
+- threshold between impacting and resting contact can now be set to negative
+  values to prevent resting contact from occuring
+- Fixed bug in driver with dumping to vrml without onscreen render; the
+  separator was dereferenced before writing
+- Added option (-t) to driver to tie outputs to simulation time rather than 
+  iteration
+- Added bandit arm example, including bandit arm grasping a tennis ball
+- Added HOAP model (not yet working)
+- Modified Kinematic to work with multi-DOF joints
+
+r148
+----
+- Kinematic now can read files with dashes in the name 
+  (e.g. "bandit-in-envn.xml") from the command line
+- Fixed bandit-in-envn.xml, bandit-claw.xml -- these will now read in, though 
+  some geometry locations are slightly off
+
+r147
+----
+- Specifying max-tri-area=x for a CollisionGeometry in a XML file, and then
+  specifying max-tri-area=y later on the in the file, for x < y, would cause
+  an assertion to fail.  The latter statement is now ignored.
+- Added option to turn off building of Kinematic in SConstruct
+- Fixed inverse of symmetric matrices to be symmetric in LinAlg
+- Spatial velocities and accelerations in global frames were not being set 
+  correctly in RigidBody; they were being transformed into global coordinates, 
+  when they already were in global coordinates, instead of being transformed 
+  into link coordinates (desired)
+- ArticulatedBody::det_collision_matrix() now applies a fourth impulse to the
+  body rather than saving and restoring the state of the body; this is likely
+  a little slower, but precludes the need to save and restore the state of
+  the dynamics algorithm along with the state of the body
+- Applying impulses to articulated bodies now works with both global and link
+  frames, CRB and FSAB algorithms
+- Seemingly fixed bug with PQPCollisionDetection not reversing normals 
+  correctly; further testing is warranted
+
+r146
+----
+- CRBAlgorithm::apply_impulse() now resets force accumulators on links and 
+  joints
+- FSABAlgorithm::apply_impulse() now resets force accumulators on joints (link 
+  accumulators were already reset)
+- Tested CRBAlgorithm::apply_impulse() - works for unarticulated bodies
+- Fixed bug in FSABAlgorithm::apply_impulse() - still does not quite work 
+  (energy gains) for articulated bodies with > 1 links
+- Fixed examples chain1.xml, chain2.xml, chain3.xml
+
+r145
+----
+- Added menu options for Kinematic
+- Fixed improper loading order of PenaltyRestingContact / LCPRestingContact
+  in XMLReader
+
+r143
+----
+- Kinematic now builds automatically via SCons 
+
+r142
+----
+- Fixed sliding friction bug in LCPRestingContact
+- Added _inv_H and _inv_aug to load/save_state() and clone() in CRBAlgorithm
+- Kinematic almost builds under scons
+- Consolidate all contact_simple examples to just contact.xml
+
+r141
+----
+- Implemented CRBAlgorithm::apply_impulse() for articulated bodies with
+  fixed and floating bases (not tested)
+- Changed CRBAlgorithm to use inverse, rather than solve routines, to enable
+  apply_impulse() to perform more efficiently
+- Added inverse_PD() and inverse_symmetric() routines to LinAlg (untested)
+
+r139
+----
+- Fixed CompGeom::triangulate() [replaced it w/more descriptive
+  triangulate_convex_polygon()] -- tested
+- Added CompGeom::is_convex_polygon() -- tested
+
+r138
+----
+- OpenMP changes tested
+- XML documentation now fully up-to-date
+- Fixed bug in LCPRestingContact
+- LCPRestingContact now no longer takes PenaltyRestingContact tags, but instead
+  an ID of a penalty method
+- Kinematic now compiles again
+- Starting converting Kinematic to SCons building
+- **NOTE** LCPRestingContact still not working perfectly
+
+r137
+----
+- Replaced manual threading with OpenMP calls
+- Compiles/links but not tested
+
+r136
+----
+- *** This revision does not compile/link properly ***
+- Partially updated the XML file structure documentation
+- Modified CollisionDetection to permit distance queries (distance queries not
+  currently working)
+
+r135
+----
+- Fixed bug in CollisionMethod::determine_A_b()
+- Made PoissonRestitutionModel much more numerically robust
+
+r134
+----
+- Added READMEs for examples
+
+r132
+----
+- Upgraded some examples to new XML file format (not tested)
+- Added init() function to controller plugins
+- Moved example/mrobot/robot.cpp to example/mrobot/controller.cpp (now uses
+  controller plugin framework)
+
+r131
+----
+- Added more features to "driver", including ability to load control plugins
+
+r130
+----
+- Added the driver program and README file in the examples directory
+
+r128
+----
+- Removed contact caching: in theory contact caching is a good idea, but in
+  practice seemed to be rarely effective (it was only useful when two bodies
+  did not move from one call to is_collision() to another).  Additionally,
+  contact caching significantly complicated the addition of distance
+  computation methods to the collision detectors, which will be 
+  introduced shortly.
+
+r126
+----
+- Removed BLAS option from SConstruct
+
+r125
+----
+- Made PoissonRestitutionModel faster
+
+r124
+----
+- Fixed bug in PoissonRestitutionModel
+
+r123
+----
+- Made LinAlg::svd() more robust
+- Fixed small bug in PoissonRestitutionModel
+
+r122
+----
+- Replaced GSL with LAPACK
+- Using provably correct method for PoissonRestitutionModel (untested)
+- Removed vestigates of boost uBLAS
+- Tightened up the SConstruct -- now detects platform automatically and searches
+  for libraries during configure process
+
+r121
+----
+- Removed all *Vector?Ptr and *Matrix?Ptr objects being returned from
+  functions.  Not only is the code now faster (G4 Powerbook), but it is a lot 
+  more readable.
+
+r120
+----
+- Removed side-effects (no more invalidating state derivative)
+
+r119
+----
+- RCArticulatedBodyJoint is now Joint, and RCArticulatedBodyLink is now
+  RigidBody; these changes permit bodies to be assembled or disassembled
+  easily during simulation
+
+r118
+----
+- Added triangle / triangle intersection queries to CompGeom
+
+r107
+----
+- Made Poisson restitution model error checking numerically more robust
+
+r106
+----
+- Added Poisson restitution model
+- Fixed bug in ContactSimulator -- impacts were not being handled
+- Fixed bugs in CRBAlgorithm::clone() and 
+  RCArticulatedBodyFwdDynAlgo::clone() -- Base::clone() was not being called
+
+r99
+---
+- Removed joint limit checking/correction from Simulator/ContactSimulator
+- CollisionGeometry now retains maximum triangle area, in case geometry is
+  changed
+- Removed NewtonRestitutionModelGlobal - it was not correct
+- Forward dynamics algorithms now store last reference frame
+
+r98
+---
+- Added checks to keep BLAS from performing arithmetic on zero-sized vectors/
+  matrices -- BLAS chokes on these
+
+r97
+---
+- Reduced computation significantly for LCP resting contact; static friction
+  is now determined using a conjugate-gradient iterative solver w/clamping,
+  which is much better than the previous O(n^3) SVD-based pseudoinverse method
+  Complexity of total method is now O(n^2) per iteration rather than O(n^3)
+  per iteration.
+
+r96
+---
+- Fixed insidious bug -- underlying CollisionGeometry objects were not being
+  updated by RigidBody::load_state() and RigidBody::save_state(), causing
+  bad things to happen occasionally
+- Fixed small bug in clone_minimal() that was causing RigidBody collision
+  geometries not to be loaded
+- Fixed small bug in RestingContactMethod::determine_A_b() - body states were
+  not being restored using the clone map
+- Added interpolate() static method to Matrix4 to interpolate between 
+  transforms
+- Added Gauss-Seidel LCP method to LinAlg
+- Frictional collisions now supported with global Newton method
+
+r95
+---
+- Got global Newton restitution model working (frictionless impacts only)
+
+r93
+---
+- Solve for static friction in systems using Projected Gauss-Seidel method
+- Fixed bug in CollisionDetection::load/save_state() - geometry set was being
+  cleared, which was not desired
+- Fixed bug in LCPRestingContact - weight matrix was not being computed
+  properly
+- Fixed bug in RCArticulatedBody::update_link_velocities() - parent velocities
+  were not being transformed to link frame
+- Fixed bug in CRBAlgorithm::update_link_accelerations() - link accelerations
+  were being computed but not updated
+- LCPRestingContact now quits if no new normal forces have been computed
+  during an iteration
+- fixed bug in ContactSimulator::step_full() - numerical underflow 
+  was causing step_full() to never terminate
+
+r92
+---
+- Added point acceleration measurement methods to RestingContactMethod to
+  improve code reliability for analytical force methods
+- Contact normal determination is now faster (typically O(n) rather than 
+  O(nm))
+- Kinematic now using relative path
+
+r91
+---
+- Vastly improved load/save_state() mechanisms -- no longer follows pointers
+  (behavior is now as expected)
+- Profiled, and sped is_collision() considerably
+- Interface change in CollisionDetection for enabled/disabled singletons and
+  pairs; necessary to make things faster
+
+r90
+---
+- Now doing minimal clone/state load for ContactSimulator..  MUCH faster...
+
+r89
+---
+- Fixed memory leak related to Inventor nodes
+- Removed FSAB specific code from RCArticulatedBodyLink
+- Moved impulse application from RCArticulatedBody to the specific dynamics
+  algorithms
+- CollisionMethod::calc_collision_point() now more robust to degenerate 2D
+  convex hulls
+- Made CompGeom::collinear() templated (can now work w/vectors, lists, sets, 
+  etc.)
+- Made CompGeom::is_2D()/is_3D() public
+
+r88
+---
+- Now only computing half of A for PenaltyRestingContact: should speed things
+  considerably for articulated bodies
+- contact samples now reduced (if necessary) to num_samples in 
+  PenaltyRestingContact after determining normal forces (points w/negative
+  normal force magnitudes are removed first)
+- Modified LCPRestingContact to handle Coulomb friction.  It now works, but
+  is too slow to be usable.  Will attempt to speed it up in the future.
+- Fixed bug in NewtonRestitutionModel for frictional collisions: tangent
+  direction was degenerate when relative tangential velocity was zero for
+  dynamic friction
+- Contacts no longer required to have contact data: didn't make sense to
+  populate contact data for separating contacts
+- Added pile.cpp to examples/contact_simple for demonstrating a pile of
+  objects
+
+r87
+---
+- Removed artifically set tangent directions in PenaltyRestingContact used
+  for debugging
+
+r86
+---
+- Fixed bugs w/analytical solving of static friction forces- static friction
+  now appears to be working perfectly (incl. with articulated bodies)
+- various clone() methods will not proceed if object already cloned (present
+  in the object map)
+- Fixed RCArticulatedBodyLink::get_l/accell() - accelerations were not being
+  computed properly
+- CRBAlgorithm now updates link accelerations so separate call to 
+  FSABAlgorithm to do so is unnecessary
+
+r85
+---
+- Fixed bug w/analytical solving of static friction forces..  still not working
+  perfectly -- wants to generate large forces (check computation of A)
+
+r84
+---
+- Analytical solving of static friction forces working (in 
+  PenaltyRestingContact) for simple contact example
+- Got penalty correction of static friction forces working again
+
+r83
+---
+- Tested analytical solving of static friction forces...  almost working...
+
+r82
+---
+- Reorganized PenaltyRestingContact code
+  + static friction is currently disabled
+  + added analytical solving of static friction forces (untested)
+
+r80
+---
+- Fixed embedded contact and collision method transition (at least for
+  contact.xml)
+- Fixed problem with save_state() that would prevent impacts from being
+  processed in ContactSimulator (ADFCollisionDetection was not calling
+  parent save_state() method)
+- Fixed determining collision matrix for disabled bodies -- it was using
+  body inertia, which was incorrect
+- Fixed regressing in regress_to_TOI() -- pointers were being passed around,
+  which were not sufficient
+
+r79
+---
+- Transitioned to embedding contact and collision methods in ContactData,
+  rather than in ContactSimulator (not yet working, but compiles)
+
+r78
+---
+- Fixed bug w/static friction in PenaltyRestingContact
+- Fixed bugs related to load/save state in ContactSimulator and 
+  PenaltyRestingContact
+- Added LCP example for sliding contact (contact-lcp.xml in contact_simple)
+- Got LCP method working (somewhat); LCP constraints are being computed
+  correctly, but LCP solver is unable to solve (with addition of sliding
+  friction)!  Using linear system solver plus penalty method instead, which
+  should work fine for many cases.  Static friction still seems to be a problem   for contact-lcp.xml: static friction (from penalty method) is causing 
+  strange artifacts.  Sticking friction still not implemented for LCP method.
+- Found bug (unfixed) related to load/save state in ContactSimulator when
+  impact occurs  
+
+r77
+---
+- Reduced masses in bandit model for increased stability
+
+r76
+---
+- Mobile robot example now works!
+
+r75
+---
+- Fixed bug in PenaltyRestingContact -- caused sim to hang
+- Fixed bug in Visualizable -- Open Inventor reference counts were not 
+  being updated under load/save/clone methods
+- Simple contact example now works!!!
+- Chain seems to work!
+- Bandit (uncommitted versions) seem to work!
+
+r74
+---
+- Fixed two bugs keeping new version from running; still not running, but
+  gets farther...
+
+r73
+---
+- Added mobile robot example (mrobot)
+
+
+r72
+---
+- Fixed penalty method for static friction contacts; static friction at contact 
+  force now clips at maximum force before breaking
+- New build now compiles, but still broken -- debug fails on simplest
+  examples
+- Fixed banditII model -- head collision model was rotated 90 degrees
+
+r71
+---
+- BROKEN BUILD -- DOES NOT COMPILE!!!
+- Transitioned away from load/save_object_data() to clone() and 
+  load/save_state() methods
+- Fixed bug in CollisionDetection::is_checked() - pairs of disabled geometries
+  were still tested
+- Fixed calc_jacobian_column() - Jacobian for joints was angular/linear rather
+  than standard linear/angular format
+- Fixed potential buffer overflows in XMLAttrib constructors
+
+r70
+---
+- Fixed minor bug in Kinematic editor
+- Made AAngle::set(Matrix, Vector) more robust numerically
+- Added EulerAngles class for converting to/from Euler angles
+- Made determining "bottom" points during contact finding in 
+  ADFCollisionDetection more robust numerically
+- Contact normal was not being computed appropriately in some cases; now using
+  correct but asymptotically slower method (O(mn) where m and n are the # of 
+  features vs. O(N) where N = max(m,n))
+
+r69
+---
+- Added pairs of resting/impacting outputs for ContactSimulator debugging
+- Added ability to read VRML scene files for cameras, lights, etc. for
+  bandit example
+- Cleaned up Kinematic editor interface slightly
+
+r67
+---
+- Fixed bug w/transform not being applied to visualization of triangle meshes
+- Added transform attribute to SoSeparatorWrapper::load_from_xml()
+- Fixed bug that could cause distance calculation from point to mesh to fail
+  due to inexact arithmetic
+- Made map finding slightly more robust -- iter->second no longer used unless
+  is positive that it cannot fail
+- Added default parameter to CollisionDetection::is_collision() for epsilon
+- Updated bandit model, added additional props
+- Added kinematic editor
+
+r66
+---
+- Added static friction to penalty method
+- Fixed bug in computing outer product -- target matrix was not initialized,
+  and CBLAS ger (for outer product) only does update, not copy
+
+r65
+---
+- Composite rigid body algorithm should now work for bodies w/floating bases
+
+r64
+---
+- Added new debugging option for serialization; possibly spurious warnings
+  are now supressed nless the debugging option is activated
+- No longer writing .iv or .obj files for save_to_xml() if they already exist
+- Fixed bugs in RevoluteJoint::determine_Q() and PrismaticJoint::determine_Q()
+  where q could be negated erroneously
+
+r60-r63
+-------
+- Fixed several small bugs related to serialization
+
+r59
+---
+- Fixed bug in transforming inertia tensors (rotation of tensors was not
+  being performed correctly)
+- Automatically set name from id when the former is not present in XML file
+- Simplified reading visualization from XML -- visualization-primitive-id and
+  visualization-separator-id have been consolidated into visualization-id
+  attribute
+- Got reading a serialized simulation to work!
+
+r56
+---
+- Relocated some shared code between PQPCollisionDetection and 
+  ADFCollisionDetection to CollisionDetection
+- Added ability to reconstruct the collision detectors on the fly, which is
+  done automatically when the maximum level of recursion or epsilon in
+  ADFCollisionDetection is altered
+- Fixed bug causing visualization transforms not to considered 
+- Got writing to XML and reading back in working!
+- Numerous bug fixes
+- Articulated bodies are now broken (from XML at least)...
+
+r55
+---
+- Removed VisualizationData, InventorOutput, and VRMLWriter classes
+- Overhauled XML reading and writing (significant change!)
+
+r54
+---
+- Fixed compile error (only occurred on debug compiles)
+- Fixed LinAlg::pseudo_inverse() again! -- matrix of singular values changed
+  to square (b/c the matrix 'U' of the svd in gsl is m x n, instead of m x m)
+- Fixed integration bug for disabled bodies -- caused mismatch on vector
+  addition
+
+r53
+---
+- Added Coulomb and viscous friction to reduced-coordinate articulated body 
+  joints
+- Limited actuator forces
+- Updated bandit model with an additional joint
+- Moved determining whether pairs of collision geometries should be tested
+  in is_collision() to CollisionDetection::is_checked()
+- Moved contact cache from ADFCollisionDetection to CollisionDetection
+- Added push_contact_cache() and pop_contact_cache() methods to 
+  CollisionDetection module
+- ADFCollisionDetection::is_collision() now does not return disabled pairs
+  (resulting from caching)
+- Added collision detection for fingers and hands to bandit model
+- Fixed bug in computing pseudo_inverse of non-square matrices using svd;
+  bug would cause crash during matrix multiplication
+- Added assertion on matrix multiplication to check size of matrices
+- Moved recurrent force determination and contact force computation to
+  Simulator::determine_external_forces() and 
+  ContactSimulator::determine_external_forces()
+- Fixed bug in AAngle that would cause nan for the angle if the sum of elements
+  on the diagonal of a rotation matrix were above 3.0 (or below -3.0) due to
+  numerical inprecision
+- Replaced SINGLE_THREADED flag with MAX_THREADS define, which throttles the
+  amount of threading
+
+r51
+---
+- Removed calc_jacobian() virtual method from RCArticulatedBodyJoint;
+  Jacobian is now calculated using spatial axes (note that this might be
+  marginally slower, but is much safer and obviates the need for a separate
+  method to compute the Jacobian columns for each joint).
+- Removed methods for computing forward kinematics; these methods are
+  unnecessary
+- Fixed Projected Gauss-Seidel iterative LCP method; now much, much faster
+- Transitioned to using VRML files for visualization
+
+r50
+---
+- Fixed bug with link velocities not being updated properly in 
+  RCArticulatedBody
+- Used SoPointSet for visualizing points rather than SoSphere type
+
+r49
+---
+- Fixed bug in calculating mass of triangle meshes in TriangleMesh.cpp
+- Added checks for validity of inertia matrices
+- Changed CRB algorithm to use PSD solver again; matrix can seemingly become
+  non-PSD, and this will need to be checked
+- Computation of joint-space inertia matrix for tree-structured manipulators
+  now asymptotically faster
+- Added sorted_pair class for pair keyed maps / sets
+- Fixed bug in Primitive class that would cause transforms to be applied
+  multiple times
+
+r47
+---
+- Fixed MatrixN transpose bug (transpose failed for non-symmetric matrices)
+
+r46
+---
+- Fixed bug in RCArticulatedBodyLink; when setting spatial link velocity,
+  rigid body quaternion velocity was not being updated
+- Moved data w/possible side effects on mutation to private in RigidBody
+  (e.g., _xd, _qd, _q, _F, _omega, etc.)
+
+r45
+---
+- Added a transform element to reduced-coordinate articulated bodies in
+  XML reader so entire body can be transformed
+- Fixed 3D convex hull computation - non-simplicial facets were not being
+  properly handled
+- Fixed impulse propagation for reduced-coordinate articulated bodies when
+  impulse applied to base
+- Added check for valid transforms to XMLReader
+- Fixed penalty depth computation -- integrative term not being normalized by
+  # of samples and integrative term not being accounted for when checking
+  whether force magnitudes are zero
+
+r44
+---
+- Added TriangleMesh::transform()
+- Replaced Steiner points with triangle subdivision in CollisionGeometry 
+- Removed polyhedra from CollisionGeometry
+- Speed collision detection routines by applying transformations sparingly
+- Removed references to math.h from PQP
+- Got LCP method working again (no friction, no PGS, no articulated bodies)
+- PQPCollisionDetection working again
+- Removed decomposer program
+- Removed non-convex polyhedron decomposition from XMLReader - it didn't
+  work properly
+- Added inertial transform static method to Primitive; not tested!
+- Fixed improper mass calculation in Cylinder
+- Fixed bug in contact phases in ContactSimulator (ImpulseResponse returned
+  instead of RestingStart)
+- Fixed bug with quaternion orientation getting altered with 
+  RigidBody::load_object_data() -- angular velocity is now updated correctly
+- Removed RigidBody::synchronize() method from user calling
+
+r43
+---
+- Fixed small bug in ADFCollisionDetection that could cause determine_normal()
+  to fail due to reading improper memory location via incorrectly assigned 
+  pointer value
+
+r42
+---
+- Fixed ADF and increased capabilities significantly
+- Moved det_line_endpoints() to CompGeom
+- Added segment/box intersection routine to CompGeom
+- Made more use of const pointers for Triangles and Vector3s
+- Implemented ADFCollisionDetection; seems to work well
+- Added stacked example
+
+r41
+---
+- Added Octree
+- Saved normal and area for triangles to avoid recomputation
+- Added ADF (adaptively sampled distance fields) -- almost working properly
+
+r40
+---
+- Transitioned away from boost ublas for speed; now using ATLAS cblas
+
+r35
+---
+- Made everything faster by passing around pointers to matrices rather
+  than returning them fully
+- Simulation does not work properly now; all sorts of stuff is broken!
+- Need to check that inertia properties are calculated properly
+
+r34 (BROKEN BUILD)
+---
+- Fixed penalty forces method
+- Added friction to Newton collisions
+- Sped convex hull computation by suspending output
+- Fixed reentry bug for qhull (qhull does not support reentry)
+- Added transforms for inertia
+- Optimized code
+
+r33 
+---
+- Changed LCP solver to projected gauss-seidel
+- Added friction to LCP contacts (not currently working)
+- Added friction to penalty contact method again (not static friction!)
+- Added integrative term to penalty contact method
+- Added viscous friction
+- Penalty method not working properly at the moment
+
+r32
+---
+- Changed Real and LongReal to typedefs from macros
+
+r30
+---
+- Now interfacing directly to qhull to overcome fork() bug
+
+r29
+---
+- Added contact phases to ContactSimulator; resting contacts are now far more stable
+- Convex hull of collision geometry is now computed and used in XMLReader;
+  non-convex polyhedra can be split into disjoint convex polyhedra
+
+r27
+---
+- Fixed floating base computation in CRB algorithm
+- Fixed get_com_to_outboard_vector_global() - was reporting incorrect position
+- Added visualization data for articulated body joints
+- Changed visualization data transforms to be updated only when requested
+  by visualizer (currently either InventorOutput or VRMLWriter)
+
+r24
+---
+- Added method for solving positive-definite symmetric matrices to LinAlg
+- Now solving for joint accels in composite rigid body method using faster
+  matrix solver
+
+r22
+---
+- Added prismatic joint
+- Fixed calc_fkin()
+- Added augment_columns(), augment_rows() functions to MatrixN; NOTE: code
+  is untested
+- Added Jacobian calculation (incl. for floating bases) to RCArticulatedBody;
+  removed old Jacobian calculations; NOTE: code is untested
+- Implemented composite rigid body algorithm for forward dynamics
+  + fixed base version has been tested rudimentarily
+  + floating base version is incomplete
+  + matrix solving needs to be redone using LDL decomposition
+
+r18
+---
+- Major restructuring
+  + Transitioned to new joint model (allows multi-DOF joints)
+
+r17
+---
+- Fixed TriangleMesh reading of .obj files
+
+r16
+---
+- Fixed bad computation of spatial axis (global)
+- Simplified computing link velocities
+- Cached additional computation (I*s) in Featherstone algorithm
+- Re-added inverse dynamics (floating base) to simulator (RNEAlgorithm)
+- Converted coriolis and zero-acceleration vectors from Mirtich's format
+  to Featherstone's (Featherstone's appears to be much simpler but slightly
+  more computationally intensive)
+- Renamed sum_applied_forces() / sum_applied_torques() to sum_forces() / sum_torques()
+- Changed dynamics model
+- Removed pendulum / dpendulum (chain supercedes them)
+- RNE fixed base works! 
+

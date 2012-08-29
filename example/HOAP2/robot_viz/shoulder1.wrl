@@ -1,0 +1,62 @@
+#VRML V2.0 utf8
+
+DEF BODY_APPEARANCE Appearance {
+                material Material {
+                  ambientIntensity 1
+                  diffuseColor 0.65 0.65 0.65
+                  shininess 0.8
+                  specularColor 0.65 0.65 0.65
+                }
+              }
+
+
+DEF SHOULDER_TRANS Transform {
+              translation 0 0.0285205 0.0045
+              rotation 1 0 0 3.14
+              children [
+                Shape {
+                  appearance USE BODY_APPEARANCE
+                  geometry Extrusion {
+                    crossSection [
+                      -0.0219 -0.0274
+                      0.0219 -0.0274
+                      0.0219 0.00602
+                      0.0123 0.0203
+                      0 0.0274
+                      -0.0124 0.0203
+                      -0.0219 0.00602
+                      -0.0219 -0.0274
+                    ]
+                    spine [
+                      0 0.0479 0
+                      0 0 0
+                    ]
+                  }
+                }
+                Transform {
+                  translation 0 0.0475 0
+                  children [
+                    Shape {
+                      appearance USE BODY_APPEARANCE
+                      geometry Extrusion {
+                        crossSection [
+                          -0.0219 -0.026
+                          0.0219 -0.026
+                          0.0219 0.00571
+                          0.0123 0.0192
+                          0 0.026
+                          -0.0123 0.0192
+                          -0.0219 0.00571
+                          -0.0219 -0.026
+                        ]
+                        spine [
+                          0 0.05068 0
+                          0 0 0
+                        ]
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+

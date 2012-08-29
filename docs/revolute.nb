@@ -1,0 +1,817 @@
+(* Content-type: application/mathematica *)
+
+(*** Wolfram Notebook File ***)
+(* http://www.wolfram.com/nb *)
+
+(* CreatedBy='Mathematica 7.0' *)
+
+(*CacheID: 234*)
+(* Internal cache information:
+NotebookFileLineBreakTest
+NotebookFileLineBreakTest
+NotebookDataPosition[       145,          7]
+NotebookDataLength[     29743,        808]
+NotebookOptionsPosition[     28536,        768]
+NotebookOutlinePosition[     28893,        784]
+CellTagsIndexPosition[     28850,        781]
+WindowFrame->Normal*)
+
+(* Beginning of Notebook Content *)
+Notebook[{
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"(*", " ", 
+   RowBox[{
+    RowBox[{"NOTE", ":", " ", 
+     RowBox[{"for", " ", "spherical", " ", "joint"}]}], ",", " ", 
+    RowBox[{
+     RowBox[{"just", " ", "use", " ", "constraints", " ", "1"}], "-", 
+     "3."}]}], " ", "*)"}], "\[IndentingNewLine]"}]], "Input",
+ CellChangeTimes->{{3.530859973948472*^9, 3.530860006779881*^9}, {
+  3.530860416957788*^9, 3.530860417973147*^9}}],
+
+Cell[BoxData[
+ RowBox[{"(*", " ", 
+  RowBox[{"qw1", ",", "qx1", ",", "qy1", ",", 
+   RowBox[{
+   "qz1", " ", "code", " ", "for", " ", "quaternion", " ", "rotation", " ", 
+    "of", " ", "inner", " ", "link", "\[IndentingNewLine]", "qw2"}], ",", " ",
+    "qx2", ",", " ", "qy2", ",", " ", 
+   RowBox[{
+   "qz2", " ", "code", " ", "for", " ", "quaternion", " ", "rotation", " ", 
+    "of", " ", "outer", " ", "link", "\[IndentingNewLine]", "x1"}], ",", " ", 
+   "y1", ",", " ", 
+   RowBox[{"z1", " ", "code", " ", "for", " ", 
+    RowBox[{"c", ".", "o", ".", "m", ".", " ", "of"}], " ", "inner", " ", 
+    "link", "\[IndentingNewLine]", "x2"}], ",", " ", "y2", ",", " ", 
+   RowBox[{"z2", " ", "code", " ", "for", " ", 
+    RowBox[{"c", ".", "o", ".", "m", ".", " ", "of"}], " ", "outer", " ", 
+    "link", "\[IndentingNewLine]", "qdw1"}], ",", " ", "qdx1", ",", " ", 
+   "qdy1", ",", " ", 
+   RowBox[{
+   "qdz1", " ", "code", " ", "for", " ", "quaternion", " ", "derivative", " ",
+     "of", " ", "inner", " ", "link", "\[IndentingNewLine]", "qdw2"}], ",", 
+   " ", "qdx2", ",", " ", "qdy2", ",", " ", 
+   RowBox[{
+   "qdz2", " ", "code", " ", "for", " ", "quaternion", " ", "derivative", " ",
+     "of", " ", "outer", " ", "link", "\[IndentingNewLine]", "xd1"}], ",", 
+   " ", "yd1", ",", " ", 
+   RowBox[{
+   "zd1", " ", "code", " ", "for", " ", "linear", " ", "velocity", " ", "of", 
+    " ", "inner", " ", "link", "\[IndentingNewLine]", "xd2"}], ",", " ", 
+   "yd2", ",", " ", 
+   RowBox[{
+   "zd2", " ", "code", " ", "for", " ", "linear", " ", "velocity", " ", "of", 
+    " ", "outer", " ", "link", "\[IndentingNewLine]", "This", " ", "codes", 
+    " ", "for", " ", "a", " ", "3", "x3", " ", "rotation", " ", "matrix", " ",
+     "using", " ", "unit", " ", "quaternions"}]}], " ", "*)"}]], "Input",
+ CellChangeTimes->{{3.516831906785759*^9, 3.516831930417102*^9}, {
+  3.516832571276002*^9, 3.5168326011082172`*^9}, {3.516832776597527*^9, 
+  3.516832781648965*^9}, {3.5168331511368637`*^9, 3.516833170549831*^9}, {
+  3.516836963330677*^9, 3.5168370301602163`*^9}}],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{
+   RowBox[{"Rx", "[", 
+    RowBox[{"qw_", ",", " ", "qx_", ",", " ", "qy_", ",", " ", "qz_"}], "]"}],
+    " ", ":=", " ", 
+   RowBox[{"{", 
+    RowBox[{
+     RowBox[{"{", 
+      RowBox[{
+       RowBox[{
+        RowBox[{"2", "*", "qx", "*", "qx"}], " ", "+", " ", 
+        RowBox[{"2", "*", "qw", "*", "qw"}], " ", "-", "1"}], ",", " ", 
+       RowBox[{"2", "*", 
+        RowBox[{"(", 
+         RowBox[{
+          RowBox[{"qx", "*", "qy"}], " ", "-", " ", 
+          RowBox[{"qz", "*", "qw"}]}], ")"}]}], ",", " ", 
+       RowBox[{"2", "*", 
+        RowBox[{"(", 
+         RowBox[{
+          RowBox[{"qx", "*", "qz"}], " ", "+", " ", 
+          RowBox[{"qy", "*", "qw"}]}], ")"}]}]}], "}"}], ",", " ", 
+     RowBox[{"{", 
+      RowBox[{
+       RowBox[{"2", "*", 
+        RowBox[{"(", 
+         RowBox[{
+          RowBox[{"qx", "*", "qy"}], " ", "+", " ", 
+          RowBox[{"qz", "*", "qw"}]}], ")"}]}], ",", " ", 
+       RowBox[{
+        RowBox[{"2", "*", 
+         RowBox[{"(", 
+          RowBox[{
+           RowBox[{"qy", "*", "qy"}], " ", "+", " ", 
+           RowBox[{"qw", "*", "qw"}]}], ")"}]}], " ", "-", " ", "1"}], ",", 
+       " ", 
+       RowBox[{"2", "*", 
+        RowBox[{"(", 
+         RowBox[{
+          RowBox[{"qy", "*", "qz"}], " ", "-", " ", 
+          RowBox[{"qx", "*", "qw"}]}], ")"}]}]}], "}"}], ",", " ", 
+     RowBox[{"{", 
+      RowBox[{
+       RowBox[{"2", "*", 
+        RowBox[{"(", 
+         RowBox[{
+          RowBox[{"qx", "*", "qz"}], " ", "-", " ", 
+          RowBox[{"qy", "*", "qw"}]}], ")"}]}], ",", " ", 
+       RowBox[{"2", "*", 
+        RowBox[{"(", 
+         RowBox[{
+          RowBox[{"qy", "*", "qz"}], " ", "+", " ", 
+          RowBox[{"qx", "*", "qw"}]}], ")"}]}], ",", " ", 
+       RowBox[{
+        RowBox[{"2", "*", 
+         RowBox[{"(", 
+          RowBox[{
+           RowBox[{"qz", "*", "qz"}], " ", "+", " ", 
+           RowBox[{"qw", "*", "qw"}]}], ")"}]}], " ", "-", " ", "1"}]}], 
+      "}"}]}], "}"}]}], ";"}]], "Input",
+ CellChangeTimes->{3.5168326120556927`*^9}],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"u", " ", "=", " ", 
+   RowBox[{"{", 
+    RowBox[{
+     RowBox[{"{", "ux", "}"}], ",", " ", 
+     RowBox[{"{", "uy", "}"}], ",", " ", 
+     RowBox[{"{", "uz", "}"}]}], "}"}]}], ";"}]], "Input",
+ CellChangeTimes->{{3.516831951888307*^9, 3.516831962519196*^9}, 
+   3.516832608821519*^9}],
+
+Cell[BoxData[
+ RowBox[{"\[IndentingNewLine]", 
+  RowBox[{"(*", " ", 
+   RowBox[{
+   "This", " ", "is", " ", "u", " ", "in", " ", "global", " ", 
+    "coordinates"}], " ", "*)"}]}]], "Input",
+ CellChangeTimes->{{3.516832358020522*^9, 3.51683236544711*^9}, {
+  3.516832520778043*^9, 3.5168325259354277`*^9}, {3.516832766259013*^9, 
+  3.516832768917639*^9}}],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"v1", " ", "=", " ", 
+   RowBox[{
+    RowBox[{"Rx", "[", 
+     RowBox[{
+      RowBox[{"qw1", "[", "t", "]"}], ",", " ", 
+      RowBox[{"qx1", "[", "t", "]"}], ",", " ", 
+      RowBox[{"qy1", "[", "t", "]"}], ",", " ", 
+      RowBox[{"qz1", "[", "t", "]"}]}], "]"}], " ", ".", " ", "u"}]}], 
+  ";"}]], "Input",
+ CellChangeTimes->{{3.516832285929678*^9, 3.5168323570738773`*^9}, {
+  3.530858714404665*^9, 3.530858719610868*^9}}],
+
+Cell[BoxData[
+ RowBox[{"\[IndentingNewLine]", 
+  RowBox[{"(*", " ", 
+   RowBox[{
+   "This", " ", "is", " ", "the", " ", "revolute", " ", "joint", " ", "axis", 
+    " ", 
+    RowBox[{"(", 
+     RowBox[{"local", " ", "to", " ", "outer", " ", "link", " ", "frame"}], 
+     ")"}]}], " ", "*)"}]}]], "Input",
+ CellChangeTimes->{{3.5168324272361927`*^9, 3.516832440700247*^9}, {
+  3.516832759918704*^9, 3.516832764214712*^9}, {3.530860237883029*^9, 
+  3.5308602386284313`*^9}}],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"v2l", " ", "=", " ", 
+   RowBox[{"{", 
+    RowBox[{
+     RowBox[{"{", "v2x", "}"}], ",", " ", 
+     RowBox[{"{", "v2y", "}"}], ",", " ", 
+     RowBox[{"{", "v2z", "}"}]}], "}"}]}], ";"}]], "Input",
+ CellChangeTimes->{{3.516832466694483*^9, 3.516832501626932*^9}}],
+
+Cell[BoxData[
+ RowBox[{"\[IndentingNewLine]", 
+  RowBox[{"(*", " ", 
+   RowBox[{
+   "This", " ", "is", "  ", "v2", " ", "in", " ", "global", " ", 
+    "coordinates"}], " ", "*)"}]}]], "Input",
+ CellChangeTimes->{{3.516832508089095*^9, 3.516832539446505*^9}, {
+  3.516832754503643*^9, 3.516832757406042*^9}}],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"v2", " ", "=", " ", 
+   RowBox[{
+    RowBox[{"Rx", "[", 
+     RowBox[{
+      RowBox[{"qw2", "[", "t", "]"}], ",", " ", 
+      RowBox[{"qx2", "[", "t", "]"}], ",", " ", 
+      RowBox[{"qy2", "[", "t", "]"}], ",", " ", 
+      RowBox[{"qz2", "[", "t", "]"}]}], "]"}], " ", ".", " ", "v2l"}]}], 
+  ";"}]], "Input",
+ CellChangeTimes->{{3.5168325421574993`*^9, 3.516832552282535*^9}, {
+  3.530858727970886*^9, 3.530858732704502*^9}}],
+
+Cell[BoxData[
+ RowBox[{"\[IndentingNewLine]", 
+  RowBox[{"(*", " ", 
+   RowBox[{
+   "These", " ", "vectors", " ", "are", " ", "orthogonal", " ", "to", " ", 
+    "u"}], " ", "*)"}], "\[IndentingNewLine]", 
+  RowBox[{
+   RowBox[{
+    RowBox[{"ui", " ", "=", " ", 
+     RowBox[{"{", 
+      RowBox[{
+       RowBox[{"{", "uix", "}"}], ",", " ", 
+       RowBox[{"{", "uiy", "}"}], ",", " ", 
+       RowBox[{"{", "uiz", "}"}]}], "}"}]}], ";", " ", 
+    RowBox[{"uj", " ", "=", " ", 
+     RowBox[{"{", 
+      RowBox[{
+       RowBox[{"{", "ujx", "}"}], ",", " ", 
+       RowBox[{"{", "ujy", "}"}], ",", " ", 
+       RowBox[{"{", "ujz", "}"}]}], "}"}]}], ";"}], "\[IndentingNewLine]", 
+   RowBox[{"(*", " ", 
+    RowBox[{
+    "These", " ", "vectors", " ", "are", " ", "orthogonal", " ", "to", " ", 
+     "v1"}], " ", "*)"}], "\[IndentingNewLine]", 
+   RowBox[{
+    RowBox[{"v1i", " ", "=", " ", 
+     RowBox[{
+      RowBox[{"Rx", "[", 
+       RowBox[{
+        RowBox[{"qw1", "[", "t", "]"}], ",", " ", 
+        RowBox[{"qx1", "[", "t", "]"}], ",", " ", 
+        RowBox[{"qy1", "[", "t", "]"}], ",", " ", 
+        RowBox[{"qz1", "[", "t", "]"}]}], "]"}], " ", ".", " ", "ui"}]}], ";",
+     " ", 
+    RowBox[{"v1j", " ", "=", " ", 
+     RowBox[{
+      RowBox[{"Rx", "[", 
+       RowBox[{
+        RowBox[{"qw1", "[", "t", "]"}], ",", " ", 
+        RowBox[{"qx1", "[", "t", "]"}], ",", " ", 
+        RowBox[{"qy1", "[", "t", "]"}], ",", " ", 
+        RowBox[{"qz1", "[", "t", "]"}]}], "]"}], " ", ".", " ", "uj"}]}], 
+    ";"}]}]}]], "Input",
+ CellChangeTimes->{{3.516832676037774*^9, 3.516832750805081*^9}, {
+  3.516834811931807*^9, 3.516834913978951*^9}, {3.516838365366419*^9, 
+  3.516838379601192*^9}, {3.5168384404686403`*^9, 3.5168384548130693`*^9}, {
+  3.530858739678784*^9, 3.530858754401582*^9}}],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"(*", " ", 
+   RowBox[{
+   "These", " ", "are", " ", "ui", " ", "and", " ", "uj", " ", "in", " ", 
+    "global", " ", "frame"}], " ", "*)"}], "\[IndentingNewLine]", 
+  RowBox[{
+   RowBox[{
+    RowBox[{"h1", " ", "=", " ", 
+     RowBox[{
+      RowBox[{"Rx", "[", 
+       RowBox[{
+        RowBox[{"qw1", "[", "t", "]"}], ",", " ", 
+        RowBox[{"qx1", "[", "t", "]"}], ",", " ", 
+        RowBox[{"qy1", "[", "t", "]"}], ",", " ", 
+        RowBox[{"qz1", "[", "t", "]"}]}], "]"}], " ", ".", " ", "ui"}]}], 
+    ";"}], "\[IndentingNewLine]", 
+   RowBox[{
+    RowBox[{"h2", " ", "=", " ", 
+     RowBox[{
+      RowBox[{"Rx", "[", 
+       RowBox[{
+        RowBox[{"qw2", "[", "t", "]"}], ",", " ", 
+        RowBox[{"qx2", "[", "t", "]"}], ",", " ", 
+        RowBox[{"qy2", "[", "t", "]"}], ",", " ", 
+        RowBox[{"qz2", "[", "t", "]"}]}], "]"}], " ", ".", " ", "uj"}]}], 
+    ";"}], "\[IndentingNewLine]", 
+   RowBox[{"(*", " ", 
+    RowBox[{
+     RowBox[{
+     "These", " ", "are", " ", "the", " ", "attachment", " ", "points", " ", 
+      "for", " ", "the", " ", "joint", " ", "local", " ", "to", " ", "inner", 
+      " ", "and", " ", "outer", " ", "links"}], ",", " ", "respectively"}], 
+    " ", "*)"}], "\[IndentingNewLine]", 
+   RowBox[{
+    RowBox[{"p1", " ", "=", " ", 
+     RowBox[{"{", 
+      RowBox[{
+       RowBox[{"{", "p1x", "}"}], ",", " ", 
+       RowBox[{"{", "p1y", "}"}], ",", " ", 
+       RowBox[{"{", "p1z", "}"}]}], "}"}]}], ";"}], "\[IndentingNewLine]", 
+   RowBox[{
+    RowBox[{"p2", " ", "=", " ", 
+     RowBox[{"{", 
+      RowBox[{
+       RowBox[{"{", "p2x", "}"}], ",", " ", 
+       RowBox[{"{", "p2y", "}"}], ",", " ", 
+       RowBox[{"{", "p2z", "}"}]}], "}"}]}], ";"}]}]}]], "Input",
+ CellChangeTimes->{{3.516832859379567*^9, 3.516832936756996*^9}, {
+  3.516833047297482*^9, 3.516833116410542*^9}, {3.516833256643174*^9, 
+  3.516833299656583*^9}, {3.516838115354039*^9, 3.516838135020554*^9}, {
+  3.516838421773135*^9, 3.516838436428732*^9}, {3.530858758197885*^9, 
+  3.53085877137062*^9}}],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"(*", " ", 
+   RowBox[{
+   "This", " ", "is", " ", "the", " ", "global", " ", "attachment", " ", 
+    "point", " ", "of", " ", "the", " ", "joint"}], " ", "*)"}], 
+  "\[IndentingNewLine]", 
+  RowBox[{
+   RowBox[{"r12", " ", "=", " ", 
+    RowBox[{
+     RowBox[{
+      RowBox[{"Rx", "[", 
+       RowBox[{
+        RowBox[{"qw1", "[", "t", "]"}], ",", " ", 
+        RowBox[{"qx1", "[", "t", "]"}], ",", " ", 
+        RowBox[{"qy1", "[", "t", "]"}], ",", " ", 
+        RowBox[{"qz1", "[", "t", "]"}]}], "]"}], " ", ".", " ", "p1"}], " ", 
+     "+", " ", 
+     RowBox[{"{", 
+      RowBox[{
+       RowBox[{"{", 
+        RowBox[{"x1", "[", "t", "]"}], "}"}], ",", " ", 
+       RowBox[{"{", 
+        RowBox[{"y1", "[", "t", "]"}], "}"}], ",", " ", 
+       RowBox[{"{", 
+        RowBox[{"z1", "[", "t", "]"}], "}"}]}], "}"}], "  ", "-", " ", 
+     RowBox[{
+      RowBox[{"Rx", "[", 
+       RowBox[{
+        RowBox[{"qw2", "[", "t", "]"}], ",", " ", 
+        RowBox[{"qx2", "[", "t", "]"}], ",", " ", 
+        RowBox[{"qy2", "[", "t", "]"}], ",", " ", 
+        RowBox[{"qz2", "[", "t", "]"}]}], "]"}], ".", "p2"}], " ", "-", " ", 
+     RowBox[{"{", 
+      RowBox[{
+       RowBox[{"{", 
+        RowBox[{"x2", "[", "t", "]"}], "}"}], ",", " ", 
+       RowBox[{"{", 
+        RowBox[{"y2", "[", "t", "]"}], "}"}], ",", " ", 
+       RowBox[{"{", 
+        RowBox[{"z2", "[", "t", "]"}], "}"}]}], "}"}]}]}], ";"}]}]], "Input",
+ CellChangeTimes->{{3.5168329903427563`*^9, 3.516833042981676*^9}, {
+   3.516833138896289*^9, 3.516833141796113*^9}, {3.516833175859683*^9, 
+   3.5168332254717007`*^9}, 3.516835683161337*^9, {3.530858777084701*^9, 
+   3.5308588070198317`*^9}}],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"(*", " ", 
+   RowBox[{
+   "These", " ", "are", " ", "the", " ", "constraint", " ", "equations"}], 
+   " ", "*)"}], "\[IndentingNewLine]", 
+  RowBox[{
+   RowBox[{"Ceq", " ", "=", " ", 
+    RowBox[{
+     RowBox[{"Transpose", "[", 
+      RowBox[{"{", " ", 
+       RowBox[{
+        RowBox[{"r12", "[", 
+         RowBox[{"[", "1", "]"}], "]"}], ",", " ", 
+        RowBox[{"r12", "[", 
+         RowBox[{"[", "2", "]"}], "]"}], ",", " ", 
+        RowBox[{"r12", "[", 
+         RowBox[{"[", "3", "]"}], "]"}], ",", " ", 
+        RowBox[{
+         RowBox[{"(", 
+          RowBox[{
+           RowBox[{"Transpose", "[", "v1i", "]"}], " ", ".", " ", "v2"}], 
+          ")"}], "[", 
+         RowBox[{"[", "1", "]"}], "]"}], ",", " ", 
+        RowBox[{
+         RowBox[{"(", 
+          RowBox[{
+           RowBox[{"Transpose", "[", "v1j", "]"}], " ", ".", "v2"}], ")"}], 
+         "[", 
+         RowBox[{"[", "1", "]"}], "]"}]}], "}"}], "]"}], "[", 
+     RowBox[{"[", "1", "]"}], "]"}]}], ";"}]}]], "Input",
+ CellChangeTimes->{{3.51683337952949*^9, 3.516833550534486*^9}, {
+  3.516834002212858*^9, 3.516834008879223*^9}, {3.516838803066421*^9, 
+  3.516838823488809*^9}, {3.516838857345731*^9, 3.516838874938382*^9}}],
+
+Cell[BoxData[
+ RowBox[{"(*", " ", 
+  RowBox[{"Constraint", " ", "Jacobian"}], " ", "*)"}]], "Input",
+ CellChangeTimes->{{3.5168335748855124`*^9, 3.5168335857750883`*^9}}],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"Cq", " ", "=", " ", 
+   RowBox[{
+    RowBox[{"Transpose", "[", 
+     RowBox[{"{", 
+      RowBox[{
+       RowBox[{"D", "[", 
+        RowBox[{"Ceq", ",", " ", 
+         RowBox[{"x1", "[", "t", "]"}]}], "]"}], ",", " ", 
+       RowBox[{"D", "[", 
+        RowBox[{"Ceq", ",", " ", 
+         RowBox[{"y1", "[", "t", "]"}]}], "]"}], ",", " ", 
+       RowBox[{"D", "[", 
+        RowBox[{"Ceq", ",", " ", 
+         RowBox[{"z1", "[", "t", "]"}]}], "]"}], ",", " ", 
+       RowBox[{"D", "[", 
+        RowBox[{"Ceq", ",", " ", 
+         RowBox[{"qw1", "[", "t", "]"}]}], "]"}], ",", " ", 
+       RowBox[{"D", "[", 
+        RowBox[{"Ceq", ",", " ", 
+         RowBox[{"qx1", "[", "t", "]"}]}], "]"}], ",", " ", 
+       RowBox[{"D", "[", 
+        RowBox[{"Ceq", ",", " ", 
+         RowBox[{"qy1", "[", "t", "]"}]}], "]"}], ",", " ", 
+       RowBox[{"D", "[", 
+        RowBox[{"Ceq", ",", " ", 
+         RowBox[{"qz1", "[", "t", "]"}]}], "]"}], ",", " ", 
+       RowBox[{"D", "[", 
+        RowBox[{"Ceq", ",", " ", 
+         RowBox[{"x2", "[", "t", "]"}]}], "]"}], ",", " ", 
+       RowBox[{"D", "[", 
+        RowBox[{"Ceq", ",", " ", 
+         RowBox[{"y2", "[", "t", "]"}]}], "]"}], ",", " ", 
+       RowBox[{"D", "[", 
+        RowBox[{"Ceq", ",", " ", 
+         RowBox[{"z2", "[", "t", "]"}]}], "]"}], ",", " ", 
+       RowBox[{"D", "[", 
+        RowBox[{"Ceq", ",", " ", 
+         RowBox[{"qw2", "[", "t", "]"}]}], "]"}], ",", " ", 
+       RowBox[{"D", "[", 
+        RowBox[{"Ceq", ",", " ", 
+         RowBox[{"qx2", "[", "t", "]"}]}], "]"}], ",", " ", 
+       RowBox[{"D", "[", 
+        RowBox[{"Ceq", ",", " ", 
+         RowBox[{"qy2", "[", "t", "]"}]}], "]"}], ",", " ", 
+       RowBox[{"D", "[", 
+        RowBox[{"Ceq", ",", " ", 
+         RowBox[{"qz2", "[", "t", "]"}]}], "]"}]}], "}"}], "]"}], "/.", " ", 
+    RowBox[{"{", 
+     RowBox[{
+      RowBox[{
+       RowBox[{"x1", "[", "t", "]"}], " ", "\[Rule]", " ", "x1"}], ",", " ", 
+      RowBox[{
+       RowBox[{"y1", "[", "t", "]"}], " ", "\[Rule]", " ", "y1"}], ",", " ", 
+      RowBox[{
+       RowBox[{"z1", "[", "t", "]"}], " ", "\[Rule]", " ", "z1"}], ",", " ", 
+      RowBox[{
+       RowBox[{"qx1", "[", "t", "]"}], " ", "\[Rule]", " ", "qx1"}], ",", " ", 
+      RowBox[{
+       RowBox[{"qy1", "[", "t", "]"}], " ", "\[Rule]", " ", "qy1"}], ",", " ", 
+      RowBox[{
+       RowBox[{"qz1", "[", "t", "]"}], " ", "\[Rule]", " ", "qz1"}], ",", " ", 
+      RowBox[{
+       RowBox[{"qw1", "[", "t", "]"}], " ", "\[Rule]", " ", "qw1"}], ",", " ", 
+      RowBox[{
+       RowBox[{"x2", "[", "t", "]"}], " ", "\[Rule]", " ", "x2"}], ",", " ", 
+      RowBox[{
+       RowBox[{"y2", "[", "t", "]"}], " ", "\[Rule]", " ", "y2"}], ",", " ", 
+      RowBox[{
+       RowBox[{"z2", "[", "t", "]"}], " ", "\[Rule]", " ", "z2"}], ",", " ", 
+      RowBox[{
+       RowBox[{"qx2", "[", "t", "]"}], " ", "\[Rule]", " ", "qx2"}], ",", " ", 
+      RowBox[{
+       RowBox[{"qy2", "[", "t", "]"}], " ", "\[Rule]", " ", "qy2"}], ",", " ", 
+      RowBox[{
+       RowBox[{"qz2", "[", "t", "]"}], " ", "\[Rule]", " ", "qz2"}], ",", " ", 
+      RowBox[{
+       RowBox[{"qw2", "[", "t", "]"}], " ", "\[Rule]", " ", "qw2"}]}], 
+     "}"}]}]}], ";"}]], "Input",
+ CellChangeTimes->{{3.516833589266156*^9, 3.516833672944972*^9}, {
+   3.516833715763916*^9, 3.516833821574267*^9}, {3.516834049007729*^9, 
+   3.5168340532540283`*^9}, 3.5308588328218822`*^9}],
+
+Cell[BoxData[
+ RowBox[{"(*", " ", 
+  RowBox[{
+  "The", " ", "constraint", " ", "Jacobian", " ", "in", " ", "all", " ", 
+   RowBox[{"its", " ", "'"}], 
+   RowBox[{"C", "'"}], " ", "glory"}], " ", "*)"}]], "Input",
+ CellChangeTimes->{{3.516834075243998*^9, 3.516834094054775*^9}}],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"CForm", "[", 
+  RowBox[{"Cq", "[", 
+   RowBox[{"[", "1", "]"}], "]"}], "]"}]], "Input",
+ CellChangeTimes->{{3.516833675447134*^9, 3.5168336952801447`*^9}, 
+   3.516833761986804*^9, {3.516833832472921*^9, 3.516833970587474*^9}, {
+   3.5168340215698338`*^9, 3.5168340231075*^9}, {3.516834062367535*^9, 
+   3.516834064041087*^9}, {3.516834444969276*^9, 3.516834473634577*^9}, {
+   3.516834638105349*^9, 3.5168346915613337`*^9}, {3.516834936903421*^9, 
+   3.516835015572612*^9}, {3.5168350504169407`*^9, 3.516835118117544*^9}, {
+   3.516835151656684*^9, 3.5168352298732653`*^9}, {3.516835360113474*^9, 
+   3.51683548229443*^9}, {3.516835713617016*^9, 3.516835789378467*^9}, {
+   3.516835825570979*^9, 3.5168358256621513`*^9}, {3.516835869835969*^9, 
+   3.516835869905056*^9}, {3.5168359390694427`*^9, 3.516836443779736*^9}, {
+   3.516837111662462*^9, 3.516837144322873*^9}, {3.530858856622258*^9, 
+   3.530858871907823*^9}}],
+
+Cell["\<\
+List(1,0,0,4*p1x*qw1 + 2*p1z*qy1 - 2*p1y*qz1,
+   4*p1x*qx1 + 2*p1y*qy1 + 2*p1z*qz1,2*p1z*qw1 + 2*p1y*qx1,
+   -2*p1y*qw1 + 2*p1z*qx1,-1,0,0,-4*p2x*qw2 - 2*p2z*qy2 + 2*p2y*qz2,
+   -4*p2x*qx2 - 2*p2y*qy2 - 2*p2z*qz2,-2*p2z*qw2 - 2*p2y*qx2,
+   2*p2y*qw2 - 2*p2z*qx2)\
+\>", "Output",
+ CellChangeTimes->{3.530858872517455*^9}]
+}, Open  ]],
+
+Cell[BoxData[
+ RowBox[{"(*", " ", 
+  RowBox[{
+  "time", " ", "derivative", " ", "of", " ", "the", " ", "constraint", " ", 
+   "Jacobian"}], " ", "*)"}]], "Input",
+ CellChangeTimes->{{3.530858884391233*^9, 3.5308588961947393`*^9}}],
+
+Cell[BoxData[
+ RowBox[{
+  RowBox[{"Cqdot", " ", "=", " ", 
+   RowBox[{
+    RowBox[{
+     RowBox[{"Transpose", "[", 
+      RowBox[{"{", 
+       RowBox[{
+        RowBox[{"D", "[", 
+         RowBox[{
+          RowBox[{"D", "[", 
+           RowBox[{"Ceq", ",", " ", 
+            RowBox[{"x1", "[", "t", "]"}]}], "]"}], ",", " ", "t"}], "]"}], 
+        ",", " ", 
+        RowBox[{"D", "[", 
+         RowBox[{
+          RowBox[{"D", "[", 
+           RowBox[{"Ceq", ",", " ", 
+            RowBox[{"y1", "[", "t", "]"}]}], "]"}], ",", " ", "t"}], "]"}], 
+        ",", " ", 
+        RowBox[{"D", "[", 
+         RowBox[{
+          RowBox[{"D", "[", 
+           RowBox[{"Ceq", ",", " ", 
+            RowBox[{"z1", "[", "t", "]"}]}], "]"}], ",", " ", "t"}], "]"}], 
+        ",", " ", 
+        RowBox[{"D", "[", 
+         RowBox[{
+          RowBox[{"D", "[", 
+           RowBox[{"Ceq", ",", " ", 
+            RowBox[{"qw1", "[", "t", "]"}]}], "]"}], ",", " ", "t"}], "]"}], 
+        ",", " ", 
+        RowBox[{"D", "[", 
+         RowBox[{
+          RowBox[{"D", "[", 
+           RowBox[{"Ceq", ",", " ", 
+            RowBox[{"qx1", "[", "t", "]"}]}], "]"}], ",", " ", "t"}], "]"}], 
+        ",", " ", 
+        RowBox[{"D", "[", 
+         RowBox[{
+          RowBox[{"D", "[", 
+           RowBox[{"Ceq", ",", " ", 
+            RowBox[{"qy1", "[", "t", "]"}]}], "]"}], ",", " ", "t"}], "]"}], 
+        ",", " ", 
+        RowBox[{"D", "[", 
+         RowBox[{
+          RowBox[{"D", "[", 
+           RowBox[{"Ceq", ",", " ", 
+            RowBox[{"qz1", "[", "t", "]"}]}], "]"}], ",", " ", "t"}], "]"}], 
+        ",", " ", 
+        RowBox[{"D", "[", 
+         RowBox[{
+          RowBox[{"D", "[", 
+           RowBox[{"Ceq", ",", " ", 
+            RowBox[{"x2", "[", "t", "]"}]}], "]"}], ",", " ", "t"}], "]"}], 
+        ",", " ", 
+        RowBox[{"D", "[", 
+         RowBox[{
+          RowBox[{"D", "[", 
+           RowBox[{"Ceq", ",", " ", 
+            RowBox[{"y2", "[", "t", "]"}]}], "]"}], ",", " ", "t"}], "]"}], 
+        ",", " ", 
+        RowBox[{"D", "[", 
+         RowBox[{
+          RowBox[{"D", "[", 
+           RowBox[{"Ceq", ",", " ", 
+            RowBox[{"z2", "[", "t", "]"}]}], "]"}], ",", " ", "t"}], "]"}], 
+        ",", " ", 
+        RowBox[{"D", "[", 
+         RowBox[{
+          RowBox[{"D", "[", 
+           RowBox[{"Ceq", ",", " ", 
+            RowBox[{"qw2", "[", "t", "]"}]}], "]"}], ",", " ", "t"}], "]"}], 
+        ",", " ", 
+        RowBox[{"D", "[", 
+         RowBox[{
+          RowBox[{"D", "[", 
+           RowBox[{"Ceq", ",", " ", 
+            RowBox[{"qx2", "[", "t", "]"}]}], "]"}], ",", " ", "t"}], "]"}], 
+        ",", 
+        RowBox[{"D", "[", " ", 
+         RowBox[{
+          RowBox[{"D", "[", 
+           RowBox[{"Ceq", ",", " ", 
+            RowBox[{"qy2", "[", "t", "]"}]}], "]"}], ",", " ", "t"}], "]"}], 
+        ",", " ", 
+        RowBox[{"D", "[", 
+         RowBox[{
+          RowBox[{"D", "[", 
+           RowBox[{"Ceq", ",", " ", 
+            RowBox[{"qz2", "[", "t", "]"}]}], "]"}], ",", " ", "t"}], "]"}]}],
+        "}"}], "]"}], " ", "/.", " ", 
+     RowBox[{"{", 
+      RowBox[{
+       RowBox[{
+        RowBox[{"D", "[", 
+         RowBox[{
+          RowBox[{"x1", "[", "t", "]"}], ",", " ", "t"}], "]"}], " ", 
+        "\[Rule]", " ", "dx1"}], ",", " ", 
+       RowBox[{
+        RowBox[{"D", "[", 
+         RowBox[{
+          RowBox[{"y1", "[", "t", "]"}], ",", " ", "t"}], "]"}], " ", 
+        "\[Rule]", " ", "dy1"}], ",", " ", 
+       RowBox[{
+        RowBox[{"D", "[", 
+         RowBox[{
+          RowBox[{"z1", "[", "t", "]"}], ",", " ", "t"}], "]"}], " ", 
+        "\[Rule]", " ", "dz1"}], ",", " ", 
+       RowBox[{
+        RowBox[{"D", "[", 
+         RowBox[{
+          RowBox[{"qx1", "[", "t", "]"}], ",", " ", "t"}], "]"}], " ", 
+        "\[Rule]", " ", "dqx1"}], ",", " ", 
+       RowBox[{
+        RowBox[{"D", "[", 
+         RowBox[{
+          RowBox[{"qy1", "[", "t", "]"}], ",", " ", "t"}], "]"}], " ", 
+        "\[Rule]", " ", "dqy1"}], ",", " ", 
+       RowBox[{
+        RowBox[{"D", "[", 
+         RowBox[{
+          RowBox[{"qz1", "[", "t", "]"}], ",", " ", "t"}], "]"}], " ", 
+        "\[Rule]", " ", "dqz1"}], ",", " ", 
+       RowBox[{
+        RowBox[{"D", "[", 
+         RowBox[{
+          RowBox[{"qw1", "[", "t", "]"}], ",", " ", "t"}], "]"}], " ", 
+        "\[Rule]", " ", "dqw1"}], ",", " ", 
+       RowBox[{
+        RowBox[{"D", "[", 
+         RowBox[{
+          RowBox[{"x2", "[", "t", "]"}], ",", " ", "t"}], "]"}], " ", 
+        "\[Rule]", " ", "dx2"}], ",", " ", 
+       RowBox[{
+        RowBox[{"D", "[", 
+         RowBox[{
+          RowBox[{"y2", "[", "t", "]"}], ",", " ", "t"}], "]"}], " ", 
+        "\[Rule]", " ", "dy2"}], ",", " ", 
+       RowBox[{
+        RowBox[{"D", "[", 
+         RowBox[{
+          RowBox[{"z2", "[", "t", "]"}], ",", " ", "t"}], "]"}], " ", 
+        "\[Rule]", " ", "dz2"}], ",", " ", 
+       RowBox[{
+        RowBox[{"D", "[", 
+         RowBox[{
+          RowBox[{"qx2", "[", "t", "]"}], ",", " ", "t"}], "]"}], " ", 
+        "\[Rule]", " ", "dqx2"}], ",", " ", 
+       RowBox[{
+        RowBox[{"D", "[", 
+         RowBox[{
+          RowBox[{"qy2", "[", "t", "]"}], ",", " ", "t"}], "]"}], " ", 
+        "\[Rule]", " ", "dqy2"}], ",", " ", 
+       RowBox[{
+        RowBox[{"D", "[", 
+         RowBox[{
+          RowBox[{"qz2", "[", "t", "]"}], ",", " ", "t"}], "]"}], " ", 
+        "\[Rule]", " ", "dqz2"}], ",", " ", 
+       RowBox[{
+        RowBox[{"D", "[", 
+         RowBox[{
+          RowBox[{"qw2", "[", "t", "]"}], ",", " ", "t"}], "]"}], " ", 
+        "\[Rule]", " ", "dqw2"}]}], "}"}]}], " ", "/.", " ", 
+    RowBox[{"{", 
+     RowBox[{
+      RowBox[{
+       RowBox[{"x1", "[", "t", "]"}], " ", "\[Rule]", " ", "x1"}], ",", " ", 
+      RowBox[{
+       RowBox[{"y1", "[", "t", "]"}], " ", "\[Rule]", " ", "y1"}], ",", " ", 
+      RowBox[{
+       RowBox[{"z1", "[", "t", "]"}], " ", "\[Rule]", " ", "z1"}], ",", " ", 
+      RowBox[{
+       RowBox[{"qx1", "[", "t", "]"}], " ", "\[Rule]", " ", "qx1"}], ",", " ", 
+      RowBox[{
+       RowBox[{"qy1", "[", "t", "]"}], " ", "\[Rule]", " ", "qy1"}], ",", " ", 
+      RowBox[{
+       RowBox[{"qz1", "[", "t", "]"}], " ", "\[Rule]", " ", "qz1"}], ",", " ", 
+      RowBox[{
+       RowBox[{"qw1", "[", "t", "]"}], " ", "\[Rule]", " ", "qw1"}], ",", " ", 
+      RowBox[{
+       RowBox[{"x2", "[", "t", "]"}], " ", "\[Rule]", " ", "x2"}], ",", " ", 
+      RowBox[{
+       RowBox[{"y2", "[", "t", "]"}], " ", "\[Rule]", " ", "y2"}], ",", " ", 
+      RowBox[{
+       RowBox[{"z2", "[", "t", "]"}], " ", "\[Rule]", " ", "z2"}], ",", " ", 
+      RowBox[{
+       RowBox[{"qx2", "[", "t", "]"}], " ", "\[Rule]", " ", "qx2"}], ",", " ", 
+      RowBox[{
+       RowBox[{"qy2", "[", "t", "]"}], " ", "\[Rule]", " ", "qy2"}], ",", " ", 
+      RowBox[{
+       RowBox[{"qz2", "[", "t", "]"}], " ", "\[Rule]", " ", "qz2"}], ",", " ", 
+      RowBox[{
+       RowBox[{"qw2", "[", "t", "]"}], " ", "\[Rule]", " ", "qw2"}]}], 
+     "}"}]}]}], ";"}]], "Input"],
+
+Cell[CellGroupData[{
+
+Cell[BoxData[
+ RowBox[{"CForm", "[", 
+  RowBox[{
+   RowBox[{"Cqdot", "[", 
+    RowBox[{"[", "5", "]"}], "]"}], "[", 
+   RowBox[{"[", "14", "]"}], "]"}], "]"}]], "Input",
+ CellChangeTimes->{{3.5308589142861023`*^9, 3.5308589217852373`*^9}, {
+  3.530859384908373*^9, 3.5308595038863077`*^9}, {3.530859538671205*^9, 
+  3.53085963330515*^9}}],
+
+Cell["\<\
+((-1 + 2*Power(qw1,2) + 2*Power(qx1,2))*ujx + 
+      2*(qx1*qy1 - qw1*qz1)*ujy + 2*(qw1*qy1 + qx1*qz1)*ujz)*
+    (-2*dqw2*v2y + 2*dqx2*v2z) + 
+   (2*(qx1*qy1 + qw1*qz1)*ujx + 
+      (-1 + 2*(Power(qw1,2) + Power(qy1,2)))*ujy + 
+      2*(-(qw1*qx1) + qy1*qz1)*ujz)*(2*dqw2*v2x + 2*dqy2*v2z) + 
+   (2*(-(qw1*qy1) + qx1*qz1)*ujx + 2*(qw1*qx1 + qy1*qz1)*ujy + 
+      (-1 + 2*(Power(qw1,2) + Power(qz1,2)))*ujz)*
+    (2*dqx2*v2x + 2*dqy2*v2y + 4*dqz2*v2z) + 
+   ((4*dqw1*qw1 + 4*dqx1*qx1)*ujx + 
+      2*(-(dqz1*qw1) + dqy1*qx1 + dqx1*qy1 - dqw1*qz1)*ujy + 
+      2*(dqy1*qw1 + dqz1*qx1 + dqw1*qy1 + dqx1*qz1)*ujz)*
+    (-2*qw2*v2y + 2*qx2*v2z) + 
+   (2*(dqz1*qw1 + dqy1*qx1 + dqx1*qy1 + dqw1*qz1)*ujx + 
+      2*(2*dqw1*qw1 + 2*dqy1*qy1)*ujy + 
+      2*(-(dqx1*qw1) - dqw1*qx1 + dqz1*qy1 + dqy1*qz1)*ujz)*
+    (2*qw2*v2x + 2*qy2*v2z) + 
+   (2*(-(dqy1*qw1) + dqz1*qx1 - dqw1*qy1 + dqx1*qz1)*ujx + 
+      2*(dqx1*qw1 + dqw1*qx1 + dqz1*qy1 + dqy1*qz1)*ujy + 
+      2*(2*dqw1*qw1 + 2*dqz1*qz1)*ujz)*
+    (2*qx2*v2x + 2*qy2*v2y + 4*qz2*v2z)\
+\>", "Output",
+ CellChangeTimes->{
+  3.530858922555232*^9, {3.53085938558668*^9, 3.530859504273015*^9}, {
+   3.530859541182626*^9, 3.5308596336473722`*^9}}]
+}, Open  ]]
+},
+WindowSize->{640, 750},
+WindowMargins->{{189, Automatic}, {Automatic, 78}},
+FrontEndVersion->"8.0 for Mac OS X x86 (32-bit, 64-bit Kernel) (November 6, \
+2010)",
+StyleDefinitions->"Default.nb"
+]
+(* End of Notebook Content *)
+
+(* Internal cache information *)
+(*CellTagsOutline
+CellTagsIndex->{}
+*)
+(*CellTagsIndex
+CellTagsIndex->{}
+*)
+(*NotebookFileOutline
+Notebook[{
+Cell[545, 20, 417, 10, 43, "Input"],
+Cell[965, 32, 2066, 38, 148, "Input"],
+Cell[3034, 72, 2052, 61, 73, "Input"],
+Cell[5089, 135, 319, 9, 27, "Input"],
+Cell[5411, 146, 355, 8, 43, "Input"],
+Cell[5769, 156, 460, 12, 27, "Input"],
+Cell[6232, 170, 471, 11, 43, "Input"],
+Cell[6706, 183, 298, 8, 27, "Input"],
+Cell[7007, 193, 307, 7, 43, "Input"],
+Cell[7317, 202, 462, 12, 27, "Input"],
+Cell[7782, 216, 1791, 46, 103, "Input"],
+Cell[9576, 264, 2054, 52, 118, "Input"],
+Cell[11633, 318, 1687, 44, 73, "Input"],
+Cell[13323, 364, 1237, 33, 73, "Input"],
+Cell[14563, 399, 170, 3, 27, "Input"],
+Cell[14736, 404, 3404, 82, 133, "Input"],
+Cell[18143, 488, 278, 6, 27, "Input"],
+Cell[CellGroupData[{
+Cell[18446, 498, 944, 15, 27, "Input"],
+Cell[19393, 515, 330, 7, 91, "Output"]
+}, Open  ]],
+Cell[19738, 525, 230, 5, 27, "Input"],
+Cell[19971, 532, 6984, 194, 238, "Input"],
+Cell[CellGroupData[{
+Cell[26980, 730, 338, 8, 27, "Input"],
+Cell[27321, 740, 1199, 25, 299, "Output"]
+}, Open  ]]
+}
+]
+*)
+
+(* End of internal cache information *)

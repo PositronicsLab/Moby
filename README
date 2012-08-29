@@ -1,0 +1,130 @@
+6/17/2007
+Evan Drumwright
+===========================================================================
+
+1. Preliminaries
+
+Installation of Moby is fairly straightforward, given that you have
+the following packages installed:
+
+- boost
+- libxml2* (optional)
+- qhull*
+- atlas** (or another CBLAS library)
+- lapack**
+
+*    Development version must be installed
+
+**   Automatically included with OS X 10.3 and above
+
+
+Moby can benefit from a speedy CBLAS implementation.  We use
+ATLAS, which is a high-speed implementation, though the CBLAS implementation
+included with the GNU Scientific Library (gsl) is usable as well.
+
+Finally, note that if gcc 4.2 or greater is installed, Moby will use OpenMP 
+and multithreading will be automatically supported.  (LATER NOTE: OpenMP
+use is disabled currently).
+
+Once all packages are installed, we are ready to build.
+
+
+2.  Building
+
+Moby uses the versatile scons system.  Building is performed with the
+command:
+
+> python scons/scons.py 
+
+The build can take a number of options, specified using:
+
+> python scons/scons.py OPTION=VALUE
+
+The options are listed below:
+
+CC      The C++ compiler
+
+BUILD_DOUBLE      Set to true to build with floating point type as
+                  double or false to build with float (default)
+
+BUILD_KINEMATIC   Set to true to build the Kinematic utility (default)
+
+BUILD_EXAMPLES    Set to true to build the examples (default)
+
+SHARED_LIBRARY    Set to true to build Moby as a shared library, or false as
+                  a static library (default); note that PQP_Moby will be
+                  built as a static library, regardless
+
+DEBUG            Set to true to build with debug options (default), or false to 
+                 build optimized
+
+PROFILE           Set to true to build for profiling
+
+INCLUDE_PATHS     Additional, colon-separated include paths
+
+LIB_PATHS         Additional, colon-separated library paths
+
+FRAMEWORK_PATHS   Additional, colon-separated paths to frameworks (OSX only)
+
+
+A ./configure type mechanism has been included, so scons can determine when it
+is unable to find a header file and complain appropriately.
+
+Once scons is called with the appropriate options, it will begin building
+the necessary libraries and the examples.
+
+*** NOTE: ********************************************************************
+  It is highly recommended that you build with standard debugging turned on
+  (DEBUG=true) [default]. Moby is somewhat tolerant of errors in your
+  XML files, but uses assertions to catch most problems; DEBUG=true can tell
+  you- with the aid of your handy debugger- where the problem is, and mostly
+  likely why it is happening.  Once your simulation runs correctly, then you
+  can turn DEBUG=false.  
+*****************************************************************************
+
+
+2.1  Installation
+
+SCons will install Moby if you run it using the command 'scons install'.  By
+default, binaries, libraries, and headers will be installed to /usr/local, but
+this can be changed by specifying an install path 
+(e.g., 'scons install INSTALL_PATH='/usr').  Note that you will need to have
+'root' access to install Moby outside of your home directory.
+
+
+2.2  OS X-specific building information
+
+Both the atlas/BLAS and lapack libraries are included in the vecLib framework,
+(as of 10.3 Panther) and it is therefore unnecessary to install packages for 
+these two libraries.
+
+We currently require Inventor and SoQt to be built as frameworks (default
+option) rather than as a library.
+
+
+2.3  Windows building information
+
+Windows is unsupported and there are no plans to support it at any point in
+the future.  The sheer number of required packages will likely make a port
+futile.  If you _do_ install these packages and manage to port Moby to
+Windows with minimal changes, we'll consider incorporating your modifications.
+
+
+3. Examples
+
+Moby includes a number of examples, though a few (banditII/bandit-claw.xml
+and banditII/bandit-in-envn.xml) do not currently work-
+these examples worked in the past, but have been superseded by other
+examples.  These examples are officially deprecated, though will not be
+removed until a future release of Moby. 
+
+
+4. Utilities
+
+The examples directory contains a number of utilities for viewing and modifying
+3D geometries in Wavefront (.obj), OpenInventor (.iv), and VRML 1.0/97 formats
+(.wrl).  These utilities are described further in example/README.
+
+In addition to those utilities, a kinematic editor is included in the directory
+Kinematic.  This utility is described further in Kinematic/README.
+

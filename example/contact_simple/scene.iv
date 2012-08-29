@@ -1,0 +1,38 @@
+#Inventor V2.1 ascii
+
+# camera, lights setup
+
+PerspectiveCamera
+{
+#	position -4.5 7.5 5 
+#	orientation 1 1 0 -.707
+	position 0 6.15 6
+	orientation -1 0 0 .56
+}
+
+VRMLBackground
+{
+	skyAngle [1.3 2 ]
+	skyColor [0 0.2 0.7 0 0.5 1 1 1 1]
+}
+
+PointLight
+{
+		location 3 1 3
+}
+
+PointLight
+{
+	location -3 1 3 
+}
+
+PointLight
+{
+		location 3 6 3
+}
+
+PointLight
+{
+	location -3 6 3 
+}
+

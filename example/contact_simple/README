@@ -1,0 +1,29 @@
+This directory contains a number of simple contact examples.  Modeling contact is a difficult,
+imprecise (unfortunately) affair, and these examples were created to test numerous algorithms.
+
+ 
+FILE DESCRIPTIONS
+
+box1-9.wrl            Different sized, different color boxes used by the 
+                      examples for visualization
+
+coldet-plugin.cpp     Optional collision detection plugin, specifically 
+                      designed for stack.xml, that makes collision detection
+                      much faster.  Shows how to make a collision detection
+                      plugin.  To use this plugin, edit stack.xml and replace
+                      'ccd' with 'ccd-plugin' in the Simulator tag.
+
+contact.xml           XML simulator file for a spinning box sitting on the 
+                      ground and slowly coming to a rest.  
+
+ground.wrl            A VRML 97 file for the ground visualization.
+
+marble_box.wrl        A partially transparent box that was used for making one 
+                      of the videos in [Drumwright, 2008]
+
+scene.iv              Lights and camera scenery file            
+
+SConscript            The scons builder for the collision detection plugin
+
+stack.xml             A stack of seven boxes. 
+ 
