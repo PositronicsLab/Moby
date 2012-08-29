@@ -31,34 +31,58 @@
     <!-- MAIN CONTENT -->
     <div id="main_content_wrap" class="outer">
       <section id="main_content" class="inner">
-        <h3>Welcome to GitHub Pages.</h3>
 
-<p>This automatic page generator is the easiest way to create beautiful pages for all of your projects. Author your page content here using GitHub Flavored Markdown, select a template crafted by a designer, and publish. After your page is generated, you can check out the new branch:</p>
+<p>
+Moby is a GNU GPL 2.0 licensed, multi-body dynamics simulation library written in C++.
+</p>
 
-<pre><code>$ cd your_repo_root/repo_name
-$ git fetch origin
-$ git checkout gh-pages
-</code></pre>
+<p>
+Its aims to be the most robust and accurate tool available for dynamic robotic simulation.
+</p>
 
-<p>If you're using the GitHub for Mac, simply sync your repository and you'll see the new branch.</p>
+<h3>Features</h3>
 
-<h3>Designer Templates</h3>
+<p>
+  <ul>
+    <li>Two optional convex solvers: fast (active set QP-based) or accurate (interior-point quadratically constrained quadratic program-based)</li>
+    <li>Multiple joint constraint types:
+      <ul>
+        <li>revolute</li>
+        <li>prismatic</li>
+        <li>universal</li>
+        <li>spherical</li>
+        <li>fixed</li>
+      </ul></li>
+     <li>Serialization via XML file format</li>
+     <li>Multiple integrator types:
+       <ul>
+         <li>Euler (implicit, fixed and variable step)</li>
+         <li>4th-order Runge-Kutta (implicit/explicit)</li>
+         <li>4th-order Runge-Kutta-Fehlberg (variable step)</li>
+         <li>ODEPACK (variable step, implicit/explicit, multi-order)</li>
+       </ul></li>
+     <li>Articulated bodies supported using both independent coordinate (reduced coordinate) and absolute coordinate (maximal coordinate) representations</li>
+     <li>Mass-spring-damper based deformable bodies (plus interactions with rigid/articulated bodies) supported</li>
+   </ul>
+</P>
 
-<p>We've crafted some handsome templates for you to use. Go ahead and continue to layouts to browse through them. You can easily go back to edit your page before publishing. After publishing your page, you can revisit the page generator and switch to another theme. Your Page content will be preserved if it remained markdown format.</p>
+<P>
+  Additionally, Moby makes the following provisions:
+  <ul>
+    <li>Forward kinematics and manipulator Jacobian computation</li>
+    <li>Inverse dynamics for robots with both fixed and floating bases</li>
+    <li>Graphics can be displayed in OpenSceneGraph, output to VRML, or connected to an arbitrary engine.</li>
+  </ul>
+</P>
 
-<h3>Rather Drive Stick?</h3>
-
-<p>If you prefer to not use the automatic generator, push a branch named <code>gh-pages</code> to your repository to create a page manually. In addition to supporting regular HTML content, GitHub Pages support Jekyll, a simple, blog aware static site generator written by our own Tom Preston-Werner. Jekyll makes it easy to create site-wide headers and footers without having to copy them across every page. It also offers intelligent blog support and other advanced templating features.</p>
-
-<h3>Authors and Contributors</h3>
-
-<p>You can <a href="https://github.com/blog/821" class="user-mention">@mention</a> a GitHub username to generate a link to their profile. The resulting <code>&lt;a&gt;</code> element will link to the contributor's GitHub Profile. For example: In 2007, Chris Wanstrath (<a href="https://github.com/defunkt" class="user-mention">@defunkt</a>), PJ Hyett (<a href="https://github.com/pjhyett" class="user-mention">@pjhyett</a>), and Tom Preston-Werner (<a href="https://github.com/mojombo" class="user-mention">@mojombo</a>) founded GitHub.</p>
-
-<h3>Support or Contact</h3>
-
-<p>Having trouble with Pages? Check out the documentation at <a href="http://help.github.com/pages">http://help.github.com/pages</a> or contact <a href="mailto:support@github.com">support@github.com</a> and we’ll help you sort it out.</p>
-      </section>
-    </div>
+<h3>Current status</h3>
+<p>
+  Moby has been in active development since 2005. We are currently preparing to 
+  release V3.0. The version hosted on GitHub is stable but is being tested
+  extensively before official release. <em>Our goal is to ensure that Moby is
+  completely robust to the limitations of floating point arithmetic by  
+  by September 1, 2014!</em> 
+</p>
 
     <!-- FOOTER  -->
     <div id="footer_wrap" class="outer">
