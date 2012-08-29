@@ -1,0 +1,186 @@
+/****************************************************************************
+ * Copyright 2006 Evan Drumwright
+ * This library is distributed under the terms of the GNU Lesser General Public 
+ * License (found in COPYING).
+ ****************************************************************************/
+
+#include <Moby/cblas.h>
+
+template <>
+void CBLAS::rot(const int N, double *X, const int incX,
+                double *Y, const int incY, const double c, const double s)
+{
+  cblas_drot(N, X, incX, Y, incY, c, s);
+}
+
+template <>
+void CBLAS::rotg(double& a, double& b, double& c, double& s)
+{
+  cblas_drotg(&a, &b, &c, &s);
+}
+
+template <>
+void CBLAS::scal(int N, double alpha, double* X, int incX)
+{
+  cblas_dscal(N, alpha, X, incX);
+}
+
+template <>
+void CBLAS::scal(int N, float alpha, float* X, int incX)
+{
+  cblas_sscal(N, alpha, X, incX);
+}
+
+template <>
+void CBLAS::copy(int N, const double* X, int incX, double* Y, int incY)
+{
+  cblas_dcopy(N, X, incX, Y, incY);
+}
+
+template <>
+void CBLAS::copy(int N, const float* X, int incX, float* Y, int incY)
+{
+  cblas_scopy(N, X, incX, Y, incY);
+}
+
+template <>
+void CBLAS::axpy(int N, double alpha, const double* X, int incX, double* Y, int incY)
+{
+  cblas_daxpy(N, alpha, X, incX, Y, incY);
+}
+
+template <>
+void CBLAS::axpy(int N, float alpha, const float* X, int incX, float* Y, int incY)
+{
+  cblas_saxpy(N, alpha, X, incX, Y, incY);
+}
+
+template <>
+double CBLAS::dot(int N, const double* X, int incX, const double* Y, int incY)
+{
+  return cblas_ddot(N, X, incX, Y, incY);
+}
+
+template <>
+void CBLAS::rot(const int N, float *X, const int incX,
+                float *Y, const int incY, const float c, const float s)
+{
+  cblas_srot(N, X, incX, Y, incY, c, s);
+}
+
+template <>
+void CBLAS::rotg(float& a, float& b, float& c, float& s)
+{
+  cblas_srotg(&a, &b, &c, &s);
+}
+
+template <>
+float CBLAS::dot(int N, const float* X, int incX, const float* Y, int incY)
+{
+  return cblas_sdot(N, X, incX, Y, incY);
+}
+
+template <>
+double CBLAS::nrm2(int N, const double* X, int incX)
+{
+  return cblas_dnrm2(N, X, incX);
+}
+
+template <>
+float CBLAS::nrm2(int N, const float* X, int incX)
+{
+  return cblas_snrm2(N, X, incX);
+}
+
+template <>
+void CBLAS::ger(enum CBLAS_ORDER order, int M, int N, double alpha, const double* X, int incX, const double* Y, int incY, double* A, int lda)
+{
+  cblas_dger(order, M, N, alpha, X, incX, Y, incY, A, lda);
+}
+
+template <>
+void CBLAS::ger(enum CBLAS_ORDER order, int M, int N, float alpha, const float* X, int incX, const float* Y, int incY, float* A, int lda)
+{
+  cblas_sger(order, M, N, alpha, X, incX, Y, incY, A, lda);
+}
+
+template <>
+void CBLAS::gemv(enum CBLAS_ORDER order, CBLAS_TRANSPOSE transA, int M, int N, double alpha, const double* A, int lda, const double* X, int incX, double beta, double* Y, int incY)
+{
+  cblas_dgemv(order, transA, M, N, alpha, A, lda, X, incX, beta, Y, incY);
+}
+
+template <>
+void CBLAS::gemv(enum CBLAS_ORDER order, CBLAS_TRANSPOSE transA, int M, int N, float alpha, const float* A, int lda, const float* X, int incX, float beta, float* Y, int incY)
+{
+  cblas_sgemv(order, transA, M, N, alpha, A, lda, X, incX, beta, Y, incY);
+}
+
+template <>
+void CBLAS::gemm(enum CBLAS_ORDER order, CBLAS_TRANSPOSE transA, CBLAS_TRANSPOSE transB, int M, int N, int K, double alpha, const double* A, int lda, const double* B, int ldb, double beta, double* C, int ldc)
+{
+  assert(ldc >= 1 && ldc >= M);
+  cblas_dgemm(order, transA, transB, M, N, K, alpha, A, lda, B, ldb, beta, C, ldc);
+}
+
+template <>
+void CBLAS::gemm(enum CBLAS_ORDER order, CBLAS_TRANSPOSE transA, CBLAS_TRANSPOSE transB, int M, int N, int K, float alpha, const float* A, int lda, const float* B, int ldb, float beta, float* C, int ldc)
+{
+  cblas_sgemm(order, transA, transB, M, N, K, alpha, A, lda, B, ldb, beta, C, ldc);
+}
+
+// *****************************************************************
+// arbitrary precision routines
+// *****************************************************************
+
+#ifdef BUILD_ARBITRARY_PRECISION
+template <>
+mpfr::mpreal CBLAS::nrm2(int N, const mpfr::mpreal* X, int incX)
+{
+  return cblas_anrm2(N, X, incX);
+}
+
+template <>
+void CBLAS::ger(enum CBLAS_ORDER order, int M, int N, mpfr::mpreal alpha, const mpfr::mpreal* X, int incX, const mpfr::mpreal* Y, int incY, mpfr::mpreal* A, int lda)
+{
+  cblas_ager(order, M, N, alpha, X, incX, Y, incY, A, lda);
+}
+
+template <>
+void CBLAS::gemv(enum CBLAS_ORDER order, CBLAS_TRANSPOSE transA, int M, int N, mpfr::mpreal alpha, const mpfr::mpreal* A, int lda, const mpfr::mpreal* X, int incX, mpfr::mpreal beta, mpfr::mpreal* Y, int incY)
+{
+  cblas_agemv(order, transA, M, N, alpha, A, lda, X, incX, beta, Y, incY);
+}
+
+template <>
+void CBLAS::gemm(enum CBLAS_ORDER order, CBLAS_TRANSPOSE transA, CBLAS_TRANSPOSE transB, int M, int N, int K, mpfr::mpreal alpha, const mpfr::mpreal* A, int lda, const mpfr::mpreal* B, int ldb, mpfr::mpreal beta, mpfr::mpreal* C, int ldc)
+{
+  cblas_agemm(order, transA, transB, M, N, K, alpha, A, lda, B, ldb, beta, C, ldc);
+}
+
+template <>
+mpfr::mpreal CBLAS::dot(int N, const mpfr::mpreal* X, int incX, const mpfr::mpreal* Y, int incY)
+{
+  return cblas_adot(N, X, incX, Y, incY);
+}
+
+template <>
+void CBLAS::axpy(int N, mpfr::mpreal alpha, const mpfr::mpreal* X, int incX, mpfr::mpreal* Y, int incY)
+{
+  cblas_aaxpy(N, alpha, X, incX, Y, incY);
+}
+
+template <>
+void CBLAS::scal(int N, mpfr::mpreal alpha, mpfr::mpreal* X, int incX)
+{
+  cblas_ascal(N, alpha, X, incX);
+}
+
+template <>
+void CBLAS::copy(int N, const mpfr::mpreal* X, int incX, mpfr::mpreal* Y, int incY)
+{
+  cblas_acopy(N, X, incX, Y, incY);
+}
+#endif
+
+

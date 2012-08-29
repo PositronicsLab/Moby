@@ -1,0 +1,202 @@
+<XML>
+
+  <DRIVER>
+    <camera position="0 0 5" target="0 0 0" up="0 1 0" />
+    <window location="0 0" size="640 480" />
+  </DRIVER>
+
+  <MOBY>
+
+    <!-- Primitives -->
+    <Cylinder id="shoulder1-joint-viz" radius=".005" height=".05" transform="0 1 0 0; -1 0 0 0; 0 0 1 0; 0 0 0 1" />
+    <Cylinder id="shoulder2-joint-viz" radius=".005" height=".1" transform="1 0 0 0; 0 0 1 0; 0 -1 0 0; 0 0 0 1" />
+    <Cylinder id="finger-joint-viz" radius=".001" height=".01" transform="0 1 0 0; -1 0 0 0; 0 0 1 0; 0 0 0 1" />
+    <Cylinder id="hand-joint-viz" radius=".01" height=".06" transform="0 1 0 0; -1 0 0 0; 0 0 1 0; 0 0 0 1" />
+    <Cylinder id="elbow-joint-viz" radius=".005" height=".06" transform="0 1 0 0; -1 0 0 0; 0 0 1 0; 0 0 0 1" />
+    <Cylinder id="wheel-joint-viz" radius=".005" height=".05" transform="0 1 0 0; -1 0 0 0; 0 0 1 0; 0 0 0 1" />
+    <Cylinder id="claw-joint-viz" radius=".0025" height=".025" transform="1 0 0 0; 0 0 1 0; 0 -1 0 0; 0 0 0 1" />
+    <Cylinder id="cx" radius=".01" height=".01" transform="0 1 0 0; -1 0 0 0; 0 0 1 0; 0 0 0 1" />
+    <Cylinder id="cy" radius=".005" height=".02" />
+    <Cylinder id="cz" radius=".005" height=".02" transform="1 0 0 0; 0 0 1 0; 0 -1 0 0; 0 0 0 1"/>
+    <TriangleMesh id="pshoulder1" filename="obj/shoulder_mount.obj" mass=".05" convexify-inertia="true" />
+    <TriangleMesh id="pshoulder1-coll" filename="obj/shoulder_mount.obj" mass=".05" convexify-inertia="true" />
+    <TriangleMesh id="pshoulder2" filename="obj/shoulder.obj" mass=".5" convexify-inertia="true" />
+    <TriangleMesh id="pshoulder2-coll" filename="obj/shoulder.obj" convexify-inertia="true" />
+    <TriangleMesh id="pbicep" filename="obj/bicep.obj" mass="1" convexify-inertia="true" />
+    <TriangleMesh id="pbicep-coll" filename="obj/bicep.obj" convexify-inertia="true" />
+    <TriangleMesh id="pelbow" filename="obj/elbow.obj" mass=".5" convexify-inertia="true" />
+    <TriangleMesh id="pelbow-coll" filename="obj/elbow.obj" convexify-inertia="true" />
+    <TriangleMesh id="pforearm" filename="obj/forearm.obj" mass=".5" convexify-inertia="true" />
+    <TriangleMesh id="pforearm-coll" filename="obj/forearm.obj" convexify-inertia="true" />
+    <TriangleMesh id="phand" filename="obj/hand.obj" mass="1" convexify-inertia="true"/>
+    <TriangleMesh id="phand-coll" filename="obj/hand.obj" convexify-inertia="true" />
+    <TriangleMesh id="pclaw1-left-coll" filename="obj/claw1.obj" mass="1" convexify-inertia="true" />
+    <TriangleMesh id="pclaw2-left-coll" filename="obj/claw2.obj" mass="1" convexify-inertia="true"/>
+    <TriangleMesh id="pclaw3-left-coll" filename="obj/claw3.obj" mass="1" convexify-inertia="true" />
+    <TriangleMesh id="pclaw1-right-coll" filename="obj/claw1.obj" transform="-1 0 0 0; 0 1 0 0; 0 0 -1 0; 0 0 0 1" mass="1" convexify-inertia="true" />
+    <TriangleMesh id="pclaw2-right-coll" filename="obj/claw2.obj" transform="-1 0 0 0; 0 1 0 0; 0 0 -1 0; 0 0 0 1" mass="1" convexify-inertia="true" />
+    <TriangleMesh id="pclaw3-right-coll" filename="obj/claw3.obj" transform="-1 0 0 0; 0 1 0 0; 0 0 -1 0; 0 0 0 1" mass="1" convexify-inertia="true" />
+    <TriangleMesh id="pclaw-coll" filename="obj/claw.obj" convexify-inertia="true" />
+    <Box id="pground" xlen="6" ylen="0.6" zlen="8" density="10.0" />
+    <Box id="fake-base-viz" xlen=".05" zlen=".1" ylen=".5" />
+    <OSGGroup id="ground-viz" filename="iv/ground.wrl.iv.iv" />
+    <Sphere id="pcounterweight" radius=".1" mass=".1" />
+    <TetraMesh id="sphere-tetra" filename="sphere.tetra" />
+    <TriangleMesh id="sphere-tri" filename="sphere.obj" />
+    <Box id="ptable" xlen="1" ylen=".4" zlen="0.5" />
+
+    <!-- Separators for visualization -->
+    <OSGGroup id="shoulder1-viz" filename="iv/shoulder_mount.wrl.iv" />
+    <OSGGroup id="shoulder2-viz" filename="iv/shoulder.wrl.iv" />
+    <OSGGroup id="bicep-viz" filename="iv/bicep.wrl.iv" />
+    <OSGGroup id="elbow-viz" filename="iv/elbow.wrl.iv" />
+    <OSGGroup id="forearm-viz" filename="iv/forearm.wrl.iv" />
+    <OSGGroup id="hand-viz" filename="iv/hand.wrl.iv" />
+    <OSGGroup id="claw-left-viz" filename="iv/claw.wrl.iv" />
+    <OSGGroup id="claw-right-viz" filename="iv/claw.wrl.iv" transform="-1 0 0 0; 0 1 0 0; 0 0 -1 0; 0 0 0 1" />
+
+    <OSGGroup id="tennisball-viz" filename="iv/tennisball.wrl.iv" />
+    <TriangleMesh id="ptennisball" filename="obj/tennisball.obj" mass=".1" convexify-inertia="true" />
+
+    <!-- Integrator -->
+    <EulerIntegrator id="euler" type="VectorN" />
+    <EulerIntegrator id="euler-quat" type="Quat"/>
+    <RungeKuttaFehlbergIntegrator id="rkf" type="VectorN"/>
+    <RungeKuttaImplicitIntegrator id="rk4" type="VectorN"/>
+    <ODEPackIntegrator id="odepack" type="VectorN" stiff="false" rel-err-tol="0" abs-err-tol="1e-3" min-step-size="0" />
+
+    <DeformableCCD id="coldet" ori-integrator-id="euler-quat" disable-adjacent-links="true" eps-tolerance="1e-3" >
+      <Body body-id="table" />
+      <Body body-id="sphere" />
+      <Body body-id="bandit-arm" />
+    </DeformableCCD>
+
+    <!-- Collision detector: leading 'D_' indicates that it is disabled -->
+<!--
+    <GeneralizedCCD id="coldet" ori-integrator-id="euler-quat" disable-adjacent-links="true">
+      <Body body-id="bandit-arm" />
+      <Body body-id="tennisball" />
+
+      <DisabledPair object1-id="claw-left-left" object2-id="claw-left-right" />
+      <DisabledPair object1-id="claw-left-left" object2-id="forearm-left" />
+      <DisabledPair object1-id="claw-left-right" object2-id="forearm-left" />
+
+      <DisabledPair object1-id="elbow-left" object2-id="hand-left" />
+      <DisabledPair object1-id="elbow-left" object2-id="shoulder2-left" />
+    </GeneralizedCCD>
+-->
+
+    <!-- Gravity force -->
+    <GravityForce id="gravity" accel="0 -9.81 0"  />
+
+    <!-- The tennis ball -->
+    <RigidBody id="tennisball" enabled="true" visualization-id="tennisball-viz" position=".25 0 0">
+      <CollisionGeometry primitive-id="ptennisball" />
+      <InertiaFromPrimitive primitive-id="ptennisball" />
+    </RigidBody>
+
+    <!-- The fake base -->
+    <RigidBody id="fake-base" enabled="false" visualization-id="fake-base-viz" position="-.07 -.15 -.0325">
+    </RigidBody>
+
+  <EventDrivenSimulator integrator-id="odepack" collision-detector-id="coldet" collision-tolerance="1e-4" TOI-tolerance="1e-3">
+    <DynamicBody dynamic-body-id="bandit-arm" />
+    <DynamicBody dynamic-body-id="sphere" />
+    <DynamicBody dynamic-body-id="table" />
+    <DynamicBody dynamic-body-id="fake-base" />
+    <RecurrentForce recurrent-force-id="gravity" enabled="true" />
+    <ContactParameters object1-id="bandit-arm" object2-id="sphere" restitution="0" mu-coulomb="1.0" mu-viscous="0" friction-cone-edges="2" />
+    <ContactParameters object1-id="table" object2-id="sphere" restitution="0" mu-coulomb="1.0" mu-viscous="0" friction-cone-edges="2" />
+  </EventDrivenSimulator>
+
+  <!-- Bandit starts here and continues to the rest of the file! -->
+  <RCArticulatedBody id="bandit-arm" fdyn-algorithm="crb" floating-base="false" fdyn-algorithm-frame="link">
+
+    <!-- The set of articulated body links -->
+    <RigidBody id="base"  position="0 0 0" />
+
+    <RigidBody id="shoulder1-left" position="-.124 .064 -.04" visualization-id="pshoulder1">
+      <InertiaFromPrimitive primitive-id="pshoulder1" />
+      <CollisionGeometry primitive-id="pshoulder1-coll" />
+    </RigidBody>
+
+    <RigidBody id="shoulder2-left" position="-.172 .04 -.04">
+      <Visualization visualization-id="pshoulder2" visualization-rel-transform="-1 0 0 0; 0 1 0 0; 0 0 -1 0; 0 0 0 1" /> 
+      <InertiaFromPrimitive primitive-id="pshoulder2" rel-transform="-1 0 0 0; 0 1 0 0; 0 0 -1 0; 0 0 0 1" />
+      <CollisionGeometry primitive-id="pshoulder2-coll" rel-transform="-1 0 0 0; 0 1 0 0; 0 0 -1 0; 0 0 0 1" />
+    </RigidBody>
+
+    <RigidBody id="bicep-left" position="-0.174 -0.05 -0.04" visualization-id="pbicep">
+      <InertiaFromPrimitive primitive-id="pbicep" />
+      <CollisionGeometry primitive-id="pbicep-coll" />
+    </RigidBody>
+
+    <RigidBody id="elbow-left" position="-0.174 -.1 -0.028" visualization-id="pelbow">
+      <InertiaFromPrimitive primitive-id="pelbow" />
+      <CollisionGeometry primitive-id="pelbow-coll" />
+    </RigidBody>
+
+    <RigidBody id="forearm-left" position="-0.174 -.147 -0.028" visualization-id="pforearm">
+      <InertiaFromPrimitive primitive-id="pforearm" />
+      <CollisionGeometry primitive-id="pforearm-coll" />
+    </RigidBody>
+
+    <RigidBody id="hand-left" position="-.173 -.1525 -.036" visualization-id="phand">
+      <InertiaFromPrimitive primitive-id="phand" />
+      <CollisionGeometry primitive-id="phand-coll" />
+    </RigidBody>
+
+    <RigidBody id="claw-left-left" position="-.1975 -.21 -.0265" vvisualization-id="claw-left-viz">
+      <Visualization visualization-id="pclaw1-left-coll" />
+      <Visualization visualization-id="pclaw2-left-coll" />
+      <Visualization visualization-id="pclaw3-left-coll" />
+      <InertiaFromPrimitive primitive-id="pclaw1-left-coll" />
+      <InertiaFromPrimitive primitive-id="pclaw2-left-coll" />
+      <InertiaFromPrimitive primitive-id="pclaw3-left-coll" />
+      <CollisionGeometry primitive-id="pclaw1-left-coll" />
+      <CollisionGeometry primitive-id="pclaw2-left-coll" />
+      <CollisionGeometry primitive-id="pclaw3-left-coll" />
+    </RigidBody>
+
+    <RigidBody id="claw-left-right" position="-.1475 -.21 -.0265" vvisualization-id="claw-right-viz">
+      <Visualization visualization-id="pclaw1-right-coll" />
+      <Visualization visualization-id="pclaw2-right-coll" />
+      <Visualization visualization-id="pclaw3-right-coll" />
+      <InertiaFromPrimitive primitive-id="pclaw1-right-coll" />
+      <InertiaFromPrimitive primitive-id="pclaw2-right-coll" />
+      <InertiaFromPrimitive primitive-id="pclaw3-right-coll" />
+      <CollisionGeometry primitive-id="pclaw1-right-coll" />
+      <CollisionGeometry primitive-id="pclaw2-right-coll" />
+      <CollisionGeometry primitive-id="pclaw3-right-coll" />
+    </RigidBody>
+
+    <!-- The set of articulated body joints -->
+
+    <RevoluteJoint id="left-shoulder1-joint" qd="0" global-position="-0.1 0.05 -0.03" inboard-link-id="base" outboard-link-id="shoulder1-left" max-forces="1000" lower-limits="-1.4" upper-limits=".2" limit-rcoeff="0"  limit-kp="100" limit-kv="2.5" global-axis="1 0 0" visualization-id="shoulder1-joint-viz" viscous-friction-coeff="10" />
+
+    <RevoluteJoint id="left-shoulder2-joint" qd="0" global-position="-0.124 0.064 -0.04" inboard-link-id="shoulder1-left" outboard-link-id="shoulder2-left" max-forces="1000" lower-limits="-.6" upper-limits=".6" limit-rcoeff="0"  limit-kp="100" limit-kv="2.5" global-axis="0 0 -1" visualization-id="shoulder2-joint-viz" viscous-friction-coeff="10" />
+
+    <RevoluteJoint id="left-bicep-joint" qd="0" global-position="-0.174 -0.024 -0.04" inboard-link-id="shoulder2-left" outboard-link-id="bicep-left" max-forces="250" lower-limits="-1" upper-limits="1" limit-rcoeff="0"  limit-kp="100" limit-kv="2.5" global-axis="0 1 0" visualization-id="cy" viscous-friction-coeff="1" />
+
+    <RevoluteJoint id="left-elbow-joint" qd="0" global-position="-0.174 -0.075 -0.04" inboard-link-id="bicep-left" outboard-link-id="elbow-left" max-forces="250" lower-limits="-1.8" upper-limits=".2" limit-rcoeff="0"  limit-kp="100" limit-kv="2.5" global-axis="1 0 0" visualization-id="elbow-joint-viz" viscous-friction-coeff="1" />
+
+    <RevoluteJoint id="left-forearm-joint" qd="0" global-position="-0.174 -.12 -0.04" inboard-link-id="elbow-left" outboard-link-id="forearm-left" max-forces="150" lower-limits="-3.14" upper-limits="3.14" limit-rcoeff="0"  limit-kp="100" limit-kv="2.5" global-axis="0 1 0" visualization-id="cy" viscous-friction-coeff="1" />
+
+    <RevoluteJoint id="left-hand-joint" qd="0" global-position="-0.174 -.15 -0.026" inboard-link-id="forearm-left" outboard-link-id="hand-left" max-forces="100" lower-limits="-.707" upper-limits=".707" limit-rcoeff="0"  limit-kp="100" limit-kv="2.5" global-axis="1 0 0" visualization-id="finger-joint-viz" viscous-friction-coeff="1" />
+
+    <RevoluteJoint id="left-claw-left-joint" qd="0" global-position="-.1925 -.18 -0.0265" inboard-link-id="hand-left" outboard-link-id="claw-left-left" max-forces="100" lower-limits="-.5" upper-limits="0" limit-rcoeff="0"  limit-kp="100" limit-kv="2.5" global-axis="0 0 1" visualization-id="claw-joint-viz" viscous-friction-coeff="1" />
+
+    <RevoluteJoint id="left-claw-right-joint" qd="0" global-position="-.1525 -.18 -0.0265" inboard-link-id="hand-left" outboard-link-id="claw-left-right" max-forces="100" lower-limits="0" upper-limits=".5" limit-rcoeff="0"  limit-kp="100" limit-kv="2.5" global-axis="0 0 1" visualization-id="claw-joint-viz" viscous-friction-coeff="1" />
+
+  </RCArticulatedBody>
+
+  <PSDeformableBody id="sphere" transform="1 0 0 -0.172; 0 1 0 -0.025; 0 0 1 0.20; 0 0 0 1" tetra-mesh-id="sphere-tetra" tri-mesh-primitive-id="sphere-tri" default-mass=".025" default-kp="2500" default-kv="100" />
+
+  <!-- the table -->
+  <RigidBody id="table" enabled="false" visualization-id="ptable" vvisualization-filename="table.iv" position="0 -.25 0.4">
+    <CollisionGeometry primitive-id="ptable" />  
+  </RigidBody>
+
+  </MOBY>
+</XML>
+

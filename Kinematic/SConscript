@@ -1,0 +1,16 @@
+
+# import variables from calling scripts
+Import(['env_copy'])
+
+# add moby libraries to libraries used by environment
+env_copy['LIBS'].append('moby')
+env_copy['LIBS'].append('qwt')
+
+# following necessary for QMutex in Kinematic
+env_copy['CCFLAGS'] = env_copy['CCFLAGS'] + (' -DQT_THREAD_SUPPORT')
+
+# build Kinematic
+env_copy.Uic('KinematicForm.ui')
+env_copy.Uic('ObjectForm.ui')
+env_copy.Program(target = 'Kinematic', source = ['KinematicForm.ui', 'KinematicFormImpl.cpp', 'main.cpp', 'ObjectForm.ui', 'ObjectFormImpl.cpp'])
+

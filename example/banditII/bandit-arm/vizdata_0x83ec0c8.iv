@@ -1,0 +1,27 @@
+#Inventor V2.1 ascii
+
+
+Separator {
+
+  Separator {
+
+    Separator {
+
+      Separator {
+
+        Transform {
+          translation 0 0 0
+          rotation -1 0 0  1.5707964
+          scaleFactor 1 1 1
+          scaleOrientation 0 0 1  0
+
+        }
+        Cylinder {
+          radius 0.0049999999
+          height 0.1
+
+        }
+      }
+    }
+  }
+}

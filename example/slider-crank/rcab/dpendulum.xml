@@ -1,0 +1,46 @@
+<!-- A pendulum bob striking a wall, reduced coordinate version -->
+
+<XML>
+  <MOBY>
+    <Cylinder id="c" radius="1" height="5" global-axis="y" circle-points="100" density="1.0" />
+    <Box id="b3" xlen="10" ylen="1" zlen="10" density="10.0" />
+
+   <GeneralizedCCD id="ccd" ori-integrator-id="euler-quat" eps-tolerance="1e-3" toi-tolerance="1e-3">
+      <Body body-id="chain" />
+    </GeneralizedCCD>
+
+    <EulerIntegrator id="euler" type="VectorN" />
+    <EulerIntegrator id="euler-quat" type="Quat" />
+
+    <GravityForce id="gravity" accel="0 -9.81 11 " />
+
+  <Simulator integrator-id="euler" collision-detector-id="ccd">
+    <RecurrentForce recurrent-force-id="gravity" enabled="true" /> 
+    <DynamicBody dynamic-body-id="chain" />
+    <ContactParameters object1-id="platform" object2-id="l1" restitution="1" mu-coulomb="0" />
+  </Simulator>
+
+  <RCArticulatedBody id="chain" fdyn-algorithm="crb" fdyn-algorithm-frame="link" floating-base="false">
+
+      <RigidBody id="base" global-position="0 0 0" enabled="false" />
+
+      <RigidBody id="l1" transform="0 -1 0 2.5; 1 0 0 0; 0 0 1 0; 0 0 0 1" xvisualization-id="cyl">
+        <InertiaFromPrimitive primitive-id="c" />
+        <CollisionGeometry primitive-id="c" />
+        <Visualization visualization-id="c" />
+      </RigidBody>
+
+      <RigidBody id="l2" transform="0 -1 0 7.5; 1 0 0 0; 0 0 1 0; 0 0 0 1" xvisualization-id="cyl">
+        <InertiaFromPrimitive primitive-id="c" />
+        <CollisionGeometry primitive-id="c" />
+        <Visualization visualization-id="c" />
+      </RigidBody>
+
+      <RevoluteJoint id="q" q="1.57079632679" qd="0" global-position="0 0 0" inboard-link-id="base" outboard-link-id="l1" type="revolute" maxforce="10000" lower-limits="-1000" upper-limits="1000" coulomb-friction-coeff="0" viscous-friction-coeff="0" restitution-coeff="1" global-axis="0 0 1" />
+      <RevoluteJoint id="q2" global-position="5 0 0" inboard-link-id="l1" outboard-link-id="l2" type="revolute" maxforce="10000" lower-limits="-1000" upper-limits="10000" coulomb-friction-coeff="0" viscous-friction-coeff="0" restitution-coeff="1" global-axis="0 0 1" />
+      <RevoluteJoint id="q3" global-position="0 0 0" inboard-link-id="l2" outboard-link-id="base" type="revolute" maxforce="10000" lower-limits="-1000" upper-limits="10000" coulomb-friction-coeff="0" viscous-friction-coeff="0" restitution-coeff="1" global-axis="0 0 1" />
+    </RCArticulatedBody>
+
+  </MOBY>
+</XML>
+

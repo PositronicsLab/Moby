@@ -1,0 +1,14 @@
+# import variables from calling scripts
+Import('env_copy')
+
+# build the symbolic code plugin
+#env_copy.SharedLibrary('libbanditarm.so', ['banditarm_fkin.cpp', 'banditarm_fdyn.cpp', 'banditarm_idyn.cpp'])
+
+# build the test controller
+#env_copy.SharedLibrary('test_symbolic.cpp')
+
+# build the example
+#env_copy.Program('banditII.cpp')
+#env_copy.Program('banditarm.cpp')
+env_copy.SharedLibrary('grasp-controller.cpp')
+

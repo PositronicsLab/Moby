@@ -1,0 +1,15 @@
+# import variables from calling scripts
+Import('env_copy')
+
+# build the robot controller plugin
+env_copy.SharedLibrary('controller.cpp')
+
+# build the collision detection plugin
+env_copy.SharedLibrary('coldet-plugin.cpp')
+
+# for debugging symbolically derived code
+#env_copy.SharedLibrary('test_symbolic.cpp')
+
+# build the symbolic code plugin
+#env_copy.SharedLibrary('librobot.so', ['robot_fkin.cpp', 'robot_fdyn.cpp', 'robot_idyn.cpp'])
+

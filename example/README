@@ -1,0 +1,348 @@
+8/27/2007
+Evan Drumwright
+===============================================================================
+
+1. Overview
+
+The examples in this directory are intended to be not only a way to illustrate
+and teach how to use Moby, but also to verify its proper illustration.
+Videos illustrating the result of each example can be found at
+http://moby.sourceforge.net/examples
+
+Every example uses the "driver" program to read in the desired XML file and
+step the simulator.  If the example does not require control (e.g., the 
+contact_simple examples), then the "driver" program can be used alone -- it
+initializes the GUI controls, sets up the 3D scene (including creating lights
+and cameras if necessary), and calls the ContactSimulator::step() method to
+step through the simulation.  If the example does require control, as do the
+robot and controlled pendulum examples, then control code can be provided by a 
+dynamically loaded library plugin (see Section 3). 
+
+
+
+2. Driver
+
+The "driver" program performs the following functions:
+
+ - reads the simulator from a specified XML file
+ - sets up Qt window
+ - reads an optional VRML file, scene.wrl, that can give camera and lighting
+   specifications, world background color, and even scenery elements
+ - creates camera and lights, if not given in scene.wrl
+ - calls dynamically loaded control code, if available
+ - steps the simulation
+ - renders the simulation to screen, VRML, or image
+
+
+Syntax: driver [options] <XML file>
+
+
+2.1 options
+
+Note: each option must be separated with whitespace (example: 
+'driver -r -p=./controller.so')
+
+  -l=x     Set the logging output level (0=none, powers of two activate
+           different types of debugging)
+
+  -lt=x    Begins logging at iteration x
+
+  -lp=x    Stops logging after iteration x
+
+  -lf=x    Set the logging output filename to x
+
+  -of      Outputs the simulation frame rate (instaneous and average) to stdout
+
+
+  -oi      Outputs the iteration number to stdout
+
+
+  -or      Outputs the time to compute the last iteration as well as the mean
+           iteration computation time and the mean time to compute a second of
+           simulation time to stdout
+
+
+  -p=fname The control plugin filename, if any (see Section 3)
+
+
+  -x=fname The path to the background, lights, and camera scenery filename  
+
+
+  -s=H     The simulation step size (e.g., -s=0.001 [the default])
+
+
+  -r       Renders the simulation to screen.  
+
+
+  -v=NUM   Saves the simulation at each NUM simulation steps to a file in the
+           sequence driver.out.xxxxxxxx.wrl, where xxxxxxxx is the zero-padded
+           frame number in the sequence.
+
+           This option is useful for generating input to a raytracer (such as
+           pane [http://kevinbeason.com/scs/pane/] or Povray, via vrml2pov). 
+           Note that writing to VRML can be quite slow, so NUM > 1 might be 
+           considered if you are experiencing significant slowdowns; a typical 
+           simulation step size of 0.001 means that you can use NUM = 10 and 
+           still get 100 frames per simulation second of output.
+
+
+  -i=NUM   Renders the simulation to the file sequence 
+           driver.out.xxxxxxxx.png, where xxxxxxxx is the zero-padded frame
+           number in the sequence.  NOTE: you *must* use this option with
+           the -x option to setup the camera; otherwise, the images may
+           be blank.  Using NUM > 1 might be considered to reduce
+           the total number of frames produced, which it is assumed are then
+           sent to a mpeg encoder like ffmpeg; one can still get very high
+           frame rates, yet lower the processing time by an encoder by using
+           NUM > 1.
+
+
+  -t       If this option is given, then VRML and image outputs are triggered
+           on _simulation time_ rather than iteration.  Most
+           simulators backup to find a time-of-impact, and so may not step a
+           full step for each iteration.  If the output sequence from your 
+           simulation appears to slow down inexplicably at points, try
+           giving this option.
+
+
+	-mi=NUM	 Maximum number of iterations.  After this number of iterations,
+           driver quits with error code zero.
+
+
+	-mt=NUM  Maximum simulation time.  After the simulation reaches this time,
+           driver quits with error code zero.
+
+
+
+2.1 Background scenery, lights, and camera 
+
+An OpenInventor (.iv) or VRML 97 file can be used to read background scenery,
+lights, and a camera directly into your scene.  Any elements read from this 
+file are incorporated directly into the OpenInventor scene graph.  A typical 
+use of this file is that of including camera and lighting
+nodes, allowing you to quickly setup (and change, if need be) your scene.
+If camera and lightning nodes are not specified in this file, or if this
+file does not exist in the current directory, then driver will create some 
+perspective camera and lighting nodes.
+
+
+3. Controllers
+
+With the combination of "driver", simulation XML files, and controllers,
+it is possible to write sophisticated simulators and controllers with a
+minimum of coding effort. 
+
+Controllers are C language functions with the following prototype:
+
+void controller(DynamicBodyPtr body, Real time, void* optional_arg)
+{
+	// .. controller code goes here ..
+}
+
+Controllers are called automatically when needed: after all recurrent forces
+have been added and before forward dynamics has been computed.  Each dynamic
+body being simulated can have a controller associated with it; note that
+controllers for links of multibodies will not be called automatically.  An
+explanation of the parameters passed to the controller functions follows:
+
+  -- body: the body to be controlled (this is useful in case one controller
+           function is to be used to control multiple bodies)
+
+  -- time: the current simulation time
+
+  -- optional_arg: an optional argument to the controller (see below)
+
+
+Controllers can be registered with a dynamic body just by setting the 
+function pointer and any optional data; an example is below:
+
+  DynamicBodyPtr body = simulator->find_dynamic_body("robot");
+	body->controller = &controller;
+	body->controller_arg = &simulator;
+
+By using plugins (see next section), controllers can be easily swapped.
+
+
+
+4.  Plugins
+
+A plugin need only consist of the following "C" language function:
+
+
+// NOTE: the 'extern "C"' statement is necessary so that dlopen() can find
+// the function
+extern "C" 
+{
+  void init(void* root_separator, const std::map<std::string, BasePtr>& read_map, Real step_size) 
+  {
+    // do stuff here...
+  }
+}
+
+init() is called once, immediately after the simulator is loaded from the XML 
+file and before rendering (if any) begins.  The arguments to init() are 
+described below:
+
+  -- root_separator: a pointer to the root SoSeparator for the visualization
+     (if Moby was built with USE_INVENTOR, otherwise, it will be a NULL 
+      pointer)
+
+  -- read_map: a map of object strings to objects read from the XML file
+
+	-- step_size: the default simulator step size
+
+
+An example plugin is seen below:
+
+#include <map>
+#include <string>
+#include <Moby/ContactSimulator.h>
+#include <Moby/RigidBody.h>
+
+void controller(DynamicBodyPtr, Real, void*);
+boost::shared_ptr<Simulator> simulator;
+Real dt;
+
+// necessary for dlopen() to find the controller
+extern "C" void init(void* root_separator, const std::map<std::string, BasePtr>& read_map, Real step_size)
+{
+	// find the simulator (we assume that it is eponymous)
+	std::map<std::string, BasePtr>::const_iterator siter;
+	siter = read_map.find("simulator");
+	assert(siter != read_map.end());
+	simulator = boost::dynamic_pointer_cast<Simulator>(siter->second); 
+
+	// find a body and register a controller for it
+	DynamicBodyPtr box = simulator->find_dynamic_body("box");
+	robot->controller = &controller;
+
+	// add a cube to the root separator
+	SoSeparator* rs = (SoSeparator*) root_separator;
+	root_separator->addChild(new SoCube);
+
+	// store the step size
+	dt = step_size;
+}
+
+/**
+ * Applies a lateral force to a box resting on a plane.
+ */
+void controller(DynamicBodyPtr body, Real time, void* optional_arg)
+{
+	// apply a force to the body at the C.O.M., parameterized by current time
+	body->add_force(Vector3(time*1,0,0));
+}
+
+
+This code can be compiled and linked in the following manner, assuming it is 
+stored in a file named plugin.cpp
+
+g++ -shared plugin.cpp -o plugin.so
+
+
+Now, "driver" can be called using the name of this plugin; an example is below:
+
+driver -r -p=plugin.so test.xml
+
+
+
+5. Utilities in this directory
+
+conv-decomp.cpp        Decomposes a geometry into convex pieces
+
+convexify.cpp:         A utility to compute the convex hull of a geometry 
+                       described by a Wavefront OBJ file and store it in a new
+                       OBJ file.                              
+
+extract-contacts.py    Extracts contact data from logging output from driver
+                       (logging output specified with -l=1 option on driver
+                       command line) for visualization.  If -v option also
+                       specified on driver command line, contact data can
+                       be viewed concurrently with configuration of the system
+                       using the view utility (described below).
+
+objtowrl.cpp:          A utility to convert from simple Wavefront OBJ format 
+                       files to VRML 97 format
+
+output_symbolic.cpp    A utility to output a reduced-coordinate articulated
+                       body for conversion to faster symbolic dynamics
+
+view.cpp:              A utility to view Open Inventor (.iv), VRML 1.0/97 
+                       (.wrl), and Wavefront OBJ files using Coin and SoQt
+                       NOTE: only built if Moby built with USE_INVENTOR 
+                       option
+
+
+5-1.  conv-decomp
+
+conv-decomp takes the following options:
+
+  -d       Activates debugging mode.  Debugging mode will write debugging
+           output to the file 'output.log', a hierarchy of halfspace VRML
+           files (hs-xx-yy.wrl), a hierarchy of edge VRML files 
+           (edges-xx-yy.wrl), and a set of VRML files showing the non-convex 
+           edges used for splitting (ncedges-xx.wrl).
+
+  -v x     Sets the convexity tolerance (default 1e-8).  The larger this value,
+           the more likely an edge is to be considered convex when it is not
+           so; if this value is smaller, than edges which are in fact convex
+           may be treated as otherwise so more pieces may be obtained in the
+           decomposition.
+
+  -l x     Sets the colinearity tolerance (default 1e-8).  The colinearity
+           tolerance is used to try to prevent creating degenerate halfspaces.
+           The larger this value, the less likely a degenerate halfspace will
+           be created.  See also: options -p, -e
+
+  -p x     Sets the coplanarity tolerance (default 1e-8).  The coplanarity
+           tolerance is used to try to prevent creating degenerate halfspaces.
+           The larger this value, the less likely a degenerate halfspace will
+           be created.  See also: options -l, -e 
+
+  -t x     Sets the straddling tolerance (default 1e-8) which determines
+           whether edges are straddling the plane.  The larger the value, the
+           more likely a non-convex edge is added to both subspaces; this
+           should be effective if there are missing pieces.
+
+  -s x     Sets the splitting tolerance (default 1e-8).  The smaller the
+           splitting tolerance, the more likely an edge that straddles the
+           splitting plane will be assigned to one plane or the other but
+           not both.
+
+  -m x     Sets the maximum triangle area (default inf) for creating extra
+           vertices to make sure that a triangle is fully represented in a
+           single subspace.  Note: this option will likely not be helpful.
+
+  -r       Randomizes the splitting order.  Running conv-decomp several times
+           with this option activated may allow you to find a better
+           (i.e., fewer piece) decomposition.
+
+  -e       Allow edges to be split into degenerate halfspaces; this option
+           permits planar or linear halfspaces to be created, so it should
+           typically not be activated.
+
+
+6.  Description of examples
+
+    Directory                    Description
+    -------------------------------------------------------------------------
+    banditII/               Examples based on the BanditII manipulator arm from
+                              Blue Sky Robotics
+
+    contact_simple/         Directory of very simple examples to demonstrate
+                              that simple contact examples are properly 
+                              simulated
+
+    chain-contact/          Examples with simple articulated bodies and
+                            contact   
+
+    HOAP2/                  Example of the Fujitsu HOAP-2 humanoid robot
+
+    HOAP3/                  Example of the Fujitsu HOAP-3 humanoid robot
+
+    mrobot/                 Examples with simple mobile robots
+
+
+NOTE: Each of these directories contains a README file with more information
+      about the example.
+

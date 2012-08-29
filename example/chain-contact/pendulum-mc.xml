@@ -1,0 +1,49 @@
+<!-- Pendulum bob striking a wall, maximal coordinate articulated body version -->
+
+<XML>
+  <MOBY>
+    <SoSeparator id="cyl" filename="cyl.wrl" />
+    <Cylinder id="c" radius="1" height="5" global-axis="y" circle-points="100" density="1.0" />
+    <Box id="b3" xlen="10" ylen="1" zlen="10" density="10.0" />
+<Plane id="plane" transform="0 1 0 0; -1 0 0 0; 0 0 1 0; 0 0 0 1" max-side-len="5" />
+<Sphere id="sphere" radius="1" />
+
+    <EulerIntegrator id="euler" type="VectorN" />
+    <EulerIntegrator id="euler-quat" type="Quat" />
+
+    <GravityForce id="gravity" accel="0 -9.81 0" />
+    <FSABAlgorithm id="fsab" />
+    <CRBAlgorithm id="crb" />
+
+  <Simulator integrator-id="euler" collision-detector-id="coldet">
+    <RecurrentForce recurrent-force-id="gravity" enabled="true" /> 
+    <DynamicBody dynamic-body-id="chain" />
+    <DynamicBody dynamic-body-id="platform" />
+    <ContactData object1-id="platform" object2-id="l1" restitution="0" mu="0" />
+  </Simulator>
+
+  <MCArticulatedBody id="chain" baumgarte-alpha="1000" baumgarte-beta="0" >
+
+    <RigidBody id="base" global-position="0 0 0" enabled="false">
+    </RigidBody>
+
+<!--      <RigidBody id="l1" transform="0 -1 0 2.5; 1 0 0 0; 0 0 1 0; 0 0 0 1" xvisualization-id="cyl"> -->
+      <RigidBody id="l1" transform="1 0 0 2.5; 0 1 0 0; 0 0 1 0; 0 0 0 1" linear-velocity="0 0 0" xvisualization-id="cyl">
+        <InertiaFromPrimitive primitive-id="c" />
+<!--        <CollisionGeometry primitive-id="c" /> -->
+        <CollisionGeometry primitive-id="sphere" rrel-transform="1 0 0 0; 0 1 0 -1.5; 0 0 1 0; 0 0 0 1" />
+        <Visualization vvisualization-rel-transform="1 0 0 0; 0 1 0 -1.5; 0 0 1 0; 0 0 0 1" visualization-id="sphere" />
+      </RigidBody>
+
+      <RevoluteJoint id="q" qq="1.57079632679" global-position="0 0 0" inboard-link-id="base" outboard-link-id="l1" global-axis="0 0 1" coulomb-friction-coeff="0" viscous-friction-coeff="0.0"/>
+    </MCArticulatedBody>
+
+    <!-- setup the platform rigid body; it is not active -->
+    <RigidBody id="platform" enabled="false"
+      position="-4 -5 0" visualization-id="b3">
+      <CollisionGeometry primitive-id="b3" /> 
+    </RigidBody>
+
+  </MOBY>
+</XML>
+

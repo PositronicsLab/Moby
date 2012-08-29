@@ -1,0 +1,24 @@
+9/07/2007
+Evan Drumwright
+===========================================================================
+
+1.  Overview
+
+Kinematic is a utility for loading simulation environments (via .XML files),
+allowing the user to modify the environment (object transformations, joint
+positions of articulated bodies, etc.), and saving the modified environments
+to a new .XML file.  It is built automatically from the scons script
+(the 'SConstruct') in the root Moby directory.
+
+Loading and saving of simulation setups can be performed using the 
+appropriate menu options in Kinematic.  Additionally, Kinematic takes the
+following command line syntax:
+
+
+Syntax: Kinematic [-x=fname] [XML file]
+
+  -x=fname   The path to the background lights, and camera scenery filename.
+             This option is identical to that used by 'driver'.
+
+  XML file   The simulation XML file to load
+
