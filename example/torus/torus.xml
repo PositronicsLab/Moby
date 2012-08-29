@@ -1,0 +1,52 @@
+<!-- A deformable torus falling onto the ground --> 
+
+<XML>
+  <MOBY>
+    <!-- Primitives -->
+    <Box id="b1" xlen="1" ylen="1" zlen="1" density="1.0"/>
+    <Box id="b3" xlen="10" ylen=".5" zlen="10" density="10.0" />
+    <TetraMesh id="ring-tetra" filename="cube.tetra" />
+    <TriangleMesh id="ring-tri" filename="cube.obj" />
+
+    <!-- Integrator -->
+    <EulerIntegrator id="euler" type="VectorN" semi-implicit="false" />
+    <EulerIntegrator id="euler-vec3" type="Vector3" semi-implicit="false" />
+    <EulerIntegrator id="euler-quat" type="Quat" semi-implicit="false" />
+    <RungeKuttaImplicitIntegrator type="VectorN" id="rk4" semi-implicit="true"/>
+
+    <!-- Collision detector -->
+    <MeshDCD id="dcd" pos-integrator-id="euler-vec3" ori-integrator-id="euler-quat" eps-tolerance="1e-3" >
+      <Body body-id="torus" />
+      <Body body-id="ground" />
+    </MeshDCD>
+
+    <!-- Collision method -->
+    <CvxOptRestitutionModel id="cvxopt" tolerance="1e-8" max-iterations="100" />
+    <NewtonRestitutionModel id="newton" />
+    <MirtichRestitutionModel id="mirtich" integrator-id="euler-vec3"/>
+    <MLIRestitutionModel id="mli" />
+    <AnitescuPotraRestitutionModel id="ap" friction-cone-edges="2" />
+
+    <!-- Gravity force -->
+    <GravityForce id="gravity" accel="0 -9.81 0"  />
+
+    <!-- Deformable body -->
+      <!-- the torus -->
+      <PSDeformableBody id="torus" transform="1 0 0 1; 0 1 0 10; 0 0 1 2; 0 0 0 1" tetra-mesh-primitive-id="ring-tetra" tri-mesh-primitive-id="ring-tri" default-mass="1" default-kp="10000" default-kv="1000" />
+
+      <!-- the ground -->
+      <RigidBody name="ground" id="ground" enabled="false" visualization-filename="ground.wrl" position="0 -.25 0">
+        <CollisionGeometry primitive-id="b3" />  
+      </RigidBody>
+
+    <!-- Setup the simulator -->
+    <ImpulseContactSimulator id="simulator" integrator-id="rk4" collision-detector-id="dcd" TOI-tolerance="1e-3">
+      <DynamicBody dynamic-body-id="torus" />
+      <DynamicBody dynamic-body-id="ground" />
+      <RecurrentForce recurrent-force-id="gravity" enabled="true" />
+      <ContactData object1-id="ground" object2-id="torus" restitution="1" mu-coulomb="0" mu-viscous="0.1" collision-method-id="cvxopt"  max-points="1000" />
+
+    </ImpulseContactSimulator> 
+  </MOBY>
+</XML>
+

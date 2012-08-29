@@ -1,0 +1,21 @@
+This directory contains a the HOAP-2 humanoid robot example.  The HOAP-2 model 
+is a floating-base humanoid (not constrained to the environment) with revolute, 
+spherical, and universal joints.  The robot is positioned a few centimeters
+above the ground, and, upon starting the simulation will drop until it
+contacts the ground.  As this example does not have any controllers associated
+with it, the robot will then fall to the ground.
+
+ 
+FILE DESCRIPTIONS
+
+ground.iv             VRML 1.0 visualization of the ground
+
+hoap.xml              XML simulator file the HOAP-2 robot 
+
+turbowood.png         Wooden ground texture
+
+robot/*               The robot geometry for collision detection and inertial 
+                      property determination
+
+robot_viz/*           VRML 1.0/97 files for visualization of the robot model
+

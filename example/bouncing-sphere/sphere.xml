@@ -1,0 +1,58 @@
+<!-- A deformable torus falling onto the ground --> 
+
+<XML>
+  <MOBY>
+    <!-- Primitives -->
+    <Box id="b1" xlen="1" ylen="1" zlen="1" density="1.0"/>
+    <Box id="b3" xlen="10" ylen=".5" zlen="10" density="10.0" />
+    <TetraMesh id="sphere-tetra" filename="sphere.tetra" />
+    <TriangleMesh id="sphere-tri" filename="sphere.obj" />
+
+    <!-- Integrator -->
+    <ODEPackIntegrator id="rk4" type="VectorN" stiff="false" min-step-size="0" rel-err-tol="0" abs-err-tol="1e-4" />
+    <EulerIntegrator id="euler" type="VectorN" semi-implicit="false" />
+    <EulerIntegrator id="euler-vec3" type="Vector3" semi-implicit="false" />
+    <EulerIntegrator id="euler-quat" type="Quat" semi-implicit="false" />
+
+    <!-- Collision detector -->
+    <MeshDCD id="meshdcd" pos-integrator-id="euler-vec3" ori-integrator-id="euler-quat" eps-tolerance="1e-1" >
+      <Body body-id="sphere" />
+      <Body body-id="ground" />
+    </MeshDCD>
+
+    <DeformableCCD id="dccd" pos-integrator-id="euler-vec3" ori-integrator-id="euler-quat" eps-tolerance="1e-3" >
+      <Body body-id="sphere" />
+      <Body body-id="ground" />
+    </DeformableCCD>
+
+    <DeformCD id="deformcd">
+      <Body body-id="sphere" />
+      <Body body-id="ground" />
+    </DeformCD>
+
+    <!-- Collision method -->
+    <CvxOptRestitutionModel id="cvxopt" tolerance="1e-8" max-iterations="100" />
+
+    <!-- Gravity force -->
+    <GravityForce id="gravity" accel="0 -9.81 0"  />
+
+    <!-- Deformable body -->
+      <!-- the sphere -->
+      <PSDeformableBody id="sphere" transform="1 0 0 0; 0 1 0 5; 0 0 1 0; 0 0 0 1" tetra-mesh-id="sphere-tetra" tri-mesh-primitive-id="sphere-tri" default-mass=".025" default-kp="250" default-kv="10" />
+
+      <!-- the ground -->
+      <RigidBody name="ground" id="ground" enabled="false" vvisualization-filename="ground.wrl" position="0 -.25 0">
+        <CollisionGeometry primitive-id="b3" />  
+      </RigidBody>
+
+    <!-- Setup the simulator -->
+    <EventDrivenSimulator id="simulator" integrator-id="rk4" collision-detector-id="dccd" TOI-tolerance="1e-5">
+      <DynamicBody dynamic-body-id="sphere" />
+      <DynamicBody dynamic-body-id="ground" />
+      <RecurrentForce recurrent-force-id="gravity" enabled="true" />
+      <ContactParameters object1-id="ground" object2-id="sphere" restitution="0" mu-coulomb="0" mu-viscous="0.1" />
+
+    </EventDrivenSimulator> 
+  </MOBY>
+</XML>
+

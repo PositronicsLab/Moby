@@ -1,0 +1,58 @@
+
+<XML>
+  <MOBY>
+    <!-- Primitives -->
+   <Box id="pl1" xlen="100" ylen="1" zlen="1" mass="1" />
+   <Box id="pl2" xlen="141.1" ylen="1" zlen="1" mass="1" />
+   <TriangleMesh id="pblock-mesh" filename="block.obj" mass="1" intersection-tolerance="1e-2" />
+   <TriangleMesh id="prod-mesh" filename="rod.obj" intersection-tolerance="1e-2" edge-sample-length="5" />
+   <Box id="pblock1" xlen="4.2" ylen="20" zlen="4.2" intersection-tolerance="0" />
+   <Box id="pblock2" xlen="2.1" ylen="20" zlen="2.1" intersection-tolerance="0" />
+   <CSG id="pblock" mass="1.0" op1-id="pblock1" op2-id="pblock2" operator="difference" triangle-mesh-id="pblock-mesh" intersection-tolerance="1e-2" />
+   <Box id="prod" xlen="2" ylen="160" zlen="2" mass="1.0" edge-sample-length="5" intersection-tolerance="1e-2" />
+
+    <!-- Integrator -->
+    <EulerIntegrator id="euler" type="VectorN" symplectic="false" />
+
+    <!-- Gravity force -->
+    <GravityForce id="gravity" accel="0 -9.81 0"  />
+
+    <!-- Rigid bodies -->
+    <!-- the constraining block -->
+      <RigidBody id="rod" enabled="false" transform="1 0 0 0; 0 1 0 -170; 0 0 1 0; 0 0 0 1" angular-velocity="0 0.00 0" visualization-id="prod" linear-velocity="0 0 0">
+        <InertiaFromPrimitive primitive-id="prod-mesh" />
+      </RigidBody>
+
+      <!-- the slider-crank mechanism -->
+      <MCArticulatedBody id="slidercrank" baumgarte-alpha="0" baumgarte-beta="0">
+
+        <RigidBody id="base" position="0 0 0" enabled="false" />
+
+        <RigidBody id="l1" transform="1 0 0 50; 0 1 0 0; 0 0 1 0; 0 0 0 1" visualization-id="pl1">
+          <InertiaFromPrimitive primitive-id="pl1" />
+        </RigidBody>
+
+        <RigidBody id="l2" transform=".70711 -.70711 0 50; .70711 .70711 0 -50; 0 0 1 0; 0 0 0 1" visualization-id="pl2">
+          <InertiaFromPrimitive primitive-id="pl2" />
+        </RigidBody>
+ 
+        <RigidBody id="block" transform="1 0 0 0; 0 1 0 -100; 0 0 1 0; 0 0 0 1" visualization-id="pblock">
+          <InertiaFromPrimitive primitive-id="pblock-mesh" />
+        </RigidBody>
+
+        <RevoluteJoint id="j0" inboard-link-id="base" outboard-link-id="l1" global-position="0 0 0" global-axis="0 0 1" coulomb-friction-coeff=".1" viscous-friction-coeff="0" />
+        <RevoluteJoint id="j1" inboard-link-id="l1" outboard-link-id="l2" global-position="100 0 0" global-axis="0 0 1" coulomb-friction-coeff=".1" viscous-friction-coeff="0" /> 
+        <RevoluteJoint id="j2" inboard-link-id="l2" outboard-link-id="block" global-position="0 -100 0" global-axis="0 0 1" coulomb-friction-coeff=".1" viscous-friction-coeff="0" /> 
+        <PrismaticJoint id="j3" inboard-link-id="block" outboard-link-id="base" global-position="0 -100 0" global-axis="0 1 0" coulomb-friction-coeff=".1" viscous-friction-coeff="0" />
+      </MCArticulatedBody>
+
+    <!-- Setup the simulator -->
+    <Simulator id="simulator" integrator-id="euler">
+      <DynamicBody dynamic-body-id="slidercrank" />
+      <DynamicBody dynamic-body-id="rod" />
+      <RecurrentForce recurrent-force-id="gravity" enabled="true" />
+    </Simulator> 
+
+  </MOBY>
+</XML>
+

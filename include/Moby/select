@@ -1,0 +1,45 @@
+#ifndef _MOBY_SELECT_
+#define _MOBY_SELECT_
+
+#include <iterator>
+
+/** 
+ * This function, which acts like an STL algorithm, selects elements with
+ * given integer indices from a container.
+ *
+ * Example:
+ * double x[10] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
+ * int i[4] = {1, 3, 5, 7};
+ * double results[4];
+ * 
+ * select(x, i, i+4, results);
+ * // results now contains { 2, 4, 6, 8 }
+ */ 
+
+namespace Moby {
+
+/**
+ * \param container_begin iterator to the beginning of the container
+ * \param indices_begin iterator to the beginning of the indices
+ * \param indices_end iterator to the end of the indices
+ * \param output_begin iterator to the beginning of the output
+ * \return iterator to the end of the output
+ */
+template <class ForwardIterator1, class ForwardIterator2, class OutputIterator>
+OutputIterator select(ForwardIterator1 container_begin, ForwardIterator2 indices_begin, ForwardIterator2 indices_end, OutputIterator output_begin)
+{
+  unsigned last = 0;
+  while (indices_begin != indices_end)
+  {
+    std::advance(container_begin, *indices_begin - last);
+    last = *indices_begin++;
+    *output_begin++ = *container_begin;
+  }
+
+  return output_begin;
+}
+
+} // end namespace
+
+#endif
+

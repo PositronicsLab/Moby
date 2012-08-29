@@ -1,0 +1,121 @@
+/****************************************************************************
+ * Copyright 2007 Evan Drumwright
+ * This library is distributed under the terms of the GNU Lesser General Public 
+ * License (found in COPYING).
+ ****************************************************************************/
+
+#ifndef _MOBY_SORTED_PAIR_H_
+#define _MOBY_SORTED_PAIR_H_
+
+namespace Moby {
+
+/// A homogeneous pair of values, with the lowest value first
+/**
+ * This class is quite similar to the <b>pair</b> class in the standard
+ * template library.  However, this class uses a pair of <i>homogeneous</i>
+ * types (<b>pair</b> can use heterogeneous types) and sorts the first and
+ * second values (the first value is lower).  Thus the sorted_pair class is
+ * able to be used to generate keys (e.g., for STL map, etc.) from pairs of
+ * objects.
+ */
+template<class _T>
+struct sorted_pair
+{
+	typedef _T type;    
+
+	const _T first;                 ///< @c first is a copy of the first object
+	const _T second;                ///< @c second is a copy of the second object
+
+	// _GLIBCXX_RESOLVE_LIB_DEFECTS
+	// 265.  std::pair::pair() effects overly restrictive
+	/** The default constructor creates @c first and @c second using their
+		*  respective default constructors.  */
+	sorted_pair() : first(), second() { }
+
+	/** Two objects may be passed to a @c pair constructor to be copied.  */
+	sorted_pair(const _T& __a, const _T& __b) : first(__a), second(__b) 
+	{ 
+		if (__a < __b) 
+		{
+			_T* first_nc = (_T*) &first;
+			_T* second_nc = (_T*) &second;
+			std::swap(*first_nc, *second_nc);
+		} 
+	}
+
+	/** There is also a templated copy ctor for the @c pair class itself.  */
+	template<class _U>
+	sorted_pair(const sorted_pair<_U>& __p) : first(__p.first), second(__p.second) { }
+
+	/** Assignment operator */
+	void operator=(const sorted_pair& __p)
+	{
+		// get the two objects as non-const
+		_T* first_nc = (_T*) &first;
+		_T* second_nc = (_T*) &second;
+		
+		*first_nc = __p.first;
+		*second_nc = __p.second;
+	}
+};
+
+/// Two pairs of the same type are equal iff their members are equal.
+template<class _T>
+inline bool
+operator==(const sorted_pair<_T>& __x, const sorted_pair<_T>& __y)
+{ 
+return __x.first == __y.first && __x.second == __y.second; 
+}
+
+template<class _T>
+inline bool
+operator<(const sorted_pair<_T>& __x, const sorted_pair<_T>& __y)
+{
+  return __x.first < __y.first || (!(__y.first < __x.first) && __x.second < __y.second); 
+}
+
+/// Uses @c operator== to find the result.
+template<class _T>
+inline bool
+operator!=(const sorted_pair<_T>& __x, const sorted_pair<_T>& __y)
+{ return !(__x == __y); }
+
+/// Uses @c operator< to find the result.
+template<class _T>
+inline bool
+operator>(const sorted_pair<_T>& __x, const sorted_pair<_T>& __y)
+{ return __y < __x; }
+
+/// Uses @c operator< to find the result.
+template<class _T>
+inline bool
+operator<=(const sorted_pair<_T>& __x, const sorted_pair<_T>& __y)
+{ return !(__y < __x); }
+
+/// Uses @c operator< to find the result.
+template<class _T>
+inline bool
+operator>=(const sorted_pair<_T>& __x, const sorted_pair<_T>& __y)
+{ return !(__x < __y); }
+
+/**
+*  @brief A convenience wrapper for creating a pair from two objects.
+*  @param  x  The first object.
+*  @param  y  The second object.
+*  @return   A newly-constructed pair<> object of the appropriate type.
+*
+*  The standard requires that the objects be passed by reference-to-const,
+*  but LWG issue #181 says they should be passed by const value.  We follow
+*  the LWG by default.
+*/
+// _GLIBCXX_RESOLVE_LIB_DEFECTS
+// 181.  make_pair() unintended behavior
+template<class _T>
+inline sorted_pair<_T>
+make_sorted_pair(const _T __x, const _T __y)
+{ return sorted_pair<_T>(__x, __y); }
+
+} // end namespace
+
+#endif
+

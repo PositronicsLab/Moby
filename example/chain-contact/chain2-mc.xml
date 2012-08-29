@@ -1,0 +1,65 @@
+<!-- 2-link chain with fixed base -->
+
+<XML>
+  <MOBY>
+    <SoSeparator id="cyl" filename="cyl.wrl" />
+    <Cylinder id="c" radius="1" height="5" axis="y" circle-points="100" density="1.0" />
+    <Box id="b3" xlen="10" ylen=".5" zlen="10" density="10.0" />
+
+    <!-- Collision detector -->
+    <GeneralizedCCD ori-integrator-id="euler-quat" id="ccd" collision-tolerance="1e-6" toi-tolerance="1e-6" eps-tolerance="1e-3" disable-adjacent-ab-links="true">
+      <Body body-id="chain"/>
+      <Body body-id="platform" />
+    </GeneralizedCCD>
+
+    <C2ACCD ori-integrator-id="euler-quat" id="c2a" alpha-tolerance="1e-2" toi-tolerance="1e-6" eps-tolerance="1e-3" disable-adjacent-ab-links="true">
+      <Body body-id="chain"/>
+      <Body body-id="platform" />
+    </C2ACCD>
+
+    <!-- integrators, collision and contact methods, forces, fdyn algos -->
+    <EulerIntegrator id="euler" type="VectorN" />
+    <EulerIntegrator id="euler-quat" type="Quat" />
+    <RungeKuttaIntegrator id="rk4" type="VectorN" />
+    <GravityForce id="gravity" accel="0 -9.81 0 " />
+    <FSABAlgorithm id="fsab" />
+    <CRBAlgorithm id="crb" />
+
+    <!-- the simulator -->
+    <Simulator integrator-id="euler" collision-detector-id="ccd">
+      <RecurrentForce recurrent-force-id="gravity" enabled="true" /> 
+      <DynamicBody dynamic-body-id="chain" />
+      <DynamicBody dynamic-body-id="platform" />
+      <ContactParameters object1-id="platform" object2-id="chain" restitution="1" mu-coulomb="0" />
+    </Simulator>
+    
+    <!-- the chain -->
+    <MCArticulatedBody id="chain" baumgarte-alpha="1000" baumgarte-beta="0">
+
+      <!-- links in the chain -->
+      <RigidBody id="base" enabled="false" position="0 0 0"/>
+
+      <RigidBody id="l1" transform="0 -1 0 2.5; 1 0 0 0; 0 0 1 0; 0 0 0 1" visualization-id="cyl">
+        <InertiaFromPrimitive primitive-id="c" />
+        <CollisionGeometry primitive-id="c" max-tri-area="10" />
+      </RigidBody>
+
+      <RigidBody id="l2" transform="0 -1 0 7.5; 1 0 0 0; 0 0 1 0; 0 0 0 1" visualization-id="cyl">
+        <InertiaFromPrimitive primitive-id="c" />
+        <CollisionGeometry primitive-id="c" />
+      </RigidBody>
+
+      <!-- joints in the chain -->
+      <RevoluteJoint id="q" global-position="0 0 0" inboard-link-id="base" outboard-link-id="l1" maxforce="10000" global-axis="0 0 1" coulomb-friction-coeff="0" viscous-friction-coeff="0" />
+      <RevoluteJoint id="q2" global-position="5 0 0" inboard-link-id="l1" outboard-link-id="l2" maxforce="10000" global-axis="0 0 1" coulomb-friction-coeff="0" viscous-friction-coeff="0" />
+    </MCArticulatedBody>
+
+    <!-- setup the platform rigid body; it is not active -->
+    <RigidBody id="platform" enabled="false"
+      position="-6 -9 0" visualization-id="b3" >
+        <CollisionGeometry primitive-id="b3" />
+    </RigidBody>
+
+  </MOBY>
+</XML>
+

@@ -1,0 +1,144 @@
+This file contains a description of all parameters that may affect the 
+robustness, accuracy, and speed of a simulation.  In an ideal world, there 
+would be at most one such parameter, but this is not an ideal world...
+
+Collision detection related parameters
+==========================================================
+
+XML tag: GeneralizedCCD
+XML attribute: eps-tolerance
+Description: Represents the  maximum amount to which a trajectory is linearized.             Values of 1e-3 are often acceptable for simulations, and this is a 
+             good starting point.  If the contact points or normals seem 
+             incorrect or contacts are missed, this tolerance may be lowered 
+             (at the expense of greater computation time).  In general, 
+             simulations seem relatively insensitive to this parameter.
+Practical range: 1e-6 - 1e-3
+
+XML tag: GeneralizedCCD
+XML attribute: toi-tolerance
+Description: The time-of-impact tolerance above which two points are considered 
+             to be impacting at different times.  For example, if point A 
+             impacts at t=0 and point B impacts at t=1e-6 and 
+             toi-tolerance=1e-4, points A and B are considered to be impacting 
+             simultaneously.  This parameter is necessary because points A and B
+             may truly impact at the same time, though the collision detection 
+             algorithm believes otherwise because of linearization errors and 
+             floating point approximations.  The danger of setting this 
+             parameter too small is that simultaneous contacts (e.g., a box 
+             resting on the ground) will be treated sequentially, resulting in
+             oscillation.  If the parameter is set too large then
+             incorrect contact points may be determined (i.e., at points where 
+             the bodies will not contact).  Additionally, there is no "one size 
+             fits all" setting; the usable range will vary based on the size of 
+             the geometries in contact.  Fortunately, there generally exists 
+             both a fairly large feasible range and a method for setting this 
+             parameter.  Typically, one will want to set this value
+             greater than machine epsilon (~1e-20 for double precision). If 
+             eps-tolerance is set low (say 1e-6), then 1e-16 may be a good 
+             value; if eps-tolerance is set high (say 1e-3), then 1e-8 may be 
+             more appropriate.  You will know if eps-tolerance is set too high 
+             if objects that should be in resting contact do not rest; also,
+             the simulation may appear to freeze.
+Practical range: 0 - 1e-1
+
+XML tag: Sphere
+XML attribute: num-points
+Description:  The number of points used in the discrete representation of the
+              sphere.  The greater this number, the truer the approximation of
+              the sphere.  If this number is too low, a sphere will not roll
+              on a planar surface effectively.  If the number is too high,
+              excessive collision detection computation will be required.  1000
+              points generally results in a smooth discretization.
+Practical range: 50 - 10000
+
+XML tag: Cylinder
+XML attribute: num-points
+Description:  The number of points used in the discrete representation of the
+              cylinder.  The greater this number, the truer the approximation of
+              the cylinder.  If this number is too low, a cylinder will not roll
+              on a planar surface effectively.  If the number is too high,
+              excessive collision detection computation will be required.  1000
+              points generally results in a smooth discretization.
+Practical range: 50 - 10000
+
+XML tag: Cone
+XML attribute: num-points
+Description:  The number of points used in the discrete representation of the
+              cone.  The greater this number, the truer the approximation of
+              the cone.  If this number is too high, excessive collision 
+              detection computation will be required.  1000 points generally 
+              results in a smooth discretization.
+Practical range: 50 - 10000
+
+XML tag: ContactData
+XML attribute: max-points
+Description:  The maximum number of contact points used for this pair of 
+              geometries/bodies.  If the collision detection system generates
+              more points than max-points, the "extra" points will be discarded
+              at random.  Thus, max-points limits the work that must be done
+              by the collision/contact model.  Note that- if the GeneralizedCCD
+              collision detection system is in use- the discarded points
+              may be re-reported (depending on how the contact model changes
+              the velocities of the bodies in contact), so the simulation may
+              appear to be "stuck" at time t for some number of iterations
+              (any controllers that output the simulation time will report time
+              t multiple times); the exact number of iterations will depend
+              upon how long it takes to process all of the contact points.  To
+              summarize and elaborate, it may be faster to limit the number of
+              contact points than to set max-points arbitrarily high; however,
+              as long as GeneralizedCCD is in use, neither the accuracy nor
+              the robustness of the simulation will be affected. 
+Practical range: 1 - 100
+
+Contact model related parameters
+==========================================================
+
+XML tag: CvxOptRestitutionModel
+XML attribute: tolerance
+Description: The tolerance to which the convex optimization problem is solved 
+             within.  The tradeoff is generally one of speed vs. accuracy, 
+             though if the tolerance is too high it is possible that energy 
+             gain can result.  If one wants the most accurate, robust 
+             simulation possible then tolerance should be set to machine
+             epsilon (~1e-20 for double precision floats) and the maximum 
+             number of iterations (max-iterations) should be set to some really 
+             high number (hundreds of thousands).
+Practical range: machine epsilon - 1e-4
+
+XML tag: CvxOptRestitutionModel
+XML attribute: max-iterations
+Description: The maximum number of iterations used by the convex optimization 
+             solver.  For the most accurate simulation possible, this value 
+             should be some really high number (i.e., hundreds of thousands). 
+             In practice, however, convex optimization almost always requires 
+             very few iterations, but setting a limit for max-iterations can be 
+             used to yield better real-time performance.
+Practical range: 100 - inf
+
+XML tag: AnitescuPotraRestitutionModel
+XML attribute: friction-cone-edges
+Description: Half of the number of edges used in the polygonal approximation
+             of the friction cone pyramid (i.e., a value of "2" yields four 
+             edges [a box friction model]); the minimum value for this 
+             parameter is 2.  This parameter is a strict tradeoff between 
+             simulation accuracy and speed.
+Practical range: 2 - 64
+
+Articulated body related parameters
+==========================================================
+XML tag: MCArticulatedBody
+XML attribute: baumgarte-alpha
+Description: The Baumgarte stabilization method parameter alpha.  There is not
+             a good prescription for picking this parameter.  Setting this
+             parameter larger results in greater correction, but more "stiff"
+             differential equations.
+Practical range: >= 0 
+
+XML tag: MCArticulatedBody
+XML attribute: baumgarte-beta
+Description:  The Baumgarte stabilization method parameter beta.  There is not
+              a good prescription for picking this parameter.  Setting this
+              parameter larger results in greater correction, but more "stiff"
+              differential equations.
+Practical range: >= 0
+

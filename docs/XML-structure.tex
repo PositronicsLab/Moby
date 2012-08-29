@@ -1,0 +1,664 @@
+\documentclass{article}
+\usepackage{lscape}
+\usepackage{verbatim}
+\usepackage{amssymb}
+\usepackage{amsmath}
+
+\begin{document}
+
+\begin{landscape}
+\title{Structure of an XML file to build models in Moby}
+\author{Evan Drumwright and Viren Ranjan}
+\maketitle
+
+The following document describes the process of building models in XML format
+for the Moby simulator.  
+
+\section{Examples}
+
+\subsection{Example XML file of a box sitting on a plane}
+\begin{verbatim}
+<XML>
+  <MOBY>
+    <!-- Geometric primitives -->
+    <Box id="b1" xlen="1" ylen="1" zlen="1" density="10.0"/>      <!-- box -->
+    <Box id="b2" xlen="10" ylen=".5" zlen="2" />                  <!-- plane geometry -->
+
+    <!-- Visualization primitives -->
+    <SoSeparator id="box-viz" fileid="box.wrl" />
+
+    <!-- Integrator -->
+    <RungeKuttaIntegrator id="rk4" />
+
+    <!-- Collision detector -->
+    <GeneralizedCCD id="coldet" eps-tolerance="1e-3">
+      <Body body-id="box" />
+      <Body body-id="ground" />
+    </GeneralizedCCD>
+
+    <!-- Gravity force -->
+    <GravityForce id="gravity" accel="0 -9.81 0"  />
+
+    <!-- Rigid bodies -->
+      <!-- the box -->
+      <RigidBody id="box" enabled="true" position="0 .5 0" angular-velocity="0 10 0" visualization-id="box-viz" 
+     linear-velocity="0 0 0">
+        <InertiaFromPrimitive primitive-id="b1" />
+        <CollisionGeometry primitive-id="b1" max-tri-area="10" />
+      </RigidBody>
+
+      <!-- the ground -->
+      <RigidBody id="ground" enabled="false" visualization-fileid="ground.wrl" position="0 -.25 0">
+        <CollisionGeometry primitive-id="b3" max-tri-area="10" />  
+      </RigidBody>
+
+    <!-- Setup the simulator -->
+    <EventDrivenSimulator id="simulator" integrator-id="rk4" toi-tolerance="1e-4"  
+      collision-detector-id="coldet" 
+        <DynamicBody dynamic-body-id="box" />
+        <DynamicBody dynamic-body-id="ground" />
+        <RecurrentForce recurrent-force-id="gravity" enabled="true" />
+        <ContactParameters object1-id="ground" object2-id="box" restitution=".9" mu-coulomb="1.00001"  
+       collision-method-id="cvxopt" max-points="4" />
+    </EventDrivenSimulator> 
+  </MOBY>
+</XML>
+\end{verbatim}
+
+\subsection{Example XML file to simulate a chain with one link and a fixed base}
+\begin{verbatim}
+<XML>
+  <MOBY>
+    <!-- geometries -->
+    <SoSeparator id="vc" fileid="cyl.wrl" />
+    <Cylinder id="c" radius="1" height="5" global-axis="y" subdiv="2" density="1.0" />
+    <Box id="b3" xlen="10" ylen="1" zlen="10" density="10.0" />
+
+    <!-- the collision detector -->
+    <GeneralizedCCD id="coldet" eps-tolerance="1e-3">
+      <Body id="chain" />
+      <Body id="platform" />
+    </GeneralizedCCD>
+
+    <!-- integrators, collision and contact methods, forces, fdyn algos -->
+    <RungeKuttaIntegrator id="rk4" />
+    <GravityForce id="gravity" accel="0 -9.81 0 " />
+
+  <EventDrivenSimulator integrator-id="rk4" collision-detector-id="coldet">
+    <RecurrentForce recurrent-force-id="gravity" enabled="true" /> 
+    <DynamicBody dynamic-body-id="chain" />
+    <DynamicBody dynamic-body-id="platform" />
+    <ContactParameters object1-id="platform" object2-id="l1" restitution="1" mu="0" />
+  </EventDrivenSimulator>
+
+  <!-- the chain -->
+  <RCArticulatedBody id="chain" fdyn-algorithm="fsab" fdyn-algorithm-frame="link" floating-base="false">
+
+      <RigidBody id="base" id="base" global-position="0 0 0"/>
+
+      <RigidBody id="l1" transform="0 -1 0 2.5; 1 0 0 0; 0 0 1 0; 0 0 0 1" visualization-id="vc">
+        <InertiaFromPrimitive primitive-id="c" />
+        <CollisionGeometry primitive-id="c" />
+      </RigidBody>
+
+      <RevoluteJoint id="q" qd="1" global-position="0 0 0" inboard-link-id="base" outboard-link-id="l1" maxforce="10000"
+     lolimit="-1" hilimit="3.14" global-axis="0 0 1" />
+    </RCArticulatedBody>
+
+    <!-- setup the platform rigid body; it is not active -->
+    <RigidBody id="platform" enabled="false"
+      position="-5 -15 0" visualization-id="b3">
+      <CollisionGeometry primitive-id="b3" />
+    </RigidBody>
+
+  </MOBY>
+</XML>
+\end{verbatim}
+
+
+\section{Components of the XML file}
+Described below are the different components of the xml file.  Please note that any node which takes the attribute \emph{id}, which specifies the unique identifier for the object, also takes the attribute \emph{name} as a secondary, non-unique identifier.
+
+\subsection {\emph{XML} tag}
+The xml file to create a model should be encompassed in the $<XML>$ and $</XML>$ tags.
+
+
+\subsection {\emph{MOBY} tag}
+The entire body of the xml model needs to be encompassed within the $<MOBY>$ and $</MOBY>$ tags.  The $<MOBY>$ tag current encapsulates most objects, including geometric primitives, visualization primitives, and simulator types.
+
+The $<MOBY>$ tag accepts the following tags:
+
+\subsubsection{Geometric primitives}
+\begin{itemize}
+\item $<\textbf{Box}>$ a box primitive that takes the following attributes:
+\begin{itemize}
+\item xlen \textbf{[required]} (\emph{Real})  the length of the box in the x direction
+\item ylen \textbf{[required]} (\emph{Real})  the length of the box in the y direction
+\item zlen \textbf{[required]} (\emph{Real})  the length of the box in the z direction
+\item id  (\emph{string})  the identifier for the box
+\item mass (\emph{Real}) the mass of the box (defines the inertia tensor as well)
+\item density (\emph{Real}) the density of the box (defines the inertia tensor as well)
+\item translation (\emph{Vector3}) the 3-dimensional translation vector applied to the box 
+\item transform (\emph{Matrix4}) the 4x4 homogeneous transform applied to the box (\textbf{NOTE: overrides any value specified in ``translation''})
+\item edge-sample-length (\emph{Real}) when an edge is longer than this value, subsamples are created
+\end{itemize}
+
+\item $<\textbf{Plane}>$ a plane primitive for visualization and collision detection (but not dynamics; the plane is not allowed to move dynamically!) that takes the following attributes
+\begin{itemize}
+\item id  (\emph{string})  the identifier for the plane 
+\item max-side-len (\emph{Real}) the side of a length of the plane; because of numerical issues, the plane model should not have infinite length.  Use the smallest side length that you can.
+\item translation (\emph{Vector3}) the 3-dimensional translation vector applied to the plane
+\item transform (\emph{Matrix4}) the 4x4 homogeneous transform applied to the plane (\textbf{NOTE: overrides any value specified in ``translation''})
+\end{itemize}
+
+\item $<\textbf{Sphere}>$ a sphere primitive that takes the following attributes:
+\begin{itemize}
+\item radius \textbf{[required]} (\emph{Real}) the radius of the sphere
+\item id  (\emph{string}) the identifier for the sphere
+\item num-points (\emph{int}) the number of points used to create the sphere 
+\item mass (\emph{Real}) the mass of the sphere (defines the inertia tensor as well)
+\item density (\emph{Real})  the density of the sphere  (defines the inertia tensor as well)
+\item translation (\emph{Vector3}) the 3-dimensional translation vector applied to the sphere
+\item transform (\emph{Matrix4}) the 4x4 homogeneous transform applied to the sphere (\textbf{NOTE: overrides any value specified in ``translation''})
+\item smooth (\emph{bool})  if set to \textbf{true}, the visualized sphere will appear as smooth; if set to \textbf{false}, the sphere will be tessellated
+\item edge-sample-length (\emph{Real}) when an edge is longer than this value, subsamples are created
+\end{itemize}
+
+\item $<\textbf{Cylinder}>$ a cylinder primitive that takes the following attributes:
+\begin{itemize}
+\item radius \textbf{[required]} (\emph{Real}) the radius of the cylinder
+\item height \textbf{[required]} (\emph{Real}) the height of the cylinder
+\item id  (\emph{string}) the identifier for the cylinder
+\item circle-points (\emph{int}) the number of points in a circle on the cylinder
+\item mass (\emph{Real}) the mass of the cylinder (defines the inertia tensor as well)
+\item density (\emph{Real})  the density of the cylinder  (defines the inertia tensor as well)
+\item translation (\emph{Vector3}) the 3-dimensional translation vector applied to the cylinder 
+\item transform (\emph{Matrix4}) the 4x4 homogeneous transform applied to the cylinder (\textbf{NOTE: overrides any value specified in ``translation''})
+\item smooth (\emph{Bool}) whether to display a smooth or highly tessellated cylinder
+\item edge-sample-length (\emph{Real}) when an edge is longer than this value, subsamples are created
+\end{itemize}
+
+\item $<\textbf{Cone}>$ a cone primitive that takes the following attributes:
+\begin{itemize}
+\item radius \textbf{[required]} (\emph{Real}) the radius of the cylinder
+\item height \textbf{[required]} (\emph{Real}) the height of the cylinder
+\item id  (\emph{string}) the identifier for the cylinder
+\item circle-points (\emph{int}) the number of points in a circle on the cylinder
+\item mass (\emph{Real}) the mass of the cylinder (defines the inertia tensor as well)
+\item density (\emph{Real})  the density of the cylinder  (defines the inertia tensor as well)
+\item translation (\emph{Vector3}) the 3-dimensional translation vector applied to the cylinder 
+\item transform (\emph{Matrix4}) the 4x4 homogeneous transform applied to the cylinder (\textbf{NOTE: overrides any value specified in ``translation''})
+\item smooth (\emph{Bool}) whether to display a smooth or highly tessellated cone
+\item edge-sample-length (\emph{Real}) when an edge is longer than this value, subsamples are created
+\end{itemize}
+
+
+\item $<\textbf{TriangleMesh}>$ a triangle mesh primitive that takes the following attributes:
+\begin{itemize}
+\item fileid \textbf{[required]} (\emph{string}) the Wavefront OBJ file that defines the triangle mesh
+\item id  (\emph{string}) the identifier for the triangle mesh
+\item mass (\emph{Real}) the mass of the cylinder (defines the inertia tensor as well)
+\item density (\emph{Real})  the density of the cylinder  (defines the inertia tensor as well)
+\item center (\emph{bool})  whether to center the mesh  (NOTE: centering occurs before transformation is applied)
+\item translation (\emph{Vector3}) the 3-dimensional translation vector applied to the mesh 
+\item transform (\emph{Matrix4}) the 4x4 homogeneous transform applied-- after centering, if desired-- to the mesh (\textbf{NOTE: overrides any value specified in ``translation''})
+\item intersection-tolerance  (\emph{Real})  the tolerance to use for intersection queries (this makes the triangles into ``thick'' triangles)
+\item edge-sample-length (\emph{Real}) when an edge is longer than this value, subsamples are created
+\end{itemize}
+\end{itemize}
+
+\subsubsection{Visualization primitives}
+\begin{itemize}
+\item $<\textbf{OSGGroup}>$ an OpenSceneGraph group for holding visualization data:
+\begin{itemize}
+\item filename \textbf{[required]} (\emph{string}) the OSG-compatible visualization file (e.g., .iv, .obj) to use for visualization
+\item transform (\emph{Matrix4}) a 4x4 matrix transformation matrix applied to the geometry (non OpenGL style)
+\end{itemize}
+\end{itemize}
+
+\subsubsection{Collision detection (geometric interference checking) mechanisms}
+\begin{itemize}
+\item $<\textbf{GeneralizedCCD}>$ The Drumwright-Shell algorithm for continuous collision detection with generalized geometries.  This collision detector is recommended.
+\begin{itemize}
+\item id  (\emph{string}) the identifier for the method
+\item simulator  (\emph{string}) the identifier of the simulator 
+\item toi-tolerance  (\emph{Real})  contacts with times-of-contact less than this tolerance apart are treated as occurring simultaneously; setting this parameter too large will slow things down slightly, but setting it too small will cause contacts that actually occur at the same time to be treated as occurring at different times.  It is also possible that, when this value is too small, contacts may be missed.
+\item eps-tolerance  (\emph{Real}) the tolerance below which subdivision does not occur
+\end{itemize} 
+\item $<\textbf{C2ACCD}>$ Our own implementation of the C2A (Continuous Collision Detection with Conservative Advancement) algorithm of Tang et al. This collision detector is generally recommended.
+\begin{itemize}
+\item id  (\emph{string}) the identifier for the method
+\item simulator  (\emph{string}) the identifier of the simulator 
+\item eps-tolerance  (\emph{Real}) the distance tolerance: if two bodies are less than this distance apart, the algorithm proceeds no further 
+\item alpha-tolerance  (\emph{Real}) the time tolerance: if the time of contact is found to this tolerance, the algorithm proceeds no further
+\end{itemize} 
+\item $<\textbf{DeformableCCD}>$ The Drumwright-Shell algorithm for continuous collision detection with generalized geometries \emph{for rigid and deformable bodies}.  This collision detector is still being tested and debugged.
+\begin{itemize}
+\item id  (\emph{string}) the identifier for the method
+\item simulator  (\emph{string}) the identifier of the simulator 
+\item toi-tolerance  (\emph{Real})  contacts with times-of-contact less than this tolerance apart are treated as occurring simultaneously; setting this parameter too large will slow things down slightly, but setting it too small will cause contacts that actually occur at the same time to be treated as occurring at different times.  It is also possible that, when this value is too small, contacts may be missed.
+\item eps-tolerance  (\emph{Real}) the tolerance below which subdivision does not occur
+\end{itemize} 
+\item $<\textbf{MeshDCD}>$ A simple bisection-based continuous collision detection method that works for both rigid and deformable bodies. This collision detector is only recommended for debugging purposes (ex., if the standard collision detectors seem to miss contacts).
+\begin{itemize}
+\item id  (\emph{string}) the identifier for the method
+\item simulator  (\emph{string}) the identifier of the simulator 
+\item eps-tolerance  (\emph{Real}) the tolerance to which a solution should be found (smaller equals slower but more accurate) 
+\end{itemize} 
+\end{itemize} 
+
+
+In addition, collision detection mechanisms support the tags $<$\emph{Body}$>$, $<$\emph{CollisionGeometry}$>$, $<$\emph{Disabled}$>$, and $<$\emph{DisabledPair}$>$, described below:
+
+\paragraph{$<$Body$>$}
+Indicates a body to add to the collision detector; if no $<$\emph{Body}$>$ or $<$\emph{CollisionGeometry}$>$ tags are specified, the collision detector is effectively inactive.
+\begin{itemize}
+\item body-id  \textbf{[required]}  (\emph{string})  the body (specifically, all of the geometries of the body) to check for collision
+\item disable-adjacent-links  (\emph{bool})  if set to \textbf{true} and body-id is an articulated body, disables collision checking for all links in the articulated body automatically
+\end{itemize}
+
+\paragraph{$<$CollisionGeometry$>$}
+Indicates a geometry to add to the collision detector; if no $<$\emph{Body}$>$ or $<$\emph{CollisionGeometry}$>$ tags are specified, the collision detector is effectively inactive.  Note that geometries may be floating in space (i.e., not attached to a body), and tested for collision.
+\begin{itemize}
+\item geometry-id  \textbf{[required]}  (\emph{string})  the geometry to check for collision
+\end{itemize}
+
+\paragraph{$<$Disabled$>$}
+Objects not to be checked in the collision detector
+\begin{itemize}
+\item object-id \textbf{[required]} (\emph{string}) the identifier of the disabled object 
+\end{itemize} 
+
+\paragraph{$<$DisabledPair$>$}
+Pairs of objects not to be checked in the collision detector
+\begin{itemize}
+\item object1-id \textbf{[required]} (\emph{string}) the identifier of the first disabled object of the pair 
+\item object2-id \textbf{[required]} (\emph{string}) the identifier of the second disabled object of the pair 
+\end{itemize} 
+
+\subsubsection{Integrators}
+\begin{itemize}
+\item $<\textbf{EulerIntegrator}>$ The standard, first-order explicit Euler integrator
+\begin{itemize}
+\item id  (\emph{string}) the identifier for the integrator
+\end{itemize} 
+\item $<\textbf{VariableEulerIntegrator}>$ A variable-step first-order explicit Euler integrator
+\begin{itemize}
+\item id  (\emph{string}) the identifier for the integrator
+\item rerr-tolerance (\emph{Real}) the relative error tolerance for integration; if integration error is above this tolerance, the step size will be reduced
+\item aerr-tolerance (\emph{Real}) the absolute error tolerance for integration; if integration error is above this tolerance, the step size will be reduced
+\item min-step-size (\emph{Real}) the minimum step size for integration; the step size will not be reduced below this parameter (an error message will be output to stderr to indicate that the minimum step size has been exceeded)
+\end{itemize} 
+\item $<\textbf{RungeKuttaIntegrator}>$ A fourth-order, explicit Runge-Kutta integrator
+\begin{itemize}
+\item id  (\emph{string}) the identifier for the integrator
+\end{itemize} 
+\item $<\textbf{RungeKuttaImplicitIntegrator}>$ A fourth-order, implicit Runge-Kutta integrator
+\begin{itemize}
+\item id  (\emph{string}) the identifier for the integrator
+\end{itemize} 
+\item $<\textbf{RungeKuttaFehlbergIntegrator}>$ An adaptive fourth-order explicit Runge-Kutta integrator (currently disabled).
+\begin{itemize}
+\item id  (\emph{string}) the identifier for the integrator
+\item rerr-tolerance (\emph{Real}) the relative error tolerance for integration; if integration error is above this tolerance, the step size will be reduced
+\item aerr-tolerance (\emph{Real}) the absolute error tolerance for integration; if integration error is above this tolerance, the step size will be reduced
+\item min-step-size (\emph{Real}) the minimum step size for integration; the step size will not be reduced below this parameter (an error message will be output to stderr to indicate that the minimum step size has been exceeded)
+\end{itemize} 
+\item $<\textbf{ODEPACKIntegrator}>$ The ODEPACK integrator (you must install this library separately). This variable-step integrator algorithm can take big steps and handle stiff differential equations. It is highly recommended.
+\begin{itemize}
+\item id  (\emph{string}) the identifier for the integrator
+\item implicit (\emph{bool}) if \textbf{true}, implicit integration is used (default is \textbf{false})
+\item rerr-tolerance (\emph{Real}) the relative error tolerance for integration; if integration error is above this tolerance, the step size will be reduced
+\item aerr-tolerance (\emph{Real}) the absolute error tolerance for integration; if integration error is above this tolerance, the step size will be reduced
+\item min-step-size (\emph{Real}) the minimum step size for integration; the step size will not be reduced below this parameter (an error message will be output to stderr to indicate that the minimum step size has been exceeded)
+\end{itemize} 
+\end{itemize}
+
+\subsubsection{Recurrent forces}
+Recurrent forces are those applied at every time-step automatically.
+\begin{itemize}
+\item $<$\textbf{GravityForce}$>$ The recurrent gravity force
+\begin{itemize}
+\item id \textbf{[required]} (\emph{string}) the identifier for the force 
+\item accel (\emph{VectorN}) the 3-dimensional acceleration vector
+\end{itemize}
+\begin{itemize}
+\item $<$\textbf{StokesDragForce}$>$ A ``drag''-like force that acts proportionally to the speed of an object
+\begin{itemize}
+\item id \textbf{[required]} (\emph{string}) the identifier for the force 
+\item drag-b (\emph{Real}) the non-negative drag scalar
+\end{itemize}
+\end{itemize}
+\end{itemize}
+
+\subsubsection{Rigid bodies}
+\label{section:rigidbodies}
+A rigid body can refer to either an isolated rigid body or a link in an articulated body -- the same mechanism is used for both. Note that many of these attributes are not required, but can be used to fully specify the state of the body.  Other attributes are redundant (e.g., ``quat-diff'' and ``angular-velocity'').
+
+\begin{itemize}
+\item $<\textbf{RigidBody}>$ The rigid body
+\begin{itemize}
+\item id  (\emph{string})  The identifier for the rigid body
+\item enabled (\emph{bool})  Specifies whether the body is enabled or disabled
+\item transform (\emph{Matrix4})  The 4x4 transformation matrix (non OpenGL style)
+\item J (\emph{Matrix3})  The 3x3 inertia tensor
+\item inertial (\emph{string})  Gets the inertial properties (mass and inertia tensor) from one of the primitive types
+\item mass (\emph{Real})  The mass of the body
+\item position (\emph{Vector3})  The position of the body (its center-of-mass)
+\item aangle (\emph{VectorN})  4D orientation; dimensions 1-3 are axis, dimension 4 is angle
+\item linear-velocity (\emph{Vector3})  The linear velocity of the body 
+\item angular-velocity (\emph{Vector3})  The angular velocity of the body 
+\item quat-diff (\emph{Vector4})  The differential velocity of the body (4D vector)
+\item sum-forces (\emph{Vector3})  The sum of forces on the body 
+\item sum-torques (\emph{Vector3})  The sum of torques on the body 
+\item linear-accel (\emph{Vector3}) The body's linear acceleration 
+\item angular-accel (\emph{Vector3}) The body's angular acceleration 
+\item articulated-body-id (\emph{string})  The identifier of the containing articulated body, if this rigid body is a link in an articulated body
+\item inner-joint-id (\emph{string})  The identifier of the inner joint for this link, if this rigid body is a non-base link in an articulated body
+\item inner-joint-to-com-vector-link ($\emph{Vector3}$ The vector from the inner joint to the center-of-mass, in link coordinates, if this rigid body is a non-base link in an articulated body 
+\item visualization-id (\emph{string})  The identifier of the visualization primitive used to visualize this body; note that the \emph{visualization-id} attribute, the \emph{visualization-filename} attribute, and/or the $<$Visualization$>$ tag cannot be used concommitantly.
+\item visualization-filename (\emph{string})  The identifier of the visualization filename, either OpenInventor (.iv) or VRML 1.0/97 (.wrl), used to visualize this body; note that the \emph{visualization-id} attribute, the \emph{visualization-filename} attribute, and/or the $<$Visualization$>$ tag cannot be used concommitantly.
+\item visualization-rel-transform (\emph{Matrix4})  The 4x4 transformation matrix (non-OpenGL style) describing the relative transformation from the body to the visualization primitive
+\item visualization-transform (\emph{Matrix4})  The 4x4 transformation matrix (non-OpenGL style) of the visualization transform; the end-user generally should not set this attribute
+\item translate-geoms (\emph{bool})  If set to \textbf{true}, the collision geometries will be translated using relative transformations so that the center-of-mass of the collision geometries is aligned with the center-of-mass of the rigid body (0,0,0)
+\end{itemize}
+\end{itemize}
+
+In addition to these attributes, $<$\textbf{RigidBody}$>$ encapsulates the $<$\emph{CollisionGeometry}$>$, $<$\emph{InertiaFromPrimitive}$>$, $<$\emph{Visualization}$>$, and $<$\emph{ChildLink}$>$ tags, described below:
+
+\paragraph{$<$CollisionGeometry$>$}
+Geometries used for collision detection and modeling for this body
+\begin{itemize}
+\item transform (\emph{Matrix4}) The 4x4 transformation matrix (non-OpenGL style) giving the geometry's current transform; in general, this attribute should not be set by the user
+\item rel-transform (\emph{Matrix4}) The 4x4 transformation matrix (non-OpenGL style) describing the relative transformation from the parent node (either \emph{RigidBody} or \emph{CollisionGeometry})
+\item primitive-id (\emph{string}) The identifier of the geometric primitive that this geometry uses (i.e., a \emph{Box}, \emph{Sphere}, \emph{Cylinder}, or \emph{TriangleMesh} primitive)
+\item max-tri-area  (\emph{Real}) The maximum area of any triangle in the geometry; if a triangle is bigger, it will be recursively divided until the area does not exceed this value
+\end{itemize}
+
+Additionally, $<$\textbf{CollisionGeometry}$>$ tags can contain nested $<$\textbf{CollisionGeometry}$>$ tags, so that complex geometries can be constructed from primitives.
+
+\paragraph{$<$InertiaFromPrimitive$>$}
+A means for composing the rigid body inertia from geometric primitives
+\begin{itemize}
+\item primitive-id  (\emph{string}) The identifier of the geometric primitive to be used
+\item rel-transform  (\emph{Matrix4}) The relative 4x4 transformation matrix (non-OpenGL style) from the underlying rigid body applied to the geometric primitive
+\end{itemize}
+
+\paragraph{$<$Visualization$>$}
+\label{section:visualization}
+An alternative means to provide visualization to the rigid body; note that the \emph{visualization-id} attribute, the \emph{visualization-filename} attribute, and/or the $<$Visualization$>$ tag cannot be used concommitantly. The $<$Visualization$>$ tag itself supports child $<$Visualization$>$ tags, so that more complex visualization is permitted.
+
+\begin{itemize}
+\item visualization-id (\emph{string})  The identifier of the visualization primitive used to visualize this body; note that the \emph{visualization-id} attribute, the \emph{visualization-filename} attribute, and/or the $<$Visualization$>$ tag cannot be used concommitantly.
+\item visualization-filename (\emph{string})  The identifier of the visualization filename used to visualize this body; note that the \emph{visualization-id} attribute, the \emph{visualization-filename} attribute, and/or the $<$Visualization$>$ tag cannot be used concommitantly.
+\item visualization-rel-transform (\emph{Matrix4})  The 4x4 transformation matrix (non-OpenGL style) describing the relative transformation from the parent node (either $<$\emph{Visualization}$>$ or $<$\emph{RigidBody}$>$) to this visualization primitive
+\item visualization-transform (\emph{Matrix4})  The 4x4 transformation matrix (non-OpenGL style) of the visualization transform; the end-user generally should not set this attribute
+\end{itemize}
+
+\paragraph{$<$ChildLink$>$}
+A child link of this rigid body, if this rigid body is a non-leaf link in an articulated body
+\begin{itemize}
+\item link-id  (\emph{string}) The identifier of the child link
+\item com-to-outer-vec-link  (\emph{Vector3}) The vector from the center-of-mass of this link to the position of the (outer) joint connecting these links, in this link's frame 
+\end{itemize}
+
+\subsubsection{Deformable bodies}
+Deformable bodies are currently only supported using particle systems 
+(mass-spring systems); finite element models will be supported soon.
+
+\begin{itemize}
+\item $<$\textbf{PSDeformableBody}$>$
+\begin{itemize}
+\item id  (\emph{string}) The unique identifier for the deformable body
+\item default-kp  (\emph{Real}) The default spring constant for the deformable body spring/dampers
+\item default-kv  (\emph{Real}) The default dampening constant for the deformable body spring/dampers
+\item default-mass  (\emph{Real}) The default mass for the particle system body
+\item tetra-mesh-primitive-id  (\emph{string}) The identifier for the tetrahedral mesh that defines the particle system structure
+\item tri-mesh-primitive-id  (\emph{string})  The identifier for the triangle mesh that defines the collision and visualization geometries
+\item transform  (\emph{Matrix4})  Homogeneous transformation applied to the
+      deformable body after it is loaded
+\end{itemize} % end attribute itemize
+
+$<$\textbf{PSDeformableBody}$>$ supports embedded $<$\emph{Node}$>$ and $<$\emph{Spring}$>$ tags.  Note that the number of nodes must match the number of vertices in
+the tetrahedral mesh.  The tags are described below:
+
+\paragraph{$<$\textbf{Node}$>$}
+Defines a node in a deformable body.  The following attributes are supported:
+\begin{itemize}
+\item position  (\emph{Vector3})  The current (global) position of the node
+\item velocity (\emph{Vector3})  The current velocity of the node
+\item accel  (\emph{Vector3})  The current acceleration of the node
+\item force  (\emph{Vector3})  The force currently applied to the node
+\item mass  (\emph{Real})  The mass of the node
+\end{itemize}
+
+\paragraph{$<$\textbf{Spring}$>$}
+Defines a spring-damper in a particle system deformable body.  The following
+attributes are supported:
+\begin{itemize}
+\item kp  (\emph{Real}) The spring stiffness constant 
+\item kv  (\emph{Real}) The dampening constant
+\item rest-len  (\emph{Real})  The resting length of the spring
+\item node1  (\emph{int}) The 0-indexed index of the first node attached to the spring
+\item node2  (\emph{int}) The 0-indexed index of the second node attached to the spring 
+\end{itemize} % end itemization of Spring
+\end{itemize} % end itemization of deformable body types
+
+\subsubsection{Articulated bodies}
+Moby supports articulated bodies formulated both in maximal coordinates and reduced coordinates.  The former simulates each rigid body individually and computes constraint forces to hold the body together, while the latter computes the dynamics in the reduced dimensionality of the joint space.  Reduced coordinate bodies are faster, particularly when the body is composed of simple 1-DOF joints; maximal coordinate bodies may be faster when the body is composed of more complex joints (e.g., spherical joints) and are currently the only option when the body has kinematic loops.  
+
+
+\begin{itemize}
+ \item $<$RCArticulatedBody$>$
+\begin{itemize}
+\item id  (\emph{string}) The unique identifier for the articulated body
+\item floating-base  (\emph{bool}) If set to \textbf{true}, this body has an unconstrained (i.e., ``floating'' six degree-of-freedom) base; otherwise, the base is constrained to its present position and orientation.  The default value is \textbf{false}.
+\item fdyn-algorithm  (\emph{string}) The forward dynamics algorithm to use: either ``fsab'' (Featherstone's linear time Articulated Body Algorithm) or ``crb'' (the $O(n^3)$ Composite-Rigid-Body Algorithm)
+\item fdyn-algorithm-frame  (\emph{string}) The frame in which to compute forward dynamics; may be either ``link'' or ``global''.  The ramifications of chosing one option over another are limited to speed alone: generally, computations performed in link frames are faster above so many degrees-of-freedom in the body.  See [Featherstone, 1987] for an involved discussion.
+\end{itemize}
+
+\item $<$RCArticulatedBodySymbolic$>$
+\begin{itemize}
+\item id  (\emph{string}) The unique identifier for the articulated body
+\item floating-base  (\emph{bool}) If set to \textbf{true}, this body has an unconstrained (i.e., ``floating'' six degree-of-freedom) base; otherwise, the base is constrained to its present position and orientation.  The default value is \textbf{false}.
+\end{itemize}
+
+A ``symbolic'' articulated body is identical to a standard articulated body, except with user-supplied methods for computing forward kinematics and forward and inverse dynamics.  An example of this is found in the mrobot example, for which a symbolic mathematics package was use to derive optimized equations.  This body works identically to the standard articulated body, except that it is generally several orders of magnitude faster.
+
+\item $<$MCArticulatedBody$>$
+\begin{itemize}
+\item id  (\emph{string}) The unique identifier for the articulated body
+\item baumgarte-alpha  (\emph{Real}) Baumgarte stabilization parameter, $\alpha \geq 0$ that effectively damps the constraint violation velocities; $\alpha = 0$ indicates no dampening ($\alpha = 0.8$ by default)
+\item baumgarte-beta  (\emph{Real}) Baumgarte stabilization parameter, $\beta \geq 0$ that effectively corrects constraint violations; $\beta = 0$ indicates no correction ($\beta = 0.9$ by default)
+\end{itemize}
+
+Articulated bodies are composed of joints and links; the former are specified using embedded $<$RevoluteJoint$>$, $<$PrismaticJoint$>$, $<$SphericalJoint$>$, $<$UniversalJoint$>$ and $<$FixedJoint$>$ tags, while the latter are specified using $<$RigidBody$>$ tags.
+
+\paragraph{$<$SphericalJoint$>$}
+\begin{itemize}
+ \item id  \emph{string}  The unique identifier for this joint
+ \item lower-limit  \emph{Vector3}  A vector of the lower joint limits, such that upper-limit > lower-limit; note that joint limits are currently not respected by the simulation. 
+ \item upper-limit  \emph{Vector3}  A vector of the upper joint limits, such that upper-limit > lower-limit; note that joint limits are currently not respected by the simulation.
+ \item max-force  \emph{Vector2}  A two-dimensional vector of the maximum forces applied to this joint via virtual actuators 
+ \item q  \emph{Vector3}  A vector of the joint positions 
+ \item qd  \emph{Vector3}  A vector of the joint velocities
+ \item qdd  \emph{Vector3}  A vector of the last computed joint acceleration; the user generally need not set this value, as it is meaningless to the simulation.
+ \item coulomb-friction  \emph{Vector3}  A vector of the Coulomb friction coefficients at this joint
+ \item viscous-friction  \emph{Vector3}  A vector of the viscous friction coefficients at this joint
+ \item articulated-body-id  \emph{string} The identifier of the encapsulating articulated body; note that users need not set this attribute manually.
+\item local-axis1  \emph{Vector3} The local axis of the first DOF of this joint; the local axis is with respect to the inner link's transformation (normalized).  In general, end-users should set joint axes using the global-axis attributes.  \emph{local-axis1} and \emph{local-axis2} must be orthogonal.
+\item local-axis2  \emph{Vector3} The local axis of the second DOF of this joint; the local axis is with respect to the inner link's transformation (normalized).  In general, end-users should set joint axes using the global-axis attributes.  \emph{local-axis1} and \emph{local-axis2} must be orthogonal.
+\item global-axis1  \emph{Vector3} The axis of the first DOF of this joint in global coordinates (normalized).  In general, end-users should set joint axes using this attribute rather than the local-axis attribute.  \emph{global-axis1} and \emph{global-axis2} must be orthogonal.  Note that the third global axis is set to be the cross-product of the first two and cannot be set manually by the user.
+\item global-axis2  \emph{Vector3} The axis of the second DOF of this joint in global coordinates (normalized).  In general, end-users should set joint axes using this attribute rather than the local-axis attribute.  \emph{global-axis1} and \emph{global-axis2} must be orthogonal.  Note that the third global axis is set to be the cross-product of the first two and cannot be set manually by the user.
+\item inboard-link-id  \emph{string} The identifier of the inboard link
+\item outboard-link-id  \emph{string} The identifier of the outboard link
+\item visualization-id (\emph{string})  The identifier of the visualization primitive used to visualize this joint; note that the \emph{visualization-id} attribute, the \emph{visualization-filename} attribute, and/or the $<$Visualization$>$ tag cannot be used concommitantly.
+\item visualization-filename (\emph{string})  The identifier of the visualization filename, either OpenInventor (.iv) or VRML 1.0/97 (.wrl), used to visualize this joint; note that the \emph{visualization-id} attribute, the \emph{visualization-filename} attribute, and/or the $<$Visualization$>$ tag cannot be used concommitantly.
+\item visualization-rel-transform (\emph{Matrix4})  The 4x4 transformation matrix (non-OpenGL style) describing the relative transformation from the joint's inner link to the visualization primitive
+\item visualization-transform (\emph{Matrix4})  The 4x4 transformation matrix (non-OpenGL style) of the visualization transform; the end-user generally should not set this attribute
+\end{itemize}
+
+In addition, $<$SphericalJoint$>$ supports embedded $<$Visualization$>$ tags defined in Section \ref{section:visualization}.
+
+
+\paragraph{$<$UniversalJoint$>$}
+\begin{itemize}
+ \item id  \emph{string}  The unique identifier for this joint
+ \item lower-limit  \emph{Vector2}  A vector of the lower joint limits, such that upper-limit > lower-limit; note that joint limits are currently not respected by the simulation. 
+ \item upper-limit  \emph{Vector2}  A vector of the upper joint limits, such that upper-limit > lower-limit; note that joint limits are currently not respected by the simulation.
+ \item max-force  \emph{Vector2}  A two-dimensional vector of the maximum forces applied to this joint via virtual actuators 
+ \item q  \emph{Vector2}  A vector of the joint positions 
+ \item qd  \emph{Vector2}  A vector of the joint velocities 
+ \item qdd  \emph{Vector2}  A vector of the last computed joint acceleration ; the user generally need not set this value, as it is meaningless to the simulation.
+ \item coulomb-friction  \emph{Vector2}  A vector of the Coulomb friction coefficients at this joint 
+ \item viscous-friction  \emph{Vector2}  A vector of the viscous friction coefficients at this joint 
+ \item articulated-body-id  \emph{string} The identifier of the encapsulating articulated body; note that users need not set this attribute manually.
+\item local-axis1  \emph{Vector3} The local axis of the first DOF of this joint; the local axis is with respect to the inner link's transformation (normalized).  In general, end-users should set joint axes using the global-axis attributes.  \emph{local-axis1} and \emph{local-axis2} must be orthogonal.
+\item local-axis2  \emph{Vector3} The local axis of the second DOF of this joint; the local axis is with respect to the inner link's transformation (normalized).  In general, end-users should set joint axes using the global-axis attributes.  \emph{local-axis1} and \emph{local-axis2} must be orthogonal.
+\item global-axis1  \emph{Vector3} The axis of the first DOF of this joint in global coordinates (normalized).  In general, end-users should set joint axes using this attribute rather than the local-axis attribute.  \emph{global-axis1} and \emph{global-axis2} must be orthogonal.
+\item global-axis2  \emph{Vector3} The axis of the second DOF of this joint in global coordinates (normalized).  In general, end-users should set joint axes using this attribute rather than the local-axis attribute.  \emph{global-axis1} and \emph{global-axis2} must be orthogonal.
+\item inboard-link-id  \emph{string} The identifier of the inboard link
+\item outboard-link-id  \emph{string} The identifier of the outboard link
+\item visualization-id (\emph{string})  The identifier of the visualization primitive used to visualize this joint; note that the \emph{visualization-id} attribute, the \emph{visualization-filename} attribute, and/or the $<$Visualization$>$ tag cannot be used concommitantly.
+\item visualization-filename (\emph{string})  The identifier of the visualization filename, either OpenInventor (.iv) or VRML 1.0/97 (.wrl), used to visualize this joint; note that the \emph{visualization-id} attribute, the \emph{visualization-filename} attribute, and/or the $<$Visualization$>$ tag cannot be used concommitantly.
+\item visualization-rel-transform (\emph{Matrix4})  The 4x4 transformation matrix (non-OpenGL style) describing the relative transformation from the joint's inner link to the visualization primitive
+\item visualization-transform (\emph{Matrix4})  The 4x4 transformation matrix (non-OpenGL style) of the visualization transform; the end-user generally should not set this attribute
+\end{itemize}
+
+In addition, $<$UniversalJoint$>$ supports embedded $<$Visualization$>$ tags defined in Section \ref{section:visualization}.
+
+
+\paragraph{$<$RevoluteJoint$>$}
+\begin{itemize}
+ \item id  \emph{string}  The unique identifier for this joint
+ \item lower-limit  \emph{VectorN}  A vector (representing a scalar value) of the lower joint limit, such that upper-limit > lower-limit (1D vector); note that joint limits are currently not respected by the simulation.
+ \item upper-limit  \emph{VectorN}  A vector (representing a scalar value) of the upper joint limit, such that upper-limit > lower-limit (1D vector); note that joint limits are currently not respected by the simulation.
+ \item max-force  \emph{VectorN}  A vector (representing a scalar value) of the maximum force applied to this joint via virtual actuators (1D vector)
+ \item q  \emph{VectorN}  A vector (representing a scalar value) of the joint position (1D vector)
+ \item qd  \emph{VectorN}  A vector (representing a scalar value) of the joint velocity (1D vector)
+ \item qdd  \emph{VectorN}  A vector (representing a scalar value) of the last computed joint acceleration (1D vector); the user generally need not set this value, as it is meaningless to the simulation.
+ \item coulomb-friction  \emph{VectorN}  A vector (representing a scalar value) of the Coulomb friction coefficient at this joint (1D vector)
+ \item viscous-friction  \emph{VectorN}  A vector (representing a scalar value) of the viscous friction coefficient at this joint (1D vector)
+ \item articulated-body-id  \emph{string} The identifier of the encapsulating articulated body; note that users need not set this attribute manually.
+\item local-axis  \emph{Vector3} The axis of this joint; the local axis is with respect to the inner link's transformation (normalized).  In general, end-users should set joint axes using the global-axis attribute.
+\item global-axis  \emph{Vector3} The axis of this joint in global coordinates (normalized).  In general, end-users should set joint axes using this attribute rather than the local-axis attribute.
+\item inboard-link-id  \emph{string} The identifier of the inboard link
+\item outboard-link-id  \emph{string} The identifier of the outboard link
+\item visualization-id (\emph{string})  The identifier of the visualization primitive used to visualize this joint; note that the \emph{visualization-id} attribute, the \emph{visualization-filename} attribute, and/or the $<$Visualization$>$ tag cannot be used concommitantly.
+\item visualization-filename (\emph{string})  The identifier of the visualization filename, either OpenInventor (.iv) or VRML 1.0/97 (.wrl), used to visualize this joint; note that the \emph{visualization-id} attribute, the \emph{visualization-filename} attribute, and/or the $<$Visualization$>$ tag cannot be used concommitantly.
+\item visualization-rel-transform (\emph{Matrix4})  The 4x4 transformation matrix (non-OpenGL style) describing the relative transformation from the joint's inner link to the visualization primitive
+\item visualization-transform (\emph{Matrix4})  The 4x4 transformation matrix (non-OpenGL style) of the visualization transform; the end-user generally should not set this attribute
+\end{itemize}
+
+In addition, $<$RevoluteJoint$>$ supports embedded $<$Visualization$>$ tags defined in Section \ref{section:visualization}.
+
+\paragraph{$<$PrismaticJoint$>$}
+\begin{itemize}
+ \item id  \emph{string}  The unique identifier for this joint
+ \item lower-limit  \emph{VectorN}  A vector (representing a scalar value) of the lower joint limit, such that upper-limit > lower-limit (1D vector); note that joint limits are currently not respected by the simulation.
+ \item upper-limit  \emph{VectorN}  A vector (representing a scalar value) of the upper joint limit, such that upper-limit > lower-limit (1D vector); note that joint limits are currently not respected by the simulation.
+ \item max-force  \emph{VectorN}  A vector (representing a scalar value) of the maximum force applied to this joint via virtual actuators (1D vector)
+ \item q  \emph{VectorN}  A vector (representing a scalar value) of the joint position (1D vector)
+ \item qd  \emph{VectorN}  A vector (representing a scalar value) of the joint velocity (1D vector)
+ \item qdd  \emph{VectorN}  A vector (representing a scalar value) of the last computed joint acceleration (1D vector); the user generally need not set this value, as it is meaningless to the simulation.
+ \item coulomb-friction  \emph{VectorN}  A vector (representing a scalar value) of the Coulomb friction coefficient at this joint (1D vector)
+ \item viscous-friction  \emph{VectorN}  A vector (representing a scalar value) of the viscous friction coefficient at this joint (1D vector)
+ \item articulated-body-id  \emph{string} The identifier of the encapsulating articulated body; note that users need not set this attribute manually.
+\item local-axis  \emph{Vector3} The axis of this joint; the local axis is with respect to the inner link's transformation (normalized).  In general, end-users should set joint axes using the global-axis attribute.
+\item global-axis  \emph{Vector3} The axis of this joint in global coordinates (normalized).  In general, end-users should set joint axes using this attribute rather than the local-axis attribute.
+\item inboard-link-id  \emph{string} The identifier of the inboard link
+\item outboard-link-id  \emph{string} The identifier of the outboard link
+\item visualization-id (\emph{string})  The identifier of the visualization primitive used to visualize this joint; note that the \emph{visualization-id} attribute, the \emph{visualization-filename} attribute, and/or the $<$Visualization$>$ tag cannot be used concommitantly.
+\item visualization-filename (\emph{string})  The identifier of the visualization filename, either OpenInventor (.iv) or VRML 1.0/97 (.wrl), used to visualize this joint; note that the \emph{visualization-id} attribute, the \emph{visualization-filename} attribute, and/or the $<$Visualization$>$ tag cannot be used concommitantly.
+\item visualization-rel-transform (\emph{Matrix4})  The 4x4 transformation matrix (non-OpenGL style) describing the relative transformation from the joint's inner link to the visualization primitive
+\item visualization-transform (\emph{Matrix4})  The 4x4 transformation matrix (non-OpenGL style) of the visualization transform; the end-user generally should not set this attribute
+\end{itemize}
+
+In addition, $<$PrismaticJoint$>$ supports embedded $<$Visualization$>$ tags defined in Section \ref{section:visualization}.
+
+\paragraph{$<$FixedJoint$>$}
+\begin{itemize}
+ \item id  \emph{string}  The unique identifier for this joint
+ \item articulated-body-id  \emph{string} The identifier of the encapsulating articulated body; note that users need not set this attribute manually.
+\item inboard-link-id  \emph{string} The identifier of the inboard link; this link may be NULL for a maximal coordinate articulated body, indicating that the outboard link is attached to the ``ground'' or ``world''
+\item outboard-link-id  \emph{string} The identifier of the outboard link; this link may be NULL for a maximal coordinate articulated body, indicating that the inboard link is attached to the ``ground'' or ``world''
+\item visualization-id (\emph{string})  The identifier of the visualization primitive used to visualize this joint; note that the \emph{visualization-id} attribute, the \emph{visualization-filename} attribute, and/or the $<$Visualization$>$ tag cannot be used concommitantly.
+\item visualization-filename (\emph{string})  The identifier of the visualization filename, either OpenInventor (.iv) or VRML 1.0/97 (.wrl), used to visualize this joint; note that the \emph{visualization-id} attribute, the \emph{visualization-filename} attribute, and/or the $<$Visualization$>$ tag cannot be used concommitantly.
+\item visualization-rel-transform (\emph{Matrix4})  The 4x4 transformation matrix (non-OpenGL style) describing the relative transformation from the joint's inner link to the visualization primitive
+\item visualization-transform (\emph{Matrix4})  The 4x4 transformation matrix (non-OpenGL style) of the visualization transform; the end-user generally should not set this attribute
+\end{itemize}
+
+In addition, $<$FixedJoint$>$ supports embedded $<$Visualization$>$ tags defined in Section \ref{section:visualization}.
+
+\paragraph{$<$RigidBody$>$}
+The $<$RigidBody$>$ tag is identical to that described in Section \ref{section:rigidbodies}; note that the attributes \emph{inner-joint-id} and \emph{inner-joint-to-com-vector-link} must be specified (for non-base links) and  $<$ChildLink$>$ tags must be used (for non end-effector links).
+
+\subsubsection{Simulators}
+Two different simulation types are available: a simulator that models contact and one that does not; the latter is useful for faster, prototype simulations.
+
+\begin{itemize}
+\item $<$Simulator$>$
+\begin{itemize}
+\item id  (\emph{string}) the unique identifier for the simulator
+\item current-time  (\emph{Real}) The current simulation time; the user generally need not set this value
+\item integrator-id  (\emph{string}) The identifier of the integrator to use
+\end{itemize}
+\item $<$EventDrivenSimulator$>$
+\begin{itemize}
+\item id  (\emph{string}) the unique identifier for the simulator
+\item collision-detector-id  \textbf{[required]} (\emph{string}) The identifier of the collision detector
+\item current-time  (\emph{Real}) The current simulation time; the user generally need not set this value
+\item integrator-id  (\emph{string}) The identifier of the integrator to use
+\item TOI-tolerance  (\emph{Real}) The tolerance (in time) after the first contact point to treat additional contact points also as impacting. If this value is set too low, too few contact points may be used (this tends to be a problem for bodies in resting contact); if this value is set too high, points will be treated as contacting that are not.
+\item constraint-violation-tolerance  (\emph{Real})  The amount of constraint violation to allow over one simulated second of time; generally, this number should be set to be as low as possible (but no lower!).  How low is too low?  If the simulation freezes after contact is made, the tolerance is likely too low, and should be increased.
+\item max-Zeno-step  (\emph{Real}) The maximum time step to take during Zeno point event handling (the smaller this value is, the more accurate the simulation will be but the slower that it will run).
+\end{itemize}
+\end{itemize}
+
+In addition to the attributes above, the $<$\emph{DynamicBody}$>$ and $<$\emph{RecurrentForce}$>$ tags specify the bodies (both rigid and articulated) simulated and the recurrent forces applied to these bodies on every step.
+
+\paragraph{$<$DynamicBody$>$}
+\begin{itemize}
+\item dynamic-body-id  (\emph{string}) The identifier of the body (either an isolated rigid body or an articulated body) to simulate
+\end{itemize}
+
+\paragraph{$<$RecurrentForce$>$}
+\begin{itemize}
+\item recurrent-force-id  (\emph{string}) The identifier of the recurrent force
+\item enabled  (\emph{bool}) Whether or not the force is currently enabled (i.e., applied to bodies)
+\end{itemize}
+
+The $<$\emph{EventDrivenSimulator}$>$ tags accept embedded $<$\emph{CollisionDetector}$>$ tags, allowing for multiple collision detectors to be used.
+
+\paragraph{$<$CollisionDetector$>$}
+\begin{itemize}
+\item id  \textbf{[required]} (\emph{string}) the identifier of the collision detector
+\end{itemize}
+
+Finally, the $<$\emph{EventDrivenSimulator}$>$ tags accept embedded $<$\emph{ContactParameters}$>$ tags, which specifies contact modeling attributes between pairs of objects.
+
+\paragraph{$<$ContactParameters$>$}
+\begin{itemize}
+\item object1-id  \textbf{[required]} (\emph{string}) the identifier of one of the objects (geometry, rigid body, or articulated body)
+\item object2-id  \textbf{[required]} (\emph{string}) the identifier of one of the objects (geometry, rigid body, or articulated body)
+\item restitution  (\emph{Real}) the kinetic coefficient of restitution, $\epsilon$, where $0 \leq \epsilon \leq 1$
+\item mu-coulomb  (\emph{Real}) the coefficient of Coulomb friction, $\mu$, where $\mu \geq 0$
+\item mu-viscous  (\emph{Real}) the coefficient of viscous friction, $\mu_v$, where $\mu_v \geq 0$ (viscous friction is currently unused)
+\item friction-cone-edges  (\emph{int}) half the maximum number of edges used to model the linearized friction cone (minimum = default = 2)
+\end{itemize}
+\end{itemize}
+
+\subsection{Simulator}
+\label{section:simulator}
+The $<Simulator>$ tag defines a simulation that utilizes no contacts.  It accepts the following attributes:
+\begin{itemize}
+\item integrator \textbf{[required]} (\emph{string}) three types of integrator types are currently supported: ``euler'', ``rk4'' (4th order Runge-Kutta), and ``rk4-implicit'' (4th order Runge-Kutta implicit with Gaussian points)
+\item time (\emph{Real})  the current simulation time
+\end{itemize}
+
+The $<Simulator>$ tag encapsulates up to one $<RecurrentForces>$ tag and (potentially) multiple $<RigidBody>$ and $<RCArticulatedBody>$ tags.  These tags are described below:
+
+\end{landscape}
+\end{document}
+
+
