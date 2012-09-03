@@ -52,7 +52,7 @@ struct BFGSParams
   BFGSParams()
   {
     n = 0;
-    fx = 0;
+    f = 0;
     grad = NULL;
     eps = NEAR_ZERO;
     max_iterations = std::numeric_limits<unsigned>::max();
@@ -98,7 +98,7 @@ struct BFGSParams
   Real x_rtol;
 
   /// The objective function to be minimized
-  Real (*fx)(const VectorN&, void*);
+  Real (*f)(const VectorN&, void*);
 
   /// The gradient of the objective function
   void (*grad)(const VectorN&, void*, VectorN&);
@@ -117,8 +117,10 @@ struct OptParams
   {
     iterations = 0;
     n = m = r = 0;
+    f0 = NULL;
     fx = NULL;
-    grad = NULL;
+    grad0 = NULL;
+    cJac = NULL;
     hess = NULL;
     tcheck = NULL;
     max_iterations = std::numeric_limits<unsigned>::max();
@@ -131,7 +133,7 @@ struct OptParams
     ub.resize(0);
   }
 
-  OptParams(unsigned n, unsigned m, unsigned r, Real (*fx)(const VectorN&, unsigned, void*), void (*grad)(const VectorN&, unsigned, VectorN&, void*), bool (*hess)(const VectorN&, unsigned, MatrixNN&, void*))
+  OptParams(unsigned n, unsigned m, unsigned r, Real (*f0)(const VectorN& x, void*), void (*fx)(const VectorN&, VectorN&, void*), void (*grad0)(const VectorN&, VectorN&, void*), void (*cJac)(const VectorN&, MatrixN&, void*), void (*hess)(const VectorN&, Real, const VectorN&, const VectorN&, MatrixNN&, void*))
   {
     data = NULL;
 
@@ -151,8 +153,10 @@ struct OptParams
     max_iterations = std::numeric_limits<unsigned>::max();
 
     // setup function pointers
+    this->f0 = f0;
     this->fx = fx;
-    this->grad = grad;
+    this->grad0 = grad0;
+    this->cJac = cJac;
     this->hess = hess;
     tcheck = NULL;
 
@@ -195,8 +199,10 @@ struct OptParams
     zero_tol = c.zero_tol;
     eps = c.eps;
     data = c.data;
+    f0 = c.f0;
     fx = c.fx;
-    grad = c.grad;
+    grad0 = c.grad0;
+    cJac = c.cJac;
     hess = c.hess;
     tcheck = c.tcheck;
     return *this;
@@ -256,14 +262,36 @@ struct OptParams
   /// optional data passed to fx(), grad(), and hess()
   void* data;
 
-  /// fx(x,f,data) pointer to a function that evaluates the objective (f[0]) and inequality constraint functions (f[1..m]) 
-  Real (*fx)(const VectorN&, unsigned, void*);
+  /// f0(x,data) pointer to a function that evaluates the objective function 
+  Real (*f0)(const VectorN&, void*);
 
-  /// grad(x,g,data) pointer to a function for computing the gradients of the objective (g[0]) and inequality constraint functions (g[1..m])
-  void (*grad)(const VectorN&, unsigned, VectorN&, void*);
+  /// fx(x,data) pointer to a function that evaluates the nonlinear constraint functions
+  /**
+   * first m entries should be nonlinear inequality constraint evaluations
+   * remaining r entries should be nonlinear equality constraint evaluations
+   */
+  void (*fx)(const VectorN&, VectorN&, void*);
 
-  /// hess(x,h,data) pointer to a function for computing the Hessians of the objective (h[0]) and inequality constraint functions (h[1..m]) -- unsigned parameter is the one-index of the constraint (index 0 corresponds to the objective); returns <b>true</b> if the Hessian is non-zero, <b>false</b> otherwise
-  bool (*hess)(const VectorN&, unsigned, MatrixNN&, void*);
+  /// grad(x,g,data) pointer to a function for computing the gradient of the objective 
+  void (*grad0)(const VectorN&, VectorN&, void*);
+
+  /// cJac(x,g,data) pointer to a function for computing the (m+r) x n-dimensional constraint Jacobian 
+  /**
+   * first m rows should be nonlinear inequality constraint gradients
+   * remaining r rows should be nonlinear equality constraint gradients
+   */
+  void (*cJac)(const VectorN&, MatrixN&, void*);
+
+  /// hess(.) pointer to a function for computing the Hessians of the objective  and nonlinear inequality constraints
+  /**
+   * Assume that the parameters to the function are x,b,c,d,h,e.
+   * Assume that the Hessian of the objective is H0, the Hessians of the
+   * nonlinear inequality constraints are H1 ... Hm, and the Hessians of the
+   * nonlinear equality constraints are G1 ... Gr. Then, on return this
+   * function should be set to 
+   * h = H0*b + H1*c[0] + ... + Hm*c[m-1] + G1*d[0] + ... + Gr*d[r-1]
+   */
+  void (*hess)(const VectorN&, Real, const VectorN&, const VectorN&, MatrixNN&, void*);
 
   /// tcheck(x,data) pointer to a function for determining whether or not the optimization should terminate at the given x
   bool (*tcheck)(const VectorN&, void*);
@@ -278,12 +306,10 @@ class Optimization
     static unsigned qp_gradproj(const MatrixNN& G, const VectorN& c, const VectorN& l, const VectorN& u, unsigned max_iter, VectorN& x, Real tol);
     static bool brent(Real x_lower, Real x_upper, Real& x, Real& fx, Real (*f)(Real, void*), Real tol, void* params);
     static bool optimize_convex(OptParams& cparams, VectorN& x);
-    static bool make_feasible_convex(OptParams& cparams, VectorN& x, VectorN (*solve_KKT)(const VectorN&, const VectorN&, const VectorN&, const OptParams&) = NULL);
-    static bool make_feasible_convex2(OptParams& cparams, VectorN& x, VectorN (*solve_KKT)(const VectorN&, const VectorN&, const VectorN&, const OptParams&) = NULL);
-    static bool optimize_convex_pd(OptParams& cparams, VectorN& x, VectorN (*solve_KKT)(const VectorN&, const VectorN&, const VectorN&, const OptParams&) = NULL);
+    static bool make_feasible_convex(OptParams& cparams, VectorN& x, void (*solve_KKT)(const VectorN&, const VectorN&, const VectorN&, const MatrixN&, const OptParams&, VectorN&) = NULL);
+    static bool make_feasible_convex2(OptParams& cparams, VectorN& x, void (*solve_KKT)(const VectorN&, const VectorN&, const VectorN&, const MatrixN&, const OptParams&, VectorN&) = NULL);
+    static bool optimize_convex_pd(OptParams& cparams, VectorN& x, void (*solve_KKT)(const VectorN&, const VectorN&, const VectorN&, const MatrixN&, const OptParams&, VectorN&) = NULL);
     static bool mlcp(VectorN& y, VectorN& z, const MatrixNN& M, const VectorN& q, bool (*lcp_solver)(const MatrixNN&, const VectorN&, VectorN&) = NULL);
-    static Real log_vec(const std::vector<Real>& v, unsigned st);
-    static Real log_fn(Real (*f)(const VectorN&, unsigned, void*), unsigned m, const VectorN& x, void* data);
     static bool lp(const MatrixN& A, const VectorN& b, const VectorN& c, const VectorN& l, const VectorN& u, VectorN& x);
     static bool qp_convex_ip(const MatrixNN& G, const VectorN& c, OptParams& oparams, VectorN& x);
     static bool qp_convex_activeset_infeas_tcheck(const VectorN& x, void* data);
@@ -309,7 +335,6 @@ class Optimization
     static VectorN& BFGS(BFGSParams& params, VectorN& x);
     static bool optimize_convex_BFGS(OptParams& cparams, VectorN& x);
     static bool make_feasible_convex_BFGS(OptParams& cparams, VectorN& x);
-    static bool lcp_ip_BFGS(const MatrixNN& M, const VectorN& q, VectorN& z, Real eps=NEAR_ZERO, Real eps_feas=NEAR_ZERO);
 
   private:
     static void add_to_working_set(const VectorN& vec, Real bi, MatrixN& AMr, VectorN& br);
@@ -320,32 +345,29 @@ class Optimization
     static void condition_and_factor_PD(MatrixNN& H);
     static void condition_hessian(MatrixNN& H);
     static bool tcheck_cvx_opt_BFGS(const VectorN& x, void* data);
-    static Real fx_cvx_opt_BFGS(const VectorN& x, void* data);
+    static Real f_cvx_opt_BFGS(const VectorN& x, void* data);
     static void grad_cvx_opt_BFGS(const VectorN& x, void* data, VectorN& g);
     static Real absmax(Real a, Real b, Real c);
     static int cstep(Real stmin, Real stmax, Real& stx, Real& fx, Real& dx, Real& sty, Real& fy, Real& dy, Real& stp, Real& fp, Real& dp, bool& brackt);
-    static VectorN calc_residual(const VectorN& x, const VectorN& lambda, const VectorN& nu, Real t, const OptParams& cparams);
-    static VectorN solve_KKT_pd(const VectorN& x, const VectorN& lambda, const VectorN& r, const OptParams& cparams);
-    static VectorN solve_KKT_lcp_ip_feas(const VectorN& x, const VectorN& lambda, const VectorN& r, const OptParams& cparams);
+    static void calc_residual(const VectorN& x, const VectorN& lambda, const VectorN& nu, Real t, const OptParams& cparams, const MatrixN& Df, VectorN& r);
+    static void calc_Df(const VectorN& x, const OptParams& cparams, MatrixN& Df);
+    static void solve_KKT_pd(const VectorN& x, const VectorN& lambda, const VectorN& r, const MatrixN& Df, const OptParams& cparams, VectorN& dy);
     static bool make_feasible_tcheck(const VectorN& y, void* data);
-    static Real make_feasible_f(const VectorN& y, unsigned idx, void* data);
-    static void make_feasible_grad(const VectorN& y, unsigned idx, VectorN& g, void* data);
-    static bool make_feasible_hess(const VectorN& y, unsigned, MatrixNN& H, void* data);
-    static bool feasible(Real (*f)(const VectorN&, unsigned, void*), unsigned m, const VectorN& x, Real infeas_tol, void* data);
-    static bool feasible(const std::vector<Real>& f);
-    static bool feasible(const VectorN& f);
+    static void evaluate_constraints(const VectorN& x, const OptParams& oparams, std::vector<Real>& fc);
+    static Real make_feasible_f0(const VectorN& y, void* data);
+    static void make_feasible_fx(const VectorN& y, VectorN& fc, void* data);
+    static void make_feasible_grad0(const VectorN& y, VectorN& g, void* data);
+    static void make_feasible_cJac(const VectorN& y, MatrixN& J, void* data);
+    static void make_feasible_hess(const VectorN& y, Real objscal, const VectorN& lambda, const VectorN& nu, MatrixNN& H, void* data);
+    static bool feasible(void (*f)(const VectorN&, VectorN&, void*), unsigned& start, unsigned m, const VectorN& lb, const VectorN& ub, const MatrixN& M, const VectorN& q, const VectorN& x, Real infeas_tol, void* data);
     static VectorN ngrad(const VectorN& x, Real t, Real h, void* data, Real (*ofn)(const VectorN&, Real, void*));
     static MatrixNN nhess(const VectorN& x, Real t, Real h, void* data, Real (*ofn)(const VectorN&, Real, void*));
     static Real finitize(Real x);
     static VectorN remove_component(const VectorN& v, unsigned k);
     static VectorN insert_component(const VectorN& v, unsigned k);
-    static bool lcp_ip_tcheck(const VectorN& x, void* data);
-    static Real lcp_ip_fx(const VectorN& x, unsigned idx, void* data);
-    static void lcp_ip_grad(const VectorN& x, unsigned idx, VectorN& g, void* data);
-    static bool lcp_ip_hess(const VectorN& x, unsigned idx, MatrixNN& H, void* data);
-    static Real qp_ip_fx(const VectorN& x, unsigned idx, void* data);
-    static void qp_ip_grad(const VectorN& x, unsigned idx, VectorN& g, void* data);
-    static bool qp_ip_hess(const VectorN& x, unsigned idx, MatrixNN& H, void* data);
+    static Real qp_ip_f0(const VectorN& x, void* data);
+    static void qp_ip_grad0(const VectorN& x, VectorN& g, void* data);
+    static void qp_ip_hess(const VectorN& x, Real objscal, const VectorN& lambda, const VectorN& nu, MatrixNN& H, void* data);
     static void setup_C(OptParams& oparams, const VectorN& x, VectorN& C);
     static void setup_A(OptParams& oparams, const VectorN& x, MatrixN& A);
 

@@ -1421,7 +1421,7 @@ void RCArticulatedBody::calc_fwd_dyn_advanced_friction(Real dt)
   // setup the data for the optimization problem
   const unsigned N = R.columns(); 
   const unsigned M = N_JOINT_DOF + N_LOOPS*2;
-  OptParams copt_params(N, M, 0, calc_fwd_dyn_fx, calc_fwd_dyn_grad, calc_fwd_dyn_hess);
+  OptParams copt_params(N, M, 0, calc_fwd_dyn_f0, calc_fwd_dyn_fx, calc_fwd_dyn_grad0, calc_fwd_dyn_cJac, calc_fwd_dyn_hess);
   copt_params.max_iterations = N*N*N;
   copt_params.data = (void*) &copt_data;
 

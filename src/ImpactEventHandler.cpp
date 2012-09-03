@@ -844,7 +844,7 @@ void ImpactEventHandler::solve_nqp_work(EventProblemData& q, VectorN& z)
   opt_data.epd = &q;
 
   // setup the optimization parameters
-  SAFESTATIC OptParams oparams(N_PRIMAL, NONLIN_INEQUAL, 0, &sqp_fx, &sqp_grad, &sqp_hess);
+  SAFESTATIC OptParams oparams(N_PRIMAL, NONLIN_INEQUAL, 0, &sqp_f0, &sqp_fx, &sqp_grad0, &sqp_cJac, &sqp_hess);
   oparams.n = N_PRIMAL;
   oparams.m = NONLIN_INEQUAL;
   oparams.eps_feas = NEAR_ZERO;
@@ -1389,10 +1389,10 @@ DynamicBodyPtr ImpactEventHandler::get_super_body(SingleBodyPtr sb)
 }
 
 /// The Hessian
-bool ImpactEventHandler::sqp_hess(const VectorN& x, unsigned m, MatrixNN& H, void* data)
+void ImpactEventHandler::sqp_hess(const VectorN& x, Real objscal, const VectorN& hlambda, const VectorN& nu, MatrixNN& H, void* data)
 {
   SAFESTATIC VectorN Gx, w, tmpv, ff, lambda;
-  SAFESTATIC MatrixN t1;
+  SAFESTATIC MatrixN t1, t2;
   const Real INFEAS_TOL = 1e-8;
 
   // get the optimization data
@@ -1426,48 +1426,35 @@ bool ImpactEventHandler::sqp_hess(const VectorN& x, unsigned m, MatrixNN& H, voi
   const MatrixNN& G = opt_data.H;
   const VectorN& c = opt_data.c;
 
-  // objective function evaluation
-  if (m == 0)
-  {
-    // objective function is quadratic
-    H.copy_from(G);
-    return true;
-  }
-  else if (m <= N_TRUE_CONE)
+  // objective function is quadratic
+  H.copy_from(G) *= objscal;
+
+  // setup the constraint index
+  unsigned index = 0;
+
+  // add in constraints for true friction cone
+  for (unsigned i=0; i< N_TRUE_CONE; i++)
   {
     // get the contact event index
-    const unsigned CIDX = opt_data.cone_contacts[m-1];
+    const unsigned CIDX = opt_data.cone_contacts[i];
     const unsigned BETA_CX = BETA_C_IDX + CIDX*2;
     const unsigned BETA_CY = BETA_CX + 1;
     const unsigned ALPHA_C = ALPHA_C_IDX + CIDX;
 
     // compute contact friction
     R.get_row(BETA_CX, tmpv);
-    (*VectorN::outer_prod(tmpv, tmpv, &H));
+    (*VectorN::outer_prod(tmpv, tmpv, &t2));
     R.get_row(BETA_CY, tmpv);
     (*VectorN::outer_prod(tmpv, tmpv, &t1));
-    H += t1;
-    H *= (Real) 2.0;
+    t2 += t1;
+    t2 *= (Real) 2.0;
     R.get_row(ALPHA_C, tmpv);
     (*VectorN::outer_prod(tmpv, tmpv, &t1)) *= (Real) (2.0 * opt_data.c_mu_c[CIDX]);
-    H -= t1;
+    t2 -= t1;
 
-    return true;
-  }
-  else if (m <= N_TRUE_CONE + N_LOOPS)
-  {
-    return false;
-  }
-  else if (m <= N_TRUE_CONE + N_LOOPS*2)
-  {
-    return false;
-  }
-  else
-  {
-    // currently disabled; this will only be necessary if using an
-    // interior-point method
-    assert(false);
-    return false;
+    // add in t2 to hessian
+    t2 *= hlambda[index++];
+    H += t2;
   }
 
 /*
@@ -1498,11 +1485,11 @@ bool ImpactEventHandler::sqp_hess(const VectorN& x, unsigned m, MatrixNN& H, voi
 }
 
 /// The gradient
-void ImpactEventHandler::sqp_grad(const VectorN& x, unsigned m, VectorN& grad, void* data)
+void ImpactEventHandler::sqp_cJac(const VectorN& x, MatrixN& J, void* data)
 {
   SAFESTATIC VectorN Gx, tmpv, tmpv2, ff, fff, w, wdelta, walphac, wbetac, walphal;
   SAFESTATIC VectorN wbetat, wbetax, zalphac, zbetac, zalphal, zbetat, zbetax;
-  SAFESTATIC VectorN Zf, Zdf, Z1df;
+  SAFESTATIC VectorN Zf, Zdf, Z1df, grad;
   SAFESTATIC MatrixN dX, Rd, tmpM, tmpM2, JcTRalphac, DcTRbetac, JlTRalphal;
   SAFESTATIC MatrixN Rbetat, DxTRbetax;
   const Real INFEAS_TOL = 1e-8;
@@ -1538,20 +1525,20 @@ void ImpactEventHandler::sqp_grad(const VectorN& x, unsigned m, VectorN& grad, v
   const MatrixNN& G = opt_data.H;
   const VectorN& c = opt_data.c;
 
-  // objective function evaluation
-  if (m == 0)
-  {
-    // objective function is quadratic
-    G.mult(x, grad) += c;
-    return;
-  }
-  else if (m <= N_TRUE_CONE)
-  {
-    // compute w
-    R.mult(x, w) += z;
+  // resize J
+  J.resize(N_TRUE_CONE + N_LOOPS*2 + N_JOINT_DOF, x.size());
 
+  // setup constraint index
+  unsigned index = 0;
+
+  // compute w
+  R.mult(x, w) += z;
+
+  // compute gradients for true friction cone
+  for (unsigned i=0; i< N_TRUE_CONE; i++)
+  {
     // get the contact event index
-    const unsigned CIDX = opt_data.cone_contacts[m-1];
+    const unsigned CIDX = opt_data.cone_contacts[i];
     const unsigned BETA_CX = BETA_C_IDX + CIDX*2;
     const unsigned BETA_CY = BETA_CX + 1;
     const unsigned ALPHA_C = ALPHA_C_IDX + CIDX;
@@ -1562,38 +1549,35 @@ void ImpactEventHandler::sqp_grad(const VectorN& x, unsigned m, VectorN& grad, v
     grad += tmpv;
     R.get_row(ALPHA_C, tmpv) *= ((Real) 2.0 * w[ALPHA_C] * opt_data.c_mu_c[CIDX]);
     grad -= tmpv;
-    return;
+    J.set_row(index++, grad); 
   }
-  else if (m <= N_TRUE_CONE + N_LOOPS)
+
+  // compute gradients for delta >= 0 constraints
+  for (unsigned i=0; i< N_LOOPS; i++) 
   {
-    // this is delta >= 0
-    const unsigned DIDX = DELTA_IDX + m - N_TRUE_CONE - 1;
+    const unsigned DIDX = DELTA_IDX + i;
     R.get_row(DIDX, grad);
     grad.negate();
-    return;
+    J.set_row(index++, grad);
   }
-  else if (m <= N_TRUE_CONE + N_LOOPS*2)
+
+  // compute gradients for delta <= 1 constraints
+  for (unsigned i=0; i< N_LOOPS; i++) 
   {
     // this is delta <= 1
-    const unsigned DIDX = DELTA_IDX + m - N_TRUE_CONE - N_LOOPS - 1;
+    const unsigned DIDX = DELTA_IDX + i; 
     R.get_row(DIDX, grad);
-    return;
+    J.set_row(index++, grad);
   }
-  else
+
+  // compute gradients for joint friction constraints
+  for (unsigned i=0; i< N_JOINT_DOF; i++)
   {
-    assert(m <= N_LOOPS*2 + N_JOINT_DOF + N_TRUE_CONE);
-
-    // get the joint friction index
-    unsigned idx = m - 1 - N_LOOPS*2 - N_TRUE_CONE; 
-
-    // compute the stacked vector
-    R.mult(x, w) += z;
-
     // original equation is mu_c ||si'*F*(fext + ff + D'*betax)|| >= ||ff||
     //                   or mu_c ||si'*F*(fext + ff + D'*betax)|| >= ||beta_x||
 
     // get the body index and body
-    const unsigned AIDX = opt_data.body_indices[idx];
+    const unsigned AIDX = opt_data.body_indices[i];
     ArticulatedBodyPtr abody = dynamic_pointer_cast<ArticulatedBody>(epd.super_bodies[AIDX]);    
 
     // get indices for this body
@@ -1604,7 +1588,7 @@ void ImpactEventHandler::sqp_grad(const VectorN& x, unsigned m, VectorN& grad, v
     const vector<unsigned>& beta_x_indices = opt_data.beta_x_indices[AIDX];
 
     // get the relative joint friction index for this articulated body
-    const unsigned RIDX = idx - opt_data.joint_friction_start[AIDX];
+    const unsigned RIDX = i - opt_data.joint_friction_start[AIDX];
 
     // get the index of the joint in the articulated body
     const unsigned JIDX = opt_data.true_indices[AIDX][RIDX];
@@ -1622,7 +1606,7 @@ void ImpactEventHandler::sqp_grad(const VectorN& x, unsigned m, VectorN& grad, v
     const MatrixN& Z = opt_data.Z[AIDX][JIDX];
 
     // get squared Coulomb joint friction coefficient
-    const Real MUCSQ = opt_data.j_mu_c[idx];
+    const Real MUCSQ = opt_data.j_mu_c[i];
 
     // get components of R corresponding to alpha_c, beta_c, nbeta_c,
     // alpha_l, beta_t, beta_x, and delta for this body and
@@ -1772,6 +1756,9 @@ void ImpactEventHandler::sqp_grad(const VectorN& x, unsigned m, VectorN& grad, v
       ff *= (ff.dot(x) + z[FIDX]);
       grad += ff;
     }
+
+    // set appropriate row of the Jacobian
+    J.set_row(index++, grad);
   }
 /*
     // setup numerical gradient 
@@ -1795,8 +1782,43 @@ void ImpactEventHandler::sqp_grad(const VectorN& x, unsigned m, VectorN& grad, v
 */
 }
 
+/// The gradient
+void ImpactEventHandler::sqp_grad0(const VectorN& x, VectorN& grad, void* data)
+{
+  // get the optimization data
+  const ImpactOptData& opt_data = *(const ImpactOptData*) data;
+
+  // get necessary data
+  const MatrixNN& G = opt_data.H;
+  const VectorN& c = opt_data.c;
+
+  // objective function is quadratic
+  G.mult(x, grad) += c;
+}
+
+/// Evaluates objective functions at x
+Real ImpactEventHandler::sqp_f0(const VectorN& x, void* data)
+{
+  SAFESTATIC VectorN Gx;
+
+  // get the optimization data
+  const ImpactOptData& opt_data = *(const ImpactOptData*) data;
+
+  // get the event problem data
+  const EventProblemData& epd = *opt_data.epd;
+
+  // get necessary data
+  const MatrixNN& G = opt_data.H;
+  const VectorN& c = opt_data.c;
+
+  // objective function is quadratic
+  G.mult(x, Gx) *= (Real) 0.5;
+  Gx += c;
+  return x.dot(Gx);
+} 
+
 /// Evaluates objective and constraint functions at x
-Real ImpactEventHandler::sqp_fx(const VectorN& x, unsigned m, void* data)
+void ImpactEventHandler::sqp_fx(const VectorN& x, VectorN& fc, void* data)
 {
   SAFESTATIC VectorN Gx, w, tmpv, tmpv2, fff, lambda, walphac, wbetac, walphal;
   SAFESTATIC VectorN wbetat, wbetax;
@@ -1834,55 +1856,50 @@ Real ImpactEventHandler::sqp_fx(const VectorN& x, unsigned m, void* data)
   const MatrixNN& G = opt_data.H;
   const VectorN& c = opt_data.c;
 
-  // objective function evaluation
-  if (m == 0)
-  {
-    // objective function is quadratic
-    G.mult(x, Gx) *= (Real) 0.5;
-    Gx += c;
-    return x.dot(Gx);
-  }
-  else if (m <= N_TRUE_CONE)
+  // resize fc
+  fc.resize(N_TRUE_CONE + N_LOOPS*2 + N_JOINT_DOF);
+
+  // setup the index
+  unsigned index = 0;
+
+  // compute preneeded things
+   R.mult(x, w) += z;
+
+  // true friction cone constraint 
+  for (unsigned i=0; i< N_TRUE_CONE; i++)
   {
     // get the contact event index
-    const unsigned CIDX = opt_data.cone_contacts[m-1];
+    const unsigned CIDX = opt_data.cone_contacts[i];
     const unsigned BETA_CX = BETA_C_IDX + CIDX*2;
     const unsigned BETA_CY = BETA_CX + 1;
     const unsigned ALPHA_C = ALPHA_C_IDX + CIDX;
 
     // compute contact friction
-    R.mult(x, w) += z;
-    return sqr(w[BETA_CX]) + sqr(w[BETA_CY]) - opt_data.c_mu_c[CIDX]*sqr(w[ALPHA_C]) - opt_data.c_visc[CIDX] - INFEAS_TOL;
+    fc[index++] = sqr(w[BETA_CX]) + sqr(w[BETA_CY]) - opt_data.c_mu_c[CIDX]*sqr(w[ALPHA_C]) - opt_data.c_visc[CIDX] - INFEAS_TOL;
   }
-  else if (m <= N_TRUE_CONE - N_LOOPS)
+
+  // delta >= 0 constraint
+  for (unsigned i=0; i< N_LOOPS; i++)
   {
-    // this is delta >= 0
-    R.mult(x, w) += z;
-    const unsigned DIDX = DELTA_IDX + m - N_TRUE_CONE - 1;
-    return -w[DIDX] - INFEAS_TOL;
+    const unsigned DIDX = DELTA_IDX + i;
+    fc[index++] = -w[DIDX] - INFEAS_TOL;
   }
-  else if (m <= N_LOOPS*2)
+
+  // delta <= 1 constraint
+  for (unsigned i=0; i< N_LOOPS; i++) 
   {
     // this is delta <= 1
-    R.mult(x, w) += z;
-    const unsigned DIDX = DELTA_IDX + m - N_TRUE_CONE - N_LOOPS - 1;
-    return w[DIDX] - (Real) 1.0 - INFEAS_TOL;
+    const unsigned DIDX = DELTA_IDX + i;
+    fc[index++] = w[DIDX] - (Real) 1.0 - INFEAS_TOL;
   }
-  else
+
+  for (unsigned i=0; i< N_JOINT_DOF; i++)
   {
-    assert(m <= N_LOOPS*2 + N_JOINT_DOF + N_TRUE_CONE);
-
-    // get the joint friction index
-    unsigned idx = m - 1 - N_LOOPS*2 - N_TRUE_CONE;  // this is the joint index
-
-    // compute the stacked vector
-    R.mult(x, w) += z;
-
     // original equation is mu_c ||si'*F*(fext + ff + D'*betax)|| >= ||ff||
     //                   or mu_c ||si'*F*(fext + ff + D'*betax)|| >= ||beta_x||
 
     // get the body index and body
-    const unsigned AIDX = opt_data.body_indices[idx];
+    const unsigned AIDX = opt_data.body_indices[i];
     ArticulatedBodyPtr abody = dynamic_pointer_cast<ArticulatedBody>(epd.super_bodies[AIDX]);    
 
    // get indices for this body
@@ -1893,7 +1910,7 @@ Real ImpactEventHandler::sqp_fx(const VectorN& x, unsigned m, void* data)
     const vector<unsigned>& beta_x_indices = opt_data.beta_x_indices[AIDX];
 
     // get the relative joint friction index for this articulated body
-    const unsigned RIDX = idx - opt_data.joint_friction_start[AIDX];
+    const unsigned RIDX = i - opt_data.joint_friction_start[AIDX];
 
     // get the index of the joint in the articulated body
     const unsigned JIDX = opt_data.true_indices[AIDX][RIDX];
@@ -1946,9 +1963,9 @@ Real ImpactEventHandler::sqp_fx(const VectorN& x, unsigned m, void* data)
       Z.mult(fff, lambda);
 
     // evaluate the equation
-    const Real MUCSQ = opt_data.j_mu_c[idx];
-    const Real VSC = opt_data.j_visc[idx];
-    return w[FIDX]*w[FIDX] - MUCSQ*lambda.norm_sq() - VSC - INFEAS_TOL;
+    const Real MUCSQ = opt_data.j_mu_c[i];
+    const Real VSC = opt_data.j_visc[i];
+    fc[index++] = w[FIDX]*w[FIDX] - MUCSQ*lambda.norm_sq() - VSC - INFEAS_TOL;
   }
 } 
 

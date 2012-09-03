@@ -532,7 +532,7 @@ void MCArticulatedBody::calc_fwd_dyn(Real dt)
   // setup the data for the optimization problem
   const unsigned N = R.columns(); 
   const unsigned M = N_JOINT_DOF + N_LOOPS*2;
-  OptParams copt_params(N, M, 0, ArticulatedBody::calc_fwd_dyn_fx, ArticulatedBody::calc_fwd_dyn_grad, ArticulatedBody::calc_fwd_dyn_hess);
+  OptParams copt_params(N, M, 0, ArticulatedBody::calc_fwd_dyn_f0, ArticulatedBody::calc_fwd_dyn_fx, ArticulatedBody::calc_fwd_dyn_grad0, ArticulatedBody::calc_fwd_dyn_cJac, ArticulatedBody::calc_fwd_dyn_hess);
   copt_params.max_iterations = N*N*N;
   copt_params.data = (void*) &copt_data;
 
