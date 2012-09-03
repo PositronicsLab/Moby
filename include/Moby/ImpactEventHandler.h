@@ -145,9 +145,11 @@ class ImpactEventHandler
     static void contact_select(const std::vector<int>& alpha_c_indices, const std::vector<int>& beta_nbeta_c_indices, const VectorN& x, VectorN& alpha_c, VectorN& beta_c);
     static void contact_select(const std::vector<int>& alpha_c_indices, const std::vector<int>& beta_nbeta_c_indices, const MatrixN& m, MatrixN& alpha_c_rows, MatrixN& beta_c_rows);
     static Real sqr(Real x) { return x*x; }
-    static bool sqp_hess(const VectorN& x, unsigned idx, MatrixNN& H, void* data);
-    static void sqp_grad(const VectorN& x, unsigned idx, VectorN& g, void* data);
-    static Real sqp_fx(const VectorN& x, unsigned idx, void* data);
+    static void sqp_hess(const VectorN& x, Real objscal, const VectorN& lambda, const VectorN& nu, MatrixNN& H, void* data);
+    static void sqp_grad0(const VectorN& x, VectorN& g, void* data);
+    static void sqp_cJac(const VectorN& x, MatrixN& J, void* data);
+    static Real sqp_f0(const VectorN& x, void* data);
+    static void sqp_fx(const VectorN& x, VectorN& fc, void* data);
     static void set_optimization_data(EventProblemData& q, ImpactOptData& iopt);
 }; // end class
 } // end namespace

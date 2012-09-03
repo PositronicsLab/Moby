@@ -44,16 +44,6 @@ Real ArticulatedBody::get_aspeed() const
   return max_aspeed;
 }
 
-/// Checks for feasibility fo the inequality constraints
-bool ArticulatedBody::feasible(unsigned m, const VectorN& x, void* data)
-{
-  for (unsigned i=0; i< m; i++)
-    if (calc_fwd_dyn_fx(x, i+1, data) > (Real) 0.0)
-      return false;
-
-  return true;
-}
-
 /// Computes the Z matrices
 void ArticulatedBody::compute_Z_matrices(const vector<unsigned>& loop_indices, const vector<vector<unsigned> >& loop_links, vector<MatrixN>& Zd, vector<MatrixN>& Z1d, vector<MatrixN>& Z) const
 {
@@ -301,7 +291,26 @@ MatrixN& ArticulatedBody::determine_F(unsigned link_idx, const Matrix4& Tf, cons
 }
 
 // objective and inequality constraint functions for convex optimization
-Real ArticulatedBody::calc_fwd_dyn_fx(const VectorN& x, unsigned m, void* data)
+Real ArticulatedBody::calc_fwd_dyn_f0(const VectorN& x, void* data)
+{
+  SAFESTATIC VectorN Gx;
+  const Real INFEAS_TOL = 1e-8;
+
+  // setup constants
+  const ABFwdDynOptData& opt_data = *(const ABFwdDynOptData*) data;
+
+  // get necessary data
+  const MatrixNN& G = opt_data.G;
+  const VectorN& c = opt_data.c;
+
+  // objective function is quadratic
+  G.mult(x, Gx) *= (Real) 0.5;
+  Gx += c;
+  return x.dot(Gx);
+}
+
+// inequality constraint functions for convex optimization
+void ArticulatedBody::calc_fwd_dyn_fx(const VectorN& x, VectorN& fc, void* data)
 {
   SAFESTATIC VectorN Gx, w, tmp, ff, DTbx, lambda;
   const Real INFEAS_TOL = 1e-8;
@@ -334,40 +343,29 @@ Real ArticulatedBody::calc_fwd_dyn_fx(const VectorN& x, unsigned m, void* data)
   const vector<Real>& visc = opt_data.visc;
   const VectorN& fext = opt_data.fext;
 
-  // objective function evaluation
-  if (m == 0)
-  {
-    // objective function is quadratic
-    G.mult(x, Gx) *= (Real) 0.5;
-    Gx += c;
-    return x.dot(Gx);
-  }
-  else if (m <= N_LOOPS)
-  {
-    // this is delta >= 0
-    R.mult(x, w) += z;
-    unsigned didx = m - 1;
-    return -w[DELTA_START+didx] - INFEAS_TOL;
-  }
-  else if (m <= N_LOOPS*2)
-  {
-    // this is delta <= 1
-    R.mult(x, w) += z;
-    unsigned didx = m - N_LOOPS - 1;
-    return w[DELTA_START+didx] - (Real) 1.0 - INFEAS_TOL;
-  }
-  else
-  {
-    assert(m <= N_LOOPS*2 + N_JOINT_DOF);
-    R.mult(x, w) += z;
-    unsigned idx = m - 1 - N_LOOPS*2;  // this is the joint index
+  // setup constraint index
+  unsigned index = 0;
 
+  // compute w
+  R.mult(x, w) += z;
+
+  // compute delta >= 0 constraints
+  for (unsigned i=0; i< N_LOOPS; i++)
+    fc[index++] = -w[DELTA_START+i] - INFEAS_TOL;
+
+  // compute delta <= 1 constraints
+  for (unsigned i=0; i< N_LOOPS; i++)
+    fc[index++] = w[DELTA_START+i] - (Real) 1.0 - INFEAS_TOL;
+
+  // compute joint friction constraints
+  for (unsigned i=0; i< N_JOINT_DOF; i++)
+  {
     // original equation is mu_c ||si'*F*(fext + ff + D'*betax)|| >= ||ff||
     //                   or mu_c ||si'*F*(fext + ff + D'*betax)|| >= ||beta_x||
 
     // get the frictional force
-    unsigned jidx = true_indices[idx];
-    const unsigned FIDX = (idx < N_IMPLICIT_DOF) ? idx : BETA_START + idx - N_IMPLICIT_DOF;
+    unsigned jidx = true_indices[i];
+    const unsigned FIDX = (i < N_IMPLICIT_DOF) ? i : BETA_START + i - N_IMPLICIT_DOF;
     Real fx = w[FIDX];
 
     // determine the applied forces
@@ -400,7 +398,7 @@ Real ArticulatedBody::calc_fwd_dyn_fx(const VectorN& x, unsigned m, void* data)
     } 
 
     // evaluate the equation
-    return fx*fx - mu_c[idx]*lambda.norm_sq() - visc[idx] - INFEAS_TOL;
+    fc[index++] = fx*fx - mu_c[i]*lambda.norm_sq() - visc[i] - INFEAS_TOL;
   }
 }
 
@@ -431,9 +429,24 @@ void ArticulatedBody::calc_joint_constraint_forces(const vector<unsigned>& loop_
 }
 
 // objective and inequality constraint gradients for convex optimization
-void ArticulatedBody::calc_fwd_dyn_grad(const VectorN& x, unsigned m, VectorN& grad, void* data)
+void ArticulatedBody::calc_fwd_dyn_grad0(const VectorN& x, VectorN& grad, void* data)
 {
-  SAFESTATIC VectorN tmpv, tmpv2;
+  // setup constants
+  const ABFwdDynOptData& opt_data = *(const ABFwdDynOptData*) data;
+
+  // get necessary data
+  const MatrixNN& G = opt_data.G;
+  const VectorN& c = opt_data.c;
+
+  // objective function is quadratic
+  G.mult(x, grad);
+  grad += c;
+}
+
+// objective and inequality constraint gradients for convex optimization
+void ArticulatedBody::calc_fwd_dyn_cJac(const VectorN& x, MatrixN& J, void* data)
+{
+  SAFESTATIC VectorN tmpv, tmpv2, grad;
   SAFESTATIC VectorN ff, fff, wff, wdelta, Zf, Zdf, Z1df;
   SAFESTATIC MatrixN Rd, dX;
 
@@ -455,27 +468,29 @@ void ArticulatedBody::calc_fwd_dyn_grad(const VectorN& x, unsigned m, VectorN& g
   const vector<unsigned>& true_indices = opt_data.true_indices;
   const vector<unsigned>& loop_indices = opt_data.loop_indices;
 
-  // objective function evaluation
-  if (m == 0)
+  // resize J
+  J.resize(N_LOOPS*2+N_JOINT_DOF, x.size());
+
+  // setup the row index
+  unsigned index = 0;
+
+  // constraint delta >= 0
+  for (unsigned i=0; i< N_LOOPS; i++) 
   {
-    // objective function is quadratic
-    G.mult(x, grad);
-    grad += c;
-  }
-  else if (m <= N_LOOPS)
-  {
-    // this is delta >= 0
-    unsigned didx = m - 1;
-    R.get_row(DELTA_START+didx, grad);
+    R.get_row(DELTA_START+i, grad);
     grad.negate();
+    J.set_row(index++, grad);
   }
-  else if (m <= N_LOOPS*2)
+
+  // constraint delta <= 1
+  for (unsigned i=0; i< N_LOOPS; i++) 
   {
-    // this is delta <= 1
-    unsigned didx = m - N_LOOPS - 1;
-    R.get_row(DELTA_START+didx, grad);
+    R.get_row(DELTA_START+i, grad);
+    J.set_row(index++, grad);
   }
-  else
+
+  // joint friction constraints
+  for (unsigned i=0; i< N_JOINT_DOF; i++)
   {
 /*
     // setup numerical gradient 
@@ -498,8 +513,7 @@ void ArticulatedBody::calc_fwd_dyn_grad(const VectorN& x, unsigned m, VectorN& g
     return;
 */
     // get the DOF and joint index
-    assert(m <= N_LOOPS*2 + N_JOINT_DOF);
-    unsigned idx = m - N_LOOPS*2 - 1;
+    unsigned idx = i;
     unsigned jidx = true_indices[idx];
 
     // determine the friction index
@@ -637,13 +651,15 @@ void ArticulatedBody::calc_fwd_dyn_grad(const VectorN& x, unsigned m, VectorN& g
       ff *= (ff.dot(x) + z[FIDX]);
       grad += ff;
     }
+
+    J.set_row(index++, grad);
   }
 }
 
 // objective and inequality constraint gradients for convex optimization
-bool ArticulatedBody::calc_fwd_dyn_hess(const VectorN& x, unsigned m, MatrixNN& H, void* data)
+void ArticulatedBody::calc_fwd_dyn_hess(const VectorN& x, Real objscal, const VectorN& hlambda, const VectorN& nu, MatrixNN& H, void* data)
 {
-  SAFESTATIC MatrixN dX, tmpM, tmpM2, f, Rd;
+  SAFESTATIC MatrixN dX, tmpM, tmpM2, tmpM3, f, Rd;
   SAFESTATIC VectorN wdelta, wff, fff, tmpv;
 
   // setup constants
@@ -661,23 +677,13 @@ bool ArticulatedBody::calc_fwd_dyn_hess(const VectorN& x, unsigned m, MatrixNN& 
   const vector<unsigned>& loop_indices = opt_data.loop_indices;
   const VectorN& fext = opt_data.fext;
 
-  // objective function evaluation
-  if (m == 0)
-  {
-    // objective function is quadratic
-    H.copy_from(G);
-    return true;
-  }
-  else if (m <= N_LOOPS*2)
-  {
-    // delta >= 0, delta <= 1 has no nonzero derivatives
-    return false;
-  }
-  else 
+  // objective function 
+  H.copy_from(G) *= objscal;
+
+  for (unsigned i=0; i< N_JOINT_DOF; i++)
   {
     // get the DOF and joint index
-    assert(m <= N_JOINT_DOF + N_LOOPS*2);
-    unsigned idx = m - N_LOOPS*2 - 1;
+    unsigned idx = i; 
     unsigned jidx = true_indices[idx];
 
     // get the frictional index 
@@ -716,7 +722,7 @@ bool ArticulatedBody::calc_fwd_dyn_hess(const VectorN& x, unsigned m, MatrixNN& 
       // compute first component of Hessian (dX' * Z' * Z * dX)
       Z.mult(dX, tmpM);
       Z.transpose_mult(tmpM, tmpM2);
-      dX.transpose_mult(tmpM2, H);
+      dX.transpose_mult(tmpM2, tmpM3);
 
       // compute components necessary for delta
       const unsigned LOOP_IDX = DELTA_START+loop_indices[jidx];
@@ -733,14 +739,14 @@ bool ArticulatedBody::calc_fwd_dyn_hess(const VectorN& x, unsigned m, MatrixNN& 
       tmpM.mult_transpose(Z, tmpM2);
       tmpM2.mult(Zd, tmpM);
       tmpM.mult(dX, tmpM2);
-      H += tmpM2;
+      tmpM3 += tmpM2;
 
       // compute first part of third Hessian component (dX' * Z' * Zd * f * dD)
       Zd.mult(f, tmpM);
       Z.transpose_mult(tmpM, tmpM2);
       dX.transpose_mult(tmpM2, tmpM);
       tmpM.mult(Rd, tmpM2) *= (Real) 2.0;
-      H += tmpM2;
+      tmpM3 += tmpM2;
 
       // 1st part of 4th component of gradient (dX' * Zd' * Z * f * dD)
       // is already accounted for above (in first part of 3rd component)
@@ -755,7 +761,7 @@ bool ArticulatedBody::calc_fwd_dyn_hess(const VectorN& x, unsigned m, MatrixNN& 
       f.transpose_mult(tmpM2, tmpM);
       Rd.transpose_mult(tmpM, tmpM2);
       tmpM2.negate();
-      H += tmpM2;
+      tmpM3 += tmpM2;
 
       // compute 2nd part of 5th component of Hessian -dX' * Z1d' * Z * f * Rd
       Z.mult(f, tmpM);
@@ -763,7 +769,7 @@ bool ArticulatedBody::calc_fwd_dyn_hess(const VectorN& x, unsigned m, MatrixNN& 
       dX.transpose_mult(tmpM2, tmpM);
       tmpM.mult(Rd, tmpM2);
       tmpM2.negate();
-      H += tmpM2;
+      tmpM3 += tmpM2;
 
       // compute 1st part of 6th Hessian component (1-d) * dX' * Z' * Z1d * dX
       // (also accounts for 1st part of 7th Hessian component)
@@ -771,7 +777,7 @@ bool ArticulatedBody::calc_fwd_dyn_hess(const VectorN& x, unsigned m, MatrixNN& 
       tmpM.mult(Z1d, tmpM2);
       tmpM2.mult(dX, tmpM);
       tmpM *= ((Real) 2.0 - DELTA*(Real) 2.0);
-      H += tmpM;
+      tmpM3 += tmpM;
 
       // compute 2nd part of 6th Hessian component -dD * f' * Z1d' * Z * dX
       // (also accounts for 2nd part of 7th Hessian component)
@@ -779,7 +785,7 @@ bool ArticulatedBody::calc_fwd_dyn_hess(const VectorN& x, unsigned m, MatrixNN& 
       tmpM.mult(Z, tmpM2);
       tmpM2.mult(dX, tmpM) *= (Real) -2.0;
       Rd.transpose_mult(tmpM, tmpM2);
-      H += tmpM2;      
+      tmpM3 += tmpM2;      
 
       // compute 8th Hessian components
       // part 1 and 2: 2 * d * Rd' * f' * Zd' * Zd * dX
@@ -788,26 +794,26 @@ bool ArticulatedBody::calc_fwd_dyn_hess(const VectorN& x, unsigned m, MatrixNN& 
       tmpM2.mult(dX, tmpM);
       Rd.transpose_mult(tmpM, tmpM2);
       tmpM2 *= (DELTA * (Real) 2.0);
-      H += tmpM2;
+      tmpM3 += tmpM2;
 
       // part 3: dD' * Rd * f' * Zd' * Zd * f
       tmpM.copy_from(Rd) *= Zd.mult(fff, tmpv).norm_sq();
       tmpM.transpose_mult(Rd, tmpM2);
-      H += tmpM2;
+      tmpM3 += tmpM2;
 
       // compute 9th component of Hessian
       // part 1: (d^2 * dX' * Zd' * Zd * dX)
       Zd.mult(dX, tmpM);
       Zd.transpose_mult(tmpM, tmpM2);
       dX.transpose_mult(tmpM2, tmpM) *= (DELTA*DELTA);
-      H += tmpM;
+      tmpM3 += tmpM;
       
       // part 2: (2*d * dD' * f' * Zd' * Zd * dX)
       f.transpose_mult_transpose(Zd, tmpM);
       tmpM.mult(Zd, tmpM2);
       tmpM2.mult(dX, tmpM) *= ((Real) 2.0 * DELTA);
       Rd.transpose_mult(tmpM, tmpM2);
-      H += tmpM2;
+      tmpM3 += tmpM2;
 
       // compute first part of 10th and 11th Hessian components
       // (1-2d) * Rd' * f' * Zd' * Z1d * dX
@@ -815,7 +821,7 @@ bool ArticulatedBody::calc_fwd_dyn_hess(const VectorN& x, unsigned m, MatrixNN& 
       tmpM.mult(Z1d, tmpM2);
       tmpM2.mult(dX, tmpM) *= ((Real) 1.0 - DELTA*(Real) 2.0);
       Rd.transpose_mult(tmpM, tmpM2);
-      H += tmpM2;      
+      tmpM3 += tmpM2;      
 
       // compute second part of 10th and 11th Hessian components
       // part 2: -2 * dD' * Rd * f' * Z1d' * Zd * f 
@@ -824,7 +830,7 @@ bool ArticulatedBody::calc_fwd_dyn_hess(const VectorN& x, unsigned m, MatrixNN& 
       tmpM.mult(f, tmpM2) *= (Real) -2.0;
       tmpM.copy_from(Rd) *= tmpM2(0,0);
       Rd.transpose_mult(tmpM, tmpM2);
-      H += tmpM2;
+      tmpM3 += tmpM2;
 
       // compute 12th components of Hessian
       // part 1: (1-d) * dX' * Zd' * Z1d * dX
@@ -832,14 +838,14 @@ bool ArticulatedBody::calc_fwd_dyn_hess(const VectorN& x, unsigned m, MatrixNN& 
       dX.transpose_mult_transpose(Zd, tmpM);
       tmpM.mult(Z1d, tmpM2);
       tmpM2.mult(dX, tmpM) *= ((Real) 1.0 - DELTA*(Real) 2.0 + DELTA*DELTA);
-      H += tmpM;
+      tmpM3 += tmpM;
 
       // part 2: -dD' * f' * Z1d' * Zd * dX
       f.transpose_mult_transpose(Z1d, tmpM);
       tmpM.mult(Zd, tmpM2);
       tmpM2.mult(dX, tmpM).negate();
       Rd.transpose_mult(tmpM, tmpM2);
-      H += tmpM2;
+      tmpM3 += tmpM2;
 
       // compute 13th components of Hessian
       // part 1: (1-d) * d * dX' * Z1d' * Zd * dX
@@ -851,61 +857,65 @@ bool ArticulatedBody::calc_fwd_dyn_hess(const VectorN& x, unsigned m, MatrixNN& 
       tmpM.mult(Z1d, tmpM2);
       tmpM2.mult(dX, tmpM) *= ((Real) 1.0 - DELTA*(Real) 2.0);
       Rd.transpose_mult(tmpM, tmpM2);
-      H += tmpM2;
+      tmpM3 += tmpM2;
 
       // compute 14th Hessian components 
       // part 1:(dD' * Rd * f' * Z1d' * Z1d * f)
       tmpM.copy_from(Rd) *= Z1d.mult(fff, tmpv).norm_sq();
       Rd.transpose_mult(tmpM, tmpM2);
-      H += tmpM2;
+      tmpM3 += tmpM2;
 
       // part 2: (-(1-d) * Rd' * f' * Z1d' * Z1d * dX)
       f.transpose_mult_transpose(Z1d, tmpM);
       tmpM.mult(Z1d, tmpM2);
       tmpM2.mult(dX, tmpM) *= ((Real) -2.0 - DELTA*(Real) 2.0); // double
       Rd.transpose_mult(tmpM, tmpM2);
-      H += tmpM2;
+      tmpM3 += tmpM2;
 
       // compute 15th Hessian components
       // part 1: ((1-d)^2 * dX' * Z1d' * Z1d * dX)
       dX.transpose_mult_transpose(Z1d, tmpM);
       tmpM.mult(Z1d, tmpM2);
       tmpM2.mult(dX, tmpM) *= ((Real) 1.0 - (Real) 2.0*DELTA + DELTA*DELTA);
-      H += tmpM;
+      tmpM3 += tmpM;
 
       // part 2: 2*(1-d)*dD' * f' * Z1d' * Z1d * dX
       f.transpose_mult_transpose(Z1d, tmpM);
       tmpM.mult(Z1d, tmpM2);
       tmpM2.mult(dX, tmpM) *= ((Real) 2.0 - DELTA*(Real) 2.0);
       Rd.transpose_mult(tmpM, tmpM2);
-      H += tmpM2;
+      tmpM3 += tmpM2;
 
       // scale Hessian
-      H *= (-MUCSQ);
+      tmpM3 *= (-MUCSQ);
 
       // add in frictional component
       R.get_row(FIDX, tmpv);
       VectorN::outer_prod(tmpv, tmpv, &tmpM);
-      H += tmpM;
+      tmpM3 += tmpM;
 
-      return true;
+      // finally, scale Hessian
+      tmpM3 *= hlambda[i];
+      H += tmpM3;
     }
     else
     {
       // compute Hessian
       Z.mult(dX, tmpM);
       Z.transpose_mult(tmpM, tmpM2);
-      dX.transpose_mult(tmpM2, H);
+      dX.transpose_mult(tmpM2, tmpM3);
 
       // scale
-      H *= (-MUCSQ);
+      tmpM3 *= (-MUCSQ);
 
       // add in frictional component
       R.get_row(FIDX, tmpv);
       VectorN::outer_prod(tmpv, tmpv, &tmpM);
-      H += tmpM;
+      tmpM3 += tmpM;
 
-      return true;
+      // finally, scale Hessian
+      tmpM3 *= hlambda[i];
+      H += tmpM3;
     }
 
 /*
@@ -931,7 +941,6 @@ bool ArticulatedBody::calc_fwd_dyn_hess(const VectorN& x, unsigned m, MatrixNN& 
     for (unsigned i=0; i< n; i++)
       for (unsigned j=i+1; j< n; j++)
         H(i,j) = H(j,i) = 0.5*(H(i,j) + H(j,i));
-    return true;
 */
   }
 }

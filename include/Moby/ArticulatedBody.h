@@ -167,9 +167,11 @@ class ArticulatedBody : public DynamicBody
     virtual void compile() = 0;
 
     MatrixN& determine_F(unsigned link_idx, const Matrix4& Tf, const std::vector<unsigned>& loop_indices, MatrixN& F) const;
-    static Real calc_fwd_dyn_fx(const VectorN& x, unsigned m, void* data);
-    static void calc_fwd_dyn_grad(const VectorN& x, unsigned m, VectorN& grad, void* data);
-    static bool calc_fwd_dyn_hess(const VectorN& x, unsigned m, MatrixNN& H, void* data);
+    static Real calc_fwd_dyn_f0(const VectorN& x, void* data);
+    static void calc_fwd_dyn_fx(const VectorN& x, VectorN& fc, void* data);
+    static void calc_fwd_dyn_grad0(const VectorN& x, VectorN& grad, void* data);
+    static void calc_fwd_dyn_cJac(const VectorN& x, MatrixN& J, void* data);
+    static void calc_fwd_dyn_hess(const VectorN& x, Real objscal, const VectorN& lambda, const VectorN& nu, MatrixNN& H, void* data);
     void calc_joint_constraint_forces(const std::vector<unsigned>& loop_indices, const VectorN& delta, const std::vector<MatrixN>& Zd, const std::vector<MatrixN>& Z1d, const std::vector<MatrixN>& Z, const VectorN& ff) const;
 
     /// The set of links for this articulated body
@@ -181,7 +183,6 @@ class ArticulatedBody : public DynamicBody
   private:
     virtual Real get_aspeed() const;
     SVector6 transform_force(RigidBodyPtr link, const Vector3& x) const;
-    static bool feasible(unsigned m, const VectorN& x, void* data);
     static void objective_grad(const VectorN& x, void* data, VectorN& g);
 
     bool _positions_valid;

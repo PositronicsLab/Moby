@@ -23,6 +23,7 @@ const Matrix3 ZEROS_3x3 = Matrix3::zero();
 const Matrix3 IDENTITY_3x3 = Matrix3::identity();
 const Matrix4 IDENTITY_4x4 = Matrix4::identity();
 const SVector6 ZEROS_6 = SVector6::zero();
+const VectorN EMPTY_VEC(0);
 
 // debugging bits
 const unsigned LOG_SIMULATOR = 1;
