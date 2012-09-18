@@ -105,6 +105,54 @@ MatrixN::MatrixN(MatrixN& source)
   source._capacity = 0;
 }
 
+/// Creates an iterator to the start of a block
+BlockIterator MatrixN::block_start(unsigned row_start, unsigned row_end, unsigned col_start, unsigned col_end)
+{
+  unsigned i = row_start;
+  unsigned j = col_start;
+  unsigned rows = row_end - row_start;
+  unsigned cols = col_end - col_start;
+
+  if (i+rows > _rows || j+cols > _columns)
+    throw MissizeException();
+
+  BlockIterator b;
+  b._count = 0;
+  b._sz = rows*cols;
+  b._data_start = _data.get();
+  b._current_data = &_data[j*_rows+i];
+  b._matrix_rows = _rows;
+  b._matrix_columns = _columns;
+  b._block_rows = rows;
+  b._block_columns = cols;
+
+  return b;
+}
+
+/// Creates an iterator to the end of a block
+BlockIterator MatrixN::block_end(unsigned row_start, unsigned row_end, unsigned col_start, unsigned col_end)
+{
+  unsigned i = row_start;
+  unsigned j = col_start;
+  unsigned rows = row_end - row_start;
+  unsigned cols = col_end - col_start;
+
+  if (i+rows > _rows || j+cols > _columns)
+    throw MissizeException();
+
+  BlockIterator b;
+  b._sz = rows*cols;
+  b._count = b._sz;
+  b._data_start = _data.get();
+  b._current_data = NULL;
+  b._matrix_rows = _rows;
+  b._matrix_columns = _columns;
+  b._block_rows = rows;
+  b._block_columns = cols;
+
+  return b;
+}
+
 /// Computes the l-infinity norm of this matrix
 Real MatrixN::norm_inf() const
 {

@@ -119,8 +119,10 @@ struct OptParams
     n = m = r = 0;
     f0 = NULL;
     fx = NULL;
+    gx = NULL;
     grad0 = NULL;
-    cJac = NULL;
+    cJac_f = NULL;
+    cJac_g = NULL; 
     hess = NULL;
     tcheck = NULL;
     max_iterations = std::numeric_limits<unsigned>::max();
@@ -131,9 +133,11 @@ struct OptParams
     zero_tol = NEAR_ZERO;
     lb.resize(0);
     ub.resize(0);
+    nu.resize(0);
+    lambda.resize(0);
   }
 
-  OptParams(unsigned n, unsigned m, unsigned r, Real (*f0)(const VectorN& x, void*), void (*fx)(const VectorN&, VectorN&, void*), void (*grad0)(const VectorN&, VectorN&, void*), void (*cJac)(const VectorN&, MatrixN&, void*), void (*hess)(const VectorN&, Real, const VectorN&, const VectorN&, MatrixNN&, void*))
+  OptParams(unsigned n, unsigned m, unsigned r, Real (*f0)(const VectorN& x, void*), void (*fx)(const VectorN&, VectorN&, void*), void (*gx)(const VectorN&, VectorN&, void*), void (*grad0)(const VectorN&, VectorN&, void*), void (*cJac_f)(const VectorN&, MatrixN&, void*), void (*cJac_g)(const VectorN&, MatrixN&, void*), void (*hess)(const VectorN&, Real, const VectorN&, const VectorN&, MatrixNN&, void*))
   {
     data = NULL;
 
@@ -155,16 +159,20 @@ struct OptParams
     // setup function pointers
     this->f0 = f0;
     this->fx = fx;
+    this->gx = gx;
     this->grad0 = grad0;
-    this->cJac = cJac;
+    this->cJac_f = cJac_f;
+    this->cJac_g = cJac_g;
     this->hess = hess;
     tcheck = NULL;
 
-    // make A, b, M, q zero by default
+    // make A, b, M, q and dual variables zero by default
     A.resize(0, n);
     b.resize(0);
     M.resize(0, n);
     q.resize(0);
+    nu.resize(0);
+    lambda.resize(0);
 
     // no bounds on the variables
     lb.resize(0);
@@ -187,10 +195,12 @@ struct OptParams
     n = c.n;
     m = c.m;
     r = c.r;
-    A = c.A;
-    b = c.b;
-    q = c.q;
-    M = c.M;
+    A.copy_from(c.A);
+    b.copy_from(c.b);
+    q.copy_from(c.q);
+    M.copy_from(c.M);
+    nu.copy_from(c.nu);
+    lambda.copy_from(c.lambda);
     mu = c.mu;
     lb = c.lb;
     ub = c.ub;
@@ -201,8 +211,10 @@ struct OptParams
     data = c.data;
     f0 = c.f0;
     fx = c.fx;
+    gx = c.gx;
     grad0 = c.grad0;
-    cJac = c.cJac;
+    cJac_f = c.cJac_f;
+    cJac_g = c.cJac_g;
     hess = c.hess;
     tcheck = c.tcheck;
     return *this;
@@ -235,6 +247,12 @@ struct OptParams
   /// Vector q used in linear inequality constraints Mx >= q
   VectorN q;
 
+  /// Dual variables for nonlinear inequality constraints (must be positive)
+  VectorN lambda;
+
+  /// Dual variables for nonlinear equality constraints
+  VectorN nu;
+
   /// Lower bounds on x
   VectorN lb;
 
@@ -265,22 +283,20 @@ struct OptParams
   /// f0(x,data) pointer to a function that evaluates the objective function 
   Real (*f0)(const VectorN&, void*);
 
-  /// fx(x,data) pointer to a function that evaluates the nonlinear constraint functions
-  /**
-   * first m entries should be nonlinear inequality constraint evaluations
-   * remaining r entries should be nonlinear equality constraint evaluations
-   */
+  /// fx(x,data) pointer to a function that evaluates the m nonlinear inequality constraint functions
   void (*fx)(const VectorN&, VectorN&, void*);
+
+  /// gx(x,data) pointer to a function that evaluates the r nonlinear equality constraint functions
+  void (*gx)(const VectorN&, VectorN&, void*);
 
   /// grad(x,g,data) pointer to a function for computing the gradient of the objective 
   void (*grad0)(const VectorN&, VectorN&, void*);
 
-  /// cJac(x,g,data) pointer to a function for computing the (m+r) x n-dimensional constraint Jacobian 
-  /**
-   * first m rows should be nonlinear inequality constraint gradients
-   * remaining r rows should be nonlinear equality constraint gradients
-   */
-  void (*cJac)(const VectorN&, MatrixN&, void*);
+  /// cJac_f(x,g,data) pointer to a function for computing the m x n-dimensional inequality constraint Jacobian 
+  void (*cJac_f)(const VectorN&, MatrixN&, void*);
+
+  /// cJac_g(x,g,data) pointer to a function for computing the r x n-dimensional equality constraint Jacobian 
+  void (*cJac_g)(const VectorN&, MatrixN&, void*);
 
   /// hess(.) pointer to a function for computing the Hessians of the objective  and nonlinear inequality constraints
   /**
@@ -306,9 +322,9 @@ class Optimization
     static unsigned qp_gradproj(const MatrixNN& G, const VectorN& c, const VectorN& l, const VectorN& u, unsigned max_iter, VectorN& x, Real tol);
     static bool brent(Real x_lower, Real x_upper, Real& x, Real& fx, Real (*f)(Real, void*), Real tol, void* params);
     static bool optimize_convex(OptParams& cparams, VectorN& x);
-    static bool make_feasible_convex(OptParams& cparams, VectorN& x, void (*solve_KKT)(const VectorN&, const VectorN&, const VectorN&, const MatrixN&, const OptParams&, VectorN&) = NULL);
-    static bool make_feasible_convex2(OptParams& cparams, VectorN& x, void (*solve_KKT)(const VectorN&, const VectorN&, const VectorN&, const MatrixN&, const OptParams&, VectorN&) = NULL);
-    static bool optimize_convex_pd(OptParams& cparams, VectorN& x, void (*solve_KKT)(const VectorN&, const VectorN&, const VectorN&, const MatrixN&, const OptParams&, VectorN&) = NULL);
+    static bool make_feasible_convex(OptParams& cparams, VectorN& x, void (*solve_KKT)(const VectorN&, const VectorN&, const VectorN&, const VectorN&, const MatrixN&, const MatrixN&, const OptParams&, VectorN&) = NULL);
+    static bool make_feasible_convex2(OptParams& cparams, VectorN& x, void (*solve_KKT)(const VectorN&, const VectorN&, const VectorN&, const VectorN&, const MatrixN&, const MatrixN&, const OptParams&, VectorN&) = NULL);
+    static bool optimize_convex_pd(OptParams& cparams, VectorN& x, void (*solve_KKT)(const VectorN&, const VectorN&, const VectorN&, const VectorN&, const MatrixN&, const MatrixN&, const OptParams&, VectorN&) = NULL);
     static bool mlcp(VectorN& y, VectorN& z, const MatrixNN& M, const VectorN& q, bool (*lcp_solver)(const MatrixNN&, const VectorN&, VectorN&) = NULL);
     static bool lp(const MatrixN& A, const VectorN& b, const VectorN& c, const VectorN& l, const VectorN& u, VectorN& x);
     static bool qp_convex_ip(const MatrixNN& G, const VectorN& c, OptParams& oparams, VectorN& x);
@@ -338,9 +354,9 @@ class Optimization
 
   private:
     static void add_to_working_set(const VectorN& vec, Real bi, MatrixN& AMr, VectorN& br);
-    static bool add_to_working_set(unsigned i, const std::vector<unsigned>& bounded, const std::vector<unsigned>& free, MatrixN& AMr, MatrixN& AMr_bounded, MatrixN& Z, MatrixN& Y);
-    static bool add_to_working_set(const VectorN& vec, const std::vector<unsigned>& bounded, const std::vector<unsigned>& free, MatrixN& AMr, MatrixN& AMr_bounded, MatrixN& Z, MatrixN& Y);
-    static void reform_working_set(const MatrixN& Ar, const MatrixN& M, const std::vector<bool>& working, const std::vector<unsigned>& bounded, const std::vector<unsigned>& free, MatrixN& AMr, MatrixN& AMr_bounded, MatrixN& Z, MatrixN& Y);
+    static bool add_to_working_set_bound(unsigned i, const MatrixN& Ar, const MatrixN& M, const std::vector<bool>& working, const std::vector<unsigned>& bounded, const std::vector<unsigned>& free, MatrixN& AMr, MatrixN& AMr_bounded, MatrixN& Z, MatrixN& Y);
+    static bool add_to_working_set_row(unsigned i, const MatrixN& Ar, const MatrixN& M, const std::vector<bool>& working, const std::vector<unsigned>& bounded, const std::vector<unsigned>& free, MatrixN& AMr, MatrixN& AMr_bounded, MatrixN& Z, MatrixN& Y);
+    static bool reform_working_set(const MatrixN& Ar, const MatrixN& M, const std::vector<bool>& working, const std::vector<unsigned>& bounded, const std::vector<unsigned>& free, MatrixN& AMr, MatrixN& AMr_bounded, MatrixN& Z, MatrixN& Y);
     static void determine_selection(const std::vector<bool>& bworking, std::vector<unsigned>& bounded, std::vector<unsigned>& free);
     static void condition_and_factor_PD(MatrixNN& H);
     static void condition_hessian(MatrixNN& H);
@@ -349,17 +365,21 @@ class Optimization
     static void grad_cvx_opt_BFGS(const VectorN& x, void* data, VectorN& g);
     static Real absmax(Real a, Real b, Real c);
     static int cstep(Real stmin, Real stmax, Real& stx, Real& fx, Real& dx, Real& sty, Real& fy, Real& dy, Real& stp, Real& fp, Real& dp, bool& brackt);
-    static void calc_residual(const VectorN& x, const VectorN& lambda, const VectorN& nu, Real t, const OptParams& cparams, const MatrixN& Df, VectorN& r);
+    static void calc_residual(const VectorN& x, const VectorN& lambda, const VectorN& nu, Real t, const OptParams& cparams, const MatrixN& Df, const MatrixN& Dg, VectorN& r);
     static void calc_Df(const VectorN& x, const OptParams& cparams, MatrixN& Df);
-    static void solve_KKT_pd(const VectorN& x, const VectorN& lambda, const VectorN& r, const MatrixN& Df, const OptParams& cparams, VectorN& dy);
+    static void calc_Dg(const VectorN& x, const OptParams& cparams, MatrixN& Dg);
+    static void solve_KKT_pd(const VectorN& x, const VectorN& lambda, const VectorN& nu, const VectorN& r, const MatrixN& Df, const MatrixN& Dg, const OptParams& cparams, VectorN& dy);
     static bool make_feasible_tcheck(const VectorN& y, void* data);
-    static void evaluate_constraints(const VectorN& x, const OptParams& oparams, std::vector<Real>& fc);
+    static void evaluate_inequality_constraints(const VectorN& x, const OptParams& oparams, std::vector<Real>& fx);
+    static void evaluate_equality_constraints(const VectorN& x, const OptParams& oparams, std::vector<Real>& gx);
     static Real make_feasible_f0(const VectorN& y, void* data);
     static void make_feasible_fx(const VectorN& y, VectorN& fc, void* data);
+    static void make_feasible_gx(const VectorN& y, VectorN& fc, void* data);
     static void make_feasible_grad0(const VectorN& y, VectorN& g, void* data);
-    static void make_feasible_cJac(const VectorN& y, MatrixN& J, void* data);
+    static void make_feasible_cJac_f(const VectorN& y, MatrixN& J, void* data);
+    static void make_feasible_cJac_g(const VectorN& y, MatrixN& J, void* data);
     static void make_feasible_hess(const VectorN& y, Real objscal, const VectorN& lambda, const VectorN& nu, MatrixNN& H, void* data);
-    static bool feasible(void (*f)(const VectorN&, VectorN&, void*), unsigned& start, unsigned m, const VectorN& lb, const VectorN& ub, const MatrixN& M, const VectorN& q, const VectorN& x, Real infeas_tol, void* data);
+    static bool feasible(const OptParams& oparams, const VectorN& x, Real infeas_tol, unsigned& start);
     static VectorN ngrad(const VectorN& x, Real t, Real h, void* data, Real (*ofn)(const VectorN&, Real, void*));
     static MatrixNN nhess(const VectorN& x, Real t, Real h, void* data, Real (*ofn)(const VectorN&, Real, void*));
     static Real finitize(Real x);
