@@ -12,6 +12,7 @@
 #include <Moby/Vector3.h>
 #include <Moby/Matrix3.h>
 #include <Moby/Matrix4.h>
+#include <Moby/BlockIterator.h>
 #include <Moby/InvalidIndexException.h>
 
 namespace Moby {
@@ -41,6 +42,8 @@ class MatrixN
     MatrixN& set(unsigned rows, unsigned columns, boost::shared_array<Real> array);
     MatrixN& set(const Matrix3& m);
     MatrixN& set(const Matrix4& m);
+    BlockIterator block_start(unsigned row_start, unsigned row_end, unsigned col_start, unsigned col_end);
+    BlockIterator block_end(unsigned row_start, unsigned row_end, unsigned col_start, unsigned col_end);
     VectorN get_row(unsigned i) const;
     VectorN get_column(unsigned i) const;
     VectorN& get_column(unsigned i, VectorN& result) const;

@@ -844,7 +844,7 @@ void ImpactEventHandler::solve_nqp_work(EventProblemData& q, VectorN& z)
   opt_data.epd = &q;
 
   // setup the optimization parameters
-  SAFESTATIC OptParams oparams(N_PRIMAL, NONLIN_INEQUAL, 0, &sqp_f0, &sqp_fx, &sqp_grad0, &sqp_cJac, &sqp_hess);
+  SAFESTATIC OptParams oparams(N_PRIMAL, NONLIN_INEQUAL, 0, &sqp_f0, &sqp_fx, NULL, &sqp_grad0, &sqp_cJac, NULL, &sqp_hess);
   oparams.n = N_PRIMAL;
   oparams.m = NONLIN_INEQUAL;
   oparams.eps_feas = NEAR_ZERO;

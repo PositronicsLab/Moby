@@ -1,3 +1,8 @@
+r556
+----
+- Significant updates to optimization code
+- Added iterators for block matrix code
+
 r555
 ----
 - Fixed bug in computing real event times
