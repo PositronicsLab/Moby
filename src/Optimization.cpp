@@ -6459,7 +6459,7 @@ bool Optimization::reform_working_set(const MatrixN& Ar, const MatrixN& M, const
   const unsigned R = Ar.rows();
 
   // look for really quick exit
-  if (R+nworking >= free.size())
+  if (R+nworking > free.size())
     return false;
 
   // setup AMr
@@ -6521,8 +6521,8 @@ bool Optimization::reform_working_set(const MatrixN& Ar, const MatrixN& M, const
   }
 
   // determine whether A is of full row rank -- note: if we're at this point
-  // then we _know_ that A has fewer rows than columns, so # of singular values
-  // should be zero
+  // then we _know_ that A has no more rows than columns, we # of singular 
+  // values should be zero
   if (ns > 0)
     return false;
 

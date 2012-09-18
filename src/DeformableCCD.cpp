@@ -115,7 +115,6 @@ map<SingleBodyPtr, pair<Vector3, Vector3> > DeformableCCD::get_velocities(const 
   for (unsigned i=0; i< q0.size(); i++)
   {
     qd.copy_from(q1[i].second) -= q0[i].second;
-    qd /= dt;
     q1[i].first->set_generalized_coordinates(DynamicBody::eRodrigues, q1[i].second);
     q1[i].first->set_generalized_velocity(DynamicBody::eRodrigues, qd);
   }
@@ -126,7 +125,6 @@ map<SingleBodyPtr, pair<Vector3, Vector3> > DeformableCCD::get_velocities(const 
   for (unsigned i=0; i< q0.size(); i++)
   {
     qd[i].copy_from(q1[i].second) -= q0[i].second;
-    qd[i] /= dt;
     q1[i].first->set_generalized_coordinates(DynamicBody::eRodrigues, q1[i].second);
     q1[i].first->set_generalized_velocity(DynamicBody::eRodrigues, qd[i]);
   }
@@ -411,6 +409,9 @@ void DeformableCCD::check_geoms(Real dt, CollisionGeometryPtr a, CollisionGeomet
   // get the contact TOI tolerance
   shared_ptr<EventDrivenSimulator> sim(simulator);
   const Real TOI_TOLERANCE = sim->toi_tolerance;
+
+  // sort the vector of contacts
+  std::sort(local_contacts.begin(), local_contacts.end());
 
   // see what points to insert into the vector of contacts 
   // we return all contacts if using an event-driven method to deal with Zeno
@@ -1053,16 +1054,17 @@ bool DeformableCCD::bound_u(const Vector3& u, const Quat& q0, const Quat& qf, Ve
   Vector3 u0 = q0*u;
   Vector3 uf = qf*u;
 
-  // if both vectors are aligned, then we have no bounding planes
-  if (std::fabs(std::fabs(u0.dot(uf)) - 1.0) < NEAR_ZERO)
-    return false;
-
   // determine a vector perpendicular to both
   Vector3 perp = Vector3::cross(u0, uf);
+  Real perp_norm = perp.norm();
+  if (perp_norm < NEAR_ZERO)
+    return false;
+  else
+    perp /= perp_norm;
 
   // determine the two planes
-  normal1 = Vector3::cross(u0, perp);
-  normal2 = Vector3::cross(uf, perp);
+  normal1 = Vector3::normalize(Vector3::cross(u0, perp));
+  normal2 = Vector3::normalize(Vector3::cross(uf, perp));
 
   // make sure that both vectors are on the same side of the plane
   Real dot1 = u0.dot(normal2);
