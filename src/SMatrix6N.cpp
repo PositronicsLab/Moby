@@ -191,7 +191,7 @@ VectorN& SMatrix6N::mult(const SVector6& v, VectorN& result) const
   }
 
   // do the multiplication
-  CBLAS::gemv(CblasNoTrans, *this, v, (Real) 1.0, (Real) 0.0, result); 
+  CBLAS::gemv(CblasNoTrans, _rows, _columns, *this, _rows, v, 1, (Real) 1.0, (Real) 0.0, result, 1); 
 
   return result;
 }
@@ -445,7 +445,7 @@ SVector6 SMatrix6N::mult(const VectorN& v) const
   SVector6 result;
 
   // carry out multiplication
-  CBLAS::gemv(CblasNoTrans, *this, v, (Real) 1.0, (Real) 0.0, result);
+  CBLAS::gemv(CblasNoTrans, _rows, _columns, *this, _rows, v, 1, (Real) 1.0, (Real) 0.0, result, 1);
 
   return result;
 }

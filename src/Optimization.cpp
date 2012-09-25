@@ -5710,6 +5710,12 @@ bool Optimization::qp_convex_activeset_infeas_tcheck(const VectorN& x, void* dat
   // get the QP parameters
   const OptParams& oparams = *((OptParams*) data);
 
+  FILE_LOG(LOG_OPT) << "qp_convex_activeset_infeas_tcheck(): " << endl;
+  FILE_LOG(LOG_OPT) << " x: " << x << endl; 
+  FILE_LOG(LOG_OPT) << " lb: " << oparams.lb << endl; 
+  FILE_LOG(LOG_OPT) << " ub: " << oparams.ub << endl; 
+  FILE_LOG(LOG_OPT) << " ci: " << feas << std::endl;
+
   // first check lower and upper bounds
   x.get_sub_vec(0, oparams.M.columns(), y);
   for (unsigned i=0; i< oparams.lb.size(); i++)
@@ -5721,7 +5727,6 @@ bool Optimization::qp_convex_activeset_infeas_tcheck(const VectorN& x, void* dat
 
   // check inequality feasibility
   oparams.M.mult(y, feas) -= oparams.q;
-  FILE_LOG(LOG_OPT) << "qp_convex_activeset_infeas_tcheck(): " << x << endl; 
   FILE_LOG(LOG_OPT) << " ci: " << feas << std::endl;
   Real min_ci = (feas.size() > 0) ? *std::min_element(feas.begin(), feas.end()): (Real) 1.0;
 
@@ -5884,18 +5889,434 @@ void Optimization::qp_convex_activeset_infeas(const MatrixNN& G, const VectorN& 
   FILE_LOG(LOG_OPT) << "M*x - q: " << (qparams.M * x - qparams.q) << endl;
 }
 
-/// Determines selection vectors
-void Optimization::determine_selection(const vector<bool>& bworking, vector<unsigned>& bounded, vector<unsigned>& free)
+/// Computes whether AMr (free) is full rank using the QR factorization
+bool WorkingSet::full_rank() const
 {
-  bounded.clear();
-  free.clear();
+  unsigned k = std::min(_R.rows(), _R.columns());
 
-  for (unsigned i=0; i< bworking.size(); i++)
+  // first, determine the minimum and maximum coefficients 
+  const Real INF = std::numeric_limits<Real>::max();
+  Real min_rii = INF, max_rii = (Real) 0.0;
+  for (unsigned i=0; i< k; i++)
   {
-    if (bworking[i])
-      bounded.push_back(i);
+    min_rii = std::min(min_rii, std::fabs(_R(i,i)));
+    max_rii = std::max(max_rii, std::fabs(_R(i,i)));
+  }
+
+  // now check whether all values w/in tolerance
+  return (min_rii > std::max(_R.rows(), _R.columns()) * max_rii * std::numeric_limits<Real>::epsilon());
+}
+
+/// Resets with a working set
+void WorkingSet::reset(const MatrixN& A, const MatrixN& M, const std::vector<bool>& vworking, const std::vector<bool>& working)
+{
+  // initialize _updates
+  _updates = 0;
+
+  // get n and m
+  _n = A.columns();
+  _m = M.rows();
+  assert(_n = M.columns());
+
+  // clear vectors
+  _working = working;
+  _vworking = vworking;
+  _free.clear();
+  assert(_working.size() == _m);
+  assert(_vworking.size() == _n);
+
+  // compute number of working constraints
+  _nworking = 0;
+  for (unsigned i=0; i< _m; i++)
+    if (_working[i])
+      _nworking++;
+
+  // make appropriate variables free
+  _nvworking = 0;
+  for (unsigned i=0; i< _n; i++)
+  {
+    if (_vworking[i])
+      _nvworking++;
     else
-      free.push_back(i);
+      _free.push_back(i);
+  }
+
+  // initialize reduced A
+  _Ar.resize(0, _n);
+
+  // determine reduced A
+  for (unsigned i=0; i< A.rows(); i++)
+  {
+    // get row of A
+    A.get_row(i, _workv);
+
+    // resize new Ar 
+    _workM.resize(_Ar.rows()+1, _n);
+    _workM.set_sub_mat(0,0,_Ar);
+    _workM.set_row(_Ar.rows(), _workv);
+    if (LinAlg::calc_rank(_workM) < _workM.rows())
+      continue;
+
+    // setup Ar
+    _Ar.copy_from(_workM);
+  }
+
+  // copy M and q
+  _M = M;
+
+  // verify that reduced A is not too large
+  const unsigned R = _Ar.rows();
+  if (_Ar.rows() >= _n)
+    throw std::runtime_error("Too many rows in reduced A!");
+
+  // reform AMr
+  reform_AMr();
+
+  // compute the QR factorization of AMr
+  MatrixN::transpose(_AMr_free, _R);
+  LinAlg::factor_QR(_R, _Q);
+
+  // setup the range and nullspace
+  if (_AMr_free.rows() == 0)
+  {
+    const unsigned NFREE = _AMr_free.columns();
+    _Z.set_zero(NFREE,NFREE);
+    for (unsigned i=0; i< NFREE; i++)
+      _Z(i,i) = (Real) 1.0;
+  }
+  else
+  {
+    unsigned ns = _AMr_free.columns() - _AMr_free.rows();
+    _Q.get_sub_mat(0, _Q.rows(), _Q.columns()-ns, _Q.columns(), _Z);
+  }
+}
+
+/// Sets up the working set 
+void WorkingSet::reset(const MatrixN& A, const MatrixN& M)
+{
+  SAFESTATIC vector<bool> empty_var, empty_constraints;
+
+  // setup empty working sets
+  empty_var.resize(M.columns());
+  empty_constraints.resize(M.rows());
+  std::fill_n(empty_var.begin(), M.columns(), false);
+  std::fill_n(empty_constraints.begin(), M.rows(), false);
+
+  // call standard reset function
+  reset(A, M, empty_var, empty_constraints);  
+}
+
+/// Computes whether the working set is full (no more constraints can be added)
+bool WorkingSet::full() const
+{
+  // fast check
+  assert(_nvworking <= _n - _nvworking);
+  return (_nworking == _n - _nvworking);
+}
+
+// attempts to add a variable to the working set; returns 'true' if successful
+bool WorkingSet::add_var_to_working_set(unsigned var)
+{
+  // look for fast exit
+  if (full())
+    return false;
+
+  // set vworking correctly
+  assert(!_vworking[var]);
+  _vworking[var] = true;
+  _nvworking++;
+
+  // update free
+  vector<unsigned>::iterator free_iter = std::lower_bound(_free.begin(), _free.end(), var);
+  assert(free_iter != _free.end());
+  unsigned free_index = std::distance(_free.begin(), free_iter);
+  _free.erase(free_iter);
+
+  // reform AMr
+  reform_AMr();
+
+  // check whether we need a total recomputation of Q and R or just an update
+  bool low_rank_update = true;
+  if (_updates == max_updates)
+  {
+    // indicate no low-rank update was performed
+    low_rank_update = false;
+
+    // recompute QR factorization of AMr (free variables only)
+    MatrixN::transpose(_AMr_free, _R);
+    LinAlg::factor_QR(_R, _Q);
+  }
+  else
+  {
+    // save current Q and R
+    _workM.copy_from(_Q);
+    _workM2.copy_from(_R);
+
+    // do the rank-1 update here
+    LinAlg::update_QR_delete_rows(_Q, _R, free_index, 1);
+  }
+
+  // determine whether _AMr is full rank
+  if (!full_rank())
+  {
+    // not full rank, revert old _Q and _R (if necessary)
+    if (low_rank_update)
+    {
+      _Q.copy_from(_workM);
+      _R.copy_from(_workM2);
+    }
+
+    // revert vworking
+    _vworking[var] = false;
+    _nvworking--;
+
+    // revert free
+    _free.insert(std::lower_bound(_free.begin(), _free.end(), var), var);
+
+    // indicate failure
+    return false;
+  }
+
+  // form nullspace 
+  if (_AMr_free.rows() == 0)
+  {
+    // must form nullspace ourself
+    const unsigned NFREE = _AMr_free.columns();
+    _Z.set_zero(NFREE,NFREE);
+    for (unsigned i=0; i< NFREE; i++)
+      _Z(i,i) = (Real) 1.0;
+  }
+  else
+  {
+    unsigned ns = _AMr_free.columns() - _AMr_free.rows();
+    _Q.get_sub_mat(0, _Q.rows(), _Q.columns()-ns, _Q.columns(), _Z);
+  }
+
+  // update _updates
+  if (low_rank_update)
+    _updates++;
+  else
+    _updates = 0;
+
+  // indicate success
+  return true;
+}
+
+// attempts to add a constraint to the working set; returns 'true' if successful
+bool WorkingSet::add_constraint_to_working_set(unsigned constraint)
+{
+  // look for fast exit
+  if (full())
+    return false;
+
+  // set working correctly
+  assert(!_working[constraint]);
+  _working[constraint] = true;
+  _nworking++;
+
+  // reform AMr
+  reform_AMr();
+
+  // check whether we need a total recomputation of Q and R or just an update
+  bool low_rank_update = true;
+  if (_updates == max_updates)
+  {
+    // indicate no low-rank update was performed
+    low_rank_update = false;
+
+    // recompute QR factorization of AMr (free variables only)
+    MatrixN::transpose(_AMr_free, _R);
+    LinAlg::factor_QR(_R, _Q);
+  }
+  else
+  {
+    // save current Q and R
+    _workM.copy_from(_Q);
+    _workM2.copy_from(_R);
+
+    // do the rank-1 update
+    unsigned cidx = _Ar.rows();
+    for (unsigned i=0; i< constraint; i++)
+      if (_working[i])
+        cidx++;
+
+    // get the constraint
+    _AMr_free.get_sub_mat(cidx, cidx+1, 0, _AMr_free.columns(), _workM);
+    MatrixN::transpose(_workM, _workM2);
+    LinAlg::update_QR_insert_cols(_Q, _R, _workM, cidx);
+  }
+
+  // determine whether _AMr is full rank
+  if (!full_rank())
+  {
+    // not full rank, revert old _Q and _R (if necessary)
+    if (low_rank_update)
+    {
+      _Q.copy_from(_workM);
+      _R.copy_from(_workM2);
+    }
+
+    // revert vworking
+    _working[constraint] = false;
+    _nworking--;
+
+    // indicate failure
+    return false;
+  }
+
+  // form nullspace 
+  if (_AMr_free.rows() == 0)
+  {
+    // must form nullspace ourself
+    const unsigned NFREE = _AMr_free.columns();
+    _Z.set_zero(NFREE,NFREE);
+    for (unsigned i=0; i< NFREE; i++)
+      _Z(i,i) = (Real) 1.0;
+  }
+  else
+  {
+    unsigned ns = _AMr_free.columns() - _AMr_free.rows();
+    _Q.get_sub_mat(0, _Q.rows(), _Q.columns()-ns, _Q.columns(), _Z);
+  }
+
+  // update _updates
+  if (low_rank_update)
+    _updates++;
+  else
+    _updates = 0;
+
+  // indicate success
+  return true;
+}
+
+// removes the variable from the working set
+void WorkingSet::remove_var_from_working_set(unsigned var)
+{
+  // set vworking correctly
+  assert(_vworking[var]);
+  _vworking[var] = false;
+  _nvworking--;
+
+  // update free
+  vector<unsigned>::iterator free_iter = std::lower_bound(_free.begin(), _free.end(), var);
+  unsigned free_index = std::distance(_free.begin(), free_iter);
+  _free.insert(free_iter, var);
+
+  // reform AMr
+  reform_AMr();
+
+  // check whether we need a total recomputation of Q and R or just an update
+  if (_updates++ == max_updates)
+  {
+    // reset _updates 
+    _updates = 0;
+
+    // recompute QR factorization of AMr (free variables only)
+    MatrixN::transpose(_AMr_free, _R);
+    LinAlg::factor_QR(_R, _Q);
+  }
+  else
+  {
+    // get the appropriate column of AMr
+    _AMr_free.get_sub_mat(0, _AMr_free.rows(), free_index, free_index+1, _workM);
+    MatrixN::transpose(_workM, _workM2);
+
+    // do the rank-1 update
+    LinAlg::update_QR_insert_rows(_Q, _R, _workM, free_index);
+  }
+
+  // form nullspace 
+  if (_AMr_free.rows() == 0)
+  {
+    // must form nullspace ourself
+    const unsigned NFREE = _AMr_free.columns();
+    _Z.set_zero(NFREE,NFREE);
+    for (unsigned i=0; i< NFREE; i++)
+      _Z(i,i) = (Real) 1.0;
+  }
+  else
+  {
+    unsigned ns = _AMr_free.columns() - _AMr_free.rows();
+    _Q.get_sub_mat(0, _Q.rows(), _Q.columns()-ns, _Q.columns(), _Z);
+  }
+}
+
+// removes the inequality constraint from the working set
+void WorkingSet::remove_constraint_from_working_set(unsigned constraint)
+{
+  // set working correctly
+  assert(_working[constraint]);
+  _working[constraint] = false;
+  _nworking--;
+
+  // reform AMr_free and AMr
+  reform_AMr();
+
+  // check whether we need a total recomputation of Q and R or just an update
+  if (_updates++ == max_updates)
+  {
+    // reset _updates 
+    _updates = 0;
+
+    // recompute QR factorization of AMr (free variables only)
+    MatrixN::transpose(_AMr_free, _R);
+    LinAlg::factor_QR(_R, _Q);
+  }
+  else
+  {
+    // determine the constraint index
+    unsigned cidx = _Ar.rows();
+    for (unsigned i=0; i< constraint; i++)
+      if (_working[i])
+        cidx++;
+
+    // do the rank-1 update here
+    LinAlg::update_QR_delete_cols(_Q, _R, cidx, 1);
+  }
+
+  // form nullspace 
+  if (_AMr_free.rows() == 0)
+  {
+    // must form nullspace ourself
+    const unsigned NFREE = _AMr_free.columns();
+    _Z.set_zero(NFREE,NFREE);
+    for (unsigned i=0; i< NFREE; i++)
+      _Z(i,i) = (Real) 1.0;
+  }
+  else
+  {
+    unsigned ns = _AMr_free.columns() - _AMr_free.rows();
+    _Q.get_sub_mat(0, _Q.rows(), _Q.columns()-ns, _Q.columns(), _Z);
+  }
+} 
+
+// Reforms the AMr matrix
+void WorkingSet::reform_AMr()
+{
+  // determine R -- number of linear equality constraints
+  const unsigned R = _Ar.rows();
+  const unsigned NFREE = _n - _nvworking;
+
+  // setup equality constraints portion of AMr
+  _AMr.resize(R+_nworking, _n);
+  _AMr_free.resize(R+_nworking, NFREE);
+  _Ar.select_columns(_free.begin(), _free.end(), _workM);
+  BlockIterator Ar_bs = _Ar.block_start(0, _Ar.rows(), 0, NFREE);
+  BlockIterator Ar_be = _Ar.block_end(0, _Ar.rows(), 0, NFREE);
+  BlockIterator AMr_bs = _AMr.block_start(0, _Ar.rows(), 0, NFREE); 
+  std::copy(Ar_bs, Ar_be, AMr_bs); 
+  _AMr_free.set_sub_mat(0,0, _workM);
+
+  // set inequality constrained portions of AMr
+  for (unsigned i=0,j=R; i< _m; i++)
+  {
+    if (!_working[i])
+      continue;
+    _M.get_row(i, _workv);
+    _AMr.set_row(j, _workv);
+    _workv.select(_free.begin(), _free.end(), _workv2);
+    _AMr_free.set_row(j, _workv2);
+    j++;
   }
 }
 
@@ -5924,16 +6345,21 @@ void Optimization::qp_convex_activeset(const MatrixNN& G, const VectorN& c, OptP
   const Real INF = std::numeric_limits<Real>::max();
 
   // get A, b, M, q
-  const MatrixN& A = qparams.A;
-  const MatrixN& M = qparams.M;
-  const VectorN& b = qparams.b;
-  const VectorN& q = qparams.q;
   VectorN& lb = qparams.lb;
   VectorN& ub = qparams.ub;
+  SAFESTATIC WorkingSet ws; 
+  SAFESTATIC MatrixN M, A;  // scaled M and A
+  SAFESTATIC VectorN q, b;  // scaled q and b
+  SAFESTATIC vector<bool> working, vworking;
+  const vector<unsigned>& free = ws.get_free_indices();
+  const MatrixN& Z = ws.get_null();
+  const MatrixN& AR_Q = ws.get_Q();
+  const MatrixN& AR_R = ws.get_R();
+  const MatrixN& AMr_free = ws.get_A_M_free();
+  const MatrixN& AMr_full = ws.get_A_M();
 
   // determine n, r, s
   const unsigned N = G.size();
-  const unsigned S = M.rows();
 
   FILE_LOG(LOG_OPT) << "qp_convex_activeset() entered" << endl;
   FILE_LOG(LOG_OPT) << "G: " << endl << G;
@@ -5956,7 +6382,7 @@ void Optimization::qp_convex_activeset(const MatrixNN& G, const VectorN& c, OptP
     throw MissizeException();
   if (A.columns() != N && A.rows() != 0)
     throw MissizeException();
-  if (S != q.size())
+  if (qparams.M.rows() != qparams.q.size())
     throw MissizeException();
   if (lb.size() != N)
   {
@@ -5991,39 +6417,63 @@ void Optimization::qp_convex_activeset(const MatrixNN& G, const VectorN& c, OptP
   if (qparams.r > 0)
     throw std::runtime_error("qp_convex_activeset() incapable of handling nonlinear equality constraints!");
 
+  // copy M,A,q
+  M.copy_from(qparams.M);
+  A.copy_from(qparams.A);
+  q.copy_from(qparams.q);
+  const unsigned S = M.rows();
+
+  // scale M and q
+  for (unsigned i=0; i< M.rows(); i++)
+  {
+    BlockIterator bs = M.block_start(i, i+1, 0, N);
+    BlockIterator be = M.block_end(i, i+1, 0, N);
+    pair<BlockIterator, BlockIterator> mmax = boost::minmax_element(bs, be);
+    Real scalar = std::max(std::max(-*mmax.first, *mmax.second), std::fabs(q[i]));
+    assert(scalar > (Real) 0.0);
+    Real inv_scalar = (Real) 1.0/scalar;
+    std::transform(bs, be, bs, std::bind2nd(std::multiplies<Real>(), inv_scalar));
+    q[i] *= inv_scalar; 
+  }
+
+  // scale A
+  for (unsigned i=0; i< A.rows(); i++)
+  {
+    BlockIterator bs = A.block_start(i, i+1, 0, N);
+    BlockIterator be = A.block_end(i, i+1, 0, N);
+    pair<BlockIterator, BlockIterator> mmax = boost::minmax_element(bs, be);
+    Real scalar = std::max(std::max(-*mmax.first, *mmax.second), std::fabs(b[i]));
+    assert(scalar > (Real) 0.0);
+    Real inv_scalar = (Real) 1.0/scalar;
+    std::transform(bs, be, bs, std::bind2nd(std::multiplies<Real>(), inv_scalar));
+  }
+
   // setup working variables
-  SAFESTATIC MatrixNN KKT, Gf;
-  SAFESTATIC MatrixN Ar, AMr, AMr_bounded, AY, AfY, Z, Y, workM;
-  SAFESTATIC VectorN workv, dx, dxf, lambda, grad, gradf, upper, lower, xf, py, pz;
-  SAFESTATIC VectorN blambda, br, bmr;
-  SAFESTATIC vector<bool> blocking, working, bworking;
-  SAFESTATIC vector<int> AfY_ipiv;
-  SAFESTATIC vector<unsigned> bounded, free;
+  SAFESTATIC MatrixNN Gf, Lhs;
+  SAFESTATIC MatrixN workM;
+  SAFESTATIC VectorN workv, workv2, dx, dxf, lambda, vlambda, grad, gradf, pz;
+  SAFESTATIC vector<bool> blocking;
   SAFESTATIC vector<Real> alphas;
 
   // setup blocking vector
   blocking.resize(S+N);
-  working.resize(S);
-  bworking.resize(N);
 
   // evaluate the objective function
   G.mult(x, workv) *= (Real) 0.5;
   workv += c;
   Real last_eval = x.dot(workv);
 
-  // determine reduced A
-  if (A.rows() >= N)
-    throw std::runtime_error("A has too many constraints!");
-  Ar.resize(0, N);
-  for (unsigned i=0; i< A.rows(); i++)
+  // compute equality feasibility
+  A.mult(x, workv) -= b;
+  FILE_LOG(LOG_OPT) << "  A*x - b: " << workv << endl;
+  for (unsigned i=0; i< workv.size(); i++)
   {
-    A.get_row(i, workv);
-    add_to_working_set(workv, b[i], Ar, br);
+    const Real TOL = std::numeric_limits<Real>::epsilon() * std::fabs(b[i]); 
+     if (std::fabs(workv[i]) > TOL)
+      throw std::runtime_error("Initial point is not feasible!");
   }
-  const unsigned R = Ar.rows();
 
-  // setup the working set (a subset of the active constraints)
-  // the working set is empty initially
+  // compute inequality feasibility
   M.mult(x, workv) -= q;
   FILE_LOG(LOG_OPT) << "  M*x - q: " << workv << endl;
   for (unsigned i=0; i< S; i++)
@@ -6033,67 +6483,37 @@ void Optimization::qp_convex_activeset(const MatrixNN& G, const VectorN& c, OptP
       throw std::runtime_error("Initial point is not feasible!");
   }
 
-  // init AMr
-  AMr.copy_from(Ar);
-  AMr_bounded.resize(0,0);
-
-  // clear bounded, make everything free
-  bounded.clear();
-  free.clear();
-  for (unsigned i=0; i< N; i++)
-    free.push_back(i);
-
-  // setup working set
-  unsigned nworking = 0, nbworking = 0;
-  for (unsigned i=0; i< S; i++)
-    working[i] = false;
-  for (unsigned i=0; i< N; i++)
-    bworking[i] = false;
-
-  // setup Y and Z
-  Z.set_zero(N,N);
-  for (unsigned i=0; i< N; i++)
-    Z(i,i) = (Real) 1.0;
-  Y.set_zero(N,0);
-
-  // do some more setup in case of hot start
-  if (hot_start) 
+  // reset the working set
+  if (hot_start)
   {
-    // determine box constraints *first*
+    // determine the variables in the working set
+    vworking.resize(N);
     for (unsigned i=0; i< N; i++)
     {
       const Real TOL = std::numeric_limits<Real>::epsilon() * std::fabs(x[i]);
       if (std::fabs(x[i] - lb[i]) < TOL ||
           std::fabs(ub[i] - x[i]) < TOL)
-      {
-        // see whether we already have enough bounds
-        if (nbworking == N-1)
-          break;
-
-        // see whether we can add to the bounds
-        if (add_to_working_set_bound(i, Ar, M, working, bounded, free, AMr, AMr_bounded, Z, Y))
-        {
-          bworking[i] = true;
-          nbworking++;
-          determine_selection(bworking, bounded, free);
-        }
-      }
+        vworking[i] = true;
+      else
+        vworking[i] = false;
     }
 
     // determine working set (active lin. indep. inequality constraints)
+    working.resize(S);
     for (unsigned i=0; i< S; i++)
     {
       const Real TOL = std::numeric_limits<Real>::epsilon() * std::fabs(q[i]);
-      if (workv[i] < TOL)
-      {
-        if (add_to_working_set_row(i, Ar, M, working, bounded, free, AMr, AMr_bounded, Z, Y))
-        {
-          working[i] = true;
-          nworking++;
-        }
-      }
+      working[i] = (workv[i] < TOL);
     }
+
+    // now, reset the working set
+    ws.reset(A, M, vworking, working);
   }
+  else
+    ws.reset(A, M); 
+
+  // get number of equalities
+  const unsigned R = ws.num_equalities();
 
   // do the active set method
   for (qparams.iterations = 0; qparams.iterations < qparams.max_iterations; qparams.iterations++)
@@ -6103,12 +6523,12 @@ void Optimization::qp_convex_activeset(const MatrixNN& G, const VectorN& c, OptP
     {
       std::ostringstream str, str2;
       str << "working set: ";
-      for (unsigned j=0; j< working.size(); j++)
-        if (working[j])
+      for (unsigned j=0; j< S; j++)
+        if (ws.is_constraint_working(j))
           str << " " << j;
-      str2 << "bounds working set: ";
-      for (unsigned j=0; j< bworking.size(); j++)
-        if (bworking[j])
+      str2 << "variable working set: ";
+      for (unsigned j=0; j< N; j++)
+        if (ws.is_var_working(j))
           str2 << " " << j;
       FILE_LOG(LOG_OPT) << str.str() << endl;
       FILE_LOG(LOG_OPT) << str2.str() << endl;
@@ -6120,96 +6540,84 @@ void Optimization::qp_convex_activeset(const MatrixNN& G, const VectorN& c, OptP
     // get reduced matrices and vectors
     grad.select(free.begin(), free.end(), gradf);
     G.select(free.begin(), free.end(), Gf);
-    x.select(free.begin(), free.end(), xf);
 
-    // compute particular solution (py)
-    AMr.mult(Y, AfY);
-    Ar.select_columns(free.begin(), free.end(), workM);
-    workM.mult(xf, workv) -= br;
-    py.set_zero(Y.columns());
-    py.set_sub_vec(0, workv);
-    LinAlg::factor_LU(AfY, AfY_ipiv);
-    LinAlg::solve_LU_fast(AfY, false, AfY_ipiv, py);
+    // compute the left hand side matrix Z'*Gf*Z
+    Z.transpose_mult(Gf, workM);
+    workM.mult(Z, Lhs);
 
-    // compute the right hand side
-    Gf.mult(Z, workM);
-    Z.transpose_mult(workM, KKT);
-    Y.mult(py, pz);
-    Gf.mult(pz, workv) += gradf;
-    Z.transpose_mult(workv, pz).negate(); 
+    // compute the rhs vector -Z'*g
+    Z.transpose_mult(gradf, pz);
+    pz.negate();
 
-    FILE_LOG(LOG_OPT) << "x: " << x << endl;
-    FILE_LOG(LOG_OPT) << "Y: " << endl << Y;
-    FILE_LOG(LOG_OPT) << "Z: " << endl << Z;
-    FILE_LOG(LOG_OPT) << "A/M (reduced): " << endl << AMr;
-    FILE_LOG(LOG_OPT) << "A/M missing columns: " << endl << AMr_bounded;
-    FILE_LOG(LOG_OPT) << "gradient: " << grad << endl;
-    FILE_LOG(LOG_OPT) << "gradient (reduced): " << gradf << endl;
-    FILE_LOG(LOG_OPT) << "G (reduced): " << endl << Gf;
-    FILE_LOG(LOG_OPT) << "x (reduced): " << xf << endl;
-    FILE_LOG(LOG_OPT) << "b (eliminated): " << bmr << endl;
-    FILE_LOG(LOG_OPT) << "particular solution: " << py << endl;
-    FILE_LOG(LOG_OPT) << "rhs for homogeneous solution: " << pz << endl;
-
-    // condition the KKT matrix and compute the homogeneous solution (pz)
-    condition_and_factor_PD(KKT);
-    LinAlg::solve_chol_fast(KKT, pz);
-
-    // compute dxf and dx
-    Y.mult(py, workv);
-    Z.mult(pz, dxf) += workv;
+    // condition and solve the system
+    condition_and_factor_PD(Lhs);
+    LinAlg::solve_chol_fast(Lhs, pz);
+    Z.mult(pz, dxf);
     dx.set_zero(N);
     dx.set(free.begin(), free.end(), dxf);
 
-    // compute lambda
-    Gf.mult(dxf, workv) += gradf;
-    Y.transpose_mult(workv, lower);
-    lambda.copy_from(lower);
-    LinAlg::solve_LU_fast(AfY, true, AfY_ipiv, lambda); 
-
-    // prepare to compute lambda for box constraints
-    grad.select(bounded.begin(), bounded.end(), upper);
-
-    // now, compute lambda for box constraints
-    blambda.resize(nbworking);
-    for (unsigned i=0; i< nbworking; i++)
+    // G*Z*pz + A'*lambda = -g
+    // A'*lambda = -g - Gf*Z*pz
+    // compute lambda for linear inequality constraints by solving (using least
+    // squares): Ar' * lambda = -gradf - Gf * Z * pz
+    // equivalent to: Qr * Rr * lambda = gradf - Gf * Z * pz
+    const unsigned NVARS = std::min(AR_Q.rows(), AR_R.columns());
+    Z.mult(pz, workv);
+    Gf.mult(workv, workv2);
+    workv2 += gradf; 
+    workv2.negate();   // this line concludes the right hand side
+    lambda.set_zero(NVARS);
+    if (NVARS > 0)
     {
-      // get the appropriate column of A and solve
-      AMr_bounded.get_column(i, workv);
-      workv.negate();
-      LinAlg::solve_LU_fast(AfY, false, AfY_ipiv, workv);
-
-      // compute the dot product
-      blambda[i] = workv.dot(lower) + upper[i];
+      CBLAS::gemv(CblasTrans, AR_Q.rows(), NVARS, AR_Q, AR_Q.rows(), workv2, 1, (Real) 1.0, (Real) 0.0, lambda, 1);
+      CBLAS::trsv(CblasUpper, CblasNoTrans, (int) NVARS, AR_R, AR_R.rows(), lambda, 1);  // triangular solve rhs 
     }
 
+    // compute vlambda: G*dx + A'*lambda + V'*vlambda = -g
+    // V'*vlambda = -g + -G*dx - A'*lambda
+    AMr_full.transpose_mult(lambda, workv2);
+    G.mult(dx, workv);
+    workv += grad;
+    workv += workv2;
+    workv.negate();
+    vlambda.resize(N - free.size());
+    for (unsigned i=0, j=0; i< N; i++)
+      if (!std::binary_search(free.begin(), free.end(), i))
+        vlambda[j++] = workv[i];
+
+    // negate lambda variables 
+    lambda.negate();
+    vlambda.negate();
+
+    FILE_LOG(LOG_OPT) << "x: " << x << endl;
+    FILE_LOG(LOG_OPT) << "gradient: " << grad << endl;
+    FILE_LOG(LOG_OPT) << "gradient (reduced): " << gradf << endl;
+    FILE_LOG(LOG_OPT) << "G (reduced): " << endl << Gf;
     FILE_LOG(LOG_OPT) << "homogeneous solution: " << pz << endl;
     FILE_LOG(LOG_OPT) << "dx (reduced): " << dxf << endl;
-    FILE_LOG(LOG_OPT) << "lower: " << lower << endl;
-    FILE_LOG(LOG_OPT) << "upper: " << upper << endl;
-    FILE_LOG(LOG_OPT) << "lambda: " << lambda << endl;
-    FILE_LOG(LOG_OPT) << "bounds lambda: " << blambda << endl;
+    FILE_LOG(LOG_OPT) << "constraint lambda: " << lambda << endl;
+    FILE_LOG(LOG_OPT) << "variable lambda: " << vlambda << endl;
 
     // if dx is zero, examine the Lagrange multipliers
-    if (dx.norm() < std::numeric_limits<Real>::epsilon() * x.norm())
+    if (dx.norm() < std::numeric_limits<Real>::epsilon() * x.norm() * (Real) 10.0)
     {
       FILE_LOG(LOG_OPT) << "dx = 0; examining Lagrange multipliers" << endl;
 
       // if the working set is empty, we're done...
-      if (nworking == 0 && nbworking == 0)
+      if (ws.get_total_working() == 0)
       {
         FILE_LOG(LOG_OPT) << "  -- working set is empty -> optimized!" << endl;
         return;
       }
 
-      // find the minimum lambda and minimum blambda
+      // find the minimum lambda and minimum vlambda
       Real* min_lambda = std::min_element(lambda.begin()+R, lambda.end());
-      Real* min_blambda = std::min_element(blambda.begin(), blambda.end());
+      Real* min_vlambda = std::min_element(vlambda.begin(), vlambda.end());
       if (min_lambda == lambda.end())
         min_lambda = (Real*) &INF;
-      if (min_blambda == blambda.end())
-        min_blambda = (Real*) &INF;
-      Real min_min = std::min(*min_lambda, *min_blambda);
+      if (min_vlambda == vlambda.end())
+        min_vlambda = (Real*) &INF;
+      Real min_min = std::min(*min_lambda, *min_vlambda);
       if (min_min > -std::numeric_limits<Real>::epsilon())
       {
         FILE_LOG(LOG_OPT) << "  -- minimum lambda = " << min_min << " -> optimized!" << endl;
@@ -6219,18 +6627,16 @@ void Optimization::qp_convex_activeset(const MatrixNN& G, const VectorN& c, OptP
       FILE_LOG(LOG_OPT) << "  -- minimum lambda = " << min_min << endl;
 
       // remove the minimum constraint from the working set
-      if (*min_lambda < *min_blambda)
+      if (*min_lambda < *min_vlambda)
       {
         unsigned min_constraint = std::distance(lambda.begin()+R, min_lambda);
         for (unsigned j=0; j< S; j++)
-          if (working[j] && min_constraint-- == 0)
+          if (ws.is_constraint_working(j) && min_constraint-- == 0)
           {
             FILE_LOG(LOG_OPT) << "  -- removing constraint " << j << " from working set" << endl;
-            working[j] = false;
-            nworking--;
 
-            // reform the working set
-            reform_working_set(Ar, M, working, bounded, free, AMr, AMr_bounded, Z, Y);
+            // remove the constraint from the working set
+            ws.remove_constraint_from_working_set(j);
 
             // quit looping
             break;
@@ -6238,18 +6644,17 @@ void Optimization::qp_convex_activeset(const MatrixNN& G, const VectorN& c, OptP
       }
       else
       {
-        unsigned min_constraint = std::distance(blambda.begin(), min_blambda);
+        unsigned min_constraint = std::distance(vlambda.begin(), min_vlambda);
         for (unsigned j=0; j< N; j++)
         {
-          if (bworking[j] && min_constraint-- == 0)
+          if (ws.is_var_working(j) && min_constraint-- == 0)
           {
-            FILE_LOG(LOG_OPT) << "  -- removing bounds constraint " << j << " from working set" << endl;
-            bworking[j] = false;
-            nbworking--;
+            FILE_LOG(LOG_OPT) << "  -- removing variable constraint " << j << " from working set" << endl;
 
-            // reform the working set
-            determine_selection(bworking, bounded, free);
-            reform_working_set(Ar, M, working, bounded, free, AMr, AMr_bounded, Z, Y);
+            // remove the bound from the working set
+            ws.remove_var_from_working_set(j);
+
+            // quit looping 
             break;
           }
         }
@@ -6270,15 +6675,15 @@ void Optimization::qp_convex_activeset(const MatrixNN& G, const VectorN& c, OptP
         blocking[j] = false;
 
       // loop over x bounds first
-      for (unsigned j=0, k=S; j< N; j++, k++)
+      for (unsigned j=0, k=0; j< N; j++, k++)
       {
         // constraint cannot be blocking if it is in the working set
-        if (!bworking[j])
+        if (!ws.is_var_working(j))
         {
           alphas[k] = (Real) 1.0;
           if (dx[j] > (Real) 0.0)
             alphas[k] = (ub[j] - x[j])/dx[j];
-          else if (dx[j] < (Real) -0.0)
+          else if (dx[j] < (Real) 0.0)
             alphas[k] = (lb[j] - x[j])/dx[j];
           if (alphas[k] < (Real) 0.0)
             alphas[k] = (Real) 1.0;
@@ -6287,14 +6692,14 @@ void Optimization::qp_convex_activeset(const MatrixNN& G, const VectorN& c, OptP
       }
 
       // loop over linear inequalities
-      for (unsigned j=0, k=0; j< S; j++, k++)
+      for (unsigned j=0, k=N; j< S; j++, k++)
       {
         // constraint cannot be blocking if it is in the working set
-        if (!working[j])
+        if (!ws.is_constraint_working(j))
         {
           M.get_row(j, workv);
           Real dot = workv.dot(dx);
-          if (dot >= -std::numeric_limits<Real>::epsilon())
+          if (dot >= (Real) 0.0)
             continue;
           alphas[k] = (q[j] - workv.dot(x))/dot;
           if (alphas[k] < (Real) 0.0)
@@ -6356,9 +6761,7 @@ void Optimization::qp_convex_activeset(const MatrixNN& G, const VectorN& c, OptP
         return;
       }
 
-      // if there are blocking constraints, add one of them to the 
-      // working set; NOTE: this code now will only choose a constraint that 
-      // does not reduce row rank of AMr
+      // if there are blocking constraints, add one of them to the working set
       while (nblocking > 0)
       {
         // pick the constraint to add to the working set
@@ -6376,47 +6779,38 @@ void Optimization::qp_convex_activeset(const MatrixNN& G, const VectorN& c, OptP
           }
 
          // see whether we are adding a bound constraint on a linear constraint
-         if (chosen >= S)
+         if (chosen < N)
          {
-           if (add_to_working_set_bound(chosen-S, Ar, M, working, bounded, free, AMr, AMr_bounded, Z, Y))
-           { 
-             bworking[chosen-S] = true;
-             nbworking++;
-             determine_selection(bworking, bounded, free);
+           if (ws.add_var_to_working_set(chosen))
              break;
-           }
            else
            {
+             FILE_LOG(LOG_OPT) << "Unable to add variable " << chosen << " to working set!" << endl;
              nblocking--;
              blocking[chosen] = false;
              if (nblocking == 0)
              {
                FILE_LOG(LOG_OPT) << "Unexpectedly unable to add constraint to working set!" << endl;
-               FILE_LOG(LOG_OPT) << "AMr: " << endl << AMr;
-               FILE_LOG(LOG_OPT) << "bounds constraint: " << (chosen-S) << endl;
-               break;
+               return;
              }
            }
          }
          else
          {
-           FILE_LOG(LOG_OPT) << "  attempt to add constraint " << chosen << " to the working set" << endl;
-           if (add_to_working_set_row(chosen, Ar, M, working, bounded, free, AMr, AMr_bounded, Z, Y))
+           FILE_LOG(LOG_OPT) << "  attempt to add linear inequality constraint " << (chosen-N) << " to the working set" << endl;
+           if (ws.add_constraint_to_working_set(chosen-N))
            {
              FILE_LOG(LOG_OPT) << "  constraint successfully added to working set!" << endl;
-             working[chosen] = true;
-             nworking++;
              break;
            }
            else
            {
+             FILE_LOG(LOG_OPT) << "Unable to add constraint " << (chosen-N) << " to working set!" << endl;
              nblocking--;
-             blocking[chosen] = false;
+             blocking[chosen-N] = false;
              if (nblocking == 0)
              {
                FILE_LOG(LOG_OPT) << "Unexpectedly unable to add constraint to working set!" << endl;
-               FILE_LOG(LOG_OPT) << "AMr: " << endl << AMr;
-               FILE_LOG(LOG_OPT) << "constraint row: " << workv << endl;
                return;
              } 
            }
@@ -6428,188 +6822,5 @@ void Optimization::qp_convex_activeset(const MatrixNN& G, const VectorN& c, OptP
    }
         
   FILE_LOG(LOG_OPT) << "-- qp terminated after maximum number of iterations" << endl; 
-}
-
-/// Reforms the working set
-/**
- * \param Ar the linear equality constraint matrix
- * \param M the linear inequality constraint matrix
- * \param working the working set (corresponding to rows of M)
- * \param bounded the set of variables with active bounds constraints
- * \param AM_r the new matrix with active bounds constraints
- * \param AMr new working set matrix (equality + active inequality constraints)
- * \param AMr_bounded new working set matrix
- * \param Z the nullspace of AMr
- * \param Y the range of AMr
- */ 
-bool Optimization::reform_working_set(const MatrixN& Ar, const MatrixN& M, const vector<bool>& working, const vector<unsigned>& bounded, const vector<unsigned>& free, MatrixN& AMr, MatrixN& AMr_bounded, MatrixN& Z, MatrixN& Y)
-{
-  SAFESTATIC MatrixNN U, V;
-  SAFESTATIC MatrixN workM;
-  SAFESTATIC VectorN S, workv, workv2;
-
-  // compute the number of working constraints
-  unsigned nworking = 0;
-  for (unsigned i=0; i< working.size(); i++)
-    if (working[i])
-      nworking++;
-
-  // determine R -- number of linear equality constraints
-  const unsigned N = Ar.columns();
-  const unsigned R = Ar.rows();
-
-  // look for really quick exit
-  if (R+nworking >= free.size())
-    return false;
-
-  // setup AMr
-  AMr.resize(R+nworking, free.size());
-  Ar.select_columns(free.begin(), free.end(), workM);
-  AMr.set_sub_mat(0,0,workM);
-  for (unsigned i=0,j=R; i< M.rows(); i++)
-  {
-    if (!working[i])
-      continue;
-    M.get_row(i, workv);
-    workv.select(free.begin(), free.end(), workv2);
-    AMr.set_row(j++, workv2);
-  }
-
-  // setup equality constraints portion of AMr_bounded
-  AMr_bounded.resize(R+nworking, bounded.size());
-  Ar.select_columns(bounded.begin(), bounded.end(), workM);
-  AMr_bounded.set_sub_mat(0,0,workM);
-
-  // setup inequality constraints portion of AMr_bounded
-  for (unsigned i=0,j=R; i< M.rows(); i++)
-  {
-    if (!working[i])
-      continue;
-    M.get_row(i, workv);
-    workv.select(bounded.begin(), bounded.end(), workv2);
-    AMr_bounded.set_row(j++, workv2);
-  }
-
-  // look for easy way out
-  if (AMr.rows() == 0)
-  {
-    Y.resize(AMr.columns(), 0);
-    Z.set_zero(AMr.columns(), AMr.columns());
-    for (unsigned i=0; i< AMr.columns(); i++)
-      Z(i,i) = (Real) 1.0;
-    return true;
-  }
-
-  // compute nullspace and complement
-  LinAlg::svd(AMr, U, S, V);
-
-  // get the dimensions of AMr
-  unsigned m = AMr.rows();
-  unsigned n = AMr.columns();
-  boost::tuple<unsigned, unsigned> min_max = boost::minmax(m, n);
-  unsigned minmn = min_max.get<0>();
-  unsigned maxmn = min_max.get<1>();
-
-  // get the # of singular values
-  unsigned ns = 0;
-  if (S.size() > 0)
-  {
-    Real tolerance = S[0] * maxmn * std::numeric_limits<Real>::epsilon();
-    for (unsigned i=S.size()-1; i > 0; i--, ns++)
-      if (S[i] > tolerance)
-        break;
-  }
-
-  // determine whether A is of full row rank -- note: if we're at this point
-  // then we _know_ that A has fewer rows than columns, so # of singular values
-  // should be zero
-  if (ns > 0)
-    return false;
-
-  // # of singular values will now reflect non-squareness of AMr
-  ns = n - m;
-
-  // determine Z and Y
-  V.get_sub_mat(0,V.rows(),V.columns()-ns,V.columns(), Z);
-  V.get_sub_mat(0,V.rows(),0,V.columns()-ns, Y);
-
-  return true;
-}
-
-/// Constructs an A matrix from old full rank A matrix and new vector - returns "true" if A has full row rank 
-bool Optimization::add_to_working_set_row(unsigned row_idx, const MatrixN& Ar, const MatrixN& M, const vector<bool>& working, const vector<unsigned>& bounded, const vector<unsigned>& free, MatrixN& AMr, MatrixN& AMr_bounded, MatrixN& Z, MatrixN& Y)
-{
-  SAFESTATIC MatrixN AMr_new, AMr_bounded_new, Z_new, Y_new;
-  SAFESTATIC vector<bool> working_new;
-
-  // setup the new working set
-  working_new = working;
-  working_new[row_idx] = true;
- 
-  // reform the working set
-  if (reform_working_set(Ar, M, working_new, bounded, free, AMr_new, AMr_bounded_new, Z_new, Y_new))
-  {
-    AMr.copy_from(AMr_new);
-    AMr_bounded.copy_from(AMr_bounded_new);
-    Z.copy_from(Z_new);
-    Y.copy_from(Y_new); 
-    return true;
-  }
-  else
-    return false;
-}
-
-/// Constructs an A matrix from old full rank A matrix and index to check; returns "true" if A has full row rank 
-bool Optimization::add_to_working_set_bound(unsigned idx, const MatrixN& Ar, const MatrixN& M, const vector<bool>& working, const vector<unsigned>& bounded, const vector<unsigned>& free, MatrixN& AMr, MatrixN& AMr_bounded, MatrixN& Z, MatrixN& Y)
-{
-  SAFESTATIC MatrixN AMr_new, AMr_bounded_new, Z_new, Y_new;
-  SAFESTATIC vector<unsigned> free_new, bounded_new;
-
-  // setup the new bounded vector
-  bounded_new.clear(); 
-  vector<unsigned>::const_iterator insert_pos = std::lower_bound(bounded.begin(), bounded.end(), idx);
-  std::copy(bounded.begin(), insert_pos, std::back_inserter(bounded_new));
-  bounded_new.push_back(idx);
-  std::copy(insert_pos, bounded.end(), std::back_inserter(bounded_new));
-
-  // setup the new free vector
-  free_new.clear();
-  vector<unsigned>::const_iterator erase_pos = std::lower_bound(free.begin(), free.end(), idx);
-  assert(free.empty() || erase_pos !=free.end());
-  std::copy(free.begin(), erase_pos, std::back_inserter(free_new));
-  std::copy(erase_pos+1, free.end(), std::back_inserter(free_new));
-
-  // reform the working set
-  if (reform_working_set(Ar, M, working, bounded_new, free_new, AMr_new, AMr_bounded_new, Z_new, Y_new))
-  {
-    AMr.copy_from(AMr_new);
-    AMr_bounded.copy_from(AMr_bounded_new);
-    Z.copy_from(Z_new);
-    Y.copy_from(Y_new); 
-    return true;
-  }
-  else
-    return false;
-}
-
-/// Constructs an A matrix from old full rank A matrix and new vector
-void Optimization::add_to_working_set(const VectorN& vec, Real bi, MatrixN& AMr, VectorN& br)
-{
-  SAFESTATIC MatrixN Anew;
-  SAFESTATIC VectorN bnew;
-
-  // do simple check
-  Anew.resize(AMr.rows()+1, vec.size());
-  Anew.set_sub_mat(0,0,AMr);
-  Anew.set_row(AMr.rows(), vec);
-  if (LinAlg::calc_rank(Anew) < Anew.rows())
-    return;
-
-  // setup AMr and br
-  AMr.copy_from(Anew);
-  bnew.copy_from(br);
-  br.resize(bnew.size()+1);
-  br.set_sub_vec(0, bnew);
-  br[bnew.size()] = bi;
 }
 

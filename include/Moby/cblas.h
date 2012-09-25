@@ -726,13 +726,37 @@ class CBLAS
     static void gemv(enum CBLAS_ORDER order, CBLAS_TRANSPOSE transA, int M, int N, T alpha, const T* A, int lda, const T* X, int incX, T beta, T* Y, int incY);
 
     template <class Mat, class Vec1, class Vec2, class T>
-    static void gemv(CBLAS_TRANSPOSE trans_m, const Mat& m, const Vec1& v, T alpha, T beta, Vec2& target) { gemv(CblasColMajor, trans_m, m.rows(), m.columns(), alpha, m.begin(), m.rows(), v.begin(), 1, beta, target.begin(), 1); }
+    static void gemv(CBLAS_TRANSPOSE trans_m, int M, int N, const Mat& m, int ldm, const Vec1& v, int incv, T alpha, T beta, Vec2& target, int inctarget) { gemv(CblasColMajor, trans_m, M, N, alpha, m.begin(), ldm, v.begin(), incv, beta, target.begin(), inctarget); }
 
     template <class T>
     static void gemm(enum CBLAS_ORDER order, CBLAS_TRANSPOSE transA, CBLAS_TRANSPOSE transB, int M, int N, int K, T alpha, const T* A, int lda, const T* B, int ldb, T beta, T* C, int ldc);
 
+    template <class T>
+    static void trsm(enum CBLAS_SIDE side,
+                     enum CBLAS_UPLO uplo, enum CBLAS_TRANSPOSE transA,
+                     int m, int n, T alpha, const T* A, int lda, T* B, int ldb);
+
+    template <class T>
+    static void trsv(enum CBLAS_UPLO uplo, enum CBLAS_TRANSPOSE transA,
+                     int n, const T* A, int lda, T* x, int incx);
+
     template <class Mat1, class Mat2, class Mat3, class T>
-    static void gemm(CBLAS_TRANSPOSE transA, CBLAS_TRANSPOSE transB, const Mat1& A, const Mat2& B, T alpha, T beta, Mat3& C) { gemm(CblasColMajor, transA, transB, rows(A, transA), columns(B, transB), columns(A, transA), alpha, A.begin(), A.rows(), B.begin(), B.rows(), beta, C.begin(), C.rows()); } 
+    static void gemm(CBLAS_TRANSPOSE transA, CBLAS_TRANSPOSE transB, int m, int n, int k, const Mat1& A, int lda, const Mat2& B, int ldb, T alpha, T beta, Mat3& C, int ldc) { gemm(CblasColMajor, transA, transB, m, n, k, alpha, A.begin(), lda, B.begin(), ldb, beta, C.begin(), ldc); } 
+
+    template <class Mat1, class Mat2, class T>
+    static void trsm(enum CBLAS_SIDE side,
+                     enum CBLAS_UPLO uplo, enum CBLAS_TRANSPOSE transA,
+                     int m, int n, T alpha, const Mat1& A, int lda, Mat2& B, int ldb)
+    {
+      trsm(CblasColMajor, side, uplo, transA, CblasNonUnit, m, n, alpha, A.begin(), lda, B.begin(), ldb);  
+    }
+
+    template <class Mat, class Vec>
+    static void trsv(enum CBLAS_UPLO uplo, enum CBLAS_TRANSPOSE transA,
+                     int n, const Mat& A, int lda, Vec& x, int incx)
+    {
+      trsv(uplo, transA, n, A.begin(), lda, x.begin(), incx);  
+    }
 
     template <class Matrix>
     static unsigned rows(const Matrix& m, CBLAS_TRANSPOSE trans)

@@ -1,3 +1,13 @@
+r557
+----
+- Fixed bugs in BlockIterator
+- Updated LinAlg to give correct Q and R matrices from QR factorization
+- Updated LinAlg to implement QR factorization updates (not working)
+- Matrix multiplication mechanics now changed to be more abstract (underlying
+  arithmetic still done via BLAS)
+- Added triangular solve to CBLAS
+- Active-set QP solver now faster
+
 r556
 ----
 - Significant updates to optimization code

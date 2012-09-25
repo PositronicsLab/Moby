@@ -36,6 +36,12 @@ float log2(float x)
   return std::log(x)/std::log(2.0f);
 }
 
+/// Calls LAPACK function for Givens rotation
+static void lartg_(float* F, float* G, float* CS, float* SN, float* R)
+{
+  slartg_(F, G, CS, SN, R);
+}
+
 /// Calls LAPACK function for solving triangular systems of linear equations
 static void trtrs_(char* UPLO, char* TRANS, INTEGER* N, INTEGER* NRHS, SINGLE* AP, INTEGER* LDA, SINGLE* B, INTEGER* LDB, INTEGER* INFO)
 {
@@ -327,6 +333,12 @@ double log2(double x)
   return std::log(x)/std::log(2.0);
 }
 
+/// Calls LAPACK function for Givens rotation
+static void lartg_(double* F, double* G, double* CS, double* SN, double* R)
+{
+  dlartg_(F, G, CS, SN, R);
+}
+
 /// Calls LAPACK function for solving triangular systems of linear equations
 static void trtrs_(char* UPLO, char* TRANS, INTEGER* N, INTEGER* NRHS, DOUBLE* AP, INTEGER* LDA, DOUBLE* B, INTEGER* LDB, INTEGER* INFO)
 {
@@ -612,6 +624,12 @@ static void orgqr_(INTEGER* M, INTEGER* N, INTEGER* K, DOUBLE* A, INTEGER* LDA, 
 // ***********************************************************************
 // artibrary precision routines start here
 // ***********************************************************************
+
+/// Calls LAPACK function for Givens rotation
+static void lartg_(mpfr::mpreal* F, mpfr::mpreal* G, mpfr::mpreal* CS, mpfr::mpreal* SN, mpfr::mpreal* R)
+{
+  alartg_(F, G, CS, SN, R);
+}
 
 /// Calls LAPACK function for solving triangular systems of linear equations
 static void trtrs_(char* UPLO, char* TRANS, INTEGER* N, INTEGER* NRHS, mpfr::mpreal* AP, INTEGER* LDA, mpfr::mpreal* B, INTEGER* LDB, INTEGER* INFO)
@@ -991,11 +1009,19 @@ void LinAlg::factor_QR(MatrixN& AR, MatrixN& Q, vector<int>& PI)
 
 /// Performs the QR factorization of a matrix
 /**
- * \param AQ the matrix A on input; the matrix R on output 
- * \param Q the matrix Q on output
+ * \param AQ the m x n matrix A on input; the matrix min(m,n) x n R on output 
+ * \param Q the m x min(m,n) matrix Q on output
  */
 void LinAlg::factor_QR(MatrixN& AR, MatrixN& Q)
 {
+  SAFESTATIC FastThreadable<MatrixN> WORKM;
+  SAFESTATIC FastThreadable<VectorN> TAU;
+
+  // get matrix/vector
+  VectorN& tau = TAU();
+  MatrixN& workM = WORKM();
+
+  // setup constants
   const unsigned m = AR.rows();
   const unsigned n = AR.columns();
 
@@ -1007,30 +1033,28 @@ void LinAlg::factor_QR(MatrixN& AR, MatrixN& Q)
   INTEGER M = AR.rows();
   INTEGER N = AR.columns();
   INTEGER MINMN = std::min(M, N);
-  unsigned min_mn = (unsigned) MINMN; 
+  const unsigned min_mn = (unsigned) MINMN; 
  
   // setup tau vector
-  SAFESTATIC FastThreadable<VectorN> TAU;
-  TAU().resize(min_mn);
+  tau.resize(min_mn);
 
   // call LAPACK
-  INTEGER LDA = AR.rows();
+  INTEGER LDA = M;
   INTEGER INFO;
-  geqrf_(&M, &N, AR.begin(), &M, TAU().begin(), &INFO);
+  geqrf_(&M, &N, AR.begin(), &M, tau.begin(), &INFO);
   assert(INFO == 0);
 
-  // get Q out 
-  AR.get_sub_mat(0,AR.rows(),0,std::min(AR.rows(),AR.columns()),Q);
-  orgqr_(&M, &M, &MINMN, Q.begin(), &LDA, TAU().begin(), &INFO);
-  assert(INFO == 0);
- 
-  // setup R
+  // setup Q
+  Q.resize(m,m);
+  std::copy(AR.begin(), AR.begin()+m*min_mn, Q.begin());
+  orgqr_(&M, &MINMN, &MINMN, Q.begin(), &M, tau.begin(), &INFO);
+  
+  // make R triangular
   for (unsigned i=0; i< n; i++)
     for (unsigned j=i+1; j< m; j++)
       AR(j,i) = 0.0;
 
-  // resize AR
-  AR.resize(std::min(AR.rows(), AR.columns()), AR.columns(), true);
+  // note: R is m x n, so we don't have to resize 
 }
 
 /// Performs the LU factorization of a matrix
@@ -2726,6 +2750,635 @@ MatrixN LinAlg::solve(const MatrixNN& A, const MatrixN& B)
   solve_fast(A_copy, X);
 
   return X;
+}
+
+/// Computes a givens rotation
+void LinAlg::givens(Real a, Real b, Real& c, Real& s)
+{
+  // setup LAPACK parameters
+  Real UNUSED;
+
+  // call LAPACK (use solving routine that uses LU factorization)
+  lartg_(&a, &b, &c, &s, &UNUSED);
+
+  // reverse s
+  s = -s;
+}
+
+/// Computes the givens matrix given a c and s
+Matrix2 LinAlg::givens(Real c, Real s)
+{
+  return Matrix2(c, s, -s, c);
+}
+
+/// Computes a householder vector
+void LinAlg::householder(Real alpha, const VectorN& x, Real& tau, VectorN& v)
+{
+  Real s = x.norm_sq();
+  v.copy_from(x);
+  if (s < (Real) 0.0)
+    tau = (Real) 0.0;
+  else
+  {
+    Real t = std::sqrt(alpha*alpha + s);
+    Real v_one = (alpha <= (Real) 0.0) ? (alpha-t) : -s/(alpha+t);
+    tau = 2*v_one*v_one/(s + v_one*v_one);
+    v /= v_one;
+  }   
+}
+
+/// Updates a QR factorization by a rank-1 update
+/**
+ * \param Q a m x min(m,n) matrix
+ * \param R a min(m,n) x n matrix
+ */
+void LinAlg::update_QR_rank1(MatrixN& Q, MatrixN& R, const VectorN& u, const VectorN& v)
+{
+  // apply Givens rotations
+}
+
+/// Updates a QR factorization by deleting p columns starting at column idx k
+/**
+ * \param Q a m x min(m,n) matrix
+ * \param R a min(m,n) x n matrix
+ * \param k the column index to start deleting at
+ * \parma p the number of columns to delete 
+ */
+void LinAlg::update_QR_delete_cols(MatrixN& Q, MatrixN& R, unsigned k, unsigned p)
+{
+  SAFESTATIC VectorN workv, workv2;
+  SAFESTATIC MatrixN workM, workM2, workM3;
+  SAFESTATIC vector<Real> c, s, tau;
+  SAFESTATIC vector<unsigned> select;
+  SAFESTATIC vector<VectorN> V;
+  
+  const int m = Q.rows();
+  const int n = R.columns();
+  const int lim = std::min(m-1,n-(int) p);
+  assert(k + p <= n);
+
+  // make k one indexed to work with our 1-indexed algorithm
+  k++;
+
+  // simplest case
+  if (k == n-p+1)
+  {
+    R.get_sub_mat(0,m,0,k-1,workM);
+    R.copy_from(workM);
+    Q.get_sub_mat(0,m,0,m,workM);
+    Q.copy_from(workM);
+    return;
+  } 
+
+  // next simplest case
+  if (k > std::min(m-1,(int) (n-p)))
+  {
+    // get relevant indices of R
+    select.clear();
+    for (int i=1; i<= n; i++)
+      if (i < k || i >= k+p)
+        select.push_back(i-1);
+    R.select_columns(select.begin(), select.end(), workM);
+    R.copy_from(workM);
+    Q.get_sub_mat(0,m,0,R.rows(),workM);
+    Q.copy_from(workM);
+    return;
+  }
+
+  // setup c, s
+  c.resize(std::max(m,n)+1);
+  s.resize(std::max(m,n)+1);
+
+  // shift R
+  R.get_sub_mat(0,m,k+p-1,n,workM);
+  R.set_sub_mat(0,k-1,workM);
+
+  // third simplest case: p = 1 and m >= n
+  if (p == 1 && m >= n)
+  {
+    for (int j=k; j<= n-1; j++)
+    {
+      // compute Givens rotation
+      givens(R(j-1,j-1), R(j,j-1), c[j], s[j]);
+      
+      // update R
+      R(j-1,j-1) = c[j]*R(j-1,j-1) - s[j]*R(j,j-1);
+      R.get_sub_mat(j-1,j+1,j-1,n-1,workM);
+      givens(c[j], s[j]).transpose_mult(workM, workM2);
+      R.set_sub_mat(j-1,j-1,workM2);
+    }
+
+    // compute upper triangular part of R
+    R.get_sub_mat(0,m,0,n-1,workM);
+    for (int i=1; i<= workM.rows(); i++)
+      for (int j=1; j<= std::min(i-1,(int) workM.columns()); j++)
+        workM(i-1,j-1) = (Real) 0.0;
+    R.copy_from(workM);
+
+    // update Q
+    for (int j=k; j<= n-1; j++)
+    {
+      Q.get_sub_mat(0,m,j-1,j+1,workM);
+      workM.mult(givens(c[j], s[j]), workM2);
+      Q.set_sub_mat(0,j-1, workM2);
+    }
+
+    return;
+  }
+
+  // householder case (p > 1)
+  tau.resize(lim+1);
+  V.resize(lim+1);
+  for (int j=k; j<= lim; j++)
+  {
+    // compute householder vector/scalar
+    int last = std::min(j+(int) p, m);
+    R.get_sub_mat(j, last, j-1, j, workv2);
+    householder(R(j-1,j-1), workv2, tau[j], V[j]);
+
+    // update R
+    R(j-1,j-1) -= tau[j]*(R(j-1,j-1) + V[j].dot(workv2));
+    if (j < n-p)
+    {
+      R.get_sub_mat(j-1,last,j,n-p, workM);
+      workv.resize(V[j].size()+1);
+      workv.set_sub_vec(1, V[j]);
+      workv[0] = (Real) 1.0;
+      workM.transpose_mult(workv, workv2);
+      workv *= tau[j];
+      VectorN::outer_prod(workv, workv2, &workM2);
+      workM -= workM2;
+      R.set_sub_mat(j-1,j,workM);
+    }
+  }
+
+  // setup upper triangular R
+  R.get_sub_mat(0,m,0,n-p,workM);
+  R.copy_from(workM);
+  for (int i=1; i<= workM.rows(); i++)
+    for (int j=1; j<= std::min(i-1,(int) workM.columns()); j++)
+      R(i-1,j-1) = (Real) 0.0;
+
+  // setup Q
+  for (int j=k; j<= lim; j++)
+  {
+    int last = std::min(j+(int) p,m);
+    Q.get_sub_mat(0,m,j-1,last,workM);
+    workv.resize(V[j].size()+1);
+    workv.set_sub_vec(1, V[j]);
+    workv[0] = (Real) 1.0;
+    workv2.copy_from(workv) *= tau[j];
+    VectorN::outer_prod(workv, workv2, &workM2);
+    workM.mult(workM2, workM3);
+    workM -= workM3;
+    Q.set_sub_mat(0,j-1,workM);    
+  }
+//  Q.get_sub_mat(0,m,0,std::min(lim+(int) p, m), workM);
+  Q.get_sub_mat(0,m,0,m, workM);
+  Q.copy_from(workM);
+}
+
+/// Updates a QR factorization by inserting one or more columns at column idx k
+/**
+ * \param Q a m x min(m,n) matrix
+ * \param R a min(m,n) x n matrix
+ * \param U a m x p matrix, destroyed on return
+ */
+void LinAlg::update_QR_insert_cols(MatrixN& Q, MatrixN& R, MatrixN& U, unsigned k)
+{
+  SAFESTATIC VectorN workv;
+  SAFESTATIC MatrixN workM, workM2, Qu;
+  SAFESTATIC MatrixNN c, s;
+
+  const int m = Q.rows();
+  const int n = R.columns();
+  const int p = U.columns();
+  assert(U.rows() == m);
+
+  // make k one indexed to work with our 1-indexed algorithm
+  k++;
+
+  // setup c, s
+  c.resize(std::max(m,n)+1);
+  s.resize(std::max(m,n)+1);
+
+  // setup U
+  Q.transpose_mult(U, workM);
+  U.copy_from(workM);
+  if (m > n+1)
+  {
+    // do a QR factorization
+    U.get_sub_mat(n,m,0,p,workM);
+    LinAlg::factor_QR(workM, Qu);
+  }
+
+  if (k <= n)
+  {
+    // zero out the rest with givens, stop at last column of U or last row that 
+    // is reached first
+    int jstop = std::min((int) p,m-(int) k-2);
+    for (int j=1; j<= jstop; j++)
+    {
+      int istart = std::min(n+j,m);
+      int upfirst = std::max(istart-j,1);
+      for (int i=istart; i> j; i--)
+      {
+        givens(U(i-2,j-1),U(i-1,j-1), c(i,j), s(i,j));
+
+        // update U
+        U(i-2,j-1) = c(i,j)*U(i-2,j-1) - s(i,j)*U(i-1,j-1);
+        if (j < p)
+        {
+          U.get_sub_mat(i-2,i,j,p,workM);
+          givens(c(i,j), s(i,j)).transpose_mult(workM, workM2);
+          U.set_sub_mat(i-2,j,workM2);
+        }
+
+        // update R
+        R.get_sub_mat(i-2,i,upfirst-1,n,workM);
+        givens(c(i,j), s(i,j)).transpose_mult(workM, workM2);
+        R.set_sub_mat(i-2,upfirst-1,workM2);
+
+        // update one more column next i step
+        upfirst--;
+      }
+    }
+  }
+
+  // finish R
+  workM.resize(U.rows(), U.columns()+R.columns());
+  if (k == 1)
+  {
+    workM.set_sub_mat(0, 0, U);
+    workM.set_sub_mat(0, U.columns(), R);
+  }
+  else if (k == n+1)
+  {
+    workM.set_sub_mat(0, 0, R);
+    workM.set_sub_mat(0, R.columns(), U);
+  }
+  else
+  {
+    R.get_sub_mat(0,m,0,k-1,workM2);
+    workM.set_sub_mat(0,0,workM2);
+    workM.set_sub_mat(0,workM2.columns(),U);
+    R.get_sub_mat(0,m,k-1,n,workM2);
+    workM.set_sub_mat(0,U.columns()+k-1,workM2);
+  }
+  R.copy_from(workM);
+
+  // finally, make R upper triangular
+  for (int i=1; i<= (int) R.rows(); i++)
+    for (int j=1; j<= std::min((int) R.columns(),i-1); j++)
+      R(i-1,j-1) = (Real) 0.0; 
+
+  // compute Q
+  if (m > n+1)
+  {
+    Q.get_sub_mat(0,m,n,m,workM);
+    workM.mult(Qu, workM2);
+    Q.set_sub_mat(0,n,workM2);
+  }
+  if (k <= n)
+  {
+    int jstop = std::min((int) p,m-(int) k-2);
+    for (int j=1; j<= jstop; j++)
+    {
+      int istart = std::min(n+j,m);
+      for (int i=istart; i>= j+1; i--)
+      {
+        Q.get_sub_mat(0,m,i-2,i,workM);
+        workM.mult(givens(c(i,j), s(i,j)), workM2);
+        Q.set_sub_mat(0,i-2,workM2);
+      }
+    }
+  }
+}
+
+/// Updates a QR factorization by inserting a block of rows, starting at index k
+/**
+ * \param Q a m x min(m,n) matrix
+ * \param R a min(m,n) x n matrix
+ * \param U a p x n matrix (destroyed on return)
+ * \param k the index to insert at
+ */
+void LinAlg::update_QR_insert_rows(MatrixN& Q, MatrixN& R, MatrixN& U, unsigned k)
+{
+  SAFESTATIC VectorN workv, workv2, workv3, workv4;
+  SAFESTATIC MatrixN workM, workM2, workM3, Qu, Ru;
+  SAFESTATIC vector<Real> c, s, tau;
+  SAFESTATIC vector<VectorN> V;
+
+  const int m = Q.rows();
+  const int n = R.columns();
+  const int lim = std::min(m,n);
+  const int p = U.rows();
+
+  // make k one indexed
+  k++;
+
+  // verify that U is the correct size
+  assert(U.columns() == n);
+
+  // simplest case: inserting a single row, m >= n
+  if (m >= n && p == 1)
+  {
+    // resize c and s
+   c.resize(n+1);
+   s.resize(n+1);
+
+    for (int j=1; j<= n; j++)
+    {
+      // compute Givens rotation
+      givens(R(j-1,j-1), U(0, j-1), c[j], s[j]);
+      
+      // update R
+      R(j-1,j-1) = c[j]*R(j-1,j-1) - s[j]*U(0,j-1);
+
+      // update jth row of R and u
+      R.get_sub_mat(j-1, j, j, n, workv);
+      U.get_sub_mat(0, 1, j, n, workv2);
+      workv3.copy_from(workv) *= c[j];
+      workv4.copy_from(workv2) *= s[j];
+      workv3 -= workv4;
+      R.set_sub_mat(j-1,j, workv3, true);
+      workv3.copy_from(workv) *= s[j];
+      workv4.copy_from(workv2) *= c[j];
+      workv3 += workv4;
+      U.set_sub_mat(0,j, workv3, true); 
+    }
+
+    // setup new R
+    workM.resize(R.rows() + 1, R.columns());
+    workM.set_sub_mat(0, 0, R);
+    BlockIterator b = workM.block_start(R.rows(), R.rows()+1, 0, R.columns());
+    std::fill_n(b, R.columns(), (Real) 0.0);
+    R.copy_from(workM);
+
+    // compute new Q
+    workM.resize(Q.rows()+1, Q.columns()+1);
+    workM.set_sub_mat(0,0,Q);
+    b = workM.block_start(Q.rows(), Q.rows()+1, 0, Q.columns());
+    std::fill_n(b, Q.columns(), (Real) 0.0);
+    b = workM.block_start(0, Q.rows(), Q.columns(), Q.columns()+1);
+    std::fill_n(b, Q.rows(), (Real) 0.0);
+    workM(Q.rows(), Q.columns()) = (Real) 1.0; 
+    Q.copy_from(workM);
+    if (k != m+1)
+    {
+      // permute Q
+      workM2.resize(Q.rows(), Q.columns());
+      Q.get_sub_mat(0,k-1,0,n+1,workM);
+      workM2.set_sub_mat(0,0,workM);
+      Q.get_row(m, workv);
+      workM2.set_row(workM.rows(), workv);
+      Q.get_sub_mat(k-1,m,0,n+1, workM);
+      workM2.set_sub_mat(k, 0, workM);
+      Q.copy_from(workM2);
+    }
+    for (int j=1; j<= n; j++)
+    {
+      Q.get_sub_mat(0,m+1,j-1,j,workv);
+      Q.get_sub_mat(0,m+1,m,m+1,workv2);
+      workv3.copy_from(workv) *= c[j];
+      workv4.copy_from(workv2) *= s[j];
+      workv3 -= workv4;
+      Q.set_sub_mat(0,j-1,workv3,false);
+      workv3.copy_from(workv) *= s[j];
+      workv4.copy_from(workv2) *= c[j];
+      workv3 += workv4;
+      Q.set_sub_mat(0,m,workv3,false);
+    }
+
+    return;
+  }
+
+  // householder case (p > 1 or m < n)
+  V.resize(lim+1);
+  tau.resize(lim+1);
+
+  for (int j=1; j<= lim; j++)
+  {
+    // compute householder
+    U.get_sub_mat(0,p,j-1,j,workv);
+    householder(R(j-1,j-1), workv, tau[j], V[j]);
+
+    // remember old jth row of R
+    R.get_sub_mat(j-1,j,j,n,workv);
+
+    // update jth row of R
+    R.get_sub_mat(j-1,j,j-1,n,workv2); // workv2 = R(j,j:n)
+    workv2 *= ((Real) 1.0 - tau[j]);
+    U.get_sub_mat(0,p,j-1,n,workM);   // workM = U(1:p,j:n)
+    workM.transpose_mult(V[j], workv3) *= tau[j];
+    workv2 -= workv3;
+    R.set_sub_mat(j-1,j-1,workv2,true); 
+
+    // update trailing part if U
+    if (j < n)
+    {
+      U.get_sub_mat(0,p,j,n,workM);                 // get X = U(1:p,j+1:n)
+      workv2.copy_from(V[j]) *= tau[j];             // tau*V
+      VectorN::outer_prod(workv2, V[j], &workM2);   // tau*V*V'
+      workM2.mult(workM, workM3);                   // tau*V*V'*X
+      workM -= workM3;                              // X -= tau*V*V'*X
+      VectorN::outer_prod(workv2, workv, &workM2);  // Y = tau*V*Rj'
+      workM -= workM2;                              // X -= Y
+      U.set_sub_mat(0,j,workM);
+    }
+  }
+
+  // update R
+  workM.resize(R.rows()+p,n);
+  workM.set_sub_mat(0, 0, R);
+  BlockIterator b = workM.block_start(R.rows(), workM.rows(), 0, n);
+  std::fill_n(b, p*n, (Real) 0.0);
+  R.copy_from(workM);
+  if (m < n)
+  {
+    U.get_sub_mat(0, U.rows(), m,n, Ru);
+    factor_QR(Ru, Qu);
+    R.set_sub_mat(m,m,Ru);
+  }
+
+  // update Q
+  workM.resize(Q.rows()+p, Q.columns()+p);
+  workM.set_sub_mat(0,0,Q);
+  b = workM.block_start(0, m, Q.columns(), Q.columns()+p);
+  std::fill_n(b, m*p, (Real) 0.0);
+  b = workM.block_start(Q.rows(), Q.rows()+p, 0, Q.columns());
+  std::fill_n(b, p*Q.columns(), (Real) 0.0);
+  b = workM.block_start(Q.rows(), Q.rows()+p, Q.columns(), Q.columns()+p);
+  std::fill_n(b, p*p, (Real) 0.0);
+  for (unsigned i=0, jj=m, kk=p; i< p; i++, jj++, kk++)
+    workM(jj-1,kk-1) = (Real) 1.0;
+  Q.copy_from(workM);
+  if (k != m+1)
+  {
+    // permute Q
+    Q.get_sub_mat(0,k-1,0,m+p,workM);
+    Q.get_sub_mat(m,m+p,0,m+p,workM2);
+    Q.get_sub_mat(k-1,m,0,m+p,workM3);
+    Q.set_sub_mat(0,0,workM);
+    Q.set_sub_mat(workM.rows(),0,workM2);
+    Q.set_sub_mat(workM.rows()+workM2.rows(),0,workM3);
+  }
+  for (int j=1; j<= lim; j++)
+  {
+    // remember jth column of Q
+    Q.get_sub_mat(0,m+p,j-1,j,workv);
+
+    // update jth column
+    workv2.copy_from(workv);
+    workv2 *= ((Real) 1.0 - tau[j]);
+    Q.get_sub_mat(0,m+p,m,m+p,workM);
+    workM.mult(V[j], workv3) *= tau[j];
+    workv2 -= workv3;
+    Q.set_sub_mat(0,j-1,workv2);
+
+    // update m+1:p columns of Qhat
+    workv2.copy_from(V[j]) *= tau[j];                 // s = V*tau
+    VectorN::outer_prod(workv, workv2, &workM);       // Y = Qhatk * V' * tau
+    Q.get_sub_mat(0,m+p,m,m+p, workM2);
+    workM -= workM2;
+    workM2.mult(V[j], workv);                         // r = X*V
+    VectorN::outer_prod(workv, workv2, &workM2);      // Y = X*V*V'*tau
+    workM += workM2;
+    workM.negate();
+    Q.set_sub_mat(0,m,workM);
+    if (m < n)
+    {
+      Q.get_sub_mat(0,m+p,m,m+p,workM);
+      workM.mult(Qu, workM2);
+      Q.set_sub_mat(0,m,workM2);
+    }
+  }
+}
+
+/// Updates a QR factorization by deleting a block of rows 
+/**
+ * \param Q a m x min(m,n) matrix
+ * \param R a min(m,n) x n matrix
+ * \param k the index to start deleting at
+ * \param p the number of rows to delete
+ */
+void LinAlg::update_QR_delete_rows(MatrixN& Q, MatrixN& R, unsigned k, unsigned p)
+{
+  SAFESTATIC vector<Real> c, s;
+  SAFESTATIC VectorN workv, workv2;
+  SAFESTATIC MatrixN W, workM, workM2, cc, ss;
+
+  const int m = Q.rows();
+  const int n = R.columns();
+
+  assert(k+p <= m);
+
+  // make k 1-indexed
+  k++;
+
+  // simplest case: p = 1
+  if (p == 1)
+  {
+    // resize c and s
+    c.resize(m);
+    s.resize(m);
+
+    Q.get_sub_mat(k-1, k, 0, m, workv);
+    for (int j=m-1; j>= 1; j--)
+    {
+      // compute givens rotation and update q
+      givens(workv[j-1], workv[j], c[j], s[j]);
+      workv[j-1] = c[j]*workv[j-1] - s[j]*workv[j];
+    
+      // update R if there is a nonzero row
+      if (j <= n)
+      {
+        R.get_sub_mat(j-1,j+1,j-1,n,workM);
+        givens(c[j], s[j]).transpose_mult(workM, workM2);
+        R.set_sub_mat(j-1,j-1,workM2);
+      }
+    }
+    R.get_sub_mat(1,m,0,n,workM);
+    R.copy_from(workM);
+
+    // compute Q
+    if (k != 1)
+    {
+      Q.get_sub_mat(0,k-1,0,m,workM);
+      Q.set_sub_mat(1,0,workM);
+    }
+
+    for (int j=m-1; j>= 2; j--)
+    {
+      Q.get_sub_mat(1,m,j-1,j+1,workM);
+      workM.mult(givens(c[j], s[j]), workM2);
+      Q.set_sub_mat(1,j-1,workM2);
+    }
+
+    // do not need to update 1st column of Q
+    Q.get_sub_mat(1,m,0,1,workv); 
+    Q.get_sub_mat(1,m,1,2,workv2);
+    workv *= s[1];
+    workv2 *= c[1];
+    workv += workv2;
+    Q.set_sub_mat(1,1,workv);
+    Q.get_sub_mat(1,m,1,m,workM);
+    Q.copy_from(workM);
+    return;
+  }
+
+  // "standard" case
+  cc.resize(p+1,m);
+  ss.resize(p+1,m);
+  Q.get_sub_mat(k-1,k+p-1,0,m,W);
+  for (int i=1; i<= p; i++)
+  {
+    for (int j=m-1; j>= i; j--)
+    {
+      givens(W(i-1,j-1), W(i-1,j), cc(i,j), ss(i,j));
+      W(i-1,j-1) = W(i-1,j-1) * cc(i,j) - W(i-1,j) * ss(i,j);
+      W.get_sub_mat(i,p,j-1,j+1,workM);
+      workM.mult(givens(cc(i,j), ss(i,j)), workM2);
+      W.set_sub_mat(i,j-1, workM2);
+
+      // update R if there is a nonzero row
+      if (j <= n+i-1)
+      {
+        R.get_sub_mat(j-1,j+1,j-i,n,workM);
+        givens(cc(i,j), ss(i,j)).transpose_mult(workM, workM2);
+        R.set_sub_mat(j-1,j-i,workM2);
+      }
+    }
+  }
+
+  // compute the new R
+  R.get_sub_mat(p,m,0,n,workM);
+  R.copy_from(workM);
+
+  // compute the new Q
+  if (k != 1)
+  {
+    Q.get_sub_mat(0,k-1,0,m,workM);
+    Q.set_sub_mat(p,0,workM);
+  }
+  for (int i=1; i<= p; i++)
+  {
+    for (int j=m-1; j>= i+1; j--)
+    {
+      Q.get_sub_mat(p,m,j-1,j+1,workM);
+      workM.mult(givens(cc(i,j), ss(i,j)), workM2);
+      Q.set_sub_mat(p,j-1,workM2);
+    }
+
+    Q.get_sub_mat(p,m,i-1,i, workv) *= ss(i,i);
+    Q.get_sub_mat(p,m,i,i+1, workv2) *= cc(i,i);
+    workv += workv2;
+    Q.set_sub_mat(p,i,workv);
+  }
+
+  // update Q
+  Q.get_sub_mat(p,m,p,m,workM);
+  Q.copy_from(workM);
 }
 
 /// Performs Gauss-Jordan elimination with partial pivoting on matrix A

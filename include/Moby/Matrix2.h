@@ -8,7 +8,9 @@
 #define _MATRIX2_H
 
 #include <iostream>
+#include <Moby/cblas.h>
 #include <Moby/Vector2.h>
+#include <Moby/MissizeException.h>
 
 namespace Moby {
 
@@ -90,6 +92,60 @@ class Matrix2
 
     /// Gets a pointer to the beginning of the matrix array
     Real* data() { return _data; }
+
+    template <class T>
+    T& transpose_mult_transpose(const T& x, T& y) const
+    {
+      unsigned rows = x.rows();
+      unsigned cols = x.columns();
+      if (cols != this->rows())
+        throw MissizeException();
+      y.resize(this->columns(), rows);
+      CBLAS::gemm(CblasTrans, CblasTrans, 2, rows, 2, *this, 2, x, rows, (Real) 1.0, (Real) 0.0, y, 2); 
+      return y;
+    }
+
+    template <class T>
+    T& mult_transpose(const T& x, T& y) const
+    {
+      unsigned rows = x.rows();
+      unsigned cols = x.columns();
+      if (cols != this->columns())
+        throw MissizeException();
+      y.resize(this->rows(), rows);
+      CBLAS::gemm(CblasNoTrans, CblasTrans, 2, rows, 2, *this, x, rows, (Real) 1.0, (Real) 0.0, y, 2); 
+      return y;
+    }
+
+    template <class T>
+    T& transpose_mult(const T& x, T& y) const
+    {
+      unsigned rows = x.rows();
+      unsigned cols = x.columns();
+      if (rows != this->columns())
+        throw MissizeException();
+      y.resize(this->columns(), cols);
+      if (cols > 1)
+        CBLAS::gemm(CblasTrans, CblasNoTrans, 2, cols, 2, *this, 2, x, rows, (Real) 1.0, (Real) 0.0, y, 2); 
+      else
+        CBLAS::gemv(CblasTrans, 2, 2, *this, 2, x, 1, (Real) 1.0, (Real) 0.0, y, 1);
+      return y;
+    }
+
+    template <class T>
+    T& mult(const T& x, T& y) const
+    {
+      unsigned rows = x.rows();
+      unsigned cols = x.columns();
+      if (rows != this->columns())
+        throw MissizeException();
+      y.resize(this->rows(), cols);
+      if (cols > 1)
+        CBLAS::gemm(CblasNoTrans, CblasNoTrans, 2, cols, 2, *this, x, (Real) 1.0, (Real) 0.0, y); 
+      else
+        CBLAS::gemv(CblasNoTrans, 2, 2, *this, 2, x, 1, (Real) 1.0, (Real) 0.0, y, 1);
+      return y;
+    }
 
   private:
     static bool rel_equal(Real x, Real y, Real tolerance);

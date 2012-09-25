@@ -13,6 +13,53 @@
 
 namespace Moby {
 
+class WorkingSet
+{
+  public:
+    WorkingSet() { max_updates = 0; }
+    void reset(const MatrixN& A, const MatrixN& M);
+    void reset(const MatrixN& A, const MatrixN& M, const std::vector<bool>& vworking, const std::vector<bool>& working);
+    bool add_var_to_working_set(unsigned var);
+    bool add_constraint_to_working_set(unsigned constraint);
+    void remove_var_from_working_set(unsigned var);
+    void remove_constraint_from_working_set(unsigned constraint);
+    const MatrixN& get_null() const { return _Z; }
+    const std::vector<unsigned>& get_free_indices() const { return _free; }
+    unsigned get_total_working() const { return _nworking + _nvworking; }
+    bool is_constraint_working(unsigned i) const { return _working[i]; }
+    bool is_var_working(unsigned i) const { return _vworking[i]; }
+    unsigned num_equalities() const { return _Ar.rows(); }
+    bool full() const;
+    const MatrixN& get_Q() const { return _Q; }
+    const MatrixN& get_R() const { return _R; }
+    const MatrixN& get_A_M_free() const { return _AMr_free; }
+    const MatrixN& get_A_M() const { return _AMr; }
+
+    unsigned max_updates; // maximum # of updates before refactorization forced
+
+  private:
+    VectorN _workv, _workv2;
+    MatrixN _workM, _workM2;
+    std::vector<unsigned> _free;
+
+    bool full_rank() const;
+    void reform_AMr();
+    unsigned _updates;     // # of updates since last refactorization
+    unsigned _n;  // # of variables in the optimization problem
+    unsigned _m;  // # of linear inequality constraints
+    unsigned _nworking; // # of constraints in the working set
+    unsigned _nvworking; // # of variables in the working set
+    std::vector<bool> _working;  // linear inequalities in working set
+    std::vector<bool> _vworking; // variables in working set
+    MatrixN _AMr_free; // combined A and M matrices (free variables only)
+    MatrixN _AMr; // combined A and M matrices (all variables)
+    MatrixN _Ar;  // reduced linear equality constraint matrix
+    MatrixN _M;   // linear inequality constraint matrix
+    MatrixN _Q;   // Q factorization of AMr_free
+    MatrixN _R;   // R factorization of AMr_free
+    MatrixN _Z;   // nullspace of AMr_free
+};
+
 /// Structure for performing linear programming
 struct LPParams
 {
@@ -353,11 +400,6 @@ class Optimization
     static bool make_feasible_convex_BFGS(OptParams& cparams, VectorN& x);
 
   private:
-    static void add_to_working_set(const VectorN& vec, Real bi, MatrixN& AMr, VectorN& br);
-    static bool add_to_working_set_bound(unsigned i, const MatrixN& Ar, const MatrixN& M, const std::vector<bool>& working, const std::vector<unsigned>& bounded, const std::vector<unsigned>& free, MatrixN& AMr, MatrixN& AMr_bounded, MatrixN& Z, MatrixN& Y);
-    static bool add_to_working_set_row(unsigned i, const MatrixN& Ar, const MatrixN& M, const std::vector<bool>& working, const std::vector<unsigned>& bounded, const std::vector<unsigned>& free, MatrixN& AMr, MatrixN& AMr_bounded, MatrixN& Z, MatrixN& Y);
-    static bool reform_working_set(const MatrixN& Ar, const MatrixN& M, const std::vector<bool>& working, const std::vector<unsigned>& bounded, const std::vector<unsigned>& free, MatrixN& AMr, MatrixN& AMr_bounded, MatrixN& Z, MatrixN& Y);
-    static void determine_selection(const std::vector<bool>& bworking, std::vector<unsigned>& bounded, std::vector<unsigned>& free);
     static void condition_and_factor_PD(MatrixNN& H);
     static void condition_hessian(MatrixNN& H);
     static bool tcheck_cvx_opt_BFGS(const VectorN& x, void* data);

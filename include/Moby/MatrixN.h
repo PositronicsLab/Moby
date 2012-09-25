@@ -77,17 +77,11 @@ class MatrixN
     VectorN operator*(const VectorN& v) const { return mult(v); }
     static MatrixN& mult(const MatrixN& m1, const MatrixN& m2, MatrixN& result) { return m1.mult(m2, result); }
     MatrixN mult(const MatrixN& m) const;
-    MatrixN& mult(const MatrixN& m, MatrixN& result) const;
     MatrixN mult_transpose(const MatrixN& m) const;
-    MatrixN& mult_transpose(const MatrixN& m, MatrixN& result) const;
     MatrixN transpose_mult(const MatrixN& m) const;
-    virtual MatrixN& transpose_mult(const MatrixN& m, MatrixN& result) const;
     MatrixN transpose_mult_transpose(const MatrixN& m) const;
-    virtual MatrixN& transpose_mult_transpose(const MatrixN& m, MatrixN& result) const;
     VectorN mult(const VectorN& v) const;
-    VectorN& mult(const VectorN& v, VectorN& result) const;
     VectorN transpose_mult(const VectorN& v) const;
-    virtual VectorN& transpose_mult(const VectorN& v, VectorN& result) const;
     MatrixN operator*(const MatrixN& m) const { return mult(m); }
     MatrixN operator*(Real scalar) const;
     MatrixN operator/(Real scalar) const { return operator*(1.0/scalar); }
@@ -149,6 +143,80 @@ class MatrixN
 
     /// Copies FROM the source matrix
     MatrixN& copy_from(const MatrixN& source) { operator=(source); return *this;}
+
+    template <class T, class U>
+    U& transpose_mult_transpose(const T& x, U& y) const
+    {
+      unsigned rows = x.rows();
+      unsigned cols = x.columns();
+      if (cols != this->rows())
+        throw MissizeException();
+      y.resize(this->columns(), rows);
+      if (_rows == 0 || _columns == 0 || rows == 0)
+      {
+        y.set_zero();
+        return y;
+      }
+      CBLAS::gemm(CblasTrans, CblasTrans, _columns, rows, _rows, *this, _rows, x, rows, (Real) 1.0, (Real) 0.0, y, _columns); 
+      return y;
+    }
+
+    template <class T, class U>
+    U& mult_transpose(const T& x, U& y) const
+    {
+      unsigned rows = x.rows();
+      unsigned cols = x.columns();
+      if (cols != this->columns())
+        throw MissizeException();
+      y.resize(this->rows(), rows);
+      if (_rows == 0 || _columns == 0 || rows == 0)
+      {
+        y.set_zero();
+        return y;
+      }
+      CBLAS::gemm(CblasNoTrans, CblasTrans, _rows, rows, _columns, *this, _rows, x, rows, (Real) 1.0, (Real) 0.0, y, _rows); 
+      return y;
+    }
+
+    template <class T, class U>
+    U& transpose_mult(const T& x, U& y) const
+    {
+      unsigned rows = x.rows();
+      unsigned cols = x.columns();
+      if (rows != this->rows())
+        throw MissizeException();
+      y.resize(this->columns(), cols);
+      if (_rows == 0 || _columns == 0 || cols == 0)
+      {
+        y.set_zero();
+        return y;
+      }
+      if (cols > 1)
+        CBLAS::gemm(CblasTrans, CblasNoTrans, _columns, cols, _rows, *this, _rows, x, rows, (Real) 1.0, (Real) 0.0, y, _columns); 
+      else
+        CBLAS::gemv(CblasTrans, _rows, _columns, *this, _rows, x, 1, (Real) 1.0, (Real) 0.0, y, 1);
+      return y;
+    }
+
+    template <class T, class U>
+    U& mult(const T& x, U& y) const
+    {
+      unsigned rows = x.rows();
+      unsigned cols = x.columns();
+      if (rows != this->columns())
+        throw MissizeException();
+      y.resize(this->rows(), cols);
+      if (_rows == 0 || _columns == 0 || cols == 0)
+      {
+        y.set_zero();
+        return y;
+      }
+      if (cols > 1)
+        CBLAS::gemm(CblasNoTrans, CblasNoTrans, _rows, cols, _columns, *this, _rows, x, rows, (Real) 1.0, (Real) 0.0, y, _rows); 
+      else
+        CBLAS::gemv(CblasNoTrans, _rows, _columns, *this, _rows, x, 1, (Real) 1.0, (Real) 0.0, y, 1);
+      return y;
+    }
 
   protected:
     boost::shared_array<Real> _data;

@@ -550,6 +550,14 @@ void ImpactEventHandler::solve_qp(EventProblemData& q, Real poisson_eps)
   const unsigned N_CONSTRAINT_DOF_IMP = q.N_CONSTRAINT_DOF_IMP;
   const unsigned N_K_TOTAL = q.N_K_TOTAL;
 
+  // compute energy
+  if (LOGGING(LOG_CONTACT))
+  {
+    FILE_LOG(LOG_CONTACT) << "ImpactEventHandler::solve_qp() entered" << endl;
+    for (unsigned i=0; i< q.super_bodies.size(); i++)
+      FILE_LOG(LOG_CONTACT) << "  body " << q.super_bodies[i]->id << " pre-event handling KE: " << q.super_bodies[i]->calc_kinetic_energy() << endl;
+  }
+
   // solve the QP
   solve_qp_work(q, z);
 
@@ -632,6 +640,14 @@ void ImpactEventHandler::solve_qp(EventProblemData& q, Real poisson_eps)
   // save limit impulses
   for (unsigned i=0; i< N_LIMITS; i++)
     q.limit_events[i]->limit_impulse = q.alpha_l[i]; 
+
+  // compute energy
+  if (LOGGING(LOG_CONTACT))
+  {
+    for (unsigned i=0; i< q.super_bodies.size(); i++)
+      FILE_LOG(LOG_CONTACT) << "  body " << q.super_bodies[i]->id << " post-event handling KE: " << q.super_bodies[i]->calc_kinetic_energy() << endl;
+    FILE_LOG(LOG_CONTACT) << "ImpactEventHandler::solve_qp() exited" << endl;
+  }
 }
 
 /// Solves the nonlinearly constrained quadratic program (potentially solves two nQPs, actually)
