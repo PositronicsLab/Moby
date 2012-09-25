@@ -96,6 +96,7 @@ void ImpactEventHandler::apply_model(const vector<Event>& events, Real tol) cons
  */
 void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& events) const
 {
+  Real ke_minus = 0.0, ke_plus = 0.0;
   vector<Event> constraint_event_objects;
   SAFESTATIC EventProblemData epd;
 
@@ -113,6 +114,17 @@ void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& eve
   // compute all event cross-terms
   compute_problem_data(epd);
 
+  // compute energy
+  if (LOGGING(LOG_CONTACT))
+  {
+    for (unsigned i=0; i< epd.super_bodies.size(); i++)
+    {
+      Real ke = epd.super_bodies[i]->calc_kinetic_energy();
+      FILE_LOG(LOG_CONTACT) << "  body " << epd.super_bodies[i]->id << " pre-event handling KE: " << ke << endl;
+      ke_minus += ke;
+    }
+  }
+
 // NOTE: we disable this per Ruina's suggestion
 /*
   // solve the (non-frictional) linear complementarity problem to determine
@@ -129,6 +141,19 @@ void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& eve
 
   // set new generalized velocities 
   set_generalized_velocities(epd);
+
+  // compute energy
+  if (LOGGING(LOG_CONTACT))
+  {
+    for (unsigned i=0; i< epd.super_bodies.size(); i++)
+    {
+      Real ke = epd.super_bodies[i]->calc_kinetic_energy();
+      FILE_LOG(LOG_CONTACT) << "  body " << epd.super_bodies[i]->id << " post-event handling KE: " << ke << endl;
+      ke_plus += ke;
+    }
+    if (ke_plus > ke_minus)
+      FILE_LOG(LOG_CONTACT) << "warning! KE gain detected! energy before=" << ke_minus << " energy after=" << ke_plus << endl;
+  }
 
   FILE_LOG(LOG_CONTACT) << "ImpactEventHandler::apply_model_to_connected_events() exiting" << endl;
 }
@@ -550,14 +575,6 @@ void ImpactEventHandler::solve_qp(EventProblemData& q, Real poisson_eps)
   const unsigned N_CONSTRAINT_DOF_IMP = q.N_CONSTRAINT_DOF_IMP;
   const unsigned N_K_TOTAL = q.N_K_TOTAL;
 
-  // compute energy
-  if (LOGGING(LOG_CONTACT))
-  {
-    FILE_LOG(LOG_CONTACT) << "ImpactEventHandler::solve_qp() entered" << endl;
-    for (unsigned i=0; i< q.super_bodies.size(); i++)
-      FILE_LOG(LOG_CONTACT) << "  body " << q.super_bodies[i]->id << " pre-event handling KE: " << q.super_bodies[i]->calc_kinetic_energy() << endl;
-  }
-
   // solve the QP
   solve_qp_work(q, z);
 
@@ -640,14 +657,6 @@ void ImpactEventHandler::solve_qp(EventProblemData& q, Real poisson_eps)
   // save limit impulses
   for (unsigned i=0; i< N_LIMITS; i++)
     q.limit_events[i]->limit_impulse = q.alpha_l[i]; 
-
-  // compute energy
-  if (LOGGING(LOG_CONTACT))
-  {
-    for (unsigned i=0; i< q.super_bodies.size(); i++)
-      FILE_LOG(LOG_CONTACT) << "  body " << q.super_bodies[i]->id << " post-event handling KE: " << q.super_bodies[i]->calc_kinetic_energy() << endl;
-    FILE_LOG(LOG_CONTACT) << "ImpactEventHandler::solve_qp() exited" << endl;
-  }
 }
 
 /// Solves the nonlinearly constrained quadratic program (potentially solves two nQPs, actually)
