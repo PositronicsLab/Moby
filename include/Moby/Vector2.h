@@ -54,6 +54,9 @@ class Vector2
     Real operator[](const unsigned i) const { assert(i < 2); return _data[i]; }
     Real* data() { return _data; }
     const Real* data() const { return _data; }
+    unsigned rows() const { return 2; }
+    unsigned columns() const { return 1; }
+    Vector2& resize(unsigned m, unsigned n) { assert(m == 2 && n == 1); return *this; }
 
     /// Computes the "perp" operator
     Vector2 perp() const { return Vector2(_data[1], -_data[0]); }

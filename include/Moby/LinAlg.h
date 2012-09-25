@@ -9,6 +9,7 @@
 
 #include <Moby/Constants.h>
 #include <Moby/MatrixNN.h>
+#include <Moby/Matrix2.h>
 #include <Moby/SparseMatrixN.h>
 #include <Moby/VectorN.h>
 
@@ -80,6 +81,14 @@ class LinAlg
     static bool is_SPSD(const MatrixNN& A, Real tolerance);
     static bool is_SPD(const MatrixNN& A, Real tolerance);
     static MatrixN& gauss_elim(MatrixN& A, Real tol = (Real) -1.0);
+    static void givens(Real a, Real b, Real& c, Real& s);
+    static Matrix2 givens(Real c, Real s);
+    static void householder(Real alpha, const VectorN& x, Real& tau, VectorN& v);
+    static void update_QR_rank1(MatrixN& Q, MatrixN& R, const VectorN& u, const VectorN& v);
+    static void update_QR_delete_cols(MatrixN& Q, MatrixN& R, unsigned k, unsigned p);
+    static void update_QR_insert_cols(MatrixN& Q, MatrixN& R, MatrixN& U, unsigned k);
+    static void update_QR_insert_rows(MatrixN& Q, MatrixN& R, MatrixN& U, unsigned k);
+    static void update_QR_delete_rows(MatrixN& Q, MatrixN& R, unsigned k, unsigned p);
 }; // end class
 
 } // end namespace

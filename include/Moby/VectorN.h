@@ -93,6 +93,7 @@ class VectorN
     static VectorN parse(const std::string& s);
     VectorN select(const std::vector<bool>& indices) const;
     VectorN& select(const std::vector<bool>& indices, VectorN& result) const;
+    VectorN& resize(unsigned m, unsigned n) { assert(n == 1); resize(m, false); return *this; }
 
     template <class ForwardIterator>
     VectorN select(ForwardIterator idx_begin, ForwardIterator idx_end) const;
@@ -132,6 +133,9 @@ class VectorN
 
     template <class V>
     VectorN& set_sub_vec(unsigned start, const V& v);
+
+    unsigned rows() const { return _len; }
+    unsigned columns() const { return 1; }
 
   protected:
     static bool rel_equal(Real x, Real y);

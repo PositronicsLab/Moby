@@ -61,6 +61,9 @@ class Vector3
     Real operator[](const unsigned i) const { assert(i < 3); return _data[i]; }
     Real* data() { return _data; }
     const Real* data() const { return _data; }
+    unsigned rows() const { return 3; }
+    unsigned columns() const { return 1; }
+    Vector3& resize(unsigned m, unsigned n) { assert(m == 3 && n == 1); return *this; }
 
     /// Get iterator to the start of the data
     Real* begin() { return &_data[0]; }

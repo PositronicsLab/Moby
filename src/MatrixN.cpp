@@ -119,8 +119,8 @@ BlockIterator MatrixN::block_start(unsigned row_start, unsigned row_end, unsigne
   BlockIterator b;
   b._count = 0;
   b._sz = rows*cols;
-  b._data_start = _data.get();
-  b._current_data = &_data[j*_rows+i];
+  b._data_start = (_data) ? _data.get() : NULL;
+  b._current_data = (_data) ? &_data[j*_rows+i] : NULL;
   b._matrix_rows = _rows;
   b._matrix_columns = _columns;
   b._block_rows = rows;
@@ -132,25 +132,9 @@ BlockIterator MatrixN::block_start(unsigned row_start, unsigned row_end, unsigne
 /// Creates an iterator to the end of a block
 BlockIterator MatrixN::block_end(unsigned row_start, unsigned row_end, unsigned col_start, unsigned col_end)
 {
-  unsigned i = row_start;
-  unsigned j = col_start;
   unsigned rows = row_end - row_start;
   unsigned cols = col_end - col_start;
-
-  if (i+rows > _rows || j+cols > _columns)
-    throw MissizeException();
-
-  BlockIterator b;
-  b._sz = rows*cols;
-  b._count = b._sz;
-  b._data_start = _data.get();
-  b._current_data = NULL;
-  b._matrix_rows = _rows;
-  b._matrix_columns = _columns;
-  b._block_rows = rows;
-  b._block_columns = cols;
-
-  return b;
+  return block_start(row_start, row_end, col_start, col_end) + (rows*cols);
 }
 
 /// Computes the l-infinity norm of this matrix
@@ -679,12 +663,12 @@ VectorN& MatrixN::get_sub_mat(unsigned row_start, unsigned row_end, unsigned col
   // check whether we can exit early
   if (row_end == row_start)
   {
-    result.set_zero(col_end - col_start);
+    result.set_zero(0);
     return result;
   }
   else if (col_end == col_start)
   {
-    result.set_zero(row_end - row_start); 
+    result.set_zero(0); 
     return result;
   }
 
@@ -696,7 +680,7 @@ VectorN& MatrixN::get_sub_mat(unsigned row_start, unsigned row_end, unsigned col
   if (row_end > rows() || col_end > columns() || row_end < row_start || col_end < col_start)
     throw InvalidIndexException();
 
-  // determine whether we are doing the vector of the transpose
+  // determine whether we are doing the vector or the transpose
   if (row_end - row_start == 1)
   {
     // doing the transpose
@@ -773,53 +757,11 @@ VectorN MatrixN::mult(const VectorN& v) const
   return result;
 }
 
-/// Multiplies this matrix by a vector
-VectorN& MatrixN::mult(const VectorN& v, VectorN & result) const
-{
-  if (_columns != v.size())
-    throw MissizeException();
-
-  // resize the result vector 
-  result.resize(_rows);
-
-  // look for empty result
-  if (_rows == 0 || _columns == 0)
-    return result.set_zero();
-
-  // use CBLAS for multiplication
-  CBLAS::gemv(CblasNoTrans, *this, v, (Real) 1.0, (Real) 0.0, result); 
-
-  return result;
-}
-
 /// Multiplies the transpose of this matrix by a vector
 VectorN MatrixN::transpose_mult(const VectorN& v) const
 {
   VectorN result;
   transpose_mult(v, result);
-  return result;
-}
-
-/// Multiplies the transpose of this matrix by a vector
-VectorN& MatrixN::transpose_mult(const VectorN& v, VectorN& result) const
-{
-  if (_rows != v.size())
-    throw MissizeException();  
-
-  // resize the result vector 
-  result.resize(_columns);
-
-  // look for empty result
-  if (_rows == 0 || _columns == 0)
-  {
-    result.set_zero();
-    return result;
-  }
-
-  // use CBLAS for multiplication
-  if (_columns > 0 && v.size() > 0)
-    CBLAS::gemv(CblasTrans, *this, v, (Real) 1.0, (Real) 0.0, result); 
-
   return result;
 }
 
@@ -831,55 +773,11 @@ MatrixN MatrixN::mult(const MatrixN& m) const
   return result;
 }
 
-/// Multiplies this matrix by another matrix
-MatrixN& MatrixN::mult(const MatrixN& m, MatrixN& result) const
-{
-  if (_columns != m.rows())
-    throw MissizeException();
-
-  // resize the new matrix
-  result.resize(_rows, m.columns());
-
-  // look for empty result
-  if (_rows == 0 || _columns == 0 || m.columns() == 0)
-  {
-    result.set_zero();
-    return result;
-  }
-
-  // carry out multiplication using BLAS
-  CBLAS::gemm(CblasNoTrans, CblasNoTrans, *this, m, (Real) 1.0, (Real) 0.0, result); 
-
-  return result;
-}
-
 /// Multiplies the transpose of this matrix by another matrix
 MatrixN MatrixN::transpose_mult(const MatrixN& m) const
 {
   MatrixN result;
   transpose_mult(m, result);
-  return result;
-}
-
-/// Multiplies the transpose of this matrix by another matrix
-MatrixN& MatrixN::transpose_mult(const MatrixN& m, MatrixN& result) const
-{
-  if (_rows != m.rows())
-    throw MissizeException();
-
-  // resize the result matrix
-  result.resize(_columns, m.columns());
-
-  // look for empty result
-  if (_rows == 0 || _columns == 0 || m.columns() == 0)
-  {
-    result.set_zero();
-    return result;
-  }
-
-  // carry out multiplication using BLAS
-  CBLAS::gemm(CblasTrans, CblasNoTrans, *this, m, (Real) 1.0, (Real) 0.0, result); 
-
   return result;
 }
 
@@ -891,55 +789,11 @@ MatrixN MatrixN::mult_transpose(const MatrixN& m) const
   return result;
 }
 
-/// Multiplies this matrix by the transpose of another matrix
-MatrixN& MatrixN::mult_transpose(const MatrixN& m, MatrixN& result) const
-{
-  if (_columns != m.columns())
-    throw MissizeException();
-
-  // resize the result matrix
-  result.resize(_rows, m.rows());
-
-  // look for empty result
-  if (_rows == 0 || _columns == 0 || m.rows() == 0)
-  {
-    result.set_zero();
-    return result;
-  }
-
-  // carry out multiplication using BLAS
-  CBLAS::gemm(CblasNoTrans, CblasTrans, *this, m, (Real) 1.0, (Real) 0.0, result); 
-
-  return result;
-}
-
 /// Multiplies the transpose of this matrix by the transpose of another matrix
 MatrixN MatrixN::transpose_mult_transpose(const MatrixN& m) const
 {
   MatrixN result;
   transpose_mult_transpose(m, result);
-  return result;
-}
-
-/// Multiplies the transpose of this matrix by the transpose of another matrix
-MatrixN& MatrixN::transpose_mult_transpose(const MatrixN& m, MatrixN& result) const
-{
-  if (_rows != m.columns())
-    throw MissizeException();
-
-  // resize the result matrix
-  result.resize(_columns, m.rows());
-
-  // look for empty result
-  if (_rows == 0 || _columns == 0 || m.columns() == 0)
-  {
-    result.set_zero();
-    return result;
-  }
-
-  // carry out multiplication using BLAS
-  CBLAS::gemm(CblasTrans, CblasTrans, *this, m, (Real) 1.0, (Real) 0.0, result); 
-
   return result;
 }
 

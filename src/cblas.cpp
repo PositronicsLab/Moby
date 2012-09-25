@@ -99,6 +99,18 @@ void CBLAS::ger(enum CBLAS_ORDER order, int M, int N, double alpha, const double
 }
 
 template <>
+void CBLAS::trsm(enum CBLAS_SIDE side, enum CBLAS_UPLO uplo, enum CBLAS_TRANSPOSE transA, int m, int n, double alpha, const double* A, int lda, double* B, int ldb)
+{
+  cblas_dtrsm(CblasColMajor, side, uplo, transA, CblasNonUnit, m, n, alpha, A, lda, B, ldb);  
+}
+
+template <>
+void CBLAS::trsv(enum CBLAS_UPLO uplo, enum CBLAS_TRANSPOSE transA, int n, const double* A, int lda, double* x, int incx)
+{
+  cblas_dtrsv(CblasColMajor, uplo, transA, CblasNonUnit, n, A, lda, x, incx);  
+}
+
+template <>
 void CBLAS::ger(enum CBLAS_ORDER order, int M, int N, float alpha, const float* X, int incX, const float* Y, int incY, float* A, int lda)
 {
   cblas_sger(order, M, N, alpha, X, incX, Y, incY, A, lda);
@@ -128,6 +140,19 @@ void CBLAS::gemm(enum CBLAS_ORDER order, CBLAS_TRANSPOSE transA, CBLAS_TRANSPOSE
 {
   cblas_sgemm(order, transA, transB, M, N, K, alpha, A, lda, B, ldb, beta, C, ldc);
 }
+
+template <>
+void CBLAS::trsm(enum CBLAS_SIDE side, enum CBLAS_UPLO uplo, enum CBLAS_TRANSPOSE transA, int m, int n, float alpha, const float* A, int lda, float* B, int ldb)
+{
+  cblas_strsm(CblasColMajor, side, uplo, transA, CblasNonUnit, m, n, alpha, A, lda, B, ldb);  
+}
+
+template <>
+void CBLAS::trsv(enum CBLAS_UPLO uplo, enum CBLAS_TRANSPOSE transA, int n, const float* A, int lda, float* x, int incx)
+{
+  cblas_strsv(CblasColMajor, uplo, transA, CblasNonUnit, n, A, lda, x, incx);  
+}
+
 
 // *****************************************************************
 // arbitrary precision routines
@@ -181,6 +206,19 @@ void CBLAS::copy(int N, const mpfr::mpreal* X, int incX, mpfr::mpreal* Y, int in
 {
   cblas_acopy(N, X, incX, Y, incY);
 }
+
+template <>
+static void CBLAS::trsm(enum CBLAS_SIDE side, enum CBLAS_UPLO uplo, enum CBLAS_TRANSPOSE transA, int m, int n, mpfr::mpreal alpha, const mpfr::mpreal* A, int lda, mpfr::mpreal* B, int ldb)
+{
+  cblas_atrsm(CblasColMajor, side, uplo, transA, CblasNonUnit, m, n, alpha, A.begin(), lda, B.begin(), ldb);  
+}
+
+template <>
+static void CBLAS::trsv(enum CBLAS_UPLO uplo, enum CBLAS_TRANSPOSE transA, int n, const mpfr::mpreal* A, int lda, mpfr::mpreal* x, int incx)
+{
+  cblas_atrsv(CblasColMajor, uplo, transA, CblasNonUnit, n, A.begin(), lda, x.begin(), incx);  
+}
+
 #endif
 
 

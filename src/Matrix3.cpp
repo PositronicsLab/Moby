@@ -547,22 +547,25 @@ Matrix3& Matrix3::operator=(const Matrix3& m)
 /// Multiplies this matrix by a vector and returns the result in a new vector
 Vector3 Matrix3::mult(const Vector3& v) const
 {
+  const unsigned ROWS = 3, COLUMNS = 3;
   Vector3 result;
-  CBLAS::gemv(CblasNoTrans, *this, v, (Real) 1.0, (Real) 0.0, result);
+  CBLAS::gemv(CblasNoTrans, ROWS, COLUMNS, *this, ROWS, v, 1, (Real) 1.0, (Real) 0.0, result, 1);
   return result;
 }
 
 /// Multiplies the transpose of this matrix by a vector and returns the result in a new vector
 Vector3 Matrix3::transpose_mult(const Vector3& v) const
 {
+  const unsigned ROWS = 3, COLUMNS = 3;
   Vector3 result;
-  CBLAS::gemv(CblasTrans, *this, v, (Real) 1.0, (Real) 0.0, result);
+  CBLAS::gemv(CblasTrans, COLUMNS, ROWS, *this, ROWS, v, 1, (Real) 1.0, (Real) 0.0, result, 1);
   return result;
 }
 
 /// Multiplies the transpose of this matrix by a matrix and returns the result in a given matrix
 MatrixN* Matrix3::transpose_mult(const MatrixN* m, MatrixN* result) const
 {
+  const unsigned ROWS = 3, COLUMNS = 3;
   // verify that m is the proper size
   if (m->rows() != size())
     throw MissizeException();
@@ -571,7 +574,7 @@ MatrixN* Matrix3::transpose_mult(const MatrixN* m, MatrixN* result) const
   result->resize(size(), m->columns());
 
   // do the multiplication
-  CBLAS::gemm(CblasTrans, CblasNoTrans, *this, *m, (Real) 1.0, (Real) 0.0, *result);
+  CBLAS::gemm(CblasTrans, CblasNoTrans, COLUMNS, ROWS, m->rows(), *this, ROWS, *m, m->rows(), (Real) 1.0, (Real) 0.0, *result, COLUMNS);
 
   return result;
 }
@@ -579,14 +582,16 @@ MatrixN* Matrix3::transpose_mult(const MatrixN* m, MatrixN* result) const
 /// Multiplies the transpose of this matrix by a matrix and returns the result in a new matrix 
 Matrix3 Matrix3::transpose_mult(const Matrix3& m) const
 {
+  const unsigned ROWS = 3, COLUMNS = 3;
   Matrix3 result;
-  CBLAS::gemm(CblasTrans, CblasNoTrans, *this, m, (Real) 1.0, (Real) 0.0, result);
+  CBLAS::gemm(CblasTrans, CblasNoTrans, COLUMNS, ROWS, m.columns(), *this, ROWS, m, m.rows(), (Real) 1.0, (Real) 0.0, result, COLUMNS);
   return result;
 }
 
 /// Multiplies the transpose of this matrix by the transpose of a matrix and returns the result in a given matrix
 MatrixN* Matrix3::transpose_mult_transpose(const MatrixN* m, MatrixN* result) const
 {
+  const unsigned ROWS = 3, COLUMNS = 3;
   // verify that m is the proper size
   if (m->columns() != size())
     throw MissizeException();
@@ -595,7 +600,7 @@ MatrixN* Matrix3::transpose_mult_transpose(const MatrixN* m, MatrixN* result) co
   result->resize(size(), m->rows());
 
   // do the multiplication
-  CBLAS::gemm(CblasTrans, CblasTrans, *this, *m, (Real) 1.0, (Real) 0.0, *result);
+  CBLAS::gemm(CblasTrans, CblasTrans, COLUMNS, ROWS, m->rows(), *this, ROWS, *m, m->rows(), (Real) 1.0, (Real) 0.0, *result, COLUMNS);
 
   return result;
 }
@@ -603,14 +608,16 @@ MatrixN* Matrix3::transpose_mult_transpose(const MatrixN* m, MatrixN* result) co
 /// Multiplies the transpose of this matrix by the transpose of a matrix and returns the result in a new matrix 
 Matrix3 Matrix3::transpose_mult_transpose(const Matrix3& m) const
 {
+  const unsigned ROWS = 3, COLUMNS = 3;
   Matrix3 result;
-  CBLAS::gemm(CblasTrans, CblasTrans, *this, m, (Real) 1.0, (Real) 0.0, result);
+  CBLAS::gemm(CblasTrans, CblasTrans, COLUMNS, ROWS, m.rows(), *this, ROWS, m, m.rows(), (Real) 1.0, (Real) 0.0, result, COLUMNS);
   return result;
 }
 
 /// Multiplies this matrix by the transpose of a matrix and returns the result in a given matrix
 MatrixN* Matrix3::mult_transpose(const MatrixN* m, MatrixN* result) const
 {
+  const unsigned ROWS = 3, COLUMNS = 3;
   // verify that m is the proper size
   if (m->columns() != size())
     throw MissizeException();
@@ -619,7 +626,7 @@ MatrixN* Matrix3::mult_transpose(const MatrixN* m, MatrixN* result) const
   result->resize(size(), m->rows());
 
   // do the multiplication
-  CBLAS::gemm(CblasNoTrans, CblasTrans, *this, *m, (Real) 1.0, (Real) 0.0, *result);
+  CBLAS::gemm(CblasNoTrans, CblasTrans, ROWS, COLUMNS, m->rows(), *this, ROWS, *m, m->rows(), (Real) 1.0, (Real) 0.0, *result, ROWS);
 
   return result;
 }
@@ -627,14 +634,16 @@ MatrixN* Matrix3::mult_transpose(const MatrixN* m, MatrixN* result) const
 /// Multiplies this matrix by the transpose of a matrix and returns the result in a new matrix 
 Matrix3 Matrix3::mult_transpose(const Matrix3& m) const
 {
+  const unsigned ROWS = 3, COLUMNS = 3;
   Matrix3 result;
-  CBLAS::gemm(CblasNoTrans, CblasTrans, *this, m, (Real) 1.0, (Real) 0.0, result);
+  CBLAS::gemm(CblasNoTrans, CblasTrans, ROWS, COLUMNS, m.rows(), *this, ROWS, m, m.rows(), (Real) 1.0, (Real) 0.0, result, ROWS);
   return result;
 }
 
 /// Multiplies this matrix by a matrix and returns the result in a given matrix
 MatrixN* Matrix3::mult(const MatrixN* m, MatrixN* result) const
 {
+  const unsigned ROWS = 3, COLUMNS = 3;
   // verify that m is the proper size
   if (m->rows() != size())
     throw MissizeException();
@@ -643,7 +652,7 @@ MatrixN* Matrix3::mult(const MatrixN* m, MatrixN* result) const
   result->resize(size(), m->columns());
 
   // do the multiplication
-  CBLAS::gemm(CblasNoTrans, CblasNoTrans, *this, *m, (Real) 1.0, (Real) 0.0, *result);
+  CBLAS::gemm(CblasNoTrans, CblasNoTrans, ROWS, COLUMNS, m->rows(), *this, ROWS, *m, m->rows(), (Real) 1.0, (Real) 0.0, *result, ROWS);
 
   return result;
 }
@@ -651,8 +660,9 @@ MatrixN* Matrix3::mult(const MatrixN* m, MatrixN* result) const
 /// Multiplies this matrix by another 3x3 matrix
 Matrix3 Matrix3::mult(const Matrix3& m) const
 {
+  const unsigned ROWS = 3, COLUMNS = 3;
   Matrix3 result;
-  CBLAS::gemm(CblasNoTrans, CblasNoTrans, *this, m, (Real) 1.0, (Real) 0.0, result);
+  CBLAS::gemm(CblasNoTrans, CblasNoTrans, ROWS, COLUMNS, m.rows(), *this, ROWS, m, m.rows(), (Real) 1.0, (Real) 0.0, result, ROWS);
   return result;
 }
 

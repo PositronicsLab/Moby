@@ -50,6 +50,9 @@ class SVector6
     SVector6& operator+=(const SVector6& v);
     SVector6 operator+(const SVector6& v) const;
     SVector6 operator-(const SVector6& v) const;
+    unsigned rows() const { return 6; }
+    unsigned columns() const { return 1; }
+    SVector6& resize(unsigned rows, unsigned columns) { assert (rows == 6 && columns == 1); return *this; } 
 
     /// Get iterator to the start of the data
     Real* begin() { return _data; }
