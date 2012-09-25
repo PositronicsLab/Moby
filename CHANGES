@@ -1,3 +1,7 @@
+r558
+----
+- Fixed bug in applying impulses to rigid bodies (RigidBody::update_velocity())
+
 r557
 ----
 - Fixed bugs in BlockIterator
