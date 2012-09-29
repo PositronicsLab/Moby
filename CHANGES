@@ -1,3 +1,9 @@
+r559
+----
+- Removed MatrixNN
+- LinAlg::pseudo_inverse() and LinAlg::solve_LS_fast() now more efficient
+- Optimization::lcp_lemke_regularized() should now be more robust
+
 r558
 ----
 - Fixed bug in applying impulses to rigid bodies (RigidBody::update_velocity())
