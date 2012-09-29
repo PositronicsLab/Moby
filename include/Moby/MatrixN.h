@@ -33,10 +33,24 @@ class MatrixN
     MatrixN(const VectorN& v, bool transpose=false);
     MatrixN(const Matrix3& m);
     MatrixN(const Matrix4& m);
+    MatrixN& set_identity();
+    MatrixN& set_identity(unsigned sz);
+    bool is_symmetric(Real tolerance = -1.0) const;
+    static MatrixN identity(unsigned dim);
     Real norm_inf() const;
     static MatrixN construct_variable(unsigned rows, unsigned cols, ...);
     virtual ~MatrixN() { }
+    MatrixN& zero_upper_triangle();
+    MatrixN& zero_lower_triangle();
     void set_sub_row_block(unsigned row, ...);
+    static VectorN diag_mult(const VectorN& d, const VectorN& v);
+    static MatrixN diag_mult(const VectorN& d, const MatrixN& m);
+    static MatrixN diag_mult_transpose(const VectorN& d, const MatrixN& m);
+    static VectorN& diag_mult(const VectorN& d, const VectorN& v, VectorN& result);
+    static MatrixN& diag_mult(const VectorN& d, const MatrixN& m, MatrixN& result);
+    static MatrixN& diag_mult_transpose(const VectorN& d, const MatrixN& m, MatrixN& result);
+    MatrixN select_square(const std::vector<bool>& indices) const;
+    MatrixN& select_square(const std::vector<bool>& indices, MatrixN& result) const;
     MatrixN& set(const VectorN& v, bool transpose=false);
     MatrixN& set(unsigned rows, unsigned columns, const Real* array);
     MatrixN& set(unsigned rows, unsigned columns, boost::shared_array<Real> array);
@@ -131,6 +145,12 @@ class MatrixN
 
     template <class ForwardIterator1, class ForwardIterator2>
     MatrixN& select(ForwardIterator1 row_start, ForwardIterator1 row_end, ForwardIterator2 col_start, ForwardIterator2 col_end, MatrixN& m) const;
+
+    template <class ForwardIterator>
+    MatrixN select_square(ForwardIterator start, ForwardIterator end) const;
+
+    template <class ForwardIterator>
+    MatrixN& select_square(ForwardIterator start, ForwardIterator end, MatrixN& m) const;
 
     template <class M>
     MatrixN& set_sub_mat(unsigned row_start, unsigned col_start, const M& m, bool transpose = false);

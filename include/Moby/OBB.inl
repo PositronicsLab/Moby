@@ -520,7 +520,9 @@ OBB::OBB(ForwardIterator begin, ForwardIterator end)
 
   // compute the covariance matrix of the points
   // 1st: subtract the covariance components of the centroid
-  MatrixNN C(THREE_D);
+  SAFESTATIC FastThreadable<MatrixN> Cx;
+  MatrixN& C = Cx();
+  C.resize(THREE_D, THREE_D);
   for (unsigned i=0; i< THREE_D; i++)
     for (unsigned j=i; j< THREE_D; j++)
       C(i,j) = -this->center[i]*this->center[j];
@@ -547,16 +549,16 @@ OBB::OBB(ForwardIterator begin, ForwardIterator end)
       C(j,i) = C(i,j);
 
   // determine the eigenvalues and eigenvectors of the covariance matrix
-  VectorN evals;
-  MatrixNN evecs;
-  LinAlg::eig_symm(C, evals, evecs);
+  SAFESTATIC FastThreadable<VectorN> evalsx;
+  VectorN& evals = evalsx();
+  LinAlg::eig_symm(C, evals);
   
   // first eigenvector will be direction of minimum variance
   // but add all three eigenvectors
   for (unsigned i=0; i< 3; i++)
   {
     Vector3 col;
-    evecs.get_column(i, col.begin());
+    C.get_column(i, col.begin());
     Real nrm = col.norm();
     if (nrm < NEAR_ZERO)
       continue;

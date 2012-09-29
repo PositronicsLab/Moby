@@ -21,7 +21,7 @@ class SpatialABInertia
     SpatialABInertia(const Matrix3& M, const Matrix3& H, const Matrix3& J);
     SpatialABInertia(const SpatialABInertia& source) { operator=(source); }
     SpatialABInertia(const SpatialRBInertia& source) { operator=(source); }
-    SpatialABInertia(const MatrixNN& M);
+    SpatialABInertia(const MatrixN& M);
     void set_zero();
     static SpatialABInertia zero() { SpatialABInertia m; m.set_zero(); return m; }
     SMatrix6N& mult(const SMatrix6N& m, SMatrix6N& result) const;
@@ -43,7 +43,7 @@ class SpatialABInertia
     SVector6 operator*(const SVector6& v) const;
     SpatialABInertia operator-() const;
     static SpatialABInertia inverse_inertia(const SpatialABInertia& I);    
-    static SpatialABInertia mult(const MatrixNN& M, const SpatialABInertia& I);
+    static SpatialABInertia mult(const MatrixN& M, const SpatialABInertia& I);
 
     /// The upper left / lower right hand matrix 'H'
     Matrix3 H;

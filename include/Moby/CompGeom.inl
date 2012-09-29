@@ -1527,7 +1527,10 @@ Real CompGeom::fit_plane(InputIterator begin, InputIterator end, Vector3& normal
   mu /= n;
 
   // create a matrix subtracting each point from the mean
-  MatrixN M(n, THREE_D);
+  SAFESTATIC FastThreadable<MatrixN> Mx, Ux, Vx;
+  SAFESTATIC FastThreadable<VectorN> Sx;
+  MatrixN& M = Mx();
+  M.resize(n, THREE_D);
   unsigned idx = 0;
   for (InputIterator i = begin; i != end; i++)
   {
@@ -1536,8 +1539,9 @@ Real CompGeom::fit_plane(InputIterator begin, InputIterator end, Vector3& normal
   }
 
   // take the svd of the matrix
-  MatrixNN U, V;
-  VectorN S;
+  MatrixN& U = Ux();
+  MatrixN& V = Vx();
+  VectorN& S = Sx();
   LinAlg::svd(M, U, S, V);
 
   // last column of V should have the singular value we want; normalize it just in case

@@ -10,7 +10,6 @@
 #include <Moby/Constants.h>
 #include <Moby/Log.h>
 #include <Moby/VectorN.h>
-#include <Moby/MatrixNN.h>
 #include <Moby/TriangleMeshPrimitive.h>
 #include <Moby/DeformableBody.h>
 
@@ -255,12 +254,12 @@ void DeformableBody::set_generalized_velocity(DynamicBody::GeneralizedCoordinate
 }
 
 /// Gets the generalized inertia for the body
-MatrixNN& DeformableBody::get_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, MatrixNN& M)
+MatrixN& DeformableBody::get_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, MatrixN& M)
 {
   const unsigned THREE_D = 3;
 
   // set the inertia matrix to the correct size
-  M.set_zero(_nodes.size() * THREE_D);
+  M.set_zero(_nodes.size() * THREE_D, _nodes.size() * THREE_D);
 
   // set the inertia matrix
   for (unsigned i=0, j=0; i< _nodes.size(); i++, j+= THREE_D)

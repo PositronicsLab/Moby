@@ -44,7 +44,7 @@ class FSABAlgorithm
     void calc_fwd_dyn();
     void apply_generalized_impulse(DynamicBody::GeneralizedCoordinateType gctype, const VectorN& gj);
     void apply_impulse(const Vector3& j, const Vector3& k, const Vector3& contact_point, RigidBodyPtr link);
-    void calc_inverse_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, MatrixNN& iM);
+    void calc_inverse_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, MatrixN& iM);
     void invalidate_position_data() { _position_data_valid = false; }
     void invalidate_velocity_data() { _velocity_data_valid = false; }
 
@@ -79,7 +79,7 @@ class FSABAlgorithm
     std::vector<SMatrix6N> _Is;
 
     /// The temporary factorizations inv(sIs)
-    std::vector<MatrixNN> _sIs;
+    std::vector<MatrixN> _sIs;
 
     /// Determines whether the equations for a joint are rank deficient 
     std::vector<bool> _rank_deficient;

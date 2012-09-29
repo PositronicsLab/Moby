@@ -28,7 +28,7 @@ void Rosenbrock4Integrator<T>::integrate(T& x, T (*f)(const T&, Real, Real, void
 template <class T>
 void Rosenbrock4Integrator<T>::step(T& x, T (*f)(const T&, Real, Real, void*), Real& time, Real step_size, Real& tnext, void* data)
 {
-  SAFESTATIC MatrixNN A, J;
+  SAFESTATIC MatrixN A, J;
   SAFESTATIC VectorN xscal, g1, g2, g3, g4, xsav, dxsav;
   SAFESTATIC vector<int> ipiv;
   const unsigned n = x.size();
@@ -94,7 +94,7 @@ void Rosenbrock4Integrator<T>::step(T& x, T (*f)(const T&, Real, Real, void*), R
   time -= sqrt_eps;
 
   // determine the Jacobian using forward differencing
-  J.resize(n);
+  J.resize(n,n);
   for (unsigned i=0; i< n; i++)
   {
     x[i] += sqrt_eps;
@@ -108,7 +108,7 @@ void Rosenbrock4Integrator<T>::step(T& x, T (*f)(const T&, Real, Real, void*), R
   Real h = step_size;
 
   // init A matrix and pivots for LU decomposition
-  A.resize(n);
+  A.resize(n,n);
   ipiv.resize(n);
 
   // iterate up to the maximal number of tries

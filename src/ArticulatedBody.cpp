@@ -285,7 +285,8 @@ MatrixN& ArticulatedBody::determine_F(unsigned link_idx, const Matrix4& Tf, cons
   MatrixN::transpose(F, J);
 
   // compute pseudo-inverse of J
-  LinAlg::pseudo_inverse(J, F);
+  F.copy_from(J);
+  LinAlg::pseudo_inverse(F);
 
   return F;
 }
@@ -300,7 +301,7 @@ Real ArticulatedBody::calc_fwd_dyn_f0(const VectorN& x, void* data)
   const ABFwdDynOptData& opt_data = *(const ABFwdDynOptData*) data;
 
   // get necessary data
-  const MatrixNN& G = opt_data.G;
+  const MatrixN& G = opt_data.G;
   const VectorN& c = opt_data.c;
 
   // objective function is quadratic
@@ -334,7 +335,7 @@ void ArticulatedBody::calc_fwd_dyn_fx(const VectorN& x, VectorN& fc, void* data)
   // get necessary data
   const VectorN& z = opt_data.z;
   const MatrixN& R = opt_data.R;
-  const MatrixNN& G = opt_data.G;
+  const MatrixN& G = opt_data.G;
   const VectorN& c = opt_data.c;
   const MatrixN& Dx = opt_data.Dx;
   const vector<unsigned>& true_indices = opt_data.true_indices;
@@ -435,7 +436,7 @@ void ArticulatedBody::calc_fwd_dyn_grad0(const VectorN& x, VectorN& grad, void* 
   const ABFwdDynOptData& opt_data = *(const ABFwdDynOptData*) data;
 
   // get necessary data
-  const MatrixNN& G = opt_data.G;
+  const MatrixN& G = opt_data.G;
   const VectorN& c = opt_data.c;
 
   // objective function is quadratic
@@ -462,7 +463,7 @@ void ArticulatedBody::calc_fwd_dyn_cJac(const VectorN& x, MatrixN& J, void* data
   // get necessary data
   const VectorN& z = opt_data.z;
   const MatrixN& R = opt_data.R;
-  const MatrixNN& G = opt_data.G;
+  const MatrixN& G = opt_data.G;
   const VectorN& c = opt_data.c;
   const VectorN& fext = opt_data.fext;
   const vector<unsigned>& true_indices = opt_data.true_indices;
@@ -657,7 +658,7 @@ void ArticulatedBody::calc_fwd_dyn_cJac(const VectorN& x, MatrixN& J, void* data
 }
 
 // objective and inequality constraint gradients for convex optimization
-void ArticulatedBody::calc_fwd_dyn_hess(const VectorN& x, Real objscal, const VectorN& hlambda, const VectorN& nu, MatrixNN& H, void* data)
+void ArticulatedBody::calc_fwd_dyn_hess(const VectorN& x, Real objscal, const VectorN& hlambda, const VectorN& nu, MatrixN& H, void* data)
 {
   SAFESTATIC MatrixN dX, tmpM, tmpM2, tmpM3, f, Rd;
   SAFESTATIC VectorN wdelta, wff, fff, tmpv;
@@ -672,7 +673,7 @@ void ArticulatedBody::calc_fwd_dyn_hess(const VectorN& x, Real objscal, const Ve
   const unsigned BETA_START = N_IMPLICIT_DOF + N_EXPLICIT_CONSTRAINT_EQNS;
 
   // get necessary data
-  const MatrixNN& G = opt_data.G;
+  const MatrixN& G = opt_data.G;
   const vector<unsigned>& true_indices = opt_data.true_indices;
   const vector<unsigned>& loop_indices = opt_data.loop_indices;
   const VectorN& fext = opt_data.fext;

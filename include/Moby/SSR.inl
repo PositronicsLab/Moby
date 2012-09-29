@@ -78,7 +78,7 @@ SSR::SSR(ForwardIterator begin, ForwardIterator end)
 
     // compute the covariance matrix of the points
     // 1st: subtract the covariance components of the centroid
-    MatrixNN C(THREE_D);
+    MatrixN C(THREE_D, THREE_D);
     for (unsigned i=0; i< THREE_D; i++)
       for (unsigned j=i; j< THREE_D; j++)
         C(i,j) = -this->center[i]*this->center[j];
@@ -105,14 +105,13 @@ SSR::SSR(ForwardIterator begin, ForwardIterator end)
         C(j,i) = C(i,j);
 
     // determine the eigenvalues and eigenvectors of the covariance matrix
-    VectorN evals;
-    MatrixNN evecs;
-    LinAlg::eig_symm(C, evals, evecs);
+    SAFESTATIC FastThreadable<VectorN> evals;
+    LinAlg::eig_symm(C, evals());
     
     // first eigenvector will be direction of minimum variance; that's the
     // one that we want to align with
     Vector3 col;
-    evecs.get_column(0, col.begin());
+    C.get_column(0, col.begin());
     normal = Vector3::normalize(col);
   }
 
