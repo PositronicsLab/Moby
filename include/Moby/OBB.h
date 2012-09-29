@@ -16,6 +16,7 @@
 #include <Moby/BV.h>
 #include <Moby/Constants.h>
 #include <Moby/Types.h>
+#include <Moby/FastThreadable.h>
 #include <Moby/CompGeom.h>
 #include <Moby/Vector3.h>
 #include <Moby/Matrix4.h>

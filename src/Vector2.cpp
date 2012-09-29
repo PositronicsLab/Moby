@@ -5,7 +5,7 @@
  ****************************************************************************/
 
 #include <Moby/Matrix2.h>
-#include <Moby/MatrixNN.h>
+#include <Moby/MatrixN.h>
 #include <Moby/Vector2.h>
 
 using namespace Moby;

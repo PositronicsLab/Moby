@@ -69,7 +69,9 @@ Joint::Joint(boost::weak_ptr<RigidBody> inboard, boost::weak_ptr<RigidBody> outb
 void Joint::determine_Q_dot()
 {
   // get the pseudo-inverse of the spatial axes
-  MatrixN s = LinAlg::pseudo_inverse(get_spatial_axes(eGlobal)); 
+  MatrixN s;
+  s.copy_from(get_spatial_axes(eGlobal));
+  LinAlg::pseudo_inverse(s); 
 
   // get the change in velocity
   RigidBodyPtr inboard = get_inboard_link();
