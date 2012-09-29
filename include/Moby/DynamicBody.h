@@ -87,7 +87,7 @@ class DynamicBody : public Visualizable
     virtual void set_generalized_velocity(GeneralizedCoordinateType gctype, const VectorN& gv) = 0;
 
     /// Gets the generalized inertia of this body
-    virtual MatrixNN& get_generalized_inertia(GeneralizedCoordinateType gctype, MatrixNN& M) = 0;
+    virtual MatrixN& get_generalized_inertia(GeneralizedCoordinateType gctype, MatrixN& M) = 0;
 
     /// Gets the external forces on this body
     /**

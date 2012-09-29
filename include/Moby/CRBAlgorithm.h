@@ -8,7 +8,7 @@
 #define _CRB_ALGORITHM_H
 
 #include <Moby/SpatialRBInertia.h>
-#include <Moby/MatrixNN.h>
+#include <Moby/MatrixN.h>
 
 namespace Moby {
 
@@ -22,11 +22,11 @@ class CRBAlgorithm
     void set_body(RCArticulatedBodyPtr body) { _body = body; setup_parent_array(); }
     void calc_fwd_dyn();
     void apply_impulse(const Vector3& j, const Vector3& k, const Vector3& contact_point, RigidBodyPtr link);
-    void calc_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, MatrixNN& M);
+    void calc_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, MatrixN& M);
     void calc_generalized_forces(SVector6& f0, VectorN& C);
     void invalidate_position_data() { _position_data_valid = false; }
     void invalidate_velocity_data() { _velocity_data_valid = false; }
-    bool factorize_cholesky(MatrixNN& M);
+    bool factorize_cholesky(MatrixN& M);
     VectorN& M_solve(const VectorN& v, VectorN& result);
     MatrixN& M_solve(const MatrixN& v, MatrixN& result);
 
@@ -50,10 +50,10 @@ class CRBAlgorithm
     VectorN _qdd;
 
     /// The joint space inertia matrix H (fixed base) or augmented matrix [I_0^c K; K^s H] (floating base, see [Featherstone 1987], p. 123) used to compute forward dynamics for floating bases
-    MatrixNN _M;
+    MatrixN _M;
 
     /// A factorization (or possibly inverse) of the matrix M; note that we compute this b/c we generally may need to solve multiple systems of linear equations using this matrix as a LHS at different times -- always in global frame
-    MatrixNN _fM;
+    MatrixN _fM;
 
     /// Determines whether the system of equations for forward dynamics is rank-deficient
      bool _rank_deficient;
@@ -64,9 +64,9 @@ class CRBAlgorithm
     /// The last reference frame used for computation 
      ReferenceFrameType _rftype;
 
-    void calc_generalized_inertia_axisangle(MatrixNN& M) const;
-    void calc_generalized_inertia_rodrigues(MatrixNN& M) const;
-    void calc_joint_space_inertia(RCArticulatedBodyPtr body, ReferenceFrameType rftype, MatrixNN& H, std::vector<SpatialRBInertia>& Ic) const;
+    void calc_generalized_inertia_axisangle(MatrixN& M) const;
+    void calc_generalized_inertia_rodrigues(MatrixN& M) const;
+    void calc_joint_space_inertia(RCArticulatedBodyPtr body, ReferenceFrameType rftype, MatrixN& H, std::vector<SpatialRBInertia>& Ic) const;
     void apply_coulomb_joint_friction(RCArticulatedBodyPtr body, ReferenceFrameType rftype);
     void precalc(RCArticulatedBodyPtr body, ReferenceFrameType rftype);
     void apply_impulse_fixed_base(RCArticulatedBodyPtr body, const Vector3& j, const Vector3& k, const Vector3& point, RigidBodyPtr link);
@@ -76,7 +76,7 @@ class CRBAlgorithm
     void calc_fwd_dyn_fixed_base(RCArticulatedBodyPtr body, ReferenceFrameType rftype);
     void calc_fwd_dyn_floating_base(RCArticulatedBodyPtr body, ReferenceFrameType rftype);
     void update_link_accelerations(RCArticulatedBodyPtr body, ReferenceFrameType rftype) const;
-    static void to_spatial7_inertia(const SpatialRBInertia& I, const Quat& q, MatrixNN& I7);
+    static void to_spatial7_inertia(const SpatialRBInertia& I, const Quat& q, MatrixN& I7);
     VectorN& M_solve_noprecalc(const VectorN& v, VectorN& result) const;
     MatrixN& M_solve_noprecalc(const MatrixN& v, MatrixN& result) const;
 };

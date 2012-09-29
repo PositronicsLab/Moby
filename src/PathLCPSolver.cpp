@@ -381,7 +381,7 @@ void SimpleLCP(int variables,
   return;
 }
 
-bool PathLCPSolver::solve_lcp(const MatrixNN& MM, const VectorN& q, VectorN& z, double tol)
+bool PathLCPSolver::solve_lcp(const MatrixN& MM, const VectorN& q, VectorN& z, double tol)
 {
   const Real INF = std::numeric_limits<Real>::max();
   int i, j, k;
@@ -393,7 +393,7 @@ bool PathLCPSolver::solve_lcp(const MatrixNN& MM, const VectorN& q, VectorN& z, 
   Output_Printf(Output_Log | Output_Status | Output_Listing, "%s: Standalone-C Link\n", Path_Version());
 
   // We need a sparse representation of the matrix
-  assert(q.size() == MM.size());
+  assert(q.size() == MM.rows());
   assert(q.size() == z.size());
 
   // Copy q to dq

@@ -6,7 +6,7 @@
 
 #include <cmath>
 #include <Moby/Constants.h>
-#include <Moby/MatrixNN.h>
+#include <Moby/MatrixN.h>
 #include <Moby/Vector3.h>
 
 using namespace Moby;

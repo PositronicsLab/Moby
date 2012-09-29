@@ -8,7 +8,7 @@
 #define _MOBY_OPT_H
 
 #include <Moby/Constants.h>
-#include <Moby/MatrixNN.h>
+#include <Moby/MatrixN.h>
 #include <Moby/VectorN.h>
 
 namespace Moby {
@@ -184,7 +184,7 @@ struct OptParams
     lambda.resize(0);
   }
 
-  OptParams(unsigned n, unsigned m, unsigned r, Real (*f0)(const VectorN& x, void*), void (*fx)(const VectorN&, VectorN&, void*), void (*gx)(const VectorN&, VectorN&, void*), void (*grad0)(const VectorN&, VectorN&, void*), void (*cJac_f)(const VectorN&, MatrixN&, void*), void (*cJac_g)(const VectorN&, MatrixN&, void*), void (*hess)(const VectorN&, Real, const VectorN&, const VectorN&, MatrixNN&, void*))
+  OptParams(unsigned n, unsigned m, unsigned r, Real (*f0)(const VectorN& x, void*), void (*fx)(const VectorN&, VectorN&, void*), void (*gx)(const VectorN&, VectorN&, void*), void (*grad0)(const VectorN&, VectorN&, void*), void (*cJac_f)(const VectorN&, MatrixN&, void*), void (*cJac_g)(const VectorN&, MatrixN&, void*), void (*hess)(const VectorN&, Real, const VectorN&, const VectorN&, MatrixN&, void*))
   {
     data = NULL;
 
@@ -354,7 +354,7 @@ struct OptParams
    * function should be set to 
    * h = H0*b + H1*c[0] + ... + Hm*c[m-1] + G1*d[0] + ... + Gr*d[r-1]
    */
-  void (*hess)(const VectorN&, Real, const VectorN&, const VectorN&, MatrixNN&, void*);
+  void (*hess)(const VectorN&, Real, const VectorN&, const VectorN&, MatrixN&, void*);
 
   /// tcheck(x,data) pointer to a function for determining whether or not the optimization should terminate at the given x
   bool (*tcheck)(const VectorN&, void*);
@@ -365,32 +365,31 @@ class Optimization
 {
   public:
     static void sqp(OptParams& oparams, VectorN& x);
-    static VectorN& find_cauchy_point(const MatrixNN& G, const VectorN& c, const VectorN& l, const VectorN& u, const VectorN& gradient, VectorN& x);
-    static unsigned qp_gradproj(const MatrixNN& G, const VectorN& c, const VectorN& l, const VectorN& u, unsigned max_iter, VectorN& x, Real tol);
+    static VectorN& find_cauchy_point(const MatrixN& G, const VectorN& c, const VectorN& l, const VectorN& u, const VectorN& gradient, VectorN& x);
+    static unsigned qp_gradproj(const MatrixN& G, const VectorN& c, const VectorN& l, const VectorN& u, unsigned max_iter, VectorN& x, Real tol);
     static bool brent(Real x_lower, Real x_upper, Real& x, Real& fx, Real (*f)(Real, void*), Real tol, void* params);
     static bool optimize_convex(OptParams& cparams, VectorN& x);
     static bool make_feasible_convex(OptParams& cparams, VectorN& x, void (*solve_KKT)(const VectorN&, const VectorN&, const VectorN&, const VectorN&, const MatrixN&, const MatrixN&, const OptParams&, VectorN&) = NULL);
     static bool make_feasible_convex2(OptParams& cparams, VectorN& x, void (*solve_KKT)(const VectorN&, const VectorN&, const VectorN&, const VectorN&, const MatrixN&, const MatrixN&, const OptParams&, VectorN&) = NULL);
     static bool optimize_convex_pd(OptParams& cparams, VectorN& x, void (*solve_KKT)(const VectorN&, const VectorN&, const VectorN&, const VectorN&, const MatrixN&, const MatrixN&, const OptParams&, VectorN&) = NULL);
-    static bool mlcp(VectorN& y, VectorN& z, const MatrixNN& M, const VectorN& q, bool (*lcp_solver)(const MatrixNN&, const VectorN&, VectorN&) = NULL);
+    static bool mlcp(VectorN& y, VectorN& z, const MatrixN& M, const VectorN& q);
     static bool lp(const MatrixN& A, const VectorN& b, const VectorN& c, const VectorN& l, const VectorN& u, VectorN& x);
-    static bool qp_convex_ip(const MatrixNN& G, const VectorN& c, OptParams& oparams, VectorN& x);
+    static bool qp_convex_ip(const MatrixN& G, const VectorN& c, OptParams& oparams, VectorN& x);
     static bool qp_convex_activeset_infeas_tcheck(const VectorN& x, void* data);
-    static void qp_convex_activeset_infeas(const MatrixNN& G, const VectorN& c, Real upsilon, OptParams& qparams, VectorN& x, bool hot_start = false);
-    static void qp_convex_activeset(const MatrixNN& G, const VectorN& c, OptParams& qparams, VectorN& x, bool hot_start = false);
-    static void qp_to_lcp1(const MatrixNN& G, const VectorN& c, const MatrixN& M, const VectorN& q, MatrixNN& MM, VectorN& qq);
-    static void qp_to_lcp2(const MatrixNN& G, const VectorN& c, const MatrixN& M, const VectorN& q, MatrixNN& MM, VectorN& qq);
-    static bool lcp_gradproj(const MatrixNN& M, const VectorN& q, VectorN& x, Real tol, unsigned max_iterations = std::numeric_limits<unsigned>::max());
-    static bool polyak(const MatrixNN& A, const VectorN& b, const VectorN& c, const VectorN& d, unsigned max_iter, VectorN& x);
+    static void qp_convex_activeset_infeas(const MatrixN& G, const VectorN& c, Real upsilon, OptParams& qparams, VectorN& x, bool hot_start = false);
+    static void qp_convex_activeset(const MatrixN& G, const VectorN& c, OptParams& qparams, VectorN& x, bool hot_start = false);
+    static void qp_to_lcp1(const MatrixN& G, const VectorN& c, const MatrixN& M, const VectorN& q, MatrixN& MM, VectorN& qq);
+    static void qp_to_lcp2(const MatrixN& G, const VectorN& c, const MatrixN& M, const VectorN& q, MatrixN& MM, VectorN& qq);
+    static bool lcp_gradproj(const MatrixN& M, const VectorN& q, VectorN& x, Real tol, unsigned max_iterations = std::numeric_limits<unsigned>::max());
+    static bool polyak(const MatrixN& A, const VectorN& b, const VectorN& c, const VectorN& d, unsigned max_iter, VectorN& x);
     static bool make_feasible_qp(const MatrixN& A, const VectorN& b, const MatrixN& M, const VectorN& q, VectorN& x, Real tol = NEAR_ZERO);
     static bool lp_simplex(const LPParams& lpparams, VectorN& x);
-    static void lcp_enum(const MatrixNN& M, const VectorN& q, std::vector<VectorN>& z);
-    static bool lcp_lemke(const MatrixNN& M, const VectorN& q, VectorN& z, Real piv_tol = NEAR_ZERO, Real zero_tol = NEAR_ZERO);
-    static bool lcp_lemke_regularized(const MatrixNN& M, const VectorN& q, VectorN& z, int min_exp = -20, unsigned step_exp = 4, int max_exp = 20, Real piv_tol = NEAR_ZERO, Real zero_tol = NEAR_ZERO);
-    static bool lcp_convex_ip(const MatrixNN& M, const VectorN& q, VectorN& z, Real tol=NEAR_ZERO, Real eps=NEAR_ZERO, Real eps_feas=NEAR_ZERO, unsigned max_iterations = std::numeric_limits<unsigned>::max());
-    static bool lcp_iter_PD(const MatrixNN& M, const VectorN& q, VectorN& z, Real tol = NEAR_ZERO, const unsigned iter = std::numeric_limits<unsigned>::max());
-    static bool lcp_iter_symm(const MatrixNN& M, const VectorN& q, VectorN& z, Real tol = NEAR_ZERO, const unsigned iter = std::numeric_limits<unsigned>::max());
-    static void solve_CG(const MatrixNN& A, const VectorN& b, VectorN& x, Real err_tol = 1.0);
+    static void lcp_enum(const MatrixN& M, const VectorN& q, std::vector<VectorN>& z);
+    static bool lcp_lemke(MatrixN& M, VectorN& q, VectorN& z, Real piv_tol = -1.0, Real zero_tol = -1.0);
+    static bool lcp_lemke_regularized(const MatrixN& M, const VectorN& q, VectorN& z, int min_exp = -20, unsigned step_exp = 4, int max_exp = 20, Real piv_tol = -1.0, Real zero_tol = -1.0);
+    static bool lcp_convex_ip(const MatrixN& M, const VectorN& q, VectorN& z, Real tol=NEAR_ZERO, Real eps=NEAR_ZERO, Real eps_feas=NEAR_ZERO, unsigned max_iterations = std::numeric_limits<unsigned>::max());
+    static bool lcp_iter_PD(const MatrixN& M, const VectorN& q, VectorN& z, Real tol = NEAR_ZERO, const unsigned iter = std::numeric_limits<unsigned>::max());
+    static bool lcp_iter_symm(const MatrixN& M, const VectorN& q, VectorN& z, Real tol = NEAR_ZERO, const unsigned iter = std::numeric_limits<unsigned>::max());
     static void eliminate_redundant_constraints(MatrixN& A, VectorN& b);
     static void eliminate_redundant_constraints(MatrixN& A);
     static Real search_line(const VectorN& x, Real (*fn)(const VectorN&, void*), void (*grad)(const VectorN&, void*, VectorN&), const VectorN& sdir, void* data = NULL, Real f_tol = (Real) 0.0, Real grad_tol = (Real) 0.0, Real x_rtol = (Real) 0.0, Real step_min = NEAR_ZERO, Real step_max = 1e6, unsigned max_fn_evals = 10000);
@@ -400,8 +399,8 @@ class Optimization
     static bool make_feasible_convex_BFGS(OptParams& cparams, VectorN& x);
 
   private:
-    static void condition_and_factor_PD(MatrixNN& H);
-    static void condition_hessian(MatrixNN& H);
+    static void condition_and_factor_PD(MatrixN& H);
+    static void condition_hessian(MatrixN& H);
     static bool tcheck_cvx_opt_BFGS(const VectorN& x, void* data);
     static Real f_cvx_opt_BFGS(const VectorN& x, void* data);
     static void grad_cvx_opt_BFGS(const VectorN& x, void* data, VectorN& g);
@@ -420,18 +419,20 @@ class Optimization
     static void make_feasible_grad0(const VectorN& y, VectorN& g, void* data);
     static void make_feasible_cJac_f(const VectorN& y, MatrixN& J, void* data);
     static void make_feasible_cJac_g(const VectorN& y, MatrixN& J, void* data);
-    static void make_feasible_hess(const VectorN& y, Real objscal, const VectorN& lambda, const VectorN& nu, MatrixNN& H, void* data);
+    static void make_feasible_hess(const VectorN& y, Real objscal, const VectorN& lambda, const VectorN& nu, MatrixN& H, void* data);
     static bool feasible(const OptParams& oparams, const VectorN& x, Real infeas_tol, unsigned& start);
     static VectorN ngrad(const VectorN& x, Real t, Real h, void* data, Real (*ofn)(const VectorN&, Real, void*));
-    static MatrixNN nhess(const VectorN& x, Real t, Real h, void* data, Real (*ofn)(const VectorN&, Real, void*));
+    static MatrixN nhess(const VectorN& x, Real t, Real h, void* data, Real (*ofn)(const VectorN&, Real, void*));
     static Real finitize(Real x);
     static VectorN remove_component(const VectorN& v, unsigned k);
     static VectorN insert_component(const VectorN& v, unsigned k);
     static Real qp_ip_f0(const VectorN& x, void* data);
     static void qp_ip_grad0(const VectorN& x, VectorN& g, void* data);
-    static void qp_ip_hess(const VectorN& x, Real objscal, const VectorN& lambda, const VectorN& nu, MatrixNN& H, void* data);
+    static void qp_ip_hess(const VectorN& x, Real objscal, const VectorN& lambda, const VectorN& nu, MatrixN& H, void* data);
     static void setup_C(OptParams& oparams, const VectorN& x, VectorN& C);
     static void setup_A(OptParams& oparams, const VectorN& x, MatrixN& A);
+    static void equilibrate(MatrixN& A, VectorN& b);
+    static void equilibrate(MatrixN& A);
 
     /// Computes an integral power of a base
     template <class T>

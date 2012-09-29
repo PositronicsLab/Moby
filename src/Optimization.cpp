@@ -28,8 +28,10 @@ extern "C"
 #include <Moby/cblas.h>
 #include <Moby/select>
 #include <Moby/LinAlg.h>
+#include <Moby/FastThreadable.h>
 #include <Moby/Log.h>
 #include <Moby/SingularException.h>
+#include <Moby/NonsquareMatrixException.h>
 #include <Moby/Optimization.h>
 #ifdef USE_PATH
 #include <Moby/PathLCPSolver.h>
@@ -58,7 +60,7 @@ void SLSQP(unsigned M, unsigned MEQ, unsigned LA, unsigned N, Real* X, const Rea
 /// Structure for computing QP data using primal/dual method
 struct QPData
 {
-  MatrixNN G;
+  MatrixN G;
   VectorN c;
   void* data;
 };
@@ -78,7 +80,7 @@ struct FeasibilityData
   void (*grad0)(const VectorN&, VectorN&, void*);
   void (*cJac_f)(const VectorN&, MatrixN&, void*);
   void (*cJac_g)(const VectorN&, MatrixN&, void*);
-  void (*hess)(const VectorN&, Real objscal, const VectorN& lambda, const VectorN& nu, MatrixNN&, void*);
+  void (*hess)(const VectorN&, Real objscal, const VectorN& lambda, const VectorN& nu, MatrixN&, void*);
 };
 
 /// The signum function
@@ -626,7 +628,7 @@ bool Optimization::optimize_convex_BFGS(OptParams& cparams, VectorN& x)
 VectorN& Optimization::BFGS(BFGSParams& params, VectorN& x)
 {
   VectorN p, delta_x, delta_g, gnew, Hy, g;
-  MatrixNN ssrho, ss1, ss, Hrys, inv_hess;
+  MatrixN ssrho, ss1, ss, Hrys, inv_hess;
   const Real BETA = (Real) 1e-8;
 
   // indicate that we are starting
@@ -635,8 +637,7 @@ VectorN& Optimization::BFGS(BFGSParams& params, VectorN& x)
   FILE_LOG(LOG_OPT) << "BFGS entered" << endl;
 
   // setup the inverse Hessian approximation
-  inv_hess.resize(params.n);
-  inv_hess.set_identity();
+  inv_hess.set_identity(params.n);
 
   // setup the number of BFGS iterations (for output)
   params.iterations = 0;
@@ -751,7 +752,6 @@ VectorN& Optimization::BFGS(BFGSParams& params, VectorN& x)
     // \Delta H_{k+1} = rsy' H_k rys' + rss' - H_k rys' - rsy' H_k
 
     // compute s*s'
-    ss.set_zero();
     VectorN::outer_prod(delta_x, delta_x, &ss);
 
     // compute r*y'*H_k*y*r
@@ -759,7 +759,6 @@ VectorN& Optimization::BFGS(BFGSParams& params, VectorN& x)
 
     // compute 2*H_k rys
     inv_hess.mult(delta_g, Hy);
-    Hrys.set_zero();
     VectorN::outer_prod(Hy, delta_x, &Hrys);
     Hrys *= rho;
 
@@ -1956,7 +1955,7 @@ void Optimization::make_feasible_cJac_g(const VectorN& y, MatrixN& J, void* data
 }
 
 /// Hessian function for making a point feasible
-void Optimization::make_feasible_hess(const VectorN& y, Real objscal, const VectorN& lambda, const VectorN& nu, MatrixNN& H, void* data)
+void Optimization::make_feasible_hess(const VectorN& y, Real objscal, const VectorN& lambda, const VectorN& nu, MatrixN& H, void* data)
 {
   // get the feasibility data
   const FeasibilityData& fdata = *((FeasibilityData*) data);
@@ -1970,16 +1969,16 @@ void Optimization::make_feasible_hess(const VectorN& y, Real objscal, const Vect
   const unsigned nn = y.size();
 
   // setup original Hessian
-  SAFESTATIC MatrixNN Horig;
+  SAFESTATIC MatrixN Horig;
   SAFESTATIC VectorN x;
   y.get_sub_vec(0, n, x);
 
   // call the original Hessian functions
-  Horig.resize(n);
+  Horig.resize(n,n);
   fdata.hess(x, (Real) 0.0, lambda, nu, Horig, fdata.data);
 
   // setup the new Hessian
-  H.resize(nn);
+  H.resize(nn,nn);
   H.set_sub_mat(0,0,Horig);
 
   // set the columns [n+1..nn] to zero
@@ -2002,7 +2001,7 @@ bool Optimization::optimize_convex(OptParams& cparams, VectorN& x)
 {
   const Real T_INIT = 1e-3;
   SAFESTATIC VectorN dx, g, gx, inv_f, workv, lambda;
-  SAFESTATIC MatrixNN H, outer_prod;
+  SAFESTATIC MatrixN H, outer_prod;
   SAFESTATIC MatrixN cJac;
   SAFESTATIC vector<Real> fx;
 
@@ -2032,7 +2031,7 @@ bool Optimization::optimize_convex(OptParams& cparams, VectorN& x)
   // setup gradient 
   dx.resize(n);
   g.resize(n);
-  H.resize(n);
+  H.resize(n,n);
 
   // verify that constraint functions are met
   evaluate_inequality_constraints(x, cparams, fx);
@@ -2088,7 +2087,6 @@ bool Optimization::optimize_convex(OptParams& cparams, VectorN& x)
       cparams.hess(x, t, lambda, EMPTY_VEC, H, cparams.data); 
 
       // update the Hessian using gradients
-      outer_prod.resize(n);
       for (unsigned i=0; i< m; i++)
       {
         const Real sq_inv_f = fx[i]*fx[i];
@@ -2225,29 +2223,32 @@ bool Optimization::optimize_convex(OptParams& cparams, VectorN& x)
 }
 
 /// Conditions (makes positive-definite) but does not factorize the Hessian
-void Optimization::condition_hessian(MatrixNN& H)
+void Optimization::condition_hessian(MatrixN& H)
 {
+  if (H.rows() != H.columns())
+    throw NonsquareMatrixException();
+
   // if Hessian empty, quit
-  if (H.size() == 0)
+  if (H.rows() == 0)
     return;
 
   FILE_LOG(LOG_OPT) << "Optimization::condition_hessian() entered" << endl;
 
   // make a copy of H
-  SAFESTATIC MatrixNN Hcopy;
+  SAFESTATIC MatrixN Hcopy;
   Hcopy.copy_from(H);
 
   // Hessian _must_ be positive-definite for the optimization to work
   const Real BETA = 1e-3;
   Real tau = Hcopy(0,0);
-  for (unsigned i=1; i< Hcopy.size(); i++)
+  for (unsigned i=1; i< Hcopy.rows(); i++)
     tau = std::min(tau, Hcopy(i,i));
   tau = (tau > (Real) 0.0) ? BETA : -tau + BETA;
   if (!LinAlg::factor_chol(Hcopy))
     while (true)
     {
       // update H += I*tau
-      for (unsigned i=0; i< H.size(); i++)
+      for (unsigned i=0; i< H.rows(); i++)
         Hcopy(i,i) += tau;
 
       // try Cholesky factorization
@@ -2255,7 +2256,7 @@ void Optimization::condition_hessian(MatrixNN& H)
         break;
 
       // remove I*tau from H
-      for (unsigned i=0; i< H.size(); i++)
+      for (unsigned i=0; i< H.rows(); i++)
         Hcopy(i,i) -= tau;
 
       // update tau
@@ -2263,7 +2264,7 @@ void Optimization::condition_hessian(MatrixNN& H)
     }
 
   // update H with tau
-  for (unsigned i=0; i< Hcopy.size(); i++)
+  for (unsigned i=0; i< Hcopy.rows(); i++)
     H(i,i) += tau;
 
   FILE_LOG(LOG_OPT) << "  -- regularization factor: " << tau << endl;
@@ -2271,16 +2272,19 @@ void Optimization::condition_hessian(MatrixNN& H)
 }
 
 /// Conditions (makes positive-definite) and factorizes (Cholesky) the Hessian
-void Optimization::condition_and_factor_PD(MatrixNN& H)
+void Optimization::condition_and_factor_PD(MatrixN& H)
 {
+  if (H.rows() != H.columns())
+    throw NonsquareMatrixException();
+
   // if Hessian empty, quit
-  if (H.size() == 0)
+  if (H.rows() == 0)
     return;
 
   FILE_LOG(LOG_OPT) << "Optimization::condition_and_factor_PD() entered" << endl;
 
   // make a copy of H
-  SAFESTATIC MatrixNN Hcopy;
+  SAFESTATIC MatrixN Hcopy;
   Hcopy.copy_from(H);
 
   // try factorization
@@ -2291,13 +2295,13 @@ void Optimization::condition_and_factor_PD(MatrixNN& H)
   H.copy_from(Hcopy);
   const Real BETA = 1e-3;
   Real tau = H(0,0);
-  for (unsigned i=1; i< H.size(); i++)
+  for (unsigned i=1; i< H.rows(); i++)
     tau = std::min(tau, H(i,i));
   tau = (tau > (Real) 0.0) ? BETA : -tau + BETA;
   while (true)
   {
     // update H += I*tau
-    for (unsigned i=0; i< H.size(); i++)
+    for (unsigned i=0; i< H.rows(); i++)
       H(i,i) += tau;
 
     // try Cholesky factorization
@@ -3024,7 +3028,7 @@ void Optimization::solve_KKT_pd(const VectorN& x, const VectorN& lambda, const V
  */
 void Optimization::solve_KKT_pd(const VectorN& x, const VectorN& lambda, const VectorN& nu, const VectorN& rvec, const MatrixN& Df, const MatrixN& Dg, const OptParams& cparams, VectorN& dy)
 {
-  SAFESTATIC MatrixNN H, M;
+  SAFESTATIC MatrixN H, M;
   SAFESTATIC VectorN nDfTlambda;
   SAFESTATIC vector<Real> fc;
 
@@ -3067,7 +3071,7 @@ void Optimization::solve_KKT_pd(const VectorN& x, const VectorN& lambda, const V
   nDfTlambda.negate();
 
   // create the KKT matrix
-  M.resize(n+mm+nu_len);
+  M.resize(n+mm+nu_len,n+mm+nu_len);
 
   // setup the appropriate parts of the KKT matrix
   M.set_sub_mat(0, 0, H);
@@ -3113,7 +3117,6 @@ void Optimization::solve_KKT_pd(const VectorN& x, const VectorN& lambda, const V
     for (unsigned i=0, j=n; i< mm; i++, j++)
       M(j++, j++) = -fc[i]; 
 
-
     // use the least squares solver 
     LinAlg::solve_LS_fast(M, dy);
   }
@@ -3143,8 +3146,11 @@ void Optimization::solve_KKT_pd(const VectorN& x, const VectorN& lambda, const V
  * \note sizes of y and z on entry determines the number of 
  *       unconstrained/constrained variables 
  */
-bool Optimization::mlcp(VectorN& y, VectorN& z, const MatrixNN& M, const VectorN& q, bool (*lcp_solver)(const MatrixNN&, const VectorN&, VectorN&))
+bool Optimization::mlcp(VectorN& y, VectorN& z, const MatrixN& M, const VectorN& q)
 {
+  MatrixN M11, M22, M12, M21, iM11, MM, workM;
+  VectorN q1, q2, q1bar, qq;
+
   // setup data to go to the interior point method
   unsigned nfree = y.size();
   unsigned n = z.size();
@@ -3154,26 +3160,28 @@ bool Optimization::mlcp(VectorN& y, VectorN& z, const MatrixNN& M, const VectorN
     throw std::runtime_error("len(y) + len(z) != len(q)");
 
   // partition M
-  MatrixNN M11, M22;
-  MatrixN M12, M21;
   M.get_sub_mat(0, nfree, 0, nfree, M11);
   M.get_sub_mat(0, nfree, nfree, n+nfree, M12);
   M.get_sub_mat(nfree, n+nfree, 0, nfree, M21);
   M.get_sub_mat(nfree, n+nfree, nfree, n+nfree, M22);
 
   // partition q
-  VectorN q1, q2;
   q.get_sub_vec(0, nfree, q1);
   q.get_sub_vec(nfree, n+nfree, q2);
 
   // compute pseudo-inverse of M11 
-  MatrixNN iM11;
-  LinAlg::pseudo_inverse(M11, iM11);
+  iM11.copy_from(M11);
+  LinAlg::pseudo_inverse(iM11);
 
   // setup bar_M and b_q
-  MatrixNN MM = M22 - M21*iM11*M12;
-  VectorN q1bar = iM11*q1;
-  VectorN qq = q2 - M21*q1bar;
+  iM11.mult(M12, workM);
+  M21.mult(workM, MM);
+  MM.negate();
+  MM += M22;
+  iM11.mult(q1, q1bar);
+  M21.mult(q1bar, qq);
+  qq.negate();
+  qq += q2;
 
   // init z to something sensible
   z.set_zero();
@@ -3184,11 +3192,7 @@ bool Optimization::mlcp(VectorN& y, VectorN& z, const MatrixNN& M, const VectorN
   FILE_LOG(LOG_OPT) << "z: " << z << endl;
 
   // call Lemke's algorithm
-  bool result;
-  if (lcp_solver)
-    result = (*lcp_solver)(MM, qq, z);
-  else
-    result = lcp_lemke(MM, qq, z);
+  bool result = lcp_lemke(MM, qq, z);
   if (!result)
   {
     FILE_LOG(LOG_OPT) << "-- lemke's algorithm failed!" << endl;
@@ -3197,11 +3201,13 @@ bool Optimization::mlcp(VectorN& y, VectorN& z, const MatrixNN& M, const VectorN
   }
 
   // determine y
-  y = -q1bar - iM11*M12*z;
+  workM.mult(z, y) += q1bar;
+  y.negate(); 
 
-  FILE_LOG(LOG_OPT) << "M11 rank: " << LinAlg::calc_rank(M11) << " / " << M11.rows() << endl;
   FILE_LOG(LOG_OPT) << "-- lemke's algorithm successful" << endl;
-  FILE_LOG(LOG_OPT) << "rank(M11): " << LinAlg::calc_rank(M11) << " size M11: " << M11.rows() << endl;
+  if (LOGGING(LOG_OPT))
+    workM.copy_from(M11);
+  FILE_LOG(LOG_OPT) << "rank(M11): " << LinAlg::calc_rank(workM) << " size M11: " << M11.rows() << endl;
   FILE_LOG(LOG_OPT) << "M11*y + M12*z + q1: " << (M11*y + M12*z + q1) << endl;
   FILE_LOG(LOG_OPT) << "z: " << z << endl;
   FILE_LOG(LOG_OPT) << "y: " << y << endl;
@@ -3266,54 +3272,6 @@ bool Optimization::feasible(const OptParams& oparams, const VectorN& x, Real inf
   return true;
 }
 
-/// Solves a symmetric, positive-definite linear system using conjugate gradient method
-/**
- * Algorithm taken from [Schewchuk, 1994], p. 50
-*/
-void Optimization::solve_CG(const MatrixNN& A, const VectorN& b, VectorN& x, Real err_tol)
-{
-  VectorN q;
-
-  // maximum # of iterations -- system must be solvable in n iterations or
-  // fewer
-  const unsigned n = A.rows();
-
-  // init x if necessary
-  if (x.size() == 0)
-    x = VectorN::zero(n);
-
-  // compute the residual
-  VectorN r = b - A*x;
-
-  // compute a few other things we need
-  VectorN d = r;
-  Real delta_new = d.norm_sq();
-  Real delta_knot = delta_new;
-
-  // compute the stopping error tolerance
-  Real err_stop = err_tol * err_tol * delta_knot;
-
-  // loop
-  for (unsigned i=0; i< n; i++)
-  {
-    q = A*d;
-    Real alpha = delta_new / d.dot(q);
-    x += d*alpha;
-    if (i % 50 == 0)
-      r = b - A*x;
-    else
-      r -= q*alpha;
-    Real delta_old = delta_new;
-    delta_new = r.norm_sq();
-    Real beta = delta_new / delta_old;
-    d = r + d*beta;
-
-    // check error tolerance
-    if (delta_new > err_stop)
-      break;
-  }
-}
-
 /// Computes the gradient of a function numerically
 VectorN Optimization::ngrad(const VectorN& x, Real t, Real h, void* data, Real (*ofn)(const VectorN&, Real, void*))
 {
@@ -3339,16 +3297,16 @@ VectorN Optimization::ngrad(const VectorN& x, Real t, Real h, void* data, Real (
 }
 
 /// Computes the hessian of a function numerically
-MatrixNN Optimization::nhess(const VectorN& x, Real t, Real h, void* data, Real (*ofn)(const VectorN&, Real, void*))
+MatrixN Optimization::nhess(const VectorN& x, Real t, Real h, void* data, Real (*ofn)(const VectorN&, Real, void*))
 {
   unsigned n = x.size();
   const Real inv_h2 = 0.5 / h;
-  MatrixNN hess;
+  MatrixN hess;
 
   // make a copy of x
   VectorN xx = x;
 
-  hess.resize(n);
+  hess.resize(n,n);
   for (unsigned i=0; i< n; i++)
   {
     xx[i] += h;
@@ -3695,9 +3653,12 @@ VectorN Optimization::remove_component(const VectorN& v, unsigned k)
 }
 
 /// Finds a Cauchy point for gradient projection QP method
-VectorN& Optimization::find_cauchy_point(const MatrixNN& G, const VectorN& c, const VectorN& l, const VectorN& u, const VectorN& gradient, VectorN& x)
+VectorN& Optimization::find_cauchy_point(const MatrixN& G, const VectorN& c, const VectorN& l, const VectorN& u, const VectorN& gradient, VectorN& x)
 {
   const Real INF = std::numeric_limits<Real>::max();
+
+  if (G.rows() != G.columns())
+    throw NonsquareMatrixException();
 
   // get size of gradient / x
   const unsigned n = x.size();
@@ -3846,8 +3807,11 @@ VectorN& Optimization::find_cauchy_point(const MatrixNN& G, const VectorN& c, co
  * \param x the vector at which the minimum occurs
  * \return the number of iterations
  */
-unsigned Optimization::qp_gradproj(const MatrixNN& G, const VectorN& c, const VectorN& l, const VectorN& u, unsigned max_iter, VectorN& x, Real tol)
+unsigned Optimization::qp_gradproj(const MatrixN& G, const VectorN& c, const VectorN& l, const VectorN& u, unsigned max_iter, VectorN& x, Real tol)
 {
+  if (G.rows() != G.columns())
+    throw NonsquareMatrixException();
+
   const Real INF = std::numeric_limits<Real>::max();
 
   // minimum objective function value determined so far
@@ -3866,7 +3830,7 @@ unsigned Optimization::qp_gradproj(const MatrixNN& G, const VectorN& c, const Ve
 
   // setup some work variables
   VectorN Gx_c, Gx, H, Wzz;
-  MatrixNN ZtGZ;
+  MatrixN ZtGZ;
   VectorN xz, cz, dz, lz, uz, dxz;
   VectorN y, r1, r2, w, w1, w2, v, xstar;
   vector<bool> inactive_set;
@@ -3917,7 +3881,7 @@ unsigned Optimization::qp_gradproj(const MatrixNN& G, const VectorN& c, const Ve
     H.select(inactive_set, Wzz);
 
     // form Z'GZ
-    G.select(inactive_set, ZtGZ);
+    G.select_square(inactive_set, ZtGZ);
 
     FILE_LOG(LOG_OPT) << "  iteration: " << niter << endl;
     FILE_LOG(LOG_OPT) << "    preconditioner: " << Wzz << endl;
@@ -3988,7 +3952,7 @@ unsigned Optimization::qp_gradproj(const MatrixNN& G, const VectorN& c, const Ve
     {
       y = -cz;
       r1 = -cz;
-      MatrixNN::diag_mult(Wzz, -cz, y);
+      MatrixN::diag_mult(Wzz, -cz, y);
       Real beta1 = -(cz.dot(y));
 
       // look for x = 0 solution
@@ -4035,7 +3999,7 @@ unsigned Optimization::qp_gradproj(const MatrixNN& G, const VectorN& c, const Ve
           y += r2*(-alfa/beta);
           r1.copy_from(r2);
           r2.copy_from(y);
-          MatrixNN::diag_mult(Wzz, r2, y);
+          MatrixN::diag_mult(Wzz, r2, y);
           oldb = beta;
           beta = r2.dot(y);
           if (beta < 0)
@@ -4166,247 +4130,6 @@ unsigned Optimization::qp_gradproj(const MatrixNN& G, const VectorN& c, const Ve
   return niter;
 }
 
-/// Minimizes 1/2x'Ax - x'b with box constraints
-/**
- * Implementation of the Polyak algorithm.
- * \param A a n x n symmetric, positive-definite matrix
- * \param b a n x 1 vector
- * \param c a n x 1 vector of lower limit constraints
- * \param d a n x 1 vector of upper limit constraints
- * \param max_iter the maximum number of iterations
- * \param x the vector at which the minimum occurs, on successful return
- * \return <b>true</b> if successful, <b>false</b> if fails (due to increasing
- *         residual, perhaps due to PSD rather than PD A? 
- */
-bool Optimization::polyak(const MatrixNN& A, const VectorN& b, const VectorN& c, const VectorN& d, unsigned max_iter, VectorN& x)
-{
-  VectorN y;
-  MatrixNN AII, AJJ;
-  MatrixN AJI;
-  VectorN bJ, bI, xJ, xI;
-  VectorN z, p, r, last_r;
-  set<unsigned> I_last;
-
-  // setup the number of inner iterations
-  unsigned niter = 0;
-
-  // determine n
-  const unsigned n = A.rows();
-
-  // pick starting x halfway between c and d
-  x = c;
-  x += d;
-  x *= 0.5;
-
-  FILE_LOG(LOG_OPT) << "polyak() begun" << endl;
-  FILE_LOG(LOG_OPT) << "A: " << endl << A;
-  FILE_LOG(LOG_OPT) << "b: " << b << endl;
-  FILE_LOG(LOG_OPT) << "c: " << c << endl;
-  FILE_LOG(LOG_OPT) << "d: " << d << endl;
-  FILE_LOG(LOG_OPT) << "x: " << x << endl;
-
-  // initialize I (indices at limits)
-  set<unsigned> I, J;
-  for (unsigned i=0; i< n; i++)
-    I.insert(i);
-
-  // setup last objective function evaluation
-  A.mult(x, y);
-  Real lobj = y.dot(x)*0.5 - x.dot(b);
-
-  // outer iteration
-  outer:
-    FILE_LOG(LOG_OPT) << "polyak: begun outer iteration" << endl;
-
-    // evaluate the objective function again
-    A.mult(x, y);
-    Real nobj = y.dot(x)*0.5 - x.dot(b); 
-    if (nobj > lobj + NEAR_ZERO)
-    {
-      FILE_LOG(LOG_OPT) << "  -- detected increasing objective function residual; terminating!" << endl;
-std::cout << "abnormal exit (2)" << std::endl;
-      return false;
-    }
-    lobj = nobj;
-
-    // determine new residual
-    y -= b;
-    FILE_LOG(LOG_OPT) << "residual: " << y << endl;
-
-    // set Ilast
-    I_last = I;
-
-    // redetermine I, and determine J
-    I.clear();
-    J.clear();
-    for (unsigned i=0; i< n; i++)
-      if ((std::fabs(x[i] - c[i]) < NEAR_ZERO && y[i] > -NEAR_ZERO) ||
-          (std::fabs(x[i] - d[i]) < NEAR_ZERO && y[i] < NEAR_ZERO))
-        I.insert(i);
-      else
-        J.insert(i);
-
-    FILE_LOG(LOG_OPT) << "I: ";
-    for (set<unsigned>::const_iterator i = I.begin(); i != I.end(); i++)
-      FILE_LOG(LOG_OPT) << " " << *i;
-    FILE_LOG(LOG_OPT) << endl;
-    FILE_LOG(LOG_OPT) << "J: ";
-    for (set<unsigned>::const_iterator i = J.begin(); i != J.end(); i++)
-      FILE_LOG(LOG_OPT) << " " << *i;
-    FILE_LOG(LOG_OPT) << endl;
-
-    // if the two sets of indices are equal, halt
-    if (I == I_last)
-    {
-      FILE_LOG(LOG_OPT) << "index sets unchanged; polyak done" << endl;
-std::cout << "# of iterations: " << niter << std::endl;
-      return true;
-    }
-
-    // the inner iteration
-    inner:
-
-      if (niter > max_iter)
-      {
-        FILE_LOG(LOG_OPT) << " -- maximum number of iterations exceeded" << endl;
-std::cout << "# of iterations (exceeded): " << niter << std::endl;
-        return false;
-      }
-      FILE_LOG(LOG_OPT) << "inner iteration " << niter << " started" << endl;
-      niter++;
-
-      // partition x, b, and A
-      A.select(I.begin(), I.end(), AII);
-      A.select(J.begin(), J.end(), I.begin(), I.end(), AJI);
-      A.select(J.begin(), J.end(), AJJ);
-      xI.resize(I.size());
-      xJ.resize(J.size());
-      bI.resize(xI.size());
-      bJ.resize(xJ.size());
-      select(x.begin(), I.begin(), I.end(), xI.begin());
-      select(x.begin(), J.begin(), J.end(), xJ.begin());
-      select(b.begin(), I.begin(), I.end(), bI.begin());
-      select(b.begin(), J.begin(), J.end(), bJ.begin());
-
-      FILE_LOG(LOG_OPT) << "AII: " << endl << AII;
-      FILE_LOG(LOG_OPT) << "AJJ: " << endl << AJJ;
-      FILE_LOG(LOG_OPT) << "bj: " << bJ << endl;
-
-      // init z, p, and r
-      z = xJ;
-      if (!I.empty())
-        p = bJ - AJI*xI - AJJ*z;
-      else
-        p = bJ - AJJ*z;
-      r.copy_from(p);
-
-      FILE_LOG(LOG_OPT) << "z: " << z << endl;
-      FILE_LOG(LOG_OPT) << "p: " << p << endl;
-      FILE_LOG(LOG_OPT) << "r: " << r << "  norm: " << r.norm() << endl;
-
-    calciterate:
-      // determine step parameters
-      Real a_cg = VectorN::dot(r, r)/VectorN::dot(p, AJJ*p);
-      Real a_max = std::numeric_limits<Real>::max();
-      unsigned k=0;
-      for (set<unsigned>::const_iterator j = J.begin(); j != J.end(); j++, k++)
-      {
-        if (p[k] < -NEAR_ZERO)
-          a_max = std::min(a_max, (c[*j] - z[k])/p[k]);
-        else if (p[k] > NEAR_ZERO)
-          a_max = std::min(a_max, (d[*j] - z[k])/p[k]);
-      }
-      FILE_LOG(LOG_OPT) << "acg: " << a_cg << endl;
-      FILE_LOG(LOG_OPT) << "a_max: " << a_max << endl;
-
-      // determine the step
-      Real a_q = std::min(a_cg, a_max);
-
-      // update z, r
-      z += p*a_q;
-      last_r.copy_from(r);
-      r -= AJJ*p*a_q;
-
-      FILE_LOG(LOG_OPT) << "new z: " << z << endl;
-      FILE_LOG(LOG_OPT) << "new r: " << r << "  norm: " << r.norm() << endl;
-
-      // check for increasing residual
-      Real rnorm = r.norm();
-      if (rnorm > last_r.norm() + NEAR_ZERO)
-      {
-        FILE_LOG(LOG_OPT) << "residual increased!  terminating algorithm!" << endl;
-std::cout << "abnormal exit" << std::endl;
-        return false;
-      }
-
-      // test for termination of the inner iteration
-      if (rnorm < NEAR_ZERO)
-      {
-        FILE_LOG(LOG_OPT) << "residual essentially zero; terminating inner iterations" << endl;
-
-        for (unsigned i=0, idx = 0; i< x.size(); i++)
-          if (J.find(i) != J.end())
-            x[i] = z[idx++];
-        goto outer;
-      }
-      else
-      {
-        FILE_LOG(LOG_OPT) << "searching for variable exactly at a constraint..." << endl;
-
-        // look for a variable at one of its constraints
-        unsigned idx = 0;
-        for (set<unsigned>::const_iterator j = J.begin(); j != J.end(); j++, idx++)
-          if (std::fabs(z[idx] - c[*j]) < NEAR_ZERO || std::fabs(z[idx] - d[*j]) < NEAR_ZERO)
-          {
-            FILE_LOG(LOG_OPT) << "found such a variable; repartitioning and restarting inner iteration" << endl;
-
-            // update x and I
-            for (unsigned i=0, idx = 0; i< x.size(); i++)
-              if (J.find(i) != J.end())
-                x[i] = z[idx++];
-            I.clear();
-            J.clear();
-            for (unsigned i=0; i< n; i++)
-              if ((std::fabs(x[i] - c[i]) < NEAR_ZERO && y[i] > -NEAR_ZERO) ||
-                  (std::fabs(x[i] - d[i]) < NEAR_ZERO && y[i] < NEAR_ZERO))
-                I.insert(i);
-              else
-                J.insert(i);
-
-            FILE_LOG(LOG_OPT) << "new x: " << x << endl;
-            FILE_LOG(LOG_OPT) << "I: ";
-            for (set<unsigned>::const_iterator i = I.begin(); i != I.end(); i++)
-              FILE_LOG(LOG_OPT) << " " << *i;
-            FILE_LOG(LOG_OPT) << endl;
-            FILE_LOG(LOG_OPT) << "J: ";
-            for (set<unsigned>::const_iterator i = J.begin(); i != J.end(); i++)
-              FILE_LOG(LOG_OPT) << " " << *i;
-            FILE_LOG(LOG_OPT) << endl;
-
-            // if all indices are locked, rebegin the outer iteration
-            if (J.empty())
-            {
-              FILE_LOG(LOG_OPT) << "all indices locked; restarting outer iteration" << endl;
-              goto outer;
-            }
-            else
-            {
-              FILE_LOG(LOG_OPT) << "restarting inner iteration" << endl;
-              goto inner;
-            }
-          }
-
-        // everything ok, update search direction
-        Real beta = VectorN::dot(r, r)/VectorN::dot(last_r, last_r);
-        p*= beta;
-        p+= r;
-        FILE_LOG(LOG_OPT) << "no constraints reached; updating search direction and iterating" << endl;
-        FILE_LOG(LOG_OPT) << "beta: " << beta << endl;
-        FILE_LOG(LOG_OPT) << "p: " << p << endl;
-        goto calciterate;
-      }
-}
-
 // auxiliary function for LCP solver: prints out variable type (z or w)
 std::string var(unsigned v, unsigned n)
 {
@@ -4445,8 +4168,10 @@ void to_binary(unsigned long long i, vector<bool>& bin)
 } 
 
 /// Enumerative algorithm for solving linear complementarity problems
-void Optimization::lcp_enum(const MatrixNN& M, const VectorN& q, vector<VectorN>& z)
-{
+/**
+ */
+void Optimization::lcp_enum(const MatrixN& M, const VectorN& q, vector<VectorN>& z)
+{  
   const Real MIN_TOLERANCE = -NEAR_ZERO;
   const unsigned n = q.size();
 
@@ -4455,7 +4180,7 @@ void Optimization::lcp_enum(const MatrixNN& M, const VectorN& q, vector<VectorN>
 
   // make NTHREADS copies of everything we need
   vector<VectorN> qq(NTHREADS);
-  vector<MatrixNN> Mij(NTHREADS);
+  vector<MatrixN> Mij(NTHREADS);
   vector<MatrixN> Mnij(NTHREADS);
   vector<VectorN> qx(NTHREADS);
   vector<VectorN> qni(NTHREADS);
@@ -4496,7 +4221,7 @@ void Optimization::lcp_enum(const MatrixNN& M, const VectorN& q, vector<VectorN>
       }
 
     // resize matrices
-    Mij[tID].resize(num_basicw);
+    Mij[tID].resize(num_basicw, num_basicw);
     Mnij[tID].resize(n-num_basicw, num_basicw);
     qx[tID].resize(num_basicw);
 
@@ -4556,13 +4281,13 @@ void Optimization::lcp_enum(const MatrixNN& M, const VectorN& q, vector<VectorN>
 /// Enumerative algorithm for solving linear complementarity problems
 /**
  */
-void Optimization::lcp_enum(const MatrixNN& M, const VectorN& q, vector<VectorN>& z)
+void Optimization::lcp_enum(const MatrixN& M, const VectorN& q, vector<VectorN>& z)
 {
   const Real MIN_TOLERANCE = -NEAR_ZERO;
   vector<unsigned> basicw, nbasicz, nbasicw;
   const unsigned n = q.size();
   VectorN qq(n);
-  MatrixNN Mij;
+  MatrixN Mij;
   MatrixN Mnij;
   VectorN qx, qni, result;
 
@@ -4589,7 +4314,7 @@ void Optimization::lcp_enum(const MatrixNN& M, const VectorN& q, vector<VectorN>
       }
 
     // resize matrices
-    Mij.resize(num_basicw);
+    Mij.resize(num_basicw, num_basicw);
     Mnij.resize(n-num_basicw, num_basicw);
     qx.resize(num_basicw);
 
@@ -4654,10 +4379,13 @@ void Optimization::lcp_enum(const MatrixNN& M, const VectorN& q, vector<VectorN>
 #endif
 
 /// Conjugate gradient-type algorithm for solving convex LCP problems
-bool Optimization::lcp_gradproj(const MatrixNN& M, const VectorN& q, VectorN& x, Real tol, unsigned max_iter)
+bool Optimization::lcp_gradproj(const MatrixN& M, const VectorN& q, VectorN& x, Real tol, unsigned max_iter)
 {
   const unsigned n = q.size();
   const unsigned CHECK_FREQ = 100;
+
+  if (M.rows() != M.columns())
+    throw NonsquareMatrixException();
 
   // setup some variables we'll need
   VectorN c, d, w;
@@ -4702,20 +4430,23 @@ bool Optimization::lcp_gradproj(const MatrixNN& M, const VectorN& q, VectorN& x,
 /**
  * Minimizes the QP 0.5*x'*G*x + x'*c subject to x >= 0 and M*x >= q
  */
-void Optimization::qp_to_lcp1(const MatrixNN& G, const VectorN& c, const MatrixN& M, const VectorN& q, MatrixNN& MM, VectorN& qq)
+void Optimization::qp_to_lcp1(const MatrixN& G, const VectorN& c, const MatrixN& M, const VectorN& q, MatrixN& MM, VectorN& qq)
 {
-  const unsigned N = G.size();
+  const unsigned N = G.rows();
+
+  if (G.columns() != N)
+    throw NonsquareMatrixException();
 
   // if n is zero, do nothing
   if (N == 0)
   {
-    MM.resize(0);
+    MM.resize(0,0);
     qq.resize(0);
     return;
   }
 
   // form the LCP matrix
-  MM.set_zero(N + M.rows());
+  MM.set_zero(N + M.rows(), N + M.rows());
   MM.set_sub_mat(0, 0, G);
   MM.set_sub_mat(0, N, M, true);  // set submatrix of MM to M'
   MM.set_sub_mat(N, 0, M);
@@ -4726,7 +4457,7 @@ void Optimization::qp_to_lcp1(const MatrixNN& G, const VectorN& c, const MatrixN
       MM(i,j) = -MM(i,j);
 
   // form the LCP vector
-  qq.resize(MM.size());
+  qq.resize(MM.rows());
   qq.set_sub_vec(0, c);
   qq.set_sub_vec(N, -q);
 }
@@ -4735,16 +4466,19 @@ void Optimization::qp_to_lcp1(const MatrixNN& G, const VectorN& c, const MatrixN
 /**
  * Minimizes the QP 0.5*x'*G*x + x'*c subject to M*x >= q
  */
-void Optimization::qp_to_lcp2(const MatrixNN& G, const VectorN& c, const MatrixN& M, const VectorN& q, MatrixNN& MM, VectorN& qq)
+void Optimization::qp_to_lcp2(const MatrixN& G, const VectorN& c, const MatrixN& M, const VectorN& q, MatrixN& MM, VectorN& qq)
 {
   SAFESTATIC MatrixN workM;
 
   // determine # of LCP variables
-  const unsigned N = G.size();
+  const unsigned N = G.rows();
   const unsigned NLCP = (N + M.rows())*2;
 
+  if (G.columns() != N)
+    throw NonsquareMatrixException();
+
   // setup the LCP
-  MM.set_zero(NLCP);
+  MM.set_zero(NLCP,NLCP);
   qq.set_zero(NLCP);
 
   // setup c components of qq
@@ -4773,15 +4507,48 @@ void Optimization::qp_to_lcp2(const MatrixNN& G, const VectorN& c, const MatrixN
 }
 
 /// Regularized wrapper around Lemke's algorithm
-bool Optimization::lcp_lemke_regularized(const MatrixNN& M, const VectorN& q, VectorN& z, int min_exp, unsigned step_exp, int max_exp, Real piv_tol, Real zero_tol)
+bool Optimization::lcp_lemke_regularized(const MatrixN& M, const VectorN& q, VectorN& z, int min_exp, unsigned step_exp, int max_exp, Real piv_tol, Real zero_tol)
 {
-  // try non-regularized version first
-  bool result = lcp_lemke(M, q, z, piv_tol, zero_tol);
-  if (result)
+  SAFESTATIC FastThreadable<VectorN> w_x, qq_x;
+  SAFESTATIC FastThreadable<MatrixN> MM_x;
+  VectorN& w = w_x();
+  VectorN& qq = qq_x();
+  MatrixN& MM = MM_x();
+
+  // look for fast exit
+  if (q.size())
+  {
+    z.resize(0);
     return true;
-  
+  }
+
+  // copy M and q
+  MM.copy_from(M);
+  qq.copy_from(q);
+
+  // try non-regularized version first
+  bool result = lcp_lemke(MM, qq, z, piv_tol, zero_tol);
+  if (result)
+  {
+    // verify that solution truly is a solution -- check z
+    if (*std::min_element(z.begin(), z.end()) < -zero_tol)
+      return false;
+
+    // check w
+    M.mult(z, w) += q;
+    if (*std::min_element(w.begin(), w.end()) < -zero_tol)
+      return false;
+
+    // check z'w
+    std::transform(z.begin(), z.end(), w.begin(), w.begin(), std::multiplies<Real>());
+    pair<Real*, Real*> mmax = boost::minmax_element(w.begin(), w.end());
+    if (*mmax.first < -zero_tol || *mmax.second > zero_tol)
+      return false;
+
+    return true;
+  }
+
   // start the regularization process
-  MatrixNN MM;
   int rf = min_exp;
   while (rf < max_exp)
   {
@@ -4790,12 +4557,33 @@ bool Optimization::lcp_lemke_regularized(const MatrixNN& M, const VectorN& q, Ve
 
     // regularize M
     MM.copy_from(M);
-    for (unsigned i=0; i< MM.size(); i++)
+    for (unsigned i=0; i< MM.rows(); i++)
       MM(i,i) += lambda;
 
     // try to solve the LCP
-    if ((result = lcp_lemke(MM, q, z, piv_tol, zero_tol)))
+    if ((result = lcp_lemke(MM, qq, z, piv_tol, zero_tol)))
+    {
+      // verify that solution truly is a solution -- check z
+      if (*std::min_element(z.begin(), z.end()) < -zero_tol)
+        continue; 
+
+      // check w
+      MM.copy_from(M);
+      for (unsigned i=0; i< MM.rows(); i++)
+        MM(i,i) += lambda;
+      qq.copy_from(q);
+      MM.mult(z, w) += qq;
+      if (*std::min_element(w.begin(), w.end()) < -zero_tol)
+        continue;
+
+      // check z'w
+      std::transform(z.begin(), z.end(), w.begin(), w.begin(), std::multiplies<Real>());
+      pair<Real*, Real*> mmax = boost::minmax_element(w.begin(), w.end());
+      if (*mmax.first < -zero_tol || *mmax.second > zero_tol)
+        continue;
+
       return true;
+    }
 
     // increase rf
     rf += step_exp;
@@ -4810,16 +4598,42 @@ bool Optimization::lcp_lemke_regularized(const MatrixNN& M, const VectorN& q, Ve
  * \param z a vector "close" to the solution on input (optional); contains
  *        the solution on output
  */
-bool Optimization::lcp_lemke(const MatrixNN& M, const VectorN& q, VectorN& z, Real piv_tol, Real zero_tol)
+bool Optimization::lcp_lemke(MatrixN& M, VectorN& q, VectorN& z, Real piv_tol, Real zero_tol)
 {
-  unsigned n = q.size();
+  const unsigned n = q.size();
   const unsigned MAXITER = std::min((unsigned) 1000, 50*n);
 
+  // look for immediate exit
+  if (n == 0)
+  {
+    z.resize(0);
+    return true;
+  }
+
   // setup work variables
-  SAFESTATIC VectorN Be, U, z0, x, d, xj, dj, w, result;
-  SAFESTATIC MatrixNN B, A;
-  SAFESTATIC MatrixN t1, t2;
-  SAFESTATIC vector<unsigned> all, tlist, bas, nonbas, j;
+  SAFESTATIC FastThreadable<VectorN> Be_x, U_x, z0_x, x_x, d_x, xj_x, dj_x, w_x, result_x;
+  SAFESTATIC FastThreadable<MatrixN> B_x, A_x, t1_x, t2_x;
+  SAFESTATIC FastThreadable<vector<unsigned> > all_x, tlist_x, bas_x, nonbas_x, j_x; 
+
+  // get references to all variables
+  VectorN& Be = Be_x();
+  VectorN& U = U_x();
+  VectorN& z0 = z0_x();
+  VectorN& x = x_x();
+  VectorN& d = d_x();
+  VectorN& xj = xj_x();
+  VectorN& dj = dj_x();
+  VectorN& w = w_x();
+  VectorN& result = result_x();
+  MatrixN& B = B_x();
+  MatrixN& A = A_x();
+  MatrixN& t1 = t1_x();
+  MatrixN& t2 = t2_x();
+  vector<unsigned>& all = all_x();
+  vector<unsigned>& tlist = tlist_x();
+  vector<unsigned>& bas = bas_x();
+  vector<unsigned>& nonbas = nonbas_x();
+  vector<unsigned>& j = j_x();
 
   // clear all vectors
   all.clear();
@@ -4830,6 +4644,13 @@ bool Optimization::lcp_lemke(const MatrixNN& M, const VectorN& q, VectorN& z, Re
 
   // copy z to z0
   z0.copy_from(z);
+
+  // equilibrate M and q
+  equilibrate(M, q);
+
+  // come up with a sensible value for zero tolerance if none is given
+  if (zero_tol <= (Real) 0.0)
+    zero_tol = std::numeric_limits<Real>::epsilon() * n;
 
   FILE_LOG(LOG_OPT) << "Optimization::lcp_lemke() entered" << endl;
   FILE_LOG(LOG_OPT) << "  M: " << endl << M;
@@ -5003,10 +4824,13 @@ bool Optimization::lcp_lemke(const MatrixNN& M, const VectorN& q, VectorN& z, Re
       LinAlg::solve_LS_fast(A,d);
     }
 
+    // use a new pivot tolerance if necessary
+    const Real PIV_TOL = (piv_tol > (Real) 0.0) ? piv_tol : std::numeric_limits<Real>::epsilon() * n * std::max((Real) 1.0, Be.norm_inf());
+
     // ** find new leaving variable
     j.clear();
     for (unsigned i=0; i< d.size(); i++)
-      if (d[i] > piv_tol)
+      if (d[i] > PIV_TOL)
         j.push_back(i);
     // check for no new pivots; ray termination
     if (j.empty())
@@ -5097,9 +4921,12 @@ bool Optimization::lcp_lemke(const MatrixNN& M, const VectorN& q, VectorN& z, Re
 }
 
 /// Interior point method for solving convex linear complementarity problems
-bool Optimization::lcp_convex_ip(const MatrixNN& M, const VectorN& q, VectorN& z, Real tol, Real eps, Real eps_feas, unsigned max_iterations)
+bool Optimization::lcp_convex_ip(const MatrixN& M, const VectorN& q, VectorN& z, Real tol, Real eps, Real eps_feas, unsigned max_iterations)
 {
   const unsigned n = q.size();
+
+  if (M.rows() != M.columns())
+    throw NonsquareMatrixException();
 
   // setup convex optimization parameters
   OptParams cparams;
@@ -5141,9 +4968,15 @@ bool Optimization::lcp_convex_ip(const MatrixNN& M, const VectorN& q, VectorN& z
  * \note this method is via [Murty 1988]
  * \note convergence is not guaranteed
  */
-bool Optimization::lcp_iter_symm(const MatrixNN& M, const VectorN& q, VectorN& z, Real tol, const unsigned iter)
+bool Optimization::lcp_iter_symm(const MatrixN& M, const VectorN& q, VectorN& z, Real tol, const unsigned iter)
 {
-  unsigned n = q.size();
+  const unsigned n = q.size();
+
+  if (M.rows() != n)
+    throw MissizeException();
+
+  if (M.columns() != n)
+    throw NonsquareMatrixException();
 
   FILE_LOG(LOG_OPT) << "Optimization::solve_lcp_symm_iter() entered" << endl;
   FILE_LOG(LOG_OPT) << "M: " << std::endl << M;
@@ -5160,7 +4993,7 @@ bool Optimization::lcp_iter_symm(const MatrixNN& M, const VectorN& q, VectorN& z
   // setup work vectors and matrices
   VectorN row, znew;
   vector<VectorN> m;
-  MatrixNN L, G, U;
+  MatrixN L, G, U;
  
   // get rows of M
   m.resize(n);
@@ -5171,9 +5004,9 @@ bool Optimization::lcp_iter_symm(const MatrixNN& M, const VectorN& q, VectorN& z
   } 
 
   // compute L and G
-  L.set_zero(n);
-  G.set_zero(n);
-  U.set_zero(n);
+  L.set_zero(n,n);
+  G.set_zero(n,n);
+  U.set_zero(n,n);
   for (unsigned i=0; i< n; i++)
     for (unsigned j=0; j< n; j++)
     {
@@ -5253,13 +5086,13 @@ bool Optimization::lcp_iter_symm(const MatrixNN& M, const VectorN& q, VectorN& z
  * \note this method is via [Murty 1988]
  * \note convergence is guaranteed
  */
-bool Optimization::lcp_iter_PD(const MatrixNN& M, const VectorN& q, VectorN& x, Real tol, const unsigned iter)
+bool Optimization::lcp_iter_PD(const MatrixN& M, const VectorN& q, VectorN& x, Real tol, const unsigned iter)
 {
   const unsigned n = q.size();
 
   FILE_LOG(LOG_OPT) << "Optimization::lcp_iter_PD() entered" << endl;
 
-  MatrixNN eye, eyepM, B;
+  MatrixN eye, eyepM, B;
   VectorN r, oldx;
 
   // resize x if necessary
@@ -5565,14 +5398,14 @@ void Optimization::eliminate_redundant_constraints(MatrixN& A, VectorN& b)
 }
 
 /// Hessian helper function for solving convex LCPs
-void Optimization::qp_ip_hess(const VectorN& x, Real objscal, const VectorN& lambda, const VectorN& nu, MatrixNN& H, void* data)
+void Optimization::qp_ip_hess(const VectorN& x, Real objscal, const VectorN& lambda, const VectorN& nu, MatrixN& H, void* data)
 {
   // get the optimization data and QP data 
   const QPData& qpdata = *((QPData*) data);
   const OptParams& oparams = *((OptParams*) qpdata.data);
 
   // get G
-  const MatrixNN& G = qpdata.G;
+  const MatrixN& G = qpdata.G;
 
   // copy precomputed Hessian
   H.copy_from(G) *= objscal;
@@ -5586,7 +5419,7 @@ void Optimization::qp_ip_grad0(const VectorN& x, VectorN& g, void* data)
   const OptParams& oparams = *((OptParams*) qpdata.data);
 
   // get QP data necessary for computing gradients 
-  const MatrixNN& G = qpdata.G;
+  const MatrixN& G = qpdata.G;
   const VectorN& c = qpdata.c;
   const MatrixN& M = oparams.M;
 
@@ -5607,7 +5440,7 @@ Real Optimization::qp_ip_f0(const VectorN& x, void* data)
   SAFESTATIC VectorN workv;
 
   // get the QP data 
-  const MatrixNN& G = qpdata.G;
+  const MatrixN& G = qpdata.G;
   const VectorN& c = qpdata.c;
   const MatrixN& M = oparams.M;
   const VectorN& q = oparams.q;
@@ -5637,10 +5470,15 @@ Real Optimization::qp_ip_f0(const VectorN& x, void* data)
  * \param max_iterations the maximum number of iterations for the IP solver
  * \return true if successful, false otherwise
  */
-bool Optimization::qp_convex_ip(const MatrixNN& G, const VectorN& c, OptParams& oparams, VectorN& x)
+bool Optimization::qp_convex_ip(const MatrixN& G, const VectorN& c, OptParams& oparams, VectorN& x)
 {
   // get number of variables
-  unsigned n = c.size();
+  const unsigned n = c.size();
+
+  if (G.rows() != n)
+    throw MissizeException();
+  if (G.columns() != n)
+    throw NonsquareMatrixException();
 
   // setup x 
   x.set_zero(n);
@@ -5718,12 +5556,6 @@ bool Optimization::qp_convex_activeset_infeas_tcheck(const VectorN& x, void* dat
 
   // first check lower and upper bounds
   x.get_sub_vec(0, oparams.M.columns(), y);
-  for (unsigned i=0; i< oparams.lb.size(); i++)
-    if (y[i] < oparams.lb[i])
-      return false;
-  for (unsigned i=0; i< oparams.ub.size(); i++)
-    if (y[i] > oparams.ub[i])
-      return false;
 
   // check inequality feasibility
   oparams.M.mult(y, feas) -= oparams.q;
@@ -5749,26 +5581,59 @@ bool Optimization::qp_convex_activeset_infeas_tcheck(const VectorN& x, void* dat
 /**
  * This method is described in Nocedal and Wright, 1999, pg. 537.
  */
-void Optimization::qp_convex_activeset_infeas(const MatrixNN& G, const VectorN& c, Real upsilon, OptParams& qparams, VectorN& x, bool hot_start)
+void Optimization::qp_convex_activeset_infeas(const MatrixN& G, const VectorN& c, Real upsilon, OptParams& qparams, VectorN& x, bool hot_start)
 {
-  SAFESTATIC VectorN c2, q2, y, workv;
+  SAFESTATIC VectorN c2, q2, y, infeas_eq, infeas_ineq;
   SAFESTATIC MatrixN M2, A2;
-  SAFESTATIC MatrixNN G2;
+  SAFESTATIC MatrixN G2;
+  SAFESTATIC vector<bool> eq_indices, ineq_indices;
+
+  if (G.rows() != qparams.n)
+    throw MissizeException();
+  if (G.columns() != qparams.n)
+    throw NonsquareMatrixException();
 
   // don't do anything if we don't need to 
   if (qparams.n == 0)
     return;
 
-  // determine number of new variables
-  unsigned NAUG = 0;
-  if (qparams.b.size() > 0)
-    NAUG += qparams.b.size()*2;
-  if (qparams.q.size() > 0 || qparams.lb.size() > 0 || qparams.ub.size() > 0)
-    NAUG++;
+  // determine infeasibility
+  qparams.M.mult(x, infeas_ineq) -= qparams.q;
+  qparams.A.mult(x, infeas_eq) -= qparams.b;
+
+  // determine number of new variables for equality constraints
+  eq_indices.resize(infeas_eq.size());
+  unsigned NEQ = 0;
+  for (unsigned i=0; i< infeas_eq.size(); i++)
+  {
+    eq_indices[i] = (std::fabs(infeas_eq[i]) > std::numeric_limits<Real>::epsilon() * std::max(std::fabs(qparams.b[i]), (Real) 1.0));
+    if (eq_indices[i])
+      NEQ++;
+  }
+
+  // determine number of new variables for inequality constraints
+  ineq_indices.resize(infeas_ineq.size());
+  unsigned NINEQ = 0;
+  for (unsigned i=0; i< infeas_ineq.size(); i++)
+  {
+    ineq_indices[i] = (std::fabs(infeas_ineq[i]) < std::numeric_limits<Real>::epsilon() * -std::max(std::fabs(qparams.q[i]), (Real) 1.0));
+    if (ineq_indices[i])
+      NINEQ++;
+  }
+
+  // compute new variables necessary 
+  const unsigned NAUG = (NINEQ > 0) ? NEQ*2+1 : NEQ*2;
   const unsigned NVARS = qparams.n + NAUG;
 
   FILE_LOG(LOG_OPT) << "-- executing infeasible active set method" << endl;
   FILE_LOG(LOG_OPT) << "-- upsilon: " << upsilon << endl;
+
+  // verify that it is necessary to run this method
+  if (NAUG == 0)
+  {
+    FILE_LOG(LOG_OPT) << "-- no infeasibilities detected!" << endl;
+    return;
+  }
 
   // setup a new QP optimization
   SAFESTATIC OptParams qparams2;
@@ -5785,98 +5650,88 @@ void Optimization::qp_convex_activeset_infeas(const MatrixNN& G, const VectorN& 
   qparams2.ub.resize(0);
 
   // augment c
-  const unsigned NINEQ = qparams.q.size() + qparams.lb.size() + qparams.ub.size(); 
   const unsigned S_IDX = qparams.n;
   c2.resize(qparams2.n);
   c2.set_sub_vec(0, c);
-  c2[S_IDX] = upsilon * NINEQ;
-  for (unsigned i=qparams.n+1; i< NVARS; i++)
-    c2[i] = upsilon; 
+  std::fill_n(c2.begin()+qparams.n, NAUG, upsilon * NAUG);
 
   // setup q
-  qparams2.q.set_zero(qparams.q.size() + qparams.lb.size() + qparams.ub.size());
-  qparams2.q.set_sub_vec(0, qparams.q);
+  qparams2.q.copy_from(qparams.q);
+
+  // determine maximum inequality violation
+  Real* min_ineq = std::min_element(infeas_ineq.begin(), infeas_ineq.end());
 
   // augment M -- this part just adds s variable to standard inequalities
-  qparams2.M.set_zero(qparams2.q.size(), NVARS);
+  qparams2.M.resize(qparams.M.rows(), NVARS);
   qparams2.M.set_sub_mat(0,0,qparams.M);
+  BlockIterator bi = qparams2.M.block_start(0, qparams.M.rows(), qparams.n, NVARS);
+  std::fill_n(bi, NVARS*qparams.M.rows(), (Real) 0.0);
   for (unsigned i=0; i< qparams.q.size(); i++)
-    qparams2.M(i,qparams.n) = (Real) 1.0;
+    if (ineq_indices[i])
+      qparams2.M(i,qparams.n) = (Real) 1.0;
 
-  // add in lower bounds constraints on variables
-  for (unsigned i=0, j=qparams.q.size(); i< qparams.lb.size(); i++, j++)
+  // setup lb and ub - standard variables
+  qparams2.lb.resize(NVARS);
+  const Real INF = std::numeric_limits<Real>::max();
+  if (qparams.lb.size() > 0)
+    qparams2.lb.set_sub_vec(0, qparams.lb);
+  else
+    std::fill_n(qparams2.lb.begin(), qparams.n, -INF); 
+  if (qparams.ub.size() > 0)
   {
-    // lower bound -- var + s >= (old lower bound)
-    qparams2.M(j, i) = (Real) 1.0;
-    qparams2.M(j, qparams.n) = (Real) 1.0;
-    qparams2.q[j] = qparams.lb[i];
+    qparams2.ub.resize(NVARS);
+    qparams2.ub.set_sub_vec(0, qparams.ub);
+    std::fill_n(qparams2.ub.begin()+qparams.n, NVARS, INF); 
   }
-
-  // add in upper bounds constraints on variables
-  for (unsigned i=0, j=qparams.q.size()+qparams.lb.size(); i< qparams.ub.size(); i++, j++)
-  {
-    // upper bound --  -var + s >= -(old upper bound)
-    qparams2.M(j, i) = (Real) -1.0;
-    qparams2.M(j, qparams.n) = (Real) +1.0;
-    qparams2.q[j] = -qparams.ub[i];
-  }
+  else
+    qparams2.ub.resize(0);
 
   // setup non-negativity constraints on s, v, w
-  const Real INF = std::numeric_limits<Real>::max();
-  qparams2.lb.resize(NVARS);
-  for (unsigned i=0; i< qparams.n; i++)
-    qparams2.lb[i] = -INF;
   for (unsigned i=qparams.n; i< NVARS; i++)
     qparams2.lb[i] = (Real) 0.0;
 
-  // augment A
-  const unsigned V_IDX = (NINEQ == 0) ? qparams.n : qparams.n+1;
-  const unsigned W_IDX = V_IDX + qparams.b.size();
-  qparams2.A.set_zero(qparams.b.size(), NVARS);
+  // prepare to determine initial variable values
+  y.resize(NVARS);
+  y.set_sub_vec(0, x);
+  if (NINEQ > 0)
+    y[S_IDX] = nextafter(-*min_ineq, INF);
+
+  // augment A (and determine initial values for v,w)
+  const unsigned VW_IDX_START = (NINEQ == 0) ? qparams.n : qparams.n+1;
+  qparams2.b.copy_from(qparams.b);
+  qparams2.A.resize(qparams.b.size(), NVARS);
   qparams2.A.set_sub_mat(0,0,qparams.A);
-  for (unsigned i=0, j=V_IDX, k=W_IDX; i< qparams.b.size(); i++)
-  {
-    qparams2.A(i, j++) = (Real) -1.0;
-    qparams2.A(i, k++) = (Real) 1.0;
-  } 
+  bi = qparams2.A.block_start(0, qparams.A.rows(), qparams.n, NVARS);
+  std::fill_n(bi, qparams.A.rows()*NAUG, (Real) 0.0);
+  for (unsigned i=0, j=VW_IDX_START; i< qparams.b.size(); i++)
+    if (eq_indices[i])
+    {
+      qparams2.A(i, j+0) = (Real) -1.0;
+      qparams2.A(i, j+1) = (Real) 1.0;
+      if (infeas_eq[i] > (Real) 0.0)
+      {
+        y[j+0] = infeas_eq[i];
+        y[j+1] = (Real) 0.0;
+      }
+      else
+      {
+        y[j+0] = (Real) 0.0;
+        y[j+1] = -infeas_eq[i];
+      }
+    } 
 
   // augment G
-  G2.set_zero(NVARS);
+  G2.resize(NVARS,NVARS);
   G2.set_sub_mat(0,0,G);
-
-  // prepare to determine initial variable values
-  y.set_zero(NVARS);
-  y.set_sub_vec(0, x);
-
-  // determine initial value for s
-  qparams2.M.mult(y, workv) -= qparams2.q;
-  if (NINEQ > 0)
-  {
-    Real max_infeas = -*std::min_element(workv.begin(), workv.end());
-    y[S_IDX] = (max_infeas > 0) ? (max_infeas+nextafter(max_infeas, std::numeric_limits<Real>::max())) : std::numeric_limits<Real>::epsilon();
-  }
-
-  // determine initial values for v,w
-  if (qparams.b.size() > 0)
-  {
-    qparams.A.mult(x, workv) -= qparams.b;
-    if (qparams.b.size() > 0)
-    {
-      for (unsigned i=0, j=V_IDX, k=W_IDX; i< qparams.b.size(); i++, j++, k++)
-      {
-        if (workv[i] < (Real) 0.0)
-        {
-          y[j] = (Real) 0.0;
-          y[k] = -workv[i];
-        }
-        else
-        {
-          y[j] = workv[i];
-          y[k] = (Real) 0.0;
-        }
-      }
-    }
-  }
+  BlockIterator bs = G2.block_start(qparams.n, qparams.n+NAUG, 0, qparams.n);
+  BlockIterator be = G2.block_end(qparams.n, qparams.n+NAUG, 0, qparams.n);
+  std::fill_n(bs, be-bs, (Real) 0.0);
+  bs = G2.block_start(0, qparams.n, qparams.n, qparams.n+NAUG);
+  be = G2.block_end(0, qparams.n, qparams.n, qparams.n+NAUG);
+  std::fill_n(bs, be-bs, (Real) 0.0);
+  bs = G2.block_start(qparams.n, qparams.n+NAUG, qparams.n, qparams.n+NAUG);
+  be = G2.block_end(qparams.n, qparams.n+NAUG, qparams.n, qparams.n+NAUG);
+  std::fill_n(bs, be-bs, (Real) 0.0);
 
   // run the active set method
   qp_convex_activeset(G2, c2, qparams2, y, hot_start);
@@ -5954,7 +5809,8 @@ void WorkingSet::reset(const MatrixN& A, const MatrixN& M, const std::vector<boo
     _workM.resize(_Ar.rows()+1, _n);
     _workM.set_sub_mat(0,0,_Ar);
     _workM.set_row(_Ar.rows(), _workv);
-    if (LinAlg::calc_rank(_workM) < _workM.rows())
+    _workM2.copy_from(_workM);
+    if (LinAlg::calc_rank(_workM2) < _workM.rows())
       continue;
 
     // setup Ar
@@ -6011,7 +5867,7 @@ bool WorkingSet::full() const
 {
   // fast check
   assert(_nvworking <= _n - _nvworking);
-  return (_nworking == _n - _nvworking);
+  return (_nworking == _n - _nvworking - 1);
 }
 
 // attempts to add a variable to the working set; returns 'true' if successful
@@ -6320,6 +6176,46 @@ void WorkingSet::reform_AMr()
   }
 }
 
+/// Equilibrate a matrix
+void Optimization::equilibrate(MatrixN& A)
+{
+  if (A.rows() == 0)
+    return;
+
+  // scale
+  for (unsigned i=0; i< A.rows(); i++)
+  {
+    BlockIterator bi = A.block_start(i, i+1, 0, A.columns());
+    pair<BlockIterator, BlockIterator> mmax = boost::minmax_element(bi, bi.end());
+    Real scalar = std::max(-*mmax.first, *mmax.second);
+    assert(scalar > (Real) 0.0);
+    Real inv_scalar = (Real) 1.0/scalar;
+    std::transform(bi, bi.end(), bi, std::bind2nd(std::multiplies<Real>(), inv_scalar));
+  }
+}
+
+/// Equilibrates a linear system 
+void Optimization::equilibrate(MatrixN& A, VectorN& b)
+{
+  if (A.rows() != b.size())
+    throw MissizeException();
+
+  if (A.rows() == 0)
+    return;
+
+  // scale
+  for (unsigned i=0; i< A.rows(); i++)
+  {
+    BlockIterator bi = A.block_start(i, i+1, 0, A.columns());
+    pair<BlockIterator, BlockIterator> mmax = boost::minmax_element(bi, bi.end());
+    Real scalar = std::max(std::max(-*mmax.first, *mmax.second), std::fabs(b[i]));
+    assert(scalar > (Real) 0.0);
+    Real inv_scalar = (Real) 1.0/scalar;
+    std::transform(bi, bi.end(), bi, std::bind2nd(std::multiplies<Real>(), inv_scalar));
+    b[i] *= inv_scalar; 
+  }
+}
+
 /// Solves a convex quadratic program using a primal active set method
 /**
  * Minimzes: 0.5*x'*G*x + x'c subject to
@@ -6339,10 +6235,15 @@ void WorkingSet::reform_AMr()
  *        a feasible point on entry.
  * \note method comes via [Nocedal, 2006], pp. 468-480
  */
-void Optimization::qp_convex_activeset(const MatrixNN& G, const VectorN& c, OptParams& qparams, VectorN& x, bool hot_start)
+void Optimization::qp_convex_activeset(const MatrixN& G, const VectorN& c, OptParams& qparams, VectorN& x, bool hot_start)
 {
   const Real ZERO_TOL = qparams.zero_tol * qparams.zero_tol; 
   const Real INF = std::numeric_limits<Real>::max();
+
+  if (G.rows() != qparams.n)
+    throw MissizeException();
+  if (G.columns() != qparams.n)
+    throw NonsquareMatrixException();
 
   // get A, b, M, q
   VectorN& lb = qparams.lb;
@@ -6359,7 +6260,7 @@ void Optimization::qp_convex_activeset(const MatrixNN& G, const VectorN& c, OptP
   const MatrixN& AMr_full = ws.get_A_M();
 
   // determine n, r, s
-  const unsigned N = G.size();
+  const unsigned N = G.rows();
 
   FILE_LOG(LOG_OPT) << "qp_convex_activeset() entered" << endl;
   FILE_LOG(LOG_OPT) << "G: " << endl << G;
@@ -6423,33 +6324,12 @@ void Optimization::qp_convex_activeset(const MatrixNN& G, const VectorN& c, OptP
   q.copy_from(qparams.q);
   const unsigned S = M.rows();
 
-  // scale M and q
-  for (unsigned i=0; i< M.rows(); i++)
-  {
-    BlockIterator bs = M.block_start(i, i+1, 0, N);
-    BlockIterator be = M.block_end(i, i+1, 0, N);
-    pair<BlockIterator, BlockIterator> mmax = boost::minmax_element(bs, be);
-    Real scalar = std::max(std::max(-*mmax.first, *mmax.second), std::fabs(q[i]));
-    assert(scalar > (Real) 0.0);
-    Real inv_scalar = (Real) 1.0/scalar;
-    std::transform(bs, be, bs, std::bind2nd(std::multiplies<Real>(), inv_scalar));
-    q[i] *= inv_scalar; 
-  }
-
-  // scale A
-  for (unsigned i=0; i< A.rows(); i++)
-  {
-    BlockIterator bs = A.block_start(i, i+1, 0, N);
-    BlockIterator be = A.block_end(i, i+1, 0, N);
-    pair<BlockIterator, BlockIterator> mmax = boost::minmax_element(bs, be);
-    Real scalar = std::max(std::max(-*mmax.first, *mmax.second), std::fabs(b[i]));
-    assert(scalar > (Real) 0.0);
-    Real inv_scalar = (Real) 1.0/scalar;
-    std::transform(bs, be, bs, std::bind2nd(std::multiplies<Real>(), inv_scalar));
-  }
+  // equilibrate (normalize M,q and A) 
+  equilibrate(M, q);
+  equilibrate(A);
 
   // setup working variables
-  SAFESTATIC MatrixNN Gf, Lhs;
+  SAFESTATIC MatrixN Gf, Lhs;
   SAFESTATIC MatrixN workM;
   SAFESTATIC VectorN workv, workv2, dx, dxf, lambda, vlambda, grad, gradf, pz;
   SAFESTATIC vector<bool> blocking;
@@ -6463,47 +6343,35 @@ void Optimization::qp_convex_activeset(const MatrixNN& G, const VectorN& c, OptP
   workv += c;
   Real last_eval = x.dot(workv);
 
-  // compute equality feasibility
-  A.mult(x, workv) -= b;
-  FILE_LOG(LOG_OPT) << "  A*x - b: " << workv << endl;
-  for (unsigned i=0; i< workv.size(); i++)
-  {
-    const Real TOL = std::numeric_limits<Real>::epsilon() * std::fabs(b[i]); 
-     if (std::fabs(workv[i]) > TOL)
-      throw std::runtime_error("Initial point is not feasible!");
-  }
-
-  // compute inequality feasibility
-  M.mult(x, workv) -= q;
-  FILE_LOG(LOG_OPT) << "  M*x - q: " << workv << endl;
-  for (unsigned i=0; i< S; i++)
-  {
-    const Real TOL = std::numeric_limits<Real>::epsilon() * std::fabs(q[i]); 
-     if (workv[i] < -TOL)
-      throw std::runtime_error("Initial point is not feasible!");
-  }
-
   // reset the working set
   if (hot_start)
   {
+    unsigned total_working = A.rows();
+
     // determine the variables in the working set
     vworking.resize(N);
-    for (unsigned i=0; i< N; i++)
+    for (unsigned i=0; i< N && total_working < N-1; i++)
     {
       const Real TOL = std::numeric_limits<Real>::epsilon() * std::fabs(x[i]);
       if (std::fabs(x[i] - lb[i]) < TOL ||
           std::fabs(ub[i] - x[i]) < TOL)
+      {
+        total_working++;
         vworking[i] = true;
+      }
       else
         vworking[i] = false;
     }
 
     // determine working set (active lin. indep. inequality constraints)
+    M.mult(x, workv) -= q;
     working.resize(S);
-    for (unsigned i=0; i< S; i++)
+    for (unsigned i=0; i< S && total_working < N-1; i++)
     {
       const Real TOL = std::numeric_limits<Real>::epsilon() * std::fabs(q[i]);
       working[i] = (workv[i] < TOL);
+      if (working[i])
+        total_working++;
     }
 
     // now, reset the working set
@@ -6539,7 +6407,7 @@ void Optimization::qp_convex_activeset(const MatrixNN& G, const VectorN& c, OptP
 
     // get reduced matrices and vectors
     grad.select(free.begin(), free.end(), gradf);
-    G.select(free.begin(), free.end(), Gf);
+    G.select_square(free.begin(), free.end(), Gf);
 
     // compute the left hand side matrix Z'*Gf*Z
     Z.transpose_mult(Gf, workM);

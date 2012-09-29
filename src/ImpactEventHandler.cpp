@@ -810,7 +810,7 @@ void ImpactEventHandler::solve_nqp_work(EventProblemData& q, VectorN& z)
   // setup the optimization data
   SAFESTATIC ImpactOptData opt_data;
   MatrixN& R = opt_data.R;
-  MatrixNN& H = opt_data.H;
+  MatrixN& H = opt_data.H;
   VectorN& c = opt_data.c; 
 
   // init z
@@ -871,8 +871,8 @@ void ImpactEventHandler::solve_nqp_work(EventProblemData& q, VectorN& z)
   VectorN& qq = oparams.q;
 
   // init the QP matrix and vector
-  H.resize(N_PRIMAL);
-  c.resize(H.size());
+  H.resize(N_PRIMAL, N_PRIMAL);
+  c.resize(H.rows());
 
   // setup quadratic matrix 
   unsigned row = 0;
@@ -1072,7 +1072,7 @@ oparams.max_iterations = 10000;
 void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorN& z)
 {
   SAFESTATIC MatrixN sub, t1, t2, t3, neg1, A, AR, R, RTH;
-  SAFESTATIC MatrixNN H, MM;
+  SAFESTATIC MatrixN H, MM;
   SAFESTATIC VectorN negv, c, qq, nb, tmpv, y;
 
   // get the number of different types of each event
@@ -1121,12 +1121,12 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorN& z)
   // init the QP matrix and vector
   const unsigned KAPPA = (q.use_kappa) ? 1 : 0;
   const unsigned N_INEQUAL = N_CONTACTS + N_K_TOTAL + N_LIMITS + KAPPA;
-  H.resize(N_PRIMAL);
-  c.resize(H.size());
+  H.resize(N_PRIMAL, N_PRIMAL);
+  c.resize(H.rows());
   A.set_zero(N_INEQUAL, N_PRIMAL);
   nb.set_zero(N_INEQUAL);
-  MM.set_zero(N_PRIMAL + N_INEQUAL);
-  qq.resize(MM.size());
+  MM.set_zero(N_PRIMAL + N_INEQUAL, N_PRIMAL + N_INEQUAL);
+  qq.resize(MM.rows());
 
   // setup [Q M'; -M 0]
   unsigned col = 0, row = 0;
@@ -1279,7 +1279,7 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorN& z)
 /// Solves the (frictionless) LCP
 void ImpactEventHandler::solve_lcp(EventProblemData& q, VectorN& z)
 {
-  SAFESTATIC MatrixNN UL, LR, MM;
+  SAFESTATIC MatrixN UL, LR, MM;
   SAFESTATIC MatrixN UR, t2, iJx_iM_JxT;
   SAFESTATIC VectorN alpha_c, alpha_l, alpha_x, v1, v2, qq;
 
@@ -1304,12 +1304,13 @@ void ImpactEventHandler::solve_lcp(EventProblemData& q, VectorN& z)
   const unsigned NVARS = N_LOOPS + DELTA_IDX; 
 
   // setup sizes
-  UL.resize(N_CONTACTS);
+  UL.resize(N_CONTACTS, N_CONTACTS);
   UR.resize(N_CONTACTS, N_LIMITS);
-  LR.resize(N_LIMITS);
+  LR.resize(N_LIMITS, N_LIMITS);
 
   // setup primary terms -- first upper left hand block of matrix
-  LinAlg::pseudo_inverse(q.Jx_iM_JxT, iJx_iM_JxT);
+  iJx_iM_JxT.copy_from(q.Jx_iM_JxT);
+  LinAlg::pseudo_inverse(iJx_iM_JxT);
   q.Jc_iM_JxT.mult(iJx_iM_JxT, t2);
   t2.mult_transpose(q.Jc_iM_JxT, UL);
   // now do upper right hand block of matrix
@@ -1329,14 +1330,14 @@ void ImpactEventHandler::solve_lcp(EventProblemData& q, VectorN& z)
   LR.negate();
 
   // setup the LCP matrix
-  MM.resize(N_CONTACTS + N_LIMITS);
+  MM.resize(N_CONTACTS + N_LIMITS, N_CONTACTS + N_LIMITS);
   MM.set_sub_mat(0, 0, UL);
   MM.set_sub_mat(0, N_CONTACTS, UR);
   MM.set_sub_mat(N_CONTACTS, 0, UR, true);
   MM.set_sub_mat(N_CONTACTS, N_CONTACTS, LR);
 
   // setup the LCP vector
-  qq.resize(MM.size());
+  qq.resize(MM.rows());
   iJx_iM_JxT.mult(q.Jx_v, v2); 
   q.Jc_iM_JxT.mult(v2, v1);
   v1 -= q.Jc_v;
@@ -1405,7 +1406,7 @@ DynamicBodyPtr ImpactEventHandler::get_super_body(SingleBodyPtr sb)
 }
 
 /// The Hessian
-void ImpactEventHandler::sqp_hess(const VectorN& x, Real objscal, const VectorN& hlambda, const VectorN& nu, MatrixNN& H, void* data)
+void ImpactEventHandler::sqp_hess(const VectorN& x, Real objscal, const VectorN& hlambda, const VectorN& nu, MatrixN& H, void* data)
 {
   SAFESTATIC VectorN Gx, w, tmpv, ff, lambda;
   SAFESTATIC MatrixN t1, t2;
@@ -1439,7 +1440,7 @@ void ImpactEventHandler::sqp_hess(const VectorN& x, Real objscal, const VectorN&
   // get necessary data
   const VectorN& z = opt_data.z;
   const MatrixN& R = opt_data.R;
-  const MatrixNN& G = opt_data.H;
+  const MatrixN& G = opt_data.H;
   const VectorN& c = opt_data.c;
 
   // objective function is quadratic
@@ -1538,7 +1539,7 @@ void ImpactEventHandler::sqp_cJac(const VectorN& x, MatrixN& J, void* data)
   // get necessary data
   const VectorN& z = opt_data.z;
   const MatrixN& R = opt_data.R;
-  const MatrixNN& G = opt_data.H;
+  const MatrixN& G = opt_data.H;
   const VectorN& c = opt_data.c;
 
   // resize J
@@ -1805,7 +1806,7 @@ void ImpactEventHandler::sqp_grad0(const VectorN& x, VectorN& grad, void* data)
   const ImpactOptData& opt_data = *(const ImpactOptData*) data;
 
   // get necessary data
-  const MatrixNN& G = opt_data.H;
+  const MatrixN& G = opt_data.H;
   const VectorN& c = opt_data.c;
 
   // objective function is quadratic
@@ -1824,7 +1825,7 @@ Real ImpactEventHandler::sqp_f0(const VectorN& x, void* data)
   const EventProblemData& epd = *opt_data.epd;
 
   // get necessary data
-  const MatrixNN& G = opt_data.H;
+  const MatrixN& G = opt_data.H;
   const VectorN& c = opt_data.c;
 
   // objective function is quadratic
@@ -1869,7 +1870,7 @@ void ImpactEventHandler::sqp_fx(const VectorN& x, VectorN& fc, void* data)
   // get necessary data
   const VectorN& z = opt_data.z;
   const MatrixN& R = opt_data.R;
-  const MatrixNN& G = opt_data.H;
+  const MatrixN& G = opt_data.H;
   const VectorN& c = opt_data.c;
 
   // resize fc
