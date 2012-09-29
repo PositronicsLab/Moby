@@ -362,9 +362,11 @@ VectorN& VectorN::resize(unsigned N, bool preserve)
   if (_len == N)
     return *this;
 
-  // see whether we can just downsize
+  // see whether we can just change size 
   if (N < _capacity)
   {
+    // if we're preserving, we don't need to do anything 
+
     _len = N;
     return *this;
   }

@@ -156,7 +156,7 @@ void RigidBody::set_enabled(bool flag)
   else
   {
     _inv_mass = 1.0/_mass;
-    _invJ = Matrix3(LinAlg::pseudo_inverse(_J).begin());
+    _invJ = Matrix3::inverse(_J);
   }
 }
 
@@ -235,7 +235,7 @@ void RigidBody::set_inertia(const Matrix3& inertia)
   
   // set the inverse inertia to zero if body is disabled; to inverse of inertia otherwise
   if (_enabled)
-    _invJ = Matrix3(LinAlg::pseudo_inverse(inertia).begin());
+    _invJ = Matrix3::inverse(inertia);
   else
     _invJ = ZEROS_3x3;
 
@@ -1351,7 +1351,7 @@ void RigidBody::apply_generalized_impulse(GeneralizedCoordinateType gctype, cons
     assert(gctype == DynamicBody::eRodrigues);
 
     // get proper generalized inertia matrix
-    MatrixNN M;
+    MatrixN M;
     get_generalized_inertia(gctype, M);
     VectorN qd_delta = gj;
     LinAlg::solve_fast(M, qd_delta);
@@ -1535,17 +1535,17 @@ VectorN& RigidBody::get_generalized_acceleration(GeneralizedCoordinateType gctyp
 }
 
 /// Gets the generalized inertia of this rigid body
-MatrixNN& RigidBody::get_generalized_inertia(GeneralizedCoordinateType gctype, MatrixNN& M) 
+MatrixN& RigidBody::get_generalized_inertia(GeneralizedCoordinateType gctype, MatrixN& M) 
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
   // special case: disabled body
   if (!_enabled)
-    return M.resize(0);
+    return M.resize(0,0);
 
   // init the matrix to all zeros
   const unsigned NGC = num_generalized_coordinates(gctype);
-  M.set_zero(NGC);
+  M.set_zero(NGC,NGC);
 
   // upper left diagonal is mass
   M(X,X) = M(Y,Y) = M(Z,Z) = _mass;
@@ -1674,12 +1674,12 @@ VectorN& RigidBody::convert_to_generalized_force(GeneralizedCoordinateType gctyp
 }
 
 /// Verifies that a given transform is valid
-bool RigidBody::valid_transform(const MatrixNN& T, Real tol)
+bool RigidBody::valid_transform(const MatrixN& T, Real tol)
 {
   const unsigned X = 0, Y = 1, Z = 2, W = 3;
 
   // first make sure it is the proper size
-  if (T.rows() != 4)
+  if (T.rows() || T.columns() != 4)
     return false;
 
   // now get the upper 3x3 and make sure that it is valid

@@ -187,14 +187,14 @@ void MCArticulatedBody::determine_inertias()
 }
 
 /// Gets the generalized inertia matrix
-MatrixNN& MCArticulatedBody::get_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, MatrixNN& M)
+MatrixN& MCArticulatedBody::get_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, MatrixN& M)
 {
   // setup the sparse inertia matrix and inverse inertia matrix
-  MatrixNN gI;
+  MatrixN gI;
 
   // get the generalized inertia
   const unsigned NGC = num_generalized_coordinates(gctype);
-  M.set_zero(NGC);
+  M.set_zero(NGC, NGC);
   for (unsigned i=0, k=0; i< _links.size(); i++)
   {
     // set the proper component of the generalized inertia matrix
@@ -235,7 +235,8 @@ void MCArticulatedBody::precalc()
     _inv_Jx_iM_JxT.copy_from(_Jx_iM_JxT);
     if (!LinAlg::factor_chol(_inv_Jx_iM_JxT))
     {  
-      LinAlg::pseudo_inverse(_Jx_iM_JxT, _inv_Jx_iM_JxT);
+      _inv_Jx_iM_JxT.copy_from(_Jx_iM_JxT);
+      LinAlg::pseudo_inverse(_inv_Jx_iM_JxT);
       _rank_def = true;
     }
 
@@ -378,7 +379,7 @@ void MCArticulatedBody::calc_fwd_dyn(Real dt)
   SAFESTATIC VectorN ff, fext, C, tmpv, x, alpha_x, beta_x, delta, iM_fext, z;
   SAFESTATIC VectorN Jx_dot_xd, Jx_xd, vddt_plus_iM_fext, lambda;
   SAFESTATIC MatrixN RG, Jx_iM_DxT, A;
-  SAFESTATIC MatrixNN Dx_iM_DxT;
+  SAFESTATIC MatrixN Dx_iM_DxT;
 
   // do pre-calculations first
   precalc();
@@ -569,8 +570,8 @@ void MCArticulatedBody::calc_fwd_dyn(Real dt)
     }
 
   // compute the quadratic matrix
-  MatrixNN& G = copt_data.G;
-  G.set_zero(NN);
+  MatrixN& G = copt_data.G;
+  G.set_zero(NN, NN);
   G.set_sub_mat(0,0,_Jx_iM_JxT);
   G.set_sub_mat(0,N_EXPLICIT_CONSTRAINT_EQNS,Jx_iM_DxT);
   G.set_sub_mat(N_EXPLICIT_CONSTRAINT_EQNS,0,Jx_iM_DxT, true);
@@ -682,12 +683,12 @@ void MCArticulatedBody::calc_Dx_iM(SparseJacobian& Dx_iM) const
 }
 
 /// Computes the matrix Dx * inverse(M) * Dx' for use with computing sticking joint friction forces
-void MCArticulatedBody::calc_Dx_iM_DxT(MatrixNN& Dx_iM_DxT) const
+void MCArticulatedBody::calc_Dx_iM_DxT(MatrixN& Dx_iM_DxT) const
 {
   const unsigned SPATIAL_DIM = 6;
 
   // resize Dx_iM_DxT
-  Dx_iM_DxT.set_zero(_Dx.rows());
+  Dx_iM_DxT.set_zero(_Dx.rows(), _Dx.rows());
 
   // loop over all links 
   for (unsigned k=0; k< _links.size(); k++)
@@ -1187,8 +1188,10 @@ void MCArticulatedBody::get_mechanism_jacobian(MCArticulatedBody::SparseJacobian
     const SMatrix6N& s_dot = _joints[i]->get_spatial_axes_dot(eGlobal);
 
     // compute the pseudo inverse of s and \dot{s}
-    LinAlg::pseudo_inverse(s, pinv_s);
-    LinAlg::pseudo_inverse(s_dot, pinv_s_dot);
+    pinv_s.copy_from(s);
+    pinv_s_dot.copy_from(s_dot);
+    LinAlg::pseudo_inverse(pinv_s);
+    LinAlg::pseudo_inverse(pinv_s_dot);
 
     // compute special spatial transformations 
     SpatialTransform X0i(IDENTITY_3x3, rbi->get_position(), IDENTITY_4x4);

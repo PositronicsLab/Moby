@@ -11,6 +11,7 @@
 #include <Moby/MissizeException.h>
 #include <Moby/MatrixN.h>
 
+using std::vector;
 using namespace Moby;
 using boost::shared_array;
 
@@ -916,4 +917,180 @@ std::istream& Moby::operator>>(std::istream& in, MatrixN& m)
 
   return in;
 } 
+
+/// Checks whether the given matrix is symmetric to the specified tolerance
+bool MatrixN::is_symmetric(Real tolerance) const
+{
+  if (_rows != _columns)
+    return false;
+
+  // make sure that tolerance is positive 
+  if (tolerance <= (Real) 0.0)
+    tolerance = std::numeric_limits<Real>::epsilon() * norm_inf() * _rows;
+
+  // check symmetry
+  const unsigned LD = _rows;
+
+  // loop over columns
+  for (unsigned i=0, ii=0; i< _rows; i++, ii+= LD)
+    for (unsigned j=0, jj=0; j< i; j++, jj+= LD)
+      if (std::fabs(_data[jj+i] - _data[ii+j]) > tolerance)
+        return false;
+
+  return true;
+}
+
+/// Zeros the upper triangle of the matrix
+MatrixN& MatrixN::zero_upper_triangle()
+{
+  // check for easy exit
+  if (_rows == 0 || _columns == 0)
+    return *this;
+
+  // zero the upper triangle
+  for (unsigned i=0, s=_rows; i< _rows; i++, s+= _rows+1)
+    for (unsigned j=i+1, r=0; j< _columns; j++, r+= _rows)
+      _data[r+s] = (Real) 0.0;
+
+  return *this;
+}
+
+/// Zeros the lower triangle of the matrix
+MatrixN& MatrixN::zero_lower_triangle()
+{
+  // check for easy exit
+  if (_rows == 0 || _columns == 0)
+    return *this;
+
+  // zero the lower triangle
+  for (unsigned i=1, s=1; i< _rows; i++, s++)
+    for (unsigned j=0, r=0; j< std::min(i, _columns); j++, r+= _rows)
+      _data[r+s] = (Real) 0.0;
+
+  return *this;
+}
+
+
+/// Returns an identity matrix
+MatrixN MatrixN::identity(unsigned n)
+{
+  MatrixN m;
+  m.set_identity(n);
+  return m;
+}
+
+/// Sets this matrix to the identity matrix
+MatrixN& MatrixN::set_identity(unsigned i)
+{
+  resize(i,i);
+  set_zero();
+  for (unsigned i=0, j=0; i< _rows; i++, j+= _rows+1)
+    _data[j] = (Real) 1.0;
+
+  return *this;
+}
+
+/// Sets this matrix to the identity matrix
+MatrixN& MatrixN::set_identity()
+{
+  if (_rows != _columns)
+    throw MissizeException();
+  set_identity(_rows);
+}
+
+/// Multiplies the diagonal matrix formed from d by the matrix m (slow, convenient method)
+MatrixN MatrixN::diag_mult(const VectorN& d, const MatrixN& m) 
+{
+  MatrixN result;
+  diag_mult(d, m, result);
+  return result;
+}
+
+/// Multiplies the diagonal matrix formed from d by the matrix transpose(m) (slow, convenient method)
+MatrixN MatrixN::diag_mult_transpose(const VectorN& d, const MatrixN& m)
+{
+  MatrixN result;
+  diag_mult_transpose(d, m, result);
+  return result;
+}
+
+/// Multiplies the diagonal matrix formed from d by the matrix m
+MatrixN& MatrixN::diag_mult(const VectorN& d, const MatrixN& m, MatrixN& result)
+{
+  if (d.size() != m.rows())
+    throw MissizeException();
+
+  result.resize(d.size(), m.columns());
+  for (unsigned i=0; i< m.columns(); i++)
+    std::transform(d.begin(), d.end(), m.begin()+m.rows()*i, result.begin()+result.rows()*i, std::multiplies<Real>());
+
+  return result;
+}
+
+/// Multiplies the diagonal matrix formed from d by the matrix transpose(m)
+MatrixN& MatrixN::diag_mult_transpose(const VectorN& d, const MatrixN& m, MatrixN& result)
+{
+  if (d.size() != m.columns())
+    throw MissizeException();
+
+  // copy the transpose of m to the result
+  MatrixN::transpose(m, result);
+
+  // do the specified number of times
+  for (unsigned i=0; i< m.rows(); i++)
+    CBLAS::scal(d.size(), d[i], result.begin()+i, result.rows());
+
+  return result;
+}
+
+/// Multiplies the diagonal matrix formed from d by the vector v
+VectorN& MatrixN::diag_mult(const VectorN& d, const VectorN& v, VectorN& result)
+{
+  if (d.size() != v.size())
+    throw MissizeException();
+
+  result.resize(d.size());
+  std::transform(d.begin(), d.end(), v.begin(), result.begin(), std::multiplies<Real>());
+  return result;
+}
+
+/// Multiplies the diagonal matrix formed from d by the vector v (slow, convenient method)
+VectorN MatrixN::diag_mult(const VectorN& d, const VectorN& v)
+{
+  VectorN result;
+  return diag_mult(d, v, result);
+}
+
+/// Selects a submatrix from this (slow, convenient method)
+MatrixN MatrixN::select_square(const vector<bool>& indices) const
+{
+  MatrixN result;
+  return select_square(indices, result);
+}
+
+/// Selects a submatrix from this (square matrix)
+MatrixN& MatrixN::select_square(const vector<bool>& indices, MatrixN& result) const
+{
+  const unsigned n = rows();
+  assert(n == indices.size());
+
+  // determine how many indices are selected and resize result vector
+  unsigned nselect = 0;
+  for (unsigned i=0; i< n; i++)
+    if (indices[i])
+      nselect++;
+  result.resize(nselect, nselect);
+
+  // get the source and target data
+  const Real* source = data();
+  Real* target = result.data();
+ 
+  // copy 
+  for (unsigned i=0, s=0, t=0; i< n; i++)
+    for (unsigned j=0; j< n; j++, s++)
+      if (indices[i] && indices[j])
+        target[t++] = source[s];
+
+  return result;
+}
 
