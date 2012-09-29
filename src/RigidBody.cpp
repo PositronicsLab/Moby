@@ -1702,7 +1702,7 @@ Real RigidBody::calc_kinetic_energy() const
 
   // convert J to world frame
   Matrix3 R = _F.get_rotation();
-  Matrix3 J0 = R * J0 * Matrix3::transpose(R);
+  Matrix3 J0 = R * _J * Matrix3::transpose(R);
 
   Real le = _xd.norm_sq() * _mass;
   Real ae = _omega.dot(J0 * _omega);
@@ -1791,6 +1791,8 @@ void RigidBody::update_velocity(const EventProblemData& q)
   // setup summed impulses
   Vector3 j = ZEROS_3, k = ZEROS_3;
 
+  FILE_LOG(LOG_CONTACT) << "RigidBody::update_velocity() entered" << std::endl;
+
   // update velocity using contact impulses
   for (unsigned i=0, s=0; i< q.contact_events.size(); i++)
   {
@@ -1804,6 +1806,8 @@ void RigidBody::update_velocity(const EventProblemData& q)
       s += 2;
       continue;
     }
+
+    FILE_LOG(LOG_CONTACT) << "  contact impulse magnitudes: " << q.alpha_c[i] << " " << q.beta_c[s] << " " << q.beta_c[s+1] << std::endl;
 
     // check whether to negate normal
     bool negate = (sb2.get() == this);
@@ -1821,12 +1825,18 @@ void RigidBody::update_velocity(const EventProblemData& q)
     k += cross*q.alpha_c[i];
 
     // now do tangent impulses
-    cross = Vector3::cross(r, q.contact_events[i]->contact_tan1);
-    j += q.contact_events[i]->contact_tan1*q.beta_c[s];
+    n = q.contact_events[i]->contact_tan1;
+    if (negate)
+      n = -n;
+    cross = Vector3::cross(r, n);
+    j += n*q.beta_c[s];
     k += cross*q.beta_c[s];
     s++;
-    cross = Vector3::cross(r, q.contact_events[i]->contact_tan2);
-    j += q.contact_events[i]->contact_tan2*q.beta_c[s];
+    n = q.contact_events[i]->contact_tan2;
+    if (negate)
+      n = -n;
+    cross = Vector3::cross(r, n);
+    j += n*q.beta_c[s];
     k += cross*q.beta_c[s];
     s++;
   }
@@ -1837,7 +1847,7 @@ void RigidBody::update_velocity(const EventProblemData& q)
   else
     apply_impulse(j, k, _x);
 
-  FILE_LOG(LOG_CONTACT) << "RigidBody::update_velocity() entered" << std::endl;
+  FILE_LOG(LOG_CONTACT) << "  applying impulses: " << j << " / " << k << std::endl;
   FILE_LOG(LOG_CONTACT) << "  new linear velocity for " << id << ": " << _xd << std::endl;
   FILE_LOG(LOG_CONTACT) << "  new angular velocity for " << id << ": " << _omega << std::endl;
   for (unsigned i=0; i< q.contact_events.size(); i++)
