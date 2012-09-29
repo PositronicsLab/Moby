@@ -4775,11 +4775,17 @@ void Optimization::qp_to_lcp2(const MatrixNN& G, const VectorN& c, const MatrixN
 /// Regularized wrapper around Lemke's algorithm
 bool Optimization::lcp_lemke_regularized(const MatrixNN& M, const VectorN& q, VectorN& z, int min_exp, unsigned step_exp, int max_exp, Real piv_tol, Real zero_tol)
 {
+  FILE_LOG(LOG_OPT) << "Optimization::lcp_lemke_regularized() entered" << endl;
+
   // try non-regularized version first
   bool result = lcp_lemke(M, q, z, piv_tol, zero_tol);
   if (result)
+  {
+    FILE_LOG(LOG_OPT) << "  solved with no regularization necessary!" << endl;
+    FILE_LOG(LOG_OPT) << "Optimization::lcp_lemke_regularized() exited" << endl;
     return true;
-  
+  }
+
   // start the regularization process
   MatrixNN MM;
   int rf = min_exp;
@@ -4795,11 +4801,18 @@ bool Optimization::lcp_lemke_regularized(const MatrixNN& M, const VectorN& q, Ve
 
     // try to solve the LCP
     if ((result = lcp_lemke(MM, q, z, piv_tol, zero_tol)))
+    {
+      FILE_LOG(LOG_OPT) << "  solved with regularization factor: " << lambda << endl;
+      FILE_LOG(LOG_OPT) << "Optimization::lcp_lemke_regularized() exited" << endl;
       return true;
+    }
 
     // increase rf
     rf += step_exp;
   }
+
+  FILE_LOG(LOG_OPT) << "  unable to solve given any regularization!" << endl;
+  FILE_LOG(LOG_OPT) << "Optimization::lcp_lemke_regularized() exited" << endl;
 
   // still here?  failure...
   return false;

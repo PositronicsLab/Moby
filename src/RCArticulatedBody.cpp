@@ -2911,6 +2911,9 @@ void RCArticulatedBody::load_from_xml(XMLTreeConstPtr node, map<string, BasePtr>
   const XMLAttrib* bbeta_attr = node->get_attrib("baumgarte-beta");
   if (bbeta_attr)
     b_beta = bbeta_attr->get_real_value();
+
+  // compile everything once again, for safe measure
+  compile();
 }
 
 /// Implements Base::save_to_xml()
