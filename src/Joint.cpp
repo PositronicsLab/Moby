@@ -612,7 +612,7 @@ void Joint::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects
   // save the joint position and velocity
   node->attribs.insert(XMLAttrib("q", q));
   node->attribs.insert(XMLAttrib("qd", qd));
-  node->attribs.insert(XMLAttrib("q_init", _qtare));
+  node->attribs.insert(XMLAttrib("q_init", _q_tare));
 
   // save the Coulomb and viscous friction coefficients
   node->attribs.insert(XMLAttrib("coulomb-friction-coeff", mu_fc));
