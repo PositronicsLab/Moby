@@ -4517,7 +4517,7 @@ bool Optimization::lcp_lemke_regularized(const MatrixN& M, const VectorN& q, Vec
   MatrixN& MM = MM_x();
 
   // look for fast exit
-  if (q.size())
+  if (q.size() == 0)
   {
     z.resize(0);
     return true;
@@ -4527,21 +4527,24 @@ bool Optimization::lcp_lemke_regularized(const MatrixN& M, const VectorN& q, Vec
   MM.copy_from(M);
   qq.copy_from(q);
 
+  // assign value for zero tolerance, if necessary
+  const Real ZERO_TOL = (zero_tol > (Real) 0.0) ? zero_tol : q.size() * std::numeric_limits<Real>::epsilon();
+
   // try non-regularized version first
   bool result = lcp_lemke(MM, qq, z, piv_tol, zero_tol);
   if (result)
   {
     // verify that solution truly is a solution -- check z
-    if (*std::min_element(z.begin(), z.end()) >= -zero_tol)
+    if (*std::min_element(z.begin(), z.end()) >= -ZERO_TOL)
     {
       // check w
       M.mult(z, w) += q;
-      if (*std::min_element(w.begin(), w.end()) >= -zero_tol)
+      if (*std::min_element(w.begin(), w.end()) >= -ZERO_TOL)
       {
         // check z'w
         std::transform(z.begin(), z.end(), w.begin(), w.begin(), std::multiplies<Real>());
         pair<Real*, Real*> mmax = boost::minmax_element(w.begin(), w.end());
-        if (*mmax.first >= -zero_tol && *mmax.second < zero_tol)
+        if (*mmax.first >= -ZERO_TOL && *mmax.second < ZERO_TOL)
         {
           FILE_LOG(LOG_OPT) << "  solved with no regularization necessary!" << endl;
           FILE_LOG(LOG_OPT) << "Optimization::lcp_lemke_regularized() exited" << endl;
@@ -4563,32 +4566,35 @@ bool Optimization::lcp_lemke_regularized(const MatrixN& M, const VectorN& q, Vec
     for (unsigned i=0; i< MM.rows(); i++)
       MM(i,i) += lambda;
 
+    // recopy q
+    qq.copy_from(q);
+
     // try to solve the LCP
     if ((result = lcp_lemke(MM, qq, z, piv_tol, zero_tol)))
     {
-      FILE_LOG(LOG_OPT) << "  solved with regularization factor: " << lambda << endl;
-      FILE_LOG(LOG_OPT) << "Optimization::lcp_lemke_regularized() exited" << endl;
-
       // verify that solution truly is a solution -- check z
-      if (*std::min_element(z.begin(), z.end()) < -zero_tol)
-        continue; 
+      if (*std::min_element(z.begin(), z.end()) > -ZERO_TOL)
+      {
+        // check w
+        MM.copy_from(M);
+        for (unsigned i=0; i< MM.rows(); i++)
+          MM(i,i) += lambda;
+        qq.copy_from(q);
+        MM.mult(z, w) += qq;
+        if (*std::min_element(w.begin(), w.end()) > -ZERO_TOL)
+        {
+          // check z'w
+          std::transform(z.begin(), z.end(), w.begin(), w.begin(), std::multiplies<Real>());
+          pair<Real*, Real*> mmax = boost::minmax_element(w.begin(), w.end());
+          if (*mmax.first > -ZERO_TOL && *mmax.second < ZERO_TOL)
+          {
+            FILE_LOG(LOG_OPT) << "  solved with regularization factor: " << lambda << endl;
+            FILE_LOG(LOG_OPT) << "Optimization::lcp_lemke_regularized() exited" << endl;
 
-      // check w
-      MM.copy_from(M);
-      for (unsigned i=0; i< MM.rows(); i++)
-        MM(i,i) += lambda;
-      qq.copy_from(q);
-      MM.mult(z, w) += qq;
-      if (*std::min_element(w.begin(), w.end()) < -zero_tol)
-        continue;
-
-      // check z'w
-      std::transform(z.begin(), z.end(), w.begin(), w.begin(), std::multiplies<Real>());
-      pair<Real*, Real*> mmax = boost::minmax_element(w.begin(), w.end());
-      if (*mmax.first < -zero_tol || *mmax.second > zero_tol)
-        continue;
-
-      return true;
+            return true;
+          }
+        }
+      }
     }
 
     // increase rf

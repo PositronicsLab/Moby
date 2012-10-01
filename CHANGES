@@ -1,3 +1,7 @@
+r560
+----
+- Fixed some bugs in regularized LCP solver
+
 r559
 ----
 - Removed MatrixNN
