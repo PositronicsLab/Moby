@@ -16,6 +16,7 @@
 #include <Moby/cblas.h>
 #include "clapack.h"
 #include <Moby/MissizeException.h>
+#include <Moby/NonsquareMatrixException.h>
 #include <Moby/NumericalException.h>
 #include <Moby/SingularException.h>
 #include <Moby/Log.h>
@@ -901,20 +902,23 @@ static void orgqr_(INTEGER* M, INTEGER* N, INTEGER* K, mpfr::mpreal* A, INTEGER*
 /**
  * \param A the matrix A on input; the factorized matrix on output
  */
-void LinAlg::factor_LDL(MatrixNN& A, vector<int>& IPIV)
+void LinAlg::factor_LDL(MatrixN& A, vector<int>& IPIV)
 {
+  if (A.rows() != A.columns())
+    throw NonsquareMatrixException();
+
   // verify that A is not zero sized
-  if (A.size() == 0)
+  if (A.rows() == 0 || A.columns() == 0)
     return;
 
   // verify that A is symmetric
   #ifndef NDEBUG
-  if (!A.is_symmetric(std::sqrt(std::numeric_limits<Real>::epsilon())))
+  if (!A.is_symmetric())
     FILE_LOG(LOG_LINALG) << "LinAlg::factor_LDL() warning: matrix is assymetrical!" << endl;
   #endif
 
   // resize IPIV
-  IPIV.resize(A.size());
+  IPIV.resize(A.rows());
 
   // setup LAPACK args for factorization
   char UPLO = 'L';
@@ -925,10 +929,10 @@ void LinAlg::factor_LDL(MatrixNN& A, vector<int>& IPIV)
   Real* data = A.begin();
 
   // alter matrix to put into packed format
-  for (unsigned j=0, k=0; j< A.size(); j++)
-    for (unsigned i=0; i< A.size(); i++)
+  for (unsigned j=0, k=0, r=0; j< A.rows(); j++, r++)
+    for (unsigned i=0, s=0; i< A.columns(); i++, s+= A.rows())
       if (i >= j)
-         data[k++] = A(i,j);
+         data[k++] = data[r+s];
 
   // perform the factorization
   sptrf_(&UPLO, &N, A.data(), &IPIV.front(), &INFO);
@@ -940,15 +944,18 @@ void LinAlg::factor_LDL(MatrixNN& A, vector<int>& IPIV)
  * \param A the matrix A on input; the factorized (upper triangular) matrix on output
  * \return <b>true</b> if matrix factored successfully, <b>false</b> otherwise
  */
-bool LinAlg::factor_chol(MatrixNN& A)
+bool LinAlg::factor_chol(MatrixN& A)
 {
+  if (A.rows() != A.columns())
+    throw NonsquareMatrixException();
+
   // verify that A is not zero sized
-  if (A.size() == 0)
+  if (A.rows() == 0 || A.columns() == 0)
     return true;
 
   // setup LAPACK args for Cholesky factorization
   char UPLO = 'U';
-  INTEGER N = A.size();
+  INTEGER N = A.rows();
   INTEGER INFO;
 
   // perform the Cholesky factorization
@@ -958,10 +965,7 @@ bool LinAlg::factor_chol(MatrixNN& A)
     return false;
 
   // make the matrix upper triangular
-  for (unsigned i=1; i< A.size(); i++)
-    for (unsigned j=0; j< i; j++)
-      A(i,j) = (Real) 0.0;
-
+  A.zero_lower_triangle();
   return true;
 }
 
@@ -988,7 +992,7 @@ void LinAlg::factor_QR(MatrixN& AR, MatrixN& Q, vector<int>& PI)
   for (int i=0; i< N; i++)
     PI[i] = 0;
 
-  // call LAPACK to determine work size
+  // call LAPACK
   INTEGER LDA = AR.rows();
   INTEGER INFO;
   geqp3_(&M, &N, AR.begin(), &LDA, &PI[0], TAU().begin(), &INFO);
@@ -998,13 +1002,11 @@ void LinAlg::factor_QR(MatrixN& AR, MatrixN& Q, vector<int>& PI)
   for (int i=0; i< N; i++)
     PI[i]--;
 
-  // setup R
-  for (unsigned i=0; i< (unsigned) N; i++)
-    for (unsigned j=i+1; j< (unsigned) M; j++)
-      AR(j,i) = 0.0;
-
   // resize AR
   AR.resize(std::min(AR.rows(), AR.columns()), AR.columns(), true);
+
+  // make R upper triangular
+  AR.zero_lower_triangle();
 }
 
 /// Performs the QR factorization of a matrix
@@ -1050,9 +1052,7 @@ void LinAlg::factor_QR(MatrixN& AR, MatrixN& Q)
   orgqr_(&M, &MINMN, &MINMN, Q.begin(), &M, tau.begin(), &INFO);
   
   // make R triangular
-  for (unsigned i=0; i< n; i++)
-    for (unsigned j=i+1; j< m; j++)
-      AR(j,i) = 0.0;
+  AR.zero_lower_triangle();
 
   // note: R is m x n, so we don't have to resize 
 }
@@ -1091,14 +1091,17 @@ bool LinAlg::factor_LU(MatrixN& A, vector<int>& IPIV)
  * \param IPIV the pivots determined by factor_LU()
  * \note throws SingularException if matrix is singular
  */
-MatrixNN& LinAlg::inverse_LU(MatrixNN& M, const vector<int>& IPIV)
+MatrixN& LinAlg::inverse_LU(MatrixN& M, const vector<int>& IPIV)
 {
-  if (M.size() == 0)
+  if (M.rows() == 0 || M.columns() == 0)
     return M;
+
+  if (M.rows() != M.columns())
+    throw NonsquareMatrixException();
 
   // call lapack
   INTEGER INFO;
-  INTEGER N = M.size();
+  INTEGER N = M.rows();
   getri_(&N, M.begin(), &N, (INTEGER*) &IPIV.front(), &INFO);
   if (INFO > 0)
     throw SingularException();
@@ -1111,52 +1114,25 @@ MatrixNN& LinAlg::inverse_LU(MatrixNN& M, const vector<int>& IPIV)
  * \param A the matrix
  * \param utri if <b>true</b> A is upper triangular (lower triangular otherwise)
  * \param transpose_A if <b>true</b>, solves A'*x = b
- * \param b the right hand side 
- * \return the solution vector x
- */
-VectorN LinAlg::solve_tri(const MatrixNN& A, bool utri, bool transpose_A, const VectorN& b)
-{
-  VectorN x;
-  x = b;
-  return solve_tri_fast(A, utri, transpose_A, x);
-}
-
-/// Solves a triangular system of linear equations
-/**
- * \param A the matrix
- * \param utri if <b>true</b> A is upper triangular (lower triangular otherwise)
- * \param transpose_A if <b>true</b>, solves A'*X = B
- * \param B the right hand side 
- * \return the solution vector X
- */
-MatrixN LinAlg::solve_tri(const MatrixNN& A, bool utri, bool transpose_A, const MatrixN& B)
-{
-  MatrixN X;
-  X = B;
-  return solve_tri_fast(A, utri, transpose_A, X);
-}
-
-/// Solves a triangular system of linear equations
-/**
- * \param A the matrix
- * \param utri if <b>true</b> A is upper triangular (lower triangular otherwise)
- * \param transpose_A if <b>true</b>, solves A'*x = b
  * \param xb contains b on entry, x on return
  * \return reference to xb
  */
-VectorN& LinAlg::solve_tri_fast(const MatrixNN& A, bool utri, bool transpose_A, VectorN& xb)
+VectorN& LinAlg::solve_tri_fast(const MatrixN& A, bool utri, bool transpose_A, VectorN& xb)
 {
-  if (A.size() != xb.size())
+  if (A.rows() != xb.size())
     throw MissizeException();
 
-  if (A.size() == 0)
+  if (A.rows() == A.columns())
+    throw NonsquareMatrixException();
+
+  if (A.rows() == 0)
     return xb.set_zero();
 
   // setup parameters for LAPACK
   char TRANS = (transpose_A) ? 'T' : 'N';
   char UPLO = (utri) ? 'U' : 'L';
-  INTEGER N = A.size();
-  INTEGER LDA = A.size();
+  INTEGER N = A.rows();
+  INTEGER LDA = A.rows();
   INTEGER LDB = xb.size();
   INTEGER NRHS = 1;
   INTEGER INFO;
@@ -1173,19 +1149,22 @@ VectorN& LinAlg::solve_tri_fast(const MatrixNN& A, bool utri, bool transpose_A, 
  * \param XB contains B on entry, X on return
  * \return reference to xb
  */
-MatrixN& LinAlg::solve_tri_fast(const MatrixNN& A, bool utri, bool transpose_A, MatrixN& XB)
+MatrixN& LinAlg::solve_tri_fast(const MatrixN& A, bool utri, bool transpose_A, MatrixN& XB)
 {
-  if (A.size() != XB.rows())
+  if (A.rows() != XB.rows())
     throw MissizeException();
 
-  if (A.size() == 0)
+  if (A.rows() == A.columns())
+    throw NonsquareMatrixException();
+
+  if (A.rows() == 0)
     return XB.set_zero();
 
   // setup parameters for LAPACK
   char TRANS = (transpose_A) ? 'T' : 'N';
   char UPLO = (utri) ? 'U' : 'L';
-  INTEGER N = A.size();
-  INTEGER LDA = A.size();
+  INTEGER N = A.rows();
+  INTEGER LDA = A.rows();
   INTEGER LDB = XB.rows();
   INTEGER NRHS = XB.columns();
   INTEGER INFO;
@@ -1199,17 +1178,20 @@ MatrixN& LinAlg::solve_tri_fast(const MatrixNN& A, bool utri, bool transpose_A, 
  * \param M the factorization performed by factor_LDL()
  * \param xb the right hand side (b) on input, the vector x on return
  */
-VectorN& LinAlg::solve_LDL_fast(const MatrixNN& M, const vector<int>& IPIV, VectorN& xb)
+VectorN& LinAlg::solve_LDL_fast(const MatrixN& M, const vector<int>& IPIV, VectorN& xb)
 {
-  if (M.size() != xb.size())
+  if (M.rows() != M.columns())
+    throw NonsquareMatrixException();
+
+  if (M.rows() != xb.size())
     throw MissizeException();
 
-  if (M.size() == 0)
+  if (M.rows() == 0)
     return xb.set_zero();
 
   // setup parameters for LAPACK
   char UPLO = 'L';
-  INTEGER N = M.size();
+  INTEGER N = M.rows();
   INTEGER NRHS = 1;
   INTEGER LDB = xb.size();
   INTEGER INFO;
@@ -1226,18 +1208,21 @@ VectorN& LinAlg::solve_LDL_fast(const MatrixNN& M, const vector<int>& IPIV, Vect
  * \param M the factorization performed by factor_LDL()
  * \param XB the right hand sides on input, the vectors X on return
  */
-MatrixN& LinAlg::solve_LDL_fast(const MatrixNN& M, const vector<int>& IPIV, MatrixN& XB)
+MatrixN& LinAlg::solve_LDL_fast(const MatrixN& M, const vector<int>& IPIV, MatrixN& XB)
 {
-  if (M.size() != XB.rows())
+  if (M.rows() != XB.rows())
     throw MissizeException();
 
+  if (M.rows() != M.columns())
+    throw NonsquareMatrixException();
+
   // check for empty matrix
-  if (M.size() == 0)
+  if (M.rows() == 0)
     return XB.set_zero();
 
   // setup parameters for LAPACK
   char UPLO = 'U';
-  INTEGER N = M.size();
+  INTEGER N = M.rows();
   INTEGER NRHS = XB.columns();
   INTEGER LDB = XB.rows();
   INTEGER INFO;
@@ -1255,7 +1240,7 @@ MatrixN& LinAlg::solve_LDL_fast(const MatrixNN& M, const vector<int>& IPIV, Matr
  * \param b the right hand side
  * \return the solution x to Mx = b
  */
-VectorN LinAlg::solve_chol(const MatrixNN& M, const VectorN& b)
+VectorN LinAlg::solve_chol(const MatrixN& M, const VectorN& b)
 {
   VectorN x;
   x = b;
@@ -1268,19 +1253,22 @@ VectorN LinAlg::solve_chol(const MatrixNN& M, const VectorN& b)
  * \param M the Cholesky decomposition performed by factor_chol()
  * \param xb the right hand side on input, the vector x on return
  */
-VectorN& LinAlg::solve_chol_fast(const MatrixNN& M, VectorN& xb)
+VectorN& LinAlg::solve_chol_fast(const MatrixN& M, VectorN& xb)
 {
-  if (M.size() != xb.size())
+  if (M.rows() != xb.size())
     throw MissizeException();
 
-  if (M.size() == 0)
+  if (M.rows() != M.columns())
+    throw NonsquareMatrixException();
+
+  if (M.rows() == 0)
     return xb.set_zero();
 
   // setup parameters for LAPACK
   char UPLO = 'U';
-  INTEGER N = M.size();
+  INTEGER N = M.rows();
   INTEGER NRHS = 1;
-  INTEGER LDA = M.size();
+  INTEGER LDA = M.rows();
   INTEGER LDB = xb.size();
   INTEGER INFO;
 
@@ -1297,7 +1285,7 @@ VectorN& LinAlg::solve_chol_fast(const MatrixNN& M, VectorN& xb)
  * \param B the right hand side
  * \return the solution X to MX = B
  */
-MatrixN LinAlg::solve_chol(const MatrixNN& M, const MatrixN& B)
+MatrixN LinAlg::solve_chol(const MatrixN& M, const MatrixN& B)
 {
   MatrixN X;
   X = B;
@@ -1310,20 +1298,23 @@ MatrixN LinAlg::solve_chol(const MatrixNN& M, const MatrixN& B)
  * \param M the Cholesky decomposition performed by factor_chol()
  * \param XB the right hand sides on input, the vectors X on return
  */
-MatrixN& LinAlg::solve_chol_fast(const MatrixNN& M, MatrixN& XB)
+MatrixN& LinAlg::solve_chol_fast(const MatrixN& M, MatrixN& XB)
 {
-  if (M.size() != XB.rows())
+  if (M.rows() != XB.rows())
     throw MissizeException();
 
+  if (M.rows() != M.columns())
+    throw NonsquareMatrixException();
+
   // check for empty matrices
-  if (M.size() == 0 || XB.columns() == 0)
+  if (M.rows() == 0 || XB.columns() == 0)
     return XB.set_zero();
 
   // setup parameters for LAPACK
   char UPLO = 'U';
-  INTEGER N = M.size();
+  INTEGER N = M.rows();
   INTEGER NRHS = XB.columns();
-  INTEGER LDA = M.size();
+  INTEGER LDA = M.rows();
   INTEGER LDB = XB.rows();
   INTEGER INFO;
 
@@ -1342,7 +1333,7 @@ MatrixN& LinAlg::solve_chol_fast(const MatrixNN& M, MatrixN& XB)
  * \param b the right hand side
  * \return inv(M)*b or inv(M)'*b
  */
-VectorN LinAlg::solve_LU(const MatrixNN& M, bool transpose, const vector<int>& IPIV, const VectorN& b)
+VectorN LinAlg::solve_LU(const MatrixN& M, bool transpose, const vector<int>& IPIV, const VectorN& b)
 {
   VectorN x;
   x = b;
@@ -1356,16 +1347,19 @@ VectorN LinAlg::solve_LU(const MatrixNN& M, bool transpose, const vector<int>& I
  * \param transpose if <b>true</b>, solves M'x = b
  * \param IPIV pivots computed by factor_LU()
  */
-VectorN& LinAlg::solve_LU_fast(const MatrixNN& M, bool transpose, const vector<int>& IPIV, VectorN& xb)
+VectorN& LinAlg::solve_LU_fast(const MatrixN& M, bool transpose, const vector<int>& IPIV, VectorN& xb)
 {
-  if (M.size() == 0)
+  if (M.rows() == 0)
     return xb.set_zero();
 
-  if (M.size() != xb.size())
+  if (M.rows() != M.columns())
+    throw NonsquareMatrixException();
+
+  if (M.rows() != xb.size())
     throw MissizeException();
 
   // setup parameters to LAPACK
-  INTEGER N = M.size();
+  INTEGER N = M.rows();
   INTEGER NRHS = 1;
   char TRANS = (transpose) ? 'T' : 'N';
   
@@ -1384,7 +1378,7 @@ VectorN& LinAlg::solve_LU_fast(const MatrixNN& M, bool transpose, const vector<i
  * \param IPIV pivots computed by factor_LU()
  * \return inv(M)*B or inv(M)'*B
  */
-MatrixN LinAlg::solve_LU(const MatrixNN& M, bool transpose, const vector<int>& IPIV, const MatrixN& B)
+MatrixN LinAlg::solve_LU(const MatrixN& M, bool transpose, const vector<int>& IPIV, const MatrixN& B)
 {
   MatrixN X;
   X = B;
@@ -1398,17 +1392,20 @@ MatrixN LinAlg::solve_LU(const MatrixNN& M, bool transpose, const vector<int>& I
  * \param transpose if <b>true</b>, solves M'X = B
  * \param IPIV pivots computed by factor_LU()
  */
-MatrixN& LinAlg::solve_LU_fast(const MatrixNN& M, bool transpose, const vector<int>& IPIV, MatrixN& XB)
+MatrixN& LinAlg::solve_LU_fast(const MatrixN& M, bool transpose, const vector<int>& IPIV, MatrixN& XB)
 {
-  if (M.size() != XB.rows())
+  if (M.rows() != XB.rows())
     throw MissizeException();
 
+  if (M.rows() != M.columns())
+    throw NonsquareMatrixException();
+
   // check for empty matrix
-  if (M.size() == 0)
+  if (M.rows() == 0)
     return XB.set_zero();
 
   // setup parameters to LAPACK
-  INTEGER N = M.size();
+  INTEGER N = M.rows();
   INTEGER NRHS = XB.columns();
   char TRANS = (transpose) ? 'T' : 'N';
   
@@ -1420,17 +1417,17 @@ MatrixN& LinAlg::solve_LU_fast(const MatrixNN& M, bool transpose, const vector<i
 }
 
 /// Calculates the rank of a matrix
-unsigned LinAlg::calc_rank(const MatrixN& A, Real tol)
+unsigned LinAlg::calc_rank(MatrixN& A, Real tol)
 {
   // look for easy out
   if (A.rows() == 0 || A.columns() == 0)
     return 0;
 
   // compute the SVD of A
-  SAFESTATIC FastThreadable<MatrixNN> U, V;
+  SAFESTATIC FastThreadable<MatrixN> U, V;
   SAFESTATIC FastThreadable<VectorN> S;
-  MatrixNN& Ux = U();
-  MatrixNN& Vx = V();
+  MatrixN& Ux = U();
+  MatrixN& Vx = V();
   VectorN& Sx = S();
   svd(A, Ux, Sx, Vx);
 
@@ -1452,9 +1449,12 @@ unsigned LinAlg::calc_rank(const MatrixN& A, Real tol)
 }
 
 /// Computes the nullspace of a matrix
-MatrixN& LinAlg::nullspace(const MatrixN& A, MatrixN& nullspace, Real tol)
+/**
+ * \note A is destroyed on return
+ */
+MatrixN& LinAlg::nullspace(MatrixN& A, MatrixN& nullspace, Real tol)
 {
-  SAFESTATIC FastThreadable<MatrixNN> U, V;
+  SAFESTATIC FastThreadable<MatrixN> U, V;
   SAFESTATIC FastThreadable<VectorN> S;
 
   // look for fast way out
@@ -1467,10 +1467,9 @@ MatrixN& LinAlg::nullspace(const MatrixN& A, MatrixN& nullspace, Real tol)
   }
 
   // compute the SVD of A
-  MatrixNN& Ux = U();
-  MatrixNN& Vx = V();
+  MatrixN& Ux = U();
   VectorN& Sx = S();
-  svd(A, Ux, Sx, Vx);
+  svd(A, Ux, Sx, nullspace);
 
   // get the dimensions of A
   unsigned m = A.rows();
@@ -1490,180 +1489,88 @@ MatrixN& LinAlg::nullspace(const MatrixN& A, MatrixN& nullspace, Real tol)
   for (unsigned i=minmn; i < n; i++)
     ns++;
 
-  return V().get_sub_mat(0,V().rows(),V().columns()-ns,V().columns(), nullspace);
+  // shift nullspace (if necesary)
+  if (ns == nullspace.columns())
+    return nullspace;
+  else
+  {
+    BlockIterator bi = nullspace.block_start(0, nullspace.rows(), nullspace.columns()-ns, nullspace.columns());
+    std::copy(bi, bi+ns*nullspace.rows(), nullspace.begin());
+    return nullspace;
+  }
 }
 
 /// Computes the condition number of a matrix
-Real LinAlg::cond(const MatrixN& A)
+Real LinAlg::cond(MatrixN& A)
 {
-  MatrixNN U, V;
-  VectorN S;
-  svd(A, U, S, V);
-  return S[0] / S[S.size()-1];
-}
-
-/// Iteratively solves a system of equations using the Conjugate-Gradient method
-/**
- * \note A must have given form to ensure convergence (e.g., diagonally
- *       dominant, symmetric PD, etc.)
- */
-void LinAlg::solve_iterative(const MatrixNN& A, const VectorN& b, VectorN& x, unsigned iter)
-{
-  VectorN v = b - A*x;
-  SAFESTATIC FastThreadable<VectorN> r;
-  VectorN& rx = r();
-  rx.copy_from(v);
-  for (unsigned i=0; i< iter; i++)
-  {
-    VectorN Av = A*v;
-    Real vdot_Av = VectorN::dot(v, Av);
-    if (vdot_Av == 0.0)
-      return;
-    Real alpha = VectorN::dot(v,rx)/vdot_Av;
-    x += alpha*v;
-    rx -= alpha*Av;
-    Real beta = -VectorN::dot(v,A*rx)/vdot_Av;
-    v = rx + beta*v;
-  }
-}  
-
-/// Computes the pseudo-inverse of a square matrix
-MatrixNN LinAlg::pseudo_inverse(const MatrixNN& A, Real tol)
-{
-  MatrixNN result;
-  pseudo_inverse(A, result, tol);
-  return result;
-}
-
-/// Computes the psuedo-inverse of a square matrix
-MatrixNN& LinAlg::pseudo_inverse(const MatrixNN& A, MatrixNN& Ainv, Real tol)
-{
-  // get the dimensionality of A
-  unsigned dim = A.rows();
-
-  // init matrices for svd computation 
-  SAFESTATIC FastThreadable<MatrixNN> U, V;
+  SAFESTATIC FastThreadable<MatrixN> U, V;
   SAFESTATIC FastThreadable<VectorN> S;
-  MatrixNN& Ux = U();
-  MatrixNN& Vx = V();
-  VectorN& Sx = S();
-
-  // compute the svd
-  svd(A, Ux, Sx, Vx);
-  
-  // determine new tolerance based on first std::singular value if necessary
-  if (tol < 0.0)
-    tol = Sx[0] * dim * std::numeric_limits<Real>::epsilon();
-
-  // compute 1/S, according to Numerical Recipes in C, p. 62
-  for (unsigned i=0; i< dim; i++)
-    Sx[i] = (std::fabs(Sx[i]) > tol) ? (Real) 1.0/Sx[i] : (Real) 0;
-
-  // make a matrix of V * S
-  for (unsigned i=0; i< dim; i++)
-    for (unsigned j=0; j< dim; j++)
-      Vx(i,j) *= Sx[j];
-
-  // compute the pseudo-inverse
-  Vx.mult_transpose(Ux, Ainv);
-
-  return Ainv;
+  svd(A, U(), S(), V());
+  return S()[0] / S()[S().size()-1];
 }
 
-/// Computes the pseudo-inverse of a non-square matrix
-MatrixN LinAlg::pseudo_inverse(const MatrixN& A, Real tol)
-{
-  MatrixN result;
-  pseudo_inverse(A, result, tol);
-  return result;
-}
-
-/// Computes the psuedo-inverse of a non-square matrix
-/**
- * \todo make this faster by optimizing the diagonal matrix multiplication
- */
-MatrixN& LinAlg::pseudo_inverse(const MatrixN& A, MatrixN& result, Real tol)
+/// Computes the psuedo-inverse of a matrix
+MatrixN& LinAlg::pseudo_inverse(MatrixN& A, Real tol)
 {
   // get the dimensionality of A
-  unsigned rows = A.rows();
-  unsigned columns = A.columns();
+  const unsigned m = A.rows();
+  const unsigned n = A.columns();
+  const unsigned minmn = std::min(m, n);
 
   // check for easy out
-  if (rows == 0 || columns == 0)
+  if (m == 0)
   {
-    result.resize(columns, rows);
-    return result;
+    A.resize(n,0);
+    return A;
+  }
+  else if (n == 0)
+  {
+    A.resize(0, m);
+    return A;
   }
 
   // init matrices for svd computation 
-  SAFESTATIC FastThreadable<MatrixNN> U, V;
-  SAFESTATIC FastThreadable<VectorN> S, row;
+  SAFESTATIC FastThreadable<MatrixN> U, V, workM;
+  SAFESTATIC FastThreadable<VectorN> S;
 
   // compute the svd
-  MatrixNN& Ux = U();
-  MatrixNN& Vx = V();
+  MatrixN& Ux = U();
+  MatrixN& Vx = V();
   VectorN& Sx = S();
-  VectorN& rowx = row();
+  MatrixN& workMx = workM();
   svd(A, Ux, Sx, Vx);
   
   // determine new tolerance based on first std::singular value if necessary
   if (tol < 0.0)
-    tol = Sx[0] * std::max(rows,columns) * std::numeric_limits<Real>::epsilon();
+    tol = Sx[0] * std::max(m,n) * std::numeric_limits<Real>::epsilon();
 
-  // compute 1/S, according to Numerical Recipes in C, p. 62
+  // compute 1/S
   unsigned S_len = Sx.size();
 
-  // create matrix for storing inv(S) * U'
-  SAFESTATIC FastThreadable<MatrixN> SM;
-  MatrixN& SMx = SM();
+  // A is m x n, B is m x k
+  // (L -> R, scaling V)    n^2 + n*min(n,m)*m + nmk [n < m < k, n < k < m]
+  // (L -> R, scaling U')   m^2 + n*min(n,m)*m + nmk [m < n < k]
+  // (R -> L, scaling U')   m^2 + m^2k + nmk + n^2k  [k < n < m]
+  // (R -> L, scaling U'*B) m^2k + min(n,m)*k + n*min(m,n)*k [k < m < n, m < k < n]
 
-  // faster method for computing inv(S) * U'
+  // compute inv(s) 
   for (unsigned i=0; i< S_len; i++)
     Sx[i] = (std::fabs(Sx[i]) > tol) ? (Real) 1.0/Sx[i] : (Real) 0.0;
 
-  // two different methods depending on whether rows > columns
-  if (rows < columns)
-  {
-    // get U' into SM
-    SMx.set_zero(columns, rows);
-    SMx.set_sub_mat(0, 0, Ux, true);
-
-    // zero remaining rows of SM
-    rowx.set_zero(rows);
-    for (unsigned i=rows; i< columns; i++)
-      SMx.set_row(i, rowx);
-
-    // do the multiplication
-    for (unsigned i=0; i< rows; i++)
-    {
-      SMx.get_row(i, rowx);
-      rowx *= Sx[i];
-      SMx.set_row(i, rowx);
-    }
-  }
+  // scale U' or V, depending on whichever is smaller, m or n
+  if (m < n)
+    for (unsigned i=0; i< m; i++)
+      CBLAS::scal(m, Sx[i], &Ux(0,i), 1);
   else
-  {
-    // get top rows of U'
-    Ux.get_sub_mat(0, rows, 0, columns, SMx, true);
-    for (unsigned i=0; i< columns; i++)
-    {
-      SMx.get_row(i, rowx);
-      rowx *= Sx[i];
-      SMx.set_row(i, rowx);
-    }
-  }
+    for (unsigned i=0; i< n; i++)
+      CBLAS::scal(n, Sx[i], &Vx(0,i), 1);
 
-// old, proven, slow method
-/*
-  SM.set_zero(columns,rows);
-  for (unsigned i=0; i< S_len; i++)  
-    SM(i,i) = (std::fabs(S[i]) > tol) ? (Real) 1.0/S[i] : (Real) 0;
-  
-  // compute the pseudo-inverse
-  return V.mult(SM.mult_transpose(U), result);
-*/
+  // size the result properly
+  A.resize(n, m);
 
-  return Vx.mult(SMx, result);
+  // do the multiplication (V * U')
+  CBLAS::gemm(CblasNoTrans, CblasTrans, n, m, minmn, Vx, n, Ux, m, (Real) 1.0, (Real) 0.0, A, n); 
+  return A;
 }
 
 /// Constructs a vector from a string
@@ -1756,13 +1663,16 @@ MatrixN LinAlg::to_matrix(const std::string& str)
 }
 
 /// Determines whether a symmetric matrix is positive semi-definite
-bool LinAlg::is_SPSD(const MatrixNN& m, Real tol)
+bool LinAlg::is_SPSD(const MatrixN& m, Real tol)
 {
-  VectorN evals;
-  eig_symm(m, evals);
+  SAFESTATIC FastThreadable<VectorN> evals_f;
+  SAFESTATIC FastThreadable<MatrixN> m_copy;
+  VectorN& evals = evals_f();
+  eig_symm(m_copy(), evals);
 
   // make tolerance positive, if it is not already
-  tol = std::fabs(tol);
+  if (tol < (Real) 0.0)
+    tol = std::fabs(evals[evals.size()-1]) * m.rows() * std::numeric_limits<Real>::max();
 
   // check whether all eigenvalues are non-negative to numerical tolerance
   for (unsigned i=0; i< evals.size(); i++)
@@ -1773,19 +1683,21 @@ bool LinAlg::is_SPSD(const MatrixNN& m, Real tol)
 }
 
 /// Determines whether a matrix is positive-definite
-bool LinAlg::is_SPD(const MatrixNN& m, Real tolerance)
+bool LinAlg::is_SPD(const MatrixN& m, Real tol)
 {
   // get the eigenvalues of the matrix
-  SAFESTATIC FastThreadable<VectorN> evals;
-  VectorN& evalsx = evals();
-  eig_symm(m, evalsx);
+  SAFESTATIC FastThreadable<VectorN> evals_f;
+  SAFESTATIC FastThreadable<MatrixN> m_copy;
+  VectorN& evals = evals_f();
+  eig_symm(m_copy(), evals);
 
   // make tolerance positive, if it is not already
-  tolerance = std::fabs(tolerance);
+  if (tol < (Real) 0.0)
+    tol = std::fabs(evals[evals.size()-1]) * m.rows() * std::numeric_limits<Real>::max();
 
   // check whether all eigenvalues are positive to numerical tolerance
-  for (unsigned i=0; i< evalsx.size(); i++)
-    if (evalsx[i] < tolerance)
+  for (unsigned i=0; i< evals.size(); i++)
+    if (evals[i] < tol)
       return false;
 
   return true;
@@ -1796,36 +1708,27 @@ bool LinAlg::is_SPD(const MatrixNN& m, Real tolerance)
  * \param A a matrix
  * \param evals on return, the eigenvalues will be stored here in ascending order
  */
-void LinAlg::eig_symm(const MatrixNN& A, VectorN& evals)
+void LinAlg::eig_symm(MatrixN& A, VectorN& evals)
 {
   // make sure A is not zero sized
-  if (A.size() == 0)
+  if (A.rows() == 0)
   {
     evals.resize(0);
     return;
   }
 
+  // verify that A is square
+  if (A.rows() != A.columns())
+    throw NonsquareMatrixException();
+
   // verify that the matrix is symmetric
   #ifndef NDEBUG
-  Real max_diff = (Real) 0.0;
-  for (unsigned i=0; i< A.size(); i++)
-    for (unsigned j=i+1; j< A.size(); j++)
-    {
-      Real diff = std::fabs(A(i,j) - A(j,i));
-      if (diff > max_diff)
-        max_diff = diff;
-    }
-  if (max_diff > NEAR_ZERO)
-    std::cerr << "LinAlg::eig_symm() - largest symmetric matrix difference is " << max_diff << std::endl;
+  if (!A.is_symmetric())
+    std::cerr << "LinAlg::eig_symm() - matrix does not appear to be symmetric!" << std::endl;
   #endif
 
-  // copy A
-  SAFESTATIC FastThreadable<MatrixNN> A_copy;
-  A_copy() = A;
-
   // make sure that the eigenvalues array is the proper size
-  if (evals.size() != A.rows())
-    evals.resize(A.rows()); 
+  evals.resize(A.rows()); 
 
   // form inputs to LAPACK
   char JOBZ = 'N';
@@ -1835,7 +1738,7 @@ void LinAlg::eig_symm(const MatrixNN& A, VectorN& evals)
   INTEGER INFO;
 
   // call LAPACK
-  syevd_(&JOBZ, &UPLO, &N, A_copy().data(), &LDA, evals.data(), &INFO);
+  syevd_(&JOBZ, &UPLO, &N, A.data(), &LDA, evals.data(), &INFO);
   assert(INFO >= 0);
 
   if (INFO > 0)
@@ -1844,81 +1747,71 @@ void LinAlg::eig_symm(const MatrixNN& A, VectorN& evals)
 
 /// Computes the eigenvalues and eigenvectors of the matrix A
 /**
- * \param A a matrix
+ * \param A a square symmetric matrix on input, eigenvectors corresponding to eigenvalues on return
  * \param evals on return, the eigenvalues will be stored here in ascending order
- * \param evecs on return, the eigenvectors will be stored in order according to the eigenvalues
  */
-void LinAlg::eig_symm(const MatrixNN& A, VectorN& evals, MatrixNN& evecs)
+void LinAlg::eig_symm_plus(MatrixN& A_evecs, VectorN& evals)
 {
   // make sure that A is not zero sized
-  if (A.size() == 0)
+  if (A_evecs.rows() == 0 || A_evecs.columns() == 0)
   {
     evals.resize(0);
-    evecs.resize(0);
+    A_evecs.resize(0,0);
     return;
   }
 
+  if (A_evecs.rows() != A_evecs.columns())
+    throw NonsquareMatrixException();
+
   // verify that the matrix is symmetric
   #ifndef NDEBUG
-  Real max_diff = (Real) 0.0;
-  for (unsigned i=0; i< A.size(); i++)
-    for (unsigned j=i+1; j< A.size(); j++)
-    {
-      Real diff = std::fabs(A(i,j) - A(j,i));
-      if (diff > max_diff)
-        max_diff = diff;
-    }
-  if (max_diff > NEAR_ZERO)
-    std::cerr << "LinAlg::eig_symm() - largest symmetric matrix difference is " << max_diff << std::endl;
+  if (!A_evecs.is_symmetric())
+    std::cerr << "LinAlg::eig_symm() - matrix does not appear to be symmetric!" << std::endl;
   #endif
 
-  // copy A to eigenvectors
-  evecs.copy_from(A);
-
   // make sure that the eigenvalues array is the proper size
-  if (evals.size() != A.rows())
-    evals.resize(A.rows()); 
+  evals.resize(A_evecs.rows()); 
 
   // form inputs to LAPACK
   char JOBZ = 'V';
   char UPLO = 'U';
-  INTEGER N = A.rows();
-  INTEGER LDA = A.rows();
+  INTEGER N = A_evecs.rows();
+  INTEGER LDA = A_evecs.rows();
   INTEGER INFO;
 
   // call LAPACK
-  syevd_(&JOBZ, &UPLO, &N, evecs.begin(), &LDA, evals.begin(), &INFO);
+  syevd_(&JOBZ, &UPLO, &N, A_evecs.begin(), &LDA, evals.begin(), &INFO);
   assert(INFO == 0);
   
   if (INFO > 0)
     throw NumericalException("Eigenvalue/eigenvector determination did not converge");
 }
 
-/// Performs singular value decomposition on A
+/// Does an 'in place' SVD (destroying A)
 /**
  * The singular value decomposition of A is U*S*V' (' is the transpose 
  * operator); to recompose A, it will be necessary to transpose V before
  * multiplication (i.e., V is returned by the algorithm, not V').
  * Note: passed matrices and vectors U, S, and V are resized as necessary. 
- * \param A the matrix on which the SVD will be performed
+ * \param A the matrix on which the SVD will be performed (destroyed on return)
  * \param U on output, a A.rows() x A.rows() orthogonal matrix
  * \param S on output, a min(A.rows(), A.columns()) length vector of singular values
  * \param V on output, a A.columns() x A.columns() orthogonal matrix
-*/
-void LinAlg::svd(const MatrixN& A, MatrixNN& U, VectorN& S, MatrixNN& V)
+ */
+void LinAlg::svd(MatrixN& A, MatrixN& U, VectorN& S, MatrixN& V)
 {
   // make sure that A is not zero sized
   if (A.rows() == 0 || A.columns() == 0)
   {
-    U.resize(A.rows());
+    U.set_zero(A.rows(), A.rows());
     S.resize(0);
-    V.resize(A.columns());
+    V.set_zero(A.columns(), A.columns());
     return;
   } 
 
   // setup U
-  if (U.size() != A.rows())
-    U.resize(A.rows());
+  if (U.rows() != A.rows() || U.columns() != A.rows())
+    U.resize(A.rows(), A.rows());
 
   // setup S
   unsigned minmn = std::min(A.rows(), A.columns());
@@ -1926,21 +1819,20 @@ void LinAlg::svd(const MatrixN& A, MatrixNN& U, VectorN& S, MatrixNN& V)
     S.resize(minmn);
 
   // setup V
-  if (V.size() != A.columns())
-    V.resize(A.columns());
+  if (V.rows() != A.columns() || V.columns() != A.columns())
+    V.resize(A.columns(), A.columns());
 
   // setup call to LAPACK
   char JOBZ = 'A';
   INTEGER M = A.rows();
   INTEGER N = A.columns();
-  MatrixN A_copy = A;
   INTEGER LDA = A.rows();
   INTEGER LDU = U.rows();
   INTEGER LDVT = V.rows();
   INTEGER INFO;
 
   // call LAPACK 
-  gesdd_(&JOBZ, &M, &N, A_copy.data(), &LDA, S.data(), U.data(), &LDU, V.data(), &LDVT, &INFO);
+  gesdd_(&JOBZ, &M, &N, A.data(), &LDA, S.data(), U.data(), &LDU, V.data(), &LDVT, &INFO);
   assert(INFO >= 0);
 
   if (INFO > 0)
@@ -1955,15 +1847,18 @@ void LinAlg::svd(const MatrixN& A, MatrixNN& U, VectorN& S, MatrixNN& V)
  * \param A the matrix to be solved; the matrix is destroyed on return
  * \param xb the RHS b (A*x = b) on input; the solution, x, on return
  */
-VectorN& LinAlg::solve_symmetric_fast(MatrixNN& A, VectorN& xb)
+VectorN& LinAlg::solve_symmetric_fast(MatrixN& A, VectorN& xb)
 {
-  // make sure that A is not zero sized
-  if (A.size() == 0)
-    return xb;
+  if (A.rows() != A.columns())
+    throw NonsquareMatrixException();
 
   // verify A and b are compatible 
   if (A.columns() != xb.size())
     throw MissizeException();
+
+  // make sure that A is not zero sized
+  if (A.rows() == 0)
+    return xb.resize(0);
 
   // form inputs to LAPACK
   char UPLO = 'U';
@@ -1975,9 +1870,6 @@ VectorN& LinAlg::solve_symmetric_fast(MatrixNN& A, VectorN& xb)
 
   // call LAPACK
   sysv_(&UPLO, &N, &NRHS, A.data(), &N, &IPIV().front(), xb.data(), &N, &INFO);
-
-  // mark A as destroyed
-  A.resize(0);
 
   // check for singularity
   assert(INFO >= 0);
@@ -1992,15 +1884,18 @@ VectorN& LinAlg::solve_symmetric_fast(MatrixNN& A, VectorN& xb)
  * \param A the matrix to be solved; the matrix is destroyed on return
  * \param XB the RHS B (A*X = B) on input; the solution, X, on return
  */
-MatrixN& LinAlg::solve_symmetric_fast(MatrixNN& A, MatrixN& XB)
+MatrixN& LinAlg::solve_symmetric_fast(MatrixN& A, MatrixN& XB)
 {
-  // make sure that A is not zero sized
-  if (A.size() == 0)
-    return XB;
+  if (A.rows() != A.columns())
+    throw NonsquareMatrixException();
 
   // verify A and b are compatible 
   if (A.columns() != XB.rows())
     throw MissizeException();
+
+  // make sure that A is not zero sized
+  if (A.rows() == 0)
+    return XB.set_zero(0, 0);
 
   // form inputs to LAPACK
   char UPLO = 'U';
@@ -2013,9 +1908,6 @@ MatrixN& LinAlg::solve_symmetric_fast(MatrixNN& A, MatrixN& XB)
   // call LAPACK
   sysv_(&UPLO, &N, &NRHS, A.data(), &N, &IPIV().front(), XB.data(), &N, &INFO);
 
-  // mark A as destroyed
-  A.resize(0);
-
   // check for singularity
   assert(INFO >= 0);
   if (INFO > 0)
@@ -2024,11 +1916,11 @@ MatrixN& LinAlg::solve_symmetric_fast(MatrixNN& A, MatrixN& XB)
   return XB;
 }
 
-/// Solves a symmetric, indefinite square matrix
-VectorN LinAlg::solve_symmetric(const MatrixNN& A, const VectorN& b)
+/// Solves a symmetric, indefinite square matrix (slow but convenient method)
+VectorN LinAlg::solve_symmetric(const MatrixN& A, const VectorN& b)
 {
   // copy A and b
-  MatrixNN A_copy;
+  MatrixN A_copy;
   VectorN x;
   A_copy = A;
   x = b;
@@ -2039,11 +1931,11 @@ VectorN LinAlg::solve_symmetric(const MatrixNN& A, const VectorN& b)
   return x;
 }
 
-/// Solves multiple symmetric, indefinite systems of linear equations
-MatrixN LinAlg::solve_symmetric(const MatrixNN& A, const MatrixN& B)
+/// Solves multiple symmetric, indefinite systems of linear equations (slow but convenient method)
+MatrixN LinAlg::solve_symmetric(const MatrixN& A, const MatrixN& B)
 {
   // copy A and B 
-  MatrixNN A_copy;
+  MatrixN A_copy;
   MatrixN X;
   A_copy = A;
   X = B;
@@ -2059,10 +1951,13 @@ MatrixN LinAlg::solve_symmetric(const MatrixNN& A, const MatrixN& B)
  * \param A a square, symmetric indefinite matrix; inverse will be contained
  *        here on return
  */
-MatrixNN& LinAlg::inverse_symmetric(MatrixNN& A)
+MatrixN& LinAlg::inverse_symmetric(MatrixN& A)
 {
+  if (A.rows() != A.columns())
+    throw NonsquareMatrixException();
+
   // verify that A is not zero size
-  if (A.size() == 0)
+  if (A.rows() == 0)
     return A;
 
   // setup LAPACK args for factorization
@@ -2078,24 +1973,19 @@ MatrixNN& LinAlg::inverse_symmetric(MatrixNN& A)
   sytrf_(&UPLO, &N, A.data(), &N, &IPIV().front(), &INFO);
   assert(INFO >= 0);
   if (INFO > 0)
-  {
-    A.resize(0);
     throw SingularException();
-  }
 
   // perform the inversion
   sytri_(&UPLO, &N, A.data(), &N, &IPIV().front(), &INFO);
   assert(INFO >= 0);
   if (INFO > 0)
-  {
-    A.resize(0);
     throw SingularException();
-  }
 
   // now, make the matrix symmetric
-  for (long i=1; i< N; i++)
-    for (long j=0; j< i; j++)
-      A(i,j) = A(j,i);
+  Real* data = A.data();
+  for (unsigned i=1, ii=A.rows(); i< N; i++, ii += A.rows())
+    for (unsigned j=0, jj=0; j< i; j++, jj += A.rows())
+      data[jj+i] = data[ii+j];
 
   return A;
 }
@@ -2105,15 +1995,18 @@ MatrixNN& LinAlg::inverse_symmetric(MatrixNN& A)
  * \param A the matrix coefficients; this matrix will be destroyed on return
  * \param xb on input b, on output x
  */
-VectorN& LinAlg::solve_SPD_fast(MatrixNN& A, VectorN& xb)
+VectorN& LinAlg::solve_SPD_fast(MatrixN& A, VectorN& xb)
 {
-  // verify that A is not zero size
-  if (A.size() == 0)
-    return xb;
+  if (A.rows() != A.columns())
+    throw NonsquareMatrixException();
 
   // verify that A and b are proper size
   if (A.columns() != xb.size())
     throw MissizeException();
+
+  // verify that A is not zero size
+  if (A.rows() == 0)
+    return xb.resize(0);
 
   // form inputs to LAPACK
   char UPLO = 'U';
@@ -2123,9 +2016,6 @@ VectorN& LinAlg::solve_SPD_fast(MatrixNN& A, VectorN& xb)
 
   // call LAPACK
   posv_(&UPLO, &N, &NRHS, A.data(), &N, xb.data(), &N, &INFO);
-
-  // mark A as destroyed
-  A.resize(0);
 
   // check for singularity
   assert(INFO >= 0);
@@ -2140,15 +2030,18 @@ VectorN& LinAlg::solve_SPD_fast(MatrixNN& A, VectorN& xb)
  * \param A the matrix coefficients; this matrix will be destroyed on return
  * \param XB on input B, on output X
  */
-MatrixN& LinAlg::solve_SPD_fast(MatrixNN& A, MatrixN& XB)
+MatrixN& LinAlg::solve_SPD_fast(MatrixN& A, MatrixN& XB)
 {
-  // verify that A is not zero size
-  if (A.size() == 0)
-    return XB;
+  if (A.rows() != A.columns())
+    throw NonsquareMatrixException();
 
   // verify that A and b are proper size
   if (A.columns() != XB.rows())
     throw MissizeException();
+
+  // verify that A is not zero size
+  if (A.rows() == 0)
+    return XB.set_zero(A.rows(), XB.columns());
 
   // form inputs to LAPACK
   char UPLO = 'U';
@@ -2159,9 +2052,6 @@ MatrixN& LinAlg::solve_SPD_fast(MatrixNN& A, MatrixN& XB)
   // call LAPACK
   posv_(&UPLO, &N, &NRHS, A.data(), &N, XB.data(), &N, &INFO);
 
-  // mark A as destroyed
-  A.resize(0);
-
   // check for singularity
   assert(INFO >= 0);
   if (INFO > 0)
@@ -2171,10 +2061,10 @@ MatrixN& LinAlg::solve_SPD_fast(MatrixNN& A, MatrixN& XB)
 }
 
 /// Solves a system of equations A*X = B using a symmetric, positive-definite square matrix
-MatrixN LinAlg::solve_SPD(const MatrixNN& A, const MatrixN& B)
+MatrixN LinAlg::solve_SPD(const MatrixN& A, const MatrixN& B)
 {
   // copy A and B
-  MatrixNN A_copy;
+  MatrixN A_copy;
   MatrixN X;
   A_copy = A;
   X = B;
@@ -2186,10 +2076,10 @@ MatrixN LinAlg::solve_SPD(const MatrixNN& A, const MatrixN& B)
 }
 
 /// Solves a system of equations A*x = b using a symmetric, positive-definite square matrix
-VectorN LinAlg::solve_SPD(const MatrixNN& A, const VectorN& b)
+VectorN LinAlg::solve_SPD(const MatrixN& A, const VectorN& b)
 {
   // copy A and b
-  MatrixNN A_copy;
+  MatrixN A_copy;
   VectorN x;
   A_copy = A;
   x = b;
@@ -2205,10 +2095,13 @@ VectorN LinAlg::solve_SPD(const MatrixNN& A, const VectorN& b)
  * \param A the Cholesky factorization of a matrix; contains the inverse
  *        on return
  */
-MatrixNN& LinAlg::inverse_chol(MatrixNN& A)
+MatrixN& LinAlg::inverse_chol(MatrixN& A)
 {
+  if (A.rows() != A.columns())
+    throw NonsquareMatrixException();
+
   // verify that A is not zero sized
-  if (A.size() == 0)
+  if (A.rows() == 0)
     return A;
 
   // setup LAPACK args for Cholesky factorization
@@ -2223,9 +2116,11 @@ MatrixNN& LinAlg::inverse_chol(MatrixNN& A)
     throw SingularException();
 
   // now, make the matrix symmetric
-  for (long i=1; i< N; i++)
-    for (long j=0; j< i; j++)
-      A(i,j) = A(j,i);
+  Real* data = A.data();
+  for (unsigned i=1, ii=A.rows(); i< N; i++, ii += A.rows())
+    for (unsigned j=0, jj=0; j< i; j++, jj += A.rows())
+      data[jj+i] = data[ii+j];
+
 
   return A;
 }
@@ -2235,10 +2130,13 @@ MatrixNN& LinAlg::inverse_chol(MatrixNN& A)
  * \param A a square, symmetric positive-definite matrix; contains the inverse
  *        on return
  */
-MatrixNN& LinAlg::inverse_SPD(MatrixNN& A)
+MatrixN& LinAlg::inverse_SPD(MatrixN& A)
 {
+  if (A.rows() != A.columns())
+    throw NonsquareMatrixException();
+
   // verify that A is not zero sized
-  if (A.size() == 0)
+  if (A.rows() == 0)
     return A;
 
   // setup LAPACK args for Cholesky factorization
@@ -2252,14 +2150,14 @@ MatrixNN& LinAlg::inverse_SPD(MatrixNN& A)
 
   // perform the inverse
   potri_(&UPLO, &N, A.data(), &N, &INFO);
-  assert(INFO >= 0);
   if (INFO > 0)
     throw SingularException();
 
   // now, make the matrix symmetric
-  for (long i=1; i< N; i++)
-    for (long j=0; j< i; j++)
-      A(i,j) = A(j,i);
+  Real* data = A.data();
+  for (unsigned i=1, ii=A.rows(); i< N; i++, ii += A.rows())
+    for (unsigned j=0, jj=0; j< i; j++, jj += A.rows())
+      data[jj+i] = data[ii+j];
 
   return A;
 }
@@ -2268,19 +2166,12 @@ MatrixNN& LinAlg::inverse_SPD(MatrixNN& A)
 /**
  * \param A a square matrix; contains the inverse on return
  */
-MatrixNN& LinAlg::inverse(MatrixNN& A)
+MatrixN& LinAlg::inverse(MatrixN& A)
 {
   SAFESTATIC FastThreadable<vector<int> > pivots;
-  try
-  {
-    factor_LU(A, pivots());
-    inverse_LU(A, pivots());
-  }
-  catch (SingularException e)
-  {
-    A.resize(0);
-    throw;
-  }
+  factor_LU(A, pivots());
+  inverse_LU(A, pivots());
+
   return A;
 }
 
@@ -2493,22 +2384,66 @@ VectorN& LinAlg::solve_LS(const SparseMatrixN& A, const VectorN& b, VectorN& x, 
  * Computes least-squares solution to overdetermined systems.
  * \param A the coefficient matrix (destroyed on return)
  * \param xb the vector b on input, the vector x on return
- * \param stol the tolerance for determining the rank of A; if stol < 0.0,
- *        stol is computed using machine epsilon
+ * \param tol the tolerance for determining the rank of A; if tol < 0.0,
+ *        tol is computed using machine epsilon
  */
-VectorN& LinAlg::solve_LS_fast(MatrixN& A, VectorN& xb, Real stol)
+VectorN& LinAlg::solve_LS_fast(MatrixN& A, VectorN& xb, Real tol)
 {
   // verify that A is not zero size
   if (A.rows() == 0 || A.columns() == 0)
+  {
+    xb.resize(0);
     return xb;
+  }
 
   // verify that A and b are appropriate sizes
   if (A.rows() != xb.size())
     throw MissizeException();
 
-  // calculate the pseudo-inverse of A (this is likely not as efficient)
-  pseudo_inverse(A, A, stol);
-  xb = A * xb;
+  // get the dimensionality of A
+  const unsigned m = A.rows();
+  const unsigned n = A.columns();
+  const unsigned minmn = std::min(m, n);
+
+  // check for easy out
+  if (m == 0 || n == 0)
+  {
+    xb.set_zero(n);
+    return xb;
+  }
+
+  // init matrices for svd computation 
+  SAFESTATIC FastThreadable<MatrixN> U, V;
+  SAFESTATIC FastThreadable<VectorN> S, workv;
+
+  // compute the svd
+  MatrixN& Ux = U();
+  MatrixN& Vx = V();
+  VectorN& Sx = S();
+  VectorN& workvx = workv();
+  svd(A, Ux, Sx, Vx);
+  
+  // determine new tolerance based on first std::singular value if necessary
+  if (tol < 0.0)
+    tol = Sx[0] * std::max(m,n) * std::numeric_limits<Real>::epsilon();
+
+  // compute 1/S
+  unsigned S_len = Sx.size();
+
+  // compute inv(s) 
+  for (unsigned i=0; i< S_len; i++)
+    Sx[i] = (std::fabs(Sx[i]) > tol) ? (Real) 1.0/Sx[i] : (Real) 0.0;
+
+  // compute U' * xb (yielding m x 1 vector)
+  Ux.transpose_mult(xb, workvx);
+
+  // scale this vector by inv(s) (yielding n x 1 vector, that is really only
+  // minmn x 1)
+  std::transform(Sx.begin(), Sx.begin()+minmn, workvx.begin(), Sx.begin(), std::multiplies<Real>());
+
+  // multiply V * this vector (yielding n x 1 vector
+  xb.resize(n);
+  CBLAS::gemv(CblasNoTrans, n, minmn, Vx, n, Sx, 1, (Real) 1.0, (Real) 0.0, xb, 1);
   return xb;
 
 // NOTE: this is disabled b/c it does not work as well...
@@ -2548,22 +2483,120 @@ VectorN& LinAlg::solve_LS_fast(MatrixN& A, VectorN& xb, Real stol)
  * Computes least-squares solution to overdetermined systems.
  * \param A the coefficient matrix (destroyed on return)
  * \param XB the matrix B on input, the matrix X on return
- * \param stol the tolerance for determining the rank of A; if stol < 0.0,
- *        stol is computed using machine epsilon
+ * \param tol the tolerance for determining the rank of A; if tol < 0.0,
+ *        tol is computed using machine epsilon
  */
-MatrixN& LinAlg::solve_LS_fast(MatrixN& A, MatrixN& XB, Real stol)
+MatrixN& LinAlg::solve_LS_fast(MatrixN& A, MatrixN& XB, Real tol)
 {
-  // verify that A is not zero size
-  if (A.rows() == 0 || A.columns() == 0)
-    return XB;
-
   // verify that A and B are appropriate sizes
   if (A.rows() != XB.rows())
     throw MissizeException();
 
-  // calculate the pseudo-inverse of A (this is likely not as efficient)
-  pseudo_inverse(A, A, stol);
-  XB = A * XB;
+  // get the dimensionality of A
+  const unsigned m = A.rows();
+  const unsigned n = A.columns();
+  const unsigned k = XB.columns();
+  const unsigned minmn = std::min(m, n);
+
+  // check for easy out
+  if (m == 0 || n == 0)
+  {
+    XB.set_zero(n, XB.columns());
+    return XB;
+  }
+
+  // init matrices for svd computation 
+  SAFESTATIC FastThreadable<MatrixN> U, V, workM, workM2;
+  SAFESTATIC FastThreadable<VectorN> S;
+
+  // compute the svd
+  MatrixN& Ux = U();
+  MatrixN& Vx = V();
+  VectorN& Sx = S();
+  MatrixN& workMx = workM();
+  svd(A, Ux, Sx, Vx);
+  
+  // determine new tolerance based on first std::singular value if necessary
+  if (tol < 0.0)
+    tol = Sx[0] * std::max(m,n) * std::numeric_limits<Real>::epsilon();
+
+  // compute 1/S
+  unsigned S_len = Sx.size();
+
+  // A is m x n, B is m x k
+  // (L -> R, scaling V)    n^2 + n*min(n,m)*m + nmk [n < m < k, n < k < m]
+  // (L -> R, scaling U')   m^2 + n*min(n,m)*m + nmk [m < n < k]
+  // (R -> L, scaling U')   m^2 + m^2k + nmk + n^2k  [k < n < m]
+  // (R -> L, scaling U'*B) m^2k + min(n,m)*k + n*min(m,n)*k [k < m < n, m < k < n]
+
+  // compute inv(s) 
+  for (unsigned i=0; i< S_len; i++)
+    Sx[i] = (std::fabs(Sx[i]) > tol) ? (Real) 1.0/Sx[i] : (Real) 0.0;
+
+  // check cases
+  // case 1: n is smallest
+  if (n < m && n < k)
+  {
+    // scale n columns of V
+    for (unsigned i=0; i< n; i++)
+      CBLAS::scal(n, Sx[i], &Vx(0,i), 1);
+
+    // multiply scaled V by U' = workM
+    workMx.resize(n, m);
+    CBLAS::gemm(CblasNoTrans, CblasTrans, n, m, n, Vx, n, Ux, m, (Real) 1.0, (Real) 0.0, workMx, n);
+
+    // multiply workM * XB
+    Vx.resize(n,k);
+    CBLAS::gemm(CblasNoTrans, CblasNoTrans, n, k, m, workMx, n, XB, m, (Real) 1.0, (Real) 0.0, Vx, n);
+    XB.copy_from(Vx);
+  }
+  // case 2: m < n < k
+  else if (m < n && n < k)
+  {
+    // scale columns of U
+    for (unsigned i=0; i< m; i++)
+      CBLAS::scal(m, Sx[i], &Ux(0,i), 1);
+
+    // multiply V by scaled U' = workM
+    workMx.resize(n,m);
+    CBLAS::gemm(CblasNoTrans, CblasTrans, n, m, m, Vx, n, Ux, m, (Real) 1.0, (Real) 0.0, workMx, n);
+
+    // multiply workM * XB
+    Vx.resize(n,k);
+    CBLAS::gemm(CblasNoTrans, CblasNoTrans, n, k, m, workMx, n, XB, m, (Real) 1.0, (Real) 0.0, Vx, n);
+    XB.copy_from(Vx);
+  }
+  // case 3: k < n < m
+  else if (k < n && n < m)
+  {
+    // scale columns of U
+    for (unsigned i=0; i< n; i++)
+      CBLAS::scal(n, Sx[i], &Ux(0,i), 1);
+
+    // multiply U' * XB (resulting in n x k matrix)
+    workMx.resize(n,k);
+    CBLAS::gemm(CblasTrans, CblasNoTrans, n, k, m, Ux, m, XB, m, (Real) 1.0, (Real) 0.0, workMx, n);
+
+    // multiply V * workM
+    Vx.mult(workMx, XB);
+  }
+  // case 4: n is largest
+  else
+  {
+    assert(n >= m && n >= k);
+
+    // scale m columns of V
+    for (unsigned i=0; i< m; i++)
+      CBLAS::scal(n, Sx[i], &Vx(0,i), 1);
+
+    // multiply U' * XB (resulting in m x k matrix)
+    Ux.transpose_mult(XB, workMx);
+
+    // multiply V * workM
+    XB.resize(n,k);
+    CBLAS::gemm(CblasNoTrans, CblasNoTrans, n, k, m, Vx, n, workMx, m, (Real) 1.0, (Real) 0.0, XB, n);
+  }
+
   return XB;
 
 // NOTE: this is disabled b/c it does not work as well...
@@ -2629,7 +2662,7 @@ VectorN LinAlg::solve_LS(const MatrixN& A, const VectorN& b, Real stol)
  */
 MatrixN LinAlg::solve_LS(const MatrixN& A, const MatrixN& B, Real stol)
 {
-  MatrixNN A_copy;
+  MatrixN A_copy;
   MatrixN X;
   A_copy = A;
   X = B;
@@ -2645,8 +2678,11 @@ MatrixN LinAlg::solve_LS(const MatrixN& A, const MatrixN& B, Real stol)
  * \param A a square matrix (destroyed on return)
  * \param xb the vector b on input, the vector x on return
  */
-VectorN& LinAlg::solve_fast(MatrixNN& A, VectorN& xb)
+VectorN& LinAlg::solve_fast(MatrixN& A, VectorN& xb)
 {
+  if (A.rows() != A.columns())
+    throw NonsquareMatrixException();
+
   // verify that A is not zero size
   if (A.rows() == 0 || A.columns() == 0)
     return xb;
@@ -2665,10 +2701,7 @@ VectorN& LinAlg::solve_fast(MatrixNN& A, VectorN& xb)
   // call LAPACK (use solving routine that uses LU factorization)
   gesv_(&N, &NRHS, A.data(), &N, &IPIV().front(), xb.data(), &N, &INFO);
  
-  // mark A as destroyed
-  A.resize(0);
-
-  // check for singularity
+ // check for singularity
   assert(INFO >= 0);
   if (INFO > 0)
     throw SingularException();
@@ -2681,10 +2714,13 @@ VectorN& LinAlg::solve_fast(MatrixNN& A, VectorN& xb)
  * \param A a square matrix (destroyed on return)
  * \param XB the matrix B on input, the matrix X on return
  */
-MatrixN& LinAlg::solve_fast(MatrixNN& A, MatrixN& XB)
+MatrixN& LinAlg::solve_fast(MatrixN& A, MatrixN& XB)
 {  
+  if (A.rows() != A.columns())
+    throw NonsquareMatrixException();
+
   // verify that A is not zero size
-  if (A.size() == 0)
+  if (A.rows() == 0)
     return XB;
 
   // verify that A and b are compatible
@@ -2701,9 +2737,6 @@ MatrixN& LinAlg::solve_fast(MatrixNN& A, MatrixN& XB)
   // call LAPACK (use solving routine that uses LU factorization)
   gesv_(&N, &NRHS, A.data(), &N, &IPIV().front(), XB.data(), &N, &INFO);
 
-  // mark A as destroyed
-  A.resize(0);
-
   // check for singularity
   assert(INFO >= 0);
   if (INFO > 0)
@@ -2718,10 +2751,10 @@ MatrixN& LinAlg::solve_fast(MatrixNN& A, MatrixN& XB)
  * \param b a vector of length A.rows()
  * \return the solution vector of length b.size()
  */
-VectorN LinAlg::solve(const MatrixNN& A, const VectorN& b)
+VectorN LinAlg::solve(const MatrixN& A, const VectorN& b)
 {  
   // copy A and b
-  MatrixNN A_copy;
+  MatrixN A_copy;
   VectorN x;
   A_copy = A;
   x = b;
@@ -2738,10 +2771,10 @@ VectorN LinAlg::solve(const MatrixNN& A, const VectorN& b)
  * \param B a matrix with A.rows() rows
  * \return the solution matrix of dimension A.rows() x B.columns()
  */
-MatrixN LinAlg::solve(const MatrixNN& A, const MatrixN& B)
+MatrixN LinAlg::solve(const MatrixN& A, const MatrixN& B)
 {  
   // copy A and B
-  MatrixNN A_copy;
+  MatrixN A_copy;
   MatrixN X;
   A_copy = A;
   X = B;
@@ -2948,7 +2981,7 @@ void LinAlg::update_QR_insert_cols(MatrixN& Q, MatrixN& R, MatrixN& U, unsigned 
 {
   SAFESTATIC VectorN workv;
   SAFESTATIC MatrixN workM, workM2, Qu;
-  SAFESTATIC MatrixNN c, s;
+  SAFESTATIC MatrixN c, s;
 
   const int m = Q.rows();
   const int n = R.columns();
@@ -2959,8 +2992,8 @@ void LinAlg::update_QR_insert_cols(MatrixN& Q, MatrixN& R, MatrixN& U, unsigned 
   k++;
 
   // setup c, s
-  c.resize(std::max(m,n)+1);
-  s.resize(std::max(m,n)+1);
+  c.resize(std::max(m,n)+1,std::max(m,n)+1);
+  s.resize(std::max(m,n)+1,std::max(m,n)+1);
 
   // setup U
   Q.transpose_mult(U, workM);
@@ -3128,11 +3161,11 @@ void LinAlg::update_QR_insert_rows(MatrixN& Q, MatrixN& R, MatrixN& U, unsigned 
     {
       // permute Q
       workM2.resize(Q.rows(), Q.columns());
-      Q.get_sub_mat(0,k-1,0,n+1,workM);
+      Q.get_sub_mat(0,k-1,0,m+1,workM);
       workM2.set_sub_mat(0,0,workM);
       Q.get_row(m, workv);
       workM2.set_row(workM.rows(), workv);
-      Q.get_sub_mat(k-1,m,0,n+1, workM);
+      Q.get_sub_mat(k-1,m,0,m+1, workM);
       workM2.set_sub_mat(k, 0, workM);
       Q.copy_from(workM2);
     }

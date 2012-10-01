@@ -1,5 +1,5 @@
 #include <Moby/VectorN.h>
-#include <Moby/MatrixNN.h>
+#include <Moby/MatrixN.h>
 #include <Moby/Constants.h>
 
 #ifndef _PATH_LCP_SOLVER_H_
@@ -11,7 +11,7 @@ namespace Moby {
 class PathLCPSolver
 {
   public:
-    static bool solve_lcp(const MatrixNN& MM, const VectorN& q, VectorN& z, Real tol = NEAR_ZERO);
+    static bool solve_lcp(const MatrixNN& M, const VectorN& q, VectorN& z, Real tol = NEAR_ZERO);
 }; // end class PathLCPSolver
 
 } // end namespace

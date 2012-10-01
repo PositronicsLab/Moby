@@ -28,6 +28,15 @@ class BlockIterator : public std::iterator<std::random_access_iterator_tag, Real
       _matrix_columns = 0;
     }
 
+    /// Gets the iterator at the end of this block
+    BlockIterator end() const
+    {
+      if (_count <= _sz)
+        return *this + (_sz - _count);
+      else
+        return *this - (_count - _sz);
+    }
+
     BlockIterator& operator+=(int n) 
     {
       assert(n >= 0);

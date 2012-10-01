@@ -9,7 +9,7 @@
 
 #include <map>
 #include <Moby/Base.h>
-#include <Moby/MatrixNN.h>
+#include <Moby/MatrixN.h>
 #include <Moby/Vector3.h>
 
 namespace Moby {

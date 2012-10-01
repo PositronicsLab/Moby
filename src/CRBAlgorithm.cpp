@@ -70,10 +70,10 @@ void CRBAlgorithm::setup_parent_array()
 }
 
 /// Factorizes (Cholesky) the generalized inertia matrix, exploiting sparsity
-bool CRBAlgorithm::factorize_cholesky(MatrixNN& M)
+bool CRBAlgorithm::factorize_cholesky(MatrixN& M)
 {
   // get the number of degrees of freedom
-  const unsigned n = M.size();
+  const unsigned n = M.rows();
 
   // loop
   for (unsigned kk=n; kk> 0; kk--)
@@ -110,13 +110,13 @@ bool CRBAlgorithm::factorize_cholesky(MatrixNN& M)
 /// Calculates the generalized inertia of this body
 void CRBAlgorithm::calc_generalized_inertia(RCArticulatedBodyPtr body, ReferenceFrameType rftype)
 {
-  SAFESTATIC MatrixNN H;
+  SAFESTATIC MatrixN H;
   SAFESTATIC SMatrix6N K, Is;
   SAFESTATIC vector<SpatialRBInertia> Ic;
   const unsigned SPATIAL_DIM = 6;
 
   // get the appropriate M
-  MatrixNN& M = this->_M;
+  MatrixN& M = this->_M;
 
   // get the set of links
   const vector<RigidBodyPtr>& links = body->get_links();
@@ -131,7 +131,7 @@ void CRBAlgorithm::calc_generalized_inertia(RCArticulatedBodyPtr body, Reference
   const unsigned n_base_DOF = (body->is_floating_base()) ? 6 : 0;
 
   // resize M
-  M.resize(n_base_DOF + body->num_joint_dof_implicit());
+  M.resize(n_base_DOF + body->num_joint_dof_implicit(), n_base_DOF + body->num_joint_dof_implicit());
 
   // set appropriate part of H
   M.set_sub_mat(n_base_DOF, n_base_DOF, H);
@@ -180,12 +180,12 @@ void CRBAlgorithm::calc_generalized_inertia(RCArticulatedBodyPtr body, Reference
   // swap first and second three rows if body is a floating base
   if (body->is_floating_base())
     for (unsigned i=0; i< 3; i++)
-      for (unsigned j=0; j< M.size(); j++)
+      for (unsigned j=0; j< M.rows(); j++)
         std::swap(M(i,j), M(i+3, j));
 }
 
 /// Calculates the generalized inertia matrix for the given representation
-void CRBAlgorithm::calc_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, MatrixNN& M)
+void CRBAlgorithm::calc_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, MatrixN& M)
 {
   // do the precalculation
   RCArticulatedBodyPtr body(_body);
@@ -203,7 +203,7 @@ void CRBAlgorithm::calc_generalized_inertia(DynamicBody::GeneralizedCoordinateTy
 }
 
 /// Computes *just* the joint space inertia matrix
-void CRBAlgorithm::calc_joint_space_inertia(RCArticulatedBodyPtr body, ReferenceFrameType rftype, MatrixNN& H, vector<SpatialRBInertia>& Ic) const
+void CRBAlgorithm::calc_joint_space_inertia(RCArticulatedBodyPtr body, ReferenceFrameType rftype, MatrixN& H, vector<SpatialRBInertia>& Ic) const
 {
   SAFESTATIC MatrixN tmp, sub;
   SAFESTATIC vector<SMatrix6N> forces;
@@ -296,7 +296,7 @@ void CRBAlgorithm::calc_joint_space_inertia(RCArticulatedBodyPtr body, Reference
   }
 
   // resize H 
-  H.set_zero(body->num_joint_dof_implicit());
+  H.set_zero(body->num_joint_dof_implicit(), body->num_joint_dof_implicit());
 
   // ************************************************************************
   // compute spatial composite inertias 
@@ -427,10 +427,10 @@ void CRBAlgorithm::calc_joint_space_inertia(RCArticulatedBodyPtr body, Reference
 }
 
 /// Calculates the generalized inertia matrix for the given representation
-void CRBAlgorithm::calc_generalized_inertia_axisangle(MatrixNN& M) const
+void CRBAlgorithm::calc_generalized_inertia_axisangle(MatrixN& M) const
 {
   SAFESTATIC SMatrix6N K, sb, Is;
-  SAFESTATIC MatrixNN H;
+  SAFESTATIC MatrixN H;
   SAFESTATIC MatrixN KT;
   SAFESTATIC vector<SpatialRBInertia> Ic;
   const unsigned SPATIAL_DIM = 6;
@@ -448,7 +448,7 @@ void CRBAlgorithm::calc_generalized_inertia_axisangle(MatrixNN& M) const
   const unsigned n_base_DOF = (body->is_floating_base()) ? 6 : 0;
 
   // resize M and set H
-  M.resize(n_base_DOF + body->num_joint_dof_implicit());
+  M.resize(n_base_DOF + body->num_joint_dof_implicit(), n_base_DOF + body->num_joint_dof_implicit());
   M.set_sub_mat(n_base_DOF, n_base_DOF, H);
 
   // look for simplest case
@@ -532,7 +532,7 @@ void CRBAlgorithm::calc_generalized_inertia_axisangle(MatrixNN& M) const
   // swap first and second three columns if body is a floating base
   if (body->is_floating_base())
     for (unsigned i=0; i< 3; i++)
-      for (unsigned j=0; j< M.size(); j++)
+      for (unsigned j=0; j< M.rows(); j++)
         std::swap(M(j,i), M(j, i+3));
 
   FILE_LOG(LOG_DYNAMICS) << "(permuted) [Ic0 K; K' H]: " << std::endl << M;
@@ -543,11 +543,11 @@ void CRBAlgorithm::calc_generalized_inertia_axisangle(MatrixNN& M) const
  * \note this method does not utilize cached data nor does it cache any data
  *       to speed repeated calculations.
  */
-void CRBAlgorithm::calc_generalized_inertia_rodrigues(MatrixNN& M) const
+void CRBAlgorithm::calc_generalized_inertia_rodrigues(MatrixN& M) const
 {
   SAFESTATIC MatrixN K, K2, L, tmp, tmp1, tmp2;
   SAFESTATIC vector<SpatialRBInertia> Ic;
-  SAFESTATIC MatrixNN Ic0_7, H;
+  SAFESTATIC MatrixN Ic0_7, H;
   SAFESTATIC SMatrix6N Is;
   const unsigned SPATIAL_DIM = 6;
 
@@ -566,7 +566,7 @@ void CRBAlgorithm::calc_generalized_inertia_rodrigues(MatrixNN& M) const
   const unsigned n_base_DOF = (body->is_floating_base()) ? 7 : 0;
 
   // resize M and set H
-  M.resize(n_base_DOF + body->num_joint_dof_implicit());
+  M.resize(n_base_DOF + body->num_joint_dof_implicit(), n_base_DOF + body->num_joint_dof_implicit());
   M.set_sub_mat(n_base_DOF, n_base_DOF, H);
 
   // look for simplest case
@@ -623,13 +623,13 @@ void CRBAlgorithm::calc_generalized_inertia_rodrigues(MatrixNN& M) const
   M.set_sub_mat(0, 3, subL);
 }
 
-void CRBAlgorithm::to_spatial7_inertia(const SpatialRBInertia& I, const Quat& q, MatrixNN& I7)
+void CRBAlgorithm::to_spatial7_inertia(const SpatialRBInertia& I, const Quat& q, MatrixN& I7)
 {
-  SAFESTATIC MatrixNN work;
+  SAFESTATIC MatrixN work;
   SAFESTATIC MatrixN work2, L;
 
   // first resize I7
-  I7.resize(7);
+  I7.resize(7,7);
 
   // now get the subcomponents of I 
   Matrix3 IUL = Matrix3::skew_symmetric(-I.h);
@@ -643,7 +643,7 @@ void CRBAlgorithm::to_spatial7_inertia(const SpatialRBInertia& I, const Quat& q,
 
   // transform and set the non-invariant parts
   q.determine_L(L) *= (Real) 2.0;
-  work.resize(3);
+  work.resize(3,3);
   work.set_sub_mat(0, 0, IUL);
   work.mult(L, work2);
   I7.set_sub_mat(0, 0, work2);
@@ -717,12 +717,15 @@ void CRBAlgorithm::precalc(RCArticulatedBodyPtr body, ReferenceFrameType rftype)
     calc_generalized_inertia(body, rftype);
 
     // attempt to do a Cholesky factorization of M
-    MatrixNN& fM = this->_fM;
-    MatrixNN& M = this->_M;
+    MatrixN& fM = this->_fM;
+    MatrixN& M = this->_M;
     fM.copy_from(M);
     if (_rank_deficient = !LinAlg::factor_chol(fM))
+    {
+      fM.copy_from(M);
 //    if (_rank_deficient = !factorize_cholesky(fM))
-      LinAlg::pseudo_inverse(M, fM);
+      LinAlg::pseudo_inverse(fM);
+    }
 
     // validate position data
     _position_data_valid = true;
@@ -778,7 +781,7 @@ MatrixN& CRBAlgorithm::M_solve(const MatrixN& m, MatrixN& result)
 VectorN& CRBAlgorithm::M_solve_noprecalc(const VectorN& v, VectorN& result) const
 {
   // get the factorized inertia matrix
-  const MatrixNN& fJ = this->_fM; 
+  const MatrixN& fJ = this->_fM; 
 
   // determine whether the matrix is rank-deficient
   if (this->_rank_deficient)
@@ -800,7 +803,7 @@ VectorN& CRBAlgorithm::M_solve_noprecalc(const VectorN& v, VectorN& result) cons
 MatrixN& CRBAlgorithm::M_solve_noprecalc(const MatrixN& m, MatrixN& result) const
 {
   // get the factorized inertia matrix
-  const MatrixNN& fJ = this->_fM; 
+  const MatrixN& fJ = this->_fM; 
 
   // determine whether the matrix is rank-deficient
   if (this->_rank_deficient)
@@ -1344,7 +1347,7 @@ void CRBAlgorithm::apply_impulse(const Vector3& jj, const Vector3& jk, const Vec
   body->convert_to_generalized_force(link, jj, jk + jt, gf);
 
   // get the generalized inertia and invert it
-  MatrixNN M;
+  MatrixN M;
   body->get_generalized_inertia(M);
   LinAlg::inverse_PD(M);
 
@@ -1358,7 +1361,7 @@ void CRBAlgorithm::apply_impulse(const Vector3& jj, const Vector3& jk, const Vec
 
   SMatrix6 Xc0 = SMatrix6::calc_spatial_transform(IDENTITY_3x3, ZEROS_3, IDENTITY_3x3, link->get_position());
   SMatrix6 X0c = SMatrix6::calc_spatial_transform(IDENTITY_3x3, link->get_position(), IDENTITY_3x3, ZEROS_3);
-  MatrixNN Mx;
+  MatrixN Mx;
   body->get_generalized_inertia(Mx, eGlobal);
   SMatrix6 M2(Mx.begin());
 

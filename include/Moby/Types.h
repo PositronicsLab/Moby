@@ -28,7 +28,6 @@ class SVector6;
 class Matrix3;
 class Matrix4;
 class MatrixN;
-class MatrixNN;
 class Polyhedron;
 class Simulator;
 class RigidBody;
@@ -116,15 +115,6 @@ typedef boost::shared_ptr<Matrix4> Matrix4Ptr;
 
 /// MatrixN smart pointer
 typedef boost::shared_ptr<MatrixN> MatrixNPtr;
-
-/// MatrixNN smart pointer
-typedef boost::shared_ptr<MatrixN> MatrixNPtr;
-
-/// MatrixNN smart pointer
-typedef boost::shared_ptr<MatrixNN> MatrixNNPtr;
-
-/// const MatrixNN smart pointer
-typedef boost::shared_ptr<const MatrixNN> MatrixNNConstPtr;
 
 /// constant MatrixN smart pointer
 typedef boost::shared_ptr<const MatrixN> MatrixNConstPtr;
