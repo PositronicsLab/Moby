@@ -449,7 +449,7 @@ void Joint::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& 
 
   // read the joint positions, if given
   const XMLAttrib* q_init_attr = node->get_attrib("q_init");
-  if (q_init_attr);
+  if (q_init_attr)
     q_init_attr->get_vector_value(_q_tare);
 
   // read the Coulomb friction coefficient, if given
