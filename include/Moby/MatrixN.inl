@@ -177,4 +177,35 @@ MatrixN MatrixN::select(ForwardIterator1 row_start, ForwardIterator1 row_end, Fo
   return select(row_start, row_end, col_start, col_end, m);
 }
 
+template <class ForwardIterator>
+MatrixN& MatrixN::select_square(ForwardIterator start, ForwardIterator end, MatrixN& m) const
+{
+  const unsigned n = std::distance(start, end);
+
+  // resize matrix
+  m.resize(n,n);
+
+  // populate m
+  unsigned mi;
+  ForwardIterator i;
+  for (i=start, mi=0; i != end; i++, mi++)
+  {
+    unsigned mj;
+    ForwardIterator j;
+
+    // copy all flagged elements in column of A
+    for (j=start, mj=0; j != end; j++, mj++)
+      m(mi, mj) = operator()(*i,*j);
+  }
+
+  return m;
+}
+
+template <class ForwardIterator>
+MatrixN MatrixN::select_square(ForwardIterator start, ForwardIterator end) const
+{
+  // create new matrix
+  MatrixN m;
+  return select_square(start, end, m);
+}
 

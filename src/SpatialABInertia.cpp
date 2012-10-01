@@ -6,7 +6,7 @@
 
 #include <Moby/Constants.h>
 #include <Moby/SMatrix6N.h>
-#include <Moby/MatrixNN.h>
+#include <Moby/MatrixN.h>
 #include <Moby/SpatialABInertia.h>
 
 using namespace Moby;
@@ -19,8 +19,8 @@ SpatialABInertia::SpatialABInertia()
   J = ZEROS_3x3;
 }
 
-/// Constructs a spatial AB inertia from the given MatrixNN object
-SpatialABInertia::SpatialABInertia(const MatrixNN& m)
+/// Constructs a spatial AB inertia from the given MatrixN object
+SpatialABInertia::SpatialABInertia(const MatrixN& m)
 {
   m.get_sub_mat(0, 3, 3, 6, M);
   m.get_sub_mat(3, 6, 3, 6, H);
@@ -209,9 +209,9 @@ SMatrix6N& SpatialABInertia::mult(const SMatrix6N& m, SMatrix6N& result) const
 }
 
 /// Multiplies a 6x6 matrix by a Spatial AB inertia matrix
-SpatialABInertia SpatialABInertia::mult(const MatrixNN& m, const SpatialABInertia& I)
+SpatialABInertia SpatialABInertia::mult(const MatrixN& m, const SpatialABInertia& I)
 {
-  assert(m.size() == 6);
+  assert(m.rows() == 6 && m.columns() == 6);
 
   // get the components of m
   Matrix3 UL, UR, LL, LR;

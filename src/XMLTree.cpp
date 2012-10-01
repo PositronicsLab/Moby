@@ -12,7 +12,7 @@
 #include <cmath>
 #include <sstream>
 #include <Moby/MissizeException.h>
-#include <Moby/MatrixNN.h>
+#include <Moby/MatrixN.h>
 #include <Moby/XMLTree.h>
 
 using namespace Moby;
@@ -377,9 +377,9 @@ void XMLAttrib::get_vector_value(SVector6& v) const
 /// Gets a list of space-delimited and/or comma-delimited strings from the underlying string value
 void XMLAttrib::get_matrix_value(Matrix3& m) const
 {
-  MatrixNN n;
+  MatrixN n;
   get_matrix_value(n);
-  if (n.size() != m.size())
+  if (n.rows() != m.size() || n.columns() != m.size())
     throw MissizeException();
   m = Matrix3(n.begin());
 } 
@@ -388,9 +388,9 @@ void XMLAttrib::get_matrix_value(Matrix3& m) const
 void XMLAttrib::get_matrix_value(Matrix4& m) const
 {
   const unsigned X = 0, W = 3;
-  MatrixNN n;
+  MatrixN n;
   get_matrix_value(n);
-  if (n.size() != m.size())
+  if (n.rows() != m.size() || n.columns() != m.size())
     throw MissizeException();
   MatrixN o = n.get_sub_mat(X,W,X,W+1);
   m = Matrix4(o.begin());

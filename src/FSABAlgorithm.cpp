@@ -34,7 +34,7 @@ FSABAlgorithm::FSABAlgorithm()
 }
 
 /// Calculates the inverse generalized inertia matrix
-void FSABAlgorithm::calc_inverse_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, MatrixNN& iM)
+void FSABAlgorithm::calc_inverse_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, MatrixN& iM)
 {
   SAFESTATIC FastThreadable<VectorN> v;
 
@@ -62,7 +62,7 @@ void FSABAlgorithm::calc_inverse_generalized_inertia(DynamicBody::GeneralizedCoo
   const unsigned NGC = body->num_generalized_coordinates(gctype);
 
   // resize inv(M)
-  iM.resize(NGC);
+  iM.resize(NGC, NGC);
   v().set_zero(NGC);
 
   // compute the inverse inertia
@@ -81,10 +81,12 @@ void FSABAlgorithm::calc_inverse_generalized_inertia(DynamicBody::GeneralizedCoo
   } 
 
   // make inverse(M) symmetric
-  for (unsigned i=0; i< NGC; i++)
-    for (unsigned j=i+1; j< NGC; j++)
-      iM(j,i) = iM(i,j);
-
+  const unsigned LD = NGC;
+  Real* data = iM.data();
+  for (unsigned i=0, ii=0; i< NGC; i++, ii+= LD)
+    for (unsigned j=0, jj=0; j< i; j++, jj+= LD)
+      data[ii] = data[jj];
+  
   FILE_LOG(LOG_DYNAMICS) << "inverse M: " << std::endl << iM;
 }
 
@@ -938,7 +940,7 @@ FILE_LOG(LOG_DYNAMICS) << "added link " << parent->id << " to queue for processi
     if (!_rank_deficient[idx])
       LinAlg::factor_chol(_sIs[idx]);
     else
-      LinAlg::pseudo_inverse(_sIs[idx], _sIs[idx]);
+      LinAlg::pseudo_inverse(_sIs[idx]);
 
     // get Is
     const SMatrix6N& Is = _Is[idx];
@@ -1466,7 +1468,7 @@ void FSABAlgorithm::apply_impulse(const Vector3& j, const Vector3& k, const Vect
 /// Solves a system for sIs*x = m' using a factorization (if sIs is nonsingular) or the pseudo-inverse of sIs otherwise
 MatrixN& FSABAlgorithm::transpose_solve_sIs(unsigned idx, const SMatrix6N& m, MatrixN& result) const
 {
-  SAFESTATIC MatrixNN tmp;
+  SAFESTATIC MatrixN tmp;
 
   // determine whether we are dealing with a rank-deficient sIs
   if (_rank_deficient[idx])

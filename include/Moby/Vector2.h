@@ -15,7 +15,6 @@
 
 namespace Moby {
 
-class MatrixNN;
 class Matrix2;
 
 /// A two-dimensional floating point vector used for computational geometry calculations

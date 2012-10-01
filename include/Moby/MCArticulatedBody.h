@@ -39,7 +39,7 @@ class MCArticulatedBody : public ArticulatedBody
   public:
     MCArticulatedBody();
     virtual ~MCArticulatedBody() {}
-    virtual MatrixNN& get_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, MatrixNN& M);
+    virtual MatrixN& get_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, MatrixN& M);
     virtual unsigned num_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype) const;
     virtual void add_generalized_force(DynamicBody::GeneralizedCoordinateType gctype, const VectorN& gf);
     virtual void apply_generalized_impulse(DynamicBody::GeneralizedCoordinateType gctype, const VectorN& gj);
@@ -133,7 +133,7 @@ class MCArticulatedBody : public ArticulatedBody
     VectorN& mult_transpose_sparse(const SparseJacobian& J, const VectorN& v, VectorN& result) const;
     MatrixN& mult_transpose_sparse(const SparseJacobian& J, const MatrixN& v, MatrixN& result) const;
     VectorN& mult_sparse(const SparseJacobian& J, const VectorN& v, VectorN& result) const;
-    void calc_Dx_iM_DxT(MatrixNN& Dx_iM_DxT) const;
+    void calc_Dx_iM_DxT(MatrixN& Dx_iM_DxT) const;
     void calc_Dx_iM(SparseJacobian& Dx_iM) const;
     MatrixN& calc_Jx_iM_JyT(const SparseJacobian& Jx, const SparseJacobian& Jy, MatrixN& Jx_iM_JyT) const;
     static void get_sub_jacobian(const std::vector<unsigned>& rows, const SparseJacobian& J, SparseJacobian& Jx);
@@ -150,10 +150,10 @@ class MCArticulatedBody : public ArticulatedBody
     std::vector<InvInertia> _iM;
 
     /// The matrix J*iM*J' 
-    MatrixNN _Jx_iM_JxT;
+    MatrixN _Jx_iM_JxT;
 
     /// The factorization or regularized inverse of Jx*iM*Jx'
-    MatrixNN _inv_Jx_iM_JxT;
+    MatrixN _inv_Jx_iM_JxT;
 
     /// Indicates whether J*iM*J' is rank deficient
     bool _rank_def;

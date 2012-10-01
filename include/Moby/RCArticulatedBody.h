@@ -54,7 +54,7 @@ class RCArticulatedBody : public ArticulatedBody
     virtual MatrixN calc_jacobian_column(JointPtr joint, const Vector3& point);
     virtual MatrixN& calc_jacobian_column(JointPtr joint, const Vector3& point, const Matrix4& base_transform, const std::map<JointPtr, VectorN>& q, MatrixN& Jc);
     virtual MatrixN& calc_jacobian_column(JointPtr joint, const Vector3& point, MatrixN& Jc);
-    virtual MatrixNN calc_jacobian_floating_base(const Vector3& point);
+    virtual MatrixN calc_jacobian_floating_base(const Vector3& point);
     virtual void reset_accumulators();
     virtual void update_link_transforms();    
     virtual void update_link_velocities();
@@ -72,8 +72,8 @@ class RCArticulatedBody : public ArticulatedBody
     virtual VectorN& get_generalized_acceleration(DynamicBody::GeneralizedCoordinateType gctype, VectorN& gv);
     virtual void set_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, const VectorN& gc);
     virtual void set_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, const VectorN& gv);
-    virtual MatrixNN& get_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, MatrixNN& M);
-    virtual MatrixNN& get_generalized_inertia_inverse(DynamicBody::GeneralizedCoordinateType gctype, MatrixNN& M);
+    virtual MatrixN& get_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, MatrixN& M);
+    virtual MatrixN& get_generalized_inertia_inverse(DynamicBody::GeneralizedCoordinateType gctype, MatrixN& M);
     virtual VectorN& get_generalized_forces(DynamicBody::GeneralizedCoordinateType gctype, VectorN& f);
     virtual VectorN& convert_to_generalized_force(DynamicBody::GeneralizedCoordinateType gctype, SingleBodyPtr body, const Vector3& f, const Vector3& t, VectorN& gf);
     virtual unsigned num_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype) const;
@@ -159,7 +159,7 @@ class RCArticulatedBody : public ArticulatedBody
     FSABAlgorithm _fsab;
 
     /// The inverse or factorized generalized inertia matrix
-    MatrixNN _invM;
+    MatrixN _invM;
 
     /// Indicates whether the inverse generalized inertia needs to be recomputed
     bool _invM_valid;
@@ -176,7 +176,7 @@ class RCArticulatedBody : public ArticulatedBody
     VectorN& solve_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, const VectorN& v, VectorN& result);
     MatrixN& solve_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, const MatrixN& m, MatrixN& result);
     MatrixN& solve_generalized_inertia_transpose(DynamicBody::GeneralizedCoordinateType gctype, const MatrixN& m, MatrixN& result);
-    void determine_contact_jacobians(const EventProblemData& q, const VectorN& v, const MatrixNN& M, MatrixN& Jc, MatrixN& Dc);
+    void determine_contact_jacobians(const EventProblemData& q, const VectorN& v, const MatrixN& M, MatrixN& Jc, MatrixN& Dc);
     static bool supports(JointPtr joint, RigidBodyPtr link);
     void determine_generalized_forces(VectorN& gf) const;
     void determine_generalized_accelerations(VectorN& xdd) const;

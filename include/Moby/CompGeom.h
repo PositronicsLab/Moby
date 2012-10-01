@@ -19,6 +19,7 @@
 #include <boost/foreach.hpp>
 #include <Moby/Constants.h>
 #include <Moby/Triangle.h>
+#include <Moby/FastThreadable.h>
 #include <Moby/Vector2.h>
 #include <Moby/Matrix2.h>
 #include <Moby/Optimization.h>

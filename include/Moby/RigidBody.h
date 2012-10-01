@@ -116,7 +116,7 @@ class RigidBody : public SingleBody
     virtual void apply_generalized_impulse(DynamicBody::GeneralizedCoordinateType gctype, const VectorN& gf);
     virtual void set_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, const VectorN& gc);
     virtual void set_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, const VectorN& gv);
-    virtual MatrixNN& get_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, MatrixNN& M);
+    virtual MatrixN& get_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, MatrixN& M);
     virtual VectorN& get_generalized_forces(DynamicBody::GeneralizedCoordinateType gctype, VectorN& f);
     virtual VectorN& convert_to_generalized_force(DynamicBody::GeneralizedCoordinateType gctype, SingleBodyPtr body, const Vector3& f, const Vector3& t, VectorN& gf);
     virtual unsigned num_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype) const;
@@ -289,7 +289,7 @@ class RigidBody : public SingleBody
     void invalidate_position();
     void invalidate_velocity();
     void synchronize();
-    static bool valid_transform(const MatrixNN& T, Real tol);
+    static bool valid_transform(const MatrixN& T, Real tol);
 
     /// Mass of the rigid body
     Real _mass;

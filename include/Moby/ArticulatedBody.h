@@ -32,7 +32,7 @@ struct ABFwdDynOptData
 
   VectorN z;               // the homogeneous solution
   MatrixN R;               // the nullspace
-  MatrixNN G;              // the quadratic objective function
+  MatrixN G;              // the quadratic objective function
   MatrixN Dx;              // the movement Jacobian for explicit joints
   VectorN c;               // the linear objective function
   VectorN fext;            // external applied force
@@ -171,7 +171,7 @@ class ArticulatedBody : public DynamicBody
     static void calc_fwd_dyn_fx(const VectorN& x, VectorN& fc, void* data);
     static void calc_fwd_dyn_grad0(const VectorN& x, VectorN& grad, void* data);
     static void calc_fwd_dyn_cJac(const VectorN& x, MatrixN& J, void* data);
-    static void calc_fwd_dyn_hess(const VectorN& x, Real objscal, const VectorN& lambda, const VectorN& nu, MatrixNN& H, void* data);
+    static void calc_fwd_dyn_hess(const VectorN& x, Real objscal, const VectorN& lambda, const VectorN& nu, MatrixN& H, void* data);
     void calc_joint_constraint_forces(const std::vector<unsigned>& loop_indices, const VectorN& delta, const std::vector<MatrixN>& Zd, const std::vector<MatrixN>& Z1d, const std::vector<MatrixN>& Z, const VectorN& ff) const;
 
     /// The set of links for this articulated body

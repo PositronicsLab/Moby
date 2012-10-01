@@ -336,7 +336,7 @@ void RCArticulatedBody::update_factorized_generalized_inertia(DynamicBody::Gener
 }
 
 /// Gets the inverse of the generalized inertia matrix
-MatrixNN& RCArticulatedBody::get_generalized_inertia_inverse(DynamicBody::GeneralizedCoordinateType gctype, MatrixNN& M)
+MatrixN& RCArticulatedBody::get_generalized_inertia_inverse(DynamicBody::GeneralizedCoordinateType gctype, MatrixN& M)
 {
   // update the inverse / factorized inertia (if necessary)
   update_factorized_generalized_inertia(gctype);
@@ -346,7 +346,7 @@ MatrixNN& RCArticulatedBody::get_generalized_inertia_inverse(DynamicBody::Genera
   else
   {
     assert(algorithm_type == eCRB && gctype == eAxisAngle);
-    SAFESTATIC MatrixNN eye;
+    SAFESTATIC MatrixN eye;
     eye.set_identity(num_generalized_coordinates(eAxisAngle));
     _crb.M_solve(eye, M);
   }
@@ -897,12 +897,12 @@ void RCArticulatedBody::update_link_velocities()
  * \return a pointer to a 6x6 matrix; top three dimensions will be linear
  *         velocity and bottom three dimensions will be angular velocity
  */
-MatrixNN RCArticulatedBody::calc_jacobian_floating_base(const Vector3& point)
+MatrixN RCArticulatedBody::calc_jacobian_floating_base(const Vector3& point)
 {
   const unsigned SIX_D = 6, A = 0, B = 1, C = 2, D = 3;
 
   // init the base Jacobian
-  MatrixNN base_jacobian(SIX_D);
+  MatrixN base_jacobian(SIX_D, SIX_D);
 
   // get the base transform
   const Matrix4& base_transform = _links.front()->get_transform();
@@ -1182,7 +1182,7 @@ void RCArticulatedBody::calc_fwd_dyn(Real dt)
 void RCArticulatedBody::calc_fwd_dyn_loops()
 {
   Real Cx[6];
-  SAFESTATIC MatrixNN iM, Jx_iM_JxT;
+  SAFESTATIC MatrixN iM, Jx_iM_JxT;
   SAFESTATIC MatrixN Jx_dot, Jx_iM, A;
   SAFESTATIC VectorN v, fext, C, alpha_x, beta_x, Dx_v, Jx_v, Jx_dot_v, tmpv;
   SAFESTATIC VectorN x, iM_fext, a;
@@ -1265,7 +1265,7 @@ void RCArticulatedBody::calc_fwd_dyn_advanced_friction(Real dt)
 {
   Real Cx[6];
   const Real QP_TOL = std::sqrt(NEAR_ZERO);  // tolerance for solving the QP
-  SAFESTATIC MatrixNN iM, X, Jx_X_JxT, Dx_X_DxT, Jx_iM_JxT;
+  SAFESTATIC MatrixN iM, X, Jx_X_JxT, Dx_X_DxT, Jx_iM_JxT;
   SAFESTATIC MatrixN Jx_dot, Y, X_JxT, X_DxT, Dx_X_JxT, Jx_iM, Jx_Y, A, RG;
   SAFESTATIC MatrixN Jx_iM_DxT;
   SAFESTATIC VectorN v, fext, C, alpha_x, beta_x, Dx_v, Jx_v, Jx_dot_v, tmpv;
@@ -1502,8 +1502,8 @@ void RCArticulatedBody::calc_fwd_dyn_advanced_friction(Real dt)
   //     | 0                       |
 
   // compute the quadratic matrix
-  MatrixNN& G = copt_data.G;
-  G.set_zero(NN);
+  MatrixN& G = copt_data.G;
+  G.set_zero(NN, NN);
   G.set_sub_mat(0,0,X); 
   G.set_sub_mat(0,N_IMPLICIT_DOF,X_JxT);
   G.set_sub_mat(N_IMPLICIT_DOF,0,X_JxT,true);
@@ -1614,7 +1614,7 @@ void RCArticulatedBody::calc_fwd_dyn_advanced_friction(Real dt)
   // determine predicted energy
   if (LOGGING(LOG_DYNAMICS))
   {
-    MatrixNN M;
+    MatrixN M;
     get_generalized_inertia(eAxisAngle, M);
     M.mult(v, tmpv);
     FILE_LOG(LOG_DYNAMICS) << " current energy: " << (0.5 * v.dot(tmpv)) << std::endl;
@@ -1746,7 +1746,8 @@ void RCArticulatedBody::determine_explicit_constraint_jacobians(const EventProbl
 
     // get the spatial movement (axes) of this joint (rbo frame)
     const SMatrix6N& si = joint->get_spatial_axes(eLink);
-    LinAlg::pseudo_inverse(si, pinv_si);
+    pinv_si.copy_from(si);
+    LinAlg::pseudo_inverse(pinv_si);
 
 /*
     // special case: floating base
@@ -1864,7 +1865,8 @@ void RCArticulatedBody::determine_explicit_constraint_movement_jacobian(MatrixN&
 
     // get the spatial movement (axes) of this joint (rbo frame)
     const SMatrix6N& si = _ejoints[i]->get_spatial_axes(eLink);
-    LinAlg::pseudo_inverse(si, pinv_si);
+    pinv_si.copy_from(si);
+    LinAlg::pseudo_inverse(pinv_si);
 
 /*
     // special case: floating base
@@ -2442,7 +2444,7 @@ VectorN& RCArticulatedBody::get_generalized_velocity(DynamicBody::GeneralizedCoo
 }
 
 /// Gets the generalized inertia of this body
-MatrixNN& RCArticulatedBody::get_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, MatrixNN& M) 
+MatrixN& RCArticulatedBody::get_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, MatrixN& M) 
 {
   // calculate the generalized inertia matrix
   _crb.calc_generalized_inertia(gctype, M);
@@ -2461,7 +2463,7 @@ unsigned RCArticulatedBody::num_joint_dof_explicit() const
 
 /// Determines contact Jacobians
 void RCArticulatedBody::determine_contact_jacobians(const EventProblemData& q, 
-const VectorN& v, const MatrixNN& M, MatrixN& Jc, MatrixN& Dc)
+const VectorN& v, const MatrixN& M, MatrixN& Jc, MatrixN& Dc)
 {
   SAFESTATIC VectorN vnew, vcurrent;
 
@@ -2556,7 +2558,7 @@ void RCArticulatedBody::update_event_data(EventProblemData& q)
 {
   const unsigned SPATIAL_DIM = 6;
   SAFESTATIC MatrixN tmpM;
-  SAFESTATIC MatrixNN M;
+  SAFESTATIC MatrixN M;
   SAFESTATIC VectorN tmpV, v;
 
   // get the generalized velocity (axis angle)
@@ -2666,7 +2668,7 @@ void RCArticulatedBody::update_velocity(const EventProblemData& q)
 
   if (LOGGING(LOG_CONTACT))
   {
-    MatrixNN M;
+    MatrixN M;
     FILE_LOG(LOG_CONTACT) << "alpha_c: " << q.alpha_c << std::endl;
     FILE_LOG(LOG_CONTACT) << "beta_c: " << q.beta_c << std::endl;
     FILE_LOG(LOG_CONTACT) << "alpha_l: " << q.alpha_l << std::endl;
@@ -2911,6 +2913,9 @@ void RCArticulatedBody::load_from_xml(XMLTreeConstPtr node, map<string, BasePtr>
   const XMLAttrib* bbeta_attr = node->get_attrib("baumgarte-beta");
   if (bbeta_attr)
     b_beta = bbeta_attr->get_real_value();
+
+  // compile everything once again, for safe measure
+  compile();
 }
 
 /// Implements Base::save_to_xml()
