@@ -221,15 +221,15 @@ void RevoluteJoint::determine_Q()
   AAngle aa(&R_local, &_u);
 
   // set Q
-  this->q.resize(num_dof());
-  this->q[DOF_1] = aa.angle;
+  this->_q_tare.resize(num_dof());
+  this->_q_tare[DOF_1] = aa.angle;
 }
 
 /// Gets the (local) transform for this joint
 const Matrix4& RevoluteJoint::get_transform()
 {
   // note that translation is set to zero in the constructors
-  AAngle a(&_u, this->q[DOF_1]);
+  AAngle a(&_u, this->q[DOF_1]+this->_q_tare[DOF_1]);
   _T.set_rotation(&a);
   assert(_T.get_translation().norm() < NEAR_ZERO);
 

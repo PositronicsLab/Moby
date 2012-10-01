@@ -210,15 +210,15 @@ void PrismaticJoint::determine_Q()
 
   // now, we'll project p2 onto the axis ug; points will be setup so that
   // ug passes through origin on inboard
-  this->q.resize(num_dof());
-  this->q[DOF_1] = ug.dot(p2-p1);
+  this->_q_tare.resize(num_dof());
+  this->_q_tare[DOF_1] = ug.dot(p2-p1);
 }
 
 /// Gets the (local) transform for this joint
 const Matrix4& PrismaticJoint::get_transform()
 {
   // note that rotation is set to identity in the constructors
-  _T.set_translation(_u * this->q[DOF_1]);
+  _T.set_translation(_u * (this->q[DOF_1] + this->_q_tare[DOF_1]));
 
   return _T;
 }
