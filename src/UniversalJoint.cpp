@@ -112,8 +112,9 @@ Vector3 UniversalJoint::get_axis_global(Axis a) const
   // axis two is obtained by multiplying rotation matrix around x by y-axis 
   assert(a == eAxis2);
   Vector3 q(this->q.begin());
-  const Real c1 = std::cos(q[DOF_1]);
-  const Real s1 = std::sin(q[DOF_1]);
+  Vector3 _q_tare(this->_q_tare.begin());
+  const Real c1 = std::cos(q[DOF_1]+_q_tare[DOF_1]);
+  const Real s1 = std::sin(q[DOF_1]+_q_tare[DOF_1]);
   return R * _R * Vector3(0,c1,s1);
 }
 
@@ -228,13 +229,14 @@ const SMatrix6N& UniversalJoint::get_spatial_axes(ReferenceFrameType rftype)
 
   // get current values of q
   const VectorN& q = this->q;
+  const VectorN& _q_tare = this->_q_tare;
 
   // get the outboard link's joint to com vector in link coordinates
   const Vector3& p = outboard->get_inner_joint_data(inboard).joint_to_com_vec;
 
   // get the axes of the joint transformed into the inner link frame 
-  Real c1 = std::cos(q[DOF_1]);
-  Real s1 = std::sin(q[DOF_1]);
+  Real c1 = std::cos(q[DOF_1]+_q_tare[DOF_1]);
+  Real s1 = std::sin(q[DOF_1]+_q_tare[DOF_1]);
   Vector3 u1;
   _R.get_column(X, u1.begin());
   Vector3 u2 = _R * Vector3(0, c1, s1);
@@ -270,12 +272,13 @@ const SMatrix6N& UniversalJoint::get_spatial_axes_dot(ReferenceFrameType rftype)
 
   // get q and qd
   const VectorN& q = this->q;
+  const VectorN& _q_tare = this->_q_tare;
   const VectorN& qd = this->qd;
 
   // form the time derivative of the spatial axis for the second DOF; note that spatial
   // axis for first DOF is constant, so time-derivative is zero 
-  Real c1 = std::cos(q[DOF_1]);
-  Real s1 = std::sin(q[DOF_1]);
+  Real c1 = std::cos(q[DOF_1]+_q_tare[DOF_1]);
+  Real s1 = std::sin(q[DOF_1]+_q_tare[DOF_1]);
   Real qd1 = qd[DOF_1];
   Vector3 axis(0,-s1*qd1,c1*qd1);
 
@@ -336,8 +339,8 @@ void UniversalJoint::determine_Q()
 
   // determine q1 and q2 -- they are uniquely determined by examining the rotation matrix
   // (see get_rotation())
-  this->q[DOF_1] = std::atan2(RU(Z,Y), RU(Y,Y));
-  this->q[DOF_2] = std::atan2(RU(X,Z), RU(X,X));   
+  this->_q_tare[DOF_1] = std::atan2(RU(Z,Y), RU(Y,Y));
+  this->_q_tare[DOF_2] = std::atan2(RU(X,Z), RU(X,X));   
 }
 
 /// Gets the (local) transform for this joint
@@ -345,14 +348,15 @@ Matrix3 UniversalJoint::get_rotation() const
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
-  // get q
+  // get q and _q_tare
   const VectorN& q = this->q;
+  const VectorN& _q_tare = this->_q_tare;
 
   // compute some needed quantities
-  const Real c1 = std::cos(q[DOF_1]);
-  const Real s1 = std::sin(q[DOF_1]);
-  const Real c2 = std::cos(q[DOF_2]);
-  const Real s2 = std::sin(q[DOF_2]);
+  const Real c1 = std::cos(q[DOF_1]+_q_tare[DOF_1]);
+  const Real s1 = std::sin(q[DOF_1]+_q_tare[DOF_1]);
+  const Real c2 = std::cos(q[DOF_2]+_q_tare[DOF_2]);
+  const Real s2 = std::sin(q[DOF_2]+_q_tare[DOF_2]);
 
   // determine untransformed rotation; this rotation matrix is obtained by
   // using Tait-Bryan angles without a final rotation

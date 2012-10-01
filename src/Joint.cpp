@@ -22,6 +22,7 @@ using namespace Moby;
  */
 Joint::Joint()
 {
+  const Real INF = std::numeric_limits<Real>::max();
   // make the constraint type unknown
   _constraint_type = eUnknown;
 
@@ -36,6 +37,9 @@ Joint::Joint()
 
   // mark the indices as invalid initially
   _coord_idx = _joint_idx = _constraint_idx = std::numeric_limits<unsigned>::max();
+
+  // initialize _q_tare
+  _q_tare=INF;
 }
 
 /// Initializes the joint with the specified inboard and outboard links
@@ -432,14 +436,19 @@ void Joint::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& 
     maxforce_attr->get_vector_value(maxforce);
 
   // read the joint positions, if given
-  const XMLAttrib* q_attr = node->get_attrib("q");
-  if (q_attr)
-    q_attr->get_vector_value(q);
+  //const XMLAttrib* q_attr = node->get_attrib("q");
+  //if (q_attr)
+    //q_attr->get_vector_value(q);
 
   // read the joint velocities, if given
   const XMLAttrib* qd_attr = node->get_attrib("qd");
   if (qd_attr)
     qd_attr->get_vector_value(qd);
+
+  // read the joint positions, if given
+  const XMLAttrib* q_init_attr = node->get_attrib("q_init");
+  if (q_init_attr);
+    q_init_attr->get_vector_value(_q_tare);
 
   // read the Coulomb friction coefficient, if given
   const XMLAttrib* fc_attr = node->get_attrib("coulomb-friction-coeff");
@@ -601,6 +610,7 @@ void Joint::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects
   // save the joint position and velocity
   node->attribs.insert(XMLAttrib("q", q));
   node->attribs.insert(XMLAttrib("qd", qd));
+  node->attribs.insert(XMLAttrib("q_init", _qtare));
 
   // save the Coulomb and viscous friction coefficients
   node->attribs.insert(XMLAttrib("coulomb-friction-coeff", mu_fc));

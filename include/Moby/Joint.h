@@ -296,6 +296,13 @@ class Joint : public Visualizable
      * articulated bodies only.
      */
     SMatrix6N _s0;
+
+    /// The stored tare value for the initial joint configuration
+    /**
+     * Spatial axes are used in the dynamics equations for reduced-coordinate
+     * articulated bodies only.
+     */
+    VectorN _q_tare;
    
   private:
     ConstraintType _constraint_type;
