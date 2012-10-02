@@ -1,3 +1,9 @@
+r570
+----
+- Fixed bug for regularized Lemke solver during which (occasionally), a
+  solution would be within tolerance for the equilibrated problem but not for
+  the original problem 
+
 r560
 ----
 - Fixed some bugs in regularized LCP solver
