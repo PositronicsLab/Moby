@@ -385,7 +385,7 @@ class Optimization
     static bool make_feasible_qp(const MatrixN& A, const VectorN& b, const MatrixN& M, const VectorN& q, VectorN& x, Real tol = NEAR_ZERO);
     static bool lp_simplex(const LPParams& lpparams, VectorN& x);
     static void lcp_enum(const MatrixN& M, const VectorN& q, std::vector<VectorN>& z);
-    static bool lcp_lemke(MatrixN& M, VectorN& q, VectorN& z, Real piv_tol = -1.0, Real zero_tol = -1.0);
+    static bool lcp_lemke(const MatrixN& M, const VectorN& q, VectorN& z, Real piv_tol = -1.0, Real zero_tol = -1.0);
     static bool lcp_lemke_regularized(const MatrixN& M, const VectorN& q, VectorN& z, int min_exp = -20, unsigned step_exp = 4, int max_exp = 20, Real piv_tol = -1.0, Real zero_tol = -1.0);
     static bool lcp_convex_ip(const MatrixN& M, const VectorN& q, VectorN& z, Real tol=NEAR_ZERO, Real eps=NEAR_ZERO, Real eps_feas=NEAR_ZERO, unsigned max_iterations = std::numeric_limits<unsigned>::max());
     static bool lcp_iter_PD(const MatrixN& M, const VectorN& q, VectorN& z, Real tol = NEAR_ZERO, const unsigned iter = std::numeric_limits<unsigned>::max());
