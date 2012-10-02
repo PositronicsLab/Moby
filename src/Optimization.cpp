@@ -4547,7 +4547,7 @@ bool Optimization::lcp_lemke_regularized(const MatrixN& M, const VectorN& q, Vec
     if (*std::min_element(z.begin(), z.end()) >= -ZERO_TOL)
     {
       // check w
-      M.mult(z, w) += q;
+      Me.mult(z, w) += qe;
       if (*std::min_element(w.begin(), w.end()) >= -ZERO_TOL)
       {
         // check z'w
