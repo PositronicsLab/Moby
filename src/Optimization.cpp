@@ -4510,11 +4510,13 @@ void Optimization::qp_to_lcp2(const MatrixN& G, const VectorN& c, const MatrixN&
 bool Optimization::lcp_lemke_regularized(const MatrixN& M, const VectorN& q, VectorN& z, int min_exp, unsigned step_exp, int max_exp, Real piv_tol, Real zero_tol)
 {
   FILE_LOG(LOG_OPT) << "Optimization::lcp_lemke_regularized() entered" << endl;
-  SAFESTATIC FastThreadable<VectorN> w_x, qq_x;
-  SAFESTATIC FastThreadable<MatrixN> MM_x;
+  SAFESTATIC FastThreadable<VectorN> w_x, qq_x, qe_x;
+  SAFESTATIC FastThreadable<MatrixN> MM_x, Me_x;
   VectorN& w = w_x();
   VectorN& qq = qq_x();
   MatrixN& MM = MM_x();
+  MatrixN& Me = Me_x();
+  VectorN& qe = qe_x();
 
   // look for fast exit
   if (q.size() == 0)
@@ -4524,8 +4526,15 @@ bool Optimization::lcp_lemke_regularized(const MatrixN& M, const VectorN& q, Vec
   }
 
   // copy M and q
-  MM.copy_from(M);
-  qq.copy_from(q);
+  Me.copy_from(M);
+  qe.copy_from(q);
+
+  // equilibrate M and q
+  equilibrate(Me, qe);
+
+  // copy MM and qq  
+  MM.copy_from(Me);
+  qq.copy_from(qe);
 
   // assign value for zero tolerance, if necessary
   const Real ZERO_TOL = (zero_tol > (Real) 0.0) ? zero_tol : q.size() * std::numeric_limits<Real>::epsilon();
@@ -4562,12 +4571,12 @@ bool Optimization::lcp_lemke_regularized(const MatrixN& M, const VectorN& q, Vec
     Real lambda = std::pow((Real) 10.0, (Real) rf);
 
     // regularize M
-    MM.copy_from(M);
+    MM.copy_from(Me);
     for (unsigned i=0; i< MM.rows(); i++)
       MM(i,i) += lambda;
 
     // recopy q
-    qq.copy_from(q);
+    qq.copy_from(qe);
 
     // try to solve the LCP
     if ((result = lcp_lemke(MM, qq, z, piv_tol, zero_tol)))
@@ -4576,10 +4585,10 @@ bool Optimization::lcp_lemke_regularized(const MatrixN& M, const VectorN& q, Vec
       if (*std::min_element(z.begin(), z.end()) > -ZERO_TOL)
       {
         // check w
-        MM.copy_from(M);
+        MM.copy_from(Me);
         for (unsigned i=0; i< MM.rows(); i++)
           MM(i,i) += lambda;
-        qq.copy_from(q);
+        qq.copy_from(qe);
         MM.mult(z, w) += qq;
         if (*std::min_element(w.begin(), w.end()) > -ZERO_TOL)
         {
@@ -4613,7 +4622,7 @@ bool Optimization::lcp_lemke_regularized(const MatrixN& M, const VectorN& q, Vec
  * \param z a vector "close" to the solution on input (optional); contains
  *        the solution on output
  */
-bool Optimization::lcp_lemke(MatrixN& M, VectorN& q, VectorN& z, Real piv_tol, Real zero_tol)
+bool Optimization::lcp_lemke(const MatrixN& M, const VectorN& q, VectorN& z, Real piv_tol, Real zero_tol)
 {
   const unsigned n = q.size();
   const unsigned MAXITER = std::min((unsigned) 1000, 50*n);
@@ -4660,12 +4669,9 @@ bool Optimization::lcp_lemke(MatrixN& M, VectorN& q, VectorN& z, Real piv_tol, R
   // copy z to z0
   z0.copy_from(z);
 
-  // equilibrate M and q
-  equilibrate(M, q);
-
   // come up with a sensible value for zero tolerance if none is given
   if (zero_tol <= (Real) 0.0)
-    zero_tol = std::numeric_limits<Real>::epsilon() * n;
+    zero_tol = std::numeric_limits<Real>::epsilon() * M.norm_inf() * n;
 
   FILE_LOG(LOG_OPT) << "Optimization::lcp_lemke() entered" << endl;
   FILE_LOG(LOG_OPT) << "  M: " << endl << M;
