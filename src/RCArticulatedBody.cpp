@@ -482,7 +482,7 @@ void RCArticulatedBody::add_generalized_force(DynamicBody::GeneralizedCoordinate
   // add to joint forces
   for (unsigned i=0; i< _ijoints.size(); i++)
   {
-    unsigned idx = _joints[i]->get_coord_index() + add;
+    unsigned idx = _ijoints[i]->get_coord_index() + add;
     gf.get_sub_vec(idx, idx+_ijoints[i]->num_dof(), f);
     _ijoints[i]->force += f;
   } 

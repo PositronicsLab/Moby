@@ -100,6 +100,7 @@ void DeformableBody::calc_com_and_vels()
     _mass += _nodes[i]->mass;
   }
   _x /= _mass;
+  FILE_LOG(LOG_DEFORM) << "new center of mass: " << _x << endl;
 
   // compute the linear velocity
   _xd = calc_point_vel(_x);
@@ -822,6 +823,10 @@ void DeformableBody::load_from_xml(XMLTreeConstPtr node, map<string, BasePtr>& i
     // set the default mass
     const Real DEFAULT_MASS = (Real) 1.0;
 
+    // set the mesh
+    set_mesh(tetra_mesh, tri_mesh);
+
+/*
     // store the tetrahedron
     _tetrahedra = tetra_mesh->get_tetra();
 
@@ -901,11 +906,8 @@ void DeformableBody::load_from_xml(XMLTreeConstPtr node, map<string, BasePtr>& i
     _geometry->set_single_body(get_this());
     _geometry->set_geometry(_cgeom_primitive);
     _geometry->set_transform(IDENTITY_4x4, false);
-std::ofstream out("ball.wrl");
-out << "#VRML V2.0 utf8" << endl;
-to_vrml(out, .001);
-out.close();
     update_geometries(); 
+*/
   }
 
   // read a transform to be applied to the body, if provided

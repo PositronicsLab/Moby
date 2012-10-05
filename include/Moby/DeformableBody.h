@@ -107,7 +107,11 @@ class DeformableBody : public SingleBody
       Real uvw[3];
     };
 
-    /// The tetrahedral mesh for the undeformed state of the body
+    /// The tetrahedral mesh for the body's geometry 
+    /**
+     * \note these are only the indices of the vertices that make up the
+     *       tetrahedra
+     */
     std::vector<IndexedTetra> _tetrahedra;
 
     /// The vertex map

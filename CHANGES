@@ -1,3 +1,9 @@
+r572
+----
+- Fixed bug in PSDeformableBody (springs were not being created, because
+  set_mesh() was never called in load_from_xml()) and DeformableCCD (broad
+  phase was not updating for deformable bodies) 
+
 r571
 ----
 - Fixed Dan's fixes relating to "q-tare" and initial joint values for q 
