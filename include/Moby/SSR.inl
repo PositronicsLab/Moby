@@ -106,7 +106,7 @@ SSR::SSR(ForwardIterator begin, ForwardIterator end)
 
     // determine the eigenvalues and eigenvectors of the covariance matrix
     SAFESTATIC FastThreadable<VectorN> evals;
-    LinAlg::eig_symm(C, evals());
+    LinAlg::eig_symm_plus(C, evals());
     
     // first eigenvector will be direction of minimum variance; that's the
     // one that we want to align with

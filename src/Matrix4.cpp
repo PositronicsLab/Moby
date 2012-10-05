@@ -444,8 +444,8 @@ bool Matrix4::valid_transform(const Matrix4& T)
   return Matrix3::valid_rotation(R);
 }
 
-/// Special method for inverting a 4x4 transformation matrix
-void Matrix4::inverse_transform()
+/// Special method for inverting a 4x4 transformation matrix in place
+void Matrix4::invert_transform()
 {
   // verify that it is a valid transform
   assert(valid_transform(*this));
@@ -467,7 +467,7 @@ void Matrix4::inverse_transform()
 Matrix4 Matrix4::inverse_transform(const Matrix4& T)
 {
   Matrix4 m(T);
-  m.inverse_transform();
+  m.invert_transform();
   return m;
 }
 

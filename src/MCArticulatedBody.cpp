@@ -217,7 +217,7 @@ void MCArticulatedBody::precalc()
   {
     // determine joint positions
     for (unsigned i=0; i< _joints.size(); i++)
-      _joints[i]->determine_Q();
+      _joints[i]->determine_q(_joints[i]->q);
 
     // get the constraint Jacobian and the constraint force transform
     get_constraint_jacobian(_Jx);
@@ -1096,7 +1096,7 @@ void MCArticulatedBody::get_mechanism_jacobian()
     VectorN vcol(ndof);
     for (unsigned j=0; j< _joints.size(); j++)
     {
-      _joints[j]->determine_Q_dot();
+      _joints[j]->determine_q_dot();
       unsigned idx = _joints[j]->get_coord_index();
       vcol.set_sub_vec(idx, _joints[j]->qd);
     }

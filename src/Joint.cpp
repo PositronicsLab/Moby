@@ -22,7 +22,6 @@ using namespace Moby;
  */
 Joint::Joint()
 {
-  const Real INF = std::numeric_limits<Real>::max();
   // make the constraint type unknown
   _constraint_type = eUnknown;
 
@@ -39,7 +38,7 @@ Joint::Joint()
   _coord_idx = _joint_idx = _constraint_idx = std::numeric_limits<unsigned>::max();
 
   // initialize _q_tare
-  _q_tare=INF;
+  _q_tare.resize(0);
 }
 
 /// Initializes the joint with the specified inboard and outboard links
@@ -69,8 +68,52 @@ Joint::Joint(boost::weak_ptr<RigidBody> inboard, boost::weak_ptr<RigidBody> outb
   _coord_idx = _joint_idx = _constraint_idx = std::numeric_limits<unsigned>::max();
 }  
 
+/// Determines q tare (if necessary)
+void Joint::determine_q_tare()
+{
+  // see whether we need to determine q tare
+  if (!_determine_q_tare)
+    return;
+
+  // determine q tare
+  determine_q(_q_tare);
+
+  // save current q
+  VectorN q_save((const VectorN&) q);
+
+  // we want the joint to inducate identity transform, so set q to zero 
+  q.set_zero();
+
+  // get the global position - use the inboard link
+  Vector3 position = get_position_global(false);
+
+  // get the joint transform
+  const Matrix4& Tj = get_transform(); 
+
+  // get the inboard and outboard links
+  RigidBodyPtr inboard(get_inboard_link());
+  RigidBodyPtr outboard(get_outboard_link());
+
+  // get the transforms for the two bodies
+  const Matrix4& Ti = inboard->get_transform();
+  const Matrix4& To = outboard->get_transform();
+
+  // determine the vector from the inboard link to the joint (link coords)
+  Vector3 inboard_to_joint = Ti.inverse_mult_point(position);
+
+  // compute the vector from the joint to the outboard link in joint frame
+  Vector3 joint_to_outboard_jf = Tj.inverse_mult_point((Ti.inverse_transform() * To).get_translation() - inboard_to_joint);    
+
+  // update vector in joint frame
+  RigidBody::InnerJointData& ijd = outboard->get_inner_joint_data(inboard);
+  ijd.joint_to_com_vec_jf = joint_to_outboard_jf;
+
+  // reset q
+  q.copy_from(q_save);
+}
+
 /// (Relatively slow) method for determining the joint velocity from current link velocities
-void Joint::determine_Q_dot()
+void Joint::determine_q_dot()
 {
   // get the pseudo-inverse of the spatial axes
   MatrixN s;
@@ -273,7 +316,7 @@ Vector3 Joint::get_position_global(bool use_outboard) const
   {
     const Matrix4& T = outboard->get_transform();
     const RigidBody::InnerJointData& i = outboard->get_inner_joint_data(inboard);
-    return T.mult_point(-i.joint_to_com_vec); 
+    return T.mult_point(-i.joint_to_com_vec_of); 
   }
 }
 
@@ -438,9 +481,11 @@ void Joint::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& 
     maxforce_attr->get_vector_value(maxforce);
 
   // read the joint positions, if given
-  //const XMLAttrib* q_attr = node->get_attrib("q");
-  //if (q_attr)
-    //q_attr->get_vector_value(q);
+  const XMLAttrib* q_attr = node->get_attrib("q");
+  if (q_attr)
+    q_attr->get_vector_value(q);
+  else
+    q.set_zero(num_dof());
 
   // read the joint velocities, if given
   const XMLAttrib* qd_attr = node->get_attrib("qd");
@@ -448,9 +493,14 @@ void Joint::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& 
     qd_attr->get_vector_value(qd);
 
   // read the joint positions, if given
-  const XMLAttrib* q_init_attr = node->get_attrib("q_init");
+  const XMLAttrib* q_init_attr = node->get_attrib("q-tare");
   if (q_init_attr)
+  {
+    _determine_q_tare = false;
     q_init_attr->get_vector_value(_q_tare);
+  }
+  else
+    _determine_q_tare = true;
 
   // read the Coulomb friction coefficient, if given
   const XMLAttrib* fc_attr = node->get_attrib("coulomb-friction-coeff");
@@ -573,11 +623,17 @@ void Joint::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& 
     Vector3 inboard_to_joint = Ti.inverse_mult_point(position);
 
     // determine the vector from the joint to the outboard link (link coords)
-    Vector3 joint_to_outboard = -To.inverse_mult_point(position);
+    Vector3 joint_to_outboard_lf = -To.inverse_mult_point(position);
+
+    // NOTE: the calculation immediately below assumes that the induced
+    //       transform (i.e., the transform that the joint applies) is initally
+    //       identity
+    // compute the vector from the joint to the outboard link in joint frame
+    Vector3 joint_to_outboard_jf = (Ti.inverse_transform() * To).get_translation() - inboard_to_joint;    
 
     // add/replace this as an inner joint
     inboard->add_outer_joint(outboard, get_this(), inboard_to_joint);
-    outboard->add_inner_joint(inboard, get_this(), joint_to_outboard);
+    outboard->add_inner_joint(inboard, get_this(), joint_to_outboard_jf, joint_to_outboard_lf);
   }
 
   // get the spatial axis in link coordinates; note that this must be done
@@ -612,7 +668,7 @@ void Joint::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects
   // save the joint position and velocity
   node->attribs.insert(XMLAttrib("q", q));
   node->attribs.insert(XMLAttrib("qd", qd));
-  node->attribs.insert(XMLAttrib("q_init", _q_tare));
+  node->attribs.insert(XMLAttrib("q-tare", _q_tare));
 
   // save the Coulomb and viscous friction coefficients
   node->attribs.insert(XMLAttrib("coulomb-friction-coeff", mu_fc));

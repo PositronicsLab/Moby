@@ -1,3 +1,7 @@
+r571
+----
+- Fixed Dan's fixes relating to "q-tare" and initial joint values for q 
+
 r570
 ----
 - Fixed bug for regularized Lemke solver during which (occasionally), a

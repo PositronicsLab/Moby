@@ -767,32 +767,29 @@ void RCArticulatedBody::update_link_transforms()
     RigidBodyPtr outboard(joint->get_outboard_link());
     RigidBodyPtr parent(joint->get_inboard_link());
 
-    // we need to form the transform from the parent com to the link com
-    // this can be done by multiplication of three transforms, A, B, and C;
-    // however, A and C are translation only..  the final transform will be of
-    // the form
-    // | B11 B12 B13 x |
-    // | B21 B22 B23 y |
-    // | B31 B32 B33 z |
-    // |  0   0   0  1 |
-    // where [ x y z 1 ] is the vector (B * translation(C) + translation(A))
+    // we need to compute the transform oTp * pTj * jTx * xTc = oTc
+    // where o = global frame
+    //       p = parent link frame
+    //       j = joint frame
+    //       x = induced joint transformation
+    //       c = child link frame
 
-    // get the vector from the parent c.o.m. to the joint 
+    // compute T_parent = oTp * pTj
+    const Matrix4& Px = parent->get_transform();
     const Vector3& v_parent_to_joint = parent->get_outer_joint_data(outboard).com_to_joint_vec;
+    Vector3 Tparent_x = Px.mult_point(v_parent_to_joint);
+    Matrix4 Tparent = Px;
+    Tparent.set_translation(Tparent_x);
 
-    // get the joint transform
-    const Matrix4& B = joint->get_transform();
-
-    // get the vector from the joint to the outboard link c.o.m. 
-    const Vector3& v_joint_to_outboard = outboard->get_inner_joint_data(parent).joint_to_com_vec;
-    
-    // form the transform from the parent c.o.m. to the outboard c.o.m.
-    Vector3 xlat = v_parent_to_joint + (B.mult_point(v_joint_to_outboard));
-    Matrix4 T_local = B;
-    T_local.set_translation(xlat);
+    // compute T_local = jTx * xTc 
+    const Matrix4& Jx = joint->get_transform();
+    const Vector3& v_joint_to_child = outboard->get_inner_joint_data(parent).joint_to_com_vec_jf;
+    Vector3 Tlink_x = Jx.mult_point(v_joint_to_child);
+    Matrix4 Tlink = Jx;
+    Tlink.set_translation(Tlink_x);
 
     // set the link transform and mark it as processed
-    outboard->set_transform(parent->get_transform() * T_local);
+    outboard->set_transform(Tparent * Tlink);
     _processed[outboard->get_index()] = true;
 
     // add joints of all child links to the queue for processed
@@ -802,10 +799,6 @@ void RCArticulatedBody::update_link_transforms()
       if (!_processed[rb->get_index()])
         transform_queue.push(rb->get_inner_joint_implicit());
 
-    FILE_LOG(LOG_DYNAMICS) << " parent transform: " << std::endl << parent->get_transform();
-    FILE_LOG(LOG_DYNAMICS) << " v parent to joint: " << v_parent_to_joint << std::endl;
-    FILE_LOG(LOG_DYNAMICS) << " joint transform: " << std::endl << B;
-    FILE_LOG(LOG_DYNAMICS) << " v joint to outboard: " << v_joint_to_outboard << std::endl; 
     FILE_LOG(LOG_DYNAMICS) << "_transform for link " << outboard->id << std::endl << outboard->get_transform() << std::endl;
   }
 

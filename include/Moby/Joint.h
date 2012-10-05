@@ -49,7 +49,7 @@ class Joint : public Visualizable
     SMatrix6N& get_spatial_constraints(ReferenceFrameType rftype, SMatrix6N& s);
     ConstraintType get_constraint_type() const { return _constraint_type; }
     void evaluate_constraints_dot(Real C[6]);
-    virtual void determine_Q_dot();
+    virtual void determine_q_dot();
 
     /// Sets whether this constraint is implicit or explicit (or unknown)
     void set_constraint_type(ConstraintType type) { _constraint_type = type; }
@@ -155,7 +155,7 @@ class Joint : public Visualizable
     virtual const Matrix4& get_transform() = 0;
 
     /// Abstract method to determine the value of Q (joint position) from current transforms
-    virtual void determine_Q() = 0;
+    virtual void determine_q(VectorN& q) = 0;
 
     /// Gets the number of degrees-of-freedom for this joint
     virtual unsigned num_dof() const = 0;
@@ -244,6 +244,7 @@ class Joint : public Visualizable
 
   protected:
     void calc_s_bar_from_si();
+    void determine_q_tare();
 
     /// Computes the constraint Jacobian for this joint with respect to the given body in Rodrigues parameters
     /**
@@ -297,13 +298,18 @@ class Joint : public Visualizable
      */
     SMatrix6N _s0;
 
-    /// The stored tare value for the initial joint configuration
+    /// The stored "tare" value for the initial joint configuration
     /**
-     * Spatial axes are used in the dynamics equations for reduced-coordinate
-     * articulated bodies only.
+     * The tare value is the value that the joint assumes in the an
+     * articulated body's initial configuration. This value is necessary
+     * so that- when the body's joints are set to the zero vector- the body
+     * re-enters the initial configuration.
      */
     VectorN _q_tare;
-   
+
+    /// Set if _q_tare needs to be determined
+    bool _determine_q_tare;
+
   private:
     ConstraintType _constraint_type;
     unsigned _joint_idx;

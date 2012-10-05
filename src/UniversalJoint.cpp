@@ -111,8 +111,6 @@ Vector3 UniversalJoint::get_axis_global(Axis a) const
 
   // axis two is obtained by multiplying rotation matrix around x by y-axis 
   assert(a == eAxis2);
-  Vector3 q(this->q.begin());
-  Vector3 _q_tare(this->_q_tare.begin());
   const Real c1 = std::cos(q[DOF_1]+_q_tare[DOF_1]);
   const Real s1 = std::sin(q[DOF_1]+_q_tare[DOF_1]);
   return R * _R * Vector3(0,c1,s1);
@@ -229,14 +227,14 @@ const SMatrix6N& UniversalJoint::get_spatial_axes(ReferenceFrameType rftype)
 
   // get current values of q
   const VectorN& q = this->q;
-  const VectorN& _q_tare = this->_q_tare;
+  const VectorN& q_tare = this->_q_tare;
 
   // get the outboard link's joint to com vector in link coordinates
-  const Vector3& p = outboard->get_inner_joint_data(inboard).joint_to_com_vec;
+  const Vector3& p = outboard->get_inner_joint_data(inboard).joint_to_com_vec_of;
 
   // get the axes of the joint transformed into the inner link frame 
-  Real c1 = std::cos(q[DOF_1]+_q_tare[DOF_1]);
-  Real s1 = std::sin(q[DOF_1]+_q_tare[DOF_1]);
+  Real c1 = std::cos(q[DOF_1]+q_tare[DOF_1]);
+  Real s1 = std::sin(q[DOF_1]+q_tare[DOF_1]);
   Vector3 u1;
   _R.get_column(X, u1.begin());
   Vector3 u2 = _R * Vector3(0, c1, s1);
@@ -272,13 +270,13 @@ const SMatrix6N& UniversalJoint::get_spatial_axes_dot(ReferenceFrameType rftype)
 
   // get q and qd
   const VectorN& q = this->q;
-  const VectorN& _q_tare = this->_q_tare;
+  const VectorN& q_tare = this->_q_tare;
   const VectorN& qd = this->qd;
 
   // form the time derivative of the spatial axis for the second DOF; note that spatial
   // axis for first DOF is constant, so time-derivative is zero 
-  Real c1 = std::cos(q[DOF_1]+_q_tare[DOF_1]);
-  Real s1 = std::sin(q[DOF_1]+_q_tare[DOF_1]);
+  Real c1 = std::cos(q[DOF_1]+q_tare[DOF_1]);
+  Real s1 = std::sin(q[DOF_1]+q_tare[DOF_1]);
   Real qd1 = qd[DOF_1];
   Vector3 axis(0,-s1*qd1,c1*qd1);
 
@@ -286,7 +284,7 @@ const SMatrix6N& UniversalJoint::get_spatial_axes_dot(ReferenceFrameType rftype)
   Vector3 u = _R * axis;
 
   // get the outboard link's joint to com vector in link coordinates
-  const Vector3& p = outboard->get_inner_joint_data(inboard).joint_to_com_vec;
+  const Vector3& p = outboard->get_inner_joint_data(inboard).joint_to_com_vec_of;
 
   // update the spatial axis in link coordinates; note that axis 1 is always
   // set to zero (init'd in constructor)
@@ -303,7 +301,7 @@ const SMatrix6N& UniversalJoint::get_spatial_axes_dot(ReferenceFrameType rftype)
 }
 
 /// Determines (and sets) the value of Q from the axes and the inboard link and outboard link transforms
-void UniversalJoint::determine_Q()
+void UniversalJoint::determine_q(VectorN& q)
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
@@ -339,8 +337,9 @@ void UniversalJoint::determine_Q()
 
   // determine q1 and q2 -- they are uniquely determined by examining the rotation matrix
   // (see get_rotation())
-  this->_q_tare[DOF_1] = std::atan2(RU(Z,Y), RU(Y,Y));
-  this->_q_tare[DOF_2] = std::atan2(RU(X,Z), RU(X,X));   
+  q.resize(num_dof());
+  q[DOF_1] = std::atan2(RU(Z,Y), RU(Y,Y));
+  q[DOF_2] = std::atan2(RU(X,Z), RU(X,X));   
 }
 
 /// Gets the (local) transform for this joint
@@ -350,13 +349,13 @@ Matrix3 UniversalJoint::get_rotation() const
 
   // get q and _q_tare
   const VectorN& q = this->q;
-  const VectorN& _q_tare = this->_q_tare;
+  const VectorN& q_tare = this->_q_tare;
 
   // compute some needed quantities
-  const Real c1 = std::cos(q[DOF_1]+_q_tare[DOF_1]);
-  const Real s1 = std::sin(q[DOF_1]+_q_tare[DOF_1]);
-  const Real c2 = std::cos(q[DOF_2]+_q_tare[DOF_2]);
-  const Real s2 = std::sin(q[DOF_2]+_q_tare[DOF_2]);
+  const Real c1 = std::cos(q[DOF_1]+q_tare[DOF_1]);
+  const Real s1 = std::sin(q[DOF_1]+q_tare[DOF_1]);
+  const Real c2 = std::cos(q[DOF_2]+q_tare[DOF_2]);
+  const Real s2 = std::sin(q[DOF_2]+q_tare[DOF_2]);
 
   // determine untransformed rotation; this rotation matrix is obtained by
   // using Tait-Bryan angles without a final rotation
@@ -409,7 +408,7 @@ void UniversalJoint::calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsig
   const Quat& q1 = inner->get_orientation();
   const Quat& q2 = outer->get_orientation();
   const Vector3& p1 = inner->get_outer_joint_data(outer).com_to_joint_vec;
-  const Vector3& p2 = body->get_inner_joint_data(inner).joint_to_com_vec;
+  const Vector3& p2 = body->get_inner_joint_data(inner).joint_to_com_vec_of;
   const Real q1x = q1.x;
   const Real q1y = q1.y;
   const Real q1z = q1.z;
@@ -693,7 +692,7 @@ void UniversalJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, u
   const Quat qd1 = Quat::deriv(q1, inner->get_avel());
   const Quat qd2 = Quat::deriv(q2, outer->get_avel());
   const Vector3& p1 = inner->get_outer_joint_data(outer).com_to_joint_vec;
-  const Vector3& p2 = body->get_inner_joint_data(inner).joint_to_com_vec;
+  const Vector3& p2 = body->get_inner_joint_data(inner).joint_to_com_vec_of;
   const Real qx1 = q1.x;
   const Real qy1 = q1.y;
   const Real qz1 = q1.z;
@@ -1040,9 +1039,8 @@ void UniversalJoint::load_from_xml(XMLTreeConstPtr node, std::map<std::string, B
     set_axis_global(gaxis2, eAxis2);  
   }
 
-  // reset the joint position -- this will obviously override any value of 
-  // Q specified in Joint::load_from_xml()
-  determine_Q();
+  // determine _q_tare if necessary 
+  determine_q_tare();
 }
 
 /// Implements Base::save_to_xml()
