@@ -20,7 +20,6 @@
 #include <Moby/Log.h>
 #include <Moby/Constants.h>
 #include <Moby/XMLTree.h>
-#include <Moby/LinAlg.h>
 #include <Moby/OBB.h>
 #include <Moby/BoundingSphere.h>
 #include <Moby/TriangleMeshPrimitive.h>
