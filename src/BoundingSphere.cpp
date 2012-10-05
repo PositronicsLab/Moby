@@ -59,7 +59,7 @@ BVPtr BoundingSphere::calc_vel_exp_BV(CollisionGeometryPtr g, Real dt, const Vec
   SingleBodyPtr b = g->get_single_body();
 
   // if the body does not move, just return the OBB
-  if (!b->is_enabled())
+  if (!b->is_enabled() || lv.norm()*dt < NEAR_ZERO)
   {
     FILE_LOG(LOG_BV) << "BoundingSphere::calc_vel_exp_BV() entered" << endl;
     FILE_LOG(LOG_BV) << "  -- using original bounding sphere" << endl;
