@@ -595,7 +595,7 @@ void FixedJoint::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BaseP
   assert(strcasecmp(node->name.c_str(), "FixedJoint") == 0);
 
   // set the relative joint transformation
-  determine_Q();
+  determine_q_tare();
 }
 
 /// Implements Base::save_to_xml()

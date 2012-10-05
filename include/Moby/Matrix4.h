@@ -55,7 +55,8 @@ class Matrix4
     Vector3 inverse_mult_point(const Vector3& v) const;
     Vector3 transpose_mult_vector(const Vector3& v) const;
     void set_identity();
-    void inverse_transform();
+    void invert_transform();
+    Matrix4 inverse_transform() const { return inverse_transform(*this); }
     static Matrix4 inverse_transform(const Matrix4& m);
     void get_translation(Real* array) const;
     void get_translation(Vector3& v) const;

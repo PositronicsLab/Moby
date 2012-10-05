@@ -1,6 +1,5 @@
 <XML>
   <MOBY>
-    <SoSeparator id="cyl" filename="cyl.wrl" />
     <Cylinder id="c" radius="1" height="5" global-axis="y" circle-points="100" density="1.0" />
     <Box id="b3" xlen="10" ylen="1" zlen="10" density="10.0" />
 
@@ -20,7 +19,7 @@
     <FSABAlgorithm id="fsab" />
     <CRBAlgorithm id="crb" />
 
-  <ImpulseContactSimulator integrator-id="rk4" collision-detector-id="MLI">
+  <Simulator integrator-id="rk4" collision-detector-id="MLI">
     <RecurrentForce recurrent-force-id="gravity" enabled="true" /> 
     <DynamicBody dynamic-body-id="chain" />
     <DynamicBody dynamic-body-id="platform" />
@@ -29,42 +28,42 @@
     <ContactData object1-id="platform" object2-id="l3" restitution="1" mu="0" collision-method-id="MLI" />
     <ContactData object1-id="platform" object2-id="l4" restitution="1" mu="0" collision-method-id="MLI" />
     <ContactData object1-id="platform" object2-id="l5" restitution="1" mu="0" collision-method-id="MLI" />
-  </ImpulseContactSimulator>
+  </Simulator>
 
   <RCArticulatedBody id="chain" fdyn-algorithm-id="fsab" fdyn-algorithm-frame="link" floating-base="false">
 
       <RigidBody id="base" global-position="0 0 0"/>
 
-      <RigidBody id="l1" transform="0 -1 0 2.5; 1 0 0 0; 0 0 1 0; 0 0 0 1" visualization-id="cyl">
+      <RigidBody id="l1" transform="1 0 0 0; 0 1 0 -2.5; 0 0 1 0; 0 0 0 1" visualization-id="c">
         <InertiaFromPrimitive primitive-id="c" />
         <CollisionGeometry primitive-id="c"  max-tri-area="1"/>
       </RigidBody>
 
-      <RigidBody id="l2" transform="0 -1 0 7.5; 1 0 0 0; 0 0 1 0; 0 0 0 1" visualization-id="cyl">
+      <RigidBody id="l2" transform="1 0 0 0; 0 1 0 -7.5; 0 0 1 0; 0 0 0 1" visualization-id="c">
         <InertiaFromPrimitive primitive-id="c" />
         <CollisionGeometry primitive-id="c"  max-tri-area="1"/>
       </RigidBody>
 
-      <RigidBody id="l3" transform="0 -1 0 12.5; 1 0 0 0; 0 0 1 0; 0 0 0 1" visualization-id="cyl">
+      <RigidBody id="l3" transform="1 0 0 0; 0 1 0 -12.5; 0 0 1 0; 0 0 0 1" visualization-id="c">
         <InertiaFromPrimitive primitive-id="c" />
         <CollisionGeometry primitive-id="c"  max-tri-area="1"/>
       </RigidBody>
 
-      <RigidBody id="l4" name="l4" transform="0 -1 0 17.5; 1 0 0 0; 0 0 1 0; 0 0 0 1" visualization-id="cyl">
+      <RigidBody id="l4" name="l4" transform="1 0 0 0; 0 1 0 -17.5; 0 0 1 0; 0 0 0 1" visualization-id="c">
         <InertiaFromPrimitive primitive-id="c" />
         <CollisionGeometry primitive-id="c"  max-tri-area="1"/>
       </RigidBody>
       
-      <RigidBody id="l5" name="l5" transform="0 -1 0 22.5; 1 0 0 0; 0 0 1 0; 0 0 0 1" visualization-id="cyl">
+      <RigidBody id="l5" name="l5" transform="1 0 0 0; 0 1 0 -22.5; 0 0 1 0; 0 0 0 1" visualization-id="c">
         <InertiaFromPrimitive primitive-id="c" />
         <CollisionGeometry primitive-id="c" max-tri-area="1"/>
       </RigidBody>
 
-      <RevoluteJoint id="q" q="1.57079632679" qd="0" global-position="0 0 0" inboard-link-id="base" outboard-link-id="l1" type="revolute" maxforce="10000" lolimit="-1" hilimit="3.14" global-axis="0 0 1" vviscous-friction-coeff=".1" />
-      <RevoluteJoint id="q2" q="0" qd="0" global-position="5 0 0" inboard-link-id="l1" outboard-link-id="l2" maxforce="10000" lolimit="-.1" hilimit=".1" global-axis="0 0 1" vviscous-friction-coeff=".1" />
-      <RevoluteJoint id="q3" q="0" qd="0" global-position="10 0 0" inboard-link-id="l2" outboard-link-id="l3" maxforce="10000" lolimit="-.5" hilimit=".5" global-axis="0 0 1" vviscous-friction-coeff=".1" />
-      <RevoluteJoint id="q4" q="0" qd="0" global-position="15 0 0" inboard-link-id="l3" outboard-link-id="l4" maxforce="10000" lolimit="-.5" hilimit=".5" global-axis="0 0 1" vviscous-friction-coeff=".1" />
-      <RevoluteJoint id="q5" q="0" qd="0" global-position="20 0 0" inboard-link-id="l4" outboard-link-id="l5" maxforce="10000" lolimit="-.5" hilimit=".5" global-axis="0 0 1" vviscous-friction-coeff=".1" />
+      <RevoluteJoint id="q" q_init="1.57079632679" qd="0" global-position="0 0 0" inboard-link-id="base" outboard-link-id="l1" type="revolute" maxforce="10000" lolimit="-1" hilimit="3.14" global-axis="0 0 1" vviscous-friction-coeff=".1" />
+      <RevoluteJoint id="q2" qq="0" qd="0" global-position="0 -5 0" inboard-link-id="l1" outboard-link-id="l2" maxforce="10000" lolimit="-.1" hilimit=".1" global-axis="0 0 1" vviscous-friction-coeff=".1" />
+      <RevoluteJoint id="q3" qq="0" qd="0" global-position="0 -10 0" inboard-link-id="l2" outboard-link-id="l3" maxforce="10000" lolimit="-.5" hilimit=".5" global-axis="0 0 1" vviscous-friction-coeff=".1" />
+      <RevoluteJoint id="q4" qq="0" qd="0" global-position="0 -15 0" inboard-link-id="l3" outboard-link-id="l4" maxforce="10000" lolimit="-.5" hilimit=".5" global-axis="0 0 1" vviscous-friction-coeff=".1" />
+      <RevoluteJoint id="q5" qq="0" qd="0" global-position="0 -20 0" inboard-link-id="l4" outboard-link-id="l5" maxforce="10000" lolimit="-.5" hilimit=".5" global-axis="0 0 1" vviscous-friction-coeff=".1" />
 
     </RCArticulatedBody>
 

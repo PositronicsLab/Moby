@@ -551,7 +551,7 @@ OBB::OBB(ForwardIterator begin, ForwardIterator end)
   // determine the eigenvalues and eigenvectors of the covariance matrix
   SAFESTATIC FastThreadable<VectorN> evalsx;
   VectorN& evals = evalsx();
-  LinAlg::eig_symm(C, evals);
+  LinAlg::eig_symm_plus(C, evals);
   
   // first eigenvector will be direction of minimum variance
   // but add all three eigenvectors

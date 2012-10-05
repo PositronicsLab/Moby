@@ -117,8 +117,6 @@ Vector3 SphericalJoint::get_axis_global(Axis a) const
   }
 
   // for both axes 2 and 3 we need cos and sin of q(1)
-  Vector3 q(this->q.begin());
-  Vector3 _q_tare(this->_q_tare.begin());
   const Real c1 = std::cos(q[DOF_1]+_q_tare[DOF_1]);
   const Real s1 = std::sin(q[DOF_1]+_q_tare[DOF_1]);
 
@@ -300,16 +298,16 @@ const SMatrix6N& SphericalJoint::get_spatial_axes(ReferenceFrameType rftype)
 
   // get current values of q
   const VectorN& q = this->q;
-  const VectorN& _q_tare = this->_q_tare;
+  const VectorN& q_tare = this->_q_tare;
 
   // get the outboard link's joint to com vector in outer link coordinates
-  const Vector3& p = outboard->get_inner_joint_data(inboard).joint_to_com_vec;
+  const Vector3& p = outboard->get_inner_joint_data(inboard).joint_to_com_vec_of;
 
   // get the set of spatial axes
-  Real c1 = std::cos(q[DOF_1]+_q_tare[DOF_1]);
-  Real c2 = std::cos(q[DOF_2]+_q_tare[DOF_2]);
-  Real s1 = std::sin(q[DOF_1]+_q_tare[DOF_1]);
-  Real s2 = std::sin(q[DOF_2]+_q_tare[DOF_2]);
+  Real c1 = std::cos(q[DOF_1]+q_tare[DOF_1]);
+  Real c2 = std::cos(q[DOF_2]+q_tare[DOF_2]);
+  Real s1 = std::sin(q[DOF_1]+q_tare[DOF_1]);
+  Real s2 = std::sin(q[DOF_2]+q_tare[DOF_2]);
 
   // form untransformed spatial axes -- this are the vectors describing each axis, after
   // rotation by preceding axis/axes; note that first axis always points toward 1,0,0
@@ -356,14 +354,14 @@ const SMatrix6N& SphericalJoint::get_spatial_axes_dot(ReferenceFrameType rftype)
 
   // get q, _q_tare, and qd
   const VectorN& q = this->q;
-  const VectorN& _q_tare = this->_q_tare;
+  const VectorN& q_tare = this->_q_tare;
   const VectorN& qd = this->qd;
 
   // get the two transformed axes
-  Real c1 = std::cos(q[DOF_1]+_q_tare[DOF_1]);
-  Real c2 = std::cos(q[DOF_2]+_q_tare[DOF_2]);
-  Real s1 = std::sin(q[DOF_1]+_q_tare[DOF_1]);
-  Real s2 = std::sin(q[DOF_2]+_q_tare[DOF_2]);
+  Real c1 = std::cos(q[DOF_1]+q_tare[DOF_1]);
+  Real c2 = std::cos(q[DOF_2]+q_tare[DOF_2]);
+  Real s1 = std::sin(q[DOF_1]+q_tare[DOF_1]);
+  Real s2 = std::sin(q[DOF_2]+q_tare[DOF_2]);
   Real qd1 = qd[DOF_1];
   Real qd2 = qd[DOF_2];
 
@@ -376,7 +374,7 @@ const SMatrix6N& SphericalJoint::get_spatial_axes_dot(ReferenceFrameType rftype)
   Vector3 u3 = _R * uu3; 
 
   // get the outboard link's joint to com vector in outer link coordinates
-  const Vector3& p = outboard->get_inner_joint_data(inboard).joint_to_com_vec;
+  const Vector3& p = outboard->get_inner_joint_data(inboard).joint_to_com_vec_of;
 
   // update the spatial axis in link coordinates; note that third column of spatial axis
   // derivative set to zero in constructor and is never modified
@@ -396,7 +394,7 @@ const SMatrix6N& SphericalJoint::get_spatial_axes_dot(ReferenceFrameType rftype)
 }
 
 /// Determines (and sets) the value of Q from the axes and the inboard link and outboard link transforms
-void SphericalJoint::determine_Q()
+void SphericalJoint::determine_q(VectorN& q)
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
@@ -406,7 +404,7 @@ void SphericalJoint::determine_Q()
 
   // verify that the inboard and outboard links are set
   if (!inboard || !outboard)
-    throw NullPointerException("SphericalJoint::determine_Q() called on NULL inboard and/or outboard links!");
+    throw NullPointerException("SphericalJoint::determine_q() called on NULL inboard and/or outboard links!");
 
   // if any of the axes are not defined, can't use this method
   if (std::fabs(_u[0].norm_sq() - 1.0) > NEAR_ZERO ||
@@ -415,7 +413,7 @@ void SphericalJoint::determine_Q()
     return;
 
   // set proper size for q
-  this->_q_tare.resize(num_dof());
+  q.resize(num_dof());
 
   // get the link transforms
   Matrix3 R_inboard, R_outboard;
@@ -460,31 +458,31 @@ void SphericalJoint::determine_Q()
 
   // now determine q; only q2 can be determined without ambiguity
   if (std::fabs(s1) < NEAR_ZERO)
-    this->_q_tare[DOF_2] = std::atan2(RU(X,Z), RU(Z,Z)/c1);
+    q[DOF_2] = std::atan2(RU(X,Z), RU(Z,Z)/c1);
   else
-    this->_q_tare[DOF_2] = std::atan2(RU(X,Z), -RU(Y,Z)/s1);
-  assert(!std::isnan(this->_q_tare[DOF_2]));
+    q[DOF_2] = std::atan2(RU(X,Z), -RU(Y,Z)/s1);
+  assert(!std::isnan(q[DOF_2]));
 
   // if cos(q2) is not singular, proceed easily from here..
   if (std::fabs(c2) > NEAR_ZERO)
   {
-    this->_q_tare[DOF_1] = std::atan2(-RU(Y,Z)/c2, RU(Z,Z)/c2);
-    this->_q_tare[DOF_3] = std::atan2(-RU(X,Y)/c2, RU(X,X)/c2);
-    assert(!std::isnan(this->_q_tare[DOF_1]));
-    assert(!std::isnan(this->_q_tare[DOF_3]));
+    q[DOF_1] = std::atan2(-RU(Y,Z)/c2, RU(Z,Z)/c2);
+    q[DOF_3] = std::atan2(-RU(X,Y)/c2, RU(X,X)/c2);
+    assert(!std::isnan(q[DOF_1]));
+    assert(!std::isnan(q[DOF_3]));
   }
   else
   {
     if (std::fabs(c1) > NEAR_ZERO)
-      this->_q_tare[DOF_3] = std::atan2((RU(Y,X) - s1*s2*c3)/c1, (RU(Y,Y) + s1*s2*s3)/c1);
+      q[DOF_3] = std::atan2((RU(Y,X) - s1*s2*c3)/c1, (RU(Y,Y) + s1*s2*s3)/c1);
     else
-      this->_q_tare[DOF_3] = std::atan2((RU(Z,X) + c1*s2*c3)/s1, (RU(Z,Y) - c1*s2*s3)/s1);
+      q[DOF_3] = std::atan2((RU(Z,X) + c1*s2*c3)/s1, (RU(Z,Y) - c1*s2*s3)/s1);
     if (std::fabs(c3) > NEAR_ZERO)
-      this->_q_tare[DOF_1] = std::atan2((RU(Y,X) - c1*s3)/(s2*c3), (-RU(Y,X) + s1*s3)/(s2*c3));
+      q[DOF_1] = std::atan2((RU(Y,X) - c1*s3)/(s2*c3), (-RU(Y,X) + s1*s3)/(s2*c3));
     else
-      this->_q_tare[DOF_1] = std::atan2((-RU(Y,Y) + c1*c3)/(s2*s3), (RU(Z,Y) - s1*c3)/(s2*s3));
-    assert(!std::isnan(this->_q_tare[DOF_1]));
-    assert(!std::isnan(this->_q_tare[DOF_3]));
+      q[DOF_1] = std::atan2((-RU(Y,Y) + c1*c3)/(s2*s3), (RU(Z,Y) - s1*c3)/(s2*s3));
+    assert(!std::isnan(q[DOF_1]));
+    assert(!std::isnan(q[DOF_3]));
   }
 }
 
@@ -495,15 +493,15 @@ Matrix3 SphericalJoint::get_rotation() const
 
   // get q, _q_tare
   const VectorN& q = this->q;
-  const VectorN& _q_tare = this->_q_tare;
+  const VectorN& q_tare = this->_q_tare;
 
   // compute some needed quantities
-  const Real c1 = std::cos(q[DOF_1]+_q_tare[DOF_1]);
-  const Real s1 = std::sin(q[DOF_1]+_q_tare[DOF_1]);
-  const Real c2 = std::cos(q[DOF_2]+_q_tare[DOF_2]);
-  const Real s2 = std::sin(q[DOF_2]+_q_tare[DOF_2]);
-  const Real c3 = std::cos(q[DOF_3]+_q_tare[DOF_3]);
-  const Real s3 = std::sin(q[DOF_3]+_q_tare[DOF_3]);
+  const Real c1 = std::cos(q[DOF_1]+q_tare[DOF_1]);
+  const Real s1 = std::sin(q[DOF_1]+q_tare[DOF_1]);
+  const Real c2 = std::cos(q[DOF_2]+q_tare[DOF_2]);
+  const Real s2 = std::sin(q[DOF_2]+q_tare[DOF_2]);
+  const Real c3 = std::cos(q[DOF_3]+q_tare[DOF_3]);
+  const Real s3 = std::sin(q[DOF_3]+q_tare[DOF_3]);
 
   // determine untransformed rotation
   // this is just the rotation matrix induced by using Tait-Bryan angles
@@ -622,7 +620,7 @@ void SphericalJoint::calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsig
   {
     // get the information necessary to compute the constraint equations
     const Quat& q = outer->get_orientation();
-    const Vector3& p = body->get_inner_joint_data(inner).joint_to_com_vec;
+    const Vector3& p = body->get_inner_joint_data(inner).joint_to_com_vec_of;
     const Real qx = q.x;
     const Real qy = q.y;
     const Real qz = q.z;
@@ -741,7 +739,7 @@ void SphericalJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, u
   {
     // get the information necessary to compute the constraint equations
     const Quat& q = outer->get_orientation();
-    const Vector3& p = body->get_inner_joint_data(inner).joint_to_com_vec;
+    const Vector3& p = body->get_inner_joint_data(inner).joint_to_com_vec_of;
     const Real px = -p[X];
     const Real py = -p[Y];
     const Real pz = -p[Z];
@@ -844,9 +842,8 @@ void SphericalJoint::load_from_xml(XMLTreeConstPtr node, std::map<std::string, B
     set_axis_global(gaxis2, eAxis2);  
   }
 
-  // reset the joint position -- this will obviously override any value of 
-  // Q specified in Joint::load_from_xml()
-  determine_Q();
+  // compute _q_tare if necessary
+  determine_q_tare();
 }
 
 /// Implements Base::save_to_xml()

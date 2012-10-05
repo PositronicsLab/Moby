@@ -24,7 +24,7 @@ class UniversalJoint : public Joint
     void set_axis_global(const Vector3& axis, Axis a);
     void set_axis_local(const Vector3& axis, Axis a);
     virtual void update_spatial_axes();    
-    virtual void determine_Q();
+    virtual void determine_q(VectorN& q);
     virtual const Matrix4& get_transform();
     virtual const SMatrix6N& get_spatial_axes(ReferenceFrameType type);
     virtual const SMatrix6N& get_spatial_axes_dot(ReferenceFrameType type);

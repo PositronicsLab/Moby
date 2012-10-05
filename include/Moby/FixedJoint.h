@@ -21,7 +21,7 @@ class FixedJoint : public Joint
     virtual void update_spatial_axes();    
     virtual void set_inboard_link(RigidBodyPtr link);
     virtual void set_outboard_link(RigidBodyPtr link);
-    virtual void determine_Q() { }
+    virtual void determine_q(VectorN& q) { }
     virtual const Matrix4& get_transform();
     virtual const SMatrix6N& get_spatial_axes_dot(ReferenceFrameType type);
     virtual void load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map);

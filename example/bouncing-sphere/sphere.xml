@@ -1,6 +1,11 @@
 <!-- A deformable torus falling onto the ground --> 
 
 <XML>
+  <DRIVER>
+    <camera position="0 0 10" target="0 0 0" up="0 1 0" />
+    <window location="0 0" size="640 480" />
+  </DRIVER>
+
   <MOBY>
     <!-- Primitives -->
     <Box id="b1" xlen="1" ylen="1" zlen="1" density="1.0"/>
@@ -41,7 +46,7 @@
       <PSDeformableBody id="sphere" transform="1 0 0 0; 0 1 0 5; 0 0 1 0; 0 0 0 1" tetra-mesh-id="sphere-tetra" tri-mesh-primitive-id="sphere-tri" default-mass=".025" default-kp="250" default-kv="10" />
 
       <!-- the ground -->
-      <RigidBody name="ground" id="ground" enabled="false" vvisualization-filename="ground.wrl" position="0 -.25 0">
+      <RigidBody name="ground" id="ground" enabled="false" visualization-id="b3" position="0 -.25 0">
         <CollisionGeometry primitive-id="b3" />  
       </RigidBody>
 

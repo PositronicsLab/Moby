@@ -167,7 +167,7 @@ void RevoluteJoint::update_spatial_axes()
   try
   {
     // get the joint to com vector in outer link coordinates
-    const Vector3& di = outboard->get_inner_joint_data(inboard).joint_to_com_vec;
+    const Vector3& di = outboard->get_inner_joint_data(inboard).joint_to_com_vec_of;
 
     // get the joint axis in outer link coordinates
     Vector3 u0 = inboard->get_transform().mult_vector(_u);
@@ -190,7 +190,7 @@ void RevoluteJoint::update_spatial_axes()
 }
 
 /// Determines (and sets) the value of Q from the axis and the inboard link and outboard link transforms
-void RevoluteJoint::determine_Q()
+void RevoluteJoint::determine_q(VectorN& q)
 {
   // get the inboard and outboard link pointers
   RigidBodyPtr inboard = get_inboard_link();
@@ -220,9 +220,9 @@ void RevoluteJoint::determine_Q()
   Matrix3 R_local = R_inboard.transpose_mult(R_outboard);
   AAngle aa(&R_local, &_u);
 
-  // set Q
-  this->_q_tare.resize(num_dof());
-  this->_q_tare[DOF_1] = aa.angle;
+  // set q 
+  q.resize(num_dof());
+  q[DOF_1] = aa.angle;
 }
 
 /// Gets the (local) transform for this joint
@@ -267,7 +267,7 @@ void RevoluteJoint::calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsign
   const Quat& q1 = inner->get_orientation();
   const Quat& q2 = outer->get_orientation();
   const Vector3& p1 = inner->get_outer_joint_data(outer).com_to_joint_vec;
-  const Vector3& p2 = outer->get_inner_joint_data(inner).joint_to_com_vec;
+  const Vector3& p2 = outer->get_inner_joint_data(inner).joint_to_com_vec_of;
   const Real p1x = p1[X];
   const Real p1y = p1[Y];
   const Real p1z = p1[Z];
@@ -592,7 +592,7 @@ void RevoluteJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, un
   const Quat qd1 = Quat::deriv(q1, inner->get_avel());
   const Quat qd2 = Quat::deriv(q2, outer->get_avel());
   const Vector3& p1 = inner->get_outer_joint_data(outer).com_to_joint_vec;
-  const Vector3& p2 = outer->get_inner_joint_data(inner).joint_to_com_vec;
+  const Vector3& p2 = outer->get_inner_joint_data(inner).joint_to_com_vec_of;
   const Real dqw1 = qd1.w;
   const Real dqx1 = qd1.x;
   const Real dqy1 = qd1.y;
@@ -1120,9 +1120,8 @@ void RevoluteJoint::load_from_xml(XMLTreeConstPtr node, std::map<std::string, Ba
     set_axis_global(gaxis);  
   }
 
-  // reset the joint position -- this will override any value of Q specified
-  // in Joint::load_from_xml()
-  determine_Q();
+  // compute _q_tare if necessary 
+  determine_q_tare();
 }
 
 /// Implements Base::save_to_xml()

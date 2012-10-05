@@ -182,7 +182,7 @@ void PrismaticJoint::update_spatial_axes()
 }
 
 /// Determines (and sets) the value of Q from the axis and the inboard link and outboard link transforms
-void PrismaticJoint::determine_Q()
+void PrismaticJoint::determine_q(VectorN& q)
 {
   RigidBodyPtr inboard = get_inboard_link();
   RigidBodyPtr outboard = get_outboard_link();
@@ -210,8 +210,8 @@ void PrismaticJoint::determine_Q()
 
   // now, we'll project p2 onto the axis ug; points will be setup so that
   // ug passes through origin on inboard
-  this->_q_tare.resize(num_dof());
-  this->_q_tare[DOF_1] = ug.dot(p2-p1);
+  q.resize(num_dof());
+  q[DOF_1] = ug.dot(p2-p1);
 }
 
 /// Gets the (local) transform for this joint
@@ -254,7 +254,7 @@ void PrismaticJoint::calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsig
   const Quat& q1 = inner->get_orientation();
   const Quat& q2 = outer->get_orientation();
   const Vector3& p1 = inner->get_outer_joint_data(outer).com_to_joint_vec;
-  const Vector3& p2 = outer->get_inner_joint_data(inner).joint_to_com_vec;
+  const Vector3& p2 = outer->get_inner_joint_data(inner).joint_to_com_vec_of;
   const Real x1 = inner->get_position()[X];
   const Real y1 = inner->get_position()[Y];
   const Real z1 = inner->get_position()[Z];
@@ -988,7 +988,7 @@ void PrismaticJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, u
   const Quat qd1 = Quat::deriv(q1, inner->get_avel());
   const Quat qd2 = Quat::deriv(q2, outer->get_avel());
   const Vector3& p1 = inner->get_outer_joint_data(outer).com_to_joint_vec;
-  const Vector3& p2 = outer->get_inner_joint_data(inner).joint_to_com_vec;
+  const Vector3& p2 = outer->get_inner_joint_data(inner).joint_to_com_vec_of;
   const Real x1 = inner->get_position()[X];
   const Real y1 = inner->get_position()[Y];
   const Real z1 = inner->get_position()[Z];
@@ -2299,9 +2299,8 @@ void PrismaticJoint::load_from_xml(XMLTreeConstPtr node, std::map<std::string, B
     set_axis_global(gaxis);  
   }
 
-  // reset the joint position -- this will obviously override any value of 
-  // Q specified in Joint::load_from_xml()
-  determine_Q();
+  // set the joint tare
+  determine_q_tare();
 }
 
 /// Implements Base::save_to_xml()

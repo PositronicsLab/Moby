@@ -281,7 +281,7 @@ int main(int argc, char* argv[])
       }
       const RigidBody::InnerJointData& ijd = links[i]->get_inner_joint_data(joint);
       const RigidBody::OuterJointData& ojd = parent->get_outer_joint_data(joint);
-      out << linkname << "[\"ijointcomvec\"] = " << to_mathematica_columnv(ijd.joint_to_com_vec) << ";" << std::endl;
+      out << linkname << "[\"ijointcomvec\"] = " << to_mathematica_columnv(ijd.joint_to_com_vec_of) << ";" << std::endl;
       out << linkname << "[\"parentcomijointvec\"] = " << to_mathematica_columnv(ojd.com_to_joint_vec) << ";" << std::endl;
     }
     out << std::endl;

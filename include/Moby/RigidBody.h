@@ -48,8 +48,12 @@ class RigidBody : public SingleBody
       // the inner joint in question
       boost::weak_ptr<Joint> inner_joint;
 
-      // vector from inner joint to center-of-mass of this link (this link coordinates)
-      Vector3 joint_to_com_vec;
+      // vector from inner joint to center-of-mass of this link (outboard link frame)
+      Vector3 joint_to_com_vec_of;
+
+      // vector from inner joint to center-of-mass of this link (inner joint frame)
+      Vector3 joint_to_com_vec_jf;
+
 
       // the parent link
       boost::weak_ptr<RigidBody> parent;
@@ -131,7 +135,7 @@ class RigidBody : public SingleBody
     OuterJointData& get_outer_joint_data(JointPtr outer_joint);
     RigidBodyPtr get_parent_link() const;
     JointPtr get_inner_joint_implicit() const;
-    void add_inner_joint(RigidBodyPtr parent, JointPtr j, const Vector3& joint_to_com_vec_link);
+    void add_inner_joint(RigidBodyPtr parent, JointPtr j, const Vector3& joint_to_com_vec_joint, const Vector3& joint_to_com_vec_link);
     void add_outer_joint(RigidBodyPtr child, JointPtr j, const Vector3& com_to_joint_vec_link);
     bool remove_inner_joints(RigidBodyPtr parent);
     bool remove_inner_joint(JointPtr joint);

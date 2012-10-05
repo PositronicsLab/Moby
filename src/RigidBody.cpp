@@ -822,10 +822,12 @@ void RigidBody::save_to_xml(XMLTreePtr node, list<BaseConstPtr>& shared_objects)
 /**
  * \param parent the outer link of the parent
  * \param j the joint connecting parent and this
+ * \param joint_to_com_vec_joint the vector from j to the center-of-mass of this
+ *        (specified in the joint frame) 
  * \param joint_to_com_vec_link the vector from j to the center-of-mass of this
- *        in this link's coordinates 
+ *        (specified in this frame) 
  */
-void RigidBody::add_inner_joint(RigidBodyPtr parent, JointPtr j, const Vector3& joint_to_com_vec_link) 
+void RigidBody::add_inner_joint(RigidBodyPtr parent, JointPtr j, const Vector3& joint_to_com_vec_joint, const Vector3& joint_to_com_vec_link) 
 {
   // remove the inner joint if it already exists
   for (list<InnerJointData>::iterator i = _inner_joints.begin(); i != _inner_joints.end(); )
@@ -838,7 +840,8 @@ void RigidBody::add_inner_joint(RigidBodyPtr parent, JointPtr j, const Vector3& 
   _inner_joints.push_back(InnerJointData());
   _inner_joints.back().parent = parent;
   _inner_joints.back().inner_joint = j;
-  _inner_joints.back().joint_to_com_vec = joint_to_com_vec_link;
+  _inner_joints.back().joint_to_com_vec_jf = joint_to_com_vec_joint;
+  _inner_joints.back().joint_to_com_vec_of = joint_to_com_vec_link;
  
   // set the joint to point to this, if it does not already do so
   RigidBodyPtr outboard = j->get_outboard_link();
