@@ -169,6 +169,7 @@ std::ostream& Moby::operator<<(std::ostream& o, const Event& e)
     else
       o << "geom2: (undefined)" << std::endl;
 
+    o << "contact point: " << e.contact_point << std::endl;
     o << "normal: " << e.contact_normal << std::endl;
 
     // determine the relative normal velocity at the contact point
