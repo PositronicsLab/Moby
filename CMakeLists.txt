@@ -199,6 +199,7 @@ if (BUILD_TOOLS)
   # plugins
 #  add_library(controller "MODULE" example/bouncing-sphere/controller.cpp)
   add_library(grasp-controller "MODULE" example/banditII/grasp-controller.cpp)
+  add_library(bandit-controller "MODULE" example/banditII/bandit-controller.cpp)
 
   # tools
   add_executable(regress example/regress.cpp)
@@ -219,6 +220,7 @@ if (BUILD_TOOLS)
   # uncomment to build example plugins
 #  target_link_libraries(controller Moby)
   target_link_libraries(grasp-controller Moby)
+  target_link_libraries(bandit-controller Moby)
 
   # tools
   target_link_libraries(regress Moby)
