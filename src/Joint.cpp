@@ -81,7 +81,7 @@ void Joint::determine_q_tare()
   // save current q
   VectorN q_save((const VectorN&) q);
 
-  // we want the joint to inducate identity transform, so set q to zero 
+  // we want the joint to induce identity transform, so set q to zero 
   q.set_zero();
 
   // get the global position - use the inboard link
