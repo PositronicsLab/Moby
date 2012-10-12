@@ -222,7 +222,7 @@ static int step = 0;
 
 // callback for EventDrivenSimulator
 void event_callback_fn( std::vector<Event>& events, boost::shared_ptr<void> p ) {
-/*
+
   std::vector<Event>::iterator it;
 
   int i = 0;
@@ -241,11 +241,14 @@ void event_callback_fn( std::vector<Event>& events, boost::shared_ptr<void> p ) 
   for ( it = events.begin() ; it < events.end(); it++ ) {
     Event event = *it;
 
+    if( event.event_type != Event::eContact ) continue;
+
     time = event.t;
 
     std::stringstream ss_event;
     ss_event << "event_" << step << "_" << iter << "_" << i++ << ".wrl";
     std::string event_file_name = ss_event.str();
+
 
     SingleBodyPtr geom1 = event.contact_geom1->get_single_body();
     SingleBodyPtr geom2 = event.contact_geom2->get_single_body();
@@ -271,7 +274,7 @@ void event_callback_fn( std::vector<Event>& events, boost::shared_ptr<void> p ) 
 
   osg::Node* node = sim->get_persistent_vdata();
   osgDB::writeNodeFile(*node, state_file_name);
-*/
+
   step++;  
 }
 
