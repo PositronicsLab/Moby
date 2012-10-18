@@ -451,13 +451,28 @@ bool CylinderPrimitive::point_inside(BVPtr bv, const Vector3& p, Vector3& normal
   }
 
   // determine the normal
+  if (-dcaptop < -dcapbot)
+  {
+    if (-dcaptop < std::sqrt(-cdist_sq))
+      normal = Vector3(0,1,0);
+    else
+      normal = Vector3::normalize(Vector3(query[X],(Real) 0.0, query[Z]));
+  }
+  else
+  {
+    if (-dcapbot < std::sqrt(-cdist_sq))
+      normal = Vector3(0,-1,0);
+    else
+      normal = Vector3::normalize(Vector3(query[X],(Real) 0.0, query[Z]));
+  }
+/*
   if (dcaptop >= dcapbot && dcaptop >= -NEAR_ZERO)
     normal = Vector3(0,1,0);
   else if (dcapbot >= dcaptop && dcapbot >= -NEAR_ZERO)
     normal = Vector3(0,-1,0);
   else
     normal = Vector3::normalize(Vector3(query[X],0,query[Z]));
-
+*/
   // transform the normal
   normal = T.mult_vector(normal);
 
