@@ -1,3 +1,8 @@
+r573
+----
+- CylinderPrimitive::intersect_seg() should now be more robust when a point
+  is already inside the cylinder
+
 r572
 ----
 - Fixed bug in PSDeformableBody (springs were not being created, because
