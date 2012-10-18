@@ -309,6 +309,7 @@ void process_camera_tag(XMLTreeConstPtr node)
   up_attr->get_vector_value(up);
 
   // setup osg vectors
+  #ifdef USE_OSG
   osg::Vec3d position_osg(position[0], position[1], position[2]);
   osg::Vec3d target_osg(target[0], target[1], target[2]);
   osg::Vec3d up_osg(up[0], up[1], up[2]);
@@ -322,6 +323,7 @@ void process_camera_tag(XMLTreeConstPtr node)
     // setup the manipulator using the camera, if necessary
     viewer_pointer->getCameraManipulator()->setHomePosition(position_osg, target_osg, up_osg); 
   }
+  #endif
 }
 
 /// processes the 'window' tag
