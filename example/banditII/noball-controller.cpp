@@ -33,11 +33,8 @@ void control_PID(RCArticulatedBodyPtr robot, Real time)
   q_des["left-elbow-joint"] = 0.0;
   q_des["left-forearm-joint"] = 0.0;
   q_des["left-hand-joint"] = 0.0;
-  q_des["left-claw-left-joint"] = 0.3;
-  q_des["left-claw-right-joint"] = -0.3;
-
-  //q_des["left-claw-left-joint"] = -0.3;
-  //q_des["left-claw-right-joint"] = 0.3;
+  q_des["left-claw-left-joint"] = 0.1;
+  q_des["left-claw-right-joint"] = -0.1;
 
   // setup desired joint velocities
   std::map<std::string, Real> qd_des;
@@ -72,20 +69,11 @@ void control_PID(RCArticulatedBodyPtr robot, Real time)
     JointPtr joint(robot->get_links()[i]->get_inner_joint_implicit());
     id_data.qdd = VectorN(1);
 
-///*  
-    // this should be correct acceleration, but values don't move gripper  
+    // update the acceleration of the joint
     if (joint->id == "left-claw-right-joint")
       id_data.qdd[0] = -ACCEL;
     else if (joint->id == "left-claw-left-joint")
       id_data.qdd[0] = ACCEL;
-//*/
-/*
-    // this is wrong (opposite) acceleration, but only values that move gripper
-    if (joint->id == "left-claw-right-joint")
-      id_data.qdd[0] = ACCEL;
-    else if (joint->id == "left-claw-left-joint")
-      id_data.qdd[0] = -ACCEL;
-*/
     else
       id_data.qdd[0] = 0;
     inv_dyn_data[robot->get_links()[i]] = id_data;
