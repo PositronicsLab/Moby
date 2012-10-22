@@ -940,7 +940,17 @@ FILE_LOG(LOG_DYNAMICS) << "added link " << parent->id << " to queue for processi
     if (!_rank_deficient[idx])
       LinAlg::factor_chol(_sIs[idx]);
     else
-      LinAlg::pseudo_inverse(_sIs[idx]);
+    {
+      try
+      {
+        LinAlg::pseudo_inverse(_sIs[idx], LinAlg::svd1);
+      }
+      catch (NumericalException e)
+      {
+        s.transpose_mult(_Is[idx], _sIs[idx]);
+        LinAlg::pseudo_inverse(_sIs[idx], LinAlg::svd2);
+      }
+    }
 
     // get Is
     const SMatrix6N& Is = _Is[idx];
