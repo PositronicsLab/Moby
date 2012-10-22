@@ -13,6 +13,7 @@
 #include <Moby/RigidBody.h>
 #include <Moby/SpatialRBInertia.h>
 #include <Moby/RCArticulatedBody.h>
+#include <Moby/NumericalException.h>
 #include <Moby/ArticulatedBody.h>
 
 using namespace Moby;
@@ -286,7 +287,15 @@ MatrixN& ArticulatedBody::determine_F(unsigned link_idx, const Matrix4& Tf, cons
 
   // compute pseudo-inverse of J
   F.copy_from(J);
-  LinAlg::pseudo_inverse(F);
+  try
+  {
+    LinAlg::pseudo_inverse(F, LinAlg::svd1);
+  }
+  catch (NumericalException e)
+  {
+    F.copy_from(J);
+    LinAlg::pseudo_inverse(F, LinAlg::svd2);
+  }
 
   return F;
 }

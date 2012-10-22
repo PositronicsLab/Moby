@@ -47,28 +47,33 @@ class LinAlg
     static VectorN& solve_tri_fast(const MatrixN& A, bool utri, bool transpose_A, VectorN& xb);
     static MatrixN& solve_tri_fast(const MatrixN& A, bool utri, bool transpose_A, MatrixN& XB);
     static VectorN& solve_LS(const SparseMatrixN& A, const VectorN& b, VectorN& x, Real damp = (Real) 0.0, unsigned max_iter = std::numeric_limits<unsigned>::max(), Real tol = (Real) 0.0);
-    static MatrixN solve_LS(const MatrixN& A, const MatrixN& B, Real tol = -1.0);
-    static VectorN solve_LS(const MatrixN& A, const VectorN& b, Real tol = -1.0);
+    static MatrixN solve_LS(const MatrixN& A, const MatrixN& B, void (*svd)(MatrixN&, MatrixN&, VectorN&, MatrixN&), Real tol = -1.0);
+    static VectorN solve_LS(const MatrixN& A, const VectorN& b, void (*svd)(MatrixN&, MatrixN&, VectorN&, MatrixN&), Real tol = -1.0);
     static MatrixN solve_symmetric(const MatrixN& A, const MatrixN& B);
     static VectorN solve_symmetric(const MatrixN& A, const VectorN& b);
     static MatrixN solve_SPD(const MatrixN& A, const MatrixN& B);
     static VectorN solve_SPD(const MatrixN& A, const VectorN& b);
     static MatrixN& solve_fast(MatrixN& A, MatrixN& XB);
     static VectorN& solve_fast(MatrixN& A, VectorN& xb);
-    static MatrixN& solve_LS_fast(MatrixN& A, MatrixN& XB, Real tol = -1.0);
-    static VectorN& solve_LS_fast(MatrixN& A, VectorN& xb, Real tol = -1.0);
-    static VectorN& solve_LS_fast2(MatrixN& A, VectorN& xb);
+    static MatrixN& solve_LS_fast1(MatrixN& A, MatrixN& XB, Real tol = -1.0) { solve_LS_fast(A, XB, svd1, tol); }
+    static VectorN& solve_LS_fast1(MatrixN& A, VectorN& xb, Real tol = -1.0) { solve_LS_fast(A, xb, svd1, tol); }
+    static MatrixN& solve_LS_fast2(MatrixN& A, MatrixN& XB, Real tol = -1.0) { solve_LS_fast(A, XB, svd2, tol); }
+    static VectorN& solve_LS_fast2(MatrixN& A, VectorN& xb, Real tol = -1.0) { solve_LS_fast(A, xb, svd2, tol); }
+    static MatrixN& solve_LS_fast(MatrixN& A, MatrixN& XB, void (*svd)(MatrixN&, MatrixN&, VectorN&, MatrixN&), Real tol = -1.0);
+    static VectorN& solve_LS_fast(MatrixN& A, VectorN& xb, void (*svd)(MatrixN&, MatrixN&, VectorN&, MatrixN&), Real tol = -1.0);
     static MatrixN& solve_symmetric_fast(MatrixN& A, MatrixN& XB);
     static VectorN& solve_symmetric_fast(MatrixN& A, VectorN& xb);
     static MatrixN& solve_SPD_fast(MatrixN& A, MatrixN& XB);
     static VectorN& solve_SPD_fast(MatrixN& A, VectorN& xb);
     static void solve_iterative(const MatrixN& A, const VectorN& b, VectorN& x, unsigned iter);
     static void svd(MatrixN& A, MatrixN& U, VectorN& S, MatrixN& V);
+    static void svd1(MatrixN& A, MatrixN& U, VectorN& S, MatrixN& V);
+    static void svd2(MatrixN& A, MatrixN& U, VectorN& S, MatrixN& V);
     static MatrixN& inverse(MatrixN& mat);
     static MatrixN& inverse_symmetric(MatrixN& mat);
     static MatrixN& inverse_chol(MatrixN& mat);
     static MatrixN& inverse_SPD(MatrixN& mat);
-    static MatrixN& pseudo_inverse(MatrixN& A, Real tol=-1.0);
+    static MatrixN& pseudo_inverse(MatrixN& A, void (*svd)(MatrixN&, MatrixN&, VectorN&, MatrixN&), Real tol=-1.0);
     static unsigned calc_rank(MatrixN& x, Real tol=-1.0);
     static void eig_symm(MatrixN& A, VectorN& evals);
     static void eig_symm_plus(MatrixN& A_evecs, VectorN& evals);

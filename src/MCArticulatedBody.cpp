@@ -236,7 +236,15 @@ void MCArticulatedBody::precalc()
     if (!LinAlg::factor_chol(_inv_Jx_iM_JxT))
     {  
       _inv_Jx_iM_JxT.copy_from(_Jx_iM_JxT);
-      LinAlg::pseudo_inverse(_inv_Jx_iM_JxT);
+      try
+      {
+        LinAlg::pseudo_inverse(_inv_Jx_iM_JxT, LinAlg::svd1);
+      }
+      catch (NumericalException e)
+      {
+        _inv_Jx_iM_JxT.copy_from(_Jx_iM_JxT);
+        LinAlg::pseudo_inverse(_inv_Jx_iM_JxT, LinAlg::svd2);
+      }
       _rank_def = true;
     }
 
@@ -509,7 +517,16 @@ void MCArticulatedBody::calc_fwd_dyn(Real dt)
     // this makes frictional forces and deltas zero
     A.copy_from(_Jx_iM_JxT);
     tmpv.copy_from(zz);
-    LinAlg::solve_LS_fast(A, tmpv);
+    try
+    {
+      LinAlg::solve_LS_fast1(A, tmpv);
+    }
+    catch (NumericalException e)
+    {
+      A.copy_from(_Jx_iM_JxT);
+      LinAlg::solve_LS_fast2(A, tmpv);
+    }
+
     zz.set_zero(NN);
     zz.set_sub_vec(ALPHAX_START, tmpv);
   }
@@ -1190,8 +1207,24 @@ void MCArticulatedBody::get_mechanism_jacobian(MCArticulatedBody::SparseJacobian
     // compute the pseudo inverse of s and \dot{s}
     pinv_s.copy_from(s);
     pinv_s_dot.copy_from(s_dot);
-    LinAlg::pseudo_inverse(pinv_s);
-    LinAlg::pseudo_inverse(pinv_s_dot);
+    try
+    {
+      LinAlg::pseudo_inverse(pinv_s, LinAlg::svd1);
+    }
+    catch (NumericalException e)
+    {
+      pinv_s.copy_from(s);
+      LinAlg::pseudo_inverse(pinv_s, LinAlg::svd2);
+    }
+    try
+    {
+      LinAlg::pseudo_inverse(pinv_s_dot, LinAlg::svd1);
+    }
+    catch (NumericalException e)
+    {
+      pinv_s_dot.copy_from(s_dot);
+      LinAlg::pseudo_inverse(pinv_s_dot, LinAlg::svd2);
+    }
 
     // compute special spatial transformations 
     SpatialTransform X0i(IDENTITY_3x3, rbi->get_position(), IDENTITY_4x4);
