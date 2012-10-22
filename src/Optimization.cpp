@@ -6488,7 +6488,7 @@ void Optimization::qp_convex_activeset(const MatrixN& G, const VectorN& c, OptPa
     FILE_LOG(LOG_OPT) << "variable lambda: " << vlambda << endl;
 
     // if dx is zero, examine the Lagrange multipliers
-    if (dx.norm() < std::numeric_limits<Real>::epsilon() * x.norm() * (Real) 10.0)
+    if (dx.norm() < std::numeric_limits<Real>::epsilon() * std::max(x.norm(), (Real) 1.0))
     {
       FILE_LOG(LOG_OPT) << "dx = 0; examining Lagrange multipliers" << endl;
 
