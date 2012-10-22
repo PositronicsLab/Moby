@@ -44,7 +44,6 @@ Real MAX_TIME = std::numeric_limits<Real>::max();
 std::ofstream outfile;
 
 /// Outputs to stdout
-bool OUTPUT_FRAME_RATE = false;
 bool OUTPUT_ITER_NUM = false;
 bool OUTPUT_SIM_RATE = false;
 
@@ -70,7 +69,7 @@ bool compbody(DynamicBodyPtr b1, DynamicBodyPtr b2)
 }
 
 /// runs the simulator and updates all transforms
-void step(void* arg)
+bool step(void* arg)
 {
   // get the simulator pointer
   boost::shared_ptr<Simulator> s = *(boost::shared_ptr<Simulator>*) arg;
@@ -79,13 +78,14 @@ void step(void* arg)
   std::vector<DynamicBodyPtr> bodies = s->get_dynamic_bodies();
   std::sort(bodies.begin(), bodies.end(), compbody);
   VectorN q;
+  outfile << s->current_time;
   for (unsigned i=0; i< bodies.size(); i++)  
   {
     bodies[i]->get_generalized_coordinates(DynamicBody::eRodrigues, q);
     for (unsigned j=0; j< q.size(); j++)
-      outfile << q[j] << " ";
-    outfile << std::endl;
+      outfile << " " << q[j];
   }
+  outfile << std::endl;
 
   // output the iteration #
   if (OUTPUT_ITER_NUM)
@@ -109,13 +109,9 @@ void step(void* arg)
 
   // check that maximum number of iterations or maximum time not exceeded
   if (ITER >= MAX_ITER || s->current_time > MAX_TIME)
-  {
-    clock_t end_time = clock();
-    Real elapsed = (end_time - start_time) / (Real) CLOCKS_PER_SEC;
-    std::cout << elapsed << " seconds elapsed" << std::endl;
-    outfile.close();
-    exit(0);
-  }
+    return false;
+
+  return true;
 }
 
 // attempts to read control code plugin
@@ -161,9 +157,7 @@ int main(int argc, char** argv)
     std::string option(argv[i]);
 
     // process options
-    if (option.find("-of") != std::string::npos)
-      OUTPUT_FRAME_RATE = true;
-    else if (option.find("-oi") != std::string::npos)
+    if (option.find("-oi") != std::string::npos)
       OUTPUT_ITER_NUM = true;
     else if (option.find("-or") != std::string::npos)
       OUTPUT_SIM_RATE = true;
@@ -219,11 +213,20 @@ int main(int argc, char** argv)
   start_time = clock();
 
   // begin rendering
-  while (true)
-    step((void*) &s);
+  while (step((void*) &s))
+  {
+  }
 
   // close the loaded library
   if (HANDLE)
     dlclose(HANDLE);
+
+  // write the number of clock ticks elapsed
+  clock_t end_time = clock();
+  Real elapsed = (end_time - start_time) / (Real) CLOCKS_PER_SEC;
+  outfile << elapsed << std::endl;
+
+  // close the output file
+  outfile.close();
 }
 

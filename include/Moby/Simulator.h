@@ -73,6 +73,9 @@ class Simulator : public virtual Base
     osg::Node* get_transient_vdata() const { return _transient_vdata; } 
     #endif
 
+    /// Callback function after a step is completed
+    void (*post_step_callback_fn)(Simulator* s);
+
   protected:
     #ifdef USE_OSG
     osg::Group* _persistent_vdata;

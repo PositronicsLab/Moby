@@ -30,6 +30,7 @@ using boost::dynamic_pointer_cast;
 Simulator::Simulator()
 {
   this->current_time = 0;
+  post_step_callback_fn = NULL;
 
   // setup the persistent and transient visualization data
   #ifdef USE_OSG
@@ -65,6 +66,10 @@ Real Simulator::step(Real step_size)
 
   // compute forward dynamics and integrate 
   current_time += integrate(step_size);
+
+  // call the callback
+  if (post_step_callback_fn)
+    post_step_callback_fn(this);
 
   return step_size;
 }
