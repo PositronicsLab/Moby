@@ -1318,7 +1318,31 @@ void DeformableCCD::sort_AABBs(const map<SingleBodyPtr, pair<Vector3, Vector3> >
       PrimitivePtr p = geom->get_geometry();
       BVPtr bv = p->get_BVH_root();
       _x_bounds[i].second.bv = bv;
+    }
+
+    // just rebuild deformable vector components
+    for (unsigned i=0; i< _y_bounds.size(); i++)
+    {
+      CollisionGeometryPtr geom = _y_bounds[i].second.geom;
+      SingleBodyPtr sb = geom->get_single_body();
+      DeformableBodyPtr db = dynamic_pointer_cast<DeformableBody>(sb);
+      if (!db)
+        continue;
+      PrimitivePtr p = geom->get_geometry();
+      BVPtr bv = p->get_BVH_root();
       _y_bounds[i].second.bv = bv;
+    }
+
+    // just rebuild deformable vector components
+    for (unsigned i=0; i< _z_bounds.size(); i++)
+    {
+      CollisionGeometryPtr geom = _z_bounds[i].second.geom;
+      SingleBodyPtr sb = geom->get_single_body();
+      DeformableBodyPtr db = dynamic_pointer_cast<DeformableBody>(sb);
+      if (!db)
+        continue;
+      PrimitivePtr p = geom->get_geometry();
+      BVPtr bv = p->get_BVH_root();
       _z_bounds[i].second.bv = bv;
     }
   }
