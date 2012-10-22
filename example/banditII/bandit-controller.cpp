@@ -56,39 +56,25 @@ void control_PID(RCArticulatedBodyPtr robot, Real time)
 
   // setup desired joint positions
   std::map<std::string, Real> q_des;
-  //  q_des["left-shoulder1-joint"] = -0.79;
-  //  q_des["left-shoulder2-joint"] = 0.0;
-  //q_des["left-shoulder1-joint"] = lsh1;
-  //q_des["left-shoulder2-joint"] = lsh2;
-  //q_des["left-shoulder1-joint"] = 1.30;
-  //q_des["left-shoulder2-joint"] = 0.0;
-  //q_des["left-shoulder1-joint"] = 1.40;
-  q_des["left-shoulder1-joint"] = 1.28;
+  //q_des["left-shoulder1-joint"] = 1.28;
+  q_des["left-shoulder1-joint"] = 0.0;
   q_des["left-shoulder2-joint"] = 0.0;
   q_des["left-bicep-joint"] = 0.0; 
   q_des["left-elbow-joint"] = 0.0;
   q_des["left-forearm-joint"] = 0.0;
   q_des["left-hand-joint"] = 0.0;
-  q_des["left-claw-left-joint"] = -.198998;
-  q_des["left-claw-right-joint"] = .199998;
+  q_des["left-claw-left-joint"] = 0.1;
+  q_des["left-claw-right-joint"] = -0.1;
+
+  //q_des["left-claw-left-joint"] = -.198998;
+  //q_des["left-claw-right-joint"] = .199998;
   //q_des["left-claw-left-joint"] = -0.25;
   //q_des["left-claw-right-joint"] = 0.25;
   //q_des["left-claw-left-joint"] = -0.37;
   //q_des["left-claw-right-joint"] = 0.37;
-  /*
-  q_des["left-shoulder1-joint"] = lsh1;
-  q_des["left-shoulder2-joint"] = lsh2;
-  q_des["left-bicep-joint"] = 0.0; 
-  q_des["left-elbow-joint"] = -0.63;
-  q_des["left-forearm-joint"] = 0.0;
-  q_des["left-hand-joint"] = 0.0;
-  q_des["left-claw-left-joint"] = -.198998;
-  q_des["left-claw-right-joint"] = .199998;
-  */
+
   // setup desired joint velocities
   std::map<std::string, Real> qd_des;
-  //qd_des["left-shoulder1-joint"] = lsh1_qd;
-  //qd_des["left-shoulder2-joint"] = lsh2_qd;
   qd_des["left-shoulder1-joint"] = 0.0;
   qd_des["left-shoulder2-joint"] = 0.0;
   qd_des["left-bicep-joint"] = 0.0; 
@@ -97,16 +83,7 @@ void control_PID(RCArticulatedBodyPtr robot, Real time)
   qd_des["left-hand-joint"] = 0.0;
   qd_des["left-claw-left-joint"] = 0.0;
   qd_des["left-claw-right-joint"] = 0.0;
-  /*
-  qd_des["left-shoulder1-joint"] = lsh1_qd;
-  qd_des["left-shoulder2-joint"] = lsh2_qd;
-  qd_des["left-bicep-joint"] = 0.0; 
-  qd_des["left-elbow-joint"] = 0.0;
-  qd_des["left-forearm-joint"] = 0.0;
-  qd_des["left-hand-joint"] = 0.0;
-  qd_des["left-claw-left-joint"] = 0.0;
-  qd_des["left-claw-right-joint"] = 0.0;
-  */
+
   // setup gains
   std::map<std::string, std::pair<Real, Real> > gains;
   gains["left-shoulder1-joint"] = std::make_pair(300,120);
@@ -117,16 +94,7 @@ void control_PID(RCArticulatedBodyPtr robot, Real time)
   gains["left-hand-joint"] = std::make_pair(15,6);
   gains["left-claw-left-joint"] = std::make_pair(15,6);
   gains["left-claw-right-joint"] = std::make_pair(15,6);
-  /*
-  gains["left-shoulder1-joint"] = std::make_pair(300,120);
-  gains["left-shoulder2-joint"] = std::make_pair(300,120);
-  gains["left-bicep-joint"] = std::make_pair(100,40);
-  gains["left-elbow-joint"] = std::make_pair(60,24);
-  gains["left-forearm-joint"] = std::make_pair(25,10);
-  gains["left-hand-joint"] = std::make_pair(15,6);
-  gains["left-claw-left-joint"] = std::make_pair(15,6);
-  gains["left-claw-right-joint"] = std::make_pair(15,6);
-  */
+
   // compute inverse dynamics
   std::map<RigidBodyPtr, RCArticulatedBodyInvDynData> inv_dyn_data;
   for (unsigned i=1; i< robot->get_links().size(); i++)
@@ -138,18 +106,11 @@ void control_PID(RCArticulatedBodyPtr robot, Real time)
     JointPtr joint(robot->get_links()[i]->get_inner_joint_implicit());
     id_data.qdd = VectorN(1);
     
+    // update the acceleration of the joint
     if (joint->id == "left-claw-right-joint")
       id_data.qdd[0] = -ACCEL;
     else if (joint->id == "left-claw-left-joint")
       id_data.qdd[0] = ACCEL;
-    /*
-    else if (joint->id == "left-shoulder1-joint")
-      id_data.qdd[0] = -ACCEL;
-      //id_data.qdd[0] = lsh1_qdd;
-    ///*
-    else if (joint->id == "left-shoulder2-joint")
-      //id_data.qdd[0] = lsh2_qdd;
-      */
     else
       id_data.qdd[0] = 0;
     inv_dyn_data[robot->get_links()[i]] = id_data;
@@ -176,10 +137,10 @@ void control_PID(RCArticulatedBodyPtr robot, Real time)
     std::string fname1 = i->first->id + ".pos";
     std::string fname2 = i->first->id + ".vel";
     std::ofstream out(fname1.c_str(), std::ofstream::app);
-    out << q_des[i->first->id] << " " << i->first->q[0] << std::endl;
+    out << time << " " << q_des[i->first->id] << " " << i->first->q[0] << std::endl;
     out.close();
     out.open(fname2.c_str(), std::ostream::app);
-    out << qd_des[i->first->id] << " " << i->first->qd[0] << std::endl;
+    out << time << " " << qd_des[i->first->id] << " " << i->first->qd[0] << std::endl;
     out.close();
 
     // add feedback torque to joints
@@ -222,7 +183,7 @@ static int step = 0;
 
 // callback for EventDrivenSimulator
 void event_callback_fn( std::vector<Event>& events, boost::shared_ptr<void> p ) {
-/*
+
   std::vector<Event>::iterator it;
 
   int i = 0;
@@ -241,11 +202,14 @@ void event_callback_fn( std::vector<Event>& events, boost::shared_ptr<void> p ) 
   for ( it = events.begin() ; it < events.end(); it++ ) {
     Event event = *it;
 
+    if( event.event_type != Event::eContact ) continue;
+
     time = event.t;
 
     std::stringstream ss_event;
     ss_event << "event_" << step << "_" << iter << "_" << i++ << ".wrl";
     std::string event_file_name = ss_event.str();
+
 
     SingleBodyPtr geom1 = event.contact_geom1->get_single_body();
     SingleBodyPtr geom2 = event.contact_geom2->get_single_body();
@@ -271,7 +235,7 @@ void event_callback_fn( std::vector<Event>& events, boost::shared_ptr<void> p ) 
 
   osg::Node* node = sim->get_persistent_vdata();
   osgDB::writeNodeFile(*node, state_file_name);
-*/
+
   step++;  
 }
 
