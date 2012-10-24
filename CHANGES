@@ -1,3 +1,13 @@
+r575
+----
+- SVD methods now more robust; if one SVD fails, a different algorithm will be
+  tried
+
+r574
+----
+- Fixed tolerance bug in Optimization::qp_convex_activeset()
+- Added post-step callbacks to Simulator and EventDrivenSimulator
+
 r573
 ----
 - CylinderPrimitive::intersect_seg() should now be more robust when a point

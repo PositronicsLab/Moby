@@ -32,6 +32,7 @@ extern "C"
 #include <Moby/Log.h>
 #include <Moby/SingularException.h>
 #include <Moby/NonsquareMatrixException.h>
+#include <Moby/NumericalException.h>
 #include <Moby/Optimization.h>
 #ifdef USE_PATH
 #include <Moby/PathLCPSolver.h>
@@ -3115,10 +3116,33 @@ void Optimization::solve_KKT_pd(const VectorN& x, const VectorN& lambda, const V
 
     // setup diagonal
     for (unsigned i=0, j=n; i< mm; i++, j++)
-      M(j++, j++) = -fc[i]; 
+      M(j, j) = -fc[i]; 
 
     // use the least squares solver 
-    LinAlg::solve_LS_fast(M, dy);
+    try
+    {
+      LinAlg::solve_LS_fast1(M, dy);
+    }
+    catch (NumericalException e)
+    {
+      // reform the KKT matrix
+      M.set_sub_mat(0, 0, H);
+      M.set_sub_mat(0, n, Df, true);
+      M.set_sub_mat(0, n+mm, Dg, true);
+      M.set_sub_mat(n, 0, nDfTlambda, true);
+      M.set_sub_mat(n+mm, 0, Dg);
+
+      // zero out appropriate block of the KKT matrix
+      BlockIterator bi = M.block_start(n, n+mm+nu_len, n, n+mm+nu_len); 
+      std::fill_n(bi, (mm+nu_len)*(mm+nu_len), (Real) 0.0);
+
+      // setup diagonal
+      for (unsigned i=0, j=n; i< mm; i++, j++)
+        M(j, j) = -fc[i]; 
+
+      // last resort...
+      LinAlg::solve_LS_fast2(M, dy);
+    }
   }
 
   FILE_LOG(LOG_OPT) << " r: " << rvec << endl;
@@ -3171,7 +3195,7 @@ bool Optimization::mlcp(VectorN& y, VectorN& z, const MatrixN& M, const VectorN&
 
   // compute pseudo-inverse of M11 
   iM11.copy_from(M11);
-  LinAlg::pseudo_inverse(iM11);
+  LinAlg::pseudo_inverse(iM11, LinAlg::svd1);
 
   // setup bar_M and b_q
   iM11.mult(M12, workM);
@@ -4740,10 +4764,18 @@ bool Optimization::lcp_lemke(const MatrixN& M, const VectorN& q, VectorN& z, Rea
   }
   catch (SingularException e)
   {
-    // use slower SVD pseudo-inverse
-    A.copy_from(B);
-    x.copy_from(q);
-    LinAlg::solve_LS_fast(A, x);
+    try
+    {
+      // use slower SVD pseudo-inverse
+      A.copy_from(B);
+      x.copy_from(q);
+      LinAlg::solve_LS_fast1(A, x);
+    }
+    catch (NumericalException e)
+    {
+      A.copy_from(B);
+      LinAlg::solve_LS_fast2(A, x);
+    }
   }
   x.negate();
 
@@ -4840,9 +4872,18 @@ bool Optimization::lcp_lemke(const MatrixN& M, const VectorN& q, VectorN& z, Rea
     }
     catch (SingularException e)
     {
-      // use slower SVD-based inverse
-      A.copy_from(B);
-      LinAlg::solve_LS_fast(A,d);
+      try
+      {
+        // use slower SVD pseudo-inverse
+        A.copy_from(B);
+        d.copy_from(Be);
+        LinAlg::solve_LS_fast1(A, d);
+      }
+      catch (NumericalException e)
+      {
+        A.copy_from(B);
+        LinAlg::solve_LS_fast2(A, d);
+      }
     }
 
     // use a new pivot tolerance if necessary
@@ -6488,7 +6529,7 @@ void Optimization::qp_convex_activeset(const MatrixN& G, const VectorN& c, OptPa
     FILE_LOG(LOG_OPT) << "variable lambda: " << vlambda << endl;
 
     // if dx is zero, examine the Lagrange multipliers
-    if (dx.norm() < std::numeric_limits<Real>::epsilon() * x.norm() * (Real) 10.0)
+    if (dx.norm() < std::numeric_limits<Real>::epsilon() * std::max(x.norm(), (Real) 1.0))
     {
       FILE_LOG(LOG_OPT) << "dx = 0; examining Lagrange multipliers" << endl;
 

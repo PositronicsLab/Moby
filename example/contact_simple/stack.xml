@@ -26,7 +26,7 @@
     <EulerIntegrator id="euler-quat" type="Quat" symplectic="false" />
 
     <!-- collision detector -->
-    <GeneralizedCCD id="ccd" pos-integrator-id="euler-vec3" ori-integrator-id="euler-quat" eps-tolerance="1e-3" intersection-tolerance="1e-5" toi-tolerance="1e-
+    <GeneralizedCCD id="ccd" ori-integrator-id="euler-quat" eps-tolerance="1e-3" intersection-tolerance="1e-5" toi-tolerance="1e-
 5">
       <Body body-id="box1" />
       <Body body-id="box2" />
@@ -54,45 +54,45 @@
 
     <!-- Rigid bodies -->
       <!-- the boxes -->
-      <RigidBody id="box1" enabled="true" position="0 .5 0" angular-velocity="0 0 0" visualization-id="box1-viz" linear-velocity="0 0 0">
+      <RigidBody id="box1" enabled="true" position="0 .5 0" angular-velocity="0 0 0" visualization-id="b1" linear-velocity="0 0 0">
         <InertiaFromPrimitive primitive-id="b1" />
         <CollisionGeometry primitive-id="b1" />
       </RigidBody>
 
       <!-- the boxes -->
-      <RigidBody id="box2" enabled="true" position="0 1.5 0" angular-velocity="0 0 0" visualization-id="box2-viz" linear-velocity="0 0 0">
-        <InertiaFromPrimitive primitive-id="b2" />
-        <CollisionGeometry primitive-id="b2" />
+      <RigidBody id="box2" enabled="true" position="0 1.5 0" angular-velocity="0 0 0" visualization-id="b1" linear-velocity="0 0 0">
+        <InertiaFromPrimitive primitive-id="b1" />
+        <CollisionGeometry primitive-id="b1" />
       </RigidBody>
 
       <!-- the boxes -->
-      <RigidBody id="box3" enabled="true" position="0 2.5 0" angular-velocity="0 0 0" visualization-id="box3-viz" linear-velocity="0 0 0">
-        <InertiaFromPrimitive primitive-id="b3" />
-        <CollisionGeometry primitive-id="b3" />
+      <RigidBody id="box3" enabled="true" position="0 2.5 0" angular-velocity="0 0 0" visualization-id="b1" linear-velocity="0 0 0">
+        <InertiaFromPrimitive primitive-id="b1" />
+        <CollisionGeometry primitive-id="b1" />
       </RigidBody>
 
       <!-- the boxes -->
-      <RigidBody id="box4" enabled="true" position="0 3.5 0" angular-velocity="0 0 0" visualization-id="box4-viz" linear-velocity="0 0 0">
-        <InertiaFromPrimitive primitive-id="b4" />
-        <CollisionGeometry primitive-id="b4" />
+      <RigidBody id="box4" enabled="true" position="0 3.5 0" angular-velocity="0 0 0" visualization-id="b1" linear-velocity="0 0 0">
+        <InertiaFromPrimitive primitive-id="b1" />
+        <CollisionGeometry primitive-id="b1" />
       </RigidBody>
 
       <!-- the boxes -->
-      <RigidBody id="box5" enabled="true" position="0 4.5 0" angular-velocity="0 0 0" visualization-id="box5-viz" linear-velocity="0 0 0">
-        <InertiaFromPrimitive primitive-id="b5" />
-        <CollisionGeometry primitive-id="b5" />
+      <RigidBody id="box5" enabled="true" position="0 4.5 0" angular-velocity="0 0 0" visualization-id="b1" linear-velocity="0 0 0">
+        <InertiaFromPrimitive primitive-id="b1" />
+        <CollisionGeometry primitive-id="b1" />
       </RigidBody>
 
       <!-- the boxes -->
-      <RigidBody id="box6" enabled="true" position="0 5.5 0" angular-velocity="0 0 0" visualization-id="box6-viz" linear-velocity="0 0 0">
-        <InertiaFromPrimitive primitive-id="b6" />
-        <CollisionGeometry primitive-id="b6" />
+      <RigidBody id="box6" enabled="true" position="0 5.5 0" angular-velocity="0 0 0" visualization-id="b1" linear-velocity="0 0 0">
+        <InertiaFromPrimitive primitive-id="b1" />
+        <CollisionGeometry primitive-id="b1" />
       </RigidBody>
 
       <!-- the boxes -->
-      <RigidBody id="box7" enabled="true" position="0 6.5 0" angular-velocity="0 0 0" visualization-id="box7-viz" linear-velocity="0 0 0">
-        <InertiaFromPrimitive primitive-id="b7" />
-        <CollisionGeometry primitive-id="b7" />
+      <RigidBody id="box7" enabled="true" position="0 6.5 0" angular-velocity="0 0 0" visualization-id="b1" linear-velocity="0 0 0">
+        <InertiaFromPrimitive primitive-id="b1" />
+        <CollisionGeometry primitive-id="b1" />
       </RigidBody>
 
       <!-- the ground -->
