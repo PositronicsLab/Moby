@@ -93,6 +93,8 @@ class EventDrivenSimulator : public Simulator
     /// Mapping from objects to contact parameters
     std::map<sorted_pair<BasePtr>, boost::shared_ptr<ContactParameters> > contact_params;
 
+    bool render_contact_points;
+
   private:
     void handle_Zeno_point(Real dt, const std::vector<std::pair<VectorN, VectorN> >& q0, std::vector<std::pair<VectorN, VectorN> >& q1);
     static void copy(const std::vector<std::pair<VectorN, VectorN> >& source, std::vector<std::pair<VectorN, VectorN> >& dest);
@@ -109,6 +111,9 @@ class EventDrivenSimulator : public Simulator
     Real find_TOI(Real dt, const std::vector<std::pair<VectorN, VectorN> >& q0, const std::vector<std::pair<VectorN, VectorN> >& q1); 
     void handle_events();
     boost::shared_ptr<ContactParameters> get_contact_parameters(CollisionGeometryPtr geom1, CollisionGeometryPtr geom2) const;
+
+    // Visualization functions
+    void visualize_contact( Event& event );
 
     /// Determines whether the simulation constraints have been violated
     bool _simulation_violated;
