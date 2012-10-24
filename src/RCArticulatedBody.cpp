@@ -1237,7 +1237,15 @@ void RCArticulatedBody::calc_fwd_dyn_loops()
   alpha_x += C;
   _Jx.mult(iM, Jx_iM);
   Jx_iM.mult_transpose(_Jx, Jx_iM_JxT);
-  LinAlg::solve_LS_fast(Jx_iM_JxT, alpha_x);
+  try
+  {
+    LinAlg::solve_LS_fast1(Jx_iM_JxT, alpha_x);
+  }
+  catch (NumericalException e)
+  {
+    Jx_iM.mult_transpose(_Jx, Jx_iM_JxT);
+    LinAlg::solve_LS_fast2(Jx_iM_JxT, alpha_x);
+  }
 
   // compute generalized acceleration
   fext -= _Jx.transpose_mult(alpha_x, tmpv);
@@ -1390,7 +1398,16 @@ void RCArticulatedBody::calc_fwd_dyn_advanced_friction(Real dt)
     A.copy_from(Jx_iM_JxT);
     A *= dt;
     tmpv.copy_from(z);
-    LinAlg::solve_LS_fast(A, tmpv);
+    try
+    {
+      LinAlg::solve_LS_fast1(A, tmpv);
+    }
+    catch (NumericalException e)
+    {
+      A.copy_from(Jx_iM_JxT);
+      A *= dt;
+      LinAlg::solve_LS_fast2(A, tmpv);
+    } 
     z.set_zero(NN);
     z.set_sub_vec(ALPHAX_START, tmpv);
   }
@@ -1740,8 +1757,15 @@ void RCArticulatedBody::determine_explicit_constraint_jacobians(const EventProbl
     // get the spatial movement (axes) of this joint (rbo frame)
     const SMatrix6N& si = joint->get_spatial_axes(eLink);
     pinv_si.copy_from(si);
-    LinAlg::pseudo_inverse(pinv_si);
-
+    try
+    {
+      LinAlg::pseudo_inverse(pinv_si, LinAlg::svd1);
+    }
+    catch (NumericalException e)
+    {
+      pinv_si.copy_from(si);
+      LinAlg::pseudo_inverse(pinv_si, LinAlg::svd2);
+    }
 /*
     // special case: floating base
     if (_floating_base)
@@ -1859,8 +1883,15 @@ void RCArticulatedBody::determine_explicit_constraint_movement_jacobian(MatrixN&
     // get the spatial movement (axes) of this joint (rbo frame)
     const SMatrix6N& si = _ejoints[i]->get_spatial_axes(eLink);
     pinv_si.copy_from(si);
-    LinAlg::pseudo_inverse(pinv_si);
-
+    try
+    {
+      LinAlg::pseudo_inverse(pinv_si, LinAlg::svd1);
+    }
+    catch (NumericalException e)
+    {
+      pinv_si.copy_from(si);
+      LinAlg::pseudo_inverse(pinv_si, LinAlg::svd2);
+    }
 /*
     // special case: floating base
     if (_floating_base)

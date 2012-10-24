@@ -20,6 +20,7 @@
 #include <Moby/Log.h>
 #include <Moby/XMLTree.h>
 #include <Moby/Optimization.h>
+#include <Moby/NumericalException.h>
 #include <Moby/ImpactEventHandler.h>
 
 using namespace Moby;
@@ -831,7 +832,15 @@ void ImpactEventHandler::solve_nqp_work(EventProblemData& q, VectorN& z)
     // compute the homogeneous solution
     A.copy_from(q.Jx_iM_JxT);
     tmpv.copy_from(q.Jx_v).negate();
-    LinAlg::solve_LS_fast(A, tmpv);
+    try
+    {
+      LinAlg::solve_LS_fast1(A, tmpv);
+    }
+    catch (NumericalException e)
+    {
+      A.copy_from(q.Jx_iM_JxT);
+      LinAlg::solve_LS_fast2(A, tmpv);
+    }
     z.set_sub_vec(ALPHA_X_IDX, tmpv);
 
     // compute the nullspace
@@ -1105,7 +1114,15 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorN& z)
     // compute the homogeneous solution
     A.copy_from(q.Jx_iM_JxT);
     z.copy_from(q.Jx_v).negate();
-    LinAlg::solve_LS_fast(A, z);
+    try
+    {
+      LinAlg::solve_LS_fast1(A, z);
+    }
+    catch (NumericalException e)
+    {
+      A.copy_from(q.Jx_iM_JxT);
+      LinAlg::solve_LS_fast2(A, z);
+    }
 
     // compute the nullspace
     A.resize(N_CONSTRAINT_EQNS_EXP, NVARS);
@@ -1319,7 +1336,15 @@ void ImpactEventHandler::solve_lcp(EventProblemData& q, VectorN& z)
 
   // setup primary terms -- first upper left hand block of matrix
   iJx_iM_JxT.copy_from(q.Jx_iM_JxT);
-  LinAlg::pseudo_inverse(iJx_iM_JxT);
+  try
+  {
+    LinAlg::pseudo_inverse(iJx_iM_JxT, LinAlg::svd1);
+  }
+  catch (NumericalException e)
+  {
+    iJx_iM_JxT.copy_from(q.Jx_iM_JxT);
+    LinAlg::pseudo_inverse(iJx_iM_JxT, LinAlg::svd2);
+  }
   q.Jc_iM_JxT.mult(iJx_iM_JxT, t2);
   t2.mult_transpose(q.Jc_iM_JxT, UL);
   // now do upper right hand block of matrix

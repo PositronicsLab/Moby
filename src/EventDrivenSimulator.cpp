@@ -508,11 +508,19 @@ Real EventDrivenSimulator::step(Real step_size)
     // events have been handled already; reduce dt and keep integrating
     dt -= t;
     current_time += t;
+
+    // call the mini-callback
+    if (post_mini_step_callback_fn)
+      post_mini_step_callback_fn(this);
   }
 
   // update the current time
   current_time += dt;
 
+  // call the callback 
+  if (post_step_callback_fn)
+    post_step_callback_fn(this);
+  
   return step_size;
 }
 

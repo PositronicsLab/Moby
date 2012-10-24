@@ -53,6 +53,7 @@ class SVector6
     unsigned rows() const { return 6; }
     unsigned columns() const { return 1; }
     SVector6& resize(unsigned rows, unsigned columns) { assert (rows == 6 && columns == 1); return *this; } 
+    SVector6& resize(unsigned rows) { assert (rows == 6); return *this; } 
 
     /// Get iterator to the start of the data
     Real* begin() { return _data; }

@@ -70,6 +70,9 @@ class EventDrivenSimulator : public Simulator
     /// The collision detection mechanisms
     std::list<boost::shared_ptr<CollisionDetection> > collision_detectors;
 
+    /// Callback function after a mini-step is completed
+    void (*post_mini_step_callback_fn)(EventDrivenSimulator* s);
+
     /// The callback function (called when events have been determined)
     /**
      * The callback function can remove events from the list, which will disable

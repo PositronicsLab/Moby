@@ -724,7 +724,15 @@ void CRBAlgorithm::precalc(RCArticulatedBodyPtr body, ReferenceFrameType rftype)
     {
       fM.copy_from(M);
 //    if (_rank_deficient = !factorize_cholesky(fM))
-      LinAlg::pseudo_inverse(fM);
+      try
+      {
+        LinAlg::pseudo_inverse(fM, LinAlg::svd1);
+      }
+      catch (NumericalException e)
+      {
+        fM.copy_from(M);
+        LinAlg::pseudo_inverse(fM, LinAlg::svd2);
+      }
     }
 
     // validate position data
@@ -1450,7 +1458,8 @@ void CRBAlgorithm::apply_impulse_floating_base(RCArticulatedBodyPtr body, const 
 {
   const unsigned OPSPACE_DIM = 6;
   SAFESTATIC SMatrix6N J;
-  SAFESTATIC VectorN augV, b, dv0, dqd, dqd_sub, work;
+  SAFESTATIC VectorN augV, b, dqd, work;
+  SVector6 dv0;
 
   FILE_LOG(LOG_DYNAMICS) << "CRBAlgorithm::apply_impulse_floating_base() entered" << std::endl;
 
@@ -1512,7 +1521,6 @@ void CRBAlgorithm::apply_impulse_floating_base(RCArticulatedBodyPtr body, const 
 
   // get change in base and change in joint velocities
   augV.get_sub_vec(0,OPSPACE_DIM, dv0);
-  augV.get_sub_vec(OPSPACE_DIM,augV.size(), dqd);
 
   // update the base velocity
   SVector6 basev = base->get_spatial_velocity(rftype);
@@ -1524,16 +1532,16 @@ void CRBAlgorithm::apply_impulse_floating_base(RCArticulatedBodyPtr body, const 
   FILE_LOG(LOG_DYNAMICS) << "  change in base velocity: " << dv0 << std::endl;
   FILE_LOG(LOG_DYNAMICS) << "  new base linear velocity: " << base->get_lvel() << std::endl;
   FILE_LOG(LOG_DYNAMICS) << "  new base angular velocity: " << base->get_avel() << std::endl;
-  FILE_LOG(LOG_DYNAMICS) << "  change in link velocities: " << dqd << std::endl;
+  FILE_LOG(LOG_DYNAMICS) << "  change in link velocities: " << augV.get_sub_vec(OPSPACE_DIM, augV.size()) << std::endl;
 
   // apply the change and update link velocities
   const vector<JointPtr>& ijoints = body->get_implicit_joints();
   for (unsigned i=0; i< ijoints.size(); i++)
   {
     unsigned idx = ijoints[i]->get_coord_index();
-    dqd.get_sub_vec(idx, idx+ijoints[i]->num_dof(), dqd_sub);
-    FILE_LOG(LOG_DYNAMICS) << " joint " << ijoints[i]->id << " qd: " << ijoints[i]->qd << "  dqd: " << dqd_sub << std::endl;  
-    ijoints[i]->qd += dqd_sub;
+    augV.get_sub_vec(idx, idx+ijoints[i]->num_dof(), dqd);
+    FILE_LOG(LOG_DYNAMICS) << " joint " << ijoints[i]->id << " qd: " << ijoints[i]->qd << "  dqd: " << dqd << std::endl;  
+    ijoints[i]->qd += dqd;
   }  
   body->update_link_velocities();
 
