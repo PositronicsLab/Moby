@@ -25,6 +25,7 @@
 #include <Moby/Log.h>
 #include <Moby/Simulator.h>
 #include <Moby/RigidBody.h>
+#include <Moby/EventDrivenSimulator.h>
 
 using namespace Moby;
 
@@ -102,6 +103,9 @@ Real LAST_IMG_WRITTEN_T = -std::numeric_limits<Real>::max()/2.0;
 bool OUTPUT_FRAME_RATE = false;
 bool OUTPUT_ITER_NUM = false;
 bool OUTPUT_SIM_RATE = false;
+
+/// Render Contact Points
+bool RENDER_CONTACT_POINTS = false;
 
 /// The map of objects read from the simulation XML file
 std::map<std::string, BasePtr> READ_MAP;
@@ -220,6 +224,12 @@ void step(void* arg)
     Real elapsed = (end_time - start_time) / (Real) CLOCKS_PER_SEC;
     std::cout << elapsed << " seconds elapsed" << std::endl;
     exit(0);
+  }
+
+  // if render contact points enabled, notify the Simulator
+  if( RENDER_CONTACT_POINTS ) {
+    boost::shared_ptr<EventDrivenSimulator> eds = boost::dynamic_pointer_cast<EventDrivenSimulator>( s );
+    eds->render_contact_points = true;
   }
 }
 
@@ -523,7 +533,9 @@ int main(int argc, char** argv)
     else if (option.find("-y=") != std::string::npos)
     {
       strcpy(THREED_EXT, &argv[i][ONECHAR_ARG]);
-    }
+    } else if (option.find("-vcp") != std::string::npos)
+      RENDER_CONTACT_POINTS = true;
+
   }
 
   // setup the simulation 
