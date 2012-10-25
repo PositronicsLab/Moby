@@ -1794,7 +1794,7 @@ void RigidBody::update_velocity(const EventProblemData& q)
   // setup summed impulses
   Vector3 j = ZEROS_3, k = ZEROS_3;
 
-  FILE_LOG(LOG_CONTACT) << "RigidBody::update_velocity() entered" << std::endl;
+  FILE_LOG(LOG_EVENT) << "RigidBody::update_velocity() entered" << std::endl;
 
   // update velocity using contact impulses
   for (unsigned i=0, s=0; i< q.contact_events.size(); i++)
@@ -1810,7 +1810,7 @@ void RigidBody::update_velocity(const EventProblemData& q)
       continue;
     }
 
-    FILE_LOG(LOG_CONTACT) << "  contact impulse magnitudes: " << q.alpha_c[i] << " " << q.beta_c[s] << " " << q.beta_c[s+1] << std::endl;
+    FILE_LOG(LOG_EVENT) << "  contact impulse magnitudes: " << q.alpha_c[i] << " " << q.beta_c[s] << " " << q.beta_c[s+1] << std::endl;
 
     // check whether to negate normal
     bool negate = (sb2.get() == this);
@@ -1850,12 +1850,12 @@ void RigidBody::update_velocity(const EventProblemData& q)
   else
     apply_impulse(j, k, _x);
 
-  FILE_LOG(LOG_CONTACT) << "  applying impulses: " << j << " / " << k << std::endl;
-  FILE_LOG(LOG_CONTACT) << "  new linear velocity for " << id << ": " << _xd << std::endl;
-  FILE_LOG(LOG_CONTACT) << "  new angular velocity for " << id << ": " << _omega << std::endl;
+  FILE_LOG(LOG_EVENT) << "  applying impulses: " << j << " / " << k << std::endl;
+  FILE_LOG(LOG_EVENT) << "  new linear velocity for " << id << ": " << _xd << std::endl;
+  FILE_LOG(LOG_EVENT) << "  new angular velocity for " << id << ": " << _omega << std::endl;
   for (unsigned i=0; i< q.contact_events.size(); i++)
-    FILE_LOG(LOG_CONTACT) << "  contact velocity at " << q.contact_events[i]->contact_point << " along normal " << q.contact_events[i]->contact_normal << ": " << q.contact_events[i]->contact_normal.dot(calc_point_vel(q.contact_events[i]->contact_point)) << std::endl;
-  FILE_LOG(LOG_CONTACT) << "RigidBody::update_velocity() exited" << std::endl;
+    FILE_LOG(LOG_EVENT) << "  contact velocity at " << q.contact_events[i]->contact_point << " along normal " << q.contact_events[i]->contact_normal << ": " << q.contact_events[i]->contact_normal.dot(calc_point_vel(q.contact_events[i]->contact_point)) << std::endl;
+  FILE_LOG(LOG_EVENT) << "RigidBody::update_velocity() exited" << std::endl;
 }
 
 /// Adds contributions to the event matrices

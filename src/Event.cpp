@@ -269,7 +269,7 @@ osg::Node* Event::to_visualization_data() const
  */
 void Event::determine_connected_events(const vector<Event>& events, list<list<Event*> >& groups)
 {
-  FILE_LOG(LOG_CONTACT) << "Event::determine_connected_contacts() entered" << std::endl;
+  FILE_LOG(LOG_EVENT) << "Event::determine_connected_contacts() entered" << std::endl;
 
   // clear the groups
   groups.clear();
@@ -324,11 +324,11 @@ void Event::determine_connected_events(const vector<Event>& events, list<list<Ev
       assert(false);
   }
 
-  FILE_LOG(LOG_CONTACT) << " -- single bodies in events:" << std::endl;
-  if (LOGGING(LOG_CONTACT))
+  FILE_LOG(LOG_EVENT) << " -- single bodies in events:" << std::endl;
+  if (LOGGING(LOG_EVENT))
     for (set<SingleBodyPtr>::const_iterator i = nodes.begin(); i != nodes.end(); i++)
-      FILE_LOG(LOG_CONTACT) << "    " << (*i)->id << std::endl;
-  FILE_LOG(LOG_CONTACT) << std::endl;
+      FILE_LOG(LOG_EVENT) << "    " << (*i)->id << std::endl;
+  FILE_LOG(LOG_EVENT) << std::endl;
 
   // add connections between articulated rigid bodies -- NOTE: don't process
   // articulated bodies twice!
@@ -380,7 +380,7 @@ void Event::determine_connected_events(const vector<Event>& events, list<list<Ev
 
     // add a list to the contact groups
     groups.push_back(list<Event*>());
-    FILE_LOG(LOG_CONTACT) << " -- events in group: " << std::endl;
+    FILE_LOG(LOG_EVENT) << " -- events in group: " << std::endl;
 
     // create a node queue, with this node added
     std::queue<SingleBodyPtr> node_q;
@@ -453,7 +453,7 @@ void Event::determine_connected_events(const vector<Event>& events, list<list<Ev
     }
   }
 
-  FILE_LOG(LOG_CONTACT) << "Event::determine_connected_events() exited" << std::endl;
+  FILE_LOG(LOG_EVENT) << "Event::determine_connected_events() exited" << std::endl;
 }
 
 /// Removes groups of contacts that contain no impacts

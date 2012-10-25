@@ -1,3 +1,7 @@
+r576
+----
+- Fixed bug with mini callbacks on EventDrivenSimulator
+
 r575
 ----
 - SVD methods now more robust; if one SVD fails, a different algorithm will be
