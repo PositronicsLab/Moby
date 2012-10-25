@@ -46,12 +46,12 @@ ImpactEventHandler::ImpactEventHandler()
 // Processes impacts
 void ImpactEventHandler::process_events(const vector<Event>& events, Real tol)
 {
-  FILE_LOG(LOG_CONTACT) << "*************************************************************";
-  FILE_LOG(LOG_CONTACT) << endl;
-  FILE_LOG(LOG_CONTACT) << "ImpactEventHandler::process_events() entered";
-  FILE_LOG(LOG_CONTACT) << endl;
-  FILE_LOG(LOG_CONTACT) << "*************************************************************";
-  FILE_LOG(LOG_CONTACT) << endl;
+  FILE_LOG(LOG_EVENT) << "*************************************************************";
+  FILE_LOG(LOG_EVENT) << endl;
+  FILE_LOG(LOG_EVENT) << "ImpactEventHandler::process_events() entered";
+  FILE_LOG(LOG_EVENT) << endl;
+  FILE_LOG(LOG_EVENT) << "*************************************************************";
+  FILE_LOG(LOG_EVENT) << endl;
 
   // apply the method to all contacts
   if (!events.empty())
@@ -61,11 +61,11 @@ void ImpactEventHandler::process_events(const vector<Event>& events, Real tol)
     apply_model(events, tol);
   }
   else
-    FILE_LOG(LOG_CONTACT) << " (no events?!)" << endl;
+    FILE_LOG(LOG_EVENT) << " (no events?!)" << endl;
     
-  FILE_LOG(LOG_CONTACT) << "*************************************************************" << endl;
-  FILE_LOG(LOG_CONTACT) << "ImpactEventHandler::process_events() exited" << endl;
-  FILE_LOG(LOG_CONTACT) << "*************************************************************" << endl;
+  FILE_LOG(LOG_EVENT) << "*************************************************************" << endl;
+  FILE_LOG(LOG_EVENT) << "ImpactEventHandler::process_events() exited" << endl;
+  FILE_LOG(LOG_EVENT) << "*************************************************************" << endl;
 }
 
 /// Applies the model to a set of events 
@@ -101,7 +101,7 @@ void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& eve
   vector<Event> constraint_event_objects;
   SAFESTATIC EventProblemData epd;
 
-  FILE_LOG(LOG_CONTACT) << "ImpactEventHandler::apply_model_to_connected_events() entered" << endl;
+  FILE_LOG(LOG_EVENT) << "ImpactEventHandler::apply_model_to_connected_events() entered" << endl;
 
   // reset problem data
   epd.reset();
@@ -116,12 +116,12 @@ void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& eve
   compute_problem_data(epd);
 
   // compute energy
-  if (LOGGING(LOG_CONTACT))
+  if (LOGGING(LOG_EVENT))
   {
     for (unsigned i=0; i< epd.super_bodies.size(); i++)
     {
       Real ke = epd.super_bodies[i]->calc_kinetic_energy();
-      FILE_LOG(LOG_CONTACT) << "  body " << epd.super_bodies[i]->id << " pre-event handling KE: " << ke << endl;
+      FILE_LOG(LOG_EVENT) << "  body " << epd.super_bodies[i]->id << " pre-event handling KE: " << ke << endl;
       ke_minus += ke;
     }
   }
@@ -144,19 +144,19 @@ void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& eve
   set_generalized_velocities(epd);
 
   // compute energy
-  if (LOGGING(LOG_CONTACT))
+  if (LOGGING(LOG_EVENT))
   {
     for (unsigned i=0; i< epd.super_bodies.size(); i++)
     {
       Real ke = epd.super_bodies[i]->calc_kinetic_energy();
-      FILE_LOG(LOG_CONTACT) << "  body " << epd.super_bodies[i]->id << " post-event handling KE: " << ke << endl;
+      FILE_LOG(LOG_EVENT) << "  body " << epd.super_bodies[i]->id << " post-event handling KE: " << ke << endl;
       ke_plus += ke;
     }
     if (ke_plus > ke_minus)
-      FILE_LOG(LOG_CONTACT) << "warning! KE gain detected! energy before=" << ke_minus << " energy after=" << ke_plus << endl;
+      FILE_LOG(LOG_EVENT) << "warning! KE gain detected! energy before=" << ke_minus << " energy after=" << ke_plus << endl;
   }
 
-  FILE_LOG(LOG_CONTACT) << "ImpactEventHandler::apply_model_to_connected_events() exiting" << endl;
+  FILE_LOG(LOG_EVENT) << "ImpactEventHandler::apply_model_to_connected_events() exiting" << endl;
 }
 
 /// Determines whether we can use the QP solver
@@ -609,25 +609,25 @@ void ImpactEventHandler::solve_qp(EventProblemData& q, Real poisson_eps)
   q.Jx_v += q.Jx_iM_JxT.mult(q.alpha_x, tmp);
 
   // output results
-  FILE_LOG(LOG_CONTACT) << "results: " << std::endl;
-  FILE_LOG(LOG_CONTACT) << "new Jc_v: " << q.Jc_v << std::endl;
-  FILE_LOG(LOG_CONTACT) << "new Dc_v: " << q.Dc_v << std::endl;
-  FILE_LOG(LOG_CONTACT) << "new Jl_v: " << q.Jl_v << std::endl;
-  FILE_LOG(LOG_CONTACT) << "new Jx_v: " << q.Jx_v << std::endl;
+  FILE_LOG(LOG_EVENT) << "results: " << std::endl;
+  FILE_LOG(LOG_EVENT) << "new Jc_v: " << q.Jc_v << std::endl;
+  FILE_LOG(LOG_EVENT) << "new Dc_v: " << q.Dc_v << std::endl;
+  FILE_LOG(LOG_EVENT) << "new Jl_v: " << q.Jl_v << std::endl;
+  FILE_LOG(LOG_EVENT) << "new Jx_v: " << q.Jx_v << std::endl;
 
   // see whether another QP must be solved
   if (q.Jc_v.size() > 0 && *min_element(q.Jc_v.begin(), q.Jc_v.end()) < -TOL)
   {
-    FILE_LOG(LOG_CONTACT) << "minimum Jc*v: " << *min_element(q.Jc_v.begin(), q.Jc_v.end()) << std::endl;
-    FILE_LOG(LOG_CONTACT) << " -- running another QP iteration..." << std::endl;
+    FILE_LOG(LOG_EVENT) << "minimum Jc*v: " << *min_element(q.Jc_v.begin(), q.Jc_v.end()) << std::endl;
+    FILE_LOG(LOG_EVENT) << " -- running another QP iteration..." << std::endl;
     solve_qp_work(q, z);
     update_impulses(q, z);
   }
   else 
     if (q.Jl_v.size() > 0 && *min_element(q.Jl_v.begin(), q.Jl_v.end()) < -TOL)
     {
-      FILE_LOG(LOG_CONTACT) << "minimum Jl*v: " << *min_element(q.Jl_v.begin(), q.Jl_v.end()) << std::endl;
-      FILE_LOG(LOG_CONTACT) << " -- running another QP iteration..." << std::endl;
+      FILE_LOG(LOG_EVENT) << "minimum Jl*v: " << *min_element(q.Jl_v.begin(), q.Jl_v.end()) << std::endl;
+      FILE_LOG(LOG_EVENT) << " -- running another QP iteration..." << std::endl;
       solve_qp_work(q, z);
       update_impulses(q, z);
     }
@@ -636,9 +636,9 @@ void ImpactEventHandler::solve_qp(EventProblemData& q, Real poisson_eps)
     pair<Real*, Real*> mm = boost::minmax_element(q.Jx_v.begin(), q.Jx_v.end());
     if (q.Jx_v.size() > 0 && (*mm.first < -TOL || *mm.second > TOL))
     {
-      FILE_LOG(LOG_CONTACT) << "minimum J*v: " << *mm.first << std::endl;
-      FILE_LOG(LOG_CONTACT) << "maximum J*v: " << *mm.second << std::endl;
-      FILE_LOG(LOG_CONTACT) << " -- running another QP iteration..." << std::endl;
+      FILE_LOG(LOG_EVENT) << "minimum J*v: " << *mm.first << std::endl;
+      FILE_LOG(LOG_EVENT) << "maximum J*v: " << *mm.second << std::endl;
+      FILE_LOG(LOG_EVENT) << " -- running another QP iteration..." << std::endl;
       solve_qp_work(q, z);
       update_impulses(q, z);
     }
@@ -709,16 +709,16 @@ void ImpactEventHandler::solve_nqp(EventProblemData& q, Real poisson_eps)
   // see whether another QP must be solved
   if (q.Jc_v.size() > 0 && *min_element(q.Jc_v.begin(), q.Jc_v.end()) < -TOL)
   {
-    FILE_LOG(LOG_CONTACT) << "minimum Jc*v: " << *min_element(q.Jc_v.begin(), q.Jc_v.end()) << std::endl;
-    FILE_LOG(LOG_CONTACT) << " -- running another QP iteration..." << std::endl;
+    FILE_LOG(LOG_EVENT) << "minimum Jc*v: " << *min_element(q.Jc_v.begin(), q.Jc_v.end()) << std::endl;
+    FILE_LOG(LOG_EVENT) << " -- running another QP iteration..." << std::endl;
     solve_nqp_work(q, z);
     update_impulses(q, z);
   }
   else 
     if (q.Jl_v.size() > 0 && *min_element(q.Jl_v.begin(), q.Jl_v.end()) < -TOL)
     {
-      FILE_LOG(LOG_CONTACT) << "minimum Jl*v: " << *min_element(q.Jl_v.begin(), q.Jl_v.end()) << std::endl;
-      FILE_LOG(LOG_CONTACT) << " -- running another QP iteration..." << std::endl;
+      FILE_LOG(LOG_EVENT) << "minimum Jl*v: " << *min_element(q.Jl_v.begin(), q.Jl_v.end()) << std::endl;
+      FILE_LOG(LOG_EVENT) << " -- running another QP iteration..." << std::endl;
       solve_nqp_work(q, z);
       update_impulses(q, z);
     }
@@ -727,9 +727,9 @@ void ImpactEventHandler::solve_nqp(EventProblemData& q, Real poisson_eps)
     pair<Real*, Real*> mm = boost::minmax_element(q.Jx_v.begin(), q.Jx_v.end());
     if (q.Jx_v.size() > 0 && (*mm.first < -TOL || *mm.second > TOL))
     {
-      FILE_LOG(LOG_CONTACT) << "minimum J*v: " << *mm.first << std::endl;
-      FILE_LOG(LOG_CONTACT) << "maximum J*v: " << *mm.second << std::endl;
-      FILE_LOG(LOG_CONTACT) << " -- running another QP iteration..." << std::endl;
+      FILE_LOG(LOG_EVENT) << "minimum J*v: " << *mm.first << std::endl;
+      FILE_LOG(LOG_EVENT) << "maximum J*v: " << *mm.second << std::endl;
+      FILE_LOG(LOG_EVENT) << " -- running another QP iteration..." << std::endl;
       solve_nqp_work(q, z);
       update_impulses(q, z);
     }
@@ -1041,25 +1041,25 @@ void ImpactEventHandler::solve_nqp_work(EventProblemData& q, VectorN& z)
   M.mult(R, MR);
   M.copy_from(MR);
 
-  FILE_LOG(LOG_CONTACT) << "ImpactEventHandler::solve_nqp_work() entered" << std::endl;
-  FILE_LOG(LOG_CONTACT) << "  Jc * inv(M) * Jc': " << std::endl << q.Jc_iM_JcT;
-  FILE_LOG(LOG_CONTACT) << "  Jc * inv(M) * Dc': " << std::endl << q.Jc_iM_DcT;
-  FILE_LOG(LOG_CONTACT) << "  Jc * inv(M) * Jl': " << std::endl << q.Jc_iM_JlT;
-  FILE_LOG(LOG_CONTACT) << "  Jc * inv(M) * Jx': " << std::endl << q.Jc_iM_JxT;
-  FILE_LOG(LOG_CONTACT) << "  Dc * inv(M) * Dc': " << std::endl << q.Dc_iM_DcT;
-  FILE_LOG(LOG_CONTACT) << "  Dc * inv(M) * Jl': " << std::endl << q.Dc_iM_JlT;
-  FILE_LOG(LOG_CONTACT) << "  Dc * inv(M) * Jx': " << std::endl << q.Dc_iM_JxT;
-  FILE_LOG(LOG_CONTACT) << "  Jl * inv(M) * Jl': " << std::endl << q.Jl_iM_JlT;
-  FILE_LOG(LOG_CONTACT) << "  Jl * inv(M) * Jx': " << std::endl << q.Jl_iM_JxT;
-  FILE_LOG(LOG_CONTACT) << "  Jx * inv(M) * Jx': " << std::endl << q.Jx_iM_JxT;
-  FILE_LOG(LOG_CONTACT) << "  Jc * v: " << q.Jc_v << std::endl;
-  FILE_LOG(LOG_CONTACT) << "  Dc * v: " << q.Dc_v << std::endl;
-  FILE_LOG(LOG_CONTACT) << "  Jl * v: " << q.Jl_v << std::endl;
-  FILE_LOG(LOG_CONTACT) << "  Jx * v: " << q.Jx_v << std::endl;
-  FILE_LOG(LOG_CONTACT) << "H matrix: " << std::endl << H;
-  FILE_LOG(LOG_CONTACT) << "c vector: " << c << std::endl;
-  FILE_LOG(LOG_CONTACT) << "M matrix: " << std::endl << M;
-  FILE_LOG(LOG_CONTACT) << "q vector: " << qq << std::endl;
+  FILE_LOG(LOG_EVENT) << "ImpactEventHandler::solve_nqp_work() entered" << std::endl;
+  FILE_LOG(LOG_EVENT) << "  Jc * inv(M) * Jc': " << std::endl << q.Jc_iM_JcT;
+  FILE_LOG(LOG_EVENT) << "  Jc * inv(M) * Dc': " << std::endl << q.Jc_iM_DcT;
+  FILE_LOG(LOG_EVENT) << "  Jc * inv(M) * Jl': " << std::endl << q.Jc_iM_JlT;
+  FILE_LOG(LOG_EVENT) << "  Jc * inv(M) * Jx': " << std::endl << q.Jc_iM_JxT;
+  FILE_LOG(LOG_EVENT) << "  Dc * inv(M) * Dc': " << std::endl << q.Dc_iM_DcT;
+  FILE_LOG(LOG_EVENT) << "  Dc * inv(M) * Jl': " << std::endl << q.Dc_iM_JlT;
+  FILE_LOG(LOG_EVENT) << "  Dc * inv(M) * Jx': " << std::endl << q.Dc_iM_JxT;
+  FILE_LOG(LOG_EVENT) << "  Jl * inv(M) * Jl': " << std::endl << q.Jl_iM_JlT;
+  FILE_LOG(LOG_EVENT) << "  Jl * inv(M) * Jx': " << std::endl << q.Jl_iM_JxT;
+  FILE_LOG(LOG_EVENT) << "  Jx * inv(M) * Jx': " << std::endl << q.Jx_iM_JxT;
+  FILE_LOG(LOG_EVENT) << "  Jc * v: " << q.Jc_v << std::endl;
+  FILE_LOG(LOG_EVENT) << "  Dc * v: " << q.Dc_v << std::endl;
+  FILE_LOG(LOG_EVENT) << "  Jl * v: " << q.Jl_v << std::endl;
+  FILE_LOG(LOG_EVENT) << "  Jx * v: " << q.Jx_v << std::endl;
+  FILE_LOG(LOG_EVENT) << "H matrix: " << std::endl << H;
+  FILE_LOG(LOG_EVENT) << "c vector: " << c << std::endl;
+  FILE_LOG(LOG_EVENT) << "M matrix: " << std::endl << M;
+  FILE_LOG(LOG_EVENT) << "q vector: " << qq << std::endl;
 
   // setup the maximum numbers of iterations 
   const unsigned MAX_SQP_ITER = 10 + oparams.n + oparams.m + oparams.q.size(); 
@@ -1079,8 +1079,8 @@ oparams.max_iterations = 10000;
   // compute the particular solution
   z += R.mult(y, tmpv);
 
-  FILE_LOG(LOG_CONTACT) << "nonlinear QP solution: " << z << std::endl; 
-  FILE_LOG(LOG_CONTACT) << "ImpactEventHandler::solve_nqp() exited" << std::endl;
+  FILE_LOG(LOG_EVENT) << "nonlinear QP solution: " << z << std::endl; 
+  FILE_LOG(LOG_EVENT) << "ImpactEventHandler::solve_nqp() exited" << std::endl;
 }
 
 /// Solves the quadratic program (does all of the work)
@@ -1266,40 +1266,40 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorN& z)
   qq.set_sub_vec(0, c);
   qq.set_sub_vec(N_PRIMAL, nb);
 
-  FILE_LOG(LOG_CONTACT) << "ImpactEventHandler::solve_qp() entered" << std::endl;
-  FILE_LOG(LOG_CONTACT) << "  Jc * inv(M) * Jc': " << std::endl << q.Jc_iM_JcT;
-  FILE_LOG(LOG_CONTACT) << "  Jc * inv(M) * Dc': " << std::endl << q.Jc_iM_DcT;
-  FILE_LOG(LOG_CONTACT) << "  Jc * inv(M) * Jl': " << std::endl << q.Jc_iM_JlT;
-  FILE_LOG(LOG_CONTACT) << "  Jc * inv(M) * Jx': " << std::endl << q.Jc_iM_JxT;
-  FILE_LOG(LOG_CONTACT) << "  Dc * inv(M) * Dc': " << std::endl << q.Dc_iM_DcT;
-  FILE_LOG(LOG_CONTACT) << "  Dc * inv(M) * Jl': " << std::endl << q.Dc_iM_JlT;
-  FILE_LOG(LOG_CONTACT) << "  Dc * inv(M) * Jx': " << std::endl << q.Dc_iM_JxT;
-  FILE_LOG(LOG_CONTACT) << "  Jl * inv(M) * Jl': " << std::endl << q.Jl_iM_JlT;
-  FILE_LOG(LOG_CONTACT) << "  Jl * inv(M) * Jx': " << std::endl << q.Jl_iM_JxT;
-  FILE_LOG(LOG_CONTACT) << "  Jx * inv(M) * Jx': " << std::endl << q.Jx_iM_JxT;
-  FILE_LOG(LOG_CONTACT) << "  Jc * v: " << q.Jc_v << std::endl;
-  FILE_LOG(LOG_CONTACT) << "  Dc * v: " << q.Dc_v << std::endl;
-  FILE_LOG(LOG_CONTACT) << "  Jl * v: " << q.Jl_v << std::endl;
-  FILE_LOG(LOG_CONTACT) << "  Jx * v: " << q.Jx_v << std::endl;
-  FILE_LOG(LOG_CONTACT) << "H matrix: " << std::endl << H;
-  FILE_LOG(LOG_CONTACT) << "c vector: " << c << std::endl;
-  FILE_LOG(LOG_CONTACT) << "A matrix: " << std::endl << A;
-  FILE_LOG(LOG_CONTACT) << "b vector: " << (-nb) << std::endl;
-  FILE_LOG(LOG_CONTACT) << "LCP matrix: " << std::endl << MM; 
-  FILE_LOG(LOG_CONTACT) << "LCP vector: " << qq << std::endl; 
+  FILE_LOG(LOG_EVENT) << "ImpactEventHandler::solve_qp() entered" << std::endl;
+  FILE_LOG(LOG_EVENT) << "  Jc * inv(M) * Jc': " << std::endl << q.Jc_iM_JcT;
+  FILE_LOG(LOG_EVENT) << "  Jc * inv(M) * Dc': " << std::endl << q.Jc_iM_DcT;
+  FILE_LOG(LOG_EVENT) << "  Jc * inv(M) * Jl': " << std::endl << q.Jc_iM_JlT;
+  FILE_LOG(LOG_EVENT) << "  Jc * inv(M) * Jx': " << std::endl << q.Jc_iM_JxT;
+  FILE_LOG(LOG_EVENT) << "  Dc * inv(M) * Dc': " << std::endl << q.Dc_iM_DcT;
+  FILE_LOG(LOG_EVENT) << "  Dc * inv(M) * Jl': " << std::endl << q.Dc_iM_JlT;
+  FILE_LOG(LOG_EVENT) << "  Dc * inv(M) * Jx': " << std::endl << q.Dc_iM_JxT;
+  FILE_LOG(LOG_EVENT) << "  Jl * inv(M) * Jl': " << std::endl << q.Jl_iM_JlT;
+  FILE_LOG(LOG_EVENT) << "  Jl * inv(M) * Jx': " << std::endl << q.Jl_iM_JxT;
+  FILE_LOG(LOG_EVENT) << "  Jx * inv(M) * Jx': " << std::endl << q.Jx_iM_JxT;
+  FILE_LOG(LOG_EVENT) << "  Jc * v: " << q.Jc_v << std::endl;
+  FILE_LOG(LOG_EVENT) << "  Dc * v: " << q.Dc_v << std::endl;
+  FILE_LOG(LOG_EVENT) << "  Jl * v: " << q.Jl_v << std::endl;
+  FILE_LOG(LOG_EVENT) << "  Jx * v: " << q.Jx_v << std::endl;
+  FILE_LOG(LOG_EVENT) << "H matrix: " << std::endl << H;
+  FILE_LOG(LOG_EVENT) << "c vector: " << c << std::endl;
+  FILE_LOG(LOG_EVENT) << "A matrix: " << std::endl << A;
+  FILE_LOG(LOG_EVENT) << "b vector: " << (-nb) << std::endl;
+  FILE_LOG(LOG_EVENT) << "LCP matrix: " << std::endl << MM; 
+  FILE_LOG(LOG_EVENT) << "LCP vector: " << qq << std::endl; 
 
   // solve the LCP using Lemke's algorithm
   if (!Optimization::lcp_lemke_regularized(MM, qq, tmpv))
     throw std::runtime_error("Unable to solve event QP!");
 
   // get the nullspace solution out
-  FILE_LOG(LOG_CONTACT) << "LCP solution: " << tmpv << std::endl; 
+  FILE_LOG(LOG_EVENT) << "LCP solution: " << tmpv << std::endl; 
   tmpv.get_sub_vec(0, N_PRIMAL, y);
   R.mult(y, tmpv);
   z += tmpv;
 
-  FILE_LOG(LOG_CONTACT) << "QP solution: " << z << std::endl; 
-  FILE_LOG(LOG_CONTACT) << "ImpactEventHandler::solve_qp() exited" << std::endl;
+  FILE_LOG(LOG_EVENT) << "QP solution: " << z << std::endl; 
+  FILE_LOG(LOG_EVENT) << "ImpactEventHandler::solve_qp() exited" << std::endl;
 }
 
 /// Solves the (frictionless) LCP
@@ -1381,12 +1381,12 @@ void ImpactEventHandler::solve_lcp(EventProblemData& q, VectorN& z)
   qq.set_sub_vec(N_CONTACTS, v1);
   qq.negate();
 
-  FILE_LOG(LOG_CONTACT) << "ImpulseEventHandler::solve_lcp() entered" << std::endl;
-  FILE_LOG(LOG_CONTACT) << "  Jc * inv(M) * Jc': " << std::endl << q.Jc_iM_JcT;
-  FILE_LOG(LOG_CONTACT) << "  Jc * v: " << q.Jc_v << std::endl;
-  FILE_LOG(LOG_CONTACT) << "  Jl * v: " << q.Jl_v << std::endl;
-  FILE_LOG(LOG_CONTACT) << "  LCP matrix: " << std::endl << MM;
-  FILE_LOG(LOG_CONTACT) << "  LCP vector: " << qq << std::endl;
+  FILE_LOG(LOG_EVENT) << "ImpulseEventHandler::solve_lcp() entered" << std::endl;
+  FILE_LOG(LOG_EVENT) << "  Jc * inv(M) * Jc': " << std::endl << q.Jc_iM_JcT;
+  FILE_LOG(LOG_EVENT) << "  Jc * v: " << q.Jc_v << std::endl;
+  FILE_LOG(LOG_EVENT) << "  Jl * v: " << q.Jl_v << std::endl;
+  FILE_LOG(LOG_EVENT) << "  LCP matrix: " << std::endl << MM;
+  FILE_LOG(LOG_EVENT) << "  LCP vector: " << qq << std::endl;
 
   // solve the LCP
   if (!Optimization::lcp_lemke_regularized(MM, qq, z))
@@ -1424,9 +1424,9 @@ void ImpactEventHandler::solve_lcp(EventProblemData& q, VectorN& z)
   z.set_sub_vec(ALPHA_L_IDX, alpha_l);
   z.set_sub_vec(ALPHA_X_IDX, alpha_x);
 
-  FILE_LOG(LOG_CONTACT) << "  LCP result: " << z << std::endl;
-  FILE_LOG(LOG_CONTACT) << "  kappa: " << q.kappa << std::endl;
-  FILE_LOG(LOG_CONTACT) << "ImpulseEventHandler::solve_lcp() exited" << std::endl;
+  FILE_LOG(LOG_EVENT) << "  LCP result: " << z << std::endl;
+  FILE_LOG(LOG_EVENT) << "  kappa: " << q.kappa << std::endl;
+  FILE_LOG(LOG_EVENT) << "ImpulseEventHandler::solve_lcp() exited" << std::endl;
 }
 
 /// Gets the super body (articulated if any)

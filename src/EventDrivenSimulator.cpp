@@ -31,6 +31,7 @@ using boost::dynamic_pointer_cast;
 /// Default constructor
 EventDrivenSimulator::EventDrivenSimulator()
 {
+  post_mini_step_callback_fn = NULL;
   constraint_violation_tolerance = std::pow(std::numeric_limits<Real>::epsilon(), (Real) 0.25);
   toi_tolerance = NEAR_ZERO;
   max_Zeno_step = std::numeric_limits<Real>::max();
@@ -500,6 +501,14 @@ Real EventDrivenSimulator::find_and_handle_events(Real dt, const vector<pair<Vec
 
   // sort the set of events
   std::sort(_events.begin(), _events.end()); 
+
+  // output the events
+  if (LOGGING(LOG_EVENT))
+  {
+    FILE_LOG(LOG_EVENT) << "Events to be processed:" << std::endl;
+    for (unsigned i=0; i< _events.size(); i++)
+      FILE_LOG(LOG_EVENT) << _events[i] << std::endl;
+  }
 
   // set the "real" time for the events
   for (unsigned i=0; i< _events.size(); i++)
