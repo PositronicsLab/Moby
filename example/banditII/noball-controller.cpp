@@ -11,6 +11,9 @@
 #include <Moby/LinAlg.h>
 #include <Moby/Constants.h>
 #include <Moby/RNEAlgorithm.h>
+#include <Moby/EventDrivenSimulator.h>
+
+#include <osgDB/WriteFile>
 
 using namespace Moby;
 using boost::shared_ptr;
@@ -19,6 +22,8 @@ using boost::dynamic_pointer_cast;
 /// plugin must be "extern C"
 
 extern "C" {
+
+int ITER;
 
 /// Controls the robot
 void control_PID(RCArticulatedBodyPtr robot, Real time)
@@ -116,6 +121,36 @@ void control_PID(RCArticulatedBodyPtr robot, Real time)
   }
 }
 
+boost::shared_ptr<EventDrivenSimulator> sim;
+
+static int step = 0;
+
+// callback for EventDrivenSimulator
+void event_callback_fn( std::vector<Event>& events, boost::shared_ptr<void> p ) {
+
+  std::vector<Event>::iterator it;
+
+  int i = 0;
+  Real time;
+  int iter = ITER;
+
+  std::stringstream ss_state_trans;
+  ss_state_trans << "state_trans_" << step << "_" << iter << ".stl";
+  std::string trans_state_file_name = ss_state_trans.str();
+
+  osg::Node* node_trans = sim->get_transient_vdata();
+  osgDB::writeNodeFile(*node_trans, trans_state_file_name);
+
+  std::stringstream ss_state_persist;
+  ss_state_persist << "state_persist_" << step << "_" << iter << ".stl";
+  std::string persist_state_file_name = ss_state_persist.str();
+
+  osg::Node* node_persist = sim->get_persistent_vdata();
+  osgDB::writeNodeFile(*node_persist, persist_state_file_name);
+
+  step++;  
+}
+
 /// The main control loop
 void controller(DynamicBodyPtr robot, Real time, void* data)
 {
@@ -124,6 +159,13 @@ void controller(DynamicBodyPtr robot, Real time, void* data)
 
 void init(void* separator, const std::map<std::string, BasePtr>& read_map, Real time)
 {
+  if (read_map.find("0xa024ed4") == read_map.end())
+    throw std::runtime_error("noball-controller.cpp:init()- unable to find simulator!");
+  // get a reference to the EventDrivenSimulator instance
+  sim = dynamic_pointer_cast<EventDrivenSimulator>( read_map.find( "0xa024ed4" )->second );
+  // register the event callback function
+  sim->event_callback_fn = &event_callback_fn;
+
   // find the robot
   if (read_map.find("bandit-arm") == read_map.end())
     throw std::runtime_error("noball-controller.cpp:init()- unable to find bandit arm!");
