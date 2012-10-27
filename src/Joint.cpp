@@ -12,6 +12,7 @@
 #include <Moby/RigidBody.h>
 #include <Moby/Joint.h>
 #include <Moby/XMLTree.h>
+#include <Moby/NumericalException.h>
 #include <Moby/RCArticulatedBody.h>
 
 using namespace Moby;
@@ -118,7 +119,15 @@ void Joint::determine_q_dot()
   // get the pseudo-inverse of the spatial axes
   MatrixN s;
   s.copy_from(get_spatial_axes(eGlobal));
-  LinAlg::pseudo_inverse(s); 
+  try
+  {
+    LinAlg::pseudo_inverse(s, LinAlg::svd1); 
+  }
+  catch (NumericalException e)
+  {
+    s.copy_from(get_spatial_axes(eGlobal));
+    LinAlg::pseudo_inverse(s, LinAlg::svd2); 
+  }
 
   // get the change in velocity
   RigidBodyPtr inboard = get_inboard_link();
