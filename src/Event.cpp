@@ -453,7 +453,304 @@ void Event::determine_connected_events(const vector<Event>& events, list<list<Ev
     }
   }
 
+  // compute minimal event sets
+  for (list<list<Event*> >::iterator i = groups.begin(); i != groups.end(); i++)
+    determine_minimal_set(*i);
+
   FILE_LOG(LOG_CONTACT) << "Event::determine_connected_events() exited" << std::endl;
+}
+
+/// Modified Gaussian elimination with partial pivoting -- computes half-rank at the same time
+unsigned Event::gauss_elim(MatrixN& A)
+{
+  const unsigned NROWS = A.rows(), NCOLS = A.columns();
+  SAFESTATIC vector<unsigned> piv;
+
+  // resize the pivots array
+  piv.resize(NCOLS);
+  for (unsigned i=0; i< NCOLS; i++)
+    piv[i] = i;
+
+  // setup swpi
+  unsigned swpi = 0;
+
+  for (unsigned i=0; i< NROWS; i++)
+  {
+    // get the pointer to the row
+    BlockIterator row = A.block_start(i,i+1, 0, NCOLS);
+
+    // find the largest positive element in the row 
+    Real largest = row[piv[swpi]];
+    unsigned largest_index = swpi;
+    for (unsigned k=swpi; k< NCOLS; k++)
+      if (row[piv[k]] > largest)
+      {
+        largest_index = k;
+        largest = row[piv[k]];
+      }
+
+    // continue processing only if largest positive element is greater than 0 
+    if (largest > std::numeric_limits<Real>::epsilon())
+    {
+      // swap the pivots
+      std::swap(piv[swpi], piv[largest_index]);
+
+      // reduce the columns
+      const Real* elm = &A(i, piv[swpi]);
+      for (unsigned k=swpi+1; k< NCOLS; k++)
+      {
+        Real* elm_k = &A(i, piv[k]);
+        if (*elm_k > std::numeric_limits<Real>::epsilon())
+        {
+          Real scal = -*elm_k / *elm;
+          CBLAS::axpy(NROWS-i, scal, elm, 1, &A(i,piv[k]), 1);
+        }
+      }
+
+      // update the swap pivot
+      swpi++;
+
+      // quit if swpi too large
+      if (swpi == NCOLS)
+        break;
+    }
+
+    // find the largest negative element in the row
+    largest = row[piv[swpi]];
+    largest_index = swpi;
+    for (unsigned k=swpi+1; k< NCOLS; k++)
+      if (row[piv[k]] < largest)
+      {
+        largest_index = k;
+        largest = row[piv[k]];
+      }
+
+    // only continue processing if largest negative element is less than 0
+    if (largest < -std::numeric_limits<Real>::epsilon())
+    {
+      // swap the pivots
+      std::swap(piv[swpi], piv[largest_index]);
+      
+      // reduce the columns
+      const Real* elm = &A(i, piv[swpi]);
+      for (unsigned k=swpi+1; k< NCOLS; k++)
+      {
+        Real* elm_k = &A(i, piv[k]);
+        if (*elm_k < -std::numeric_limits<Real>::epsilon())
+        {
+          Real scal = -*elm_k / *elm;
+          CBLAS::axpy(NROWS-i, scal, elm, 1, &A(i,piv[k]), 1);
+        }
+      }
+
+      // update the swap pivot
+      swpi++;
+
+      // quit if swpi too large
+      if (swpi == NCOLS)
+        break;
+    }
+  }
+
+  return swpi;
+}
+
+/// Computes normal and contact Jacobians for a body
+void Event::compute_contact_jacobians(const Event& e, MatrixN& Jc, MatrixN& Dc, const map<DynamicBodyPtr, unsigned>& gc_indices)
+{
+  map<DynamicBodyPtr, unsigned>::const_iterator miter;
+  SAFESTATIC FastThreadable<VectorN> tmpv;
+
+  // zero the matrices
+  Jc.set_zero();
+  Dc.set_zero();
+
+  // get the two bodies
+  SingleBodyPtr sb1 = e.contact_geom1->get_single_body();
+  SingleBodyPtr sb2 = e.contact_geom2->get_single_body();
+
+  // get the super bodies
+  DynamicBodyPtr ab1 = sb1->get_articulated_body();
+  DynamicBodyPtr ab2 = sb2->get_articulated_body();
+  DynamicBodyPtr super1 = (ab1) ? ab1 : sb1;
+  DynamicBodyPtr super2 = (ab2) ? ab2 : sb2;
+
+  // process the first body
+  miter = gc_indices.find(super1);
+  if (miter != gc_indices.end())
+  {
+    const unsigned index = miter->second;
+
+    // compute the 'r' vector
+    Vector3 r = e.contact_point - sb1->get_position();
+
+    // convert the normal force to generalized forces
+    super1->convert_to_generalized_force(DynamicBody::eAxisAngle, sb1, e.contact_normal, Vector3::cross(r, e.contact_normal), tmpv());
+    Jc.set_sub_mat(index, 0, tmpv());
+
+    // convert first tangent direction to generalized forces
+    super1->convert_to_generalized_force(DynamicBody::eAxisAngle, sb1, e.contact_tan1, Vector3::cross(r, e.contact_tan1), tmpv());
+    Dc.set_sub_mat(index, 0, tmpv());
+
+    // convert second tangent direction to generalized forces
+    super1->convert_to_generalized_force(DynamicBody::eAxisAngle, sb1, e.contact_tan2, Vector3::cross(r, e.contact_tan2), tmpv());
+    Dc.set_sub_mat(index, 1, tmpv());
+  }
+
+  // process the second body
+  miter = gc_indices.find(super2);
+  if (miter != gc_indices.end())
+  {
+    const unsigned index = miter->second;
+
+    // compute the 'r' vector
+    Vector3 r = e.contact_point - sb2->get_position();
+
+    // convert the normal force to generalized forces
+    super2->convert_to_generalized_force(DynamicBody::eAxisAngle, sb2, -e.contact_normal, Vector3::cross(r, -e.contact_normal), tmpv());
+    Jc.set_sub_mat(index, 0, tmpv());
+
+    // convert first tangent direction to generalized forces
+    super2->convert_to_generalized_force(DynamicBody::eAxisAngle, sb2, -e.contact_tan1, Vector3::cross(r, -e.contact_tan1), tmpv());
+    Dc.set_sub_mat(index, 0, tmpv());
+
+    // convert second tangent direction to generalized forces
+    super2->convert_to_generalized_force(DynamicBody::eAxisAngle, sb2, -e.contact_tan2, Vector3::cross(r, -e.contact_tan2), tmpv());
+    Dc.set_sub_mat(index, 1, tmpv());
+  }
+
+  // equilibrate the columns of Jc and Dc 
+  const unsigned NGC = Jc.rows();
+  Real* cols[3] = { &Jc(0,0), &Dc(0,0), &Dc(0,1) };
+  for (unsigned j=0; j< 3; j++)
+  {
+    Real* col = cols[j];
+    Real max_val = (Real) 0.0;
+    for (unsigned i=0; i< NGC; i++)
+      max_val = std::max(max_val, std::fabs(col[i]));
+    assert(max_val > (Real) 0.0);
+    CBLAS::scal(NGC, (Real) 1.0/max_val, col, 1);
+  }
+}
+
+/// Computes a minimal set of contact events
+void Event::determine_minimal_set(list<Event*>& group)
+{
+  FILE_LOG(LOG_CONTACT) << "Event::determine_minimal_set() entered" << std::endl;
+  FILE_LOG(LOG_CONTACT) << " -- initial number of events: " << group.size() << std::endl;
+
+  // get the number of contact events and total number of events
+  list<Event*>::iterator start = group.begin();
+  unsigned NC = 0, NE = 0;
+  while (start != group.end() && ++NE)
+  {
+    if ((*start)->event_type == Event::eContact)
+    {
+      (*start)->determine_contact_tangents();
+      NC++;
+    }
+    start++;
+  }
+
+  // if there is one or no contacts, quit now
+  if (NC <= 1 || NE < 4)
+  {
+    FILE_LOG(LOG_CONTACT) << " -- initial/final number of contacts: " << NC << std::endl;
+    FILE_LOG(LOG_CONTACT) << " -- initial/final number of events: " << NE << std::endl;
+    return;
+  }
+
+  // determine the number of gc's in the group
+  unsigned NGC = 0;
+  map<DynamicBodyPtr, unsigned> gc_index;
+  vector<DynamicBodyPtr> supers;
+  for (list<Event*>::const_iterator i = group.begin(); i != group.end(); i++)
+  {
+    supers.clear();
+    (*i)->get_super_bodies(std::back_inserter(supers));
+    for (unsigned j=0; j< supers.size(); j++)
+      if (gc_index.find(supers[j]) == gc_index.end())
+      {
+        gc_index[supers[j]] = NGC;
+        NGC += supers[j]->num_generalized_coordinates(DynamicBody::eAxisAngle);
+      }
+  }
+
+  // initialize the Jacobian matrices (as big as may be necessary)
+  MatrixN Jc(NGC, NC), Dc(NGC, NC*2);
+  MatrixN sub_Jc(NGC, 1), sub_Dc(NGC, 2);
+  MatrixN workM(NGC, NC*2);
+
+  // get the pointer to the first contact
+  start = group.begin();
+  while ((*start)->event_type != Event::eContact)
+    start++;
+
+  // get the equilibrated Jacobians (normal & tangential) for the first contact
+  Jc.resize(NGC, 1);
+  Dc.resize(NGC, 2);
+  compute_contact_jacobians(**start, Jc, Dc, gc_index);
+
+  // setup current rank of the tangent Jacobians
+  unsigned Jc_rank = 1;
+  unsigned Dc_rank = 2;
+
+  // verify that the column rank is two
+  #ifndef NDEBUG
+  assert(LinAlg::calc_rank(Dc) == 2);
+  compute_contact_jacobians(**start, Jc, Dc, gc_index);
+  #endif
+
+  // setup the contact index
+  unsigned ci = 1;
+
+  // loop through the remainder of contacts
+  for (list<Event*>::iterator i = ++start; i != group.end(); )
+  {
+    // if this isn't a contact event, skip it
+    if ((*i)->event_type != Event::eContact)
+    {
+      i++;
+      continue;
+    }
+
+    // get the equilibrated Jacobians (normal & tangential) for this contact
+    compute_contact_jacobians(**i, sub_Jc, sub_Dc, gc_index);
+
+    // setup candidate Jacobian matrices
+    Jc.resize(NGC, ci+1);
+    Dc.resize(NGC, (ci+1)*2);
+    Jc.set_sub_mat(0,ci,sub_Jc);
+    Dc.set_sub_mat(0,ci*2,sub_Dc);
+
+    // try putting normal Jacobian into rref
+    unsigned new_Jc_rank = (Jc_rank == NGC*2) ? NGC*2 : gauss_elim(Jc);
+
+    // see whether adding tangential Jacobians increases rank
+    unsigned new_Dc_rank = (Dc_rank == NGC) ? NGC : LinAlg::calc_rank(workM.copy_from(Dc));
+
+    // if we don't have a rank increase from add either normal or tangential
+    // Jacobians, remove the contact event
+    if (!(new_Dc_rank > Dc_rank || new_Jc_rank > Jc_rank))
+    {
+      // erase the contact event
+      i = group.erase(i);
+    }
+    else
+    {
+      // update Jc rank and Dc rank
+      Jc_rank = new_Jc_rank;
+      Dc_rank = new_Dc_rank;
+
+      // advance to the next contact
+      ci++;
+
+      // advance to the next event
+      i++;
+    }
+  }
+
+  FILE_LOG(LOG_CONTACT) << " -- final number of events: " << group.size() << std::endl;
 }
 
 /// Removes groups of contacts that contain no impacts

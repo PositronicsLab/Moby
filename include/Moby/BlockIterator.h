@@ -40,13 +40,13 @@ class BlockIterator : public std::iterator<std::random_access_iterator_tag, Real
     BlockIterator& operator+=(int n) 
     {
       assert(n >= 0);
-      const unsigned NSKIP = _matrix_rows - _block_rows;
+      const unsigned NSKIP = _matrix_rows - _block_rows + 1;
       for (int i=0; i< n; i++)
       {
-        _count++;
-        _current_data++;
-        if (_count % _block_rows == 0)
+        if (++_count % _block_rows == 0)
           _current_data += NSKIP;
+        else
+          _current_data++;
       }
 
       return *this; 
@@ -55,13 +55,13 @@ class BlockIterator : public std::iterator<std::random_access_iterator_tag, Real
     BlockIterator& operator-=(int n) 
     { 
       assert(n >= 0);
-      const unsigned NSKIP = _matrix_rows - _block_rows;
+      const unsigned NSKIP = _matrix_rows - _block_rows + 1;
       for (int i=0; i< n; i++)  
       {
-        _count--;
-        _current_data--;
-        if (_count % _block_rows == 0)
+        if (--_count % _block_rows == 0)
           _current_data -= NSKIP;
+        else
+          _current_data--;
       }
 
       return *this; 
@@ -71,13 +71,14 @@ class BlockIterator : public std::iterator<std::random_access_iterator_tag, Real
     {
       if (i > _sz)
         throw std::runtime_error("Data outside of scope!");
-      const unsigned NSKIP = _matrix_rows - _block_rows;
-      Real* data = _data_start;
+      const unsigned NSKIP = _matrix_rows - _block_rows + 1;
+      Real* data = _current_data - _count;
       for (unsigned j=0; j< i; )
       {
-        data++;
         if (++j % _block_rows == 0)
           data += NSKIP;
+        else
+          data++;
       }
 
       return *data;

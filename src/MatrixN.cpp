@@ -539,7 +539,7 @@ MatrixN& MatrixN::resize(unsigned rows, unsigned columns, bool preserve)
     return *this;
 
   // if we can downsize, do that..
-  if (rows*columns <= _capacity && !preserve)
+  if (rows*columns <= _capacity && (_rows == rows || !preserve))
   {
     _rows = rows;
     _columns = columns;
