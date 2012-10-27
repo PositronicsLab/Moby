@@ -36,6 +36,7 @@ EventDrivenSimulator::EventDrivenSimulator()
   max_Zeno_step = std::numeric_limits<Real>::max();
   event_callback_fn = NULL;
   event_post_impulse_callback_fn = NULL;
+  post_mini_step_callback_fn = NULL;
   _simulation_violated = false;
 }
 

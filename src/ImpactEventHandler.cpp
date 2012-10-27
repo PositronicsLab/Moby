@@ -258,10 +258,6 @@ void ImpactEventHandler::compute_problem_data(EventProblemData& q)
 {
   const unsigned UINF = std::numeric_limits<unsigned>::max();
 
-  // first, setup all tangent directions for contact events
-  for (unsigned i=0; i< q.contact_events.size(); i++)
-    q.contact_events[i]->determine_contact_tangents();
-
   // determine set of "super" bodies from contact events
   q.super_bodies.clear();
   for (unsigned i=0; i< q.contact_events.size(); i++)

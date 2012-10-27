@@ -1,0 +1,57 @@
+<!-- A box spinning on the ground with no friction.  -->
+
+<XML>
+  <DRIVER>
+    <camera position="0 0 10" target="0 0 0" up="0 1 0" />
+    <window location="0 0" size="640 480" />
+  </DRIVER>
+
+  <MOBY>
+    <!-- Primitives -->
+    <Box id="b1" xlen="1" ylen="1" zlen="1" density="1.0" edge-sample-length="1" />
+    <Box id="b3" xlen="10" ylen=".5" zlen="2" density="10.0" />
+
+    <!-- Integrator -->
+    <RungeKuttaFehlbergIntegrator id="rk4" rel-err-tol="1e-6" abs-err-tol="1e-6" />
+
+    <!-- Collision detector -->
+    <MMeshDCD id="dcd" eps-tolerance="1e-6">
+      <Body body-id="box" />
+      <Body body-id="ground" />
+    </MMeshDCD>
+
+    <CC2ACCD id="c2a" eps-tolerance="1e-4" alpha-tolerance="1e-4">
+      <Body body-id="box" />
+      <Body body-id="ground" />
+    </CC2ACCD>
+
+    <GeneralizedCCD id="ccd" eps-tolerance="1e-3" toi-tolerance="1e-3">
+      <Body body-id="box" />
+      <Body body-id="ground" />
+    </GeneralizedCCD>
+
+    <!-- Gravity force -->
+    <GravityForce id="gravity" accel="0 -9.81 0"  />
+
+    <!-- Rigid bodies -->
+      <!-- the box -->
+      <RigidBody name="box" id="box" enabled="true" position="0 .50001 0" angular-velocity="0 10.00 0" visualization-id="b1" linear-velocity="0 0 0">
+        <InertiaFromPrimitive primitive-id="b1" />
+        <CollisionGeometry primitive-id="b1" />
+      </RigidBody>
+
+      <!-- the ground -->
+      <RigidBody name="ground" id="ground" enabled="false" vvisualization-filename="ground.wrl" position="0 -.25 0">
+        <CollisionGeometry primitive-id="b3" />  
+      </RigidBody>
+
+    <!-- Setup the simulator -->
+    <EventDrivenSimulator id="simulator" integrator-id="rk4" collision-detector-id="ccd" collision-tolerance="1e-4" TOI-tolerance="1e-3">
+      <DynamicBody dynamic-body-id="box" />
+      <DynamicBody dynamic-body-id="ground" />
+      <RecurrentForce recurrent-force-id="gravity" enabled="true" />
+      <ContactParameters object1-id="ground" object2-id="box" restitution="0" mu-coulomb="0" mu-viscous="0" ffriction-cone-edges="16" />
+    </EventDrivenSimulator> 
+  </MOBY>
+</XML>
+

@@ -29,6 +29,7 @@ class Event
     enum EventClass { eUndetermined, eSeparating, eResting, eImpacting };
     Event();
     Event(const Event& e) { *this = e; }
+    static void determine_minimal_set(std::list<Event*>& group);
     static void determine_connected_events(const std::vector<Event>& events, std::list<std::list<Event*> >& groups);
     static void remove_nonimpacting_groups(std::list<std::list<Event*> >& groups, Real tol);
     Event& operator=(const Event& e);
@@ -117,6 +118,10 @@ class Event
 
     void write_vrml(const std::string& filename, Real sphere_radius = 0.1, Real normal_length = 1.0) const;
     bool operator<(const Event& e) const { return t < e.t; }
+
+  private:
+    static void compute_contact_jacobians(const Event& e, MatrixN& Jc, MatrixN& Dc, const std::map<DynamicBodyPtr, unsigned>& gc_indices);
+    static unsigned gauss_elim(MatrixN& A);
 }; // end class
 
 std::ostream& operator<<(std::ostream& out, const Event& e);
