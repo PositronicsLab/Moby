@@ -112,7 +112,8 @@ Note: each option must be separated with whitespace (example:
 	-mt=NUM  Maximum simulation time.  After the simulation reaches this time,
            driver quits with error code zero.
 
-
+  -vcp     If this option is given, for an EventDrivenSimulator, contact points
+           will be rendered.
 
 2.1 Background scenery, lights, and camera 
 

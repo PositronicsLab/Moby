@@ -140,7 +140,7 @@ static void sysv_(char* UPLO, INTEGER* N, INTEGER* NRHS, SINGLE* A, INTEGER* LDA
   ssysv_(UPLO, N, NRHS, A, LDA, IPIV, B, LDB, &WORK().front(), &LWORK, INFO);
 }
 
-/// Calls LAPACK function for svd
+/// Calls LAPACK function for svd (divide and conquer)
 static void gesdd_(char* JOBZ, INTEGER* M, INTEGER* N, SINGLE* A, INTEGER* LDA, SINGLE* S, SINGLE* U, INTEGER* LDU, SINGLE* V, INTEGER* LDVT, INTEGER* INFO)
 {
   float WORK_QUERY;
@@ -159,6 +159,25 @@ static void gesdd_(char* JOBZ, INTEGER* M, INTEGER* N, SINGLE* A, INTEGER* LDA, 
 
   // call LAPACK once again
   sgesdd_(JOBZ, M, N, A, LDA, S, U, LDU, V, LDVT, &WORK.front(), &LWORK, &IWORK().front(), INFO);
+}
+
+/// Calls LAPACK function for svd 
+static void gesvd_(char* JOBU, char* JOBV, INTEGER* M, INTEGER* N, SINGLE* A, INTEGER* LDA, SINGLE* S, SINGLE* U, INTEGER* LDU, SINGLE* V, INTEGER* LDVT, INTEGER* INFO)
+{
+  float WORK_QUERY;
+  INTEGER minmn = std::min(*M, *N);
+  INTEGER LWORK = -1;
+
+  // call LAPACK to determine the optimal workspace size
+  sgesvd_(JOBU, JOBV, M, N, A, LDA, S, U, LDU, V, LDVT, &WORK_QUERY, &LWORK, INFO);
+
+  // setup workspace
+  LWORK = (INTEGER) WORK_QUERY;
+  SAFESTATIC FastThreadable<vector<float> > WORK;
+  WORK().resize(LWORK); 
+
+  // call LAPACK once again
+  sgesvd_(JOBU, JOBV, M, N, A, LDA, S, U, LDU, V, LDVT, &WORK.front(), &LWORK, INFO);
 }
 
 /// Calls LAPACK function for computing eigenvalues and eigenvectors
@@ -437,7 +456,7 @@ static void sysv_(char* UPLO, INTEGER* N, INTEGER* NRHS, DOUBLE* A, INTEGER* LDA
   dsysv_(UPLO, N, NRHS, A, LDA, IPIV, B, LDB, &WORK().front(), &LWORK, INFO);
 }
 
-/// Calls LAPACK function for svd
+/// Calls LAPACK function for svd (divide and conquer)
 static void gesdd_(char* JOBZ, INTEGER* M, INTEGER* N, DOUBLE* A, INTEGER* LDA, DOUBLE* S, DOUBLE* U, INTEGER* LDU, DOUBLE* V, INTEGER* LDVT, INTEGER* INFO)
 {
   double WORK_QUERY;
@@ -456,6 +475,25 @@ static void gesdd_(char* JOBZ, INTEGER* M, INTEGER* N, DOUBLE* A, INTEGER* LDA, 
 
   // call LAPACK once again
   dgesdd_(JOBZ, M, N, A, LDA, S, U, LDU, V, LDVT, &WORK().front(), &LWORK, &IWORK().front(), INFO);
+}
+
+/// Calls LAPACK function for svd
+static void gesvd_(char* JOBU, char* JOBV, INTEGER* M, INTEGER* N, DOUBLE* A, INTEGER* LDA, DOUBLE* S, DOUBLE* U, INTEGER* LDU, DOUBLE* V, INTEGER* LDVT, INTEGER* INFO)
+{
+  double WORK_QUERY;
+  INTEGER minmn = std::min(*M, *N);
+  INTEGER LWORK = -1;
+
+  // call LAPACK to determine the optimal workspace size
+  dgesvd_(JOBU, JOBV, M, N, A, LDA, S, U, LDU, V, LDVT, &WORK_QUERY, &LWORK, INFO);
+
+  // setup workspace
+  LWORK = (INTEGER) WORK_QUERY;
+  SAFESTATIC FastThreadable<vector<DOUBLE> > WORK;
+  WORK().resize(LWORK); 
+
+  // call LAPACK once again
+  dgesvd_(JOBU, JOBV, M, N, A, LDA, S, U, LDU, V, LDVT, &WORK().front(), &LWORK, INFO);
 }
 
 /// Calls LAPACK function for computing eigenvalues and eigenvectors
@@ -731,7 +769,28 @@ static void sysv_(char* UPLO, INTEGER* N, INTEGER* NRHS, mpfr::mpreal* A, INTEGE
   delete [] WORK;
 }
 
-/// Calls LAPACK function for svd
+/// Calls LAPACK function for svd (standard)
+static void gesvd_(char* JOBU, char* JOBV, INTEGER* M, INTEGER* N, mpfr::mpreal* A, INTEGER* LDA, mpfr::mpreal* S, mpfr::mpreal* U, INTEGER* LDU, mpfr::mpreal* V, INTEGER* LDVT, INTEGER* INFO)
+{
+  mpfr::mpreal WORK_QUERY;
+  INTEGER minmn = std::min(*M, *N);
+  INTEGER LWORK = -1;
+
+  // call LAPACK to determine the optimal workspace size
+  agesvd_(JOBU, JOBV, M, N, A, LDA, S, U, LDU, V, LDVT, &WORK_QUERY, &LWORK, INFO);
+
+  // setup workspace
+  LWORK = (INTEGER) WORK_QUERY;
+  mpfr::mpreal* WORK = new mpfr::mpreal[LWORK];
+
+  // call LAPACK once again
+  agesvd_(JOBU, JOBV, M, N, A, LDA, S, U, LDU, V, LDVT, WORK, &LWORK, INFO);
+
+  delete [] IWORK;
+  delete [] WORK;
+}
+
+/// Calls LAPACK function for svd (divide and conquer)
 static void gesdd_(char* JOBZ, INTEGER* M, INTEGER* N, mpfr::mpreal* A, INTEGER* LDA, mpfr::mpreal* S, mpfr::mpreal* U, INTEGER* LDU, mpfr::mpreal* V, INTEGER* LDVT, INTEGER* INFO)
 {
   mpfr::mpreal WORK_QUERY;
@@ -1510,7 +1569,7 @@ Real LinAlg::cond(MatrixN& A)
 }
 
 /// Computes the psuedo-inverse of a matrix
-MatrixN& LinAlg::pseudo_inverse(MatrixN& A, Real tol)
+MatrixN& LinAlg::pseudo_inverse(MatrixN& A, void (*svd)(MatrixN&, MatrixN&, VectorN&, MatrixN&), Real tol)
 {
   // get the dimensionality of A
   const unsigned m = A.rows();
@@ -1787,6 +1846,23 @@ void LinAlg::eig_symm_plus(MatrixN& A_evecs, VectorN& evals)
     throw NumericalException("Eigenvalue/eigenvector determination did not converge");
 }
 
+void LinAlg::svd(MatrixN& A, MatrixN& U, VectorN& S, MatrixN& V)
+{
+  SAFESTATIC FastThreadable<MatrixN> A_backup;
+
+  // copy A
+  A_backup().copy_from(A);
+
+  try
+  {
+    svd1(A, U, S, V);
+  }
+  catch (NumericalException e)
+  {
+    svd2(A_backup(), U, S, V); 
+  }
+}
+
 /// Does an 'in place' SVD (destroying A)
 /**
  * The singular value decomposition of A is U*S*V' (' is the transpose 
@@ -1798,7 +1874,62 @@ void LinAlg::eig_symm_plus(MatrixN& A_evecs, VectorN& evals)
  * \param S on output, a min(A.rows(), A.columns()) length vector of singular values
  * \param V on output, a A.columns() x A.columns() orthogonal matrix
  */
-void LinAlg::svd(MatrixN& A, MatrixN& U, VectorN& S, MatrixN& V)
+void LinAlg::svd1(MatrixN& A, MatrixN& U, VectorN& S, MatrixN& V)
+{
+  // make sure that A is not zero sized
+  if (A.rows() == 0 || A.columns() == 0)
+  {
+    U.set_zero(A.rows(), A.rows());
+    S.resize(0);
+    V.set_zero(A.columns(), A.columns());
+    return;
+  } 
+
+  // setup U
+  if (U.rows() != A.rows() || U.columns() != A.rows())
+    U.resize(A.rows(), A.rows());
+
+  // setup S
+  unsigned minmn = std::min(A.rows(), A.columns());
+  if (S.size() != minmn)
+    S.resize(minmn);
+
+  // setup V
+  if (V.rows() != A.columns() || V.columns() != A.columns())
+    V.resize(A.columns(), A.columns());
+
+  // setup call to LAPACK
+  char JOB = 'A';
+  INTEGER M = A.rows();
+  INTEGER N = A.columns();
+  INTEGER LDA = A.rows();
+  INTEGER LDU = U.rows();
+  INTEGER LDVT = V.rows();
+  INTEGER INFO;
+
+  // call LAPACK 
+  gesvd_(&JOB, &JOB, &M, &N, A.data(), &LDA, S.data(), U.data(), &LDU, V.data(), &LDVT, &INFO);
+  assert(INFO >= 0);
+
+  if (INFO > 0)
+    throw NumericalException("Singular value decomposition failed to converge");
+
+  // transpose V
+  V.transpose();
+}
+
+/// Does an 'in place' SVD (destroying A), using divide and conquer algorithm
+/**
+ * The singular value decomposition of A is U*S*V' (' is the transpose 
+ * operator); to recompose A, it will be necessary to transpose V before
+ * multiplication (i.e., V is returned by the algorithm, not V').
+ * Note: passed matrices and vectors U, S, and V are resized as necessary. 
+ * \param A the matrix on which the SVD will be performed (destroyed on return)
+ * \param U on output, a A.rows() x A.rows() orthogonal matrix
+ * \param S on output, a min(A.rows(), A.columns()) length vector of singular values
+ * \param V on output, a A.columns() x A.columns() orthogonal matrix
+ */
+void LinAlg::svd2(MatrixN& A, MatrixN& U, VectorN& S, MatrixN& V)
 {
   // make sure that A is not zero sized
   if (A.rows() == 0 || A.columns() == 0)
@@ -1841,7 +1972,6 @@ void LinAlg::svd(MatrixN& A, MatrixN& U, VectorN& S, MatrixN& V)
   // transpose V
   V.transpose();
 }
-
 /// Solves a symmetric, indefinite square matrix
 /**
  * \param A the matrix to be solved; the matrix is destroyed on return
@@ -2179,6 +2309,7 @@ MatrixN& LinAlg::inverse(MatrixN& A)
 /**
  * \note this method does not work!
  */
+/*
 VectorN& LinAlg::solve_LS_fast2(MatrixN& A, VectorN& xb)
 {
   // verify that A is not zero size
@@ -2221,6 +2352,7 @@ VectorN& LinAlg::solve_LS_fast2(MatrixN& A, VectorN& xb)
 
   return xb; 
 } 
+*/
 
 /// Sparse least squares solver (solves Ax = b)
 /**
@@ -2387,7 +2519,7 @@ VectorN& LinAlg::solve_LS(const SparseMatrixN& A, const VectorN& b, VectorN& x, 
  * \param tol the tolerance for determining the rank of A; if tol < 0.0,
  *        tol is computed using machine epsilon
  */
-VectorN& LinAlg::solve_LS_fast(MatrixN& A, VectorN& xb, Real tol)
+VectorN& LinAlg::solve_LS_fast(MatrixN& A, VectorN& xb, void (*svd)(MatrixN&, MatrixN&, VectorN&, MatrixN&), Real tol)
 {
   // verify that A is not zero size
   if (A.rows() == 0 || A.columns() == 0)
@@ -2486,7 +2618,7 @@ VectorN& LinAlg::solve_LS_fast(MatrixN& A, VectorN& xb, Real tol)
  * \param tol the tolerance for determining the rank of A; if tol < 0.0,
  *        tol is computed using machine epsilon
  */
-MatrixN& LinAlg::solve_LS_fast(MatrixN& A, MatrixN& XB, Real tol)
+MatrixN& LinAlg::solve_LS_fast(MatrixN& A, MatrixN& XB, void (*svd)(MatrixN&, MatrixN&, VectorN&, MatrixN&), Real tol)
 {
   // verify that A and B are appropriate sizes
   if (A.rows() != XB.rows())
@@ -2639,7 +2771,7 @@ MatrixN& LinAlg::solve_LS_fast(MatrixN& A, MatrixN& XB, Real tol)
  * \param stol the tolerance for determining the rank of A; if stol < 0.0,
  *        stol is computed using machine epsilon
  */
-VectorN LinAlg::solve_LS(const MatrixN& A, const VectorN& b, Real stol)
+VectorN LinAlg::solve_LS(const MatrixN& A, const VectorN& b, void (*svd)(MatrixN&, MatrixN&, VectorN&, MatrixN&), Real tol)
 {
   // copy A and b
   MatrixN A_copy;
@@ -2648,7 +2780,7 @@ VectorN LinAlg::solve_LS(const MatrixN& A, const VectorN& b, Real stol)
   x = b;
 
   // call faster solver
-  solve_LS_fast(A_copy, x, stol);
+  solve_LS_fast(A_copy, x, svd, tol);
 
   return x;
 }
@@ -2660,7 +2792,7 @@ VectorN LinAlg::solve_LS(const MatrixN& A, const VectorN& b, Real stol)
  * \param stol the tolerance for determining the rank of A; if stol < 0.0,
  *        stol is computed using machine epsilon
  */
-MatrixN LinAlg::solve_LS(const MatrixN& A, const MatrixN& B, Real stol)
+MatrixN LinAlg::solve_LS(const MatrixN& A, const MatrixN& B, void (*svd)(MatrixN&, MatrixN&, VectorN&, MatrixN&), Real stol)
 {
   MatrixN A_copy;
   MatrixN X;
@@ -2668,7 +2800,7 @@ MatrixN LinAlg::solve_LS(const MatrixN& A, const MatrixN& B, Real stol)
   X = B;
 
   // call faster solver
-  solve_LS_fast(A_copy, X, stol);
+  solve_LS_fast(A_copy, X, svd, stol);
 
   return X;
 }

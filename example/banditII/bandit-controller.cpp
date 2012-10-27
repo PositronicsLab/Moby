@@ -228,13 +228,27 @@ void event_callback_fn( std::vector<Event>& events, boost::shared_ptr<void> p ) 
     collog << "\n";
   }
   collog.close();
-
+/*
   std::stringstream ss_state;
   ss_state << "state_" << step << "_" << iter << ".stl";
   std::string state_file_name = ss_state.str();
 
   osg::Node* node = sim->get_persistent_vdata();
   osgDB::writeNodeFile(*node, state_file_name);
+*/
+  std::stringstream ss_state_trans;
+  ss_state_trans << "state_trans_" << step << "_" << iter << ".stl";
+  std::string trans_state_file_name = ss_state_trans.str();
+
+  osg::Node* node_trans = sim->get_transient_vdata();
+  osgDB::writeNodeFile(*node_trans, trans_state_file_name);
+
+  std::stringstream ss_state_persist;
+  ss_state_persist << "state_persist_" << step << "_" << iter << ".stl";
+  std::string persist_state_file_name = ss_state_persist.str();
+
+  osg::Node* node_persist = sim->get_persistent_vdata();
+  osgDB::writeNodeFile(*node_persist, persist_state_file_name);
 
   step++;  
 }

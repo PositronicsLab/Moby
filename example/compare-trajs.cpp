@@ -5,7 +5,8 @@
 #include <vector>
 #include <list>
 #include <cmath>
-#include <climits>
+#include <limits>
+#include <cstdlib>
 
 static const unsigned BUF_SIZE = 100000;
 static char buffer[BUF_SIZE];

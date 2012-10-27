@@ -15,6 +15,14 @@
 #include <Moby/VariableStepIntegrator.h>
 #include <Moby/EventDrivenSimulator.h>
 
+#ifdef USE_OSG
+#include <osg/Geometry>
+#include <osg/Geode>
+#include <osg/ShapeDrawable>
+#include <osg/PositionAttitudeTransform>
+#include <osg/Quat>
+#endif // USE_OSG
+
 #define DO_TIMING
 
 using namespace Moby;
@@ -38,6 +46,7 @@ EventDrivenSimulator::EventDrivenSimulator()
   event_post_impulse_callback_fn = NULL;
   post_mini_step_callback_fn = NULL;
   _simulation_violated = false;
+  render_contact_points = false;
 }
 
 /// Gets the contact data between a pair of geometries (if any)
@@ -128,9 +137,158 @@ shared_ptr<ContactParameters> EventDrivenSimulator::get_contact_parameters(Colli
   return shared_ptr<ContactParameters>();
 }
 
+/// Draws a ray directed from a contact point along the contact normal
+void EventDrivenSimulator::visualize_contact( Event& event ) {
+
+  #ifdef USE_OSG
+
+  // random color for this contact visualization
+  Real r = (Real) rand() / (Real) RAND_MAX;
+  Real g = (Real) rand() / (Real) RAND_MAX;
+  Real b = (Real) rand() / (Real) RAND_MAX;
+  osg::Vec4 color = osg::Vec4( r, g, b, 1.0 );
+
+  // knobs for tweaking
+  const Real point_radius = 0.75;
+  const Real point_scale = 0.01;
+  const Real line_length = 5.0;
+  const Real line_radius = 0.1;
+  const Real head_radius = 0.5;
+  const Real head_height = 2.0;
+
+  // the osg node this event visualization will attach to 
+  osg::Group* contact_root = new osg::Group();
+
+  // turn off lighting for this node
+  osg::StateSet *contact_state = contact_root->getOrCreateStateSet();
+  contact_state->setMode( GL_LIGHTING, osg::StateAttribute::PROTECTED | osg::StateAttribute::OFF );
+
+  // a geode for the visualization geometry
+  osg::Geode* contact_geode = new osg::Geode();
+
+  // add some hints to reduce the polygonal complexity of the visualization
+  osg::TessellationHints *hints = new osg::TessellationHints();
+  hints->setTessellationMode( osg::TessellationHints::USE_TARGET_NUM_FACES );
+  hints->setCreateNormals( true );
+  hints->setDetailRatio( 0.2 );
+
+  // add the contact point as a sphere at the origin of the geode's frame
+  osg::Sphere* point_geometry = new osg::Sphere( osg::Vec3( 0, 0, 0 ), point_radius );
+  osg::ShapeDrawable* point_shape = new osg::ShapeDrawable( point_geometry, hints );
+  point_shape->setColor( color );
+  contact_geode->addDrawable( point_shape );
+
+  // add the contact normal as a cylinder in the geode's frame
+  osg::Cylinder* line_geometry = new osg::Cylinder( osg::Vec3( 0.0, 0.0, line_length / 2 ), line_radius, line_length );
+  osg::ShapeDrawable* line_shape = new osg::ShapeDrawable( line_geometry, hints );
+  line_shape->setColor( color );
+  contact_geode->addDrawable( line_shape );
+
+  // add the arrow head as a cone in the geode's frame
+  osg::Cone* head_geometry = new osg::Cone( osg::Vec3( 0, 0, line_length ), head_radius, head_height );
+  osg::ShapeDrawable* head_shape = new osg::ShapeDrawable( head_geometry, hints );
+  head_shape->setColor( color );
+  contact_geode->addDrawable( head_shape );
+
+  // calculate the orientation based upon the direction of the normal vector.
+  // Note: the default orientation of the osg model is along the z-axis
+  Real theta;
+  Vector3 z = Vector3( 0.0, 0.0, 1.0 );
+  Vector3 axis = Vector3::cross( event.contact_normal, z );
+  if( axis[0] == 0.0 && axis[1] == 0.0 && axis[2] == 0.0 ) {
+    // z and normal are parallel, axis ill defined
+    if( event.contact_normal[2] > 0 ) {
+      // normal is z
+      axis = Vector3( 0.0, 1.0, 0.0 );
+      theta = 0.0;
+    } else {
+      // normal is -z
+      axis = Vector3( 0.0, 1.0, 0.0 );
+      theta = osg::PI;
+    }
+  } else {
+    // axis is well defined
+    axis = Vector3::normalize(axis);
+    theta = -acos( Vector3::dot( event.contact_normal, z ) );
+    // Note: theta calculation works but is not robust, could be rotated in opposite direction
+  }
+  osg::Quat q = osg::Quat( axis[0]*std::sin(theta/2), axis[1]*std::sin(theta/2), axis[2]*std::sin(theta/2), std::cos(theta/2) );
+
+  // create the visualization transform
+  osg::PositionAttitudeTransform* contact_transform = new osg::PositionAttitudeTransform();
+  contact_transform->setPosition( osg::Vec3( event.contact_point[0], event.contact_point[1], event.contact_point[2] ) );
+  contact_transform->setScale( osg::Vec3( point_scale, point_scale, point_scale ) );
+  contact_transform->setAttitude( q );
+
+  // add the geode to the transform
+  contact_transform->addChild( contact_geode );
+
+  // add the transform to the root
+  contact_root->addChild( contact_transform );
+  
+  // add the root to the transient data scene graph
+  add_transient_vdata( contact_root );
+
+  // TODO : remove validator once theta 100% proven
+  // -----------------------------------------
+  // Rotational Validator
+  // -----------------------------------------
+
+  // Validator is a simple sphere translated along the normal
+  // such that the visualization above should point at the center
+  // of the validator.  If it doesn't, then the calculation of 
+  // theta in the rotational code above needs correction for that case
+
+  // knobs for tweaking
+  const Real validator_scale = point_scale / 3;
+  const Real validator_ray_length = line_length * 2.5;
+
+  // a root for the validator
+  osg::Group* validator_root = new osg::Group();
+
+  // turn off lighting for this node
+  osg::StateSet *validator_state = validator_root->getOrCreateStateSet();
+  validator_state->setMode( GL_LIGHTING, osg::StateAttribute::PROTECTED | osg::StateAttribute::OFF );
+
+  // colocate the validator position to the contact point
+  osg::PositionAttitudeTransform* validator_transform = new osg::PositionAttitudeTransform();
+  validator_transform->setPosition( osg::Vec3( event.contact_point[0], event.contact_point[1], event.contact_point[2] ) );
+  validator_transform->setScale( osg::Vec3( validator_scale, validator_scale, validator_scale ) );
+  validator_root->addChild( validator_transform );
+
+  // validator geometry
+  osg::Sphere* validator_geometry = new osg::Sphere( osg::Vec3( 0, 0, 0 ), 1.0 );
+  osg::ShapeDrawable* validator_shape = new osg::ShapeDrawable( validator_geometry, hints );
+  validator_shape->setColor( color );
+
+  // validator transform follows the normal out to a distance of validator_ray_length
+  // Note: the validator is not rotated at all.  It is translated from the point along the normal
+  osg::PositionAttitudeTransform* validator_end_transform = new osg::PositionAttitudeTransform();
+  validator_end_transform->setPosition( osg::Vec3( event.contact_normal[0] * validator_ray_length, event.contact_normal[1] * validator_ray_length, event.contact_normal[2] * validator_ray_length ) );
+  validator_transform->addChild( validator_end_transform );
+
+  // add all validator constituents to the group
+  osg::Geode* validator_geode = new osg::Geode();
+  validator_transform->addChild( validator_end_transform );
+  validator_end_transform->addChild( validator_geode );
+  validator_geode->addDrawable( validator_shape );
+  add_transient_vdata( validator_root );
+
+  #endif // USE_OSG
+}
+
 /// Handles events
 void EventDrivenSimulator::handle_events()
 {
+  // if the setting is enabled, draw all contact events
+  if( render_contact_points ) {
+    for ( std::vector<Event>::iterator it = _events.begin(); it < _events.end(); it++ ) {
+      Event event = *it;
+      if( event.event_type != Event::eContact ) continue;
+      visualize_contact( event );
+    }
+  }
+
   // call the callback function, if any
   if (event_callback_fn)
     (*event_callback_fn)(_events, event_callback_data);
