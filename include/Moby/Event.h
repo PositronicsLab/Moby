@@ -120,8 +120,8 @@ class Event
     bool operator<(const Event& e) const { return t < e.t; }
 
   private:
-    static void compute_contact_jacobians(const Event& e, MatrixN& Jc, MatrixN& Dc, const std::map<DynamicBodyPtr, unsigned>& gc_indices);
-    static unsigned gauss_elim(MatrixN& A);
+    static void compute_contact_jacobians(const Event& e, MatrixN& Jc, MatrixN& Dc, MatrixN& iM_JcT, MatrixN& iM_DcT, unsigned ci, const std::map<DynamicBodyPtr, unsigned>& gc_indices);
+    static unsigned gauss_elim(MatrixN& A, std::vector<unsigned>& piv);
 }; // end class
 
 std::ostream& operator<<(std::ostream& out, const Event& e);

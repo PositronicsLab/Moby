@@ -124,6 +124,8 @@ class RigidBody : public SingleBody
     virtual VectorN& get_generalized_forces(DynamicBody::GeneralizedCoordinateType gctype, VectorN& f);
     virtual VectorN& convert_to_generalized_force(DynamicBody::GeneralizedCoordinateType gctype, SingleBodyPtr body, const Vector3& f, const Vector3& t, VectorN& gf);
     virtual unsigned num_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype) const;
+    virtual MatrixN& solve_generalized_inertia(DynamicBody::GeneralizedCoordinateType gc, const MatrixN& B, MatrixN& X);
+    virtual VectorN& solve_generalized_inertia(DynamicBody::GeneralizedCoordinateType gc, const VectorN& b, VectorN& x);
     Vector3 calc_inertial_forces() const;
     const InnerJointData& get_inner_joint_data(RigidBodyPtr parent) const { return get_inner_joint_data(parent); }
     InnerJointData& get_inner_joint_data(RigidBodyPtr parent);

@@ -138,6 +138,9 @@ class MCArticulatedBody : public ArticulatedBody
     MatrixN& calc_Jx_iM_JyT(const SparseJacobian& Jx, const SparseJacobian& Jy, MatrixN& Jx_iM_JyT) const;
     static void get_sub_jacobian(const std::vector<unsigned>& rows, const SparseJacobian& J, SparseJacobian& Jx);
     static void increment_dof(RigidBodyPtr rb1, RigidBodyPtr rb2, unsigned k, Real h);
+    virtual VectorN& solve_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, const VectorN& b, VectorN& x);
+    virtual MatrixN& solve_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, const MatrixN& B, MatrixN& X);
+
     VectorN& solve_Jx_iM_JxT(const VectorN& rhs, VectorN& x) const;
 
     /// The last-computed generalized velocity (in axis-angle representation)
