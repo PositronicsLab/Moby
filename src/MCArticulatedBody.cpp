@@ -963,6 +963,49 @@ void MCArticulatedBody::get_sub_jacobian(const vector<unsigned>& rows, const MCA
   }
 }
 
+/// Solves using the generalized inertia matrix
+VectorN& MCArticulatedBody::solve_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, const VectorN& b, VectorN& x)
+{
+  if (gctype == DynamicBody::eAxisAngle)
+    return iM_mult(b, x);
+  else
+  {
+    SAFESTATIC MatrixN M;
+    get_generalized_inertia(gctype, M);
+    x.copy_from(b);
+    LinAlg::solve_fast(M, x);
+    return x;
+  }
+}
+
+/// Solves using the generalized inertia matrix
+MatrixN& MCArticulatedBody::solve_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, const MatrixN& B, MatrixN& X)
+{
+  if (gctype == DynamicBody::eAxisAngle)
+  {
+    X.resize(num_generalized_coordinates(gctype), B.columns()); 
+    SAFESTATIC VectorN workv;
+
+    // do the multiplication
+    for (unsigned j=0; j< B.columns(); j++)
+      for (unsigned i=0; i< _iM.size(); i++)
+      {
+        B.get_sub_mat(_gc_indices[i], _gc_indices[i+1], j, j+1, workv);
+        scale_inverse_inertia(i, workv);
+        X.set_sub_mat(_gc_indices[i], j, workv);
+      }
+  }
+  else
+  {
+    SAFESTATIC MatrixN M;
+    get_generalized_inertia(gctype, M);
+    X.copy_from(B);
+    LinAlg::solve_fast(M, X);
+  }
+
+  return X;
+}
+
 /// Multiplies the inverse of the inertia matrix by a vector
 VectorN& MCArticulatedBody::iM_mult(const VectorN& v, VectorN& result) const
 {
