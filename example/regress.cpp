@@ -183,9 +183,6 @@ int main(int argc, char** argv)
   // setup the simulation 
   READ_MAP = XMLReader::read(std::string(argv[argc-2]));
 
-  // setup the output file
-  outfile.open(argv[argc-1]);
-
   // get the (only) simulation object
   boost::shared_ptr<Simulator> s;
   for (std::map<std::string, BasePtr>::const_iterator i = READ_MAP.begin(); i != READ_MAP.end(); i++)
@@ -201,6 +198,9 @@ int main(int argc, char** argv)
     std::cerr << "regress: no simulator found in " << argv[argc-2] << std::endl;
     return -1;
   } 
+
+  // setup the output file
+  outfile.open(argv[argc-1]);
 
   // call the initializers, if any
   if (!INIT.empty())

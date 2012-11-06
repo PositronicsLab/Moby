@@ -1,3 +1,25 @@
+template <class BidirectionalIterator>
+void Event::insertion_sort(BidirectionalIterator first, BidirectionalIterator last)
+{
+  // exit if nothing to do
+  if (first == last)
+    return;
+
+  BidirectionalIterator min = first;
+
+  // loop
+  BidirectionalIterator i = first;
+  i++;
+  for (; i != last; i++)
+    if (*i < *min)
+      min = i;
+
+  // swap the iterators
+  std::iter_swap(first, min);
+  while (++first != last)
+    for (BidirectionalIterator j = first; *j < *(j-1); --j)
+      std::iter_swap((j-1), j);
+}
 
 template <class OutputIterator>
 OutputIterator Event::get_super_bodies(OutputIterator begin) const

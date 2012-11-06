@@ -86,8 +86,38 @@ void ImpactEventHandler::apply_model(const vector<Event>& events, Real tol) cons
   // **********************************************************
   for (list<list<Event*> >::iterator i = groups.begin(); i != groups.end(); i++)
   {
-    list<Event*>& revents = *i;
+    // determine contact tangents
+    for (list<Event*>::iterator j = i->begin(); j != i->end(); j++)
+      if ((*j)->event_type == Event::eContact)
+        (*j)->determine_contact_tangents();
+//    list<Event*>& revents = *i;
+    list<Event*> revents = *i;
+
+    FILE_LOG(LOG_CONTACT) << " -- post-event velocity (all events): " << std::endl;
+    for (list<Event*>::iterator j = i->begin(); j != i->end(); j++)
+      FILE_LOG(LOG_CONTACT) << "    event: " << std::endl << **j;
+
+    // determine a reduced set of events
+    Event::determine_minimal_set(revents);
+
+    // apply model to the reduced contacts   
     apply_model_to_connected_events(revents);
+
+///*
+// check the minimum event velocity
+Real minvel = (Real) 0.0;
+for (list<Event*>::const_iterator j = i->begin(); j != i->end(); j++)
+  minvel = std::min(minvel, (*j)->calc_event_vel());
+if (minvel < -1e-5)
+{
+  apply_model_to_connected_events(*i);
+std::cerr << "Invalid contact state detected!" << std::endl;
+//  exit(0);
+}
+//*/
+    FILE_LOG(LOG_CONTACT) << " -- post-event velocity (all events): " << std::endl;
+    for (list<Event*>::iterator j = i->begin(); j != i->end(); j++)
+      FILE_LOG(LOG_CONTACT) << "    event: " << std::endl << **j;
   }
 }
 

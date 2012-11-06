@@ -8,7 +8,7 @@
 
   <MOBY>
     <!-- Primitives -->
-    <Box id="b1" xlen="1" ylen="1" zlen="1" density="1.0" edge-sample-length="1" />
+    <Box id="b1" xlen="1" ylen="1" zlen="1" density="1.0" edge-sample-length=".01" />
     <Box id="b3" xlen="10" ylen=".5" zlen="2" density="10.0" />
 
     <!-- Integrator -->
