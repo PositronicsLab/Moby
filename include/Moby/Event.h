@@ -120,6 +120,8 @@ class Event
     bool operator<(const Event& e) const { return t < e.t; }
 
   private:
+    template <class BidirectionalIterator>
+    static void insertion_sort(BidirectionalIterator begin, BidirectionalIterator end);
     static void compute_contact_jacobians(const Event& e, MatrixN& Jc, MatrixN& Dc, MatrixN& iM_JcT, MatrixN& iM_DcT, unsigned ci, const std::map<DynamicBodyPtr, unsigned>& gc_indices);
     static unsigned gauss_elim(MatrixN& A, std::vector<unsigned>& piv);
 }; // end class
