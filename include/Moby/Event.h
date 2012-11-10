@@ -34,10 +34,11 @@ class Event
     static void remove_nonimpacting_groups(std::list<std::list<Event*> >& groups, Real tol);
     Event& operator=(const Event& e);
     Real calc_event_vel() const;
-    EventClass determine_event_class(Real tol = (Real) 0.0) const;
-    bool is_impacting(Real tol = (Real) 0.0) const { return determine_event_class(tol) == eImpacting; }
-    bool is_resting(Real tol = (Real) 0.0) const { return determine_event_class(tol) == eResting; }
-    bool is_separating(Real tol = (Real) 0.0) const { return determine_event_class(tol) == eSeparating; }
+    Real calc_event_tol() const;
+    EventClass determine_event_class(Real tol = NEAR_ZERO) const;
+    bool is_impacting(Real tol = NEAR_ZERO) const { return determine_event_class(tol) == eImpacting; }
+    bool is_resting(Real tol = NEAR_ZERO) const { return determine_event_class(tol) == eResting; }
+    bool is_separating(Real tol = NEAR_ZERO) const { return determine_event_class(tol) == eSeparating; }
     void set_contact_parameters(const ContactParameters& cparams);
     void determine_contact_tangents();
 
