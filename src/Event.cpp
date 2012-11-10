@@ -453,10 +453,6 @@ void Event::determine_connected_events(const vector<Event>& events, list<list<Ev
     }
   }
 
-  // compute minimal event sets
-  for (list<list<Event*> >::iterator i = groups.begin(); i != groups.end(); i++)
-    determine_minimal_set(*i);
-
   FILE_LOG(LOG_CONTACT) << "Event::determine_connected_events() exited" << std::endl;
 }
 
@@ -465,6 +461,8 @@ unsigned Event::gauss_elim(MatrixN& A, vector<unsigned>& piv)
 {
   const unsigned NROWS = A.rows(), NCOLS = A.columns();
   const unsigned NPOSVARS = (NCOLS-1)/3;
+
+  FILE_LOG(LOG_CONTACT) << "matrix before modified Gaussian elimination:" << std::endl << A;
 
   // equilibrate the rows of A 
   for (unsigned j=0; j< NROWS; j++)
@@ -476,6 +474,10 @@ unsigned Event::gauss_elim(MatrixN& A, vector<unsigned>& piv)
     assert(max_val > (Real) 0.0);
     CBLAS::scal(NCOLS, (Real) 1.0/max_val, col, NROWS);
   }
+
+  // setup epsilon
+//  const Real EPS = NCOLS * std::numeric_limits<Real>::epsilon();
+  const Real EPS = std::numeric_limits<Real>::epsilon();
 
   // resize the pivots array
   piv.resize(NROWS);
@@ -502,7 +504,7 @@ unsigned Event::gauss_elim(MatrixN& A, vector<unsigned>& piv)
       }
 
     // continue processing only if largest positive element is greater than 0 
-    if (largest > std::numeric_limits<Real>::epsilon())
+    if (largest > EPS)
     {
       // swap the pivots
       std::swap(piv[swpi], piv[largest_index]);
@@ -512,7 +514,7 @@ unsigned Event::gauss_elim(MatrixN& A, vector<unsigned>& piv)
       for (unsigned k=swpi+1; k< NROWS; k++)
       {
         Real* elm_k = &A(piv[k], i);
-        if (*elm_k > std::numeric_limits<Real>::epsilon())
+        if (*elm_k > EPS)
         {
           Real scal = -*elm_k / *elm;
           CBLAS::axpy(NCOLS-i, scal, elm, NROWS, &A(piv[k],i), NROWS);
@@ -538,7 +540,7 @@ unsigned Event::gauss_elim(MatrixN& A, vector<unsigned>& piv)
       }
 
     // only continue processing if largest negative element is less than 0
-    if (largest < -std::numeric_limits<Real>::epsilon())
+    if (largest < -EPS)
     {
       // swap the pivots
       std::swap(piv[swpi], piv[largest_index]);
@@ -548,7 +550,7 @@ unsigned Event::gauss_elim(MatrixN& A, vector<unsigned>& piv)
       for (unsigned k=swpi+1; k< NROWS; k++)
       {
         Real* elm_k = &A(piv[k], i);
-        if (*elm_k < -std::numeric_limits<Real>::epsilon())
+        if (*elm_k < -EPS)
         {
           Real scal = -*elm_k / *elm;
           CBLAS::axpy(NCOLS-i, scal, elm, NROWS, &A(piv[k], i), NROWS);
@@ -581,7 +583,7 @@ unsigned Event::gauss_elim(MatrixN& A, vector<unsigned>& piv)
       }
 
     // continue processing only if largest positive element is greater than 0 
-    if (largest > std::numeric_limits<Real>::epsilon())
+    if (largest > EPS)
     {
       // swap the pivots
       std::swap(piv[swpi], piv[largest_index]);
@@ -602,6 +604,17 @@ unsigned Event::gauss_elim(MatrixN& A, vector<unsigned>& piv)
       if (swpi == NROWS)
         break;
     }
+  }
+
+  FILE_LOG(LOG_CONTACT) << "matrix after modified Gaussian elimination:" << std::endl << A;
+  FILE_LOG(LOG_CONTACT) << "rank: " << swpi << std::endl;
+  if (LOGGING(LOG_CONTACT))
+  {
+    std::ostringstream oss;
+    oss << "pivots:";
+    for (unsigned i=0; i< piv.size(); i++)
+      oss << " " << piv[i];
+    FILE_LOG(LOG_CONTACT) << oss.str() << std::endl;
   }
 
   return swpi;
@@ -718,10 +731,7 @@ void Event::determine_minimal_set(list<Event*>& group)
   while (start != group.end() && ++NE)
   {
     if ((*start)->event_type == Event::eContact)
-    {
-      (*start)->determine_contact_tangents();
       NC++;
-    }
     start++;
   }
 
@@ -753,7 +763,8 @@ void Event::determine_minimal_set(list<Event*>& group)
   MatrixN Jc(NC, NGC), Dc(NC*2, NGC), iM_JcT(NGC, NC), iM_DcT(NGC, NC*2);
   MatrixN Jc_iM_JcT(NC, NC), Jc_iM_DcT(NC, NC*2), Dc_iM_DcT(NC*2, NC*2);
   VectorN Jc_v(NC), Dc_v(NC*2);
-  MatrixN gauss(NC*3, NC*3+1);
+  MatrixN gauss(NC*3,NC*3+1);
+  MatrixN full(NC*3, NC*3+1), workM(NC*3,NC*3+1), workM2(3,3);
 
   // zero the matrices
   Jc.set_zero();
@@ -792,19 +803,65 @@ void Event::determine_minimal_set(list<Event*>& group)
   Dc.mult(gv, Dc_v);
 
   // setup big matrix
-  gauss.set_sub_mat(0, 0, Jc_iM_JcT);
-  gauss.set_sub_mat(0, NC, Jc_iM_DcT);
-  gauss.set_sub_mat(NC, 0, Jc_iM_DcT, true);
-  gauss.set_sub_mat(NC, NC, Dc_iM_DcT);
-  gauss.set_sub_mat(0, NC*3, Jc_v);
-  gauss.set_sub_mat(NC, NC*3, Dc_v);
+  full.set_sub_mat(0, 0, Jc_iM_JcT);
+  full.set_sub_mat(0, NC, Jc_iM_DcT);
+  full.set_sub_mat(NC, 0, Jc_iM_DcT, true);
+  full.set_sub_mat(NC, NC, Dc_iM_DcT);
+  full.set_sub_mat(0, NC*3, Jc_v);
+  full.set_sub_mat(NC, NC*3, Dc_v);
 
-  // do modified Gaussian elimination
+  // setup selection indices for contact 0
+  vector<unsigned> row_sel, col_sel;
+  row_sel.push_back(0);
+  row_sel.push_back(NC);
+  row_sel.push_back(NC*2);
+  col_sel.push_back(0);
+  col_sel.push_back(NC);
+  col_sel.push_back(NC*2);
+  col_sel.push_back(NC*3);
+
+  // get the subset of the matrix
+  full.select(row_sel.begin(), row_sel.end(), col_sel.begin(), col_sel.end(), gauss);
+
+  // get the rank of the matrix
   vector<unsigned> piv;
   unsigned rank = gauss_elim(gauss, piv);
 
-  // remove contact points
-  std::sort(piv.begin()+rank, piv.end());
+  // loop over all contacts
+  vector<unsigned> old_row_sel, old_col_sel;
+  for (unsigned i=1; i< NC; i++)
+  {
+    // add the contact to the selection vectors
+    old_row_sel = row_sel;
+    old_col_sel = col_sel;
+    row_sel.push_back(i);
+    row_sel.push_back(NC+i);
+    row_sel.push_back(NC*2+i);
+    col_sel.push_back(i);
+    col_sel.push_back(NC+i);
+    col_sel.push_back(NC*2+i);
+    insertion_sort(row_sel.begin(), row_sel.end());
+    insertion_sort(col_sel.begin(), col_sel.end());
+
+    // reselect the subset of the matrix
+    full.select(row_sel.begin(), row_sel.end(), col_sel.begin(), col_sel.end(), gauss);
+
+    // get the rank of the matrix
+    unsigned new_rank = gauss_elim(gauss, piv);
+
+    // if the rank did not increase, remove the contact
+    if (new_rank <= rank)
+    {
+      row_sel = old_row_sel;
+      col_sel = old_col_sel;
+    }
+    else
+      rank = new_rank;
+  } 
+
+  // remove indices after NC 
+  while (row_sel.back() >= NC)
+    row_sel.pop_back();
 
   // loop through contacts again
   ci = 0;
@@ -818,12 +875,13 @@ void Event::determine_minimal_set(list<Event*>& group)
     }
 
     // see whether this index exists in the pivots that are left over
-    if (std::binary_search(piv.begin()+rank, piv.end(), ci++))
-      i = group.erase(i);
-    else
+    if (std::binary_search(row_sel.begin(), row_sel.end(), ci++))
       i++; 
+    else
+      i = group.erase(i);
   }
 
+  FILE_LOG(LOG_CONTACT) << "rank: " << rank << " went from " << NC << " contact points to " << row_sel.size() << std::endl;
   FILE_LOG(LOG_CONTACT) << " -- final number of events: " << group.size() << std::endl;
 }
 
