@@ -311,7 +311,8 @@ void CylinderPrimitive::calc_mass_properties()
 
   // compute the non-longitudinal elements
   const Real HSQ = _height * _height;
-  const Real NL_ELM = _mass * (1.0/12.0 * HSQ + 1.0/4.0 * RSQ);
+  const Real ONE_TWELFTH = (Real) 1.0/12.0;
+  const Real NL_ELM = ONE_TWELFTH * _mass * (HSQ + (Real) 3.0 * RSQ);
   const Real LONG_ELM = 0.5 * _mass * RSQ;
 
   // compute the inertia matrix
