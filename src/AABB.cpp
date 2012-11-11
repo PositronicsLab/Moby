@@ -38,13 +38,16 @@ bool AABB::intersects(const AABB& a, const LineSeg3& seg, Real& tmin, Real tmax,
   // determine half-extents
   Vector3 l = center - a.minp;
 
+  // compute zero tolerance for d
+  const Real ZERO_TOL = NEAR_ZERO * std::max((Real) 1.0, std::max(l.norm(), d.norm()));
+
   FILE_LOG(LOG_BV) << "AABB::intersects() entered" << endl; 
   FILE_LOG(LOG_BV) << "  -- checking intersection between line segment " << seg.first << " / " << seg.second << " and AABB: " << endl << a;
 
   // for all three slabs
   for (unsigned i=0; i< 3; i++)
   {
-    if (std::fabs(d[i]) < NEAR_ZERO)
+    if (std::fabs(d[i]) < ZERO_TOL)
     {
       // line is parallel to slab; no hit if origin not within slab
       if (p[i] < -l[i] || p[i] > l[i])
@@ -72,7 +75,7 @@ bool AABB::intersects(const AABB& a, const LineSeg3& seg, Real& tmin, Real tmax,
       tmax = std::min(tmax, t2);
 
       // exit with no collision as soon as slab intersection becomes empty
-      if (tmin > tmax + NEAR_ZERO)
+      if (tmin > tmax + ZERO_TOL)
       {
         FILE_LOG(LOG_BV) << "  tmin (" << tmin << ") > tmax (" << tmax << ") -- seg and OBB do not intersect" << endl;
 

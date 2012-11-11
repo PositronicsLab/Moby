@@ -5678,7 +5678,7 @@ void Optimization::qp_convex_activeset_infeas(const MatrixN& G, const VectorN& c
   unsigned NINEQ = 0;
   for (unsigned i=0; i< infeas_ineq.size(); i++)
   {
-    ineq_indices[i] = (std::fabs(infeas_ineq[i]) < std::numeric_limits<Real>::epsilon() * -std::max(std::fabs(qparams.q[i]), (Real) 1.0));
+    ineq_indices[i] = (infeas_ineq[i] < std::numeric_limits<Real>::epsilon() * -std::max(std::fabs(qparams.q[i]), (Real) 1.0));
     if (ineq_indices[i])
       NINEQ++;
   }
@@ -5749,14 +5749,14 @@ void Optimization::qp_convex_activeset_infeas(const MatrixN& G, const VectorN& c
     qparams2.ub.resize(0);
 
   // setup non-negativity constraints on s, v, w
-  for (unsigned i=qparams.n; i< NVARS; i++)
-    qparams2.lb[i] = (Real) 0.0;
+  std::fill(qparams2.lb.begin()+qparams.n, qparams2.lb.end(), (Real) 0.0);
 
   // prepare to determine initial variable values
   y.resize(NVARS);
   y.set_sub_vec(0, x);
   if (NINEQ > 0)
-    y[S_IDX] = nextafter(-*min_ineq, INF);
+    // next line ensures that s is sufficiently large
+    y[S_IDX] = std::max((Real) 1.0, nextafter(-*min_ineq, INF));
 
   // augment A (and determine initial values for v,w)
   const unsigned VW_IDX_START = (NINEQ == 0) ? qparams.n : qparams.n+1;
@@ -5787,13 +5787,13 @@ void Optimization::qp_convex_activeset_infeas(const MatrixN& G, const VectorN& c
   G2.set_sub_mat(0,0,G);
   BlockIterator bs = G2.block_start(qparams.n, qparams.n+NAUG, 0, qparams.n);
   BlockIterator be = G2.block_end(qparams.n, qparams.n+NAUG, 0, qparams.n);
-  std::fill_n(bs, be-bs, (Real) 0.0);
+  std::fill(bs, be, (Real) 0.0);
   bs = G2.block_start(0, qparams.n, qparams.n, qparams.n+NAUG);
   be = G2.block_end(0, qparams.n, qparams.n, qparams.n+NAUG);
-  std::fill_n(bs, be-bs, (Real) 0.0);
+  std::fill(bs, be, (Real) 0.0);
   bs = G2.block_start(qparams.n, qparams.n+NAUG, qparams.n, qparams.n+NAUG);
   be = G2.block_end(qparams.n, qparams.n+NAUG, qparams.n, qparams.n+NAUG);
-  std::fill_n(bs, be-bs, (Real) 0.0);
+  std::fill(bs, be, (Real) 0.0);
 
   // run the active set method
   qp_convex_activeset(G2, c2, qparams2, y, hot_start);
@@ -5813,7 +5813,7 @@ bool WorkingSet::full_rank() const
 
   // first, determine the minimum and maximum coefficients 
   const Real INF = std::numeric_limits<Real>::max();
-  Real min_rii = INF, max_rii = (Real) 0.0;
+  Real min_rii = INF, max_rii = (Real) -INF;
   for (unsigned i=0; i< k; i++)
   {
     min_rii = std::min(min_rii, std::fabs(_R(i,i)));
@@ -5833,7 +5833,7 @@ void WorkingSet::reset(const MatrixN& A, const MatrixN& M, const std::vector<boo
   // get n and m
   _n = A.columns();
   _m = M.rows();
-  assert(_n = M.columns());
+  assert(_n == M.columns());
 
   // clear vectors
   _working = working;
@@ -5898,9 +5898,7 @@ void WorkingSet::reset(const MatrixN& A, const MatrixN& M, const std::vector<boo
   if (_AMr_free.rows() == 0)
   {
     const unsigned NFREE = _AMr_free.columns();
-    _Z.set_zero(NFREE,NFREE);
-    for (unsigned i=0; i< NFREE; i++)
-      _Z(i,i) = (Real) 1.0;
+    _Z.set_identity(NFREE);
   }
   else
   {
@@ -6000,9 +5998,7 @@ bool WorkingSet::add_var_to_working_set(unsigned var)
   {
     // must form nullspace ourself
     const unsigned NFREE = _AMr_free.columns();
-    _Z.set_zero(NFREE,NFREE);
-    for (unsigned i=0; i< NFREE; i++)
-      _Z(i,i) = (Real) 1.0;
+    _Z.set_identity(NFREE);
   }
   else
   {
@@ -6087,9 +6083,7 @@ bool WorkingSet::add_constraint_to_working_set(unsigned constraint)
   {
     // must form nullspace ourself
     const unsigned NFREE = _AMr_free.columns();
-    _Z.set_zero(NFREE,NFREE);
-    for (unsigned i=0; i< NFREE; i++)
-      _Z(i,i) = (Real) 1.0;
+    _Z.set_identity(NFREE);
   }
   else
   {
@@ -6148,9 +6142,7 @@ void WorkingSet::remove_var_from_working_set(unsigned var)
   {
     // must form nullspace ourself
     const unsigned NFREE = _AMr_free.columns();
-    _Z.set_zero(NFREE,NFREE);
-    for (unsigned i=0; i< NFREE; i++)
-      _Z(i,i) = (Real) 1.0;
+    _Z.set_identity(NFREE);
   }
   else
   {
@@ -6197,9 +6189,7 @@ void WorkingSet::remove_constraint_from_working_set(unsigned constraint)
   {
     // must form nullspace ourself
     const unsigned NFREE = _AMr_free.columns();
-    _Z.set_zero(NFREE,NFREE);
-    for (unsigned i=0; i< NFREE; i++)
-      _Z(i,i) = (Real) 1.0;
+    _Z.set_identity(NFREE);
   }
   else
   {
@@ -6233,8 +6223,7 @@ void WorkingSet::reform_AMr()
     _M.get_row(i, _workv);
     _AMr.set_row(j, _workv);
     _workv.select(_free.begin(), _free.end(), _workv2);
-    _AMr_free.set_row(j, _workv2);
-    j++;
+    _AMr_free.set_row(j++, _workv2);
   }
 }
 
@@ -6414,7 +6403,7 @@ void Optimization::qp_convex_activeset(const MatrixN& G, const VectorN& c, OptPa
     vworking.resize(N);
     for (unsigned i=0; i< N && total_working < N-1; i++)
     {
-      const Real TOL = std::numeric_limits<Real>::epsilon() * std::fabs(x[i]);
+      const Real TOL = std::numeric_limits<Real>::epsilon() * std::max((Real) 1.0, std::fabs(x[i]));
       if (std::fabs(x[i] - lb[i]) < TOL ||
           std::fabs(ub[i] - x[i]) < TOL)
       {
@@ -6430,7 +6419,7 @@ void Optimization::qp_convex_activeset(const MatrixN& G, const VectorN& c, OptPa
     working.resize(S);
     for (unsigned i=0; i< S && total_working < N-1; i++)
     {
-      const Real TOL = std::numeric_limits<Real>::epsilon() * std::fabs(q[i]);
+      const Real TOL = std::numeric_limits<Real>::epsilon() * std::max((Real) 1.0, std::fabs(q[i]));
       working[i] = (workv[i] < TOL);
       if (working[i])
         total_working++;

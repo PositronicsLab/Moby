@@ -259,6 +259,9 @@ void TriangleMeshPrimitive::load_from_xml(XMLTreeConstPtr node, map<string, Base
   if (center_attr && center_attr->get_bool_value())
     this->center();
 
+  // recompute mass properties
+  calc_mass_properties();
+
   // update the visualization, if necessary
   update_visualization();
 }
