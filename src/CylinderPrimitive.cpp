@@ -238,6 +238,9 @@ void CylinderPrimitive::load_from_xml(XMLTreeConstPtr node, std::map<std::string
   const XMLAttrib* nrings_attr = node->get_attrib("num-rings");
   if (nrings_attr)
     _nrings = nrings_attr->get_unsigned_value();
+
+  // recompute mass properties
+  calc_mass_properties();
 }
 
 /// Implements Base::save_to_xml() for serialization

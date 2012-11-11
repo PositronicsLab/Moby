@@ -408,7 +408,7 @@ void DeformableCCD::check_geoms(Real dt, CollisionGeometryPtr a, CollisionGeomet
 
   // get the contact TOI tolerance
   shared_ptr<EventDrivenSimulator> sim(simulator);
-  const Real TOI_TOLERANCE = sim->toi_tolerance;
+  const Real TOI_TOLERANCE = std::numeric_limits<Real>::epsilon();
 
   // sort the vector of contacts
   std::sort(local_contacts.begin(), local_contacts.end());
@@ -455,7 +455,7 @@ void DeformableCCD::check_vertices(Real dt, CollisionGeometryPtr a, CollisionGeo
 
   // get the time-of-impact tolerance
   shared_ptr<EventDrivenSimulator> sim(simulator);
-  const Real TOI_TOLERANCE = sim->toi_tolerance;
+  const Real TOI_TOLERANCE = std::numeric_limits<Real>::epsilon();
 
   // get the two bodies
   SingleBodyPtr sba = a->get_single_body(); 

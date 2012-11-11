@@ -39,8 +39,6 @@ using boost::dynamic_pointer_cast;
 /// Default constructor
 EventDrivenSimulator::EventDrivenSimulator()
 {
-  constraint_violation_tolerance = std::pow(std::numeric_limits<Real>::epsilon(), (Real) 0.25);
-  toi_tolerance = NEAR_ZERO;
   max_Zeno_step = std::numeric_limits<Real>::max();
   event_callback_fn = NULL;
   event_post_impulse_callback_fn = NULL;
@@ -298,7 +296,7 @@ void EventDrivenSimulator::handle_events()
     preprocess_event(_events[i]);
 
   // compute impulses here...
-  _impact_event_handler.process_events(_events, constraint_violation_tolerance);
+  _impact_event_handler.process_events(_events);
 
   // call the post-impulse application callback, if any 
   if (event_post_impulse_callback_fn)
@@ -414,7 +412,7 @@ bool EventDrivenSimulator::will_impact(Event& e, const vector<pair<VectorN, Vect
   }
 
   // determine whether the event reports as impacting
-  bool impacting = e.is_impacting(constraint_violation_tolerance);
+  bool impacting = e.is_impacting();
 
   // reset the velocities of the bodies
   for (unsigned i=0; i< _bodies.size(); i++)
@@ -682,7 +680,7 @@ Real EventDrivenSimulator::find_and_handle_events(Real dt, const vector<pair<Vec
     // if all events are resting or separating, we have a Zeno point
     Zeno = true;
     for (unsigned i=0; i< _events.size(); i++)
-      if (_events[i].is_impacting(constraint_violation_tolerance))
+      if (_events[i].is_impacting())
       {
         Zeno = false;
         break;
@@ -780,19 +778,19 @@ Real EventDrivenSimulator::find_TOI(Real dt, const vector<pair<VectorN, VectorN>
     FILE_LOG(LOG_SIMULATOR) << "    moving forward by " << h << endl;
 
     // check for impacting event
-    bool impacting = (citer->is_impacting(constraint_violation_tolerance) || will_impact(*citer, q0, q1, dt));
+    bool impacting = (citer->is_impacting() || will_impact(*citer, q0, q1, dt));
 
     // find all events at the same time as the event we are examining
     for (citer++; citer != _events.end(); citer++)
     {
       // see whether we are done
-      if (citer->t*dt > tmin + toi_tolerance)
+      if (citer->t*dt > tmin + std::numeric_limits<Real>::epsilon())
         break;
 
       // see whether this event is impacting (if we don't yet have an
       // impacting event)
       if (!impacting)
-        impacting = (citer->is_impacting(constraint_violation_tolerance) || will_impact(*citer, q0, q1, dt)); 
+        impacting = (citer->is_impacting() || will_impact(*citer, q0, q1, dt)); 
     }
 
     // see whether we are done
@@ -880,25 +878,10 @@ void EventDrivenSimulator::load_from_xml(XMLTreeConstPtr node, map<std::string, 
   // clear list of collision detectors
   collision_detectors.clear();
 
-  // get the value of the TOI tolerance
-  const XMLAttrib* toitol_attrib = node->get_attrib("TOI-tolerance");
-  if (toitol_attrib)
-    toi_tolerance = toitol_attrib->get_real_value();
-
   // get the maximum Zeno step 
   const XMLAttrib* maxZeno_attrib = node->get_attrib("max-Zeno-step");
   if (maxZeno_attrib)
     max_Zeno_step = maxZeno_attrib->get_real_value();
-
-  // get the value of the Zeno velocity tolerance
-  const XMLAttrib* zenotol_attrib = node->get_attrib("Zeno-vel-tolerance");
-  if (zenotol_attrib)
-    Zeno_vel_tolerance = zenotol_attrib->get_real_value();
-
-  // get the value of collision tolerance, if specified
-  const XMLAttrib* ivtol_attrib = node->get_attrib("constraint-violation-tolerance");
-  if (ivtol_attrib)
-    constraint_violation_tolerance = ivtol_attrib->get_real_value();
 
   // get the collision detector, if specified
   const XMLAttrib* coldet_attrib = node->get_attrib("collision-detector-id");
@@ -979,17 +962,8 @@ void EventDrivenSimulator::save_to_xml(XMLTreePtr node, list<BaseConstPtr>& shar
   // reset the node's name
   node->name = "EventDrivenSimulator";
 
-  // save the TOI tolerance
-  node->attribs.insert(XMLAttrib("TOI-tolerance", toi_tolerance));
-
   // save the maximum Zeno step 
   node->attribs.insert(XMLAttrib("max-Zeno-step", max_Zeno_step));
-
-  // save the Zeno velocity tolerance
-  node->attribs.insert(XMLAttrib("Zeno-vel-tolerance", Zeno_vel_tolerance));
-
-  // save the value of impact velocity
-  node->attribs.insert(XMLAttrib("constraint-violation-tolerance", constraint_violation_tolerance));
 
   // save the IDs of the collision detectors, if any 
   BOOST_FOREACH(shared_ptr<CollisionDetection> c, collision_detectors)
@@ -1019,12 +993,6 @@ void EventDrivenSimulator::output_object_state(std::ostream& out) const
 {
   // indicate the object type
   out << "EventDrivenSimulator object" << std::endl; 
-
-  // output the TOI tolerance
-  out << "  time of impact tolerance: " << toi_tolerance << std::endl;
-
-  // output scalars
-  out << "  impact velocity tolerance: " << constraint_violation_tolerance << std::endl;
 
   // output contact parameters
   out << "  contact parameters: " << std::endl;

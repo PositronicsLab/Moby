@@ -476,8 +476,7 @@ unsigned Event::gauss_elim(MatrixN& A, vector<unsigned>& piv)
   }
 
   // setup epsilon
-//  const Real EPS = NCOLS * std::numeric_limits<Real>::epsilon();
-  const Real EPS = std::numeric_limits<Real>::epsilon();
+  const Real EPS = NCOLS * NEAR_ZERO;
 
   // resize the pivots array
   piv.resize(NROWS);
@@ -1076,6 +1075,9 @@ Event::EventClass Event::determine_event_class(Real tol) const
   // get the event velocity
   Real vel = calc_event_vel();
 
+  // determine the real tolerance (based on body velocities)
+  Real TOL = tol * calc_event_tol();  
+
   FILE_LOG(LOG_SIMULATOR) << "-- event type: " << event_type << " velocity: " << vel << std::endl;
 
   // if the velocity is less than zero, we have
@@ -1086,5 +1088,38 @@ Event::EventClass Event::determine_event_class(Real tol) const
     return eImpacting;
   else
     return eResting;
+}
+
+/// Computes the event tolerance
+/**
+ * Positive velocity indicates separation, negative velocity indicates
+ * impact, zero velocity indicates rest.
+ */
+Real Event::calc_event_tol() const
+{
+  if (event_type == eContact)
+  {
+    assert(contact_geom1 && contact_geom2);
+    SingleBodyPtr sb1 = contact_geom1->get_single_body();
+    SingleBodyPtr sb2 = contact_geom2->get_single_body();
+    assert(sb1 && sb2);
+
+    // get the moment arms
+    Vector3 r1 = contact_point - sb1->get_position();
+    Vector3 r2 = contact_point - sb2->get_position();
+
+    // compute the velocity contributions
+    Vector3 v1 = sb1->get_lvel() + Vector3::cross(sb1->get_avel(), r1);
+    Vector3 v2 = sb2->get_lvel() + Vector3::cross(sb2->get_avel(), r2);
+
+    return std::max((v1 - v2).norm(), (Real) 1.0);
+  }
+  else if (event_type == eLimit)
+  {
+    Real qd = limit_joint->qd[limit_dof];
+    return std::max((Real) 1.0, std::fabs(qd));
+  }
+  else
+    assert(false);
 }
 
