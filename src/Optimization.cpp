@@ -6622,7 +6622,7 @@ void Optimization::qp_convex_activeset(const MatrixN& G, const VectorN& c, OptPa
             continue;
           alphas[k] = (q[j] - workv.dot(x))/dot;
           if (alphas[k] < (Real) 0.0)
-            alphas[k] = (Real) 1.0;
+            alphas[k] = (Real) 0.0;
 
           FILE_LOG(LOG_OPT) << "  -- alpha(" << j << ") = " << alphas[k] << endl;
           FILE_LOG(LOG_OPT) << "    m[" << j << "]: " << workv << "  q[" << j << "]: " << q[j] << "  m'x: " << workv.dot(x) << "  m'dx: " << workv.dot(dx) << endl;
