@@ -316,6 +316,9 @@ void BoxPrimitive::load_from_xml(XMLTreeConstPtr node, std::map<std::string, Bas
 
   // set the lengths of the box
   set_size(xlen, ylen, zlen);
+
+  // recompute mass properties
+  calc_mass_properties();
 }
 
 /// Implements Base::save_to_xml() for serialization
