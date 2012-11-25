@@ -6250,7 +6250,8 @@ void Optimization::equilibrate(MatrixN& A)
     BlockIterator bi = A.block_start(i, i+1, 0, A.columns());
     pair<BlockIterator, BlockIterator> mmax = boost::minmax_element(bi, bi.end());
     Real scalar = std::max(-*mmax.first, *mmax.second);
-    assert(scalar > (Real) 0.0);
+    if (scalar < std::numeric_limits<Real>::epsilon())
+      continue;
     Real inv_scalar = (Real) 1.0/scalar;
     std::transform(bi, bi.end(), bi, std::bind2nd(std::multiplies<Real>(), inv_scalar));
   }
@@ -6271,7 +6272,8 @@ void Optimization::equilibrate(MatrixN& A, VectorN& b)
     BlockIterator bi = A.block_start(i, i+1, 0, A.columns());
     pair<BlockIterator, BlockIterator> mmax = boost::minmax_element(bi, bi.end());
     Real scalar = std::max(std::max(-*mmax.first, *mmax.second), std::fabs(b[i]));
-    assert(scalar > (Real) 0.0);
+    if (scalar < std::numeric_limits<Real>::epsilon())
+      continue;
     Real inv_scalar = (Real) 1.0/scalar;
     std::transform(bi, bi.end(), bi, std::bind2nd(std::multiplies<Real>(), inv_scalar));
     b[i] *= inv_scalar; 
