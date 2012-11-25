@@ -87,6 +87,9 @@ void ImpactEventHandler::apply_model(const vector<Event>& events, Real tol) cons
   for (list<list<Event*> >::iterator i = groups.begin(); i != groups.end(); i++)
   {
     list<Event*>& revents = *i;
+    FILE_LOG(LOG_CONTACT) << " -- pre-event velocity (all events): " << std::endl;
+    for (list<Event*>::iterator j = revents.begin(); j != revents.end(); j++)
+      FILE_LOG(LOG_CONTACT) << "    event: " << std::endl << **j;
     apply_model_to_connected_events(revents);
   }
 }
