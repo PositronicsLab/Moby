@@ -90,20 +90,39 @@ void ImpactEventHandler::apply_model(const vector<Event>& events, Real tol) cons
     for (list<Event*>::iterator j = i->begin(); j != i->end(); j++)
       if ((*j)->event_type == Event::eContact)
         (*j)->determine_contact_tangents();
-//    list<Event*>& revents = *i;
-    list<Event*> revents = *i;
 
-    FILE_LOG(LOG_CONTACT) << " -- post-event velocity (all events): " << std::endl;
-    for (list<Event*>::iterator j = i->begin(); j != i->end(); j++)
-      FILE_LOG(LOG_CONTACT) << "    event: " << std::endl << **j;
+    do
+    {
+      // copy the list of events
+      list<Event*> revents = *i;
 
-    // determine a reduced set of events
-    Event::determine_minimal_set(revents);
+      FILE_LOG(LOG_CONTACT) << " -- pre-event velocity (all events): " << std::endl;
+      for (list<Event*>::iterator j = i->begin(); j != i->end(); j++)
+        FILE_LOG(LOG_CONTACT) << "    event: " << std::endl << **j;
 
-    // apply model to the reduced contacts   
-    apply_model_to_connected_events(revents);
+      // determine a reduced set of events
+      Event::determine_minimal_set(revents);
 
-///*
+      // apply model to the reduced contacts   
+      apply_model_to_connected_events(revents);
+
+      // determine whether there are any impacting events remaining (necessary
+      // b/c of reduced event sets and restitution)
+      bool impacting = false;
+      for (list<Event*>::iterator j = i->begin(); j != i->end(); j++)
+        if ((*j)->is_impacting())
+        {
+          impacting = true;
+          break;
+        }
+
+      // if no impacts are occurring, we may break out
+      if (!impacting)
+        break;
+    }
+    while (true);
+
+/*
 // check the minimum event velocity
 Real minvel = (Real) 0.0;
 for (list<Event*>::const_iterator j = i->begin(); j != i->end(); j++)
@@ -114,7 +133,7 @@ if (minvel < -1e-5)
 std::cerr << "Invalid contact state detected!" << std::endl;
 //  exit(0);
 }
-//*/
+*/
     FILE_LOG(LOG_CONTACT) << " -- post-event velocity (all events): " << std::endl;
     for (list<Event*>::iterator j = i->begin(); j != i->end(); j++)
       FILE_LOG(LOG_CONTACT) << "    event: " << std::endl << **j;

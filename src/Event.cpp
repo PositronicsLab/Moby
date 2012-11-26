@@ -456,7 +456,8 @@ void Event::determine_connected_events(const vector<Event>& events, list<list<Ev
   FILE_LOG(LOG_CONTACT) << "Event::determine_connected_events() exited" << std::endl;
 }
 
-/// Modified Gaussian elimination with partial pivoting -- computes half-rank at the same time
+/*
+/// Modified Gaussian elimination with partial pivoting -- computes half-rank at the same time - this version designed to work with "full" 3*NC x 3*NC matrices
 unsigned Event::gauss_elim(MatrixN& A, vector<unsigned>& piv)
 {
   const unsigned NROWS = A.rows(), NCOLS = A.columns();
@@ -618,6 +619,45 @@ unsigned Event::gauss_elim(MatrixN& A, vector<unsigned>& piv)
 
   return swpi;
 }
+*/
+
+/// Determines whether the new contact event is redundant 
+bool Event::redundant_contact(MatrixN& A, const vector<unsigned>& nr_indices, unsigned cand_index)
+{
+  SAFESTATIC MatrixN workM;
+  SAFESTATIC VectorN x;
+  SAFESTATIC LPParams lp;
+
+  // select appropriate rows of A
+  A.select_rows(nr_indices.begin(), nr_indices.end(), workM);
+  MatrixN::transpose(workM, lp.A);
+  A.get_row(cand_index, lp.b);
+  lp.n = nr_indices.size();
+
+  // determine how many bounded and how many free variables
+  const unsigned N = lp.n/3;
+
+  // setup lower and upper bounds on variables
+  lp.l.resize(lp.n);
+  for (unsigned i=0; i< N; i++)
+    lp.l[i] = (Real) 0.0;
+  for (unsigned i=N; i< lp.n; i++)
+    lp.l[i] = -std::numeric_limits<Real>::max();
+  lp.u.set_zero(0);
+
+  // setup 'c' variable (l1-norm)
+  lp.c.set_one(lp.n);
+
+  // setup LP M and q variables
+  lp.M.resize(0,lp.n);
+  lp.q.resize(0);
+
+  // resize x
+  x.resize(lp.n);
+
+  // solve the LP (if possible to solve, contact is redundant)
+  return Optimization::lp_simplex(lp, x);
+}
 
 /// Computes normal and contact Jacobians for a body
 void Event::compute_contact_jacobians(const Event& e, MatrixN& Jc, MatrixN& Dc, MatrixN& iM_JcT, MatrixN& iM_DcT, unsigned ci, const map<DynamicBodyPtr, unsigned>& gc_indices)
@@ -760,10 +800,10 @@ void Event::determine_minimal_set(list<Event*>& group)
 
   // initialize the Jacobian matrices
   MatrixN Jc(NC, NGC), Dc(NC*2, NGC), iM_JcT(NGC, NC), iM_DcT(NGC, NC*2);
-  MatrixN Jc_iM_JcT(NC, NC), Jc_iM_DcT(NC, NC*2), Dc_iM_DcT(NC*2, NC*2);
+  MatrixN Jc_iM_JcT(NC, NC), Dc_iM_DcT(NC*2, NC*2), Jc_iM_DcT(NC, NC*2);
   VectorN Jc_v(NC), Dc_v(NC*2);
-  MatrixN gauss(NC*3,NC*3+1);
-  MatrixN full(NC*3, NC*3+1), workM(NC*3,NC*3+1), workM2(3,3);
+  MatrixN sub(NC*2,NC*2+1);
+  MatrixN full(NC*2, NC*2+1);
 
   // zero the matrices
   Jc.set_zero();
@@ -801,7 +841,12 @@ void Event::determine_minimal_set(list<Event*>& group)
   Jc.mult(gv, Jc_v);
   Dc.mult(gv, Dc_v);
 
-  // setup big matrix
+  // spit out normal matrix beforehand
+  FILE_LOG(LOG_CONTACT) << " Contact normal inertia matrix (before): " << endl << Jc_iM_JcT;
+  FILE_LOG(LOG_CONTACT) << " contact normal velocities (before): " << Jc_v << endl; 
+
+  // setup augmented matrix
+  full.resize(NC*3, NC*3+1);
   full.set_sub_mat(0, 0, Jc_iM_JcT);
   full.set_sub_mat(0, NC, Jc_iM_DcT);
   full.set_sub_mat(NC, 0, Jc_iM_DcT, true);
@@ -809,58 +854,33 @@ void Event::determine_minimal_set(list<Event*>& group)
   full.set_sub_mat(0, NC*3, Jc_v);
   full.set_sub_mat(NC, NC*3, Dc_v);
 
+  // equilibrate the rows of the full matrix 
+  for (unsigned j=0; j< full.rows(); j++)
+  {
+    const unsigned NROWS = full.rows();
+    const unsigned NCOLS = full.columns();
+    Real* col = &full(j,0);
+    Real max_val = (Real) 0.0;
+    for (unsigned i=0, k=0; i< NCOLS; i++, k+= NROWS)
+      max_val = std::max(max_val, std::fabs(col[k]));
+    if (max_val < (Real) std::numeric_limits<Real>::epsilon())
+      continue;
+    CBLAS::scal(NCOLS, (Real) 1.0/max_val, col, NROWS);
+  }
+
   // setup selection indices for contact 0
-  vector<unsigned> row_sel, col_sel;
-  row_sel.push_back(0);
-  row_sel.push_back(NC);
-  row_sel.push_back(NC*2);
-  col_sel.push_back(0);
-  col_sel.push_back(NC);
-  col_sel.push_back(NC*2);
-  col_sel.push_back(NC*3);
-
-  // get the subset of the matrix
-  full.select(row_sel.begin(), row_sel.end(), col_sel.begin(), col_sel.end(), gauss);
-
-  // get the rank of the matrix
-  vector<unsigned> piv;
-  unsigned rank = gauss_elim(gauss, piv);
+  vector<unsigned> sel;
+  sel.push_back(0);
 
   // loop over all contacts
-  vector<unsigned> old_row_sel, old_col_sel;
   for (unsigned i=1; i< NC; i++)
   {
-    // add the contact to the selection vectors
-    old_row_sel = row_sel;
-    old_col_sel = col_sel;
-    row_sel.push_back(i);
-    row_sel.push_back(NC+i);
-    row_sel.push_back(NC*2+i);
-    col_sel.push_back(i);
-    col_sel.push_back(NC+i);
-    col_sel.push_back(NC*2+i);
-    insertion_sort(row_sel.begin(), row_sel.end());
-    insertion_sort(col_sel.begin(), col_sel.end());
+    FILE_LOG(LOG_CONTACT) << " examining contact point " << i << endl;
 
-    // reselect the subset of the matrix
-    full.select(row_sel.begin(), row_sel.end(), col_sel.begin(), col_sel.end(), gauss);
-
-    // get the rank of the matrix
-    unsigned new_rank = gauss_elim(gauss, piv);
-
-    // if the rank did not increase, remove the contact
-    if (new_rank <= rank)
-    {
-      row_sel = old_row_sel;
-      col_sel = old_col_sel;
-    }
-    else
-      rank = new_rank;
+    // see whether the normal component of the contact is redundant 
+    if (!redundant_contact(full, sel, i))
+      sel.push_back(i);
   } 
-
-  // remove indices after NC 
-  while (row_sel.back() >= NC)
-    row_sel.pop_back();
 
   // loop through contacts again
   ci = 0;
@@ -874,13 +894,30 @@ void Event::determine_minimal_set(list<Event*>& group)
     }
 
     // see whether this index exists in the pivots that are left over
-    if (std::binary_search(row_sel.begin(), row_sel.end(), ci++))
+    if (std::binary_search(sel.begin(), sel.end(), ci++))
       i++; 
     else
       i = group.erase(i);
   }
 
+/*
+  if (LOGGING(LOG_CONTACT))
+  {
+    while (col_sel.back() >= NC)
+      col_sel.pop_back();
+    full.select(row_sel.begin(), row_sel.end(), col_sel.begin(), col_sel.end(), sub);
+    FILE_LOG(LOG_CONTACT) << " Contact normal inertia matrix (after): " << endl << sub;
+    FILE_LOG(LOG_CONTACT) << " contact normal velocities (after): " << Jc_v.select(row_sel.begin(), row_sel.end(), Dc_v) << endl; 
+    Optimization::lcp_lemke(sub, Dc_v, gv);
+    workv.set_zero(Jc_v.size());
+    for (unsigned i=0, j=0; i< Jc_v.size(); i++)
+      if (std::binary_search(row_sel.begin(), row_sel.end(), i))
+        workv[i] = gv[j++];
+    Jc_iM_JcT.mult(workv, gv) += Jc_v;
+    FILE_LOG(LOG_CONTACT) << " resulting reduced normal contact velocities: " << gv << endl;
+  }
   FILE_LOG(LOG_CONTACT) << "rank: " << rank << " went from " << NC << " contact points to " << row_sel.size() << std::endl;
+*/
   FILE_LOG(LOG_CONTACT) << " -- final number of events: " << group.size() << std::endl;
 }
 
