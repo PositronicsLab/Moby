@@ -124,7 +124,7 @@ class Event
     template <class BidirectionalIterator>
     static void insertion_sort(BidirectionalIterator begin, BidirectionalIterator end);
     static void compute_contact_jacobians(const Event& e, MatrixN& Jc, MatrixN& Dc, MatrixN& iM_JcT, MatrixN& iM_DcT, unsigned ci, const std::map<DynamicBodyPtr, unsigned>& gc_indices);
-    static unsigned gauss_elim(MatrixN& A, std::vector<unsigned>& piv);
+    static bool redundant_contact(MatrixN& A, const std::vector<unsigned>& nr_indices, unsigned cand_index);
 }; // end class
 
 std::ostream& operator<<(std::ostream& out, const Event& e);

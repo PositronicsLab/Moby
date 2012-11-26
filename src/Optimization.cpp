@@ -5259,9 +5259,28 @@ bool Optimization::lp_simplex(const LPParams& lpparams, VectorN& x)
   for (unsigned i=0; i< lpparams.n; i++)
     glp_set_obj_coef(lp, i+1, (double) lpparams.c[i]);
 
-  // setup bounds on x (x is unbounded)
+  // setup bounds on x
+  const Real INF = std::numeric_limits<Real>::max();
   for (unsigned i=0; i< lpparams.n; i++)
-    glp_set_col_bnds(lp, i+1, GLP_FR, 0.0, 0.0);
+  {
+    // check for unbounded x
+    if (lpparams.u.size() == 0 || lpparams.u[i] == INF)
+    {
+      // check for unbounded x
+      if (lpparams.l.size() == 0 || lpparams.l[i] == -INF)
+        glp_set_col_bnds(lp, i+1, GLP_FR, 0.0, 0.0);
+      else // lower bounded x
+        glp_set_col_bnds(lp, i+1, GLP_LO, lpparams.l[i], 0.0);
+    }
+    else
+    {
+      // check for upper bounded x
+      if (lpparams.l.size() == 0 || lpparams.l[i] == -INF)
+        glp_set_col_bnds(lp, i+1, GLP_UP, 0.0, lpparams.u[i]);
+      else // double-bounded x
+        glp_set_col_bnds(lp, i+1, GLP_DB, lpparams.l[i], lpparams.u[i]);
+    }
+  }
 
   // setup number of constraints
   glp_add_rows(lp, lpparams.b.size() + lpparams.q.size());
@@ -5382,7 +5401,14 @@ bool Optimization::make_feasible_qp(const MatrixN& A, const VectorN& b, const Ma
     y[xdim+A.rows()+i] = std::max((Real) 0.0, q_m_Mx[i]);
 
   // setup the linear program parameters
-  LPParams lpdata(c, A_, b, M_, q_);
+  SAFESTATIC LPParams lpdata;
+  lpdata.c.copy_from(c);
+  lpdata.A.copy_from(A_);
+  lpdata.b.copy_from(b);
+  lpdata.M.copy_from(M_);
+  lpdata.q.copy_from(q_);
+  lpdata.l.resize(0);
+  lpdata.u.resize(0);
 
   // solve the linear program
   bool result = lp_simplex(lpdata, y);
