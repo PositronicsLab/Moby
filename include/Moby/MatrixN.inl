@@ -153,20 +153,122 @@ MatrixN& MatrixN::select(ForwardIterator1 row_start, ForwardIterator1 row_end, F
   if (nrows == 0 || ncols == 0)
     return m;
 
-  // populate m
-  unsigned mi;
-  ForwardIterator1 i;
-  for (i=row_start, mi=0; i != row_end; i++, mi++)
-  {
-    unsigned mj;
-    ForwardIterator2 j;
+  // get pointers to data
+  Real* mdata = m.data();
+  const Real* data = &operator()(*row_start, *col_start);
 
-    // copy all flagged elements in column of A
-    for (j=col_start, mj=0; j != col_end; j++, mj++)
-      m(mi, mj) = operator()(*i,*j);
+  // determine difference between first and last row
+  unsigned rowbegin = *row_start;
+  unsigned rowend = *row_start;
+  for (ForwardIterator1 i = row_start; i != row_end; i++)
+    rowend = *i;
+  unsigned row_sub = rowend - rowbegin;
+
+  // outer loop is over columns 
+  for (ForwardIterator2 j=col_start; j != col_end; )
+  {
+    for (ForwardIterator1 i = row_start; i != row_end; )
+    {
+      // copy the data
+      *mdata = *data;
+      mdata++;
+
+      // determine how we need to advance the rows
+      unsigned row_diff = *i;
+      i++;
+      row_diff -= *i;
+      row_diff = -row_diff;
+
+      // if we're able, advance data_start 
+      if (i != row_end)
+        data += row_diff;
+    }
+
+    // determine how we need to advance the columns
+    unsigned col_diff = *j;
+    j++;
+    col_diff -= *j;
+    col_diff = -col_diff;
+
+    // advance data
+    data += (col_diff * _rows);
+    data -= row_sub; 
   }
 
   return m;
+}
+
+/// Gets a submatrix (not necessarily a block)
+template <class ForwardIterator1, class ForwardIterator2>
+VectorN& MatrixN::select(ForwardIterator1 row_start, ForwardIterator1 row_end, ForwardIterator2 col_start, ForwardIterator2 col_end, VectorN& v) const
+{
+  // setup vectors of selections
+  const unsigned nrows = std::distance(row_start, row_end);
+  const unsigned ncols = std::distance(col_start, col_end);
+
+  // verify that either number of rows or number of columns is == 1 
+  if (nrows != 1 && ncols != 1)
+    throw MissizeException();
+
+  // resize vector
+  unsigned sz = (nrows == 1) ? ncols : nrows;
+  v.resize(sz);
+
+  // make sure there is data to copy
+  if (sz == 0)
+    return v;
+
+  // get pointers to data
+  Real* vdata = v.data();
+  const Real* data = &operator()(*row_start, *col_start);
+
+  // determine difference between first and last row
+  unsigned rowbegin = *row_start;
+  unsigned rowend = *row_start;
+  for (ForwardIterator1 i = row_start; i != row_end; i++)
+    rowend = *i;
+  unsigned row_sub = rowend - rowbegin;
+
+  // outer loop is over columns 
+  for (ForwardIterator2 j=col_start; j != col_end; )
+  {
+    for (ForwardIterator1 i = row_start; i != row_end; )
+    {
+      // copy the data
+      *vdata = *data;
+      vdata++;
+
+      // determine how we need to advance the rows
+      unsigned row_diff = *i;
+      i++;
+      row_diff -= *i;
+      row_diff = -row_diff;
+
+      // if we're able, advance data 
+      if (i != row_end)
+        data += row_diff;
+    }
+
+    // determine how we need to advance the columns
+    unsigned col_diff = *j;
+    j++;
+    col_diff -= *j;
+    col_diff = -col_diff;
+
+    // advance data
+    data += (col_diff * _rows);
+    data -= row_sub; 
+  }
+
+  return v;
+}
+
+/// Gets a submatrix (not necessarily a block)
+template <class ForwardIterator1, class ForwardIterator2>
+VectorN MatrixN::select(ForwardIterator1 row_start, ForwardIterator1 row_end, ForwardIterator2 col_start, ForwardIterator2 col_end) const
+{
+  VectorN v;
+  return select(row_start, row_end, col_start, col_end, v);
 }
 
 /// Gets a submatrix (not necessarily a block)
@@ -180,25 +282,7 @@ MatrixN MatrixN::select(ForwardIterator1 row_start, ForwardIterator1 row_end, Fo
 template <class ForwardIterator>
 MatrixN& MatrixN::select_square(ForwardIterator start, ForwardIterator end, MatrixN& m) const
 {
-  const unsigned n = std::distance(start, end);
-
-  // resize matrix
-  m.resize(n,n);
-
-  // populate m
-  unsigned mi;
-  ForwardIterator i;
-  for (i=start, mi=0; i != end; i++, mi++)
-  {
-    unsigned mj;
-    ForwardIterator j;
-
-    // copy all flagged elements in column of A
-    for (j=start, mj=0; j != end; j++, mj++)
-      m(mi, mj) = operator()(*i,*j);
-  }
-
-  return m;
+  return select(start, end, start, end, m);
 }
 
 template <class ForwardIterator>
