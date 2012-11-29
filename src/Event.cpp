@@ -627,22 +627,33 @@ bool Event::redundant_contact(MatrixN& A, const vector<unsigned>& nr_indices, un
   SAFESTATIC MatrixN workM;
   SAFESTATIC VectorN x;
   SAFESTATIC LPParams lp;
+  SAFESTATIC vector<unsigned> row_indices, col_indices;
+
+  // get # of contacts
+  const unsigned NC = A.rows()/5;
+
+  // setup row indices
+  row_indices = nr_indices;
+  for (unsigned i=0; i< nr_indices.size(); i++)
+  {
+    row_indices.push_back(NC+nr_indices[i]*2);
+    row_indices.push_back(NC+nr_indices[i]*2+1);
+    row_indices.push_back(NC*3+nr_indices[i]*2);
+    row_indices.push_back(NC*3+nr_indices[i]*2+1);
+  }
+  std::sort(row_indices.begin(), row_indices.end());
+
+  // setup column indices
+  col_indices = row_indices;
+  col_indices.push_back(A.columns()-1);
 
   // select appropriate rows of A
-  A.select_rows(nr_indices.begin(), nr_indices.end(), workM);
+  A.select(row_indices.begin(), row_indices.end(), col_indices.begin(), col_indices.end(), workM);
   MatrixN::transpose(workM, lp.A);
-  A.get_row(cand_index, lp.b);
-  lp.n = nr_indices.size();
-
-  // determine how many bounded and how many free variables
-  const unsigned N = lp.n/3;
+  lp.n = row_indices.size();
 
   // setup lower and upper bounds on variables
-  lp.l.resize(lp.n);
-  for (unsigned i=0; i< N; i++)
-    lp.l[i] = (Real) 0.0;
-  for (unsigned i=N; i< lp.n; i++)
-    lp.l[i] = -std::numeric_limits<Real>::max();
+  lp.l.set_zero(lp.n);
   lp.u.set_zero(0);
 
   // setup 'c' variable (l1-norm)
@@ -655,7 +666,24 @@ bool Event::redundant_contact(MatrixN& A, const vector<unsigned>& nr_indices, un
   // resize x
   x.resize(lp.n);
 
-  // solve the LP (if possible to solve, contact is redundant)
+  // must be able to solve three LPs (one for normal, one for each tangent
+  // direction) for contact to be redundant
+  unsigned sel_row[1] = { cand_index };
+  A.select(sel_row, sel_row+1, col_indices.begin(), col_indices.end(), lp.b);
+  
+  // solve the LP (if possible to solve, contact may be redundant)
+  if (!Optimization::lp_simplex(lp, x))
+    return false;
+
+  // try to solve first tangent LP
+  sel_row[0] = NC + cand_index*2;
+  A.select(sel_row, sel_row+1, col_indices.begin(), col_indices.end(), lp.b);
+  if (!Optimization::lp_simplex(lp, x))
+    return false;
+
+  // try to solve second tangent LP
+  sel_row[0] = NC + cand_index*2 + 1;
+  A.select(sel_row, sel_row+1, col_indices.begin(), col_indices.end(), lp.b);
   return Optimization::lp_simplex(lp, x);
 }
 
@@ -775,7 +803,7 @@ void Event::determine_minimal_set(list<Event*>& group)
   }
 
   // if there is one or fewer contacts, or very few events, quit now
-  if (NC <= 1 || NE < 4)
+  if (true || NC <= 1 || NE < 4)
   {
     FILE_LOG(LOG_CONTACT) << " -- initial/final number of contacts: " << NC << std::endl;
     FILE_LOG(LOG_CONTACT) << " -- initial/final number of events: " << NE << std::endl;
@@ -802,8 +830,7 @@ void Event::determine_minimal_set(list<Event*>& group)
   MatrixN Jc(NC, NGC), Dc(NC*2, NGC), iM_JcT(NGC, NC), iM_DcT(NGC, NC*2);
   MatrixN Jc_iM_JcT(NC, NC), Dc_iM_DcT(NC*2, NC*2), Jc_iM_DcT(NC, NC*2);
   VectorN Jc_v(NC), Dc_v(NC*2);
-  MatrixN sub(NC*2,NC*2+1);
-  MatrixN full(NC*2, NC*2+1);
+  MatrixN full(NC*5, NC*5+1);
 
   // zero the matrices
   Jc.set_zero();
@@ -843,16 +870,28 @@ void Event::determine_minimal_set(list<Event*>& group)
 
   // spit out normal matrix beforehand
   FILE_LOG(LOG_CONTACT) << " Contact normal inertia matrix (before): " << endl << Jc_iM_JcT;
+  FILE_LOG(LOG_CONTACT) << " Jc*iM*DcT (before): " << endl << Jc_iM_DcT;
+  FILE_LOG(LOG_CONTACT) << " Dc*iM*DcT (before): " << endl << Dc_iM_DcT;
   FILE_LOG(LOG_CONTACT) << " contact normal velocities (before): " << Jc_v << endl; 
+  FILE_LOG(LOG_CONTACT) << " Dc*v (before): " << Dc_v << endl; 
 
   // setup augmented matrix
-  full.resize(NC*3, NC*3+1);
+  // Jc*iM*JcT   Jc*iM*DcT  -Jc*iM*DcT
+  // Dc*iM*JcT   Dc*iM*DcT  -Dc*iM*DcT
+  // -Dc*iM*JcT  -Dc*iM*DcT Dc*iM*DcT
+  full.resize(NC*5, NC*5+1);
   full.set_sub_mat(0, 0, Jc_iM_JcT);
   full.set_sub_mat(0, NC, Jc_iM_DcT);
   full.set_sub_mat(NC, 0, Jc_iM_DcT, true);
+  full.set_sub_mat(0, NC*3, Jc_iM_DcT.negate());
+  full.set_sub_mat(NC*3, 0, Jc_iM_DcT, true);  // -(Jc_iM_DcT)'
   full.set_sub_mat(NC, NC, Dc_iM_DcT);
-  full.set_sub_mat(0, NC*3, Jc_v);
-  full.set_sub_mat(NC, NC*3, Dc_v);
+  full.set_sub_mat(NC*3, NC*3, Dc_iM_DcT);
+  full.set_sub_mat(NC, NC*3, Dc_iM_DcT.negate());
+  full.set_sub_mat(NC*3, NC, Dc_iM_DcT);  // -Dc_iM_DcT
+  full.set_sub_mat(0, NC*5, Jc_v);
+  full.set_sub_mat(NC, NC*5, Dc_v);
+  full.set_sub_mat(NC*3, NC*5, Dc_v.negate());
 
   // equilibrate the rows of the full matrix 
   for (unsigned j=0; j< full.rows(); j++)
