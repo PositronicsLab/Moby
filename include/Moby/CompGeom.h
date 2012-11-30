@@ -7,7 +7,6 @@
 #ifndef _COMPGEOM_H
 #define _COMPGEOM_H
 
-#include <pthread.h>
 #include <iostream>
 #include <fstream>
 #include <vector>
@@ -28,6 +27,10 @@
 #include <Moby/Log.h>
 #include <Moby/NumericalException.h>
 #include <Moby/Types.h>
+
+#ifdef THREADSAFE
+#include <pthread.h>
+#endif
 
 // needed for qhull
 extern "C"
@@ -222,7 +225,6 @@ class CompGeom
     static unsigned advance(unsigned a, unsigned* aa, unsigned n, bool inside, const Vector2& v, OutputIterator& current);
 
     static bool same_side(const Vector3& p1, const Vector3& p2, const Vector3& a, const Vector3& b, Real tol = std::sqrt(std::numeric_limits<Real>::epsilon()));
-    static pthread_mutex_t _qhull_mutex;
     static bool compute_intervals_isectline(const Triangle& t1, Real vv0, Real vv1, Real vv2, Real d0, Real d1, Real d2, Real d0d1, Real d0d2, Real& isect0, Real& isect1, Vector3& isectpoint0, Vector3& isectpoint1);
     static void isect2X(const Vector3& vtx0, const Vector3& vtx1, const Vector3& vtx2, Real vv0, Real vv1, Real vv2, Real d0, Real d1, Real d2, Real& isect0, Real& isect1, Vector3& isectpoint0, Vector3& isectpoint1);
     static SegSegIntersectType get_parallel_intersect_type(const LineSeg2& s1, const LineSeg2& s2, Vector2& isect, Vector2& isect2);
@@ -238,6 +240,10 @@ class CompGeom
     static bool test_edge_tri(const Vector3& a, const Vector3& b, const Triangle& t, unsigned i0, unsigned i1);
     static bool test_point_in_tri(const Vector3& p, const Triangle& t, unsigned i0, unsigned i1);
     static bool test_coplanar_tri_tri(const Vector3& N, const Triangle& t1, const Triangle& t2);
+
+    #ifdef THREADSAFE
+    static pthread_mutex_t _qhull_mutex;
+    #endif
 }; // end class
 
 // include inline functions
