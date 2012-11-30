@@ -8,8 +8,20 @@
 #define _ODEPACK_INTEGRATOR_H
 
 #include <Moby/VariableStepIntegrator.h>
+#include <Moby/Quat.h>
+#ifdef THREADSAFE
+#include <pthread.h>
+#endif
 
 namespace Moby {
+
+class ODEPACKIntegratorMutex
+{
+  public:
+    #ifdef THREADSAFE
+    static pthread_mutex_t _odepack_mutex;
+    #endif
+};
 
 /// A class for performing integration using the ODEPACK library (optional)
 template <class T>
