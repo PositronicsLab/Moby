@@ -36,36 +36,8 @@ class EventDrivenSimulator : public Simulator
     /// Gets the shared pointer for this
     boost::shared_ptr<EventDrivenSimulator> get_this() { return boost::dynamic_pointer_cast<EventDrivenSimulator>(shared_from_this()); }
     
-    /// The amount of constraint violation allowable per simulated second 
-    /**
-     * Reducing this scalar will will generally increase the time
-     * taken to solve the event formulations but will decrease
-     * constraint violation- to a point. If this scalar is too small,
-     * the simulation may be unable to progress (i.e., a virtual Zeno point
-     * is encountered). If this scalar is too large, (obviously) undesirable
-     * constraint violation may result. The default value is machine eps^(1/4).
-     */
-    Real constraint_violation_tolerance;
-
-    /// The tolerance over the first time of impact with which additional points of contact are treated as impacting
-    /**
-     * If this value is set too low, then contact points might be missed; this
-     * is particularly a problem for objects in resting contact.  If this value
-     * is set too high, then parts of objects not immediately contacting 
-     * (though impacting soon) will be considered.  Default value is NEAR_ZERO. 
-     */
-    Real toi_tolerance;
-
     /// The maximum step size taken when handling a Zeno point (default is INF)
     Real max_Zeno_step;
-
-    /// The tolerance of whether a velocity change indicates a Zeno point
-    /**
-     * If this value is set too low, then the simulator may get "stuck" on an
-     * unidentified Zeno point. If this value is set too high, the simulator
-     * will not be quite as accurate.  Default value is NEAR_ZERO.
-     */
-    Real Zeno_vel_tolerance;
 
     /// The collision detection mechanisms
     std::list<boost::shared_ptr<CollisionDetection> > collision_detectors;

@@ -173,8 +173,8 @@ class RCArticulatedBody : public ArticulatedBody
     static Real sgn(Real x);
     bool treat_link_as_leaf(RigidBodyPtr link) const;
     void update_factorized_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype);
-    VectorN& solve_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, const VectorN& v, VectorN& result);
-    MatrixN& solve_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, const MatrixN& m, MatrixN& result);
+    virtual VectorN& solve_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, const VectorN& v, VectorN& result);
+    virtual MatrixN& solve_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, const MatrixN& m, MatrixN& result);
     MatrixN& solve_generalized_inertia_transpose(DynamicBody::GeneralizedCoordinateType gctype, const MatrixN& m, MatrixN& result);
     void determine_contact_jacobians(const EventProblemData& q, const VectorN& v, const MatrixN& M, MatrixN& Jc, MatrixN& Dc);
     static bool supports(JointPtr joint, RigidBodyPtr link);

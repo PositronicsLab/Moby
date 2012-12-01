@@ -113,7 +113,7 @@ class ImpactEventHandler
 
   public:
     ImpactEventHandler();
-    void process_events(const std::vector<Event>& events, Real tol);
+    void process_events(const std::vector<Event>& events, Real tol = NEAR_ZERO);
 
     /// If set to true, uses the interior-point solver (default is false)
     bool use_ip_solver;

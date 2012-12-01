@@ -254,6 +254,51 @@ void DeformableBody::set_generalized_velocity(DynamicBody::GeneralizedCoordinate
     calc_com_and_vels();
 }
 
+/// Solves using the generalized inertia
+MatrixN& DeformableBody::solve_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, const MatrixN& B, MatrixN& X)
+{
+  const unsigned THREE_D = 3;
+  assert(B.rows() == THREE_D * _nodes.size());
+
+  // setup X
+  X.copy_from(B);
+
+  // perform the multiplication
+  for (unsigned i=0, j=0; i< _nodes.size(); i++)
+  {
+    // multiply three rows
+    Real imass = (Real) 1.0/_nodes[i]->mass;
+    CBLAS::scal(B.columns(), imass, &X(j++,0), B.rows());
+    CBLAS::scal(B.columns(), imass, &X(j++,0), B.rows());
+    CBLAS::scal(B.columns(), imass, &X(j++,0), B.rows());
+  }
+
+  return X;
+}
+
+/// Solves using the generalized inertia
+VectorN& DeformableBody::solve_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, const VectorN& b, VectorN& x)
+{
+  const unsigned THREE_D = 3;
+  assert(b.size() == THREE_D * _nodes.size());
+
+  // setup x
+  x.copy_from(b);
+
+  // perform the multiplication
+  for (unsigned i=0, j=0; i< _nodes.size(); i++)
+  {
+    // multiply three rows
+    Real imass = (Real) 1.0/_nodes[i]->mass;
+    x[j++] *= imass;
+    x[j++] *= imass;
+    x[j++] *= imass;
+  }
+
+  return x;
+}
+
+
 /// Gets the generalized inertia for the body
 MatrixN& DeformableBody::get_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, MatrixN& M)
 {

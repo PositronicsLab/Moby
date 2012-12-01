@@ -146,6 +146,12 @@ class MatrixN
     template <class ForwardIterator1, class ForwardIterator2>
     MatrixN& select(ForwardIterator1 row_start, ForwardIterator1 row_end, ForwardIterator2 col_start, ForwardIterator2 col_end, MatrixN& m) const;
 
+    template <class ForwardIterator1, class ForwardIterator2>
+    VectorN select(ForwardIterator1 row_start, ForwardIterator1 row_end, ForwardIterator2 col_start, ForwardIterator2 col_end) const;
+
+    template <class ForwardIterator1, class ForwardIterator2>
+    VectorN& select(ForwardIterator1 row_start, ForwardIterator1 row_end, ForwardIterator2 col_start, ForwardIterator2 col_end, VectorN& v) const;
+
     template <class ForwardIterator>
     MatrixN select_square(ForwardIterator start, ForwardIterator end) const;
 

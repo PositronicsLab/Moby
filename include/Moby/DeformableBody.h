@@ -56,6 +56,8 @@ class DeformableBody : public SingleBody
     virtual void add_force(const Vector3& f, const Vector3& p);
     virtual void load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const;
+    virtual MatrixN& solve_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, const MatrixN& B, MatrixN& X);
+    virtual VectorN& solve_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, const VectorN& b, VectorN& x);
 
     /// Gets the position of the center-of-mass of the deformable body
     virtual const Vector3& get_position() const { return _x; }

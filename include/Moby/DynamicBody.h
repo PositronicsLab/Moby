@@ -89,6 +89,12 @@ class DynamicBody : public Visualizable
     /// Gets the generalized inertia of this body
     virtual MatrixN& get_generalized_inertia(GeneralizedCoordinateType gctype, MatrixN& M) = 0;
 
+    /// Solves using the inverse generalized inertia
+    virtual MatrixN& solve_generalized_inertia(GeneralizedCoordinateType gctype, const MatrixN& B, MatrixN& X) = 0;
+
+    /// Solves using the inverse generalized inertia
+    virtual VectorN& solve_generalized_inertia(GeneralizedCoordinateType gctype, const VectorN& b, VectorN& x) = 0;
+
     /// Gets the external forces on this body
     /**
      * \note uses the current generalized coordinates

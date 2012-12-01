@@ -466,7 +466,7 @@ void GeneralizedCCD::check_geoms(Real dt, CollisionGeometryPtr a, CollisionGeome
 
   // get the time-of-impact tolerance
   shared_ptr<EventDrivenSimulator> sim(simulator);
-  const Real TOI_TOLERANCE = sim->toi_tolerance;
+  const Real TOI_TOLERANCE = std::numeric_limits<Real>::epsilon();
 
   // sort the vector of contacts
   std::sort(local_contacts.begin(), local_contacts.end());
@@ -522,7 +522,7 @@ void GeneralizedCCD::check_vertices(Real dt, CollisionGeometryPtr a, CollisionGe
 
   // get the time-of-impact tolerance
   shared_ptr<EventDrivenSimulator> sim(simulator);
-  const Real TOI_TOLERANCE = sim->toi_tolerance;
+  const Real TOI_TOLERANCE = std::numeric_limits<Real>::epsilon();
 
   // get the two bodies
   RigidBodyPtr rba = dynamic_pointer_cast<RigidBody>(a->get_single_body()); 

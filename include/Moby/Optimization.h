@@ -64,7 +64,7 @@ class WorkingSet
 struct LPParams
 {
   LPParams() {}
-  LPParams(const VectorN& c, const MatrixN& A, const VectorN& b, const MatrixN& M, const VectorN& q)
+  LPParams(const VectorN& c, const MatrixN& A, const VectorN& b, const MatrixN& M, const VectorN& q, const VectorN& l, const VectorN& u)
   {
     n = c.size();
     this->c = c;
@@ -72,6 +72,8 @@ struct LPParams
     this->b = b;
     this->M = M;
     this->q = q;
+    this->l = l;
+    this->u = u;
   }
 
   /// The number of variables in the problem
@@ -91,6 +93,12 @@ struct LPParams
 
   /// q the right hand side of the inequality constraints (i.e., Mx >= q after the linear program is solved)
   VectorN q;
+
+  /// the lower bounds on the program variables (if vector is 0-size, no lower bounds are used)
+  VectorN l;
+
+  /// the upper bounds on the program variables (if vector is 0-size, no upper bounds are used)
+  VectorN u;
 };
 
 /// Structure for performing unconstrained optimization using BFGS
