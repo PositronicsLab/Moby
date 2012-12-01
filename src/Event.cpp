@@ -1148,6 +1148,7 @@ void Event::determine_contact_tangents()
 /// Determines the type of event (impacting, resting, or separating)
 Event::EventClass Event::determine_event_class(Real tol) const
 {
+tol = 1e-5;
   // get the event velocity
   Real vel = calc_event_vel();
 
