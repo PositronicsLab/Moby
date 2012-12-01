@@ -29,14 +29,16 @@ class Event
     enum EventClass { eUndetermined, eSeparating, eResting, eImpacting };
     Event();
     Event(const Event& e) { *this = e; }
+    static void determine_minimal_set(std::list<Event*>& group);
     static void determine_connected_events(const std::vector<Event>& events, std::list<std::list<Event*> >& groups);
     static void remove_nonimpacting_groups(std::list<std::list<Event*> >& groups, Real tol);
     Event& operator=(const Event& e);
     Real calc_event_vel() const;
-    EventClass determine_event_class(Real tol = (Real) 0.0) const;
-    bool is_impacting(Real tol = (Real) 0.0) const { return determine_event_class(tol) == eImpacting; }
-    bool is_resting(Real tol = (Real) 0.0) const { return determine_event_class(tol) == eResting; }
-    bool is_separating(Real tol = (Real) 0.0) const { return determine_event_class(tol) == eSeparating; }
+    Real calc_event_tol() const;
+    EventClass determine_event_class(Real tol = NEAR_ZERO) const;
+    bool is_impacting(Real tol = NEAR_ZERO) const { return determine_event_class(tol) == eImpacting; }
+    bool is_resting(Real tol = NEAR_ZERO) const { return determine_event_class(tol) == eResting; }
+    bool is_separating(Real tol = NEAR_ZERO) const { return determine_event_class(tol) == eSeparating; }
     void set_contact_parameters(const ContactParameters& cparams);
     void determine_contact_tangents();
 
@@ -117,6 +119,12 @@ class Event
 
     void write_vrml(const std::string& filename, Real sphere_radius = 0.1, Real normal_length = 1.0) const;
     bool operator<(const Event& e) const { return t < e.t; }
+
+  private:
+    template <class BidirectionalIterator>
+    static void insertion_sort(BidirectionalIterator begin, BidirectionalIterator end);
+    static void compute_contact_jacobians(const Event& e, MatrixN& Jc, MatrixN& Dc, MatrixN& iM_JcT, MatrixN& iM_DcT, unsigned ci, const std::map<DynamicBodyPtr, unsigned>& gc_indices);
+    static bool redundant_contact(MatrixN& A, const std::vector<unsigned>& nr_indices, unsigned cand_index);
 }; // end class
 
 std::ostream& operator<<(std::ostream& out, const Event& e);

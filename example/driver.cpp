@@ -229,7 +229,8 @@ void step(void* arg)
   // if render contact points enabled, notify the Simulator
   if( RENDER_CONTACT_POINTS ) {
     boost::shared_ptr<EventDrivenSimulator> eds = boost::dynamic_pointer_cast<EventDrivenSimulator>( s );
-    eds->render_contact_points = true;
+    if (eds)
+      eds->render_contact_points = true;
   }
 }
 

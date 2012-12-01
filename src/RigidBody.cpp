@@ -1354,7 +1354,7 @@ void RigidBody::apply_generalized_impulse(GeneralizedCoordinateType gctype, cons
     assert(gctype == DynamicBody::eRodrigues);
 
     // get proper generalized inertia matrix
-    MatrixN M;
+    SAFESTATIC MatrixN M;
     get_generalized_inertia(gctype, M);
     VectorN qd_delta = gj;
     LinAlg::solve_fast(M, qd_delta);
@@ -1363,6 +1363,73 @@ void RigidBody::apply_generalized_impulse(GeneralizedCoordinateType gctype, cons
     gv += qd_delta;
     set_generalized_velocity(gctype, gv); 
   }
+}
+
+/// Solves using the generalized inertia matrix
+MatrixN& RigidBody::solve_generalized_inertia(GeneralizedCoordinateType gctype, const MatrixN& B, MatrixN& X)
+{
+  if (gctype == eAxisAngle)
+  {
+    // resize x
+    X.set_zero(6, B.columns());
+    
+    // setup top three components
+    CBLAS::axpy(B.columns(), _inv_mass, &B(0,0), B.rows(), &X(0,0), X.rows());
+    CBLAS::axpy(B.columns(), _inv_mass, &B(1,0), B.rows(), &X(1,0), X.rows());
+    CBLAS::axpy(B.columns(), _inv_mass, &B(2,0), B.rows(), &X(2,0), X.rows());
+
+    // setup bottom three components
+    Matrix3 R(&_q);
+    Matrix3 invJ = R * _invJ * Matrix3::transpose(R);
+
+    // do the multiplication
+    CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasNoTrans, invJ.rows(), 
+                B.columns(), invJ.columns(), (Real) 1.0, invJ.data(), 
+                invJ.rows(), &B(3,0), B.rows(), (Real) 0.0, &X(3,0), X.rows()); 
+  }
+  else
+  {
+    // get proper generalized inertia matrix
+    SAFESTATIC MatrixN M;
+    get_generalized_inertia(gctype, M);
+    X.copy_from(B);
+    LinAlg::solve_fast(M, X);
+  }
+
+  return X;
+}
+
+/// Solves using the generalized inertia matrix
+VectorN& RigidBody::solve_generalized_inertia(GeneralizedCoordinateType gctype, const VectorN& b, VectorN& x)
+{
+  if (gctype == eAxisAngle)
+  {
+    // resize x
+    x.resize(6);
+    
+    // setup top three components
+    x[0] = b[0] * _inv_mass;
+    x[1] = b[1] * _inv_mass;
+    x[2] = b[2] * _inv_mass;
+
+    // setup bottom three components
+    Matrix3 R(&_q);
+    Matrix3 invJ = R * _invJ * Matrix3::transpose(R);
+    Vector3 bottom = invJ * Vector3(b[3], b[4], b[5]);
+    x[3] = bottom[0];
+    x[4] = bottom[1];
+    x[5] = bottom[2];
+  }
+  else
+  {
+    // get proper generalized inertia matrix
+    SAFESTATIC MatrixN M;
+    get_generalized_inertia(gctype, M);
+    x.copy_from(b);
+    LinAlg::solve_fast(M, x);
+  }
+
+  return x;
 }
 
 /// Gets the generalized position of this rigid body

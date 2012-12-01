@@ -86,8 +86,57 @@ void ImpactEventHandler::apply_model(const vector<Event>& events, Real tol) cons
   // **********************************************************
   for (list<list<Event*> >::iterator i = groups.begin(); i != groups.end(); i++)
   {
-    list<Event*>& revents = *i;
-    apply_model_to_connected_events(revents);
+    // determine contact tangents
+    for (list<Event*>::iterator j = i->begin(); j != i->end(); j++)
+      if ((*j)->event_type == Event::eContact)
+        (*j)->determine_contact_tangents();
+
+    do
+    {
+      // copy the list of events
+      list<Event*> revents = *i;
+
+      FILE_LOG(LOG_EVENT) << " -- pre-event velocity (all events): " << std::endl;
+      for (list<Event*>::iterator j = i->begin(); j != i->end(); j++)
+        FILE_LOG(LOG_EVENT) << "    event: " << std::endl << **j;
+
+      // determine a reduced set of events
+      Event::determine_minimal_set(revents);
+
+      // apply model to the reduced contacts   
+      apply_model_to_connected_events(revents);
+
+      // determine whether there are any impacting events remaining (necessary
+      // b/c of reduced event sets and restitution)
+      bool impacting = false;
+      for (list<Event*>::iterator j = i->begin(); j != i->end(); j++)
+        if ((*j)->is_impacting())
+        {
+          impacting = true;
+          break;
+        }
+
+      // if no impacts are occurring, we may break out
+      if (!impacting)
+        break;
+    }
+    while (true);
+
+/*
+// check the minimum event velocity
+Real minvel = (Real) 0.0;
+for (list<Event*>::const_iterator j = i->begin(); j != i->end(); j++)
+  minvel = std::min(minvel, (*j)->calc_event_vel());
+if (minvel < -1e-5)
+{
+  apply_model_to_connected_events(*i);
+std::cerr << "Invalid contact state detected!" << std::endl;
+//  exit(0);
+}
+*/
+    FILE_LOG(LOG_EVENT) << " -- post-event velocity (all events): " << std::endl;
+    for (list<Event*>::iterator j = i->begin(); j != i->end(); j++)
+      FILE_LOG(LOG_EVENT) << "    event: " << std::endl << **j;
   }
 }
 
@@ -258,10 +307,6 @@ void ImpactEventHandler::set_generalized_velocities(const EventProblemData& q)
 void ImpactEventHandler::compute_problem_data(EventProblemData& q)
 {
   const unsigned UINF = std::numeric_limits<unsigned>::max();
-
-  // first, setup all tangent directions for contact events
-  for (unsigned i=0; i< q.contact_events.size(); i++)
-    q.contact_events[i]->determine_contact_tangents();
 
   // determine set of "super" bodies from contact events
   q.super_bodies.clear();

@@ -294,6 +294,9 @@ void SpherePrimitive::load_from_xml(XMLTreeConstPtr node, std::map<std::string, 
   const XMLAttrib* npoints_attr = node->get_attrib("num-points");
   if (npoints_attr)
     set_num_points(npoints_attr->get_unsigned_value());
+
+  // recompute mass properties
+  calc_mass_properties();
 }
 
 /// Implements Base::save_to_xml() for serialization

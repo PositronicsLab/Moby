@@ -238,6 +238,9 @@ void CylinderPrimitive::load_from_xml(XMLTreeConstPtr node, std::map<std::string
   const XMLAttrib* nrings_attr = node->get_attrib("num-rings");
   if (nrings_attr)
     _nrings = nrings_attr->get_unsigned_value();
+
+  // recompute mass properties
+  calc_mass_properties();
 }
 
 /// Implements Base::save_to_xml() for serialization
@@ -311,7 +314,8 @@ void CylinderPrimitive::calc_mass_properties()
 
   // compute the non-longitudinal elements
   const Real HSQ = _height * _height;
-  const Real NL_ELM = _mass * (1.0/12.0 * HSQ + 1.0/4.0 * RSQ);
+  const Real ONE_TWELFTH = (Real) 1.0/12.0;
+  const Real NL_ELM = ONE_TWELFTH * _mass * (HSQ + (Real) 3.0 * RSQ);
   const Real LONG_ELM = 0.5 * _mass * RSQ;
 
   // compute the inertia matrix
