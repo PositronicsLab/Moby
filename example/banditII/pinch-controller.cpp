@@ -44,7 +44,7 @@ bool first = true;
 Vector3 _ball_pincer_left;
 Vector3 _ball_pincer_right;
 
-const Real PINCH_FORCE_MAGNITUDE = 1.0;
+const Real PINCH_FORCE_MAGNITUDE = 10.0;
 
 // pincer controller
 void pincer_controller(DynamicBodyPtr robot, Real time, void* data)
@@ -57,7 +57,7 @@ void pincer_controller(DynamicBodyPtr robot, Real time, void* data)
 
 // ball_push_force_controller constants
 const Real PUSH_FORCE_MAGNITUDE = 0.01;		// How strong a push
-const int FIRST_PUSH_AT_ITERATION = 100;	// When to start pushing in iterations
+const int FIRST_PUSH_AT_ITERATION = 250;	// When to start pushing in iterations
 const Real PUSH_DURATION = 0.01;		// How long to push for in time
 const Real REST_DURATION = 0.05;		// How long to rest for in time
 const unsigned int MAX_PUSHES = 100;		// The maximum number of times to push
