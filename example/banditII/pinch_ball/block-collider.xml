@@ -1,0 +1,59 @@
+<XML >
+  <DRIVER>
+    <camera position="-.2 .75 1" target="-.2 0.1 0" up="0 1 0" />
+    <window location="0 0" size="640 480" />
+  </DRIVER>
+<Moby >
+
+  <!-- Simulator -->
+  <EventDrivenSimulator id="simulator" integrator-id="odepack" TOI-tolerance="1e-3" current-time="0" impact-velocity-tolerance="0.00012207">
+    <DynamicBody dynamic-body-id="table" />
+    <DynamicBody dynamic-body-id="left_pincer" />
+    <DynamicBody dynamic-body-id="right_pincer" />
+    <CollisionDetector id="coldet" />
+    <ContactParameters object1-id="left_pincer" object2-id="right_pincer" epsilon="1e-3" friction-cone-edges="2" mu-coulomb="0" mu-viscous="0" />
+    <ContactParameters epsilon="0" friction-cone-edges="2" mu-coulomb="0" mu-viscous="0" object1-id="table" object2-id="left_pincer" />
+    <ContactParameters epsilon="0" friction-cone-edges="2" mu-coulomb="0" mu-viscous="0" object1-id="table" object2-id="right_pincer" />
+  </EventDrivenSimulator> 
+
+  <!-- Integrator -->
+  <ODEPACKIntegrator abs-err-tol="1e-3" id="odepack" min-step-size="0" rel-err-tol="1e-3" semi-implicit="false" stiff="true" type="VectorN" />
+
+  <!-- Rigid Bodies -->
+  <!-- table -->
+  <RigidBody id="table" enabled="false" mass="0" transform="1 0 0 0; 0 1 0 -0.25; 0 0 1 0.4; 0 0 0 1" linear-accel="0 0 0" linear-velocity="0 0 0" angular-accel="0 0 0" inertia="0 0 0; 0 0 0; 0 0 0;" coulomb-coeff="0 0 0 0 0 0" sum-forces="0 0 0" sum-torques="0 0 0" viscous-coeff="0 0 0 0 0 0" visualization-id="geom_table" >
+    <CollisionGeometry id="cg_table" primitive-id="geom_table" rel-transform="1 0 0 0; 0 1 0 0; 0 0 1 0; 0 0 0 1" transform="1 0 0 0; 0 1 0 -0.25; 0 0 1 0.4; 0 0 0 1" />
+  </RigidBody>
+
+  <!-- Left Pincer -->
+  <RigidBody id="left_pincer" enabled="true" transform="1 0 0 -0.095; 0 1 0 0.0; 0 0 1 0.25; 0 0 0 1" linear-velocity="0 0 0" angular-velocity="0 0 0" visualization-id="geom_pincer" >
+    <CollisionGeometry id="cg_left_pincer" primitive-id="geom_pincer" />
+    <RecurrentForce recurrent-force-id="gravity" />
+    <InertiaFromPrimitive primitive-id="geom_pincer" />
+  </RigidBody>
+
+  <!-- Right Pincer -->
+  <RigidBody id="right_pincer" enabled="true" transform="1 0 0 -0.25; 0 1 0 0.0; 0 0 1 0.25; 0 0 0 1" linear-velocity="0 0 0" angular-velocity="0 0 0" visualization-id="geom_pincer" >
+    <CollisionGeometry id="cg_right_pincer" primitive-id="geom_pincer" />
+    <RecurrentForce recurrent-force-id="gravity" />
+    <InertiaFromPrimitive primitive-id="geom_pincer" />
+  </RigidBody>
+
+  <!-- Collision Detector -->
+  <DeformableCCD id="coldet" pos-integrator-id="odepack" ori-integrator-id="odepack" eps-tolerance="1e-3" simulator-id="simulator" >
+    <Body body-id="right_pincer" />
+    <Body body-id="left_pincer" />
+    <Body body-id="table" />
+  </DeformableCCD>
+
+  <!-- Primitives -->
+  <Box id="geom_table" mass="0" intersection-tolerance="1e-05" transform="1 0 0 0; 0 1 0 0; 0 0 1 0; 0 0 0 1" xlen="1" ylen="0.4" zlen="0.5" />
+  <Box id="geom_pincer" mass="10" intersection-tolerance="1e-05" transform="1 0 0 0; 0 1 0 0; 0 0 1 0; 0 0 0 1" xlen="0.1" ylen="0.1" zlen="0.1" />
+
+  <GravityForce accel="0 -9.81 0" id="gravity" />
+</Moby>
+</XML>
+
+<!-- 
+-->
+
