@@ -20,6 +20,7 @@
 #include <Moby/Log.h>
 #include <Moby/XMLTree.h>
 #include <Moby/Optimization.h>
+#include <Moby/ImpactToleranceException.h>
 #include <Moby/NumericalException.h>
 #include <Moby/ImpactEventHandler.h>
 
@@ -44,7 +45,7 @@ ImpactEventHandler::ImpactEventHandler()
 }
 
 // Processes impacts
-void ImpactEventHandler::process_events(const vector<Event>& events, Real tol)
+void ImpactEventHandler::process_events(const vector<Event>& events)
 {
   FILE_LOG(LOG_CONTACT) << "*************************************************************";
   FILE_LOG(LOG_CONTACT) << endl;
@@ -58,7 +59,7 @@ void ImpactEventHandler::process_events(const vector<Event>& events, Real tol)
   {
     vector<Event> nev;
     nev.push_back(events.front());
-    apply_model(events, tol);
+    apply_model(events);
   }
   else
     FILE_LOG(LOG_CONTACT) << " (no events?!)" << endl;
@@ -72,14 +73,16 @@ void ImpactEventHandler::process_events(const vector<Event>& events, Real tol)
 /**
  * \param events a set of events
  */
-void ImpactEventHandler::apply_model(const vector<Event>& events, Real tol) const
+void ImpactEventHandler::apply_model(const vector<Event>& events) const
 {
+  list<Event*> impacting;
+
   // **********************************************************
   // determine sets of connected events 
   // **********************************************************
   list<list<Event*> > groups;
   Event::determine_connected_events(events, groups);
-  Event::remove_nonimpacting_groups(groups, tol);
+  Event::remove_nonimpacting_groups(groups);
 
   // **********************************************************
   // do method for each connected set 
@@ -91,8 +94,6 @@ void ImpactEventHandler::apply_model(const vector<Event>& events, Real tol) cons
       if ((*j)->event_type == Event::eContact)
         (*j)->determine_contact_tangents();
 
-    do
-    {
       // copy the list of events
       list<Event*> revents = *i;
 
@@ -105,22 +106,6 @@ void ImpactEventHandler::apply_model(const vector<Event>& events, Real tol) cons
 
       // apply model to the reduced contacts   
       apply_model_to_connected_events(revents);
-
-      // determine whether there are any impacting events remaining (necessary
-      // b/c of reduced event sets and restitution)
-      bool impacting = false;
-      for (list<Event*>::iterator j = i->begin(); j != i->end(); j++)
-        if ((*j)->is_impacting())
-        {
-          impacting = true;
-          break;
-        }
-
-      // if no impacts are occurring, we may break out
-      if (!impacting)
-        break;
-    }
-    while (true);
 
 /*
 // check the minimum event velocity
@@ -138,6 +123,17 @@ std::cerr << "Invalid contact state detected!" << std::endl;
     for (list<Event*>::iterator j = i->begin(); j != i->end(); j++)
       FILE_LOG(LOG_CONTACT) << "    event: " << std::endl << **j;
   }
+
+  // determine whether there are any impacting events remaining
+  for (list<list<Event*> >::const_iterator i = groups.begin(); i != groups.end(); i++)
+    for (list<Event*>::const_iterator j = i->begin(); j != i->end(); j++)
+      if ((*j)->is_impacting())
+        impacting.push_back(*j);
+
+
+  // if there are any events still impacting, throw an exception 
+  if (!impacting.empty())
+    throw ImpactToleranceException(impacting);
 }
 
 /**

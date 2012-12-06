@@ -13,6 +13,7 @@
 #include <Moby/CollisionDetection.h>
 #include <Moby/ContactParameters.h>
 #include <Moby/VariableStepIntegrator.h>
+#include <Moby/ImpactToleranceException.h>
 #include <Moby/EventDrivenSimulator.h>
 
 #ifdef USE_OSG
@@ -296,7 +297,19 @@ void EventDrivenSimulator::handle_events()
     preprocess_event(_events[i]);
 
   // compute impulses here...
-  _impact_event_handler.process_events(_events);
+  try
+  {
+    _impact_event_handler.process_events(_events);
+  }
+  catch (ImpactToleranceException e)
+  {
+    // process events, updating tolerances
+    BOOST_FOREACH(Event* ev, e.events)
+    {
+      Real event_v = ev->calc_event_vel();
+      _event_tolerances[*ev] = std::fabs(event_v) + std::numeric_limits<Real>::epsilon();  
+    }
+  }
 
   // call the post-impulse application callback, if any 
   if (event_post_impulse_callback_fn)
@@ -603,6 +616,7 @@ Real EventDrivenSimulator::find_and_handle_events(Real dt, const vector<pair<Vec
   SAFESTATIC VectorN qx;
   vector<Event> cd_events, limit_events;
   SAFESTATIC vector<pair<DynamicBodyPtr, VectorN> > x0, x1;
+  typedef map<Event, Real, EventCompare>::const_iterator EtolIter;
 
   FILE_LOG(LOG_SIMULATOR) << "-- checking for event in interval [" << this->current_time << ", " << (this->current_time+dt) << "] (dt=" << dt << ")" << std::endl;
 
@@ -658,9 +672,14 @@ Real EventDrivenSimulator::find_and_handle_events(Real dt, const vector<pair<Vec
   // sort the set of events
   std::sort(_events.begin(), _events.end()); 
 
-  // set the "real" time for the events
+  // set the "real" time for the events and compute the event tolerances
   for (unsigned i=0; i< _events.size(); i++)
+  {
     _events[i].t_true = current_time + _events[i].t * dt;
+    EtolIter j = _event_tolerances.find(_events[i]);
+    if (j != _event_tolerances.end())
+      _events[i].tol = j->second;
+  }
 
   #ifdef DO_TIMING
   tms stop;  
