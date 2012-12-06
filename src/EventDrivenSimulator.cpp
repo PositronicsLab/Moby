@@ -672,7 +672,19 @@ Real EventDrivenSimulator::find_and_handle_events(Real dt, const vector<pair<Vec
   // sort the set of events
   std::sort(_events.begin(), _events.end()); 
 
+<<<<<<< HEAD
   // set the "real" time for the events and compute the event tolerances
+=======
+  // output the events
+  if (LOGGING(LOG_EVENT))
+  {
+    FILE_LOG(LOG_EVENT) << "Events to be processed:" << std::endl;
+    for (unsigned i=0; i< _events.size(); i++)
+      FILE_LOG(LOG_EVENT) << _events[i] << std::endl;
+  }
+
+  // set the "real" time for the events
+>>>>>>> e4f7cac7c0fe9fc6c24ce19450b66e8b5a5bdf68
   for (unsigned i=0; i< _events.size(); i++)
   {
     _events[i].t_true = current_time + _events[i].t * dt;

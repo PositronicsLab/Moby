@@ -35,9 +35,6 @@
       <Body body-id="ground" />
     </DeformCD>
 
-    <!-- Collision method -->
-    <CvxOptRestitutionModel id="cvxopt" tolerance="1e-8" max-iterations="100" />
-
     <!-- Gravity force -->
     <GravityForce id="gravity" accel="0 -9.81 0"  />
 

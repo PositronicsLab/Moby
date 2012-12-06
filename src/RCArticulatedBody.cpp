@@ -2690,16 +2690,16 @@ void RCArticulatedBody::update_velocity(const EventProblemData& q)
   // get the current spatial velocity
   get_generalized_velocity(DynamicBody::eAxisAngle, v);
 
-  if (LOGGING(LOG_CONTACT))
+  if (LOGGING(LOG_EVENT))
   {
     MatrixN M;
-    FILE_LOG(LOG_CONTACT) << "alpha_c: " << q.alpha_c << std::endl;
-    FILE_LOG(LOG_CONTACT) << "beta_c: " << q.beta_c << std::endl;
-    FILE_LOG(LOG_CONTACT) << "alpha_l: " << q.alpha_l << std::endl;
-    FILE_LOG(LOG_CONTACT) << "beta_t: " << q.beta_t << std::endl;
-    FILE_LOG(LOG_CONTACT) << "velocity before: " << v << std::endl;
-    FILE_LOG(LOG_CONTACT) << "kinetic energy before: " << calc_kinetic_energy() << std::endl;
-    FILE_LOG(LOG_CONTACT) << "kinetic energy before (calculation 2): " << v.dot(get_generalized_inertia(DynamicBody::eAxisAngle, M).mult(v*0.5)) << std::endl;
+    FILE_LOG(LOG_EVENT) << "alpha_c: " << q.alpha_c << std::endl;
+    FILE_LOG(LOG_EVENT) << "beta_c: " << q.beta_c << std::endl;
+    FILE_LOG(LOG_EVENT) << "alpha_l: " << q.alpha_l << std::endl;
+    FILE_LOG(LOG_EVENT) << "beta_t: " << q.beta_t << std::endl;
+    FILE_LOG(LOG_EVENT) << "velocity before: " << v << std::endl;
+    FILE_LOG(LOG_EVENT) << "kinetic energy before: " << calc_kinetic_energy() << std::endl;
+    FILE_LOG(LOG_EVENT) << "kinetic energy before (calculation 2): " << v.dot(get_generalized_inertia(DynamicBody::eAxisAngle, M).mult(v*0.5)) << std::endl;
   }
 
   // compute change in velocities
@@ -2713,8 +2713,8 @@ void RCArticulatedBody::update_velocity(const EventProblemData& q)
   // set the spatial velocity
   set_generalized_velocity(DynamicBody::eAxisAngle, v);
 
-  FILE_LOG(LOG_CONTACT) << "velocity after: " << v << std::endl;
-  FILE_LOG(LOG_CONTACT) << "kinetic energy after: " << calc_kinetic_energy() << std::endl;
+  FILE_LOG(LOG_EVENT) << "velocity after: " << v << std::endl;
+  FILE_LOG(LOG_EVENT) << "kinetic energy after: " << calc_kinetic_energy() << std::endl;
 }
 
 /// Gets the generalized forces on this body

@@ -87,7 +87,7 @@ Real SemiImplicitSimulator::step(Real step_size)
   // if there is no contact, just call the underlying simulator method
   if (TOC > dt || contacts.empty())
   {
-    FILE_LOG(LOG_CONTACT) << " no contacts -- stepping simulator regularly" << std::endl;
+    FILE_LOG(LOG_EVENT) << " no contacts -- stepping simulator regularly" << std::endl;
     return Simulator::step(step_size);
   }
 
@@ -167,7 +167,7 @@ Real SemiImplicitSimulator::step(Real step_size)
   // if there is no impact, just call the underlying simulator method
   if (TOI > step_size || contacts.empty())
   {
-    FILE_LOG(LOG_CONTACT) << " no contacts -- stepping simulator regularly" << std::endl;
+    FILE_LOG(LOG_EVENT) << " no contacts -- stepping simulator regularly" << std::endl;
     return Simulator::step(step_size);
   }
 
@@ -203,7 +203,7 @@ Real SemiImplicitSimulator::step(Real step_size)
     // if there is no impact, just call the underlying simulator method
     if (TOI > dt || contacts.empty())
     {
-      FILE_LOG(LOG_CONTACT) << " no contacts -- stepping simulator regularly" << std::endl;
+      FILE_LOG(LOG_EVENT) << " no contacts -- stepping simulator regularly" << std::endl;
       return Simulator::step(dt);
     }
   }

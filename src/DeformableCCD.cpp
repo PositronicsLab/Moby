@@ -115,7 +115,7 @@ map<SingleBodyPtr, pair<Vector3, Vector3> > DeformableCCD::get_velocities(const 
   for (unsigned i=0; i< q0.size(); i++)
   {
     qd.copy_from(q1[i].second) -= q0[i].second;
-    q1[i].first->set_generalized_coordinates(DynamicBody::eRodrigues, q1[i].second);
+    q1[i].first->set_generalized_coordinates(DynamicBody::eRodrigues, q0[i].second);
     q1[i].first->set_generalized_velocity(DynamicBody::eRodrigues, qd);
   }
   #else
@@ -125,7 +125,7 @@ map<SingleBodyPtr, pair<Vector3, Vector3> > DeformableCCD::get_velocities(const 
   for (unsigned i=0; i< q0.size(); i++)
   {
     qd[i].copy_from(q1[i].second) -= q0[i].second;
-    q1[i].first->set_generalized_coordinates(DynamicBody::eRodrigues, q1[i].second);
+    q1[i].first->set_generalized_coordinates(DynamicBody::eRodrigues, q0[i].second);
     q1[i].first->set_generalized_velocity(DynamicBody::eRodrigues, qd[i]);
   }
   #endif

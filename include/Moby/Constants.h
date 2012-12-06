@@ -27,7 +27,7 @@ const VectorN EMPTY_VEC(0);
 
 // debugging bits
 const unsigned LOG_SIMULATOR = 1;
-const unsigned LOG_CONTACT = 2;
+const unsigned LOG_EVENT = 2;
 const unsigned LOG_DYNAMICS = 4;
 const unsigned LOG_BV = 8;
 const unsigned LOG_ADF = 16;
