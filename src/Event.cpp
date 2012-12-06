@@ -271,7 +271,7 @@ osg::Node* Event::to_visualization_data() const
  */
 void Event::determine_connected_events(const vector<Event>& events, list<list<Event*> >& groups)
 {
-  FILE_LOG(LOG_CONTACT) << "Event::determine_connected_contacts() entered" << std::endl;
+  FILE_LOG(LOG_EVENT) << "Event::determine_connected_contacts() entered" << std::endl;
 
   // clear the groups
   groups.clear();
@@ -326,11 +326,11 @@ void Event::determine_connected_events(const vector<Event>& events, list<list<Ev
       assert(false);
   }
 
-  FILE_LOG(LOG_CONTACT) << " -- single bodies in events:" << std::endl;
-  if (LOGGING(LOG_CONTACT))
+  FILE_LOG(LOG_EVENT) << " -- single bodies in events:" << std::endl;
+  if (LOGGING(LOG_EVENT))
     for (set<SingleBodyPtr>::const_iterator i = nodes.begin(); i != nodes.end(); i++)
-      FILE_LOG(LOG_CONTACT) << "    " << (*i)->id << std::endl;
-  FILE_LOG(LOG_CONTACT) << std::endl;
+      FILE_LOG(LOG_EVENT) << "    " << (*i)->id << std::endl;
+  FILE_LOG(LOG_EVENT) << std::endl;
 
   // add connections between articulated rigid bodies -- NOTE: don't process
   // articulated bodies twice!
@@ -382,7 +382,7 @@ void Event::determine_connected_events(const vector<Event>& events, list<list<Ev
 
     // add a list to the contact groups
     groups.push_back(list<Event*>());
-    FILE_LOG(LOG_CONTACT) << " -- events in group: " << std::endl;
+    FILE_LOG(LOG_EVENT) << " -- events in group: " << std::endl;
 
     // create a node queue, with this node added
     std::queue<SingleBodyPtr> node_q;
@@ -455,8 +455,173 @@ void Event::determine_connected_events(const vector<Event>& events, list<list<Ev
     }
   }
 
-  FILE_LOG(LOG_CONTACT) << "Event::determine_connected_events() exited" << std::endl;
+  FILE_LOG(LOG_EVENT) << "Event::determine_connected_events() exited" << std::endl;
 }
+
+/*
+/// Modified Gaussian elimination with partial pivoting -- computes half-rank at the same time - this version designed to work with "full" 3*NC x 3*NC matrices
+unsigned Event::gauss_elim(MatrixN& A, vector<unsigned>& piv)
+{
+  const unsigned NROWS = A.rows(), NCOLS = A.columns();
+  const unsigned NPOSVARS = (NCOLS-1)/3;
+
+  FILE_LOG(LOG_EVENT) << "matrix before modified Gaussian elimination:" << std::endl << A;
+
+  // equilibrate the rows of A 
+  for (unsigned j=0; j< NROWS; j++)
+  {
+    Real* col = &A(j,0);
+    Real max_val = (Real) 0.0;
+    for (unsigned i=0, k=0; i< NCOLS; i++, k+= NROWS)
+      max_val = std::max(max_val, std::fabs(col[k]));
+    assert(max_val > (Real) 0.0);
+    CBLAS::scal(NCOLS, (Real) 1.0/max_val, col, NROWS);
+  }
+
+  // setup epsilon
+  const Real EPS = NCOLS * NEAR_ZERO;
+
+  // resize the pivots array
+  piv.resize(NROWS);
+  for (unsigned i=0; i< NROWS; i++)
+    piv[i] = i;
+
+  // setup swpi
+  unsigned swpi = 0;
+
+  // iterate over the positive variables
+  for (unsigned i=0; i< NPOSVARS; i++)
+  {
+    // get the pointer to the column 
+    BlockIterator col = A.block_start(0, NROWS, i,i+1);
+
+    // find the largest positive element in the column
+    Real largest = col[piv[swpi]];
+    unsigned largest_index = swpi;
+    for (unsigned k=swpi+1; k< NROWS; k++)
+      if (col[piv[k]] > largest)
+      {
+        largest_index = k;
+        largest = col[piv[k]];
+      }
+
+    // continue processing only if largest positive element is greater than 0 
+    if (largest > EPS)
+    {
+      // swap the pivots
+      std::swap(piv[swpi], piv[largest_index]);
+
+      // reduce the rows 
+      const Real* elm = &A(piv[swpi], i);
+      for (unsigned k=swpi+1; k< NROWS; k++)
+      {
+        Real* elm_k = &A(piv[k], i);
+        if (*elm_k > EPS)
+        {
+          Real scal = -*elm_k / *elm;
+          CBLAS::axpy(NCOLS-i, scal, elm, NROWS, &A(piv[k],i), NROWS);
+        }
+      }
+
+      // update the swap pivot
+      swpi++;
+
+      // quit if swpi too large
+      if (swpi == NROWS)
+        return swpi;
+    }
+
+    // find the largest negative element in the column
+    largest = col[piv[swpi]];
+    largest_index = swpi;
+    for (unsigned k=swpi+1; k< NROWS; k++)
+      if (col[piv[k]] < largest)
+      {
+        largest_index = k;
+        largest = col[piv[k]];
+      }
+
+    // only continue processing if largest negative element is less than 0
+    if (largest < -EPS)
+    {
+      // swap the pivots
+      std::swap(piv[swpi], piv[largest_index]);
+      
+      // reduce the rows
+      const Real* elm = &A(piv[swpi], i);
+      for (unsigned k=swpi+1; k< NROWS; k++)
+      {
+        Real* elm_k = &A(piv[k], i);
+        if (*elm_k < -EPS)
+        {
+          Real scal = -*elm_k / *elm;
+          CBLAS::axpy(NCOLS-i, scal, elm, NROWS, &A(piv[k], i), NROWS);
+        }
+      }
+
+      // update the swap pivot
+      swpi++;
+
+      // quit if swpi too large
+      if (swpi == NROWS)
+        return swpi;
+    }
+  }
+
+  // iterate over the real variables
+  for (unsigned i=NPOSVARS; i< NCOLS; i++)
+  {
+    // get the pointer to the column 
+    BlockIterator col = A.block_start(0, NROWS, i,i+1);
+
+    // find the largest element in the column
+    Real largest = col[piv[swpi]];
+    unsigned largest_index = swpi;
+    for (unsigned k=swpi+1; k< NROWS; k++)
+      if (std::fabs(col[piv[k]]) > largest)
+      {
+        largest_index = k;
+        largest = std::fabs(col[piv[k]]);
+      }
+
+    // continue processing only if largest positive element is greater than 0 
+    if (largest > EPS)
+    {
+      // swap the pivots
+      std::swap(piv[swpi], piv[largest_index]);
+
+      // reduce the rows 
+      const Real* elm = &A(piv[swpi], i);
+      for (unsigned k=swpi+1; k< NROWS; k++)
+      {
+        Real* elm_k = &A(piv[k], i);
+        Real scal = -*elm_k / *elm;
+        CBLAS::axpy(NCOLS-i, scal, elm, NROWS, &A(piv[k],i), NROWS);
+      }
+
+      // update the swap pivot
+      swpi++;
+
+      // quit if swpi too large
+      if (swpi == NROWS)
+        break;
+    }
+  }
+
+  FILE_LOG(LOG_EVENT) << "matrix after modified Gaussian elimination:" << std::endl << A;
+  FILE_LOG(LOG_EVENT) << "rank: " << swpi << std::endl;
+  if (LOGGING(LOG_EVENT))
+  {
+    std::ostringstream oss;
+    oss << "pivots:";
+    for (unsigned i=0; i< piv.size(); i++)
+      oss << " " << piv[i];
+    FILE_LOG(LOG_EVENT) << oss.str() << std::endl;
+  }
+
+  return swpi;
+}
+*/
 
 /// Determines whether the new contact event is redundant 
 void Event::redundant_contacts(const MatrixN& Jc, const MatrixN& Dc, vector<unsigned>& nr_indices)
@@ -633,8 +798,8 @@ void Event::determine_minimal_set(list<Event*>& group)
   if (group.size() <= 4)
     return;
 
-  FILE_LOG(LOG_CONTACT) << "Event::determine_minimal_set() entered" << std::endl;
-  FILE_LOG(LOG_CONTACT) << " -- initial number of events: " << group.size() << std::endl;
+  FILE_LOG(LOG_EVENT) << "Event::determine_minimal_set() entered" << std::endl;
+  FILE_LOG(LOG_EVENT) << " -- initial number of events: " << group.size() << std::endl;
 
   // setup a mapping from pairs of single bodies to groups of events
   map<sorted_pair<SingleBodyPtr>, list<Event*> > contact_groups;
@@ -681,13 +846,13 @@ void Event::determine_minimal_set(list<Event*>& group)
 /// Computes a minimal subset of contact events
 void Event::determine_minimal_subset(list<Event*>& group)
 {
-  FILE_LOG(LOG_CONTACT) << "Event::determine_minimal_set() entered" << std::endl;
-  FILE_LOG(LOG_CONTACT) << " -- initial number of events: " << group.size() << std::endl;
+  FILE_LOG(LOG_EVENT) << "Event::determine_minimal_set() entered" << std::endl;
+  FILE_LOG(LOG_EVENT) << " -- initial number of events: " << group.size() << std::endl;
 
   // if there is one or fewer contacts quit now
   if (group.empty() || group.front() == group.back())
   {
-    FILE_LOG(LOG_CONTACT) << " -- initial/final number of contacts: " << group.size() << std::endl;
+    FILE_LOG(LOG_EVENT) << " -- initial/final number of contacts: " << group.size() << std::endl;
     return;
   }
 
@@ -726,6 +891,40 @@ void Event::determine_minimal_subset(list<Event*>& group)
   {
     // get the Jacobians (normal & tangential) for this contact
     compute_contact_jacobians(**i, Jc_vec, Dc1_vec, Dc2_vec);
+  }
+
+  // compute components of big matrix
+  Jc.mult(iM_JcT, Jc_iM_JcT);
+  Jc.mult(iM_DcT, Jc_iM_DcT);
+  Dc.mult(iM_DcT, Dc_iM_DcT);
+  Jc.mult(gv, Jc_v);
+  Dc.mult(gv, Dc_v);
+
+  // spit out normal matrix beforehand
+  FILE_LOG(LOG_EVENT) << " Contact normal inertia matrix (before): " << endl << Jc_iM_JcT;
+  FILE_LOG(LOG_EVENT) << " Jc*iM*DcT (before): " << endl << Jc_iM_DcT;
+  FILE_LOG(LOG_EVENT) << " Dc*iM*DcT (before): " << endl << Dc_iM_DcT;
+  FILE_LOG(LOG_EVENT) << " contact normal velocities (before): " << Jc_v << endl; 
+  FILE_LOG(LOG_EVENT) << " Dc*v (before): " << Dc_v << endl; 
+
+  // setup augmented matrix
+  // Jc*iM*JcT   Jc*iM*DcT  -Jc*iM*DcT
+  // Dc*iM*JcT   Dc*iM*DcT  -Dc*iM*DcT
+  // -Dc*iM*JcT  -Dc*iM*DcT Dc*iM*DcT
+  full.resize(NC*5, NC*5+1);
+  full.set_sub_mat(0, 0, Jc_iM_JcT);
+  full.set_sub_mat(0, NC, Jc_iM_DcT);
+  full.set_sub_mat(NC, 0, Jc_iM_DcT, true);
+  full.set_sub_mat(0, NC*3, Jc_iM_DcT.negate());
+  full.set_sub_mat(NC*3, 0, Jc_iM_DcT, true);  // -(Jc_iM_DcT)'
+  full.set_sub_mat(NC, NC, Dc_iM_DcT);
+  full.set_sub_mat(NC*3, NC*3, Dc_iM_DcT);
+  full.set_sub_mat(NC, NC*3, Dc_iM_DcT.negate());
+  full.set_sub_mat(NC*3, NC, Dc_iM_DcT);  // -Dc_iM_DcT
+  full.set_sub_mat(0, NC*5, Jc_v);
+  full.set_sub_mat(NC, NC*5, Dc_v);
+  full.set_sub_mat(NC*3, NC*5, Dc_v.negate());
+>>>>>>> e4f7cac7c0fe9fc6c24ce19450b66e8b5a5bdf68
 
     // set the rows of the Jacobians
     Jc.set_row(ci, Jc_vec);
@@ -733,7 +932,7 @@ void Event::determine_minimal_subset(list<Event*>& group)
     Dc.set_row(ci*2+1, Dc2_vec);
   }
 
-  FILE_LOG(LOG_CONTACT) << "contact Jacobian: " << std::endl << Jc;
+  FILE_LOG(LOG_EVENT) << "contact Jacobian: " << std::endl << Jc;
 
   // setup selection indices for contact 0
   vector<unsigned> sel;
@@ -742,7 +941,7 @@ void Event::determine_minimal_subset(list<Event*>& group)
   // loop over all contacts
   for (unsigned i=1; i< NC; i++)
   {
-    FILE_LOG(LOG_CONTACT) << " examining contact point " << i << endl;
+    FILE_LOG(LOG_EVENT) << " examining contact point " << i << endl;
     sel.push_back(i);
 
     // see whether the normal component of the contact is redundant 
@@ -760,7 +959,7 @@ void Event::determine_minimal_subset(list<Event*>& group)
       i = group.erase(i);
   }
 
-  FILE_LOG(LOG_CONTACT) << " -- final number of events: " << group.size() << std::endl;
+  FILE_LOG(LOG_EVENT) << " -- final number of events: " << group.size() << std::endl;
 }
 
 /// Removes groups of contacts that contain no impacts
@@ -951,6 +1150,7 @@ void Event::determine_contact_tangents()
 /// Determines the type of event (impacting, resting, or separating)
 Event::EventClass Event::determine_event_class() const
 {
+tol = 1e-5;
   // get the event velocity
   Real vel = calc_event_vel();
 

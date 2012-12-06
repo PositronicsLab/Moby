@@ -257,7 +257,8 @@ void MeshDCD::check_geom(Real dt, CollisionGeometryPtr cg, const vector<pair<Dyn
 DynamicBodyPtr MeshDCD::get_super_body(CollisionGeometryPtr geom)
 {
   RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(geom->get_single_body());
-  assert(rb);
+  if (!rb)
+    return dynamic_pointer_cast<DeformableBody>(geom->get_single_body());
   ArticulatedBodyPtr ab = rb->get_articulated_body();
   if (ab)
     return ab;
