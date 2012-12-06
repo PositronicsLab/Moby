@@ -42,6 +42,7 @@ using boost::shared_ptr;
 /// Creates an empty event 
 Event::Event()
 {
+  tol = NEAR_ZERO;              // default collision tolerance
   t_true = (Real) -1.0;
   event_type = eNone;
   limit_dof = std::numeric_limits<unsigned>::max();
@@ -59,6 +60,7 @@ Event::Event()
 
 Event& Event::operator=(const Event& e)
 {
+  tol = e.tol;
   t_true = e.t_true;
   t = e.t;
   event_type = e.event_type;
@@ -622,6 +624,84 @@ unsigned Event::gauss_elim(MatrixN& A, vector<unsigned>& piv)
 */
 
 /// Determines whether the new contact event is redundant 
+void Event::redundant_contacts(const MatrixN& Jc, const MatrixN& Dc, vector<unsigned>& nr_indices)
+{
+  SAFESTATIC MatrixN workM;
+  SAFESTATIC VectorN x;
+  SAFESTATIC LPParams lp;
+  SAFESTATIC vector<unsigned> row_indices, Dc_row_indices;
+
+  // get # of contacts
+  const unsigned NC = Jc.rows();
+
+  // setup row indices
+  for (unsigned i=0; i< nr_indices.size(); )
+  {
+    // copy nr_indices
+    row_indices = nr_indices;
+
+    // remove the i'th contact
+    row_indices.erase(row_indices.begin()+i);
+
+    // select appropriate rows of Jc
+    Jc.select_rows(row_indices.begin(), row_indices.end(), workM);
+
+    // see wehether there are any redundant contacts
+    MatrixN::transpose(workM, lp.A);
+    lp.n = row_indices.size();
+
+    // setup lower and upper bounds on variables
+    lp.l.set_zero(lp.n);
+    lp.u.set_zero(0);
+
+    // setup 'c' variable (l1-norm)
+    lp.c.set_one(lp.n);
+
+    // setup LP M and q variables
+    lp.M.resize(0,lp.n);
+    lp.q.resize(0);
+
+    // resize x
+    x.resize(lp.n);
+
+    // must be able to solve one LPs (one for normal)
+    Jc.get_row(nr_indices[i], lp.b);
+  
+    // solve the LP (if not possible to solve, contact is not redundant)
+    if (!Optimization::lp_simplex(lp, x))
+    {
+      i++;
+      continue;
+    }
+
+    // get rank proposed row rank of Dc
+    Dc_row_indices.clear();
+    for (unsigned j=0; j< row_indices.size(); j++)
+    {
+      Dc_row_indices.push_back(row_indices[j]*2);
+      Dc_row_indices.push_back(row_indices[j]*2+1);
+    } 
+    Dc.select_rows(Dc_row_indices.begin(), Dc_row_indices.end(), workM);
+    unsigned rank = LinAlg::calc_rank(workM);
+
+    // now, compute rank plus indices we took out
+    Dc_row_indices.push_back(nr_indices[i]*2);
+    Dc_row_indices.push_back(nr_indices[i]*2+1);
+    insertion_sort(Dc_row_indices.begin(), Dc_row_indices.end());
+    Dc.select_rows(Dc_row_indices.begin(), Dc_row_indices.end(), workM);
+    unsigned new_rank = LinAlg::calc_rank(workM);
+
+    if (new_rank > rank)
+    {
+      i++;
+      continue;
+    }
+    else 
+      nr_indices = row_indices;
+  }
+}
+
+/// Determines whether the new contact event is redundant 
 bool Event::redundant_contact(MatrixN& A, const vector<unsigned>& nr_indices, unsigned cand_index)
 {
   SAFESTATIC MatrixN workM;
@@ -716,25 +796,27 @@ void Event::compute_contact_jacobians(const Event& e, MatrixN& Jc, MatrixN& Dc, 
     super1->convert_to_generalized_force(DynamicBody::eAxisAngle, sb1, e.contact_normal, Vector3::cross(r, e.contact_normal), tmpv());
     Jc.set_sub_mat(ci, index, tmpv(), true);
 
+/*
     // compute iM_JcT components
     super1->solve_generalized_inertia(DynamicBody::eAxisAngle, tmpv(), tmpv2());
     iM_JcT.set_sub_mat(index, ci, tmpv2());
-
+*/
     // convert first tangent direction to generalized forces
     super1->convert_to_generalized_force(DynamicBody::eAxisAngle, sb1, e.contact_tan1, Vector3::cross(r, e.contact_tan1), tmpv());
     Dc.set_sub_mat(ci*2, index, tmpv(), true);
-
+/*
     // compute first iM_DcT components
     super1->solve_generalized_inertia(DynamicBody::eAxisAngle, tmpv(), tmpv2());
     iM_DcT.set_sub_mat(index, ci*2, tmpv2());
-
+*/
     // convert second tangent direction to generalized forces
     super1->convert_to_generalized_force(DynamicBody::eAxisAngle, sb1, e.contact_tan2, Vector3::cross(r, e.contact_tan2), tmpv());
     Dc.set_sub_mat(ci*2+1, index, tmpv(), true);
-
+/*
     // compute second iM_DcT components
     super1->solve_generalized_inertia(DynamicBody::eAxisAngle, tmpv(), tmpv2());
     iM_DcT.set_sub_mat(index, ci*2+1, tmpv2());
+*/
   }
 
   // process the second body
@@ -749,26 +831,27 @@ void Event::compute_contact_jacobians(const Event& e, MatrixN& Jc, MatrixN& Dc, 
     // convert the normal force to generalized forces
     super2->convert_to_generalized_force(DynamicBody::eAxisAngle, sb2, -e.contact_normal, Vector3::cross(r, -e.contact_normal), tmpv());
     Jc.set_sub_mat(ci, index, tmpv(), true);
-
+/*
     // compute iM_JcT components
     super2->solve_generalized_inertia(DynamicBody::eAxisAngle, tmpv(), tmpv2());
     iM_JcT.set_sub_mat(index, ci, tmpv2());
-
+*/
     // convert first tangent direction to generalized forces
     super2->convert_to_generalized_force(DynamicBody::eAxisAngle, sb2, -e.contact_tan1, Vector3::cross(r, -e.contact_tan1), tmpv());
     Dc.set_sub_mat(ci*2, index, tmpv(), true);
-
+/*
     // compute first iM_DcT components
     super2->solve_generalized_inertia(DynamicBody::eAxisAngle, tmpv(), tmpv2());
     iM_DcT.set_sub_mat(index, ci*2, tmpv2());
-
+*/
     // convert second tangent direction to generalized forces
     super2->convert_to_generalized_force(DynamicBody::eAxisAngle, sb2, -e.contact_tan2, Vector3::cross(r, -e.contact_tan2), tmpv());
     Dc.set_sub_mat(ci*2+1, index, tmpv(), true);
-
+/*
     // compute second iM_DcT components
     super2->solve_generalized_inertia(DynamicBody::eAxisAngle, tmpv(), tmpv2());
     iM_DcT.set_sub_mat(index, ci*2+1, tmpv2());
+*/
   }
 }
 
@@ -803,7 +886,7 @@ void Event::determine_minimal_set(list<Event*>& group)
   }
 
   // if there is one or fewer contacts, or very few events, quit now
-  if (true || NC <= 1 || NE < 4)
+  if (NC <= 1 || NE < 4)
   {
     FILE_LOG(LOG_CONTACT) << " -- initial/final number of contacts: " << NC << std::endl;
     FILE_LOG(LOG_CONTACT) << " -- initial/final number of events: " << NE << std::endl;
@@ -826,6 +909,50 @@ void Event::determine_minimal_set(list<Event*>& group)
       }
   }
 
+  // setup contact Jacobians
+  MatrixN Jc(NC, NGC), Dc(NC*2, NGC), workM;
+  VectorN workv;
+
+  // clear both Jacobians
+  Jc.set_zero();
+  Dc.set_zero();
+
+  // setup the contact index
+  unsigned ci = 0;
+
+  // loop through the remainder of contacts
+  for (list<Event*>::iterator i = group.begin(); i != group.end(); i++)
+  {
+    // if this isn't a contact event, skip it
+    if ((*i)->event_type != Event::eContact)
+      continue;
+
+    // get the Jacobians (normal & tangential) for this contact
+    compute_contact_jacobians(**i, Jc, Dc, workM, workM, ci++, gc_index);
+  }
+
+  // equilibrate the rows of the Jacobians 
+/*
+  Optimization::equilibrate(Jc);
+  Optimization::equilibrate(Dc);
+*/
+  FILE_LOG(LOG_CONTACT) << "contact Jacobian: " << std::endl << Jc;
+
+  // setup selection indices for contact 0
+  vector<unsigned> sel;
+  sel.push_back(0);
+
+  // loop over all contacts
+  for (unsigned i=1; i< NC; i++)
+  {
+    FILE_LOG(LOG_CONTACT) << " examining contact point " << i << endl;
+    sel.push_back(i);
+
+    // see whether the normal component of the contact is redundant 
+    redundant_contacts(Jc, Dc, sel);
+  } 
+
+/*
   // initialize the Jacobian matrices
   MatrixN Jc(NC, NGC), Dc(NC*2, NGC), iM_JcT(NGC, NC), iM_DcT(NGC, NC*2);
   MatrixN Jc_iM_JcT(NC, NC), Dc_iM_DcT(NC*2, NC*2), Jc_iM_DcT(NC, NC*2);
@@ -921,6 +1048,7 @@ void Event::determine_minimal_set(list<Event*>& group)
       sel.push_back(i);
   } 
 
+*/
   // loop through contacts again
   ci = 0;
   for (list<Event*>::iterator i = group.begin(); i != group.end(); )
@@ -961,7 +1089,7 @@ void Event::determine_minimal_set(list<Event*>& group)
 }
 
 /// Removes groups of contacts that contain no impacts
-void Event::remove_nonimpacting_groups(list<list<Event*> >& groups, Real tol)
+void Event::remove_nonimpacting_groups(list<list<Event*> >& groups)
 {
   typedef list<list<Event*> >::iterator ListIter;
 
@@ -971,7 +1099,7 @@ void Event::remove_nonimpacting_groups(list<list<Event*> >& groups, Real tol)
     bool impact_detected = false;
     BOOST_FOREACH(Event* e, *i)
     {
-      if (e->is_impacting(tol))
+      if (e->is_impacting())
       {
         impact_detected = true;
         break;
@@ -1146,13 +1274,10 @@ void Event::determine_contact_tangents()
 }
 
 /// Determines the type of event (impacting, resting, or separating)
-Event::EventClass Event::determine_event_class(Real tol) const
+Event::EventClass Event::determine_event_class() const
 {
   // get the event velocity
   Real vel = calc_event_vel();
-
-  // determine the real tolerance (based on body velocities)
-  Real TOL = tol * calc_event_tol();  
 
   FILE_LOG(LOG_SIMULATOR) << "-- event type: " << event_type << " velocity: " << vel << std::endl;
 

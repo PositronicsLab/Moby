@@ -31,14 +31,14 @@ class Event
     Event(const Event& e) { *this = e; }
     static void determine_minimal_set(std::list<Event*>& group);
     static void determine_connected_events(const std::vector<Event>& events, std::list<std::list<Event*> >& groups);
-    static void remove_nonimpacting_groups(std::list<std::list<Event*> >& groups, Real tol);
+    static void remove_nonimpacting_groups(std::list<std::list<Event*> >& groups);
     Event& operator=(const Event& e);
     Real calc_event_vel() const;
     Real calc_event_tol() const;
-    EventClass determine_event_class(Real tol = NEAR_ZERO) const;
-    bool is_impacting(Real tol = NEAR_ZERO) const { return determine_event_class(tol) == eImpacting; }
-    bool is_resting(Real tol = NEAR_ZERO) const { return determine_event_class(tol) == eResting; }
-    bool is_separating(Real tol = NEAR_ZERO) const { return determine_event_class(tol) == eSeparating; }
+    EventClass determine_event_class() const;
+    bool is_impacting() const { return determine_event_class() == eImpacting; }
+    bool is_resting() const { return determine_event_class() == eResting; }
+    bool is_separating() const { return determine_event_class() == eSeparating; }
     void set_contact_parameters(const ContactParameters& cparams);
     void determine_contact_tangents();
 
@@ -117,6 +117,9 @@ class Event
     osg::Node* to_visualization_data() const;
     #endif
 
+    /// Tolerance for the event (users never need to modify this)
+    Real tol;
+
     void write_vrml(const std::string& filename, Real sphere_radius = 0.1, Real normal_length = 1.0) const;
     bool operator<(const Event& e) const { return t < e.t; }
 
@@ -125,6 +128,7 @@ class Event
     static void insertion_sort(BidirectionalIterator begin, BidirectionalIterator end);
     static void compute_contact_jacobians(const Event& e, MatrixN& Jc, MatrixN& Dc, MatrixN& iM_JcT, MatrixN& iM_DcT, unsigned ci, const std::map<DynamicBodyPtr, unsigned>& gc_indices);
     static bool redundant_contact(MatrixN& A, const std::vector<unsigned>& nr_indices, unsigned cand_index);
+    static void redundant_contacts(const MatrixN& Jc, const MatrixN& Dc, std::vector<unsigned>& nr_indices);
 }; // end class
 
 std::ostream& operator<<(std::ostream& out, const Event& e);

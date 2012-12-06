@@ -113,7 +113,7 @@ class ImpactEventHandler
 
   public:
     ImpactEventHandler();
-    void process_events(const std::vector<Event>& events, Real tol = NEAR_ZERO);
+    void process_events(const std::vector<Event>& events);
 
     /// If set to true, uses the interior-point solver (default is false)
     bool use_ip_solver;
@@ -130,7 +130,7 @@ class ImpactEventHandler
   private:
     static DynamicBodyPtr get_super_body(SingleBodyPtr sb);
     static bool use_qp_solver(const EventProblemData& epd);
-    void apply_model(const std::vector<Event>& events, Real tol) const;
+    void apply_model(const std::vector<Event>& events) const;
     void apply_model_to_connected_events(const std::list<Event*>& events) const;
     static void compute_problem_data(EventProblemData& epd);
     static void solve_lcp(EventProblemData& epd, VectorN& z);

@@ -405,6 +405,8 @@ class Optimization
     static VectorN& BFGS(BFGSParams& params, VectorN& x);
     static bool optimize_convex_BFGS(OptParams& cparams, VectorN& x);
     static bool make_feasible_convex_BFGS(OptParams& cparams, VectorN& x);
+    static void equilibrate(MatrixN& A, VectorN& b);
+    static void equilibrate(MatrixN& A);
 
   private:
     static void condition_and_factor_PD(MatrixN& H);
@@ -439,8 +441,6 @@ class Optimization
     static void qp_ip_hess(const VectorN& x, Real objscal, const VectorN& lambda, const VectorN& nu, MatrixN& H, void* data);
     static void setup_C(OptParams& oparams, const VectorN& x, VectorN& C);
     static void setup_A(OptParams& oparams, const VectorN& x, MatrixN& A);
-    static void equilibrate(MatrixN& A, VectorN& b);
-    static void equilibrate(MatrixN& A);
 
     /// Computes an integral power of a base
     template <class T>
