@@ -126,9 +126,9 @@ class Event
   private:
     template <class BidirectionalIterator>
     static void insertion_sort(BidirectionalIterator begin, BidirectionalIterator end);
-    static void compute_contact_jacobians(const Event& e, MatrixN& Jc, MatrixN& Dc, MatrixN& iM_JcT, MatrixN& iM_DcT, unsigned ci, const std::map<DynamicBodyPtr, unsigned>& gc_indices);
-    static bool redundant_contact(MatrixN& A, const std::vector<unsigned>& nr_indices, unsigned cand_index);
+    static void compute_contact_jacobians(const Event& e, VectorN& Nc, VectorN& Dc1, VectorN& Dc2);
     static void redundant_contacts(const MatrixN& Jc, const MatrixN& Dc, std::vector<unsigned>& nr_indices);
+    static void determine_minimal_subset(std::list<Event*>& group);
 }; // end class
 
 std::ostream& operator<<(std::ostream& out, const Event& e);
