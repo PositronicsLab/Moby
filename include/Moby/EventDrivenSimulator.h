@@ -25,6 +25,43 @@ class EventDrivenSimulator : public Simulator
   friend class CollisionDetection;
   friend class DeformableCCD;
 
+  private:
+    // class for comparing two events for purposes of setting event tolerances
+    class EventCompare
+    {
+      public: bool operator()(const Event& a, const Event& b)
+      {
+        // check for event type disparity
+        if (a.event_type != b.event_type)
+          return a.event_type < b.event_type;
+
+        // event types are the same - now each event type must be processed
+        // separately
+        if (a.event_type == Event::eContact)
+        {
+          // see whether the bodies are the same
+          return make_sorted_pair(a.contact_geom1->get_single_body(), a.contact_geom2->get_single_body()) < make_sorted_pair(b.contact_geom1->get_single_body(), b.contact_geom2->get_single_body());
+        }
+        else if (a.event_type == Event::eLimit)
+        {
+          // check whether the joints are the same
+          if (a.limit_joint != b.limit_joint)
+            return a.limit_joint < b.limit_joint;
+
+          // check whether the limits are the same
+          if (a.limit_upper != b.limit_upper)
+            return a.limit_upper < b.limit_upper;
+
+          // finally, check whether the DOFs are the same
+          return a.limit_dof < b.limit_dof;
+        }
+        else // event is a constraint event
+        {
+          return a.constraint_joint < b.constraint_joint; 
+        }  
+      }
+    };
+
   public:
     EventDrivenSimulator();
     virtual ~EventDrivenSimulator() {}
@@ -95,6 +132,9 @@ class EventDrivenSimulator : public Simulator
 
     /// The vector of events
     std::vector<Event> _events;
+
+    /// Event tolerances
+    std::map<Event, Real, EventCompare> _event_tolerances;
 
     /// Object for handling impact events
     ImpactEventHandler _impact_event_handler;
