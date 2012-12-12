@@ -107,21 +107,9 @@ void ImpactEventHandler::apply_model(const vector<Event>& events) const
       // apply model to the reduced contacts   
       apply_model_to_connected_events(revents);
 
-/*
-// check the minimum event velocity
-Real minvel = (Real) 0.0;
-for (list<Event*>::const_iterator j = i->begin(); j != i->end(); j++)
-  minvel = std::min(minvel, (*j)->calc_event_vel());
-if (minvel < -1e-5)
-{
-  apply_model_to_connected_events(*i);
-std::cerr << "Invalid contact state detected!" << std::endl;
-//  exit(0);
-}
-*/
-    FILE_LOG(LOG_EVENT) << " -- post-event velocity (all events): " << std::endl;
-    for (list<Event*>::iterator j = i->begin(); j != i->end(); j++)
-      FILE_LOG(LOG_EVENT) << "    event: " << std::endl << **j;
+      FILE_LOG(LOG_EVENT) << " -- post-event velocity (all events): " << std::endl;
+      for (list<Event*>::iterator j = i->begin(); j != i->end(); j++)
+        FILE_LOG(LOG_EVENT) << "    event: " << std::endl << **j;
   }
 
   // determine whether there are any impacting events remaining
