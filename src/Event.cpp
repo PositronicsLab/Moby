@@ -703,6 +703,59 @@ void Event::redundant_contacts(const MatrixN& Jc, const MatrixN& Dc, vector<unsi
 }
 
 /// Computes normal and contact Jacobians for a body
+void Event::compute_contact_jacobian(const Event& e, MatrixN& Jc, MatrixN& iM_JcT, unsigned ci, const map<DynamicBodyPtr, unsigned>& gc_indices)
+{
+  map<DynamicBodyPtr, unsigned>::const_iterator miter;
+  SAFESTATIC FastThreadable<VectorN> tmpv, tmpv2;
+
+  // get the two bodies
+  SingleBodyPtr sb1 = e.contact_geom1->get_single_body();
+  SingleBodyPtr sb2 = e.contact_geom2->get_single_body();
+
+  // get the super bodies
+  DynamicBodyPtr ab1 = sb1->get_articulated_body();
+  DynamicBodyPtr ab2 = sb2->get_articulated_body();
+  DynamicBodyPtr super1 = (ab1) ? ab1 : sb1;
+  DynamicBodyPtr super2 = (ab2) ? ab2 : sb2;
+
+  // process the first body
+  miter = gc_indices.find(super1);
+  if (miter != gc_indices.end())
+  {
+    const unsigned index = miter->second;
+
+    // compute the 'r' vector
+    Vector3 r = e.contact_point - sb1->get_position();
+
+    // convert the normal force to generalized forces
+    super1->convert_to_generalized_force(DynamicBody::eAxisAngle, sb1, e.contact_normal, Vector3::cross(r, e.contact_normal), tmpv());
+    Jc.set_sub_mat(ci, index, tmpv(), true);
+
+    // compute iM_JcT components
+    super1->solve_generalized_inertia(DynamicBody::eAxisAngle, tmpv(), tmpv2());
+    iM_JcT.set_sub_mat(index, ci, tmpv2());
+  }
+
+  // process the second body
+  miter = gc_indices.find(super2);
+  if (miter != gc_indices.end())
+  {
+    const unsigned index = miter->second;
+
+    // compute the 'r' vector
+    Vector3 r = e.contact_point - sb2->get_position();
+
+    // convert the normal force to generalized forces
+    super2->convert_to_generalized_force(DynamicBody::eAxisAngle, sb2, -e.contact_normal, Vector3::cross(r, -e.contact_normal), tmpv());
+    Jc.set_sub_mat(ci, index, tmpv(), true);
+
+    // compute iM_JcT components
+    super2->solve_generalized_inertia(DynamicBody::eAxisAngle, tmpv(), tmpv2());
+    iM_JcT.set_sub_mat(index, ci, tmpv2());
+  }
+}
+
+/// Computes normal and contact Jacobians for a body
 void Event::compute_contact_jacobians(const Event& e, VectorN& Nc, VectorN& Dcs, VectorN& Dct)
 {
   SAFESTATIC FastThreadable<VectorN> Nc1, Nc2, Dcs1, Dcs2, Dct1, Dct2;
@@ -778,6 +831,102 @@ void Event::compute_contact_jacobians(const Event& e, VectorN& Nc, VectorN& Dcs,
   }
 }
 
+/// Computes a minimal set of contact events
+void Event::determine_minimal_set(list<Event*>& group)
+{
+  FILE_LOG(LOG_EVENT) << "Event::determine_minimal_set() entered" << std::endl;
+  FILE_LOG(LOG_EVENT) << " -- initial number of events: " << group.size() << std::endl;
+
+  // get the number of contact events and total number of events
+  list<Event*>::iterator start = group.begin();
+  unsigned NC = 0, NE = 0;
+  while (start != group.end() && ++NE)
+  {
+    if ((*start)->event_type == Event::eContact)
+      NC++;
+    start++;
+  }
+
+  // if there is one or fewer contacts, or very few events, quit now
+  if (NC <= 1 || NE < 4)
+  {
+    FILE_LOG(LOG_EVENT) << " -- initial/final number of contacts: " << NC << std::endl;
+    FILE_LOG(LOG_EVENT) << " -- initial/final number of events: " << NE << std::endl;
+    return;
+  }
+
+  // determine the number of gc's in the group
+  unsigned NGC = 0;
+  map<DynamicBodyPtr, unsigned> gc_index;
+  vector<DynamicBodyPtr> supers;
+  for (list<Event*>::const_iterator i = group.begin(); i != group.end(); i++)
+  {
+    supers.clear();
+    (*i)->get_super_bodies(std::back_inserter(supers));
+    for (unsigned j=0; j< supers.size(); j++)
+      if (gc_index.find(supers[j]) == gc_index.end())
+      {
+        gc_index[supers[j]] = NGC;
+        NGC += supers[j]->num_generalized_coordinates(DynamicBody::eAxisAngle);
+      }
+  }
+
+  // setup contact Jacobian and contact space inertia matrix
+  MatrixN Jc(NC, NGC), Jc_iM_JcT(NC, NC), iM_JcT(NGC, NC), workM;
+  VectorN workv, workv2;
+
+  // clear Jacobian
+  Jc.set_zero();
+
+  // setup the contact index
+  unsigned ci = 0;
+
+  // loop through the remainder of contacts
+  for (list<Event*>::iterator i = group.begin(); i != group.end(); i++)
+  {
+    // if this isn't a contact event, skip it
+    if ((*i)->event_type != Event::eContact)
+      continue;
+
+    // get the Jacobian for this contact
+    compute_contact_jacobian(**i, Jc, iM_JcT, ci++, gc_index);
+  }
+
+  // compute contact space inertia matrix
+  Jc.mult(iM_JcT, Jc_iM_JcT);
+
+  // setup selection indices for contact 0
+  vector<unsigned> sel;
+  sel.push_back(0);
+
+  // loop over all contacts
+  for (unsigned i=1; i< NC; i++)
+  {
+    FILE_LOG(LOG_EVENT) << " examining contact point " << i << endl;
+
+    // get the appropriate row of Jc_iM_JcT
+    Jc_iM_JcT.get_row(i, workv);
+    workv.select(sel.begin(), sel.end(), workv2);
+
+    // verify that there is a positive component
+    if (*std::min_element(workv2.begin(), workv2.end()) <= (Real) 0.0)
+      sel.push_back(i);    
+  } 
+
+  // loop through contacts again
+  ci = 0;
+  for (list<Event*>::iterator i = group.begin(); i != group.end(); )
+  {
+    // see whether this index exists in the pivots that are left over
+    if (std::binary_search(sel.begin(), sel.end(), ci++))
+      i++; 
+    else
+      i = group.erase(i);
+  }
+
+  FILE_LOG(LOG_EVENT) << " -- final number of events: " << group.size() << std::endl;
+} 
+
 /**
  * Complexity of computing a minimal set:
  * N = # of contacts, NGC = # of generalized coordinates
@@ -792,6 +941,7 @@ void Event::compute_contact_jacobians(const Event& e, VectorN& Nc, VectorN& Dcs,
                             present) + NGC^3
  * therefore generalized coordinates are the limiting factor...
  */
+/*
 /// Computes a minimal set of contact events
 void Event::determine_minimal_set(list<Event*>& group)
 {
@@ -830,20 +980,6 @@ void Event::determine_minimal_set(list<Event*>& group)
   }
 }
 
-/**
- * Complexity of computing a minimal set:
- * N = # of contacts, NGC = # of generalized coordinates
- * NGC << N
- *
- * Cost of computing J*inv(M)*J', J*v for one contacts: NGC^3
- *                                    for R contacts: NGC^3 + 2*NGC^2*R
- * Cost of Modified Gauss elimination for M contacts (M < NGC), 
-        M x NGC matrix: M^2*NGC
- *
- * Overall cost: 2*NGC^2*R (for R > NGC, where many redundant contact points
-                            present) + NGC^3
- * therefore generalized coordinates are the limiting factor...
- */
 /// Computes a minimal subset of contact events
 void Event::determine_minimal_subset(list<Event*>& group)
 {
@@ -928,6 +1064,7 @@ void Event::determine_minimal_subset(list<Event*>& group)
 
   FILE_LOG(LOG_EVENT) << " -- final number of events: " << group.size() << std::endl;
 }
+*/
 
 /// Removes groups of contacts that contain no impacts
 void Event::remove_nonimpacting_groups(list<list<Event*> >& groups)
