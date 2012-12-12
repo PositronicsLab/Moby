@@ -673,7 +673,7 @@ void Event::redundant_contacts(const MatrixN& Jc, const MatrixN& Dc, vector<unsi
       i++;
       continue;
     }
-
+/*
     // get rank proposed row rank of Dc
     Dc_row_indices.clear();
     for (unsigned j=0; j< row_indices.size(); j++)
@@ -697,6 +697,7 @@ void Event::redundant_contacts(const MatrixN& Jc, const MatrixN& Dc, vector<unsi
       continue;
     }
     else 
+*/
       nr_indices = row_indices;
   }
 }
@@ -891,40 +892,6 @@ void Event::determine_minimal_subset(list<Event*>& group)
   {
     // get the Jacobians (normal & tangential) for this contact
     compute_contact_jacobians(**i, Jc_vec, Dc1_vec, Dc2_vec);
-  }
-
-  // compute components of big matrix
-  Jc.mult(iM_JcT, Jc_iM_JcT);
-  Jc.mult(iM_DcT, Jc_iM_DcT);
-  Dc.mult(iM_DcT, Dc_iM_DcT);
-  Jc.mult(gv, Jc_v);
-  Dc.mult(gv, Dc_v);
-
-  // spit out normal matrix beforehand
-  FILE_LOG(LOG_EVENT) << " Contact normal inertia matrix (before): " << endl << Jc_iM_JcT;
-  FILE_LOG(LOG_EVENT) << " Jc*iM*DcT (before): " << endl << Jc_iM_DcT;
-  FILE_LOG(LOG_EVENT) << " Dc*iM*DcT (before): " << endl << Dc_iM_DcT;
-  FILE_LOG(LOG_EVENT) << " contact normal velocities (before): " << Jc_v << endl; 
-  FILE_LOG(LOG_EVENT) << " Dc*v (before): " << Dc_v << endl; 
-
-  // setup augmented matrix
-  // Jc*iM*JcT   Jc*iM*DcT  -Jc*iM*DcT
-  // Dc*iM*JcT   Dc*iM*DcT  -Dc*iM*DcT
-  // -Dc*iM*JcT  -Dc*iM*DcT Dc*iM*DcT
-  full.resize(NC*5, NC*5+1);
-  full.set_sub_mat(0, 0, Jc_iM_JcT);
-  full.set_sub_mat(0, NC, Jc_iM_DcT);
-  full.set_sub_mat(NC, 0, Jc_iM_DcT, true);
-  full.set_sub_mat(0, NC*3, Jc_iM_DcT.negate());
-  full.set_sub_mat(NC*3, 0, Jc_iM_DcT, true);  // -(Jc_iM_DcT)'
-  full.set_sub_mat(NC, NC, Dc_iM_DcT);
-  full.set_sub_mat(NC*3, NC*3, Dc_iM_DcT);
-  full.set_sub_mat(NC, NC*3, Dc_iM_DcT.negate());
-  full.set_sub_mat(NC*3, NC, Dc_iM_DcT);  // -Dc_iM_DcT
-  full.set_sub_mat(0, NC*5, Jc_v);
-  full.set_sub_mat(NC, NC*5, Dc_v);
-  full.set_sub_mat(NC*3, NC*5, Dc_v.negate());
->>>>>>> e4f7cac7c0fe9fc6c24ce19450b66e8b5a5bdf68
 
     // set the rows of the Jacobians
     Jc.set_row(ci, Jc_vec);
@@ -1150,7 +1117,6 @@ void Event::determine_contact_tangents()
 /// Determines the type of event (impacting, resting, or separating)
 Event::EventClass Event::determine_event_class() const
 {
-tol = 1e-5;
   // get the event velocity
   Real vel = calc_event_vel();
 
