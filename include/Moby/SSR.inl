@@ -17,7 +17,7 @@ SSR::SSR(ForwardIterator begin, ForwardIterator end)
   Vector3 normal;
 
   // compute the convex hull of the points
-  PolyhedronPtr hull = CompGeom::calc_convex_hull_3D(begin, end);
+  PolyhedronPtr hull = CompGeom::calc_convex_hull(begin, end);
   bool is_2D = !hull;
   if (is_2D)
   {
@@ -32,11 +32,12 @@ SSR::SSR(ForwardIterator begin, ForwardIterator end)
     Matrix3 R = CompGeom::calc_3D_to_2D_matrix(normal);
     Real offset = CompGeom::determine_3D_to_2D_offset(*begin, R);
     std::list<Vector2> points_2D;
+    std::list<Vector2*> points_2D_ptr;
     CompGeom::to_2D(begin, end, std::back_inserter(points_2D), R);
     
     // compute the convex hull of the points
     std::list<Vector2> hull_2D;
-    CompGeom::calc_convex_hull_2D(points_2D.begin(), points_2D.end(), std::back_inserter(hull_2D));
+    CompGeom::calc_convex_hull(points_2D.begin(), points_2D.end(), std::back_inserter(hull_2D));
 
     // handle degeneracy
     if (hull_2D.empty())

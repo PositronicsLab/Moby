@@ -361,7 +361,7 @@ void TriangleMeshPrimitive::calc_mass_properties()
   if (_convexify_inertia)
   {
     const vector<Vector3>& verts = _mesh->get_vertices();
-    poly = CompGeom::calc_convex_hull_3D(verts.begin(), verts.end());
+    poly = CompGeom::calc_convex_hull(verts.begin(), verts.end());
     mesh = &poly->get_mesh();
   }
   else
