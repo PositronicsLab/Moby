@@ -339,7 +339,8 @@ OutputIterator CompGeomSpecTwo<InputIterator, OutputIterator, Vector3*>::calc_co
     if (!LOGGING(LOG_COMPGEOM))
       fclose(errfile);
 
-    return target_begin; 
+    throw NumericalException(); 
+    return target_begin;
   }
 
   // iterate through all vertices
@@ -783,6 +784,7 @@ PolyhedronPtr CompGeomSpecOne<InputIterator, Vector3>::calc_convex_hull(InputIte
     if (!LOGGING(LOG_COMPGEOM))
       fclose(errfile);
 
+    throw NumericalException(); 
     return PolyhedronPtr();
   }
 
@@ -1699,7 +1701,7 @@ OutputIterator CompGeomSpecTwo<InputIterator, OutputIterator, Vector2>::calc_con
     if (!LOGGING(LOG_COMPGEOM))
       fclose(errfile);
 
-    return target_begin; 
+    return target_begin;
   }
 
   // ordered list of edges
@@ -2402,7 +2404,8 @@ OutputIterator CompGeomSpecTwo<InputIterator, OutputIterator, Vector2*>::calc_co
     if (!LOGGING(LOG_COMPGEOM))
       fclose(errfile);
 
-    return target_begin; 
+    throw NumericalException(); 
+    return target_begin;
   }
 
   // ordered list of edges
@@ -2638,6 +2641,7 @@ PolyhedronPtr CompGeom::calc_hs_intersection(InputIterator start, InputIterator 
     if (!LOGGING(LOG_COMPGEOM))
       fclose(errfile);
 
+    throw NumericalException(); 
     return PolyhedronPtr();
   }
 
