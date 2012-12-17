@@ -162,12 +162,160 @@ Vector3 CompGeom::calc_centroid_3D(InputIterator first, InputIterator last)
   return centroid;
 }
 
-/// Determines the dimensionality of a set of points (Vector3 objects in a STL collection)
+/*****************************************************************************
+ Vector3* versions of functions BEGIN
+ ****************************************************************************/
+
+/// Attempts to fit a plane to a set of points 
 /**
- * \return the dimensionality (0 [point], 1 [line], 2 [plane], 3 [full space])
+ * The singular value decomposition is used to determine the plane that fits
+ * the points best in a least-squares sense.
+ * \param points the set of points (in 3D)
+ * \param normal contains the "best" normal, on return
+ * \param offset the offset such that, for any point on the plane x, 
+ *        <normal, x> = offset
+ * \return the maximum deviation from the plane
  */
+template <class ForwardIterator>
+Real CompGeomSpecOne<ForwardIterator, Vector3*>::fit_plane(ForwardIterator begin, ForwardIterator end, Vector3& normal, Real& offset)
+{
+  const unsigned THREE_D = 3, X = 0, Y = 1, Z = 2;
+  
+  // compute the mean of the data
+  unsigned n = 0;
+  Vector3 mu = ZEROS_3;
+  for (ForwardIterator i = begin; i != end; i++, n++)
+    mu += **i;
+  mu /= n;
+
+  // create a matrix subtracting each point from the mean
+  SAFESTATIC FastThreadable<MatrixN> Mx, Ux, Vx;
+  SAFESTATIC FastThreadable<VectorN> Sx;
+  MatrixN& M = Mx();
+  M.resize(n, THREE_D);
+  unsigned idx = 0;
+  for (ForwardIterator i = begin; i != end; i++)
+  {
+    M.set_row(idx, **i - mu);
+    idx++;
+  }
+
+  // take the svd of the matrix
+  MatrixN& U = Ux();
+  MatrixN& V = Vx();
+  VectorN& S = Sx();
+  LinAlg::svd(M, U, S, V);
+
+  // last column of V should have the singular value we want; normalize it just in case
+  normal[X] = V(X,Z);
+  normal[Y] = V(Y,Z);
+  normal[Z] = V(Z,Z);
+  normal.normalize();
+  
+  // determine offset
+  offset = Vector3::dot(normal, mu);
+
+  // compute distance from all points
+  Real max_dev = 0;
+  for (ForwardIterator i = begin; i != end; i++)
+    max_dev = std::max(max_dev, std::fabs(Vector3::dot(normal, **i) - offset));
+
+  return max_dev;
+}
+
+
+template <class InputIterator, class OutputIterator>
+OutputIterator CompGeomSpecTwo<InputIterator, OutputIterator, Vector3*>::calc_convex_hull(InputIterator source_begin, InputIterator source_end, OutputIterator target_begin)
+{
+  const unsigned X = 0, Y = 1, Z = 2;
+  int exit_code;
+  int curlong, totlong;
+  char flags[] = "qhull Fx";
+  FILE* outfile, * errfile;
+  
+  FILE_LOG(LOG_COMPGEOM) << "computing 3D convex hull of following points:" << std::endl;
+  for (InputIterator i = source_begin; i != source_end; i++)
+    FILE_LOG(LOG_COMPGEOM) << "  " << **i << std::endl;
+  
+  // setup qhull outputs
+  if (LOGGING(LOG_COMPGEOM))
+  {
+    outfile=stdout;  
+    errfile=stderr;
+  }
+  else
+  {
+    outfile=NULL;
+    errfile=fopen("/dev/null", "w");
+    assert(errfile);
+  } 
+
+  // setup constants for qhull
+  const int DIM = 3;
+  const int N_POINTS = (int) std::distance(source_begin, source_end);
+  const boolT IS_MALLOC = false;
+  assert(N_POINTS > 4);
+
+  // setup the points
+  std::map<coordT*, Vector3*> vertex_map;
+  SAFESTATIC std::vector<coordT> qhull_points;
+  qhull_points.resize(N_POINTS*DIM);
+  coordT* points_begin = &qhull_points.front();
+  unsigned j=0;
+  for (InputIterator i = source_begin; i != source_end; i++)
+  {
+    qhull_points[j] = (**i)[X];
+    qhull_points[j+1] = (**i)[Y];
+    qhull_points[j+2] = (**i)[Z];
+    vertex_map[points_begin+j] = *i;
+    j += DIM;
+  }
+
+  // lock the qhull mutex -- qhull is non-reentrant
+  pthread_mutex_lock(&CompGeom::_qhull_mutex);
+  
+  // execute qhull  
+  exit_code = qh_new_qhull(DIM, N_POINTS, points_begin, IS_MALLOC, flags, outfile, errfile);
+  if (exit_code != 0)
+  {
+    // points are not collinear.. unsure of the error...
+    FILE_LOG(LOG_COMPGEOM) << "CompGeom::calc_convex_hull_3D() - unable to execute qhull on points:" << std::endl;
+    for (InputIterator i = source_begin; i != source_end; i++)
+      FILE_LOG(LOG_COMPGEOM) << "  " << **i << std::endl;
+
+    // free qhull memory
+    qh_freeqhull(!qh_ALL);
+    qh_memfreeshort(&curlong, &totlong);
+
+    // release the mutex, since we're not using qhull anymore
+    pthread_mutex_unlock(&CompGeom::_qhull_mutex);
+
+    // close the error stream, if necessary
+    if (!LOGGING(LOG_COMPGEOM))
+      fclose(errfile);
+
+    return target_begin; 
+  }
+
+  // iterate through all vertices
+  vertexT* vertex;
+  FORALLvertices
+    (*target_begin++) = vertex_map[vertex->point];
+ 
+  // free qhull memory
+  qh_freeqhull(!qh_ALL);
+  qh_memfreeshort(&curlong, &totlong);
+
+  // release the qhull mutex
+  pthread_mutex_unlock(&CompGeom::_qhull_mutex);
+ 
+  // close the error stream, if necessary
+  if (!LOGGING(LOG_COMPGEOM))
+    fclose(errfile);
+}
+
 template <class InputIterator>
-unsigned CompGeom::calc_dimensionality(InputIterator first, InputIterator last, Real tol)
+unsigned CompGeomSpecOne<InputIterator, Vector3*>::calc_dimensionality(InputIterator first, InputIterator last, Real tol)
 {
   assert(tol >= 0.0);
 
@@ -186,7 +334,7 @@ unsigned CompGeom::calc_dimensionality(InputIterator first, InputIterator last, 
       return 0;      
 
     // if the points are not equal, we can go ahead and break out
-    if ((*i - *j).norm() > tol)
+    if ((**i - **j).norm() > tol)
       break;
   }  
 
@@ -202,16 +350,17 @@ unsigned CompGeom::calc_dimensionality(InputIterator first, InputIterator last, 
       return 1;
 
     // if the points are not collinear, we can go ahead and break out
-    if (!CompGeom::collinear(*first, *j, *k, tol))
+    if (!CompGeom::collinear(**first, **j, **k, tol))
       break;
   }
   
   // determine whether all of the points are coplanar (2 dimensionality)
   // points first, j, k are not colinear, so these will be the basis for our plane
-  Vector3 v1 = *j - *first;
-  Vector3 v2 = *k - *j;
+  Vector3 v1 = **j - **first;
+  Vector3 v2 = **k - **j;
   Vector3 n = Vector3::normalize(Vector3::cross(v1, v2));
-  Real d = Vector3::dot(n, v1);  
+  Real d = Vector3::dot(n, v1);
+  const Real PLANE_TOL = tol * std::max((Real) 1.0, std::fabs(d));
   InputIterator i = k;
   while (true)
   {
@@ -221,7 +370,7 @@ unsigned CompGeom::calc_dimensionality(InputIterator first, InputIterator last, 
       return 2;
 
     // if the points are not coplanar, we can go ahead and break out
-    if (std::fabs(Vector3::dot(n, *i) - d) > tol)
+    if (std::fabs(Vector3::dot(n, **i) - d) > PLANE_TOL)
       break;
   }
 
@@ -229,14 +378,248 @@ unsigned CompGeom::calc_dimensionality(InputIterator first, InputIterator last, 
   return 3;
 }
 
+/// Determines the endpoints for a container of collinear Vector3 objects
+/**
+ * \param begin iterator to beginning of container of type Vector3
+ * \param end iterator to end of container of type Vector3
+ * \param endpoints the two farthest points on the segment on return
+ */
+template <class InputIterator>
+void CompGeom::determine_seg_endpoints(InputIterator begin, InputIterator end, std::pair<Vector3*, Vector3*>& endpoints)
+{
+  // make sure that we have been given valid input
+  assert(begin != end);
+
+  // setup initial endpoints
+  endpoints.first = *begin;
+  endpoints.second = *begin;
+  Real dist = 0; 
+
+  for (InputIterator i = ++begin; i != end; i++)
+  {
+    // get distance from i to both current bounding points
+    Real dist_e = (**i - *endpoints.second).norm();
+    Real dist_s = (**i - *endpoints.first).norm();
+
+    // see which distance would be greatest
+    if (dist > dist_e)
+    {
+      // check for no change
+      if (dist > dist_s)
+        continue;
+      else
+      {
+        dist = dist_s;
+        endpoints.second = *i;
+      }
+    }
+    else
+    {
+      if (dist_e > dist_s)
+      {
+        dist = dist_e;
+        endpoints.first = *i;
+      }
+      else
+      {
+        dist = dist_s;
+        endpoints.second = *i;
+      }
+    }
+  }
+}
+
+/**
+ * Converts a collection of Vector3* objects to Vector2 objects
+ * \param source_begin an iterator pointing to the beginning of the Vector3 
+ *        objects
+ * \param source_end an iterator pointing to the end of the Vector3 objects
+ * \param begin_target an iterator pointing to the beginning of the Vector2
+ *        objects
+ * \param R the projection matrix from 3D to 2D (on return)
+ * \return the end of the output range
+ * \note the size of the target collection must be equal to the size of the
+ *       source collection
+ */
+template <class InputIterator, class OutputIterator>
+OutputIterator CompGeomSpecTwo<InputIterator, OutputIterator, Vector3*>::to_2D(InputIterator begin_source, InputIterator end_source, OutputIterator begin_target, const Matrix3& R)
+{
+  // project the points to 2D
+  for (InputIterator i = begin_source; i != end_source; i++, begin_target++)
+    *begin_target = CompGeom::to_2D(**i, R);
+
+  return begin_target;
+}
+
+/// Determines whether a polygon (in 3D) is convex
+template <class ForwardIterator>
+bool CompGeomSpecOne<ForwardIterator, Vector3*>::is_convex_polygon(ForwardIterator begin, ForwardIterator end, const Vector3& normal, Real tol)
+{
+  const unsigned X = 0, Y = 1, Z = 2;
+  assert(tol >= 0.0);
+
+  // get the 3D to 2D projection matrix
+  Matrix3 R = CompGeom::calc_3D_to_2D_matrix(normal);
+
+  // project the points to 2D
+  std::list<Vector2> points_2D(std::distance(begin, end));
+  CompGeom::to_2D(begin, end, points_2D.begin(), R);
+
+  // if the 2D polygon is not ccw, make it so
+  assert(CompGeom::ccw(points_2D.begin(), points_2D.end()));
+//  if (!ccw(points_2D.begin(), points_2D.end()))
+//    std::reverse(points_2D.begin(), points_2D.end());
+
+  // check whether the 2D polygon is convex
+  return CompGeom::is_convex_polygon(points_2D.begin(), points_2D.end(), tol);
+}
+
+/// Calculates the convex hull of a set of points that lie on a 2D manifold using quickhull
+/**
+ * \param source_begin an iterator to the beginning of a container of points
+ * \param source_end an iterator pointing to the end of a container of points
+ * \param normal the (optional) normal of the points; this will be computed if normal is zero vector
+ * \param target_begin an iterator to the beginning of a container of points;
+ *         on return, contains the convex hull (NOTE: size of this container
+ *         must be as large as the source container)
+ * \return the new end of the target container
+ */
+template <class ForwardIterator, class OutputIterator>
+OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Vector3*>::calc_convex_hull(ForwardIterator source_begin, ForwardIterator source_end, const Vector3& normal, OutputIterator target_begin)
+{  
+  FILE_LOG(LOG_COMPGEOM) << "computing 2D convex hull of following points:" << std::endl;
+  for (ForwardIterator i = source_begin; i != source_end; i++)
+    FILE_LOG(LOG_COMPGEOM) << "  " << **i << std::endl;
+  
+  // **************************************************************
+  // first, we need to project the 3D surface to a 2D polygon
+  // **************************************************************
+  
+  // determine the normal, if necessary 
+  Vector3 n = normal;
+  if (std::fabs(n.norm() - 1.0) > NEAR_ZERO)
+  {
+    Real offset;
+    CompGeom::fit_plane(source_begin, source_end, n, offset);
+  }
+
+  // compute the 3D to 2D projection matrix
+  Matrix3 R = CompGeom::calc_3D_to_2D_matrix(n);
+
+  // get the 2D to 3D offset
+  Real offset = CompGeom::determine_3D_to_2D_offset(**source_begin, R);
+
+  // get the transpose (i.e., inverse) of the rotation matrix
+  Matrix3 RT = Matrix3::transpose(R);
+
+  // project the points to 2D
+  unsigned sz = std::distance(source_begin, source_end);
+  std::vector<Vector2> points_2D(sz);
+  CompGeom::to_2D(source_begin, source_end, points_2D.begin(), R);
+
+  // compute correspondences
+  std::vector<Vector2*> points_2D_ptr(sz);
+  std::map<Vector2*, Vector3*> mapping;
+  unsigned i=0;
+  for (ForwardIterator j=source_begin; j != source_end; i++, j++)
+  {
+    points_2D_ptr[i] = &points_2D[i];
+    mapping[&points_2D[i]] = *j;
+  } 
+  FILE_LOG(LOG_COMPGEOM) << "2D points:" << std::endl;
+  for (unsigned i=0; i< points_2D.size(); i++)
+    FILE_LOG(LOG_COMPGEOM) << "  " << points_2D[i] << std::endl;
+
+  // compute the convex hull
+  std::list<Vector2*> hull(sz);
+  std::list<Vector2*>::iterator hull_end = CompGeom::calc_convex_hull(points_2D_ptr.begin(), points_2D_ptr.end(), hull.begin());
+
+  // use the mapping to 3D
+  std::list<Vector3*> hull3D;
+  for (std::list<Vector2*>::iterator i = hull.begin(); i != hull_end; i++)
+    hull3D.push_back(mapping[*i]);
+
+  // reverse the hull if necessary
+  if (!CompGeom::ccw(hull3D.begin(), hull3D.end(), normal))
+    std::reverse(hull3D.begin(), hull3D.end());  
+
+  // return the hull
+  return std::copy(hull3D.begin(), hull3D.end(), target_begin);
+}
+
+/*****************************************************************************
+ Vector3* versions of functions END 
+ ****************************************************************************/
+
+/*****************************************************************************
+ Vector3 versions of functions BEGIN
+ ****************************************************************************/
+
+/// Attempts to fit a plane to a set of points 
+/**
+ * The singular value decomposition is used to determine the plane that fits
+ * the points best in a least-squares sense.
+ * \param points the set of points (in 3D)
+ * \param normal contains the "best" normal, on return
+ * \param offset the offset such that, for any point on the plane x, 
+ *        <normal, x> = offset
+ * \return the maximum deviation from the plane
+ */
+template <class ForwardIterator>
+Real CompGeomSpecOne<ForwardIterator, Vector3>::fit_plane(ForwardIterator begin, ForwardIterator end, Vector3& normal, Real& offset)
+{
+  const unsigned THREE_D = 3, X = 0, Y = 1, Z = 2;
+  
+  // compute the mean of the data
+  unsigned n = 0;
+  Vector3 mu = ZEROS_3;
+  for (ForwardIterator i = begin; i != end; i++, n++)
+    mu += *i;
+  mu /= n;
+
+  // create a matrix subtracting each point from the mean
+  SAFESTATIC FastThreadable<MatrixN> Mx, Ux, Vx;
+  SAFESTATIC FastThreadable<VectorN> Sx;
+  MatrixN& M = Mx();
+  M.resize(n, THREE_D);
+  unsigned idx = 0;
+  for (ForwardIterator i = begin; i != end; i++)
+  {
+    M.set_row(idx, *i - mu);
+    idx++;
+  }
+
+  // take the svd of the matrix
+  MatrixN& U = Ux();
+  MatrixN& V = Vx();
+  VectorN& S = Sx();
+  LinAlg::svd(M, U, S, V);
+
+  // last column of V should have the singular value we want; normalize it just in case
+  normal[X] = V(X,Z);
+  normal[Y] = V(Y,Z);
+  normal[Z] = V(Z,Z);
+  normal.normalize();
+  
+  // determine offset
+  offset = Vector3::dot(normal, mu);
+
+  // compute distance from all points
+  Real max_dev = 0;
+  for (ForwardIterator i = begin; i != end; i++)
+    max_dev = std::max(max_dev, std::fabs(Vector3::dot(normal, *i) - offset));
+
+  return max_dev;
+}
+
 /// Computes the 3D convex hull of a set of points
 /**
- * \param first a forward iterator for type Vector3
- * \param last a forward iterator for type Vector3
+ * \param first a forward iterator for type Vector3*
+ * \param last a forward iterator for type Vector3*
  * \return a pointer to the newly created polyhedron
  */
 template <class InputIterator>
-PolyhedronPtr CompGeom::calc_convex_hull_3D(InputIterator first, InputIterator last)
+PolyhedronPtr CompGeomSpecOne<InputIterator, Vector3>::calc_convex_hull(InputIterator first, InputIterator last)
 {
   const unsigned X = 0, Y = 1, Z = 2;
   int exit_code;
@@ -277,7 +660,9 @@ PolyhedronPtr CompGeom::calc_convex_hull_3D(InputIterator first, InputIterator l
   }
   
   // setup the points
-  boost::shared_array<coordT> qhull_points(new coordT[N_POINTS*DIM]);
+  SAFESTATIC std::vector<coordT> qhull_points;
+  qhull_points.resize(N_POINTS*DIM);
+  coordT* points_begin = &qhull_points.front(); 
   unsigned j=0;
   for (InputIterator i = first; i != last; i++)
   {
@@ -286,16 +671,15 @@ PolyhedronPtr CompGeom::calc_convex_hull_3D(InputIterator first, InputIterator l
     qhull_points[j+2] = (*i)[Z];
     j += DIM;
   }
-  
   FILE_LOG(LOG_COMPGEOM) << "computing 3D convex hull of: " << std::endl;
   for (InputIterator i = first; i != last; i++)
     FILE_LOG(LOG_COMPGEOM) << *i << std::endl;
 
   // lock the qhull mutex -- qhull is non-reentrant
-  pthread_mutex_lock(&_qhull_mutex);
+  pthread_mutex_lock(&CompGeom::_qhull_mutex);
   
   // execute qhull  
-  exit_code = qh_new_qhull(DIM, N_POINTS, qhull_points.get(), IS_MALLOC, flags, outfile, errfile);
+  exit_code = qh_new_qhull(DIM, N_POINTS, points_begin, IS_MALLOC, flags, outfile, errfile);
   if (exit_code)
   {
     // free qhull memory
@@ -303,7 +687,7 @@ PolyhedronPtr CompGeom::calc_convex_hull_3D(InputIterator first, InputIterator l
     qh_memfreeshort(&curlong, &totlong);
 
     // qhull failed -- perhaps the dimensionality is 2 rather than 3?
-    pthread_mutex_unlock(&_qhull_mutex);
+    pthread_mutex_unlock(&CompGeom::_qhull_mutex);
 
     // close the error stream, if necessary
     if (!LOGGING(LOG_COMPGEOM))
@@ -367,7 +751,7 @@ PolyhedronPtr CompGeom::calc_convex_hull_3D(InputIterator first, InputIterator l
   assert(!curlong && !totlong);
   
   // release the qhull mutex
-  pthread_mutex_unlock(&_qhull_mutex);
+  pthread_mutex_unlock(&CompGeom::_qhull_mutex);
   
   // if the there aren't enough triangles, can't create the polyhedron
   assert(facets.size() >= 4);
@@ -385,14 +769,83 @@ PolyhedronPtr CompGeom::calc_convex_hull_3D(InputIterator first, InputIterator l
   return polyhedron;  
 }
 
-/// Determines the endpoints for a container of collinear Vector2 or Vector3 objects
+
+/// Determines the dimensionality of a set of points
 /**
- * \param begin iterator to beginning of container of type Vector2 or Vector3
- * \param end iterator to end of container of type Vector2 or Vector3
+ * \return the dimensionality (0 [point], 1 [line], 2 [plane], 3 [full space])
+ */
+template <class InputIterator>
+unsigned CompGeomSpecOne<InputIterator, Vector3>::calc_dimensionality(InputIterator first, InputIterator last, Real tol)
+{
+  assert(tol >= 0.0);
+
+  // make sure we can handle the case of no points
+  if (first == last)
+    return 0;
+
+  // determine whether all of the points are equal (0 dimensionality)
+  InputIterator j = first;
+  for (InputIterator i = first; ; i++)
+  {
+    // if there are no more points left, everything up to this point
+    // has been approximately equal
+    j++;
+    if (j == last)
+      return 0;      
+
+    // if the points are not equal, we can go ahead and break out
+    if ((*i - *j).norm() > tol)
+      break;
+  }  
+
+  // determine whether all of the points are colinear (1 dimensionality)
+  // all points from first .. j-1 are coincident, we don't need to check those...
+  InputIterator k = j;
+  while (true)
+  {
+    // if there are no more points left, everything up to this point has been
+    // colinear
+    k++;
+    if (k == last)
+      return 1;
+
+    // if the points are not collinear, we can go ahead and break out
+    if (!CompGeom::collinear(*first, *j, *k, tol))
+      break;
+  }
+  
+  // determine whether all of the points are coplanar (2 dimensionality)
+  // points first, j, k are not colinear, so these will be the basis for our plane
+  Vector3 v1 = *j - *first;
+  Vector3 v2 = *k - *j;
+  Vector3 n = Vector3::normalize(Vector3::cross(v1, v2));
+  Real d = Vector3::dot(n, v1);  
+  const Real PLANE_TOL = tol * std::max((Real) 1.0, std::fabs(d));
+  InputIterator i = k;
+  while (true)
+  {
+    // if there are no more points left, everything up to this point has been coplanar
+    i++;
+    if (i == last)
+      return 2;
+
+    // if the points are not coplanar, we can go ahead and break out
+    if (std::fabs(Vector3::dot(n, *i) - d) > PLANE_TOL)
+      break;
+  }
+
+  // still here?  full dimensionality
+  return 3;
+}
+
+/// Determines the endpoints for a container of collinear Vector3 objects
+/**
+ * \param begin iterator to beginning of container of type Vector3
+ * \param end iterator to end of container of type Vector3
  * \param endpoints the two farthest points on the segment on return
  */
-template <class InputIterator, class T>
-void CompGeom::determine_seg_endpoints(InputIterator begin, InputIterator end, std::pair<T, T>& endpoints)
+template <class InputIterator>
+void CompGeom::determine_seg_endpoints(InputIterator begin, InputIterator end, std::pair<Vector3, Vector3>& endpoints)
 {
   // make sure that we have been given valid input
   assert(begin != end);
@@ -434,6 +887,1533 @@ void CompGeom::determine_seg_endpoints(InputIterator begin, InputIterator end, s
       }
     }
   }
+}
+
+/**
+ * Converts a collection of Vector3 objects to Vector2 objects
+ * \param source_begin an iterator pointing to the beginning of the Vector3 
+ *        objects
+ * \param source_end an iterator pointing to the end of the Vector3 objects
+ * \param begin_target an iterator pointing to the beginning of the Vector2
+ *        objects
+ * \param R the projection matrix from 3D to 2D (on return)
+ * \return the end of the output range
+ * \note the size of the target collection must be equal to the size of the
+ *       source collection
+ */
+template <class InputIterator, class OutputIterator>
+OutputIterator CompGeomSpecTwo<InputIterator, OutputIterator, Vector3>::to_2D(InputIterator begin_source, InputIterator end_source, OutputIterator begin_target, const Matrix3& R)
+{
+  // project the points to 2D
+  for (InputIterator i = begin_source; i != end_source; i++, begin_target++)
+    *begin_target = CompGeom::to_2D(*i, R);
+
+  return begin_target;
+}
+
+/// Determines whether a polygon (in 3D) is convex
+template <class ForwardIterator>
+bool CompGeomSpecOne<ForwardIterator, Vector3>::is_convex_polygon(ForwardIterator begin, ForwardIterator end, const Vector3& normal, Real tol)
+{
+  const unsigned X = 0, Y = 1, Z = 2;
+  assert(tol >= 0.0);
+
+  // get the 3D to 2D projection matrix
+  Matrix3 R = CompGeom::calc_3D_to_2D_matrix(normal);
+
+  // project the points to 2D
+  std::list<Vector2> points_2D(std::distance(begin, end));
+  CompGeom::to_2D(begin, end, points_2D.begin(), R);
+
+  // if the 2D polygon is not ccw, make it so
+  assert(CompGeom::ccw(points_2D.begin(), points_2D.end()));
+//  if (!ccw(points_2D.begin(), points_2D.end()))
+//    std::reverse(points_2D.begin(), points_2D.end());
+
+  // check whether the 2D polygon is convex
+  return CompGeom::is_convex_polygon(points_2D.begin(), points_2D.end(), tol);
+}
+
+/// Calculates the convex hull of a set of points that lie on a 2D manifold using quickhull
+/**
+ * \param source_begin an iterator to the beginning of a container of points
+ * \param source_end an iterator pointing to the end of a container of points
+ * \param normal the (optional) normal of the points; this will be computed if normal is zero vector
+ * \param target_begin an iterator to the beginning of a container of points;
+ *         on return, contains the convex hull (NOTE: size of this container
+ *         must be as large as the source container)
+ * \return the new end of the target container
+ */
+template <class ForwardIterator, class OutputIterator>
+OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Vector3>::calc_convex_hull(ForwardIterator source_begin, ForwardIterator source_end, const Vector3& normal, OutputIterator target_begin)
+{  
+  FILE_LOG(LOG_COMPGEOM) << "computing 2D convex hull of following points:" << std::endl;
+  for (ForwardIterator i = source_begin; i != source_end; i++)
+    FILE_LOG(LOG_COMPGEOM) << "  " << *i << std::endl;
+  
+  // **************************************************************
+  // first, we need to project the 3D surface to a 2D polygon
+  // **************************************************************
+  
+  // determine the normal, if necessary 
+  Vector3 n = normal;
+  if (std::fabs(n.norm() - 1.0) > NEAR_ZERO)
+  {
+    Real offset;
+    CompGeom::fit_plane(source_begin, source_end, n, offset);
+  }
+
+  // compute the 3D to 2D projection matrix
+  Matrix3 R = CompGeom::calc_3D_to_2D_matrix(n);
+
+  // get the 2D to 3D offset
+  Real offset = CompGeom::determine_3D_to_2D_offset(*source_begin, R);
+
+  // get the transpose (i.e., inverse) of the rotation matrix
+  Matrix3 RT = Matrix3::transpose(R);
+
+  // project the points to 2D
+  unsigned sz = std::distance(source_begin, source_end);
+  std::vector<Vector2> points_2D(sz);
+  CompGeom::to_2D(source_begin, source_end, R, points_2D);
+
+  // compute correspondences
+  std::vector<Vector2*> points_2D_ptr(sz);
+  std::map<Vector2*, const Vector3*> mapping;
+  unsigned i=0;
+  for (ForwardIterator j=source_begin; j != source_end; i++, j++)
+  {
+    points_2D_ptr[i] = &(*j);
+    mapping[&points_2D[i]] = &(*j);
+  } 
+  FILE_LOG(LOG_COMPGEOM) << "2D points:" << std::endl;
+  for (unsigned i=0; i< points_2D.size(); i++)
+    FILE_LOG(LOG_COMPGEOM) << "  " << points_2D[i] << std::endl;
+
+  // compute the convex hull
+  std::list<Vector2*> hull(sz);
+  std::list<Vector2*>::iterator hull_end = calc_convex_hull(points_2D_ptr.begin(), points_2D_ptr.end(), hull.begin());
+
+  // use the mapping to 3D
+  std::list<Vector3> hull3D;
+  for (std::list<Vector2*>::iterator i = hull.begin(); i != hull_end; i++)
+    hull3D.push_back(*mapping[*i]);
+
+  // reverse the hull if necessary
+  if (!CompGeom::ccw(hull3D.begin(), hull3D.end(), normal))
+    std::reverse(hull3D.begin(), hull3D.end());  
+
+  // return the hull
+  return std::copy(hull3D.begin(), hull3D.end(), target_begin);
+} 
+ 
+/*****************************************************************************
+ Vector3 versions of functions END 
+ ****************************************************************************/
+
+/*****************************************************************************
+ Vector2 versions of functions BEGIN
+ ****************************************************************************/
+
+/// Computes the minimum area bounding rectangle of a set of points
+/**
+ * Uses 2D convex hull and rotating calipers method; runs in O(N lg N) time
+ * On return, x1, x2, x3, and x4 are the four vertices of the bounding
+ * rectangle (ordered as edges).
+ */
+template <class ForwardIterator>
+void CompGeomSpecOne<ForwardIterator, Vector2>::calc_min_area_bounding_rect(ForwardIterator begin, ForwardIterator end, Vector2& x1, Vector2& x2, Vector2& x3, Vector2& x4)
+{
+  enum Flag { F_NONE, F_LEFT, F_RIGHT, F_BOTTOM, F_TOP };
+  const unsigned X = 0, Y = 1;
+  std::pair<Vector2, Vector2> ep;
+
+  // calculate the convex hull of the points in ccw order
+  std::vector<Vector2> points, hull;
+  for (; begin != end; begin++)
+    points.push_back(*begin);
+  CompGeom::calc_convex_hull(points.begin(), points.end(), std::back_inserter(hull));
+  if (hull.empty())
+  {
+    // convex hull is degenerate; compute line endpoints and make that the 
+    // "hull"
+    CompGeom::determine_seg_endpoints(begin, end, ep);
+    hull.push_back(ep.first);
+    hull.push_back(ep.second);
+  }
+  // get the hull in CCW order
+  else if (!CompGeom::ccw(hull.begin(), hull.end()))
+    std::reverse(hull.begin(), hull.end());
+
+  // make sure that no three points are colinear
+  unsigned n = hull.size();
+  for (unsigned i = 0; i < n; i++)
+  {
+    // get the next two points
+    unsigned j = (i < n-1) ? i+1 : 0;
+    unsigned k = (j < n-1) ? j+1 : 0;
+    if (CompGeom::collinear(hull[i], hull[j], hull[k]))
+    {
+      // erase the middle point
+      hull.erase(hull.begin()+j);
+
+      // decrement both n and i
+      i--;
+      n--;
+      // if n < 3, bounding rectangle is degenerate; however, we can still
+      // output something useful
+      if (n < 3)
+      {
+        x1 = hull[0];
+        x2 = hull[1];
+        x3 = hull[0];
+        x4 = hull[1];
+        return;
+      }
+    }
+  }
+
+  // setup unit-length edge directions of the convex polygon
+  unsigned nm1 = n - 1;
+  std::vector<Vector2> edges(n);
+  std::vector<bool> visited(n, false);
+  for (unsigned i=0; i< nm1; i++)
+  {
+    edges[i] = hull[i+1] - hull[i];
+    edges[i].normalize();
+  }
+  edges[nm1] = hull[0] - hull[nm1];
+  edges[nm1].normalize();
+
+  // find the smallest axis-aligned box containing the points.  Keep track
+  // of the extremum indices, L (left), R (right), B (bottom), and T (top)
+  // so that the following constraints are met:
+  //   V[L].X <= V[i].X for all i and V[(L+1)%N].X > V[L].X
+  //   V[L].X >= V[i].X for all i and V[(R+1)%N].X < V[R].X
+  //   V[L].Y <= V[i].Y for all i and V[(B+1)%N].Y > V[B].X
+  //   V[L].Y >= V[i].Y for all i and V[(T+1)%N].Y < V[T].X
+  Real xmin = hull[0][X], xmax = xmin;
+  Real ymin = hull[0][Y], ymax = ymin;
+  unsigned Lindex = 0, Rindex = 0, Bindex = 0, Tindex = 0;
+  for (unsigned i=1; i< n; i++)
+  {
+    if (hull[i][X] <= xmin)
+    {
+      xmin = hull[i][X];
+      Lindex = i;
+    }
+    if (hull[i][X] >= xmax)
+    {
+      xmax = hull[i][X];
+      Rindex = i;
+    }
+    if (hull[i][Y] <= ymin)
+    {
+      ymin = hull[i][Y];
+      Bindex = i;
+    }
+    if (hull[i][Y] >= ymax)
+    {
+      ymax = hull[i][Y];
+      Tindex = i;
+    }
+  }
+
+  // apply wrap-around tests to ensure the constraints mentioned above 
+  // are satisfied
+  if (Lindex == nm1)
+  {
+    if (hull[0][X] <= xmin)
+    {
+      xmin = hull[0][X];
+      Lindex = 0;
+    }
+  }
+  if (Rindex == nm1)
+  {
+    if (hull[0][X] >= xmax)
+    {
+      xmax = hull[0][X];
+      Rindex = 0;
+    }
+  }
+  if (Bindex == nm1)
+  {
+    if (hull[0][Y] <= ymin)
+    {
+      ymin = hull[0][Y];
+      Bindex = 0;
+    }
+  }
+  if (Tindex == nm1)
+  {
+    if (hull[0][Y] >= ymax)
+    {
+      ymax = hull[0][Y];
+      Tindex = 0;
+    }
+  }
+
+  // the dimensions of the axis-aligned box; the extents store width and height
+  // for now
+  Vector2 center((Real) 0.5 * (xmin + xmax), (Real) 0.5 * (ymin + ymax));
+  Vector2 axis[2] = { Vector2((Real) 1.0, (Real) 0.0), 
+                      Vector2((Real) 0.0, (Real) 1.0) };
+  Real extent[2] = { (Real) 0.5 * (xmax - xmin), (Real) 0.5 * (ymax - ymin) };
+  Real min_area_div4 = extent[0]*extent[1];
+
+  // the rotating calipers algorithm follows...
+  Vector2 U((Real) 1.0, (Real) 0.0), V((Real) 0.0, (Real) 1.0);
+  bool done = false;
+  while (!done)
+  {
+    // determine the edge that forms the smallest angle with the current box
+    // edges
+    Flag flag = F_NONE;
+    Real maxdot = (Real) 0.0;
+    Real dot = U.dot(edges[Bindex]);
+    if (dot > maxdot)
+    {
+      maxdot = dot;
+      flag = F_BOTTOM;
+    }
+    dot = V.dot(edges[Rindex]);
+    if (dot > maxdot)
+    {
+      maxdot = dot;
+      flag = F_RIGHT;
+    }
+    dot = -U.dot(edges[Tindex]);
+    if (dot > maxdot)
+    {
+      maxdot = dot;
+      flag = F_TOP;
+    }
+    dot = -V.dot(edges[Lindex]);
+    if (dot > maxdot)
+    {
+      maxdot = dot;
+      flag = F_LEFT;
+    }
+
+    switch (flag)
+    {
+      case F_BOTTOM:
+        if (visited[Bindex])
+          done = true;
+        else
+        {
+          // compute box axes with E[B] as an edge
+          U = edges[Bindex];
+          V = -U.perp();
+          CompGeom::update_box(hull[Lindex], hull[Rindex], hull[Bindex], hull[Tindex], U, V, min_area_div4, center, axis, extent);
+
+          // mark edge visited and rotate the calipers
+          visited[Bindex] = true;
+          if (++Bindex == n)
+             Bindex = 0;
+         }
+         break;
+
+      case F_RIGHT:
+        if (visited[Rindex])
+          done = true;
+        else
+        {
+          // compute box axes with E[R] as an edge
+          V = edges[Rindex];
+          U = V.perp();
+          CompGeom::update_box(hull[Lindex], hull[Rindex], hull[Bindex], hull[Tindex], U, V, min_area_div4, center, axis, extent);
+
+          // mark edge visited and rotate the calipers
+          visited[Rindex] = true;
+          if (++Rindex == n)
+            Rindex = 0;
+        }
+        break;
+
+      case F_TOP:
+        if (visited[Tindex])
+          done = true;
+        else
+        {
+          // compute box axes with E[T] as an edge
+          U = -edges[Tindex];
+          V = -U.perp();
+          CompGeom::update_box(hull[Lindex], hull[Rindex], hull[Bindex], hull[Tindex], U, V, min_area_div4, center, axis, extent);
+
+          // mark edge visited and rotate the calipers
+          visited[Tindex] = true;
+          if (++Tindex == n)
+            Tindex = 0;
+        }
+        break;
+
+      case F_LEFT:
+        if (visited[Lindex])
+          done = true;
+        else
+        {
+          // compute box axes with E[L] as an edge
+          V = -edges[Lindex];
+          U = V.perp();
+          CompGeom::update_box(hull[Lindex], hull[Rindex], hull[Bindex], hull[Tindex], U, V, min_area_div4, center, axis, extent);
+
+          // mark edge visited and rotate the calipers
+          visited[Lindex] = true;
+          if (++Lindex == n)
+            Lindex = 0;
+        }
+        break;
+
+      case F_NONE:
+        // the polygon is a rectangle
+        done = true;
+        break;
+    }
+  }
+
+  // convert Eberly's representation to my own
+  x1 = center - axis[X]*extent[X] - axis[Y]*extent[Y];
+  x2 = center + axis[X]*extent[X] - axis[Y]*extent[Y];
+  x3 = center + axis[X]*extent[X] + axis[Y]*extent[Y];
+  x4 = center - axis[X]*extent[X] + axis[Y]*extent[Y];
+}
+
+/// Determines the endpoints for a container of collinear Vector2 objects
+/**
+ * \param begin iterator to beginning of container of type Vector2
+ * \param end iterator to end of container of type Vector2
+ * \param endpoints the two farthest points on the segment on return
+ */
+template <class InputIterator>
+void CompGeom::determine_seg_endpoints(InputIterator begin, InputIterator end, std::pair<Vector2, Vector2>& endpoints)
+{
+  // make sure that we have been given valid input
+  assert(begin != end);
+
+  // setup initial endpoints
+  endpoints.first = *begin;
+  endpoints.second = *begin;
+  Real dist = 0; 
+
+  for (InputIterator i = ++begin; i != end; i++)
+  {
+    // get distance from i to both current bounding points
+    Real dist_e = (*i - endpoints.second).norm();
+    Real dist_s = (*i - endpoints.first).norm();
+
+    // see which distance would be greatest
+    if (dist > dist_e)
+    {
+      // check for no change
+      if (dist > dist_s)
+        continue;
+      else
+      {
+        dist = dist_s;
+        endpoints.second = *i;
+      }
+    }
+    else
+    {
+      if (dist_e > dist_s)
+      {
+        dist = dist_e;
+        endpoints.first = *i;
+      }
+      else
+      {
+        dist = dist_s;
+        endpoints.second = *i;
+      }
+    }
+  }
+}
+
+/// Computes the intersection of a polygon and a line segment
+/**
+ * \param begin iterator pointing to start of collection of Vector2 elements
+ * \param end iterator pointing to end of collection of Vector2 elements
+ * \param seg the line segment
+ * \param outbegin an iterator to a container of type LineSeg2 that will 
+ *        store line segments on/in the polygon on return 
+ * \param tol the tolerance for parallel lines
+ * \return ePolygonSegInside if the polygon 
+ * \note polygon must be given in counter-clockwise order
+ * \note first vertex should not appear twice
+ */
+template <class ForwardIterator, class OutputIterator>
+OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Vector2>::intersect_seg_polygon(ForwardIterator begin, ForwardIterator end, const LineSeg2& seg, OutputIterator outbegin)
+{
+  std::list<Real> points;
+
+  // determine whether one (or both) of the endpoints is within the polygon
+  if (CompGeom::polygon_location(begin, end, seg.first) == CompGeom::ePolygonInside)
+    points.push_back(0.0);
+  if (CompGeom::polygon_location(begin, end, seg.second) == CompGeom::ePolygonInside)
+    points.push_back(1.0);
+
+  // determine the inverse of the length (squared) of the line segment
+  Real inv_seg_len_sq = 1.0/(seg.first - seg.second).norm_sq();
+
+  // intersect all line segments
+  Vector2 isect1, isect2;
+  for (ForwardIterator i = begin; i != end; i++)
+  {
+    // get the next vertex
+    ForwardIterator j = i;
+    j++;
+    if (j == end)
+      j = begin;
+  
+    // intersect the two segments
+    switch (CompGeom::intersect_segs(seg, LineSeg2(*i, *j), isect1, isect2))
+    {
+      case CompGeom::eSegSegNoIntersect:
+        break;
+
+      case CompGeom::eSegSegIntersect:
+      case CompGeom::eSegSegVertex: 
+        points.push_back((isect1 - seg.second).norm_sq() * inv_seg_len_sq);
+        break;
+
+      case CompGeom::eSegSegEdge:
+        points.push_back((isect1 - seg.second).norm_sq() * inv_seg_len_sq);
+        points.push_back((isect2 - seg.second).norm_sq() * inv_seg_len_sq);
+        break;
+    }
+  }
+
+  // sort the points
+  points.sort();
+
+  // make segments out of the points
+  for (std::list<Real>::const_iterator i = points.begin(); i != points.rbegin().base(); i++)
+  {
+    std::list<Real>::const_iterator j = i;
+    j++;
+    Vector2 p1 = seg.first * (*i) + seg.second * (1.0 - (*i));
+    Vector2 p2 = seg.first * (*j) + seg.second * (1.0 - (*j));
+    *outbegin++ = LineSeg2(p1, p2);
+  }
+
+  return outbegin;
+}
+
+/// Computes the intersection of a convex polygon and a line segment
+/**
+ * \param begin iterator pointing to start of collection of Vector2 elements
+ * \param end iterator pointing to end of collection of Vector2 elements
+ * \param seg the line segment
+ * \param te the parameter of the line segment for the beginning of the
+ *        intersection; (1-te)*seg.first + te*seg.second is point of 
+ *        intersection
+ * \param tl the parameter of the line segment for the end of the intersection;
+ *        (1-tl)*seg.first + tl*seg.second is point of intersection
+ * \param tol the tolerance for parallel lines
+ * \return <b>true</b> if the two intersect and <b>false</b> otherwise
+ * \note polygon must be given in counter-clockwise order
+ * \note first vertex should not appear twice
+ * \note taken from http://geometryalgorithms.com 
+ */
+template <class InputIterator>
+bool CompGeomSpecOne<InputIterator, Vector2>::intersect_seg_convex_polygon(InputIterator begin, InputIterator end, const LineSeg2& seg, Real& te, Real& tl, Real tol)
+{
+  assert(tol >= 0.0);
+
+  // initialize te and tl
+  te = 0;
+  tl = 1;
+
+  Vector2 dS = seg.second - seg.first;
+
+  // iterate over all vertices
+  for (InputIterator i = begin; i != end; i++)
+  {
+    // get the next vertex
+    InputIterator j = i;
+    j++;
+    if (j == end)
+      j = begin;
+
+    // get the edge
+    Vector2 edge = *j - *i;
+
+    // determine the outward normal of the edge
+    Vector2 ni(edge[1], -edge[0]);
+    Real N = -Vector2::dot(ni, seg.first-*i);
+    Real D = Vector2::dot(dS, ni);
+    if (std::fabs(D) < 0.0)
+    {
+      // segment is parallel to this edge
+      if (N < tol)
+        // first point is outside of the edge; segment cannot intersect poly
+        return false;
+      else
+        // segment cannot enter or leave poly across this edge, process next
+        continue;
+    }
+
+    Real t = N / D;
+    if (D < 0.0)
+    {
+      // segment enters polygon across this edge
+      te = std::max(te, t);
+      if (te > tl)
+        // segment enters polygon after leaving
+        return false;
+    }
+    else
+    {
+      assert(D > 0.0);
+      tl = std::min(tl, t);
+      if (tl < te)
+        // segment leaves polygon before entering
+        return false;
+    }  
+  }
+
+  return true;
+}
+
+/**
+ * Converts a collection of Vector2 objects to Vector3 objects
+ * \param source_begin an iterator pointing to the beginning of the Vector3 
+ *        objects
+ * \param source_end an iterator pointing to the end of the Vector3 objects
+ * \param begin_target an iterator pointing to the beginning of the Vector2
+ *        objects
+ * \param R the projection matrix from 2D to 3D
+ * \param offset the offset that must be added to the Z-coordinate of points
+ *        projected back from 2D to 3D
+ * \return the end of the output range
+ * \note the size of the target collection must be equal to the size of the
+ *       source collection
+ */
+template <class InputIterator, class OutputIterator>
+OutputIterator CompGeomSpecTwo<InputIterator, OutputIterator, Vector2>::to_3D(InputIterator begin_source, InputIterator end_source, OutputIterator begin_target, const Matrix3& RT, Real offset)
+{
+  // project the points back to 3D
+  for (InputIterator i = begin_source; i != end_source; i++, begin_target++)
+    *begin_target = CompGeom::to_3D(*i, RT, offset);
+
+  return begin_target;
+}
+
+/**
+ * Determines whether a polygon in 2D is counter-clockwise
+ * \note Degenerate polygons (alternating representation) will fail!
+ */
+template <class InputIterator>
+bool CompGeomSpecOne<InputIterator, Vector2>::ccw(InputIterator begin, InputIterator end, Real tol)
+{
+  assert(tol >= 0.0);
+
+  for (InputIterator i = begin; i != end; i++)
+  {
+    InputIterator j = i;
+    j++;
+    if (j == end)
+      j = begin;
+
+    InputIterator k = j;
+    k++;
+    if (k == end)
+      k = begin; 
+    
+    CompGeom::OrientationType ori = CompGeom::area_sign(*i, *j, *k, tol);
+    if (ori == CompGeom::eRight)
+      return false;
+  }
+
+  // still here?  polygon may be degenerate!
+  return true;
+}
+
+/// Calculates the convex hull of a set of points in 2D using quickhull
+/**
+ * \param source_begin an iterator to the beginning of a container of Vector2*
+ * \param source_end an iterator pointing to the end of a container of Vector2*
+ * \param target_begin an iterator to the beginning of a container of indices;
+ *         on return, contains the convex hull (NOTE: size of this container
+ *         must be as large as the source container)
+ * \return the new end of the target container
+ */
+template <class InputIterator, class OutputIterator>
+OutputIterator CompGeomSpecTwo<InputIterator, OutputIterator, Vector2>::calc_convex_hull(InputIterator source_begin, InputIterator source_end, OutputIterator target_begin)
+{
+  const unsigned X = 0, Y = 1;
+  int exit_code;
+  int curlong, totlong;
+  char flags[] = "qhull Fx";
+  FILE* outfile, * errfile;
+  
+  FILE_LOG(LOG_COMPGEOM) << "computing 2D convex hull of following points:" << std::endl;
+  for (InputIterator i = source_begin; i != source_end; i++)
+    FILE_LOG(LOG_COMPGEOM) << "  " << *i << std::endl;
+  
+  // setup qhull outputs
+  if (LOGGING(LOG_COMPGEOM))
+  {
+    outfile=stdout;  
+    errfile=stderr;
+  }
+  else
+  {
+    outfile=NULL;
+    errfile=fopen("/dev/null", "w");
+    assert(errfile);
+  } 
+
+  // setup constants for qhull
+  const int DIM = 2;
+  const int N_POINTS = (int) std::distance(source_begin, source_end);
+  const boolT IS_MALLOC = false;
+  assert(N_POINTS > 2);
+  
+  // setup the points
+  SAFESTATIC std::vector<coordT> qhull_points;
+  qhull_points.resize(N_POINTS*DIM);
+  coordT* points_begin = &qhull_points.front();
+  std::map<coordT*, Vector2*> vertex_map;
+  unsigned j=0;
+  for (InputIterator i = source_begin; i != source_end; i++)
+  {
+    qhull_points[j] = (*i)[X];
+    qhull_points[j+1] = (*i)[Y];
+    vertex_map[points_begin+j] = &(*i);
+    j += DIM;
+  }
+
+  // lock the qhull mutex -- qhull is non-reentrant
+  pthread_mutex_lock(&CompGeom::_qhull_mutex);
+  
+  // execute qhull  
+  exit_code = qh_new_qhull(DIM, N_POINTS, points_begin, IS_MALLOC, flags, outfile, errfile);
+  if (exit_code != 0)
+  {
+    // points are not collinear.. unsure of the error...
+    FILE_LOG(LOG_COMPGEOM) << "CompGeom::calc_convex_hull_2D() - unable to execute qhull on points:" << std::endl;
+    for (InputIterator i = source_begin; i != source_end; i++)
+      FILE_LOG(LOG_COMPGEOM) << "  " << *i << std::endl;
+
+    // free qhull memory
+    qh_freeqhull(!qh_ALL);
+    qh_memfreeshort(&curlong, &totlong);
+
+    // release the mutex, since we're not using qhull anymore
+    pthread_mutex_unlock(&CompGeom::_qhull_mutex);
+
+    // close the error stream, if necessary
+    if (!LOGGING(LOG_COMPGEOM))
+      fclose(errfile);
+
+    return target_begin; 
+  }
+
+  // ordered list of edges
+  std::map<Vector2*, std::list<Vector2*> > edges;
+  
+  // iterate through all facets  
+  for (facetT* facet=qh facet_list;facet && facet->next;facet=facet->next)
+  {
+    // setup a list of vertices for the facet
+    std::list<Vector2*> facet_vertices;
+    
+    // get all vertices in the facet
+    vertexT* vertex;
+    for (vertexT** vertex_pointer = (vertexT**)& ((facet->vertices)->e[0].p); (vertex = (*vertex_pointer++));)
+      facet_vertices.push_back(vertex_map[vertex->point]);
+    
+    // should be exactly two vertices in the list
+    assert(facet_vertices.size() == 2);
+    
+    // store the edge in the list of edges
+    edges[facet_vertices.front()].push_back(facet_vertices.back());
+    edges[facet_vertices.back()].push_back(facet_vertices.front());
+  }    
+  
+  // free qhull memory
+  qh_freeqhull(!qh_ALL);
+  qh_memfreeshort(&curlong, &totlong);
+
+  // release the qhull mutex
+  pthread_mutex_unlock(&CompGeom::_qhull_mutex);
+  
+  // construct the set of processed vertex
+  std::set<Vector2*> processed;
+  
+  // construct the hull; compute the area at the same time of the 2D polygon
+  Vector2* current_vertex = edges.begin()->first;
+  std::list<Vector2> hull;
+
+  while (true)
+  {
+    // add the current vertex to the list
+    hull.push_back(*current_vertex);
+    
+    // mark this vertex as processed
+    processed.insert(current_vertex);
+    
+    // get adjacent vertices
+    std::list<Vector2*>& adj_v = edges[current_vertex];
+    
+    // see which vertices have been processed
+    if (processed.find(adj_v.front()) == processed.end())
+      current_vertex = adj_v.front();
+    else if (processed.find(adj_v.back()) == processed.end())
+      current_vertex = adj_v.back();
+    else
+      break;    
+  }
+
+  // close the error stream, if necessary
+  if (!LOGGING(LOG_COMPGEOM))
+    fclose(errfile);
+
+  // reverse the hull if necessary
+  if (!CompGeom::ccw(hull.begin(), hull.end()))  
+    return std::copy(hull.rbegin(), hull.rend(), target_begin);    
+  else
+    return std::copy(hull.begin(), hull.end(), target_begin);
+}
+
+/*****************************************************************************
+ Vector2 versions of functions END 
+ ****************************************************************************/
+
+/*****************************************************************************
+ Vector2* versions of functions BEGIN
+ ****************************************************************************/
+
+/// Computes the minimum area bounding rectangle of a set of points
+/**
+ * Uses 2D convex hull and rotating calipers method; runs in O(N lg N) time
+ * On return, x1, x2, x3, and x4 are the four vertices of the bounding
+ * rectangle (ordered as edges).
+ */
+template <class ForwardIterator>
+void CompGeomSpecOne<ForwardIterator, Vector2*>::calc_min_area_bounding_rect(ForwardIterator begin, ForwardIterator end, Vector2& x1, Vector2& x2, Vector2& x3, Vector2& x4)
+{
+  enum Flag { F_NONE, F_LEFT, F_RIGHT, F_BOTTOM, F_TOP };
+  const unsigned X = 0, Y = 1;
+  std::pair<Vector2*, Vector2*> ep;
+
+  // calculate the convex hull of the points in ccw order
+  std::vector<Vector2*> points, hull;
+  for (; begin != end; begin++)
+    points.push_back(&*begin);
+  CompGeom::calc_convex_hull(points.begin(), points.end(), std::back_inserter(hull));
+  if (hull.empty())
+  {
+    // convex hull is degenerate; compute line endpoints and make that the 
+    // "hull"
+    CompGeom::determine_seg_endpoints(begin, end, ep);
+    hull.push_back(ep.first);
+    hull.push_back(ep.second);
+  }
+  // get the hull in CCW order
+  else if (!CompGeom::ccw(hull.begin(), hull.end()))
+    std::reverse(hull.begin(), hull.end());
+
+  // make sure that no three points are colinear
+  unsigned n = hull.size();
+  for (unsigned i = 0; i < n; i++)
+  {
+    // get the next two points
+    unsigned j = (i < n-1) ? i+1 : 0;
+    unsigned k = (j < n-1) ? j+1 : 0;
+    if (CompGeom::collinear(*hull[i], *hull[j], *hull[k]))
+    {
+      // erase the middle point
+      hull.erase(hull.begin()+j);
+
+      // decrement both n and i
+      i--;
+      n--;
+      // if n < 3, bounding rectangle is degenerate; however, we can still
+      // output something useful
+      if (n < 3)
+      {
+        x1 = *hull[0];
+        x2 = *hull[1];
+        x3 = *hull[0];
+        x4 = *hull[1];
+        return;
+      }
+    }
+  }
+
+  // setup unit-length edge directions of the convex polygon
+  unsigned nm1 = n - 1;
+  std::vector<Vector2> edges(n);
+  std::vector<bool> visited(n, false);
+  for (unsigned i=0; i< nm1; i++)
+  {
+    edges[i] = *hull[i+1] - *hull[i];
+    edges[i].normalize();
+  }
+  edges[nm1] = *hull[0] - *hull[nm1];
+  edges[nm1].normalize();
+
+  // find the smallest axis-aligned box containing the points.  Keep track
+  // of the extremum indices, L (left), R (right), B (bottom), and T (top)
+  // so that the following constraints are met:
+  //   V[L].X <= V[i].X for all i and V[(L+1)%N].X > V[L].X
+  //   V[L].X >= V[i].X for all i and V[(R+1)%N].X < V[R].X
+  //   V[L].Y <= V[i].Y for all i and V[(B+1)%N].Y > V[B].X
+  //   V[L].Y >= V[i].Y for all i and V[(T+1)%N].Y < V[T].X
+  Real xmin = (*hull[0])[X], xmax = xmin;
+  Real ymin = (*hull[0])[Y], ymax = ymin;
+  unsigned Lindex = 0, Rindex = 0, Bindex = 0, Tindex = 0;
+  for (unsigned i=1; i< n; i++)
+  {
+    if ((*hull[i])[X] <= xmin)
+    {
+      xmin = (*hull[i])[X];
+      Lindex = i;
+    }
+    if ((*hull[i])[X] >= xmax)
+    {
+      xmax = (*hull[i])[X];
+      Rindex = i;
+    }
+    if ((*hull[i])[Y] <= ymin)
+    {
+      ymin = (*hull[i])[Y];
+      Bindex = i;
+    }
+    if ((*hull[i])[Y] >= ymax)
+    {
+      ymax = (*hull[i])[Y];
+      Tindex = i;
+    }
+  }
+
+  // apply wrap-around tests to ensure the constraints mentioned above 
+  // are satisfied
+  if (Lindex == nm1)
+  {
+    if ((*hull[0])[X] <= xmin)
+    {
+      xmin = (*hull[0])[X];
+      Lindex = 0;
+    }
+  }
+  if (Rindex == nm1)
+  {
+    if ((*hull[0])[X] >= xmax)
+    {
+      xmax = (*hull[0])[X];
+      Rindex = 0;
+    }
+  }
+  if (Bindex == nm1)
+  {
+    if ((*hull[0])[Y] <= ymin)
+    {
+      ymin = (*hull[0])[Y];
+      Bindex = 0;
+    }
+  }
+  if (Tindex == nm1)
+  {
+    if ((*hull[0])[Y] >= ymax)
+    {
+      ymax = (*hull[0])[Y];
+      Tindex = 0;
+    }
+  }
+
+  // the dimensions of the axis-aligned box; the extents store width and height
+  // for now
+  Vector2 center((Real) 0.5 * (xmin + xmax), (Real) 0.5 * (ymin + ymax));
+  Vector2 axis[2] = { Vector2((Real) 1.0, (Real) 0.0), 
+                      Vector2((Real) 0.0, (Real) 1.0) };
+  Real extent[2] = { (Real) 0.5 * (xmax - xmin), (Real) 0.5 * (ymax - ymin) };
+  Real min_area_div4 = extent[0]*extent[1];
+
+  // the rotating calipers algorithm follows...
+  Vector2 U((Real) 1.0, (Real) 0.0), V((Real) 0.0, (Real) 1.0);
+  bool done = false;
+  while (!done)
+  {
+    // determine the edge that forms the smallest angle with the current box
+    // edges
+    Flag flag = F_NONE;
+    Real maxdot = (Real) 0.0;
+    Real dot = U.dot(edges[Bindex]);
+    if (dot > maxdot)
+    {
+      maxdot = dot;
+      flag = F_BOTTOM;
+    }
+    dot = V.dot(edges[Rindex]);
+    if (dot > maxdot)
+    {
+      maxdot = dot;
+      flag = F_RIGHT;
+    }
+    dot = -U.dot(edges[Tindex]);
+    if (dot > maxdot)
+    {
+      maxdot = dot;
+      flag = F_TOP;
+    }
+    dot = -V.dot(edges[Lindex]);
+    if (dot > maxdot)
+    {
+      maxdot = dot;
+      flag = F_LEFT;
+    }
+
+    switch (flag)
+    {
+      case F_BOTTOM:
+        if (visited[Bindex])
+          done = true;
+        else
+        {
+          // compute box axes with E[B] as an edge
+          U = edges[Bindex];
+          V = -U.perp();
+          CompGeom::update_box(*hull[Lindex], *hull[Rindex], *hull[Bindex], *hull[Tindex], U, V, min_area_div4, center, axis, extent);
+
+          // mark edge visited and rotate the calipers
+          visited[Bindex] = true;
+          if (++Bindex == n)
+             Bindex = 0;
+         }
+         break;
+
+      case F_RIGHT:
+        if (visited[Rindex])
+          done = true;
+        else
+        {
+          // compute box axes with E[R] as an edge
+          V = edges[Rindex];
+          U = V.perp();
+          CompGeom::update_box(*hull[Lindex], *hull[Rindex], *hull[Bindex], *hull[Tindex], U, V, min_area_div4, center, axis, extent);
+
+          // mark edge visited and rotate the calipers
+          visited[Rindex] = true;
+          if (++Rindex == n)
+            Rindex = 0;
+        }
+        break;
+
+      case F_TOP:
+        if (visited[Tindex])
+          done = true;
+        else
+        {
+          // compute box axes with E[T] as an edge
+          U = -edges[Tindex];
+          V = -U.perp();
+          CompGeom::update_box(*hull[Lindex], *hull[Rindex], *hull[Bindex], *hull[Tindex], U, V, min_area_div4, center, axis, extent);
+
+          // mark edge visited and rotate the calipers
+          visited[Tindex] = true;
+          if (++Tindex == n)
+            Tindex = 0;
+        }
+        break;
+
+      case F_LEFT:
+        if (visited[Lindex])
+          done = true;
+        else
+        {
+          // compute box axes with E[L] as an edge
+          V = -edges[Lindex];
+          U = V.perp();
+          CompGeom::update_box(*hull[Lindex], *hull[Rindex], *hull[Bindex], *hull[Tindex], U, V, min_area_div4, center, axis, extent);
+
+          // mark edge visited and rotate the calipers
+          visited[Lindex] = true;
+          if (++Lindex == n)
+            Lindex = 0;
+        }
+        break;
+
+      case F_NONE:
+        // the polygon is a rectangle
+        done = true;
+        break;
+    }
+  }
+
+  // convert Eberly's representation to my own
+  x1 =  center - axis[X]*extent[X] - axis[Y]*extent[Y];
+  x2 =  center + axis[X]*extent[X] - axis[Y]*extent[Y];
+  x3 =  center + axis[X]*extent[X] + axis[Y]*extent[Y];
+  x4 =  center - axis[X]*extent[X] + axis[Y]*extent[Y];
+}
+
+/// Computes the intersection of a polygon and a line segment
+/**
+ * \param begin iterator pointing to start of collection of Vector2 elements
+ * \param end iterator pointing to end of collection of Vector2 elements
+ * \param seg the line segment
+ * \param outbegin an iterator to a container of type LineSeg2 that will 
+ *        store line segments on/in the polygon on return 
+ * \param tol the tolerance for parallel lines
+ * \return ePolygonSegInside if the polygon 
+ * \note polygon must be given in counter-clockwise order
+ * \note first vertex should not appear twice
+ */
+template <class ForwardIterator, class OutputIterator>
+OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Vector2*>::intersect_seg_polygon(ForwardIterator begin, ForwardIterator end, const LineSeg2& seg, OutputIterator outbegin)
+{
+  std::list<Real> points;
+
+  // determine whether one (or both) of the endpoints is within the polygon
+  if (CompGeom::polygon_location(begin, end, seg.first) == CompGeom::ePolygonInside)
+    points.push_back(0.0);
+  if (CompGeom::polygon_location(begin, end, seg.second) == CompGeom::ePolygonInside)
+    points.push_back(1.0);
+
+  // determine the inverse of the length (squared) of the line segment
+  Real inv_seg_len_sq = 1.0/(seg.first - seg.second).norm_sq();
+
+  // intersect all line segments
+  Vector2 isect1, isect2;
+  for (ForwardIterator i = begin; i != end; i++)
+  {
+    // get the next vertex
+    ForwardIterator j = i;
+    j++;
+    if (j == end)
+      j = begin;
+  
+    // intersect the two segments
+    switch (CompGeom::intersect_segs(seg, LineSeg2(**i, **j), isect1, isect2))
+    {
+      case CompGeom::eSegSegNoIntersect:
+        break;
+
+      case CompGeom::eSegSegIntersect:
+      case CompGeom::eSegSegVertex: 
+        points.push_back((isect1 - seg.second).norm_sq() * inv_seg_len_sq);
+        break;
+
+      case CompGeom::eSegSegEdge:
+        points.push_back((isect1 - seg.second).norm_sq() * inv_seg_len_sq);
+        points.push_back((isect2 - seg.second).norm_sq() * inv_seg_len_sq);
+        break;
+    }
+  }
+
+  // sort the points
+  points.sort();
+
+  // make segments out of the points
+  for (std::list<Real>::const_iterator i = points.begin(); i != points.rbegin().base(); i++)
+  {
+    std::list<Real>::const_iterator j = i;
+    j++;
+    Vector2 p1 = seg.first * (*i) + seg.second * (1.0 - (*i));
+    Vector2 p2 = seg.first * (*j) + seg.second * (1.0 - (*j));
+    *outbegin++ = LineSeg2(p1, p2);
+  }
+
+  return outbegin;
+}
+
+/// Determines the endpoints for a container of collinear Vector2* objects
+/**
+ * \param begin iterator to beginning of container of type Vector2*
+ * \param end iterator to end of container of type Vector2*
+ * \param endpoints the two farthest points on the segment on return
+ */
+template <class InputIterator>
+void CompGeom::determine_seg_endpoints(InputIterator begin, InputIterator end, std::pair<Vector2*, Vector2*>& endpoints)
+{
+  // make sure that we have been given valid input
+  assert(begin != end);
+
+  // setup initial endpoints
+  endpoints.first = *begin;
+  endpoints.second = *begin;
+  Real dist = 0; 
+
+  for (InputIterator i = ++begin; i != end; i++)
+  {
+    // get distance from i to both current bounding points
+    Real dist_e = (**i - *endpoints.second).norm();
+    Real dist_s = (**i - *endpoints.first).norm();
+
+    // see which distance would be greatest
+    if (dist > dist_e)
+    {
+      // check for no change
+      if (dist > dist_s)
+        continue;
+      else
+      {
+        dist = dist_s;
+        endpoints.second = *i;
+      }
+    }
+    else
+    {
+      if (dist_e > dist_s)
+      {
+        dist = dist_e;
+        endpoints.first = *i;
+      }
+      else
+      {
+        dist = dist_s;
+        endpoints.second = *i;
+      }
+    }
+  }
+}
+
+/// Computes the intersection of a convex polygon and a line segment
+/**
+ * \param begin iterator pointing to start of collection of Vector2* elements
+ * \param end iterator pointing to end of collection of Vector2* elements
+ * \param seg the line segment
+ * \param te the parameter of the line segment for the beginning of the
+ *        intersection; (1-te)*seg.first + te*seg.second is point of 
+ *        intersection
+ * \param tl the parameter of the line segment for the end of the intersection;
+ *        (1-tl)*seg.first + tl*seg.second is point of intersection
+ * \param tol the tolerance for parallel lines
+ * \return <b>true</b> if the two intersect and <b>false</b> otherwise
+ * \note polygon must be given in counter-clockwise order
+ * \note first vertex should not appear twice
+ * \note taken from http://geometryalgorithms.com 
+ */
+template <class InputIterator>
+bool CompGeomSpecOne<InputIterator, Vector2*>::intersect_seg_convex_polygon(InputIterator begin, InputIterator end, const LineSeg2& seg, Real& te, Real& tl, Real tol)
+{
+  assert(tol >= 0.0);
+
+  // initialize te and tl
+  te = 0;
+  tl = 1;
+
+  Vector2 dS = seg.second - seg.first;
+
+  // iterate over all vertices
+  for (InputIterator i = begin; i != end; i++)
+  {
+    // get the next vertex
+    InputIterator j = i;
+    j++;
+    if (j == end)
+      j = begin;
+
+    // get the edge
+    Vector2 edge = **j - **i;
+
+    // determine the outward normal of the edge
+    Vector2 ni(edge[1], -edge[0]);
+    Real N = -Vector2::dot(ni, seg.first-**i);
+    Real D = Vector2::dot(dS, ni);
+    if (std::fabs(D) < 0.0)
+    {
+      // segment is parallel to this edge
+      if (N < tol)
+        // first point is outside of the edge; segment cannot intersect poly
+        return false;
+      else
+        // segment cannot enter or leave poly across this edge, process next
+        continue;
+    }
+
+    Real t = N / D;
+    if (D < 0.0)
+    {
+      // segment enters polygon across this edge
+      te = std::max(te, t);
+      if (te > tl)
+        // segment enters polygon after leaving
+        return false;
+    }
+    else
+    {
+      assert(D > 0.0);
+      tl = std::min(tl, t);
+      if (tl < te)
+        // segment leaves polygon before entering
+        return false;
+    }  
+  }
+
+  return true;
+}
+
+/**
+ * Converts a collection of Vector2* objects to Vector3 objects
+ * \param source_begin an iterator pointing to the beginning of the Vector3 
+ *        objects
+ * \param source_end an iterator pointing to the end of the Vector3 objects
+ * \param begin_target an iterator pointing to the beginning of the Vector2
+ *        objects
+ * \param R the projection matrix from 2D to 3D
+ * \param offset the offset that must be added to the Z-coordinate of points
+ *        projected back from 2D to 3D
+ * \return the end of the output range
+ * \note the size of the target collection must be equal to the size of the
+ *       source collection
+ */
+template <class InputIterator, class OutputIterator>
+OutputIterator CompGeomSpecTwo<InputIterator, OutputIterator, Vector2*>::to_3D(InputIterator begin_source, InputIterator end_source, OutputIterator begin_target, const Matrix3& RT, Real offset)
+{
+  // project the points back to 3D
+  for (InputIterator i = begin_source; i != end_source; i++, begin_target++)
+    *begin_target = CompGeom::to_3D(**i, RT, offset);
+
+  return begin_target;
+}
+
+/**
+ * Determines whether a polygon in 2D is counter-clockwise
+ * \note Degenerate polygons (alternating representation) will fail!
+ */
+template <class InputIterator>
+bool CompGeomSpecOne<InputIterator, Vector2*>::ccw(InputIterator begin, InputIterator end, Real tol)
+{
+  assert(tol >= 0.0);
+
+  for (InputIterator i = begin; i != end; i++)
+  {
+    InputIterator j = i;
+    j++;
+    if (j == end)
+      j = begin;
+
+    InputIterator k = j;
+    k++;
+    if (k == end)
+      k = begin; 
+    
+    CompGeom::OrientationType ori = CompGeom::area_sign(**i, **j, **k, tol);
+    if (ori == CompGeom::eRight)
+      return false;
+  }
+
+  // still here?  polygon may be degenerate!
+  return true;
+}
+
+/// Determines whether a polygon in 2D is convex
+template <class InputIterator>
+bool CompGeomSpecOne<InputIterator, Vector2*>::is_convex_polygon(InputIterator begin, InputIterator end, Real tol)
+{
+  assert(tol >= 0.0);
+
+  // check whether every third point is to the left of the line segment
+  // formed by the two preceeding points
+  for (InputIterator i = begin; i != end; i++)
+  {
+    // get the next point -- if we've gone to the end, recycle
+    InputIterator j = i;
+    j++;
+    if (j == end)
+      j = begin;
+
+    // get the following point -- if we've gone past the end, recycle
+    InputIterator k = j;  
+    k++;
+    if (k == end)
+      k = begin;
+
+    // verify that k is not to the right of j and k
+    if (CompGeom::area_sign(**i, **j, **k, tol) == CompGeom::eRight)
+      return false;
+  }
+
+  // all checks passed.. convex
+  return true;
+}
+
+/// Calculates the convex hull of a set of points in 2D using quickhull
+/**
+ * \param source_begin an iterator to the beginning of a container of Vector2*
+ * \param source_end an iterator pointing to the end of a container of Vector2*
+ * \param target_begin an iterator to the beginning of a container of indices;
+ *         on return, contains the convex hull (NOTE: size of this container
+ *         must be as large as the source container)
+ * \return the new end of the target container
+ */
+template <class InputIterator, class OutputIterator>
+OutputIterator CompGeomSpecTwo<InputIterator, OutputIterator, Vector2*>::calc_convex_hull(InputIterator source_begin, InputIterator source_end, OutputIterator target_begin)
+{
+  const unsigned X = 0, Y = 1;
+  int exit_code;
+  int curlong, totlong;
+  char flags[] = "qhull Fx";
+  FILE* outfile, * errfile;
+  
+  FILE_LOG(LOG_COMPGEOM) << "computing 2D convex hull of following points:" << std::endl;
+  for (InputIterator i = source_begin; i != source_end; i++)
+    FILE_LOG(LOG_COMPGEOM) << "  " << *i << std::endl;
+  
+  // setup qhull outputs
+  if (LOGGING(LOG_COMPGEOM))
+  {
+    outfile=stdout;  
+    errfile=stderr;
+  }
+  else
+  {
+    outfile=NULL;
+    errfile=fopen("/dev/null", "w");
+    assert(errfile);
+  } 
+
+  // setup constants for qhull
+  const int DIM = 2;
+  const int N_POINTS = (int) std::distance(source_begin, source_end);
+  const boolT IS_MALLOC = false;
+  assert(N_POINTS > 2);
+  
+  // setup the points
+  std::map<coordT*, Vector2*> vertex_map;
+  SAFESTATIC std::vector<coordT> qhull_points;
+  qhull_points.resize(N_POINTS*DIM);
+  coordT* points_begin = &qhull_points.front();
+  unsigned j=0;
+  for (InputIterator i = source_begin; i != source_end; i++)
+  {
+    qhull_points[j] = (**i)[X];
+    qhull_points[j+1] = (**i)[Y];
+    vertex_map[points_begin+j] = *i;
+    j += DIM;
+  }
+
+  // lock the qhull mutex -- qhull is non-reentrant
+  pthread_mutex_lock(&CompGeom::_qhull_mutex);
+  
+  // execute qhull  
+  exit_code = qh_new_qhull(DIM, N_POINTS, points_begin, IS_MALLOC, flags, outfile, errfile);
+  if (exit_code != 0)
+  {
+    // points are not collinear.. unsure of the error...
+    FILE_LOG(LOG_COMPGEOM) << "CompGeom::calc_convex_hull_2D() - unable to execute qhull on points:" << std::endl;
+    for (InputIterator i = source_begin; i != source_end; i++)
+      FILE_LOG(LOG_COMPGEOM) << "  " << *i << std::endl;
+
+    // free qhull memory
+    qh_freeqhull(!qh_ALL);
+    qh_memfreeshort(&curlong, &totlong);
+
+    // release the mutex, since we're not using qhull anymore
+    pthread_mutex_unlock(&CompGeom::_qhull_mutex);
+
+    // close the error stream, if necessary
+    if (!LOGGING(LOG_COMPGEOM))
+      fclose(errfile);
+
+    return target_begin; 
+  }
+
+  // ordered list of edges
+  std::map<Vector2*, std::list<Vector2*> > edges;
+  
+  // iterate through all facets  
+  for (facetT* facet=qh facet_list;facet && facet->next;facet=facet->next)
+  {
+    // setup a list of vertices for the facet
+    std::list<Vector2*> facet_vertices;
+    
+    // get all vertices in the facet
+    vertexT* vertex;
+    for (vertexT** vertex_pointer = (vertexT**)& ((facet->vertices)->e[0].p); (vertex = (*vertex_pointer++));)
+      facet_vertices.push_back(vertex_map[vertex->point]);
+    
+    // should be exactly two vertices in the list
+    assert(facet_vertices.size() == 2);
+    
+    // store the edge in the list of edges
+    edges[facet_vertices.front()].push_back(facet_vertices.back());
+    edges[facet_vertices.back()].push_back(facet_vertices.front());
+  }    
+  
+  // free qhull memory
+  qh_freeqhull(!qh_ALL);
+  qh_memfreeshort(&curlong, &totlong);
+
+  // release the qhull mutex
+  pthread_mutex_unlock(&CompGeom::_qhull_mutex);
+  
+  // construct the set of processed vertex
+  std::set<Vector2*> processed;
+  
+  // construct the hull; compute the area at the same time of the 2D polygon
+  Vector2* current_vertex = edges.begin()->first;
+  std::list<Vector2*> hull;
+
+  while (true)
+  {
+    // add the current vertex to the list
+    hull.push_back(current_vertex);
+    
+    // mark this vertex as processed
+    processed.insert(current_vertex);
+    
+    // get adjacent vertices
+    std::list<Vector2*>& adj_v = edges[current_vertex];
+    
+    // see which vertices have been processed
+    if (processed.find(adj_v.front()) == processed.end())
+      current_vertex = adj_v.front();
+    else if (processed.find(adj_v.back()) == processed.end())
+      current_vertex = adj_v.back();
+    else
+      break;    
+  }
+
+  // close the error stream, if necessary
+  if (!LOGGING(LOG_COMPGEOM))
+    fclose(errfile);
+
+  // reverse the hull if necessary
+  if (!CompGeom::ccw(hull.begin(), hull.end()))  
+    return std::copy(hull.rbegin(), hull.rend(), target_begin);    
+  else
+    return std::copy(hull.begin(), hull.end(), target_begin);
+}
+
+/*****************************************************************************
+ Vector2* versions of functions END 
+ ****************************************************************************/
+
+/// Computes the intersection of a polygon and a line segment
+/**
+ * \param begin iterator pointing to start of collection of Vector2 elements
+ * \param end iterator pointing to end of collection of Vector2 elements
+ * \param seg the line segment
+ * \param outbegin an iterator to a container of type LineSeg2 that will 
+ *        store line segments on/in the polygon on return 
+ * \param tol the tolerance for parallel lines
+ * \return ePolygonSegInside if the polygon 
+ * \note polygon must be given in counter-clockwise order
+ * \note first vertex should not appear twice
+ */
+template <class ForwardIterator, class OutputIterator>
+OutputIterator CompGeom::intersect_seg_polygon(ForwardIterator begin, ForwardIterator end, const LineSeg2& seg, OutputIterator outbegin)
+{
+  return CompGeomSpecTwo<ForwardIterator, OutputIterator, typename std::iterator_traits<ForwardIterator>::value_type>::intersect_seg_polygon(begin, end, seg, outbegin);
+}
+
+/// Computes the 3D convex hull of a set of points
+/**
+ * \param first a forward iterator for type Vector3
+ * \param last a forward iterator for type Vector3
+ * \return a pointer to the newly created polyhedron
+ */
+template <class InputIterator>
+PolyhedronPtr CompGeom::calc_convex_hull(InputIterator first, InputIterator last)
+{
+  return CompGeomSpecOne<InputIterator, Vector3>::calc_convex_hull(first, last);
 }
 
 /// Finds an interior point of a set of halfspaces using linear programming
@@ -551,7 +2531,7 @@ PolyhedronPtr CompGeom::calc_hs_intersection(InputIterator start, InputIterator 
   }
 
   // lock the qhull mutex -- qhull is non-reentrant
-  pthread_mutex_lock(&_qhull_mutex);
+  pthread_mutex_lock(&CompGeom::_qhull_mutex);
 
   // execute qhull
   int exit_code = qh_new_qhull(DIM, nspaces, qhull_hs.get(), IS_MALLOC, (char*) flags.str().c_str(), outfile, errfile);
@@ -562,7 +2542,7 @@ PolyhedronPtr CompGeom::calc_hs_intersection(InputIterator start, InputIterator 
     qh_memfreeshort(&curlong, &totlong);
 
     // qhull failed
-    pthread_mutex_unlock(&_qhull_mutex);
+    pthread_mutex_unlock(&CompGeom::_qhull_mutex);
 
     // close the error stream, if necessary
     if (!LOGGING(LOG_COMPGEOM))
@@ -620,86 +2600,16 @@ PolyhedronPtr CompGeom::calc_hs_intersection(InputIterator start, InputIterator 
   assert(!curlong && !totlong);
   
   // release the qhull mutex
-  pthread_mutex_unlock(&_qhull_mutex);
+  pthread_mutex_unlock(&CompGeom::_qhull_mutex);
 
   // now, calculate the convex hull of the intersection points  
-  PolyhedronPtr p = calc_convex_hull_3D(points.begin(), points.end());
+  PolyhedronPtr p = calc_convex_hull(points.begin(), points.end());
 
   // close the error stream, if necessary
   if (!LOGGING(LOG_COMPGEOM))
     fclose(errfile);
 
   return p;
-}
-
-/// Computes the intersection of a polygon and a line segment
-/**
- * \param begin iterator pointing to start of collection of Vector2 elements
- * \param end iterator pointing to end of collection of Vector2 elements
- * \param seg the line segment
- * \param outbegin an iterator to a container of type LineSeg2 that will 
- *        store line segments on/in the polygon on return 
- * \param tol the tolerance for parallel lines
- * \return ePolygonSegInside if the polygon 
- * \note polygon must be given in counter-clockwise order
- * \note first vertex should not appear twice
- */
-template <class ForwardIterator, class OutputIterator>
-OutputIterator CompGeom::intersect_seg_polygon(ForwardIterator begin, ForwardIterator end, const LineSeg2& seg, OutputIterator outbegin)
-{
-  std::list<Real> points;
-
-  // determine whether one (or both) of the endpoints is within the polygon
-  if (polygon_location(begin, end, seg.first) == ePolygonInside)
-    points.push_back(0.0);
-  if (polygon_location(begin, end, seg.second) == ePolygonInside)
-    points.push_back(1.0);
-
-  // determine the inverse of the length (squared) of the line segment
-  Real inv_seg_len_sq = 1.0/(seg.first - seg.second).norm_sq();
-
-  // intersect all line segments
-  Vector2 isect1, isect2;
-  for (ForwardIterator i = begin; i != end; i++)
-  {
-    // get the next vertex
-    ForwardIterator j = i;
-    j++;
-    if (j == end)
-      j = begin;
-  
-    // intersect the two segments
-    switch (intersect_segs(seg, LineSeg2(*i, *j), isect1, isect2))
-    {
-      case eSegSegNoIntersect:
-        break;
-
-      case eSegSegIntersect:
-      case eSegSegVertex: 
-        points.push_back((isect1 - seg.second).norm_sq() * inv_seg_len_sq);
-        break;
-
-      case eSegSegEdge:
-        points.push_back((isect1 - seg.second).norm_sq() * inv_seg_len_sq);
-        points.push_back((isect2 - seg.second).norm_sq() * inv_seg_len_sq);
-        break;
-    }
-  }
-
-  // sort the points
-  points.sort();
-
-  // make segments out of the points
-  for (std::list<Real>::const_iterator i = points.begin(); i != points.rbegin().base(); i++)
-  {
-    std::list<Real>::const_iterator j = i;
-    j++;
-    Vector2 p1 = seg.first * (*i) + seg.second * (1.0 - (*i));
-    Vector2 p2 = seg.first * (*j) + seg.second * (1.0 - (*j));
-    *outbegin++ = LineSeg2(p1, p2);
-  }
-
-  return outbegin;
 }
 
 /// Computes the intersection of a convex polygon and a line segment
@@ -721,61 +2631,8 @@ OutputIterator CompGeom::intersect_seg_polygon(ForwardIterator begin, ForwardIte
 template <class InputIterator>
 bool CompGeom::intersect_seg_convex_polygon(InputIterator begin, InputIterator end, const LineSeg2& seg, Real& te, Real& tl, Real tol)
 {
-  assert(tol >= 0.0);
-
-  // initialize te and tl
-  te = 0;
-  tl = 1;
-
-  Vector2 dS = seg.second - seg.first;
-
-  // iterate over all vertices
-  for (InputIterator i = begin; i != end; i++)
-  {
-    // get the next vertex
-    InputIterator j = i;
-    j++;
-    if (j == end)
-      j = begin;
-
-    // get the edge
-    Vector2 edge = *j - *i;
-
-    // determine the outward normal of the edge
-    Vector2 ni(edge[1], -edge[0]);
-    Real N = -Vector2::dot(ni, seg.first-*i);
-    Real D = Vector2::dot(dS, ni);
-    if (std::fabs(D) < 0.0)
-    {
-      // segment is parallel to this edge
-      if (N < tol)
-        // first point is outside of the edge; segment cannot intersect poly
-        return false;
-      else
-        // segment cannot enter or leave poly across this edge, process next
-        continue;
-    }
-
-    Real t = N / D;
-    if (D < 0.0)
-    {
-      // segment enters polygon across this edge
-      te = std::max(te, t);
-      if (te > tl)
-        // segment enters polygon after leaving
-        return false;
-    }
-    else
-    {
-      assert(D > 0.0);
-      tl = std::min(tl, t);
-      if (tl < te)
-        // segment leaves polygon before entering
-        return false;
-    }  
-  }
-
-  return true;
+  return CompGeomSpecOne<InputIterator, typename std::iterator_traits<InputIterator>::value_type
+  >::intersect_seg_convex_polygon(begin, end, seg, te, tl, tol);
 }
 
 /**
@@ -793,11 +2650,7 @@ bool CompGeom::intersect_seg_convex_polygon(InputIterator begin, InputIterator e
 template <class InputIterator, class OutputIterator>
 OutputIterator CompGeom::to_2D(InputIterator begin_source, InputIterator end_source, OutputIterator begin_target, const Matrix3& R)
 {
-  // project the points to 2D
-  for (InputIterator i = begin_source; i != end_source; i++, begin_target++)
-    *begin_target = to_2D(*i, R);
-
-  return begin_target;
+  return CompGeomSpecTwo<InputIterator, OutputIterator, typename std::iterator_traits<InputIterator>::value_type>::to_2D(begin_source, end_source, begin_target, R);
 }
 
 /**
@@ -817,53 +2670,9 @@ OutputIterator CompGeom::to_2D(InputIterator begin_source, InputIterator end_sou
 template <class InputIterator, class OutputIterator>
 OutputIterator CompGeom::to_3D(InputIterator begin_source, InputIterator end_source, OutputIterator begin_target, const Matrix3& RT, Real offset)
 {
-  // project the points back to 3D
-  for (InputIterator i = begin_source; i != end_source; i++, begin_target++)
-    *begin_target = to_3D(*i, RT, offset);
-
-  return begin_target;
+  return CompGeomSpecTwo<InputIterator, OutputIterator, typename std::iterator_traits<InputIterator>::value_type>::to_3D(begin_source, end_source, begin_target, RT, offset);
 }
 
-/**
- * Determines whether a polygon in 3D is counter-clockwise
- * \note Degenerate polygons (alternating representation) will fail!
- * \note This method is simple and could most certainly be made faster and
- *       more robust
- */
-template <class InputIterator>
-bool CompGeom::ccw(InputIterator begin, InputIterator end, const Vector3& normal, Real tol)
-{
-  assert(tol >= 0.0);
-
-  for (InputIterator i = begin; i != end; i++)
-  {
-    InputIterator j = i;
-    j++;
-    if (j == end)
-      j = begin;
-
-    InputIterator k = j;
-    k++;
-    if (k == end)
-      k = begin; 
-
-    // take the cross product of the normal and the vector j i
-    Vector3 c = Vector3::cross(normal, *j - *i);    
-
-    // determine whether k j is to the left or right of j i
-    Real dprod = Vector3::dot(c, *k - *j);
-    if (dprod > tol)
-      return true;
-    else if (dprod < -tol)
-      return false;
-
-    // still here-- can't tell for sure, keep going
-  }
-
-  // if we're here, we've encountered a degenerate polygon
-  assert(false);
-  return false;
-}
 
 /**
  * Determines whether a polygon in 2D is counter-clockwise
@@ -872,27 +2681,7 @@ bool CompGeom::ccw(InputIterator begin, InputIterator end, const Vector3& normal
 template <class InputIterator>
 bool CompGeom::ccw(InputIterator begin, InputIterator end, Real tol)
 {
-  assert(tol >= 0.0);
-
-  for (InputIterator i = begin; i != end; i++)
-  {
-    InputIterator j = i;
-    j++;
-    if (j == end)
-      j = begin;
-
-    InputIterator k = j;
-    k++;
-    if (k == end)
-      k = begin; 
-    
-    OrientationType ori = area_sign(*i, *j, *k, tol);
-    if (ori == eRight)
-      return false;
-  }
-
-  // still here?  polygon may be degenerate!
-  return true;
+  return CompGeomSpecOne<InputIterator, typename std::iterator_traits<InputIterator>::value_type>::ccw(begin, end, tol);
 }
 
 /// Intersects two coplanar triangles
@@ -1177,159 +2966,18 @@ OutputIterator CompGeom::intersect_tris(const Triangle& t1, const Triangle& t2, 
 /// Calculates the convex hull of a set of points in 2D using quickhull
 /**
  * \param source_begin an iterator to the beginning of a container of Vector2 
+ *        or Vector2*
  * \param source_end an iterator pointing to the end of a container of Vector2
+ *        or Vector2*
  * \param target_begin an iterator to the beginning of a container of indices;
  *         on return, contains the convex hull (NOTE: size of this container
  *         must be as large as the source container)
  * \return the new end of the target container
  */
-template <class InputIterator, class OutputIterator>
-OutputIterator CompGeom::calc_convex_hull_2D(InputIterator source_begin, InputIterator source_end, OutputIterator target_begin)
+template <class ForwardIterator, class OutputIterator>
+OutputIterator CompGeom::calc_convex_hull(ForwardIterator source_begin, ForwardIterator source_end, OutputIterator target_begin)
 {
-  const unsigned X = 0, Y = 1;
-  int exit_code;
-  int curlong, totlong;
-  char flags[] = "qhull Fx";
-  FILE* outfile, * errfile;
-  
-  FILE_LOG(LOG_COMPGEOM) << "computing 2D convex hull of following points:" << std::endl;
-  for (InputIterator i = source_begin; i != source_end; i++)
-    FILE_LOG(LOG_COMPGEOM) << "  " << *i << std::endl;
-  
-  // setup qhull outputs
-  if (LOGGING(LOG_COMPGEOM))
-  {
-    outfile=stdout;  
-    errfile=stderr;
-  }
-  else
-  {
-    outfile=NULL;
-    errfile=fopen("/dev/null", "w");
-    assert(errfile);
-  } 
-
-  // setup constants for qhull
-  const int DIM = 2;
-  const int N_POINTS = (int) std::distance(source_begin, source_end);
-  const boolT IS_MALLOC = false;
-  assert(N_POINTS > 2);
-  
-  // setup the points
-  coordT* qhull_points = new coordT[N_POINTS*DIM];
-  unsigned j=0;
-  for (InputIterator i = source_begin; i != source_end; i++)
-  {
-    qhull_points[j] = (*i)[X];
-    qhull_points[j+1] = (*i)[Y];
-    j += DIM;
-  }
-  
-  // lock the qhull mutex -- qhull is non-reentrant
-  pthread_mutex_lock(&_qhull_mutex);
-  
-  // execute qhull  
-  exit_code = qh_new_qhull(DIM, N_POINTS, qhull_points, IS_MALLOC, flags, outfile, errfile);
-  if (exit_code != 0)
-  {
-    // points are not collinear.. unsure of the error...
-    FILE_LOG(LOG_COMPGEOM) << "CompGeom::calc_convex_hull_2D() - unable to execute qhull on points:" << std::endl;
-    for (InputIterator i = source_begin; i != source_end; i++)
-      FILE_LOG(LOG_COMPGEOM) << "  " << *i << std::endl;
-
-    // free qhull memory
-    qh_freeqhull(!qh_ALL);
-    qh_memfreeshort(&curlong, &totlong);
-
-    // release the mutex, since we're not using qhull anymore
-    pthread_mutex_unlock(&_qhull_mutex);
-
-    // close the error stream, if necessary
-    if (!LOGGING(LOG_COMPGEOM))
-      fclose(errfile);
-
-    return target_begin; 
-  }
-
-  // get all of the vertices
-  std::vector<Vector2> vertices;
-  std::map<vertexT*, unsigned> vertex_map;
-  for (vertexT* vertex=qh vertex_list;vertex && vertex->next;vertex= vertex->next)
-  {
-    vertex_map[vertex] = vertices.size();
-    vertices.push_back(Vector2());
-    for (unsigned i=0; i< (unsigned) DIM; i++)
-      vertices.back()[i] = vertex->point[i];    
-  }
-
-  // ordered list of edges
-  std::map<unsigned, std::list<unsigned> > edges;
-  
-  // iterate through all facets  
-  for (facetT* facet=qh facet_list;facet && facet->next;facet=facet->next)
-  {
-    // setup a list of vertices for the facet
-    std::list<unsigned> facet_vertices;
-    
-    // get all vertices in the facet
-    vertexT* vertex;
-    for (vertexT** vertex_pointer = (vertexT**)& ((facet->vertices)->e[0].p); (vertex = (*vertex_pointer++));)
-      facet_vertices.push_back(vertex_map[vertex]);
-    
-    // should be exactly two vertices in the list
-    assert(facet_vertices.size() == 2);
-    
-    // store the edge in the list of edges
-    edges[facet_vertices.front()].push_back(facet_vertices.back());
-    edges[facet_vertices.back()].push_back(facet_vertices.front());
-  }    
-  
-  // free memory for the points
-  delete [] qhull_points;
-  
-  // free qhull memory
-  qh_freeqhull(!qh_ALL);
-  qh_memfreeshort(&curlong, &totlong);
-
-  // release the qhull mutex
-  pthread_mutex_unlock(&_qhull_mutex);
-  
-  // construct the set of processed vertex
-  std::set<unsigned> processed;
-  
-  // construct the hull; compute the area at the same time of the 2D polygon
-  unsigned current_vertex = edges.begin()->first;
-  std::list<Vector2> hull;
-
-  while (true)
-  {
-    // add the current vertex to the list
-    hull.push_back(vertices[current_vertex]);
-    
-    // mark this vertex as processed
-    processed.insert(current_vertex);
-    
-    // get adjacent vertices
-    std::list<unsigned>& adj_v = edges[current_vertex];
-    
-    // see which vertices have been processed
-    if (processed.find(adj_v.front()) == processed.end())
-      current_vertex = adj_v.front();
-    else if (processed.find(adj_v.back()) == processed.end())
-      current_vertex = adj_v.back();
-    else
-      break;    
-  }
-
-  // close the error stream, if necessary
-  if (!LOGGING(LOG_COMPGEOM))
-    fclose(errfile);
-
-  // reverse the hull if necessary
-  if (!ccw(hull.begin(), hull.end()))  
-    return std::copy(hull.rbegin(), hull.rend(), target_begin);    
-  else
-    return std::copy(hull.begin(), hull.end(), target_begin);
+  return CompGeomSpecTwo<ForwardIterator, OutputIterator, typename std::iterator_traits<ForwardIterator>::value_type>::calc_convex_hull(source_begin, source_end, target_begin);
 }
 
 /// Calculates the convex hull of a set of points that lie on a 2D manifold using quickhull
@@ -1343,109 +2991,23 @@ OutputIterator CompGeom::calc_convex_hull_2D(InputIterator source_begin, InputIt
  * \return the new end of the target container
  */
 template <class InputIterator, class OutputIterator>
-OutputIterator CompGeom::calc_convex_hull_2D(InputIterator source_begin, InputIterator source_end, const Vector3& normal, OutputIterator target_begin)
+OutputIterator CompGeom::calc_convex_hull(InputIterator source_begin, InputIterator source_end, const Vector3& normal, OutputIterator target_begin)
 {
-  FILE_LOG(LOG_COMPGEOM) << "computing 2D convex hull of following points:" << std::endl;
-  for (InputIterator i = source_begin; i != source_end; i++)
-    FILE_LOG(LOG_COMPGEOM) << "  " << *i << std::endl;
-  
-  // **************************************************************
-  // first, we need to project the 3D surface to a 2D polygon
-  // **************************************************************
-  
-  // determine the normal, if necessary 
-  Vector3 n = normal;
-  if (std::fabs(n.norm() - 1.0) > NEAR_ZERO)
-  {
-    Real offset;
-    CompGeom::fit_plane(source_begin, source_end, n, offset);
-  }
-
-  // compute the 3D to 2D projection matrix
-  Matrix3 R = calc_3D_to_2D_matrix(n);
-
-  // get the 2D to 3D offset
-  Real offset = determine_3D_to_2D_offset(*source_begin, R);
-
-  // get the transpose (i.e., inverse) of the rotation matrix
-  Matrix3 RT = Matrix3::transpose(R);
-
-  // project the points to 2D
-  unsigned sz = std::distance(source_begin, source_end);
-  std::vector<Vector2> points_2D(sz);
-  to_2D(source_begin, source_end, points_2D.begin(), R);
-
-  FILE_LOG(LOG_COMPGEOM) << "2D points:" << std::endl;
-  for (unsigned i=0; i< points_2D.size(); i++)
-    FILE_LOG(LOG_COMPGEOM) << "  " << points_2D[i] << std::endl;
-
-  // compute the convex hull
-  std::list<Vector2> hull(sz);
-  std::list<Vector2>::iterator hull_end = calc_convex_hull_2D(points_2D.begin(), points_2D.end(), hull.begin());
-
-  // reverse the hull if necessary
-  std::list<Vector3> hull3D;
-  std::insert_iterator<std::list<Vector3> > ii(hull3D, hull3D.begin());
-  to_3D(hull.begin(), hull_end, ii, RT, offset);
-  if (!ccw(hull3D.begin(), hull3D.end(), normal))
-    std::reverse(hull3D.begin(), hull3D.end());  
-
-  // return the hull
-  return std::copy(hull3D.begin(), hull3D.end(), target_begin);
+  return CompGeomSpecTwo<InputIterator, OutputIterator, typename std::iterator_traits<InputIterator>::value_type>::calc_convex_hull(source_begin, source_end, normal, target_begin);
 }
 
 /// Determines whether a polygon in 2D is convex
 template <class InputIterator>
 bool CompGeom::is_convex_polygon(InputIterator begin, InputIterator end, Real tol)
 {
-  assert(tol >= 0.0);
-
-  // check whether every third point is to the left of the line segment
-  // formed by the two preceeding points
-  for (InputIterator i = begin; i != end; i++)
-  {
-    // get the next point -- if we've gone to the end, recycle
-    InputIterator j = i;
-    j++;
-    if (j == end)
-      j = begin;
-
-    // get the following point -- if we've gone past the end, recycle
-    InputIterator k = j;  
-    k++;
-    if (k == end)
-      k = begin;
-
-    // verify that k is not to the right of j and k
-    if (area_sign(*i, *j, *k, tol) == eRight)
-      return false;
-  }
-
-  // all checks passed.. convex
-  return true;
+  return CompGeomSpecOne<InputIterator, typename std::iterator_traits<InputIterator>::value_type>::is_convex_polygon(begin, end, tol);
 }
 
 /// Determines whether a polygon (in 3D) is convex
 template <class InputIterator>
 bool CompGeom::is_convex_polygon(InputIterator begin, InputIterator end, const Vector3& normal, Real tol)
 {
-  const unsigned X = 0, Y = 1, Z = 2;
-  assert(tol >= 0.0);
-
-  // get the 3D to 2D projection matrix
-  Matrix3 R = calc_3D_to_2D_matrix(normal);
-
-  // project the points to 2D
-  std::list<Vector2> points_2D(std::distance(begin, end));
-  to_2D(begin, end, points_2D.begin(), R);
-
-  // if the 2D polygon is not ccw, make it so
-  assert(ccw(points_2D.begin(), points_2D.end()));
-//  if (!ccw(points_2D.begin(), points_2D.end()))
-//    std::reverse(points_2D.begin(), points_2D.end());
-
-  // check whether the 2D polygon is convex
-  return is_convex_polygon(points_2D.begin(), points_2D.end(), tol);
+  return CompGeomSpecOne<InputIterator, typename std::iterator_traits<InputIterator>::value_type>::is_convex_polygon(begin, end, normal, tol);
 }
 
 /// Triangulates a convex polygon in O(n)
@@ -1517,48 +3079,7 @@ OutputIterator CompGeom::triangulate_convex_polygon(InputIterator source_begin, 
 template <class InputIterator>
 Real CompGeom::fit_plane(InputIterator begin, InputIterator end, Vector3& normal, Real& offset)
 {
-  const unsigned THREE_D = 3, X = 0, Y = 1, Z = 2;
-  
-  // compute the mean of the data
-  unsigned n = 0;
-  Vector3 mu = ZEROS_3;
-  for (InputIterator i = begin; i != end; i++, n++)
-    mu += *i;
-  mu /= n;
-
-  // create a matrix subtracting each point from the mean
-  SAFESTATIC FastThreadable<MatrixN> Mx, Ux, Vx;
-  SAFESTATIC FastThreadable<VectorN> Sx;
-  MatrixN& M = Mx();
-  M.resize(n, THREE_D);
-  unsigned idx = 0;
-  for (InputIterator i = begin; i != end; i++)
-  {
-    M.set_row(idx, *i - mu);
-    idx++;
-  }
-
-  // take the svd of the matrix
-  MatrixN& U = Ux();
-  MatrixN& V = Vx();
-  VectorN& S = Sx();
-  LinAlg::svd(M, U, S, V);
-
-  // last column of V should have the singular value we want; normalize it just in case
-  normal[X] = V(X,Z);
-  normal[Y] = V(Y,Z);
-  normal[Z] = V(Z,Z);
-  normal.normalize();
-  
-  // determine offset
-  offset = Vector3::dot(normal, mu);
-
-  // compute distance from all points
-  Real max_dev = 0;
-  for (InputIterator i = begin; i != end; i++)
-    max_dev = std::max(max_dev, std::fabs(Vector3::dot(normal, *i) - offset));
-
-  return max_dev;
+  return CompGeomSpecOne<InputIterator, typename std::iterator_traits<InputIterator>::value_type>::fit_plane(begin, end, normal, offset);
 }
 
 /// Projects a set of points onto a plane
@@ -1840,468 +3361,18 @@ Vector3 CompGeom::calc_centroid_2D(InputIterator begin, InputIterator end, const
   return to_3D(centroid, RT, offset);
 }
 
+
 /// Computes the minimum area bounding rectangle of a set of points
 /**
  * Uses 2D convex hull and rotating calipers method; runs in O(N lg N) time
  * On return, x1, x2, x3, and x4 are the four vertices of the bounding
  * rectangle (ordered as edges).
  */
-template <class InputIterator>
-void CompGeom::calc_min_area_bounding_rect(InputIterator begin, InputIterator end, Vector2& x1, Vector2& x2, Vector2& x3, Vector2& x4)
+template <class ForwardIterator>
+void CompGeom::calc_min_area_bounding_rect(ForwardIterator begin, ForwardIterator end, Vector2& x1, Vector2& x2, Vector2& x3, Vector2& x4)
 {
-  enum Flag { F_NONE, F_LEFT, F_RIGHT, F_BOTTOM, F_TOP };
-  const unsigned X = 0, Y = 1;
-
-  // calculate the convex hull of the points in ccw order
-  std::vector<Vector2> hull;
-  calc_convex_hull_2D(begin, end, std::back_inserter(hull));
-  if (hull.empty())
-  {
-    // convex hull is degenerate; compute line endpoints and make that the 
-    // "hull"
-    std::pair<Vector2, Vector2> ep;
-    determine_seg_endpoints(begin, end, ep);
-    hull.push_back(ep.first);
-    hull.push_back(ep.second);
-  }
-  // get the hull in CCW order
-  else if (!ccw(hull.begin(), hull.end()))
-    std::reverse(hull.begin(), hull.end());
-
-  // make sure that no three points are colinear
-  unsigned n = hull.size();
-  for (unsigned i = 0; i < n; i++)
-  {
-    // get the next two points
-    unsigned j = (i < n-1) ? i+1 : 0;
-    unsigned k = (j < n-1) ? j+1 : 0;
-    if (collinear(hull[i], hull[j], hull[k]))
-    {
-      // erase the middle point
-      hull.erase(hull.begin()+j);
-
-      // decrement both n and i
-      i--;
-      n--;
-      // if n < 3, bounding rectangle is degenerate; however, we can still
-      // output something useful
-      if (n < 3)
-      {
-        x1 = hull[0];
-        x2 = hull[1];
-        x3 = hull[0];
-        x4 = hull[1];
-        return;
-      }
-    }
-  }
-
-  // setup unit-length edge directions of the convex polygon
-  unsigned nm1 = n - 1;
-  std::vector<Vector2> edges(n);
-  std::vector<bool> visited(n, false);
-  for (unsigned i=0; i< nm1; i++)
-  {
-    edges[i] = hull[i+1] - hull[i];
-    edges[i].normalize();
-  }
-  edges[nm1] = hull[0] - hull[nm1];
-  edges[nm1].normalize();
-
-  // find the smallest axis-aligned box containing the points.  Keep track
-  // of the extremum indices, L (left), R (right), B (bottom), and T (top)
-  // so that the following constraints are met:
-  //   V[L].X <= V[i].X for all i and V[(L+1)%N].X > V[L].X
-  //   V[L].X >= V[i].X for all i and V[(R+1)%N].X < V[R].X
-  //   V[L].Y <= V[i].Y for all i and V[(B+1)%N].Y > V[B].X
-  //   V[L].Y >= V[i].Y for all i and V[(T+1)%N].Y < V[T].X
-  Real xmin = hull[0][X], xmax = xmin;
-  Real ymin = hull[0][Y], ymax = ymin;
-  unsigned Lindex = 0, Rindex = 0, Bindex = 0, Tindex = 0;
-  for (unsigned i=1; i< n; i++)
-  {
-    if (hull[i][X] <= xmin)
-    {
-      xmin = hull[i][X];
-      Lindex = i;
-    }
-    if (hull[i][X] >= xmax)
-    {
-      xmax = hull[i][X];
-      Rindex = i;
-    }
-    if (hull[i][Y] <= ymin)
-    {
-      ymin = hull[i][Y];
-      Bindex = i;
-    }
-    if (hull[i][Y] >= ymax)
-    {
-      ymax = hull[i][Y];
-      Tindex = i;
-    }
-  }
-
-  // apply wrap-around tests to ensure the constraints mentioned above 
-  // are satisfied
-  if (Lindex == nm1)
-  {
-    if (hull[0][X] <= xmin)
-    {
-      xmin = hull[0][X];
-      Lindex = 0;
-    }
-  }
-  if (Rindex == nm1)
-  {
-    if (hull[0][X] >= xmax)
-    {
-      xmax = hull[0][X];
-      Rindex = 0;
-    }
-  }
-  if (Bindex == nm1)
-  {
-    if (hull[0][Y] <= ymin)
-    {
-      ymin = hull[0][Y];
-      Bindex = 0;
-    }
-  }
-  if (Tindex == nm1)
-  {
-    if (hull[0][Y] >= ymax)
-    {
-      ymax = hull[0][Y];
-      Tindex = 0;
-    }
-  }
-
-  // the dimensions of the axis-aligned box; the extents store width and height
-  // for now
-  Vector2 center((Real) 0.5 * (xmin + xmax), (Real) 0.5 * (ymin + ymax));
-  Vector2 axis[2] = { Vector2((Real) 1.0, (Real) 0.0), 
-                      Vector2((Real) 0.0, (Real) 1.0) };
-  Real extent[2] = { (Real) 0.5 * (xmax - xmin), (Real) 0.5 * (ymax - ymin) };
-  Real min_area_div4 = extent[0]*extent[1];
-
-  // the rotating calipers algorithm follows...
-  Vector2 U((Real) 1.0, (Real) 0.0), V((Real) 0.0, (Real) 1.0);
-  bool done = false;
-  while (!done)
-  {
-    // determine the edge that forms the smallest angle with the current box
-    // edges
-    Flag flag = F_NONE;
-    Real maxdot = (Real) 0.0;
-    Real dot = U.dot(edges[Bindex]);
-    if (dot > maxdot)
-    {
-      maxdot = dot;
-      flag = F_BOTTOM;
-    }
-    dot = V.dot(edges[Rindex]);
-    if (dot > maxdot)
-    {
-      maxdot = dot;
-      flag = F_RIGHT;
-    }
-    dot = -U.dot(edges[Tindex]);
-    if (dot > maxdot)
-    {
-      maxdot = dot;
-      flag = F_TOP;
-    }
-    dot = -V.dot(edges[Lindex]);
-    if (dot > maxdot)
-    {
-      maxdot = dot;
-      flag = F_LEFT;
-    }
-
-    switch (flag)
-    {
-      case F_BOTTOM:
-        if (visited[Bindex])
-          done = true;
-        else
-        {
-          // compute box axes with E[B] as an edge
-          U = edges[Bindex];
-          V = -U.perp();
-          update_box(hull[Lindex], hull[Rindex], hull[Bindex], hull[Tindex], U, V, min_area_div4, center, axis, extent);
-
-          // mark edge visited and rotate the calipers
-          visited[Bindex] = true;
-          if (++Bindex == n)
-             Bindex = 0;
-         }
-         break;
-
-      case F_RIGHT:
-        if (visited[Rindex])
-          done = true;
-        else
-        {
-          // compute box axes with E[R] as an edge
-          V = edges[Rindex];
-          U = V.perp();
-          update_box(hull[Lindex], hull[Rindex], hull[Bindex], hull[Tindex], U, V, min_area_div4, center, axis, extent);
-
-          // mark edge visited and rotate the calipers
-          visited[Rindex] = true;
-          if (++Rindex == n)
-            Rindex = 0;
-        }
-        break;
-
-      case F_TOP:
-        if (visited[Tindex])
-          done = true;
-        else
-        {
-          // compute box axes with E[T] as an edge
-          U = -edges[Tindex];
-          V = -U.perp();
-          update_box(hull[Lindex], hull[Rindex], hull[Bindex], hull[Tindex], U, V, min_area_div4, center, axis, extent);
-
-          // mark edge visited and rotate the calipers
-          visited[Tindex] = true;
-          if (++Tindex == n)
-            Tindex = 0;
-        }
-        break;
-
-      case F_LEFT:
-        if (visited[Lindex])
-          done = true;
-        else
-        {
-          // compute box axes with E[L] as an edge
-          V = -edges[Lindex];
-          U = V.perp();
-          update_box(hull[Lindex], hull[Rindex], hull[Bindex], hull[Tindex], U, V, min_area_div4, center, axis, extent);
-
-          // mark edge visited and rotate the calipers
-          visited[Lindex] = true;
-          if (++Lindex == n)
-            Lindex = 0;
-        }
-        break;
-
-      case F_NONE:
-        // the polygon is a rectangle
-        done = true;
-        break;
-    }
-  }
-
-  // convert Eberly's representation to my own
-  x1 =  center - axis[X]*extent[X] - axis[Y]*extent[Y];
-  x2 =  center + axis[X]*extent[X] - axis[Y]*extent[Y];
-  x3 =  center + axis[X]*extent[X] + axis[Y]*extent[Y];
-  x4 =  center - axis[X]*extent[X] + axis[Y]*extent[Y];
+  CompGeomSpecOne<ForwardIterator, typename std::iterator_traits<ForwardIterator>::value_type>::calc_min_area_bounding_rect(begin, end, x1, x2, x3, x4);
 }
-
-/*
-template <class InputIterator>
-void CompGeom::calc_min_area_bounding_rect(InputIterator begin, InputIterator end, Vector2& x1, Vector2& x2, Vector2& x3, Vector2& x4)
-{
-  const Real INF = std::numeric_limits<Real>::max();
-  const unsigned X = 0, Y = 1;
-  Real i1, i2, i3, i4, dummy;
-
-  // compute the convex hull of the points -- need it in ccw order
-  std::vector<Vector2> hull;
-  calc_convex_hull_2D(begin, end, std::back_inserter(hull));
-  if (hull.empty())
-  {
-    // convex hull is degenerate; compute line endpoints and make that the 
-    // "hull"
-    std::pair<Vector2, Vector2> ep;
-    determine_seg_endpoints(begin, end, ep);
-    hull.push_back(ep.first);
-    hull.push_back(ep.second);
-  }
-  // get the hull in CCW order
-  else if (!ccw(hull.begin(), hull.end()))
-    std::reverse(hull.begin(), hull.end());
-
-  // determine the number of points in the hull
-  unsigned n = hull.size();
-
-  // determine the vector value to be added to the points
-  // get the axis-aligned bounding rectangle
-  Real min_x = std::numeric_limits<Real>::max();
-  Real min_y = std::numeric_limits<Real>::max();
-  Real max_x = -std::numeric_limits<Real>::max();
-  Real max_y = -std::numeric_limits<Real>::max();
-  BOOST_FOREACH(const Vector2& p, hull)
-  for (std::vector<Vector2>::const_iterator i = hull.begin(); i != hull.end(); i++)
-  {
-    if (p[X] < min_x)
-      min_x = p[X];
-    if (p[X] > max_x)
-      max_x = p[X];
-    if (p[Y] < min_y)
-      min_y = p[Y];
-    if (p[Y] > max_y)
-      max_y = p[Y];
-  }
-  Real offset = ((max_x-min_x)*(max_x-min_x) + (max_y-min_y)*(max_y-min_y))*2.0;
-
-  // make sure that no three points are colinear
-  for (unsigned i = 0; i < n; i++)
-  {
-    // get the next two points
-    unsigned j = (i < n-1) ? i+1 : 0;
-    unsigned k = (j < n-1) ? j+1 : 0;
-    if (collinear(hull[i], hull[j], hull[k]))
-    {
-      // erase the middle point
-      hull.erase(hull.begin()+j);
-
-      // decrement both n and i
-      i--;
-      n--;
-      // if n < 3, bounding rectangle is degenerate; however, we can still
-      // output something useful
-      if (n < 3)
-      {
-        x1 = hull[0];
-        x2 = hull[1];
-        x3 = hull[0];
-        x4 = hull[1];
-        return;
-      }
-    }
-  }
-
-  // compute all four extreme points for the polygon
-  unsigned p1 = 0, p2 = 0, p3 = 0, p4 = 0;
-  for (unsigned i = 1; i < n; i++)
-  {
-    if (hull[i][X] < hull[p1][X])
-      p1 = i;
-    if (hull[i][X] > hull[p3][X])
-      p3 = i;
-    if (hull[i][Y] < hull[p4][Y])
-      p4 = i;
-    if (hull[i][Y] > hull[p2][Y])
-      p2 = i;
-  }
-
-  // setup the supports
-  Vector2 s1(0,1);
-  Vector2 s2(1,0);
-  Vector2 s3(0,-1);
-  Vector2 s4(-1,0);
-
-  // setup the current minimum area
-  Real min_area = INF;
-  
-  // repeat until lines have been rotated an angle greater than 90 degrees
-  Real rotated_angle = 0.0;
-  while (rotated_angle <= M_PI_2)
-  {
-    // determine the edges that the calipers would rotate onto
-    unsigned q1 = (p1 > 0) ? p1-1 : n-1;
-    unsigned q2 = (p2 > 0) ? p2-1 : n-1;
-    unsigned q3 = (p3 > 0) ? p3-1 : n-1;
-    unsigned q4 = (p4 > 0) ? p4-1 : n-1;
-    Vector2 e1 = hull[q1] - hull[p1];
-    Vector2 e2 = hull[q2] - hull[p2];
-    Vector2 e3 = hull[q3] - hull[p3];
-    Vector2 e4 = hull[q4] - hull[p4];
-    e1.normalize();
-    e2.normalize();
-    e3.normalize();
-    e4.normalize();
-
-    // determine the minimum angle necessary to rotate the support lines to
-    // coincide with an edge of the polygon
-    // NOTE: we clip the dot products to interval [-1,1]
-    Real theta1 = std::acos(std::max((Real) -1.0, std::min(s1.dot(e1),(Real) 1.0)));
-    Real theta2 = std::acos(std::max((Real) -1.0, std::min(s2.dot(e2),(Real) 1.0)));
-    Real theta3 = std::acos(std::max((Real) -1.0, std::min(s3.dot(e3),(Real) 1.0)));
-    Real theta4 = std::acos(std::max((Real) -1.0, std::min(s4.dot(e4),(Real) 1.0)));
-    if (theta1 <= theta2 && theta1 <= theta3 && theta1 <= theta4)
-    {
-      rotated_angle += theta1;
-      Matrix2 R = Matrix2::rot_Z(-theta1);
-      s1 = Vector2::normalize(R*s1);
-      s2 = Vector2::normalize(R*s2);
-      s3 = Vector2::normalize(R*s3);
-      s4 = Vector2::normalize(R*s4);
-      p1 = q1;
-    }
-    else if (theta2 <= theta1 && theta2 <= theta3 && theta2 <= theta4)
-    {
-      rotated_angle += theta2;
-      Matrix2 R = Matrix2::rot_Z(-theta2);
-      s1 = Vector2::normalize(R*s1);
-      s2 = Vector2::normalize(R*s2);
-      s3 = Vector2::normalize(R*s3);
-      s4 = Vector2::normalize(R*s4);
-      p2 = q2;
-    }
-    else if (theta3 <= theta1 && theta3 <= theta2 && theta3 <= theta4)
-    {
-      rotated_angle += theta3;
-      Matrix2 R = Matrix2::rot_Z(-theta3);
-      s1 = Vector2::normalize(R*s1);
-      s2 = Vector2::normalize(R*s2);
-      s3 = Vector2::normalize(R*s3);
-      s4 = Vector2::normalize(R*s4);
-      p3 = q3;
-    }
-    else
-    {
-      rotated_angle += theta4;
-      Matrix2 R = Matrix2::rot_Z(-theta4);
-      s1 = Vector2::normalize(R*s1);
-      s2 = Vector2::normalize(R*s2);
-      s3 = Vector2::normalize(R*s3);
-      s4 = Vector2::normalize(R*s4);
-      p4 = q4;
-    }
-
-    // compute the pseudo area of the new rectangle
-    LineSeg2 v1(hull[p1] - s1*offset, hull[p1] + s1*offset);
-    LineSeg2 v2(hull[p2] - s2*offset, hull[p2] + s2*offset);
-    LineSeg2 v3(hull[p3] - s3*offset, hull[p3] + s3*offset);
-    LineSeg2 v4(hull[p4] - s4*offset, hull[p4] + s4*offset);
-    LineLineIntersectType t1 = intersect_lines(hull[p1], s1, -INF, INF, hull[p2], s2, -INF, INF, i1, dummy);
-    LineLineIntersectType t2 = intersect_lines(hull[p2], s2, -INF, INF, hull[p3], s3, -INF, INF, i2, dummy);
-    LineLineIntersectType t3 = intersect_lines(hull[p3], s3, -INF, INF, hull[p2], s4, -INF, INF, i3, dummy);
-    assert(t1 == eLineLineIntersect);
-    assert(t2 == eLineLineIntersect);
-    assert(t3 == eLineLineIntersect);
-    Vector2 pi1 = hull[p1] + s1*i1;
-    Vector2 pi2 = hull[p2] + s2*i2;
-    Vector2 pi3 = hull[p3] + s3*i3;
-    Real area = (pi2 - pi1).norm_sq() * (pi3 - pi2).norm_sq();
-
-    // update the minimum if necessary
-    if (area < min_area)
-    {
-      // store the new minimum area
-      min_area = area;
-
-      // determine the last vertex and store the vertices
-      LineLineIntersectType t4 = intersect_lines(hull[p4], s4, -INF, INF, hull[p1], s1, -INF, INF, i4, dummy);
-      assert(t4 == eLineLineIntersect);
-      x1 = hull[p1] + s1*i1;
-      x2 = hull[p2] + s2*i2;
-      x3 = hull[p3] + s3*i3;
-      x4 = hull[p4] + s4*i4;
-    }
-  }
-
-  // make sure that area is zero if hull is degenerate
-  assert(n > 2 || std::fabs(min_area) < NEAR_ZERO);
-}
-*/
 
 /**
  * Intersects two 2D triangles.

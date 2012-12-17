@@ -124,6 +124,9 @@ class Event
     bool operator<(const Event& e) const { return t < e.t; }
 
   private:
+    static void determine_convex_set(std::list<Event*>& group);
+    static bool is_contact_manifold_2D(const std::list<Event*>& group);
+
     template <class BidirectionalIterator>
     static void insertion_sort(BidirectionalIterator begin, BidirectionalIterator end);
     static void compute_contact_jacobians(const Event& e, VectorN& Nc, VectorN& Dc1, VectorN& Dc2);

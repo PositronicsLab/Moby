@@ -31,6 +31,7 @@
 #include <Moby/Event.h>
 
 using namespace Moby;
+using std::pair;
 using std::list;
 using std::vector;
 using std::map;
@@ -458,171 +459,6 @@ void Event::determine_connected_events(const vector<Event>& events, list<list<Ev
   FILE_LOG(LOG_EVENT) << "Event::determine_connected_events() exited" << std::endl;
 }
 
-/*
-/// Modified Gaussian elimination with partial pivoting -- computes half-rank at the same time - this version designed to work with "full" 3*NC x 3*NC matrices
-unsigned Event::gauss_elim(MatrixN& A, vector<unsigned>& piv)
-{
-  const unsigned NROWS = A.rows(), NCOLS = A.columns();
-  const unsigned NPOSVARS = (NCOLS-1)/3;
-
-  FILE_LOG(LOG_EVENT) << "matrix before modified Gaussian elimination:" << std::endl << A;
-
-  // equilibrate the rows of A 
-  for (unsigned j=0; j< NROWS; j++)
-  {
-    Real* col = &A(j,0);
-    Real max_val = (Real) 0.0;
-    for (unsigned i=0, k=0; i< NCOLS; i++, k+= NROWS)
-      max_val = std::max(max_val, std::fabs(col[k]));
-    assert(max_val > (Real) 0.0);
-    CBLAS::scal(NCOLS, (Real) 1.0/max_val, col, NROWS);
-  }
-
-  // setup epsilon
-  const Real EPS = NCOLS * NEAR_ZERO;
-
-  // resize the pivots array
-  piv.resize(NROWS);
-  for (unsigned i=0; i< NROWS; i++)
-    piv[i] = i;
-
-  // setup swpi
-  unsigned swpi = 0;
-
-  // iterate over the positive variables
-  for (unsigned i=0; i< NPOSVARS; i++)
-  {
-    // get the pointer to the column 
-    BlockIterator col = A.block_start(0, NROWS, i,i+1);
-
-    // find the largest positive element in the column
-    Real largest = col[piv[swpi]];
-    unsigned largest_index = swpi;
-    for (unsigned k=swpi+1; k< NROWS; k++)
-      if (col[piv[k]] > largest)
-      {
-        largest_index = k;
-        largest = col[piv[k]];
-      }
-
-    // continue processing only if largest positive element is greater than 0 
-    if (largest > EPS)
-    {
-      // swap the pivots
-      std::swap(piv[swpi], piv[largest_index]);
-
-      // reduce the rows 
-      const Real* elm = &A(piv[swpi], i);
-      for (unsigned k=swpi+1; k< NROWS; k++)
-      {
-        Real* elm_k = &A(piv[k], i);
-        if (*elm_k > EPS)
-        {
-          Real scal = -*elm_k / *elm;
-          CBLAS::axpy(NCOLS-i, scal, elm, NROWS, &A(piv[k],i), NROWS);
-        }
-      }
-
-      // update the swap pivot
-      swpi++;
-
-      // quit if swpi too large
-      if (swpi == NROWS)
-        return swpi;
-    }
-
-    // find the largest negative element in the column
-    largest = col[piv[swpi]];
-    largest_index = swpi;
-    for (unsigned k=swpi+1; k< NROWS; k++)
-      if (col[piv[k]] < largest)
-      {
-        largest_index = k;
-        largest = col[piv[k]];
-      }
-
-    // only continue processing if largest negative element is less than 0
-    if (largest < -EPS)
-    {
-      // swap the pivots
-      std::swap(piv[swpi], piv[largest_index]);
-      
-      // reduce the rows
-      const Real* elm = &A(piv[swpi], i);
-      for (unsigned k=swpi+1; k< NROWS; k++)
-      {
-        Real* elm_k = &A(piv[k], i);
-        if (*elm_k < -EPS)
-        {
-          Real scal = -*elm_k / *elm;
-          CBLAS::axpy(NCOLS-i, scal, elm, NROWS, &A(piv[k], i), NROWS);
-        }
-      }
-
-      // update the swap pivot
-      swpi++;
-
-      // quit if swpi too large
-      if (swpi == NROWS)
-        return swpi;
-    }
-  }
-
-  // iterate over the real variables
-  for (unsigned i=NPOSVARS; i< NCOLS; i++)
-  {
-    // get the pointer to the column 
-    BlockIterator col = A.block_start(0, NROWS, i,i+1);
-
-    // find the largest element in the column
-    Real largest = col[piv[swpi]];
-    unsigned largest_index = swpi;
-    for (unsigned k=swpi+1; k< NROWS; k++)
-      if (std::fabs(col[piv[k]]) > largest)
-      {
-        largest_index = k;
-        largest = std::fabs(col[piv[k]]);
-      }
-
-    // continue processing only if largest positive element is greater than 0 
-    if (largest > EPS)
-    {
-      // swap the pivots
-      std::swap(piv[swpi], piv[largest_index]);
-
-      // reduce the rows 
-      const Real* elm = &A(piv[swpi], i);
-      for (unsigned k=swpi+1; k< NROWS; k++)
-      {
-        Real* elm_k = &A(piv[k], i);
-        Real scal = -*elm_k / *elm;
-        CBLAS::axpy(NCOLS-i, scal, elm, NROWS, &A(piv[k],i), NROWS);
-      }
-
-      // update the swap pivot
-      swpi++;
-
-      // quit if swpi too large
-      if (swpi == NROWS)
-        break;
-    }
-  }
-
-  FILE_LOG(LOG_EVENT) << "matrix after modified Gaussian elimination:" << std::endl << A;
-  FILE_LOG(LOG_EVENT) << "rank: " << swpi << std::endl;
-  if (LOGGING(LOG_EVENT))
-  {
-    std::ostringstream oss;
-    oss << "pivots:";
-    for (unsigned i=0; i< piv.size(); i++)
-      oss << " " << piv[i];
-    FILE_LOG(LOG_EVENT) << oss.str() << std::endl;
-  }
-
-  return swpi;
-}
-*/
-
 /// Determines whether the new contact event is redundant 
 void Event::redundant_contacts(const MatrixN& Jc, const MatrixN& Dc, vector<unsigned>& nr_indices)
 {
@@ -832,6 +668,7 @@ void Event::compute_contact_jacobians(const Event& e, VectorN& Nc, VectorN& Dcs,
 }
 
 /// Computes a minimal set of contact events
+/*
 void Event::determine_minimal_set(list<Event*>& group)
 {
   FILE_LOG(LOG_EVENT) << "Event::determine_minimal_set() entered" << std::endl;
@@ -926,6 +763,97 @@ void Event::determine_minimal_set(list<Event*>& group)
 
   FILE_LOG(LOG_EVENT) << " -- final number of events: " << group.size() << std::endl;
 } 
+*/
+
+/// Uses the convex hull of the contact manifold to reject contact points
+void Event::determine_convex_set(list<Event*>& group)
+{
+  typedef vector<Vector3*>::const_iterator V3Iter;
+  vector<Vector3*> hull;
+
+  // don't do anything if there are three or fewer points
+  if (group.size() <= 3)
+    return;
+
+  // get all points
+  vector<Vector3*> points;
+  BOOST_FOREACH(Event* e, group)
+  {
+    assert(e->event_type == Event::eContact);
+    points.push_back(&e->contact_point);
+  }
+
+  // determine whether points are collinear
+  const Vector3& pA = *points.front(); 
+  const Vector3& pZ = *points.back();
+  bool collinear = true;
+  for (unsigned i=1; i< points.size()-1; i++)
+    if (!CompGeom::collinear(pA, pZ, *points[i]))
+    {
+      collinear = false;
+      break;
+    }
+
+  // easiest case: collinear
+  if (collinear)
+  {
+    // just get endpoints
+    pair<Vector3*, Vector3*> ep;
+    CompGeom::determine_seg_endpoints(points.begin(), points.end(), ep);
+
+    // iterate through, looking for the contact points
+    for (list<Event*>::iterator i = group.begin(); i != group.end(); )
+    {
+      if (&(*i)->contact_point == ep.first || &(*i)->contact_point == ep.second)
+        i++;
+      else
+        i = group.erase(i);
+    }
+
+    return;
+  }
+  // determine whether the contact manifold is 2D or 3D
+  else if (is_contact_manifold_2D(group))
+  { 
+    // compute the 2D convex hull
+    CompGeom::calc_convex_hull(points.begin(), points.end(), group.front()->contact_normal, std::back_inserter(hull));
+  }
+  else
+  {
+    // compute the 3D convex hull
+    CompGeom::calc_convex_hull(points.begin(), points.end(), std::back_inserter(hull));
+  }
+
+  // sort all points in the hull
+  std::sort(hull.begin(), hull.end());
+
+  // iterate through events, looking for the contact points 
+  for (list<Event*>::iterator i = group.begin(); i != group.end(); )
+  {
+    if (std::binary_search(hull.begin(), hull.end(), &(*i)->contact_point))
+      i++;
+    else
+      i = group.erase(i);
+  }
+}
+
+/// Determines whether all events in a set are 2D or 3D
+bool Event::is_contact_manifold_2D(const list<Event*>& events)
+{
+  // get the first contact as a plane
+  assert(events.front()->event_type == Event::eContact);
+  Plane plane(events.front()->contact_normal, events.front()->contact_point);
+
+  // iterate over the remaining contacts
+  for (list<Event*>::const_iterator i = ++(events.begin()); i != events.end(); i++)
+  {
+    assert((*i)->event_type == Event::eContact);
+    if (!plane.on_plane((*i)->contact_point))
+      return false;
+  }
+
+  return true;
+}
 
 /**
  * Complexity of computing a minimal set:
@@ -941,7 +869,6 @@ void Event::determine_minimal_set(list<Event*>& group)
                             present) + NGC^3
  * therefore generalized coordinates are the limiting factor...
  */
-/*
 /// Computes a minimal set of contact events
 void Event::determine_minimal_set(list<Event*>& group)
 {
@@ -975,11 +902,12 @@ void Event::determine_minimal_set(list<Event*>& group)
   // process each group independently, then recombine
   for (map<sorted_pair<SingleBodyPtr>, list<Event*> >::iterator i = contact_groups.begin(); i != contact_groups.end(); i++)
   {
-    determine_minimal_subset(i->second);
+    determine_convex_set(i->second);
     group.insert(group.end(), i->second.begin(), i->second.end()); 
   }
 }
 
+/*
 /// Computes a minimal subset of contact events
 void Event::determine_minimal_subset(list<Event*>& group)
 {
