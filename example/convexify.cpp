@@ -22,7 +22,7 @@ int main(int argc, char* argv[])
   const std::vector<Vector3>& vertices = mesh.get_vertices();
 
   // compute the convex hull
-  PolyhedronPtr p = CompGeom::calc_convex_hull_3D(vertices.begin(), vertices.end());    
+  PolyhedronPtr p = CompGeom::calc_convex_hull(vertices.begin(), vertices.end());    
 
   // write the resulting mesh to the output file
   if (!p)

@@ -166,6 +166,51 @@ Vector3 CompGeom::calc_centroid_3D(InputIterator first, InputIterator last)
  Vector3* versions of functions BEGIN
  ****************************************************************************/
 
+/**
+ * Determines whether a polygon in 2D is counter-clockwise
+ * \note Degenerate polygons (alternating representation) will fail!
+ */
+template <class ForwardIterator>
+bool CompGeomSpecOne<ForwardIterator, Vector3*>::ccw(ForwardIterator begin, ForwardIterator end, const Vector3& normal, Real tol)
+{
+  assert(tol >= 0.0);
+
+  for (ForwardIterator i = begin; i != end; i++)
+  {
+    ForwardIterator j = i;
+    j++;
+    if (j == end)
+      j = begin;
+
+    ForwardIterator k = j;
+    k++;
+    if (k == end)
+      k = begin; 
+
+    // compute ji and kj
+    Vector3 ji = **j - **i;
+    Vector3 kj = **k - **j;
+
+    // take the cross product of the normal and the vector j i
+    Vector3 c = Vector3::cross(normal, ji);
+
+    // prepare to determine orientation
+    Real dprod = c.dot(kj);
+    const Real TOL = tol * std::max((Real) 1.0, std::max(c.norm_inf(), kj.norm_inf()));
+
+    // determine whether k j is to the left or right of j i
+    if (dprod > TOL)
+      return true;
+    else if (dprod < -TOL)
+      return false;
+    
+    // still here? can't be sure - keep going
+  }
+
+  // still here?  polygon may be degenerate!
+  return true;
+}
+
 /// Attempts to fit a plane to a set of points 
 /**
  * The singular value decomposition is used to determine the plane that fits
@@ -554,6 +599,51 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Vector3*>::calc_
 /*****************************************************************************
  Vector3 versions of functions BEGIN
  ****************************************************************************/
+
+/**
+ * Determines whether a polygon in 2D is counter-clockwise
+ * \note Degenerate polygons (alternating representation) will fail!
+ */
+template <class ForwardIterator>
+bool CompGeomSpecOne<ForwardIterator, Vector3>::ccw(ForwardIterator begin, ForwardIterator end, const Vector3& normal, Real tol)
+{
+  assert(tol >= 0.0);
+
+  for (ForwardIterator i = begin; i != end; i++)
+  {
+    ForwardIterator j = i;
+    j++;
+    if (j == end)
+      j = begin;
+
+    ForwardIterator k = j;
+    k++;
+    if (k == end)
+      k = begin; 
+
+    // compute ji and kj
+    Vector3 ji = *j - *i;
+    Vector3 kj = *k - *j;
+
+    // take the cross product of the normal and the vector j i
+    Vector3 c = Vector3::cross(normal, ji);
+
+    // prepare to determine orientation
+    Real dprod = c.dot(kj);
+    const Real TOL = tol * std::max((Real) 1.0, std::max(c.norm_inf(), kj.norm_inf()));
+
+    // determine whether k j is to the left or right of j i
+    if (dprod > TOL)
+      return true;
+    else if (dprod < -TOL)
+      return false;
+    
+    // still here? can't be sure - keep going
+  }
+
+  // still here?  polygon may be degenerate!
+  return true;
+}
 
 /// Attempts to fit a plane to a set of points 
 /**
@@ -2673,7 +2763,6 @@ OutputIterator CompGeom::to_3D(InputIterator begin_source, InputIterator end_sou
   return CompGeomSpecTwo<InputIterator, OutputIterator, typename std::iterator_traits<InputIterator>::value_type>::to_3D(begin_source, end_source, begin_target, RT, offset);
 }
 
-
 /**
  * Determines whether a polygon in 2D is counter-clockwise
  * \note Degenerate polygons (alternating representation) will fail!
@@ -2682,6 +2771,16 @@ template <class InputIterator>
 bool CompGeom::ccw(InputIterator begin, InputIterator end, Real tol)
 {
   return CompGeomSpecOne<InputIterator, typename std::iterator_traits<InputIterator>::value_type>::ccw(begin, end, tol);
+}
+
+/**
+ * Determines whether a polygon in 2D is counter-clockwise
+ * \note Degenerate polygons (alternating representation) will fail!
+ */
+template <class InputIterator>
+bool CompGeom::ccw(InputIterator begin, InputIterator end, const Vector3& normal, Real tol)
+{
+  return CompGeomSpecOne<InputIterator, typename std::iterator_traits<InputIterator>::value_type>::ccw(begin, end, normal, tol);
 }
 
 /// Intersects two coplanar triangles
