@@ -25,7 +25,7 @@ class Plane
     Plane(const Plane& p) { operator=(p); }
     void operator=(const Plane& p) { _normal = p._normal; offset = p.offset; }
     Real calc_signed_distance(const Vector3& p) const { return _normal.dot(p) - offset; }
-    bool on_plane(const Vector3& p) { return std::fabs(calc_signed_distance(p)) < NEAR_ZERO * std::max((Real) 1.0, std::fabs(offset)); }
+    bool on_plane(const Vector3& p) { return std::fabs(calc_signed_distance(p)) < NEAR_ZERO * std::max((Real) 1.0, std::max(p.norm_inf(), std::fabs(offset))); }
     Plane operator-() const { return Plane(-_normal, -offset); }
     bool operator==(const Plane& p) const { Real dot = _normal.dot(p.get_normal()); return (std::fabs(dot - 1.0) < NEAR_ZERO && std::fabs(offset - p.offset) < NEAR_ZERO); }
     bool operator<(const Plane& p) const;

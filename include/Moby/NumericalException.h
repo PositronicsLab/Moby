@@ -15,6 +15,7 @@ namespace Moby {
 class NumericalException : public std::runtime_error
 {
   public:
+    NumericalException() : std::runtime_error("NumericalException error") {}
     NumericalException(const char* error) : std::runtime_error(error) {}
 }; // end class
 

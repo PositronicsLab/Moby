@@ -768,7 +768,6 @@ void Event::determine_minimal_set(list<Event*>& group)
 /// Uses the convex hull of the contact manifold to reject contact points
 void Event::determine_convex_set(list<Event*>& group)
 {
-  typedef vector<Vector3*>::const_iterator V3Iter;
   vector<Vector3*> hull;
 
   // don't do anything if there are three or fewer points
@@ -809,19 +808,68 @@ void Event::determine_convex_set(list<Event*>& group)
       else
         i = group.erase(i);
     }
+    assert(!group.empty());
 
     return;
   }
   // determine whether the contact manifold is 2D or 3D
   else if (is_contact_manifold_2D(group))
   { 
-    // compute the 2D convex hull
-    CompGeom::calc_convex_hull(points.begin(), points.end(), group.front()->contact_normal, std::back_inserter(hull));
+    try
+    {
+      // compute the 2D convex hull
+      CompGeom::calc_convex_hull(points.begin(), points.end(), group.front()->contact_normal, std::back_inserter(hull));
+    }
+    catch (NumericalException e)
+    {
+      // compute the segment endpoints
+      pair<Vector3*, Vector3*> ep;
+      CompGeom::determine_seg_endpoints(points.begin(), points.end(), ep);
+
+      // iterate through, looking for the contact points
+      for (list<Event*>::iterator i = group.begin(); i != group.end(); )
+      {
+        if (&(*i)->contact_point == ep.first || &(*i)->contact_point == ep.second)
+          i++;
+        else
+          i = group.erase(i);
+      }
+
+      return;
+    }
   }
   else
   {
-    // compute the 3D convex hull
-    CompGeom::calc_convex_hull(points.begin(), points.end(), std::back_inserter(hull));
+    try
+    {
+      // compute the 3D convex hull
+      CompGeom::calc_convex_hull(points.begin(), points.end(), std::back_inserter(hull));
+    }
+    catch (NumericalException e)
+    {
+      try
+      {
+        // compute the 2D convex hull
+        CompGeom::calc_convex_hull(points.begin(), points.end(), group.front()->contact_normal, std::back_inserter(hull));
+      }
+      catch (NumericalException e)
+      {
+        // compute the segment endpoints
+        pair<Vector3*, Vector3*> ep;
+        CompGeom::determine_seg_endpoints(points.begin(), points.end(), ep);
+
+        // iterate through, looking for the contact points
+        for (list<Event*>::iterator i = group.begin(); i != group.end(); )
+        {
+          if (&(*i)->contact_point == ep.first || &(*i)->contact_point == ep.second)
+            i++;
+          else
+            i = group.erase(i);
+        }
+
+        return;
+      }      
+    }
   }
 
   // sort all points in the hull
@@ -835,6 +883,7 @@ void Event::determine_convex_set(list<Event*>& group)
     else
       i = group.erase(i);
   }
+  assert(group.size() == hull.size() && group.size() >= 3);
 }
 
 /// Determines whether all events in a set are 2D or 3D
