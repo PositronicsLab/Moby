@@ -4,7 +4,6 @@
  * License (found in COPYING).
  ****************************************************************************/
 
-#include <sys/times.h>
 #include <Moby/XMLTree.h>
 #include <Moby/ArticulatedBody.h>
 #include <Moby/RigidBody.h>
@@ -23,8 +22,6 @@
 #include <osg/PositionAttitudeTransform>
 #include <osg/Quat>
 #endif // USE_OSG
-
-#define DO_TIMING
 
 using namespace Moby;
 using std::endl;
@@ -296,6 +293,10 @@ void EventDrivenSimulator::handle_events()
   for (unsigned i=0; i< _events.size(); i++)
     preprocess_event(_events[i]);
 
+  // begin timeing for event handling 
+  tms start;  
+  times(&start);
+
   // compute impulses here...
   try
   {
@@ -310,6 +311,12 @@ void EventDrivenSimulator::handle_events()
       _event_tolerances[*ev] = std::fabs(event_v) + std::numeric_limits<Real>::epsilon();  
     }
   }
+
+  // tabulate times for event handling 
+  tms stop;  
+  times(&stop);
+  event_utime += (Real) (stop.tms_utime-start.tms_utime)/CLOCKS_PER_SEC;
+  event_stime += (Real) (stop.tms_stime-start.tms_stime)/CLOCKS_PER_SEC;
 
   // call the post-impulse application callback, if any 
   if (event_post_impulse_callback_fn)
@@ -479,6 +486,14 @@ Real EventDrivenSimulator::step(Real step_size)
   SAFESTATIC vector<pair<VectorN, VectorN> > q0, q1, qstar;
   const Real INF = std::numeric_limits<Real>::max();
 
+  // clear timings
+  dynamics_utime = (Real) 0.0;
+  dynamics_stime = (Real) 0.0;
+  event_utime = (Real) 0.0;
+  event_stime = (Real) 0.0;
+  coldet_utime = (Real) 0.0;
+  coldet_stime = (Real) 0.0;
+
   // setup the amount remaining to step
   Real dt = step_size;
 
@@ -632,10 +647,9 @@ Real EventDrivenSimulator::find_and_handle_events(Real dt, const vector<pair<Vec
   // clear events 
   _events.clear();
 
-  #ifdef DO_TIMING
+  // begin timing for collision detection
   tms start;
   times(&start);
-  #endif
 
   // setup x0, x1
   if (!collision_detectors.empty())
@@ -690,14 +704,11 @@ Real EventDrivenSimulator::find_and_handle_events(Real dt, const vector<pair<Vec
       _events[i].tol = j->second;
   }
 
-  #ifdef DO_TIMING
+  // tabulate times for collision detection 
   tms stop;  
   times(&stop);
-  Real utime = (Real) (stop.tms_utime-start.tms_utime)/CLOCKS_PER_SEC;
-  Real stime = (Real) (stop.tms_stime-start.tms_stime)/CLOCKS_PER_SEC;
-  std::ofstream out("coldet-timing", std::ofstream::app);
-  out << current_time << " " << utime << " " << stime << endl;
-  #endif
+  coldet_utime += (Real) (stop.tms_utime-start.tms_utime)/CLOCKS_PER_SEC;
+  coldet_stime += (Real) (stop.tms_stime-start.tms_stime)/CLOCKS_PER_SEC;
 
   // find and "integrate" to the time-of-impact
   Real TOI = find_TOI(dt, q0, q1);
