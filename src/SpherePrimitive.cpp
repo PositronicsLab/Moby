@@ -203,7 +203,7 @@ shared_ptr<const IndexedTriArray> SpherePrimitive::get_mesh()
     }
 
     // compute the convex hull
-    PolyhedronPtr hull = CompGeom::calc_convex_hull_3D(points.begin(), points.end());
+    PolyhedronPtr hull = CompGeom::calc_convex_hull(points.begin(), points.end());
 
     // set the mesh
     const vector<Vector3>& v = hull->get_vertices();

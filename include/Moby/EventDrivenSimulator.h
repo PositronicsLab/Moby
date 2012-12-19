@@ -105,7 +105,20 @@ class EventDrivenSimulator : public Simulator
     /// Mapping from objects to contact parameters
     std::map<sorted_pair<BasePtr>, boost::shared_ptr<ContactParameters> > contact_params;
 
+    /// If set to 'true' event driven simulator will process contact points for rendering
     bool render_contact_points;
+
+    /// User time spent by collision detection on the last step
+    Real coldet_utime;
+
+    /// System time spent by collision detection on the last step
+    Real coldet_stime;
+
+    /// User time spent by event handling on the last step
+    Real event_utime;
+
+    /// System time spent by event handling on the last step
+    Real event_stime;
 
   private:
     void handle_Zeno_point(Real dt, const std::vector<std::pair<VectorN, VectorN> >& q0, std::vector<std::pair<VectorN, VectorN> >& q1);

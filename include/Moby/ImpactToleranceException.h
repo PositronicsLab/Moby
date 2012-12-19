@@ -18,6 +18,7 @@ class ImpactToleranceException : public std::runtime_error
 {
   public:
     ImpactToleranceException(const std::list<Event*>& impacting_events) : std::runtime_error("Event velocity is below tolerance after treatment!") { events = impacting_events; }
+    virtual ~ImpactToleranceException() throw() {}
 
     virtual ~ImpactToleranceException() throw() { }
 

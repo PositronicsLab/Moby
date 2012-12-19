@@ -391,7 +391,7 @@ class Optimization
     static bool lcp_gradproj(const MatrixN& M, const VectorN& q, VectorN& x, Real tol, unsigned max_iterations = std::numeric_limits<unsigned>::max());
     static bool polyak(const MatrixN& A, const VectorN& b, const VectorN& c, const VectorN& d, unsigned max_iter, VectorN& x);
     static bool make_feasible_qp(const MatrixN& A, const VectorN& b, const MatrixN& M, const VectorN& q, VectorN& x, Real tol = NEAR_ZERO);
-    static bool lp_simplex(const LPParams& lpparams, VectorN& x);
+    static bool lp_simplex(const LPParams& lpparams, VectorN& x, unsigned& glpk_status);
     static void lcp_enum(const MatrixN& M, const VectorN& q, std::vector<VectorN>& z);
     static bool lcp_lemke(const MatrixN& M, const VectorN& q, VectorN& z, Real piv_tol = -1.0, Real zero_tol = -1.0);
     static bool lcp_lemke_regularized(const MatrixN& M, const VectorN& q, VectorN& z, int min_exp = -20, unsigned step_exp = 4, int max_exp = 20, Real piv_tol = -1.0, Real zero_tol = -1.0);

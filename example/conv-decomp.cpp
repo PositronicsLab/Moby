@@ -1402,7 +1402,7 @@ int main(int argc, char* argv[])
     }
 
     // compute the convex hull of the points
-    PolyhedronPtr p = CompGeom::calc_convex_hull_3D(points.begin(), points.end());
+    PolyhedronPtr p = CompGeom::calc_convex_hull(points.begin(), points.end());
     if (!p)
     {
       std::cout << " (unable to calculate hull = degenerate; not writing)" << std::endl;

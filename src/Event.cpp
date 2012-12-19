@@ -31,6 +31,7 @@
 #include <Moby/Event.h>
 
 using namespace Moby;
+using std::pair;
 using std::list;
 using std::vector;
 using std::map;
@@ -458,171 +459,84 @@ void Event::determine_connected_events(const vector<Event>& events, list<list<Ev
   FILE_LOG(LOG_EVENT) << "Event::determine_connected_events() exited" << std::endl;
 }
 
-/*
-/// Modified Gaussian elimination with partial pivoting -- computes half-rank at the same time - this version designed to work with "full" 3*NC x 3*NC matrices
-unsigned Event::gauss_elim(MatrixN& A, vector<unsigned>& piv)
+/// Determines whether any contacts can be eliminated 
+void Event::redundant_contacts(const MatrixN& N, const VectorN& Nv, vector<unsigned>& nr_indices)
 {
-  const unsigned NROWS = A.rows(), NCOLS = A.columns();
-  const unsigned NPOSVARS = (NCOLS-1)/3;
+  SAFESTATIC VectorN x, workv;
+  SAFESTATIC LPParams lp;
+  SAFESTATIC vector<unsigned> row_indices, col_indices;
+  const unsigned GLP_OPT = 5, GLP_UNBND = 6;
 
-  FILE_LOG(LOG_EVENT) << "matrix before modified Gaussian elimination:" << std::endl << A;
+  // setup tolerance
+  const Real TOL = std::sqrt(NEAR_ZERO);
 
-  // equilibrate the rows of A 
-  for (unsigned j=0; j< NROWS; j++)
+  // get # of contacts
+  const unsigned NC = N.rows();
+
+  // setup row indices
+  for (unsigned i=0; i< nr_indices.size(); )
   {
-    Real* col = &A(j,0);
-    Real max_val = (Real) 0.0;
-    for (unsigned i=0, k=0; i< NCOLS; i++, k+= NROWS)
-      max_val = std::max(max_val, std::fabs(col[k]));
-    assert(max_val > (Real) 0.0);
-    CBLAS::scal(NCOLS, (Real) 1.0/max_val, col, NROWS);
-  }
+    // set row indices, removing i'th contact
+    row_indices = nr_indices;
+    row_indices.erase(row_indices.begin()+i);
 
-  // setup epsilon
-  const Real EPS = NCOLS * NEAR_ZERO;
-
-  // resize the pivots array
-  piv.resize(NROWS);
-  for (unsigned i=0; i< NROWS; i++)
-    piv[i] = i;
-
-  // setup swpi
-  unsigned swpi = 0;
-
-  // iterate over the positive variables
-  for (unsigned i=0; i< NPOSVARS; i++)
-  {
-    // get the pointer to the column 
-    BlockIterator col = A.block_start(0, NROWS, i,i+1);
-
-    // find the largest positive element in the column
-    Real largest = col[piv[swpi]];
-    unsigned largest_index = swpi;
-    for (unsigned k=swpi+1; k< NROWS; k++)
-      if (col[piv[k]] > largest)
-      {
-        largest_index = k;
-        largest = col[piv[k]];
-      }
-
-    // continue processing only if largest positive element is greater than 0 
-    if (largest > EPS)
+    // setup column indices, removing variables for i'th contact 
+    col_indices = nr_indices;
+    col_indices.erase(col_indices.begin()+i);
+    for (unsigned j=0; j< nr_indices.size()-1; j++)
     {
-      // swap the pivots
-      std::swap(piv[swpi], piv[largest_index]);
-
-      // reduce the rows 
-      const Real* elm = &A(piv[swpi], i);
-      for (unsigned k=swpi+1; k< NROWS; k++)
-      {
-        Real* elm_k = &A(piv[k], i);
-        if (*elm_k > EPS)
-        {
-          Real scal = -*elm_k / *elm;
-          CBLAS::axpy(NCOLS-i, scal, elm, NROWS, &A(piv[k],i), NROWS);
-        }
-      }
-
-      // update the swap pivot
-      swpi++;
-
-      // quit if swpi too large
-      if (swpi == NROWS)
-        return swpi;
+      col_indices.push_back(col_indices[j]*2+NC);
+      col_indices.push_back(col_indices[j]*2+NC+1);
+      col_indices.push_back(col_indices[j]*2+NC*2);
+      col_indices.push_back(col_indices[j]*2+NC*2+1);
     }
 
-    // find the largest negative element in the column
-    largest = col[piv[swpi]];
-    largest_index = swpi;
-    for (unsigned k=swpi+1; k< NROWS; k++)
-      if (col[piv[k]] < largest)
-      {
-        largest_index = k;
-        largest = col[piv[k]];
-      }
+    // select row i of N without variables for i
+    N.get_row(i, workv);
+    workv.select(col_indices.begin(), col_indices.end(), lp.c);
+    Real t = Nv[i];
 
-    // only continue processing if largest negative element is less than 0
-    if (largest < -EPS)
+    // select appropriate rows and columns of N and Nv 
+    N.select(row_indices.begin(), row_indices.end(), col_indices.begin(), col_indices.end(), lp.M);
+    Nv.select(row_indices.begin(), row_indices.end(), lp.q);
+    lp.q.negate();
+
+    // setup lower and upper bounds on variables
+    lp.n = lp.M.columns();
+    lp.l.set_zero(lp.n);
+    lp.u.set_zero(0);
+
+    // setup LP A and b variables
+    lp.A.resize(0,lp.n);
+    lp.b.resize(0);
+
+    // resize x
+    x.resize(lp.n);
+
+    // solve the LP (if not possible to solve, contact is necessary)
+    unsigned status;
+    Optimization::lp_simplex(lp, x, status);
+    if ((status == GLP_OPT || status == GLP_UNBND))
     {
-      // swap the pivots
-      std::swap(piv[swpi], piv[largest_index]);
-      
-      // reduce the rows
-      const Real* elm = &A(piv[swpi], i);
-      for (unsigned k=swpi+1; k< NROWS; k++)
+      // check value of objective
+      if (lp.c.dot(x) + t > -TOL)
       {
-        Real* elm_k = &A(piv[k], i);
-        if (*elm_k < -EPS)
-        {
-          Real scal = -*elm_k / *elm;
-          CBLAS::axpy(NCOLS-i, scal, elm, NROWS, &A(piv[k], i), NROWS);
-        }
+        nr_indices = row_indices;
+        if (nr_indices.size() == 1)
+          return;  
       }
-
-      // update the swap pivot
-      swpi++;
-
-      // quit if swpi too large
-      if (swpi == NROWS)
-        return swpi;
+      else
+        i++;
+    }
+    else
+    {
+      FILE_LOG(LOG_EVENT) << "unexpected failure to solve LP!" << std::endl;
+      i++;
     }
   }
-
-  // iterate over the real variables
-  for (unsigned i=NPOSVARS; i< NCOLS; i++)
-  {
-    // get the pointer to the column 
-    BlockIterator col = A.block_start(0, NROWS, i,i+1);
-
-    // find the largest element in the column
-    Real largest = col[piv[swpi]];
-    unsigned largest_index = swpi;
-    for (unsigned k=swpi+1; k< NROWS; k++)
-      if (std::fabs(col[piv[k]]) > largest)
-      {
-        largest_index = k;
-        largest = std::fabs(col[piv[k]]);
-      }
-
-    // continue processing only if largest positive element is greater than 0 
-    if (largest > EPS)
-    {
-      // swap the pivots
-      std::swap(piv[swpi], piv[largest_index]);
-
-      // reduce the rows 
-      const Real* elm = &A(piv[swpi], i);
-      for (unsigned k=swpi+1; k< NROWS; k++)
-      {
-        Real* elm_k = &A(piv[k], i);
-        Real scal = -*elm_k / *elm;
-        CBLAS::axpy(NCOLS-i, scal, elm, NROWS, &A(piv[k],i), NROWS);
-      }
-
-      // update the swap pivot
-      swpi++;
-
-      // quit if swpi too large
-      if (swpi == NROWS)
-        break;
-    }
-  }
-
-  FILE_LOG(LOG_EVENT) << "matrix after modified Gaussian elimination:" << std::endl << A;
-  FILE_LOG(LOG_EVENT) << "rank: " << swpi << std::endl;
-  if (LOGGING(LOG_EVENT))
-  {
-    std::ostringstream oss;
-    oss << "pivots:";
-    for (unsigned i=0; i< piv.size(); i++)
-      oss << " " << piv[i];
-    FILE_LOG(LOG_EVENT) << oss.str() << std::endl;
-  }
-
-  return swpi;
 }
-*/
 
+/*
 /// Determines whether the new contact event is redundant 
 void Event::redundant_contacts(const MatrixN& Jc, const MatrixN& Dc, vector<unsigned>& nr_indices)
 {
@@ -673,7 +587,7 @@ void Event::redundant_contacts(const MatrixN& Jc, const MatrixN& Dc, vector<unsi
       i++;
       continue;
     }
-/*
+
     // get rank proposed row rank of Dc
     Dc_row_indices.clear();
     for (unsigned j=0; j< row_indices.size(); j++)
@@ -697,8 +611,81 @@ void Event::redundant_contacts(const MatrixN& Jc, const MatrixN& Dc, vector<unsi
       continue;
     }
     else 
-*/
       nr_indices = row_indices;
+  }
+}
+*/
+
+/// Computes normal and contact Jacobians for a body
+void Event::compute_contact_jacobian(const Event& e, MatrixN& Jc, MatrixN& iM_JcT, MatrixN& iM_DcT, unsigned ci, const map<DynamicBodyPtr, unsigned>& gc_indices)
+{
+  map<DynamicBodyPtr, unsigned>::const_iterator miter;
+  SAFESTATIC FastThreadable<VectorN> tmpv, tmpv2, workv, workv2;
+
+  // get the two bodies
+  SingleBodyPtr sb1 = e.contact_geom1->get_single_body();
+  SingleBodyPtr sb2 = e.contact_geom2->get_single_body();
+
+  // get the super bodies
+  DynamicBodyPtr ab1 = sb1->get_articulated_body();
+  DynamicBodyPtr ab2 = sb2->get_articulated_body();
+  DynamicBodyPtr super1 = (ab1) ? ab1 : sb1;
+  DynamicBodyPtr super2 = (ab2) ? ab2 : sb2;
+
+  // process the first body
+  miter = gc_indices.find(super1);
+  if (miter != gc_indices.end())
+  {
+    const unsigned index = miter->second;
+
+    // compute the 'r' vector
+    Vector3 r = e.contact_point - sb1->get_position();
+
+    // convert the normal force to generalized forces
+    super1->convert_to_generalized_force(DynamicBody::eAxisAngle, sb1, e.contact_normal, Vector3::cross(r, e.contact_normal), tmpv());
+    Jc.set_sub_mat(ci, index, tmpv(), true);
+
+    // convert the tangent forces to generalized forces
+    super1->convert_to_generalized_force(DynamicBody::eAxisAngle, sb1, e.contact_tan1, Vector3::cross(r, e.contact_tan1), workv());
+    super1->convert_to_generalized_force(DynamicBody::eAxisAngle, sb1, e.contact_tan2, Vector3::cross(r, e.contact_tan2), workv2());
+
+    // compute iM_JcT and iM_DcT components
+    super1->solve_generalized_inertia(DynamicBody::eAxisAngle, tmpv(), tmpv2());
+    iM_JcT.set_sub_mat(index, ci, tmpv2());
+    super1->solve_generalized_inertia(DynamicBody::eAxisAngle, workv(), tmpv2());
+    iM_DcT.set_sub_mat(index, ci*2, tmpv2());
+    super1->solve_generalized_inertia(DynamicBody::eAxisAngle, workv2(), tmpv2());
+    iM_DcT.set_sub_mat(index, ci*2+1, tmpv2());
+  }
+
+  // process the second body
+  miter = gc_indices.find(super2);
+  if (miter != gc_indices.end())
+  {
+    const unsigned index = miter->second;
+
+    // compute the 'r' vector
+    Vector3 r = e.contact_point - sb2->get_position();
+
+    // convert the normal force to generalized forces
+    super2->convert_to_generalized_force(DynamicBody::eAxisAngle, sb2, -e.contact_normal, Vector3::cross(r, -e.contact_normal), tmpv());
+    Jc.set_sub_mat(ci, index, tmpv(), true);
+
+    // compute iM_JcT components
+    super2->solve_generalized_inertia(DynamicBody::eAxisAngle, tmpv(), tmpv2());
+    iM_JcT.set_sub_mat(index, ci, tmpv2());
+
+    // convert the tangent forces to generalized forces
+    super2->convert_to_generalized_force(DynamicBody::eAxisAngle, sb2, -e.contact_tan1, Vector3::cross(r, -e.contact_tan1), workv());
+    super2->convert_to_generalized_force(DynamicBody::eAxisAngle, sb2, -e.contact_tan2, Vector3::cross(r, -e.contact_tan2), workv2());
+
+    // compute iM_JcT and iM_DcT components
+    super2->solve_generalized_inertia(DynamicBody::eAxisAngle, tmpv(), tmpv2());
+    iM_JcT.set_sub_mat(index, ci, tmpv2());
+    super2->solve_generalized_inertia(DynamicBody::eAxisAngle, workv(), tmpv2());
+    iM_DcT.set_sub_mat(index, ci*2, tmpv2());
+    super2->solve_generalized_inertia(DynamicBody::eAxisAngle, workv2(), tmpv2());
+    iM_DcT.set_sub_mat(index, ci*2+1, tmpv2());
   }
 }
 
@@ -778,6 +765,243 @@ void Event::compute_contact_jacobians(const Event& e, VectorN& Nc, VectorN& Dcs,
   }
 }
 
+/// Computes a minimal set of contact events
+/*
+void Event::determine_minimal_set(list<Event*>& group)
+{
+  FILE_LOG(LOG_EVENT) << "Event::determine_minimal_set() entered" << std::endl;
+  FILE_LOG(LOG_EVENT) << " -- initial number of events: " << group.size() << std::endl;
+
+  // get the number of contact events and total number of events
+  list<Event*>::iterator start = group.begin();
+  unsigned NC = 0, NE = 0;
+  while (start != group.end() && ++NE)
+  {
+    if ((*start)->event_type == Event::eContact)
+      NC++;
+    start++;
+  }
+
+  // if there is one or fewer contacts, or very few events, quit now
+  if (NC <= 1 || NE < 4)
+  {
+    FILE_LOG(LOG_EVENT) << " -- initial/final number of contacts: " << NC << std::endl;
+    FILE_LOG(LOG_EVENT) << " -- initial/final number of events: " << NE << std::endl;
+    return;
+  }
+
+  // determine the number of gc's in the group
+  unsigned NGC = 0;
+  map<DynamicBodyPtr, unsigned> gc_index;
+  vector<DynamicBodyPtr> supers;
+  for (list<Event*>::const_iterator i = group.begin(); i != group.end(); i++)
+  {
+    supers.clear();
+    (*i)->get_super_bodies(std::back_inserter(supers));
+    for (unsigned j=0; j< supers.size(); j++)
+      if (gc_index.find(supers[j]) == gc_index.end())
+      {
+        gc_index[supers[j]] = NGC;
+        NGC += supers[j]->num_generalized_coordinates(DynamicBody::eAxisAngle);
+      }
+  }
+
+  // setup contact Jacobian and contact space inertia matrix
+  MatrixN Jc(NC, NGC), Jc_iM_JcT(NC, NC), iM_JcT(NGC, NC), workM;
+  VectorN workv, workv2;
+
+  // clear Jacobian
+  Jc.set_zero();
+
+  // setup the contact index
+  unsigned ci = 0;
+
+  // loop through the remainder of contacts
+  for (list<Event*>::iterator i = group.begin(); i != group.end(); i++)
+  {
+    // if this isn't a contact event, skip it
+    if ((*i)->event_type != Event::eContact)
+      continue;
+
+    // get the Jacobian for this contact
+    compute_contact_jacobian(**i, Jc, iM_JcT, ci++, gc_index);
+  }
+
+  // compute contact space inertia matrix
+  Jc.mult(iM_JcT, Jc_iM_JcT);
+
+  // setup selection indices for contact 0
+  vector<unsigned> sel;
+  sel.push_back(0);
+
+  // loop over all contacts
+  for (unsigned i=1; i< NC; i++)
+  {
+    FILE_LOG(LOG_EVENT) << " examining contact point " << i << endl;
+
+    // get the appropriate row of Jc_iM_JcT
+    Jc_iM_JcT.get_row(i, workv);
+    workv.select(sel.begin(), sel.end(), workv2);
+
+    // verify that there is a positive component
+    if (*std::min_element(workv2.begin(), workv2.end()) <= (Real) 0.0)
+      sel.push_back(i);    
+  } 
+
+  // loop through contacts again
+  ci = 0;
+  for (list<Event*>::iterator i = group.begin(); i != group.end(); )
+  {
+    // see whether this index exists in the pivots that are left over
+    if (std::binary_search(sel.begin(), sel.end(), ci++))
+      i++; 
+    else
+      i = group.erase(i);
+  }
+
+  FILE_LOG(LOG_EVENT) << " -- final number of events: " << group.size() << std::endl;
+} 
+*/
+
+/// Uses the convex hull of the contact manifold to reject contact points
+void Event::determine_convex_set(list<Event*>& group)
+{
+  vector<Vector3*> hull;
+
+  // don't do anything if there are three or fewer points
+  if (group.size() <= 3)
+    return;
+
+  // get all points
+  vector<Vector3*> points;
+  BOOST_FOREACH(Event* e, group)
+  {
+    assert(e->event_type == Event::eContact);
+    points.push_back(&e->contact_point);
+  }
+
+  // determine whether points are collinear
+  const Vector3& pA = *points.front(); 
+  const Vector3& pZ = *points.back();
+  bool collinear = true;
+  for (unsigned i=1; i< points.size()-1; i++)
+    if (!CompGeom::collinear(pA, pZ, *points[i]))
+    {
+      collinear = false;
+      break;
+    }
+
+  // easiest case: collinear
+  if (collinear)
+  {
+    // just get endpoints
+    pair<Vector3*, Vector3*> ep;
+    CompGeom::determine_seg_endpoints(points.begin(), points.end(), ep);
+
+    // iterate through, looking for the contact points
+    for (list<Event*>::iterator i = group.begin(); i != group.end(); )
+    {
+      if (&(*i)->contact_point == ep.first || &(*i)->contact_point == ep.second)
+        i++;
+      else
+        i = group.erase(i);
+    }
+    assert(!group.empty());
+
+    return;
+  }
+  // determine whether the contact manifold is 2D or 3D
+  else if (is_contact_manifold_2D(group))
+  { 
+    try
+    {
+      // compute the 2D convex hull
+      CompGeom::calc_convex_hull(points.begin(), points.end(), group.front()->contact_normal, std::back_inserter(hull));
+    }
+    catch (NumericalException e)
+    {
+      // compute the segment endpoints
+      pair<Vector3*, Vector3*> ep;
+      CompGeom::determine_seg_endpoints(points.begin(), points.end(), ep);
+
+      // iterate through, looking for the contact points
+      for (list<Event*>::iterator i = group.begin(); i != group.end(); )
+      {
+        if (&(*i)->contact_point == ep.first || &(*i)->contact_point == ep.second)
+          i++;
+        else
+          i = group.erase(i);
+      }
+
+      return;
+    }
+  }
+  else
+  {
+    try
+    {
+      // compute the 3D convex hull
+      CompGeom::calc_convex_hull(points.begin(), points.end(), std::back_inserter(hull));
+    }
+    catch (NumericalException e)
+    {
+      try
+      {
+        // compute the 2D convex hull
+        CompGeom::calc_convex_hull(points.begin(), points.end(), group.front()->contact_normal, std::back_inserter(hull));
+      }
+      catch (NumericalException e)
+      {
+        // compute the segment endpoints
+        pair<Vector3*, Vector3*> ep;
+        CompGeom::determine_seg_endpoints(points.begin(), points.end(), ep);
+
+        // iterate through, looking for the contact points
+        for (list<Event*>::iterator i = group.begin(); i != group.end(); )
+        {
+          if (&(*i)->contact_point == ep.first || &(*i)->contact_point == ep.second)
+            i++;
+          else
+            i = group.erase(i);
+        }
+
+        return;
+      }      
+    }
+  }
+
+  // sort all points in the hull
+  std::sort(hull.begin(), hull.end());
+
+  // iterate through events, looking for the contact points 
+  for (list<Event*>::iterator i = group.begin(); i != group.end(); )
+  {
+    if (std::binary_search(hull.begin(), hull.end(), &(*i)->contact_point))
+      i++;
+    else
+      i = group.erase(i);
+  }
+  assert(group.size() == hull.size() && group.size() >= 3);
+}
+
+/// Determines whether all events in a set are 2D or 3D
+bool Event::is_contact_manifold_2D(const list<Event*>& events)
+{
+  // get the first contact as a plane
+  assert(events.front()->event_type == Event::eContact);
+  Plane plane(events.front()->contact_normal, events.front()->contact_point);
+
+  // iterate over the remaining contacts
+  for (list<Event*>::const_iterator i = ++(events.begin()); i != events.end(); i++)
+  {
+    assert((*i)->event_type == Event::eContact);
+    if (!plane.on_plane((*i)->contact_point))
+      return false;
+  }
+
+  return true;
+}
+
 /**
  * Complexity of computing a minimal set:
  * N = # of contacts, NGC = # of generalized coordinates
@@ -825,25 +1049,117 @@ void Event::determine_minimal_set(list<Event*>& group)
   // process each group independently, then recombine
   for (map<sorted_pair<SingleBodyPtr>, list<Event*> >::iterator i = contact_groups.begin(); i != contact_groups.end(); i++)
   {
-    determine_minimal_subset(i->second);
+    determine_convex_set(i->second);
     group.insert(group.end(), i->second.begin(), i->second.end()); 
   }
+
+  // finally, determine the minimal subset
+  determine_minimal_subset(group);
 }
 
-/**
- * Complexity of computing a minimal set:
- * N = # of contacts, NGC = # of generalized coordinates
- * NGC << N
- *
- * Cost of computing J*inv(M)*J', J*v for one contacts: NGC^3
- *                                    for R contacts: NGC^3 + 2*NGC^2*R
- * Cost of Modified Gauss elimination for M contacts (M < NGC), 
-        M x NGC matrix: M^2*NGC
- *
- * Overall cost: 2*NGC^2*R (for R > NGC, where many redundant contact points
-                            present) + NGC^3
- * therefore generalized coordinates are the limiting factor...
- */
+void Event::determine_minimal_subset(list<Event*>& group)
+{
+  // get the number of contact events
+  list<Event*>::iterator start = group.begin();
+  unsigned NC = 0;
+  while (start != group.end())
+  {
+    if ((*start)->event_type == Event::eContact)
+      NC++;
+    start++;
+  }
+
+  // exit now if very few contacts
+  if (NC <= 4)
+    return;
+
+  // determine the number of gc's in the group and the generalized velocities
+  unsigned NGC = 0;
+  map<DynamicBodyPtr, unsigned> gc_index;
+  vector<DynamicBodyPtr> supers;
+  for (list<Event*>::const_iterator i = group.begin(); i != group.end(); i++)
+  {
+    supers.clear();
+    (*i)->get_super_bodies(std::back_inserter(supers));
+    for (unsigned j=0; j< supers.size(); j++)
+      if (gc_index.find(supers[j]) == gc_index.end())
+      {
+        gc_index[supers[j]] = NGC;
+        NGC += supers[j]->num_generalized_coordinates(DynamicBody::eAxisAngle);
+      }
+  }
+
+  // compute generalized velocities
+  VectorN gv, workv;
+  gv.set_zero(NGC);
+  for (map<DynamicBodyPtr, unsigned>::const_iterator i = gc_index.begin(); i != gc_index.end(); i++)
+  {
+    i->first->get_generalized_velocity(DynamicBody::eAxisAngle, workv);
+    gv.set_sub_vec(i->second, workv);
+  }
+
+  // setup contact Jacobian and contact space inertia matrix
+  MatrixN Nc(NC, NGC), Nc_iM_NcT(NC, NC), iM_NcT(NGC, NC), iM_DcT(NGC, NC*2), Nc_iM_DcT(NC*2, NC*2); 
+  MatrixN top;
+  VectorN Nv;
+
+  // clear Jacobian
+  Nc.set_zero();
+
+  // setup the contact index
+  unsigned ci = 0;
+
+  // loop through the remainder of contacts
+  for (list<Event*>::iterator i = group.begin(); i != group.end(); i++)
+  {
+    // if this isn't a contact event, skip it
+    if ((*i)->event_type != Event::eContact)
+      continue;
+
+    // get the Jacobian for this contact
+    compute_contact_jacobian(**i, Nc, iM_NcT, iM_DcT, ci++, gc_index);
+  }
+
+  // compute contact space inertia matrix (top half)
+  Nc.mult(iM_NcT, Nc_iM_NcT);
+  Nc.mult(iM_DcT, Nc_iM_DcT);  
+  top.resize(NC, NC*5);
+  top.set_sub_mat(0,0,  Nc_iM_NcT);
+  top.set_sub_mat(0,NC, Nc_iM_DcT);
+  top.set_sub_mat(0,NC*3, Nc_iM_DcT.negate());
+
+  // compute contact velocity
+  Nc.mult(gv, Nv);
+
+  // setup selection indices for contact 0
+  vector<unsigned> sel;
+  sel.push_back(0);
+
+  // loop over all contacts
+  for (unsigned i=1; i< NC; i++)
+  {
+    FILE_LOG(LOG_EVENT) << " examining contact point " << i << endl;
+    sel.push_back(i);
+
+    // see whether the normal component of the contact is redundant 
+    redundant_contacts(top, Nv, sel);
+  }
+
+  // loop through contacts again
+  ci = 0;
+  for (list<Event*>::iterator i = group.begin(); i != group.end(); )
+  {
+    // see whether this index exists in the pivots that are left over
+    if (std::binary_search(sel.begin(), sel.end(), ci++))
+      i++; 
+    else
+      i = group.erase(i);
+  }
+
+  FILE_LOG(LOG_EVENT) << " -- final number of events: " << group.size() << std::endl;
+}
+
+/*
 /// Computes a minimal subset of contact events
 void Event::determine_minimal_subset(list<Event*>& group)
 {
@@ -928,6 +1244,7 @@ void Event::determine_minimal_subset(list<Event*>& group)
 
   FILE_LOG(LOG_EVENT) << " -- final number of events: " << group.size() << std::endl;
 }
+*/
 
 /// Removes groups of contacts that contain no impacts
 void Event::remove_nonimpacting_groups(list<list<Event*> >& groups)

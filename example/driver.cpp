@@ -72,6 +72,9 @@ unsigned THREED_IVAL = 0;
 /// Determines whether to do onscreen rendering (false by default)
 bool ONSCREEN_RENDER = false;
 
+/// Determines whether to output timings
+bool OUTPUT_TIMINGS = false;
+
 /// Extension/format for 3D outputs (default=Wavefront obj)
 char THREED_EXT[5] = "obj";
 
@@ -150,6 +153,9 @@ void step(void* arg)
   // get the simulator pointer
   boost::shared_ptr<Simulator> s = *(boost::shared_ptr<Simulator>*) arg;
 
+  // get the simulator as event driven simulation
+  boost::shared_ptr<EventDrivenSimulator> eds = boost::dynamic_pointer_cast<EventDrivenSimulator>( s );
+
   // see whether to activate logging
   if (ITER >= LOG_START && ITER <= LOG_STOP)
     Log<OutputToFile>::reporting_level = LOG_REPORTING_LEVEL;
@@ -206,6 +212,15 @@ void step(void* arg)
   if (OUTPUT_SIM_RATE)
     std::cout << "time to compute last iteration: " << total_t << " (" << TOTAL_TIME / ITER << "s/iter, " << TOTAL_TIME / s->current_time << "s/step)" << std::endl;
 
+  // see whether to output the timings
+  if (OUTPUT_TIMINGS)
+  {
+    if (!eds)
+      std::cout << ITER << " " << s->dynamics_utime << " " << s->dynamics_stime << std::endl;
+    else
+      std::cout << ITER << " " << eds->dynamics_utime << " " << eds->dynamics_stime << " " << eds->coldet_utime << " " << eds->coldet_stime << " " << eds->event_utime << " " << eds->event_stime << std::endl;
+  }
+
   // update the iteration #
   ITER++;
 
@@ -227,11 +242,8 @@ void step(void* arg)
   }
 
   // if render contact points enabled, notify the Simulator
-  if( RENDER_CONTACT_POINTS ) {
-    boost::shared_ptr<EventDrivenSimulator> eds = boost::dynamic_pointer_cast<EventDrivenSimulator>( s );
-    if (eds)
-      eds->render_contact_points = true;
-  }
+  if( RENDER_CONTACT_POINTS && eds)
+    eds->render_contact_points = true;
 }
 
 // attempts to read control code plugin
@@ -471,6 +483,8 @@ int main(int argc, char** argv)
     }
     else if (option.find("-of") != std::string::npos)
       OUTPUT_FRAME_RATE = true;
+    else if (option.find("-ot") != std::string::npos)
+      OUTPUT_TIMINGS = true;
     else if (option.find("-oi") != std::string::npos)
       OUTPUT_ITER_NUM = true;
     else if (option.find("-or") != std::string::npos)

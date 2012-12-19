@@ -224,7 +224,7 @@ PolyhedronPtr Polyhedron::minkowski(Polyhedron& p1, const Matrix4& T1, Polyhedro
     }
 
   // compute the convex hull of the points
-  return CompGeom::calc_convex_hull_3D(points.begin(), points.end()); 
+  return CompGeom::calc_convex_hull(points.begin(), points.end()); 
 }
 
 /// Checks whether this polyhedron is degenerate

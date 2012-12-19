@@ -64,6 +64,10 @@ Real Simulator::step(Real step_size)
   _transient_vdata->removeChildren(0, _transient_vdata->getNumChildren());
   #endif
 
+  // clear dynamics timings
+  dynamics_utime = (Real) 0.0;
+  dynamics_stime = (Real) 0.0;
+
   // compute forward dynamics and integrate 
   current_time += integrate(step_size);
 

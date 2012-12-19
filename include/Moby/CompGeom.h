@@ -42,6 +42,9 @@ class Polyhedron;
 /// Class for performing assorted computational geometry functions
 class CompGeom
 {
+  template <class T, class V> friend class CompGeomSpecOne;
+  template <class T, class U, class V> friend class CompGeomSpecTwo;
+
   public:
     enum SegSegIntersectType { eSegSegNoIntersect, eSegSegIntersect, eSegSegVertex, eSegSegEdge };
     enum LineLineIntersectType { eLineLineNoIntersect, eLineLineIntersect, eLineLineVertex, eLineLineEdge };
@@ -107,8 +110,8 @@ class CompGeom
      template <class OutputIterator>
      static OutputIterator intersect_tris(const Vector2 t1[3], const Vector2 t2[3], OutputIterator output_begin);
 
-    template <class InputIterator>
-    static void calc_min_area_bounding_rect(InputIterator begin, InputIterator end, Vector2& p1, Vector2& p2, Vector2& p3, Vector2& p4);
+    template <class ForwardIterator>
+    static void calc_min_area_bounding_rect(ForwardIterator begin, ForwardIterator end, Vector2& p1, Vector2& p2, Vector2& p3, Vector2& p4);
 
     template <class InputIterator, class OutputIterator>
     static OutputIterator intersect_polygons(InputIterator pbegin, InputIterator pend, InputIterator qbegin, InputIterator qend, const Vector3& normal, OutputIterator isect_begin);
@@ -129,10 +132,10 @@ class CompGeom
     static bool is_convex_polygon(InputIterator begin, InputIterator end, const Vector3& normal, Real tol = NEAR_ZERO);
 
     template <class InputIterator, class OutputIterator>
-    static OutputIterator calc_convex_hull_2D(InputIterator source_begin, InputIterator source_end, const Vector3& normal, OutputIterator target_begin);
+    static OutputIterator calc_convex_hull(InputIterator source_begin, InputIterator source_end, const Vector3& normal, OutputIterator target_begin);
 
     template <class InputIterator, class OutputIterator>
-    static OutputIterator calc_convex_hull_2D(InputIterator source_begin, InputIterator source_end, OutputIterator target_begin);
+    static OutputIterator calc_convex_hull(InputIterator source_begin, InputIterator source_end, OutputIterator target_begin);
 
     template <class InputIterator>
     static PolygonLocationType polygon_location(InputIterator begin, InputIterator end, const Vector2& point);
@@ -170,11 +173,20 @@ class CompGeom
     template <class InputIterator, class OutputIterator>
     static OutputIterator to_3D(InputIterator begin, InputIterator end, OutputIterator begin_target, const Matrix3& RT, Real offset);
 
-    template <class InputIterator, class T>
-    static void determine_seg_endpoints(InputIterator begin, InputIterator end, std::pair<T, T>& endpoints);
+    template <class InputIterator>
+    static void determine_seg_endpoints(InputIterator begin, InputIterator end, std::pair<Vector3, Vector3>& endpoints);
 
     template <class InputIterator>
-    static PolyhedronPtr calc_convex_hull_3D(InputIterator first, InputIterator last);
+    static void determine_seg_endpoints(InputIterator begin, InputIterator end, std::pair<Vector3*, Vector3*>& endpoints);
+
+    template <class InputIterator>
+    static void determine_seg_endpoints(InputIterator begin, InputIterator end, std::pair<Vector2, Vector2>& endpoints);
+
+    template <class InputIterator>
+    static void determine_seg_endpoints(InputIterator begin, InputIterator end, std::pair<Vector2*, Vector2*>& endpoints);
+
+    template <class InputIterator>
+    static PolyhedronPtr calc_convex_hull(InputIterator first, InputIterator last);
 
     template <class InputIterator>
     static Vector3 calc_centroid_3D(InputIterator first, InputIterator last);
@@ -239,6 +251,142 @@ class CompGeom
     static bool test_point_in_tri(const Vector3& p, const Triangle& t, unsigned i0, unsigned i1);
     static bool test_coplanar_tri_tri(const Vector3& N, const Triangle& t1, const Triangle& t2);
 }; // end class
+
+/// Specialized one-parameter computational geometry routines
+/**
+ * This hack is necessary because C++ function templates do not support
+ * partial specialization.
+ */
+template <class T, class V>
+class CompGeomSpecOne
+{
+};
+
+template <class T>
+class CompGeomSpecOne<T, Vector3>
+{
+  friend class CompGeom;
+
+  private:
+    static unsigned calc_dimensionality(T begin, T end, Real tol);
+    static PolyhedronPtr calc_convex_hull(T begin, T end); 
+    static bool is_convex_polygon(T begin, T end, const Vector3& normal, Real tol);
+    static bool ccw(T begin, T end, const Vector3& normal, Real tol = NEAR_ZERO);
+    static Real fit_plane(T begin, T end, Vector3& normal, Real& offset);
+};
+
+template <class T>
+class CompGeomSpecOne<T, Vector3*>
+{
+  friend class CompGeom;
+
+  private:
+    static unsigned calc_dimensionality(T begin, T end, Real tol); 
+    static PolyhedronPtr calc_convex_hull(T begin, T end);
+    static bool is_convex_polygon(T begin, T end, const Vector3& normal, Real tol);
+    static bool ccw(T begin, T end, const Vector3& normal, Real tol = NEAR_ZERO);
+    static Real fit_plane(T begin, T end, Vector3& normal, Real& offset);
+};
+
+template <class T>
+class CompGeomSpecOne<T, Vector2>
+{
+  friend class CompGeom;
+
+  private:
+    static bool intersect_seg_convex_polygon(T begin, T end, const LineSeg2& seg, Real& te, Real& tl, Real tol);
+    static unsigned calc_dimensionality(T begin, T end, Real tol) { }
+    static bool is_convex_polygon(T begin, T end, Real tol);
+    static void calc_min_area_bounding_rect(T begin, T end, Vector2& p1, Vector2& p2, Vector2& p3, Vector2& p4); 
+    static bool ccw(T begin, T end, Real tol = NEAR_ZERO);
+};
+
+template <class T>
+class CompGeomSpecOne<T, Vector2*>
+{
+  friend class CompGeom;
+
+  private:
+    static bool intersect_seg_convex_polygon(T begin, T end, const LineSeg2& seg, Real& te, Real& tl, Real tol);
+    static bool is_convex_polygon(T begin, T end, Real tol);
+    static void calc_min_area_bounding_rect(T begin, T end, Vector2& p1, Vector2& p2, Vector2& p3, Vector2& p4); 
+    static bool ccw(T begin, T end, Real tol = NEAR_ZERO);
+};
+
+/// Specialized two-parameter computational geometry routines
+/**
+ * This hack is necessary because C++ function templates do not support
+ * partial specialization.
+ */
+template <class T, class U, class V>
+class CompGeomSpecTwo
+{
+};
+
+/// Specialized two-parameter computational geometry routines
+/**
+ * This hack is necessary because C++ function templates do not support
+ * partial specialization.
+ */
+template <class T, class U>
+class CompGeomSpecTwo<T, U, Vector2*>
+{
+  friend class CompGeom;
+
+  private:
+    static U to_3D(T begin, T end, U begin_target, const Matrix3& RT, Real offset);
+    static U calc_convex_hull(T source_begin, T source_end, U target_begin);
+    static U intersect_seg_polygon(T begin, T end, const LineSeg2& seg, U outbegin);
+};
+
+/// Specialized two-parameter computational geometry routines
+/**
+ * This hack is necessary because C++ function templates do not support
+ * partial specialization.
+ */
+template <class T, class U>
+class CompGeomSpecTwo<T, U, Vector2>
+{
+  friend class CompGeom;
+
+  private:
+    static U to_3D(T begin, T end, U begin_target, const Matrix3& RT, Real offset);
+    static U calc_convex_hull(T source_begin, T source_end, U target_begin);
+    static U intersect_seg_polygon(T begin, T end, const LineSeg2& seg, U outbegin);
+};
+
+/// Specialized two-parameter computational geometry routines
+/**
+ * This hack is necessary because C++ function templates do not support
+ * partial specialization.
+ */
+template <class T, class U>
+class CompGeomSpecTwo<T, U, Vector3>
+{
+  friend class CompGeom;
+
+  private:
+    static U calc_convex_hull(T source_begin, T source_end, U target_begin);
+    static U calc_convex_hull(T source_begin, T source_end, const Vector3& normal, U target_begin);
+    static U to_2D(T begin_source, T end_source, U begin_target, const Matrix3& R);
+};
+
+/// Specialized two-parameter computational geometry routines
+/**
+ * This hack is necessary because C++ function templates do not support
+ * partial specialization.
+ */
+template <class T, class U>
+class CompGeomSpecTwo<T, U, Vector3*>
+{
+  friend class CompGeom;
+
+  private:
+    static U calc_convex_hull(T source_begin, T source_end, U target_begin);
+    static U calc_convex_hull(T source_begin, T source_end, const Vector3& normal, U target_begin);
+    static U to_2D(T begin_source, T end_source, U begin_target, const Matrix3& R);
+};
+
 
 // include inline functions
 #include "CompGeom.inl"
