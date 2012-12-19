@@ -5247,7 +5247,7 @@ bool Optimization::lcp_iter_PD(const MatrixN& M, const VectorN& q, VectorN& x, R
  * \param the optimal point (if any) on return
  * \return <b>false</b> if problem infeasible; <b>true</b> otherwise
  */
-bool Optimization::lp_simplex(const LPParams& lpparams, VectorN& x)
+bool Optimization::lp_simplex(const LPParams& lpparams, VectorN& x, unsigned& glpk_status)
 {
   #ifdef USE_GLPK
   // create the GLPK problem
@@ -5328,6 +5328,8 @@ bool Optimization::lp_simplex(const LPParams& lpparams, VectorN& x)
 
   // call the interior-point method
   bool result =  (glp_simplex(lp, &sparams) == 0 && glp_get_status(lp) == GLP_OPT);
+  glpk_status = glp_get_status(lp);
+  FILE_LOG(LOG_OPT) << "GLPK status: " << glpk_status << std::endl;
 
   // get x out
   x.resize(lpparams.n);
@@ -5411,7 +5413,8 @@ bool Optimization::make_feasible_qp(const MatrixN& A, const VectorN& b, const Ma
   lpdata.u.resize(0);
 
   // solve the linear program
-  bool result = lp_simplex(lpdata, y);
+  unsigned status;
+  bool result = lp_simplex(lpdata, y, status);
   if (!result)
     return false;
 

@@ -10,6 +10,7 @@
 #ifdef USE_OSG
 #include <osg/Group>
 #endif
+#include <sys/times.h>
 #include <list>
 #include <map>
 #include <set>
@@ -75,6 +76,12 @@ class Simulator : public virtual Base
 
     /// Callback function after a step is completed
     void (*post_step_callback_fn)(Simulator* s);
+
+    /// User time spent by dynamics on the last step
+    Real dynamics_utime;
+
+    /// System time spent by dynamics on the last step
+    Real dynamics_stime;
 
   protected:
     #ifdef USE_OSG

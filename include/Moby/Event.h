@@ -124,10 +124,14 @@ class Event
     bool operator<(const Event& e) const { return t < e.t; }
 
   private:
+    static void determine_convex_set(std::list<Event*>& group);
+    static bool is_contact_manifold_2D(const std::list<Event*>& group);
+
     template <class BidirectionalIterator>
     static void insertion_sort(BidirectionalIterator begin, BidirectionalIterator end);
     static void compute_contact_jacobians(const Event& e, VectorN& Nc, VectorN& Dc1, VectorN& Dc2);
-    static void redundant_contacts(const MatrixN& Jc, const MatrixN& Dc, std::vector<unsigned>& nr_indices);
+    static void compute_contact_jacobian(const Event& e, MatrixN& Nc, MatrixN& iM_NcT, MatrixN& iM_DcT, unsigned ci, const std::map<DynamicBodyPtr, unsigned>& gc_indices);
+    static void redundant_contacts(const MatrixN& N, const VectorN& Nv, std::vector<unsigned>& nr_indices);
     static void determine_minimal_subset(std::list<Event*>& group);
 }; // end class
 

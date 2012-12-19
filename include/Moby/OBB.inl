@@ -112,10 +112,10 @@ OBB OBB::calc_low_dim_OBB(ForwardIterator begin, ForwardIterator end)
   Real offset = CompGeom::determine_3D_to_2D_offset(*begin, R);
   std::list<Vector2> points_2D;
   CompGeom::to_2D(begin, end, std::back_inserter(points_2D), R);
-    
+
   // compute the convex hull of the points
   std::list<Vector2> hull_2D;
-  CompGeom::calc_convex_hull_2D(points_2D.begin(), points_2D.end(), std::back_inserter(hull_2D));
+  CompGeom::calc_convex_hull(points_2D.begin(), points_2D.end(), std::back_inserter(hull_2D));
 
   // handle degeneracy
   if (hull_2D.empty())
@@ -214,7 +214,7 @@ OBB OBB::calc_min_volume_OBB(ForwardIterator begin, ForwardIterator end)
   const Real TOL = NEAR_ZERO;  // tolerance to expand the OBB
 
   // compute the convex hull of the points
-  PolyhedronPtr hull = CompGeom::calc_convex_hull_3D(begin, end);
+  PolyhedronPtr hull = CompGeom::calc_convex_hull(begin, end);
   bool is_3D = hull;
   if (!is_3D)
     return OBB::calc_low_dim_OBB(begin, end);
@@ -493,7 +493,7 @@ OBB::OBB(ForwardIterator begin, ForwardIterator end)
   this->center = ZEROS_3;
 
   // compute the convex hull of the points
-  PolyhedronPtr hull = CompGeom::calc_convex_hull_3D(begin, end);
+  PolyhedronPtr hull = CompGeom::calc_convex_hull(begin, end);
   bool is_3D = hull;
   if (!is_3D)
   {

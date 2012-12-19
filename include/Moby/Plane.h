@@ -21,10 +21,11 @@ class Plane
     Plane(Real nx, Real ny, Real nz, Real d) { _normal = Vector3(nx, ny, nz); _normal.normalize(); offset = d; }
     Plane(const Triangle& t) { _normal = t.calc_normal(); offset = t.calc_offset(_normal); }
     Plane(const Vector3& n, Real d) { _normal = Vector3::normalize(n); offset = d; }
+    Plane(const Vector3& normal, const Vector3& point) { _normal = Vector3::normalize(normal); offset = normal.dot(point); }
     Plane(const Plane& p) { operator=(p); }
     void operator=(const Plane& p) { _normal = p._normal; offset = p.offset; }
     Real calc_signed_distance(const Vector3& p) const { return _normal.dot(p) - offset; }
-    bool on_plane(const Vector3& p) { return std::fabs(calc_signed_distance(p)) < NEAR_ZERO; }
+    bool on_plane(const Vector3& p) { return std::fabs(calc_signed_distance(p)) < NEAR_ZERO * std::max((Real) 1.0, std::max(p.norm_inf(), std::fabs(offset))); }
     Plane operator-() const { return Plane(-_normal, -offset); }
     bool operator==(const Plane& p) const { Real dot = _normal.dot(p.get_normal()); return (std::fabs(dot - 1.0) < NEAR_ZERO && std::fabs(offset - p.offset) < NEAR_ZERO); }
     bool operator<(const Plane& p) const;
