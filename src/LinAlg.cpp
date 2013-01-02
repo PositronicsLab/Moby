@@ -43,6 +43,12 @@ static void lartg_(float* F, float* G, float* CS, float* SN, float* R)
   slartg_(F, G, CS, SN, R);
 }
 
+/// Calls LAPACK function for solving tridiagonal systems of linear equations
+static void gtsv_(INTEGER* N, INTEGER* NRHS, SINGLE* DL, SINGLE* D, SINGLE* DU, SINGLE* B, INTEGER* LDB, INTEGER* INFO)
+{
+  sgtsv_(N, NRHS, DL, D, DU, B, LDB, INFO);
+}
+
 /// Calls LAPACK function for solving triangular systems of linear equations
 static void trtrs_(char* UPLO, char* TRANS, INTEGER* N, INTEGER* NRHS, SINGLE* AP, INTEGER* LDA, SINGLE* B, INTEGER* LDB, INTEGER* INFO)
 {
@@ -359,6 +365,12 @@ static void lartg_(double* F, double* G, double* CS, double* SN, double* R)
   dlartg_(F, G, CS, SN, R);
 }
 
+/// Calls LAPACK function for solving tridiagonal systems of linear equations
+static void gtsv_(INTEGER* N, INTEGER* NRHS, DOUBLE* DL, DOUBLE* D, DOUBLE* DU, DOUBLE* B, INTEGER* LDB, INTEGER* INFO)
+{
+  dgtsv_(N, NRHS, DL, D, DU, B, LDB, INFO);
+}
+
 /// Calls LAPACK function for solving triangular systems of linear equations
 static void trtrs_(char* UPLO, char* TRANS, INTEGER* N, INTEGER* NRHS, DOUBLE* AP, INTEGER* LDA, DOUBLE* B, INTEGER* LDB, INTEGER* INFO)
 {
@@ -670,6 +682,12 @@ static void lartg_(mpfr::mpreal* F, mpfr::mpreal* G, mpfr::mpreal* CS, mpfr::mpr
   alartg_(F, G, CS, SN, R);
 }
 
+/// Calls LAPACK function for solving tridiagonal systems of linear equations
+static void gtsv_(INTEGER* N, INTEGER* NRHS, mpfr::mpreal* DL, mpfr::mpreal* D, mpfr::mpreal* DU, mpfr::mpreal* B, INTEGER* LDB, INTEGER* INFO)
+{
+  agtsv_(N, NRHS, DL, D, DU, B, LDB, INFO);
+}
+
 /// Calls LAPACK function for solving triangular systems of linear equations
 static void trtrs_(char* UPLO, char* TRANS, INTEGER* N, INTEGER* NRHS, mpfr::mpreal* AP, INTEGER* LDA, mpfr::mpreal* B, INTEGER* LDB, INTEGER* INFO)
 {
@@ -956,6 +974,66 @@ static void orgqr_(INTEGER* M, INTEGER* N, INTEGER* K, mpfr::mpreal* A, INTEGER*
 #endif
 #endif
 #endif
+
+/// Solves a tridiagonal system
+/**
+ * \param dl the (n-1) elements on the subdiagonal (destroyed on return)
+ * \param d  the n elements on the diagonal (destroyed on return)
+ * \param du the n elements on the superdiagonal (destroyed on return)
+ * \param xb the right hand side on input, the solution on return
+ * \return the solution
+ * throws SingularException if the matrix is singular
+ */
+VectorN& LinAlg::solve_tridiagonal_fast(VectorN& dl, VectorN& d, VectorN& du, VectorN& xb)
+{
+  // determine N
+  INTEGER N = d.size();
+  if (xb.rows() != N)
+    throw MissizeException();
+
+  // call the tridiagonal solver
+  INTEGER LDB = xb.rows();
+  INTEGER NRHS = 1;
+  INTEGER INFO;
+  gtsv_(&N, &NRHS, dl.data(), d.data(), du.data(), xb.data(), &LDB, &INFO);
+
+  // see whether solution successful
+  assert(INFO >= 0);
+  if (INFO > 0)
+    throw SingularException();
+
+  return xb;
+}
+
+/// Solves a tridiagonal system
+/**
+ * \param dl the (n-1) elements on the subdiagonal (destroyed on return)
+ * \param d  the n elements on the diagonal (destroyed on return)
+ * \param du the n elements on the superdiagonal (destroyed on return)
+ * \param XB the right hand side on input, the solution on return
+ * \return the solution
+ * throws SingularException if the matrix is singular
+ */
+MatrixN& LinAlg::solve_tridiagonal_fast(VectorN& dl, VectorN& d, VectorN& du, MatrixN& XB)
+{
+  // determine N
+  INTEGER N = d.size();
+  if (XB.rows() != N)
+    throw MissizeException();
+
+  // call the tridiagonal solver
+  INTEGER LDB = XB.rows();
+  INTEGER NRHS = XB.columns();
+  INTEGER INFO;
+  gtsv_(&N, &NRHS, dl.data(), d.data(), du.data(), XB.data(), &LDB, &INFO);
+
+  // see whether solution successful
+  assert(INFO >= 0);
+  if (INFO > 0)
+    throw SingularException();
+
+  return XB;
+}
 
 /// Performs a LDL' factorization of a symmetric, indefinite matrix
 /**
