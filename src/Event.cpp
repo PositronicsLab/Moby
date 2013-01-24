@@ -917,6 +917,8 @@ void Event::determine_convex_set(list<Event*>& group)
     {
       // compute the 2D convex hull
       CompGeom::calc_convex_hull(points.begin(), points.end(), group.front()->contact_normal, std::back_inserter(hull));
+      if (hull.empty())
+        throw NumericalException();
     }
     catch (NumericalException e)
     {
@@ -942,6 +944,8 @@ void Event::determine_convex_set(list<Event*>& group)
     {
       // compute the 3D convex hull
       CompGeom::calc_convex_hull(points.begin(), points.end(), std::back_inserter(hull));
+      if (hull.empty())
+        throw NumericalException();
     }
     catch (NumericalException e)
     {
