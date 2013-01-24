@@ -44,6 +44,8 @@ class LinAlg
     static MatrixN& solve_LU_fast(const MatrixN& M, bool transpose, const std::vector<int>& IPIV, MatrixN& XB);
     static MatrixN solve(const MatrixN& A, const MatrixN& B);
     static VectorN solve(const MatrixN& A, const VectorN& b);
+    static VectorN& solve_tridiagonal_fast(VectorN& dlo, VectorN& diag, VectorN& dup, VectorN& xb); 
+    static MatrixN& solve_tridiagonal_fast(VectorN& dlo, VectorN& diag, VectorN& dup, MatrixN& XB); 
     static VectorN& solve_tri_fast(const MatrixN& A, bool utri, bool transpose_A, VectorN& xb);
     static MatrixN& solve_tri_fast(const MatrixN& A, bool utri, bool transpose_A, MatrixN& XB);
     static VectorN& solve_LS(const SparseMatrixN& A, const VectorN& b, VectorN& x, Real damp = (Real) 0.0, unsigned max_iter = std::numeric_limits<unsigned>::max(), Real tol = (Real) 0.0);

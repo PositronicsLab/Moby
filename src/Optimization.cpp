@@ -4534,13 +4534,11 @@ void Optimization::qp_to_lcp2(const MatrixN& G, const VectorN& c, const MatrixN&
 bool Optimization::lcp_lemke_regularized(const MatrixN& M, const VectorN& q, VectorN& z, int min_exp, unsigned step_exp, int max_exp, Real piv_tol, Real zero_tol)
 {
   FILE_LOG(LOG_OPT) << "Optimization::lcp_lemke_regularized() entered" << endl;
-  SAFESTATIC FastThreadable<VectorN> w_x, qq_x, qe_x;
+  SAFESTATIC FastThreadable<VectorN> w_x, qq_x;
   SAFESTATIC FastThreadable<MatrixN> MM_x, Me_x;
   VectorN& w = w_x();
   VectorN& qq = qq_x();
   MatrixN& MM = MM_x();
-  MatrixN& Me = Me_x();
-  VectorN& qe = qe_x();
 
   // look for fast exit
   if (q.size() == 0)
@@ -4549,16 +4547,9 @@ bool Optimization::lcp_lemke_regularized(const MatrixN& M, const VectorN& q, Vec
     return true;
   }
 
-  // copy M and q
-  Me.copy_from(M);
-  qe.copy_from(q);
-
-  // equilibrate M and q
-  equilibrate(Me, qe);
-
   // copy MM and qq  
-  MM.copy_from(Me);
-  qq.copy_from(qe);
+  MM.copy_from(M);
+  qq.copy_from(q);
 
   // assign value for zero tolerance, if necessary
   const Real ZERO_TOL = (zero_tol > (Real) 0.0) ? zero_tol : q.size() * std::numeric_limits<Real>::epsilon();
@@ -4571,7 +4562,7 @@ bool Optimization::lcp_lemke_regularized(const MatrixN& M, const VectorN& q, Vec
     if (*std::min_element(z.begin(), z.end()) >= -ZERO_TOL)
     {
       // check w
-      Me.mult(z, w) += qe;
+      M.mult(z, w) += q;
       if (*std::min_element(w.begin(), w.end()) >= -ZERO_TOL)
       {
         // check z'w
@@ -4595,12 +4586,12 @@ bool Optimization::lcp_lemke_regularized(const MatrixN& M, const VectorN& q, Vec
     Real lambda = std::pow((Real) 10.0, (Real) rf);
 
     // regularize M
-    MM.copy_from(Me);
+    MM.copy_from(M);
     for (unsigned i=0; i< MM.rows(); i++)
       MM(i,i) += lambda;
 
     // recopy q
-    qq.copy_from(qe);
+    qq.copy_from(q);
 
     // try to solve the LCP
     if ((result = lcp_lemke(MM, qq, z, piv_tol, zero_tol)))
@@ -4609,10 +4600,10 @@ bool Optimization::lcp_lemke_regularized(const MatrixN& M, const VectorN& q, Vec
       if (*std::min_element(z.begin(), z.end()) > -ZERO_TOL)
       {
         // check w
-        MM.copy_from(Me);
+        MM.copy_from(M);
         for (unsigned i=0; i< MM.rows(); i++)
           MM(i,i) += lambda;
-        qq.copy_from(qe);
+        qq.copy_from(q);
         MM.mult(z, w) += qq;
         if (*std::min_element(w.begin(), w.end()) > -ZERO_TOL)
         {
