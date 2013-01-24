@@ -105,12 +105,13 @@ class DynamicBody : public Visualizable
     /**
      * \param body the actual rigid body to which the force/torque is applied 
      *               (at the center-of-mass)
+     * \param p the point at which to apply the force and torque
      * \param f the force component
      * \param t the torque component
      * \param gf the generalized force, on return
      * \note uses the current generalized coordinates
      */
-    virtual VectorN& convert_to_generalized_force(GeneralizedCoordinateType gctype, SingleBodyPtr body, const Vector3& f, const Vector3& t, VectorN& gf) = 0;
+    virtual VectorN& convert_to_generalized_force(GeneralizedCoordinateType gctype, SingleBodyPtr body, const Vector3& p, const Vector3& f, const Vector3& t, VectorN& gf) = 0;
 
     /// The controller callback, if any, for this body
     void (*controller)(boost::shared_ptr<DynamicBody>, Real, void*);

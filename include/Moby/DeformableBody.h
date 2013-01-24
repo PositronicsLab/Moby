@@ -49,7 +49,7 @@ class DeformableBody : public SingleBody
     virtual void set_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, const VectorN& gv);
     virtual MatrixN& get_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, MatrixN& M);
     virtual VectorN& get_generalized_forces(DynamicBody::GeneralizedCoordinateType gctype, VectorN& f);
-    virtual VectorN& convert_to_generalized_force(DynamicBody::GeneralizedCoordinateType gctype, SingleBodyPtr body, const Vector3& f, const Vector3& t, VectorN& gf);
+    virtual VectorN& convert_to_generalized_force(DynamicBody::GeneralizedCoordinateType gctype, SingleBodyPtr body, const Vector3& p, const Vector3& f, const Vector3& t, VectorN& gf);
     virtual void set_mesh(boost::shared_ptr<const IndexedTetraArray> tetra_mesh, boost::shared_ptr<Primitive> tri_mesh);
     virtual Vector3 calc_point_vel(const Vector3& p) const;
     virtual void add_force(const Vector3& f);

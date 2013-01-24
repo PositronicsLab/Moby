@@ -75,7 +75,7 @@ class RCArticulatedBody : public ArticulatedBody
     virtual MatrixN& get_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, MatrixN& M);
     virtual MatrixN& get_generalized_inertia_inverse(DynamicBody::GeneralizedCoordinateType gctype, MatrixN& M);
     virtual VectorN& get_generalized_forces(DynamicBody::GeneralizedCoordinateType gctype, VectorN& f);
-    virtual VectorN& convert_to_generalized_force(DynamicBody::GeneralizedCoordinateType gctype, SingleBodyPtr body, const Vector3& f, const Vector3& t, VectorN& gf);
+    virtual VectorN& convert_to_generalized_force(DynamicBody::GeneralizedCoordinateType gctype, SingleBodyPtr body, const Vector3& p, const Vector3& f, const Vector3& t, VectorN& gf);
     virtual unsigned num_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype) const;
     virtual void set_links(const std::vector<RigidBodyPtr>& links);
     virtual void set_joints(const std::vector<JointPtr>& links);
