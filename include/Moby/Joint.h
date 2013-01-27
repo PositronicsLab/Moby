@@ -180,10 +180,10 @@ class Joint : public Visualizable
      */
     void set_articulated_body(ArticulatedBodyPtr abody) { _abody = abody; }
 
-    /// The lower joint limit (currently unenforced)
+    /// The lower joint limit 
     VectorN lolimit;
 
-    /// The upper joint limit (currently unenforced)
+    /// The upper joint limit 
     VectorN hilimit;
 
     /// The maximum force that can be applied to each DOF of the joint
