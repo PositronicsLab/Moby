@@ -37,6 +37,7 @@ class XMLReader
     static void read_c2a_ccd(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map);
     static void read_mesh_dcd(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map);
     static void read_coldet_plugin(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map);
+    static void read_gaussian_mixture(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map);
     static void read_box(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map);
     static void read_sphere(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map);
     static void read_cylinder(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map);
