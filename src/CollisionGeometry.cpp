@@ -4,6 +4,7 @@
  * License (found in COPYING).
  ****************************************************************************/
 
+#include <stdexcept>
 #include <iostream>
 #include <stack>
 #include <fstream>
@@ -60,6 +61,9 @@ void CollisionGeometry::set_rel_transform(const Matrix4& transform, bool update_
  */
 PrimitivePtr CollisionGeometry::set_geometry(PrimitivePtr primitive)
 {
+  if (_single_body.expired())
+    throw std::runtime_error("CollisionGeometry::set_geometry() called before single body set!");
+
   SingleBodyPtr sb(_single_body);
   RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(sb);
   if (rb && !Matrix4::epsilon_equals(IDENTITY_4x4, rb->get_transform(), NEAR_ZERO))

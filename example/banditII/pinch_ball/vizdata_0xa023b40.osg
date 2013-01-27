@@ -1,0 +1,65 @@
+MatrixTransform {
+  UniqueID MatrixTransform_0
+  nodeMask 0xffffffff
+  cullingActive TRUE
+  referenceFrame RELATIVE
+  Matrix {
+    1 0 0 0
+    0 1 0 0
+    0 0 1 0
+    0 0 0 1
+  }
+  num_children 1
+  Group {
+    nodeMask 0xffffffff
+    cullingActive TRUE
+    num_children 1
+    MatrixTransform {
+      UniqueID MatrixTransform_1
+      nodeMask 0xffffffff
+      cullingActive TRUE
+      StateSet {
+        UniqueID StateSet_2
+        DataVariance STATIC
+        rendering_hint DEFAULT_BIN
+        renderBinMode INHERIT
+        Material {
+          UniqueID Material_3
+          ColorMode DIFFUSE
+          ambientColor 0.2 0.2 0.2 1
+          diffuseColor FRONT 0.883168 0.61779 0.970274 1
+          diffuseColor BACK  0.8 0.8 0.8 1
+          specularColor 0 0 0 1
+          emissionColor 0 0 0 1
+          shininess 0
+        }
+      }
+      referenceFrame RELATIVE
+      Matrix {
+        1 0 0 0
+        0 0 -1 0
+        0 1 0 0
+        0 0 0 1
+      }
+      num_children 1
+      Geode {
+        nodeMask 0xffffffff
+        cullingActive TRUE
+        num_drawables 1
+        ShapeDrawable {
+          UniqueID ShapeDrawable_4
+          DataVariance STATIC
+          Cylinder {
+            Center 0 0 0
+            Radius 0.0025
+            Height 0.025
+            Rotation 0.707107 0 0 0.707107
+          }
+          useDisplayList TRUE
+          useVertexBufferObjects FALSE
+          color 1 1 1 1
+        }
+      }
+    }
+  }
+}

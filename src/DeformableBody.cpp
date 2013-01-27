@@ -335,13 +335,36 @@ VectorN& DeformableBody::get_generalized_forces(DynamicBody::GeneralizedCoordina
 }
 
 /// Converts a force and torque to a generalized force on the body
-VectorN& DeformableBody::convert_to_generalized_force(DynamicBody::GeneralizedCoordinateType gctype, SingleBodyPtr body, const Vector3& f, const Vector3& t, VectorN& gf)
+VectorN& DeformableBody::convert_to_generalized_force(DynamicBody::GeneralizedCoordinateType gctype, SingleBodyPtr body, const Vector3& p, const Vector3& f, const Vector3& t, VectorN& gf)
 {
   const unsigned THREE_D = 3, X = 0, Y = 1, Z = 2;
-  gf.resize(THREE_D);
-  gf[X] = f[X];
-  gf[Y] = f[Y];
-  gf[Z] = f[Z];
+  gf.set_zero(_nodes.size() * THREE_D);
+
+  // determine in what tetrahedron the point lies (or is closest)
+  unsigned i = find_closest_tetrahedron(p);
+
+  // get (and correct) the barycentric coordinates for p
+  Real u, v, w;
+  const Tetrahedron& tet = _tetra_mesh->get_tetrahedron(i);
+  tet.determine_barycentric_coords(p, u, v, w);
+
+  // correct barycentric coordinates
+  if (u < (Real) 0.0) u = (Real) 0.0;
+  else if (u > (Real) 1.0) u = (Real) 1.0;
+  if (v < (Real) 0.0) v = (Real) 0.0;
+  else if (u + v > (Real) 1.0) v = (Real) 1.0 - u;
+  if (w < (Real) 0.0) w = (Real) 0.0;
+  else if (u + v + w > (Real) 1.0) w = (Real) 1.0 - u - v;
+
+  // now determine forces on the nodes
+  Vector3 fa = f*u;
+  Vector3 fb = f*v;
+  Vector3 fc = f*w;
+  Vector3 fd = f*((Real) 1.0-u-v-w);
+  gf.set_sub_vec(_tetrahedra[i].a*3, fa);
+  gf.set_sub_vec(_tetrahedra[i].b*3, fb);
+  gf.set_sub_vec(_tetrahedra[i].c*3, fc);
+  gf.set_sub_vec(_tetrahedra[i].d*3, fd);
 
   return gf;
 }

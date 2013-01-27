@@ -274,6 +274,7 @@ void Joint::init_data()
   const unsigned NEQ = num_constraint_eqns();
 
   q.set_zero(NDOF);
+  _q_tare.set_zero(NDOF);
   qd.set_zero(NDOF);
   qdd.set_zero(NDOF);
   force.set_zero(NDOF);

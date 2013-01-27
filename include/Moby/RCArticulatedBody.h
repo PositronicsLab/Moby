@@ -75,7 +75,7 @@ class RCArticulatedBody : public ArticulatedBody
     virtual MatrixN& get_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, MatrixN& M);
     virtual MatrixN& get_generalized_inertia_inverse(DynamicBody::GeneralizedCoordinateType gctype, MatrixN& M);
     virtual VectorN& get_generalized_forces(DynamicBody::GeneralizedCoordinateType gctype, VectorN& f);
-    virtual VectorN& convert_to_generalized_force(DynamicBody::GeneralizedCoordinateType gctype, SingleBodyPtr body, const Vector3& f, const Vector3& t, VectorN& gf);
+    virtual VectorN& convert_to_generalized_force(DynamicBody::GeneralizedCoordinateType gctype, SingleBodyPtr body, const Vector3& p, const Vector3& f, const Vector3& t, VectorN& gf);
     virtual unsigned num_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype) const;
     virtual void set_links(const std::vector<RigidBodyPtr>& links);
     virtual void set_joints(const std::vector<JointPtr>& links);
@@ -102,7 +102,7 @@ class RCArticulatedBody : public ArticulatedBody
     virtual unsigned num_joint_dof() const { return _n_joint_DOF_implicit + num_joint_dof_explicit(); }
 
     /// Gets the base link
-    RigidBodyPtr get_base_link() const { return _links.front(); }
+    RigidBodyPtr get_base_link() const { return (!_links.empty()) ? _links.front() : RigidBodyPtr(); }
 
    /// The computation reference frame
     ReferenceFrameType computation_frame_type;

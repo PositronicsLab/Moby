@@ -9,7 +9,7 @@ set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/CMakeModules)
 include_directories ("include")
 
 # setup library sources
-set (SOURCES AABB.cpp AAngle.cpp ArticulatedBody.cpp BV.cpp Base.cpp BoundingSphere.cpp BoxPrimitive.cpp cblas.cpp C2ACCD.cpp CRBAlgorithm.cpp CSG.cpp CollisionDetection.cpp CollisionGeometry.cpp CompGeom.cpp ConePrimitive.cpp ContactParameters.cpp CylinderPrimitive.cpp DampingForce.cpp DeformableBody.cpp DeformableCCD.cpp DynamicBody.cpp Event.cpp EventDrivenSimulator.cpp FSABAlgorithm.cpp FixedJoint.cpp GaussianMixture.cpp GeneralizedCCD.cpp GravityForce.cpp ImpactEventHandler.cpp IndexedTetraArray.cpp IndexedTriArray.cpp Integrator.cpp Joint.cpp LinAlg.cpp Log.cpp MCArticulatedBody.cpp Matrix2.cpp Matrix3.cpp Matrix4.cpp MatrixN.cpp MeshDCD.cpp OBB.cpp Octree.cpp Optimization.cpp PSDeformableBody.cpp Polyhedron.cpp Primitive.cpp PrismaticJoint.cpp  Quat.cpp RCArticulatedBody.cpp RNEAlgorithm.cpp RevoluteJoint.cpp RigidBody.cpp SMatrix6N.cpp SQP.cpp SSL.cpp SSR.cpp SVector6.cpp Simulator.cpp SparseMatrixN.cpp SparseVectorN.cpp SpatialABInertia.cpp SpatialRBInertia.cpp SpatialTransform.cpp SpherePrimitive.cpp SphericalJoint.cpp StokesDragForce.cpp Tetrahedron.cpp ThickTriangle.cpp Triangle.cpp TriangleMeshPrimitive.cpp UniversalJoint.cpp Vector2.cpp Vector3.cpp VectorN.cpp Visualizable.cpp XMLReader.cpp XMLTree.cpp XMLWriter.cpp)
+set (SOURCES AABB.cpp AAngle.cpp ArticulatedBody.cpp BV.cpp Base.cpp BoundingSphere.cpp BoxPrimitive.cpp cblas.cpp C2ACCD.cpp CRBAlgorithm.cpp CSG.cpp CollisionDetection.cpp CollisionGeometry.cpp CompGeom.cpp ConePrimitive.cpp ContactParameters.cpp CylinderPrimitive.cpp DampingForce.cpp DeformableBody.cpp DeformableCCD.cpp DynamicBody.cpp Event.cpp EventDrivenSimulator.cpp FSABAlgorithm.cpp FixedJoint.cpp GaussianMixture.cpp GeneralizedCCD.cpp GravityForce.cpp ImpactEventHandler.cpp IndexedTetraArray.cpp IndexedTriArray.cpp Integrator.cpp Joint.cpp LinAlg.cpp Log.cpp MCArticulatedBody.cpp Matrix2.cpp Matrix3.cpp Matrix4.cpp MatrixN.cpp MeshDCD.cpp OBB.cpp Octree.cpp Optimization.cpp PSDeformableBody.cpp Polyhedron.cpp Primitive.cpp PrismaticJoint.cpp  Quat.cpp RCArticulatedBody.cpp RNEAlgorithm.cpp RevoluteJoint.cpp RigidBody.cpp SMatrix6N.cpp SQP.cpp SSL.cpp SSR.cpp SVector6.cpp Simulator.cpp SparseMatrixN.cpp SparseVectorN.cpp SpatialABInertia.cpp SpatialRBInertia.cpp SpatialTransform.cpp SpherePrimitive.cpp SphericalJoint.cpp StokesDragForce.cpp Tetrahedron.cpp ThickTriangle.cpp Triangle.cpp TriangleMeshPrimitive.cpp UniversalJoint.cpp Vector2.cpp Vector3.cpp VectorN.cpp Visualizable.cpp URDFReader.cpp XMLReader.cpp XMLTree.cpp XMLWriter.cpp)
 set (APSOURCES blas-ap.cpp f2c-ap.cpp lapack-ap.cpp mpreal.cpp)
 
 # build options 
@@ -200,6 +200,10 @@ if (BUILD_TOOLS)
   add_library(grasp-controller "MODULE" example/banditII/grasp-controller.cpp)
   add_library(bandit-controller "MODULE" example/banditII/bandit-controller.cpp)
   add_library(noball-controller "MODULE" example/banditII/noball-controller.cpp)
+  add_library(block-collider-controller "MODULE" example/banditII/block-collider-controller.cpp)
+  add_library(push-controller "MODULE" example/banditII/push-controller.cpp)
+  add_library(pinch-controller "MODULE" example/banditII/pinch-controller.cpp)
+  add_library(pinch-release-controller "MODULE" example/banditII/pinch-release-controller.cpp)
 
   # tools
   add_executable(regress/regress example/regress.cpp)
@@ -223,6 +227,10 @@ if (BUILD_TOOLS)
   target_link_libraries(grasp-controller Moby)
   target_link_libraries(bandit-controller Moby)
   target_link_libraries(noball-controller Moby)
+  target_link_libraries(block-collider-controller Moby)
+  target_link_libraries(push-controller Moby)
+  target_link_libraries(pinch-controller Moby)
+  target_link_libraries(pinch-release-controller Moby)
 
   # tools
   target_link_libraries(regress/regress Moby)

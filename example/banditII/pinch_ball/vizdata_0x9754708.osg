@@ -1,0 +1,1739 @@
+MatrixTransform {
+  UniqueID MatrixTransform_0
+  nodeMask 0xffffffff
+  cullingActive TRUE
+  referenceFrame RELATIVE
+  Matrix {
+    1 0 0 0
+    0 1 0 0
+    0 0 1 0
+    0 0 0 1
+  }
+  num_children 1
+  Group {
+    nodeMask 0xffffffff
+    cullingActive TRUE
+    num_children 1
+    MatrixTransform {
+      nodeMask 0xffffffff
+      cullingActive TRUE
+      StateSet {
+        UniqueID StateSet_1
+        DataVariance STATIC
+        rendering_hint DEFAULT_BIN
+        renderBinMode INHERIT
+        Material {
+          UniqueID Material_2
+          ColorMode DIFFUSE
+          ambientColor 0.2 0.2 0.2 1
+          diffuseColor FRONT 0.889073 0.902762 0.089445 1
+          diffuseColor BACK  0.8 0.8 0.8 1
+          specularColor 0 0 0 1
+          emissionColor 0 0 0 1
+          shininess 0
+        }
+      }
+      referenceFrame RELATIVE
+      Matrix {
+        1 0 0 0
+        0 1 0 0
+        0 0 1 0
+        0 0 0 1
+      }
+      num_children 1
+      Group {
+        nodeMask 0xffffffff
+        cullingActive TRUE
+        num_children 1
+        Geode {
+          nodeMask 0xffffffff
+          cullingActive TRUE
+          num_drawables 1
+          Geometry {
+            UniqueID Geometry_3
+            DataVariance STATIC
+            useDisplayList TRUE
+            useVertexBufferObjects FALSE
+            PrimitiveSets 371
+            {
+              DrawElementsUInt TRIANGLES 3
+              {
+                110 0 91 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                2 110 80 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                91 0 130 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                1 91 152 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                5 63 83 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                83 114 7 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                10 119 73 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                101 21 97 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                101 97 22 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                26 62 70 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                70 62 25 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                28 62 144 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                150 61 9 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                9 123 178 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                31 61 10 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                12 77 88 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                90 15 58 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                17 90 54 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                142 58 64 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                94 58 142 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                61 111 8 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                36 61 107 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                107 61 38 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                39 61 127 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                127 61 29 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                27 61 129 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                129 61 39 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                10 73 31 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                120 135 41 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                20 116 93 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                145 26 65 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                107 65 36 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                43 62 125 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                125 62 26 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                33 60 148 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                148 60 44 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                101 23 157 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                98 157 14 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                76 25 62 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                69 62 43 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                40 62 113 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                113 62 28 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                104 4 79 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                79 120 104 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                41 104 120 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                120 79 42 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                116 20 156 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                97 156 22 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                11 62 30 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                66 60 33 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                102 19 136 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                136 19 45 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                61 27 78 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                61 78 38 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                49 62 149 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                149 62 40 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                61 50 138 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                61 138 51 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                61 150 140 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                61 140 52 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                150 177 118 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                61 31 9 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                4 59 68 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                68 86 71 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                59 154 12 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                3 60 122 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                122 121 13 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                104 41 128 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                4 104 59 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                61 51 146 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                61 146 29 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                75 53 62 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                49 75 62 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                61 52 117 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                61 117 50 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                99 30 62 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                53 99 62 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                68 71 10 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                6 63 96 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                4 96 63 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                6 151 63 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                5 151 63 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                44 179 115 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                44 172 179 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                44 82 172 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                82 119 172 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                11 119 82 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                30 123 178 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                123 177 178 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                49 100 184 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                11 73 119 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                45 19 101 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                19 18 101 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                21 101 18 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                69 131 62 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                131 144 62 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                186 185 72 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                112 13 121 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                107 38 92 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                98 95 34 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                110 91 1 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                110 1 80 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                91 130 3 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                91 3 152 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                4 114 83 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                4 83 63 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                90 153 54 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                135 120 42 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                118 30 99 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                118 99 53 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                94 147 153 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                136 45 34 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                136 34 95 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                17 54 155 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                17 155 132 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                155 54 153 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                155 153 147 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                175 102 142 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                175 142 64 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                104 128 16 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                32 86 68 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                47 121 122 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                157 98 34 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                95 98 14 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                123 30 118 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                123 118 177 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                185 186 118 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                185 118 53 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                94 153 90 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                94 90 58 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                65 107 92 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                65 92 145 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                136 95 147 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                136 147 94 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                132 155 147 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                134 32 68 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                109 104 16 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                66 47 122 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                66 122 60 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                45 101 157 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                45 157 34 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                12 134 68 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                12 68 59 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                182 135 42 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                48 104 109 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                105 20 111 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                64 58 15 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                64 15 93 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                21 18 19 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                21 19 116 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                95 14 132 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                95 132 147 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                102 175 116 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                102 116 19 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                20 93 15 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                20 15 111 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                55 182 42 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                154 59 104 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                154 104 48 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                35 105 111 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                181 55 42 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                103 35 111 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                37 103 111 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                112 121 181 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                112 181 42 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                85 37 111 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                36 85 111 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                36 111 61 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                62 161 76 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                24 76 161 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                24 161 87 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                22 87 161 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                22 161 97 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                21 97 161 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                21 161 101 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                26 145 43 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                145 92 43 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                40 74 149 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                74 183 149 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                49 149 183 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                49 183 100 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                49 184 143 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                49 143 75 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                47 133 181 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                47 181 121 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                47 66 180 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                47 180 133 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                33 77 66 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                77 180 66 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                53 75 143 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                53 143 185 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                11 30 178 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                11 178 73 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                52 140 72 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                140 186 72 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                140 150 186 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                150 118 186 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                185 117 72 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                117 52 72 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                143 50 185 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                50 117 185 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                51 138 100 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                138 184 100 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                138 50 184 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                50 143 184 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                183 146 100 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                146 51 100 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                74 29 183 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                29 146 183 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                182 128 135 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                128 41 135 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                55 16 182 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                16 128 182 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                48 109 133 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                109 181 133 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                109 16 181 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                16 55 181 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                180 154 133 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                154 48 133 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                77 12 180 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                12 154 180 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                179 86 115 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                86 32 115 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                172 71 179 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                71 86 179 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                178 9 73 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                9 31 73 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                9 178 177 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                9 177 150 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                69 176 56 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                69 56 131 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                176 78 27 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                176 27 56 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                43 92 69 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                92 176 69 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                92 38 78 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                92 78 176 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                93 116 64 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                116 175 64 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                142 102 94 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                102 136 94 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                157 174 14 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                174 132 14 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                174 90 17 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                174 17 132 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                23 141 157 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                141 174 157 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                141 15 90 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                141 90 174 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                130 173 3 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                173 60 3 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                173 82 60 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                82 44 60 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                0 62 130 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                62 173 130 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                62 11 82 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                62 82 173 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                119 10 172 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                10 71 172 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                103 171 81 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                103 81 35 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                171 76 81 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                76 24 81 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                37 106 171 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                37 171 103 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                106 25 171 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                25 76 171 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                113 170 74 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                113 74 40 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                170 127 29 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                170 29 74 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                28 57 113 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                57 170 113 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                57 39 127 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                57 127 170 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                21 116 156 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                21 156 97 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                67 169 79 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                67 79 4 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                169 112 42 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                169 42 79 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                3 122 169 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                3 169 67 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                122 13 112 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                122 112 169 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                148 168 88 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                148 88 33 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                168 134 88 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                134 12 88 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                44 115 168 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                44 168 148 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                115 32 168 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                32 134 168 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                144 167 28 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                167 57 28 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                167 129 39 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                167 39 57 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                131 56 144 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                56 167 144 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                56 27 167 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                27 129 167 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                70 166 26 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                166 65 26 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                166 85 36 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                166 36 65 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                25 106 70 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                106 166 70 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                106 37 85 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                106 85 166 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                87 165 24 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                165 81 24 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                165 105 35 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                165 35 81 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                22 156 87 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                156 165 87 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                156 20 105 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                156 105 165 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                83 164 5 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                164 124 5 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                164 110 2 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                164 2 124 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                7 126 83 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                126 164 83 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                126 0 110 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                126 110 164 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                80 163 2 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                163 124 2 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                163 151 5 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                163 5 124 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                1 84 80 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                84 163 80 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                84 6 151 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                84 151 163 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                152 162 1 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                162 84 1 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                162 96 6 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                162 6 84 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                3 67 152 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                67 162 152 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                67 4 96 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                67 96 162 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                161 139 101 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                139 23 101 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                0 89 62 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                89 161 62 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                89 46 161 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                46 139 161 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                108 160 137 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                108 137 8 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                160 126 7 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                160 7 137 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                46 89 160 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                46 160 108 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                89 0 126 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                89 126 160 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                114 159 7 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                159 137 7 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                159 61 137 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                61 8 137 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                4 68 114 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                68 159 114 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                68 10 159 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                10 61 159 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                111 158 108 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                111 108 8 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                158 139 46 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                158 46 108 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                15 141 158 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                15 158 111 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                141 23 139 
+              }
+              DrawElementsUInt TRIANGLES 3
+              {
+                141 139 158 
+              }
+            }
+            VertexArray Vec3Array 187
+            {
+              -0.032237 -0.01575 -0.002986
+              -0.022848 0.008551 -0.009676
+              -0.014528 0.008258 -0.022718
+              -0.02666 0.008414 -0.002986
+              0.029896 0.008414 -0.002986
+              0.013929 0.010769 -0.022485
+              0.025269 0.00825 -0.009676
+              0.032236 -0.01575 -0.002986
+              0.032236 -0.01575 0.022718
+              0.030376 -0.00538 0.002286
+              0.030242 -0.00185 0.000818
+              -0.028206 -0.003662 0.001368
+              0.030291 0.003893 0.001352
+              -0.028399 0.008403 0.005028
+              -0.03079 0.008414 0.01605
+              0.032237 0.008414 0.022718
+              0.030489 0.007168 0.003522
+              0.03163 0.008409 0.016059
+              -0.031925 0.002079 0.020295
+              -0.031519 0.003944 0.01973
+              0.032016 -0.001797 0.020296
+              -0.032164 0.000141 0.020486
+              -0.032219 -0.0018 0.020295
+              -0.032237 0.008414 0.022718
+              -0.032189 -0.003662 0.01973
+              -0.032075 -0.005385 0.018807
+              -0.031883 -0.006886 0.017576
+              0.031475 -0.00904 0.014352
+              -0.030914 -0.009606 0.012488
+              0.031128 -0.009797 0.010549
+              -0.028491 -0.005383 0.002288
+              0.030292 -0.003662 0.001368
+              0.030241 0.002079 0.000802
+              -0.027827 0.00394 0.001367
+              -0.031183 0.007168 0.017576
+              0.031964 -0.003662 0.01973
+              0.031769 -0.00688 0.017581
+              0.031881 -0.005376 0.018814
+              0.031632 -0.008115 0.016079
+              0.031305 -0.009606 0.012488
+              -0.030503 -0.009797 0.01055
+              0.030626 0.008403 0.005028
+              -0.008251 0.008414 0.005048
+              -0.031617 -0.008122 0.01607
+              -0.027797 0.002079 0.000802
+              -0.031438 0.005662 0.018812
+              -0.032237 -0.01575 0.022718
+              -0.027941 0.005662 0.002286
+              0.030376 0.005662 0.002286
+              -0.030073 -0.009606 0.00861
+              0.030782 -0.00904 0.006746
+              0.030952 -0.009606 0.00861
+              0.030626 -0.008122 0.005028
+              -0.029222 -0.008122 0.005028
+              0.031714 0.007653 0.016984
+              -0.000905 0.007168 0.003522
+              -0.000412 -0.00904 0.014352
+              0.000195 -0.009606 0.012488
+              0.032077 0.006105 0.020963
+              0.030123 0.006557 -0.000498
+              -0.027257 0.006154 -0.00075
+              0.031741 -0.015028 0.017272
+              -0.031594 -0.01538 0.005133
+              0.021912 0.009592 -0.012735
+              0.032025 0.001111 0.020391
+              -5.7e-05 -0.006883 0.017578
+              -0.027884 0.004801 0.001827
+              0.001618 0.008414 -0.002986
+              0.030069 0.003282 -0.001084
+              -0.031454 -0.008581 0.015211
+              -0.031979 -0.006136 0.018192
+              0.030232 -0.000829 0.000707
+              0.000702 -0.008122 0.005028
+              0.001043 -0.003662 0.001368
+              -0.000585 -0.009797 0.010549
+              -0.029647 -0.008864 0.006819
+              -0.032132 -0.004524 0.019269
+              -0.001003 0.003944 0.001368
+              0.031553 -0.008577 0.015215
+              0.010822 0.008414 0.001031
+              -0.018688 0.008405 -0.016197
+              -0.000112 -0.003662 0.01973
+              -0.028001 -0.000791 0.001085
+              0.023083 -0.006477 -0.012735
+              0.001211 0.008401 -0.009676
+              0.031825 -0.006128 0.018198
+              0.030232 0.00111 0.000707
+              -0.032204 -0.002731 0.020012
+              0.001232 0.003916 0.00136
+              -0.032237 -0.01575 0.009866
+              0.031933 0.008412 0.019388
+              -0.027542 -0.007586 -0.006331
+              7e-06 -0.008118 0.016074
+              0.032028 -0.000464 0.020427
+              0.031922 0.004806 0.019269
+              -0.000209 0.006417 0.018192
+              0.027583 0.008332 -0.006331
+              -0.032192 -0.00083 0.020391
+              -0.030993 0.007771 0.01684
+              -0.028856 -0.006752 0.003658
+              0.00044 -0.009606 0.00861
+              -0.03204 0.005389 0.02112
+              -0.000142 0.003012 0.020013
+              0.031923 -0.004519 0.019272
+              0.030261 0.008409 0.001021
+              0.03199 -0.00273 0.020013
+              -9.7e-05 -0.005381 0.018811
+              0.0317 -0.007497 0.01683
+              0 -0.01575 0.022718
+              0.030432 0.006415 0.002904
+              -0.023382 -0.007732 -0.012852
+              0.032236 -0.007654 0.022718
+              -0.018325 0.008409 0.005038
+              -0.030709 -0.009701 0.011519
+              0.031066 -0.007654 -0.002986
+              0.001222 0.002079 0.000802
+              -7.1e-05 -0.000464 0.020427
+              0.030704 -0.008581 0.005887
+              -0.000905 -0.006886 0.003522
+              -0.001028 -0.002756 0.001093
+              0.011187 0.008409 0.005038
+              -0.02817 0.007033 0.003657
+              -0.027529 0.008409 0.001021
+              -0.000961 -0.00538 0.002286
+              -0.0003 0.009513 -0.022601
+              -0.03175 -0.007504 0.016823
+              0 -0.01575 -0.002986
+              0.031218 -0.0097 0.011532
+              0.030557 0.007786 0.004275
+              0.031391 -0.00932 0.01343
+              -0.029448 -0.007654 -0.002986
+              -0.031285 -0.009045 0.014337
+              -0.000312 0.008203 0.016314
+              0.001218 0.005662 0.002286
+              0.030266 0.002986 0.001077
+              0.001113 0.008403 0.005028
+              -0.000209 0.005664 0.01881
+              0.032236 -0.01575 0.009866
+              0.030867 -0.009323 0.007678
+              -0.032237 -0.007654 0.022718
+              0.030557 -0.007504 0.004275
+              0 0.008414 0.022718
+              0.03199 0.003013 0.020012
+              -0.000758 -0.00904 0.006746
+              -0.031099 -0.009327 0.013405
+              -0.000334 -0.0075 0.016827
+              0.03104 -0.009701 0.00958
+              0.000292 0.00717 0.017572
+              -0.027812 0.00301 0.001085
+              -0.030288 -0.009701 0.00958
+              0.030434 -0.006153 0.00292
+              0.019599 0.00951 -0.016081
+              -0.024754 0.008483 -0.006331
+              0.031821 0.006454 0.01816
+              0.030334 0.004803 0.001827
+              0.000475 0.007839 0.016758
+              -0.000102 -0.001799 0.020295
+              -0.031513 0.008414 0.019384
+              0 -0.007654 0.022718
+              0.031153 -0.01022 0.004391
+              0 -0.01575 0.009866
+              -0.032232 -0.010208 0.015686
+              0.001414 0.008407 -0.006331
+              0.000455 0.008957 -0.016139
+              -0.00015 -0.007104 -0.012794
+              -0.000107 -0.00273 0.020013
+              -7.7e-05 -0.006132 0.018195
+              0.000146 -0.009324 0.013418
+              0.001227 0.002998 0.001081
+              -0.008176 0.008414 0.001031
+              0.000255 -0.009701 0.011525
+              -0.000105 -0.004521 0.01927
+              -0.001033 -0.000829 0.000707
+              -0.028725 0.01575 -0.00095
+              0.00021 0.008413 0.019386
+              -0.000103 0.00111 0.020391
+              5e-05 -0.008579 0.015213
+              1.9e-05 -0.006143 0.002913
+              4.1e-05 -0.004521 0.001827
+              9.2e-05 0.00111 0.000707
+              0.000107 0.004803 0.001827
+              0.000156 0.006415 0.002904
+              0.000104 0.007786 0.004275
+              -7.3e-05 -0.009701 0.00958
+              -0.000159 -0.009323 0.007678
+              -2.8e-05 -0.008581 0.005887
+              -0.000102 -0.007504 0.004275
+            }
+          }
+        }
+      }
+    }
+  }
+}

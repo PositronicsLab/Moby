@@ -282,6 +282,13 @@ OutputIterator CompGeomSpecTwo<InputIterator, OutputIterator, Vector3*>::calc_co
   for (InputIterator i = source_begin; i != source_end; i++)
     FILE_LOG(LOG_COMPGEOM) << "  " << **i << std::endl;
   
+  // setup constants for qhull
+  const int DIM = 3;
+  const int N_POINTS = (int) std::distance(source_begin, source_end);
+  const boolT IS_MALLOC = false;
+  if (N_POINTS <= 4)
+    return target_begin;
+
   // setup qhull outputs
   if (LOGGING(LOG_COMPGEOM))
   {
@@ -294,12 +301,6 @@ OutputIterator CompGeomSpecTwo<InputIterator, OutputIterator, Vector3*>::calc_co
     errfile=fopen("/dev/null", "w");
     assert(errfile);
   } 
-
-  // setup constants for qhull
-  const int DIM = 3;
-  const int N_POINTS = (int) std::distance(source_begin, source_end);
-  const boolT IS_MALLOC = false;
-  assert(N_POINTS > 4);
 
   // setup the points
   std::map<coordT*, Vector3*> vertex_map;
@@ -1644,6 +1645,13 @@ OutputIterator CompGeomSpecTwo<InputIterator, OutputIterator, Vector2>::calc_con
   FILE_LOG(LOG_COMPGEOM) << "computing 2D convex hull of following points:" << std::endl;
   for (InputIterator i = source_begin; i != source_end; i++)
     FILE_LOG(LOG_COMPGEOM) << "  " << *i << std::endl;
+ 
+  // setup constants for qhull
+  const int DIM = 2;
+  const int N_POINTS = (int) std::distance(source_begin, source_end);
+  const boolT IS_MALLOC = false;
+  if (N_POINTS <= 2)
+    return target_begin;
   
   // setup qhull outputs
   if (LOGGING(LOG_COMPGEOM))
@@ -1658,12 +1666,7 @@ OutputIterator CompGeomSpecTwo<InputIterator, OutputIterator, Vector2>::calc_con
     assert(errfile);
   } 
 
-  // setup constants for qhull
-  const int DIM = 2;
-  const int N_POINTS = (int) std::distance(source_begin, source_end);
-  const boolT IS_MALLOC = false;
-  assert(N_POINTS > 2);
-  
+ 
   // setup the points
   SAFESTATIC std::vector<coordT> qhull_points;
   qhull_points.resize(N_POINTS*DIM);

@@ -1,0 +1,123 @@
+<XML >
+  <DRIVER>
+    <!-- Bandit-Arm View -->
+  <!--   <camera position="-.2 .75 1" target="-.2 0.1 0" up="0 1 0" /> -->
+    <!-- Perspective View -->
+  <!--   <camera position="-.18 .25 0.5" target="-.18 -0.25 0.0" up="0 1 0" /> -->
+    <!-- Top View -->
+    <camera position="-.1725 1.0 0.255" target="-.1725 0.0 0.255" up="0 0 1" /> 
+    <window location="0 0" size="640 480" />
+  </DRIVER>
+<Moby >
+  <!-- Simulator -->
+  <EventDrivenSimulator id="simulator" integrator-id="odepack" TOI-tolerance="1e-3" current-time="0" impact-velocity-tolerance="0.00012207" >
+    <DynamicBody dynamic-body-id="ball" />
+    <DynamicBody dynamic-body-id="table" />
+    <DynamicBody dynamic-body-id="pincers" />
+    <CollisionDetector id="coldet" />
+    <ContactParameters epsilon="0" friction-cone-edges="2" mu-coulomb="1" mu-viscous="0" object1-id="table" object2-id="ball" />
+    <ContactParameters epsilon="0" friction-cone-edges="2" mu-coulomb="1" mu-viscous="0" object1-id="left_pincer" object2-id="ball" />
+    <ContactParameters epsilon="0" friction-cone-edges="2" mu-coulomb="1" mu-viscous="0" object1-id="right_pincer" object2-id="ball" />
+    <ContactParameters epsilon="0" friction-cone-edges="2" mu-coulomb="0" mu-viscous="0" object1-id="left_pincer" object2-id="table" />
+    <ContactParameters epsilon="0" friction-cone-edges="2" mu-coulomb="0" mu-viscous="0" object1-id="right_pincer" object2-id="table" />
+  </EventDrivenSimulator>
+
+  <!-- Integrator -->
+  <ODEPACKIntegrator abs-err-tol="1e-3" id="odepack" min-step-size="0" rel-err-tol="1e-3" semi-implicit="false" stiff="true" type="VectorN" />
+  <EulerIntegrator id="euler" semi-implicit="false" type="VectorN" />
+  <EulerIntegrator id="euler-vec3" semi-implicit="false" type="Vector3" />
+  <EulerIntegrator id="euler-quat" semi-implicit="false" type="Quat" />
+
+  <!-- Bodies -->
+  <!-- Ball -->
+  <PSDeformableBody default-mass=".025" default-kp="250" default-kv="10" id="ball" tetra-mesh-id="ball-tetra" tri-mesh-primitive-id="ball-tri" transform="1 0 0 -.1725; 0 1 0 -0.025; 0 0 1 0.255; 0 0 0 1">
+    <RecurrentForce recurrent-force-id="gravity" />
+  </PSDeformableBody>
+
+  <!-- Table -->
+  <RigidBody angular-accel="0 0 0" coulomb-coeff="0 0 0 0 0 0" enabled="false" id="table" inertia="0 0 0; 0 0 0; 0 0 0;" linear-accel="0 0 0" linear-velocity="0 0 0" mass="0" sum-forces="0 0 0" sum-torques="0 0 0" transform="1 0 0 0; 0 1 0 -0.25; 0 0 1 0.4; 0 0 0 1" viscous-coeff="0 0 0 0 0 0" visualization-id="0x9776bf0" >
+    <RecurrentForce recurrent-force-id="gravity" />
+    <CollisionGeometry id="cg_table" primitive-id="geom_table" />
+  </RigidBody>
+
+  <!-- Left Pincer -->
+  <RCArticulatedBody id="pincers" fdyn-algorithm="crb" floating-base="false" >
+
+  <RigidBody id="base" />
+
+  <RigidBody enabled="true" id="left_pincer" linear-velocity="0 0 0" angular-velocity="0 0 0" mass="10" transform="1 0 0 -.095; 0 1 0 0.0; 0 0 1 0.25; 0 0 0 1" visualization-id="geom_pincer" >
+    <CollisionGeometry id="cg_left_pincer" primitive-id="geom_pincer" />
+    <RecurrentForce recurrent-force-id="gravity" />
+    <InertiaFromPrimitive primitive-id="geom_pincer" />
+  </RigidBody>
+
+  <!-- Right Pincer -->
+  <RigidBody enabled="true" id="right_pincer" linear-velocity="0 0 0" angular-velocity="0 0 0" mass="10" transform="1 0 0 -0.250; 0 1 0 0.0; 0 0 1 0.25; 0 0 0 1" visualization-id="geom_pincer" >
+    <CollisionGeometry id="cg_right_pincer" primitive-id="geom_pincer" />
+    <RecurrentForce recurrent-force-id="gravity" />
+    <InertiaFromPrimitive primitive-id="geom_pincer" />
+  </RigidBody>
+
+  <PrismaticJoint id="lpincer-joint" global-position="-.095 0 .25" inboard-link-id="base" outboard-link-id="left_pincer" max-forces="1000000" lower-limits="-100" upper-limits="100" global-axis="1 0 0" />
+  <PrismaticJoint id="rpincer-joint" global-position="-.25 0 .25" inboard-link-id="base" outboard-link-id="right_pincer" max-forces="1000000" lower-limits="-100" upper-limits="100" global-axis="1 0 0" />
+
+  </RCArticulatedBody>
+
+  <!-- Collision Detector -->
+  <DeformableCCD eps-tolerance="0.001" id="coldet" ori-integrator-id="odepack" simulator-id="simulator" >
+  <!-- 
+    <DisabledPair object1-id="0x965c7dc" object2-id="0x962f434" />
+    <DisabledPair object1-id="0x965c7dc" object2-id="0x9653654" />
+    <DisabledPair object1-id="0x9713b0c" object2-id="0x9653654" />
+    <DisabledPair object1-id="0x9714b84" object2-id="0x9713b0c" />
+    <DisabledPair object1-id="0x9753c7c" object2-id="0x9754ce4" />
+    <DisabledPair object1-id="0x9753c7c" object2-id="0x9714b84" />
+    <DisabledPair object1-id="0x9772a2c" object2-id="0x9754ce4" />
+    <DisabledPair object1-id="0x9772a2c" object2-id="0x9753c7c" />
+    <DisabledPair object1-id="0x9772dcc" object2-id="0x9753c7c" />
+    <DisabledPair object1-id="0x977291c" object2-id="0x9754ce4" />
+    <DisabledPair object1-id="0x977291c" object2-id="0x9753c7c" />
+    <DisabledPair object1-id="0x977291c" object2-id="0x9772a2c" />
+    <DisabledPair object1-id="0x9775e6c" object2-id="0x9753c7c" />
+    <DisabledPair object1-id="0x9775e6c" object2-id="0x9772dcc" />
+    <DisabledPair object1-id="0x9775d5c" object2-id="0x9753c7c" />
+    <DisabledPair object1-id="0x9775d5c" object2-id="0x9772dcc" />
+    <DisabledPair object1-id="0x9775d5c" object2-id="0x9775e6c" />
+    <CollisionGeometry geometry-id="0x962f434" />
+    <CollisionGeometry geometry-id="0x9754ce4" />
+    <CollisionGeometry geometry-id="0x9653654" />
+    <CollisionGeometry geometry-id="0x965c7dc" />
+    <CollisionGeometry geometry-id="0x9713b0c" />
+    <CollisionGeometry geometry-id="0x9714b84" />
+    <CollisionGeometry geometry-id="0x9753c7c" />
+    <CollisionGeometry geometry-id="0x9772a2c" />
+    <CollisionGeometry geometry-id="0x9772dcc" />
+    <CollisionGeometry geometry-id="0x977291c" />
+    <CollisionGeometry geometry-id="0x9775e6c" />
+-->
+    <Body body-id="ball" />
+<!-- 
+    <CollisionGeometry geometry-id="0x9775d5c" />
+-->
+    <CollisionGeometry geometry-id="cg_table" />
+    <Body body-id="pincers" />
+  </DeformableCCD>
+
+  <!-- Primitive Geometry -->
+  <!-- Ball -->
+  <OSGGroup filename="vizdata_0x96bd248.osg" id="0x96bd248" />
+  <GravityForce accel="0 -9.81 0" id="gravity" />
+  <TriangleMesh convexify-inertia="false" edge-sample-length="1.79769e+308" filename="sphere.obj" id="ball-tri" intersection-tolerance="1e-05" mass="0" transform="1 0 0 0; 0 1 0 0; 0 0 1 0; 0 0 0 1" />
+  <TetraMesh filename="sphere.tetra" id="ball-tetra" />
+  <TriangleMesh convexify-inertia="false" edge-sample-length="1.79769e+308" filename="triarray0x9778be0.obj" id="0x9778d5c" intersection-tolerance="1e-05" mass="0" transform="1 0 0 0; 0 1 0 0; 0 0 1 0; 0 0 0 1" />
+
+  <!-- Table -->
+  <OSGGroup filename="vizdata_0x9776bf0.osg" id="0x9776bf0" />
+  <Box edge-sample-length="1.79769e+308" id="geom_table" intersection-tolerance="1e-05" mass="0" transform="1 0 0 0; 0 1 0 0; 0 0 1 0; 0 0 0 1" xlen="1" ylen="0.4" zlen="0.5" />
+
+  <!-- Pincers -->
+  <OSGGroup id="osg_pincer" />
+  <Box edge-sample-length="1.79769e+308" id="geom_pincer" intersection-tolerance="1e-05" mass="10" transform="1 0 0 0; 0 1 0 0; 0 0 1 0; 0 0 0 1" xlen="0.1" ylen="0.1" zlen="0.1" />
+</Moby>
+</XML>
+

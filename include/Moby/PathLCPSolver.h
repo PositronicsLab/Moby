@@ -11,7 +11,7 @@ namespace Moby {
 class PathLCPSolver
 {
   public:
-    static bool solve_lcp(const MatrixNN& M, const VectorN& q, VectorN& z, Real tol = NEAR_ZERO);
+    static bool solve_lcp(const MatrixN& M, const VectorN& q, VectorN& z, Real tol = NEAR_ZERO);
 }; // end class PathLCPSolver
 
 } // end namespace
