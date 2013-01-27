@@ -61,6 +61,26 @@ Matrix3::Matrix3(Real m00, Real m01, Real m02, Real m10, Real m11, Real m12, Rea
   operator()(Z,Z) = m22;
 }
 
+/// Sets rotation matrix from roll-pitch-yaw values
+Matrix3 Matrix3::rpy(Real alpha, Real beta, Real gamma)
+{
+  const unsigned X = 0, Y = 1, Z = 2;
+
+  // precompute constants
+  const Real CA = std::cos(alpha);
+  const Real SA = std::sin(alpha); 
+  const Real CB = std::cos(beta);
+  const Real SB = std::sin(beta);
+  const Real CG = std::cos(gamma);
+  const Real SG = std::sin(gamma);
+
+  Matrix3 m;
+  m(X,X) = CA*CB;   m(X,Y) = CA*SB*SG - SA*CG;  m(X,Z) = CA*SB*CG + SA*SG;
+  m(Y,X) = SA*CB;   m(Y,Y) = SA*SB*SG + CA*CG;  m(Y,Z) = SA*SB*CG - CA*SG;
+  m(Z,X) = -SB;     m(Z,Y) = CB*SG;             m(Z,Z) = CB*CG;
+  return m;
+}
+
 /// Computes the l-infinity norm of this matrix
 Real Matrix3::norm_inf() const
 {
