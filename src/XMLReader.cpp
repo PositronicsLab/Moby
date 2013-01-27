@@ -26,6 +26,7 @@
 #include <Moby/PSDeformableBody.h>
 #include <Moby/CollisionGeometry.h>
 #include <Moby/BoxPrimitive.h>
+#include <Moby/GaussianMixture.h>
 #include <Moby/SpherePrimitive.h>
 #include <Moby/CylinderPrimitive.h>
 #include <Moby/ConePrimitive.h>
@@ -139,6 +140,7 @@ std::map<std::string, BasePtr> XMLReader::read(const std::string& fname)
   process_tag("Cone", moby_tree, &read_cone, id_map);
   process_tag("TriangleMesh", moby_tree, &read_trimesh, id_map);
   process_tag("TetraMesh", moby_tree, &read_tetramesh, id_map);
+  process_tag("GaussianMixture", moby_tree, &read_gaussian_mixture, id_map);
   process_tag("PrimitivePlugin", moby_tree, &read_primitive_plugin, id_map);
   process_tag("CSG", moby_tree, &read_CSG, id_map);
 
@@ -447,6 +449,19 @@ void XMLReader::read_trimesh(XMLTreeConstPtr node, std::map<std::string, BasePtr
 
   // create a new TriangleMeshPrimitive object
   boost::shared_ptr<Base> b(new TriangleMeshPrimitive());
+  
+  // populate the object
+  b->load_from_xml(node, id_map);
+}
+
+/// Reads and constructs the GaussianMixture object
+void XMLReader::read_gaussian_mixture(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+{  
+  // sanity check
+  assert(strcasecmp(node->name.c_str(), "GaussianMixture") == 0);
+
+  // create a new GaussianMixture object
+  boost::shared_ptr<Base> b(new GaussianMixture());
   
   // populate the object
   b->load_from_xml(node, id_map);

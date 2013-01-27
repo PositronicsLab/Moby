@@ -7,6 +7,9 @@
 #ifndef _ODEPACK_INTEGRATOR_H
 #define _ODEPACK_INTEGRATOR_H
 
+#include <cstring>
+#include <Moby/Quat.h>
+#include <Moby/Log.h>
 #include <Moby/VariableStepIntegrator.h>
 
 namespace Moby {

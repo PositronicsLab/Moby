@@ -32,6 +32,10 @@ OBB OBB::calc_low_dim_OBB(ForwardIterator begin, ForwardIterator end)
   const Real INF = std::numeric_limits<Real>::max();
   const Real TOL = NEAR_ZERO;  // tolerance to expand the OBB
 
+  // if the beginning is the end, return an empty OBB
+  if (begin == end)
+    return OBB();
+
   // find non-coincident points, if possible to establish a line
   ForwardIterator i = begin;
   Vector3 p1 = *i++, p2;
