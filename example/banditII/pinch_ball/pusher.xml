@@ -1,0 +1,69 @@
+<XML >
+  <DRIVER>
+  <!--   <camera position="-.2 .75 1" target="-.2 0.1 0" up="0 1 0" /> -->
+    <camera position="-.18 .25 0.5" target="-.18 -0.25 0.0" up="0 1 0" />
+    <window location="0 0" size="640 480" />
+  </DRIVER>
+<Moby >
+  <!-- Simulator -->
+  <EventDrivenSimulator id="simulator" integrator-id="odepack" TOI-tolerance="1e-3" current-time="0" impact-velocity-tolerance="0.00012207" >
+    <DynamicBody dynamic-body-id="ball" />
+    <DynamicBody dynamic-body-id="table" />
+    <CollisionDetector id="coldet" />
+    <ContactParameters epsilon="0" friction-cone-edges="2" mu-coulomb="1" mu-viscous="0" object1-id="table" object2-id="ball" />
+  </EventDrivenSimulator>
+
+  <!-- Integrator -->
+  <ODEPACKIntegrator abs-err-tol="1e-3" id="odepack" min-step-size="0" rel-err-tol="1e-3" semi-implicit="false" stiff="true" type="VectorN" />
+  <EulerIntegrator id="euler" type="VectorN" semi-implicit="false" />
+  <EulerIntegrator id="euler-vec3" type="Vector3" semi-implicit="false" />
+  <EulerIntegrator id="euler-quat" type="Quat" semi-implicit="false" />
+
+  <!-- Bodies -->
+  <!-- Ball -->
+  <!-- Ball starting on table -->
+<!-- 
+  <PSDeformableBody default-mass=".025" default-kp="1000000" default-kv="100000" id="ball" tetra-mesh-id="ball-tetra" tri-mesh-primitive-id="ball-tri" transform="1 0 0 -.1725; 0 1 0 -0.025; 0 0 1 0.255; 0 0 0 1">
+-->
+<!-- 
+-->
+  <!-- Ball with very small fall above table-->
+  <PSDeformableBody default-mass=".025" default-kp="1000000" default-kv="100000" id="ball" tetra-mesh-id="ball-tetra" tri-mesh-primitive-id="ball-tri" transform="1 0 0 -.1725; 0 1 0 -0.02; 0 0 1 0.255; 0 0 0 1">
+<!-- 
+-->
+    <RecurrentForce recurrent-force-id="gravity" />
+  </PSDeformableBody>
+
+  <!-- Table -->
+  <RigidBody angular-accel="0 0 0" coulomb-coeff="0 0 0 0 0 0" enabled="false" id="table" inertia="0 0 0; 0 0 0; 0 0 0;" linear-accel="0 0 0" linear-velocity="0 0 0" mass="0" sum-forces="0 0 0" sum-torques="0 0 0" transform="1 0 0 0; 0 1 0 -0.25; 0 0 1 0.4; 0 0 0 1" viscous-coeff="0 0 0 0 0 0" visualization-id="0x9776bf0" >
+    <RecurrentForce recurrent-force-id="gravity" />
+    <CollisionGeometry id="cg_table" primitive-id="geom_table" />
+  </RigidBody>
+
+  <!-- Collision Detector -->
+<!-- 
+  <DeformableCCD eps-tolerance="0.001" id="coldet" ori-integrator-id="odepack" simulator-id="simulator" >
+ -->
+  <DeformableCCD eps-tolerance="0.001" id="coldet" pos-integrator-id="euler-vec3" ori-integrator-id="euler-quat" simulator-id="simulator" >
+    <Body body-id="ball" />
+    <CollisionGeometry geometry-id="cg_table" />
+  </DeformableCCD>
+
+  <OSGGroup filename="vizdata_0x96bd248.osg" id="0x96bd248" />
+
+  <!-- Gravity -->
+  <GravityForce accel="0 -9.81 0" id="gravity" />
+
+  <!-- Primitive Geometry -->
+  <!-- Ball -->
+  <TriangleMesh convexify-inertia="false" edge-sample-length="1.79769e+308" filename="sphere.obj" id="ball-tri" intersection-tolerance="1e-05" mass="0" transform="1 0 0 0; 0 1 0 0; 0 0 1 0; 0 0 0 1" />
+  <TetraMesh filename="sphere.tetra" id="ball-tetra" />
+  <TriangleMesh convexify-inertia="false" edge-sample-length="1.79769e+308" filename="triarray0x9778be0.obj" id="0x9778d5c" intersection-tolerance="1e-05" mass="0" transform="1 0 0 0; 0 1 0 0; 0 0 1 0; 0 0 0 1" />
+
+  <!-- Table -->
+  <OSGGroup filename="vizdata_0x9776bf0.osg" id="0x9776bf0" />
+  <Box edge-sample-length="1.79769e+308" id="geom_table" intersection-tolerance="1e-05" mass="0" transform="1 0 0 0; 0 1 0 0; 0 0 1 0; 0 0 0 1" xlen="1" ylen="0.4" zlen="0.5" />
+
+</Moby>
+</XML>
+

@@ -842,9 +842,6 @@ void MCArticulatedBody::apply_impulse(const Vector3& j, const Vector3& k, const 
   // do preliminary calculations
   precalc();
 
-  // determine the moment
-  Vector3 r = contact_point - link->get_position();
-
   // ensure that link belongs to this body
   #ifndef NDEBUG
   if (std::find(_links.begin(), _links.end(), link) == _links.end())
@@ -852,7 +849,7 @@ void MCArticulatedBody::apply_impulse(const Vector3& j, const Vector3& k, const 
   #endif
 
   // setup generalized impulses 
-  link->convert_to_generalized_force(DynamicBody::eAxisAngle, link, j, k+Vector3::cross(r,j), gj);
+  link->convert_to_generalized_force(DynamicBody::eAxisAngle, link, contact_point, j, k, gj);
   Qj.set_zero(NGC);
   unsigned gc_idx_start = _gc_indices[link->get_index()];
   Qj.set_sub_vec(gc_idx_start, gj); 
@@ -1682,7 +1679,7 @@ void MCArticulatedBody::reset_accumulators()
 }
 
 /// Determines a generalized force on the body
-VectorN& MCArticulatedBody::convert_to_generalized_force(GeneralizedCoordinateType gctype, SingleBodyPtr link, const Vector3& f, const Vector3& t, VectorN& gf)
+VectorN& MCArticulatedBody::convert_to_generalized_force(GeneralizedCoordinateType gctype, SingleBodyPtr link, const Vector3& p, const Vector3& f, const Vector3& t, VectorN& gf)
 {
   SAFESTATIC VectorN link_gf;
 
@@ -1694,7 +1691,7 @@ VectorN& MCArticulatedBody::convert_to_generalized_force(GeneralizedCoordinateTy
   assert(rb);
 
   // get the generalized force for the link
-  link->convert_to_generalized_force(gctype, link, f, t, link_gf);
+  link->convert_to_generalized_force(gctype, link, p, f, t, link_gf);
 
   // set the appropriate part in the vector
   for (unsigned i=0, k=0; i< _links.size(); i++)
