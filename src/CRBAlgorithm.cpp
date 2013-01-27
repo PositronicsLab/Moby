@@ -1342,17 +1342,13 @@ void CRBAlgorithm::apply_impulse(const Vector3& jj, const Vector3& jk, const Vec
   // An alternative method for applying impulses using generalized coordinates
   // below...
 /*
-  // get the moment arm
-  Vector3 r = point - link->get_position();
-  Vector3 jt = Vector3::cross(r, jj);
- 
   SMatrix6 Xcp = SMatrix6::calc_spatial_transform(IDENTITY_3x3, point, IDENTITY_3x3, link->get_position());
   SMatrix6 X0p = SMatrix6::calc_spatial_transform(IDENTITY_3x3, point, IDENTITY_3x3, ZEROS_3);
   SVector6 jx(jj[0], jj[1], jj[2], jk[0], jk[1], jk[2]);
  
   // convert the impulse to a generalized impulse
   VectorN gf;
-  body->convert_to_generalized_force(link, jj, jk + jt, gf);
+  body->convert_to_generalized_force(link, point, jj, jk, gf);
 
   // get the generalized inertia and invert it
   MatrixN M;
