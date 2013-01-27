@@ -183,9 +183,12 @@ void Primitive::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePt
   if (itol_attr)
     set_intersection_tolerance(itol_attr->get_real_value());
 
-  // read in translation, if specified; NOTE: this is just for convenience
+  // read in transformation, if specified
   const XMLAttrib* xlat_attr = node->get_attrib("translation");
-  if (xlat_attr)
+  const XMLAttrib* transform_attr = node->get_attrib("transform");
+  if (xlat_attr && transform_attr)
+   std::cerr << "Primitive::load_from_xml() warning- 'translation' and 'transform' attributes both specified; using neither" << std::endl;
+  else if (xlat_attr)
   {
     Matrix4 T = IDENTITY_4x4;
     Vector3 x;
@@ -193,10 +196,7 @@ void Primitive::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePt
     T.set_translation(x);
     set_transform(T);
   }
-
-  // read in the transform, if specified
-  const XMLAttrib* transform_attr = node->get_attrib("transform");
-  if (transform_attr)
+  else if (transform_attr)
   {
     Matrix4 T;
     transform_attr->get_matrix_value(T);

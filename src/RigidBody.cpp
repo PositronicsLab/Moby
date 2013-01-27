@@ -1703,7 +1703,7 @@ Vector3 RigidBody::calc_inertial_forces() const
 }
 
 /// Converts a force to a generalized force
-VectorN& RigidBody::convert_to_generalized_force(GeneralizedCoordinateType gctype, SingleBodyPtr body, const Vector3& f, const Vector3& t, VectorN& gf) 
+VectorN& RigidBody::convert_to_generalized_force(GeneralizedCoordinateType gctype, SingleBodyPtr body, const Vector3& p, const Vector3& f, const Vector3& t, VectorN& gf) 
 {
   // verify that body == this
   assert(body.get() == this);
@@ -1718,12 +1718,15 @@ VectorN& RigidBody::convert_to_generalized_force(GeneralizedCoordinateType gctyp
   gf[1] = f[1];
   gf[2] = f[2];
 
+  // add to torque
+  Vector3 tau = t + Vector3::cross(p - _x, f);
+
   // use the proper generalized coordinate type
   if (gctype == DynamicBody::eAxisAngle)
   {
-    gf[3] = t[0];
-    gf[4] = t[1];
-    gf[5] = t[2];
+    gf[3] = tau[0];
+    gf[4] = tau[1];
+    gf[5] = tau[2];
   }
   else
   {
@@ -1731,7 +1734,7 @@ VectorN& RigidBody::convert_to_generalized_force(GeneralizedCoordinateType gctyp
 
     // convert the torque to the body's coordinate system
     Matrix3 R(&_q);
-    Vector3 tau = R.transpose_mult(t);
+    tau = R.transpose_mult(tau);
 
     // setup the generalized force
     gf[3] = tau[0];

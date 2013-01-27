@@ -15,6 +15,7 @@
 #include <Moby/RCArticulatedBody.h>
 #include <Moby/NumericalException.h>
 #include <Moby/ArticulatedBody.h>
+#include <Moby/URDFReader.h>
 
 using namespace Moby;
 using boost::shared_ptr;
@@ -1248,6 +1249,30 @@ void ArticulatedBody::load_from_xml(XMLTreeConstPtr node, std::map<string, BaseP
   const XMLAttrib* jf_attr = node->get_attrib("use-advanced-joint-friction");
   if (jf_attr)
     use_advanced_friction_model = jf_attr->get_bool_value();
+
+  // see whether to load the model from a URDF file
+  const XMLAttrib* urdf_attr = node->get_attrib("urdf");
+  if (urdf_attr)
+  {
+    // get the URDF filename
+    std::string urdf_fname = urdf_attr->get_string_value();
+
+    // load robots from the URDF
+    std::string robot_name;
+    std::vector<RigidBodyPtr> links;
+    std::vector<JointPtr> joints; 
+    if (URDFReader::read(urdf_fname, robot_name, links, joints))
+    {
+      // determine the links and joints
+      set_links(links);
+      set_joints(joints);
+    }
+    else
+      std::cerr << "ArticulatedBody::load_from_xml()- unable to process URDF " << urdf_fname << std::endl;
+
+    // do no more processing
+    return;
+  }
 
   // setup a list of joint nodes to find
   list<string> joint_node_names;

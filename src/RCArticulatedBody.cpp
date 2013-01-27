@@ -2769,7 +2769,7 @@ VectorN& RCArticulatedBody::get_generalized_forces(DynamicBody::GeneralizedCoord
 }
 
 /// Converts a force to a generalized force
-VectorN& RCArticulatedBody::convert_to_generalized_force(DynamicBody::GeneralizedCoordinateType gctype, SingleBodyPtr body, const Vector3& f, const Vector3& t, VectorN& gf)
+VectorN& RCArticulatedBody::convert_to_generalized_force(DynamicBody::GeneralizedCoordinateType gctype, SingleBodyPtr body, const Vector3& p, const Vector3& f, const Vector3& t, VectorN& gf)
 {
   const unsigned SPATIAL_DIM = 6;
   SAFESTATIC SMatrix6N J;
@@ -2780,10 +2780,9 @@ VectorN& RCArticulatedBody::convert_to_generalized_force(DynamicBody::Generalize
   assert(rb);
 
   // make f/t a spatial vector in the frame
-  const Matrix4& T = rb->get_transform();
-  SpatialTransform X_0_i = rb->get_spatial_transform_link_to_global();
-  SVector6 sf(T.transpose_mult_vector(f), T.transpose_mult_vector(t));
-  SVector6 ft = X_0_i.transform(sf);
+  SpatialTransform X = SpatialTransform(IDENTITY_3x3, p, IDENTITY_4x4);
+  SVector6 sf(f, t);
+  SVector6 ft = X.transform(sf);
 
   // determine the Jacobian in the global frame
   const unsigned BASE_DIM = (_floating_base) ? SPATIAL_DIM : 0;
@@ -2826,7 +2825,7 @@ VectorN& RCArticulatedBody::convert_to_generalized_force(DynamicBody::Generalize
   else
   {
     Vector3 fb = base->get_transform().transpose_mult_vector(f);
-    base->convert_to_generalized_force(gctype, base, fb, t, jf);
+    base->convert_to_generalized_force(gctype, base, p, fb, t, jf);
     FILE_LOG(LOG_DYNAMICS) << "  -- generalized force on base: " << jf << std::endl;
     gf.set_sub_vec(0, jf);
   }
@@ -2940,6 +2939,40 @@ void RCArticulatedBody::load_from_xml(XMLTreeConstPtr node, map<string, BasePtr>
 
   // compile everything once again, for safe measure
   compile();
+
+  // transform the body, if desired
+  const XMLAttrib* xlat_attr = node->get_attrib("translation");
+  const XMLAttrib* transform_attr = node->get_attrib("transform");
+
+  // verify both weren't used
+  if (xlat_attr && transform_attr)
+    std::cerr << "RCArticulatedBody::load_from_xml() warning- 'translation' and 'transform' attributes both specified; using neither" << std::endl;
+  else if (xlat_attr)
+  {
+    RigidBodyPtr base = get_base_link();
+    Vector3 x;
+    xlat_attr->get_vector_value(x);
+    Matrix4 T = base->get_transform();
+    T.set_translation(x);
+    base->set_transform(T);
+  }
+  else if (transform_attr)
+  {
+    Matrix4 T;
+    transform_attr->get_matrix_value(T);
+    if (!Matrix4::valid_transform(T))
+    {
+      std::cerr << "RCArticulatedBody::load_from_xml() warning: invalid transform ";
+      std::cerr << std::endl << T << " when reading node " << std::endl;
+      std::cerr << *node << std::endl;
+      std::cerr << "  --> possibly a floating-point error..." << std::endl;
+    }
+    else
+    {
+      RigidBodyPtr base = get_base_link();
+      base->set_transform(T * base->get_transform());
+    }
+  }
 }
 
 /// Implements Base::save_to_xml()
