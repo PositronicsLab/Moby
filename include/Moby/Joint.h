@@ -50,6 +50,7 @@ class Joint : public Visualizable
     ConstraintType get_constraint_type() const { return _constraint_type; }
     void evaluate_constraints_dot(Real C[6]);
     virtual void determine_q_dot();
+    void determine_q_tare();
 
     /// Sets whether this constraint is implicit or explicit (or unknown)
     void set_constraint_type(ConstraintType type) { _constraint_type = type; }
@@ -244,7 +245,6 @@ class Joint : public Visualizable
 
   protected:
     void calc_s_bar_from_si();
-    void determine_q_tare();
 
     /// Computes the constraint Jacobian for this joint with respect to the given body in Rodrigues parameters
     /**
@@ -307,7 +307,7 @@ class Joint : public Visualizable
      */
     VectorN _q_tare;
 
-    /// Set if _q_tare needs to be determined
+    /// Set whether _q_tare needs to be determined
     bool _determine_q_tare;
 
   private:

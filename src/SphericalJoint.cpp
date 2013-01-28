@@ -843,7 +843,8 @@ void SphericalJoint::load_from_xml(XMLTreeConstPtr node, std::map<std::string, B
   }
 
   // compute _q_tare if necessary
-  determine_q_tare();
+  if (_determine_q_tare)
+    determine_q_tare();
 }
 
 /// Implements Base::save_to_xml()

@@ -1,0 +1,39 @@
+<!-- The HyQ robot --> 
+
+<XML>
+  <DRIVER>
+    <camera position="0 0 2.5" target="0 0 0" up="0 0 1" />
+    <window location="0 0" size="640 480" />
+  </DRIVER>
+
+  <MOBY>
+    <Box id="ground-primitive" xlen="10" ylen="10" zlen="0.0005" />
+
+   <GeneralizedCCD id="ccd" ori-integrator-id="euler-quat" eps-tolerance="1e-3" toi-tolerance="1e-3">
+      <Body body-id="hyq" />
+      <Body body-id="ground" />
+    </GeneralizedCCD>
+
+    <ODEPACKIntegrator id="odepack" type="VectorN" stiff="false" min-step-size="0" rel-err-tol="0" abs-err-tol="1e-4" />
+    <EulerIntegrator id="euler-quat" type="Quat" />
+
+    <GravityForce id="gravity" accel="0 0 -9.81" />
+
+  <EventDrivenSimulator integrator-id="odepack" collision-detector-id="ccd">
+    <RecurrentForce recurrent-force-id="gravity" enabled="true" /> 
+    <DynamicBody dynamic-body-id="hyq" />
+    <DynamicBody dynamic-body-id="ground" />
+    <ContactParameters object1-id="hyq" object2-id="ground" restitution="0" mu-coulomb="0.1" />
+  </EventDrivenSimulator>
+
+  <RCArticulatedBody id="hyq" urdf="hyq.urdf" fdyn-algorithm-id="crb" fdyn-algorithm-frame="link" floating-base="true" translation="0 0 1" />
+
+  <!-- setup the platform rigid body; it is not active -->
+  <RigidBody id="ground" enabled="false"
+    position="0 0 -0.25" visualization-id="ground-primitive">
+    <CollisionGeometry primitive-id="ground-primitive" /> 
+  </RigidBody>
+
+  </MOBY>
+</XML>
+

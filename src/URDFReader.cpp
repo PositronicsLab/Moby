@@ -274,6 +274,36 @@ bool URDFReader::transform_frames(const URDFData& data, const vector<RigidBodyPt
   base->set_position(com_out);
   base->set_orientation(Quat(&IDENTITY_3x3));
 
+  // compute the relative collision transform
+  if (data.collision_transforms.find(base) != data.collision_transforms.end())
+  {
+    // get the true frame of the collision transform
+    const Matrix4& Trel = data.collision_transforms.find(base)->second;
+    Matrix4 Tc = baseT * Trel;
+
+    // now compute the collision transform relative to the base frame
+    Matrix4 Tc_rel = base->get_transform().inverse_transform() * Tc;
+    assert(!base->geometries.empty());
+    base->geometries.front()->set_rel_transform(Tc_rel, false); 
+  }
+
+  // compute the relative visual transform
+  if (data.visual_transforms.find(base) != data.visual_transforms.end())
+  {
+    // get the true frame of the visual transform
+    const Matrix4& Trel = data.visual_transforms.find(base)->second;
+    Matrix4 Tv = baseT * Trel;
+
+    // now compute the collision transform relative to the base frame
+    Matrix4 Tv_rel = base->get_transform().inverse_transform() * Tv;
+    #ifdef USE_OSG
+    osg::MatrixTransform* group = (osg::MatrixTransform*) data.visual_transform_nodes.find(base)->second;
+    osg::Matrixd m;
+    to_osg_matrix(Tv_rel, m);
+    group->setMatrix(m);
+    #endif
+  }
+
   // add all children to the queue  
   queue<RigidBodyPtr> q;
   find_children(data, links, base, q, parents);
@@ -287,39 +317,46 @@ bool URDFReader::transform_frames(const URDFData& data, const vector<RigidBodyPt
     assert(parents.find(link) != parents.end());
     RigidBodyPtr parent = parents.find(link)->second;
 
-    // get the joint transform
+    // get the joint transform *relative to parent link reference frame*
     JointPtr joint = find_joint(data, link);
     assert(data.joint_transforms.find(joint) != data.joint_transforms.end());
     const Matrix4& Tj = data.joint_transforms.find(joint)->second;
-    const Matrix3 Rj = Tj.get_rotation();
+
+    // compute the reference frame for the parent
+    Vector3 parent_ref_xlat = data.inertia_transforms.find(link)->second.get_translation();
+    Matrix4 Tref_parent = parent->get_transform();
+    Vector3 com_to_ref = Tref_parent.mult_vector(-parent_ref_xlat);
+    Tref_parent.set_translation(Tref_parent.get_translation() + com_to_ref); 
 
     // compute the *reference* frame (w.r.t. the global frame) for the child 
     // (and the joint)
-    Matrix4 Tref = parent->get_transform() * Tj;
+    Matrix4 Tref = Tref_parent * Tj;
 
-    // get the inertial reference frame for the child
+    // compute the desired global orientation for the child
+    Matrix3 Rdes = Tref.get_rotation();
+
+    // determine the transform from the reference frame to Moby frame
     assert(data.inertia_transforms.find(link) != data.inertia_transforms.end());
     Matrix4 iF = data.inertia_transforms.find(link)->second;
+    Matrix3 iR = iF.get_rotation();
+    Matrix4 mTr = IDENTITY_4x4;
+    mTr.set_translation(iF.get_translation());
+
+    // get the current center-of-mass 
     com_in = Tref.mult_point(iF.get_translation());
-    iF.set_translation(ZEROS_3);
 
     // inertia for child is relative to reference frame; make it relative to
     // frame aligned with global and located at child c.o.m.
-    Primitive::transform_inertia(link->get_mass(), link->get_inertia(), com_in, iF, J_out, com_out);
+    Primitive::transform_inertia(link->get_mass(), link->get_inertia(), com_in, iR, J_out, com_out);
 
     // setup the link position and orientation
     link->set_position(com_out);
-    link->set_orientation(Quat(&Rj));     
+    link->set_orientation(Quat(&Rdes));     
 
     // compute the relative collision transform
     if (data.collision_transforms.find(link) != data.collision_transforms.end())
     {
-      // get the true frame of the collision transform
-      const Matrix4& Trel = data.collision_transforms.find(link)->second;
-      Matrix4 Tc = Tref * Trel;
-
-      // now compute the collision transform relative to the link frame
-      Matrix4 Tc_rel = link->get_transform().inverse_transform() * Tc;
+      Matrix4 Tc_rel = mTr * data.collision_transforms.find(link)->second;
       assert(!link->geometries.empty());
       link->geometries.front()->set_rel_transform(Tc_rel, false); 
     }
@@ -327,21 +364,13 @@ bool URDFReader::transform_frames(const URDFData& data, const vector<RigidBodyPt
     // compute the relative visual transform
     if (data.visual_transforms.find(link) != data.visual_transforms.end())
     {
-      // get the true frame of the visual transform
-      const Matrix4& Trel = data.visual_transforms.find(link)->second;
-      Matrix4 Tv = Tref * Trel;
-
-      // now compute the collision transform relative to the link frame
-      Matrix4 Tv_rel = link->get_transform().inverse_transform() * Tv;
-      if (data.visual_transform_nodes.find(link) != data.visual_transform_nodes.end())
-      {
-        #ifdef USE_OSG
-        osg::MatrixTransform* group = (osg::MatrixTransform*) data.visual_transform_nodes.find(link)->second;
-        osg::Matrixd m;
-        to_osg_matrix(Tv_rel, m);
-        group->setMatrix(m);
-        #endif
-      }
+      Matrix4 Tv_rel = mTr * data.visual_transforms.find(link)->second;
+      #ifdef USE_OSG
+      osg::MatrixTransform* group = (osg::MatrixTransform*) data.visual_transform_nodes.find(link)->second;
+      osg::Matrixd m;
+      to_osg_matrix(Tv_rel, m);
+      group->setMatrix(m);
+      #endif
     }
 
     // get the joint position and the two vectors we need (all in global frame) 
@@ -350,19 +379,25 @@ bool URDFReader::transform_frames(const URDFData& data, const vector<RigidBodyPt
     Vector3 parent_com_to_joint = joint_position - parent->get_position();
 
     // setup the pointers between the joints and links
-    link->add_inner_joint(parent, joint, Tref.inverse_mult_point(joint_to_child_com), link->get_transform().inverse_mult_point(joint_to_child_com));
-    parent->add_outer_joint(link, joint, parent->get_transform().inverse_mult_point(parent_com_to_joint));
+    link->add_inner_joint(parent, joint, Tref.transpose_mult_vector(joint_to_child_com), link->get_transform().transpose_mult_vector(joint_to_child_com));
+    parent->add_outer_joint(link, joint, parent->get_transform().transpose_mult_vector(parent_com_to_joint));
 
-    // setup the joint axis, if necessary
+    // setup the joint axis, if necessary, and determine q_tare
     if (data.joint_axes.find(joint) != data.joint_axes.end())
     {
-      Vector3 axis = data.joint_axes.find(joint)->second;
+      Vector3 axis = Tref.mult_vector(data.joint_axes.find(joint)->second);
       shared_ptr<PrismaticJoint> pj = dynamic_pointer_cast<PrismaticJoint>(joint);
       shared_ptr<RevoluteJoint> rj = dynamic_pointer_cast<RevoluteJoint>(joint);
       if (pj)
+      {
         pj->set_axis_global(axis);
+        pj->determine_q_tare();
+      }
       else if (rj)
+      {
         rj->set_axis_global(axis);
+        rj->determine_q_tare();
+      }
     }
     
     // add all children of link to the queue
@@ -400,11 +435,26 @@ void URDFReader::read_joint(XMLTreeConstPtr node, URDFData& data, const vector<R
 
   // read and construct the joint
   if (strcasecmp(type_attrib->get_string_value().c_str(), "revolute") == 0)
-    joint = shared_ptr<RevoluteJoint>(new RevoluteJoint);
+  {
+    shared_ptr<RevoluteJoint> rj(new RevoluteJoint);
+    rj->lolimit[0] = -M_PI_2;
+    rj->hilimit[0] = M_PI_2;
+    joint = rj;
+  }
   else if (strcasecmp(type_attrib->get_string_value().c_str(), "continuous") == 0)
-    joint = shared_ptr<RevoluteJoint>(new RevoluteJoint);
+  {
+    shared_ptr<RevoluteJoint> rj(new RevoluteJoint);
+    rj->lolimit[0] = -10000.0;
+    rj->hilimit[0] = 10000.0;
+    joint = rj;
+  }
   else if (strcasecmp(type_attrib->get_string_value().c_str(), "prismatic") == 0)
-    joint = shared_ptr<PrismaticJoint>(new PrismaticJoint);
+  {
+    shared_ptr<PrismaticJoint> pj(new PrismaticJoint);
+    pj->lolimit[0] = -10000.0;
+    pj->hilimit[0] = 10000.0;
+    joint = pj;
+  }
   else if (strcasecmp(type_attrib->get_string_value().c_str(), "fixed") == 0)
     joint = shared_ptr<FixedJoint>(new FixedJoint);
   else if (strcasecmp(type_attrib->get_string_value().c_str(), "floating") == 0)
@@ -590,9 +640,12 @@ void URDFReader::read_limits(XMLTreeConstPtr node, URDFData& data, JointPtr join
           std::cerr << "URDFReader::read_limits() warning- 'velocity' attribute unsupported in Moby" << std::endl;
 
         // read the values
-        joint->lolimit[0] = (lower_attrib) ? lower_attrib->get_real_value() : 0.0;
-        joint->hilimit[0] = (upper_attrib) ? upper_attrib->get_real_value() : 0.0; 
-        joint->maxforce[0] = (effort_attrib) ? effort_attrib->get_real_value() : 0.0;
+        if (lower_attrib)
+          joint->lolimit[0] = lower_attrib->get_real_value();
+        if (upper_attrib)
+          joint->hilimit[0] = upper_attrib->get_real_value(); 
+        if (effort_attrib)
+          joint->maxforce[0] = effort_attrib->get_real_value();
 
         // multiple tags unsupported
         return;
@@ -730,10 +783,10 @@ void URDFReader::read_material(XMLTreeConstPtr node, URDFData& data, void* osg_n
       // attempt to read color
       if (read_color(*i, data, color) || (material_exists && color.size() == 4))
       {
-        const Real R = color[0];
-        const Real G = color[1];
-        const Real B = color[2];
-        const Real A = color[3];
+        const float R = (float) color[0];
+        const float G = (float) color[1];
+        const float B = (float) color[2];
+        const float A = (float) color[3];
         osg::Material* material = new osg::Material;
         material->setColorMode(osg::Material::DIFFUSE);
         material->setDiffuse(osg::Material::FRONT, osg::Vec4(R, G, B, A));
@@ -784,11 +837,11 @@ void URDFReader::read_visual(XMLTreeConstPtr node, URDFData& data, RigidBodyPtr 
       osg::MatrixTransform* group = new osg::MatrixTransform;
       group->ref();
       data.visual_transform_nodes[link] = group;
-      group->addChild(primitive->get_visualization());
       link->set_visualization_data(group);
  
       // read the material
-      read_material(node, data, group);
+      read_material(*i, data, group);
+      group->addChild(primitive->get_visualization());
 
       // reading visual was a success, attempt to read no further...
       // (multiple visual tags not supported)

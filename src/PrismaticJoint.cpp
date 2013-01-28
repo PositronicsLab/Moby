@@ -2300,7 +2300,8 @@ void PrismaticJoint::load_from_xml(XMLTreeConstPtr node, std::map<std::string, B
   }
 
   // set the joint tare
-  determine_q_tare();
+  if (_determine_q_tare)
+    determine_q_tare();
 }
 
 /// Implements Base::save_to_xml()
