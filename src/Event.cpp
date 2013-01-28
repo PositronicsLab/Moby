@@ -1043,7 +1043,7 @@ void Event::determine_minimal_set(list<Event*>& group)
   // process each group independently, then recombine
   for (map<sorted_pair<SingleBodyPtr>, list<Event*> >::iterator i = contact_groups.begin(); i != contact_groups.end(); i++)
   {
-    determine_convex_set(i->second);
+//    determine_convex_set(i->second);
     group.insert(group.end(), i->second.begin(), i->second.end()); 
   }
 

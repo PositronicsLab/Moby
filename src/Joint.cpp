@@ -69,13 +69,9 @@ Joint::Joint(boost::weak_ptr<RigidBody> inboard, boost::weak_ptr<RigidBody> outb
   _coord_idx = _joint_idx = _constraint_idx = std::numeric_limits<unsigned>::max();
 }  
 
-/// Determines q tare (if necessary)
+/// Determines q tare
 void Joint::determine_q_tare()
 {
-  // see whether we need to determine q tare
-  if (!_determine_q_tare)
-    return;
-
   // determine q tare
   determine_q(_q_tare);
 

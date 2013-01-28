@@ -1,0 +1,39 @@
+<!-- URDF-defined pendulum --> 
+
+<XML>
+  <DRIVER>
+    <camera position="0 0 10" target="0 0 0" up="0 1 0" />
+    <window location="0 0" size="640 480" />
+  </DRIVER>
+
+  <MOBY>
+    <Box id="ground-primitive" xlen="1" ylen=".01" zlen="1"  />
+
+   <GeneralizedCCD id="ccd" ori-integrator-id="euler-quat" eps-tolerance="1e-3" toi-tolerance="1e-3">
+      <Body body-id="ground" />
+      <Body body-id="pendulum" />
+    </GeneralizedCCD>
+
+    <EulerIntegrator id="euler" type="VectorN" />
+    <EulerIntegrator id="euler-quat" type="Quat" />
+
+    <GravityForce id="gravity" accel="0 -9.81 0" />
+
+  <EventDrivenSimulator integrator-id="euler" collision-detector-id="ccd">
+    <RecurrentForce recurrent-force-id="gravity" enabled="true" /> 
+    <DynamicBody dynamic-body-id="pendulum" />
+    <DynamicBody dynamic-body-id="ground" />
+    <ContactParameters object1-id="ground" object2-id="pendulum" restitution="1" mu-coulomb="0" />
+  </EventDrivenSimulator>
+
+  <RCArticulatedBody id="pendulum" fdyn-algorithm="crb" fdyn-algorithm-frame="link" urdf="pendulum.urdf" floating-base="false" />
+
+  <!-- setup the ground rigid body; it is not active -->
+  <RigidBody id="ground" enabled="false"
+    position="0 -.125 0" visualization-id="ground-primitive">
+    <CollisionGeometry primitive-id="ground-primitive" /> 
+  </RigidBody>
+
+  </MOBY>
+</XML>
+

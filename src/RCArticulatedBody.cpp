@@ -2955,6 +2955,7 @@ void RCArticulatedBody::load_from_xml(XMLTreeConstPtr node, map<string, BasePtr>
     Matrix4 T = base->get_transform();
     T.set_translation(x);
     base->set_transform(T);
+    update_link_transforms();
   }
   else if (transform_attr)
   {
@@ -2971,6 +2972,7 @@ void RCArticulatedBody::load_from_xml(XMLTreeConstPtr node, map<string, BasePtr>
     {
       RigidBodyPtr base = get_base_link();
       base->set_transform(T * base->get_transform());
+      update_link_transforms();
     }
   }
 }
