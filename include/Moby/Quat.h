@@ -34,6 +34,8 @@ class Quat
     Quat(const Matrix3* m);
     Quat(const Matrix4* m);
     Quat(const AAngle* a);
+    static Quat identity();
+    static Quat rpy(Real alpha, Real beta, Real gamma);
     bool unit() const;
     static Quat zero();
     void conjugate();
@@ -74,6 +76,7 @@ class Quat
     Quat& operator*=(Real scalar);
     Quat& operator/=(Real scalar) { return operator*=(1.0/scalar); }
     Real magnitude() const;
+    static double calc_angle(const Quat& q1, const Quat& q2);
     static Quat deriv(const Quat& q, const Vector3& w);
     static Quat dderiv(const Quat& q, const Vector3& omega, const Vector3& alpha);
     static Vector3 to_omega(const Quat& q, const Quat& qd);

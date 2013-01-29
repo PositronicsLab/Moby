@@ -58,6 +58,10 @@ class URDFReader
         std::map<std::string, std::pair<VectorN, std::string> > materials;
     };
 
+    static void output_data(const URDFData& data, RigidBodyPtr link);
+    static void propagate_transform(URDFData& data, RigidBodyPtr link, const Matrix4& Tx);
+    static bool valid_transformation(const URDFData& data, RigidBodyPtr parent, JointPtr joint, RigidBodyPtr link);
+    static void fix_Moby(URDFData& data, const std::vector<RigidBodyPtr>& links, const std::vector<JointPtr>& joints);
     static JointPtr find_joint(const URDFData& data, RigidBodyPtr outboard_link);
     static void find_children(const URDFData& data, const std::vector<RigidBodyPtr>& links, RigidBodyPtr link, std::queue<RigidBodyPtr>& q, std::map<RigidBodyPtr, RigidBodyPtr>& parents);
     static bool read_texture(XMLTreeConstPtr node, URDFData& data, std::string& fname);
@@ -68,7 +72,7 @@ class URDFReader
     static boost::shared_ptr<SpherePrimitive> read_sphere(XMLTreeConstPtr node, URDFData& data);
     static boost::shared_ptr<BoxPrimitive> read_box(XMLTreeConstPtr node, URDFData& data);
     static boost::shared_ptr<CylinderPrimitive> read_cylinder(XMLTreeConstPtr node, URDFData& data);
-    static bool transform_frames(const URDFData& data, const std::vector<RigidBodyPtr>& links, const std::vector<JointPtr>& joints);
+    static bool transform_frames(URDFData& data, const std::vector<RigidBodyPtr>& links, const std::vector<JointPtr>& joints);
     static Matrix3 read_inertia(XMLTreeConstPtr node, URDFData& data);
     static Real read_mass(XMLTreeConstPtr node, URDFData& data);
     static Matrix4 read_origin(XMLTreeConstPtr node, URDFData& data);
