@@ -22,8 +22,17 @@ using namespace Moby;
  */
 Quat::Quat()
 {
-  x = y = z = 0;
-  w = 1;
+  x = y = z = (Real) 0.0;
+  w = (Real) 1.0;
+}
+
+/// Constructs a quaternion corresponding to identity orientation
+Quat Quat::identity()
+{
+  Quat q;
+  q.x = q.y = q.z = (Real) 0.0;
+  q.w = (Real) 1.0;
+  return q;
 }
 
 /// Constructs a quaternion from an axis-angle object
@@ -81,6 +90,35 @@ Quat::Quat(boost::shared_array<const Real>  q)
 Quat::Quat(const Quat& q)
 {
   *this = q;
+}
+
+/// Constructs a quaternion using roll-pitch-yaw angles
+/**
+ * \param alpha rotation around x axis (roll)
+ * \param beta rotation around y axis (pitch)
+ * \param gamma rotation around z axis (yaw)
+ */
+Quat Quat::rpy(Real alpha, Real beta, Real gamma)
+{
+  const Real PHI = alpha * (Real) 0.5;
+  const Real THE = beta * (Real) 0.5;
+  const Real PSI = gamma * (Real) 0.5;
+
+  // precompute trig fns
+  const Real CPHI = std::cos(PHI);
+  const Real SPHI = std::sin(PHI);
+  const Real CPSI = std::cos(PSI);
+  const Real SPSI = std::sin(PSI);
+  const Real CTHE = std::cos(THE);
+  const Real STHE = std::sin(THE);
+
+  // construct Quaternion
+  Quat q;
+  q.w = CPHI * CTHE * CPSI + SPHI * STHE * SPSI;
+  q.x = SPHI * CTHE * CPSI - CPHI * STHE * SPSI;
+  q.y = CPHI * STHE * CPSI + SPHI * CTHE * SPSI;
+  q.z = CPHI * CTHE * SPSI - SPHI * STHE * CPSI;
+  return q;
 }
 
 /// Constructs a zero quaternion
@@ -342,6 +380,20 @@ Quat Quat::lerp(const Quat& q1, const Quat& q2, Real alpha)
     q.normalize();
     return q;
   }
+}
+
+/// Computes the angle between two orientations [0, PI] 
+Real Quat::calc_angle(const Quat& q1, const Quat& q2)
+{
+  // compute q1'q2
+  Real dot = q1.x*q2.x + q1.y*q2.y + q1.z*q2.z + q1.w*q2.w;
+  if (dot > (Real) 1.0)
+    dot = (Real) 1.0;
+  else if (dot < (Real) -1.0)
+    dot = (Real) -1.0;
+
+  // find the angle between the two
+  return std::acos(std::fabs(dot));
 }
 
 /// Performs spherical linear interpolation between this and q

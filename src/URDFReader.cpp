@@ -9,6 +9,7 @@
 #include <sys/stat.h>
 #include <errno.h>
 #include <fstream>
+#include <iostream>
 #include <stack>
 
 #ifdef USE_OSG
@@ -235,6 +236,194 @@ static void to_osg_matrix(const Matrix4& src, osg::Matrixd& tgt)
 }
 #endif
 
+/// Fix for Moby
+void URDFReader::fix_Moby(URDFData& data, const vector<RigidBodyPtr>& links, const vector<JointPtr>& joints)
+{
+  // find the base (it will be the link that does not exist as a child)
+  set<RigidBodyPtr> candidates;
+  for (unsigned i=0; i< links.size(); i++)
+    candidates.insert(links[i]);
+  for (std::map<JointPtr, RigidBodyPtr>::const_iterator i = data.joint_child.begin(); i != data.joint_child.end(); i++)
+    candidates.erase(i->second);
+
+  // must be *exactly* one candidate remaining
+  if (candidates.size() != 1)
+  {
+    std::cerr << "URDFReader::fix_Moby() - no bases or multiple bases specified! not reading further!" << std::endl;
+    return;
+  }
+  RigidBodyPtr base = *candidates.begin();
+
+  // determine leaf links 
+  set<RigidBodyPtr> leafs;
+  for (unsigned i=0; i< links.size(); i++)
+    leafs.insert(links[i]);
+  for (map<JointPtr, RigidBodyPtr>::const_iterator i = data.joint_parent.begin(); i != data.joint_parent.end(); i++)
+    leafs.erase(i->second);
+
+  // add all leafs to a queue
+  queue<RigidBodyPtr> q;
+  BOOST_FOREACH(RigidBodyPtr link, leafs)
+    q.push(link);
+
+  // setup indicator for when a link has been processed
+  set<RigidBodyPtr> processed;
+
+  // process from leafs inward 
+  while (!q.empty())
+  {
+    // get the link off of the front of the queue
+    RigidBodyPtr link = q.front();
+    q.pop();
+
+    // see whether the link has already been processed
+    if (processed.find(link) != processed.end())
+      continue;
+    else
+      processed.insert(link);
+
+    // get the parent link and the joint
+    JointPtr joint = find_joint(data, link);
+    RigidBodyPtr parent = data.joint_parent.find(joint)->second;
+
+    // see whether this relative transform is ok
+    if (!valid_transformation(data, parent, joint, link))
+    {
+      // get the joint frame / outboard frame
+      Matrix4 Tj = data.joint_transforms.find(joint)->second;
+
+      // propagate transform
+      propagate_transform(data, link, Tj.get_rotation());
+    }
+
+    // add parent to the queue for processing, unless the parent is the base 
+    if (parent != base)
+      q.push(parent);
+  }
+}
+
+// Propagates a rotation through a link and all children
+void URDFReader::propagate_transform(URDFData& data, RigidBodyPtr link, const Matrix3& Rx)
+{
+  // add the link to the queue
+  std::queue<RigidBodyPtr> q;
+  q.push(link);
+
+  // process until queue is empty
+  while (!q.empty())
+  {
+    // get the link off of the front of the queue
+    link = q.front();
+    q.pop();
+
+    // get the inner joint
+    JointPtr joint = find_joint(data, link);
+
+    // determine Tx
+    Matrix4 Tj = data.joint_transforms[joint];
+    Vector3 xlat_des = Tj.get_translation();
+    Matrix3 Rdes = Rx * Tj.get_rotation();
+    Matrix4 Tdes(&IDENTITY_3x3, &xlat_des);
+    Matrix4 Tx = Tdes * Matrix4::inverse_transform(Tj);
+
+    // update inertial frame, visual frame, collision frame
+    data.joint_transforms[joint] = Tx * data.joint_transforms[joint];
+    data.inertia_transforms[link] = Tx * data.inertia_transforms[link];
+    data.visual_transforms[link] = Tx * data.visual_transforms[link];
+    data.collision_transforms[link] = Tx * data.collision_transforms[link];
+
+    // update joint axis, if it is present
+    if (data.joint_axes.find(joint) != data.joint_axes.end())
+      data.joint_axes[joint] = Tx.mult_vector(data.joint_axes[joint]);
+
+break;
+    // add all children of the link to the queue
+    for (map<JointPtr, RigidBodyPtr>::const_iterator i = data.joint_parent.begin(); i != data.joint_parent.end(); i++)
+      if (i->second == link)
+      {
+        assert(data.joint_child.find(i->first) != data.joint_child.end());
+        RigidBodyPtr child = data.joint_child.find(i->first)->second;
+        q.push(child);
+      } 
+  }
+}
+
+/// Determine whether it is possible to get from one reference frame to another
+bool URDFReader::valid_transformation(const URDFData& data, RigidBodyPtr inboard, JointPtr joint, RigidBodyPtr outboard)
+{
+  // get the inboard reference frame (if it's available- it won't be if the
+  // inboard is the base)
+  Matrix4 Tref_inboard = IDENTITY_4x4;
+  for (map<JointPtr, RigidBodyPtr>::const_iterator i = data.joint_child.begin(); i != data.joint_child.end(); i++)
+    if (i->second == inboard)
+    {
+      Tref_inboard = data.joint_transforms.find(i->first)->second;
+      break;
+    } 
+
+  // get the outboard reference frame
+  assert(data.joint_transforms.find(joint) != data.joint_transforms.end());
+  Matrix4 Tref_outboard = data.joint_transforms.find(joint)->second;
+
+  // get the relative transform and relative rotation
+  Matrix4 Trel = Matrix4::inverse_transform(Tref_inboard) * Tref_outboard;
+  Matrix3 Rrel = Trel.get_rotation();
+
+  // see whether we can get from Tref_inboard to Tref_outboard based on
+  // joint movement alone
+  if (dynamic_pointer_cast<RevoluteJoint>(joint))
+  {
+    // get the joint axis relative to inboard frame
+    Vector3 axis_0 = Tref_outboard.mult_vector(data.joint_axes.find(joint)->second);
+    Vector3 axis = Tref_inboard.transpose_mult_vector(axis_0);
+
+    // verify that rotation around that axis gives the desired rotation
+    AAngle aa(&Rrel, &axis);
+    Matrix3 Raa(&aa);
+    return std::fabs(Quat::calc_angle(Quat(&Rrel), Quat(&Raa))) < NEAR_ZERO;    
+  }
+  else if (dynamic_pointer_cast<PrismaticJoint>(joint) || dynamic_pointer_cast<FixedJoint>(joint))
+  {
+    // both orientations must be the same
+    Quat q(&Rrel);
+    Quat eye = Quat::identity();
+    return std::fabs(Quat::calc_angle(q, eye)) < NEAR_ZERO;
+  }
+  else
+    // should never be here!
+    assert(false);
+
+  // req'd by compiler...
+  return false; 
+}
+
+void URDFReader::output_data(const URDFData& data, RigidBodyPtr link)
+{
+  std::cout << "link id: " << link->id << std::endl;
+  JointPtr joint = find_joint(data, link);
+  if (joint)
+  {
+    std::cout << "  modified URDF joint transform: " << std::endl << data.joint_transforms.find(joint)->second << std::endl;
+    if (data.joint_axes.find(joint) != data.joint_axes.end())
+      std::cout << "  modified URDF joint axis: " << data.joint_axes.find(joint)->second << std::endl;
+    shared_ptr<RevoluteJoint> rj = dynamic_pointer_cast<RevoluteJoint>(joint);
+    shared_ptr<PrismaticJoint> pj = dynamic_pointer_cast<PrismaticJoint>(joint);
+    if (rj)
+      std::cout << "  Moby joint axis: " << rj->get_axis_global() << std::endl;
+    else if (pj)
+      std::cout << "  Moby joint axis: " << pj->get_axis_global() << std::endl;
+  }
+  if (data.visual_transforms.find(link) != data.visual_transforms.end())
+    std::cout << "  modified URDF visualization transform: " << std::endl << data.visual_transforms.find(link)->second;
+  if (data.inertia_transforms.find(link) != data.inertia_transforms.end())
+    std::cout << "  modified URDF inertia transform: " << std::endl << data.inertia_transforms.find(link)->second;
+  if (data.collision_transforms.find(link) != data.collision_transforms.end())
+    std::cout << "  modified URDF collision transform: " << std::endl << data.collision_transforms.find(link)->second;
+  std::cout << "  Moby transform: " << std::endl << link->get_transform();
+  if (!link->geometries.empty())
+    std::cout << "  Moby relative collision transform: " << std::endl << link->geometries.front()->get_rel_transform();
+}
+
 /// Transforms frames to Moby format (link positions at c.o.m.)
 /**
  *  URDF defines the reference frame for a link to be identical to the inner
@@ -242,11 +431,18 @@ static void to_osg_matrix(const Matrix4& src, osg::Matrixd& tgt)
  * relative to this frame. Joint axes are defined relative to this frame
  * as well.
  */
-bool URDFReader::transform_frames(const URDFData& data, const vector<RigidBodyPtr>& links, const vector<JointPtr>& joints)
+bool URDFReader::transform_frames(URDFData& data, const vector<RigidBodyPtr>& links, const vector<JointPtr>& joints)
 {
   map<RigidBodyPtr, RigidBodyPtr> parents; 
   Matrix3 J_out;
   Vector3 com_out;
+
+  // output all data (before Moby fixes it)
+  std::cout << "data (pre-fixes)" << std::endl;
+  for (unsigned i=0; i< links.size(); i++)
+    output_data(data, links[i]);
+  std::cout << "------------------------------------------" << std::endl;
+  std::cout << "data (post-fixes)" << std::endl;
 
   // find the base (it will be the link that does not exist as a child)
   set<RigidBodyPtr> candidates;
@@ -262,6 +458,9 @@ bool URDFReader::transform_frames(const URDFData& data, const vector<RigidBodyPt
     return false;
   }
   RigidBodyPtr base = *candidates.begin();
+
+  // fix frame data for Moby 
+  fix_Moby(data, links, joints);
 
   // need to transform base inertia orientation to be relative to global frame
   Matrix4 baseT = data.inertia_transforms.find(base)->second; 
@@ -304,6 +503,8 @@ bool URDFReader::transform_frames(const URDFData& data, const vector<RigidBodyPt
     #endif
   }
 
+  output_data(data, base);
+
   // add all children to the queue  
   queue<RigidBodyPtr> q;
   find_children(data, links, base, q, parents);
@@ -323,7 +524,7 @@ bool URDFReader::transform_frames(const URDFData& data, const vector<RigidBodyPt
     const Matrix4& Tj = data.joint_transforms.find(joint)->second;
 
     // compute the reference frame for the parent
-    Vector3 parent_ref_xlat = data.inertia_transforms.find(link)->second.get_translation();
+    Vector3 parent_ref_xlat = data.inertia_transforms.find(parent)->second.get_translation();
     Matrix4 Tref_parent = parent->get_transform();
     Vector3 com_to_ref = Tref_parent.mult_vector(-parent_ref_xlat);
     Tref_parent.set_translation(Tref_parent.get_translation() + com_to_ref); 
@@ -331,6 +532,7 @@ bool URDFReader::transform_frames(const URDFData& data, const vector<RigidBodyPt
     // compute the *reference* frame (w.r.t. the global frame) for the child 
     // (and the joint)
     Matrix4 Tref = Tref_parent * Tj;
+    std::cout << "link " << link->id << " reference frame: " << std::endl << Tref;
 
     // compute the desired global orientation for the child
     Matrix3 Rdes = Tref.get_rotation();
@@ -400,6 +602,7 @@ bool URDFReader::transform_frames(const URDFData& data, const vector<RigidBodyPt
       }
     }
     
+output_data(data, link);
     // add all children of link to the queue
     find_children(data, links, link, q, parents);
   }
@@ -1037,7 +1240,8 @@ Matrix4 URDFReader::read_origin(XMLTreeConstPtr node, URDFData& data)
     }
   }
 
-  Matrix3 rpy_matrix = Matrix3::rpy(rpy[0], rpy[1], rpy[2]); 
+  Quat rpy_quat = Quat::rpy(rpy[0], rpy[1], rpy[2]);
+  Matrix3 rpy_matrix = Matrix3(&rpy_quat); 
   return Matrix4(&rpy_matrix, &xyz);
 }
 
