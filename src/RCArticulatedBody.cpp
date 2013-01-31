@@ -736,7 +736,6 @@ VectorN& RCArticulatedBody::get_generalized_acceleration(DynamicBody::Generalize
  */
 void RCArticulatedBody::update_link_transforms()
 {
-return;
   if (_links.empty() || _joints.empty())
     return;
 
