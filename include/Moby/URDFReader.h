@@ -58,12 +58,12 @@ class URDFReader
         std::map<std::string, std::pair<VectorN, std::string> > materials;
     };
 
+    static void find_outboards(const URDFData& data, RigidBodyPtr link, std::vector<std::pair<JointPtr, RigidBodyPtr> >& outboards, std::map<RigidBodyPtr, RigidBodyPtr>& parents);
     static void output_data(const URDFData& data, RigidBodyPtr link);
-    static void propagate_transform(URDFData& data, RigidBodyPtr link, const Matrix4& Tx);
     static bool valid_transformation(const URDFData& data, RigidBodyPtr parent, JointPtr joint, RigidBodyPtr link);
     static void fix_Moby(URDFData& data, const std::vector<RigidBodyPtr>& links, const std::vector<JointPtr>& joints);
     static JointPtr find_joint(const URDFData& data, RigidBodyPtr outboard_link);
-    static void find_children(const URDFData& data, const std::vector<RigidBodyPtr>& links, RigidBodyPtr link, std::queue<RigidBodyPtr>& q, std::map<RigidBodyPtr, RigidBodyPtr>& parents);
+    static void find_children(const URDFData& data, RigidBodyPtr link, std::queue<RigidBodyPtr>& q, std::map<RigidBodyPtr, RigidBodyPtr>& parents);
     static bool read_texture(XMLTreeConstPtr node, URDFData& data, std::string& fname);
     static bool read_color(XMLTreeConstPtr node, URDFData& data, VectorN& color);
     static void read_material(XMLTreeConstPtr node, URDFData& data, void* osg_node);

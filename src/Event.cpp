@@ -862,6 +862,28 @@ void Event::determine_convex_set(list<Event*>& group)
   if (group.size() <= 3)
     return;
 
+  // verify that all points have same coefficient of friction
+  bool found_contact = false;
+  Real mu_coulomb, mu_viscous;
+  BOOST_FOREACH(Event* e, group)
+  {
+    if (e->event_type != Event::eContact)
+      continue;
+    if (found_contact)
+    {
+      // look for coefficients of friction not being identical 
+      if (!CompGeom::rel_equal(mu_coulomb, e->contact_mu_coulomb, NEAR_ZERO) ||
+          !CompGeom::rel_equal(mu_viscous, e->contact_mu_viscous, NEAR_ZERO))
+        return; 
+    }
+    else
+    {
+      mu_coulomb = e->contact_mu_coulomb;
+      mu_viscous = e->contact_mu_viscous;
+      found_contact = true;
+    }
+  }
+
   // get all points
   vector<Vector3*> points;
   BOOST_FOREACH(Event* e, group)
