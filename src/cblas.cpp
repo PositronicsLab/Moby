@@ -4,6 +4,7 @@
  * License (found in COPYING).
  ****************************************************************************/
 
+#include <stdexcept>
 #include <Moby/cblas.h>
 
 template <>
@@ -119,7 +120,87 @@ void CBLAS::ger(enum CBLAS_ORDER order, int M, int N, float alpha, const float* 
 template <>
 void CBLAS::gemv(enum CBLAS_ORDER order, CBLAS_TRANSPOSE transA, int M, int N, double alpha, const double* A, int lda, const double* X, int incX, double beta, double* Y, int incY)
 {
+  #ifndef ATLAS_BUG
   cblas_dgemv(order, transA, M, N, alpha, A, lda, X, incX, beta, Y, incY);
+  #else
+  #define OFFSET(N, incX) ((incX) > 0 ?  0 : ((N) - 1) * (-(incX)))
+  if (transA == CblasNoTrans)
+    cblas_dgemv(order, transA, M, N, alpha, A, lda, X, incX, beta, Y, incY);
+  else
+  {
+    // NOTE: this code adapted from GSL
+    int i, j;
+    int lenX, lenY;
+
+    const int Trans = (transA != CblasConjTrans) ? transA : CblasTrans;
+
+    if (M == 0 || N == 0)
+      return;
+
+    if (alpha == 0.0 && beta == 1.0)
+      return;
+
+    if (Trans == CblasNoTrans) {
+      lenX = N;
+      lenY = M;
+    } else {
+      lenX = M;
+      lenY = N;
+    }
+
+    /* form  y := beta*y */
+    if (beta == 0.0) {
+      int iy = OFFSET(lenY, incY);
+      for (i = 0; i < lenY; i++) {
+        Y[iy] = 0.0;
+        iy += incY;
+      }
+    } else if (beta != 1.0) {
+      int iy = OFFSET(lenY, incY);
+      for (i = 0; i < lenY; i++) {
+        Y[iy] *= beta;
+        iy += incY;
+      }
+    }
+
+    if (alpha == 0.0)
+      return;
+
+    if ((order == CblasRowMajor && Trans == CblasNoTrans)
+        || (order == CblasColMajor && Trans == CblasTrans)) {
+      /* form  y := alpha*A*x + y */
+      int iy = OFFSET(lenY, incY);
+      for (i = 0; i < lenY; i++) {
+        BASE temp = 0.0;
+        int ix = OFFSET(lenX, incX);
+        for (j = 0; j < lenX; j++) {
+          temp += X[ix] * A[lda * i + j];
+          ix += incX;
+        }
+        Y[iy] += alpha * temp;
+        iy += incY;
+      }
+    }   else if ((order == CblasRowMajor && Trans == CblasTrans)
+                 || (order == CblasColMajor && Trans == CblasNoTrans)) {
+      /* form  y := alpha*A'*x + y */
+      int ix = OFFSET(lenX, incX);
+      for (j = 0; j < lenX; j++) {
+        const BASE temp = alpha * X[ix];
+        if (temp != 0.0) {
+          int iy = OFFSET(lenY, incY);
+          for (i = 0; i < lenY; i++) {
+            Y[iy] += temp * A[lda * j + i];
+            iy += incY;
+          }
+        }
+        ix += incX;
+      }
+    } else {
+      throw std::runtime_error("unrecognized operation");
+    }
+  }
+  #undef OFFSET
+  #endif
 }
 
 template <>
