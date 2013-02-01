@@ -120,7 +120,7 @@ void CBLAS::ger(enum CBLAS_ORDER order, int M, int N, float alpha, const float* 
 template <>
 void CBLAS::gemv(enum CBLAS_ORDER order, CBLAS_TRANSPOSE transA, int M, int N, double alpha, const double* A, int lda, const double* X, int incX, double beta, double* Y, int incY)
 {
-  #ifndef ATLAS_BUG
+  #ifndef ADDRESS_ATLAS_BUG
   cblas_dgemv(order, transA, M, N, alpha, A, lda, X, incX, beta, Y, incY);
   #else
   #define OFFSET(N, incX) ((incX) > 0 ?  0 : ((N) - 1) * (-(incX)))
@@ -171,7 +171,7 @@ void CBLAS::gemv(enum CBLAS_ORDER order, CBLAS_TRANSPOSE transA, int M, int N, d
       /* form  y := alpha*A*x + y */
       int iy = OFFSET(lenY, incY);
       for (i = 0; i < lenY; i++) {
-        BASE temp = 0.0;
+        double temp = 0.0;
         int ix = OFFSET(lenX, incX);
         for (j = 0; j < lenX; j++) {
           temp += X[ix] * A[lda * i + j];
@@ -185,7 +185,7 @@ void CBLAS::gemv(enum CBLAS_ORDER order, CBLAS_TRANSPOSE transA, int M, int N, d
       /* form  y := alpha*A'*x + y */
       int ix = OFFSET(lenX, incX);
       for (j = 0; j < lenX; j++) {
-        const BASE temp = alpha * X[ix];
+        const double temp = alpha * X[ix];
         if (temp != 0.0) {
           int iy = OFFSET(lenY, incY);
           for (i = 0; i < lenY; i++) {
