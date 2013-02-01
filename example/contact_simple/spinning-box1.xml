@@ -8,7 +8,7 @@
 
   <MOBY>
     <!-- Primitives -->
-    <Box id="b1" xlen="1" ylen="1" zlen="1" density="1.0" edge-sample-length=".01" />
+    <Box id="b1" xlen="1" ylen="1" zlen="1" density="1.0" edge-sample-length="10" />
     <Box id="b3" xlen="10" ylen=".5" zlen="2" density="10.0" />
 
     <!-- Integrator -->
@@ -50,7 +50,7 @@
       <DynamicBody dynamic-body-id="box" />
       <DynamicBody dynamic-body-id="ground" />
       <RecurrentForce recurrent-force-id="gravity" enabled="true" />
-      <ContactParameters object1-id="ground" object2-id="box" restitution="0" mu-coulomb="0" mu-viscous="0" ffriction-cone-edges="16" />
+      <ContactParameters object1-id="ground" object2-id="box" restitution="0" mu-coulomb="0" mu-viscous="0" friction-cone-edges="16" />
     </EventDrivenSimulator> 
   </MOBY>
 </XML>
