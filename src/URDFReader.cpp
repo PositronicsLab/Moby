@@ -21,6 +21,7 @@
 #endif
 
 #include <Moby/CSG.h>
+#include <Moby/Primitive.h>
 #include <Moby/TriangleMeshPrimitive.h>
 #include <Moby/IndexedTetraArray.h>
 #include <Moby/Constants.h>
@@ -252,6 +253,8 @@ static void from_osg_matrix(const osg::Matrixd& src, Matrix4& tgt)
 void URDFReader::fix_Moby(URDFData& data, const vector<RigidBodyPtr>& links, const vector<JointPtr>& joints)
 {
   std::map<RigidBodyPtr, RigidBodyPtr> parents;
+  Matrix3 J_out;
+  Vector3 com_out;
 
   // find the base (it will be the link that does not exist as a child)
   set<RigidBodyPtr> candidates;
@@ -321,6 +324,38 @@ void URDFReader::fix_Moby(URDFData& data, const vector<RigidBodyPtr>& links, con
     }
 
     // add all children to the queue for processing
+    find_children(data, link, q, parents);
+  }
+
+  // ok, now transform all inertias so that their orientation is unchanged
+  // from the reference frame
+  // start with the base
+  Matrix4& jTref = data.inertia_transforms.find(base)->second;
+  Matrix3 jRrefT = Matrix3::transpose(jTref.get_rotation());
+  Vector3 jxref = jTref.get_translation();
+  Primitive::transform_inertia(base->get_mass(), base->get_inertia(), jxref, jRrefT, J_out, com_out); 
+  jTref.set(&IDENTITY_3x3, &com_out);
+  base->set_inertia(J_out);  
+
+  // now process all children
+  find_children(data, base, q, parents);
+
+  // process from base outward 
+  while (!q.empty())
+  {
+    // get the link off of the front of the queue
+    RigidBodyPtr link = q.front();
+    q.pop();
+
+    // update the inertia
+    Matrix4& jTref = data.inertia_transforms.find(link)->second;
+    Matrix3 jRrefT = Matrix3::transpose(jTref.get_rotation());
+    Vector3 jxref = jTref.get_translation();
+    Primitive::transform_inertia(link->get_mass(), link->get_inertia(), jxref, jRrefT, J_out, com_out); 
+    jTref.set(&IDENTITY_3x3, &com_out);
+    link->set_inertia(J_out);  
+
+    // now process all children
     find_children(data, link, q, parents);
   }
 }
@@ -396,6 +431,7 @@ void URDFReader::output_data(const URDFData& data, RigidBodyPtr link)
     std::cout << "  URDF joint transform: " << std::endl << data.joint_transforms.find(joint)->second << std::endl;
     if (data.joint_axes.find(joint) != data.joint_axes.end())
       std::cout << "  URDF joint axis: " << data.joint_axes.find(joint)->second << std::endl;
+    std::cout << "  Moby joint position: " << joint->get_position_global() << std::endl;
     shared_ptr<RevoluteJoint> rj = dynamic_pointer_cast<RevoluteJoint>(joint);
     shared_ptr<PrismaticJoint> pj = dynamic_pointer_cast<PrismaticJoint>(joint);
     if (rj)
@@ -443,8 +479,8 @@ bool URDFReader::transform_frames(URDFData& data, const vector<RigidBodyPtr>& li
   // output all data (before Moby fixes it)
   #ifdef DEBUG_URDF 
   std::cout << "data (pre-fixes)" << std::endl;
-  for (unsigned i=0; i< links.size(); i++)
-    output_data(data, links[i]);
+//  for (unsigned i=0; i< links.size(); i++)
+//    output_data(data, links[i]);
   std::cout << "------------------------------------------" << std::endl;
   std::cout << "data (post-fixes)" << std::endl;
   #endif
@@ -809,7 +845,7 @@ void URDFReader::read_dynamics(XMLTreeConstPtr node, URDFData& data, JointPtr jo
       }
 
       // still here? unsupported type
-      std::cerr << "URDFReader::read_limits() - unsupported joint type for limits" << std::endl;
+      std::cerr << "URDFReader::read_dynamics() - unsupported joint type" << std::endl;
       return;  
     }
   }
