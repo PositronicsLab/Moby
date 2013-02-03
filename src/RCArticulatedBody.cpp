@@ -890,12 +890,12 @@ void RCArticulatedBody::update_link_velocities()
  * \return a pointer to a 6x6 matrix; top three dimensions will be linear
  *         velocity and bottom three dimensions will be angular velocity
  */
-MatrixN RCArticulatedBody::calc_jacobian_floating_base(const Vector3& point)
+MatrixN& RCArticulatedBody::calc_jacobian_floating_base(const Vector3& point, MatrixN& J)
 {
   const unsigned SIX_D = 6, A = 0, B = 1, C = 2, D = 3;
 
   // init the base Jacobian
-  MatrixN base_jacobian(SIX_D, SIX_D);
+  J.resize(SIX_D, SIX_D);
 
   // get the base transform
   const Matrix4& base_transform = _links.front()->get_transform();
@@ -921,18 +921,48 @@ MatrixN RCArticulatedBody::calc_jacobian_floating_base(const Vector3& point)
   cross.set_column(C, cross3);
 
   // set the upper left submatrix of the Jacobian
-  base_jacobian.set_sub_mat(A,A, IDENTITY_3x3);
+  J.set_sub_mat(A,A, IDENTITY_3x3);
 
   // set the lower left submatrix of the Jacobian
-  base_jacobian.set_sub_mat(D,A, ZEROS_3x3);
+  J.set_sub_mat(D,A, ZEROS_3x3);
 
   // set the upper right submatrix of the Jacobian
-  base_jacobian.set_sub_mat(A,D, cross);  
+  J.set_sub_mat(A,D, cross);  
 
   // set the lower right submatrix of the Jacobian
-  base_jacobian.set_sub_mat(D,D, RB);
+  J.set_sub_mat(D,D, RB);
 
-  return base_jacobian;
+  return J;
+}
+
+/// Calculates the Jacobian for the current robot configuration at a given point and with respect to a given link
+MatrixN& RCArticulatedBody::calc_jacobian(const Vector3& p, RigidBodyPtr link, MatrixN& J)
+{
+  const unsigned NSPATIAL = 6;
+  SAFESTATIC MatrixN Jsub;
+
+  // resize the Jacobian
+  J.set_zero(NSPATIAL, num_generalized_coordinates(DynamicBody::eAxisAngle));
+
+  if (is_floating_base())
+  {
+    // calculate the floating base
+    calc_jacobian_floating_base(p, Jsub);
+
+    // setup the floating base
+    J.set_sub_mat(0,0,Jsub);
+  }
+
+  // calculate all relevant columns
+  while (link)
+  {
+    JointPtr joint = link->get_inner_joint_implicit();
+    calc_jacobian_column(joint, p, Jsub); 
+    J.set_sub_mat(0,joint->get_coord_index(), Jsub);
+    link = link->get_parent_link();
+  }
+
+  return J;
 }
 
 /// Calculates the column(s) of a Jacobian matrix
@@ -955,7 +985,7 @@ MatrixN& RCArticulatedBody::calc_jacobian_column(JointPtr joint, const Vector3& 
   // store current joint values
   map<JointPtr, VectorN> currentQ;
   for (unsigned i=0; i< _ijoints.size(); i++)
-    currentQ[_ijoints[i]] = _ijoints[i]->q;
+    currentQ[_ijoints[i]].copy_from(_ijoints[i]->q);
 
   // overwrite current joint values
   for (map<JointPtr, VectorN>::const_iterator i = q.begin(); i != q.end(); i++)
@@ -969,7 +999,7 @@ MatrixN& RCArticulatedBody::calc_jacobian_column(JointPtr joint, const Vector3& 
 
   // restore joint values
   for (map<JointPtr, VectorN>::const_iterator i = currentQ.begin(); i != currentQ.end(); i++)
-    i->first->q = i->second;
+    i->first->q.copy_from(i->second);
 
   // restore transforms
   update_link_transforms();
