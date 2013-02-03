@@ -954,7 +954,8 @@ MatrixN& RCArticulatedBody::calc_jacobian(const Vector3& p, RigidBodyPtr link, M
   }
 
   // calculate all relevant columns
-  while (link)
+  RigidBodyPtr base = get_base_link();
+  while (link != base)
   {
     JointPtr joint = link->get_inner_joint_implicit();
     calc_jacobian_column(joint, p, Jsub); 
