@@ -1229,7 +1229,17 @@ void CRBAlgorithm::calc_generalized_forces(SVector6& f0, VectorN& C)
   FILE_LOG(LOG_DYNAMICS) << "CRBAlgorithm::calc_generalized_forces exited" << std::endl;
 
   // set forces on base
-  f0 = forces[0];
+  Matrix3 R = base->get_transform().get_rotation();
+  if (rftype == eGlobal)
+  {
+    SpatialTransform X(IDENTITY_3x3, ZEROS_3, R, base->get_position());
+    f0 = X.transform(forces[0]);
+  }
+  else
+  {
+    f0.set_upper(R.transpose_mult(forces[0].get_upper()));
+    f0.set_lower(R.transpose_mult(forces[0].get_lower()));
+  }
 }
 
 /// Updates all link accelerations (except the base)
