@@ -9,6 +9,8 @@
 
 #include <Moby/VariableStepIntegrator.h>
 #include <Moby/Quat.h>
+#include <Moby/Log.h>
+#include <cstring>
 #ifdef THREADSAFE
 #include <pthread.h>
 #endif
