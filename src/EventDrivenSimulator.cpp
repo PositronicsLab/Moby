@@ -196,7 +196,7 @@ void EventDrivenSimulator::visualize_contact( Event& event ) {
   Real theta;
   Vector3 z = Vector3( 0.0, 0.0, 1.0 );
   Vector3 axis = Vector3::cross( event.contact_normal, z );
-  if( axis[0] == 0.0 && axis[1] == 0.0 && axis[2] == 0.0 ) {
+  if( axis.norm_inf() < NEAR_ZERO) {
     // z and normal are parallel, axis ill defined
     if( event.contact_normal[2] > 0 ) {
       // normal is z
