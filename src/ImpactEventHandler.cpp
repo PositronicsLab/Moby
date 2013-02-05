@@ -4,6 +4,7 @@
  * License (found in COPYING).
  ****************************************************************************/
 
+#include <iomanip>
 #include <boost/foreach.hpp>
 #include <boost/algorithm/minmax_element.hpp>
 #include <limits>
@@ -116,8 +117,6 @@ void ImpactEventHandler::apply_model(const vector<Event>& events) const
   for (list<list<Event*> >::const_iterator i = groups.begin(); i != groups.end(); i++)
     for (list<Event*>::const_iterator j = i->begin(); j != i->end(); j++)
       if ((*j)->is_impacting())
-        impacting.push_back(*j);
-
 
   // if there are any events still impacting, throw an exception 
   if (!impacting.empty())
@@ -1112,7 +1111,7 @@ oparams.max_iterations = 10000;
   FILE_LOG(LOG_EVENT) << "ImpactEventHandler::solve_nqp() exited" << std::endl;
 }
 
-/// Solves the quadratic program (does all of the work)
+/// Solves the quadratic program (does all of the work) for given active contact set
 /**
  * \note this is the version without joint friction forces
  */
@@ -1124,6 +1123,374 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorN& z)
 
   // get the number of different types of each event
   const unsigned N_CONTACTS = q.N_CONTACTS;
+  const unsigned N_LIMITS = q.N_LIMITS;
+  const unsigned N_CONSTRAINT_EQNS_EXP = q.N_CONSTRAINT_EQNS_EXP;
+  const unsigned N_K_TOTAL = q.N_K_TOTAL;
+
+  // setup variable indices
+  const unsigned ALPHA_C_IDX = 0;
+  const unsigned BETA_C_IDX = N_CONTACTS;
+  const unsigned NBETA_C_IDX = N_CONTACTS*2 + BETA_C_IDX;
+  const unsigned ALPHA_L_IDX = N_CONTACTS*2 + NBETA_C_IDX;
+  const unsigned ALPHA_X_IDX = N_LIMITS + ALPHA_L_IDX;
+  const unsigned NVARS = N_CONSTRAINT_EQNS_EXP + ALPHA_X_IDX;
+
+  // first, solve for impulses that satisfy explicit constraint equations
+  // and compute the appropriate nullspace 
+  if (N_CONSTRAINT_EQNS_EXP > 0)
+  {
+    // compute the homogeneous solution
+    A.copy_from(q.Jx_iM_JxT);
+    z.copy_from(q.Jx_v).negate();
+    try
+    {
+      LinAlg::solve_LS_fast1(A, z);
+    }
+    catch (NumericalException e)
+    {
+      A.copy_from(q.Jx_iM_JxT);
+      LinAlg::solve_LS_fast2(A, z);
+    }
+
+    // compute the nullspace
+    A.resize(N_CONSTRAINT_EQNS_EXP, NVARS);
+    MatrixN::transpose(q.Jc_iM_JxT, t1);
+    MatrixN::transpose(q.Dc_iM_JxT, t2);
+    MatrixN::transpose(q.Jl_iM_JxT, t3);
+    neg1.copy_from(t2).negate();
+    A.set_sub_row_block(0, &t1, &t2, &neg1, &t3, &q.Jx_iM_JxT);
+    LinAlg::nullspace(A, R);
+  }
+  else
+  {
+    R.set_zero(NVARS,NVARS);
+    for (unsigned i=0; i< NVARS; i++) 
+      R(i,i) = (Real) 1.0;
+    z.set_zero(NVARS);
+  }
+
+  // get number of qp variables
+  const unsigned N_PRIMAL = R.columns();
+
+  // init the QP matrix and vector
+  const unsigned KAPPA = (q.use_kappa) ? 1 : 0;
+  const unsigned N_INEQUAL = N_CONTACTS + N_K_TOTAL + N_LIMITS + KAPPA;
+  H.resize(N_PRIMAL, N_PRIMAL);
+  c.resize(H.rows());
+  A.set_zero(N_INEQUAL, N_PRIMAL);
+  nb.set_zero(N_INEQUAL);
+  MM.set_zero(N_PRIMAL + N_INEQUAL, N_PRIMAL + N_INEQUAL);
+  qq.resize(MM.rows());
+
+  // setup [Q M'; -M 0]
+  unsigned col = 0, row = 0;
+
+  // row (block) 1 -- Jc * iM * [Jc' Dc' -Dc' Jl' Jx']
+  neg1.copy_from(q.Jc_iM_DcT).negate();
+  H.set_sub_row_block(0, &q.Jc_iM_JcT, &q.Jc_iM_DcT, &neg1, &q.Jc_iM_JlT, 
+                      &q.Jc_iM_JxT);
+  row += N_CONTACTS;
+  
+  // row (block) 2 -- Dc * iM * [Jc' Dc' -Dc' Jl' Jx']
+  MatrixN::transpose(q.Jc_iM_DcT, t1);
+  neg1.copy_from(q.Dc_iM_DcT).negate();
+  H.set_sub_row_block(row, &t1, &q.Dc_iM_DcT, &neg1, &q.Dc_iM_JlT, 
+                      &q.Dc_iM_JxT);
+
+  // row (block 3) -- negated block 2
+  H.get_sub_mat(row, row+N_CONTACTS*2, 0, H.columns(), sub);
+  H.set_sub_mat(row+N_CONTACTS*2, 0, sub.negate());
+  row += N_CONTACTS*4;
+
+  // row (block 4) -- Jl * iM * [Jc' Dc' -Dc' Jl Jx']
+  MatrixN::transpose(q.Jc_iM_JlT, t1);
+  MatrixN::transpose(q.Dc_iM_JlT, t2);
+  neg1.copy_from(t2).negate();
+  H.set_sub_row_block(row, &t1, &t2, &neg1, &q.Jl_iM_JlT, &q.Jl_iM_JxT);
+  row += N_LIMITS;
+  
+  // row (block 5) -- Jx * iM * [Jc' Dc' -Dc' Jl Jx']
+  MatrixN::transpose(q.Jc_iM_JxT, t1);
+  MatrixN::transpose(q.Dc_iM_JxT, t2);
+  MatrixN::transpose(q.Jl_iM_JxT, t3);
+  neg1.copy_from(t2).negate();
+  H.set_sub_row_block(row, &t1, &t2, &neg1, &t3, &q.Jx_iM_JxT);
+
+  // setup c 
+  c.set_sub_vec(ALPHA_C_IDX, q.Jc_v);         
+  c.set_sub_vec(BETA_C_IDX, q.Dc_v);         
+  negv.copy_from(q.Dc_v).negate();
+  c.set_sub_vec(NBETA_C_IDX, negv);           
+  c.set_sub_vec(ALPHA_L_IDX, q.Jl_v);         
+  c.set_sub_vec(ALPHA_X_IDX, q.Jx_v);         
+
+  // setup the Jc*v+ >= 0 constraint
+  // Jc*(inv(M)*impulses + v) >= 0, Jc*inv(M)*impulses >= -Jc*v
+  row = 0; col = 0;
+  nb.set_sub_vec(row, q.Jc_v);
+  H.get_sub_mat(ALPHA_C_IDX, ALPHA_C_IDX+N_CONTACTS, 0, H.columns(), sub);
+  A.set_sub_mat(row, 0, sub);
+  row += N_CONTACTS;
+  
+  // setup the Jl*v+ >= 0 constraint
+  nb.set_sub_vec(row, q.Jl_v);
+  H.get_sub_mat(ALPHA_L_IDX, ALPHA_L_IDX+N_LIMITS, 0, H.columns(), sub);
+  A.set_sub_mat(row, 0, sub);
+  row += N_LIMITS;
+
+  // setup the contact friction constraints
+  // mu_c*cn + mu_v*cvel >= beta
+  for (unsigned i=0, k=0; i< N_CONTACTS; i++, k+= 2)
+  {
+    // initialize the contact velocity
+    Real vel = std::sqrt(sqr(q.Dc_v[k]) + sqr(q.Dc_v[k+1]));
+
+    // setup the Coulomb friction inequality constraints for this contact
+    for (unsigned j=0; j< q.contact_events[i]->contact_NK; j++)
+    {
+      Real theta = (Real) j/(q.contact_events[i]->contact_NK-1) * M_PI_2;
+      const Real ct = std::cos(theta);
+      const Real st = std::sin(theta);
+      A(row, ALPHA_C_IDX+i) = q.contact_events[i]->contact_mu_coulomb;
+      A(row, BETA_C_IDX+k) = -ct;
+      A(row, NBETA_C_IDX+k) = -ct;
+      A(row, BETA_C_IDX+k+1) = -st;
+      A(row, NBETA_C_IDX+k+1) = -st;
+
+      // setup the viscous friction component
+      nb[row++] = q.contact_events[i]->contact_mu_viscous * vel;
+    }
+  }
+
+  // setup the normal impulse constraint
+  // 1'cn <= kappa (equiv. to -1'cn >= -kappa)
+  if (q.use_kappa)
+  {
+    for (unsigned i=0; i< N_CONTACTS; i++)
+      A(row, ALPHA_C_IDX+i) = (Real) -1.0;
+    nb[row] = q.kappa;
+  }
+
+  // setup optimizations in nullspace 
+  R.transpose_mult(H, RTH);
+  RTH.mult(R, H);
+  R.transpose_mult(c, tmpv);
+  c.copy_from(tmpv);
+  RTH.mult(z, tmpv);
+  c += tmpv;
+
+  // setup constraints A*x >= b in nullspace, yielding
+  // A(R*y + z) >= b, yielding R*y >= b - A*z
+  A.mult(z, tmpv);
+  nb += tmpv;
+  A.mult(R, AR);
+
+  // setup the LCP matrix
+  MM.set_sub_mat(0, 0, H);
+  MM.set_sub_mat(N_PRIMAL, 0, AR);
+  MM.set_sub_mat(0, N_PRIMAL, AR.negate(), true);
+
+  // setup the LCP vector
+  qq.set_sub_vec(0, c);
+  qq.set_sub_vec(N_PRIMAL, nb);
+
+  FILE_LOG(LOG_EVENT) << "ImpactEventHandler::solve_qp() entered" << std::endl;
+  FILE_LOG(LOG_EVENT) << "  Jc * inv(M) * Jc': " << std::endl << q.Jc_iM_JcT;
+  FILE_LOG(LOG_EVENT) << "  Jc * inv(M) * Dc': " << std::endl << q.Jc_iM_DcT;
+  FILE_LOG(LOG_EVENT) << "  Jc * inv(M) * Jl': " << std::endl << q.Jc_iM_JlT;
+  FILE_LOG(LOG_EVENT) << "  Jc * inv(M) * Jx': " << std::endl << q.Jc_iM_JxT;
+  FILE_LOG(LOG_EVENT) << "  Dc * inv(M) * Dc': " << std::endl << q.Dc_iM_DcT;
+  FILE_LOG(LOG_EVENT) << "  Dc * inv(M) * Jl': " << std::endl << q.Dc_iM_JlT;
+  FILE_LOG(LOG_EVENT) << "  Dc * inv(M) * Jx': " << std::endl << q.Dc_iM_JxT;
+  FILE_LOG(LOG_EVENT) << "  Jl * inv(M) * Jl': " << std::endl << q.Jl_iM_JlT;
+  FILE_LOG(LOG_EVENT) << "  Jl * inv(M) * Jx': " << std::endl << q.Jl_iM_JxT;
+  FILE_LOG(LOG_EVENT) << "  Jx * inv(M) * Jx': " << std::endl << q.Jx_iM_JxT;
+  FILE_LOG(LOG_EVENT) << "  Jc * v: " << q.Jc_v << std::endl;
+  FILE_LOG(LOG_EVENT) << "  Dc * v: " << q.Dc_v << std::endl;
+  FILE_LOG(LOG_EVENT) << "  Jl * v: " << q.Jl_v << std::endl;
+  FILE_LOG(LOG_EVENT) << "  Jx * v: " << q.Jx_v << std::endl;
+  FILE_LOG(LOG_EVENT) << "H matrix: " << std::endl << H;
+  FILE_LOG(LOG_EVENT) << "c vector: " << c << std::endl;
+  FILE_LOG(LOG_EVENT) << "A matrix: " << std::endl << A;
+  FILE_LOG(LOG_EVENT) << "b vector: " << (-nb) << std::endl;
+  FILE_LOG(LOG_EVENT) << "LCP matrix: " << std::endl << MM; 
+  FILE_LOG(LOG_EVENT) << "LCP vector: " << qq << std::endl; 
+
+  // solve the LCP using Lemke's algorithm
+  if (!Optimization::lcp_lemke_regularized(MM, qq, tmpv))
+    throw std::runtime_error("Unable to solve event QP!");
+
+  // get the nullspace solution out
+  FILE_LOG(LOG_EVENT) << "LCP solution: " << tmpv << std::endl; 
+  tmpv.get_sub_vec(0, N_PRIMAL, y);
+  R.mult(y, tmpv);
+  z += tmpv;
+
+  FILE_LOG(LOG_EVENT) << "QP solution: " << z << std::endl; 
+  FILE_LOG(LOG_EVENT) << "ImpactEventHandler::solve_qp() exited" << std::endl;
+}
+
+/// Checks whether the optimization is satisfied
+bool ImpactEventHandler::opt_satisfied(const EventProblemData& q, VectorN& x, unsigned j)
+{
+  SAFESTATIC VectorN workv, Jc_v;
+
+  // determine the proposed solution
+
+  // evaluate the noninterpenetration constraints
+  Jc_v.copy_from(q.Jc_v);
+  Jc_v += q.Jc_iM_JcT.mult(alpha_c, workv);
+  Jc_v += q.Jc_iM_DcT.mult(beta_c, workv);
+  Jc_v += q.Jc_iM_JlT.mult(alpha_l, workv);
+  Jc_v += q.Jc_iM_JxT.mult(alpha_x, workv);
+  Jc_v += q.Jc_iM_DxT.mult(beta_x, workv);
+  if (*std::min_element(Jc_v.begin(), Jc_v.end()) < TOL)
+    return false;
+
+  // evaluate the equality constraints
+
+}
+
+/// Solves the quadratic program (does all of the work) 
+/**
+ * \note this is the version without joint friction forces
+ */
+void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorN& z)
+{
+  SAFESTATIC vector<Vector3> x;
+
+  // if we're not dealing with many contacts, exit now 
+  if (q.NCONTACTS < 4)
+  {
+    solve_qp_work_active(q, z);
+    return;
+  } 
+
+  // copy the event problem data
+  EventProblemData qcopy;
+  qcopy.copy_from(q);
+  x.resize(q.NCONTACTS, ZEROS_3);
+
+  // set only first contact to active
+  std::fill(qcopy.working_set.begin(), qcopy.working_set.end(), false);
+  qcopy.working_set[0] = true;
+  solve_qp_work_working(qcopy, x);
+
+  // begin looping
+  for (unsigned j=1; j< q.NCONTACTS; )
+  {
+    // see whether contact is already in the working set _or_
+    // setting contact forces for y to zero is acceptible
+    if (qcopy.working_set[j] || opt_satisfied(qcopy, x, j))
+    {
+      j++;
+      continue;
+    }
+
+    // compute contact forces for contacts in working set
+    qcopy.working_set[j] = true;
+    solve_qp_work_working(qcopy, x);
+    
+    // check noninterpenetration and KKT constraints
+    for (unsigned i=0; i< qcopy.working_set.size(); i++)
+    {
+      if (i != j && qcopy.working_set[i])
+      {
+        qcopy.working_set[i] = false;
+        if (!opt_satisfied(qcopy, x, i))
+          qcopy.working_set[i] = true;
+      }
+    }
+      
+    // reset j now
+    j = 0;
+  }
+
+/*
+  FILE_LOG(LOG_EVENT) << "ImpactEventHandler::solve_qp() entered" << std::endl;
+  FILE_LOG(LOG_EVENT) << "  Jc * inv(M) * Jc': " << std::endl << q.Jc_iM_JcT;
+  FILE_LOG(LOG_EVENT) << "  Jc * inv(M) * Dc': " << std::endl << q.Jc_iM_DcT;
+  FILE_LOG(LOG_EVENT) << "  Jc * inv(M) * Jl': " << std::endl << q.Jc_iM_JlT;
+  FILE_LOG(LOG_EVENT) << "  Jc * inv(M) * Jx': " << std::endl << q.Jc_iM_JxT;
+  FILE_LOG(LOG_EVENT) << "  Dc * inv(M) * Dc': " << std::endl << q.Dc_iM_DcT;
+  FILE_LOG(LOG_EVENT) << "  Dc * inv(M) * Jl': " << std::endl << q.Dc_iM_JlT;
+  FILE_LOG(LOG_EVENT) << "  Dc * inv(M) * Jx': " << std::endl << q.Dc_iM_JxT;
+  FILE_LOG(LOG_EVENT) << "  Jl * inv(M) * Jl': " << std::endl << q.Jl_iM_JlT;
+  FILE_LOG(LOG_EVENT) << "  Jl * inv(M) * Jx': " << std::endl << q.Jl_iM_JxT;
+  FILE_LOG(LOG_EVENT) << "  Jx * inv(M) * Jx': " << std::endl << q.Jx_iM_JxT;
+  FILE_LOG(LOG_EVENT) << "  Jc * v: " << q.Jc_v << std::endl;
+  FILE_LOG(LOG_EVENT) << "  Dc * v: " << q.Dc_v << std::endl;
+  FILE_LOG(LOG_EVENT) << "  Jl * v: " << q.Jl_v << std::endl;
+  FILE_LOG(LOG_EVENT) << "  Jx * v: " << q.Jx_v << std::endl;
+  FILE_LOG(LOG_EVENT) << "H matrix: " << std::endl << H;
+  FILE_LOG(LOG_EVENT) << "c vector: " << c << std::endl;
+  FILE_LOG(LOG_EVENT) << "A matrix: " << std::endl << A;
+  FILE_LOG(LOG_EVENT) << "b vector: " << (-nb) << std::endl;
+  FILE_LOG(LOG_EVENT) << "LCP matrix: " << std::endl << MM; 
+  FILE_LOG(LOG_EVENT) << "LCP vector: " << qq << std::endl; 
+
+  // solve the LCP using Lemke's algorithm
+  if (!Optimization::lcp_lemke_regularized(MM, qq, tmpv))
+    throw std::runtime_error("Unable to solve event QP!");
+*/
+
+  // get the nullspace solution out
+  FILE_LOG(LOG_EVENT) << "LCP solution: " << tmpv << std::endl; 
+  tmpv.get_sub_vec(0, N_PRIMAL, y);
+  R.mult(y, tmpv);
+  z += tmpv;
+
+  FILE_LOG(LOG_EVENT) << "QP solution: " << z << std::endl; 
+  FILE_LOG(LOG_EVENT) << "ImpactEventHandler::solve_qp() exited" << std::endl;
+}
+
+/// Updates problem matrices and vectors based on the working set
+void ImpactEventHandler::update_problem(const EventProblemData& q, EventProblemData& qworking)
+{
+  SAFESTATIC vector<unsigned> norm_indices, tan_indices;
+
+  // determine how many contacts we have
+  qworking.N_CONTACTS = std::count(qworking.working_set.begin(), qworking.working_set.end(), true);
+
+  // setup contact indices set
+  norm_indices.clear();
+  for (unsigned i=0; i< q.working_set.size(); i++)
+    if (qworking.working_set[i])
+    {
+      norm_indices.push_back(i);
+      tan_indices.push_back();
+    }
+
+  // select appropriate parts of vectors 
+  q.Jc_v.select(norm_indices.begin(), norm_indices.end(), qworking.Jc_v);
+  q.Dc_v.select(tan_indices.begin(), tan_indices.end(), qworking.Dc_v);
+
+  // select appropriate parts of Jc matrices 
+  q.Jc_iM_JcT.select_square(norm_indices.begin(), norm_indices.end(), qworking.Jc_iM_JcT);
+  q.Jc_iM_DcT.select(norm_indices.begin(), norm_indices.end(), tan_indices.begin(), tan_indices.end(), qworking.Jc_iM_DcT);
+  q.Jc_iM_JlT.select_rows(norm_indices.begin(), norm_indices.end(), qworking.Jc_iM_JlT);
+  q.Jc_iM_JxT.select_rows(norm_indices.begin(), norm_indices.end(), qworking.Jc_iM_JxT);
+  q.Jc_iM_DxT.select_rows(norm_indices.begin(), norm_indices.end(), qworking.Jc_iM_DxT);
+
+  // select appropriate parts of Dc matrices
+  q.Dc_iM_DcT.select_square(tan_indices.begin(), tan_indices.end(), qworking.Dc_iM_DcT);
+  q.Dc_iM_JlT.select_rows(tan_indices.begin(), tan_indices.end(), qworking.Dc_iM_JlT);
+  q.Dc_iM_JxT.select_rows(tan_indices.begin(), tan_indices.end(), qworking.Dc_iM_JxT);
+  q.Dc_iM_DxT.select_rows(tan_indices.begin(), tan_indices.end(), qworking.Dc_iM_DxT);
+}
+
+/// Solves the quadratic program (does all of the work)
+/**
+ * \note this is the version without joint friction forces
+ */
+void ImpactEventHandler::solve_qp_work_working(EventProblemData& q, VectorN& z)
+{
+  SAFESTATIC MatrixN sub, t1, t2, t3, neg1, A, AR, R, RTH;
+  SAFESTATIC MatrixN H, MM;
+  SAFESTATIC VectorN negv, c, qq, nb, tmpv, y;
+
+  // get the number of different types of each event
+  const unsigned N_CONTACTS = std::count(q.working_set.begin(), q.working_set.end(), true);
   const unsigned N_LIMITS = q.N_LIMITS;
   const unsigned N_CONSTRAINT_EQNS_EXP = q.N_CONSTRAINT_EQNS_EXP;
   const unsigned N_K_TOTAL = q.N_K_TOTAL;

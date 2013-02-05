@@ -8,7 +8,7 @@
 
   <MOBY>
     <!-- Primitives -->
-    <Box id="b1" xlen="1" ylen="1" zlen="1" density="1.0" edge-sample-length="10" />
+    <Box id="b1" xlen="1" ylen="1" zlen="1" density="1.0" edge-sample-length=".25" />
     <Box id="b3" xlen="10" ylen=".5" zlen="2" density="10.0" />
 
     <!-- Integrator -->
@@ -35,7 +35,7 @@
 
     <!-- Rigid bodies -->
       <!-- the box -->
-      <RigidBody name="box" id="box" enabled="true" position="0 .50001 0" angular-velocity="0 10.00 0" visualization-id="b1" linear-velocity="0 0 0">
+      <RigidBody name="box" id="box" enabled="true" position="0 .50001 0" angular-velocity="1.11 1.21 -1.1" visualization-id="b1" linear-velocity="0 0 0">
         <InertiaFromPrimitive primitive-id="b1" />
         <CollisionGeometry primitive-id="b1" />
       </RigidBody>

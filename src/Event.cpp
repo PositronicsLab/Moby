@@ -1036,7 +1036,7 @@ bool Event::is_contact_manifold_2D(const list<Event*>& events)
 void Event::determine_minimal_set(list<Event*>& group)
 {
   // if there are very few events, quit now
-  if (group.size() <= 4)
+  if (true || group.size() <= 4)
     return;
 
   FILE_LOG(LOG_EVENT) << "Event::determine_minimal_set() entered" << std::endl;
