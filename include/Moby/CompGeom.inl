@@ -557,7 +557,9 @@ PolyhedronPtr CompGeom::calc_hs_intersection(InputIterator start, InputIterator 
   }
 
   // lock the qhull mutex -- qhull is non-reentrant
+  #ifdef THREADSAFE
   pthread_mutex_lock(&_qhull_mutex);
+  #endif
 
   // execute qhull
   int exit_code = qh_new_qhull(DIM, nspaces, qhull_hs.get(), IS_MALLOC, (char*) flags.str().c_str(), outfile, errfile);
@@ -568,7 +570,9 @@ PolyhedronPtr CompGeom::calc_hs_intersection(InputIterator start, InputIterator 
     qh_memfreeshort(&curlong, &totlong);
 
     // qhull failed
+    #ifdef THREADSAFE
     pthread_mutex_unlock(&_qhull_mutex);
+    #endif
 
     // close the error stream, if necessary
     if (!LOGGING(LOG_COMPGEOM))
@@ -626,7 +630,9 @@ PolyhedronPtr CompGeom::calc_hs_intersection(InputIterator start, InputIterator 
   assert(!curlong && !totlong);
   
   // release the qhull mutex
+  #ifdef THREADSAFE
   pthread_mutex_unlock(&_qhull_mutex);
+  #endif
 
   // now, calculate the convex hull of the intersection points  
   PolyhedronPtr p = calc_convex_hull_3D(points.begin(), points.end());
@@ -1232,8 +1238,10 @@ OutputIterator CompGeom::calc_convex_hull_2D(InputIterator source_begin, InputIt
   }
   
   // lock the qhull mutex -- qhull is non-reentrant
+  #ifdef THREADSAFE
   pthread_mutex_lock(&_qhull_mutex);
-  
+  #endif
+
   // execute qhull  
   exit_code = qh_new_qhull(DIM, N_POINTS, qhull_points, IS_MALLOC, flags, outfile, errfile);
   if (exit_code != 0)
@@ -1248,7 +1256,9 @@ OutputIterator CompGeom::calc_convex_hull_2D(InputIterator source_begin, InputIt
     qh_memfreeshort(&curlong, &totlong);
 
     // release the mutex, since we're not using qhull anymore
+    #ifdef THREADSAFE
     pthread_mutex_unlock(&_qhull_mutex);
+    #endif
 
     // close the error stream, if necessary
     if (!LOGGING(LOG_COMPGEOM))
@@ -1298,7 +1308,9 @@ OutputIterator CompGeom::calc_convex_hull_2D(InputIterator source_begin, InputIt
   qh_memfreeshort(&curlong, &totlong);
 
   // release the qhull mutex
+  #ifdef THREADSAFE
   pthread_mutex_unlock(&_qhull_mutex);
+  #endif
   
   // construct the set of processed vertex
   std::set<unsigned> processed;
