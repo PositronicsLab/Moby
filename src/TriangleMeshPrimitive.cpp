@@ -264,6 +264,9 @@ void TriangleMeshPrimitive::load_from_xml(XMLTreeConstPtr node, map<string, Base
 
   // update the visualization, if necessary
   update_visualization();
+
+  // recompute mass properties
+  calc_mass_properties();
 }
 
 /// Implements Base::save_to_xml()
