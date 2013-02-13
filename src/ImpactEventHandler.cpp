@@ -90,6 +90,7 @@ void ImpactEventHandler::apply_model(const vector<Event>& events) const
   // **********************************************************
   for (list<list<Event*> >::iterator i = groups.begin(); i != groups.end(); i++)
   {
+<<<<<<< HEAD
     // determine contact tangents
     for (list<Event*>::iterator j = i->begin(); j != i->end(); j++)
       if ((*j)->event_type == Event::eContact)
