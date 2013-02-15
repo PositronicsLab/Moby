@@ -139,7 +139,7 @@ class ImpactEventHandler
     static void solve_qp_work(EventProblemData& epd, VectorN& z);
     static void solve_qp_work_general(EventProblemData& epd, VectorN& z);
     static void solve_qp_work_ijoints(EventProblemData& epd, VectorN& z);
-    static Real calc_ke(const EventProblemData& epd);
+    static Real calc_ke(EventProblemData& epd, const VectorN& z);
     static bool opt_satisfied(const EventProblemData& q, const std::vector<bool>& working_set, Real& KE, VectorN& x, unsigned j);
     static void update_problem(const EventProblemData& qorig, const std::vector<bool>& working_set, EventProblemData& qnew);
     static void update_solution(const EventProblemData& q, const VectorN& x, const std::vector<bool>& working_set, unsigned jidx, VectorN& z);
