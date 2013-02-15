@@ -39,8 +39,6 @@ class Matrix3
     void inverse();
     static Vector3 calc_differential(const Matrix3& R1, const Matrix3& R2);
     static Matrix3 inverse(const Matrix3& m);
-    static Matrix3 rpy(Real alpha, Real beta, Real gamma);
-    Matrix3& set_rpy(Real alpha, Real beta, Real gamma) { return operator=(Matrix3::rpy(alpha, beta, gamma)); }
     void set_rot_X(Real angle);
     static Matrix3 rot_X(Real angle);
     void set_rot_Y(Real angle);

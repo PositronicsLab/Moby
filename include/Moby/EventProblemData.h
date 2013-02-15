@@ -18,6 +18,68 @@ struct EventProblemData
     reset();
   }
 
+  // copies event problem data
+  EventProblemData& copy_from(const EventProblemData& q)
+  {
+    N_K_TOTAL = q.N_K_TOTAL;
+    N_LIN_CONE = q.N_LIN_CONE;
+    N_TRUE_CONE = q.N_TRUE_CONE;
+    N_LOOPS = q.N_LOOPS;
+    N_CONTACTS = q.N_CONTACTS;
+    N_CONSTRAINTS = q.N_CONSTRAINTS;
+    N_CONSTRAINT_DOF_EXP = q.N_CONSTRAINT_DOF_EXP;
+    N_CONSTRAINT_EQNS_EXP = q.N_CONSTRAINT_EQNS_EXP;
+    N_CONSTRAINT_DOF_IMP = q.N_CONSTRAINT_DOF_IMP;
+    use_kappa = q.use_kappa;
+    kappa = q.kappa;
+
+    // copy event velocities
+    Jc_v = q.Jc_v;
+    Dc_v = q.Dc_v;
+    Jl_v = q.Jl_v;
+    Jx_v = q.Jx_v;
+    Dx_v = q.Dx_v;
+
+    // the vector of "super" bodies
+    super_bodies = q.super_bodies; 
+
+    // the vectors of events
+    contact_events = q.contact_events;
+    limit_events = q.limit_events;
+    constraint_events = q.constraint_events;
+
+    // cross-event terms
+    Jc_iM_JcT = q.Jc_iM_JcT;
+    Jc_iM_DcT = q.Jc_iM_DcT;
+    Jc_iM_JlT = q.Jc_iM_JlT;
+    Jc_iM_DtT = q.Jc_iM_DtT;
+    Jc_iM_JxT = q.Jc_iM_JxT;
+    Jc_iM_DxT = q.Jc_iM_DxT;
+    Dc_iM_DcT = q.Dc_iM_DcT;
+    Dc_iM_JlT = q.Dc_iM_JlT;
+    Dc_iM_DtT = q.Dc_iM_DtT;
+    Dc_iM_JxT = q.Dc_iM_JxT;
+    Dc_iM_DxT = q.Dc_iM_DxT;
+    Jl_iM_JlT = q.Jl_iM_JlT;
+    Jl_iM_DtT = q.Jl_iM_DtT;
+    Jl_iM_JxT = q.Jl_iM_JxT;
+    Jl_iM_DxT = q.Jl_iM_DxT;
+    Dt_iM_DtT = q.Dt_iM_DtT;
+    Dt_iM_JxT = q.Dt_iM_JxT;
+    Dt_iM_DxT = q.Dt_iM_DxT;
+    Jx_iM_JxT = q.Jx_iM_JxT;
+    Jx_iM_DxT = q.Jx_iM_DxT;
+    Dx_iM_DxT = q.Dx_iM_DxT;
+
+    // copy impulse magnitudes 
+    alpha_c = q.alpha_c;
+    beta_c = q.beta_c;
+    alpha_l = q.alpha_l;
+    beta_t = q.beta_t;
+    alpha_x = q.alpha_x;
+    beta_x = q.beta_x;     
+  }
+
   // resets all event problem data
   void reset()
   {
