@@ -8,6 +8,7 @@
 #define _VARIABLE_STEP_INTEGRATOR_H
 
 #include <Moby/Integrator.h>
+#include <Moby/Constants.h>
 
 namespace Moby {
 

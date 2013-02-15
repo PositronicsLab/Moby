@@ -862,6 +862,28 @@ void Event::determine_convex_set(list<Event*>& group)
   if (group.size() <= 3)
     return;
 
+  // verify that all points have same coefficient of friction
+  bool found_contact = false;
+  Real mu_coulomb, mu_viscous;
+  BOOST_FOREACH(Event* e, group)
+  {
+    if (e->event_type != Event::eContact)
+      continue;
+    if (found_contact)
+    {
+      // look for coefficients of friction not being identical 
+      if (!CompGeom::rel_equal(mu_coulomb, e->contact_mu_coulomb, NEAR_ZERO) ||
+          !CompGeom::rel_equal(mu_viscous, e->contact_mu_viscous, NEAR_ZERO))
+        return; 
+    }
+    else
+    {
+      mu_coulomb = e->contact_mu_coulomb;
+      mu_viscous = e->contact_mu_viscous;
+      found_contact = true;
+    }
+  }
+
   // get all points
   vector<Vector3*> points;
   BOOST_FOREACH(Event* e, group)
@@ -1014,7 +1036,7 @@ bool Event::is_contact_manifold_2D(const list<Event*>& events)
 void Event::determine_minimal_set(list<Event*>& group)
 {
   // if there are very few events, quit now
-  if (group.size() <= 4)
+  if (true || group.size() <= 4)
     return;
 
   FILE_LOG(LOG_EVENT) << "Event::determine_minimal_set() entered" << std::endl;
@@ -1048,7 +1070,7 @@ void Event::determine_minimal_set(list<Event*>& group)
   }
 
   // finally, determine the minimal subset
-  determine_minimal_subset(group);
+//  determine_minimal_subset(group);
 }
 
 void Event::determine_minimal_subset(list<Event*>& group)
