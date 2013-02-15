@@ -90,7 +90,6 @@ void ImpactEventHandler::apply_model(const vector<Event>& events) const
   // **********************************************************
   for (list<list<Event*> >::iterator i = groups.begin(); i != groups.end(); i++)
   {
-<<<<<<< HEAD
     // determine contact tangents
     for (list<Event*>::iterator j = i->begin(); j != i->end(); j++)
       if ((*j)->event_type == Event::eContact)
@@ -411,7 +410,7 @@ void ImpactEventHandler::update_impulses(EventProblemData& q, const VectorN& z)
   const unsigned BETA_X_IDX = ALPHA_X_IDX + N_CONSTRAINT_EQNS;
   const unsigned NVARS = BETA_X_IDX + q.N_CONSTRAINT_DOF_EXP;
   const unsigned NKAPPA = 0;
-  const unsigned NLININEQ = NVARS + N_CONTACTS + NKAPPA + N_K_TOTAL + N_LIMITS; 
+  const unsigned NLININEQ = N_CONTACTS + NKAPPA + N_K_TOTAL + N_LIMITS; 
   assert(NVARS+NLININEQ == z.size());
 
   // add to impulses in q
