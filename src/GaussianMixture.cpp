@@ -549,6 +549,7 @@ bool GaussianMixture::intersect_seg(BVPtr bv, const LineSeg3& seg,Real& t,Vector
   tempMax = -std::numeric_limits<Real>::max();
   int num = 0;
 
+/*
   // find max(z) of gaussians (we need to find out which Gaussian is tallest
   // at the first point in the line segment)
   for(unsigned i=0; i<_gauss.size();i++){
@@ -568,6 +569,7 @@ bool GaussianMixture::intersect_seg(BVPtr bv, const LineSeg3& seg,Real& t,Vector
       num = i;
     }
   }
+*/
 
   //*************************************************************
   // check whether the first point in the line segment is already inside
