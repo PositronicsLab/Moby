@@ -2124,7 +2124,7 @@ void SLSQP(unsigned M, unsigned MEQ, unsigned LA, unsigned N, Real* X, const Rea
 {
   shared_ptr<slsqpb_state> sstate;
 
-  #ifdef THREADED 
+  #ifdef THREADSAFE 
   std::cerr << "SLSQP() was not written to be thread-safe!" << std::endl;
   #endif
 

@@ -37,7 +37,7 @@ class Log
   public:
     Log()
     {
-      #ifdef THREADED
+      #ifdef THREADSAFE
       std::cerr << "Log() warning: this class is not thread-safe!" << std::endl;
       #endif
     }
