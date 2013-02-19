@@ -36,6 +36,10 @@ class GaussianMixture : public Primitive
     #endif
 
     private:
+      static Vector3 grad(const Gauss& g, Real x, Real y);
+      static Real f(const Gauss& g, const Vector3& p, const Vector3& q, Real t);
+      static Real df(const Gauss& g, const Vector3& p, const Vector3& q, Real t);
+      static Real newton_raphson(const Gauss& g, const Vector3& p, const Vector3& q);
       static Gauss read_gauss_node(XMLTreeConstPtr node);
       static Real gauss(const Gauss& g, Real x, Real y);
       void construct_vertices();
