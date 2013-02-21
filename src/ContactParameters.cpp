@@ -19,7 +19,7 @@ ContactParameters::ContactParameters()
 {
   epsilon = 0.0;
   mu_coulomb = mu_viscous = 0.0;
-  NK = 2;
+  NK = 4;
 }
 
 /// Constructs a ContactParameters object with the given object IDs
@@ -31,7 +31,7 @@ ContactParameters::ContactParameters(BasePtr o1, BasePtr o2)
   objects = make_sorted_pair(o1, o2);
   epsilon = 0.0;
   mu_coulomb = mu_viscous = 0.0;
-  NK = 2;
+  NK = 4;
 }
 
 /// Implements Base::load_from_xml()
@@ -107,6 +107,11 @@ void ContactParameters::load_from_xml(XMLTreeConstPtr node, std::map<std::string
   const XMLAttrib* nk_attr = node->get_attrib("friction-cone-edges");
   if (nk_attr)
     NK = nk_attr->get_unsigned_value();
+  if (NK < 4)
+  {
+    std::cerr << "ContactParameters::load_from_xml() - fewer than minimum (four) polygon edges specified (using four instead)" << std::endl;
+    NK = 4;
+  }
 }
 
 /**

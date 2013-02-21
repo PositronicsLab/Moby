@@ -198,8 +198,7 @@ bool ImpactEventHandler::use_qp_solver(const EventProblemData& epd)
 
   // first, check whether any contact events use a true friction cone
   for (unsigned i=0; i< epd.N_CONTACTS; i++)
-    if (epd.contact_events[i]->contact_NK == UINF || 
-        epd.contact_events[i]->contact_NK < 2)
+    if (epd.contact_events[i]->contact_NK == UINF)
       return false;
 
   // now, check whether any articulated bodies use the advanced friction
@@ -263,6 +262,7 @@ void ImpactEventHandler::add_constraint_events(const list<Event*>& events, vecto
 /// Partitions the events into contact and limit events
 void ImpactEventHandler::partition_events(const list<Event*>& all, vector<Event*>& contacts, vector<Event*>& limits)
 {
+  const unsigned UINF = std::numeric_limits<unsigned>::max();
   contacts.clear();
   limits.clear();
 
@@ -275,6 +275,19 @@ void ImpactEventHandler::partition_events(const list<Event*>& all, vector<Event*
       assert(e->event_type == Event::eLimit);
       limits.push_back(e);
     }
+  }
+
+  // now, sort the contact events such that events that use a true friction
+  // cone are at the end
+  for (unsigned i=0, j=contacts.size()-1; i< j; )
+  {
+    if (contacts[i]->contact_NK == UINF)
+    {
+      std::swap(contacts[i], contacts[j]);
+      j--;
+    } 
+    else
+      i++;
   }
 }
 
@@ -322,6 +335,10 @@ void ImpactEventHandler::compute_problem_data(EventProblemData& q)
   q.N_CONTACTS = q.contact_events.size();
   q.N_LIMITS = q.limit_events.size();
 
+  // setup contact working set
+  q.contact_working_set.clear();
+  q.contact_working_set.resize(q.N_CONTACTS, true);
+
   // setup constants related to articulated bodies
   for (unsigned i=0; i< q.super_bodies.size(); i++)
   {
@@ -336,21 +353,28 @@ void ImpactEventHandler::compute_problem_data(EventProblemData& q)
     }
   }
 
-  // determine which contact constraints use a true friction cone
+  // compute number of friction polygon edges
   for (unsigned i=0; i< q.contact_events.size(); i++)
-    if (q.contact_events[i]->contact_NK < UINF &&
-        q.contact_events[i]->contact_NK >= 2)
-      q.N_K_TOTAL += q.contact_events[i]->contact_NK;
+  {
+    if (q.contact_events[i]->contact_NK < UINF)
+    {
+      q.N_K_TOTAL += q.contact_events[i]->contact_NK/2;
+      q.N_LIN_CONE++;
+    }
+    else if (q.contact_events[i]->contact_NK == UINF)
+      break;
+  }
 
-  // determine number of true friction constraints
-  for (unsigned i=0; i< q.N_CONTACTS; i++)
-    if (q.contact_events[i]->contact_NK == UINF ||
-        q.contact_events[i]->contact_NK < 2)
-      q.N_TRUE_CONE++;
+  // setup number of true cones
+  q.N_TRUE_CONE = q.contact_events.size() - q.N_LIN_CONE; 
 
-  // determine number of linearized friction constraints
-  q.N_LIN_CONE = q.N_CONTACTS - q.N_TRUE_CONE;
-
+  // verify contact constraints that use a true friction cone are at the end 
+  // of the contact vector
+  #ifndef NDEBUG
+  for (unsigned i=q.N_LIN_CONE; i< q.contact_events.size(); i++)
+    assert(q.contact_events[i]->contact_NK == UINF);
+  #endif
+   
   // initialize the problem matrices / vectors
   q.Jc_iM_JcT.set_zero(q.N_CONTACTS, q.N_CONTACTS);
   q.Jc_iM_DcT.set_zero(q.N_CONTACTS, q.N_CONTACTS*2);
@@ -385,48 +409,20 @@ void ImpactEventHandler::compute_problem_data(EventProblemData& q)
   q.alpha_x.set_zero(q.N_CONSTRAINT_EQNS_EXP);
   q.beta_x.set_zero(q.N_CONSTRAINT_DOF_EXP);
 
+  // setup indices
+  q.ALPHA_C_IDX = 0;
+  q.BETA_C_IDX = q.ALPHA_C_IDX + q.N_CONTACTS;
+  q.NBETA_C_IDX = q.BETA_C_IDX + q.N_LIN_CONE*2;
+  q.BETAU_C_IDX = q.NBETA_C_IDX + q.N_LIN_CONE*2;
+  q.ALPHA_L_IDX = q.BETAU_C_IDX + q.N_TRUE_CONE;
+  q.BETA_T_IDX = q.ALPHA_L_IDX + q.N_LIMITS;
+  q.ALPHA_X_IDX = q.BETA_T_IDX + q.N_CONSTRAINT_DOF_IMP;
+  q.BETA_X_IDX = q.ALPHA_X_IDX + q.N_CONSTRAINT_EQNS_EXP;
+  q.N_VARS = q.BETA_X_IDX + q.N_CONSTRAINT_DOF_EXP;
+
   // for each super body, update the problem data
   for (unsigned i=0; i< q.super_bodies.size(); i++)
     q.super_bodies[i]->update_event_data(q);
-}
-
-/// Updates impulses in q using concatenated vector of impulses z
-void ImpactEventHandler::update_impulses(EventProblemData& q, const VectorN& z)
-{
-  SAFESTATIC VectorN tmp;
-
-  // get the number of different types of each event
-  const unsigned UINF = std::numeric_limits<unsigned>::max();
-  const unsigned N_CONTACTS = q.N_CONTACTS;
-  const unsigned N_LIMITS = q.N_LIMITS;
-  const unsigned N_CONSTRAINT_EQNS = q.N_CONSTRAINT_EQNS_EXP;
-  const unsigned N_K_TOTAL = q.N_K_TOTAL;
-  const unsigned ALPHA_C_IDX = 0;
-  const unsigned BETA_C_IDX = N_CONTACTS;
-  const unsigned NBETA_C_IDX = BETA_C_IDX + N_CONTACTS*2;
-  const unsigned ALPHA_L_IDX = NBETA_C_IDX + q.N_LIN_CONE*2;
-  const unsigned BETA_T_IDX = ALPHA_L_IDX + N_LIMITS;
-  const unsigned ALPHA_X_IDX = BETA_T_IDX + q.N_CONSTRAINT_DOF_IMP;
-  const unsigned BETA_X_IDX = ALPHA_X_IDX + N_CONSTRAINT_EQNS;
-  const unsigned NVARS = BETA_X_IDX + q.N_CONSTRAINT_DOF_EXP;
-  const unsigned NKAPPA = 0;
-  const unsigned NLININEQ = N_CONTACTS + NKAPPA + N_K_TOTAL + N_LIMITS; 
-  assert(NVARS+NLININEQ == z.size());
-
-  // add to impulses in q
-  q.alpha_c += z.get_sub_vec(ALPHA_C_IDX, BETA_C_IDX, tmp);
-  q.beta_c += z.get_sub_vec(BETA_C_IDX, NBETA_C_IDX, tmp);
-  q.alpha_l += z.get_sub_vec(ALPHA_L_IDX, BETA_T_IDX, tmp);
-  q.alpha_x += z.get_sub_vec(ALPHA_X_IDX, BETA_X_IDX, tmp);
-
-  // update components of beta_c with negative impulses
-  for (unsigned i=0, j=0, k=NBETA_C_IDX; i< N_CONTACTS; i++, j+= 2)
-    if (q.contact_events[i]->contact_NK < UINF &&
-        q.contact_events[i]->contact_NK >= 2)
-    {
-      q.beta_c[j] -= z[k++];
-      q.beta_c[j+1] -= z[k++];
-    }
 }
 
 /// Solves the (frictionless) LCP
@@ -436,30 +432,10 @@ void ImpactEventHandler::solve_lcp(EventProblemData& q, VectorN& z)
   SAFESTATIC MatrixN UR, t2, iJx_iM_JxT;
   SAFESTATIC VectorN alpha_c, alpha_l, alpha_x, v1, v2, qq;
 
-  // get the number of different types of each event
-  const unsigned N_CONTACTS = q.N_CONTACTS;
-  const unsigned N_LIMITS = q.N_LIMITS;
-  const unsigned N_CONSTRAINT_EQNS_EXP = q.N_CONSTRAINT_EQNS_EXP;
-  const unsigned N_K_TOTAL = q.N_K_TOTAL;
-  const unsigned N_LIN_CONE = q.N_LIN_CONE;
-  const unsigned N_TRUE_CONE = q.N_TRUE_CONE;
-  const unsigned N_LOOPS = q.N_LOOPS;
-
-  // setup variable indices
-  const unsigned ALPHA_C_IDX = 0;
-  const unsigned BETA_C_IDX = N_CONTACTS;
-  const unsigned NBETA_C_IDX = N_CONTACTS*3;
-  const unsigned ALPHA_L_IDX = N_LIN_CONE*2 + NBETA_C_IDX;
-  const unsigned ALPHA_X_IDX = N_LIMITS + ALPHA_L_IDX;
-  const unsigned BETA_T_IDX = q.N_CONSTRAINT_EQNS_EXP + ALPHA_X_IDX;
-  const unsigned BETA_X_IDX = q.N_CONSTRAINT_DOF_IMP + BETA_T_IDX;
-  const unsigned DELTA_IDX = BETA_X_IDX + q.N_CONSTRAINT_DOF_EXP;
-  const unsigned NVARS = N_LOOPS + DELTA_IDX; 
-
   // setup sizes
-  UL.resize(N_CONTACTS, N_CONTACTS);
-  UR.resize(N_CONTACTS, N_LIMITS);
-  LR.resize(N_LIMITS, N_LIMITS);
+  UL.resize(q.N_CONTACTS, q.N_CONTACTS);
+  UR.resize(q.N_CONTACTS, q.N_LIMITS);
+  LR.resize(q.N_LIMITS, q.N_LIMITS);
 
   // setup primary terms -- first upper left hand block of matrix
   iJx_iM_JxT.copy_from(q.Jx_iM_JxT);
@@ -491,11 +467,11 @@ void ImpactEventHandler::solve_lcp(EventProblemData& q, VectorN& z)
   LR.negate();
 
   // setup the LCP matrix
-  MM.resize(N_CONTACTS + N_LIMITS, N_CONTACTS + N_LIMITS);
+  MM.resize(q.N_CONTACTS + q.N_LIMITS, q.N_CONTACTS + q.N_LIMITS);
   MM.set_sub_mat(0, 0, UL);
-  MM.set_sub_mat(0, N_CONTACTS, UR);
-  MM.set_sub_mat(N_CONTACTS, 0, UR, true);
-  MM.set_sub_mat(N_CONTACTS, N_CONTACTS, LR);
+  MM.set_sub_mat(0, q.N_CONTACTS, UR);
+  MM.set_sub_mat(q.N_CONTACTS, 0, UR, true);
+  MM.set_sub_mat(q.N_CONTACTS, q.N_CONTACTS, LR);
 
   // setup the LCP vector
   qq.resize(MM.rows());
@@ -505,7 +481,7 @@ void ImpactEventHandler::solve_lcp(EventProblemData& q, VectorN& z)
   qq.set_sub_vec(0, v1);
   q.Jl_iM_JxT.mult(v2, v1);
   v1 -= q.Jl_v;
-  qq.set_sub_vec(N_CONTACTS, v1);
+  qq.set_sub_vec(q.N_CONTACTS, v1);
   qq.negate();
 
   FILE_LOG(LOG_EVENT) << "ImpulseEventHandler::solve_lcp() entered" << std::endl;
@@ -521,12 +497,12 @@ void ImpactEventHandler::solve_lcp(EventProblemData& q, VectorN& z)
 
   // determine the value of kappa
   q.kappa = (Real) 0.0;
-  for (unsigned i=0; i< N_CONTACTS; i++)
+  for (unsigned i=0; i< q.N_CONTACTS; i++)
     q.kappa += z[i];
 
   // get alpha_c and alpha_l
-  z.get_sub_vec(0, N_CONTACTS, alpha_c);
-  z.get_sub_vec(N_CONTACTS, z.size(), alpha_l);
+  z.get_sub_vec(0, q.N_CONTACTS, alpha_c);
+  z.get_sub_vec(q.N_CONTACTS, z.size(), alpha_l);
 
   // Mv^* - Mv = Jc'*alpha_c + Jl'*alpha_l + Jx'*alpha_x
 
@@ -546,10 +522,10 @@ void ImpactEventHandler::solve_lcp(EventProblemData& q, VectorN& z)
   iJx_iM_JxT.mult(v1, alpha_x);
 
   // setup the homogeneous solution
-  z.set_zero(NVARS);
-  z.set_sub_vec(ALPHA_C_IDX, alpha_c);
-  z.set_sub_vec(ALPHA_L_IDX, alpha_l);
-  z.set_sub_vec(ALPHA_X_IDX, alpha_x);
+  z.set_zero();
+  z.set_sub_vec(q.ALPHA_C_IDX, alpha_c);
+  z.set_sub_vec(q.ALPHA_L_IDX, alpha_l);
+  z.set_sub_vec(q.ALPHA_X_IDX, alpha_x);
 
   FILE_LOG(LOG_EVENT) << "  LCP result: " << z << std::endl;
   FILE_LOG(LOG_EVENT) << "  kappa: " << q.kappa << std::endl;

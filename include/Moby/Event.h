@@ -110,7 +110,7 @@ class Event
     /// The coefficient of restitution (for contact events)
     Real contact_epsilon;
 
-    /// The number of friction directions (for contact events)
+    /// The number of friction directions >= 4 (for contact events)
     unsigned contact_NK;
 
     #ifdef USE_OSG
