@@ -141,13 +141,12 @@ class ImpactEventHandler
     static void solve_qp_work_ijoints(EventProblemData& epd, VectorN& z);
     static Real calc_ke(EventProblemData& epd, const VectorN& z);
     static bool opt_satisfied(const EventProblemData& q, const std::vector<bool>& working_set, Real& KE, VectorN& x, unsigned j);
-    static void update_problem(const EventProblemData& qorig, const std::vector<bool>& working_set, EventProblemData& qnew);
+    static void update_problem(const EventProblemData& qorig, EventProblemData& qnew);
     static void update_solution(const EventProblemData& q, const VectorN& x, const std::vector<bool>& working_set, unsigned jidx, VectorN& z);
     static void solve_nqp_work(EventProblemData& epd, VectorN& z);
     static void set_generalized_velocities(const EventProblemData& epd);
     static void partition_events(const std::list<Event*>& events, std::vector<Event*>& contacts, std::vector<Event*>& limits);
     static void add_constraint_events(const std::list<Event*>& events, std::vector<Event>& constraint_event_objects, std::vector<Event*>& constraint_events);
-    static void update_impulses(EventProblemData& q, const VectorN& z);
     static void contact_select(const std::vector<int>& alpha_c_indices, const std::vector<int>& beta_nbeta_c_indices, const VectorN& x, VectorN& alpha_c, VectorN& beta_c);
     static void contact_select(const std::vector<int>& alpha_c_indices, const std::vector<int>& beta_nbeta_c_indices, const MatrixN& m, MatrixN& alpha_c_rows, MatrixN& beta_c_rows);
     static Real sqr(Real x) { return x*x; }

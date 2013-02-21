@@ -39,6 +39,8 @@ using boost::dynamic_pointer_cast;
 /// Sets up optimization data for nonlinear QP
 void ImpactEventHandler::set_optimization_data(EventProblemData& q, ImpactOptData& iopt)
 {
+// note: this code is disabled until it is revisited
+/*
   vector<vector<unsigned> > loop_links;
 
   // setup some needed constants
@@ -235,11 +237,14 @@ void ImpactEventHandler::set_optimization_data(EventProblemData& q, ImpactOptDat
   // finally, update explicit friction start
   for (unsigned i=0; i< N_SUPERS; i++)
     iopt.explicit_start[i] += implicit_start;
+*/
 }
 
 /// Solves the nonlinearly constrained quadratic program (potentially solves two nQPs, actually)
 void ImpactEventHandler::solve_nqp(EventProblemData& q, Real poisson_eps)
 {
+// note: this code is disabled until it is revisited
+/*
   SAFESTATIC VectorN z, tmp, tmp2;
   const Real TOL = poisson_eps;
 
@@ -326,11 +331,14 @@ void ImpactEventHandler::solve_nqp(EventProblemData& q, Real poisson_eps)
   // save limit impulses
   for (unsigned i=0; i< N_LIMITS; i++)
     q.limit_events[i]->limit_impulse = q.alpha_l[i]; 
+*/
 }
 
 /// Solves the nonlinearly constrained quadratic program (does all of the work)
 void ImpactEventHandler::solve_nqp_work(EventProblemData& q, VectorN& z)
 {
+// note: this code is disabled until it is revisited
+/*
   const unsigned UINF = std::numeric_limits<unsigned>::max();
   SAFESTATIC MatrixN sub, t1, t2, t3, t4, A, MR, RTH;
   SAFESTATIC VectorN tmpv, y;
@@ -621,11 +629,14 @@ oparams.max_iterations = 10000;
 
   FILE_LOG(LOG_EVENT) << "nonlinear QP solution: " << z << std::endl; 
   FILE_LOG(LOG_EVENT) << "ImpactEventHandler::solve_nqp() exited" << std::endl;
+*/
 }
 
 /// The Hessian
 void ImpactEventHandler::sqp_hess(const VectorN& x, Real objscal, const VectorN& hlambda, const VectorN& nu, MatrixN& H, void* data)
 {
+// note: this code is disabled until it is revisited
+/*
   SAFESTATIC VectorN Gx, w, tmpv, ff, lambda;
   SAFESTATIC MatrixN t1, t2;
   const Real INFEAS_TOL = 1e-8;
@@ -691,7 +702,7 @@ void ImpactEventHandler::sqp_hess(const VectorN& x, Real objscal, const VectorN&
     t2 *= hlambda[index++];
     H += t2;
   }
-
+*/
 /*
     // setup numerical Hessian
     unsigned n = x.size();
@@ -722,6 +733,8 @@ void ImpactEventHandler::sqp_hess(const VectorN& x, Real objscal, const VectorN&
 /// The gradient
 void ImpactEventHandler::sqp_cJac(const VectorN& x, MatrixN& J, void* data)
 {
+// note: this code is disabled until it is revisited
+/*
   SAFESTATIC VectorN Gx, tmpv, tmpv2, ff, fff, w, wdelta, walphac, wbetac, walphal;
   SAFESTATIC VectorN wbetat, wbetax, zalphac, zbetac, zalphal, zbetat, zbetax;
   SAFESTATIC VectorN Zf, Zdf, Z1df, grad;
@@ -995,6 +1008,7 @@ void ImpactEventHandler::sqp_cJac(const VectorN& x, MatrixN& J, void* data)
     // set appropriate row of the Jacobian
     J.set_row(index++, grad);
   }
+*/
 /*
     // setup numerical gradient 
     unsigned n = x.size();
@@ -1020,6 +1034,8 @@ void ImpactEventHandler::sqp_cJac(const VectorN& x, MatrixN& J, void* data)
 /// The gradient
 void ImpactEventHandler::sqp_grad0(const VectorN& x, VectorN& grad, void* data)
 {
+// note: this code is disabled until it is revisited
+/*
   // get the optimization data
   const ImpactOptData& opt_data = *(const ImpactOptData*) data;
 
@@ -1029,11 +1045,14 @@ void ImpactEventHandler::sqp_grad0(const VectorN& x, VectorN& grad, void* data)
 
   // objective function is quadratic
   G.mult(x, grad) += c;
+*/
 }
 
 /// Evaluates objective functions at x
 Real ImpactEventHandler::sqp_f0(const VectorN& x, void* data)
 {
+// note: this code is disabled until it is revisited
+/*
   SAFESTATIC VectorN Gx;
 
   // get the optimization data
@@ -1202,11 +1221,15 @@ void ImpactEventHandler::sqp_fx(const VectorN& x, VectorN& fc, void* data)
     const Real VSC = opt_data.j_visc[i];
     fc[index++] = w[FIDX]*w[FIDX] - MUCSQ*lambda.norm_sq() - VSC - INFEAS_TOL;
   }
+*/
+return std::numeric_limits<Real>::max();
 } 
 
 /// Selects the contact related components from a vector
 void ImpactEventHandler::contact_select(const vector<int>& alpha_c_indices, const vector<int>& beta_nbeta_c_indices, const VectorN& x, VectorN& alpha_c, VectorN& beta_c)
 {
+// note: this code is disabled until it is revisited
+/*
   // resize vectors
   const unsigned N = alpha_c_indices.size();
   const unsigned M = beta_nbeta_c_indices.size();
@@ -1240,11 +1263,14 @@ void ImpactEventHandler::contact_select(const vector<int>& alpha_c_indices, cons
     else
       beta_c[j] += x[(unsigned) -beta_nbeta_c_indices[i]-1];
   }
+*/
 }
 
 /// Selects the contact related rows from a matrix
 void ImpactEventHandler::contact_select(const vector<int>& alpha_c_indices, const vector<int>& beta_nbeta_c_indices, const MatrixN& m, MatrixN& alpha_c_rows, MatrixN& beta_c_rows)
 {
+// note: this code is disabled until it is revisited
+/*
   SAFESTATIC VectorN tmpv;
 
   // resize matrices 
@@ -1280,5 +1306,6 @@ void ImpactEventHandler::contact_select(const vector<int>& alpha_c_indices, cons
     else
       beta_c_rows.set_row(j, m.get_row((unsigned) -beta_nbeta_c_indices[i]-1, tmpv));
   }
+*/
 }
 

@@ -95,6 +95,7 @@ void Event::set_contact_parameters(const ContactParameters& cparams)
   contact_mu_viscous = cparams.mu_viscous;
   contact_epsilon = cparams.epsilon;
   contact_NK = cparams.NK;
+  assert(contact_NK >= 4);
 }
 
 /// Computes the velocity of this event
