@@ -6,57 +6,165 @@
 
 #include <Moby/Constants.h>
 #include <Moby/SMatrix6N.h>
-#include <Moby/SpatialRBInertia.h>
+#include <Moby/MatrixN.h>
+#include <Moby/SpatialABInertia.h>
 
 using namespace Moby;
 
 /// Default constructor -- constructs a zero inertia matrix
-SpatialRBInertia::SpatialRBInertia()
+SpatialABInertia::SpatialABInertia()
 {
-  m = (Real) 0.0;
-  h = ZEROS_3;
+  M = ZEROS_3x3;
+  H = ZEROS_3x3;
   J = ZEROS_3x3;
 }
 
-/// Constructs the 6x6 spatial matrix from the given values 
-SpatialRBInertia::SpatialRBInertia(Real m, const Vector3& h, const Matrix3& J)
+/// Constructs a spatial AB inertia from the given MatrixN object
+SpatialABInertia::SpatialABInertia(const MatrixN& m)
 {
-  this->m = m;
-  this->h = h;
+  m.get_sub_mat(0, 3, 3, 6, M);
+  m.get_sub_mat(3, 6, 3, 6, H);
+  m.get_sub_mat(3, 6, 0, 3, J);
+}
+
+/// Constructs the spatial AB inertia from the given values 
+SpatialABInertia::SpatialABInertia(const Matrix3& M, const Matrix3& H, const Matrix3& J)
+{
+  this->M = M;
+  this->H = H;
   this->J = J;
 }
 
-/// Copies a spatial matrix to this one 
-SpatialRBInertia& SpatialRBInertia::operator=(const SpatialRBInertia& m)
+/// Copies a spatial AB inertia to this one 
+SpatialABInertia& SpatialABInertia::operator=(const SpatialABInertia& m)
 {
-  this->m = m.m;
-  this->h = m.h;
+  this->M = m.M;
+  this->H = m.H;
+  this->J = m.J;
+  return *this;
+}
+
+/// Copies a spatial RB inertia to this one 
+SpatialABInertia& SpatialABInertia::operator=(const SpatialRBInertia& m)
+{
+  this->M = IDENTITY_3x3 * m.m;
+  this->H = Matrix3::skew_symmetric(m.h);
   this->J = m.J;
   return *this;
 }
 
 /// Creates a zero matrix
-void SpatialRBInertia::set_zero()
+void SpatialABInertia::set_zero()
 {
-  m = (Real) 0.0;
-  h = ZEROS_3;
-  J = ZEROS_3x3;
+  M = H = J = ZEROS_3x3;
 }
 
-/// Multiplies the inverse of this spatial matrix by a given vector
-SVector6 SpatialRBInertia::inverse_mult(const SVector6& v) const
+/// Multiplies this matrix by a vector and returns the result in a new vector
+SVector6 SpatialABInertia::operator*(const SVector6& v) const
 {
-  // compute the skew symmetric version of h
-  Matrix3 hx = Matrix3::skew_symmetric(h);
+  // get necessary components of v
+  Vector3 vtop = v.get_upper();
+  Vector3 vbot = v.get_lower();
 
-  // compute inverse mass
-  Real inv_m = (Real) 1.0/m;
+  // do some precomputation
+  Matrix3 HT = Matrix3::transpose(H);
 
-  // compute the components of the matrix
-  Matrix3 UR = Matrix3::inverse((hx * hx * inv_m) + J);
-  Matrix3 UL = UR * hx * -inv_m;
+  // compute top part of result
+  Vector3 rtop = HT * vtop + (M * vbot);
+  Vector3 rbot = (J * vtop) + (H * vbot);
+
+  return SVector6(rtop, rbot); 
+}
+
+/// Multiplies this matrix by a scalar in place
+SpatialABInertia& SpatialABInertia::operator*=(Real scalar)
+{
+  M *= scalar;
+  H *= scalar;
+  J *= scalar;
+  return *this;
+}
+
+/// Returns the negation of this matrix
+SpatialABInertia SpatialABInertia::operator-() const
+{
+  SpatialABInertia result;
+  result.M = -this->M;
+  result.H = -this->H;
+  result.J = -this->J;
+  return result;
+}
+
+/// Adds a spatial articulated body inertia and a spatial rigid body inertia 
+SpatialABInertia SpatialABInertia::operator+(const SpatialRBInertia& m) const
+{
+  const unsigned X = 0, Y = 1, Z = 2;
+
+  // do some preliminary calculations
+  SpatialABInertia result;
+  result.M = M;
+  result.H = H;
+  result.J = m.J + J;
+
+  // update M with mass
+  result.M(X,X) += m.m;
+  result.M(Y,Y) += m.m;
+  result.M(Z,Z) += m.m;
+
+  // update H
+  Matrix3 hx = Matrix3::skew_symmetric(m.h);
+  result.H += hx;
+
+  return result;
+}
+
+/// Adds two spatial matrices
+SpatialABInertia SpatialABInertia::operator+(const SpatialABInertia& m) const
+{
+  SpatialABInertia result;
+  result.M = this->M + m.M;
+  result.H = this->H + m.H;
+  result.J = this->J + m.J;
+  return result;
+}
+
+/// Subtracts two spatial matrices
+SpatialABInertia SpatialABInertia::operator-(const SpatialABInertia& m) const
+{
+  SpatialABInertia result;
+  result.M = this->M - m.M;
+  result.H = this->H - m.H;
+  result.J = this->J - m.J;
+  return result;
+}
+
+/// Adds m to this in place
+SpatialABInertia& SpatialABInertia::operator+=(const SpatialABInertia& m)
+{
+  this->M += m.M;
+  this->H += m.H;
+  this->J += m.J;
+  return *this;
+}
+
+/// Subtracts m from this in place
+SpatialABInertia& SpatialABInertia::operator-=(const SpatialABInertia& m)
+{
+  this->M -= m.M;
+  this->H -= m.H;
+  this->J -= m.J;
+  return *this;
+}
+
+/// Multiplies the inverse of this spatial AB inertia by a vector
+SVector6 SpatialABInertia::inverse_mult(const SVector6& v) const
+{
+  Matrix3 nMinv = -Matrix3::inverse(M);
+  Matrix3 HT = Matrix3::transpose(H);
+  Matrix3 UR = Matrix3::inverse((H * nMinv * HT) + J);
+  Matrix3 UL = UR * H * nMinv;
   Matrix3 LR = Matrix3::transpose(UL);
-  Matrix3 LL = ((hx * UL) - IDENTITY_3x3) * inv_m;
+  Matrix3 LL = nMinv * ((HT * UL) - IDENTITY_3x3);
 
   // get the components of v
   Vector3 vtop = v.get_upper();
@@ -66,113 +174,8 @@ SVector6 SpatialRBInertia::inverse_mult(const SVector6& v) const
   return SVector6(UL*vtop + UR*vbot, LL*vtop + LR*vbot);
 }
 
-/// Converts this to a matrix
-/**
- * \param output a 36-element array (or larger); on return, contains the
- *        matrix representation of this inertia in column-major format
- */
-void SpatialRBInertia::to_matrix(Real output[]) const
-{
-  const unsigned X = 0, Y = 1, Z = 2;
-  const Real HX = h[0], HY = h[1], HZ = h[2];
-
-  // upper left 3x3
-  output[0] = 0;       output[6] = HZ;       output[12] = -HY;
-  output[1] = -HZ;     output[7] = 0;        output[13] = HX;
-  output[2] = HY;      output[8] = -HX;      output[14] = 0;
-
-  // lower left 3x3
-  output[3] = J(X,X);  output[9] = J(X,Y);   output[15] = J(X,Z);
-  output[4] = J(Y,X);  output[10] = J(Y,Y);  output[16] = J(Y,Z);
-  output[5] = J(Z,X);  output[11] = J(Z,Y);  output[17] = J(Z,Z);
-
-  // upper right 3x3
-  output[18] = m;       output[24] = 0;        output[30] = 0;
-  output[19] = 0;       output[25] = m;        output[31] = 0;
-  output[20] = 0;       output[26] = 0;        output[32] = m;
-
-  // lower right 3x3
-  output[21] = 0;        output[27] = -HZ;      output[33] = HY;
-  output[22] = HZ;       output[28] = 0;        output[34] = -HX;
-  output[23] = -HY;      output[29] = HX;       output[35] = 0;
-}
-
-/// Multiplies this matrix by a vector and returns the result in a new vector
-SVector6 SpatialRBInertia::operator*(const SVector6& v) const
-{
-  // get necessary components of v
-  Vector3 vtop = v.get_upper();
-  Vector3 vbot = v.get_lower();
-
-  // do some precomputation
-  Matrix3 hX = Matrix3::skew_symmetric(h);
-
-  // compute top part of result
-  Vector3 rtop = (vbot * m) - (hX * vtop);
-  Vector3 rbot = (J * vtop) + (hX * vbot);
-
-  return SVector6(rtop, rbot); 
-}
-
-/// Multiplies this matrix by a scalar in place
-SpatialRBInertia& SpatialRBInertia::operator*=(Real scalar)
-{
-  m *= scalar;
-  h *= scalar;
-  J *= scalar;
-  return *this;
-}
-
-/// Returns the negation of this matrix
-SpatialRBInertia SpatialRBInertia::operator-() const
-{
-  SpatialRBInertia result;
-  result.m = -this->m;
-  result.h = -this->h;
-  result.J = -this->J;
-  return result;
-}
-
-/// Adds two spatial matrices
-SpatialRBInertia SpatialRBInertia::operator+(const SpatialRBInertia& m) const
-{
-  SpatialRBInertia result;
-  result.m = this->m + m.m;
-  result.h = this->h + m.h;
-  result.J = this->J + m.J;
-  return result;
-}
-
-/// Subtracts two spatial matrices
-SpatialRBInertia SpatialRBInertia::operator-(const SpatialRBInertia& m) const
-{
-  SpatialRBInertia result;
-  result.m = this->m - m.m;
-  result.h = this->h - m.h;
-  result.J = this->J - m.J;
-  return result;
-}
-
-/// Adds m to this in place
-SpatialRBInertia& SpatialRBInertia::operator+=(const SpatialRBInertia& m)
-{
-  this->m += m.m;
-  this->h += m.h;
-  this->J += m.J;
-  return *this;
-}
-
-/// Subtracts m from this in place
-SpatialRBInertia& SpatialRBInertia::operator-=(const SpatialRBInertia& m)
-{
-  this->m -= m.m;
-  this->h -= m.h;
-  this->J -= m.J;
-  return *this;
-}
-
 /// Multiplies a spatial matrix by a spatial matrix and returns the result in a spatial matrix
-SMatrix6N& SpatialRBInertia::mult(const SMatrix6N& m, SMatrix6N& result) const
+SMatrix6N& SpatialABInertia::mult(const SMatrix6N& m, SMatrix6N& result) const
 {
   const unsigned SPATIAL_DIM = 6;
 
@@ -189,8 +192,8 @@ SMatrix6N& SpatialRBInertia::mult(const SMatrix6N& m, SMatrix6N& result) const
     return result;
   }
 
-  // compute the skew symmetric matrix corresponding to h
-  Matrix3 hX = Matrix3::skew_symmetric(this->h);
+  // compute the transpose of H
+  Matrix3 HT = Matrix3::transpose(this->H);
 
   // carry out multiplication one column at a time
   for (unsigned i=0; i< NCOLS; i++)
@@ -198,18 +201,39 @@ SMatrix6N& SpatialRBInertia::mult(const SMatrix6N& m, SMatrix6N& result) const
     SVector6 v = m.get_column(i);
     Vector3 vtop = v.get_upper();
     Vector3 vbot = v.get_lower();
-    v = SVector6((vbot * this->m)-(hX * vtop), (this->J * vtop)+(hX * vbot));
+    v = SVector6((this->M * vbot)+(HT * vtop), (this->J * vtop)+(H * vbot));
     result.set_column(i, v);
   } 
 
   return result;
 }
 
-/// Outputs this matrix to the stream
-std::ostream& Moby::operator<<(std::ostream& out, const SpatialRBInertia& m) 
+/// Multiplies a 6x6 matrix by a Spatial AB inertia matrix
+SpatialABInertia SpatialABInertia::mult(const MatrixN& m, const SpatialABInertia& I)
 {
-  out << "spatial rigid body mass=" << m.m << " h = " << m.h << " J = ";
-  out << std::endl << m.J;
+  assert(m.rows() == 6 && m.columns() == 6);
+
+  // get the components of m
+  Matrix3 UL, UR, LL, LR;
+  m.get_sub_mat(0,3,0,3,UL);
+  m.get_sub_mat(0,3,3,6,UR);
+  m.get_sub_mat(3,6,0,3,LL);
+  m.get_sub_mat(3,6,3,6,LR);
+ 
+  // multiply by components of I
+  SpatialABInertia result;
+  result.M = (UL*I.M) + (UR*I.H);
+  result.J = (LL*Matrix3::transpose(I.H)) + (LR*I.J);
+  result.H = (LL*I.M) + (LR*I.H);
+  return result;
+}
+
+/// Outputs this matrix to the stream
+std::ostream& Moby::operator<<(std::ostream& out, const SpatialABInertia& m) 
+{
+  out << "spatial AB H:" << std::endl << m.H;
+  out << "spatial AB M:" << std::endl << m.M;
+  out << "spatial AB J:" << std::endl << m.J;
    
   return out;
 }
