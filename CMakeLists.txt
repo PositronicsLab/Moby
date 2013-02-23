@@ -207,8 +207,8 @@ if (BUILD_TOOLS)
   add_library(block-collider-controller "MODULE" example/banditII/block-collider-controller.cpp)
 
   # tools
-  add_executable(regress/regress example/regress.cpp)
-  add_executable(regress/compare-trajs example/compare-trajs.cpp)
+  add_executable(regress example/regress.cpp)
+  add_executable(compare-trajs example/compare-trajs.cpp)
   add_executable(conv-decomp example/conv-decomp.cpp)
   add_executable(convexify example/convexify.cpp)
   add_executable(output-symbolic example/output-symbolic.cpp)
