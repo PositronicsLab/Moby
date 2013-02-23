@@ -203,8 +203,8 @@ if (BUILD_TOOLS)
   add_library(noball-controller "MODULE" example/banditII/noball-controller.cpp)
 
   # tools
-  add_executable(regress/regress example/regress.cpp)
-  add_executable(regress/compare-trajs example/compare-trajs.cpp)
+  add_executable(regress example/regress.cpp)
+  add_executable(compare-trajs example/compare-trajs.cpp)
   add_executable(conv-decomp example/conv-decomp.cpp)
   add_executable(convexify example/convexify.cpp)
   add_executable(output-symbolic example/output-symbolic.cpp)
