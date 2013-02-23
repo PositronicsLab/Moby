@@ -2520,7 +2520,8 @@ unsigned RCArticulatedBody::num_joint_dof_explicit() const
 void RCArticulatedBody::determine_contact_jacobians(const EventProblemData& q, 
 const VectorN& v, const MatrixN& M, MatrixN& Jc, MatrixN& Dc)
 {
-  SAFESTATIC VectorN vnew, vcurrent;
+  SAFESTATIC MatrixN workM, workM2, R;
+/*  SAFESTATIC VectorN vnew, vcurrent;
 
   // see whether velocity data is valid
   bool vvalid = !velocities_invalidated();
@@ -2607,9 +2608,75 @@ const VectorN& v, const MatrixN& M, MatrixN& Jc, MatrixN& Dc)
   if (vvalid)
     validate_velocities();
 
-  // determine Jc and Dc
+  // compute Jc and Dc
   _iM_JcT.transpose_mult(M, Jc);
   _iM_DcT.transpose_mult(M, Dc);
+*/
+
+  // resize Jc and Dc
+  const unsigned NGC = num_generalized_coordinates(DynamicBody::eAxisAngle);
+  Jc.set_zero(q.N_CONTACTS, NGC);
+  Dc.set_zero(q.N_CONTACTS*2, NGC);
+
+  // determine the Jacobian over all contact events 
+  for (unsigned i=0, ii=0; i< q.contact_events.size(); i++, ii+= 2)
+  {
+    // don't process if contact event is inactive
+    if (!q.contact_working_set[i])
+      continue;
+
+    // get the articulated bodies of the contacts
+    SingleBodyPtr sb1 = q.contact_events[i]->contact_geom1->get_single_body();
+    SingleBodyPtr sb2 = q.contact_events[i]->contact_geom2->get_single_body();
+    ArticulatedBodyPtr ab1 = sb1->get_articulated_body();
+    ArticulatedBodyPtr ab2 = sb2->get_articulated_body();
+    
+    // see whether we can skip contact event
+    if (ab1.get() != this && ab2.get() != this)
+      continue;
+
+    // get the rigid bodies corresponding to sb1 and sb2
+    RigidBodyPtr rb1 = dynamic_pointer_cast<RigidBody>(sb1);
+    RigidBodyPtr rb2 = dynamic_pointer_cast<RigidBody>(sb2);
+
+    // get the contact point and orthonormal basis 
+    const Vector3& p = q.contact_events[i]->contact_point;
+    const Vector3& normal = q.contact_events[i]->contact_normal;
+    const Vector3& tan1 = q.contact_events[i]->contact_tan1;
+    const Vector3& tan2 = q.contact_events[i]->contact_tan2;
+
+    // compute R
+    R.resize(3,3);
+    R.set_row(0, normal);
+    R.set_row(1, tan1);
+    R.set_row(2, tan2); 
+
+    // compute the Jacobian at the contact point
+    if (ab1 == get_this())
+      calc_jacobian(p, rb1, workM);
+    else
+    {
+      calc_jacobian(p, rb2, workM);
+      R.negate();
+    }
+
+    // transform the Jacobian
+    workM.get_sub_mat(0,3,0,workM.columns(), workM2);
+    R.mult(workM2, workM); 
+
+    // set the appropriate blocks in the Jacobians
+    workM.get_sub_mat(0,1,0,workM.columns(), workM2);
+    Jc.set_sub_mat(i, 0, workM2);
+    workM.get_sub_mat(1,3,0,workM.columns(), workM2);
+    Dc.set_sub_mat(ii, 0, workM2);
+  }
+
+  // setup iM_JcT and iM_DcT
+  solve_generalized_inertia_transpose(DynamicBody::eAxisAngle, Jc, _iM_JcT);
+  solve_generalized_inertia_transpose(DynamicBody::eAxisAngle, Dc, _iM_DcT);
+
+  FILE_LOG(LOG_EVENT) << "Jc:" << std::endl << Jc;
+  FILE_LOG(LOG_EVENT) << "Dc:" << std::endl << Dc;
 }
 
 /// Updates the event data
