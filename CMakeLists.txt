@@ -203,8 +203,6 @@ if (BUILD_TOOLS)
   add_library(noball-controller "MODULE" example/banditII/noball-controller.cpp)
 
   # tools
-  add_executable(moby-regress example/regress.cpp)
-  add_executable(moby-compare-trajs example/compare-trajs.cpp)
   add_executable(moby-conv-decomp example/conv-decomp.cpp)
   add_executable(moby-convexify example/convexify.cpp)
   add_executable(moby-output-symbolic example/output-symbolic.cpp)
@@ -226,8 +224,6 @@ if (BUILD_TOOLS)
   target_link_libraries(noball-controller Moby)
 
   # tools
-  target_link_libraries(moby-regress Moby)
-  target_link_libraries(moby-compare-trajs Moby)
   target_link_libraries(moby-conv-decomp Moby)
   target_link_libraries(moby-convexify Moby)
   target_link_libraries(moby-output-symbolic Moby)
