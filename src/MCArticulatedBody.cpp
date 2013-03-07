@@ -5,6 +5,7 @@
 #include <Moby/LinAlg.h>
 #include <Moby/Optimization.h>
 #include <Moby/Log.h>
+#include <Moby/select>
 #include <Moby/SingularException.h>
 #include <Moby/NumericalException.h>
 #include <Moby/MCArticulatedBody.h>
@@ -2178,21 +2179,58 @@ void MCArticulatedBody::update_event_data(EventProblemData& q)
   update_Jx_iM_JyT(q, q.Dx_iM_DxT, eJointFriction, eJointFriction);
 }
 
+/// Selects a subset from sparse Jacobians
+void MCArticulatedBody::select_sub_contact_Jacobians(const EventProblemData& q, SparseJacobian& Jc_sub, SparseJacobian& Dc_sub) const
+{
+  SAFESTATIC vector<unsigned> normal_indices, tangent_indices;
+
+  // setup normal and tangent contact indices
+  normal_indices.clear();
+  tangent_indices.clear();
+  for (unsigned i=0, j=0; i< q.contact_working_set.size(); i++, j+=2)
+    if (q.contact_working_set[i])
+    {
+      normal_indices.push_back(i);
+      tangent_indices.push_back(j);
+      tangent_indices.push_back(j+1);
+    }
+
+  // select the appropriate rows 
+  _Jc.select_rows(normal_indices.begin(), normal_indices.end(), Jc_sub); 
+  _Dc.select_rows(tangent_indices.begin(), tangent_indices.end(), Dc_sub); 
+
+  // setup the row indices
+  select(_Jc.indices.begin(), normal_indices.begin(), normal_indices.end(), std::back_inserter(Jc_sub.indices));
+  select(_Dc.indices.begin(), tangent_indices.begin(), tangent_indices.end(), std::back_inserter(Dc_sub.indices));
+}
+
 // Updates the body velocities
 void MCArticulatedBody::update_velocity(const EventProblemData& q)
 {
-  SAFESTATIC VectorN imp, tmpv;
+  SAFESTATIC VectorN workv, workv2;
+  SAFESTATIC SparseJacobian Jc_sub, Dc_sub;
 
   // get the current absolute velocities
   get_generalized_velocity(DynamicBody::eAxisAngle, _xd);
 
-  // compute change in velocities
-  mult_transpose_sparse(_Jc, q.alpha_c, imp);
-  imp += mult_transpose_sparse(_Dc, q.beta_c, tmpv);
-  imp += mult_transpose_sparse(_Jl, q.alpha_l, tmpv);
-  imp += mult_transpose_sparse(_Jx, q.alpha_x, tmpv);
-  imp += mult_transpose_sparse(_Dx, q.beta_x, tmpv);
-  _xd += iM_mult(imp, tmpv);
+  // determine whether we are using a subset of the contacts
+  if (std::find(q.contact_working_set.begin(), q.contact_working_set.end(), false) != q.contact_working_set.end())
+  {
+    select_sub_contact_Jacobians(q, Jc_sub, Dc_sub);
+    mult_transpose_sparse(Jc_sub, q.alpha_c, workv);
+    workv += mult_transpose_sparse(Dc_sub, q.beta_c, workv2); 
+  }
+  else
+  {
+    mult_transpose_sparse(_Jc, q.alpha_c, workv);
+    workv += mult_transpose_sparse(_Dc, q.beta_c, workv2);
+  }
+
+  // compute change in velocities for events not reduced
+  workv += mult_transpose_sparse(_Jl, q.alpha_l, workv2);
+  workv += mult_transpose_sparse(_Jx, q.alpha_x, workv2);
+  workv += mult_transpose_sparse(_Dx, q.beta_x, workv2);
+  _xd += iM_mult(workv, workv2);
 
   // update the link velocities
   update_link_velocities(); 

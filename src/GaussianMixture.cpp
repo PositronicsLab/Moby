@@ -257,6 +257,40 @@ Real GaussianMixture::gauss(const Gauss& g, Real x, Real y)
   return g.A * std::exp(-(k1/k2 + k3/k4));
 }
 
+/// Computes the Gaussian gradient at a point on the Gaussian (NOTE: primitive transform is not accounted for!)
+Vector3 GaussianMixture::grad(const Gauss& g, Real x, Real y)
+{
+  const unsigned X = 0, Y = 1;
+
+  // rotate x and y into the Gaussian space
+  Matrix3 R = Matrix3::rot_Z(g.th);
+  Vector3 p = R.transpose_mult(Vector3(x,y,(Real) 0.0));
+  x = p[X];
+  y = p[Y];
+
+  // precompute some things
+  Real k1 = (x - g.x0) * (x - g.x0);
+  Real k2 = (Real) 2.0*g.sigma_x*g.sigma_x;
+  Real k3 = (y - g.y0) * (y - g.y0);
+  Real k4 = (Real) 2.0*g.sigma_y*g.sigma_y;
+
+  // setup the gradient
+  Vector3 v;
+  v[0] = g.A * std::exp(-(k1/k2 + k3/k4)) * (Real) -2.0 * (x - g.x0)/k2;
+  v[1] = g.A * std::exp(-(k1/k2 + k3/k4)) * (Real) -2.0 * (y - g.y0)/k4;
+
+  // handle divide by zeros
+  if (std::isnan(v[0]))
+    v[0] = (Real) 0.0;
+  if (std::isnan(v[1]))
+    v[1] = (Real) 0.0;
+  Real nrm = v.norm();
+  if (nrm < NEAR_ZERO)
+    return Vector3(0,0,1);
+  else
+    return v/nrm;
+}
+
 void GaussianMixture::get_vertices(BVPtr bv, vector<const Vector3*>& vertices)
 {
   typedef map<OBBPtr, unsigned>::const_iterator OBBMapIter;
@@ -512,21 +546,89 @@ bool GaussianMixture::point_inside(BVPtr bv, const Vector3& point, Vector3& norm
   return false;
 }
 
-/// Computes line segment intersection (if any)
-bool GaussianMixture::intersect_seg(BVPtr bv, const LineSeg3& seg,Real& t,Vector3& isect, Vector3& normal) const
+/// Evaluates the intersection function (for Newton-Raphson)
+Real GaussianMixture::f(const Gauss& g, const Vector3& p, const Vector3& q, Real t)
 {
-  Real a,b,c,X,Y,Z,x1,y1,z1,X_next,eps;
- 
-  // setup intersections
-  SAFESTATIC vector<Real> tx, ty, tz;
-  tx.resize(_gauss.size());
-  ty.resize(_gauss.size());
-  tz.resize(_gauss.size());
+  const unsigned X = 0, Y = 1, Z = 2;
 
- 
-  const Real PARAM_BOUND = -5.0;
-  int n=0;
-  const int NMAX = _gauss.size(); 
+  // evaluate
+  Real x = p[X] + (q[X] - p[X])*t;
+  Real y = p[Y] + (q[Y] - p[Y])*t;
+  return p[Z] + (q[Z] - p[Z])*t - gauss(g, x, y);
+}
+
+/// Evaluates the intersection function (for Newton-Raphson)
+Real GaussianMixture::df(const Gauss& g, const Vector3& p, const Vector3& q, Real t)
+{
+  const unsigned X = 0, Y = 1, Z = 2;
+
+  // evaluate
+  Real dx = (q[X] - p[X]);
+  Real dy = (q[Y] - p[Y]);
+  Real x = p[X] + (q[X] - p[X])*t;
+  Real y = p[Y] + (q[Y] - p[Y])*t;
+
+  // rotate x and y into the Gaussian space
+  Matrix3 R = Matrix3::rot_Z(g.th);
+  Vector3 r = R.transpose_mult(Vector3(x,y,(Real) 0.0));
+  Vector3 dr = R.transpose_mult(Vector3(dx, dy, (Real) 0.0));
+  Real xx = r[X];
+  Real yy = r[Y];
+  Real dxx = dr[X];
+  Real dyy = dr[Y];
+
+  // precompute some things
+  Real k1 = (xx - g.x0) * (xx - g.x0);
+  Real k2 = (Real) 2.0*g.sigma_x*g.sigma_x;
+  Real k3 = (yy - g.y0) * (yy - g.y0);
+  Real k4 = (Real) 2.0*g.sigma_y*g.sigma_y;
+
+  // compute derivatives of these
+  Real dk1 = (Real) 2.0 * (xx - g.x0) * dxx;
+  Real dk3 = (Real) 2.0 * (yy - g.y0) * dyy;
+
+  return q[Z] - p[Z] - g.A * std::exp(-(k1/k2 + k3/k4)) * -(dk1/k2 + dk3/k4);
+}
+
+/// Performs Newton-Raphson to find a point of intersection with a line segment and a Gaussian
+Real GaussianMixture::newton_raphson(const Gauss& g, const Vector3& p, const Vector3& q)
+{
+  const unsigned ITER_MAX = 20;
+  const Real INF = std::numeric_limits<Real>::max();
+  const Real TTOL = NEAR_ZERO;
+
+  Real t = (Real) 0.5;
+  for (unsigned j=0; j< ITER_MAX; j++)
+  {
+    // do update
+    Real dt = -f(g, p, q, t)/df(g, p, q, t);
+    t += dt;
+
+    // check for convergence
+    if (std::fabs(dt) < TTOL)
+    {
+      // look for bad convergence
+      if (t < -NEAR_ZERO)
+        return INF;
+      else if (t < (Real) 0.0)
+        return (Real) 0.0; 
+      else
+        return t;
+    }
+  }
+  
+  // no convergence? return INF
+  return INF;
+}
+
+/// Computes line segment intersection (if any)
+bool GaussianMixture::intersect_seg(BVPtr bv, const LineSeg3& seg,Real& tisect,Vector3& isect, Vector3& normal) const
+{
+  const unsigned X = 0, Y = 1, Z = 2;
+  const Real INF = std::numeric_limits<Real>::max();
+
+  // setup intersection vectors
+  SAFESTATIC vector<Real> t, depth;
 
   // get the current transform
   const Matrix4& T = get_transform();
@@ -534,8 +636,70 @@ bool GaussianMixture::intersect_seg(BVPtr bv, const LineSeg3& seg,Real& t,Vector
   // convert the line segment to primitive space
   Vector3 p = T.inverse_mult_point(seg.first);
   Vector3 q = T.inverse_mult_point(seg.second);
-  Vector3 d = q - p;
 
+  // determine whether any starting points are inside the Gaussians
+  depth.resize(_gauss.size());
+  for (unsigned i=0; i< _gauss.size(); i++)
+    depth[i] = p[Z] - gauss(_gauss[i], p[X], p[Y]);
+
+  // see whether any points are inside the Gaussians
+  unsigned mini = std::min_element(depth.begin(), depth.end()) - depth.begin();
+  if (depth[mini] < (Real) 0.0)
+  {
+    // point is inside, compute and transform the normal
+    tisect = (Real) 0.0;
+    isect = seg.first; 
+    
+    // compute the transformed normal
+    normal = T.mult_vector(grad(_gauss[mini], p[X], p[Y]));
+
+    return true;
+  }
+
+  // no points are inside; make sure that a point on the line segment is
+  // inside
+  for (unsigned i=0; i< _gauss.size(); i++)
+    depth[i] = q[Z] - gauss(_gauss[i], q[X], q[Y]);
+
+  // see whether all points are outside
+  mini = std::min_element(depth.begin(), depth.end()) - depth.begin();
+  if (depth[mini] > (Real) 0.0)
+    return false;
+
+  // still here? use Newton-Raphson 
+  t.resize(_gauss.size());
+  for (unsigned i=0; i< _gauss.size(); i++)
+    t[i] = INF;
+
+  // compute t
+  for (unsigned i=0; i< _gauss.size(); i++)
+  {
+    // only apply to appropriate points 
+    if (depth[i] > (Real) 0.0)
+      continue;
+
+    // apply Newton-Raphson
+    t[i] = newton_raphson(_gauss[i], p, q);
+  }
+
+  // get the first intersection
+  mini = std::min_element(t.begin(), t.end()) - t.begin();
+
+  // compute the point of intersection and normal
+  tisect = t[mini];
+  isect = p + (q-p)*tisect;
+
+  // compute transformed normal
+  Real x = p[X] + (q[X] - p[X])*tisect;
+  Real y = p[Y] + (q[Y] - p[Y])*tisect;
+  normal = T.mult_vector(grad(_gauss[mini], x, y));
+
+  // compute and transform intersection point
+  isect = T.mult_point(p + (q-p)*tisect);
+
+  return true;
+
+/*
   // starting point of line -> q vector
   // Find x1,y1,z1 ->q vector
   x1=q[0];
@@ -569,7 +733,7 @@ bool GaussianMixture::intersect_seg(BVPtr bv, const LineSeg3& seg,Real& t,Vector
     }
   }
 
-  //*************************************************************
+  // *************************************************************
   // check whether the first point in the line segment is already inside
   if(p[2] <= tempMax)
   {
@@ -704,10 +868,10 @@ bool GaussianMixture::intersect_seg(BVPtr bv, const LineSeg3& seg,Real& t,Vector
   isect = T.mult_point(isect);
   normal = T.mult_vector(normal);
 
-  /*
   cout <<"X= "<<isect[0]<<" Y= "<<isect[1]<<" Z= "<<isect[2]<<endl;
   cout <<"normal[0]= "<<normal[0]<<" normal[1]= "<<normal[1]<<" normal[z]= "<<normal[z]<<endl;
-  */
 
   return true;
+  */
 }
+

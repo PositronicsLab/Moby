@@ -17,7 +17,9 @@
 #include <Moby/CompGeom.h>
 
 /// Needed for qhull
+#ifdef THREADSAFE
 pthread_mutex_t Moby::CompGeom::_qhull_mutex = PTHREAD_MUTEX_INITIALIZER;
+#endif
 
 using namespace Moby;
 

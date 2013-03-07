@@ -140,7 +140,7 @@ class MCArticulatedBody : public ArticulatedBody
     static void increment_dof(RigidBodyPtr rb1, RigidBodyPtr rb2, unsigned k, Real h);
     virtual VectorN& solve_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, const VectorN& b, VectorN& x);
     virtual MatrixN& solve_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, const MatrixN& B, MatrixN& X);
-
+    void select_sub_contact_Jacobians(const EventProblemData& q, SparseJacobian& Jc_sub, SparseJacobian& Dc_sub) const;
     VectorN& solve_Jx_iM_JxT(const VectorN& rhs, VectorN& x) const;
 
     /// The last-computed generalized velocity (in axis-angle representation)

@@ -55,7 +55,7 @@ TriangleMeshPrimitive::TriangleMeshPrimitive(const string& filename, bool center
   _edge_sample_length = std::numeric_limits<Real>::max();
 
   // construct a new triangle mesh from the filename
-  if (filename.find("obj") == filename.size() - 4)
+  if (filename.find(".obj") == filename.size() - 4)
     set_mesh(shared_ptr<IndexedTriArray>(new IndexedTriArray(IndexedTriArray::read_from_obj(filename))));
   else
     throw std::runtime_error("TriangleMeshPrimitive (constructor): unknown mesh file type!");
@@ -264,6 +264,9 @@ void TriangleMeshPrimitive::load_from_xml(XMLTreeConstPtr node, map<string, Base
 
   // update the visualization, if necessary
   update_visualization();
+
+  // recompute mass properties
+  calc_mass_properties();
 }
 
 /// Implements Base::save_to_xml()

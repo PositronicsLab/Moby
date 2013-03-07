@@ -51,10 +51,11 @@ class RCArticulatedBody : public ArticulatedBody
     RCArticulatedBody();
     virtual ~RCArticulatedBody() {}
     MatrixN& generalized_inertia_mult(const MatrixN& M, MatrixN& result);
+    virtual MatrixN& calc_jacobian(const Vector3& point, RigidBodyPtr link, MatrixN& J);
     virtual MatrixN calc_jacobian_column(JointPtr joint, const Vector3& point);
     virtual MatrixN& calc_jacobian_column(JointPtr joint, const Vector3& point, const Matrix4& base_transform, const std::map<JointPtr, VectorN>& q, MatrixN& Jc);
     virtual MatrixN& calc_jacobian_column(JointPtr joint, const Vector3& point, MatrixN& Jc);
-    virtual MatrixN calc_jacobian_floating_base(const Vector3& point);
+    virtual MatrixN& calc_jacobian_floating_base(const Vector3& point, MatrixN& J);
     virtual void reset_accumulators();
     virtual void update_link_transforms();    
     virtual void update_link_velocities();

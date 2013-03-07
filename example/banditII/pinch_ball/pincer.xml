@@ -45,14 +45,14 @@
 
   <RigidBody id="base" />
 
-  <RigidBody enabled="true" id="left_pincer" linear-velocity="0 0 0" angular-velocity="0 0 0" mass="10" transform="1 0 0 -.095; 0 1 0 0.0; 0 0 1 0.25; 0 0 0 1" visualization-id="geom_pincer" >
+  <RigidBody enabled="true" id="left_pincer" linear-velocity="0 0 0" angular-velocity="0 0 0" transform="1 0 0 -.095; 0 1 0 0.0; 0 0 1 0.25; 0 0 0 1" visualization-id="geom_pincer" >
     <CollisionGeometry id="cg_left_pincer" primitive-id="geom_pincer" />
     <RecurrentForce recurrent-force-id="gravity" />
     <InertiaFromPrimitive primitive-id="geom_pincer" />
   </RigidBody>
 
   <!-- Right Pincer -->
-  <RigidBody enabled="true" id="right_pincer" linear-velocity="0 0 0" angular-velocity="0 0 0" mass="10" transform="1 0 0 -0.250; 0 1 0 0.0; 0 0 1 0.25; 0 0 0 1" visualization-id="geom_pincer" >
+  <RigidBody enabled="true" id="right_pincer" linear-velocity="0 0 0" angular-velocity="0 0 0" transform="1 0 0 -0.250; 0 1 0 0.0; 0 0 1 0.25; 0 0 0 1" visualization-id="geom_pincer" >
     <CollisionGeometry id="cg_right_pincer" primitive-id="geom_pincer" />
     <RecurrentForce recurrent-force-id="gravity" />
     <InertiaFromPrimitive primitive-id="geom_pincer" />
@@ -117,7 +117,7 @@
 
   <!-- Pincers -->
   <OSGGroup id="osg_pincer" />
-  <Box edge-sample-length="1.79769e+308" id="geom_pincer" intersection-tolerance="1e-05" mass="10" transform="1 0 0 0; 0 1 0 0; 0 0 1 0; 0 0 0 1" xlen="0.1" ylen="0.1" zlen="0.1" />
+  <Box edge-sample-length="1.79769e+308" id="geom_pincer" intersection-tolerance="1e-05" mass="1" transform="1 0 0 0; 0 1 0 0; 0 0 1 0; 0 0 0 1" xlen="0.1" ylen="0.1" zlen="0.1" />
 </Moby>
 </XML>
 
