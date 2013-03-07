@@ -33,7 +33,7 @@ class ContactParameters : public Base
     /// Coefficient of viscous friction for contact (default is 0.0)
     Real mu_viscous;
 
-    /// Number of edges in the polygon friction cone, minimum of 2 (default 2)
+    /// Number of edges in the polygon friction cone, minimum of 4 (default 4)
     unsigned NK;
 }; // end class
 

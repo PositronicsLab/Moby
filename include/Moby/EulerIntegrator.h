@@ -4,8 +4,8 @@
  * License (found in COPYING).
  ****************************************************************************/
 
-#ifndef _EULER_INTEGRATOR_H
-#define _EULER_INTEGRATOR_H
+#ifndef _MOBY_EULER_INTEGRATOR_H
+#define _MOBY_EULER_INTEGRATOR_H
 
 #include <Moby/Integrator.h>
 

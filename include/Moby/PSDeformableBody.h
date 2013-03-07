@@ -52,6 +52,7 @@ class PSDeformableBody : public DeformableBody
     virtual void save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const;
     virtual void update_event_data(EventProblemData& epd);
     virtual void update_velocity(const EventProblemData& epd);
+    virtual Real calc_potential_energy() const;
 
     /// The default spring stiffness constant
     Real default_KP;

@@ -7,7 +7,7 @@
                     <inertia ixx="1.259832"  ixy="0.030529"  ixz="-0.058400" iyx="0.030529"  iyy="6.565043" iyz="-0.026018"  izx="-0.058400"  izy="-0.026018"  izz="6.692983" />
             </inertial>
             <visual>
-                    <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+                    <origin xyz="0 0 0" rpy="0.0 0.0 0.0"/>
                     <geometry>
                             <box size="1.0 0.34 0.17"/>
                     </geometry>
@@ -16,7 +16,7 @@
                     </material>
             </visual>
             <collision>
-                    <origin xyz="0.000000 0.000000 0.000000" rpy="0.000000 0.000000 0.000000"/>
+                    <origin xyz="0 0 0" rpy="0.000000 0.000000 0.000000"/>
                     <geometry>
                             <box size="1.0 0.34 0.17"/>
                     </geometry>
@@ -25,13 +25,14 @@
     <!-- LF_LEG LINKS -->
     <link name="LF_HIP_AA">
             <inertial>
-                    <!-- <origin xyz="0.161454 -0.022139 -0.000005"/> -->
-                    <origin xyz="0.091114 -0.012494 -0.000003"/>
+                    <origin xyz="0 0 0"/>
                     <mass value="1.772000"/>
-                    <inertia ixx="0.002771"  ixy="0.005438" ixz="0.000000" iyx="0.005438"  iyy="0.069494" iyz="0.000000"  izx="0.000000"  izy="0.000000"  izz="0.070450" />
+                    <inertia ixx=".0956126"  ixy="-.0000151" ixz="-.0110167"
+                             iyx="-.0000151" iyy=".1012626"  iyz="-.0000229"
+                             izx="-.0110167" izy="-.0000229" izz=".0006758" />
             </inertial>
             <visual>
-                    <origin xyz="0.000000 0.000000 0.18675" rpy="0.000000 0.000000 0.000000"/>
+                    <origin xyz="0 0 0" rpy="0.000000 0.000000 0.000000"/>
                     <geometry>
                             <cylinder radius="0.08" length="0.3735"/>
                     </geometry>
@@ -40,7 +41,7 @@
                     </material>
             </visual>
             <collision>
-                    <origin xyz="0.000000 0.000000 0.18675" rpy="0.000000 0.000000 0.000000"/>
+                    <origin xyz="0 0 0" rpy="0.000000 0.000000 0.000000"/>
                     <geometry>
                             <cylinder radius="0.08" length="0.3735"/>
                     </geometry>
@@ -48,45 +49,47 @@
     </link>
     <link name="LF_HIP_FE">
             <inertial>
-                    <!-- <origin xyz="0.032475 0.000289 0.142381"/> -->
-                    <origin xyz="0.013084 0.000116 0.057365"/>
-                    <mass value="2.482000"/>
-                    <inertia ixx="0.095613"  ixy="-0.000015" ixz="-0.011017" iyx="-0.000015"  iyy="0.101263" iyz="-0.000023"  izx="-0.011017"  izy="-0.000023"  izz="0.000676" />
+                    <origin xyz="0 0 0"/>
+                    <inertia ixx=".0027712"  ixy=".0054381"  ixz=".000002"
+                             iyx=".0054381"  iyy=".0694937"  iyz="0.0"
+                             izx=".000002"   izy="0.0"       izz=".07045" />
+                    <mass value="1.772"/>
             </inertial>
             <visual>
-                    <origin xyz="0.175 0.000000 0.000000" rpy="0.000000 1.570796 0.000000"/>
+                    <origin xyz="0 0 0" rpy="0.000000 0.0 0.000000"/>
                     <geometry>
-                            <cylinder radius="0.01" length="0.35"/>
+                            <!-- <cylinder radius="0.01" length="0.35"/> -->
+                            <mesh filename="/home/samzapo/Moby/example/HyQ/ycyl-r0.01-l0.35.obj" />
                     </geometry>
                     <material name="Red">
                     </material>
             </visual>
             <collision>
-                    <origin xyz="0.175 0.000000 0.000000" rpy="0.000000 1.570796 0.000000"/>
+                    <origin xyz="0 0 0" rpy="0.000000 0.0 0.000000"/>
                     <geometry>
-                            <cylinder radius="0.01" length="0.35"/>
+                            <!-- <cylinder radius="0.01" length="0.35"/> -->
+                            <mesh filename="/home/samzapo/Moby/example/HyQ/ycyl-r0.01-l0.35.obj" />
                     </geometry>
             </collision>
     </link>
     <link name="LF_KNEE">
             <inertial>
-                    <!-- <origin xyz="0.121822 0.000580 -0.000119"/> -->
-                    <origin xyz="0.076139 0.000362 -0.000074"/>
+                    <origin xyz="0 0 0"/>
                     <mass value="1.600000"/>
                     <inertia ixx="0.000423"  ixy="-0.000003" ixz="0.000000" iyx="-0.000003"  iyy="0.022033" iyz="0.000000"  izx="0.000000"  izy="0.000000"  izz="0.021843" />
             </inertial>
             <visual>
-                    <origin xyz="0.1515 0.000000 0.000000" rpy="0.000000 1.570796 0.000000"/>
+                    <origin xyz="0 0 0" rpy="0.000000 0.0 0.000000"/>
                     <geometry>
-                            <cylinder radius="0.01" length="0.33"/>
+                            <mesh filename="/home/samzapo/Moby/example/HyQ/ycyl-r0.01-l0.33.obj" />
                     </geometry>
                     <material name="Red">
                     </material>
             </visual>
             <collision>
-                    <origin xyz="0.1515 0.000000 0.000000" rpy="0.000000 1.570796 0.000000"/>
+                    <origin xyz="0 0 0" rpy="0.000000 0.0 0.000000"/>
                     <geometry>
-                            <cylinder radius="0.01" length="0.33"/>
+                            <mesh filename="/home/samzapo/Moby/example/HyQ/ycyl-r0.01-l0.33.obj" />
                     </geometry>
             </collision>
     </link>
@@ -114,13 +117,12 @@
     <!-- RF_LEG LINKS -->
     <link name="RF_HIP_AA">
             <inertial>
-                    <!-- <origin xyz="0.161454 -0.022139 -0.000005"/> -->
-                    <origin xyz="0.091114 -0.012494 -0.000003"/>
+                    <origin xyz="0 0 0"/>
                     <mass value="1.772000"/>
                     <inertia ixx="0.002771"  ixy="0.005438" ixz="0.000000" iyx="0.005438"  iyy="0.069494" iyz="0.000000"  izx="0.000000"  izy="0.000000"  izz="0.070450" />
             </inertial>
             <visual>
-                    <origin xyz="0.000000 0.000000 -0.18675" rpy="0.000000 0.000000 0.000000"/>
+                    <origin xyz="0 0 0"/>
                     <geometry>
                             <cylinder radius="0.08" length="0.3735"/>
                     </geometry>
@@ -128,7 +130,7 @@
                     </material>
             </visual>
             <collision>
-                    <origin xyz="0.000000 0.000000 0.18675" rpy="0.000000 0.000000 0.000000"/>
+                    <origin xyz="0 0 0"/>
                     <geometry>
                             <cylinder radius="0.08" length="0.3735"/>
                     </geometry>
@@ -136,45 +138,47 @@
     </link>
     <link name="RF_HIP_FE">
             <inertial>
-                    <!-- <origin xyz="0.032475 -0.000289 -0.142381"/> -->
-                    <origin xyz="0.013084 -0.000116 -0.057365"/>
+                    <origin xyz="0 0 0"/>
                     <mass value="2.482000"/>
                     <inertia ixx="0.095613"  ixy="0.000015" ixz="0.011017" iyx="0.000015"  iyy="0.101263" iyz="-0.000023"  izx="0.011017"  izy="-0.000023"  izz="0.000676" />
             </inertial>
             <visual>
-                    <origin xyz="0.175 0.000000 0.000000" rpy="0.000000 1.570796 0.000000"/>
+                    <origin xyz="0 0 0"/>
                     <geometry>
-                            <cylinder radius="0.01" length="0.35"/>
+                            <mesh filename="/home/samzapo/Moby/example/HyQ/ycyl-r0.01-l0.35.obj" />
+                            <!-- cylinder radius="0.01" length="0.35"/ -->
                     </geometry>
                     <material name="Red">
                     </material>
             </visual>
             <collision>
-                    <origin xyz="0.175 0.000000 0.000000" rpy="0.000000 1.570796 0.000000"/>
+                    <origin xyz="0 0 0"/>
                     <geometry>
-                            <cylinder radius="0.01" length="0.35"/>
+                            <!-- cylinder radius="0.01" length="0.35"/ -->
+                            <mesh filename="/home/samzapo/Moby/example/HyQ/ycyl-r0.01-l0.35.obj" />
                     </geometry>
             </collision>
     </link>
     <link name="RF_KNEE">
             <inertial>
-                    <!-- <origin xyz="0.121822 0.000580 -0.000119"/> -->
-                    <origin xyz="0.076139 0.000362 -0.000074"/>
+                    <origin xyz="0 0 0"/>
                     <mass value="1.600000"/>
                     <inertia ixx="0.000423"  ixy="-0.000003" ixz="0.000000" iyx="-0.000003"  iyy="0.022033" iyz="0.000000"  izx="0.000000"  izy="0.000000"  izz="0.021843" />
             </inertial>
             <visual>
-                    <origin xyz="0.1515 0.000000 0.000000" rpy="0.000000 1.570796 0.000000"/>
+                    <origin xyz="0 0 0"/>
                     <geometry>
-                            <cylinder radius="0.01" length="0.33"/>
+                            <!-- cylinder radius="0.01" length="0.33"/ -->
+                            <mesh filename="/home/samzapo/Moby/example/HyQ/ycyl-r0.01-l0.33.obj" />
                     </geometry>
                     <material name="Red">
                     </material>
             </visual>
             <collision>
-                    <origin xyz="0.1515 0.000000 0.000000" rpy="0.000000 1.570796 0.000000"/>
+                    <origin xyz="0 0 0"/>
                     <geometry>
-                            <cylinder radius="0.01" length="0.33"/>
+                            <mesh filename="/home/samzapo/Moby/example/HyQ/ycyl-r0.01-l0.33.obj" />
+                            <!-- cylinder radius="0.01" length="0.33"/ -->
                     </geometry>
             </collision>
     </link>
@@ -202,13 +206,12 @@
     <!-- LH_LEG LINKS -->
     <link name="LH_HIP_AA">
             <inertial>
-                    <!-- <origin xyz="0.161454 0.022139 0.000005"/> -->
-                    <origin xyz="0.091114 0.012494 0.000003"/>
+                    <origin xyz="0 0 0"/>
                     <mass value="1.772000"/>
                     <inertia ixx="0.002771"  ixy="-0.005438" ixz="-0.000000" iyx="-0.005438"  iyy="0.069494" iyz="0.000000"  izx="-0.000000"  izy="0.000000"  izz="0.070450" />
             </inertial>
             <visual>
-                    <origin xyz="0.000000 0.000000 -0.18675" rpy="0.000000 0.000000 0.000000"/>
+                    <origin xyz="0 0 0"/>
                     <geometry>
                             <cylinder radius="0.08" length="0.3735"/>
                     </geometry>
@@ -216,7 +219,7 @@
                     </material>
             </visual>
             <collision>
-                    <origin xyz="0.000000 0.000000 0.18675" rpy="0.000000 0.000000 0.000000"/>
+                    <origin xyz="0 0 0"/>
                     <geometry>
                             <cylinder radius="0.08" length="0.3735"/>
                     </geometry>
@@ -224,45 +227,47 @@
     </link>
     <link name="LH_HIP_FE">
             <inertial>
-                    <!-- <origin xyz="0.032475 -0.000289 -0.142381"/> -->
-                    <origin xyz="0.013084 -0.000116 -0.057365"/>
+                    <origin xyz="0 0 0"/>
                     <mass value="2.482000"/>
                     <inertia ixx="0.095613"  ixy="0.000015" ixz="0.011017" iyx="0.000015"  iyy="0.101263" iyz="-0.000023"  izx="0.011017"  izy="-0.000023"  izz="0.000676" />
             </inertial>
             <visual>
-                    <origin xyz="0.175 0.000000 0.000000" rpy="0.000000 1.570796 0.000000"/>
+                    <origin xyz="0 0 0"/>
                     <geometry>
-                            <cylinder radius="0.01" length="0.35"/>
+                            <mesh filename="/home/samzapo/Moby/example/HyQ/ycyl-r0.01-l0.35.obj" />
+                            <!-- cylinder radius="0.01" length="0.35"/ -->
                     </geometry>
                     <material name="Red">
                     </material>
             </visual>
             <collision>
-                    <origin xyz="0.175 0.000000 0.000000" rpy="0.000000 1.570796 0.000000"/>
+                    <origin xyz="0 0 0"/>
                     <geometry>
-                            <cylinder radius="0.01" length="0.35"/>
+                            <mesh filename="/home/samzapo/Moby/example/HyQ/ycyl-r0.01-l0.35.obj" />
+                            <!-- cylinder radius="0.01" length="0.35"/ -->
                     </geometry>
             </collision>
     </link>
     <link name="LH_KNEE">
             <inertial>
-                    <!-- <origin xyz="0.121822 -0.000580 0.000119"/> -->
-                    <origin xyz="0.076139 -0.000362 0.000074"/>
+                    <origin xyz="0 0 0"/>
                     <mass value="1.600000"/>
                     <inertia ixx="0.000423"  ixy="0.000003" ixz="0.000000" iyx="0.000003"  iyy="0.022033" iyz="0.000000"  izx="0.000000"  izy="0.000000"  izz="0.021843" />
             </inertial>
             <visual>
-                    <origin xyz="0.1515 0.000000 0.000000" rpy="0.000000 1.570796 0.000000"/>
+                    <origin xyz="0 0 0"/>
                     <geometry>
-                            <cylinder radius="0.01" length="0.33"/>
+                            <mesh filename="/home/samzapo/Moby/example/HyQ/ycyl-r0.01-l0.33.obj" />
+                            <!-- cylinder radius="0.01" length="0.33"/ -->
                     </geometry>
                     <material name="Red">
                     </material>
             </visual>
             <collision>
-                    <origin xyz="0.1515 0.000000 0.000000" rpy="0.000000 1.570796 0.000000"/>
+                    <origin xyz="0 0 0"/>
                     <geometry>
-                            <cylinder radius="0.01" length="0.33"/>
+                            <mesh filename="/home/samzapo/Moby/example/HyQ/ycyl-r0.01-l0.33.obj" />
+                            <!-- cylinder radius="0.01" length="0.33"/ -->
                     </geometry>
             </collision>
     </link>
@@ -290,13 +295,12 @@
     <!-- RH_LEG LINKS -->
     <link name="RH_HIP_AA">
             <inertial>
-                    <!-- <origin xyz="0.161454 0.022139 0.000005"/> -->
-                    <origin xyz="0.091114 0.012494 0.000003"/>
+                    <origin xyz="0 0 0"/>
                     <mass value="1.772000"/>
                     <inertia ixx="0.002771"  ixy="-0.005438" ixz="-0.000000" iyx="-0.005438"  iyy="0.069494" iyz="0.000000"  izx="-0.000000"  izy="0.000000"  izz="0.070450" />
             </inertial>
             <visual>
-                    <origin xyz="0.000000 0.000000 0.18675" rpy="0.000000 0.000000 0.000000"/>
+                    <origin xyz="0 0 0"/>
                     <geometry>
                             <cylinder radius="0.08" length="0.3735"/>
                     </geometry>
@@ -304,7 +308,7 @@
                     </material>
             </visual>
             <collision>
-                    <origin xyz="0.000000 0.000000 -0.18675" rpy="0.000000 0.000000 0.000000"/>
+                    <origin xyz="0 0 0"/>
                     <geometry>
                             <cylinder radius="0.08" length="0.3735"/>
                     </geometry>
@@ -312,45 +316,47 @@
     </link>
     <link name="RH_HIP_FE">
             <inertial>
-                    <!-- <origin xyz="0.032475 0.000289 0.142381"/> -->
-                    <origin xyz="0.013084 0.000116 0.057365"/>
+                    <origin xyz="0 0 0"/>
                     <mass value="2.482000"/>
                     <inertia ixx="0.095613"  ixy="-0.000015" ixz="-0.011017" iyx="-0.000015"  iyy="0.101263" iyz="-0.000023"  izx="-0.011017"  izy="-0.000023"  izz="0.000676" />
             </inertial>
             <visual>
-                    <origin xyz="0.175 0.000000 0.000000" rpy="0.000000 1.570796 0.000000"/>
+                    <origin xyz="0 0 0"/>
                     <geometry>
-                            <cylinder radius="0.01" length="0.35"/>
+                            <!-- cylinder radius="0.01" length="0.35"/ -->
+                            <mesh filename="/home/samzapo/Moby/example/HyQ/ycyl-r0.01-l0.35.obj" />
                     </geometry>
                     <material name="Red">
                     </material>
             </visual>
             <collision>
-                    <origin xyz="0.175 0.000000 0.000000" rpy="0.000000 1.570796 0.000000"/>
+                    <origin xyz="0 0 0"/>
                     <geometry>
-                            <cylinder radius="0.01" length="0.35"/>
+                            <mesh filename="/home/samzapo/Moby/example/HyQ/ycyl-r0.01-l0.35.obj" />
+                            <!-- cylinder radius="0.01" length="0.35"/ -->
                     </geometry>
             </collision>
     </link>
     <link name="RH_KNEE">
             <inertial>
-                    <!-- <origin xyz="0.121822 -0.000580 0.000119"/> -->
-                    <origin xyz="0.076139 -0.000362 0.000074"/>
+                    <origin xyz="0 0 0"/>
                     <mass value="1.600000"/>
                     <inertia ixx="0.000423"  ixy="0.000003" ixz="0.000000" iyx="0.000003"  iyy="0.022033" iyz="0.000000"  izx="0.000000"  izy="0.000000"  izz="0.021843" />
             </inertial>
             <visual>
-                    <origin xyz="0.1515 0.000000 0.000000" rpy="0.000000 1.570796 0.000000"/>
+                    <origin xyz="0 0 0"/>
                     <geometry>
-                            <cylinder radius="0.01" length="0.33"/>
+                            <mesh filename="/home/samzapo/Moby/example/HyQ/ycyl-r0.01-l0.33.obj" />
+                            <!-- cylinder radius="0.01" length="0.33"/ -->
                     </geometry>
                     <material name="Red">
                     </material>
             </visual>
             <collision>
-                    <origin xyz="0.1515 0.000000 0.000000" rpy="0.000000 1.570796 0.000000"/>
+                    <origin xyz="0 0 0"/>
                     <geometry>
-                            <cylinder radius="0.01" length="0.33"/>
+                            <mesh filename="/home/samzapo/Moby/example/HyQ/ycyl-r0.01-l0.33.obj" />
+                            <!-- cylinder radius="0.01" length="0.33"/ -->
                     </geometry>
             </collision>
     </link>
@@ -386,7 +392,7 @@
             <limit effort="100.000000" velocity="10.0" lower="-0.873" upper="1.222"/>
     </joint>
     <joint name="LF_HAA" type="revolute">
-            <origin xyz="0.3735 0.207 0.0" rpy="3.141593 1.570796 0.0"/>
+            <origin xyz="0.3735 0.207 0.0" rpy="0 1.570796 3.141593"/>
             <parent link="base_link"/>
             <child link="LF_HIP_AA"/>
             <axis xyz="0 0 1"/>
@@ -400,7 +406,7 @@
             <limit effort="100.000000" velocity="10.0" lower="-2.443" upper="-0.349"/>
     </joint>
     <joint name="LF_LLF" type="fixed">
-            <origin xyz="0.33 0.0 0.0" rpy="0.0 -1.570796 -1.570796"/>
+            <origin xyz="0.33 0.0 0.0" rpy="0.0 0.0 0.0"/>
             <parent link="LF_KNEE"/>
             <child link="LF_FOOT"/>
     </joint>
@@ -413,7 +419,7 @@
             <limit effort="100.000000" velocity="10.0" lower="-0.873" upper="1.222"/>
     </joint>
     <joint name="RF_HAA" type="revolute">
-            <origin xyz="0.3735 -0.207 0.0" rpy="3.141593 1.570796 3.141593"/>
+            <origin xyz="0.3735 -0.207 0.0" rpy="0 1.570796 0"/>
             <parent link="base_link"/>
             <child link="RF_HIP_AA"/>
             <axis xyz="0 0 1"/>
