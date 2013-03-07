@@ -2,7 +2,7 @@
 <!-- ROBOT LINKS -->
     <link name="base_link">
             <inertial>
-              <origin xyz="-0.011300 0.002806 0.056487"/>
+              <origin xyz="0 0 0"/>
                     <mass value="53.000000"/>
                     <inertia ixx="1.259832"  ixy="0.030529"  ixz="-0.058400" iyx="0.030529"  iyy="6.565043" iyz="-0.026018"  izx="-0.058400"  izy="-0.026018"  izz="6.692983" />
             </inertial>
