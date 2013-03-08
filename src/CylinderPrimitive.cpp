@@ -196,9 +196,9 @@ shared_ptr<const IndexedTriArray> CylinderPrimitive::get_mesh()
 }
 
 /// Creates the visualization for this primitive
-#ifdef USE_OSG
 osg::Node* CylinderPrimitive::create_visualization()
 {
+  #ifdef USE_OSG
   osg::Cylinder* cyl = new osg::Cylinder;
   cyl->setRadius((float) _radius);
   cyl->setHeight((float) _height);
@@ -207,8 +207,10 @@ osg::Node* CylinderPrimitive::create_visualization()
   osg::Geode* geode = new osg::Geode;
   geode->addDrawable(new osg::ShapeDrawable(cyl));
   return geode;
+  #else
+  return NULL;
+  #endif
 }
-#endif
 
 /// Implements Base::load_from_xml() for serialization
 void CylinderPrimitive::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)

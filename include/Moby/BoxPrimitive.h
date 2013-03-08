@@ -34,10 +34,7 @@ class BoxPrimitive : public Primitive
     void set_edge_sample_length(Real len);
     virtual boost::shared_ptr<const IndexedTriArray> get_mesh();
     virtual void get_vertices(BVPtr, std::vector<const Vector3*>& vertices);
-
-    #ifdef USE_OSG
     virtual osg::Node* create_visualization();
-    #endif
 
     /// Get the x-length of this box
     Real get_x_len() const { return _xlen; }
