@@ -70,6 +70,8 @@ typedef long double LongReal;
 typedef mpfr::mpreal Real;
 typedef mpfr::mpreal LongReal;
 
+#else
+#error "No floating point type given!"
 #endif
 #endif
 #endif

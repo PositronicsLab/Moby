@@ -35,10 +35,7 @@ class CylinderPrimitive : public Primitive
     virtual const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >& get_sub_mesh(BVPtr bv); 
     virtual boost::shared_ptr<const IndexedTriArray> get_mesh();
     virtual void set_intersection_tolerance(Real tol);
-
-    #ifdef USE_OSG
     virtual osg::Node* create_visualization();
-    #endif
 
     /// Gets the radius of this cylinder
     Real get_radius() const { return _radius; }
