@@ -75,7 +75,7 @@ if (PROFILE)
 endif (PROFILE)
 
 # find libraries
-find_package (LibXml2)
+find_package (LibXml2 REQUIRED)
 find_package (GLPK)
 find_package (Boost REQUIRED)
 get_property(_LANGUAGES_ GLOBAL PROPERTY ENABLED_LANGUAGES)
