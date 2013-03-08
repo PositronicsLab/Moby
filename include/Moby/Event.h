@@ -17,6 +17,8 @@
 #include <Moby/RigidBody.h>
 #include <Moby/ContactParameters.h>
 
+namespace osg { class Node; }
+
 namespace Moby {
 
 class CollisionGeometry;
@@ -111,10 +113,7 @@ class Event
     /// The number of friction directions (for contact events)
     unsigned contact_NK;
 
-    #ifdef USE_OSG
     osg::Node* to_visualization_data() const;
-    #endif
-
     void write_vrml(const std::string& filename, Real sphere_radius = 0.1, Real normal_length = 1.0) const;
     bool operator<(const Event& e) const { return t < e.t; }
 }; // end class

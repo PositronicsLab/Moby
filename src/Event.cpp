@@ -204,10 +204,12 @@ static void to_osg_matrix(const Matrix4& src, osg::Matrixd& tgt)
   tgt(X,W) = tgt(Y,W) = tgt(Z,W) = (Real) 0.0;
   tgt(W,W) = (Real) 1.0;
 }
+#endif
 
 /// Makes a contact visualizable
 osg::Node* Event::to_visualization_data() const
 {
+  #ifdef USE_OSG
   const float CONE_HEIGHT = .2f;
   const float CONE_RADIUS = .2f;
   const unsigned X = 0, Y = 1, Z = 2;
@@ -256,8 +258,10 @@ osg::Node* Event::to_visualization_data() const
   transform->addChild(geode);
 
   return transform;
+  #else
+  return NULL;
+  #endif
 }
-#endif
 
 /// Given a vector of events, determines all of the sets of connected events
 /**
