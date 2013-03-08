@@ -234,17 +234,19 @@ shared_ptr<const IndexedTriArray> ConePrimitive::get_mesh()
 }
 
 /// Creates the visualization for this primitive
-#ifdef USE_OSG
 osg::Node* ConePrimitive::create_visualization()
 {
+  #ifdef USE_OSG
   osg::Cone* cone = new osg::Cone;
   cone->setRadius((float) _radius);
   cone->setHeight((float) _height);
   osg::Geode* geode = new osg::Geode;
   geode->addDrawable(new osg::ShapeDrawable(cone));
   return geode;
+  #else
+  return NULL;
+  #endif
 }
-#endif
 
 /// Implements Base::load_from_xml() for serialization
 void ConePrimitive::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)

@@ -7,9 +7,6 @@
 #ifndef _SIMULATOR_H
 #define _SIMULATOR_H
 
-#ifdef USE_OSG
-#include <osg/Group>
-#endif
 #include <list>
 #include <map>
 #include <set>
@@ -22,7 +19,10 @@
 #include <Moby/VectorN.h>
 #include <Moby/ArticulatedBody.h>
 
-class SoSeparator;
+namespace osg { 
+  class Node;
+  class Group; 
+}
 
 namespace Moby {
 
@@ -63,24 +63,20 @@ class Simulator : public virtual Base
      */
     const std::vector<DynamicBodyPtr>& get_dynamic_bodies() const { return _bodies; }
 
-    #ifdef USE_OSG
-    void add_transient_vdata(osg::Node* vdata) { _transient_vdata->addChild(vdata); }
+    void add_transient_vdata(osg::Node* vdata);
 
     /// Gets the persistent visualization data
-    osg::Node* get_persistent_vdata() const { return _persistent_vdata; } 
+    osg::Node* get_persistent_vdata() const { return (osg::Node*) _persistent_vdata; } 
 
     /// Gets the transient (one-step) visualization data
-    osg::Node* get_transient_vdata() const { return _transient_vdata; } 
-    #endif
+    osg::Node* get_transient_vdata() const { return (osg::Node*) _transient_vdata; } 
 
     /// Callback function after a step is completed
     void (*post_step_callback_fn)(Simulator* s);
 
   protected:
-    #ifdef USE_OSG
     osg::Group* _persistent_vdata;
     osg::Group* _transient_vdata;
-    #endif
 
     /// The set of bodies in the simulation
     std::vector<DynamicBodyPtr> _bodies;
