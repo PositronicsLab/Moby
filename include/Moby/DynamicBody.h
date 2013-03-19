@@ -33,6 +33,7 @@ class DynamicBody : public Visualizable
     DynamicBody() 
     { 
       controller = NULL; 
+      _enabled = true;
     }
 
     virtual ~DynamicBody() {}
@@ -128,7 +129,16 @@ class DynamicBody : public Visualizable
     /// Gets the angular speed of this body (or maximum angular speed of the links, if this body is articulated)
     virtual Real get_aspeed() const = 0; 
 
+    /// Sets the body to be enabled or disabled
+    virtual void set_enabled(bool flag) { _enabled = flag; }
+
+    /// Gets whether the body is enabled
+    bool is_enabled() const { return _enabled; }
+
   private:
+
+    /// Whether the body is enabled or disabled
+    bool _enabled;
 
     /// Set of recurrent forces applied to this body
     std::list<RecurrentForcePtr> _rfs;

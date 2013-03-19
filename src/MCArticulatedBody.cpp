@@ -30,14 +30,16 @@ MCArticulatedBody::MCArticulatedBody()
 /// Applies a generalized impulse to the articulated body
 void MCArticulatedBody::apply_generalized_impulse(DynamicBody::GeneralizedCoordinateType gctype, const VectorN& gj)
 {
-  SAFESTATIC VectorN j;
-  j.resize(num_generalized_coordinates(gctype));
+  _workv.resize(num_generalized_coordinates(gctype));
+
+  if (!is_enabled())
+    return;
 
   for (unsigned i=0, k=0; i< _links.size(); i++)
   {
     const unsigned ngc = _links[i]->num_generalized_coordinates(gctype);
-    gj.get_sub_vec(k, k+ngc, j);
-    _links[i]->apply_generalized_impulse(gctype, j);
+    gj.get_sub_vec(k, k+ngc, _workv);
+    _links[i]->apply_generalized_impulse(gctype, _workv);
     k += ngc;
   }
 }
@@ -45,14 +47,17 @@ void MCArticulatedBody::apply_generalized_impulse(DynamicBody::GeneralizedCoordi
 /// Adds a generalized force to the articulated body
 void MCArticulatedBody::add_generalized_force(DynamicBody::GeneralizedCoordinateType gctype, const VectorN& gf)
 {
-  SAFESTATIC VectorN f;
-  f.resize(num_generalized_coordinates(gctype));
+  // look for fast exit
+  if (!is_enabled())
+    return;
+
+  _workv.resize(num_generalized_coordinates(gctype));
 
   for (unsigned i=0, k=0; i< _links.size(); i++)
   {
     const unsigned NGC = _links[i]->num_generalized_coordinates(gctype);
-    gf.get_sub_vec(k, k+NGC, f);
-    _links[i]->add_generalized_force(gctype, f);
+    gf.get_sub_vec(k, k+NGC, _workv);
+    _links[i]->add_generalized_force(gctype, _workv);
     k += NGC;
   }
 }
@@ -60,9 +65,6 @@ void MCArticulatedBody::add_generalized_force(DynamicBody::GeneralizedCoordinate
 /// Gets the generalized coordinates of the body 
 VectorN& MCArticulatedBody::get_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, VectorN& gc)
 {
-  // necessary temporary vector
-  SAFESTATIC VectorN gc_body;
-
   // concatenate all link gc's into a single vector
   const unsigned NGC = num_generalized_coordinates(gctype);
   gc.resize(NGC);
@@ -70,8 +72,8 @@ VectorN& MCArticulatedBody::get_generalized_coordinates(DynamicBody::Generalized
   // get the generalized coordinates
   for (unsigned i=0, k=0; i< _links.size(); i++)
   {
-    _links[i]->get_generalized_coordinates(gctype, gc_body);
-    gc.set_sub_vec(k, gc_body);
+    _links[i]->get_generalized_coordinates(gctype, _workv);
+    gc.set_sub_vec(k, _workv);
     k += _links[i]->num_generalized_coordinates(gctype);
   }
 
@@ -96,8 +98,9 @@ VectorN& MCArticulatedBody::get_generalized_coordinates(DynamicBody::Generalized
 /// Gets the generalized velocity for this body
 VectorN& MCArticulatedBody::get_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, VectorN& gv) 
 {
-  // necessary temporary vector
-  SAFESTATIC VectorN gv_body;
+  // look for fast exit
+  if (!is_enabled())
+    return gv.resize(0);
 
   // determine number of generalized coordinates 
   const unsigned NGC = num_generalized_coordinates(gctype);
@@ -106,19 +109,20 @@ VectorN& MCArticulatedBody::get_generalized_velocity(DynamicBody::GeneralizedCoo
   // get the generalized velocities 
   for (unsigned i=0, k=0; i< _links.size(); i++)
   {
-    _links[i]->get_generalized_velocity(gctype, gv_body);
-    gv.set_sub_vec(k, gv_body);
+    _links[i]->get_generalized_velocity(gctype, _workv);
+    gv.set_sub_vec(k, _workv);
     k += _links[i]->num_generalized_coordinates(gctype);
   }
 
   return gv; 
 }
 
-/// Gets the generalized velocity for this body
+/// Gets the generalized acceleration for this body
 VectorN& MCArticulatedBody::get_generalized_acceleration(DynamicBody::GeneralizedCoordinateType gctype, VectorN& ga) 
 {
-  // necessary temporary vector
-  SAFESTATIC VectorN ga_body;
+  // look for fast exit
+  if (!is_enabled())
+    return ga.resize(0);
 
   // determine number of generalized coordinates 
   const unsigned NGC = num_generalized_coordinates(gctype);
@@ -127,8 +131,8 @@ VectorN& MCArticulatedBody::get_generalized_acceleration(DynamicBody::Generalize
   // get the generalized accelerations
   for (unsigned i=0, k=0; i< _links.size(); i++)
   {
-    _links[i]->get_generalized_acceleration(gctype, ga_body);
-    ga.set_sub_vec(k, ga_body);
+    _links[i]->get_generalized_acceleration(gctype, _workv);
+    ga.set_sub_vec(k, _workv);
     k += _links[i]->num_generalized_coordinates(gctype);
   }
 
@@ -190,6 +194,10 @@ void MCArticulatedBody::determine_inertias()
 /// Gets the generalized inertia matrix
 MatrixN& MCArticulatedBody::get_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, MatrixN& M)
 {
+  // look for fast exit
+  if (!is_enabled())
+    return M.resize(0, 0);
+
   // setup the sparse inertia matrix and inverse inertia matrix
   MatrixN gI;
 
@@ -210,8 +218,6 @@ MatrixN& MCArticulatedBody::get_generalized_inertia(DynamicBody::GeneralizedCoor
 /// Performs necessary pre-computations for computing accelerations for applying impulses
 void MCArticulatedBody::precalc()
 {
-  SAFESTATIC VectorN jv;
-
   // only if necessary: compute the constraint Jacobian, constraint force 
   // transformation matrix, generalized inertia matrix, and related matrices
   if (positions_invalidated())
@@ -262,11 +268,11 @@ void MCArticulatedBody::precalc()
 
     // setup joint velocities
     const unsigned NDOF = _Dx.rows();
-    mult_sparse(_Dx, _xd, jv);
+    mult_sparse(_Dx, _xd, _workv);
     for (unsigned i=0; i< _joints.size(); i++)
     {
       unsigned idx = _joints[i]->get_coord_index();
-      jv.get_sub_vec(idx, idx+_joints[i]->num_dof(), _joints[i]->qd);
+      _workv.get_sub_vec(idx, idx+_joints[i]->num_dof(), _joints[i]->qd);
     }
 
     // validate the body velocities
@@ -293,6 +299,7 @@ void MCArticulatedBody::integrate(Real t, Real h, boost::shared_ptr<Integrator<V
 {
 return DynamicBody::integrate(t, h, integrator);
 
+/*
   // do preliminary calculations
   precalc();
 
@@ -379,43 +386,42 @@ return DynamicBody::integrate(t, h, integrator);
 
   // velocities are valid
   validate_velocities();
+*/
 }
 
 /// Computes the velocity state-derivative of this articulated body
 void MCArticulatedBody::calc_fwd_dyn(Real dt)
 {
-  // work variables
-  SAFESTATIC VectorN ff, fext, C, tmpv, x, alpha_x, beta_x, delta, iM_fext, z;
-  SAFESTATIC VectorN Jx_dot_xd, Jx_xd, vddt_plus_iM_fext, lambda;
-  SAFESTATIC MatrixN RG, Jx_iM_DxT, A;
-  SAFESTATIC MatrixN Dx_iM_DxT;
+  // look for fast exit
+  if (!is_enabled())
+    return;
 
   // do pre-calculations first
   precalc();
 
   // evaluate constraints
-  get_constraint_evals(C);
+  get_constraint_evals(_C);
 
   FILE_LOG(LOG_DYNAMICS) << "MCArticulatedBody::calc_fwd_dyn() entered" << endl;
-  FILE_LOG(LOG_DYNAMICS) << " constraint evals: " << C << endl;
+  FILE_LOG(LOG_DYNAMICS) << " constraint evals: " << _C << endl;
 
   // compute Jx * xd and \dot{Jx} * xd
-  mult_sparse(_Jx_dot, _xd, Jx_dot_xd);
-  mult_sparse(_Jx, _xd, Jx_xd);
+  mult_sparse(_Jx_dot, _xd, _Jx_dot_xd);
+  mult_sparse(_Jx, _xd, _Jx_xd);
 
   // compute actuator forces
   const unsigned NDOF = _Dx.rows();
-  ff.resize(NDOF);
+  _ff.resize(NDOF);
   for (unsigned i=0, k=0; i< _joints.size(); i++)
     for (unsigned j=0; j< _joints[i]->num_dof(); j++)
-      ff[k++] = _joints[i]->force[j];
+      _ff[k++] = _joints[i]->force[j];
 
   // setup spatial forces
-  get_generalized_forces(DynamicBody::eAxisAngle, fext);
+  get_generalized_forces(DynamicBody::eAxisAngle, _fext);
 
   // transform joint forces to absolute coords 
-  mult_transpose_sparse(_Dx, ff, tmpv);
-  fext += tmpv;
+  mult_transpose_sparse(_Dx, _ff, _workv);
+  _fext += _workv;
 
   // see whether to use advanced friction model
   if (!use_advanced_friction_model)
@@ -423,33 +429,33 @@ void MCArticulatedBody::calc_fwd_dyn(Real dt)
     // use old Coulomb model
     for (unsigned i=0; i< _joints.size(); i++)
     {
-      ff.resize(_joints[i]->num_dof());
+      _ff.resize(_joints[i]->num_dof());
       for (unsigned j=0; j< _joints[i]->num_dof(); j++)
       {
-        ff[j] = (Real) -1.0;
+        _ff[j] = (Real) -1.0;
         if (_joints[i]->qd[j] < (Real) 0.0)
-          ff[j] = (Real) 1.0;
-        ff[j] *= _joints[i]->mu_fc;
-        ff[j] -= _joints[i]->qd[j]*_joints[i]->mu_fv;
+          _ff[j] = (Real) 1.0;
+        _ff[j] *= _joints[i]->mu_fc;
+        _ff[j] -= _joints[i]->qd[j]*_joints[i]->mu_fv;
       }
-      _joints[i]->add_force(ff);
+      _joints[i]->add_force(_ff);
     }
 
     // compute constraint forces (will be stored in 'z')
-    iM_mult(fext, iM_fext);
-    mult_sparse(_Jx, iM_fext, z) += Jx_dot_xd;
-    tmpv.copy_from(Jx_xd) *= ((Real) 2.0 * b_alpha);
-    z += tmpv;
-    C *= (b_beta*b_beta);
-    z += C;
-    z.negate(); 
-    solve_Jx_iM_JxT(z, lambda);
-    FILE_LOG(LOG_DYNAMICS) << " constraint forces: " << lambda << endl;
+    iM_mult(_fext, _iM_fext);
+    mult_sparse(_Jx, _iM_fext, _z) += _Jx_dot_xd;
+    _workv.copy_from(_Jx_xd) *= ((Real) 2.0 * b_alpha);
+    _z += _workv;
+    _C *= (b_beta*b_beta);
+    _z += _C;
+    _z.negate(); 
+    solve_Jx_iM_JxT(_z, _lambda);
+    FILE_LOG(LOG_DYNAMICS) << " constraint forces: " << _lambda << endl;
 
     // compute accelerations
-    mult_transpose_sparse(_Jx, lambda, tmpv);
-    fext += tmpv;
-    iM_mult(fext, _xdd);   
+    mult_transpose_sparse(_Jx, _lambda, _workv);
+    _fext += _workv;
+    iM_mult(_fext, _xdd);   
     FILE_LOG(LOG_DYNAMICS) << " generalized accelerations: " << _xdd << endl;
     update_link_accelerations();
 
@@ -474,8 +480,8 @@ void MCArticulatedBody::calc_fwd_dyn(Real dt)
   const unsigned N_EXPLICIT_DOF = N_JOINT_DOF;
 
   // compute Jx*inv(M)*Dx', etc.
-  calc_Jx_iM_JyT(_Jx, _Dx, Jx_iM_DxT);
-  calc_Jx_iM_JyT(_Dx, _Dx, Dx_iM_DxT);
+  calc_Jx_iM_JyT(_Jx, _Dx, _Jx_iM_DxT);
+  calc_Jx_iM_JyT(_Dx, _Dx, _Dx_iM_DxT);
 
   // setup data needed for convex optimization
   ABFwdDynOptData copt_data;
@@ -483,7 +489,7 @@ void MCArticulatedBody::calc_fwd_dyn(Real dt)
   copt_data.N_EXPLICIT_CONSTRAINT_EQNS = N_EXPLICIT_CONSTRAINT_EQNS;
   copt_data.N_JOINT_DOF = N_JOINT_DOF;
   dense_J(_Dx, copt_data.Dx);
-  copt_data.fext.copy_from(fext);
+  copt_data.fext.copy_from(_fext);
   vector<unsigned>& loop_indices = copt_data.loop_indices;
   vector<vector<unsigned> > loop_links;
   ArticulatedBody::find_loops(loop_indices, loop_links); 
@@ -498,58 +504,56 @@ void MCArticulatedBody::calc_fwd_dyn(Real dt)
   const unsigned NN = N_JOINT_DOF + N_EXPLICIT_CONSTRAINT_EQNS + N_LOOPS;
   MatrixN& R = copt_data.R;
   VectorN& zz = copt_data.z;
-  iM_mult(fext, iM_fext);
-  mult_sparse(_Jx, iM_fext, zz) += Jx_dot_xd;
-  tmpv.copy_from(Jx_xd)  *= ((Real) 2.0 * b_alpha);
-  zz += tmpv;
-  C *= (b_beta*b_beta);
-  zz += C;
+  iM_mult(_fext, _iM_fext);
+  mult_sparse(_Jx, _iM_fext, zz) += _Jx_dot_xd;
+  _workv.copy_from(_Jx_xd)  *= ((Real) 2.0 * b_alpha);
+  zz += _workv;
+  _C *= (b_beta*b_beta);
+  zz += _C;
   zz.negate(); 
-  A.set_zero(N_EXPLICIT_CONSTRAINT_EQNS, NN);
-  A.set_sub_mat(0, 0, _Jx_iM_JxT);
-  A.set_sub_mat(0, N_EXPLICIT_CONSTRAINT_EQNS, Jx_iM_DxT);
+  _workM.set_zero(N_EXPLICIT_CONSTRAINT_EQNS, NN);
+  _workM.set_sub_mat(0, 0, _Jx_iM_JxT);
+  _workM.set_sub_mat(0, N_EXPLICIT_CONSTRAINT_EQNS, _Jx_iM_DxT);
 
   // verify there *is* a nullspace 
   if (N_EXPLICIT_CONSTRAINT_EQNS > 0)
   {
     // compute nullspace
-    LinAlg::nullspace(A, R);
+    LinAlg::nullspace(_workM, _R);
 
     // this makes frictional forces and deltas zero
-    A.copy_from(_Jx_iM_JxT);
-    tmpv.copy_from(zz);
+    _workM.copy_from(_Jx_iM_JxT);
+    _workv.copy_from(zz);
     try
     {
-      LinAlg::solve_LS_fast1(A, tmpv);
+      LinAlg::solve_LS_fast1(_workM, _workv);
     }
     catch (NumericalException e)
     {
-      A.copy_from(_Jx_iM_JxT);
-      LinAlg::solve_LS_fast2(A, tmpv);
+      _workM.copy_from(_Jx_iM_JxT);
+      LinAlg::solve_LS_fast2(_workM, _workv);
     }
 
     zz.set_zero(NN);
-    zz.set_sub_vec(ALPHAX_START, tmpv);
+    zz.set_sub_vec(ALPHAX_START, _workv);
   }
   else
   {
     // hack together a nullspace
     zz.set_zero(N_JOINT_DOF);
-    R.set_zero(N_JOINT_DOF, N_JOINT_DOF);
-    for (unsigned i=0; i< N_JOINT_DOF; i++)
-      R(i,i) = (Real) 1.0;
+    _R.set_identity(N_JOINT_DOF);
   }
 
   // setup components of z and R to make things faster for gradient and Hessian
   // calculations
   copt_data.zff.resize(0);
   zz.get_sub_vec(BETA_START, BETA_START+N_EXPLICIT_DOF, copt_data.zbetax);
-  copt_data.Rff.resize(0, R.columns());
-  R.get_sub_mat(BETA_START, BETA_START+N_EXPLICIT_DOF, 0, R.columns(), A);
-  mult_transpose_sparse(_Dx, A, copt_data.DxTRbetax);
+  copt_data.Rff.resize(0, _R.columns());
+  _R.get_sub_mat(BETA_START, BETA_START+N_EXPLICIT_DOF, 0, _R.columns(), _workM);
+  mult_transpose_sparse(_Dx, _workM, copt_data.DxTRbetax);
 
   // setup the data for the optimization problem
-  const unsigned N = R.columns(); 
+  const unsigned N = _R.columns(); 
   const unsigned M = N_JOINT_DOF + N_LOOPS*2;
   OptParams copt_params(N, M, 0, ArticulatedBody::calc_fwd_dyn_f0, ArticulatedBody::calc_fwd_dyn_fx, NULL, ArticulatedBody::calc_fwd_dyn_grad0, ArticulatedBody::calc_fwd_dyn_cJac, NULL, ArticulatedBody::calc_fwd_dyn_hess);
   copt_params.max_iterations = N*N*N;
@@ -591,62 +595,62 @@ void MCArticulatedBody::calc_fwd_dyn(Real dt)
   MatrixN& G = copt_data.G;
   G.set_zero(NN, NN);
   G.set_sub_mat(0,0,_Jx_iM_JxT);
-  G.set_sub_mat(0,N_EXPLICIT_CONSTRAINT_EQNS,Jx_iM_DxT);
-  G.set_sub_mat(N_EXPLICIT_CONSTRAINT_EQNS,0,Jx_iM_DxT, true);
-  G.set_sub_mat(N_EXPLICIT_CONSTRAINT_EQNS,N_EXPLICIT_CONSTRAINT_EQNS,Dx_iM_DxT);
-  R.transpose_mult(G, RG);
-  RG.mult(R, G);
+  G.set_sub_mat(0,N_EXPLICIT_CONSTRAINT_EQNS,_Jx_iM_DxT);
+  G.set_sub_mat(N_EXPLICIT_CONSTRAINT_EQNS,0,_Jx_iM_DxT, true);
+  G.set_sub_mat(N_EXPLICIT_CONSTRAINT_EQNS,N_EXPLICIT_CONSTRAINT_EQNS,_Dx_iM_DxT);
+  _R.transpose_mult(G, _workM);
+  _workM.mult(_R, G);
 
   // compute the linear optimization vector
   VectorN& c = copt_data.c;
   c.set_zero(NN);
-  vddt_plus_iM_fext.copy_from(_xd) /= dt;
-  vddt_plus_iM_fext += iM_fext;
-  mult_sparse(_Jx, vddt_plus_iM_fext, tmpv);
-  c.set_sub_vec(0, tmpv);
-  mult_sparse(_Dx, vddt_plus_iM_fext, tmpv);
-  c.set_sub_vec(N_EXPLICIT_CONSTRAINT_EQNS, tmpv);
-  R.transpose_mult(c, tmpv);
-  c.copy_from(tmpv);
-  RG.mult(z, tmpv);
-  c += tmpv;
+  _workv2.copy_from(_xd) /= dt;
+  _workv2 += _iM_fext;
+  mult_sparse(_Jx, _workv2, _workv);
+  c.set_sub_vec(0, _workv);
+  mult_sparse(_Dx, _workv2, _workv);
+  c.set_sub_vec(N_EXPLICIT_CONSTRAINT_EQNS, _workv);
+  _R.transpose_mult(c, _workv);
+  c.copy_from(_workv);
+  _workM.mult(_z, _workv);
+  c += _workv;
   
   // setup a feasible optimization vector
-  x.set_zero(N);  
+  _x.set_zero(N);  
 
   // optimize
-  Optimization::optimize_convex_pd(copt_params, x);
+  Optimization::optimize_convex_pd(copt_params, _x);
 
   // (z + Ry)G(Ry + z) + y'R'c = 0.5 y'R'G'Ry + (R'Gz + R'c)
-  R.mult(x, tmpv);
-  z += tmpv;
+  _R.mult(_x, _workv);
+  _z += _workv;
 
   // now retrieve the necessary variables
-  z.get_sub_vec(0, N_EXPLICIT_CONSTRAINT_EQNS, alpha_x);
-  z.get_sub_vec(N_EXPLICIT_CONSTRAINT_EQNS, N_EXPLICIT_CONSTRAINT_EQNS+N_JOINT_DOF, beta_x);
-  z.get_sub_vec(N_EXPLICIT_CONSTRAINT_EQNS+N_JOINT_DOF, z.size(), delta);
+  _z.get_sub_vec(0, N_EXPLICIT_CONSTRAINT_EQNS, _alpha_x);
+  _z.get_sub_vec(N_EXPLICIT_CONSTRAINT_EQNS, N_EXPLICIT_CONSTRAINT_EQNS+N_JOINT_DOF, _beta_x);
+  _z.get_sub_vec(N_EXPLICIT_CONSTRAINT_EQNS+N_JOINT_DOF, _z.size(), _delta);
 
   // output results
-  FILE_LOG(LOG_DYNAMICS) << " external forces: " << fext << std::endl;
-  FILE_LOG(LOG_DYNAMICS) << " explicit constraint forces: " << alpha_x << std::endl;
-  FILE_LOG(LOG_DYNAMICS) << " explicit friction forces: " << beta_x << std::endl;
-  FILE_LOG(LOG_DYNAMICS) << " delta: " << delta << std::endl;
-  FILE_LOG(LOG_DYNAMICS) << " constraint evaluations: " << C << std::endl;
+  FILE_LOG(LOG_DYNAMICS) << " external forces: " << _fext << std::endl;
+  FILE_LOG(LOG_DYNAMICS) << " explicit constraint forces: " << _alpha_x << std::endl;
+  FILE_LOG(LOG_DYNAMICS) << " explicit friction forces: " << _beta_x << std::endl;
+  FILE_LOG(LOG_DYNAMICS) << " delta: " << _delta << std::endl;
+  FILE_LOG(LOG_DYNAMICS) << " constraint evaluations: " << _C << std::endl;
 
   // setup joint friction forces
   for (unsigned i=0, k=0; i< _joints.size(); i++)
   {
-    beta_x.get_sub_vec(k, k+_joints[i]->num_dof(), _joints[i]->ff);
+    _beta_x.get_sub_vec(k, k+_joints[i]->num_dof(), _joints[i]->ff);
     k += _joints[i]->num_dof();
   }
 
   // compute joint constraint forces
-  fext += mult_transpose_sparse(_Dx, beta_x, tmpv);
-  ArticulatedBody::calc_joint_constraint_forces(loop_indices, delta, copt_data.Zd, copt_data.Z1d, copt_data.Z, fext);
+  _fext += mult_transpose_sparse(_Dx, _beta_x, _workv);
+  ArticulatedBody::calc_joint_constraint_forces(loop_indices, _delta, copt_data.Zd, copt_data.Z1d, copt_data.Z, _fext);
 
   // compute generalized acceleration and link accelerations
-  fext += mult_transpose_sparse(_Jx, alpha_x, tmpv);
-  iM_mult(fext, _xdd);
+  _fext += mult_transpose_sparse(_Jx, _alpha_x, _workv);
+  iM_mult(_fext, _xdd);
   update_link_accelerations();
 }
 
@@ -766,6 +770,10 @@ void MCArticulatedBody::update_link_velocities() const
 {
   const unsigned SPATIAL_DIM = 6;
 
+  // no need to do this if the body is disabled
+  if (!is_enabled())
+    return;
+
   for (unsigned i=0, idx=0; i< _links.size(); i++)
   {
     // skip disabled links
@@ -789,6 +797,10 @@ void MCArticulatedBody::update_link_velocities() const
 void MCArticulatedBody::update_link_accelerations() const
 {
   const unsigned SPATIAL_DIM = 6;
+
+  // look for fast exit 
+  if (!is_enabled())
+    return;
 
   for (unsigned i=0, idx=0; i< _links.size(); i++)
   {
@@ -817,24 +829,30 @@ void MCArticulatedBody::update_link_accelerations() const
  */
 void MCArticulatedBody::calc_joint_accelerations()
 {
+  // look for fast exit 
+  if (!is_enabled())
+    return;
+
   // calculate the joint accelerations
-  SAFESTATIC VectorN qdd, tmp;
-  mult_sparse(_Dx_dot, _xd, tmp); 
-  mult_sparse(_Dx, _xdd, qdd) += tmp;
+  mult_sparse(_Dx_dot, _xd, _workv2); 
+  mult_sparse(_Dx, _xdd, _workv) += _workv2;
 
   // set the joint accelerations
   for (unsigned i=0; i< _joints.size(); i++)
   {
     unsigned idx = _joints[i]->get_coord_index();
-    qdd.get_sub_vec(idx, idx+_joints[i]->num_dof(), _joints[i]->qdd);
+    _workv.get_sub_vec(idx, idx+_joints[i]->num_dof(), _joints[i]->qdd);
   }
 }
 
 /// Applies an impulse to the articulated body
 void MCArticulatedBody::apply_impulse(const Vector3& j, const Vector3& k, const Vector3& contact_point, RigidBodyPtr link)
 {
-  SAFESTATIC VectorN iM_Qj, rhs, delta_xd, Qj, gj, lambda;
   const unsigned NGC = num_generalized_coordinates(DynamicBody::eAxisAngle);
+
+  // look for fast exit 
+  if (!is_enabled())
+    return;
 
   FILE_LOG(LOG_DYNAMICS) << "MCArticulatedBody::apply_impulse() entered" << std::endl;
   FILE_LOG(LOG_DYNAMICS) << " applying impulses: " << j << " / " << k << " to " << link->id << " at " << contact_point << std::endl;
@@ -850,33 +868,33 @@ void MCArticulatedBody::apply_impulse(const Vector3& j, const Vector3& k, const 
   #endif
 
   // setup generalized impulses 
-  link->convert_to_generalized_force(DynamicBody::eAxisAngle, link, contact_point, j, k, gj);
-  Qj.set_zero(NGC);
+  link->convert_to_generalized_force(DynamicBody::eAxisAngle, link, contact_point, j, k, _workv2);
+  _Qj.set_zero(NGC);
   unsigned gc_idx_start = _gc_indices[link->get_index()];
-  Qj.set_sub_vec(gc_idx_start, gj); 
+  _Qj.set_sub_vec(gc_idx_start, _workv2); 
+  FILE_LOG(LOG_DYNAMICS) << " generalized force: " << _workv2 << std::endl;
 
   // we use the Schur complement method to solve for the unknown accelerations
   // and generalized constraint forces (see [Nocedal 2006, p. 455])
 
   // solve M*x = Qj
-  iM_mult(Qj, iM_Qj);
+  iM_mult(_Qj, _iM_Qj);
 
   // solve J*inv(M)*K * lambda = J*inv(M)*Qj
-  mult_sparse(_Jx, iM_Qj, rhs);
-  solve_Jx_iM_JxT(rhs, lambda);
+  mult_sparse(_Jx, _iM_Qj, _workv);
+  solve_Jx_iM_JxT(_workv, _lambda);
 
   // ok, now that we've solved for lambda, solving for delta_xd is trivial
-  mult_transpose_sparse(_Jx, lambda, rhs) -= Qj;
-  rhs.negate();
-  iM_mult(rhs, delta_xd);
+  mult_transpose_sparse(_Jx, _lambda, _workv) -= _Qj;
+  _workv.negate();
+  iM_mult(_workv, _workv2);
 
-  FILE_LOG(LOG_DYNAMICS) << " generalized force: " << gj << std::endl;
-  FILE_LOG(LOG_DYNAMICS) << " total generalized forces: " << Qj << std::endl;
+  FILE_LOG(LOG_DYNAMICS) << " total generalized forces: " << _Qj << std::endl;
 
   // update the spatial velocities
-  FILE_LOG(LOG_DYNAMICS) << " constraint impulses: " << lambda << std::endl;
+  FILE_LOG(LOG_DYNAMICS) << " constraint impulses: " << _lambda << std::endl;
   FILE_LOG(LOG_DYNAMICS) << " old generalized velocity (axis-angle): " << _xd << std::endl;
-  _xd += delta_xd;  
+  _xd += _workv2;  
   FILE_LOG(LOG_DYNAMICS) << " new generalized velocity (axis-angle): " << _xd << std::endl;
   FILE_LOG(LOG_DYNAMICS) << "MCArticulatedBody::apply_impulse() exiting" << std::endl;
 
@@ -890,7 +908,9 @@ void MCArticulatedBody::apply_impulse(const Vector3& j, const Vector3& k, const 
 /// Sets up the generalized force vector
 VectorN& MCArticulatedBody::get_generalized_forces(DynamicBody::GeneralizedCoordinateType gctype, VectorN& gf) 
 {
-  SAFESTATIC VectorN f;
+  // look for fast exit 
+  if (!is_enabled())
+    return gf.resize(0);
 
   // resize the gf vector
   gf.resize(num_generalized_coordinates(gctype)); 
@@ -898,8 +918,8 @@ VectorN& MCArticulatedBody::get_generalized_forces(DynamicBody::GeneralizedCoord
   // get the generalized forces 
   for (unsigned i=0, k=0; i< _links.size(); i++)
   {
-    _links[i]->get_generalized_forces(gctype, f);
-    gf.set_sub_vec(k, f);
+    _links[i]->get_generalized_forces(gctype, _workv);
+    gf.set_sub_vec(k, _workv);
     k += _links[i]->num_generalized_coordinates(gctype);
   }
 
@@ -909,6 +929,10 @@ VectorN& MCArticulatedBody::get_generalized_forces(DynamicBody::GeneralizedCoord
 /// Sets up the vector of constraint equation evaluations
 VectorN& MCArticulatedBody::get_constraint_evals(VectorN& C) const
 {
+  // look for fast exit 
+  if (!is_enabled())
+    return C.resize(0);
+
   const unsigned GC_ROD_DIM = 7;
   Real C_array[GC_ROD_DIM];
 
@@ -933,6 +957,10 @@ VectorN& MCArticulatedBody::get_constraint_evals(VectorN& C) const
 /// Gets the number of generalized coordinates in the articulated body
 unsigned MCArticulatedBody::num_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype) const
 {
+  // look for fast exit 
+  if (!is_enabled())
+    return 0;
+
   unsigned ngc = 0;
   for (unsigned i=0; i< _links.size(); i++)
     ngc += _links[i]->num_generalized_coordinates(gctype);
@@ -943,8 +971,6 @@ unsigned MCArticulatedBody::num_generalized_coordinates(DynamicBody::Generalized
 /// Gets a submatrix of the given sparse Jacobian
 void MCArticulatedBody::get_sub_jacobian(const vector<unsigned>& rows, const MCArticulatedBody::SparseJacobian& J, MCArticulatedBody::SparseJacobian& Jx)
 {
-  SAFESTATIC VectorN row;
-
   // first, setup the indices
   Jx.indices.clear();
   for (unsigned i=0; i< rows.size(); i++)
@@ -956,22 +982,24 @@ void MCArticulatedBody::get_sub_jacobian(const vector<unsigned>& rows, const MCA
   // now, get the specified rows
   for (unsigned i=0, j=0; i< rows.size(); i++)
   {
-    J.get_row(rows[i], row);
-    Jx.set_row(j++, row);
+    J.get_row(rows[i], _workv);
+    Jx.set_row(j++, _workv);
   }
 }
 
 /// Solves using the generalized inertia matrix
 VectorN& MCArticulatedBody::solve_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, const VectorN& b, VectorN& x)
 {
+  if (!is_enabled())
+    throw std::runtime_error("Called MCArticulatedBody::solve_generalized_inertia() on disabled body!");
+
   if (gctype == DynamicBody::eAxisAngle)
     return iM_mult(b, x);
   else
   {
-    SAFESTATIC MatrixN M;
-    get_generalized_inertia(gctype, M);
+    get_generalized_inertia(gctype, _workM);
     x.copy_from(b);
-    LinAlg::solve_fast(M, x);
+    LinAlg::solve_fast(_workM, x);
     return x;
   }
 }
@@ -979,35 +1007,37 @@ VectorN& MCArticulatedBody::solve_generalized_inertia(DynamicBody::GeneralizedCo
 /// Solves using the generalized inertia matrix
 MatrixN& MCArticulatedBody::solve_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, const MatrixN& B, MatrixN& X)
 {
+  if (!is_enabled())
+    throw std::runtime_error("Called MCArticulatedBody::solve_generalized_inertia() on disabled body!");
+
   if (gctype == DynamicBody::eAxisAngle)
   {
     X.resize(num_generalized_coordinates(gctype), B.columns()); 
-    SAFESTATIC VectorN workv;
 
     // do the multiplication
     for (unsigned j=0; j< B.columns(); j++)
       for (unsigned i=0; i< _iM.size(); i++)
       {
-        B.get_sub_mat(_gc_indices[i], _gc_indices[i+1], j, j+1, workv);
-        scale_inverse_inertia(i, workv);
-        X.set_sub_mat(_gc_indices[i], j, workv);
+        B.get_sub_mat(_gc_indices[i], _gc_indices[i+1], j, j+1, _workv);
+        scale_inverse_inertia(i, _workv);
+        X.set_sub_mat(_gc_indices[i], j, _workv);
       }
   }
   else
   {
-    SAFESTATIC MatrixN M;
-    get_generalized_inertia(gctype, M);
+    get_generalized_inertia(gctype, _workM);
     X.copy_from(B);
-    LinAlg::solve_fast(M, X);
+    LinAlg::solve_fast(_workM, X);
   }
 
   return X;
 }
 
 /// Multiplies the inverse of the inertia matrix by a vector
-VectorN& MCArticulatedBody::iM_mult(const VectorN& v, VectorN& result) const
+VectorN& MCArticulatedBody::iM_mult(const VectorN& v, VectorN& result)
 {
-  SAFESTATIC VectorN sub;
+  if (!is_enabled())
+    throw std::runtime_error("Called MCArticulatedBody::iM_mult() on disabled body!");
 
   // resize the result vector
   result.resize(_gc_indices.back());
@@ -1015,16 +1045,16 @@ VectorN& MCArticulatedBody::iM_mult(const VectorN& v, VectorN& result) const
   // do the multiplication
   for (unsigned i=0; i< _iM.size(); i++)
   {
-    v.get_sub_vec(_gc_indices[i], _gc_indices[i+1], sub);
-    scale_inverse_inertia(i, sub);
-    result.set_sub_vec(_gc_indices[i], sub);
+    v.get_sub_vec(_gc_indices[i], _gc_indices[i+1], _workv);
+    scale_inverse_inertia(i, _workv);
+    result.set_sub_vec(_gc_indices[i], _workv);
   }
 
   return result;
 }
 
 /// Scales a spatial six (or zero) dimensional vector using the inverse inertia
-VectorN& MCArticulatedBody::scale_inverse_inertia(unsigned i, VectorN& v) const
+VectorN& MCArticulatedBody::scale_inverse_inertia(unsigned i, VectorN& v) 
 {
   if (v.size() == 0 || !_links[i]->is_enabled())
     return v.set_zero();
@@ -1106,7 +1136,7 @@ MatrixN MCArticulatedBody::dense_J(const SparseJacobian& J) const
   return dJ;
 }
 
-void to_matrix(const SpatialTransform& X, MatrixN& m)
+static void to_matrix(const SpatialTransform& X, MatrixN& m)
 {
   m.set_zero(6,6);
   m.set_sub_mat(0,0,X.E);
@@ -1201,11 +1231,9 @@ MatrixN& MCArticulatedBody::reverse_transform(const SpatialTransform& X, const M
  * ngc is number of generalized (absolute, axis angle) coordinates. Also sets up
  * the time derivative of the mechanism Jacobian.
  */
-void MCArticulatedBody::get_mechanism_jacobian(MCArticulatedBody::SparseJacobian& J, MCArticulatedBody::SparseJacobian& J_dot) const
+void MCArticulatedBody::get_mechanism_jacobian(MCArticulatedBody::SparseJacobian& J, MCArticulatedBody::SparseJacobian& J_dot)
 {
   const unsigned SPATIAL_DIM = 6;
-  SAFESTATIC MatrixN left, right, pinv_s, pinv_s_dot;
-  SAFESTATIC MatrixN sx;
 
   // setup the size of the mechanism Jacobian
   unsigned ndof = 0;
@@ -1246,25 +1274,25 @@ void MCArticulatedBody::get_mechanism_jacobian(MCArticulatedBody::SparseJacobian
     const SMatrix6N& s_dot = _joints[i]->get_spatial_axes_dot(eGlobal);
 
     // compute the pseudo inverse of s and \dot{s}
-    pinv_s.copy_from(s);
-    pinv_s_dot.copy_from(s_dot);
+    _pinv_s.copy_from(s);
+    _pinv_s_dot.copy_from(s_dot);
     try
     {
-      LinAlg::pseudo_inverse(pinv_s, LinAlg::svd1);
+      LinAlg::pseudo_inverse(_pinv_s, LinAlg::svd1);
     }
     catch (NumericalException e)
     {
-      pinv_s.copy_from(s);
-      LinAlg::pseudo_inverse(pinv_s, LinAlg::svd2);
+      _pinv_s.copy_from(s);
+      LinAlg::pseudo_inverse(_pinv_s, LinAlg::svd2);
     }
     try
     {
-      LinAlg::pseudo_inverse(pinv_s_dot, LinAlg::svd1);
+      LinAlg::pseudo_inverse(_pinv_s_dot, LinAlg::svd1);
     }
     catch (NumericalException e)
     {
-      pinv_s_dot.copy_from(s_dot);
-      LinAlg::pseudo_inverse(pinv_s_dot, LinAlg::svd2);
+      _pinv_s_dot.copy_from(s_dot);
+      LinAlg::pseudo_inverse(_pinv_s_dot, LinAlg::svd2);
     }
 
     // compute special spatial transformations 
@@ -1275,38 +1303,38 @@ void MCArticulatedBody::get_mechanism_jacobian(MCArticulatedBody::SparseJacobian
     if (rbi->is_enabled())
     {
       // setup components of J
-      reverse_transform(X0i, pinv_s, sx);
-      sx.negate();      
-      sx.get_sub_mat(0, sx.rows(), 0, 3, right);
-      sx.get_sub_mat(0, sx.rows(), 3, 6, left);
-      J.set_sub_mat(dof, 0, left);
-      J.set_sub_mat(dof, 3, right);
+      reverse_transform(X0i, _pinv_s, _sx);
+      _sx.negate();      
+      _sx.get_sub_mat(0, _sx.rows(), 0, 3, _right);
+      _sx.get_sub_mat(0, _sx.rows(), 3, 6, _left);
+      J.set_sub_mat(dof, 0, _left);
+      J.set_sub_mat(dof, 3, _right);
 
       // setup components of \dot{J}
-      reverse_transform(X0i, pinv_s_dot, sx);
-      sx.negate();      
-      sx.get_sub_mat(0, sx.rows(), 0, 3, right);
-      sx.get_sub_mat(0, sx.rows(), 3, 6, left);
-      J_dot.set_sub_mat(dof, 0, left);
-      J_dot.set_sub_mat(dof, 3, right);
+      reverse_transform(X0i, _pinv_s_dot, _sx);
+      _sx.negate();      
+      _sx.get_sub_mat(0, _sx.rows(), 0, 3, _right);
+      _sx.get_sub_mat(0, _sx.rows(), 3, 6, _left);
+      J_dot.set_sub_mat(dof, 0, _left);
+      J_dot.set_sub_mat(dof, 3, _right);
     }
 
     // process rbo if non-null
     if (rbo->is_enabled())
     {
       // setup components of J
-      reverse_transform(X0o, pinv_s, sx);
-      sx.get_sub_mat(0, sx.rows(), 0, 3, right);
-      sx.get_sub_mat(0, sx.rows(), 3, 6, left);
-      J.set_sub_mat(dof, 6, left);
-      J.set_sub_mat(dof, 9, right);
+      reverse_transform(X0o, _pinv_s, _sx);
+      _sx.get_sub_mat(0, _sx.rows(), 0, 3, _right);
+      _sx.get_sub_mat(0, _sx.rows(), 3, 6, _left);
+      J.set_sub_mat(dof, 6, _left);
+      J.set_sub_mat(dof, 9, _right);
 
       // setup components of \dot{J}
-      reverse_transform(X0o, pinv_s_dot, sx);
-      sx.get_sub_mat(0, sx.rows(), 0, 3, right);
-      sx.get_sub_mat(0, sx.rows(), 3, 6, left);
-      J_dot.set_sub_mat(dof, 6, left);
-      J_dot.set_sub_mat(dof, 9, right);
+      reverse_transform(X0o, _pinv_s_dot, _sx);
+      _sx.get_sub_mat(0, _sx.rows(), 0, 3, _right);
+      _sx.get_sub_mat(0, _sx.rows(), 3, 6, _left);
+      J_dot.set_sub_mat(dof, 6, _left);
+      J_dot.set_sub_mat(dof, 9, _right);
     }
   }
 
@@ -1636,14 +1664,12 @@ void MCArticulatedBody::get_constraint_jacobian_numerically(MCArticulatedBody::S
 /// sets the generalized coordinates for this body 
 void MCArticulatedBody::set_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, const VectorN& gc) 
 {
-  SAFESTATIC VectorN sub_vec;
-
   // get the generalized coordinates
   for (unsigned i=0, k=0; i< _links.size(); i++)
   {
     const unsigned NGC = _links[i]->num_generalized_coordinates(gctype);
-    gc.get_sub_vec(k, k+NGC, sub_vec);
-    _links[i]->set_generalized_coordinates(gctype, sub_vec);
+    gc.get_sub_vec(k, k+NGC, _workv);
+    _links[i]->set_generalized_coordinates(gctype, _workv);
     k += NGC;
   }
 }
@@ -1651,38 +1677,35 @@ void MCArticulatedBody::set_generalized_coordinates(DynamicBody::GeneralizedCoor
 /// Sets the generalized velocity for this articulated body
 void MCArticulatedBody::set_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, const VectorN& gv) 
 {
-  SAFESTATIC VectorN tmpv;
+  // look for fast exit 
+  if (!is_enabled())
+    return;
 
   // get the generalized velocities 
   for (unsigned i=0, k=0; i< _links.size(); i++)
   {
     const unsigned NGC = _links[i]->num_generalized_coordinates(gctype);
-    gv.get_sub_vec(k, k+NGC, tmpv);
-    _links[i]->set_generalized_velocity(gctype, tmpv);
+    gv.get_sub_vec(k, k+NGC, _workv);
+    _links[i]->set_generalized_velocity(gctype, _workv);
     k += NGC;
   }
 
   // compute the joint velocities
   get_mechanism_jacobian(_Dx, _Dx_dot);
-  mult_sparse(_Dx, gv, tmpv);
+  mult_sparse(_Dx, gv, _workv);
   for (unsigned i=0; i< _joints.size(); i++)
   {
     unsigned idx = _joints[i]->get_coord_index();
-    tmpv.get_sub_vec(idx, idx+_joints[i]->num_dof(), _joints[i]->qd);
+    _workv.get_sub_vec(idx, idx+_joints[i]->num_dof(), _joints[i]->qd);
   }
-}
-
-/// Resets the accumulators on all links
-void MCArticulatedBody::reset_accumulators()
-{
-  for (unsigned i=0; i< _links.size(); i++)
-    _links[i]->reset_accumulators();
 }
 
 /// Determines a generalized force on the body
 VectorN& MCArticulatedBody::convert_to_generalized_force(GeneralizedCoordinateType gctype, SingleBodyPtr link, const Vector3& p, const Vector3& f, const Vector3& t, VectorN& gf)
 {
-  SAFESTATIC VectorN link_gf;
+  // look for fast exit 
+  if (!is_enabled())
+    return gf.resize(0);
 
   // setup a zero vector of all generalized forces
   gf.set_zero(num_generalized_coordinates(gctype));
@@ -1692,14 +1715,14 @@ VectorN& MCArticulatedBody::convert_to_generalized_force(GeneralizedCoordinateTy
   assert(rb);
 
   // get the generalized force for the link
-  link->convert_to_generalized_force(gctype, link, p, f, t, link_gf);
+  link->convert_to_generalized_force(gctype, link, p, f, t, _workv);
 
   // set the appropriate part in the vector
   for (unsigned i=0, k=0; i< _links.size(); i++)
   {
     if (_links[i] == rb)
     {
-      gf.set_sub_vec(k, link_gf);
+      gf.set_sub_vec(k, _workv);
       return gf;
     }
     k += _links[i]->num_generalized_coordinates(gctype);
@@ -2207,30 +2230,27 @@ void MCArticulatedBody::select_sub_contact_Jacobians(const EventProblemData& q, 
 // Updates the body velocities
 void MCArticulatedBody::update_velocity(const EventProblemData& q)
 {
-  SAFESTATIC VectorN workv, workv2;
-  SAFESTATIC SparseJacobian Jc_sub, Dc_sub;
-
   // get the current absolute velocities
   get_generalized_velocity(DynamicBody::eAxisAngle, _xd);
 
   // determine whether we are using a subset of the contacts
   if (std::find(q.contact_working_set.begin(), q.contact_working_set.end(), false) != q.contact_working_set.end())
   {
-    select_sub_contact_Jacobians(q, Jc_sub, Dc_sub);
-    mult_transpose_sparse(Jc_sub, q.alpha_c, workv);
-    workv += mult_transpose_sparse(Dc_sub, q.beta_c, workv2); 
+    select_sub_contact_Jacobians(q, _Jc_sub, _Dc_sub);
+    mult_transpose_sparse(_Jc_sub, q.alpha_c, _workv);
+    _workv += mult_transpose_sparse(_Dc_sub, q.beta_c, _workv2); 
   }
   else
   {
-    mult_transpose_sparse(_Jc, q.alpha_c, workv);
-    workv += mult_transpose_sparse(_Dc, q.beta_c, workv2);
+    mult_transpose_sparse(_Jc, q.alpha_c, _workv);
+    _workv += mult_transpose_sparse(_Dc, q.beta_c, _workv2);
   }
 
   // compute change in velocities for events not reduced
-  workv += mult_transpose_sparse(_Jl, q.alpha_l, workv2);
-  workv += mult_transpose_sparse(_Jx, q.alpha_x, workv2);
-  workv += mult_transpose_sparse(_Dx, q.beta_x, workv2);
-  _xd += iM_mult(workv, workv2);
+  _workv += mult_transpose_sparse(_Jl, q.alpha_l, _workv2);
+  _workv += mult_transpose_sparse(_Jx, q.alpha_x, _workv2);
+  _workv += mult_transpose_sparse(_Dx, q.beta_x, _workv2);
+  _xd += iM_mult(_workv, _workv2);
 
   // update the link velocities
   update_link_velocities(); 

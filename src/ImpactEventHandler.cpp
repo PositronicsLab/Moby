@@ -279,7 +279,7 @@ void ImpactEventHandler::partition_events(const list<Event*>& all, vector<Event*
 
   // now, sort the contact events such that events that use a true friction
   // cone are at the end
-  for (unsigned i=0, j=contacts.size()-1; i< j; )
+  for (unsigned i=0, j=contacts.size()-1; i < contacts.size() && i< j; )
   {
     if (contacts[i]->contact_NK == UINF)
     {
