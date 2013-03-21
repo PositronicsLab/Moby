@@ -7,6 +7,7 @@
 #ifdef USE_OSG
 #include <osg/MatrixTransform>
 #include <osg/Material>
+#include <osg/Matrixd>
 #endif
 #include <queue>
 #include <Moby/Constants.h>
@@ -39,9 +40,7 @@ Primitive::Primitive()
   _deformable = false;
 
   // set visualization members to NULL
-  #ifdef USE_OSG
   _vtransform = NULL;
-  #endif
 }
 
 /// Constructs a primitive with the specified transform
@@ -55,9 +54,7 @@ Primitive::Primitive(const Matrix4& T)
   _deformable = false;
 
   // set visualization members to NULL
-  #ifdef USE_OSG
   _vtransform = NULL;
-  #endif
 }
 
 Primitive::~Primitive()
@@ -77,10 +74,10 @@ void Primitive::set_intersection_tolerance(Real tol)
   _intersection_tolerance = tol;
 }
 
-#ifdef USE_OSG
 /// Gets the visualization for this primitive, creating it if necessary
 osg::Node* Primitive::get_visualization()
 {
+  #ifdef USE_OSG
   // if the visualization is already created, return it
   if (_vtransform)
     return _vtransform;
@@ -105,10 +102,10 @@ osg::Node* Primitive::get_visualization()
 
   // update the visualizaiton 
   update_visualization();  
+  #endif
 
   return _vtransform;
 }
-#endif
 
 /// Updates the visualization on the primitive 
 void Primitive::update_visualization()
@@ -317,10 +314,10 @@ void Primitive::set_transform(const Matrix4& T)
   #endif
 }
 
-#ifdef USE_OSG
 /// Copies this matrix to an OpenSceneGraph Matrixd object
 void Primitive::to_osg_matrix(const Matrix4& src, osg::Matrixd& tgt)
 {
+  #ifdef USE_OSG
   const unsigned X = 0, Y = 1, Z = 2, W = 3;
   for (unsigned i=X; i<= W; i++)
     for (unsigned j=X; j<= Z; j++)
@@ -329,8 +326,8 @@ void Primitive::to_osg_matrix(const Matrix4& src, osg::Matrixd& tgt)
   // set constant values of the matrix
   tgt(X,W) = tgt(Y,W) = tgt(Z,W) = (Real) 0.0;
   tgt(W,W) = (Real) 1.0;
+  #endif
 }
-#endif
 
 /// Loads the state of this primitive
 void Primitive::load_state(shared_ptr<void> state)

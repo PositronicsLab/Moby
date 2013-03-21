@@ -1,8 +1,11 @@
 <XML >
   <DRIVER>
+    <!-- Bandit-Arm View -->
   <!--   <camera position="-.2 .75 1" target="-.2 0.1 0" up="0 1 0" /> -->
+    <!-- Perspective View -->
   <!--   <camera position="-.18 .25 0.5" target="-.18 -0.25 0.0" up="0 1 0" /> -->
-    <camera position="-.1725 1.0 0.255" target="-.1725 0.0 0.255" up="0 0 1" />
+    <!-- Top View -->
+    <camera position="-.1725 1.0 0.255" target="-.1725 0.0 0.255" up="0 0 1" /> 
     <window location="0 0" size="640 480" />
   </DRIVER>
 <Moby >
@@ -10,8 +13,7 @@
   <EventDrivenSimulator id="simulator" integrator-id="odepack" TOI-tolerance="1e-3" current-time="0" impact-velocity-tolerance="0.00012207" >
     <DynamicBody dynamic-body-id="ball" />
     <DynamicBody dynamic-body-id="table" />
-    <DynamicBody dynamic-body-id="left_pincer" />
-    <DynamicBody dynamic-body-id="right_pincer" />
+    <DynamicBody dynamic-body-id="pincers" />
     <CollisionDetector id="coldet" />
     <ContactParameters epsilon="0" friction-cone-edges="2" mu-coulomb="1" mu-viscous="0" object1-id="table" object2-id="ball" />
     <ContactParameters epsilon="0" friction-cone-edges="2" mu-coulomb="1" mu-viscous="0" object1-id="left_pincer" object2-id="ball" />
@@ -28,7 +30,7 @@
 
   <!-- Bodies -->
   <!-- Ball -->
-  <PSDeformableBody default-mass=".025" default-kp="1000000" default-kv="100000" id="ball" tetra-mesh-id="ball-tetra" tri-mesh-primitive-id="ball-tri" transform="1 0 0 -.1725; 0 1 0 -0.025; 0 0 1 0.255; 0 0 0 1">
+  <PSDeformableBody default-mass=".025" default-kp="250" default-kv="10" id="ball" tetra-mesh-id="ball-tetra" tri-mesh-primitive-id="ball-tri" transform="1 0 0 -.1725; 0 1 0 -0.025; 0 0 1 0.255; 0 0 0 1">
     <RecurrentForce recurrent-force-id="gravity" />
   </PSDeformableBody>
 
@@ -39,7 +41,11 @@
   </RigidBody>
 
   <!-- Left Pincer -->
-  <RigidBody enabled="true" id="left_pincer" linear-velocity="0 0 0" angular-velocity="0 0 0" mass="10" transform="1 0 0 -0.095; 0 1 0 0.0; 0 0 1 0.25; 0 0 0 1" visualization-id="geom_pincer" >
+  <RCArticulatedBody id="pincers" fdyn-algorithm="crb" floating-base="false" >
+
+  <RigidBody id="base" />
+
+  <RigidBody enabled="true" id="left_pincer" linear-velocity="0 0 0" angular-velocity="0 0 0" mass="10" transform="1 0 0 -.095; 0 1 0 0.0; 0 0 1 0.25; 0 0 0 1" visualization-id="geom_pincer" >
     <CollisionGeometry id="cg_left_pincer" primitive-id="geom_pincer" />
     <RecurrentForce recurrent-force-id="gravity" />
     <InertiaFromPrimitive primitive-id="geom_pincer" />
@@ -51,6 +57,11 @@
     <RecurrentForce recurrent-force-id="gravity" />
     <InertiaFromPrimitive primitive-id="geom_pincer" />
   </RigidBody>
+
+  <PrismaticJoint id="lpincer-joint" global-position="-.095 0 .25" inboard-link-id="base" outboard-link-id="left_pincer" max-forces="1000000" lower-limits="-100" upper-limits="100" global-axis="1 0 0" />
+  <PrismaticJoint id="rpincer-joint" global-position="-.25 0 .25" inboard-link-id="base" outboard-link-id="right_pincer" max-forces="1000000" lower-limits="-100" upper-limits="100" global-axis="1 0 0" />
+
+  </RCArticulatedBody>
 
   <!-- Collision Detector -->
   <DeformableCCD eps-tolerance="0.001" id="coldet" ori-integrator-id="odepack" simulator-id="simulator" >
@@ -89,8 +100,7 @@
     <CollisionGeometry geometry-id="0x9775d5c" />
 -->
     <CollisionGeometry geometry-id="cg_table" />
-    <Body body-id="right_pincer" />
-    <Body body-id="left_pincer" />
+    <Body body-id="pincers" />
   </DeformableCCD>
 
   <!-- Primitive Geometry -->

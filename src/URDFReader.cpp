@@ -43,7 +43,7 @@
 #include <Moby/XMLTree.h>
 #include <Moby/URDFReader.h>
 
-#define DEBUG_URDF
+//#define DEBUG_URDF
 
 using namespace Moby;
 using std::set;
@@ -299,6 +299,16 @@ void URDFReader::fix_Moby(URDFData& data, const vector<RigidBodyPtr>& links, con
       Matrix4 oTx = Matrix4::inverse_transform(To) * Tx;
       Matrix4 xTo = Matrix4::inverse_transform(oTx);
 
+      std::cerr << "URDFReader warning! Changing transforms! " << std::endl;
+      std::cerr << "  joint transform (" << joint->id << ") was: " << std::endl << To;
+      std::cerr << "  now: " << std::endl << Tx;
+      std::cerr << "  inertial transform (" << link->id << ") was: " << std::endl << data.inertia_transforms[link];
+      std::cerr << "  now: " << std::endl << (data.inertia_transforms[link] * oTx);
+      std::cerr << "  visual transform (" << link->id << ") was: " << std::endl << data.visual_transforms[link];
+      std::cerr << "  now: " << std::endl << (data.visual_transforms[link] * oTx);
+      std::cerr << "  collision transform (" << link->id << ") was: " << std::endl << data.collision_transforms[link];
+      std::cerr << "  now: " << std::endl << (data.collision_transforms[link] * oTx);
+
       // update all transformations / axes of the outboard 
       data.joint_transforms[joint] = data.joint_transforms[joint] * oTx;
       data.inertia_transforms[link] = data.inertia_transforms[link] * oTx;
@@ -319,6 +329,8 @@ void URDFReader::fix_Moby(URDFData& data, const vector<RigidBodyPtr>& links, con
         RigidBodyPtr outboard = outboards[i].second;
 
         // update the transform
+        std::cerr << "  child joint transform (" << joint->id << ") was: " << std::endl << data.joint_transforms[joint];
+        std::cerr << "  now: " << std::endl << (xTo * data.joint_transforms[joint]);
         data.joint_transforms[joint] = xTo * data.joint_transforms[joint];
       }
     }

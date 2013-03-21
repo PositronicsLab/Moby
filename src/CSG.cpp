@@ -587,10 +587,10 @@ void CSG::set_mesh(shared_ptr<const IndexedTriArray> mesh)
   calc_mass_properties();
 }
 
-#ifdef USE_OSG
 /// Creates the visualization for this primitive
 osg::Node* CSG::create_visualization()
 {
+  #ifdef USE_OSG
   const unsigned X = 0, Y = 1, Z = 2;
 
   // get the inverse of the current transformation
@@ -630,8 +630,10 @@ osg::Node* CSG::create_visualization()
   }
 
   return group;
+  #else
+  return NULL;
+  #endif
 }
-#endif
 
 /// Gets a sub-mesh for the primitive
 const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >& CSG::get_sub_mesh(BVPtr bv)

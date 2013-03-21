@@ -59,7 +59,7 @@
                     <origin xyz="0 0 0" rpy="0.000000 0.0 0.000000"/>
                     <geometry>
                             <!-- <cylinder radius="0.01" length="0.35"/> -->
-                            <mesh filename="ycyl-r0.01-l0.35.obj" />
+                            <mesh filename="/home/samzapo/Moby/example/HyQ/ycyl-r0.01-l0.35.obj" />
                     </geometry>
                     <material name="Red">
                     </material>
@@ -68,7 +68,7 @@
                     <origin xyz="0 0 0" rpy="0.000000 0.0 0.000000"/>
                     <geometry>
                             <!-- <cylinder radius="0.01" length="0.35"/> -->
-                            <mesh filename="ycyl-r0.01-l0.35.obj" />
+                            <mesh filename="/home/samzapo/Moby/example/HyQ/ycyl-r0.01-l0.35.obj" />
                     </geometry>
             </collision>
     </link>
@@ -81,7 +81,7 @@
             <visual>
                     <origin xyz="0 0 0" rpy="0.000000 0.0 0.000000"/>
                     <geometry>
-                            <mesh filename="ycyl-r0.01-l0.33.obj" />
+                            <mesh filename="/home/samzapo/Moby/example/HyQ/ycyl-r0.01-l0.33.obj" />
                     </geometry>
                     <material name="Red">
                     </material>
@@ -89,7 +89,7 @@
             <collision>
                     <origin xyz="0 0 0" rpy="0.000000 0.0 0.000000"/>
                     <geometry>
-                            <mesh filename="ycyl-r0.01-l0.33.obj" />
+                            <mesh filename="/home/samzapo/Moby/example/HyQ/ycyl-r0.01-l0.33.obj" />
                     </geometry>
             </collision>
     </link>
@@ -145,7 +145,7 @@
             <visual>
                     <origin xyz="0 0 0"/>
                     <geometry>
-                            <mesh filename="ycyl-r0.01-l0.35.obj" />
+                            <mesh filename="/home/samzapo/Moby/example/HyQ/ycyl-r0.01-l0.35.obj" />
                             <!-- cylinder radius="0.01" length="0.35"/ -->
                     </geometry>
                     <material name="Red">
@@ -155,7 +155,7 @@
                     <origin xyz="0 0 0"/>
                     <geometry>
                             <!-- cylinder radius="0.01" length="0.35"/ -->
-                            <mesh filename="ycyl-r0.01-l0.35.obj" />
+                            <mesh filename="/home/samzapo/Moby/example/HyQ/ycyl-r0.01-l0.35.obj" />
                     </geometry>
             </collision>
     </link>
@@ -169,7 +169,7 @@
                     <origin xyz="0 0 0"/>
                     <geometry>
                             <!-- cylinder radius="0.01" length="0.33"/ -->
-                            <mesh filename="ycyl-r0.01-l0.33.obj" />
+                            <mesh filename="/home/samzapo/Moby/example/HyQ/ycyl-r0.01-l0.33.obj" />
                     </geometry>
                     <material name="Red">
                     </material>
@@ -177,7 +177,7 @@
             <collision>
                     <origin xyz="0 0 0"/>
                     <geometry>
-                            <mesh filename="ycyl-r0.01-l0.33.obj" />
+                            <mesh filename="/home/samzapo/Moby/example/HyQ/ycyl-r0.01-l0.33.obj" />
                             <!-- cylinder radius="0.01" length="0.33"/ -->
                     </geometry>
             </collision>
@@ -234,7 +234,7 @@
             <visual>
                     <origin xyz="0 0 0"/>
                     <geometry>
-                            <mesh filename="ycyl-r0.01-l0.35.obj" />
+                            <mesh filename="/home/samzapo/Moby/example/HyQ/ycyl-r0.01-l0.35.obj" />
                             <!-- cylinder radius="0.01" length="0.35"/ -->
                     </geometry>
                     <material name="Red">
@@ -243,7 +243,7 @@
             <collision>
                     <origin xyz="0 0 0"/>
                     <geometry>
-                            <mesh filename="ycyl-r0.01-l0.35.obj" />
+                            <mesh filename="/home/samzapo/Moby/example/HyQ/ycyl-r0.01-l0.35.obj" />
                             <!-- cylinder radius="0.01" length="0.35"/ -->
                     </geometry>
             </collision>
@@ -257,7 +257,7 @@
             <visual>
                     <origin xyz="0 0 0"/>
                     <geometry>
-                            <mesh filename="ycyl-r0.01-l0.33.obj" />
+                            <mesh filename="/home/samzapo/Moby/example/HyQ/ycyl-r0.01-l0.33.obj" />
                             <!-- cylinder radius="0.01" length="0.33"/ -->
                     </geometry>
                     <material name="Red">
@@ -266,7 +266,7 @@
             <collision>
                     <origin xyz="0 0 0"/>
                     <geometry>
-                            <mesh filename="ycyl-r0.01-l0.33.obj" />
+                            <mesh filename="/home/samzapo/Moby/example/HyQ/ycyl-r0.01-l0.33.obj" />
                             <!-- cylinder radius="0.01" length="0.33"/ -->
                     </geometry>
             </collision>
@@ -324,7 +324,7 @@
                     <origin xyz="0 0 0"/>
                     <geometry>
                             <!-- cylinder radius="0.01" length="0.35"/ -->
-                            <mesh filename="ycyl-r0.01-l0.35.obj" />
+                            <mesh filename="/home/samzapo/Moby/example/HyQ/ycyl-r0.01-l0.35.obj" />
                     </geometry>
                     <material name="Red">
                     </material>
@@ -332,7 +332,7 @@
             <collision>
                     <origin xyz="0 0 0"/>
                     <geometry>
-                            <mesh filename="ycyl-r0.01-l0.35.obj" />
+                            <mesh filename="/home/samzapo/Moby/example/HyQ/ycyl-r0.01-l0.35.obj" />
                             <!-- cylinder radius="0.01" length="0.35"/ -->
                     </geometry>
             </collision>
@@ -346,7 +346,7 @@
             <visual>
                     <origin xyz="0 0 0"/>
                     <geometry>
-                            <mesh filename="ycyl-r0.01-l0.33.obj" />
+                            <mesh filename="/home/samzapo/Moby/example/HyQ/ycyl-r0.01-l0.33.obj" />
                             <!-- cylinder radius="0.01" length="0.33"/ -->
                     </geometry>
                     <material name="Red">
@@ -355,7 +355,7 @@
             <collision>
                     <origin xyz="0 0 0"/>
                     <geometry>
-                            <mesh filename="ycyl-r0.01-l0.33.obj" />
+                            <mesh filename="/home/samzapo/Moby/example/HyQ/ycyl-r0.01-l0.33.obj" />
                             <!-- cylinder radius="0.01" length="0.33"/ -->
                     </geometry>
             </collision>

@@ -17,6 +17,8 @@
 #include <Moby/RigidBody.h>
 #include <Moby/ContactParameters.h>
 
+namespace osg { class Node; }
+
 namespace Moby {
 
 class CollisionGeometry;
@@ -29,7 +31,6 @@ class Event
     enum EventClass { eUndetermined, eSeparating, eResting, eImpacting };
     Event();
     Event(const Event& e) { *this = e; }
-    static void determine_minimal_set(std::list<Event*>& group);
     static void determine_connected_events(const std::vector<Event>& events, std::list<std::list<Event*> >& groups);
     static void remove_nonimpacting_groups(std::list<std::list<Event*> >& groups);
     Event& operator=(const Event& e);
@@ -41,6 +42,7 @@ class Event
     bool is_separating() const { return determine_event_class() == eSeparating; }
     void set_contact_parameters(const ContactParameters& cparams);
     void determine_contact_tangents();
+    static void determine_minimal_set(std::list<Event*>& group);
 
     template <class OutputIterator>
     OutputIterator get_super_bodies(OutputIterator begin) const;
@@ -110,12 +112,10 @@ class Event
     /// The coefficient of restitution (for contact events)
     Real contact_epsilon;
 
-    /// The number of friction directions (for contact events)
+    /// The number of friction directions >= 4 (for contact events)
     unsigned contact_NK;
 
-    #ifdef USE_OSG
     osg::Node* to_visualization_data() const;
-    #endif
 
     /// Tolerance for the event (users never need to modify this)
     Real tol;
@@ -129,10 +129,6 @@ class Event
 
     template <class BidirectionalIterator>
     static void insertion_sort(BidirectionalIterator begin, BidirectionalIterator end);
-    static void compute_contact_jacobians(const Event& e, VectorN& Nc, VectorN& Dc1, VectorN& Dc2);
-    static void compute_contact_jacobian(const Event& e, MatrixN& Nc, MatrixN& iM_NcT, MatrixN& iM_DcT, unsigned ci, const std::map<DynamicBodyPtr, unsigned>& gc_indices);
-    static void redundant_contacts(const MatrixN& N, const VectorN& Nv, std::vector<unsigned>& nr_indices);
-    static void determine_minimal_subset(std::list<Event*>& group);
 }; // end class
 
 std::ostream& operator<<(std::ostream& out, const Event& e);

@@ -27,9 +27,7 @@ class CSG : public Primitive
     virtual bool point_inside(BVPtr bv, const Vector3& p, Vector3& normal) const;
     virtual bool intersect_seg(BVPtr bv, const LineSeg3& seg, Real& t, Vector3& isect, Vector3& normal) const;
     virtual const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >& get_sub_mesh(BVPtr bv);
-    #ifdef USE_OSG
     virtual osg::Node* create_visualization();
-    #endif
     virtual boost::shared_ptr<const IndexedTriArray> get_mesh(); 
     void set_operator(BooleanOperation op);
     void set_operand1(PrimitivePtr op1);

@@ -45,6 +45,7 @@ Vector3 _ball_pincer_left;
 Vector3 _ball_pincer_right;
 
 const Real PINCH_FORCE_MAGNITUDE = 10.0;
+//const Real PINCH_FORCE_MAGNITUDE = 0.0;
 
 // pincer controller
 void pincer_controller(DynamicBodyPtr robot, Real time, void* data)
@@ -129,7 +130,7 @@ void ball_push_force_controller(DynamicBodyPtr robot, Real time, void* data)
 
       // Exceedingly unlikely, but throw anyway if arises
       if( push_force[0] == 0.0 && push_force[1] == 0.0 && push_force[2] == 0.0 )
-        throw std::runtime_error("push-controller.cpp:ball_force_controller()- generated a zero push force!");
+        throw std::runtime_error("pinch-controller.cpp:ball_push_force_controller()- generated a zero push force!");
 
       push_force *= PUSH_FORCE_MAGNITUDE;
       push_count++;
@@ -184,8 +185,8 @@ void init(void* separator, const std::map<std::string, BasePtr>& read_map, Real 
   // register the event callback function
   sim->event_callback_fn = &event_callback_fn;
 
-  // ---  Right Pincer  ---
-  // find the right_pincer
+  // ---  Pincers  ---
+  // find the pincers
   if (read_map.find("pincers") == read_map.end())
     throw std::runtime_error("pinch-controller.cpp:init()- unable to find pincers!");
   pincers = dynamic_pointer_cast<ArticulatedBody>(read_map.find("pincers")->second);
