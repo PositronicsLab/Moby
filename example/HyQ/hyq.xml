@@ -26,7 +26,7 @@
     <ContactParameters object1-id="hyq" object2-id="ground" restitution="0" mu-coulomb="0.1" />
   </EventDrivenSimulator>
 
-  <RCArticulatedBody id="hyq" urdf="hyq.urdf" fdyn-algorithm-id="crb" fdyn-algorithm-frame="link" floating-base="true" translation="0 0 1" />
+  <RCArticulatedBody id="hyq" urdf="hyq.urdf" fdyn-algorithm="crb" fdyn-algorithm-frame="link" floating-base="true" translation="0 0 1" />
 
   <!-- setup the platform rigid body; it is not active -->
   <RigidBody id="ground" enabled="false"

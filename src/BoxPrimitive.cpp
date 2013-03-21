@@ -274,9 +274,9 @@ shared_ptr<const IndexedTriArray> BoxPrimitive::get_mesh()
 }
 
 /// Creates the visualization for this primitive
-#ifdef USE_OSG
 osg::Node* BoxPrimitive::create_visualization()
 {
+  #ifdef USE_OSG
   const Real HALF = (Real) 0.5;
   osg::Box* box = new osg::Box;
   osg::Vec3 half_lens(_xlen * HALF, _ylen * HALF, _zlen * HALF);
@@ -284,8 +284,10 @@ osg::Node* BoxPrimitive::create_visualization()
   osg::Geode* geode = new osg::Geode;
   geode->addDrawable(new osg::ShapeDrawable(box));
   return geode;
+  #else
+  return NULL;
+  #endif
 }
-#endif
 
 /// Implements Base::load_from_xml() for serialization
 void BoxPrimitive::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)

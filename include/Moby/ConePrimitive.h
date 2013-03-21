@@ -39,10 +39,7 @@ class ConePrimitive : public Primitive
     virtual boost::shared_ptr<const IndexedTriArray> get_mesh();
     virtual void set_intersection_tolerance(Real tol);
     virtual void get_vertices(BVPtr bv, std::vector<const Vector3*>& vertices);
-
-    #ifdef USE_OSG
     virtual osg::Node* create_visualization();
-    #endif
 
     /// Gets the number of rings on the cone
     unsigned get_num_rings() const { return _nrings; }

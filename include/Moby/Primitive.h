@@ -17,13 +17,12 @@
 #include <Moby/ThickTriangle.h>
 #include <Moby/Constants.h>
 #include <Moby/IndexedTriArray.h>
-#ifdef USE_OSG
-#include <osg/Matrixd>
-#endif
 
 namespace osg {
   class MatrixTransform;
   class Material;
+  class Node;
+  class Matrixd;
 }
 
 namespace Moby {
@@ -59,12 +58,8 @@ class Primitive : public virtual Base
     Real get_intersection_tolerance() const { return _intersection_tolerance; }
 
     /// Gets the visualization for this primitive
-    #ifdef USE_OSG
     virtual osg::Node* get_visualization();
     virtual osg::Node* create_visualization() = 0;
-    #else
-    void* get_visualization() { return NULL; }
-    #endif
 
     /// Sets whether this primitive is used for a deformable body
     virtual void set_deformable(bool flag) { _deformable = flag; }
@@ -170,9 +165,7 @@ class Primitive : public virtual Base
     bool _invalidated;
 
   private:
-    #ifdef USE_OSG
     static void to_osg_matrix(const Matrix4& src, osg::Matrixd& tgt);
-    #endif
 
     struct PrimitiveState
     {
@@ -188,13 +181,11 @@ class Primitive : public virtual Base
     /// Whether the geometry is deformable or not
     bool _deformable;
 
-    #ifdef USE_OSG
     /// The visualization transform (possibly NULL)
     osg::MatrixTransform* _vtransform;
 
     /// The material for the visualization (possibly NULL)
     osg::Material* _mat;
-    #endif
 }; // end class
 
 } // end namespace

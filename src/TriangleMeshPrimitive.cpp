@@ -116,9 +116,9 @@ void TriangleMeshPrimitive::set_edge_sample_length(Real len)
 }
 
 /// Creates the visualization for this primitive
-#ifdef USE_OSG
 osg::Node* TriangleMeshPrimitive::create_visualization()
 {
+  #ifdef USE_OSG
   const unsigned X = 0, Y = 1, Z = 2;
 
   // create a new group to hold the geometry
@@ -165,8 +165,10 @@ osg::Node* TriangleMeshPrimitive::create_visualization()
   }
 
   return group;
+  #else
+  return NULL;
+  #endif
 }
-#endif
 
 /// Centers the triangle mesh
 void TriangleMeshPrimitive::center()
@@ -264,6 +266,9 @@ void TriangleMeshPrimitive::load_from_xml(XMLTreeConstPtr node, map<string, Base
 
   // update the visualization, if necessary
   update_visualization();
+
+  // recompute mass properties
+  calc_mass_properties();
 }
 
 /// Implements Base::save_to_xml()
