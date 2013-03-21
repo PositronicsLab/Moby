@@ -3198,7 +3198,7 @@ void CompGeom::project_plane(ForwardIterator begin, ForwardIterator end, const V
 {
   // form the projection matrix P = I - normal*normal'
   Matrix3 P;
-  P = Vector3::outer_prod(normal, -normal, &P);
+  Vector3::outer_prod(normal, -normal, &P);
   P += Matrix3::identity(); 
  
   // project each point onto the plane
