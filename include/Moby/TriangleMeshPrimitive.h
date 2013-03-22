@@ -26,10 +26,7 @@ class TriangleMeshPrimitive : public Primitive
     TriangleMeshPrimitive(const std::string& filename, bool center = true);
     TriangleMeshPrimitive(const std::string& filename, const Matrix4& T, bool center = true);
     void set_edge_sample_length(Real len);
-
-    #ifdef USE_OSG
     virtual osg::Node* create_visualization();
-    #endif
 
     /// Gets the length of an edge in the mesh above which point sub-samples are created
     Real get_edge_sample_length() const { return _edge_sample_length; }
