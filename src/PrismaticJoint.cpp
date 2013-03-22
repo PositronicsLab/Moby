@@ -2248,8 +2248,8 @@ void PrismaticJoint::evaluate_constraints(Real C[])
   // get v1 in global coordinates
   Vector3 v1 = get_axis_global();
 
-  // determine v2 in global coordinates
-  Vector3 v2 = outer->get_transform().transpose_mult_vector(_v2);
+  // determine axis in global coordinates
+  Vector3 v2 = outer->get_transform().mult_vector(_v2);
 
   // determine v1i, v1j
   Vector3 v1i, v1j;
