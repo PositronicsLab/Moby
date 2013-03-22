@@ -5,6 +5,9 @@
  ****************************************************************************/
 
 #include <iostream>
+#ifdef USE_OSG
+#include <osg/Group>
+#endif
 #include <Moby/RecurrentForce.h>
 #include <Moby/ArticulatedBody.h>
 #include <Moby/RCArticulatedBody.h>
@@ -233,6 +236,14 @@ void Simulator::update_visualization()
 {
   BOOST_FOREACH(DynamicBodyPtr body, _bodies)
     body->update_visualization();
+}
+
+/// Adds transient visualization data to the simulator
+void Simulator::add_transient_vdata(osg::Node* vdata)
+{
+  #ifdef USE_OSG
+  _transient_vdata->addChild(vdata);
+  #endif
 }
 
 /// Implements Base::load_from_xml()

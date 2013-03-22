@@ -265,16 +265,18 @@ void SpherePrimitive::get_vertices(BVPtr bv, std::vector<const Vector3*>& vertic
 }
 
 /// Creates the visualization for this primitive
-#ifdef USE_OSG
 osg::Node* SpherePrimitive::create_visualization()
 {
+  #ifdef USE_OSG
   osg::Sphere* sphere = new osg::Sphere;
   sphere->setRadius((float) _radius);
   osg::Geode* geode = new osg::Geode;
   geode->addDrawable(new osg::ShapeDrawable(sphere));
   return geode;
+  #else
+  return NULL;
+  #endif
 }  
-#endif
 
 /// Implements Base::load_from_xml() for serialization
 void SpherePrimitive::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)

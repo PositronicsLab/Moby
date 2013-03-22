@@ -572,7 +572,7 @@ Quat Quat::operator-() const
 /// Subtracts a quaternion from <b>this</b>
 Quat Quat::operator-(const Quat& q) const
 {
-  return Quat(x+q.x, y+q.y, z+q.z, w+q.w);
+  return Quat(x-q.x, y-q.y, z-q.z, w-q.w);
 }
 
 /// Subtracts one quaternion from another 

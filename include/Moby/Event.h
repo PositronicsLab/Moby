@@ -17,6 +17,8 @@
 #include <Moby/RigidBody.h>
 #include <Moby/ContactParameters.h>
 
+namespace osg { class Node; }
+
 namespace Moby {
 
 class CollisionGeometry;
@@ -113,9 +115,7 @@ class Event
     /// The number of friction directions >= 4 (for contact events)
     unsigned contact_NK;
 
-    #ifdef USE_OSG
     osg::Node* to_visualization_data() const;
-    #endif
 
     /// Tolerance for the event (users never need to modify this)
     Real tol;

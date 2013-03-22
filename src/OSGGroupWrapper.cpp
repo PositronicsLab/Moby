@@ -6,9 +6,11 @@
 
 #include <cstring>
 #include <iostream>
+#ifdef USE_OSG
 #include <osgDB/ReadFile>
 #include <osgDB/WriteFile>
 #include <osg/MatrixTransform>
+#endif
 #include <Moby/Matrix4.h>
 #include <Moby/XMLTree.h>
 #include <Moby/InvalidTransformException.h>
@@ -18,20 +20,25 @@ using namespace Moby;
 
 OSGGroupWrapper::OSGGroupWrapper()
 {
+  #ifdef USE_OSG
   _group = new osg::MatrixTransform;
   _group->ref();
+  #endif
 }
 
 OSGGroupWrapper::OSGGroupWrapper(osg::Node* n)
 {
+  #ifdef USE_OSG
   _group = new osg::MatrixTransform;
   _group->addChild(n);
   _group->ref();
+  #endif
 }
 
 /// Creates an OSGGroup wrapper given a filename 
 OSGGroupWrapper::OSGGroupWrapper(const std::string& fname)
 {
+  #ifdef USE_OSG
   // open the filename and read in the file
   osg::Node* node = osgDB::readNodeFile(fname);
   if (!node)
@@ -51,11 +58,14 @@ OSGGroupWrapper::OSGGroupWrapper(const std::string& fname)
   else
     _group = group;
   _group->ref();
+  #endif
 }
 
 OSGGroupWrapper::~OSGGroupWrapper()
 {
+  #ifdef USE_OSG
   _group->unref();
+  #endif
 }
 
 #ifdef USE_OSG
@@ -91,6 +101,7 @@ void OSGGroupWrapper::load_from_xml(XMLTreeConstPtr node, std::map<std::string, 
   const std::string& fname = viz_fname_attr->get_string_value();
 
   // open the filename and read in the file
+  #ifdef USE_OSG
   osg::Node* osgnode = osgDB::readNodeFile(fname);
   if (!osgnode)
   {
@@ -123,6 +134,7 @@ void OSGGroupWrapper::load_from_xml(XMLTreeConstPtr node, std::map<std::string, 
 
   // add the read node to the group
   _group->addChild(osgnode);
+  #endif
 }
 
 /// Implements Base::save_to_xml()
@@ -139,7 +151,9 @@ void OSGGroupWrapper::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shar
 
   // save the visualization data 
   node->attribs.insert(XMLAttrib("filename", filename));
+  #ifdef USE_OSG
   if (!osgDB::writeNodeFile(*_group, filename))
     std::cerr << "OSGGroupWrapper::save_to_xml() - unable to write scene graph to " << filename << std::endl;
+  #endif
 }
 

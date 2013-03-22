@@ -24,6 +24,8 @@
 #include <Moby/SpatialRBInertia.h>
 #include <Moby/SpatialTransform.h>
 
+namespace osg { class Node; }
+
 namespace Moby {
 
 class ArticulatedBody;
@@ -93,9 +95,7 @@ class RigidBody : public SingleBody
     virtual void calc_fwd_dyn(Real dt);
     SpatialRBInertia get_spatial_iso_inertia(ReferenceFrameType rftype) const;
 
-    #ifdef USE_OSG
     virtual void set_visualization_data(osg::Node* vdata) { Visualizable::set_visualization_data(vdata); synchronize(); }
-    #endif
 
     virtual void load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const;

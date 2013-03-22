@@ -123,6 +123,36 @@ void PSDeformableBody::integrate(Real t, Real h, shared_ptr<Integrator<VectorN> 
   enable_config_updates();
 } 
 
+/// Calculates the potential energy of the deformable body
+Real PSDeformableBody::calc_potential_energy() const
+{
+  Real PE = (Real) 0.0;
+
+  // evaluate spring lengths 
+  for (unsigned i=0; i< _springs.size(); i++)
+  {
+    // get the spring properties
+    const Spring& s = _springs[i];
+    unsigned node1 = s.node1;
+    unsigned node2 = s.node2;
+    assert(node1 < _nodes.size());
+    assert(node2 < _nodes.size());
+    Real rest_len = s.rest_len;
+    Real kp = s.kp;
+
+    // get the node properties
+    const Vector3& x1 = _nodes[node1]->x;
+    const Vector3& x2 = _nodes[node2]->x;
+
+    // determine spring forces (from Real Time Physics course notes)
+    Vector3 x2mx1 = x2 - x1;
+    Real len = x2mx1.norm();
+    PE += (Real) 0.5 * (len - rest_len) * (len - rest_len) * kp;
+  }
+
+  return PE; 
+}
+
 /// Calculates forward dynamics for the deformable body
 void PSDeformableBody::calc_fwd_dyn(Real dt)
 {
