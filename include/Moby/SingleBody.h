@@ -16,6 +16,7 @@ class SingleBody : public DynamicBody
 {
   public:
     virtual ~SingleBody() {}
+    virtual DynamicBodyPtr get_super_body() const;
 
     /// Integrates this body
     virtual void integrate(Real t, Real h, boost::shared_ptr<Integrator<VectorN> > integrator)
