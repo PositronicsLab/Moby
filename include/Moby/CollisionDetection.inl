@@ -40,7 +40,7 @@ OutputIterator CollisionDetection::get_dynamic_bodies(OutputIterator output_begi
     SingleBodyPtr sb = cg->get_single_body();
     ArticulatedBodyPtr ab = sb->get_articulated_body();
     if (ab)
-      dbs.push_back(DynamicBodyPtr(ab));
+      dbs.push_back(boost::dynamic_pointer_cast<DynamicBody>(ab));
     else
       dbs.push_back(sb);
   }
