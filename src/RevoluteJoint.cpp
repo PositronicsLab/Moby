@@ -10,6 +10,7 @@
 #include <Moby/AAngle.h>
 #include <Moby/RigidBody.h>
 #include <Moby/XMLTree.h>
+#include <Moby/UndefinedAxisException.h>
 #include <Moby/RevoluteJoint.h>
 
 using namespace Moby;
@@ -198,18 +199,11 @@ void RevoluteJoint::determine_q(VectorN& q)
   
   // verify that the inboard and outboard links are set
   if (!inboard || !outboard)
-  {
-    std::cerr << "RevoluteJoint::determine_Q() called on NULL inboard and/or outboard links!" << std::endl;
-    assert(false);
-    return;
-  }
+    throw std::runtime_error("determine_q() called on NULL inboard and/or outboard links!");
 
   // if axis is not defined, can't use this method
   if (std::fabs(_u.norm() - 1.0) > NEAR_ZERO)
-  {
-    std::cerr << "RevoluteJoint::determine_Q() warning: some axes undefined; aborting..." << std::endl;
-    return;
-  }
+    throw UndefinedAxisException();
 
   // get the link transforms
   Matrix3 R_inboard, R_outboard;
