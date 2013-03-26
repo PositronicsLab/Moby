@@ -10,6 +10,7 @@
 #include <Moby/AAngle.h>
 #include <Moby/XMLTree.h>
 #include <Moby/RigidBody.h>
+#include <Moby/UndefinedAxisException.h>
 #include <Moby/PrismaticJoint.h>
 
 using namespace Moby;
@@ -95,9 +96,9 @@ Vector3 PrismaticJoint::get_axis_global() const
  */
 void PrismaticJoint::set_axis_local(const Vector3& axis) 
 {
-  // check that axis is not the zero vector
-  if (axis.norm() < NEAR_ZERO)
-    throw std::runtime_error("Prismatic joint axis is the zero vector!");
+  // check that axis is ok 
+  if (std::fabs(axis.norm() - (Real) 1.0) < NEAR_ZERO)
+    throw UndefinedAxisException(); 
  
   // normalize the axis, in case caller did not 
   Vector3 naxis = Vector3::normalize(axis); 
@@ -130,9 +131,9 @@ void PrismaticJoint::set_axis_local(const Vector3& axis)
  */
 void PrismaticJoint::set_axis_global(const Vector3& axis)
 {
-  // check that axis is not the zero vector
-  if (axis.norm() < NEAR_ZERO)
-    throw std::runtime_error("Prismatic joint axis is the zero vector!");
+  // check that axis is unit vector 
+  if (std::fabs(axis.norm() - (Real) 1.0) < NEAR_ZERO)
+    throw UndefinedAxisException(); 
 
    // normalize the axis, in case caller did not 
   Vector3 naxis = Vector3::normalize(axis); 
@@ -189,17 +190,11 @@ void PrismaticJoint::determine_q(VectorN& q)
 
   // verify that the inboard and outboard links are set
   if (!inboard || !outboard)
-  {
-    std::cerr << "PrismaticJoint::determine_Q() called on NULL inboard and/or outboard links!" << std::endl;
-    return;
-  }
+    throw std::runtime_error("determine_q() called on NULL inboard and/or outboard links!");
 
   // if axis is not defined, can't use this method
   if (std::fabs(_u.norm() - 1.0) > NEAR_ZERO)
-  {
-    std::cerr << "PrismaticJoint::determine_Q() warning: some axes undefined; aborting..." << std::endl;
-    return;
-  }
+    throw UndefinedAxisException();
 
   // get the attachment points on the link (global coords)
   Vector3 p1 = get_position_global(false);
@@ -240,7 +235,7 @@ void PrismaticJoint::calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsig
 
   // make sure that _u (and by extension _ui, _uj, _v2) is set
   if (_u.norm_sq() < std::numeric_limits<Real>::epsilon())
-    throw std::runtime_error("Prismatic joint axis has not been set; set before calling dynamics functions.");
+    throw UndefinedAxisException(); 
 
   // mke sure that body is one of the links
   if (inner != body && outer != body)
@@ -972,7 +967,7 @@ void PrismaticJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, u
 
   // make sure that _u (and by extension _ui, _uj, _v2) is set
   if (_u.norm_sq() < std::numeric_limits<Real>::epsilon())
-    throw std::runtime_error("Prismatic joint axis has not been set; set before calling dynamics functions.");
+    throw UndefinedAxisException(); 
 
   // mke sure that body is one of the links
   if (inner != body && outer != body)
