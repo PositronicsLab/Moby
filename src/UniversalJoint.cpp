@@ -11,6 +11,7 @@
 #include <Moby/AAngle.h>
 #include <Moby/RigidBody.h>
 #include <Moby/XMLTree.h>
+#include <Moby/UndefinedAxisException.h>
 #include <Moby/UniversalJoint.h>
 
 using namespace Moby;
@@ -314,15 +315,12 @@ void UniversalJoint::determine_q(VectorN& q)
 
   // verify that the inboard and outboard links are set
   if (!inboard || !outboard)
-    throw NullPointerException("UniversalJoint::determine_Q() called on NULL inboard and/or outboard links!");
+    throw std::runtime_error("determine_q() called on NULL inboard and/or outboard links!");
 
   // if any of the axes are not defined, can't use this method
   if (std::fabs(_u[0].norm() - 1.0) > NEAR_ZERO ||
       std::fabs(_u[1].norm() - 1.0) > NEAR_ZERO)
-  {
-    std::cerr << "UniversalJoint::determine_Q() warning: some axes undefined; aborting..." << std::endl;
-    return;
-  }
+    throw UndefinedAxisException();
 
   // get the link transforms
   Matrix3 R_inboard, R_outboard;
@@ -394,7 +392,7 @@ void UniversalJoint::calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsig
   // make sure that _u (and by extension _h2) is set
   if (_u[eAxis1].norm_sq() < std::numeric_limits<Real>::epsilon() ||
       _u[eAxis2].norm_sq() < std::numeric_limits<Real>::epsilon())
-    throw std::runtime_error("One or more universal joint axes has not been set; set before calling dynamics functions.");
+    throw UndefinedAxisException(); 
 
   // mke sure that body is one of the links
   if (inner != body && outer != body)
@@ -676,7 +674,7 @@ void UniversalJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, u
   // make sure that _u (and by extension _h2) is set
   if (_u[eAxis1].norm_sq() < std::numeric_limits<Real>::epsilon() ||
       _u[eAxis2].norm_sq() < std::numeric_limits<Real>::epsilon())
-    throw std::runtime_error("One or more universal joint axes has not been set; set before calling dynamics functions.");
+    throw UndefinedAxisException(); 
 
   // mke sure that body is one of the links
   if (inner != body && outer != body)
