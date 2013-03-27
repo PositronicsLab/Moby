@@ -75,6 +75,8 @@ class CollisionDetection : public virtual Base
     /// Determines whether there is a contact between the given pairs of states 
     /**
      * \param events the set of determined contacts, on return
+     * \pre body states are set to appropriate states in q1
+     * \post body states are arbitrary on return
      * \return <b>true</b> if there is contact in the time interval, 
      *           <b>false</b> otherwise
      */
