@@ -48,7 +48,7 @@
       </RigidBody>
 
     <!-- Setup the simulator -->
-    <EventDrivenSimulator id="simulator" integrator-id="rk4" collision-detector-id="dccd" TOI-tolerance="1e-5">
+    <EventDrivenSimulator id="simulator" integrator-id="rk4" collision-detector-id="meshdcd" TOI-tolerance="1e-5">
       <DynamicBody dynamic-body-id="sphere" />
       <DynamicBody dynamic-body-id="ground" />
       <RecurrentForce recurrent-force-id="gravity" enabled="true" />
