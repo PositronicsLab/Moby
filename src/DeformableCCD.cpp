@@ -1018,9 +1018,10 @@ Real DeformableCCD::determine_TOI(Real t0, Real tf, const DStruct* ds, Vector3& 
         bs_sb->get_generalized_coordinates(DynamicBody::eRodrigues, q);
         bs_sb->get_generalized_velocity(DynamicBody::eRodrigues, qd);
         qd *= t;
-        q += qd;
-        bs_sb->set_generalized_coordinates(DynamicBody::eRodrigues, q);
+        qd += q;
+        bs_sb->set_generalized_coordinates(DynamicBody::eRodrigues, qd);
         pt = gs->get_transform().mult_point(pt);
+        bs_sb->set_generalized_coordinates(DynamicBody::eRodrigues, q);
         assert(std::fabs(normal.norm() - (Real) 1.0) < NEAR_ZERO);
         normal = qs * normal;
         
