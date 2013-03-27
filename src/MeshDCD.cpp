@@ -308,9 +308,7 @@ void MeshDCD::check_geoms(Real dt, CollisionGeometryPtr a, CollisionGeometryPtr 
 
   // compute the velocities
   qda.copy_from(qa1) -= qa0;
-  qda /= dt;
   qdb.copy_from(qb1) -= qb0;
-  qdb /= dt;
 
   // check for contact at q1 states 
   sba->set_generalized_coordinates(DynamicBody::eRodrigues, qa1);
@@ -352,13 +350,13 @@ void MeshDCD::check_geoms(Real dt, CollisionGeometryPtr a, CollisionGeometryPtr 
     q.copy_from(qda) *= t;
     q += qa0;
     sba->set_generalized_coordinates(DynamicBody::eRodrigues, q);
-    sba->set_generalized_velocity(DynamicBody::eRodrigues, qda);
+    sba->set_generalized_velocity(DynamicBody::eRodrigues, qda /= dt);
 
     // set the second body's coordinates at the time-of-contact
     q.copy_from(qdb) *= t;
     q += qb0;
     sbb->set_generalized_coordinates(DynamicBody::eRodrigues, q);
-    sbb->set_generalized_velocity(DynamicBody::eRodrigues, qdb);
+    sbb->set_generalized_velocity(DynamicBody::eRodrigues, qdb /= dt);
 
     // determine the types of the two bodies
     RigidBodyPtr rba = dynamic_pointer_cast<RigidBody>(sba);
