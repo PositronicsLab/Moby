@@ -278,9 +278,6 @@ class RigidBody : public SingleBody
     /// Gets the list of outer joint data for this link
     const std::list<OuterJointData>& get_outer_joints_data() const { return _outer_joints; }
 
-    /// Coulomb coefficient for dampening the body motion
-    VectorN coulomb_coeff;
-
     /// Viscous coefficient for dampening the body motion
     VectorN viscous_coeff;
 

@@ -52,7 +52,6 @@ RigidBody::RigidBody()
   _forces = ZEROS_3;
   _torques = ZEROS_3;
   _link_idx = std::numeric_limits<unsigned>::max();
-  coulomb_coeff = VectorN::zero(SPATIAL_DIM);
   viscous_coeff = VectorN::zero(SPATIAL_DIM);
 }
 
@@ -448,26 +447,11 @@ void RigidBody::load_from_xml(XMLTreeConstPtr node, map<std::string, BasePtr>& i
   // don't verify that the node is correct, b/c RigidBody can be subclassed
   // ***********************************************************************
  
-  // read the Coulomb dampening coefficient, if provided
-  const XMLAttrib* coulomb_coeff_attr = node->get_attrib("coulomb-dampening-coeff");
-  if (coulomb_coeff_attr)
-    coulomb_coeff_attr->get_vector_value(coulomb_coeff);
-
   // read the viscous dampening coefficient, if provided
   const XMLAttrib* viscous_coeff_attr = node->get_attrib("viscous-dampening-coeff");
   if (viscous_coeff_attr)
     viscous_coeff_attr->get_vector_value(viscous_coeff);
  
-  // read the linear acceleration, if provided
-  const XMLAttrib* laccel_attr = node->get_attrib("linear-accel");
-  if (laccel_attr)
-    laccel_attr->get_vector_value(_xdd);
-
-  // read the angular acceleration, if provided
-  const XMLAttrib* aaccel_attr = node->get_attrib("angular-accel");
-  if (aaccel_attr)
-    aaccel_attr->get_vector_value(_alpha);
-
   // read the mass, if provided
   const XMLAttrib* mass_attr = node->get_attrib("mass");
   if (mass_attr)
@@ -742,12 +726,6 @@ void RigidBody::save_to_xml(XMLTreePtr node, list<BaseConstPtr>& shared_objects)
   // rename the node
   node->name = "RigidBody";
 
-  // save the linear acceleration
-  node->attribs.insert(XMLAttrib("linear-accel", _xdd)); 
-
-  // save the angular acceleration
-  node->attribs.insert(XMLAttrib("angular-accel", _alpha)); 
-
   // save the mass
   node->attribs.insert(XMLAttrib("mass", _mass));
 
@@ -766,9 +744,8 @@ void RigidBody::save_to_xml(XMLTreePtr node, list<BaseConstPtr>& shared_objects)
   // save the cumulative torques on the body
   node->attribs.insert(XMLAttrib("sum-torques", _torques));
 
-  // save the dampening coefficients
-  node->attribs.insert(XMLAttrib("coulomb-coeff", coulomb_coeff));
-  node->attribs.insert(XMLAttrib("viscous-coeff", viscous_coeff));
+  // save the dampening coefficient
+  node->attribs.insert(XMLAttrib("viscous-dampening-coeff", viscous_coeff));
 
   // save all collision geometries
   BOOST_FOREACH(CollisionGeometryPtr g, geometries)
