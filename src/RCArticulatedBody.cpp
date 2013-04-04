@@ -929,7 +929,7 @@ MatrixN& RCArticulatedBody::calc_jacobian(const Vector3& p, RigidBodyPtr link, M
   if (is_floating_base())
   {
     // calculate the floating base
-    calc_jacobian_floating_base(p, _workM);
+    calc_jacobian_floating_base(p, _workM2);
 
     // setup the floating base
     J.set_sub_mat(0,0,_workM);
@@ -940,8 +940,8 @@ MatrixN& RCArticulatedBody::calc_jacobian(const Vector3& p, RigidBodyPtr link, M
   while (link != base)
   {
     JointPtr joint = link->get_inner_joint_implicit();
-    calc_jacobian_column(joint, p, _workM); 
-    J.set_sub_mat(0,joint->get_coord_index(), _workM);
+    calc_jacobian_column(joint, p, _workM2); 
+    J.set_sub_mat(0,joint->get_coord_index(), _workM2);
     link = link->get_parent_link();
   }
 
