@@ -7,7 +7,7 @@
 #ifndef _GRAVITY_FORCE_H
 #define _GRAVITY_FORCE_H
 
-#include <Moby/Vector3.h>
+#include <Moby/Ravelin::Vector3.h>
 #include <Moby/RecurrentForce.h>
 
 namespace Moby {
@@ -22,7 +22,7 @@ class GravityForce : public RecurrentForce
     virtual void save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const;
 
     /// The gravity vector
-    Vector3 gravity;
+    Ravelin::Vector3d gravity;
 }; // end class
 } // end namespace
 

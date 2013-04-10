@@ -8,7 +8,7 @@
 #define _DEFORMABLE_BODY_NODE_H
 
 #include <Moby/Constants.h>
-#include <Moby/Vector3.h>
+#include <Ravelin/Vector3d.h>
 
 namespace Moby {
 
@@ -17,24 +17,27 @@ struct Node
 {
   Node()
   {
-    x = xd = xdd = f = ZEROS_3;
-    mass = (Real) 0.0;
+    x.set_zero();
+    xd.set_zero();
+    xdd.set_zero();
+    f.set_zero();
+    mass = (double) 0.0;
   }
 
   /// The global position of the node
-  Vector3 x;
+  Ravelin::Point3d x;
 
   /// The linear velocity of the node
-  Vector3 xd;
+  Ravelin::Vector3d xd;
 
   /// The linear acceleration of the node
-  Vector3 xdd;
+  Ravelin::Vector3d xdd;
 
   /// The mass of the node (if any)
-  Real mass;
+  double mass;
 
   /// The force accumulator for the node
-  Vector3 f;
+  Ravelin::Vector3d f;
 }; // end class
 
 } // end namespace

@@ -8,14 +8,14 @@
 template <class InputIterator>
 GeneralizedCCD::GeneralizedCCD(InputIterator begin, InputIterator end) 
 {
-  eps_tolerance = std::sqrt(std::numeric_limits<Real>::epsilon()); 
+  eps_tolerance = std::sqrt(std::numeric_limits<double>::epsilon()); 
   while (begin != end) 
     add_dynamic_body(*begin++); 
 }
 
 /// Intersects two BV leafs together and returns collision data (if any)
 template <class OutputIterator>
-OutputIterator GeneralizedCCD::intersect_BV_leafs(BVPtr a, BVPtr b, const Matrix4& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b, OutputIterator output_begin) const
+OutputIterator GeneralizedCCD::intersect_BV_leafs(BVPtr a, BVPtr b, const Ravelin::Pose3d& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b, OutputIterator output_begin) const
 {
   // NOTE: if we want to speed up this static collision check (slightly),
   // we could institute an object-level map from BV leafs to triangles

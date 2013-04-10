@@ -9,10 +9,11 @@
 
 #include <iostream>
 #include <list>
+#include <Ravelin/Vector3d.h>
+#include <Ravelin/Wrenchd.h>
 #include <boost/shared_ptr.hpp>
 #include <Moby/Constants.h>
 #include <Moby/Types.h>
-#include <Moby/Vector3.h>
 #include <Moby/Joint.h>
 #include <Moby/RigidBody.h>
 #include <Moby/ContactParameters.h>
@@ -34,8 +35,8 @@ class Event
     static void determine_connected_events(const std::vector<Event>& events, std::list<std::list<Event*> >& groups);
     static void remove_nonimpacting_groups(std::list<std::list<Event*> >& groups);
     Event& operator=(const Event& e);
-    Real calc_event_vel() const;
-    Real calc_event_tol() const;
+    double calc_event_vel() const;
+    double calc_event_tol() const;
     EventClass determine_event_class() const;
     bool is_impacting() const { return determine_event_class() == eImpacting; }
     bool is_resting() const { return determine_event_class() == eResting; }
@@ -51,16 +52,16 @@ class Event
     EventType event_type;
 
     /// The time that the event occurs [0,1]
-    Real t;
+    double t;
 
     /// The "real" time that the event occurs [0, infinity]
-    Real t_true;
+    double t_true;
 
     /// The joint at which the limit is reached (for limit events)
     JointPtr limit_joint;
 
     /// The coefficient of restitution for this limit
-    Real limit_epsilon;
+    double limit_epsilon;
 
     /// The DOF at which the limit is reached (for limit events)
     unsigned limit_dof;
@@ -69,28 +70,28 @@ class Event
     bool limit_upper;
 
     /// Limit impulse magnitude (for limit events)
-    Real limit_impulse;
+    double limit_impulse;
 
     /// Constraint [normal] impulse magnitude (for constraint events)
-    VectorN constraint_nimpulse;
+    Ravelin::VectorNd constraint_nimpulse;
 
     /// Constraint [friction] impulse magnitude (for constraint events)
-    VectorN constraint_fimpulse;
+    Ravelin::VectorNd constraint_fimpulse;
 
     /// The joint (for constraint events)
     JointPtr constraint_joint;
 
     /// The point contact (for contact events)
-    Vector3 contact_point;
+    Ravelin::Point3d contact_point;
     
     /// The vector pointing outward from the contact on the first body, in world coordinates (for contact events)
-    Vector3 contact_normal;  
+    Ravelin::Vector3d contact_normal;  
 
     /// The first tangent direction to the contact normal
-    Vector3 contact_tan1;
+    Ravelin::Vector3d contact_tan1;
 
     /// The second tangent direction to the contact normal
-    Vector3 contact_tan2;
+    Ravelin::Vector3d contact_tan2;
 
     /// Impulse that has been applied (for contact events)
     /**
@@ -98,19 +99,19 @@ class Event
      * the reverse of this force / impulse is applied to the body of the second 
      * geometry.
      */
-    Vector3 contact_impulse;
+    Ravelin::Wrenchd contact_impulse;
 
     /// The collision geometries involved (for contact events)
     CollisionGeometryPtr contact_geom1, contact_geom2;
 
     /// The coefficient of Coulomb friction (for contact events)
-    Real contact_mu_coulomb;
+    double contact_mu_coulomb;
 
     /// The coefficient of viscous friction (for contact events)
-    Real contact_mu_viscous;
+    double contact_mu_viscous;
 
     /// The coefficient of restitution (for contact events)
-    Real contact_epsilon;
+    double contact_epsilon;
 
     /// The number of friction directions >= 4 (for contact events)
     unsigned contact_NK;
@@ -118,9 +119,9 @@ class Event
     osg::Node* to_visualization_data() const;
 
     /// Tolerance for the event (users never need to modify this)
-    Real tol;
+    double tol;
 
-    void write_vrml(const std::string& filename, Real sphere_radius = 0.1, Real normal_length = 1.0) const;
+    void write_vrml(const std::string& filename, double sphere_radius = 0.1, double normal_length = 1.0) const;
     bool operator<(const Event& e) const { return t < e.t; }
 
   private:

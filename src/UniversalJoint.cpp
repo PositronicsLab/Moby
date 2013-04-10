@@ -72,9 +72,9 @@ UniversalJoint::UniversalJoint(boost::weak_ptr<RigidBody> inboard, boost::weak_p
 }  
 
 /// Determines whether two values are relatively equal
-bool UniversalJoint::rel_equal(Real x, Real y)
+bool UniversalJoint::rel_equal(double x, double y)
 {
-  return (std::fabs(x - y) <= NEAR_ZERO * std::max(std::fabs(x), std::max(std::fabs(y), (Real) 1.0)));
+  return (std::fabs(x - y) <= NEAR_ZERO * std::max(std::fabs(x), std::max(std::fabs(y), (double) 1.0)));
 }
 
 /// Gets the global axis for this joint
@@ -112,8 +112,8 @@ Vector3 UniversalJoint::get_axis_global(Axis a) const
 
   // axis two is obtained by multiplying rotation matrix around x by y-axis 
   assert(a == eAxis2);
-  const Real c1 = std::cos(q[DOF_1]+_q_tare[DOF_1]);
-  const Real s1 = std::sin(q[DOF_1]+_q_tare[DOF_1]);
+  const double c1 = std::cos(q[DOF_1]+_q_tare[DOF_1]);
+  const double s1 = std::sin(q[DOF_1]+_q_tare[DOF_1]);
   return R * _R * Vector3(0,c1,s1);
 }
 
@@ -234,8 +234,8 @@ const SMatrix6N& UniversalJoint::get_spatial_axes(ReferenceFrameType rftype)
   const Vector3& p = outboard->get_inner_joint_data(inboard).joint_to_com_vec_of;
 
   // get the axes of the joint transformed into the inner link frame 
-  Real c1 = std::cos(q[DOF_1]+q_tare[DOF_1]);
-  Real s1 = std::sin(q[DOF_1]+q_tare[DOF_1]);
+  double c1 = std::cos(q[DOF_1]+q_tare[DOF_1]);
+  double s1 = std::sin(q[DOF_1]+q_tare[DOF_1]);
   Vector3 u1;
   _R.get_column(X, u1.begin());
   Vector3 u2 = _R * Vector3(0, c1, s1);
@@ -276,9 +276,9 @@ const SMatrix6N& UniversalJoint::get_spatial_axes_dot(ReferenceFrameType rftype)
 
   // form the time derivative of the spatial axis for the second DOF; note that spatial
   // axis for first DOF is constant, so time-derivative is zero 
-  Real c1 = std::cos(q[DOF_1]+q_tare[DOF_1]);
-  Real s1 = std::sin(q[DOF_1]+q_tare[DOF_1]);
-  Real qd1 = qd[DOF_1];
+  double c1 = std::cos(q[DOF_1]+q_tare[DOF_1]);
+  double s1 = std::sin(q[DOF_1]+q_tare[DOF_1]);
+  double qd1 = qd[DOF_1];
   Vector3 axis(0,-s1*qd1,c1*qd1);
 
   // get the axis transformed into link coordinates
@@ -350,10 +350,10 @@ Matrix3 UniversalJoint::get_rotation() const
   const VectorN& q_tare = this->_q_tare;
 
   // compute some needed quantities
-  const Real c1 = std::cos(q[DOF_1]+q_tare[DOF_1]);
-  const Real s1 = std::sin(q[DOF_1]+q_tare[DOF_1]);
-  const Real c2 = std::cos(q[DOF_2]+q_tare[DOF_2]);
-  const Real s2 = std::sin(q[DOF_2]+q_tare[DOF_2]);
+  const double c1 = std::cos(q[DOF_1]+q_tare[DOF_1]);
+  const double s1 = std::sin(q[DOF_1]+q_tare[DOF_1]);
+  const double c2 = std::cos(q[DOF_2]+q_tare[DOF_2]);
+  const double s2 = std::sin(q[DOF_2]+q_tare[DOF_2]);
 
   // determine untransformed rotation; this rotation matrix is obtained by
   // using Tait-Bryan angles without a final rotation
@@ -381,7 +381,7 @@ const Matrix4& UniversalJoint::get_transform()
 }
 
 /// Computes the constraint jacobian
-void UniversalJoint::calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsigned index, Real Cq[7])
+void UniversalJoint::calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsigned index, double Cq[7])
 {
   const unsigned X = 0, Y = 1, Z = 2, SPATIAL_DIM = 7;
 
@@ -390,15 +390,15 @@ void UniversalJoint::calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsig
   RigidBodyPtr outer = get_outboard_link();
 
   // make sure that _u (and by extension _h2) is set
-  if (_u[eAxis1].norm_sq() < std::numeric_limits<Real>::epsilon() ||
-      _u[eAxis2].norm_sq() < std::numeric_limits<Real>::epsilon())
+  if (_u[eAxis1].norm_sq() < std::numeric_limits<double>::epsilon() ||
+      _u[eAxis2].norm_sq() < std::numeric_limits<double>::epsilon())
     throw UndefinedAxisException(); 
 
   // mke sure that body is one of the links
   if (inner != body && outer != body)
   {
     for (unsigned i=0; i< SPATIAL_DIM; i++)
-      Cq[i] = (Real) 0.0;
+      Cq[i] = (double) 0.0;
     return;
   }
 
@@ -407,26 +407,26 @@ void UniversalJoint::calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsig
   const Quat& q2 = outer->get_orientation();
   const Vector3& p1 = inner->get_outer_joint_data(outer).com_to_joint_vec;
   const Vector3& p2 = body->get_inner_joint_data(inner).joint_to_com_vec_of;
-  const Real q1x = q1.x;
-  const Real q1y = q1.y;
-  const Real q1z = q1.z;
-  const Real q1w = q1.w;
-  const Real p1x = p1[X];
-  const Real p1y = p1[Y];
-  const Real p1z = p1[Z];
-  const Real q2x = q2.x;
-  const Real q2y = q2.y;
-  const Real q2z = q2.z;
-  const Real q2w = q2.w;
-  const Real p2x = -p2[X];
-  const Real p2y = -p2[Y];
-  const Real p2z = -p2[Z];
-  const Real u0x = _u[0][X];
-  const Real u0y = _u[0][Y];
-  const Real u0z = _u[0][Z];
-  const Real h2x = _h2[X];
-  const Real h2y = _h2[Y];
-  const Real h2z = _h2[Z];
+  const double q1x = q1.x;
+  const double q1y = q1.y;
+  const double q1z = q1.z;
+  const double q1w = q1.w;
+  const double p1x = p1[X];
+  const double p1y = p1[Y];
+  const double p1z = p1[Z];
+  const double q2x = q2.x;
+  const double q2y = q2.y;
+  const double q2z = q2.z;
+  const double q2w = q2.w;
+  const double p2x = -p2[X];
+  const double p2y = -p2[Y];
+  const double p2z = -p2[Z];
+  const double u0x = _u[0][X];
+  const double u0y = _u[0][Y];
+  const double u0z = _u[0][Z];
+  const double h2x = _h2[X];
+  const double h2y = _h2[Y];
+  const double h2z = _h2[Z];
 
   // setup the constraint equations (from Shabana, p. 436), eq. 7.176
   if (body == inner)
@@ -663,7 +663,7 @@ void UniversalJoint::calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsig
 }
 
 /// Computes the constraint jacobian
-void UniversalJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, unsigned index, Real Cq[7])
+void UniversalJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, unsigned index, double Cq[7])
 {
   const unsigned X = 0, Y = 1, Z = 2, SPATIAL_DIM = 7;
 
@@ -672,15 +672,15 @@ void UniversalJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, u
   RigidBodyPtr outer = get_outboard_link();
 
   // make sure that _u (and by extension _h2) is set
-  if (_u[eAxis1].norm_sq() < std::numeric_limits<Real>::epsilon() ||
-      _u[eAxis2].norm_sq() < std::numeric_limits<Real>::epsilon())
+  if (_u[eAxis1].norm_sq() < std::numeric_limits<double>::epsilon() ||
+      _u[eAxis2].norm_sq() < std::numeric_limits<double>::epsilon())
     throw UndefinedAxisException(); 
 
   // mke sure that body is one of the links
   if (inner != body && outer != body)
   {
     for (unsigned i=0; i< SPATIAL_DIM; i++)
-      Cq[i] = (Real) 0.0;
+      Cq[i] = (double) 0.0;
     return;
   }
 
@@ -691,34 +691,34 @@ void UniversalJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, u
   const Quat qd2 = Quat::deriv(q2, outer->get_avel());
   const Vector3& p1 = inner->get_outer_joint_data(outer).com_to_joint_vec;
   const Vector3& p2 = body->get_inner_joint_data(inner).joint_to_com_vec_of;
-  const Real qx1 = q1.x;
-  const Real qy1 = q1.y;
-  const Real qz1 = q1.z;
-  const Real qw1 = q1.w;
-  const Real p1x = p1[X];
-  const Real p1y = p1[Y];
-  const Real p1z = p1[Z];
-  const Real qx2 = q2.x;
-  const Real qy2 = q2.y;
-  const Real qz2 = q2.z;
-  const Real qw2 = q2.w;
-  const Real p2x = -p2[X];
-  const Real p2y = -p2[Y];
-  const Real p2z = -p2[Z];
-  const Real ux = _u[0][X];
-  const Real uy = _u[0][Y];
-  const Real uz = _u[0][Z];
-  const Real h2x = _h2[X];
-  const Real h2y = _h2[Y];
-  const Real h2z = _h2[Z];
-  const Real dqw1 = qd1.w;
-  const Real dqx1 = qd1.x;
-  const Real dqy1 = qd1.y;
-  const Real dqz1 = qd1.z;
-  const Real dqw2 = qd2.w;
-  const Real dqx2 = qd2.x;
-  const Real dqy2 = qd2.y;
-  const Real dqz2 = qd2.z;
+  const double qx1 = q1.x;
+  const double qy1 = q1.y;
+  const double qz1 = q1.z;
+  const double qw1 = q1.w;
+  const double p1x = p1[X];
+  const double p1y = p1[Y];
+  const double p1z = p1[Z];
+  const double qx2 = q2.x;
+  const double qy2 = q2.y;
+  const double qz2 = q2.z;
+  const double qw2 = q2.w;
+  const double p2x = -p2[X];
+  const double p2y = -p2[Y];
+  const double p2z = -p2[Z];
+  const double ux = _u[0][X];
+  const double uy = _u[0][Y];
+  const double uz = _u[0][Z];
+  const double h2x = _h2[X];
+  const double h2y = _h2[Y];
+  const double h2z = _h2[Z];
+  const double dqw1 = qd1.w;
+  const double dqx1 = qd1.x;
+  const double dqy1 = qd1.y;
+  const double dqz1 = qd1.z;
+  const double dqw2 = qd2.w;
+  const double dqx2 = qd2.x;
+  const double dqy2 = qd2.y;
+  const double dqz2 = qd2.z;
 
   // setup the constraint equations (from Shabana, p. 436), eq. 7.176
   if (body == inner)
@@ -726,9 +726,9 @@ void UniversalJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, u
     switch (index)
     {
       case 0:
-        Cq[0] = (Real) 0.0;    
-        Cq[1] = (Real) 0.0;    
-        Cq[2] = (Real) 0.0;    
+        Cq[0] = (double) 0.0;    
+        Cq[1] = (double) 0.0;    
+        Cq[2] = (double) 0.0;    
         Cq[3] = 4*p1x*dqw1 + 2*p1z*dqy1 - 2*p1y*dqz1;
         Cq[4] = 4*dqx1*p1x + 2*dqy1*p1y + 2*dqz1*p1z;
         Cq[5] = 2*p1z*dqw1 + 2*p1y*dqx1;
@@ -736,9 +736,9 @@ void UniversalJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, u
         break;
 
       case 1:
-        Cq[0] = (Real) 0.0;    
-        Cq[1] = (Real) 0.0;    
-        Cq[2] = (Real) 0.0;    
+        Cq[0] = (double) 0.0;    
+        Cq[1] = (double) 0.0;    
+        Cq[2] = (double) 0.0;    
         Cq[3] = 4*p1y*dqw1 - 2*p1z*dqx1 + 2*p1x*dqz1;
         Cq[4] = 2*dqy1*p1x - 2*dqw1*p1z;
         Cq[5] = 2*p1x*dqx1 + 4*p1y*dqy1 + 2*p1z*dqz1;
@@ -746,9 +746,9 @@ void UniversalJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, u
         break;
 
       case 2:
-        Cq[0] = (Real) 0.0;
-        Cq[1] = (Real) 0.0;
-        Cq[2] = (Real) 0.0;
+        Cq[0] = (double) 0.0;
+        Cq[1] = (double) 0.0;
+        Cq[2] = (double) 0.0;
         Cq[3] = 4*p1z*dqw1 + 2*p1y*dqx1 - 2*p1x*dqy1;
         Cq[4] = 2*dqz1*p1x + 2*dqw1*p1y;
         Cq[5] = 2*p1y*dqz1 - 2*p1x*dqw1;
@@ -756,9 +756,9 @@ void UniversalJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, u
         break;
 
       case 3:
-        Cq[0] = (Real) 0.0;
-        Cq[1] = (Real) 0.0;
-        Cq[2] = (Real) 0.0;
+        Cq[0] = (double) 0.0;
+        Cq[1] = (double) 0.0;
+        Cq[2] = (double) 0.0;
         Cq[3] = (2*h2x*(-(qw2*qy2) + qx2*qz2) + 2*h2y*(qw2*qx2 + qy2*qz2) + 
       h2z*(-1 + 2*(qw2*qw2 + qz2*qz2)))*
     (-2*dqy1*ux + 2*dqx1*uy + 4*dqw1*uz) + 
@@ -845,9 +845,9 @@ void UniversalJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, u
     switch (index)
     {
       case 0:
-        Cq[0] = (Real) 0.0;     
-        Cq[1] = (Real) 0.0;      
-        Cq[2] = (Real) 0.0;      
+        Cq[0] = (double) 0.0;     
+        Cq[1] = (double) 0.0;      
+        Cq[2] = (double) 0.0;      
         Cq[3] = -(4*p2x*dqw2 + 2*p2z*dqy2 - 2*p2y*dqz2);
         Cq[4] = -(4*dqx2*p2x + 2*dqy2*p2y + 2*dqz2*p2z);
         Cq[5] = -(2*p2z*dqw2 + 2*p2y*dqx2);
@@ -855,9 +855,9 @@ void UniversalJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, u
         break;
 
       case 1:
-        Cq[0] = (Real) 0.0;      
-        Cq[1] = (Real) 0.0;     
-        Cq[2] = (Real) 0.0;      
+        Cq[0] = (double) 0.0;      
+        Cq[1] = (double) 0.0;     
+        Cq[2] = (double) 0.0;      
         Cq[3] = -(4*p2y*dqw2 - 2*p2z*dqx2 + 2*p2x*dqz2);
         Cq[4] = -(2*dqy2*p2x - 2*dqw2*p2z);
         Cq[5] = -(2*p2x*dqx2 + 4*p2y*dqy2 + 2*p2z*dqz2);
@@ -865,9 +865,9 @@ void UniversalJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, u
         break;
 
       case 2:
-        Cq[0] = (Real) 0.0;
-        Cq[1] = (Real) 0.0;
-        Cq[2] = (Real) 0.0;
+        Cq[0] = (double) 0.0;
+        Cq[1] = (double) 0.0;
+        Cq[2] = (double) 0.0;
         Cq[3] = -(4*p2z*dqw2 + 2*p2y*dqx2 - 2*p2x*dqy2);
         Cq[4] = -(2*dqz2*p2x + 2*dqw2*p2y);
         Cq[5] = -(2*p2y*dqz2 - 2*p2x*dqw2);
@@ -875,9 +875,9 @@ void UniversalJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, u
         break;
 
       case 3:
-        Cq[0] = (Real) 0.0;
-        Cq[1] = (Real) 0.0;
-        Cq[2] = (Real) 0.0;
+        Cq[0] = (double) 0.0;
+        Cq[1] = (double) 0.0;
+        Cq[2] = (double) 0.0;
         Cq[3] = (4*h2x*qw2 + 2*h2z*qy2 - 2*h2y*qz2)*
     ((4*dqw1*qw1 + 4*dqx1*qx1)*ux + 
       2*(-(dqz1*qw1) + dqy1*qx1 + dqx1*qy1 - dqw1*qz1)*uy + 
@@ -969,7 +969,7 @@ void UniversalJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, u
 }
 
 /// Evaluates the constraint equations
-void UniversalJoint::evaluate_constraints(Real C[])
+void UniversalJoint::evaluate_constraints(double C[])
 {
   const unsigned X = 0, Y = 1, Z = 2;
 

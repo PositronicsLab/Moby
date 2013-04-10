@@ -8,7 +8,7 @@
 #define _FS_AB_ALGORITHM_H
 
 #include <queue>
-#include <Moby/SpatialABInertia.h>
+#include <Ravelin/SpatialABInertiad.h>
 
 namespace Moby {
 
@@ -42,9 +42,9 @@ class FSABAlgorithm
     RCArticulatedBodyPtr get_body() const { return RCArticulatedBodyPtr(_body); }
     void set_body(RCArticulatedBodyPtr body) { _body = body; }
     void calc_fwd_dyn();
-    void apply_generalized_impulse(DynamicBody::GeneralizedCoordinateType gctype, const VectorN& gj);
-    void apply_impulse(const Vector3& j, const Vector3& k, const Vector3& contact_point, RigidBodyPtr link);
-    void calc_inverse_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, MatrixN& iM);
+    void apply_generalized_impulse(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gj);
+    void apply_impulse(const Ravelin::Wrenchd& j, const Ravelin::Point3d& contact_point, RigidBodyPtr link);
+    void calc_inverse_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::MatrixNd& iM);
     void invalidate_position_data() { _position_data_valid = false; }
     void invalidate_velocity_data() { _velocity_data_valid = false; }
 
@@ -55,37 +55,37 @@ class FSABAlgorithm
     ReferenceFrameType _rftype;
 
     /// The spatial velocities
-    std::vector<SVector6> _v;
+    std::vector<Ravelin::Twistd> _v;
 
     /// The spatial accelerations
-    std::vector<SVector6> _a;
+    std::vector<Ravelin::Twistd> _a;
 
     /// The spatial isolated inertias
-    std::vector<SpatialRBInertia> _Iiso;
+    std::vector<Ravelin::SpatialRBInertiad> _Iiso;
 
     /// The articulated body inertias
-    std::vector<SpatialABInertia> _I;
+    std::vector<Ravelin::SpatialABInertiad> _I;
 
     /// The articulated body spatial zero accelerations
-    std::vector<SVector6> _Z;
+    std::vector<Ravelin::Twistd> _Z;
 
     /// Vector of link velocity updates
-    std::vector<SVector6> _dv;
+    std::vector<Ravelin::Twistd> _dv;
 
     /// The spatial coriolis vectors
-    std::vector<SVector6> _c;
+    std::vector<Ravelin::Wrenchd> _c;
 
-    /// The expression I*s
-    std::vector<SMatrix6N> _Is;
+    /// The expressions I*s
+    std::vector<std::vector<Ravelin::Wrenchd> > _Is;
 
     /// The temporary factorizations inv(sIs)
-    std::vector<MatrixN> _sIs;
+    std::vector<Ravelin::MatrixNd> _sIs;
 
     /// Determines whether the equations for a joint are rank deficient 
     std::vector<bool> _rank_deficient;
 
     /// The temporary expression Q - I*s'*c - s'*Z
-    std::vector<VectorN> _mu;
+    std::vector<Ravelin::VectorNd> _mu;
 
   private:
     /// Is positional data valid?
@@ -94,20 +94,20 @@ class FSABAlgorithm
     /// Is velocity data valid?
     bool _velocity_data_valid;
 
-    static Real sgn(Real x);
+    static double sgn(double x);
     static void push_children(RigidBodyPtr link, std::queue<RigidBodyPtr>& q);
     void apply_coulomb_joint_friction(RCArticulatedBodyPtr body, ReferenceFrameType rftype);
     void calc_impulse_dyn(RCArticulatedBodyPtr body, ReferenceFrameType rftype);
-    void apply_generalized_impulse(unsigned index, const std::vector<MatrixN>& sTI, VectorN& vgj) const;
+    void apply_generalized_impulse(unsigned index, const std::vector<Ravelin::MatrixNd>& sTI, Ravelin::VectorNd& vgj) const;
     void set_spatial_iso_inertias(RCArticulatedBodyPtr body, ReferenceFrameType rftype);
     void set_spatial_velocities(RCArticulatedBodyPtr body, ReferenceFrameType rftype);
     void calc_spatial_accelerations(RCArticulatedBodyPtr body, ReferenceFrameType rftype);
     void calc_spatial_zero_accelerations(RCArticulatedBodyPtr body, ReferenceFrameType rftype);
     void calc_spatial_inertias(RCArticulatedBodyPtr body, ReferenceFrameType rftype);
     void calc_spatial_coriolis_vectors(RCArticulatedBodyPtr body, ReferenceFrameType rftype);
-    VectorN& solve_sIs(unsigned idx, const VectorN& v, VectorN& result) const;
-    MatrixN& solve_sIs(unsigned idx, const MatrixN& v, MatrixN& result) const;
-    MatrixN& transpose_solve_sIs(unsigned idx, const SMatrix6N& m, MatrixN& result) const;
+    Ravelin::VectorNd& solve_sIs(unsigned idx, const Ravelin::VectorNd& v, Ravelin::VectorNd& result) const;
+    Ravelin::MatrixNd& solve_sIs(unsigned idx, const Ravelin::MatrixNd& v, Ravelin::MatrixNd& result) const;
+    Ravelin::MatrixNd& transpose_solve_sIs(unsigned idx, const std::vector<Ravelin::Twistd>& m, Ravelin::MatrixNd& result) const;
 }; // end class
 } // end namespace
 

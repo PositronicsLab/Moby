@@ -4,28 +4,31 @@
  * License (found in COPYING).
  ****************************************************************************/
 
+#include <Moby/RungeKuttaIntegrator.h>
+
+using namespace Moby;
+
 /// Method for 4th-order Runge-Kutta integration
-template <class T>
-void RungeKuttaIntegrator<T>::integrate(T& x, T& (*f)(const T&, Real, Real, void*, T&), Real& time, Real step_size, void* data)
+void RungeKuttaIntegrator::integrate(Ravelin::VectorNd& x, Ravelin::VectorNd& (*f)(const Ravelin::VectorNd&, double, double, void*, Ravelin::VectorNd&), double& time, double step_size, void* data)
 {
-  const Real ONE_SIXTH = 1.0/6.0;
-  const Real ONE_THIRD = 1.0/3.0;
-  SAFESTATIC T k1, k2, k3, k4, tmp;
+  const double ONE_SIXTH = 1.0/6.0;
+  const double ONE_THIRD = 1.0/3.0;
+  SAFESTATIC Ravelin::VectorNd k1, k2, k3, k4, tmp;
   
   // compute k1
   f(x, time, step_size, data, k1) *= step_size;
 
   // compute k2
-  const Real HALF_STEP = step_size * (Real) 0.5;
-  (tmp.copy_from(k1) *= 0.5) += x;
+  const double HALF_STEP = step_size * (double) 0.5;
+  ((tmp = k1) *= 0.5) += x;
   f(tmp, time + HALF_STEP, HALF_STEP, data, k2) *= step_size;
 
   // compute k3
-  (tmp.copy_from(k2) *= 0.5) += x;
+  ((tmp = k2) *= 0.5) += x;
   f(tmp, time + HALF_STEP, HALF_STEP, data, k3) *= step_size;
 
   // compute k4
-  (tmp.copy_from(k3) *= 0.5) += x;
+  ((tmp = k3) *= 0.5) += x;
   f(tmp, time + step_size, step_size, data, k4) *= step_size;
 
   // update the time
@@ -44,17 +47,15 @@ void RungeKuttaIntegrator<T>::integrate(T& x, T& (*f)(const T&, Real, Real, void
   return;
 }
 
-template <class T>
-void RungeKuttaIntegrator<T>::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map) 
+void RungeKuttaIntegrator::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map) 
 { 
   assert(strcasecmp(node->name.c_str(), "RungeKuttaIntegrator") == 0);
-  Integrator<T>::load_from_xml(node, id_map); 
+  Integrator::load_from_xml(node, id_map); 
 }
 
-template <class T>
-void RungeKuttaIntegrator<T>::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
+void RungeKuttaIntegrator::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
 { 
-  Integrator<T>::save_to_xml(node, shared_objects);
+  Integrator::save_to_xml(node, shared_objects);
   node->name = "RungeKuttaIntegrator";
 }
 

@@ -40,17 +40,17 @@ SemiImplicitSimulator::AnitescuPotraSimulator()
 
 /// This is the naive method
 /*
-Real SemiImplicitSimulator::step(Real step_size)
+double SemiImplicitSimulator::step(double step_size)
 {
-  Real TOC;
+  double TOC;
   typedef std::pair<DynamicBodyPtr, shared_ptr<void> > StatePair;
-  multimap<Real, Contact> contact_map;
+  multimap<double, Contact> contact_map;
 
   // get reference to the list of contacts
   list<Contact>& contacts = this->contacts; 
 
   // setup the amount remaining to step
-  Real dt = step_size;
+  double dt = step_size;
 
   // determine external forces
   determine_external_forces();
@@ -134,11 +134,11 @@ Real SemiImplicitSimulator::step(Real step_size)
  * 4. Impacts are treated
  * 5. (repeat #2-#4 until step_size has been taken)
  */
-Real SemiImplicitSimulator::step(Real step_size)
+double SemiImplicitSimulator::step(double step_size)
 {
-  Real TOC;
+  double TOC;
   typedef std::pair<DynamicBodyPtr, shared_ptr<void> > StatePair;
-  multimap<Real, Contact> contact_map;
+  multimap<double, Contact> contact_map;
 
   // get reference to the list of contacts
   list<Contact>& contacts = this->contacts; 
@@ -162,7 +162,7 @@ Real SemiImplicitSimulator::step(Real step_size)
 
   // look for contact
   ContactSimulator::is_contact(step_size, contact_map);
-  Real TOI = find_TOI(step_size, contact_map, this->contacts);
+  double TOI = find_TOI(step_size, contact_map, this->contacts);
 
   // if there is no impact, just call the underlying simulator method
   if (TOI > step_size || contacts.empty())
@@ -172,7 +172,7 @@ Real SemiImplicitSimulator::step(Real step_size)
   }
 
   // setup amount remaining to step
-  Real dt = step_size;
+  double dt = step_size;
 
   // loop until no time remaining
   while (dt > 0.0)
@@ -197,7 +197,7 @@ Real SemiImplicitSimulator::step(Real step_size)
     TOI = find_TOI(dt, contact_map, this->contacts);
 
     FILE_LOG(LOG_SIMULATOR) << " -- new contact map: " << std::endl;
-    for (multimap<Real, Contact>::const_iterator i = contact_map.begin(); i != contact_map.end(); i++)
+    for (multimap<double, Contact>::const_iterator i = contact_map.begin(); i != contact_map.end(); i++)
       FILE_LOG(LOG_SIMULATOR) << "    TOI: " << i->first << std::endl << i->second;
 
     // if there is no impact, just call the underlying simulator method
@@ -227,12 +227,12 @@ Real SemiImplicitSimulator::step(Real step_size)
 }
 
 /// Subtracts a TOI from all keys in a contact map
-void SemiImplicitSimulator::subtract_TOI(multimap<Real, Contact>& contact_map, Real TOI)
+void SemiImplicitSimulator::subtract_TOI(multimap<double, Contact>& contact_map, double TOI)
 {
   FILE_LOG(LOG_SIMULATOR) << "subtract_TOI() entered" << std::endl;
 
-  multimap<Real, Contact> updated_contact_map;
-  for (multimap<Real, Contact>::const_iterator i = contact_map.begin(); i != contact_map.end(); i++)
+  multimap<double, Contact> updated_contact_map;
+  for (multimap<double, Contact>::const_iterator i = contact_map.begin(); i != contact_map.end(); i++)
   {
     FILE_LOG(LOG_SIMULATOR) << " -- changing TOI for contact from " << i->first << " to " << (i->first - TOI) << std::endl;
     updated_contact_map.insert(std::make_pair(i->first - TOI, i->second));
@@ -274,21 +274,21 @@ void SemiImplicitSimulator::get_treated_bodies(const list<Contact>& contacts, li
 }
 
 /// Finds the time-of-impact of first impacting contact and sets up the contact map
-Real SemiImplicitSimulator::find_TOI(Real dt, multimap<Real, Contact>& contact_map, std::list<Contact>& contacts) const
+double SemiImplicitSimulator::find_TOI(double dt, multimap<double, Contact>& contact_map, std::list<Contact>& contacts) const
 {
-  const Real INF = std::numeric_limits<Real>::max();
+  const double INF = std::numeric_limits<double>::max();
 
   // clear the list of contacts
   contacts.clear();
 
   // get the iterator start
-  multimap<Real, Contact>::iterator citer = contact_map.begin();
+  multimap<double, Contact>::iterator citer = contact_map.begin();
 
   // loop while the iterator does not point to the end 
   while (citer != contact_map.end())
   {
     // set tmin
-    Real tmin = citer->first;
+    double tmin = citer->first;
 
     // check for early exit
     if (tmin > dt)
@@ -315,7 +315,7 @@ Real SemiImplicitSimulator::find_TOI(Real dt, multimap<Real, Contact>& contact_m
     {
       // make contact set
       contacts.clear();
-      for (multimap<Real, Contact>::const_iterator j = contact_map.begin(); j != citer; j++)
+      for (multimap<double, Contact>::const_iterator j = contact_map.begin(); j != citer; j++)
       {
         FILE_LOG(LOG_SIMULATOR) << "Detected impacting contact at TOI " << j->first << ": " << endl << j->second;
         contacts.push_back(j->second);
@@ -343,7 +343,7 @@ bool SemiImplicitSimulator::is_impacting(const Contact& c) const
   Vector3 lpv = b1->get_lvel() - b2->get_lvel();
   Vector3 av1 = Vector3::cross(b1->get_avel(), c.point - b1->get_position());
   Vector3 av2 = Vector3::cross(b2->get_avel(), c.point - b2->get_position());
-  Real rvel = c.normal.dot(lpv + av1 - av2);
+  double rvel = c.normal.dot(lpv + av1 - av2);
 
   FILE_LOG(LOG_SIMULATOR) << "is_impacting(): bodies " << b1->id << " and " << b2->id << " rvel: " << rvel << endl;
 
@@ -373,10 +373,10 @@ void SemiImplicitSimulator::save_states(DynamicStates& state_t)
 /**
  * Updates contacts and modifies the contact map appropriately.
  */
-void SemiImplicitSimulator::determine_contacts(multimap<Real, Contact>& contact_map, Real TOI, list<Contact>& contacts)
+void SemiImplicitSimulator::determine_contacts(multimap<double, Contact>& contact_map, double TOI, list<Contact>& contacts)
 {
   // find all contacts within the desired tolerance of the TOI
-  multimap<Real, Contact>::iterator end = contact_map.begin();
+  multimap<double, Contact>::iterator end = contact_map.begin();
   for (end++; end != contact_map.end(); end++)
     if (end->first > TOI + toi_tolerance)
       break;
@@ -386,7 +386,7 @@ void SemiImplicitSimulator::determine_contacts(multimap<Real, Contact>& contact_
 
   // update the set of contacts
   contacts.clear();
-  for (multimap<Real, Contact>::const_iterator i = contact_map.begin(); i != end; i++)
+  for (multimap<double, Contact>::const_iterator i = contact_map.begin(); i != end; i++)
     contacts.push_back(i->second);
 
   // remove those contacts that we will treat from the multimap

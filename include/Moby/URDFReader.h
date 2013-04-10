@@ -15,8 +15,8 @@
 #include <queue>
 #include <vector>
 #include <boost/shared_ptr.hpp>
-#include <Moby/VectorN.h>
-#include <Moby/MatrixN.h>
+#include <Ravelin/VectorNd.h>
+#include <Ravelin/MatrixNd.h>
 
 namespace Moby {
 
@@ -48,14 +48,14 @@ class URDFReader
           #endif
         }
 
-        std::map<RigidBodyPtr, Matrix4> inertia_transforms;
-        std::map<RigidBodyPtr, Matrix4> visual_transforms;
-        std::map<RigidBodyPtr, Matrix4> collision_transforms;
-        std::map<JointPtr, Matrix4> joint_transforms;
+        std::map<RigidBodyPtr, Ravelin::Pose3d> inertia_transforms;
+        std::map<RigidBodyPtr, Ravelin::Pose3d> visual_transforms;
+        std::map<RigidBodyPtr, Ravelin::Pose3d> collision_transforms;
+        std::map<JointPtr, Ravelin::Pose3d> joint_transforms;
         std::map<RigidBodyPtr, void*> visual_transform_nodes; 
-        std::map<JointPtr, Vector3> joint_axes;
+        std::map<JointPtr, Ravelin::Vector3d> joint_axes;
         std::map<JointPtr, RigidBodyPtr> joint_parent, joint_child;
-        std::map<std::string, std::pair<VectorN, std::string> > materials;
+        std::map<std::string, std::pair<Ravelin::VectorNd, std::string> > materials;
     };
 
     static void find_outboards(const URDFData& data, RigidBodyPtr link, std::vector<std::pair<JointPtr, RigidBodyPtr> >& outboards, std::map<RigidBodyPtr, RigidBodyPtr>& parents);
@@ -65,7 +65,7 @@ class URDFReader
     static JointPtr find_joint(const URDFData& data, RigidBodyPtr outboard_link);
     static void find_children(const URDFData& data, RigidBodyPtr link, std::queue<RigidBodyPtr>& q, std::map<RigidBodyPtr, RigidBodyPtr>& parents);
     static bool read_texture(XMLTreeConstPtr node, URDFData& data, std::string& fname);
-    static bool read_color(XMLTreeConstPtr node, URDFData& data, VectorN& color);
+    static bool read_color(XMLTreeConstPtr node, URDFData& data, Ravelin::VectorNd& color);
     static void read_material(XMLTreeConstPtr node, URDFData& data, void* osg_node);
     static PrimitivePtr read_primitive(XMLTreeConstPtr node, URDFData& data);
     static boost::shared_ptr<TriangleMeshPrimitive> read_trimesh(XMLTreeConstPtr node, URDFData& data);
@@ -73,9 +73,9 @@ class URDFReader
     static boost::shared_ptr<BoxPrimitive> read_box(XMLTreeConstPtr node, URDFData& data);
     static boost::shared_ptr<CylinderPrimitive> read_cylinder(XMLTreeConstPtr node, URDFData& data);
     static bool transform_frames(URDFData& data, const std::vector<RigidBodyPtr>& links, const std::vector<JointPtr>& joints);
-    static Matrix3 read_inertia(XMLTreeConstPtr node, URDFData& data);
-    static Real read_mass(XMLTreeConstPtr node, URDFData& data);
-    static Matrix4 read_origin(XMLTreeConstPtr node, URDFData& data);
+    static Ravelin::Matrix3d read_inertia(XMLTreeConstPtr node, URDFData& data);
+    static double read_mass(XMLTreeConstPtr node, URDFData& data);
+    static Ravelin::Pose3d read_origin(XMLTreeConstPtr node, URDFData& data);
     static void read_collision(XMLTreeConstPtr node, URDFData& data, RigidBodyPtr link);
     static void read_visual(XMLTreeConstPtr node, URDFData& data, RigidBodyPtr link);
     static void read_inertial(XMLTreeConstPtr node, URDFData& data, RigidBodyPtr link);

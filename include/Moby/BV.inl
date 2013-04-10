@@ -66,7 +66,7 @@ OutputIterator BV::get_all_leafs(OutputIterator begin) const
  *        tree
  */
 template <class OutputIterator>
-OutputIterator BV::intersect_BV_trees(BVPtr a, BVPtr b, const Matrix4& aTb, const Matrix4& bTa, OutputIterator output_begin)
+OutputIterator BV::intersect_BV_trees(BVPtr a, BVPtr b, const Ravelin::Pose3d& aTb, const Ravelin::Pose3d& bTa, OutputIterator output_begin)
 {
   typedef boost::tuple<BVPtr, BVPtr, bool> BVTuple;
   std::queue<BVTuple> q;
@@ -86,7 +86,7 @@ OutputIterator BV::intersect_BV_trees(BVPtr a, BVPtr b, const Matrix4& aTb, cons
     a = obbt.get<0>();
     b = obbt.get<1>();
     bool reversed = obbt.get<2>();
-    const Matrix4& iT = (!reversed) ? aTb : bTa;
+    const Ravelin::Pose3d& iT = (!reversed) ? aTb : bTa;
     q.pop();
 
     // check to see whether they intersect

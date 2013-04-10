@@ -42,8 +42,8 @@ RCArticulatedBody::RCArticulatedBody()
   computation_frame_type = eGlobal;
 
   // setup baumgarte parameters
-  b_alpha = (Real) 0.0;
-  b_beta = (Real) 0.0;
+  b_alpha = (double) 0.0;
+  b_beta = (double) 0.0;
 
   // mark inverse inertia as invalid
   _invM_valid = false;
@@ -156,7 +156,7 @@ void RCArticulatedBody::generalized_inertia_mult_fixed(const MatrixN& M, MatrixN
   for (unsigned j=0; j< m; j++)
   {
     // get access to the desired column of M
-    const Real* Mj = &M(0,j);
+    const double* Mj = &M(0,j);
 
     // loop over each row
     for (unsigned i=1; i< n; i++)
@@ -178,7 +178,7 @@ void RCArticulatedBody::generalized_inertia_mult_fixed(const MatrixN& M, MatrixN
     }
 
     // get the start of the column of the result
-    Real* Uj = &result(0,j);
+    double* Uj = &result(0,j);
 
     // now compute the result column while updating f
     for (unsigned i=NLINKS-1; i>0; i--)
@@ -268,7 +268,7 @@ void RCArticulatedBody::generalized_inertia_mult_floating(const MatrixN& M, Matr
   for (unsigned j=0; j< m; j++)
   {
     // get access to the desired column of M
-    const Real* Mj = &M(0,j);
+    const double* Mj = &M(0,j);
 
     // loop over each row
     for (unsigned i=1; i< n; i++)
@@ -290,7 +290,7 @@ void RCArticulatedBody::generalized_inertia_mult_floating(const MatrixN& M, Matr
     }
 
     // get the start of the column of the result
-    Real* Uj = &result(0,j);
+    double* Uj = &result(0,j);
 
     // now compute the result column while updating f
     for (unsigned i=NLINKS, idx=NLINKS-1; i>0; i--,idx--)
@@ -465,7 +465,7 @@ void RCArticulatedBody::add_generalized_force(DynamicBody::GeneralizedCoordinate
       Vector3 baset(f[3], f[4], f[5]);
       baset = base->get_transform().mult_vector(baset);
       Quat q = base->get_orientation().G_transpose_mult(baset);
-      q *= (Real) 2.0;
+      q *= (double) 2.0;
       f[3] = q.w;
       f[4] = q.x;
       f[5] = q.y;
@@ -1124,14 +1124,14 @@ void RCArticulatedBody::invalidate_velocities()
 }
 
 /// The signum function
-Real RCArticulatedBody::sgn(Real x)
+double RCArticulatedBody::sgn(double x)
 {
   if (x < -NEAR_ZERO)
-    return (Real) -1.0;
+    return (double) -1.0;
   else if (x > NEAR_ZERO)
-    return (Real) 1.0;
+    return (double) 1.0;
   else
-    return (Real) 0.0;
+    return (double) 0.0;
 }
 
 /// Computes the forward dynamics
@@ -1143,7 +1143,7 @@ Real RCArticulatedBody::sgn(Real x)
  * are stored in the individual links.
  * \note only computes the forward dynamics if the state-derivative is no longer valid
  */
-void RCArticulatedBody::calc_fwd_dyn(Real dt)
+void RCArticulatedBody::calc_fwd_dyn(double dt)
 {
   SAFESTATIC VectorN ff;
 
@@ -1168,9 +1168,9 @@ void RCArticulatedBody::calc_fwd_dyn(Real dt)
     ff.resize(_joints[i]->num_dof());
     for (unsigned j=0; j< _joints[i]->num_dof(); j++)
     {
-      ff[j] = (Real) -1.0;
-      if (_joints[i]->qd[j] < (Real) 0.0)
-        ff[j] = (Real) 1.0;
+      ff[j] = (double) -1.0;
+      if (_joints[i]->qd[j] < (double) 0.0)
+        ff[j] = (double) 1.0;
       ff[j] *= _joints[i]->mu_fc;
       ff[j] -= _joints[i]->qd[j]*_joints[i]->mu_fv;
     }
@@ -1205,7 +1205,7 @@ void RCArticulatedBody::calc_fwd_dyn(Real dt)
 /// Computes the forward dynamics with loops
 void RCArticulatedBody::calc_fwd_dyn_loops()
 {
-  Real Cx[6];
+  double Cx[6];
   SAFESTATIC MatrixN iM, Jx_iM_JxT;
   SAFESTATIC MatrixN Jx_dot, Jx_iM, A;
   SAFESTATIC VectorN v, fext, C, alpha_x, beta_x, Dx_v, Jx_v, Jx_dot_v, workv;
@@ -1262,7 +1262,7 @@ void RCArticulatedBody::calc_fwd_dyn_loops()
   // compute the constraint forces 
   iM.mult(fext, iM_fext);
   _Jx.mult(iM_fext, alpha_x) += Jx_dot_v;
-  _Jx.mult(v, workv) *= ((Real) 2.0 * b_alpha);
+  _Jx.mult(v, workv) *= ((double) 2.0 * b_alpha);
   alpha_x += workv;
   C *= (b_beta*b_beta);
   alpha_x += C;
@@ -1293,10 +1293,10 @@ void RCArticulatedBody::calc_fwd_dyn_loops()
  * are stored in the individual links.
  * \note only computes the forward dynamics if the state-derivative is no longer valid
  */
-void RCArticulatedBody::calc_fwd_dyn_advanced_friction(Real dt)
+void RCArticulatedBody::calc_fwd_dyn_advanced_friction(double dt)
 {
-  Real Cx[6];
-  const Real QP_TOL = std::sqrt(NEAR_ZERO);  // tolerance for solving the QP
+  double Cx[6];
+  const double QP_TOL = std::sqrt(NEAR_ZERO);  // tolerance for solving the QP
   SAFESTATIC MatrixN iM, X, Jx_X_JxT, Dx_X_DxT, Jx_iM_JxT;
   SAFESTATIC MatrixN Jx_dot, Y, X_JxT, X_DxT, Dx_X_JxT, Jx_iM, Jx_Y, A, RG;
   SAFESTATIC MatrixN Jx_iM_DxT;
@@ -1402,7 +1402,7 @@ void RCArticulatedBody::calc_fwd_dyn_advanced_friction(Real dt)
     // setup the right hand side
     _Jx.mult(iM_fext, z) *= dt;
     z += Jx_dot_v;
-    _Jx.mult(v, workv) *= ((Real) 2.0 * b_alpha);
+    _Jx.mult(v, workv) *= ((double) 2.0 * b_alpha);
     z += workv;
     C *= (b_beta*b_beta);
     z += C;
@@ -1423,7 +1423,7 @@ void RCArticulatedBody::calc_fwd_dyn_advanced_friction(Real dt)
     R.set_zero(NN, RG.columns()+N_LOOPS);
     R.set_sub_mat(0,0,RG);
     for (unsigned i=0; i< N_LOOPS; i++)
-      R(N_JOINT_DOF+N_EXPLICIT_CONSTRAINT_EQNS+i,RG.columns()+i) = (Real) 1.0;
+      R(N_JOINT_DOF+N_EXPLICIT_CONSTRAINT_EQNS+i,RG.columns()+i) = (double) 1.0;
 
     // solve for explicit constraint forces 
     A.copy_from(Jx_iM_JxT);
@@ -1447,7 +1447,7 @@ void RCArticulatedBody::calc_fwd_dyn_advanced_friction(Real dt)
     z.set_zero(N_JOINT_DOF);
     R.set_zero(N_JOINT_DOF, N_JOINT_DOF);
     for (unsigned i=0; i< N_JOINT_DOF; i++)
-      R(i,i) = (Real) 1.0;
+      R(i,i) = (double) 1.0;
   }
 
   // setup components of z and R to make things faster for gradient and Hessian
@@ -1496,8 +1496,8 @@ void RCArticulatedBody::calc_fwd_dyn_advanced_friction(Real dt)
   }
 
   // initialize mu_c and viscous force vectors
-  vector<Real>& mu_c = copt_data.mu_c;
-  vector<Real>& visc = copt_data.visc;
+  vector<double>& mu_c = copt_data.mu_c;
+  vector<double>& visc = copt_data.visc;
   mu_c.resize(N_JOINT_DOF);
   visc.resize(N_JOINT_DOF);
 
@@ -1506,7 +1506,7 @@ void RCArticulatedBody::calc_fwd_dyn_advanced_friction(Real dt)
     for (unsigned j=0; j< _ijoints[i]->num_dof(); j++, k++)
     {
       mu_c[k] = _ijoints[i]->mu_fc*_ijoints[i]->mu_fc;
-      Real tmp = _ijoints[i]->mu_fv * std::fabs(_ijoints[i]->qd[j]);
+      double tmp = _ijoints[i]->mu_fv * std::fabs(_ijoints[i]->qd[j]);
       visc[k] = tmp*tmp;
     }
 
@@ -1515,7 +1515,7 @@ void RCArticulatedBody::calc_fwd_dyn_advanced_friction(Real dt)
     for (unsigned j=0; j< _ejoints[i]->num_dof(); j++, k++)
     {
       mu_c[k+N_IMPLICIT_DOF] = _ejoints[i]->mu_fc * _ejoints[i]->mu_fc;
-      Real tmp = _ejoints[i]->mu_fv * std::fabs(_ejoints[i]->qd[j]);
+      double tmp = _ejoints[i]->mu_fv * std::fabs(_ejoints[i]->qd[j]);
       visc[k+N_IMPLICIT_DOF] = tmp*tmp; 
     }
 
@@ -1583,7 +1583,7 @@ void RCArticulatedBody::calc_fwd_dyn_advanced_friction(Real dt)
 
   // set delta to a middle value
   for (unsigned i=0,j=R.columns()-1; i< N_LOOPS; i++, j--)
-    x[j] = (Real) 0.5;
+    x[j] = (double) 0.5;
 
   // optimize
   if (G.norm_inf() > std::sqrt(NEAR_ZERO))
@@ -1692,8 +1692,8 @@ void RCArticulatedBody::determine_explicit_constraint_movement_jacobian(MatrixN&
   {
     // apply the generalized impulse
     if (i > 0)
-      gj[i-1] = (Real) 0.0;
-    gj[i] = (Real) 1.0;
+      gj[i-1] = (double) 0.0;
+    gj[i] = (double) 1.0;
     apply_generalized_impulse(DynamicBody::eAxisAngle, gj);
 
     // get the velocity
@@ -1738,7 +1738,7 @@ void RCArticulatedBody::determine_explicit_constraint_jacobians(const EventProbl
   SAFESTATIC SMatrix6N so;
   SAFESTATIC MatrixN sub, pinv_si;
   SAFESTATIC VectorN vsub;
-  Real Cqi[6], Cqo[6];
+  double Cqi[6], Cqo[6];
   const unsigned NGC = num_generalized_coordinates(DynamicBody::eAxisAngle);
 
   // determine the total number of explicit constraint DOF 
@@ -1887,7 +1887,7 @@ void RCArticulatedBody::determine_explicit_constraint_movement_jacobian(MatrixN&
 {
   SAFESTATIC SMatrix6N so;
   SAFESTATIC MatrixN sub, pinv_si;
-  Real Cqi[6], Cqo[6];
+  double Cqi[6], Cqo[6];
   const unsigned NGC = num_generalized_coordinates(DynamicBody::eAxisAngle);
 
   // determine the number of explicit constraint DOF 
@@ -1959,7 +1959,7 @@ void RCArticulatedBody::determine_explicit_constraint_movement_jacobian(MatrixN&
 /*
 void RCArticulatedBody::determine_explicit_constraint_jacobian(MatrixN& J)
 {
-  Real Cx[6];
+  double Cx[6];
 
   // determine the number of explicit constraint equations
   unsigned NEQ = 0;
@@ -1981,8 +1981,8 @@ void RCArticulatedBody::determine_explicit_constraint_jacobian(MatrixN& J)
   {
     // apply the generalized impulse
     if (i > 0)
-      gj[i-1] = (Real) 0.0;
-    gj[i] = (Real) 1.0;
+      gj[i-1] = (double) 0.0;
+    gj[i] = (double) 1.0;
     apply_generalized_impulse(DynamicBody::eAxisAngle, gj);
 
     // get the velocity
@@ -2015,7 +2015,7 @@ void RCArticulatedBody::determine_explicit_constraint_jacobian(MatrixN& J)
 {
   SAFESTATIC SMatrix6N so;
   SAFESTATIC VectorN sub;
-  Real Cqi[6], Cqo[6];
+  double Cqi[6], Cqo[6];
   const unsigned NGC = num_generalized_coordinates(DynamicBody::eAxisAngle);
 
   // determine the number of explicit constraint equations
@@ -2107,7 +2107,7 @@ void RCArticulatedBody::determine_explicit_constraint_jacobian_dot(MatrixN& J) c
 {
   SAFESTATIC SMatrix6N so;
   SAFESTATIC VectorN sub;
-  Real Cqi[6], Cqo[6];
+  double Cqi[6], Cqo[6];
   const unsigned NGC = num_generalized_coordinates(DynamicBody::eAxisAngle);
 
   // determine the number of explicit constraint equations
@@ -2271,7 +2271,7 @@ void RCArticulatedBody::set_generalized_acceleration(DynamicBody::GeneralizedCoo
     {
       const Quat& q = base->get_orientation();
       base->set_laccel(base->get_transform().mult_vector(Vector3(a[0], a[1], a[2])));
-      base->set_aaccel(q.G_mult(a[3], a[4], a[5], a[6]) * (Real) 2.0);
+      base->set_aaccel(q.G_mult(a[3], a[4], a[5], a[6]) * (double) 2.0);
     }
     else
     {
@@ -2715,7 +2715,7 @@ void RCArticulatedBody::update_event_data(EventProblemData& q)
     unsigned dof = joint->get_coord_index() + q.limit_events[i]->limit_dof;
 
     // set the component of Jl appropriately
-    _Jl(i, dof) = (q.limit_events[i]->limit_upper) ? (Real) -1.0 : (Real) 1.0;
+    _Jl(i, dof) = (q.limit_events[i]->limit_upper) ? (double) -1.0 : (double) 1.0;
   }
 
   // setup Dt (nt x ngc)
@@ -2743,7 +2743,7 @@ void RCArticulatedBody::update_event_data(EventProblemData& q)
 
       // setup entries of Dt
       for (unsigned j=0; j< joint->num_dof(); j++, ii++)
-        _Dt(ii, ST_IDX+j) = (Real) 1.0;
+        _Dt(ii, ST_IDX+j) = (double) 1.0;
     }
   }
 

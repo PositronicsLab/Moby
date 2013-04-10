@@ -23,16 +23,16 @@ class ImpactEventHandler
     struct ImpactOptData
     {
       /// Homogeneous solution
-      VectorN z;
+      Ravelin::VectorNd z;
 
       /// Nullspace for optimization
-      MatrixN R;
+      Ravelin::MatrixNd R;
 
       /// Quadratic optimization matrix
-      MatrixN H;
+      Ravelin::MatrixNd H;
 
       /// Linear optimization vector
-      VectorN c;
+      Ravelin::VectorNd c;
 
       /// pointer to the EventProblemData
       const EventProblemData* epd;
@@ -41,25 +41,25 @@ class ImpactEventHandler
       std::vector<unsigned> cone_contacts;
 
       /// Squared Coulomb friction coefficients for contacts (size N_TRUE_CONE)
-      std::vector<Real> c_mu_c;
+      std::vector<double> c_mu_c;
 
       /// Squared viscous terms for contacts (size N_TRUE_CONE); this is squared viscous friction coefficient times squared tangential contact velocity
-      std::vector<Real> c_visc;
+      std::vector<double> c_visc;
 
       /// Squared Coulomb friction coefficients for joints (size N_JOINT_DOF)
-      std::vector<Real> j_mu_c;
+      std::vector<double> j_mu_c;
 
       /// Squared viscous terms for joints (size N_JOINT_DOF); this is squared viscous friction coefficient times squared joint velocity
-      std::vector<Real> j_visc;
+      std::vector<double> j_visc;
 
       /// Z matrices (for joint friction) for each joint of each super body (actually articulated body)
-      std::vector<std::vector<MatrixN> > Z;
+      std::vector<std::vector<Ravelin::MatrixNd> > Z;
 
       /// Zd matrices (for joint friction) for each joint of each super body (actually articulated body)
-      std::vector<std::vector<MatrixN> > Zd;
+      std::vector<std::vector<Ravelin::MatrixNd> > Zd;
 
       /// Z1d matrices (for joint friction) for each joint of each super body (actually articulated body)
-      std::vector<std::vector<MatrixN> > Z1d;
+      std::vector<std::vector<Ravelin::MatrixNd> > Z1d;
 
       /// loop indices (loop that each joint belongs to) for each articulated body
       /**
@@ -122,10 +122,10 @@ class ImpactEventHandler
     unsigned ip_max_iterations;
 
     /// The tolerance for to the interior-point solver (default 1e-6)
-    Real ip_eps;
+    double ip_eps;
 
     /// The velocity tolerance above which another iteration of the solver is run after applying Poisson restitution
-    Real poisson_eps;
+    double poisson_eps;
 
   private:
     static DynamicBodyPtr get_super_body(SingleBodyPtr sb);
@@ -133,28 +133,28 @@ class ImpactEventHandler
     void apply_model(const std::vector<Event>& events) const;
     void apply_model_to_connected_events(const std::list<Event*>& events) const;
     static void compute_problem_data(EventProblemData& epd);
-    static void solve_lcp(EventProblemData& epd, VectorN& z);
-    static void solve_qp(EventProblemData& epd, Real eps);
-    static void solve_nqp(EventProblemData& epd, Real eps);
-    static void solve_qp_work(EventProblemData& epd, VectorN& z);
-    static void solve_qp_work_general(EventProblemData& epd, VectorN& z);
-    static void solve_qp_work_ijoints(EventProblemData& epd, VectorN& z);
-    static Real calc_ke(EventProblemData& epd, const VectorN& z);
-    static bool opt_satisfied(const EventProblemData& q, const std::vector<bool>& working_set, Real& KE, VectorN& x, unsigned j);
+    static void solve_lcp(EventProblemData& epd, Ravelin::VectorNd& z);
+    static void solve_qp(EventProblemData& epd, double eps);
+    static void solve_nqp(EventProblemData& epd, double eps);
+    static void solve_qp_work(EventProblemData& epd, Ravelin::VectorNd& z);
+    static void solve_qp_work_general(EventProblemData& epd, Ravelin::VectorNd& z);
+    static void solve_qp_work_ijoints(EventProblemData& epd, Ravelin::VectorNd& z);
+    static double calc_ke(EventProblemData& epd, const Ravelin::VectorNd& z);
+    static bool opt_satisfied(const EventProblemData& q, const std::vector<bool>& working_set, double& KE, Ravelin::VectorNd& x, unsigned j);
     static void update_problem(const EventProblemData& qorig, EventProblemData& qnew);
-    static void update_solution(const EventProblemData& q, const VectorN& x, const std::vector<bool>& working_set, unsigned jidx, VectorN& z);
-    static void solve_nqp_work(EventProblemData& epd, VectorN& z);
+    static void update_solution(const EventProblemData& q, const Ravelin::VectorNd& x, const std::vector<bool>& working_set, unsigned jidx, Ravelin::VectorNd& z);
+    static void solve_nqp_work(EventProblemData& epd, Ravelin::VectorNd& z);
     static void set_generalized_velocities(const EventProblemData& epd);
     static void partition_events(const std::list<Event*>& events, std::vector<Event*>& contacts, std::vector<Event*>& limits);
     static void add_constraint_events(const std::list<Event*>& events, std::vector<Event>& constraint_event_objects, std::vector<Event*>& constraint_events);
-    static void contact_select(const std::vector<int>& alpha_c_indices, const std::vector<int>& beta_nbeta_c_indices, const VectorN& x, VectorN& alpha_c, VectorN& beta_c);
-    static void contact_select(const std::vector<int>& alpha_c_indices, const std::vector<int>& beta_nbeta_c_indices, const MatrixN& m, MatrixN& alpha_c_rows, MatrixN& beta_c_rows);
-    static Real sqr(Real x) { return x*x; }
-    static void sqp_hess(const VectorN& x, Real objscal, const VectorN& lambda, const VectorN& nu, MatrixN& H, void* data);
-    static void sqp_grad0(const VectorN& x, VectorN& g, void* data);
-    static void sqp_cJac(const VectorN& x, MatrixN& J, void* data);
-    static Real sqp_f0(const VectorN& x, void* data);
-    static void sqp_fx(const VectorN& x, VectorN& fc, void* data);
+    static void contact_select(const std::vector<int>& alpha_c_indices, const std::vector<int>& beta_nbeta_c_indices, const Ravelin::VectorNd& x, Ravelin::VectorNd& alpha_c, Ravelin::VectorNd& beta_c);
+    static void contact_select(const std::vector<int>& alpha_c_indices, const std::vector<int>& beta_nbeta_c_indices, const Ravelin::MatrixNd& m, Ravelin::MatrixNd& alpha_c_rows, Ravelin::MatrixNd& beta_c_rows);
+    static double sqr(double x) { return x*x; }
+    static void sqp_hess(const Ravelin::VectorNd& x, double objscal, const Ravelin::VectorNd& lambda, const Ravelin::VectorNd& nu, Ravelin::MatrixNd& H, void* data);
+    static void sqp_grad0(const Ravelin::VectorNd& x, Ravelin::VectorNd& g, void* data);
+    static void sqp_cJac(const Ravelin::VectorNd& x, Ravelin::MatrixNd& J, void* data);
+    static double sqp_f0(const Ravelin::VectorNd& x, void* data);
+    static void sqp_fx(const Ravelin::VectorNd& x, Ravelin::VectorNd& fc, void* data);
     static void set_optimization_data(EventProblemData& q, ImpactOptData& iopt);
 }; // end class
 } // end namespace

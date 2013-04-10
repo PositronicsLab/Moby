@@ -27,6 +27,10 @@ using std::string;
 
 DeformableBody::DeformableBody()
 {
+  // initialize the identity transform
+  _identity_transform = shared_ptr<Pose3d>(new Pose3d);
+  _identity_transform->set_identity();
+
   // ensure that config updates are enabled
   _config_updates_enabled = true;
 }
@@ -91,7 +95,7 @@ void DeformableBody::calc_com_and_vels()
 
   // init the center of mass and mass
   _x = ZEROS_3;
-  _mass = (Real) 0.0;
+  _mass = (double) 0.0;
 
   // determine the position of the com
   for (unsigned i=0; i< _nodes.size(); i++)
@@ -110,9 +114,9 @@ void DeformableBody::calc_com_and_vels()
   for (unsigned i=0; i< _nodes.size(); i++)
   {
     Vector3 relpoint = _nodes[i]->x - _x;
-    Real xsq = relpoint[X]*relpoint[X];
-    Real ysq = relpoint[Y]*relpoint[Y];
-    Real zsq = relpoint[Z]*relpoint[Z];
+    double xsq = relpoint[X]*relpoint[X];
+    double ysq = relpoint[Y]*relpoint[Y];
+    double zsq = relpoint[Z]*relpoint[Z];
     _J(X,X) += _nodes[i]->mass * (ysq + zsq);
     _J(Y,Y) += _nodes[i]->mass * (xsq + zsq);
     _J(Z,Z) += _nodes[i]->mass * (xsq + ysq);
@@ -267,7 +271,7 @@ MatrixN& DeformableBody::solve_generalized_inertia(DynamicBody::GeneralizedCoord
   for (unsigned i=0, j=0; i< _nodes.size(); i++)
   {
     // multiply three rows
-    Real imass = (Real) 1.0/_nodes[i]->mass;
+    double imass = (double) 1.0/_nodes[i]->mass;
     CBLAS::scal(B.columns(), imass, &X(j++,0), B.rows());
     CBLAS::scal(B.columns(), imass, &X(j++,0), B.rows());
     CBLAS::scal(B.columns(), imass, &X(j++,0), B.rows());
@@ -289,7 +293,7 @@ VectorN& DeformableBody::solve_generalized_inertia(DynamicBody::GeneralizedCoord
   for (unsigned i=0, j=0; i< _nodes.size(); i++)
   {
     // multiply three rows
-    Real imass = (Real) 1.0/_nodes[i]->mass;
+    double imass = (double) 1.0/_nodes[i]->mass;
     x[j++] *= imass;
     x[j++] *= imass;
     x[j++] *= imass;
@@ -344,23 +348,23 @@ VectorN& DeformableBody::convert_to_generalized_force(DynamicBody::GeneralizedCo
   unsigned i = find_closest_tetrahedron(p);
 
   // get (and correct) the barycentric coordinates for p
-  Real u, v, w;
+  double u, v, w;
   const Tetrahedron& tet = _tetra_mesh->get_tetrahedron(i);
   tet.determine_barycentric_coords(p, u, v, w);
 
   // correct barycentric coordinates
-  if (u < (Real) 0.0) u = (Real) 0.0;
-  else if (u > (Real) 1.0) u = (Real) 1.0;
-  if (v < (Real) 0.0) v = (Real) 0.0;
-  else if (u + v > (Real) 1.0) v = (Real) 1.0 - u;
-  if (w < (Real) 0.0) w = (Real) 0.0;
-  else if (u + v + w > (Real) 1.0) w = (Real) 1.0 - u - v;
+  if (u < (double) 0.0) u = (double) 0.0;
+  else if (u > (double) 1.0) u = (double) 1.0;
+  if (v < (double) 0.0) v = (double) 0.0;
+  else if (u + v > (double) 1.0) v = (double) 1.0 - u;
+  if (w < (double) 0.0) w = (double) 0.0;
+  else if (u + v + w > (double) 1.0) w = (double) 1.0 - u - v;
 
   // now determine forces on the nodes
   Vector3 fa = f*u;
   Vector3 fb = f*v;
   Vector3 fc = f*w;
-  Vector3 fd = f*((Real) 1.0-u-v-w);
+  Vector3 fd = f*((double) 1.0-u-v-w);
   gf.set_sub_vec(_tetrahedra[i].a*3, fa);
   gf.set_sub_vec(_tetrahedra[i].b*3, fb);
   gf.set_sub_vec(_tetrahedra[i].c*3, fc);
@@ -396,9 +400,9 @@ void DeformableBody::transform(const Matrix4& T)
 }
 
 /// Calculates the kinetic energy of the deformable body
-Real DeformableBody::calc_kinetic_energy() const
+double DeformableBody::calc_kinetic_energy() const
 {
-  Real KE = (Real) 0.0;
+  double KE = (double) 0.0;
   for (unsigned i=0; i< _nodes.size(); i++)
   {
     // update KE with linear component of energy
@@ -443,7 +447,7 @@ unsigned DeformableBody::find_closest_tetrahedron(const Vector3& p) const
   FILE_LOG(LOG_DEFORM) << " -- examining " << tet_ids.size() << " / " << _tetra_mesh->num_tetra() << " tetrahedra" << std::endl;
 
   // setup the minimum distance
-  Real min_dist = std::numeric_limits<Real>::max();
+  double min_dist = std::numeric_limits<double>::max();
 
   // iterate through the tetrahedra
   BOOST_FOREACH(unsigned id, tet_ids)
@@ -459,7 +463,7 @@ unsigned DeformableBody::find_closest_tetrahedron(const Vector3& p) const
     FILE_LOG(LOG_DEFORM) << "  " << _nodes[_tetrahedra[id].d]->x << std::endl;
 
     // determine the distance from the point to the tetrahedron
-    Real dist = tet.calc_signed_dist(p);
+    double dist = tet.calc_signed_dist(p);
     FILE_LOG(LOG_DEFORM) << "is " << dist << std::endl;
     if (dist > min_dist)
       continue;
@@ -478,7 +482,7 @@ unsigned DeformableBody::find_closest_tetrahedron(const Vector3& p) const
 }
 
 /// Outputs the deformable body to VRML
-std::ostream& DeformableBody::to_vrml(std::ostream& o, Real scale) const
+std::ostream& DeformableBody::to_vrml(std::ostream& o, double scale) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
@@ -486,9 +490,9 @@ std::ostream& DeformableBody::to_vrml(std::ostream& o, Real scale) const
   std::vector<Vector3> colors(_tetrahedra.size());
   for (unsigned i=0; i< colors.size(); i++)
   {
-    colors[i][0] = (Real) rand() / RAND_MAX;
-    colors[i][1] = (Real) rand() / RAND_MAX;
-    colors[i][2] = (Real) rand() / RAND_MAX;
+    colors[i][0] = (double) rand() / RAND_MAX;
+    colors[i][1] = (double) rand() / RAND_MAX;
+    colors[i][2] = (double) rand() / RAND_MAX;
   }
 
   // draw each tetrahedron
@@ -553,7 +557,7 @@ std::ostream& DeformableBody::to_vrml(std::ostream& o, Real scale) const
 void DeformableBody::set_mesh(shared_ptr<const IndexedTetraArray> tetra_mesh, shared_ptr<Primitive> tri_mesh)
 {
   // set the default mass
-  const Real DEFAULT_MASS = (Real) 1.0;
+  const double DEFAULT_MASS = (double) 1.0;
 
   // store the meshes
   _tetra_mesh = tetra_mesh;
@@ -602,16 +606,16 @@ void DeformableBody::set_mesh(shared_ptr<const IndexedTetraArray> tetra_mesh, sh
     Tetrahedron tet = get_tetrahedron(closest);
 
     // determine the barycentric coordinates
-    Real u, v, w;
+    double u, v, w;
     tet.determine_barycentric_coords(tri_vertices[i], u, v, w);
 
     // correct barycentric coordinates
-    if (u < (Real) 0.0) u = (Real) 0.0;
-    else if (u > (Real) 1.0) u = (Real) 1.0;
-    if (v < (Real) 0.0) v = (Real) 0.0;
-    else if (u + v > (Real) 1.0) v = (Real) 1.0 - u;
-    if (w < (Real) 0.0) w = (Real) 0.0;
-    else if (u + v + w > (Real) 1.0) w = (Real) 1.0 - u - v;
+    if (u < (double) 0.0) u = (double) 0.0;
+    else if (u > (double) 1.0) u = (double) 1.0;
+    if (v < (double) 0.0) v = (double) 0.0;
+    else if (u + v > (double) 1.0) v = (double) 1.0 - u;
+    if (w < (double) 0.0) w = (double) 0.0;
+    else if (u + v + w > (double) 1.0) w = (double) 1.0 - u - v;
 
     // store barycentric coords
     _vertex_map[i].uvw[0] = u;
@@ -680,7 +684,7 @@ Vector3 DeformableBody::calc_point_vel(const Vector3& p) const
   Tetrahedron tet = get_tetrahedron(closest);
 
   // determine the barycentric coordinates
-  Real u, v, w;
+  double u, v, w;
   tet.determine_barycentric_coords(p, u, v, w);
 
   // get the velocities at the vertices
@@ -691,7 +695,7 @@ Vector3 DeformableBody::calc_point_vel(const Vector3& p) const
   const Vector3& vd = _nodes[itet.d]->xd;
 
   // determine the velocity at p using the barycentric function
-  return vb*u + vc*v + vd*w + va*((Real) 1.0 - u - v - w);
+  return vb*u + vc*v + vd*w + va*((double) 1.0 - u - v - w);
 }
 
 /// Adds a force to the body
@@ -715,12 +719,12 @@ void DeformableBody::add_force(const Vector3& f, const Vector3& p)
   Tetrahedron tet = get_tetrahedron(closest);
 
   // determine the barycentric coordinates
-  Real u, v, w;
+  double u, v, w;
   tet.determine_barycentric_coords(p, u, v, w);
 
   // apply the force using the barycentric coordinates
   const IndexedTetra& itet = _tetrahedra[closest];
-  _nodes[itet.a]->f += f * ((Real) 1.0 - u - v - w);
+  _nodes[itet.a]->f += f * ((double) 1.0 - u - v - w);
   _nodes[itet.b]->f += f * u;
   _nodes[itet.c]->f += f * v;
   _nodes[itet.c]->f += f * w;
@@ -889,7 +893,7 @@ void DeformableBody::load_from_xml(XMLTreeConstPtr node, map<string, BasePtr>& i
   if (tetra_mesh && tri_mesh)
   {
     // set the default mass
-    const Real DEFAULT_MASS = (Real) 1.0;
+    const double DEFAULT_MASS = (double) 1.0;
 
     // set the mesh
     set_mesh(tetra_mesh, tri_mesh);
@@ -947,16 +951,16 @@ void DeformableBody::load_from_xml(XMLTreeConstPtr node, map<string, BasePtr>& i
         Tetrahedron tet = get_tetrahedron(closest);
 
         // determine the barycentric coordinates
-        Real u, v, w;
+        double u, v, w;
         tet.determine_barycentric_coords(tri_vertices[i], u, v, w);
 
         // correct barycentric coordinates
-        if (u < (Real) 0.0) u = (Real) 0.0;
-        else if (u > (Real) 1.0) u = (Real) 1.0;
-        if (v < (Real) 0.0) v = (Real) 0.0;
-        else if (u + v > (Real) 1.0) v = (Real) 1.0 - u;
-        if (w < (Real) 0.0) w = (Real) 0.0;
-        else if (u + v + w > (Real) 1.0) w = (Real) 1.0 - u - v;
+        if (u < (double) 0.0) u = (double) 0.0;
+        else if (u > (double) 1.0) u = (double) 1.0;
+        if (v < (double) 0.0) v = (double) 0.0;
+        else if (u + v > (double) 1.0) v = (double) 1.0 - u;
+        if (w < (double) 0.0) w = (double) 0.0;
+        else if (u + v + w > (double) 1.0) w = (double) 1.0 - u - v;
 
         // store barycentric coords
         _vertex_map[i].uvw[0] = u;
@@ -1057,7 +1061,7 @@ void DeformableBody::save_to_xml(XMLTreePtr node, list<BaseConstPtr>& shared_obj
 AABBPtr DeformableBody::build_AABB_tree(map<BVPtr, list<unsigned> >& aabb_tetra_map)
 {
   const unsigned THREE_D = 3;
-  const Real EXP = 0.1;          // box expansion constant
+  const double EXP = 0.1;          // box expansion constant
   AABBPtr child1, child2;
   list<unsigned> ptetra, ntetra;
   Vector3 eps(EXP, EXP, EXP);
@@ -1162,7 +1166,7 @@ AABBPtr DeformableBody::build_AABB_tree(map<BVPtr, list<unsigned> >& aabb_tetra_
     // for any children with a greater volume than the aabb in question,
     // remove the grandchildren and add them as children
     AABBPtr aabb = Q.front();
-    Real vol = aabb->calc_volume();
+    double vol = aabb->calc_volume();
     bool erased_one = false;
     for (list<BVPtr>::iterator i = aabb->children.begin(); i != aabb->children.end(); )
     {
@@ -1170,7 +1174,7 @@ AABBPtr DeformableBody::build_AABB_tree(map<BVPtr, list<unsigned> >& aabb_tetra_
       AABBPtr child = dynamic_pointer_cast<AABB>(*i);
 
       // get the volume of this child
-      Real voli = child->calc_volume();
+      double voli = child->calc_volume();
       if (!(*i)->is_leaf() && voli > vol + NEAR_ZERO)
       {
         erased_one = true;
@@ -1240,7 +1244,7 @@ AABBPtr DeformableBody::build_AABB_tree(map<BVPtr, list<unsigned> >& aabb_tetra_
 void DeformableBody::split_tetra(const Vector3& point, unsigned axis, const list<unsigned>& otetra, list<unsigned>& ptetra, list<unsigned>& ntetra) 
 {
   // determine the splitting plane: ax + by + cz = d
-  Real offset = point[axis];
+  double offset = point[axis];
 
   // setup the splitting plane
   Plane plane;
@@ -1256,12 +1260,12 @@ void DeformableBody::split_tetra(const Vector3& point, unsigned axis, const list
   BOOST_FOREACH(unsigned i, otetra)
   {
     // get the three signed distances
-    Real sa = plane.calc_signed_distance(_nodes[_tetrahedra[i].a]->x);
-    Real sb = plane.calc_signed_distance(_nodes[_tetrahedra[i].b]->x);
-    Real sc = plane.calc_signed_distance(_nodes[_tetrahedra[i].c]->x);
-    Real sd = plane.calc_signed_distance(_nodes[_tetrahedra[i].d]->x);
-    Real min_s = std::min(sa, std::min(sb, std::min(sc, sd)));
-    Real max_s = std::max(sa, std::max(sb, std::max(sc, sd)));    
+    double sa = plane.calc_signed_distance(_nodes[_tetrahedra[i].a]->x);
+    double sb = plane.calc_signed_distance(_nodes[_tetrahedra[i].b]->x);
+    double sc = plane.calc_signed_distance(_nodes[_tetrahedra[i].c]->x);
+    double sd = plane.calc_signed_distance(_nodes[_tetrahedra[i].d]->x);
+    double min_s = std::min(sa, std::min(sb, std::min(sc, sd)));
+    double max_s = std::max(sa, std::max(sb, std::max(sc, sd)));    
 
     // see whether we can cleanly put the triangle into one side
     if (min_s > 0)
@@ -1273,7 +1277,7 @@ void DeformableBody::split_tetra(const Vector3& point, unsigned axis, const list
       // tetrahedron is split down the middle; get its centroid
       Tetrahedron tet(_nodes[_tetrahedra[i].a]->x, _nodes[_tetrahedra[i].b]->x, _nodes[_tetrahedra[i].c]->x, _nodes[_tetrahedra[i].d]->x);
       Vector3 tet_centroid = tet.calc_centroid();
-      Real scent = plane.calc_signed_distance(tet_centroid);
+      double scent = plane.calc_signed_distance(tet_centroid);
       if (scent > 0)
         ptetra.push_back(i);
       else
@@ -1298,11 +1302,11 @@ bool DeformableBody::split(AABBPtr source, AABBPtr& tgt1, AABBPtr& tgt2, unsigne
 
   // determine the centroid of this set of tetrahedra
   Vector3 centroid = ZEROS_3;
-  Real total_volume = 0;
+  double total_volume = 0;
   BOOST_FOREACH(unsigned idx, tetra)
   {
     Tetrahedron tet = get_tetrahedron(idx);
-    Real volume = tet.calc_volume();
+    double volume = tet.calc_volume();
     centroid += tet.calc_centroid()*volume;
     total_volume += volume;
   }

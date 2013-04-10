@@ -14,7 +14,9 @@
 #include <Moby/Primitive.h>
 #include <Moby/Visualizable.h>
 
+using namespace Ravelin;
 using namespace Moby;
+using boost::shared_ptr;
 
 Visualizable::Visualizable()
 {
@@ -73,20 +75,28 @@ void Visualizable::set_visualization_data(osg::Node* vdata)
   #endif
 }
 
+#ifdef USE_OSG
 /// Copies this matrix to an OpenSceneGraph Matrixd object
-static void to_osg_matrix(const Matrix4& src, osg::Matrixd& tgt)
+static void to_osg_matrix(const Ravelin::Pose3d& src, osg::Matrixd& tgt)
 {
-  #ifdef USE_OSG
+  // get the rotation matrix
+  Matrix3d M = src.q;
+
+  // setup the rotation components of tgt
   const unsigned X = 0, Y = 1, Z = 2, W = 3;
-  for (unsigned i=X; i<= W; i++)
+  for (unsigned i=X; i<= Z; i++)
     for (unsigned j=X; j<= Z; j++)
-      tgt(i,j) = src(j,i);
+      tgt(j,i) = M(i,j);
+
+  // setup the translation components of tgt
+  for (unsigned i=X; i<= Z; i++)
+    tgt(W,i) = src.x[i];
 
   // set constant values of the matrix
-  tgt(X,W) = tgt(Y,W) = tgt(Z,W) = (Real) 0.0;
-  tgt(W,W) = (Real) 1.0;
-  #endif
+  tgt(X,W) = tgt(Y,W) = tgt(Z,W) = (double) 0.0;
+  tgt(W,W) = (double) 1.0;
 }
+#endif
 
 /// Updates the visualization using the appropriate transform
 /**
@@ -105,7 +115,7 @@ void Visualizable::update_visualization()
     return;
 
   // get the transform; if there is none, quit now
-  const Matrix4* T = get_visualization_transform();
+  shared_ptr<const Pose3d> T = get_visualization_transform();
   if (!T)
     return;
 
@@ -273,8 +283,7 @@ void Visualizable::load_from_xml(XMLTreeConstPtr node, std::map<std::string, Bas
         osg::MatrixTransform* xgroup = new osg::MatrixTransform;
 
         // create the transform and set it
-        Matrix4 Tx;
-        rel_trans_attr->get_matrix_value(Tx);
+        Pose3d Tx = rel_trans_attr->get_pose3_value();
         osg::Matrixd T;
         to_osg_matrix(Tx, T);
         xgroup->setMatrix(T);

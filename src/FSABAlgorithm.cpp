@@ -71,7 +71,7 @@ void FSABAlgorithm::calc_inverse_generalized_inertia(DynamicBody::GeneralizedCoo
   {
     // setup the generalized impulse
     v().set_zero(NGC);
-    v()[i] = (Real) 1.0;
+    v()[i] = (double) 1.0;
 
     // apply the generalized impulse
     apply_generalized_impulse(i, sTI, v());
@@ -82,7 +82,7 @@ void FSABAlgorithm::calc_inverse_generalized_inertia(DynamicBody::GeneralizedCoo
 
   // make inverse(M) symmetric
   const unsigned LD = NGC;
-  Real* data = iM.data();
+  double* data = iM.data();
   for (unsigned i=0, ii=0; i< NGC; i++, ii+= LD)
     for (unsigned j=0, jj=0; j< i; j++, jj+= LD)
       data[ii] = data[jj];
@@ -1177,14 +1177,14 @@ void FSABAlgorithm::calc_fwd_dyn()
 }
 
 /// Signum function with NEAR_ZERO cutoff
-Real FSABAlgorithm::sgn(Real x)
+double FSABAlgorithm::sgn(double x)
 {
   if (x > NEAR_ZERO)
-    return (Real) 1.0;
+    return (double) 1.0;
   else if (x < -NEAR_ZERO)
-    return (Real) -1.0;
+    return (double) -1.0;
   else
-    return (Real) 0.0;
+    return (double) 0.0;
 }
 
 /// Pushes all children of the given link onto the given queue

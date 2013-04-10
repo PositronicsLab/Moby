@@ -118,7 +118,7 @@ void MeshDCD::remove_articulated_body(ArticulatedBodyPtr abody)
 /**
  * \pre body states are at time tf
  */
-bool MeshDCD::is_contact(Real dt, const vector<pair<DynamicBodyPtr, VectorN> >& q0, const vector<pair<DynamicBodyPtr, VectorN> >& q1, vector<Event>& contacts)
+bool MeshDCD::is_contact(double dt, const vector<pair<DynamicBodyPtr, VectorN> >& q0, const vector<pair<DynamicBodyPtr, VectorN> >& q1, vector<Event>& contacts)
 {
   VectorN qd;
 
@@ -149,7 +149,7 @@ bool MeshDCD::is_contact(Real dt, const vector<pair<DynamicBodyPtr, VectorN> >& 
 
   // remove contacts with degenerate normals
   for (unsigned i=0; i< contacts.size(); )
-    if (std::fabs(contacts[i].contact_normal.norm() - (Real) 1.0) > NEAR_ZERO)
+    if (std::fabs(contacts[i].contact_normal.norm() - (double) 1.0) > NEAR_ZERO)
     {
       contacts[i] = contacts.back();
       contacts.pop_back();
@@ -174,7 +174,7 @@ bool MeshDCD::is_contact(Real dt, const vector<pair<DynamicBodyPtr, VectorN> >& 
 }
 
 /// Does a collision check for a geometry for a deformable body
-void MeshDCD::check_geom(Real dt, CollisionGeometryPtr cg, const vector<pair<DynamicBodyPtr, VectorN> >& q0, const vector<pair<DynamicBodyPtr, VectorN> >& q1, vector<Event>& contacts)
+void MeshDCD::check_geom(double dt, CollisionGeometryPtr cg, const vector<pair<DynamicBodyPtr, VectorN> >& q0, const vector<pair<DynamicBodyPtr, VectorN> >& q1, vector<Event>& contacts)
 {
   FILE_LOG(LOG_COLDET) << "MeshDCD::check_geom() entered" << endl;
   SAFESTATIC VectorN q, qtmp;
@@ -197,8 +197,8 @@ void MeshDCD::check_geom(Real dt, CollisionGeometryPtr cg, const vector<pair<Dyn
   if (contact)
   {
     // setup t and h
-    Real t = (Real) 0.0;
-    Real h = (Real) 1.0;
+    double t = (double) 0.0;
+    double h = (double) 1.0;
 
     // loop invariant: contact at t0+h
     while (h > eps_tolerance)
@@ -207,7 +207,7 @@ void MeshDCD::check_geom(Real dt, CollisionGeometryPtr cg, const vector<pair<Dyn
       h *= 0.5;
 
       // step forward by h
-      q.copy_from(qa) *= ((Real) 1.0 - t+h);
+      q.copy_from(qa) *= ((double) 1.0 - t+h);
       qtmp.copy_from(qb) *= (t+h);
       q += qtmp;
       db->set_generalized_coordinates(DynamicBody::eRodrigues, q);
@@ -221,7 +221,7 @@ void MeshDCD::check_geom(Real dt, CollisionGeometryPtr cg, const vector<pair<Dyn
     }
 
     // set the coordinates for the deformable body
-    q.copy_from(qa) *= ((Real) 1.0 - t);
+    q.copy_from(qa) *= ((double) 1.0 - t);
     qtmp.copy_from(qb) *= t;
     q += qtmp;
     db->set_generalized_coordinates(DynamicBody::eRodrigues, q);
@@ -286,7 +286,7 @@ unsigned MeshDCD::find_body(const vector<pair<DynamicBodyPtr, VectorN> >& q, Dyn
  * \param vels linear and angular velocities of bodies
  * \param contacts on return
  */
-void MeshDCD::check_geoms(Real dt, CollisionGeometryPtr a, CollisionGeometryPtr b, const vector<pair<DynamicBodyPtr, VectorN> >& q0, const vector<pair<DynamicBodyPtr, VectorN> >& q1, vector<Event>& contacts)
+void MeshDCD::check_geoms(double dt, CollisionGeometryPtr a, CollisionGeometryPtr b, const vector<pair<DynamicBodyPtr, VectorN> >& q0, const vector<pair<DynamicBodyPtr, VectorN> >& q1, vector<Event>& contacts)
 {
   FILE_LOG(LOG_COLDET) << "MeshDCD::check_geoms() entered" << endl;
   SAFESTATIC VectorN q, qda, qdb;
@@ -322,8 +322,8 @@ void MeshDCD::check_geoms(Real dt, CollisionGeometryPtr a, CollisionGeometryPtr 
   if (contact)
   {
     // setup t0 and h
-    Real t = (Real) 0.0;
-    Real h = (Real) 1.0;
+    double t = (double) 0.0;
+    double h = (double) 1.0;
 
     // loop invariant: contact at t0+h
     while (h > eps_tolerance)
@@ -410,14 +410,14 @@ void MeshDCD::check_geoms(Real dt, CollisionGeometryPtr a, CollisionGeometryPtr 
 /**
  * \return the number of real roots
  */
-unsigned MeshDCD::determine_cubic_roots(Real a, Real b, Real c, Real x[3])
+unsigned MeshDCD::determine_cubic_roots(double a, double b, double c, double x[3])
 {
   // determine p, q
-  Real p = b - a*a/3;
-  Real q = c + (2*a*a*a - 9*a*b)/27;
+  double p = b - a*a/3;
+  double q = c + (2*a*a*a - 9*a*b)/27;
 
-  // typedef the Real complex type
-  typedef std::complex<Real> rcomplex;
+  // typedef the double complex type
+  typedef std::complex<double> rcomplex;
 
   // determine the six values of u (not all unique)
   rcomplex croot(q*q/4 + p*p*p/27);
@@ -432,14 +432,14 @@ unsigned MeshDCD::determine_cubic_roots(Real a, Real b, Real c, Real x[3])
   rcomplex u2c = u2a * umul2; 
 
   // determine the six values of x (not all unique)
-  Real xx[6];
+  double xx[6];
   unsigned xidx = 0;
-  xx[xidx++] = (u1a - p/((Real) 3.0*u1a) - a/3).real();
-  xx[xidx++] = (u1b - p/((Real) 3.0*u1b) - a/3).real();
-  xx[xidx++] = (u1c - p/((Real) 3.0*u1c) - a/3).real();
-  xx[xidx++] = (u2a - p/((Real) 3.0*u2a) - a/3).real();
-  xx[xidx++] = (u2b - p/((Real) 3.0*u2b) - a/3).real();
-  xx[xidx++] = (u2c - p/((Real) 3.0*u2c) - a/3).real();
+  xx[xidx++] = (u1a - p/((double) 3.0*u1a) - a/3).real();
+  xx[xidx++] = (u1b - p/((double) 3.0*u1b) - a/3).real();
+  xx[xidx++] = (u1c - p/((double) 3.0*u1c) - a/3).real();
+  xx[xidx++] = (u2a - p/((double) 3.0*u2a) - a/3).real();
+  xx[xidx++] = (u2b - p/((double) 3.0*u2b) - a/3).real();
+  xx[xidx++] = (u2c - p/((double) 3.0*u2c) - a/3).real();
 
   // find real roots
   unsigned nreal = 0;
@@ -461,43 +461,43 @@ unsigned MeshDCD::determine_cubic_roots(Real a, Real b, Real c, Real x[3])
 }
 
 /// Intersects a line segment against a triangle with vertices moving at different velocities
-Real MeshDCD::calc_first_isect(const Vector3& p, const Vector3& pdot, const Triangle& T, const Vector3& Tadot, const Vector3& Tbdot, const Vector3& Tcdot, Real dt) 
+double MeshDCD::calc_first_isect(const Vector3& p, const Vector3& pdot, const Triangle& T, const Vector3& Tadot, const Vector3& Tbdot, const Vector3& Tcdot, double dt) 
 {
   const unsigned X = 0, Y = 1, Z = 2;
-  const Real INF = std::numeric_limits<Real>::max();
+  const double INF = std::numeric_limits<double>::max();
 
   // setup everything to match Mathematica output
-  Real P0X = p[X];
-  Real P0Y = p[Y];
-  Real P0Z = p[Z];
-  Real PdotX = pdot[X];
-  Real PdotY = pdot[Y];
-  Real PdotZ = pdot[Z];
-  Real A0X = T.a[X];
-  Real A0Y = T.a[Y];
-  Real A0Z = T.a[Z];
-  Real AdotX = Tadot[X];
-  Real AdotY = Tadot[Y];
-  Real AdotZ = Tadot[Z];
-  Real B0X = T.b[X];
-  Real B0Y = T.b[Y];
-  Real B0Z = T.b[Z];
-  Real BdotX = Tbdot[X];
-  Real BdotY = Tbdot[Y];
-  Real BdotZ = Tbdot[Z];
-  Real C0X = T.c[X];
-  Real C0Y = T.c[Y];
-  Real C0Z = T.c[Z];
-  Real CdotX = Tcdot[X];
-  Real CdotY = Tcdot[Y];
-  Real CdotZ = Tcdot[Z];
+  double P0X = p[X];
+  double P0Y = p[Y];
+  double P0Z = p[Z];
+  double PdotX = pdot[X];
+  double PdotY = pdot[Y];
+  double PdotZ = pdot[Z];
+  double A0X = T.a[X];
+  double A0Y = T.a[Y];
+  double A0Z = T.a[Z];
+  double AdotX = Tadot[X];
+  double AdotY = Tadot[Y];
+  double AdotZ = Tadot[Z];
+  double B0X = T.b[X];
+  double B0Y = T.b[Y];
+  double B0Z = T.b[Z];
+  double BdotX = Tbdot[X];
+  double BdotY = Tbdot[Y];
+  double BdotZ = Tbdot[Z];
+  double C0X = T.c[X];
+  double C0Y = T.c[Y];
+  double C0Z = T.c[Z];
+  double CdotX = Tcdot[X];
+  double CdotY = Tcdot[Y];
+  double CdotZ = Tcdot[Z];
 
   // setup terms for cubic polynomial
-  Real d =  -A0Z*B0Y*P0X + A0Y*B0Z*P0X + A0Z*C0Y*P0X - B0Z*C0Y*P0X - 
+  double d =  -A0Z*B0Y*P0X + A0Y*B0Z*P0X + A0Z*C0Y*P0X - B0Z*C0Y*P0X - 
             A0Y*C0Z*P0X + B0Y*C0Z*P0X + A0Z*B0X*P0Y - A0X*B0Z*P0Y - A0Z*C0X*P0Y 
             + B0Z*C0X*P0Y + A0X*C0Z*P0Y - B0X*C0Z*P0Y - A0Y*B0X*P0Z + 
             A0X*B0Y*P0Z + A0Y*C0X*P0Z - B0Y*C0X*P0Z - A0X*C0Y*P0Z + B0X*C0Y*P0Z;
-  Real c = (-(AdotZ*B0Y*P0X) + AdotY*B0Z*P0X - A0Z*BdotY*P0X + 
+  double c = (-(AdotZ*B0Y*P0X) + AdotY*B0Z*P0X - A0Z*BdotY*P0X + 
        A0Y*BdotZ*P0X + AdotZ*C0Y*P0X - BdotZ*C0Y*P0X - 
        AdotY*C0Z*P0X + BdotY*C0Z*P0X + A0Z*CdotY*P0X - 
        B0Z*CdotY*P0X - A0Y*CdotZ*P0X + B0Y*CdotZ*P0X + 
@@ -515,7 +515,7 @@ Real MeshDCD::calc_first_isect(const Vector3& p, const Vector3& pdot, const Tria
        B0Z*C0X*PdotY + A0X*C0Z*PdotY - B0X*C0Z*PdotY - 
        A0Y*B0X*PdotZ + A0X*B0Y*PdotZ + A0Y*C0X*PdotZ - 
        B0Y*C0X*PdotZ - A0X*C0Y*PdotZ + B0X*C0Y*PdotZ);
-  Real b = (-(AdotZ*BdotY*P0X) + AdotY*BdotZ*P0X + 
+  double b = (-(AdotZ*BdotY*P0X) + AdotY*BdotZ*P0X + 
        AdotZ*CdotY*P0X - BdotZ*CdotY*P0X - AdotY*CdotZ*P0X + 
        BdotY*CdotZ*P0X + AdotZ*BdotX*P0Y - AdotX*BdotZ*P0Y - 
        AdotZ*CdotX*P0Y + BdotZ*CdotX*P0Y + AdotX*CdotZ*P0Y - 
@@ -534,7 +534,7 @@ Real MeshDCD::calc_first_isect(const Vector3& p, const Vector3& pdot, const Tria
        BdotY*C0X*PdotZ - AdotX*C0Y*PdotZ + BdotX*C0Y*PdotZ + 
        A0Y*CdotX*PdotZ - B0Y*CdotX*PdotZ - A0X*CdotY*PdotZ + 
        B0X*CdotY*PdotZ);
-  Real a = (-(AdotZ*BdotY*PdotX) + AdotY*BdotZ*PdotX + 
+  double a = (-(AdotZ*BdotY*PdotX) + AdotY*BdotZ*PdotX + 
        AdotZ*CdotY*PdotX - BdotZ*CdotY*PdotX - 
        AdotY*CdotZ*PdotX + BdotY*CdotZ*PdotX + 
        AdotZ*BdotX*PdotY - AdotX*BdotZ*PdotY - 
@@ -551,8 +551,8 @@ Real MeshDCD::calc_first_isect(const Vector3& p, const Vector3& pdot, const Tria
     a = b;
     b = c;
     c = d;
-    Real r1 = (-b + std::sqrt(b*b - 4*a*c))/(2*a);
-    Real r2 = (-b - std::sqrt(b*b - 4*a*c))/(2*a);
+    double r1 = (-b + std::sqrt(b*b - 4*a*c))/(2*a);
+    double r2 = (-b - std::sqrt(b*b - 4*a*c))/(2*a);
  
     // if root is negative or greater than dt, make it inf
     if (r1 < 0.0 || r1 > dt || std::isnan(r1))
@@ -579,7 +579,7 @@ Real MeshDCD::calc_first_isect(const Vector3& p, const Vector3& pdot, const Tria
     d /= a;
 
     // find the (up to three) roots
-    Real r[3];
+    double r[3];
     unsigned nroots = determine_cubic_roots(b, c, d, r);
 
     // if a root is negative or greater than dt, make it inf
@@ -593,7 +593,7 @@ Real MeshDCD::calc_first_isect(const Vector3& p, const Vector3& pdot, const Tria
         r[i] = INF;
 
     // find and return the minimum 
-    Real minimum = r[0];
+    double minimum = r[0];
     for (unsigned i=1; i< nroots; i++)
       if (r[i] < minimum)
         minimum = r[i];
@@ -609,7 +609,7 @@ Real MeshDCD::calc_first_isect(const Vector3& p, const Vector3& pdot, const Tria
  * \param t the time-of-contact
  * \param dt the time step
  */
-void MeshDCD::determine_contacts_deformable_rigid(CollisionGeometryPtr a, CollisionGeometryPtr b, Real t, Real dt, vector<Event>& contacts)
+void MeshDCD::determine_contacts_deformable_rigid(CollisionGeometryPtr a, CollisionGeometryPtr b, double t, double dt, vector<Event>& contacts)
 {
   Vector3 p;
 
@@ -648,13 +648,13 @@ void MeshDCD::determine_contacts_deformable_rigid(CollisionGeometryPtr a, Collis
       Triangle tri = Triangle::transform(mesh_b.get_triangle(j), wTb);
 
       // do line segment triangle intersection in b's frame
-      Real t = calc_first_isect(tri, LineSeg3(v, v+vdot*dt), p);
+      double t = calc_first_isect(tri, LineSeg3(v, v+vdot*dt), p);
 
       FILE_LOG(LOG_COLDET) << "  ++ against tri: " << tri << endl;
       FILE_LOG(LOG_COLDET) << "     intersection parameter: " << t << endl;
 
       // see whether to create a contact
-      if (t <= (Real) 1.0)
+      if (t <= (double) 1.0)
         contacts.push_back(create_contact(t, a, b, p, vdot, tri));
     }
   }
@@ -669,7 +669,7 @@ void MeshDCD::determine_contacts_deformable_rigid(CollisionGeometryPtr a, Collis
  * \param t the time-of-contact
  * \param dt the time step
  */
-void MeshDCD::determine_contacts_rigid_deformable(CollisionGeometryPtr a, CollisionGeometryPtr b, Real t, Real dt, vector<Event>& contacts)
+void MeshDCD::determine_contacts_rigid_deformable(CollisionGeometryPtr a, CollisionGeometryPtr b, double t, double dt, vector<Event>& contacts)
 {
   // we can just use the deformable / deformable method for this
   determine_contacts_deformable(a, b, t, dt, contacts);
@@ -683,7 +683,7 @@ void MeshDCD::determine_contacts_rigid_deformable(CollisionGeometryPtr a, Collis
  * \param dt the time step
  * \note checks vertices from geometry a against geometry b
  */
-void MeshDCD::determine_contacts_deformable(CollisionGeometryPtr a, CollisionGeometryPtr b, Real t, Real dt, vector<Event>& contacts)
+void MeshDCD::determine_contacts_deformable(CollisionGeometryPtr a, CollisionGeometryPtr b, double t, double dt, vector<Event>& contacts)
 {
   // get the transform for the second collision geometry
   const Matrix4& wTb = b->get_transform();
@@ -729,7 +729,7 @@ void MeshDCD::determine_contacts_deformable(CollisionGeometryPtr a, CollisionGeo
       Vector3 cdot = sbb->calc_point_vel(tri.c);
 
       // find the first time of intersection, if any
-      Real t0 = calc_first_isect(v, vdot, tri, adot, bdot, cdot, t);
+      double t0 = calc_first_isect(v, vdot, tri, adot, bdot, cdot, t);
       if (t0 <= t)
       {
         // determine the point of contact at time t0 + t
@@ -752,7 +752,7 @@ void MeshDCD::determine_contacts_deformable(CollisionGeometryPtr a, CollisionGeo
  * \param t the time-of-contact
  * \param dt the time step
  */
-void MeshDCD::determine_contacts_rigid(CollisionGeometryPtr a, CollisionGeometryPtr b, Real t, Real dt, vector<Event>& contacts)
+void MeshDCD::determine_contacts_rigid(CollisionGeometryPtr a, CollisionGeometryPtr b, double t, double dt, vector<Event>& contacts)
 {
   // get the two rigid bodies
   RigidBodyPtr rba = dynamic_pointer_cast<RigidBody>(a->get_single_body());
@@ -819,32 +819,32 @@ void MeshDCD::determine_contacts_rigid(CollisionGeometryPtr a, CollisionGeometry
       Vector3 pBc = TtB.c + pBcdot*t;
 
       // calculate line segment triangle intersections
-      Real t0;
+      double t0;
       Vector3 p;
 
       // calculate intersections between vertex a of A and triangle B
       t0 = calc_first_isect(TtB, LineSeg3(TtA.a, pAa), p);
-      if (t0 <= (Real) 1.0)
+      if (t0 <= (double) 1.0)
         contacts.push_back(create_contact(t0, a, b, p, TtA.a, TtB));
 
       // calculate intersections between vertex b of A and triangle B
       t0 = calc_first_isect(TtB, LineSeg3(TtA.b, pAb), p);
-      if (t0 <= (Real) 1.0)
+      if (t0 <= (double) 1.0)
         contacts.push_back(create_contact(t0, a, b, p, TtA.b, TtB));
 
       // calculate intersections between vertex c of A and triangle B
       t0 = calc_first_isect(TtB, LineSeg3(TtA.c, pAc), p);
-      if (t0 <= (Real) 1.0)
+      if (t0 <= (double) 1.0)
         contacts.push_back(create_contact(t0, a, b, p, TtA.c, TtB));
 
        // calculate intersections between vertex a of B and triangle A
       t0 = calc_first_isect(TtA, LineSeg3(TtB.a, pBa), p);
-      if (t0 <= (Real) 1.0)
+      if (t0 <= (double) 1.0)
         contacts.push_back(create_contact(t0, a, b, p, TtB.a, TtA));
 
       // calculate intersections between vertex b of B and triangle A
       t0 = calc_first_isect(TtA, LineSeg3(TtB.b, pBb), p);
-      if (t0 <= (Real) 1.0)
+      if (t0 <= (double) 1.0)
         contacts.push_back(create_contact(t0, a, b, p, TtB.b, TtA));
 
       // calculate intersections between vertex c of B and triangle A
@@ -857,7 +857,7 @@ void MeshDCD::determine_contacts_rigid(CollisionGeometryPtr a, CollisionGeometry
 
 /* version that attempted to do edge contacts
 /// Determines the contacts between two geometries for rigid bodies
-void MeshDCD::determine_contacts_rigid(CollisionGeometryPtr a, CollisionGeometryPtr b, Real dt, vector<Event>& contact_map)
+void MeshDCD::determine_contacts_rigid(CollisionGeometryPtr a, CollisionGeometryPtr b, double dt, vector<Event>& contact_map)
 {
   // get the two rigid bodies
   RigidBodyPtr rba = dynamic_pointer_cast<RigidBody>(a->get_single_body());
@@ -914,17 +914,17 @@ void MeshDCD::determine_contacts_rigid(CollisionGeometryPtr a, CollisionGeometry
       Vector3 pBcdot = rlv + wBc;
 
       // determine mean velocity vectors for a
-      Vector3 pAabdot = (pAadot + pAbdot)*(Real) 0.5 * dt;
-      Vector3 pAacdot = (pAadot + pAcdot)*(Real) 0.5 * dt;
-      Vector3 pAbcdot = (pAbdot + pAcdot)*(Real) 0.5 * dt;
+      Vector3 pAabdot = (pAadot + pAbdot)*(double) 0.5 * dt;
+      Vector3 pAacdot = (pAadot + pAcdot)*(double) 0.5 * dt;
+      Vector3 pAbcdot = (pAbdot + pAcdot)*(double) 0.5 * dt;
 
       // determine mean velocity vectors for b
-      Vector3 pBabdot = (pBadot + pBbdot)*(Real) 0.5 * dt;
-      Vector3 pBacdot = (pBadot + pBcdot)*(Real) 0.5 * dt;
-      Vector3 pBbcdot = (pBbdot + pBcdot)*(Real) 0.5 * dt;
+      Vector3 pBabdot = (pBadot + pBbdot)*(double) 0.5 * dt;
+      Vector3 pBacdot = (pBadot + pBcdot)*(double) 0.5 * dt;
+      Vector3 pBbcdot = (pBbdot + pBcdot)*(double) 0.5 * dt;
 
       // calculate line segment triangle intersections
-      Real t;
+      double t;
       Vector3 p1, p2;
 
       // calculate intersections between edge ab of A and triangle B
@@ -980,7 +980,7 @@ void MeshDCD::determine_contacts_rigid(CollisionGeometryPtr a, CollisionGeometry
 */
 
 /// Creates a contact
-Event MeshDCD::create_contact(Real toi, CollisionGeometryPtr a, CollisionGeometryPtr b, const Vector3& p, const Vector3& pdot, const Triangle& t)
+Event MeshDCD::create_contact(double toi, CollisionGeometryPtr a, CollisionGeometryPtr b, const Vector3& p, const Vector3& pdot, const Triangle& t)
 {
   Event e;
   e.event_type = Event::eContact;
@@ -1005,10 +1005,10 @@ Event MeshDCD::create_contact(Real toi, CollisionGeometryPtr a, CollisionGeometr
  * \param p2 the second point of intersection
  * \return the parameter of intersection
  */
-Real MeshDCD::calc_first_isect(const Triangle& t, const LineSeg3& s1, const LineSeg3& s2, Vector3& p1, Vector3& p2)
+double MeshDCD::calc_first_isect(const Triangle& t, const LineSeg3& s1, const LineSeg3& s2, Vector3& p1, Vector3& p2)
 {
   const unsigned TRI_VERTS = 3;
-  const Real INF = std::numeric_limits<Real>::max();
+  const double INF = std::numeric_limits<double>::max();
 
   FILE_LOG(LOG_COLDET) << "MeshDCD::calc_first_isect() entered" << endl;
   FILE_LOG(LOG_COLDET) << "  triangle: " << t << endl;
@@ -1020,16 +1020,16 @@ Real MeshDCD::calc_first_isect(const Triangle& t, const LineSeg3& s1, const Line
   Vector3 b = s2.second - s2.first;
   Vector3 ahat = Vector3::normalize(a);
   Vector3 bhat = Vector3::normalize(b);
-  if (std::fabs(std::fabs(ahat.dot(bhat)) - (Real) 1.0) < std::sqrt(NEAR_ZERO)) 
+  if (std::fabs(std::fabs(ahat.dot(bhat)) - (double) 1.0) < std::sqrt(NEAR_ZERO)) 
   {
-    Real t1 = calc_first_isect(t, s1, p1);
-    Real t2 = calc_first_isect(t, s2, p2);
-    if (t1 < (Real) 0.0 || t1 > (Real) 1.0)
+    double t1 = calc_first_isect(t, s1, p1);
+    double t2 = calc_first_isect(t, s2, p2);
+    if (t1 < (double) 0.0 || t1 > (double) 1.0)
     {
       t1 = INF;
       p1 = p2;
     }
-    if (t2 < (Real) 0.0 || t2 > (Real) 1.0)
+    if (t2 < (double) 0.0 || t2 > (double) 1.0)
     {
       t2 = INF;
       p2 = p1;
@@ -1047,7 +1047,7 @@ Real MeshDCD::calc_first_isect(const Triangle& t, const LineSeg3& s1, const Line
   // compute the signed distance of the triangle vertices to the plane; use an
   // epsilon-thick plane test
   int pos = 0, neg = 0, zero = 0, sign[TRI_VERTS];
-  Real dist[TRI_VERTS];
+  double dist[TRI_VERTS];
   for (unsigned i=0; i< TRI_VERTS; i++)
   {
     dist[i] = plane.calc_signed_distance(t.get_vertex(i));
@@ -1084,7 +1084,7 @@ Real MeshDCD::calc_first_isect(const Triangle& t, const LineSeg3& s1, const Line
 
   FILE_LOG(LOG_COLDET) << "... triangle transversely intersects plane; doing rectangle intersection..." << endl;
 
-  Real tx;
+  double tx;
   Vector3 isect0, isect1;
   if (zero == 0)
   {
@@ -1143,7 +1143,7 @@ Real MeshDCD::calc_first_isect(const Triangle& t, const LineSeg3& s1, const Line
   // at this point, triangle transversely intersects the rectangle plane;
   // compute the line segment of intersection between the triangle and the
   // plane.  Then test for intersection between this segment and the rectangle.
-  Real tx;
+  double tx;
   Vector3 isect0, isect1;
   if (zero == 0)
   {
@@ -1212,26 +1212,26 @@ Real MeshDCD::calc_first_isect(const Triangle& t, const LineSeg3& s1, const Line
  * \param isect2 the second point of intersection
  * \return the lowest line segment parameter t of intersection or INF if no intersection
  */
-Real MeshDCD::intersect_rect(const Vector3& normal, const Vector3& axis1, const Vector3& axis2, const LineSeg3& rs1, const LineSeg3& rs2, const LineSeg3& qs, Vector3& isect1, Vector3& isect2)
+double MeshDCD::intersect_rect(const Vector3& normal, const Vector3& axis1, const Vector3& axis2, const LineSeg3& rs1, const LineSeg3& rs2, const LineSeg3& qs, Vector3& isect1, Vector3& isect2)
 {
   const unsigned X = 0, Y = 1, Z = 2;
-  const Real INF = std::numeric_limits<Real>::max();
+  const double INF = std::numeric_limits<double>::max();
 
 std::cout << "intersect rect!" << std::endl;
   // determine the length of the rectangle axes
-  Real l1 = axis1.norm();
-  Real l2 = axis2.norm();
+  double l1 = axis1.norm();
+  double l2 = axis2.norm();
 
   // get the direction of the two axes of the rectangle
   Vector3 u1 = axis1/l1;
   Vector3 u2 = axis2/l2;
 
   // half the axis lengths
-  l1 *= (Real) 0.5;
-  l2 *= (Real) 0.5;
+  l1 *= (double) 0.5;
+  l2 *= (double) 0.5;
 
   // determine the center of the rectangle
-  Vector3 center = rs1.first + axis1*(Real) 0.5 + axis2*(Real) 0.5;
+  Vector3 center = rs1.first + axis1*(double) 0.5 + axis2*(double) 0.5;
 
   // determine the projection matrix to convert to box coordinates
   Matrix3 R;
@@ -1244,23 +1244,23 @@ std::cout << "intersect rect!" << std::endl;
   Vector3 q2 = R * (qs.second - center);
 
   // clip
-  Real mt0 = (Real) 0.0, mt1 = (Real) 1.0;
-  Real dx = q2[X] - q1[X];
-  Real dy = q2[Y] - q1[Y];
+  double mt0 = (double) 0.0, mt1 = (double) 1.0;
+  double dx = q2[X] - q1[X];
+  double dy = q2[Y] - q1[Y];
   
   // clip against left edge
-  Real mp = -dx, mq = -(-l1 - q1[X]);
-  Real mr = mq/mp;
-  if (std::fabs(mp) < NEAR_ZERO && mq < (Real) 0.0)
+  double mp = -dx, mq = -(-l1 - q1[X]);
+  double mr = mq/mp;
+  if (std::fabs(mp) < NEAR_ZERO && mq < (double) 0.0)
     return INF;
-  if (mp < (Real) 0.0)
+  if (mp < (double) 0.0)
   {
     if (mr > mt1)
       return INF;
     else if (mr > mt0)
       mt0 = mr;
   }
-  else if (mp > (Real) 0.0)
+  else if (mp > (double) 0.0)
   {
     if (mr < mt0)
       return INF;
@@ -1271,16 +1271,16 @@ std::cout << "intersect rect!" << std::endl;
   // clip against right edge
   mp = dx, mq = (l1 - q1[X]);
   mr = mq/mp;
-  if (std::fabs(mp) < NEAR_ZERO && mq < (Real) 0.0)
+  if (std::fabs(mp) < NEAR_ZERO && mq < (double) 0.0)
     return INF;
-  if (mp < (Real) 0.0)
+  if (mp < (double) 0.0)
   {
     if (mr > mt1)
       return INF;
     else if (mr > mt0)
       mt0 = mr;
   }
-  else if (mp > (Real) 0.0)
+  else if (mp > (double) 0.0)
   {
     if (mr < mt0)
       return INF;
@@ -1291,16 +1291,16 @@ std::cout << "intersect rect!" << std::endl;
   // clip against bottom edge
   mp = -dy, mq = -(-l2 - q1[Y]);
   mr = mq/mp;
-  if (std::fabs(mp) < NEAR_ZERO && mq < (Real) 0.0)
+  if (std::fabs(mp) < NEAR_ZERO && mq < (double) 0.0)
     return INF;
-  if (mp < (Real) 0.0)
+  if (mp < (double) 0.0)
   {
     if (mr > mt1)
       return INF;
     else if (mr > mt0)
       mt0 = mr;
   }
-  else if (mp > (Real) 0.0)
+  else if (mp > (double) 0.0)
   {
     if (mr < mt0)
       return INF;
@@ -1311,16 +1311,16 @@ std::cout << "intersect rect!" << std::endl;
   // clip against top edge
   mp = dy, mq = (l2 - q1[Y]);
   mr = mq/mp;
-  if (std::fabs(mp) < NEAR_ZERO && mq < (Real) 0.0)
+  if (std::fabs(mp) < NEAR_ZERO && mq < (double) 0.0)
     return INF;
-  if (mp < (Real) 0.0)
+  if (mp < (double) 0.0)
   {
     if (mr > mt1)
       return INF;
     else if (mr > mt0)
       mt0 = mr;
   }
-  else if (mp > (Real) 0.0)
+  else if (mp > (double) 0.0)
   {
     if (mr < mt0)
       return INF;
@@ -1329,7 +1329,7 @@ std::cout << "intersect rect!" << std::endl;
   }
 
   // determine new q1 and q2
-  Vector3 dxyz(dx, dy, (Real) 0.0);
+  Vector3 dxyz(dx, dy, (double) 0.0);
   q2 = q1 + dxyz*mt1;
   q1 += dxyz*mt0;
 
@@ -1340,24 +1340,24 @@ std::cout << "intersect rect!" << std::endl;
   // determine intersection parameter
   // q1 + (q2 - q1)*t = z
   // (q1 - z)/(q2 - q1) = t
-  Real denom1 = (rs1.second - rs1.first).norm_sq();
-  Real denom2 = (rs2.second - rs2.first).norm_sq();
-  Real s1 = (rs1.first - isect1).norm_sq();
-  Real s2 = (rs1.first - isect2).norm_sq();
-  Real t1 = (rs2.first - isect1).norm_sq();
-  Real t2 = (rs2.first - isect2).norm_sq(); 
-  Real s = (s1 < s2) ? std::sqrt(s1/denom1) : std::sqrt(s2/denom1);
-  Real t = (t1 < t2) ? std::sqrt(t1/denom2) : std::sqrt(t2/denom2);
+  double denom1 = (rs1.second - rs1.first).norm_sq();
+  double denom2 = (rs2.second - rs2.first).norm_sq();
+  double s1 = (rs1.first - isect1).norm_sq();
+  double s2 = (rs1.first - isect2).norm_sq();
+  double t1 = (rs2.first - isect1).norm_sq();
+  double t2 = (rs2.first - isect2).norm_sq(); 
+  double s = (s1 < s2) ? std::sqrt(s1/denom1) : std::sqrt(s2/denom1);
+  double t = (t1 < t2) ? std::sqrt(t1/denom2) : std::sqrt(t2/denom2);
 
   // finally, determine the true t
-  if (s < (Real) 0.0)
+  if (s < (double) 0.0)
     s = INF;
-  if (t < (Real) 0.0)
+  if (t < (double) 0.0)
     t = INF;
   if (s > 1 || t > 1)
     return INF;
   t += s;
-  t *= (Real) 0.5;
+  t *= (double) 0.5;
 
   // now, determine the true intersection points
   isect1 = rs1.first + (rs1.second - rs1.first)*t;
@@ -1367,16 +1367,16 @@ std::cout << "intersect rect!" << std::endl;
 }
 
 /// Intersects two rectangles
-Real MeshDCD::intersect_rects(const Vector3& normal, const Vector3 r1[4], const Vector3 r2[4], Vector3& isect1, Vector3& isect2)
+double MeshDCD::intersect_rects(const Vector3& normal, const Vector3 r1[4], const Vector3 r2[4], Vector3& isect1, Vector3& isect2)
 {
   const unsigned RECT_VERTS = 4;
-  const Real INF = std::numeric_limits<Real>::max();
+  const double INF = std::numeric_limits<double>::max();
 
   // determine the projection matrix from 3D to 2D 
   Matrix3 R = CompGeom::calc_3D_to_2D_matrix(normal);
 
   // determine the offset when converting from 2D back to 3D
-  Real offset = CompGeom::determine_3D_to_2D_offset(r1[0], R);
+  double offset = CompGeom::determine_3D_to_2D_offset(r1[0], R);
 
   // convert r1 and r2 to 2D
   Vector2 r1_2D[RECT_VERTS], r2_2D[RECT_VERTS];
@@ -1405,16 +1405,16 @@ Real MeshDCD::intersect_rects(const Vector3& normal, const Vector3 r1[4], const 
   // determine the first times of intersection
   // r1[1]+(r1[2]-r1[1])*t = p
   // r1[0]+(r1[3]-r1[0])*t = p
-  Real t[RECT_VERTS*2];
+  double t[RECT_VERTS*2];
   for (unsigned i=0; i< nisects; i++)
   {
     t[i] = (isects_3D[i] - r1[1]).norm()/(r1[2]-r1[1]).norm();
     t[i] += (isects_3D[i] - r1[0]).norm()/(r1[3]-r1[0]).norm();
-    t[i] *= (Real) 0.5;
+    t[i] *= (double) 0.5;
   }
 
   // get minimum t
-  Real mint = *std::min_element(t, t+nisects);
+  double mint = *std::min_element(t, t+nisects);
 
   // determine points of intersection
   isect1 = r1[1] + (r1[2] - r1[1])*mint;
@@ -1424,14 +1424,14 @@ Real MeshDCD::intersect_rects(const Vector3& normal, const Vector3 r1[4], const 
 }
 
 /// Calculates the first point of intersection between a line segment and a triangle
-Real MeshDCD::calc_first_isect(const Triangle& t, const LineSeg3& seg, Vector3& p)
+double MeshDCD::calc_first_isect(const Triangle& t, const LineSeg3& seg, Vector3& p)
 {
-  const Real INF = std::numeric_limits<Real>::max();
+  const double INF = std::numeric_limits<double>::max();
 
   // setup the thick triangle
   ThickTriangle ttri(t, isect_tolerance);
 
-  Real tnear;
+  double tnear;
   bool success = ttri.intersect_seg(seg, tnear, p);
   if (!success)
     return INF;
@@ -1451,7 +1451,7 @@ Real MeshDCD::calc_first_isect(const Triangle& t, const LineSeg3& seg, Vector3& 
   }
   catch (NumericalException e)
   {
-    return std::numeric_limits<Real>::max();
+    return std::numeric_limits<double>::max();
   }
 
   // look for cases we care about
@@ -1462,8 +1462,8 @@ Real MeshDCD::calc_first_isect(const Triangle& t, const LineSeg3& seg, Vector3& 
   }
   else if (isect == CompGeom::eSegTriInside || isect == CompGeom::eSegTriPlanarIntersect)
   {
-    Real t1 = calc_param(seg, p1);
-    Real t2 = calc_param(seg, p2);
+    double t1 = calc_param(seg, p1);
+    double t2 = calc_param(seg, p2);
     if (t1 < t2)
     {
       p = p1;
@@ -1477,7 +1477,7 @@ Real MeshDCD::calc_first_isect(const Triangle& t, const LineSeg3& seg, Vector3& 
   }
 
   // still here?  no intersection
-  return std::numeric_limits<Real>::max();
+  return std::numeric_limits<double>::max();
 */
 }
 
@@ -1485,7 +1485,7 @@ Real MeshDCD::calc_first_isect(const Triangle& t, const LineSeg3& seg, Vector3& 
 /**
  * p = seg.first + (seg.second-seg.first)*t
  */
-Real MeshDCD::calc_param(const LineSeg3& seg, const Vector3& p)
+double MeshDCD::calc_param(const LineSeg3& seg, const Vector3& p)
 {
   // t = (p - seg.first)/(seg.second - seg.first) 
   return (p - seg.first).norm() / (seg.second - seg.first).norm();
@@ -1649,7 +1649,7 @@ void MeshDCD::broad_phase(vector<pair<CollisionGeometryPtr, CollisionGeometryPtr
 /**
  * \note the epsilon parameter is ignored
  */
-bool MeshDCD::is_collision(Real epsilon)
+bool MeshDCD::is_collision(double epsilon)
 {
   // clear the set of colliding pairs and list of colliding triangles
   colliding_pairs.clear();

@@ -13,11 +13,12 @@
 #include <set>
 #include <libxml/parser.h>
 #include <libxml/tree.h>
-#include <Moby/VectorN.h>
-#include <Moby/SVector6.h>
-#include <Moby/MatrixN.h>
-#include <Moby/Matrix3.h>
-#include <Moby/Matrix4.h>
+#include <Ravelin/Origin3d.h>
+#include <Ravelin/VectorNd.h>
+#include <Ravelin/SVector6d.h>
+#include <Ravelin/MatrixNd.h>
+#include <Ravelin/Matrix3d.h>
+#include <Ravelin/Pose3d.h>
 #include <Moby/Types.h>
 
 namespace Moby {
@@ -27,31 +28,38 @@ class XMLAttrib
 {
   public:
     XMLAttrib(const std::string& name, const std::string& string_value);
-    XMLAttrib(const std::string& name, Real real_value);
+    XMLAttrib(const std::string& name, double real_value);
     XMLAttrib(const std::string& name, int int_value);
     XMLAttrib(const std::string& name, unsigned unsigned_value);
-    XMLAttrib(const std::string& name, const VectorN& vector_value);
-    XMLAttrib(const std::string& name, const SVector6& vector_value);
-    XMLAttrib(const std::string& name, const MatrixN& matrix_value);
-    XMLAttrib(const std::string& name, const Matrix3& matrix_value);
-    XMLAttrib(const std::string& name, const Matrix4& matrix_value);
+    XMLAttrib(const std::string& name, const Ravelin::Vector2d& vector_value);
+    XMLAttrib(const std::string& name, const Ravelin::Point2d& vector_value);
+    XMLAttrib(const std::string& name, const Ravelin::Vector3d& vector_value);
+    XMLAttrib(const std::string& name, const Ravelin::Point3d& vector_value);
+    XMLAttrib(const std::string& name, const Ravelin::VectorNd& vector_value);
+    XMLAttrib(const std::string& name, const Ravelin::SVector6d& vector_value);
+    XMLAttrib(const std::string& name, const Ravelin::MatrixNd& matrix_value);
+    XMLAttrib(const std::string& name, const Ravelin::Matrix3d& matrix_value);
+    XMLAttrib(const std::string& name, const Ravelin::Pose3d& matrix_value);
     XMLAttrib(const std::string& name, bool bool_value);
     XMLAttrib(const std::string& name, long long_value);
     const std::string& get_string_value() const { return value; }
-    static std::string str(Real value);
-    Real get_real_value() const;
+    static std::string str(double value);
+    double get_real_value() const;
+    Ravelin::Origin3d get_origin_value() const;
+    Ravelin::Origin3d get_point_value() const;
+    Ravelin::Pose3d get_pose3_value() const;
     int get_int_value() const { return std::atoi(value.c_str()); }
     unsigned get_unsigned_value() const { return (unsigned) std::atoi(value.c_str()); }
     bool get_bool_value() const;
     long get_long_value() const { return std::atol(value.c_str()); }
     std::list<std::string> get_strings_value() const;
-    void get_vector_value(VectorN& v) const;
-    void get_vector_value(Vector2& v) const;
-    void get_vector_value(Vector3& v) const;
-    void get_vector_value(SVector6& v) const;
-    void get_matrix_value(Matrix3& m) const;
-    void get_matrix_value(Matrix4& m) const;
-    void get_matrix_value(MatrixN& m) const;
+    void get_vector_value(Ravelin::VectorNd& v) const;
+    void get_vector_value(Ravelin::Vector2d& v) const;
+    void get_vector_value(Ravelin::Vector3d& v) const;
+    void get_vector_value(Ravelin::SVector6d& v) const;
+    void get_matrix_value(Ravelin::Matrix3d& m) const;
+    void get_matrix_value(Ravelin::Pose3d& m) const;
+    void get_matrix_value(Ravelin::MatrixNd& m) const;
     bool operator==(const XMLAttrib& a) const { return name == a.name; }
     bool operator<(const XMLAttrib& a) const { return name < a.name; }
 

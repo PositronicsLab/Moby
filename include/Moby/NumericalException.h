@@ -4,8 +4,8 @@
  * License (found in COPYING).
  ****************************************************************************/
 
-#ifndef _NUMERICAL_EXCEPTION_H_
-#define _NUMERICAL_EXCEPTION_H_
+#ifndef _MOBY_NUMERICAL_EXCEPTION_H_
+#define _MOBY_NUMERICAL_EXCEPTION_H_
 
 #include <stdexcept>
 

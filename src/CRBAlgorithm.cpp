@@ -7,7 +7,6 @@
 #include <queue>
 #include <Moby/Constants.h>
 #include <Moby/Log.h>
-#include <Moby/LinAlg.h>
 #include <Moby/RNEAlgorithm.h>
 #include <Moby/RCArticulatedBody.h>
 #include <Moby/RigidBody.h>
@@ -79,7 +78,7 @@ bool CRBAlgorithm::factorize_cholesky(MatrixN& M)
   for (unsigned kk=n; kk> 0; kk--)
   {
     unsigned k = kk - 1;
-    if (M(k,k) < (Real) 0.0)
+    if (M(k,k) < (double) 0.0)
     {
       assert(false);
       return false;
@@ -164,7 +163,7 @@ void CRBAlgorithm::calc_generalized_inertia(RCArticulatedBodyPtr body, Reference
   }
 
   // get composite inertia in matrix form
-  Real Ic0[SPATIAL_DIM*SPATIAL_DIM];
+  double Ic0[SPATIAL_DIM*SPATIAL_DIM];
   Ic.front().to_matrix(Ic0);
 
   // setup the remainder of the augmented inertia matrix
@@ -516,7 +515,7 @@ void CRBAlgorithm::calc_generalized_inertia_axisangle(MatrixN& M) const
   }
 
   // get composite inertia in matrix form
-  Real Ic0[SPATIAL_DIM*SPATIAL_DIM];
+  double Ic0[SPATIAL_DIM*SPATIAL_DIM];
   Ic.front().to_matrix(Ic0);
 
   // setup the remainder of the augmented inertia matrix
@@ -583,7 +582,7 @@ void CRBAlgorithm::calc_generalized_inertia_rodrigues(MatrixN& M) const
   // compute K
   K.resize(7, body->num_joint_dof_implicit());
   for (unsigned i=0; i< K.columns(); i++)
-    K(6,i) = (Real) 0.0;
+    K(6,i) = (double) 0.0;
   K2.resize(body->num_joint_dof_implicit(), 7);
   for (unsigned i=0; i< ijoints.size(); i++)
   {
@@ -603,7 +602,7 @@ void CRBAlgorithm::calc_generalized_inertia_rodrigues(MatrixN& M) const
     Is.get_sub_mat(0, 3, 0, Is.columns(), tmp1);
     K2.set_sub_mat(jidx, 4, tmp1, true);
     outboard->get_orientation().determine_L(L);
-    L*= (Real) 2.0;
+    L*= (double) 2.0;
     Is.get_sub_mat(3, 6, 0, Is.columns(), tmp1);
     L.transpose_mult(tmp1, tmp2);
     K2.set_sub_mat(jidx, 0, tmp2, true);
@@ -642,7 +641,7 @@ void CRBAlgorithm::to_spatial7_inertia(const SpatialRBInertia& I, const Quat& q,
   I7.set_sub_mat(3, 4, ILR);
 
   // transform and set the non-invariant parts
-  q.determine_L(L) *= (Real) 2.0;
+  q.determine_L(L) *= (double) 2.0;
   work.resize(3,3);
   work.set_sub_mat(0, 0, IUL);
   work.mult(L, work2);
@@ -656,7 +655,7 @@ void CRBAlgorithm::to_spatial7_inertia(const SpatialRBInertia& I, const Quat& q,
   I7(6,1) = q.x;
   I7(6,2) = q.y;
   I7(6,3) = q.z;
-  I7(6,4) = I7(6,5) = I7(6,6) = (Real) 0.0;
+  I7(6,4) = I7(6,5) = I7(6,6) = (double) 0.0;
 }
 
 /// Sets all spatial velocities

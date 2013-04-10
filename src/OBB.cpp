@@ -13,6 +13,7 @@
 #include <Moby/ThickTriangle.h>
 #include <Moby/OBB.h>
 
+using namespace Ravelin;
 using namespace Moby;
 using boost::numeric::interval;
 using boost::shared_ptr;
@@ -25,9 +26,9 @@ using std::list;
 
 OBB::OBB()
 {
-  R = Matrix3::zero();
-  center = ZEROS_3;
-  l = ZEROS_3;
+  R = Matrix3d::zero();
+  center.set_zero();
+  l.set_zero();
 }
 
 /// Copies an OBB
@@ -42,7 +43,7 @@ void OBB::operator=(const OBB& obb)
 }
 
 /// Constructs an OBB with given center, principle axes and lengths of principle axes
-OBB::OBB(const Vector3& center, const Matrix3& R, const Vector3& l) 
+OBB::OBB(const Point3d& center, const Matrix3d& R, const Vector3d& l) 
 {
   this->center = center;
   this->l = l;
@@ -54,29 +55,29 @@ OBB::OBB(const Vector3& center, const Matrix3& R, const Vector3& l)
  * \param o the original bounding box
  * \param v the vector to expand the box by
  */
-OBB::OBB(const OBB& o, const Vector3& v)
+OBB::OBB(const OBB& o, const Vector3d& v)
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
   // if the vector is essentially zero, just set this to o 
-  if (v.norm_sq() < std::numeric_limits<Real>::epsilon())
+  if (v.norm_sq() < std::numeric_limits<double>::epsilon())
   {
     *this = o;
     return;
   }
 
   // get the axes of o
-  Vector3 axis1, axis2, axis3;
-  o.R.get_column(X, axis1.begin());
-  o.R.get_column(Y, axis2.begin());
-  o.R.get_column(Z, axis3.begin());
+  Vector3d axis1, axis2, axis3;
+  o.R.get_column(X, axis1);
+  o.R.get_column(Y, axis2);
+  o.R.get_column(Z, axis3);
 
   // get all vertices of the OBB
-  list<Vector3> verts;
+  list<Point3d> verts;
   o.get_vertices(std::back_inserter(verts));
 
   // add expanded vertices
-  list<Vector3>::const_iterator vi = verts.begin();
+  list<Point3d>::const_iterator vi = verts.begin();
   for (unsigned i=0; i< 8; i++)
     verts.push_back(*vi++ + v);
 
@@ -84,11 +85,11 @@ OBB::OBB(const OBB& o, const Vector3& v)
   center = o.center + v*0.5;
 
   // compute the lengths of the expanded bounding box using the current directions
-  Real l1[3];
+  double l1[3];
   calc_lengths(axis1, axis2, axis3, center, verts.begin(), verts.end(), l1);
 
   // get the length of v
-  Real vlen = v.norm();
+  double vlen = v.norm();
 
   // if length of v less than largest length, use original axes and new lengths
   if (vlen < std::max(l1[0], std::max(l1[1], l1[2])))
@@ -101,19 +102,19 @@ OBB::OBB(const OBB& o, const Vector3& v)
   }
 
   // get the direction of v
-  Vector3 vdir = v/vlen;
+  Vector3d vdir = v/vlen;
 
   // determine the vector that results in the minimum bounding volume given
   // that one direction is v
-  Vector3 vmin;
+  Vector3d vmin;
   align(verts.begin(), verts.end(), vdir, vmin);
 
   // determine the third vector
-  Vector3 v3 = Vector3::cross(vdir, vmin);
+  Vector3d v3 = Vector3d::cross(vdir, vmin);
   v3.normalize();
 
   // compute the lengths
-  Real l2[3];
+  double l2[3];
   calc_lengths(vdir, vmin, v3, center, verts.begin(), verts.end(), l2);
 
   // see which bounding box to use
@@ -149,7 +150,7 @@ OBB::OBB(TriangleMeshPrimitive& trimesh)
   const unsigned X = 0, Y = 1, Z = 2;
 
   // store old mesh mass 
-  Real mass = trimesh.get_mass();
+  double mass = trimesh.get_mass();
   trimesh.set_density(1.0);
 
   // determine center and principle axes
@@ -164,7 +165,7 @@ OBB::OBB(TriangleMeshPrimitive& trimesh)
   axis3.normalize();
 
   // compute the lengths
-  this->l = ZEROS_3;
+  this->l.set_zero();
   const std::vector<Vector3>& verts = trimesh.get_mesh().get_vertices();
   for (unsigned i=0; i< verts.size(); i++)
   {
@@ -190,15 +191,15 @@ unsigned OBB::calc_size() const
 }
 
 /// Computes the squared distance from a point to an OBB
-Real OBB::calc_sq_dist(const OBB& o, const Vector3& p)
+double OBB::calc_sq_dist(const OBB& o, const Point3d& p)
 {
   const unsigned THREE_D = 3;
 
   // transform the point to OBB coordinates
-  Vector3 point = o.R.transpose_mult(p - o.center);
+  Point3d point = o.R.transpose_mult(p - o.center);
 
   // compute the distance
-  Real sq_dist = 0.0;
+  double sq_dist = 0.0;
   for (unsigned i=0; i< THREE_D; i++)
   {
     if (point[i] < -o.l[i] || point[i] > o.l[i])
@@ -211,10 +212,10 @@ Real OBB::calc_sq_dist(const OBB& o, const Vector3& p)
 }
 
 /// Determines whether a point is outside a OBB to within the given tolerance
-bool OBB::outside(const OBB& a, const Vector3& p, Real tol)
+bool OBB::outside(const OBB& a, const Point3d& p, double tol)
 {
   // transform the point to OBB coordinates
-  Vector3 point = a.R.transpose_mult(p - a.center);
+  Point3d point = a.R.transpose_mult(p - a.center);
 
   // OBB is now effectively a centered AABB; check whether point is 
   // outside of the AABB
@@ -246,15 +247,15 @@ bool OBB::outside(const OBB& a, const Vector3& p, Real tol)
  * \return <b>true</b> if the OBB and line intersect, <b>false</b> otherwise
  * \note code adapted from [Ericson, 2005], pp. 180-181
  */
-bool OBB::intersects(const OBB& a, const LineSeg3& seg, Real& tmin, Real tmax, Vector3& q)
+bool OBB::intersects(const OBB& a, const LineSeg3& seg, double& tmin, double tmax, Point3d& q)
 {
   // compute the inverse of the OBB transform
-  Matrix4 T(&a.R, &a.center);
-  T.inverse_transform();
+  Pose3d T(Quatd(a.R), a.center);
+  T.invert();
 
   // convert the line segment to OBB space
-  Vector3 p = T.mult_point(seg.first);
-  Vector3 d = T.mult_point(seg.second) - p;
+  Point3d p = T.transform(seg.first);
+  Vector3d d = T.transform(seg.second) - p;
 
   FILE_LOG(LOG_BV) << "OBB::intersects() entered" << endl; 
   FILE_LOG(LOG_BV) << "  -- checking intersection between line segment " << seg.first << " / " << seg.second << " and OBB: " << endl << a;
@@ -275,9 +276,9 @@ bool OBB::intersects(const OBB& a, const LineSeg3& seg, Real& tmin, Real tmax, V
     else
     {
       // compute intersection value of line with near and far plane of slab
-      Real ood = 1.0 / d[i];
-      Real t1 = (-a.l[i] - p[i]) * ood;
-      Real t2 = (a.l[i] - p[i]) * ood;
+      double ood = 1.0 / d[i];
+      double t1 = (-a.l[i] - p[i]) * ood;
+      double t2 = (a.l[i] - p[i]) * ood;
 
       FILE_LOG(LOG_BV) << "  ood: " << ood << " t1: " << t1 << "  t2: " << t2 << endl; 
 
@@ -309,7 +310,7 @@ bool OBB::intersects(const OBB& a, const LineSeg3& seg, Real& tmin, Real tmax, V
 }
 
 /// Determines the distance between two OBBs
-Real OBB::calc_dist(const OBB& a, const OBB& b, Vector3& cpa, Vector3& cpb)
+double OBB::calc_dist(const OBB& a, const OBB& b, Point3d& cpa, Point3d& cpb)
 {
   // need to implement this!
   throw std::runtime_error("OBB::calc_dist() unimplemented!");
@@ -326,15 +327,14 @@ Real OBB::calc_dist(const OBB& a, const OBB& b, Vector3& cpa, Vector3& cpb)
  * \param cpb the closest point on b to a, on return (in a's frame)
  * \return the distance between a and b
  */
-Real OBB::calc_dist(const OBB& a, const OBB& b, const Matrix4& aTb, Vector3& cpa, Vector3& cpb)
+double OBB::calc_dist(const OBB& a, const OBB& b, const Pose3d& aTb, Point3d& cpa, Point3d& cpb)
 {
   // copy b
   OBB bcopy(b);
 
   // transform the center and orientation of b
-  bcopy.center = aTb.mult_point(b.center);
-  Matrix3 R;
-  aTb.get_rotation(&R);
+  bcopy.center = aTb.transform(b.center);
+  Matrix3d R = aTb.q;
   bcopy.R = R * b.R;
 
   // perform the distance query
@@ -345,15 +345,14 @@ Real OBB::calc_dist(const OBB& a, const OBB& b, const Matrix4& aTb, Vector3& cpa
 /**
  * \param aTb the relative transform from b to a
  */
-bool OBB::intersects(const OBB& a, const OBB& b, const Matrix4& aTb)
+bool OBB::intersects(const OBB& a, const OBB& b, const Pose3d& aTb)
 {
   // copy b
   OBB bcopy(b);
 
   // transform the center and orientation of b
-  bcopy.center = aTb.mult_point(b.center);
-  Matrix3 R;
-  aTb.get_rotation(&R);
+  bcopy.center = aTb.transform(b.center);
+  Matrix3d R = aTb.q;
   bcopy.R = R * b.R;
 
   // perform the intersection
@@ -368,7 +367,7 @@ bool OBB::intersects(const OBB& a, const OBB& b)
 {
   const unsigned THREE_D = 3, X = 0, Y = 1, Z = 2;
   enum Dims { eDim0 = 0, eDim1 = 1, eDim2 = 2 };
-  Real ra, rb;
+  double ra, rb;
 
   FILE_LOG(LOG_BV) << "checking OBBs for intersection" << endl;
   FILE_LOG(LOG_BV) << " OBB 1: " << endl << a;
@@ -376,15 +375,15 @@ bool OBB::intersects(const OBB& a, const OBB& b)
 
   // transpose of A's matrix will convert to A's coordinate frame
   // Compute rotation matrix expressing b in a's coordinate frame
-  const Matrix3 Rab = a.R.transpose_mult(b.R);
+  const Matrix3d Rab = a.R.transpose_mult(b.R);
   
   // compute translation vector t in coordinate frame of a
-  Vector3 t = a.R.transpose_mult(b.center - a.center);
+  Vector3d t = a.R.transpose_mult(b.center - a.center);
 
   // compute common subexpressions; add in an epsilon term to counteract
   // arithmetic errors when two edges are parallel and their cross product
   // is near zero
-  Matrix3 abs_Rab = Rab;
+  Matrix3d abs_Rab = Rab;
   for (unsigned i=0; i< THREE_D; i++)
     for (unsigned j=0; j< THREE_D; j++)
       abs_Rab(i,j) = std::fabs(Rab(i,j)) + NEAR_ZERO;
@@ -402,13 +401,13 @@ bool OBB::intersects(const OBB& a, const OBB& b)
   }
 
   // test axes L = B0, L = B1, L = B2
-  Vector3 Rab_col;
+  Vector3d Rab_col;
   for (unsigned i=0; i< THREE_D; i++)
   {
     ra = a.l[eDim0] * abs_Rab(0,i) + a.l[eDim1]*abs_Rab(1,i) + a.l[eDim2]*abs_Rab(2,i);
     rb = b.l[i];
-    Rab.get_column(i, Rab_col.begin());
-    if (std::fabs(Vector3::dot(t, Rab_col)) > ra + rb)
+    Rab.get_column(i, Rab_col);
+    if (std::fabs(Vector3d::dot(t, Rab_col)) > ra + rb)
     {
       FILE_LOG(LOG_BV) << "OBBs do not intersect" << endl;
       return false;
@@ -503,34 +502,34 @@ bool OBB::intersects(const OBB& a, const OBB& b)
 }
 
 /// Outputs the OBB in VRML format to the given stream
-std::ostream& OBB::to_vrml(std::ostream& out, const Matrix4& T) const
+std::ostream& OBB::to_vrml(std::ostream& out, const Pose3d& T) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
   // get translation and axis angle for T
-  Vector3 tx = T.get_translation();
-  AAngle rot(&T);
+  const Origin3d& tx = T.x;
+  AAngled rot = T.q;
 
   // make the OBB orientation matrix right handed
-  Matrix3 Rr = R;
-  Vector3 x = Rr.get_column(X);
-  Vector3 y = Rr.get_column(Y);
-  Vector3 z = Vector3::cross(x, y);
+  Matrix3d Rr = R;
+  Point3d x = Rr.get_column(X);
+  Point3d y = Rr.get_column(Y);
+  Vector3d z = Vector3d::cross(x, y);
   Rr.set_column(Z, z);
 
   // convert the orientation to axis-angle representation
-  AAngle aa(&Rr);
+  AAngled aa = Rr;
 
   // setup the vertices
-  list<Vector3> vertices;
-  vertices.push_back(Vector3(-1,-1,+1));
-  vertices.push_back(Vector3(+1,-1,+1));
-  vertices.push_back(Vector3(-1,+1,+1));
-  vertices.push_back(Vector3(+1,+1,+1));
-  vertices.push_back(Vector3(-1,+1,-1));
-  vertices.push_back(Vector3(+1,+1,-1));
-  vertices.push_back(Vector3(+1,-1,-1));
-  vertices.push_back(Vector3(-1,-1,-1));
+  list<Point3d> vertices;
+  vertices.push_back(Point3d(-1,-1,+1));
+  vertices.push_back(Point3d(+1,-1,+1));
+  vertices.push_back(Point3d(-1,+1,+1));
+  vertices.push_back(Point3d(+1,+1,+1));
+  vertices.push_back(Point3d(-1,+1,-1));
+  vertices.push_back(Point3d(+1,+1,-1));
+  vertices.push_back(Point3d(+1,-1,-1));
+  vertices.push_back(Point3d(-1,-1,-1));
   
   // write to the stream
   out << "Transform { " << endl;
@@ -546,13 +545,13 @@ std::ostream& OBB::to_vrml(std::ostream& out, const Matrix4& T) const
   out << "          Shape {" << endl;
   out << "            geometry IndexedLineSet {" << endl;
   out << "              coord Coordinate { point [ ";
-  BOOST_FOREACH(const Vector3& vertex, vertices)
+  BOOST_FOREACH(const Point3d& vertex, vertices)
     out << vertex[X] << " " << vertex[Y] << " " << vertex[Z] << ", ";
   out << "                ] }" << endl;
   out << "              coordIndex [ 0, 1, 3, 2, -1, 1, 6, 5, 3, -1, 0, 2, 4, 7, -1,";
   out << "                2, 3, 5, 4, -1, 0, 7, 6, 1, -1, 4, 5, 6, 7, -1] } }" << endl; 
   out << "           ] }" << endl; // end transform
-  Real scale = std::max(l[0], std::max(l[1], l[2]));
+  double scale = std::max(l[0], std::max(l[1], l[2]));
   if (false && !this->children.empty())
   {
     out << "      Transform { " << endl;
@@ -635,9 +634,9 @@ std::ostream& OBB::to_vrml(std::ostream& out, const Matrix4& T) const
 OBBPtr OBB::load_from_xml(XMLTreeConstPtr root)
 {
   // setup some reasonable defaults
-  Vector3 center = ZEROS_3;
-  Vector3 lengths = ZEROS_3;
-  Matrix3 R = Matrix3::identity();
+  Point3d center = Point3d::zero();
+  Vector3d lengths = Vector3d::zero();
+  Matrix3d R = Matrix3d::identity();
 
   // create a new OBB
   OBBPtr obb(new OBB);
@@ -645,7 +644,7 @@ OBBPtr OBB::load_from_xml(XMLTreeConstPtr root)
   // read the center, length, and axes attributes
   const XMLAttrib* cattrib = root->get_attrib("center");
   if (cattrib)
-    cattrib->get_vector_value(center);
+    center = cattrib->get_point_value();
 
   // read the lengths attribute
   const XMLAttrib* lattrib = root->get_attrib("lengths");
@@ -677,7 +676,7 @@ OBBPtr OBB::load_from_xml(XMLTreeConstPtr root)
       BOOST_FOREACH(XMLTreeConstPtr node, tchildren)
       {
         // read the thickness
-        Real thickness = 0.0;
+        double thickness = 0.0;
         const XMLAttrib* tattr = node->get_attrib("thickness");
         if (!tattr)
           cerr << "OBB::load_from_xml() - no thickness specified in Triangle node" << endl;
@@ -685,22 +684,22 @@ OBBPtr OBB::load_from_xml(XMLTreeConstPtr root)
           thickness = tattr->get_real_value();
 
         // construct the triangle
-        Vector3 va, vb, vc;
+        Point3d va, vb, vc;
         const XMLAttrib* vaattr = node->get_attrib("vertex1");
         const XMLAttrib* vbattr = node->get_attrib("vertex2");
         const XMLAttrib* vcattr = node->get_attrib("vertex3");
         if (!vaattr)
           cerr << "OBB::load_from_xml() - missing vertex in Triangle node" << endl;    
         else
-          vaattr->get_vector_value(va);
+          va = vaattr->get_point_value();
         if (!vbattr)
           cerr << "OBB::load_from_xml() - missing vertex in Triangle node" << endl;    
         else
-          vbattr->get_vector_value(vb);
+          vb = vbattr->get_point_value();
         if (!vcattr)
           cerr << "OBB::load_from_xml() - missing vertex in Triangle node" << endl;    
         else
-          vcattr->get_vector_value(vc);
+          vc = vcattr->get_point_value();
       
         Triangle tri(va, vb, vb);
         tt_list->push_back(ThickTriangle(tri, thickness));
@@ -747,7 +746,7 @@ XMLTreePtr OBB::save_to_xml_tree() const
 }
 
 /// Calculates the velocity-expanded OBB for a body
-BVPtr OBB::calc_vel_exp_BV(CollisionGeometryPtr g, Real dt, const Vector3& lv, const Vector3& av) const
+BVPtr OBB::calc_vel_exp_BV(CollisionGeometryPtr g, double dt, const Vector3d& lv, const Vector3d& av) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
@@ -765,21 +764,21 @@ BVPtr OBB::calc_vel_exp_BV(CollisionGeometryPtr g, Real dt, const Vector3& lv, c
   }
 
   // get matrix for transforming vectors from b's frame to world frame
-  const Matrix4& wTb = b->get_transform();
+  shared_ptr<const Pose3d> wTb = b->get_transform();
 
   // copy the OBB, expanded by linear velocity
   OBBPtr o(new OBB);
   if (lv.norm() <= NEAR_ZERO/dt) 
     *o = *get_this();
   else
-    *o = OBB(*get_this(), wTb.transpose_mult_vector(lv)*dt);
+    *o = OBB(*get_this(), wTb->inverse_transform(lv)*dt);
 
   FILE_LOG(LOG_BV) << "OBB::calc_vel_exp_OBB() entered" << endl;
   FILE_LOG(LOG_BV) << "  original bounding box: " << endl << *get_this();
   FILE_LOG(LOG_BV) << "  linear velocity expanded bounding box: " << endl << *o;
 
   // if there is no angular velocity, nothing more needs to be done
-  Real av_norm = av.norm();
+  double av_norm = av.norm();
   if (av_norm < NEAR_ZERO)
   {
     FILE_LOG(LOG_BV) << " -- angular velocity near zero" << endl;
@@ -789,19 +788,19 @@ BVPtr OBB::calc_vel_exp_BV(CollisionGeometryPtr g, Real dt, const Vector3& lv, c
   }
 
   // get the position of the center-of-mass of the body
-  Vector3 com = b->get_position();
+  Point3d com = b->get_position();
 
   // determine vertices in OBB coordinates
   const unsigned OBB_VERTS = 8;
-  Vector3 verts[OBB_VERTS];
-  verts[0] = Vector3(-o->l[X], -o->l[Y], -o->l[Z]);
-  verts[1] = Vector3(-o->l[X], -o->l[Y], o->l[Z]);
-  verts[2] = Vector3(-o->l[X], o->l[Y], -o->l[Z]);
-  verts[3] = Vector3(-o->l[X], o->l[Y], o->l[Z]);
-  verts[4] = Vector3(o->l[X], -o->l[Y], -o->l[Z]);
-  verts[5] = Vector3(o->l[X], -o->l[Y], o->l[Z]);
-  verts[6] = Vector3(o->l[X], o->l[Y], -o->l[Z]);
-  verts[7] = Vector3(o->l[X], o->l[Y], o->l[Z]);
+  Point3d verts[OBB_VERTS];
+  verts[0] = Point3d(-o->l[X], -o->l[Y], -o->l[Z]);
+  verts[1] = Point3d(-o->l[X], -o->l[Y], o->l[Z]);
+  verts[2] = Point3d(-o->l[X], o->l[Y], -o->l[Z]);
+  verts[3] = Point3d(-o->l[X], o->l[Y], o->l[Z]);
+  verts[4] = Point3d(o->l[X], -o->l[Y], -o->l[Z]);
+  verts[5] = Point3d(o->l[X], -o->l[Y], o->l[Z]);
+  verts[6] = Point3d(o->l[X], o->l[Y], -o->l[Z]);
+  verts[7] = Point3d(o->l[X], o->l[Y], o->l[Z]);
 
   FILE_LOG(LOG_BV) << "linearly expanded OBB vertices:" << endl;
   if (LOGGING(LOG_BV))
@@ -809,72 +808,72 @@ BVPtr OBB::calc_vel_exp_BV(CollisionGeometryPtr g, Real dt, const Vector3& lv, c
       FILE_LOG(LOG_BV) << "  " << i << ": " << verts[i] << endl; 
 
   // setup transform from OBB orientation to world orientation
-  Matrix3 wTo = wTb.get_rotation() * o->R;
+  Matrix3d wTo = Matrix3d(wTb->q) * o->R;
 
   // setup the angular velocity in the OBB frame
-  Vector3 w = wTo.transpose_mult(av);
+  Vector3d w = wTo.transpose_mult(av);
 
   // normalize the angular velocity vector
-  Vector3 wn = Vector3::normalize(w);
+  Vector3d wn = Vector3d::normalize(w);
 
   // setup projection matrix
-  Matrix3 P;
-  Vector3::outer_prod(wn, -wn, &P);
-  P += Matrix3::identity();
+  Matrix3d P;
+  outer_prod(wn, -wn, P);
+  P += Matrix3d::identity();
 
   // determine c
-  Vector3 c = P * Vector3(std::fabs(w[X])+(Real) 1.0, w[Y], w[Z]);
-  Real cnorm = c.norm();
-  Vector3 chat = ZEROS_3;
+  Vector3d c = P * Vector3d(std::fabs(w[X])+(double) 1.0, w[Y], w[Z]);
+  double cnorm = c.norm();
+  Vector3d chat = Vector3d::zero();
   if (cnorm > NEAR_ZERO) 
     chat = c/cnorm;
 
   // determine d 
-  Vector3 d = P * Vector3(w[X], std::fabs(w[Y]) + (Real) 1.0, w[Z]);
-  Real dnorm = d.norm();
-  Vector3 dhat = ZEROS_3;
+  Vector3d d = P * Vector3d(w[X], std::fabs(w[Y]) + (double) 1.0, w[Z]);
+  double dnorm = d.norm();
+  Vector3d dhat = Vector3d::zero();
   if (dnorm > NEAR_ZERO) 
     dhat = d/dnorm;
 
   // determine e
-  Vector3 e = P * Vector3(w[X], w[Y], std::fabs(w[Z]) + (Real) 1.0);
-  Real enorm = e.norm();
-  Vector3 ehat = ZEROS_3;
+  Vector3d e = P * Vector3d(w[X], w[Y], std::fabs(w[Z]) + (double) 1.0);
+  double enorm = e.norm();
+  Vector3d ehat = Vector3d::zero();
   if (enorm > NEAR_ZERO)
     ehat = e/enorm;
 
   // get the center of the OBB (with respect to the OBB frame)
-  Vector3 center_o = o->R.transpose_mult(o->center); 
+  Point3d center_o = o->R.transpose_mult(o->center); 
 
   // compute the current minima and maxima along the three OBB axes
-  Vector3 min_o = center_o - o->l;
-  Vector3 max_o = center_o + o->l;
+  Point3d min_o = center_o - o->l;
+  Point3d max_o = center_o + o->l;
 
   // process all vertices
   for (unsigned i=0; i< OBB_VERTS; i++)
   {
     // get the radial vector
-    Vector3 r = center_o + verts[i];
+    Vector3d r = center_o + verts[i];
 
     // calculate the new lengths
-    Vector3 lprime;
-    const Real wnxr = Vector3::cross(wn, r).norm();
-    lprime[X] = (cnorm > NEAR_ZERO) ? (chat*wnxr)[X] : (Real) 0.0;
-    lprime[Y] = (dnorm > NEAR_ZERO) ? (dhat*wnxr)[Y] : (Real) 0.0;
-    lprime[Z] = (enorm > NEAR_ZERO) ? (ehat*wnxr)[Z] : (Real) 0.0;
+    Vector3d lprime;
+    const double wnxr = Vector3d::cross(wn, r).norm();
+    lprime[X] = (cnorm > NEAR_ZERO) ? (chat*wnxr)[X] : (double) 0.0;
+    lprime[Y] = (dnorm > NEAR_ZERO) ? (dhat*wnxr)[Y] : (double) 0.0;
+    lprime[Z] = (enorm > NEAR_ZERO) ? (ehat*wnxr)[Z] : (double) 0.0;
 
     // compute the OBB center
-    Vector3 center_new = wn * wn.dot(r); 
+    Point3d center_new = wn * wn.dot(r); 
 
     // compute new minima and maxima
-    Vector3 min_i = center_new - lprime;
-    Vector3 max_i = center_new + lprime;
+    Point3d min_i = center_new - lprime;
+    Point3d max_i = center_new + lprime;
 
     FILE_LOG(LOG_BV) << "min_o: " << min_o << "  max_o: " << max_o << endl;
     FILE_LOG(LOG_BV) << "min_i: " << min_i << "  max_i: " << max_i << endl;
 
     // merge the OBBs
-    Vector3 minimum, maximum;
+    Point3d minimum, maximum;
     for (unsigned j=X; j<= Z; j++)
     {
       minimum[j] = std::min(min_i[j], min_o[j]);
@@ -909,18 +908,18 @@ BVPtr OBB::calc_vel_exp_BV(CollisionGeometryPtr g, Real dt, const Vector3& lv, c
 }
 
 /// Gets the lower bounds on the OBB
-Vector3 OBB::get_lower_bounds(const Matrix4& T)
+Point3d OBB::get_lower_bounds(const Pose3d& T)
 {
   // get the vertices of the OBB
   const unsigned OBB_VERTS = 8;
-  Vector3 verts[OBB_VERTS];
+  Point3d verts[OBB_VERTS];
   get_vertices(verts);
 
   // calculate 
-  Vector3 min = T.mult_point(verts[0]);
+  Point3d min = T.transform(verts[0]);
   for (unsigned i=1; i< OBB_VERTS; i++)
   {
-    verts[i] = T.mult_point(verts[i]);
+    verts[i] = T.transform(verts[i]);
     min[0] = std::min(min[0], verts[i][0]);
     min[1] = std::min(min[1], verts[i][1]);
     min[2] = std::min(min[2], verts[i][2]);
@@ -930,18 +929,18 @@ Vector3 OBB::get_lower_bounds(const Matrix4& T)
 }
 
 /// Gets the upper bounds on the OBB
-Vector3 OBB::get_upper_bounds(const Matrix4& T)
+Point3d OBB::get_upper_bounds(const Pose3d& T)
 {
   // get the OBB vertices
   const unsigned OBB_VERTS = 8;
-  Vector3 verts[OBB_VERTS];
+  Point3d verts[OBB_VERTS];
   get_vertices(verts);
 
   // determine the maximum bound
-  Vector3 max = T.mult_point(verts[0]); 
+  Point3d max = T.transform(verts[0]); 
   for (unsigned i=1; i< OBB_VERTS; i++)
   {
-    verts[i] = T.mult_point(verts[i]);
+    verts[i] = T.transform(verts[i]);
     max[0] = std::max(max[0], verts[i][0]);
     max[1] = std::max(max[1], verts[i][1]);
     max[2] = std::max(max[2], verts[i][2]);

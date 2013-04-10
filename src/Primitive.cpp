@@ -11,13 +11,11 @@
 #endif
 #include <queue>
 #include <Moby/Constants.h>
-#include <Moby/CompGeom.h>
 #include <Moby/XMLTree.h>
-#include <Moby/LinAlg.h>
-#include <Moby/InvalidTransformException.h>
 #include <Moby/Primitive.h>
 
 using boost::shared_ptr;
+using namespace Ravelin;
 using namespace Moby;
 using std::endl;
 using std::list;
@@ -28,6 +26,29 @@ using std::pair;
 using std::map;
 using std::cerr;
 using boost::dynamic_pointer_cast;
+
+#ifdef USE_OSG
+/// Copies this matrix to an OpenSceneGraph Matrixd object
+static void to_osg_matrix(const Pose3d& src, osg::Matrixd& tgt)
+{
+  // get the rotation matrix
+  Matrix3d M = src.q;
+
+  // setup the rotation components of tgt
+  const unsigned X = 0, Y = 1, Z = 2, W = 3;
+  for (unsigned i=X; i<= Z; i++)
+    for (unsigned j=X; j<= Z; j++)
+      tgt(j,i) = M(i,j);
+
+  // setup the translation components of tgt
+  for (unsigned i=X; i<= Z; i++)
+    tgt(W,i) = src.x[i];
+
+  // set constant values of the matrix
+  tgt(X,W) = tgt(Y,W) = tgt(Z,W) = (double) 0.0;
+  tgt(W,W) = (double) 1.0;
+}
+#endif
 
 /// Constructs a primitive under the identity transformation
 Primitive::Primitive()
@@ -44,7 +65,7 @@ Primitive::Primitive()
 }
 
 /// Constructs a primitive with the specified transform
-Primitive::Primitive(const Matrix4& T)
+Primitive::Primitive(const Pose3d& T)
 {
   _mass = 0.0;
   _J = ZEROS_3x3;
@@ -66,9 +87,9 @@ Primitive::~Primitive()
 }
 
 /// Sets the intersection tolerance for this primitive
-void Primitive::set_intersection_tolerance(Real tol)
+void Primitive::set_intersection_tolerance(double tol)
 {
-  if (tol < (Real) 0.0)
+  if (tol < (double) 0.0)
     throw std::runtime_error("Primitive::set_intersection_tolerance() - tolerance cannot be negative!");
 
   _intersection_tolerance = tol;
@@ -132,16 +153,16 @@ void Primitive::update_visualization()
 /**
  * \note sets the density too
  */
-void Primitive::set_mass(Real mass)
+void Primitive::set_mass(double mass)
 {
   _mass = mass;
   calc_mass_properties();
 }
 
 /// Sets the density of this primitive
-void Primitive::set_density(Real density)
+void Primitive::set_density(double density)
 {
-  _density = shared_ptr<Real>(new Real);
+  _density = shared_ptr<double>(new double);
   *_density = density;
   calc_mass_properties();
 }
@@ -169,9 +190,9 @@ void Primitive::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePt
   const XMLAttrib* density_attr = node->get_attrib("density");
   if (density_attr)
   {
-    _density = shared_ptr<Real>(new Real);
+    _density = shared_ptr<double>(new double);
     *_density = density_attr->get_real_value();
-    if (*_density < (Real) 0.0)
+    if (*_density < (double) 0.0)
       throw std::runtime_error("Attempting to set primitive density to negative value");
   }
 
@@ -187,25 +208,14 @@ void Primitive::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePt
    std::cerr << "Primitive::load_from_xml() warning- 'translation' and 'transform' attributes both specified; using neither" << std::endl;
   else if (xlat_attr)
   {
-    Matrix4 T = IDENTITY_4x4;
-    Vector3 x;
-    xlat_attr->get_vector_value(x);
-    T.set_translation(x);
+    Pose3d T;
+    T.x = xlat_attr->get_origin_value();
     set_transform(T);
   }
   else if (transform_attr)
   {
-    Matrix4 T;
-    transform_attr->get_matrix_value(T);
-    if (!Matrix4::valid_transform(T))
-    {
-      cerr << "Primitive::load_from_xml() warning: invalid transform ";
-      cerr << endl << T << " when reading node " << endl;
-      cerr << *node << endl;
-      cerr << "  --> possibly a floating-point error..." << endl;
-    }
-    else
-      set_transform(T);
+    Pose3d T = transform_attr->get_pose3_value();
+    set_transform(T);
   }
 
   // calculate mass properties
@@ -235,12 +245,12 @@ void Primitive::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_obj
 }
 
 /// Transforms the inertia given a rotation matrix
-void Primitive::transform_inertia(Real mass, const Matrix3& J_in, const Vector3& com_in, const Matrix3& R, Matrix3& J_out, Vector3& com_out)
+void Primitive::transform_inertia(double mass, const Matrix3d& J_in, const Point3d& com_in, const Matrix3d& R, Matrix3d& J_out, Point3d& com_out)
 {  
   const unsigned X = 0, Y = 1, Z = 2;
 
   // copy com_in -- this is in case com_in and com_out are equal
-  Vector3 com_in_copy = com_in;
+  Point3d com_in_copy = com_in;
 
   // rotate/scale the inertia
   J_out = R * J_in.mult_transpose(R);
@@ -249,7 +259,7 @@ void Primitive::transform_inertia(Real mass, const Matrix3& J_in, const Vector3&
   com_out = R * com_in_copy;
 
   // determine r (vector from displacement to com)
-  Vector3 r = com_in_copy - com_out;
+  Vector3d r = com_in_copy - com_out;
   
   // displace it using the parallel axis theorem
   J_out(X,X) += mass * (r[Y] * r[Y] + r[Z] * r[Z]);
@@ -264,26 +274,25 @@ void Primitive::transform_inertia(Real mass, const Matrix3& J_in, const Vector3&
 }
 
 /// Transforms the inertia given a transformation matrix
-void Primitive::transform_inertia(Real mass, const Matrix3& J_in, const Vector3& com_in, const Matrix4& T, Matrix3& J_out, Vector3& com_out)
+void Primitive::transform_inertia(double mass, const Matrix3d& J_in, const Point3d& com_in, const Pose3d& T, Matrix3d& J_out, Point3d& com_out)
 {  
   const unsigned X = 0, Y = 1, Z = 2;
 
   // copy com_in -- this is in case com_in and com_out are equal
-  Vector3 com_in_copy = com_in;
+  Point3d com_in_copy = com_in;
 
   // get the rotation/scaling part of the matrix as a 3x3 and the translation
   // part of the matrix as a vector
-  Matrix3 RS = T.get_rotation();
-  Vector3 x = T.get_translation();
+  Matrix3d RS = T.q;
 
   // rotate/scale the inertia
   J_out = RS * J_in.mult_transpose(RS);
   
   // determine the new center-of-mass
-  com_out = RS * com_in_copy + x;
+  com_out = RS * com_in_copy + T.x;
 
   // determine r (vector from displacement to com)
-  Vector3 r = com_in_copy - com_out;
+  Vector3d r = com_in_copy - com_out;
   
   // displace it using the parallel axis theorem
   J_out(X,X) += mass * (r[Y] * r[Y] + r[Z] * r[Z]);
@@ -298,7 +307,7 @@ void Primitive::transform_inertia(Real mass, const Matrix3& J_in, const Vector3&
 }
 
 /// Sets the transform for this primitive -- transforms mesh and inertial properties (if calculated)
-void Primitive::set_transform(const Matrix4& T)
+void Primitive::set_transform(const Pose3d& T)
 {
   // save the new transform
   _T = T;
@@ -311,21 +320,6 @@ void Primitive::set_transform(const Matrix4& T)
     to_osg_matrix(T, tgt);
     _vtransform->setMatrix(tgt);
   }
-  #endif
-}
-
-/// Copies this matrix to an OpenSceneGraph Matrixd object
-void Primitive::to_osg_matrix(const Matrix4& src, osg::Matrixd& tgt)
-{
-  #ifdef USE_OSG
-  const unsigned X = 0, Y = 1, Z = 2, W = 3;
-  for (unsigned i=X; i<= W; i++)
-    for (unsigned j=X; j<= Z; j++)
-      tgt(i,j) = src(j,i);
-
-  // set constant values of the matrix
-  tgt(X,W) = tgt(Y,W) = tgt(Z,W) = (Real) 0.0;
-  tgt(W,W) = (Real) 1.0;
   #endif
 }
 

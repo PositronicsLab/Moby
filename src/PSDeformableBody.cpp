@@ -111,7 +111,7 @@ void PSDeformableBody::set_mesh(shared_ptr<const IndexedTetraArray> tetra_mesh, 
 }
 
 /// Integrates the body forward in time
-void PSDeformableBody::integrate(Real t, Real h, shared_ptr<Integrator<VectorN> > integrator)
+void PSDeformableBody::integrate(double t, double h, shared_ptr<Integrator<VectorN> > integrator)
 {
   // don't update c.o.m. or geometries
   disable_config_updates();
@@ -124,9 +124,9 @@ void PSDeformableBody::integrate(Real t, Real h, shared_ptr<Integrator<VectorN> 
 } 
 
 /// Calculates the potential energy of the deformable body
-Real PSDeformableBody::calc_potential_energy() const
+double PSDeformableBody::calc_potential_energy() const
 {
-  Real PE = (Real) 0.0;
+  double PE = (double) 0.0;
 
   // evaluate spring lengths 
   for (unsigned i=0; i< _springs.size(); i++)
@@ -137,24 +137,24 @@ Real PSDeformableBody::calc_potential_energy() const
     unsigned node2 = s.node2;
     assert(node1 < _nodes.size());
     assert(node2 < _nodes.size());
-    Real rest_len = s.rest_len;
-    Real kp = s.kp;
+    double rest_len = s.rest_len;
+    double kp = s.kp;
 
     // get the node properties
     const Vector3& x1 = _nodes[node1]->x;
     const Vector3& x2 = _nodes[node2]->x;
 
-    // determine spring forces (from Real Time Physics course notes)
+    // determine spring forces (from double Time Physics course notes)
     Vector3 x2mx1 = x2 - x1;
-    Real len = x2mx1.norm();
-    PE += (Real) 0.5 * (len - rest_len) * (len - rest_len) * kp;
+    double len = x2mx1.norm();
+    PE += (double) 0.5 * (len - rest_len) * (len - rest_len) * kp;
   }
 
   return PE; 
 }
 
 /// Calculates forward dynamics for the deformable body
-void PSDeformableBody::calc_fwd_dyn(Real dt)
+void PSDeformableBody::calc_fwd_dyn(double dt)
 {
   FILE_LOG(LOG_DEFORM) << "PSDeformableBody::calc_fwd_dyn() entered" << endl;
 
@@ -167,9 +167,9 @@ void PSDeformableBody::calc_fwd_dyn(Real dt)
     unsigned node2 = s.node2;
     assert(node1 < _nodes.size());
     assert(node2 < _nodes.size());
-    Real rest_len = s.rest_len;
-    Real kp = s.kp;
-    Real kv = s.kv;
+    double rest_len = s.rest_len;
+    double kp = s.kp;
+    double kv = s.kv;
 
     // get the node properties
     const Vector3& x1 = _nodes[node1]->x;
@@ -177,11 +177,11 @@ void PSDeformableBody::calc_fwd_dyn(Real dt)
     const Vector3& x2 = _nodes[node2]->x;
     const Vector3& v2 = _nodes[node2]->xd;
 
-    // determine spring forces (from Real Time Physics course notes)
+    // determine spring forces (from double Time Physics course notes)
     Vector3 x2mx1 = x2 - x1;
-    Real len = x2mx1.norm();
+    double len = x2mx1.norm();
     Vector3 dir = x2mx1 / len;
-    assert(len > (Real) 0.0); 
+    assert(len > (double) 0.0); 
     Vector3 f = dir * (len - rest_len) * kp + dir * (v2 - v1).dot(dir) * kv;
     _nodes[node1]->f += f;
     _nodes[node2]->f -= f; 
@@ -215,12 +215,12 @@ void PSDeformableBody::apply_impulse(const Vector3& j, const Vector3& p)
   Tetrahedron tet = get_tetrahedron(closest);
 
   // determine the barycentric coordinates
-  Real u, v, w;
+  double u, v, w;
   tet.determine_barycentric_coords(p, u, v, w);
 
   // apply the impulse using the barycentric coordinates
   const IndexedTetra& itet = _tetrahedra[closest];
-  _nodes[itet.a]->xd += j * ((Real) 1.0 - u - v - w) / _nodes[itet.a]->mass;
+  _nodes[itet.a]->xd += j * ((double) 1.0 - u - v - w) / _nodes[itet.a]->mass;
   _nodes[itet.b]->xd += j * u / _nodes[itet.b]->mass;
   _nodes[itet.c]->xd += j * v / _nodes[itet.c]->mass;
   _nodes[itet.d]->xd += j * w / _nodes[itet.d]->mass;
@@ -407,7 +407,7 @@ void PSDeformableBody::determine_Jc_v(const vector<Event*>& contact_events, Vect
     SingleBodyPtr sb2 = contact_events[i]->contact_geom2->get_single_body();
     if (sb1.get() != this && sb2.get() != this)
     {
-      Jc_v[i] = (Real) 0.0;
+      Jc_v[i] = (double) 0.0;
       continue;
     }
 
@@ -433,8 +433,8 @@ void PSDeformableBody::determine_Dc_v(const vector<Event*>& contact_events, Vect
     SingleBodyPtr sb2 = contact_events[i]->contact_geom2->get_single_body();
     if (sb1.get() != this && sb2.get() != this)
     {
-      Dc_v[k++] = (Real) 0.0;
-      Dc_v[k++] = (Real) 0.0;
+      Dc_v[k++] = (double) 0.0;
+      Dc_v[k++] = (double) 0.0;
       continue;
     }
 
@@ -443,8 +443,8 @@ void PSDeformableBody::determine_Dc_v(const vector<Event*>& contact_events, Vect
 
     // get the velocity at the contact point along the contact tangents
     Vector3 vel = calc_point_vel(p);
-    Real dot1 = contact_events[i]->contact_tan1.dot(vel); 
-    Real dot2 = contact_events[i]->contact_tan2.dot(vel); 
+    double dot1 = contact_events[i]->contact_tan1.dot(vel); 
+    double dot2 = contact_events[i]->contact_tan2.dot(vel); 
     if (sb2.get() == this)
     {
       Dc_v[k++] = -dot1; 

@@ -4,16 +4,17 @@
  * License (found in COPYING).
  ****************************************************************************/
 
+#include <Ravelin/Matrix3d.h>
 #include <Moby/Triangle.h>
-#include <Moby/Matrix3.h>
 #include <Moby/Tetrahedron.h>
 
+using namespace Ravelin;
 using namespace Moby;
 
 /// Calculates the signed distance from a point to the tetrahedron
-Real Tetrahedron::calc_signed_dist(const Vector3& p) const
+double Tetrahedron::calc_signed_dist(const Point3d& p) const
 {
-  Vector3 closest;
+  Point3d closest;
 
   // form necessary triangles
   Triangle abc(a, b, c);
@@ -22,13 +23,13 @@ Real Tetrahedron::calc_signed_dist(const Vector3& p) const
   Triangle dba(d, b, a);
 
   // calculate the squared distance
-  Real dist_abc = Triangle::calc_sq_dist(abc, p, closest);
-  Real dist_bdc = Triangle::calc_sq_dist(bdc, p, closest);
-  Real dist_dac = Triangle::calc_sq_dist(dac, p, closest);
-  Real dist_dba = Triangle::calc_sq_dist(dba, p, closest);
+  double dist_abc = Triangle::calc_sq_dist(abc, p, closest);
+  double dist_bdc = Triangle::calc_sq_dist(bdc, p, closest);
+  double dist_dac = Triangle::calc_sq_dist(dac, p, closest);
+  double dist_dba = Triangle::calc_sq_dist(dba, p, closest);
 
   // determine the minimum distance
-  Real min_dist = std::max((Real) 0.0, std::min(dist_abc, std::min(dist_bdc, std::min(dist_dac, dist_dba))));
+  double min_dist = std::max((double) 0.0, std::min(dist_abc, std::min(dist_bdc, std::min(dist_dac, dist_dba))));
   min_dist = std::sqrt(min_dist);
 
   if (!outside(p))
@@ -41,12 +42,12 @@ Real Tetrahedron::calc_signed_dist(const Vector3& p) const
 /**
  * \note assumes tetrahedron is oriented ccw
  */
-bool Tetrahedron::outside(const Vector3& p, Real tol) const
+bool Tetrahedron::outside(const Point3d& p, double tol) const
 {
   // test triangle abc
   Triangle abc(a, b, c);
-  Vector3 normal = abc.calc_normal();
-  Real offset = abc.calc_offset(normal);
+  Vector3d normal = abc.calc_normal();
+  double offset = abc.calc_offset(normal);
   if (p.dot(normal) - offset > tol)
     return true;
 
@@ -72,12 +73,12 @@ bool Tetrahedron::outside(const Vector3& p, Real tol) const
 }
 
 /// Determines the point corresponding to the barycentric coordinates
-Vector3 Tetrahedron::calc_point(Real u, Real v, Real w) const
+Point3d Tetrahedron::calc_point(double u, double v, double w) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
-  Vector3 bary(u, v, w);
-  Matrix3 M;
+  Point3d bary(u, v, w);
+  Matrix3d M;
   M.set_column(X, b - a);
   M.set_column(Y, c - a);
   M.set_column(Z, d - a);
@@ -85,18 +86,18 @@ Vector3 Tetrahedron::calc_point(Real u, Real v, Real w) const
 }
 
 /// Determines the barycentric coordinates of a point in space
-void Tetrahedron::determine_barycentric_coords(const Vector3& p, Real& u, Real& v, Real& w) const
+void Tetrahedron::determine_barycentric_coords(const Point3d& p, double& u, double& v, double& w) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
-  // algorithm taken from Real Time Physics course notes (Mueller, et al.)
-  Matrix3 M;
+  // algorithm taken from double Time Physics course notes (Mueller, et al.)
+  Matrix3d M;
   M.set_column(X, b - a);
   M.set_column(Y, c - a);
   M.set_column(Z, d - a);
   M.inverse();
 
-  Vector3 bary = M * (p - a);
+  Point3d bary = M * (p - a);
   u = bary[X];
   v = bary[Y];
   w = bary[Z];
@@ -107,25 +108,25 @@ void Tetrahedron::determine_barycentric_coords(const Vector3& p, Real& u, Real& 
 }
 
 /// Calculates the centroid of a tetrahedron
-Vector3 Tetrahedron::calc_centroid() const
+Point3d Tetrahedron::calc_centroid() const
 {
-  Vector3 centroid = a + b + c + d;
+  Point3d centroid = a + b + c + d;
   centroid *= 0.25;
   return centroid;
 }
 
 /// Calculates the volume of a tetrahedron
-Real Tetrahedron::calc_volume() const
+double Tetrahedron::calc_volume() const
 {
   // create a triangle from vertices abc
   Triangle t(a,b,c);
 
   // get the normal to abc, and the offset
-  Vector3 normal = t.calc_normal();
-  Real offset = t.calc_offset(normal);
+  Vector3d normal = t.calc_normal();
+  double offset = t.calc_offset(normal);
 
   // project d onto the plane of abc to get the height
-  Real height = std::fabs(normal.dot(d) - offset);
+  double height = std::fabs(normal.dot(d) - offset);
 
   // return the volume
   return t.calc_area() * height / 3;

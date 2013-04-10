@@ -18,7 +18,7 @@ using std::vector;
 /// Constructs a default drag coefficient of 0 
 StokesDragForce::StokesDragForce()
 {
-  this->b = (Real) 0.0;
+  this->b = (double) 0.0;
 }
 
 /// Copy constructor

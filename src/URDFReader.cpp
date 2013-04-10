@@ -20,6 +20,7 @@
 #include <osgDB/ReadFile>
 #endif
 
+#include <Ravelin/AAngled.h>
 #include <Moby/CSG.h>
 #include <Moby/Primitive.h>
 #include <Moby/TriangleMeshPrimitive.h>
@@ -38,13 +39,13 @@
 #include <Moby/RevoluteJoint.h>
 #include <Moby/SphericalJoint.h>
 #include <Moby/UniversalJoint.h>
-#include <Moby/AAngle.h>
 #include <Moby/DeformableCCD.h>
 #include <Moby/XMLTree.h>
 #include <Moby/URDFReader.h>
 
 //#define DEBUG_URDF
 
+using namespace Ravelin;
 using namespace Moby;
 using std::set;
 using std::make_pair;
@@ -226,26 +227,17 @@ JointPtr URDFReader::find_joint(const URDFData& data, RigidBodyPtr outboard)
 }
 
 #ifdef USE_OSG
-/// Copies this matrix to an OpenSceneGraph Matrixd object
-static void to_osg_matrix(const Matrix4& src, osg::Matrixd& tgt)
-{
-  const unsigned X = 0, Y = 1, Z = 2, W = 3;
-  for (unsigned i=X; i<= W; i++)
-    for (unsigned j=X; j<= Z; j++)
-      tgt(i,j) = src(j,i);
-
-  // set constant values of the matrix
-  tgt(X,W) = tgt(Y,W) = tgt(Z,W) = (Real) 0.0;
-  tgt(W,W) = (Real) 1.0;
-}
-
 /// Copies an OpenSceneGraph Matrixd object to this matrix 
-static void from_osg_matrix(const osg::Matrixd& src, Matrix4& tgt)
+static void from_osg_matrix(const osg::Matrixd& src, Pose3d& tgt)
 {
   const unsigned X = 0, Y = 1, Z = 2, W = 3;
-  for (unsigned i=X; i<= W; i++)
+  Matrix3d R;
+  for (unsigned i=X; i<= Z; i++)
     for (unsigned j=X; j<= Z; j++)
-      tgt(j,i) = src(i,j);
+      R(j,i) = src(i,j);
+
+  tgt.q = R;
+  tgt.x = Origin3d(src(W,X), src(W, Y), src(W, Z));
 }
 #endif
 
@@ -253,8 +245,8 @@ static void from_osg_matrix(const osg::Matrixd& src, Matrix4& tgt)
 void URDFReader::fix_Moby(URDFData& data, const vector<RigidBodyPtr>& links, const vector<JointPtr>& joints)
 {
   std::map<RigidBodyPtr, RigidBodyPtr> parents;
-  Matrix3 J_out;
-  Vector3 com_out;
+  Matrix3d J_out;
+  Point3d com_out;
 
   // find the base (it will be the link that does not exist as a child)
   set<RigidBodyPtr> candidates;
@@ -291,13 +283,13 @@ void URDFReader::fix_Moby(URDFData& data, const vector<RigidBodyPtr>& links, con
     {
       // correct the transform; first, determine the desired outboard transform
       // (relative to inboard)
-      const Matrix4& To = data.joint_transforms.find(joint)->second;
-      Matrix4 Tx = To;
-      Tx.set_rotation(&IDENTITY_3x3);
+      const Pose3d& To = data.joint_transforms.find(joint)->second;
+      Pose3d Tx = To;
+      Tx.q.set_identity();
 
       // now compute the necessary transformation and its inverse
-      Matrix4 oTx = Matrix4::inverse_transform(To) * Tx;
-      Matrix4 xTo = Matrix4::inverse_transform(oTx);
+      Pose3d oTx = Pose3d::inverse(To) * Tx;
+      Pose3d xTo = Pose3d::inverse(oTx);
 
       std::cerr << "URDFReader warning! Changing transforms! " << std::endl;
       std::cerr << "  joint transform (" << joint->id << ") was: " << std::endl << To;
@@ -317,7 +309,7 @@ void URDFReader::fix_Moby(URDFData& data, const vector<RigidBodyPtr>& links, con
     
       // update joint axis, if it is present
       if (data.joint_axes.find(joint) != data.joint_axes.end())
-        data.joint_axes[joint] = xTo.mult_vector(data.joint_axes[joint]);
+        data.joint_axes[joint] = xTo.transform(data.joint_axes[joint]);
 
       // now update *just* the joint transformation
       vector<pair<JointPtr, RigidBodyPtr> > outboards;
@@ -342,11 +334,12 @@ void URDFReader::fix_Moby(URDFData& data, const vector<RigidBodyPtr>& links, con
   // ok, now transform all inertias so that their orientation is unchanged
   // from the reference frame
   // start with the base
-  Matrix4& jTref = data.inertia_transforms.find(base)->second;
-  Matrix3 jRrefT = Matrix3::transpose(jTref.get_rotation());
-  Vector3 jxref = jTref.get_translation();
+  Pose3d& jTref = data.inertia_transforms.find(base)->second;
+  Matrix3d jRrefT = Matrix3d::transpose(Matrix3d(jTref.q));
+  Point3d jxref = jTref.x;
   Primitive::transform_inertia(base->get_mass(), base->get_inertia(), jxref, jRrefT, J_out, com_out); 
-  jTref.set(&IDENTITY_3x3, &com_out);
+  jTref.x = com_out;
+  jTref.q.set_identity();
   base->set_inertia(J_out);  
 
   // now process all children
@@ -360,11 +353,12 @@ void URDFReader::fix_Moby(URDFData& data, const vector<RigidBodyPtr>& links, con
     q.pop();
 
     // update the inertia
-    Matrix4& jTref = data.inertia_transforms.find(link)->second;
-    Matrix3 jRrefT = Matrix3::transpose(jTref.get_rotation());
-    Vector3 jxref = jTref.get_translation();
+    Pose3d& jTref = data.inertia_transforms.find(link)->second;
+    Matrix3d jRrefT = Matrix3d::transpose(Matrix3d(jTref.q));
+    Point3d jxref = jTref.x;
     Primitive::transform_inertia(link->get_mass(), link->get_inertia(), jxref, jRrefT, J_out, com_out); 
-    jTref.set(&IDENTITY_3x3, &com_out);
+    jTref.q.set_identity();
+    jTref.x = com_out;
     link->set_inertia(J_out);  
 
     // now process all children
@@ -389,7 +383,7 @@ bool URDFReader::valid_transformation(const URDFData& data, RigidBodyPtr inboard
 {
   // get the inboard reference frame (if it's available- it won't be if the
   // inboard is the base)
-  Matrix4 Tref_inboard = IDENTITY_4x4;
+  Pose3d Tref_inboard = IDENTITY_4x4;
   for (map<JointPtr, RigidBodyPtr>::const_iterator i = data.joint_child.begin(); i != data.joint_child.end(); i++)
     if (i->second == inboard)
     {
@@ -399,31 +393,31 @@ bool URDFReader::valid_transformation(const URDFData& data, RigidBodyPtr inboard
 
   // get the outboard reference frame
   assert(data.joint_transforms.find(joint) != data.joint_transforms.end());
-  Matrix4 Tref_outboard = data.joint_transforms.find(joint)->second;
+  Pose3d Tref_outboard = data.joint_transforms.find(joint)->second;
 
   // get the relative transform and relative rotation
-  Matrix4 Trel = Matrix4::inverse_transform(Tref_inboard) * Tref_outboard;
-  Matrix3 Rrel = Trel.get_rotation();
+  Pose3d Trel = Pose3d::inverse(Tref_inboard) * Tref_outboard;
+  Matrix3d Rrel = Trel.q;
 
   // see whether we can get from Tref_inboard to Tref_outboard based on
   // joint movement alone
   if (dynamic_pointer_cast<RevoluteJoint>(joint))
   {
     // get the joint axis relative to inboard frame
-    Vector3 axis_0 = Tref_outboard.mult_vector(data.joint_axes.find(joint)->second);
-    Vector3 axis = Tref_inboard.transpose_mult_vector(axis_0);
+    Vector3d axis_0 = Tref_outboard.transform(data.joint_axes.find(joint)->second);
+    Vector3d axis = Tref_inboard.inverse_transform(axis_0);
 
     // verify that rotation around that axis gives the desired rotation
-    AAngle aa(&Rrel, &axis);
-    Matrix3 Raa(&aa);
-    return std::fabs(Quat::calc_angle(Quat(&Rrel), Quat(&Raa))) < NEAR_ZERO;    
+    AAngled aa(Rrel, axis);
+    Matrix3d Raa(aa);
+    return std::fabs(Quatd::calc_angle(Quatd(Rrel), Quatd(Raa))) < NEAR_ZERO;    
   }
   else if (dynamic_pointer_cast<PrismaticJoint>(joint) || dynamic_pointer_cast<FixedJoint>(joint))
   {
     // both orientations must be the same
-    Quat q(&Rrel);
-    Quat eye = Quat::identity();
-    return std::fabs(Quat::calc_angle(q, eye)) < NEAR_ZERO;
+    Quatd qd(Rrel);
+    Quatd eye = Quatd::identity();
+    return std::fabs(Quatd::calc_angle(qd, eye)) < NEAR_ZERO;
   }
   else
     // should never be here!
@@ -457,20 +451,20 @@ void URDFReader::output_data(const URDFData& data, RigidBodyPtr link)
     std::cout << "  URDF inertia transform: " << std::endl << data.inertia_transforms.find(link)->second;
   if (data.collision_transforms.find(link) != data.collision_transforms.end())
     std::cout << "  URDF collision transform: " << std::endl << data.collision_transforms.find(link)->second;
-  std::cout << "  Moby transform: " << std::endl << link->get_transform();
+  std::cout << "  Moby transform: " << std::endl << *link->get_transform();
   if (!link->geometries.empty())
   {
     std::cout << "  Moby relative collision transform: " << std::endl << link->geometries.front()->get_rel_transform();
-    std::cout << "  Moby collision transform: " << std::endl << (link->get_transform() * link->geometries.front()->get_rel_transform());
+    std::cout << "  Moby collision transform: " << std::endl << (*link->get_transform() * link->geometries.front()->get_rel_transform());
   }
   if (data.visual_transform_nodes.find(link) != data.visual_transform_nodes.end())
   {
-    Matrix4 Tv;
+    Pose3d Tv;
     #ifdef USE_OSG
     from_osg_matrix(((osg::MatrixTransform*) data.visual_transform_nodes.find(link)->second)->getMatrix(), Tv);
     #endif
     std::cout << "  Moby relative visual transform: " << std::endl << Tv;
-    std::cout << "  Moby visual transform: " << std::endl << (link->get_transform() * Tv);
+    std::cout << "  Moby visual transform: " << std::endl << (*link->get_transform() * Tv);
   }
   #endif
 }
@@ -485,8 +479,8 @@ void URDFReader::output_data(const URDFData& data, RigidBodyPtr link)
 bool URDFReader::transform_frames(URDFData& data, const vector<RigidBodyPtr>& links, const vector<JointPtr>& joints)
 {
   map<RigidBodyPtr, RigidBodyPtr> parents; 
-  Matrix3 J_out;
-  Vector3 com_out;
+  Matrix3d J_out;
+  Point3d com_out;
 
   // output all data (before Moby fixes it)
   #ifdef DEBUG_URDF 
@@ -516,25 +510,25 @@ bool URDFReader::transform_frames(URDFData& data, const vector<RigidBodyPtr>& li
   fix_Moby(data, links, joints);
 
   // need to transform base inertia orientation to be relative to global frame
-  Matrix4 baseT = data.inertia_transforms.find(base)->second; 
-  Vector3 com_in = baseT.get_translation();
-  baseT.set_translation(ZEROS_3);
+  Pose3d baseT = data.inertia_transforms.find(base)->second; 
+  Point3d com_in = baseT.x;
+  baseT.x.set_zero();
   Primitive::transform_inertia(base->get_mass(), base->get_inertia(), com_in, baseT, J_out, com_out); 
   base->set_inertia(J_out);
 
   // update base position and orientation
   base->set_position(com_out);
-  base->set_orientation(Quat(&IDENTITY_3x3));
+  base->set_orientation(Quatd::identity());
 
   // compute the relative collision transform
   if (data.collision_transforms.find(base) != data.collision_transforms.end())
   {
     // get the true frame of the collision transform
-    const Matrix4& Trel = data.collision_transforms.find(base)->second;
-    Matrix4 Tc = baseT * Trel;
+    const Pose3d& Trel = data.collision_transforms.find(base)->second;
+    Pose3d Tc = baseT * Trel;
 
     // now compute the collision transform relative to the base frame
-    Matrix4 Tc_rel = Matrix4::inverse_transform(base->get_transform()) * Tc;
+    Pose3d Tc_rel = Pose3d::inverse(*base->get_transform()) * Tc;
     assert(!base->geometries.empty());
     base->geometries.front()->set_rel_transform(Tc_rel, false); 
   }
@@ -543,11 +537,11 @@ bool URDFReader::transform_frames(URDFData& data, const vector<RigidBodyPtr>& li
   if (data.visual_transforms.find(base) != data.visual_transforms.end())
   {
     // get the true frame of the visual transform
-    const Matrix4& Trel = data.visual_transforms.find(base)->second;
-    Matrix4 Tv = baseT * Trel;
+    const Pose3d& Trel = data.visual_transforms.find(base)->second;
+    Pose3d Tv = baseT * Trel;
 
     // now compute the collision transform relative to the base frame
-    Matrix4 Tv_rel = Matrix4::inverse_transform(base->get_transform()) * Tv;
+    Pose3d Tv_rel = Pose3d::inverse(*base->get_transform()) * Tv;
     #ifdef USE_OSG
     osg::MatrixTransform* group = (osg::MatrixTransform*) data.visual_transform_nodes.find(base)->second;
     osg::Matrixd m;
@@ -575,29 +569,29 @@ bool URDFReader::transform_frames(URDFData& data, const vector<RigidBodyPtr>& li
     // get the joint transform *relative to parent link reference frame*
     JointPtr joint = find_joint(data, link);
     assert(data.joint_transforms.find(joint) != data.joint_transforms.end());
-    const Matrix4& refJc = data.joint_transforms.find(joint)->second;
+    const Pose3d& refJc = data.joint_transforms.find(joint)->second;
 
     // compute the reference frame for the parent
-    Matrix4 refPj = data.inertia_transforms.find(parent)->second;
-    Matrix4 oPj = parent->get_transform();
-    Matrix4 oPref = oPj * Matrix4::inverse_transform(refPj);
+    Pose3d refPj = data.inertia_transforms.find(parent)->second;
+    Pose3d oPj = *parent->get_transform();
+    Pose3d oPref = oPj * Pose3d::inverse(refPj);
 
     // compute the *reference* frame (w.r.t. the global frame) for the child 
     // (and the joint)
-    Matrix4 oTref = oPref * refJc;
+    Pose3d oTref = oPref * refJc;
     #ifdef DEBUG_URDF
     std::cout << "link " << link->id << " reference frame: " << std::endl << oTref;
     #endif
 
     // compute the desired frame for the child
-    Matrix4 refTj = data.inertia_transforms.find(link)->second;
-    Matrix4 oTj = oTref * refTj; 
+    Pose3d refTj = data.inertia_transforms.find(link)->second;
+    Pose3d oTj = oTref * refTj; 
 
     // compute the relative collision transform
     if (data.collision_transforms.find(link) != data.collision_transforms.end())
     {
-      Matrix4 refTc = data.collision_transforms.find(link)->second;
-      Matrix4 jTc = Matrix4::inverse_transform(refTj) * refTc;
+      Pose3d refTc = data.collision_transforms.find(link)->second;
+      Pose3d jTc = Pose3d::inverse(refTj) * refTc;
       assert(!link->geometries.empty());
       link->geometries.front()->set_rel_transform(jTc, false); 
     }
@@ -605,8 +599,8 @@ bool URDFReader::transform_frames(URDFData& data, const vector<RigidBodyPtr>& li
     // compute the relative visual transform
     if (data.visual_transforms.find(link) != data.visual_transforms.end())
     {
-      Matrix4 refTv = data.visual_transforms.find(link)->second;
-      Matrix4 jTv = Matrix4::inverse_transform(refTj) * refTv;
+      Pose3d refTv = data.visual_transforms.find(link)->second;
+      Pose3d jTv = Pose3d::inverse(refTj) * refTv;
       #ifdef USE_OSG
       osg::MatrixTransform* group = (osg::MatrixTransform*) data.visual_transform_nodes.find(link)->second;
       osg::Matrixd m;
@@ -619,18 +613,18 @@ bool URDFReader::transform_frames(URDFData& data, const vector<RigidBodyPtr>& li
     link->set_transform(oTj);
 
     // get the joint position and the two vectors we need (all in global frame) 
-    Vector3 joint_position = oTref.get_translation();
-    Vector3 joint_to_child_com = link->get_position() - joint_position;
-    Vector3 parent_com_to_joint = joint_position - parent->get_position();
+    Point3d joint_position = oTref.x;
+    Vector3d joint_to_child_com = oTj.x - joint_position;
+    Vector3d parent_com_to_joint = joint_position - parent->get_transform()->x;
 
     // setup the pointers between the joints and links
-    link->add_inner_joint(parent, joint, joint_to_child_com, link->get_transform().transpose_mult_vector(joint_to_child_com));
-    parent->add_outer_joint(link, joint, parent->get_transform().transpose_mult_vector(parent_com_to_joint));
+    link->add_inner_joint(parent, joint, joint_to_child_com, link->get_transform()->inverse_transform(joint_to_child_com));
+    parent->add_outer_joint(link, joint, parent->get_transform()->inverse_transform(parent_com_to_joint));
 
     // setup the joint axis, if necessary, and determine q_tare
     if (data.joint_axes.find(joint) != data.joint_axes.end())
     {
-      Vector3 axis = oTref.mult_vector(data.joint_axes.find(joint)->second);
+      Vector3d axis = oTref.transform(data.joint_axes.find(joint)->second);
       shared_ptr<PrismaticJoint> pj = dynamic_pointer_cast<PrismaticJoint>(joint);
       shared_ptr<RevoluteJoint> rj = dynamic_pointer_cast<RevoluteJoint>(joint);
       if (pj)
@@ -803,7 +797,7 @@ RigidBodyPtr URDFReader::read_child(XMLTreeConstPtr node, URDFData& data, const 
 /// Attempts to read axis for the joint
 void URDFReader::read_axis(XMLTreeConstPtr node, URDFData& data, JointPtr joint)
 {
-  Vector3 axis(1,0,0);
+  Vector3d axis(1,0,0);
   bool axis_specified = false;
 
   // look for the axis tag
@@ -941,8 +935,8 @@ void URDFReader::read_inertial(XMLTreeConstPtr node, URDFData& data, RigidBodyPt
   {
     if (strcasecmp((*i)->name.c_str(), "inertial") == 0)
     {
-      Real mass = read_mass(*i, data);
-      Matrix3 inertia = read_inertia(*i, data);
+      double mass = read_mass(*i, data);
+      Matrix3d inertia = read_inertia(*i, data);
 
       // set inertial properties
       link->set_mass(mass);
@@ -959,7 +953,7 @@ void URDFReader::read_inertial(XMLTreeConstPtr node, URDFData& data, RigidBodyPt
 }
 
 /// Attempts to read an RGBA color
-bool URDFReader::read_color(XMLTreeConstPtr node, URDFData& data, VectorN& color)
+bool URDFReader::read_color(XMLTreeConstPtr node, URDFData& data, VectorNd& color)
 {
   const list<XMLTreePtr>& child_nodes = node->children;
   for (list<XMLTreePtr>::const_iterator i = child_nodes.begin(); i != child_nodes.end(); i++)
@@ -1024,8 +1018,8 @@ void URDFReader::read_material(XMLTreeConstPtr node, URDFData& data, void* osg_n
 
       // get the color and texture filename
       bool material_exists = (data.materials.find(material_name) != data.materials.end());
-      pair<VectorN, string>& material_pair = data.materials[material_name];
-      VectorN& color = material_pair.first;
+      pair<VectorNd, string>& material_pair = data.materials[material_name];
+      VectorNd& color = material_pair.first;
       string& texture_fname = material_pair.second;
 
       // attempt to read color
@@ -1064,7 +1058,7 @@ void URDFReader::read_material(XMLTreeConstPtr node, URDFData& data, void* osg_n
 void URDFReader::read_visual(XMLTreeConstPtr node, URDFData& data, RigidBodyPtr link)
 {
   #ifdef USE_OSG
-  VectorN color;
+  VectorNd color;
   string texture_fname;
 
   // look for the visual tag
@@ -1171,7 +1165,7 @@ shared_ptr<BoxPrimitive> URDFReader::read_box(XMLTreeConstPtr node, URDFData& da
         continue;
 
       // get the size and construct the box
-      Vector3 size;
+      Vector3d size;
       size_attrib->get_vector_value(size);
       return shared_ptr<BoxPrimitive>(new BoxPrimitive(size[X], size[Y], size[Z]));
     }
@@ -1221,12 +1215,12 @@ shared_ptr<CylinderPrimitive> URDFReader::read_cylinder(XMLTreeConstPtr node, UR
         continue;
 
       // cylinder must be rotated around x axis
-      Matrix3 rx90 = Matrix3::rot_X(M_PI_2);
-      const Matrix4& T = Matrix4(&rx90, &ZEROS_3);
+      Matrix3d rx90 = Matrix3d::rot_X(M_PI_2);
+      Pose3d T(rx90, Origin3d::zero());
 
       // construct the cylinder 
-      Real radius = radius_attrib->get_real_value();
-      Real length = length_attrib->get_real_value();
+      double radius = radius_attrib->get_real_value();
+      double length = length_attrib->get_real_value();
       return shared_ptr<CylinderPrimitive>(new CylinderPrimitive(radius, length, T));
     }
   }
@@ -1248,7 +1242,7 @@ shared_ptr<SpherePrimitive> URDFReader::read_sphere(XMLTreeConstPtr node, URDFDa
         continue;
 
       // get the size and construct the sphere
-      Real radius = radius_attrib->get_real_value();
+      double radius = radius_attrib->get_real_value();
       return shared_ptr<SpherePrimitive>(new SpherePrimitive(radius));
     }
   }
@@ -1258,10 +1252,10 @@ shared_ptr<SpherePrimitive> URDFReader::read_sphere(XMLTreeConstPtr node, URDFDa
 
 
 /// Attempts to read an "origin" tag
-Matrix4 URDFReader::read_origin(XMLTreeConstPtr node, URDFData& data)
+Pose3d URDFReader::read_origin(XMLTreeConstPtr node, URDFData& data)
 {
-  Vector3 xyz = ZEROS_3;
-  Vector3 rpy = ZEROS_3;
+  Point3d xyz = ZEROS_3;
+  Vector3d rpy = ZEROS_3;
 
   // look for the tag
   const list<XMLTreePtr>& child_nodes = node->children;
@@ -1272,7 +1266,7 @@ Matrix4 URDFReader::read_origin(XMLTreeConstPtr node, URDFData& data)
       // look for xyz attribute 
       const XMLAttrib* xyz_attrib = (*i)->get_attrib("xyz");
       if (xyz_attrib)
-        xyz_attrib->get_vector_value(xyz);
+        xyz = xyz_attrib->get_point_value();
 
       // look for rpy attribute
       const XMLAttrib* rpy_attrib = (*i)->get_attrib("rpy");
@@ -1285,13 +1279,12 @@ Matrix4 URDFReader::read_origin(XMLTreeConstPtr node, URDFData& data)
     }
   }
 
-  Quat rpy_quat = Quat::rpy(rpy[0], rpy[1], rpy[2]);
-  Matrix3 rpy_matrix = Matrix3(&rpy_quat); 
-  return Matrix4(&rpy_matrix, &xyz);
+  Quatd rpy_quat = Quatd::rpy(rpy[0], rpy[1], rpy[2]);
+  return Pose3d(rpy_quat, xyz);
 }
 
 /// Attempts to read a "mass" tag
-Real URDFReader::read_mass(XMLTreeConstPtr node, URDFData& data)
+double URDFReader::read_mass(XMLTreeConstPtr node, URDFData& data)
 {
   // look for the tag
   const list<XMLTreePtr>& child_nodes = node->children;
@@ -1313,12 +1306,12 @@ Real URDFReader::read_mass(XMLTreeConstPtr node, URDFData& data)
 }
 
 /// Attempts to read an "inertia" tag
-Matrix3 URDFReader::read_inertia(XMLTreeConstPtr node, URDFData& data)
+Matrix3d URDFReader::read_inertia(XMLTreeConstPtr node, URDFData& data)
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
   // setup J to zero initially
-  Matrix3 J = ZEROS_3x3;
+  Matrix3d J = Matrix3d::zero();
 
   // look for the tag
   const list<XMLTreePtr>& child_nodes = node->children;

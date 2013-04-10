@@ -9,21 +9,20 @@
 
 #include <limits>
 #include <cmath>
-#include <Moby/Matrix3.h>
-#include <Moby/Matrix4.h>
-#include <Moby/Vector3.h>
-#include <Moby/SVector6.h>
+#include <Ravelin/Vector3d.h>
+#include <Ravelin/VectorNd.h>
+#include <Ravelin/Matrix3d.h>
+#include <Ravelin/Pose3d.h>
 
 namespace Moby {
 
 // constants
-const Real NEAR_ZERO = std::sqrt(std::numeric_limits<Real>::epsilon());
-const Vector3 ZEROS_3 = Vector3::zero();
-const Matrix3 ZEROS_3x3 = Matrix3::zero();
-const Matrix3 IDENTITY_3x3 = Matrix3::identity();
-const Matrix4 IDENTITY_4x4 = Matrix4::identity();
-const SVector6 ZEROS_6 = SVector6::zero();
-const VectorN EMPTY_VEC(0);
+const double NEAR_ZERO = std::sqrt(std::numeric_limits<double>::epsilon());
+const Ravelin::Vector3d ZEROS_3 = Ravelin::Vector3d::zero();
+const Ravelin::Matrix3d ZEROS_3x3 = Ravelin::Matrix3d::zero();
+const Ravelin::Matrix3d IDENTITY_3x3 = Ravelin::Matrix3d::identity();
+const Ravelin::Pose3d IDENTITY_4x4 = Ravelin::Pose3d::identity();
+const Ravelin::VectorNd EMPTY_VEC(0);
 
 // debugging bits
 const unsigned LOG_SIMULATOR = 1;

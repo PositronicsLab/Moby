@@ -7,7 +7,6 @@
 #ifndef _DAMPING_FORCE_H
 #define _DAMPING_FORCE_H
 
-#include <Moby/Vector3.h>
 #include <Moby/RecurrentForce.h>
 
 namespace Moby {
@@ -24,16 +23,16 @@ class DampingForce : public RecurrentForce
     virtual void save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const;
 
     /// The mapping from bodies to linear damping constants
-    std::map<DynamicBodyPtr, Real> kl;
+    std::map<DynamicBodyPtr, double> kl;
 
     /// The mapping from bodies to angular damping constants
-    std::map<DynamicBodyPtr, Real> ka;
+    std::map<DynamicBodyPtr, double> ka;
 
     /// The mapping from bodies to linear squared damping constants
-    std::map<DynamicBodyPtr, Real> klsq;
+    std::map<DynamicBodyPtr, double> klsq;
 
     /// The mapping from bodies to angular squared damping constants
-    std::map<DynamicBodyPtr, Real> kasq;
+    std::map<DynamicBodyPtr, double> kasq;
 }; // end class
 } // end namespace
 

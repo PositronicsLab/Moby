@@ -37,7 +37,7 @@ using boost::dynamic_pointer_cast;
 /// Default constructor
 EventDrivenSimulator::EventDrivenSimulator()
 {
-  max_Zeno_step = std::numeric_limits<Real>::max();
+  max_Zeno_step = std::numeric_limits<double>::max();
   event_callback_fn = NULL;
   event_post_impulse_callback_fn = NULL;
   post_mini_step_callback_fn = NULL;
@@ -139,18 +139,18 @@ void EventDrivenSimulator::visualize_contact( Event& event ) {
   #ifdef USE_OSG
 
   // random color for this contact visualization
-  Real r = (Real) rand() / (Real) RAND_MAX;
-  Real g = (Real) rand() / (Real) RAND_MAX;
-  Real b = (Real) rand() / (Real) RAND_MAX;
+  double r = (double) rand() / (double) RAND_MAX;
+  double g = (double) rand() / (double) RAND_MAX;
+  double b = (double) rand() / (double) RAND_MAX;
   osg::Vec4 color = osg::Vec4( r, g, b, 1.0 );
 
   // knobs for tweaking
-  const Real point_radius = 0.75;
-  const Real point_scale = 0.01;
-  const Real line_length = 5.0;
-  const Real line_radius = 0.1;
-  const Real head_radius = 0.5;
-  const Real head_height = 2.0;
+  const double point_radius = 0.75;
+  const double point_scale = 0.01;
+  const double line_length = 5.0;
+  const double line_radius = 0.1;
+  const double head_radius = 0.5;
+  const double head_height = 2.0;
 
   // the osg node this event visualization will attach to 
   osg::Group* contact_root = new osg::Group();
@@ -188,7 +188,7 @@ void EventDrivenSimulator::visualize_contact( Event& event ) {
 
   // calculate the orientation based upon the direction of the normal vector.
   // Note: the default orientation of the osg model is along the z-axis
-  Real theta;
+  double theta;
   Vector3 z = Vector3( 0.0, 0.0, 1.0 );
   Vector3 axis = Vector3::cross( event.contact_normal, z );
   if( axis.norm_inf() < NEAR_ZERO) {
@@ -236,8 +236,8 @@ void EventDrivenSimulator::visualize_contact( Event& event ) {
   // theta in the rotational code above needs correction for that case
 
   // knobs for tweaking
-  const Real validator_scale = point_scale / 3;
-  const Real validator_ray_length = line_length * 2.5;
+  const double validator_scale = point_scale / 3;
+  const double validator_ray_length = line_length * 2.5;
 
   // a root for the validator
   osg::Group* validator_root = new osg::Group();
@@ -307,16 +307,16 @@ void EventDrivenSimulator::handle_events()
     // process events, updating tolerances
     BOOST_FOREACH(Event* ev, e.events)
     {
-      Real event_v = ev->calc_event_vel();
-      _event_tolerances[*ev] = std::fabs(event_v) + std::numeric_limits<Real>::epsilon();  
+      double event_v = ev->calc_event_vel();
+      _event_tolerances[*ev] = std::fabs(event_v) + std::numeric_limits<double>::epsilon();  
     }
   }
 
   // tabulate times for event handling 
   tms stop;  
   times(&stop);
-  event_utime += (Real) (stop.tms_utime-start.tms_utime)/CLOCKS_PER_SEC;
-  event_stime += (Real) (stop.tms_stime-start.tms_stime)/CLOCKS_PER_SEC;
+  event_utime += (double) (stop.tms_utime-start.tms_utime)/CLOCKS_PER_SEC;
+  event_stime += (double) (stop.tms_stime-start.tms_stime)/CLOCKS_PER_SEC;
 
   // call the post-impulse application callback, if any 
   if (event_post_impulse_callback_fn)
@@ -376,14 +376,14 @@ void EventDrivenSimulator::get_coords_and_velocities(vector<pair<VectorN, Vector
  * \param t the mixture [0,1] to set the coordinates and velocities (t=0 is
  *        equivalent to time 0; t=1 equivalent to time dt)
  */
-void EventDrivenSimulator::set_coords_and_velocities(const vector<pair<VectorN, VectorN> >& q0, const vector<pair<VectorN, VectorN> >& q1, Real t) const
+void EventDrivenSimulator::set_coords_and_velocities(const vector<pair<VectorN, VectorN> >& q0, const vector<pair<VectorN, VectorN> >& q1, double t) const
 {
   SAFESTATIC VectorN qx, qy;
 
   for (unsigned i=0; i< _bodies.size(); i++)
   {
     // compute and set the generalized coordinates
-    qx.copy_from(q0[i].first) *= ((Real) 1.0 - t);
+    qx.copy_from(q0[i].first) *= ((double) 1.0 - t);
     qy.copy_from(q1[i].first) *= t;
     qx += qy;
     _bodies[i]->set_generalized_coordinates(DynamicBody::eRodrigues, qx);
@@ -393,7 +393,7 @@ void EventDrivenSimulator::set_coords_and_velocities(const vector<pair<VectorN, 
     FILE_LOG(LOG_SIMULATOR) << "    - generalized coords: " << qx << endl;
 
     // compute the generalized velocities using finite differencing
-    qx.copy_from(q0[i].second) *= ((Real) 1.0 - t);
+    qx.copy_from(q0[i].second) *= ((double) 1.0 - t);
     qy.copy_from(q1[i].second) *= t;
     qx += qy;
     FILE_LOG(LOG_SIMULATOR) << "    - velocity at q0: " << q0[i].second << endl;
@@ -408,7 +408,7 @@ void EventDrivenSimulator::set_coords_and_velocities(const vector<pair<VectorN, 
  * \pre Generalized coordinates of the bodies involved in the event are at the
  *      time of the event
  */
-bool EventDrivenSimulator::will_impact(Event& e, const vector<pair<VectorN, VectorN> >& q0, const vector<pair<VectorN, VectorN> >& q1, Real dt) const
+bool EventDrivenSimulator::will_impact(Event& e, const vector<pair<VectorN, VectorN> >& q0, const vector<pair<VectorN, VectorN> >& q1, double dt) const
 {
   SAFESTATIC VectorN qx, qy;
 
@@ -443,7 +443,7 @@ bool EventDrivenSimulator::will_impact(Event& e, const vector<pair<VectorN, Vect
 
     // set the (interpolated) velocity of the body
     qx.copy_from(q1[i].second) *= e.t;
-    qy.copy_from(q0[i].second) *= ((Real) 1.0 - e.t);
+    qy.copy_from(q0[i].second) *= ((double) 1.0 - e.t);
     qx += qy;
     _bodies[i]->set_generalized_velocity(DynamicBody::eRodrigues, qx);
   }
@@ -480,22 +480,22 @@ void EventDrivenSimulator::copy(const vector<pair<VectorN, VectorN> >& source, v
 }
 
 /// Steps the simulator forward
-Real EventDrivenSimulator::step(Real step_size)
+double EventDrivenSimulator::step(double step_size)
 {
   SAFESTATIC vector<shared_ptr<void> > x, xplus;
   SAFESTATIC vector<pair<VectorN, VectorN> > q0, q1, qstar;
-  const Real INF = std::numeric_limits<Real>::max();
+  const double INF = std::numeric_limits<double>::max();
 
   // clear timings
-  dynamics_utime = (Real) 0.0;
-  dynamics_stime = (Real) 0.0;
-  event_utime = (Real) 0.0;
-  event_stime = (Real) 0.0;
-  coldet_utime = (Real) 0.0;
-  coldet_stime = (Real) 0.0;
+  dynamics_utime = (double) 0.0;
+  dynamics_stime = (double) 0.0;
+  event_utime = (double) 0.0;
+  event_stime = (double) 0.0;
+  coldet_utime = (double) 0.0;
+  coldet_stime = (double) 0.0;
 
   // setup the amount remaining to step
-  Real dt = step_size;
+  double dt = step_size;
 
   // clear one-step visualization data
   #ifdef USE_OSG
@@ -505,7 +505,7 @@ Real EventDrivenSimulator::step(Real step_size)
 
   // methods below assume that coords/velocities of the bodies may be modified,
   // so we need to take precautions to save/restore them as necessary
-  while (dt > (Real) 0.0)
+  while (dt > (double) 0.0)
   {
     // get the current generalized coordinates and velocities
     get_coords_and_velocities(q0);
@@ -519,13 +519,13 @@ Real EventDrivenSimulator::step(Real step_size)
     // look for events in [0, dt], advance all bodies to the time of event,
     // and handle the event(s)
     bool Zeno = false;
-    Real t = find_and_handle_events(dt, q0, q1, Zeno);
+    double t = find_and_handle_events(dt, q0, q1, Zeno);
     if (t > dt)
       break; // no event.. finish up
     else if (Zeno) 
     {
       // move to time of designated Zeno point
-      Real h = std::min(max_Zeno_step, dt);
+      double h = std::min(max_Zeno_step, dt);
       handle_Zeno_point(h, q0, q1);
       t += h;
       if (t > dt)    // don't want to accidentally step clock too far
@@ -565,7 +565,7 @@ Real EventDrivenSimulator::step(Real step_size)
  * velocity determined via the event handling method, thus reproducing the
  * desired behavior of the system (if the step is sufficiently small).
  */
-void EventDrivenSimulator::handle_Zeno_point(Real dt, const vector<pair<VectorN, VectorN> >& q0, vector<pair<VectorN, VectorN> >& q1)
+void EventDrivenSimulator::handle_Zeno_point(double dt, const vector<pair<VectorN, VectorN> >& q0, vector<pair<VectorN, VectorN> >& q1)
 {
   // NOTE: _events must be composed strictly of Zeno point events 
   // (this is ensured by find_TOI())
@@ -626,17 +626,17 @@ void EventDrivenSimulator::determine_treated_bodies(list<list<Event*> >& groups,
  * search over [q0,q1] and 2) this allows us to handle non-explicit 
  * integration. 
  */
-Real EventDrivenSimulator::find_and_handle_events(Real dt, const vector<pair<VectorN, VectorN> >& q0, const vector<pair<VectorN, VectorN> >& q1, bool& Zeno)
+double EventDrivenSimulator::find_and_handle_events(double dt, const vector<pair<VectorN, VectorN> >& q0, const vector<pair<VectorN, VectorN> >& q1, bool& Zeno)
 {
   SAFESTATIC VectorN qx;
   vector<Event> cd_events, limit_events;
   SAFESTATIC vector<pair<DynamicBodyPtr, VectorN> > x0, x1;
-  typedef map<Event, Real, EventCompare>::const_iterator EtolIter;
+  typedef map<Event, double, EventCompare>::const_iterator EtolIter;
 
   FILE_LOG(LOG_SIMULATOR) << "-- checking for event in interval [" << this->current_time << ", " << (this->current_time+dt) << "] (dt=" << dt << ")" << std::endl;
 
   // make sure that dt is non-negative
-  assert(dt >= (Real) 0.0);
+  assert(dt >= (double) 0.0);
 
   // only for debugging purposes: verify that bodies aren't already interpenetrating
   #ifndef NDEBUG
@@ -707,14 +707,14 @@ Real EventDrivenSimulator::find_and_handle_events(Real dt, const vector<pair<Vec
   // tabulate times for collision detection 
   tms stop;  
   times(&stop);
-  coldet_utime += (Real) (stop.tms_utime-start.tms_utime)/CLOCKS_PER_SEC;
-  coldet_stime += (Real) (stop.tms_stime-start.tms_stime)/CLOCKS_PER_SEC;
+  coldet_utime += (double) (stop.tms_utime-start.tms_utime)/CLOCKS_PER_SEC;
+  coldet_stime += (double) (stop.tms_stime-start.tms_stime)/CLOCKS_PER_SEC;
 
   // find and "integrate" to the time-of-impact
-  Real TOI = find_TOI(dt, q0, q1);
+  double TOI = find_TOI(dt, q0, q1);
 
   // check for Zeno point
-  if (TOI < std::numeric_limits<Real>::epsilon())
+  if (TOI < std::numeric_limits<double>::epsilon())
   {
     // if all events are resting or separating, we have a Zeno point
     Zeno = true;
@@ -754,7 +754,7 @@ Real EventDrivenSimulator::find_and_handle_events(Real dt, const vector<pair<Vec
 }
 
 /// Finds joint limit events
-void EventDrivenSimulator::find_limit_events(const vector<pair<VectorN, VectorN> >& q0, const vector<pair<VectorN, VectorN> >& q1, Real dt, vector<Event>& events)
+void EventDrivenSimulator::find_limit_events(const vector<pair<VectorN, VectorN> >& q0, const vector<pair<VectorN, VectorN> >& q1, double dt, vector<Event>& events)
 {
   // clear the vector of events
   events.clear();
@@ -773,9 +773,9 @@ void EventDrivenSimulator::find_limit_events(const vector<pair<VectorN, VectorN>
 }
 
 /// Finds the next time-of-impact out of a set of events
-Real EventDrivenSimulator::find_TOI(Real dt, const vector<pair<VectorN, VectorN> >& q0, const vector<pair<VectorN, VectorN> >& q1)
+double EventDrivenSimulator::find_TOI(double dt, const vector<pair<VectorN, VectorN> >& q0, const vector<pair<VectorN, VectorN> >& q1)
 {
-  const Real INF = std::numeric_limits<Real>::max();
+  const double INF = std::numeric_limits<double>::max();
 
   FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::find_TOI() entered with dt=" << dt << endl;
 
@@ -783,14 +783,14 @@ Real EventDrivenSimulator::find_TOI(Real dt, const vector<pair<VectorN, VectorN>
   vector<Event>::iterator citer = _events.begin();
 
   // setup integration performed 
-  Real h = (Real) 0.0;
+  double h = (double) 0.0;
 
   // loop while the iterator does not point to the end -- may need several
   // iterations b/c there may be no impacting events in a group 
   while (citer != _events.end())
   {
     // set tmin
-    Real tmin = citer->t*dt;
+    double tmin = citer->t*dt;
 
     FILE_LOG(LOG_SIMULATOR) << "  -- find_TOI() while loop, current time=" << current_time << " tmin=" << tmin << endl;
 
@@ -823,7 +823,7 @@ Real EventDrivenSimulator::find_TOI(Real dt, const vector<pair<VectorN, VectorN>
     for (citer++; citer != _events.end(); citer++)
     {
       // see whether we are done
-      if (citer->t*dt > tmin + std::numeric_limits<Real>::epsilon())
+      if (citer->t*dt > tmin + std::numeric_limits<double>::epsilon())
         break;
 
       // see whether this event is impacting (if we don't yet have an
@@ -861,7 +861,7 @@ void EventDrivenSimulator::check_violation()
   BOOST_FOREACH(shared_ptr<CollisionDetection> cd, collision_detectors)
   {
     // do the collision detection routine
-    if (cd->is_collision((Real) 0.0))
+    if (cd->is_collision((double) 0.0))
     {
       if (!_simulation_violated)
       {

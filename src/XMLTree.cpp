@@ -11,11 +11,12 @@
 #include <limits>
 #include <cmath>
 #include <sstream>
+#include <Ravelin/MatrixNd.h>
 #include <Moby/MissizeException.h>
-#include <Moby/MatrixN.h>
 #include <Moby/XMLTree.h>
 
 using namespace Moby;
+using namespace Ravelin;
 
 /// Constructs an XMLAttrib object from a name and a string value
 XMLAttrib::XMLAttrib(const std::string& name, const std::string& string_value)
@@ -25,7 +26,7 @@ XMLAttrib::XMLAttrib(const std::string& name, const std::string& string_value)
 }
 
 /// Constructs a real-valued attribute with the given name
-XMLAttrib::XMLAttrib(const std::string& name, Real real_value)
+XMLAttrib::XMLAttrib(const std::string& name, double real_value)
 {
   this->name = name;
   this->value = str(real_value);
@@ -50,7 +51,7 @@ XMLAttrib::XMLAttrib(const std::string& name, unsigned unsigned_value)
 }
 
 /// Constructs a vector-valued attribute with the given name
-XMLAttrib::XMLAttrib(const std::string& name, const VectorN& vector_value)
+XMLAttrib::XMLAttrib(const std::string& name, const VectorNd& vector_value)
 {
   this->name = name;
   std::ostringstream oss;
@@ -74,7 +75,7 @@ XMLAttrib::XMLAttrib(const std::string& name, const VectorN& vector_value)
 }
 
 /// Constructs a vector-valued attribute with the given name
-XMLAttrib::XMLAttrib(const std::string& name, const SVector6& vector_value)
+XMLAttrib::XMLAttrib(const std::string& name, const SVector6d& vector_value)
 {
   this->name = name;
   std::ostringstream oss;
@@ -91,7 +92,7 @@ XMLAttrib::XMLAttrib(const std::string& name, const SVector6& vector_value)
 }
 
 /// Constructs a vector-valued attribute with the given name
-XMLAttrib::XMLAttrib(const std::string& name, const MatrixN& matrix_value)
+XMLAttrib::XMLAttrib(const std::string& name, const MatrixNd& matrix_value)
 {  
   this->name = name;
   std::ostringstream oss;
@@ -125,7 +126,7 @@ XMLAttrib::XMLAttrib(const std::string& name, const MatrixN& matrix_value)
 }
 
 /// Constructs a vector-valued attribute with the given name
-XMLAttrib::XMLAttrib(const std::string& name, const Matrix3& matrix_value)
+XMLAttrib::XMLAttrib(const std::string& name, const Matrix3d& matrix_value)
 {  
   this->name = name;
   std::ostringstream oss;
@@ -151,36 +152,6 @@ XMLAttrib::XMLAttrib(const std::string& name, const Matrix3& matrix_value)
   this->value = oss.str();
 }
 
-/// Constructs a vector-valued attribute with the given name
-XMLAttrib::XMLAttrib(const std::string& name, const Matrix4& matrix_value)
-{  
-  this->name = name;
-  std::ostringstream oss;
-
-  // set the first value of the matrix
-  oss << str(matrix_value(0,0));
-
-  // for each row of the matrix
-  for (unsigned j=0; j< 3; j++)
-  {
-    // determine column iteration
-    unsigned i = (j == 0) ? 1 : 0;
-
-    // for each column of the matrix
-    for (; i< matrix_value.columns(); i++)
-      oss << " " << str(matrix_value(j,i));
-
-    // separate rows with a semicolon
-    oss << ";";
-  }
-
-  // write the fourth row
-  oss << " 0 0 0 1";
-
-  // get the string value
-  this->value = oss.str();
-}
-
 /// Constructs a Boolean-valued attribute from the given value
 XMLAttrib::XMLAttrib(const std::string& name, bool bool_value)
 {
@@ -198,11 +169,11 @@ XMLAttrib::XMLAttrib(const std::string& name, long long_value)
 }
 
 /// Gets a real value as a string
-std::string XMLAttrib::str(Real value)
+std::string XMLAttrib::str(double value)
 {
-  if (value == std::numeric_limits<Real>::infinity())
+  if (value == std::numeric_limits<double>::infinity())
     return std::string("inf");
-  else if (value == -std::numeric_limits<Real>::infinity())
+  else if (value == -std::numeric_limits<double>::infinity())
     return std::string("-inf");
   else
   {
@@ -213,14 +184,14 @@ std::string XMLAttrib::str(Real value)
 }
 
 /// Gets a floating point value from the underlying string representation
-Real XMLAttrib::get_real_value() const
+double XMLAttrib::get_real_value() const
 {
   if (strcasecmp(this->value.c_str(), "inf") == 0)
-    return std::numeric_limits<Real>::infinity();
+    return std::numeric_limits<double>::infinity();
   else if (strcasecmp(this->value.c_str(), "-inf") == 0)
-    return -std::numeric_limits<Real>::infinity();
+    return -std::numeric_limits<double>::infinity();
   else
-    return (Real) std::atof(this->value.c_str());
+    return (double) std::atof(this->value.c_str());
 }
 
 /// Gets a Boolean value from the underlying string representation
@@ -342,62 +313,50 @@ std::list<std::string> XMLAttrib::get_strings_value() const
 }
 
 /// Gets a list of space-delimited and/or comma-delimited vectors from the underlying string value
-void XMLAttrib::get_vector_value(VectorN& v) const
+void XMLAttrib::get_vector_value(VectorNd& v) const
 {
-  v = VectorN::parse(value);
+  v = VectorNd::parse(value);
 }
 
 /// Gets a list of space-delimited and/or comma-delimited vectors from the underlying string value
-void XMLAttrib::get_vector_value(Vector2& v) const
+void XMLAttrib::get_vector_value(Vector2d& v) const
 {
-  VectorN w = VectorN::parse(value);
+  VectorNd w = VectorNd::parse(value);
   if (w.size() != v.size())
     throw MissizeException();
-  v = Vector2(w.begin());
+  v = Vector2d(w[0], w[1]);
 }  
 
 /// Gets a list of space-delimited and/or comma-delimited vectors from the underlying string value
-void XMLAttrib::get_vector_value(Vector3& v) const
+void XMLAttrib::get_vector_value(Vector3d& v) const
 {
-  VectorN w = VectorN::parse(value);
+  VectorNd w = VectorNd::parse(value);
   if (w.size() != v.size())
     throw MissizeException();
-  v = Vector3(w.begin());
+  v = Vector3d(w[0], w[1], w[2]);
 }  
 
 /// Gets a list of space-delimited and/or comma-delimited vectors from the underlying string value
-void XMLAttrib::get_vector_value(SVector6& v) const
+void XMLAttrib::get_vector_value(SVector6d& v) const
 {
-  VectorN w = VectorN::parse(value);
+  VectorNd w = VectorNd::parse(value);
   if (w.size() != v.size())
     throw MissizeException();
-  v = SVector6(w.begin());
+  v = SVector6d(w[0], w[1], w[2], w[3], w[4], w[5]);
 }  
 
 /// Gets a list of space-delimited and/or comma-delimited strings from the underlying string value
-void XMLAttrib::get_matrix_value(Matrix3& m) const
+void XMLAttrib::get_matrix_value(Matrix3d& m) const
 {
-  MatrixN n;
+  MatrixNd n;
   get_matrix_value(n);
-  if (n.rows() != m.size() || n.columns() != m.size())
+  if (n.rows() != m.rows() || n.columns() != m.rows())
     throw MissizeException();
-  m = Matrix3(n.begin());
+  m = Matrix3d(n.data());
 } 
 
 /// Gets a list of space-delimited and/or comma-delimited strings from the underlying string value
-void XMLAttrib::get_matrix_value(Matrix4& m) const
-{
-  const unsigned X = 0, W = 3;
-  MatrixN n;
-  get_matrix_value(n);
-  if (n.rows() != m.size() || n.columns() != m.size())
-    throw MissizeException();
-  MatrixN o = n.get_sub_mat(X,W,X,W+1);
-  m = Matrix4(o.begin());
-} 
-
-/// Gets a list of space-delimited and/or comma-delimited strings from the underlying string value
-void XMLAttrib::get_matrix_value(MatrixN& m) const
+void XMLAttrib::get_matrix_value(MatrixNd& m) const
 {
   // construct the list of properties
   std::list<std::list<std::string> > plist;
@@ -477,11 +436,11 @@ void XMLAttrib::get_matrix_value(MatrixN& m) const
     for (std::list<std::string>::const_iterator j = i->begin(); j != i->end(); j++)
     {
       if (strcasecmp(j->c_str(), "inf") == 0)
-        m(r,s) = std::numeric_limits<Real>::infinity();
+        m(r,s) = std::numeric_limits<double>::infinity();
       else if (strcasecmp(j->c_str(), "-inf") == 0)
-        m(r,s) = -std::numeric_limits<Real>::infinity();
+        m(r,s) = -std::numeric_limits<double>::infinity();
       else
-        m(r,s) = (Real) atof(j->c_str());
+        m(r,s) = (double) atof(j->c_str());
       s++;
     }
     r++;

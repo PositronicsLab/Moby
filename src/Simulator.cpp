@@ -60,7 +60,7 @@ Simulator::~Simulator()
  * \param step_size the step size
  * \return step_size
  */
-Real Simulator::step(Real step_size)
+double Simulator::step(double step_size)
 {
   #ifdef USE_OSG
   // clear one-step visualization data
@@ -68,8 +68,8 @@ Real Simulator::step(Real step_size)
   #endif
 
   // clear dynamics timings
-  dynamics_utime = (Real) 0.0;
-  dynamics_stime = (Real) 0.0;
+  dynamics_utime = (double) 0.0;
+  dynamics_stime = (double) 0.0;
 
   // compute forward dynamics and integrate 
   current_time += integrate(step_size);

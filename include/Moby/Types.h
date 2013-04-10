@@ -15,19 +15,11 @@
 #include <vector>
 #include <list>
 #include <boost/shared_ptr.hpp>
-#ifdef BUILD_ARBITRARY_PRECISION
-#include <Moby/mpreal.h>
-#endif
+#include <Ravelin/Point3d.h>
+#include <Ravelin/Point2d.h>
 
 namespace Moby {
 
-class Vector2;
-class Vector3;
-class VectorN;
-class SVector6;
-class Matrix3;
-class Matrix4;
-class MatrixN;
 class Polyhedron;
 class Simulator;
 class RigidBody;
@@ -43,7 +35,6 @@ class Primitive;
 class Base;
 class RecurrentForce;
 class DynamicBody;
-class SMatrix6N;
 class Octree;
 class XMLTree;
 class OSGGroupWrapper;
@@ -51,81 +42,14 @@ class AABB;
 class OBB;
 class BV;
 
-#ifdef BUILD_SINGLE
-/// default floating-point type
-typedef float Real;
-	
-/// floating-point type to use when extra precision is necessary
-typedef double LongReal;
-#else
-#ifdef BUILD_DOUBLE
-/// default floating-point type
-typedef double Real;
-	
-/// floating-point type to use when extra precision is necessary
-typedef long double LongReal;
-#else
-#ifdef BUILD_ARBITRARY_PRECISION
-
-typedef mpfr::mpreal Real;
-typedef mpfr::mpreal LongReal;
-
-#else
-#error "No floating point type given!"
-#endif
-#endif
-#endif
+/// Typedef to make specifying line segments easier
+typedef std::pair<Ravelin::Point3d, Ravelin::Point3d> LineSeg3;
 
 /// Typedef to make specifying line segments easier
-typedef std::pair<Vector3, Vector3> LineSeg3;
-
-/// Typedef to make specifying line segments easier
-typedef std::pair<Vector2, Vector2> LineSeg2;
+typedef std::pair<Ravelin::Point2d, Ravelin::Point2d> LineSeg2;
 
 /// reference frame type for reduced-coordinate dynamics computations
 enum ReferenceFrameType { eGlobal, eLink };
-
-/// Vector2 smart pointer
-typedef boost::shared_ptr<Vector2> Vector2Ptr;
-
-/// Vector2 const smart pointer
-typedef boost::shared_ptr<const Vector2> Vector2ConstPtr;
-
-/// Vector3 smart pointer
-typedef boost::shared_ptr<Vector3> Vector3Ptr;
-
-/// Vector3 const smart pointer
-typedef boost::shared_ptr<const Vector3> Vector3ConstPtr;
-
-/// VectorN smart pointer
-typedef boost::shared_ptr<VectorN> VectorNPtr;
-
-/// VectorN const smart pointer
-typedef boost::shared_ptr<const VectorN> VectorNConstPtr;
-
-/// SVector6 smart pointer
-typedef boost::shared_ptr<SVector6> SVector6Ptr;
-
-/// Constant Matrix3 smart pointer
-typedef boost::shared_ptr<const Matrix3> Matrix3ConstPtr;
-
-/// Matrix3 smart pointer
-typedef boost::shared_ptr<Matrix3> Matrix3Ptr;
-
-/// Matrix4 smart pointer
-typedef boost::shared_ptr<Matrix4> Matrix4Ptr;
-
-/// MatrixN smart pointer
-typedef boost::shared_ptr<MatrixN> MatrixNPtr;
-
-/// constant MatrixN smart pointer
-typedef boost::shared_ptr<const MatrixN> MatrixNConstPtr;
-
-/// SMatrix6N smart pointer
-typedef boost::shared_ptr<SMatrix6N> SMatrix6NPtr;
-
-/// const SMatrix6N smart pointer
-typedef boost::shared_ptr<const SMatrix6N> SMatrix6NConstPtr;
 
 /// Polyhedron smart pointer
 typedef boost::shared_ptr<Polyhedron> PolyhedronPtr;

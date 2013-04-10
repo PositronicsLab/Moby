@@ -7,6 +7,7 @@
 #include <Moby/ArticulatedBody.h>
 #include <Moby/SingleBody.h>
 
+using namespace Ravelin;
 using namespace Moby;
 
 /// Gets the "super" body

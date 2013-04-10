@@ -31,9 +31,9 @@ DampingForce::DampingForce(const DampingForce& source)
 void DampingForce::add_force(DynamicBodyPtr body)
 {
   // get the linear and angular damping constants
-  map<DynamicBodyPtr, Real>::const_iterator diter;
-  Real ldamp = (Real) 0.0, adamp = (Real) 0.0;
-  Real lsqdamp = (Real) 0.0, asqdamp = (Real) 0.0;
+  map<DynamicBodyPtr, double>::const_iterator diter;
+  double ldamp = (double) 0.0, adamp = (double) 0.0;
+  double lsqdamp = (double) 0.0, asqdamp = (double) 0.0;
   if ((diter = kl.find(body)) != kl.end())
     ldamp = diter->second;
   if ((diter = ka.find(body)) != ka.end())
@@ -73,8 +73,8 @@ void DampingForce::add_force(DynamicBodyPtr body)
     BOOST_FOREACH(RigidBodyPtr rb, links)
     {
       // get linear and angular damping constants for this body, if different
-      Real ldamp2 = ldamp, adamp2 = adamp;
-      Real lsqdamp2 = lsqdamp, asqdamp2 = asqdamp;
+      double ldamp2 = ldamp, adamp2 = adamp;
+      double lsqdamp2 = lsqdamp, asqdamp2 = asqdamp;
       if ((diter = kl.find(rb)) != kl.end())
         ldamp2 = diter->second;
       if ((diter = ka.find(rb)) != ka.end())
@@ -167,9 +167,9 @@ void DampingForce::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_
 
   // get list of unique bodies
   std::list<DynamicBodyPtr> bodies;
-  for (map<DynamicBodyPtr, Real>::const_iterator i = kl.begin(); i != kl.end(); i++)
+  for (map<DynamicBodyPtr, double>::const_iterator i = kl.begin(); i != kl.end(); i++)
     bodies.push_back(i->first);
-  for (map<DynamicBodyPtr, Real>::const_iterator i = ka.begin(); i != ka.end(); i++)
+  for (map<DynamicBodyPtr, double>::const_iterator i = ka.begin(); i != ka.end(); i++)
     bodies.push_back(i->first);
   bodies.erase(std::unique(bodies.begin(), bodies.end()), bodies.end());
 
@@ -181,9 +181,9 @@ void DampingForce::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_
     node->add_child(new_node);
     
     // get the gains for the body
-    Real lgain = (Real) 0.0, again = (Real) 0.0;
-    Real lsqgain = (Real) 0.0, asqgain = (Real) 0.0;
-    map<DynamicBodyPtr, Real>::const_iterator giter;
+    double lgain = (double) 0.0, again = (double) 0.0;
+    double lsqgain = (double) 0.0, asqgain = (double) 0.0;
+    map<DynamicBodyPtr, double>::const_iterator giter;
     if ((giter = kl.find(db)) != kl.end())
       lgain = giter->second;
     if ((giter = ka.find(db)) != ka.end())

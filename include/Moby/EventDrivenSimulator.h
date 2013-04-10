@@ -68,13 +68,13 @@ class EventDrivenSimulator : public Simulator
     virtual void load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const;
     virtual void output_object_state(std::ostream& out) const;
-    virtual Real step(Real dt);
+    virtual double step(double dt);
 
     /// Gets the shared pointer for this
     boost::shared_ptr<EventDrivenSimulator> get_this() { return boost::dynamic_pointer_cast<EventDrivenSimulator>(shared_from_this()); }
     
     /// The maximum step size taken when handling a Zeno point (default is INF)
-    Real max_Zeno_step;
+    double max_Zeno_step;
 
     /// The collision detection mechanisms
     std::list<boost::shared_ptr<CollisionDetection> > collision_detectors;
@@ -109,31 +109,31 @@ class EventDrivenSimulator : public Simulator
     bool render_contact_points;
 
     /// User time spent by collision detection on the last step
-    Real coldet_utime;
+    double coldet_utime;
 
     /// System time spent by collision detection on the last step
-    Real coldet_stime;
+    double coldet_stime;
 
     /// User time spent by event handling on the last step
-    Real event_utime;
+    double event_utime;
 
     /// System time spent by event handling on the last step
-    Real event_stime;
+    double event_stime;
 
   private:
-    void handle_Zeno_point(Real dt, const std::vector<std::pair<VectorN, VectorN> >& q0, std::vector<std::pair<VectorN, VectorN> >& q1);
-    static void copy(const std::vector<std::pair<VectorN, VectorN> >& source, std::vector<std::pair<VectorN, VectorN> >& dest);
+    void handle_Zeno_point(double dt, const std::vector<std::pair<Ravelin::VectorNd, Ravelin::VectorNd> >& q0, std::vector<std::pair<Ravelin::VectorNd, Ravelin::VectorNd> >& q1);
+    static void copy(const std::vector<std::pair<Ravelin::VectorNd, Ravelin::VectorNd> >& source, std::vector<std::pair<Ravelin::VectorNd, Ravelin::VectorNd> >& dest);
     static void determine_treated_bodies(std::list<std::list<Event*> >& groups, std::vector<DynamicBodyPtr>& bodies);
-    Real find_and_handle_events(Real dt, const std::vector<std::pair<VectorN, VectorN> >& q0, const std::vector<std::pair<VectorN, VectorN> >& q1, bool& Zeno);
-    bool will_impact(Event& e, const std::vector<std::pair<VectorN, VectorN> >& q0, const std::vector<std::pair<VectorN, VectorN> >& q1, Real dt) const;
-    void get_coords_and_velocities(std::vector<std::pair<VectorN, VectorN> >& q) const;
-    void set_coords_and_velocities(const std::vector<std::pair<VectorN, VectorN> >& q0, const std::vector<std::pair<VectorN, VectorN> >& q1, Real t) const;
-    void set_coords_and_velocities(const std::vector<std::pair<VectorN, VectorN> >& q) const;
+    double find_and_handle_events(double dt, const std::vector<std::pair<Ravelin::VectorNd, Ravelin::VectorNd> >& q0, const std::vector<std::pair<Ravelin::VectorNd, Ravelin::VectorNd> >& q1, bool& Zeno);
+    bool will_impact(Event& e, const std::vector<std::pair<Ravelin::VectorNd, Ravelin::VectorNd> >& q0, const std::vector<std::pair<Ravelin::VectorNd, Ravelin::VectorNd> >& q1, double dt) const;
+    void get_coords_and_velocities(std::vector<std::pair<Ravelin::VectorNd, Ravelin::VectorNd> >& q) const;
+    void set_coords_and_velocities(const std::vector<std::pair<Ravelin::VectorNd, Ravelin::VectorNd> >& q0, const std::vector<std::pair<Ravelin::VectorNd, Ravelin::VectorNd> >& q1, double t) const;
+    void set_coords_and_velocities(const std::vector<std::pair<Ravelin::VectorNd, Ravelin::VectorNd> >& q) const;
     void preprocess_event(Event& e);
     void check_violation();
-    void find_events(Real dt);
-    void find_limit_events(const std::vector<std::pair<VectorN, VectorN> >& q0, const std::vector<std::pair<VectorN, VectorN> >& q1, Real dt, std::vector<Event>& limit_events);
-    Real find_TOI(Real dt, const std::vector<std::pair<VectorN, VectorN> >& q0, const std::vector<std::pair<VectorN, VectorN> >& q1); 
+    void find_events(double dt);
+    void find_limit_events(const std::vector<std::pair<Ravelin::VectorNd, Ravelin::VectorNd> >& q0, const std::vector<std::pair<Ravelin::VectorNd, Ravelin::VectorNd> >& q1, double dt, std::vector<Event>& limit_events);
+    double find_TOI(double dt, const std::vector<std::pair<Ravelin::VectorNd, Ravelin::VectorNd> >& q0, const std::vector<std::pair<Ravelin::VectorNd, Ravelin::VectorNd> >& q1); 
     void handle_events();
     boost::shared_ptr<ContactParameters> get_contact_parameters(CollisionGeometryPtr geom1, CollisionGeometryPtr geom2) const;
 
@@ -147,7 +147,7 @@ class EventDrivenSimulator : public Simulator
     std::vector<Event> _events;
 
     /// Event tolerances
-    std::map<Event, Real, EventCompare> _event_tolerances;
+    std::map<Event, double, EventCompare> _event_tolerances;
 
     /// Object for handling impact events
     ImpactEventHandler _impact_event_handler;

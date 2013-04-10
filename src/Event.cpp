@@ -44,18 +44,18 @@ using boost::shared_ptr;
 Event::Event()
 {
   tol = NEAR_ZERO;              // default collision tolerance
-  t_true = (Real) -1.0;
+  t_true = (double) -1.0;
   event_type = eNone;
   limit_dof = std::numeric_limits<unsigned>::max();
-  limit_epsilon = (Real) 0.0;
+  limit_epsilon = (double) 0.0;
   limit_upper = false;
-  limit_impulse = (Real) 0.0;
+  limit_impulse = (double) 0.0;
   contact_normal = ZEROS_3;
   contact_impulse = ZEROS_3;
   contact_point = ZEROS_3;
-  contact_mu_coulomb = (Real) 0.0;
-  contact_mu_viscous = (Real) 0.0;
-  contact_epsilon = (Real) 0.0;
+  contact_mu_coulomb = (double) 0.0;
+  contact_mu_viscous = (double) 0.0;
+  contact_epsilon = (double) 0.0;
   contact_NK = 4;
 }
 
@@ -103,7 +103,7 @@ void Event::set_contact_parameters(const ContactParameters& cparams)
  * Positive velocity indicates separation, negative velocity indicates
  * impact, zero velocity indicates rest.
  */
-Real Event::calc_event_vel() const
+double Event::calc_event_vel() const
 {
   if (event_type == eContact)
   {
@@ -115,7 +115,7 @@ Real Event::calc_event_vel() const
   }
   else if (event_type == eLimit)
   {
-    Real qd = limit_joint->qd[limit_dof];
+    double qd = limit_joint->qd[limit_dof];
     return (limit_upper) ? -qd : qd;
   }
   else
@@ -184,9 +184,9 @@ std::ostream& Moby::operator<<(std::ostream& o, const Event& e)
       SingleBodyPtr sb2(e.contact_geom2->get_single_body());
       if (sb1 && sb2)
       {
-        Real cp1 = sb1->calc_point_vel(e.contact_point, e.contact_normal);
-        Real cp2 = sb2->calc_point_vel(e.contact_point, e.contact_normal);
-        Real rvel = cp1 - cp2; 
+        double cp1 = sb1->calc_point_vel(e.contact_point, e.contact_normal);
+        double cp2 = sb2->calc_point_vel(e.contact_point, e.contact_normal);
+        double rvel = cp1 - cp2; 
         o << "relative normal velocity: " << rvel << std::endl;
       }
     }
@@ -205,8 +205,8 @@ static void to_osg_matrix(const Matrix4& src, osg::Matrixd& tgt)
       tgt(j,i) = src(i,j);
 
   // set constant values of the matrix
-  tgt(X,W) = tgt(Y,W) = tgt(Z,W) = (Real) 0.0;
-  tgt(W,W) = (Real) 1.0;
+  tgt(X,W) = tgt(Y,W) = tgt(Z,W) = (double) 0.0;
+  tgt(W,W) = (double) 1.0;
 }
 #endif
 
@@ -616,7 +616,7 @@ void Event::determine_convex_set(list<Event*>& group)
 
   // verify that all points have same coefficient of friction
   bool found_contact = false;
-  Real mu_coulomb, mu_viscous;
+  double mu_coulomb, mu_viscous;
   BOOST_FOREACH(Event* e, group)
   {
     if (e->event_type != Event::eContact)
@@ -857,7 +857,7 @@ void Event::remove_nonimpacting_groups(list<list<Event*> >& groups)
 /**
  * \todo add a cone onto the arrows
  */
-void Event::write_vrml(const std::string& fname, Real sphere_radius, Real normal_length) const
+void Event::write_vrml(const std::string& fname, double sphere_radius, double normal_length) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
   std::ofstream out;
@@ -875,9 +875,9 @@ void Event::write_vrml(const std::string& fname, Real sphere_radius, Real normal
   // *************************************************
 
   // determine a random color that will be used for contact and normal
-  Real c_x = (Real) rand() / RAND_MAX;
-  Real c_y = (Real) rand() / RAND_MAX;
-  Real c_z = (Real) rand() / RAND_MAX;
+  double c_x = (double) rand() / RAND_MAX;
+  double c_y = (double) rand() / RAND_MAX;
+  double c_z = (double) rand() / RAND_MAX;
 
   // write the transform for the contact point
   out << "Transform {" << std::endl;
@@ -954,7 +954,7 @@ void Event::write_vrml(const std::string& fname, Real sphere_radius, Real normal
   Vector3 z = Vector3::normalize(Vector3::cross(x, contact_normal));
 
   // compute theta and the axis of rotation
-  Real theta = std::acos((x[X] + y[Y] + z[Z] - 1)/2);
+  double theta = std::acos((x[X] + y[Y] + z[Z] - 1)/2);
   Vector3 axis(z[Y] - y[Z], x[Z] - z[X], y[X] - x[Y]);
   axis *= -(1.0/(2 * std::sin(theta)));
     
@@ -995,8 +995,8 @@ void Event::determine_contact_tangents()
   Matrix3 RT = Matrix3::transpose(CompGeom::calc_3D_to_2D_matrix(contact_normal));
 
   // setup some necessary constants
-  const Real TWO_INV_NK = (Real) 1.0/contact_NK;
-  const Real TWO_PI_INV_NK = M_PI * TWO_INV_NK;
+  const double TWO_INV_NK = (double) 1.0/contact_NK;
+  const double TWO_PI_INV_NK = M_PI * TWO_INV_NK;
 
   // setup the tangents
   for (unsigned i=0; i< contact_NK; i++)
@@ -1011,7 +1011,7 @@ void Event::determine_contact_tangents()
 Event::EventClass Event::determine_event_class() const
 {
   // get the event velocity
-  Real vel = calc_event_vel();
+  double vel = calc_event_vel();
 
   FILE_LOG(LOG_SIMULATOR) << "-- event type: " << event_type << " velocity: " << vel << std::endl;
 
@@ -1030,7 +1030,7 @@ Event::EventClass Event::determine_event_class() const
  * Positive velocity indicates separation, negative velocity indicates
  * impact, zero velocity indicates rest.
  */
-Real Event::calc_event_tol() const
+double Event::calc_event_tol() const
 {
   if (event_type == eContact)
   {
@@ -1047,12 +1047,12 @@ Real Event::calc_event_tol() const
     Vector3 v1 = sb1->get_lvel() + Vector3::cross(sb1->get_avel(), r1);
     Vector3 v2 = sb2->get_lvel() + Vector3::cross(sb2->get_avel(), r2);
 
-    return std::max((v1 - v2).norm(), (Real) 1.0);
+    return std::max((v1 - v2).norm(), (double) 1.0);
   }
   else if (event_type == eLimit)
   {
-    Real qd = limit_joint->qd[limit_dof];
-    return std::max((Real) 1.0, std::fabs(qd));
+    double qd = limit_joint->qd[limit_dof];
+    return std::max((double) 1.0, std::fabs(qd));
   }
   else
     assert(false);

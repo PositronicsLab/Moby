@@ -4,11 +4,14 @@
  * License (found in COPYING).
  ****************************************************************************/
 
+#include <Moby/VariableStepIntegrator.h>
+
+using namespace Moby;
+
 /// Implements Base::load_from_xml()
-template <class T>
-void VariableStepIntegrator<T>::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map) 
+void VariableStepIntegrator::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map) 
 { 
-  Integrator<T>::load_from_xml(node, id_map); 
+  Integrator::load_from_xml(node, id_map); 
  
   // get the absolute error tolerance
   const XMLAttrib* aerr_attrib = node->get_attrib("abs-err-tol");
@@ -27,10 +30,9 @@ void VariableStepIntegrator<T>::load_from_xml(XMLTreeConstPtr node, std::map<std
 }
 
 /// Implements Base::save_to_xml()
-template <class T>
-void VariableStepIntegrator<T>::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
+void VariableStepIntegrator::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
 { 
-  Integrator<T>::save_to_xml(node, shared_objects); 
+  Integrator::save_to_xml(node, shared_objects); 
   node->name = "VariableStepIntegrator";
 
   // save the method data

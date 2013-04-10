@@ -14,6 +14,7 @@
 #include <Moby/Plane.h>
 #include <Moby/Polyhedron.h>
 
+using namespace Ravelin;
 using namespace Moby;
 using std::vector;
 using std::make_pair;
@@ -27,12 +28,12 @@ static void write_poly(const Polyhedron& p, std::ostream& out)
 {
   for (unsigned i=0; i< p.get_mesh().num_tris(); i++)
   {
-    Vector3 color((Real) rand()/RAND_MAX, (Real) rand()/RAND_MAX, (Real) rand()/RAND_MAX);
+    Point3d color((double) rand()/RAND_MAX, (double) rand()/RAND_MAX, (double) rand()/RAND_MAX);
     Triangle t = p.get_mesh().get_triangle(i);
     t.to_vrml(out, color);
   }
   
-  const vector<Vector3>& v = p.get_mesh().get_vertices();
+  const vector<Point3d>& v = p.get_mesh().get_vertices();
   for (unsigned i=0; i< v.size(); i++)
   {
     out << "Transform {" << std::endl;
@@ -60,7 +61,7 @@ static void write_poly2(const Polyhedron& p, std::ostream& out)
 {
   const unsigned X = 0, Y = 1, Z = 2;
  
-  const vector<Vector3>& v = p.get_mesh().get_vertices();
+  const vector<Point3d>& v = p.get_mesh().get_vertices();
   for (unsigned i=0; i< v.size(); i++)
   {
     out << "Transform {" << std::endl;
@@ -73,7 +74,7 @@ static void write_poly2(const Polyhedron& p, std::ostream& out)
   }
  
   // get the vertices and the facets
-  const std::vector<Vector3>& vertices = p.get_vertices();
+  const std::vector<Point3d>& vertices = p.get_vertices();
   const std::vector<IndexedTri>& facets = p.get_facets();
 
   // first write the consistent edges
@@ -144,7 +145,7 @@ static void write_poly(const Polyhedron& p, const char* fname)
 }
 
 /// Gets the requested vertex
-unsigned get_vertex(const vector<Vector3>& vertices, const Vector3& v)
+unsigned get_vertex(const vector<Point3d>& vertices, const Point3d& v)
 {
   unsigned n = vertices.size();
 
@@ -198,28 +199,28 @@ void Polyhedron::operator=(const Polyhedron& p)
 }
 
 /// Computes the Minkowski sum of two convex polyhedra
-PolyhedronPtr Polyhedron::minkowski(Polyhedron& p1, const Matrix4& T1, Polyhedron& p2, const Matrix4& T2, bool reflect_p2)
+PolyhedronPtr Polyhedron::minkowski(Polyhedron& p1, const Pose3d& T1, Polyhedron& p2, const Pose3d& T2, bool reflect_p2)
 {
   // verify that both polyhedra are convex
   if (!p1.is_convex() || !p2.is_convex())
     throw std::runtime_error("Polyhedron::minkowski() only operates on convex polyhedra");
 
   // we'll transform p2 to p1's frame
-  Matrix4 T2_to_T1 = Matrix4::inverse_transform(T1) * T2;
+  Pose3d T2_to_T1 = Pose3d::inverse(T1) * T2;
   Polyhedron p2_copy = p2;
   p2_copy.transform(T2_to_T1);
 
   // compute the minkowski sum
-  std::list<Vector3> points;
+  std::list<Point3d> points;
   for (unsigned i=0; i< p1.get_vertices().size(); i++)
     for (unsigned j=0; j< p2_copy.get_vertices().size(); j++)
     {
       // add vertex from p1 to vertex from p2
-      Vector3 v = p1.get_vertices()[i];
+      Point3d v = p1.get_vertices()[i];
       if (reflect_p2)
-        v -= p2_copy.get_vertices()[j];
+        v -= Vector3d(p2_copy.get_vertices()[j]);
       else
-        v += p2_copy.get_vertices()[j];
+        v += Vector3d(p2_copy.get_vertices()[j]);
       points.push_back(v);
     }
 
@@ -230,7 +231,7 @@ PolyhedronPtr Polyhedron::minkowski(Polyhedron& p1, const Matrix4& T1, Polyhedro
 /// Checks whether this polyhedron is degenerate
 bool Polyhedron::degenerate() const
 {
-  const std::vector<Vector3>& vertices = get_vertices();
+  const std::vector<Point3d>& vertices = get_vertices();
   const std::vector<IndexedTri>& facets = get_facets();
 
   for (unsigned i=0; i< facets.size(); i++)
@@ -274,19 +275,19 @@ bool Polyhedron::consistent() const
 /**
  * \note utility function for split should return a single point
  */
-Vector3 Polyhedron::intersect_plane(const Vector3& normal, Real d, const Vector3& p1, const Vector3& p2)
+Point3d Polyhedron::intersect_plane(const Vector3d& normal, double d, const Point3d& p1, const Point3d& p2)
 {
   // get a point on the plane
-  Vector3 pplane = normal * d;
+  Vector3d pplane = normal * d;
 
   FILE_LOG(LOG_COMPGEOM) << "equation of plane is: " << normal << "; " << d << std::endl;
   FILE_LOG(LOG_COMPGEOM) << "line segment is: " << p1 << "; " << p2 << std::endl;
   
   // compute u, the point of intersection
-  Real denom = Vector3::dot(normal, p2 - p1);
+  double denom = Vector3d::dot(normal, p2 - p1);
   assert(denom != 0.0);
-  Real num = Vector3::dot(normal, pplane - p1);
-  Real u = num / denom;
+  double num = Vector3d::dot(normal, pplane - p1);
+  double u = num / denom;
 
   FILE_LOG(LOG_COMPGEOM) << "point of intersection is " << (p1 + u*(p2-p1)) << std::endl;
   FILE_LOG(LOG_COMPGEOM) << "u = " << u << std::endl;
@@ -296,7 +297,7 @@ Vector3 Polyhedron::intersect_plane(const Vector3& normal, Real d, const Vector3
 } 
 
 /// Determines whether the specified point is strictly inside this polyhedron
-bool Polyhedron::inside(const Vector3& point, Real tol)
+bool Polyhedron::inside(const Point3d& point, double tol)
 {
   const unsigned THREE_D = 3;
   
@@ -310,7 +311,7 @@ bool Polyhedron::inside(const Vector3& point, Real tol)
       return false;
 
   // check whether the point is outside or coplanar with any facets    
-  const std::vector<Vector3>& vertices = get_vertices();
+  const std::vector<Point3d>& vertices = get_vertices();
   const std::vector<IndexedTri>& facets = get_facets();
   for (unsigned i=0; i< facets.size(); i++)
     if (CompGeom::volume_sign(vertices[facets[i].a], vertices[facets[i].b], vertices[facets[i].c], point) <= tol)
@@ -320,7 +321,7 @@ bool Polyhedron::inside(const Vector3& point, Real tol)
 }
 
 /// Determines whether the specified point is in or on this polyhedron
-bool Polyhedron::inside_or_on(const Vector3& point, Real tol) 
+bool Polyhedron::inside_or_on(const Point3d& point, double tol) 
 {
   const unsigned THREE_D = 3;
  
@@ -334,7 +335,7 @@ bool Polyhedron::inside_or_on(const Vector3& point, Real tol)
       return false;
     
   // check whether the point is outside any facets    
-  const std::vector<Vector3>& vertices = get_vertices();
+  const std::vector<Point3d>& vertices = get_vertices();
   const std::vector<IndexedTri>& facets = get_facets();
   for (unsigned i=0; i< facets.size(); i++)
     if (CompGeom::volume_sign(vertices[facets[i].a], vertices[facets[i].b], vertices[facets[i].c], point) < -tol)
@@ -349,7 +350,7 @@ bool Polyhedron::inside_or_on(const Vector3& point, Real tol)
  * Adapted from O'Rourke, p. 247-250.  Runs in worst-case time O(f), where
  * f is the number of facets of the polyhedron.
  */
-Polyhedron::LocationType Polyhedron::location(const Vector3& point, Real tol) const
+Polyhedron::LocationType Polyhedron::location(const Point3d& point, double tol) const
 {
   const unsigned THREE_D = 3;
   unsigned isects;
@@ -372,19 +373,19 @@ Polyhedron::LocationType Polyhedron::location(const Vector3& point, Real tol) co
   double bounding_radius = (double) (std::ceil(D) + 1);
 
   // loop while there is degeneracy
-  const std::vector<Vector3>& vertices = get_vertices();
+  const std::vector<Point3d>& vertices = get_vertices();
   const std::vector<IndexedTri>& facets = get_facets();
   while (true)
   {
     // generate a random ray of length bounding_radius
-    Vector3 r_knot;
+    Vector3d r_knot;
     for (unsigned i=0; i< THREE_D; i++)
       r_knot[i] = (double) rand() - (RAND_MAX / 2);
     r_knot.normalize();
     r_knot *= bounding_radius;
 
     // add r to the point
-    Vector3 r = point + r_knot;
+    Point3d r = point + r_knot;
 
     // setup the segment
     LineSeg3 seg(point, r);
@@ -397,7 +398,7 @@ Polyhedron::LocationType Polyhedron::location(const Vector3& point, Real tol) co
     for (unsigned i=0; i< facets.size(); i++)
     {
       // determine the intersection of the face and the ray
-      Vector3 dummy;
+      Point3d dummy;
       Triangle tri(vertices[facets[i].a], vertices[facets[i].b], vertices[facets[i].c]);
       CompGeom::SegTriIntersectType code = CompGeom::intersect_seg_tri(seg, tri, dummy, dummy, tol);
 
@@ -450,7 +451,7 @@ Polyhedron::LocationType Polyhedron::location(const Vector3& point, Real tol) co
  * \note none of the vertex or triangle pointers change; rather the data
  *       that they point to changes
  */
-void Polyhedron::translate(const Vector3& x)
+void Polyhedron::translate(const Vector3d& x)
 {
   // translate underlying mesh
   _mesh = _mesh.translate(x); 
@@ -465,7 +466,7 @@ void Polyhedron::translate(const Vector3& x)
  * \note none of the vertex or triangle pointers change; rather the data
  *       that they point to changes
  */
-void Polyhedron::transform(const Matrix4& T)
+void Polyhedron::transform(const Pose3d& T)
 {
   // transform underlying mesh
   _mesh = _mesh.transform(T); 
@@ -479,7 +480,7 @@ void Polyhedron::calc_bounding_box()
 {
   const unsigned THREE_D = 3;
   
-  const std::vector<Vector3>& vertices = get_vertices();
+  const std::vector<Point3d>& vertices = get_vertices();
   if (vertices.empty())
   {
     _bb_min = ZEROS_3;
@@ -505,10 +506,10 @@ void Polyhedron::calc_bounding_box()
 void Polyhedron::determine_convexity()
 {
   // set convexity to -inf to begin
-  _convexity = -std::numeric_limits<Real>::max();
+  _convexity = -std::numeric_limits<double>::max();
 
   // determine the set of edges for this polyhedron
-  const std::vector<Vector3>& vertices = get_vertices();
+  const std::vector<Point3d>& vertices = get_vertices();
   const std::vector<IndexedTri>& facets = get_facets();
   std::map<sorted_pair<unsigned>, std::list<unsigned> > edges;
   for (unsigned i=0; i< facets.size(); i++)
@@ -535,8 +536,8 @@ void Polyhedron::determine_convexity()
     Triangle tri_f1(vertices[f1.a], vertices[f1.b], vertices[f1.c]);
 
     // get the plane going through face 1
-    const Vector3& normal = tri_f1.calc_normal();
-    Real d = tri_f1.calc_offset(normal);
+    const Vector3d& normal = tri_f1.calc_normal();
+    double d = tri_f1.calc_offset(normal);
 
     // get the vertex of f2 not on this edge
     unsigned vert;
@@ -562,12 +563,12 @@ void Polyhedron::determine_convexity()
 }
 
 /// Sends this polyhedron to the specified stream using VRML
-void Polyhedron::to_vrml(std::ostream& out, const Polyhedron& p, Vector3 diffuse_color, bool wireframe)
+void Polyhedron::to_vrml(std::ostream& out, const Polyhedron& p, Point3d diffuse_color, bool wireframe)
 {
   const unsigned X = 0, Y = 1, Z = 2;
   
   // get the vertices and the facets
-  const std::vector<Vector3>& vertices = p.get_vertices();
+  const std::vector<Point3d>& vertices = p.get_vertices();
   const std::vector<IndexedTri>& facets = p.get_facets();
 
   out << "Shape {" << std::endl;
@@ -592,12 +593,12 @@ void Polyhedron::to_vrml(std::ostream& out, const Polyhedron& p, Vector3 diffuse
 }
 
 /// Utility method for calc_volume()
-void Polyhedron::calc_subexpressions(Real w0, Real w1, Real w2, Real& f1, Real& f2, Real& f3, Real& g0, Real& g1, Real& g2)
+void Polyhedron::calc_subexpressions(double w0, double w1, double w2, double& f1, double& f2, double& f3, double& g0, double& g1, double& g2)
 {
-  Real temp0 = w0 + w1;
+  double temp0 = w0 + w1;
   f1 = temp0 + w2;
-  Real temp1 = w0 * w0;
-  Real temp2 = temp1 + w1 * temp0;
+  double temp1 = w0 * w0;
+  double temp2 = temp1 + w1 * temp0;
   f2 = temp2 + w2 * f1;
   f3 = w0 * temp1 + w1 * temp2 + w2 * f2;
   g0 = f2 + w0 * (f1 + w0);
@@ -606,43 +607,43 @@ void Polyhedron::calc_subexpressions(Real w0, Real w1, Real w2, Real& f1, Real& 
 }
 
 /// Calculates the volume of this polyhedron
-Real Polyhedron::calc_volume() const
+double Polyhedron::calc_volume() const
 {
-  Real f1x, f2x, f3x, g0x, g1x, g2x, f1y, f2y, f3y, g0y, g1y, g2y;
-  Real f1z, f2z, f3z, g0z, g1z, g2z;
+  double f1x, f2x, f3x, g0x, g1x, g2x, f1y, f2y, f3y, g0y, g1y, g2y;
+  double f1z, f2z, f3z, g0z, g1z, g2z;
   const int X = 0;
   const int Y = 1;
   const int Z = 2;
 
   // zero integral
-  std::vector<Real> integral(10, 0);
+  std::vector<double> integral(10, 0);
 
   // order: 1, x, y, z, x^2, y^2, xy, yz, zx
-  const std::vector<Vector3>& vertices = get_vertices();
+  const std::vector<Point3d>& vertices = get_vertices();
   const std::vector<IndexedTri>& facets = get_facets();
   for (unsigned t=0; t< facets.size(); t++)
   {
     // get vertices of triangle t
-    const Real x0 = vertices[facets[t].a][X];
-    const Real y0 = vertices[facets[t].a][Y];
-    const Real z0 = vertices[facets[t].a][Z];
-    const Real x1 = vertices[facets[t].b][X];
-    const Real y1 = vertices[facets[t].b][Y];
-    const Real z1 = vertices[facets[t].b][Z];
-    const Real x2 = vertices[facets[t].c][X];
-    const Real y2 = vertices[facets[t].c][Y];
-    const Real z2 = vertices[facets[t].c][Z];
+    const double x0 = vertices[facets[t].a][X];
+    const double y0 = vertices[facets[t].a][Y];
+    const double z0 = vertices[facets[t].a][Z];
+    const double x1 = vertices[facets[t].b][X];
+    const double y1 = vertices[facets[t].b][Y];
+    const double z1 = vertices[facets[t].b][Z];
+    const double x2 = vertices[facets[t].c][X];
+    const double y2 = vertices[facets[t].c][Y];
+    const double z2 = vertices[facets[t].c][Z];
 
     // get edges and cross product of edges
-    Real a1 = x1 - x0;
-    Real b1 = y1 - y0;
-    Real c1 = z1 - z0;
-    Real a2 = x2 - x0;
-    Real b2 = y2 - y0;
-    Real c2 = z2 - z0;
-    Real d0 = b1 * c2 - b2 * c1;
-    Real d1 = a2 * c1 - a1 * c2;
-    Real d2 = a1 * b2 - a2 * b1;
+    double a1 = x1 - x0;
+    double b1 = y1 - y0;
+    double c1 = z1 - z0;
+    double a2 = x2 - x0;
+    double b2 = y2 - y0;
+    double c2 = z2 - z0;
+    double d0 = b1 * c2 - b2 * c1;
+    double d1 = a2 * c1 - a1 * c2;
+    double d2 = a1 * b2 - a2 * b1;
 
     // compute integral terms
     calc_subexpressions(x0,x1,x2,f1x,f2x,f3x,g0x,g1x,g2x);
@@ -666,21 +667,21 @@ Real Polyhedron::calc_volume() const
 }
 
 /// Computes the signed distance from the polyhedron to a point
-Real Polyhedron::calc_signed_distance(const Vector3& point, unsigned& closest_facet) 
+double Polyhedron::calc_signed_distance(const Point3d& point, unsigned& closest_facet) 
 {
   // initialize minimum distance
-  Real min_dist = std::numeric_limits<Real>::max();
+  double min_dist = std::numeric_limits<double>::max();
 
   // init the closest point (unused)
-  Vector3 closest_point;
+  Point3d closest_point;
 
   // compute the minimum distance to all triangles
-  const std::vector<Vector3>& vertices = get_vertices();
+  const std::vector<Point3d>& vertices = get_vertices();
   const std::vector<IndexedTri>& facets = get_facets();
   for (unsigned i=0; i< facets.size(); i++)
   {
     Triangle tri(vertices[facets[i].a], vertices[facets[i].b], vertices[facets[i].c]);
-    Real dist = std::sqrt(Triangle::calc_sq_dist(tri, point, closest_point));
+    double dist = std::sqrt(Triangle::calc_sq_dist(tri, point, closest_point));
     if (dist < min_dist)
     {
       min_dist = dist;
@@ -700,7 +701,7 @@ Real Polyhedron::calc_signed_distance(const Vector3& point, unsigned& closest_fa
 void Polyhedron::remove_inside(IndexedTriArray& mesh, Polyhedron& p, bool remove_shared)
 {
   // get the vertices and facets
-  const vector<Vector3>& verts = mesh.get_vertices();
+  const vector<Point3d>& verts = mesh.get_vertices();
   vector<IndexedTri> facets = mesh.get_facets();
 
   // check whether each vertex is inside or outside the polyhedron
@@ -743,7 +744,7 @@ void Polyhedron::remove_inside(IndexedTriArray& mesh, Polyhedron& p, bool remove
 void Polyhedron::remove_outside(IndexedTriArray& mesh, Polyhedron& p, bool remove_shared)
 {
   // get the vertices and facets
-  const vector<Vector3>& verts = mesh.get_vertices();
+  const vector<Point3d>& verts = mesh.get_vertices();
   vector<IndexedTri> facets = mesh.get_facets();
 
   // check whether each vertex is inside or outside the polyhedron
@@ -787,9 +788,9 @@ bool Polyhedron::bisects(const Triangle& a, const Triangle& b)
   // get signed distance of vertices from a
   Plane p(a);
 
-  Real da = p.calc_signed_distance(b.a);
-  Real db = p.calc_signed_distance(b.b);
-  Real dc = p.calc_signed_distance(b.c);
+  double da = p.calc_signed_distance(b.a);
+  double db = p.calc_signed_distance(b.b);
+  double dc = p.calc_signed_distance(b.c);
 
   if (da > 0.0 && db > 0.0 && dc > 0.0)
     return false;
@@ -800,7 +801,7 @@ bool Polyhedron::bisects(const Triangle& a, const Triangle& b)
 }
 
 /// Determines whether a vertex is present in the mesh already
-bool Polyhedron::find_vertex(const vector<Vector3>& vertices, const Vector3& v)
+bool Polyhedron::find_vertex(const vector<Point3d>& vertices, const Point3d& v)
 {
   unsigned n = vertices.size();
 
@@ -815,7 +816,7 @@ bool Polyhedron::find_vertex(const vector<Vector3>& vertices, const Vector3& v)
 /**
  * Returns the index of the mesh vertex.
  */
-unsigned Polyhedron::add_vertex(vector<Vector3>& vertices, const Vector3& v)
+unsigned Polyhedron::add_vertex(vector<Point3d>& vertices, const Point3d& v)
 {
   unsigned n = vertices.size();
 
@@ -831,7 +832,7 @@ unsigned Polyhedron::add_vertex(vector<Vector3>& vertices, const Vector3& v)
 /**
  * \pre ab is part of the winding convention (ccw or cw)
  */
-void Polyhedron::replace_edge(const vector<Vector3>& v, vector<IndexedTri>& f, unsigned a, unsigned b, unsigned c, vector<unsigned>& del_list)
+void Polyhedron::replace_edge(const vector<Point3d>& v, vector<IndexedTri>& f, unsigned a, unsigned b, unsigned c, vector<unsigned>& del_list)
 {
   // clear the deletion list
   del_list.clear();
@@ -881,13 +882,13 @@ void Polyhedron::replace_edge(const vector<Vector3>& v, vector<IndexedTri>& f, u
   }
 }
 
-bool Polyhedron::bisect(const Triangle& tbi, vector<Vector3>& v, vector<IndexedTri>& f, unsigned i)
+bool Polyhedron::bisect(const Triangle& tbi, vector<Point3d>& v, vector<IndexedTri>& f, unsigned i)
 {
   vector<unsigned> del_list;
 
   // get tbi's normal and offset
-  Vector3 tbi_normal = tbi.calc_normal();
-  Real tbi_offset = tbi.calc_offset(tbi_normal);
+  Vector3d tbi_normal = tbi.calc_normal();
+  double tbi_offset = tbi.calc_offset(tbi_normal);
 
   // get the three vertices of the triangle
   unsigned a = f[i].a;
@@ -903,17 +904,17 @@ bool Polyhedron::bisect(const Triangle& tbi, vector<Vector3>& v, vector<IndexedT
   LineSeg3 eca(t.c, t.a);
 
   // intersect them with plane 
-  Real tab = CompGeom::intersect_seg_plane(tbi_normal, tbi_offset, eab);
-  Real tbc = CompGeom::intersect_seg_plane(tbi_normal, tbi_offset, ebc);
-  Real tca = CompGeom::intersect_seg_plane(tbi_normal, tbi_offset, eca);
+  double tab = CompGeom::intersect_seg_plane(tbi_normal, tbi_offset, eab);
+  double tbc = CompGeom::intersect_seg_plane(tbi_normal, tbi_offset, ebc);
+  double tca = CompGeom::intersect_seg_plane(tbi_normal, tbi_offset, eca);
 
   // case 1: segments ab and bc intersect the plane
-  if (tab >= (Real) 0.0 && tab <= (Real) 1.0 && 
-      tbc >= (Real) 0.0 && tbc <= (Real) 1.0)
+  if (tab >= (double) 0.0 && tab <= (double) 1.0 && 
+      tbc >= (double) 0.0 && tbc <= (double) 1.0)
   {
     // determine the points of intersection
-    Vector3 i_eab = eab.first + (eab.second-eab.first)*tab;
-    Vector3 i_ebc = ebc.first + (ebc.second-ebc.first)*tbc;
+    Point3d i_eab = eab.first + (eab.second-eab.first)*tab;
+    Point3d i_ebc = ebc.first + (ebc.second-ebc.first)*tbc;
 
     // replace the edges, if necessary 
     if (!find_vertex(v, i_eab))
@@ -945,12 +946,12 @@ bool Polyhedron::bisect(const Triangle& tbi, vector<Vector3>& v, vector<IndexedT
     }
   }
   // case 2: segments ab and ca intersect the plane
-  if (tab >= (Real) 0.0 && tab <= (Real) 1.0 && 
-           tca >= (Real) 0.0 && tca <= (Real) 1.0)
+  if (tab >= (double) 0.0 && tab <= (double) 1.0 && 
+           tca >= (double) 0.0 && tca <= (double) 1.0)
   {
     // determine the points of intersection
-    Vector3 i_eab = eab.first + (eab.second-eab.first)*tab;
-    Vector3 i_eca = eca.first + (eca.second-eca.first)*tca;
+    Point3d i_eab = eab.first + (eab.second-eab.first)*tab;
+    Point3d i_eca = eca.first + (eca.second-eca.first)*tca;
 
     // replace the edges, if necessary 
     if (!find_vertex(v, i_eab))
@@ -982,12 +983,12 @@ bool Polyhedron::bisect(const Triangle& tbi, vector<Vector3>& v, vector<IndexedT
     }
   }
   // case 3: segments bc and ca intersect the plane
-  if (tbc >= (Real) 0.0 && tbc <= (Real) 1.0 && 
-           tca >= (Real) 0.0 && tca <= (Real) 1.0)
+  if (tbc >= (double) 0.0 && tbc <= (double) 1.0 && 
+           tca >= (double) 0.0 && tca <= (double) 1.0)
   {
     // determine the points of intersection
-    Vector3 i_ebc = ebc.first + (ebc.second-ebc.first)*tbc;
-    Vector3 i_eca = eca.first + (eca.second-eca.first)*tca;
+    Point3d i_ebc = ebc.first + (ebc.second-ebc.first)*tbc;
+    Point3d i_eca = eca.first + (eca.second-eca.first)*tca;
 
     // replace the edges, if necessary 
     if (!find_vertex(v, i_ebc))
@@ -1025,8 +1026,8 @@ bool Polyhedron::bisect(const Triangle& tbi, vector<Vector3>& v, vector<IndexedT
 void Polyhedron::slice(const Polyhedron& p1, const Polyhedron& p2, IndexedTriArray& mesh1, IndexedTriArray& mesh2)
 {
   // get the vertices of the two meshes -- we will modify these vectors
-  vector<Vector3> v1 = p1._mesh.get_vertices();
-  vector<Vector3> v2 = p2._mesh.get_vertices();
+  vector<Point3d> v1 = p1._mesh.get_vertices();
+  vector<Point3d> v2 = p2._mesh.get_vertices();
 
   // create two new vectors of facets instantiated with polyhedra facets
   vector<IndexedTri> nf1 = p1._mesh.get_facets();
@@ -1134,7 +1135,7 @@ IndexedTriArray Polyhedron::construct_difference(Polyhedron& p1, Polyhedron& p2)
 std::ostream& Moby::operator<<(std::ostream& out, const Polyhedron& p)
 {
   // get the vectors of vertices and facets
-  const std::vector<Vector3>& vertices = p.get_vertices();
+  const std::vector<Point3d>& vertices = p.get_vertices();
   const std::vector<IndexedTri>& facets = p.get_facets();
   
   // output vertices 

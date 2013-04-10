@@ -11,11 +11,11 @@
 #include <osgDB/WriteFile>
 #include <osg/MatrixTransform>
 #endif
-#include <Moby/Matrix4.h>
+#include <Ravelin/Pose3d.h>
 #include <Moby/XMLTree.h>
-#include <Moby/InvalidTransformException.h>
 #include <Moby/OSGGroupWrapper.h>
 
+using namespace Ravelin;
 using namespace Moby;
 
 OSGGroupWrapper::OSGGroupWrapper()
@@ -70,16 +70,24 @@ OSGGroupWrapper::~OSGGroupWrapper()
 
 #ifdef USE_OSG
 /// Copies this matrix to an OpenSceneGraph Matrixd object
-static void to_osg_matrix(const Matrix4& src, osg::Matrixd& tgt)
+static void to_osg_matrix(const Ravelin::Pose3d& src, osg::Matrixd& tgt)
 {
+  // get the rotation matrix
+  Matrix3d M = src.q;
+
+  // setup the rotation components of tgt
   const unsigned X = 0, Y = 1, Z = 2, W = 3;
   for (unsigned i=X; i<= Z; i++)
-    for (unsigned j=X; j<= W; j++)
-      tgt(j,i) = src(i,j);
+    for (unsigned j=X; j<= Z; j++)
+      tgt(j,i) = M(i,j);
+
+  // setup the translation components of tgt
+  for (unsigned i=X; i<= Z; i++)
+    tgt(W,i) = src.x[i];
 
   // set constant values of the matrix
-  tgt(X,W) = tgt(Y,W) = tgt(Z,W) = (Real) 0.0;
-  tgt(W,W) = (Real) 1.0;
+  tgt(X,W) = tgt(Y,W) = tgt(Z,W) = (double) 0.0;
+  tgt(W,W) = (double) 1.0;
 }
 #endif
 
@@ -117,10 +125,7 @@ void OSGGroupWrapper::load_from_xml(XMLTreeConstPtr node, std::map<std::string, 
   const XMLAttrib* transform_attr = node->get_attrib("transform");
   if (transform_attr)
   {
-    Matrix4 T;
-    transform_attr->get_matrix_value(T);
-    if (!Matrix4::valid_transform(T))
-      throw InvalidTransformException(T);
+    Pose3d T = transform_attr->get_pose3_value();
 
     // create the SoTransform and add it to the root separator
     osg::Matrixd m;

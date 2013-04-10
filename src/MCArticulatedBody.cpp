@@ -23,8 +23,8 @@ using boost::dynamic_pointer_cast;
 /// Sets Baumgarte stabilization factors to alpha = 0.8, beta = 0.9
 MCArticulatedBody::MCArticulatedBody()
 {
-  b_alpha = (Real) 0.8;
-  b_beta = (Real) 0.9;
+  b_alpha = (double) 0.8;
+  b_beta = (double) 0.9;
 }
 
 /// Applies a generalized impulse to the articulated body
@@ -78,7 +78,7 @@ VectorN& MCArticulatedBody::get_generalized_coordinates(DynamicBody::Generalized
   // evaluate all joints constraints
   if (LOGGING(LOG_DYNAMICS))
   {
-    Real C[7];
+    double C[7];
     for (unsigned i=0; i< _joints.size(); i++)
     {
       _joints[i]->evaluate_constraints(C);
@@ -175,7 +175,7 @@ void MCArticulatedBody::determine_inertias()
     // if the link is disabled, we do something special
     if (!_links[i]->is_enabled())
     {
-      _iM[i].inv_mass = (Real) 0.0;
+      _iM[i].inv_mass = (double) 0.0;
       _iM[i].inv_inertia = ZEROS_3x3;
     }
     else
@@ -289,7 +289,7 @@ VectorN& MCArticulatedBody::solve_Jx_iM_JxT(const VectorN& rhs, VectorN& x) cons
 }
 
 /// Gets the velocity state-derivative of this articulated body
-void MCArticulatedBody::integrate(Real t, Real h, boost::shared_ptr<Integrator<VectorN> > integrator)
+void MCArticulatedBody::integrate(double t, double h, boost::shared_ptr<Integrator<VectorN> > integrator)
 {
 return DynamicBody::integrate(t, h, integrator);
 
@@ -382,7 +382,7 @@ return DynamicBody::integrate(t, h, integrator);
 }
 
 /// Computes the velocity state-derivative of this articulated body
-void MCArticulatedBody::calc_fwd_dyn(Real dt)
+void MCArticulatedBody::calc_fwd_dyn(double dt)
 {
   // work variables
   SAFESTATIC VectorN ff, fext, C, tmpv, x, alpha_x, beta_x, delta, iM_fext, z;
@@ -426,9 +426,9 @@ void MCArticulatedBody::calc_fwd_dyn(Real dt)
       ff.resize(_joints[i]->num_dof());
       for (unsigned j=0; j< _joints[i]->num_dof(); j++)
       {
-        ff[j] = (Real) -1.0;
-        if (_joints[i]->qd[j] < (Real) 0.0)
-          ff[j] = (Real) 1.0;
+        ff[j] = (double) -1.0;
+        if (_joints[i]->qd[j] < (double) 0.0)
+          ff[j] = (double) 1.0;
         ff[j] *= _joints[i]->mu_fc;
         ff[j] -= _joints[i]->qd[j]*_joints[i]->mu_fv;
       }
@@ -438,7 +438,7 @@ void MCArticulatedBody::calc_fwd_dyn(Real dt)
     // compute constraint forces (will be stored in 'z')
     iM_mult(fext, iM_fext);
     mult_sparse(_Jx, iM_fext, z) += Jx_dot_xd;
-    tmpv.copy_from(Jx_xd) *= ((Real) 2.0 * b_alpha);
+    tmpv.copy_from(Jx_xd) *= ((double) 2.0 * b_alpha);
     z += tmpv;
     C *= (b_beta*b_beta);
     z += C;
@@ -500,7 +500,7 @@ void MCArticulatedBody::calc_fwd_dyn(Real dt)
   VectorN& zz = copt_data.z;
   iM_mult(fext, iM_fext);
   mult_sparse(_Jx, iM_fext, zz) += Jx_dot_xd;
-  tmpv.copy_from(Jx_xd)  *= ((Real) 2.0 * b_alpha);
+  tmpv.copy_from(Jx_xd)  *= ((double) 2.0 * b_alpha);
   zz += tmpv;
   C *= (b_beta*b_beta);
   zz += C;
@@ -537,7 +537,7 @@ void MCArticulatedBody::calc_fwd_dyn(Real dt)
     zz.set_zero(N_JOINT_DOF);
     R.set_zero(N_JOINT_DOF, N_JOINT_DOF);
     for (unsigned i=0; i< N_JOINT_DOF; i++)
-      R(i,i) = (Real) 1.0;
+      R(i,i) = (double) 1.0;
   }
 
   // setup components of z and R to make things faster for gradient and Hessian
@@ -573,8 +573,8 @@ void MCArticulatedBody::calc_fwd_dyn(Real dt)
   }
 
   // initialize mu_c and viscous force vectors
-  vector<Real>& mu_c = copt_data.mu_c;
-  vector<Real>& visc = copt_data.visc;
+  vector<double>& mu_c = copt_data.mu_c;
+  vector<double>& visc = copt_data.visc;
   mu_c.resize(N_JOINT_DOF);
   visc.resize(N_JOINT_DOF);
 
@@ -583,7 +583,7 @@ void MCArticulatedBody::calc_fwd_dyn(Real dt)
     for (unsigned j=0; j< _joints[i]->num_dof(); j++, k++)
     {
       mu_c[k] = _joints[i]->mu_fc;
-      Real tmp = _joints[i]->mu_fv * std::fabs(_joints[i]->qd[j]);
+      double tmp = _joints[i]->mu_fv * std::fabs(_joints[i]->qd[j]);
       visc[k] = tmp*tmp;
     }
 
@@ -667,7 +667,7 @@ void MCArticulatedBody::calc_Dx_iM(SparseJacobian& Dx_iM) const
       continue;
 
     // get the inverse mass and inertia (global frame)
-    Real inv_mass = _links[k]->get_inv_mass();
+    double inv_mass = _links[k]->get_inv_mass();
     Matrix3 R(&_links[k]->get_orientation());
     Matrix3 invJ = R * _links[k]->get_inv_inertia() * Matrix3::transpose(R);
 
@@ -716,7 +716,7 @@ void MCArticulatedBody::calc_Dx_iM_DxT(MatrixN& Dx_iM_DxT) const
       continue;
 
     // get the inverse mass and inertia (global frame)
-    Real inv_mass = _links[k]->get_inv_mass();
+    double inv_mass = _links[k]->get_inv_mass();
     Matrix3 R(&_links[k]->get_orientation());
     Matrix3 invJ = R * _links[k]->get_inv_inertia() * Matrix3::transpose(R);
 
@@ -910,7 +910,7 @@ VectorN& MCArticulatedBody::get_generalized_forces(DynamicBody::GeneralizedCoord
 VectorN& MCArticulatedBody::get_constraint_evals(VectorN& C) const
 {
   const unsigned GC_ROD_DIM = 7;
-  Real C_array[GC_ROD_DIM];
+  double C_array[GC_ROD_DIM];
 
   // resize C vector
   unsigned nc = 0;
@@ -1097,9 +1097,9 @@ MatrixN MCArticulatedBody::dense_J(const SparseJacobian& J) const
   MatrixN dJ(NROWS, NGC);
   for (unsigned i=0; i< NGC; i++)
   {
-    v[i] = (Real) 1.0;
+    v[i] = (double) 1.0;
     mult_sparse(J, v, result);
-    v[i] = (Real) 0.0;
+    v[i] = (double) 0.0;
     dJ.set_column(i, result);
   }
 
@@ -1184,13 +1184,13 @@ MatrixN& MCArticulatedBody::reverse_transform(const SpatialTransform& X, const M
   Matrix3 LL = Matrix3::skew_symmetric(-X.r) * X.E;
 
   // compute st * E
-  CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasNoTrans, pinv_s.rows(), THREE_D, THREE_D, (Real) 1.0, pinv_s.begin(), pinv_s.rows(), X.E.begin(), THREE_D, (Real) 0.0, sx.begin(), sx.rows());
+  CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasNoTrans, pinv_s.rows(), THREE_D, THREE_D, (double) 1.0, pinv_s.begin(), pinv_s.rows(), X.E.begin(), THREE_D, (double) 0.0, sx.begin(), sx.rows());
 
   // compute sb * LL
-  CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasNoTrans, pinv_s.rows(), THREE_D, THREE_D, (Real) 1.0, pinv_s.begin()+pinv_s.rows()*THREE_D, pinv_s.rows(), LL.begin(), THREE_D, (Real) 1.0, sx.begin(), sx.rows());
+  CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasNoTrans, pinv_s.rows(), THREE_D, THREE_D, (double) 1.0, pinv_s.begin()+pinv_s.rows()*THREE_D, pinv_s.rows(), LL.begin(), THREE_D, (double) 1.0, sx.begin(), sx.rows());
 
   // compute sb * E 
-  CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasNoTrans, pinv_s.rows(), THREE_D, THREE_D, (Real) 1.0, pinv_s.begin()+pinv_s.rows()*THREE_D, pinv_s.rows(), X.E.begin(), THREE_D, (Real) 0.0, sx.begin()+pinv_s.rows()*THREE_D, sx.rows());
+  CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasNoTrans, pinv_s.rows(), THREE_D, THREE_D, (double) 1.0, pinv_s.begin()+pinv_s.rows()*THREE_D, pinv_s.rows(), X.E.begin(), THREE_D, (double) 0.0, sx.begin()+pinv_s.rows()*THREE_D, sx.rows());
 
   return sx;
 }
@@ -1322,7 +1322,7 @@ void MCArticulatedBody::get_mechanism_jacobian(MCArticulatedBody::SparseJacobian
 void MCArticulatedBody::get_constraint_jacobian(MCArticulatedBody::SparseJacobian& J) const
 {
   const unsigned SPATIAL_DIM = 6;
-  Real CJrb1[SPATIAL_DIM], CJrb2[SPATIAL_DIM];
+  double CJrb1[SPATIAL_DIM], CJrb2[SPATIAL_DIM];
   unsigned gc1 = std::numeric_limits<unsigned>::max();
   unsigned gc2 = std::numeric_limits<unsigned>::max();
 
@@ -1417,7 +1417,7 @@ void MCArticulatedBody::get_constraint_jacobian(MCArticulatedBody::SparseJacobia
 void MCArticulatedBody::get_constraint_jacobian_dot(MCArticulatedBody::SparseJacobian& J) const
 {
   const unsigned SPATIAL_DIM = 6;
-  Real CJrb1[SPATIAL_DIM], CJrb2[SPATIAL_DIM];
+  double CJrb1[SPATIAL_DIM], CJrb2[SPATIAL_DIM];
   unsigned gc1 = std::numeric_limits<unsigned>::max();
   unsigned gc2 = std::numeric_limits<unsigned>::max();
 
@@ -1502,7 +1502,7 @@ void MCArticulatedBody::get_constraint_jacobian_dot(MCArticulatedBody::SparseJac
 }
 
 /// Utility function for numerically setting up constraint Jacobian
-void MCArticulatedBody::increment_dof(RigidBodyPtr rb1, RigidBodyPtr rb2, unsigned k, Real h)
+void MCArticulatedBody::increment_dof(RigidBodyPtr rb1, RigidBodyPtr rb2, unsigned k, double h)
 {
   if (k > 5)
   {
@@ -1563,8 +1563,8 @@ void MCArticulatedBody::increment_dof(RigidBodyPtr rb1, RigidBodyPtr rb2, unsign
  */
 void MCArticulatedBody::get_constraint_jacobian_numerically(MCArticulatedBody::SparseJacobian& J) const
 {
-  Real C1[6], C2[6];
-  const Real H = 1e-6;
+  double C1[6], C2[6];
+  const double H = 1e-6;
 
   // get the dynamic state of the body
   VectorN q;
@@ -1747,7 +1747,7 @@ void MCArticulatedBody::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& sh
 void MCArticulatedBody::update_Jx_v(EventProblemData& q)
 {
   const unsigned NGC_ROD = 7;
-  Real Cq[NGC_ROD];
+  double Cq[NGC_ROD];
   Vector3 top, bottom;
 
   // update Jx_v
@@ -1899,7 +1899,7 @@ unsigned MCArticulatedBody::num_sub_events(JacobianType jt, Event* e)
 void MCArticulatedBody::get_event_data(JacobianType jt, Event* e, RigidBodyPtr rb, unsigned subidx, Vector3& tx, Vector3& rx)
 {
   const unsigned NGC_ROD = 7;
-  Real Cq[NGC_ROD];
+  double Cq[NGC_ROD];
 
   if (jt == MCArticulatedBody::eNone)
   {
@@ -2085,7 +2085,7 @@ void MCArticulatedBody::update_Jx_iM_JyT(RigidBodyPtr rb, EventProblemData& q, M
   // get the rigid body and its necessary properties
   Matrix3 R(&rb->get_orientation());
   Matrix3 Jinv = R * rb->get_inv_inertia() * Matrix3::transpose(R);
-  const Real inv_mass = rb->get_inv_mass();
+  const double inv_mass = rb->get_inv_mass();
 
   // get the first vector and second vector of events
   const vector<Event*>& events1 = get_events_vector(q, j1t);
@@ -2240,14 +2240,14 @@ void MCArticulatedBody::update_velocity(const EventProblemData& q)
 }
 
 /// The signum function, modified to use NEAR_ZERO instead of +/- 0.0
-Real MCArticulatedBody::sgn(Real x)
+double MCArticulatedBody::sgn(double x)
 {
   if (x > NEAR_ZERO)
-    return (Real) 1.0;
+    return (double) 1.0;
   else if (x < -NEAR_ZERO)
-    return (Real) -1.0;
+    return (double) -1.0;
   else
-    return (Real) 0.0;
+    return (double) 0.0;
 }
 
 /// Sets up a sparse Jacobian multiplied by the inverse inertia matrix multiplied by the transpose of a sparse Jacobian
@@ -2266,7 +2266,7 @@ MatrixN& MCArticulatedBody::calc_Jx_iM_JyT(const SparseJacobian& Jx, const Spars
       continue;
 
     // get the inverse mass and inverse inertia (global frame)
-    Real inv_mass = _links[k]->get_inv_mass();
+    double inv_mass = _links[k]->get_inv_mass();
     Matrix3 R(&_links[k]->get_orientation());
     Matrix3 J_inv = R * _links[k]->get_inv_inertia() * Matrix3::transpose(R);
 

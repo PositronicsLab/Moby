@@ -16,8 +16,8 @@ using namespace Moby;
  */
 Octree::Octree()
 {
-	_bounds_lo = Vector3(-std::numeric_limits<Real>::max(), -std::numeric_limits<Real>::max(), -std::numeric_limits<Real>::max());
-	_bounds_hi = Vector3(std::numeric_limits<Real>::max(), std::numeric_limits<Real>::max(), std::numeric_limits<Real>::max());
+	_bounds_lo = Vector3(-std::numeric_limits<double>::max(), -std::numeric_limits<double>::max(), -std::numeric_limits<double>::max());
+	_bounds_hi = Vector3(std::numeric_limits<double>::max(), std::numeric_limits<double>::max(), std::numeric_limits<double>::max());
 	_num_points = 0;
 	_minres = 0;
 }
@@ -26,16 +26,16 @@ Octree::Octree()
 /**
  * The bounds of the octree are set to -/+ infinity.
  */
-Octree::Octree(Real minres)
+Octree::Octree(double minres)
 {
-	_bounds_lo = Vector3(-std::numeric_limits<Real>::max(), -std::numeric_limits<Real>::max(), -std::numeric_limits<Real>::max());
-	_bounds_hi = Vector3(std::numeric_limits<Real>::max(), std::numeric_limits<Real>::max(), std::numeric_limits<Real>::max());
+	_bounds_lo = Vector3(-std::numeric_limits<double>::max(), -std::numeric_limits<double>::max(), -std::numeric_limits<double>::max());
+	_bounds_hi = Vector3(std::numeric_limits<double>::max(), std::numeric_limits<double>::max(), std::numeric_limits<double>::max());
 	_num_points = 0;
 	_minres = minres;
 }
 
 /// Constructs an octree with the specified minimum resolution and bounds
-Octree::Octree(Real minres, const Vector3& lo_bounds, const Vector3& hi_bounds)
+Octree::Octree(double minres, const Vector3& lo_bounds, const Vector3& hi_bounds)
 {
 	_bounds_lo = lo_bounds; 
 	_bounds_hi = hi_bounds; 
@@ -44,7 +44,7 @@ Octree::Octree(Real minres, const Vector3& lo_bounds, const Vector3& hi_bounds)
 }
 
 /// Constructs an octree with the specified parent, minimum resolution, and bounds
-Octree::Octree(OctreePtr parent, Real minres, const Vector3& lo_bounds, const Vector3& hi_bounds)
+Octree::Octree(OctreePtr parent, double minres, const Vector3& lo_bounds, const Vector3& hi_bounds)
 {
 	_bounds_lo = lo_bounds; 
 	_bounds_hi = hi_bounds; 

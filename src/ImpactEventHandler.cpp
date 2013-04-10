@@ -129,7 +129,7 @@ void ImpactEventHandler::apply_model(const vector<Event>& events) const
  */
 void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& events) const
 {
-  Real ke_minus = 0.0, ke_plus = 0.0;
+  double ke_minus = 0.0, ke_plus = 0.0;
   vector<Event> constraint_event_objects;
   SAFESTATIC EventProblemData epd;
 
@@ -152,7 +152,7 @@ void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& eve
   {
     for (unsigned i=0; i< epd.super_bodies.size(); i++)
     {
-      Real ke = epd.super_bodies[i]->calc_kinetic_energy();
+      double ke = epd.super_bodies[i]->calc_kinetic_energy();
       FILE_LOG(LOG_EVENT) << "  body " << epd.super_bodies[i]->id << " pre-event handling KE: " << ke << endl;
       ke_minus += ke;
     }
@@ -164,7 +164,7 @@ void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& eve
   // the kappa constant
   solve_lcp(epd);
 */
-  epd.kappa = (Real) -std::numeric_limits<float>::max();
+  epd.kappa = (double) -std::numeric_limits<float>::max();
 
   // determine what type of QP solver to use
   if (use_qp_solver(epd))
@@ -180,7 +180,7 @@ void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& eve
   {
     for (unsigned i=0; i< epd.super_bodies.size(); i++)
     {
-      Real ke = epd.super_bodies[i]->calc_kinetic_energy();
+      double ke = epd.super_bodies[i]->calc_kinetic_energy();
       FILE_LOG(LOG_EVENT) << "  body " << epd.super_bodies[i]->id << " post-event handling KE: " << ke << endl;
       ke_plus += ke;
     }
@@ -496,7 +496,7 @@ void ImpactEventHandler::solve_lcp(EventProblemData& q, VectorN& z)
     throw std::runtime_error("Unable to solve event LCP!");
 
   // determine the value of kappa
-  q.kappa = (Real) 0.0;
+  q.kappa = (double) 0.0;
   for (unsigned i=0; i< q.N_CONTACTS; i++)
     q.kappa += z[i];
 

@@ -8,11 +8,8 @@
 #define _ODEPACK_INTEGRATOR_H
 
 #include <cstring>
-#include <Moby/Quat.h>
 #include <Moby/Log.h>
 #include <Moby/VariableStepIntegrator.h>
-#include <Moby/Quat.h>
-#include <Moby/Log.h>
 #include <cstring>
 #ifdef THREADSAFE
 #include <pthread.h>
@@ -29,21 +26,22 @@ class ODEPACKIntegratorMutex
 };
 
 /// A class for performing integration using the ODEPACK library (optional)
-template <class T>
-class ODEPACKIntegrator : public VariableStepIntegrator<T>
+class ODEPACKIntegrator : public VariableStepIntegrator
 {
   public:
     ODEPACKIntegrator();
-    virtual void integrate(T& x, T& (*f)(const T&, Real, Real, void*, T&), Real& time, Real step_size, void* data);
+    virtual void integrate(Ravelin::VectorNd& x, Ravelin::VectorNd& (*f)(const Ravelin::VectorNd&, double, double, void*, Ravelin::VectorNd&), double& time, double step_size, void* data);
     virtual void load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const;
 
     /// If 'true', implicit integration is used (for "stiff" differential eqns)
     bool use_stiff_integrator;
-}; // end class
 
-// include inline functions
-#include "ODEPACKIntegrator.inl"
+  private:
+    // temporary variables
+    std::vector<int> _iwork;
+    std::vector<double> _rwork;
+}; // end class
 
 } // end namespace
 

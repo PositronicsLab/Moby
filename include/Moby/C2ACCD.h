@@ -33,8 +33,8 @@ class C2ACCD : public CollisionDetection
     virtual ~C2ACCD() {}
     virtual void load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const;
-    virtual bool is_collision(Real epsilon = 0.0);
-    virtual bool is_contact(Real dt, const std::vector<std::pair<DynamicBodyPtr, VectorN> >& q0, const std::vector<std::pair<DynamicBodyPtr, VectorN> >& q1, std::vector<Event>& contacts);
+    virtual bool is_collision(double epsilon = 0.0);
+    virtual bool is_contact(double dt, const std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> >& q0, const std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> >& q1, std::vector<Event>& contacts);
     virtual void add_collision_geometry(CollisionGeometryPtr geom);
     virtual void remove_collision_geometry(CollisionGeometryPtr geom);
     virtual void remove_all_collision_geometries();
@@ -47,47 +47,47 @@ class C2ACCD : public CollisionDetection
     C2ACCD(InputIterator begin, InputIterator end);
 
     /// The distance tolerance for conservative advancement 
-    Real eps_tolerance;
+    double eps_tolerance;
 
     /// The smallest advancement step fraction of the step size
-    Real alpha_tolerance;
+    double alpha_tolerance;
 
   private:
 
     class AThickTri : public ThickTriangle
     {
       public:
-        AThickTri(const Triangle& tri, Real tol) : ThickTriangle(tri, tol) {}
+        AThickTri(const Triangle& tri, double tol) : ThickTriangle(tri, tol) {}
         boost::shared_ptr<const IndexedTriArray> mesh;  // the mesh that this triangle came from
         unsigned tri_idx;             // the index of this triangle
     };
 
-    Real calc_dist(boost::shared_ptr<SSR> a, boost::shared_ptr<SSR> b, const Matrix4& aTb, Vector3& cpa, Vector3& cpb) const;
-    static bool query_intersect_seg_tri(const LineSeg3& seg, const Triangle& tri, Real& t, Vector3& p);
-    void determine_contacts(CollisionGeometryPtr a, CollisionGeometryPtr b, Real toc, std::vector<Event>& contacts) const;
+    double calc_dist(boost::shared_ptr<SSR> a, boost::shared_ptr<SSR> b, const Ravelin::Pose3d& aTb, Ravelin::Point3d& cpa, Ravelin::Point3d& cpb) const;
+    static bool query_intersect_seg_tri(const LineSeg3& seg, const Triangle& tri, double& t, Ravelin::Vector3& p);
+    void determine_contacts(CollisionGeometryPtr a, CollisionGeometryPtr b, double toc, std::vector<Event>& contacts) const;
     bool check_collision(CollisionGeometryPtr a, CollisionGeometryPtr b, std::vector<std::pair<unsigned, unsigned> >& colliding_tris) const;
-    Real do_CA(Real step_size, CollisionGeometryPtr a, CollisionGeometryPtr b, boost::shared_ptr<SSR> ssr_a, boost::shared_ptr<SSR> ssr_b, const Matrix4& aTb, Real dt);
-    Real do_CAStep(Real dist, const Vector3& dab, CollisionGeometryPtr a, CollisionGeometryPtr b, boost::shared_ptr<SSR> ssr_a, boost::shared_ptr<SSR> ssr_b);
-    Real calc_mu(Real dist, const Vector3& n, CollisionGeometryPtr g, boost::shared_ptr<SSR> ssr, bool positive);
+    double do_CA(double step_size, CollisionGeometryPtr a, CollisionGeometryPtr b, boost::shared_ptr<SSR> ssr_a, boost::shared_ptr<SSR> ssr_b, const Ravelin::Pose3d& aTb, double dt);
+    double do_CAStep(double dist, const Ravelin::Vector3& dab, CollisionGeometryPtr a, CollisionGeometryPtr b, boost::shared_ptr<SSR> ssr_a, boost::shared_ptr<SSR> ssr_b);
+    double calc_mu(double dist, const Ravelin::Vector3d& n, CollisionGeometryPtr g, boost::shared_ptr<SSR> ssr, bool positive);
     void add_rigid_body_model(RigidBodyPtr body);
-    bool intersect_BV_trees(boost::shared_ptr<BV> a, boost::shared_ptr<BV> b, const Matrix4& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b);
-    void check_vertices(Real dt, CollisionGeometryPtr a, CollisionGeometryPtr b, BVPtr ob, const std::vector<const Vector3*>& a_verts, const Matrix4& bTa_t0, const std::pair<Vector3, Vector3>& a_vel, const std::pair<Vector3, Vector3>& b_vel, Real& earliest, std::vector<Event>& local_contacts) const;
-    void check_geoms(Real dt, CollisionGeometryPtr a, CollisionGeometryPtr b, const std::vector<std::pair<DynamicBodyPtr, VectorN> >& q0, const std::vector<std::pair<DynamicBodyPtr, VectorN> >& q1, std::vector<Event>& contacts); 
+    bool intersect_BV_trees(boost::shared_ptr<BV> a, boost::shared_ptr<BV> b, const Ravelin::Pose3d& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b);
+    void check_vertices(double dt, CollisionGeometryPtr a, CollisionGeometryPtr b, BVPtr ob, const std::vector<const Ravelin::Point3d*>& a_verts, const Ravelin::Pose3d& bTa_t0, const std::pair<Ravelin::Vector3d, Ravelin::Vector3d>& a_vel, const std::pair<Ravelin::Vector3d, Ravelin::Vector3d>& b_vel, double& earliest, std::vector<Event>& local_contacts) const;
+    void check_geoms(double dt, CollisionGeometryPtr a, CollisionGeometryPtr b, const std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> >& q0, const std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> >& q1, std::vector<Event>& contacts); 
     void build_BV_tree(CollisionGeometryPtr geom);
-    bool split(BVPtr source, BVPtr& tgt1, BVPtr& tgt2, const Vector3& axis, bool deformable);
-    void split_tris(const Vector3& point, const Vector3& normal, const IndexedTriArray& orig_mesh, const std::list<unsigned>& ofacets, std::list<unsigned>& pfacets, std::list<unsigned>& nfacets);
-    void get_vertices(BVPtr bv, std::vector<const Vector3*>& vertices) const;
+    bool split(BVPtr source, BVPtr& tgt1, BVPtr& tgt2, const Ravelin::Vector3d& axis, bool deformable);
+    void split_tris(const Ravelin::Point3d& point, const Ravelin::Vector3d& normal, const IndexedTriArray& orig_mesh, const std::list<unsigned>& ofacets, std::list<unsigned>& pfacets, std::list<unsigned>& nfacets);
+    void get_vertices(BVPtr bv, std::vector<const Ravelin::Point3d*>& vertices) const;
     static bool coplanar_tris(const Triangle& ta, const Triangle& tb);
-    static bool project_and_intersect(const Triangle& ta, const Triangle& tb, std::vector<Vector3>& contact_points);
-    static bool project_and_intersect(const Triangle& t, const LineSeg3& s, std::vector<Vector3>& contact_points);
-    static bool project_and_intersect(const Triangle& t, const Vector3& p);
-    void determine_closest_features(const Triangle& ta, const Triangle& tb, Triangle::FeatureType& fa, Triangle::FeatureType& fb, std::vector<Vector3>& contact_points) const;
-    void determine_closest_tris(CollisionGeometryPtr a, CollisionGeometryPtr b, const Matrix4& aTb, std::vector<std::pair<Triangle, Triangle> >& closest_tris) const;
+    static bool project_and_intersect(const Triangle& ta, const Triangle& tb, std::vector<Ravelin::Vector3>& contact_points);
+    static bool project_and_intersect(const Triangle& t, const LineSeg3& s, std::vector<Ravelin::Point3d>& contact_points);
+    static bool project_and_intersect(const Triangle& t, const Ravelin::Vector3& p);
+    void determine_closest_features(const Triangle& ta, const Triangle& tb, Triangle::FeatureType& fa, Triangle::FeatureType& fb, std::vector<Ravelin::Point3d>& contact_points) const;
+    void determine_closest_tris(CollisionGeometryPtr a, CollisionGeometryPtr b, const Ravelin::Pose3d& aTb, std::vector<std::pair<Triangle, Triangle> >& closest_tris) const;
     static DynamicBodyPtr get_super_body(CollisionGeometryPtr a);
-    static unsigned find_body(const std::vector<std::pair<DynamicBodyPtr, VectorN> >& q, DynamicBodyPtr body);
+    static unsigned find_body(const std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> >& q, DynamicBodyPtr body);
 
     template <class OutputIterator>
-    OutputIterator intersect_BV_leafs(BVPtr a, BVPtr b, const Matrix4& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b, OutputIterator output_begin) const;
+    OutputIterator intersect_BV_leafs(BVPtr a, BVPtr b, const Ravelin::Pose3d& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b, OutputIterator output_begin) const;
 
     template <class InputIterator, class OutputIterator>
     OutputIterator get_vertices(const IndexedTriArray& tris, InputIterator fselect_begin, InputIterator fselect_end, OutputIterator output);
