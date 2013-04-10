@@ -6,15 +6,15 @@
 
 /// Computes a SSR from a set of points
 /**
- * \param begin an iterator to type Vector3
- * \param end an iterator to type Vector3
+ * \param begin an iterator to type Ravelin::Vector3
+ * \param end an iterator to type Ravelin::Vector3
  * Algorithm taken from [Ericson, 2005]
  */
 template <class ForwardIterator>
 SSR::SSR(ForwardIterator begin, ForwardIterator end)
 {
   const unsigned X = 0, Y = 1, Z = 2, THREE_D = 3;
-  Vector3 normal;
+  Ravelin::Vector3d normal;
 
   // compute the convex hull of the points
   PolyhedronPtr hull = CompGeom::calc_convex_hull(begin, end);
@@ -22,27 +22,27 @@ SSR::SSR(ForwardIterator begin, ForwardIterator end)
   if (is_2D)
   {
     // init the 2D centroid
-    Vector2 centroid;
+    Ravelin::Point2d centroid;
 
     // points are less than 3D; must use SVD
-    Real plane_offset;
+    double plane_offset;
     CompGeom::fit_plane(begin, end, normal, plane_offset);
 
     // transform all points to 2D
-    Matrix3 R = CompGeom::calc_3D_to_2D_matrix(normal);
-    Real offset = CompGeom::determine_3D_to_2D_offset(*begin, R);
-    std::list<Vector2> points_2D;
-    std::list<Vector2*> points_2D_ptr;
+    Ravelin::Matrix3d R = CompGeom::calc_3D_to_2D_matrix(normal);
+    double offset = CompGeom::determine_3D_to_2D_offset(*begin, R);
+    std::list<Ravelin::Point2d> points_2D;
+    std::list<Ravelin::Point2d*> points_2D_ptr;
     CompGeom::to_2D(begin, end, std::back_inserter(points_2D), R);
     
     // compute the convex hull of the points
-    std::list<Vector2> hull_2D;
+    std::list<Ravelin::Point2d> hull_2D;
     CompGeom::calc_convex_hull(points_2D.begin(), points_2D.end(), std::back_inserter(hull_2D));
 
     // handle degeneracy
     if (hull_2D.empty())
     {
-      std::pair<Vector2, Vector2> ep;
+      std::pair<Ravelin::Point2d, Ravelin::Point2d> ep;
       CompGeom::determine_seg_endpoints(points_2D.begin(), points_2D.end(), ep);
       centroid = (ep.first + ep.second) * 0.5;
     }
@@ -61,11 +61,11 @@ SSR::SSR(ForwardIterator begin, ForwardIterator end)
     this->center = ZEROS_3;
 
     // determine the area and centroid of all triangles
-    const std::vector<Vector3>& verts = hull->get_vertices();
+    const std::vector<Ravelin::Point3d>& verts = hull->get_vertices();
     unsigned n = hull->get_facets().size();
-    Real total_area = 0;
-    std::vector<Real> areas(n);
-    std::vector<Vector3> centroids(n);
+    double total_area = 0;
+    std::vector<double> areas(n);
+    std::vector<Ravelin::Point3d> centroids(n);
     for (unsigned i=0; i< n; i++)
     {
       const IndexedTri& itri = hull->get_facets()[i];
@@ -79,7 +79,7 @@ SSR::SSR(ForwardIterator begin, ForwardIterator end)
 
     // compute the covariance matrix of the points
     // 1st: subtract the covariance components of the centroid
-    MatrixN C(THREE_D, THREE_D);
+    Ravelin::Matrix3d C;
     for (unsigned i=0; i< THREE_D; i++)
       for (unsigned j=i; j< THREE_D; j++)
         C(i,j) = -this->center[i]*this->center[j];
@@ -92,9 +92,9 @@ SSR::SSR(ForwardIterator begin, ForwardIterator end)
         {
           const IndexedTri& itri = hull->get_facets()[k];
           Triangle tri(verts[itri.a], verts[itri.b], verts[itri.c]); 
-          const Vector3& a = tri.a;
-          const Vector3& b = tri.b;
-          const Vector3& c = tri.c;
+          const Ravelin::Point3d& a = tri.a;
+          const Ravelin::Point3d& b = tri.b;
+          const Ravelin::Point3d& c = tri.c;
           C(i,j) += areas[k]/12.0 * (centroids[k][i]*centroids[k][j] + a[i]*a[j] + b[i]*b[j] + c[i]*c[j]);
         }
         C(i,j) *= 1.0/total_area;
@@ -106,20 +106,21 @@ SSR::SSR(ForwardIterator begin, ForwardIterator end)
         C(j,i) = C(i,j);
 
     // determine the eigenvalues and eigenvectors of the covariance matrix
-    SAFESTATIC FastThreadable<VectorN> evals;
-    LinAlg::eig_symm_plus(C, evals());
+    Ravelin::Vector3d evals;
+    SAFESTATIC FastThreadable<Ravelin::LinAlgd> LA;
+    LA().eig_symm_plus(C, evals);
     
     // first eigenvector will be direction of minimum variance; that's the
     // one that we want to align with
-    Vector3 col;
+    Ravelin::Vector3d col;
     C.get_column(0, col.begin());
-    normal = Vector3::normalize(col);
+    normal = Ravelin::Vector3d::normalize(col);
   }
 
   // now that we've determined the normal and center, align the rectangle
-  Vector3 d2, d3;
+  Ravelin::Vector3d d2, d3;
   align(begin, end, normal, d2);
-  d3 = Vector3::normalize(Vector3::cross(normal, d2));
+  d3 = Ravelin::Vector3d::normalize(Ravelin::Vector3d::cross(normal, d2));
 
   // setup R
   this->R.set_column(X, normal);
@@ -137,22 +138,22 @@ void SSR::calc_lengths_and_radius(ForwardIterator begin, ForwardIterator end)
   const unsigned X = 0, Y = 1, Z = 2;
 
   // setup a transform from the SSR frame to the world frame
-  Matrix4 T;
-  T.set_rotation(&R);
-  T.set_translation(center);
+  Ravelin::Pose3d T;
+  T.q = R;
+  T.x = center;
 
   // setup the extents
-  Vector2 extents((Real) 0.0, (Real) 0.0);
+  Ravelin::Point2d extents((double) 0.0, (double) 0.0);
 
   // determine the lengths of the rectangle
   for (ForwardIterator i = begin; i != end; i++)
   {
     // transform the point to the SSR frame
-    Vector3 p = T.inverse_mult_point(*i);
+    Ravelin::Point3d p = T.inverse_transform(*i);
 
     // get the y and z points
-    Real py = p[Y]; 
-    Real pz = p[Z];
+    double py = p[Y]; 
+    double pz = p[Z];
 
     // expand the rectangle as necessary
     if (std::fabs(py) > extents[X])
@@ -162,11 +163,11 @@ void SSR::calc_lengths_and_radius(ForwardIterator begin, ForwardIterator end)
   }
 
   // setup the lengths
-  this->l = extents*(Real) 2.0;
+  this->l = extents*(double) 2.0;
 
   // setup the plane of the rectangle
-  Vector3 normal = R.get_column(X);
-  Real d = normal.dot(center);
+  Ravelin::Vector3d normal = R.get_column(X);
+  double d = normal.dot(center);
 
   // init radius to zero
   this->radius = 0.0;
@@ -174,7 +175,7 @@ void SSR::calc_lengths_and_radius(ForwardIterator begin, ForwardIterator end)
   // radius will be greatest planar distance of any point to the rectangle plane
   for (ForwardIterator i = begin; i != end; i++)
   {
-    Real sdist = normal.dot(*i) - d;
+    double sdist = normal.dot(*i) - d;
     if (this->radius < std::fabs(sdist))
       this->radius = std::fabs(sdist);
   }
@@ -182,25 +183,25 @@ void SSR::calc_lengths_and_radius(ForwardIterator begin, ForwardIterator end)
 
 /// Aligns this SSR with the minimum area bounding rectangle projected along the first dimension of the SSR
 template <class ForwardIterator>
-void SSR::align(ForwardIterator begin, ForwardIterator end, const Vector3& d1, Vector3& d2)
+void SSR::align(ForwardIterator begin, ForwardIterator end, const Ravelin::Vector3d& d1, Ravelin::Vector3d& d2)
 {
   // project all points to the plane perpendicular to the first direction
-  Matrix3 R2d = CompGeom::calc_3D_to_2D_matrix(d1);
-  std::list<Vector2> points_2D;
+  Ravelin::Matrix3d R2d = CompGeom::calc_3D_to_2D_matrix(d1);
+  std::list<Ravelin::Point2d> points_2D;
   CompGeom::to_2D(begin, end, std::back_inserter(points_2D), R2d);
 
   // determine the minimum bounding rectangle of the projected points
-  Vector2 p1, p2, p3, p4;
+  Ravelin::Point2d p1, p2, p3, p4;
   CompGeom::calc_min_area_bounding_rect(points_2D.begin(), points_2D.end(), p1, p2, p3, p4);
 
   // project the vectors of the minimum bounding rectangle back to 3D
   R2d.transpose();
-  Vector2 d2_2D = p2 - p1;
+  Ravelin::Vector2d d2_2D = p2 - p1;
   if (d2_2D.norm() < NEAR_ZERO)
   {
     d2_2D = p3 - p2;
     if (d2_2D.norm() < NEAR_ZERO)
-      d2_2D = Vector2(1,0);
+      d2_2D = Ravelin::Vector2d(1,0);
   }
   d2 = CompGeom::to_3D(d2_2D, R2d);
   d2.normalize();

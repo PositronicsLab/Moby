@@ -45,7 +45,7 @@ SphericalJoint::SphericalJoint() : Joint()
   _s0_dot = SMatrix6N::zero(SPATIAL_DIM,num_dof());
 
   // assign the spherical joint tolerance
-  SINGULAR_TOL = (Real) 1e-2;
+  SINGULAR_TOL = (double) 1e-2;
 }
 
 /// Initializes the joint with the specified inboard and outboard links
@@ -75,13 +75,13 @@ SphericalJoint::SphericalJoint(boost::weak_ptr<RigidBody> inboard, boost::weak_p
   _s0_dot = SMatrix6N::zero(SPATIAL_DIM,num_dof());
 
   // assign the spherical joint tolerance
-  SINGULAR_TOL = (Real) 1e-2;
+  SINGULAR_TOL = (double) 1e-2;
 }  
 
 /// Determines whether two values are relatively equal
-bool SphericalJoint::rel_equal(Real x, Real y)
+bool SphericalJoint::rel_equal(double x, double y)
 {
-  return (std::fabs(x - y) <= NEAR_ZERO * std::max(std::fabs(x), std::max(std::fabs(y), (Real) 1.0)));
+  return (std::fabs(x - y) <= NEAR_ZERO * std::max(std::fabs(x), std::max(std::fabs(y), (double) 1.0)));
 }
 
 /// Gets the global axis for this joint
@@ -118,8 +118,8 @@ Vector3 SphericalJoint::get_axis_global(Axis a) const
   }
 
   // for both axes 2 and 3 we need cos and sin of q(1)
-  const Real c1 = std::cos(q[DOF_1]+_q_tare[DOF_1]);
-  const Real s1 = std::sin(q[DOF_1]+_q_tare[DOF_1]);
+  const double c1 = std::cos(q[DOF_1]+_q_tare[DOF_1]);
+  const double s1 = std::sin(q[DOF_1]+_q_tare[DOF_1]);
 
   // axis two is obtained by multiplying rotation matrix around x by axis [0,1,0]
   if (a == eAxis2)
@@ -128,8 +128,8 @@ Vector3 SphericalJoint::get_axis_global(Axis a) const
   // axis 3, requires the rotation matrix induced by the axis-angle
   // representation for axis 2..  much simpler to just use the rotation matrix from the
   // universal joint induced transform
-  const Real c2 = std::cos(q[DOF_2]+_q_tare[DOF_2]);
-  const Real s2 = std::sin(q[DOF_2]+_q_tare[DOF_2]);
+  const double c2 = std::cos(q[DOF_2]+_q_tare[DOF_2]);
+  const double s2 = std::sin(q[DOF_2]+_q_tare[DOF_2]);
   assert (a == eAxis3);
   return R * _R * Vector3(s2, -c2*s1, c1*c2);    
 }
@@ -305,10 +305,10 @@ const SMatrix6N& SphericalJoint::get_spatial_axes(ReferenceFrameType rftype)
   const Vector3& p = outboard->get_inner_joint_data(inboard).joint_to_com_vec_of;
 
   // get the set of spatial axes
-  Real c1 = std::cos(q[DOF_1]+q_tare[DOF_1]);
-  Real c2 = std::cos(q[DOF_2]+q_tare[DOF_2]);
-  Real s1 = std::sin(q[DOF_1]+q_tare[DOF_1]);
-  Real s2 = std::sin(q[DOF_2]+q_tare[DOF_2]);
+  double c1 = std::cos(q[DOF_1]+q_tare[DOF_1]);
+  double c2 = std::cos(q[DOF_2]+q_tare[DOF_2]);
+  double s1 = std::sin(q[DOF_1]+q_tare[DOF_1]);
+  double s2 = std::sin(q[DOF_2]+q_tare[DOF_2]);
 
   // form untransformed spatial axes -- this are the vectors describing each axis, after
   // rotation by preceding axis/axes; note that first axis always points toward 1,0,0
@@ -359,12 +359,12 @@ const SMatrix6N& SphericalJoint::get_spatial_axes_dot(ReferenceFrameType rftype)
   const VectorN& qd = this->qd;
 
   // get the two transformed axes
-  Real c1 = std::cos(q[DOF_1]+q_tare[DOF_1]);
-  Real c2 = std::cos(q[DOF_2]+q_tare[DOF_2]);
-  Real s1 = std::sin(q[DOF_1]+q_tare[DOF_1]);
-  Real s2 = std::sin(q[DOF_2]+q_tare[DOF_2]);
-  Real qd1 = qd[DOF_1];
-  Real qd2 = qd[DOF_2];
+  double c1 = std::cos(q[DOF_1]+q_tare[DOF_1]);
+  double c2 = std::cos(q[DOF_2]+q_tare[DOF_2]);
+  double s1 = std::sin(q[DOF_1]+q_tare[DOF_1]);
+  double s2 = std::sin(q[DOF_2]+q_tare[DOF_2]);
+  double qd1 = qd[DOF_1];
+  double qd2 = qd[DOF_2];
 
   // form the time derivatives of the non-constant spatial axes (untransformed) 
   Vector3 uu2(0, -s1*qd1, c1*qd1);
@@ -428,9 +428,9 @@ void SphericalJoint::determine_q(VectorN& q)
   Matrix3 RU = _R.transpose_mult(R_local * _R);
 
   // determine cos and sin values for q1, q2,  and q3
-  Real s2 = RU(X,Z);
-  Real c2 = std::cos(std::asin(s2));
-  Real s1, c1, s3, c3;
+  double s2 = RU(X,Z);
+  double c2 = std::cos(std::asin(s2));
+  double s1, c1, s3, c3;
   if (std::fabs(c2) > NEAR_ZERO)
   {
     s1 = -RU(Y,Z)/c2;
@@ -497,12 +497,12 @@ Matrix3 SphericalJoint::get_rotation() const
   const VectorN& q_tare = this->_q_tare;
 
   // compute some needed quantities
-  const Real c1 = std::cos(q[DOF_1]+q_tare[DOF_1]);
-  const Real s1 = std::sin(q[DOF_1]+q_tare[DOF_1]);
-  const Real c2 = std::cos(q[DOF_2]+q_tare[DOF_2]);
-  const Real s2 = std::sin(q[DOF_2]+q_tare[DOF_2]);
-  const Real c3 = std::cos(q[DOF_3]+q_tare[DOF_3]);
-  const Real s3 = std::sin(q[DOF_3]+q_tare[DOF_3]);
+  const double c1 = std::cos(q[DOF_1]+q_tare[DOF_1]);
+  const double s1 = std::sin(q[DOF_1]+q_tare[DOF_1]);
+  const double c2 = std::cos(q[DOF_2]+q_tare[DOF_2]);
+  const double s2 = std::sin(q[DOF_2]+q_tare[DOF_2]);
+  const double c3 = std::cos(q[DOF_3]+q_tare[DOF_3]);
+  const double s3 = std::sin(q[DOF_3]+q_tare[DOF_3]);
 
   // determine untransformed rotation
   // this is just the rotation matrix induced by using Tait-Bryan angles
@@ -528,7 +528,7 @@ const Matrix4& SphericalJoint::get_transform()
 }
 
 /// Evaluates the constraint equations
-void SphericalJoint::evaluate_constraints(Real C[])
+void SphericalJoint::evaluate_constraints(double C[])
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
@@ -551,7 +551,7 @@ void SphericalJoint::evaluate_constraints(Real C[])
 }
 
 /// Computes the constraint jacobian with respect to a body
-void SphericalJoint::calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsigned index, Real Cq[7])
+void SphericalJoint::calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsigned index, double Cq[7])
 {
   const unsigned X = 0, Y = 1, Z = 2, SPATIAL_DIM = 7;
 
@@ -563,7 +563,7 @@ void SphericalJoint::calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsig
   if (inner != body && outer != body)
   {
     for (unsigned i=0; i< SPATIAL_DIM; i++)
-      Cq[i] = (Real) 0.0;
+      Cq[i] = (double) 0.0;
     return;
   }
 
@@ -573,13 +573,13 @@ void SphericalJoint::calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsig
     // get the information necessary to compute the constraint equations
     const Quat& q = inner->get_orientation();
     const Vector3& p = inner->get_outer_joint_data(outer).com_to_joint_vec;
-    const Real qx = q.x;
-    const Real qy = q.y;
-    const Real qz = q.z;
-    const Real qw = q.w;
-    const Real px = p[X];
-    const Real py = p[Y];
-    const Real pz = p[Z];
+    const double qx = q.x;
+    const double qy = q.y;
+    const double qz = q.z;
+    const double qw = q.w;
+    const double px = p[X];
+    const double py = p[Y];
+    const double pz = p[Z];
 
     switch (index)
     {
@@ -622,13 +622,13 @@ void SphericalJoint::calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsig
     // get the information necessary to compute the constraint equations
     const Quat& q = outer->get_orientation();
     const Vector3& p = body->get_inner_joint_data(inner).joint_to_com_vec_of;
-    const Real qx = q.x;
-    const Real qy = q.y;
-    const Real qz = q.z;
-    const Real qw = q.w;
-    const Real px = -p[X];
-    const Real py = -p[Y];
-    const Real pz = -p[Z];
+    const double qx = q.x;
+    const double qy = q.y;
+    const double qz = q.z;
+    const double qw = q.w;
+    const double px = -p[X];
+    const double py = -p[Y];
+    const double pz = -p[Z];
 
     switch (index)
     {
@@ -669,7 +669,7 @@ void SphericalJoint::calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsig
 }
 
 /// Computes the time derivative of the constraint jacobian with respect to a body
-void SphericalJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, unsigned index, Real Cq[7])
+void SphericalJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, unsigned index, double Cq[7])
 {
   const unsigned X = 0, Y = 1, Z = 2, SPATIAL_DIM = 7;
 
@@ -681,7 +681,7 @@ void SphericalJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, u
   if (inner != body && outer != body)
   {
     for (unsigned i=0; i< SPATIAL_DIM; i++)
-      Cq[i] = (Real) 0.0;
+      Cq[i] = (double) 0.0;
     return;
   }
 
@@ -691,14 +691,14 @@ void SphericalJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, u
     // get the information necessary to compute the constraint equations
     const Quat& q = inner->get_orientation();
     const Vector3& p = inner->get_outer_joint_data(outer).com_to_joint_vec;
-    const Real px = p[X];
-    const Real py = p[Y];
-    const Real pz = p[Z];
+    const double px = p[X];
+    const double py = p[Y];
+    const double pz = p[Z];
     Quat qd = Quat::deriv(q, inner->get_avel());
-    const Real dqw = qd.w;
-    const Real dqx = qd.x;
-    const Real dqy = qd.y;
-    const Real dqz = qd.z;
+    const double dqw = qd.w;
+    const double dqx = qd.x;
+    const double dqy = qd.y;
+    const double dqz = qd.z;
 
     switch (index)
     {
@@ -741,14 +741,14 @@ void SphericalJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, u
     // get the information necessary to compute the constraint equations
     const Quat& q = outer->get_orientation();
     const Vector3& p = body->get_inner_joint_data(inner).joint_to_com_vec_of;
-    const Real px = -p[X];
-    const Real py = -p[Y];
-    const Real pz = -p[Z];
+    const double px = -p[X];
+    const double py = -p[Y];
+    const double pz = -p[Z];
     Quat qd = Quat::deriv(q, outer->get_avel());
-    const Real dqw = qd.w;
-    const Real dqx = qd.x;
-    const Real dqy = qd.y;
-    const Real dqz = qd.z;
+    const double dqw = qd.w;
+    const double dqx = qd.x;
+    const double dqy = qd.y;
+    const double dqz = qd.z;
 
     switch (index)
     {

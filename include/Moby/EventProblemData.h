@@ -2,8 +2,8 @@
 #define _MOBY_EVENT_PROBLEM_DATA_H
 
 #include <vector>
-#include <Moby/MatrixN.h>
-#include <Moby/VectorN.h>
+#include <Ravelin/MatrixNd.h>
+#include <Ravelin/VectorNd.h>
 #include <Moby/Types.h>
 
 namespace Moby {
@@ -101,7 +101,7 @@ struct EventProblemData
     N_CONSTRAINTS = N_CONSTRAINT_DOF_EXP = N_CONSTRAINT_EQNS_EXP = 0;
     N_CONSTRAINT_DOF_IMP = 0;
     use_kappa = false;
-    kappa = (Real) 0.0;
+    kappa = (double) 0.0;
 
     // clear all indices
     N_VARS = 0;
@@ -115,7 +115,7 @@ struct EventProblemData
     limit_events.clear();
     constraint_events.clear();
 
-    // reset all VectorN sizes
+    // reset all Ravelin::VectorNd sizes
     Jc_v.resize(0);
     Dc_v.resize(0);
     Jl_v.resize(0);
@@ -156,7 +156,7 @@ struct EventProblemData
   }
 
   // sets alpha_c, beta_c, etc. from stacked vectors
-  void update_from_stacked(const VectorN& z)
+  void update_from_stacked(const Ravelin::VectorNd& z)
   {
     alpha_c += z.get_sub_vec(ALPHA_C_IDX, BETA_C_IDX, workv);
     alpha_l += z.get_sub_vec(ALPHA_L_IDX, BETA_T_IDX, workv);
@@ -176,15 +176,15 @@ struct EventProblemData
   }
 
   // sets stacked vector from alpha_c, beta_c, etc.
-  VectorN& to_stacked(VectorN& z)
+  Ravelin::VectorNd& to_stacked(Ravelin::VectorNd& z)
   {
     z.set_sub_vec(ALPHA_C_IDX, alpha_c);
     z.set_sub_vec(BETA_C_IDX, beta_c);
     for (unsigned i=BETA_C_IDX, j=NBETA_C_IDX; i< NBETA_C_IDX; i++, j++)
-      if (z[i] < (Real) 0.0)
+      if (z[i] < (double) 0.0)
       {
         z[NBETA_C_IDX] = -z[i];
-        z[i] = (Real) 0.0;
+        z[i] = (double) 0.0;
       }
     z.set_sub_vec(ALPHA_L_IDX, alpha_l);
     z.set_sub_vec(BETA_T_IDX, beta_t);
@@ -261,27 +261,27 @@ struct EventProblemData
   std::vector<Event*> contact_events, limit_events, constraint_events;
 
   // cross-event terms
-  MatrixN Jc_iM_JcT, Jc_iM_DcT, Jc_iM_JlT, Jc_iM_DtT, Jc_iM_JxT, Jc_iM_DxT;
-  MatrixN            Dc_iM_DcT, Dc_iM_JlT, Dc_iM_DtT, Dc_iM_JxT, Dc_iM_DxT;
-  MatrixN                       Jl_iM_JlT, Jl_iM_DtT, Jl_iM_JxT, Jl_iM_DxT;
-  MatrixN                                  Dt_iM_DtT, Dt_iM_JxT, Dt_iM_DxT;
-  MatrixN                                             Jx_iM_JxT, Jx_iM_DxT;
-  MatrixN                                                        Dx_iM_DxT;
+  Ravelin::MatrixNd Jc_iM_JcT, Jc_iM_DcT, Jc_iM_JlT, Jc_iM_DtT, Jc_iM_JxT, Jc_iM_DxT;
+  Ravelin::MatrixNd            Dc_iM_DcT, Dc_iM_JlT, Dc_iM_DtT, Dc_iM_JxT, Dc_iM_DxT;
+  Ravelin::MatrixNd                       Jl_iM_JlT, Jl_iM_DtT, Jl_iM_JxT, Jl_iM_DxT;
+  Ravelin::MatrixNd                                  Dt_iM_DtT, Dt_iM_JxT, Dt_iM_DxT;
+  Ravelin::MatrixNd                                             Jx_iM_JxT, Jx_iM_DxT;
+  Ravelin::MatrixNd                                                        Dx_iM_DxT;
 
   // vector-based terms
-  VectorN Jc_v, Dc_v, Jl_v, Jx_v, Dx_v;
+  Ravelin::VectorNd Jc_v, Dc_v, Jl_v, Jx_v, Dx_v;
 
   // kappa term
-  Real kappa;
+  double kappa;
 
   // determines whether to use kappa term
   bool use_kappa;
 
   // impulse magnitudes determined by solve_qp()
-  VectorN alpha_c, beta_c, alpha_l, beta_t, alpha_x, beta_x;
+  Ravelin::VectorNd alpha_c, beta_c, alpha_l, beta_t, alpha_x, beta_x;
 
   private:
-    VectorN workv, workv2;
+    Ravelin::VectorNd workv, workv2;
 }; // end struct
 
 } // end namespace Moby

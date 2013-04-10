@@ -7,12 +7,12 @@
 #ifndef _XML_READER_H
 #define _XML_READER_H
 
+#include <Ravelin/VectorNd.h>
+#include <Ravelin/MatrixNd.h>
 #include <map>
 #include <string>
 #include <vector>
 #include <boost/shared_ptr.hpp>
-#include <Moby/VectorN.h>
-#include <Moby/MatrixN.h>
 
 namespace Moby {
 

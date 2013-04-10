@@ -13,6 +13,7 @@
 #include <Moby/Joint.h>
 #include <Moby/RNEAlgorithm.h>
 
+using namespace Ravelin;
 using namespace Moby;
 using std::vector;
 using std::map;
@@ -24,7 +25,7 @@ using std::list;
 /**
  * Computed joint actuator forces are stored in inv_dyn_data.
  */
-map<JointPtr, VectorN> RNEAlgorithm::calc_inv_dyn(RCArticulatedBodyPtr body, const map<RigidBodyPtr, RCArticulatedBodyInvDynData>& inv_dyn_data)
+map<JointPtr, VectorNd> RNEAlgorithm::calc_inv_dyn(RCArticulatedBodyPtr body, const map<RigidBodyPtr, RCArticulatedBodyInvDynData>& inv_dyn_data)
 {
   if (!body->is_floating_base())
     return calc_inv_dyn_fixed_base(body, inv_dyn_data);
@@ -36,7 +37,7 @@ map<JointPtr, VectorN> RNEAlgorithm::calc_inv_dyn(RCArticulatedBodyPtr body, con
 /**
  * Computed joint actuator forces are stored in inv_dyn_data.
  */
-map<JointPtr, VectorN> RNEAlgorithm::calc_inv_dyn_fixed_base(RCArticulatedBodyPtr body, const map<RigidBodyPtr, RCArticulatedBodyInvDynData>& inv_dyn_data) const
+map<JointPtr, VectorNd> RNEAlgorithm::calc_inv_dyn_fixed_base(RCArticulatedBodyPtr body, const map<RigidBodyPtr, RCArticulatedBodyInvDynData>& inv_dyn_data) const
 {
   queue<RigidBodyPtr> link_queue;
   map<RigidBodyPtr, RCArticulatedBodyInvDynData>::const_iterator idd_iter;
@@ -66,7 +67,7 @@ map<JointPtr, VectorN> RNEAlgorithm::calc_inv_dyn_fixed_base(RCArticulatedBodyPt
   RigidBodyPtr base = links.front();
 
   // setup the vector of link accelerations
-  vector<SVector6> accels(links.size(), ZEROS_6);
+  vector<Twistd> accels(links.size(), Twistd::zero());
   
   // add all child links of the base to the processing queue
   list<RigidBodyPtr> child_links;
@@ -96,29 +97,29 @@ map<JointPtr, VectorN> RNEAlgorithm::calc_inv_dyn_fixed_base(RCArticulatedBodyPt
     JointPtr joint(link->get_inner_joint_implicit());
 
     // get the spatial link velocity
-    const SVector6& v = link->get_spatial_velocity(rftype); 
+    const Twistd& v = link->get_spatial_velocity(rftype); 
 
     // get the reference to the spatial link acceleration
-    SVector6& a = accels[idx];
+    Twistd& a = accels[idx];
  
     // get spatial axes for this link's inner joint
-    const SMatrix6N& s = joint->get_spatial_axes(rftype);
+    const vector<Twistd>& s = joint->get_spatial_axes(rftype);
 
     // get derivative of the spatial axes for this link's inner joint
-    const SMatrix6N& s_dot = joint->get_spatial_axes_dot(rftype);
+    const vector<Twistd>& s_dot = joint->get_spatial_axes_dot(rftype);
 
     // get the current joint velocity
-    const VectorN& qd = joint->qd;
+    const VectorNd& qd = joint->qd;
 
     // **** compute acceleration
 
     // get the desired joint acceleration
     idd_iter = inv_dyn_data.find(link);
     assert(idd_iter != inv_dyn_data.end());
-    const VectorN& qdd_des = idd_iter->second.qdd;  
+    const VectorNd& qdd_des = idd_iter->second.qdd;  
 
     // add this link's contribution
-    a += SVector6::spatial_cross(v, s.mult(qd)) + s.mult(qdd_des) + s_dot.mult(qd);
+    a += SVector6::spatial_cross(v, mult(s, qd)) + mult(s, qdd_des) + mult(sdot, qd);
 
     // now add parent's contribution
     if (rftype == eGlobal)
@@ -138,7 +139,7 @@ map<JointPtr, VectorN> RNEAlgorithm::calc_inv_dyn_fixed_base(RCArticulatedBodyPt
   
   // ** STEP 2: compute link forces -- backward recursion
   vector<bool> processed(links.size(), false);
-  vector<SVector6> forces(links.size(), SVector6(0,0,0,0,0,0));
+  vector<Wrenchd> forces(links.size(), Wrench::zero());
 
   // add all leaf links to the queue
   for (unsigned i=1; i< links.size(); i++)
@@ -167,30 +168,29 @@ map<JointPtr, VectorN> RNEAlgorithm::calc_inv_dyn_fixed_base(RCArticulatedBodyPt
     unsigned pidx = parent->get_index();
 
     // get the forces for this link and this link's parent
-    SVector6& fi = forces[idx];
-    SVector6& fim1 = forces[pidx];
+    Wrenchd& fi = forces[idx];
+    Wrenchd& fim1 = forces[pidx];
     
     FILE_LOG(LOG_DYNAMICS) << " computing necessary force; processing link " << link->id << endl;
     FILE_LOG(LOG_DYNAMICS) << "  currently determined link force: " << fi << endl;    
     FILE_LOG(LOG_DYNAMICS) << "  I * a = " << (Iiso[idx] * accels[idx]) << endl;
 
     // get the spatial velocity for this link
-    const SVector6& v = link->get_spatial_velocity(rftype);
+    const Twistd& v = link->get_velocity(rftype);
 
     // add I*a to the link force
     fi += Iiso[idx] * accels[idx];
 
     // update the determined force to this link w/Coriolis + centrifugal terms
-    fi += SVector6::spatial_cross(v, Iiso[idx] * v);
+    fi += SVector6d::spatial_cross(v, Iiso[idx] * v);
 
     FILE_LOG(LOG_DYNAMICS) << "  force (+ I*a): " << fi << endl;    
 
     // determine external forces in link frame
     idd_iter = inv_dyn_data.find(link);
     assert(idd_iter != inv_dyn_data.end());
-    const Vector3& fext = idd_iter->second.fext;  
-    const Vector3& text = idd_iter->second.text;  
-    const Matrix4& T = link->get_transform();
+    const Wrenchd& wext = idd_iter->second.wext;  
+    shared_ptr<const Pose3d> T = link->get_transform();
     SVector6 fx(T.transpose_mult_vector(fext), T.transpose_mult_vector(text));
 
     // subtract external forces in the appropriate frame
@@ -220,16 +220,16 @@ map<JointPtr, VectorN> RNEAlgorithm::calc_inv_dyn_fixed_base(RCArticulatedBodyPt
   // ** STEP 3: compute joint forces
 
   // setup a map from joints to actuator forces
-  map<JointPtr, VectorN> actuator_forces;
+  map<JointPtr, VectorNd> actuator_forces;
 
   // compute actuator forces
   for (unsigned i=1; i< links.size(); i++)
   {
     RigidBodyPtr link = links[i];
     JointPtr joint(link->get_inner_joint_implicit());
-    const SMatrix6N& s = joint->get_spatial_axes(rftype);
-    VectorN& Q = actuator_forces[joint];  
-    s.transpose_mult(forces[link->get_index()], Q);
+    const vector<Twistd>& s = joint->get_spatial_axes(rftype);
+    VectorNd& Q = actuator_forces[joint];  
+    transpose_mult(s, forces[link->get_index()], Q);
   
     FILE_LOG(LOG_DYNAMICS) << "joint " << joint->id << " inner joint force: " << actuator_forces[joint] << endl;
   }
@@ -247,8 +247,7 @@ map<JointPtr, VectorN> RNEAlgorithm::calc_inv_dyn_fixed_base(RCArticulatedBodyPt
 void RNEAlgorithm::calc_constraint_forces(RCArticulatedBodyPtr body)
 {
   queue<RigidBodyPtr> link_queue;
-  SMatrix6N s;
-  vector<SpatialRBInertia> Iiso;
+  vector<SpatialRBInertiad> Iiso;
 
   FILE_LOG(LOG_DYNAMICS) << "RNEAlgorithm::calc_constraint_forces() entered" << endl;
 
@@ -274,7 +273,7 @@ void RNEAlgorithm::calc_constraint_forces(RCArticulatedBodyPtr body)
   RigidBodyPtr base = links.front();
 
   // setup the vector of link accelerations
-  vector<SVector6> accels(links.size(), ZEROS_6);
+  vector<Twistd> accels(links.size(), Twistd::zero());
   
   // add all child links of the base to the processing queue
   list<RigidBodyPtr> child_links;
@@ -284,7 +283,7 @@ void RNEAlgorithm::calc_constraint_forces(RCArticulatedBodyPtr body)
 
   // ** STEP 1: compute link forces -- backward recursion
   vector<bool> processed(links.size(), false);
-  vector<SVector6> forces(links.size(), ZEROS_6);
+  vector<Wrenchd> forces(links.size(), Wrench::zero());
 
   // add all leaf links to the queue
   for (unsigned i=1; i< links.size(); i++)
@@ -313,32 +312,31 @@ void RNEAlgorithm::calc_constraint_forces(RCArticulatedBodyPtr body)
     unsigned pidx = parent->get_index();
 
     // get the forces for this link and this link's parent
-    SVector6& fi = forces[idx];
-    SVector6& fim1 = forces[pidx];
+    Wrenchd& fi = forces[idx];
+    Wrenchd& fim1 = forces[pidx];
 
     // get this link's acceleration
-    SVector6 a = link->get_spatial_accel(rftype);
+    Twistd& a = link->get_accel(rftype);
     
     FILE_LOG(LOG_DYNAMICS) << " computing necessary force; processing link " << link->id << endl;
     FILE_LOG(LOG_DYNAMICS) << "  currently determined link force: " << fi << endl;    
     FILE_LOG(LOG_DYNAMICS) << "  I * a = " << (Iiso[idx] * a) << endl;
 
     // get the spatial velocity for this link
-    const SVector6& v = link->get_spatial_velocity(rftype);
+    const Twistd& v = link->get_spatial_velocity(rftype);
 
     // add I*a to the link force
     fi += Iiso[idx] * a;
 
     // update the determined force to this link w/Coriolis + centrifugal terms
-    fi += SVector6::spatial_cross(v, Iiso[idx] * v);
+    fi += SVector6d::spatial_cross(v, Iiso[idx] * v);
 
     FILE_LOG(LOG_DYNAMICS) << "  force (+ I*a): " << fi << endl;    
 
     // determine external forces in link frame
-    const Vector3& fext = link->sum_forces();  
-    const Vector3& text = link->sum_torques();  
-    const Matrix4& T = link->get_transform();
-    SVector6 fx(T.transpose_mult_vector(fext), T.transpose_mult_vector(text));
+    const Wrenchd& wext = link->sum_wrench(); 
+    shared_ptr<const Pose3d>& T = link->get_transform();
+    Wrenchd fx(T.transpose_mult_vector(fext), T.transpose_mult_vector(text));
 
     // subtract external forces in the appropriate frame
     if (rftype == eGlobal)
@@ -374,7 +372,7 @@ void RNEAlgorithm::calc_constraint_forces(RCArticulatedBodyPtr body)
     RigidBodyPtr link = links[i];
     JointPtr joint(link->get_inner_joint_implicit());
     joint->get_spatial_constraints(rftype, s);
-    s.transpose_mult(forces[link->get_index()], joint->lambda);
+    transpose_mult(s, forces[link->get_index()], joint->lambda);
   
     FILE_LOG(LOG_DYNAMICS) << "joint " << joint->id << " constraint force: " << joint->lambda << endl;
   }
@@ -391,12 +389,13 @@ void RNEAlgorithm::calc_constraint_forces(RCArticulatedBodyPtr body)
  *        is not applicable in that case and will be ignored for it)
  * \return a mapping from joints to actuator forces
  */
-map<JointPtr, VectorN> RNEAlgorithm::calc_inv_dyn_floating_base(RCArticulatedBodyPtr body, const map<RigidBodyPtr, RCArticulatedBodyInvDynData>& inv_dyn_data) const
+map<JointPtr, VectorNd> RNEAlgorithm::calc_inv_dyn_floating_base(RCArticulatedBodyPtr body, const map<RigidBodyPtr, RCArticulatedBodyInvDynData>& inv_dyn_data) const
 {
   queue<RigidBodyPtr> link_queue;
   map<RigidBodyPtr, RCArticulatedBodyInvDynData>::const_iterator idd_iter;
-  vector<SpatialRBInertia> Iiso, I;
-  vector<SVector6> Z, v, a;
+  vector<SpatialRBInertiad> Iiso, I;
+  vector<Twistd> v, a;
+  vector<Wrenchd> Z;
 
   FILE_LOG(LOG_DYNAMICS) << "RNEAlgorithm::calc_inv_dyn_floating_base() entered" << endl;
 
@@ -423,13 +422,13 @@ map<JointPtr, VectorN> RNEAlgorithm::calc_inv_dyn_floating_base(RCArticulatedBod
   v.resize(links.size());
   a.resize(links.size());
   for (unsigned i=0; i< links.size(); i++)
-    v[i] = a[i] = ZEROS_6;
+    v[i] = a[i] = Twistd::zero();
   
   // get the base link
   RigidBodyPtr base = links.front();
   
   // set velocity for the base
-  v.front() = base->get_spatial_velocity(rftype);
+  v.front() = base->get_velocity(rftype);
 
   // add all child links of the base to the processing queue
   list<RigidBodyPtr> child_links;
@@ -459,25 +458,25 @@ map<JointPtr, VectorN> RNEAlgorithm::calc_inv_dyn_floating_base(RCArticulatedBod
 
     // get the spatial axes (and derivative) of this link's inner joint
     JointPtr joint(link->get_inner_joint_implicit());
-    const SMatrix6N& s = joint->get_spatial_axes(rftype);
-    const SMatrix6N& s_dot = joint->get_spatial_axes_dot(rftype);
+    const vector<Twistd>& s = joint->get_spatial_axes(rftype);
+    const vector<Twistd>& s_dot = joint->get_spatial_axes_dot(rftype);
 
     // compute s * qdot
-    SVector6 sqd = s.mult(joint->qd);
+    Twistd sqd = mult(s, joint->qd);
     
     // get the desired acceleration for the current link
     idd_iter = inv_dyn_data.find(link);
     assert(idd_iter != inv_dyn_data.end());
-    const VectorN& qdd_des = idd_iter->second.qdd;
+    const VectorNd& qdd_des = idd_iter->second.qdd;
 
     // compute velocity and relative acceleration
     v[i] = v[im1] + sqd;
-    a[i] = a[im1] + s.mult(qdd_des) + s_dot.mult(joint->qd) + SVector6::spatial_cross(v[i], sqd);
+    a[i] = a[im1] + mult(s, qdd_des) + mult(sdot, joint->qd) + SVector6d::spatial_cross(v[i], sqd);
 
     FILE_LOG(LOG_DYNAMICS) << "  s: " << s << endl;
     FILE_LOG(LOG_DYNAMICS) << "  velocity for link " << links[i]->id << ": " << v[i] << endl;
-    FILE_LOG(LOG_DYNAMICS) << "  s * qdd: " << s.mult(qdd_des) << endl;
-    FILE_LOG(LOG_DYNAMICS) << "  v x s * qd: " << SVector6::spatial_cross(v[i], sqd) << endl;
+    FILE_LOG(LOG_DYNAMICS) << "  s * qdd: " << mult(s, qdd_des) << endl;
+    FILE_LOG(LOG_DYNAMICS) << "  v x s * qd: " << SVector6d::spatial_cross(v[i], sqd) << endl;
     FILE_LOG(LOG_DYNAMICS) << "  relative accel for link " << links[i]->id << ": " << a[i] << endl;
   }
   
@@ -491,7 +490,7 @@ map<JointPtr, VectorN> RNEAlgorithm::calc_inv_dyn_floating_base(RCArticulatedBod
   for (unsigned i=0; i< links.size(); i++)
   {
     I[i].set_zero();
-    Z[i] = ZEROS_6;
+    Z[i].set_zero();
   }
 
   // set all spatial isolated inertias and Z.A. forces
@@ -508,14 +507,13 @@ map<JointPtr, VectorN> RNEAlgorithm::calc_inv_dyn_floating_base(RCArticulatedBod
     Z[idx] = Iiso[idx] * a[idx];
 
     // add coriolis and centrifugal forces on link
-    Z[idx] += SVector6::spatial_cross(v[i], Iiso[idx] * v[idx]);
+    Z[idx] += SVector6d::spatial_cross(v[i], Iiso[idx] * v[idx]);
 
     // determine external forces on the link in link frame
     idd_iter = inv_dyn_data.find(link);
     assert(idd_iter != inv_dyn_data.end());
-    const Vector3& fext = idd_iter->second.fext;  
-    const Vector3& text = idd_iter->second.text;  
-    const Matrix4& T = link->get_transform();
+    const Wrenchd& wext = idd_iter->second;
+    shared_ptr<const Pose3d>& T = link->get_transform();
     SVector6 fx(T.transpose_mult_vector(fext), T.transpose_mult_vector(text));
 
     // transform external forces and subtract from Z.A. vector
@@ -582,16 +580,16 @@ map<JointPtr, VectorN> RNEAlgorithm::calc_inv_dyn_floating_base(RCArticulatedBod
   // ** STEP 4: compute joint forces
   
   // setup the map of actuator forces
-  map<JointPtr, VectorN> actuator_forces;
+  map<JointPtr, VectorNd> actuator_forces;
 
   // compute the forces
   for (unsigned i=1; i< links.size(); i++)
   {
     unsigned idx = links[i]->get_index();
     JointPtr joint(links[i]->get_inner_joint_implicit());
-    const SMatrix6N& s = joint->get_spatial_axes(rftype);
-    VectorN& Q = actuator_forces[joint];
-    s.transpose_mult((I[idx] * a.front()) + Z[idx], Q);
+    vector<Twistd>& s = joint->get_spatial_axes(rftype);
+    VectorNd& Q = actuator_forces[joint];
+    transpose_mult((s, I[idx] * a.front()) + Z[idx], Q);
 
     FILE_LOG(LOG_DYNAMICS) << "  processing link: " << links[i]->id << endl;
     FILE_LOG(LOG_DYNAMICS) << "    spatial axis: " << endl << s;

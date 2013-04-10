@@ -37,21 +37,21 @@ using std::min_element;
 using boost::dynamic_pointer_cast;
 
 /// Solves the quadratic program (potentially solves two QPs, actually)
-void ImpactEventHandler::solve_qp(EventProblemData& q, Real poisson_eps)
+void ImpactEventHandler::solve_qp(EventProblemData& q, double poisson_eps)
 {
   SAFESTATIC VectorN z, tmp, tmp2;
-  const Real TOL = poisson_eps;
+  const double TOL = poisson_eps;
 
   // solve the QP
   solve_qp_work(q, z);
 
   // apply (Poisson) restitution to contacts
   for (unsigned i=0; i< q.N_CONTACTS; i++)
-    z[i] *= ((Real) 1.0 + q.contact_events[i]->contact_epsilon);
+    z[i] *= ((double) 1.0 + q.contact_events[i]->contact_epsilon);
 
   // apply (Poisson) restitution to limits
   for (unsigned i=0; i< q.N_LIMITS; i++)
-    z[q.N_CONTACTS*5+i] *= ((Real) 1.0 + q.limit_events[i]->limit_epsilon);
+    z[q.N_CONTACTS*5+i] *= ((double) 1.0 + q.limit_events[i]->limit_epsilon);
 
   // save impulses in q
   q.update_from_stacked(z);
@@ -99,7 +99,7 @@ void ImpactEventHandler::solve_qp(EventProblemData& q, Real poisson_eps)
     }
   else
   {
-    pair<Real*, Real*> mm = boost::minmax_element(q.Jx_v.begin(), q.Jx_v.end());
+    pair<double*, double*> mm = boost::minmax_element(q.Jx_v.begin(), q.Jx_v.end());
     if (q.Jx_v.size() > 0 && (*mm.first < -TOL || *mm.second > TOL))
     {
       FILE_LOG(LOG_EVENT) << "minimum J*v: " << *mm.first << std::endl;
@@ -181,7 +181,7 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorN& z)
   {
     R.set_zero(N_VARS,N_VARS);
     for (unsigned i=0; i< N_VARS; i++) 
-      R(i,i) = (Real) 1.0;
+      R(i,i) = (double) 1.0;
     z.set_zero(N_VARS);
   }
 
@@ -259,14 +259,14 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorN& z)
   for (unsigned i=0, k=0; i< N_CONTACTS; i++, k+= 2)
   {
     // initialize the contact velocity
-    Real vel = std::sqrt(sqr(q.Dc_v[k]) + sqr(q.Dc_v[k+1]));
+    double vel = std::sqrt(sqr(q.Dc_v[k]) + sqr(q.Dc_v[k+1]));
 
     // setup the Coulomb friction inequality constraints for this contact
     for (unsigned j=0; j< q.contact_events[i]->contact_NK/2; j++)
     {
-      Real theta = (Real) j/(q.contact_events[i]->contact_NK/2-1) * M_PI_2;
-      const Real ct = std::cos(theta);
-      const Real st = std::sin(theta);
+      double theta = (double) j/(q.contact_events[i]->contact_NK/2-1) * M_PI_2;
+      const double ct = std::cos(theta);
+      const double st = std::sin(theta);
       A(row, ALPHA_C_IDX+i) = q.contact_events[i]->contact_mu_coulomb;
       A(row, BETA_C_IDX+k) = -ct;
       A(row, NBETA_C_IDX+k) = -ct;
@@ -283,7 +283,7 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorN& z)
   if (q.use_kappa)
   {
     for (unsigned i=0; i< N_CONTACTS; i++)
-      A(row, ALPHA_C_IDX+i) = (Real) -1.0;
+      A(row, ALPHA_C_IDX+i) = (double) -1.0;
     nb[row] = q.kappa;
   }
 
@@ -419,7 +419,7 @@ void ImpactEventHandler::update_solution(const EventProblemData& q, const Vector
 }
 
 /// Checks whether the optimization is satisfied *without* adding contact j
-bool ImpactEventHandler::opt_satisfied(const EventProblemData& q, const vector<bool>& working_set, Real& KE, VectorN& x, unsigned j)
+bool ImpactEventHandler::opt_satisfied(const EventProblemData& q, const vector<bool>& working_set, double& KE, VectorN& x, unsigned j)
 {
   SAFESTATIC VectorN workv, Jc_v, z;
   SAFESTATIC EventProblemData qcopy;
@@ -444,7 +444,7 @@ bool ImpactEventHandler::opt_satisfied(const EventProblemData& q, const vector<b
     return true; 
 
   // check whether there is an appreciable change in K.E.
-  Real new_KE = calc_ke(qcopy, z);
+  double new_KE = calc_ke(qcopy, z);
   if (new_KE < KE - NEAR_ZERO)
   {
     x.copy_from(z);
@@ -456,7 +456,7 @@ bool ImpactEventHandler::opt_satisfied(const EventProblemData& q, const vector<b
 }
 
 /// Computes the kinetic energy of the system using the current impulse set 
-Real ImpactEventHandler::calc_ke(EventProblemData& q, const VectorN& z)
+double ImpactEventHandler::calc_ke(EventProblemData& q, const VectorN& z)
 {
   SAFESTATIC VectorN alpha_c, beta_c, alpha_l, alpha_x;
 
@@ -470,7 +470,7 @@ Real ImpactEventHandler::calc_ke(EventProblemData& q, const VectorN& z)
   q.update_from_stacked(z);
 
   // calculate KE
-  Real KE = (Real) 0.0;
+  double KE = (double) 0.0;
   set_generalized_velocities(q);
   for (unsigned i=0; i< q.super_bodies.size(); i++)
     KE += q.super_bodies[i]->calc_kinetic_energy();
@@ -519,7 +519,7 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorN& z)
 
   // solve using warm starting
   solve_qp_work_ijoints(qworking, z);
-  Real KE = calc_ke(qworking, z);
+  double KE = calc_ke(qworking, z);
 
   // begin looping
   for (unsigned j=1; j< q.N_CONTACTS; j++)
@@ -696,14 +696,14 @@ void ImpactEventHandler::solve_qp_work_ijoints(EventProblemData& q, VectorN& z)
   for (unsigned i=0, k=0; i< q.N_CONTACTS; i++, k+= 2)
   {
     // initialize the contact velocity
-    Real vel = std::sqrt(sqr(q.Dc_v[k]) + sqr(q.Dc_v[k+1]));
+    double vel = std::sqrt(sqr(q.Dc_v[k]) + sqr(q.Dc_v[k+1]));
 
     // setup the Coulomb friction inequality constraints for this contact
     for (unsigned j=0; j< q.contact_events[i]->contact_NK/2; j++)
     {
-      Real theta = (Real) j/(q.contact_events[i]->contact_NK/2-1) * M_PI_2;
-      const Real ct = std::cos(theta);
-      const Real st = std::sin(theta);
+      double theta = (double) j/(q.contact_events[i]->contact_NK/2-1) * M_PI_2;
+      const double ct = std::cos(theta);
+      const double st = std::sin(theta);
       A(row, q.ALPHA_C_IDX+i) = q.contact_events[i]->contact_mu_coulomb;
       A(row, q.BETA_C_IDX+k) = -ct;
       A(row, q.NBETA_C_IDX+k) = -ct;
@@ -720,7 +720,7 @@ void ImpactEventHandler::solve_qp_work_ijoints(EventProblemData& q, VectorN& z)
   if (q.use_kappa)
   {
     for (unsigned i=0; i< q.N_CONTACTS; i++)
-      A(row, q.ALPHA_C_IDX+i) = (Real) -1.0;
+      A(row, q.ALPHA_C_IDX+i) = (double) -1.0;
     nb[row] = q.kappa;
   }
 
@@ -803,7 +803,7 @@ void ImpactEventHandler::solve_qp_work_general(EventProblemData& q, VectorN& z)
   {
     R.set_zero(q.N_VARS,q.N_VARS);
     for (unsigned i=0; i< q.N_VARS; i++) 
-      R(i,i) = (Real) 1.0;
+      R(i,i) = (double) 1.0;
     z.set_zero(q.N_VARS);
   }
 
@@ -881,14 +881,14 @@ void ImpactEventHandler::solve_qp_work_general(EventProblemData& q, VectorN& z)
   for (unsigned i=0, k=0; i< q.N_CONTACTS; i++, k+= 2)
   {
     // initialize the contact velocity
-    Real vel = std::sqrt(sqr(q.Dc_v[k]) + sqr(q.Dc_v[k+1]));
+    double vel = std::sqrt(sqr(q.Dc_v[k]) + sqr(q.Dc_v[k+1]));
 
     // setup the Coulomb friction inequality constraints for this contact
     for (unsigned j=0; j< q.contact_events[i]->contact_NK/2; j++)
     {
-      Real theta = (Real) j/(q.contact_events[i]->contact_NK/2-1) * M_PI_2;
-      const Real ct = std::cos(theta);
-      const Real st = std::sin(theta);
+      double theta = (double) j/(q.contact_events[i]->contact_NK/2-1) * M_PI_2;
+      const double ct = std::cos(theta);
+      const double st = std::sin(theta);
       A(row, q.ALPHA_C_IDX+i) = q.contact_events[i]->contact_mu_coulomb;
       A(row, q.BETA_C_IDX+k) = -ct;
       A(row, q.NBETA_C_IDX+k) = -ct;
@@ -905,7 +905,7 @@ void ImpactEventHandler::solve_qp_work_general(EventProblemData& q, VectorN& z)
   if (q.use_kappa)
   {
     for (unsigned i=0; i< q.N_CONTACTS; i++)
-      A(row, q.ALPHA_C_IDX+i) = (Real) -1.0;
+      A(row, q.ALPHA_C_IDX+i) = (double) -1.0;
     nb[row] = q.kappa;
   }
 

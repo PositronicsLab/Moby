@@ -21,8 +21,8 @@ inline std::ostream& operator<<(std::ostream& out, const AABB& a)
 
 /// Constructs an axis-aligned bounding box using a set of points
 /**
- * \param begin an iterator to the beginning of a container of type Vector3
- * \param end an iterator to the end of a container of type Vector3
+ * \param begin an iterator to the beginning of a container of type Ravelin::Vector3
+ * \param end an iterator to the end of a container of type Ravelin::Vector3
  */
 template <class InputIterator>
 AABB::AABB(InputIterator begin, InputIterator end)

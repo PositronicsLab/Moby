@@ -25,13 +25,13 @@ class ContactParameters : public Base
     sorted_pair<BasePtr> objects;  
 
     /// Coefficient of restitution for contact (default is 0.0)
-    Real epsilon;
+    double epsilon;
 
     /// Coefficient of Coulomb friction for contact (default is 0.0)
-    Real mu_coulomb;
+    double mu_coulomb;
 
     /// Coefficient of viscous friction for contact (default is 0.0)
-    Real mu_viscous;
+    double mu_viscous;
 
     /// Number of edges in the polygon friction cone, minimum of 4 (default 4)
     unsigned NK;

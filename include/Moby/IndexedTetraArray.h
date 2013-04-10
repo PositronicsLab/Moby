@@ -9,10 +9,9 @@
 
 #include <boost/foreach.hpp>
 #include <boost/shared_ptr.hpp>
+#include <Ravelin/Vector3d.h>
+#include <Ravelin/Pose3d.h>
 #include <Moby/Base.h>
-#include <Moby/Vector3.h>
-#include <Moby/Matrix3.h>
-#include <Moby/Matrix4.h>
 #include <Moby/Tetrahedron.h>
 #include <Moby/IndexedTetra.h>
 
@@ -23,17 +22,17 @@ class IndexedTetraArray : public Base
 {
   public:
     IndexedTetraArray() {}
-    IndexedTetraArray(boost::shared_ptr<const std::vector<Vector3> > vertices, const std::vector<IndexedTetra>& facets);
-    IndexedTetraArray(boost::shared_ptr<const std::vector<Vector3> > vertices, boost::shared_ptr<const std::vector<IndexedTetra> > facets);
+    IndexedTetraArray(boost::shared_ptr<const std::vector<Ravelin::Point3d> > vertices, const std::vector<IndexedTetra>& facets);
+    IndexedTetraArray(boost::shared_ptr<const std::vector<Ravelin::Point3d> > vertices, boost::shared_ptr<const std::vector<IndexedTetra> > facets);
 
     template <class InputIterator1, class InputIterator2>
     IndexedTetraArray(InputIterator1 vertices, InputIterator1 verts_end, InputIterator2 facets_begin, InputIterator2 facets_end);
 
     void center();
     unsigned num_tetra() const { return (_tetra) ? _tetra->size() : 0; }
-    IndexedTetraArray transform(const Matrix4& T) const;
-    IndexedTetraArray rotate_scale(const Matrix3& T) const;
-    IndexedTetraArray translate(const Vector3& v) const;
+    IndexedTetraArray transform(const Ravelin::Pose3d& T) const;
+    IndexedTetraArray rotate_scale(const Ravelin::Matrix3d& T) const;
+    IndexedTetraArray translate(const Ravelin::Vector3d& v) const;
     IndexedTetraArray compress_vertices() const;
     static IndexedTetraArray read_from_tetra(const std::string& filename);
     static void write_to_tetra(const IndexedTetraArray& mesh, const std::string& filename);
@@ -49,19 +48,19 @@ class IndexedTetraArray : public Base
     boost::shared_ptr<const std::vector<IndexedTetra> > get_tetra_pointer() const { return _tetra; }
 
     /// Gets the pointer to the vector of vertices
-    boost::shared_ptr<const std::vector<Vector3> > get_vertices_pointer() const { return _vertices; }
+    boost::shared_ptr<const std::vector<Ravelin::Point3d> > get_vertices_pointer() const { return _vertices; }
 
     /// Gets the vector of facets
     const std::vector<IndexedTetra>& get_tetra() const { return *_tetra; }
 
     /// Gets the vector of verties
-    const std::vector<Vector3>& get_vertices() const { return *_vertices; }
+    const std::vector<Ravelin::Point3d>& get_vertices() const { return *_vertices; }
 
   private:
     void validate();
 
     boost::shared_ptr<const std::vector<IndexedTetra> > _tetra;
-    boost::shared_ptr<const std::vector<Vector3> > _vertices;
+    boost::shared_ptr<const std::vector<Ravelin::Point3d> > _vertices;
 
 }; // end class
 

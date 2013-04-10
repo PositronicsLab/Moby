@@ -4,8 +4,8 @@
  * License (found in COPYING).
  ****************************************************************************/
 
-#ifndef _INVALID_INDEX_EXCEPTION_H_
-#define _INVALID_INDEX_EXCEPTION_H_
+#ifndef _MOBY_INVALID_INDEX_EXCEPTION_H_
+#define _MOBY_INVALID_INDEX_EXCEPTION_H_
 
 #include <stdexcept>
 

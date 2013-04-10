@@ -449,7 +449,7 @@ void CollisionDetection::remove_collision_geometry(CollisionGeometryPtr geom)
  * \note does not calculate inter-geometry distances (i.e., in case a geometry
  *       is deformable)
  */  
-Real CollisionDetection::calc_distances()
+double CollisionDetection::calc_distances()
 {
   Vector3 cp1, cp2;
 
@@ -458,7 +458,7 @@ Real CollisionDetection::calc_distances()
   closest_points.clear();
 
   // determine distance between each pair of bodies
-  Real min_dist = std::numeric_limits<Real>::max();
+  double min_dist = std::numeric_limits<double>::max();
   for (std::set<CollisionGeometryPtr>::const_iterator i = _geoms.begin(); i != _geoms.end(); i++)
   {
     std::set<CollisionGeometryPtr>::const_iterator j = i; 
@@ -479,7 +479,7 @@ Real CollisionDetection::calc_distances()
       const Matrix4& wTg2 = g2->get_transform(); 
 
       // otherwise, compute the distance
-      Real dist = calc_distance(g1, g2, g1Tw * wTg2, cp1, cp2);
+      double dist = calc_distance(g1, g2, g1Tw * wTg2, cp1, cp2);
       min_dist = std::min(dist, min_dist);    
 
       // save the distance
@@ -502,10 +502,10 @@ Real CollisionDetection::calc_distances()
  * \param cpb the closest point to a on b (in b's frame)
  * \return the squared distance between cpa and cpb
  */
-Real CollisionDetection::calc_distance(CollisionGeometryPtr a, CollisionGeometryPtr b, const Matrix4& aTb, Vector3& cpa, Vector3& cpb)
+double CollisionDetection::calc_distance(CollisionGeometryPtr a, CollisionGeometryPtr b, const Matrix4& aTb, Vector3& cpa, Vector3& cpb)
 {
   // setup the minimum distance
-  Real min_dist = std::numeric_limits<Real>::max();
+  double min_dist = std::numeric_limits<double>::max();
 
   // determine the transform from b's frame to a's frame
   Matrix4 bTa = Matrix4::inverse_transform(aTb);
@@ -535,7 +535,7 @@ Real CollisionDetection::calc_distance(CollisionGeometryPtr a, CollisionGeometry
 
       // get distance between the two triangles
       Vector3 cpa_tmp, cpb_tmp;
-      Real dist = Triangle::calc_sq_dist(ta, tb, cpa_tmp, cpb_tmp);
+      double dist = Triangle::calc_sq_dist(ta, tb, cpa_tmp, cpb_tmp);
 
       // if it's the minimum distance, save the closest points
       if (dist < min_dist)

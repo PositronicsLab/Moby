@@ -16,25 +16,25 @@ namespace Moby {
 struct Tetrahedron
 {
   Tetrahedron() {  }
-  Tetrahedron(const Vector3& v1, const Vector3& v2, const Vector3& v3, const Vector3& v4) { a = v1; b = v2; c = v3; d = v4; }
-  Real calc_signed_dist(const Vector3& p) const;
-  void determine_barycentric_coords(const Vector3& p, Real& u, Real& v, Real& w) const;
-  Vector3 calc_point(Real u, Real v, Real w) const;
-  Vector3 calc_centroid() const;
-  Real calc_volume() const;
-  bool outside(const Vector3& p, Real tol = NEAR_ZERO) const;
+  Tetrahedron(const Ravelin::Point3d& v1, const Ravelin::Point3d& v2, const Ravelin::Point3d& v3, const Ravelin::Point3d& v4) { a = v1; b = v2; c = v3; d = v4; }
+  double calc_signed_dist(const Ravelin::Point3d& p) const;
+  void determine_barycentric_coords(const Ravelin::Point3d& p, double& u, double& v, double& w) const;
+  Ravelin::Point3d calc_point(double u, double v, double w) const;
+  Ravelin::Point3d calc_centroid() const;
+  double calc_volume() const;
+  bool outside(const Ravelin::Point3d& p, double tol = NEAR_ZERO) const;
 
   /// First vertex of the tetrahedron
-  Vector3 a;
+  Ravelin::Point3d a;
 
   /// Second vertex of the tetrahedron
-  Vector3 b;
+  Ravelin::Point3d b;
 
   /// Third vertex of the tetrahedron
-  Vector3 c;
+  Ravelin::Point3d c;
 
   /// Fourth vertex of the tetrahedron
-  Vector3 d;
+  Ravelin::Point3d d;
 }; // end struct
 
 } // end namespace

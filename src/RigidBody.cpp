@@ -41,9 +41,9 @@ RigidBody::RigidBody()
   const unsigned SPATIAL_DIM = 6;
 
   _mass = 0;
-  _inv_mass = std::numeric_limits<Real>::max();
+  _inv_mass = std::numeric_limits<double>::max();
   _J.set_zero();
-  _invJ = IDENTITY_3x3 * std::numeric_limits<Real>::max();
+  _invJ = IDENTITY_3x3 * std::numeric_limits<double>::max();
   _x = ZEROS_3;
   _xd = ZEROS_3;
   _omega = ZEROS_3;
@@ -58,7 +58,7 @@ RigidBody::RigidBody()
 }
 
 /// Integrates the body forward in time
-void RigidBody::integrate(Real t, Real h, shared_ptr<Integrator<VectorN> > integrator)
+void RigidBody::integrate(double t, double h, shared_ptr<Integrator<VectorN> > integrator)
 {
   // don't attempt to integrate disabled bodies
   if (!is_enabled())
@@ -78,7 +78,7 @@ void RigidBody::integrate(Real t, Real h, shared_ptr<Integrator<VectorN> > integ
 }
 
 /// Computes the forward dynamics for this body
-void RigidBody::calc_fwd_dyn(Real dt)
+void RigidBody::calc_fwd_dyn(double dt)
 {
   // if the body is free, just compute linear and angular acceleration via
   // Newton's and Euler's laws
@@ -210,8 +210,8 @@ void RigidBody::set_inertia(const Matrix3& inertia)
       LinAlg::eig_symm(J, evals);
 
       // first, verify that all eigenvalues are non-negative
-      Real min_eig = *std::min_element(evals.begin(), evals.end());
-      if (min_eig < (Real) 0.0)
+      double min_eig = *std::min_element(evals.begin(), evals.end());
+      if (min_eig < (double) 0.0)
       {
         std::cerr << "RigidBody::set_inertia() warning - minimum eigenvalue of inertia matrix is " << std::endl;
         std::cerr << min_eig << " -- matrix is *at best* PSD" << std::endl;
@@ -219,8 +219,8 @@ void RigidBody::set_inertia(const Matrix3& inertia)
       else
       {
         // all checks ok to here. still, look for relative inertial problems.
-        Real max_eig = *std::max_element(evals.begin(), evals.end());
-        if (max_eig / min_eig > (Real) 1000.0)
+        double max_eig = *std::max_element(evals.begin(), evals.end());
+        if (max_eig / min_eig > (double) 1000.0)
         {
           std::cerr << "RigidBody::set_inertia() warning - ratio of maximim:minimum eigenvalues of " << std::endl;
           std::cerr << "inertia matrix is" << (max_eig/min_eig) << ":1; for numerical stability, " << std::endl;
@@ -256,12 +256,12 @@ SpatialRBInertia RigidBody::get_spatial_iso_inertia(ReferenceFrameType rftype) c
 }
 
 /// Sets the mass of this body
-void RigidBody::set_mass(Real mass)
+void RigidBody::set_mass(double mass)
 {
   if (mass < 0.0)
     throw std::runtime_error("Called RigidBody::set_mass() with negative mass");
   _mass = mass;
-  _inv_mass = (_enabled && mass != (Real) 0.0) ? (Real) 1.0/mass : (Real) 0.0;
+  _inv_mass = (_enabled && mass != (double) 0.0) ? (double) 1.0/mass : (double) 0.0;
 
   // invalidate position, just in case
   invalidate_position();
@@ -380,7 +380,7 @@ Vector3 RigidBody::calc_point_vel(const Vector3& point) const
 }
 
 /// Calculates the separation acceleration of a common point on two bodies along the desired direction
-Real RigidBody::calc_sep_accel(RigidBody& rb1, RigidBody& rb2, const Vector3& point, const Vector3& dir, const Vector3& dir_dot, Real dt)
+double RigidBody::calc_sep_accel(RigidBody& rb1, RigidBody& rb2, const Vector3& point, const Vector3& dir, const Vector3& dir_dot, double dt)
 {
   // compute forward dynamics of the two bodies
   rb1.calc_fwd_dyn(dt);
@@ -411,7 +411,7 @@ Real RigidBody::calc_sep_accel(RigidBody& rb1, RigidBody& rb2, const Vector3& po
   Vector3 pv2 = lv2 + Vector3::cross(av2, arm2);
 
   // compute the separation acceleration
-  Real accel = Vector3::dot(dir, pa1 - pa2) + 2.0 * Vector3::dot(dir_dot, pv1 - pv2);
+  double accel = Vector3::dot(dir, pa1 - pa2) + 2.0 * Vector3::dot(dir_dot, pv1 - pv2);
 
   return accel;
 }
@@ -426,7 +426,7 @@ Real RigidBody::calc_sep_accel(RigidBody& rb1, RigidBody& rb2, const Vector3& po
  * \note <b>this</b> may modify the body, because it will trigger forward
  *         dynamics via calls to get_laccel() and get_raccel().
  */
-Real RigidBody::calc_point_accel(const Vector3& point, const Vector3& dir, Real dt)
+double RigidBody::calc_point_accel(const Vector3& point, const Vector3& dir, double dt)
 {
   // if the body is disabled, point acceleration is zero
   if (!_enabled)
@@ -443,7 +443,7 @@ Real RigidBody::calc_point_accel(const Vector3& point, const Vector3& dir, Real 
   Vector3 arm = point - _x;
 
   // get the acceleration projected along the direction at the point
-  Real accel = Vector3::dot(dir, la + Vector3::cross(aa, arm) + Vector3::cross(_omega, Vector3::cross(_omega, arm)));
+  double accel = Vector3::dot(dir, la + Vector3::cross(aa, arm) + Vector3::cross(_omega, Vector3::cross(_omega, arm)));
 
   return accel;
 }
@@ -541,7 +541,7 @@ void RigidBody::load_from_xml(XMLTreeConstPtr node, map<std::string, BasePtr>& i
   if (!ifp_nodes.empty())
   {
     // set com to zero initially
-    Real mass = 0;
+    double mass = 0;
     Matrix3 J = ZEROS_3x3;
     Vector3 com = ZEROS_3;
 
@@ -576,22 +576,13 @@ void RigidBody::load_from_xml(XMLTreeConstPtr node, map<std::string, BasePtr>& i
       // read the relative transformation, if specified
       const XMLAttrib* rel_transform_attr = (*i)->get_attrib("rel-transform");
       if (rel_transform_attr)
-      {
         rel_transform_attr->get_matrix_value(TR);
-        if (!Matrix4::valid_transform(TR))
-        {
-          cerr << "RigidBody::load_from_xml() warning: invalid transform ";
-          cerr << endl << TR << " when reading node " << endl;
-          cerr << *node << endl;
-          cerr << "  --> possibly a floating-point error..." << endl;
-        }
-      }
 
       // get the primitive
       PrimitivePtr primitive = dynamic_pointer_cast<Primitive>(id_iter->second);
 
       // get the mass, inertia, and com from the primitive
-      Real massx = primitive->get_mass();
+      double massx = primitive->get_mass();
       Matrix3 Jx = primitive->get_inertia();
       Vector3 comx = primitive->get_com();
 
@@ -646,13 +637,6 @@ void RigidBody::load_from_xml(XMLTreeConstPtr node, map<std::string, BasePtr>& i
   {
     Matrix4 T;
     T_attr->get_matrix_value(T);
-    if (!Matrix4::valid_transform(T))
-    {
-      cerr << "RigidBody::load_from_xml() warning: invalid transform ";
-      cerr << endl << T << " when reading node " << endl;
-      cerr << *node << endl;
-      cerr << "  --> possibly a floating-point error..." << endl;
-    }
     set_transform(T);
   }
 
@@ -1310,7 +1294,7 @@ void RigidBody::add_generalized_force(GeneralizedCoordinateType gctype, const Ve
   switch (gctype)
   {
     case eRodrigues:
-      _torques += _q.G_mult(gf[3], gf[4], gf[5], gf[6]) * (Real) 0.5;
+      _torques += _q.G_mult(gf[3], gf[4], gf[5], gf[6]) * (double) 0.5;
       break;
 
     case eAxisAngle:
@@ -1384,8 +1368,8 @@ MatrixN& RigidBody::solve_generalized_inertia(GeneralizedCoordinateType gctype, 
 
     // do the multiplication
     CBLAS::gemm(CblasColMajor, CblasNoTrans, CblasNoTrans, invJ.rows(), 
-                B.columns(), invJ.columns(), (Real) 1.0, invJ.data(), 
-                invJ.rows(), &B(3,0), B.rows(), (Real) 0.0, &X(3,0), X.rows()); 
+                B.columns(), invJ.columns(), (double) 1.0, invJ.data(), 
+                invJ.rows(), &B(3,0), B.rows(), (double) 0.0, &X(3,0), X.rows()); 
   }
   else
   {
@@ -1635,9 +1619,9 @@ MatrixN& RigidBody::get_generalized_inertia(GeneralizedCoordinateType gctype, Ma
     Vector3 ix = _J.get_row(X);
     Vector3 iy = _J.get_row(Y);
     Vector3 iz = _J.get_row(Z);
-    Quat qx = _q.L_transpose_mult(ix) * (Real) 2.0;
-    Quat qy = _q.L_transpose_mult(iy) * (Real) 2.0;
-    Quat qz = _q.L_transpose_mult(iz) * (Real) 2.0;
+    Quat qx = _q.L_transpose_mult(ix) * (double) 2.0;
+    Quat qy = _q.L_transpose_mult(iy) * (double) 2.0;
+    Quat qz = _q.L_transpose_mult(iz) * (double) 2.0;
     M(3,3) = qx.w;  M(3,4) = qx.x;  M(3,5) = qx.y;  M(3,6) = qx.z;
     M(4,3) = qy.w;  M(4,4) = qy.x;  M(4,5) = qy.y;  M(4,6) = qy.z;
     M(5,3) = qz.w;  M(5,4) = qz.x;  M(5,5) = qz.y;  M(5,6) = qz.z;
@@ -1740,46 +1724,25 @@ VectorN& RigidBody::convert_to_generalized_force(GeneralizedCoordinateType gctyp
     gf[3] = tau[0];
     gf[4] = tau[1];
     gf[5] = tau[2];
-    gf[6] = (Real) 0.0;
+    gf[6] = (double) 0.0;
   }
 
   return gf; 
 }
 
-/// Verifies that a given transform is valid
-bool RigidBody::valid_transform(const MatrixN& T, Real tol)
-{
-  const unsigned X = 0, Y = 1, Z = 2, W = 3;
-
-  // first make sure it is the proper size
-  if (T.rows() || T.columns() != 4)
-    return false;
-
-  // now get the upper 3x3 and make sure that it is valid
-  Matrix3 R(T.get_sub_mat(X, W, X, W).begin());
-  if (!Matrix3::valid_rotation_scale(R))
-    return false;
-
-  // finally make sure that the last row is set correctly
-  if (std::fabs(T(W,X)) > tol || std::fabs(T(W,Y)) > tol || std::fabs(T(W,Z)) > tol)
-    return false;
-
-  return (std::fabs(T(W,W) - 1.0) < tol);
-}
-
 /// Calculates the kinetic energy of the body
-Real RigidBody::calc_kinetic_energy() const
+double RigidBody::calc_kinetic_energy() const
 {
   if (!_enabled)
-    return (Real) 0.0;
+    return (double) 0.0;
 
   // convert J to world frame
   Matrix3 R = _F.get_rotation();
   Matrix3 J0 = R * _J * Matrix3::transpose(R);
 
-  Real le = _xd.norm_sq() * _mass;
-  Real ae = _omega.dot(J0 * _omega);
-  Real ke = (le + ae)*0.5;
+  double le = _xd.norm_sq() * _mass;
+  double ae = _omega.dot(J0 * _omega);
+  double ke = (le + ae)*0.5;
 //  assert(ke > -NEAR_ZERO);
   return ke;
 }
@@ -1995,7 +1958,7 @@ void RigidBody::update_event_data(EventProblemData& q)
       Vector3 cross2 = Vector3::cross(r2, n2);
 
       // compute entry of Jc_iM_JcT
-      Real sum = n1.dot(n2) + cross1.dot(cross2);
+      double sum = n1.dot(n2) + cross1.dot(cross2);
       if ((negate1 && !negate2) || (negate2 && !negate1))
         sum = -sum;
       q.Jc_iM_JcT(i, j) += sum; 
@@ -2097,8 +2060,8 @@ void RigidBody::update_event_data(EventProblemData& q)
       Vector3 cross22 = Vector3::cross(r2, d22);
 
       // compute entries of Jc_iM_DcT
-      Real sum1 = n1.dot(d21) + cross1.dot(cross21);
-      Real sum2 = n1.dot(d22) + cross1.dot(cross22);
+      double sum1 = n1.dot(d21) + cross1.dot(cross21);
+      double sum2 = n1.dot(d22) + cross1.dot(cross22);
       if (!negate)
       {
         q.Jc_iM_DcT(i,jj++) += sum1;
@@ -2170,10 +2133,10 @@ void RigidBody::update_event_data(EventProblemData& q)
       Vector3 cross2b = Vector3::cross(r2, d2b);
 
       // compute entries of Dc_iM_DcT
-      Real sum1 = d1a.dot(d2a) + cross1a.dot(cross2a);
-      Real sum2 = d1a.dot(d2b) + cross1a.dot(cross2b);
-      Real sum3 = d1b.dot(d2a) + cross1b.dot(cross2a);
-      Real sum4 = d1b.dot(d2b) + cross1b.dot(cross2b);
+      double sum1 = d1a.dot(d2a) + cross1a.dot(cross2a);
+      double sum2 = d1a.dot(d2b) + cross1a.dot(cross2b);
+      double sum3 = d1b.dot(d2a) + cross1b.dot(cross2a);
+      double sum4 = d1b.dot(d2b) + cross1b.dot(cross2b);
 
       if (!negate)
       {

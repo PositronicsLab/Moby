@@ -51,7 +51,7 @@ using std::make_pair;
  */
 DeformableCCD::DeformableCCD()
 {
-  eps_tolerance = std::sqrt(std::numeric_limits<Real>::epsilon());
+  eps_tolerance = std::sqrt(std::numeric_limits<double>::epsilon());
   pthread_mutex_init(&_contact_mutex, NULL);
   pthread_mutex_init(&_ve_BVs_mutex, NULL);
   _rebuild_bounds_vecs = true;
@@ -107,7 +107,7 @@ void DeformableCCD::remove_articulated_body(ArticulatedBodyPtr abody)
 }
 
 /// Computes the velocities from states
-map<SingleBodyPtr, pair<Vector3, Vector3> > DeformableCCD::get_velocities(const vector<pair<DynamicBodyPtr, VectorN> >& q0, const vector<pair<DynamicBodyPtr, VectorN> >& q1, Real dt) const
+map<SingleBodyPtr, pair<Vector3, Vector3> > DeformableCCD::get_velocities(const vector<pair<DynamicBodyPtr, VectorN> >& q0, const vector<pair<DynamicBodyPtr, VectorN> >& q1, double dt) const
 {
   // first set the generalized velocities
   #ifndef _OPENMP
@@ -164,7 +164,7 @@ map<SingleBodyPtr, pair<Vector3, Vector3> > DeformableCCD::get_velocities(const 
 /**
  * \pre body states are at time tf
  */
-bool DeformableCCD::is_contact(Real dt, const vector<pair<DynamicBodyPtr, VectorN> >& q0, const vector<pair<DynamicBodyPtr, VectorN> >& q1, vector<Event>& contacts)
+bool DeformableCCD::is_contact(double dt, const vector<pair<DynamicBodyPtr, VectorN> >& q0, const vector<pair<DynamicBodyPtr, VectorN> >& q1, vector<Event>& contacts)
 {
   DStruct ds;
   typedef pair<CollisionGeometryPtr, BVPtr> CG_BV;
@@ -236,7 +236,7 @@ bool DeformableCCD::is_contact(Real dt, const vector<pair<DynamicBodyPtr, Vector
  * \param vels linear and angular velocities of bodies
  * \param set of contacts on return
  */
-void DeformableCCD::check_geoms(Real dt, CollisionGeometryPtr a, CollisionGeometryPtr b, const Matrix4& aTb, const Matrix4& bTa, const pair<Vector3, Vector3>& a_vel, const pair<Vector3, Vector3>& b_vel, vector<Event>& contacts)
+void DeformableCCD::check_geoms(double dt, CollisionGeometryPtr a, CollisionGeometryPtr b, const Matrix4& aTb, const Matrix4& bTa, const pair<Vector3, Vector3>& a_vel, const pair<Vector3, Vector3>& b_vel, vector<Event>& contacts)
 {
   map<BVPtr, vector<const Vector3*> > a_to_test, b_to_test, self_test;
 
@@ -249,7 +249,7 @@ void DeformableCCD::check_geoms(Real dt, CollisionGeometryPtr a, CollisionGeomet
   unsigned n_verts_tested = 0;
 
   // set the earliest TOC
-  Real earliest = (Real) 1.0; 
+  double earliest = (double) 1.0; 
 
   // setup the vector of contacts these two geometries 
   vector<Event> local_contacts;
@@ -303,8 +303,8 @@ void DeformableCCD::check_geoms(Real dt, CollisionGeometryPtr a, CollisionGeomet
     }
 
     // calculate the volume for the OBBs
-    Real ax_vol = ax->calc_volume();
-    Real bx_vol = bx->calc_volume();
+    double ax_vol = ax->calc_volume();
+    double bx_vol = bx->calc_volume();
 
     // velocity expanded BVs do intersect; if both BVs are leafs OR maximum
     // depth has been reached, intersect
@@ -408,7 +408,7 @@ void DeformableCCD::check_geoms(Real dt, CollisionGeometryPtr a, CollisionGeomet
 
   // get the contact TOI tolerance
   shared_ptr<EventDrivenSimulator> sim(simulator);
-  const Real TOI_TOLERANCE = std::numeric_limits<Real>::epsilon();
+  const double TOI_TOLERANCE = std::numeric_limits<double>::epsilon();
 
   // sort the vector of contacts
   std::sort(local_contacts.begin(), local_contacts.end());
@@ -449,13 +449,13 @@ void DeformableCCD::check_geoms(Real dt, CollisionGeometryPtr a, CollisionGeomet
 }
 
 /// Checks a set of vertices of geometry a against geometry b
-void DeformableCCD::check_vertices(Real dt, CollisionGeometryPtr a, CollisionGeometryPtr b, BVPtr bvb, const std::vector<const Vector3*>& a_verts, const Matrix4& bTa, const pair<Vector3, Vector3>& a_vel, const pair<Vector3, Vector3>& b_vel, Real& earliest, vector<Event>& local_contacts, bool self_check) const
+void DeformableCCD::check_vertices(double dt, CollisionGeometryPtr a, CollisionGeometryPtr b, BVPtr bvb, const std::vector<const Vector3*>& a_verts, const Matrix4& bTa, const pair<Vector3, Vector3>& a_vel, const pair<Vector3, Vector3>& b_vel, double& earliest, vector<Event>& local_contacts, bool self_check) const
 {
   Vector3 point, normal;
 
   // get the time-of-impact tolerance
   shared_ptr<EventDrivenSimulator> sim(simulator);
-  const Real TOI_TOLERANCE = std::numeric_limits<Real>::epsilon();
+  const double TOI_TOLERANCE = std::numeric_limits<double>::epsilon();
 
   // get the two bodies
   SingleBodyPtr sba = a->get_single_body(); 
@@ -471,7 +471,7 @@ void DeformableCCD::check_vertices(Real dt, CollisionGeometryPtr a, CollisionGeo
   FILE_LOG(LOG_COLDET) << "    -- relative transform " << endl << bTa;
 
   // setup a "queue" for checking vertices
-  vector<pair<Real, pair<Vector3, const Vector3*> > > Q;
+  vector<pair<double, pair<Vector3, const Vector3*> > > Q;
   Q.clear();
   BOOST_FOREACH(const Vector3* v, a_verts)
   {
@@ -483,7 +483,7 @@ void DeformableCCD::check_vertices(Real dt, CollisionGeometryPtr a, CollisionGeo
     FILE_LOG(LOG_COLDET) << "     -- p0 (global): " << (b->get_transform().mult_point(p0)) << endl;
 
     // we'll sort on inverse distance from the center of mass (origin of b frame) 
-    Real dist = 1.0/p0.norm_sq();
+    double dist = 1.0/p0.norm_sq();
 
     // push the vertices onto the queue
     // NOTE: assumes that center of geometry of body a is its C.O.M.
@@ -516,19 +516,19 @@ void DeformableCCD::check_vertices(Real dt, CollisionGeometryPtr a, CollisionGeo
     // NOTE: this has been modified to account for the method of dealing with
     // Zeno points in ImpulseContactSimulator; it is considerably slower as a
     // result
-    Real toi;
+    double toi;
     if (!return_all_contacts)
       toi = determine_TOI(0.0, earliest, &ds, point, normal);
     else
-      toi = determine_TOI(0.0, (Real) 1.0, &ds, point, normal);
+      toi = determine_TOI(0.0, (double) 1.0, &ds, point, normal);
   
     // insert into the vector of contacts if the TOI is finite 
-    if (toi < std::numeric_limits<Real>::max())
+    if (toi < std::numeric_limits<double>::max())
     {
       // insert the contacts
       local_contacts.push_back(create_contact(toi, a, b, point, normal));
       if (toi < earliest)
-        earliest = std::min(toi + TOI_TOLERANCE/dt, (Real) 1.0);
+        earliest = std::min(toi + TOI_TOLERANCE/dt, (double) 1.0);
     }
 
     // move onto the next vertex
@@ -540,7 +540,7 @@ void DeformableCCD::check_vertices(Real dt, CollisionGeometryPtr a, CollisionGeo
 BVPtr DeformableCCD::get_vel_exp_BV(CollisionGeometryPtr cg, BVPtr bv, const Vector3& lv, const Vector3& av)
 {
   BVPtr ve_bv;
-  const Real dt = (Real) 1.0;
+  const double dt = (double) 1.0;
 
   // verify that the map for the geometry has already been setup
   map<CollisionGeometryPtr, map<BVPtr, BVPtr> >::iterator vi;
@@ -556,7 +556,7 @@ BVPtr DeformableCCD::get_vel_exp_BV(CollisionGeometryPtr cg, BVPtr bv, const Vec
   SingleBodyPtr sb = cg->get_single_body();
   RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(sb);
   if (rb)
-    ve_bv = bv->calc_vel_exp_BV(cg, (Real) 1.0, lv, av);
+    ve_bv = bv->calc_vel_exp_BV(cg, (double) 1.0, lv, av);
   else
   {
     // must be a deformable body
@@ -564,14 +564,14 @@ BVPtr DeformableCCD::get_vel_exp_BV(CollisionGeometryPtr cg, BVPtr bv, const Vec
     assert(db);
 
     // determine the maximum speed of the deformable body's vertices
-    Real maxs = get_max_speed(db, dt);
-    Real max_mvmt = maxs * dt;
+    double maxs = get_max_speed(db, dt);
+    double max_mvmt = maxs * dt;
 
     // bounding volume must be a AABB or BoundingSphere
     shared_ptr<AABB> aabb = dynamic_pointer_cast<AABB>(bv);
     if (aabb)
     {
-      const Real INV_SQRT3 = (Real) 1.0 / std::sqrt((Real) 3.0);
+      const double INV_SQRT3 = (double) 1.0 / std::sqrt((double) 3.0);
       const Vector3 ONES_UNIT(INV_SQRT3, INV_SQRT3, INV_SQRT3);
       shared_ptr<AABB> naabb(new AABB(*aabb));
       naabb->minp -= ONES_UNIT*max_mvmt;
@@ -637,7 +637,7 @@ void DeformableCCD::save_to_xml(XMLTreePtr node, list<BaseConstPtr>& shared_obje
 ****************************************************************************/
 
 /// Creates a contact given the bare-minimum info
-Event DeformableCCD::create_contact(Real toi, CollisionGeometryPtr a, CollisionGeometryPtr b, const Vector3& point, const Vector3& normal)
+Event DeformableCCD::create_contact(double toi, CollisionGeometryPtr a, CollisionGeometryPtr b, const Vector3& point, const Vector3& normal)
 {
   Event e;
   e.t = toi;
@@ -648,7 +648,7 @@ Event DeformableCCD::create_contact(Real toi, CollisionGeometryPtr a, CollisionG
   e.contact_geom2 = b;  
 
   // check for valid normal here
-  assert(std::fabs(e.contact_normal.norm() - (Real) 1.0) < NEAR_ZERO);
+  assert(std::fabs(e.contact_normal.norm() - (double) 1.0) < NEAR_ZERO);
 
   // make the body first that comes first alphabetically
   if (LOGGING(LOG_COLDET))
@@ -760,9 +760,9 @@ void DeformableCCD::calc_pdot(DStruct* ds, CollisionGeometryPtr gb, CollisionGeo
  *         interval [t0, tf] and should be discarded
  * \pre rigid body states are at time t0
  */
-Real DeformableCCD::determine_TOI(Real t0, Real tf, const DStruct* ds, Vector3& pt, Vector3& normal) const
+double DeformableCCD::determine_TOI(double t0, double tf, const DStruct* ds, Vector3& pt, Vector3& normal) const
 {
-  const Real INF = std::numeric_limits<Real>::max();
+  const double INF = std::numeric_limits<double>::max();
   const unsigned X = 0, Y = 1, Z = 2;
   OBB O;
   Vector3 nalpha, nbeta, ngamma;
@@ -812,8 +812,8 @@ Real DeformableCCD::determine_TOI(Real t0, Real tf, const DStruct* ds, Vector3& 
 
   // setup the axes of the bounding box
   Vector3 p0pf = pf - p0;
-  Real norm_p0pf = p0pf.norm();
-  if (norm_p0pf < std::numeric_limits<Real>::epsilon())
+  double norm_p0pf = p0pf.norm();
+  if (norm_p0pf < std::numeric_limits<double>::epsilon())
   {
     // arbitrary bounding box
     nalpha = Vector3(1,0,0);
@@ -835,9 +835,9 @@ Real DeformableCCD::determine_TOI(Real t0, Real tf, const DStruct* ds, Vector3& 
   // if so, determine the interpolation value that yields the minimum
   // and maximum deviation
   Vector3 normal1, normal2;
-  Real rho1_max = -1.0, rho1_min = -1.0, rho2_max = -1.0, rho2_min = -1.0, rho3_max = -1.0, rho3_min = -1.0;
-  Real max_d1 = -INF, max_d2 = -INF, max_d3 = -INF;
-  Real min_d1 = INF, min_d2 = INF, min_d3 = INF;
+  double rho1_max = -1.0, rho1_min = -1.0, rho2_max = -1.0, rho2_min = -1.0, rho3_max = -1.0, rho3_min = -1.0;
+  double max_d1 = -INF, max_d2 = -INF, max_d3 = -INF;
+  double min_d1 = INF, min_d2 = INF, min_d3 = INF;
   if (bound_u(*ds->u, q0, qf, normal1, normal2))
   {
     if (nalpha.dot(normal1)*nalpha.dot(normal2) > 0)
@@ -870,7 +870,7 @@ Real DeformableCCD::determine_TOI(Real t0, Real tf, const DStruct* ds, Vector3& 
   }
 
   // setup the queue
-  typedef pair<Real, Real> RPair;
+  typedef pair<double, double> RPair;
   priority_queue<RPair, vector<RPair>, std::greater<RPair> > Q;
   Q.push(make_pair(t0, tf));
 
@@ -878,12 +878,12 @@ Real DeformableCCD::determine_TOI(Real t0, Real tf, const DStruct* ds, Vector3& 
   while (!Q.empty())
   {
     // get the element off of the top of the queue
-    Real ta = Q.top().first;
-    Real tb = Q.top().second;
+    double ta = Q.top().first;
+    double tb = Q.top().second;
     Q.pop();
 
     // setup delta t
-    const Real dt = tb - ta;
+    const double dt = tb - ta;
 
     // bisect if angular velocity * dt > M_PI
     if (ds->thetad*dt > M_PI)
@@ -891,8 +891,8 @@ Real DeformableCCD::determine_TOI(Real t0, Real tf, const DStruct* ds, Vector3& 
       // if the linear velocity is near zero, no need to check more than 2*pi
       if (ds->lvd*dt < NEAR_ZERO)
       {
-        const Real delta = M_PI/ds->thetad;
-        Real tmid = ta + delta;
+        const double delta = M_PI/ds->thetad;
+        double tmid = ta + delta;
         tb = tmid + delta;
         assert(ta + NEAR_ZERO > t0);
         assert(tf + NEAR_ZERO > tb);
@@ -903,7 +903,7 @@ Real DeformableCCD::determine_TOI(Real t0, Real tf, const DStruct* ds, Vector3& 
       }
       else
       {
-        Real tmid = (ta+tb)*0.5;
+        double tmid = (ta+tb)*0.5;
         Q.push(make_pair(ta, tmid));
         Q.push(make_pair(tmid, tb));
         nbisects++;
@@ -920,12 +920,12 @@ Real DeformableCCD::determine_TOI(Real t0, Real tf, const DStruct* ds, Vector3& 
 
     // interpolation parameter ranges from [0,1]; 0 corresponds to t0, 1 corresponds
     // to tf.  Determine what ta, tb correspond to
-    const Real sa = ta/(tf-t0);
-    const Real sb = tb/(tf-t0);
+    const double sa = ta/(tf-t0);
+    const double sb = tb/(tf-t0);
 
     // init deviation maxima/minima
-    Real dp_alpha = -INF, dp_beta = -INF, dp_gamma = -INF;
-    Real dn_alpha = INF, dn_beta = INF, dn_gamma = INF;
+    double dp_alpha = -INF, dp_beta = -INF, dp_gamma = -INF;
+    double dn_alpha = INF, dn_beta = INF, dn_gamma = INF;
 
     // see whether this interval contains a minimum/maximum 
     if (rho1_max >= ta && rho1_max <= tb) dp_alpha = max_d1;
@@ -936,9 +936,9 @@ Real DeformableCCD::determine_TOI(Real t0, Real tf, const DStruct* ds, Vector3& 
     if (rho3_min >= ta && rho3_min <= tb) dn_gamma = min_d3;
     
     // calculate deviation at endpoints
-    pair<Real, Real> deva = calc_deviations(*ds->u, nalpha, q0, qf, sa, sb);
-    pair<Real, Real> devb = calc_deviations(*ds->u, nbeta, q0, qf, sa, sb);
-    pair<Real, Real> devg = calc_deviations(*ds->u, ngamma, q0, qf, sa, sb);
+    pair<double, double> deva = calc_deviations(*ds->u, nalpha, q0, qf, sa, sb);
+    pair<double, double> devb = calc_deviations(*ds->u, nbeta, q0, qf, sa, sb);
+    pair<double, double> devg = calc_deviations(*ds->u, ngamma, q0, qf, sa, sb);
   
     // set deviation maxima/minima    
     dn_alpha = std::min(dn_alpha, deva.first);
@@ -949,13 +949,13 @@ Real DeformableCCD::determine_TOI(Real t0, Real tf, const DStruct* ds, Vector3& 
     dp_gamma = std::max(dp_gamma, devg.second);
 
     // determine the half deviations in each direction
-    Real len_pab = (pb - pa).norm();
-    Real d_alpha = std::max(std::fabs(dp_alpha - dn_alpha), len_pab*(Real) 0.5);
-    Real d_beta = std::fabs(dp_beta - dn_beta);
-    Real d_gamma = std::fabs(dp_gamma - dn_gamma);
+    double len_pab = (pb - pa).norm();
+    double d_alpha = std::max(std::fabs(dp_alpha - dn_alpha), len_pab*(double) 0.5);
+    double d_beta = std::fabs(dp_beta - dn_beta);
+    double d_gamma = std::fabs(dp_gamma - dn_gamma);
 
     // setup the bounding box
-    Real nu = (d_beta + d_gamma + d_alpha)*2.0 - len_pab;
+    double nu = (d_beta + d_gamma + d_alpha)*2.0 - len_pab;
     assert(nu > -NEAR_ZERO);
     FILE_LOG(LOG_COLDET) << " -- dalpha: [" << dn_alpha << ", " << dp_alpha << "]" << endl;
     FILE_LOG(LOG_COLDET) << " -- dbeta: [" << dn_beta << ", " << dp_beta << "]" << endl;
@@ -991,7 +991,7 @@ Real DeformableCCD::determine_TOI(Real t0, Real tf, const DStruct* ds, Vector3& 
       FILE_LOG(LOG_COLDET) << "   -- intersection detected; trajectory segment must be bisected" << endl;
 
       // add two elements to the queue
-      Real ti = (ta+tb)*0.5;
+      double ti = (ta+tb)*0.5;
       Q.push(make_pair(ta, ti));
       Q.push(make_pair(ti, tb));
       nbisects++;
@@ -1001,7 +1001,7 @@ Real DeformableCCD::determine_TOI(Real t0, Real tf, const DStruct* ds, Vector3& 
       FILE_LOG(LOG_COLDET) << "   -- intersection detected and nu less than tolerance" << endl;
 
       // intersect the line segment with the geometry
-      Real t;
+      double t;
       if (gs_primitive->intersect_seg(gs_BV, LineSeg3(pa, pb), t, pt, normal))
       {
         FILE_LOG(LOG_COLDET) << "  intersection detected!  time of impact: " << t << " (true: " << (ta + (tb-ta)*t) << ")" << endl;
@@ -1021,7 +1021,7 @@ Real DeformableCCD::determine_TOI(Real t0, Real tf, const DStruct* ds, Vector3& 
         q += qd;
         bs_sb->set_generalized_coordinates(DynamicBody::eRodrigues, q);
         pt = gs->get_transform().mult_point(pt);
-        assert(std::fabs(normal.norm() - (Real) 1.0) < NEAR_ZERO);
+        assert(std::fabs(normal.norm() - (double) 1.0) < NEAR_ZERO);
         normal = qs * normal;
         
         FILE_LOG(LOG_COLDET) << "     -- point intersection: " << pt << endl;
@@ -1056,7 +1056,7 @@ bool DeformableCCD::bound_u(const Vector3& u, const Quat& q0, const Quat& qf, Ve
 
   // determine a vector perpendicular to both
   Vector3 perp = Vector3::cross(u0, uf);
-  Real perp_norm = perp.norm();
+  double perp_norm = perp.norm();
   if (perp_norm < NEAR_ZERO)
     return false;
   else
@@ -1067,8 +1067,8 @@ bool DeformableCCD::bound_u(const Vector3& u, const Quat& q0, const Quat& qf, Ve
   normal2 = Vector3::normalize(Vector3::cross(uf, perp));
 
   // make sure that both vectors are on the same side of the plane
-  Real dot1 = u0.dot(normal2);
-  Real dot2 = uf.dot(normal1);
+  double dot1 = u0.dot(normal2);
+  double dot2 = uf.dot(normal1);
   if (dot1*dot2 < 0)
     normal2 = -normal2;
  
@@ -1076,7 +1076,7 @@ bool DeformableCCD::bound_u(const Vector3& u, const Quat& q0, const Quat& qf, Ve
 }
 
 /// Function for computing the maximum deviation in a given direction
-Real DeformableCCD::calc_deviation(Real alpha, void* params)
+double DeformableCCD::calc_deviation(double alpha, void* params)
 {
   const DeviationCalc& data = *((const DeviationCalc*) params);
 
@@ -1096,11 +1096,11 @@ Real DeformableCCD::calc_deviation(Real alpha, void* params)
  * \param t on return, contains the t at which the deviation is minimized
  * \return the minimum deviation
  */
-Real DeformableCCD::calc_min_dev(const Vector3& u, const Vector3& d, const Quat& q1, const Quat& q2, Real& t)
+double DeformableCCD::calc_min_dev(const Vector3& u, const Vector3& d, const Quat& q1, const Quat& q2, double& t)
 {
-  const Real TOL = std::sqrt(std::sqrt(std::numeric_limits<Real>::epsilon()));
+  const double TOL = std::sqrt(std::sqrt(std::numeric_limits<double>::epsilon()));
 
-  Real ft;
+  double ft;
 
   // setup data for deviation calculations
   DeviationCalc dc;
@@ -1110,8 +1110,8 @@ Real DeformableCCD::calc_min_dev(const Vector3& u, const Vector3& d, const Quat&
   dc.d = d;
 
   // find suitable starting value for brent's method
-  Real f0 = calc_deviation(0.0, &dc);
-  Real f1 = calc_deviation(1.0, &dc);
+  double f0 = calc_deviation(0.0, &dc);
+  double f1 = calc_deviation(1.0, &dc);
   t = (f0 < f1) ? 0.0 : 1.0;
   
   // call Brent's method -- note: tolerance is a bit high
@@ -1122,7 +1122,7 @@ Real DeformableCCD::calc_min_dev(const Vector3& u, const Vector3& d, const Quat&
 }
 
 /// Computes the maximum and minimum deviation in a given direction for two points
-pair<Real, Real> DeformableCCD::calc_deviations(const Vector3& u, const Vector3& d, const Quat& q1, const Quat& q2, Real t1, Real t2)
+pair<double, double> DeformableCCD::calc_deviations(const Vector3& u, const Vector3& d, const Quat& q1, const Quat& q2, double t1, double t2)
 {
   // compute the deviation in the two directions
   DeviationCalc dc;
@@ -1130,9 +1130,9 @@ pair<Real, Real> DeformableCCD::calc_deviations(const Vector3& u, const Vector3&
   dc.d = d;
   dc.q1 = q1;
   dc.q2 = q2;
-  Real dev1 = calc_deviation(t1, &dc);
-  Real dev2 = calc_deviation(t2, &dc);
-  pair<Real, Real> dev(dev1, dev2);
+  double dev1 = calc_deviation(t1, &dc);
+  double dev2 = calc_deviation(t2, &dc);
+  pair<double, double> dev(dev1, dev2);
   if (dev1 > dev2)
     std::swap(dev.first, dev.second);
   return dev;
@@ -1147,11 +1147,11 @@ pair<Real, Real> DeformableCCD::calc_deviations(const Vector3& u, const Vector3&
  * \param t on return, contains the t at which the deviation is maximized [0,1]
  * \return the maximum deviation
  */
-Real DeformableCCD::calc_max_dev(const Vector3& u, const Vector3& d, const Quat& q1, const Quat& q2, Real& t)
+double DeformableCCD::calc_max_dev(const Vector3& u, const Vector3& d, const Quat& q1, const Quat& q2, double& t)
 {
-  const Real TOL = 1e-2;
+  const double TOL = 1e-2;
 
-  Real ft;
+  double ft;
 
   // setup data for deviation calculations
   DeviationCalc dc;
@@ -1164,8 +1164,8 @@ Real DeformableCCD::calc_max_dev(const Vector3& u, const Vector3& d, const Quat&
   dc.d = -d;
 
   // find suitable starting value for brent's method
-  Real f0 = calc_deviation(0.0, &dc);
-  Real f1 = calc_deviation(1.0, &dc);
+  double f0 = calc_deviation(0.0, &dc);
+  double f1 = calc_deviation(1.0, &dc);
   t = (f0 < f1) ? 0.0 : 1.0;
   
   // call Brent's method -- note: tolerance is a bit high
@@ -1371,7 +1371,7 @@ void DeformableCCD::sort_AABBs(const map<SingleBodyPtr, pair<Vector3, Vector3> >
   }
 }
 
-void DeformableCCD::update_bounds_vector(vector<pair<Real, BoundsStruct> >& bounds, const map<SingleBodyPtr, pair<Vector3, Vector3> >& vel_map, AxisType axis)
+void DeformableCCD::update_bounds_vector(vector<pair<double, BoundsStruct> >& bounds, const map<SingleBodyPtr, pair<Vector3, Vector3> >& vel_map, AxisType axis)
 {
   const unsigned X = 0, Y = 1, Z = 2;
   BVPtr bv_exp;
@@ -1402,9 +1402,9 @@ void DeformableCCD::update_bounds_vector(vector<pair<Real, BoundsStruct> >& boun
     {
       // we have a deformable body; get the maximum velocity at all points
       DeformableBodyPtr db = dynamic_pointer_cast<DeformableBody>(geom->get_single_body());
-      const Real dt = (Real) 1.0;
-      Real maxs = get_max_speed(db, dt);
-      Real max_mvmt = maxs * dt;
+      const double dt = (double) 1.0;
+      double maxs = get_max_speed(db, dt);
+      double max_mvmt = maxs * dt;
 
       // bounding volume should be either a bounding sphere or a AABB
       shared_ptr<AABB> aabb = dynamic_pointer_cast<AABB>(bv);
@@ -1412,7 +1412,7 @@ void DeformableCCD::update_bounds_vector(vector<pair<Real, BoundsStruct> >& boun
       {
         // make a new, expanded AABB
         shared_ptr<AABB> naabb(new AABB(*aabb));
-        const Real INV_SQRT3 = (Real) 1.0 / std::sqrt((Real) 3.0);
+        const double INV_SQRT3 = (double) 1.0 / std::sqrt((double) 3.0);
         const Vector3 ONES_UNIT(INV_SQRT3, INV_SQRT3, INV_SQRT3);
         naabb->minp -= ONES_UNIT * max_mvmt;
         naabb->maxp += ONES_UNIT * max_mvmt;
@@ -1465,19 +1465,19 @@ void DeformableCCD::update_bounds_vector(vector<pair<Real, BoundsStruct> >& boun
 }
 
 /// Gets the maximum speed for a vertex of the deformable body
-Real DeformableCCD::get_max_speed(DeformableBodyPtr db, Real dt) const
+double DeformableCCD::get_max_speed(DeformableBodyPtr db, double dt) const
 {
   // determine maximum velocities at the nodes
-  Real max_v = (Real) 0.0;
+  double max_v = (double) 0.0;
   for (unsigned i=0; i< db->get_nodes().size(); i++)
     max_v = std::max(max_v, db->get_nodes()[i]->xd.norm_sq());
 
   return std::sqrt(max_v);
 }
 
-void DeformableCCD::build_bv_vector(const map<SingleBodyPtr, pair<Vector3, Vector3> >& vel_map, vector<pair<Real, BoundsStruct> >& bounds)
+void DeformableCCD::build_bv_vector(const map<SingleBodyPtr, pair<Vector3, Vector3> >& vel_map, vector<pair<double, BoundsStruct> >& bounds)
 {
-  const Real INF = std::numeric_limits<Real>::max();
+  const double INF = std::numeric_limits<double>::max();
 
   // clear the vector
   bounds.clear();
@@ -1530,7 +1530,7 @@ void DeformableCCD::build_bv_vector(const map<SingleBodyPtr, pair<Vector3, Vecto
 /**
  * \note the epsilon parameter is ignored
  */
-bool DeformableCCD::is_collision(Real epsilon)
+bool DeformableCCD::is_collision(double epsilon)
 {
   // clear the set of colliding pairs and list of colliding triangles
   colliding_pairs.clear();

@@ -1,12 +1,13 @@
 #include <Moby/DynamicBody.h>
 
+using namespace Ravelin;
 using namespace Moby;
 using boost::shared_ptr;
 using boost::dynamic_pointer_cast;
 using std::list;
 
 /// Integrates a dynamic body
-void DynamicBody::integrate(Real t, Real h, shared_ptr<Integrator<VectorN> > integrator)
+void DynamicBody::integrate(double t, double h, shared_ptr<Integrator> integrator)
 {
   FILE_LOG(LOG_DYNAMICS) << "DynamicBody::integrate() - integrating from " << t << " by " << h << std::endl;
 
@@ -25,13 +26,16 @@ void DynamicBody::integrate(Real t, Real h, shared_ptr<Integrator<VectorN> > int
 }
 
 /// Returns the ODE's for position and velocity (concatenated into x)
-VectorN& DynamicBody::ode_both(const VectorN& x, Real t, Real dt, void* data, VectorN& dx)
+VectorNd& DynamicBody::ode_both(const VectorNd& x, double t, double dt, void* data, VectorNd& dx)
 {
-  SAFESTATIC VectorN xp, xv, xa;
-
   // get the dynamic body
   shared_ptr<DynamicBody>& db = *((shared_ptr<DynamicBody>*) data);
   const unsigned NGC_ROD = db->num_generalized_coordinates(eRodrigues);
+
+  // get the necessary vectors
+  VectorNd& xp = db->xp;
+  VectorNd& xv = db->xv;
+  VectorNd& xa = db->xa;
 
   // return the derivatives at state x
   xv.resize(NGC_ROD);

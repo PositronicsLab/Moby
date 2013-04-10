@@ -14,6 +14,7 @@
 #include <Moby/DummyBV.h>
 
 using std::endl;
+using namespace Ravelin;
 using namespace Moby;
 
 /// Computes the distance between two abstract bounding volumes and stores the closest points
@@ -22,7 +23,7 @@ using namespace Moby;
  * \param cp2 the closest point on b to a
  * \return the distance between the bounding volumes
  */
-Real BV::calc_distance(const BV* a, const BV* b, Vector3& cp1, Vector3& cp2)
+double BV::calc_distance(const BV* a, const BV* b, Point3d& cp1, Point3d& cp2)
 {
   throw std::runtime_error("This method not implemented!");
   return -1.0;
@@ -35,7 +36,7 @@ Real BV::calc_distance(const BV* a, const BV* b, Vector3& cp1, Vector3& cp2)
  * \param cp2 the closest point on b to a
  * \return the distance between the bounding volumes
  */
-Real BV::calc_distance(const BV* a, const BV* b, const Matrix4& aTb, Vector3& cp1, Vector3& cp2)
+double BV::calc_distance(const BV* a, const BV* b, const Pose3d& aTb, Point3d& cp1, Point3d& cp2)
 {
   throw std::runtime_error("This method not implemented!");
   return -1.0;
@@ -148,7 +149,7 @@ bool BV::intersects(const BV* a, const BV* b)
 /**
  * \param aTb the relative transformation from b to a
  */
-bool BV::intersects(const BV* a, const BV* b, const Matrix4& aTb)
+bool BV::intersects(const BV* a, const BV* b, const Pose3d& aTb)
 {
   // look for dummy type
   if (dynamic_cast<const DummyBV*>(a) || dynamic_cast<const DummyBV*>(b))
@@ -187,7 +188,7 @@ bool BV::intersects(const BV* a, const BV* b, const Matrix4& aTb)
       return intersects((const SSR*) a, (const BoundingSphere*) b, aTb);
     // OBB / SSR intersection
     if (dynamic_cast<const OBB*>(b))
-      return intersects((const OBB*) b, (const SSR*) a, Matrix4::inverse_transform(aTb));
+      return intersects((const OBB*) b, (const SSR*) a, Pose3d::inverse(aTb));
     // AABB / SSR intersection
     if (dynamic_cast<const AABB*>(b))
       return intersects((const SSR*) a, (const AABB*) b, aTb);
@@ -196,46 +197,46 @@ bool BV::intersects(const BV* a, const BV* b, const Matrix4& aTb)
   {
     // OBB / SSL intersection
     if (dynamic_cast<const OBB*>(b))
-      return intersects((const OBB*) b, (const SSL*) a, Matrix4::inverse_transform(aTb));
+      return intersects((const OBB*) b, (const SSL*) a, Pose3d::inverse(aTb));
     // SSR / SSL intersection
     if (dynamic_cast<const SSR*>(b))
-      return intersects((const SSR*) b, (const SSL*) a, Matrix4::inverse_transform(aTb));
+      return intersects((const SSR*) b, (const SSL*) a, Pose3d::inverse(aTb));
     // SSL / SSL intersection
     if (dynamic_cast<const SSL*>(b))
       return SSL::intersects(*((const SSL*) a), *((const SSL*) b), aTb);
     // SSL / BoundingSphere intersection
     if (dynamic_cast<const BoundingSphere*>(b))
-      return intersects((const SSL*) a, (const BoundingSphere*) b, Matrix4::inverse_transform(aTb));
+      return intersects((const SSL*) a, (const BoundingSphere*) b, Pose3d::inverse(aTb));
     // SSL / AABB intersection
     if (dynamic_cast<const AABB*>(b))
-      return intersects((const AABB*) b, (const SSL*) a, Matrix4::inverse_transform(aTb));
+      return intersects((const AABB*) b, (const SSL*) a, Pose3d::inverse(aTb));
   }
   else if (dynamic_cast<const BoundingSphere*>(a))
   {
     // OBB / bounding sphere intersection
     if (dynamic_cast<const OBB*>(b))
-      return intersects((const OBB*) b, (const BoundingSphere*) a, Matrix4::inverse_transform(aTb));
+      return intersects((const OBB*) b, (const BoundingSphere*) a, Pose3d::inverse(aTb));
     // SSR / bounding sphere intersection
     if (dynamic_cast<const SSR*>(b))
-      return intersects((const SSR*) b, (const BoundingSphere*) a, Matrix4::inverse_transform(aTb));
+      return intersects((const SSR*) b, (const BoundingSphere*) a, Pose3d::inverse(aTb));
     // SSL / bounding sphere intersection
     if (dynamic_cast<const SSL*>(b))
-      return intersects((const SSL*) b, (const BoundingSphere*) a, Matrix4::inverse_transform(aTb));
+      return intersects((const SSL*) b, (const BoundingSphere*) a, Pose3d::inverse(aTb));
     // bounding sphere / bounding sphere intersection
     if (dynamic_cast<const BoundingSphere*>(b))
       return BoundingSphere::intersects(*((const BoundingSphere*) a), *((const BoundingSphere*) b), aTb);
     // AABB / bounding sphere intersection
     if (dynamic_cast<const AABB*>(b))
-      return intersects((const AABB*) b, (const BoundingSphere*) a, Matrix4::inverse_transform(aTb));
+      return intersects((const AABB*) b, (const BoundingSphere*) a, Pose3d::inverse(aTb));
   }
   else if (dynamic_cast<const AABB*>(a))
   {
     // OBB / AABB intersection
     if (dynamic_cast<const OBB*>(b))
-      return intersects((const OBB*) b, (const AABB*) a, Matrix4::inverse_transform(aTb));
+      return intersects((const OBB*) b, (const AABB*) a, Pose3d::inverse(aTb));
     // SSR / AABB intersection
     if (dynamic_cast<const SSR*>(b))
-      return intersects((const SSR*) b, (const AABB*) a, Matrix4::inverse_transform(aTb));
+      return intersects((const SSR*) b, (const AABB*) a, Pose3d::inverse(aTb));
     // SSL / AABB intersection
     if (dynamic_cast<const SSL*>(b))
       return intersects((const AABB*) a, (const SSL*) b, aTb);
@@ -253,7 +254,7 @@ bool BV::intersects(const BV* a, const BV* b, const Matrix4& aTb)
 }
 
 /// Tests intersection between an OBB and an AABB
-bool BV::intersects(const OBB* O, const AABB* A, const Matrix4& OTA)
+bool BV::intersects(const OBB* O, const AABB* A, const Pose3d& OTA)
 {
   OBB Ao = A->get_OBB();
 
@@ -275,23 +276,23 @@ bool BV::intersects(const OBB* O, const BoundingSphere* S)
   const unsigned THREE_D = 3;
 
   // transform the sphere center to OBB space
-  Vector3 center = O->R.transpose_mult(S->center - O->center);
+  Point3d center = O->R.transpose_mult(S->center - O->center);
 
   FILE_LOG(LOG_COLDET) << "  -- sphere center: " << S->center << endl;
   FILE_LOG(LOG_COLDET) << "  -- sphere center: " << center << " (OBB frame)" << endl;
 
   // find the square of the distance from the sphere to the box
-  Real d = 0;
+  double d = 0;
   for (unsigned i=0; i< THREE_D; i++)
   {
     if (center[i] < -O->l[i])
     {
-      Real s = center[i] + O->l[i];
+      double s = center[i] + O->l[i];
       d += s*s;
     }
     else if (center[i] > O->l[i])
     {
-      Real s = center[i] - O->l[i];
+      double s = center[i] - O->l[i];
       d += s*s;
     }
   }
@@ -304,11 +305,11 @@ bool BV::intersects(const OBB* O, const BoundingSphere* S)
 /**
  * \param OTS the matrix transforming S's frame to O's frame
  */
-bool BV::intersects(const OBB* O, const BoundingSphere* S, const Matrix4& OTS)
+bool BV::intersects(const OBB* O, const BoundingSphere* S, const Pose3d& OTS)
 {
   // create a new bounding sphere in O's frame
   BoundingSphere s = *S;
-  s.center = OTS.mult_point(s.center);
+  s.center = OTS.transform(s.center);
   return intersects(O, &s);
 }
 
@@ -320,26 +321,26 @@ bool BV::intersects(const AABB* A, const BoundingSphere* S)
   FILE_LOG(LOG_COLDET) << "BV::intersects() [AABB/sphere] entered" << endl;
 
   // transform the sphere center to OBB space
-  Vector3 center = S->center - A->minp + A->maxp;
+  Point3d center = S->center - A->minp + A->maxp;
 
   FILE_LOG(LOG_COLDET) << "  -- sphere center: " << S->center << endl;
   FILE_LOG(LOG_COLDET) << "  -- sphere center: " << center << " (OBB frame)" << endl;
 
   // get the half-lengths of the AABB
-  Vector3 l = A->maxp*0.5 - A->minp*0.5;
+  Point3d l = A->maxp*0.5 - A->minp*0.5;
 
   // find the square of the distance from the sphere to the box
-  Real d = 0;
+  double d = 0;
   for (unsigned i=0; i< THREE_D; i++)
   {
     if (center[i] < -l[i])
     {
-      Real s = -center[i] + l[i];
+      double s = -center[i] + l[i];
       d += s*s;
     }
     else if (center[i] > l[i])
     {
-      Real s = center[i] - l[i];
+      double s = center[i] - l[i];
       d += s*s;
     }
   }
@@ -353,11 +354,11 @@ bool BV::intersects(const AABB* A, const BoundingSphere* S)
 /**
  * \param ATS the matrix transforming S's frame to A's frame
  */
-bool BV::intersects(const AABB* A, const BoundingSphere* S, const Matrix4& ATS)
+bool BV::intersects(const AABB* A, const BoundingSphere* S, const Pose3d& ATS)
 {
   // create a new bounding sphere in O's frame
   BoundingSphere s = *S;
-  s.center = ATS.mult_point(s.center);
+  s.center = ATS.transform(s.center);
   return intersects(A, &s);
 }
 
@@ -369,10 +370,10 @@ bool BV::intersects(const AABB* A, const BoundingSphere* S, const Matrix4& ATS)
 bool BV::intersects(const SSR* S, const BoundingSphere* B)
 {
   // determine the distance between S and center of the bounding sphere
-  Real dist = SSR::calc_dist(*S, B->center);
+  double dist = SSR::calc_dist(*S, B->center);
 
   // check whether the distance is within the radius of the bounding sphere
-  return dist - B->radius <= (Real) 0.0;
+  return dist - B->radius <= (double) 0.0;
 }
 
 /// Tests intersection between a SSR and a bounding sphere
@@ -381,16 +382,16 @@ bool BV::intersects(const SSR* S, const BoundingSphere* B)
  * \param B the bounding sphere
  * \param STB transformation from B's frame to S's frame
  */
-bool BV::intersects(const SSR* S, const BoundingSphere* B, const Matrix4& STB)
+bool BV::intersects(const SSR* S, const BoundingSphere* B, const Pose3d& STB)
 {
   // transform the center of the bounding sphere
-  Vector3 xc = STB.mult_point(B->center);
+  Point3d xc = STB.transform(B->center);
 
   // determine the distance between S and xformed center of the bounding sphere
-  Real dist = SSR::calc_dist(*S, xc);
+  double dist = SSR::calc_dist(*S, xc);
 
   // check whether the distance is within the radius of the bounding sphere
-  return dist - B->radius <= (Real) 0.0;
+  return dist - B->radius <= (double) 0.0;
 }
 
 /// Tests intersection between an OBB and a SSR
@@ -402,8 +403,8 @@ bool BV::intersects(const OBB* O, const SSR* S)
 {
   // create a AABB around the SSR
   AABB Sx;
-  Sx.minp = ((SSR*) S)->get_lower_bounds(IDENTITY_4x4);
-  Sx.maxp = ((SSR*) S)->get_upper_bounds(IDENTITY_4x4);
+  Sx.minp = ((SSR*) S)->get_lower_bounds(Pose3d::identity());
+  Sx.maxp = ((SSR*) S)->get_upper_bounds(Pose3d::identity());
   return intersects(O, &Sx);
 }
 
@@ -413,7 +414,7 @@ bool BV::intersects(const OBB* O, const SSR* S)
  * \param S the sphere-swept rectangle
  * \param OTS the transformation from S's frame to O's frame
  */
-bool BV::intersects(const OBB* O, const SSR* S, const Matrix4& OTS)
+bool BV::intersects(const OBB* O, const SSR* S, const Pose3d& OTS)
 {
   AABB Sx;
   Sx.minp = ((SSR*) S)->get_lower_bounds(OTS);
@@ -427,9 +428,9 @@ bool BV::intersects(const OBB* O, const SSR* S, const Matrix4& OTS)
  * \param A the axis-aligned bounding box
  * \param STA the transformation from A's frame to S's frame
  */
-bool BV::intersects(const SSR* S, const AABB* A, const Matrix4& STA)
+bool BV::intersects(const SSR* S, const AABB* A, const Pose3d& STA)
 {
-  Matrix4 ATS = Matrix4::inverse_transform(STA);
+  Pose3d ATS = Pose3d::inverse(STA);
   AABB Sx;
   Sx.minp = ((SSR*) S)->get_lower_bounds(ATS);
   Sx.maxp = ((SSR*) S)->get_upper_bounds(ATS);
@@ -444,8 +445,8 @@ bool BV::intersects(const SSR* S, const AABB* A, const Matrix4& STA)
 bool BV::intersects(const SSR* S, const AABB* A)
 {
   AABB Sx;
-  Sx.minp = ((SSR*) S)->get_lower_bounds(IDENTITY_4x4);
-  Sx.maxp = ((SSR*) S)->get_upper_bounds(IDENTITY_4x4);
+  Sx.minp = ((SSR*) S)->get_lower_bounds(Pose3d::identity());
+  Sx.maxp = ((SSR*) S)->get_upper_bounds(Pose3d::identity());
   return AABB::intersects(*A, Sx);
 }
 
@@ -453,13 +454,13 @@ bool BV::intersects(const SSR* S, const AABB* A)
 bool BV::intersects(const AABB* A, const SSL* B)
 {
   AABB Bx;
-  Bx.minp = ((SSL*) B)->get_lower_bounds(IDENTITY_4x4);
-  Bx.maxp = ((SSL*) B)->get_upper_bounds(IDENTITY_4x4);
+  Bx.minp = ((SSL*) B)->get_lower_bounds(Pose3d::identity());
+  Bx.maxp = ((SSL*) B)->get_upper_bounds(Pose3d::identity());
   return AABB::intersects(*A, Bx);
 }
 
 /// Tests intersection between a SSL and a AABB
-bool BV::intersects(const AABB* A, const SSL* B, const Matrix4& aTb)
+bool BV::intersects(const AABB* A, const SSL* B, const Pose3d& aTb)
 {
   AABB Bx;
   Bx.minp = ((SSL*) B)->get_lower_bounds(aTb);
@@ -471,13 +472,13 @@ bool BV::intersects(const AABB* A, const SSL* B, const Matrix4& aTb)
 bool BV::intersects(const OBB* A, const SSL* B)
 {
   AABB Bx;
-  Bx.minp = ((SSL*) B)->get_lower_bounds(IDENTITY_4x4);
-  Bx.maxp = ((SSL*) B)->get_upper_bounds(IDENTITY_4x4);
+  Bx.minp = ((SSL*) B)->get_lower_bounds(Pose3d::identity());
+  Bx.maxp = ((SSL*) B)->get_upper_bounds(Pose3d::identity());
   return intersects(A, &Bx);
 }
 
 /// Tests intersection between a SSL and an OBB
-bool BV::intersects(const OBB* A, const SSL* B, const Matrix4& aTb)
+bool BV::intersects(const OBB* A, const SSL* B, const Pose3d& aTb)
 {
   AABB Bx;
   Bx.minp = ((SSL*) B)->get_lower_bounds(aTb);
@@ -488,30 +489,30 @@ bool BV::intersects(const OBB* A, const SSL* B, const Matrix4& aTb)
 /// Tests intersection between a SSL and a bounding sphere
 bool BV::intersects(const SSL* A, const BoundingSphere* B)
 {
-  Real dist = SSL::calc_dist(*A, B->center);
+  double dist = SSL::calc_dist(*A, B->center);
   return dist <= B->radius;
 }
 
 /// Tests intersection between a SSL and a bounding sphere
-bool BV::intersects(const SSL* A, const BoundingSphere* B, const Matrix4& aTb)
+bool BV::intersects(const SSL* A, const BoundingSphere* B, const Pose3d& aTb)
 {
-  Real dist = SSL::calc_dist(*A, B->center);
+  double dist = SSL::calc_dist(*A, B->center);
   return dist <= B->radius;
 }
 
 /// Tests intersection between a SSR and a SSL
 bool BV::intersects(const SSR* A, const SSL* B)
 {
-  Real dist = SSR::calc_dist(*A, LineSeg3(B->p1, B->p2));
+  double dist = SSR::calc_dist(*A, LineSeg3(B->p1, B->p2));
   return dist <= B->radius;
 }
 
 /// Tests intersection between a SSR and a SSL
-bool BV::intersects(const SSR* A, const SSL* B, const Matrix4& aTb)
+bool BV::intersects(const SSR* A, const SSL* B, const Pose3d& aTb)
 {
-  Vector3 Bp1 = aTb.mult_point(B->p1);
-  Vector3 Bp2 = aTb.mult_point(B->p2);
-  Real dist = SSR::calc_dist(*A, LineSeg3(Bp1, Bp2));
+  Point3d Bp1 = aTb.transform(B->p1);
+  Point3d Bp2 = aTb.transform(B->p2);
+  double dist = SSR::calc_dist(*A, LineSeg3(Bp1, Bp2));
   return dist <= B->radius;
 }
 

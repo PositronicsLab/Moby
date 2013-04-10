@@ -4,27 +4,28 @@
  * License (found in COPYING).
  ****************************************************************************/
 
+#include <Moby/EulerIntegrator.h>
+
+using namespace Moby;
+
 /// Method for 1st-order Euler integration
-template <class T>
-void EulerIntegrator<T>::integrate(T& x, T& (*f)(const T&, Real, Real, void*, T&), Real& time, Real step_size, void* data)
+void EulerIntegrator::integrate(Ravelin::VectorNd& x, Ravelin::VectorNd& (*f)(const Ravelin::VectorNd&, double, double, void*, Ravelin::VectorNd&), double& time, double step_size, void* data)
 {
   // save the old time
-  const Real old_time = time;
+  const double old_time = time;
 
   // update the time
   time += step_size;
 
   // compute new state
-  T dx;
-  x += (f(x, old_time, step_size, data, dx) * step_size);
+  x += (f(x, old_time, step_size, data, _dx) *= step_size);
 }
 
 /// Implements Base::load_from_xml()
-template <class T>
-void EulerIntegrator<T>::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map) 
+void EulerIntegrator::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map) 
 { 
   assert(strcasecmp(node->name.c_str(), "EulerIntegrator") == 0);
-  Integrator<T>::load_from_xml(node, id_map); 
+  Integrator::load_from_xml(node, id_map); 
 
   // determine whether the integrator is semi-implicit, if given
   const XMLAttrib* symp_attr = node->get_attrib("semi-implicit");
@@ -33,10 +34,9 @@ void EulerIntegrator<T>::load_from_xml(XMLTreeConstPtr node, std::map<std::strin
 }
 
 /// Implements Base::save_to_xml()
-template <class T>
-void EulerIntegrator<T>::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
+void EulerIntegrator::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
 { 
-  Integrator<T>::save_to_xml(node, shared_objects); 
+  Integrator::save_to_xml(node, shared_objects); 
   node->name = "EulerIntegrator";
 
   // save the semi-implicit variable

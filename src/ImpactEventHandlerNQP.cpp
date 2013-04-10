@@ -241,12 +241,12 @@ void ImpactEventHandler::set_optimization_data(EventProblemData& q, ImpactOptDat
 }
 
 /// Solves the nonlinearly constrained quadratic program (potentially solves two nQPs, actually)
-void ImpactEventHandler::solve_nqp(EventProblemData& q, Real poisson_eps)
+void ImpactEventHandler::solve_nqp(EventProblemData& q, double poisson_eps)
 {
 // note: this code is disabled until it is revisited
 /*
   SAFESTATIC VectorN z, tmp, tmp2;
-  const Real TOL = poisson_eps;
+  const double TOL = poisson_eps;
 
   // get the number of different types of each event
   const unsigned N_CONTACTS = q.N_CONTACTS;
@@ -261,11 +261,11 @@ void ImpactEventHandler::solve_nqp(EventProblemData& q, Real poisson_eps)
 
   // apply (Poisson) restitution to contacts
   for (unsigned i=0; i< N_CONTACTS; i++)
-    z[i] *= ((Real) 1.0 + q.contact_events[i]->contact_epsilon);
+    z[i] *= ((double) 1.0 + q.contact_events[i]->contact_epsilon);
 
   // apply (Poisson) restitution to limits
   for (unsigned i=0; i< N_LIMITS; i++)
-    z[ALPHA_L_IDX+i] *= ((Real) 1.0 + q.limit_events[i]->limit_epsilon);
+    z[ALPHA_L_IDX+i] *= ((double) 1.0 + q.limit_events[i]->limit_epsilon);
 
   // save impulses in q
   update_impulses(q, z);
@@ -306,7 +306,7 @@ void ImpactEventHandler::solve_nqp(EventProblemData& q, Real poisson_eps)
     }
   else
   {
-    pair<Real*, Real*> mm = boost::minmax_element(q.Jx_v.begin(), q.Jx_v.end());
+    pair<double*, double*> mm = boost::minmax_element(q.Jx_v.begin(), q.Jx_v.end());
     if (q.Jx_v.size() > 0 && (*mm.first < -TOL || *mm.second > TOL))
     {
       FILE_LOG(LOG_EVENT) << "minimum J*v: " << *mm.first << std::endl;
@@ -403,14 +403,14 @@ void ImpactEventHandler::solve_nqp_work(EventProblemData& q, VectorN& z)
     R.set_zero(t2.rows()+N_LOOPS, t2.columns()+N_LOOPS);
     R.set_sub_mat(0,0,t2);
     for (unsigned i=0, j=R.columns(), k=R.rows(); i< N_LOOPS; i++, j++, k++)
-      R(j,k) = (Real) 1.0;
+      R(j,k) = (double) 1.0;
   }
   else
   {
     // setup the nullspace
     R.set_zero(NVARS,NVARS);
     for (unsigned i=0; i< NVARS; i++) 
-      R(i,i) = (Real) 1.0;
+      R(i,i) = (double) 1.0;
   }
 
   // get number of qp variables
@@ -495,11 +495,11 @@ void ImpactEventHandler::solve_nqp_work(EventProblemData& q, VectorN& z)
   // setup the alpha_c >= 0 constraint
   row = 0; 
   for (unsigned i=0; i< N_CONTACTS; i++)
-    M(row++, ALPHA_C_IDX+i) = (Real) 1.0;
+    M(row++, ALPHA_C_IDX+i) = (double) 1.0;
 
   // setup the alpha_l >= 0 constraint
   for (unsigned i=0; i< N_LIMITS; i++)
-    M(row++, ALPHA_L_IDX+i) = (Real) 1.0;
+    M(row++, ALPHA_L_IDX+i) = (double) 1.0;
 
   // setup the beta_c >= 0 constraints (where necessary)
   for (unsigned i=0, r=0, s=0; i< N_CONTACTS; i++, r+= 2)
@@ -509,10 +509,10 @@ void ImpactEventHandler::solve_nqp_work(EventProblemData& q, VectorN& z)
       continue;
 
     // setup beta_c >= 0
-    M(row++, BETA_C_IDX+r) = (Real) 1.0;
-    M(row++, BETA_C_IDX+r+1) = (Real) 1.0;
-    M(row++, NBETA_C_IDX+s) = (Real) 1.0;
-    M(row++, NBETA_C_IDX+s+1) = (Real) 1.0;
+    M(row++, BETA_C_IDX+r) = (double) 1.0;
+    M(row++, BETA_C_IDX+r+1) = (double) 1.0;
+    M(row++, NBETA_C_IDX+s) = (double) 1.0;
+    M(row++, NBETA_C_IDX+s+1) = (double) 1.0;
 
     // update s
     s += 2;
@@ -540,15 +540,15 @@ void ImpactEventHandler::solve_nqp_work(EventProblemData& q, VectorN& z)
       continue;
 
     // determine contact velocity for viscous friction
-    Real vel = std::sqrt(sqr(q.Dc_v[0]) + sqr(q.Dc_v[1]));
+    double vel = std::sqrt(sqr(q.Dc_v[0]) + sqr(q.Dc_v[1]));
 
     // setup the Coulomb friction constraints 
     for (unsigned j=0; j< q.contact_events[i]->contact_NK; j++)
     {
       M(row, ALPHA_C_IDX+i) = q.contact_events[i]->contact_mu_coulomb;
-      Real theta = (Real) j/(q.contact_events[i]->contact_NK-1) * M_PI_2;
-      const Real ct = std::cos(theta);
-      const Real st = std::sin(theta);
+      double theta = (double) j/(q.contact_events[i]->contact_NK-1) * M_PI_2;
+      const double ct = std::cos(theta);
+      const double st = std::sin(theta);
       M(row, BETA_C_IDX+r) = -ct;
       M(row, NBETA_C_IDX+s) = -ct;
       M(row, BETA_C_IDX+r+1) = -st;
@@ -567,7 +567,7 @@ void ImpactEventHandler::solve_nqp_work(EventProblemData& q, VectorN& z)
   if (q.use_kappa)
   {
     for (unsigned i=0; i< N_CONTACTS; i++)
-      M(row, ALPHA_C_IDX+i) = (Real) -1.0;
+      M(row, ALPHA_C_IDX+i) = (double) -1.0;
     qq[row] = q.kappa;
   }
 
@@ -619,7 +619,7 @@ y[0] = .004905;
 y[3] = y[0];
 oparams.max_iterations = 10000;
   for (unsigned i=N_PRIMAL-N_LOOPS; i< N_PRIMAL; i++)
-    y[i] = (Real) 0.5;
+    y[i] = (double) 0.5;
   Optimization::sqp(oparams, y);
 //oparams.max_iterations = 1000;
 //  Optimization::optimize_convex_pd(oparams, y);
@@ -633,13 +633,13 @@ oparams.max_iterations = 10000;
 }
 
 /// The Hessian
-void ImpactEventHandler::sqp_hess(const VectorN& x, Real objscal, const VectorN& hlambda, const VectorN& nu, MatrixN& H, void* data)
+void ImpactEventHandler::sqp_hess(const VectorN& x, double objscal, const VectorN& hlambda, const VectorN& nu, MatrixN& H, void* data)
 {
 // note: this code is disabled until it is revisited
 /*
   SAFESTATIC VectorN Gx, w, tmpv, ff, lambda;
   SAFESTATIC MatrixN t1, t2;
-  const Real INFEAS_TOL = 1e-8;
+  const double INFEAS_TOL = 1e-8;
 
   // get the optimization data
   const ImpactOptData& opt_data = *(const ImpactOptData*) data;
@@ -693,9 +693,9 @@ void ImpactEventHandler::sqp_hess(const VectorN& x, Real objscal, const VectorN&
     R.get_row(BETA_CY, tmpv);
     (*VectorN::outer_prod(tmpv, tmpv, &t1));
     t2 += t1;
-    t2 *= (Real) 2.0;
+    t2 *= (double) 2.0;
     R.get_row(ALPHA_C, tmpv);
-    (*VectorN::outer_prod(tmpv, tmpv, &t1)) *= (Real) (2.0 * opt_data.c_mu_c[CIDX]);
+    (*VectorN::outer_prod(tmpv, tmpv, &t1)) *= (double) (2.0 * opt_data.c_mu_c[CIDX]);
     t2 -= t1;
 
     // add in t2 to hessian
@@ -706,8 +706,8 @@ void ImpactEventHandler::sqp_hess(const VectorN& x, Real objscal, const VectorN&
 /*
     // setup numerical Hessian
     unsigned n = x.size();
-    const Real h = NEAR_ZERO;
-    const Real INV_H2 = 1.0 / (h*2);
+    const double h = NEAR_ZERO;
+    const double INV_H2 = 1.0 / (h*2);
     VectorN xx = x;
     VectorN v1, v2;
     H.resize(n);
@@ -740,7 +740,7 @@ void ImpactEventHandler::sqp_cJac(const VectorN& x, MatrixN& J, void* data)
   SAFESTATIC VectorN Zf, Zdf, Z1df, grad;
   SAFESTATIC MatrixN dX, Rd, tmpM, tmpM2, JcTRalphac, DcTRbetac, JlTRalphal;
   SAFESTATIC MatrixN Rbetat, DxTRbetax;
-  const Real INFEAS_TOL = 1e-8;
+  const double INFEAS_TOL = 1e-8;
 
   // get the optimization data
   const ImpactOptData& opt_data = *(const ImpactOptData*) data;
@@ -792,10 +792,10 @@ void ImpactEventHandler::sqp_cJac(const VectorN& x, MatrixN& J, void* data)
     const unsigned ALPHA_C = ALPHA_C_IDX + CIDX;
 
     // compute contact friction
-    R.get_row(BETA_CX, grad) *= ((Real) 2.0 * w[BETA_CX]);
-    R.get_row(BETA_CY, tmpv) *= ((Real) 2.0 * w[BETA_CY]);
+    R.get_row(BETA_CX, grad) *= ((double) 2.0 * w[BETA_CX]);
+    R.get_row(BETA_CY, tmpv) *= ((double) 2.0 * w[BETA_CY]);
     grad += tmpv;
-    R.get_row(ALPHA_C, tmpv) *= ((Real) 2.0 * w[ALPHA_C] * opt_data.c_mu_c[CIDX]);
+    R.get_row(ALPHA_C, tmpv) *= ((double) 2.0 * w[ALPHA_C] * opt_data.c_mu_c[CIDX]);
     grad -= tmpv;
     J.set_row(index++, grad); 
   }
@@ -854,7 +854,7 @@ void ImpactEventHandler::sqp_cJac(const VectorN& x, MatrixN& J, void* data)
     const MatrixN& Z = opt_data.Z[AIDX][JIDX];
 
     // get squared Coulomb joint friction coefficient
-    const Real MUCSQ = opt_data.j_mu_c[i];
+    const double MUCSQ = opt_data.j_mu_c[i];
 
     // get components of R corresponding to alpha_c, beta_c, nbeta_c,
     // alpha_l, beta_t, beta_x, and delta for this body and
@@ -904,9 +904,9 @@ void ImpactEventHandler::sqp_cJac(const VectorN& x, MatrixN& J, void* data)
       const unsigned DELTA_START = DELTA_IDX + opt_data.delta_start[AIDX];
       const unsigned LOOP_IDX = DELTA_START+loop_indices[JIDX];
       R.get_sub_mat(LOOP_IDX, LOOP_IDX+1, 0, R.columns(), Rd);
-      const Real ZDELTA = opt_data.z[LOOP_IDX];
+      const double ZDELTA = opt_data.z[LOOP_IDX];
       Rd.mult(x, wdelta);
-      const Real DELTA = wdelta[0] + ZDELTA;
+      const double DELTA = wdelta[0] + ZDELTA;
 
       // compute first component of gradient (dX' * Z' * Z * f)
       Z.mult(fff, Zf);
@@ -943,7 +943,7 @@ void ImpactEventHandler::sqp_cJac(const VectorN& x, MatrixN& J, void* data)
       Z1d.transpose_mult(Zf, tmpv);
       Z.transpose_mult(Z1df, tmpv2);
       tmpv += tmpv2;
-      dX.transpose_mult(tmpv, tmpv2) *= ((Real) 1.0 - DELTA);
+      dX.transpose_mult(tmpv, tmpv2) *= ((double) 1.0 - DELTA);
       grad += tmpv2;
 
       // compute eight component of gradient (d * Rd' * f' * Zd' * Zd * f)
@@ -976,12 +976,12 @@ void ImpactEventHandler::sqp_cJac(const VectorN& x, MatrixN& J, void* data)
       // compute 14th component of gradient (-(1-d) * Rd' * f' * Z1d' * Z1d * f)
       Z1d.transpose_mult(Z1df, tmpv);
       Rd.get_row(0, tmpv2);
-      tmpv2 *= (fff.dot(tmpv) * (DELTA - (Real) 1.0));
+      tmpv2 *= (fff.dot(tmpv) * (DELTA - (double) 1.0));
       grad += tmpv2;
 
       // compute 15th component of gradient ((1-d)^2 * dX' * Z1d' * Z1d * f)
       dX.transpose_mult(tmpv, tmpv2);
-      tmpv2 *= ((Real) 1.0 - (Real) 2.0*DELTA + DELTA*DELTA);
+      tmpv2 *= ((double) 1.0 - (double) 2.0*DELTA + DELTA*DELTA);
       grad += tmpv2;
 
       // scale gradient
@@ -1012,16 +1012,16 @@ void ImpactEventHandler::sqp_cJac(const VectorN& x, MatrixN& J, void* data)
 /*
     // setup numerical gradient 
     unsigned n = x.size();
-    const Real h = NEAR_ZERO;
-    const Real INV_H2 = 1.0 / (h*2);
+    const double h = NEAR_ZERO;
+    const double INV_H2 = 1.0 / (h*2);
     VectorN xx = x;
     grad.resize(n);
     for (unsigned i=0; i< n; i++)
     {
       xx[i] += h;
-      Real v1 = sqp_fx(xx, m, data);
+      double v1 = sqp_fx(xx, m, data);
       xx[i] -= 2*h;
-      Real v2 = sqp_fx(xx, m, data);
+      double v2 = sqp_fx(xx, m, data);
       xx[i] += h;
       v1 -= v2;
       v1 *= INV_H2;
@@ -1049,7 +1049,7 @@ void ImpactEventHandler::sqp_grad0(const VectorN& x, VectorN& grad, void* data)
 }
 
 /// Evaluates objective functions at x
-Real ImpactEventHandler::sqp_f0(const VectorN& x, void* data)
+double ImpactEventHandler::sqp_f0(const VectorN& x, void* data)
 {
 // note: this code is disabled until it is revisited
 /*
@@ -1066,7 +1066,7 @@ Real ImpactEventHandler::sqp_f0(const VectorN& x, void* data)
   const VectorN& c = opt_data.c;
 
   // objective function is quadratic
-  G.mult(x, Gx) *= (Real) 0.5;
+  G.mult(x, Gx) *= (double) 0.5;
   Gx += c;
   return x.dot(Gx);
 } 
@@ -1077,7 +1077,7 @@ void ImpactEventHandler::sqp_fx(const VectorN& x, VectorN& fc, void* data)
   SAFESTATIC VectorN Gx, w, tmpv, tmpv2, fff, lambda, walphac, wbetac, walphal;
   SAFESTATIC VectorN wbetat, wbetax;
   SAFESTATIC MatrixN tmpM, tmpM2;
-  const Real INFEAS_TOL = 1e-8;
+  const double INFEAS_TOL = 1e-8;
 
   // get the optimization data
   const ImpactOptData& opt_data = *(const ImpactOptData*) data;
@@ -1144,7 +1144,7 @@ void ImpactEventHandler::sqp_fx(const VectorN& x, VectorN& fc, void* data)
   {
     // this is delta <= 1
     const unsigned DIDX = DELTA_IDX + i;
-    fc[index++] = w[DIDX] - (Real) 1.0 - INFEAS_TOL;
+    fc[index++] = w[DIDX] - (double) 1.0 - INFEAS_TOL;
   }
 
   for (unsigned i=0; i< N_JOINT_DOF; i++)
@@ -1206,23 +1206,23 @@ void ImpactEventHandler::sqp_fx(const VectorN& x, VectorN& fc, void* data)
     {
       // determine delta stuff
       const unsigned DELTA_START = DELTA_IDX + opt_data.delta_start[AIDX];
-      const Real DELTA = w[DELTA_START+loop_indices[JIDX]];
+      const double DELTA = w[DELTA_START+loop_indices[JIDX]];
  
       // compute lambda
       Zd.mult(fff, lambda) *= DELTA;
-      lambda += (Z1d.mult(fff, tmpv) *= ((Real) 1.0 - DELTA));
+      lambda += (Z1d.mult(fff, tmpv) *= ((double) 1.0 - DELTA));
       lambda += Z.mult(fff, tmpv);
     }
     else
       Z.mult(fff, lambda);
 
     // evaluate the equation
-    const Real MUCSQ = opt_data.j_mu_c[i];
-    const Real VSC = opt_data.j_visc[i];
+    const double MUCSQ = opt_data.j_mu_c[i];
+    const double VSC = opt_data.j_visc[i];
     fc[index++] = w[FIDX]*w[FIDX] - MUCSQ*lambda.norm_sq() - VSC - INFEAS_TOL;
   }
 */
-return std::numeric_limits<Real>::max();
+return std::numeric_limits<double>::max();
 } 
 
 /// Selects the contact related components from a vector

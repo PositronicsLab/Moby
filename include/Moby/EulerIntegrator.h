@@ -12,13 +12,12 @@
 namespace Moby {
 
 /// A class for performing 1st-order Euler integration
-template <class T>
-class EulerIntegrator : public Integrator<T>
+class EulerIntegrator : public Integrator
 {
   public:
     /// Euler integrator is explicit by default
     EulerIntegrator() { semi_implicit = false; }
-    virtual void integrate(T& x, T& (*f)(const T&, Real, Real, void*, T&), Real& time, Real step_size, void* data);
+    virtual void integrate(Ravelin::VectorNd& x, Ravelin::VectorNd& (*f)(const Ravelin::VectorNd&, double, double, void*, Ravelin::VectorNd&), double& time, double step_size, void* data);
     virtual void load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const;
 
@@ -30,10 +29,12 @@ class EulerIntegrator : public Integrator<T>
      * the velocities computed from the last time step.
      */
     bool semi_implicit;
-}; // end class
 
-// include inline functions
-#include "EulerIntegrator.inl"
+  private:
+
+    /// temporary variable
+    Ravelin::VectorNd _dx;    
+}; // end class
 
 } // end namespace
 

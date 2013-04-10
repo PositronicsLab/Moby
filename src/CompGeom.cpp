@@ -12,7 +12,6 @@
 #include <set>
 #include <stack>
 #include <fstream>
-#include <Moby/LinAlg.h>
 #include <Moby/Polyhedron.h>
 #include <Moby/CompGeom.h>
 
@@ -21,15 +20,16 @@
 pthread_mutex_t Moby::CompGeom::_qhull_mutex = PTHREAD_MUTEX_INITIALIZER;
 #endif
 
+using namespace Ravelin;
 using namespace Moby;
 
 /// Helper function for calc_min_area_rect()
-void CompGeom::update_box(const Vector2& lP, const Vector2& rP, const Vector2& bP, const Vector2& tP, const Vector2& U, const Vector2& V, Real& min_area_div4, Vector2& center, Vector2 axis[2], Real extent[2])
+void CompGeom::update_box(const Point2d& lP, const Point2d& rP, const Point2d& bP, const Point2d& tP, const Vector2d& U, const Vector2d& V, double& min_area_div4, Point2d& center, Vector2d axis[2], double extent[2])
 {
-  Vector2 rlDiff = rP - lP;
-  Vector2 tbDiff = tP - bP;
-  Real next[2] = { (Real) 0.5 * (U.dot(rlDiff)), (Real) 0.5 * (V.dot(tbDiff)) };
-  Real area_div4 = next[0] * next[1];
+  Vector2d rlDiff = rP - lP;
+  Vector2d tbDiff = tP - bP;
+  double next[2] = { (double) 0.5 * (U.dot(rlDiff)), (double) 0.5 * (V.dot(tbDiff)) };
+  double area_div4 = next[0] * next[1];
   if (area_div4 < min_area_div4)
   {
     min_area_div4 = area_div4;
@@ -37,7 +37,7 @@ void CompGeom::update_box(const Vector2& lP, const Vector2& rP, const Vector2& b
     axis[1] = V;
     extent[0] = next[0];
     extent[1] = next[1];
-    Vector2 lbDiff = lP - bP;
+    Vector2d lbDiff = lP - bP;
     center = lP + U*extent[0] + V*(extent[1] - V.dot(lbDiff));
   }
 }
@@ -101,7 +101,7 @@ unsigned CompGeom::get_num_intersects(CompGeom::SegTriIntersectType t)
 
 
 /// Utility method for triangulate_polygon_2D()
-bool CompGeom::intersect_prop(const Vector2& a, const Vector2& b, const Vector2& c, const Vector2& d, Real tol)
+bool CompGeom::intersect_prop(const Point2d& a, const Point2d& b, const Point2d& c, const Point2d& d, double tol)
 {
   // eliminate improper cases
   if (collinear(a,b,c,tol) || collinear(a,b,d,tol) || 
@@ -112,7 +112,7 @@ bool CompGeom::intersect_prop(const Vector2& a, const Vector2& b, const Vector2&
 }
 
 /// Utility method for triangulate_polygon_2D()
-bool CompGeom::intersect(const Vector2& a, const Vector2& b, const Vector2& c, const Vector2& d, Real tol)
+bool CompGeom::intersect(const Point2d& a, const Point2d& b, const Point2d& c, const Point2d& d, double tol)
 {
   if (intersect_prop(a,b,c,d,tol))
     return true;
@@ -131,20 +131,20 @@ bool CompGeom::intersect(const Vector2& a, const Vector2& b, const Vector2& c, c
  * \return the distance between p1 and p2
  * \note algorithm taken from http://geometricalgorithms.com
  */
-Real CompGeom::calc_closest_points(const LineSeg3& s1, const LineSeg3& s2, Vector3& p1, Vector3& p2)
+double CompGeom::calc_closest_points(const LineSeg3& s1, const LineSeg3& s2, Point3d& p1, Point3d& p2)
 {
-  Real sc, sN, tc, tN;
+  double sc, sN, tc, tN;
 
-  Vector3 u = s1.second - s1.first;
-  Vector3 v = s2.second - s2.first;
-  Vector3 w = s1.first - s2.first;
-  Real a = Vector3::dot(u,u);
-  Real b = Vector3::dot(u,v);
-  Real c = Vector3::dot(v,v);
-  Real d = Vector3::dot(u,w);
-  Real e = Vector3::dot(v,w);
-  Real D = a*c - b*b;
-  Real sD = D, tD = D;
+  Vector3d u = s1.second - s1.first;
+  Vector3d v = s2.second - s2.first;
+  Vector3d w = s1.first - s2.first;
+  double a = Vector3d::dot(u,u);
+  double b = Vector3d::dot(u,v);
+  double c = Vector3d::dot(v,v);
+  double d = Vector3d::dot(u,w);
+  double e = Vector3d::dot(v,w);
+  double D = a*c - b*b;
+  double sD = D, tD = D;
 
   // compute the line parameters of the two closest points
   if (D < NEAR_ZERO)
@@ -203,8 +203,8 @@ Real CompGeom::calc_closest_points(const LineSeg3& s1, const LineSeg3& s2, Vecto
   }
 
   // do the division to get sc and tc
-  sc = (std::fabs(sN) < NEAR_ZERO) ? (Real) 0.0 : sN / sD;
-  tc = (std::fabs(tN) < NEAR_ZERO) ? (Real) 0.0 : tN / tD;
+  sc = (std::fabs(sN) < NEAR_ZERO) ? (double) 0.0 : sN / sD;
+  tc = (std::fabs(tN) < NEAR_ZERO) ? (double) 0.0 : tN / tD;
 
   // compute p1 and p2
   p1 = s1.first + (s1.second - s1.first)*sc;
@@ -222,56 +222,56 @@ Real CompGeom::calc_closest_points(const LineSeg3& s1, const LineSeg3& s2, Vecto
  *        of the closest point on the line
  * Algorithm taken from http://geometryalgorithms.com
  */
-Real CompGeom::calc_dist(const LineSeg3& line_seg, const Vector3& point, Real& t)
+double CompGeom::calc_dist(const LineSeg3& line_seg, const Point3d& point, double& t)
 {
-  Vector3 v = line_seg.second - line_seg.first;
-  Vector3 w = point - line_seg.first;
-  Real c1 = Vector3::dot(w, v);
+  Vector3d v = line_seg.second - line_seg.first;
+  Vector3d w = point - line_seg.first;
+  double c1 = Vector3d::dot(w, v);
   if (c1 <= 0)
     return w.norm();
-  Real c2 = Vector3::dot(v, v);
+  double c2 = Vector3d::dot(v, v);
   if (c2 <= c1)
     return (point - line_seg.second).norm();
   t = 1.0 - c1 / c2;
-  Vector3 closest = line_seg.first*t + line_seg.second*(1-t);
+  Point3d closest = line_seg.first*t + line_seg.second*(1-t);
   return (closest - point).norm();
 }
 
 /// Determines whether four points are coplanar
-bool CompGeom::coplanar(const Vector3& a, const Vector3& b, const Vector3& c, const Vector3& d, Real tol)
+bool CompGeom::coplanar(const Point3d& a, const Point3d& b, const Point3d& c, const Point3d& d, double tol)
 {
   return volume_sign(a, b, c, d, tol) == eCoplanar;
 }
 
 /// Generates a point on a plane
-Vector3 CompGeom::generate_point_on_plane(const Vector3& normal, Real d)
+Point3d CompGeom::generate_point_on_plane(const Vector3d& normal, double d)
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
   // get the absolute values of the normal
-  Real abs_x = std::fabs(normal[X]);
-  Real abs_y = std::fabs(normal[Y]);
-  Real abs_z = std::fabs(normal[Z]);
+  double abs_x = std::fabs(normal[X]);
+  double abs_y = std::fabs(normal[Y]);
+  double abs_z = std::fabs(normal[Z]);
 
   // solve using the largest component of the normal
   if (abs_x > abs_y)
   {
     if (abs_x > abs_z)
-      return Vector3(d/normal[X], 0, 0);
+      return Point3d(d/normal[X], 0, 0);
     else
-      return Vector3(0, 0, d/normal[Z]);
+      return Point3d(0, 0, d/normal[Z]);
   }
   else
   {
     if (abs_y > abs_z)
-      return Vector3(0, d/normal[Y], 0);
+      return Point3d(0, d/normal[Y], 0);
     else
-      return Vector3(0, 0, d/normal[Z]);
+      return Point3d(0, 0, d/normal[Z]);
   } 
 }
 
 /// Determines whether two triangles are coplanar
-bool CompGeom::coplanar(const Triangle& t1, const Triangle& t2, Real tol)
+bool CompGeom::coplanar(const Triangle& t1, const Triangle& t2, double tol)
 {
   if (volume_sign(t1.a, t1.b, t1.c, t2.a, tol) != eCoplanar)
     return false;
@@ -295,26 +295,26 @@ bool CompGeom::coplanar(const Triangle& t1, const Triangle& t2, Real tol)
  *         hold; true_intersect indicates that the segments intersect at a
  *         single point.
  */
-CompGeom::SegSegIntersectType CompGeom::intersect_segs(const LineSeg3& s1, const LineSeg3& s2, Vector3& isect, Vector3& isect2)
+CompGeom::SegSegIntersectType CompGeom::intersect_segs(const LineSeg3& s1, const LineSeg3& s2, Point3d& isect, Point3d& isect2)
 {
   const int X = 0, Y = 1, Z = 2;
   
   // get the individual points 
-  const Vector3& a = s1.first;
-  const Vector3& b = s1.second;
-  const Vector3& c = s2.first;
-  const Vector3& d = s2.second;
+  const Point3d& a = s1.first;
+  const Point3d& b = s1.second;
+  const Point3d& c = s2.first;
+  const Point3d& d = s2.second;
 
   // compute the two vectors
-  Vector3 v1 = b - a;
-  Vector3 v2 = d - c;
+  Vector3d v1 = b - a;
+  Vector3d v2 = d - c;
   
   // compute the squared norms for the two vectors
-  Real v1_sq_norm = Vector3::dot(v1, v1);
-  Real v2_sq_norm = Vector3::dot(v2, v2);
+  double v1_sq_norm = Vector3d::dot(v1, v1);
+  double v2_sq_norm = Vector3d::dot(v2, v2);
 
   // compute the dot-product of (v1, v2)
-  Real v1_v2 = Vector3::dot(v1, v2);
+  double v1_v2 = Vector3d::dot(v1, v2);
   
   // if the segments are parallel, handle them specially
   if (std::fabs(v1_sq_norm * v2_sq_norm - v1_v2 * v1_v2) < NEAR_ZERO)
@@ -325,16 +325,16 @@ CompGeom::SegSegIntersectType CompGeom::intersect_segs(const LineSeg3& s1, const
     
     // get the dimension with the most variance
     unsigned bd;
-    Real v1x = v1[X] * v1[X];
-    Real v1y = v1[Y] * v1[Y];
-    Real v1z = v1[Z] * v1[Z];
+    double v1x = v1[X] * v1[X];
+    double v1y = v1[Y] * v1[Y];
+    double v1z = v1[Z] * v1[Z];
     if (v1x > v1y)
       bd = (v1x > v1z) ? X : Z;
     else
       bd = (v1y > v1z) ? Y : Z;
     
     // get minimum and maximum points for v1
-    const Vector3* v1_min, * v1_max;
+    const Point3d* v1_min, * v1_max;
     if (a[bd] > b[bd]) 
     {
       v1_min = &b;
@@ -347,7 +347,7 @@ CompGeom::SegSegIntersectType CompGeom::intersect_segs(const LineSeg3& s1, const
     }
     
     // get minimum and maximum points for v2
-    const Vector3* v2_min, * v2_max;
+    const Point3d* v2_min, * v2_max;
     if (c[bd] > d[bd]) 
     {
       v2_min = &d;
@@ -391,28 +391,28 @@ CompGeom::SegSegIntersectType CompGeom::intersect_segs(const LineSeg3& s1, const
   }
 
   // determine the point of intersection for the two lines
-  Vector3 a_minus_c = a - c;
-  Vector3 g1 = Vector3::cross(a_minus_c, v2);
-  Vector3 g2 = Vector3::cross(v1, v2);
-  Real p = std::sqrt(Vector3::dot(g1, g1) / Vector3::dot(g2, g2));
-  if (Vector3::dot(g1, g2) > 0)
+  Vector3d a_minus_c = a - c;
+  Vector3d g1 = Vector3d::cross(a_minus_c, v2);
+  Vector3d g2 = Vector3d::cross(v1, v2);
+  double p = std::sqrt(Vector3d::dot(g1, g1) / Vector3d::dot(g2, g2));
+  if (Vector3d::dot(g1, g2) > 0)
     p = -p;  
   isect = a + p * v1;
   
   // verify that the point is within the first segment
-  Vector3 isect_m_b = isect - b;
-  Real t1 = std::sqrt(Vector3::dot(isect_m_b, isect_m_b) / Vector3::dot(-v1, -v1));
-  if (Vector3::dot(isect_m_b, -v1) < 0)
+  Vector3d isect_m_b = isect - b;
+  double t1 = std::sqrt(Vector3d::dot(isect_m_b, isect_m_b) / Vector3d::dot(-v1, -v1));
+  if (Vector3d::dot(isect_m_b, -v1) < 0)
     t1 = -t1;
-  if (Vector3::dot(isect_m_b, -v1) < 0 || t1 > 1)
+  if (Vector3d::dot(isect_m_b, -v1) < 0 || t1 > 1)
     return eSegSegNoIntersect;
   
   // verify that the point is within the second segment
-  Vector3 isect_m_d = isect - d;
-  Real t2 = std::sqrt(Vector3::dot(isect_m_d, isect_m_d) / Vector3::dot(-v2, -v2));
-  if (Vector3::dot(isect_m_d, -v2) < 0)
+  Vector3d isect_m_d = isect - d;
+  double t2 = std::sqrt(Vector3d::dot(isect_m_d, isect_m_d) / Vector3d::dot(-v2, -v2));
+  if (Vector3d::dot(isect_m_d, -v2) < 0)
     t2 = -t2;
-  if (Vector3::dot(isect_m_d, -v2) < 0 || t2 > 1)
+  if (Vector3d::dot(isect_m_d, -v2) < 0 || t2 > 1)
     return eSegSegNoIntersect;
 
   // true intersection, return the type
@@ -431,7 +431,7 @@ CompGeom::SegSegIntersectType CompGeom::intersect_segs(const LineSeg3& s1, const
  * \note Adapted from O'Rourke, p. 237.
  * \throw NumericalException if segment lies in triangle's plane
  */
-CompGeom::SegTriIntersectType CompGeom::seg_tri_cross(const LineSeg3& seg, const Triangle& t, Real tol)
+CompGeom::SegTriIntersectType CompGeom::seg_tri_cross(const LineSeg3& seg, const Triangle& t, double tol)
 {
   VisibilityType v0 = volume_sign(seg.first, t.a, t.b, seg.second, tol);
   VisibilityType v1 = volume_sign(seg.first, t.b, t.c, seg.second, tol);
@@ -469,13 +469,13 @@ CompGeom::SegTriIntersectType CompGeom::seg_tri_cross(const LineSeg3& seg, const
  *         determined by seg.first + (seg.second - seg.first)*t, or NaN if the 
  *         line and plane are parallel
  */
-Real CompGeom::intersect_seg_plane(const Vector3& nrm, Real d, const LineSeg3& seg)
+double CompGeom::intersect_seg_plane(const Vector3d& nrm, double d, const LineSeg3& seg)
 {
   // generate a point on the plane
-  Vector3 V0 = generate_point_on_plane(nrm, d);
+  Point3d V0 = generate_point_on_plane(nrm, d);
 
   // compute t
-  return Vector3::dot(nrm, V0 - seg.first)/Vector3::dot(nrm, seg.second - seg.first);
+  return Vector3d::dot(nrm, V0 - seg.first)/Vector3d::dot(nrm, seg.second - seg.first);
 }
 
 /// Determines the intersection between a line segment and a plane in 3D
@@ -493,28 +493,28 @@ Real CompGeom::intersect_seg_plane(const Vector3& nrm, Real d, const LineSeg3& s
  *         or the other of the plane), or eSegPlaneOtherIntersect (segment intersects
  *         the plane, and in-plane, first, and second do not hold).
  */
-CompGeom::SegPlaneIntersectType CompGeom::intersect_seg_plane(const Triangle& tri, const LineSeg3& seg, Vector3& isect, unsigned int& big_dim, Real tol)
+CompGeom::SegPlaneIntersectType CompGeom::intersect_seg_plane(const Triangle& tri, const LineSeg3& seg, Point3d& isect, unsigned int& big_dim, double tol)
 {
   // find the plane coefficients
-  Real dot;
-  Vector3 N;
+  double dot;
+  Vector3d N;
   find_plane_coeff(tri, N, big_dim, dot);
 
   // check to see whether we are only testing a point; if so, see whether the
   // point is on the plane
-  Vector3 rq = seg.second - seg.first;
-  Real norm_rq = rq.norm();
-  if (norm_rq == (Real) 0.0)
+  Vector3d rq = seg.second - seg.first;
+  double norm_rq = rq.norm();
+  if (norm_rq == (double) 0.0)
   {
-    if (std::fabs(Vector3::dot(seg.first, N) - dot) < NEAR_ZERO)
+    if (std::fabs(Vector3d::dot(seg.first, N) - dot) < NEAR_ZERO)
       return eSegPlaneInPlane;
     else
       return eSegPlaneToSide;
   }    
 
   // check whether segment is parallel to the plane
-  LongReal num = dot - Vector3::dot(seg.first, N);
-  LongReal denom = Vector3::dot(rq, N);
+  long double num = dot - Vector3d::dot(seg.first, N);
+  long double denom = Vector3d::dot(rq, N);
   if (denom < tol && denom > -tol)
   {
     // check whether both points are on plane
@@ -528,7 +528,7 @@ CompGeom::SegPlaneIntersectType CompGeom::intersect_seg_plane(const Triangle& tr
   // compute point of intersection
   isect = seg.first + (t * (seg.second - seg.first));
 
-  if ((t > tol) && (t < (Real) 1.0 - tol))
+  if ((t > tol) && (t < (double) 1.0 - tol))
     return eSegPlaneOtherIntersect;
   else if (num < tol && num > -tol)
     return eSegPlaneFirst;
@@ -539,27 +539,27 @@ CompGeom::SegPlaneIntersectType CompGeom::intersect_seg_plane(const Triangle& tr
 }
 
 /// Determines the feature for a line segment given a parameter
-CompGeom::SegLocationType CompGeom::determine_seg_location(const LineSeg3& seg, Real t)
+CompGeom::SegLocationType CompGeom::determine_seg_location(const LineSeg3& seg, double t)
 {
   const unsigned X = 0, Y = 1, Z = 2;
-  const Vector3& p = seg.first;
-  const Vector3& q = seg.second;
+  const Point3d& p = seg.first;
+  const Point3d& q = seg.second;
 
   // get the largest value for the first point
-  Real lg_p = std::max(std::max(std::fabs(p[X]), std::fabs(p[Y])), std::fabs(p[Z]));
+  double lg_p = std::max(std::max(std::fabs(p[X]), std::fabs(p[Y])), std::fabs(p[Z]));
 
   // determine the tolerance for the first point
-  Real p_tol = (lg_p > 0.0) ? NEAR_ZERO : NEAR_ZERO/lg_p;
+  double p_tol = (lg_p > 0.0) ? NEAR_ZERO : NEAR_ZERO/lg_p;
 
   // see whether on the origin 
   if (std::fabs(t) < p_tol)
     return eSegOrigin;
 
   // get the largest value for the second point
-  Real lg_q = std::max(std::max(std::fabs(q[X]), std::fabs(q[Y])), std::fabs(q[Z]));
+  double lg_q = std::max(std::max(std::fabs(q[X]), std::fabs(q[Y])), std::fabs(q[Z]));
 
   // determine the tolerance for the second point
-  Real q_tol = (lg_q > 0.0) ? NEAR_ZERO : NEAR_ZERO/lg_q;
+  double q_tol = (lg_q > 0.0) ? NEAR_ZERO : NEAR_ZERO/lg_q;
 
   // see whether on the endpoint
   if (std::fabs(t - 1.0) < q_tol)
@@ -570,27 +570,27 @@ CompGeom::SegLocationType CompGeom::determine_seg_location(const LineSeg3& seg, 
 }
 
 /// Determines the feature for a line segment given a parameter
-CompGeom::SegLocationType CompGeom::determine_seg_location(const LineSeg2& seg, Real t)
+CompGeom::SegLocationType CompGeom::determine_seg_location(const LineSeg2& seg, double t)
 {
   const unsigned X = 0, Y = 1;
-  const Vector2& p = seg.first;
-  const Vector2& q = seg.second;
+  const Point2d& p = seg.first;
+  const Point2d& q = seg.second;
 
   // get the largest value for the first point
-  Real lg_p = std::max(std::fabs(p[X]), std::fabs(p[Y]));
+  double lg_p = std::max(std::fabs(p[X]), std::fabs(p[Y]));
 
   // determine the tolerance for the first point
-  Real p_tol = (lg_p > 0.0) ? NEAR_ZERO : NEAR_ZERO/lg_p;
+  double p_tol = (lg_p > 0.0) ? NEAR_ZERO : NEAR_ZERO/lg_p;
 
   // see whether on the origin 
   if (std::fabs(t) < p_tol)
     return eSegOrigin;
 
   // get the largest value for the second point
-  Real lg_q = std::max(std::fabs(q[X]), std::fabs(q[Y]));
+  double lg_q = std::max(std::fabs(q[X]), std::fabs(q[Y]));
 
   // determine the tolerance for the second point
-  Real q_tol = (lg_q > 0.0) ? NEAR_ZERO : NEAR_ZERO/lg_q;
+  double q_tol = (lg_q > 0.0) ? NEAR_ZERO : NEAR_ZERO/lg_q;
 
   // see whether on the endpoint
   if (std::fabs(t - 1.0) < q_tol)
@@ -619,11 +619,11 @@ CompGeom::SegLocationType CompGeom::determine_seg_location(const LineSeg2& seg, 
  *         eSegTriNoIntersect (if there is no intersection).
  * \note assumes triangle is oriented ccw 
  */
-CompGeom::SegTriIntersectType CompGeom::intersect_seg_tri(const LineSeg2& seg, const Vector2 tri[3], Vector2& isect, Vector2& isect2, Real tol)
+CompGeom::SegTriIntersectType CompGeom::intersect_seg_tri(const LineSeg2& seg, const Point2d tri[3], Point2d& isect, Point2d& isect2, double tol)
 {
   // get the two points
-  const Vector2& p = seg.first;
-  const Vector2& q = seg.second;
+  const Point2d& p = seg.first;
+  const Point2d& q = seg.second;
 
   // make segments out of the edges
   LineSeg2 e1(tri[0], tri[1]);
@@ -648,13 +648,13 @@ CompGeom::SegTriIntersectType CompGeom::intersect_seg_tri(const LineSeg2& seg, c
   if (pe1 == eOn && qe1 == eOn)
   {
     // do parallel segment / segment intersection
-    Vector2 dir = e1.second - e1.first;
-    Real t1 = determine_line_param(e1.first, dir, p);
-    Real t2 = determine_line_param(e1.first, dir, q);
+    Vector2d dir = e1.second - e1.first;
+    double t1 = determine_line_param(e1.first, dir, p);
+    double t2 = determine_line_param(e1.first, dir, q);
     if (t2 < t1)
       std::swap(t1, t2); 
-    t1 = std::max(t1, (Real) 0.0);
-    t2 = std::min(t2, (Real) 1.0);
+    t1 = std::max(t1, (double) 0.0);
+    t2 = std::min(t2, (double) 1.0);
     if (rel_equal(t1, t2))
     {
       // vertex only
@@ -675,13 +675,13 @@ CompGeom::SegTriIntersectType CompGeom::intersect_seg_tri(const LineSeg2& seg, c
   if (pe2 == eOn && qe2 == eOn)
   {
     // do parallel segment / segment intersection
-    Vector2 dir = e2.second - e2.first;
-    Real t1 = determine_line_param(e2.first, dir, p);
-    Real t2 = determine_line_param(e2.first, dir, q);
+    Vector2d dir = e2.second - e2.first;
+    double t1 = determine_line_param(e2.first, dir, p);
+    double t2 = determine_line_param(e2.first, dir, q);
     if (t2 < t1)
       std::swap(t1, t2); 
-    t1 = std::max(t1, (Real) 0.0);
-    t2 = std::min(t2, (Real) 1.0);
+    t1 = std::max(t1, (double) 0.0);
+    t2 = std::min(t2, (double) 1.0);
     if (rel_equal(t1, t2))
     {
       // vertex only
@@ -701,13 +701,13 @@ CompGeom::SegTriIntersectType CompGeom::intersect_seg_tri(const LineSeg2& seg, c
   }
   if (pe3 == eOn && qe3 == eOn)
   {
-    Vector2 dir = e3.second - e3.first; 
-    Real t1 = determine_line_param(e3.first, dir, p);
-    Real t2 = determine_line_param(e3.first, dir, q);
+    Vector2d dir = e3.second - e3.first; 
+    double t1 = determine_line_param(e3.first, dir, p);
+    double t2 = determine_line_param(e3.first, dir, q);
     if (t2 < t1)
       std::swap(t1, t2); 
-    t1 = std::max(t1, (Real) 0.0);
-    t2 = std::min(t2, (Real) 1.0);
+    t1 = std::max(t1, (double) 0.0);
+    t2 = std::min(t2, (double) 1.0);
     if (rel_equal(t1, t2))
     {
       // vertex only
@@ -732,8 +732,8 @@ CompGeom::SegTriIntersectType CompGeom::intersect_seg_tri(const LineSeg2& seg, c
     // if q is on edge 1, it may be on a vertex, an edge, or neither
     if (qe1 == eOn)
     {
-      Vector2 dir = e1.second - e1.first;
-      Real t = determine_line_param(e1.first, dir, q);
+      Vector2d dir = e1.second - e1.first;
+      double t = determine_line_param(e1.first, dir, q);
       SegLocationType feat = determine_seg_location(e1, t);
       isect = e1.first + dir*t;
       if (feat == eSegOrigin || feat == eSegEndpoint)
@@ -783,8 +783,8 @@ CompGeom::SegTriIntersectType CompGeom::intersect_seg_tri(const LineSeg2& seg, c
   {
     if (pe1 == eOn)
     {
-      Vector2 dir = e1.second - e1.first;
-      Real t = determine_line_param(e1.first, dir, p);
+      Vector2d dir = e1.second - e1.first;
+      double t = determine_line_param(e1.first, dir, p);
       SegLocationType feat = determine_seg_location(e1, t);
       isect = e1.first + dir*t;
       if (feat == eSegOrigin || feat == eSegEndpoint)
@@ -836,8 +836,8 @@ CompGeom::SegTriIntersectType CompGeom::intersect_seg_tri(const LineSeg2& seg, c
   {
     if (qe2 == eOn)
     {
-      Vector2 dir = e2.second - e2.first;
-      Real t = determine_line_param(e2.first, dir, q);
+      Vector2d dir = e2.second - e2.first;
+      double t = determine_line_param(e2.first, dir, q);
       SegLocationType feat = determine_seg_location(e2, t);
       isect = e2.first + dir*t;
       if (feat == eSegOrigin || feat == eSegEndpoint)
@@ -887,8 +887,8 @@ CompGeom::SegTriIntersectType CompGeom::intersect_seg_tri(const LineSeg2& seg, c
   {
     if (pe2 == eOn)
     {
-      Vector2 dir = e2.second - e2.first;
-      Real t = determine_line_param(e2.first, dir, p);
+      Vector2d dir = e2.second - e2.first;
+      double t = determine_line_param(e2.first, dir, p);
       SegLocationType feat = determine_seg_location(e2, t);
       isect = e2.first + dir*t;
       if (feat == eSegOrigin || feat == eSegEndpoint)
@@ -940,8 +940,8 @@ CompGeom::SegTriIntersectType CompGeom::intersect_seg_tri(const LineSeg2& seg, c
   {
     if (qe3 == eOn)
     {
-      Vector2 dir = e3.second - e3.first;
-      Real t = determine_line_param(e3.first, dir, q);
+      Vector2d dir = e3.second - e3.first;
+      double t = determine_line_param(e3.first, dir, q);
       SegLocationType feat = determine_seg_location(e3, t);
       isect = e3.first + dir*t;
       if (feat == eSegOrigin || feat == eSegEndpoint)
@@ -991,8 +991,8 @@ CompGeom::SegTriIntersectType CompGeom::intersect_seg_tri(const LineSeg2& seg, c
   {
     if (pe3 == eOn)
     {
-      Vector2 dir = e3.second - e3.first;
-      Real t = determine_line_param(e3.first, dir, p);
+      Vector2d dir = e3.second - e3.first;
+      double t = determine_line_param(e3.first, dir, p);
       SegLocationType feat = determine_seg_location(e3, t);
       isect = e3.first + dir*t;
       if (feat == eSegOrigin || feat == eSegEndpoint)
@@ -1057,7 +1057,7 @@ CompGeom::SegTriIntersectType CompGeom::intersect_seg_tri(const LineSeg2& seg, c
 
 // NOTE: this code from www.geometrictools.com does not work!
 /*
-  Real afDist[3];
+  double afDist[3];
   int aiSign[3], iPositive = 0, iNegative = 0, iZero = 0;
 
   // do the simple test first
@@ -1088,12 +1088,12 @@ CompGeom::SegTriIntersectType CompGeom::intersect_seg_tri(const LineSeg2& seg, c
   }
 
   // convert segment to necessary representation
-  Vector2 origin = (seg.first+seg.second)*0.5;
-  Vector2 dir = Vector2::normalize(seg.second - seg.first);
+  Vector2d origin = (seg.first+seg.second)*0.5;
+  Vector2d dir = Vector2::normalize(seg.second - seg.first);
 
   for (unsigned i=0; i< 3; i++)
   {
-    Vector2 kDiff = tri[i] - origin;
+    Vector2d kDiff = tri[i] - origin;
     afDist[i] = kDiff.dot_perp(dir);
     if (afDist[i] > tol)
     {
@@ -1117,19 +1117,19 @@ CompGeom::SegTriIntersectType CompGeom::intersect_seg_tri(const LineSeg2& seg, c
   if (iPositive == 3 || iNegative == 3)
     return eSegTriNoIntersect;
 
-  Real afParam[2];
+  double afParam[2];
   
   // *** get interval
   // project triangle onto line
-  Real afProj[3];
+  double afProj[3];
   for (unsigned i=0; i< 3; i++)
   {
-    Vector2 kDiff = tri[i] - origin;
+    Vector2d kDiff = tri[i] - origin;
     afProj[i] = dir.dot(kDiff);
   }
 
   // compute transverse intersections of triangle edges with line
-  Real fNumer, fDenom;
+  double fNumer, fDenom;
   unsigned iQuantity = 0;
   for (unsigned i0=2, i1 = 0; i1< 3; i0 = i1++)
   {
@@ -1162,11 +1162,11 @@ CompGeom::SegTriIntersectType CompGeom::intersect_seg_tri(const LineSeg2& seg, c
     afParam[1] = afParam[0];
 
   // *** intersection
-  const Real afU0 = afParam[0];
-  const Real afU1 = afParam[1];
-  const Real afV0 = -0.5;         // minimum segment parameter
-  const Real afV1 = 0.5;          // maximum segment parameter
-  Real afOverlap0, afOverlap1;
+  const double afU0 = afParam[0];
+  const double afU1 = afParam[1];
+  const double afV0 = -0.5;         // minimum segment parameter
+  const double afV1 = 0.5;          // maximum segment parameter
+  double afOverlap0, afOverlap1;
   unsigned m_iQuantity = 0;
   if (afU1 < afV0 || afU0 > afV1)
     m_iQuantity = 0;
@@ -1328,7 +1328,7 @@ CompGeom::SegTriIntersectType CompGeom::intersect_seg_tri(const LineSeg2& seg, c
  *         segment lies partially within the face of the triangle), or
  *         eSegTriNoIntersect (if there is no intersection).
  */
-CompGeom::SegTriIntersectType CompGeom::intersect_seg_tri(const LineSeg3& seg, const Triangle& t, Vector3& isect, Vector3& isect2, Real tol)
+CompGeom::SegTriIntersectType CompGeom::intersect_seg_tri(const LineSeg3& seg, const Triangle& t, Point3d& isect, Point3d& isect2, double tol)
 {
   unsigned m;
 
@@ -1383,58 +1383,58 @@ CompGeom::SegTriIntersectType CompGeom::intersect_seg_tri(const LineSeg3& seg, c
 }
 
 /// Intersects a segment and a triangle in 3D that lie in the same plane
-CompGeom::SegTriIntersectType CompGeom::intersect_seg_tri_in_plane(const LineSeg3& seg, const Triangle& t, Vector3& isect, Vector3& isect2, Real tol)
+CompGeom::SegTriIntersectType CompGeom::intersect_seg_tri_in_plane(const LineSeg3& seg, const Triangle& t, Point3d& isect, Point3d& isect2, double tol)
 {
   // project to dimension with least variance
   const unsigned X = 0, Y = 1, Z = 2;
-  Vector2 tri_2D[3];
+  Point2d tri_2D[3];
   LineSeg2 seg_2D;
 
   // determine which coordinate has the minimum variance
-  std::pair<Vector3, Vector3> aabb = t.calc_AABB();
-  const Real varx = aabb.second[X] - aabb.first[X];
-  const Real vary = aabb.second[Y] - aabb.first[Y];
-  const Real varz = aabb.second[Z] - aabb.first[Z];
+  std::pair<Point3d, Point3d> aabb = t.calc_AABB();
+  const double varx = aabb.second[X] - aabb.first[X];
+  const double vary = aabb.second[Y] - aabb.first[Y];
+  const double varz = aabb.second[Z] - aabb.first[Z];
 
   // project to 2D
   if (varx < vary && varx < varz)
   {
     // minimum variance in the x direction; project to yz plane
-    tri_2D[0] = Vector2(t.a[Y], t.a[Z]);
-    tri_2D[1] = Vector2(t.b[Y], t.b[Z]);
-    tri_2D[2] = Vector2(t.c[Y], t.c[Z]);
-    seg_2D.first = Vector2(seg.first[Y], seg.first[Z]);
-    seg_2D.second = Vector2(seg.second[Y], seg.second[Z]);
+    tri_2D[0] = Point2d(t.a[Y], t.a[Z]);
+    tri_2D[1] = Point2d(t.b[Y], t.b[Z]);
+    tri_2D[2] = Point2d(t.c[Y], t.c[Z]);
+    seg_2D.first = Point2d(seg.first[Y], seg.first[Z]);
+    seg_2D.second = Point2d(seg.second[Y], seg.second[Z]);
   }
   else if (vary < varx && vary < varz)
   {
     // minimum variance in the y direction; project to xz plane
-    tri_2D[0] = Vector2(t.a[X], t.a[Z]);
-    tri_2D[1] = Vector2(t.b[X], t.b[Z]);
-    tri_2D[2] = Vector2(t.c[X], t.c[Z]);
-    seg_2D.first = Vector2(seg.first[X], seg.first[Z]);
-    seg_2D.second = Vector2(seg.second[X], seg.second[Z]);
+    tri_2D[0] = Point2d(t.a[X], t.a[Z]);
+    tri_2D[1] = Point2d(t.b[X], t.b[Z]);
+    tri_2D[2] = Point2d(t.c[X], t.c[Z]);
+    seg_2D.first = Point2d(seg.first[X], seg.first[Z]);
+    seg_2D.second = Point2d(seg.second[X], seg.second[Z]);
   }
   else
   {
     // minimum variance in the z direction; project to xy plane
-    tri_2D[0] = Vector2(t.a[X], t.a[Y]);
-    tri_2D[1] = Vector2(t.b[X], t.b[Y]);
-    tri_2D[2] = Vector2(t.c[X], t.c[Y]);
-    seg_2D.first = Vector2(seg.first[X], seg.first[Y]);
-    seg_2D.second = Vector2(seg.second[X], seg.second[Y]);
+    tri_2D[0] = Point2d(t.a[X], t.a[Y]);
+    tri_2D[1] = Point2d(t.b[X], t.b[Y]);
+    tri_2D[2] = Point2d(t.c[X], t.c[Y]);
+    seg_2D.first = Point2d(seg.first[X], seg.first[Y]);
+    seg_2D.second = Point2d(seg.second[X], seg.second[Y]);
   }
 
   // get the code
-  Vector2 isect_2D, isect2_2D;
+  Point2d isect_2D, isect2_2D;
   SegTriIntersectType code = intersect_seg_tri(seg_2D, tri_2D, isect_2D, isect2_2D, tol);
   if (code != eSegTriNoIntersect)
   {
     // determine the points of intersection in 3D
-    Real len_d2d = (seg_2D.second - seg_2D.first).norm();
-    Real t1 = (isect_2D - seg_2D.first).norm()/len_d2d;
-    Real t2 = (isect2_2D - seg_2D.first).norm()/len_d2d;
-    Vector3 d = seg.second - seg.first;
+    double len_d2d = (seg_2D.second - seg_2D.first).norm();
+    double t1 = (isect_2D - seg_2D.first).norm()/len_d2d;
+    double t2 = (isect2_2D - seg_2D.first).norm()/len_d2d;
+    Vector3d d = seg.second - seg.first;
     isect = seg.first + d*t1;
     isect2 = seg.first + d*t2;
   }
@@ -1450,56 +1450,56 @@ CompGeom::SegTriIntersectType CompGeom::intersect_seg_tri_in_plane(const LineSeg
  * \return <b>true</b> if the triangles intersect, <b>false</b> if they don't
  *         intersect or are coplanar
  */
-bool CompGeom::intersect_noncoplanar_tris(const Triangle& t1, const Triangle& t2, Vector3& p1, Vector3& p2)
+bool CompGeom::intersect_noncoplanar_tris(const Triangle& t1, const Triangle& t2, Point3d& p1, Point3d& p2)
 {
   // compute plane equation of t1 
-  Vector3 e1 = t1.b - t1.a;
-  Vector3 e2 = t1.c - t1.a;
-  Vector3 n1 = Vector3::cross(e1, e2);
-  Real d1 = -Vector3::dot(n1, t1.a);
+  Vector3d e1 = t1.b - t1.a;
+  Vector3d e2 = t1.c - t1.a;
+  Vector3d n1 = Vector3d::cross(e1, e2);
+  double d1 = -Vector3d::dot(n1, t1.a);
 
   // compute signed distances to plane of verts of second tri
-  Real du0 = Vector3::dot(n1, t2.a) + d1;
-  Real du1 = Vector3::dot(n1, t2.b) + d1;
-  Real du2 = Vector3::dot(n1, t2.c) + d1;
+  double du0 = Vector3d::dot(n1, t2.a) + d1;
+  double du1 = Vector3d::dot(n1, t2.b) + d1;
+  double du2 = Vector3d::dot(n1, t2.c) + d1;
 
   // coplanarity robustness check
   if (std::fabs(du0) < NEAR_ZERO) du0 = 0.0;
   if (std::fabs(du1) < NEAR_ZERO) du1 = 0.0;
   if (std::fabs(du2) < NEAR_ZERO) du2 = 0.0;
-  Real du0du1 = du0*du1;
-  Real du0du2 = du0*du2;
+  double du0du1 = du0*du1;
+  double du0du2 = du0*du2;
   if (du0du1 > 0.0 && du0du2 > 0.0)
     return false;
 
   // compute plane equation of t2 
   e1 = t2.b - t2.a;
   e2 = t2.c - t2.a;
-  Vector3 n2 = Vector3::cross(e1, e2);
-  Real d2 = -Vector3::dot(n2, t2.a);
+  Vector3d n2 = Vector3d::cross(e1, e2);
+  double d2 = -Vector3d::dot(n2, t2.a);
 
   // compute signed distances to plane of verts of first tri
-  Real dv0 = Vector3::dot(n2, t1.a) + d2;
-  Real dv1 = Vector3::dot(n2, t1.b) + d2;
-  Real dv2 = Vector3::dot(n2, t1.c) + d2;
+  double dv0 = Vector3d::dot(n2, t1.a) + d2;
+  double dv1 = Vector3d::dot(n2, t1.b) + d2;
+  double dv2 = Vector3d::dot(n2, t1.c) + d2;
 
   // coplanarity robustness check
   if (std::fabs(dv0) < NEAR_ZERO) dv0 = 0.0;
   if (std::fabs(dv1) < NEAR_ZERO) dv1 = 0.0;
   if (std::fabs(dv2) < NEAR_ZERO) dv2 = 0.0;
-  Real dv0dv1 = dv0*dv1;
-  Real dv0dv2 = dv0*dv2;
+  double dv0dv1 = dv0*dv1;
+  double dv0dv2 = dv0*dv2;
   if (dv0dv1 > 0.0 && dv0dv2 > 0.0)
     return false;
   
   // compute direction of intersection line
-  VectorN D = Vector3::cross(n1, n2);
+  Vector3d D = Vector3d::cross(n1, n2);
 
   // compute index to the largest component of D
-  Real mx = std::fabs(D[0]);
+  double mx = std::fabs(D[0]);
   unsigned index = 0;
-  Real b = std::fabs(D[1]);
-  Real c = std::fabs(D[2]);
+  double b = std::fabs(D[1]);
+  double c = std::fabs(D[2]);
   if (b > mx)
   {
     mx = b;
@@ -1512,23 +1512,23 @@ bool CompGeom::intersect_noncoplanar_tris(const Triangle& t1, const Triangle& t2
   }
 
   // this is the simplified projection onto L
-  Real vp0 = t1.a[index];
-  Real vp1 = t1.b[index];
-  Real vp2 = t1.c[index];
-  Real up0 = t2.a[index];
-  Real up1 = t2.b[index];
-  Real up2 = t2.c[index];
+  double vp0 = t1.a[index];
+  double vp1 = t1.b[index];
+  double vp2 = t1.c[index];
+  double up0 = t2.a[index];
+  double up1 = t2.b[index];
+  double up2 = t2.c[index];
 
   // compute interval for triangle 1
-  Vector3 isectpointA1, isectpointA2;
-  Vector2 isect1;
+  Point3d isectpointA1, isectpointA2;
+  Point2d isect1;
   if (!compute_intervals_isectline(t1, vp0, vp1, vp2, dv0, dv1, dv2, dv0dv1, dv0dv2, isect1[0], isect1[1], isectpointA1, isectpointA2))
     // triangles are coplanar
     return false;
 
   // compute interval for triangle 2
-  Vector3 isectpointB1, isectpointB2;
-  Vector2 isect2;
+  Point3d isectpointB1, isectpointB2;
+  Point2d isect2;
   if (!compute_intervals_isectline(t2, up0, up1, up2, du0, du1, du2, du0du1, du0du2, isect2[0], isect2[1], isectpointB1, isectpointB2))
     // triangles are coplanar
     return false;
@@ -1600,7 +1600,7 @@ bool CompGeom::intersect_noncoplanar_tris(const Triangle& t1, const Triangle& t2
 }
 
 /// Function for testing whether a point is in a triangle
-bool CompGeom::point_in_tri(const Vector3& p, const Triangle& t, Real tol)
+bool CompGeom::point_in_tri(const Point3d& p, const Triangle& t, double tol)
 {
   return (same_side(p, t.a, t.b, t.c, tol) &&
           same_side(p, t.b, t.a, t.c, tol) &&
@@ -1608,12 +1608,12 @@ bool CompGeom::point_in_tri(const Vector3& p, const Triangle& t, Real tol)
 }
 
 /// Utility function for testing whether a point is in a triangle
-bool CompGeom::same_side(const Vector3& p1, const Vector3& p2, const Vector3& a, const Vector3& b, Real tol)
+bool CompGeom::same_side(const Point3d& p1, const Point3d& p2, const Point3d& a, const Point3d& b, double tol)
 {
   assert(tol >= 0.0);
-  Vector3 cp1 = Vector3::cross(b-a, p1-a);
-  Vector3 cp2 = Vector3::cross(b-a, p2-a);
-  return (Vector3::dot(cp1,cp2) >= tol);
+  Vector3d cp1 = Vector3d::cross(b-a, p1-a);
+  Vector3d cp2 = Vector3d::cross(b-a, p2-a);
+  return (Vector3d::dot(cp1,cp2) >= tol);
 }  
 
 /**
@@ -1621,7 +1621,7 @@ bool CompGeom::same_side(const Vector3& p1, const Vector3& p2, const Vector3& a,
  * Adapted from ODE.
  * \return <b>true</b> normally, <b>false</b> if triangles are coplanar
  */
-bool CompGeom::compute_intervals_isectline(const Triangle& t, Real vv0, Real vv1, Real vv2, Real d0, Real d1, Real d2, Real d0d1, Real d0d2, Real& isect0, Real& isect1, Vector3& isectpoint0, Vector3& isectpoint1)
+bool CompGeom::compute_intervals_isectline(const Triangle& t, double vv0, double vv1, double vv2, double d0, double d1, double d2, double d0d1, double d0d2, double& isect0, double& isect1, Point3d& isectpoint0, Point3d& isectpoint1)
 {
   if (d0d1 > 0.0)
     // here we know that d0d2 <= 0.0; that is d0, d1 are on the same side,
@@ -1647,11 +1647,11 @@ bool CompGeom::compute_intervals_isectline(const Triangle& t, Real vv0, Real vv1
  * Utility function for use by intersect_coplanar_tris()
  * Adapted from ODE.
  */
-void CompGeom::isect2X(const Vector3& vtx0, const Vector3& vtx1, const Vector3& vtx2, Real vv0, Real vv1, Real vv2, Real d0, Real d1, Real d2, Real& isect0, Real& isect1, Vector3& isectpoint0, Vector3& isectpoint1)
+void CompGeom::isect2X(const Point3d& vtx0, const Point3d& vtx1, const Point3d& vtx2, double vv0, double vv1, double vv2, double d0, double d1, double d2, double& isect0, double& isect1, Point3d& isectpoint0, Point3d& isectpoint1)
 {
-  Real tmp = d0/(d0-d1);
+  double tmp = d0/(d0-d1);
   isect0 = vv0 + (vv1-vv0)*tmp;
-  Vector3 diff = (vtx1 - vtx0) * tmp;
+  Vector3d diff = (vtx1 - vtx0) * tmp;
   isectpoint0 = diff + vtx0;
   tmp = d0/(d0-d2);
   isect1 = vv0 + (vv2-vv0)*tmp;
@@ -1660,13 +1660,13 @@ void CompGeom::isect2X(const Vector3& vtx0, const Vector3& vtx1, const Vector3& 
 }
 
 /// Computes the projection matrix to convert from 3D to 2D
-Matrix3 CompGeom::calc_3D_to_2D_matrix(const Vector3& normal)
+Matrix3d CompGeom::calc_3D_to_2D_matrix(const Vector3d& normal)
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
-  Vector3 v1, v2;
-  Vector3::determine_orthonormal_basis(normal, v1, v2);
-  Matrix3 R;
+  Vector3d v1, v2;
+  Vector3d::determine_orthonormal_basis(normal, v1, v2);
+  Matrix3d R;
   R.set_row(X, v1);
   R.set_row(Y, v2);
   R.set_row(Z, normal);
@@ -1674,29 +1674,29 @@ Matrix3 CompGeom::calc_3D_to_2D_matrix(const Vector3& normal)
   return R;
 }
 
-/// Computes the offset in converting a 3D point to 2D
+/// Computes the offset in converting a 3D vector to 2D
 /**
- * \param point a point in 3D
+ * \param v a vector in 3D
  * \param R the 3D-to-2D projection matrix
- * \return the offset necessary to add to the Z-coordinate of a 3D point
+ * \return the offset necessary to add to the Z-coordinate of a 3D vector 
  *         converted from 2D using the transpose of R
  */
-Real CompGeom::determine_3D_to_2D_offset(const Vector3& point, const Matrix3& R)
+double CompGeom::determine_3D_to_2D_offset(const Vector3d& v, const Matrix3d& R)
 {
   const unsigned Z = 2;
-  return (R * point)[Z];
+  return (R * v)[Z];
 }
 
 /// Determines the location of a point on a triangle
 /**
  * \pre it has been determined that p lies in t's plane
  */
-CompGeom::PolygonLocationType CompGeom::in_tri(const Triangle& t, const Vector3& p, Real tol)
+CompGeom::PolygonLocationType CompGeom::in_tri(const Triangle& t, const Point3d& p, double tol)
 {
   // find the plane coefficients
   unsigned big_dim;
-  Real dot;
-  Vector3 N;
+  double dot;
+  Vector3d N;
   find_plane_coeff(t, N, big_dim, dot);
 
   // determine the intersection type
@@ -1744,22 +1744,22 @@ CompGeom::PolygonLocationType CompGeom::in_tri(const Triangle& t, const Vector3&
  *         relative interior of an edge of t, on_face if p is in the relative
  *         interior of a face of t, or outside_tri if p does not intersect t
  */
-CompGeom::PolygonLocationType CompGeom::in_tri(const Triangle& t, const Vector3& p, unsigned int skip_dim, Real tol)
+CompGeom::PolygonLocationType CompGeom::in_tri(const Triangle& t, const Point3d& p, unsigned int skip_dim, double tol)
 {
   const unsigned THREE_D = 3, TRI_PTS = 3;
-  Vector2 pp;
+  Point2d pp;
   Triangle tri_2D;
-  Vector2 Tp[TRI_PTS];
-  assert(tol >= (Real) 0.0);
+  Point2d Tp[TRI_PTS];
+  assert(tol >= (double) 0.0);
 
   // if the skipped dimension was not specified, find it
   if (skip_dim >= THREE_D);
   {
-    Vector3 N = normal_vec(t.a, t.b, t.c);
-    LongReal biggest = 0.0;
+    Vector3d N = normal_vec(t.a, t.b, t.c);
+    long double biggest = 0.0;
     for (unsigned i=0; i< THREE_D; i++)
     {
-      LongReal t = std::fabs(N[i]);
+      long double t = std::fabs(N[i]);
       if (t > biggest)
       {
         biggest = t;
@@ -1791,13 +1791,13 @@ CompGeom::PolygonLocationType CompGeom::in_tri(const Triangle& t, const Vector3&
  *         if p is in the relative interior of an edge of t, ePolygonInside if 
  *         p is in the relative interior of t, or ePolygonOutside otherwise
  */
-CompGeom::PolygonLocationType CompGeom::in_tri(const Vector2 t[3], const Vector2& p, Real tol)
+CompGeom::PolygonLocationType CompGeom::in_tri(const Point2d t[3], const Point2d& p, double tol)
 {
   assert(tol >= 0.0);
 
-  const Vector2& ta = t[0];
-  const Vector2& tb = t[1];
-  const Vector2& tc = t[2];
+  const Point2d& ta = t[0];
+  const Point2d& tb = t[1];
+  const Point2d& tc = t[2];
 
   // get the signed areas
   OrientationType ori0 = area_sign(p, ta, tb, tol);
@@ -1862,7 +1862,7 @@ CompGeom::PolygonLocationType CompGeom::in_tri(OrientationType ori0, Orientation
  * \param dot contains the dot-product of the normal vector and the first
  *        triangle vertex (on return)
  */
-void CompGeom::find_plane_coeff(const Triangle& t, Vector3& N, unsigned int& m, Real& dot)
+void CompGeom::find_plane_coeff(const Triangle& t, Vector3d& N, unsigned int& m, double& dot)
 {
   const unsigned int THREE_D = 3;
   N = t.calc_normal();
@@ -1882,11 +1882,11 @@ void CompGeom::find_plane_coeff(const Triangle& t, Vector3& N, unsigned int& m, 
 }
 
 /// Determines the cross-product of (b-a) and (c-a)
-Vector3 CompGeom::normal_vec(const Vector3& a, const Vector3& b, const Vector3& c)
+Vector3d CompGeom::normal_vec(const Point3d& a, const Point3d& b, const Point3d& c)
 {
   unsigned X = 0, Y = 1, Z = 2;
   
-  Vector3 N;
+  Vector3d N;
   N[X] = (c[Z] - a[Z]) * (b[Y] - a[Y]) - (b[Z] - a[Z]) * (c[Y] - a[Y]);
   N[Y] = (b[Z] - a[Z]) * (c[X] - a[X]) - (b[X] - a[X]) * (c[Z] - a[Z]);
   N[Z] = (b[X] - a[X]) * (c[Y] - a[Y]) - (b[Y] - a[Y]) * (c[X] - a[X]);
@@ -1895,13 +1895,13 @@ Vector3 CompGeom::normal_vec(const Vector3& a, const Vector3& b, const Vector3& 
 }
 
 /// Determines whether three points are collinear
-bool CompGeom::collinear(const Vector2& a, const Vector2& b, const Vector2& c, Real tol)
+bool CompGeom::collinear(const Point2d& a, const Point2d& b, const Point2d& c, double tol)
 {
   return area_sign(a, b, c, tol) == eOn;
 }
 
 /// Determines whether three points are collinear
-bool CompGeom::collinear(const Vector3& a, const Vector3& b, const Vector3& c, Real tol)
+bool CompGeom::collinear(const Point3d& a, const Point3d& b, const Point3d& c, double tol)
 {  
   const unsigned X = 0, Y = 1, Z = 2;
   assert(tol >= 0.0);
@@ -1912,19 +1912,19 @@ bool CompGeom::collinear(const Vector3& a, const Vector3& b, const Vector3& c, R
 }
 
 /// Gets the volume of a tetrahedron composed of vertices a, b, c, d
-LongReal CompGeom::volume(const Vector3& a, const Vector3& b, const Vector3& c, const Vector3& d)
+long double CompGeom::volume(const Point3d& a, const Point3d& b, const Point3d& c, const Point3d& d)
 {
   const unsigned X = 0, Y = 1, Z = 2;
   
-  LongReal ax = a[X] - d[X];
-  LongReal ay = a[Y] - d[Y];
-  LongReal az = a[Z] - d[Z];
-  LongReal bx = b[X] - d[X];
-  LongReal by = b[Y] - d[Y];
-  LongReal bz = b[Z] - d[Z];
-  LongReal cx = c[X] - d[X];
-  LongReal cy = c[Y] - d[Y];
-  LongReal cz = c[Z] - d[Z];
+  long double ax = a[X] - d[X];
+  long double ay = a[Y] - d[Y];
+  long double az = a[Z] - d[Z];
+  long double bx = b[X] - d[X];
+  long double by = b[Y] - d[Y];
+  long double bz = b[Z] - d[Z];
+  long double cx = c[X] - d[X];
+  long double cy = c[Y] - d[Y];
+  long double cz = c[Z] - d[Z];
   return ax * (by*cz-bz*cy) + ay * (bz*cx-bx*cz) + az * (bx*cy-by*cx);
 }
 
@@ -1933,11 +1933,11 @@ LongReal CompGeom::volume(const Vector3& a, const Vector3& b, const Vector3& c, 
  * \returns -1 if d is "visible" from the plane of (a,b,c); 0 if the a,b,c, and
  *          d are coplanar, and +1 otherwise
  */
-CompGeom::VisibilityType CompGeom::volume_sign(const Vector3& a, const Vector3& b, const Vector3& c, const Vector3& d, Real tol)
+CompGeom::VisibilityType CompGeom::volume_sign(const Point3d& a, const Point3d& b, const Point3d& c, const Point3d& d, double tol)
 {
   assert(tol >= 0.0);
 
-  LongReal v = volume(a, b, c, d);
+  long double v = volume(a, b, c, d);
   if (v < -tol)
     return eVisible;
   else if (v > tol)
@@ -1947,29 +1947,29 @@ CompGeom::VisibilityType CompGeom::volume_sign(const Vector3& a, const Vector3& 
 }
 
 /// Gets the area of two 2D vectors with respect to an arbitrary center
-LongReal CompGeom::area(const Vector2& a, const Vector2& b, const Vector2& c)
+long double CompGeom::area(const Point2d& a, const Point2d& b, const Point2d& c)
 {
   const unsigned X = 0, Y = 1;
-  LongReal a1 = (b[X] - a[X]) * (c[Y] - a[Y]);
-  LongReal a2 = (c[X] - a[X]) * (b[Y] - a[Y]);
+  long double a1 = (b[X] - a[X]) * (c[Y] - a[Y]);
+  long double a2 = (c[X] - a[X]) * (b[Y] - a[Y]);
   return a1 - a2;
 }
 
 /// Gets the sign of the area of two vectors with respect to an arbitrary center
-CompGeom::OrientationType CompGeom::area_sign(const Vector2& a, const Vector2& b, const Vector2& c, Real tol)
+CompGeom::OrientationType CompGeom::area_sign(const Point2d& a, const Point2d& b, const Point2d& c, double tol)
 {
   assert(tol >= 0.0);  
 
   const unsigned X = 0, Y = 1;
-  LongReal a1 = (b[X] - a[X]) * (c[Y] - a[Y]);
-  LongReal a2 = (c[X] - a[X]) * (b[Y] - a[Y]);
+  long double a1 = (b[X] - a[X]) * (c[Y] - a[Y]);
+  long double a2 = (c[X] - a[X]) * (b[Y] - a[Y]);
 
   // see whether a1 and a2 are relatively equal
 //  if (rel_equal(a1, a2, tol))
 //    return eOn;
 
   // get the area
-  Real x = a1 - a2;
+  double x = a1 - a2;
 
 if (x < tol && x > -tol)
   return eOn;
@@ -2001,11 +2001,11 @@ if (x < tol && x > -tol)
  *         intersection does not hold; true_intersect indicates that the 
  *         lines/rays/segments intersect at a single point.
  */
-CompGeom::LineLineIntersectType CompGeom::intersect_lines(const Vector2& o1, const Vector2& dir1, Real min1, Real max1, const Vector2& o2, const Vector2& dir2, Real min2, Real max2, Real& s, Real& t)
+CompGeom::LineLineIntersectType CompGeom::intersect_lines(const Point2d& o1, const Vector2d& dir1, double min1, double max1, const Point2d& o2, const Vector2d& dir2, double min2, double max2, double& s, double& t)
 {
   const int X = 0, Y = 1;
   LineLineIntersectType code = eLineLineNoIntersect;
-  const Real INF = std::numeric_limits<Real>::max();
+  const double INF = std::numeric_limits<double>::max();
   
   // make sure that line parameters are correct (NOTE: if we wish, we can
   // just swap the parameters)
@@ -2013,13 +2013,13 @@ CompGeom::LineLineIntersectType CompGeom::intersect_lines(const Vector2& o1, con
   assert(min2 <= max2);
 
   // get two points on the line/ray/segment
-  const Vector2& a = o1;
-  const Vector2 b = o1+dir1;
-  const Vector2& c = o2;
-  const Vector2 d = o2+dir2;
+  const Point2d& a = o1;
+  const Vector2d b = o1+dir1;
+  const Point2d& c = o2;
+  const Vector2d d = o2+dir2;
 
   // determine whether the lines/rays/segments are parallel  
-  LongReal denom = a[X] * (d[Y] - c[Y]) + b[X] * (c[Y] - d[Y]) + 
+  long double denom = a[X] * (d[Y] - c[Y]) + b[X] * (c[Y] - d[Y]) + 
           d[X] * (b[Y] - a[Y]) + c[X] * (a[Y] - b[Y]);
 
   // if the denominator is zero, the segments are parallel; handle separately
@@ -2047,7 +2047,7 @@ CompGeom::LineLineIntersectType CompGeom::intersect_lines(const Vector2& o1, con
   }
 
   // calculate the numerator
-  LongReal num = a[X] * (d[Y] - c[Y]) + c[X] * (a[Y] - d[Y]) + d[X] * (c[Y] - a[Y]);
+  long double num = a[X] * (d[Y] - c[Y]) + c[X] * (a[Y] - d[Y]) + d[X] * (c[Y] - a[Y]);
 
   // lines intersect; determine parameter of first line
   if (std::fabs(num) < NEAR_ZERO || std::fabs(num-denom) < NEAR_ZERO)
@@ -2083,18 +2083,18 @@ CompGeom::LineLineIntersectType CompGeom::intersect_lines(const Vector2& o1, con
  *         hold; true_intersect indicates that the segments intersect at a
  *         single point.
  */
-CompGeom::SegSegIntersectType CompGeom::intersect_segs(const LineSeg2& s1, const LineSeg2& s2, Vector2& isect, Vector2& isect2)
+CompGeom::SegSegIntersectType CompGeom::intersect_segs(const LineSeg2& s1, const LineSeg2& s2, Point2d& isect, Point2d& isect2)
 {
   const int X = 0, Y = 1;
   SegSegIntersectType code = eSegSegNoIntersect;
   
   // get the individual points 
-  const Vector2& a = s1.first;
-  const Vector2& b = s1.second;
-  const Vector2& c = s2.first;
-  const Vector2& d = s2.second;
+  const Point2d& a = s1.first;
+  const Point2d& b = s1.second;
+  const Point2d& c = s2.first;
+  const Point2d& d = s2.second;
   
-  LongReal denom = a[X] * (d[Y] - c[Y]) + b[X] * (c[Y] - d[Y]) + 
+  long double denom = a[X] * (d[Y] - c[Y]) + b[X] * (c[Y] - d[Y]) + 
           d[X] * (b[Y] - a[Y]) + c[X] * (a[Y] - b[Y]);
 
   // if the denominator is near, the segments are parallel; handle separately
@@ -2102,17 +2102,17 @@ CompGeom::SegSegIntersectType CompGeom::intersect_segs(const LineSeg2& s1, const
     return get_parallel_intersect_type(s1, s2, isect, isect2);
 
   // calculate the numerator
-  LongReal num = a[X] * (d[Y] - c[Y]) + c[X] * (a[Y] - d[Y]) + d[X] * (c[Y] - a[Y]);
+  long double num = a[X] * (d[Y] - c[Y]) + c[X] * (a[Y] - d[Y]) + d[X] * (c[Y] - a[Y]);
 
   if (std::fabs(num) < NEAR_ZERO || std::fabs(num-denom) < NEAR_ZERO)
     code = eSegSegVertex;
-  LongReal s = num / denom;
+  long double s = num / denom;
 
   num = -(a[X] * (c[Y] - b[Y]) + b[X] * (a[Y] - c[Y]) + c[X] * (b[Y] - a[Y]));
   if ((num < NEAR_ZERO && num > -NEAR_ZERO) || (std::fabs(num -denom) < NEAR_ZERO)) 
     code = eSegSegVertex;
   
-  LongReal t = num / denom;
+  long double t = num / denom;
   if ((0.0 < s) && (s < 1.0) && (0.0 < t) && (t < 1.0))
     code = eSegSegIntersect;
   else if ((0.0 > s) || (s > 1.0) || (0.0 > t) || (t > 1.0))
@@ -2128,13 +2128,13 @@ CompGeom::SegSegIntersectType CompGeom::intersect_segs(const LineSeg2& s1, const
 /**
  * Taken from O'Rourke, p. 263.
  */
-CompGeom::SegSegIntersectType CompGeom::get_parallel_intersect_type(const LineSeg2& s1, const LineSeg2& s2, Vector2& isect, Vector2& isect2)
+CompGeom::SegSegIntersectType CompGeom::get_parallel_intersect_type(const LineSeg2& s1, const LineSeg2& s2, Point2d& isect, Point2d& isect2)
 {
   // get the individual points 
-  const Vector2& a = s1.first;
-  const Vector2& b = s1.second;
-  const Vector2& c = s2.first;
-  const Vector2& d = s2.second;
+  const Point2d& a = s1.first;
+  const Point2d& b = s1.second;
+  const Point2d& c = s2.first;
+  const Point2d& d = s2.second;
   
   // check for collinearity
   if (area_sign(a,b,c) == eRight)
@@ -2186,7 +2186,7 @@ CompGeom::SegSegIntersectType CompGeom::get_parallel_intersect_type(const LineSe
 }
 
 /// Utility function used by get_parallel_intersect_type() and triangulate_polygon_2D()
-bool CompGeom::between(const Vector2& a, const Vector2& b, const Vector2& c, Real tol)
+bool CompGeom::between(const Point2d& a, const Point2d& b, const Point2d& c, double tol)
 {
   const int X = 0, Y = 1;
   assert(tol >= 0.0);
@@ -2206,81 +2206,81 @@ bool CompGeom::between(const Vector2& a, const Vector2& b, const Vector2& c, Rea
  * \param RT the matrix that projects 2D points to 3D
  * \param offset the last dimension of the 3D point is set to this value
  */
-Vector3 CompGeom::to_3D(const Vector2& v, const Matrix3& RT, Real offset)
+Point3d CompGeom::to_3D(const Point2d& p, const Matrix3d& RT, double offset)
 {
   const unsigned X = 0, Y = 1;
 
   // transform the vector
-  return RT * Vector3(v[X], v[Y], offset);
+  return RT * Point3d(p[X], p[Y], offset);
 }
 
-/// Converts a 2D vector to a 3D vector
+/// Converts a 2D point to a 3D point 
 /**
- * \param v the vector to transform
+ * \param p the point to transform
  * \param RT the matrix that projects 2D points to 3D
  * \param offset the last dimension of the 3D point is set to this value
  */
-Vector3 CompGeom::to_3D(const Vector2& v, const Matrix3& RT)
+Point3d CompGeom::to_3D(const Point2d& p, const Matrix3d& RT)
 {
   const unsigned X = 0, Y = 1;
 
   // get elements of RT
-  const Real rxx = RT.begin()[0];
-  const Real rxy = RT.begin()[3];
-  const Real ryx = RT.begin()[1];
-  const Real ryy = RT.begin()[4];
-  const Real rzx = RT.begin()[2];
-  const Real rzy = RT.begin()[5];
+  const double rxx = RT.xx();
+  const double rxy = RT.xy();
+  const double ryx = RT.yx();
+  const double ryy = RT.yy();
+  const double rzx = RT.zx();
+  const double rzy = RT.zy();
   
-  // get elements of v
-  const Real vx = v[X];
-  const Real vy = v[Y];
+  // get elements of p
+  const double vx = p[X];
+  const double vy = p[Y];
 
-  // transform the vector
-  return Vector3(rxx*vx + rxy*vy, ryx*vx + ryy*vy, rzx*vx + rzy*vy);
+  // transform the point 
+  return Point3d(rxx*vx + rxy*vy, ryx*vx + ryy*vy, rzx*vx + rzy*vy);
 }
 
-/// Converts a 3D vector to a 2D vector
+/// Converts a 3D point to a 2D point 
 /**
- * \param v the vector to transform
+ * \param p the point to transform
  * \param R the matrix that projects 3D points to 2D
  * \note the last dimension is stripped
  */
-Vector2 CompGeom::to_2D(const Vector3& v, const Matrix3& R)
+Point2d CompGeom::to_2D(const Point3d& p, const Matrix3d& R)
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
   // get elements of R
-  const Real rxx = R.begin()[0];
-  const Real rxy = R.begin()[3];
-  const Real rxz = R.begin()[6];
-  const Real ryx = R.begin()[1];
-  const Real ryy = R.begin()[4];
-  const Real ryz = R.begin()[7];
+  const double rxx = R.xx();
+  const double rxy = R.xy();
+  const double rxz = R.xz();
+  const double ryx = R.yx();
+  const double ryy = R.yy();
+  const double ryz = R.yz();
   
-  // get elements of v
-  const Real vx = v[X];
-  const Real vy = v[Y];
-  const Real vz = v[Z];
+  // get elements of p
+  const double vx = p[X];
+  const double vy = p[Y];
+  const double vz = p[Z];
 
   // transform the vector without the last row
-  return Vector2(rxx*vx + rxy*vy + rxz*vz, ryx*vx + ryy*vy + ryz*vz);
+  return Point2d(rxx*vx + rxy*vy + rxz*vz, ryx*vx + ryy*vy + ryz*vz);
 }
 
 /**
  * Utility function for intersect_tri_tri()
  */
-bool CompGeom::test_edge_edge(const Vector3& p, const Vector3& a, const Vector3& b, Real Ax, Real Ay, unsigned i0, unsigned i1)
+bool CompGeom::test_edge_edge(const Point3d& p, const Point3d& a, const Point3d& b, double Ax, double Ay, unsigned i0, unsigned i1)
 {
-  Real Bx = a[i0] - b[i0];
-  Real By = a[i1] - b[i1];
-  Real Cx = p[i0] - a[i0];
-  Real Cy = p[i1] - a[i1];
-  Real f = Ay*Bx - Ax*By;
-  Real d = By*Cx - Bx*Cy;
+  double Bx = a[i0] - b[i0];
+  double By = a[i1] - b[i1];
+  double Cx = p[i0] - a[i0];
+  double Cy = p[i1] - a[i1];
+  double f = Ay*Bx - Ax*By;
+  double d = By*Cx - Bx*Cy;
   if ((f > 0 && d >= 0 && d <= f) || (f < 0 && d <= 0 && d >= f))
   {
-    Real e = Ax*Cy-Ay*Cx;
+    double e = Ax*Cy-Ay*Cx;
     if (f > 0)
     {
       if (e >= 0 && e <= f)
@@ -2296,10 +2296,10 @@ bool CompGeom::test_edge_edge(const Vector3& p, const Vector3& a, const Vector3&
 /**
  * Utility function for intersect_tri_tri()
  */
-bool CompGeom::test_edge_tri(const Vector3& a, const Vector3& b, const Triangle& t, unsigned i0, unsigned i1)
+bool CompGeom::test_edge_tri(const Point3d& a, const Point3d& b, const Triangle& t, unsigned i0, unsigned i1)
 {
-  Real Ax = b[i0] - a[i0];
-  Real Ay = b[i1] - a[i1];
+  double Ax = b[i0] - a[i0];
+  double Ay = b[i1] - a[i1];
   if (test_edge_edge(a, t.a, t.b, Ax, Ay, i0, i1))
     return true;
   if (test_edge_edge(a, t.b, t.c, Ax, Ay, i0, i1))
@@ -2313,22 +2313,22 @@ bool CompGeom::test_edge_tri(const Vector3& a, const Vector3& b, const Triangle&
 /**
  * Utility function for intersect_tri_tri()
  */
-bool CompGeom::test_point_in_tri(const Vector3& p, const Triangle& t, unsigned i0, unsigned i1)
+bool CompGeom::test_point_in_tri(const Point3d& p, const Triangle& t, unsigned i0, unsigned i1)
 {
-  Real a = t.b[i1] - t.a[i1];
-  Real b = -(t.b[i0] - t.a[i0]);
-  Real c = -a*t.a[i0] - b*t.a[i1];
-  Real d0 = a*p[i0] + b*p[i1]+c;
+  double a = t.b[i1] - t.a[i1];
+  double b = -(t.b[i0] - t.a[i0]);
+  double c = -a*t.a[i0] - b*t.a[i1];
+  double d0 = a*p[i0] + b*p[i1]+c;
 
   a=t.c[i1]-t.b[i1];
   b=-(t.c[i0]-t.b[i0]);
   c=-a*t.b[i0]-b*t.b[i1];
-  Real d1=a*p[i0]+b*p[i1]+c;
+  double d1=a*p[i0]+b*p[i1]+c;
 
   a=t.a[i1]-t.c[i1];
   b=-(t.a[i0]-t.c[i0]);
   c=-a*t.c[i0]-b*t.c[i1];
-  Real d2=a*p[i0]+b*p[i1]+c;
+  double d2=a*p[i0]+b*p[i1]+c;
 
   if(d0*d1 > 0.0 && d0*d2 > 0.0) 
     return true;
@@ -2340,10 +2340,10 @@ bool CompGeom::test_point_in_tri(const Vector3& p, const Triangle& t, unsigned i
 /**
  * Utility function for query_intersect_tri_tri()
  */
-bool CompGeom::test_coplanar_tri_tri(const Vector3& N, const Triangle& t1, const Triangle& t2)
+bool CompGeom::test_coplanar_tri_tri(const Vector3d& N, const Triangle& t1, const Triangle& t2)
 {
   const unsigned X = 0, Y = 1, Z = 2;
-  Vector3 A;
+  Vector3d A;
   unsigned i0,i1;
 
   /* first project onto an axis-aligned plane, that maximizes the area */
@@ -2404,27 +2404,27 @@ bool CompGeom::test_coplanar_tri_tri(const Vector3& N, const Triangle& t1, const
 /*
 bool CompGeom::query_intersect_tri_tri(const Triangle& t1, const Triangle& t2)
 {
-  Real a, b, c, d, e, f, x0, x1, y0, y1;
-  Real isect1[2], isect2[2];
+  double a, b, c, d, e, f, x0, x1, y0, y1;
+  double isect1[2], isect2[2];
 
   // compute plane equation of triangle(*t1.a,*t1.b,*t1.c)
   Vector3 E1 = t1.b - t1.a;
   Vector3 E2 = t1.c - t1.a;
   Vector3 N1 = Vector3::cross(E1, E2);
-  Real d1=-Vector3::dot(N1,t1.a);
+  double d1=-Vector3::dot(N1,t1.a);
   // plane equation 1: N1.X+d1=0
 
   // put *t2.a,*t2.b,*t2.c into plane equation 1 to compute signed distances to the plane
-  Real du0=Vector3::dot(N1,t2.a)+d1;
-  Real du1=Vector3::dot(N1,t2.b)+d1;
-  Real du2=Vector3::dot(N1,t2.c)+d1;
+  double du0=Vector3::dot(N1,t2.a)+d1;
+  double du1=Vector3::dot(N1,t2.b)+d1;
+  double du2=Vector3::dot(N1,t2.c)+d1;
 
   // coplanarity robustness check 
   if (std::fabs(du0) < NEAR_ZERO) du0=0.0;
   if (std::fabs(du1) < NEAR_ZERO) du1=0.0;
   if (std::fabs(du2) < NEAR_ZERO) du2=0.0;
-  Real du0du1=du0*du1;
-  Real du0du2=du0*du2;
+  double du0du1=du0*du1;
+  double du0du2=du0*du2;
 
   // same sign on all of them + not equal 0 ? 
   if (du0du1 > 0.0 && du0du2 > 0.0) 
@@ -2434,20 +2434,20 @@ bool CompGeom::query_intersect_tri_tri(const Triangle& t1, const Triangle& t2)
   E1 = t2.b - t2.a;
   E2 = t2.c - t2.a;
   Vector3 N2 = Vector3::cross(E1, E2);
-  Real d2=-Vector3::dot(N2,t2.a);
+  double d2=-Vector3::dot(N2,t2.a);
   // plane equation 2: N2.X+d2=0 
 
   // put *t1.a,*t1.b,*t1.c into plane equation 2 
-  Real dv0 = Vector3::dot(N2,t1.a)+d2;
-  Real dv1 = Vector3::dot(N2,t1.b)+d2;
-  Real dv2 = Vector3::dot(N2,t1.c)+d2;
+  double dv0 = Vector3::dot(N2,t1.a)+d2;
+  double dv1 = Vector3::dot(N2,t1.b)+d2;
+  double dv2 = Vector3::dot(N2,t1.c)+d2;
 
   if (std::fabs(dv0) < NEAR_ZERO) dv0=0.0;
   if (std::fabs(dv1) < NEAR_ZERO) dv1=0.0;
   if (std::fabs(dv2) < NEAR_ZERO) dv2=0.0;
 
-  Real dv0dv1=dv0*dv1;
-  Real dv0dv2=dv0*dv2;
+  double dv0dv1=dv0*dv1;
+  double dv0dv2=dv0*dv2;
   
   // same sign on all of them + not equal 0 ? 
   if (dv0dv1 > 0.0 && dv0dv2 > 0.0) 
@@ -2457,21 +2457,21 @@ bool CompGeom::query_intersect_tri_tri(const Triangle& t1, const Triangle& t2)
   Vector3 D = Vector3::cross(N1,N2);
 
   // compute and index to the largest component of D 
-  Real max=std::fabs(D[0]);
+  double max=std::fabs(D[0]);
   unsigned index=0;
-  Real bb=std::fabs(D[1]);
-  Real cc=std::fabs(D[2]);
+  double bb=std::fabs(D[1]);
+  double cc=std::fabs(D[2]);
   if (bb>max) max=bb,index=1;
   if (cc>max) max=cc,index=2;
 
   // this is the simplified projection onto L
-  Real vp0=t1.a[index];
-  Real vp1=t1.b[index];
-  Real vp2=t1.c[index];
+  double vp0=t1.a[index];
+  double vp1=t1.b[index];
+  double vp2=t1.c[index];
 
-  Real up0=t2.a[index];
-  Real up1=t2.b[index];
-  Real up2=t2.c[index];
+  double up0=t2.a[index];
+  double up1=t2.b[index];
+  double up2=t2.c[index];
 
   // compute interval for triangle 1 
   if (dv0dv1 > 0.0)
@@ -2575,11 +2575,11 @@ bool CompGeom::query_intersect_tri_tri(const Triangle& t1, const Triangle& t2)
     return test_coplanar_tri_tri(N1,t1,t2); 
   }
 
-  Real xx=x0*x1;
-  Real yy=y0*y1;
-  Real xxyy=xx*yy;
+  double xx=x0*x1;
+  double yy=y0*y1;
+  double xxyy=xx*yy;
 
-  Real tmp=a*xxyy;
+  double tmp=a*xxyy;
   isect1[0]=tmp+b*x1*yy;
   isect1[1]=tmp+c*x0*yy;
 
@@ -2599,11 +2599,11 @@ bool CompGeom::query_intersect_tri_tri(const Triangle& t1, const Triangle& t2)
 */
 
 /// Utility method for separating axis test version of query_intersect_tri_tri()
-void CompGeom::project_onto_axis(const Triangle& rkTri, const Vector3& rkAxis, Real& rfMin, Real& rfMax)
+void CompGeom::project_onto_axis(const Triangle& rkTri, const Vector3d& rkAxis, double& rfMin, double& rfMax)
 {
-  Real fdot0 = rkAxis.dot(rkTri.a);
-  Real fdot1 = rkAxis.dot(rkTri.b);
-  Real fdot2 = rkAxis.dot(rkTri.c);
+  double fdot0 = rkAxis.dot(rkTri.a);
+  double fdot1 = rkAxis.dot(rkTri.b);
+  double fdot2 = rkAxis.dot(rkTri.c);
   rfMin = fdot0;
   rfMax = rfMin;
 
@@ -2626,7 +2626,7 @@ void CompGeom::project_onto_axis(const Triangle& rkTri, const Vector3& rkAxis, R
 bool CompGeom::query_intersect_tri_tri(const Triangle& t0, const Triangle& t1)
 {
   // get edge vectors for triangle0
-  Vector3 akE0[3] =
+  Vector3d akE0[3] =
   {
     t0.b - t0.a,
     t0.c - t0.b,
@@ -2634,18 +2634,18 @@ bool CompGeom::query_intersect_tri_tri(const Triangle& t0, const Triangle& t1)
   };
 
   // get normal vector of triangle0
-  Vector3 kN0 = Vector3::cross(akE0[0], akE0[1]);
-  kN0.normalize_or_zero();
+  Vector3d kN0 = Vector3d::cross(akE0[0], akE0[1]);
+  normalize_or_zero(kN0);
 
   // project triangle1 onto normal line of triangle0, test for separation
-  Real fN0dT0V0 = kN0.dot(t0.a);
-  Real fMin1, fMax1;
+  double fN0dT0V0 = kN0.dot(t0.a);
+  double fMin1, fMax1;
   project_onto_axis(t1,kN0,fMin1,fMax1);
   if (fN0dT0V0 < fMin1 || fN0dT0V0 > fMax1)
     return false;
 
   // get edge vectors for triangle1
-  Vector3 akE1[3] =
+  Vector3d akE1[3] =
   {
     t1.b - t1.a,
     t1.c - t1.b,
@@ -2653,22 +2653,22 @@ bool CompGeom::query_intersect_tri_tri(const Triangle& t0, const Triangle& t1)
   };
 
   // get normal vector of triangle1
-  Vector3 kN1 = Vector3::cross(akE1[0], akE1[1]);
-  kN1.normalize_or_zero();
+  Vector3d kN1 = Vector3d::cross(akE1[0], akE1[1]);
+  normalize_or_zero(kN1);
 
-  Vector3 kDir;
-  Real fMin0, fMax0;
+  Vector3d kDir;
+  double fMin0, fMax0;
   int i0, i1;
 
-  Vector3 kN0xN1 = Vector3::cross(kN0, kN1);
-  kN0xN1.normalize_or_zero();
+  Vector3d kN0xN1 = Vector3d::cross(kN0, kN1);
+  normalize_or_zero(kN0xN1);
   if (kN0xN1.dot(kN0xN1) >= NEAR_ZERO)
   {
     // triangles are not parallel
 
     // Project triangle0 onto normal line of triangle1, test for
     // separation.
-    Real fN1dT1V0 = kN1.dot(t1.a);
+    double fN1dT1V0 = kN1.dot(t1.a);
     project_onto_axis(t0,kN1,fMin0,fMax0);
     if (fN1dT1V0 < fMin0 || fN1dT1V0 > fMax0)
       return false;
@@ -2678,8 +2678,8 @@ bool CompGeom::query_intersect_tri_tri(const Triangle& t0, const Triangle& t1)
     {
       for (i0 = 0; i0 < 3; i0++)
       {
-        kDir = Vector3::cross(akE0[i0], akE1[i1]);
-        kDir.normalize_or_zero();
+        kDir = Vector3d::cross(akE0[i0], akE1[i1]);
+        normalize_or_zero(kDir);
         project_onto_axis(t0,kDir,fMin0,fMax0);
         project_onto_axis(t1,kDir,fMin1,fMax1);
         if (fMax0 < fMin1 || fMax1 < fMin0)
@@ -2692,8 +2692,8 @@ bool CompGeom::query_intersect_tri_tri(const Triangle& t0, const Triangle& t1)
     // directions N0xE0[i0]
     for (i0 = 0; i0 < 3; i0++)
     {
-      kDir = Vector3::cross(kN0, akE0[i0]);
-      kDir.normalize_or_zero();
+      kDir = Vector3d::cross(kN0, akE0[i0]);
+      normalize_or_zero(kDir);
       project_onto_axis(t0,kDir,fMin0,fMax0);
       project_onto_axis(t1,kDir,fMin1,fMax1);
       if (fMax0 < fMin1 || fMax1 < fMin0)
@@ -2703,7 +2703,7 @@ bool CompGeom::query_intersect_tri_tri(const Triangle& t0, const Triangle& t1)
     // directions N1xE1[i1]
     for (i1 = 0; i1 < 3; i1++)
     {
-      kDir = Vector3::cross(kN1, akE1[i1]);
+      kDir = Vector3d::cross(kN1, akE1[i1]);
       project_onto_axis(t0,kDir,fMin0,fMax0);
       project_onto_axis(t1,kDir,fMin1,fMax1);
       if (fMax0 < fMin1 || fMax1 < fMin0)
@@ -2714,27 +2714,37 @@ bool CompGeom::query_intersect_tri_tri(const Triangle& t0, const Triangle& t1)
   return true;
 }
 
+/// Normalizes a vector or sets it to zero
+void CompGeom::normalize_or_zero(Vector3d& v)
+{
+  double nrm = v.norm();
+  if (nrm < NEAR_ZERO)
+    v.set_zero();
+  else
+    v /= nrm;
+}
+
 /// Utility method for intersect_tris_2D()
 /**
  * Method adapted from www.geometrictools.com
  */
-void CompGeom::clip_convex_polygon_against_line(const Vector2& rkN, Real fC, unsigned& ri, Vector2 akV[6])
+void CompGeom::clip_convex_polygon_against_line(const Vector2d& rkN, double fC, unsigned& ri, Point2d akV[6])
 {
   // input vertices assumed to be ccw
 
   // test on which side of line the vertices are
   int iPositive = 0, iNegative = 0, iPIndex = -1;
-  Real afTest[6];
+  double afTest[6];
   for (unsigned i=0; i< ri; i++)
   {
     afTest[i] = rkN.dot(akV[i]) - fC;
-    if (afTest[i] > (Real) 0.0)
+    if (afTest[i] > (double) 0.0)
     {
       iPositive++;
       if (iPIndex < 0)
         iPIndex = (unsigned) i;
     }
-    else if (afTest[i] < (Real) 0.0)
+    else if (afTest[i] < (double) 0.0)
      iNegative++;
   }
 
@@ -2743,10 +2753,10 @@ void CompGeom::clip_convex_polygon_against_line(const Vector2& rkN, Real fC, uns
     if (iNegative > 0)
     {
       // line transversely intersects polygon
-      Vector2 akCV[6];
+      Vector2d akCV[6];
       unsigned iCQuantity = 0;
       int iCur, iPrv;
-      Real fT;
+      double fT;
 
       if (iPIndex > 0)
       {
@@ -2757,7 +2767,7 @@ void CompGeom::clip_convex_polygon_against_line(const Vector2& rkN, Real fC, uns
         akCV[iCQuantity++] = akV[iCur]+fT*(akV[iPrv]-akV[iCur]);
 
         // vertices on positive side of line
-        while (iCur < (int) ri && afTest[iCur] > (Real) 0.0)
+        while (iCur < (int) ri && afTest[iCur] > (double) 0.0)
           akCV[iCQuantity++] = akV[iCur++];
 
         // last clip vertex on line
@@ -2775,7 +2785,7 @@ void CompGeom::clip_convex_polygon_against_line(const Vector2& rkN, Real fC, uns
       {
         // vertices on positive side of line
         iCur = 0;
-        while (iCur < (int) ri && afTest[iCur] > (Real) 0.0)
+        while (iCur < (int) ri && afTest[iCur] > (double) 0.0)
           akCV[iCQuantity++] = akV[iCur++];
 
         // last clip vertex on line
@@ -2784,7 +2794,7 @@ void CompGeom::clip_convex_polygon_against_line(const Vector2& rkN, Real fC, uns
         akCV[iCQuantity++] = akV[iCur]+fT*(akV[iPrv]-akV[iCur]);
 
         // skip vertices on negative side
-        while (iCur < (int) ri && afTest[iCur] <= (Real) 0.0)
+        while (iCur < (int) ri && afTest[iCur] <= (double) 0.0)
           iCur++;
 
         // first clip vertex on line
@@ -2795,7 +2805,7 @@ void CompGeom::clip_convex_polygon_against_line(const Vector2& rkN, Real fC, uns
           akCV[iCQuantity++] = akV[iCur]+fT*(akV[iPrv]-akV[iCur]);
 
           // vertices on positive side of line
-          while (iCur < (int) ri && afTest[iCur] > (Real) 0.0)
+          while (iCur < (int) ri && afTest[iCur] > (double) 0.0)
             akCV[iCQuantity++] = akV[iCur++];
         }
         else

@@ -12,17 +12,13 @@
 namespace Moby {
 
 /// A class for performing 4th-order Runge-Kutta integration
-template <class T>
-class RungeKuttaIntegrator : public Integrator<T>
+class RungeKuttaIntegrator : public Integrator
 {
   public:
-    virtual void integrate(T& x, T& (*f)(const T&, Real, Real, void*, T&), Real& time, Real step_size, void* data);
+    virtual void integrate(Ravelin::VectorNd& x, Ravelin::VectorNd& (*f)(const Ravelin::VectorNd&, double, double, void*, Ravelin::VectorNd&), double& time, double step_size, void* data);
     virtual void load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const;
 }; // end class
-
-// include inline functions
-#include "RungeKuttaIntegrator.inl"
 
 }  // end namespace
 

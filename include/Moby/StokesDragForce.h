@@ -7,7 +7,6 @@
 #ifndef _STOKES_DRAG_FORCE_H
 #define _STOKES_DRAG_FORCE_H
 
-#include <Moby/Vector3.h>
 #include <Moby/RecurrentForce.h>
 
 namespace Moby {
@@ -22,7 +21,7 @@ class StokesDragForce : public RecurrentForce
     virtual void save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const;
 
     /// The drag coefficient 
-    Real b;
+    double b;
 }; // end class
 } // end namespace
 

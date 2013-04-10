@@ -25,7 +25,7 @@ ScrewJoint::ScrewJoint() : Joint()
   init_data();
 
   // set the pitch
-  _pitch = (Real) 1.0;
+  _pitch = (double) 1.0;
 
   // init the joint axes
   _u = ZEROS_3;
@@ -49,7 +49,7 @@ ScrewJoint::ScrewJoint(boost::weak_ptr<RigidBody> inboard, boost::weak_ptr<Rigid
   init_data();
 
   // set the pitch
-  _pitch = (Real) 1.0;
+  _pitch = (double) 1.0;
 
   // init the joint axes
   _u = ZEROS_3;
@@ -296,7 +296,7 @@ void ScrewJoint::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_ob
 
 /// Calculates the constraint Jacobian
 // TODO: implement this properly
-void ScrewJoint::calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsigned index, Real Cq[7])
+void ScrewJoint::calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsigned index, double Cq[7])
 {
   const unsigned X = 0, Y = 1, Z = 2, SPATIAL_DIM = 7;
 
@@ -305,14 +305,14 @@ void ScrewJoint::calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsigned 
   RigidBodyPtr outer = get_outboard_link();
 
   // make sure that _u (and by extension _ui, _uj, _v2) is set
-  if (_u.norm_sq() < std::numeric_limits<Real>::epsilon())
+  if (_u.norm_sq() < std::numeric_limits<double>::epsilon())
     throw std::runtime_error("Screw joint axis has not been set; set before calling dynamics functions.");
 
   // mke sure that body is one of the links
   if (inner != body && outer != body)
   {
     for (unsigned i=0; i< SPATIAL_DIM; i++)
-      Cq[i] = (Real) 0.0;
+      Cq[i] = (double) 0.0;
     return;
   }
 
@@ -321,35 +321,35 @@ void ScrewJoint::calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsigned 
   const Quat& q2 = outer->get_orientation();
   const Vector3& p1 = inner->get_outer_joint_data(outer).com_to_joint_vec;
   const Vector3& p2 = outer->get_inner_joint_data(inner).joint_to_com_vec_of;
-  const Real x1 = inner->get_position()[X];
-  const Real y1 = inner->get_position()[Y];
-  const Real z1 = inner->get_position()[Z];
-  const Real x2 = outer->get_position()[X];
-  const Real y2 = outer->get_position()[Y];
-  const Real z2 = outer->get_position()[Z];
-  const Real p1x = p1[X];
-  const Real p1y = p1[Y];
-  const Real p1z = p1[Z];
-  const Real p2x = -p2[X];
-  const Real p2y = -p2[Y];
-  const Real p2z = -p2[Z];
-  const Real qw1 = q1.w;
-  const Real qx1 = q1.x;
-  const Real qy1 = q1.y;
-  const Real qz1 = q1.z;
-  const Real qw2 = q2.w;
-  const Real qx2 = q2.x;
-  const Real qy2 = q2.y;
-  const Real qz2 = q2.z;
-  const Real uix = _ui[X];
-  const Real uiy = _ui[Y];
-  const Real uiz = _ui[Z];
-  const Real ujx = _uj[X];
-  const Real ujy = _uj[Y];
-  const Real ujz = _uj[Z];
-  const Real v2x = _v2[X];
-  const Real v2y = _v2[Y];
-  const Real v2z = _v2[Z];
+  const double x1 = inner->get_position()[X];
+  const double y1 = inner->get_position()[Y];
+  const double z1 = inner->get_position()[Z];
+  const double x2 = outer->get_position()[X];
+  const double y2 = outer->get_position()[Y];
+  const double z2 = outer->get_position()[Z];
+  const double p1x = p1[X];
+  const double p1y = p1[Y];
+  const double p1z = p1[Z];
+  const double p2x = -p2[X];
+  const double p2y = -p2[Y];
+  const double p2z = -p2[Z];
+  const double qw1 = q1.w;
+  const double qx1 = q1.x;
+  const double qy1 = q1.y;
+  const double qz1 = q1.z;
+  const double qw2 = q2.w;
+  const double qx2 = q2.x;
+  const double qy2 = q2.y;
+  const double qz2 = q2.z;
+  const double uix = _ui[X];
+  const double uiy = _ui[Y];
+  const double uiz = _ui[Z];
+  const double ujx = _uj[X];
+  const double ujy = _uj[Y];
+  const double ujz = _uj[Z];
+  const double v2x = _v2[X];
+  const double v2y = _v2[Y];
+  const double v2z = _v2[Z];
 
   // setup the constraint equations (from Shabana, p. 101), eq. 3.8 
   if (body == inner)
@@ -404,7 +404,7 @@ void ScrewJoint::calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsigned 
 
 /// Calculates the time derivative of the constraint Jacobian
 // TODO: implement this properly
-void ScrewJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, unsigned index, Real Cq[7])
+void ScrewJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, unsigned index, double Cq[7])
 {
   const unsigned X = 0, Y = 1, Z = 2, SPATIAL_DIM = 7;
 
@@ -413,14 +413,14 @@ void ScrewJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, unsig
   RigidBodyPtr outer = get_outboard_link();
 
   // make sure that _u (and by extension _ui, _uj, _v2) is set
-  if (_u.norm_sq() < std::numeric_limits<Real>::epsilon())
+  if (_u.norm_sq() < std::numeric_limits<double>::epsilon())
     throw std::runtime_error("Screw joint axis has not been set; set before calling dynamics functions.");
 
   // mke sure that body is one of the links
   if (inner != body && outer != body)
   {
     for (unsigned i=0; i< SPATIAL_DIM; i++)
-      Cq[i] = (Real) 0.0;
+      Cq[i] = (double) 0.0;
     return;
   }
 
@@ -431,49 +431,49 @@ void ScrewJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, unsig
   const Quat qd2 = Quat::deriv(q2, outer->get_avel());
   const Vector3& p1 = inner->get_outer_joint_data(outer).com_to_joint_vec;
   const Vector3& p2 = outer->get_inner_joint_data(inner).joint_to_com_vec_of;
-  const Real x1 = inner->get_position()[X];
-  const Real y1 = inner->get_position()[Y];
-  const Real z1 = inner->get_position()[Z];
-  const Real x2 = outer->get_position()[X];
-  const Real y2 = outer->get_position()[Y];
-  const Real z2 = outer->get_position()[Z];
-  const Real dx1 = inner->get_lvel()[X];
-  const Real dy1 = inner->get_lvel()[Y];
-  const Real dz1 = inner->get_lvel()[Z];
-  const Real dx2 = outer->get_lvel()[X];
-  const Real dy2 = outer->get_lvel()[Y];
-  const Real dz2 = outer->get_lvel()[Z];
-  const Real p1x = p1[X];
-  const Real p1y = p1[Y];
-  const Real p1z = p1[Z];
-  const Real p2x = -p2[X];
-  const Real p2y = -p2[Y];
-  const Real p2z = -p2[Z];
-  const Real qw1 = q1.w;
-  const Real qx1 = q1.x;
-  const Real qy1 = q1.y;
-  const Real qz1 = q1.z;
-  const Real qw2 = q2.w;
-  const Real qx2 = q2.x;
-  const Real qy2 = q2.y;
-  const Real qz2 = q2.z;
-  const Real dqw1 = qd1.w;
-  const Real dqx1 = qd1.x;
-  const Real dqy1 = qd1.y;
-  const Real dqz1 = qd1.z;
-  const Real dqw2 = qd2.w;
-  const Real dqx2 = qd2.x;
-  const Real dqy2 = qd2.y;
-  const Real dqz2 = qd2.z;
-  const Real uix = _ui[X];
-  const Real uiy = _ui[Y];
-  const Real uiz = _ui[Z];
-  const Real ujx = _uj[X];
-  const Real ujy = _uj[Y];
-  const Real ujz = _uj[Z];
-  const Real v2x = _v2[X];
-  const Real v2y = _v2[Y];
-  const Real v2z = _v2[Z];
+  const double x1 = inner->get_position()[X];
+  const double y1 = inner->get_position()[Y];
+  const double z1 = inner->get_position()[Z];
+  const double x2 = outer->get_position()[X];
+  const double y2 = outer->get_position()[Y];
+  const double z2 = outer->get_position()[Z];
+  const double dx1 = inner->get_lvel()[X];
+  const double dy1 = inner->get_lvel()[Y];
+  const double dz1 = inner->get_lvel()[Z];
+  const double dx2 = outer->get_lvel()[X];
+  const double dy2 = outer->get_lvel()[Y];
+  const double dz2 = outer->get_lvel()[Z];
+  const double p1x = p1[X];
+  const double p1y = p1[Y];
+  const double p1z = p1[Z];
+  const double p2x = -p2[X];
+  const double p2y = -p2[Y];
+  const double p2z = -p2[Z];
+  const double qw1 = q1.w;
+  const double qx1 = q1.x;
+  const double qy1 = q1.y;
+  const double qz1 = q1.z;
+  const double qw2 = q2.w;
+  const double qx2 = q2.x;
+  const double qy2 = q2.y;
+  const double qz2 = q2.z;
+  const double dqw1 = qd1.w;
+  const double dqx1 = qd1.x;
+  const double dqy1 = qd1.y;
+  const double dqz1 = qd1.z;
+  const double dqw2 = qd2.w;
+  const double dqx2 = qd2.x;
+  const double dqy2 = qd2.y;
+  const double dqz2 = qd2.z;
+  const double uix = _ui[X];
+  const double uiy = _ui[Y];
+  const double uiz = _ui[Z];
+  const double ujx = _uj[X];
+  const double ujy = _uj[Y];
+  const double ujz = _uj[Z];
+  const double v2x = _v2[X];
+  const double v2y = _v2[Y];
+  const double v2z = _v2[Z];
 
   // setup the constraint equations (from Shabana, p. 101), eq. 3.8 
   if (body == inner)
@@ -528,7 +528,7 @@ void ScrewJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, unsig
 
 /// Evaluates the constraint equations
 // TODO: implement this properly
-void ScrewJoint::evaluate_constraints(Real C[])
+void ScrewJoint::evaluate_constraints(double C[])
 {
   // get the two links
   RigidBodyPtr inner = get_inboard_link();

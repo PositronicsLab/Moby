@@ -14,7 +14,7 @@ C2ACCD::C2ACCD(InputIterator begin, InputIterator end)
 
 /// Intersects two BV leafs together and returns collision data (if any)
 template <class OutputIterator>
-OutputIterator C2ACCD::intersect_BV_leafs(BVPtr a, BVPtr b, const Matrix4& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b, OutputIterator output_begin) const
+OutputIterator C2ACCD::intersect_BV_leafs(BVPtr a, BVPtr b, const Ravelin::Pose3d& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b, OutputIterator output_begin) const
 {
   // NOTE: if we want to speed up this static collision check (slightly),
   // we could institute an object-level map from BV leafs to triangles
@@ -78,9 +78,9 @@ OutputIterator C2ACCD::intersect_BV_leafs(BVPtr a, BVPtr b, const Matrix4& aTb, 
  * \param tris the triangle mesh
  * \param fselect_begin iterator to a container of type unsigned (facet indices)
  * \param fselect_end iterator to a container of type unsigned (facet indices)
- * \param output beginning iterator to a container of type Vector3; unique
+ * \param output beginning iterator to a container of type Ravelin::Vector3; unique
  *        vertices are copied here on return
- * \return ending iterator to a container of type Vector3; unique vertices
+ * \return ending iterator to a container of type Ravelin::Vector3; unique vertices
  *         are copied here on return
  */
 template <class InputIterator, class OutputIterator>
@@ -104,7 +104,7 @@ OutputIterator C2ACCD::get_vertices(const IndexedTriArray& tris, InputIterator f
   std::list<unsigned>::const_iterator new_end = std::unique(verts.begin(), verts.end());
 
   // copy vertices to output
-  const std::vector<Vector3>& vertices = tris.get_vertices();
+  const std::vector<Ravelin::Point3d>& vertices = tris.get_vertices();
   for (std::list<unsigned>::const_iterator i = verts.begin(); i != new_end; i++)
     *output++ = vertices[*i];
 

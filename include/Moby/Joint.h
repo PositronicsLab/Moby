@@ -9,9 +9,9 @@
 
 #include <boost/weak_ptr.hpp>
 #include <boost/shared_ptr.hpp>
+#include <Ravelin/Pose3d.h>
+#include <Ravelin/MatrixNd.h>
 #include <Moby/Base.h>
-#include <Moby/Vector3.h>
-#include <Moby/SMatrix6N.h>
 #include <Moby/DynamicBody.h>
 #include <Moby/RigidBody.h>
 #include <Moby/Visualizable.h>
@@ -33,22 +33,21 @@ class Joint : public Visualizable
     Joint();
     Joint(boost::weak_ptr<RigidBody> inboard, boost::weak_ptr<RigidBody> outboard);
     virtual ~Joint() {}
-    void add_force(const VectorN& force);
+    void add_force(const Ravelin::VectorNd& force);
     void reset_force();    
-    virtual const SMatrix6N& get_spatial_axes(ReferenceFrameType type);
-    virtual const SMatrix6N& get_spatial_axes_complement();
+    virtual const std::vector<Ravelin::Twistd>& get_spatial_axes(ReferenceFrameType type);
+    virtual const std::vector<Ravelin::Twistd>& get_spatial_axes_complement();
     void reset_spatial_axis();
-    Vector3 get_position_global(bool use_outboard = false) const;
-    VectorN get_scaled_force() { VectorN f; return get_scaled_force(f); }
-    VectorN& get_scaled_force(VectorN& f);
+    Ravelin::Point3d get_position_global(bool use_outboard = false) const;
+    Ravelin::VectorNd& get_scaled_force(Ravelin::VectorNd& f);
     virtual void save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const;
     virtual void load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map);
     virtual void set_inboard_link(RigidBodyPtr link);
     virtual void set_outboard_link(RigidBodyPtr link);
     virtual void update_spatial_axes();
-    SMatrix6N& get_spatial_constraints(ReferenceFrameType rftype, SMatrix6N& s);
+    std::vector<Ravelin::Twistd>& get_spatial_constraints(ReferenceFrameType rftype, std::vector<Ravelin::Twistd>& s);
     ConstraintType get_constraint_type() const { return _constraint_type; }
-    void evaluate_constraints_dot(Real C[6]);
+    void evaluate_constraints_dot(double C[6]);
     virtual void determine_q_dot();
     void determine_q_tare();
 
@@ -78,7 +77,7 @@ class Joint : public Visualizable
      *        (on return)
      * \note only used by maximal-coordinate articulated bodies
      */
-    virtual void evaluate_constraints(Real C[]) = 0;
+    virtual void evaluate_constraints(double C[]) = 0;
 
     /// Computes the constraint Jacobian for this joint with respect to the given body
     /**
@@ -90,19 +89,19 @@ class Joint : public Visualizable
      * \param Cq a vector that contains the corresponding column of the
      *        constraint Jacobian on return
      */
-    void calc_constraint_jacobian(DynamicBody::GeneralizedCoordinateType gctype, RigidBodyPtr body, unsigned index, Real Cq[]) 
+    void calc_constraint_jacobian(DynamicBody::GeneralizedCoordinateType gctype, RigidBodyPtr body, unsigned index, double Cq[]) 
     {
       if (gctype == DynamicBody::eAxisAngle)
       {
         // compute the constraint Jacobian using rodrigues parameters
-        Real Cq2[7];
+        double Cq2[7];
         calc_constraint_jacobian_rodrigues(body, index, Cq2);
 
         // convert to axis-angle representation
         Cq[0] = Cq2[0];
         Cq[1] = Cq2[1];
         Cq[2] = Cq2[2];
-        Vector3 ang = body->get_orientation().G_mult(Cq2[3], Cq2[4], Cq2[5], Cq2[6]) * (Real) 0.5;
+        Ravelin::Vector3d ang = body->get_transform()->q.G_mult(Cq2[3], Cq2[4], Cq2[5], Cq2[6]) * (double) 0.5;
         Cq[3] = ang[0];
         Cq[4] = ang[1];
         Cq[5] = ang[2];
@@ -121,19 +120,19 @@ class Joint : public Visualizable
      * \param Cq a vector that contains the corresponding column of the
      *        constraint Jacobian on return
      */
-    void calc_constraint_jacobian_dot(DynamicBody::GeneralizedCoordinateType gctype, RigidBodyPtr body, unsigned index, Real Cq[]) 
+    void calc_constraint_jacobian_dot(DynamicBody::GeneralizedCoordinateType gctype, RigidBodyPtr body, unsigned index, double Cq[]) 
     {
       if (gctype == DynamicBody::eAxisAngle)
       {
         // compute the constraint Jacobian using rodrigues parameters
-        Real Cq2[7];
+        double Cq2[7];
         calc_constraint_jacobian_dot_rodrigues(body, index, Cq2);
 
         // convert to axis-angle representation
         Cq[0] = Cq2[0];
         Cq[1] = Cq2[1];
         Cq[2] = Cq2[2];
-        Vector3 ang = body->get_orientation().G_mult(Cq2[3], Cq2[4], Cq2[5], Cq2[6]);
+        Ravelin::Vector3d ang = body->get_transform()->q.G_mult(Cq2[3], Cq2[4], Cq2[5], Cq2[6]);
         Cq[3] = ang[0];
         Cq[4] = ang[1];
         Cq[5] = ang[2];
@@ -146,17 +145,17 @@ class Joint : public Visualizable
     /**
      * Only applicable for reduced-coordinate articulated bodies
      */
-    virtual const SMatrix6N& get_spatial_axes_dot(ReferenceFrameType type) = 0;
+    virtual const std::vector<Ravelin::Twistd>& get_spatial_axes_dot(ReferenceFrameType type) = 0;
 
     /// Abstract method to get the local transform for this joint
     /**
      * The local transform for the joint transforms the coordinate frame
      * attached to the joint center and aligned with the inner link frame.
      */
-    virtual const Matrix4& get_transform() = 0;
+    virtual boost::shared_ptr<const Ravelin::Pose3d> get_transform() = 0;
 
     /// Abstract method to determine the value of Q (joint position) from current transforms
-    virtual void determine_q(VectorN& q) = 0;
+    virtual void determine_q(Ravelin::VectorNd& q) = 0;
 
     /// Gets the number of degrees-of-freedom for this joint
     virtual unsigned num_dof() const = 0;
@@ -182,40 +181,40 @@ class Joint : public Visualizable
     void set_articulated_body(ArticulatedBodyPtr abody) { _abody = abody; }
 
     /// The lower joint limit 
-    VectorN lolimit;
+    Ravelin::VectorNd lolimit;
 
     /// The upper joint limit 
-    VectorN hilimit;
+    Ravelin::VectorNd hilimit;
 
     /// The maximum force that can be applied to each DOF of the joint
-    VectorN maxforce;
+    Ravelin::VectorNd maxforce;
 
     /// The position of this joint
-    VectorN q;
+    Ravelin::VectorNd q;
 
     /// The velocity of this joint
-    VectorN qd;
+    Ravelin::VectorNd qd;
 
     /// The acceleration of this joint
-    VectorN qdd;
+    Ravelin::VectorNd qdd;
 
     /// The coefficient of restitution applied when this joint reaches a limit
-    Real limit_restitution;
+    double limit_restitution;
 
     /// The coulomb friction coefficient for this joint
-    Real mu_fc;
+    double mu_fc;
 
     /// The viscous friction coefficient for this joint
-    Real mu_fv;
+    double mu_fv;
 
     /// The total friction applied to this joint (computed by forward dynamics / impulse application)
-    VectorN ff;
+    Ravelin::VectorNd ff;
 
     /// The actuator force (user/controller sets this)
-    VectorN force;
+    Ravelin::VectorNd force;
 
     /// Constraint forces calculated by forward dynamics
-    VectorN lambda;
+    Ravelin::VectorNd lambda;
 
     /// Gets the joint index (returns UINT_MAX if not set)
     unsigned get_index() const { return _joint_idx; }
@@ -255,7 +254,7 @@ class Joint : public Visualizable
      * \param Cq a vector that contains the corresponding column of the
      *        constraint Jacobian on return
      */
-    virtual void calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsigned index, Real Cq[]) = 0;
+    virtual void calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsigned index, double Cq[]) = 0;
  
      /// Computes the time derivative of the constraint Jacobian for this joint with respect to the given body in Rodrigues parameters
     /**
@@ -266,9 +265,9 @@ class Joint : public Visualizable
      * \param Cq a vector that contains the corresponding column of the
      *        constraint Jacobian on return
      */
-    virtual void calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, unsigned index, Real Cq[]) = 0;
+    virtual void calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, unsigned index, double Cq[]) = 0;
 
-    virtual const Matrix4* get_visualization_transform();
+    virtual boost::shared_ptr<const Ravelin::Pose3d> get_visualization_transform();
 
     /// Method for initializing all variables in the joint
     /**
@@ -282,21 +281,21 @@ class Joint : public Visualizable
      * Spatial axes are used in the dynamics equations for reduced-coordinate
      * articulated bodies only.
      */
-    SMatrix6N _si;
+    std::vector<Ravelin::Twistd> _si;
 
     /// The complement of the spatial axes (in joint position frame) for the joint
     /**
      * Spatial axes are used in the dynamic equations for reduced-coordinate
      * articulated bodies only.
      */
-    SMatrix6N _s_bar;
+    std::vector<Ravelin::Twistd> _s_bar;
 
     /// The spatial axes in global frame for the joint
     /**
      * Spatial axes are used in the dynamics equations for reduced-coordinate
      * articulated bodies only.
      */
-    SMatrix6N _s0;
+    std::vector<Ravelin::Twistd> _s0;
 
     /// The stored "tare" value for the initial joint configuration
     /**
@@ -305,18 +304,21 @@ class Joint : public Visualizable
      * so that- when the body's joints are set to the zero vector- the body
      * re-enters the initial configuration.
      */
-    VectorN _q_tare;
+    Ravelin::VectorNd _q_tare;
 
     /// Set whether _q_tare needs to be determined
     bool _determine_q_tare;
 
   private:
+    // working variables for calc_s_bar_from_si()
+    Ravelin::MatrixNd _ns;
+
     ConstraintType _constraint_type;
     unsigned _joint_idx;
     unsigned _coord_idx;
     unsigned _constraint_idx;
     bool _s0_valid;
-    Matrix4 _vtransform;
+    boost::shared_ptr<Ravelin::Pose3d> _vtransform;
     boost::weak_ptr<RigidBody> _inboard_link;
     boost::weak_ptr<RigidBody> _outboard_link;
     boost::weak_ptr<ArticulatedBody> _abody;

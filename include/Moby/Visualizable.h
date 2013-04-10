@@ -8,9 +8,9 @@
 #define _VISUALIZABLE_H
 
 #include <vector>
+#include <Ravelin/Pose3d.h>
 #include <Moby/Types.h>
 #include <Moby/Base.h>
-#include <Moby/Matrix4.h>
 #include <Moby/OSGGroupWrapper.h>
 
 namespace osg { 
@@ -44,7 +44,7 @@ class Visualizable : public virtual Base
   protected:
 
     /// Implementing classes must implement this method to get the transform for the object
-    virtual const Matrix4* get_visualization_transform() = 0;
+    virtual boost::shared_ptr<const Ravelin::Pose3d> get_visualization_transform() = 0;
 
     /// The underlying visualization data
     OSGGroupWrapperPtr _vizdata;

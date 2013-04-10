@@ -237,7 +237,7 @@ const SMatrix6N& RevoluteJoint::get_spatial_axes_dot(ReferenceFrameType rftype)
 }
 
 /// Computes the constraint Jacobian with respect to a body
-void RevoluteJoint::calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsigned index, Real Cq[7])
+void RevoluteJoint::calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsigned index, double Cq[7])
 {
   const unsigned X = 0, Y = 1, Z = 2, SPATIAL_DIM = 7;
 
@@ -246,14 +246,14 @@ void RevoluteJoint::calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsign
   RigidBodyPtr outer = get_outboard_link();
 
   // make sure that _u (and by extension _v2) is set
-  if (_u.norm_sq() < std::numeric_limits<Real>::epsilon())
+  if (_u.norm_sq() < std::numeric_limits<double>::epsilon())
     throw std::runtime_error("Revolute joint axis has not been set; set before calling dynamics functions.");
 
   // mke sure that body is one of the links
   if (inner != body && outer != body)
   {
     for (unsigned i=0; i< SPATIAL_DIM; i++)
-      Cq[i] = (Real) 0.0;
+      Cq[i] = (double) 0.0;
     return;
   }
 
@@ -262,29 +262,29 @@ void RevoluteJoint::calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsign
   const Quat& q2 = outer->get_orientation();
   const Vector3& p1 = inner->get_outer_joint_data(outer).com_to_joint_vec;
   const Vector3& p2 = outer->get_inner_joint_data(inner).joint_to_com_vec_of;
-  const Real p1x = p1[X];
-  const Real p1y = p1[Y];
-  const Real p1z = p1[Z];
-  const Real p2x = -p2[X];
-  const Real p2y = -p2[Y];
-  const Real p2z = -p2[Z];
-  const Real qw1 = q1.w;
-  const Real qx1 = q1.x;
-  const Real qy1 = q1.y;
-  const Real qz1 = q1.z;
-  const Real qw2 = q2.w;
-  const Real qx2 = q2.x;
-  const Real qy2 = q2.y;
-  const Real qz2 = q2.z;
-  const Real uix = _ui[X];
-  const Real uiy = _ui[Y];
-  const Real uiz = _ui[Z];
-  const Real ujx = _uj[X];
-  const Real ujy = _uj[Y];
-  const Real ujz = _uj[Z];
-  const Real v2x = _v2[X];
-  const Real v2y = _v2[Y];
-  const Real v2z = _v2[Z];
+  const double p1x = p1[X];
+  const double p1y = p1[Y];
+  const double p1z = p1[Z];
+  const double p2x = -p2[X];
+  const double p2y = -p2[Y];
+  const double p2z = -p2[Z];
+  const double qw1 = q1.w;
+  const double qx1 = q1.x;
+  const double qy1 = q1.y;
+  const double qz1 = q1.z;
+  const double qw2 = q2.w;
+  const double qx2 = q2.x;
+  const double qy2 = q2.y;
+  const double qz2 = q2.z;
+  const double uix = _ui[X];
+  const double uiy = _ui[Y];
+  const double uiz = _ui[Z];
+  const double ujx = _uj[X];
+  const double ujy = _uj[Y];
+  const double ujz = _uj[Z];
+  const double v2x = _v2[X];
+  const double v2y = _v2[Y];
+  const double v2z = _v2[Z];
 
   // setup the constraint equations (from Shabana, p. 436), eq. 7.176
   if (body == inner)
@@ -560,7 +560,7 @@ void RevoluteJoint::calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsign
 }
 
 /// Computes the time derivative of the constraint Jacobian with respect to a body
-void RevoluteJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, unsigned index, Real Cq[7])
+void RevoluteJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, unsigned index, double Cq[7])
 {
   const unsigned X = 0, Y = 1, Z = 2, SPATIAL_DIM = 7;
 
@@ -569,14 +569,14 @@ void RevoluteJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, un
   RigidBodyPtr outer = get_outboard_link();
 
   // make sure that _u (and by extension _v2) is set
-  if (_u.norm_sq() < std::numeric_limits<Real>::epsilon())
+  if (_u.norm_sq() < std::numeric_limits<double>::epsilon())
     throw std::runtime_error("Revolute joint axis has not been set; set before calling dynamics functions.");
 
   // mke sure that body is one of the links
   if (inner != body && outer != body)
   {
     for (unsigned i=0; i< SPATIAL_DIM; i++)
-      Cq[i] = (Real) 0.0;
+      Cq[i] = (double) 0.0;
     return;
   }
 
@@ -587,37 +587,37 @@ void RevoluteJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, un
   const Quat qd2 = Quat::deriv(q2, outer->get_avel());
   const Vector3& p1 = inner->get_outer_joint_data(outer).com_to_joint_vec;
   const Vector3& p2 = outer->get_inner_joint_data(inner).joint_to_com_vec_of;
-  const Real dqw1 = qd1.w;
-  const Real dqx1 = qd1.x;
-  const Real dqy1 = qd1.y;
-  const Real dqz1 = qd1.z;
-  const Real dqw2 = qd2.w;
-  const Real dqx2 = qd2.x;
-  const Real dqy2 = qd2.y;
-  const Real dqz2 = qd2.z;
-  const Real p1x = p1[X];
-  const Real p1y = p1[Y];
-  const Real p1z = p1[Z];
-  const Real p2x = -p2[X];
-  const Real p2y = -p2[Y];
-  const Real p2z = -p2[Z];
-  const Real qw1 = q1.w;
-  const Real qx1 = q1.x;
-  const Real qy1 = q1.y;
-  const Real qz1 = q1.z;
-  const Real qw2 = q2.w;
-  const Real qx2 = q2.x;
-  const Real qy2 = q2.y;
-  const Real qz2 = q2.z;
-  const Real uix = _ui[X];
-  const Real uiy = _ui[Y];
-  const Real uiz = _ui[Z];
-  const Real ujx = _uj[X];
-  const Real ujy = _uj[Y];
-  const Real ujz = _uj[Z];
-  const Real v2x = _v2[X];
-  const Real v2y = _v2[Y];
-  const Real v2z = _v2[Z];
+  const double dqw1 = qd1.w;
+  const double dqx1 = qd1.x;
+  const double dqy1 = qd1.y;
+  const double dqz1 = qd1.z;
+  const double dqw2 = qd2.w;
+  const double dqx2 = qd2.x;
+  const double dqy2 = qd2.y;
+  const double dqz2 = qd2.z;
+  const double p1x = p1[X];
+  const double p1y = p1[Y];
+  const double p1z = p1[Z];
+  const double p2x = -p2[X];
+  const double p2y = -p2[Y];
+  const double p2z = -p2[Z];
+  const double qw1 = q1.w;
+  const double qx1 = q1.x;
+  const double qy1 = q1.y;
+  const double qz1 = q1.z;
+  const double qw2 = q2.w;
+  const double qx2 = q2.x;
+  const double qy2 = q2.y;
+  const double qz2 = q2.z;
+  const double uix = _ui[X];
+  const double uiy = _ui[Y];
+  const double uiz = _ui[Z];
+  const double ujx = _uj[X];
+  const double ujy = _uj[Y];
+  const double ujz = _uj[Z];
+  const double v2x = _v2[X];
+  const double v2y = _v2[Y];
+  const double v2z = _v2[Z];
 
   // setup the constraint equations (from Shabana, p. 436), eq. 7.176
   if (body == inner)
@@ -625,9 +625,9 @@ void RevoluteJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, un
     switch (index)
     {
       case 0:
-        Cq[0] = (Real) 0.0;     
-        Cq[1] = (Real) 0.0;     
-        Cq[2] = (Real) 0.0;     
+        Cq[0] = (double) 0.0;     
+        Cq[1] = (double) 0.0;     
+        Cq[2] = (double) 0.0;     
         Cq[3] = 4*p1x*dqw1 + 2*p1z*dqy1 - 2*p1y*dqz1; 
         Cq[4] = 4*p1x*dqx1 + 2*p1y*dqy1 + 2*p1z*dqz1; 
         Cq[5] = 2*p1z*dqw1 + 2*p1y*dqx1; 
@@ -635,9 +635,9 @@ void RevoluteJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, un
         break;
 
       case 1:
-        Cq[0] = (Real) 0.0;     
-        Cq[1] = (Real) 0.0;     
-        Cq[2] = (Real) 0.0;     
+        Cq[0] = (double) 0.0;     
+        Cq[1] = (double) 0.0;     
+        Cq[2] = (double) 0.0;     
         Cq[3] = 4*p1y*dqw1 - 2*p1z*dqx1 + 2*p1x*dqz1; 
         Cq[4] = -2*p1z*dqw1 + 2*p1x*dqy1; 
         Cq[5] = 2*p1x*dqx1 + 4*p1y*dqy1 + 2*p1z*dqz1; 
@@ -645,9 +645,9 @@ void RevoluteJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, un
         break;
 
       case 2:
-        Cq[0] = (Real) 0.0;
-        Cq[1] = (Real) 0.0;
-        Cq[2] = (Real) 0.0;
+        Cq[0] = (double) 0.0;
+        Cq[1] = (double) 0.0;
+        Cq[2] = (double) 0.0;
         Cq[3] = 4*p1z*dqw1 + 2*p1y*dqx1 - 2*p1x*dqy1;
         Cq[4] = 2*p1y*dqw1 + 2*p1x*dqz1;
         Cq[5] = -2*p1x*dqw1 + 2*p1y*dqz1;
@@ -655,9 +655,9 @@ void RevoluteJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, un
         break;
 
       case 3:
-        Cq[0] = (Real) 0.0;
-        Cq[1] = (Real) 0.0;
-        Cq[2] = (Real) 0.0;
+        Cq[0] = (double) 0.0;
+        Cq[1] = (double) 0.0;
+        Cq[2] = (double) 0.0;
         Cq[3] = (4*qw1*uix - 2*qz1*uiy + 2*qy1*uiz)*
     ((4*dqw2*qw2 + 4*dqx2*qx2)*v2x + 
       2*(-(dqz2*qw2) + dqy2*qx2 + dqx2*qy2 - dqw2*qz2)*v2y + 
@@ -744,9 +744,9 @@ void RevoluteJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, un
         break;
  
       case 4:
-        Cq[0] = (Real) 0.0;
-        Cq[1] = (Real) 0.0;
-        Cq[2] = (Real) 0.0;
+        Cq[0] = (double) 0.0;
+        Cq[1] = (double) 0.0;
+        Cq[2] = (double) 0.0;
         Cq[3] = (4*qw1*ujx - 2*qz1*ujy + 2*qy1*ujz)*
     ((4*dqw2*qw2 + 4*dqx2*qx2)*v2x + 
       2*(-(dqz2*qw2) + dqy2*qx2 + dqx2*qy2 - dqw2*qz2)*v2y + 
@@ -841,9 +841,9 @@ void RevoluteJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, un
     switch (index)
     {
       case 0:
-        Cq[0] = (Real) 0.0;     
-        Cq[1] = (Real) 0.0;      
-        Cq[2] = (Real) 0.0;      
+        Cq[0] = (double) 0.0;     
+        Cq[1] = (double) 0.0;      
+        Cq[2] = (double) 0.0;      
         Cq[3] = -4*p2x*dqw2 - 2*p2z*dqy2 + 2*p2y*dqz2; 
         Cq[4] = -4*p2x*dqx2 - 2*p2y*dqy2 - 2*p2z*dqz2; 
         Cq[5] = -2*p2z*dqw2 - 2*p2y*dqx2; 
@@ -851,9 +851,9 @@ void RevoluteJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, un
         break;
 
       case 1:
-        Cq[0] = (Real) 0.0;      
-        Cq[1] = (Real) 0.0;     
-        Cq[2] = (Real) 0.0;      
+        Cq[0] = (double) 0.0;      
+        Cq[1] = (double) 0.0;     
+        Cq[2] = (double) 0.0;      
         Cq[3] = -4*p2y*dqw2 + 2*p2z*dqx2 - 2*p2x*dqz2; 
         Cq[4] = 2*p2z*dqw2 - 2*p2x*dqy2; 
         Cq[5] = -2*p2x*dqx2 - 4*p2y*dqy2 - 2*p2z*dqz2; 
@@ -861,9 +861,9 @@ void RevoluteJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, un
         break;
 
       case 2:
-        Cq[0] = (Real) 0.0;
-        Cq[1] = (Real) 0.0;
-        Cq[2] = (Real) 0.0;
+        Cq[0] = (double) 0.0;
+        Cq[1] = (double) 0.0;
+        Cq[2] = (double) 0.0;
         Cq[3] = -4*p2z*dqw2 - 2*p2y*dqx2 + 2*p2x*dqy2;
         Cq[4] = -2*p2y*dqw2 - 2*p2x*dqz2;
         Cq[5] = 2*p2x*dqw2 - 2*p2y*dqz2;
@@ -871,9 +871,9 @@ void RevoluteJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, un
         break;
 
       case 3:
-        Cq[0] = (Real) 0.0;
-        Cq[1] = (Real) 0.0;
-        Cq[2] = (Real) 0.0;
+        Cq[0] = (double) 0.0;
+        Cq[1] = (double) 0.0;
+        Cq[2] = (double) 0.0;
         Cq[3] = (2*(-(qw1*qy1) + qx1*qz1)*uix + 2*(qw1*qx1 + qy1*qz1)*uiy + 
       (-1 + 2*(qw1*qw1 + qz1*qz1))*uiz)*
     (-2*dqy2*v2x + 2*dqx2*v2y + 4*dqw2*v2z) + 
@@ -961,9 +961,9 @@ void RevoluteJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, un
         break;
  
       case 4:
-        Cq[0] = (Real) 0.0;
-        Cq[1] = (Real) 0.0;
-        Cq[2] = (Real) 0.0;
+        Cq[0] = (double) 0.0;
+        Cq[1] = (double) 0.0;
+        Cq[2] = (double) 0.0;
         Cq[3] = (2*(-(qw1*qy1) + qx1*qz1)*ujx + 2*(qw1*qx1 + qy1*qz1)*ujy + 
       (-1 + 2*(qw1*qw1 + qz1*qz1))*ujz)*
     (-2*dqy2*v2x + 2*dqx2*v2y + 4*dqw2*v2z) + 
@@ -1057,7 +1057,7 @@ void RevoluteJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, un
 }
 
 /// Evaluates the constraint equations
-void RevoluteJoint::evaluate_constraints(Real C[])
+void RevoluteJoint::evaluate_constraints(double C[])
 {
   const unsigned X = 0, Y = 1, Z = 2;
 

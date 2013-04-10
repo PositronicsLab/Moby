@@ -12,10 +12,9 @@
 #include <list>
 #include <vector>
 #include <boost/shared_ptr.hpp>
+#include <Ravelin/Vector3d.h>
+#include <Ravelin/Matrix3d.h>
 #include <Moby/Constants.h>
-#include <Moby/Vector3.h>
-#include <Moby/Matrix3.h>
-#include <Moby/SpatialTransform.h>
 #include <Moby/ArticulatedBody.h>
 
 namespace Moby {
@@ -39,56 +38,56 @@ class MCArticulatedBody : public ArticulatedBody
   public:
     MCArticulatedBody();
     virtual ~MCArticulatedBody() {}
-    virtual MatrixN& get_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, MatrixN& M);
+    virtual Ravelin::MatrixNd& get_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::MatrixNd& M);
     virtual unsigned num_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype) const;
-    virtual void add_generalized_force(DynamicBody::GeneralizedCoordinateType gctype, const VectorN& gf);
-    virtual void apply_generalized_impulse(DynamicBody::GeneralizedCoordinateType gctype, const VectorN& gj);
-    virtual VectorN& get_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, VectorN& gv);
-    virtual VectorN& get_generalized_acceleration(DynamicBody::GeneralizedCoordinateType gctype, VectorN& ga); 
-    virtual void set_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, const VectorN& gv);
-    virtual void set_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, const VectorN& gc);
-    virtual VectorN& get_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, VectorN& gc);
-    virtual VectorN& get_generalized_velocities(DynamicBody::GeneralizedCoordinateType gctype, VectorN& gv) { return get_generalized_velocity(gctype, gv); }
-    virtual VectorN& get_generalized_forces(DynamicBody::GeneralizedCoordinateType gctype, VectorN& Qf);
+    virtual void add_generalized_force(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gf);
+    virtual void apply_generalized_impulse(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gj);
+    virtual Ravelin::VectorNd& get_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& gv);
+    virtual Ravelin::VectorNd& get_generalized_acceleration(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& ga); 
+    virtual void set_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gv);
+    virtual void set_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gc);
+    virtual Ravelin::VectorNd& get_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& gc);
+    virtual Ravelin::VectorNd& get_generalized_velocities(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& gv) { return get_generalized_velocity(gctype, gv); }
+    virtual Ravelin::VectorNd& get_generalized_forces(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& Qf);
     virtual void reset_accumulators();
-    virtual void apply_impulse(const Vector3& j, const Vector3& k, const Vector3& contact_point, RigidBodyPtr link);
-    virtual void calc_fwd_dyn(Real dt);
+    virtual void apply_impulse(const Ravelin::Wrenchd& j, RigidBodyPtr link);
+    virtual void calc_fwd_dyn(double dt);
     virtual void load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const;
     MCArticulatedBodyPtr get_this() { return boost::dynamic_pointer_cast<MCArticulatedBody>(shared_from_this()); }
     MCArticulatedBodyConstPtr get_this() const { return boost::dynamic_pointer_cast<const MCArticulatedBody>(shared_from_this()); }
-    virtual VectorN& convert_to_generalized_force(DynamicBody::GeneralizedCoordinateType gctype, SingleBodyPtr link, const Vector3& p, const Vector3& f, const Vector3& t, VectorN& gf);
+    virtual Ravelin::VectorNd& convert_to_generalized_force(DynamicBody::GeneralizedCoordinateType gctype, SingleBodyPtr link, const Ravelin::Wrenchd& f, Ravelin::VectorNd& gf);
     virtual void update_event_data(EventProblemData& epd);
     virtual void update_velocity(const EventProblemData& epd);
-    virtual void integrate(Real t, Real h, boost::shared_ptr<Integrator<VectorN> > integrator);
+    virtual void integrate(double t, double h, boost::shared_ptr<Integrator> integrator);
     virtual unsigned num_joint_dof_explicit() const { return num_joint_dof(); }
     virtual unsigned num_joint_dof_implicit() const { return 0; }
-    virtual VectorN& transpose_Jc_mult(const VectorN& v, VectorN& result) { return mult_transpose_sparse(_Jc, v, result); } 
-    virtual MatrixN& transpose_Jc_mult(const MatrixN& m, MatrixN& result) { return mult_transpose_sparse(_Jc, m, result); }
-    virtual VectorN& transpose_Dc_mult(const VectorN& v, VectorN& result) { return mult_transpose_sparse(_Dc, v, result); }
-    virtual MatrixN& transpose_Dc_mult(const MatrixN& m, MatrixN& result) { return mult_transpose_sparse(_Dc, m, result); }
-    virtual VectorN& transpose_Jl_mult(const VectorN& v, VectorN& result) { return mult_transpose_sparse(_Jl, v, result); }
-    virtual MatrixN& transpose_Jl_mult(const MatrixN& m, MatrixN& result) { return mult_transpose_sparse(_Jl, m, result); }
-    virtual VectorN& transpose_Dx_mult(const VectorN& v, VectorN& result) { return mult_transpose_sparse(_Dx, v, result); }
-    virtual MatrixN& transpose_Dx_mult(const MatrixN& m, MatrixN& result) { return mult_transpose_sparse(_Dx, m, result); }
+    virtual Ravelin::VectorNd& transpose_Jc_mult(const Ravelin::VectorNd& v, Ravelin::VectorNd& result) { return mult_transpose_sparse(_Jc, v, result); } 
+    virtual Ravelin::MatrixNd& transpose_Jc_mult(const Ravelin::MatrixNd& m, Ravelin::MatrixNd& result) { return mult_transpose_sparse(_Jc, m, result); }
+    virtual Ravelin::VectorNd& transpose_Dc_mult(const Ravelin::VectorNd& v, Ravelin::VectorNd& result) { return mult_transpose_sparse(_Dc, v, result); }
+    virtual Ravelin::MatrixNd& transpose_Dc_mult(const Ravelin::MatrixNd& m, Ravelin::MatrixNd& result) { return mult_transpose_sparse(_Dc, m, result); }
+    virtual Ravelin::VectorNd& transpose_Jl_mult(const Ravelin::VectorNd& v, Ravelin::VectorNd& result) { return mult_transpose_sparse(_Jl, v, result); }
+    virtual Ravelin::MatrixNd& transpose_Jl_mult(const Ravelin::MatrixNd& m, Ravelin::MatrixNd& result) { return mult_transpose_sparse(_Jl, m, result); }
+    virtual Ravelin::VectorNd& transpose_Dx_mult(const Ravelin::VectorNd& v, Ravelin::VectorNd& result) { return mult_transpose_sparse(_Dx, v, result); }
+    virtual Ravelin::MatrixNd& transpose_Dx_mult(const Ravelin::MatrixNd& m, Ravelin::MatrixNd& result) { return mult_transpose_sparse(_Dx, m, result); }
 
     /// The Baumgarte stabilization constant alpha >= 0
-    Real b_alpha;
+    double b_alpha;
 
     /// The Baumgarte stabilization constant beta >= 0
-    Real b_beta;
+    double b_beta;
 
   protected:
     virtual void compile();
 
     /// There is no visualization transform (returns NULL)
-    virtual const Matrix4* get_visualization_transform() { return NULL; }
+    virtual boost::shared_ptr<const Ravelin::Pose3d> get_visualization_transform() { return boost::shared_ptr<const Ravelin::Pose3d>(); }
 
   private:
     enum JacobianType { eNone, eContactNormal, eContactTangent, eLimit,
                         eJointFriction, eConstraint };
 
-    class SparseJacobian : public MatrixN
+    class SparseJacobian : public Ravelin::MatrixNd
     {
       public:
         std::vector<std::vector<unsigned> > indices;
@@ -97,32 +96,30 @@ class MCArticulatedBody : public ArticulatedBody
     /// An inverse inertia of a rigid body matrix with frame referenced at the body's c.o.m. 
     struct InvInertia
     {
-      Real inv_mass;      // The inverse of the rigid body mass
-      Matrix3 inv_inertia;  // The inverse of the rigid body inertia 
+      double inv_mass;      // The inverse of the rigid body mass
+      Ravelin::Matrix3d inv_inertia;  // The inverse of the rigid body inertia 
     };
 
-    static MatrixN& reverse_transform(const SpatialTransform& X, const MatrixN& pinv_s, MatrixN& sx);
-    static SpatialTransform calc_special_spatial_transform(const SpatialTransform& X);
     static bool affects(RigidBodyPtr rb, Event* e);
     static unsigned num_sub_events(JacobianType jt, Event* e);
-    static void get_event_data(JacobianType jt, Event* e, RigidBodyPtr rb, unsigned subidx, Vector3& tx, Vector3& rx);
+    static void get_event_data(JacobianType jt, Event* e, RigidBodyPtr rb, unsigned subidx, Ravelin::Vector3d& tx, Ravelin::Vector3d& rx);
     static const std::vector<Event*>& get_events_vector(const EventProblemData& q, JacobianType jt);
-    void update_Jx_iM_JyT(EventProblemData& q, MatrixN& Jx_iM_JyT, JacobianType j1t, JacobianType j2t);
-    void update_Jx_iM_JyT(RigidBodyPtr rb, EventProblemData& q, MatrixN& Jx_iM_JyT, JacobianType j1t, JacobianType j2t);
+    void update_Jx_iM_JyT(EventProblemData& q, Ravelin::MatrixNd& Jx_iM_JyT, JacobianType j1t, JacobianType j2t);
+    void update_Jx_iM_JyT(RigidBodyPtr rb, EventProblemData& q, Ravelin::MatrixNd& Jx_iM_JyT, JacobianType j1t, JacobianType j2t);
     void calc_joint_accelerations();
-    static Real sgn(Real x); 
-    MatrixN dense_J(const SparseJacobian& J) const;
-    MatrixN& dense_J(const SparseJacobian& J, MatrixN& dJ) const;
+    static double sgn(double x); 
+    Ravelin::MatrixNd dense_J(const SparseJacobian& J) const;
+    Ravelin::MatrixNd& dense_J(const SparseJacobian& J, Ravelin::MatrixNd& dJ) const;
     void precalc();
     void get_constraint_jacobian(SparseJacobian& J) const;
     void get_constraint_jacobian_dot(SparseJacobian& J) const;
     void get_constraint_jacobian_numerically(SparseJacobian& J) const;
     void get_mechanism_jacobian(SparseJacobian& J, SparseJacobian& J_dot) const;
-    VectorN& get_constraint_evals(VectorN& C) const;
-    VectorN& iM_mult(const VectorN& v, VectorN& result) const;
-    static void transform(RigidBodyPtr rb, Real CJrb[7]);
-    void form_Jm_iM_Km(const std::vector<unsigned>& Jm_indices, const std::vector<unsigned>& Km_indices, MatrixN& M);
-    VectorN& scale_inverse_inertia(unsigned i, VectorN& v) const;
+    Ravelin::VectorNd& get_constraint_evals(Ravelin::VectorNd& C) const;
+    Ravelin::VectorNd& iM_mult(const Ravelin::VectorNd& v, Ravelin::VectorNd& result) const;
+    static void transform(RigidBodyPtr rb, double CJrb[7]);
+    void form_Jm_iM_Km(const std::vector<unsigned>& Jm_indices, const std::vector<unsigned>& Km_indices, Ravelin::MatrixNd& M);
+    Ravelin::VectorNd& scale_inverse_inertia(unsigned i, Ravelin::VectorNd& v) const;
     void apply_joint_limit_impulses();
     void update_Jx_v(EventProblemData& q);
     void update_Jl_v(EventProblemData& q);
@@ -130,33 +127,33 @@ class MCArticulatedBody : public ArticulatedBody
     void determine_inertias();
     void update_link_accelerations() const;
     void update_link_velocities() const;
-    VectorN& mult_transpose_sparse(const SparseJacobian& J, const VectorN& v, VectorN& result) const;
-    MatrixN& mult_transpose_sparse(const SparseJacobian& J, const MatrixN& v, MatrixN& result) const;
-    VectorN& mult_sparse(const SparseJacobian& J, const VectorN& v, VectorN& result) const;
-    void calc_Dx_iM_DxT(MatrixN& Dx_iM_DxT) const;
+    Ravelin::VectorNd& mult_transpose_sparse(const SparseJacobian& J, const Ravelin::VectorNd& v, Ravelin::VectorNd& result) const;
+    Ravelin::MatrixNd& mult_transpose_sparse(const SparseJacobian& J, const Ravelin::MatrixNd& v, Ravelin::MatrixNd& result) const;
+    Ravelin::VectorNd& mult_sparse(const SparseJacobian& J, const Ravelin::VectorNd& v, Ravelin::VectorNd& result) const;
+    void calc_Dx_iM_DxT(Ravelin::MatrixNd& Dx_iM_DxT) const;
     void calc_Dx_iM(SparseJacobian& Dx_iM) const;
-    MatrixN& calc_Jx_iM_JyT(const SparseJacobian& Jx, const SparseJacobian& Jy, MatrixN& Jx_iM_JyT) const;
+    Ravelin::MatrixNd& calc_Jx_iM_JyT(const SparseJacobian& Jx, const SparseJacobian& Jy, Ravelin::MatrixNd& Jx_iM_JyT) const;
     static void get_sub_jacobian(const std::vector<unsigned>& rows, const SparseJacobian& J, SparseJacobian& Jx);
-    static void increment_dof(RigidBodyPtr rb1, RigidBodyPtr rb2, unsigned k, Real h);
-    virtual VectorN& solve_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, const VectorN& b, VectorN& x);
-    virtual MatrixN& solve_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, const MatrixN& B, MatrixN& X);
+    static void increment_dof(RigidBodyPtr rb1, RigidBodyPtr rb2, unsigned k, double h);
+    virtual Ravelin::VectorNd& solve_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& b, Ravelin::VectorNd& x);
+    virtual Ravelin::MatrixNd& solve_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::MatrixNd& B, Ravelin::MatrixNd& X);
     void select_sub_contact_Jacobians(const EventProblemData& q, SparseJacobian& Jc_sub, SparseJacobian& Dc_sub) const;
-    VectorN& solve_Jx_iM_JxT(const VectorN& rhs, VectorN& x) const;
+    Ravelin::VectorNd& solve_Jx_iM_JxT(const Ravelin::VectorNd& rhs, Ravelin::VectorNd& x) const;
 
     /// The last-computed generalized velocity (in axis-angle representation)
-    VectorN _xd;
+    Ravelin::VectorNd _xd;
 
     /// The acceleration vector (generalized coordinates in axis-angle representation) calculated by calc_fwd_dyn()
-    VectorN _xdd;
+    Ravelin::VectorNd _xdd;
 
     /// The block inverse inertia matrix
     std::vector<InvInertia> _iM;
 
     /// The matrix J*iM*J' 
-    MatrixN _Jx_iM_JxT;
+    Ravelin::MatrixNd _Jx_iM_JxT;
 
     /// The factorization or regularized inverse of Jx*iM*Jx'
-    MatrixN _inv_Jx_iM_JxT;
+    Ravelin::MatrixNd _inv_Jx_iM_JxT;
 
     /// Indicates whether J*iM*J' is rank deficient
     bool _rank_def;

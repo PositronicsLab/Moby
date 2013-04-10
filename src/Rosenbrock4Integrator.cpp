@@ -4,15 +4,17 @@
  * License (found in COPYING).
  ****************************************************************************/
 
+#include <Moby/Rosenbrock4Integrator.h>
+
+using namespace Moby;
 using std::endl;
 using std::vector;
 
 /// Method for 4th-order implicit Runge-Kutta integration
-template <class T>
-void Rosenbrock4Integrator<T>::integrate(T& x, T (*f)(const T&, Real, Real, void*), Real& time, Real step_size, void* data)
+void Rosenbrock4Integrator::integrate(Ravelin::VectorNd& x, Ravelin::VectorNd (*f)(const Ravelin::VectorNd&, double, double, void*), double& time, double step_size, void* data)
 {
   // determine desired time
-  Real tdes = time + step_size;
+  double tdes = time + step_size;
 
   while (time < tdes)
   {
@@ -25,48 +27,47 @@ void Rosenbrock4Integrator<T>::integrate(T& x, T (*f)(const T&, Real, Real, void
 }
 
 /// Does all the work
-template <class T>
-void Rosenbrock4Integrator<T>::step(T& x, T (*f)(const T&, Real, Real, void*), Real& time, Real step_size, Real& tnext, void* data)
+void Rosenbrock4Integrator::step(Ravelin::VectorNd& x, Ravelin::VectorNd (*f)(const Ravelin::VectorNd&, double, double, void*), double& time, double step_size, double& tnext, void* data)
 {
-  SAFESTATIC MatrixN A, J;
-  SAFESTATIC VectorN xscal, g1, g2, g3, g4, xsav, dxsav;
+  SAFESTATIC Ravelin::MatrixNd A, J;
+  SAFESTATIC Ravelin::VectorNd xscal, g1, g2, g3, g4, xsav, dxsav;
   SAFESTATIC vector<int> ipiv;
   const unsigned n = x.size();
 
   // general constants
-  const Real SAFETY = (Real) 0.9;
-  const Real GROW = (Real) 1.5;
-  const Real PGROW = (Real) -.25;
-  const Real SHRINK = (Real) 0.5;
-  const Real PSHRINK = (Real) -1.0/3.0;
-  const Real ERRCON = (Real) 0.1296;
+  const double SAFETY = (double) 0.9;
+  const double GROW = (double) 1.5;
+  const double PGROW = (double) -.25;
+  const double SHRINK = (double) 0.5;
+  const double PSHRINK = (double) -1.0/3.0;
+  const double ERRCON = (double) 0.1296;
   const unsigned MAXTRY = 40;
 
   // Shampine constants
-  const Real GAM = (Real) 0.5;
-  const Real A21 = (Real) 2.0;
-  const Real A31 = (Real) 48.0/25.0;
-  const Real A32 = (Real) 6.0/25.0;
-  const Real C21 = (Real) -8.0;
-  const Real C31 = (Real) 372.0/25.0;
-  const Real C32 = (Real) 12.0/5.0;
-  const Real C41 = (Real) -112.0/125.0;
-  const Real C42 = (Real) -54.0/125.0;
-  const Real C43 = (Real) -2.0/5.0;
-  const Real B1 = (Real) 19.0/9.0;
-  const Real B2 = (Real) 0.5;
-  const Real B3 = (Real) 25.0/108.0;
-  const Real B4 = (Real) 125.0/108.0;
-  const Real E1 = (Real) 17.0/54.0;
-  const Real E2 = (Real) 7.0/36.0;
-  const Real E3 = (Real) 0.0;
-  const Real E4 = (Real) 125.0/108.0;
-  const Real C1X = (Real) 0.5;
-  const Real C2X = (Real) -3.0/2.0;
-  const Real C3X = (Real) 121.0/50.0;
-  const Real C4X = (Real) 29.0/250.0;
-  const Real A2X = (Real) 1.0;
-  const Real A3X = (Real) 3.0/5.0;
+  const double GAM = (double) 0.5;
+  const double A21 = (double) 2.0;
+  const double A31 = (double) 48.0/25.0;
+  const double A32 = (double) 6.0/25.0;
+  const double C21 = (double) -8.0;
+  const double C31 = (double) 372.0/25.0;
+  const double C32 = (double) 12.0/5.0;
+  const double C41 = (double) -112.0/125.0;
+  const double C42 = (double) -54.0/125.0;
+  const double C43 = (double) -2.0/5.0;
+  const double B1 = (double) 19.0/9.0;
+  const double B2 = (double) 0.5;
+  const double B3 = (double) 25.0/108.0;
+  const double B4 = (double) 125.0/108.0;
+  const double E1 = (double) 17.0/54.0;
+  const double E2 = (double) 7.0/36.0;
+  const double E3 = (double) 0.0;
+  const double E4 = (double) 125.0/108.0;
+  const double C1X = (double) 0.5;
+  const double C2X = (double) -3.0/2.0;
+  const double C3X = (double) 121.0/50.0;
+  const double C4X = (double) 29.0/250.0;
+  const double A2X = (double) 1.0;
+  const double A3X = (double) 3.0/5.0;
 
   // setup g1, g2, g3, g4
   g1.resize(n);
@@ -80,17 +81,17 @@ void Rosenbrock4Integrator<T>::step(T& x, T (*f)(const T&, Real, Real, void*), R
     xscal[i] = std::max(rel_err_tol, std::fabs(x[i]));
 
   // get the derivative at time
-  T dxdt = f(x, time, step_size, data);
+  Ravelin::VectorNd dxdt = f(x, time, step_size, data);
 
   // save initial values
-  Real tsav = time;
-  xsav.copy_from(x);
-  dxsav.copy_from(dxdt);
+  double tsav = time;
+  xsav = x;
+  dxsav = dxdt;
 
   // determine the vector df/dt
-  Real sqrt_eps = std::sqrt(std::numeric_limits<Real>::epsilon());
+  double sqrt_eps = std::sqrt(std::numeric_limits<double>::epsilon());
   time += sqrt_eps;
-  T dfdt = f(x, time, step_size, data);
+  Ravelin::VectorNd dfdt = f(x, time, step_size, data);
   time -= sqrt_eps;
 
   // determine the Jacobian using forward differencing
@@ -98,14 +99,14 @@ void Rosenbrock4Integrator<T>::step(T& x, T (*f)(const T&, Real, Real, void*), R
   for (unsigned i=0; i< n; i++)
   {
     x[i] += sqrt_eps;
-    T column_i = f(x, time, step_size, data);
+    Ravelin::VectorNd column_i = f(x, time, step_size, data);
     x[i] -= sqrt_eps;
     for (unsigned j=0; j< n; j++)
       J(j, i) = column_i[j];
   }
 
   // set stepsize to initial trial value
-  Real h = step_size;
+  double h = step_size;
 
   // init A matrix and pivots for LU decomposition
   A.resize(n,n);
@@ -119,18 +120,18 @@ void Rosenbrock4Integrator<T>::step(T& x, T (*f)(const T&, Real, Real, void*), R
     {
       for (unsigned k=0; k< n; k++)
         A(i,k) = -J(i,k);
-      A(i,i) += (Real) 1.0/(GAM*h);
+      A(i,i) += (double) 1.0/(GAM*h);
     }
     
     // do LU decomposition of the matrix A
-    LinAlg::factor_LU(A, ipiv);
+    _LA.factor_LU(A, ipiv);
 
     // setup r.h.s. for g1
     for (unsigned i=0; i< n; i++)
       g1[i] = dxsav[i] + h*C1X*dfdt[i];
 
     // solve for g1
-    LinAlg::solve_LU_fast(A, false, ipiv, g1);
+    _LA.solve_LU_fast(A, false, ipiv, g1);
 
     // compute intermediate values of x and t
     for (unsigned i=0; i< n; i++)
@@ -145,7 +146,7 @@ void Rosenbrock4Integrator<T>::step(T& x, T (*f)(const T&, Real, Real, void*), R
       g2[i] = dxdt[i] + h*C2X*dfdt[i]+C21*g1[i]/h;
 
     // solve for g2
-    LinAlg::solve_LU_fast(A, false, ipiv, g2);
+    _LA.solve_LU_fast(A, false, ipiv, g2);
 
     // compute intermediate values of x and t
     for (unsigned i=0; i< n; i++)
@@ -160,17 +161,17 @@ void Rosenbrock4Integrator<T>::step(T& x, T (*f)(const T&, Real, Real, void*), R
       g3[i] = dxdt[i] + h*C3X*dfdt[i] + (C31*g1[i]+C32*g2[i])/h;
 
     // solve for g3
-    LinAlg::solve_LU_fast(A, false, ipiv, g3);
+    _LA.solve_LU_fast(A, false, ipiv, g3);
 
     // setup r.h.s. for g4
     for (unsigned i=0; i< n; i++)
       g4[i] = dxdt[i] + h*C4X*dfdt[i] + (C41*g1[i] + C42*g2[i] + C43*g3[i])/h;
 
     // solve for g4
-    LinAlg::solve_LU_fast(A, false, ipiv, g4);
+    _LA.solve_LU_fast(A, false, ipiv, g4);
 
     // get fourth-order estimate of x and error estimate
-    VectorN err(n);
+    Ravelin::VectorNd err(n);
     for (unsigned i=0; i< n; i++)
     {
       x[i] = xsav[i] + B1*g1[i] + B2*g2[i] + B3*g3[i] + B4*g4[i];
@@ -181,11 +182,11 @@ void Rosenbrock4Integrator<T>::step(T& x, T (*f)(const T&, Real, Real, void*), R
     time = tsav + h;
 
     // evaluate accuracy
-    Real errmax = (Real) 0.0;
+    double errmax = (double) 0.0;
     for (unsigned i=0; i< n; i++)
       errmax = std::max(errmax, std::fabs(err[i]/xscal[i]));
     errmax /= rel_err_tol; 
-    if (errmax <= (Real) 1.0)
+    if (errmax <= (double) 1.0)
     {
       // step succeeded; compute size of next step and return
       tnext = (errmax > ERRCON ? SAFETY*h*std::pow(errmax,PGROW) : GROW*h);
@@ -195,18 +196,17 @@ void Rosenbrock4Integrator<T>::step(T& x, T (*f)(const T&, Real, Real, void*), R
     {
       // truncation error too large, reduce step size
       tnext = SAFETY*h*std::pow(errmax, PSHRINK);
-      h = (h >= (Real) 0.0 ? std::max(tnext, SHRINK*h) : std::min(tnext, SHRINK*h));
+      h = (h >= (double) 0.0 ? std::max(tnext, SHRINK*h) : std::min(tnext, SHRINK*h));
     }
   }
 
   std::cerr << "Rosenbrock4Integrator::step() - maximum number of iterations exceeded (40)" << endl;
 }
 
-template <class T>
-void Rosenbrock4Integrator<T>::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map) 
+void Rosenbrock4Integrator::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map) 
 { 
   assert(strcasecmp(node->name.c_str(), "Rosenbrock4Integrator") == 0);
-  Integrator<T>::load_from_xml(node, id_map); 
+  Integrator::load_from_xml(node, id_map); 
   
   // get the relative error tolerance
   const XMLAttrib* rerr_attrib = node->get_attrib("rel-err-tol");
@@ -214,10 +214,9 @@ void Rosenbrock4Integrator<T>::load_from_xml(XMLTreeConstPtr node, std::map<std:
     rel_err_tol = rerr_attrib->get_real_value();
 }
 
-template <class T>
-void Rosenbrock4Integrator<T>::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
+void Rosenbrock4Integrator::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
 { 
-  Integrator<T>::save_to_xml(node, shared_objects); 
+  Integrator::save_to_xml(node, shared_objects); 
   node->name = "Rosenbrock4Integrator";
   node->attribs.insert(XMLAttrib("rel-err-tol", rel_err_tol));
 }

@@ -24,6 +24,7 @@
 #include <Moby/BoundingSphere.h>
 #include <Moby/TriangleMeshPrimitive.h>
 
+using namespace Ravelin;
 using namespace Moby;
 using boost::shared_ptr;
 using std::cerr;
@@ -42,7 +43,7 @@ using boost::dynamic_pointer_cast;
 TriangleMeshPrimitive::TriangleMeshPrimitive()
 {
   _convexify_inertia = false;
-  _edge_sample_length = std::numeric_limits<Real>::max();
+  _edge_sample_length = std::numeric_limits<double>::max();
 }
 
 /// Creates the triangle mesh from a geometry file and optionally centers it
@@ -52,7 +53,7 @@ TriangleMeshPrimitive::TriangleMeshPrimitive(const string& filename, bool center
   _convexify_inertia = false;
 
   // do not sample edges by default
-  _edge_sample_length = std::numeric_limits<Real>::max();
+  _edge_sample_length = std::numeric_limits<double>::max();
 
   // construct a new triangle mesh from the filename
   if (filename.find(".obj") == filename.size() - 4)
@@ -69,13 +70,13 @@ TriangleMeshPrimitive::TriangleMeshPrimitive(const string& filename, bool center
 }
 
 /// Creates the triangle mesh from a geometry file and optionally centers it
-TriangleMeshPrimitive::TriangleMeshPrimitive(const string& filename, const Matrix4& T, bool center) : Primitive(T) 
+TriangleMeshPrimitive::TriangleMeshPrimitive(const string& filename, const Pose3d& T, bool center) : Primitive(T) 
 { 
   // do not convexify inertia by default
   _convexify_inertia = false;
 
   // do not sample edges by default
-  _edge_sample_length = std::numeric_limits<Real>::max();
+  _edge_sample_length = std::numeric_limits<double>::max();
 
   // construct a new triangle mesh from the filename
   if (filename.find("obj") == filename.size() - 4)
@@ -98,19 +99,19 @@ void TriangleMeshPrimitive::set_deformable(bool flag)
 
   // vertices, mesh, and BVH are no longer valid 
   _mesh = shared_ptr<IndexedTriArray>();
-  _vertices = shared_ptr<vector<Vector3> >();
+  _vertices = shared_ptr<vector<Point3d> >();
   _mesh_vertices.clear();
   _root = BVPtr();
   _invalidated = true;
 }
 
 /// Sets the edge sample length for this box
-void TriangleMeshPrimitive::set_edge_sample_length(Real len)
+void TriangleMeshPrimitive::set_edge_sample_length(double len)
 {
   _edge_sample_length = len;
 
   // vertices are no longer valid
-  _vertices = shared_ptr<vector<Vector3> >();
+  _vertices = shared_ptr<vector<Point3d> >();
   _mesh_vertices.clear();
   _invalidated = true;
 }
@@ -137,14 +138,14 @@ osg::Node* TriangleMeshPrimitive::create_visualization()
     // to the primitive
 
     // get the inverse of the current transformation
-    Matrix4 T_inv = IDENTITY_4x4;
+    Pose3d T_inv = IDENTITY_4x4;
 
     // back the transformation out of the mesh; NOTE: we have to do this
     // b/c the base Primitive class uses the transform in the visualization
     IndexedTriArray mesh = _mesh->transform(T_inv);
 
     // get the vertices and facets
-    const std::vector<Vector3>& verts = mesh.get_vertices();
+    const std::vector<Point3d>& verts = mesh.get_vertices();
     const std::vector<IndexedTri>& facets = mesh.get_facets();
 
     // create the vertex array
@@ -179,7 +180,7 @@ void TriangleMeshPrimitive::center()
 
   // NOTE: we no longer do this b/c transforms are *not* applied directly
   // to the primitive
-  Matrix4 Tinv = IDENTITY_4x4;
+  Pose3d Tinv = IDENTITY_4x4;
 
   // back the transform out of the mesh
   IndexedTriArray mesh = _mesh->transform(Tinv);
@@ -187,7 +188,7 @@ void TriangleMeshPrimitive::center()
   // get the c.o.m. of this new mesh
   std::list<Triangle> tris;
   mesh.get_tris(std::back_inserter(tris));
-  Vector3 centroid = CompGeom::calc_centroid_3D(tris.begin(), tris.end());
+  Point3d centroid = CompGeom::calc_centroid_3D(tris.begin(), tris.end());
 
   // translate this mesh so that its origin is at its c.o.m.
   mesh = mesh.translate(-centroid);
@@ -307,7 +308,7 @@ void TriangleMeshPrimitive::save_to_xml(XMLTreePtr node, list<BaseConstPtr>& sha
       return;
 
     // transform the mesh w/transform backed out
-    Matrix4 iT = Matrix4::inverse_transform(_T);
+    Pose3d iT = Pose3d::inverse(_T);
     IndexedTriArray mesh_xform = _mesh->transform(iT);
 
     // write the mesh
@@ -324,14 +325,14 @@ void TriangleMeshPrimitive::set_mesh(boost::shared_ptr<const IndexedTriArray> me
   _mesh = mesh;
 
   // vertices and bounding volumes are no longer valid
-  _vertices = shared_ptr<vector<Vector3> >();
+  _vertices = shared_ptr<vector<Point3d> >();
   _mesh_vertices.clear();
   _root = BVPtr();
   _invalidated = true;
 
   // map pointers to vertices
   _mesh_vertex_map.clear();
-  const vector<Vector3>& verts = _mesh->get_vertices();
+  const vector<Point3d>& verts = _mesh->get_vertices();
   for (unsigned i=0; i< verts.size(); i++)
     _mesh_vertex_map[&verts[i]] = i;
 
@@ -350,7 +351,7 @@ void TriangleMeshPrimitive::set_mesh(boost::shared_ptr<const IndexedTriArray> me
 void TriangleMeshPrimitive::calc_mass_properties()
 {
   const unsigned X = 0, Y = 1, Z = 2;
-  Real volume_ints[10];
+  double volume_ints[10];
 
   // if there is no mesh, set things to some defaults
   if (!_mesh)
@@ -365,7 +366,7 @@ void TriangleMeshPrimitive::calc_mass_properties()
   const IndexedTriArray* mesh = NULL;
   if (_convexify_inertia)
   {
-    const vector<Vector3>& verts = _mesh->get_vertices();
+    const vector<Point3d>& verts = _mesh->get_vertices();
     poly = CompGeom::calc_convex_hull(verts.begin(), verts.end());
     mesh = &poly->get_mesh();
   }
@@ -383,7 +384,7 @@ void TriangleMeshPrimitive::calc_mass_properties()
   mesh->calc_volume_ints(volume_ints);
 
   // we'll need the volume
-  const Real volume = volume_ints[0];
+  const double volume = volume_ints[0];
 
   // compute the mass if density is given
   if (_density)
@@ -394,9 +395,9 @@ void TriangleMeshPrimitive::calc_mass_properties()
   // NOTE: we use this instead of the COM calculated from calc_volume_ints()
   // b/c the latter seems to be less accurate; NOTE: we need to check to see
   // why that is the case
-  // Vector3 com(volume_ints[1], volume_ints[2], volume_ints[3]);
+  // Point3d com(volume_ints[1], volume_ints[2], volume_ints[3]);
   // com *= (1.0/volume);
-  //  Vector3 com = calc_com();
+  //  Point3d com = calc_com();
 
   // compute the inertia tensor relative to world origin
   _J(X,X) = (_mass/volume) * (volume_ints[5] + volume_ints[6]);
@@ -435,30 +436,30 @@ BVPtr TriangleMeshPrimitive::get_BVH_root()
 }
 
 /// Determines whether the point on a thick triangle is degenerate
-bool TriangleMeshPrimitive::is_degen_point_on_tri(shared_ptr<AThickTri> tri, const Vector3& p)
+bool TriangleMeshPrimitive::is_degen_point_on_tri(shared_ptr<AThickTri> tri, const Point3d& p)
 {
   // get the barycentric coordinates for the point
-  Real s, t;
+  double s, t;
   tri->tri.determine_barycentric_coords(p, s, t);
 
   // correct s and t, if necessary
-  if (s < (Real) 0.0)
+  if (s < (double) 0.0)
   {
     if (s < -NEAR_ZERO)
       FILE_LOG(LOG_COLDET) << "Primitive::is_degen_point_on_tri() warning- s=" << s << endl;
-    s = (Real) 0.0;
+    s = (double) 0.0;
   }
-  if (t < (Real) 0.0)
+  if (t < (double) 0.0)
   {
     if (t < -NEAR_ZERO)
       FILE_LOG(LOG_COLDET) << "Primitive::is_degen_point_on_tri() warning- t=" << t << endl;
-    t = (Real) 0.0;
+    t = (double) 0.0;
   }
-  if (s + t > (Real) 1.0)
+  if (s + t > (double) 1.0)
   {
-    if (s + t > (Real) 1.0 + NEAR_ZERO)
+    if (s + t > (double) 1.0 + NEAR_ZERO)
       FILE_LOG(LOG_COLDET) << "Primitive::is_degen_point_on_tri() warning- s+t=" << (s+t) << endl;
-    Real isum = (Real) 1.0/(s + t);
+    double isum = (double) 1.0/(s + t);
     s *= isum;
     t *= isum;
   }
@@ -527,9 +528,9 @@ const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >&
 }
 
 /// Determines whether a point is inside / on one of the thick triangles
-bool TriangleMeshPrimitive::point_inside(BVPtr bv, const Vector3& p, Vector3& normal) const
+bool TriangleMeshPrimitive::point_inside(BVPtr bv, const Point3d& p, Vector3d& normal) const
 {
-  const Real EXPANSION_CONST = 0.01;
+  const double EXPANSION_CONST = 0.01;
 
   // expand the BV 
   BVPtr ebv;
@@ -537,14 +538,14 @@ bool TriangleMeshPrimitive::point_inside(BVPtr bv, const Vector3& p, Vector3& no
   {
     assert(dynamic_pointer_cast<OBB>(bv));
     OBB eobb = *dynamic_pointer_cast<OBB>(bv);
-    eobb.l *= ((Real) 1.0 + EXPANSION_CONST);
+    eobb.l *= ((double) 1.0 + EXPANSION_CONST);
     ebv = BVPtr(new OBB(eobb));
   }
   else
   {
     assert(dynamic_pointer_cast<BoundingSphere>(bv));
     BoundingSphere bs = *dynamic_pointer_cast<BoundingSphere>(bv);
-    bs.radius *= ((Real) 1.0 + EXPANSION_CONST);
+    bs.radius *= ((double) 1.0 + EXPANSION_CONST);
     ebv = BVPtr(new BoundingSphere(bs));
   }
 
@@ -578,17 +579,17 @@ bool TriangleMeshPrimitive::point_inside(BVPtr bv, const Vector3& p, Vector3& no
 }
 
 /// Intersects a line segment against the triangle mesh and returns first point of intersection (special method for self collision checks)
-bool TriangleMeshPrimitive::intersect_seg(const Vector3* u, BVPtr bv, const LineSeg3& seg, Real& t, Vector3& isect, Vector3& normal) const
+bool TriangleMeshPrimitive::intersect_seg(const Point3d* u, BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Vector3d& normal) const
 {
   const unsigned LEAF_TRIS_CUTOFF = 5;
-  const Real EXPANSION_CONST = 0.01;
+  const double EXPANSION_CONST = 0.01;
 
   // setup statistics variables
   unsigned n_bv_tests = 0;
   unsigned n_tri_tests = 0;
 
   // setup first point of intersection
-  Real tfirst = std::numeric_limits<Real>::max();
+  double tfirst = std::numeric_limits<double>::max();
 
   // create a stack and add the BV to it
   stack<BVPtr> S;
@@ -623,21 +624,21 @@ bool TriangleMeshPrimitive::intersect_seg(const Vector3* u, BVPtr bv, const Line
       {
         assert(dynamic_pointer_cast<OBB>(bv));
         OBB eobb = *dynamic_pointer_cast<OBB>(bv);
-        eobb.l *= ((Real) 1.0 + EXPANSION_CONST);
+        eobb.l *= ((double) 1.0 + EXPANSION_CONST);
         ebv = BVPtr(new OBB(eobb));
       }
       else
       {
         assert(dynamic_pointer_cast<BoundingSphere>(bv));
         BoundingSphere bs = *dynamic_pointer_cast<BoundingSphere>(bv);
-        bs.radius *= ((Real) 1.0 + EXPANSION_CONST);
+        bs.radius *= ((double) 1.0 + EXPANSION_CONST);
         ebv = BVPtr(new BoundingSphere(bs));
       }
 
       // if the list is sufficiently small or there is an intersection with
       // the BV, check all triangles
-      Real tmin = 0, tmax = 1;
-      Vector3 pt;
+      double tmin = 0, tmax = 1;
+      Point3d pt;
       if (tris.size() <= LEAF_TRIS_CUTOFF || (++n_bv_tests && ebv->intersects(seg, tmin, tmax, pt)))
       {
         BOOST_FOREACH(shared_ptr<AThickTri> tri, tris)
@@ -649,19 +650,19 @@ bool TriangleMeshPrimitive::intersect_seg(const Vector3* u, BVPtr bv, const Line
           // otherwise, check...
           n_tri_tests++;
           FILE_LOG(LOG_COLDET) << "   -- intersecting thick tri: " << endl << tri->tri <<"  and segment " << seg.first << " / " << seg.second << endl;
-          Real tx;
+          double tx;
           if (tri->intersect_seg(seg, tx, pt) && tx < tfirst)
           {
             // project the point onto the actual triangle
-            Vector3 tri_normal = tri->tri.calc_normal();
-            Real tri_offset = tri->tri.calc_offset(tri_normal);
+            Vector3d tri_normal = tri->tri.calc_normal();
+            double tri_offset = tri->tri.calc_offset(tri_normal);
 
             // compute P = I - n*n'
-            Matrix3 P;
-            Vector3::outer_prod(tri_normal, -tri_normal, &P);
-            P += Matrix3::identity();
-            Vector3 proj_point = P * pt;
-            Real remainder = tri_offset - proj_point.dot(tri_normal);
+            Matrix3d P;
+            Ravelin::outer_prod(tri_normal, -tri_normal, P);
+            P += Matrix3d::identity();
+            Point3d proj_point = P * pt;
+            double remainder = tri_offset - proj_point.dot(tri_normal);
             proj_point += tri_normal * remainder;
 
             // ensure that projected point does not occur on vertex / edge
@@ -689,19 +690,19 @@ bool TriangleMeshPrimitive::intersect_seg(const Vector3* u, BVPtr bv, const Line
       {
         assert(dynamic_pointer_cast<OBB>(bv));
         OBB eobb = *dynamic_pointer_cast<OBB>(bv);
-        eobb.l *= ((Real) 1.0 + EXPANSION_CONST);
+        eobb.l *= ((double) 1.0 + EXPANSION_CONST);
         ebv = BVPtr(new OBB(eobb));
       }
       else
       {
         assert(dynamic_pointer_cast<BoundingSphere>(bv));
         BoundingSphere bs = *dynamic_pointer_cast<BoundingSphere>(bv);
-        bs.radius *= ((Real) 1.0 + EXPANSION_CONST);
+        bs.radius *= ((double) 1.0 + EXPANSION_CONST);
         ebv = BVPtr(new BoundingSphere(bs));
       }
 
-      Real tmin = 0, tmax = 1;
-      Vector3 pt;
+      double tmin = 0, tmax = 1;
+      Point3d pt;
       n_bv_tests++;
       if (ebv->intersects(seg, tmin, tmax, pt))
       {
@@ -726,17 +727,17 @@ bool TriangleMeshPrimitive::intersect_seg(const Vector3* u, BVPtr bv, const Line
 
 
 /// Intersects a line segment against the triangle mesh and returns first point of intersection
-bool TriangleMeshPrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, Real& t, Vector3& isect, Vector3& normal) const
+bool TriangleMeshPrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Vector3d& normal) const
 {
   const unsigned LEAF_TRIS_CUTOFF = 5;
-  const Real EXPANSION_CONST = 0.01;
+  const double EXPANSION_CONST = 0.01;
 
   // setup statistics variables
   unsigned n_bv_tests = 0;
   unsigned n_tri_tests = 0;
 
   // setup first point of intersection
-  Real tfirst = std::numeric_limits<Real>::max();
+  double tfirst = std::numeric_limits<double>::max();
 
   // create a stack and add the BV to it
   stack<BVPtr> S;
@@ -764,40 +765,40 @@ bool TriangleMeshPrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, Real& t
       {
         assert(dynamic_pointer_cast<OBB>(bv));
         OBB eobb = *dynamic_pointer_cast<OBB>(bv);
-        eobb.l *= ((Real) 1.0 + EXPANSION_CONST);
+        eobb.l *= ((double) 1.0 + EXPANSION_CONST);
         ebv = BVPtr(new OBB(eobb));
       }
       else
       {
         assert(dynamic_pointer_cast<BoundingSphere>(bv));
         BoundingSphere bs = *dynamic_pointer_cast<BoundingSphere>(bv);
-        bs.radius *= ((Real) 1.0 + EXPANSION_CONST);
+        bs.radius *= ((double) 1.0 + EXPANSION_CONST);
         ebv = BVPtr(new BoundingSphere(bs));
       }
 
       // if the list is sufficiently small or there is an intersection with
       // the BV, check all triangles
-      Real tmin = 0, tmax = 1;
-      Vector3 pt;
+      double tmin = 0, tmax = 1;
+      Point3d pt;
       if (tris.size() <= LEAF_TRIS_CUTOFF || (++n_bv_tests && ebv->intersects(seg, tmin, tmax, pt)))
       {
         BOOST_FOREACH(shared_ptr<AThickTri> tri, tris)
         {
           n_tri_tests++;
           FILE_LOG(LOG_COLDET) << "   -- intersecting thick tri: " << endl << tri->tri <<"  and segment " << seg.first << " / " << seg.second << endl;
-          Real tx;
+          double tx;
           if (tri->intersect_seg(seg, tx, pt) && tx < tfirst)
           {
             // project the point onto the actual triangle
-            Vector3 tri_normal = tri->tri.calc_normal();
-            Real tri_offset = tri->tri.calc_offset(tri_normal);
+            Vector3d tri_normal = tri->tri.calc_normal();
+            double tri_offset = tri->tri.calc_offset(tri_normal);
 
             // compute P = I - n*n'
-            Matrix3 P;
-            Vector3::outer_prod(tri_normal, -tri_normal, &P);
-            P += Matrix3::identity();
-            Vector3 proj_point = P * pt;
-            Real remainder = tri_offset - proj_point.dot(tri_normal);
+            Matrix3d P;
+            Ravelin::outer_prod(tri_normal, -tri_normal, P);
+            P += Matrix3d::identity();
+            Point3d proj_point = P * pt;
+            double remainder = tri_offset - proj_point.dot(tri_normal);
             proj_point += tri_normal * remainder;
 
             // ensure that projected point does not occur on vertex / edge
@@ -825,19 +826,19 @@ bool TriangleMeshPrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, Real& t
       {
         assert(dynamic_pointer_cast<OBB>(bv));
         OBB eobb = *dynamic_pointer_cast<OBB>(bv);
-        eobb.l *= ((Real) 1.0 + EXPANSION_CONST);
+        eobb.l *= ((double) 1.0 + EXPANSION_CONST);
         ebv = BVPtr(new OBB(eobb));
       }
       else
       {
         assert(dynamic_pointer_cast<BoundingSphere>(bv));
         BoundingSphere bs = *dynamic_pointer_cast<BoundingSphere>(bv);
-        bs.radius *= ((Real) 1.0 + EXPANSION_CONST);
+        bs.radius *= ((double) 1.0 + EXPANSION_CONST);
         ebv = BVPtr(new BoundingSphere(bs));
       }
 
-      Real tmin = 0, tmax = 1;
-      Vector3 pt;
+      double tmin = 0, tmax = 1;
+      Point3d pt;
       n_bv_tests++;
       if (ebv->intersects(seg, tmin, tmax, pt))
       {
@@ -861,7 +862,7 @@ bool TriangleMeshPrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, Real& t
 }
 
 /// Gets vertices corresponding to the bounding volume
-void TriangleMeshPrimitive::get_vertices(BVPtr bv, vector<const Vector3*>& vertices) 
+void TriangleMeshPrimitive::get_vertices(BVPtr bv, vector<const Point3d*>& vertices) 
 {
   // if there are no vertices, we need to build them
   if (!_vertices)
@@ -877,10 +878,10 @@ void TriangleMeshPrimitive::get_vertices(BVPtr bv, vector<const Vector3*>& verti
 }
 
 /// Transforms this primitive
-void TriangleMeshPrimitive::set_transform(const Matrix4& T)
+void TriangleMeshPrimitive::set_transform(const Pose3d& T)
 {
   // determine the transformation from the old to the new transform 
-  Matrix4 Trel = T * Matrix4::inverse_transform(_T);
+  Pose3d Trel = T * Pose3d::inverse(_T);
 
   // go ahead and set the new transform
   Primitive::set_transform(T);
@@ -890,7 +891,7 @@ void TriangleMeshPrimitive::set_transform(const Matrix4& T)
     _mesh = shared_ptr<IndexedTriArray>(new IndexedTriArray(_mesh->transform(Trel)));
 
   // vertices and bounding volumes are no longer valid
-  _vertices = shared_ptr<vector<Vector3> >();
+  _vertices = shared_ptr<vector<Point3d> >();
   _mesh_vertices.clear();
   _root = BVPtr();
   _invalidated = true;
@@ -944,7 +945,7 @@ void TriangleMeshPrimitive::build_BB_tree()
   _tris.clear();
 
   // get the vertices from the mesh
-  const vector<Vector3>& vertices = _mesh->get_vertices();
+  const vector<Point3d>& vertices = _mesh->get_vertices();
 
   // build an BV around all vertices 
   BVPtr root;
@@ -979,20 +980,20 @@ void TriangleMeshPrimitive::build_BB_tree()
     // split the bounding box across each of the three axes
     for (unsigned i=0; i< 3; i++)
     {
-      Vector3 axis;
+      Vector3d axis;
 
       // get the i'th column of R if an OBB
       if (!is_deformable())
       {
         OBBPtr obb = dynamic_pointer_cast<OBB>(bb);
         assert(obb);
-        obb->R.get_column(i, axis.begin());
+        obb->R.get_column(i, axis);
       }
       else
       {
-        if (i == 0) axis = Vector3(1,0,0);
-        else if (i == 1) axis = Vector3(0,1,0);
-        else axis = Vector3(0,0,1); 
+        if (i == 0) axis = Vector3d(1,0,0);
+        else if (i == 1) axis = Vector3d(0,1,0);
+        else axis = Vector3d(0,0,1); 
       }
 
       // split the bounding box across the axis
@@ -1067,12 +1068,12 @@ void TriangleMeshPrimitive::build_BB_tree()
     // for any children with a greater volume than the obb in question,
     // remove the grandchildren and add them as children
     BVPtr bb = Q.front();
-    Real vol = bb->calc_volume();
+    double vol = bb->calc_volume();
     bool erased_one = false;
     for (list<BVPtr>::iterator i = bb->children.begin(); i != bb->children.end(); )
     {
       // get the volume of this child
-      Real voli = (*i)->calc_volume();
+      double voli = (*i)->calc_volume();
       if (!(*i)->is_leaf() && voli > vol + NEAR_ZERO)
       {
         erased_one = true;
@@ -1168,13 +1169,13 @@ void TriangleMeshPrimitive::build_BB_tree()
 }
 
 /// Sets the intersection tolerance
-void TriangleMeshPrimitive::set_intersection_tolerance(Real tol)
+void TriangleMeshPrimitive::set_intersection_tolerance(double tol)
 {
   Primitive::set_intersection_tolerance(tol);
 
   // mesh, vertices, and BVH are no longer valid
   _mesh = shared_ptr<IndexedTriArray>();
-  _vertices = shared_ptr<vector<Vector3> >();
+  _vertices = shared_ptr<vector<Point3d> >();
   _mesh_vertices.clear();
   _root = BVPtr();
 }
@@ -1188,14 +1189,14 @@ void TriangleMeshPrimitive::construct_mesh_vertices(shared_ptr<const IndexedTriA
   _mesh_vertices.clear();
 
   // get the sets of vertices and facets from the mesh
-  const vector<Vector3>& mesh_vertices = mesh->get_vertices();
+  const vector<Point3d>& mesh_vertices = mesh->get_vertices();
   const vector<IndexedTri>& mesh_facets = mesh->get_facets();
 
   // also, we'll need the vertex-to-facet map
   vector<list<unsigned> > vf_map = mesh->determine_vertex_facet_map();
 
   // create a new vector of vertices
-  _vertices = shared_ptr<vector<Vector3> >(new vector<Vector3>(mesh_vertices));
+  _vertices = shared_ptr<vector<Point3d> >(new vector<Point3d>(mesh_vertices));
 
   // now, modify the vertices based on the intersection tolerance
   for (unsigned i=0; i< mesh_vertices.size(); i++)
@@ -1204,7 +1205,7 @@ void TriangleMeshPrimitive::construct_mesh_vertices(shared_ptr<const IndexedTriA
     const list<unsigned>& ifacets = vf_map[i];
 
     // setup the current normal
-    Vector3 normal = ZEROS_3;
+    Vector3d normal = Vector3d::zero();
 
     // add all coincident normals together, then normalize
     BOOST_FOREACH(unsigned j, ifacets)
@@ -1247,14 +1248,14 @@ void TriangleMeshPrimitive::construct_mesh_vertices(shared_ptr<const IndexedTriA
           unsigned vi = q.front().first;
           unsigned vj = q.front().second;
           q.pop();
-          const Vector3& v1 = (*_vertices)[vi];
-          const Vector3& v2 = (*_vertices)[vj];
+          const Point3d& v1 = (*_vertices)[vi];
+          const Point3d& v2 = (*_vertices)[vj];
 
           // subdivide, adding a vertex as necessary
           if ((v1-v2).norm() > _edge_sample_length)
           {
             unsigned vk = _vertices->size();
-            _vertices->push_back((v1+v2) * (Real) 0.5);
+            _vertices->push_back((v1+v2) * (double) 0.5);
             ess.push_back(vk);
             q.push(make_sorted_pair(vi,vk));
             q.push(make_sorted_pair(vk,vj));
@@ -1297,25 +1298,25 @@ void TriangleMeshPrimitive::construct_mesh_vertices(shared_ptr<const IndexedTriA
 }
 
 /// Splits a collection of triangles along a splitting plane into 2 new meshes 
-void TriangleMeshPrimitive::split_tris(const Vector3& point, const Vector3& normal, const IndexedTriArray& orig_mesh, const list<unsigned>& ofacets, list<unsigned>& pfacets, list<unsigned>& nfacets) 
+void TriangleMeshPrimitive::split_tris(const Point3d& point, const Vector3d& normal, const IndexedTriArray& orig_mesh, const list<unsigned>& ofacets, list<unsigned>& pfacets, list<unsigned>& nfacets) 
 {
   // get original vertices and facets
-  const vector<Vector3>& vertices = orig_mesh.get_vertices();
+  const vector<Point3d>& vertices = orig_mesh.get_vertices();
   const vector<IndexedTri>& facets = orig_mesh.get_facets();
 
   // determine the splitting plane: ax + by + cz = d
-  Real offset = Vector3::dot(point, normal);
+  double offset = Vector3d::dot(point, normal);
 
   // determine the side of the splitting plane of the triangles
   Plane plane(normal, offset);
   BOOST_FOREACH(unsigned i, ofacets)
   {
     // get the three signed distances
-    Real sa = plane.calc_signed_distance(vertices[facets[i].a]);
-    Real sb = plane.calc_signed_distance(vertices[facets[i].b]);
-    Real sc = plane.calc_signed_distance(vertices[facets[i].c]);
-    Real min_s = std::min(sa, std::min(sb, sc));
-    Real max_s = std::max(sa, std::max(sb, sc));    
+    double sa = plane.calc_signed_distance(vertices[facets[i].a]);
+    double sb = plane.calc_signed_distance(vertices[facets[i].b]);
+    double sc = plane.calc_signed_distance(vertices[facets[i].c]);
+    double min_s = std::min(sa, std::min(sb, sc));
+    double max_s = std::max(sa, std::max(sb, sc));    
 
     // see whether we can cleanly put the triangle into one side
     if (min_s > 0)
@@ -1326,8 +1327,8 @@ void TriangleMeshPrimitive::split_tris(const Vector3& point, const Vector3& norm
     {
       // triangle is split down the middle; get its centroid
       Triangle tri(vertices[facets[i].a], vertices[facets[i].b], vertices[facets[i].c]);
-      Vector3 tri_centroid = tri.calc_centroid();
-      Real scent = plane.calc_signed_distance(tri_centroid);
+      Point3d tri_centroid = tri.calc_centroid();
+      double scent = plane.calc_signed_distance(tri_centroid);
       if (scent > 0)
         pfacets.push_back(i);
       else
@@ -1337,7 +1338,7 @@ void TriangleMeshPrimitive::split_tris(const Vector3& point, const Vector3& norm
 }
 
 /// Splits a bounding box  along a given axis into two new bounding boxes; returns true if split successful
-bool TriangleMeshPrimitive::split(shared_ptr<const IndexedTriArray> mesh, shared_ptr<BV> source, shared_ptr<BV>& tgt1, shared_ptr<BV>& tgt2, const Vector3& axis) 
+bool TriangleMeshPrimitive::split(shared_ptr<const IndexedTriArray> mesh, shared_ptr<BV> source, shared_ptr<BV>& tgt1, shared_ptr<BV>& tgt2, const Vector3d& axis) 
 {
   // setup two lists of triangles
   list<unsigned> ptris, ntris;
@@ -1357,7 +1358,7 @@ bool TriangleMeshPrimitive::split(shared_ptr<const IndexedTriArray> mesh, shared
   list<Triangle> t_tris;
   BOOST_FOREACH(unsigned idx, tris)
     t_tris.push_back(mesh->get_triangle(idx)); 
-  Vector3 centroid = CompGeom::calc_centroid_3D(t_tris.begin(), t_tris.end());
+  Point3d centroid = CompGeom::calc_centroid_3D(t_tris.begin(), t_tris.end());
 
   // get the side of the splitting plane of the triangles
   split_tris(centroid, axis, *mesh, tris, ptris, ntris);
@@ -1365,7 +1366,7 @@ bool TriangleMeshPrimitive::split(shared_ptr<const IndexedTriArray> mesh, shared
     return false;
 
   // get vertices from both meshes
-  vector<Vector3> pverts, nverts;
+  vector<Point3d> pverts, nverts;
   get_vertices(*mesh, ptris.begin(), ptris.end(), std::back_inserter(pverts));
   get_vertices(*mesh, ntris.begin(), ntris.end(), std::back_inserter(nverts));
 

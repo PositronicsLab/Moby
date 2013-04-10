@@ -7,6 +7,7 @@
 #include <Moby/OBB.h>
 #include <Moby/AABB.h>
 
+using namespace Ravelin;
 using namespace Moby;
 using std::endl;
 
@@ -26,20 +27,20 @@ using std::endl;
  * \return <b>true</b> if the OBB and line intersect, <b>false</b> otherwise
  * \note code adapted from [Ericson, 2005], pp. 180-181
  */
-bool AABB::intersects(const AABB& a, const LineSeg3& seg, Real& tmin, Real tmax, Vector3& q)
+bool AABB::intersects(const AABB& a, const LineSeg3& seg, double& tmin, double tmax, Point3d& q)
 {
   // get the center of the AABB
-  Vector3 center = a.minp*0.5 + a.maxp*0.5;
+  Point3d center = a.minp*0.5 + a.maxp*0.5;
 
   // convert the line segment to AABB space
-  Vector3 p = seg.first - center;
-  Vector3 d = seg.second - center - p;
+  Point3d p = seg.first - center;
+  Vector3d d = seg.second - center - p;
 
   // determine half-extents
-  Vector3 l = center - a.minp;
+  Vector3d l = center - a.minp;
 
   // compute zero tolerance for d
-  const Real ZERO_TOL = NEAR_ZERO * std::max((Real) 1.0, std::max(l.norm(), d.norm()));
+  const double ZERO_TOL = NEAR_ZERO * std::max((double) 1.0, std::max(l.norm(), d.norm()));
 
   FILE_LOG(LOG_BV) << "AABB::intersects() entered" << endl; 
   FILE_LOG(LOG_BV) << "  -- checking intersection between line segment " << seg.first << " / " << seg.second << " and AABB: " << endl << a;
@@ -60,9 +61,9 @@ bool AABB::intersects(const AABB& a, const LineSeg3& seg, Real& tmin, Real tmax,
     else
     {
       // compute intersection value of line with near and far plane of slab
-      Real ood = 1.0 / d[i];
-      Real t1 = (-l[i] - p[i]) * ood;
-      Real t2 = (l[i] - p[i]) * ood;
+      double ood = 1.0 / d[i];
+      double t1 = (-l[i] - p[i]) * ood;
+      double t2 = (l[i] - p[i]) * ood;
 
       FILE_LOG(LOG_BV) << "  ood: " << ood << " t1: " << t1 << "  t2: " << t2 << endl; 
 
@@ -94,7 +95,7 @@ bool AABB::intersects(const AABB& a, const LineSeg3& seg, Real& tmin, Real tmax,
 }
 
 /// Determines whether a point is outside of a AABB
-bool AABB::outside(const AABB& a, const Vector3& point, Real tol)
+bool AABB::outside(const AABB& a, const Point3d& point, double tol)
 {
   const unsigned THREE_D = 3;
 
@@ -120,7 +121,7 @@ bool AABB::intersects(const AABB& a, const AABB& b)
 }
 
 /// Determines whether two AABBs overlap
-bool AABB::intersects(const AABB& a, const AABB& b, const Matrix4& aTb)
+bool AABB::intersects(const AABB& a, const AABB& b, const Pose3d& aTb)
 {
   // make OBBs out of a and b
   OBB oa = a.get_OBB();
@@ -141,30 +142,30 @@ OBB AABB::get_OBB() const
 }
 
 /// Sends this AABB to VRML
-std::ostream& AABB::to_vrml(std::ostream& out, const Matrix4& T) const
+std::ostream& AABB::to_vrml(std::ostream& out, const Pose3d& T) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
   // get translation and axis-angle for T
-  Vector3 tx = T.get_translation();
-  AAngle rot(&T);
+  const Origin3d& tx = T.x;
+  AAngled rot = T.q;
 
   // pick a random color
-  Vector3 color((Real) rand()/RAND_MAX, (Real) rand()/RAND_MAX, (Real) rand()/RAND_MAX);
+  Point3d color((double) rand()/RAND_MAX, (double) rand()/RAND_MAX, (double) rand()/RAND_MAX);
 
   // setup the vertices of the box
-  std::list<Vector3> vertices;
-  vertices.push_back(Vector3(-1,-1,+1));
-  vertices.push_back(Vector3(+1,-1,+1));
-  vertices.push_back(Vector3(-1,+1,+1));
-  vertices.push_back(Vector3(+1,+1,+1));
-  vertices.push_back(Vector3(-1,+1,-1));
-  vertices.push_back(Vector3(+1,+1,-1));
-  vertices.push_back(Vector3(+1,-1,-1));
-  vertices.push_back(Vector3(-1,-1,-1));
+  std::list<Point3d> vertices;
+  vertices.push_back(Point3d(-1,-1,+1));
+  vertices.push_back(Point3d(+1,-1,+1));
+  vertices.push_back(Point3d(-1,+1,+1));
+  vertices.push_back(Point3d(+1,+1,+1));
+  vertices.push_back(Point3d(-1,+1,-1));
+  vertices.push_back(Point3d(+1,+1,-1));
+  vertices.push_back(Point3d(+1,-1,-1));
+  vertices.push_back(Point3d(-1,-1,-1));
 
   // determine the scaling factor 
-  Vector3 l = maxp*0.5 - minp*0.5;
+  Point3d l = maxp*0.5 - minp*0.5;
 
   out << "Transform {" << endl;
   out << "  translation " << tx[X] << " " << tx[Y] << " " << tx[Z] << endl;
@@ -174,7 +175,7 @@ std::ostream& AABB::to_vrml(std::ostream& out, const Matrix4& T) const
   out << "    appearance Appearance { material Material { diffuseColor " << out << color[X] << " " << color[Y] << " " << color[Z] << " } }";
   out << "    geometry IndexedLineSet {" << endl;
   out << "      coord Coordinate { point [";
-  BOOST_FOREACH(const Vector3& vertex, vertices)
+  BOOST_FOREACH(const Point3d& vertex, vertices)
     out << vertex[X] << " " << vertex[Y] << " " << vertex[Z] << ", ";
   out << "       ] }" << endl;
   out << "      coordIndex [ 0, 1, 3, 2, -1, 1, 6, 5, 3, -1, 0, 2, 4, 7, " << endl;
@@ -184,7 +185,7 @@ std::ostream& AABB::to_vrml(std::ostream& out, const Matrix4& T) const
 }
 
 /// Constructs a velocity expanded OBB using the AABB
-BVPtr AABB::calc_vel_exp_BV(CollisionGeometryPtr g, Real dt, const Vector3& lv, const Vector3& av) const
+BVPtr AABB::calc_vel_exp_BV(CollisionGeometryPtr g, double dt, const Vector3d& lv, const Vector3d& av) const
 {
   // construct an OBB and use it to determine the velocity-expanded bounding volume
   OBBPtr o(new OBB(get_OBB()));
@@ -193,27 +194,27 @@ BVPtr AABB::calc_vel_exp_BV(CollisionGeometryPtr g, Real dt, const Vector3& lv, 
 }
 
 /// Calculates the volume of this AABB
-Real AABB::calc_volume() const
+double AABB::calc_volume() const
 {
   return (maxp[0]-minp[0])*(maxp[1]-minp[1])*(maxp[2]-minp[2]);
 }
 
 /// Gets the lower bounds for this AABB using an OBB
-Vector3 AABB::get_lower_bounds(const Matrix4& T)
+Point3d AABB::get_lower_bounds(const Pose3d& T)
 {
   // construct an OBB and use it to determine the velocity-expanded bounding volume
   return get_OBB().get_lower_bounds(T);
 }
 
 /// Gets the upper bounds for this AABB using an OBB
-Vector3 AABB::get_upper_bounds(const Matrix4& T)
+Point3d AABB::get_upper_bounds(const Pose3d& T)
 {
   // construct an OBB and use it to determine the velocity-expanded bounding volume
   return get_OBB().get_upper_bounds(T);
 }
 
 /// Gets the closest point on the AABB to a point
-void AABB::get_closest_point(const AABB& a, const Vector3& p, Vector3& closest)
+void AABB::get_closest_point(const AABB& a, const Point3d& p, Point3d& closest)
 {
   const unsigned THREE_D = 3; 
 
@@ -232,27 +233,27 @@ void AABB::get_closest_point(const AABB& a, const Vector3& p, Vector3& closest)
 /**
  * Returns the squared distance to the farthest point
  */
-Real AABB::get_farthest_point(const AABB& a, const Vector3& p, Vector3& farthest)
+double AABB::get_farthest_point(const AABB& a, const Point3d& p, Point3d& farthest)
 {
   const unsigned X = 0, Y = 1, Z = 2, NVERTS = 8;
 
   // get the eight vertices of the AABB
-  Vector3 vertices[NVERTS];
-  vertices[0] = Vector3(a.minp[X], a.minp[Y], a.minp[Z]);
-  vertices[1] = Vector3(a.minp[X], a.minp[Y], a.maxp[Z]);
-  vertices[2] = Vector3(a.minp[X], a.maxp[Y], a.minp[Z]);
-  vertices[3] = Vector3(a.minp[X], a.maxp[Y], a.maxp[Z]);
-  vertices[4] = Vector3(a.maxp[X], a.minp[Y], a.minp[Z]);
-  vertices[5] = Vector3(a.maxp[X], a.minp[Y], a.maxp[Z]);
-  vertices[6] = Vector3(a.maxp[X], a.maxp[Y], a.minp[Z]);
-  vertices[7] = Vector3(a.maxp[X], a.maxp[Y], a.maxp[Z]);
+  Point3d vertices[NVERTS];
+  vertices[0] = Point3d(a.minp[X], a.minp[Y], a.minp[Z]);
+  vertices[1] = Point3d(a.minp[X], a.minp[Y], a.maxp[Z]);
+  vertices[2] = Point3d(a.minp[X], a.maxp[Y], a.minp[Z]);
+  vertices[3] = Point3d(a.minp[X], a.maxp[Y], a.maxp[Z]);
+  vertices[4] = Point3d(a.maxp[X], a.minp[Y], a.minp[Z]);
+  vertices[5] = Point3d(a.maxp[X], a.minp[Y], a.maxp[Z]);
+  vertices[6] = Point3d(a.maxp[X], a.maxp[Y], a.minp[Z]);
+  vertices[7] = Point3d(a.maxp[X], a.maxp[Y], a.maxp[Z]);
 
   // see which is farthest
-  Real farthest_dist = (vertices[0] - p).norm_sq();
+  double farthest_dist = (vertices[0] - p).norm_sq();
   farthest = vertices[0];
   for (unsigned i=1; i< NVERTS; i++)
   {
-    Real dist = (vertices[i] - p).norm_sq();
+    double dist = (vertices[i] - p).norm_sq();
     if (dist > farthest_dist)
     {
       farthest_dist = dist;

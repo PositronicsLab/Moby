@@ -8,9 +8,9 @@
 /**
  * \param tselect_begin iterator to a container of type unsigned (tetra indices)
  * \param tselect_end iterator to a container of type unsigned (tetra indices)
- * \param output beginning iterator to a container of type Vector3; unique
+ * \param output beginning iterator to a container of type Ravelin::Vector3; unique
  *        vertices are copied here on return
- * \return ending iterator to a container of type Vector3; unique vertices
+ * \return ending iterator to a container of type Ravelin::Vector3; unique vertices
  *         are copied here on return
  */
 template <class InputIterator, class OutputIterator>
@@ -47,11 +47,11 @@ OutputIterator DeformableBody::get_vertices(InputIterator tselect_begin, InputIt
  *        hold the IDs of the tetrahedra that _may_ contain p
  */
 template <class OutputIterator>
-OutputIterator DeformableBody::get_tetrahedra(const Vector3& p, OutputIterator output_begin) const
+OutputIterator DeformableBody::get_tetrahedra(const Ravelin::Point3d& p, OutputIterator output_begin) const
 {
-  const Real TOL = 1e-5;
+  const double TOL = 1e-5;
   std::stack<BVPtr> S;
-  Vector3 closest, farthest;
+  Ravelin::Point3d closest, farthest;
   bool output = false;
 
   FILE_LOG(LOG_BV) << "DeformableBody::get_tetrahedra() entered" << std::endl;
@@ -148,7 +148,7 @@ OutputIterator DeformableBody::get_tetrahedra(const Vector3& p, OutputIterator o
         AABB* aabb_i = (AABB*) bvs[i].get();
 
         // get the farthest point on AABB i to p and its squared distance
-        Real dist_farthest = AABB::get_farthest_point(*aabb_i, p, farthest);
+        double dist_farthest = AABB::get_farthest_point(*aabb_i, p, farthest);
 
         // check against all other boxes
         for (unsigned j=0; j< bvs.size(); j++)
@@ -163,7 +163,7 @@ OutputIterator DeformableBody::get_tetrahedra(const Vector3& p, OutputIterator o
           AABB::get_closest_point(*aabb_j, p, closest);
 
           // get the distance from the closest point to p
-          Real dist_closest = (closest - p).norm_sq();
+          double dist_closest = (closest - p).norm_sq();
 
           // if the closest point on AABB j is farther than the farthest point
           // on AABB i, we don't have to process this box

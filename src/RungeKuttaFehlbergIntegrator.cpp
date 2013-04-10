@@ -4,13 +4,15 @@
  * License (found in COPYING).
  ****************************************************************************/
 
-template <class T>
-RungeKuttaFehlbergIntegrator<T>::RungeKuttaFehlbergIntegrator()
+#include <Moby/RungeKuttaFehlbergIntegrator.h>
+
+using namespace Moby;
+
+RungeKuttaFehlbergIntegrator::RungeKuttaFehlbergIntegrator()
 {
 }
 
-template <class T>
-void RungeKuttaFehlbergIntegrator<T>::fehl ( void f ( Real t, Real* y, Real* yp, void* data), int neqn, Real* y, Real t, Real h, Real* yp, Real* f1, Real* f2, Real* f3, Real* f4, Real* f5, Real* s)
+void RungeKuttaFehlbergIntegrator::fehl ( void f ( double t, double* y, double* yp, void* data), int neqn, double* y, double t, double h, double* yp, double* f1, double* f2, double* f3, double* f4, double* f5, double* s)
 //****************************************************************************80
 //
 //  Purpose:
@@ -65,28 +67,28 @@ void RungeKuttaFehlbergIntegrator<T>::fehl ( void f ( Real t, Real* y, Real* yp,
 //    Input, external F, a user-supplied subroutine to evaluate the
 //    derivatives Y'(T), of the form:
 //
-//      void f ( Real t, Real y[], Real yp[] )
+//      void f ( double t, double y[], double yp[] )
 //
 //    Input, int NEQN, the number of equations to be integrated.
 //
-//    Input, Real Y[NEQN], the current value of the dependent variable.
+//    Input, double Y[NEQN], the current value of the dependent variable.
 //
-//    Input, Real T, the current value of the independent variable.
+//    Input, double T, the current value of the independent variable.
 //
-//    Input, Real H, the step size to take.
+//    Input, double H, the step size to take.
 //
-//    Input, Real YP[NEQN], the current value of the derivative of the
+//    Input, double YP[NEQN], the current value of the derivative of the
 //    dependent variable.
 //
-//    Output, Real F1[NEQN], F2[NEQN], F3[NEQN], F4[NEQN], F5[NEQN], derivative
+//    Output, double F1[NEQN], F2[NEQN], F3[NEQN], F4[NEQN], F5[NEQN], derivative
 //    values needed for the computation.
 //
-//    Output, Real S[NEQN], the estimate of the solution at T+H.
+//    Output, double S[NEQN], the estimate of the solution at T+H.
 //
 {
-  Real ch;
+  double ch;
 
-  ch = h / (Real) 4.0;
+  ch = h / (double) 4.0;
 
   for ( int i = 0; i < neqn; i++ )
   {
@@ -95,74 +97,73 @@ void RungeKuttaFehlbergIntegrator<T>::fehl ( void f ( Real t, Real* y, Real* yp,
 
   f ( t + ch, f5, f1, this );
 
-  ch = (Real) 3.0 * h / (Real) 32.0;
+  ch = (double) 3.0 * h / (double) 32.0;
 
   for ( int i = 0; i < neqn; i++ )
   {
-    f5[i] = y[i] + ch * ( yp[i] + (Real) 3.0 * f1[i] );
+    f5[i] = y[i] + ch * ( yp[i] + (double) 3.0 * f1[i] );
   }
 
-  f ( t + (Real) 3.0 * h / (Real) 8.0, f5, f2, this );
+  f ( t + (double) 3.0 * h / (double) 8.0, f5, f2, this );
 
-  ch = h / (Real) 2197.0;
+  ch = h / (double) 2197.0;
 
   for (int i = 0; i < neqn; i++ )
   {
     f5[i] = y[i] + ch * 
-    ( (Real) 1932.0 * yp[i] 
-    + ( (Real) 7296.0 * f2[i] - (Real) 7200.0 * f1[i] ) 
+    ( (double) 1932.0 * yp[i] 
+    + ( (double) 7296.0 * f2[i] - (double) 7200.0 * f1[i] ) 
     );
   }
 
-  f ( t + (Real) 12.0 * h / (Real) 13.0, f5, f3, this );
+  f ( t + (double) 12.0 * h / (double) 13.0, f5, f3, this );
 
-  ch = h / (Real) 4104.0;
+  ch = h / (double) 4104.0;
 
   for (int i = 0; i < neqn; i++ )
   {
     f5[i] = y[i] + ch * 
     ( 
-      ( (Real) 8341.0 * yp[i] - (Real) 845.0 * f3[i] ) 
-    + ( (Real) 29440.0 * f2[i] - (Real) 32832.0 * f1[i] ) 
+      ( (double) 8341.0 * yp[i] - (double) 845.0 * f3[i] ) 
+    + ( (double) 29440.0 * f2[i] - (double) 32832.0 * f1[i] ) 
     );
   }
 
   f ( t + h, f5, f4, this );
 
-  ch = h / (Real) 20520.0;
+  ch = h / (double) 20520.0;
 
   for (int i = 0; i < neqn; i++ )
   {
     f1[i] = y[i] + ch * 
     ( 
-      ( (Real) -6080.0 * yp[i] 
-      + ( (Real) 9295.0 * f3[i] - (Real) 5643.0 * f4[i] ) 
+      ( (double) -6080.0 * yp[i] 
+      + ( (double) 9295.0 * f3[i] - (double) 5643.0 * f4[i] ) 
       ) 
-    + ( (Real) 41040.0 * f1[i] - (Real) 28352.0 * f2[i] ) 
+    + ( (double) 41040.0 * f1[i] - (double) 28352.0 * f2[i] ) 
     );
   }
 
-  f ( t + h / (Real) 2.0, f1, f5, this );
+  f ( t + h / (double) 2.0, f1, f5, this );
 //
 //  Ready to compute the approximate solution at T+H.
 //
-  ch = h / (Real) 7618050.0;
+  ch = h / (double) 7618050.0;
 
   for (int i = 0; i < neqn; i++ )
   {
     s[i] = y[i] + ch * 
     ( 
-      ( (Real) 902880.0 * yp[i] 
-      + ( (Real) 3855735.0 * f3[i] - (Real) 1371249.0 * f4[i] ) ) 
-    + ( (Real) 3953664.0 * f2[i] + (Real) 277020.0 * f5[i] ) 
+      ( (double) 902880.0 * yp[i] 
+      + ( (double) 3855735.0 * f3[i] - (double) 1371249.0 * f4[i] ) ) 
+    + ( (double) 3953664.0 * f2[i] + (double) 277020.0 * f5[i] ) 
     );
   }
 
   return;
 }
 
-template <class T>
-void RungeKuttaFehlbergIntegrator<T>::rkf45 ( void f ( Real t, Real* y, Real* yp, void* data), int neqn, Real* y, Real* yp, Real& t, Real tout, bool init)
+void RungeKuttaFehlbergIntegrator::rkf45 ( void f ( double t, double* y, double* yp, void* data), int neqn, double* y, double* yp, double& t, double tout, bool init)
 
 //****************************************************************************80
 //
@@ -288,22 +289,22 @@ void RungeKuttaFehlbergIntegrator<T>::rkf45 ( void f ( Real t, Real* y, Real* yp
 //    Input, external F, a user-supplied subroutine to evaluate the
 //    derivatives Y'(T), of the form:
 //
-//      void f ( Real t, Real y[], Real yp[] )
+//      void f ( double t, double y[], double yp[] )
 //
 //    Input, int NEQN, the number of equations to be integrated.
 //
-//    Input/output, Real Y[NEQN], the current solution vector at T.
+//    Input/output, double Y[NEQN], the current solution vector at T.
 //
-//    Input/output, Real YP[NEQN], the derivative of the current solution 
+//    Input/output, double YP[NEQN], the derivative of the current solution 
 //    vector at T.  The user should not set or alter this information!
 //
-//    Input/output, Real T, the current value of the independent variable.
+//    Input/output, double T, the current value of the independent variable.
 //
-//    Input, Real TOUT, the output point at which solution is desired.  
+//    Input, double TOUT, the output point at which solution is desired.  
 //    TOUT = T is allowed on the first call only, in which case the routine
 //    returns with FLAG = 2 if continuation is possible.
 //
-//    Input, Real RELERR, ABSERR, the relative and absolute error tolerances
+//    Input, double RELERR, ABSERR, the relative and absolute error tolerances
 //    for the local error test.  At each step the code requires:
 //      abs ( local error ) <= RELERR * abs ( Y ) + ABSERR
 //    for each component of the local error and the solution vector Y.
@@ -321,22 +322,22 @@ void RungeKuttaFehlbergIntegrator<T>::rkf45 ( void f ( Real t, Real* y, Real* yp
 //    problem that should be addressed.
 //
 {
-  Real esttol = (Real) -1.0;
-  Real et;
-  Real s;
-  Real toln;
+  double esttol = (double) -1.0;
+  double et;
+  double s;
+  double toln;
 //
 //  Check the input parameters.
 //
-  const Real EPS = std::numeric_limits<Real>::epsilon();
+  const double EPS = std::numeric_limits<double>::epsilon();
 
   if ( neqn < 1 )
     throw std::runtime_error("At least one equation required for Runge-Kutta-Fehlberg integration");
 
-  if (this->rerr_tolerance < (Real) 0.0 )
+  if (this->rerr_tolerance < (double) 0.0 )
     throw std::runtime_error("Relative error tolerance must be non-negative");
 
-  if (this->aerr_tolerance < (Real) 0.0 )
+  if (this->aerr_tolerance < (double) 0.0 )
     throw std::runtime_error("Absolute error tolerance must be non-negative");
 
   // resize f1..f5, if necessary
@@ -361,7 +362,7 @@ void RungeKuttaFehlbergIntegrator<T>::rkf45 ( void f ( Real t, Real* y, Real* yp
 //  to avoid limiting precision difficulties arising from impossible 
 //  accuracy requests.
 //
-  const Real REMIN = 2.0 * std::numeric_limits<Real>::epsilon() + 1e-12;
+  const double REMIN = 2.0 * std::numeric_limits<double>::epsilon() + 1e-12;
 //
 //  Is the relative error tolerance too small?
 //
@@ -369,10 +370,10 @@ void RungeKuttaFehlbergIntegrator<T>::rkf45 ( void f ( Real t, Real* y, Real* yp
     std::cerr << "RungeKuttaFehlbergIntegrator warning- relative tolerance too small; " << std::endl << "using " << REMIN << " instead" << std::endl;
 
   // setup relerr
-  const Real RELERR = std::max(this->rerr_tolerance, REMIN); 
+  const double RELERR = std::max(this->rerr_tolerance, REMIN); 
 
   // setup the step size
-  Real dt = tout - t;
+  double dt = tout - t;
 //
 //  Initialization:
 //
@@ -392,28 +393,28 @@ void RungeKuttaFehlbergIntegrator<T>::rkf45 ( void f ( Real t, Real* y, Real* yp
       return;
 
     _h = std::fabs( dt );
-    toln = (Real) 0.0;
+    toln = (double) 0.0;
 
     for (int k = 0; k < neqn; k++ )
     {
-      Real tol = RELERR * std::fabs ( y[k] ) + this->aerr_tolerance;
-      if ( (Real) 0.0 < tol )
+      double tol = RELERR * std::fabs ( y[k] ) + this->aerr_tolerance;
+      if ( (double) 0.0 < tol )
       {
         toln = tol;
-        Real ypk = std::fabs ( yp[k] );
-        if ( tol < ypk * std::pow ( _h, (Real) 5 ) )
+        double ypk = std::fabs ( yp[k] );
+        if ( tol < ypk * std::pow ( _h, (double) 5 ) )
         {
-          _h = std::pow ( ( tol / ypk ), (Real) 0.2 );
+          _h = std::pow ( ( tol / ypk ), (double) 0.2 );
         }
       }
     }
 
-    if ( toln <= (Real) 0.0 )
+    if ( toln <= (double) 0.0 )
     {
-      _h = (Real) 0.0;
+      _h = (double) 0.0;
     }
 
-    _h = std::max ( _h, (Real) 26.0 * EPS * std::max ( std::fabs ( t ), std::fabs ( dt ) ) );
+    _h = std::max ( _h, (double) 26.0 * EPS * std::max ( std::fabs ( t ), std::fabs ( dt ) ) );
   }
 //
 //  Set stepsize for integration in the direction from T to TOUT.
@@ -422,7 +423,7 @@ void RungeKuttaFehlbergIntegrator<T>::rkf45 ( void f ( Real t, Real* y, Real* yp
 //
 //  Test to see if too may output points are being requested.
 //
-  if ( (Real) 2.0 * std::fabs ( dt ) <= std::fabs ( _h ) )
+  if ( (double) 2.0 * std::fabs ( dt ) <= std::fabs ( _h ) )
   {
     _kop = _kop + 1;
   }
@@ -438,7 +439,7 @@ void RungeKuttaFehlbergIntegrator<T>::rkf45 ( void f ( Real t, Real* y, Real* yp
 //
 //  If we are too close to the output point, then simply extrapolate and return.
 //
-  if ( std::fabs ( dt ) <= (Real) 26.0 * EPS * std::fabs ( t ) )
+  if ( std::fabs ( dt ) <= (double) 26.0 * EPS * std::fabs ( t ) )
   {
     t = tout;
     for (int i = 0; i < neqn; i++ )
@@ -458,8 +459,8 @@ void RungeKuttaFehlbergIntegrator<T>::rkf45 ( void f ( Real t, Real* y, Real* yp
 //  To avoid premature underflow in the error tolerance function,
 //  scale the error tolerances.
 //
-  const Real SCALE = (Real) 2.0 / RELERR;
-  const Real AE = SCALE * this->aerr_tolerance;
+  const double SCALE = (double) 2.0 / RELERR;
+  const double AE = SCALE * this->aerr_tolerance;
 //
 //  Step by step integration.
 //
@@ -469,7 +470,7 @@ void RungeKuttaFehlbergIntegrator<T>::rkf45 ( void f ( Real t, Real* y, Real* yp
 //
 //  Set the smallest allowable stepsize.
 //
-    Real hmin = (Real) 26.0 * EPS * std::fabs ( t );
+    double hmin = (double) 26.0 * EPS * std::fabs ( t );
 //
 //  Adjust the stepsize if necessary to hit the output point.
 //
@@ -478,7 +479,7 @@ void RungeKuttaFehlbergIntegrator<T>::rkf45 ( void f ( Real t, Real* y, Real* yp
 //
     dt = tout - t;
 
-    if ( (Real) 2.0 * std::fabs ( _h ) <= std::fabs ( dt ) )
+    if ( (double) 2.0 * std::fabs ( _h ) <= std::fabs ( dt ) )
     {
     }
     else
@@ -493,7 +494,7 @@ void RungeKuttaFehlbergIntegrator<T>::rkf45 ( void f ( Real t, Real* y, Real* yp
       }
       else
       {
-        _h = (Real) 0.5 * dt;
+        _h = (double) 0.5 * dt;
       }
 
     }
@@ -537,33 +538,33 @@ void RungeKuttaFehlbergIntegrator<T>::rkf45 ( void f ( Real t, Real* y, Real* yp
 //  measured with respect to the average of the magnitudes of the
 //  solution at the beginning and end of the step.
 //
-      Real eeoet = (Real) 0.0;
+      double eeoet = (double) 0.0;
  
       for (int k = 0; k < neqn; k++ )
       {
-        const Real ET = std::fabs ( y[k] ) + std::fabs ( f1[k] ) + AE;
+        const double ET = std::fabs ( y[k] ) + std::fabs ( f1[k] ) + AE;
 
         // solution vanished: pure relative error test impossible
-        if ( ET <= (Real) 0.0 )
+        if ( ET <= (double) 0.0 )
         {
           std::cerr << "RungeKuttaFehlbergIntegrator::integrate() - solution vanished;" << std::endl << "pure relative error test impossible" << std::endl;
           return;
         }
 
-        const Real EE = std::fabs 
-        ( ((Real)  -2090.0 * yp[k] 
-          + ((Real)  21970.0 * f3[k] - (Real) 15048.0 * f4[k] ) 
+        const double EE = std::fabs 
+        ( ((double)  -2090.0 * yp[k] 
+          + ((double)  21970.0 * f3[k] - (double) 15048.0 * f4[k] ) 
           ) 
-        + ( (Real) 22528.0 * f2[k] - (Real) 27360.0 * f5[k] ) 
+        + ( (double) 22528.0 * f2[k] - (double) 27360.0 * f5[k] ) 
         );
 
         eeoet = std::max ( eeoet, EE / ET );
 
       }
 
-      esttol = std::fabs ( _h ) * eeoet * SCALE / (Real) 752400.0;
+      esttol = std::fabs ( _h ) * eeoet * SCALE / (double) 752400.0;
 
-      if ( esttol <= (Real) 1.0 )
+      if ( esttol <= (double) 1.0 )
       {
         break;
       }
@@ -574,13 +575,13 @@ void RungeKuttaFehlbergIntegrator<T>::rkf45 ( void f ( Real t, Real* y, Real* yp
       hfaild = true;
       output = false;
 
-      if ( esttol < (Real) 59049.0 )
+      if ( esttol < (double) 59049.0 )
       {
-        s = (Real) 0.9 / std::pow ( esttol, (Real) 0.2 );
+        s = (double) 0.9 / std::pow ( esttol, (double) 0.2 );
       }
       else
       {
-        s = (Real) 0.1;
+        s = (double) 0.1;
       }
 
       _h = s * _h;
@@ -607,18 +608,18 @@ void RungeKuttaFehlbergIntegrator<T>::rkf45 ( void f ( Real t, Real* y, Real* yp
 //  Choose the next stepsize.  The increase is limited to a factor of 5.
 //  If the step failed, the next stepsize is not allowed to increase.
 //
-    if ( (Real) 0.0001889568 < esttol )
+    if ( (double) 0.0001889568 < esttol )
     {
-      s = (Real) 0.9 / std::pow ( esttol, (Real) 0.2 );
+      s = (double) 0.9 / std::pow ( esttol, (double) 0.2 );
     }
     else
     {
-      s = (Real) 5.0;
+      s = (double) 5.0;
     }
 
     if ( hfaild )
     {
-      s = std::min ( s, (Real) 1.0 );
+      s = std::min ( s, (double) 1.0 );
     }
 
     _h = sign ( _h ) * std::max ( s * std::fabs ( _h ), hmin );
@@ -636,24 +637,22 @@ void RungeKuttaFehlbergIntegrator<T>::rkf45 ( void f ( Real t, Real* y, Real* yp
   }
 }
 
-template <class T>
-Real RungeKuttaFehlbergIntegrator<T>::sign ( Real x )
+double RungeKuttaFehlbergIntegrator::sign ( double x )
 {
-  if ( x < (Real) 0.0 )
+  if ( x < (double) 0.0 )
   {
-    return ( (Real) -1.0 );
+    return ( (double) -1.0 );
   } 
   else
   {
-    return ( (Real) +1.0 );
+    return ( (double) +1.0 );
   }
 }
 
-template <class T>
-void RungeKuttaFehlbergIntegrator<T>::fprime(Real t, Real* y, Real* yprime, void* data)
+void RungeKuttaFehlbergIntegrator::fprime(double t, double* y, double* yprime, void* data)
 {
   // get the object
-  RungeKuttaFehlbergIntegrator<T>* rkf = (RungeKuttaFehlbergIntegrator<T>*) data;
+  RungeKuttaFehlbergIntegrator* rkf = (RungeKuttaFehlbergIntegrator*) data;
 
   // get the derivative
   std::copy(y, y+rkf->_N, rkf->_x.data());
@@ -661,10 +660,9 @@ void RungeKuttaFehlbergIntegrator<T>::fprime(Real t, Real* y, Real* yprime, void
   rkf->_f(rkf->_x, t, rkf->_dt, rkf->_data, rkf->_xprime);
 }
 
-template <class T>
-void RungeKuttaFehlbergIntegrator<T>::integrate(T& x, T& (*f)(const T&, Real, Real, void*, T&), Real& time, Real step_size, void* data)
+void RungeKuttaFehlbergIntegrator::integrate(Ravelin::VectorNd& x, Ravelin::VectorNd& (*f)(const Ravelin::VectorNd&, double, double, void*, Ravelin::VectorNd&), double& time, double step_size, void* data)
 {
-  const Real desired_time = time + step_size;
+  const double desired_time = time + step_size;
 
   // setup data
   _N = x.size();
@@ -690,21 +688,19 @@ void RungeKuttaFehlbergIntegrator<T>::integrate(T& x, T& (*f)(const T&, Real, Re
   }
 }
 
-template <class T>
-void RungeKuttaFehlbergIntegrator<T>::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map) 
+void RungeKuttaFehlbergIntegrator::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map) 
 { 
   // verify that the node name is correct
   assert(strcasecmp(node->name.c_str(), "RungeKuttaFehlbergIntegrator") == 0);
 
   // call the parent method
-  VariableStepIntegrator<T>::load_from_xml(node, id_map);
+  VariableStepIntegrator::load_from_xml(node, id_map);
 }
 
-template <class T>
-void RungeKuttaFehlbergIntegrator<T>::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
+void RungeKuttaFehlbergIntegrator::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
 {
   // call the parent method 
-  VariableStepIntegrator<T>::save_to_xml(node, shared_objects); 
+  VariableStepIntegrator::save_to_xml(node, shared_objects); 
 
   // rename the node
   node->name = "RungeKuttaFehlbergIntegrator";

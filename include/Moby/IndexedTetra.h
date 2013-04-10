@@ -16,8 +16,8 @@ struct IndexedTetra
 {
   IndexedTetra() { a = b = c = d = std::numeric_limits<unsigned>::max(); }
   IndexedTetra(unsigned v1, unsigned v2, unsigned v3, unsigned v4) { a = v1; b = v2; c = v3; d = v4; }
-  static void determine_barycentric_coords(const Vector3& v1, const Vector3& v2, const Vector3& v3, const Vector3& v4, const Vector3& p, Real& u, Real& v, Real& w);
-  static Vector3 calc_point(const Vector3& v1, const Vector3& v2, const Vector3& v3, const Vector3& v4, Real u, Real v, Real w);
+  static void determine_barycentric_coords(const Ravelin::Point3d& v1, const Ravelin::Point3d& v2, const Ravelin::Point3d& v3, const Ravelin::Point3d& v4, const Ravelin::Point3d& p, double& u, double& v, double& w);
+  static Ravelin::Point3d calc_point(const Ravelin::Point3d& v1, const Ravelin::Point3d& v2, const Ravelin::Point3d& v3, const Ravelin::Point3d& v4, double u, double v, double w);
 
   /// Index of the first vertex of the tetrahedron
   unsigned a;
