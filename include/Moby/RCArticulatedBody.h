@@ -56,7 +56,6 @@ class RCArticulatedBody : public ArticulatedBody
     virtual MatrixN& calc_jacobian_column(JointPtr joint, const Vector3& point, const Matrix4& base_transform, const std::map<JointPtr, VectorN>& q, MatrixN& Jc);
     virtual MatrixN& calc_jacobian_column(JointPtr joint, const Vector3& point, MatrixN& Jc);
     virtual MatrixN& calc_jacobian_floating_base(const Vector3& point, MatrixN& J);
-    virtual void reset_accumulators();
     virtual void update_link_transforms();    
     virtual void update_link_velocities();
     virtual void apply_impulse(const Vector3& j, const Vector3& k, const Vector3& p, RigidBodyPtr link);
@@ -149,10 +148,6 @@ class RCArticulatedBody : public ArticulatedBody
     /// The vector of explicit joint constraints
     std::vector<JointPtr> _ejoints;
 
-    /// Variables used for events
-    MatrixN _Jc, _Dc, _Jl, _Jx, _Dx, _Dt;
-    MatrixN _iM_JcT, _iM_DcT, _iM_JlT, _iM_JxT, _iM_DxT, _iM_DtT;
-
     /// The CRB algorithm
     CRBAlgorithm _crb;
 
@@ -185,10 +180,22 @@ class RCArticulatedBody : public ArticulatedBody
     void M_mult(const VectorN& v, VectorN& result) const;
     void set_generalized_acceleration(DynamicBody::GeneralizedCoordinateType gctype, const VectorN& a);
     void determine_explicit_constraint_movement_jacobian(MatrixN& D);
-    void determine_explicit_constraint_jacobians(const EventProblemData& q, MatrixN& Jx, MatrixN& Dx) const;
+    void determine_explicit_constraint_jacobians(const EventProblemData& q, MatrixN& Jx, MatrixN& Dx);
     void determine_explicit_constraint_jacobian(MatrixN& J);
-    void determine_explicit_constraint_jacobian_dot(MatrixN& J) const;
+    void determine_explicit_constraint_jacobian_dot(MatrixN& J);
     void set_explicit_constraint_forces(const VectorN& lambda);
+
+    // temporary variables
+    VectorN _workv, _workv2, _fext, _Jx_v, _Jx_dot_v, _alpha_x, _beta_x, _v, _C;
+    VectorN _x, _iM_fext, _Dx_v;
+    MatrixN _workM, _workM2, _R;
+    MatrixN _Jc, _Dc, _Jl, _Jx, _Dx, _Dt, _Jx_iM_JxT, _Jx_dot;
+    MatrixN _iM_JcT, _iM_DcT, _iM_JlT, _iM_JxT, _iM_DxT, _iM_DtT;
+    SMatrix6N _so;
+    std::vector<SVector6> _dv, _f;
+    std::vector<const SMatrix6N*> _sx;
+    std::vector<unsigned> _pidx, _coord_indices, _nrm_c_indices, _tan_c_indices;
+    std::vector<SpatialRBInertia> _Ic;
 }; // end class
 
 } // end namespace

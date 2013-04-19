@@ -84,7 +84,7 @@ class RigidBody : public SingleBody
     void set_transform(const Matrix4& transform);
     void set_transform(const Quat& q, const Vector3& x);
     void set_inertia(const Matrix3& m);
-    void set_enabled(bool flag);
+    virtual void set_enabled(bool flag);
     void set_orientation(const Quat& q);
     void set_position(const Vector3& pos);
     void add_force(const Vector3& f, const Vector3& p);
@@ -236,9 +236,6 @@ class RigidBody : public SingleBody
       */
     const Vector3& sum_torques() const { return _torques; }
 
-    /// Gets whether this body is enabled
-    bool is_enabled() const { return _enabled; }
-    
     /// Gets the articulated body corresponding to this body
     /**
      * \return a pointer to the articulated body, or NULL if this body is not 
@@ -280,9 +277,6 @@ class RigidBody : public SingleBody
    
     /// Gets the list of outer joint data for this link
     const std::list<OuterJointData>& get_outer_joints_data() const { return _outer_joints; }
-
-    /// Coulomb coefficient for dampening the body motion
-    VectorN coulomb_coeff;
 
     /// Viscous coefficient for dampening the body motion
     VectorN viscous_coeff;
@@ -338,9 +332,6 @@ class RigidBody : public SingleBody
 
     /// Angular acceleration
     Vector3 _alpha;  
-
-    /// Flag for determining whether or not the body is physically enabled
-    bool _enabled;
 
     /// Pointer to articulated body (if this body is a link)
     boost::weak_ptr<ArticulatedBody> _abody;
