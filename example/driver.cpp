@@ -356,6 +356,7 @@ void process_window_tag(XMLTreeConstPtr node)
   if (!ONSCREEN_RENDER)
     return;
 
+  #ifdef USE_OSG
   // read window location
   const XMLAttrib* loc_attr = node->get_attrib("location");
 
@@ -371,6 +372,7 @@ void process_window_tag(XMLTreeConstPtr node)
 
   // setup the window 
   viewer_pointer->setUpViewInWindow(loc[0], loc[1], size[0], size[1]);
+  #endif
 }
 
 /// processes all 'driver' options in the XML file
