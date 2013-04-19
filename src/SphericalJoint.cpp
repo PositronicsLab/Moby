@@ -11,6 +11,7 @@
 #include <Moby/RigidBody.h>
 #include <Moby/XMLTree.h>
 #include <Moby/NullPointerException.h>
+#include <Moby/UndefinedAxisException.h>
 #include <Moby/SphericalJoint.h>
 
 using namespace Moby;
@@ -404,13 +405,13 @@ void SphericalJoint::determine_q(VectorN& q)
 
   // verify that the inboard and outboard links are set
   if (!inboard || !outboard)
-    throw NullPointerException("SphericalJoint::determine_q() called on NULL inboard and/or outboard links!");
+    throw std::runtime_error("determine_q() called on NULL inboard and/or outboard links!");
 
   // if any of the axes are not defined, can't use this method
   if (std::fabs(_u[0].norm_sq() - 1.0) > NEAR_ZERO ||
       std::fabs(_u[1].norm_sq() - 1.0) > NEAR_ZERO ||
       std::fabs(_u[2].norm_sq() - 1.0) > NEAR_ZERO)
-    return;
+    throw UndefinedAxisException();
 
   // set proper size for q
   q.resize(num_dof());
