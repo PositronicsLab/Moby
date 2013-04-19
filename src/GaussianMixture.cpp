@@ -79,6 +79,11 @@ osg::Node* GaussianMixture::create_visualization()
 
   return group;
 }
+#else
+osg::Node* GaussianMixture::create_visualization()
+{
+  return NULL;
+}
 #endif 
 
 /// Reads the Gaussian parameters

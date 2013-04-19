@@ -12,7 +12,9 @@
 #include <Moby/LinAlg.h>
 #include <Moby/Constants.h>
 #include <Moby/RNEAlgorithm.h>
+#ifdef USE_OSG
 #include <osgDB/WriteFile>
+#endif
 //#include <osgDB/ReaderWriterSTL>
 
 using namespace Moby;

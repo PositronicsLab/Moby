@@ -184,8 +184,10 @@ osg::Group* Visualizable::construct_from_node(XMLTreeConstPtr node, const std::m
       assert(prm);
 
       // create the group and add a node to it
+      #ifdef USE_OSG
       group = new osg::Group;
       group->addChild(prm->get_visualization());
+      #endif
     }
   }
   // visualization-filename attribute
