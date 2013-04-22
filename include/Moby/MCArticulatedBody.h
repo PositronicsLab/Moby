@@ -50,7 +50,6 @@ class MCArticulatedBody : public ArticulatedBody
     virtual VectorN& get_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, VectorN& gc);
     virtual VectorN& get_generalized_velocities(DynamicBody::GeneralizedCoordinateType gctype, VectorN& gv) { return get_generalized_velocity(gctype, gv); }
     virtual VectorN& get_generalized_forces(DynamicBody::GeneralizedCoordinateType gctype, VectorN& Qf);
-    virtual void reset_accumulators();
     virtual void apply_impulse(const Vector3& j, const Vector3& k, const Vector3& contact_point, RigidBodyPtr link);
     virtual void calc_fwd_dyn(Real dt);
     virtual void load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map);
@@ -101,6 +100,14 @@ class MCArticulatedBody : public ArticulatedBody
       Matrix3 inv_inertia;  // The inverse of the rigid body inertia 
     };
 
+    // temporary variables
+    VectorN _workv, _workv2, _lambda, _Qj, _iM_Qj, _delta_xd;
+    VectorN _fext, _C, _Jx_dot_xd, _Jx_xd, _iM_fext, _ff, _alpha_x;
+    VectorN _beta_x, _delta, _z, _x; 
+    MatrixN _workM, _left, _right, _pinv_s, _pinv_s_dot, _sx;
+    MatrixN _Jx_iM_DxT, _Dx_iM_DxT, _R;
+    SparseJacobian _Jc_sub, _Dc_sub;
+
     static MatrixN& reverse_transform(const SpatialTransform& X, const MatrixN& pinv_s, MatrixN& sx);
     static SpatialTransform calc_special_spatial_transform(const SpatialTransform& X);
     static bool affects(RigidBodyPtr rb, Event* e);
@@ -117,12 +124,12 @@ class MCArticulatedBody : public ArticulatedBody
     void get_constraint_jacobian(SparseJacobian& J) const;
     void get_constraint_jacobian_dot(SparseJacobian& J) const;
     void get_constraint_jacobian_numerically(SparseJacobian& J) const;
-    void get_mechanism_jacobian(SparseJacobian& J, SparseJacobian& J_dot) const;
+    void get_mechanism_jacobian(SparseJacobian& J, SparseJacobian& J_dot);
     VectorN& get_constraint_evals(VectorN& C) const;
-    VectorN& iM_mult(const VectorN& v, VectorN& result) const;
+    VectorN& iM_mult(const VectorN& v, VectorN& result);
     static void transform(RigidBodyPtr rb, Real CJrb[7]);
     void form_Jm_iM_Km(const std::vector<unsigned>& Jm_indices, const std::vector<unsigned>& Km_indices, MatrixN& M);
-    VectorN& scale_inverse_inertia(unsigned i, VectorN& v) const;
+    VectorN& scale_inverse_inertia(unsigned i, VectorN& v);
     void apply_joint_limit_impulses();
     void update_Jx_v(EventProblemData& q);
     void update_Jl_v(EventProblemData& q);
@@ -136,7 +143,7 @@ class MCArticulatedBody : public ArticulatedBody
     void calc_Dx_iM_DxT(MatrixN& Dx_iM_DxT) const;
     void calc_Dx_iM(SparseJacobian& Dx_iM) const;
     MatrixN& calc_Jx_iM_JyT(const SparseJacobian& Jx, const SparseJacobian& Jy, MatrixN& Jx_iM_JyT) const;
-    static void get_sub_jacobian(const std::vector<unsigned>& rows, const SparseJacobian& J, SparseJacobian& Jx);
+    void get_sub_jacobian(const std::vector<unsigned>& rows, const SparseJacobian& J, SparseJacobian& Jx);
     static void increment_dof(RigidBodyPtr rb1, RigidBodyPtr rb2, unsigned k, Real h);
     virtual VectorN& solve_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, const VectorN& b, VectorN& x);
     virtual MatrixN& solve_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, const MatrixN& B, MatrixN& X);

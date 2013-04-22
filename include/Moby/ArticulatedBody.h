@@ -58,6 +58,7 @@ class ArticulatedBody : public DynamicBody
   public:
     ArticulatedBody();
     virtual ~ArticulatedBody() {}
+    virtual void set_enabled(bool flag);
     unsigned num_constraint_eqns_implicit() const;
     unsigned num_constraint_eqns_explicit() const;
     virtual void transform(const Matrix4& T);
@@ -125,7 +126,7 @@ class ArticulatedBody : public DynamicBody
     virtual void apply_impulse(const Vector3& j, const Vector3& k, const Vector3& p, RigidBodyPtr link) = 0;
       
     /// Method for resetting the force and torque accumulators on all links
-    virtual void reset_accumulators() = 0;
+    virtual void reset_accumulators();
 
     /// Use the advanced (but relatively slow) full friction model?
     bool use_advanced_friction_model;

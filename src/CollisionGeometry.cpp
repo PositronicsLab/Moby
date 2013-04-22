@@ -61,13 +61,24 @@ void CollisionGeometry::set_rel_transform(const Matrix4& transform, bool update_
  */
 PrimitivePtr CollisionGeometry::set_geometry(PrimitivePtr primitive)
 {
-  if (_single_body.expired())
-    throw std::runtime_error("CollisionGeometry::set_geometry() called before single body set!");
+  static bool expired_warning = false, identity_warning = false;
 
-  SingleBodyPtr sb(_single_body);
-  RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(sb);
-  if (rb && !Matrix4::epsilon_equals(IDENTITY_4x4, rb->get_transform(), NEAR_ZERO))
-    std::cerr << "CollisionGeometry::set_primitive() - rigid body's transform is not identity!" << std::endl;
+  if (_single_body.expired())
+  {
+    if (!expired_warning)
+    {
+      expired_warning = true;
+      std::cerr << "CollisionGeometry::set_geometry() called before single body set!" << std::endl;
+    }
+  }
+  else if (!identity_warning)
+  {
+    identity_warning = true;
+    SingleBodyPtr sb(_single_body);
+    RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(sb);
+    if (rb && !Matrix4::epsilon_equals(IDENTITY_4x4, rb->get_transform(), NEAR_ZERO))
+      std::cerr << "CollisionGeometry::set_primitive() - rigid body's transform is not identity!" << std::endl;
+  }
 
   // save the primitive
   _geometry = primitive;

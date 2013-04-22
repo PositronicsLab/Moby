@@ -51,9 +51,7 @@ RigidBody::RigidBody()
   _q = Quat(&_F);
   _forces = ZEROS_3;
   _torques = ZEROS_3;
-  _enabled = true;
   _link_idx = std::numeric_limits<unsigned>::max();
-  coulomb_coeff = VectorN::zero(SPATIAL_DIM);
   viscous_coeff = VectorN::zero(SPATIAL_DIM);
 }
 
@@ -80,6 +78,10 @@ void RigidBody::integrate(Real t, Real h, shared_ptr<Integrator<VectorN> > integ
 /// Computes the forward dynamics for this body
 void RigidBody::calc_fwd_dyn(Real dt)
 {
+  // look for fast exit
+  if (!is_enabled())
+    return;
+
   // if the body is free, just compute linear and angular acceleration via
   // Newton's and Euler's laws
   if (_abody.expired())
@@ -142,21 +144,14 @@ shared_ptr<DynamicBody> RigidBody::get_dynamic_body()
  */
 void RigidBody::set_enabled(bool flag)
 {
-  // mark as enabled / disabled
-  _enabled = flag;  
+  // call parent method 
+  DynamicBody::set_enabled(flag);  
 
-  // if disabled, then zero the velocities and momenta; also zero inverse mass and inverse inertia tensor
-  if (!_enabled)
+  // if disabled, then zero the velocities and momenta
+  if (!is_enabled())
   {
     _xd = ZEROS_3;
     _omega = ZEROS_3;
-    _inv_mass = 0;
-    _invJ = ZEROS_3x3;
-  }
-  else
-  {
-    _inv_mass = 1.0/_mass;
-    _invJ = Matrix3::inverse(_J);
   }
 }
 
@@ -164,7 +159,7 @@ void RigidBody::set_enabled(bool flag)
 void RigidBody::set_avel(const Vector3& avel)
 {
   // angular velocity should not be set for disabled bodies
-  if (!_enabled)
+  if (!is_enabled())
     return;  
   
   // set the angular velocity
@@ -178,7 +173,7 @@ void RigidBody::set_avel(const Vector3& avel)
 /// Sets the linear velocity of this body
 void RigidBody::set_lvel(const Vector3& lvel) 
 { 
-  if (!_enabled)
+  if (!is_enabled())
     return;
   
   // set the linear velocity  
@@ -192,52 +187,43 @@ void RigidBody::set_lvel(const Vector3& lvel)
 /// Sets the inertia tensor for this body
 void RigidBody::set_inertia(const Matrix3& inertia)
 {
-  // check the validity of the inertia matrix
-  if (_enabled)
+  // first, verify that the matrix is symmetric
+  if ((inertia - Matrix3::transpose(inertia)).norm_inf() > NEAR_ZERO)
   {
-    // first, verify that the matrix is symmetric
-    if ((inertia - Matrix3::transpose(inertia)).norm_inf() > NEAR_ZERO)
-    {
-      std::cerr << "RigidBody::set_inertia() warning - inertia matrix does";
-      std::cerr << "not appear to be symmetric!" << std::endl;
-      std::cerr << "Inertia matrix: " << std::endl << inertia;
-    }
-    else
-    { 
-      // get the eigenvalues of the matrix
-      VectorN evals;
-      MatrixN J(inertia);
-      LinAlg::eig_symm(J, evals);
-
-      // first, verify that all eigenvalues are non-negative
-      Real min_eig = *std::min_element(evals.begin(), evals.end());
-      if (min_eig < (Real) 0.0)
-      {
-        std::cerr << "RigidBody::set_inertia() warning - minimum eigenvalue of inertia matrix is " << std::endl;
-        std::cerr << min_eig << " -- matrix is *at best* PSD" << std::endl;
-      }
-      else
-      {
-        // all checks ok to here. still, look for relative inertial problems.
-        Real max_eig = *std::max_element(evals.begin(), evals.end());
-        if (max_eig / min_eig > (Real) 1000.0)
-        {
-          std::cerr << "RigidBody::set_inertia() warning - ratio of maximim:minimum eigenvalues of " << std::endl;
-          std::cerr << "inertia matrix is" << (max_eig/min_eig) << ":1; for numerical stability, " << std::endl;
-          std::cerr << "< 100:1 is recommended." << std::endl;
-        }
-      }
-    } 
+    std::cerr << "RigidBody::set_inertia() warning - inertia matrix does";
+    std::cerr << "not appear to be symmetric!" << std::endl;
+    std::cerr << "Inertia matrix: " << std::endl << inertia;
   }
-
-  // store the matrix and its inverse
-  _J = inertia;
-  
-  // set the inverse inertia to zero if body is disabled; to inverse of inertia otherwise
-  if (_enabled)
-    _invJ = Matrix3::inverse(inertia);
   else
-    _invJ = ZEROS_3x3;
+  { 
+    // get the eigenvalues of the matrix
+    VectorN evals;
+    MatrixN J(inertia);
+    LinAlg::eig_symm(J, evals);
+
+    // first, verify that all eigenvalues are non-negative
+    Real min_eig = *std::min_element(evals.begin(), evals.end());
+    if (min_eig < (Real) 0.0)
+    {
+      std::cerr << "RigidBody::set_inertia() warning - minimum eigenvalue of inertia matrix is " << std::endl;
+      std::cerr << min_eig << " -- matrix is *at best* PSD" << std::endl;
+    }
+   else
+   {
+     // all checks ok to here. still, look for relative inertial problems.
+     Real max_eig = *std::max_element(evals.begin(), evals.end());
+     if (max_eig / min_eig > (Real) 1000.0)
+     {
+       std::cerr << "RigidBody::set_inertia() warning - ratio of maximim:minimum eigenvalues of " << std::endl;
+       std::cerr << "inertia matrix is" << (max_eig/min_eig) << ":1; for numerical stability, " << std::endl;
+       std::cerr << "< 100:1 is recommended." << std::endl;
+     }
+   }
+ } 
+
+ // store the matrix and its inverse
+ _J = inertia;
+ _invJ = Matrix3::inverse(inertia);
 
   // invalidate position, just in case
   invalidate_position();
@@ -258,10 +244,10 @@ SpatialRBInertia RigidBody::get_spatial_iso_inertia(ReferenceFrameType rftype) c
 /// Sets the mass of this body
 void RigidBody::set_mass(Real mass)
 {
-  if (mass < 0.0)
-    throw std::runtime_error("Called RigidBody::set_mass() with negative mass");
+  if (mass <= 0.0)
+    throw std::runtime_error("Called RigidBody::set_mass() with non-positive mass");
   _mass = mass;
-  _inv_mass = (_enabled && mass != (Real) 0.0) ? (Real) 1.0/mass : (Real) 0.0;
+  _inv_mass = (Real) 1.0/mass;
 
   // invalidate position, just in case
   invalidate_position();
@@ -348,7 +334,7 @@ void RigidBody::set_transform(const Matrix4& T)
 void RigidBody::add_force(const Vector3& f, const Vector3& p)
 {
   // do not add forces to disabled bodies
-  if (!_enabled)
+  if (!is_enabled())
     return;
   
   // add the force directly to the c.o.m.
@@ -369,7 +355,7 @@ void RigidBody::synchronize()
 Vector3 RigidBody::calc_point_vel(const Vector3& point) const
 {
   // if the body is disabled, point velocity is zero
-  if (!_enabled)
+  if (!is_enabled())
     return ZEROS_3;
 
   // compute the arm
@@ -429,7 +415,7 @@ Real RigidBody::calc_sep_accel(RigidBody& rb1, RigidBody& rb2, const Vector3& po
 Real RigidBody::calc_point_accel(const Vector3& point, const Vector3& dir, Real dt)
 {
   // if the body is disabled, point acceleration is zero
-  if (!_enabled)
+  if (!is_enabled())
     return 0.0;
 
   // compute forward dynamics 
@@ -461,31 +447,11 @@ void RigidBody::load_from_xml(XMLTreeConstPtr node, map<std::string, BasePtr>& i
   // don't verify that the node is correct, b/c RigidBody can be subclassed
   // ***********************************************************************
  
-  // read the Coulomb dampening coefficient, if provided
-  const XMLAttrib* coulomb_coeff_attr = node->get_attrib("coulomb-dampening-coeff");
-  if (coulomb_coeff_attr)
-    coulomb_coeff_attr->get_vector_value(coulomb_coeff);
-
   // read the viscous dampening coefficient, if provided
   const XMLAttrib* viscous_coeff_attr = node->get_attrib("viscous-dampening-coeff");
   if (viscous_coeff_attr)
     viscous_coeff_attr->get_vector_value(viscous_coeff);
  
-  // read the linear acceleration, if provided
-  const XMLAttrib* laccel_attr = node->get_attrib("linear-accel");
-  if (laccel_attr)
-    laccel_attr->get_vector_value(_xdd);
-
-  // read the angular acceleration, if provided
-  const XMLAttrib* aaccel_attr = node->get_attrib("angular-accel");
-  if (aaccel_attr)
-    aaccel_attr->get_vector_value(_alpha);
-
-  // read whether the body is enabled, if provided
-  const XMLAttrib* enabled_attr = node->get_attrib("enabled");
-  if (enabled_attr)
-    _enabled = enabled_attr->get_bool_value();
-
   // read the mass, if provided
   const XMLAttrib* mass_attr = node->get_attrib("mass");
   if (mass_attr)
@@ -605,7 +571,7 @@ void RigidBody::load_from_xml(XMLTreeConstPtr node, map<std::string, BasePtr>& i
     }
 
     // update the com
-    assert(!_enabled || mass != 0.0);
+    assert(!is_enabled() || mass != 0.0);
     com *= (1.0/mass);
 
     if (com.norm() > NEAR_ZERO)
@@ -760,15 +726,6 @@ void RigidBody::save_to_xml(XMLTreePtr node, list<BaseConstPtr>& shared_objects)
   // rename the node
   node->name = "RigidBody";
 
-  // save the linear acceleration
-  node->attribs.insert(XMLAttrib("linear-accel", _xdd)); 
-
-  // save the angular acceleration
-  node->attribs.insert(XMLAttrib("angular-accel", _alpha)); 
-
-  // save whether the body is enabled
-  node->attribs.insert(XMLAttrib("enabled", _enabled));
-
   // save the mass
   node->attribs.insert(XMLAttrib("mass", _mass));
 
@@ -787,9 +744,8 @@ void RigidBody::save_to_xml(XMLTreePtr node, list<BaseConstPtr>& shared_objects)
   // save the cumulative torques on the body
   node->attribs.insert(XMLAttrib("sum-torques", _torques));
 
-  // save the dampening coefficients
-  node->attribs.insert(XMLAttrib("coulomb-coeff", coulomb_coeff));
-  node->attribs.insert(XMLAttrib("viscous-coeff", viscous_coeff));
+  // save the dampening coefficient
+  node->attribs.insert(XMLAttrib("viscous-dampening-coeff", viscous_coeff));
 
   // save all collision geometries
   BOOST_FOREACH(CollisionGeometryPtr g, geometries)
@@ -1097,7 +1053,7 @@ bool RigidBody::remove_inner_joint(JointPtr joint)
  */
 void RigidBody::add_force(const Vector3& force) 
 {
-  if (_enabled)
+  if (is_enabled())
     _forces += force;
 }
 
@@ -1108,7 +1064,7 @@ void RigidBody::add_force(const Vector3& force)
  */
 void RigidBody::add_torque(const Vector3& torque) 
 {
-  if (_enabled)
+  if (is_enabled())
     _torques += torque;
 }
 
@@ -1124,7 +1080,7 @@ void RigidBody::apply_impulse(const Vector3& j, const Vector3& p)
   // momenta and velocites
   if (_abody.expired())
   {
-    if (!_enabled)
+    if (!is_enabled())
       return;
 
     // update linear and angular velocities 
@@ -1160,7 +1116,7 @@ void RigidBody::apply_impulse(const Vector3& j, const Vector3& k, const Vector3&
   // momenta and velocites
   if (_abody.expired())
   {
-    if (!_enabled)
+    if (!is_enabled())
       return;
 
     // update linear and angular velocities 
@@ -1187,6 +1143,9 @@ void RigidBody::apply_impulse(const Vector3& j, const Vector3& k, const Vector3&
 /// Gets the spatial velocity for this link
 SVector6 RigidBody::get_spatial_velocity(ReferenceFrameType rftype) 
 {
+  if (!is_enabled())
+    return ZEROS_6;
+
   // get transformed linear and angular velocity
   Vector3 omega = _F.transpose_mult_vector(get_avel());
   Vector3 xd = _F.transpose_mult_vector(get_lvel());
@@ -1203,6 +1162,9 @@ SVector6 RigidBody::get_spatial_velocity(ReferenceFrameType rftype)
 /// Gets the spatial acceleration for this link 
 SVector6 RigidBody::get_spatial_accel(ReferenceFrameType rftype) 
 {
+  if (!is_enabled())
+    return ZEROS_6;
+
   // get the transpose of the rotation matrix
   Matrix3 RT;
   get_transform().get_rotation(&RT);
@@ -1220,6 +1182,10 @@ SVector6 RigidBody::get_spatial_accel(ReferenceFrameType rftype)
 /// Sets the spatial velocity 
 void RigidBody::set_spatial_velocity(const SVector6& v, ReferenceFrameType rftype)
 {
+  // look for fast exit
+  if (!is_enabled())
+    return;
+
   // get the rotation matrix of this link
   Matrix3 R;
   get_transform().get_rotation(&R);
@@ -1241,6 +1207,9 @@ void RigidBody::set_spatial_velocity(const SVector6& v, ReferenceFrameType rftyp
 /// Sets the spatial acceleration 
 void RigidBody::set_spatial_accel(const SVector6& a, ReferenceFrameType rftype)
 {
+  if (!is_enabled())
+    return;
+
   // get the rotation matrix of this link
   Matrix3 R;
   get_transform().get_rotation(&R);
@@ -1298,7 +1267,7 @@ SpatialTransform RigidBody::get_spatial_transform_global_to_link() const
 void RigidBody::add_generalized_force(GeneralizedCoordinateType gctype, const VectorN& gf)
 {
   // if body is not enabled, do nothing
-  if (!_enabled)
+  if (!is_enabled())
     return;
 
   assert(gf.size() == num_generalized_coordinates(gctype));
@@ -1323,7 +1292,7 @@ void RigidBody::add_generalized_force(GeneralizedCoordinateType gctype, const Ve
 void RigidBody::apply_generalized_impulse(GeneralizedCoordinateType gctype, const VectorN& gj)
 {
   // don't do anything if this body is disabled
-  if (!_enabled)
+  if (!is_enabled())
     return;
 
   // simple error check...
@@ -1368,6 +1337,9 @@ void RigidBody::apply_generalized_impulse(GeneralizedCoordinateType gctype, cons
 /// Solves using the generalized inertia matrix
 MatrixN& RigidBody::solve_generalized_inertia(GeneralizedCoordinateType gctype, const MatrixN& B, MatrixN& X)
 {
+  if (!is_enabled())
+    throw std::runtime_error("Called solve_generalized_inertia() on disabled rigid body!");
+
   if (gctype == eAxisAngle)
   {
     // resize x
@@ -1402,6 +1374,9 @@ MatrixN& RigidBody::solve_generalized_inertia(GeneralizedCoordinateType gctype, 
 /// Solves using the generalized inertia matrix
 VectorN& RigidBody::solve_generalized_inertia(GeneralizedCoordinateType gctype, const VectorN& b, VectorN& x)
 {
+  if (!is_enabled())
+    throw std::runtime_error("Called solve_generalized_inertia() on disabled rigid body!");
+
   if (gctype == eAxisAngle)
   {
     // resize x
@@ -1436,7 +1411,7 @@ VectorN& RigidBody::solve_generalized_inertia(GeneralizedCoordinateType gctype, 
 VectorN& RigidBody::get_generalized_coordinates(GeneralizedCoordinateType gctype, VectorN& gc) 
 {
   // special case: disabled body
-  if (!_enabled)
+  if (!is_enabled())
     return gc.resize(0);
 
   // make sure we were not passed the wrong type of gctype
@@ -1462,7 +1437,7 @@ VectorN& RigidBody::get_generalized_coordinates(GeneralizedCoordinateType gctype
 void RigidBody::set_generalized_coordinates(GeneralizedCoordinateType gctype, const VectorN& gc)
 {
   // special case: disabled body
-  if (!_enabled)
+  if (!is_enabled())
     return;
 
   // make sure we were not passed the wrong type of gctype
@@ -1494,7 +1469,7 @@ void RigidBody::set_generalized_coordinates(GeneralizedCoordinateType gctype, co
 void RigidBody::set_generalized_velocity(GeneralizedCoordinateType gctype, const VectorN& gv)
 {
   // special case: disabled body
-  if (!_enabled)
+  if (!is_enabled())
     return;
 
   // set the linear velocity 
@@ -1532,7 +1507,7 @@ void RigidBody::set_generalized_velocity(GeneralizedCoordinateType gctype, const
 VectorN& RigidBody::get_generalized_velocity(GeneralizedCoordinateType gctype, VectorN& gv) 
 {
   // special case: disabled body
-  if (!_enabled)
+  if (!is_enabled())
     return gv.resize(0);
 
   // resize the generalized velocity
@@ -1571,7 +1546,7 @@ VectorN& RigidBody::get_generalized_velocity(GeneralizedCoordinateType gctype, V
 VectorN& RigidBody::get_generalized_acceleration(GeneralizedCoordinateType gctype, VectorN& ga)
 {
   // special case: body is disabled
-  if (!_enabled)
+  if (!is_enabled())
     return ga.resize(0);
 
   // setup the linear components
@@ -1610,7 +1585,7 @@ MatrixN& RigidBody::get_generalized_inertia(GeneralizedCoordinateType gctype, Ma
   const unsigned X = 0, Y = 1, Z = 2;
 
   // special case: disabled body
-  if (!_enabled)
+  if (!is_enabled())
     return M.resize(0,0);
 
   // init the matrix to all zeros
@@ -1651,7 +1626,7 @@ MatrixN& RigidBody::get_generalized_inertia(GeneralizedCoordinateType gctype, Ma
 VectorN& RigidBody::get_generalized_forces(GeneralizedCoordinateType gctype, VectorN& f) 
 {
   // special case: disabled body
-  if (!_enabled)
+  if (!is_enabled())
     return f.resize(0);
 
   // resize the generalized forces vector
@@ -1709,7 +1684,7 @@ VectorN& RigidBody::convert_to_generalized_force(GeneralizedCoordinateType gctyp
   assert(body.get() == this);
 
   // special case: disabled body
-  if (!_enabled)
+  if (!is_enabled())
     return gf.resize(0);
 
   // setup the linear components
@@ -1770,7 +1745,7 @@ bool RigidBody::valid_transform(const MatrixN& T, Real tol)
 /// Calculates the kinetic energy of the body
 Real RigidBody::calc_kinetic_energy() const
 {
-  if (!_enabled)
+  if (!is_enabled())
     return (Real) 0.0;
 
   // convert J to world frame
@@ -1780,7 +1755,12 @@ Real RigidBody::calc_kinetic_energy() const
   Real le = _xd.norm_sq() * _mass;
   Real ae = _omega.dot(J0 * _omega);
   Real ke = (le + ae)*0.5;
-//  assert(ke > -NEAR_ZERO);
+
+  #ifdef NDEBUG
+  if (ke < (Real) 0.0)
+    std::cerr << "RigidBody::calc_kinetic_energy() - kinetic energy (" << ke << ") is negative!" << std::endl;
+  #endif
+
   return ke;
 }
 
@@ -1790,7 +1770,7 @@ unsigned RigidBody::num_generalized_coordinates(DynamicBody::GeneralizedCoordina
   const unsigned NGC_ROD = 7, NGC_AA = 6;
 
   // no generalized coordinates if this body is disabled
-  if (!_enabled)
+  if (!is_enabled())
     return 0;
 
   // look for other case where # of g.c.'s is zero: reduced coordinate 
@@ -1858,7 +1838,7 @@ JointPtr RigidBody::get_inner_joint_implicit() const
 void RigidBody::update_velocity(const EventProblemData& q)
 {
   // check for easy exit
-  if (q.N_CONTACTS == 0 || !_enabled)
+  if (q.N_CONTACTS == 0 || !is_enabled())
     return;
 
   // setup summed impulses
@@ -1931,7 +1911,7 @@ void RigidBody::update_velocity(const EventProblemData& q)
 /// Adds contributions to the event matrices
 void RigidBody::update_event_data(EventProblemData& q) 
 {
-  if (q.N_CONTACTS == 0 || !_enabled)
+  if (q.N_CONTACTS == 0 || !is_enabled())
     return;
 
   // get inertia matrix in global frame
@@ -2227,7 +2207,7 @@ void RigidBody::update_event_data(EventProblemData& q)
 bool RigidBody::is_ground() const
 {
   // clear easy cases
-  if (!_enabled)
+  if (!is_enabled())
     return true;
 
   // can't be a ground if not disabled and not part of an articulated body

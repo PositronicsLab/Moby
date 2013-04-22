@@ -8,6 +8,9 @@ using std::list;
 /// Integrates a dynamic body
 void DynamicBody::integrate(Real t, Real h, shared_ptr<Integrator<VectorN> > integrator)
 {
+  if (!is_enabled())
+    return;
+
   FILE_LOG(LOG_DYNAMICS) << "DynamicBody::integrate() - integrating from " << t << " by " << h << std::endl;
 
   shared_ptr<DynamicBody> shared_this = dynamic_pointer_cast<DynamicBody>(shared_from_this());
@@ -115,6 +118,11 @@ void DynamicBody::load_from_xml(XMLTreeConstPtr node, std::map<std::string, Base
       }
     }
   }
+
+  // read whether the body is enabled, if provided
+  const XMLAttrib* enabled_attr = node->get_attrib("enabled");
+  if (enabled_attr)
+    set_enabled(enabled_attr->get_bool_value());
 }
 
 /// Implements Base::save_to_xml()
@@ -135,5 +143,8 @@ void DynamicBody::save_to_xml(XMLTreePtr node, list<BaseConstPtr>& shared_object
     child_node->attribs.insert(XMLAttrib("recurrent-force-id", rf->id));
     shared_objects.push_back(rf);
   }
+
+  // save whether the body is enabled
+  node->attribs.insert(XMLAttrib("enabled", _enabled));
 }
 
