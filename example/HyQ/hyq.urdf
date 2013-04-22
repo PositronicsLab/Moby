@@ -96,7 +96,7 @@
     <link name="LF_FOOT">
             <inertial>
                     <origin xyz="0.0 0.0 0.0"/>
-                    <mass value="0.0"/>
+                    <mass value="0.001"/>
                     <inertia ixx="0.0"  ixy="0.0"  ixz="0.0" iyx="0.0"  iyy="0.0" iyz="0.0"  izx="0.0"  izy="0.0"  izz="0.0" />
             </inertial>
             <visual>
@@ -185,7 +185,7 @@
     <link name="RF_FOOT">
             <inertial>
                     <origin xyz="0.0 0.0 0.0"/>
-                    <mass value="0.0"/>
+                    <mass value="0.001"/>
                     <inertia ixx="0.0"  ixy="0.0"  ixz="0.0" iyx="0.0"  iyy="0.0" iyz="0.0"  izx="0.0"  izy="0.0"  izz="0.0" />
             </inertial>
             <visual>
@@ -274,7 +274,7 @@
     <link name="LH_FOOT">
             <inertial>
                     <origin xyz="0.0 0.0 0.0"/>
-                    <mass value="0.0"/>
+                    <mass value="0.001"/>
                     <inertia ixx="0.0"  ixy="0.0"  ixz="0.0" iyx="0.0"  iyy="0.0" iyz="0.0"  izx="0.0"  izy="0.0"  izz="0.0" />
             </inertial>
             <visual>
@@ -363,7 +363,7 @@
     <link name="RH_FOOT">
             <inertial>
                     <origin xyz="0.0 0.0 0.0"/>
-                    <mass value="0.0"/>
+                    <mass value="0.001"/>
                     <inertia ixx="0.0"  ixy="0.0"  ixz="0.0" iyx="0.0"  iyy="0.0" iyz="0.0"  izx="0.0"  izy="0.0"  izz="0.0" />
             </inertial>
             <visual>
