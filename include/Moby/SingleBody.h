@@ -51,9 +51,6 @@ class SingleBody : public DynamicBody
     /// Gets the articulated body that this body is a part of (if any)
     virtual ArticulatedBodyPtr get_articulated_body() const = 0;
 
-    /// Determines whether the body is enabled
-    virtual bool is_enabled() const = 0;
-
     /// Calculates the velocity at a point on the body
     virtual Vector3 calc_point_vel(const Vector3& point) const = 0;
 
