@@ -497,7 +497,14 @@ OBB::OBB(ForwardIterator begin, ForwardIterator end)
   this->center = ZEROS_3;
 
   // compute the convex hull of the points
-  PolyhedronPtr hull = CompGeom::calc_convex_hull(begin, end);
+  PolyhedronPtr hull;
+  try
+  {
+    hull = CompGeom::calc_convex_hull(begin, end);
+  }
+  catch (NumericalException e)
+  {
+  }
   bool is_3D = hull;
   if (!is_3D)
   {

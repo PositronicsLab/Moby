@@ -382,7 +382,6 @@
             </collision>
     </link>
 <!-- ROBOT JOINTS -->
-<!-- zero pos {pi 0 0, 0 0 0, 0 pi 0, 0 0 0} -->
    <!-- LF_LEG JOINTS -->
     <joint name="LF_HFE" type="revolute">
             <origin xyz="0.08 0.0 0.0" rpy="1.570796 0.0 0.0"/>
