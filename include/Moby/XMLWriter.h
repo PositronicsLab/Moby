@@ -17,8 +17,8 @@ namespace Moby {
 class XMLWriter
 {
   public:
-    static void serialize_to_xml(const std::string& filename, const std::list<BaseConstPtr>& objects);
-    static void serialize_to_xml(const std::string& filename, BaseConstPtr object);
+    static void serialize_to_xml(const std::string& filename, const std::list<boost::shared_ptr<const Base> >& objects);
+    static void serialize_to_xml(const std::string& filename, boost::shared_ptr<const Base> object);
 };
 
 } // end namespace

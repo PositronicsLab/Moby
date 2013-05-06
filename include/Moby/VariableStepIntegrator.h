@@ -23,8 +23,8 @@ class VariableStepIntegrator : public Integrator
     }
 
     virtual ~VariableStepIntegrator() {}
-    virtual void load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map);
-    virtual void save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const;
+    virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
+    virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
 
     /// Determines whether this is a variable-stepping integrator
     virtual bool is_variable() const { return true; }

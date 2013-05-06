@@ -31,8 +31,8 @@ class DeformableCCD : public CollisionDetection
   public:
     DeformableCCD();
     virtual ~DeformableCCD() {}
-    virtual void load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map);
-    virtual void save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const;
+    virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
+    virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual bool is_collision(double epsilon = 0.0);
     virtual bool is_contact(double dt, const std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> >& q0, const std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> >& q1, std::vector<Event>& contacts);
     virtual void add_collision_geometry(CollisionGeometryPtr geom);
@@ -112,10 +112,10 @@ class DeformableCCD : public CollisionDetection
     void add_rigid_body_model(RigidBodyPtr body);
     double determine_TOI(double t0, double tf, const DStruct* ds, Ravelin::Point3d& pt, Ravelin::Vector3d& normal) const;
     BVPtr get_vel_exp_BV(CollisionGeometryPtr g, BVPtr bv, const Ravelin::Vector3d& lv, const Ravelin::Vector3d& av);
-    bool intersect_BV_trees(boost::shared_ptr<BV> a, boost::shared_ptr<BV> b, const Ravelin::Pose3d& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b);
+    bool intersect_BV_trees(boost::shared_ptr<BV> a, boost::shared_ptr<BV> b, const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b);
     static Event create_contact(double toi, CollisionGeometryPtr a, CollisionGeometryPtr b, const Ravelin::Point3d& point, const Ravelin::Vector3d& normal);
     void check_vertices(double dt, CollisionGeometryPtr a, CollisionGeometryPtr b, BVPtr ob, const std::vector<const Ravelin::Point3d*>& a_verts, const Ravelin::Pose3d& bTa_t0, const std::pair<Ravelin::Vector3d, Ravelin::Vector3d>& a_vel, const std::pair<Ravelin::Vector3d, Ravelin::Vector3d>& b_vel, double& earliest, std::vector<Event>& local_contacts, bool self_check) const;
-    void check_geoms(double dt, CollisionGeometryPtr a, CollisionGeometryPtr b, const Ravelin::Pose3d& aTb_t0, const Ravelin::Pose3d& bTa_t0, const std::pair<Ravelin::Vector3d, Ravelin::Vector3d>& a_vel, const std::pair<Ravelin::Vector3d, Ravelin::Vector3d>& b_vel, std::vector<Event>& contacts); 
+    void check_geoms(double dt, CollisionGeometryPtr a, CollisionGeometryPtr b, const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& aTb_t0, const Ravelin::Pose3d& bTa_t0, const std::pair<Ravelin::Vector3d, Ravelin::Vector3d>& a_vel, const std::pair<Ravelin::Vector3d, Ravelin::Vector3d>& b_vel, std::vector<Event>& contacts); 
     void broad_phase(const std::map<SingleBodyPtr, std::pair<Ravelin::Vector3d, Ravelin::Vector3d> >& vel_map, std::vector<std::pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check);
     void sort_AABBs(const std::map<SingleBodyPtr, std::pair<Ravelin::Vector3d, Ravelin::Vector3d> >& vel_map);
     void update_bounds_vector(std::vector<std::pair<double, BoundsStruct> >& bounds, const std::map<SingleBodyPtr, std::pair<Ravelin::Vector3d, Ravelin::Vector3d> >& vel_map, AxisType axis);
@@ -127,7 +127,7 @@ class DeformableCCD : public CollisionDetection
     void insertion_sort(RandomAccessIterator begin, RandomAccessIterator end);
 
     template <class OutputIterator>
-    OutputIterator intersect_BV_leafs(BVPtr a, BVPtr b, const Ravelin::Pose3d& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b, OutputIterator output_begin) const;
+    OutputIterator intersect_BV_leafs(BVPtr a, BVPtr b, const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b, OutputIterator output_begin) const;
 
     /// Velocity-expanded BVs computed during last call to is_contact/update_contacts()
     std::map<CollisionGeometryPtr, std::map<BVPtr, BVPtr> > _ve_BVs;

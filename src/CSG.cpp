@@ -151,13 +151,13 @@ void CSG::set_intersection_tolerance(double tol)
 }
 
 /// Transforms the CSG
-void CSG::set_transform(const Pose3d& T)
+void CSG::set_pose(const Pose3d& T)
 {
   // determine the transformation from the old to the new transform 
   Pose3d Trel = T * Pose3d::inverse(_T);
 
   // call the primitive transform
-  Primitive::set_transform(T);
+  Primitive::set_pose(T);
 
   // transform the vertices
   if (_vertices)
@@ -189,7 +189,7 @@ BVPtr CSG::get_BVH_root()
     _aabb = shared_ptr<AABB>(new AABB);
 
   // get the current transform
-  const Pose3d& T = get_transform();
+  const Pose3d& T = get_pose();
 
   // get the bounding volumes for the operands
   shared_ptr<BV> bv1 = _op1->get_BVH_root();
@@ -271,7 +271,7 @@ bool CSG::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect
 bool CSG::intersect_seg_union(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Vector3d& normal) const
 {
   // get the transform of the CSG
-  const Pose3d& T = get_transform();
+  const Pose3d& T = get_pose();
 
   // transform segment into CSG-space
   Point3d p = T.inverse_transform(seg.first);
@@ -329,7 +329,7 @@ bool CSG::intersect_seg_union(BVPtr bv, const LineSeg3& seg, double& t, Point3d&
 bool CSG::intersect_seg_intersect(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Vector3d& normal) const
 {
   // get the transform of the CSG
-  const Pose3d& T = get_transform();
+  const Pose3d& T = get_pose();
 
   // transform segment into CSG-space
   Point3d p = T.inverse_transform(seg.first);
@@ -382,7 +382,7 @@ bool CSG::intersect_seg_intersect(BVPtr bv, const LineSeg3& seg, double& t, Poin
 bool CSG::intersect_seg_diff(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Vector3d& normal) const
 {
   // get the transform of the CSG
-  const Pose3d& T = get_transform();
+  const Pose3d& T = get_pose();
 
   // transform segment into CSG-space
   Point3d p = T.inverse_transform(seg.first);
@@ -576,7 +576,7 @@ bool CSG::intersect_seg_diff(BVPtr bv, const LineSeg3& seg, double& t, Point3d& 
 void CSG::set_mesh(shared_ptr<const IndexedTriArray> mesh)
 {
   // transform the mesh using the current transform
-  const Pose3d& T = get_transform();
+  const Pose3d& T = get_pose();
   _mesh = shared_ptr<IndexedTriArray>(new IndexedTriArray(mesh->transform(T)));
 
   // setup sub mesh (it will be just the standard mesh)
@@ -599,7 +599,7 @@ osg::Node* CSG::create_visualization()
   const unsigned X = 0, Y = 1, Z = 2;
 
   // get the inverse of the current transformation
-  Pose3d T_inv = Pose3d::inverse(get_transform());
+  Pose3d T_inv = Pose3d::inverse(get_pose());
 
   // back the transformation out of the mesh (if any); NOTE: we have to do this
   // b/c the base Primitive class uses the transform in the visualization
@@ -693,7 +693,7 @@ void CSG::center_mesh()
 
   // center the mesh, first backing out the current transform
   // get the inverse of the current transform
-  Pose3d Tinv = Pose3d::inverse(get_transform());
+  Pose3d Tinv = Pose3d::inverse(get_pose());
 
   // back the transform out of the mesh
   IndexedTriArray mesh = _mesh->transform(Tinv);
@@ -707,7 +707,7 @@ void CSG::center_mesh()
   mesh = mesh.translate(-centroid);
 
   // re-transform the mesh
-  _mesh = shared_ptr<IndexedTriArray>(new IndexedTriArray(mesh.transform(get_transform())));
+  _mesh = shared_ptr<IndexedTriArray>(new IndexedTriArray(mesh.transform(get_pose())));
 
   // re-calculate mass properties 
   calc_mass_properties();
@@ -720,7 +720,7 @@ void CSG::center_mesh()
 }
 
 /// Implements Base::load_from_xml() for serialization
-void CSG::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void CSG::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   std::map<std::string, BasePtr>::const_iterator id_iter;
 
@@ -835,7 +835,7 @@ void CSG::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id
 }
 
 /// Implements Base::save_to_xml() for serialization
-void CSG::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
+void CSG::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& shared_objects) const
 {
   // save the parent data
   Primitive::save_to_xml(node, shared_objects);
@@ -877,7 +877,7 @@ void CSG::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) 
     if (in.fail())
     {
       // transform the mesh w/transform backed out
-      Pose3d iT = Pose3d::inverse(get_transform());
+      Pose3d iT = Pose3d::inverse(get_pose());
       IndexedTriArray mesh_xform = _mesh->transform(iT);
 
       // write the mesh
@@ -982,7 +982,7 @@ void CSG::get_vertices(BVPtr bv, vector<const Point3d*>& vertices)
   if (!_vertices)
   {
     // get the transform of the CSG
-    const Pose3d& T = get_transform();
+    const Pose3d& T = get_pose();
 
     // get the BVHs
     BVPtr bv1 = _op1->get_BVH_root();

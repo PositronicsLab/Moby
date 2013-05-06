@@ -116,8 +116,8 @@ map<SingleBodyPtr, pair<Vector3, Vector3> > GeneralizedCCD::get_velocities(const
   {
     qd.copy_from(q1[i].second) -= q0[i].second;
     // Q: why do we set generalized coords to q1?
-    q1[i].first->set_generalized_coordinates(DynamicBody::eRodrigues, q0[i].second);
-    q1[i].first->set_generalized_velocity(DynamicBody::eRodrigues, qd);
+    q1[i].first->set_generalized_coordinates(DynamicBody::eEuler, q0[i].second);
+    q1[i].first->set_generalized_velocity(DynamicBody::eEuler, qd);
   }
   #else
   SAFESTATIC vector<VectorN> qd;
@@ -126,8 +126,8 @@ map<SingleBodyPtr, pair<Vector3, Vector3> > GeneralizedCCD::get_velocities(const
   for (unsigned i=0; i< q0.size(); i++)
   {
     qd[i].copy_from(q1[i].second) -= q0[i].second;
-    q1[i].first->set_generalized_coordinates(DynamicBody::eRodrigues, q0[i].second);
-    q1[i].first->set_generalized_velocity(DynamicBody::eRodrigues, qd[i]);
+    q1[i].first->set_generalized_coordinates(DynamicBody::eEuler, q0[i].second);
+    q1[i].first->set_generalized_velocity(DynamicBody::eEuler, qd[i]);
   }
   #endif
 
@@ -642,7 +642,7 @@ BVPtr GeneralizedCCD::get_vel_exp_BV(CollisionGeometryPtr cg, BVPtr bv, const Ve
 }
 
 /// Implements Base::load_from_xml()
-void GeneralizedCCD::load_from_xml(XMLTreeConstPtr node, map<std::string, BasePtr>& id_map)
+void GeneralizedCCD::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, BasePtr>& id_map)
 {
   map<std::string, BasePtr>::const_iterator id_iter;
 
@@ -668,7 +668,7 @@ void GeneralizedCCD::load_from_xml(XMLTreeConstPtr node, map<std::string, BasePt
  * \note neither the contact cache nor the pairs currently in collision are 
  *       saved
  */
-void GeneralizedCCD::save_to_xml(XMLTreePtr node, list<BaseConstPtr>& shared_objects) const
+void GeneralizedCCD::save_to_xml(XMLTreePtr node, list<shared_ptr<const Base> >& shared_objects) const
 {
   // call parent save_to_xml() method first
   CollisionDetection::save_to_xml(node, shared_objects);

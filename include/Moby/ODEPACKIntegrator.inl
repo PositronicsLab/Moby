@@ -40,7 +40,7 @@ ODEPACKIntegrator::ODEPACKIntegrator()
 }
 
 /// Implements Base::load_from_xml()
-void ODEPACKIntegrator::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map) 
+void ODEPACKIntegrator::load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map) 
 { 
   assert(strcasecmp(node->name.c_str(), "ODEPACKIntegrator") == 0);
   VariableStepIntegrator::load_from_xml(node, id_map); 
@@ -52,7 +52,7 @@ void ODEPACKIntegrator::load_from_xml(XMLTreeConstPtr node, std::map<std::string
 }
 
 /// Implements Base::save_to_xml()
-void ODEPACKIntegrator::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
+void ODEPACKIntegrator::save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const
 { 
   VariableStepIntegrator::save_to_xml(node, shared_objects); 
   node->name = "ODEPACKIntegrator";

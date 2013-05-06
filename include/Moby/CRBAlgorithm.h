@@ -8,6 +8,7 @@
 #define _CRB_ALGORITHM_H
 
 #include <Ravelin/SpatialRBInertiad.h>
+#include <Ravelin/LinAlgd.h>
 #include <Ravelin/MatrixNd.h>
 
 namespace Moby {
@@ -25,7 +26,7 @@ class CRBAlgorithm
     void calc_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::MatrixNd& M);
     void calc_generalized_forces(Ravelin::Wrenchd& f0, Ravelin::VectorNd& C);
     void invalidate_position_data() { _position_data_valid = false; }
-    void invalidate_velocity_data() { _velocity_data_valid = false; }
+    void invalidate_velocity_data() { }
     bool factorize_cholesky(Ravelin::MatrixNd& M);
     Ravelin::VectorNd& M_solve(const Ravelin::VectorNd& v, Ravelin::VectorNd& result);
     Ravelin::MatrixNd& M_solve(const Ravelin::MatrixNd& v, Ravelin::MatrixNd& result);
@@ -36,9 +37,6 @@ class CRBAlgorithm
 
     /// Is positional data valid?
     bool _position_data_valid;
-
-    /// Is velocity data valid?
-    bool _velocity_data_valid;
 
     /// The body that this algorithm operates on
     boost::weak_ptr<RCArticulatedBody> _body;
@@ -58,27 +56,53 @@ class CRBAlgorithm
     /// Determines whether the system of equations for forward dynamics is rank-deficient
      bool _rank_deficient;
 
-    /// The vector of spatial velocities determined in last call to calc_fwd_dyn()
-     std::vector<Ravelin::Twistd> _velocities;
-
-    /// The last reference frame used for computation 
-     ReferenceFrameType _rftype;
-
-    void calc_generalized_inertia_axisangle(Ravelin::MatrixNd& M) const;
-    void calc_generalized_inertia_rodrigues(Ravelin::MatrixNd& M) const;
-    void calc_joint_space_inertia(RCArticulatedBodyPtr body, ReferenceFrameType rftype, Ravelin::MatrixNd& H, std::vector<Ravelin::SpatialRBInertiad>& Ic) const;
-    void apply_coulomb_joint_friction(RCArticulatedBodyPtr body, ReferenceFrameType rftype);
-    void precalc(RCArticulatedBodyPtr body, ReferenceFrameType rftype);
-    void apply_impulse_fixed_base(RCArticulatedBodyPtr body, const Ravelin::Wrenchd& w, RigidBodyPtr link);
-    void apply_impulse_floating_base(RCArticulatedBodyPtr body, const Ravelin::Wrenchd& w, RigidBodyPtr link);
-    void set_spatial_velocities(RCArticulatedBodyPtr body, ReferenceFrameType rftype);
-    void calc_generalized_inertia(RCArticulatedBodyPtr body, ReferenceFrameType rftype);
-    void calc_fwd_dyn_fixed_base(RCArticulatedBodyPtr body, ReferenceFrameType rftype);
-    void calc_fwd_dyn_floating_base(RCArticulatedBodyPtr body, ReferenceFrameType rftype);
-    void update_link_accelerations(RCArticulatedBodyPtr body, ReferenceFrameType rftype) const;
+    void calc_generalized_inertia_axisangle(Ravelin::MatrixNd& M);
+    void calc_generalized_inertia_rodrigues(Ravelin::MatrixNd& M);
+    void calc_joint_space_inertia(RCArticulatedBodyPtr body, Ravelin::MatrixNd& H, std::vector<Ravelin::SpatialRBInertiad>& Ic);
+    void apply_coulomb_joint_friction(RCArticulatedBodyPtr body);
+    void precalc(RCArticulatedBodyPtr body);
+    void calc_generalized_inertia(RCArticulatedBodyPtr body);
+    void calc_fwd_dyn_fixed_base(RCArticulatedBodyPtr body);
+    void calc_fwd_dyn_floating_base(RCArticulatedBodyPtr body);
+    void update_link_accelerations(RCArticulatedBodyPtr body);
     static void to_spatial7_inertia(const Ravelin::SpatialRBInertiad& I, const Ravelin::Quatd& q, Ravelin::MatrixNd& I7);
-    Ravelin::VectorNd& M_solve_noprecalc(const Ravelin::VectorNd& v, Ravelin::VectorNd& result) const;
-    Ravelin::MatrixNd& M_solve_noprecalc(const Ravelin::MatrixNd& v, Ravelin::MatrixNd& result) const;
+    Ravelin::VectorNd& M_solve_noprecalc(const Ravelin::VectorNd& v, Ravelin::VectorNd& result);
+    Ravelin::MatrixNd& M_solve_noprecalc(const Ravelin::MatrixNd& v, Ravelin::MatrixNd& result);
+    void transform_and_mult(RigidBodyPtr link, const Ravelin::SpatialRBInertiad& I, const std::vector<Ravelin::Twistd>& s, std::vector<Ravelin::Wrenchd>& Is);
+
+  private:
+    // temporary for calc_fwd_dyn() 
+    std::vector<Ravelin::Twistd> _a;
+
+    // temporary for calc_generalized_forces() 
+    std::vector<Ravelin::Wrenchd> _w;
+
+    // temporary spatial axes
+    std::vector<Ravelin::Twistd> _sprime;
+
+    // temporaries for solving and linear algebra
+    Ravelin::LinAlgd _LA;
+    Ravelin::MatrixNd _uM, _vM;
+    Ravelin::VectorNd _sM;
+
+    // temporaries for calc_generalized_inertia()
+    Ravelin::MatrixNd _H;
+    std::vector<Ravelin::SpatialRBInertiad> _Ic;
+    std::vector<Ravelin::Wrenchd> _Is;
+
+    // temporaries for calc_joint_space_inertia()
+    Ravelin::MatrixNd _workM, _sub;
+    std::vector<std::vector<bool> > _supports;
+    std::vector<std::vector<Ravelin::Wrenchd> > _forces;
+
+    // temporaries for calc_fwd_dyn_fixed_base(), calc_fwd_dyn_floating_base()
+    Ravelin::VectorNd _C, _Q, _Qi, _b, _augV;
+
+    // temporaries for applying impulse
+    Ravelin::VectorNd _workv;
+    std::vector<Ravelin::Twistd> _J;
+
+    #include "CRBAlgorithm.inl"
 };
 }
 

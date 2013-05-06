@@ -10,8 +10,8 @@ OutputIterator ArticulatedBody::find_limit_events(const Ravelin::VectorNd& q0, c
 {
   // compute the generalized velocity that takes us from q0 to q1
   (_dq = q1) -= q0;
-  set_generalized_coordinates(eRodrigues, q0);
-  set_generalized_velocity(eRodrigues, _dq);
+  set_generalized_coordinates(eEuler, q0);
+  set_generalized_velocity(eEuler, _dq);
 
   for (unsigned i=0; i< _joints.size(); i++)
     for (unsigned j=0; j< _joints[i]->num_dof(); j++)

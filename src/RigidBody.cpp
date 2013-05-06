@@ -9,17 +9,16 @@
 #include <iostream>
 #include <iomanip>
 #include <limits>
-#include <Moby/NullPointerException.h>
-#include <Moby/AAngle.h>
 #include <Moby/CollisionGeometry.h>
 #include <Moby/ArticulatedBody.h>
 #include <Moby/RCArticulatedBody.h>
 #include <Moby/XMLTree.h>
 #include <Moby/Joint.h>
-#include <Moby/LinAlg.h>
 #include <Moby/Log.h>
+#include <Moby/Spatial.h>
 #include <Moby/RigidBody.h>
 
+using namespace Ravelin;
 using namespace Moby;
 using boost::shared_ptr;
 using boost::dynamic_pointer_cast;
@@ -40,25 +39,63 @@ RigidBody::RigidBody()
 {
   const unsigned SPATIAL_DIM = 6;
 
-  _mass = 0;
-  _inv_mass = std::numeric_limits<double>::max();
+  // setup poses
+  _F = shared_ptr<Pose3d>(new Pose3d(Pose3d::identity()));
+  _jF = shared_ptr<Pose3d>(new Pose3d(Pose3d::identity()));
+
+  // set everything else
   _J.set_zero();
-  _invJ = IDENTITY_3x3 * std::numeric_limits<double>::max();
-  _x = ZEROS_3;
-  _xd = ZEROS_3;
-  _omega = ZEROS_3;
-  _F = IDENTITY_4x4;
-  _q = Quat(&_F);
-  _forces = ZEROS_3;
-  _torques = ZEROS_3;
+  _xd.set_zero();
+  _xdd.set_zero();
+  _wrench.set_zero();
   _enabled = true;
   _link_idx = std::numeric_limits<unsigned>::max();
-  coulomb_coeff = VectorN::zero(SPATIAL_DIM);
-  viscous_coeff = VectorN::zero(SPATIAL_DIM);
+  viscous_coeff = VectorNd::zero(SPATIAL_DIM);
+}
+
+/// Gets the frame in which kinematics and dynamics computations occur
+shared_ptr<const Pose3d> RigidBody::get_computation_frame() const
+{
+  switch (_rftype)
+  {
+    case eLink:
+      return _F;
+
+    case eGlobal:
+      return shared_ptr<const Pose3d>();
+    
+    case eJoint:
+      if (_abody.expired() || is_base_link())
+        return _F;
+      else
+       return get_inner_joint_implicit()->get_pose();
+
+    default:
+      assert(false);
+  }
+
+  return shared_ptr<const Pose3d>();
+}
+
+/// (Re)sets the computation frame
+void RigidBody::set_computation_frame_type(ReferenceFrameType rftype)
+{
+  // check whether we need to do anything at all
+  if (rftype == _rftype)
+    return;
+
+  // can't set frame of an articulated body
+  if (!_abody.expired())
+    throw std::runtime_error("Only articulated body can change reference frames of its links!");
+
+  // TODO: recompute all values that depend on frame
+
+  // finally, set the frame
+  _rftype = rftype; 
 }
 
 /// Integrates the body forward in time
-void RigidBody::integrate(double t, double h, shared_ptr<Integrator<VectorN> > integrator)
+void RigidBody::integrate(double t, double h, shared_ptr<Integrator> integrator)
 {
   // don't attempt to integrate disabled bodies
   if (!is_enabled())
@@ -74,7 +111,14 @@ void RigidBody::integrate(double t, double h, shared_ptr<Integrator<VectorN> > i
 
   FILE_LOG(LOG_DYNAMICS) << "RigidBody::integrate()" << endl;
   FILE_LOG(LOG_DYNAMICS) << "  new transform: " << endl << _F;
-  FILE_LOG(LOG_DYNAMICS) << "  new velocity: " << _xd << " (lin)  " << _omega << " (ang)" << endl;
+  FILE_LOG(LOG_DYNAMICS) << "  new velocity: " << _xd << endl;
+}
+
+/// Computes the wrench of coriolis forces on the body
+Wrenchd RigidBody::calc_coriolis_forces() const
+{
+  Twistd v = get_velocity();
+  return spatial_cross(v, get_inertia() * v); 
 }
 
 /// Computes the forward dynamics for this body
@@ -83,15 +127,7 @@ void RigidBody::calc_fwd_dyn(double dt)
   // if the body is free, just compute linear and angular acceleration via
   // Newton's and Euler's laws
   if (_abody.expired())
-  {
-    // determine the linear acceleration
-    _xdd = _inv_mass * _forces;
-
-    // determine the angular acceleration
-    Matrix3 R(&_q);
-    Matrix3 iJ = Matrix3::transpose(R) * _invJ * R;
-    _alpha = iJ * (_torques - calc_inertial_forces());
-  }
+    _xdd = _J.inverse_mult(sum_wrenches() - calc_coriolis_forces()); 
   else
   {
     // otherwise, need to call forward dynamics on the articulated body
@@ -145,176 +181,34 @@ void RigidBody::set_enabled(bool flag)
   // mark as enabled / disabled
   _enabled = flag;  
 
-  // if disabled, then zero the velocities and momenta; also zero inverse mass and inverse inertia tensor
+  // if disabled, then zero the velocities
   if (!_enabled)
   {
-    _xd = ZEROS_3;
-    _omega = ZEROS_3;
-    _inv_mass = 0;
-    _invJ = ZEROS_3x3;
+    _xd.set_zero();
+    _xdd.set_zero();
   }
-  else
-  {
-    _inv_mass = 1.0/_mass;
-    _invJ = Matrix3::inverse(_J);
-  }
-}
-
-/// Sets the angular velocity (world frame), optionally updating the angular momentum
-void RigidBody::set_avel(const Vector3& avel)
-{
-  // angular velocity should not be set for disabled bodies
-  if (!_enabled)
-    return;  
-  
-  // set the angular velocity
-  assert(avel.is_finite());
-  _omega = avel;
-
-  // invalidate articulated body velocity, if necessary
-  invalidate_velocity();
 }
 
 /// Sets the linear velocity of this body
-void RigidBody::set_lvel(const Vector3& lvel) 
+void RigidBody::set_velocity(const Twistd& vel) 
 { 
   if (!_enabled)
     return;
   
-  // set the linear velocity  
-  assert(lvel.is_finite());
-  _xd = lvel; 
+  // set the velocity  
+  _xd = vel; 
 
   // invalidate articulated body velocity, if necessary
   invalidate_velocity();
 }
 
 /// Sets the inertia tensor for this body
-void RigidBody::set_inertia(const Matrix3& inertia)
+void RigidBody::set_inertia(const SpatialRBInertiad& inertia)
 {
-  // check the validity of the inertia matrix
-  if (_enabled)
-  {
-    // first, verify that the matrix is symmetric
-    if ((inertia - Matrix3::transpose(inertia)).norm_inf() > NEAR_ZERO)
-    {
-      std::cerr << "RigidBody::set_inertia() warning - inertia matrix does";
-      std::cerr << "not appear to be symmetric!" << std::endl;
-      std::cerr << "Inertia matrix: " << std::endl << inertia;
-    }
-    else
-    { 
-      // get the eigenvalues of the matrix
-      VectorN evals;
-      MatrixN J(inertia);
-      LinAlg::eig_symm(J, evals);
-
-      // first, verify that all eigenvalues are non-negative
-      double min_eig = *std::min_element(evals.begin(), evals.end());
-      if (min_eig < (double) 0.0)
-      {
-        std::cerr << "RigidBody::set_inertia() warning - minimum eigenvalue of inertia matrix is " << std::endl;
-        std::cerr << min_eig << " -- matrix is *at best* PSD" << std::endl;
-      }
-      else
-      {
-        // all checks ok to here. still, look for relative inertial problems.
-        double max_eig = *std::max_element(evals.begin(), evals.end());
-        if (max_eig / min_eig > (double) 1000.0)
-        {
-          std::cerr << "RigidBody::set_inertia() warning - ratio of maximim:minimum eigenvalues of " << std::endl;
-          std::cerr << "inertia matrix is" << (max_eig/min_eig) << ":1; for numerical stability, " << std::endl;
-          std::cerr << "< 100:1 is recommended." << std::endl;
-        }
-      }
-    } 
-  }
-
   // store the matrix and its inverse
   _J = inertia;
   
-  // set the inverse inertia to zero if body is disabled; to inverse of inertia otherwise
-  if (_enabled)
-    _invJ = Matrix3::inverse(inertia);
-  else
-    _invJ = ZEROS_3x3;
-
   // invalidate position, just in case
-  invalidate_position();
-}
-
-/// Gets the spatial isolated inertia in link coordinates
-SpatialRBInertia RigidBody::get_spatial_iso_inertia(ReferenceFrameType rftype) const
-{
-  if (rftype == eLink)
-    return SpatialRBInertia(_mass, ZEROS_3, _J);
-  else
-  {
-    assert(rftype == eGlobal);
-    return get_spatial_transform_link_to_global().transform(_mass, _J);
-  }
-}
-
-/// Sets the mass of this body
-void RigidBody::set_mass(double mass)
-{
-  if (mass < 0.0)
-    throw std::runtime_error("Called RigidBody::set_mass() with negative mass");
-  _mass = mass;
-  _inv_mass = (_enabled && mass != (double) 0.0) ? (double) 1.0/mass : (double) 0.0;
-
-  // invalidate position, just in case
-  invalidate_position();
-}
-
-/// Sets the position for this rigid body
-/**
- * Also updates the transforms for associated visualization and collision data.
- */
-void RigidBody::set_position(const Vector3& v)
-{
-  // store the position
-  _x = v;
-  _F.set_translation(v);
-  
-  // synchronize the geometry
-  synchronize();
-
-  // invalidate the position
-  invalidate_position();
-}
-
-/// Sets the orientation for this rigid body
-/**
- * Also updates the transforms for associated visualization and collision data.
- */
-void RigidBody::set_orientation(const Quat& q)
-{
-  // store the orientation
-  _q = q;
-  _F.set_rotation(&q);
- 
-  // synchronize the geometry
-  synchronize();
-
-  // invalidate the position
-  invalidate_position();
-}
-
-/// Sets the current 4x4 homogeneous transformation for this body using quaternion and vector position
-void RigidBody::set_transform(const Quat& q, const Vector3& x)
-{
-  // compute the transform
-  _F = Matrix4(&q, &x);
-
-  // save the position and orientation
-  _x = x;
-  _q = q;
-
-  // synchronize the geometry
-  synchronize();
-
-  // invalidate the position
   invalidate_position();
 }
 
@@ -322,15 +216,13 @@ void RigidBody::set_transform(const Quat& q, const Vector3& x)
 /**
  * Also updates the transforms for associated visualization and collision data.
  */
-void RigidBody::set_transform(const Matrix4& T) 
+void RigidBody::set_pose(const Pose3d& T) 
 { 
-  // store the transform
-  _F = T; 
-  
-  // update position and quaternion orientation (redundant)
-  _x = T.get_translation(); 
-  _q = Quat(&T);
+  // update velocity, acceleration, wrenches, inertias
 
+  // store the transform
+  *_F = T; 
+  
   // synchronize the geometry
   synchronize();
 
@@ -338,50 +230,46 @@ void RigidBody::set_transform(const Matrix4& T)
   invalidate_position();
 }
 
-/// Adds a force at a particular point on the body
-/**
- * The frame of the applied force is centered at p and is aligned with the 
- * global frame.
- * \param f the force
- * \param p the position on the body in world coordinates (i.e., not relative to the center-of-mass)
- */
-void RigidBody::add_force(const Vector3& f, const Vector3& p)
+/// Adds a wrench to the body
+void RigidBody::add_wrench(const Wrenchd& w)
 {
   // do not add forces to disabled bodies
   if (!_enabled)
     return;
   
-  // add the force directly to the c.o.m.
-  _forces += f;
-  
-  // compute and add the torque
-  _torques += Vector3::cross(p - _x, f);
+  // update the wrench 
+  _wrench += w;
 }
 
 /// Synchronizes associated collision mesh transforms with this transform
 void RigidBody::synchronize()
 {
   BOOST_FOREACH(CollisionGeometryPtr g, geometries)
-    g->set_transform(_F, false);
+    g->set_pose(_F);
 }
 
 /// Calculates the velocity of a point on this rigid body
-Vector3 RigidBody::calc_point_vel(const Vector3& point) const
+// TODO: fix this
+/*
+Vector3d RigidBody::calc_point_vel(const Point3d& point) const
 {
   // if the body is disabled, point velocity is zero
   if (!_enabled)
     return ZEROS_3;
 
   // compute the arm
-  Vector3 arm = point - _x;
+  Vector3d arm = point - _x;
 
   // determine the velocity of the point
   return _xd + Vector3::cross(_omega, arm);
 }
+*/
 
 /// Calculates the separation acceleration of a common point on two bodies along the desired direction
-double RigidBody::calc_sep_accel(RigidBody& rb1, RigidBody& rb2, const Vector3& point, const Vector3& dir, const Vector3& dir_dot, double dt)
+// TODO: fix this
+double RigidBody::calc_sep_accel(RigidBody& rb1, RigidBody& rb2, const Point3d& point, const Vector3d& dir, const Vector3d& dir_dot, double dt)
 {
+/*
   // compute forward dynamics of the two bodies
   rb1.calc_fwd_dyn(dt);
   rb2.calc_fwd_dyn(dt);
@@ -414,6 +302,7 @@ double RigidBody::calc_sep_accel(RigidBody& rb1, RigidBody& rb2, const Vector3& 
   double accel = Vector3::dot(dir, pa1 - pa2) + 2.0 * Vector3::dot(dir_dot, pv1 - pv2);
 
   return accel;
+*/
 }
 
 /// Calculates the acceleration at a point (typically somewhere on this body) along the desired direction
@@ -426,8 +315,10 @@ double RigidBody::calc_sep_accel(RigidBody& rb1, RigidBody& rb2, const Vector3& 
  * \note <b>this</b> may modify the body, because it will trigger forward
  *         dynamics via calls to get_laccel() and get_raccel().
  */
-double RigidBody::calc_point_accel(const Vector3& point, const Vector3& dir, double dt)
+// TODO: fix this
+double RigidBody::calc_point_accel(const Point3d& point, const Vector3d& dir, double dt)
 {
+/*
   // if the body is disabled, point acceleration is zero
   if (!_enabled)
     return 0.0;
@@ -440,16 +331,17 @@ double RigidBody::calc_point_accel(const Vector3& point, const Vector3& dir, dou
   Vector3 aa = get_aaccel();
       
   // determine the moment arm
-  Vector3 arm = point - _x;
+  Vector3d arm = point - _x;
 
   // get the acceleration projected along the direction at the point
-  double accel = Vector3::dot(dir, la + Vector3::cross(aa, arm) + Vector3::cross(_omega, Vector3::cross(_omega, arm)));
+  double accel = Vector3::dot(dir, la + Vector3d::cross(aa, arm) + Vector3d::cross(_omega, Vector3d::cross(_omega, arm)));
 
   return accel;
+*/
 }
 
 /// Implements Base::load_from_xml()
-void RigidBody::load_from_xml(XMLTreeConstPtr node, map<std::string, BasePtr>& id_map)
+void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, BasePtr>& id_map)
 {
   const unsigned X = 0, Y = 1, Z = 2;
   map<std::string, BasePtr>::const_iterator id_iter;
@@ -461,26 +353,11 @@ void RigidBody::load_from_xml(XMLTreeConstPtr node, map<std::string, BasePtr>& i
   // don't verify that the node is correct, b/c RigidBody can be subclassed
   // ***********************************************************************
  
-  // read the Coulomb dampening coefficient, if provided
-  const XMLAttrib* coulomb_coeff_attr = node->get_attrib("coulomb-dampening-coeff");
-  if (coulomb_coeff_attr)
-    coulomb_coeff_attr->get_vector_value(coulomb_coeff);
-
   // read the viscous dampening coefficient, if provided
   const XMLAttrib* viscous_coeff_attr = node->get_attrib("viscous-dampening-coeff");
   if (viscous_coeff_attr)
     viscous_coeff_attr->get_vector_value(viscous_coeff);
  
-  // read the linear acceleration, if provided
-  const XMLAttrib* laccel_attr = node->get_attrib("linear-accel");
-  if (laccel_attr)
-    laccel_attr->get_vector_value(_xdd);
-
-  // read the angular acceleration, if provided
-  const XMLAttrib* aaccel_attr = node->get_attrib("angular-accel");
-  if (aaccel_attr)
-    aaccel_attr->get_vector_value(_alpha);
-
   // read whether the body is enabled, if provided
   const XMLAttrib* enabled_attr = node->get_attrib("enabled");
   if (enabled_attr)
@@ -495,30 +372,20 @@ void RigidBody::load_from_xml(XMLTreeConstPtr node, map<std::string, BasePtr>& i
   const XMLAttrib* inertia_attr = node->get_attrib("inertia");
   if (inertia_attr)
   {
-    Matrix3 J;
+    Matrix3d J;
     inertia_attr->get_matrix_value(J);
     set_inertia(J);
   }
 
-  // read the forces on the body, if provided
-  const XMLAttrib* sumf_attr = node->get_attrib("sum-forces");
-  if (sumf_attr)
-    sumf_attr->get_vector_value(_forces);
-
-  // read the sum of torques on the body, if provided
-  const XMLAttrib* sumt_attr = node->get_attrib("sum-torques");
-  if (sumt_attr)
-    sumt_attr->get_vector_value(_torques);
-
   // set the collision geometries, if provided
-  list<XMLTreeConstPtr> cg_nodes = node->find_child_nodes("CollisionGeometry");
+  list<shared_ptr<const XMLTree> > cg_nodes = node->find_child_nodes("CollisionGeometry");
   if (!cg_nodes.empty())
   {
     // ok to clear the set of geometries
     geometries.clear();
 
     // read in the collision geometries
-    for (list<XMLTreeConstPtr>::const_iterator i = cg_nodes.begin(); i != cg_nodes.end(); i++)
+    for (list<shared_ptr<const XMLTree> >::const_iterator i = cg_nodes.begin(); i != cg_nodes.end(); i++)
     {
       // create a new CollisionGeometry object
       CollisionGeometryPtr cg(new CollisionGeometry());
@@ -537,16 +404,16 @@ void RigidBody::load_from_xml(XMLTreeConstPtr node, map<std::string, BasePtr>& i
   // look for a inertia from primitives nodes
   // NOTE: we must do this step *before* setting velocities b/c setting 
   // velocities updates momenta!
-  list<XMLTreeConstPtr> ifp_nodes = node->find_child_nodes("InertiaFromPrimitive");
+  list<shared_ptr<const XMLTree> > ifp_nodes = node->find_child_nodes("InertiaFromPrimitive");
   if (!ifp_nodes.empty())
   {
     // set com to zero initially
     double mass = 0;
-    Matrix3 J = ZEROS_3x3;
-    Vector3 com = ZEROS_3;
+    Matrix3d J = ZEROS_3x3;
+    Point3d com = ZEROS_3;
 
     // loop over all InertiaFromPrimitive nodes
-    for (list<XMLTreeConstPtr>::const_iterator i = ifp_nodes.begin(); i != ifp_nodes.end(); i++)
+    for (list<shared_ptr<const XMLTree> >::const_iterator i = ifp_nodes.begin(); i != ifp_nodes.end(); i++)
     {
       // make sure the child node has the ID
       const XMLAttrib* pid_attr = (*i)->get_attrib("primitive-id");
@@ -571,20 +438,23 @@ void RigidBody::load_from_xml(XMLTreeConstPtr node, map<std::string, BasePtr>& i
       }
 
       // set the relative transformation to identity for this primitive
-      Matrix4 TR = IDENTITY_4x4; 
+      Pose3d TR; 
 
       // read the relative transformation, if specified
-      const XMLAttrib* rel_transform_attr = (*i)->get_attrib("rel-transform");
-      if (rel_transform_attr)
-        rel_transform_attr->get_matrix_value(TR);
+      const XMLAttrib* rel_origin_attr = (*i)->get_attrib("rel-origin");
+      const XMLAttrib* rel_rpy_attr = (*i)->get_attrib("rel-rpy");
+      if (rel_origin_attr)
+        TR.x = rel_origin_attr->get_origin_value();
+      if (rel_rpy_attr)
+        TR.q = rel_rpy_attr->get_rpy_value();
 
       // get the primitive
       PrimitivePtr primitive = dynamic_pointer_cast<Primitive>(id_iter->second);
 
       // get the mass, inertia, and com from the primitive
       double massx = primitive->get_mass();
-      Matrix3 Jx = primitive->get_inertia();
-      Vector3 comx = primitive->get_com();
+      Matrix3d Jx = primitive->get_inertia();
+      Point3d comx = primitive->get_com();
 
       // transform the inertia
       Primitive::transform_inertia(massx, Jx, comx, TR, Jx, comx);
@@ -592,7 +462,7 @@ void RigidBody::load_from_xml(XMLTreeConstPtr node, map<std::string, BasePtr>& i
       // update the mass, inertia, and com
       mass += massx;
       J += Jx;
-      com += comx*massx;
+      com += Vector3d(comx*massx);
     }
 
     // update the com
@@ -611,33 +481,21 @@ void RigidBody::load_from_xml(XMLTreeConstPtr node, map<std::string, BasePtr>& i
     set_inertia(get_inertia() + J);
   }
 
-  // read the position of the body, if provided
-  const XMLAttrib* pos_attr = node->get_attrib("position");
-  if (pos_attr)
+  // read the position and orientation, if provided; note that we do this 
+  // after reading the collision geometries to allow synchronization to occur
+  const XMLAttrib* position_attr = node->get_attrib("position");
+  const XMLAttrib* rpy_attr = node->get_attrib("rpy");
+  const XMLAttrib* quat_attr = node->get_attrib("quat");
+  if (position_attr || rpy_attr || quat_attr)
   {
-    Vector3 position;
-    pos_attr->get_vector_value(position);
-    set_position(position);
-  }
-
-  // read the orientation of the body as an axis-angle, if provided
-  const XMLAttrib* aangle_attr = node->get_attrib("aangle");
-  if (aangle_attr)
-  {
-    VectorN aangle;
-    aangle_attr->get_vector_value(aangle);
-    AAngle aa(&aangle);
-    set_orientation(Quat(&aa));
-  }
-  
-  // read the transform, if provided; note that we do this after reading the
-  // collision geometries to allow synchronization to occur
-  const XMLAttrib* T_attr = node->get_attrib("transform");
-  if (T_attr)
-  {
-    Matrix4 T;
-    T_attr->get_matrix_value(T);
-    set_transform(T);
+    Pose3d T;
+    if (position_attr)
+      T.x = position_attr->get_origin_value();
+    if (rpy_attr)
+      T.q = rpy_attr->get_rpy_value();
+    else if (quat_attr)
+      T.q = quat_attr->get_quat_value();
+    set_pose(T);
   }
 
   // read the linear velocity of the body, if provided; note that we update
@@ -645,7 +503,7 @@ void RigidBody::load_from_xml(XMLTreeConstPtr node, map<std::string, BasePtr>& i
   const XMLAttrib* lvel_attr = node->get_attrib("linear-velocity");
   if (lvel_attr)
   {
-    Vector3 lv;
+    Vector3d lv;
     lvel_attr->get_vector_value(lv);
     set_lvel(lv);  
   }
@@ -692,11 +550,11 @@ void RigidBody::load_from_xml(XMLTreeConstPtr node, map<std::string, BasePtr>& i
   }
 /*
   // get all child links, if specified
-  list<XMLTreeConstPtr> child_nodes = node->find_child_nodes("ChildLink");
+  list<shared_ptr<const XMLTree> > child_nodes = node->find_child_nodes("ChildLink");
   if (!child_nodes.empty())
     _child_links.clear();
 
-  for (list<XMLTreeConstPtr>::const_iterator i = child_nodes.begin(); i != child_nodes.end(); i++)
+  for (list<shared_ptr<const XMLTree> >::const_iterator i = child_nodes.begin(); i != child_nodes.end(); i++)
   {
     // look for the link-id and com-to-outboard-vec-link attributes
     const XMLAttrib* link_id_attr = (*i)->get_attrib("link-id");
@@ -736,7 +594,7 @@ void RigidBody::load_from_xml(XMLTreeConstPtr node, map<std::string, BasePtr>& i
 }
 
 /// Implements Base::save_to_xml()
-void RigidBody::save_to_xml(XMLTreePtr node, list<BaseConstPtr>& shared_objects) const
+void RigidBody::save_to_xml(XMLTreePtr node, list<shared_ptr<const Base> >& shared_objects) const
 {
   // save parent data
   SingleBody::save_to_xml(node, shared_objects);
@@ -754,7 +612,7 @@ void RigidBody::save_to_xml(XMLTreePtr node, list<BaseConstPtr>& shared_objects)
   node->attribs.insert(XMLAttrib("enabled", _enabled));
 
   // save the mass
-  node->attribs.insert(XMLAttrib("mass", _mass));
+  node->attribs.insert(XMLAttrib("mass", get_mass()));
 
   // save the inertia
   node->attribs.insert(XMLAttrib("inertia", _J));
@@ -765,14 +623,7 @@ void RigidBody::save_to_xml(XMLTreePtr node, list<BaseConstPtr>& shared_objects)
   // save the linear velocity
   node->attribs.insert(XMLAttrib("linear-velocity", _xd));
 
-  // save the cumulative forces on the body
-  node->attribs.insert(XMLAttrib("sum-forces", _forces));
-
-  // save the cumulative torques on the body
-  node->attribs.insert(XMLAttrib("sum-torques", _torques));
-
   // save the dampening coefficients
-  node->attribs.insert(XMLAttrib("coulomb-coeff", coulomb_coeff));
   node->attribs.insert(XMLAttrib("viscous-coeff", viscous_coeff));
 
   // save all collision geometries
@@ -811,7 +662,7 @@ void RigidBody::save_to_xml(XMLTreePtr node, list<BaseConstPtr>& shared_objects)
  * \param joint_to_com_vec_link the vector from j to the center-of-mass of this
  *        (specified in this frame) 
  */
-void RigidBody::add_inner_joint(RigidBodyPtr parent, JointPtr j, const Vector3& joint_to_com_vec_joint, const Vector3& joint_to_com_vec_link) 
+void RigidBody::add_inner_joint(RigidBodyPtr parent, JointPtr j, const Vector3d& joint_to_com_vec_joint, const Vector3d& joint_to_com_vec_link) 
 {
   // remove the inner joint if it already exists
   for (list<InnerJointData>::iterator i = _inner_joints.begin(); i != _inner_joints.end(); )
@@ -867,7 +718,7 @@ void RigidBody::add_inner_joint(RigidBodyPtr parent, JointPtr j, const Vector3& 
  *        to j in this link's coordinates 
  * \note replaces the outer joint if it is already attached to this link 
  */
-void RigidBody::add_outer_joint(RigidBodyPtr child, JointPtr j, const Vector3& com_to_joint_vec_link) 
+void RigidBody::add_outer_joint(RigidBodyPtr child, JointPtr j, const Vector3d& com_to_joint_vec_link) 
 {
   // remove the outer joint if it already exists
   for (list<OuterJointData>::iterator i = _outer_joints.begin(); i != _outer_joints.end(); )
@@ -915,7 +766,7 @@ void RigidBody::add_outer_joint(RigidBodyPtr child, JointPtr j, const Vector3& c
 }
 
 /// Determines whether the given link is a child link of this
-bool RigidBody::is_child_link(RigidBodyConstPtr query) const
+bool RigidBody::is_child_link(shared_ptr<RigidBodyPtr>> query) const
 {
   BOOST_FOREACH(const OuterJointData& odata, _outer_joints)
     if (RigidBodyPtr(odata.child) == query)
@@ -940,9 +791,9 @@ RigidBodyPtr RigidBody::get_child_link(unsigned i) const
 /**
  * \note returns <b>true</b> if query == this
  */
-bool RigidBody::is_descendant_link(RigidBodyConstPtr query) const
+bool RigidBody::is_descendant_link(shared_ptr<const RigidBody> query) const
 {
-  queue<RigidBodyConstPtr> q;
+  queue<shared_ptr<const RigidBody> > q;
 
   // check for query == this
   if (query == shared_from_this())
@@ -950,17 +801,17 @@ bool RigidBody::is_descendant_link(RigidBodyConstPtr query) const
 
   // add all children to the queue
   BOOST_FOREACH(const OuterJointData& odata, _outer_joints)
-    q.push(RigidBodyConstPtr(odata.child));
+    q.push(shared_ptr<const RigidBody>(odata.child));
 
   // continue processing children until no more children are able to be processed
   while (!q.empty())
   {
-    RigidBodyConstPtr link = q.front();
+    shared_ptr<const RigidBody> link = q.front();
     q.pop();
     if (link == query)
       return true;
     BOOST_FOREACH(const OuterJointData& odata, link->_outer_joints)
-      q.push(RigidBodyConstPtr(odata.child));
+      q.push(shared_ptr<const RigidBody>(odata.child));
   }    
 
   return false;
@@ -1074,35 +925,11 @@ bool RigidBody::remove_inner_joint(JointPtr joint)
   return false; 
 }
 
-/// Adds a force to the center-of-mass of this link
+/// Applies a impulse to this link
 /**
- * The frame of the applied force is centered at the center-of-mass of the
- * body and is aligned with the global frame.
+ * \param w the impulse as a wrench 
  */
-void RigidBody::add_force(const Vector3& force) 
-{
-  if (_enabled)
-    _forces += force;
-}
-
-/// Adds a torque to the center-of-mass of this body 
-/**
- * The frame of the applied torque is centered at the center-of-mass of the
- * body and is aligned with the global frame.
- */
-void RigidBody::add_torque(const Vector3& torque) 
-{
-  if (_enabled)
-    _torques += torque;
-}
-
-/// Applies a linear impulse to this link at the specified point
-/**
- * \param j the linear component of the impulse
- * \param k the angular component of the impulse
- * \param p the point (global frame) at which the impulse is to be applied
- */
-void RigidBody::apply_impulse(const Vector3& j, const Vector3& p)
+void RigidBody::apply_impulse(const Wrenchd& w)
 {  
   // if this is not an articulated body, just update linear and angular
   // momenta and velocites
@@ -1112,15 +939,10 @@ void RigidBody::apply_impulse(const Vector3& j, const Vector3& p)
       return;
 
     // update linear and angular velocities 
-    _xd += j * _inv_mass;
-    Matrix3 R(&_q);
-    _omega +=  R * _invJ * R.transpose_mult(Vector3::cross(p - _x, j));
-    assert(_xd.is_finite());
-    assert(_omega.is_finite());
+    _xd += _J.inverse_mult(w);
 
     // reset the force and torque accumulators for this body
-    _forces = ZEROS_3;
-    _torques = ZEROS_3; 
+    _wrench.set_zero();
   }
   else
   {
@@ -1128,184 +950,82 @@ void RigidBody::apply_impulse(const Vector3& j, const Vector3& p)
     ArticulatedBodyPtr abody(_abody);
   
     // apply the impulse to the articulated body
-    abody->apply_impulse(j, ZEROS_3, p, get_this());
+    abody->apply_impulse(w, get_this());
   }
-}
-
-/// Applies linear and angular impulses to this link at the specified point
-/**
- * \param j the linear component of the impulse
- * \param k the angular component of the impulse
- * \param p the point (global frame) at which the impulse is to be applied
- */
-void RigidBody::apply_impulse(const Vector3& j, const Vector3& k, const Vector3& p)
-{
-  // if this is not an articulated body, just update linear and angular
-  // momenta and velocites
-  if (_abody.expired())
-  {
-    if (!_enabled)
-      return;
-
-    // update linear and angular velocities 
-    _xd += j * _inv_mass;
-    Matrix3 R(&_q);
-    _omega +=  R * _invJ * R.transpose_mult(k + Vector3::cross(p - _x, j));
-    assert(_xd.is_finite());
-    assert(_omega.is_finite());
-
-    // reset the force and torque accumulators for this body
-    _forces = ZEROS_3;
-    _torques = ZEROS_3; 
-  }
-  else
-  {
-    // get the articulated body
-    ArticulatedBodyPtr abody(_abody);
-  
-    // apply the impulse to the articulated body
-    abody->apply_impulse(j, k, p, get_this());
-  }
-}
-
-/// Gets the spatial velocity for this link
-SVector6 RigidBody::get_spatial_velocity(ReferenceFrameType rftype) 
-{
-  // get transformed linear and angular velocity
-  Vector3 omega = _F.transpose_mult_vector(get_avel());
-  Vector3 xd = _F.transpose_mult_vector(get_lvel());
-
-  // form the spatial velocity vector in link coordinates
-  SVector6 v(omega, xd);
-
-  if (rftype == eLink)
-    return v;
-  else
-    return get_spatial_transform_link_to_global().transform(v);
-}
-
-/// Gets the spatial acceleration for this link 
-SVector6 RigidBody::get_spatial_accel(ReferenceFrameType rftype) 
-{
-  // get the transpose of the rotation matrix
-  Matrix3 RT;
-  get_transform().get_rotation(&RT);
-  RT.transpose();
-
-  // form the spatial acceleration vector in link coordinates
-  SVector6 a(RT * _alpha, RT * _xdd);
-
-  if (rftype == eLink)
-    return a;
-  else
-    return get_spatial_transform_link_to_global().transform(a);
-}
-
-/// Sets the spatial velocity 
-void RigidBody::set_spatial_velocity(const SVector6& v, ReferenceFrameType rftype)
-{
-  // get the rotation matrix of this link
-  Matrix3 R;
-  get_transform().get_rotation(&R);
-
-  // set the linear and angular velocities in the global frame
-  if (rftype == eLink)
-  {
-    RigidBody::set_lvel(R * v.get_lower());
-    RigidBody::set_avel(R * v.get_upper());
-  }
-  else
-  {
-    SVector6 vi = get_spatial_transform_global_to_link().transform(v);
-    RigidBody::set_lvel(R * vi.get_lower());
-    RigidBody::set_avel(R * vi.get_upper());
-  }
-}
-
-/// Sets the spatial acceleration 
-void RigidBody::set_spatial_accel(const SVector6& a, ReferenceFrameType rftype)
-{
-  // get the rotation matrix of this link
-  Matrix3 R;
-  get_transform().get_rotation(&R);
-
-  // set the linear and angular acceleration in the global frame
-  if (rftype == eLink)
-  {
-    _xdd = R * a.get_lower();
-    _alpha = R * a.get_upper();
-  }
-  else
-  {
-    SVector6 ai = get_spatial_transform_global_to_link().transform(a);
-    _xdd = R * ai.get_lower();
-    _alpha = R * ai.get_upper();
-  }
-}
-
-/// Returns the spatial transform from this link's parent to this link
-SpatialTransform RigidBody::get_spatial_transform_forward() const
-{
-  if (_inner_joints.size() > 1)
-    throw std::runtime_error("RigidBody::get_spatial_transform_forward() does not work with closed chains");
-  RigidBodyPtr p = (_inner_joints.empty()) ? RigidBodyPtr() : RigidBodyPtr(_inner_joints.front().parent);
-  const Matrix4& parent_T = (!p) ? IDENTITY_4x4 : p->get_transform();
-  return SpatialTransform(parent_T, get_transform());
-}
-
-/// Returns the spatial transform from this link to this link's parent
-SpatialTransform RigidBody::get_spatial_transform_backward() const
-{
-  if (_inner_joints.size() > 1)
-    throw std::runtime_error("RigidBody::get_spatial_transform_forward() does not work with closed chains");
-  RigidBodyPtr p = (_inner_joints.empty()) ? RigidBodyPtr() : RigidBodyPtr(_inner_joints.front().parent);
-  const Matrix4& parent_T = (!p) ? IDENTITY_4x4 : p->get_transform();
-  return SpatialTransform(get_transform(), parent_T);
-}
-
-/// Returns the spatial transform from this link to the global coordinate system
-SpatialTransform RigidBody::get_spatial_transform_link_to_global() const
-{
-  return SpatialTransform::to_global(_F);
-}
-
-/// Returns the spatial transform from the global coordinates system to this link
-/**
- * \note the spatial transform will be computed if necessary
- */
-SpatialTransform RigidBody::get_spatial_transform_global_to_link() const
-{
-  return SpatialTransform::from_global(_F);
 }
 
 /// Adds a generalized force to this rigid body
-void RigidBody::add_generalized_force(GeneralizedCoordinateType gctype, const VectorN& gf)
+void RigidBody::add_generalized_force(GeneralizedCoordinateType gctype, const VectorNd& gf)
 {
+  Wrenchd w;
+
   // if body is not enabled, do nothing
   if (!_enabled)
     return;
 
   assert(gf.size() == num_generalized_coordinates(gctype));
 
-  // update force accumulator
-  _forces += Vector3(gf[0], gf[1], gf[2]);
+  // get the computation reference frame
+  ReferenceFrameType rftype = get_computation_frame_type();
 
-  // determine the proper generalized coordinate type
-  switch (gctype)
+  // generalized forces will be in the body's computation frame
+  if (rftype == eLink)
   {
-    case eRodrigues:
-      _torques += _q.G_mult(gf[3], gf[4], gf[5], gf[6]) * (double) 0.5;
-      break;
+    // get the force and torque
+    w.set_force(Vector3d(gf[0], gf[1], gf[2]));
+    if (gctype == eEuler)
+      w.set_torque(_F.q.L_mult(gf[3], gf[4], gf[5], gf[6]) * (double) 0.5);
+    else
+      w.set_torque(Vector3d(gf[3], gf[4], gf[5]));
 
-    case eAxisAngle:
-      _torques += Vector3(gf[3], gf[4], gf[5]);
-      break;
+    // setup the wrench pose
+    w.pose = _F;
   }
+  else if (rftype == eGlobal)
+  {
+    // get the force and torque
+    w.set_force(Vector3d(gf[0], gf[1], gf[2]));
+    if (gctype == eEuler)
+      w.set_torque(_F.q.G_mult(gf[3], gf[4], gf[5], gf[6]) * (double) 0.5);
+    else
+      w.set_torque(Vector3d(gf[3], gf[4], gf[5]));
+
+    // setup the wrench pose
+    w.pose.reset();
+  } 
+  else 
+  { 
+    assert(rftype == eJoint);
+
+    // in this case, we can only do Euler parameters if there is no inner joint
+    // (Euler parameters currently incompatible with joint frame of reference)
+    JointPtr inner = get_inner_joint_implicit();
+    if (gctype == eEuler && inner)
+      throw std::runtime_error("Unable to do Euler parameters for joint frame of reference");
+
+    // get the force and torque
+    w.set_force(Vector3d(gf[0], gf[1], gf[2]));
+    if (gctype == eEuler)
+      w.set_torque(_F.q.L_mult(gf[3], gf[4], gf[5], gf[6]) * (double) 0.5);
+    else
+      w.set_torque(Vector3d(gf[3], gf[4], gf[5]));
+
+    // setup the wrench pose
+    if (!inner)
+      w.pose = _F;
+    else
+      w.pose = inner->get_pose();
+  }    
+
+  // add the wrench to the sum of wrenches
+  _wrench += w;
 }
 
 /// Applies a generalized impulse to this rigid body
-void RigidBody::apply_generalized_impulse(GeneralizedCoordinateType gctype, const VectorN& gj)
+void RigidBody::apply_generalized_impulse(GeneralizedCoordinateType gctype, const VectorNd& gj)
 {
+  Wrenchd w;
+
   // don't do anything if this body is disabled
   if (!_enabled)
     return;
@@ -1314,35 +1034,29 @@ void RigidBody::apply_generalized_impulse(GeneralizedCoordinateType gctype, cons
   assert(gj.size() == num_generalized_coordinates(gctype));
 
   // clear the force and torque accumulators
-  _forces = ZEROS_3;
-  _torques = ZEROS_3;
+  _wrench.set_zero();
 
   // look for easy case (axis-angle)
   if (gctype == DynamicBody::eAxisAngle)
   {
     // get the impulses
-    Vector3 j(gj[0], gj[1], gj[2]);
-    Vector3 k(gj[3], gj[4], gj[5]);
+    w.set_force(Vector3d(gj[0], gj[1], gj[2]));
+    w.set_torque(Vector3d(k(gj[3], gj[4], gj[5]));
+    w.pose = body->get_computation_frame();
 
     // determine the change in linear velocity
-    _xd += j * _inv_mass;
-
-    // determine the change in angular velocity
-    Matrix3 R(&_q);
-    Matrix3 invJ = R * _invJ * Matrix3::transpose(R);
-    _omega += invJ * k;
+    _xd += _J.inverse_mult(w);
     invalidate_velocity();
   }
   else
   {
-    assert(gctype == DynamicBody::eRodrigues);
+    assert(gctype == DynamicBody::eEuler);
 
     // get proper generalized inertia matrix
-    SAFESTATIC MatrixN M;
+    MatrixNd M;
+    VectorNd gv, qd_delta;
     get_generalized_inertia(gctype, M);
-    VectorN qd_delta = gj;
-    LinAlg::solve_fast(M, qd_delta);
-    VectorN gv;
+    _LA.solve_fast(M, qd_delta = gj);
     get_generalized_velocity(gctype, gv);
     gv += qd_delta;
     set_generalized_velocity(gctype, gv); 
@@ -1350,10 +1064,11 @@ void RigidBody::apply_generalized_impulse(GeneralizedCoordinateType gctype, cons
 }
 
 /// Solves using the generalized inertia matrix
-MatrixN& RigidBody::solve_generalized_inertia(GeneralizedCoordinateType gctype, const MatrixN& B, MatrixN& X)
+MatrixNd& RigidBody::solve_generalized_inertia(GeneralizedCoordinateType gctype, const MatrixNd& B, MatrixNd& X)
 {
   if (gctype == eAxisAngle)
   {
+// TODO: fix this
     // resize x
     X.set_zero(6, B.columns());
     
@@ -1374,17 +1089,17 @@ MatrixN& RigidBody::solve_generalized_inertia(GeneralizedCoordinateType gctype, 
   else
   {
     // get proper generalized inertia matrix
-    SAFESTATIC MatrixN M;
+    MatrixNd M;
     get_generalized_inertia(gctype, M);
     X.copy_from(B);
-    LinAlg::solve_fast(M, X);
+    _LA.solve_fast(M, X);
   }
 
   return X;
 }
 
 /// Solves using the generalized inertia matrix
-VectorN& RigidBody::solve_generalized_inertia(GeneralizedCoordinateType gctype, const VectorN& b, VectorN& x)
+VectorNd& RigidBody::solve_generalized_inertia(GeneralizedCoordinateType gctype, const VectorNd& b, VectorNd& x)
 {
   if (gctype == eAxisAngle)
   {
@@ -1407,17 +1122,17 @@ VectorN& RigidBody::solve_generalized_inertia(GeneralizedCoordinateType gctype, 
   else
   {
     // get proper generalized inertia matrix
-    SAFESTATIC MatrixN M;
+    MatrixNd M;
     get_generalized_inertia(gctype, M);
-    x.copy_from(b);
-    LinAlg::solve_fast(M, x);
+    x = b;
+    _LA.solve_fast(M, x);
   }
 
   return x;
 }
 
 /// Gets the generalized position of this rigid body
-VectorN& RigidBody::get_generalized_coordinates(GeneralizedCoordinateType gctype, VectorN& gc) 
+VectorNd& RigidBody::get_generalized_coordinates(GeneralizedCoordinateType gctype, VectorNd& gc) 
 {
   // special case: disabled body
   if (!_enabled)
@@ -1429,7 +1144,7 @@ VectorN& RigidBody::get_generalized_coordinates(GeneralizedCoordinateType gctype
   else
   {
     // return the generalized position using Rodrigues parameters
-    assert(gctype == DynamicBody::eRodrigues);
+    assert(gctype == DynamicBody::eEuler);
     gc.resize(num_generalized_coordinates(gctype));
     gc[0] = _x[0];
     gc[1] = _x[1];
@@ -1443,7 +1158,7 @@ VectorN& RigidBody::get_generalized_coordinates(GeneralizedCoordinateType gctype
 }
 
 /// Sets the generalized coordinates of this rigid body
-void RigidBody::set_generalized_coordinates(GeneralizedCoordinateType gctype, const VectorN& gc)
+void RigidBody::set_generalized_coordinates(GeneralizedCoordinateType gctype, const VectorNd& gc)
 {
   // special case: disabled body
   if (!_enabled)
@@ -1454,7 +1169,7 @@ void RigidBody::set_generalized_coordinates(GeneralizedCoordinateType gctype, co
     throw std::runtime_error("Unable to use axis-angle for positional generalized coordinates!");
   else
   {
-    assert(gctype == DynamicBody::eRodrigues);
+    assert(gctype == DynamicBody::eEuler);
     assert(gc.size() == num_generalized_coordinates(gctype));
 
     // get the position
@@ -1475,7 +1190,7 @@ void RigidBody::set_generalized_coordinates(GeneralizedCoordinateType gctype, co
 }
 
 /// Sets the generalized velocity of this rigid body
-void RigidBody::set_generalized_velocity(GeneralizedCoordinateType gctype, const VectorN& gv)
+void RigidBody::set_generalized_velocity(GeneralizedCoordinateType gctype, const VectorNd& gv)
 {
   // special case: disabled body
   if (!_enabled)
@@ -1495,7 +1210,7 @@ void RigidBody::set_generalized_velocity(GeneralizedCoordinateType gctype, const
   }
   else
   {
-    assert(gctype == DynamicBody::eRodrigues);
+    assert(gctype == DynamicBody::eEuler);
 
     // get the quaternion derivatives
     Quat qd;
@@ -1513,7 +1228,7 @@ void RigidBody::set_generalized_velocity(GeneralizedCoordinateType gctype, const
 }
 
 /// Gets the generalized velocity of this rigid body
-VectorN& RigidBody::get_generalized_velocity(GeneralizedCoordinateType gctype, VectorN& gv) 
+VectorNd& RigidBody::get_generalized_velocity(GeneralizedCoordinateType gctype, VectorNd& gv) 
 {
   // special case: disabled body
   if (!_enabled)
@@ -1537,7 +1252,7 @@ VectorN& RigidBody::get_generalized_velocity(GeneralizedCoordinateType gctype, V
   }
   else
   {
-    assert(gctype == DynamicBody::eRodrigues);
+    assert(gctype == DynamicBody::eEuler);
 
     // compute the Quaternion derivatives
     Quat qd = Quat::deriv(_q, _omega);
@@ -1552,7 +1267,7 @@ VectorN& RigidBody::get_generalized_velocity(GeneralizedCoordinateType gctype, V
 }
 
 /// Gets the generalized acceleration of this body
-VectorN& RigidBody::get_generalized_acceleration(GeneralizedCoordinateType gctype, VectorN& ga)
+VectorNd& RigidBody::get_generalized_acceleration(GeneralizedCoordinateType gctype, VectorNd& ga)
 {
   // special case: body is disabled
   if (!_enabled)
@@ -1573,7 +1288,7 @@ VectorN& RigidBody::get_generalized_acceleration(GeneralizedCoordinateType gctyp
   }
   else
   {
-    assert(gctype == DynamicBody::eRodrigues);
+    assert(gctype == DynamicBody::eEuler);
 
     // convert alpha to a quaternion derivative
     Quat qdd = Quat::dderiv(_q, _omega, _alpha);
@@ -1589,7 +1304,7 @@ VectorN& RigidBody::get_generalized_acceleration(GeneralizedCoordinateType gctyp
 }
 
 /// Gets the generalized inertia of this rigid body
-MatrixN& RigidBody::get_generalized_inertia(GeneralizedCoordinateType gctype, MatrixN& M) 
+MatrixNd& RigidBody::get_generalized_inertia(GeneralizedCoordinateType gctype, MatrixNd& M) 
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
@@ -1613,7 +1328,7 @@ MatrixN& RigidBody::get_generalized_inertia(GeneralizedCoordinateType gctype, Ma
   }
   else
   {
-    assert(gctype == DynamicBody::eRodrigues);
+    assert(gctype == DynamicBody::eEuler);
 
     // set lower 4x4 ([Nikravesh, 1988, p. 295])
     Vector3 ix = _J.get_row(X);
@@ -1632,7 +1347,7 @@ MatrixN& RigidBody::get_generalized_inertia(GeneralizedCoordinateType gctype, Ma
 }
 
 /// Gets the generalized external forces
-VectorN& RigidBody::get_generalized_forces(GeneralizedCoordinateType gctype, VectorN& f) 
+VectorNd& RigidBody::get_generalized_forces(GeneralizedCoordinateType gctype, VectorNd& f) 
 {
   // special case: disabled body
   if (!_enabled)
@@ -1659,7 +1374,7 @@ VectorN& RigidBody::get_generalized_forces(GeneralizedCoordinateType gctype, Vec
   }
   else
   {
-    assert(gctype == DynamicBody::eRodrigues);
+    assert(gctype == DynamicBody::eEuler);
 
     // get the torque in the body's frame
     Matrix3 R(&_q);
@@ -1687,7 +1402,7 @@ Vector3 RigidBody::calc_inertial_forces() const
 }
 
 /// Converts a force to a generalized force
-VectorN& RigidBody::convert_to_generalized_force(GeneralizedCoordinateType gctype, SingleBodyPtr body, const Vector3& p, const Vector3& f, const Vector3& t, VectorN& gf) 
+VectorNd& RigidBody::convert_to_generalized_force(GeneralizedCoordinateType gctype, SingleBodyPtr body, const Vector3& p, const Vector3& f, const Vector3& t, VectorNd& gf) 
 {
   // verify that body == this
   assert(body.get() == this);
@@ -1714,7 +1429,7 @@ VectorN& RigidBody::convert_to_generalized_force(GeneralizedCoordinateType gctyp
   }
   else
   {
-    assert(gctype == DynamicBody::eRodrigues);
+    assert(gctype == DynamicBody::eEuler);
 
     // convert the torque to the body's coordinate system
     Matrix3 R(&_q);
@@ -1767,7 +1482,7 @@ unsigned RigidBody::num_generalized_coordinates(DynamicBody::GeneralizedCoordina
   // return the proper number of coordinates
   switch (gctype)
   {
-    case DynamicBody::eRodrigues:
+    case DynamicBody::eEuler:
       return NGC_ROD;
 
     case DynamicBody::eAxisAngle:

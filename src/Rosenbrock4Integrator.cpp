@@ -4,14 +4,18 @@
  * License (found in COPYING).
  ****************************************************************************/
 
+#include <strings.h>
 #include <Moby/Rosenbrock4Integrator.h>
 
-using namespace Moby;
 using std::endl;
 using std::vector;
+using boost::shared_ptr;
+using Ravelin::VectorNd;
+using Ravelin::MatrixNd;
+using namespace Moby;
 
 /// Method for 4th-order implicit Runge-Kutta integration
-void Rosenbrock4Integrator::integrate(Ravelin::VectorNd& x, Ravelin::VectorNd (*f)(const Ravelin::VectorNd&, double, double, void*), double& time, double step_size, void* data)
+void Rosenbrock4Integrator::integrate(VectorNd& x, VectorNd (*f)(const VectorNd&, double, double, void*), double& time, double step_size, void* data)
 {
   // determine desired time
   double tdes = time + step_size;
@@ -27,10 +31,10 @@ void Rosenbrock4Integrator::integrate(Ravelin::VectorNd& x, Ravelin::VectorNd (*
 }
 
 /// Does all the work
-void Rosenbrock4Integrator::step(Ravelin::VectorNd& x, Ravelin::VectorNd (*f)(const Ravelin::VectorNd&, double, double, void*), double& time, double step_size, double& tnext, void* data)
+void Rosenbrock4Integrator::step(VectorNd& x, VectorNd (*f)(const VectorNd&, double, double, void*), double& time, double step_size, double& tnext, void* data)
 {
-  SAFESTATIC Ravelin::MatrixNd A, J;
-  SAFESTATIC Ravelin::VectorNd xscal, g1, g2, g3, g4, xsav, dxsav;
+  SAFESTATIC MatrixNd A, J;
+  SAFESTATIC VectorNd xscal, g1, g2, g3, g4, xsav, dxsav;
   SAFESTATIC vector<int> ipiv;
   const unsigned n = x.size();
 
@@ -81,7 +85,7 @@ void Rosenbrock4Integrator::step(Ravelin::VectorNd& x, Ravelin::VectorNd (*f)(co
     xscal[i] = std::max(rel_err_tol, std::fabs(x[i]));
 
   // get the derivative at time
-  Ravelin::VectorNd dxdt = f(x, time, step_size, data);
+  VectorNd dxdt = f(x, time, step_size, data);
 
   // save initial values
   double tsav = time;
@@ -91,7 +95,7 @@ void Rosenbrock4Integrator::step(Ravelin::VectorNd& x, Ravelin::VectorNd (*f)(co
   // determine the vector df/dt
   double sqrt_eps = std::sqrt(std::numeric_limits<double>::epsilon());
   time += sqrt_eps;
-  Ravelin::VectorNd dfdt = f(x, time, step_size, data);
+  VectorNd dfdt = f(x, time, step_size, data);
   time -= sqrt_eps;
 
   // determine the Jacobian using forward differencing
@@ -99,7 +103,7 @@ void Rosenbrock4Integrator::step(Ravelin::VectorNd& x, Ravelin::VectorNd (*f)(co
   for (unsigned i=0; i< n; i++)
   {
     x[i] += sqrt_eps;
-    Ravelin::VectorNd column_i = f(x, time, step_size, data);
+    VectorNd column_i = f(x, time, step_size, data);
     x[i] -= sqrt_eps;
     for (unsigned j=0; j< n; j++)
       J(j, i) = column_i[j];
@@ -171,7 +175,7 @@ void Rosenbrock4Integrator::step(Ravelin::VectorNd& x, Ravelin::VectorNd (*f)(co
     _LA.solve_LU_fast(A, false, ipiv, g4);
 
     // get fourth-order estimate of x and error estimate
-    Ravelin::VectorNd err(n);
+    VectorNd err(n);
     for (unsigned i=0; i< n; i++)
     {
       x[i] = xsav[i] + B1*g1[i] + B2*g2[i] + B3*g3[i] + B4*g4[i];
@@ -203,7 +207,7 @@ void Rosenbrock4Integrator::step(Ravelin::VectorNd& x, Ravelin::VectorNd (*f)(co
   std::cerr << "Rosenbrock4Integrator::step() - maximum number of iterations exceeded (40)" << endl;
 }
 
-void Rosenbrock4Integrator::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map) 
+void Rosenbrock4Integrator::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map) 
 { 
   assert(strcasecmp(node->name.c_str(), "Rosenbrock4Integrator") == 0);
   Integrator::load_from_xml(node, id_map); 
@@ -214,7 +218,7 @@ void Rosenbrock4Integrator::load_from_xml(XMLTreeConstPtr node, std::map<std::st
     rel_err_tol = rerr_attrib->get_real_value();
 }
 
-void Rosenbrock4Integrator::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
+void Rosenbrock4Integrator::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& shared_objects) const
 { 
   Integrator::save_to_xml(node, shared_objects); 
   node->name = "Rosenbrock4Integrator";

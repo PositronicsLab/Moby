@@ -10,6 +10,7 @@
 #include <iostream>
 #include <boost/shared_ptr.hpp>
 #include <Ravelin/Matrix3d.h>
+#include <Ravelin/SpatialRBInertiad.h>
 #include <Moby/Node.h>
 #include <Moby/AABB.h>
 #include <Moby/Visualizable.h>
@@ -54,8 +55,8 @@ class DeformableBody : public SingleBody
     virtual void set_mesh(boost::shared_ptr<const IndexedTetraArray> tetra_mesh, boost::shared_ptr<Primitive> tri_mesh);
     virtual Ravelin::Vector3d calc_point_vel(const Ravelin::Point3d& p) const;
     virtual void add_wrench(const Ravelin::Wrenchd& w);
-    virtual void load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map);
-    virtual void save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const;
+    virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
+    virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual Ravelin::MatrixNd& solve_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::MatrixNd& B, Ravelin::MatrixNd& X);
     virtual Ravelin::VectorNd& solve_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& b, Ravelin::VectorNd& x);
     virtual double calc_potential_energy() const = 0;
@@ -64,7 +65,7 @@ class DeformableBody : public SingleBody
     virtual Ravelin::Point3d get_position() const { return _x; }
 
     /// Gets the linear velocity of the center-of-mass of the body
-    virtual const Ravelin::Twistd& get_velocity() const { return _xd; }
+    virtual const Ravelin::Twistd& velocity() const { return _xd; }
 
     /// Deformable bodies are always enabled
     virtual bool is_enabled() const { return true; } 
@@ -85,7 +86,7 @@ class DeformableBody : public SingleBody
     DeformableBodyPtr get_this() { return boost::dynamic_pointer_cast<DeformableBody>(shared_from_this()); }
 
   protected:
-    virtual boost::shared_ptr<const Ravelin::Pose3d> get_visualization_transform() { return _identity_transform; }
+    virtual boost::shared_ptr<const Ravelin::Pose3d> get_visualization_pose() { return _identity_pose; }
     void calc_com_and_vels();
     void update_geometries();
     unsigned find_closest_tetrahedron(const Ravelin::Point3d& p) const;
@@ -117,23 +118,20 @@ class DeformableBody : public SingleBody
     /// The vertex map
     std::vector<VertexMap> _vertex_map;
 
-    /// The mass
-    double _mass;
-
-    /// The position of the center-of-mass of the deformable body
+    /// The position of the center-of-mass of the deformable body (global frame)
     Ravelin::Point3d _x;
 
-    /// The velocity of the body
+    /// The velocity of the body (computation frame)
     Ravelin::Twistd _xd;
 
-    /// The moment of inertia matrix (global frame)
-    Ravelin::Matrix3d _J;
+    /// The inertia matrix (computation frame)
+    Ravelin::SpatialRBInertiad _J;
 
-    /// The inverse moment of inertia matrix (global frame)
-    Ravelin::Matrix3d _Jinv;
+    /// Frame of computation
+    boost::shared_ptr<Ravelin::Pose3d> _F;
 
   private:
-    boost::shared_ptr<Ravelin::Pose3d> _identity_transform;
+    boost::shared_ptr<Ravelin::Pose3d> _identity_pose;
     AABBPtr build_AABB_tree(std::map<BVPtr, std::list<unsigned> >& aabb_tetra_map);
     void split_tetra(const Ravelin::Point3d& point, unsigned axis, const std::list<unsigned>& otetra, std::list<unsigned>& ptetra, std::list<unsigned>& ntetra);
     bool split(AABBPtr source, AABBPtr& tgt1, AABBPtr& tgt2, unsigned axis, const std::list<unsigned>& tetra, std::list<unsigned>& ptetra, std::list<unsigned>& ntetra);

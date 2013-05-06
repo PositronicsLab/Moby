@@ -5,9 +5,9 @@
  ****************************************************************************/
 
 /// Implements Base::load_from_xml()
-void Integrator::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void Integrator::load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
-  std::list<XMLTreeConstPtr> child_nodes;
+  std::list<boost::shared_ptr<const XMLTree> > child_nodes;
   std::map<std::string, BasePtr>::const_iterator id_iter;
 
   // call parent method
@@ -15,7 +15,7 @@ void Integrator::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BaseP
 }
 
 /// Implements Base::save_to_xml()
-void Integrator::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
+void Integrator::save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const
 {
   // call parent method
   Base::save_to_xml(node, shared_objects);

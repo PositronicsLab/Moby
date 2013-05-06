@@ -52,10 +52,10 @@ class MCArticulatedBody : public ArticulatedBody
     virtual void reset_accumulators();
     virtual void apply_impulse(const Ravelin::Wrenchd& j, RigidBodyPtr link);
     virtual void calc_fwd_dyn(double dt);
-    virtual void load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map);
-    virtual void save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const;
+    virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
+    virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     MCArticulatedBodyPtr get_this() { return boost::dynamic_pointer_cast<MCArticulatedBody>(shared_from_this()); }
-    MCArticulatedBodyConstPtr get_this() const { return boost::dynamic_pointer_cast<const MCArticulatedBody>(shared_from_this()); }
+    boost::shared_ptr<const MCArticulatedBody> get_this() const { return boost::dynamic_pointer_cast<const MCArticulatedBody>(shared_from_this()); }
     virtual Ravelin::VectorNd& convert_to_generalized_force(DynamicBody::GeneralizedCoordinateType gctype, SingleBodyPtr link, const Ravelin::Wrenchd& f, Ravelin::VectorNd& gf);
     virtual void update_event_data(EventProblemData& epd);
     virtual void update_velocity(const EventProblemData& epd);
@@ -70,6 +70,8 @@ class MCArticulatedBody : public ArticulatedBody
     virtual Ravelin::MatrixNd& transpose_Jl_mult(const Ravelin::MatrixNd& m, Ravelin::MatrixNd& result) { return mult_transpose_sparse(_Jl, m, result); }
     virtual Ravelin::VectorNd& transpose_Dx_mult(const Ravelin::VectorNd& v, Ravelin::VectorNd& result) { return mult_transpose_sparse(_Dx, v, result); }
     virtual Ravelin::MatrixNd& transpose_Dx_mult(const Ravelin::MatrixNd& m, Ravelin::MatrixNd& result) { return mult_transpose_sparse(_Dx, m, result); }
+    virtual boost::shared_ptr<Ravelin::Pose3d> get_computation_frame_pose() const;
+    virtual void set_computation_frame_type(ReferenceFrameType rftype);
 
     /// The Baumgarte stabilization constant alpha >= 0
     double b_alpha;
@@ -81,7 +83,7 @@ class MCArticulatedBody : public ArticulatedBody
     virtual void compile();
 
     /// There is no visualization transform (returns NULL)
-    virtual boost::shared_ptr<const Ravelin::Pose3d> get_visualization_transform() { return boost::shared_ptr<const Ravelin::Pose3d>(); }
+    virtual boost::shared_ptr<const Ravelin::Pose3d> get_visualization_pose() { return boost::shared_ptr<const Ravelin::Pose3d>(); }
 
   private:
     enum JacobianType { eNone, eContactNormal, eContactTangent, eLimit,

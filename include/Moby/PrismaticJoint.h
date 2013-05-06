@@ -26,10 +26,10 @@ class PrismaticJoint : public Joint
     void set_axis_local(const Ravelin::Vector3d& axis);
     virtual void update_spatial_axes();    
     virtual void determine_q(Ravelin::VectorNd& q);
-    virtual boost::shared_ptr<const Ravelin::Pose3d> get_transform();
-    virtual std::vector<Ravelin::Twistd>& get_spatial_axes_dot(ReferenceFrameType type);
-    virtual void load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map);
-    virtual void save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const;
+    virtual boost::shared_ptr<const Ravelin::Pose3d> get_pose();
+    virtual std::vector<Ravelin::Twistd>& get_spatial_axes_dot();
+    virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
+    virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual unsigned num_dof() const { return 1; } 
     virtual void evaluate_constraints(double C[]);
 

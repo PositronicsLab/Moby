@@ -32,7 +32,7 @@ osg::Node* GaussianMixture::create_visualization()
   const unsigned X = 0, Y = 1, Z = 2;
 
   // get the transform
-  const Pose3d& T = get_transform();
+  const Pose3d& T = get_pose();
 
   // create necessary OSG elements for visualization
   osg::Group* group = new osg::Group;
@@ -83,7 +83,7 @@ osg::Node* GaussianMixture::create_visualization()
 #endif 
 
 /// Reads the Gaussian parameters
-GaussianMixture::Gauss GaussianMixture::read_gauss_node(XMLTreeConstPtr node)
+GaussianMixture::Gauss GaussianMixture::read_gauss_node(shared_ptr<const XMLTree> node)
 {
   const unsigned X = 0, Y = 1;
 
@@ -125,7 +125,7 @@ GaussianMixture::Gauss GaussianMixture::read_gauss_node(XMLTreeConstPtr node)
 }
 
 /// Loads the primitive from an XML file
-void GaussianMixture::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void GaussianMixture::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // load data from the Primitive
   Primitive::load_from_xml(node, id_map);
@@ -135,8 +135,8 @@ void GaussianMixture::load_from_xml(XMLTreeConstPtr node, std::map<std::string, 
 
   // read the Gaussian parameters
   vector<Gauss> gauss;
-  list<XMLTreeConstPtr> g_nodes = node->find_child_nodes("Gaussian");
-  BOOST_FOREACH(XMLTreeConstPtr g_node, g_nodes)
+  list<shared_ptr<const XMLTree> > g_nodes = node->find_child_nodes("Gaussian");
+  BOOST_FOREACH(shared_ptr<const XMLTree> g_node, g_nodes)
     gauss.push_back(read_gauss_node(g_node));
 
   // rebuild
@@ -144,7 +144,7 @@ void GaussianMixture::load_from_xml(XMLTreeConstPtr node, std::map<std::string, 
 }
 
 /// Saves the primitive to an XML description
-void GaussianMixture::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
+void GaussianMixture::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& shared_objects) const
 {
   // save primitive data
   Primitive::save_to_xml(node, shared_objects);
@@ -339,10 +339,10 @@ void GaussianMixture::rebuild(const vector<Gauss>& gauss)
 }
 
 /// Sets the transform for the primitive
-void GaussianMixture::set_transform(const Pose3d& T)
+void GaussianMixture::set_pose(const Pose3d& T)
 {
   // call parent method
-  Primitive::set_transform(T);
+  Primitive::set_pose(T);
 
   // reconstruct bounding volumes and vertices
   rebuild(_gauss);
@@ -355,7 +355,7 @@ void GaussianMixture::construct_BVs()
   list<BVPtr> children;
 
   // get the transform
-  const Pose3d& T = get_transform();
+  const Pose3d& T = get_pose();
   
   // iterate over all Gaussians
   for (unsigned i=0; i< _gauss.size(); i++)
@@ -411,7 +411,7 @@ void GaussianMixture::construct_vertices()
   _vertices.resize(_gauss.size());
 
   // get the transform
-  const Pose3d& T = get_transform();
+  const Pose3d& T = get_pose();
 
   // number of samples per Gaussian dimension
   const unsigned NSAMPLES = 100;
@@ -476,7 +476,7 @@ bool GaussianMixture::point_inside(BVPtr bv, const Point3d& point, Vector3d& nor
   const int NMAX = _gauss.size(); 
 
   // get the current transform
-  const Pose3d& T = get_transform();
+  const Pose3d& T = get_pose();
  
   // convert the point to primitive space
   Point3d p = T.inverse_transform(point);
@@ -632,7 +632,7 @@ bool GaussianMixture::intersect_seg(BVPtr bv, const LineSeg3& seg,double& tisect
   SAFESTATIC vector<double> t, depth;
 
   // get the current transform
-  const Pose3d& T = get_transform();
+  const Pose3d& T = get_pose();
  
   // convert the line segment to primitive space
   Point3d p = T.inverse_transform(seg.first);

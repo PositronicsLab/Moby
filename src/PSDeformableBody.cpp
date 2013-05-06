@@ -5,17 +5,21 @@
  ****************************************************************************/
 
 #include <Moby/XMLTree.h>
-#include <Moby/Optimization.h>
 #include <Moby/Event.h>
 #include <Moby/PSDeformableBody.h>
 
-using namespace Moby;
 using std::list;
 using std::map;
 using std::vector;
 using std::string;
 using std::endl;
 using boost::shared_ptr;
+using Ravelin::VectorNd;
+using Ravelin::MatrixNd;
+using Ravelin::Point3d;
+using Ravelin::Vector3d;
+using Ravelin::Wrenchd;
+using namespace Moby;
 
 /// Sets up the deformable body
 PSDeformableBody::PSDeformableBody()
@@ -33,7 +37,7 @@ void PSDeformableBody::set_mesh(shared_ptr<const IndexedTetraArray> tetra_mesh, 
   DeformableBody::set_mesh(tetra_mesh, tri_mesh);
 
   // get the tetrahedron vertices
-  const vector<Vector3>& verts = tetra_mesh->get_vertices();
+  const vector<Point3d>& verts = tetra_mesh->get_vertices();
 
   // now, setup springs vector
   _springs.resize(tetra_mesh->num_tetra() * EDGES_PER_TETRA);
@@ -111,7 +115,7 @@ void PSDeformableBody::set_mesh(shared_ptr<const IndexedTetraArray> tetra_mesh, 
 }
 
 /// Integrates the body forward in time
-void PSDeformableBody::integrate(double t, double h, shared_ptr<Integrator<VectorN> > integrator)
+void PSDeformableBody::integrate(double t, double h, shared_ptr<Integrator> integrator)
 {
   // don't update c.o.m. or geometries
   disable_config_updates();
@@ -141,11 +145,11 @@ double PSDeformableBody::calc_potential_energy() const
     double kp = s.kp;
 
     // get the node properties
-    const Vector3& x1 = _nodes[node1]->x;
-    const Vector3& x2 = _nodes[node2]->x;
+    const Point3d& x1 = _nodes[node1]->x;
+    const Point3d& x2 = _nodes[node2]->x;
 
     // determine spring forces (from double Time Physics course notes)
-    Vector3 x2mx1 = x2 - x1;
+    Vector3d x2mx1 = x2 - x1;
     double len = x2mx1.norm();
     PE += (double) 0.5 * (len - rest_len) * (len - rest_len) * kp;
   }
@@ -172,17 +176,17 @@ void PSDeformableBody::calc_fwd_dyn(double dt)
     double kv = s.kv;
 
     // get the node properties
-    const Vector3& x1 = _nodes[node1]->x;
-    const Vector3& v1 = _nodes[node1]->xd;
-    const Vector3& x2 = _nodes[node2]->x;
-    const Vector3& v2 = _nodes[node2]->xd;
+    const Point3d& x1 = _nodes[node1]->x;
+    const Vector3d& v1 = _nodes[node1]->xd;
+    const Point3d& x2 = _nodes[node2]->x;
+    const Vector3d& v2 = _nodes[node2]->xd;
 
     // determine spring forces (from double Time Physics course notes)
-    Vector3 x2mx1 = x2 - x1;
+    Vector3d x2mx1 = x2 - x1;
     double len = x2mx1.norm();
-    Vector3 dir = x2mx1 / len;
+    Vector3d dir = x2mx1 / len;
     assert(len > (double) 0.0); 
-    Vector3 f = dir * (len - rest_len) * kp + dir * (v2 - v1).dot(dir) * kv;
+    Vector3d f = dir * (len - rest_len) * kp + dir * (v2 - v1).dot(dir) * kv;
     _nodes[node1]->f += f;
     _nodes[node2]->f -= f; 
 
@@ -202,6 +206,12 @@ void PSDeformableBody::calc_fwd_dyn(double dt)
   FILE_LOG(LOG_DEFORM) << "PSDeformableBody::calc_fwd_dyn() exited" << endl;
 }
 
+// TODO: implement this
+void PSDeformableBody::apply_impulse(const Wrenchd& w)
+{
+}
+
+/*
 /// Applies an impulse to the deformable body at a given point
 void PSDeformableBody::apply_impulse(const Vector3& j, const Vector3& p)
 {
@@ -236,6 +246,7 @@ for (unsigned i=0; i< _nodes.size(); i++)
   FILE_LOG(LOG_COLDET) << "    " << i << ": " << _nodes[i]->xd << std::endl;
 }
 
+// TODO: fix if necessary
 /// Updates the velocity of this body using impulses computed via event data
 void PSDeformableBody::update_velocity(const EventProblemData& q)
 {
@@ -258,10 +269,10 @@ void PSDeformableBody::update_velocity(const EventProblemData& q)
     }
 
     // get contact point
-    const Vector3& p = q.contact_events[i]->contact_point;
+    const Point3d& p = q.contact_events[i]->contact_point;
 
     // setup impulse to be along normal direction first 
-    Vector3 j = q.contact_events[i]->contact_normal * q.alpha_c[i];
+    Vector3d j = q.contact_events[i]->contact_normal * q.alpha_c[i];
 
     // now update j with tangent impulses
     j += q.contact_events[i]->contact_tan1*q.beta_c[s++];
@@ -277,6 +288,7 @@ void PSDeformableBody::update_velocity(const EventProblemData& q)
   }
 }
 
+// TODO: fix if necessary
 /// Adds contributions to the event matrices
 void PSDeformableBody::update_event_data(EventProblemData& q) 
 {
@@ -284,18 +296,18 @@ void PSDeformableBody::update_event_data(EventProblemData& q)
     return;
 
   // store the current state of this body
-  SAFESTATIC VectorN gc, gv;
+  SAFESTATIC VectorNd gc, gv;
   get_generalized_coordinates(DynamicBody::eAxisAngle, gc);
   get_generalized_velocity(DynamicBody::eAxisAngle, gv);
 
   // setup matrices
-  MatrixN Jc_iM_JcT, Jc_iM_DcT, Dc_iM_DcT;
+  MatrixNd Jc_iM_JcT, Jc_iM_DcT, Dc_iM_DcT;
   Jc_iM_JcT.set_zero(q.Jc_iM_JcT.rows(), q.Jc_iM_JcT.columns());
   Jc_iM_DcT.set_zero(q.Jc_iM_DcT.rows(), q.Jc_iM_DcT.columns());
   Dc_iM_DcT.set_zero(q.Dc_iM_DcT.rows(), q.Dc_iM_DcT.columns());
   
   // determine Jc_v and Dc_v
-  VectorN Jc_v, Dc_v;
+  VectorNd Jc_v, Dc_v;
   determine_Jc_v(q.contact_events, Jc_v);
   determine_Dc_v(q.contact_events, Dc_v);
 
@@ -304,9 +316,9 @@ void PSDeformableBody::update_event_data(EventProblemData& q)
   q.Dc_v += Dc_v;
 
   // apply impulses and check change in velocities
-  VectorN Jc_v_new, Dc_v_new, Jc_v_last, Dc_v_last;
-  Jc_v_last.copy_from(Jc_v);
-  Dc_v_last.copy_from(Dc_v);
+  VectorNd Jc_v_new, Dc_v_new, Jc_v_last, Dc_v_last;
+  Jc_v_last = Jc_v;
+  Dc_v_last = Dc_v;
   for (unsigned i=0; i< q.N_CONTACTS; i++)
   {
     // if neither of the bodies in the contact is this, keep looping...
@@ -371,7 +383,7 @@ void PSDeformableBody::update_event_data(EventProblemData& q)
 
     // update the matrix 
     Dc_iM_DcT.set_row(k++, Dc_v_last);
-    Dc_v_last.copy_from(Dc_v_new); 
+    Dc_v_last = Dc_v_new; 
 
     // apply the impulse in the second tangent direction
     apply_impulse(d2, q.contact_events[i]->contact_point);
@@ -396,8 +408,9 @@ void PSDeformableBody::update_event_data(EventProblemData& q)
   set_generalized_velocity(DynamicBody::eAxisAngle, gv);
 }
 
+// TODO: fix if necessary
 /// Measures the change in velocity in contact normal directions
-void PSDeformableBody::determine_Jc_v(const vector<Event*>& contact_events, VectorN& Jc_v) const
+void PSDeformableBody::determine_Jc_v(const vector<Event*>& contact_events, VectorNd& Jc_v) const
 {
   Jc_v.resize(contact_events.size());
   for (unsigned i=0; i< contact_events.size(); i++)
@@ -420,8 +433,9 @@ void PSDeformableBody::determine_Jc_v(const vector<Event*>& contact_events, Vect
   }
 }
 
+// TODO: fix if necessary
 /// Measures the change in velocity in contact tangent directions
-void PSDeformableBody::determine_Dc_v(const vector<Event*>& contact_events, VectorN& Dc_v) const
+void PSDeformableBody::determine_Dc_v(const vector<Event*>& contact_events, VectorNd& Dc_v) const
 {
   // resize the vector
   Dc_v.resize(contact_events.size()*2);
@@ -457,9 +471,10 @@ void PSDeformableBody::determine_Dc_v(const vector<Event*>& contact_events, Vect
     } 
   }
 }
+*/
 
 /// Implements Base::load_from_xml()
-void PSDeformableBody::load_from_xml(XMLTreeConstPtr node, map<string, BasePtr>& id_map)
+void PSDeformableBody::load_from_xml(shared_ptr<const XMLTree> node, map<string, BasePtr>& id_map)
 {
   map<std::string, BasePtr>::const_iterator id_iter;
 
@@ -486,14 +501,14 @@ void PSDeformableBody::load_from_xml(XMLTreeConstPtr node, map<string, BasePtr>&
   }
 
   // read in the springs
-  list<XMLTreeConstPtr> spring_nodes = node->find_child_nodes("Spring");
+  list<shared_ptr<const XMLTree> > spring_nodes = node->find_child_nodes("Spring");
   if (!spring_nodes.empty())
   {
     // setup a vector of springs
     vector<Spring> springs;
 
     // read in the springs
-    for (list<XMLTreeConstPtr>::const_iterator i = spring_nodes.begin(); i != spring_nodes.end(); i++)
+    for (list<shared_ptr<const XMLTree> >::const_iterator i = spring_nodes.begin(); i != spring_nodes.end(); i++)
     {
       // create a new spring
       Spring s;
@@ -533,7 +548,7 @@ void PSDeformableBody::load_from_xml(XMLTreeConstPtr node, map<string, BasePtr>&
 }
 
 /// Implements Base::save_to_xml()
-void PSDeformableBody::save_to_xml(XMLTreePtr node, list<BaseConstPtr>& shared_objects) const
+void PSDeformableBody::save_to_xml(XMLTreePtr node, list<shared_ptr<const Base> >& shared_objects) const
 {
   // save parent data
   DeformableBody::save_to_xml(node, shared_objects);

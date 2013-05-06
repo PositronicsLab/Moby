@@ -30,7 +30,7 @@ class AABB : public BV
     virtual Ravelin::Point3d get_upper_bounds(const Ravelin::Pose3d& T);
     OBB get_OBB() const;
     static bool intersects(const AABB& a, const AABB& b);
-    static bool intersects(const AABB& a, const AABB& b, const Ravelin::Pose3d& aTb);
+    static bool intersects(const AABB& a, const AABB& b, const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& aTb);
     static bool outside(const AABB& a, const Ravelin::Point3d& point, double tol = NEAR_ZERO);
     static bool intersects(const AABB& a, const LineSeg3& seg, double& tmin, double tmax, Ravelin::Point3d& q);
     static void get_closest_point(const AABB& a, const Ravelin::Point3d& p, Ravelin::Point3d& closest);

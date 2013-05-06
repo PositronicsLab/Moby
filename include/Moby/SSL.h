@@ -35,9 +35,9 @@ class SSL : public BV
     virtual BVPtr calc_vel_exp_BV(CollisionGeometryPtr g, double dt, const Ravelin::Vector3d& lv, const Ravelin::Vector3d& av) const;
     static double calc_dist(const SSL& o, const Ravelin::Point3d& p);
     static double calc_dist(const SSL& a, const SSL& b, Ravelin::Point3d& cpa, Ravelin::Point3d& cpb);
-    static double calc_dist(const SSL& a, const SSL& b, const Ravelin::Pose3d& aTb, Ravelin::Point3d& cpa, Ravelin::Point3d& cpb);
+    static double calc_dist(const SSL& a, const SSL& b, const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& aTb, Ravelin::Point3d& cpa, Ravelin::Point3d& cpb);
     static bool intersects(const SSL& a, const SSL& b);
-    static bool intersects(const SSL& a, const SSL& b, const Ravelin::Pose3d& T);
+    static bool intersects(const SSL& a, const SSL& b, const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& aTb);
     static bool intersects(const SSL& a, const LineSeg3& seg, double& tmin, double tmax, Ravelin::Point3d& q);
     virtual bool intersects(const LineSeg3& seg, double& tmin, double tmax, Ravelin::Point3d& q) const { return SSL::intersects(*this, seg, tmin, tmax, q); }
     static bool outside(const SSL& a, const Ravelin::Point3d& point, double tol = NEAR_ZERO);

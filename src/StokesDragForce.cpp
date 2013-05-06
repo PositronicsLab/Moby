@@ -53,7 +53,7 @@ void StokesDragForce::add_force(DynamicBodyPtr body)
 }
 
 /// Implements Base::load_from_xml()
-void StokesDragForce::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void StokesDragForce::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // load XML data for the parent class
   RecurrentForce::load_from_xml(node, id_map);
@@ -68,7 +68,7 @@ void StokesDragForce::load_from_xml(XMLTreeConstPtr node, std::map<std::string, 
 }
 
 /// Implements Base::save_to_xml()
-void StokesDragForce::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const 
+void StokesDragForce::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& shared_objects) const 
 {
   // save XML data from the parent class
   RecurrentForce::save_to_xml(node, shared_objects);

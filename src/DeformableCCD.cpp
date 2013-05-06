@@ -115,8 +115,8 @@ map<SingleBodyPtr, pair<Vector3, Vector3> > DeformableCCD::get_velocities(const 
   for (unsigned i=0; i< q0.size(); i++)
   {
     qd.copy_from(q1[i].second) -= q0[i].second;
-    q1[i].first->set_generalized_coordinates(DynamicBody::eRodrigues, q0[i].second);
-    q1[i].first->set_generalized_velocity(DynamicBody::eRodrigues, qd);
+    q1[i].first->set_generalized_coordinates(DynamicBody::eEuler, q0[i].second);
+    q1[i].first->set_generalized_velocity(DynamicBody::eEuler, qd);
   }
   #else
   SAFESTATIC vector<VectorN> qd;
@@ -125,8 +125,8 @@ map<SingleBodyPtr, pair<Vector3, Vector3> > DeformableCCD::get_velocities(const 
   for (unsigned i=0; i< q0.size(); i++)
   {
     qd[i].copy_from(q1[i].second) -= q0[i].second;
-    q1[i].first->set_generalized_coordinates(DynamicBody::eRodrigues, q0[i].second);
-    q1[i].first->set_generalized_velocity(DynamicBody::eRodrigues, qd[i]);
+    q1[i].first->set_generalized_coordinates(DynamicBody::eEuler, q0[i].second);
+    q1[i].first->set_generalized_velocity(DynamicBody::eEuler, qd[i]);
   }
   #endif
 
@@ -599,7 +599,7 @@ BVPtr DeformableCCD::get_vel_exp_BV(CollisionGeometryPtr cg, BVPtr bv, const Vec
 }
 
 /// Implements Base::load_from_xml()
-void DeformableCCD::load_from_xml(XMLTreeConstPtr node, map<std::string, BasePtr>& id_map)
+void DeformableCCD::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, BasePtr>& id_map)
 {
   map<std::string, BasePtr>::const_iterator id_iter;
 
@@ -620,7 +620,7 @@ void DeformableCCD::load_from_xml(XMLTreeConstPtr node, map<std::string, BasePtr
  * \note neither the contact cache nor the pairs currently in collision are 
  *       saved
  */
-void DeformableCCD::save_to_xml(XMLTreePtr node, list<BaseConstPtr>& shared_objects) const
+void DeformableCCD::save_to_xml(XMLTreePtr node, list<shared_ptr<const Base> >& shared_objects) const
 {
   // call parent save_to_xml() method first
   CollisionDetection::save_to_xml(node, shared_objects);
@@ -1015,11 +1015,11 @@ double DeformableCCD::determine_TOI(double t0, double tf, const DStruct* ds, Vec
         // transform contact point and normal to global coords
         // to do this, we need to integrate body for gs forward in time to t,
         // get the associated transform, and then revert it back
-        bs_sb->get_generalized_coordinates(DynamicBody::eRodrigues, q);
-        bs_sb->get_generalized_velocity(DynamicBody::eRodrigues, qd);
+        bs_sb->get_generalized_coordinates(DynamicBody::eEuler, q);
+        bs_sb->get_generalized_velocity(DynamicBody::eEuler, qd);
         qd *= t;
         q += qd;
-        bs_sb->set_generalized_coordinates(DynamicBody::eRodrigues, q);
+        bs_sb->set_generalized_coordinates(DynamicBody::eEuler, q);
         pt = gs->get_transform().mult_point(pt);
         assert(std::fabs(normal.norm() - (double) 1.0) < NEAR_ZERO);
         normal = qs * normal;

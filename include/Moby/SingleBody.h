@@ -31,7 +31,7 @@ class SingleBody : public DynamicBody
     virtual Ravelin::Point3d get_position() const = 0;
 
     /// Gets the velocity of the body
-    virtual const Ravelin::Twistd& get_velocity() const = 0;
+    virtual const Ravelin::Twistd& velocity() const = 0;
 
     /// Adds a wrench to the body
     virtual void add_wrench(const Ravelin::Wrenchd& w) = 0;
@@ -56,7 +56,7 @@ class SingleBody : public DynamicBody
 
   private:
 
-    virtual double get_aspeed() const { return get_velocity().get_angular().norm(); }
+    virtual double get_aspeed() const { return velocity().get_angular().norm(); }
 }; // end class
 
 } // end namespace

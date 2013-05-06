@@ -13,7 +13,7 @@ void DynamicBody::integrate(double t, double h, shared_ptr<Integrator> integrato
 
   shared_ptr<DynamicBody> shared_this = dynamic_pointer_cast<DynamicBody>(shared_from_this());
 
-  get_generalized_coordinates(eRodrigues, gc);
+  get_generalized_coordinates(eEuler, gc);
   get_generalized_velocity(eAxisAngle, gv);
   gcgv.resize(gc.size()+gv.size());
   gcgv.set_sub_vec(0, gc);
@@ -21,7 +21,7 @@ void DynamicBody::integrate(double t, double h, shared_ptr<Integrator> integrato
   integrator->integrate(gcgv, &ode_both, t, h, (void*) &shared_this);
   gcgv.get_sub_vec(0, gc.size(), gc);
   gcgv.get_sub_vec(gc.size(), gcgv.size(), gv);
-  set_generalized_coordinates(eRodrigues, gc);
+  set_generalized_coordinates(eEuler, gc);
   set_generalized_velocity(eAxisAngle, gv);
 }
 
@@ -30,7 +30,7 @@ VectorNd& DynamicBody::ode_both(const VectorNd& x, double t, double dt, void* da
 {
   // get the dynamic body
   shared_ptr<DynamicBody>& db = *((shared_ptr<DynamicBody>*) data);
-  const unsigned NGC_ROD = db->num_generalized_coordinates(eRodrigues);
+  const unsigned NGC_ROD = db->num_generalized_coordinates(eEuler);
 
   // get the necessary vectors
   VectorNd& xp = db->xp;
@@ -41,7 +41,7 @@ VectorNd& DynamicBody::ode_both(const VectorNd& x, double t, double dt, void* da
   xv.resize(NGC_ROD);
   x.get_sub_vec(0, NGC_ROD, xp);
   x.get_sub_vec(NGC_ROD, x.size(), xv);
-  db->set_generalized_coordinates(DynamicBody::eRodrigues, xp);
+  db->set_generalized_coordinates(DynamicBody::eEuler, xp);
   db->set_generalized_velocity(DynamicBody::eAxisAngle, xv);
 
   // check whether we could rotate too much
@@ -51,7 +51,7 @@ VectorNd& DynamicBody::ode_both(const VectorNd& x, double t, double dt, void* da
   #endif
 
   // we need the generalized velocity as Rodrigues coordinates
-  db->get_generalized_velocity(DynamicBody::eRodrigues, xv);
+  db->get_generalized_velocity(DynamicBody::eEuler, xv);
 
   // clear the force accumulators on the body
   db->reset_accumulators();
@@ -76,7 +76,7 @@ VectorNd& DynamicBody::ode_both(const VectorNd& x, double t, double dt, void* da
 }
 
 /// Loads the body's state via XML
-void DynamicBody::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void DynamicBody::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   std::map<std::string, BasePtr>::const_iterator id_iter;
 
@@ -85,14 +85,14 @@ void DynamicBody::load_from_xml(XMLTreeConstPtr node, std::map<std::string, Base
 
   // get all recurrent forces used in the simulator -- note: this must be done
   // *after* all bodies have been loaded
-  list<XMLTreeConstPtr> child_nodes = node->find_child_nodes("RecurrentForce");
+  list<shared_ptr<const XMLTree> > child_nodes = node->find_child_nodes("RecurrentForce");
   if (!child_nodes.empty())
   {
     // safe to clear the vector of recurrent forces
     _rfs.clear();
 
     // process all child nodes
-    for (list<XMLTreeConstPtr>::const_iterator i = child_nodes.begin(); i != child_nodes.end(); i++)
+    for (list<shared_ptr<const XMLTree> >::const_iterator i = child_nodes.begin(); i != child_nodes.end(); i++)
     {
       // verify that the dynamic-body-id attribute exists
       const XMLAttrib* id_attr = (*i)->get_attrib("recurrent-force-id");
@@ -122,7 +122,7 @@ void DynamicBody::load_from_xml(XMLTreeConstPtr node, std::map<std::string, Base
 }
 
 /// Implements Base::save_to_xml()
-void DynamicBody::save_to_xml(XMLTreePtr node, list<BaseConstPtr>& shared_objects) const
+void DynamicBody::save_to_xml(XMLTreePtr node, list<shared_ptr<const Base> >& shared_objects) const
 {
   // call the parent save_to_xml() method
   Visualizable::save_to_xml(node, shared_objects);

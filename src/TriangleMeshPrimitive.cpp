@@ -194,7 +194,7 @@ void TriangleMeshPrimitive::center()
   mesh = mesh.translate(-centroid);
 
   // re-transform the mesh
-  _mesh = shared_ptr<IndexedTriArray>(new IndexedTriArray(mesh.transform(get_transform())));
+  _mesh = shared_ptr<IndexedTriArray>(new IndexedTriArray(mesh.transform(get_pose())));
 
   // re-calculate mass properties 
   calc_mass_properties();
@@ -210,7 +210,7 @@ void TriangleMeshPrimitive::center()
 /**
  * \note if centering is done, it is done <i<before</i> any transform is applied
  */
-void TriangleMeshPrimitive::load_from_xml(XMLTreeConstPtr node, map<string, BasePtr>& id_map)
+void TriangleMeshPrimitive::load_from_xml(shared_ptr<const XMLTree> node, map<string, BasePtr>& id_map)
 {
   // load data from the Primitive 
   Primitive::load_from_xml(node, id_map);
@@ -273,7 +273,7 @@ void TriangleMeshPrimitive::load_from_xml(XMLTreeConstPtr node, map<string, Base
 }
 
 /// Implements Base::save_to_xml()
-void TriangleMeshPrimitive::save_to_xml(XMLTreePtr node, list<BaseConstPtr>& shared_objects) const
+void TriangleMeshPrimitive::save_to_xml(XMLTreePtr node, list<shared_ptr<const Base> >& shared_objects) const
 {
   // call this parent's save_to_xml() method
   Primitive::save_to_xml(node, shared_objects);
@@ -659,7 +659,7 @@ bool TriangleMeshPrimitive::intersect_seg(const Point3d* u, BVPtr bv, const Line
 
             // compute P = I - n*n'
             Matrix3d P;
-            Ravelin::outer_prod(tri_normal, -tri_normal, P);
+            Opsd::outer_prod(tri_normal, -tri_normal, P);
             P += Matrix3d::identity();
             Point3d proj_point = P * pt;
             double remainder = tri_offset - proj_point.dot(tri_normal);
@@ -795,7 +795,7 @@ bool TriangleMeshPrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double&
 
             // compute P = I - n*n'
             Matrix3d P;
-            Ravelin::outer_prod(tri_normal, -tri_normal, P);
+            Opsd::outer_prod(tri_normal, -tri_normal, P);
             P += Matrix3d::identity();
             Point3d proj_point = P * pt;
             double remainder = tri_offset - proj_point.dot(tri_normal);
@@ -878,13 +878,13 @@ void TriangleMeshPrimitive::get_vertices(BVPtr bv, vector<const Point3d*>& verti
 }
 
 /// Transforms this primitive
-void TriangleMeshPrimitive::set_transform(const Pose3d& T)
+void TriangleMeshPrimitive::set_pose(const Pose3d& T)
 {
   // determine the transformation from the old to the new transform 
   Pose3d Trel = T * Pose3d::inverse(_T);
 
   // go ahead and set the new transform
-  Primitive::set_transform(T);
+  Primitive::set_pose(T);
 
   // transform mesh
   if (_mesh)

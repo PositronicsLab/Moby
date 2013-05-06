@@ -360,8 +360,8 @@ void EventDrivenSimulator::get_coords_and_velocities(vector<pair<VectorN, Vector
 
   for (unsigned i=0; i< _bodies.size(); i++)
   {
-    _bodies[i]->get_generalized_coordinates(DynamicBody::eRodrigues, q[i].first);
-    _bodies[i]->get_generalized_velocity(DynamicBody::eRodrigues, q[i].second);
+    _bodies[i]->get_generalized_coordinates(DynamicBody::eEuler, q[i].first);
+    _bodies[i]->get_generalized_velocity(DynamicBody::eEuler, q[i].second);
   }
 }
 
@@ -386,7 +386,7 @@ void EventDrivenSimulator::set_coords_and_velocities(const vector<pair<VectorN, 
     qx.copy_from(q0[i].first) *= ((double) 1.0 - t);
     qy.copy_from(q1[i].first) *= t;
     qx += qy;
-    _bodies[i]->set_generalized_coordinates(DynamicBody::eRodrigues, qx);
+    _bodies[i]->set_generalized_coordinates(DynamicBody::eEuler, qx);
     FILE_LOG(LOG_SIMULATOR) << " -- set_coords_and_velocities() setting body " << _bodies[i]->id << endl;
     FILE_LOG(LOG_SIMULATOR) << "    - state at q0: " << q0[i].first << endl;
     FILE_LOG(LOG_SIMULATOR) << "    - state at q1: " << q1[i].first << endl;
@@ -399,7 +399,7 @@ void EventDrivenSimulator::set_coords_and_velocities(const vector<pair<VectorN, 
     FILE_LOG(LOG_SIMULATOR) << "    - velocity at q0: " << q0[i].second << endl;
     FILE_LOG(LOG_SIMULATOR) << "    - velocity at q1: " << q1[i].second << endl;
     FILE_LOG(LOG_SIMULATOR) << "    - generalized vels: " << qx << endl;
-    _bodies[i]->set_generalized_velocity(DynamicBody::eRodrigues, qx);
+    _bodies[i]->set_generalized_velocity(DynamicBody::eEuler, qx);
   }
 }
 
@@ -428,7 +428,7 @@ bool EventDrivenSimulator::will_impact(Event& e, const vector<pair<VectorN, Vect
     qx.copy_from(q1[i].second) /= dt;
     qy.copy_from(q0[i].second) /= dt;
     qx -= qy;
-    _bodies[i]->set_generalized_velocity(DynamicBody::eRodrigues, qx);
+    _bodies[i]->set_generalized_velocity(DynamicBody::eEuler, qx);
   }
 
   // determine whether the event reports as impacting
@@ -445,7 +445,7 @@ bool EventDrivenSimulator::will_impact(Event& e, const vector<pair<VectorN, Vect
     qx.copy_from(q1[i].second) *= e.t;
     qy.copy_from(q0[i].second) *= ((double) 1.0 - e.t);
     qx += qy;
-    _bodies[i]->set_generalized_velocity(DynamicBody::eRodrigues, qx);
+    _bodies[i]->set_generalized_velocity(DynamicBody::eEuler, qx);
   }
 
   return impacting;
@@ -460,8 +460,8 @@ void EventDrivenSimulator::set_coords_and_velocities(const vector<pair<VectorN, 
   for (unsigned i=0; i< _bodies.size(); i++)
   {
     // set the generalized coordinates
-    _bodies[i]->set_generalized_coordinates(DynamicBody::eRodrigues, q[i].first);
-    _bodies[i]->set_generalized_velocity(DynamicBody::eRodrigues, q[i].second);
+    _bodies[i]->set_generalized_coordinates(DynamicBody::eEuler, q[i].first);
+    _bodies[i]->set_generalized_velocity(DynamicBody::eEuler, q[i].second);
     FILE_LOG(LOG_SIMULATOR) << " -- set_coords_and_velocities() setting body " << _bodies[i]->id << endl;
     FILE_LOG(LOG_SIMULATOR) << "    - generalized coords: " << q[i].first << endl;
     FILE_LOG(LOG_SIMULATOR) << "    - generalized velocities: " << q[i].second << endl;
@@ -590,11 +590,11 @@ void EventDrivenSimulator::handle_Zeno_point(double dt, const vector<pair<Vector
     {
       // get the body's current velocity (it was just treated) and use that to
       // update q1
-      _bodies[i]->get_generalized_velocity(DynamicBody::eRodrigues, q1[i].second);
+      _bodies[i]->get_generalized_velocity(DynamicBody::eEuler, q1[i].second);
       q1[i].first.copy_from(q1[i].second) *= dt;
       q1[i].first += q0[i].first;
     }
-    _bodies[i]->set_generalized_coordinates(DynamicBody::eRodrigues, q1[i].first);
+    _bodies[i]->set_generalized_coordinates(DynamicBody::eEuler, q1[i].first);
   }
 }
 
@@ -743,7 +743,7 @@ double EventDrivenSimulator::find_and_handle_events(double dt, const vector<pair
     // set velocities for bodies in events  
     for (unsigned i=0; i< _bodies.size(); i++)
       if (std::binary_search(treated_bodies.begin(), treated_bodies.end(), _bodies[i]))
-        _bodies[i]->set_generalized_velocity(DynamicBody::eRodrigues, q1[i].second);
+        _bodies[i]->set_generalized_velocity(DynamicBody::eEuler, q1[i].second);
   }
 
   // finally, handle the events
@@ -903,9 +903,9 @@ void EventDrivenSimulator::check_violation()
 }
 
 /// Implements Base::load_from_xml()
-void EventDrivenSimulator::load_from_xml(XMLTreeConstPtr node, map<std::string, BasePtr>& id_map)
+void EventDrivenSimulator::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, BasePtr>& id_map)
 {
-  list<XMLTreeConstPtr> child_nodes;
+  list<shared_ptr<const XMLTree> > child_nodes;
   map<std::string, BasePtr>::const_iterator id_iter;
 
   // verify node name b/c this is abstract class
@@ -951,7 +951,7 @@ void EventDrivenSimulator::load_from_xml(XMLTreeConstPtr node, map<std::string, 
 
   // read in any CollisionDetection nodes
   child_nodes = node->find_child_nodes("CollisionDetector");
-  BOOST_FOREACH(XMLTreeConstPtr child_node, child_nodes)
+  BOOST_FOREACH(shared_ptr<const XMLTree> child_node, child_nodes)
   {
     const XMLAttrib* id_attrib = child_node->get_attrib("id");
     if (!id_attrib)
@@ -984,7 +984,7 @@ void EventDrivenSimulator::load_from_xml(XMLTreeConstPtr node, map<std::string, 
   child_nodes = node->find_child_nodes("ContactParameters");
   if (!child_nodes.empty())
     contact_params.clear();
-  for (list<XMLTreeConstPtr>::const_iterator i = child_nodes.begin(); i != child_nodes.end(); i++)
+  for (list<shared_ptr<const XMLTree> >::const_iterator i = child_nodes.begin(); i != child_nodes.end(); i++)
   {
     boost::shared_ptr<ContactParameters> cd(new ContactParameters);
     cd->load_from_xml(*i, id_map);
@@ -993,7 +993,7 @@ void EventDrivenSimulator::load_from_xml(XMLTreeConstPtr node, map<std::string, 
 }
 
 /// Implements Base::save_to_xml()
-void EventDrivenSimulator::save_to_xml(XMLTreePtr node, list<BaseConstPtr>& shared_objects) const
+void EventDrivenSimulator::save_to_xml(XMLTreePtr node, list<shared_ptr<const Base> >& shared_objects) const
 {
   // call Simulator's save method first
   Simulator::save_to_xml(node, shared_objects);

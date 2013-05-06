@@ -7,12 +7,13 @@
 #include <cmath>
 #include <iostream>
 #include <Moby/Constants.h>
-#include <Moby/AAngle.h>
 #include <Moby/RigidBody.h>
 #include <Moby/XMLTree.h>
 #include <Moby/UndefinedAxisException.h>
 #include <Moby/RevoluteJoint.h>
 
+using Ravelin::VectorNd;
+using Ravelin::Vector3d;
 using namespace Moby;
 
 /// Initializes the joint
@@ -32,11 +33,10 @@ RevoluteJoint::RevoluteJoint() : Joint()
   _v2 = ZEROS_3;
 
   // set the translation to zero
-  _T.set_translation(ZEROS_3);
+  _T->x = ZEROS_3;
 
   // setup the spatial axis derivative to zero
-  _si_deriv = SMatrix6N(1);
-  _si_deriv.set_column(0, SVector6(0,0,0,0,0,0));
+  _si_deriv.clear();
 }
 
 /// Initializes the joint with the specified inboard and outboard links
@@ -55,11 +55,10 @@ RevoluteJoint::RevoluteJoint(boost::weak_ptr<RigidBody> inboard, boost::weak_ptr
   _v2 = ZEROS_3;
 
   // set the translation to zero
-  _T.set_translation(ZEROS_3);
+  _T->x = ZEROS_3;
 
   // setup the spatial axis derivative to zero
-  _si_deriv = SMatrix6N(1);
-  _si_deriv.set_column(0, SVector6(0,0,0,0,0,0));
+  _si_deriv.clear();
 }  
 
 /// Gets the global axis for this joint
@@ -69,7 +68,7 @@ RevoluteJoint::RevoluteJoint(boost::weak_ptr<RigidBody> inboard, boost::weak_ptr
  * \sa getAxisLocal()
  * \sa setAxisLocal()
  */
-Vector3 RevoluteJoint::get_axis_global() const
+Vector3d RevoluteJoint::get_axis_global() const
 {
   // get the inboard link 
   RigidBodyPtr inboard_link = get_inboard_link();
@@ -97,27 +96,27 @@ Vector3 RevoluteJoint::get_axis_global() const
  * \sa get_axis_global()
  * \sa set_axis_global()
  */
-void RevoluteJoint::set_axis_local(const Vector3& axis) 
+void RevoluteJoint::set_axis_local(const Vector3d& axis) 
 { 
   // normalize the joint axis, in case the caller didn't 
-  Vector3 naxis = Vector3::normalize(axis);
+  Vector3d naxis = Vector3d::normalize(axis);
 
   // get the inboard and outboard links 
-  RigidBodyPtr inner = get_inboard_link();
-  RigidBodyPtr outer = get_outboard_link();
-  if (!inner || !outer)
+  RigidBodyPtr b1 = get_inboard_link();
+  RigidBodyPtr b2 = get_outboard_link();
+  if (!b1 || !b2)
     throw std::runtime_error("Unable to set joint axis without both links set!");
 
-  // set joint axis in inner link frame
+  // set joint axis in b1 link frame
   _u = naxis; 
   update_spatial_axes(); 
 
   // setup ui and uj
-  Vector3::determine_orthonormal_basis(_u, _ui, _uj);
+  Vector3d::determine_orthonormal_basis(_u, _ui, _uj);
   
   // set joint axis in outer link frame
-  _v2 = inner->get_transform().mult_vector(naxis);
-  _v2 = outer->get_transform().transpose_mult_vector(_v2);
+  _v2 = b1->get_transform().mult_vector(naxis);
+  _v2 = b2->get_transform().transpose_mult_vector(_v2);
 }        
 
 /// Sets the global axis for this joint
@@ -127,10 +126,10 @@ void RevoluteJoint::set_axis_local(const Vector3& axis)
  * \sa getAxisLocal()
  * \sa setAxisLocal()
  */
-void RevoluteJoint::set_axis_global(const Vector3& axis)
+void RevoluteJoint::set_axis_global(const Vector3d& axis)
 {
   // normalize the joint axis, in case the caller didn't 
-  Vector3 naxis = Vector3::normalize(axis);
+  Vector3d naxis = Vector3d::normalize(axis);
 
   // get the inboard and outboard links
   RigidBodyPtr inboard_link = get_inboard_link();
@@ -145,7 +144,7 @@ void RevoluteJoint::set_axis_global(const Vector3& axis)
   _v2 = outboard_link->get_transform().transpose_mult_vector(naxis);
 
   // setup ui and uj
-  Vector3::determine_orthonormal_basis(_u, _ui, _uj);
+  Vector3d::determine_orthonormal_basis(_u, _ui, _uj);
   
   // update the spatial axis
   update_spatial_axes();
@@ -168,18 +167,15 @@ void RevoluteJoint::update_spatial_axes()
   try
   {
     // get the joint to com vector in outer link coordinates
-    const Vector3& di = outboard->get_inner_joint_data(inboard).joint_to_com_vec_of;
+    const Vector3d& di = outboard->get_inner_joint_data(inboard).joint_to_com_vec_of;
 
     // get the joint axis in outer link coordinates
-    Vector3 u0 = inboard->get_transform().mult_vector(_u);
-    Vector3 ui = outboard->get_transform().transpose_mult_vector(u0);
+    Vector3d u0 = inboard->get_transform().mult_vector(_u);
+    Vector3d ui = outboard->get_transform().transpose_mult_vector(u0);
 
     // update the spatial axis in link coordinates
-    Vector3 x = Vector3::cross(ui, di);
-    SVector6 si_vec;
-    si_vec.set_upper(ui);
-    si_vec.set_lower(x);
-    _si.set_column(0, si_vec);
+    _si[0].set_upper(ui);
+    _si[0].set_loser(ZEROS_3);
 
     // setup s_bar
     calc_s_bar_from_si();
@@ -191,7 +187,7 @@ void RevoluteJoint::update_spatial_axes()
 }
 
 /// Determines (and sets) the value of Q from the axis and the inboard link and outboard link transforms
-void RevoluteJoint::determine_q(VectorN& q)
+void RevoluteJoint::determine_q(VectorNd& q)
 {
   // get the inboard and outboard link pointers
   RigidBodyPtr inboard = get_inboard_link();
@@ -231,7 +227,7 @@ const Matrix4& RevoluteJoint::get_transform()
 }
 
 /// Gets the derivative for the spatial axes for this joint
-const SMatrix6N& RevoluteJoint::get_spatial_axes_dot(ReferenceFrameType rftype)
+const vector<Twistd>& RevoluteJoint::get_spatial_axes_dot()
 {
   return _si_deriv;
 }
@@ -242,15 +238,15 @@ void RevoluteJoint::calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsign
   const unsigned X = 0, Y = 1, Z = 2, SPATIAL_DIM = 7;
 
   // get the two links
-  RigidBodyPtr inner = get_inboard_link();
-  RigidBodyPtr outer = get_outboard_link();
+  RigidBodyPtr b1 = get_inboard_link();
+  RigidBodyPtr b2 = get_outboard_link();
 
   // make sure that _u (and by extension _v2) is set
   if (_u.norm_sq() < std::numeric_limits<double>::epsilon())
     throw std::runtime_error("Revolute joint axis has not been set; set before calling dynamics functions.");
 
   // mke sure that body is one of the links
-  if (inner != body && outer != body)
+  if (b1 != body && b2 != body)
   {
     for (unsigned i=0; i< SPATIAL_DIM; i++)
       Cq[i] = (double) 0.0;
@@ -258,10 +254,10 @@ void RevoluteJoint::calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsign
   }
 
   // setup constants for calculations
-  const Quat& q1 = inner->get_orientation();
-  const Quat& q2 = outer->get_orientation();
-  const Vector3& p1 = inner->get_outer_joint_data(outer).com_to_joint_vec;
-  const Vector3& p2 = outer->get_inner_joint_data(inner).joint_to_com_vec_of;
+  const Quatd& q1 = b1->get_orientation();
+  const Quatd& q2 = b2->get_orientation();
+  const Vector3d& p1 = b1->get_outer_joint_data(b2).com_to_joint_vec;
+  const Vector3d& p2 = b2->get_inner_joint_data(b1).joint_to_com_vec_of;
   const double p1x = p1[X];
   const double p1y = p1[Y];
   const double p1z = p1[Z];
@@ -287,7 +283,7 @@ void RevoluteJoint::calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsign
   const double v2z = _v2[Z];
 
   // setup the constraint equations (from Shabana, p. 436), eq. 7.176
-  if (body == inner)
+  if (body == b1)
   {
     switch (index)
     {
@@ -565,15 +561,23 @@ void RevoluteJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, un
   const unsigned X = 0, Y = 1, Z = 2, SPATIAL_DIM = 7;
 
   // get the two links
-  RigidBodyPtr inner = get_inboard_link();
-  RigidBodyPtr outer = get_outboard_link();
+  RigidBodyPtr b1 = get_inboard_link();
+  RigidBodyPtr b2 = get_outboard_link();
+
+  // setup frames
+  _F1->x = b1->get_pose()->x;
+  _F2->x = b2->get_pose()->x;
+
+  // need velocities in the proper frame
+  Twistd v1 = Pose3d::transform(b1->velocity().pose, _F1, b1->velocity());
+  Twistd v2 = Pose3d::transform(b2->velocity().pose, _F2, b2->velocity());
 
   // make sure that _u (and by extension _v2) is set
   if (_u.norm_sq() < std::numeric_limits<double>::epsilon())
     throw std::runtime_error("Revolute joint axis has not been set; set before calling dynamics functions.");
 
   // mke sure that body is one of the links
-  if (inner != body && outer != body)
+  if (b1 != body && b2 != body)
   {
     for (unsigned i=0; i< SPATIAL_DIM; i++)
       Cq[i] = (double) 0.0;
@@ -581,12 +585,12 @@ void RevoluteJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, un
   }
 
   // setup constants for calculations
-  const Quat& q1 = inner->get_orientation();
-  const Quat& q2 = outer->get_orientation();
-  const Quat qd1 = Quat::deriv(q1, inner->get_avel());
-  const Quat qd2 = Quat::deriv(q2, outer->get_avel());
-  const Vector3& p1 = inner->get_outer_joint_data(outer).com_to_joint_vec;
-  const Vector3& p2 = outer->get_inner_joint_data(inner).joint_to_com_vec_of;
+  const Quatd& q1 = b1->get_pose()->q;
+  const Quatd& q2 = b2->get_pose()->q;
+  const Quatd qd1 = Quatd::deriv(q1, v1.get_angular());
+  const Quatd qd2 = Quatd::deriv(q2, v2.get_angular());
+  const Vector3d& p1 = b1->get_outer_joint_data(b2).com_to_joint_vec;
+  const Vector3d& p2 = b2->get_inner_joint_data(b1).joint_to_com_vec_of;
   const double dqw1 = qd1.w;
   const double dqx1 = qd1.x;
   const double dqy1 = qd1.y;
@@ -620,7 +624,7 @@ void RevoluteJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, un
   const double v2z = _v2[Z];
 
   // setup the constraint equations (from Shabana, p. 436), eq. 7.176
-  if (body == inner)
+  if (body == b1)
   {
     switch (index)
     {
@@ -1062,22 +1066,22 @@ void RevoluteJoint::evaluate_constraints(double C[])
   const unsigned X = 0, Y = 1, Z = 2;
 
   // get the two links
-  RigidBodyPtr inner = get_inboard_link();
-  RigidBodyPtr outer = get_outboard_link();
+  RigidBodyPtr b1 = get_inboard_link();
+  RigidBodyPtr b2 = get_outboard_link();
 
   // This code was developed using [Shabana, 2003], p. 435-436; variable names
   // have been altered however
 
   // determine v1, v1i, v1j, and v2 (all in global coordinates)
-  Vector3 v1i, v1j;
-  Vector3 v1 = inner->get_transform().mult_vector(_u);
-  Vector3 v2 = outer->get_transform().mult_vector(_v2);
-  Vector3::determine_orthonormal_basis(v1, v1i, v1j);
+  Vector3d v1i, v1j;
+  Vector3d v1 = b1->get_transform().mult_vector(_u);
+  Vector3d v2 = b2->get_transform().mult_vector(_v2);
+  Vector3d::determine_orthonormal_basis(v1, v1i, v1j);
 
   // determine the global positions of the attachment points and subtract them
-  Vector3 r1 = get_position_global(false);
-  Vector3 r2 = get_position_global(true);
-  Vector3 r12 = r1 - r2; 
+  Vector3d r1 = get_position_global(false);
+  Vector3d r2 = get_position_global(true);
+  Vector3d r12 = r1 - r2; 
 
   // evaluate the constraint equations
   C[0] = r12[X];
@@ -1088,7 +1092,7 @@ void RevoluteJoint::evaluate_constraints(double C[])
 }
 
 /// Implements Base::load_from_xml()
-void RevoluteJoint::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void RevoluteJoint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // read the information from the articulated body joint
   Joint::load_from_xml(node, id_map);
@@ -1100,7 +1104,7 @@ void RevoluteJoint::load_from_xml(XMLTreeConstPtr node, std::map<std::string, Ba
   const XMLAttrib* laxis_attrib = node->get_attrib("local-axis");
   if (laxis_attrib)
   {
-    Vector3 laxis;
+    Vector3d laxis;
     laxis_attrib->get_vector_value(laxis);
     set_axis_local(laxis);
   }
@@ -1109,7 +1113,7 @@ void RevoluteJoint::load_from_xml(XMLTreeConstPtr node, std::map<std::string, Ba
   const XMLAttrib* gaxis_attrib = node->get_attrib("global-axis");
   if (gaxis_attrib)
   {
-    Vector3 gaxis;
+    Vector3d gaxis;
     gaxis_attrib->get_vector_value(gaxis);
     set_axis_global(gaxis);  
   }
@@ -1120,7 +1124,7 @@ void RevoluteJoint::load_from_xml(XMLTreeConstPtr node, std::map<std::string, Ba
 }
 
 /// Implements Base::save_to_xml()
-void RevoluteJoint::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
+void RevoluteJoint::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& shared_objects) const
 {
   // get info from Joint::save_to_xml()
   Joint::save_to_xml(node, shared_objects);

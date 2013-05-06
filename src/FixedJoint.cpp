@@ -26,9 +26,11 @@ FixedJoint::FixedJoint() : Joint()
   init_data();
 
   // setup the spatial axis derivative to zero
-  _si_deriv.resize(6);
-  for (unsigned i=0; i< _si_deriv.size(); i++)
-    _si_deriv[i].set_zero();
+  _si_deriv.clear();
+
+  // initialize frames
+  _F1 = shared_ptr<Pose3d>(new Pose3d);
+  _F2 = shared_ptr<Pose3d>(new Pose3d);
 }
 
 /// Initializes the joint with the specified inboard and outboard links
@@ -37,10 +39,12 @@ FixedJoint::FixedJoint(boost::weak_ptr<RigidBody> inboard, boost::weak_ptr<Rigid
   // init joint data
   init_data();
 
-  // setup the spatial axis and its derivative to zero
-  _si_deriv.resize(6);
-  for (unsigned i=0; i< _si_deriv.size(); i++)
-    _si_deriv[i].set_zero();
+  // setup the spatial axis derivative to zero
+  _si_deriv.clear();
+
+  // initialize frames
+  _F1 = shared_ptr<Pose3d>(new Pose3d);
+  _F2 = shared_ptr<Pose3d>(new Pose3d);
 }  
 
 /// Sets spatial axes to zero 
@@ -74,8 +78,8 @@ void FixedJoint::setup_joint()
   assert(outboard);
 
   // get the transforms
-  shared_ptr<const Pose3d> Ti = inboard->get_transform();
-  shared_ptr<const Pose3d> To = outboard->get_transform();
+  shared_ptr<const Pose3d> Ti = inboard->get_pose();
+  shared_ptr<const Pose3d> To = outboard->get_pose();
 
   // get the rotation matrices
   Matrix3d Ri = Ti->q;
@@ -127,14 +131,14 @@ void FixedJoint::set_outboard_link(RigidBodyPtr link)
 }
 
 /// Gets the (local) transform for this joint (constant)
-shared_ptr<const Pose3d> FixedJoint::get_transform()
+shared_ptr<const Pose3d> FixedJoint::get_pose()
 {
   // get the link transforms
   return _T;
 }
 
 /// Gets the derivative for the spatial axes for this joint
-const vector<Twistd>& FixedJoint::get_spatial_axes_dot(ReferenceFrameType rftype)
+const vector<Twistd>& FixedJoint::get_spatial_axes_dot()
 {
   return _si_deriv;
 }
@@ -148,16 +152,16 @@ void FixedJoint::calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsigned 
     throw std::runtime_error("Invalid constraint index specified!");
 
   // get the two links
-  RigidBodyPtr inner = get_inboard_link();
-  RigidBodyPtr outer = get_outboard_link();
+  RigidBodyPtr b1 = get_inboard_link();
+  RigidBodyPtr b2 = get_outboard_link();
 
   // mke sure that body is one of the links
-  if (inner != body && outer != body)
+  if (b1 != body && b2 != body)
     return;
 
   // setup necessary variables
-  const Quatd& q1 = inner->get_transform()->q;
-  const Quatd& q2 = outer->get_transform()->q;
+  const Quatd& q1 = b1->get_pose()->q;
+  const Quatd& q2 = b2->get_pose()->q;
   const double qw1 = q1.w;
   const double qx1 = q1.x;
   const double qy1 = q1.y;
@@ -174,7 +178,7 @@ void FixedJoint::calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsigned 
   const double p2z = (double) 0.0;
 
   // setup the constraint equations (derived from Mathematica)
-  if (body == inner)
+  if (body == b1)
   {
     switch (idx)
     {
@@ -328,16 +332,24 @@ void FixedJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, unsig
     throw std::runtime_error("Invalid constraint index specified!");
 
   // get the two links
-  RigidBodyPtr inner = get_inboard_link();
-  RigidBodyPtr outer = get_outboard_link();
+  RigidBodyPtr b1 = get_inboard_link();
+  RigidBodyPtr b2 = get_outboard_link();
 
   // mke sure that body is one of the links
-  if (inner != body && outer != body)
+  if (b1 != body && b2 != body)
     return;
 
+  // setup frames
+  _F1->x = b1->get_pose()->x;
+  _F2->x = b2->get_pose()->x;
+
+  // need velocities in the proper frame
+  Twistd v1 = Pose3d::transform(b1->velocity().pose, _F1, b1->velocity()); 
+  Twistd v2 = Pose3d::transform(b2->velocity().pose, _F2, b2->velocity()); 
+
   // setup necessary variables
-  const Quatd& q1 = inner->get_transform()->q;
-  const Quatd& q2 = outer->get_transform()->q;
+  const Quatd& q1 = b1->get_pose()->q;
+  const Quatd& q2 = b2->get_pose()->q;
   const double qw1 = q1.w;
   const double qx1 = q1.x;
   const double qy1 = q1.y;
@@ -352,8 +364,8 @@ void FixedJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, unsig
   const double p2x = (double) 0.0;
   const double p2y = (double) 0.0;
   const double p2z = (double) 0.0;
-  Quatd q1d = Quatd::deriv(q1, inner->get_velocity().get_linear());
-  Quatd q2d = Quatd::deriv(q2, outer->get_velocity().get_angular());
+  Quatd q1d = Quatd::deriv(q1, v1.get_angular());
+  Quatd q2d = Quatd::deriv(q2, v2.get_angular());
   const double dqw1 = q1d.w;
   const double dqx1 = q1d.x;
   const double dqy1 = q1d.y;
@@ -364,7 +376,7 @@ void FixedJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, unsig
   const double dqz2 = q2d.z;
 
   // setup the constraint equations (derived from Mathematica)
-  if (body == inner)
+  if (body == b1)
   {
     switch (idx)
     {
@@ -574,29 +586,29 @@ void FixedJoint::evaluate_constraints(double C[])
   const unsigned X = 0, Y = 1, Z = 2;
 
   // get the two links
-  RigidBodyPtr inner = get_inboard_link();
-  RigidBodyPtr outer = get_outboard_link();
+  RigidBodyPtr b1 = get_inboard_link();
+  RigidBodyPtr b2 = get_outboard_link();
 
   // get the transforms and orientations for the two links
-  shared_ptr<const Pose3d> Ti = inner->get_transform();
-  shared_ptr<const Pose3d> To = outer->get_transform();
-  Matrix3d Ri = Ti->q;
-  Matrix3d Ro = To->q;
+  shared_ptr<const Pose3d> T1 = b1->get_pose();
+  shared_ptr<const Pose3d> T2 = b2->get_pose();
+  Matrix3d R1 = T1->q;
+  Matrix3d R2 = T2->q;
 
   // evaluate the relative position
-  Point3d rpos = Ti->transform(_ui) + Ti->x - To->x; 
+  Point3d rpos = T1->transform(_ui) + T1->x - T2->x; 
 
   // setup C
   C[0] = rpos[0];
   C[1] = rpos[1];
   C[2] = rpos[2];
-  C[3] = Vector3d::dot(Ri.get_row(X), Ro.get_row(X)) - _rconst[X];
-  C[4] = Vector3d::dot(Ri.get_row(Y), Ro.get_row(Y)) - _rconst[Y];
-  C[5] = Vector3d::dot(Ri.get_row(Z), Ro.get_row(Z)) - _rconst[Z];
+  C[3] = Vector3d::dot(R1.get_row(X), R2.get_row(X)) - _rconst[X];
+  C[4] = Vector3d::dot(R1.get_row(Y), R2.get_row(Y)) - _rconst[Y];
+  C[5] = Vector3d::dot(R1.get_row(Z), R2.get_row(Z)) - _rconst[Z];
 }
 
 /// Implements Base::load_from_xml()
-void FixedJoint::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void FixedJoint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // read the information from the articulated body joint
   Joint::load_from_xml(node, id_map);
@@ -609,7 +621,7 @@ void FixedJoint::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BaseP
 }
 
 /// Implements Base::save_to_xml()
-void FixedJoint::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
+void FixedJoint::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& shared_objects) const
 {
   // get info from Joint::save_to_xml()
   Joint::save_to_xml(node, shared_objects);

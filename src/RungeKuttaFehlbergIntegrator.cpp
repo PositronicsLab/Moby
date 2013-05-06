@@ -4,8 +4,11 @@
  * License (found in COPYING).
  ****************************************************************************/
 
+#include <strings.h>
 #include <Moby/RungeKuttaFehlbergIntegrator.h>
 
+using boost::shared_ptr;
+using Ravelin::VectorNd;
 using namespace Moby;
 
 RungeKuttaFehlbergIntegrator::RungeKuttaFehlbergIntegrator()
@@ -660,7 +663,7 @@ void RungeKuttaFehlbergIntegrator::fprime(double t, double* y, double* yprime, v
   rkf->_f(rkf->_x, t, rkf->_dt, rkf->_data, rkf->_xprime);
 }
 
-void RungeKuttaFehlbergIntegrator::integrate(Ravelin::VectorNd& x, Ravelin::VectorNd& (*f)(const Ravelin::VectorNd&, double, double, void*, Ravelin::VectorNd&), double& time, double step_size, void* data)
+void RungeKuttaFehlbergIntegrator::integrate(VectorNd& x, VectorNd& (*f)(const VectorNd&, double, double, void*, VectorNd&), double& time, double step_size, void* data)
 {
   const double desired_time = time + step_size;
 
@@ -688,7 +691,7 @@ void RungeKuttaFehlbergIntegrator::integrate(Ravelin::VectorNd& x, Ravelin::Vect
   }
 }
 
-void RungeKuttaFehlbergIntegrator::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map) 
+void RungeKuttaFehlbergIntegrator::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map) 
 { 
   // verify that the node name is correct
   assert(strcasecmp(node->name.c_str(), "RungeKuttaFehlbergIntegrator") == 0);
@@ -697,7 +700,7 @@ void RungeKuttaFehlbergIntegrator::load_from_xml(XMLTreeConstPtr node, std::map<
   VariableStepIntegrator::load_from_xml(node, id_map);
 }
 
-void RungeKuttaFehlbergIntegrator::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
+void RungeKuttaFehlbergIntegrator::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& shared_objects) const
 {
   // call the parent method 
   VariableStepIntegrator::save_to_xml(node, shared_objects); 

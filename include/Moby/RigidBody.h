@@ -75,36 +75,28 @@ class RigidBody : public SingleBody
     RigidBody();
     virtual ~RigidBody() {}
     virtual void integrate(double t, double h, boost::shared_ptr<Integrator> integrator);
-    void set_avel(const Ravelin::Vector3d& avel);
-    void set_lvel(const Ravelin::Vector3d& lvel);
     void add_wrench(const Ravelin::Wrenchd& w);
-    void set_transform(const Ravelin::Pose3d& transform);
+    void set_pose(const Ravelin::Pose3d& pose);
     void set_inertia(const Ravelin::Matrix3d& m);
     void set_enabled(bool flag);
     void apply_impulse(const Ravelin::Wrenchd& w);
     void set_mass(double mass);
-    virtual void transform(const Ravelin::Pose3d& transform) { set_transform(transform * (*_F)); }
+    virtual void transform(const Ravelin::Pose3d& transform) { set_pose(transform * (*_F)); }
     virtual void calc_fwd_dyn(double dt);
-    Ravelin::SpatialRBInertiad get_spatial_iso_inertia(ReferenceFrameType rftype) const;
+    const Ravelin::SpatialRBInertiad& get_inertia() const;
 
     virtual void set_visualization_data(osg::Node* vdata) { Visualizable::set_visualization_data(vdata); synchronize(); }
 
-    virtual void load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map);
-    virtual void save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const;
+    virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
+    virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     double calc_point_accel(const Ravelin::Point3d& point, const Ravelin::Vector3d& dir, double dt);
     static double calc_sep_accel(RigidBody& rb1, RigidBody& rb2, const Ravelin::Point3d& point, const Ravelin::Vector3d& dir, const Ravelin::Vector3d& dir_dot, double dt);
-    bool is_child_link(RigidBodyConstPtr query) const;
-    bool is_descendant_link(RigidBodyConstPtr query) const;
-/*
-    SpatialTransform get_spatial_transform_forward() const;
-    SpatialTransform get_spatial_transform_backward() const;
-    SpatialTransform get_spatial_transform_link_to_global() const;
-    SpatialTransform get_spatial_transform_global_to_link() const;
-*/
-    Ravelin::Twistd get_accel(ReferenceFrameType rftype);
-    void set_accel(const Ravelin::Twistd& t);
-    Ravelin::Twistd get_velocity(ReferenceFrameType rftype);
-    void set_velocity(const Ravelin::Twistd& t);
+    bool is_child_link(boost::shared_ptr<const RigidBody> query) const;
+    bool is_descendant_link(boost::shared_ptr<const RigidBody> query) const;
+    Ravelin::Twistd& accel() { return _xdd; }
+    const Ravelin::Twistd& accel() const { return _xdd; } 
+    Ravelin::Twistd& velocity() { return _xd; }
+    const Ravelin::Twistd& velocity() const { return _xd; }
     boost::shared_ptr<const DynamicBody> get_dynamic_body() const;
     DynamicBodyPtr get_dynamic_body();
     virtual Ravelin::VectorNd& get_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& gc);
@@ -145,6 +137,12 @@ class RigidBody : public SingleBody
     bool is_base() const;
     bool is_ground() const;
     virtual Ravelin::Point3d get_position() const;
+    boost::shared_ptr<const Ravelin::Pose3d> get_computation_frame() const;
+    virtual void set_computation_frame_type(ReferenceFrameType rftype);
+
+    virtual void calc_event_data(const Event& e, const Ravelin::MatrixNd& M, const Ravelin::VectorNd& q);
+    virtual void calc_event_data(const Event& e1, const Event& e2, const Ravelin::MatrixNd& M);
+    Ravelin::Wrenchd calc_coriolis_forces() const;
 
     template <class OutputIterator>
     OutputIterator get_parent_links(OutputIterator begin) const;
@@ -162,25 +160,22 @@ class RigidBody : public SingleBody
     RigidBodyPtr get_this() { return boost::dynamic_pointer_cast<RigidBody>(shared_from_this()); }
   
     /// Gets the shared const pointer for <b>this</b>
-    RigidBodyConstPtr get_this() const { return boost::dynamic_pointer_cast<const RigidBody>(shared_from_this()); }
+    boost::shared_ptr<const RigidBody> get_this() const { return boost::dynamic_pointer_cast<const RigidBody>(shared_from_this()); }
 
     /// Gets the current transform of this body
-    boost::shared_ptr<Ravelin::Pose3d> get_transform() const { return _F; }
+    boost::shared_ptr<Ravelin::Pose3d> get_pose() const { return _F; }
 
     /// Synonym for get_mass() (implements SingleBody::calc_mass())
-    double calc_mass() const { return _mass; }
+    double calc_mass() const { return _J.m; }
 
     /// Gets the mass of this body
-    double get_mass() const { return _mass; }
+    double get_mass() const { return _J.m; }
     
-    /// Gets the 3x3 inertia tensor of this body
-    const Ravelin::Matrix3d& get_inertia() const { return _J; }
-
     /// Resets the force and torque accumulators of this body
-    void reset_accumulators() { _w.set_zero(); }
+    void reset_accumulators() { _wrench.set_zero(); }
     
     /// Gets the external wrench on this body 
-    const Ravelin::Wrenchd& sum_wrench() const { return _w; }
+    const Ravelin::Wrenchd& sum_wrenches() const { return _wrench; }
     
     /// Gets whether this body is enabled
     bool is_enabled() const { return _enabled; }
@@ -232,32 +227,32 @@ class RigidBody : public SingleBody
 
   protected:
     /// Gets the transform for visualization
-    virtual boost::shared_ptr<const Ravelin::Pose3d> get_visualization_transform() { return _F; }
+    virtual boost::shared_ptr<const Ravelin::Pose3d> get_visualization_pose() { return _F; }
 
   private:  
     void invalidate_position();
     void invalidate_velocity();
     void synchronize();
 
-    /// Mass of the rigid body
-    double _mass;
+    /// Spatial rigid body inertia matrix (given computation frame) 
+    Ravelin::SpatialRBInertiad _J;
 
-    /// Inertia matrix for the rigid body
-    Ravelin::Matrix3d _J;
-
-    /// Velocity 
+    /// Velocity (given computation frame)
     Ravelin::Twistd _xd;
 
-    /// pose for this body
+    /// reference pose for this body
     boost::shared_ptr<Ravelin::Pose3d> _F;
 
+    /// inertial pose for this body
+    boost::shared_ptr<Ravelin::Pose3d> _jF;
+
     /// Cumulative wrench on the body
-    Ravelin::Wrenchd _w;
+    Ravelin::Wrenchd _wrench;
 
     /// The link index (if a link in an articulated body)
     unsigned _link_idx;
 
-    /// Acceleration
+    /// Acceleration (given computation frame)
     Ravelin::Twistd _xdd;
 
     /// Flag for determining whether or not the body is physically enabled

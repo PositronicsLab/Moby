@@ -47,9 +47,9 @@ class OBB : public BV
     virtual BVPtr calc_vel_exp_BV(CollisionGeometryPtr g, double dt, const Ravelin::Vector3d& lv, const Ravelin::Vector3d& av) const;
     static double calc_sq_dist(const OBB& o, const Ravelin::Point3d& p);
     static double calc_dist(const OBB& a, const OBB& b, Ravelin::Point3d& cpa, Ravelin::Point3d& cpb);
-    static double calc_dist(const OBB& a, const OBB& b, const Ravelin::Pose3d& aTb, Ravelin::Point3d& cpa, Ravelin::Point3d& cpb);
+    static double calc_dist(const OBB& a, const OBB& b, const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& aTb, Ravelin::Point3d& cpa, Ravelin::Point3d& cpb);
     static bool intersects(const OBB& a, const OBB& b);
-    static bool intersects(const OBB& a, const OBB& b, const Ravelin::Pose3d& T);
+    static bool intersects(const OBB& a, const OBB& b, const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& aTb);
     static bool intersects(const OBB& a, const LineSeg3& seg, double& tmin, double tmax, Ravelin::Point3d& q);
     virtual bool intersects(const LineSeg3& seg, double& tmin, double tmax, Ravelin::Point3d& q) const { return OBB::intersects(*this, seg, tmin, tmax, q); }
     static bool outside(const OBB& a, const Ravelin::Point3d& point, double tol = NEAR_ZERO);
@@ -61,7 +61,7 @@ class OBB : public BV
     XMLTreePtr save_to_xml_tree() const;
     virtual Ravelin::Point3d get_lower_bounds(const Ravelin::Pose3d& T);
     virtual Ravelin::Point3d get_upper_bounds(const Ravelin::Pose3d& T);
-    static OBBPtr load_from_xml(XMLTreeConstPtr root);
+    static OBBPtr load_from_xml(boost::shared_ptr<const XMLTree> root);
 
     template <class ForwardIterator>
     void expand_to_fit(ForwardIterator begin, ForwardIterator end);

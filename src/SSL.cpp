@@ -8,6 +8,7 @@
 
 using namespace Ravelin;
 using namespace Moby;
+using std::pair;
 using boost::dynamic_pointer_cast;
 
 /// Initializes an empty SSL
@@ -435,12 +436,12 @@ double SSL::calc_dist(const SSL& a, const SSL& b, Point3d& cpa, Point3d& cpb)
  * \param aTb the relative transform from b to a
  * \param cpa the closest point on SSL a (in a's frame)
  */
-double SSL::calc_dist(const SSL& a, const SSL& b, const Pose3d& aTb, Point3d& cpa, Point3d& cpb)
+double SSL::calc_dist(const SSL& a, const SSL& b, const pair<Quatd, Origin3d>& aTb, Point3d& cpa, Point3d& cpb)
 {
   // create a new SSL (b in a's frame)
   SSL b_a;
-  b_a.p1 = aTb.transform(b.p1);
-  b_a.p2 = aTb.transform(b.p2);
+  b_a.p1 = aTb.first * b.p1 + aTb.second;
+  b_a.p2 = aTb.first * b.p2 + aTb.second;
   b_a.radius = b.radius;
 
   return calc_dist(a, b_a, cpa, cpb); 
@@ -455,7 +456,7 @@ bool SSL::intersects(const SSL& a, const SSL& b)
 }
 
 /// Determines whether two SSLs intersect
-bool SSL::intersects(const SSL& a, const SSL& b, const Pose3d& T)
+bool SSL::intersects(const SSL& a, const SSL& b, const pair<Quatd, Origin3d>& T)
 {
   Point3d tmp;
   double dist = calc_dist(a, b, T, tmp, tmp);

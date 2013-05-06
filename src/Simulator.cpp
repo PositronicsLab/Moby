@@ -247,9 +247,9 @@ void Simulator::add_transient_vdata(osg::Node* vdata)
 }
 
 /// Implements Base::load_from_xml()
-void Simulator::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void Simulator::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
-  std::list<XMLTreeConstPtr> child_nodes;
+  std::list<shared_ptr<const XMLTree> > child_nodes;
   std::map<std::string, BasePtr>::const_iterator id_iter;
 
   // load parent data
@@ -287,7 +287,7 @@ void Simulator::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePt
     _bodies.clear();
 
     // process all DynamicBody child nodes
-    for (std::list<XMLTreeConstPtr>::const_iterator i = child_nodes.begin(); i != child_nodes.end(); i++)
+    for (std::list<shared_ptr<const XMLTree> >::const_iterator i = child_nodes.begin(); i != child_nodes.end(); i++)
     {
       // verify that the dynamic-body-id attribute exists
       const XMLAttrib* id_attr = (*i)->get_attrib("dynamic-body-id");
@@ -320,7 +320,7 @@ void Simulator::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePt
   if (!child_nodes.empty())
   {
     // process all child nodes
-    for (std::list<XMLTreeConstPtr>::const_iterator i = child_nodes.begin(); i != child_nodes.end(); i++)
+    for (std::list<shared_ptr<const XMLTree> >::const_iterator i = child_nodes.begin(); i != child_nodes.end(); i++)
     {
       // verify that the dynamic-body-id attribute exists
       const XMLAttrib* id_attr = (*i)->get_attrib("recurrent-force-id");
@@ -351,7 +351,7 @@ void Simulator::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePt
 }
 
 /// Implements Base::save_to_xml()
-void Simulator::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
+void Simulator::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& shared_objects) const
 {
   // call the parent save_to_xml() method
   Base::save_to_xml(node, shared_objects);

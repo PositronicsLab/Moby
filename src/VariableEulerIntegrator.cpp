@@ -4,6 +4,7 @@
  * License (found in COPYING).
  ****************************************************************************/
 
+#include <strings.h>
 #include <Moby/VariableEulerIntegrator.h>
 
 using namespace Moby;
@@ -80,7 +81,7 @@ void VariableEulerIntegrator::integrate_variable(VectorNd& x, VectorNd& (*f)(con
 }
 
 /// Implements Base::load_from_xml()
-void VariableEulerIntegrator::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map) 
+void VariableEulerIntegrator::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map) 
 { 
   assert(strcasecmp(node->name.c_str(), "VariableEulerIntegrator") == 0);
 
@@ -94,7 +95,7 @@ void VariableEulerIntegrator::load_from_xml(XMLTreeConstPtr node, std::map<std::
 }
 
 /// Implements Base::save_to_xml()
-void VariableEulerIntegrator::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
+void VariableEulerIntegrator::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& shared_objects) const
 {
   // call the parent method 
   VariableStepIntegrator::save_to_xml(node, shared_objects); 

@@ -25,6 +25,7 @@
 #include <Moby/NumericalException.h>
 #include <Moby/ImpactEventHandler.h>
 
+using namespace Ravelin;
 using namespace Moby;
 using std::list;
 using boost::shared_ptr;
@@ -420,17 +421,72 @@ void ImpactEventHandler::compute_problem_data(EventProblemData& q)
   q.BETA_X_IDX = q.ALPHA_X_IDX + q.N_CONSTRAINT_EQNS_EXP;
   q.N_VARS = q.BETA_X_IDX + q.N_CONSTRAINT_DOF_EXP;
 
-  // for each super body, update the problem data
-  for (unsigned i=0; i< q.super_bodies.size(); i++)
-    q.super_bodies[i]->update_event_data(q);
+  // loop over all events
+  for (unsigned i=0; i< q.events.size(); i++)
+  {
+    // get the event data
+    q.events[i]->calc_event_data(_updM, _updq); 
+
+    // get the index mapping for event i
+    const vector<unsigned>& mapping_i = q.mappings[i];
+
+    // update M and q
+    const unsigned N = mapping_i.size();
+    for (unsigned r=0; r< N; r++)
+    {
+      for (unsigned s=0; s< N; s++)
+        q.M(mapping_i[r], mapping_i[s]) = _updM(r,s);
+      q.q[mapping_i[r]] = _updq[r]; 
+    }
+
+    // loop over all over events
+    for (unsigned j=i+1; j< q.events.size(); j++)
+    {
+      // get the cross event data, if any
+      if (q.events[i]->calc_cross_event_data(*q.events[j], _updM)) 
+      {
+        // get the index mapping for event j 
+        const vector<unsigned>& mapping_j = q.mappings[j];
+
+        // verify that updM is of the size we expect
+        assert(_updM.rows() == N && _updM.columns() == M);
+
+        // update M
+        const unsigned M = mapping_j.size();
+        for (unsigned r=0; r< N; r++)
+          for (unsigned s=0; s< M; s++)
+          {
+            q.M(mapping_i[r], mapping_j[s]) = _updM(r,s);
+            q.M(mapping_j[s], mapping_i[r]) = _updM(r,s);
+          }
+      }
+    }
+  }
+}
+
+void ImpactEventHandler::update_event_data(EventProblemData& q, unsigned i)
+{
+  vector<DynamicBodyPtr> ebodies;
+
+  // get the event
+  const Event& e = *q.events[i];
+
+  // get the event bodies
+  e.get_super_bodies(std::back_inserter(ebodies));
+
+  // loop through all bodies
+  for (unsigned i=0; i< ebodies.size(); i++)
+  {
+    ebodies[i]->calc_event_data(e, 
+  }
 }
 
 /// Solves the (frictionless) LCP
-void ImpactEventHandler::solve_lcp(EventProblemData& q, VectorN& z)
+void ImpactEventHandler::solve_lcp(EventProblemData& q, VectorNd& z)
 {
-  SAFESTATIC MatrixN UL, LR, MM;
-  SAFESTATIC MatrixN UR, t2, iJx_iM_JxT;
-  SAFESTATIC VectorN alpha_c, alpha_l, alpha_x, v1, v2, qq;
+  SAFESTATIC MatrixNd UL, LR, MM;
+  SAFESTATIC MatrixNd UR, t2, iJx_iM_JxT;
+  SAFESTATIC VectorNd alpha_c, alpha_l, alpha_x, v1, v2, qq;
 
   // setup sizes
   UL.resize(q.N_CONTACTS, q.N_CONTACTS);

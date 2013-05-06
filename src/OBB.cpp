@@ -22,6 +22,7 @@ using boost::dynamic_pointer_cast;
 using boost::const_pointer_cast;
 using std::cerr;
 using std::endl;
+using std::pair;
 using std::list;
 
 OBB::OBB()
@@ -327,14 +328,14 @@ double OBB::calc_dist(const OBB& a, const OBB& b, Point3d& cpa, Point3d& cpb)
  * \param cpb the closest point on b to a, on return (in a's frame)
  * \return the distance between a and b
  */
-double OBB::calc_dist(const OBB& a, const OBB& b, const Pose3d& aTb, Point3d& cpa, Point3d& cpb)
+double OBB::calc_dist(const OBB& a, const OBB& b, const pair<Quatd, Origin3d>& aTb, Point3d& cpa, Point3d& cpb)
 {
   // copy b
   OBB bcopy(b);
 
   // transform the center and orientation of b
-  bcopy.center = aTb.transform(b.center);
-  Matrix3d R = aTb.q;
+  bcopy.center = aTb.first * b.center + aTb.second;
+  Matrix3d R = aTb.first;
   bcopy.R = R * b.R;
 
   // perform the distance query
@@ -345,14 +346,14 @@ double OBB::calc_dist(const OBB& a, const OBB& b, const Pose3d& aTb, Point3d& cp
 /**
  * \param aTb the relative transform from b to a
  */
-bool OBB::intersects(const OBB& a, const OBB& b, const Pose3d& aTb)
+bool OBB::intersects(const OBB& a, const OBB& b, const pair<Quatd, Origin3d>& aTb)
 {
   // copy b
   OBB bcopy(b);
 
   // transform the center and orientation of b
-  bcopy.center = aTb.transform(b.center);
-  Matrix3d R = aTb.q;
+  bcopy.center = aTb.first * b.center + aTb.second;
+  Matrix3d R = aTb.first;
   bcopy.R = R * b.R;
 
   // perform the intersection
@@ -631,7 +632,7 @@ std::ostream& OBB::to_vrml(std::ostream& out, const Pose3d& T) const
 }
 
 /// Loads an OBB hierarchy from a XML tree
-OBBPtr OBB::load_from_xml(XMLTreeConstPtr root)
+OBBPtr OBB::load_from_xml(shared_ptr<const XMLTree> root)
 {
   // setup some reasonable defaults
   Point3d center = Point3d::zero();
@@ -662,18 +663,18 @@ OBBPtr OBB::load_from_xml(XMLTreeConstPtr root)
   obb->R = R;
 
   // if there are child OBB nodes, add them
-  list<XMLTreeConstPtr> children = root->find_child_nodes("OBB");
+  list<shared_ptr<const XMLTree> > children = root->find_child_nodes("OBB");
   if (!children.empty())
-    BOOST_FOREACH(XMLTreeConstPtr child, children)
+    BOOST_FOREACH(shared_ptr<const XMLTree> child, children)
       obb->children.push_back(load_from_xml(child));
   else
   {
     // read the triangle(s)
-    list<XMLTreeConstPtr> tchildren = root->find_child_nodes("Triangle");
+    list<shared_ptr<const XMLTree> > tchildren = root->find_child_nodes("Triangle");
     if (!tchildren.empty())
     {
       shared_ptr<list<ThickTriangle> > tt_list(new list<ThickTriangle>());
-      BOOST_FOREACH(XMLTreeConstPtr node, tchildren)
+      BOOST_FOREACH(shared_ptr<const XMLTree> node, tchildren)
       {
         // read the thickness
         double thickness = 0.0;
@@ -764,7 +765,7 @@ BVPtr OBB::calc_vel_exp_BV(CollisionGeometryPtr g, double dt, const Vector3d& lv
   }
 
   // get matrix for transforming vectors from b's frame to world frame
-  shared_ptr<const Pose3d> wTb = b->get_transform();
+  shared_ptr<const Pose3d> wTb = b->get_pose();
 
   // copy the OBB, expanded by linear velocity
   OBBPtr o(new OBB);
@@ -818,7 +819,7 @@ BVPtr OBB::calc_vel_exp_BV(CollisionGeometryPtr g, double dt, const Vector3d& lv
 
   // setup projection matrix
   Matrix3d P;
-  outer_prod(wn, -wn, P);
+  Opsd::outer_prod(wn, -wn, P);
   P += Matrix3d::identity();
 
   // determine c

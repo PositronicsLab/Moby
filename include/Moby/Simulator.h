@@ -47,8 +47,8 @@ class Simulator : public virtual Base
     void add_dynamic_body(DynamicBodyPtr body);
     void remove_dynamic_body(DynamicBodyPtr body);
     void update_visualization();
-    virtual void save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const;
-    virtual void load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map);  
+    virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
+    virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);  
 
     /// The current simulation time
     double current_time;

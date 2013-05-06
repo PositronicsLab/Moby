@@ -15,6 +15,7 @@
 #include <Moby/MissizeException.h>
 #include <Moby/XMLTree.h>
 
+using boost::shared_ptr;
 using namespace Moby;
 using namespace Ravelin;
 
@@ -217,7 +218,7 @@ bool XMLAttrib::get_bool_value() const
   }
 }
 
-XMLTreeConstPtr XMLTree::read_from_xml(const std::string& fname)
+shared_ptr<const XMLTree> XMLTree::read_from_xml(const std::string& fname)
 {
   xmlDoc* doc;
 
@@ -235,14 +236,14 @@ XMLTreeConstPtr XMLTree::read_from_xml(const std::string& fname)
   {
     std::cerr << "XMLTree::read_from_xml() - unable to open file " << fname;
     std::cerr << " for reading" << std::endl;
-    return XMLTreeConstPtr();
+    return shared_ptr<const XMLTree>();
   }
   
   // get the document for parsing
   xmlNode* root = xmlDocGetRootElement(doc);
 
   // construct the XML tree
-  XMLTreeConstPtr node = construct_xml_tree(root);
+  shared_ptr<const XMLTree> node = construct_xml_tree(root);
 
   // free the XML document
   xmlFreeDoc(doc);
@@ -251,7 +252,7 @@ XMLTreeConstPtr XMLTree::read_from_xml(const std::string& fname)
 }
 
 /// Constructs an XML tree from a xmlNode object
-XMLTreeConstPtr XMLTree::construct_xml_tree(xmlNode* root)
+shared_ptr<const XMLTree> XMLTree::construct_xml_tree(xmlNode* root)
 {
   // construct a new node
   XMLTreePtr node(new XMLTree(std::string((char*) root->name)));
@@ -486,9 +487,9 @@ const XMLAttrib* XMLTree::get_attrib(const std::string& attrib_name) const
 }
 
 /// Returns a list of all child nodes (not including further descendants) matching any of the names in the given list (case insensitive)
-std::list<XMLTreeConstPtr> XMLTree::find_child_nodes(const std::list<std::string>& names) const
+std::list<shared_ptr<const XMLTree> > XMLTree::find_child_nodes(const std::list<std::string>& names) const
 {
-  std::list<XMLTreeConstPtr> matches;
+  std::list<shared_ptr<const XMLTree> > matches;
 
   // construct a set out of the list of names -- all names are converted to
   // lowercase first
@@ -522,9 +523,9 @@ std::list<XMLTreeConstPtr> XMLTree::find_child_nodes(const std::list<std::string
 }
 
 /// Returns a list of all child nodes (not including further descendants) matching the given name (case insensitive)
-std::list<XMLTreeConstPtr> XMLTree::find_child_nodes(const std::string& name) const
+std::list<shared_ptr<const XMLTree> > XMLTree::find_child_nodes(const std::string& name) const
 {
-  std::list<XMLTreeConstPtr> matches;
+  std::list<shared_ptr<const XMLTree> > matches;
 
   // convert the name to lowercase
   std::string name_lower = name;

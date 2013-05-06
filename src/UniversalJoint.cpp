@@ -34,14 +34,13 @@ UniversalJoint::UniversalJoint() : Joint()
   _h2 = ZEROS_3;
 
   // set rotation to z axis matrix to zero (for debugging purposes)
-  _R = Matrix3::zero();
+  _R = Matrix3d::zero();
 
   // set the translation in the transformation to zero
   _T.set_translation(ZEROS_3);
 
   // setup the spatial axis derivative to zero
   _si_dot = SMatrix6N::zero(SPATIAL_DIM,num_dof());
-  _s0_dot = SMatrix6N::zero(SPATIAL_DIM,num_dof());
 }
 
 /// Initializes the joint with the specified inboard and outboard links
@@ -67,8 +66,7 @@ UniversalJoint::UniversalJoint(boost::weak_ptr<RigidBody> inboard, boost::weak_p
   _R = Matrix3::zero();
 
   // setup the spatial axis derivative to zero
-  _si_dot = SMatrix6N::zero(SPATIAL_DIM,num_dof());
-  _s0_dot = SMatrix6N::zero(SPATIAL_DIM,num_dof());
+  _si_dot.resize(num_dof());
 }  
 
 /// Determines whether two values are relatively equal
@@ -215,7 +213,7 @@ void UniversalJoint::update_spatial_axes()
 /**
  * \note these spatial axes are not constant, unlike many joints.
  */
-const SMatrix6N& UniversalJoint::get_spatial_axes(ReferenceFrameType rftype)
+const vector<Twistd>& UniversalJoint::get_spatial_axes()
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
@@ -230,9 +228,6 @@ const SMatrix6N& UniversalJoint::get_spatial_axes(ReferenceFrameType rftype)
   const VectorN& q = this->q;
   const VectorN& q_tare = this->_q_tare;
 
-  // get the outboard link's joint to com vector in link coordinates
-  const Vector3& p = outboard->get_inner_joint_data(inboard).joint_to_com_vec_of;
-
   // get the axes of the joint transformed into the inner link frame 
   double c1 = std::cos(q[DOF_1]+q_tare[DOF_1]);
   double s1 = std::sin(q[DOF_1]+q_tare[DOF_1]);
@@ -244,8 +239,8 @@ const SMatrix6N& UniversalJoint::get_spatial_axes(ReferenceFrameType rftype)
   SVector6 si1, si2;
   si1.set_upper(u1);
   si2.set_upper(u2);
-  si1.set_lower(Vector3::cross(u1, p));
-  si2.set_lower(Vector3::cross(u2, p));
+  si1.set_lower(ZEROS_3);
+  si2.set_lower(ZEROS_3);
   _si.set_column(eAxis1, si1);
   _si.set_column(eAxis2, si2);
 
@@ -253,14 +248,14 @@ const SMatrix6N& UniversalJoint::get_spatial_axes(ReferenceFrameType rftype)
   calc_s_bar_from_si();
 
   // use the Joint function to do the rest
-  return Joint::get_spatial_axes(rftype);
+  return Joint::get_spatial_axes();
 }
 
 /// Gets the derivative of the spatial-axis
 /**
  * \note these spatial axes are not constant, unlike many joints.
  */
-const SMatrix6N& UniversalJoint::get_spatial_axes_dot(ReferenceFrameType rftype)
+const SMatrix6N& UniversalJoint::get_spatial_axes_dot()
 {
   RigidBodyPtr inboard = get_inboard_link();
   RigidBodyPtr outboard = get_outboard_link();
@@ -284,21 +279,14 @@ const SMatrix6N& UniversalJoint::get_spatial_axes_dot(ReferenceFrameType rftype)
   // get the axis transformed into link coordinates
   Vector3 u = _R * axis;
 
-  // get the outboard link's joint to com vector in link coordinates
-  const Vector3& p = outboard->get_inner_joint_data(inboard).joint_to_com_vec_of;
-
   // update the spatial axis in link coordinates; note that axis 1 is always
   // set to zero (init'd in constructor)
   SVector6 si;
   si.set_upper(u);
-  si.set_lower(Vector3::cross(u, p));
+  si.set_lower(ZEROS_3);
   _si_dot.set_column(eAxis2, si);
 
-  // transform to global coordinates
-  SpatialTransform X_0_i = outboard->get_spatial_transform_link_to_global();
-  X_0_i.transform(_si_dot, _s0_dot);
-
-  return (rftype == eLink) ? _si_dot : _s0_dot;
+  return _si_dot;
 }
 
 /// Determines (and sets) the value of Q from the axes and the inboard link and outboard link transforms
@@ -997,7 +985,7 @@ void UniversalJoint::evaluate_constraints(double C[])
 }
 
 /// Implements Base::load_from_xml()
-void UniversalJoint::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void UniversalJoint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // read the information from the articulated body joint
   Joint::load_from_xml(node, id_map);
@@ -1043,7 +1031,7 @@ void UniversalJoint::load_from_xml(XMLTreeConstPtr node, std::map<std::string, B
 }
 
 /// Implements Base::save_to_xml()
-void UniversalJoint::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
+void UniversalJoint::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& shared_objects) const
 {
   // get info from Joint::save_to_xml()
   Joint::save_to_xml(node, shared_objects);

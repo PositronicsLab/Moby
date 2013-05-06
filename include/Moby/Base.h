@@ -23,8 +23,8 @@ class Base : public boost::enable_shared_from_this<Base>
     Base();
     Base(const Base* b);
     virtual ~Base()  {}  
-    virtual void save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const;
-    virtual void load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map);  
+    virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
+    virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);  
 
     /// Static method for cloning a shared pointer
     template <class T>

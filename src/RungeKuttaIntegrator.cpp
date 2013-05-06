@@ -4,16 +4,19 @@
  * License (found in COPYING).
  ****************************************************************************/
 
+#include <strings.h>
 #include <Moby/RungeKuttaIntegrator.h>
 
+using boost::shared_ptr;
+using Ravelin::VectorNd;
 using namespace Moby;
 
 /// Method for 4th-order Runge-Kutta integration
-void RungeKuttaIntegrator::integrate(Ravelin::VectorNd& x, Ravelin::VectorNd& (*f)(const Ravelin::VectorNd&, double, double, void*, Ravelin::VectorNd&), double& time, double step_size, void* data)
+void RungeKuttaIntegrator::integrate(VectorNd& x, VectorNd& (*f)(const VectorNd&, double, double, void*, VectorNd&), double& time, double step_size, void* data)
 {
   const double ONE_SIXTH = 1.0/6.0;
   const double ONE_THIRD = 1.0/3.0;
-  SAFESTATIC Ravelin::VectorNd k1, k2, k3, k4, tmp;
+  SAFESTATIC VectorNd k1, k2, k3, k4, tmp;
   
   // compute k1
   f(x, time, step_size, data, k1) *= step_size;
@@ -47,13 +50,13 @@ void RungeKuttaIntegrator::integrate(Ravelin::VectorNd& x, Ravelin::VectorNd& (*
   return;
 }
 
-void RungeKuttaIntegrator::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map) 
+void RungeKuttaIntegrator::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map) 
 { 
   assert(strcasecmp(node->name.c_str(), "RungeKuttaIntegrator") == 0);
   Integrator::load_from_xml(node, id_map); 
 }
 
-void RungeKuttaIntegrator::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
+void RungeKuttaIntegrator::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& shared_objects) const
 { 
   Integrator::save_to_xml(node, shared_objects);
   node->name = "RungeKuttaIntegrator";

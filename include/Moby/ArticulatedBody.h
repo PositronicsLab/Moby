@@ -67,8 +67,8 @@ class ArticulatedBody : public DynamicBody
     void get_adjacent_links(std::list<sorted_pair<RigidBodyPtr> >& links) const;
     virtual void set_links(const std::vector<RigidBodyPtr>& links);
     virtual void set_joints(const std::vector<JointPtr>& joints);
-    virtual void load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map);
-    virtual void save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const;
+    virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
+    virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual unsigned num_joint_dof() const;
     void get_constraint_events(std::vector<Event>& cevents) const;
     void find_loops(std::vector<unsigned>& loop_indices, std::vector<std::vector<unsigned> >& loop_links) const;
@@ -112,7 +112,7 @@ class ArticulatedBody : public DynamicBody
     ArticulatedBodyPtr get_this() { return boost::dynamic_pointer_cast<ArticulatedBody>(shared_from_this()); }
 
     /// Gets shared pointer to this object as type const ArticulateBody
-    ArticulatedBodyConstPtr get_this() const { return boost::dynamic_pointer_cast<const ArticulatedBody>(shared_from_this()); }
+    boost::shared_ptr<const ArticulatedBody> get_this() const { return boost::dynamic_pointer_cast<const ArticulatedBody>(shared_from_this()); }
 
     /// Abstract method for applying an impulse to this articulated body
     /**

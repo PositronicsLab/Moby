@@ -11,13 +11,17 @@
 #include <Moby/ArticulatedBody.h>
 #include <Moby/DampingForce.h>
 
-using namespace Moby;
+using Ravelin::Wrenchd;
+using Ravelin::Twistd;
+using Ravelin::Pose3d;
 using std::map;
 using std::cerr;
 using std::endl;
 using std::list;
 using boost::dynamic_pointer_cast;
+using boost::shared_ptr;
 using std::vector;
+using namespace Moby;
 
 /// Copy constructor
 DampingForce::DampingForce(const DampingForce& source)
@@ -25,6 +29,28 @@ DampingForce::DampingForce(const DampingForce& source)
   // copy the maps
   this->kl = source.kl;
   this->ka = source.ka;
+}
+
+/// Adds damping force to a rigid body
+void DampingForce::add_damping(RigidBodyPtr rb, double ld, double ad, double ldsq, double adsq)
+{
+  // setup a wrench in the body frame
+  Wrenchd wi;
+  wi.pose = rb->get_pose();
+
+  // get the velocity in the body frame
+  Twistd& v = rb->velocity();
+  Twistd vi = Pose3d::transform(v.pose, rb->get_pose(), v);
+
+  // make the wrench dampening
+  wi.set_force(vi.get_linear()* -(ld + vi.get_linear().norm() * ldsq));
+  wi.set_torque(vi.get_angular()* -(ad + vi.get_angular().norm()* adsq));
+
+  // transform the wrench to the proper frame
+  Wrenchd w = Pose3d::transform(wi.pose, rb->get_computation_frame(), wi);
+
+  // add the wrench
+  rb->add_wrench(w);
 }
 
 /// Adds gravity to a body
@@ -50,12 +76,7 @@ void DampingForce::add_force(DynamicBodyPtr body)
     // see whether the body is a rigid body
     RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(body);
     if (rb)
-    {
-      rb->add_force(rb->get_lvel() * -ldamp);
-      rb->add_force(rb->get_lvel() * rb->get_lvel().norm() * -lsqdamp);
-      rb->add_torque(rb->get_avel() * -adamp);
-      rb->add_torque(rb->get_avel() * rb->get_avel().norm() * -asqdamp);
-    }
+      add_damping(rb, ldamp, adamp, lsqdamp, asqdamp);
     else
     {
       // body is deformable, skip it
@@ -84,16 +105,14 @@ void DampingForce::add_force(DynamicBodyPtr body)
       if ((diter = kasq.find(rb)) != kasq.end())
         asqdamp2 = diter->second; 
 
-      rb->add_force(rb->get_lvel() * -ldamp2);
-      rb->add_torque(rb->get_avel() * -adamp2);
-      rb->add_force(rb->get_lvel() * rb->get_lvel().norm() * -lsqdamp);
-      rb->add_torque(rb->get_avel() * rb->get_avel().norm() * -asqdamp);
+      // add dampening
+      add_damping(rb, ldamp2, adamp2, lsqdamp2, asqdamp2); 
     }        
   }
 }
 
 /// Implements Base::load_from_xml()
-void DampingForce::load_from_xml(XMLTreeConstPtr node, map<std::string, BasePtr>& id_map)
+void DampingForce::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, BasePtr>& id_map)
 {
   map<std::string, BasePtr>::const_iterator id_iter;
 
@@ -104,11 +123,11 @@ void DampingForce::load_from_xml(XMLTreeConstPtr node, map<std::string, BasePtr>
   assert(strcasecmp(node->name.c_str(), "DampingForce") == 0);
 
   // get the sets of gains
-  list<XMLTreeConstPtr> gain_nodes = node->find_child_nodes("Gains");
+  list<shared_ptr<const XMLTree> > gain_nodes = node->find_child_nodes("Gains");
   if (!gain_nodes.empty())
   {
     // get the gains
-    for (list<XMLTreeConstPtr>::const_iterator i = gain_nodes.begin(); i != gain_nodes.end(); i++)
+    for (list<shared_ptr<const XMLTree> >::const_iterator i = gain_nodes.begin(); i != gain_nodes.end(); i++)
     {
       // make sure the child node has the body ID
       const XMLAttrib* id_attr = (*i)->get_attrib("body-id");
@@ -157,7 +176,7 @@ void DampingForce::load_from_xml(XMLTreeConstPtr node, map<std::string, BasePtr>
 }
 
 /// Implements Base::save_to_xml()
-void DampingForce::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const 
+void DampingForce::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& shared_objects) const 
 {
   // save XML data from the parent class
   RecurrentForce::save_to_xml(node, shared_objects);

@@ -236,13 +236,13 @@ const Matrix4& ScrewJoint::get_transform()
 }
 
 /// Gets the derivative for the spatial axes for this joint
-const SMatrix6N& ScrewJoint::get_spatial_axes_dot(ReferenceFrameType rftype)
+const SMatrix6N& ScrewJoint::get_spatial_axes_dot()
 {
   return _si_deriv;
 }
 
 /// Implements Base::load_from_xml()
-void ScrewJoint::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void ScrewJoint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // read the information from the articulated body joint
   Joint::load_from_xml(node, id_map);
@@ -279,7 +279,7 @@ void ScrewJoint::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BaseP
 }
 
 /// Implements Base::save_to_xml()
-void ScrewJoint::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
+void ScrewJoint::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& shared_objects) const
 {
   // get info from Joint::save_to_xml()
   Joint::save_to_xml(node, shared_objects);

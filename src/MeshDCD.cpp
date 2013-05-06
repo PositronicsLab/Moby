@@ -190,7 +190,7 @@ void MeshDCD::check_geom(double dt, CollisionGeometryPtr cg, const vector<pair<D
   const VectorN& qb = q1[db_idx].second;
 
   // check for contact at qb
-  db->set_generalized_coordinates(DynamicBody::eRodrigues, qb);
+  db->set_generalized_coordinates(DynamicBody::eEuler, qb);
   bool contact = is_collision(cg);
 
   // if there is contact, we want to find TOC to within sufficient tolerance
@@ -210,7 +210,7 @@ void MeshDCD::check_geom(double dt, CollisionGeometryPtr cg, const vector<pair<D
       q.copy_from(qa) *= ((double) 1.0 - t+h);
       qtmp.copy_from(qb) *= (t+h);
       q += qtmp;
-      db->set_generalized_coordinates(DynamicBody::eRodrigues, q);
+      db->set_generalized_coordinates(DynamicBody::eEuler, q);
 
       // check for contact
       bool contact = is_collision(cg);
@@ -224,12 +224,12 @@ void MeshDCD::check_geom(double dt, CollisionGeometryPtr cg, const vector<pair<D
     q.copy_from(qa) *= ((double) 1.0 - t);
     qtmp.copy_from(qb) *= t;
     q += qtmp;
-    db->set_generalized_coordinates(DynamicBody::eRodrigues, q);
+    db->set_generalized_coordinates(DynamicBody::eEuler, q);
 
     // set the generalized velocity for the deformable body
     q.copy_from(qb) -= qa;
     q /= dt;
-    db->set_generalized_velocity(DynamicBody::eRodrigues, q);
+    db->set_generalized_velocity(DynamicBody::eEuler, q);
 
     // determine contacts for the deformable body
     determine_contacts_deformable(cg, cg, t, h, contacts);
@@ -314,8 +314,8 @@ void MeshDCD::check_geoms(double dt, CollisionGeometryPtr a, CollisionGeometryPt
   qdb /= dt;
 
   // check for contact at q1 states 
-  sba->set_generalized_coordinates(DynamicBody::eRodrigues, qa1);
-  sbb->set_generalized_coordinates(DynamicBody::eRodrigues, qb1);
+  sba->set_generalized_coordinates(DynamicBody::eEuler, qa1);
+  sbb->set_generalized_coordinates(DynamicBody::eEuler, qb1);
   bool contact = is_collision(a, b);
 
   // if there is contact, we want to find TOC to within sufficient tolerance
@@ -334,12 +334,12 @@ void MeshDCD::check_geoms(double dt, CollisionGeometryPtr a, CollisionGeometryPt
       // set new state for sba
       q.copy_from(qda) *= (t+h);
       q += qa0;
-      sba->set_generalized_coordinates(DynamicBody::eRodrigues, q);
+      sba->set_generalized_coordinates(DynamicBody::eEuler, q);
 
       // set new state for sbb
       q.copy_from(qdb) *= (t+h);
       q += qb0;
-      sbb->set_generalized_coordinates(DynamicBody::eRodrigues, q);
+      sbb->set_generalized_coordinates(DynamicBody::eEuler, q);
 
       // check for contact
       bool contact = is_collision(a, b);
@@ -352,14 +352,14 @@ void MeshDCD::check_geoms(double dt, CollisionGeometryPtr a, CollisionGeometryPt
     // set the first body's coordinates and velocity at the time-of-contact
     q.copy_from(qda) *= t;
     q += qa0;
-    sba->set_generalized_coordinates(DynamicBody::eRodrigues, q);
-    sba->set_generalized_velocity(DynamicBody::eRodrigues, qda);
+    sba->set_generalized_coordinates(DynamicBody::eEuler, q);
+    sba->set_generalized_velocity(DynamicBody::eEuler, qda);
 
     // set the second body's coordinates at the time-of-contact
     q.copy_from(qdb) *= t;
     q += qb0;
-    sbb->set_generalized_coordinates(DynamicBody::eRodrigues, q);
-    sbb->set_generalized_velocity(DynamicBody::eRodrigues, qdb);
+    sbb->set_generalized_coordinates(DynamicBody::eEuler, q);
+    sbb->set_generalized_velocity(DynamicBody::eEuler, qdb);
 
     // determine the types of the two bodies
     RigidBodyPtr rba = dynamic_pointer_cast<RigidBody>(sba);
@@ -1558,7 +1558,7 @@ bool MeshDCD::is_collision(CollisionGeometryPtr a, CollisionGeometryPtr b)
 }
 
 /// Implements Base::load_from_xml()
-void MeshDCD::load_from_xml(XMLTreeConstPtr node, map<std::string, BasePtr>& id_map)
+void MeshDCD::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, BasePtr>& id_map)
 {
   map<std::string, BasePtr>::const_iterator id_iter;
 
@@ -1579,7 +1579,7 @@ void MeshDCD::load_from_xml(XMLTreeConstPtr node, map<std::string, BasePtr>& id_
  * \note neither the contact cache nor the pairs currently in collision are 
  *       saved
  */
-void MeshDCD::save_to_xml(XMLTreePtr node, list<BaseConstPtr>& shared_objects) const
+void MeshDCD::save_to_xml(XMLTreePtr node, list<shared_ptr<const Base> >& shared_objects) const
 {
   // call parent save_to_xml() method first
   CollisionDetection::save_to_xml(node, shared_objects);

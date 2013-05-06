@@ -1753,7 +1753,7 @@ CompGeom::PolygonLocationType CompGeom::in_tri(const Triangle& t, const Point3d&
   assert(tol >= (double) 0.0);
 
   // if the skipped dimension was not specified, find it
-  if (skip_dim >= THREE_D);
+  if (skip_dim >= THREE_D)
   {
     Vector3d N = normal_vec(t.a, t.b, t.c);
     long double biggest = 0.0;

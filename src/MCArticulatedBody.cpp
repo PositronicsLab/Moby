@@ -305,7 +305,7 @@ return DynamicBody::integrate(t, h, integrator);
 
   // setup generalized coordinates (for semi-implicit integration) 
   VectorN q;
-  get_generalized_coordinates(DynamicBody::eRodrigues, q);
+  get_generalized_coordinates(DynamicBody::eEuler, q);
 
   // evaluate constraints
   VectorN C;
@@ -374,7 +374,7 @@ return DynamicBody::integrate(t, h, integrator);
   FILE_LOG(LOG_DYNAMICS) << "new generalized velocities (axis-angle parameters): " << _xd << endl;
 
   // set the generalized coordinates / velocities
-  set_generalized_coordinates(DynamicBody::eRodrigues, q);
+  set_generalized_coordinates(DynamicBody::eEuler, q);
   update_link_velocities();
 
   // velocities are valid
@@ -1569,7 +1569,7 @@ void MCArticulatedBody::get_constraint_jacobian_numerically(MCArticulatedBody::S
   // get the dynamic state of the body
   VectorN q;
   MCArticulatedBody* this_nc = (MCArticulatedBody*) this;
-  this_nc->get_generalized_coordinates(DynamicBody::eRodrigues, q);
+  this_nc->get_generalized_coordinates(DynamicBody::eEuler, q);
 
   // setup the size of the constraint Jacobian
   unsigned neqns = 0;
@@ -1628,7 +1628,7 @@ void MCArticulatedBody::get_constraint_jacobian_numerically(MCArticulatedBody::S
   }
 
   // reset the dynamic state of the body
-  this_nc->set_generalized_coordinates(DynamicBody::eRodrigues, q);
+  this_nc->set_generalized_coordinates(DynamicBody::eEuler, q);
 
   FILE_LOG(LOG_DYNAMICS) << "sparse J: " << std::endl << J;
 }
@@ -1710,7 +1710,7 @@ VectorN& MCArticulatedBody::convert_to_generalized_force(GeneralizedCoordinateTy
 }
 
 /// Loads a MCArticulatedBody object from an XML node
-void MCArticulatedBody::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void MCArticulatedBody::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   map<string, BasePtr>::const_iterator id_iter;
 
@@ -1730,7 +1730,7 @@ void MCArticulatedBody::load_from_xml(XMLTreeConstPtr node, std::map<std::string
 }
 
 /// Saves this object to a XML tree
-void MCArticulatedBody::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
+void MCArticulatedBody::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& shared_objects) const
 {
   // call the parent method first
   ArticulatedBody::save_to_xml(node, shared_objects);  

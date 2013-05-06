@@ -44,14 +44,14 @@ class Primitive : public virtual Base
     Primitive();
     Primitive(const Ravelin::Pose3d& T);
     virtual ~Primitive();
-    virtual void load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map);
-    virtual void save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const;
+    virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
+    virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     void update_visualization();
     void set_mass(double mass);
     void set_density(double density);
     virtual boost::shared_ptr<void> save_state() const;
     virtual void load_state(boost::shared_ptr<void> state);
-    virtual void set_transform(const Ravelin::Pose3d& T);
+    virtual void set_pose(const Ravelin::Pose3d& T);
     virtual void set_intersection_tolerance(double tol);
     static void transform_inertia(double mass, const Ravelin::Matrix3d& J_in, const Ravelin::Point3d& com_in, const Ravelin::Pose3d& T, Ravelin::Matrix3d& J_out, Ravelin::Point3d& com_out);
     static void transform_inertia(double mass, const Ravelin::Matrix3d& J_in, const Ravelin::Point3d& com_in, const Ravelin::Matrix3d& R, Ravelin::Matrix3d& J_out, Ravelin::Point3d& com_out);
@@ -134,7 +134,7 @@ class Primitive : public virtual Base
     const Ravelin::Point3d& get_com() const { return _com; }
 
     /// Gets the transform applied to this primitive 
-    const Ravelin::Pose3d& get_transform() const { return _T; } 
+    const Ravelin::Pose3d& get_pose() const { return _T; } 
 
     /// Gets the underlying triangle mesh for this primitive 
     virtual boost::shared_ptr<const IndexedTriArray> get_mesh() = 0;

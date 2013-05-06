@@ -35,13 +35,12 @@ class Joint : public Visualizable
     virtual ~Joint() {}
     void add_force(const Ravelin::VectorNd& force);
     void reset_force();    
-    virtual const std::vector<Ravelin::Twistd>& get_spatial_axes(ReferenceFrameType type);
+    virtual const std::vector<Ravelin::Twistd>& get_spatial_axes();
     virtual const std::vector<Ravelin::Twistd>& get_spatial_axes_complement();
-    void reset_spatial_axis();
     Ravelin::Point3d get_position_global(bool use_outboard = false) const;
     Ravelin::VectorNd& get_scaled_force(Ravelin::VectorNd& f);
-    virtual void save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const;
-    virtual void load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map);
+    virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
+    virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void set_inboard_link(RigidBodyPtr link);
     virtual void set_outboard_link(RigidBodyPtr link);
     virtual void update_spatial_axes();
@@ -64,7 +63,7 @@ class Joint : public Visualizable
     JointPtr get_this() { return boost::dynamic_pointer_cast<Joint>(shared_from_this()); }
 
     /// Gets the constant shared pointer to this joint
-    JointConstPtr get_this() const { return boost::dynamic_pointer_cast<const Joint>(shared_from_this()); }
+    boost::shared_ptr<const Joint> get_this() const { return boost::dynamic_pointer_cast<const Joint>(shared_from_this()); }
 
     /// Gets the number of constraint equations for this joint
     virtual unsigned num_constraint_eqns() const { return 6 - num_dof(); }
@@ -101,7 +100,7 @@ class Joint : public Visualizable
         Cq[0] = Cq2[0];
         Cq[1] = Cq2[1];
         Cq[2] = Cq2[2];
-        Ravelin::Vector3d ang = body->get_transform()->q.G_mult(Cq2[3], Cq2[4], Cq2[5], Cq2[6]) * (double) 0.5;
+        Ravelin::Vector3d ang = body->get_pose()->q.G_mult(Cq2[3], Cq2[4], Cq2[5], Cq2[6]) * (double) 0.5;
         Cq[3] = ang[0];
         Cq[4] = ang[1];
         Cq[5] = ang[2];
@@ -132,7 +131,7 @@ class Joint : public Visualizable
         Cq[0] = Cq2[0];
         Cq[1] = Cq2[1];
         Cq[2] = Cq2[2];
-        Ravelin::Vector3d ang = body->get_transform()->q.G_mult(Cq2[3], Cq2[4], Cq2[5], Cq2[6]);
+        Ravelin::Vector3d ang = body->get_pose()->q.G_mult(Cq2[3], Cq2[4], Cq2[5], Cq2[6]);
         Cq[3] = ang[0];
         Cq[4] = ang[1];
         Cq[5] = ang[2];
@@ -145,14 +144,14 @@ class Joint : public Visualizable
     /**
      * Only applicable for reduced-coordinate articulated bodies
      */
-    virtual const std::vector<Ravelin::Twistd>& get_spatial_axes_dot(ReferenceFrameType type) = 0;
+    virtual const std::vector<Ravelin::Twistd>& get_spatial_axes_dot() = 0;
 
     /// Abstract method to get the local transform for this joint
     /**
      * The local transform for the joint transforms the coordinate frame
      * attached to the joint center and aligned with the inner link frame.
      */
-    virtual boost::shared_ptr<const Ravelin::Pose3d> get_transform() = 0;
+    virtual boost::shared_ptr<const Ravelin::Pose3d> get_pose() = 0;
 
     /// Abstract method to determine the value of Q (joint position) from current transforms
     virtual void determine_q(Ravelin::VectorNd& q) = 0;
@@ -267,7 +266,7 @@ class Joint : public Visualizable
      */
     virtual void calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, unsigned index, double Cq[]) = 0;
 
-    virtual boost::shared_ptr<const Ravelin::Pose3d> get_visualization_transform();
+    virtual boost::shared_ptr<const Ravelin::Pose3d> get_visualization_pose();
 
     /// Method for initializing all variables in the joint
     /**
@@ -276,7 +275,7 @@ class Joint : public Visualizable
      */
     void init_data();
 
-    /// The spatial axes (in inner link frame) for the joint
+    /// The spatial axes (in joint frame) for the joint
     /**
      * Spatial axes are used in the dynamics equations for reduced-coordinate
      * articulated bodies only.
@@ -289,13 +288,6 @@ class Joint : public Visualizable
      * articulated bodies only.
      */
     std::vector<Ravelin::Twistd> _s_bar;
-
-    /// The spatial axes in global frame for the joint
-    /**
-     * Spatial axes are used in the dynamics equations for reduced-coordinate
-     * articulated bodies only.
-     */
-    std::vector<Ravelin::Twistd> _s0;
 
     /// The stored "tare" value for the initial joint configuration
     /**
@@ -317,7 +309,6 @@ class Joint : public Visualizable
     unsigned _joint_idx;
     unsigned _coord_idx;
     unsigned _constraint_idx;
-    bool _s0_valid;
     boost::shared_ptr<Ravelin::Pose3d> _vtransform;
     boost::weak_ptr<RigidBody> _inboard_link;
     boost::weak_ptr<RigidBody> _outboard_link;

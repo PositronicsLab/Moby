@@ -24,7 +24,7 @@ class BoundingSphere : public BV
     virtual BVPtr calc_vel_exp_BV(CollisionGeometryPtr g, double dt, const Ravelin::Vector3d& lv, const Ravelin::Vector3d& av) const;
     static double calc_dist(const BoundingSphere& s1, const BoundingSphere& s2);
     static bool intersects(const BoundingSphere& a, const BoundingSphere& b);
-    static bool intersects(const BoundingSphere& a, const BoundingSphere& b, const Ravelin::Pose3d& T);
+    static bool intersects(const BoundingSphere& a, const BoundingSphere& b, const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& aTb);
     static bool intersects(const BoundingSphere& a, const LineSeg3& seg, double& tmin, double tmax, Ravelin::Point3d& q);
     static bool outside(const BoundingSphere& a, const Ravelin::Point3d& point, double tol = NEAR_ZERO);
     boost::shared_ptr<const BoundingSphere> get_this() const { return boost::dynamic_pointer_cast<const BoundingSphere>(shared_from_this()); }

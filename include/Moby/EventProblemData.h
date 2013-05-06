@@ -92,6 +92,8 @@ struct EventProblemData
 
     // copy the working set
     contact_working_set = q.contact_working_set;
+
+    return *this;
   }
 
   // resets all event problem data

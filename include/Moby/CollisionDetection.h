@@ -52,8 +52,8 @@ class CollisionDetection : public virtual Base
     CollisionDetection();
     virtual ~CollisionDetection() {}
     void operator=(const CollisionDetection* source);
-    virtual void load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map);
-    virtual void save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const;
+    virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
+    virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     void add_dynamic_body(DynamicBodyPtr body);
     void remove_dynamic_body(DynamicBodyPtr body);
     virtual void remove_collision_geometry(CollisionGeometryPtr geom);
@@ -169,7 +169,7 @@ class CollisionDetection : public virtual Base
     template <class OutputIterator>
     OutputIterator get_dynamic_bodies(OutputIterator output_begin) const;
 
-    static double calc_distance(CollisionGeometryPtr a, CollisionGeometryPtr b, const Ravelin::Pose3d& aTb, Ravelin::Point3d& cpa, Ravelin::Point3d& cpb); 
+    static double calc_distance(CollisionGeometryPtr a, CollisionGeometryPtr b, const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& aTb, Ravelin::Point3d& cpa, Ravelin::Point3d& cpb); 
 
     /// The set of geometries checked by the collision detector
     std::set<CollisionGeometryPtr> _geoms;

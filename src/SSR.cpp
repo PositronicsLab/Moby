@@ -8,6 +8,7 @@
 
 using namespace Ravelin;
 using namespace Moby;
+using std::pair;
 using boost::dynamic_pointer_cast;
 
 /// Initializes an empty SSR
@@ -436,12 +437,12 @@ double SSR::calc_dist(const SSR& a, const SSR& b, Point3d& cpa, Point3d& cpb)
  * \param aTb the relative transform from b to a
  * \param cpa the closest point on SSR a (in a's frame)
  */
-double SSR::calc_dist(const SSR& a, const SSR& b, const Pose3d& aTb, Point3d& cpa, Point3d& cpb)
+double SSR::calc_dist(const SSR& a, const SSR& b, const pair<Quatd, Origin3d>& aTb, Point3d& cpa, Point3d& cpb)
 {
   // create a new SSR (b in a's frame)
   SSR b_a;
-  b_a.center = aTb.transform(b.center);
-  Matrix3d R = aTb.q;
+  b_a.center = aTb.first * b.center + aTb.second;
+  Matrix3d R = aTb.first;
   b_a.R = R * b.R;
   b_a.l = b.l;
   b_a.radius = b.radius;
@@ -458,7 +459,7 @@ bool SSR::intersects(const SSR& a, const SSR& b)
 }
 
 /// Determines whether two SSRs intersect
-bool SSR::intersects(const SSR& a, const SSR& b, const Pose3d& T)
+bool SSR::intersects(const SSR& a, const SSR& b, const pair<Quatd, Origin3d>& T)
 {
   Point3d tmp;
   double dist = calc_dist(a, b, T, tmp, tmp);

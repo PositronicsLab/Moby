@@ -31,10 +31,10 @@ class MeshDCD : public CollisionDetection
   public:
     MeshDCD();
     virtual ~MeshDCD() {}
-    virtual void load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map);
-    virtual void save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const;
+    virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
+    virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual bool is_collision(double epsilon = 0.0);
-    virtual bool is_contact(double dt, const std::vector<std::pair<DynamicBodyPtr, VectorN> >& q0, const std::vector<std::pair<DynamicBodyPtr, VectorN> >& q1, std::vector<Event>& contact);
+    virtual bool is_contact(double dt, const std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> >& q0, const std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> >& q1, std::vector<Event>& contact);
     virtual void add_collision_geometry(CollisionGeometryPtr geom);
     virtual void remove_collision_geometry(CollisionGeometryPtr geom);
     virtual void remove_all_collision_geometries();
@@ -54,16 +54,16 @@ class MeshDCD : public CollisionDetection
     /// The intersection tolerance
     double isect_tolerance;
 
-    double intersect_rects(const Ravelin::Vector3d& normal, const Ravelin::Point3d r1[4], const Ravelin::Point3d r2[4], Ravelin::Vector3d& isect1, Ravelin::Vector3d& isect2);
+    double intersect_rects(const Ravelin::Vector3d& normal, const Ravelin::Point3d r1[4], const Ravelin::Point3d r2[4], Ravelin::Point3d& isect1, Ravelin::Point3d& isect2);
     double calc_first_isect(const Triangle& t, const LineSeg3& s1, const LineSeg3& s2, Ravelin::Point3d& p1, Ravelin::Point3d& p2); 
   private:
     double intersect_rect(const Ravelin::Vector3d& normal, const Ravelin::Vector3d& axis1, const Ravelin::Vector3d& axis2, const LineSeg3& rs1, const LineSeg3& rs2, const LineSeg3& s, Ravelin::Point3d& isect1, Ravelin::Point3d& isect2);
     static unsigned determine_cubic_roots(double a, double b, double c, double x[3]);
     void add_rigid_body_model(RigidBodyPtr body);
-    bool intersect_BV_trees(boost::shared_ptr<BV> a, boost::shared_ptr<BV> b, const Matrix4& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b);
+    bool intersect_BV_trees(boost::shared_ptr<BV> a, boost::shared_ptr<BV> b, const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b);
     static Event create_contact(double toi, CollisionGeometryPtr a, CollisionGeometryPtr b, const Ravelin::Point3d& point, const Ravelin::Point3d& vpoint, const Triangle& t);
-    void check_geoms(double dt, CollisionGeometryPtr a, CollisionGeometryPtr b, const std::vector<std::pair<DynamicBodyPtr, VectorN> >& q0, const std::vector<std::pair<DynamicBodyPtr, VectorN> >& q1, std::vector<Event>& contacts); 
-    void check_geom(double dt, CollisionGeometryPtr cg, const std::vector<std::pair<DynamicBodyPtr, VectorN> >& q0, const std::vector<std::pair<DynamicBodyPtr, VectorN> >& q1, std::vector<Event>& contacts); 
+    void check_geoms(double dt, CollisionGeometryPtr a, CollisionGeometryPtr b, const std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> >& q0, const std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> >& q1, std::vector<Event>& contacts); 
+    void check_geom(double dt, CollisionGeometryPtr cg, const std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> >& q0, const std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> >& q1, std::vector<Event>& contacts); 
     void broad_phase(std::vector<std::pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check);
     void determine_contacts_rigid(CollisionGeometryPtr a, CollisionGeometryPtr b, double t, double dt, std::vector<Event>& contacts);
     void determine_contacts_deformable(CollisionGeometryPtr a, CollisionGeometryPtr b, double t, double dt, std::vector<Event>& contacts);
@@ -75,10 +75,10 @@ class MeshDCD : public CollisionDetection
     bool is_collision(CollisionGeometryPtr a, CollisionGeometryPtr b);
     bool is_collision(CollisionGeometryPtr cg);
     static DynamicBodyPtr get_super_body(CollisionGeometryPtr a);
-    static unsigned find_body(const std::vector<std::pair<DynamicBodyPtr, VectorN> >& q, DynamicBodyPtr body);
+    static unsigned find_body(const std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> >& q, DynamicBodyPtr body);
 
     template <class OutputIterator>
-    OutputIterator intersect_BV_leafs(BVPtr a, BVPtr b, const Matrix4& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b, OutputIterator output_begin) const;
+    OutputIterator intersect_BV_leafs(BVPtr a, BVPtr b, const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b, OutputIterator output_begin) const;
 
     /// Indicates when bounds vectors need to be rebuilt
     bool _rebuild_bounds_vecs;

@@ -46,7 +46,6 @@
 #include <Moby/GravityForce.h>
 #include <Moby/StokesDragForce.h>
 #include <Moby/DampingForce.h>
-#include <Moby/AAngle.h>
 #include <Moby/DeformableCCD.h>
 #include <Moby/GeneralizedCCD.h>
 #include <Moby/C2ACCD.h>
@@ -54,6 +53,7 @@
 #include <Moby/XMLTree.h>
 #include <Moby/XMLReader.h>
 
+using boost::shared_ptr;
 using namespace Moby;
 
 /// Reads an XML file and constructs all read objects
@@ -105,7 +105,7 @@ std::map<std::string, BasePtr> XMLReader::read(const std::string& fname)
   }
 
   // read the XML Tree 
-  XMLTreeConstPtr moby_tree = XMLTree::read_from_xml(filename);
+  shared_ptr<const XMLTree> moby_tree = XMLTree::read_from_xml(filename);
   if (!moby_tree)
   {
     std::cerr << "XMLReader::read() - unable to open file " << fname;
@@ -201,7 +201,7 @@ std::map<std::string, BasePtr> XMLReader::read(const std::string& fname)
 }
 
 /// Finds and processes given tags
-void XMLReader::process_tag(const std::string& tag, XMLTreeConstPtr root, void (*fn)(XMLTreeConstPtr, std::map<std::string, BasePtr>&), std::map<std::string, BasePtr>& id_map)
+void XMLReader::process_tag(const std::string& tag, shared_ptr<const XMLTree> root, void (*fn)(shared_ptr<const XMLTree>, std::map<std::string, BasePtr>&), std::map<std::string, BasePtr>& id_map)
 {
   // NOTE: if a tag is encountered, we do not process its descendants: 
   // load_from_xml() is responsible for that
@@ -218,7 +218,7 @@ void XMLReader::process_tag(const std::string& tag, XMLTreeConstPtr root, void (
 }
 
 /// Reads and constructs the MeshDCD object
-void XMLReader::read_mesh_dcd(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void XMLReader::read_mesh_dcd(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // sanity check
   assert(strcasecmp(node->name.c_str(), "MeshDCD") == 0);
@@ -231,7 +231,7 @@ void XMLReader::read_mesh_dcd(XMLTreeConstPtr node, std::map<std::string, BasePt
 }
 
 /// Reads and constructs the C2ACCD object
-void XMLReader::read_c2a_ccd(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void XMLReader::read_c2a_ccd(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // sanity check
   assert(strcasecmp(node->name.c_str(), "C2ACCD") == 0);
@@ -244,7 +244,7 @@ void XMLReader::read_c2a_ccd(XMLTreeConstPtr node, std::map<std::string, BasePtr
 }
 
 /// Reads and constructs the DeformableCCD object
-void XMLReader::read_deformable_ccd(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void XMLReader::read_deformable_ccd(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // sanity check
   assert(strcasecmp(node->name.c_str(), "DeformableCCD") == 0);
@@ -257,7 +257,7 @@ void XMLReader::read_deformable_ccd(XMLTreeConstPtr node, std::map<std::string, 
 }
 
 /// Reads and constructs the GeneralizedCCD object
-void XMLReader::read_generalized_ccd(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void XMLReader::read_generalized_ccd(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // sanity check
   assert(strcasecmp(node->name.c_str(), "GeneralizedCCD") == 0);
@@ -270,7 +270,7 @@ void XMLReader::read_generalized_ccd(XMLTreeConstPtr node, std::map<std::string,
 }
 
 /// Reads and constructs a geometry plugin object
-void XMLReader::read_primitive_plugin(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void XMLReader::read_primitive_plugin(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // get the name of the plugin to load
   const XMLAttrib* plugin_attr = node->get_attrib("plugin");
@@ -316,7 +316,7 @@ void XMLReader::read_primitive_plugin(XMLTreeConstPtr node, std::map<std::string
 /**
  * \pre node is named CollisionDetectionPlugin 
  */
-void XMLReader::read_coldet_plugin(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void XMLReader::read_coldet_plugin(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // sanity check
   assert(strcasecmp(node->name.c_str(), "CollisionDetectionPlugin") == 0);
@@ -362,7 +362,7 @@ void XMLReader::read_coldet_plugin(XMLTreeConstPtr node, std::map<std::string, B
 }
 
 /// Reads and constructs the OSGGroupWrapper object
-void XMLReader::read_osg_group(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void XMLReader::read_osg_group(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // sanity check
   assert(strcasecmp(node->name.c_str(), "OSGGroup") == 0);
@@ -377,7 +377,7 @@ void XMLReader::read_osg_group(XMLTreeConstPtr node, std::map<std::string, BaseP
 }
 
 /// Reads and constructs the SpherePrimitive object
-void XMLReader::read_sphere(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void XMLReader::read_sphere(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // sanity check
   assert(strcasecmp(node->name.c_str(), "Sphere") == 0);
@@ -390,7 +390,7 @@ void XMLReader::read_sphere(XMLTreeConstPtr node, std::map<std::string, BasePtr>
 }
 
 /// Reads and constructs the ConePrimitive object
-void XMLReader::read_cone(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void XMLReader::read_cone(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {  
   // sanity check
   assert(strcasecmp(node->name.c_str(), "Cone") == 0);
@@ -403,7 +403,7 @@ void XMLReader::read_cone(XMLTreeConstPtr node, std::map<std::string, BasePtr>& 
 }
 
 /// Reads and constructs the CylinderPrimitive object
-void XMLReader::read_cylinder(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void XMLReader::read_cylinder(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {  
   // sanity check
   assert(strcasecmp(node->name.c_str(), "Cylinder") == 0);
@@ -416,7 +416,7 @@ void XMLReader::read_cylinder(XMLTreeConstPtr node, std::map<std::string, BasePt
 }
 
 /// Reads and constructs a CSG object
-void XMLReader::read_CSG(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void XMLReader::read_CSG(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // sanity check
   assert(strcasecmp(node->name.c_str(), "CSG") == 0);
@@ -429,7 +429,7 @@ void XMLReader::read_CSG(XMLTreeConstPtr node, std::map<std::string, BasePtr>& i
 }
 
 /// Reads and constructs the TriangleMeshPrimitive object
-void XMLReader::read_tetramesh(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void XMLReader::read_tetramesh(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {  
   // sanity check
   assert(strcasecmp(node->name.c_str(), "TetraMesh") == 0);
@@ -442,7 +442,7 @@ void XMLReader::read_tetramesh(XMLTreeConstPtr node, std::map<std::string, BaseP
 }
 
 /// Reads and constructs the TriangleMeshPrimitive object
-void XMLReader::read_trimesh(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void XMLReader::read_trimesh(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {  
   // sanity check
   assert(strcasecmp(node->name.c_str(), "TriangleMesh") == 0);
@@ -455,7 +455,7 @@ void XMLReader::read_trimesh(XMLTreeConstPtr node, std::map<std::string, BasePtr
 }
 
 /// Reads and constructs the GaussianMixture object
-void XMLReader::read_gaussian_mixture(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void XMLReader::read_gaussian_mixture(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {  
   // sanity check
   assert(strcasecmp(node->name.c_str(), "GaussianMixture") == 0);
@@ -468,7 +468,7 @@ void XMLReader::read_gaussian_mixture(XMLTreeConstPtr node, std::map<std::string
 }
 
 /// Reads and constructs the BoxPrimitive object
-void XMLReader::read_box(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void XMLReader::read_box(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {  
   // sanity check
   assert(strcasecmp(node->name.c_str(), "Box") == 0);
@@ -484,39 +484,14 @@ void XMLReader::read_box(XMLTreeConstPtr node, std::map<std::string, BasePtr>& i
 /**
  * \pre node name is EulerIntegrator
  */
-void XMLReader::read_euler_integrator(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void XMLReader::read_euler_integrator(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // sanity check
   assert(strcasecmp(node->name.c_str(), "EulerIntegrator") == 0);
 
   // only create VectorN integrators
-  boost::shared_ptr<Base> b(new EulerIntegrator<VectorN>());
+  boost::shared_ptr<Base> b(new EulerIntegrator());
 
-/*
-  // create the appropriate type of Euler integrator
-  boost::shared_ptr<Base> b;
-  switch (get_tuple(node))
-  {
-    case eVectorN:
-      b = boost::shared_ptr<Base>(new EulerIntegrator<VectorN>());
-      break;
-
-    case eVector3:
-      b = boost::shared_ptr<Base>(new EulerIntegrator<Vector3>());
-      break;
-
-    case eQuat:
-      b = boost::shared_ptr<Base>(new EulerIntegrator<Quat>());
-      break;
-
-    case eNone:
-      std::cerr << "XMLReader::read_euler_integrator() - integrator type (e.g., 'type=VectorN')" << " required" << std::endl;
-      return;
-
-    default:
-      assert(false);
-  } 
-*/
   // populate the object
   b->load_from_xml(node, id_map);
 }
@@ -525,38 +500,14 @@ void XMLReader::read_euler_integrator(XMLTreeConstPtr node, std::map<std::string
 /**
  * \pre node name is VariableEulerIntegrator
  */
-void XMLReader::read_variable_euler_integrator(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void XMLReader::read_variable_euler_integrator(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // sanity check
   assert(strcasecmp(node->name.c_str(), "VariableEulerIntegrator") == 0);
 
   // only create VectorN type integrators
-  boost::shared_ptr<Base> b(new VariableEulerIntegrator<VectorN>());
-/*
-  // create the appropriate type of Euler integrator
-  boost::shared_ptr<Base> b;
-  switch (get_tuple(node))
-  {
-    case eVectorN:
-      b = boost::shared_ptr<Base>(new VariableEulerIntegrator<VectorN>());
-      break;
+  boost::shared_ptr<Base> b(new VariableEulerIntegrator());
 
-    case eVector3:
-      b = boost::shared_ptr<Base>(new VariableEulerIntegrator<Vector3>());
-      break;
-
-    case eQuat:
-      b = boost::shared_ptr<Base>(new VariableEulerIntegrator<Quat>());
-      break;
-
-    case eNone:
-      std::cerr << "XMLReader::read_variable_euler_integrator() - integrator type (e.g., 'type=VectorN')" << " required" << std::endl;
-      return;
-
-    default:
-      assert(false);
-  } 
-*/
   // populate the object
   b->load_from_xml(node, id_map);
 }
@@ -565,38 +516,14 @@ void XMLReader::read_variable_euler_integrator(XMLTreeConstPtr node, std::map<st
 /**
  * \pre node name is RungeKuttaFehlbergIntegrator
  */
-void XMLReader::read_rkf4_integrator(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void XMLReader::read_rkf4_integrator(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // sanity check
   assert(strcasecmp(node->name.c_str(), "RungeKuttaFehlbergIntegrator") == 0);
 
   // only create VectorN type integrators
-  boost::shared_ptr<Base> b(new RungeKuttaFehlbergIntegrator<VectorN>());
-/*
-  // create the appropriate type of RK integrator
-  boost::shared_ptr<Base> b;
-  switch (get_tuple(node))
-  {
-    case eVectorN:
-      b = boost::shared_ptr<Base>(new RungeKuttaFehlbergIntegrator<VectorN>());
-      break;
+  boost::shared_ptr<Base> b(new RungeKuttaFehlbergIntegrator());
 
-    case eVector3:
-      b = boost::shared_ptr<Base>(new RungeKuttaFehlbergIntegrator<Vector3>());
-      break;
-
-    case eQuat:
-      b = boost::shared_ptr<Base>(new RungeKuttaFehlbergIntegrator<Quat>());
-      break;
-
-    case eNone:
-      std::cerr << "XMLReader::read_rkf4_integrator() - integrator type (e.g., 'type=VectorN')" << " required" << std::endl;
-      return;
-
-    default:
-      assert(false);
-  } 
-*/
   // populate the object
   b->load_from_xml(node, id_map);
 }
@@ -605,38 +532,13 @@ void XMLReader::read_rkf4_integrator(XMLTreeConstPtr node, std::map<std::string,
 /**
  * \pre node name is RungeKuttaIntegrator
  */
-void XMLReader::read_rk4_integrator(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void XMLReader::read_rk4_integrator(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // sanity check
   assert(strcasecmp(node->name.c_str(), "RungeKuttaIntegrator") == 0);
 
   // only create VectorN type integrators
-  boost::shared_ptr<Base> b(new RungeKuttaIntegrator<VectorN>());
-/*
-  // create the appropriate type of RK integrator
-  boost::shared_ptr<Base> b;
-  switch (get_tuple(node))
-  {
-    case eVectorN:
-      b = boost::shared_ptr<Base>(new RungeKuttaIntegrator<VectorN>());
-      break;
-
-    case eVector3:
-      b = boost::shared_ptr<Base>(new RungeKuttaIntegrator<Vector3>());
-      break;
-
-    case eQuat:
-      b = boost::shared_ptr<Base>(new RungeKuttaIntegrator<Quat>());
-      break;
-
-    case eNone:
-      std::cerr << "XMLReader::read_rk4_integrator() - integrator type (e.g., 'type=VectorN')" << " required" << std::endl;
-      return;
-
-    default:
-      assert(false);
-  } 
-*/
+  boost::shared_ptr<Base> b(new RungeKuttaIntegrator());
 
   // populate the object
   b->load_from_xml(node, id_map);
@@ -646,38 +548,13 @@ void XMLReader::read_rk4_integrator(XMLTreeConstPtr node, std::map<std::string, 
 /**
  * \pre node name is RungeKuttaImplicitIntegrator
  */
-void XMLReader::read_rk4i_integrator(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void XMLReader::read_rk4i_integrator(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // sanity check
   assert(strcasecmp(node->name.c_str(), "RungeKuttaImplicitIntegrator") == 0);
 
   // only create VectorN type integrators
-  boost::shared_ptr<Base> b(new RungeKuttaImplicitIntegrator<VectorN>());
-/*
-  // create the appropriate type of RK integrator
-  boost::shared_ptr<Base> b;
-  switch (get_tuple(node))
-  {
-    case eVectorN:
-      b = boost::shared_ptr<Base>(new RungeKuttaImplicitIntegrator<VectorN>());
-      break;
-
-    case eVector3:
-      b = boost::shared_ptr<Base>(new RungeKuttaImplicitIntegrator<Vector3>());
-      break;
-
-    case eQuat:
-      b = boost::shared_ptr<Base>(new RungeKuttaImplicitIntegrator<Quat>());
-      break;
-
-    case eNone:
-      std::cerr << "XMLReader::read_rk4i_integrator() - integrator type (e.g., 'type=VectorN')" << " required" << std::endl;
-      return;
-
-    default:
-      assert(false);
-  } 
-*/
+  boost::shared_ptr<Base> b(new RungeKuttaImplicitIntegrator());
 
   // populate the object
   b->load_from_xml(node, id_map);
@@ -687,38 +564,13 @@ void XMLReader::read_rk4i_integrator(XMLTreeConstPtr node, std::map<std::string,
 /**
  * \pre node name is ODEPACKIntegrator
  */
-void XMLReader::read_odepack_integrator(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void XMLReader::read_odepack_integrator(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // sanity check
   assert(strcasecmp(node->name.c_str(), "ODEPACKIntegrator") == 0);
 
   // only create VectorN type integrators
-  boost::shared_ptr<Base> b(new ODEPACKIntegrator<VectorN>());
-/*
-  // create the appropriate type of RK integrator
-  boost::shared_ptr<Base> b;
-  switch (get_tuple(node))
-  {
-    case eVectorN:
-      b = boost::shared_ptr<Base>(new ODEPACKIntegrator<VectorN>());
-      break;
-
-    case eVector3:
-      b = boost::shared_ptr<Base>(new ODEPACKIntegrator<Vector3>());
-      break;
-
-    case eQuat:
-      b = boost::shared_ptr<Base>(new ODEPACKIntegrator<Quat>());
-      break;
-
-    case eNone:
-      std::cerr << "XMLReader::read_odepack_integrator() - integrator type (e.g., 'type=VectorN')" << " required" << std::endl;
-      return;
-
-    default:
-      assert(false);
-  } 
-*/
+  boost::shared_ptr<Base> b(new ODEPACKIntegrator());
 
   // populate the object
   b->load_from_xml(node, id_map);
@@ -728,7 +580,7 @@ void XMLReader::read_odepack_integrator(XMLTreeConstPtr node, std::map<std::stri
 /**
  * \pre node is named EventDrivenSimulator
  */
-void XMLReader::read_event_driven_simulator(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void XMLReader::read_event_driven_simulator(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // sanity check
   assert(strcasecmp(node->name.c_str(), "EventDrivenSimulator") == 0);
@@ -744,7 +596,7 @@ void XMLReader::read_event_driven_simulator(XMLTreeConstPtr node, std::map<std::
 /**
  * \pre node is named Simulator
  */
-void XMLReader::read_simulator(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void XMLReader::read_simulator(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // sanity check
   assert(strcasecmp(node->name.c_str(), "Simulator") == 0);
@@ -760,7 +612,7 @@ void XMLReader::read_simulator(XMLTreeConstPtr node, std::map<std::string, BaseP
 /**
  * \pre node is named PSDeformableBody
  */
-void XMLReader::read_ps_deformable_body(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void XMLReader::read_ps_deformable_body(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // sanity check
   assert(strcasecmp(node->name.c_str(), "PSDeformableBody") == 0);
@@ -776,7 +628,7 @@ void XMLReader::read_ps_deformable_body(XMLTreeConstPtr node, std::map<std::stri
 /**
  * \pre node is named RigidBody
  */
-void XMLReader::read_rigid_body(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void XMLReader::read_rigid_body(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // sanity check
   assert(strcasecmp(node->name.c_str(), "RigidBody") == 0);
@@ -792,7 +644,7 @@ void XMLReader::read_rigid_body(XMLTreeConstPtr node, std::map<std::string, Base
 /**
  * \pre node is named MCArticulatedBody
  */
-void XMLReader::read_mc_abody(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void XMLReader::read_mc_abody(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // sanity check
   assert(strcasecmp(node->name.c_str(), "MCArticulatedBody") == 0);
@@ -808,7 +660,7 @@ void XMLReader::read_mc_abody(XMLTreeConstPtr node, std::map<std::string, BasePt
 /**
  * \pre node is named RCArticulatedBody
  */
-void XMLReader::read_rc_abody(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void XMLReader::read_rc_abody(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // sanity check
   assert(strcasecmp(node->name.c_str(), "RCArticulatedBody") == 0);
@@ -824,7 +676,7 @@ void XMLReader::read_rc_abody(XMLTreeConstPtr node, std::map<std::string, BasePt
 /**
  * \pre node is named RCArticulatedBodySymbolic
  */
-void XMLReader::read_rc_abody_symbolic(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void XMLReader::read_rc_abody_symbolic(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // sanity check
   assert(strcasecmp(node->name.c_str(), "RCArticulatedBodySymbolicPlugin") == 0);
@@ -873,7 +725,7 @@ void XMLReader::read_rc_abody_symbolic(XMLTreeConstPtr node, std::map<std::strin
 /**
  * \pre node is named JointPlugin 
  */
-void XMLReader::read_joint_plugin(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void XMLReader::read_joint_plugin(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // sanity check
   assert(strcasecmp(node->name.c_str(), "JointPlugin") == 0);
@@ -919,7 +771,7 @@ void XMLReader::read_joint_plugin(XMLTreeConstPtr node, std::map<std::string, Ba
 }
 
 /// Reads and constructs the UniversalJoint object
-void XMLReader::read_universal_joint(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void XMLReader::read_universal_joint(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // sanity check
   assert(strcasecmp(node->name.c_str(), "UniversalJoint") == 0);
@@ -932,7 +784,7 @@ void XMLReader::read_universal_joint(XMLTreeConstPtr node, std::map<std::string,
 }
 
 /// Reads and constructs the SphericalJoint object
-void XMLReader::read_spherical_joint(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void XMLReader::read_spherical_joint(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // sanity check
   assert(strcasecmp(node->name.c_str(), "SphericalJoint") == 0);
@@ -945,7 +797,7 @@ void XMLReader::read_spherical_joint(XMLTreeConstPtr node, std::map<std::string,
 }
 
 /// Reads and constructs the FixedJoint object
-void XMLReader::read_fixed_joint(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void XMLReader::read_fixed_joint(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // sanity check
   assert(strcasecmp(node->name.c_str(), "FixedJoint") == 0);
@@ -958,7 +810,7 @@ void XMLReader::read_fixed_joint(XMLTreeConstPtr node, std::map<std::string, Bas
 }
 
 /// Reads and constructs the RevoluteJoint object
-void XMLReader::read_revolute_joint(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void XMLReader::read_revolute_joint(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // sanity check
   assert(strcasecmp(node->name.c_str(), "RevoluteJoint") == 0);
@@ -971,7 +823,7 @@ void XMLReader::read_revolute_joint(XMLTreeConstPtr node, std::map<std::string, 
 }
 
 /// Reads and constructs the PrismaticJoint object
-void XMLReader::read_prismatic_joint(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void XMLReader::read_prismatic_joint(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // sanity check
   assert(strcasecmp(node->name.c_str(), "PrismaticJoint") == 0);
@@ -987,7 +839,7 @@ void XMLReader::read_prismatic_joint(XMLTreeConstPtr node, std::map<std::string,
 /**
  * \pre node is named StokesDragForce
  */
-void XMLReader::read_stokes_drag_force(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void XMLReader::read_stokes_drag_force(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // sanity check
   assert(strcasecmp(node->name.c_str(), "StokesDragForce") == 0);
@@ -1003,7 +855,7 @@ void XMLReader::read_stokes_drag_force(XMLTreeConstPtr node, std::map<std::strin
 /**
  * \pre node is named DampingForce
  */
-void XMLReader::read_damping_force(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void XMLReader::read_damping_force(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // sanity check
   assert(strcasecmp(node->name.c_str(), "DampingForce") == 0);
@@ -1019,7 +871,7 @@ void XMLReader::read_damping_force(XMLTreeConstPtr node, std::map<std::string, B
 /**
  * \pre node is named GravityForce
  */
-void XMLReader::read_gravity_force(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void XMLReader::read_gravity_force(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // sanity check
   assert(strcasecmp(node->name.c_str(), "GravityForce") == 0);
@@ -1032,7 +884,7 @@ void XMLReader::read_gravity_force(XMLTreeConstPtr node, std::map<std::string, B
 }
 
 /// Gets the sub-tree rooted at the specified tag
-XMLTreeConstPtr XMLReader::find_subtree(XMLTreeConstPtr root, const std::string& name)
+shared_ptr<const XMLTree> XMLReader::find_subtree(shared_ptr<const XMLTree> root, const std::string& name)
 {
   // if we found the tree, return it
   if (strcasecmp(root->name.c_str(), name.c_str()) == 0)
@@ -1042,17 +894,17 @@ XMLTreeConstPtr XMLReader::find_subtree(XMLTreeConstPtr root, const std::string&
   const std::list<XMLTreePtr>& children = root->children;
   for (std::list<XMLTreePtr>::const_iterator i = children.begin(); i != children.end(); i++)
   {
-    XMLTreeConstPtr node = find_subtree(*i, name);
+    shared_ptr<const XMLTree> node = find_subtree(*i, name);
     if (node)
       return node;
   }
 
   // return NULL if we are here
-  return XMLTreeConstPtr();
+  return shared_ptr<const XMLTree>();
 }
 
 /// Gets the tuple type from a node
-XMLReader::TupleType XMLReader::get_tuple(XMLTreeConstPtr node)
+XMLReader::TupleType XMLReader::get_tuple(shared_ptr<const XMLTree> node)
 {
   std::string type;
 
