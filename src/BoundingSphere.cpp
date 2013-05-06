@@ -10,6 +10,7 @@
 #include <Moby/SSL.h>
 #include <Moby/BoundingSphere.h>
 
+using std::pair;
 using namespace Ravelin;
 using namespace Moby;
 using boost::shared_ptr;
@@ -88,10 +89,10 @@ bool BoundingSphere::intersects(const BoundingSphere& s1, const BoundingSphere& 
 }
 
 /// Determines whether two bounding spheres intersect
-bool BoundingSphere::intersects(const BoundingSphere& s1, const BoundingSphere& s2, const Pose3d& s1Ts2)
+bool BoundingSphere::intersects(const BoundingSphere& s1, const BoundingSphere& s2, const pair<Quatd, Origin3d>& s1Ts2)
 {
   // determine transformed s2 center
-  Point3d s2c = s1Ts2.x + s2.center;
+  Point3d s2c = s1Ts2.second + s2.center;
 
   // get the squared distance between the two spheres centers
   double dist_sq = (s1.center - s2c).norm_sq();

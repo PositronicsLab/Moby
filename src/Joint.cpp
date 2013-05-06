@@ -33,9 +33,6 @@ Joint::Joint()
   // initialize restitution coefficient
   limit_restitution = (double) 0.0;
 
-  // indicate that s0 is not valid
-  _s0_valid = false;
-
   // mark the indices as invalid initially
   _coord_idx = _joint_idx = _constraint_idx = std::numeric_limits<unsigned>::max();
 
@@ -58,9 +55,6 @@ Joint::Joint(boost::weak_ptr<RigidBody> inboard, boost::weak_ptr<RigidBody> outb
 
   // initialize restitution coefficient
   limit_restitution = (double) 0.0;
-
-  // indicate that s0 is not valid
-  _s0_valid = false;
 
   // set the inboard and outboard links
   _inboard_link = inboard;
@@ -86,21 +80,22 @@ void Joint::determine_q_tare()
   Point3d position = get_position_global(false);
 
   // get the joint transform
-  shared_ptr<const Pose3d> Tj = get_transform(); 
+  shared_ptr<const Pose3d> Tj = get_pose(); 
 
   // get the inboard and outboard links
   RigidBodyPtr inboard(get_inboard_link());
   RigidBodyPtr outboard(get_outboard_link());
 
   // get the transforms for the two bodies
-  shared_ptr<const Pose3d> Ti = inboard->get_transform();
-  shared_ptr<const Pose3d> To = outboard->get_transform();
+  shared_ptr<const Pose3d> Ti = inboard->get_pose();
+  shared_ptr<const Pose3d> To = outboard->get_pose();
 
   // determine the vector from the inboard link to the joint (link coords)
   Point3d inboard_to_joint = Ti->inverse_transform(position);
 
   // compute the vector from the joint to the outboard link in joint frame
-  Point3d joint_to_outboard_jf = Tj->inverse_transform((Ti->inverse_transform(To->x)) - inboard_to_joint);    
+  Point3d x = (Pose3d::inverse(*Ti) * (*To)).x;
+  Point3d joint_to_outboard_jf = Tj->inverse_transform(x - Point3d(inboard_to_joint));    
 
   // update vector in joint frame
   RigidBody::InnerJointData& ijd = outboard->get_inner_joint_data(inboard);
@@ -130,8 +125,8 @@ void Joint::determine_q_dot()
   // get the change in velocity
   RigidBodyPtr inboard = get_inboard_link();
   RigidBodyPtr outboard = get_outboard_link();
-  Twistd vi = inboard->get_velocity(eGlobal);
-  Twistd vo = outboard->get_velocity(eGlobal);
+  Twistd vi = inboard->velocity();
+  Twistd vo = outboard->velocity();
   s.mult(vo - vi, this->qd);
 }
 */
@@ -146,8 +141,8 @@ void Joint::evaluate_constraints_dot(double C[6])
   RigidBodyPtr out = get_outboard_link();
 
   // get the linear angular velocities
-  const Twistd& inv = in->get_velocity();
-  const Twistd& outv = in->get_velocity();
+  const Twistd& inv = in->velocity();
+  const Twistd& outv = out->velocity();
   const Vector3d& lvi = inv.get_linear();
   const Vector3d& lvo = outv.get_linear();
   const Vector3d& avi = inv.get_angular();
@@ -157,6 +152,7 @@ void Joint::evaluate_constraints_dot(double C[6])
   const unsigned NEQ = num_constraint_eqns();
   for (unsigned i=0; i< NEQ; i++)
   {
+    // TODO: fix this to do frame calculations
     calc_constraint_jacobian(DynamicBody::eAxisAngle, in, i, Cx);
     Vector3d lv(Cx[0], Cx[1], Cx[2]);
     Vector3d av(Cx[3], Cx[4], Cx[5]);
@@ -174,8 +170,6 @@ void Joint::evaluate_constraints_dot(double C[6])
  */
 void Joint::update_spatial_axes()
 {
-  // mark s0 as invalid
-  _s0_valid = false;
 }
 
 /*
@@ -190,7 +184,7 @@ void Joint::calc_s_bar_from_si()
   RigidBodyPtr outboard = get_outboard_link();
   if (!outboard)
     return;
-  const Matrix4& To = outboard->get_transform();
+  const Matrix4& To = outboard->get_pose();
   Point3d x = get_position_global();
   SpatialTransform(To, IDENTITY_3x3, x).transform(_si, sx);
 
@@ -286,7 +280,6 @@ void Joint::init_data()
   ff.set_zero(NDOF);
   lambda.set_zero(NEQ);
   _si.resize(NDOF);
-  _s0.resize(NDOF);
   _s_bar.resize(6-NDOF);
 }
 
@@ -320,25 +313,16 @@ Point3d Joint::get_position_global(bool use_outboard) const
   // compute the global position
   if (!use_outboard)
   {
-    boost::shared_ptr<const Pose3d> T = inboard->get_transform();
+    boost::shared_ptr<const Pose3d> T = inboard->get_pose();
     const RigidBody::OuterJointData& o = inboard->get_outer_joint_data(outboard);
     return T->x + T->transform(o.com_to_joint_vec);
   }
   else
   {
-    boost::shared_ptr<const Pose3d> T = outboard->get_transform();
+    boost::shared_ptr<const Pose3d> T = outboard->get_pose();
     const RigidBody::InnerJointData& i = outboard->get_inner_joint_data(inboard);
     return T->x + T->transform(-i.joint_to_com_vec_of); 
   }
-}
-
-/// Resets the dynamics computation for this joint
-/**
- * \note relevant only to reduced-coordinate articulated bodies
- */
-void Joint::reset_spatial_axis()
-{
-  _s0_valid = false;
 }
 
 /// Gets the scaled and limited actuator forces
@@ -363,26 +347,9 @@ VectorNd& Joint::get_scaled_force(VectorNd& f)
  * Spatial axes describe the motion of the joint. Note that for rftype = eLink,
  * spatial axes are given in outboard link's frame. 
  */
-const vector<Twistd>& Joint::get_spatial_axes(ReferenceFrameType rftype)
+const vector<Twistd>& Joint::get_spatial_axes()
 {
-  if (rftype == eLink)
-    return _si;
-  else
-  {
-    if (!_s0_valid)
-    {
-      // NOTE: joint frame is linked to outboard link frame (see Mirtich
-      //       joint and link numbering scheme 
-/*
-      RigidBodyPtr outboard(_outboard_link);
-      SpatialTransform X0i = outboard->get_spatial_transform_link_to_global();
-      X0i.transform(_si, _s0);
-      _s0_valid = true;
-*/
-    }
-
-    return _s0;
-  }
+  return _si;
 }
 
 /// Gets the complement of the spatial axes for this joint
@@ -397,7 +364,7 @@ const vector<Twistd>& Joint::get_spatial_axes_complement()
 }
 
 /// Gets the visualization transform for this joint
-shared_ptr<const Pose3d> Joint::get_visualization_transform()
+shared_ptr<const Pose3d> Joint::get_visualization_pose()
 {
   // make sure that there is an inboard link
   if (!get_inboard_link())
@@ -406,10 +373,9 @@ shared_ptr<const Pose3d> Joint::get_visualization_transform()
   // get the inboard link
   RigidBodyPtr inboard(get_inboard_link());
 
-  // get the transform for the inboard link
-  _vtransform = inboard->get_transform();
-
-  // set the translation for the joint visualization data to be its global position
+  // set the orientation for the joint to the orientation of the inner link
+  _vtransform = shared_ptr<Pose3d>(new Pose3d);
+  _vtransform->q = inboard->get_pose()->q;
   _vtransform->x = get_position_global();
 
   return _vtransform;
@@ -469,7 +435,7 @@ vector<Twistd>& Joint::get_spatial_constraints(ReferenceFrameType rftype, vector
 */
 
 /// Implements Base::load_from_xml()
-void Joint::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void Joint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   std::map<std::string, BasePtr>::const_iterator id_iter;
 
@@ -615,8 +581,7 @@ void Joint::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& 
   if (pos_attr)
   {
     // get the position of the joint
-    Point3d position;
-    pos_attr->get_point_value(position);
+    Point3d position = pos_attr->get_point_value();
 
     // make sure that both inboard and outboard links have been set
     if (!get_inboard_link() || !get_outboard_link())
@@ -632,8 +597,8 @@ void Joint::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& 
     RigidBodyPtr outboard(get_outboard_link());
 
     // get the transforms for the two bodies
-    shared_ptr<const Pose3d> Ti = inboard->get_transform();
-    shared_ptr<const Pose3d> To = outboard->get_transform();
+    shared_ptr<const Pose3d> Ti = inboard->get_pose();
+    shared_ptr<const Pose3d> To = outboard->get_pose();
 
     // determine the vector from the inboard link to the joint (link coords)
     Point3d inboard_to_joint = Ti->inverse_transform(position);
@@ -656,16 +621,15 @@ void Joint::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& 
   const XMLAttrib* sa_link_attr = node->get_attrib("spatial-axis-link");
   if (sa_link_attr)
   {
-    vector<Twistd> si;
-    sa_link_attr->get_twist_values(si);
-    if (si.columns() != num_dof())
+    vector<Twistd> si = sa_link_attr->get_twist_values();
+    if (si.size() != num_dof())
       throw std::runtime_error("Incorrect spatial matrix size reading XML attribute spatial-axis-link");
     _si = si;
   }
 }
 
 /// Implements Base::save_to_xml()
-void Joint::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
+void Joint::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& shared_objects) const
 {
   // save the parent data 
   Visualizable::save_to_xml(node, shared_objects);

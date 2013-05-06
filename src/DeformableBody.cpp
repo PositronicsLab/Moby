@@ -9,11 +9,9 @@
 #include <Moby/XMLTree.h>
 #include <Moby/Constants.h>
 #include <Moby/Log.h>
-#include <Moby/VectorN.h>
 #include <Moby/TriangleMeshPrimitive.h>
 #include <Moby/DeformableBody.h>
 
-using namespace Moby;
 using boost::shared_ptr;
 using boost::dynamic_pointer_cast;
 using boost::static_pointer_cast;
@@ -24,12 +22,26 @@ using std::endl;
 using std::queue;
 using std::cerr;
 using std::string;
+using Ravelin::VectorNd;
+using Ravelin::Vector3d;
+using Ravelin::Pose3d;
+using Ravelin::Point3d;
+using Ravelin::Matrix3d;
+using Ravelin::MatrixNd;
+using Ravelin::Wrenchd;
+using Ravelin::SpatialRBInertiad;
+using namespace Moby;
 
 DeformableBody::DeformableBody()
 {
+  // setup the calculation pose transform
+  _F = shared_ptr<Pose3d>(new Pose3d);
+  _xd.pose = _F;
+  _J.pose = _F;
+
   // initialize the identity transform
-  _identity_transform = shared_ptr<Pose3d>(new Pose3d);
-  _identity_transform->set_identity();
+  _identity_pose = shared_ptr<Pose3d>(new Pose3d);
+  _identity_pose->set_identity();
 
   // ensure that config updates are enabled
   _config_updates_enabled = true;
@@ -53,27 +65,27 @@ void DeformableBody::enable_config_updates()
 }  
 
 /// Applies a generalized impulse to the deformable body
-void DeformableBody::apply_generalized_impulse(DynamicBody::GeneralizedCoordinateType gctype, const VectorN& gj)
+void DeformableBody::apply_generalized_impulse(DynamicBody::GeneralizedCoordinateType gctype, const VectorNd& gj)
 {
   const unsigned THREE_D = 3;
 
   assert(num_generalized_coordinates(gctype) == gj.size());
   for (unsigned i=0; i< _nodes.size(); i++)
   {
-    Vector3 j(gj[i*THREE_D], gj[i*THREE_D+1], gj[i*THREE_D+2]);
+    Vector3d j(gj[i*THREE_D], gj[i*THREE_D+1], gj[i*THREE_D+2]);
     _nodes[i]->xd += j/_nodes[i]->mass;
   }
 }
 
 /// Adds a generalized force to the deformable body
-void DeformableBody::add_generalized_force(DynamicBody::GeneralizedCoordinateType gctype, const VectorN& gf)
+void DeformableBody::add_generalized_force(DynamicBody::GeneralizedCoordinateType gctype, const VectorNd& gf)
 {
   const unsigned THREE_D = 3;
 
   assert(num_generalized_coordinates(gctype) == gf.size());
   for (unsigned i=0; i< _nodes.size(); i++)
   {
-    Vector3 f(gf[i*THREE_D], gf[i*THREE_D+1], gf[i*THREE_D+2]);
+    Vector3d f(gf[i*THREE_D], gf[i*THREE_D+1], gf[i*THREE_D+2]);
     _nodes[i]->f += f;
   }
 }
@@ -95,55 +107,64 @@ void DeformableBody::calc_com_and_vels()
 
   // init the center of mass and mass
   _x = ZEROS_3;
-  _mass = (double) 0.0;
+  _J.m = (double) 0.0;
 
   // determine the position of the com
   for (unsigned i=0; i< _nodes.size(); i++)
   {
-    _x += _nodes[i]->x * _nodes[i]->mass;
-    _mass += _nodes[i]->mass;
+    _x += Vector3d(_nodes[i]->x) * _nodes[i]->mass;
+    _J.m += _nodes[i]->mass;
   }
-  _x /= _mass;
+  _x /= _J.m;
   FILE_LOG(LOG_DEFORM) << "new center of mass: " << _x << endl;
 
   // compute the linear velocity
-  _xd = calc_point_vel(_x);
+  Vector3d xd = calc_point_vel(_x);
 
-  // now determine the moment of inertia matrix
-  _J = ZEROS_3x3;
+  // set the inertial offset to zero
+  _J.h.set_zero();
+
+  // compute the moment of inertia matrix
+  _J.J = ZEROS_3x3;
   for (unsigned i=0; i< _nodes.size(); i++)
   {
-    Vector3 relpoint = _nodes[i]->x - _x;
+    Vector3d relpoint = _nodes[i]->x - _x;
     double xsq = relpoint[X]*relpoint[X];
     double ysq = relpoint[Y]*relpoint[Y];
     double zsq = relpoint[Z]*relpoint[Z];
-    _J(X,X) += _nodes[i]->mass * (ysq + zsq);
-    _J(Y,Y) += _nodes[i]->mass * (xsq + zsq);
-    _J(Z,Z) += _nodes[i]->mass * (xsq + ysq);
-    _J(X,Y) -= _nodes[i]->mass * relpoint[X] * relpoint[Y];
-    _J(X,Z) -= _nodes[i]->mass * relpoint[X] * relpoint[Z];
-    _J(Y,Z) -= _nodes[i]->mass * relpoint[Y] * relpoint[Z];
+    _J.J(X,X) += _nodes[i]->mass * (ysq + zsq);
+    _J.J(Y,Y) += _nodes[i]->mass * (xsq + zsq);
+    _J.J(Z,Z) += _nodes[i]->mass * (xsq + ysq);
+    _J.J(X,Y) -= _nodes[i]->mass * relpoint[X] * relpoint[Y];
+    _J.J(X,Z) -= _nodes[i]->mass * relpoint[X] * relpoint[Z];
+    _J.J(Y,Z) -= _nodes[i]->mass * relpoint[Y] * relpoint[Z];
   }
 
   // make J symmetric
-  _J(Y,X) = _J(X,Y);
-  _J(Z,X) = _J(X,Z);
-  _J(Z,Y) = _J(Y,Z);
+  _J.J(Y,X) = _J.J(X,Y);
+  _J.J(Z,X) = _J.J(X,Z);
+  _J.J(Z,Y) = _J.J(Y,Z);
 
   // invert J
-  _Jinv = Matrix3::inverse(_J);
+  Matrix3d Jinv = Matrix3d::inverse(_J.J);
 
   // now determine the angular momentum of the body
-  Vector3 P = Vector3::cross(_x, _xd * _mass);
+  Vector3d P = Vector3d::cross(_x, xd * _J.m);
   for (unsigned i=0; i< _nodes.size(); i++)
-    P += Vector3::cross(_nodes[i]->x - _x, _nodes[i]->xd * _nodes[i]->mass);
+    P += Vector3d::cross(_nodes[i]->x - _x, _nodes[i]->xd * _nodes[i]->mass);
 
   // set the angular velocity
-  _omega = _Jinv * P;
+  Vector3d omega = Jinv * P;
+
+  // setup the twist in a frame of convenience 
+  _F->x = _x;
+  _F->q.set_identity();
+  _xd.set_angular(omega);
+  _xd.set_linear(xd);
 }
 
 /// Gets the generalized coordinates of the deformable body
-VectorN& DeformableBody::get_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, VectorN& gc)
+VectorNd& DeformableBody::get_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, VectorNd& gc)
 {
   const unsigned THREE_D = 3, X = 0, Y = 1, Z = 2;
   
@@ -153,7 +174,7 @@ VectorN& DeformableBody::get_generalized_coordinates(DynamicBody::GeneralizedCoo
   // populate the gc vector
   for (unsigned i=0, j=0; i< _nodes.size(); i++)
   {
-    const Vector3& x = _nodes[i]->x;
+    const Vector3d& x = _nodes[i]->x;
     gc[j++] = x[X];
     gc[j++] = x[Y];
     gc[j++] = x[Z];
@@ -163,7 +184,7 @@ VectorN& DeformableBody::get_generalized_coordinates(DynamicBody::GeneralizedCoo
 }
 
 /// Gets the generalized velocity of the deformable body
-VectorN& DeformableBody::get_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, VectorN& gv)
+VectorNd& DeformableBody::get_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, VectorNd& gv)
 {
   const unsigned THREE_D = 3, X = 0, Y = 1, Z = 2;
   
@@ -173,7 +194,7 @@ VectorN& DeformableBody::get_generalized_velocity(DynamicBody::GeneralizedCoordi
   // populate the gc vector
   for (unsigned i=0, j=0; i< _nodes.size(); i++)
   {
-    const Vector3& xd = _nodes[i]->xd;
+    const Vector3d& xd = _nodes[i]->xd;
     gv[j++] = xd[X];
     gv[j++] = xd[Y];
     gv[j++] = xd[Z];
@@ -183,7 +204,7 @@ VectorN& DeformableBody::get_generalized_velocity(DynamicBody::GeneralizedCoordi
 }
 
 /// Gets the generalized velocity of the deformable body
-VectorN& DeformableBody::get_generalized_acceleration(DynamicBody::GeneralizedCoordinateType gctype, VectorN& ga)
+VectorNd& DeformableBody::get_generalized_acceleration(DynamicBody::GeneralizedCoordinateType gctype, VectorNd& ga)
 {
   const unsigned THREE_D = 3, X = 0, Y = 1, Z = 2;
   
@@ -209,7 +230,7 @@ VectorN& DeformableBody::get_generalized_acceleration(DynamicBody::GeneralizedCo
 }
 
 /// Sets the generalized coordinates for the body
-void DeformableBody::set_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, const VectorN& gc)
+void DeformableBody::set_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, const VectorNd& gc)
 {
   const unsigned THREE_D = 3, X = 0, Y = 1, Z = 2;
 
@@ -219,7 +240,7 @@ void DeformableBody::set_generalized_coordinates(DynamicBody::GeneralizedCoordin
   // populate the state
   for (unsigned i=0, j=0; i< _nodes.size(); i++)
   {
-    Vector3& x = _nodes[i]->x;
+    Point3d& x = _nodes[i]->x;
     x[X] = gc[j++];
     x[Y] = gc[j++];
     x[Z] = gc[j++];
@@ -237,7 +258,7 @@ void DeformableBody::set_generalized_coordinates(DynamicBody::GeneralizedCoordin
 }
 
 /// Sets the generalized velocity for the body
-void DeformableBody::set_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, const VectorN& gv)
+void DeformableBody::set_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, const VectorNd& gv)
 {
   const unsigned THREE_D = 3, X = 0, Y = 1, Z = 2;
   
@@ -247,7 +268,7 @@ void DeformableBody::set_generalized_velocity(DynamicBody::GeneralizedCoordinate
   // populate the state
   for (unsigned i=0, j=0; i< _nodes.size(); i++)
   {
-    Vector3& xd = _nodes[i]->xd;
+    Vector3d& xd = _nodes[i]->xd;
     xd[X] = gv[j++];
     xd[Y] = gv[j++];
     xd[Z] = gv[j++];
@@ -259,13 +280,13 @@ void DeformableBody::set_generalized_velocity(DynamicBody::GeneralizedCoordinate
 }
 
 /// Solves using the generalized inertia
-MatrixN& DeformableBody::solve_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, const MatrixN& B, MatrixN& X)
+MatrixNd& DeformableBody::solve_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, const MatrixNd& B, MatrixNd& X)
 {
   const unsigned THREE_D = 3;
   assert(B.rows() == THREE_D * _nodes.size());
 
   // setup X
-  X.copy_from(B);
+  X = B;
 
   // perform the multiplication
   for (unsigned i=0, j=0; i< _nodes.size(); i++)
@@ -281,13 +302,13 @@ MatrixN& DeformableBody::solve_generalized_inertia(DynamicBody::GeneralizedCoord
 }
 
 /// Solves using the generalized inertia
-VectorN& DeformableBody::solve_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, const VectorN& b, VectorN& x)
+VectorNd& DeformableBody::solve_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, const VectorNd& b, VectorNd& x)
 {
   const unsigned THREE_D = 3;
   assert(b.size() == THREE_D * _nodes.size());
 
   // setup x
-  x.copy_from(b);
+  x = b;
 
   // perform the multiplication
   for (unsigned i=0, j=0; i< _nodes.size(); i++)
@@ -304,7 +325,7 @@ VectorN& DeformableBody::solve_generalized_inertia(DynamicBody::GeneralizedCoord
 
 
 /// Gets the generalized inertia for the body
-MatrixN& DeformableBody::get_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, MatrixN& M)
+MatrixNd& DeformableBody::get_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, MatrixNd& M)
 {
   const unsigned THREE_D = 3;
 
@@ -319,7 +340,7 @@ MatrixN& DeformableBody::get_generalized_inertia(DynamicBody::GeneralizedCoordin
 }
 
 /// Gets the generalized forces for the body
-VectorN& DeformableBody::get_generalized_forces(DynamicBody::GeneralizedCoordinateType gctype, VectorN& f)
+VectorNd& DeformableBody::get_generalized_forces(DynamicBody::GeneralizedCoordinateType gctype, VectorNd& f)
 {
   const unsigned THREE_D = 3, X = 0, Y = 1, Z = 2;
   
@@ -329,7 +350,7 @@ VectorN& DeformableBody::get_generalized_forces(DynamicBody::GeneralizedCoordina
   // populate f
   for (unsigned i=0, j=0; i< _nodes.size(); i++)
   {
-    const Vector3& fext = _nodes[i]->f;
+    const Vector3d& fext = _nodes[i]->f;
     f[j++] = fext[X];
     f[j++] = fext[Y];
     f[j++] = fext[Z];
@@ -339,7 +360,14 @@ VectorN& DeformableBody::get_generalized_forces(DynamicBody::GeneralizedCoordina
 }
 
 /// Converts a force and torque to a generalized force on the body
-VectorN& DeformableBody::convert_to_generalized_force(DynamicBody::GeneralizedCoordinateType gctype, SingleBodyPtr body, const Vector3& p, const Vector3& f, const Vector3& t, VectorN& gf)
+// TODO: fix this
+VectorNd& DeformableBody::convert_to_generalized_force(DynamicBody::GeneralizedCoordinateType gctype, SingleBodyPtr body, const Wrenchd& w, VectorNd& gf)
+{
+  return gf;
+}
+
+/*
+VectorNd& DeformableBody::convert_to_generalized_force(DynamicBody::GeneralizedCoordinateType gctype, SingleBodyPtr body, const Vector3d& p, const Vector3d& f, const Vector3d& t, VectorNd& gf)
 {
   const unsigned THREE_D = 3, X = 0, Y = 1, Z = 2;
   gf.set_zero(_nodes.size() * THREE_D);
@@ -372,6 +400,7 @@ VectorN& DeformableBody::convert_to_generalized_force(DynamicBody::GeneralizedCo
 
   return gf;
 }
+*/
 
 /// Resets the force / torque accumulators on the deformable body
 void DeformableBody::reset_accumulators()
@@ -384,12 +413,12 @@ void DeformableBody::reset_accumulators()
 }
 
 /// Transforms the dynamic body
-void DeformableBody::transform(const Matrix4& T)
+void DeformableBody::transform(const Pose3d& T)
 {
   for (unsigned i=0; i< _nodes.size(); i++)
   {
     // transform the node position
-    _nodes[i]->x = T.mult_point(_nodes[i]->x);
+    _nodes[i]->x = T.transform(_nodes[i]->x);
   }
 
   // calculate the position of the center-of-mass
@@ -423,7 +452,7 @@ Tetrahedron DeformableBody::get_tetrahedron(unsigned i) const
 }
 
 /// Finds the closest tetrahedron to a point; if multiple closest are found, returns one arbitrarily
-unsigned DeformableBody::find_closest_tetrahedron(const Vector3& p) const
+unsigned DeformableBody::find_closest_tetrahedron(const Point3d& p) const
 {
   FILE_LOG(LOG_DEFORM) << "DeformableBody::find_closest_tetrahedron() entered" << endl;
 
@@ -487,7 +516,7 @@ std::ostream& DeformableBody::to_vrml(std::ostream& o, double scale) const
   const unsigned X = 0, Y = 1, Z = 2;
 
   // setup random colors for each tetrahedron
-  std::vector<Vector3> colors(_tetrahedra.size());
+  std::vector<Point3d> colors(_tetrahedra.size());
   for (unsigned i=0; i< colors.size(); i++)
   {
     colors[i][0] = (double) rand() / RAND_MAX;
@@ -518,7 +547,7 @@ std::ostream& DeformableBody::to_vrml(std::ostream& o, double scale) const
   // now draw each vertex in the original trimesh
   for (unsigned i=0; i< ita->get_vertices().size(); i++)
   {
-    const Vector3& v = ita->get_vertices()[i];
+    const Point3d& v = ita->get_vertices()[i];
     o << "Transform {" << endl;
     o << "  translation " << v[X] << " " << v[Y] << " " << v[Z] << endl;
     o << "  children Shape {" << endl;
@@ -547,6 +576,8 @@ std::ostream& DeformableBody::to_vrml(std::ostream& o, double scale) const
     o << "    geometry Sphere { radius " << scale << " } } }" << endl;   
   }
 */
+
+  return o;
 }
 
 /// Sets the mesh for the deformable body
@@ -567,8 +598,8 @@ void DeformableBody::set_mesh(shared_ptr<const IndexedTetraArray> tetra_mesh, sh
   _tetrahedra = tetra_mesh->get_tetra();
 
   // get the vertices of the meshes
-  const vector<Vector3>& tet_vertices = tetra_mesh->get_vertices();
-  const vector<Vector3>& tri_vertices = tri_mesh->get_mesh()->get_vertices();
+  const vector<Point3d>& tet_vertices = tetra_mesh->get_vertices();
+  const vector<Point3d>& tri_vertices = tri_mesh->get_mesh()->get_vertices();
 
   // setup the nodes in the body based on the tetrahedra vertices
   _nodes = vector<shared_ptr<Node> >(tet_vertices.size());
@@ -631,7 +662,7 @@ void DeformableBody::set_mesh(shared_ptr<const IndexedTetraArray> tetra_mesh, sh
     _geometry = CollisionGeometryPtr(new CollisionGeometry);
   _geometry->set_single_body(get_this());
   _geometry->set_geometry(_cgeom_primitive);
-  _geometry->set_transform(IDENTITY_4x4, false);
+  _geometry->set_pose(Pose3d::identity());
   update_geometries(); 
 }
 
@@ -639,7 +670,7 @@ void DeformableBody::set_mesh(shared_ptr<const IndexedTetraArray> tetra_mesh, sh
 void DeformableBody::update_geometries()
 {
   // setup the vertices for the triangle mesh
-  vector<Vector3> vertices(_tri_mesh->get_mesh()->get_vertices().size());
+  vector<Point3d> vertices(_tri_mesh->get_mesh()->get_vertices().size());
  
   // get the facets for the triangle mesh
   const vector<IndexedTri> facets = _tri_mesh->get_mesh()->get_facets();
@@ -672,7 +703,7 @@ void DeformableBody::update_geometries()
 }
 
 /// Calculates the velocity of a point on the deformable body
-Vector3 DeformableBody::calc_point_vel(const Vector3& p) const
+Vector3d DeformableBody::calc_point_vel(const Point3d& p) const
 {
   // find the closest tetrahedron
   unsigned closest = find_closest_tetrahedron(p);
@@ -689,25 +720,25 @@ Vector3 DeformableBody::calc_point_vel(const Vector3& p) const
 
   // get the velocities at the vertices
   const IndexedTetra& itet = _tetrahedra[closest];
-  const Vector3& va = _nodes[itet.a]->xd;
-  const Vector3& vb = _nodes[itet.b]->xd;
-  const Vector3& vc = _nodes[itet.c]->xd;
-  const Vector3& vd = _nodes[itet.d]->xd;
+  const Vector3d& va = _nodes[itet.a]->xd;
+  const Vector3d& vb = _nodes[itet.b]->xd;
+  const Vector3d& vc = _nodes[itet.c]->xd;
+  const Vector3d& vd = _nodes[itet.d]->xd;
 
   // determine the velocity at p using the barycentric function
   return vb*u + vc*v + vd*w + va*((double) 1.0 - u - v - w);
 }
 
+/*
 /// Adds a force to the body
-void DeformableBody::add_force(const Vector3& f)
+void DeformableBody::add_force(const Vector3d& f)
 {
-  Vector3 f_per_node = f/_nodes.size();
   for (unsigned i=0; i< _nodes.size(); i++)
-    _nodes[i]->f += f_per_node;
+    _nodes[i]->f += f;
 }
 
 /// Adds a force to the deformable body at a given point
-void DeformableBody::add_force(const Vector3& f, const Vector3& p)
+void DeformableBody::add_force(const Vector3d& f, const Point3d& p)
 {
   // find the closest tetrahedron
   unsigned closest = find_closest_tetrahedron(p);
@@ -729,9 +760,10 @@ void DeformableBody::add_force(const Vector3& f, const Vector3& p)
   _nodes[itet.c]->f += f * v;
   _nodes[itet.c]->f += f * w;
 }
+*/
 
 /// Implements Base::load_from_xml()
-void DeformableBody::load_from_xml(XMLTreeConstPtr node, map<string, BasePtr>& id_map)
+void DeformableBody::load_from_xml(shared_ptr<const XMLTree> node, map<string, BasePtr>& id_map)
 {
   map<std::string, BasePtr>::const_iterator id_iter;
   vector<VertexMap> vertex_map;
@@ -746,14 +778,14 @@ void DeformableBody::load_from_xml(XMLTreeConstPtr node, map<string, BasePtr>& i
   // ***********************************************************************
 
   // read nodes- note that this must be done before loading the meshes
-  list<XMLTreeConstPtr> nodes_nodes = node->find_child_nodes("Node");
+  list<shared_ptr<const XMLTree> > nodes_nodes = node->find_child_nodes("Node");
   if (!nodes_nodes.empty())
   {
     // setup a vector of nodes
     vector<shared_ptr<Node> > new_nodes;
 
     // read in the set of nodes
-    for (list<XMLTreeConstPtr>::const_iterator i = nodes_nodes.begin(); i != nodes_nodes.end(); i++)
+    for (list<shared_ptr<const XMLTree> >::const_iterator i = nodes_nodes.begin(); i != nodes_nodes.end(); i++)
     {
       // create a new Node
       shared_ptr<Node> n(new Node);
@@ -761,7 +793,7 @@ void DeformableBody::load_from_xml(XMLTreeConstPtr node, map<string, BasePtr>& i
       // read the node position
       const XMLAttrib* node_x_attr = (*i)->get_attrib("position");
       if (node_x_attr)
-        node_x_attr->get_vector_value(n->x);
+        n->x = node_x_attr->get_point_value();
 
       // read the node velocity
       const XMLAttrib* node_xd_attr = (*i)->get_attrib("velocity");
@@ -791,7 +823,7 @@ void DeformableBody::load_from_xml(XMLTreeConstPtr node, map<string, BasePtr>& i
   }
 
   // load the geometry (if any)
-  list<XMLTreeConstPtr> cg_nodes = node->find_child_nodes("CollisionGeometry");
+  list<shared_ptr<const XMLTree> > cg_nodes = node->find_child_nodes("CollisionGeometry");
 
   // DeformableBody currently only supports one geometry (this is for
   // practicality, not necessity...)
@@ -866,24 +898,23 @@ void DeformableBody::load_from_xml(XMLTreeConstPtr node, map<string, BasePtr>& i
   }
 
   // load the vertex map, if given
-  list<XMLTreeConstPtr> vmap_nodes = node->find_child_nodes("VertexMap");
+  list<shared_ptr<const XMLTree> > vmap_nodes = node->find_child_nodes("VertexMap");
   if (!vmap_nodes.empty())
   {
     assert(vmap_nodes.size() == 1);
-    list<XMLTreeConstPtr> map_nodes = vmap_nodes.front()->find_child_nodes("Mapping");
-    BOOST_FOREACH(XMLTreeConstPtr mapping_node, map_nodes)
+    list<shared_ptr<const XMLTree> > map_nodes = vmap_nodes.front()->find_child_nodes("Mapping");
+    BOOST_FOREACH(shared_ptr<const XMLTree> mapping_node, map_nodes)
     {
       const XMLAttrib* tetra_id_attr = node->get_attrib("tetra");
       const XMLAttrib* uvw_id_attr = node->get_attrib("uvw");
       if (tetra_id_attr && uvw_id_attr)
       {
         VertexMap vmap;
-        Vector3 uvw;
+        Point3d uvw = uvw_id_attr->get_point_value();
         vmap.tetra = tetra_id_attr->get_unsigned_value();
-        uvw_id_attr->get_vector_value(uvw);
-        vmap,uvw[0] = uvw[0];
-        vmap,uvw[1] = uvw[1];
-        vmap,uvw[2] = uvw[2];
+        vmap.uvw[0] = uvw[0];
+        vmap.uvw[1] = uvw[1];
+        vmap.uvw[2] = uvw[2];
         vertex_map.push_back(vmap);
       }
     }
@@ -983,24 +1014,41 @@ void DeformableBody::load_from_xml(XMLTreeConstPtr node, map<string, BasePtr>& i
   }
 
   // read a transform to be applied to the body, if provided
-  const XMLAttrib* T_attr = node->get_attrib("transform");
-  if (T_attr)
+  Pose3d T;
+  const XMLAttrib* xlat_attr = node->get_attrib("translation");
+  const XMLAttrib* rpy_attr = node->get_attrib("rpy");
+  const XMLAttrib* quat_attr = node->get_attrib("quat");
+  if (xlat_attr && rpy_attr)
   {
-    Matrix4 T;
-    T_attr->get_matrix_value(T);
-    if (!Matrix4::valid_transform(T))
-    {
-      cerr << "DeformableBody::load_from_xml() warning: invalid transform ";
-      cerr << endl << T << " when reading node " << endl;
-      cerr << *node << endl;
-      cerr << "  --> possibly a floating-point error..." << endl;
-    }
+    T.x = xlat_attr->get_origin_value();
+    T.q = rpy_attr->get_rpy_value();
+    transform(T);
+  }
+  else if (xlat_attr && quat_attr)
+  {
+    T.x = xlat_attr->get_origin_value();
+    T.q = quat_attr->get_quat_value();
+    transform(T);
+  }
+  else if (xlat_attr)
+  {
+    T.x = xlat_attr->get_origin_value();
+    transform(T);
+  }
+  else if (rpy_attr)
+  {
+    T.q = rpy_attr->get_rpy_value();
+    transform(T);
+  }
+  else if (quat_attr)
+  {
+    T.q = quat_attr->get_quat_value();
     transform(T);
   }
 }
 
 /// Implements Base::save_to_xml()
-void DeformableBody::save_to_xml(XMLTreePtr node, list<BaseConstPtr>& shared_objects) const
+void DeformableBody::save_to_xml(XMLTreePtr node, list<shared_ptr<const Base> >& shared_objects) const
 {
   // save parent data
   SingleBody::save_to_xml(node, shared_objects);
@@ -1034,7 +1082,7 @@ void DeformableBody::save_to_xml(XMLTreePtr node, list<BaseConstPtr>& shared_obj
   {
     XMLTreePtr mapping_node(new XMLTree("Mapping"));
     mapping_node->attribs.insert(XMLAttrib("tetra", _vertex_map[i].tetra));
-    Vector3 uvw(_vertex_map[i].uvw[0], _vertex_map[i].uvw[1], _vertex_map[i].uvw[2]);
+    Point3d uvw(_vertex_map[i].uvw[0], _vertex_map[i].uvw[1], _vertex_map[i].uvw[2]);
     mapping_node->attribs.insert(XMLAttrib("uvw", uvw));
     vertex_map_node->add_child(mapping_node);
   }
@@ -1064,7 +1112,7 @@ AABBPtr DeformableBody::build_AABB_tree(map<BVPtr, list<unsigned> >& aabb_tetra_
   const double EXP = 0.1;          // box expansion constant
   AABBPtr child1, child2;
   list<unsigned> ptetra, ntetra;
-  Vector3 eps(EXP, EXP, EXP);
+  Vector3d eps(EXP, EXP, EXP);
 
   FILE_LOG(LOG_BV) << "DeformableBody::build_AABB_tree() entered" << endl;
 
@@ -1241,7 +1289,7 @@ AABBPtr DeformableBody::build_AABB_tree(map<BVPtr, list<unsigned> >& aabb_tetra_
 }
 
 /// Splits a collection of tetrahedra along a splitting plane into 2 new meshes 
-void DeformableBody::split_tetra(const Vector3& point, unsigned axis, const list<unsigned>& otetra, list<unsigned>& ptetra, list<unsigned>& ntetra) 
+void DeformableBody::split_tetra(const Point3d& point, unsigned axis, const list<unsigned>& otetra, list<unsigned>& ptetra, list<unsigned>& ntetra) 
 {
   // determine the splitting plane: ax + by + cz = d
   double offset = point[axis];
@@ -1250,11 +1298,11 @@ void DeformableBody::split_tetra(const Vector3& point, unsigned axis, const list
   Plane plane;
   plane.offset = offset;
   if (axis == 0)
-    plane.set_normal(Vector3(1,0,0));
+    plane.set_normal(Vector3d(1,0,0));
   else if (axis == 1)
-    plane.set_normal(Vector3(0,1,0));
+    plane.set_normal(Vector3d(0,1,0));
   else
-    plane.set_normal(Vector3(0,0,1));
+    plane.set_normal(Vector3d(0,0,1));
 
   // determine the side of the splitting plane of the triangles
   BOOST_FOREACH(unsigned i, otetra)
@@ -1276,7 +1324,7 @@ void DeformableBody::split_tetra(const Vector3& point, unsigned axis, const list
     {
       // tetrahedron is split down the middle; get its centroid
       Tetrahedron tet(_nodes[_tetrahedra[i].a]->x, _nodes[_tetrahedra[i].b]->x, _nodes[_tetrahedra[i].c]->x, _nodes[_tetrahedra[i].d]->x);
-      Vector3 tet_centroid = tet.calc_centroid();
+      Point3d tet_centroid = tet.calc_centroid();
       double scent = plane.calc_signed_distance(tet_centroid);
       if (scent > 0)
         ptetra.push_back(i);
@@ -1301,13 +1349,13 @@ bool DeformableBody::split(AABBPtr source, AABBPtr& tgt1, AABBPtr& tgt2, unsigne
   assert(tetra.size() > 1); 
 
   // determine the centroid of this set of tetrahedra
-  Vector3 centroid = ZEROS_3;
+  Point3d centroid = ZEROS_3;
   double total_volume = 0;
   BOOST_FOREACH(unsigned idx, tetra)
   {
     Tetrahedron tet = get_tetrahedron(idx);
     double volume = tet.calc_volume();
-    centroid += tet.calc_centroid()*volume;
+    centroid += Vector3d(tet.calc_centroid())*volume;
     total_volume += volume;
   }
   centroid /= total_volume;
@@ -1318,7 +1366,7 @@ bool DeformableBody::split(AABBPtr source, AABBPtr& tgt1, AABBPtr& tgt2, unsigne
     return false;
 
   // get vertices from both meshes
-  vector<Vector3> pverts, nverts;
+  vector<Point3d> pverts, nverts;
   get_vertices(ptetra.begin(), ptetra.end(), std::back_inserter(pverts));
   get_vertices(ntetra.begin(), ntetra.end(), std::back_inserter(nverts));
 

@@ -9,6 +9,7 @@
 
 using namespace Ravelin;
 using namespace Moby;
+using std::pair;
 using std::endl;
 
 /// Determines whether an OBB and a line/ray/line segment intersect
@@ -121,7 +122,7 @@ bool AABB::intersects(const AABB& a, const AABB& b)
 }
 
 /// Determines whether two AABBs overlap
-bool AABB::intersects(const AABB& a, const AABB& b, const Pose3d& aTb)
+bool AABB::intersects(const AABB& a, const AABB& b, const pair<Quatd, Origin3d>& aTb)
 {
   // make OBBs out of a and b
   OBB oa = a.get_OBB();

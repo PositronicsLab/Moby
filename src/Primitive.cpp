@@ -168,7 +168,7 @@ void Primitive::set_density(double density)
 }
 
 /// Implements Base::load_from_xml() for serialization
-void Primitive::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void Primitive::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // ******************************************************************
   // do *not* verify the node name, b/c Primitive is abstract 
@@ -202,20 +202,36 @@ void Primitive::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePt
     set_intersection_tolerance(itol_attr->get_real_value());
 
   // read in transformation, if specified
+  Pose3d T;
   const XMLAttrib* xlat_attr = node->get_attrib("translation");
-  const XMLAttrib* transform_attr = node->get_attrib("transform");
-  if (xlat_attr && transform_attr)
-   std::cerr << "Primitive::load_from_xml() warning- 'translation' and 'transform' attributes both specified; using neither" << std::endl;
+  const XMLAttrib* rpy_attr = node->get_attrib("rpy");
+  const XMLAttrib* quat_attr = node->get_attrib("quat");
+  if (xlat_attr && rpy_attr)
+  {
+    T.x = xlat_attr->get_origin_value();
+    T.q = rpy_attr->get_rpy_value();
+    set_pose(T);
+  }
+  else if (xlat_attr && quat_attr)
+  {
+    T.x = xlat_attr->get_origin_value();
+    T.q = quat_attr->get_quat_value();
+    set_pose(T);
+  }
   else if (xlat_attr)
   {
-    Pose3d T;
     T.x = xlat_attr->get_origin_value();
-    set_transform(T);
+    set_pose(T);
   }
-  else if (transform_attr)
+  else if (rpy_attr)
   {
-    Pose3d T = transform_attr->get_pose3_value();
-    set_transform(T);
+    T.q = rpy_attr->get_rpy_value();
+    set_pose(T);
+  }
+  else if (quat_attr)
+  {
+    T.q = quat_attr->get_quat_value();
+    set_pose(T);
   }
 
   // calculate mass properties
@@ -223,7 +239,7 @@ void Primitive::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePt
 }
 
 /// Implements Base::save_to_xml() for serialization
-void Primitive::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
+void Primitive::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& shared_objects) const
 {
   // save the parent data
   Base::save_to_xml(node, shared_objects);
@@ -238,7 +254,8 @@ void Primitive::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_obj
     node->attribs.insert(XMLAttrib("mass", _mass));
 
   // save the transform for the primitive
-  node->attribs.insert(XMLAttrib("transform", _T));
+  node->attribs.insert(XMLAttrib("translation", _T.x));
+  node->attribs.insert(XMLAttrib("quat", _T.q));
 
   // add the intersection tolerance as an attribute
   node->attribs.insert(XMLAttrib("intersection-tolerance", _intersection_tolerance));
@@ -307,7 +324,7 @@ void Primitive::transform_inertia(double mass, const Matrix3d& J_in, const Point
 }
 
 /// Sets the transform for this primitive -- transforms mesh and inertial properties (if calculated)
-void Primitive::set_transform(const Pose3d& T)
+void Primitive::set_pose(const Pose3d& T)
 {
   // save the new transform
   _T = T;

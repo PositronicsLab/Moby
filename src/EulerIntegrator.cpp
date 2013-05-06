@@ -4,12 +4,15 @@
  * License (found in COPYING).
  ****************************************************************************/
 
+#include <strings.h>
 #include <Moby/EulerIntegrator.h>
 
+using boost::shared_ptr;
+using Ravelin::VectorNd;
 using namespace Moby;
 
 /// Method for 1st-order Euler integration
-void EulerIntegrator::integrate(Ravelin::VectorNd& x, Ravelin::VectorNd& (*f)(const Ravelin::VectorNd&, double, double, void*, Ravelin::VectorNd&), double& time, double step_size, void* data)
+void EulerIntegrator::integrate(VectorNd& x, VectorNd& (*f)(const VectorNd&, double, double, void*, VectorNd&), double& time, double step_size, void* data)
 {
   // save the old time
   const double old_time = time;
@@ -22,7 +25,7 @@ void EulerIntegrator::integrate(Ravelin::VectorNd& x, Ravelin::VectorNd& (*f)(co
 }
 
 /// Implements Base::load_from_xml()
-void EulerIntegrator::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map) 
+void EulerIntegrator::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map) 
 { 
   assert(strcasecmp(node->name.c_str(), "EulerIntegrator") == 0);
   Integrator::load_from_xml(node, id_map); 
@@ -34,7 +37,7 @@ void EulerIntegrator::load_from_xml(XMLTreeConstPtr node, std::map<std::string, 
 }
 
 /// Implements Base::save_to_xml()
-void EulerIntegrator::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
+void EulerIntegrator::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& shared_objects) const
 { 
   Integrator::save_to_xml(node, shared_objects); 
   node->name = "EulerIntegrator";

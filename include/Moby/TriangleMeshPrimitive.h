@@ -31,8 +31,8 @@ class TriangleMeshPrimitive : public Primitive
     /// Gets the length of an edge in the mesh above which point sub-samples are created
     double get_edge_sample_length() const { return _edge_sample_length; }
 
-    virtual void load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map);  
-    virtual void save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const;
+    virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);  
+    virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual boost::shared_ptr<void> save_state() const;
     virtual void load_state(boost::shared_ptr<void> state);
     virtual BVPtr get_BVH_root();
@@ -45,7 +45,7 @@ class TriangleMeshPrimitive : public Primitive
     virtual void set_deformable(bool flag);
     virtual void set_intersection_tolerance(double tol);
     void set_mesh(boost::shared_ptr<const IndexedTriArray> mesh);
-    virtual void set_transform(const Ravelin::Pose3d& T);
+    virtual void set_pose(const Ravelin::Pose3d& T);
 
   private:
     void center();

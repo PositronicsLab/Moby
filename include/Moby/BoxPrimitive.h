@@ -22,14 +22,14 @@ class BoxPrimitive : public Primitive
     BoxPrimitive(double xlen, double ylen, double zlen, const Ravelin::Pose3d& T);
     BoxPrimitive(const Ravelin::Pose3d& T);
     void set_size(double xlen, double ylen, double zlen);
-    virtual void load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map);
-    virtual void save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const;
+    virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
+    virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual BVPtr get_BVH_root();
     virtual bool point_inside(BVPtr bv, const Ravelin::Point3d& p, Ravelin::Vector3d& normal) const;
     virtual bool intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Ravelin::Point3d& isect, Ravelin::Vector3d& normal) const;
     virtual const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >& get_sub_mesh(BVPtr bv);
     virtual void set_intersection_tolerance(double tol);
-    virtual void set_transform(const Ravelin::Pose3d& T);
+    virtual void set_pose(const Ravelin::Pose3d& T);
     void set_edge_sample_length(double len);
     virtual boost::shared_ptr<const IndexedTriArray> get_mesh();
     virtual void get_vertices(BVPtr, std::vector<const Ravelin::Point3d*>& vertices);

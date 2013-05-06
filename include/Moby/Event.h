@@ -43,6 +43,8 @@ class Event
     bool is_separating() const { return determine_event_class() == eSeparating; }
     void set_contact_parameters(const ContactParameters& cparams);
     void determine_contact_tangents();
+    void update_event_data(Ravelin::MatrixNd& M, Ravelin::VectorNd& q) const;
+    void update_cross_event_data(const Event& e, Ravelin::MatrixNd& M) const;
     static void determine_minimal_set(std::list<Event*>& group);
 
     template <class OutputIterator>

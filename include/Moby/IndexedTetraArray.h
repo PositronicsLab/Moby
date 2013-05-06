@@ -41,8 +41,8 @@ class IndexedTetraArray : public Base
     void write_to_obj(const std::string& filename) const { write_to_obj(*this, filename); }
     IndexedTetraArray& operator=(const IndexedTetraArray& mesh);
     Tetrahedron get_tetrahedron(unsigned i) const;
-    virtual void load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map);  
-    virtual void save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const;
+    virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);  
+    virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
 
     /// Gets the pointer to the vector of tetrahedra 
     boost::shared_ptr<const std::vector<IndexedTetra> > get_tetra_pointer() const { return _tetra; }

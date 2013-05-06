@@ -25,9 +25,9 @@ class CylinderPrimitive : public Primitive
     void set_height(double height);
     void set_num_circle_points(unsigned n);
     void set_num_rings(unsigned n);
-    virtual void set_transform(const Ravelin::Pose3d& T);
-    virtual void load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map);
-    virtual void save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const;
+    virtual void set_pose(const Ravelin::Pose3d& T);
+    virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
+    virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual BVPtr get_BVH_root();
     virtual void get_vertices(BVPtr bv, std::vector<const Ravelin::Point3d*>& vertices); 
     virtual bool point_inside(BVPtr bv, const Ravelin::Point3d& p, Ravelin::Vector3d& normal) const;

@@ -38,7 +38,7 @@ double ArticulatedBody::get_aspeed() const
   double max_aspeed = (double) 0.0;
   for (unsigned i=0; i< _links.size(); i++)
   {
-    double aspeed = _links[i]->get_velocity().get_angular().norm();
+    double aspeed = _links[i]->velocity().get_angular().norm();
     if (aspeed > max_aspeed)
       max_aspeed = aspeed;
   }
@@ -1236,7 +1236,7 @@ void ArticulatedBody::update_visualization()
 }
 
 /// Loads a MCArticulatedBody object from an XML node
-void ArticulatedBody::load_from_xml(XMLTreeConstPtr node, std::map<string, BasePtr>& id_map)
+void ArticulatedBody::load_from_xml(shared_ptr<const XMLTree> node, std::map<string, BasePtr>& id_map)
 {
   map<string, BasePtr>::const_iterator id_iter;
 
@@ -1285,10 +1285,10 @@ void ArticulatedBody::load_from_xml(XMLTreeConstPtr node, std::map<string, BaseP
   joint_node_names.push_back("JointPlugin");
 
   // read the set of joint nodes and concatenate them into a single list
-  list<XMLTreeConstPtr> joint_nodes = node->find_child_nodes(joint_node_names);
+  list<shared_ptr<const XMLTree> > joint_nodes = node->find_child_nodes(joint_node_names);
   
   // read the set of link nodes
-  list<XMLTreeConstPtr> link_nodes = node->find_child_nodes("RigidBody");
+  list<shared_ptr<const XMLTree> > link_nodes = node->find_child_nodes("RigidBody");
 
   // if there were links read or joints read, add them 
   if (!joint_nodes.empty() || !link_nodes.empty())
@@ -1298,7 +1298,7 @@ void ArticulatedBody::load_from_xml(XMLTreeConstPtr node, std::map<string, BaseP
     list<RigidBodyPtr> links;
 
     // process all link nodes
-    for (list<XMLTreeConstPtr>::const_iterator i = link_nodes.begin(); i != link_nodes.end(); i++)
+    for (list<shared_ptr<const XMLTree> >::const_iterator i = link_nodes.begin(); i != link_nodes.end(); i++)
     {
       // get the id from the node
       const XMLAttrib* id = (*i)->get_attrib("id");
@@ -1318,7 +1318,7 @@ void ArticulatedBody::load_from_xml(XMLTreeConstPtr node, std::map<string, BaseP
     }
 
     // process all joint nodes in the same manner
-    for (list<XMLTreeConstPtr>::const_iterator i = joint_nodes.begin(); i != joint_nodes.end(); i++)
+    for (list<shared_ptr<const XMLTree> >::const_iterator i = joint_nodes.begin(); i != joint_nodes.end(); i++)
     {
       // get the id from the node
       const XMLAttrib* id = (*i)->get_attrib("id");
@@ -1344,7 +1344,7 @@ void ArticulatedBody::load_from_xml(XMLTreeConstPtr node, std::map<string, BaseP
 }
 
 /// Saves this object to a XML tree
-void ArticulatedBody::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
+void ArticulatedBody::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& shared_objects) const
 {
   // call parent method
   DynamicBody::save_to_xml(node, shared_objects);

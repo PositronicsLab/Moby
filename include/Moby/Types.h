@@ -35,7 +35,6 @@ class Primitive;
 class Base;
 class RecurrentForce;
 class DynamicBody;
-class Octree;
 class XMLTree;
 class OSGGroupWrapper;
 class AABB;
@@ -49,7 +48,7 @@ typedef std::pair<Ravelin::Point3d, Ravelin::Point3d> LineSeg3;
 typedef std::pair<Ravelin::Point2d, Ravelin::Point2d> LineSeg2;
 
 /// reference frame type for reduced-coordinate dynamics computations
-enum ReferenceFrameType { eGlobal, eLink };
+enum ReferenceFrameType { eGlobal, eLink, eJoint };
 
 /// Polyhedron smart pointer
 typedef boost::shared_ptr<Polyhedron> PolyhedronPtr;
@@ -66,29 +65,14 @@ typedef boost::shared_ptr<DeformableBody> DeformableBodyPtr;
 /// Rigid body smart pointer
 typedef boost::shared_ptr<RigidBody> RigidBodyPtr;
 
-/// Rigid body constant smart pointer
-typedef boost::shared_ptr<const RigidBody> RigidBodyConstPtr;
-
 /// Articulated body smart pointer
 typedef boost::shared_ptr<ArticulatedBody> ArticulatedBodyPtr;
-
-/// Articulated body constant smart pointer
-typedef boost::shared_ptr<const ArticulatedBody> ArticulatedBodyConstPtr;
 
 /// Reduced-coordinate articulated body smart pointer
 typedef boost::shared_ptr<RCArticulatedBody> RCArticulatedBodyPtr;
 
-/// Reduced-coordinate articulated body const smart pointer
-typedef boost::shared_ptr<const RCArticulatedBody> RCArticulatedBodyConstPtr;
-
 /// Maximal-coordinate articulated body smart pointer
 typedef boost::shared_ptr<MCArticulatedBody> MCArticulatedBodyPtr;
-
-/// Maximal-coordinate articulated body const smart pointer
-typedef boost::shared_ptr<const MCArticulatedBody> MCArticulatedBodyConstPtr;
-
-/// Reduced-coordinate articulated body constant joint smart pointer
-typedef boost::shared_ptr<const Joint> JointConstPtr;
 
 /// Reduced-coordinate articulated body joint smart pointer
 typedef boost::shared_ptr<Joint> JointPtr;
@@ -96,32 +80,17 @@ typedef boost::shared_ptr<Joint> JointPtr;
 /// Collision geometry smart pointer
 typedef boost::shared_ptr<CollisionGeometry> CollisionGeometryPtr;
 
-/// Collision geometry constant smart pointer
-typedef boost::shared_ptr<const CollisionGeometry> CollisionGeometryConstPtr;
-
 /// Primitive smart pointer
 typedef boost::shared_ptr<Primitive> PrimitivePtr;
-
-/// constant Primitive smart pointer
-typedef boost::shared_ptr<const Primitive> PrimitiveConstPtr;
 
 /// Base smart pointer
 typedef boost::shared_ptr<Base> BasePtr;
 
-/// Constant Base smart pointer
-typedef boost::shared_ptr<const Base> BaseConstPtr;
-
 /// Recurrent force smart pointer
 typedef boost::shared_ptr<RecurrentForce> RecurrentForcePtr;
 
-/// Recurrent force constant smart pointer
-typedef boost::shared_ptr<const RecurrentForce> RecurrentForceConstPtr;
-
 /// Dynamic body smart pointer
 typedef boost::shared_ptr<DynamicBody> DynamicBodyPtr;
-
-/// Octree smart pointer
-typedef boost::shared_ptr<Octree> OctreePtr;
 
 /// Bounding volume (BV) smart pointer
 typedef boost::shared_ptr<BV> BVPtr;
@@ -135,14 +104,8 @@ typedef boost::shared_ptr<OBB> OBBPtr;
 /// OSGGroupWrapper smart pointer
 typedef boost::shared_ptr<OSGGroupWrapper> OSGGroupWrapperPtr;
 
-/// OSGGroupWrapper constant smart pointer
-typedef boost::shared_ptr<const OSGGroupWrapper> OSGGroupWrapperConstPtr;
-
 /// XML tree smart pointer
 typedef boost::shared_ptr<XMLTree> XMLTreePtr;
-
-/// constant XML tree smart pointer
-typedef boost::shared_ptr<const XMLTree> XMLTreeConstPtr;
 
 } // end namespace
 

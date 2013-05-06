@@ -9,6 +9,7 @@
 #include <Moby/XMLTree.h>
 #include <Moby/ContactParameters.h>
 
+using boost::shared_ptr;
 using namespace Moby;
 
 /// Constructs a ContactParameters object with no object pointers
@@ -39,7 +40,7 @@ ContactParameters::ContactParameters(BasePtr o1, BasePtr o2)
  * This method does not read the Base information (i.e., name()), because
  * a name for this object is unnecessary.
  */
-void ContactParameters::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void ContactParameters::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   std::map<std::string, BasePtr>::const_iterator id_iter;
 
@@ -118,7 +119,7 @@ void ContactParameters::load_from_xml(XMLTreeConstPtr node, std::map<std::string
  * This method does not write the Base information, because neither a name
  * nor a unique ID are useful.
  */
-void ContactParameters::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
+void ContactParameters::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& shared_objects) const
 {
   // set the node name
   node->name = "ContactParameters";

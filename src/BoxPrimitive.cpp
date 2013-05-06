@@ -119,13 +119,13 @@ void BoxPrimitive::set_edge_sample_length(double len)
 }
 
 /// Transforms the primitive
-void BoxPrimitive::set_transform(const Pose3d& T)
+void BoxPrimitive::set_pose(const Pose3d& T)
 {
   // determine the transformation from the old to the new transform 
   Pose3d Trel = T * Pose3d::inverse(_T);
 
   // go ahead and set the new transform
-  Primitive::set_transform(T);
+  Primitive::set_pose(T);
 
   // transform mesh
   if (_mesh)
@@ -158,7 +158,7 @@ void BoxPrimitive::get_vertices(BVPtr bv, vector<const Point3d*>& vertices)
     }
 
     // get the transform for the primitive
-    const Pose3d& T = get_transform();
+    const Pose3d& T = get_pose();
 
     // determine the vertices in the mesh
     _vertices = shared_ptr<vector<Point3d> >(new vector<Point3d>());
@@ -291,7 +291,7 @@ osg::Node* BoxPrimitive::create_visualization()
 }
 
 /// Implements Base::load_from_xml() for serialization
-void BoxPrimitive::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void BoxPrimitive::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // verify that the node type is BoxPrimitive
   assert(strcasecmp(node->name.c_str(), "Box") == 0);
@@ -325,7 +325,7 @@ void BoxPrimitive::load_from_xml(XMLTreeConstPtr node, std::map<std::string, Bas
 }
 
 /// Implements Base::save_to_xml() for serialization
-void BoxPrimitive::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
+void BoxPrimitive::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& shared_objects) const
 {
   // save the parent data
   Primitive::save_to_xml(node, shared_objects);
@@ -346,7 +346,7 @@ void BoxPrimitive::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_
 void BoxPrimitive::calc_mass_properties()
 {
   // get the current transform
-  const Pose3d& T = get_transform();
+  const Pose3d& T = get_pose();
 
   // compute the mass if necessary 
   if (_density)
@@ -382,7 +382,7 @@ BVPtr BoxPrimitive::get_BVH_root()
     _obb = shared_ptr<OBB>(new OBB);
 
   // get the transform
-  const Pose3d& T = get_transform();
+  const Pose3d& T = get_pose();
 
   // setup the center of the OBB 
   _obb->center = T.x;
@@ -404,7 +404,7 @@ bool BoxPrimitive::point_inside(BVPtr bv, const Point3d& point, Vector3d& normal
   const unsigned X = 0, Y = 1, Z = 2;
 
   // form a Pose3d from the transform
-  const Pose3d& T = get_transform();
+  const Pose3d& T = get_pose();
 
   // setup lengths
   Vector3d l;
@@ -475,7 +475,7 @@ bool BoxPrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point
   double tmax = (double) 2.0;
 
   // form a Pose3d from the transform
-  const Pose3d& T = get_transform();
+  const Pose3d& T = get_pose();
 
   // setup lengths
   Vector3d l;

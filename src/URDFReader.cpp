@@ -104,7 +104,7 @@ bool URDFReader::read(const string& fname, std::string& name, vector<RigidBodyPt
   }
 
   // read the XML Tree 
-  XMLTreeConstPtr tree = XMLTree::read_from_xml(filename);
+  shared_ptr<const XMLTree> tree = XMLTree::read_from_xml(filename);
   if (!tree)
   {
     std::cerr << "URDFReader::read() - unable to open file " << fname;
@@ -141,7 +141,7 @@ bool URDFReader::read(const string& fname, std::string& name, vector<RigidBodyPt
 }
 
 /// Reads and constructs a robot object
-bool URDFReader::read_robot(XMLTreeConstPtr node, URDFData& data, string& name, vector<RigidBodyPtr>& links, vector<JointPtr>& joints)
+bool URDFReader::read_robot(shared_ptr<const XMLTree> node, URDFData& data, string& name, vector<RigidBodyPtr>& links, vector<JointPtr>& joints)
 {
   // read the robot name
   const XMLAttrib* name_attrib = node->get_attrib("name");
@@ -163,7 +163,7 @@ bool URDFReader::read_robot(XMLTreeConstPtr node, URDFData& data, string& name, 
 }
 
 /// Reads robot links
-void URDFReader::read_links(XMLTreeConstPtr node, URDFData& data, vector<RigidBodyPtr>& links)
+void URDFReader::read_links(shared_ptr<const XMLTree> node, URDFData& data, vector<RigidBodyPtr>& links)
 {
   const list<XMLTreePtr>& child_nodes = node->children;
   for (list<XMLTreePtr>::const_iterator i = child_nodes.begin(); i != child_nodes.end(); i++)
@@ -171,7 +171,7 @@ void URDFReader::read_links(XMLTreeConstPtr node, URDFData& data, vector<RigidBo
 }
 
 /// Reads robot joints 
-void URDFReader::read_joints(XMLTreeConstPtr node, URDFData& data, const vector<RigidBodyPtr>& links, vector<JointPtr>& joints)
+void URDFReader::read_joints(shared_ptr<const XMLTree> node, URDFData& data, const vector<RigidBodyPtr>& links, vector<JointPtr>& joints)
 {
   const list<XMLTreePtr>& child_nodes = node->children;
   for (list<XMLTreePtr>::const_iterator i = child_nodes.begin(); i != child_nodes.end(); i++)
@@ -179,7 +179,7 @@ void URDFReader::read_joints(XMLTreeConstPtr node, URDFData& data, const vector<
 }
 
 /// Attempts to read a robot link from the given node
-void URDFReader::read_link(XMLTreeConstPtr node, URDFData& data, vector<RigidBodyPtr>& links)
+void URDFReader::read_link(shared_ptr<const XMLTree> node, URDFData& data, vector<RigidBodyPtr>& links)
 {
   // see whether the node name is correct
   if (strcasecmp(node->name.c_str(), "Link") != 0)
@@ -227,6 +227,27 @@ JointPtr URDFReader::find_joint(const URDFData& data, RigidBodyPtr outboard)
 }
 
 #ifdef USE_OSG
+/// Copies this matrix to an OpenSceneGraph Matrixd object
+static void to_osg_matrix(const Opsd::Pose3d& src, osg::Matrixd& tgt)
+{
+  // get the rotation matrix
+  Matrix3d M = src.q;
+
+  // setup the rotation components of tgt
+  const unsigned X = 0, Y = 1, Z = 2, W = 3;
+  for (unsigned i=X; i<= Z; i++)
+    for (unsigned j=X; j<= Z; j++)
+      tgt(j,i) = M(i,j);
+
+  // setup the translation components of tgt
+  for (unsigned i=X; i<= Z; i++)
+    tgt(W,i) = src.x[i];
+
+  // set constant values of the matrix
+  tgt(X,W) = tgt(Y,W) = tgt(Z,W) = (double) 0.0;
+  tgt(W,W) = (double) 1.0;
+}
+
 /// Copies an OpenSceneGraph Matrixd object to this matrix 
 static void from_osg_matrix(const osg::Matrixd& src, Pose3d& tgt)
 {
@@ -650,7 +671,7 @@ bool URDFReader::transform_frames(URDFData& data, const vector<RigidBodyPtr>& li
 }
 
 /// Attempts to read a robot joint from the given node
-void URDFReader::read_joint(XMLTreeConstPtr node, URDFData& data, const vector<RigidBodyPtr>& links, vector<JointPtr>& joints)
+void URDFReader::read_joint(shared_ptr<const XMLTree> node, URDFData& data, const vector<RigidBodyPtr>& links, vector<JointPtr>& joints)
 {
   JointPtr joint;
   RigidBodyPtr inboard, outboard;
@@ -745,7 +766,7 @@ void URDFReader::read_joint(XMLTreeConstPtr node, URDFData& data, const vector<R
 }
 
 /// Attempts to read the parent for the joint
-RigidBodyPtr URDFReader::read_parent(XMLTreeConstPtr node, URDFData& data, const vector<RigidBodyPtr>& links)
+RigidBodyPtr URDFReader::read_parent(shared_ptr<const XMLTree> node, URDFData& data, const vector<RigidBodyPtr>& links)
 {
   // look for the tag
   const list<XMLTreePtr>& child_nodes = node->children;
@@ -770,7 +791,7 @@ RigidBodyPtr URDFReader::read_parent(XMLTreeConstPtr node, URDFData& data, const
 }
 
 /// Attempts to read the child for the joint
-RigidBodyPtr URDFReader::read_child(XMLTreeConstPtr node, URDFData& data, const vector<RigidBodyPtr>& links)
+RigidBodyPtr URDFReader::read_child(shared_ptr<const XMLTree> node, URDFData& data, const vector<RigidBodyPtr>& links)
 {
   // look for the tag
   const list<XMLTreePtr>& child_nodes = node->children;
@@ -795,7 +816,7 @@ RigidBodyPtr URDFReader::read_child(XMLTreeConstPtr node, URDFData& data, const 
 }
 
 /// Attempts to read axis for the joint
-void URDFReader::read_axis(XMLTreeConstPtr node, URDFData& data, JointPtr joint)
+void URDFReader::read_axis(shared_ptr<const XMLTree> node, URDFData& data, JointPtr joint)
 {
   Vector3d axis(1,0,0);
   bool axis_specified = false;
@@ -825,7 +846,7 @@ void URDFReader::read_axis(XMLTreeConstPtr node, URDFData& data, JointPtr joint)
 }
 
 /// Attempts to read dynamic properties for the joint
-void URDFReader::read_dynamics(XMLTreeConstPtr node, URDFData& data, JointPtr joint)
+void URDFReader::read_dynamics(shared_ptr<const XMLTree> node, URDFData& data, JointPtr joint)
 {
   // look for the dynamics tag
   const list<XMLTreePtr>& child_nodes = node->children;
@@ -858,7 +879,7 @@ void URDFReader::read_dynamics(XMLTreeConstPtr node, URDFData& data, JointPtr jo
 }
 
 /// Attempts to read limits for the joint
-void URDFReader::read_limits(XMLTreeConstPtr node, URDFData& data, JointPtr joint)
+void URDFReader::read_limits(shared_ptr<const XMLTree> node, URDFData& data, JointPtr joint)
 {
   // look for the limit tag
   const list<XMLTreePtr>& child_nodes = node->children;
@@ -897,7 +918,7 @@ void URDFReader::read_limits(XMLTreeConstPtr node, URDFData& data, JointPtr join
 }
 
 /// Attempts to read calibration for the joint
-void URDFReader::read_calibration(XMLTreeConstPtr node, URDFData& data, JointPtr joint)
+void URDFReader::read_calibration(shared_ptr<const XMLTree> node, URDFData& data, JointPtr joint)
 {
   // look for the safety_controller tag
   const list<XMLTreePtr>& child_nodes = node->children;
@@ -912,7 +933,7 @@ void URDFReader::read_calibration(XMLTreeConstPtr node, URDFData& data, JointPtr
 }
 
 /// Attempts to reads the safety controller for the joint (currently unused)
-void URDFReader::read_safety_controller(XMLTreeConstPtr node, URDFData& data, JointPtr joint)
+void URDFReader::read_safety_controller(shared_ptr<const XMLTree> node, URDFData& data, JointPtr joint)
 {
   // look for the safety_controller tag
   const list<XMLTreePtr>& child_nodes = node->children;
@@ -927,7 +948,7 @@ void URDFReader::read_safety_controller(XMLTreeConstPtr node, URDFData& data, Jo
 }
 
 /// Attempts to read and set link inertial properties 
-void URDFReader::read_inertial(XMLTreeConstPtr node, URDFData& data, RigidBodyPtr link)
+void URDFReader::read_inertial(shared_ptr<const XMLTree> node, URDFData& data, RigidBodyPtr link)
 {
   // look for the inertial tag
   const list<XMLTreePtr>& child_nodes = node->children;
@@ -953,7 +974,7 @@ void URDFReader::read_inertial(XMLTreeConstPtr node, URDFData& data, RigidBodyPt
 }
 
 /// Attempts to read an RGBA color
-bool URDFReader::read_color(XMLTreeConstPtr node, URDFData& data, VectorNd& color)
+bool URDFReader::read_color(shared_ptr<const XMLTree> node, URDFData& data, VectorNd& color)
 {
   const list<XMLTreePtr>& child_nodes = node->children;
   for (list<XMLTreePtr>::const_iterator i = child_nodes.begin(); i != child_nodes.end(); i++)
@@ -977,7 +998,7 @@ bool URDFReader::read_color(XMLTreeConstPtr node, URDFData& data, VectorNd& colo
 }
 
 /// Attempts to read a texture filename
-bool URDFReader::read_texture(XMLTreeConstPtr node, URDFData& data, string& texture_fname)
+bool URDFReader::read_texture(shared_ptr<const XMLTree> node, URDFData& data, string& texture_fname)
 {
   const list<XMLTreePtr>& child_nodes = node->children;
   for (list<XMLTreePtr>::const_iterator i = child_nodes.begin(); i != child_nodes.end(); i++)
@@ -1000,7 +1021,7 @@ bool URDFReader::read_texture(XMLTreeConstPtr node, URDFData& data, string& text
 }
 
 /// Attempts to read an OSG Material
-void URDFReader::read_material(XMLTreeConstPtr node, URDFData& data, void* osg_node)
+void URDFReader::read_material(shared_ptr<const XMLTree> node, URDFData& data, void* osg_node)
 {
   #ifdef USE_OSG
   osg::Node* n = (osg::Node*) osg_node;
@@ -1055,7 +1076,7 @@ void URDFReader::read_material(XMLTreeConstPtr node, URDFData& data, void* osg_n
 }
 
 /// Attempts to read and set link visual properties
-void URDFReader::read_visual(XMLTreeConstPtr node, URDFData& data, RigidBodyPtr link)
+void URDFReader::read_visual(shared_ptr<const XMLTree> node, URDFData& data, RigidBodyPtr link)
 {
   #ifdef USE_OSG
   VectorNd color;
@@ -1094,7 +1115,7 @@ void URDFReader::read_visual(XMLTreeConstPtr node, URDFData& data, RigidBodyPtr 
 }
 
 /// Attempts to read and set link collision properties
-void URDFReader::read_collision(XMLTreeConstPtr node, URDFData& data, RigidBodyPtr link)
+void URDFReader::read_collision(shared_ptr<const XMLTree> node, URDFData& data, RigidBodyPtr link)
 {
   // look for the collision tag
   const list<XMLTreePtr>& child_nodes = node->children;
@@ -1124,7 +1145,7 @@ void URDFReader::read_collision(XMLTreeConstPtr node, URDFData& data, RigidBodyP
 }
 
 /// Reads Primitive from a geometry tag 
-PrimitivePtr URDFReader::read_primitive(XMLTreeConstPtr node, URDFData& data)
+PrimitivePtr URDFReader::read_primitive(shared_ptr<const XMLTree> node, URDFData& data)
 {
   PrimitivePtr primitive;
 
@@ -1135,13 +1156,13 @@ PrimitivePtr URDFReader::read_primitive(XMLTreeConstPtr node, URDFData& data)
     if (strcasecmp((*i)->name.c_str(), "geometry") == 0)
     {
       // read geometry 
-      if (primitive = read_box(*i, data))
+      if ((primitive = read_box(*i, data)))
         return primitive;
-      else if (primitive = read_cylinder(*i, data))
+      else if ((primitive = read_cylinder(*i, data)))
         return primitive;
-      else if (primitive = read_sphere(*i, data))
+      else if ((primitive = read_sphere(*i, data)))
         return primitive;
-      else if (primitive = read_trimesh(*i, data))
+      else if ((primitive = read_trimesh(*i, data)))
         return primitive;
     }
   }
@@ -1150,7 +1171,7 @@ PrimitivePtr URDFReader::read_primitive(XMLTreeConstPtr node, URDFData& data)
 }
 
 /// Reads a box primitive
-shared_ptr<BoxPrimitive> URDFReader::read_box(XMLTreeConstPtr node, URDFData& data)
+shared_ptr<BoxPrimitive> URDFReader::read_box(shared_ptr<const XMLTree> node, URDFData& data)
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
@@ -1175,7 +1196,7 @@ shared_ptr<BoxPrimitive> URDFReader::read_box(XMLTreeConstPtr node, URDFData& da
 }
 
 /// Reads a trimesh primitive
-shared_ptr<TriangleMeshPrimitive> URDFReader::read_trimesh(XMLTreeConstPtr node, URDFData& data)
+shared_ptr<TriangleMeshPrimitive> URDFReader::read_trimesh(shared_ptr<const XMLTree> node, URDFData& data)
 {
   // look for the geometry tag
   const list<XMLTreePtr>& child_nodes = node->children;
@@ -1201,7 +1222,7 @@ shared_ptr<TriangleMeshPrimitive> URDFReader::read_trimesh(XMLTreeConstPtr node,
 }
 
 /// Reads a cylinder primitive
-shared_ptr<CylinderPrimitive> URDFReader::read_cylinder(XMLTreeConstPtr node, URDFData& data)
+shared_ptr<CylinderPrimitive> URDFReader::read_cylinder(shared_ptr<const XMLTree> node, URDFData& data)
 {
   // look for the geometry tag
   const list<XMLTreePtr>& child_nodes = node->children;
@@ -1229,7 +1250,7 @@ shared_ptr<CylinderPrimitive> URDFReader::read_cylinder(XMLTreeConstPtr node, UR
 }
 
 /// Reads a sphere primitive
-shared_ptr<SpherePrimitive> URDFReader::read_sphere(XMLTreeConstPtr node, URDFData& data)
+shared_ptr<SpherePrimitive> URDFReader::read_sphere(shared_ptr<const XMLTree> node, URDFData& data)
 {
   // look for the geometry tag
   const list<XMLTreePtr>& child_nodes = node->children;
@@ -1252,7 +1273,7 @@ shared_ptr<SpherePrimitive> URDFReader::read_sphere(XMLTreeConstPtr node, URDFDa
 
 
 /// Attempts to read an "origin" tag
-Pose3d URDFReader::read_origin(XMLTreeConstPtr node, URDFData& data)
+Pose3d URDFReader::read_origin(shared_ptr<const XMLTree> node, URDFData& data)
 {
   Point3d xyz = ZEROS_3;
   Vector3d rpy = ZEROS_3;
@@ -1284,7 +1305,7 @@ Pose3d URDFReader::read_origin(XMLTreeConstPtr node, URDFData& data)
 }
 
 /// Attempts to read a "mass" tag
-double URDFReader::read_mass(XMLTreeConstPtr node, URDFData& data)
+double URDFReader::read_mass(shared_ptr<const XMLTree> node, URDFData& data)
 {
   // look for the tag
   const list<XMLTreePtr>& child_nodes = node->children;
@@ -1306,7 +1327,7 @@ double URDFReader::read_mass(XMLTreeConstPtr node, URDFData& data)
 }
 
 /// Attempts to read an "inertia" tag
-Matrix3d URDFReader::read_inertia(XMLTreeConstPtr node, URDFData& data)
+Matrix3d URDFReader::read_inertia(shared_ptr<const XMLTree> node, URDFData& data)
 {
   const unsigned X = 0, Y = 1, Z = 2;
 

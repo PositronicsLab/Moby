@@ -11,44 +11,40 @@
 #include <Moby/Polyhedron.h>
 #include <Moby/CompGeom.h>
 #include <Moby/RigidBody.h>
-#include <Moby/AAngle.h>
 #include <Moby/Constants.h>
 #include <Moby/XMLTree.h>
 #include <Moby/CollisionGeometry.h>
 
-using namespace Moby;
 using boost::dynamic_pointer_cast;
+using Ravelin::Pose3d;
+using Ravelin::Origin3d;
+using Ravelin::AAngled;
+using Ravelin::Point3d;
+using boost::shared_ptr;
+using namespace Moby;
 
 /// Constructs a CollisionGeometry with no triangle mesh, identity transformation and relative transformation
 CollisionGeometry::CollisionGeometry()
 {
-  _transform = IDENTITY_4x4;
-  _rel_transform = IDENTITY_4x4;
-  _rel_transform_identity = true;
+  _F = shared_ptr<Pose3d>(new Pose3d);
+  _relF = shared_ptr<Pose3d>(new Pose3d);
 }
 
 /// Sets the relative transform (from its parent CollisionGeometry or dynamic body) for this CollisionGeometry
-void CollisionGeometry::set_rel_transform(const Matrix4& transform, bool update_global_transform)
+void CollisionGeometry::set_rel_pose(const Pose3d& F, bool update_global_transform)
 {  
   // see whether to update the global transform
   if (update_global_transform)
   {
     // determine how the transform will change
-    Matrix4 update = Matrix4::inverse_transform(_rel_transform) * transform;
+    Matrix4 update = Matrix4::inverse_transform(_relF) * F;
 
     // update the global transform
-    _transform = _transform * update;
-  
-    // update transforms for all of the children
-    BOOST_FOREACH(CollisionGeometryPtr cg, _children)
-      cg->set_transform(_transform, false);
+    _F = _F * update;
   }
 
   // set the relative transform
-  _rel_transform = transform;
-
-  // check whether the relative transform is equal (to within floating point tolerance) of identity
-  _rel_transform_identity = Matrix4::epsilon_equals(_rel_transform, IDENTITY_4x4, NEAR_ZERO);
+  _relF = F;
 }
 
 /// Sets the collision geometry via a primitive
@@ -66,8 +62,8 @@ PrimitivePtr CollisionGeometry::set_geometry(PrimitivePtr primitive)
 
   SingleBodyPtr sb(_single_body);
   RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(sb);
-  if (rb && !Matrix4::epsilon_equals(IDENTITY_4x4, rb->get_transform(), NEAR_ZERO))
-    std::cerr << "CollisionGeometry::set_primitive() - rigid body's transform is not identity!" << std::endl;
+  if (rb && !Pose3d::rel_equal(rb->get_pose(), shared_ptr<const Pose3d>()))    
+    std::cerr << "CollisionGeometry::set_primitive() warning - rigid body's transform is not identity!" << std::endl;
 
   // save the primitive
   _geometry = primitive;
@@ -91,15 +87,15 @@ void CollisionGeometry::write_vrml(const std::string& filename) const
   out << "#VRML V2.0 utf8" << std::endl << std::endl;
 
   // write the transform
-  Vector3 P = _transform.get_translation();
-  AAngle aa(&_transform);
+  Origin3d P = _F->x;
+  AAngled aa = _F->q;
   out << "Transform { " << std::endl;
   out << "  rotation " << aa.x << " " << aa.y << " " << aa.z << " " << aa.angle << std::endl;
   out << "  translation " << P[X] << " " << P[Y] << " " << P[Z] << std::endl;
   out << "  children [" << std::endl;
   
   // get the geometry
-  const std::vector<Vector3>& vertices = _geometry->get_mesh()->get_vertices();
+  const std::vector<Point3d>& vertices = _geometry->get_mesh()->get_vertices();
   const std::vector<IndexedTri>& facets = _geometry->get_mesh()->get_facets();
 
   // write the mesh
@@ -140,26 +136,22 @@ void CollisionGeometry::write_vrml(const std::string& filename) const
  * related body is T1 and the relative transform is T2 then set_transform() 
  * should be called with T1 * T2.
  * \param transform the transformation
- * \param rel_transform_accounted determines whether the relative transform is accounted for in transform; if 
+ * \param relF_accounted determines whether the relative transform is accounted for in transform; if 
  *        <b>false</b>, transform will be transformed by the relative transform before storing and propagating
- * \sa get_rel_transform()
- * \sa set_rel_transform() 
+ * \sa get_relF()
+ * \sa set_relF() 
  */
-void CollisionGeometry::set_transform(const Matrix4& transform, bool rel_transform_accounted)
+void CollisionGeometry::set_pose(const Pose3d& P)
 {
   // determine whether to account for the relative transform
-  if (rel_transform_accounted || _rel_transform_identity)
-    _transform = transform;
+  if (relF_accounted)
+    *_F = P;
   else
-    _transform = transform * _rel_transform;
-  
-  // set the transform for all of the children
-  BOOST_FOREACH(CollisionGeometryPtr cg, _children)
-    cg->set_transform(transform, false);
+    *_F = P * _relF;
 }
 
 /// Implements Base::load_from_xml()
-void CollisionGeometry::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void CollisionGeometry::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // load Base specific data
   Base::load_from_xml(node, id_map);
@@ -167,6 +159,8 @@ void CollisionGeometry::load_from_xml(XMLTreeConstPtr node, std::map<std::string
   // verify that this node is of type CollisionGeometry
   assert (strcasecmp(node->name.c_str(), "CollisionGeometry") == 0);
 
+// TODO: fix this
+/*
   // read transform, if specified
   const XMLAttrib* transform_attrib = node->get_attrib("transform");
   if (transform_attrib)
@@ -184,11 +178,11 @@ void CollisionGeometry::load_from_xml(XMLTreeConstPtr node, std::map<std::string
   }
 
   // read relative transform, if specified
-  const XMLAttrib* rel_transform_attrib = node->get_attrib("rel-transform");
-  if (rel_transform_attrib)
+  const XMLAttrib* relF_attrib = node->get_attrib("rel-transform");
+  if (relF_attrib)
   {
     Matrix4 T;
-    rel_transform_attrib->get_matrix_value(T);
+    relF_attrib->get_matrix_value(T);
     if (!Matrix4::valid_transform(T))
     {
       std::cerr << "CollisionGeometry::load_from_xml() warning: bad transform? ";
@@ -196,8 +190,9 @@ void CollisionGeometry::load_from_xml(XMLTreeConstPtr node, std::map<std::string
       std::cerr << *node << std::endl;
       std::cerr << "  --> possibly a floating-point error..." << std::endl;
     }
-    set_rel_transform(T, true);
+    set_relF(T, true);
   }
+*/
 
   // read the primitive ID, if any
   const XMLAttrib* primitive_id_attrib = node->get_attrib("primitive-id");
@@ -224,34 +219,10 @@ void CollisionGeometry::load_from_xml(XMLTreeConstPtr node, std::map<std::string
         id_map[id] = newpc;
     }  
   }
-
-  // read any sub-collision geometry nodes
-  std::list<XMLTreeConstPtr> subcg_nodes = node->find_child_nodes("CollisionGeometry");
-  if (!subcg_nodes.empty())
-  {
-    // clear all existing child collision geometry nodes
-    _children.clear();
-
-    // create child nodes and read from XML
-    for (std::list<XMLTreeConstPtr>::const_iterator i = subcg_nodes.begin(); i != subcg_nodes.end(); i++)
-    {
-      // create the geometry
-      CollisionGeometryPtr cg(new CollisionGeometry);
-
-      // populate it from XML
-      cg->load_from_xml(*i, id_map);
-
-      // set the single body of the child
-      cg->set_single_body(get_single_body());
-
-      // add the child to this
-      children.push_back(cg);
-    }
-  }
 }
 
 /// Implements Base::save_to_xml()
-void CollisionGeometry::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
+void CollisionGeometry::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& shared_objects) const
 {
   // save Base data
   Base::save_to_xml(node, shared_objects);
@@ -260,24 +231,16 @@ void CollisionGeometry::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& sh
   node->name = "CollisionGeometry";
 
   // add the transform attribute
-  node->attribs.insert(XMLAttrib("transform", _transform));
+  node->attribs.insert(XMLAttrib("transform", *_F));
 
   // add the rel-transform attribute
-  node->attribs.insert(XMLAttrib("rel-transform", _rel_transform));
+  node->attribs.insert(XMLAttrib("rel-transform", *_relF));
 
   // save the ID of the primitive and add the primitive to the shared list
   if (_geometry)
   {
     node->attribs.insert(XMLAttrib("primitive-id", _geometry->id));
     shared_objects.push_back(_geometry);
-  }
-
-  // create nodes for the children, and save them
-  for (unsigned i=0; i< _children.size(); i++)
-  {
-    XMLTreePtr child_node(new XMLTree("CollisionGeometry"));
-    node->add_child(child_node);
-    _children[i]->save_to_xml(child_node, shared_objects);
   }
 }
 

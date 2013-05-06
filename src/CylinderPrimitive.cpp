@@ -165,7 +165,7 @@ shared_ptr<const IndexedTriArray> CylinderPrimitive::get_mesh()
     }
 
     // get the current transform
-    const Pose3d& T = get_transform();
+    const Pose3d& T = get_pose();
 
     // create vertices evenly spaced in 2D
     std::list<Point3d> points;
@@ -214,7 +214,7 @@ osg::Node* CylinderPrimitive::create_visualization()
 }
 
 /// Implements Base::load_from_xml() for serialization
-void CylinderPrimitive::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void CylinderPrimitive::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // verify that the node type is cylinder
   assert(strcasecmp(node->name.c_str(), "Cylinder") == 0);
@@ -247,7 +247,7 @@ void CylinderPrimitive::load_from_xml(XMLTreeConstPtr node, std::map<std::string
 }
 
 /// Implements Base::save_to_xml() for serialization
-void CylinderPrimitive::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
+void CylinderPrimitive::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& shared_objects) const
 {
   // save the parent data
   Primitive::save_to_xml(node, shared_objects);
@@ -269,13 +269,13 @@ void CylinderPrimitive::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& sh
 }
 
 /// Transforms the primitive
-void CylinderPrimitive::set_transform(const Pose3d& T)
+void CylinderPrimitive::set_pose(const Pose3d& T)
 {
   // determine the transformation from the old to the new transform 
   Pose3d Trel = T * Pose3d::inverse(_T);
 
   // go ahead and set the new transform
-  Primitive::set_transform(T);
+  Primitive::set_pose(T);
 
   // OBB is no longer valid
   _obb = OBBPtr();
@@ -303,7 +303,7 @@ void CylinderPrimitive::set_transform(const Pose3d& T)
 void CylinderPrimitive::calc_mass_properties()
 {
   // get the current transform
-  const Pose3d& T = get_transform();
+  const Pose3d& T = get_pose();
 
   // compute the radius squared (we'll need this)
   const double RSQ = _radius * _radius;
@@ -342,10 +342,10 @@ BVPtr CylinderPrimitive::get_BVH_root()
     _obb = shared_ptr<OBB>(new OBB);
 
   // setup the center of the OBB 
-  _obb->center = get_transform().x;
+  _obb->center = get_pose().x;
   
   // setup the orientation of the OBB
-  _obb->R = get_transform().q;
+  _obb->R = get_pose().q;
 
   // must orthonormalize OBB orientation, b/c T may have scaling applied
   _obb->R.orthonormalize();
@@ -383,7 +383,7 @@ void CylinderPrimitive::get_vertices(BVPtr bv, std::vector<const Point3d*>& vert
     }
 
     // get the current primitive transform
-    const Pose3d& T = get_transform();
+    const Pose3d& T = get_pose();
 
     // create the vector of vertices
     _vertices = shared_ptr<vector<Point3d> >(new vector<Point3d>());
@@ -416,7 +416,7 @@ bool CylinderPrimitive::point_inside(BVPtr bv, const Point3d& p, Vector3d& norma
   const double halfheight = _height*0.5;
 
   // transform the point to cylinder space
-  const Pose3d& T = get_transform();
+  const Pose3d& T = get_pose();
   Point3d query = T.inverse_transform(p);
 
   FILE_LOG(LOG_COLDET) << "CylinderPrimitive::point_inside() entered" << std::endl;
@@ -493,7 +493,7 @@ double CylinderPrimitive::calc_penetration_depth(const Point3d& p) const
   const double halfheight = _height*0.5;
 
   // transform the point to cylinder space
-  const Pose3d& T = get_transform();
+  const Pose3d& T = get_pose();
   Point3d query = T.inverse_transform(p);
 
   FILE_LOG(LOG_COLDET) << "CylinderPrimitive::calc_penetration_depth() entered" << std::endl;
@@ -532,7 +532,7 @@ unsigned CylinderPrimitive::intersect_line(const Point3d& origin, const Vector3d
   const unsigned X = 0, Y = 1, Z = 2;
 
   // form a Pose3d from the transform
-  const Pose3d& T = get_transform();
+  const Pose3d& T = get_pose();
 
   // create a coordinate system for the cylinder.  In this system, the 
   // cylinder segment center C is the origin and the cylinder axis direction
@@ -802,7 +802,7 @@ bool CylinderPrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, 
   }
 
   // form a Pose3d from the transform
-  const Pose3d& T = get_transform();
+  const Pose3d& T = get_pose();
 
   // if line segment is a point- we know it's not within the cylinder- and 
   // we have an easy exit 

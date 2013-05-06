@@ -36,15 +36,15 @@ class Visualizable : public virtual Base
 
     virtual void set_visualization_data(osg::Node* vdata); 
     virtual void set_visualization_data(OSGGroupWrapperPtr vdata); 
-    static osg::Group* construct_from_node(XMLTreeConstPtr node, const std::map<std::string, BasePtr>& id_map);
+    static osg::Group* construct_from_node(boost::shared_ptr<const XMLTree> node, const std::map<std::string, BasePtr>& id_map);
     osg::Group* get_visualization_data() const;
-    virtual void save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const;
-    virtual void load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map);
+    virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
+    virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
 
   protected:
 
     /// Implementing classes must implement this method to get the transform for the object
-    virtual boost::shared_ptr<const Ravelin::Pose3d> get_visualization_transform() = 0;
+    virtual boost::shared_ptr<const Ravelin::Pose3d> get_visualization_pose() = 0;
 
     /// The underlying visualization data
     OSGGroupWrapperPtr _vizdata;

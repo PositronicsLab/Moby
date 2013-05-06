@@ -4,12 +4,14 @@
  * License (found in COPYING).
  ****************************************************************************/
 
+#include <strings.h>
 #include <Moby/VariableStepIntegrator.h>
 
+using boost::shared_ptr;
 using namespace Moby;
 
 /// Implements Base::load_from_xml()
-void VariableStepIntegrator::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map) 
+void VariableStepIntegrator::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map) 
 { 
   Integrator::load_from_xml(node, id_map); 
  
@@ -30,7 +32,7 @@ void VariableStepIntegrator::load_from_xml(XMLTreeConstPtr node, std::map<std::s
 }
 
 /// Implements Base::save_to_xml()
-void VariableStepIntegrator::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
+void VariableStepIntegrator::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& shared_objects) const
 { 
   Integrator::save_to_xml(node, shared_objects); 
   node->name = "VariableStepIntegrator";

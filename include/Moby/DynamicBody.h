@@ -23,7 +23,7 @@ namespace Moby {
 class DynamicBody : public Visualizable
 {
   public:
-    enum GeneralizedCoordinateType { eRodrigues, eAxisAngle };
+    enum GeneralizedCoordinateType { eEuler, eAxisAngle };
 
     DynamicBody() 
     { 
@@ -31,18 +31,18 @@ class DynamicBody : public Visualizable
     }
 
     virtual ~DynamicBody() {}
-    virtual void load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map);
-    virtual void save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const;
+    virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
+    virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual void integrate(double t, double h, boost::shared_ptr<Integrator> integrator);
+
+    /// Sets the computation frame type for this body
+    virtual void set_computation_frame_type(ReferenceFrameType rftype) = 0;
+
+    /// Gets the computation frame type for this body
+    ReferenceFrameType get_computation_frame_type() const { return _rftype; }
 
     /// Forces a recalculation of forward dynamics
     virtual void calc_fwd_dyn(double dt) = 0;
-
-    /// Updates the event problem data matrices and vectors
-    virtual void update_event_data(EventProblemData& epd) = 0;
-
-    /// Updates the body velocity using event problem data
-    virtual void update_velocity(const EventProblemData& epd) = 0;
 
     /// Resets the force and torque accumulators on the dynamic body
     virtual void reset_accumulators() = 0;
@@ -85,10 +85,40 @@ class DynamicBody : public Visualizable
     virtual Ravelin::MatrixNd& get_generalized_inertia(GeneralizedCoordinateType gctype, Ravelin::MatrixNd& M) = 0;
 
     /// Solves using the inverse generalized inertia
-    virtual Ravelin::MatrixNd& solve_generalized_inertia(GeneralizedCoordinateType gctype, const Ravelin::MatrixNd& B, Ravelin::MatrixNd& X) = 0;
+    Ravelin::MatrixNd& solve_generalized_inertia(GeneralizedCoordinateType gctype, const Ravelin::MatrixNd& B, Ravelin::MatrixNd& X);
 
     /// Solves using the inverse generalized inertia
-    virtual Ravelin::VectorNd& solve_generalized_inertia(GeneralizedCoordinateType gctype, const Ravelin::VectorNd& b, Ravelin::VectorNd& x) = 0;
+    Ravelin::SharedMatrixNd& solve_generalized_inertia(GeneralizedCoordinateType gctype, const Ravelin::SharedMatrixNd& B, Ravelin::SharedMatrixNd& X);
+
+    /// Solves using the inverse generalized inertia
+    Ravelin::MatrixNd& solve_generalized_inertia(GeneralizedCoordinateType gctype, const Ravelin::SharedMatrixNd& B, Ravelin::MatrixNd& X);
+
+    /// Solves using the inverse generalized inertia
+    Ravelin::SharedMatrixNd& solve_generalized_inertia(GeneralizedCoordinateType gctype, const Ravelin::MatrixNd& B, Ravelin::SharedMatrixNd& X);
+
+    /// Solves using the inverse generalized inertia
+    Ravelin::VectorNd& solve_generalized_inertia(GeneralizedCoordinateType gctype, const Ravelin::VectorNd& b, Ravelin::VectorNd& x);
+
+    /// Solves using the inverse generalized inertia
+    Ravelin::VectorNd& solve_generalized_inertia(GeneralizedCoordinateType gctype, const Ravelin::SharedVectorNd& b, Ravelin::VectorNd& x);
+
+    /// Solves using the inverse generalized inertia
+    Ravelin::SharedVectorNd& solve_generalized_inertia(GeneralizedCoordinateType gctype, const Ravelin::VectorNd& b, Ravelin::SharedVectorNd& x);
+
+    /// Solves using the inverse generalized inertia
+    Ravelin::SharedVectorNd& solve_generalized_inertia(GeneralizedCoordinateType gctype, const Ravelin::SharedVectorNd& b, Ravelin::SharedVectorNd& x);
+
+    /// Solves the transpose matrix using the inverse generalized inertia
+    Ravelin::MatrixNd& transpose_solve_generalized_inertia(GeneralizedCoordinateType gctype, const Ravelin::MatrixNd& B, Ravelin::MatrixNd& X);
+
+    /// Solves the transpose matrix using the inverse generalized inertia
+    Ravelin::MatrixNd& transpose_solve_generalized_inertia(GeneralizedCoordinateType gctype, const Ravelin::SharedMatrixNd& B, Ravelin::MatrixNd& X);
+
+    /// Solves the transpose matrix using the inverse generalized inertia
+    Ravelin::SharedMatrixNd& transpose_solve_generalized_inertia(GeneralizedCoordinateType gctype, const Ravelin::MatrixNd& B, Ravelin::SharedMatrixNd& X);
+
+    /// Solves the transpose matrix using the inverse generalized inertia
+    Ravelin::SharedMatrixNd& transpose_solve_generalized_inertia(GeneralizedCoordinateType gctype, const Ravelin::SharedMatrixNd& B, Ravelin::SharedMatrixNd& X);
 
     /// Gets the external forces on this body
     /**
@@ -120,6 +150,11 @@ class DynamicBody : public Visualizable
 
     /// Gets the angular speed of this body (or maximum angular speed of the links, if this body is articulated)
     virtual double get_aspeed() const = 0; 
+
+  protected:
+
+    /// The computation frame type
+    ReferenceFrameType _rftype;
 
   private:
 

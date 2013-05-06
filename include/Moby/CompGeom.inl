@@ -3233,7 +3233,7 @@ void CompGeom::project_plane(ForwardIterator begin, ForwardIterator end, const R
 {
   // form the projection matrix P = I - normal*normal'
   Ravelin::Matrix3d P;
-  Ravelin::outer_prod(normal, -normal, P);
+  Ravelin::Opsd::outer_prod(normal, -normal, P);
   P += Ravelin::Matrix3d::identity(); 
  
   // project each point onto the plane

@@ -79,7 +79,7 @@ SpherePrimitive::SpherePrimitive(double radius, unsigned n, const Pose3d& T) : P
 void SpherePrimitive::calc_mass_properties() 
 {
   // get the current transform
-  const Pose3d& T = get_transform();
+  const Pose3d& T = get_pose();
 
   // compute the mass if density is given
   if (_density)
@@ -145,13 +145,13 @@ void SpherePrimitive::set_intersection_tolerance(double tol)
 }
 
 /// Transforms the primitive
-void SpherePrimitive::set_transform(const Pose3d& T)
+void SpherePrimitive::set_pose(const Pose3d& T)
 {
   // determine the transformation from the old to the new transform 
   Pose3d Trel = T * Pose3d::inverse(_T);
 
   // go ahead and set the new transform
-  Primitive::set_transform(T);
+  Primitive::set_pose(T);
 
   // transform mesh
   if (_mesh)
@@ -187,7 +187,7 @@ shared_ptr<const IndexedTriArray> SpherePrimitive::get_mesh()
     }
 
     // get the translation for the transform
-    const Pose3d& T = get_transform();
+    const Pose3d& T = get_pose();
     const Origin3d& xlat = T.x;
 
     // determine the vertices in the mesh
@@ -242,7 +242,7 @@ void SpherePrimitive::get_vertices(BVPtr bv, std::vector<const Point3d*>& vertic
     }
 
     // get the translation for the transform
-    const Pose3d& T = get_transform();
+    const Pose3d& T = get_pose();
     const Origin3d& xlat = T.x;
 
     // determine the vertices in the mesh
@@ -280,7 +280,7 @@ osg::Node* SpherePrimitive::create_visualization()
 }  
 
 /// Implements Base::load_from_xml() for serialization
-void SpherePrimitive::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void SpherePrimitive::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // verify that the node type is sphere
   assert(strcasecmp(node->name.c_str(), "Sphere") == 0);
@@ -303,7 +303,7 @@ void SpherePrimitive::load_from_xml(XMLTreeConstPtr node, std::map<std::string, 
 }
 
 /// Implements Base::save_to_xml() for serialization
-void SpherePrimitive::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
+void SpherePrimitive::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& shared_objects) const
 {
   // save the parent data
   Primitive::save_to_xml(node, shared_objects);
@@ -331,7 +331,7 @@ BVPtr SpherePrimitive::get_BVH_root()
 
   // set the radius and center
   _bsph->radius = _radius + _intersection_tolerance;
-  _bsph->center = get_transform().x;
+  _bsph->center = get_pose().x;
 
   return _bsph;
 }
@@ -348,7 +348,7 @@ bool SpherePrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Po
   const unsigned X = 0, Y = 1, Z = 2;
 
   // account for sphere center in translation
-  const Origin3d& center = get_transform().x;
+  const Origin3d& center = get_pose().x;
   Vector3d p = seg.first - center;
   Vector3d q = seg.second - center;
 
@@ -416,7 +416,7 @@ bool SpherePrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Po
 bool SpherePrimitive::point_inside(BVPtr bv, const Point3d& p, Vector3d& normal) const
 {
   // get the sphere translation
-  const Origin3d& center = get_transform().x;
+  const Origin3d& center = get_pose().x;
 
   // subtract sphere translation from the query point
   Vector3d query = p - center;

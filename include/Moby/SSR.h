@@ -45,9 +45,9 @@ class SSR : public BV
     static double calc_dist(const SSR& a, const Ravelin::Point3d& p);
     static double calc_dist(const SSR& a, const LineSeg3& s);
     static double calc_dist(const SSR& a, const SSR& b, Ravelin::Point3d& cpa, Ravelin::Point3d& cpb);
-    static double calc_dist(const SSR& a, const SSR& b, const Ravelin::Pose3d& aTb, Ravelin::Point3d& cpa, Ravelin::Point3d& cpb);
+    static double calc_dist(const SSR& a, const SSR& b, const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& aTb, Ravelin::Point3d& cpa, Ravelin::Point3d& cpb);
     static bool intersects(const SSR& a, const SSR& b);
-    static bool intersects(const SSR& a, const SSR& b, const Ravelin::Pose3d& T);
+    static bool intersects(const SSR& a, const SSR& b, const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& T);
     static bool intersects(const SSR& a, const LineSeg3& seg, double& tmin, double tmax, Ravelin::Point3d& q);
     virtual bool intersects(const LineSeg3& seg, double& tmin, double tmax, Ravelin::Point3d& q) const { return SSR::intersects(*this, seg, tmin, tmax, q); }
     static bool outside(const SSR& a, const Ravelin::Point3d& point, double tol = NEAR_ZERO);

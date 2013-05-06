@@ -27,9 +27,9 @@
 #include <Moby/ArticulatedBody.h>
 #include <Moby/CollisionGeometry.h>
 #include <Moby/Log.h>
-#include <Moby/AAngle.h>
 #include <Moby/Event.h>
 
+using namespace Ravelin;
 using namespace Moby;
 using std::pair;
 using std::list;
@@ -87,6 +87,143 @@ Event& Event::operator=(const Event& e)
 
   return *this;
 }
+
+/// Computes the event data
+void Event::compute_event_data(MatrixNd& M, VectorNd& q) const
+{
+  static VectorNd v;
+  static MatrixNd J1, J2, workM1;
+  static vector<Twistd> twist;
+  static shared_ptr<Pose3d> event_frame(new Pose3d);
+  Matrix3d workM2;    
+
+  if (event_type == eContact)
+  {
+    // get the two super bodies
+    DynamicBodyPtr su1 = contact_geom1->get_single_body()->get_super_body();
+    DynamicBodyPtr su2 = contact_geom2->get_single_body()->get_super_body();
+
+    // setup the contact frame
+    event_frame->q.set_identity();
+    event_frame->x = contact_point;
+
+    // form the normal and tangential wrenches in contact space
+    Wrenchd wn, ws, wt;
+    wn.force() = contact_normal;
+    ws.force() = contact_tan1;
+    wt.force() = contact_tan2;
+    wn.torque().set_zero();
+    ws.torque().set_zero();
+    wt.torque().set_zero();
+
+    // setup the pose for the contact frame
+    wn.pose = event_frame;
+    ws.pose = event_frame;
+    wt.pose = event_frame;
+
+    // get the numbers of generalized coordinates for the two super bodies
+    const unsigned NGC1 = su1->num_generalized_coordinates(DynamicBody::eAxisAngle);
+    const unsigned NGC2 = su2->num_generalized_coordinates(DynamicBody::eAxisAngle);
+
+    // resize the Jacobians 
+    J1.resize(3, NGC1);
+    J2.resize(3, NGC2);
+
+    // compute the Jacobians for the two bodies
+    su1->calc_jacobian(event_frame, twist);
+    transpose_mult(twist, wn, J1.row(0)); 
+    transpose_mult(twist, ws, J1.row(1)); 
+    transpose_mult(twist, wt, J1.row(2)); 
+    su2->calc_jacobian(event_frame, twist);
+    transpose_mult(twist, -wn, J2.row(0)); 
+    transpose_mult(twist, -ws, J2.row(1)); 
+    transpose_mult(twist, -wt, J2.row(2)); 
+
+    // compute the event inertia matrix for the first body
+    su1->transpose_solve_generalized_inertia(DynamicBody::eAxisAngle, J1, workM1);
+    J1.mult(workM1, M);
+
+    // compute the event inertia matrix for the second body
+    su2->transpose_solve_generalized_inertia(DynamicBody::eAxisAngle, J2, workM1);
+    J2.mult(workM1, workM2);
+    M += workM2;
+
+    // compute the event velocity
+    su1->get_generalized_velocity(DynamicBody::eAxisAngle, v);
+    J1.mult(v, q);
+
+    // free v1 and allocate v2 and workv
+    Vector3d workv;
+    su2->get_generalized_velocity(DynamicBody::eAxisAngle, v);
+    q += J2.mult(v, workv);
+  }
+  else if (event_type == eLimit)
+  {
+    // get the joint velocity
+    q = limit_joint->qd[limit_dof];
+
+    // if we're at an upper limit, negate q
+    if (limit_upper)
+      q.negate(); 
+  }
+  else
+  {
+    assert(event_type == eConstraint);
+  }
+} 
+
+/// Updates the event data
+void Event::compute_cross_event_data(const Event& e, MatrixNd& M) const
+{
+  if (event_type == eContact)
+  {
+    // get the two super bodies
+    DynamicBodyPtr su1 = contact_geom1->get_single_body()->get_super_body();
+    DynamicBodyPtr su2 = contact_geom2->get_single_body()->get_super_body();
+
+    // setup the contact frame
+    event_frame->q.set_identity();
+    event_frame->x = contact_point;
+
+    // form the normal and tangential wrenches in contact space
+    Wrenchd wn, ws, wt;
+    wn.force() = contact_normal;
+    ws.force() = contact_tan1;
+    wt.force() = contact_tan2;
+    wn.torque().set_zero();
+    ws.torque().set_zero();
+    wt.torque().set_zero();
+
+    // setup the pose for the contact frame
+    wn.pose = event_frame;
+    ws.pose = event_frame;
+    wt.pose = event_frame;
+
+    // get the numbers of generalized coordinates for the two super bodies
+    const unsigned NGC1 = su1->num_generalized_coordinates(DynamicBody::eAxisAngle);
+    const unsigned NGC2 = su2->num_generalized_coordinates(DynamicBody::eAxisAngle);
+
+    // resize Jacobians 
+    J1.resize(3, NGC1);
+    J2.resize(3, NGC2);
+
+    // compute the Jacobians for the two bodies
+    su1->calc_jacobian(event_frame, twist);
+    transpose_mult(twist, wn, J1.row(0)); 
+    transpose_mult(twist, ws, J1.row(1)); 
+    transpose_mult(twist, wt, J1.row(2)); 
+    su2->calc_jacobian(event_frame, twist);
+    transpose_mult(twist, wn, -J2.row(0)); 
+    transpose_mult(twist, ws, -J2.row(1)); 
+    transpose_mult(twist, wt, -J2.row(2)); 
+
+    // compute the event inertia matrix for the first body
+    su1->transpose_solve_generalized_inertia(DynamicBody::eAxisAngle, J1, workM1);
+
+    // compute the event inertia matrix for the second body
+    su2->transpose_solve_generalized_inertia(DynamicBody::eAxisAngle, J2, workM1);
+
+} 
 
 /// Sets the contact parameters for this event
 void Event::set_contact_parameters(const ContactParameters& cparams)

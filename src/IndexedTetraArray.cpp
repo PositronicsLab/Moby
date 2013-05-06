@@ -74,7 +74,7 @@ Tetrahedron IndexedTetraArray::get_tetrahedron(unsigned i) const
 /**
  * \note if centering is done, it is done <i<before</i> any transform is applied
  */
-void IndexedTetraArray::load_from_xml(XMLTreeConstPtr node, map<string, BasePtr>& id_map)
+void IndexedTetraArray::load_from_xml(shared_ptr<const XMLTree> node, map<string, BasePtr>& id_map)
 {
   // load data from the Primitive 
   Base::load_from_xml(node, id_map);
@@ -102,10 +102,15 @@ void IndexedTetraArray::load_from_xml(XMLTreeConstPtr node, map<string, BasePtr>
     center();
 
   // read in the transform, if specified
-  const XMLAttrib* transform_attr = node->get_attrib("transform");
-  if (transform_attr)
+  Pose3d T;
+  const XMLAttrib* xlat_attr = node->get_attrib("translation");
+  const XMLAttrib* rpy_attr = node->get_attrib("rpy"); 
+  if (xlat_attr || rpy_attr)
   {
-    Pose3d T = transform_attr->get_pose3_value();
+    if (xlat_attr)
+      T.x = xlat_attr->get_origin_value();
+    if (rpy_attr)
+      T.q = xlat_attr->get_rpy_value(); 
 
     // transform the tetra array
     *this = IndexedTetraArray::transform(T);
@@ -113,7 +118,7 @@ void IndexedTetraArray::load_from_xml(XMLTreeConstPtr node, map<string, BasePtr>
 }
 
 /// Implements Base::save_to_xml()
-void IndexedTetraArray::save_to_xml(XMLTreePtr node, list<BaseConstPtr>& shared_objects) const
+void IndexedTetraArray::save_to_xml(XMLTreePtr node, list<shared_ptr<const Base> >& shared_objects) const
 {
   // call this parent's save_to_xml() method
   Base::save_to_xml(node, shared_objects);

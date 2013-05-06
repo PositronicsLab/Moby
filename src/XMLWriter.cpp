@@ -11,10 +11,11 @@
 #include <Moby/XMLTree.h>
 #include <Moby/XMLWriter.h>
 
+using boost::shared_ptr;
 using namespace Moby;
 
 /// Serializes the given objects (and all dependencies) to XML
-void XMLWriter::serialize_to_xml(const std::string& fname, const std::list<BaseConstPtr>& objects)
+void XMLWriter::serialize_to_xml(const std::string& fname, const std::list<shared_ptr<const Base> >& objects)
 {
   // get the filename
   std::string filename = fname;
@@ -57,16 +58,16 @@ void XMLWriter::serialize_to_xml(const std::string& fname, const std::list<BaseC
   topnode->add_child(node);
 
   // setup a list of shared objects to be equal to the list of objects
-  std::list<BaseConstPtr> shared_objects = objects;
+  std::list<shared_ptr<const Base> > shared_objects = objects;
 
   // init a set of serialized objects
-  std::set<BaseConstPtr> serialized;
+  std::set<shared_ptr<const Base> > serialized;
 
   // develop the XML tree until there is nothing more to serialize
   while (!shared_objects.empty())
   {
     // get the object off of the front of the queue
-    BaseConstPtr obj = shared_objects.front();
+    shared_ptr<const Base> obj = shared_objects.front();
     assert(obj);
     shared_objects.pop_front();
 
@@ -99,7 +100,7 @@ void XMLWriter::serialize_to_xml(const std::string& fname, const std::list<BaseC
 }
 
 /// Serializes the given object (and all of its dependencies) to XML
-void XMLWriter::serialize_to_xml(const std::string& fname, BaseConstPtr object)
+void XMLWriter::serialize_to_xml(const std::string& fname, shared_ptr<const Base> object)
 {
   // get the filename
   std::string filename = fname;
@@ -142,19 +143,19 @@ void XMLWriter::serialize_to_xml(const std::string& fname, BaseConstPtr object)
   topnode->add_child(node);
 
   // setup a list of shared objects
-  std::list<BaseConstPtr> shared_objects;
+  std::list<shared_ptr<const Base> > shared_objects;
 
   // add the desired object to the list of shared objects
   shared_objects.push_back(object);
 
   // init a set of serialized objects
-  std::set<BaseConstPtr> serialized;
+  std::set<shared_ptr<const Base> > serialized;
   
   // develop the XML tree until there is nothing more to serialize
   while (!shared_objects.empty())
   {
     // get the object off of the front of the queue
-    BaseConstPtr obj = shared_objects.front();
+    shared_ptr<const Base> obj = shared_objects.front();
     assert(obj);
     shared_objects.pop_front();
 

@@ -77,7 +77,7 @@ void Visualizable::set_visualization_data(osg::Node* vdata)
 
 #ifdef USE_OSG
 /// Copies this matrix to an OpenSceneGraph Matrixd object
-static void to_osg_matrix(const Ravelin::Pose3d& src, osg::Matrixd& tgt)
+static void to_osg_matrix(const Pose3d& src, osg::Matrixd& tgt)
 {
   // get the rotation matrix
   Matrix3d M = src.q;
@@ -115,7 +115,7 @@ void Visualizable::update_visualization()
     return;
 
   // get the transform; if there is none, quit now
-  shared_ptr<const Pose3d> T = get_visualization_transform();
+  shared_ptr<const Pose3d> T = get_visualization_pose();
   if (!T)
     return;
 
@@ -142,7 +142,7 @@ osg::Group* Visualizable::get_visualization_data() const
  * visualization-separator-id, and visualization-primitive-id attributes for
  * a given node and creates a separator based on the attribute found.
  */
-osg::Group* Visualizable::construct_from_node(XMLTreeConstPtr node, const std::map<std::string, BasePtr>& id_map)
+osg::Group* Visualizable::construct_from_node(shared_ptr<const XMLTree> node, const std::map<std::string, BasePtr>& id_map)
 {  
   std::map<std::string, BasePtr>::const_iterator id_iter; 
   osg::Group* group = NULL;
@@ -222,7 +222,7 @@ osg::Group* Visualizable::construct_from_node(XMLTreeConstPtr node, const std::m
 }
 
 /// Implements Base::load_from_xml() 
-void Visualizable::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void Visualizable::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   OSGGroupWrapperPtr wrap;
 
@@ -234,7 +234,7 @@ void Visualizable::load_from_xml(XMLTreeConstPtr node, std::map<std::string, Bas
   const XMLAttrib* vfile_id_attr = node->get_attrib("visualization-filename");
 
   // get whether there are any visualization nodes
-  std::list<XMLTreeConstPtr> viz_nodes = node->find_child_nodes("Visualization");
+  std::list<shared_ptr<const XMLTree> > viz_nodes = node->find_child_nodes("Visualization");
 
   // check that some visualization data exists
   if (!viz_id_attr && !vfile_id_attr && viz_nodes.empty())
@@ -266,7 +266,7 @@ void Visualizable::load_from_xml(XMLTreeConstPtr node, std::map<std::string, Bas
     osg::Group* root = NULL;
 
     // handle all Visualization nodes
-    for (std::list<XMLTreeConstPtr>::const_iterator i = viz_nodes.begin(); i != viz_nodes.end(); i++)
+    for (std::list<shared_ptr<const XMLTree> >::const_iterator i = viz_nodes.begin(); i != viz_nodes.end(); i++)
     {
       // get the group from the child node
       osg::Group* child_group = construct_from_node(*i, id_map);
@@ -275,15 +275,23 @@ void Visualizable::load_from_xml(XMLTreeConstPtr node, std::map<std::string, Bas
       if (!child_group)
         continue;
 
-      // look for a visualization-rel-transform attribute
-      const XMLAttrib* rel_trans_attr = (*i)->get_attrib("visualization-rel-transform");
-      if (rel_trans_attr)
+      // look for a visualization-rel-x attributes
+      const XMLAttrib* rel_origin_attr = (*i)->get_attrib("visualization-rel-origin");
+      const XMLAttrib* rel_rpy_attr = (*i)->get_attrib("visualization-rel-rpy");
+      const XMLAttrib* rel_quat_attr = (*i)->get_attrib("visualization-rel-quat");
+      if (rel_origin_attr || rel_rpy_attr || rel_quat_attr)
       {
         // create a new transform group
         osg::MatrixTransform* xgroup = new osg::MatrixTransform;
 
         // create the transform and set it
-        Pose3d Tx = rel_trans_attr->get_pose3_value();
+        Pose3d Tx;
+        if (rel_origin_attr)
+          Tx.x = rel_origin_attr->get_origin_value();
+        if (rel_rpy_attr)
+          Tx.q = rel_rpy_attr->get_rpy_value();
+        else if (rel_quat_attr)
+          Tx.q = rel_quat_attr->get_quat_value();
         osg::Matrixd T;
         to_osg_matrix(Tx, T);
         xgroup->setMatrix(T);
@@ -314,7 +322,7 @@ void Visualizable::load_from_xml(XMLTreeConstPtr node, std::map<std::string, Bas
 }
 
 /// Implements Base::save_to_xml() 
-void Visualizable::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
+void Visualizable::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& shared_objects) const
 {
   // save the Base data
   Base::save_to_xml(node, shared_objects);

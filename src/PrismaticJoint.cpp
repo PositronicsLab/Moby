@@ -36,8 +36,7 @@ PrismaticJoint::PrismaticJoint() : Joint()
   _T.set_rotation(&IDENTITY_3x3);
 
   // setup the spatial axis derivative to zero
-  _si_deriv = SMatrix6N(1);
-  _si_deriv.set_column(0, SVector6(0,0,0,0,0,0));
+  _si_deriv.clear();
 }
 
 /// Initializes the joint with the specified inboard and outboard links
@@ -60,8 +59,7 @@ PrismaticJoint::PrismaticJoint(boost::weak_ptr<RigidBody> inboard, boost::weak_p
   _T.set_rotation(&IDENTITY_3x3);
 
   // setup the spatial axis derivative to zero
-  _si_deriv = SMatrix6N(1);
-  _si_deriv.set_column(0, SVector6(0,0,0,0,0,0));
+  _si_deriv.clear();
 }  
 
 /// Gets the global axis for this joint
@@ -219,7 +217,7 @@ const Matrix4& PrismaticJoint::get_transform()
 }
 
 /// Gets the derivative fo the spatial axes for this joint
-SMatrix6N& PrismaticJoint::get_spatial_axes_dot(ReferenceFrameType rftype)
+vector<Twistd>& PrismaticJoint::get_spatial_axes_dot()
 {
   return _si_deriv;
 }
@@ -2268,7 +2266,7 @@ void PrismaticJoint::evaluate_constraints(double C[])
 }
 
 /// Implements Base::load_from_xml()
-void PrismaticJoint::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void PrismaticJoint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // read the information from the articulated body joint
   Joint::load_from_xml(node, id_map);
@@ -2300,7 +2298,7 @@ void PrismaticJoint::load_from_xml(XMLTreeConstPtr node, std::map<std::string, B
 }
 
 /// Implements Base::save_to_xml()
-void PrismaticJoint::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
+void PrismaticJoint::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& shared_objects) const
 {
   // get the majority of the info from Joint::save_to_xml()
   Joint::save_to_xml(node, shared_objects);

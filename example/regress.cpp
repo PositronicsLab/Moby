@@ -81,7 +81,7 @@ bool step(void* arg)
   outfile << s->current_time;
   for (unsigned i=0; i< bodies.size(); i++)  
   {
-    bodies[i]->get_generalized_coordinates(DynamicBody::eRodrigues, q);
+    bodies[i]->get_generalized_coordinates(DynamicBody::eEuler, q);
     for (unsigned j=0; j< q.size(); j++)
       outfile << " " << q[j];
   }

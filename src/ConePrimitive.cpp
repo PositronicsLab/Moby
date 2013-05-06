@@ -156,13 +156,13 @@ void ConePrimitive::set_num_rings(unsigned n)
 }
 
 /// Transforms the primitive
-void ConePrimitive::set_transform(const Pose3d& T)
+void ConePrimitive::set_pose(const Pose3d& T)
 {
   // determine the transformation from the old to the new transform 
   Pose3d Trel = T * Pose3d::inverse(_T);
 
   // go ahead and set the new transform
-  Primitive::set_transform(T);
+  Primitive::set_pose(T);
 
   // transform mesh
   if (_mesh)
@@ -201,7 +201,7 @@ shared_ptr<const IndexedTriArray> ConePrimitive::get_mesh()
     }
 
     // get the current transform
-    const Pose3d& T = get_transform();
+    const Pose3d& T = get_pose();
 
     // determine the vertices in the mesh
     list<Point3d> points; 
@@ -250,7 +250,7 @@ osg::Node* ConePrimitive::create_visualization()
 }
 
 /// Implements Base::load_from_xml() for serialization
-void ConePrimitive::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void ConePrimitive::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // verify that the node type is cone
   assert(strcasecmp(node->name.c_str(), "Cone") == 0);
@@ -283,7 +283,7 @@ void ConePrimitive::load_from_xml(XMLTreeConstPtr node, std::map<std::string, Ba
 }
 
 /// Implements Base::save_to_xml() for serialization
-void ConePrimitive::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
+void ConePrimitive::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& shared_objects) const
 {
   // save the parent data
   Primitive::save_to_xml(node, shared_objects);
@@ -308,7 +308,7 @@ void ConePrimitive::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared
 void ConePrimitive::calc_mass_properties()
 {
   // get the current transform
-  const Pose3d& T = get_transform();
+  const Pose3d& T = get_pose();
 
   // determine the radius squared (we'll need this) 
   const double RSQ = _radius * _radius;
@@ -349,7 +349,7 @@ void ConePrimitive::get_vertices(BVPtr bv, std::vector<const Point3d*>& vertices
     }
 
     // get the current transform for the primitive
-    const Pose3d& T = get_transform();
+    const Pose3d& T = get_pose();
 
     // create the vector of vertices
     _vertices = shared_ptr<vector<Point3d> >(new vector<Point3d>());
@@ -400,10 +400,10 @@ BVPtr ConePrimitive::get_BVH_root()
     _obb = shared_ptr<OBB>(new OBB);
 
   // setup the center of the OBB 
-  _obb->center = get_transform().x;
+  _obb->center = get_pose().x;
   
   // setup the orientation of the OBB
-  _obb->R = get_transform().q;
+  _obb->R = get_pose().q;
 
   // must orthonormalize OBB orientation, b/c T may have scaling applied
   _obb->R.orthonormalize();
@@ -428,7 +428,7 @@ static double sgn(double x) { return x / std::fabs(x); }
 bool ConePrimitive::point_inside(BVPtr bv, const Point3d& p, Vector3d& normal) const
 {
   // transform the point to cone frame 
-  const Pose3d& T = get_transform();
+  const Pose3d& T = get_pose();
   Point3d query = T.inverse_transform(p);
 
   // determine the angle theta
@@ -460,7 +460,7 @@ double ConePrimitive::calc_penetration_depth(const Point3d& p) const
   const double INF = std::numeric_limits<double>::max();
 
   // verify the point is inside
-  const Pose3d& T = get_transform();
+  const Pose3d& T = get_pose();
   Point3d query = T.inverse_transform(p);
 
   // determine the angle theta
@@ -545,7 +545,7 @@ bool ConePrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Poin
   }
 
   // transform the line segment to cone frame 
-  const Pose3d& T = get_transform();
+  const Pose3d& T = get_pose();
   Point3d p = T.inverse_transform(seg.first);
   Point3d q = T.inverse_transform(seg.second);
 

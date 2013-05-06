@@ -65,8 +65,8 @@ class EventDrivenSimulator : public Simulator
   public:
     EventDrivenSimulator();
     virtual ~EventDrivenSimulator() {}
-    virtual void load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map);
-    virtual void save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const;
+    virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
+    virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual void output_object_state(std::ostream& out) const;
     virtual double step(double dt);
 

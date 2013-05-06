@@ -53,19 +53,19 @@ class RCArticulatedBody : public ArticulatedBody
     Ravelin::MatrixNd& generalized_inertia_mult(const Ravelin::MatrixNd& M, Ravelin::MatrixNd& result);
     virtual Ravelin::MatrixNd& calc_jacobian(const Ravelin::Point3d& point, RigidBodyPtr link, Ravelin::MatrixNd& J);
     virtual Ravelin::MatrixNd calc_jacobian_column(JointPtr joint, const Ravelin::Point3d& point);
-    virtual Ravelin::MatrixNd& calc_jacobian_column(JointPtr joint, const Ravelin::Point3d& point, const Ravelin::Pose3d& base_transform, const std::map<JointPtr, Ravelin::VectorNd>& q, Ravelin::MatrixNd& Jc);
+    virtual Ravelin::MatrixNd& calc_jacobian_column(JointPtr joint, const Ravelin::Point3d& point, const Ravelin::Pose3d& base_pose, const std::map<JointPtr, Ravelin::VectorNd>& q, Ravelin::MatrixNd& Jc);
     virtual Ravelin::MatrixNd& calc_jacobian_column(JointPtr joint, const Ravelin::Point3d& point, Ravelin::MatrixNd& Jc);
     virtual Ravelin::MatrixNd& calc_jacobian_floating_base(const Ravelin::Point3d& point, Ravelin::MatrixNd& J);
     virtual void reset_accumulators();
-    virtual void update_link_transforms();    
+    virtual void update_link_poses();    
     virtual void update_link_velocities();
     virtual void apply_impulse(const Ravelin::Wrenchd& w, RigidBodyPtr link);
     virtual void calc_fwd_dyn(double dt);
     virtual void update_visualization();
-    virtual void load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map);
-    virtual void save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const;
+    virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
+    virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     RCArticulatedBodyPtr get_this() { return boost::dynamic_pointer_cast<RCArticulatedBody>(shared_from_this()); }
-    RCArticulatedBodyConstPtr get_this() const { return boost::dynamic_pointer_cast<const RCArticulatedBody>(shared_from_this()); }
+    boost::shared_ptr<const RCArticulatedBody> get_this() const { return boost::dynamic_pointer_cast<const RCArticulatedBody>(shared_from_this()); }
     virtual void add_generalized_force(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gf);
     virtual void apply_generalized_impulse(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gj);
     virtual Ravelin::VectorNd& get_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& gc);
@@ -74,7 +74,6 @@ class RCArticulatedBody : public ArticulatedBody
     virtual void set_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gc);
     virtual void set_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gv);
     virtual Ravelin::MatrixNd& get_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::MatrixNd& M);
-    virtual Ravelin::MatrixNd& get_generalized_inertia_inverse(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::MatrixNd& M);
     virtual Ravelin::VectorNd& get_generalized_forces(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& f);
     virtual Ravelin::VectorNd& convert_to_generalized_force(DynamicBody::GeneralizedCoordinateType gctype, SingleBodyPtr body, const Ravelin::Wrenchd& w, Ravelin::VectorNd& gf);
     virtual unsigned num_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype) const;
@@ -95,6 +94,8 @@ class RCArticulatedBody : public ArticulatedBody
     virtual Ravelin::MatrixNd& transpose_Jl_mult(const Ravelin::MatrixNd& m, Ravelin::MatrixNd& result) { return _Jl.transpose_mult(m, result); }
     virtual Ravelin::VectorNd& transpose_Dx_mult(const Ravelin::VectorNd& v, Ravelin::VectorNd& result) { return _Dx.transpose_mult(v, result); }
     virtual Ravelin::MatrixNd& transpose_Dx_mult(const Ravelin::MatrixNd& m, Ravelin::MatrixNd& result) { return _Dx.transpose_mult(m, result); }
+    virtual boost::shared_ptr<Ravelin::Pose3d> get_computation_frame_pose() const;
+    virtual void set_computation_frame_type(ReferenceFrameType rftype);
 
     /// Gets whether the base of this body is fixed or "floating"
     bool is_floating_base() const { return _floating_base; }
@@ -104,9 +105,6 @@ class RCArticulatedBody : public ArticulatedBody
 
     /// Gets the base link
     RigidBodyPtr get_base_link() const { return (!_links.empty()) ? _links.front() : RigidBodyPtr(); }
-
-   /// The computation reference frame
-    ReferenceFrameType computation_frame_type;
 
     /// The forward dynamics algorithm
     ForwardDynamicsAlgorithmType algorithm_type;
@@ -126,8 +124,8 @@ class RCArticulatedBody : public ArticulatedBody
   
      virtual void compile();
 
-    /// There is no visualization transform
-    virtual boost::shared_ptr<const Ravelin::Pose3d> get_visualization_transform() { return boost::shared_ptr<const Ravelin::Pose3d>(); }    
+    /// There is no visualization pose 
+    virtual boost::shared_ptr<const Ravelin::Pose3d> get_visualization_pose() { return boost::shared_ptr<const Ravelin::Pose3d>(); }    
 
     /// The number of DOF of the implicit joint constraints in the body (does not include floating base DOF!)
     unsigned _n_joint_DOF_implicit;
@@ -141,7 +139,7 @@ class RCArticulatedBody : public ArticulatedBody
     void calc_fwd_dyn_advanced_friction(double dt);
     void generalized_inertia_mult_fixed(const Ravelin::MatrixNd& M, Ravelin::MatrixNd& result);
     void generalized_inertia_mult_floating(const Ravelin::MatrixNd& M, Ravelin::MatrixNd& result);
-    virtual Ravelin::MatrixNd calc_jacobian_column(JointPtr joint, const Ravelin::Point3d& point, const Ravelin::Pose3d& base_transform, const std::map<JointPtr, Ravelin::VectorNd>& q);
+    virtual Ravelin::MatrixNd calc_jacobian_column(JointPtr joint, const Ravelin::Point3d& point, const Ravelin::Pose3d& base_pose, const std::map<JointPtr, Ravelin::VectorNd>& q);
 
     /// The vector of implicit joint constraints
     std::vector<JointPtr> _ijoints;
@@ -159,14 +157,18 @@ class RCArticulatedBody : public ArticulatedBody
     /// The FSAB algorithm
     FSABAlgorithm _fsab;
 
-    /// The inverse or factorized generalized inertia matrix
-    Ravelin::MatrixNd _invM;
+    /// The factorized generalized inertia matrix
+    Ravelin::MatrixNd _fM;
 
-    /// Indicates whether the inverse generalized inertia needs to be recomputed
-    bool _invM_valid;
+    /// The svd of the generalized inertia matrix
+    Ravelin::MatrixNd _uM, uV;
+    Ravelin::VectorNd _sM;
 
-    /// Indicates whether the inverse generalized inertia is rank deficient
-    bool _invM_rankdef;
+    /// Indicates whether the generalized inertia needs to be refactored
+    bool _fM_valid;
+
+    /// Indicates whether the generalized inertia is rank deficient
+    bool _M_rankdef;
 
     /// Indicates the type of the inverse generalized inertia
     DynamicBody::GeneralizedCoordinateType _invM_type;

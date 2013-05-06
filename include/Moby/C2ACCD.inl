@@ -14,14 +14,14 @@ C2ACCD::C2ACCD(InputIterator begin, InputIterator end)
 
 /// Intersects two BV leafs together and returns collision data (if any)
 template <class OutputIterator>
-OutputIterator C2ACCD::intersect_BV_leafs(BVPtr a, BVPtr b, const Ravelin::Pose3d& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b, OutputIterator output_begin) const
+OutputIterator C2ACCD::intersect_BV_leafs(BVPtr a, BVPtr b, const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b, OutputIterator output_begin) const
 {
   // NOTE: if we want to speed up this static collision check (slightly),
   // we could institute an object-level map from BV leafs to triangles
 
   // get the primitives 
-  PrimitiveConstPtr a_primitive = geom_a->get_geometry(); 
-  PrimitiveConstPtr b_primitive = geom_b->get_geometry();
+  boost::shared_ptr<const Primitive> a_primitive = geom_a->get_geometry(); 
+  boost::shared_ptr<const Primitive> b_primitive = geom_b->get_geometry();
 
   // get the mesh data from the plugins
   const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >& mdata_a = _meshes.find(a)->second;

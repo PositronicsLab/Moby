@@ -4,16 +4,45 @@
  * License (found in COPYING).
  ****************************************************************************/
 
+#include <algorithm>
+#include <strings.h>
 #include <Moby/ODEPACKIntegrator.h>
 
+using boost::shared_ptr;
 using namespace Moby;
+using Ravelin::VectorNd;
 
 #ifdef THREADSAFE
 pthread_mutex_t Moby::ODEPACKIntegratorMutex::_odepack_mutex = PTHREAD_MUTEX_INITIALIZER;
 #endif
 
+#ifdef USE_ODEPACK
+extern "C"  {
+
+// prototype for ODEPACK (double version)
+void dlsode_(void (*f)(int*, double*, double*, double*), int* neq, double* y,
+            double* t, double* tout, int* itol, double* rtol, double* atol,
+            int* itask, int* istate, int* iopt, double* rwork, int* lrw,
+            int* iwork, int* liw, 
+            void (*jac)(int*, double*, double*, int*, int*, double*, int*),
+            int* mf);
+
+} // extern "C" 
+
+static double tnew;
+static void* fn_data;
+static VectorNd& (*fn_VectorNd)(const VectorNd&, double, double, void*, VectorNd&);
+
+static void fdouble_VectorNd(int* neq, double* t, double* y, double* ydot)
+{
+  static VectorNd x((unsigned) *neq, y), xdot;
+  (*fn_VectorNd)(x, *t, tnew - *t, fn_data, xdot);
+  std::copy(xdot.data(), xdot.data()+*neq, ydot);
+}
+#endif // #ifdef USE_ODEPACK
+
 /// Method for integration
-void ODEPACKIntegrator::integrate(Ravelin::VectorNd& x, Ravelin::VectorNd& (*f)(const Ravelin::VectorNd&, double, double, void*, Ravelin::VectorNd&), double& time, double step_size, void* data)
+void ODEPACKIntegrator::integrate(VectorNd& x, VectorNd& (*f)(const VectorNd&, double, double, void*, VectorNd&), double& time, double step_size, void* data)
 {
   #ifndef USE_ODEPACK
   std::cerr << "Moby built without ODEPACK support!  Using explicit Euler integration instead..." << std::endl;
@@ -25,7 +54,7 @@ void ODEPACKIntegrator::integrate(Ravelin::VectorNd& x, Ravelin::VectorNd& (*f)(
   time += step_size;
 
   // compute new state
-  Ravelin::VectorNd dx;
+  VectorNd dx;
   x += (f(x, old_time, step_size, data, dx) *= step_size);
   #else
 
@@ -64,11 +93,11 @@ void ODEPACKIntegrator::integrate(Ravelin::VectorNd& x, Ravelin::VectorNd& (*f)(
   pthread_mutex_lock(&ODEPACKIntegratorMutex::_odepack_mutex);
   #endif
   tnew = time + step_size;
-  fn_Ravelin::VectorNd = f;
+  fn_VectorNd = f;
   fn_data = data;
 
   // call ODEPACK -- note that it updates t
-  dlsode_(fdouble_Ravelin::VectorNd, &neq, x.data(), &time, &tout, &itol, 
+  dlsode_(fdouble_VectorNd, &neq, x.data(), &time, &tout, &itol, 
           &rerr_tolerance, &aerr_tolerance, &itask, &istate, &iopt, 
           &_rwork.front(), &lrw, &_iwork.front(), &liw, NULL, &mf);
 
@@ -117,49 +146,13 @@ void ODEPACKIntegrator::integrate(Ravelin::VectorNd& x, Ravelin::VectorNd& (*f)(
 }
 
 
-/****************************************************************************
- * Copyright 2010 Evan Drumwright
- * This library is distributed under the terms of the GNU Lesser General Public 
- * License (found in COPYING).
- ****************************************************************************/
-
-#ifdef USE_ODEPACK
-extern "C"  {
-
-// prototype for ODEPACK (double version)
-void dlsode_(void (*f)(int*, double*, double*, double*), int* neq, double* y,
-            double* t, double* tout, int* itol, double* rtol, double* atol,
-            int* itask, int* istate, int* iopt, double* rwork, int* lrw,
-            int* iwork, int* liw, 
-            void (*jac)(int*, double*, double*, int*, int*, double*, int*),
-            int* mf);
-
-} // extern "C" 
-#endif
-
-#ifdef USE_ODEPACK
-
-static double tnew;
-static void* fn_data;
-static Ravelin::VectorNd& (*fn_Ravelin::VectorNd)(const Ravelin::VectorNd&, double, double, void*, Ravelin::VectorNd&);
-
-static void fdouble_Ravelin::VectorNd(int* neq, double* t, double* y, double* ydot)
-{
-  Ravelin::VectorNd x((unsigned) *neq, y), xdot;
-  (*fn_Ravelin::VectorNd)(x, *t, tnew - *t, fn_data, xdot);
-  for (int i=0; i< *neq; i++)
-    ydot[i] = xdot[i];
-}
-
-#endif // #ifdef USE_ODEPACK
-
 ODEPACKIntegrator::ODEPACKIntegrator()
 {
   use_stiff_integrator = false;
 }
 
 /// Implements Base::load_from_xml()
-void ODEPACKIntegrator::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map) 
+void ODEPACKIntegrator::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map) 
 { 
   assert(strcasecmp(node->name.c_str(), "ODEPACKIntegrator") == 0);
   VariableStepIntegrator::load_from_xml(node, id_map); 
@@ -171,7 +164,7 @@ void ODEPACKIntegrator::load_from_xml(XMLTreeConstPtr node, std::map<std::string
 }
 
 /// Implements Base::save_to_xml()
-void ODEPACKIntegrator::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
+void ODEPACKIntegrator::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& shared_objects) const
 { 
   VariableStepIntegrator::save_to_xml(node, shared_objects); 
   node->name = "ODEPACKIntegrator";

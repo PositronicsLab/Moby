@@ -22,14 +22,14 @@ double Simulator::integrate(double step_size, ForwardIterator begin, ForwardIter
     if (LOGGING(LOG_SIMULATOR))
     {
       Ravelin::VectorNd q;
-      FILE_LOG(LOG_SIMULATOR) << "  generalized coordinates (before): " << (*i)->get_generalized_coordinates(DynamicBody::eRodrigues, q) << std::endl;
+      FILE_LOG(LOG_SIMULATOR) << "  generalized coordinates (before): " << (*i)->get_generalized_coordinates(DynamicBody::eEuler, q) << std::endl;
       FILE_LOG(LOG_SIMULATOR) << "  generalized velocities (before): " << (*i)->get_generalized_velocity(DynamicBody::eAxisAngle, q) << std::endl;
     }
     (*i)->integrate(current_time, step_size, integrator);
     if (LOGGING(LOG_SIMULATOR))
     {
       Ravelin::VectorNd q;
-      FILE_LOG(LOG_SIMULATOR) << "  generalized coordinates (after): " << (*i)->get_generalized_coordinates(DynamicBody::eRodrigues, q) << std::endl;
+      FILE_LOG(LOG_SIMULATOR) << "  generalized coordinates (after): " << (*i)->get_generalized_coordinates(DynamicBody::eEuler, q) << std::endl;
       FILE_LOG(LOG_SIMULATOR) << "  generalized velocities (after): " << (*i)->get_generalized_velocity(DynamicBody::eAxisAngle, q) << std::endl;
     }
   }

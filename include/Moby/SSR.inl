@@ -73,7 +73,7 @@ SSR::SSR(ForwardIterator begin, ForwardIterator end)
       areas[i] = tri.calc_area();
       centroids[i] = (tri.a + tri.b + tri.c);
       total_area += areas[i];
-      this->center += centroids[i]*areas[i];
+      this->center += Ravelin::Origin3d(centroids[i]*areas[i]);
     }
     this->center /= (total_area*3.0);
 
@@ -113,7 +113,7 @@ SSR::SSR(ForwardIterator begin, ForwardIterator end)
     // first eigenvector will be direction of minimum variance; that's the
     // one that we want to align with
     Ravelin::Vector3d col;
-    C.get_column(0, col.begin());
+    C.get_column(0, col);
     normal = Ravelin::Vector3d::normalize(col);
   }
 

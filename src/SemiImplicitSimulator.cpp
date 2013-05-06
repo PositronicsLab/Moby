@@ -534,9 +534,9 @@ void SemiImplicitSimulator::prep_contacts(list<Contact>& contacts)
 }
 
 /// Implements Base::load_from_xml()
-void SemiImplicitSimulator::load_from_xml(XMLTreeConstPtr node, map<string, BasePtr>& id_map)
+void SemiImplicitSimulator::load_from_xml(shared_ptr<const XMLTree> node, map<string, BasePtr>& id_map)
 {
-  list<XMLTreeConstPtr> child_nodes;
+  list<shared_ptr<const XMLTree> > child_nodes;
   map<string, BasePtr>::const_iterator id_iter;
 
   // verify that the node name is correct
@@ -555,7 +555,7 @@ void SemiImplicitSimulator::load_from_xml(XMLTreeConstPtr node, map<string, Base
 }
 
 /// Implements Base::save_to_xml()
-void SemiImplicitSimulator::save_to_xml(XMLTreePtr node, list<BaseConstPtr>& shared_objects) const
+void SemiImplicitSimulator::save_to_xml(XMLTreePtr node, list<shared_ptr<const Base> >& shared_objects) const
 {
   // call Simulator's save method first
   ContactSimulator::save_to_xml(node, shared_objects);

@@ -41,8 +41,7 @@ SphericalJoint::SphericalJoint() : Joint()
   _T.set_translation(ZEROS_3);
 
   // setup the spatial axis derivative to zero
-  _si_dot = SMatrix6N::zero(SPATIAL_DIM,num_dof());
-  _s0_dot = SMatrix6N::zero(SPATIAL_DIM,num_dof());
+  _si_dot.resize(num_dof());
 
   // assign the spherical joint tolerance
   SINGULAR_TOL = (double) 1e-2;
@@ -286,7 +285,7 @@ bool SphericalJoint::assign_axes()
 /**
  * \note these spatial axes are not constant, unlike many joints.
  */
-const SMatrix6N& SphericalJoint::get_spatial_axes(ReferenceFrameType rftype)
+const vector<Twistd>& SphericalJoint::get_spatial_axes()
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
@@ -326,9 +325,9 @@ const SMatrix6N& SphericalJoint::get_spatial_axes(ReferenceFrameType rftype)
   si1.set_upper(u1);
   si2.set_upper(u2);
   si3.set_upper(u3);
-  si1.set_lower(Vector3::cross(u1, p));
-  si2.set_lower(Vector3::cross(u2, p));
-  si3.set_lower(Vector3::cross(u3, p));
+  si1.set_lower(ZEROS_3);
+  si2.set_lower(ZEROS_3);
+  si3.set_lower(ZEROS_3);
   _si.set_column(eAxis1, si1);
   _si.set_column(eAxis2, si2);
   _si.set_column(eAxis3, si3);
@@ -344,7 +343,7 @@ const SMatrix6N& SphericalJoint::get_spatial_axes(ReferenceFrameType rftype)
 /**
  * \note these spatial axes are not constant, unlike many joints.
  */
-const SMatrix6N& SphericalJoint::get_spatial_axes_dot(ReferenceFrameType rftype)
+const vector<Twistd>& SphericalJoint::get_spatial_axes_dot()
 {
   RigidBodyPtr inboard = get_inboard_link();
   RigidBodyPtr outboard = get_outboard_link();
@@ -374,24 +373,17 @@ const SMatrix6N& SphericalJoint::get_spatial_axes_dot(ReferenceFrameType rftype)
   Vector3 u2 = _R * uu2; 
   Vector3 u3 = _R * uu3; 
 
-  // get the outboard link's joint to com vector in outer link coordinates
-  const Vector3& p = outboard->get_inner_joint_data(inboard).joint_to_com_vec_of;
-
-  // update the spatial axis in link coordinates; note that third column of spatial axis
+  // update the spatial axis in joint coordinates; note that third column of spatial axis
   // derivative set to zero in constructor and is never modified
   SVector6 si2, si3;
   si2.set_upper(u2);
   si3.set_upper(u3);
-  si2.set_lower(Vector3::cross(u2, p));
-  si3.set_lower(Vector3::cross(u3, p));
+  si2.set_lower(ZEROS_3);
+  si3.set_lower(ZEROS_3);
   _si_dot.set_column(eAxis2, si2);
   _si_dot.set_column(eAxis3, si3);
 
-  // transform to global coordinates
-  SpatialTransform X_0_i = outboard->get_spatial_transform_link_to_global();
-  X_0_i.transform(_si_dot, _s0_dot);
-
-  return (rftype == eLink) ? _si_dot : _s0_dot;
+  return _si_dot;
 }
 
 /// Determines (and sets) the value of Q from the axes and the inboard link and outboard link transforms
@@ -789,7 +781,7 @@ void SphericalJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, u
 }
 
 /// Implements Base::load_from_xml()
-void SphericalJoint::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void SphericalJoint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // read the information from the articulated body joint
   Joint::load_from_xml(node, id_map);
@@ -849,7 +841,7 @@ void SphericalJoint::load_from_xml(XMLTreeConstPtr node, std::map<std::string, B
 }
 
 /// Implements Base::save_to_xml()
-void SphericalJoint::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
+void SphericalJoint::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& shared_objects) const
 {
   // get info from Joint::save_to_xml()
   Joint::save_to_xml(node, shared_objects);
