@@ -23,7 +23,7 @@ namespace Moby {
 class DynamicBody : public Visualizable
 {
   public:
-    enum GeneralizedCoordinateType { eEuler, eAxisAngle };
+    enum GeneralizedCoordinateType { eEuler, eSpatial };
 
     DynamicBody() 
     { 

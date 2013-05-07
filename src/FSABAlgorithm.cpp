@@ -39,7 +39,7 @@ void FSABAlgorithm::calc_inverse_generalized_inertia(DynamicBody::GeneralizedCoo
   vector<Twistd> sprime;
 
   // we currently only handle axis-angle generalized coordinates...
-  assert(gctype == DynamicBody::eAxisAngle);
+  assert(gctype == DynamicBody::eSpatial);
 
   // get the body
   RCArticulatedBodyPtr body(_body);
@@ -321,7 +321,7 @@ void FSABAlgorithm::apply_generalized_impulse(DynamicBody::GeneralizedCoordinate
   queue<RigidBodyPtr> link_queue;
 
   // determine the number of generalized coordinates for the base
-  const unsigned N_BASE_GC = (gctype == DynamicBody::eAxisAngle) ? 6 : 7;
+  const unsigned N_BASE_GC = (gctype == DynamicBody::eSpatial) ? 6 : 7;
 
   // get the body
   RCArticulatedBodyPtr body(_body);
@@ -455,7 +455,7 @@ void FSABAlgorithm::apply_generalized_impulse(DynamicBody::GeneralizedCoordinate
     SVector6 Y0_delta(-linear, -angular);
 
     // see whether we need to transform Y0
-    if (gctype == DynamicBody::eAxisAngle)
+    if (gctype == DynamicBody::eSpatial)
     {
       SpatialTransform X_b_0(IDENTITY_3x3, base->get_position(), base->get_pose().get_rotation(), base->get_position());
       Y0_delta = X_b_0.transform(Y0_delta);
