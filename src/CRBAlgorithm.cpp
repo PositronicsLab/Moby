@@ -35,7 +35,7 @@ void CRBAlgorithm::setup_parent_array()
 {
   // get the number of generalized coordinates
   RCArticulatedBodyPtr body(_body);
-  const unsigned N = body->num_generalized_coordinates(DynamicBody::eAxisAngle);
+  const unsigned N = body->num_generalized_coordinates(DynamicBody::eSpatial);
 
   // get implicit joints
   const vector<JointPtr>& ijoints = body->get_implicit_joints();
@@ -214,7 +214,7 @@ void CRBAlgorithm::calc_generalized_inertia(DynamicBody::GeneralizedCoordinateTy
   precalc(body);
 
   // calculate the generalized inertia
-  if (gctype == DynamicBody::eAxisAngle)
+  if (gctype == DynamicBody::eSpatial)
     calc_generalized_inertia_axisangle(M);
   else
   {

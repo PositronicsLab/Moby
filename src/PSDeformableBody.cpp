@@ -297,8 +297,8 @@ void PSDeformableBody::update_event_data(EventProblemData& q)
 
   // store the current state of this body
   SAFESTATIC VectorNd gc, gv;
-  get_generalized_coordinates(DynamicBody::eAxisAngle, gc);
-  get_generalized_velocity(DynamicBody::eAxisAngle, gv);
+  get_generalized_coordinates(DynamicBody::eSpatial, gc);
+  get_generalized_velocity(DynamicBody::eSpatial, gv);
 
   // setup matrices
   MatrixNd Jc_iM_JcT, Jc_iM_DcT, Dc_iM_DcT;
@@ -404,8 +404,8 @@ void PSDeformableBody::update_event_data(EventProblemData& q)
   q.Dc_iM_DcT += Dc_iM_DcT;
 
   // restore body state
-  set_generalized_coordinates(DynamicBody::eAxisAngle, gc);
-  set_generalized_velocity(DynamicBody::eAxisAngle, gv);
+  set_generalized_coordinates(DynamicBody::eSpatial, gc);
+  set_generalized_velocity(DynamicBody::eSpatial, gv);
 }
 
 // TODO: fix if necessary

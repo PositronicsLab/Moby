@@ -153,11 +153,11 @@ void Joint::evaluate_constraints_dot(double C[6])
   for (unsigned i=0; i< NEQ; i++)
   {
     // TODO: fix this to do frame calculations
-    calc_constraint_jacobian(DynamicBody::eAxisAngle, in, i, Cx);
+    calc_constraint_jacobian(DynamicBody::eSpatial, in, i, Cx);
     Vector3d lv(Cx[0], Cx[1], Cx[2]);
     Vector3d av(Cx[3], Cx[4], Cx[5]);
     C[i] = lv.dot(lvi) + av.dot(avi);
-    calc_constraint_jacobian(DynamicBody::eAxisAngle, out, i, Cx);
+    calc_constraint_jacobian(DynamicBody::eSpatial, out, i, Cx);
     lv = Vector3d(Cx[0], Cx[1], Cx[2]);
     av = Vector3d(Cx[3], Cx[4], Cx[5]);
     C[i] += -lv.dot(lvo) - av.dot(avo);

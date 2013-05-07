@@ -90,7 +90,7 @@ class Joint : public Visualizable
      */
     void calc_constraint_jacobian(DynamicBody::GeneralizedCoordinateType gctype, RigidBodyPtr body, unsigned index, double Cq[]) 
     {
-      if (gctype == DynamicBody::eAxisAngle)
+      if (gctype == DynamicBody::eSpatial)
       {
         // compute the constraint Jacobian using rodrigues parameters
         double Cq2[7];
@@ -121,7 +121,7 @@ class Joint : public Visualizable
      */
     void calc_constraint_jacobian_dot(DynamicBody::GeneralizedCoordinateType gctype, RigidBodyPtr body, unsigned index, double Cq[]) 
     {
-      if (gctype == DynamicBody::eAxisAngle)
+      if (gctype == DynamicBody::eSpatial)
       {
         // compute the constraint Jacobian using rodrigues parameters
         double Cq2[7];

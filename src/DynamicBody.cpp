@@ -14,7 +14,7 @@ void DynamicBody::integrate(double t, double h, shared_ptr<Integrator> integrato
   shared_ptr<DynamicBody> shared_this = dynamic_pointer_cast<DynamicBody>(shared_from_this());
 
   get_generalized_coordinates(eEuler, gc);
-  get_generalized_velocity(eAxisAngle, gv);
+  get_generalized_velocity(eSpatial, gv);
   gcgv.resize(gc.size()+gv.size());
   gcgv.set_sub_vec(0, gc);
   gcgv.set_sub_vec(gc.size(), gv);
@@ -22,7 +22,7 @@ void DynamicBody::integrate(double t, double h, shared_ptr<Integrator> integrato
   gcgv.get_sub_vec(0, gc.size(), gc);
   gcgv.get_sub_vec(gc.size(), gcgv.size(), gv);
   set_generalized_coordinates(eEuler, gc);
-  set_generalized_velocity(eAxisAngle, gv);
+  set_generalized_velocity(eSpatial, gv);
 }
 
 /// Returns the ODE's for position and velocity (concatenated into x)
@@ -42,7 +42,7 @@ VectorNd& DynamicBody::ode_both(const VectorNd& x, double t, double dt, void* da
   x.get_sub_vec(0, NGC_ROD, xp);
   x.get_sub_vec(NGC_ROD, x.size(), xv);
   db->set_generalized_coordinates(DynamicBody::eEuler, xp);
-  db->set_generalized_velocity(DynamicBody::eAxisAngle, xv);
+  db->set_generalized_velocity(DynamicBody::eSpatial, xv);
 
   // check whether we could rotate too much
   #ifdef NDEBUG
@@ -67,7 +67,7 @@ VectorNd& DynamicBody::ode_both(const VectorNd& x, double t, double dt, void* da
 
   // calculate forward dynamics at state x
   db->calc_fwd_dyn(dt);
-  db->get_generalized_acceleration(DynamicBody::eAxisAngle, xa);
+  db->get_generalized_acceleration(DynamicBody::eSpatial, xa);
 
   dx.resize(x.size());
   dx.set_sub_vec(0, xv);

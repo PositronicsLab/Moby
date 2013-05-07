@@ -17,6 +17,7 @@
 #include <Ravelin/Pose3d.h>
 #include <Ravelin/Wrenchd.h>
 #include <Ravelin/Twistd.h>
+#include <Ravelin/LinAlgd.h>
 #include <Ravelin/SpatialRBInertiad.h>
 #include <Moby/Constants.h>
 #include <Moby/CollisionGeometry.h>
@@ -77,10 +78,9 @@ class RigidBody : public SingleBody
     virtual void integrate(double t, double h, boost::shared_ptr<Integrator> integrator);
     void add_wrench(const Ravelin::Wrenchd& w);
     void set_pose(const Ravelin::Pose3d& pose);
-    void set_inertia(const Ravelin::Matrix3d& m);
+    void set_inertia(const Ravelin::SpatialRBInertiad& m);
     void set_enabled(bool flag);
     void apply_impulse(const Ravelin::Wrenchd& w);
-    void set_mass(double mass);
     virtual void transform(const Ravelin::Pose3d& transform) { set_pose(transform * (*_F)); }
     virtual void calc_fwd_dyn(double dt);
     const Ravelin::SpatialRBInertiad& get_inertia() const;
@@ -89,13 +89,11 @@ class RigidBody : public SingleBody
 
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
-    double calc_point_accel(const Ravelin::Point3d& point, const Ravelin::Vector3d& dir, double dt);
-    static double calc_sep_accel(RigidBody& rb1, RigidBody& rb2, const Ravelin::Point3d& point, const Ravelin::Vector3d& dir, const Ravelin::Vector3d& dir_dot, double dt);
     bool is_child_link(boost::shared_ptr<const RigidBody> query) const;
     bool is_descendant_link(boost::shared_ptr<const RigidBody> query) const;
     Ravelin::Twistd& accel() { return _xdd; }
     const Ravelin::Twistd& accel() const { return _xdd; } 
-    Ravelin::Twistd& velocity() { return _xd; }
+    Ravelin::Twistd& velocity();
     const Ravelin::Twistd& velocity() const { return _xd; }
     boost::shared_ptr<const DynamicBody> get_dynamic_body() const;
     DynamicBodyPtr get_dynamic_body();
@@ -112,7 +110,6 @@ class RigidBody : public SingleBody
     virtual unsigned num_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype) const;
     virtual Ravelin::MatrixNd& solve_generalized_inertia(DynamicBody::GeneralizedCoordinateType gc, const Ravelin::MatrixNd& B, Ravelin::MatrixNd& X);
     virtual Ravelin::VectorNd& solve_generalized_inertia(DynamicBody::GeneralizedCoordinateType gc, const Ravelin::VectorNd& b, Ravelin::VectorNd& x);
-    Ravelin::Wrenchd calc_inertial_forces() const;
     const InnerJointData& get_inner_joint_data(RigidBodyPtr parent) const { return get_inner_joint_data(parent); }
     InnerJointData& get_inner_joint_data(RigidBodyPtr parent);
     const InnerJointData& get_inner_joint_data(JointPtr inner_joint) const { return get_inner_joint_data(inner_joint); }
@@ -142,7 +139,7 @@ class RigidBody : public SingleBody
 
     virtual void calc_event_data(const Event& e, const Ravelin::MatrixNd& M, const Ravelin::VectorNd& q);
     virtual void calc_event_data(const Event& e1, const Event& e2, const Ravelin::MatrixNd& M);
-    Ravelin::Wrenchd calc_coriolis_forces() const;
+    Ravelin::Wrenchd calc_inertial_forces() const;
 
     template <class OutputIterator>
     OutputIterator get_parent_links(OutputIterator begin) const;
@@ -269,6 +266,7 @@ class RigidBody : public SingleBody
 
     static Ravelin::VectorNd ode_p(const Ravelin::VectorNd& x, double t, void* data);
     static Ravelin::VectorNd ode_v(const Ravelin::VectorNd& x, double t, void* data);
+    Ravelin::LinAlgd _LA;
 }; // end class
 
 std::ostream& operator<<(std::ostream&, const RigidBody&);

@@ -122,8 +122,8 @@ void Event::compute_event_data(MatrixNd& M, VectorNd& q) const
     wt.pose = event_frame;
 
     // get the numbers of generalized coordinates for the two super bodies
-    const unsigned NGC1 = su1->num_generalized_coordinates(DynamicBody::eAxisAngle);
-    const unsigned NGC2 = su2->num_generalized_coordinates(DynamicBody::eAxisAngle);
+    const unsigned NGC1 = su1->num_generalized_coordinates(DynamicBody::eSpatial);
+    const unsigned NGC2 = su2->num_generalized_coordinates(DynamicBody::eSpatial);
 
     // resize the Jacobians 
     J1.resize(3, NGC1);
@@ -140,21 +140,21 @@ void Event::compute_event_data(MatrixNd& M, VectorNd& q) const
     transpose_mult(twist, -wt, J2.row(2)); 
 
     // compute the event inertia matrix for the first body
-    su1->transpose_solve_generalized_inertia(DynamicBody::eAxisAngle, J1, workM1);
+    su1->transpose_solve_generalized_inertia(DynamicBody::eSpatial, J1, workM1);
     J1.mult(workM1, M);
 
     // compute the event inertia matrix for the second body
-    su2->transpose_solve_generalized_inertia(DynamicBody::eAxisAngle, J2, workM1);
+    su2->transpose_solve_generalized_inertia(DynamicBody::eSpatial, J2, workM1);
     J2.mult(workM1, workM2);
     M += workM2;
 
     // compute the event velocity
-    su1->get_generalized_velocity(DynamicBody::eAxisAngle, v);
+    su1->get_generalized_velocity(DynamicBody::eSpatial, v);
     J1.mult(v, q);
 
     // free v1 and allocate v2 and workv
     Vector3d workv;
-    su2->get_generalized_velocity(DynamicBody::eAxisAngle, v);
+    su2->get_generalized_velocity(DynamicBody::eSpatial, v);
     q += J2.mult(v, workv);
   }
   else if (event_type == eLimit)
@@ -200,8 +200,8 @@ void Event::compute_cross_event_data(const Event& e, MatrixNd& M) const
     wt.pose = event_frame;
 
     // get the numbers of generalized coordinates for the two super bodies
-    const unsigned NGC1 = su1->num_generalized_coordinates(DynamicBody::eAxisAngle);
-    const unsigned NGC2 = su2->num_generalized_coordinates(DynamicBody::eAxisAngle);
+    const unsigned NGC1 = su1->num_generalized_coordinates(DynamicBody::eSpatial);
+    const unsigned NGC2 = su2->num_generalized_coordinates(DynamicBody::eSpatial);
 
     // resize Jacobians 
     J1.resize(3, NGC1);
@@ -218,10 +218,10 @@ void Event::compute_cross_event_data(const Event& e, MatrixNd& M) const
     transpose_mult(twist, wt, -J2.row(2)); 
 
     // compute the event inertia matrix for the first body
-    su1->transpose_solve_generalized_inertia(DynamicBody::eAxisAngle, J1, workM1);
+    su1->transpose_solve_generalized_inertia(DynamicBody::eSpatial, J1, workM1);
 
     // compute the event inertia matrix for the second body
-    su2->transpose_solve_generalized_inertia(DynamicBody::eAxisAngle, J2, workM1);
+    su2->transpose_solve_generalized_inertia(DynamicBody::eSpatial, J2, workM1);
 
 } 
 
@@ -625,19 +625,19 @@ void Event::compute_contact_jacobian(const Event& e, MatrixN& Jc, MatrixN& iM_Jc
     const unsigned index = miter->second;
 
    // convert the normal force to generalized forces
-    super1->convert_to_generalized_force(DynamicBody::eAxisAngle, sb1, e.contact_point, e.contact_normal, ZEROS_3, tmpv());
+    super1->convert_to_generalized_force(DynamicBody::eSpatial, sb1, e.contact_point, e.contact_normal, ZEROS_3, tmpv());
     Jc.set_sub_mat(ci, index, tmpv(), true);
 
     // convert the tangent forces to generalized forces
-    super1->convert_to_generalized_force(DynamicBody::eAxisAngle, sb1, e.contact_point, e.contact_tan1, ZEROS_3, workv());
-    super1->convert_to_generalized_force(DynamicBody::eAxisAngle, sb1, e.contact_point, e.contact_tan2, ZEROS_3, workv2());
+    super1->convert_to_generalized_force(DynamicBody::eSpatial, sb1, e.contact_point, e.contact_tan1, ZEROS_3, workv());
+    super1->convert_to_generalized_force(DynamicBody::eSpatial, sb1, e.contact_point, e.contact_tan2, ZEROS_3, workv2());
 
     // compute iM_JcT and iM_DcT components
-    super1->solve_generalized_inertia(DynamicBody::eAxisAngle, tmpv(), tmpv2());
+    super1->solve_generalized_inertia(DynamicBody::eSpatial, tmpv(), tmpv2());
     iM_JcT.set_sub_mat(index, ci, tmpv2());
-    super1->solve_generalized_inertia(DynamicBody::eAxisAngle, workv(), tmpv2());
+    super1->solve_generalized_inertia(DynamicBody::eSpatial, workv(), tmpv2());
     iM_DcT.set_sub_mat(index, ci*2, tmpv2());
-    super1->solve_generalized_inertia(DynamicBody::eAxisAngle, workv2(), tmpv2());
+    super1->solve_generalized_inertia(DynamicBody::eSpatial, workv2(), tmpv2());
     iM_DcT.set_sub_mat(index, ci*2+1, tmpv2());
   }
 
@@ -648,23 +648,23 @@ void Event::compute_contact_jacobian(const Event& e, MatrixN& Jc, MatrixN& iM_Jc
     const unsigned index = miter->second;
 
     // convert the normal force to generalized forces
-    super2->convert_to_generalized_force(DynamicBody::eAxisAngle, sb2, e.contact_point, -e.contact_normal, ZEROS_3, tmpv());
+    super2->convert_to_generalized_force(DynamicBody::eSpatial, sb2, e.contact_point, -e.contact_normal, ZEROS_3, tmpv());
     Jc.set_sub_mat(ci, index, tmpv(), true);
 
     // compute iM_JcT components
-    super2->solve_generalized_inertia(DynamicBody::eAxisAngle, tmpv(), tmpv2());
+    super2->solve_generalized_inertia(DynamicBody::eSpatial, tmpv(), tmpv2());
     iM_JcT.set_sub_mat(index, ci, tmpv2());
 
     // convert the tangent forces to generalized forces
-    super2->convert_to_generalized_force(DynamicBody::eAxisAngle, sb2, e.contact_point, -e.contact_tan1, ZEROS_3, workv());
-    super2->convert_to_generalized_force(DynamicBody::eAxisAngle, sb2, e.contact_point, -e.contact_tan2, ZEROS_3, workv2());
+    super2->convert_to_generalized_force(DynamicBody::eSpatial, sb2, e.contact_point, -e.contact_tan1, ZEROS_3, workv());
+    super2->convert_to_generalized_force(DynamicBody::eSpatial, sb2, e.contact_point, -e.contact_tan2, ZEROS_3, workv2());
 
     // compute iM_JcT and iM_DcT components
-    super2->solve_generalized_inertia(DynamicBody::eAxisAngle, tmpv(), tmpv2());
+    super2->solve_generalized_inertia(DynamicBody::eSpatial, tmpv(), tmpv2());
     iM_JcT.set_sub_mat(index, ci, tmpv2());
-    super2->solve_generalized_inertia(DynamicBody::eAxisAngle, workv(), tmpv2());
+    super2->solve_generalized_inertia(DynamicBody::eSpatial, workv(), tmpv2());
     iM_DcT.set_sub_mat(index, ci*2, tmpv2());
-    super2->solve_generalized_inertia(DynamicBody::eAxisAngle, workv2(), tmpv2());
+    super2->solve_generalized_inertia(DynamicBody::eSpatial, workv2(), tmpv2());
     iM_DcT.set_sub_mat(index, ci*2+1, tmpv2());
   }
 }
@@ -689,8 +689,8 @@ void Event::compute_contact_jacobians(const Event& e, VectorN& Nc, VectorN& Dcs,
   DynamicBodyPtr super2 = (ab2) ? ab2 : sb2;
 
   // get the total number of GC's
-  const unsigned GC1 = super1->num_generalized_coordinates(DynamicBody::eAxisAngle);
-  const unsigned GC2 = super2->num_generalized_coordinates(DynamicBody::eAxisAngle);
+  const unsigned GC1 = super1->num_generalized_coordinates(DynamicBody::eSpatial);
+  const unsigned GC2 = super2->num_generalized_coordinates(DynamicBody::eSpatial);
   const unsigned NGC = (super1 != super2) ? GC1 + GC2 : GC1;
 
   // zero the Jacobian vectors
@@ -703,22 +703,22 @@ void Event::compute_contact_jacobians(const Event& e, VectorN& Nc, VectorN& Dcs,
   Vector3 r1 = e.contact_point - sb1->get_position();
 
   // convert the normal force to generalized forces
-  super1->convert_to_generalized_force(DynamicBody::eAxisAngle, sb1, e.contact_point, e.contact_normal, ZEROS_3, Nc1());
+  super1->convert_to_generalized_force(DynamicBody::eSpatial, sb1, e.contact_point, e.contact_normal, ZEROS_3, Nc1());
 
   // convert first tangent direction to generalized forces
-  super1->convert_to_generalized_force(DynamicBody::eAxisAngle, sb1, e.contact_point, e.contact_tan1, ZEROS_3, Dcs1());
+  super1->convert_to_generalized_force(DynamicBody::eSpatial, sb1, e.contact_point, e.contact_tan1, ZEROS_3, Dcs1());
 
   // convert second tangent direction to generalized forces
-  super1->convert_to_generalized_force(DynamicBody::eAxisAngle, sb1, e.contact_point, e.contact_tan2, ZEROS_3, Dct1());
+  super1->convert_to_generalized_force(DynamicBody::eSpatial, sb1, e.contact_point, e.contact_tan2, ZEROS_3, Dct1());
 
   // convert the normal force to generalized forces
-  super2->convert_to_generalized_force(DynamicBody::eAxisAngle, sb2, e.contact_point, -e.contact_normal, ZEROS_3, Nc2());
+  super2->convert_to_generalized_force(DynamicBody::eSpatial, sb2, e.contact_point, -e.contact_normal, ZEROS_3, Nc2());
 
   // convert first tangent direction to generalized forces
-  super2->convert_to_generalized_force(DynamicBody::eAxisAngle, sb2, e.contact_point, -e.contact_tan1, ZEROS_3, Dcs2());
+  super2->convert_to_generalized_force(DynamicBody::eSpatial, sb2, e.contact_point, -e.contact_tan1, ZEROS_3, Dcs2());
 
   // convert second tangent direction to generalized forces
-  super2->convert_to_generalized_force(DynamicBody::eAxisAngle, sb2, e.contact_point, -e.contact_tan2, ZEROS_3, Dct2());
+  super2->convert_to_generalized_force(DynamicBody::eSpatial, sb2, e.contact_point, -e.contact_tan2, ZEROS_3, Dct2());
 
   // now, set the proper elements in the Jacobian
   if (super1 == super2)

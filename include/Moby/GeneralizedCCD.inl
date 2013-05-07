@@ -49,7 +49,10 @@ OutputIterator GeneralizedCCD::intersect_BV_leafs(BVPtr a, BVPtr b, const std::p
       Triangle utb = b_mesh.get_triangle(b_idx);
 
       // transform second triangle
-      Triangle tb = Triangle::transform(utb, aTb);
+      Triangle tb;
+      tb.a = aTb.first * utb.a + aTb.second;
+      tb.b = aTb.first * utb.b + aTb.second;
+      tb.c = aTb.first * utb.c + aTb.second;
 
       // see whether triangles intersect
       if (!CompGeom::query_intersect_tri_tri(ta, tb))

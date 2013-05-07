@@ -347,7 +347,7 @@ VectorN& RCArticulatedBody::solve_generalized_inertia(DynamicBody::GeneralizedCo
     _invM.mult(v, result);
   else
   {
-    assert(algorithm_type == eCRB && gctype == eAxisAngle);
+    assert(algorithm_type == eCRB && gctype == eSpatial);
     _crb.M_solve(v, result);
   }
   
@@ -364,7 +364,7 @@ MatrixN& RCArticulatedBody::solve_generalized_inertia(DynamicBody::GeneralizedCo
     _invM.mult(m, result);
   else
   {
-    assert(algorithm_type == eCRB && gctype == eAxisAngle);
+    assert(algorithm_type == eCRB && gctype == eSpatial);
     _crb.M_solve(m, result);
   }
   
@@ -381,7 +381,7 @@ MatrixN& RCArticulatedBody::solve_generalized_inertia_transpose(DynamicBody::Gen
     _invM.mult_transpose(m, result);
   else
   {
-    assert(algorithm_type == eCRB && gctype == eAxisAngle);
+    assert(algorithm_type == eCRB && gctype == eSpatial);
     SAFESTATIC MatrixN trans;
     MatrixN::transpose(m, trans);
     _crb.M_solve(trans, result);
@@ -918,7 +918,7 @@ MatrixN& RCArticulatedBody::calc_jacobian(const Vector3& p, RigidBodyPtr link, M
   SAFESTATIC MatrixN Jsub;
 
   // resize the Jacobian
-  J.set_zero(NSPATIAL, num_generalized_coordinates(DynamicBody::eAxisAngle));
+  J.set_zero(NSPATIAL, num_generalized_coordinates(DynamicBody::eSpatial));
 
   if (is_floating_base())
   {
@@ -1188,9 +1188,9 @@ void RCArticulatedBody::calc_fwd_dyn_loops()
 
   // get the generalized velocity, generalized forces, and inverse generalized 
   // inertia matrix
-  get_generalized_velocity(eAxisAngle, v);
-  get_generalized_forces(eAxisAngle, fext);
-  get_generalized_inertia_inverse(eAxisAngle, iM);
+  get_generalized_velocity(eSpatial, v);
+  get_generalized_forces(eSpatial, fext);
+  get_generalized_inertia_inverse(eSpatial, iM);
 
   // determine how many explicit constraint equations
   unsigned N_EXPLICIT_CONSTRAINT_EQNS = 0;
@@ -1256,7 +1256,7 @@ void RCArticulatedBody::calc_fwd_dyn_loops()
   // compute generalized acceleration
   fext -= _Jx.transpose_mult(alpha_x, workv);
   iM.mult(fext, a);
-  set_generalized_acceleration(DynamicBody::eAxisAngle, a);
+  set_generalized_acceleration(DynamicBody::eSpatial, a);
 }
 
 /// Computes the forward dynamics
@@ -1280,9 +1280,9 @@ void RCArticulatedBody::calc_fwd_dyn_advanced_friction(double dt)
 
   // get the generalized velocity, generalized forces, and inverse generalized 
   // inertia matrix
-  get_generalized_velocity(eAxisAngle, v);
-  get_generalized_forces(eAxisAngle, fext);
-  get_generalized_inertia_inverse(eAxisAngle, iM);
+  get_generalized_velocity(eSpatial, v);
+  get_generalized_forces(eSpatial, fext);
+  get_generalized_inertia_inverse(eSpatial, iM);
 
   // setup X and Y
   const unsigned SPATIAL_DIM = 6;
@@ -1616,7 +1616,7 @@ void RCArticulatedBody::calc_fwd_dyn_advanced_friction(double dt)
   // compute generalized acceleration
   fext -= _Jx.transpose_mult(alpha_x, workv);
   iM.mult(fext, a);
-  set_generalized_acceleration(DynamicBody::eAxisAngle, a);
+  set_generalized_acceleration(DynamicBody::eSpatial, a);
   if (LOGGING(LOG_DYNAMICS))
     for (unsigned i=0; i< _joints.size(); i++)
     {
@@ -1631,7 +1631,7 @@ void RCArticulatedBody::calc_fwd_dyn_advanced_friction(double dt)
   if (LOGGING(LOG_DYNAMICS))
   {
     MatrixN M;
-    get_generalized_inertia(eAxisAngle, M);
+    get_generalized_inertia(eSpatial, M);
     M.mult(v, workv);
     FILE_LOG(LOG_DYNAMICS) << " current energy: " << (0.5 * v.dot(workv)) << std::endl;
     a *= dt;
@@ -1651,7 +1651,7 @@ void RCArticulatedBody::determine_explicit_constraint_movement_jacobian(MatrixN&
   unsigned NDOF = 0;
   for (unsigned i=0; i< _ejoints.size(); i++)
     NDOF += _ejoints[i]->num_dof();
-  const unsigned NGC = num_generalized_coordinates(DynamicBody::eAxisAngle);
+  const unsigned NGC = num_generalized_coordinates(DynamicBody::eSpatial);
 
   // resize J 
   D.set_zero(NDOF, NGC);
@@ -1669,10 +1669,10 @@ void RCArticulatedBody::determine_explicit_constraint_movement_jacobian(MatrixN&
     if (i > 0)
       gj[i-1] = (double) 0.0;
     gj[i] = (double) 1.0;
-    apply_generalized_impulse(DynamicBody::eAxisAngle, gj);
+    apply_generalized_impulse(DynamicBody::eSpatial, gj);
 
     // get the velocity
-    get_generalized_velocity(DynamicBody::eAxisAngle, gv);
+    get_generalized_velocity(DynamicBody::eSpatial, gv);
     q.set_column(i, gv);
     
     // compute the joint velocity
@@ -1703,7 +1703,7 @@ void RCArticulatedBody::determine_explicit_constraint_movement_jacobian(MatrixN&
 
   // remove all impulses
   gj.set_one().negate();
-  apply_generalized_impulse(DynamicBody::eAxisAngle, gj);
+  apply_generalized_impulse(DynamicBody::eSpatial, gj);
 }
 */
 
@@ -1714,7 +1714,7 @@ void RCArticulatedBody::determine_explicit_constraint_jacobians(const EventProbl
   SAFESTATIC MatrixN sub, pinv_si;
   SAFESTATIC VectorN vsub;
   double Cqi[6], Cqo[6];
-  const unsigned NGC = num_generalized_coordinates(DynamicBody::eAxisAngle);
+  const unsigned NGC = num_generalized_coordinates(DynamicBody::eSpatial);
 
   // determine the total number of explicit constraint DOF 
   unsigned NDOF = 0, NEQ = 0;
@@ -1818,7 +1818,7 @@ void RCArticulatedBody::determine_explicit_constraint_jacobians(const EventProbl
       for (unsigned j=0; j< joint->num_constraint_eqns(); j++, jj++)
       {
         // get constraint equations for inner link
-        joint->calc_constraint_jacobian(DynamicBody::eAxisAngle, rbi, j, Cqi); 
+        joint->calc_constraint_jacobian(DynamicBody::eSpatial, rbi, j, Cqi); 
 
         // setup spatial vectors in rbi-centered frame and rbo-centered frame
         SVector6 svi(Cqi);
@@ -1827,7 +1827,7 @@ void RCArticulatedBody::determine_explicit_constraint_jacobians(const EventProbl
         if (_floating_base)
         {
           // setup spatial vector in rbo-centered frame
-          joint->calc_constraint_jacobian(DynamicBody::eAxisAngle,rbo, j, Cqo); 
+          joint->calc_constraint_jacobian(DynamicBody::eSpatial,rbo, j, Cqo); 
           SVector6 svo(Cqo);
 
           // setup spatial transform for svi/svo
@@ -1863,7 +1863,7 @@ void RCArticulatedBody::determine_explicit_constraint_movement_jacobian(MatrixN&
   SAFESTATIC SMatrix6N so;
   SAFESTATIC MatrixN sub, pinv_si;
   double Cqi[6], Cqo[6];
-  const unsigned NGC = num_generalized_coordinates(DynamicBody::eAxisAngle);
+  const unsigned NGC = num_generalized_coordinates(DynamicBody::eSpatial);
 
   // determine the number of explicit constraint DOF 
   unsigned NDOF = 0;
@@ -1940,7 +1940,7 @@ void RCArticulatedBody::determine_explicit_constraint_jacobian(MatrixN& J)
   unsigned NEQ = 0;
   for (unsigned i=0; i< _ejoints.size(); i++)
     NEQ += _ejoints[i]->num_constraint_eqns();
-  const unsigned NGC = num_generalized_coordinates(DynamicBody::eAxisAngle);
+  const unsigned NGC = num_generalized_coordinates(DynamicBody::eSpatial);
 
   // resize J 
   J.set_zero(NEQ, NGC);
@@ -1958,10 +1958,10 @@ void RCArticulatedBody::determine_explicit_constraint_jacobian(MatrixN& J)
     if (i > 0)
       gj[i-1] = (double) 0.0;
     gj[i] = (double) 1.0;
-    apply_generalized_impulse(DynamicBody::eAxisAngle, gj);
+    apply_generalized_impulse(DynamicBody::eSpatial, gj);
 
     // get the velocity
-    get_generalized_velocity(DynamicBody::eAxisAngle, gv);
+    get_generalized_velocity(DynamicBody::eSpatial, gv);
     q.set_column(i, gv);
     
     // compute the constraint dot
@@ -1981,7 +1981,7 @@ void RCArticulatedBody::determine_explicit_constraint_jacobian(MatrixN& J)
 
   // remove all impulses
   gj.set_one().negate();
-  apply_generalized_impulse(DynamicBody::eAxisAngle, gj);
+  apply_generalized_impulse(DynamicBody::eSpatial, gj);
 }
 */
 
@@ -1991,7 +1991,7 @@ void RCArticulatedBody::determine_explicit_constraint_jacobian(MatrixN& J)
   SAFESTATIC SMatrix6N so;
   SAFESTATIC VectorN sub;
   double Cqi[6], Cqo[6];
-  const unsigned NGC = num_generalized_coordinates(DynamicBody::eAxisAngle);
+  const unsigned NGC = num_generalized_coordinates(DynamicBody::eSpatial);
 
   // determine the number of explicit constraint equations
   unsigned NEQ = 0;
@@ -2018,8 +2018,8 @@ void RCArticulatedBody::determine_explicit_constraint_jacobian(MatrixN& J)
     for (unsigned j=0; j< _ejoints[i]->num_constraint_eqns(); j++, ridx++)
     {
       // get constraint equations for inner and outer links
-      _ejoints[i]->calc_constraint_jacobian(DynamicBody::eAxisAngle, rbi, j, Cqi); 
-      _ejoints[i]->calc_constraint_jacobian(DynamicBody::eAxisAngle, rbo, j, Cqo); 
+      _ejoints[i]->calc_constraint_jacobian(DynamicBody::eSpatial, rbi, j, Cqi); 
+      _ejoints[i]->calc_constraint_jacobian(DynamicBody::eSpatial, rbo, j, Cqo); 
 
       // setup spatial vectors in rbi-centered frame and rbo-centered frame
       SVector6 svi(Cqi), svo(Cqo);
@@ -2083,7 +2083,7 @@ void RCArticulatedBody::determine_explicit_constraint_jacobian_dot(MatrixN& J) c
   SAFESTATIC SMatrix6N so;
   SAFESTATIC VectorN sub;
   double Cqi[6], Cqo[6];
-  const unsigned NGC = num_generalized_coordinates(DynamicBody::eAxisAngle);
+  const unsigned NGC = num_generalized_coordinates(DynamicBody::eSpatial);
 
   // determine the number of explicit constraint equations
   unsigned NEQ = 0;
@@ -2111,8 +2111,8 @@ void RCArticulatedBody::determine_explicit_constraint_jacobian_dot(MatrixN& J) c
     for (unsigned j=0; j< _ejoints[i]->num_constraint_eqns(); j++, ridx++)
     {
       // get constraint equations for inner and outer links
-      _ejoints[i]->calc_constraint_jacobian(DynamicBody::eAxisAngle, rbi, j, Cqi); 
-      _ejoints[i]->calc_constraint_jacobian(DynamicBody::eAxisAngle, rbo, j, Cqo); 
+      _ejoints[i]->calc_constraint_jacobian(DynamicBody::eSpatial, rbi, j, Cqi); 
+      _ejoints[i]->calc_constraint_jacobian(DynamicBody::eSpatial, rbo, j, Cqo); 
 
       // setup spatial vectors
       SVector6 svi(Cqi), svo(Cqo);
@@ -2180,8 +2180,8 @@ void RCArticulatedBody::determine_explicit_constraint_jacobian_dot(MatrixN& J) c
     for (unsigned j=0; j< _ejoints[i]->num_constraint_eqns(); j++, ridx++)
     {
       // get constraint equations for inner and outer links
-      _ejoints[i]->calc_constraint_jacobian_dot(DynamicBody::eAxisAngle, rbi, j, Cqi); 
-      _ejoints[i]->calc_constraint_jacobian_dot(DynamicBody::eAxisAngle, rbo, j, Cqo); 
+      _ejoints[i]->calc_constraint_jacobian_dot(DynamicBody::eSpatial, rbi, j, Cqi); 
+      _ejoints[i]->calc_constraint_jacobian_dot(DynamicBody::eSpatial, rbo, j, Cqo); 
 
       // setup spatial vectors
       SVector6 svi(Cqi), svo(Cqo);
@@ -2250,7 +2250,7 @@ void RCArticulatedBody::set_generalized_acceleration(DynamicBody::GeneralizedCoo
     }
     else
     {
-      assert(gctype == DynamicBody::eAxisAngle);
+      assert(gctype == DynamicBody::eSpatial);
       base->set_laccel(Vector3(a[0], a[1], a[2]));
       base->set_aaccel(Vector3(a[3], a[4], a[5]));
     }
@@ -2332,7 +2332,7 @@ VectorN& RCArticulatedBody::get_generalized_coordinates(DynamicBody::Generalized
   // acceleration in the base frame
   assert(!_links.empty());
   RigidBodyPtr base = _links.front();
-  if (gctype == DynamicBody::eAxisAngle)
+  if (gctype == DynamicBody::eSpatial)
   {
     gc.set_sub_vec(0, base->get_lvel());
     gc.set_sub_vec(3, base->get_avel());
@@ -2454,7 +2454,7 @@ VectorN& RCArticulatedBody::get_generalized_velocity(DynamicBody::GeneralizedCoo
 
   // get the generalized velocities for the base
   RigidBodyPtr base = _links.front();
-  if (gctype == DynamicBody::eAxisAngle)
+  if (gctype == DynamicBody::eSpatial)
   {
     gv.set_sub_vec(0, base->get_lvel());
     gv.set_sub_vec(3, base->get_avel());
@@ -2546,7 +2546,7 @@ const VectorN& v, const MatrixN& M, MatrixN& Jc, MatrixN& Dc)
       apply_impulse(-normal, ZEROS_3, p, rb2);
 
     // measure the change in velocity
-    get_generalized_velocity(DynamicBody::eAxisAngle, vnew);
+    get_generalized_velocity(DynamicBody::eSpatial, vnew);
     vcurrent.negate() += vnew;
     _iM_JcT.set_column(i, vcurrent);
     vcurrent.copy_from(vnew);
@@ -2558,7 +2558,7 @@ const VectorN& v, const MatrixN& M, MatrixN& Jc, MatrixN& Dc)
       apply_impulse(-q.contact_events[i]->contact_tan1, ZEROS_3, p, rb2);
 
     // measure the change in velocity
-    get_generalized_velocity(DynamicBody::eAxisAngle, vnew);
+    get_generalized_velocity(DynamicBody::eSpatial, vnew);
     vcurrent.negate() += vnew;
     _iM_DcT.set_column(ii++, vcurrent);
     vcurrent.copy_from(vnew);     
@@ -2570,14 +2570,14 @@ const VectorN& v, const MatrixN& M, MatrixN& Jc, MatrixN& Dc)
       apply_impulse(-q.contact_events[i]->contact_tan2, ZEROS_3, p, rb2);
 
     // measure the change in velocity
-    get_generalized_velocity(DynamicBody::eAxisAngle, vnew);
+    get_generalized_velocity(DynamicBody::eSpatial, vnew);
     vcurrent.negate() += vnew;
     _iM_DcT.set_column(ii++, vcurrent);
     vcurrent.copy_from(vnew);     
   }
 
   // restore generalized velocity
-  set_generalized_velocity(DynamicBody::eAxisAngle, v);
+  set_generalized_velocity(DynamicBody::eSpatial, v);
 
   // see whether to re-validate velocities
   if (vvalid)
@@ -2589,7 +2589,7 @@ const VectorN& v, const MatrixN& M, MatrixN& Jc, MatrixN& Dc)
 */
 
   // resize Jc and Dc
-  const unsigned NGC = num_generalized_coordinates(DynamicBody::eAxisAngle);
+  const unsigned NGC = num_generalized_coordinates(DynamicBody::eSpatial);
   Jc.set_zero(q.N_CONTACTS, NGC);
   Dc.set_zero(q.N_CONTACTS*2, NGC);
 
@@ -2647,8 +2647,8 @@ const VectorN& v, const MatrixN& M, MatrixN& Jc, MatrixN& Dc)
   }
 
   // setup iM_JcT and iM_DcT
-  solve_generalized_inertia_transpose(DynamicBody::eAxisAngle, Jc, _iM_JcT);
-  solve_generalized_inertia_transpose(DynamicBody::eAxisAngle, Dc, _iM_DcT);
+  solve_generalized_inertia_transpose(DynamicBody::eSpatial, Jc, _iM_JcT);
+  solve_generalized_inertia_transpose(DynamicBody::eSpatial, Dc, _iM_DcT);
 
   FILE_LOG(LOG_EVENT) << "Jc:" << std::endl << Jc;
   FILE_LOG(LOG_EVENT) << "Dc:" << std::endl << Dc;
@@ -2663,10 +2663,10 @@ void RCArticulatedBody::update_event_data(EventProblemData& q)
   SAFESTATIC VectorN workv, v;
 
   // get the generalized velocity (axis angle)
-  get_generalized_velocity(DynamicBody::eAxisAngle, v);
+  get_generalized_velocity(DynamicBody::eSpatial, v);
 
   // get the generalized inertia matrix
-  _crb.calc_generalized_inertia(DynamicBody::eAxisAngle, M);
+  _crb.calc_generalized_inertia(DynamicBody::eSpatial, M);
 
   // determine contact normal and tangent Jacobians
   determine_contact_jacobians(q, v, M, _Jc, _Dc);
@@ -2723,10 +2723,10 @@ void RCArticulatedBody::update_event_data(EventProblemData& q)
   }
 
   // setup some temporary matrices
-  solve_generalized_inertia_transpose(eAxisAngle, _Jl, _iM_JlT);
-  solve_generalized_inertia_transpose(eAxisAngle, _Jx, _iM_JxT);
-  solve_generalized_inertia_transpose(eAxisAngle, _Dx, _iM_DxT);
-  solve_generalized_inertia_transpose(eAxisAngle, _Dt, _iM_DtT);
+  solve_generalized_inertia_transpose(eSpatial, _Jl, _iM_JlT);
+  solve_generalized_inertia_transpose(eSpatial, _Jx, _iM_JxT);
+  solve_generalized_inertia_transpose(eSpatial, _Dx, _iM_DxT);
+  solve_generalized_inertia_transpose(eSpatial, _Dt, _iM_DtT);
 
   // update all matrices
   q.Jc_iM_JcT += _Jc.mult(_iM_JcT, tmpM);
@@ -2767,7 +2767,7 @@ void RCArticulatedBody::update_velocity(const EventProblemData& q)
   SAFESTATIC vector<unsigned> normal_contact_indices, tangent_contact_indices;
 
   // get the current spatial velocity
-  get_generalized_velocity(DynamicBody::eAxisAngle, v);
+  get_generalized_velocity(DynamicBody::eSpatial, v);
 
   if (LOGGING(LOG_EVENT))
   {
@@ -2778,7 +2778,7 @@ void RCArticulatedBody::update_velocity(const EventProblemData& q)
     FILE_LOG(LOG_EVENT) << "beta_t: " << q.beta_t << std::endl;
     FILE_LOG(LOG_EVENT) << "velocity before: " << v << std::endl;
     FILE_LOG(LOG_EVENT) << "kinetic energy before: " << calc_kinetic_energy() << std::endl;
-    FILE_LOG(LOG_EVENT) << "kinetic energy before (calculation 2): " << v.dot(get_generalized_inertia(DynamicBody::eAxisAngle, M).mult(v*0.5)) << std::endl;
+    FILE_LOG(LOG_EVENT) << "kinetic energy before (calculation 2): " << v.dot(get_generalized_inertia(DynamicBody::eSpatial, M).mult(v*0.5)) << std::endl;
   }
 
   // check whether we are using a subset of the contacts
@@ -2813,7 +2813,7 @@ void RCArticulatedBody::update_velocity(const EventProblemData& q)
   v += _iM_DtT.mult(q.beta_t, workv);
 
   // set the spatial velocity
-  set_generalized_velocity(DynamicBody::eAxisAngle, v);
+  set_generalized_velocity(DynamicBody::eSpatial, v);
 
   FILE_LOG(LOG_EVENT) << "velocity after: " << v << std::endl;
   FILE_LOG(LOG_EVENT) << "kinetic energy after: " << calc_kinetic_energy() << std::endl;
@@ -2853,7 +2853,7 @@ VectorN& RCArticulatedBody::get_generalized_forces(DynamicBody::GeneralizedCoord
   {
     // determine external and inertial forces on base 
     RigidBodyPtr base = _links.front();
-    if (gctype == DynamicBody::eAxisAngle)
+    if (gctype == DynamicBody::eSpatial)
       f.set_sub_vec(0, -f0);
     else
     {
@@ -2919,7 +2919,7 @@ VectorN& RCArticulatedBody::convert_to_generalized_force(DynamicBody::Generalize
 
   // determine the generalized force on the base
   RigidBodyPtr base = _links.front();
-  if (gctype == DynamicBody::eAxisAngle)
+  if (gctype == DynamicBody::eSpatial)
   {
     gf.set_sub_vec(0, base->sum_forces());
     gf.set_sub_vec(3, base->sum_torques() - base->calc_inertial_forces());
