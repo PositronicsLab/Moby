@@ -238,8 +238,6 @@ void RigidBody::add_wrench(const Wrenchd& w)
 /// Synchronizes associated collision mesh transforms with this transform
 void RigidBody::synchronize()
 {
-  BOOST_FOREACH(CollisionGeometryPtr g, geometries)
-    g->set_pose(_F);
 }
 
 /// Calculates the velocity of a point on this rigid body
@@ -376,8 +374,8 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
       Pose3d TR; 
 
       // read the relative transformation, if specified
-      const XMLAttrib* rel_origin_attr = (*i)->get_attrib("rel-origin");
-      const XMLAttrib* rel_rpy_attr = (*i)->get_attrib("rel-rpy");
+      const XMLAttrib* rel_origin_attr = (*i)->get_attrib("relative-origin");
+      const XMLAttrib* rel_rpy_attr = (*i)->get_attrib("relative-rpy");
       if (rel_origin_attr)
         TR.x = rel_origin_attr->get_origin_value();
       if (rel_rpy_attr)
@@ -1005,23 +1003,28 @@ VectorNd& RigidBody::get_generalized_coordinates(GeneralizedCoordinateType gctyp
   if (!_enabled)
     return gc.resize(0);
 
-  // make sure we were not passed the wrong type of gctype
+  // resize vector
+  gc.resize(num_generalized_coordinates(gctype));
+
+  // get linear components
+  gc[0] = _F->x[0];
+  gc[1] = _F->x[1];
+  gc[2] = _F->x[2];
+
+  // get angular components 
   if (gctype == DynamicBody::eSpatial)
-    throw std::runtime_error("Unable to spatial positional generalized coordinates!");
+    _F->q.to_rpy(gc[3], gc[4], gc[5]);
   else
   {
     // return the generalized position using Euler parameters
     assert(gctype == DynamicBody::eEuler);
-    gc.resize(num_generalized_coordinates(gctype));
-    gc[0] = _F->x[0];
-    gc[1] = _F->x[1];
-    gc[2] = _F->x[2];
     gc[3] = _F->q.w;
     gc[4] = _F->q.x;
     gc[5] = _F->q.y;
     gc[6] = _F->q.z;
-    return gc; 
   }
+
+  return gc; 
 }
 
 /// Sets the generalized coordinates of this rigid body
@@ -1250,10 +1253,18 @@ MatrixNd& RigidBody::get_generalized_inertia(GeneralizedCoordinateType gctype, M
     return M.resize(0,0);
 
   // get the rigid body inertia as a matrix
-  to_matrix(get_inertia(), M);
+  get_inertia().to_matrix(M);
 
-  // transpose the matrix
-  M.transpose();
+  // get existing matrix blocks
+  Matrix3d UL = M.block(0,3,0,3);
+  Matrix3d UR = M.block(0,3,3,6);
+  Matrix3d LR = M.block(3,6,3,6);
+
+  // rearrange the matrix
+  M.set_sub_mat(0,0,UR);
+  M.set_sub_mat(0,3,UL);  
+  M.set_sub_mat(3,0,LR);
+  M.set_sub_mat(3,3,LL,Ravelin::eTranspose);
 
   if (gctype == DynamicBody::eEuler) 
   {
@@ -1267,13 +1278,13 @@ MatrixNd& RigidBody::get_generalized_inertia(GeneralizedCoordinateType gctype, M
     M.resize(NGC,NGC);
 
     // setup upper left (doesn't change)
-    M.set_sub_mat(0,0,UL);
+    M.set_sub_mat(0,0,UR);
 
     // TODO: compute upper right, lower left blocks
 
-    Vector3d ix = LR.get_row(X);
-    Vector3d iy = LR.get_row(Y);
-    Vector3d iz = LR.get_row(Z);
+    Vector3d ix = LL.get_column(X);
+    Vector3d iy = LL.get_column(Y);
+    Vector3d iz = LL.get_column(Z);
 
     // compute coordinate specific values
     Quatd qx, qy, qz;

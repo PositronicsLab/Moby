@@ -32,6 +32,7 @@ class XMLAttrib
     XMLAttrib(const std::string& name, int int_value);
     XMLAttrib(const std::string& name, unsigned unsigned_value);
     XMLAttrib(const std::string& name, const std::vector<Ravelin::Twistd>& twist_value);
+    XMLAttrib(const std::string& name, double roll, double pitch, double yaw);
     XMLAttrib(const std::string& name, const Ravelin::Vector2d& vector_value);
     XMLAttrib(const std::string& name, const Ravelin::Point2d& vector_value);
     XMLAttrib(const std::string& name, const Ravelin::Vector3d& vector_value);

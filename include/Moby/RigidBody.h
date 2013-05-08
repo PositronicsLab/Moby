@@ -159,8 +159,8 @@ class RigidBody : public SingleBody
     /// Gets the shared const pointer for <b>this</b>
     boost::shared_ptr<const RigidBody> get_this() const { return boost::dynamic_pointer_cast<const RigidBody>(shared_from_this()); }
 
-    /// Gets the current transform of this body
-    boost::shared_ptr<Ravelin::Pose3d> get_pose() const { return _F; }
+    /// Gets the current pose of this body
+    boost::shared_ptr<const Ravelin::Pose3d> get_pose() const { return _F; }
 
     /// Synonym for get_mass() (implements SingleBody::calc_mass())
     double calc_mass() const { return _J.m; }

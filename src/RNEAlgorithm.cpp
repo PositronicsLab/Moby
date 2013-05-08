@@ -116,14 +116,14 @@ map<JointPtr, VectorNd> RNEAlgorithm::calc_inv_dyn_fixed_base(RCArticulatedBodyP
     const vector<Twistd>& sdot = joint->get_spatial_axes_dot();
 
     // put s into the proper frame (that of v/a) (if necessary)
-    transform(s.front().pose, v.pose, s, sprime);  
+    Pose3d::transform(s.front().pose, v.pose, s, sprime);  
 
     // add this link's contribution
     a[i] += spatial_cross(v, mult(sprime, qd));
     a[i] += mult(s, qdd_des);
 
     // put s into the proper frame (that of v/a) (if necessary)
-    transform(joint->get_pose(), v.pose, sdot, sprime);  
+    Pose3d::transform(joint->get_pose(), v.pose, sdot, sprime);  
     a[i] += mult(sprime, qd);
 
     // now add parent's contribution
@@ -449,7 +449,7 @@ map<JointPtr, VectorNd> RNEAlgorithm::calc_inv_dyn_floating_base(RCArticulatedBo
     const vector<Twistd>& sdot = joint->get_spatial_axes_dot();
 
     // put s into the proper frame (that of v/a) 
-    transform(joint->get_pose(), link->get_computation_frame(), s, sprime);
+    Pose3d::transform(joint->get_pose(), link->get_computation_frame(), s, sprime);
 
     // compute s * qdot
     Twistd sqd = mult(sprime, joint->qd);
@@ -467,7 +467,7 @@ map<JointPtr, VectorNd> RNEAlgorithm::calc_inv_dyn_floating_base(RCArticulatedBo
     a[i] += mult(sprime, qdd_des) + spatial_cross(v[i], sqd);
 
     // compute time derivative of spatial axes contributions (if any)
-    transform(joint->get_pose(), link->get_computation_frame(), sdot, sprime);
+    Pose3d::transform(joint->get_pose(), link->get_computation_frame(), sdot, sprime);
     a[i] += mult(sprime, joint->qd);
 
 //    FILE_LOG(LOG_DYNAMICS) << "  s: " << s << endl;

@@ -33,8 +33,8 @@ class FixedJoint : public Joint
     virtual bool is_singular_config() const { return false; }
 
   private:
-    virtual void calc_constraint_jacobian_rodrigues(RigidBodyPtr, unsigned index, double Cq[7]);
-    virtual void calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr, unsigned index, double Cq[7]);
+    virtual void calc_constraint_jacobian_euler(RigidBodyPtr, unsigned index, double Cq[7]);
+    virtual void calc_constraint_jacobian_dot_euler(RigidBodyPtr, unsigned index, double Cq[7]);
     void setup_joint();
 
     /// The relative transform from the inboard link to the outboard link

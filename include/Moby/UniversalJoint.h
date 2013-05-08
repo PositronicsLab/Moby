@@ -47,8 +47,8 @@ class UniversalJoint : public Joint
     const Ravelin::Vector3d& get_axis_local(Axis a) const { return _u[a]; }
 
   private:
-    virtual void calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsigned index, double Cq[7]);
-    virtual void calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, unsigned index, double Cq[7]);
+    virtual void calc_constraint_jacobian_euler(RigidBodyPtr body, unsigned index, double Cq[7]);
+    virtual void calc_constraint_jacobian_dot_euler(RigidBodyPtr body, unsigned index, double Cq[7]);
     static bool rel_equal(double x, double y);
     Ravelin::Matrix3d get_rotation() const;
 

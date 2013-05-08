@@ -57,8 +57,8 @@ class SphericalJoint : public Joint
 
   private:
     bool assign_axes();
-    virtual void calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsigned index, double Cq[7]);
-    virtual void calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, unsigned index, double Cq[7]);
+    virtual void calc_constraint_jacobian_euler(RigidBodyPtr body, unsigned index, double Cq[7]);
+    virtual void calc_constraint_jacobian_dot_euler(RigidBodyPtr body, unsigned index, double Cq[7]);
     static bool rel_equal(double x, double y);
     Ravelin::Matrix3d get_rotation() const;
 

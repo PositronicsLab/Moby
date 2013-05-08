@@ -22,19 +22,12 @@ using std::endl;
 using std::queue;
 using std::cerr;
 using std::string;
-using Ravelin::VectorNd;
-using Ravelin::Vector3d;
-using Ravelin::Pose3d;
-using Ravelin::Point3d;
-using Ravelin::Matrix3d;
-using Ravelin::MatrixNd;
-using Ravelin::Wrenchd;
-using Ravelin::SpatialRBInertiad;
+using namespace Ravelin;
 using namespace Moby;
 
 DeformableBody::DeformableBody()
 {
-  // setup the calculation pose transform
+  // setup the pose
   _F = shared_ptr<Pose3d>(new Pose3d);
   _xd.pose = _F;
   _J.pose = _F;
@@ -106,20 +99,20 @@ void DeformableBody::calc_com_and_vels()
   const unsigned X = 0, Y = 1, Z = 2;
 
   // init the center of mass and mass
-  _x = ZEROS_3;
+  _F->x = ZEROS_3;
   _J.m = (double) 0.0;
 
   // determine the position of the com
   for (unsigned i=0; i< _nodes.size(); i++)
   {
-    _x += Vector3d(_nodes[i]->x) * _nodes[i]->mass;
+    _F->x = Origin3d(_F->x + Vector3d(_nodes[i]->x) * _nodes[i]->mass);
     _J.m += _nodes[i]->mass;
   }
-  _x /= _J.m;
-  FILE_LOG(LOG_DEFORM) << "new center of mass: " << _x << endl;
+  _F->x /= _J.m;
+  FILE_LOG(LOG_DEFORM) << "new center of mass: " << _F->x << endl;
 
   // compute the linear velocity
-  Vector3d xd = calc_point_vel(_x);
+  Vector3d xd = calc_point_vel(_F->x);
 
   // set the inertial offset to zero
   _J.h.set_zero();
@@ -128,7 +121,7 @@ void DeformableBody::calc_com_and_vels()
   _J.J = ZEROS_3x3;
   for (unsigned i=0; i< _nodes.size(); i++)
   {
-    Vector3d relpoint = _nodes[i]->x - _x;
+    Vector3d relpoint = _nodes[i]->x - _F->x;
     double xsq = relpoint[X]*relpoint[X];
     double ysq = relpoint[Y]*relpoint[Y];
     double zsq = relpoint[Z]*relpoint[Z];
@@ -149,16 +142,14 @@ void DeformableBody::calc_com_and_vels()
   Matrix3d Jinv = Matrix3d::inverse(_J.J);
 
   // now determine the angular momentum of the body
-  Vector3d P = Vector3d::cross(_x, xd * _J.m);
+  Vector3d P = Vector3d::cross(_F->x, xd * _J.m);
   for (unsigned i=0; i< _nodes.size(); i++)
-    P += Vector3d::cross(_nodes[i]->x - _x, _nodes[i]->xd * _nodes[i]->mass);
+    P += Vector3d::cross(_nodes[i]->x - _F->x, _nodes[i]->xd * _nodes[i]->mass);
 
   // set the angular velocity
   Vector3d omega = Jinv * P;
 
-  // setup the twist in a frame of convenience 
-  _F->x = _x;
-  _F->q.set_identity();
+  // setup the twist
   _xd.set_angular(omega);
   _xd.set_linear(xd);
 }
@@ -662,7 +653,7 @@ void DeformableBody::set_mesh(shared_ptr<const IndexedTetraArray> tetra_mesh, sh
     _geometry = CollisionGeometryPtr(new CollisionGeometry);
   _geometry->set_single_body(get_this());
   _geometry->set_geometry(_cgeom_primitive);
-  _geometry->set_pose(Pose3d::identity());
+  _geometry->set_relative_pose(Pose3d::identity());
   update_geometries(); 
 }
 

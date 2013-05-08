@@ -50,8 +50,8 @@ class ScrewJoint : public Joint
     void set_pitch(double pitch) { _pitch = pitch; update_spatial_axes(); }
 
   private:
-    virtual void calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsigned index, double Cq[7]);
-    virtual void calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, unsigned index, double Cq[7]);
+    virtual void calc_constraint_jacobian_euler(RigidBodyPtr body, unsigned index, double Cq[7]);
+    virtual void calc_constraint_jacobian_dot_euler(RigidBodyPtr body, unsigned index, double Cq[7]);
 
     /// The pitch of the joint
     double _pitch;

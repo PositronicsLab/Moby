@@ -47,8 +47,8 @@ class PrismaticJoint : public Joint
     virtual bool is_singular_config() const { return false; }
     
   private:
-    virtual void calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsigned index, double Cq[7]);
-    virtual void calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, unsigned index, double Cq[7]);
+    virtual void calc_constraint_jacobian_euler(RigidBodyPtr body, unsigned index, double Cq[7]);
+    virtual void calc_constraint_jacobian_dot_euler(RigidBodyPtr body, unsigned index, double Cq[7]);
 
     /// The axis of the joint (inner link coordinates)
     Ravelin::Vector3d _u;

@@ -296,7 +296,7 @@ void ScrewJoint::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >
 
 /// Calculates the constraint Jacobian
 // TODO: implement this properly
-void ScrewJoint::calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsigned index, double Cq[7])
+void ScrewJoint::calc_constraint_jacobian_euler(RigidBodyPtr body, unsigned index, double Cq[7])
 {
   const unsigned X = 0, Y = 1, Z = 2, SPATIAL_DIM = 7;
 
@@ -404,7 +404,7 @@ void ScrewJoint::calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsigned 
 
 /// Calculates the time derivative of the constraint Jacobian
 // TODO: implement this properly
-void ScrewJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, unsigned index, double Cq[7])
+void ScrewJoint::calc_constraint_jacobian_dot_euler(RigidBodyPtr body, unsigned index, double Cq[7])
 {
   const unsigned X = 0, Y = 1, Z = 2, SPATIAL_DIM = 7;
 

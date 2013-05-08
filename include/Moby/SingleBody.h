@@ -27,8 +27,8 @@ class SingleBody : public DynamicBody
         DynamicBody::integrate(t, h, integrator);
     }
 
-    /// Gets the position of the center-of-mass of the body
-    virtual Ravelin::Point3d get_position() const = 0;
+    /// Gets the pose of the body
+    virtual boost::shared_ptr<const Ravelin::Pose3d> get_pose() const = 0;
 
     /// Gets the velocity of the body
     virtual const Ravelin::Twistd& velocity() const = 0;

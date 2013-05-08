@@ -369,7 +369,7 @@ const Matrix4& UniversalJoint::get_transform()
 }
 
 /// Computes the constraint jacobian
-void UniversalJoint::calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsigned index, double Cq[7])
+void UniversalJoint::calc_constraint_jacobian_euler(RigidBodyPtr body, unsigned index, double Cq[7])
 {
   const unsigned X = 0, Y = 1, Z = 2, SPATIAL_DIM = 7;
 
@@ -651,7 +651,7 @@ void UniversalJoint::calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsig
 }
 
 /// Computes the constraint jacobian
-void UniversalJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, unsigned index, double Cq[7])
+void UniversalJoint::calc_constraint_jacobian_dot_euler(RigidBodyPtr body, unsigned index, double Cq[7])
 {
   const unsigned X = 0, Y = 1, Z = 2, SPATIAL_DIM = 7;
 

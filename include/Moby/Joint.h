@@ -37,7 +37,7 @@ class Joint : public Visualizable
     void reset_force();    
     virtual const std::vector<Ravelin::Twistd>& get_spatial_axes();
     virtual const std::vector<Ravelin::Twistd>& get_spatial_axes_complement();
-    Ravelin::Point3d get_position_global(bool use_outboard = false) const;
+    Ravelin::Point3d get_location(bool use_outboard = false) const;
     Ravelin::VectorNd& get_scaled_force(Ravelin::VectorNd& f);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
@@ -92,9 +92,9 @@ class Joint : public Visualizable
     {
       if (gctype == DynamicBody::eSpatial)
       {
-        // compute the constraint Jacobian using rodrigues parameters
+        // compute the constraint Jacobian using euler parameters
         double Cq2[7];
-        calc_constraint_jacobian_rodrigues(body, index, Cq2);
+        calc_constraint_jacobian_euler(body, index, Cq2);
 
         // convert to axis-angle representation
         Cq[0] = Cq2[0];
@@ -106,7 +106,7 @@ class Joint : public Visualizable
         Cq[5] = ang[2];
       }
       else
-        calc_constraint_jacobian_rodrigues(body, index, Cq);
+        calc_constraint_jacobian_euler(body, index, Cq);
     }
 
     /// Computes the time derivative of the constraint Jacobian for this joint with respect to the given body
@@ -123,9 +123,9 @@ class Joint : public Visualizable
     {
       if (gctype == DynamicBody::eSpatial)
       {
-        // compute the constraint Jacobian using rodrigues parameters
+        // compute the constraint Jacobian using euler parameters
         double Cq2[7];
-        calc_constraint_jacobian_dot_rodrigues(body, index, Cq2);
+        calc_constraint_jacobian_dot_euler(body, index, Cq2);
 
         // convert to axis-angle representation
         Cq[0] = Cq2[0];
@@ -137,7 +137,7 @@ class Joint : public Visualizable
         Cq[5] = ang[2];
       }
       else
-        calc_constraint_jacobian_dot_rodrigues(body, index, Cq);
+        calc_constraint_jacobian_dot_euler(body, index, Cq);
     }
 
     /// Abstract method to get the spatial axes derivatives for this joint
@@ -244,6 +244,9 @@ class Joint : public Visualizable
   protected:
     void calc_s_bar_from_si();
 
+    /// The frame of this joint
+    boost::shared_ptr<Ravelin::Pose3d> _F;
+
     /// Computes the constraint Jacobian for this joint with respect to the given body in Rodrigues parameters
     /**
      * \param body the body with which the constraint Jacobian will be 
@@ -253,7 +256,7 @@ class Joint : public Visualizable
      * \param Cq a vector that contains the corresponding column of the
      *        constraint Jacobian on return
      */
-    virtual void calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsigned index, double Cq[]) = 0;
+    virtual void calc_constraint_jacobian_euler(RigidBodyPtr body, unsigned index, double Cq[]) = 0;
  
      /// Computes the time derivative of the constraint Jacobian for this joint with respect to the given body in Rodrigues parameters
     /**
@@ -264,7 +267,7 @@ class Joint : public Visualizable
      * \param Cq a vector that contains the corresponding column of the
      *        constraint Jacobian on return
      */
-    virtual void calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, unsigned index, double Cq[]) = 0;
+    virtual void calc_constraint_jacobian_dot_euler(RigidBodyPtr body, unsigned index, double Cq[]) = 0;
 
     virtual boost::shared_ptr<const Ravelin::Pose3d> get_visualization_pose();
 
