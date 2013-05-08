@@ -117,11 +117,11 @@ void CRBAlgorithm::transform_and_mult(RigidBodyPtr link, const SpatialRBInertiad
   const shared_ptr<const Pose3d> TARGET = link->get_computation_frame(); 
 
   // transform s and I 
-  transform(s.front().pose, TARGET, s, _sprime);
+  Pose3d::transform(s.front().pose, TARGET, s, _sprime);
   Iprime = Pose3d::transform(I.pose, TARGET, I);
 
   // do the multiplication
-  mult(Iprime, _sprime, Is);
+  Iprime.mult(_sprime, Is);
 }
 
 /// Calculates the generalized inertia of this body
@@ -190,7 +190,7 @@ void CRBAlgorithm::calc_generalized_inertia(RCArticulatedBodyPtr body)
   }
 
   // get composite inertia in matrix form
-  to_matrix(Pose3d::transform(_Ic.front().pose, GLOBAL, _Ic.front()), Ic0);
+  Pose3d::transform(_Ic.front().pose, GLOBAL, _Ic.front()).to_matrix(Ic0);
 
   // setup the remainder of the augmented inertia matrix
   Opsd::transpose(K, KT);  // TODO: special transpose necessary here?
@@ -219,7 +219,7 @@ void CRBAlgorithm::calc_generalized_inertia(DynamicBody::GeneralizedCoordinateTy
   else
   {
     assert(gctype == DynamicBody::eEuler);
-    calc_generalized_inertia_rodrigues(M);
+    calc_generalized_inertia_euler(M);
   }
 }
 
@@ -506,7 +506,7 @@ void CRBAlgorithm::calc_generalized_inertia_axisangle(MatrixNd& M)
   }
 
   // get composite inertia in matrix form
-  to_matrix(Pose3d::transform(_Ic.front().pose, GLOBAL, _Ic.front()), Ic0);
+  Pose3d::transform(_Ic.front().pose, GLOBAL, _Ic.front()).to_matrix(Ic0);
 
   // transpose K 
   Opsd::transpose(K, KT); // TODO check: spatial transpose?
@@ -530,7 +530,7 @@ void CRBAlgorithm::calc_generalized_inertia_axisangle(MatrixNd& M)
  *       to speed repeated calculations.
  */
 /*
-void CRBAlgorithm::calc_generalized_inertia_rodrigues(MatrixNd& M)
+void CRBAlgorithm::calc_generalized_inertia_euler(MatrixNd& M)
 {
   STATIC MatrixNd K, K2, L, tmp1, tmp2;
   STATIC MatrixNd Ic0_7;
@@ -973,10 +973,10 @@ void CRBAlgorithm::calc_generalized_forces(Wrenchd& f0, VectorNd& C)
     // **** compute acceleration
 
     // add this link's contribution
-    transform(s.front().pose, _a[i].pose, s, _sprime);
+    Pose3d::transform(s.front().pose, _a[i].pose, s, _sprime);
     _a[i] = spatial_cross(link->velocity(), mult(s, qd));
     if (!sdot.empty())
-      _a[i] += mult(transform(sdot[0].pose, _a[i].pose, sdot, _sprime), qd); 
+      _a[i] += mult(Pose3d::transform(sdot[0].pose, _a[i].pose, sdot, _sprime), qd); 
 
     // now add parent's contribution
     _a[i] += Pose3d::transform(_a[h].pose, _a[i].pose, _a[h]);
@@ -1148,7 +1148,7 @@ void CRBAlgorithm::update_link_accelerations(RCArticulatedBodyPtr body)
     const std::vector<Twistd>& s = joint->get_spatial_axes(); 
 
     // determine the link accel
-    transform(s.front().pose, ai.pose, s, _sprime);
+    Pose3d::transform(s.front().pose, ai.pose, s, _sprime);
     ai += spatial_cross(link->velocity(), mult(_sprime, joint->qd));
     ai += mult(_sprime, joint->qdd); 
 
@@ -1251,7 +1251,7 @@ void CRBAlgorithm::apply_impulse(const Wrenchd& w, RigidBodyPtr link)
     const std::vector<Twistd>& s = j->get_spatial_axes();
 
     // transform spatial axes to global frame
-    transform(j->get_pose(), GLOBAL, s, _sprime);
+    Pose3d::transform(j->get_pose(), GLOBAL, s, _sprime);
 
     // set the column(s) of the Jacobian
     _J.insert(_J.end(), _sprime.begin(), _sprime.end());

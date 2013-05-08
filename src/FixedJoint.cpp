@@ -144,7 +144,7 @@ const vector<Twistd>& FixedJoint::get_spatial_axes_dot()
 }
 
 /// Computes the constraint Jacobian with respect to a body
-void FixedJoint::calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsigned idx, double Cq[7])
+void FixedJoint::calc_constraint_jacobian_euler(RigidBodyPtr body, unsigned idx, double Cq[7])
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
@@ -324,7 +324,7 @@ void FixedJoint::calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsigned 
 }
 
 /// Computes the time derivative of the constraint Jacobian with respect to a body
-void FixedJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, unsigned idx, double Cq[7])
+void FixedJoint::calc_constraint_jacobian_dot_euler(RigidBodyPtr body, unsigned idx, double Cq[7])
 {
   const unsigned X = 0, Y = 1, Z = 2;
 

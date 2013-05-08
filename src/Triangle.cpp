@@ -11,6 +11,7 @@
 #include <Moby/DegenerateTriangleException.h>
 #include <Moby/Triangle.h>
 
+using std::pair;
 using namespace Ravelin;
 using namespace Moby;
 
@@ -45,12 +46,22 @@ double Triangle::calc_signed_dist(const Point3d& p) const
   return plane.calc_signed_distance(p);
 }
 
-/// Transforms the given triangle using the specified transformation matrix
+/// Transforms the given triangle using the specified pose 
 Triangle Triangle::transform(const Triangle& t, const Pose3d& m)
 {
   Point3d a = m.transform(t.a);
   Point3d b = m.transform(t.b);
   Point3d c = m.transform(t.c);
+  
+  return Triangle(a, b, c);
+}
+
+/// Transforms the given triangle using the specified transformation 
+Triangle Triangle::transform(const Triangle& t, const pair<Quatd, Origin3d>& Tx)
+{
+  Point3d a = Tx.first * t.a + Tx.second;
+  Point3d b = Tx.first * t.b + Tx.second;
+  Point3d c = Tx.first * t.c + Tx.second;
   
   return Triangle(a, b, c);
 }

@@ -543,7 +543,7 @@ void SphericalJoint::evaluate_constraints(double C[])
 }
 
 /// Computes the constraint jacobian with respect to a body
-void SphericalJoint::calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsigned index, double Cq[7])
+void SphericalJoint::calc_constraint_jacobian_euler(RigidBodyPtr body, unsigned index, double Cq[7])
 {
   const unsigned X = 0, Y = 1, Z = 2, SPATIAL_DIM = 7;
 
@@ -661,7 +661,7 @@ void SphericalJoint::calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsig
 }
 
 /// Computes the time derivative of the constraint jacobian with respect to a body
-void SphericalJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, unsigned index, double Cq[7])
+void SphericalJoint::calc_constraint_jacobian_dot_euler(RigidBodyPtr body, unsigned index, double Cq[7])
 {
   const unsigned X = 0, Y = 1, Z = 2, SPATIAL_DIM = 7;
 

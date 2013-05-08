@@ -27,24 +27,13 @@ using namespace Moby;
 CollisionGeometry::CollisionGeometry()
 {
   _F = shared_ptr<Pose3d>(new Pose3d);
-  _relF = shared_ptr<Pose3d>(new Pose3d);
 }
 
-/// Sets the relative transform (from its parent CollisionGeometry or dynamic body) for this CollisionGeometry
-void CollisionGeometry::set_rel_pose(const Pose3d& F, bool update_global_transform)
-{  
-  // see whether to update the global transform
-  if (update_global_transform)
-  {
-    // determine how the transform will change
-    Matrix4 update = Matrix4::inverse_transform(_relF) * F;
-
-    // update the global transform
-    _F = _F * update;
-  }
-
-  // set the relative transform
-  _relF = F;
+/// Sets the single body associated with this CollisionGeometry
+void CollisionGeometry::set_single_body(SingleBodyPtr s)
+{
+  _single_body = s;
+  _F->rpose = s->get_pose();
 }
 
 /// Sets the collision geometry via a primitive
@@ -62,7 +51,7 @@ PrimitivePtr CollisionGeometry::set_geometry(PrimitivePtr primitive)
 
   SingleBodyPtr sb(_single_body);
   RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(sb);
-  if (rb && !Pose3d::rel_equal(rb->get_pose(), shared_ptr<const Pose3d>()))    
+  if (rb && !Pose3d::rel_equal(*rb->get_pose(), *shared_ptr<const Pose3d>()))    
     std::cerr << "CollisionGeometry::set_primitive() warning - rigid body's transform is not identity!" << std::endl;
 
   // save the primitive
@@ -141,13 +130,11 @@ void CollisionGeometry::write_vrml(const std::string& filename) const
  * \sa get_relF()
  * \sa set_relF() 
  */
-void CollisionGeometry::set_pose(const Pose3d& P)
+void CollisionGeometry::set_relative_pose(const Pose3d& P)
 {
-  // determine whether to account for the relative transform
-  if (relF_accounted)
-    *_F = P;
-  else
-    *_F = P * _relF;
+  // update the global transform
+  _F->x = P.x;
+  _F->q = P.q;
 }
 
 /// Implements Base::load_from_xml()
@@ -159,40 +146,15 @@ void CollisionGeometry::load_from_xml(shared_ptr<const XMLTree> node, std::map<s
   // verify that this node is of type CollisionGeometry
   assert (strcasecmp(node->name.c_str(), "CollisionGeometry") == 0);
 
-// TODO: fix this
-/*
-  // read transform, if specified
-  const XMLAttrib* transform_attrib = node->get_attrib("transform");
-  if (transform_attrib)
-  {
-    Matrix4 T;
-    transform_attrib->get_matrix_value(T);
-    if (!Matrix4::valid_transform(T))
-    {
-      std::cerr << "CollisionGeometry::load_from_xml() warning: bad transform? ";
-      std::cerr << std::endl << T << " when reading node " << std::endl;
-      std::cerr << *node << std::endl;
-      std::cerr << "  --> possibly a floating-point error..." << std::endl;
-    }
-    set_transform(T, true);
-  }
-
-  // read relative transform, if specified
-  const XMLAttrib* relF_attrib = node->get_attrib("rel-transform");
-  if (relF_attrib)
-  {
-    Matrix4 T;
-    relF_attrib->get_matrix_value(T);
-    if (!Matrix4::valid_transform(T))
-    {
-      std::cerr << "CollisionGeometry::load_from_xml() warning: bad transform? ";
-      std::cerr << std::endl << T << " when reading node " << std::endl;
-      std::cerr << *node << std::endl;
-      std::cerr << "  --> possibly a floating-point error..." << std::endl;
-    }
-    set_relF(T, true);
-  }
-*/
+  // read relative pose, if specified
+  Pose3d TR;
+  const XMLAttrib* rel_origin_attr = node->get_attrib("relative-origin");
+  const XMLAttrib* rel_rpy_attr = node->get_attrib("relative-rpy");
+  if (rel_origin_attr)
+    TR.x = rel_origin_attr->get_origin_value();
+  if (rel_rpy_attr)
+    TR.q = rel_rpy_attr->get_rpy_value();
+  set_relative_pose(TR);
 
   // read the primitive ID, if any
   const XMLAttrib* primitive_id_attrib = node->get_attrib("primitive-id");
@@ -230,11 +192,11 @@ void CollisionGeometry::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const 
   // set the node name
   node->name = "CollisionGeometry";
 
-  // add the transform attribute
-  node->attribs.insert(XMLAttrib("transform", *_F));
-
-  // add the rel-transform attribute
-  node->attribs.insert(XMLAttrib("rel-transform", *_relF));
+  // add the relative pose 
+  double alpha, beta, gamma;
+  _F->q.to_rpy(alpha, beta, gamma);
+  node->attribs.insert(XMLAttrib("relative-origin", _F->x));
+  node->attribs.insert(XMLAttrib("relative-rpy", alpha, beta, gamma));
 
   // save the ID of the primitive and add the primitive to the shared list
   if (_geometry)

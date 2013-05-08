@@ -61,8 +61,8 @@ class DeformableBody : public SingleBody
     virtual Ravelin::VectorNd& solve_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& b, Ravelin::VectorNd& x);
     virtual double calc_potential_energy() const = 0;
 
-    /// Gets the position of the center-of-mass of the deformable body
-    virtual Ravelin::Point3d get_position() const { return _x; }
+    /// Gets the pose of the deformable body 
+    virtual boost::shared_ptr<const Ravelin::Pose3d> get_pose() const { return _F; }
 
     /// Gets the linear velocity of the center-of-mass of the body
     virtual const Ravelin::Twistd& velocity() const { return _xd; }
@@ -118,20 +118,19 @@ class DeformableBody : public SingleBody
     /// The vertex map
     std::vector<VertexMap> _vertex_map;
 
-    /// The position of the center-of-mass of the deformable body (global frame)
-    Ravelin::Point3d _x;
-
     /// The velocity of the body (computation frame)
     Ravelin::Twistd _xd;
 
     /// The inertia matrix (computation frame)
     Ravelin::SpatialRBInertiad _J;
 
-    /// Frame of computation
+    /// Pose of the body 
     boost::shared_ptr<Ravelin::Pose3d> _F;
 
   private:
+    /// The pose for visualization (always identity)
     boost::shared_ptr<Ravelin::Pose3d> _identity_pose;
+
     AABBPtr build_AABB_tree(std::map<BVPtr, std::list<unsigned> >& aabb_tetra_map);
     void split_tetra(const Ravelin::Point3d& point, unsigned axis, const std::list<unsigned>& otetra, std::list<unsigned>& ptetra, std::list<unsigned>& ntetra);
     bool split(AABBPtr source, AABBPtr& tgt1, AABBPtr& tgt2, unsigned axis, const std::list<unsigned>& tetra, std::list<unsigned>& ptetra, std::list<unsigned>& ntetra);

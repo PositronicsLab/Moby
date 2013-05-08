@@ -77,7 +77,7 @@ void Joint::determine_q_tare()
   q.set_zero();
 
   // get the global position - use the inboard link
-  Point3d position = get_position_global(false);
+  Point3d position = get_location(false);
 
   // get the joint transform
   shared_ptr<const Pose3d> Tj = get_pose(); 
@@ -185,7 +185,7 @@ void Joint::calc_s_bar_from_si()
   if (!outboard)
     return;
   const Matrix4& To = outboard->get_pose();
-  Point3d x = get_position_global();
+  Point3d x = get_location();
   SpatialTransform(To, IDENTITY_3x3, x).transform(_si, sx);
 
   // setup ns - it's the standard (i.e., non-spatial) transpose of sx
@@ -304,7 +304,7 @@ void Joint::add_force(const VectorNd& force)
  *        this method will behave identically for reduced-coordinate 
  *        articulated bodies)
  */
-Point3d Joint::get_position_global(bool use_outboard) const
+Point3d Joint::get_location(bool use_outboard) const
 {
   // get the inboard and outboard links
   RigidBodyPtr inboard(_inboard_link);
@@ -376,7 +376,7 @@ shared_ptr<const Pose3d> Joint::get_visualization_pose()
   // set the orientation for the joint to the orientation of the inner link
   _vtransform = shared_ptr<Pose3d>(new Pose3d);
   _vtransform->q = inboard->get_pose()->q;
-  _vtransform->x = get_position_global();
+  _vtransform->x = get_location();
 
   return _vtransform;
 }
@@ -400,7 +400,7 @@ vector<Twistd>& Joint::get_spatial_constraints(ReferenceFrameType rftype, vector
   for (unsigned i=0; i< num_constraint_eqns(); i++)
   {
     // calculate the constraint Jacobian
-    calc_constraint_jacobian_rodrigues(outboard, i, Cq);
+    calc_constraint_jacobian_euler(outboard, i, Cq);
 
     // convert the differential quaternion constraints to an angular velocity
     // representation
@@ -577,7 +577,7 @@ void Joint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, 
   }
 
   // get the global position of the joint, if possible
-  const XMLAttrib* pos_attr = node->get_attrib("global-position");
+  const XMLAttrib* pos_attr = node->get_attrib("location");
   if (pos_attr)
   {
     // get the position of the joint
@@ -614,17 +614,6 @@ void Joint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, 
     // add/replace this as an inner joint
     inboard->add_outer_joint(outboard, get_this(), inboard_to_joint);
     outboard->add_inner_joint(inboard, get_this(), joint_to_outboard_jf, joint_to_outboard_lf);
-  }
-
-  // get the spatial axis in link coordinates; note that this must be done
-  // after the link IDs are set
-  const XMLAttrib* sa_link_attr = node->get_attrib("spatial-axis-link");
-  if (sa_link_attr)
-  {
-    vector<Twistd> si = sa_link_attr->get_twist_values();
-    if (si.size() != num_dof())
-      throw std::runtime_error("Incorrect spatial matrix size reading XML attribute spatial-axis-link");
-    _si = si;
   }
 }
 
@@ -675,10 +664,7 @@ void Joint::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& sha
 
   // if both inboard and outboard links are set, set the global position
   if (!_inboard_link.expired() && !_outboard_link.expired())
-    node->attribs.insert(XMLAttrib("global-position", get_position_global()));
-
-  // save the spatial axis in link coordinates
-  node->attribs.insert(XMLAttrib("spatial-axis-link", _si));
+    node->attribs.insert(XMLAttrib("location", get_location()));
 
   // save the ID articulated body (if any)
   if (!_abody.expired())

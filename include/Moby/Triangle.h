@@ -29,6 +29,7 @@ class Triangle
     void operator=(const Triangle& t);
     static double dist_sq(const Triangle& t1, const Triangle& t2);
     static Triangle transform(const Triangle& t, const Ravelin::Pose3d& m);
+    static Triangle transform(const Triangle& t, const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& Tx);
     const Ravelin::Point3d& get_vertex(unsigned i) const;
     Ravelin::Vector3d calc_normal() const;
     void to_vrml(std::ostream& o, Ravelin::Point3d diffuse_color = Ravelin::Point3d(1,1,1), bool wireframe = false) const;

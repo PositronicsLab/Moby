@@ -57,7 +57,7 @@ class CRBAlgorithm
      bool _rank_deficient;
 
     void calc_generalized_inertia_axisangle(Ravelin::MatrixNd& M);
-    void calc_generalized_inertia_rodrigues(Ravelin::MatrixNd& M);
+    void calc_generalized_inertia_euler(Ravelin::MatrixNd& M);
     void calc_joint_space_inertia(RCArticulatedBodyPtr body, Ravelin::MatrixNd& H, std::vector<Ravelin::SpatialRBInertiad>& Ic);
     void apply_coulomb_joint_friction(RCArticulatedBodyPtr body);
     void precalc(RCArticulatedBodyPtr body);

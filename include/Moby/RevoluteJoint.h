@@ -18,9 +18,8 @@ class RevoluteJoint : public Joint
     RevoluteJoint();
     virtual ~RevoluteJoint() {}
     RevoluteJoint(boost::weak_ptr<RigidBody> inboard, boost::weak_ptr<RigidBody> outboard);
-    Ravelin::Vector3d get_axis_global() const;
-    void set_axis_global(const Ravelin::Vector3d& axis);
-    void set_axis_local(const Ravelin::Vector3d& axis);
+    const Ravelin::Vector3d& get_axis() const { return _u; }
+    void set_axis(const Ravelin::Vector3d& axis);
     virtual void update_spatial_axes();    
     virtual void determine_q(Ravelin::VectorNd& q);
     virtual boost::shared_ptr<const Ravelin::Pose3d> get_pose();
@@ -30,31 +29,18 @@ class RevoluteJoint : public Joint
     virtual unsigned num_dof() const { return 1; }
     virtual void evaluate_constraints(double C[]);
 
-    /// Gets the unit vector describing the local axis of rotation for this joint
-    /**
-     * The local axis for this joint does not take the orientation of the 
-     * inboard link into account; thus, if the orientation of the inboard link 
-     * changes, then the local axis remains constant.
-     * \sa get_axis_global()
-     * \sa set_axis_global()
-     */
-    const Ravelin::Vector3d& get_axis_local() const { return _u; }
-
     /// Revolute joint can never be in a singular configuration
     virtual bool is_singular_config() const { return false; }
 
   private:
-    virtual void calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsigned index, double Cq[7]);
-    virtual void calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, unsigned index, double Cq[7]);
+    virtual void calc_constraint_jacobian_euler(RigidBodyPtr body, unsigned index, double Cq[7]);
+    virtual void calc_constraint_jacobian_dot_euler(RigidBodyPtr body, unsigned index, double Cq[7]);
 
     /// The joint axis (defined in inner link coordinates)
     Ravelin::Vector3d _u;
 
     /// Two unit vectors that make a orthonormal basis with _u
     Ravelin::Vector3d _ui, _uj; 
-
-    /// The transform induced by this joint
-    boost::shared_ptr<Ravelin::Pose3d> _T;
 
     /// The derivative of the spatial axis -- should be zero vector 6x1
     std::vector<Ravelin::Twistd> _si_deriv;
