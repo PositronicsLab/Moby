@@ -49,6 +49,7 @@ class Joint : public Visualizable
     void evaluate_constraints_dot(double C[6]);
     virtual void determine_q_dot();
     void determine_q_tare();
+    boost::shared_ptr<const Ravelin::Pose3d> get_pose() const { return _F; };
 
     /// Sets whether this constraint is implicit or explicit (or unknown)
     void set_constraint_type(ConstraintType type) { _constraint_type = type; }
@@ -57,7 +58,7 @@ class Joint : public Visualizable
     /**
      * \note only used by reduced-coordinate articulated bodies
      */
-    virtual bool is_singular_config() const = 0;
+    virtual bool is_sngular_config() const = 0;
 
     /// Gets the shared pointer to this joint
     JointPtr get_this() { return boost::dynamic_pointer_cast<Joint>(shared_from_this()); }
@@ -151,7 +152,7 @@ class Joint : public Visualizable
      * The local transform for the joint transforms the coordinate frame
      * attached to the joint center and aligned with the inner link frame.
      */
-    virtual boost::shared_ptr<const Ravelin::Pose3d> get_pose() = 0;
+    virtual boost::shared_ptr<const Ravelin::Pose3d> get_induced_pose() = 0;
 
     /// Abstract method to determine the value of Q (joint position) from current transforms
     virtual void determine_q(Ravelin::VectorNd& q) = 0;
@@ -242,7 +243,10 @@ class Joint : public Visualizable
     unsigned get_coord_index() const { return _coord_idx; }
 
   protected:
-    void calc_s_bar_from_si();
+    void calc_s_bar_from_s();
+
+    /// The frame induced by the joint 
+    boost::shared_ptr<Ravelin::Pose3d> _Fprime;
 
     /// The frame of this joint
     boost::shared_ptr<Ravelin::Pose3d> _F;
@@ -283,7 +287,7 @@ class Joint : public Visualizable
      * Spatial axes are used in the dynamics equations for reduced-coordinate
      * articulated bodies only.
      */
-    std::vector<Ravelin::Twistd> _si;
+    std::vector<Ravelin::Twistd> _s;
 
     /// The complement of the spatial axes (in joint position frame) for the joint
     /**
@@ -305,7 +309,7 @@ class Joint : public Visualizable
     bool _determine_q_tare;
 
   private:
-    // working variables for calc_s_bar_from_si()
+    // working variables for calc_s_bar_from_s()
     Ravelin::MatrixNd _ns;
 
     ConstraintType _constraint_type;

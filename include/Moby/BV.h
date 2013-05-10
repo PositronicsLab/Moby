@@ -58,7 +58,7 @@ class BV : public boost::enable_shared_from_this<BV>
      * \param av the angular velocity
      * \return the velocity-expanded bounding volume
      */ 
-    virtual BVPtr calc_vel_exp_BV(CollisionGeometryPtr g, double dt, const Ravelin::Vector3d& lv, const Ravelin::Vector3d& av) const = 0;
+    virtual BVPtr calc_vel_exp_BV(CollisionGeometryPtr g, double dt, const Ravelin::Twistd& v) const = 0;
 
     /// Convenience method
     static bool intersects(BVPtr a, BVPtr b) { return intersects(a.get(), b.get()); }

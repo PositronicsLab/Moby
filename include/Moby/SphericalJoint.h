@@ -20,12 +20,11 @@ class SphericalJoint : public Joint
     SphericalJoint();
     virtual ~SphericalJoint() {}
     SphericalJoint(boost::weak_ptr<RigidBody> inboard, boost::weak_ptr<RigidBody> outboard);
-    Ravelin::Vector3d get_axis_global(Axis a) const;
-    void set_axis_global(const Ravelin::Vector3d& axis, Axis a);
-    void set_axis_local(const Ravelin::Vector3d& axis, Axis a);
+    Ravelin::Vector3d get_axis(Axis a) const;
+    void set_axis(const Ravelin::Vector3d& axis, Axis a);
     virtual void update_spatial_axes();    
     virtual void determine_q(Ravelin::VectorNd& q);
-    virtual boost::shared_ptr<const Ravelin::Pose3d> get_pose();
+    virtual boost::shared_ptr<const Ravelin::Pose3d> get_induced_pose();
     virtual const std::vector<Ravelin::Twistd>& get_spatial_axes();
     virtual const std::vector<Ravelin::Twistd>& get_spatial_axes_dot();
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
@@ -35,17 +34,7 @@ class SphericalJoint : public Joint
     virtual void evaluate_constraints(double C[]);
 
     /// Spherical joint is singular if sin(q1) = 0 and cos(q2) = 0
-    virtual bool is_singular_config() const { return std::fabs(std::sin(q[DOF_1])) < SINGULAR_TOL && std::fabs(std::cos(q[DOF_2])) < SINGULAR_TOL; }
-
-    /// Gets the unit vector describing the local axis of rotation for this joint
-    /**
-     * The local axis for this joint does not take the orientation of the 
-     * inboard link into account; thus, if the orientation of the inboard link 
-     * changes, then the local axis remains constant.
-     * \sa get_axis_global()
-     * \sa set_axis_global()
-     */
-    const Ravelin::Vector3d& get_axis_local(Axis a) const { return _u[a]; }
+    virtual bool is_sngular_config() const { return std::fabs(std::sin(q[DOF_1])) < SINGULAR_TOL && std::fabs(std::cos(q[DOF_2])) < SINGULAR_TOL; }
 
     /// The tolerance to which a joint configuration is considered singular
     /**
@@ -62,20 +51,11 @@ class SphericalJoint : public Joint
     static bool rel_equal(double x, double y);
     Ravelin::Matrix3d get_rotation() const;
 
-    /// Rotation applied to axes to make computation simpler
-    Ravelin::Matrix3d _R;
-
     /// The local joint axes
     Ravelin::Vector3d _u[3];
 
-    /// The transform induced by this joint
-    boost::shared_ptr<Ravelin::Pose3d> _T;
-
-    /// The derivative of the spatial axis (link frame)
-    std::vector<Ravelin::Twistd> _si_dot;
-
-    /// The derivative of the spatial axis (global frame)
-    std::vector<Ravelin::Twistd> _s0_dot;
+    /// The derivative of the spatial axis
+    std::vector<Ravelin::Twistd> _s_dot;
 }; // end class
 } // end namespace
 

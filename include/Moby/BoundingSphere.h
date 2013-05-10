@@ -21,7 +21,7 @@ class BoundingSphere : public BV
     BoundingSphere(const Ravelin::Point3d& center, double radius);
     BoundingSphere& operator=(const BoundingSphere& bsphere);
     virtual std::ostream& to_vrml(std::ostream& out, const Ravelin::Pose3d& T) const;
-    virtual BVPtr calc_vel_exp_BV(CollisionGeometryPtr g, double dt, const Ravelin::Vector3d& lv, const Ravelin::Vector3d& av) const;
+    virtual BVPtr calc_vel_exp_BV(CollisionGeometryPtr g, double dt, const Ravelin::Twistd& v) const;
     static double calc_dist(const BoundingSphere& s1, const BoundingSphere& s2);
     static bool intersects(const BoundingSphere& a, const BoundingSphere& b);
     static bool intersects(const BoundingSphere& a, const BoundingSphere& b, const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& aTb);

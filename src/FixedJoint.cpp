@@ -26,7 +26,7 @@ FixedJoint::FixedJoint() : Joint()
   init_data();
 
   // setup the spatial axis derivative to zero
-  _si_deriv.clear();
+  _s_deriv.clear();
 
   // initialize frames
   _F1 = shared_ptr<Pose3d>(new Pose3d);
@@ -40,7 +40,7 @@ FixedJoint::FixedJoint(boost::weak_ptr<RigidBody> inboard, boost::weak_ptr<Rigid
   init_data();
 
   // setup the spatial axis derivative to zero
-  _si_deriv.clear();
+  _s_deriv.clear();
 
   // initialize frames
   _F1 = shared_ptr<Pose3d>(new Pose3d);
@@ -54,8 +54,8 @@ void FixedJoint::update_spatial_axes()
   Joint::update_spatial_axes();
 
   // setup si
-  for (unsigned i=0; i< _si.size(); i++)
-    _si[i].set_zero();
+  for (unsigned i=0; i< _s.size(); i++)
+    _s[i].set_zero();
 
   // setup complement of si
   _s_bar.resize(6);
@@ -131,16 +131,16 @@ void FixedJoint::set_outboard_link(RigidBodyPtr link)
 }
 
 /// Gets the (local) transform for this joint (constant)
-shared_ptr<const Pose3d> FixedJoint::get_pose()
+shared_ptr<const Pose3d> FixedJoint::get_induced_pose()
 {
-  // get the link transforms
-  return _T;
+  // get the link transform (always identity)
+  return _Fprime;
 }
 
 /// Gets the derivative for the spatial axes for this joint
 const vector<Twistd>& FixedJoint::get_spatial_axes_dot()
 {
-  return _si_deriv;
+  return _s_deriv;
 }
 
 /// Computes the constraint Jacobian with respect to a body

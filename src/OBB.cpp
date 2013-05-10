@@ -747,7 +747,7 @@ XMLTreePtr OBB::save_to_xml_tree() const
 }
 
 /// Calculates the velocity-expanded OBB for a body
-BVPtr OBB::calc_vel_exp_BV(CollisionGeometryPtr g, double dt, const Vector3d& lv, const Vector3d& av) const
+BVPtr OBB::calc_vel_exp_BV(CollisionGeometryPtr g, double dt, const Twistd& v) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
 

@@ -55,7 +55,7 @@ std::ostream& BoundingSphere::to_vrml(std::ostream& out, const Pose3d& T) const
 }
 
 /// Calculates the velocity expanded bounding volume for the bounding sphere (calculates an OBB)
-BVPtr BoundingSphere::calc_vel_exp_BV(CollisionGeometryPtr g, double dt, const Vector3d& lv, const Vector3d& av) const
+BVPtr BoundingSphere::calc_vel_exp_BV(CollisionGeometryPtr g, double dt, const Twistd& v) const
 {
   // get the corresponding body
   SingleBodyPtr b = g->get_single_body();

@@ -10,6 +10,7 @@
 #include <list>
 #include <vector>
 #include <map>
+#include <Ravelin/LinAlgd.h>
 #include <Moby/Base.h>
 #include <Moby/Types.h>
 #include <Moby/Event.h>
@@ -130,15 +131,15 @@ class ImpactEventHandler
   private:
     static DynamicBodyPtr get_super_body(SingleBodyPtr sb);
     static bool use_qp_solver(const EventProblemData& epd);
-    void apply_model(const std::vector<Event>& events) const;
-    void apply_model_to_connected_events(const std::list<Event*>& events) const;
+    void apply_model(const std::vector<Event>& events);
+    void apply_model_to_connected_events(const std::list<Event*>& events);
     static void compute_problem_data(EventProblemData& epd);
     static void solve_lcp(EventProblemData& epd, Ravelin::VectorNd& z);
-    static void solve_qp(EventProblemData& epd, double eps);
+    void solve_qp(EventProblemData& epd, double eps);
     static void solve_nqp(EventProblemData& epd, double eps);
-    static void solve_qp_work(EventProblemData& epd, Ravelin::VectorNd& z);
-    static void solve_qp_work_general(EventProblemData& epd, Ravelin::VectorNd& z);
-    static void solve_qp_work_ijoints(EventProblemData& epd, Ravelin::VectorNd& z);
+    void solve_qp_work(EventProblemData& epd, Ravelin::VectorNd& z);
+    void solve_qp_work_general(EventProblemData& epd, Ravelin::VectorNd& z);
+    void solve_qp_work_ijoints(EventProblemData& epd, Ravelin::VectorNd& z);
     static double calc_ke(EventProblemData& epd, const Ravelin::VectorNd& z);
     static bool opt_satisfied(const EventProblemData& q, const std::vector<bool>& working_set, double& KE, Ravelin::VectorNd& x, unsigned j);
     static void update_problem(const EventProblemData& qorig, EventProblemData& qnew);
@@ -150,12 +151,9 @@ class ImpactEventHandler
     static void contact_select(const std::vector<int>& alpha_c_indices, const std::vector<int>& beta_nbeta_c_indices, const Ravelin::VectorNd& x, Ravelin::VectorNd& alpha_c, Ravelin::VectorNd& beta_c);
     static void contact_select(const std::vector<int>& alpha_c_indices, const std::vector<int>& beta_nbeta_c_indices, const Ravelin::MatrixNd& m, Ravelin::MatrixNd& alpha_c_rows, Ravelin::MatrixNd& beta_c_rows);
     static double sqr(double x) { return x*x; }
-    static void sqp_hess(const Ravelin::VectorNd& x, double objscal, const Ravelin::VectorNd& lambda, const Ravelin::VectorNd& nu, Ravelin::MatrixNd& H, void* data);
-    static void sqp_grad0(const Ravelin::VectorNd& x, Ravelin::VectorNd& g, void* data);
-    static void sqp_cJac(const Ravelin::VectorNd& x, Ravelin::MatrixNd& J, void* data);
-    static double sqp_f0(const Ravelin::VectorNd& x, void* data);
-    static void sqp_fx(const Ravelin::VectorNd& x, Ravelin::VectorNd& fc, void* data);
     static void set_optimization_data(EventProblemData& q, ImpactOptData& iopt);
+
+    Ravelin::LinAlgd _LA;
 }; // end class
 } // end namespace
 

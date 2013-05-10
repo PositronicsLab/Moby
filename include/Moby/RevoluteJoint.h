@@ -22,7 +22,7 @@ class RevoluteJoint : public Joint
     void set_axis(const Ravelin::Vector3d& axis);
     virtual void update_spatial_axes();    
     virtual void determine_q(Ravelin::VectorNd& q);
-    virtual boost::shared_ptr<const Ravelin::Pose3d> get_pose();
+    virtual boost::shared_ptr<const Ravelin::Pose3d> get_induced_pose();
     virtual const std::vector<Ravelin::Twistd>& get_spatial_axes_dot();
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
@@ -30,7 +30,7 @@ class RevoluteJoint : public Joint
     virtual void evaluate_constraints(double C[]);
 
     /// Revolute joint can never be in a singular configuration
-    virtual bool is_singular_config() const { return false; }
+    virtual bool is_sngular_config() const { return false; }
 
   private:
     virtual void calc_constraint_jacobian_euler(RigidBodyPtr body, unsigned index, double Cq[7]);
@@ -43,7 +43,7 @@ class RevoluteJoint : public Joint
     Ravelin::Vector3d _ui, _uj; 
 
     /// The derivative of the spatial axis -- should be zero vector 6x1
-    std::vector<Ravelin::Twistd> _si_deriv;
+    std::vector<Ravelin::Twistd> _s_deriv;
 
     /// The joint axis (defined in outer link coordinates) [used only for maximal coordinate formulations]
     Ravelin::Vector3d _v2;

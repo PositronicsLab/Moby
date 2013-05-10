@@ -38,6 +38,11 @@ Joint::Joint()
 
   // initialize _q_tare
   _q_tare.resize(0);
+
+  // initialize the two frames
+  _F = shared_ptr<Pose3d>(new Pose3d);
+  _Fprime = shared_ptr<Pose3d>(new Pose3d);
+  _Fprime->rpose = _F;
 }
 
 /// Initializes the joint with the specified inboard and outboard links
@@ -62,6 +67,11 @@ Joint::Joint(boost::weak_ptr<RigidBody> inboard, boost::weak_ptr<RigidBody> outb
 
   // mark the indices as invalid initially
   _coord_idx = _joint_idx = _constraint_idx = std::numeric_limits<unsigned>::max();
+
+  // initialize the two frames
+  _F = shared_ptr<Pose3d>(new Pose3d);
+  _Fprime = shared_ptr<Pose3d>(new Pose3d);
+  _Fprime->rpose = _F;
 }  
 
 /// Determines q tare
@@ -174,7 +184,7 @@ void Joint::update_spatial_axes()
 
 /*
 /// Sets s bar from si
-void Joint::calc_s_bar_from_si()
+void Joint::calc_s_bar_from_s()
 {
   const unsigned SPATIAL_DIM = 6;
   const unsigned NDOF = num_dof();
@@ -186,7 +196,7 @@ void Joint::calc_s_bar_from_si()
     return;
   const Matrix4& To = outboard->get_pose();
   Point3d x = get_location();
-  SpatialTransform(To, IDENTITY_3x3, x).transform(_si, sx);
+  SpatialTransform(To, IDENTITY_3x3, x).transform(_s, sx);
 
   // setup ns - it's the standard (i.e., non-spatial) transpose of sx
   assert(sx.columns() == NDOF);
@@ -206,6 +216,9 @@ void Joint::set_inboard_link(RigidBodyPtr inboard)
   _inboard_link = inboard;
   if (!inboard)
     return;
+
+  // setup F's pose relative to the inboard
+  _F->rpose = inboard->get_pose();
 
   // update spatial axes if both links are set
   if (!_outboard_link.expired() && !_inboard_link.expired())
@@ -279,7 +292,7 @@ void Joint::init_data()
   hilimit.set_one(NDOF) *= std::numeric_limits<double>::max();
   ff.set_zero(NDOF);
   lambda.set_zero(NEQ);
-  _si.resize(NDOF);
+  _s.resize(NDOF);
   _s_bar.resize(6-NDOF);
 }
 
@@ -349,7 +362,7 @@ VectorNd& Joint::get_scaled_force(VectorNd& f)
  */
 const vector<Twistd>& Joint::get_spatial_axes()
 {
-  return _si;
+  return _s;
 }
 
 /// Gets the complement of the spatial axes for this joint
@@ -359,7 +372,7 @@ const vector<Twistd>& Joint::get_spatial_axes()
  */
 const vector<Twistd>& Joint::get_spatial_axes_complement()
 {
-  calc_s_bar_from_si();
+  calc_s_bar_from_s();
   return _s_bar;
 }
 
