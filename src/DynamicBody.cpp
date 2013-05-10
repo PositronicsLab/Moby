@@ -53,16 +53,31 @@ VectorN& DynamicBody::ode_both(const VectorN& x, Real t, Real dt, void* data, Ve
   db->get_generalized_velocity(DynamicBody::eRodrigues, xv);
 
   // clear the force accumulators on the body
-  db->reset_accumulators();
+  //db->reset_accumulators();
 
   // add all recurrent forces on the body
   const list<RecurrentForcePtr>& rfs = db->get_recurrent_forces();
   BOOST_FOREACH(RecurrentForcePtr rf, rfs)
     rf->add_force(db);
 
+  // Rather than calling the controller, instead go through and apply torques
+  // sourced from shared memory.
+///*
+/*
   // call the body's controller
   if (db->controller)
     (*db->controller)(db, t, db->controller_arg);
+*/
+
+  /*
+  // ?!?This seems to be a complete hack?!?
+  // Yes the control code is executed and yes the forces are applied outside the controller
+  // but the controller is not run outside the framework of the dynamics system.
+  VectorN f;
+  db->get_generalized_forces( DynamicBody::eAxisAngle, f );
+  db->reset_accumulators();
+  db->add_generalized_force( DynamicBody::eAxisAngle, f );
+  */
 
   // calculate forward dynamics at state x
   db->calc_fwd_dyn(dt);
