@@ -24,7 +24,7 @@ class AABB : public BV
     virtual bool outside(const Ravelin::Point3d& point, double tol = NEAR_ZERO) const { return AABB::outside(*this, point, tol); }
     virtual bool intersects(const LineSeg3& seg, double& tmin, double tmax, Ravelin::Point3d& q) const { return AABB::intersects(*this, seg, tmin, tmax, q); }
     virtual std::ostream& to_vrml(std::ostream& out, const Ravelin::Pose3d& T) const;
-    virtual BVPtr calc_vel_exp_BV(CollisionGeometryPtr g, double dt, const Ravelin::Vector3d& lv, const Ravelin::Vector3d& av) const;
+    virtual BVPtr calc_vel_exp_BV(CollisionGeometryPtr g, double dt, const Ravelin::Twistd& v) const;
     virtual double calc_volume() const;
     virtual Ravelin::Point3d get_lower_bounds(const Ravelin::Pose3d& T);
     virtual Ravelin::Point3d get_upper_bounds(const Ravelin::Pose3d& T);

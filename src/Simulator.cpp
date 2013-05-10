@@ -17,10 +17,11 @@
 #include <Moby/XMLTree.h>
 #include <Moby/Simulator.h>
 
-using namespace Moby;
 using std::vector;
 using boost::shared_ptr;
 using boost::dynamic_pointer_cast;
+using namespace Ravelin;
+using namespace Moby;
 
 /// Sets up the simulator
 /**
@@ -276,7 +277,7 @@ void Simulator::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::stri
       std::cerr << std::endl << *node;
     }
     else
-      integrator = dynamic_pointer_cast<Integrator<VectorN> >(id_iter->second);
+      integrator = dynamic_pointer_cast<Integrator>(id_iter->second);
   }
 
   // get all dynamic bodies used in the simulator

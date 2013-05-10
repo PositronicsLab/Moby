@@ -48,7 +48,7 @@ void SSR::operator=(const SSR& s)
 }
 
 /// Calculates the velocity-expanded bounding volume
-BVPtr SSR::calc_vel_exp_BV(CollisionGeometryPtr g, double dt, const Vector3d& lv, const Vector3d& av) const
+BVPtr SSR::calc_vel_exp_BV(CollisionGeometryPtr g, double dt, const Twistd& v) const
 {
   throw std::runtime_error("SSR::calc_vel_exp_BV() not implemented!");
   return BVPtr();

@@ -81,8 +81,8 @@ Event& Event::operator=(const Event& e)
   contact_NK = e.contact_NK;
   contact_tan1 = e.contact_tan1;
   contact_tan2 = e.contact_tan2;
-  constraint_nimpulse.copy_from(e.constraint_nimpulse);
-  constraint_fimpulse.copy_from(e.constraint_fimpulse);
+  constraint_nimpulse = e.constraint_nimpulse;
+  constraint_fimpulse = e.constraint_fimpulse;
   constraint_joint = e.constraint_joint;
 
   return *this;
@@ -109,12 +109,12 @@ void Event::compute_event_data(MatrixNd& M, VectorNd& q) const
 
     // form the normal and tangential wrenches in contact space
     Wrenchd wn, ws, wt;
-    wn.force() = contact_normal;
-    ws.force() = contact_tan1;
-    wt.force() = contact_tan2;
-    wn.torque().set_zero();
-    ws.torque().set_zero();
-    wt.torque().set_zero();
+    wn.set_force(contact_normal);
+    ws.set_force(contact_tan1); 
+    wt.set_force(contact_tan2);
+    wn.set_torque(ZEROS_3);
+    ws.set_torque(ZEROS_3);
+    wt.set_torque(ZEROS_3);
 
     // setup the pose for the contact frame
     wn.pose = event_frame;
@@ -187,12 +187,12 @@ void Event::compute_cross_event_data(const Event& e, MatrixNd& M) const
 
     // form the normal and tangential wrenches in contact space
     Wrenchd wn, ws, wt;
-    wn.force() = contact_normal;
-    ws.force() = contact_tan1;
-    wt.force() = contact_tan2;
-    wn.torque().set_zero();
-    ws.torque().set_zero();
-    wt.torque().set_zero();
+    wn.set_force(contact_normal);
+    ws.set_force(contact_tan1);
+    wt.set_force(contact_tan2);
+    wn.set_torque(ZEROS_3);
+    ws.set_torque(ZEROS_3);
+    wt.set_torque(ZEROS_3);
 
     // setup the pose for the contact frame
     wn.pose = event_frame;
@@ -356,13 +356,13 @@ osg::Node* Event::to_visualization_data() const
   const unsigned X = 0, Y = 1, Z = 2;
 
   // setup the transformation matrix for the cone
-  Vector3 x_axis, z_axis;
-  Vector3::determine_orthonormal_basis(contact_normal, x_axis, z_axis);
-  Matrix3 R;
+  Vector3d x_axis, z_axis;
+  Vector3d::determine_orthonormal_basis(contact_normal, x_axis, z_axis);
+  Matrix3d R;
   R.set_column(X, x_axis);
   R.set_column(Y, contact_normal);
   R.set_column(Z, -z_axis);
-  Vector3 x = contact_point + contact_normal;
+  Vector3d x = contact_point + contact_normal;
   Matrix4 T(&R, &x);
 
   // setup the transform node for the cone
@@ -700,7 +700,7 @@ void Event::compute_contact_jacobians(const Event& e, VectorN& Nc, VectorN& Dcs,
 
   // process the first body
   // compute the 'r' vector
-  Vector3 r1 = e.contact_point - sb1->get_position();
+  Vector3d r1 = e.contact_point - sb1->get_position();
 
   // convert the normal force to generalized forces
   super1->convert_to_generalized_force(DynamicBody::eSpatial, sb1, e.contact_point, e.contact_normal, ZEROS_3, Nc1());
@@ -745,7 +745,7 @@ void Event::compute_contact_jacobians(const Event& e, VectorN& Nc, VectorN& Dcs,
 /// Uses the convex hull of the contact manifold to reject contact points
 void Event::determine_convex_set(list<Event*>& group)
 {
-  vector<Vector3*> hull;
+  vector<Point3d*> hull;
 
   // don't do anything if there are three or fewer points
   if (group.size() <= 3)
@@ -774,7 +774,7 @@ void Event::determine_convex_set(list<Event*>& group)
   }
 
   // get all points
-  vector<Vector3*> points;
+  vector<Point3d*> points;
   BOOST_FOREACH(Event* e, group)
   {
     assert(e->event_type == Event::eContact);
@@ -782,8 +782,8 @@ void Event::determine_convex_set(list<Event*>& group)
   }
 
   // determine whether points are collinear
-  const Vector3& pA = *points.front(); 
-  const Vector3& pZ = *points.back();
+  const Point3d& pA = *points.front(); 
+  const Point3d& pZ = *points.back();
   bool collinear = true;
   for (unsigned i=1; i< points.size()-1; i++)
     if (!CompGeom::collinear(pA, pZ, *points[i]))
@@ -796,7 +796,7 @@ void Event::determine_convex_set(list<Event*>& group)
   if (collinear)
   {
     // just get endpoints
-    pair<Vector3*, Vector3*> ep;
+    pair<Point3d*, Point3d*> ep;
     CompGeom::determine_seg_endpoints(points.begin(), points.end(), ep);
 
     // iterate through, looking for the contact points
@@ -824,7 +824,7 @@ void Event::determine_convex_set(list<Event*>& group)
     catch (NumericalException e)
     {
       // compute the segment endpoints
-      pair<Vector3*, Vector3*> ep;
+      pair<Point3d*, Point3d*> ep;
       CompGeom::determine_seg_endpoints(points.begin(), points.end(), ep);
 
       // iterate through, looking for the contact points
@@ -858,7 +858,7 @@ void Event::determine_convex_set(list<Event*>& group)
       catch (NumericalException e)
       {
         // compute the segment endpoints
-        pair<Vector3*, Vector3*> ep;
+        pair<Point3d*, Point3d*> ep;
         CompGeom::determine_seg_endpoints(points.begin(), points.end(), ep);
 
         // iterate through, looking for the contact points
@@ -1042,8 +1042,8 @@ void Event::write_vrml(const std::string& fname, double sphere_radius, double no
   // *************************************************
 
   // determine the normal edge
-  Vector3 normal_start = contact_point;
-  Vector3 normal_stop = normal_start + contact_normal*normal_length;
+  Vector3d normal_start = contact_point;
+  Vector3d normal_stop = normal_start + contact_normal*normal_length;
 
   // write the shape node, using default appearance
   out << "Shape {" << std::endl;
@@ -1068,7 +1068,7 @@ void Event::write_vrml(const std::string& fname, double sphere_radius, double no
   // **********************************************
 
   // first compose an arbitrary vector d
-  Vector3 d(1,1,1);
+  Vector3d d(1,1,1);
   if (std::fabs(contact_normal[X]) > std::fabs(contact_normal[Y]))
   {
     if (std::fabs(contact_normal[X]) > std::fabs(contact_normal[Z]))
@@ -1085,14 +1085,14 @@ void Event::write_vrml(const std::string& fname, double sphere_radius, double no
   }
     
   // compute the cross product of the normal and the vector
-  Vector3 x = Vector3::normalize(Vector3::cross(contact_normal, d));
-  Vector3 y;
-  y.copy_from(contact_normal);
-  Vector3 z = Vector3::normalize(Vector3::cross(x, contact_normal));
+  Vector3d x = Vector3d::normalize(Vector3d::cross(contact_normal, d));
+  Vector3d y;
+  y = contact_normal;
+  Vector3d z = Vector3d::normalize(Vector3d::cross(x, contact_normal));
 
   // compute theta and the axis of rotation
   double theta = std::acos((x[X] + y[Y] + z[Z] - 1)/2);
-  Vector3 axis(z[Y] - y[Z], x[Z] - z[X], y[X] - x[Y]);
+  Vector3d axis(z[Y] - y[Z], x[Z] - z[X], y[X] - x[Y]);
   axis *= -(1.0/(2 * std::sin(theta)));
     
   // finally, write the cone to show the normal's direction
@@ -1125,7 +1125,7 @@ void Event::determine_contact_tangents()
   assert(event_type == Event::eContact);
 
   // determine an orthonormal basis using the two contact tangents
-  Vector3::determine_orthonormal_basis(contact_normal, contact_tan1, contact_tan2);
+  Vector3d::determine_orthonormal_basis(contact_normal, contact_tan1, contact_tan2);
 
 /*
   // determine the projection matrix
@@ -1177,12 +1177,12 @@ double Event::calc_event_tol() const
     assert(sb1 && sb2);
 
     // get the moment arms
-    Vector3 r1 = contact_point - sb1->get_position();
-    Vector3 r2 = contact_point - sb2->get_position();
+    Vector3d r1 = contact_point - sb1->get_pose()->x;
+    Vector3d r2 = contact_point - sb2->get_pose()->x;
 
     // compute the velocity contributions
-    Vector3 v1 = sb1->get_lvel() + Vector3::cross(sb1->get_avel(), r1);
-    Vector3 v2 = sb2->get_lvel() + Vector3::cross(sb2->get_avel(), r2);
+    Vector3d v1 = sb1->get_lvel() + Vector3d::cross(sb1->get_avel(), r1);
+    Vector3d v2 = sb2->get_lvel() + Vector3d::cross(sb2->get_avel(), r2);
 
     return std::max((v1 - v2).norm(), (double) 1.0);
   }

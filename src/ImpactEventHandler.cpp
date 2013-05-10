@@ -17,10 +17,8 @@
 #include <Moby/CollisionGeometry.h>
 #include <Moby/SingleBody.h>
 #include <Moby/RigidBody.h>
-#include <Moby/LinAlg.h>
 #include <Moby/Log.h>
 #include <Moby/XMLTree.h>
-#include <Moby/Optimization.h>
 #include <Moby/ImpactToleranceException.h>
 #include <Moby/NumericalException.h>
 #include <Moby/ImpactEventHandler.h>
@@ -75,7 +73,7 @@ void ImpactEventHandler::process_events(const vector<Event>& events)
 /**
  * \param events a set of events
  */
-void ImpactEventHandler::apply_model(const vector<Event>& events) const
+void ImpactEventHandler::apply_model(const vector<Event>& events)
 {
   list<Event*> impacting;
 
@@ -128,7 +126,7 @@ void ImpactEventHandler::apply_model(const vector<Event>& events) const
  * Applies method of Drumwright and Shell to a set of connected events
  * \param events a set of connected events 
  */
-void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& events) const
+void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& events)
 {
   double ke_minus = 0.0, ke_plus = 0.0;
   vector<Event> constraint_event_objects;

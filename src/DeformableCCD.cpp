@@ -14,7 +14,6 @@
 #include <Moby/CompGeom.h>
 #include <Moby/CollisionDetection.h>
 #include <Moby/EventDrivenSimulator.h>
-#include <Moby/LinAlg.h>
 #include <Moby/Event.h>
 #include <Moby/Constants.h>
 #include <Moby/Polyhedron.h>
@@ -28,7 +27,6 @@
 #include <Moby/BoundingSphere.h>
 #include <Moby/DeformableCCD.h>
 
-using namespace Moby;
 using boost::dynamic_pointer_cast;
 using boost::static_pointer_cast;
 using boost::shared_ptr;
@@ -44,6 +42,8 @@ using std::vector;
 using std::priority_queue;
 using std::pair;
 using std::make_pair;
+using namespace Ravelin;
+using namespace Moby;
 
 /// Constructs a collision detector with default tolerances
 /**
@@ -107,31 +107,31 @@ void DeformableCCD::remove_articulated_body(ArticulatedBodyPtr abody)
 }
 
 /// Computes the velocities from states
-map<SingleBodyPtr, pair<Vector3, Vector3> > DeformableCCD::get_velocities(const vector<pair<DynamicBodyPtr, VectorN> >& q0, const vector<pair<DynamicBodyPtr, VectorN> >& q1, double dt) const
+map<SingleBodyPtr, Twistd> DeformableCCD::get_velocities(const vector<pair<DynamicBodyPtr, VectorNd> >& q0, const vector<pair<DynamicBodyPtr, VectorNd> >& q1, double dt) const
 {
   // first set the generalized velocities
   #ifndef _OPENMP
-  VectorN qd;
+  VectorNd qd;
   for (unsigned i=0; i< q0.size(); i++)
   {
-    qd.copy_from(q1[i].second) -= q0[i].second;
+    (qd = q1[i].second) -= q0[i].second;
     q1[i].first->set_generalized_coordinates(DynamicBody::eEuler, q0[i].second);
     q1[i].first->set_generalized_velocity(DynamicBody::eEuler, qd);
   }
   #else
-  SAFESTATIC vector<VectorN> qd;
+  SAFESTATIC vector<VectorNd> qd;
   qd.resize(q0.size());
   #pragma #omp parallel for
   for (unsigned i=0; i< q0.size(); i++)
   {
-    qd[i].copy_from(q1[i].second) -= q0[i].second;
+    (qd[i] = q1[i].second) -= q0[i].second;
     q1[i].first->set_generalized_coordinates(DynamicBody::eEuler, q0[i].second);
     q1[i].first->set_generalized_velocity(DynamicBody::eEuler, qd[i]);
   }
   #endif
 
   // setup the map
-  map<SingleBodyPtr, pair<Vector3, Vector3> > vels;
+  map<SingleBodyPtr, Twistd> vels;
 
   // now get the single body linear and angular velocities
   for (unsigned i=0; i< q0.size(); i++)
@@ -139,9 +139,9 @@ map<SingleBodyPtr, pair<Vector3, Vector3> > DeformableCCD::get_velocities(const 
     SingleBodyPtr sb = dynamic_pointer_cast<SingleBody>(q0[i].first);
     if (sb)
     {
-      pair<Vector3, Vector3>& v = vels[sb];
-      v.first = sb->get_lvel();
-      v.second = sb->get_avel();
+      shared_ptr<Pose3d> bodyF(new Pose3d);
+      bodyF->x = sb->get_pose()->x;      
+      vels[sb] = Pose3d::transform(sb->velocity().pose, bodyF, sb->velocity());
     }
     else
     {
@@ -150,9 +150,10 @@ map<SingleBodyPtr, pair<Vector3, Vector3> > DeformableCCD::get_velocities(const 
       const vector<RigidBodyPtr>& links = ab->get_links();
       for (unsigned j=0; j< links.size(); j++)
       {
-        pair<Vector3, Vector3>& v = vels[links[j]];
-        v.first = links[j]->get_lvel();
-        v.second = links[j]->get_avel();
+        RigidBodyPtr b = links[j];
+        shared_ptr<Pose3d> bodyF(new Pose3d);
+        bodyF->x = b->get_pose()->x;
+        vels[b] = Pose3d::transform(b->velocity().pose, bodyF, b->velocity());
       }
     } 
   }
@@ -164,10 +165,11 @@ map<SingleBodyPtr, pair<Vector3, Vector3> > DeformableCCD::get_velocities(const 
 /**
  * \pre body states are at time tf
  */
-bool DeformableCCD::is_contact(double dt, const vector<pair<DynamicBodyPtr, VectorN> >& q0, const vector<pair<DynamicBodyPtr, VectorN> >& q1, vector<Event>& contacts)
+bool DeformableCCD::is_contact(double dt, const vector<pair<DynamicBodyPtr, VectorNd> >& q0, const vector<pair<DynamicBodyPtr, VectorNd> >& q1, vector<Event>& contacts)
 {
   DStruct ds;
   typedef pair<CollisionGeometryPtr, BVPtr> CG_BV;
+  pair<Quatd, Origin3d> aTb, bTa;
 
   // clear the vector of contacts-- we don't want the user monkeying with it...
   contacts.clear();
@@ -176,7 +178,7 @@ bool DeformableCCD::is_contact(double dt, const vector<pair<DynamicBodyPtr, Vect
 
   // get the map of bodies to velocities
   // NOTE: this also sets each body's coordinates and velocities to q0
-  map<SingleBodyPtr, pair<Vector3, Vector3> > vels = get_velocities(q0, q1, dt);
+  map<SingleBodyPtr, Twistd > vels = get_velocities(q0, q1, dt);
 
   // clear all velocity expanded BVs
   _ve_BVs.clear();
@@ -199,12 +201,12 @@ bool DeformableCCD::is_contact(double dt, const vector<pair<DynamicBodyPtr, Vect
     SingleBodyPtr sbb = b->get_single_body();
 
     // get the velocities for the two bodies
-    const pair<Vector3, Vector3>& a_vel = vels.find(sba)->second;
-    const pair<Vector3, Vector3>& b_vel = vels.find(sbb)->second;
+    const Twistd& a_vel = vels.find(sba)->second;
+    const Twistd& b_vel = vels.find(sbb)->second;
 
     // get the transforms from a to b and back
-    Matrix4 aTb = Matrix4::inverse_transform(a->get_transform()) * b->get_transform();
-    Matrix4 bTa = Matrix4::inverse_transform(b->get_transform()) * a->get_transform(); 
+    aTb = Pose3d::calc_relative_pose(b->get_pose(), a->get_pose());
+    bTa = inverse(aTb);
 
     // test the geometries for contact
     check_geoms(dt, a, b, aTb, bTa, a_vel, b_vel, contacts);
@@ -236,9 +238,10 @@ bool DeformableCCD::is_contact(double dt, const vector<pair<DynamicBodyPtr, Vect
  * \param vels linear and angular velocities of bodies
  * \param set of contacts on return
  */
-void DeformableCCD::check_geoms(double dt, CollisionGeometryPtr a, CollisionGeometryPtr b, const Matrix4& aTb, const Matrix4& bTa, const pair<Vector3, Vector3>& a_vel, const pair<Vector3, Vector3>& b_vel, vector<Event>& contacts)
+void DeformableCCD::check_geoms(double dt, CollisionGeometryPtr a, CollisionGeometryPtr b, const pair<Quatd, Origin3d>& aTb, const pair<Quatd, Origin3d>& bTa, const Twistd& a_vel, const Twistd& b_vel, vector<Event>& contacts)
 {
-  map<BVPtr, vector<const Vector3*> > a_to_test, b_to_test, self_test;
+  map<BVPtr, vector<const Point3d*> > a_to_test, b_to_test, self_test;
+  const pair<Quatd, Origin3d> IDENTITY;
 
   FILE_LOG(LOG_COLDET) << "DeformableCCD::check_geoms() entered" << endl;
   FILE_LOG(LOG_COLDET) << "  checking geometry " << a->id << " for body " << a->get_single_body()->id << std::endl;
@@ -255,10 +258,10 @@ void DeformableCCD::check_geoms(double dt, CollisionGeometryPtr a, CollisionGeom
   vector<Event> local_contacts;
 
   // get the velocities for a and b
-  const Vector3& alv = a_vel.first;
-  const Vector3& aav = a_vel.second;
-  const Vector3& blv = b_vel.first;
-  const Vector3& bav = b_vel.second;
+  const Vector3d& alv = a_vel.get_linear();
+  const Vector3d& aav = a_vel.get_angular();
+  const Vector3d& blv = b_vel.get_linear();
+  const Vector3d& bav = b_vel.get_angular();
 
   // get the primitives for a and b
   PrimitivePtr aprimitive = a->get_geometry();
@@ -271,8 +274,8 @@ void DeformableCCD::check_geoms(double dt, CollisionGeometryPtr a, CollisionGeom
   // add the two top-level BVs to the queue for processing
   queue<BVProcess> q;
   q.push(BVProcess());
-  q.back().bva = get_vel_exp_BV(a, bv_a, alv, aav);
-  q.back().bvb = get_vel_exp_BV(b, bv_b, blv, bav);
+  q.back().bva = get_vel_exp_BV(a, bv_a, a_vel);
+  q.back().bvb = get_vel_exp_BV(b, bv_b, b_vel);
   q.back().nexp = 0;
   q.back().ax = bv_a;
   q.back().bx = bv_b;
@@ -314,14 +317,14 @@ void DeformableCCD::check_geoms(double dt, CollisionGeometryPtr a, CollisionGeom
     {
       // we've encountered a leaf bounding volume for a deformable body being
       // checked for self-collision
-      vector<const Vector3*>& stest = self_test[ax];
+      vector<const Point3d*>& stest = self_test[ax];
       aprimitive->get_vertices(ax, stest);
     }
     else if (ax->is_leaf() && bx->is_leaf())
     {
       // get testing vertex vectors for ax and bx
-      vector<const Vector3*>& ax_test = a_to_test[ax];
-      vector<const Vector3*>& bx_test = b_to_test[bx];
+      vector<const Point3d*>& ax_test = a_to_test[ax];
+      vector<const Point3d*>& bx_test = b_to_test[bx];
 
       // get the sets of vertices for ax and bx
       aprimitive->get_vertices(ax, bx_test);
@@ -334,7 +337,7 @@ void DeformableCCD::check_geoms(double dt, CollisionGeometryPtr a, CollisionGeom
       BOOST_FOREACH(BVPtr bv, ax->children)
       {
         q.push(BVProcess());
-        q.back().bva = get_vel_exp_BV(a, bv, alv, aav);
+        q.back().bva = get_vel_exp_BV(a, bv, a_vel);
         q.back().bvb = bvb; 
         q.back().nexp = nexp+1;
         q.back().ax = bv;
@@ -348,7 +351,7 @@ void DeformableCCD::check_geoms(double dt, CollisionGeometryPtr a, CollisionGeom
       {
         q.push(BVProcess());
         q.back().bva = bva; 
-        q.back().bvb = get_vel_exp_BV(b, bv, blv, bav);
+        q.back().bvb = get_vel_exp_BV(b, bv, b_vel);
         q.back().nexp = nexp+1;
         q.back().ax = ax;
         q.back().bx = bv;
@@ -360,41 +363,41 @@ void DeformableCCD::check_geoms(double dt, CollisionGeometryPtr a, CollisionGeom
   }
 
   // make vectors of vertices unique
-  for (map<BVPtr, vector<const Vector3*> >::iterator i = a_to_test.begin(); i != a_to_test.end(); i++)
+  for (map<BVPtr, vector<const Point3d*> >::iterator i = a_to_test.begin(); i != a_to_test.end(); i++)
   {
     std::sort(i->second.begin(), i->second.end());
     i->second.erase(std::unique(i->second.begin(), i->second.end()), i->second.end());
   }
-  for (map<BVPtr, vector<const Vector3*> >::iterator i = b_to_test.begin(); i != b_to_test.end(); i++)
+  for (map<BVPtr, vector<const Point3d*> >::iterator i = b_to_test.begin(); i != b_to_test.end(); i++)
   {
     std::sort(i->second.begin(), i->second.end());
     i->second.erase(std::unique(i->second.begin(), i->second.end()), i->second.end());
   }
-  for (map<BVPtr, vector<const Vector3*> >::iterator i = self_test.begin(); i != self_test.end(); i++)
+  for (map<BVPtr, vector<const Point3d*> >::iterator i = self_test.begin(); i != self_test.end(); i++)
   {
     std::sort(i->second.begin(), i->second.end());
     i->second.erase(std::unique(i->second.begin(), i->second.end()), i->second.end());
   }
 
   // call check_vertices on bounding volumes from geometry b
-  for (map<BVPtr, vector<const Vector3*> >::iterator i = b_to_test.begin(); i != b_to_test.end(); i++)
+  for (map<BVPtr, vector<const Point3d*> >::iterator i = b_to_test.begin(); i != b_to_test.end(); i++)
   {
     n_verts_tested += i->second.size();
     check_vertices(dt, a, b, i->first, i->second, bTa, a_vel, b_vel, earliest, local_contacts, false);
   }
 
   // call check_vertices on bounding volumes from geometry a
-  for (map<BVPtr, vector<const Vector3*> >::iterator i = a_to_test.begin(); i != a_to_test.end(); i++)
+  for (map<BVPtr, vector<const Point3d*> >::iterator i = a_to_test.begin(); i != a_to_test.end(); i++)
   {
     n_verts_tested += i->second.size();
     check_vertices(dt, b, a, i->first, i->second, aTb, b_vel, a_vel, earliest, local_contacts, false);
   }
 
   // call check vertices on bounding volumes for self-intersection
-  for (map<BVPtr, vector<const Vector3*> >::iterator i = self_test.begin(); i != self_test.end(); i++)
+  for (map<BVPtr, vector<const Point3d*> >::iterator i = self_test.begin(); i != self_test.end(); i++)
   {
     n_verts_tested += i->second.size();
-    check_vertices(dt, a, a, i->first, i->second, IDENTITY_4x4, a_vel, a_vel, earliest, local_contacts, true);
+    check_vertices(dt, a, a, i->first, i->second, IDENTITY, a_vel, a_vel, earliest, local_contacts, true);
   }
 
   if (LOGGING(LOG_COLDET))
@@ -449,9 +452,10 @@ void DeformableCCD::check_geoms(double dt, CollisionGeometryPtr a, CollisionGeom
 }
 
 /// Checks a set of vertices of geometry a against geometry b
-void DeformableCCD::check_vertices(double dt, CollisionGeometryPtr a, CollisionGeometryPtr b, BVPtr bvb, const std::vector<const Vector3*>& a_verts, const Matrix4& bTa, const pair<Vector3, Vector3>& a_vel, const pair<Vector3, Vector3>& b_vel, double& earliest, vector<Event>& local_contacts, bool self_check) const
+void DeformableCCD::check_vertices(double dt, CollisionGeometryPtr a, CollisionGeometryPtr b, BVPtr bvb, const std::vector<const Point3d*>& a_verts, const pair<Quatd, Origin3d>& bTa, const Twistd& a_vel, const Twistd& b_vel, double& earliest, vector<Event>& local_contacts, bool self_check) const
 {
-  Vector3 point, normal;
+  Point3d point;
+  Vector3d normal;
 
   // get the time-of-impact tolerance
   shared_ptr<EventDrivenSimulator> sim(simulator);
@@ -462,25 +466,23 @@ void DeformableCCD::check_vertices(double dt, CollisionGeometryPtr a, CollisionG
   SingleBodyPtr sbb = b->get_single_body(); 
 
   // get the velocities for a and b
-  const Vector3& alv = a_vel.first;
-  const Vector3& aav = a_vel.second;
-  const Vector3& blv = b_vel.first;
-  const Vector3& bav = b_vel.second;
+  const Vector3d& alv = a_vel.get_linear();
+  const Vector3d& aav = a_vel.get_angular();
+  const Vector3d& blv = b_vel.get_linear();
+  const Vector3d& bav = b_vel.get_angular();
 
   FILE_LOG(LOG_COLDET) << "  -- checking body " << sba->id << " against " << sbb->id << endl;
-  FILE_LOG(LOG_COLDET) << "    -- relative transform " << endl << bTa;
 
   // setup a "queue" for checking vertices
-  vector<pair<double, pair<Vector3, const Vector3*> > > Q;
+  vector<pair<double, pair<Vector3d, const Point3d*> > > Q;
   Q.clear();
-  BOOST_FOREACH(const Vector3* v, a_verts)
+  BOOST_FOREACH(const Point3d* v, a_verts)
   {
     // compute point at time t0 in b coordinates
     FILE_LOG(LOG_COLDET) << "    -- checking vertex " << *v << " of " << sba->id << " against " << sbb->id << endl;
-    Vector3 p0 = bTa.mult_point(*v);
+    Point3d p0 = mult_point(bTa, *v);
 
     FILE_LOG(LOG_COLDET) << "     -- p0 (local): " << p0 << endl; 
-    FILE_LOG(LOG_COLDET) << "     -- p0 (global): " << (b->get_transform().mult_point(p0)) << endl;
 
     // we'll sort on inverse distance from the center of mass (origin of b frame) 
     double dist = 1.0/p0.norm_sq();
@@ -496,7 +498,7 @@ void DeformableCCD::check_vertices(double dt, CollisionGeometryPtr a, CollisionG
 
   // populate the DStruct for checking vertices of a against b
   DStruct ds;
-  populate_dstruct(&ds, a, b, alv, aav, blv, bav, bvb);
+  populate_dstruct(&ds, a, b, a_vel,  b_vel, bvb);
 
   // indicate whether a self-check
   ds.self_check = self_check;
@@ -507,10 +509,9 @@ void DeformableCCD::check_vertices(double dt, CollisionGeometryPtr a, CollisionG
     // setup the vertex and u in the DStruct
     ds.p0 = Q.back().second.first;
     ds.u = Q.back().second.second;
-    calc_pdot(&ds, a, b, alv, aav, blv, bav);
+    calc_pdot(&ds, a, b, a_vel, b_vel);
 
     FILE_LOG(LOG_COLDET) << "    -- checking vertex p0 (local) of " << sba->id << ": " <<  ds.p0 << endl; 
-    FILE_LOG(LOG_COLDET) << "     -- global pos (t0): " << b->get_transform().mult_point(ds.p0) << endl;
 
     // determine TOI, if any
     // NOTE: this has been modified to account for the method of dealing with
@@ -537,7 +538,7 @@ void DeformableCCD::check_vertices(double dt, CollisionGeometryPtr a, CollisionG
 } 
 
 /// Gets the velocity-expanded BV for a BV
-BVPtr DeformableCCD::get_vel_exp_BV(CollisionGeometryPtr cg, BVPtr bv, const Vector3& lv, const Vector3& av)
+BVPtr DeformableCCD::get_vel_exp_BV(CollisionGeometryPtr cg, BVPtr bv, const Twistd& v)
 {
   BVPtr ve_bv;
   const double dt = (double) 1.0;
@@ -556,7 +557,7 @@ BVPtr DeformableCCD::get_vel_exp_BV(CollisionGeometryPtr cg, BVPtr bv, const Vec
   SingleBodyPtr sb = cg->get_single_body();
   RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(sb);
   if (rb)
-    ve_bv = bv->calc_vel_exp_BV(cg, (double) 1.0, lv, av);
+    ve_bv = bv->calc_vel_exp_BV(cg, (double) 1.0, v);
   else
   {
     // must be a deformable body
@@ -572,7 +573,7 @@ BVPtr DeformableCCD::get_vel_exp_BV(CollisionGeometryPtr cg, BVPtr bv, const Vec
     if (aabb)
     {
       const double INV_SQRT3 = (double) 1.0 / std::sqrt((double) 3.0);
-      const Vector3 ONES_UNIT(INV_SQRT3, INV_SQRT3, INV_SQRT3);
+      const Vector3d ONES_UNIT(INV_SQRT3, INV_SQRT3, INV_SQRT3);
       shared_ptr<AABB> naabb(new AABB(*aabb));
       naabb->minp -= ONES_UNIT*max_mvmt;
       naabb->maxp += ONES_UNIT*max_mvmt;
@@ -637,7 +638,7 @@ void DeformableCCD::save_to_xml(XMLTreePtr node, list<shared_ptr<const Base> >& 
 ****************************************************************************/
 
 /// Creates a contact given the bare-minimum info
-Event DeformableCCD::create_contact(double toi, CollisionGeometryPtr a, CollisionGeometryPtr b, const Vector3& point, const Vector3& normal)
+Event DeformableCCD::create_contact(double toi, CollisionGeometryPtr a, CollisionGeometryPtr b, const Point3d& point, const Vector3d& normal)
 {
   Event e;
   e.t = toi;
@@ -666,7 +667,7 @@ Event DeformableCCD::create_contact(double toi, CollisionGeometryPtr a, Collisio
 }
 
 /// Populates the DStruct
-void DeformableCCD::populate_dstruct(DStruct* ds, CollisionGeometryPtr gb, CollisionGeometryPtr gs, const Vector3& bblv, const Vector3& bbav, const Vector3& bs_lvel, const Vector3& bs_avel, BVPtr s_BV) const
+void DeformableCCD::populate_dstruct(DStruct* ds, CollisionGeometryPtr gb, CollisionGeometryPtr gs, const Twistd& b_vel, const Twistd& s_vel, BVPtr s_BV) const
 {
   // save the BV
   ds->s_BV = s_BV;
@@ -676,8 +677,8 @@ void DeformableCCD::populate_dstruct(DStruct* ds, CollisionGeometryPtr gb, Colli
   ds->gs = gs;
 
   // get velocities of the bodies
-  const Matrix3 omegas_hat = Matrix3::skew_symmetric(bs_avel);
-  const Matrix3 omegab_hat = Matrix3::skew_symmetric(bbav);
+  const Matrix3d omegas_hat = Matrix3d::skew_symmetric(bs_avel);
+  const Matrix3d omegab_hat = Matrix3d::skew_symmetric(bbav);
 
   // setup quaternion from angular velocity
   // determine the relative angular velocity (vector form)
@@ -688,20 +689,20 @@ void DeformableCCD::populate_dstruct(DStruct* ds, CollisionGeometryPtr gb, Colli
   ds->lvd = (bblv - bs_lvel).norm();
 
   // determine Rb and R;
-  Matrix3 Rb, Rs;
+  Matrix3d Rb, Rs;
   gb->get_transform().get_rotation(&Rb);
   gs->get_transform().get_rotation(&Rs);
 
   // compute quaternions
-  Quat qs(&Rs);
-  Quat qb(&Rb);
+  Quatd qa = Rs;
+  Quatd qb = Rb;
 
   // setup quaternion for interpolation and quaternion derivative
-  ds->q0 = Quat::conjugate(qs) * qb;
+  ds->q0 = Quatd::conjugate(qs) * qb;
 }
 
 /// Calculates pdot
-void DeformableCCD::calc_pdot(DStruct* ds, CollisionGeometryPtr gb, CollisionGeometryPtr gs, const Vector3& bblv, const Vector3& bbav, const Vector3& bs_lvel, const Vector3& bs_avel) const
+void DeformableCCD::calc_pdot(DStruct* ds, CollisionGeometryPtr gb, CollisionGeometryPtr gs, const Twistd& b_vel, const Twistd& s_vel) const
 {
   // get the single bodies
   SingleBodyPtr bb = gb->get_single_body();
@@ -712,15 +713,15 @@ void DeformableCCD::calc_pdot(DStruct* ds, CollisionGeometryPtr gb, CollisionGeo
   RigidBodyPtr rs = dynamic_pointer_cast<RigidBody>(bs);
 
   // get positions of the centers-of-mass of b and s
-  const Vector3& xs = bs->get_position();
-  const Vector3& xb = bb->get_position();
+  const Vector3d& xs = bs->get_position();
+  const Vector3d& xb = bb->get_position();
 
   // get velocities of the bodies
-  const Matrix3 omegas_hat = Matrix3::skew_symmetric(bs_avel);
-  const Matrix3 omegab_hat = Matrix3::skew_symmetric(bbav);
+  const Matrix3d omegas_hat = Matrix3d::skew_symmetric(bs_avel);
+  const Matrix3d omegab_hat = Matrix3d::skew_symmetric(bbav);
 
   // determine Rb and R;
-  Matrix3 Rb, Rs;
+  Matrix3d Rb, Rs;
   gb->get_transform().get_rotation(&Rb);
   gs->get_transform().get_rotation(&Rs);
 
@@ -728,20 +729,20 @@ void DeformableCCD::calc_pdot(DStruct* ds, CollisionGeometryPtr gb, CollisionGeo
   // the slow way
   if (rb && rs)
   {
-    Vector3 k1 = Rs.transpose_mult(bblv - bs_lvel - omegas_hat * (xb - xs));
-    Matrix3 k2 = Rs.transpose_mult(omegab_hat - omegas_hat)*Rb;
+    Vector3d k1 = Rs.transpose_mult(bblv - bs_lvel - omegas_hat * (xb - xs));
+    Matrix3d k2 = Rs.transpose_mult(omegab_hat - omegas_hat)*Rb;
     ds->pdot = k1 + k2*(*ds->u);
   }
   else
   {
     // get p in the global frame
-    Vector3 pg = Rb.mult(*ds->u) + xb;
+    Point3d pg = Rb.mult(*ds->u) + xb;
 
     // get pdot in the global frame
-    Vector3 pdotg = bb->calc_point_vel(pg);
+    Vector3d pdotg = bb->calc_point_vel(pg);
 
     // compute \dot{Rs}
-    Matrix3 Rsdot = omegas_hat * Rs;
+    Matrix3d Rsdot = omegas_hat * Rs;
 
     // get pdot in body S's frame
     ds->pdot = Rsdot.mult(pg) + Rs.mult(pdotg) + bs_lvel;
@@ -760,13 +761,13 @@ void DeformableCCD::calc_pdot(DStruct* ds, CollisionGeometryPtr gb, CollisionGeo
  *         interval [t0, tf] and should be discarded
  * \pre rigid body states are at time t0
  */
-double DeformableCCD::determine_TOI(double t0, double tf, const DStruct* ds, Vector3& pt, Vector3& normal) const
+double DeformableCCD::determine_TOI(double t0, double tf, const DStruct* ds, Point3d& pt, Vector3d& normal) const
 {
   const double INF = std::numeric_limits<double>::max();
   const unsigned X = 0, Y = 1, Z = 2;
   OBB O;
-  Vector3 nalpha, nbeta, ngamma;
-  SAFESTATIC VectorN q, qd;
+  Vector3d nalpha, nbeta, ngamma;
+  SAFESTATIC VectorNd q, qd;
 
   // init bisection statistics
   unsigned nbisects = 0;
@@ -785,47 +786,47 @@ double DeformableCCD::determine_TOI(double t0, double tf, const DStruct* ds, Vec
     bs_sb = bs;
 
   // setup the quaternions used for interpolation
-  Matrix3 Rs = gs->get_transform().get_rotation();
-  Matrix3 Rb = gb->get_transform().get_rotation();
-  Quat qs(&Rs);
-  Quat qb(&Rb);
+  Matrix3d Rs = gs->get_transform().get_rotation();
+  Matrix3d Rb = gb->get_transform().get_rotation();
+  Quatd qs(&Rs);
+  Quatd qb(&Rb);
 
   FILE_LOG(LOG_COLDET) << "DeformableCCD::determine_TOI() entered" << endl;
   FILE_LOG(LOG_COLDET) << "  time t0: " << t0 << endl;
   FILE_LOG(LOG_COLDET) << "  time tf: " << tf << endl;
 
   // get p0 object (for simplicity)
-  const Vector3& p0 = ds->p0;
+  const Point3d& p0 = ds->p0;
 
   // get the BV for S
   BVPtr gs_BV = ds->s_BV; 
 
   // setup quaternions for interpolation
-  const Quat& q0 = ds->q0; 
+  const Quatd& q0 = ds->q0; 
 
   // integrate q0 to dt to get the other quaternion for interpolation
-  Quat qf = q0 + Quat::deriv(q0, ds->romega)*(tf-t0);
+  Quatd qf = q0 + Quatd::deriv(q0, ds->romega)*(tf-t0);
   qf.normalize();
 
   // integrate the position of the point to dt
-  Vector3 pf = p0 + ds->pdot*(tf-t0);
+  Point3d pf = p0 + ds->pdot*(tf-t0);
 
   // setup the axes of the bounding box
-  Vector3 p0pf = pf - p0;
+  Vector3d p0pf = pf - p0;
   double norm_p0pf = p0pf.norm();
   if (norm_p0pf < std::numeric_limits<double>::epsilon())
   {
     // arbitrary bounding box
-    nalpha = Vector3(1,0,0);
-    nbeta = Vector3(0,1,0);
-    ngamma = Vector3(0,0,1);
-    O.R = Matrix3::identity();
+    nalpha = Vector3d(1,0,0);
+    nbeta = Vector3d(0,1,0);
+    ngamma = Vector3d(0,0,1);
+    O.R = Matrix3d::identity();
   }
   else
   {
     // primary axis of bounding box aligned w/p0pf
     nalpha = p0pf/norm_p0pf;
-    Vector3::determine_orthonormal_basis(nalpha, nbeta, ngamma);
+    Vector3d::determine_orthonormal_basis(nalpha, nbeta, ngamma);
     O.R.set_column(X, nalpha);
     O.R.set_column(Y, nbeta);
     O.R.set_column(Z, ngamma);
@@ -834,7 +835,7 @@ double DeformableCCD::determine_TOI(double t0, double tf, const DStruct* ds, Vec
   // determine whether minimum/maximum deviation is between two planes;
   // if so, determine the interpolation value that yields the minimum
   // and maximum deviation
-  Vector3 normal1, normal2;
+  Vector3d normal1, normal2;
   double rho1_max = -1.0, rho1_min = -1.0, rho2_max = -1.0, rho2_min = -1.0, rho3_max = -1.0, rho3_min = -1.0;
   double max_d1 = -INF, max_d2 = -INF, max_d3 = -INF;
   double min_d1 = INF, min_d2 = INF, min_d3 = INF;
@@ -912,8 +913,8 @@ double DeformableCCD::determine_TOI(double t0, double tf, const DStruct* ds, Vec
     }
 
     // determine pa and pb
-    Vector3 pa = p0 + ds->pdot*ta;
-    Vector3 pb = p0 + ds->pdot*tb;
+    Point3d pa = p0 + ds->pdot*ta;
+    Point3d pb = p0 + ds->pdot*tb;
 
     FILE_LOG(LOG_COLDET) << " -- checking segment for time [" << ta << ", " << tb << "]" << endl;
     FILE_LOG(LOG_COLDET) << "  p(" << ta << ") = " << pa << "  p(" << tb << ") ~= " << pb << endl;
@@ -961,9 +962,9 @@ double DeformableCCD::determine_TOI(double t0, double tf, const DStruct* ds, Vec
     FILE_LOG(LOG_COLDET) << " -- dbeta: [" << dn_beta << ", " << dp_beta << "]" << endl;
     FILE_LOG(LOG_COLDET) << " -- dgamma: [" << dn_gamma << ", " << dp_gamma << "]" << endl;
     FILE_LOG(LOG_COLDET) << " -- nu contribution along alpha/beta: " << nu << endl;
-    Vector3 cab = (pa + pb)*0.5;
-    Vector3 mini = cab - nalpha*d_alpha - nbeta*d_beta - ngamma*d_gamma;
-    Vector3 maxi = cab + nalpha*d_alpha + nbeta*d_beta + ngamma*d_gamma;
+    Point3d cab = (pa + pb)*0.5;
+    Point3d mini = cab - nalpha*d_alpha - nbeta*d_beta - ngamma*d_gamma;
+    Point3d maxi = cab + nalpha*d_alpha + nbeta*d_beta + ngamma*d_gamma;
     O.center = (maxi+mini)*0.5;
     O.l = O.R.transpose_mult((maxi-mini)*0.5);
     O.l[0] = std::fabs(O.l[0]);
@@ -1048,14 +1049,14 @@ double DeformableCCD::determine_TOI(double t0, double tf, const DStruct* ds, Vec
 }
 
 /// Determines the two planes that bound a u vector between two rotations
-bool DeformableCCD::bound_u(const Vector3& u, const Quat& q0, const Quat& qf, Vector3& normal1, Vector3& normal2)
+bool DeformableCCD::bound_u(const Vector3d& u, const Quatd& q0, const Quatd& qf, Vector3d& normal1, Vector3d& normal2)
 {
   // compute the rotated u
-  Vector3 u0 = q0*u;
-  Vector3 uf = qf*u;
+  Vector3d u0 = q0*u;
+  Vector3d uf = qf*u;
 
   // determine a vector perpendicular to both
-  Vector3 perp = Vector3::cross(u0, uf);
+  Vector3d perp = Vector3d::cross(u0, uf);
   double perp_norm = perp.norm();
   if (perp_norm < NEAR_ZERO)
     return false;
@@ -1063,8 +1064,8 @@ bool DeformableCCD::bound_u(const Vector3& u, const Quat& q0, const Quat& qf, Ve
     perp /= perp_norm;
 
   // determine the two planes
-  normal1 = Vector3::normalize(Vector3::cross(u0, perp));
-  normal2 = Vector3::normalize(Vector3::cross(uf, perp));
+  normal1 = Vector3d::normalize(Vector3d::cross(u0, perp));
+  normal2 = Vector3d::normalize(Vector3d::cross(uf, perp));
 
   // make sure that both vectors are on the same side of the plane
   double dot1 = u0.dot(normal2);
@@ -1081,10 +1082,10 @@ double DeformableCCD::calc_deviation(double alpha, void* params)
   const DeviationCalc& data = *((const DeviationCalc*) params);
 
   // linearly interpolate the quaternions
-  Quat q = Quat::lerp(data.q1, data.q2, alpha);
+  Quatd q = Quatd::lerp(data.q1, data.q2, alpha);
 
   // do the arithmetic
-  return Vector3::dot(data.d, q*data.u);
+  return Vector3d::dot(data.d, q*data.u);
 }
 
 /// Computes the minimum deviation over interval [0,1] using bracketing and Brent's method
@@ -1096,7 +1097,7 @@ double DeformableCCD::calc_deviation(double alpha, void* params)
  * \param t on return, contains the t at which the deviation is minimized
  * \return the minimum deviation
  */
-double DeformableCCD::calc_min_dev(const Vector3& u, const Vector3& d, const Quat& q1, const Quat& q2, double& t)
+double DeformableCCD::calc_min_dev(const Vector3d& u, const Vector3d& d, const Quatd& q1, const Quatd& q2, double& t)
 {
   const double TOL = std::sqrt(std::sqrt(std::numeric_limits<double>::epsilon()));
 
@@ -1122,7 +1123,7 @@ double DeformableCCD::calc_min_dev(const Vector3& u, const Vector3& d, const Qua
 }
 
 /// Computes the maximum and minimum deviation in a given direction for two points
-pair<double, double> DeformableCCD::calc_deviations(const Vector3& u, const Vector3& d, const Quat& q1, const Quat& q2, double t1, double t2)
+pair<double, double> DeformableCCD::calc_deviations(const Vector3d& u, const Vector3d& d, const Quatd& q1, const Quatd& q2, double t1, double t2)
 {
   // compute the deviation in the two directions
   DeviationCalc dc;
@@ -1147,7 +1148,7 @@ pair<double, double> DeformableCCD::calc_deviations(const Vector3& u, const Vect
  * \param t on return, contains the t at which the deviation is maximized [0,1]
  * \return the maximum deviation
  */
-double DeformableCCD::calc_max_dev(const Vector3& u, const Vector3& d, const Quat& q1, const Quat& q2, double& t)
+double DeformableCCD::calc_max_dev(const Vector3d& u, const Vector3d& d, const Quatd& q1, const Quatd& q2, double& t)
 {
   const double TOL = 1e-2;
 
@@ -1182,7 +1183,7 @@ double DeformableCCD::calc_max_dev(const Vector3& u, const Vector3& d, const Qua
 /****************************************************************************
  Methods for broad phase begin 
 ****************************************************************************/
-void DeformableCCD::broad_phase(const map<SingleBodyPtr, pair<Vector3, Vector3> >& vel_map, vector<pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check)
+void DeformableCCD::broad_phase(const map<SingleBodyPtr, Twistd >& vel_map, vector<pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check)
 {
   FILE_LOG(LOG_COLDET) << "DeformableCCD::broad_phase() entered" << std::endl;
 
@@ -1295,7 +1296,7 @@ void DeformableCCD::broad_phase(const map<SingleBodyPtr, pair<Vector3, Vector3> 
   FILE_LOG(LOG_COLDET) << "DeformableCCD::broad_phase() exited" << std::endl;
 }
 
-void DeformableCCD::sort_AABBs(const map<SingleBodyPtr, pair<Vector3, Vector3> >& vel_map)
+void DeformableCCD::sort_AABBs(const map<SingleBodyPtr, Twistd >& vel_map)
 {
   // if a geometry was added or removed, rebuild the vector of bounds
   // and copy it to x, y, z dimensions
@@ -1371,7 +1372,7 @@ void DeformableCCD::sort_AABBs(const map<SingleBodyPtr, pair<Vector3, Vector3> >
   }
 }
 
-void DeformableCCD::update_bounds_vector(vector<pair<double, BoundsStruct> >& bounds, const map<SingleBodyPtr, pair<Vector3, Vector3> >& vel_map, AxisType axis)
+void DeformableCCD::update_bounds_vector(vector<pair<double, BoundsStruct> >& bounds, const map<SingleBodyPtr, Twistd>& vel_map, AxisType axis)
 {
   const unsigned X = 0, Y = 1, Z = 2;
   BVPtr bv_exp;
@@ -1390,13 +1391,11 @@ void DeformableCCD::update_bounds_vector(vector<pair<double, BoundsStruct> >& bo
     if (rb)
     {
       // update the velocities
-      const Vector3& xd = vel_map.find(rb)->second.first;
-      const Vector3& omega = vel_map.find(rb)->second.second;
-      bounds[i].second.xd = xd; 
-      bounds[i].second.omega = omega;
+      const Twistd& v = vel_map.find(rb)->second;
+      bounds[i].second.v = v; 
 
       // get the expanded bounding volume
-      bv_exp = get_vel_exp_BV(geom, bv, xd, omega);
+      bv_exp = get_vel_exp_BV(geom, bv, v);
     }
     else
     {
@@ -1413,7 +1412,7 @@ void DeformableCCD::update_bounds_vector(vector<pair<double, BoundsStruct> >& bo
         // make a new, expanded AABB
         shared_ptr<AABB> naabb(new AABB(*aabb));
         const double INV_SQRT3 = (double) 1.0 / std::sqrt((double) 3.0);
-        const Vector3 ONES_UNIT(INV_SQRT3, INV_SQRT3, INV_SQRT3);
+        const Vector3d ONES_UNIT(INV_SQRT3, INV_SQRT3, INV_SQRT3);
         naabb->minp -= ONES_UNIT * max_mvmt;
         naabb->maxp += ONES_UNIT * max_mvmt;
         bv_exp = naabb;
@@ -1430,10 +1429,10 @@ void DeformableCCD::update_bounds_vector(vector<pair<double, BoundsStruct> >& bo
     }
 
     // get the transform for the collision geometry
-    const Matrix4& T = geom->get_transform();
+    shared_ptr<const Pose3d>& T = geom->get_pose();
 
     // get the bound for the bounding volume
-    Vector3 bound = (bounds[i].second.end) ? bv_exp->get_upper_bounds(T) : bv_exp->get_lower_bounds(T);
+    Point3d bound = (bounds[i].second.end) ? bv_exp->get_upper_bounds(T) : bv_exp->get_lower_bounds(T);
     FILE_LOG(LOG_COLDET) << "  updating collision geometry: " << geom << "  rigid body: " << geom->get_single_body()->id << std::endl;
 
     // update the bounds for the given axis
@@ -1475,7 +1474,7 @@ double DeformableCCD::get_max_speed(DeformableBodyPtr db, double dt) const
   return std::sqrt(max_v);
 }
 
-void DeformableCCD::build_bv_vector(const map<SingleBodyPtr, pair<Vector3, Vector3> >& vel_map, vector<pair<double, BoundsStruct> >& bounds)
+void DeformableCCD::build_bv_vector(const map<SingleBodyPtr, Twistd>& vel_map, vector<pair<double, BoundsStruct> >& bounds)
 {
   const double INF = std::numeric_limits<double>::max();
 
@@ -1498,15 +1497,13 @@ void DeformableCCD::build_bv_vector(const map<SingleBodyPtr, pair<Vector3, Vecto
 
     // get the velocities for the single body
     assert(vel_map.find(sb) != vel_map.end());
-    const Vector3& xd = vel_map.find(sb)->second.first;
-    const Vector3& omega = vel_map.find(sb)->second.second;
+    const Twistd& v = vel_map.find(sb)->second;
 
     // setup the bounds structure
     BoundsStruct bs;
     bs.end = false;
     bs.geom = *i;
-    bs.xd = xd;
-    bs.omega = omega;
+    bs.v = v;
     bs.bv = bv;
 
     // add the lower bound
@@ -1544,8 +1541,8 @@ bool DeformableCCD::is_collision(double epsilon)
     PrimitivePtr g1_primitive = g1->get_geometry();
 
     // get the transform and the inverse transform for this geometry
-    const Matrix4& wTg1 = g1->get_transform();
-    Matrix4 g1Tw = Matrix4::inverse_transform(wTg1);
+    const Pose3d& wTg1 = g1->get_transform();
+    Pose3d g1Tw = Pose3d::inverse_transform(wTg1);
 
     // loop through all other geometries
     std::set<CollisionGeometryPtr>::const_iterator j = i;
@@ -1565,7 +1562,7 @@ bool DeformableCCD::is_collision(double epsilon)
       BVPtr bv2 = g2_primitive->get_BVH_root();
 
       // get the transform for g2 and its inverse
-      const Matrix4& wTg2 = g2->get_transform(); 
+      const Pose3d& wTg2 = g2->get_transform(); 
 
       // if intersects, add to colliding pairs
       if (intersect_BV_trees(bv1, bv2, g1Tw * wTg2, g1, g2))
@@ -1577,7 +1574,7 @@ bool DeformableCCD::is_collision(double epsilon)
 }
 
 /// Intersects two BV trees; returns <b>true</b> if one (or more) pair of the underlying triangles intersects
-bool DeformableCCD::intersect_BV_trees(BVPtr a, BVPtr b, const Matrix4& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b) 
+bool DeformableCCD::intersect_BV_trees(BVPtr a, BVPtr b, const pair<Quatd, Origin3d>& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b) 
 {
   std::queue<tuple<BVPtr, BVPtr, bool> > q;
 

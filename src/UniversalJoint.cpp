@@ -31,16 +31,14 @@ UniversalJoint::UniversalJoint() : Joint()
   // init the joint axes
   _u[eAxis1] = ZEROS_3;
   _u[eAxis2] = ZEROS_3;
+  _u[eAxis1].pose = _F;
+  _u[eAxis2].pose = _F;
   _h2 = ZEROS_3;
 
-  // set rotation to z axis matrix to zero (for debugging purposes)
-  _R = Matrix3d::zero();
-
-  // set the translation in the transformation to zero
-  _T.set_translation(ZEROS_3);
-
   // setup the spatial axis derivative to zero
-  _si_dot = SMatrix6N::zero(SPATIAL_DIM,num_dof());
+  _s_dot.resize(num_dof());
+  for (unsigned i=0; i< num_dof(); i++)
+    _s_dot[i].pose = _F;
 }
 
 /// Initializes the joint with the specified inboard and outboard links
@@ -57,16 +55,14 @@ UniversalJoint::UniversalJoint(boost::weak_ptr<RigidBody> inboard, boost::weak_p
   // init the joint axes
   _u[eAxis1] = ZEROS_3;
   _u[eAxis2] = ZEROS_3;
+  _u[eAxis1].pose = _F;
+  _u[eAxis2].pose = _F;
   _h2 = ZEROS_3;
 
-  // set the translation induced by the joint to zero
-  _T.set_translation(ZEROS_3);
-
-  // set rotation to z axis matrix to zero (for debugging purposes)
-  _R = Matrix3::zero();
-
   // setup the spatial axis derivative to zero
-  _si_dot.resize(num_dof());
+  _s_dot.resize(num_dof());
+  for (unsigned i=0; i< num_dof(); i++)
+    _s_dot[i].pose = _F;
 }  
 
 /// Determines whether two values are relatively equal
@@ -75,47 +71,27 @@ bool UniversalJoint::rel_equal(double x, double y)
   return (std::fabs(x - y) <= NEAR_ZERO * std::max(std::fabs(x), std::max(std::fabs(y), (double) 1.0)));
 }
 
-/// Gets the global axis for this joint
-/**
- * The global axis for this joint takes the orientation of the inboard link into account; thus, if the orientation
- * of the inboard link changes, then the global axis changes.
- * \sa getAxisLocal()
- * \sa setAxisLocal()
- */
-Vector3 UniversalJoint::get_axis_global(Axis a) const
+/// Gets the axis for this joint
+Vector3d UniversalJoint::get_axis(Axis a) const
 {
   const unsigned X = 0;
 
-  // get the inboard link
-  RigidBodyPtr inboard_link = get_inboard_link();
-
-  // make sure that the inboard link has been set
-  if (!inboard_link)
-  {
-    std::cerr << "UniversalJoint::get_axis_global() - attempt to get axis w/o inboard link!" << std::endl;
-    return ZEROS_3;
-  }
-
-  // get the transform for the inboard link
-  Matrix3 R;
-  inboard_link->get_transform().get_rotation(&R);
-
-  // axis one is just R times the first column of _R
+  // axis one is already set 
   if (a == eAxis1)
   {
-    Vector3 axis;
-    _R.get_column(X, axis.begin());
-    return R * axis;
+    return _u[0];
   }
 
   // axis two is obtained by multiplying rotation matrix around x by y-axis 
   assert(a == eAxis2);
   const double c1 = std::cos(q[DOF_1]+_q_tare[DOF_1]);
   const double s1 = std::sin(q[DOF_1]+_q_tare[DOF_1]);
-  return R * _R * Vector3(0,c1,s1);
+  Vector3d u(0,c1,s1);
+  u.pose = get_pose();
+  return u;
 }
 
-/// Sets the local axis of translation for this joint
+/// Sets an axis of this joint
 /**
  * The local axis for this joint does not take the orientation of the 
  * inboard link into account; thus, if the orientation of the inboard link 
@@ -124,67 +100,27 @@ Vector3 UniversalJoint::get_axis_global(Axis a) const
  * \sa get_axis_global()
  * \sa set_axis_global()
  */
-void UniversalJoint::set_axis_local(const Vector3& axis, Axis a) 
+void UniversalJoint::set_axis(const Vector3d& axis, Axis a) 
 { 
   // normalize the axis in case the user did not
-  Vector3 naxis = Vector3::normalize(axis); 
+  Vector3d naxis = Vector3d::normalize(axis); 
 
   // set the axis
-  _u[a] = naxis; 
+  _u[a] = Pose3d::trasnform(naxis.pose, get_pose(), naxis); 
 
   // update the spatial axes
   update_spatial_axes(); 
 
+  // TODO: check this
   // set the second axis in outer link coordinates, if we just changed it
   if (a == eAxis2)
   {
     RigidBodyPtr inboard = get_inboard_link();
     RigidBodyPtr outboard = get_outboard_link();
-    Vector3 h2_g = inboard->get_transform().mult_vector(naxis);
+    Vector3d h2_g = inboard->get_transform().mult_vector(naxis);
     _h2 = outboard->get_transform().transpose_mult_vector(h2_g);
   }
 }        
-
-/// Sets the global axis for this joint
-/**
- * The global axis for this joint takes the orientation of the inboard link into account; thus, if the orientation
- * of the inboard link changes, then the global axis changes.
- * \note set_axis_global() should be called on all axes before setting q! 
- * \sa getAxisLocal()
- * \sa setAxisLocal()
- */
-void UniversalJoint::set_axis_global(const Vector3& axis, Axis a)
-{
-  // normalize the axis in case the user did not
-  Vector3 naxis = Vector3::normalize(axis); 
-
-  // get the inboard link 
-  RigidBodyPtr inboard_link = get_inboard_link();
-
-  // make sure that the inboard link has been set
-  if (!inboard_link)
-  {
-    std::cerr << "UniversalJoint::set_axis_global() - attempt to set axis w/o inboard link!" << std::endl;
-    return;
-  }
-
-  // get the orientation for the inboard link
-  Matrix3 R;
-  inboard_link->get_transform().get_rotation(&R);
-
-  // transform the axis into inboard link coordinates
-  _u[a] = R * naxis;
-
-  // update the spatial axes
-  update_spatial_axes();
-
-  // set the second axis in outboard link coordinates, if we just changed it
-  if (a == eAxis2)
-  {
-    RigidBodyPtr outboard = get_outboard_link();
-    _h2 = outboard->get_transform().transpose_mult_vector(naxis);
-  }
-}
 
 /// Updates the spatial axis for this joint
 void UniversalJoint::update_spatial_axes()
@@ -202,11 +138,8 @@ void UniversalJoint::update_spatial_axes()
   // first, verify that all are unit-length, and they are orthogonal in seq.
   assert(std::fabs(_u[eAxis1].norm() - 1.0) < NEAR_ZERO);
   assert(std::fabs(_u[eAxis2].norm() - 1.0) < NEAR_ZERO);
-  assert(std::fabs(Vector3::dot(_u[eAxis1], _u[eAxis2])) < NEAR_ZERO);
-  Vector3 axis3 = Vector3::normalize(Vector3::cross(_u[eAxis1], _u[eAxis2]));
-  _R.set_column(X, _u[eAxis1]);
-  _R.set_column(Y, _u[eAxis2]);
-  _R.set_column(Z, axis3);
+  assert(std::fabs(Vector3d::dot(_u[eAxis1], _u[eAxis2])) < NEAR_ZERO);
+  Vector3d axis3 = Vector3d::normalize(Vector3d::cross(_u[eAxis1], _u[eAxis2]));
 }
 
 /// Gets the spatial axes for this joint
@@ -225,15 +158,15 @@ const vector<Twistd>& UniversalJoint::get_spatial_axes()
     throw std::runtime_error("UniversalJoint::get_spatial_axes_dot() called with NULL outboard link");
 
   // get current values of q
-  const VectorN& q = this->q;
-  const VectorN& q_tare = this->_q_tare;
+  const VectorNd& q = this->q;
+  const VectorNd& q_tare = this->_q_tare;
 
   // get the axes of the joint transformed into the inner link frame 
   double c1 = std::cos(q[DOF_1]+q_tare[DOF_1]);
   double s1 = std::sin(q[DOF_1]+q_tare[DOF_1]);
-  Vector3 u1;
-  _R.get_column(X, u1.begin());
-  Vector3 u2 = _R * Vector3(0, c1, s1);
+  Vector3d u1 = _u[0];
+  Vector3d u2(0, c1, s1);
+  u2.pose = u1.pose;
 
   // update the spatial axes in link coordinates
   SVector6 si1, si2;
@@ -241,11 +174,13 @@ const vector<Twistd>& UniversalJoint::get_spatial_axes()
   si2.set_upper(u2);
   si1.set_lower(ZEROS_3);
   si2.set_lower(ZEROS_3);
-  _si.set_column(eAxis1, si1);
-  _si.set_column(eAxis2, si2);
+  _s[0].set_angular(u1);
+  _s[0].set_linear(ZEROS_3);
+  _s[1].set_angular(u2);
+  _s[1].set_linear(ZEROS_3);
 
   // setup s_bar 
-  calc_s_bar_from_si();
+  calc_s_bar_from_s();
 
   // use the Joint function to do the rest
   return Joint::get_spatial_axes();
@@ -255,7 +190,7 @@ const vector<Twistd>& UniversalJoint::get_spatial_axes()
 /**
  * \note these spatial axes are not constant, unlike many joints.
  */
-const SMatrix6N& UniversalJoint::get_spatial_axes_dot()
+const vector<Twistd>& UniversalJoint::get_spatial_axes_dot()
 {
   RigidBodyPtr inboard = get_inboard_link();
   RigidBodyPtr outboard = get_outboard_link();
@@ -265,32 +200,28 @@ const SMatrix6N& UniversalJoint::get_spatial_axes_dot()
     throw std::runtime_error("UniversalJoint::get_spatial_axes_dot() called with NULL outboard link");
 
   // get q and qd
-  const VectorN& q = this->q;
-  const VectorN& q_tare = this->_q_tare;
-  const VectorN& qd = this->qd;
+  const VectorNd& q = this->q;
+  const VectorNd& q_tare = this->_q_tare;
+  const VectorNd& qd = this->qd;
 
   // form the time derivative of the spatial axis for the second DOF; note that spatial
   // axis for first DOF is constant, so time-derivative is zero 
   double c1 = std::cos(q[DOF_1]+q_tare[DOF_1]);
   double s1 = std::sin(q[DOF_1]+q_tare[DOF_1]);
   double qd1 = qd[DOF_1];
-  Vector3 axis(0,-s1*qd1,c1*qd1);
-
-  // get the axis transformed into link coordinates
-  Vector3 u = _R * axis;
+  Vector3d u(0,-s1*qd1,c1*qd1);
+  u.pose = get_pose();
 
   // update the spatial axis in link coordinates; note that axis 1 is always
   // set to zero (init'd in constructor)
-  SVector6 si;
-  si.set_upper(u);
-  si.set_lower(ZEROS_3);
-  _si_dot.set_column(eAxis2, si);
+  _s_dot[1].set_upper(u);
+  _s_dot[1].set_lower(ZEROS_3);
 
-  return _si_dot;
+  return _s_dot;
 }
 
 /// Determines (and sets) the value of Q from the axes and the inboard link and outboard link transforms
-void UniversalJoint::determine_q(VectorN& q)
+void UniversalJoint::determine_q(VectorNd& q)
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
@@ -329,13 +260,13 @@ void UniversalJoint::determine_q(VectorN& q)
 }
 
 /// Gets the (local) transform for this joint
-Matrix3 UniversalJoint::get_rotation() const
+Matrix3d UniversalJoint::get_rotation() const
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
   // get q and _q_tare
-  const VectorN& q = this->q;
-  const VectorN& q_tare = this->_q_tare;
+  const VectorNd& q = this->q;
+  const VectorNd& q_tare = this->_q_tare;
 
   // compute some needed quantities
   const double c1 = std::cos(q[DOF_1]+q_tare[DOF_1]);
@@ -348,24 +279,17 @@ Matrix3 UniversalJoint::get_rotation() const
   Matrix3 RU;
   RU(X,X) = c2;      RU(X,Y) = 0;    RU(X,Z) = s2;
   RU(Y,X) = s1*s2;  RU(Y,Y) = c1;    RU(Y,Z) = -c2*s1;
-  RU(Z,X) = -c1*s2;  RU(Z,Y) = s1;    RU(Z,Z) = c1*c2;
+  RU(Z,X) = -c1*s2;  RU(Z,Y) = s1;   RU(Z,Z) = c1*c2;
 
-  // transform rotation
-  Matrix3 R_local = _R * RU.mult_transpose(_R);
-
-  return R_local;
+  return RU;
 }
 
 /// Gets the transform induced by this joint
-const Matrix4& UniversalJoint::get_transform()
+shared_ptr<const Pose3d> UniversalJoint::get_induced_pose()
 {
   // get the rotation
-  Matrix3 R = get_rotation();
-
-  // note that translation is set to zero in the constructors
-  _T.set_rotation(&R);
-
-  return _T;
+  _Fprime->q = get_rotation();
+  return _Fprime;
 }
 
 /// Computes the constraint jacobian
@@ -393,8 +317,8 @@ void UniversalJoint::calc_constraint_jacobian_euler(RigidBodyPtr body, unsigned 
   // get the information necessary to compute the constraint equations
   const Quat& q1 = inner->get_orientation();
   const Quat& q2 = outer->get_orientation();
-  const Vector3& p1 = inner->get_outer_joint_data(outer).com_to_joint_vec;
-  const Vector3& p2 = body->get_inner_joint_data(inner).joint_to_com_vec_of;
+  const Vector3d& p1 = inner->get_outer_joint_data(outer).com_to_joint_vec;
+  const Vector3d& p2 = body->get_inner_joint_data(inner).joint_to_com_vec_of;
   const double q1x = q1.x;
   const double q1y = q1.y;
   const double q1z = q1.z;
@@ -677,8 +601,8 @@ void UniversalJoint::calc_constraint_jacobian_dot_euler(RigidBodyPtr body, unsig
   const Quat& q2 = outer->get_orientation();
   const Quat qd1 = Quat::deriv(q1, inner->get_avel());
   const Quat qd2 = Quat::deriv(q2, outer->get_avel());
-  const Vector3& p1 = inner->get_outer_joint_data(outer).com_to_joint_vec;
-  const Vector3& p2 = body->get_inner_joint_data(inner).joint_to_com_vec_of;
+  const Vector3d& p1 = inner->get_outer_joint_data(outer).com_to_joint_vec;
+  const Vector3d& p2 = body->get_inner_joint_data(inner).joint_to_com_vec_of;
   const double qx1 = q1.x;
   const double qy1 = q1.y;
   const double qz1 = q1.z;
@@ -969,13 +893,13 @@ void UniversalJoint::evaluate_constraints(double C[])
   // have been altered however
 
   // determine h1 and h2 in global coordinates
-  Vector3 h1 = inner->get_transform().mult_vector(_u[0]);
-  Vector3 h2 = outer->get_transform().mult_vector(_h2);
+  Vector3d h1 = inner->get_transform().mult_vector(_u[0]);
+  Vector3d h2 = outer->get_transform().mult_vector(_h2);
 
   // determine the global positions of the attachment points and subtract them
-  Vector3 r1 = get_position_global(false);
-  Vector3 r2 = get_position_global(true);
-  Vector3 r12 = r1 - r2;
+  Vector3d r1 = get_position_global(false);
+  Vector3d r2 = get_position_global(true);
+  Vector3d r12 = r1 - r2;
 
   // evaluate the constraint equations
   C[0] = r12[X];
@@ -993,36 +917,20 @@ void UniversalJoint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std:
   // verify that the node name is correct
   assert(strcasecmp(node->name.c_str(), "UniversalJoint") == 0);
 
-  // read local joint axes
-  const XMLAttrib* laxis1_attrib = node->get_attrib("local-axis1");
-  if (laxis1_attrib)
-  {
-    Vector3 laxis1;
-    laxis1_attrib->get_vector_value(laxis1);
-    set_axis_local(laxis1, eAxis1);
-  }
-  const XMLAttrib* laxis2_attrib = node->get_attrib("local-axis2");
-  if (laxis2_attrib)
-  {
-    Vector3 laxis2;
-    laxis2_attrib->get_vector_value(laxis2);
-    set_axis_local(laxis2, eAxis2);
-  }
-
   // read the global joint axes, if given
-  const XMLAttrib* gaxis1_attrib = node->get_attrib("global-axis1");
-  if (gaxis1_attrib)
+  const XMLAttrib* axis1_attrib = node->get_attrib("axis1");
+  if (axis1_attrib)
   {
-    Vector3 gaxis1;
-    gaxis1_attrib->get_vector_value(gaxis1);
-    set_axis_global(gaxis1, eAxis1);  
+    Vector3d axis1;
+    axis1_attrib->get_vector_value(axis1);
+    set_axis(axis1, eAxis1);  
   }
-  const XMLAttrib* gaxis2_attrib = node->get_attrib("global-axis2");
-  if (gaxis2_attrib)
+  const XMLAttrib* axis2_attrib = node->get_attrib("axis2");
+  if (axis2_attrib)
   {
-    Vector3 gaxis2;
-    gaxis2_attrib->get_vector_value(gaxis2);
-    set_axis_global(gaxis2, eAxis2);  
+    Vector3d axis2;
+    axis2_attrib->get_vector_value(axis2);
+    set_axis(axis2, eAxis2);  
   }
 
   // determine _q_tare if necessary 
@@ -1033,14 +941,20 @@ void UniversalJoint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std:
 /// Implements Base::save_to_xml()
 void UniversalJoint::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& shared_objects) const
 {
+  Vector3d u0;
+
   // get info from Joint::save_to_xml()
   Joint::save_to_xml(node, shared_objects);
 
   // rename the node
   node->name = "UniversalJoint";
 
-  // save the local joint axes
-  node->attribs.insert(XMLAttrib("local-axis1", _u[eAxis1]));
-  node->attribs.insert(XMLAttrib("local-axis2", _u[eAxis1]));
+  // convert local axes to global axes and save
+  u0 = Pose3d::transform(get_pose(), shared_ptr<const Pose3d>(), _u[eAxis1]);
+  node->attribs.insert(XMLAttrib("axis1", u0));
+  u0 = Pose3d::transform(get_pose(), shared_ptr<const Pose3d>(), _u[eAxis2]);
+  node->attribs.insert(XMLAttrib("axis2", u0));
+  node->attribs.insert(XMLAttrib("axis1", _u[eAxis1]));
+  node->attribs.insert(XMLAttrib("axis2", _u[eAxis1]));
 }
 

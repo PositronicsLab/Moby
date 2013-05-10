@@ -44,7 +44,7 @@ class OBB : public BV
     OBB(const Ravelin::Point3d& center, const Ravelin::Matrix3d& R, const Ravelin::Vector3d& l);
     OBB(const OBB& o, const Ravelin::Vector3d& v);
     void operator=(const OBB& obb);
-    virtual BVPtr calc_vel_exp_BV(CollisionGeometryPtr g, double dt, const Ravelin::Vector3d& lv, const Ravelin::Vector3d& av) const;
+    virtual BVPtr calc_vel_exp_BV(CollisionGeometryPtr g, double dt, const Ravelin::Twistd& v) const;
     static double calc_sq_dist(const OBB& o, const Ravelin::Point3d& p);
     static double calc_dist(const OBB& a, const OBB& b, Ravelin::Point3d& cpa, Ravelin::Point3d& cpb);
     static double calc_dist(const OBB& a, const OBB& b, const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& aTb, Ravelin::Point3d& cpa, Ravelin::Point3d& cpb);

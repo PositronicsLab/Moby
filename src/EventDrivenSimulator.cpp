@@ -23,7 +23,6 @@
 #include <osg/Quat>
 #endif // USE_OSG
 
-using namespace Moby;
 using std::endl;
 using std::list;
 using std::vector;
@@ -33,6 +32,8 @@ using std::multimap;
 using std::pair;
 using boost::shared_ptr;
 using boost::dynamic_pointer_cast;
+using namespace Ravelin;
+using namespace Moby;
 
 /// Default constructor
 EventDrivenSimulator::EventDrivenSimulator()
@@ -189,23 +190,23 @@ void EventDrivenSimulator::visualize_contact( Event& event ) {
   // calculate the orientation based upon the direction of the normal vector.
   // Note: the default orientation of the osg model is along the z-axis
   double theta;
-  Vector3 z = Vector3( 0.0, 0.0, 1.0 );
-  Vector3 axis = Vector3::cross( event.contact_normal, z );
+  Vector3d z = Vector3d( 0.0, 0.0, 1.0 );
+  Vector3d axis = Vector3d::cross( event.contact_normal, z );
   if( axis.norm_inf() < NEAR_ZERO) {
     // z and normal are parallel, axis ill defined
     if( event.contact_normal[2] > 0 ) {
       // normal is z
-      axis = Vector3( 0.0, 1.0, 0.0 );
+      axis = Vector3d( 0.0, 1.0, 0.0 );
       theta = 0.0;
     } else {
       // normal is -z
-      axis = Vector3( 0.0, 1.0, 0.0 );
+      axis = Vector3d( 0.0, 1.0, 0.0 );
       theta = osg::PI;
     }
   } else {
     // axis is well defined
-    axis = Vector3::normalize(axis);
-    theta = -acos( Vector3::dot( event.contact_normal, z ) );
+    axis = Vector3d::normalize(axis);
+    theta = -std::acos( Vector3d::dot( event.contact_normal, z ) );
     // Note: theta calculation works but is not robust, could be rotated in opposite direction
   }
   osg::Quat q = osg::Quat( axis[0]*std::sin(theta/2), axis[1]*std::sin(theta/2), axis[2]*std::sin(theta/2), std::cos(theta/2) );
@@ -353,7 +354,7 @@ void EventDrivenSimulator::preprocess_event(Event& e)
 }
 
 /// Saves the coords of all bodies
-void EventDrivenSimulator::get_coords_and_velocities(vector<pair<VectorN, VectorN> >& q) const
+void EventDrivenSimulator::get_coords_and_velocities(vector<pair<VectorNd, VectorNd> >& q) const
 {
   // resize the vector if necessary
   q.resize(_bodies.size());
@@ -376,15 +377,15 @@ void EventDrivenSimulator::get_coords_and_velocities(vector<pair<VectorN, Vector
  * \param t the mixture [0,1] to set the coordinates and velocities (t=0 is
  *        equivalent to time 0; t=1 equivalent to time dt)
  */
-void EventDrivenSimulator::set_coords_and_velocities(const vector<pair<VectorN, VectorN> >& q0, const vector<pair<VectorN, VectorN> >& q1, double t) const
+void EventDrivenSimulator::set_coords_and_velocities(const vector<pair<VectorNd, VectorNd> >& q0, const vector<pair<VectorNd, VectorNd> >& q1, double t) const
 {
-  SAFESTATIC VectorN qx, qy;
+  SAFESTATIC VectorNd qx, qy;
 
   for (unsigned i=0; i< _bodies.size(); i++)
   {
     // compute and set the generalized coordinates
-    qx.copy_from(q0[i].first) *= ((double) 1.0 - t);
-    qy.copy_from(q1[i].first) *= t;
+    (qx = q0[i].first) *= ((double) 1.0 - t);
+    (qy = q1[i].first) *= t;
     qx += qy;
     _bodies[i]->set_generalized_coordinates(DynamicBody::eEuler, qx);
     FILE_LOG(LOG_SIMULATOR) << " -- set_coords_and_velocities() setting body " << _bodies[i]->id << endl;
@@ -393,8 +394,8 @@ void EventDrivenSimulator::set_coords_and_velocities(const vector<pair<VectorN, 
     FILE_LOG(LOG_SIMULATOR) << "    - generalized coords: " << qx << endl;
 
     // compute the generalized velocities using finite differencing
-    qx.copy_from(q0[i].second) *= ((double) 1.0 - t);
-    qy.copy_from(q1[i].second) *= t;
+    (qx = q0[i].second) *= ((double) 1.0 - t);
+    (qy = q1[i].second) *= t;
     qx += qy;
     FILE_LOG(LOG_SIMULATOR) << "    - velocity at q0: " << q0[i].second << endl;
     FILE_LOG(LOG_SIMULATOR) << "    - velocity at q1: " << q1[i].second << endl;
@@ -408,9 +409,9 @@ void EventDrivenSimulator::set_coords_and_velocities(const vector<pair<VectorN, 
  * \pre Generalized coordinates of the bodies involved in the event are at the
  *      time of the event
  */
-bool EventDrivenSimulator::will_impact(Event& e, const vector<pair<VectorN, VectorN> >& q0, const vector<pair<VectorN, VectorN> >& q1, double dt) const
+bool EventDrivenSimulator::will_impact(Event& e, const vector<pair<VectorNd, VectorNd> >& q0, const vector<pair<VectorNd, VectorNd> >& q1, double dt) const
 {
-  SAFESTATIC VectorN qx, qy;
+  SAFESTATIC VectorNd qx, qy;
 
   // get the bodies of the event
   vector<DynamicBodyPtr> bodies;
@@ -425,8 +426,8 @@ bool EventDrivenSimulator::will_impact(Event& e, const vector<pair<VectorN, Vect
       continue;
 
     // set the velocity of the body
-    qx.copy_from(q1[i].second) /= dt;
-    qy.copy_from(q0[i].second) /= dt;
+    (qx = q1[i].second) /= dt;
+    (qy = q0[i].second) /= dt;
     qx -= qy;
     _bodies[i]->set_generalized_velocity(DynamicBody::eEuler, qx);
   }
@@ -442,8 +443,8 @@ bool EventDrivenSimulator::will_impact(Event& e, const vector<pair<VectorN, Vect
       continue;
 
     // set the (interpolated) velocity of the body
-    qx.copy_from(q1[i].second) *= e.t;
-    qy.copy_from(q0[i].second) *= ((double) 1.0 - e.t);
+    (qx = q1[i].second) *= e.t;
+    (qy = q0[i].second) *= ((double) 1.0 - e.t);
     qx += qy;
     _bodies[i]->set_generalized_velocity(DynamicBody::eEuler, qx);
   }
@@ -455,7 +456,7 @@ bool EventDrivenSimulator::will_impact(Event& e, const vector<pair<VectorN, Vect
 /**
  * \param q the coords and velocities
  */
-void EventDrivenSimulator::set_coords_and_velocities(const vector<pair<VectorN, VectorN> >& q) const
+void EventDrivenSimulator::set_coords_and_velocities(const vector<pair<VectorNd, VectorNd> >& q) const
 {
   for (unsigned i=0; i< _bodies.size(); i++)
   {
@@ -469,13 +470,13 @@ void EventDrivenSimulator::set_coords_and_velocities(const vector<pair<VectorN, 
 }
 
 /// Copies one vector of generalized coordinates and velocities to another
-void EventDrivenSimulator::copy(const vector<pair<VectorN, VectorN> >& source, vector<pair<VectorN, VectorN> >& dest)
+void EventDrivenSimulator::copy(const vector<pair<VectorNd, VectorNd> >& source, vector<pair<VectorNd, VectorNd> >& dest)
 {
   dest.resize(source.size());
   for (unsigned i=0; i< source.size(); i++)
   {
-    dest[i].first.copy_from(source[i].first);
-    dest[i].second.copy_from(source[i].second);
+    dest[i].first = source[i].first;
+    dest[i].second = source[i].second;
   }
 }
 
@@ -483,7 +484,7 @@ void EventDrivenSimulator::copy(const vector<pair<VectorN, VectorN> >& source, v
 double EventDrivenSimulator::step(double step_size)
 {
   SAFESTATIC vector<shared_ptr<void> > x, xplus;
-  SAFESTATIC vector<pair<VectorN, VectorN> > q0, q1, qstar;
+  SAFESTATIC vector<pair<VectorNd, VectorNd> > q0, q1, qstar;
   const double INF = std::numeric_limits<double>::max();
 
   // clear timings
@@ -565,7 +566,7 @@ double EventDrivenSimulator::step(double step_size)
  * velocity determined via the event handling method, thus reproducing the
  * desired behavior of the system (if the step is sufficiently small).
  */
-void EventDrivenSimulator::handle_Zeno_point(double dt, const vector<pair<VectorN, VectorN> >& q0, vector<pair<VectorN, VectorN> >& q1)
+void EventDrivenSimulator::handle_Zeno_point(double dt, const vector<pair<VectorNd, VectorNd> >& q0, vector<pair<VectorNd, VectorNd> >& q1)
 {
   // NOTE: _events must be composed strictly of Zeno point events 
   // (this is ensured by find_TOI())
@@ -591,7 +592,7 @@ void EventDrivenSimulator::handle_Zeno_point(double dt, const vector<pair<Vector
       // get the body's current velocity (it was just treated) and use that to
       // update q1
       _bodies[i]->get_generalized_velocity(DynamicBody::eEuler, q1[i].second);
-      q1[i].first.copy_from(q1[i].second) *= dt;
+      (q1[i].first = q1[i].second) *= dt;
       q1[i].first += q0[i].first;
     }
     _bodies[i]->set_generalized_coordinates(DynamicBody::eEuler, q1[i].first);
@@ -626,11 +627,11 @@ void EventDrivenSimulator::determine_treated_bodies(list<list<Event*> >& groups,
  * search over [q0,q1] and 2) this allows us to handle non-explicit 
  * integration. 
  */
-double EventDrivenSimulator::find_and_handle_events(double dt, const vector<pair<VectorN, VectorN> >& q0, const vector<pair<VectorN, VectorN> >& q1, bool& Zeno)
+double EventDrivenSimulator::find_and_handle_events(double dt, const vector<pair<VectorNd, VectorNd> >& q0, const vector<pair<VectorNd, VectorNd> >& q1, bool& Zeno)
 {
-  SAFESTATIC VectorN qx;
+  SAFESTATIC VectorNd qx;
   vector<Event> cd_events, limit_events;
-  SAFESTATIC vector<pair<DynamicBodyPtr, VectorN> > x0, x1;
+  SAFESTATIC vector<pair<DynamicBodyPtr, VectorNd> > x0, x1;
   typedef map<Event, double, EventCompare>::const_iterator EtolIter;
 
   FILE_LOG(LOG_SIMULATOR) << "-- checking for event in interval [" << this->current_time << ", " << (this->current_time+dt) << "] (dt=" << dt << ")" << std::endl;
@@ -659,8 +660,8 @@ double EventDrivenSimulator::find_and_handle_events(double dt, const vector<pair
     for (unsigned i=0; i< _bodies.size(); i++)
     {
       x0[i].first = x1[i].first = _bodies[i];
-      x0[i].second.copy_from(q0[i].first);
-      x1[i].second.copy_from(q1[i].first);
+      x0[i].second = q0[i].first;
+      x1[i].second = q1[i].first;
     }
   }
 
@@ -754,7 +755,7 @@ double EventDrivenSimulator::find_and_handle_events(double dt, const vector<pair
 }
 
 /// Finds joint limit events
-void EventDrivenSimulator::find_limit_events(const vector<pair<VectorN, VectorN> >& q0, const vector<pair<VectorN, VectorN> >& q1, double dt, vector<Event>& events)
+void EventDrivenSimulator::find_limit_events(const vector<pair<VectorNd, VectorNd> >& q0, const vector<pair<VectorNd, VectorNd> >& q1, double dt, vector<Event>& events)
 {
   // clear the vector of events
   events.clear();
@@ -773,7 +774,7 @@ void EventDrivenSimulator::find_limit_events(const vector<pair<VectorN, VectorN>
 }
 
 /// Finds the next time-of-impact out of a set of events
-double EventDrivenSimulator::find_TOI(double dt, const vector<pair<VectorN, VectorN> >& q0, const vector<pair<VectorN, VectorN> >& q1)
+double EventDrivenSimulator::find_TOI(double dt, const vector<pair<VectorNd, VectorNd> >& q0, const vector<pair<VectorNd, VectorNd> >& q1)
 {
   const double INF = std::numeric_limits<double>::max();
 

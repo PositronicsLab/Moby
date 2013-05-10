@@ -76,8 +76,7 @@ class GeneralizedCCD : public CollisionDetection
       double lvd;           // norm of relative linear velocity
       Ravelin::Vector3d k1;         // constant vector used to calculate point velocity
       Ravelin::Matrix3d k2;         // constant matrix used to calculate point velocity
-      Ravelin::Vector3d bs_xd;      // linear velocity of body bs
-      Ravelin::Vector3d bs_omega;   // angular velocity of body bs
+      Ravelin::Twistd bs_v;      // velocity of body bs
       Ravelin::Vector3d u;          // vector from c.o.m. to point (in bb coordinates) 
       Ravelin::Quatd q0;            // initial relative orientation
       BVPtr s_BV;         // BV corresponding to part of gs
@@ -107,19 +106,19 @@ class GeneralizedCCD : public CollisionDetection
     static double calc_min_dev(const Ravelin::Vector3d& u, const Ravelin::Vector3d& d, const Ravelin::Quatd& q1, const Ravelin::Quatd& q2, double& t);
     static double calc_max_dev(const Ravelin::Vector3d& u, const Ravelin::Vector3d& d, const Ravelin::Quatd& q1, const Ravelin::Quatd& q2, double& t);
     static std::pair<double, double> calc_deviations(const Ravelin::Vector3d& u, const Ravelin::Vector3d& d, const Ravelin::Quatd& q1, const Ravelin::Quatd& q2, double ta, double tb);
-    static void populate_dstruct(DStruct* ds, CollisionGeometryPtr gb, CollisionGeometryPtr gs, const Ravelin::Vector3d& bs_lvel, const Ravelin::Vector3d& bs_avel, const Ravelin::Vector3d& bb_lvel, const Ravelin::Vector3d& bb_avel, BVPtr s_BV);
+    static void populate_dstruct(DStruct* ds, CollisionGeometryPtr gb, CollisionGeometryPtr gs, const Ravelin::Twistd& b_vel, const Ravelin::Twistd& s_vel, BVPtr s_BV);
     void add_rigid_body_model(RigidBodyPtr body);
     double determine_TOI(double t0, double tf, const DStruct* ds, Ravelin::Point3d& pt, Ravelin::Vector3d& normal) const;
-    BVPtr get_vel_exp_BV(CollisionGeometryPtr g, BVPtr bv, const Ravelin::Vector3d& lv, const Ravelin::Vector3d& av);
+    BVPtr get_vel_exp_BV(CollisionGeometryPtr g, BVPtr bv, const Ravelin::Twistd& v);
     bool intersect_BV_trees(boost::shared_ptr<BV> a, boost::shared_ptr<BV> b, const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b);
     static Event create_contact(double toi, CollisionGeometryPtr a, CollisionGeometryPtr b, const Ravelin::Point3d& point, const Ravelin::Vector3d& normal);
-    void check_vertices(double dt, CollisionGeometryPtr a, CollisionGeometryPtr b, BVPtr ob, const std::vector<const Ravelin::Point3d*>& a_verts, const Ravelin::Pose3d& bTa_t0, const std::pair<Ravelin::Vector3d, Ravelin::Vector3d>& a_vel, const std::pair<Ravelin::Vector3d, Ravelin::Vector3d>& b_vel, double& earliest, std::vector<Event>& local_contacts) const;
-    void check_geoms(double dt, CollisionGeometryPtr a, CollisionGeometryPtr b, const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& aTb_t0, const Ravelin::Pose3d& bTa_t0, const std::pair<Ravelin::Vector3d, Ravelin::Vector3d>& a_vel, const std::pair<Ravelin::Vector3d, Ravelin::Vector3d>& b_vel, std::vector<Event>& contacts); 
-    void broad_phase(const std::map<SingleBodyPtr, std::pair<Ravelin::Vector3d, Ravelin::Vector3d> >& vel_map, std::vector<std::pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check);
-    void sort_AABBs(const std::map<SingleBodyPtr, std::pair<Ravelin::Vector3d, Ravelin::Vector3d> >& vel_map);
-    void update_bounds_vector(std::vector<std::pair<double, BoundsStruct> >& bounds, const std::map<SingleBodyPtr, std::pair<Ravelin::Vector3d, Ravelin::Vector3d> >& vel_map, AxisType axis);
-    void build_bv_vector(const std::map<SingleBodyPtr, std::pair<Ravelin::Vector3d, Ravelin::Vector3d> >& vel_map, std::vector<std::pair<double, BoundsStruct> >& bounds);
-    std::map<SingleBodyPtr, std::pair<Ravelin::Vector3d, Ravelin::Vector3d> > get_velocities(const std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> >& q0, const std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> >& q1, double dt) const;
+    void check_vertices(double dt, CollisionGeometryPtr a, CollisionGeometryPtr b, BVPtr ob, const std::vector<const Ravelin::Point3d*>& a_verts, const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& bTa_t0, const Ravelin::Twistd& a_vel, const Ravelin::Twistd& b_vel, double& earliest, std::vector<Event>& local_contacts) const;
+    void check_geoms(double dt, CollisionGeometryPtr a, CollisionGeometryPtr b, const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& aTb_t0, const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& bTa_t0, const Ravelin::Twistd& a_vel, const Ravelin::Twistd& b_vel, std::vector<Event>& contacts); 
+    void broad_phase(const std::map<SingleBodyPtr, Ravelin::Twistd >& vel_map, std::vector<std::pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check);
+    void sort_AABBs(const std::map<SingleBodyPtr, Ravelin::Twistd >& vel_map);
+    void update_bounds_vector(std::vector<std::pair<double, BoundsStruct> >& bounds, const std::map<SingleBodyPtr, Ravelin::Twistd >& vel_map, AxisType axis);
+    void build_bv_vector(const std::map<SingleBodyPtr, Ravelin::Twistd >& vel_map, std::vector<std::pair<double, BoundsStruct> >& bounds);
+    std::map<SingleBodyPtr, Ravelin::Twistd> get_velocities(const std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> >& q0, const std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> >& q1, double dt) const;
 
     template <class RandomAccessIterator>
     void insertion_sort(RandomAccessIterator begin, RandomAccessIterator end);

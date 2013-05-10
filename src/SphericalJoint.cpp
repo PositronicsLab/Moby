@@ -33,15 +33,14 @@ SphericalJoint::SphericalJoint() : Joint()
   _u[eAxis1] = ZEROS_3;
   _u[eAxis2] = ZEROS_3;
   _u[eAxis3] = ZEROS_3;
-
-  // set rotation to z axis matrix to zero (for debugging purposes)
-  _R = ZEROS_3x3;
-
-  // set the translation in the transformation to zero
-  _T.set_translation(ZEROS_3);
+  _u[eAxis1].pose = _F;
+  _u[eAxis2].pose = _F;
+  _u[eAxis3].pose = _F;
 
   // setup the spatial axis derivative to zero
-  _si_dot.resize(num_dof());
+  _s_dot.resize(num_dof());
+  for (unsigned i=0; i< num_dof(); i++)
+    _s_dot[i].pose = _F;
 
   // assign the spherical joint tolerance
   SINGULAR_TOL = (double) 1e-2;
@@ -62,16 +61,14 @@ SphericalJoint::SphericalJoint(boost::weak_ptr<RigidBody> inboard, boost::weak_p
   _u[eAxis1] = ZEROS_3;
   _u[eAxis2] = ZEROS_3;
   _u[eAxis3] = ZEROS_3;
-
-  // set the translation induced by the joint to zero
-  _T.set_translation(ZEROS_3);
-
-  // set rotation to z axis matrix to zero (for debugging purposes)
-  _R = ZEROS_3x3;
+  _u[eAxis1].pose = _F;
+  _u[eAxis2].pose = _F;
+  _u[eAxis3].pose = _F;
 
   // setup the spatial axis derivative to zero
-  _si_dot = SMatrix6N::zero(SPATIAL_DIM,num_dof());
-  _s0_dot = SMatrix6N::zero(SPATIAL_DIM,num_dof());
+  _s_dot.resize(num_dof());
+  for (unsigned i=0; i< num_dof(); i++)
+    _s_dot[i].pose = _F;
 
   // assign the spherical joint tolerance
   SINGULAR_TOL = (double) 1e-2;
@@ -90,39 +87,27 @@ bool SphericalJoint::rel_equal(double x, double y)
  * \sa getAxisLocal()
  * \sa setAxisLocal()
  */
-Vector3 SphericalJoint::get_axis_global(Axis a) const
+Vector3d SphericalJoint::get_axis(Axis a) const
 {
   const unsigned X = 0;
 
-  // get the inboard link
-  RigidBodyPtr inboard_link = get_inboard_link();
-
-  // make sure that the inboard link has been set
-  if (!inboard_link)
-  {
-    std::cerr << "SphericalJoint::get_axis_global() - attempt to get axis w/o inboard link!" << std::endl;
-    return ZEROS_3;
-  }
-
-  // get the transform for the inboard link
-  Matrix3 R;
-  inboard_link->get_transform().get_rotation(&R);
-  
   // axis one is easy 
   if (a == eAxis1)
   {
-    Vector3 axis;
-    _R.get_column(X, axis.begin());
-    return R * axis;
+    return _u[0];
   }
 
   // for both axes 2 and 3 we need cos and sin of q(1)
   const double c1 = std::cos(q[DOF_1]+_q_tare[DOF_1]);
   const double s1 = std::sin(q[DOF_1]+_q_tare[DOF_1]);
 
-  // axis two is obtained by multiplying rotation matrix around x by axis [0,1,0]
+  // axis two is obtained by rotating around x axis
   if (a == eAxis2)
-    return R * _R * Vector3(0,c1,s1);
+  {
+    Vector3d u(0,c1,s1);
+    u.pose = _u[0].pose;
+    return u;
+  }
     
   // axis 3, requires the rotation matrix induced by the axis-angle
   // representation for axis 2..  much simpler to just use the rotation matrix from the
@@ -130,7 +115,9 @@ Vector3 SphericalJoint::get_axis_global(Axis a) const
   const double c2 = std::cos(q[DOF_2]+_q_tare[DOF_2]);
   const double s2 = std::sin(q[DOF_2]+_q_tare[DOF_2]);
   assert (a == eAxis3);
-  return R * _R * Vector3(s2, -c2*s1, c1*c2);    
+  Vector3d u(s2, -c2*s1, c1*c2);
+  u.pose = _u[0].pose;
+  return u;
 }
 
 /// Sets the local axis of translation for this joint
@@ -142,48 +129,13 @@ Vector3 SphericalJoint::get_axis_global(Axis a) const
  * \sa get_axis_global()
  * \sa set_axis_global()
  */
-void SphericalJoint::set_axis_local(const Vector3& axis, Axis a) 
+void SphericalJoint::set_axis(const Vector3d& axis, Axis a) 
 { 
   // normalize the axis in case the caller did not
-  Vector3 naxis = Vector3::normalize(axis);
-
-  _u[a] = naxis; 
+  Vector3d naxis = Vector3d::normalize(axis);
+  _u[a] = Pose3d::transform(naxis.pose, get_pose(), naxis); 
   update_spatial_axes(); 
 }        
-
-/// Sets the global axis for this joint
-/**
- * The global axis for this joint takes the orientation of the inboard link into account; thus, if the orientation
- * of the inboard link changes, then the global axis changes.
- * \note set_axis_global() should be called on all axes before setting q! 
- * \sa getAxisLocal()
- * \sa setAxisLocal()
- */
-void SphericalJoint::set_axis_global(const Vector3& axis, Axis a)
-{
-  // normalize the axis in case the caller did not
-  Vector3 naxis = Vector3::normalize(axis);
-
-  // get the inboard link
-  RigidBodyPtr inboard_link = get_inboard_link();
-
-  // make sure that the inboard link has been set
-  if (!inboard_link)
-  {
-    std::cerr << "SphericalJoint::set_axis_global() - attempt to set axis w/o inboard link!" << std::endl;
-    return;
-  }
-
-  // get the orientation for the inboard link
-  Matrix3 R;
-  inboard_link->get_transform().get_rotation(&R);
-
-  // transform the axis into local coordinates
-  _u[a] = Vector3::normalize(R * naxis);
-
-  // update the spatial axis
-  update_spatial_axes();
-}
 
 /// Updates the spatial axis for this joint
 void SphericalJoint::update_spatial_axes()
@@ -201,14 +153,9 @@ void SphericalJoint::update_spatial_axes()
   assert(std::fabs(_u[eAxis1].norm() - 1.0) < NEAR_ZERO);
   assert(std::fabs(_u[eAxis2].norm() - 1.0) < NEAR_ZERO);
   assert(std::fabs(_u[eAxis3].norm() - 1.0) < NEAR_ZERO);
-  assert(std::fabs(Vector3::dot(_u[eAxis1], _u[eAxis2])) < NEAR_ZERO);
-  assert(std::fabs(Vector3::dot(_u[eAxis1], _u[eAxis3])) < NEAR_ZERO);
-  assert(std::fabs(Vector3::dot(_u[eAxis2], _u[eAxis3])) < NEAR_ZERO);
-
-  // set the axes
-  _R.set_column(X, _u[eAxis1]);
-  _R.set_column(Y, _u[eAxis2]);
-  _R.set_column(Z, _u[eAxis3]);
+  assert(std::fabs(Vector3d::dot(_u[eAxis1], _u[eAxis2])) < NEAR_ZERO);
+  assert(std::fabs(Vector3d::dot(_u[eAxis1], _u[eAxis3])) < NEAR_ZERO);
+  assert(std::fabs(Vector3d::dot(_u[eAxis2], _u[eAxis3])) < NEAR_ZERO);
 }
 
 /// Attempts to compute unassigned axes
@@ -227,7 +174,7 @@ bool SphericalJoint::assign_axes()
 
       // otherwise, set axes1 and 2 from 3
       _u[eAxis3].normalize();
-      Vector3::determine_orthonormal_basis(_u[eAxis3], _u[eAxis1], _u[eAxis2]);
+      Vector3d::determine_orthonormal_basis(_u[eAxis3], _u[eAxis1], _u[eAxis2]);
     }
     else
     {
@@ -236,14 +183,14 @@ bool SphericalJoint::assign_axes()
       {
         // axis3 is not set; set axes1/3 from 2
         _u[eAxis2].normalize();
-        Vector3::determine_orthonormal_basis(_u[eAxis2], _u[eAxis3], _u[eAxis1]);
+        Vector3d::determine_orthonormal_basis(_u[eAxis2], _u[eAxis3], _u[eAxis1]);
       }
       else
       {
         // axis2 and axis3 are set; set axis1
         _u[eAxis2].normalize();
         _u[eAxis3].normalize();
-        _u[eAxis1] = Vector3::cross(_u[eAxis2], _u[eAxis3]);      
+        _u[eAxis1] = Vector3d::cross(_u[eAxis2], _u[eAxis3]);      
       }
     }
   }
@@ -256,14 +203,14 @@ bool SphericalJoint::assign_axes()
       if (_u[eAxis3].norm() < NEAR_ZERO)
       {
         _u[eAxis1].normalize();
-        Vector3::determine_orthonormal_basis(_u[eAxis1], _u[eAxis2], _u[eAxis3]);
+        Vector3d::determine_orthonormal_basis(_u[eAxis1], _u[eAxis2], _u[eAxis3]);
       }
       else
       {
         // axis3 is set; just need to set axis2
         _u[eAxis1].normalize();
         _u[eAxis3].normalize();
-        _u[eAxis2] = Vector3::cross(_u[eAxis3], _u[eAxis1]);
+        _u[eAxis2] = Vector3d::cross(_u[eAxis3], _u[eAxis1]);
       }
     }
     else
@@ -273,7 +220,7 @@ bool SphericalJoint::assign_axes()
       {
         _u[eAxis1].normalize();        
         _u[eAxis2].normalize();        
-        _u[eAxis3] = Vector3::cross(_u[eAxis1], _u[eAxis2]);
+        _u[eAxis3] = Vector3d::cross(_u[eAxis1], _u[eAxis2]);
       }
     }
   }
@@ -297,11 +244,11 @@ const vector<Twistd>& SphericalJoint::get_spatial_axes()
     throw std::runtime_error("SphericalJoint::get_spatial_axes() called with NULL outboard link");
 
   // get current values of q
-  const VectorN& q = this->q;
-  const VectorN& q_tare = this->_q_tare;
+  const VectorNd& q = this->q;
+  const VectorNd& q_tare = this->_q_tare;
 
   // get the outboard link's joint to com vector in outer link coordinates
-  const Vector3& p = outboard->get_inner_joint_data(inboard).joint_to_com_vec_of;
+  const Vector3d& p = outboard->get_inner_joint_data(inboard).joint_to_com_vec_of;
 
   // get the set of spatial axes
   double c1 = std::cos(q[DOF_1]+q_tare[DOF_1]);
@@ -311,14 +258,18 @@ const vector<Twistd>& SphericalJoint::get_spatial_axes()
 
   // form untransformed spatial axes -- this are the vectors describing each axis, after
   // rotation by preceding axis/axes; note that first axis always points toward 1,0,0
-  Vector3 uu2(0, c1, s1);
-  Vector3 uu3(s2, -c2*s1, c1*c2);
+  Vector3d uu2(0, c1, s1);
+  Vector3d uu3(s2, -c2*s1, c1*c2);
 
-  // transform the spatial axes into the outer link frame
-  Vector3 u1;
-  _R.get_column(X, u1.begin());
-  Vector3 u2 = _R * uu2;
-  Vector3 u3 = _R * uu3;
+  // transform the spatial axes into the joint frame 
+  Vector3d u1 = _u[0];
+  Vector3d u2 =  uu2;
+  Vector3d u3 =  uu3;
+
+  // setup relative poses for all three
+  u1.pose = _F;
+  u2.pose = _F;
+  u3.pose = _F;
 
   // update the spatial axis in link coordinates
   SVector6 si1, si2, si3;
@@ -328,15 +279,18 @@ const vector<Twistd>& SphericalJoint::get_spatial_axes()
   si1.set_lower(ZEROS_3);
   si2.set_lower(ZEROS_3);
   si3.set_lower(ZEROS_3);
-  _si.set_column(eAxis1, si1);
-  _si.set_column(eAxis2, si2);
-  _si.set_column(eAxis3, si3);
+  _s[0].set_angular(u1);
+  _s[0].set_linear(ZEROS_3);
+  _s[1].set_angular(u2);
+  _s[1].set_linear(ZEROS_3);
+  _s[2].set_angular(u3);
+  _s[2].set_linear(ZEROS_3);
 
   // setup the complement of the spatial axes in link coordinates
-  calc_s_bar_from_si();
+  calc_s_bar_from_s();
 
   // use the Joint function to do the rest
-  return Joint::get_spatial_axes(rftype);
+  return Joint::get_spatial_axes();
 }
 
 /// Gets the derivative of the spatial-axis
@@ -353,9 +307,9 @@ const vector<Twistd>& SphericalJoint::get_spatial_axes_dot()
     throw std::runtime_error("SphericalJoint::get_spatial_axes_dot() called with NULL outboard link");
 
   // get q, _q_tare, and qd
-  const VectorN& q = this->q;
-  const VectorN& q_tare = this->_q_tare;
-  const VectorN& qd = this->qd;
+  const VectorNd& q = this->q;
+  const VectorNd& q_tare = this->_q_tare;
+  const VectorNd& qd = this->qd;
 
   // get the two transformed axes
   double c1 = std::cos(q[DOF_1]+q_tare[DOF_1]);
@@ -366,28 +320,25 @@ const vector<Twistd>& SphericalJoint::get_spatial_axes_dot()
   double qd2 = qd[DOF_2];
 
   // form the time derivatives of the non-constant spatial axes (untransformed) 
-  Vector3 uu2(0, -s1*qd1, c1*qd1);
-  Vector3 uu3(c2*qd2, -c2*c1*qd1 + s2*s1*qd2, -c1*s2*qd2 - s1*c2*qd1);
+  Vector3d uu2(0, -s1*qd1, c1*qd1);
+  Vector3d uu3(c2*qd2, -c2*c1*qd1 + s2*s1*qd2, -c1*s2*qd2 - s1*c2*qd1);
 
   // transform the axes into outer link coordinates
-  Vector3 u2 = _R * uu2; 
-  Vector3 u3 = _R * uu3; 
+  Vector3d u2 = uu2; 
+  Vector3d u3 = uu3; 
 
   // update the spatial axis in joint coordinates; note that third column of spatial axis
   // derivative set to zero in constructor and is never modified
-  SVector6 si2, si3;
-  si2.set_upper(u2);
-  si3.set_upper(u3);
-  si2.set_lower(ZEROS_3);
-  si3.set_lower(ZEROS_3);
-  _si_dot.set_column(eAxis2, si2);
-  _si_dot.set_column(eAxis3, si3);
+  _s_dot[1].set_angular(u2);
+  _s_dot[1].set_lower(ZEROS_3);
+  _s_dot[2].set_angular(u3);
+  _s_dot[2].set_linear(ZEROS_3);
 
-  return _si_dot;
+  return _s_dot;
 }
 
 /// Determines (and sets) the value of Q from the axes and the inboard link and outboard link transforms
-void SphericalJoint::determine_q(VectorN& q)
+void SphericalJoint::determine_q(VectorNd& q)
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
@@ -409,15 +360,15 @@ void SphericalJoint::determine_q(VectorN& q)
   q.resize(num_dof());
 
   // get the link transforms
-  Matrix3 R_inboard, R_outboard;
+  Matrix3d R_inboard, R_outboard;
   inboard->get_transform().get_rotation(&R_inboard);
   outboard->get_transform().get_rotation(&R_outboard);
 
   // determine the joint transformation
-  Matrix3 R_local = R_inboard.transpose_mult(R_outboard);
+  Matrix3d R_local = R_inboard.transpose_mult(R_outboard);
 
   // back out the transformation to z-axis
-  Matrix3 RU = _R.transpose_mult(R_local * _R);
+  Matrix3d RU = _R.transpose_mult(R_local * _R);
 
   // determine cos and sin values for q1, q2,  and q3
   double s2 = RU(X,Z);
@@ -480,13 +431,13 @@ void SphericalJoint::determine_q(VectorN& q)
 }
 
 /// Gets the (local) rotation induced by this joint
-Matrix3 SphericalJoint::get_rotation() const
+Matrix3d SphericalJoint::get_rotation() const
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
   // get q, _q_tare
-  const VectorN& q = this->q;
-  const VectorN& q_tare = this->_q_tare;
+  const VectorNd& q = this->q;
+  const VectorNd& q_tare = this->_q_tare;
 
   // compute some needed quantities
   const double c1 = std::cos(q[DOF_1]+q_tare[DOF_1]);
@@ -496,27 +447,22 @@ Matrix3 SphericalJoint::get_rotation() const
   const double c3 = std::cos(q[DOF_3]+q_tare[DOF_3]);
   const double s3 = std::sin(q[DOF_3]+q_tare[DOF_3]);
 
-  // determine untransformed rotation
+  // determine rotation
   // this is just the rotation matrix induced by using Tait-Bryan angles
-  Matrix3 RU;
+  Matrix3d RU;
   RU(X,X) = c2*c3;              RU(X,Y) = -c2*s3;              RU(X,Z) = s2;
   RU(Y,X) = s1*s2*c3 + c1*s3;   RU(Y,Y) = -s1*s2*s3 + c1*c3;   RU(Y,Z) = -c2*s1;
   RU(Z,X) = -c1*s2*c3 + s1*s3;  RU(Z,Y) = c1*s2*s3 + s1*c3;    RU(Z,Z) = c2*c1;
 
-  // transform the rotation
-  Matrix3 R_local = _R * RU.mult_transpose(_R);
-
-  return R_local;
+  return RU;
 }
 
 /// Gets the (local) transform for this joint
-const Matrix4& SphericalJoint::get_transform()
+shared_ptr<const Pose3d> SphericalJoint::get_induced_pose()
 {
-  // note that translation is set to zero in the constructors
-  Matrix3 R = get_rotation();
-  _T.set_rotation(&R);
-
-  return _T;
+  // note that translation is zero by default 
+  _Fprime->q = get_rotation();
+  return _Fprime;
 }
 
 /// Evaluates the constraint equations
@@ -532,9 +478,9 @@ void SphericalJoint::evaluate_constraints(double C[])
   // names have been altered, however
 
   // determine the global positions of the attachment points and subtract them
-  Vector3 r1 = get_position_global(false);
-  Vector3 r2 = get_position_global(true);
-  Vector3 r12 = r1 - r2; 
+  Vector3d r1 = get_position_global(false);
+  Vector3d r2 = get_position_global(true);
+  Vector3d r12 = r1 - r2; 
 
   // copy values
   C[0] = r12[X];
@@ -564,7 +510,7 @@ void SphericalJoint::calc_constraint_jacobian_euler(RigidBodyPtr body, unsigned 
   {
     // get the information necessary to compute the constraint equations
     const Quat& q = inner->get_orientation();
-    const Vector3& p = inner->get_outer_joint_data(outer).com_to_joint_vec;
+    const Vector3d& p = inner->get_outer_joint_data(outer).com_to_joint_vec;
     const double qx = q.x;
     const double qy = q.y;
     const double qz = q.z;
@@ -613,7 +559,7 @@ void SphericalJoint::calc_constraint_jacobian_euler(RigidBodyPtr body, unsigned 
   {
     // get the information necessary to compute the constraint equations
     const Quat& q = outer->get_orientation();
-    const Vector3& p = body->get_inner_joint_data(inner).joint_to_com_vec_of;
+    const Vector3d& p = body->get_inner_joint_data(inner).joint_to_com_vec_of;
     const double qx = q.x;
     const double qy = q.y;
     const double qz = q.z;
@@ -682,7 +628,7 @@ void SphericalJoint::calc_constraint_jacobian_dot_euler(RigidBodyPtr body, unsig
   {
     // get the information necessary to compute the constraint equations
     const Quat& q = inner->get_orientation();
-    const Vector3& p = inner->get_outer_joint_data(outer).com_to_joint_vec;
+    const Vector3d& p = inner->get_outer_joint_data(outer).com_to_joint_vec;
     const double px = p[X];
     const double py = p[Y];
     const double pz = p[Z];
@@ -732,7 +678,7 @@ void SphericalJoint::calc_constraint_jacobian_dot_euler(RigidBodyPtr body, unsig
   {
     // get the information necessary to compute the constraint equations
     const Quat& q = outer->get_orientation();
-    const Vector3& p = body->get_inner_joint_data(inner).joint_to_com_vec_of;
+    const Vector3d& p = body->get_inner_joint_data(inner).joint_to_com_vec_of;
     const double px = -p[X];
     const double py = -p[Y];
     const double pz = -p[Z];
@@ -789,50 +735,27 @@ void SphericalJoint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std:
   // verify that the node name is correct
   assert(strcasecmp(node->name.c_str(), "SphericalJoint") == 0);
 
-  // read local joint axes
-  const XMLAttrib* laxis_attrib = node->get_attrib("local-axis");
-  if (laxis_attrib)
-  {
-    Vector3 laxis;
-    laxis_attrib->get_vector_value(laxis);
-    set_axis_local(laxis, eAxis1);
-  }
-  const XMLAttrib* laxis1_attrib = node->get_attrib("local-axis1");
-  if (laxis1_attrib)
-  {
-    Vector3 laxis1;
-    laxis1_attrib->get_vector_value(laxis1);
-    set_axis_local(laxis1, eAxis1);
-  }
-  const XMLAttrib* laxis2_attrib = node->get_attrib("local-axis2");
-  if (laxis2_attrib)
-  {
-    Vector3 laxis2;
-    laxis2_attrib->get_vector_value(laxis2);
-    set_axis_local(laxis2, eAxis2);
-  }
-
   // read the global joint axes, if given
-  const XMLAttrib* gaxis_attrib = node->get_attrib("global-axis");
-  if (gaxis_attrib)
+  const XMLAttrib* axis_attrib = node->get_attrib("axis");
+  if (axis_attrib)
   {
-    Vector3 gaxis;
-    gaxis_attrib->get_vector_value(gaxis);
-    set_axis_global(gaxis, eAxis1);  
+    Vector3d axis;
+    axis_attrib->get_vector_value(axis);
+    set_axis(axis, eAxis1);  
   }
-  const XMLAttrib* gaxis1_attrib = node->get_attrib("global-axis1");
-  if (gaxis1_attrib)
+  const XMLAttrib* axis1_attrib = node->get_attrib("axis1");
+  if (axis1_attrib)
   {
-    Vector3 gaxis1;
-    gaxis1_attrib->get_vector_value(gaxis1);
-    set_axis_global(gaxis1, eAxis1);  
+    Vector3d axis1;
+    axis1_attrib->get_vector_value(axis1);
+    set_axis(axis1, eAxis1);  
   }
-  const XMLAttrib* gaxis2_attrib = node->get_attrib("global-axis2");
-  if (gaxis2_attrib)
+  const XMLAttrib* axis2_attrib = node->get_attrib("axis2");
+  if (axis2_attrib)
   {
-    Vector3 gaxis2;
-    gaxis2_attrib->get_vector_value(gaxis2);
-    set_axis_global(gaxis2, eAxis2);  
+    Vector3d axis2;
+    axis2_attrib->get_vector_value(axis2);
+    set_axis(axis2, eAxis2);  
   }
 
   // compute _q_tare if necessary
@@ -843,14 +766,18 @@ void SphericalJoint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std:
 /// Implements Base::save_to_xml()
 void SphericalJoint::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& shared_objects) const
 {
+  Vector3d u0;
+
   // get info from Joint::save_to_xml()
   Joint::save_to_xml(node, shared_objects);
 
   // rename the node
   node->name = "SphericalJoint";
 
-  // save the local joint axes
-  node->attribs.insert(XMLAttrib("local-axis1", _u[eAxis1]));
-  node->attribs.insert(XMLAttrib("local-axis2", _u[eAxis1]));
+  // convert local axes to global axes and save
+  u0 = Pose3d::transform(get_pose(), shared_ptr<const Pose3d>(), _u[eAxis1]);
+  node->attribs.insert(XMLAttrib("axis1", u0));
+  u0 = Pose3d::transform(get_pose(), shared_ptr<const Pose3d>(), _u[eAxis2]);
+  node->attribs.insert(XMLAttrib("axis2", u0));
 }
 

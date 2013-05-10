@@ -17,14 +17,13 @@
 #include <Moby/CollisionGeometry.h>
 #include <Moby/SingleBody.h>
 #include <Moby/RigidBody.h>
-#include <Moby/LinAlg.h>
 #include <Moby/Log.h>
 #include <Moby/XMLTree.h>
-#include <Moby/Optimization.h>
 #include <Moby/ImpactToleranceException.h>
 #include <Moby/NumericalException.h>
 #include <Moby/ImpactEventHandler.h>
 
+using namespace Ravelin;
 using namespace Moby;
 using std::list;
 using boost::shared_ptr;
@@ -39,7 +38,7 @@ using boost::dynamic_pointer_cast;
 /// Solves the quadratic program (potentially solves two QPs, actually)
 void ImpactEventHandler::solve_qp(EventProblemData& q, double poisson_eps)
 {
-  SAFESTATIC VectorN z, tmp, tmp2;
+  SAFESTATIC VectorNd z, tmp, tmp2;
   const double TOL = poisson_eps;
 
   // solve the QP
@@ -99,7 +98,7 @@ void ImpactEventHandler::solve_qp(EventProblemData& q, double poisson_eps)
     }
   else
   {
-    pair<double*, double*> mm = boost::minmax_element(q.Jx_v.begin(), q.Jx_v.end());
+    pair<dIterator, dIterator> mm = boost::minmax_element(q.Jx_v.begin(), q.Jx_v.end());
     if (q.Jx_v.size() > 0 && (*mm.first < -TOL || *mm.second > TOL))
     {
       FILE_LOG(LOG_EVENT) << "minimum J*v: " << *mm.first << std::endl;
@@ -131,11 +130,11 @@ void ImpactEventHandler::solve_qp(EventProblemData& q, double poisson_eps)
  * \note this is the version without joint friction forces
  */
 /*
-void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorN& z)
+void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
 {
-  SAFESTATIC MatrixN sub, t1, t2, t3, neg1, A, AR, R, RTH;
-  SAFESTATIC MatrixN H, MM;
-  SAFESTATIC VectorN negv, c, qq, nb, tmpv, y;
+  SAFESTATIC MatrixNd sub, t1, t2, t3, neg1, A, AR, R, RTH;
+  SAFESTATIC MatrixNd H, MM;
+  SAFESTATIC VectorNd negv, c, qq, nb, tmpv, y;
 
   // get the number of different types of each event
   const unsigned N_CONTACTS = q.N_CONTACTS;
@@ -156,24 +155,24 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorN& z)
   if (N_CONSTRAINT_EQNS_EXP > 0)
   {
     // compute the homogeneous solution
-    A.copy_from(q.Jx_iM_JxT);
-    z.copy_from(q.Jx_v).negate();
+    A. = q.Jx_iM_JxT);
+    z. = q.Jx_v).negate();
     try
     {
       LinAlg::solve_LS_fast1(A, z);
     }
     catch (NumericalException e)
     {
-      A.copy_from(q.Jx_iM_JxT);
+      A. = q.Jx_iM_JxT);
       LinAlg::solve_LS_fast2(A, z);
     }
 
     // compute the nullspace
     A.resize(N_CONSTRAINT_EQNS_EXP, N_VARS);
-    MatrixN::transpose(q.Jc_iM_JxT, t1);
-    MatrixN::transpose(q.Dc_iM_JxT, t2);
-    MatrixN::transpose(q.Jl_iM_JxT, t3);
-    neg1.copy_from(t2).negate();
+    MatrixNd::transpose(q.Jc_iM_JxT, t1);
+    MatrixNd::transpose(q.Dc_iM_JxT, t2);
+    MatrixNd::transpose(q.Jl_iM_JxT, t3);
+    neg1. = t2).negate();
     A.set_sub_row_block(0, &t1, &t2, &neg1, &t3, &q.Jx_iM_JxT);
     LinAlg::nullspace(A, R);
   }
@@ -202,14 +201,14 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorN& z)
   unsigned col = 0, row = 0;
 
   // row (block) 1 -- Jc * iM * [Jc' Dc' -Dc' Jl' Jx']
-  neg1.copy_from(q.Jc_iM_DcT).negate();
+  neg1. = q.Jc_iM_DcT).negate();
   H.set_sub_row_block(0, &q.Jc_iM_JcT, &q.Jc_iM_DcT, &neg1, &q.Jc_iM_JlT, 
                       &q.Jc_iM_JxT);
   row += N_CONTACTS;
   
   // row (block) 2 -- Dc * iM * [Jc' Dc' -Dc' Jl' Jx']
-  MatrixN::transpose(q.Jc_iM_DcT, t1);
-  neg1.copy_from(q.Dc_iM_DcT).negate();
+  MatrixNd::transpose(q.Jc_iM_DcT, t1);
+  neg1. = q.Dc_iM_DcT).negate();
   H.set_sub_row_block(row, &t1, &q.Dc_iM_DcT, &neg1, &q.Dc_iM_JlT, 
                       &q.Dc_iM_JxT);
 
@@ -219,23 +218,23 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorN& z)
   row += N_CONTACTS*4;
 
   // row (block 4) -- Jl * iM * [Jc' Dc' -Dc' Jl Jx']
-  MatrixN::transpose(q.Jc_iM_JlT, t1);
-  MatrixN::transpose(q.Dc_iM_JlT, t2);
-  neg1.copy_from(t2).negate();
+  MatrixNd::transpose(q.Jc_iM_JlT, t1);
+  MatrixNd::transpose(q.Dc_iM_JlT, t2);
+  neg1. = t2).negate();
   H.set_sub_row_block(row, &t1, &t2, &neg1, &q.Jl_iM_JlT, &q.Jl_iM_JxT);
   row += N_LIMITS;
   
   // row (block 5) -- Jx * iM * [Jc' Dc' -Dc' Jl Jx']
-  MatrixN::transpose(q.Jc_iM_JxT, t1);
-  MatrixN::transpose(q.Dc_iM_JxT, t2);
-  MatrixN::transpose(q.Jl_iM_JxT, t3);
-  neg1.copy_from(t2).negate();
+  MatrixNd::transpose(q.Jc_iM_JxT, t1);
+  MatrixNd::transpose(q.Dc_iM_JxT, t2);
+  MatrixNd::transpose(q.Jl_iM_JxT, t3);
+  neg1. = t2).negate();
   H.set_sub_row_block(row, &t1, &t2, &neg1, &t3, &q.Jx_iM_JxT);
 
   // setup c 
   c.set_sub_vec(ALPHA_C_IDX, q.Jc_v);         
   c.set_sub_vec(BETA_C_IDX, q.Dc_v);         
-  negv.copy_from(q.Dc_v).negate();
+  negv. = q.Dc_v).negate();
   c.set_sub_vec(NBETA_C_IDX, negv);           
   c.set_sub_vec(ALPHA_L_IDX, q.Jl_v);         
   c.set_sub_vec(ALPHA_X_IDX, q.Jx_v);         
@@ -291,7 +290,7 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorN& z)
   R.transpose_mult(H, RTH);
   RTH.mult(R, H);
   R.transpose_mult(c, tmpv);
-  c.copy_from(tmpv);
+  c. = tmpv);
   RTH.mult(z, tmpv);
   c += tmpv;
 
@@ -347,9 +346,9 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorN& z)
 }
 */
 
-void ImpactEventHandler::update_solution(const EventProblemData& q, const VectorN& x, const vector<bool>& old_working_set, unsigned jidx, VectorN& z)
+void ImpactEventHandler::update_solution(const EventProblemData& q, const VectorNd& x, const vector<bool>& old_working_set, unsigned jidx, VectorNd& z)
 {
-  SAFESTATIC VectorN workv;
+  SAFESTATIC VectorNd workv;
 
   // setup NEW constants
   const unsigned N_VARS = q.N_LIMITS + q.ALPHA_L_IDX;
@@ -419,13 +418,13 @@ void ImpactEventHandler::update_solution(const EventProblemData& q, const Vector
 }
 
 /// Checks whether the optimization is satisfied *without* adding contact j
-bool ImpactEventHandler::opt_satisfied(const EventProblemData& q, const vector<bool>& working_set, double& KE, VectorN& x, unsigned j)
+bool ImpactEventHandler::opt_satisfied(const EventProblemData& q, const vector<bool>& working_set, double& KE, VectorNd& x, unsigned j)
 {
-  SAFESTATIC VectorN workv, Jc_v, z;
+  SAFESTATIC VectorNd workv, Jc_v, z;
   SAFESTATIC EventProblemData qcopy;
 
   // make a copy of q and set it appropriately
-  qcopy.copy_from(q);
+  qcopy = q;
   qcopy.contact_working_set = working_set;
   vector<bool>& ws = qcopy.contact_working_set;
   ws[j] = true;
@@ -447,7 +446,7 @@ bool ImpactEventHandler::opt_satisfied(const EventProblemData& q, const vector<b
   double new_KE = calc_ke(qcopy, z);
   if (new_KE < KE - NEAR_ZERO)
   {
-    x.copy_from(z);
+    x = z;
     KE = new_KE;
     return false;
   }
@@ -456,15 +455,15 @@ bool ImpactEventHandler::opt_satisfied(const EventProblemData& q, const vector<b
 }
 
 /// Computes the kinetic energy of the system using the current impulse set 
-double ImpactEventHandler::calc_ke(EventProblemData& q, const VectorN& z)
+double ImpactEventHandler::calc_ke(EventProblemData& q, const VectorNd& z)
 {
-  SAFESTATIC VectorN alpha_c, beta_c, alpha_l, alpha_x;
+  SAFESTATIC VectorNd alpha_c, beta_c, alpha_l, alpha_x;
 
   // save the current impulses
-  alpha_c.copy_from(q.alpha_c);
-  beta_c.copy_from(q.beta_c);
-  alpha_l.copy_from(q.alpha_l);
-  alpha_x.copy_from(q.alpha_x);
+  alpha_c = q.alpha_c;
+  beta_c = q.beta_c;
+  alpha_l = q.alpha_l;
+  alpha_x = q.alpha_x;
 
   // update impulses
   q.update_from_stacked(z);
@@ -476,10 +475,10 @@ double ImpactEventHandler::calc_ke(EventProblemData& q, const VectorN& z)
     KE += q.super_bodies[i]->calc_kinetic_energy();
 
   // reset impulses
-  q.alpha_c.copy_from(alpha_c);
-  q.beta_c.copy_from(beta_c);
-  q.alpha_l.copy_from(alpha_l);
-  q.alpha_x.copy_from(alpha_x);
+  q.alpha_c = alpha_c;
+  q.beta_c = beta_c;
+  q.alpha_l = alpha_l;
+  q.alpha_x = alpha_x;
 
   return KE;
 }
@@ -488,7 +487,7 @@ double ImpactEventHandler::calc_ke(EventProblemData& q, const VectorN& z)
 /**
  * \note this is the version without joint friction forces
  */
-void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorN& z)
+void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
 {
   SAFESTATIC EventProblemData qworking;
 
@@ -510,7 +509,7 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorN& z)
   }
 
   // setup the working set -- set only first contact to active
-  qworking.copy_from(q);
+  qworking = q;
   vector<bool>& working_set = qworking.contact_working_set;
   working_set.resize(q.N_CONTACTS);
   std::fill(working_set.begin(), working_set.end(), false);
@@ -541,7 +540,7 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorN& z)
 
   // update qworking 
   update_problem(q, qworking);
-  q.copy_from(qworking);
+  q = qworking;
 }
 
 /// Updates problem matrices and vectors based on the working set
@@ -619,11 +618,11 @@ void ImpactEventHandler::update_problem(const EventProblemData& q, EventProblemD
 /**
  * \note this is the version without joint friction forces
  */
-void ImpactEventHandler::solve_qp_work_ijoints(EventProblemData& q, VectorN& z)
+void ImpactEventHandler::solve_qp_work_ijoints(EventProblemData& q, VectorNd& z)
 {
-  SAFESTATIC MatrixN sub, t1, t2, t3, neg1, A; 
-  SAFESTATIC MatrixN H, MM;
-  SAFESTATIC VectorN negv, c, qq, nb, tmpv, y;
+  SAFESTATIC MatrixNd sub, t1, t2, t3, neg1, A; 
+  SAFESTATIC MatrixNd H, MM;
+  SAFESTATIC VectorNd negv, c, qq, nb, tmpv, y;
 
   // init the QP matrix and vector
   const unsigned KAPPA = (q.use_kappa) ? 1 : 0;
@@ -639,14 +638,14 @@ void ImpactEventHandler::solve_qp_work_ijoints(EventProblemData& q, VectorN& z)
   unsigned col = 0, row = 0;
 
   // row (block) 1 -- Jc * iM * [Jc' Dc' -Dc' Jl' Jx']
-  neg1.copy_from(q.Jc_iM_DcT).negate();
+  (neg1 = q.Jc_iM_DcT).negate();
   H.set_sub_row_block(0, &q.Jc_iM_JcT, &q.Jc_iM_DcT, &neg1, &q.Jc_iM_JlT, 
                       &q.Jc_iM_JxT);
   row += q.N_CONTACTS;
   
   // row (block) 2 -- Dc * iM * [Jc' Dc' -Dc' Jl' Jx']
-  MatrixN::transpose(q.Jc_iM_DcT, t1);
-  neg1.copy_from(q.Dc_iM_DcT).negate();
+  MatrixNd::transpose(q.Jc_iM_DcT, t1);
+  (neg1 = q.Dc_iM_DcT).negate();
   H.set_sub_row_block(row, &t1, &q.Dc_iM_DcT, &neg1, &q.Dc_iM_JlT, 
                       &q.Dc_iM_JxT);
 
@@ -656,23 +655,23 @@ void ImpactEventHandler::solve_qp_work_ijoints(EventProblemData& q, VectorN& z)
   row += q.N_LIN_CONE*4;
 
   // row (block 4) -- Jl * iM * [Jc' Dc' -Dc' Jl Jx']
-  MatrixN::transpose(q.Jc_iM_JlT, t1);
-  MatrixN::transpose(q.Dc_iM_JlT, t2);
-  neg1.copy_from(t2).negate();
+  MatrixNd::transpose(q.Jc_iM_JlT, t1);
+  MatrixNd::transpose(q.Dc_iM_JlT, t2);
+  (neg1 = t2).negate();
   H.set_sub_row_block(row, &t1, &t2, &neg1, &q.Jl_iM_JlT, &q.Jl_iM_JxT);
   row += q.N_LIMITS;
   
   // row (block 5) -- Jx * iM * [Jc' Dc' -Dc' Jl Jx']
-  MatrixN::transpose(q.Jc_iM_JxT, t1);
-  MatrixN::transpose(q.Dc_iM_JxT, t2);
-  MatrixN::transpose(q.Jl_iM_JxT, t3);
-  neg1.copy_from(t2).negate();
+  MatrixNd::transpose(q.Jc_iM_JxT, t1);
+  MatrixNd::transpose(q.Dc_iM_JxT, t2);
+  MatrixNd::transpose(q.Jl_iM_JxT, t3);
+  (neg1 = t2).negate();
   H.set_sub_row_block(row, &t1, &t2, &neg1, &t3, &q.Jx_iM_JxT);
 
   // setup c 
   c.set_sub_vec(q.ALPHA_C_IDX, q.Jc_v);         
   c.set_sub_vec(q.BETA_C_IDX, q.Dc_v);         
-  negv.copy_from(q.Dc_v).negate();
+  (negv = q.Dc_v).negate();
   c.set_sub_vec(q.NBETA_C_IDX, negv);           
   c.set_sub_vec(q.ALPHA_L_IDX, q.Jl_v);         
   c.set_sub_vec(q.ALPHA_X_IDX, q.Jx_v);         
@@ -727,7 +726,7 @@ void ImpactEventHandler::solve_qp_work_ijoints(EventProblemData& q, VectorN& z)
   // setup the LCP matrix
   MM.set_sub_mat(0, 0, H);
   MM.set_sub_mat(q.N_VARS, 0, A);
-  MM.set_sub_mat(0, q.N_VARS, A.negate(), true);
+  MM.set_sub_mat(0, q.N_VARS, A.negate(), Ravelin::eTranspose);
 
   // setup the LCP vector
   qq.set_sub_vec(0, c);
@@ -751,7 +750,7 @@ void ImpactEventHandler::solve_qp_work_ijoints(EventProblemData& q, VectorN& z)
   FILE_LOG(LOG_EVENT) << "H matrix: " << std::endl << H;
   FILE_LOG(LOG_EVENT) << "c vector: " << c << std::endl;
   FILE_LOG(LOG_EVENT) << "A matrix: " << std::endl << A;
-  FILE_LOG(LOG_EVENT) << "b vector: " << (-nb) << std::endl;
+  FILE_LOG(LOG_EVENT) << "-b vector: " << nb << std::endl;
   FILE_LOG(LOG_EVENT) << "LCP matrix: " << std::endl << MM; 
   FILE_LOG(LOG_EVENT) << "LCP vector: " << qq << std::endl; 
 
@@ -767,37 +766,37 @@ void ImpactEventHandler::solve_qp_work_ijoints(EventProblemData& q, VectorN& z)
 /**
  * \note this is the version without joint friction forces
  */
-void ImpactEventHandler::solve_qp_work_general(EventProblemData& q, VectorN& z)
+void ImpactEventHandler::solve_qp_work_general(EventProblemData& q, VectorNd& z)
 {
-  SAFESTATIC MatrixN sub, t1, t2, t3, neg1, A, AR, R, RTH;
-  SAFESTATIC MatrixN H, MM;
-  SAFESTATIC VectorN negv, c, qq, nb, tmpv, y;
+  SAFESTATIC MatrixNd sub, t1, t2, t3, neg1, A, AR, R, RTH;
+  SAFESTATIC MatrixNd H, MM;
+  SAFESTATIC VectorNd negv, c, qq, nb, tmpv, y;
 
   // first, solve for impulses that satisfy explicit constraint equations
   // and compute the appropriate nullspace 
   if (q.N_CONSTRAINT_EQNS_EXP > 0)
   {
     // compute the homogeneous solution
-    A.copy_from(q.Jx_iM_JxT);
-    z.copy_from(q.Jx_v).negate();
+    A = q.Jx_iM_JxT;
+    (z = q.Jx_v).negate();
     try
     {
-      LinAlg::solve_LS_fast1(A, z);
+      _LA.solve_LS_fast1(A, z);
     }
     catch (NumericalException e)
     {
-      A.copy_from(q.Jx_iM_JxT);
-      LinAlg::solve_LS_fast2(A, z);
+      A = q.Jx_iM_JxT;
+      _LA.solve_LS_fast2(A, z);
     }
 
     // compute the nullspace
     A.resize(q.N_CONSTRAINT_EQNS_EXP, q.N_VARS);
-    MatrixN::transpose(q.Jc_iM_JxT, t1);
-    MatrixN::transpose(q.Dc_iM_JxT, t2);
-    MatrixN::transpose(q.Jl_iM_JxT, t3);
-    neg1.copy_from(t2).negate();
+    MatrixNd::transpose(q.Jc_iM_JxT, t1);
+    MatrixNd::transpose(q.Dc_iM_JxT, t2);
+    MatrixNd::transpose(q.Jl_iM_JxT, t3);
+    (neg1 = t2).negate();
     A.set_sub_row_block(0, &t1, &t2, &neg1, &t3, &q.Jx_iM_JxT);
-    LinAlg::nullspace(A, R);
+    _LA.nullspace(A, R);
   }
   else
   {
@@ -824,14 +823,14 @@ void ImpactEventHandler::solve_qp_work_general(EventProblemData& q, VectorN& z)
   unsigned col = 0, row = 0;
 
   // row (block) 1 -- Jc * iM * [Jc' Dc' -Dc' Jl' Jx']
-  neg1.copy_from(q.Jc_iM_DcT).negate();
+  (neg1 = q.Jc_iM_DcT).negate();
   H.set_sub_row_block(0, &q.Jc_iM_JcT, &q.Jc_iM_DcT, &neg1, &q.Jc_iM_JlT, 
                       &q.Jc_iM_JxT);
   row += q.N_CONTACTS;
   
   // row (block) 2 -- Dc * iM * [Jc' Dc' -Dc' Jl' Jx']
-  MatrixN::transpose(q.Jc_iM_DcT, t1);
-  neg1.copy_from(q.Dc_iM_DcT).negate();
+  MatrixNd::transpose(q.Jc_iM_DcT, t1);
+  (neg1 = q.Dc_iM_DcT).negate();
   H.set_sub_row_block(row, &t1, &q.Dc_iM_DcT, &neg1, &q.Dc_iM_JlT, 
                       &q.Dc_iM_JxT);
 
@@ -841,23 +840,23 @@ void ImpactEventHandler::solve_qp_work_general(EventProblemData& q, VectorN& z)
   row += q.N_LIN_CONE*4;
 
   // row (block 4) -- Jl * iM * [Jc' Dc' -Dc' Jl Jx']
-  MatrixN::transpose(q.Jc_iM_JlT, t1);
-  MatrixN::transpose(q.Dc_iM_JlT, t2);
-  neg1.copy_from(t2).negate();
+  MatrixNd::transpose(q.Jc_iM_JlT, t1);
+  MatrixNd::transpose(q.Dc_iM_JlT, t2);
+  (neg1 = t2).negate();
   H.set_sub_row_block(row, &t1, &t2, &neg1, &q.Jl_iM_JlT, &q.Jl_iM_JxT);
   row += q.N_LIMITS;
   
   // row (block 5) -- Jx * iM * [Jc' Dc' -Dc' Jl Jx']
-  MatrixN::transpose(q.Jc_iM_JxT, t1);
-  MatrixN::transpose(q.Dc_iM_JxT, t2);
-  MatrixN::transpose(q.Jl_iM_JxT, t3);
-  neg1.copy_from(t2).negate();
+  MatrixNd::transpose(q.Jc_iM_JxT, t1);
+  MatrixNd::transpose(q.Dc_iM_JxT, t2);
+  MatrixNd::transpose(q.Jl_iM_JxT, t3);
+  (neg1 = t2).negate();
   H.set_sub_row_block(row, &t1, &t2, &neg1, &t3, &q.Jx_iM_JxT);
 
   // setup c 
   c.set_sub_vec(q.ALPHA_C_IDX, q.Jc_v);         
   c.set_sub_vec(q.BETA_C_IDX, q.Dc_v);         
-  negv.copy_from(q.Dc_v).negate();
+  (negv = q.Dc_v).negate();
   c.set_sub_vec(q.NBETA_C_IDX, negv);           
   c.set_sub_vec(q.ALPHA_L_IDX, q.Jl_v);         
   c.set_sub_vec(q.ALPHA_X_IDX, q.Jx_v);         
@@ -913,7 +912,7 @@ void ImpactEventHandler::solve_qp_work_general(EventProblemData& q, VectorN& z)
   R.transpose_mult(H, RTH);
   RTH.mult(R, H);
   R.transpose_mult(c, tmpv);
-  c.copy_from(tmpv);
+  c = tmpv;
   RTH.mult(z, tmpv);
   c += tmpv;
 
@@ -926,7 +925,7 @@ void ImpactEventHandler::solve_qp_work_general(EventProblemData& q, VectorN& z)
   // setup the LCP matrix
   MM.set_sub_mat(0, 0, H);
   MM.set_sub_mat(N_VARS, 0, AR);
-  MM.set_sub_mat(0, N_VARS, AR.negate(), true);
+  MM.set_sub_mat(0, N_VARS, AR.negate(), Ravelin::eTranspose);
 
   // setup the LCP vector
   qq.set_sub_vec(0, c);
@@ -950,7 +949,7 @@ void ImpactEventHandler::solve_qp_work_general(EventProblemData& q, VectorN& z)
   FILE_LOG(LOG_EVENT) << "H matrix: " << std::endl << H;
   FILE_LOG(LOG_EVENT) << "c vector: " << c << std::endl;
   FILE_LOG(LOG_EVENT) << "A matrix: " << std::endl << A;
-  FILE_LOG(LOG_EVENT) << "b vector: " << (-nb) << std::endl;
+  FILE_LOG(LOG_EVENT) << "-b vector: " << nb << std::endl;
   FILE_LOG(LOG_EVENT) << "LCP matrix: " << std::endl << MM; 
   FILE_LOG(LOG_EVENT) << "LCP vector: " << qq << std::endl; 
 

@@ -31,12 +31,8 @@ ScrewJoint::ScrewJoint() : Joint()
   _u = ZEROS_3;
   _v2 = ZEROS_3;
 
-  // set the transformation to identity 
-  _T = IDENTITY_4x4;;
-
   // setup the spatial axis derivative to zero
-  _si_deriv = SMatrix6N(1);
-  _si_deriv.set_column(0, SVector6(0,0,0,0,0,0));
+  _s_deriv.clear();
 }
 
 /// Initializes the joint with the specified inboard and outboard links
@@ -55,69 +51,9 @@ ScrewJoint::ScrewJoint(boost::weak_ptr<RigidBody> inboard, boost::weak_ptr<Rigid
   _u = ZEROS_3;
   _v2 = ZEROS_3;
 
-  // set the transformation to identity 
-  _T = IDENTITY_4x4;
-
   // setup the spatial axis derivative to zero
-  _si_deriv = SMatrix6N(1);
-  _si_deriv.set_column(0, SVector6(0,0,0,0,0,0));
+  _s_deriv.clear();
 }  
-
-/// Gets the global axis for this joint
-/**
- * The global axis for this joint takes the orientation of the inboard link 
- * into account; thus, if the orientation of the inboard link changes, then 
- * the global axis changes.
- * \sa getAxisLocal()
- * \sa setAxisLocal()
- */
-Vector3 ScrewJoint::get_axis_global() const
-{
-  // get the inboard link 
-  RigidBodyPtr inboard_link = get_inboard_link();
-
-  // make sure that the inboard link has been set
-  if (!inboard_link)
-  {
-    std::cerr << "ScrewJoint::get_axis_global() - attempt to get axis w/o inboard link!" << std::endl;
-    return ZEROS_3;
-  }
-
-  // get the transform for the inboard link
-  const Matrix4& T = inboard_link->get_transform();
-  
-  // transform into global coordinates and return
-  return T.transpose_mult_vector(_u);
-}
-
-/// Sets the local axis for this joint
-/**
- * The local axis for this joint does not take the orientation of the 
- * inboard link into account; thus, if the orientation of the inboard link 
- * changes, then the local axis remains constant.
- * \param axis a unit vector
- * \sa get_axis_global()
- * \sa set_axis_global()
- */
-void ScrewJoint::set_axis_local(const Vector3& axis) 
-{ 
-  // normalize the joint axis, in case the caller didn't 
-  Vector3 naxis = Vector3::normalize(axis);
-
-  // get the inboard and outboard links 
-  RigidBodyPtr inner = get_inboard_link();
-  RigidBodyPtr outer = get_outboard_link();
-  if (!inner || !outer)
-    throw std::runtime_error("Unable to set joint axis without both links set!");
-
-  // set joint axis in inner link frame
-  _u = naxis; 
-  update_spatial_axes(); 
-
-  // set joint axis in outer link frame
-  _v2 = inner->get_transform().mult_vector(naxis);
-  _v2 = outer->get_transform().transpose_mult_vector(_v2);
-}        
 
 /// Sets the global axis for this joint
 /**
@@ -127,10 +63,13 @@ void ScrewJoint::set_axis_local(const Vector3& axis)
  * \sa getAxisLocal()
  * \sa setAxisLocal()
  */
-void ScrewJoint::set_axis_global(const Vector3& axis)
+void ScrewJoint::set_axis(const Vector3d& axis)
 {
   // normalize the joint axis, in case the caller didn't 
-  Vector3 naxis = Vector3::normalize(axis);
+  Vector3d naxis = Vector3d::normalize(axis);
+
+  // transform the axis as necessary
+  _u = Pose3d::transform(axis.pose, _F, naxis);
 
   // get the inboard and outboard links
   RigidBodyPtr inboard_link = get_inboard_link();
@@ -165,21 +104,19 @@ void ScrewJoint::update_spatial_axes()
   try
   {
     // get the joint to com vector in outer link coordinates
-    const Vector3& di = outboard->get_inner_joint_data(inboard).joint_to_com_vec_of;
+    const Vector3d& di = outboard->get_inner_joint_data(inboard).joint_to_com_vec_of;
 
     // get the joint axis in outer link coordinates
-    Vector3 u0 = inboard->get_transform().mult_vector(_u);
-    Vector3 ui = outboard->get_transform().transpose_mult_vector(u0);
+    Vector3d u0 = inboard->get_transform().mult_vector(_u);
+    Vector3d ui = outboard->get_transform().transpose_mult_vector(u0);
 
     // update the spatial axis in link coordinates
-    Vector3 x = Vector3::cross(ui, di);
-    SVector6 si_vec;
-    si_vec.set_upper(ui);
-    si_vec.set_lower(ui*_pitch + x);
-    _si.set_column(0, si_vec);
+    Vector3d x = Vector3d::cross(ui, di);
+    _s[0].set_angular(ui);
+    _s[0].set_lower(ui*_pitch + x);
 
     // setup s_bar
-    calc_s_bar_from_si();
+    calc_s_bar_from_s();
   }
   catch (std::runtime_error e)
   {
@@ -210,11 +147,11 @@ void ScrewJoint::determine_q(VectorN& q)
   }
 
   // get the attachment points on the link (global coords)
-  Vector3 p1 = get_position_global(false);
-  Vector3 p2 = get_position_global(true);
+  Vector3d p1 = get_position_global(false);
+  Vector3d p2 = get_position_global(true);
 
   // get the joint axis in the global frame
-  Vector3 ug = inboard->get_transform().mult_vector(_u);
+  Vector3d ug = inboard->get_transform().mult_vector(_u);
 
   // now, we'll project p2 onto the axis ug; points will be setup so that
   // ug passes through origin on inboard
@@ -223,22 +160,23 @@ void ScrewJoint::determine_q(VectorN& q)
 }
 
 /// Gets the (local) transform for this joint
-const Matrix4& ScrewJoint::get_transform()
+shared_ptr<const Pose3d> ScrewJoint::get_induced_pose()
 {
+/*
   // setup rotation 
   AAngle a(&_u, this->q[DOF_1]+this->_q_tare[DOF_1]);
   _T.set_rotation(&a);
 
   // setup translation
   _T.set_translation(_u*(this->q[DOF_1]+this->_q_tare[DOF_1]));
-
-  return _T;
+*/
+  return _Fprime;
 }
 
 /// Gets the derivative for the spatial axes for this joint
-const SMatrix6N& ScrewJoint::get_spatial_axes_dot()
+const vector<Twistd>& ScrewJoint::get_spatial_axes_dot()
 {
-  return _si_deriv;
+  return _s_deriv;
 }
 
 /// Implements Base::load_from_xml()
@@ -250,27 +188,18 @@ void ScrewJoint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::str
   // verify that the node name is correct
   assert(strcasecmp(node->name.c_str(), "ScrewJoint") == 0);
 
-  // read the local joint axis
-  const XMLAttrib* laxis_attrib = node->get_attrib("local-axis");
-  if (laxis_attrib)
-  {
-    Vector3 laxis;
-    laxis_attrib->get_vector_value(laxis);
-    set_axis_local(laxis);
-  }
-
   // read the pitch
   const XMLAttrib* pitch_attrib = node->get_attrib("pitch");
   if (pitch_attrib)
     _pitch = pitch_attrib->get_real_value(); 
 
   // read the global joint axis, if given
-  const XMLAttrib* gaxis_attrib = node->get_attrib("global-axis");
-  if (gaxis_attrib)
+  const XMLAttrib* axis_attrib = node->get_attrib("axis");
+  if (axis_attrib)
   {
-    Vector3 gaxis;
-    gaxis_attrib->get_vector_value(gaxis);
-    set_axis_global(gaxis);  
+    Vector3d axis;
+    axis_attrib->get_vector_value(axis);
+    set_axis(axis);  
   }
 
   // compute _q_tare if necessary 
@@ -287,8 +216,9 @@ void ScrewJoint::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >
   // rename the node
   node->name = "ScrewJoint";
 
-  // save the local joint axis
-  node->attribs.insert(XMLAttrib("local-axis", _u));
+  // save the joint axis (global coordinates)
+  Vector3dd u0 = Pose3d::transform(_u.pose, shared_ptr<const Pose3d>(), _u);
+  node->attribs.insert(XMLAttrib("axis", u0));
 
   // save the pitch
   node->attribs.insert(XMLAttrib("pitch", _pitch));
@@ -319,8 +249,8 @@ void ScrewJoint::calc_constraint_jacobian_euler(RigidBodyPtr body, unsigned inde
   // setup constants for calculations
   const Quat& q1 = inner->get_orientation();
   const Quat& q2 = outer->get_orientation();
-  const Vector3& p1 = inner->get_outer_joint_data(outer).com_to_joint_vec;
-  const Vector3& p2 = outer->get_inner_joint_data(inner).joint_to_com_vec_of;
+  const Vector3d& p1 = inner->get_outer_joint_data(outer).com_to_joint_vec;
+  const Vector3d& p2 = outer->get_inner_joint_data(inner).joint_to_com_vec_of;
   const double x1 = inner->get_position()[X];
   const double y1 = inner->get_position()[Y];
   const double z1 = inner->get_position()[Z];
@@ -429,8 +359,8 @@ void ScrewJoint::calc_constraint_jacobian_dot_euler(RigidBodyPtr body, unsigned 
   const Quat& q2 = outer->get_orientation();
   const Quat qd1 = Quat::deriv(q1, inner->get_avel());
   const Quat qd2 = Quat::deriv(q2, outer->get_avel());
-  const Vector3& p1 = inner->get_outer_joint_data(outer).com_to_joint_vec;
-  const Vector3& p2 = outer->get_inner_joint_data(inner).joint_to_com_vec_of;
+  const Vector3d& p1 = inner->get_outer_joint_data(outer).com_to_joint_vec;
+  const Vector3d& p2 = outer->get_inner_joint_data(inner).joint_to_com_vec_of;
   const double x1 = inner->get_position()[X];
   const double y1 = inner->get_position()[Y];
   const double z1 = inner->get_position()[Z];
@@ -538,19 +468,19 @@ void ScrewJoint::evaluate_constraints(double C[])
   // some variable names have been altered
 
   // get v1 in global coordinates
-  Vector3 v1 = get_axis_global();
+  Vector3d v1 = get_axis_global();
 
   // determine axis in global coordinates
-  Vector3 v2 = outer->get_transform().mult_vector(_v2);
+  Vector3d v2 = outer->get_transform().mult_vector(_v2);
 
   // determine v1i, v1j
-  Vector3 v1i, v1j;
-  Vector3::determine_orthonormal_basis(v1, v1i, v1j);
+  Vector3d v1i, v1j;
+  Vector3d::determine_orthonormal_basis(v1, v1i, v1j);
 
   // determine the global positions of the attachment points and subtract them
-  const Vector3& p1 = get_position_global(false); 
-  const Vector3& p2 = get_position_global(true); 
-  Vector3 r12 = p1 - p2; 
+  const Vector3d& p1 = get_position_global(false); 
+  const Vector3d& p2 = get_position_global(true); 
+  Vector3d r12 = p1 - p2; 
 
   // evaluate the constraint equations
   // 1: h1 x h2 = 0   (joint axis according to body 1 and body2)

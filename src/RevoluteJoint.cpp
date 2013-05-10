@@ -33,7 +33,7 @@ RevoluteJoint::RevoluteJoint() : Joint()
   _v2 = ZEROS_3;
 
   // setup the spatial axis derivative to zero
-  _si_deriv.clear();
+  _s_deriv.clear();
 }
 
 /// Initializes the joint with the specified inboard and outboard links
@@ -52,7 +52,7 @@ RevoluteJoint::RevoluteJoint(boost::weak_ptr<RigidBody> inboard, boost::weak_ptr
   _v2 = ZEROS_3;
 
   // setup the spatial axis derivative to zero
-  _si_deriv.clear();
+  _s_deriv.clear();
 }  
 
 /// Sets the axis of rotation for this joint
@@ -91,12 +91,12 @@ void RevoluteJoint::update_spatial_axes()
   try
   {
     // update the spatial axis in joint coordinates
-    _si[0].pose = get_pose();
-    _si[0].set_angular(_u);
-    _si[0].set_linear(ZEROS_3);
+    _s[0].pose = get_pose();
+    _s[0].set_angular(_u);
+    _s[0].set_linear(ZEROS_3);
 
     // setup s_bar
-    calc_s_bar_from_si();
+    calc_s_bar_from_s();
   }
   catch (std::runtime_error e)
   {
@@ -146,7 +146,7 @@ shared_ptr<const Pose3d> RevoluteJoint::get_pose()
 /// Gets the derivative for the spatial axes for this joint
 const std::vector<Twistd>& RevoluteJoint::get_spatial_axes_dot()
 {
-  return _si_deriv;
+  return _s_deriv;
 }
 
 /// Computes the constraint Jacobian with respect to a body
@@ -1019,12 +1019,12 @@ void RevoluteJoint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::
   assert(strcasecmp(node->name.c_str(), "RevoluteJoint") == 0);
 
   // read the global joint axis, if given
-  const XMLAttrib* gaxis_attrib = node->get_attrib("axis");
-  if (gaxis_attrib)
+  const XMLAttrib* axis_attrib = node->get_attrib("axis");
+  if (axis_attrib)
   {
-    Vector3d gaxis;
-    gaxis_attrib->get_vector_value(gaxis);
-    set_axis(gaxis);  
+    Vector3d axis;
+    axis_attrib->get_vector_value(axis);
+    set_axis(axis);  
   }
 
   // compute _q_tare if necessary 
