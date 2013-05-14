@@ -751,6 +751,9 @@ BVPtr OBB::calc_vel_exp_BV(CollisionGeometryPtr g, double dt, const Twistd& v) c
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
+  // for this to work, OBB must be defined relative to g 
+  assert(center.pose == g.get_pose());
+
   // get the corresponding body
   RigidBodyPtr b = dynamic_pointer_cast<RigidBody>(g->get_single_body());
 
@@ -764,6 +767,9 @@ BVPtr OBB::calc_vel_exp_BV(CollisionGeometryPtr g, double dt, const Twistd& v) c
     return const_pointer_cast<OBB>(get_this());
   }
 
+  // transform the velocity to the global frame
+  Twistd v0 = Pose3d::transform(v.pose, GLOBAL, v);
+
   // get matrix for transforming vectors from b's frame to world frame
   shared_ptr<const Pose3d> wTb = b->get_pose();
 
@@ -772,7 +778,7 @@ BVPtr OBB::calc_vel_exp_BV(CollisionGeometryPtr g, double dt, const Twistd& v) c
   if (lv.norm() <= NEAR_ZERO/dt) 
     *o = *get_this();
   else
-    *o = OBB(*get_this(), wTb->inverse_transform(lv)*dt);
+    *o = OBB(*get_this(), lv*dt);
 
   FILE_LOG(LOG_BV) << "OBB::calc_vel_exp_OBB() entered" << endl;
   FILE_LOG(LOG_BV) << "  original bounding box: " << endl << *get_this();

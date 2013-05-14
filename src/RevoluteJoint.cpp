@@ -107,26 +107,27 @@ void RevoluteJoint::update_spatial_axes()
 /// Determines (and sets) the value of Q from the axis and the inboard link and outboard link transforms
 void RevoluteJoint::determine_q(VectorNd& q)
 {
-  // get the inboard and outboard link pointers
-  RigidBodyPtr inboard = get_inboard_link();
+  // get the outboard link pointer
   RigidBodyPtr outboard = get_outboard_link();
   
-  // verify that the inboard and outboard links are set
-  if (!inboard || !outboard)
-    throw std::runtime_error("determine_q() called on NULL inboard and/or outboard links!");
+  // verify that the outboard link is set
+  if (!outboard)
+    throw std::runtime_error("determine_q() called on NULL outboard link!");
 
   // if axis is not defined, can't use this method
   if (std::fabs(_u.norm() - 1.0) > NEAR_ZERO)
     throw UndefinedAxisException();
 
-  // get the link transforms
-  Matrix3 R_inboard, R_outboard;
-  inboard->get_pose().get_rotation(&R_inboard);
-  outboard->get_pose().get_rotation(&R_outboard);
+  // get the poses of the joint and outboard link
+  shared_ptr<const Pose3d> Fj = get_pose();
+  shared_ptr<const Pose3d> Fo = outboard->get_pose();
+  shared_ptr<Pose3d> Fjprime;
 
+  // Fo will be relative to Fj' which will be relative to Fj
+  
   // determine the joint transformation
-  Matrix3 R_local = R_inboard.transpose_mult(R_outboard);
-  AAngled aa(&R_local, &_u);
+  Matrix3d R = Fjprime->q;
+  AAngled aa(R, _u);
 
   // set q 
   q.resize(num_dof());
@@ -134,13 +135,12 @@ void RevoluteJoint::determine_q(VectorNd& q)
 }
 
 /// Gets the pose for this joint
-shared_ptr<const Pose3d> RevoluteJoint::get_pose()
+shared_ptr<const Pose3d> RevoluteJoint::get_induced_pose()
 {
   // note that translation is set to zero in the constructors
-  AAngled a(&_u, this->q[DOF_1]+this->_q_tare[DOF_1]);
-  _F.set_rotation(&a);
+  _Fprime->q = AAngled(_u, this->q[DOF_1]+this->_q_tare[DOF_1]);
 
-  return _F;
+  return _Fprime;
 }
 
 /// Gets the derivative for the spatial axes for this joint
@@ -149,6 +149,7 @@ const std::vector<Twistd>& RevoluteJoint::get_spatial_axes_dot()
   return _s_deriv;
 }
 
+/*
 /// Computes the constraint Jacobian with respect to a body
 void RevoluteJoint::calc_constraint_jacobian_euler(RigidBodyPtr body, unsigned index, double Cq[7])
 {
@@ -1008,6 +1009,7 @@ void RevoluteJoint::evaluate_constraints(double C[])
   C[3] = v1i.dot(v2);
   C[4] = v1j.dot(v2); 
 }
+*/
 
 /// Implements Base::load_from_xml()
 void RevoluteJoint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)

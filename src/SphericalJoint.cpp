@@ -7,15 +7,17 @@
 #include <cmath>
 #include <iostream>
 #include <Moby/Constants.h>
-#include <Moby/AAngle.h>
 #include <Moby/RigidBody.h>
 #include <Moby/XMLTree.h>
 #include <Moby/NullPointerException.h>
 #include <Moby/UndefinedAxisException.h>
 #include <Moby/SphericalJoint.h>
 
-using namespace Moby;
+using std::vector;
+using boost::shared_ptr;
+using namespace Ravelin;
 using boost::dynamic_pointer_cast;
+using namespace Moby;
 
 /// Initializes the joint
 /**
@@ -272,13 +274,6 @@ const vector<Twistd>& SphericalJoint::get_spatial_axes()
   u3.pose = _F;
 
   // update the spatial axis in link coordinates
-  SVector6 si1, si2, si3;
-  si1.set_upper(u1);
-  si2.set_upper(u2);
-  si3.set_upper(u3);
-  si1.set_lower(ZEROS_3);
-  si2.set_lower(ZEROS_3);
-  si3.set_lower(ZEROS_3);
   _s[0].set_angular(u1);
   _s[0].set_linear(ZEROS_3);
   _s[1].set_angular(u2);
@@ -342,13 +337,12 @@ void SphericalJoint::determine_q(VectorNd& q)
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
-  // get the inboard and outboard links
-  RigidBodyPtr inboard = get_inboard_link();
+  // get the outboard link
   RigidBodyPtr outboard = get_outboard_link();
 
-  // verify that the inboard and outboard links are set
-  if (!inboard || !outboard)
-    throw std::runtime_error("determine_q() called on NULL inboard and/or outboard links!");
+  // verify that the outboard link is set
+  if (!outboard)
+    throw std::runtime_error("determine_q() called on NULL outboard link!");
 
   // if any of the axes are not defined, can't use this method
   if (std::fabs(_u[0].norm_sq() - 1.0) > NEAR_ZERO ||
@@ -359,27 +353,26 @@ void SphericalJoint::determine_q(VectorNd& q)
   // set proper size for q
   q.resize(num_dof());
 
-  // get the link transforms
-  Matrix3d R_inboard, R_outboard;
-  inboard->get_transform().get_rotation(&R_inboard);
-  outboard->get_transform().get_rotation(&R_outboard);
+  // get the poses of the joint and outboard link
+  shared_ptr<const Pose3d> Fj = get_pose();
+  shared_ptr<const Pose3d> Fo = outboard->get_pose();
+  shared_ptr<Pose3d> Fjprime;
+
+  // Fo will be relative to Fj' which will be relative to Fj
 
   // determine the joint transformation
-  Matrix3d R_local = R_inboard.transpose_mult(R_outboard);
-
-  // back out the transformation to z-axis
-  Matrix3d RU = _R.transpose_mult(R_local * _R);
+  Matrix3d R = Fjprime->q;
 
   // determine cos and sin values for q1, q2,  and q3
-  double s2 = RU(X,Z);
+  double s2 = R(X,Z);
   double c2 = std::cos(std::asin(s2));
   double s1, c1, s3, c3;
   if (std::fabs(c2) > NEAR_ZERO)
   {
-    s1 = -RU(Y,Z)/c2;
-    c1 = RU(Z,Z)/c2;
-    s3 = -RU(X,Y)/c2;
-    c3 = RU(X,X)/c2;
+    s1 = -R(Y,Z)/c2;
+    c1 = R(Z,Z)/c2;
+    s3 = -R(X,Y)/c2;
+    c3 = R(X,X)/c2;
     assert(!std::isnan(s1));
     assert(!std::isnan(c1));
     assert(!std::isnan(s3));
@@ -389,42 +382,42 @@ void SphericalJoint::determine_q(VectorNd& q)
   {
     // singular, we can pick any value for s1, c1, s3, c3 as long as the
     // following conditions are satisfied
-    // c1*s3 + s1*c3*s2 = RU(Y,X)
-    // c1*c3 - s1*s3*s2 = RU(Y,Y)
-    // s1*s3 - c1*c3*s2 = RU(Z,X)
-    // s1*c3 + c1*s3*s2 = RU(Z,Y)
+    // c1*s3 + s1*c3*s2 = R(Y,X)
+    // c1*c3 - s1*s3*s2 = R(Y,Y)
+    // s1*s3 - c1*c3*s2 = R(Z,X)
+    // s1*c3 + c1*s3*s2 = R(Z,Y)
     // so, we'll set q1 to zero (arbitrarily) and obtain
     s1 = 0;
     c1 = 1;
-    s3 = RU(Y,X);
-    c3 = RU(Y,Y);
+    s3 = R(Y,X);
+    c3 = R(Y,Y);
   }
 
   // now determine q; only q2 can be determined without ambiguity
   if (std::fabs(s1) < NEAR_ZERO)
-    q[DOF_2] = std::atan2(RU(X,Z), RU(Z,Z)/c1);
+    q[DOF_2] = std::atan2(R(X,Z), R(Z,Z)/c1);
   else
-    q[DOF_2] = std::atan2(RU(X,Z), -RU(Y,Z)/s1);
+    q[DOF_2] = std::atan2(R(X,Z), -R(Y,Z)/s1);
   assert(!std::isnan(q[DOF_2]));
 
   // if cos(q2) is not singular, proceed easily from here..
   if (std::fabs(c2) > NEAR_ZERO)
   {
-    q[DOF_1] = std::atan2(-RU(Y,Z)/c2, RU(Z,Z)/c2);
-    q[DOF_3] = std::atan2(-RU(X,Y)/c2, RU(X,X)/c2);
+    q[DOF_1] = std::atan2(-R(Y,Z)/c2, R(Z,Z)/c2);
+    q[DOF_3] = std::atan2(-R(X,Y)/c2, R(X,X)/c2);
     assert(!std::isnan(q[DOF_1]));
     assert(!std::isnan(q[DOF_3]));
   }
   else
   {
     if (std::fabs(c1) > NEAR_ZERO)
-      q[DOF_3] = std::atan2((RU(Y,X) - s1*s2*c3)/c1, (RU(Y,Y) + s1*s2*s3)/c1);
+      q[DOF_3] = std::atan2((R(Y,X) - s1*s2*c3)/c1, (R(Y,Y) + s1*s2*s3)/c1);
     else
-      q[DOF_3] = std::atan2((RU(Z,X) + c1*s2*c3)/s1, (RU(Z,Y) - c1*s2*s3)/s1);
+      q[DOF_3] = std::atan2((R(Z,X) + c1*s2*c3)/s1, (R(Z,Y) - c1*s2*s3)/s1);
     if (std::fabs(c3) > NEAR_ZERO)
-      q[DOF_1] = std::atan2((RU(Y,X) - c1*s3)/(s2*c3), (-RU(Y,X) + s1*s3)/(s2*c3));
+      q[DOF_1] = std::atan2((R(Y,X) - c1*s3)/(s2*c3), (-R(Y,X) + s1*s3)/(s2*c3));
     else
-      q[DOF_1] = std::atan2((-RU(Y,Y) + c1*c3)/(s2*s3), (RU(Z,Y) - s1*c3)/(s2*s3));
+      q[DOF_1] = std::atan2((-R(Y,Y) + c1*c3)/(s2*s3), (R(Z,Y) - s1*c3)/(s2*s3));
     assert(!std::isnan(q[DOF_1]));
     assert(!std::isnan(q[DOF_3]));
   }
@@ -449,12 +442,12 @@ Matrix3d SphericalJoint::get_rotation() const
 
   // determine rotation
   // this is just the rotation matrix induced by using Tait-Bryan angles
-  Matrix3d RU;
-  RU(X,X) = c2*c3;              RU(X,Y) = -c2*s3;              RU(X,Z) = s2;
-  RU(Y,X) = s1*s2*c3 + c1*s3;   RU(Y,Y) = -s1*s2*s3 + c1*c3;   RU(Y,Z) = -c2*s1;
-  RU(Z,X) = -c1*s2*c3 + s1*s3;  RU(Z,Y) = c1*s2*s3 + s1*c3;    RU(Z,Z) = c2*c1;
+  Matrix3d R;
+  R(X,X) = c2*c3;              R(X,Y) = -c2*s3;              R(X,Z) = s2;
+  R(Y,X) = s1*s2*c3 + c1*s3;   R(Y,Y) = -s1*s2*s3 + c1*c3;   R(Y,Z) = -c2*s1;
+  R(Z,X) = -c1*s2*c3 + s1*s3;  R(Z,Y) = c1*s2*s3 + s1*c3;    R(Z,Z) = c2*c1;
 
-  return RU;
+  return R;
 }
 
 /// Gets the (local) transform for this joint
@@ -465,6 +458,7 @@ shared_ptr<const Pose3d> SphericalJoint::get_induced_pose()
   return _Fprime;
 }
 
+/*
 /// Evaluates the constraint equations
 void SphericalJoint::evaluate_constraints(double C[])
 {
@@ -725,6 +719,7 @@ void SphericalJoint::calc_constraint_jacobian_dot_euler(RigidBodyPtr body, unsig
     }
   }
 }
+*/
 
 /// Implements Base::load_from_xml()
 void SphericalJoint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)

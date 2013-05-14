@@ -60,8 +60,11 @@ BVPtr BoundingSphere::calc_vel_exp_BV(CollisionGeometryPtr g, double dt, const T
   // get the corresponding body
   SingleBodyPtr b = g->get_single_body();
 
+  // verify that the BV is in the proper frame
+  assert(center.pose == g->get_pose());
+
   // if the body does not move, just return the OBB
-  if (!b->is_enabled() || lv.norm()*dt < NEAR_ZERO)
+  if (!b->is_enabled() || v.get_linear().norm()*dt < NEAR_ZERO)
   {
     FILE_LOG(LOG_BV) << "BoundingSphere::calc_vel_exp_BV() entered" << endl;
     FILE_LOG(LOG_BV) << "  -- using original bounding sphere" << endl;
@@ -70,10 +73,13 @@ BVPtr BoundingSphere::calc_vel_exp_BV(CollisionGeometryPtr g, double dt, const T
     return const_pointer_cast<BoundingSphere>(get_this());
   }
 
+  // get the velocity in the proper frame
+  Twistd vx = Pose3d::transform(v.pose, center.pose, v); 
+
   // otherwise, create a SSL 
   shared_ptr<SSL> ssl(new SSL);
   ssl->p1 = this->center;
-  ssl->p2 = this->center + lv*dt;
+  ssl->p2 = this->center + vx.get_linear()*dt;
   ssl->radius = this->radius;
   return ssl;
 }
