@@ -8,12 +8,14 @@
 #include <iostream>
 #include <Moby/NullPointerException.h>
 #include <Moby/Constants.h>
-#include <Moby/AAngle.h>
 #include <Moby/RigidBody.h>
 #include <Moby/XMLTree.h>
 #include <Moby/UndefinedAxisException.h>
 #include <Moby/UniversalJoint.h>
 
+using boost::shared_ptr;
+using std::vector;
+using namespace Ravelin;
 using namespace Moby;
 
 /// Initializes the joint
@@ -106,7 +108,7 @@ void UniversalJoint::set_axis(const Vector3d& axis, Axis a)
   Vector3d naxis = Vector3d::normalize(axis); 
 
   // set the axis
-  _u[a] = Pose3d::trasnform(naxis.pose, get_pose(), naxis); 
+  _u[a] = Pose3d::transform(naxis.pose, get_pose(), naxis); 
 
   // update the spatial axes
   update_spatial_axes(); 
@@ -117,8 +119,11 @@ void UniversalJoint::set_axis(const Vector3d& axis, Axis a)
   {
     RigidBodyPtr inboard = get_inboard_link();
     RigidBodyPtr outboard = get_outboard_link();
+// TODO: re-enable this with fix to joint equations
+/*
     Vector3d h2_g = inboard->get_transform().mult_vector(naxis);
     _h2 = outboard->get_transform().transpose_mult_vector(h2_g);
+*/
   }
 }        
 
@@ -169,11 +174,6 @@ const vector<Twistd>& UniversalJoint::get_spatial_axes()
   u2.pose = u1.pose;
 
   // update the spatial axes in link coordinates
-  SVector6 si1, si2;
-  si1.set_upper(u1);
-  si2.set_upper(u2);
-  si1.set_lower(ZEROS_3);
-  si2.set_lower(ZEROS_3);
   _s[0].set_angular(u1);
   _s[0].set_linear(ZEROS_3);
   _s[1].set_angular(u2);
@@ -225,38 +225,31 @@ void UniversalJoint::determine_q(VectorNd& q)
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
+  // get the outboard link
+  RigidBodyPtr outboard = get_outboard_link();
+
+  // verify that the outboard link is set
+  if (!outboard)
+    throw std::runtime_error("determine_q() called on NULL outboard link!");
+
   // set proper size for q
   this->q.resize(num_dof());
 
-  // get the inboard and outboard links
-  RigidBodyPtr inboard = get_inboard_link();
-  RigidBodyPtr outboard = get_outboard_link();
+  // get the poses of the joint and outboard link
+  shared_ptr<const Pose3d> Fj = get_pose();
+  shared_ptr<const Pose3d> Fo = outboard->get_pose();
+  shared_ptr<Pose3d> Fjprime;
 
-  // verify that the inboard and outboard links are set
-  if (!inboard || !outboard)
-    throw std::runtime_error("determine_q() called on NULL inboard and/or outboard links!");
-
-  // if any of the axes are not defined, can't use this method
-  if (std::fabs(_u[0].norm() - 1.0) > NEAR_ZERO ||
-      std::fabs(_u[1].norm() - 1.0) > NEAR_ZERO)
-    throw UndefinedAxisException();
-
-  // get the link transforms
-  Matrix3 R_inboard, R_outboard;
-  inboard->get_transform().get_rotation(&R_inboard);
-  outboard->get_transform().get_rotation(&R_outboard);
+  // Fo will be relative to Fj' which will be relative to Fj
 
   // determine the joint transformation
-  Matrix3 R_local = R_inboard.transpose_mult(R_outboard);
-
-  // back out the transformation to z-axis
-  Matrix3 RU = _R.transpose_mult(R_local * _R);
+  Matrix3d R = Fjprime->q;
 
   // determine q1 and q2 -- they are uniquely determined by examining the rotation matrix
   // (see get_rotation())
   q.resize(num_dof());
-  q[DOF_1] = std::atan2(RU(Z,Y), RU(Y,Y));
-  q[DOF_2] = std::atan2(RU(X,Z), RU(X,X));   
+  q[DOF_1] = std::atan2(R(Z,Y), R(Y,Y));
+  q[DOF_2] = std::atan2(R(X,Z), R(X,X));   
 }
 
 /// Gets the (local) transform for this joint
@@ -276,12 +269,12 @@ Matrix3d UniversalJoint::get_rotation() const
 
   // determine untransformed rotation; this rotation matrix is obtained by
   // using Tait-Bryan angles without a final rotation
-  Matrix3 RU;
-  RU(X,X) = c2;      RU(X,Y) = 0;    RU(X,Z) = s2;
-  RU(Y,X) = s1*s2;  RU(Y,Y) = c1;    RU(Y,Z) = -c2*s1;
-  RU(Z,X) = -c1*s2;  RU(Z,Y) = s1;   RU(Z,Z) = c1*c2;
+  Matrix3d R;
+  R(X,X) = c2;      R(X,Y) = 0;    R(X,Z) = s2;
+  R(Y,X) = s1*s2;  R(Y,Y) = c1;    R(Y,Z) = -c2*s1;
+  R(Z,X) = -c1*s2;  R(Z,Y) = s1;   R(Z,Z) = c1*c2;
 
-  return RU;
+  return R;
 }
 
 /// Gets the transform induced by this joint
@@ -292,6 +285,7 @@ shared_ptr<const Pose3d> UniversalJoint::get_induced_pose()
   return _Fprime;
 }
 
+/*
 /// Computes the constraint jacobian
 void UniversalJoint::calc_constraint_jacobian_euler(RigidBodyPtr body, unsigned index, double Cq[7])
 {
@@ -907,6 +901,7 @@ void UniversalJoint::evaluate_constraints(double C[])
   C[2] = r12[Z];
   C[3] = h1.dot(h2);
 }
+*/
 
 /// Implements Base::load_from_xml()
 void UniversalJoint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)

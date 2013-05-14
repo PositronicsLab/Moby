@@ -125,6 +125,8 @@ class Event
 
     void write_vrml(const std::string& filename, double sphere_radius = 0.1, double normal_length = 1.0) const;
     bool operator<(const Event& e) const { return t < e.t; }
+    void compute_event_data(Ravelin::MatrixNd& M, Ravelin::VectorNd& q) const;
+    void compute_cross_event_data(const Event& e, Ravelin::MatrixNd& M) const;
 
   private:
     static void determine_convex_set(std::list<Event*>& group);

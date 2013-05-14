@@ -23,6 +23,7 @@
 #include <Moby/Constants.h>
 #include <Moby/CompGeom.h>
 #include <Moby/SingleBody.h>
+#include <Moby/Spatial.h>
 #include <Moby/RigidBody.h>
 #include <Moby/ArticulatedBody.h>
 #include <Moby/CollisionGeometry.h>
@@ -99,9 +100,16 @@ void Event::compute_event_data(MatrixNd& M, VectorNd& q) const
 
   if (event_type == eContact)
   {
+    // setup useful indices
+    const unsigned N = 0, S = 1, T = 2;
+
+    // get the two single bodies
+    SingleBodyPtr sb1 = contact_geom1->get_single_body();
+    SingleBodyPtr sb2 = contact_geom2->get_single_body();
+
     // get the two super bodies
-    DynamicBodyPtr su1 = contact_geom1->get_single_body()->get_super_body();
-    DynamicBodyPtr su2 = contact_geom2->get_single_body()->get_super_body();
+    DynamicBodyPtr su1 = sb1->get_super_body();
+    DynamicBodyPtr su2 = sb2->get_super_body();
 
     // setup the contact frame
     event_frame->q.set_identity();
@@ -129,15 +137,23 @@ void Event::compute_event_data(MatrixNd& M, VectorNd& q) const
     J1.resize(3, NGC1);
     J2.resize(3, NGC2);
 
+    // get the rows of the Jacobians for output
+    SharedVectorNd J1n = J1.row(N); 
+    SharedVectorNd J1s = J1.row(S); 
+    SharedVectorNd J1t = J1.row(T); 
+    SharedVectorNd J2n = J2.row(N); 
+    SharedVectorNd J2s = J2.row(S); 
+    SharedVectorNd J2t = J2.row(T); 
+
     // compute the Jacobians for the two bodies
-    su1->calc_jacobian(event_frame, twist);
-    transpose_mult(twist, wn, J1.row(0)); 
-    transpose_mult(twist, ws, J1.row(1)); 
-    transpose_mult(twist, wt, J1.row(2)); 
-    su2->calc_jacobian(event_frame, twist);
-    transpose_mult(twist, -wn, J2.row(0)); 
-    transpose_mult(twist, -ws, J2.row(1)); 
-    transpose_mult(twist, -wt, J2.row(2)); 
+    su1->calc_jacobian(event_frame, sb1, twist);
+    transpose_mult(twist, wn, J1n); 
+    transpose_mult(twist, ws, J1s); 
+    transpose_mult(twist, wt, J1t); 
+    su2->calc_jacobian(event_frame, sb2, twist);
+    transpose_mult(twist, -wn, J2n); 
+    transpose_mult(twist, -ws, J2s); 
+    transpose_mult(twist, -wt, J2t); 
 
     // compute the event inertia matrix for the first body
     su1->transpose_solve_generalized_inertia(DynamicBody::eSpatial, J1, workM1);
@@ -169,17 +185,30 @@ void Event::compute_event_data(MatrixNd& M, VectorNd& q) const
   else
   {
     assert(event_type == eConstraint);
+// TODO: finish implementing this function
   }
 } 
 
 /// Updates the event data
 void Event::compute_cross_event_data(const Event& e, MatrixNd& M) const
 {
+  static MatrixNd J1, J2, workM1;
+  static vector<Twistd> twist;
+  static shared_ptr<Pose3d> event_frame(new Pose3d);
+
+// TODO: finish implementing this function
   if (event_type == eContact)
   {
+    // setup useful indices
+    const unsigned N = 0, S = 1, T = 2;
+
+    // get the two single bodies
+    SingleBodyPtr sb1 = contact_geom1->get_single_body();
+    SingleBodyPtr sb2 = contact_geom2->get_single_body();
+
     // get the two super bodies
-    DynamicBodyPtr su1 = contact_geom1->get_single_body()->get_super_body();
-    DynamicBodyPtr su2 = contact_geom2->get_single_body()->get_super_body();
+    DynamicBodyPtr su1 = sb1->get_super_body();
+    DynamicBodyPtr su2 = sb2->get_super_body();
 
     // setup the contact frame
     event_frame->q.set_identity();
@@ -207,22 +236,30 @@ void Event::compute_cross_event_data(const Event& e, MatrixNd& M) const
     J1.resize(3, NGC1);
     J2.resize(3, NGC2);
 
+    // get the rows of the Jacobians for output
+    SharedVectorNd J1n = J1.row(N); 
+    SharedVectorNd J1s = J1.row(S); 
+    SharedVectorNd J1t = J1.row(T); 
+    SharedVectorNd J2n = J2.row(N); 
+    SharedVectorNd J2s = J2.row(S); 
+    SharedVectorNd J2t = J2.row(T); 
+
     // compute the Jacobians for the two bodies
-    su1->calc_jacobian(event_frame, twist);
-    transpose_mult(twist, wn, J1.row(0)); 
-    transpose_mult(twist, ws, J1.row(1)); 
-    transpose_mult(twist, wt, J1.row(2)); 
-    su2->calc_jacobian(event_frame, twist);
-    transpose_mult(twist, wn, -J2.row(0)); 
-    transpose_mult(twist, ws, -J2.row(1)); 
-    transpose_mult(twist, wt, -J2.row(2)); 
+    su1->calc_jacobian(event_frame, sb1, twist);
+    transpose_mult(twist, wn, J1n); 
+    transpose_mult(twist, ws, J1s); 
+    transpose_mult(twist, wt, J1t); 
+    su2->calc_jacobian(event_frame, sb2, twist);
+    transpose_mult(twist, -wn, J2n); 
+    transpose_mult(twist, -ws, J2s); 
+    transpose_mult(twist, -wt, J2t); 
 
     // compute the event inertia matrix for the first body
     su1->transpose_solve_generalized_inertia(DynamicBody::eSpatial, J1, workM1);
 
     // compute the event inertia matrix for the second body
     su2->transpose_solve_generalized_inertia(DynamicBody::eSpatial, J2, workM1);
-
+  }
 } 
 
 /// Sets the contact parameters for this event
@@ -334,12 +371,20 @@ std::ostream& Moby::operator<<(std::ostream& o, const Event& e)
 
 #ifdef USE_OSG
 /// Copies this matrix to an OpenSceneGraph Matrixd object
-static void to_osg_matrix(const Matrix4& src, osg::Matrixd& tgt)
+static void to_osg_matrix(const Pose3d& src, osg::Matrixd& tgt)
 {
+  // get the rotation matrix
+  Matrix3d M = src.q;
+
+  // setup the rotation components of tgt
   const unsigned X = 0, Y = 1, Z = 2, W = 3;
-  for (unsigned i=X; i<= W; i++)
+  for (unsigned i=X; i<= Z; i++)
     for (unsigned j=X; j<= Z; j++)
-      tgt(j,i) = src(i,j);
+      tgt(j,i) = M(i,j);
+
+  // setup the translation components of tgt
+  for (unsigned i=X; i<= Z; i++)
+    tgt(W,i) = src.x[i];
 
   // set constant values of the matrix
   tgt(X,W) = tgt(Y,W) = tgt(Z,W) = (double) 0.0;
@@ -363,7 +408,9 @@ osg::Node* Event::to_visualization_data() const
   R.set_column(Y, contact_normal);
   R.set_column(Z, -z_axis);
   Vector3d x = contact_point + contact_normal;
-  Matrix4 T(&R, &x);
+  Pose3d T;
+  T.q = R;
+  T.x = Origin3d(x);
 
   // setup the transform node for the cone
   osg::Matrixd m;

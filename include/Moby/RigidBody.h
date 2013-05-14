@@ -81,7 +81,7 @@ class RigidBody : public SingleBody
     void set_inertia(const Ravelin::SpatialRBInertiad& m);
     void set_enabled(bool flag);
     void apply_impulse(const Ravelin::Wrenchd& w);
-    virtual void transform(const Ravelin::Pose3d& transform) { set_pose(transform * (*_F)); }
+    virtual void transform(const Ravelin::Pose3d& P) { set_pose(P * (*_F)); }
     virtual void calc_fwd_dyn(double dt);
     const Ravelin::SpatialRBInertiad& get_inertia() const;
 

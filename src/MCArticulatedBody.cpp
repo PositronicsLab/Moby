@@ -2,15 +2,12 @@
 #include <Moby/RigidBody.h>
 #include <Moby/Joint.h>
 #include <Moby/XMLTree.h>
-#include <Moby/LinAlg.h>
-#include <Moby/Optimization.h>
 #include <Moby/Log.h>
 #include <Moby/select>
 #include <Moby/SingularException.h>
 #include <Moby/NumericalException.h>
 #include <Moby/MCArticulatedBody.h>
 
-using namespace Moby;
 using std::vector;
 using std::list;
 using std::map;
@@ -19,6 +16,8 @@ using std::endl;
 using boost::shared_ptr;
 using boost::static_pointer_cast;
 using boost::dynamic_pointer_cast;
+using namespace Ravelin;
+using namespace Moby;
 
 /// Sets Baumgarte stabilization factors to alpha = 0.8, beta = 0.9
 MCArticulatedBody::MCArticulatedBody()

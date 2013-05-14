@@ -7,12 +7,14 @@
 #include <cmath>
 #include <iostream>
 #include <Moby/Constants.h>
-#include <Moby/AAngle.h>
 #include <Moby/XMLTree.h>
 #include <Moby/RigidBody.h>
 #include <Moby/UndefinedAxisException.h>
 #include <Moby/PrismaticJoint.h>
 
+using std::vector;
+using boost::shared_ptr;
+using namespace Ravelin;
 using namespace Moby;
 
 /// Initializes the joint
@@ -77,12 +79,13 @@ void PrismaticJoint::set_axis(const Vector3d& axis)
 
   // set the joint axis in the inner link frame
   update_spatial_axes(); 
-
+/*
   // set the joint axis in the outer link frame and setup associated
   // vectors needed for maximal coordinate articulated bodies
   _v2 = inner->get_transform().mult_vector(naxis);
   _v2 = outer->get_transform().transpose_mult_vector(_v2);
   Vector3d::determine_orthonormal_basis(_u, _ui, _uj);
+*/
 }        
 
 /// Updates the spatial axis for this joint
@@ -91,22 +94,12 @@ void PrismaticJoint::update_spatial_axes()
   // call parent method
   Joint::update_spatial_axes();
 
-  // get the inboard and outboard links
-  RigidBodyPtr inboard = get_inboard_link();
-  RigidBodyPtr outboard = get_outboard_link();
-  if (!inboard || !outboard)
-    return;
-
   // if the axis is not normal, return
   if (std::fabs(_u.norm_sq() - (double) 1.0) > NEAR_ZERO)
     return;
 
-  // get the axis in outer link coordinates
-  Vector3d u0 = inboard->get_transform().mult_vector(_u);
-  Vector3d ui = outboard->get_transform().transpose_mult_vector(u0);
-
   // update the spatial axis in link coordinates
-  _s[0].set_linear(ui);
+  _s[0].set_linear(_u);
   _s[0].set_angular(ZEROS_3);
 
   // update the complement of the spatial axis in link coordinates
@@ -116,28 +109,31 @@ void PrismaticJoint::update_spatial_axes()
 /// Determines (and sets) the value of Q from the axis and the inboard link and outboard link transforms
 void PrismaticJoint::determine_q(VectorNd& q)
 {
-  RigidBodyPtr inboard = get_inboard_link();
   RigidBodyPtr outboard = get_outboard_link();
 
-  // verify that the inboard and outboard links are set
-  if (!inboard || !outboard)
-    throw std::runtime_error("determine_q() called on NULL inboard and/or outboard links!");
+  // verify that the outboard link is set
+  if (!outboard)
+    throw std::runtime_error("determine_q() called on NULL outboard link!");
 
   // if axis is not defined, can't use this method
   if (std::fabs(_u.norm() - 1.0) > NEAR_ZERO)
     throw UndefinedAxisException();
 
-  // get the attachment points on the link (global coords)
-  Vector3d p1 = get_position_global(false);
-  Vector3d p2 = get_position_global(true);
+  // get the poses of the joint and outboard link
+  shared_ptr<const Pose3d> Fj = get_pose();
+  shared_ptr<const Pose3d> Fo = outboard->get_pose();
+  shared_ptr<Pose3d> Fjprime;
 
-  // get the joint axis in the global frame
-  Vector3d ug = inboard->get_transform().mult_vector(_u);
+  // Fo will be relative to Fj' which will be relative to Fj
 
-  // now, we'll project p2 onto the axis ug; points will be setup so that
-  // ug passes through origin on inboard
+  // get the vector of translation
+  Vector3d x(Fjprime->x);
   q.resize(num_dof());
-  q[DOF_1] = ug.dot(p2-p1);
+  q[DOF_1] = x.norm();
+
+  // see whether to reverse q
+  if (x.dot(_u) < (double) 0.0)
+    q[DOF_1] = -q[DOF_1];
 }
 
 /// Gets the (local) transform for this joint
@@ -153,6 +149,7 @@ vector<Twistd>& PrismaticJoint::get_spatial_axes_dot()
   return _s_deriv;
 }
 
+/*
 /// Calculates the constraint Jacobian
 void PrismaticJoint::calc_constraint_jacobian_euler(RigidBodyPtr body, unsigned index, double Cq[7])
 {
@@ -175,8 +172,8 @@ void PrismaticJoint::calc_constraint_jacobian_euler(RigidBodyPtr body, unsigned 
   }
 
   // setup constants for calculations
-  const Quat& q1 = inner->get_orientation();
-  const Quat& q2 = outer->get_orientation();
+  const Quatd& q1 = inner->get_orientation();
+  const Quatd& q2 = outer->get_orientation();
   const Vector3d& p1 = inner->get_outer_joint_data(outer).com_to_joint_vec;
   const Vector3d& p2 = outer->get_inner_joint_data(inner).joint_to_com_vec_of;
   const double x1 = inner->get_position()[X];
@@ -907,10 +904,10 @@ void PrismaticJoint::calc_constraint_jacobian_dot_euler(RigidBodyPtr body, unsig
   }
 
   // setup constants for calculations
-  const Quat& q1 = inner->get_orientation();
-  const Quat& q2 = outer->get_orientation();
-  const Quat qd1 = Quat::deriv(q1, inner->get_avel());
-  const Quat qd2 = Quat::deriv(q2, outer->get_avel());
+  const Quatd& q1 = inner->get_orientation();
+  const Quatd& q2 = outer->get_orientation();
+  const Quatd qd1 = Quatd::deriv(q1, inner->get_avel());
+  const Quatd qd2 = Quatd::deriv(q2, outer->get_avel());
   const Vector3d& p1 = inner->get_outer_joint_data(outer).com_to_joint_vec;
   const Vector3d& p2 = outer->get_inner_joint_data(inner).joint_to_com_vec_of;
   const double x1 = inner->get_position()[X];
@@ -2195,6 +2192,7 @@ void PrismaticJoint::evaluate_constraints(double C[])
   C[3] = v1j.dot(r12);
   C[4] = h1.dot(h2);
 }
+*/
 
 /// Implements Base::load_from_xml()
 void PrismaticJoint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
@@ -2230,6 +2228,6 @@ void PrismaticJoint::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Bas
 
   // save the joint axis (global coords)
   Vector3d u0 = Pose3d::transform(_u.pose, shared_ptr<const Pose3d>(), _u);
-  node->attribs.insert(XMLAttrib("axis", _u0));
+  node->attribs.insert(XMLAttrib("axis", u0));
 }
 

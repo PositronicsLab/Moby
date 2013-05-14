@@ -7,11 +7,10 @@
 #include <cmath>
 #include <iostream>
 #include <Moby/Constants.h>
-#include <Moby/AAngle.h>
 #include <Moby/RigidBody.h>
 #include <Moby/XMLTree.h>
-#include <Moby/ScrewJoint.h>
 
+using namespace Ravelin;
 using namespace Moby;
 
 /// Initializes the joint

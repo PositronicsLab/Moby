@@ -12,7 +12,6 @@
 #include <map>
 #include <Moby/Constants.h>
 #include <Moby/Log.h>
-#include <Moby/LinAlg.h>
 #include <Moby/RCArticulatedBody.h>
 #include <Moby/RigidBody.h>
 #include <Moby/Joint.h>

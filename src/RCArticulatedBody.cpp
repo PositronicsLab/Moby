@@ -6,16 +6,13 @@
 
 #include <stack>
 #include <queue>
-#include <Moby/LinAlg.h>
 #include <Moby/Log.h>
-#include <Moby/AAngle.h>
 #include <Moby/Joint.h>
 #include <Moby/RigidBody.h>
 #include <Moby/CRBAlgorithm.h>
 #include <Moby/XMLTree.h>
 #include <Moby/FSABAlgorithm.h>
 #include <Moby/NumericalException.h>
-#include <Moby/cblas.h>
 #include <Moby/RCArticulatedBody.h>
 
 using namespace Moby;
