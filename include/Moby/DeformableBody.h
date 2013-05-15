@@ -39,7 +39,8 @@ class DeformableBody : public SingleBody
     DeformableBody();
     std::ostream& to_vrml(std::ostream& o, double scale) const;
     virtual void reset_accumulators();
-    virtual void transform(const Ravelin::Pose3d& T);
+    virtual void rotate(const Ravelin::Quatd& q);
+    virtual void translate(const Ravelin::Origin3d& o);
     virtual double calc_kinetic_energy() const;
     virtual unsigned num_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype) const;
     virtual void add_generalized_force(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gf);
