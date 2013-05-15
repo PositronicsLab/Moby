@@ -621,7 +621,7 @@ void MeshDCD::determine_contacts_deformable_rigid(CollisionGeometryPtr a, Collis
   SingleBodyPtr sbb = b->get_single_body();
 
   // get the transform from b to global frame
-  pair<Quatd, Origin3d> wTb = Pose3d::calc_relative_pose(b->get_pose(), GLOBAL);
+  Transform3d wTb = Pose3d::calc_relative_pose(b->get_pose(), GLOBAL);
 
   // get the meshes from a and b
   const IndexedTriArray& mesh_a = *a->get_geometry()->get_mesh();
@@ -689,7 +689,7 @@ void MeshDCD::determine_contacts_deformable(CollisionGeometryPtr a, CollisionGeo
   shared_ptr<const Pose3d> GLOBAL;
 
   // get the transform for the second collision geometry
-  pair<Quatd, Origin3d> wTb = Pose3d::calc_relative_pose(b->get_pose(), GLOBAL);
+  Transform3d wTb = Pose3d::calc_relative_pose(b->get_pose(), GLOBAL);
 
   // get the deformable bodies
   SingleBodyPtr sba = a->get_single_body();
@@ -783,8 +783,8 @@ void MeshDCD::determine_contacts_rigid(CollisionGeometryPtr a, CollisionGeometry
   const IndexedTriArray& mesh_b = *b->get_geometry()->get_mesh();
 
   // get the transformation from poses to global frame
-  pair<Quatd, Origin3d> wTa = Pose3d::calc_relative_pose(a->get_pose(), GLOBAL); 
-  pair<Quatd, Origin3d> wTb = Pose3d::calc_relative_pose(b->get_pose(), GLOBAL); 
+  Transform3d wTa = Pose3d::calc_relative_pose(a->get_pose(), GLOBAL); 
+  Transform3d wTb = Pose3d::calc_relative_pose(b->get_pose(), GLOBAL); 
   // check all tris of a against all tris of b
   for (unsigned i=0; i< mesh_a.num_tris(); i++)
   {
@@ -1558,7 +1558,7 @@ bool MeshDCD::is_collision(CollisionGeometryPtr a, CollisionGeometryPtr b)
   PrimitivePtr a_primitive = a->get_geometry();
 
   // get the transform and the inverse transform for this geometry
-  pair<Quatd, Origin3d> aTb = Pose3d::calc_relative_pose(b->get_pose(), a->get_pose());
+  Transform3d aTb = Pose3d::calc_relative_pose(b->get_pose(), a->get_pose());
 
   // get the second primitive 
   PrimitivePtr b_primitive = b->get_geometry();
@@ -1694,7 +1694,7 @@ bool MeshDCD::is_collision(double epsilon)
       BVPtr bv2 = g2_primitive->get_BVH_root();
 
       // compute the relative transform
-      pair<Quatd, Origin3d> g1Tg2 = Pose3d::calc_relative_pose(g2->get_pose(), g1->get_pose());
+      Transform3d g1Tg2 = Pose3d::calc_relative_pose(g2->get_pose(), g1->get_pose());
 
       // if intersects, add to colliding pairs
       if (intersect_BV_trees(bv1, bv2, g1Tg2, g1, g2))
@@ -1706,7 +1706,7 @@ bool MeshDCD::is_collision(double epsilon)
 }
 
 /// Intersects two BV trees; returns <b>true</b> if one (or more) pair of the underlying triangles intersects
-bool MeshDCD::intersect_BV_trees(BVPtr a, BVPtr b, const pair<Quatd, Origin3d>&  aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b) 
+bool MeshDCD::intersect_BV_trees(BVPtr a, BVPtr b, const Transform3d&  aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b) 
 {
   std::queue<tuple<BVPtr, BVPtr, bool> > q;
 

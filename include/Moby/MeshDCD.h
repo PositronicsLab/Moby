@@ -60,7 +60,7 @@ class MeshDCD : public CollisionDetection
     double intersect_rect(const Ravelin::Vector3d& normal, const Ravelin::Vector3d& axis1, const Ravelin::Vector3d& axis2, const LineSeg3& rs1, const LineSeg3& rs2, const LineSeg3& s, Ravelin::Point3d& isect1, Ravelin::Point3d& isect2);
     static unsigned determine_cubic_roots(double a, double b, double c, double x[3]);
     void add_rigid_body_model(RigidBodyPtr body);
-    bool intersect_BV_trees(boost::shared_ptr<BV> a, boost::shared_ptr<BV> b, const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b);
+    bool intersect_BV_trees(boost::shared_ptr<BV> a, boost::shared_ptr<BV> b, const Ravelin::Transform3d& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b);
     static Event create_contact(double toi, CollisionGeometryPtr a, CollisionGeometryPtr b, const Ravelin::Point3d& point, const Ravelin::Vector3d& vpoint, const Triangle& t);
     void check_geoms(double dt, CollisionGeometryPtr a, CollisionGeometryPtr b, const std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> >& q0, const std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> >& q1, std::vector<Event>& contacts); 
     void check_geom(double dt, CollisionGeometryPtr cg, const std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> >& q0, const std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> >& q1, std::vector<Event>& contacts); 
@@ -78,7 +78,7 @@ class MeshDCD : public CollisionDetection
     static unsigned find_body(const std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> >& q, DynamicBodyPtr body);
 
     template <class OutputIterator>
-    OutputIterator intersect_BV_leafs(BVPtr a, BVPtr b, const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b, OutputIterator output_begin) const;
+    OutputIterator intersect_BV_leafs(BVPtr a, BVPtr b, const Ravelin::Transform3d& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b, OutputIterator output_begin) const;
 
     /// Indicates when bounds vectors need to be rebuilt
     bool _rebuild_bounds_vecs;

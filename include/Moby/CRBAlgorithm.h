@@ -28,8 +28,8 @@ class CRBAlgorithm
     void invalidate_position_data() { _position_data_valid = false; }
     void invalidate_velocity_data() { }
     bool factorize_cholesky(Ravelin::MatrixNd& M);
-    Ravelin::VectorNd& M_solve(const Ravelin::VectorNd& v, Ravelin::VectorNd& result);
-    Ravelin::MatrixNd& M_solve(const Ravelin::MatrixNd& v, Ravelin::MatrixNd& result);
+    Ravelin::VectorNd& M_solve(Ravelin::VectorNd& xb);
+    Ravelin::MatrixNd& M_solve(Ravelin::MatrixNd& XB);
 
   private:
     std::vector<unsigned> _lambda;
@@ -66,8 +66,8 @@ class CRBAlgorithm
     void calc_fwd_dyn_floating_base(RCArticulatedBodyPtr body);
     void update_link_accelerations(RCArticulatedBodyPtr body);
     static void to_spatial7_inertia(const Ravelin::SpatialRBInertiad& I, const Ravelin::Quatd& q, Ravelin::MatrixNd& I7);
-    Ravelin::VectorNd& M_solve_noprecalc(const Ravelin::VectorNd& v, Ravelin::VectorNd& result);
-    Ravelin::MatrixNd& M_solve_noprecalc(const Ravelin::MatrixNd& v, Ravelin::MatrixNd& result);
+    Ravelin::VectorNd& M_solve_noprecalc(Ravelin::VectorNd& xb);
+    Ravelin::MatrixNd& M_solve_noprecalc(Ravelin::MatrixNd& XB);
     void transform_and_mult(RigidBodyPtr link, const Ravelin::SpatialRBInertiad& I, const std::vector<Ravelin::Twistd>& s, std::vector<Ravelin::Wrenchd>& Is);
 
   private:

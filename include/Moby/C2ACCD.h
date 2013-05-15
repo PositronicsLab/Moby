@@ -62,15 +62,15 @@ class C2ACCD : public CollisionDetection
         unsigned tri_idx;             // the index of this triangle
     };
 
-    double calc_dist(boost::shared_ptr<SSR> a, boost::shared_ptr<SSR> b, const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& aTb, Ravelin::Point3d& cpa, Ravelin::Point3d& cpb) const;
+    double calc_dist(boost::shared_ptr<SSR> a, boost::shared_ptr<SSR> b, const Ravelin::Transform3d& aTb, Ravelin::Point3d& cpa, Ravelin::Point3d& cpb) const;
     static bool query_intersect_seg_tri(const LineSeg3& seg, const Triangle& tri, double& t, Ravelin::Point3d& p);
     void determine_contacts(CollisionGeometryPtr a, CollisionGeometryPtr b, double toc, std::vector<Event>& contacts) const;
     bool check_collision(CollisionGeometryPtr a, CollisionGeometryPtr b, std::vector<std::pair<unsigned, unsigned> >& colliding_tris) const;
-    double do_CA(double step_size, CollisionGeometryPtr a, CollisionGeometryPtr b, boost::shared_ptr<SSR> ssr_a, boost::shared_ptr<SSR> ssr_b, const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& aTb, double dt);
+    double do_CA(double step_size, CollisionGeometryPtr a, CollisionGeometryPtr b, boost::shared_ptr<SSR> ssr_a, boost::shared_ptr<SSR> ssr_b, const Ravelin::Transform3d& aTb, double dt);
     double do_CAStep(double dist, const Ravelin::Vector3d& dab, CollisionGeometryPtr a, CollisionGeometryPtr b, boost::shared_ptr<SSR> ssr_a, boost::shared_ptr<SSR> ssr_b);
     double calc_mu(double dist, const Ravelin::Vector3d& n, CollisionGeometryPtr g, boost::shared_ptr<SSR> ssr, bool positive);
     void add_rigid_body_model(RigidBodyPtr body);
-    bool intersect_BV_trees(boost::shared_ptr<BV> a, boost::shared_ptr<BV> b, const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b);
+    bool intersect_BV_trees(boost::shared_ptr<BV> a, boost::shared_ptr<BV> b, const Ravelin::Transform3d& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b);
     void check_vertices(double dt, CollisionGeometryPtr a, CollisionGeometryPtr b, BVPtr ob, const std::vector<const Ravelin::Point3d*>& a_verts, const Ravelin::Pose3d& bTa_t0, const Ravelin::Twistd& a_vel, const Ravelin::Twistd& b_vel, double& earliest, std::vector<Event>& local_contacts) const;
     void check_geoms(double dt, CollisionGeometryPtr a, CollisionGeometryPtr b, const std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> >& q0, const std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> >& q1, std::vector<Event>& contacts); 
     void build_BV_tree(CollisionGeometryPtr geom);
@@ -82,12 +82,12 @@ class C2ACCD : public CollisionDetection
     static bool project_and_intersect(const Triangle& t, const LineSeg3& s, std::vector<Ravelin::Point3d>& contact_points);
     static bool project_and_intersect(const Triangle& t, const Ravelin::Point3d& p);
     void determine_closest_features(const Triangle& ta, const Triangle& tb, Triangle::FeatureType& fa, Triangle::FeatureType& fb, std::vector<Ravelin::Point3d>& contact_points) const;
-    void determine_closest_tris(CollisionGeometryPtr a, CollisionGeometryPtr b, const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& aTb, std::vector<std::pair<Triangle, Triangle> >& closest_tris) const;
+    void determine_closest_tris(CollisionGeometryPtr a, CollisionGeometryPtr b, const Ravelin::Transform3d& aTb, std::vector<std::pair<Triangle, Triangle> >& closest_tris) const;
     static DynamicBodyPtr get_super_body(CollisionGeometryPtr a);
     static unsigned find_body(const std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> >& q, DynamicBodyPtr body);
 
     template <class OutputIterator>
-    OutputIterator intersect_BV_leafs(BVPtr a, BVPtr b, const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b, OutputIterator output_begin) const;
+    OutputIterator intersect_BV_leafs(BVPtr a, BVPtr b, const Ravelin::Transform3d& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b, OutputIterator output_begin) const;
 
     template <class InputIterator, class OutputIterator>
     OutputIterator get_vertices(const IndexedTriArray& tris, InputIterator fselect_begin, InputIterator fselect_end, OutputIterator output);

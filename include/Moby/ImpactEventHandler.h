@@ -13,6 +13,7 @@
 #include <Ravelin/LinAlgd.h>
 #include <Moby/Base.h>
 #include <Moby/Types.h>
+#include <Moby/LCP.h>
 #include <Moby/Event.h>
 
 namespace Moby {
@@ -154,6 +155,7 @@ class ImpactEventHandler
     static void set_optimization_data(EventProblemData& q, ImpactOptData& iopt);
 
     Ravelin::LinAlgd _LA;
+    LCP _lcp;
 }; // end class
 } // end namespace
 

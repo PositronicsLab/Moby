@@ -45,9 +45,9 @@ class SSR : public BV
     static double calc_dist(const SSR& a, const Ravelin::Point3d& p);
     static double calc_dist(const SSR& a, const LineSeg3& s);
     static double calc_dist(const SSR& a, const SSR& b, Ravelin::Point3d& cpa, Ravelin::Point3d& cpb);
-    static double calc_dist(const SSR& a, const SSR& b, const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& aTb, Ravelin::Point3d& cpa, Ravelin::Point3d& cpb);
+    static double calc_dist(const SSR& a, const SSR& b, const Ravelin::Transform3d& aTb, Ravelin::Point3d& cpa, Ravelin::Point3d& cpb);
     static bool intersects(const SSR& a, const SSR& b);
-    static bool intersects(const SSR& a, const SSR& b, const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& T);
+    static bool intersects(const SSR& a, const SSR& b, const Ravelin::Transform3d& T);
     static bool intersects(const SSR& a, const LineSeg3& seg, double& tmin, double tmax, Ravelin::Point3d& q);
     virtual bool intersects(const LineSeg3& seg, double& tmin, double tmax, Ravelin::Point3d& q) const { return SSR::intersects(*this, seg, tmin, tmax, q); }
     static bool outside(const SSR& a, const Ravelin::Point3d& point, double tol = NEAR_ZERO);
@@ -56,8 +56,10 @@ class SSR : public BV
     boost::shared_ptr<const SSR> get_this() const { return boost::dynamic_pointer_cast<const SSR>(shared_from_this()); }
     virtual std::ostream& to_vrml(std::ostream& out, const Ravelin::Pose3d& T) const;
     unsigned calc_size() const;
-    virtual Ravelin::Point3d get_lower_bounds(const Ravelin::Pose3d& T);
-    virtual Ravelin::Point3d get_upper_bounds(const Ravelin::Pose3d& T);
+    virtual boost::shared_ptr<const Ravelin::Pose3d> get_pose() const { return center.pose; }
+    virtual void transform(const Ravelin::Transform3d& T, BV* result) const;
+    virtual Ravelin::Point3d get_lower_bounds() const;
+    virtual Ravelin::Point3d get_upper_bounds() const;
     void get_rect_verts(Ravelin::Point3d rect_verts[4]) const;
 
     template <class ForwardIterator>

@@ -169,7 +169,7 @@ class CollisionDetection : public virtual Base
     template <class OutputIterator>
     OutputIterator get_dynamic_bodies(OutputIterator output_begin) const;
 
-    static double calc_distance(CollisionGeometryPtr a, CollisionGeometryPtr b, const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& aTb, Ravelin::Point3d& cpa, Ravelin::Point3d& cpb); 
+    static double calc_distance(CollisionGeometryPtr a, CollisionGeometryPtr b, const Ravelin::Transform3d& aTb, Ravelin::Point3d& cpa, Ravelin::Point3d& cpb); 
 
     /// The set of geometries checked by the collision detector
     std::set<CollisionGeometryPtr> _geoms;

@@ -6,7 +6,6 @@
 
 #include <cmath>
 #include <iostream>
-#include <Moby/NullPointerException.h>
 #include <Moby/Constants.h>
 #include <Moby/RigidBody.h>
 #include <Moby/XMLTree.h>

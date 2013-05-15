@@ -701,51 +701,45 @@ void CRBAlgorithm::calc_fwd_dyn()
 }
 
 /// Solves for acceleration using the body inertia matrix
-VectorNd& CRBAlgorithm::M_solve(const VectorNd& v, VectorNd& result) 
+VectorNd& CRBAlgorithm::M_solve(VectorNd& xb) 
 {
   // do necessary pre-calculations
   RCArticulatedBodyPtr body(_body);
   precalc(body);
 
-  return M_solve_noprecalc(v, result); 
+  return M_solve_noprecalc(xb); 
 }
 
 /// Solves for acceleration using the body inertia matrix
-MatrixNd& CRBAlgorithm::M_solve(const MatrixNd& m, MatrixNd& result)
+MatrixNd& CRBAlgorithm::M_solve(MatrixNd& XB)
 {
   // do necessary pre-calculations
   RCArticulatedBodyPtr body(_body);
   precalc(body);
 
-  return M_solve_noprecalc(m, result); 
+  return M_solve_noprecalc(XB); 
 }
 
 /// Solves for acceleration using the body inertia matrix
-VectorNd& CRBAlgorithm::M_solve_noprecalc(const VectorNd& v, VectorNd& result)
+VectorNd& CRBAlgorithm::M_solve_noprecalc(VectorNd& xb)
 {
-  // prepare to solve fast
-  result = v; 
-
   // determine whether the matrix is rank-deficient
   if (this->_rank_deficient)
-    _LA.solve_LS_fast(_uM, _sM, _vM, result);
+    _LA.solve_LS_fast(_uM, _sM, _vM, xb);
   else
-    _LA.solve_chol_fast(_fM, result);
+    _LA.solve_chol_fast(_fM, xb);
 
-  return result;
+  return xb;
 }
 
 /// Solves for acceleration using the body inertia matrix
-MatrixNd& CRBAlgorithm::M_solve_noprecalc(const MatrixNd& m, MatrixNd& result)
+MatrixNd& CRBAlgorithm::M_solve_noprecalc(MatrixNd& XB)
 {
-  // prepare to solve fast
-  result = m; 
-
   // determine whether the matrix is rank-deficient
   if (this->_rank_deficient)
-    _LA.solve_LS_fast(_uM, _sM, _vM, result);
+    _LA.solve_LS_fast(_uM, _sM, _vM, XB);
   else
-    _LA.solve_chol_fast(_fM, result);
+    _LA.solve_chol_fast(_fM, XB);
 
   return result;
 }
@@ -793,7 +787,7 @@ void CRBAlgorithm::calc_fwd_dyn_fixed_base(RCArticulatedBodyPtr body)
   VectorNd& qdd = this->_qdd;
 
   // compute joint accelerations
-  M_solve_noprecalc(_Q, qdd);
+  M_solve_noprecalc(qdd = _Q);
 
   FILE_LOG(LOG_DYNAMICS) << "qdd: " << qdd << std::endl;
 
@@ -861,7 +855,7 @@ void CRBAlgorithm::calc_fwd_dyn_floating_base(RCArticulatedBodyPtr body)
   FILE_LOG(LOG_DYNAMICS) << "M: " << std::endl << this->_M;
   
   // solve for accelerations
-  M_solve_noprecalc(_b, _augV); 
+  M_solve_noprecalc(_augV = _b); 
 
   // get pointers to a0 and qdd vectors
   Twistd& a0 = this->_a0;
@@ -1289,7 +1283,7 @@ void CRBAlgorithm::apply_impulse(const Wrenchd& w, RigidBodyPtr link)
     std::swap(b[BASE_G], b[BASE_Z]);
   
     // compute changes in base and joint velocities
-    M_solve_noprecalc(b, workv);
+    M_solve_noprecalc(workv = b);
 
     // get change in base and change in joint velocities
     Vector3d dv0_angular(workv[BASE_A], workv[BASE_B], workv[BASE_G]);

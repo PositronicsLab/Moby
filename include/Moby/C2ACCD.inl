@@ -14,7 +14,7 @@ C2ACCD::C2ACCD(InputIterator begin, InputIterator end)
 
 /// Intersects two BV leafs together and returns collision data (if any)
 template <class OutputIterator>
-OutputIterator C2ACCD::intersect_BV_leafs(BVPtr a, BVPtr b, const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b, OutputIterator output_begin) const
+OutputIterator C2ACCD::intersect_BV_leafs(BVPtr a, BVPtr b, const Ravelin::Transform3d& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b, OutputIterator output_begin) const
 {
   // NOTE: if we want to speed up this static collision check (slightly),
   // we could institute an object-level map from BV leafs to triangles
@@ -48,10 +48,7 @@ OutputIterator C2ACCD::intersect_BV_leafs(BVPtr a, BVPtr b, const std::pair<Rave
       Triangle utb = b_mesh.get_triangle(b_idx);
 
       // transform second triangle
-      Triangle tb;
-      tb.a = aTb.first * utb.a + aTb.second;
-      tb.b = aTb.first * utb.b + aTb.second;
-      tb.c = aTb.first * utb.c + aTb.second;
+      Triangle tb = Triangle::transform(utb, aTb);
 
       // see whether triangles intersect
       if (!CompGeom::query_intersect_tri_tri(ta, tb))

@@ -328,14 +328,14 @@ double OBB::calc_dist(const OBB& a, const OBB& b, Point3d& cpa, Point3d& cpb)
  * \param cpb the closest point on b to a, on return (in a's frame)
  * \return the distance between a and b
  */
-double OBB::calc_dist(const OBB& a, const OBB& b, const pair<Quatd, Origin3d>& aTb, Point3d& cpa, Point3d& cpb)
+double OBB::calc_dist(const OBB& a, const OBB& b, const Transform3d& aTb, Point3d& cpa, Point3d& cpb)
 {
   // copy b
   OBB bcopy(b);
 
   // transform the center and orientation of b
-  bcopy.center = aTb.first * b.center + aTb.second;
-  Matrix3d R = aTb.first;
+  bcopy.center = aTb.transform(b.center);
+  Matrix3d R = aTb.q;
   bcopy.R = R * b.R;
 
   // perform the distance query
@@ -346,14 +346,14 @@ double OBB::calc_dist(const OBB& a, const OBB& b, const pair<Quatd, Origin3d>& a
 /**
  * \param aTb the relative transform from b to a
  */
-bool OBB::intersects(const OBB& a, const OBB& b, const pair<Quatd, Origin3d>& aTb)
+bool OBB::intersects(const OBB& a, const OBB& b, const Transform3d& aTb)
 {
   // copy b
   OBB bcopy(b);
 
   // transform the center and orientation of b
-  bcopy.center = aTb.first * b.center + aTb.second;
-  Matrix3d R = aTb.first;
+  bcopy.center = aTb.transform(b.center);
+  Matrix3d R = aTb.q;
   bcopy.R = R * b.R;
 
   // perform the intersection
@@ -750,9 +750,10 @@ XMLTreePtr OBB::save_to_xml_tree() const
 BVPtr OBB::calc_vel_exp_BV(CollisionGeometryPtr g, double dt, const Twistd& v) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
+  shared_ptr<const Pose3d> GLOBAL;
 
   // for this to work, OBB must be defined relative to g 
-  assert(center.pose == g.get_pose());
+  assert(center.pose == g->get_pose());
 
   // get the corresponding body
   RigidBodyPtr b = dynamic_pointer_cast<RigidBody>(g->get_single_body());
@@ -915,7 +916,7 @@ BVPtr OBB::calc_vel_exp_BV(CollisionGeometryPtr g, double dt, const Twistd& v) c
 }
 
 /// Gets the lower bounds on the OBB
-Point3d OBB::get_lower_bounds(const Pose3d& T)
+Point3d OBB::get_lower_bounds() const
 {
   // get the vertices of the OBB
   const unsigned OBB_VERTS = 8;
@@ -923,10 +924,9 @@ Point3d OBB::get_lower_bounds(const Pose3d& T)
   get_vertices(verts);
 
   // calculate 
-  Point3d min = T.transform(verts[0]);
+  Point3d min = verts[0];
   for (unsigned i=1; i< OBB_VERTS; i++)
   {
-    verts[i] = T.transform(verts[i]);
     min[0] = std::min(min[0], verts[i][0]);
     min[1] = std::min(min[1], verts[i][1]);
     min[2] = std::min(min[2], verts[i][2]);
@@ -936,7 +936,7 @@ Point3d OBB::get_lower_bounds(const Pose3d& T)
 }
 
 /// Gets the upper bounds on the OBB
-Point3d OBB::get_upper_bounds(const Pose3d& T)
+Point3d OBB::get_upper_bounds() const
 {
   // get the OBB vertices
   const unsigned OBB_VERTS = 8;
@@ -944,10 +944,9 @@ Point3d OBB::get_upper_bounds(const Pose3d& T)
   get_vertices(verts);
 
   // determine the maximum bound
-  Point3d max = T.transform(verts[0]); 
+  Point3d max = verts[0]; 
   for (unsigned i=1; i< OBB_VERTS; i++)
   {
-    verts[i] = T.transform(verts[i]);
     max[0] = std::max(max[0], verts[i][0]);
     max[1] = std::max(max[1], verts[i][1]);
     max[2] = std::max(max[2], verts[i][2]);

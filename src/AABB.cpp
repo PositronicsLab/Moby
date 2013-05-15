@@ -122,7 +122,7 @@ bool AABB::intersects(const AABB& a, const AABB& b)
 }
 
 /// Determines whether two AABBs overlap
-bool AABB::intersects(const AABB& a, const AABB& b, const pair<Quatd, Origin3d>& aTb)
+bool AABB::intersects(const AABB& a, const AABB& b, const Transform3d& aTb)
 {
   // make OBBs out of a and b
   OBB oa = a.get_OBB();
@@ -201,17 +201,17 @@ double AABB::calc_volume() const
 }
 
 /// Gets the lower bounds for this AABB using an OBB
-Point3d AABB::get_lower_bounds(const Pose3d& T)
+Point3d AABB::get_lower_bounds() const
 {
   // construct an OBB and use it to determine the velocity-expanded bounding volume
-  return get_OBB().get_lower_bounds(T);
+  return get_OBB().get_lower_bounds();
 }
 
 /// Gets the upper bounds for this AABB using an OBB
-Point3d AABB::get_upper_bounds(const Pose3d& T)
+Point3d AABB::get_upper_bounds() const
 {
   // construct an OBB and use it to determine the velocity-expanded bounding volume
-  return get_OBB().get_upper_bounds(T);
+  return get_OBB().get_upper_bounds();
 }
 
 /// Gets the closest point on the AABB to a point
