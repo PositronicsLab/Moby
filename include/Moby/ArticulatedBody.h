@@ -59,7 +59,8 @@ class ArticulatedBody : public DynamicBody
     virtual ~ArticulatedBody() {}
     unsigned num_constraint_eqns_implicit() const;
     unsigned num_constraint_eqns_explicit() const;
-    virtual void transform(const Ravelin::Pose3d& T);
+    virtual void rotate(const Ravelin::Quatd& q);
+    virtual void translate(const Ravelin::Origin3d& o);
     virtual double calc_kinetic_energy() const;
     virtual void update_visualization();
     RigidBodyPtr find_link(const std::string& id) const; 
