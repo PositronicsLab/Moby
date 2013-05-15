@@ -9,7 +9,6 @@
 #include <Moby/Constants.h>
 #include <Moby/RigidBody.h>
 #include <Moby/XMLTree.h>
-#include <Moby/NullPointerException.h>
 #include <Moby/UndefinedAxisException.h>
 #include <Moby/SphericalJoint.h>
 

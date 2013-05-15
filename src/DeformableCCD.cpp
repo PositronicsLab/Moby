@@ -169,7 +169,7 @@ bool DeformableCCD::is_contact(double dt, const vector<pair<DynamicBodyPtr, Vect
 {
   DStruct ds;
   typedef pair<CollisionGeometryPtr, BVPtr> CG_BV;
-  pair<Quatd, Origin3d> aTb, bTa;
+  Transform3d aTb, bTa;
 
   // clear the vector of contacts-- we don't want the user monkeying with it...
   contacts.clear();
@@ -206,7 +206,7 @@ bool DeformableCCD::is_contact(double dt, const vector<pair<DynamicBodyPtr, Vect
 
     // get the transforms from a to b and back
     aTb = Pose3d::calc_relative_pose(b->get_pose(), a->get_pose());
-    bTa = inverse(aTb);
+    bTa = Transform3d::inverse(aTb);
 
     // test the geometries for contact
     check_geoms(dt, a, b, aTb, bTa, a_vel, b_vel, contacts);
@@ -238,10 +238,10 @@ bool DeformableCCD::is_contact(double dt, const vector<pair<DynamicBodyPtr, Vect
  * \param vels linear and angular velocities of bodies
  * \param set of contacts on return
  */
-void DeformableCCD::check_geoms(double dt, CollisionGeometryPtr a, CollisionGeometryPtr b, const pair<Quatd, Origin3d>& aTb, const pair<Quatd, Origin3d>& bTa, const Twistd& a_vel, const Twistd& b_vel, vector<Event>& contacts)
+void DeformableCCD::check_geoms(double dt, CollisionGeometryPtr a, CollisionGeometryPtr b, const Transform3d& aTb, const Transform3d& bTa, const Twistd& a_vel, const Twistd& b_vel, vector<Event>& contacts)
 {
   map<BVPtr, vector<const Point3d*> > a_to_test, b_to_test, self_test;
-  const pair<Quatd, Origin3d> IDENTITY;
+  const Transform3d IDENTITY;
 
   FILE_LOG(LOG_COLDET) << "DeformableCCD::check_geoms() entered" << endl;
   FILE_LOG(LOG_COLDET) << "  checking geometry " << a->id << " for body " << a->get_single_body()->id << std::endl;
@@ -452,7 +452,7 @@ void DeformableCCD::check_geoms(double dt, CollisionGeometryPtr a, CollisionGeom
 }
 
 /// Checks a set of vertices of geometry a against geometry b
-void DeformableCCD::check_vertices(double dt, CollisionGeometryPtr a, CollisionGeometryPtr b, BVPtr bvb, const std::vector<const Point3d*>& a_verts, const pair<Quatd, Origin3d>& bTa, const Twistd& a_vel, const Twistd& b_vel, double& earliest, vector<Event>& local_contacts, bool self_check) const
+void DeformableCCD::check_vertices(double dt, CollisionGeometryPtr a, CollisionGeometryPtr b, BVPtr bvb, const std::vector<const Point3d*>& a_verts, const Transform3d& bTa, const Twistd& a_vel, const Twistd& b_vel, double& earliest, vector<Event>& local_contacts, bool self_check) const
 {
   Point3d point;
   Vector3d normal;
@@ -480,7 +480,7 @@ void DeformableCCD::check_vertices(double dt, CollisionGeometryPtr a, CollisionG
   {
     // compute point at time t0 in b coordinates
     FILE_LOG(LOG_COLDET) << "    -- checking vertex " << *v << " of " << sba->id << " against " << sbb->id << endl;
-    Point3d p0 = mult_point(bTa, *v);
+    Point3d p0 = bTa.transform(*v);
 
     FILE_LOG(LOG_COLDET) << "     -- p0 (local): " << p0 << endl; 
 
@@ -777,7 +777,7 @@ double DeformableCCD::determine_TOI(double t0, double tf, const DStruct* ds, Poi
   CollisionGeometryPtr gb = ds->gb;
 
   // get the primitive for gs 
-  PrimitiveConstPtr gs_primitive = gs->get_geometry();
+  shared_ptr<const Primitive> gs_primitive = gs->get_geometry();
 
   // get the body bs and its "super" body
   SingleBodyPtr bs = gs->get_single_body();
@@ -1116,7 +1116,7 @@ double DeformableCCD::calc_min_dev(const Vector3d& u, const Vector3d& d, const Q
   t = (f0 < f1) ? 0.0 : 1.0;
   
   // call Brent's method -- note: tolerance is a bit high
-  if (!Optimization::brent(0.0, 1.0, t, ft, &calc_deviation, TOL, &dc))
+  if (!brent(0.0, 1.0, t, ft, &calc_deviation, TOL, &dc))
     cerr << "DeformableCCD::calc_min_dev() - brent's method failed!" << endl;
 
   return ft;
@@ -1170,7 +1170,7 @@ double DeformableCCD::calc_max_dev(const Vector3d& u, const Vector3d& d, const Q
   t = (f0 < f1) ? 0.0 : 1.0;
   
   // call Brent's method -- note: tolerance is a bit high
-  if (!Optimization::brent(0.0, 1.0, t, ft, &calc_deviation, TOL, &dc))
+  if (!brent(0.0, 1.0, t, ft, &calc_deviation, TOL, &dc))
     cerr << "DeformableCCD::calc_max_dev() - brent's method failed!" << endl;
 
   return -ft;
@@ -1574,7 +1574,7 @@ bool DeformableCCD::is_collision(double epsilon)
 }
 
 /// Intersects two BV trees; returns <b>true</b> if one (or more) pair of the underlying triangles intersects
-bool DeformableCCD::intersect_BV_trees(BVPtr a, BVPtr b, const pair<Quatd, Origin3d>& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b) 
+bool DeformableCCD::intersect_BV_trees(BVPtr a, BVPtr b, const Transform3d& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b) 
 {
   std::queue<tuple<BVPtr, BVPtr, bool> > q;
 

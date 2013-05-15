@@ -437,12 +437,12 @@ double SSR::calc_dist(const SSR& a, const SSR& b, Point3d& cpa, Point3d& cpb)
  * \param aTb the relative transform from b to a
  * \param cpa the closest point on SSR a (in a's frame)
  */
-double SSR::calc_dist(const SSR& a, const SSR& b, const pair<Quatd, Origin3d>& aTb, Point3d& cpa, Point3d& cpb)
+double SSR::calc_dist(const SSR& a, const SSR& b, const Transform3d& aTb, Point3d& cpa, Point3d& cpb)
 {
   // create a new SSR (b in a's frame)
   SSR b_a;
-  b_a.center = aTb.first * b.center + aTb.second;
-  Matrix3d R = aTb.first;
+  b_a.center = aTb.transform(b.center);
+  Matrix3d R = aTb.q;
   b_a.R = R * b.R;
   b_a.l = b.l;
   b_a.radius = b.radius;
@@ -459,7 +459,7 @@ bool SSR::intersects(const SSR& a, const SSR& b)
 }
 
 /// Determines whether two SSRs intersect
-bool SSR::intersects(const SSR& a, const SSR& b, const pair<Quatd, Origin3d>& T)
+bool SSR::intersects(const SSR& a, const SSR& b, const Transform3d& T)
 {
   Point3d tmp;
   double dist = calc_dist(a, b, T, tmp, tmp);
@@ -527,54 +527,50 @@ unsigned SSR::calc_size() const
 }
 
 /// Gets the lower bounds of the SSR
-Point3d SSR::get_lower_bounds(const Pose3d& T)
+Point3d SSR::get_lower_bounds() const
 {
   const unsigned Y = 1, Z = 2;
   const double INF = std::numeric_limits<double>::max();
   const double SQRT3_3 = std::sqrt((double) 3.0)/3.0;
 
   // get the axes of the rectangle in 3D
-  Vector3d axis1 = T.transform(R.get_column(Y));
-  Vector3d axis2 = T.transform(R.get_column(Z));
-
-  // transform the center
-  Point3d tcen = T.transform(center);
+  Vector3d axis1 = R.get_column(Y);
+  Vector3d axis2 = R.get_column(Z);
+  axis1.pose = axis2.pose = center.pose;
 
   // setup the point at -INF
-  Point3d ninf(-INF, -INF, -INF);
+  Point3d ninf(-INF, -INF, -INF, center.pose);
  
   // find the closest point on the rectangle to -inf
   Point3d cp;
-  calc_sq_dist(ninf, tcen, axis1, axis2, this->l, cp);
+  calc_sq_dist(ninf, center, axis1, axis2, this->l, cp);
   
   // move the closest point toward -inf by radius
-  const Vector3d ones_norm(SQRT3_3, SQRT3_3, SQRT3_3);
+  const Vector3d ones_norm(SQRT3_3, SQRT3_3, SQRT3_3, center.pose);
   return cp - ones_norm*radius; 
 }
 
 /// Gets the upper bounds of the SSR
-Point3d SSR::get_upper_bounds(const Pose3d& T)
+Point3d SSR::get_upper_bounds() const
 {
   const unsigned Y = 1, Z = 2;
   const double INF = std::numeric_limits<double>::max();
   const double SQRT3_3 = std::sqrt((double) 3.0)/3.0;
 
   // get the axes of the rectangle in 3D
-  Vector3d axis1 = T.transform(R.get_column(Y));
-  Vector3d axis2 = T.transform(R.get_column(Z));
-
-  // transform the center
-  Point3d tcen = T.transform(center);
+  Vector3d axis1 = R.get_column(Y);
+  Vector3d axis2 = R.get_column(Z);
+  axis1.pose = axis2.pose = center.pose;
 
   // setup the point at INF
-  Vector3d inf(INF, INF, INF);
+  Vector3d inf(INF, INF, INF, center.pose);
  
   // find the closest point on the rectangle to inf
   Point3d cp;
-  calc_sq_dist(inf, tcen, axis1, axis2, this->l, cp);
+  calc_sq_dist(inf, center, axis1, axis2, this->l, cp);
   
   // move the closest point toward inf by radius
-  const Vector3d ones_norm(SQRT3_3, SQRT3_3, SQRT3_3);
+  const Vector3d ones_norm(SQRT3_3, SQRT3_3, SQRT3_3, center.pose);
   return cp + ones_norm*radius;
 }
 

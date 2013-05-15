@@ -188,18 +188,15 @@ BVPtr CSG::get_BVH_root()
   if (!_aabb)
     _aabb = shared_ptr<AABB>(new AABB);
 
-  // get the current transform
-  const Pose3d& T = get_pose();
-
   // get the bounding volumes for the operands
   shared_ptr<BV> bv1 = _op1->get_BVH_root();
   shared_ptr<BV> bv2 = _op2->get_BVH_root();
 
   // get the lower and upper bounds for the operands
-  Point3d low1 = bv1->get_lower_bounds(T);
-  Point3d low2 = bv2->get_lower_bounds(T);
-  Point3d high1 = bv1->get_upper_bounds(T);
-  Point3d high2 = bv2->get_upper_bounds(T);
+  Point3d low1 = bv1->get_lower_bounds();
+  Point3d low2 = bv2->get_lower_bounds();
+  Point3d high1 = bv1->get_upper_bounds();
+  Point3d high2 = bv2->get_upper_bounds();
 
   // determine the overall upper and lower bounds
   Point3d low, high;

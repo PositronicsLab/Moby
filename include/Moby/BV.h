@@ -50,6 +50,12 @@ class BV : public boost::enable_shared_from_this<BV>
     /// Determines whether a line segment intersects the bounding volume
     virtual bool intersects(const LineSeg3& seg, double& tmin, double tmax, Ravelin::Point3d& q) const = 0;
 
+    /// Gets the associated pose for this bounding volume
+    virtual boost::shared_ptr<const Ravelin::Pose3d> get_pose() const = 0;
+
+    /// Virtual function for transforming the BV
+    virtual void transform(const Ravelin::Transform3d& T, BV* result) const = 0;
+
     /// Virtual function that calculates a velocity-expanded BV
     /**
      * \param g the geometry that this bounding volume represents
@@ -64,18 +70,18 @@ class BV : public boost::enable_shared_from_this<BV>
     static bool intersects(BVPtr a, BVPtr b) { return intersects(a.get(), b.get()); }
 
     /// Convenience method
-    static bool intersects(BVPtr a, BVPtr b, const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& T) { return intersects(a.get(), b.get(), T); }
+    static bool intersects(BVPtr a, BVPtr b, const Ravelin::Transform3d& T) { return intersects(a.get(), b.get(), T); }
 
     /// Convenience method
     static double calc_distance(BVPtr a, BVPtr b, Ravelin::Point3d& cp1, Ravelin::Point3d& cp2) { return calc_distance(a.get(), b.get(), cp1, cp2); }
 
     /// Convenience method
-    static double calc_distance(BVPtr a, BVPtr b, const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& aTb, Ravelin::Point3d& cp1, Ravelin::Point3d& cp2) { return calc_distance(a.get(), b.get(), aTb, cp1, cp2); }
+    static double calc_distance(BVPtr a, BVPtr b, const Ravelin::Transform3d& aTb, Ravelin::Point3d& cp1, Ravelin::Point3d& cp2) { return calc_distance(a.get(), b.get(), aTb, cp1, cp2); }
 
     static bool intersects(const BV* a, const BV* b);
-    static bool intersects(const BV* a, const BV* b, const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& T);
+    static bool intersects(const BV* a, const BV* b, const Ravelin::Transform3d& T);
     static double calc_distance(const BV* a, const BV* b, Ravelin::Point3d& cp1, Ravelin::Point3d& cp2);
-    static double calc_distance(const BV* a, const BV* b, const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& aTb, Ravelin::Point3d& cp1, Ravelin::Point3d& cp2);
+    static double calc_distance(const BV* a, const BV* b, const Ravelin::Transform3d& aTb, Ravelin::Point3d& cp1, Ravelin::Point3d& cp2);
 
     BVPtr get_this() { return boost::dynamic_pointer_cast<BV>(shared_from_this()); }
     boost::shared_ptr<const BV> get_this() const { return boost::dynamic_pointer_cast<const BV>(shared_from_this()); }
@@ -88,7 +94,7 @@ class BV : public boost::enable_shared_from_this<BV>
     OutputIterator get_all_leafs(OutputIterator begin) const;
 
     template <class OutputIterator>
-    static OutputIterator intersect_BV_trees(BVPtr a, BVPtr b, const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& aTb, const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& bTa, OutputIterator output_begin);
+    static OutputIterator intersect_BV_trees(BVPtr a, BVPtr b, const Ravelin::Transform3d& aTb, const Ravelin::Transform3d& bTa, OutputIterator output_begin);
 
     /// Userdata for the BV
     boost::shared_ptr<void> userdata;
@@ -100,34 +106,33 @@ class BV : public boost::enable_shared_from_this<BV>
     virtual double calc_volume() const = 0;
 
     /// Gets the lower bound on a AABB around the bounding volume when a transform of T is applied
-    virtual Ravelin::Point3d get_lower_bounds(const Ravelin::Pose3d& T) = 0;
+    virtual Ravelin::Point3d get_lower_bounds() const = 0;
 
     /// Gets the upper bound on a AABB around the bounding volume when a transform of T is applied
-    virtual Ravelin::Point3d get_upper_bounds(const Ravelin::Pose3d& T) = 0;
+    virtual Ravelin::Point3d get_upper_bounds() const = 0;
 
   private:
 
     static bool intersects(const OBB* O, const BoundingSphere* S);
-    static bool intersects(const OBB* O, const BoundingSphere* S, const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& OTS);
+    static bool intersects(const OBB* O, const BoundingSphere* S, const Ravelin::Transform3d& OTS);
     static bool intersects(const OBB* O, const AABB* A);
-    static bool intersects(const OBB* O, const AABB* A, const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& OTA);
+    static bool intersects(const OBB* O, const AABB* A, const Ravelin::Transform3d& OTA);
     static bool intersects(const OBB* O, const SSR* S);
-    static bool intersects(const OBB* O, const SSR* S, const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& OTS);
+    static bool intersects(const OBB* O, const SSR* S, const Ravelin::Transform3d& OTS);
     static bool intersects(const OBB* O, const SSL* S);
-    static bool intersects(const OBB* O, const SSL* S, const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& OTS);
+    static bool intersects(const OBB* O, const SSL* S, const Ravelin::Transform3d& OTS);
     static bool intersects(const AABB* A, const BoundingSphere* S);
-    static bool intersects(const AABB* A, const BoundingSphere* S, const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& ATS);
+    static bool intersects(const AABB* A, const BoundingSphere* S, const Ravelin::Transform3d& ATS);
     static bool intersects(const AABB* A, const SSL* S);
-    static bool intersects(const AABB* A, const SSL* S, const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& ATS);
+    static bool intersects(const AABB* A, const SSL* S, const Ravelin::Transform3d& ATS);
     static bool intersects(const SSR* S, const AABB* A);
-    static bool intersects(const SSR* S, const AABB* A, const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& STA);
+    static bool intersects(const SSR* S, const AABB* A, const Ravelin::Transform3d& STA);
     static bool intersects(const SSR* S, const BoundingSphere* B);
-    static bool intersects(const SSR* S, const BoundingSphere* B, const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& STB);
+    static bool intersects(const SSR* S, const BoundingSphere* B, const Ravelin::Transform3d& STB);
     static bool intersects(const SSR* S, const SSL* B);
-    static bool intersects(const SSR* S, const SSL* B, const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& STB);
+    static bool intersects(const SSR* S, const SSL* B, const Ravelin::Transform3d& STB);
     static bool intersects(const SSL* S, const BoundingSphere* B);
-    static bool intersects(const SSL* S, const BoundingSphere* B, const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& STB);
-    static std::pair<Ravelin::Quatd, Ravelin::Origin3d> inverse(const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& pose);
+    static bool intersects(const SSL* S, const BoundingSphere* B, const Ravelin::Transform3d& STB);
 }; // end class
 
 // include inline functions

@@ -52,7 +52,6 @@ class RCArticulatedBody : public ArticulatedBody
     virtual ~RCArticulatedBody() {}
     Ravelin::MatrixNd& generalized_inertia_mult(const Ravelin::MatrixNd& M, Ravelin::MatrixNd& result);
     virtual Ravelin::MatrixNd& calc_jacobian(const Ravelin::Point3d& point, RigidBodyPtr link, Ravelin::MatrixNd& J);
-    virtual Ravelin::MatrixNd calc_jacobian_column(JointPtr joint, const Ravelin::Point3d& point);
     virtual Ravelin::MatrixNd& calc_jacobian_column(JointPtr joint, const Ravelin::Point3d& point, const Ravelin::Pose3d& base_pose, const std::map<JointPtr, Ravelin::VectorNd>& q, Ravelin::MatrixNd& Jc);
     virtual Ravelin::MatrixNd& calc_jacobian_column(JointPtr joint, const Ravelin::Point3d& point, Ravelin::MatrixNd& Jc);
     virtual Ravelin::MatrixNd& calc_jacobian_floating_base(const Ravelin::Point3d& point, Ravelin::MatrixNd& J);
@@ -139,7 +138,6 @@ class RCArticulatedBody : public ArticulatedBody
     void calc_fwd_dyn_advanced_friction(double dt);
     void generalized_inertia_mult_fixed(const Ravelin::MatrixNd& M, Ravelin::MatrixNd& result);
     void generalized_inertia_mult_floating(const Ravelin::MatrixNd& M, Ravelin::MatrixNd& result);
-    virtual Ravelin::MatrixNd calc_jacobian_column(JointPtr joint, const Ravelin::Point3d& point, const Ravelin::Pose3d& base_pose, const std::map<JointPtr, Ravelin::VectorNd>& q);
 
     /// The vector of implicit joint constraints
     std::vector<JointPtr> _ijoints;

@@ -171,7 +171,7 @@ bool GeneralizedCCD::is_contact(double dt, const vector<pair<DynamicBodyPtr, Vec
 {
   DStruct ds;
   typedef pair<CollisionGeometryPtr, BVPtr> CG_BV;
-  pair<Quatd, Origin3d> aTb, bTa;
+  Transform3d aTb, bTa;
 
   // clear the vector of events 
   contacts.clear();
@@ -212,7 +212,7 @@ bool GeneralizedCCD::is_contact(double dt, const vector<pair<DynamicBodyPtr, Vec
 
     // get the transforms from a to b and back
     aTb = Pose3d::calc_relative_pose(b->get_pose(), a->get_pose());
-    bTa = inverse(aTb);
+    bTa = Transform3d::inverse(aTb);
 
     // test the geometries for contact
     check_geoms(dt, a, b, aTb, bTa, a_vel, b_vel, contacts);
@@ -317,7 +317,7 @@ bool GeneralizedCCD::is_contact(double dt, const vector<pair<DynamicBodyPtr, Vec
  * \param vels linear and angular velocities of bodies
  * \param contacts on return
  */
-void GeneralizedCCD::check_geoms(double dt, CollisionGeometryPtr a, CollisionGeometryPtr b, const pair<Quatd, Origin3d>& aTb, const pair<Quatd, Origin3d>& bTa, const Twistd& a_vel, const Twistd& b_vel, vector<Event>& contacts)
+void GeneralizedCCD::check_geoms(double dt, CollisionGeometryPtr a, CollisionGeometryPtr b, const Transform3d& aTb, const Transform3d& bTa, const Twistd& a_vel, const Twistd& b_vel, vector<Event>& contacts)
 {
   map<BVPtr, vector<const Point3d*> > a_to_test, b_to_test;
 
@@ -512,7 +512,7 @@ void GeneralizedCCD::check_geoms(double dt, CollisionGeometryPtr a, CollisionGeo
 }
 
 /// Checks a set of vertices of geometry a against geometry b
-void GeneralizedCCD::check_vertices(double dt, CollisionGeometryPtr a, CollisionGeometryPtr b, BVPtr bvb, const std::vector<const Point3d*>& a_verts, const pair<Quatd, Origin3d>& bTa, const Twistd& a_vel, const Twistd& b_vel, double& earliest, vector<Event>& local_contacts) const
+void GeneralizedCCD::check_vertices(double dt, CollisionGeometryPtr a, CollisionGeometryPtr b, BVPtr bvb, const std::vector<const Point3d*>& a_verts, const Transform3d& bTa, const Twistd& a_vel, const Twistd& b_vel, double& earliest, vector<Event>& local_contacts) const
 {
   Vector3d normal;
   Point3d point;
@@ -535,7 +535,7 @@ void GeneralizedCCD::check_vertices(double dt, CollisionGeometryPtr a, Collision
   {
     // compute point at time t0 in b coordinates
     FILE_LOG(LOG_COLDET) << "    -- checking vertex " << *v << " of " << rba->id << " against " << rbb->id << endl;
-    Point3d p0 = mult_point(bTa, *v);
+    Point3d p0 = bTa.transform(*v);
 
     FILE_LOG(LOG_COLDET) << "     -- p0 (local): " << p0 << endl; 
 //    FILE_LOG(LOG_COLDET) << "     -- p0 (global): " << (b->get_transform().mult_point(p0)) << endl;
@@ -795,7 +795,7 @@ double GeneralizedCCD::determine_TOI(double t0, double tf, const DStruct* ds, Po
   CollisionGeometryPtr gb = ds->gb;
 
   // get the primitive for gs 
-  PrimitiveConstPtr gs_primitive = gs->get_geometry();
+  shared_ptr<const Primitive> gs_primitive = gs->get_geometry();
 
   // get the two rigid bodies
   RigidBodyPtr bs = dynamic_pointer_cast<RigidBody>(gs->get_single_body());
@@ -1151,7 +1151,7 @@ double GeneralizedCCD::calc_min_dev(const Vector3d& u, const Vector3d& d, const 
   t = (f0 < f1) ? 0.0 : 1.0;
   
   // call Brent's method -- note: tolerance is a bit high
-  if (!Optimization::brent(0.0, 1.0, t, ft, &calc_deviation, TOL, &dc))
+  if (!brent(0.0, 1.0, t, ft, &calc_deviation, TOL, &dc))
     cerr << "GeneralizedCCD::calc_min_dev() - brent's method failed!" << endl;
 
   return ft;
@@ -1205,7 +1205,7 @@ double GeneralizedCCD::calc_max_dev(const Vector3d& u, const Vector3d& d, const 
   t = (f0 < f1) ? 0.0 : 1.0;
   
   // call Brent's method -- note: tolerance is a bit high
-  if (!Optimization::brent(0.0, 1.0, t, ft, &calc_deviation, TOL, &dc))
+  if (!brent(0.0, 1.0, t, ft, &calc_deviation, TOL, &dc))
     cerr << "GeneralizedCCD::calc_max_dev() - brent's method failed!" << endl;
 
   return -ft;
@@ -1522,7 +1522,7 @@ bool GeneralizedCCD::is_collision(double epsilon)
 }
 
 /// Intersects two BV trees; returns <b>true</b> if one (or more) pair of the underlying triangles intersects
-bool GeneralizedCCD::intersect_BV_trees(BVPtr a, BVPtr b, pair<Quatd, Origin3d>& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b) 
+bool GeneralizedCCD::intersect_BV_trees(BVPtr a, BVPtr b, Transform3d& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b) 
 {
   std::queue<tuple<BVPtr, BVPtr, bool> > q;
 

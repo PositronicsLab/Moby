@@ -332,7 +332,7 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
   FILE_LOG(LOG_EVENT) << "LCP vector: " << qq << std::endl; 
 
   // solve the LCP using Lemke's algorithm
-  if (!Optimization::lcp_lemke_regularized(MM, qq, tmpv))
+  if (!_lcp.lcp_lemke_regularized(MM, qq, tmpv))
     throw std::runtime_error("Unable to solve event QP!");
 
   // get the nullspace solution out
@@ -755,7 +755,7 @@ void ImpactEventHandler::solve_qp_work_ijoints(EventProblemData& q, VectorNd& z)
   FILE_LOG(LOG_EVENT) << "LCP vector: " << qq << std::endl; 
 
   // solve the LCP using Lemke's algorithm
-  if (!Optimization::lcp_lemke_regularized(MM, qq, z))
+  if (!_lcp.lcp_lemke_regularized(MM, qq, z))
     throw std::runtime_error("Unable to solve event QP!");
 
   FILE_LOG(LOG_EVENT) << "QP solution: " << z << std::endl; 
@@ -954,7 +954,7 @@ void ImpactEventHandler::solve_qp_work_general(EventProblemData& q, VectorNd& z)
   FILE_LOG(LOG_EVENT) << "LCP vector: " << qq << std::endl; 
 
   // solve the LCP using Lemke's algorithm
-  if (!Optimization::lcp_lemke_regularized(MM, qq, tmpv))
+  if (!_lcp.lcp_lemke_regularized(MM, qq, tmpv))
     throw std::runtime_error("Unable to solve event QP!");
 
   // get the nullspace solution out

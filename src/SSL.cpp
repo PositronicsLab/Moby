@@ -436,12 +436,12 @@ double SSL::calc_dist(const SSL& a, const SSL& b, Point3d& cpa, Point3d& cpb)
  * \param aTb the relative transform from b to a
  * \param cpa the closest point on SSL a (in a's frame)
  */
-double SSL::calc_dist(const SSL& a, const SSL& b, const pair<Quatd, Origin3d>& aTb, Point3d& cpa, Point3d& cpb)
+double SSL::calc_dist(const SSL& a, const SSL& b, const Transform3d& aTb, Point3d& cpa, Point3d& cpb)
 {
   // create a new SSL (b in a's frame)
   SSL b_a;
-  b_a.p1 = aTb.first * b.p1 + aTb.second;
-  b_a.p2 = aTb.first * b.p2 + aTb.second;
+  b_a.p1 = aTb.transform(b.p1);
+  b_a.p2 = aTb.transform(b.p2);
   b_a.radius = b.radius;
 
   return calc_dist(a, b_a, cpa, cpb); 
@@ -456,7 +456,7 @@ bool SSL::intersects(const SSL& a, const SSL& b)
 }
 
 /// Determines whether two SSLs intersect
-bool SSL::intersects(const SSL& a, const SSL& b, const pair<Quatd, Origin3d>& T)
+bool SSL::intersects(const SSL& a, const SSL& b, const Transform3d& T)
 {
   Point3d tmp;
   double dist = calc_dist(a, b, T, tmp, tmp);
@@ -516,42 +516,34 @@ unsigned SSL::calc_size() const
 }
 
 /// Gets the lower bounds of the SSL
-Point3d SSL::get_lower_bounds(const Pose3d& T)
+Point3d SSL::get_lower_bounds() const
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
-  // transform the two points
-  Point3d p1T = T.transform(p1);
-  Point3d p2T = T.transform(p2);
-
   // determine the lower left point
-  Point3d ll;
-  ll[X] = (p1T[X] < p2T[X]) ? p1T[X] : p2T[X];
-  ll[Y] = (p1T[Y] < p2T[Y]) ? p1T[Y] : p2T[Y];
-  ll[Z] = (p1T[Z] < p2T[Z]) ? p1T[Z] : p2T[Z];
+  Point3d ll(get_pose());
+  ll[X] = (p1[X] < p2[X]) ? p1[X] : p2[X];
+  ll[Y] = (p1[Y] < p2[Y]) ? p1[Y] : p2[Y];
+  ll[Z] = (p1[Z] < p2[Z]) ? p1[Z] : p2[Z];
 
   // move the closest point toward -inf by radius
-  const Point3d ones((double) 1.0, (double) 1.0, (double) 1.0);
+  const Point3d ones((double) 1.0, (double) 1.0, (double) 1.0, get_pose());
   return ll - ones*radius; 
 }
 
 /// Gets the upper bounds of the SSL
-Point3d SSL::get_upper_bounds(const Pose3d& T)
+Point3d SSL::get_upper_bounds() const
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
-  // transform the two points
-  Point3d p1T = T.transform(p1);
-  Point3d p2T = T.transform(p2);
-
   // determine the upper right point
-  Point3d ur;
-  ur[X] = (p1T[X] > p2T[X]) ? p1T[X] : p2T[X];
-  ur[Y] = (p1T[Y] > p2T[Y]) ? p1T[Y] : p2T[Y];
-  ur[Z] = (p1T[Z] > p2T[Z]) ? p1T[Z] : p2T[Z];
+  Point3d ur(get_pose());
+  ur[X] = (p1[X] > p2[X]) ? p1[X] : p2[X];
+  ur[Y] = (p1[Y] > p2[Y]) ? p1[Y] : p2[Y];
+  ur[Z] = (p1[Z] > p2[Z]) ? p1[Z] : p2[Z];
 
   // move the closest point toward inf by radius
-  const Point3d ones((double) 1.0, (double) 1.0, (double) 1.0);
+  const Point3d ones((double) 1.0, (double) 1.0, (double) 1.0, get_pose());
   return ur + ones*radius;
 }
 

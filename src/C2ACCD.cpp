@@ -250,7 +250,7 @@ void C2ACCD::check_geoms(double dt, CollisionGeometryPtr a, CollisionGeometryPtr
     // get the transforms from a to b
     shared_ptr<const Pose3d> Ta = a->get_pose();
     shared_ptr<const Pose3d> Tb = b->get_pose();
-    pair<Quatd, Origin3d> aTb = Pose3d::calc_relative_pose(Tb, Ta);
+    Transform3d aTb = Pose3d::calc_relative_pose(Tb, Ta);
 
     // determine a safe step we can take
     double dcur = std::numeric_limits<double>::max();
@@ -333,10 +333,10 @@ void C2ACCD::determine_contacts(CollisionGeometryPtr a, CollisionGeometryPtr b, 
   // determine aTb
   shared_ptr<const Pose3d> Ta = a->get_pose();
   shared_ptr<const Pose3d> Tb = b->get_pose();
-  pair<Quatd, Origin3d> aTb = Pose3d::calc_relative_pose(Tb, Ta);
+  Transform3d aTb = Pose3d::calc_relative_pose(Tb, Ta);
 
   // setup transformation from Ta to global frame
-  pair<Quatd, Origin3d> wTa = Pose3d::calc_relative_pose(Ta, GLOBAL);
+  Transform3d wTa = Pose3d::calc_relative_pose(Ta, GLOBAL);
 
   // determine closest triangles
   vector<pair<Triangle, Triangle> > closest_tris;
@@ -461,7 +461,7 @@ void C2ACCD::determine_contacts(CollisionGeometryPtr a, CollisionGeometryPtr b, 
   }
 }
 
-void C2ACCD::determine_closest_tris(CollisionGeometryPtr a, CollisionGeometryPtr b, const pair<Quatd, Origin3d>& aTb, vector<pair<Triangle, Triangle> >& closest_tris) const
+void C2ACCD::determine_closest_tris(CollisionGeometryPtr a, CollisionGeometryPtr b, const Transform3d& aTb, vector<pair<Triangle, Triangle> >& closest_tris) const
 {
   Point3d dummy;
 
@@ -721,7 +721,7 @@ bool C2ACCD::check_collision(CollisionGeometryPtr a, CollisionGeometryPtr b, vec
   // compute transformation from b's frame to a's frame
   shared_ptr<const Pose3d> Ta = a->get_pose();
   shared_ptr<const Pose3d> Tb = b->get_pose();
-  pair<Quatd, Origin3d> aTb = Pose3d::calc_relative_pose(Tb, Ta);
+  Transform3d aTb = Pose3d::calc_relative_pose(Tb, Ta);
 
   // setup a queue for checking
   queue<pair<shared_ptr<SSR>, shared_ptr<SSR> > > Q;
@@ -926,7 +926,7 @@ double C2ACCD::do_CAStep(double dist, const Vector3d& dab, CollisionGeometryPtr 
 }
 
 /// CA algorithm (no "control")
-double C2ACCD::do_CA(double step_size, CollisionGeometryPtr a, CollisionGeometryPtr b, shared_ptr<SSR> ssr_a, shared_ptr<SSR> ssr_b, const pair<Quatd, Origin3d>& aTb, double dt)
+double C2ACCD::do_CA(double step_size, CollisionGeometryPtr a, CollisionGeometryPtr b, shared_ptr<SSR> ssr_a, shared_ptr<SSR> ssr_b, const Transform3d& aTb, double dt)
 {
   const double TTOL = alpha_tolerance / step_size;
   FILE_LOG(LOG_COLDET) << "C2ACCD::do_CA() entered" << endl;
@@ -1350,7 +1350,7 @@ double C2ACCD::do_C2A(CollisionGeometryPtr a, CollisionGeometryPtr b, shared_ptr
 */
 
 /// Calculates the smallest distance between triangles in two SSR leaf nodes
-double C2ACCD::calc_dist(shared_ptr<SSR> a, shared_ptr<SSR> b, const pair<Quatd, Origin3d>& aTb, Point3d& cpa, Point3d& cpb) const
+double C2ACCD::calc_dist(shared_ptr<SSR> a, shared_ptr<SSR> b, const Transform3d& aTb, Point3d& cpa, Point3d& cpb) const
 {
   FILE_LOG(LOG_COLDET) << "C2ACCD::calc_dist() entered" << endl;
 
@@ -1459,7 +1459,7 @@ bool C2ACCD::is_collision(double epsilon)
 
     // get the transform and the inverse transform for this geometry
     shared_ptr<const Pose3d> T1 = g1->get_pose();
-    pair<Quatd, Origin3d> g1Tw = Pose3d::calc_relative_pose(GLOBAL, T1);
+    Transform3d g1Tw = Pose3d::calc_relative_pose(GLOBAL, T1);
 
     // loop through all other geometries
     std::set<CollisionGeometryPtr>::const_iterator j = i;
@@ -1479,7 +1479,7 @@ bool C2ACCD::is_collision(double epsilon)
 
       // get the transform for g2 and its inverse
       shared_ptr<const Pose3d> T2 = g2->get_pose();
-      pair<Quatd, Origin3d> g1Tg2 = Pose3d::calc_relative_pose(T2, T1);
+      Transform3d g1Tg2 = Pose3d::calc_relative_pose(T2, T1);
 
       // if intersects, add to colliding pairs
       if (intersect_BV_trees(bv1, bv2, g1Tg2, g1, g2))
@@ -1491,7 +1491,7 @@ bool C2ACCD::is_collision(double epsilon)
 }
 
 /// Intersects two BV trees; returns <b>true</b> if one (or more) pair of the underlying triangles intersects
-bool C2ACCD::intersect_BV_trees(BVPtr a, BVPtr b, const pair<Quatd, Origin3d>& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b) 
+bool C2ACCD::intersect_BV_trees(BVPtr a, BVPtr b, const Transform3d& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b) 
 {
   std::queue<tuple<BVPtr, BVPtr, bool> > q;
 
@@ -1577,7 +1577,7 @@ double C2ACCD::calc_distance(CollisionGeometryPtr a, CollisionGeometryPtr b, Vec
   // determine the relative transform from b to a
   shared_ptr<const Pose3d> Ta = a->get_pose();
   shared_ptr<const Pose3d> Tb = b->get_pose();
-  pair<Quatd, Origin3d> aTb = Pose3d::calc_relative_pose(Tb, Ta);
+  Transform3d aTb = Pose3d::calc_relative_pose(Tb, Ta);
 
   // setup the minimum distance
   double min_dist = std::numeric_limits<double>::max(); 

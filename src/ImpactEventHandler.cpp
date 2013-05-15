@@ -492,14 +492,14 @@ void ImpactEventHandler::solve_lcp(EventProblemData& q, VectorNd& z)
   LR.resize(q.N_LIMITS, q.N_LIMITS);
 
   // setup primary terms -- first upper left hand block of matrix
-  iJx_iM_JxT.copy_from(q.Jx_iM_JxT);
+  iJx_iM_JxT = q.Jx_iM_JxT;
   try
   {
     LinAlg::pseudo_inverse(iJx_iM_JxT, LinAlg::svd1);
   }
   catch (NumericalException e)
   {
-    iJx_iM_JxT.copy_from(q.Jx_iM_JxT);
+    iJx_iM_JxT = q.Jx_iM_JxT;
     LinAlg::pseudo_inverse(iJx_iM_JxT, LinAlg::svd2);
   }
   q.Jc_iM_JxT.mult(iJx_iM_JxT, t2);
@@ -546,7 +546,7 @@ void ImpactEventHandler::solve_lcp(EventProblemData& q, VectorNd& z)
   FILE_LOG(LOG_EVENT) << "  LCP vector: " << qq << std::endl;
 
   // solve the LCP
-  if (!Optimization::lcp_lemke_regularized(MM, qq, z))
+  if (!_lcp.lcp_lemke_regularized(MM, qq, z))
     throw std::runtime_error("Unable to solve event LCP!");
 
   // determine the value of kappa

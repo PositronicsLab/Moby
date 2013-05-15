@@ -44,12 +44,13 @@ class OBB : public BV
     OBB(const Ravelin::Point3d& center, const Ravelin::Matrix3d& R, const Ravelin::Vector3d& l);
     OBB(const OBB& o, const Ravelin::Vector3d& v);
     void operator=(const OBB& obb);
+    virtual void transform(const Ravelin::Transform3d& T, BV* result) const;
     virtual BVPtr calc_vel_exp_BV(CollisionGeometryPtr g, double dt, const Ravelin::Twistd& v) const;
     static double calc_sq_dist(const OBB& o, const Ravelin::Point3d& p);
     static double calc_dist(const OBB& a, const OBB& b, Ravelin::Point3d& cpa, Ravelin::Point3d& cpb);
-    static double calc_dist(const OBB& a, const OBB& b, const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& aTb, Ravelin::Point3d& cpa, Ravelin::Point3d& cpb);
+    static double calc_dist(const OBB& a, const OBB& b, const Ravelin::Transform3d& aTb, Ravelin::Point3d& cpa, Ravelin::Point3d& cpb);
     static bool intersects(const OBB& a, const OBB& b);
-    static bool intersects(const OBB& a, const OBB& b, const std::pair<Ravelin::Quatd, Ravelin::Origin3d>& aTb);
+    static bool intersects(const OBB& a, const OBB& b, const Ravelin::Transform3d& aTb);
     static bool intersects(const OBB& a, const LineSeg3& seg, double& tmin, double tmax, Ravelin::Point3d& q);
     virtual bool intersects(const LineSeg3& seg, double& tmin, double tmax, Ravelin::Point3d& q) const { return OBB::intersects(*this, seg, tmin, tmax, q); }
     static bool outside(const OBB& a, const Ravelin::Point3d& point, double tol = NEAR_ZERO);
@@ -59,8 +60,9 @@ class OBB : public BV
     virtual std::ostream& to_vrml(std::ostream& out, const Ravelin::Pose3d& T) const;
     unsigned calc_size() const;
     XMLTreePtr save_to_xml_tree() const;
-    virtual Ravelin::Point3d get_lower_bounds(const Ravelin::Pose3d& T);
-    virtual Ravelin::Point3d get_upper_bounds(const Ravelin::Pose3d& T);
+    virtual boost::shared_ptr<const Ravelin::Pose3d> get_pose() const { return center.pose; }
+    virtual Ravelin::Point3d get_lower_bounds() const;
+    virtual Ravelin::Point3d get_upper_bounds() const;
     static OBBPtr load_from_xml(boost::shared_ptr<const XMLTree> root);
 
     template <class ForwardIterator>

@@ -20,10 +20,7 @@
 #include <Moby/EventDrivenSimulator.h>
 #include <Moby/CollisionDetection.h>
 
-using Ravelin::Pose3d;
-using Ravelin::Point3d;
-using Ravelin::Quatd;
-using Ravelin::Origin3d;
+using namespace Ravelin;
 using boost::shared_ptr;
 using boost::dynamic_pointer_cast;
 using std::vector;
@@ -477,7 +474,7 @@ double CollisionDetection::calc_distances()
       // get the two poses
       shared_ptr<const Pose3d> p1 = g1->get_pose();
       shared_ptr<const Pose3d> p2 = g2->get_pose();
-      pair<Quatd, Origin3d> p1Tp2 = Pose3d::calc_relative_pose(p2, p1);
+      Transform3d p1Tp2 = Pose3d::calc_relative_pose(p2, p1);
 
       // otherwise, compute the distance
       double dist = calc_distance(g1, g2, p1Tp2, cp1, cp2);
@@ -503,15 +500,13 @@ double CollisionDetection::calc_distances()
  * \param cpb the closest point to a on b (in b's frame)
  * \return the squared distance between cpa and cpb
  */
-double CollisionDetection::calc_distance(CollisionGeometryPtr a, CollisionGeometryPtr b, const pair<Quatd, Origin3d>& aTb, Point3d& cpa, Point3d& cpb)
+double CollisionDetection::calc_distance(CollisionGeometryPtr a, CollisionGeometryPtr b, const Transform3d& aTb, Point3d& cpa, Point3d& cpb)
 {
   // setup the minimum distance
   double min_dist = std::numeric_limits<double>::max();
 
   // determine the transform from b's frame to a's frame
-  pair<Quatd, Origin3d> bTa;
-  bTa.first = Quatd::invert(aTb.first);
-  bTa.second = bTa.first * (-aTb.second); 
+  Transform3d bTa = Transform3d::inverse(aTb);
 
   // get the primitives 
   PrimitivePtr a_primitive = a->get_geometry(); 
@@ -534,10 +529,7 @@ double CollisionDetection::calc_distance(CollisionGeometryPtr a, CollisionGeomet
       Triangle utb = b_mesh.get_triangle(j);
 
       // transform the second triangle
-      Triangle tb;
-      tb.a = aTb.first * utb.a + aTb.second;
-      tb.b = aTb.first * utb.b + aTb.second;
-      tb.c = aTb.first * utb.c + aTb.second;
+      Triangle tb = Triangle::transform(utb, aTb);
  
       // get distance between the two triangles
       Point3d cpa_tmp, cpb_tmp;
@@ -548,7 +540,7 @@ double CollisionDetection::calc_distance(CollisionGeometryPtr a, CollisionGeomet
       {
         min_dist = dist;
         cpa = cpa_tmp;
-        cpb = bTa.first * cpb_tmp + bTa.second;
+        cpb = bTa.transform(cpb_tmp);
       }
     }
   }

@@ -18,15 +18,6 @@ using std::endl;
 using namespace Ravelin;
 using namespace Moby;
 
-/// Computes the inverse of a relative pose
-pair<Quatd, Origin3d> BV::inverse(const pair<Quatd, Origin3d>& p)
-{
-  pair<Quatd, Origin3d> invp;
-  invp.first = Quatd::invert(p.first);
-  invp.second = invp.first * -p.second;
-  return invp;
-}
-
 /// Computes the distance between two abstract bounding volumes and stores the closest points
 /**
  * \param cp1 the closest point on a to b
@@ -46,7 +37,7 @@ double BV::calc_distance(const BV* a, const BV* b, Point3d& cp1, Point3d& cp2)
  * \param cp2 the closest point on b to a
  * \return the distance between the bounding volumes
  */
-double BV::calc_distance(const BV* a, const BV* b, const pair<Quatd, Origin3d>& aTb, Point3d& cp1, Point3d& cp2)
+double BV::calc_distance(const BV* a, const BV* b, const Transform3d& aTb, Point3d& cp1, Point3d& cp2)
 {
   throw std::runtime_error("This method not implemented!");
   return -1.0;
@@ -159,7 +150,7 @@ bool BV::intersects(const BV* a, const BV* b)
 /**
  * \param aTb the relative transformation from b to a
  */
-bool BV::intersects(const BV* a, const BV* b, const pair<Quatd, Origin3d>& aTb)
+bool BV::intersects(const BV* a, const BV* b, const Transform3d& aTb)
 {
   // look for dummy type
   if (dynamic_cast<const DummyBV*>(a) || dynamic_cast<const DummyBV*>(b))
@@ -264,7 +255,7 @@ bool BV::intersects(const BV* a, const BV* b, const pair<Quatd, Origin3d>& aTb)
 }
 
 /// Tests intersection between an OBB and an AABB
-bool BV::intersects(const OBB* O, const AABB* A, const pair<Quatd, Origin3d>& OTA)
+bool BV::intersects(const OBB* O, const AABB* A, const Transform3d& OTA)
 {
   OBB Ao = A->get_OBB();
 
@@ -315,11 +306,11 @@ bool BV::intersects(const OBB* O, const BoundingSphere* S)
 /**
  * \param OTS the matrix transforming S's frame to O's frame
  */
-bool BV::intersects(const OBB* O, const BoundingSphere* S, const pair<Quatd, Origin3d>& OTS)
+bool BV::intersects(const OBB* O, const BoundingSphere* S, const Transform3d& OTS)
 {
   // create a new bounding sphere in O's frame
   BoundingSphere s = *S;
-  s.center = OTS.first * s.center + OTS.second;
+  s.center = OTS.transform(S->center);
   return intersects(O, &s);
 }
 
@@ -331,10 +322,11 @@ bool BV::intersects(const AABB* A, const BoundingSphere* S)
   FILE_LOG(LOG_COLDET) << "BV::intersects() [AABB/sphere] entered" << endl;
 
   // transform the sphere center to OBB space
-  Point3d center = S->center - A->minp + A->maxp;
+  Point3d center = S->center;
+  center.pose = A->get_pose();
+  center += A->maxp - A->minp;
 
-  FILE_LOG(LOG_COLDET) << "  -- sphere center: " << S->center << endl;
-  FILE_LOG(LOG_COLDET) << "  -- sphere center: " << center << " (OBB frame)" << endl;
+  FILE_LOG(LOG_COLDET) << "  -- sphere center: " << center << " (AABB frame)" << endl;
 
   // get the half-lengths of the AABB
   Point3d l = A->maxp*0.5 - A->minp*0.5;
@@ -364,11 +356,11 @@ bool BV::intersects(const AABB* A, const BoundingSphere* S)
 /**
  * \param ATS the matrix transforming S's frame to A's frame
  */
-bool BV::intersects(const AABB* A, const BoundingSphere* S, const pair<Quatd, Origin3d>& ATS)
+bool BV::intersects(const AABB* A, const BoundingSphere* S, const Transform3d& ATS)
 {
   // create a new bounding sphere in O's frame
   BoundingSphere s = *S;
-  s.center = ATS.first * s.center + ATS.second;
+  s.center = ATS.transform(S->center);
   return intersects(A, &s);
 }
 
@@ -392,10 +384,10 @@ bool BV::intersects(const SSR* S, const BoundingSphere* B)
  * \param B the bounding sphere
  * \param STB transformation from B's frame to S's frame
  */
-bool BV::intersects(const SSR* S, const BoundingSphere* B, const pair<Quatd, Origin3d>& STB)
+bool BV::intersects(const SSR* S, const BoundingSphere* B, const Transform3d& STB)
 {
   // transform the center of the bounding sphere
-  Point3d xc = STB.first * B->center + STB.second;
+  Point3d xc = STB.transform(B->center);
 
   // determine the distance between S and xformed center of the bounding sphere
   double dist = SSR::calc_dist(*S, xc);
@@ -412,10 +404,10 @@ bool BV::intersects(const SSR* S, const BoundingSphere* B, const pair<Quatd, Ori
 bool BV::intersects(const OBB* O, const SSR* S)
 {
   // create a AABB around the SSR
-  AABB Sx;
-  Sx.minp = ((SSR*) S)->get_lower_bounds(Pose3d::identity());
-  Sx.maxp = ((SSR*) S)->get_upper_bounds(Pose3d::identity());
-  return intersects(O, &Sx);
+  AABB S_aabb;
+  S_aabb.minp = S->get_lower_bounds();
+  S_aabb.maxp = S->get_upper_bounds();
+  return intersects(O, &S_aabb);
 }
 
 /// Tests intersection between an OBB and a SSR
@@ -424,13 +416,14 @@ bool BV::intersects(const OBB* O, const SSR* S)
  * \param S the sphere-swept rectangle
  * \param OTS the transformation from S's frame to O's frame
  */
-bool BV::intersects(const OBB* O, const SSR* S, const pair<Quatd, Origin3d>& OTS)
+bool BV::intersects(const OBB* O, const SSR* S, const Transform3d& OTS)
 {
-  AABB Sx;
-  Pose3d T(OTS.first, OTS.second);
-  Sx.minp = ((SSR*) S)->get_lower_bounds(T);
-  Sx.maxp = ((SSR*) S)->get_upper_bounds(T);
-  return intersects(O, &Sx);
+  SSR Sx;
+  AABB S_aabb;
+  S->transform(OTS, &Sx);
+  S_aabb.minp = Sx.get_lower_bounds();
+  S_aabb.maxp = Sx.get_upper_bounds();
+  return intersects(O, &S_aabb);
 }
 
 /// Tests intersection between a SSR and a AABB
@@ -439,14 +432,15 @@ bool BV::intersects(const OBB* O, const SSR* S, const pair<Quatd, Origin3d>& OTS
  * \param A the axis-aligned bounding box
  * \param STA the transformation from A's frame to S's frame
  */
-bool BV::intersects(const SSR* S, const AABB* A, const pair<Quatd, Origin3d>& STA)
+bool BV::intersects(const SSR* S, const AABB* A, const Transform3d& STA)
 {
-  pair<Quatd, Origin3d> ATS = inverse(STA);
-  AABB Sx;
-  Pose3d T(ATS.first, ATS.second);
-  Sx.minp = ((SSR*) S)->get_lower_bounds(T);
-  Sx.maxp = ((SSR*) S)->get_upper_bounds(T);
-  return AABB::intersects(*A, Sx);
+  Transform3d ATS = Transform3d::invert(STA);
+  SSR Sx;
+  AABB S_aabb;
+  S->transform(ATS, Sx);
+  S_aabb.minp = Sx.get_lower_bounds();
+  S_aabb.maxp = Sx.get_upper_bounds();
+  return AABB::intersects(*A, S_aabb);
 }
 
 /// Tests intersection between a SSR and a AABB
@@ -457,8 +451,8 @@ bool BV::intersects(const SSR* S, const AABB* A, const pair<Quatd, Origin3d>& ST
 bool BV::intersects(const SSR* S, const AABB* A)
 {
   AABB Sx;
-  Sx.minp = ((SSR*) S)->get_lower_bounds(Pose3d::identity());
-  Sx.maxp = ((SSR*) S)->get_upper_bounds(Pose3d::identity());
+  Sx.minp = S->get_lower_bounds();
+  Sx.maxp = S->get_upper_bounds();
   return AABB::intersects(*A, Sx);
 }
 
@@ -466,38 +460,42 @@ bool BV::intersects(const SSR* S, const AABB* A)
 bool BV::intersects(const AABB* A, const SSL* B)
 {
   AABB Bx;
-  Bx.minp = ((SSL*) B)->get_lower_bounds(Pose3d::identity());
-  Bx.maxp = ((SSL*) B)->get_upper_bounds(Pose3d::identity());
+  Bx.minp = B->get_lower_bounds();
+  Bx.maxp = B->get_upper_bounds();
   return AABB::intersects(*A, Bx);
 }
 
 /// Tests intersection between a SSL and a AABB
-bool BV::intersects(const AABB* A, const SSL* B, const pair<Quatd, Origin3d>& aTb)
+bool BV::intersects(const AABB* A, const SSL* B, const Transform3d& aTb)
 {
-  AABB Bx;
-  Pose3d T(aTb.first, aTb.second);
-  Bx.minp = ((SSL*) B)->get_lower_bounds(T);
-  Bx.maxp = ((SSL*) B)->get_upper_bounds(T);
-  return AABB::intersects(*A, Bx);
+  AABB B_aabb;
+  SSL Bx;
+
+  B->transform(aTb, &Bx);
+  B_aabb.minp = Bx.get_lower_bounds();
+  B_aabb.maxp = Bx.get_upper_bounds();
+
+  return AABB::intersects(*A, B_aabb);
 }
 
 /// Tests intersection between a SSL and an OBB
 bool BV::intersects(const OBB* A, const SSL* B)
 {
   AABB Bx;
-  Bx.minp = ((SSL*) B)->get_lower_bounds(Pose3d::identity());
-  Bx.maxp = ((SSL*) B)->get_upper_bounds(Pose3d::identity());
+  Bx.minp = B->get_lower_bounds();
+  Bx.maxp = B->get_upper_bounds();
   return intersects(A, &Bx);
 }
 
 /// Tests intersection between a SSL and an OBB
-bool BV::intersects(const OBB* A, const SSL* B, const pair<Quatd, Origin3d>& aTb)
+bool BV::intersects(const OBB* A, const SSL* B, const Transform3d& aTb)
 {
-  AABB Bx;
-  Pose3d T(aTb.first, aTb.second);
-  Bx.minp = ((SSL*) B)->get_lower_bounds(T);
-  Bx.maxp = ((SSL*) B)->get_upper_bounds(T);
-  return intersects(A, &Bx);
+  SSL Bx;
+  AABB B_aabb;
+  B->transform(aTb, &Bx);
+  B_aabb.minp = Bx.get_lower_bounds();
+  B_aabb.maxp = Bx.get_upper_bounds();
+  return intersects(A, &B_aabb);
 }
 
 /// Tests intersection between a SSL and a bounding sphere
@@ -508,7 +506,7 @@ bool BV::intersects(const SSL* A, const BoundingSphere* B)
 }
 
 /// Tests intersection between a SSL and a bounding sphere
-bool BV::intersects(const SSL* A, const BoundingSphere* B, const pair<Quatd, Origin3d>& aTb)
+bool BV::intersects(const SSL* A, const BoundingSphere* B, const Transform3d& aTb)
 {
   double dist = SSL::calc_dist(*A, B->center);
   return dist <= B->radius;
@@ -522,12 +520,11 @@ bool BV::intersects(const SSR* A, const SSL* B)
 }
 
 /// Tests intersection between a SSR and a SSL
-bool BV::intersects(const SSR* A, const SSL* B, const pair<Quatd, Origin3d>& aTb)
+bool BV::intersects(const SSR* A, const SSL* B, const Transform3d& aTb)
 {
-  Point3d Bp1 = aTb.first * B->p1 + aTb.second;
-  Point3d Bp2 = aTb.first * B->p2 + aTb.second;
+  Point3d Bp1 = aTb.transform(B->p1);
+  Point3d Bp2 = aTb.transform(B->p2);
   double dist = SSR::calc_dist(*A, LineSeg3(Bp1, Bp2));
   return dist <= B->radius;
 }
-
 
