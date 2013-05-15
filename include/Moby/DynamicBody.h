@@ -48,8 +48,11 @@ class DynamicBody : public Visualizable
     /// Resets the force and torque accumulators on the dynamic body
     virtual void reset_accumulators() = 0;
 
-    /// Transforms the dynamic body by the given transform
-    virtual void transform(const Ravelin::Pose3d& T) = 0;
+    /// Rotates the dynamic body by the given orientation 
+    virtual void rotate(const Ravelin::Quatd& q) = 0;
+
+    /// Translates the dynamic body by the given translation 
+    virtual void translate(const Ravelin::Origin3d& o) = 0;
 
     /// Calculates the kinetic energy of the body
     virtual double calc_kinetic_energy() const = 0;
