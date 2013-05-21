@@ -34,7 +34,7 @@ class SphericalJoint : public Joint
     virtual void evaluate_constraints(double C[]);
 
     /// Spherical joint is singular if sin(q1) = 0 and cos(q2) = 0
-    virtual bool is_sngular_config() const { return std::fabs(std::sin(q[DOF_1])) < SINGULAR_TOL && std::fabs(std::cos(q[DOF_2])) < SINGULAR_TOL; }
+    virtual bool is_singular_config() const { return std::fabs(std::sin(q[DOF_1])) < SINGULAR_TOL && std::fabs(std::cos(q[DOF_2])) < SINGULAR_TOL; }
 
     /// The tolerance to which a joint configuration is considered singular
     /**

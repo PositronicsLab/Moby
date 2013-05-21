@@ -23,6 +23,7 @@ using namespace Moby;
 using boost::shared_ptr;
 using boost::dynamic_pointer_cast;
 using boost::static_pointer_cast;
+using std::vector;
 using std::cerr;
 using std::endl;
 using std::map;
@@ -42,6 +43,7 @@ RigidBody::RigidBody()
   // setup poses
   _F = shared_ptr<Pose3d>(new Pose3d(Pose3d::identity()));
   _jF = shared_ptr<Pose3d>(new Pose3d(Pose3d::identity()));
+  _jF->rpose = _F;
 
   // set everything else
   _J.set_zero();
@@ -134,38 +136,6 @@ void RigidBody::calc_fwd_dyn(double dt)
   }
 }
 
-/// Gets the dynamic body
-/**
- * If this is a rigid body, returns this; if this is a link in an articulated
- * body, returns the articulated body.
- */
-shared_ptr<const DynamicBody> RigidBody::get_dynamic_body() const
-{
-  if (_abody.expired())
-    return shared_ptr<const DynamicBody>(get_this());
-  else
-  {
-    ArticulatedBodyPtr abody(get_articulated_body());
-    return shared_ptr<const DynamicBody>(abody);
-  }
-}
-
-/// Gets the dynamic body
-/**
- * If this is a rigid body, returns this; if this is a link in an articulated
- * body, returns the articulated body.
- */
-shared_ptr<DynamicBody> RigidBody::get_dynamic_body() 
-{
-  if (_abody.expired())
-    return shared_ptr<DynamicBody>(get_this());
-  else
-  {
-    ArticulatedBodyPtr abody(get_articulated_body());
-    return shared_ptr<DynamicBody>(abody);
-  }
-}
-
 /// Sets the body to enabled / disabled.
 /**
  * If the body is disabled, the linear and angular velocity are set to zero,
@@ -188,9 +158,6 @@ void RigidBody::set_enabled(bool flag)
 /// Sets the linear velocity of this body
 Twistd& RigidBody::velocity() 
 { 
-  // invalidate articulated body velocity
-  invalidate_velocity();
- 
   // set the velocity  
   return _xd; 
 }
@@ -200,28 +167,22 @@ void RigidBody::set_inertia(const SpatialRBInertiad& inertia)
 {
   // store the matrix and its inverse
   _J = inertia;
-  
-  // invalidate position, just in case
-  invalidate_position();
 }
 
 /// Sets the current 4x4 homogeneous transformation for this rigid body
 /**
  * Also updates the transforms for associated visualization and collision data.
  */
-void RigidBody::set_pose(const Pose3d& T) 
+void RigidBody::set_pose(const Pose3d& p) 
 { 
-  // update velocity, acceleration, wrenches, inertias
+  // update/invalidate velocity, acceleration, wrenches, inertias
 
-  // TODO: transform pose as necessary?
-  // store the transform
-  *_F = T; 
+  // store pose and transform to necessary relative frame 
+  *_F = p; 
+  _F->update_relative_pose(get_computation_frame());
   
   // synchronize the geometry
   synchronize();
-
-  // invalidate the position
-  invalidate_position();
 }
 
 /// Adds a wrench to the body
@@ -240,6 +201,7 @@ void RigidBody::synchronize()
 {
 }
 
+// TODO: fix this
 /// Calculates the velocity of a point on this rigid body
 Vector3d RigidBody::calc_point_vel(const Point3d& point) const
 {
@@ -341,9 +303,8 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
   list<shared_ptr<const XMLTree> > ifp_nodes = node->find_child_nodes("InertiaFromPrimitive");
   if (!ifp_nodes.empty())
   {
-    // set com to zero initially
+    // set inertia to zero initially 
     SpatialRBInertiad J;
-    Point3d com = ZEROS_3;
 
     // loop over all InertiaFromPrimitive nodes
     for (list<shared_ptr<const XMLTree> >::const_iterator i = ifp_nodes.begin(); i != ifp_nodes.end(); i++)
@@ -370,44 +331,27 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
         continue;
       }
 
-      // set the relative transformation to identity for this primitive
-      Pose3d TR; 
+      // get the primitive
+      PrimitivePtr primitive = dynamic_pointer_cast<Primitive>(id_iter->second);
+
+      // get the inertia and inertial frame from the primitive
+      const SpatialRBInertiad& Jx = primitive->get_inertia();
+      shared_ptr<const Pose3d> Fx = primitive->get_inertial_pose();
+
+      // set the relative transformation initially to identity for this primitive
+      shared_ptr<Pose3d> rTR(new Pose3d); 
 
       // read the relative transformation, if specified
       const XMLAttrib* rel_origin_attr = (*i)->get_attrib("relative-origin");
       const XMLAttrib* rel_rpy_attr = (*i)->get_attrib("relative-rpy");
       if (rel_origin_attr)
-        TR.x = rel_origin_attr->get_origin_value();
+        rTR->x = rel_origin_attr->get_origin_value();
       if (rel_rpy_attr)
-        TR.q = rel_rpy_attr->get_rpy_value();
+        rTR->q = rel_rpy_attr->get_rpy_value();
+      rTR->rpose = Fx;
 
-      // get the primitive
-      PrimitivePtr primitive = dynamic_pointer_cast<Primitive>(id_iter->second);
-
-      // get the mass, inertia, and com from the primitive
-      double massx = primitive->get_mass();
-      Matrix3d Jx = primitive->get_inertia();
-      Point3d comx = primitive->get_com();
-
-      // transform the inertia
-      Primitive::transform_inertia(massx, Jx, comx, TR, Jx, comx);
-
-      // update the mass, inertia, and com
-      J.m += massx;
-      J.J += Jx;
-      com += Vector3d(comx*massx);
-    }
-
-    // TODO: permit non-zero c.o.m. and update
-    // update the com
-    assert(!_enabled || J.m != 0.0);
-    com *= (1.0/J.m);
-
-    if (com.norm() > NEAR_ZERO)
-    {
-      cerr << "RigidBody::load_from_xml() - center-of-mass of rigid body is not at its origin," << endl;
-      cerr << " according to its geometry.  Dynamics may not reflect geometry of body." << endl;
-      cerr << " body: " << id << "  center-of-mass: " << std::setprecision(12) << com[X] << " " << std::setprecision(12) << com[Y] << " " << std::setprecision(12) << com[Z] << endl;
+      // transform the inertia and update the inertia for this
+      J += Pose3d::transform(Fx, rTR, Jx); 
     }
 
     // set the mass and inertia of the RigidBody additively
@@ -533,14 +477,21 @@ void RigidBody::save_to_xml(XMLTreePtr node, list<shared_ptr<const Base> >& shar
   // save whether the body is enabled
   node->attribs.insert(XMLAttrib("enabled", _enabled));
 
+  // TODO: save the inertial frame (and collision frame? and visualization frame?) 
+
   // save the mass
   node->attribs.insert(XMLAttrib("mass", _J.m));
 
   // save the inertia
   node->attribs.insert(XMLAttrib("inertia", _J.J));
 
-  // save the current transform
-  node->attribs.insert(XMLAttrib("transform", _F));
+  // convert the current pose to be with respect to global coordinates
+  double alpha, beta, gamma;
+  Pose3d F0 = *_F;
+  F0.update_relative_pose(GLOBAL);
+  node->attribs.insert(XMLAttrib("position", F0.x));
+  F0.q.to_rpy(alpha, beta, gamma);
+  node->attribs.insert(XMLAttrib("rpy", alpha, beta, gamma));
 
   // save the linear and angular velocities
   shared_ptr<const Pose3d> TARGET(new Pose3d(Quatd::identity(), _F->x)); 
@@ -582,38 +533,13 @@ void RigidBody::save_to_xml(XMLTreePtr node, list<shared_ptr<const Base> >& shar
 /**
  * \param parent the outer link of the parent
  * \param j the joint connecting parent and this
- * \param joint_to_com_vec_joint the vector from j to the center-of-mass of this
- *        (specified in the joint frame) 
- * \param joint_to_com_vec_link the vector from j to the center-of-mass of this
- *        (specified in this frame) 
  */
-void RigidBody::add_inner_joint(RigidBodyPtr parent, JointPtr j, const Vector3d& joint_to_com_vec_joint, const Vector3d& joint_to_com_vec_link) 
+void RigidBody::add_inner_joint(JointPtr j) 
 {
-  // remove the inner joint if it already exists
-  for (list<InnerJointData>::iterator i = _inner_joints.begin(); i != _inner_joints.end(); )
-    if (JointPtr(i->inner_joint) == j)
-      i = _inner_joints.erase(i);
-    else
-      i++;
-
-  // add the inner joint
-  _inner_joints.push_back(InnerJointData());
-  _inner_joints.back().parent = parent;
-  _inner_joints.back().inner_joint = j;
-  _inner_joints.back().joint_to_com_vec_jf = joint_to_com_vec_joint;
-  _inner_joints.back().joint_to_com_vec_of = joint_to_com_vec_link;
- 
-  // set the joint to point to this, if it does not already do so
-  RigidBodyPtr outboard = j->get_outboard_link();
-  if (outboard != get_this())
-    j->set_outboard_link(get_this());
+  _inner_joints.insert(j);
 
   // update the spatial axes
   j->update_spatial_axes();
-
-  // set the parent link / inboard link pointers, if possible
-  if (j->get_inboard_link() != parent)
-    j->set_inboard_link(parent);
 
   // set the articulated body / inner joint articulated body pointers, if
   // possible
@@ -637,38 +563,16 @@ void RigidBody::add_inner_joint(RigidBodyPtr parent, JointPtr j, const Vector3d&
 
 /// Adds an outer joint for this link
 /**
- * \param child the child link
  * \param j the joint connecting this and child
- * \param com_to_joint_vec_link the vector from the center-of-mass of this link
- *        to j in this link's coordinates 
  * \note replaces the outer joint if it is already attached to this link 
  */
-void RigidBody::add_outer_joint(RigidBodyPtr child, JointPtr j, const Vector3d& com_to_joint_vec_link) 
+void RigidBody::add_outer_joint(JointPtr j) 
 {
-  // remove the outer joint if it already exists
-  for (list<OuterJointData>::iterator i = _outer_joints.begin(); i != _outer_joints.end(); )
-    if (JointPtr(i->outer_joint) == j)
-      i = _outer_joints.erase(i);
-    else
-      i++;
-
   // add the outer joint
-  _outer_joints.push_back(OuterJointData());
-  _outer_joints.back().child = child;
-  _outer_joints.back().outer_joint = j;
-  _outer_joints.back().com_to_joint_vec = com_to_joint_vec_link;
+  _outer_joints.insert(j);
  
-  // set the joint to point to this, if it does not already do so
-  RigidBodyPtr inboard = j->get_inboard_link();
-  if (inboard != get_this())
-    j->set_inboard_link(get_this());
-
   // update the spatial axes
   j->update_spatial_axes();
-
-  // set the child link / outboard link pointers, if possible
-  if (j->get_outboard_link() != child)
-    j->set_outboard_link(child);
 
   // set the articulated body / inner joint articulated body pointers, if
   // possible
@@ -693,23 +597,11 @@ void RigidBody::add_outer_joint(RigidBodyPtr child, JointPtr j, const Vector3d& 
 /// Determines whether the given link is a child link of this
 bool RigidBody::is_child_link(shared_ptr<const RigidBody> query) const
 {
-  BOOST_FOREACH(const OuterJointData& odata, _outer_joints)
-    if (RigidBodyPtr(odata.child) == query)
+  BOOST_FOREACH(JointPtr j, _outer_joints)
+    if (RigidBodyPtr(j->get_outboard_link()) == query)
       return true;
 
   return false;
-}
-
-/// Gets the i'th child link
-RigidBodyPtr RigidBody::get_child_link(unsigned i) const
-{
-  unsigned index = 0;
-  BOOST_FOREACH(const OuterJointData& odata, _outer_joints)
-    if (index++ == i)
-      return RigidBodyPtr(odata.child);
-
-  // still here? not found...
-  return RigidBodyPtr();
 }
 
 /// Determines whether the given link is a descendant of this
@@ -725,8 +617,8 @@ bool RigidBody::is_descendant_link(shared_ptr<const RigidBody> query) const
     return true;
 
   // add all children to the queue
-  BOOST_FOREACH(const OuterJointData& odata, _outer_joints)
-    q.push(shared_ptr<const RigidBody>(odata.child));
+  BOOST_FOREACH(JointPtr j, _outer_joints)
+    q.push(shared_ptr<const RigidBody>(j->get_outboard_link()));
 
   // continue processing children until no more children are able to be processed
   while (!q.empty())
@@ -735,119 +627,26 @@ bool RigidBody::is_descendant_link(shared_ptr<const RigidBody> query) const
     q.pop();
     if (link == query)
       return true;
-    BOOST_FOREACH(const OuterJointData& odata, link->_outer_joints)
-      q.push(shared_ptr<const RigidBody>(odata.child));
+    BOOST_FOREACH(JointPtr j, link->_outer_joints)
+      q.push(shared_ptr<const RigidBody>(j->get_outboard_link()));
   }    
 
   return false;
 }
 
-RigidBody::InnerJointData& RigidBody::get_inner_joint_data(RigidBodyPtr parent)
+/// Removes the specified outer joint from this link
+void RigidBody::remove_outer_joint(JointPtr joint)
 {
-  BOOST_FOREACH(InnerJointData& i, _inner_joints)
-    if (RigidBodyPtr(i.parent) == parent)
-      return i;
-
-  throw std::runtime_error("Requested inner joint data was not found!");
-}
-
-RigidBody::InnerJointData& RigidBody::get_inner_joint_data(JointPtr joint)
-{
-  BOOST_FOREACH(InnerJointData& i, _inner_joints)
-    if (JointPtr(i.inner_joint) == joint)
-      return i;
-
-  throw std::runtime_error("Requested inner joint data was not found!");
-}
-
-RigidBody::OuterJointData& RigidBody::get_outer_joint_data(RigidBodyPtr child)
-{
-  BOOST_FOREACH(OuterJointData& o, _outer_joints)
-    if (RigidBodyPtr(o.child) == child)
-      return o;
-
-  throw std::runtime_error("Requested outer joint data was not found!");
-}
-
-RigidBody::OuterJointData& RigidBody::get_outer_joint_data(JointPtr joint)
-{
-  BOOST_FOREACH(OuterJointData& o, _outer_joints)
-    if (JointPtr(o.outer_joint) == joint)
-      return o;
-
-  throw std::runtime_error("Requested outer joint data was not found!");
-}
-
-/// Removes all joints that connect the specified child link to this link
-/**
- * Returns true if the link was found. 
- */
-bool RigidBody::remove_outer_joints(RigidBodyPtr child)
-{
-  bool found_one = false;
-
-  for (std::list<OuterJointData>::iterator i = _outer_joints.begin(); i != _outer_joints.end(); )
-    if (RigidBodyPtr(i->child) == child)
-    {
-      i = _outer_joints.erase(i);
-      found_one = true;
-    }
-    else
-      i++;
-
-  return found_one; 
+  _outer_joints.erase(joint);
 }
 
 /// Removes the specified outer joint from this link
 /**
  * Returns true if the link was found. 
  */
-bool RigidBody::remove_outer_joint(JointPtr joint)
+void RigidBody::remove_inner_joint(JointPtr joint)
 {
-  for (std::list<OuterJointData>::iterator i = _outer_joints.begin(); i != _outer_joints.end(); i++)
-    if (JointPtr(i->outer_joint) == joint)
-    {
-      _outer_joints.erase(i);
-      return true;
-    }
-
-  return false; 
-}
-
-/// Removes all joints that connect the specified parent link to this link
-/**
- * Returns true if the link was found. 
- */
-bool RigidBody::remove_inner_joints(RigidBodyPtr parent)
-{
-  bool found_one = false;
-
-  for (std::list<InnerJointData>::iterator i = _inner_joints.begin(); i != _inner_joints.end(); )
-    if (RigidBodyPtr(i->parent) == parent)
-    {
-      i = _inner_joints.erase(i);
-      found_one = true;
-    }
-    else
-      i++;
-
-  return found_one; 
-}
-
-/// Removes the specified outer joint from this link
-/**
- * Returns true if the link was found. 
- */
-bool RigidBody::remove_inner_joint(JointPtr joint)
-{
-  for (std::list<InnerJointData>::iterator i = _inner_joints.begin(); i != _inner_joints.end(); i++)
-    if (JointPtr(i->inner_joint) == joint)
-    {
-      _inner_joints.erase(i);
-      return true;
-    }
-
-  return false; 
+  _inner_joints.erase(joint);
 }
 
 /// Applies a impulse to this link
@@ -955,7 +754,6 @@ void RigidBody::apply_generalized_impulse(GeneralizedCoordinateType gctype, cons
 
     // determine the change in linear velocity
     _xd += _J.inverse_mult(w);
-    invalidate_velocity();
   }
   else
   {
@@ -1083,10 +881,7 @@ void RigidBody::set_generalized_velocity(GeneralizedCoordinateType gctype, const
 
   // simplest case: spatial coordinates
   if (gctype == DynamicBody::eSpatial)
-  {
     _xd.set_angular(Vector3d(gv[3], gv[4], gv[5]));
-    invalidate_velocity();
-  }
   else
   {
     assert(gctype == DynamicBody::eEuler);
@@ -1115,9 +910,6 @@ void RigidBody::set_generalized_velocity(GeneralizedCoordinateType gctype, const
         _xd.set_angular(_F->q.L_mult(qd.w, qd.x, qd.y, qd.z));
         break;
     }
-
-    // invalidate velocities 
-    invalidate_velocity();
   }
 }
 
@@ -1246,42 +1038,39 @@ VectorNd& RigidBody::get_generalized_acceleration(GeneralizedCoordinateType gcty
 /// Gets the generalized inertia of this rigid body
 MatrixNd& RigidBody::get_generalized_inertia(GeneralizedCoordinateType gctype, MatrixNd& M) 
 {
-  const unsigned X = 0, Y = 1, Z = 2;
+  const unsigned X = 0, Y = 1, Z = 2, SPATIAL_DIM = 6, EULER_DIM = 7;
 
   // special case: disabled body
   if (!_enabled)
     return M.resize(0,0);
 
   // get the rigid body inertia as a matrix
-  get_inertia().to_matrix(M);
+  SpatialRBInertiad J = Pose3d::transform(_J.pose, get_computation_frame(), _J);
 
-  // get existing matrix blocks
-  Matrix3d UL = M.block(0,3,0,3);
-  Matrix3d UR = M.block(0,3,3,6);
-  Matrix3d LR = M.block(3,6,3,6);
+  // precompute some things
+  Matrix3d hxm = Matrix3d::skew_symmetric(J.h * J.m);
+  Matrix3d hxhxm = Matrix3d::skew_symmetric(J.h) * hxm;
 
-  // rearrange the matrix
-  M.set_sub_mat(0,0,UR);
-  M.set_sub_mat(0,3,UL);  
-  M.set_sub_mat(3,0,LR);
-  M.set_sub_mat(3,3,LL,Ravelin::eTranspose);
-
-  if (gctype == DynamicBody::eEuler) 
+  if (gctype == DynamicBody::eSpatial)
   {
-    // get existing matrix blocks
-    Matrix3d UL = M.block(0,3,0,3);
-    Matrix3d UR = M.block(0,3,3,6);
-    Matrix3d LR = M.block(3,6,3,6);
+    // arrange the matrix the way we want it: mass upper left, inertia lower right
+    M.resize(SPATIAL_DIM, SPATIAL_DIM);
+    M.set_sub_mat(0, 0, Matrix3d(J.m, 0, 0, 0, J.m, 0, 0, 0, J.m));
+    M.set_sub_mat(3, 0, hxm);
+    M.set_sub_mat(0, 3, hxm, Ravelin::eTranspose);
+    M.set_sub_mat(3, 3, J.J - hxhxm);
+  }
+  else if (gctype == DynamicBody::eEuler) 
+  {
+    // arrange the matrix the way we want it: mass upper left, inertia lower right
+    M.resize(EULER_DIM, EULER_DIM);
 
-    // resize M
-    const unsigned NGC = num_generalized_coordinates(gctype);
-    M.resize(NGC,NGC);
-
-    // setup upper left (doesn't change)
-    M.set_sub_mat(0,0,UR);
+    // setup upper left and lower left (doesn't change)
+    M.set_sub_mat(0, 0, Matrix3d(J.m, 0, 0, 0, J.m, 0, 0, 0, J.m));
+    M.set_sub_mat(3, 0, hxm);
 
     // TODO: compute upper right, lower left blocks
-
+/*
     Vector3d ix = LL.get_column(X);
     Vector3d iy = LL.get_column(Y);
     Vector3d iz = LL.get_column(Z);
@@ -1317,6 +1106,7 @@ MatrixNd& RigidBody::get_generalized_inertia(GeneralizedCoordinateType gctype, M
     M(4,3) = qy.w;  M(4,4) = qy.x;  M(4,5) = qy.y;  M(4,6) = qy.z;
     M(5,3) = qz.w;  M(5,4) = qz.x;  M(5,5) = qz.y;  M(5,6) = qz.z;
     M(6,3) = q.w;   M(6,4) = q.x;   M(6,5) = q.y;   M(6,6) = q.z;
+*/
   }
 
   return M;
@@ -1441,7 +1231,7 @@ double RigidBody::calc_kinetic_energy() const
 /// Gets the number of generalized coordinates
 unsigned RigidBody::num_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype) const
 {
-  const unsigned NGC_EUL = 7, NGC_SPATIAL = 6;
+  const unsigned NGC_EULER = 7, NGC_SPATIAL = 6;
 
   // no generalized coordinates if this body is disabled
   if (!_enabled)
@@ -1459,7 +1249,7 @@ unsigned RigidBody::num_generalized_coordinates(DynamicBody::GeneralizedCoordina
   switch (gctype)
   {
     case DynamicBody::eEuler:
-      return NGC_EUL;
+      return NGC_EULER;
 
     case DynamicBody::eSpatial:
       return NGC_SPATIAL;
@@ -1483,7 +1273,8 @@ RigidBodyPtr RigidBody::get_parent_link() const
   if (_inner_joints.empty())
     return RigidBodyPtr(); 
 
-  return RigidBodyPtr(_inner_joints.front().parent);
+  JointPtr inner = *_inner_joints.begin();
+  return RigidBodyPtr(inner->get_inboard_link());
 }
 
 /// Gets the implicit inner joint of this link; returns NULL if there is no implicit inner joint
@@ -1493,15 +1284,14 @@ RigidBodyPtr RigidBody::get_parent_link() const
 JointPtr RigidBody::get_inner_joint_implicit() const
 {
   JointPtr ij;
-  BOOST_FOREACH(const InnerJointData& ijd, _inner_joints)
+  BOOST_FOREACH(JointPtr j, _inner_joints)
   {
-    JointPtr joint(ijd.inner_joint);
-    if (joint->get_constraint_type() == Joint::eImplicit)
+    if (j->get_constraint_type() == Joint::eImplicit)
     {
       if (ij)
         throw std::runtime_error("Multiple implicit joints detected for a single link!"); 
       else
-        ij = joint;
+        ij = j;
     }
   }
 
@@ -1902,10 +1692,9 @@ bool RigidBody::is_ground() const
     // check whether inner implicit joints are present (if none are present, 
     // this is a base link)
     bool is_base = true;
-    BOOST_FOREACH(const InnerJointData& ijd, _inner_joints)
+    BOOST_FOREACH(JointPtr j, _inner_joints)
     {
-      JointPtr joint(ijd.inner_joint);
-      if (joint->get_constraint_type() == Joint::eImplicit)
+      if (j->get_constraint_type() == Joint::eImplicit)
       {
         is_base = false;
         break;
@@ -1929,39 +1718,14 @@ bool RigidBody::is_base() const
     return true;
 
   // check whether no implicit joints are present
-  BOOST_FOREACH(const InnerJointData& ijd, _inner_joints)
+  BOOST_FOREACH(JointPtr j, _inner_joints)
   {
-    JointPtr joint(ijd.inner_joint);
-    if (joint->get_constraint_type() == Joint::eImplicit)
+    if (j->get_constraint_type() == Joint::eImplicit)
       return false;
   }
 
   // no implicit joints... it's the base
   return true;
-}
-
-/// Invalidates an articulated body position state
-void RigidBody::invalidate_position()
-{
-  // only relevant for articulated bodies...
-  if (_abody.expired())
-    return;
-
-  // get the articulated body and invalidate it
-  ArticulatedBodyPtr abody(_abody);
-  abody->invalidate_positions();
-}
-
-/// Invalidates an articulated body velocity state
-void RigidBody::invalidate_velocity()
-{
-  // only relevant for articulated bodies...
-  if (_abody.expired())
-    return;
-
-  // get the articulated body and invalidate it
-  ArticulatedBodyPtr abody(_abody);
-  abody->invalidate_velocities();
 }
 
 /// Outputs the object state to the specified stream
@@ -1976,6 +1740,7 @@ std::ostream& Moby::operator<<(std::ostream& out, const Moby::RigidBody& rb)
   // indicate whether the body is enabled
   out << "  enabled? " << rb.is_enabled() << endl;
 
+  // TODO: write com?
   // write inertia info
   out << "  mass: " << rb.get_inertia().m << endl;
   out << "  inertia: " << endl << rb.get_inertia().J;

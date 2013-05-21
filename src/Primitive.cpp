@@ -53,10 +53,10 @@ static void to_osg_matrix(const Pose3d& src, osg::Matrixd& tgt)
 /// Constructs a primitive under the identity transformation
 Primitive::Primitive()
 {
-  _mass = 0.0;
-  _J = ZEROS_3x3;
-  _com = ZEROS_3;
-  _T = IDENTITY_4x4; 
+  _F = shared_ptr<Pose3d>(new Pose3d); 
+  _jF = shared_ptr<Pose3d>(new Pose3d);
+  _jF->rpose = _F;
+  _J.pose = _jF;
   _intersection_tolerance = 1e-5;
   _deformable = false;
 
@@ -65,12 +65,13 @@ Primitive::Primitive()
 }
 
 /// Constructs a primitive with the specified transform
-Primitive::Primitive(const Pose3d& T)
+Primitive::Primitive(shared_ptr<const Pose3d> F)
 {
-  _mass = 0.0;
-  _J = ZEROS_3x3;
-  _com = ZEROS_3;
-  _T = T;
+  _F = shared_ptr<Pose3d>(new Pose3d);
+  _jF = shared_ptr<Pose3d>(new Pose3d);
+  _jF->rpose = _F;
+  _J.pose = _jF;
+  *_F = *F; 
   _intersection_tolerance = 1e-5;
   _deformable = false;
 
@@ -136,9 +137,13 @@ void Primitive::update_visualization()
   if (!_vtransform)
     return;
 
+  // convert the pose to be relative to the global frame
+  Pose3d F0 = *_F;
+  F0.update_relative_pose(GLOBAL);
+
   // update the transform
   osg::Matrixd T;
-  to_osg_matrix(_T, T);
+  to_osg_matrix(F0, T);
   _vtransform->setMatrix(T);
 
   // remove all children of the group 
@@ -155,7 +160,7 @@ void Primitive::update_visualization()
  */
 void Primitive::set_mass(double mass)
 {
-  _mass = mass;
+  _J.m = mass;
   calc_mass_properties();
 }
 
@@ -181,9 +186,9 @@ void Primitive::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::stri
   const XMLAttrib* mass_attr = node->get_attrib("mass");
   if (mass_attr)
   {
-    _mass = mass_attr->get_real_value();
-    if (_mass < 0.0)
+    if (mass_attr->get_real_value() < 0.0)
       throw std::runtime_error("Attempting to set primitive mass to negative value");
+    set_mass(mass_attr->get_real_value());
   }
 
   // read in the density if specified
@@ -202,36 +207,36 @@ void Primitive::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::stri
     set_intersection_tolerance(itol_attr->get_real_value());
 
   // read in transformation, if specified
-  Pose3d T;
-  const XMLAttrib* xlat_attr = node->get_attrib("translation");
+  shared_ptr<Pose3d> F(new Pose3d);
+  const XMLAttrib* xlat_attr = node->get_attrib("position");
   const XMLAttrib* rpy_attr = node->get_attrib("rpy");
   const XMLAttrib* quat_attr = node->get_attrib("quat");
   if (xlat_attr && rpy_attr)
   {
-    T.x = xlat_attr->get_origin_value();
-    T.q = rpy_attr->get_rpy_value();
-    set_pose(T);
+    F->x = xlat_attr->get_origin_value();
+    F->q = rpy_attr->get_rpy_value();
+    set_pose(F);
   }
   else if (xlat_attr && quat_attr)
   {
-    T.x = xlat_attr->get_origin_value();
-    T.q = quat_attr->get_quat_value();
-    set_pose(T);
+    F->x = xlat_attr->get_origin_value();
+    F->q = quat_attr->get_quat_value();
+    set_pose(F);
   }
   else if (xlat_attr)
   {
-    T.x = xlat_attr->get_origin_value();
-    set_pose(T);
+    F->x = xlat_attr->get_origin_value();
+    set_pose(F);
   }
   else if (rpy_attr)
   {
-    T.q = rpy_attr->get_rpy_value();
-    set_pose(T);
+    F->q = rpy_attr->get_rpy_value();
+    set_pose(F);
   }
   else if (quat_attr)
   {
-    T.q = quat_attr->get_quat_value();
-    set_pose(T);
+    F->q = quat_attr->get_quat_value();
+    set_pose(F);
   }
 
   // calculate mass properties
@@ -251,121 +256,36 @@ void Primitive::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >&
   if (_density)
     node->attribs.insert(XMLAttrib("density", *_density));
   else
-    node->attribs.insert(XMLAttrib("mass", _mass));
+    node->attribs.insert(XMLAttrib("mass", _J.m));
 
   // save the transform for the primitive
-  node->attribs.insert(XMLAttrib("translation", _T.x));
-  node->attribs.insert(XMLAttrib("quat", _T.q));
+  Pose3d F0 = *_F;
+  F0.update_relative_pose(GLOBAL);
+  node->attribs.insert(XMLAttrib("position", F0.x));
+  node->attribs.insert(XMLAttrib("quat", F0.q));
 
   // add the intersection tolerance as an attribute
   node->attribs.insert(XMLAttrib("intersection-tolerance", _intersection_tolerance));
 }
 
-/// Transforms the inertia given a rotation matrix
-void Primitive::transform_inertia(double mass, const Matrix3d& J_in, const Point3d& com_in, const Matrix3d& R, Matrix3d& J_out, Point3d& com_out)
-{  
-  const unsigned X = 0, Y = 1, Z = 2;
-
-  // copy com_in -- this is in case com_in and com_out are equal
-  Point3d com_in_copy = com_in;
-
-  // rotate/scale the inertia
-  J_out = R * J_in.mult_transpose(R);
-  
-  // determine the new center-of-mass
-  com_out = R * com_in_copy;
-
-  // determine r (vector from displacement to com)
-  Vector3d r = com_in_copy - com_out;
-  
-  // displace it using the parallel axis theorem
-  J_out(X,X) += mass * (r[Y] * r[Y] + r[Z] * r[Z]);
-  J_out(Y,Y) += mass * (r[Z] * r[Z] + r[X] * r[X]);
-  J_out(Z,Z) += mass * (r[X] * r[X] + r[Y] * r[Y]);
-  J_out(X,Y) -= mass * (r[X] * r[Y]);
-  J_out(Y,Z) -= mass * (r[Y] * r[Z]);
-  J_out(X,Z) -= mass * (r[Z] * r[X]);
-  J_out(Y,X) = J_out(X,Y);
-  J_out(Z,Y) = J_out(Y,Z);
-  J_out(Z,X) = J_out(X,Z);
-}
-
-/// Transforms the inertia given a transformation matrix
-void Primitive::transform_inertia(double mass, const Matrix3d& J_in, const Point3d& com_in, const Pose3d& T, Matrix3d& J_out, Point3d& com_out)
-{  
-  const unsigned X = 0, Y = 1, Z = 2;
-
-  // copy com_in -- this is in case com_in and com_out are equal
-  Point3d com_in_copy = com_in;
-
-  // get the rotation/scaling part of the matrix as a 3x3 and the translation
-  // part of the matrix as a vector
-  Matrix3d RS = T.q;
-
-  // rotate/scale the inertia
-  J_out = RS * J_in.mult_transpose(RS);
-  
-  // determine the new center-of-mass
-  com_out = RS * com_in_copy + T.x;
-
-  // determine r (vector from displacement to com)
-  Vector3d r = com_in_copy - com_out;
-  
-  // displace it using the parallel axis theorem
-  J_out(X,X) += mass * (r[Y] * r[Y] + r[Z] * r[Z]);
-  J_out(Y,Y) += mass * (r[Z] * r[Z] + r[X] * r[X]);
-  J_out(Z,Z) += mass * (r[X] * r[X] + r[Y] * r[Y]);
-  J_out(X,Y) -= mass * (r[X] * r[Y]);
-  J_out(Y,Z) -= mass * (r[Y] * r[Z]);
-  J_out(X,Z) -= mass * (r[Z] * r[X]);
-  J_out(Y,X) = J_out(X,Y);
-  J_out(Z,Y) = J_out(Y,Z);
-  J_out(Z,X) = J_out(X,Z);
-}
-
 /// Sets the transform for this primitive -- transforms mesh and inertial properties (if calculated)
-void Primitive::set_pose(const Pose3d& T)
+void Primitive::set_pose(shared_ptr<const Pose3d> F)
 {
   // save the new transform
-  _T = T;
+  *_F = *F;
 
   #ifdef USE_OSG
   if (_vtransform)
   {
+    // get the pose in the global frame
+    Pose3d F0 = *_F;
+    F0.update_relative_pose(GLOBAL);
+
     // update the visualization transform
     osg::Matrixd tgt;
-    to_osg_matrix(T, tgt);
+    to_osg_matrix(F0, tgt);
     _vtransform->setMatrix(tgt);
   }
   #endif
-}
-
-/// Loads the state of this primitive
-void Primitive::load_state(shared_ptr<void> state)
-{
-  shared_ptr<PrimitiveState> ps = boost::static_pointer_cast<PrimitiveState>(state);
-  _deformable = ps->deformable;
-  _J = ps->J;
-  _density = ps->density;
-  _mass = ps->mass;
-  _com = ps->com;
-  _T = ps->T;
-  _intersection_tolerance = ps->intersection_tolerance;
-  _invalidated = true;
-}
-
-/// Saves the state of this primitive
-shared_ptr<void> Primitive::save_state() const
-{
-  shared_ptr<PrimitiveState> ps(new PrimitiveState);
-  ps->deformable = _deformable;
-  ps->J = _J;
-  ps->density = _density;
-  ps->mass = _mass;
-  ps->com = _com;
-  ps->T = _T;
-  ps->intersection_tolerance = _intersection_tolerance;
-
-  return ps;
 }
 

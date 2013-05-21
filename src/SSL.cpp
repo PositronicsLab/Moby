@@ -521,13 +521,13 @@ Point3d SSL::get_lower_bounds() const
   const unsigned X = 0, Y = 1, Z = 2;
 
   // determine the lower left point
-  Point3d ll(get_pose());
+  Point3d ll(get_relative_pose());
   ll[X] = (p1[X] < p2[X]) ? p1[X] : p2[X];
   ll[Y] = (p1[Y] < p2[Y]) ? p1[Y] : p2[Y];
   ll[Z] = (p1[Z] < p2[Z]) ? p1[Z] : p2[Z];
 
   // move the closest point toward -inf by radius
-  const Point3d ones((double) 1.0, (double) 1.0, (double) 1.0, get_pose());
+  const Point3d ones((double) 1.0, (double) 1.0, (double) 1.0, get_relative_pose());
   return ll - ones*radius; 
 }
 
@@ -537,13 +537,13 @@ Point3d SSL::get_upper_bounds() const
   const unsigned X = 0, Y = 1, Z = 2;
 
   // determine the upper right point
-  Point3d ur(get_pose());
+  Point3d ur(get_relative_pose());
   ur[X] = (p1[X] > p2[X]) ? p1[X] : p2[X];
   ur[Y] = (p1[Y] > p2[Y]) ? p1[Y] : p2[Y];
   ur[Z] = (p1[Z] > p2[Z]) ? p1[Z] : p2[Z];
 
   // move the closest point toward inf by radius
-  const Point3d ones((double) 1.0, (double) 1.0, (double) 1.0, get_pose());
+  const Point3d ones((double) 1.0, (double) 1.0, (double) 1.0, get_relative_pose());
   return ur + ones*radius;
 }
 

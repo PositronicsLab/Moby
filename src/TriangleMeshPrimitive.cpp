@@ -70,7 +70,7 @@ TriangleMeshPrimitive::TriangleMeshPrimitive(const string& filename, bool center
 }
 
 /// Creates the triangle mesh from a geometry file and optionally centers it
-TriangleMeshPrimitive::TriangleMeshPrimitive(const string& filename, const Pose3d& T, bool center) : Primitive(T) 
+TriangleMeshPrimitive::TriangleMeshPrimitive(const string& filename, shared_ptr<const Pose3d> T, bool center) : Primitive(T) 
 { 
   // do not convexify inertia by default
   _convexify_inertia = false;
@@ -138,7 +138,7 @@ osg::Node* TriangleMeshPrimitive::create_visualization()
     // to the primitive
 
     // get the inverse of the current transformation
-    Pose3d T_inv = IDENTITY_4x4;
+    Transform3d T_inv = Transform3d::identity();
 
     // back the transformation out of the mesh; NOTE: we have to do this
     // b/c the base Primitive class uses the transform in the visualization
@@ -180,7 +180,7 @@ void TriangleMeshPrimitive::center()
 
   // NOTE: we no longer do this b/c transforms are *not* applied directly
   // to the primitive
-  Pose3d Tinv = IDENTITY_4x4;
+  Transform3d Tinv = Transform3d::identity();
 
   // back the transform out of the mesh
   IndexedTriArray mesh = _mesh->transform(Tinv);
@@ -307,8 +307,10 @@ void TriangleMeshPrimitive::save_to_xml(XMLTreePtr node, list<shared_ptr<const B
     if (!_mesh)
       return;
 
+    // TODO: fix this to use a transform instead
     // transform the mesh w/transform backed out
-    Pose3d iT = Pose3d::inverse(_T);
+    Transform3d iT = Pose3d::calc_relative_pose(_T, GLOBAL);
+    Pose3d iT = _T;
     IndexedTriArray mesh_xform = _mesh->transform(iT);
 
     // write the mesh
@@ -878,10 +880,11 @@ void TriangleMeshPrimitive::get_vertices(BVPtr bv, vector<const Point3d*>& verti
 }
 
 /// Transforms this primitive
-void TriangleMeshPrimitive::set_pose(const Pose3d& T)
+void TriangleMeshPrimitive::set_pose(shared_ptr<const Pose3d> T)
 {
+  // TODO: fix this to use a transform3
   // determine the transformation from the old to the new transform 
-  Pose3d Trel = T * Pose3d::inverse(_T);
+  Pose3d Trel = T * Pose3d::invert(_T);
 
   // go ahead and set the new transform
   Primitive::set_pose(T);
@@ -898,30 +901,6 @@ void TriangleMeshPrimitive::set_pose(const Pose3d& T)
 
   // recalculate the mass properties
   calc_mass_properties();
-}
-
-/// Loads the state of this primitive
-void TriangleMeshPrimitive::load_state(shared_ptr<void> state)
-{
-  shared_ptr<TriangleMeshPrimitiveState> tps = boost::static_pointer_cast<TriangleMeshPrimitiveState>(state);
-  Primitive::load_state(tps->pstate);
-  _root = tps->rootBVH;
-  _mesh_tris = tps->mesh_tris;
-  _mesh_vertices = tps->mesh_vertices;
-  _tris = tps->tris;
-}
-
-/// Saves the state of this primitive
-shared_ptr<void> TriangleMeshPrimitive::save_state() const
-{
-  shared_ptr<TriangleMeshPrimitiveState> tps(new TriangleMeshPrimitiveState);
-  tps->pstate = Primitive::save_state();
-  tps->rootBVH = _root;
-  tps->mesh_tris = _mesh_tris;
-  tps->mesh_vertices = _mesh_vertices;
-  tps->tris = _tris;
-
-  return tps;
 }
 
 /****************************************************************************

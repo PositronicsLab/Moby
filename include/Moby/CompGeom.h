@@ -59,7 +59,7 @@ class CompGeom
     static unsigned get_num_intersects(SegSegIntersectType t);
     static unsigned get_num_intersects(SegTriIntersectType t);
     static unsigned get_num_intersects(LineLineIntersectType t);
-    static double determine_3D_to_2D_offset(const Ravelin::Vector3d& v, const Ravelin::Matrix3d& R);
+    static double determine_3D_to_2D_offset(const Ravelin::Origin3d& o, const Ravelin::Matrix3d& R);
     static Ravelin::Matrix3d calc_3D_to_2D_matrix(const Ravelin::Vector3d& normal);
     static Ravelin::Point3d generate_point_on_plane(const Ravelin::Vector3d& normal, double d);
     static bool intersect_noncoplanar_tris(const Triangle& t1, const Triangle& t2, Ravelin::Point3d& p1, Ravelin::Point3d& p2);
@@ -76,9 +76,9 @@ class CompGeom
     static long double volume(const Ravelin::Point3d& a, const Ravelin::Point3d& b, const Ravelin::Point3d& c, const Ravelin::Point3d& d);
     static VisibilityType volume_sign(const Ravelin::Point3d& a, const Ravelin::Point3d& b, const Ravelin::Point3d& c, const Ravelin::Point3d& d, double tol = NEAR_ZERO);
     static bool coplanar(const Triangle& t1, const Triangle& t2, double tol = NEAR_ZERO);
-    static Ravelin::Point3d to_3D(const Ravelin::Point2d& p, const Ravelin::Matrix3d& RT);
-    static Ravelin::Point3d to_3D(const Ravelin::Point2d& p, const Ravelin::Matrix3d& RT, double offset);
-    static Ravelin::Point2d to_2D(const Ravelin::Point3d& p, const Ravelin::Matrix3d& R);
+    static Ravelin::Origin3d to_3D(const Ravelin::Point2d& p, const Ravelin::Matrix3d& RT);
+    static Ravelin::Origin3d to_3D(const Ravelin::Point2d& p, const Ravelin::Matrix3d& RT, double offset);
+    static Ravelin::Origin2d to_2D(const Ravelin::Point3d& p, const Ravelin::Matrix3d& R);
     static bool point_in_tri(const Ravelin::Point3d& p, const Triangle& t, double tol = NEAR_ZERO);
     static bool coplanar(const Ravelin::Point3d& a, const Ravelin::Point3d& b, const Ravelin::Point3d& c, const Ravelin::Point3d& d, double tol = NEAR_ZERO);
     static double calc_dist(const LineSeg3& line_seg, const Ravelin::Point3d& point, double& t);

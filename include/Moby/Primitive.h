@@ -42,19 +42,15 @@ class Primitive : public virtual Base
 
   public:
     Primitive();
-    Primitive(const Ravelin::Pose3d& T);
+    Primitive(boost::shared_ptr<const Ravelin::Pose3d> T);
     virtual ~Primitive();
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     void update_visualization();
     void set_mass(double mass);
     void set_density(double density);
-    virtual boost::shared_ptr<void> save_state() const;
-    virtual void load_state(boost::shared_ptr<void> state);
-    virtual void set_pose(const Ravelin::Pose3d& T);
+    virtual void set_pose(boost::shared_ptr<const Ravelin::Pose3d> T);
     virtual void set_intersection_tolerance(double tol);
-    static void transform_inertia(double mass, const Ravelin::Matrix3d& J_in, const Ravelin::Point3d& com_in, const Ravelin::Pose3d& T, Ravelin::Matrix3d& J_out, Ravelin::Point3d& com_out);
-    static void transform_inertia(double mass, const Ravelin::Matrix3d& J_in, const Ravelin::Point3d& com_in, const Ravelin::Matrix3d& R, Ravelin::Matrix3d& J_out, Ravelin::Point3d& com_out);
 
     /// Gets the current intersection tolerance for this primitive
     double get_intersection_tolerance() const { return _intersection_tolerance; }
@@ -127,20 +123,17 @@ class Primitive : public virtual Base
      */
     virtual const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >& get_sub_mesh(BVPtr bv) = 0;
 
-    /// Gets the mass of this primitive
-    double get_mass() const { return _mass; }
+    /// Gets the inertial frame of this primitive
+    boost::shared_ptr<const Ravelin::Pose3d> get_inertial_pose() const { return _jF; }
 
-    /// Gets the center-of-mass of this primitive
-    const Ravelin::Point3d& get_com() const { return _com; }
-
-    /// Gets the transform applied to this primitive 
-    const Ravelin::Pose3d& get_pose() const { return _T; } 
+    /// Gets the pose of this primitive 
+    boost::shared_ptr<const Ravelin::Pose3d> get_pose() const { return _F; } 
 
     /// Gets the underlying triangle mesh for this primitive 
     virtual boost::shared_ptr<const IndexedTriArray> get_mesh() = 0;
 
     /// Gets the inertia for this primitive 
-    const Ravelin::Matrix3d& get_inertia() const { return _J; }
+    const Ravelin::SpatialRBInertiad& get_inertia() const { return _J; }
 
   protected:
     virtual void calc_mass_properties() = 0;
@@ -148,35 +141,22 @@ class Primitive : public virtual Base
     /// The intersection tolerance for this shape (default 1e-5)
     double _intersection_tolerance;
 
-    /// The 4x4 rotational/translational transform applied to this primitive
-    Ravelin::Pose3d _T;
+    /// The pose of this primitive
+    boost::shared_ptr<Ravelin::Pose3d> _F;
 
-    /// The center-of-mass of this primitive
-    Ravelin::Point3d _com;
-
-    /// The mass of this primitive
-    double _mass;
+    /// The inertial pose of this primitive
+    boost::shared_ptr<Ravelin::Pose3d> _jF;
 
     /// The density of this primitive
     boost::shared_ptr<double> _density;
 
     /// The inertia of the primitive
-    Ravelin::Matrix3d _J;
+    Ravelin::SpatialRBInertiad _J;
 
     /// Indicates whether the primitive's mesh or vertices have changed
     bool _invalidated;
 
   private:
-    struct PrimitiveState
-    {
-      bool deformable;     // whether primitive is deformable
-      Ravelin::Pose3d T;          // transform of the primitive
-      Ravelin::Point3d com;         // com of the primitive
-      double mass;         // mass of the primitive
-      boost::shared_ptr<double> density;      // density of the primitive
-      Ravelin::Matrix3d J;         // inertia matrix of the primitive
-      double intersection_tolerance;  // intersection tolerance of this primitive
-    };
 
     /// Whether the geometry is deformable or not
     bool _deformable;

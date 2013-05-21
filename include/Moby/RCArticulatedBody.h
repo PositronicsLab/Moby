@@ -50,9 +50,8 @@ class RCArticulatedBody : public ArticulatedBody
     enum ForwardDynamicsAlgorithmType { eFeatherstone, eCRB }; 
     RCArticulatedBody();
     virtual ~RCArticulatedBody() {}
-    Ravelin::MatrixNd& generalized_inertia_mult(const Ravelin::MatrixNd& M, Ravelin::MatrixNd& result);
     virtual Ravelin::MatrixNd& calc_jacobian(const Ravelin::Point3d& point, RigidBodyPtr link, Ravelin::MatrixNd& J);
-    virtual Ravelin::MatrixNd& calc_jacobian_column(JointPtr joint, const Ravelin::Point3d& point, const Ravelin::Pose3d& base_pose, const std::map<JointPtr, Ravelin::VectorNd>& q, Ravelin::MatrixNd& Jc);
+    virtual Ravelin::MatrixNd& calc_jacobian_column(JointPtr joint, const Ravelin::Point3d& point, boost::shared_ptr<const Ravelin::Pose3d> base_pose, const std::map<JointPtr, Ravelin::VectorNd>& q, Ravelin::MatrixNd& Jc);
     virtual Ravelin::MatrixNd& calc_jacobian_column(JointPtr joint, const Ravelin::Point3d& point, Ravelin::MatrixNd& Jc);
     virtual Ravelin::MatrixNd& calc_jacobian_floating_base(const Ravelin::Point3d& point, Ravelin::MatrixNd& J);
     virtual void reset_accumulators();
@@ -80,8 +79,6 @@ class RCArticulatedBody : public ArticulatedBody
     virtual void set_joints(const std::vector<JointPtr>& links);
     virtual void update_event_data(EventProblemData& epd);
     virtual void update_velocity(const EventProblemData& epd);
-    virtual void invalidate_positions();
-    virtual void invalidate_velocities();
     virtual unsigned num_joint_dof_explicit() const;
     virtual unsigned num_joint_dof_implicit() const { return _n_joint_DOF_implicit; }
     void set_floating_base(bool flag);
@@ -136,8 +133,6 @@ class RCArticulatedBody : public ArticulatedBody
     bool all_children_processed(RigidBodyPtr link) const;
     void calc_fwd_dyn_loops();
     void calc_fwd_dyn_advanced_friction(double dt);
-    void generalized_inertia_mult_fixed(const Ravelin::MatrixNd& M, Ravelin::MatrixNd& result);
-    void generalized_inertia_mult_floating(const Ravelin::MatrixNd& M, Ravelin::MatrixNd& result);
 
     /// The vector of implicit joint constraints
     std::vector<JointPtr> _ijoints;
@@ -155,11 +150,14 @@ class RCArticulatedBody : public ArticulatedBody
     /// The FSAB algorithm
     FSABAlgorithm _fsab;
 
+    /// Linear algebra object
+    boost::shared_ptr<Ravelin::LinAlgd> _LA;
+
     /// The factorized generalized inertia matrix
     Ravelin::MatrixNd _fM;
 
     /// The svd of the generalized inertia matrix
-    Ravelin::MatrixNd _uM, uV;
+    Ravelin::MatrixNd _uM, _vM;
     Ravelin::VectorNd _sM;
 
     /// Indicates whether the generalized inertia needs to be refactored
@@ -169,7 +167,7 @@ class RCArticulatedBody : public ArticulatedBody
     bool _M_rankdef;
 
     /// Indicates the type of the inverse generalized inertia
-    DynamicBody::GeneralizedCoordinateType _invM_type;
+    DynamicBody::GeneralizedCoordinateType _fM_type;
 
     static double sgn(double x);
     bool treat_link_as_leaf(RigidBodyPtr link) const;
@@ -182,7 +180,6 @@ class RCArticulatedBody : public ArticulatedBody
     void determine_generalized_forces(Ravelin::VectorNd& gf) const;
     void determine_generalized_accelerations(Ravelin::VectorNd& xdd) const;
     void determine_constraint_force_transform(Ravelin::MatrixNd& K) const;
-    void M_mult(const Ravelin::VectorNd& v, Ravelin::VectorNd& result) const;
     void set_generalized_acceleration(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& a);
     void determine_explicit_constraint_movement_jacobian(Ravelin::MatrixNd& D);
     void determine_explicit_constraint_jacobians(const EventProblemData& q, Ravelin::MatrixNd& Jx, Ravelin::MatrixNd& Dx) const;

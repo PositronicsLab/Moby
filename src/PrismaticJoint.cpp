@@ -126,6 +126,8 @@ void PrismaticJoint::determine_q(VectorNd& q)
 
   // Fo will be relative to Fj' which will be relative to Fj
 
+  // TODO: fix this (compile error)
+/*
   // get the vector of translation
   Vector3d x(Fjprime->x);
   q.resize(num_dof());
@@ -134,6 +136,7 @@ void PrismaticJoint::determine_q(VectorNd& q)
   // see whether to reverse q
   if (x.dot(_u) < (double) 0.0)
     q[DOF_1] = -q[DOF_1];
+*/
 }
 
 /// Gets the (local) transform for this joint

@@ -248,9 +248,6 @@ const vector<Twistd>& SphericalJoint::get_spatial_axes()
   const VectorNd& q = this->q;
   const VectorNd& q_tare = this->_q_tare;
 
-  // get the outboard link's joint to com vector in outer link coordinates
-  const Vector3d& p = outboard->get_inner_joint_data(inboard).joint_to_com_vec_of;
-
   // get the set of spatial axes
   double c1 = std::cos(q[DOF_1]+q_tare[DOF_1]);
   double c2 = std::cos(q[DOF_2]+q_tare[DOF_2]);

@@ -56,7 +56,7 @@ class SSR : public BV
     boost::shared_ptr<const SSR> get_this() const { return boost::dynamic_pointer_cast<const SSR>(shared_from_this()); }
     virtual std::ostream& to_vrml(std::ostream& out, const Ravelin::Pose3d& T) const;
     unsigned calc_size() const;
-    virtual boost::shared_ptr<const Ravelin::Pose3d> get_pose() const { return center.pose; }
+    virtual boost::shared_ptr<const Ravelin::Pose3d> get_relative_pose() const { return center.pose; }
     virtual void transform(const Ravelin::Transform3d& T, BV* result) const;
     virtual Ravelin::Point3d get_lower_bounds() const;
     virtual Ravelin::Point3d get_upper_bounds() const;

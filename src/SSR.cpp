@@ -7,9 +7,10 @@
 #include <Moby/SSR.h>
 
 using namespace Ravelin;
-using namespace Moby;
 using std::pair;
 using boost::dynamic_pointer_cast;
+using boost::shared_ptr;
+using namespace Moby;
 
 /// Initializes an empty SSR
 SSR::SSR()
@@ -61,8 +62,8 @@ double SSR::calc_dist(const SSR& s, const LineSeg3& seg)
 
   // setup necessary variables to do distance from line seg to rectangle calc
   const Point3d& rect_cent = s.center;
-  Vector3d axis1 = s.R.get_column(Y);
-  Vector3d axis2 = s.R.get_column(Z);
+  Vector3d axis1(s.R.get_column(Y), s.get_relative_pose());
+  Vector3d axis2(s.R.get_column(Z), s.get_relative_pose());
   const Vector2d& lengths = s.l;
   Point3d cp_rect, cp_seg;
 
@@ -79,8 +80,8 @@ double SSR::calc_dist(const SSR& o, const Point3d& p)
 
   // setup necessary variables to do distance from point to rectangle calc
   const Point3d& rect_cent = o.center;
-  Vector3d axis1 = o.R.get_column(Y);
-  Vector3d axis2 = o.R.get_column(Z);
+  Vector3d axis1(o.R.get_column(Y), o.get_relative_pose());
+  Vector3d axis2(o.R.get_column(Z), o.get_relative_pose());
   const Vector2d& lengths = o.l;
   Point3d cp_rect;
 
@@ -402,13 +403,17 @@ double SSR::calc_dist(const SSR& a, const SSR& b, Point3d& cpa, Point3d& cpb)
 {
   const unsigned Y = 1, Z = 2;
 
+  // verify the two are in the same frame
+  shared_ptr<const Pose3d> P = a.get_relative_pose();
+  assert(P == b.get_relative_pose());
+
   // calculate the squared distance and closest points between the two rects
   const Point3d& acenter = a.center;
   const Point3d& bcenter = b.center;
-  Vector3d aaxis1 = a.R.get_column(Y);
-  Vector3d aaxis2 = a.R.get_column(Z);
-  Vector3d baxis1 = b.R.get_column(Y);
-  Vector3d baxis2 = b.R.get_column(Z);
+  Vector3d aaxis1(a.R.get_column(Y), P);
+  Vector3d aaxis2(a.R.get_column(Z), P);
+  Vector3d baxis1(b.R.get_column(Y), P);
+  Vector3d baxis2(b.R.get_column(Z), P);
   const Vector2d& alengths = a.l;
   const Vector2d& blengths = b.l;
   double sq_dist = calc_sq_dist(acenter, aaxis1, aaxis2, alengths, 
@@ -471,10 +476,14 @@ bool SSR::intersects(const SSR& a, const LineSeg3& seg, double& tmin, double tma
 {
   const unsigned Y = 1, Z = 2;
 
+  // verify everything is in the proper frame
+  shared_ptr<const Pose3d> P = a.get_relative_pose();
+  assert(seg.first.pose == seg.second.pose && seg.first.pose == P);
+
   // get the rectangle from the SSR
-  Vector3d axis1 = a.R.get_column(Y);
-  Vector3d axis2 = a.R.get_column(Z);
-  const Point3d& rect_center = a.center;
+  Vector3d axis1(a.R.get_column(Y), P);
+  Vector3d axis2(a.R.get_column(Z), P);
+  const Point3d& rect_center = P;
   const Vector2d& lengths = a.l;
 
   // determine the distance between the line segment and the rectangle; also
@@ -533,20 +542,23 @@ Point3d SSR::get_lower_bounds() const
   const double INF = std::numeric_limits<double>::max();
   const double SQRT3_3 = std::sqrt((double) 3.0)/3.0;
 
+  // get the current pose
+  shared_ptr<const Pose3d> P = get_relative_pose();
+
   // get the axes of the rectangle in 3D
-  Vector3d axis1 = R.get_column(Y);
-  Vector3d axis2 = R.get_column(Z);
-  axis1.pose = axis2.pose = center.pose;
+  Vector3d axis1(R.get_column(Y), P);
+  Vector3d axis2(R.get_column(Z), P);
+  axis1.pose = axis2.pose = P;
 
   // setup the point at -INF
-  Point3d ninf(-INF, -INF, -INF, center.pose);
+  Point3d ninf(-INF, -INF, -INF, P);
  
   // find the closest point on the rectangle to -inf
   Point3d cp;
   calc_sq_dist(ninf, center, axis1, axis2, this->l, cp);
   
   // move the closest point toward -inf by radius
-  const Vector3d ones_norm(SQRT3_3, SQRT3_3, SQRT3_3, center.pose);
+  const Vector3d ones_norm(SQRT3_3, SQRT3_3, SQRT3_3, P);
   return cp - ones_norm*radius; 
 }
 
@@ -557,20 +569,23 @@ Point3d SSR::get_upper_bounds() const
   const double INF = std::numeric_limits<double>::max();
   const double SQRT3_3 = std::sqrt((double) 3.0)/3.0;
 
-  // get the axes of the rectangle in 3D
-  Vector3d axis1 = R.get_column(Y);
-  Vector3d axis2 = R.get_column(Z);
-  axis1.pose = axis2.pose = center.pose;
+   // get the current pose
+  shared_ptr<const Pose3d> P = get_relative_pose();
+
+ // get the axes of the rectangle in 3D
+  Vector3d axis1(R.get_column(Y), P);
+  Vector3d axis2(R.get_column(Z), P);
+  axis1.pose = axis2.pose = P;
 
   // setup the point at INF
-  Vector3d inf(INF, INF, INF, center.pose);
+  Vector3d inf(INF, INF, INF, P);
  
   // find the closest point on the rectangle to inf
   Point3d cp;
   calc_sq_dist(inf, center, axis1, axis2, this->l, cp);
   
   // move the closest point toward inf by radius
-  const Vector3d ones_norm(SQRT3_3, SQRT3_3, SQRT3_3, center.pose);
+  const Vector3d ones_norm(SQRT3_3, SQRT3_3, SQRT3_3, P);
   return cp + ones_norm*radius;
 }
 
@@ -582,9 +597,12 @@ void SSR::get_rect_verts(Point3d rect_verts[4]) const
   // setup the extents for the rectangle
   double extents[2] = { l[0]*0.5, l[1]*0.5 };
 
+  // get the relative pose
+  shared_ptr<const Pose3d> P = get_relative_pose();
+
   // get the axes for the rectangle
-  Vector3d axis1 = R.get_column(Y);
-  Vector3d axis2 = R.get_column(Z);
+  Vector3d axis1(R.get_column(Y), P);
+  Vector3d axis2(R.get_column(Z), P);
 
   // setup the vertices
   rect_verts[0] = center - axis1*extents[0] - axis2*extents[1]; 

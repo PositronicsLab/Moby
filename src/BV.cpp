@@ -189,7 +189,7 @@ bool BV::intersects(const BV* a, const BV* b, const Transform3d& aTb)
       return intersects((const SSR*) a, (const BoundingSphere*) b, aTb);
     // OBB / SSR intersection
     if (dynamic_cast<const OBB*>(b))
-      return intersects((const OBB*) b, (const SSR*) a, inverse(aTb));
+      return intersects((const OBB*) b, (const SSR*) a, aTb.inverse());
     // AABB / SSR intersection
     if (dynamic_cast<const AABB*>(b))
       return intersects((const SSR*) a, (const AABB*) b, aTb);
@@ -198,46 +198,46 @@ bool BV::intersects(const BV* a, const BV* b, const Transform3d& aTb)
   {
     // OBB / SSL intersection
     if (dynamic_cast<const OBB*>(b))
-      return intersects((const OBB*) b, (const SSL*) a, inverse(aTb));
+      return intersects((const OBB*) b, (const SSL*) a, aTb.inverse());
     // SSR / SSL intersection
     if (dynamic_cast<const SSR*>(b))
-      return intersects((const SSR*) b, (const SSL*) a, inverse(aTb));
+      return intersects((const SSR*) b, (const SSL*) a, aTb.inverse());
     // SSL / SSL intersection
     if (dynamic_cast<const SSL*>(b))
       return SSL::intersects(*((const SSL*) a), *((const SSL*) b), aTb);
     // SSL / BoundingSphere intersection
     if (dynamic_cast<const BoundingSphere*>(b))
-      return intersects((const SSL*) a, (const BoundingSphere*) b, inverse(aTb));
+      return intersects((const SSL*) a, (const BoundingSphere*) b, aTb.inverse());
     // SSL / AABB intersection
     if (dynamic_cast<const AABB*>(b))
-      return intersects((const AABB*) b, (const SSL*) a, inverse(aTb));
+      return intersects((const AABB*) b, (const SSL*) a, aTb.inverse());
   }
   else if (dynamic_cast<const BoundingSphere*>(a))
   {
     // OBB / bounding sphere intersection
     if (dynamic_cast<const OBB*>(b))
-      return intersects((const OBB*) b, (const BoundingSphere*) a, inverse(aTb));
+      return intersects((const OBB*) b, (const BoundingSphere*) a, aTb.inverse());
     // SSR / bounding sphere intersection
     if (dynamic_cast<const SSR*>(b))
-      return intersects((const SSR*) b, (const BoundingSphere*) a, inverse(aTb));
+      return intersects((const SSR*) b, (const BoundingSphere*) a, aTb.inverse());
     // SSL / bounding sphere intersection
     if (dynamic_cast<const SSL*>(b))
-      return intersects((const SSL*) b, (const BoundingSphere*) a, inverse(aTb));
+      return intersects((const SSL*) b, (const BoundingSphere*) a, aTb.inverse());
     // bounding sphere / bounding sphere intersection
     if (dynamic_cast<const BoundingSphere*>(b))
       return BoundingSphere::intersects(*((const BoundingSphere*) a), *((const BoundingSphere*) b), aTb);
     // AABB / bounding sphere intersection
     if (dynamic_cast<const AABB*>(b))
-      return intersects((const AABB*) b, (const BoundingSphere*) a, inverse(aTb));
+      return intersects((const AABB*) b, (const BoundingSphere*) a, aTb.inverse());
   }
   else if (dynamic_cast<const AABB*>(a))
   {
     // OBB / AABB intersection
     if (dynamic_cast<const OBB*>(b))
-      return intersects((const OBB*) b, (const AABB*) a, inverse(aTb));
+      return intersects((const OBB*) b, (const AABB*) a, aTb.inverse());
     // SSR / AABB intersection
     if (dynamic_cast<const SSR*>(b))
-      return intersects((const SSR*) b, (const AABB*) a, inverse(aTb));
+      return intersects((const SSR*) b, (const AABB*) a, aTb.inverse());
     // SSL / AABB intersection
     if (dynamic_cast<const SSL*>(b))
       return intersects((const AABB*) a, (const SSL*) b, aTb);
@@ -276,8 +276,11 @@ bool BV::intersects(const OBB* O, const BoundingSphere* S)
 {
   const unsigned THREE_D = 3;
 
+  // verify that the relative poses are identical
+  assert(O->get_relative_pose() == S->get_relative_pose());
+
   // transform the sphere center to OBB space
-  Point3d center = O->R.transpose_mult(S->center - O->center);
+  Origin3d center = O->R.transpose_mult(Origin3d(S->center - O->center));
 
   FILE_LOG(LOG_COLDET) << "  -- sphere center: " << S->center << endl;
   FILE_LOG(LOG_COLDET) << "  -- sphere center: " << center << " (OBB frame)" << endl;
@@ -323,7 +326,7 @@ bool BV::intersects(const AABB* A, const BoundingSphere* S)
 
   // transform the sphere center to OBB space
   Point3d center = S->center;
-  center.pose = A->get_pose();
+  center.pose = A->get_relative_pose();
   center += A->maxp - A->minp;
 
   FILE_LOG(LOG_COLDET) << "  -- sphere center: " << center << " (AABB frame)" << endl;
@@ -434,10 +437,10 @@ bool BV::intersects(const OBB* O, const SSR* S, const Transform3d& OTS)
  */
 bool BV::intersects(const SSR* S, const AABB* A, const Transform3d& STA)
 {
-  Transform3d ATS = Transform3d::invert(STA);
+  Transform3d ATS = STA.inverse();
   SSR Sx;
   AABB S_aabb;
-  S->transform(ATS, Sx);
+  S->transform(ATS, &Sx);
   S_aabb.minp = Sx.get_lower_bounds();
   S_aabb.maxp = Sx.get_upper_bounds();
   return AABB::intersects(*A, S_aabb);

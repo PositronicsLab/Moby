@@ -19,13 +19,13 @@ class CylinderPrimitive : public Primitive
   public:
     CylinderPrimitive();
     CylinderPrimitive(double radius, double height);
-    CylinderPrimitive(double radius, double height, unsigned n, unsigned nrings, const Ravelin::Pose3d& T);
-    CylinderPrimitive(double radius, double height, const Ravelin::Pose3d& T);
+    CylinderPrimitive(double radius, double height, unsigned n, unsigned nrings, boost::shared_ptr<const Ravelin::Pose3d> T);
+    CylinderPrimitive(double radius, double height, boost::shared_ptr<const Ravelin::Pose3d> T);
     void set_radius(double radius);
     void set_height(double height);
     void set_num_circle_points(unsigned n);
     void set_num_rings(unsigned n);
-    virtual void set_pose(const Ravelin::Pose3d& T);
+    virtual void set_pose(boost::shared_ptr<const Ravelin::Pose3d> T);
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual BVPtr get_BVH_root();

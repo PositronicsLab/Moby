@@ -2839,14 +2839,22 @@ OutputIterator CompGeom::intersect_coplanar_tris(const Triangle& t1, const Trian
 {
   const unsigned TRI_VERTS = 3;
 
+  // verify all points are defined with respect to the same pose
+  #ifndef NDEBUG
+  for (unsigned i=0; i< TRI_VERTS; i++)
+    assert(t1.get_vertex(i).pose == t2.get_vertex(i).pose);
+  for (unsigned i=1; i< TRI_VERTS; i++)
+    assert(t1.get_vertex(i).pose == t1.get_vertex(i-1).pose);
+  #endif
+
   // project triangles to 2D
   Ravelin::Matrix3d R = calc_3D_to_2D_matrix(normal);
-  double offset = determine_3D_to_2D_offset(t1.a, R);
+  double offset = determine_3D_to_2D_offset(Ravelin::Origin3d(t1.a), R);
   Ravelin::Point2d t1_2D[TRI_VERTS], t2_2D[TRI_VERTS];
   for (unsigned i=0; i< TRI_VERTS; i++)
   {
-    t1_2D[i] = to_2D(t1.get_vertex(i), R);
-    t2_2D[i] = to_2D(t2.get_vertex(i), R);
+    t1_2D[i] = Ravelin::Point2d(to_2D(t1.get_vertex(i), R), boost::shared_ptr<Ravelin::Pose2d>());
+    t2_2D[i] = Ravelin::Point2d(to_2D(t2.get_vertex(i), R), boost::shared_ptr<Ravelin::Pose2d>());
   } 
 
   // verify triangles are ccw and reverse if necessary
@@ -2862,7 +2870,7 @@ OutputIterator CompGeom::intersect_coplanar_tris(const Triangle& t1, const Trian
   // project points back to 3D
   Ravelin::Matrix3d RT = Ravelin::Matrix3d::transpose(R);
   BOOST_FOREACH(const Ravelin::Point2d& v, points)
-    *begin++ = to_3D(v, RT, offset);
+    *begin++ = Ravelin::Point3d(to_3D(v, RT, offset), t1.a.pose);
 
   return begin;
 }
@@ -2881,22 +2889,44 @@ OutputIterator CompGeom::intersect_coplanar_tris(const Triangle& t1, const Trian
  *         the result (i.e., it must be at least of size min(p,q)
  * \return the iterator pointing to the end of the container of intersection
  */
-template <class InputIterator, class OutputIterator>
-OutputIterator CompGeom::intersect_polygons(InputIterator pbegin, InputIterator pend, InputIterator qbegin, InputIterator qend, const Ravelin::Vector3d& normal, OutputIterator isect_begin)
+template <class ForwardIterator, class OutputIterator>
+OutputIterator CompGeom::intersect_polygons(ForwardIterator pbegin, ForwardIterator pend, ForwardIterator qbegin, ForwardIterator qend, const Ravelin::Vector3d& normal, OutputIterator isect_begin)
 {
   // **************************************************************
   // first, we need to project the 3D triangles to 2D polygons
   // **************************************************************
 
+  // verify all points are in the same frame
+  #ifndef NDEBUG
+  for (ForwardIterator i = pbegin; i != pend; i++)
+  {
+    ForwardIterator j = i;
+    j++;
+    if (j == pend)
+      continue;
+    assert(i->pose == j->pose);
+  } 
+  for (ForwardIterator i = qbegin; i != qend; i++)
+  {
+    ForwardIterator j = i;
+    j++;
+    if (j == qend)
+      continue;
+    assert(i->pose == j->pose);
+  }
+  assert(pbegin->pose == qbegin->pose);   
+  #endif
+
   // R will project the points such that they lie in the plane z=0
   Ravelin::Matrix3d R = calc_3D_to_2D_matrix(normal);
-  double offset = determine_3D_to_2D_offset(*pbegin, R);
+  double offset = determine_3D_to_2D_offset(Ravelin::Origin3d(*pbegin), R);
   
   // convert the two polygons to 2D
-  std::vector<Ravelin::Point2d> p(std::distance(pbegin, pend));
-  std::vector<Ravelin::Point2d> q(std::distance(qbegin, qend));
-  to_2D(pbegin, pend, p.begin(), R);
-  to_2D(qbegin, qend, q.begin(), R);
+  std::vector<Ravelin::Point2d> p, q;
+  for (ForwardIterator i = pbegin; i != pend; i++)
+    p.push_back(Ravelin::Point2d(to_2D(*i, R), boost::shared_ptr<Ravelin::Pose2d>()));
+  for (ForwardIterator i = qbegin; i != qend; i++)
+    q.push_back(Ravelin::Point2d(to_2D(*i, R), boost::shared_ptr<Ravelin::Pose2d>()));
 
   // do the intersection
   std::list<Ravelin::Point2d> isect_2D;
@@ -2907,7 +2937,7 @@ OutputIterator CompGeom::intersect_polygons(InputIterator pbegin, InputIterator 
   R.transpose();
   std::list<Ravelin::Point3d> polygon;
   for (std::list<Ravelin::Point2d>::const_iterator i = isect_2D.begin(); i != isect_2D.end(); i++)
-    polygon.push_back(to_3D(*i, R, offset));
+    polygon.push_back(Ravelin::Point3d(to_3D(*i, R, offset), pbegin->pose));
 
   // verify that the polygon is ccw; if not, make it so
   for (std::list<Ravelin::Point3d>::const_iterator i = polygon.begin(); i != polygon.end(); i++)
@@ -2954,11 +2984,11 @@ OutputIterator CompGeom::intersect_polygons(InputIterator pbegin, InputIterator 
 /// Intersects two polygons in 2D
 /**
  * \param pbegin a random access iterator pointing to the container holding
- *        a ccw polygon
- * \param pend the end of the container holding the first polygon
+ *        a ccw polygon (of Point2d)
+ * \param pend the end of the container holding the first polygon (of Point2d)
  * \param qbegin a random access iterator pointing to the container holding
- *        a ccw polygon
- * \param qend the end of the container holding the second polygon
+ *        a ccw polygon (of Point2d)
+ * \param qend the end of the container holding the second polygon (of Point2d)
  * \param isect_begin on return, the polygon of intersection will be placed
  *         here with ccw orientation; this container must be big enough to hold
  *         the result (i.e., it must be at least of size min(p,q)

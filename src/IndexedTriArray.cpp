@@ -318,7 +318,7 @@ IndexedTriArray IndexedTriArray::rotate_scale(const Matrix3d& R) const
 }
 
 /// Transforms this mesh to a new mesh
-IndexedTriArray IndexedTriArray::transform(const Pose3d& T) const
+IndexedTriArray IndexedTriArray::transform(const Transform3d& T) const
 {
   IndexedTriArray it;
 

@@ -7,8 +7,8 @@
 template <class OutputIterator>
 OutputIterator RigidBody::get_parent_links(OutputIterator begin) const
 {
-  BOOST_FOREACH(const InnerJointData& i, _inner_joints)
-    *begin++ = RigidBodyPtr(i.parent);
+  BOOST_FOREACH(JointPtr j, _inner_joints)
+    *begin++ = get_parent_link(j);
 
   return begin;
 }
@@ -16,8 +16,8 @@ OutputIterator RigidBody::get_parent_links(OutputIterator begin) const
 template <class OutputIterator>
 OutputIterator RigidBody::get_child_links(OutputIterator begin) const
 {
-  BOOST_FOREACH(const OuterJointData& o, _outer_joints)
-    *begin++ = RigidBodyPtr(o.child);
+  BOOST_FOREACH(JointPtr j, _outer_joints)
+    *begin++ = get_child_link(j);
 
   return begin;
 }

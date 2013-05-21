@@ -293,9 +293,6 @@ void ImpactEventHandler::partition_events(const list<Event*>& all, vector<Event*
 /// Determines and sets the new generalized velocities
 void ImpactEventHandler::set_generalized_velocities(const EventProblemData& q)
 {
-  // determine the change in generalized velocities
-  for (unsigned i=0; i< q.super_bodies.size(); i++)
-    q.super_bodies[i]->update_velocity(q); 
 }
 
 /// Computes the data to the LCP / QP problems

@@ -119,6 +119,8 @@ void Visualizable::update_visualization()
   if (!T)
     return;
 
+  // TODO: convert the pose to reference the global frame
+
   // update the transform
   osg::Matrixd m;
   to_osg_matrix(*T, m);

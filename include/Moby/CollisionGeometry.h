@@ -35,10 +35,9 @@ class CollisionGeometry : public virtual Base
 {
   public:
     CollisionGeometry();
-    void set_relative_pose(const Ravelin::Pose3d& pose);  
+    void set_relative_pose(boost::shared_ptr<const Ravelin::Pose3d> pose);  
     void write_vrml(const std::string& filename) const;
     PrimitivePtr set_geometry(PrimitivePtr primitive);
-    void set_rel_pose(const Ravelin::Pose3d& transform, bool update_global_transform = false);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     void set_single_body(boost::shared_ptr<SingleBody> s);

@@ -24,7 +24,7 @@ class TriangleMeshPrimitive : public Primitive
   public: 
     TriangleMeshPrimitive();
     TriangleMeshPrimitive(const std::string& filename, bool center = true);
-    TriangleMeshPrimitive(const std::string& filename, const Ravelin::Pose3d& T, bool center = true);
+    TriangleMeshPrimitive(const std::string& filename, boost::shared_ptr<const Ravelin::Pose3d> T, bool center = true);
     void set_edge_sample_length(double len);
     virtual osg::Node* create_visualization();
 
@@ -33,8 +33,6 @@ class TriangleMeshPrimitive : public Primitive
 
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);  
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
-    virtual boost::shared_ptr<void> save_state() const;
-    virtual void load_state(boost::shared_ptr<void> state);
     virtual BVPtr get_BVH_root();
     virtual void get_vertices(BVPtr bv, std::vector<const Ravelin::Point3d*>& vertices);
     virtual bool point_inside(BVPtr bv, const Ravelin::Point3d& p, Ravelin::Vector3d& normal) const;
@@ -45,7 +43,7 @@ class TriangleMeshPrimitive : public Primitive
     virtual void set_deformable(bool flag);
     virtual void set_intersection_tolerance(double tol);
     void set_mesh(boost::shared_ptr<const IndexedTriArray> mesh);
-    virtual void set_pose(const Ravelin::Pose3d& T);
+    virtual void set_pose(boost::shared_ptr<const Ravelin::Pose3d> T);
 
   private:
     void center();
@@ -73,15 +71,6 @@ class TriangleMeshPrimitive : public Primitive
         AThickTri(const Triangle& tri, double tol) : ThickTriangle(tri, tol) {}
         boost::shared_ptr<const IndexedTriArray> mesh;  // the mesh that this triangle came from
         unsigned tri_idx;             // the index of this triangle
-    };
-
-    struct TriangleMeshPrimitiveState
-    {
-      boost::shared_ptr<void> pstate;  // state information for the primitive object
-      BVPtr rootBVH;     // root of the bounding volume hierarchy
-      std::map<BVPtr, std::list<unsigned> > mesh_tris;
-      std::map<BVPtr, std::list<unsigned> > mesh_vertices;
-      std::map<BVPtr, std::list<boost::shared_ptr<AThickTri> > > tris;
     };
 
     void construct_mesh_vertices(boost::shared_ptr<const IndexedTriArray> mesh);

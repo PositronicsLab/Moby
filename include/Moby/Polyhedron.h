@@ -32,10 +32,10 @@ class Polyhedron
     Polyhedron() { _convexity_computed = false; }  
     Polyhedron(const IndexedTriArray& mesh);
     Polyhedron(const Polyhedron& p) { _convexity_computed = false; operator=(p); }
-    static PolyhedronPtr minkowski(Polyhedron& p1, const Ravelin::Pose3d& T1, Polyhedron& p2, const Ravelin::Pose3d& T2, bool reflect_p2 = true);
+    static PolyhedronPtr minkowski(Polyhedron& p1, boost::shared_ptr<const Ravelin::Pose3d> T1, Polyhedron& p2, boost::shared_ptr<const Ravelin::Pose3d> T2, bool reflect_p2 = true);
     void operator=(const Polyhedron& p);
     const IndexedTriArray& get_mesh() const { return _mesh; }
-    void transform(const Ravelin::Pose3d& T);
+    void transform(const Ravelin::Transform3d& T);
     void translate(const Ravelin::Vector3d& p);
     const std::vector<Ravelin::Point3d>& get_vertices() const { return _mesh.get_vertices(); }
     const std::vector<IndexedTri>& get_facets() const { return _mesh.get_facets(); }

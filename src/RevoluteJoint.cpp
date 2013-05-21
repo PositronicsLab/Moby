@@ -982,7 +982,6 @@ void RevoluteJoint::calc_constraint_jacobian_dot_euler(RigidBodyPtr body, unsign
 void RevoluteJoint::evaluate_constraints(double C[])
 {
   const unsigned X = 0, Y = 1, Z = 2;
-  shared_ptr<const Pose3d> GLOBAL;
 
   // get the two links
   RigidBodyPtr b1 = get_inboard_link();

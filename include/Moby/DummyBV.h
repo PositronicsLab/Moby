@@ -38,20 +38,19 @@ class DummyBV : public BV
     /**
      * \param g the geometry that this bounding volume represents
      * \param dt the time step
-     * \param lv the linear velocity
-     * \param av the angular velocity
+     * \param v the velocity
      * \return the velocity-expanded bounding volume
      */ 
-    virtual BVPtr calc_vel_exp_BV(CollisionGeometryPtr g, double dt, const Ravelin::Vector3d& lv, const Ravelin::Vector3d& av) const { return boost::const_pointer_cast<BV>(get_this()); }
+    virtual BVPtr calc_vel_exp_BV(CollisionGeometryPtr g, double dt, const Ravelin::Twistd& v) const { return boost::const_pointer_cast<BV>(get_this()); }
 
     /// Volume will be zero
     virtual double calc_volume() const { return 0.0; }
 
     /// Gets the lower bounds
-    virtual Ravelin::Point3d get_lower_bounds(const Ravelin::Pose3d& T) { double INF = std::numeric_limits<double>::max(); return Ravelin::Point3d(-INF, -INF, -INF); }
+    virtual Ravelin::Point3d get_lower_bounds() { double INF = std::numeric_limits<double>::max(); return Ravelin::Point3d(-INF, -INF, -INF); }
 
     /// Gets the upper bounds
-    virtual Ravelin::Point3d get_upper_bounds(const Ravelin::Pose3d& T) { double INF = std::numeric_limits<double>::max(); return Ravelin::Point3d(INF, INF, INF); }
+    virtual Ravelin::Point3d get_upper_bounds() { double INF = std::numeric_limits<double>::max(); return Ravelin::Point3d(INF, INF, INF); }
 
 }; // end class
 

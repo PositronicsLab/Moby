@@ -35,7 +35,7 @@ class PrismaticJoint : public Joint
     const Ravelin::Vector3d& get_axis() const { return _u; }
 
     /// Prismatic joint can never be in a singular configuration
-    virtual bool is_sngular_config() const { return false; }
+    virtual bool is_singular_config() const { return false; }
     
   private:
     virtual void calc_constraint_jacobian_euler(RigidBodyPtr body, unsigned index, double Cq[7]);

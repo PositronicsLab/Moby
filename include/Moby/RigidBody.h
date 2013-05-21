@@ -43,41 +43,12 @@ class RigidBody : public SingleBody
 {
   public:
 
-    /// Data for determining joint hierarchy
-    struct InnerJointData
-    {
-      // the inner joint in question
-      boost::weak_ptr<Joint> inner_joint;
-
-      // vector from inner joint to center-of-mass of this link (outboard link frame)
-      Ravelin::Vector3d joint_to_com_vec_of;
-
-      // vector from inner joint to center-of-mass of this link (inner joint frame)
-      Ravelin::Vector3d joint_to_com_vec_jf;
-
-
-      // the parent link
-      boost::weak_ptr<RigidBody> parent;
-    };
-
-    /// Data for determining joint hierarchy
-    struct OuterJointData
-    {
-      // the outer joint in question
-      boost::weak_ptr<Joint> outer_joint;
-
-      // vector from c.o.m. of this link to inner joint of child link (this link coordinates)
-      Ravelin::Vector3d com_to_joint_vec;
-
-      // the child link
-      boost::weak_ptr<RigidBody> child;
-    };
-
     RigidBody();
     virtual ~RigidBody() {}
     virtual void integrate(double t, double h, boost::shared_ptr<Integrator> integrator);
     void add_wrench(const Ravelin::Wrenchd& w);
     void set_pose(const Ravelin::Pose3d& pose);
+    void set_inertial_pose(const Ravelin::Pose3d& pose);
     void set_inertia(const Ravelin::SpatialRBInertiad& m);
     void set_enabled(bool flag);
     void apply_impulse(const Ravelin::Wrenchd& w);
@@ -85,6 +56,7 @@ class RigidBody : public SingleBody
     virtual void translate(const Ravelin::Origin3d& o);
     virtual void calc_fwd_dyn(double dt);
     const Ravelin::SpatialRBInertiad& get_inertia() const;
+    boost::shared_ptr<const Ravelin::Pose3d> get_inertial_pose() const { return _jF; }
 
     virtual void set_visualization_data(osg::Node* vdata) { Visualizable::set_visualization_data(vdata); synchronize(); }
 
@@ -96,8 +68,6 @@ class RigidBody : public SingleBody
     const Ravelin::Twistd& accel() const { return _xdd; } 
     Ravelin::Twistd& velocity();
     const Ravelin::Twistd& velocity() const { return _xd; }
-    boost::shared_ptr<const DynamicBody> get_dynamic_body() const;
-    DynamicBodyPtr get_dynamic_body();
     virtual Ravelin::VectorNd& get_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& gc);
     virtual Ravelin::VectorNd& get_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& gv);
     virtual Ravelin::VectorNd& get_generalized_acceleration(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& ga);
@@ -111,27 +81,16 @@ class RigidBody : public SingleBody
     virtual unsigned num_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype) const;
     virtual Ravelin::MatrixNd& solve_generalized_inertia(DynamicBody::GeneralizedCoordinateType gc, const Ravelin::MatrixNd& B, Ravelin::MatrixNd& X);
     virtual Ravelin::VectorNd& solve_generalized_inertia(DynamicBody::GeneralizedCoordinateType gc, const Ravelin::VectorNd& b, Ravelin::VectorNd& x);
-    const InnerJointData& get_inner_joint_data(RigidBodyPtr parent) const { return get_inner_joint_data(parent); }
-    InnerJointData& get_inner_joint_data(RigidBodyPtr parent);
-    const InnerJointData& get_inner_joint_data(JointPtr inner_joint) const { return get_inner_joint_data(inner_joint); }
-    InnerJointData& get_inner_joint_data(JointPtr inner_joint);
-    const OuterJointData& get_outer_joint_data(RigidBodyPtr child) const { return get_outer_joint_data(child); }
-    OuterJointData& get_outer_joint_data(RigidBodyPtr child);
-    const OuterJointData& get_outer_joint_data(JointPtr outer_joint) const { return get_outer_joint_data(outer_joint); }
-    OuterJointData& get_outer_joint_data(JointPtr outer_joint);
     RigidBodyPtr get_parent_link() const;
     JointPtr get_inner_joint_implicit() const;
-    void add_inner_joint(RigidBodyPtr parent, JointPtr j, const Ravelin::Vector3d& joint_to_com_vec_joint, const Ravelin::Vector3d& joint_to_com_vec_link);
-    void add_outer_joint(RigidBodyPtr child, JointPtr j, const Ravelin::Vector3d& com_to_joint_vec_link);
-    bool remove_inner_joints(RigidBodyPtr parent);
-    bool remove_inner_joint(JointPtr joint);
-    bool remove_outer_joints(RigidBodyPtr child);
-    bool remove_outer_joint(JointPtr joint);
+    void add_inner_joint(JointPtr j);
+    void add_outer_joint(JointPtr j);
+    void remove_inner_joint(JointPtr joint);
+    void remove_outer_joint(JointPtr joint);
     virtual double calc_kinetic_energy() const;
     virtual Ravelin::Vector3d calc_point_vel(const Ravelin::Point3d& p) const;
     virtual void update_velocity(const EventProblemData& q);
     virtual void update_event_data(EventProblemData& q);
-    RigidBodyPtr get_child_link(unsigned i) const;
     bool is_base() const;
     bool is_ground() const;
     virtual Ravelin::Point3d get_position() const;
@@ -214,11 +173,11 @@ class RigidBody : public SingleBody
      */
     void set_index(unsigned index) { _link_idx = index; }
 
-    /// Gets the list of inner joint data for this link
-    const std::list<InnerJointData>& get_inner_joints_data() const { return _inner_joints; }
+    /// Gets the set of inner joints for this link
+    const std::set<JointPtr>& get_inner_joints() const { return _inner_joints; }
    
-    /// Gets the list of outer joint data for this link
-    const std::list<OuterJointData>& get_outer_joints_data() const { return _outer_joints; }
+    /// Gets the list of outer joints for this link
+    const std::set<JointPtr>& get_outer_joints() const { return _outer_joints; }
 
     /// Viscous coefficient for dampening the body motion
     Ravelin::VectorNd viscous_coeff;
@@ -228,9 +187,9 @@ class RigidBody : public SingleBody
     virtual boost::shared_ptr<const Ravelin::Pose3d> get_visualization_pose() { return _F; }
 
   private:  
-    void invalidate_position();
-    void invalidate_velocity();
     void synchronize();
+    RigidBodyPtr get_parent_link(JointPtr j) const;
+    RigidBodyPtr get_child_link(JointPtr j) const;
 
     /// Spatial rigid body inertia matrix (given computation frame) 
     Ravelin::SpatialRBInertiad _J;
@@ -260,10 +219,10 @@ class RigidBody : public SingleBody
     boost::weak_ptr<ArticulatedBody> _abody;
 
     /// Inner joints and associated data 
-    std::list<InnerJointData> _inner_joints;
+    std::set<JointPtr> _inner_joints;
 
     /// Outer joints and associated data 
-    std::list<OuterJointData> _outer_joints; 
+    std::set<JointPtr> _outer_joints; 
 
     static Ravelin::VectorNd ode_p(const Ravelin::VectorNd& x, double t, void* data);
     static Ravelin::VectorNd ode_v(const Ravelin::VectorNd& x, double t, void* data);

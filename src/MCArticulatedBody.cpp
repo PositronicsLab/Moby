@@ -211,65 +211,51 @@ void MCArticulatedBody::precalc()
 {
   SAFESTATIC VectorN jv;
 
-  // only if necessary: compute the constraint Jacobian, constraint force 
-  // transformation matrix, generalized inertia matrix, and related matrices
-  if (positions_invalidated())
-  {
-    // determine joint positions
-    for (unsigned i=0; i< _joints.size(); i++)
-      _joints[i]->determine_q(_joints[i]->q);
+  // determine joint positions
+  for (unsigned i=0; i< _joints.size(); i++)
+    _joints[i]->determine_q(_joints[i]->q);
 
-    // get the constraint Jacobian and the constraint force transform
-    get_constraint_jacobian(_Jx);
-    get_constraint_jacobian_dot(_Jx_dot);
+  // get the constraint Jacobian and the constraint force transform
+  get_constraint_jacobian(_Jx);
+  get_constraint_jacobian_dot(_Jx_dot);
 
-    // get the mechanism Jacobian
-    get_mechanism_jacobian(_Dx, _Dx_dot);
+  // get the mechanism Jacobian
+  get_mechanism_jacobian(_Dx, _Dx_dot);
 
-    // determine the sparse inertias 
-    determine_inertias();
+  // determine the sparse inertias 
+  determine_inertias();
 
-    // now form Jx_iM_Jx' and its inverse
-    _rank_def = false;
-    calc_Jx_iM_JyT(_Jx, _Jx, _Jx_iM_JxT);
+  // now form Jx_iM_Jx' and its inverse
+  _rank_def = false;
+  calc_Jx_iM_JyT(_Jx, _Jx, _Jx_iM_JxT);
+  _inv_Jx_iM_JxT.copy_from(_Jx_iM_JxT);
+  if (!LinAlg::factor_chol(_inv_Jx_iM_JxT))
+  {  
     _inv_Jx_iM_JxT.copy_from(_Jx_iM_JxT);
-    if (!LinAlg::factor_chol(_inv_Jx_iM_JxT))
-    {  
-      _inv_Jx_iM_JxT.copy_from(_Jx_iM_JxT);
-      try
-      {
-        LinAlg::pseudo_inverse(_inv_Jx_iM_JxT, LinAlg::svd1);
-      }
-      catch (NumericalException e)
-      {
-        _inv_Jx_iM_JxT.copy_from(_Jx_iM_JxT);
-        LinAlg::pseudo_inverse(_inv_Jx_iM_JxT, LinAlg::svd2);
-      }
-      _rank_def = true;
+    try
+    {
+      LinAlg::pseudo_inverse(_inv_Jx_iM_JxT, LinAlg::svd1);
     }
-
-    // finally, validate body positions
-    validate_positions();
+    catch (NumericalException e)
+    {
+      _inv_Jx_iM_JxT.copy_from(_Jx_iM_JxT);
+      LinAlg::pseudo_inverse(_inv_Jx_iM_JxT, LinAlg::svd2);
+    }
+    _rank_def = true;
   }
 
-  // determine the generalized velocity, if necessary; note that this must be
+  // determine the generalized velocity; note that this must be
   // done after determining Jacobians, which are position dependent
-  if (velocities_invalidated())
+  // get the generalized velocities
+  get_generalized_velocities(DynamicBody::eSpatial, _xd);
+
+  // setup joint velocities
+  const unsigned NDOF = _Dx.rows();
+  mult_sparse(_Dx, _xd, jv);
+  for (unsigned i=0; i< _joints.size(); i++)
   {
-    // get the generalized velocities
-    get_generalized_velocities(DynamicBody::eSpatial, _xd);
-
-    // setup joint velocities
-    const unsigned NDOF = _Dx.rows();
-    mult_sparse(_Dx, _xd, jv);
-    for (unsigned i=0; i< _joints.size(); i++)
-    {
-      unsigned idx = _joints[i]->get_coord_index();
-      jv.get_sub_vec(idx, idx+_joints[i]->num_dof(), _joints[i]->qd);
-    }
-
-    // validate the body velocities
-    validate_velocities();
+    unsigned idx = _joints[i]->get_coord_index();
+    jv.get_sub_vec(idx, idx+_joints[i]->num_dof(), _joints[i]->qd);
   }
 }
 
@@ -375,9 +361,6 @@ return DynamicBody::integrate(t, h, integrator);
   // set the generalized coordinates / velocities
   set_generalized_coordinates(DynamicBody::eEuler, q);
   update_link_velocities();
-
-  // velocities are valid
-  validate_velocities();
 }
 
 /// Computes the velocity state-derivative of this articulated body
@@ -881,9 +864,6 @@ void MCArticulatedBody::apply_impulse(const Vector3& j, const Vector3& k, const 
 
   // set the link velocities
   update_link_velocities();
-
-  // velocities are still valid
-  validate_velocities();
 }
 
 /// Sets up the generalized force vector
@@ -2233,9 +2213,6 @@ void MCArticulatedBody::update_velocity(const EventProblemData& q)
 
   // update the link velocities
   update_link_velocities(); 
-
-  // validate the body velocities
-  validate_velocities(); 
 }
 
 /// The signum function, modified to use NEAR_ZERO instead of +/- 0.0

@@ -91,24 +91,6 @@ class ArticulatedBody : public DynamicBody
     /// Gets the set of joints
     virtual const std::vector<JointPtr>& get_joints() const { return _joints; }
 
-    /// Returns true if any of the link positions have changed
-    bool positions_invalidated() const { return !_positions_valid; }
-
-    /// Returns true if any of the link velocities have changed
-    bool velocities_invalidated() const { return !_velocities_valid; }
-
-    /// Invalidates the link positions (manually)
-    virtual void invalidate_positions() { _positions_valid = false; }
-
-    /// Invalidates the link velocities (manually)
-    virtual void invalidate_velocities() { _velocities_valid = false; }
-
-    /// Validates the link positions (manually)
-    void validate_positions() { _positions_valid = true; }
-
-    /// Validates the link velocities (manually)
-    void validate_velocities() { _velocities_valid = true; }
-
     /// Gets shared pointer to this object as type ArticulatedBody
     ArticulatedBodyPtr get_this() { return boost::dynamic_pointer_cast<ArticulatedBody>(shared_from_this()); }
 
@@ -164,7 +146,7 @@ class ArticulatedBody : public DynamicBody
      */
     virtual void compile() = 0;
 
-    Ravelin::MatrixNd& determine_F(unsigned link_idx, const Ravelin::Pose3d& Tf, const std::vector<unsigned>& loop_indices, Ravelin::MatrixNd& F) const;
+    Ravelin::MatrixNd& determine_F(unsigned link_idx, boost::shared_ptr<const Ravelin::Pose3d> Tf, const std::vector<unsigned>& loop_indices, Ravelin::MatrixNd& F) const;
     static double calc_fwd_dyn_f0(const Ravelin::VectorNd& x, void* data);
     static void calc_fwd_dyn_fx(const Ravelin::VectorNd& x, Ravelin::VectorNd& fc, void* data);
     static void calc_fwd_dyn_grad0(const Ravelin::VectorNd& x, Ravelin::VectorNd& grad, void* data);
@@ -186,9 +168,6 @@ class ArticulatedBody : public DynamicBody
 /*    Ravelin::Wrenchd transform_force(RigidBodyPtr link, const Ravelin::Vector3& x) const;
 */
     static void objective_grad(const Ravelin::VectorNd& x, void* data, Ravelin::VectorNd& g);
-
-    bool _positions_valid;
-    bool _velocities_valid;
 }; // end class
 
 #include "ArticulatedBody.inl"

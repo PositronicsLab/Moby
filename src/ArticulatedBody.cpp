@@ -18,6 +18,7 @@
 
 using namespace Moby;
 using namespace Ravelin;
+using std::set;
 using boost::shared_ptr;
 using boost::dynamic_pointer_cast;
 using std::list;
@@ -28,7 +29,6 @@ using std::queue;
 
 ArticulatedBody::ArticulatedBody()
 {
-  _positions_valid = _velocities_valid = false;
   use_advanced_friction_model = false;
 }
 
@@ -1030,9 +1030,9 @@ void ArticulatedBody::find_loops(vector<unsigned>& loop_indices, vector<vector<u
             explicit_joints.push_back(_joints[i]);
             break;
           }
-          const list<RigidBody::InnerJointData>& ijd_list = link->get_inner_joints_data();
-          BOOST_FOREACH(const RigidBody::InnerJointData ijd, ijd_list)
-            q.push(RigidBodyPtr(ijd.parent));
+          const set<JointPtr>& ij = link->get_inner_joints();
+          BOOST_FOREACH(JointPtr j, ij)
+            q.push(RigidBodyPtr(j->get_inboard_link()));
          }
        }
      }
@@ -1191,11 +1191,22 @@ void ArticulatedBody::get_adjacent_links(list<sorted_pair<RigidBodyPtr> >& links
 /**
  * The given transformation is cumulative; the links will not necessarily be set to T.
  */
-void ArticulatedBody::transform(const Pose3d& T)
+void ArticulatedBody::translate(const Origin3d& x)
 {
   // apply transform to all links
   BOOST_FOREACH(RigidBodyPtr rb, _links)
-    rb->transform(T);
+    rb->translate(x);
+}
+
+/// Transforms all links in the articulated body by the given transform
+/**
+ * The given transformation is cumulative; the links will not necessarily be set to T.
+ */
+void ArticulatedBody::rotate(const Quatd& q)
+{
+  // apply transform to all links
+  BOOST_FOREACH(RigidBodyPtr rb, _links)
+    rb->rotate(q);
 }
 
 /// Calculates the combined kinetic energy of all links in this body

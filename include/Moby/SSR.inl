@@ -15,6 +15,7 @@ SSR::SSR(ForwardIterator begin, ForwardIterator end)
 {
   const unsigned X = 0, Y = 1, Z = 2, THREE_D = 3;
   Ravelin::Vector3d normal;
+  boost::shared_ptr<const Ravelin::Pose2d> GLOBAL_2D;
 
   // compute the convex hull of the points
   PolyhedronPtr hull = CompGeom::calc_convex_hull(begin, end);
@@ -30,10 +31,11 @@ SSR::SSR(ForwardIterator begin, ForwardIterator end)
 
     // transform all points to 2D
     Ravelin::Matrix3d R = CompGeom::calc_3D_to_2D_matrix(normal);
-    double offset = CompGeom::determine_3D_to_2D_offset(*begin, R);
+    double offset = CompGeom::determine_3D_to_2D_offset(Ravelin::Origin3d(*begin), R);
     std::list<Ravelin::Point2d> points_2D;
     std::list<Ravelin::Point2d*> points_2D_ptr;
-    CompGeom::to_2D(begin, end, std::back_inserter(points_2D), R);
+    for (ForwardIterator i = begin; i != end; i++)
+      points_2D.push_back(Ravelin::Point2d(CompGeom::to_2D(*i, R), GLOBAL_2D));
     
     // compute the convex hull of the points
     std::list<Ravelin::Point2d> hull_2D;
@@ -166,7 +168,7 @@ void SSR::calc_lengths_and_radius(ForwardIterator begin, ForwardIterator end)
   this->l = extents*(double) 2.0;
 
   // setup the plane of the rectangle
-  Ravelin::Vector3d normal = R.get_column(X);
+  Ravelin::Vector3d normal(R.get_column(X), begin->pose);
   double d = normal.dot(center);
 
   // init radius to zero
@@ -185,10 +187,13 @@ void SSR::calc_lengths_and_radius(ForwardIterator begin, ForwardIterator end)
 template <class ForwardIterator>
 void SSR::align(ForwardIterator begin, ForwardIterator end, const Ravelin::Vector3d& d1, Ravelin::Vector3d& d2)
 {
+  const boost::shared_ptr<const Ravelin::Pose2d> GLOBAL_2D;
+
   // project all points to the plane perpendicular to the first direction
   Ravelin::Matrix3d R2d = CompGeom::calc_3D_to_2D_matrix(d1);
   std::list<Ravelin::Point2d> points_2D;
-  CompGeom::to_2D(begin, end, std::back_inserter(points_2D), R2d);
+  for (ForwardIterator i = begin; i != end; i++)
+    points_2D.push_back(Ravelin::Point2d(CompGeom::to_2D(*i, R2d), GLOBAL_2D));
 
   // determine the minimum bounding rectangle of the projected points
   Ravelin::Point2d p1, p2, p3, p4;

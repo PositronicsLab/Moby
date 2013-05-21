@@ -33,7 +33,7 @@ SpherePrimitive::SpherePrimitive()
 }
 
 /// Creates a sphere with radius 1.0 and 100 points at the given transform
-SpherePrimitive::SpherePrimitive(const Pose3d& T) : Primitive(T)
+SpherePrimitive::SpherePrimitive(shared_ptr<const Pose3d> T) : Primitive(T)
 {
   _radius = 1.0;
   _npoints = 100;
@@ -60,7 +60,7 @@ SpherePrimitive::SpherePrimitive(double radius, unsigned n)
 /**
  * The sphere is composed of 100 points.
  */
-SpherePrimitive::SpherePrimitive(double radius, const Pose3d& T) : Primitive(T)
+SpherePrimitive::SpherePrimitive(double radius, shared_ptr<const Pose3d> T) : Primitive(T)
 {
   _radius = radius;
   _npoints = 100;
@@ -68,7 +68,7 @@ SpherePrimitive::SpherePrimitive(double radius, const Pose3d& T) : Primitive(T)
 }
 
 /// Creates a sphere with the specified radius, transform, and number of points 
-SpherePrimitive::SpherePrimitive(double radius, unsigned n, const Pose3d& T) : Primitive(T)
+SpherePrimitive::SpherePrimitive(double radius, unsigned n, shared_ptr<const Pose3d> T) : Primitive(T)
 {
   _radius = radius;
   _npoints = n;  
@@ -79,23 +79,20 @@ SpherePrimitive::SpherePrimitive(double radius, unsigned n, const Pose3d& T) : P
 void SpherePrimitive::calc_mass_properties() 
 {
   // get the current transform
-  const Pose3d& T = get_pose();
+  shared_ptr<const Pose3d> T = get_pose();
 
   // compute the mass if density is given
   if (_density)
   {
     const double volume = M_PI * _radius * _radius * _radius * 4.0/3.0; 
-    _mass = *_density * volume;
+    _J.m = *_density * volume;
   }
 
   // compute the diagonal element of the untransformed inertia matrix
-  const double diag = _radius * _radius * _mass * 2.0/5.0;
+  const double diag = _radius * _radius * _J.m * 2.0/5.0;
 
   // form the inertia matrix (untransformed)
-  Matrix3d J(diag, 0, 0, 0, diag, 0, 0, 0, diag);
-
-  // transform the inertia matrix using the current transform
-  transform_inertia(_mass, J, ZEROS_3, T, _J, _com);
+  _J.J = Matrix3d(diag, 0, 0, 0, diag, 0, 0, 0, diag);
 }
 
 /// Sets the radius for this sphere (forces redetermination of the mesh)
@@ -145,25 +142,34 @@ void SpherePrimitive::set_intersection_tolerance(double tol)
 }
 
 /// Transforms the primitive
-void SpherePrimitive::set_pose(const Pose3d& T)
+void SpherePrimitive::set_pose(shared_ptr<const Pose3d> p)
 {
-  // determine the transformation from the old to the new transform 
-  Pose3d Trel = T * Pose3d::inverse(_T);
+  // determine the transformation from the global frame to the old pose
+  Transform3d cTg = Pose3d::calc_relative_pose(GLOBAL, _F);
+
+  // determine the transformation from the old to the new pose
+  Transform3d pTc = Pose3d::calc_relative_pose(_F, p);
+
+  // determine the transformation from the new pose to the global frame 
+  Transform3d gTp = Pose3d::calc_relative_pose(p, GLOBAL);
+
+  // compute the transformation
+  Transform3d T = gTp * pTc * cTg;
 
   // go ahead and set the new transform
-  Primitive::set_pose(T);
+  Primitive::set_pose(p);
 
   // transform mesh
   if (_mesh)
   {
-    _mesh = shared_ptr<IndexedTriArray>(new IndexedTriArray(_mesh->transform(Trel)));
+    _mesh = shared_ptr<IndexedTriArray>(new IndexedTriArray(_mesh->transform(T)));
     _smesh.first = _mesh;
   }
 
   // transform vertices
   if (_vertices)
     for (unsigned i=0; i< _vertices->size(); i++)
-      (*_vertices)[i] = Trel.transform((*_vertices)[i]);
+      (*_vertices)[i] = T.transform((*_vertices)[i]);
 
   // invalidate this primitive
   _invalidated = true;
@@ -187,10 +193,11 @@ shared_ptr<const IndexedTriArray> SpherePrimitive::get_mesh()
     }
 
     // get the translation for the transform
-    const Pose3d& T = get_pose();
-    const Origin3d& xlat = T.x;
+    shared_ptr<const Pose3d> T = get_pose();
+    const Origin3d& xlat = T->x;
 
     // determine the vertices in the mesh
+    // NOTE: they will all be defined in the global frame
     list<Point3d> points;
     const double INC = (double) M_PI * ((double) 3.0 - std::sqrt((double) 5.0));
     const double OFF = (double) 2.0 / _npoints;
@@ -242,10 +249,11 @@ void SpherePrimitive::get_vertices(BVPtr bv, std::vector<const Point3d*>& vertic
     }
 
     // get the translation for the transform
-    const Pose3d& T = get_pose();
-    const Origin3d& xlat = T.x;
+    shared_ptr<const Pose3d> T = get_pose();
+    const Origin3d& xlat = T->x;
 
     // determine the vertices in the mesh
+    // NOTE: they will all be defined in the global frame
     _vertices = shared_ptr<vector<Point3d> >(new vector<Point3d>(_npoints));
     const double INC = (double) M_PI * ((double) 3.0 - std::sqrt((double) 5.0));
     const double OFF = (double) 2.0 / _npoints;
@@ -331,7 +339,8 @@ BVPtr SpherePrimitive::get_BVH_root()
 
   // set the radius and center
   _bsph->radius = _radius + _intersection_tolerance;
-  _bsph->center = get_pose().x;
+  _bsph->center = get_pose()->x;
+  _bsph->center.pose = get_pose();
 
   return _bsph;
 }
@@ -348,7 +357,7 @@ bool SpherePrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Po
   const unsigned X = 0, Y = 1, Z = 2;
 
   // account for sphere center in translation
-  const Origin3d& center = get_pose().x;
+  const Origin3d& center = get_pose()->x;
   Vector3d p = seg.first - center;
   Vector3d q = seg.second - center;
 
@@ -416,7 +425,7 @@ bool SpherePrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Po
 bool SpherePrimitive::point_inside(BVPtr bv, const Point3d& p, Vector3d& normal) const
 {
   // get the sphere translation
-  const Origin3d& center = get_pose().x;
+  const Origin3d& center = get_pose()->x;
 
   // subtract sphere translation from the query point
   Vector3d query = p - center;

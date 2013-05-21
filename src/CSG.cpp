@@ -35,7 +35,7 @@ CSG::CSG()
 }
 
 /// Constructs a union CSG with the given transform
-CSG::CSG(const Pose3d& T) : Primitive(T)
+CSG::CSG(shared_ptr<const Pose3d> T) : Primitive(T)
 {
   _op = eUnion;
   calc_mass_properties();
@@ -151,18 +151,27 @@ void CSG::set_intersection_tolerance(double tol)
 }
 
 /// Transforms the CSG
-void CSG::set_pose(const Pose3d& T)
+void CSG::set_pose(shared_ptr<const Pose3d> p)
 {
-  // determine the transformation from the old to the new transform 
-  Pose3d Trel = T * Pose3d::inverse(_T);
+  // determine the transformation from the global frame to the old pose
+  Transform3d cTg = Pose3d::calc_relative_pose(GLOBAL, _F);
+
+  // determine the transformation from the old to the new pose
+  Transform3d pTc = Pose3d::calc_relative_pose(_F, p);
+
+  // determine the transformation from the new pose to the global frame 
+  Transform3d gTp = Pose3d::calc_relative_pose(p, GLOBAL);
+
+  // compute the transformation
+  Transform3d T = gTp * pTc * cTg;
 
   // call the primitive transform
-  Primitive::set_pose(T);
+  Primitive::set_pose(p);
 
   // transform the vertices
   if (_vertices)
     for (unsigned i=0; i< _vertices->size(); i++)
-      (*_vertices)[i] = Trel.transform((*_vertices)[i]);
+      (*_vertices)[i] = T.transform((*_vertices)[i]);
 
   // invalidate this primitive
   _invalidated = true;
@@ -239,6 +248,13 @@ bool CSG::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect
   if (!_op1 || !_op2)
     throw std::runtime_error("One or more CSG operands are missing!");
 
+  // compute transform from line segment pose to primitive pose
+  shared_ptr<const Pose3d> P = get_pose();
+  Transform3d T = Pose3d::calc_relative_pose(seg.first.pose, P);
+
+  // compute updated line segment
+  LineSeg3 nseg(T.transform(seg.first), T.transform(seg.second));
+
   // reset intersection tolerances (if necessary)
   if (std::fabs(_op1->get_intersection_tolerance() - _intersection_tolerance) > NEAR_ZERO)
     _op1->set_intersection_tolerance(_intersection_tolerance);
@@ -249,16 +265,23 @@ bool CSG::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect
   switch (_op)
   {
     case eUnion: 
-      flag = intersect_seg_union(bv, seg, t, isect, normal);
+      flag = intersect_seg_union(bv, nseg, t, isect, normal);
       break;
 
     case eIntersection: 
-      flag = intersect_seg_intersect(bv, seg, t, isect, normal);
+      flag = intersect_seg_intersect(bv, nseg, t, isect, normal);
       break;
 
     case eDifference: 
-      flag = intersect_seg_diff(bv, seg, t, isect, normal);
+      flag = intersect_seg_diff(bv, nseg, t, isect, normal);
       break;
+  }
+
+  // transform intersection point and normal (if necessary)
+  if (flag)
+  {
+    isect = T.inverse_transform(isect);
+    normal = T.inverse_transform(normal);
   }
 
   return flag;
@@ -267,14 +290,6 @@ bool CSG::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect
 /// Does line segment intersection on a union CSG
 bool CSG::intersect_seg_union(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Vector3d& normal) const
 {
-  // get the transform of the CSG
-  const Pose3d& T = get_pose();
-
-  // transform segment into CSG-space
-  Point3d p = T.inverse_transform(seg.first);
-  Point3d q = T.inverse_transform(seg.second);
-  LineSeg3 pq(p, q);
-
   // compute the first time of intersection for each of the two primitives
   double t1, t2;
   Point3d isect1, isect2;
@@ -285,22 +300,22 @@ bool CSG::intersect_seg_union(BVPtr bv, const LineSeg3& seg, double& t, Point3d&
   BVPtr bv2 = _op2->get_BVH_root();
 
   // perform the individual intersections
-  bool i1 = _op1->intersect_seg(bv1, pq, t1, isect1, normal1);
-  bool i2 = _op2->intersect_seg(bv2, pq, t2, isect2, normal2);
+  bool i1 = _op1->intersect_seg(bv1, seg, t1, isect1, normal1);
+  bool i2 = _op2->intersect_seg(bv2, seg, t2, isect2, normal2);
   if (!i1 && !i2)
     return false;
   else if (i1 && !i2)
   {
     t = t1;
-    isect = T.transform(isect1);
-    normal = T.transform(normal1);
+    isect = isect1;
+    normal = normal1;
     return true;
   }
   else if (!i1 && i2)
   {
     t = t2;
-    isect = T.transform(isect2);
-    normal = T.transform(normal2);
+    isect = isect2;
+    normal = normal2;
     return true;
   }
   else
@@ -308,15 +323,15 @@ bool CSG::intersect_seg_union(BVPtr bv, const LineSeg3& seg, double& t, Point3d&
     if (t1 < t2)
     {
       t = t1;
-      isect = T.transform(isect1);
-      normal = T.transform(normal1);
+      isect = isect1;
+      normal = normal1;
       return true;
     }
     else
     {
       t = t2;
-      isect = T.transform(isect2);
-      normal = T.transform(normal2);
+      isect = isect2;
+      normal = normal2;
       return true;
     }
   }
@@ -325,14 +340,6 @@ bool CSG::intersect_seg_union(BVPtr bv, const LineSeg3& seg, double& t, Point3d&
 /// Does line segment intersection on an intersection 
 bool CSG::intersect_seg_intersect(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Vector3d& normal) const
 {
-  // get the transform of the CSG
-  const Pose3d& T = get_pose();
-
-  // transform segment into CSG-space
-  Point3d p = T.inverse_transform(seg.first);
-  Point3d q = T.inverse_transform(seg.second);
-  LineSeg3 pq(p, q);
-
   // compute the first time of intersection for each of the two primitives
   double t1, t2;
   Vector3d normal1, normal2;
@@ -343,12 +350,12 @@ bool CSG::intersect_seg_intersect(BVPtr bv, const LineSeg3& seg, double& t, Poin
   BVPtr bv2 = _op2->get_BVH_root();
 
   // perform the individual intersections
-  bool i1 = _op1->intersect_seg(bv1, pq, t1, isect1, normal1);
+  bool i1 = _op1->intersect_seg(bv1, seg, t1, isect1, normal1);
   if (!i1)
     return false;
 
   // perform the individual intersection
-  bool i2 = _op2->intersect_seg(bv2, pq, t2, isect2, normal2);
+  bool i2 = _op2->intersect_seg(bv2, seg, t2, isect2, normal2);
   if (!i2)
     return false;
 
@@ -356,14 +363,14 @@ bool CSG::intersect_seg_intersect(BVPtr bv, const LineSeg3& seg, double& t, Poin
   if (t1 < t2)
   {
     t = t2;
-    isect = T.transform(isect2);
-    normal = T.transform(normal2);
+    isect = isect2;
+    normal = normal2;
   }
   else
   {
     t = t1;
-    isect = T.transform(isect1);
-    normal = T.transform(normal1);
+    isect = isect1;
+    normal = normal1;
   }
 
   return true;
@@ -378,14 +385,6 @@ bool CSG::intersect_seg_intersect(BVPtr bv, const LineSeg3& seg, double& t, Poin
  */
 bool CSG::intersect_seg_diff(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Vector3d& normal) const
 {
-  // get the transform of the CSG
-  const Pose3d& T = get_pose();
-
-  // transform segment into CSG-space
-  Point3d p = T.inverse_transform(seg.first);
-  Point3d q = T.inverse_transform(seg.second);
-  LineSeg3 pq(p, q);
-
   // compute the first time of intersection for each of the two primitives
   double t1, t2;
   Point3d isect1, isect2;
@@ -396,8 +395,7 @@ bool CSG::intersect_seg_diff(BVPtr bv, const LineSeg3& seg, double& t, Point3d& 
   BVPtr bv2 = _op2->get_BVH_root();
 
   FILE_LOG(LOG_COLDET) << "CSG::intersect_seg_diff() entered" << endl;
-  FILE_LOG(LOG_COLDET) << "  CSG transform: " << endl << T;
-  FILE_LOG(LOG_COLDET) << "  segment (CSG space): " << p << " / " << q << endl;
+  FILE_LOG(LOG_COLDET) << "  segment (CSG space): " << seg.first << " / " << seg.second << endl;
 
   // setup the intersection tolerance for both primitives
   _op1->set_intersection_tolerance((double) 0.0);
@@ -407,14 +405,14 @@ bool CSG::intersect_seg_diff(BVPtr bv, const LineSeg3& seg, double& t, Point3d& 
   // specifically, we know that if the point is inside the fattened op2 and
   // is *not* inside the non-fattened op2 and the point is inside op1 then
   // it is interpenetrating through primitive _op2
-  if (_op1->point_inside(bv, p, normal) && !_op2->point_inside(bv, p, normal))
+  if (_op1->point_inside(bv, seg.first, normal) && !_op2->point_inside(bv, seg.first, normal))
   {
     _op2->set_intersection_tolerance(_intersection_tolerance);
-    if (_op2->point_inside(bv, p, normal))
+    if (_op2->point_inside(bv, seg.first, normal))
     {
       FILE_LOG(LOG_COLDET) << "  point is in special case!" << endl;
       t = (double) 0.0;
-      normal = T.transform(-normal);
+      normal = -normal;
       isect = seg.first;
       return true;
     }
@@ -425,7 +423,7 @@ bool CSG::intersect_seg_diff(BVPtr bv, const LineSeg3& seg, double& t, Point3d& 
   _op2->set_intersection_tolerance(_intersection_tolerance);
 
   // do intersection with the first primitive 
-  bool i1 = _op1->intersect_seg(bv1, pq, t1, isect1, normal1);
+  bool i1 = _op1->intersect_seg(bv1, seg, t1, isect1, normal1);
   if (!i1)
   {
     FILE_LOG(LOG_COLDET) << "  segment does not intersect first primitive" << endl;
@@ -434,7 +432,7 @@ bool CSG::intersect_seg_diff(BVPtr bv, const LineSeg3& seg, double& t, Point3d& 
   }
 
   // perform the individual intersection
-  bool i2 = _op2->intersect_seg(bv2, pq, t2, isect2, normal2);
+  bool i2 = _op2->intersect_seg(bv2, seg, t2, isect2, normal2);
 
   // if first intersection on first primitive, return that
   if (!i2 || t1 < t2)
@@ -442,14 +440,14 @@ bool CSG::intersect_seg_diff(BVPtr bv, const LineSeg3& seg, double& t, Point3d& 
     FILE_LOG(LOG_COLDET) << "  segment intersects first primitive; i2=" << i2 << " t1=" << t1 << " t2=" << t2 << endl;
     FILE_LOG(LOG_COLDET) << "  -- reporting intersection" << endl;
     t = t1;
-    normal = T.transform(normal1);
-    isect = T.transform(isect1);
+    normal = normal1;
+    isect = isect1;
     return true;
   }
 
   // determine first intersections with reversed segment
   double t1R, t2R;
-  LineSeg3 qp(q, p);
+  LineSeg3 qp(seg.second, seg.first);
   i1 = _op1->intersect_seg(bv1, qp, t1R, isect1, normal1);
   i2 = _op2->intersect_seg(bv2, qp, t2R, isect2, normal2);
 
@@ -496,21 +494,20 @@ bool CSG::intersect_seg_diff(BVPtr bv, const LineSeg3& seg, double& t, Point3d& 
   // point of intersection back by epsilon units in the direction of [q, p]
   if (t2R < (double) 1.0 - NEAR_ZERO)
   {
-  
     // determine the new point of intersection
-    Vector3d qp = q - p;
+    Vector3d qp = seg.second - seg.first;
     const double qp_len = qp.norm();
     assert(qp_len > NEAR_ZERO);
     isect2 -= qp * (_intersection_tolerance / qp_len);
     
     // determine the new time of intersection
-    t = (isect2 - p).norm() / qp_len;
+    t = (isect2 - seg.first).norm() / qp_len;
 
     // if t < 0, set t = 0 (and correct isect2 as well)
-    if ((isect2-p).dot(qp) < (double) 0.0)
+    if ((isect2-seg.first).dot(qp) < (double) 0.0)
     {
       t = (double) 0.0;
-      isect2 = p;
+      isect2 = seg.first;
     }
 
     FILE_LOG(LOG_COLDET) << "  second endpoint of line segment is outside of expanded op2" << endl;
@@ -525,9 +522,9 @@ bool CSG::intersect_seg_diff(BVPtr bv, const LineSeg3& seg, double& t, Point3d& 
 
     // if p is outside of _op2 (non-expanded), then point of intersection is p
     Vector3d dummy_normal;
-    if (!_op2->point_inside(bv2, p, dummy_normal))
+    if (!_op2->point_inside(bv2, seg.first, dummy_normal))
     {
-      isect2 = p;
+      isect2 = seg.first;
       t = (double) 0.0;
       // NOTE: normal will not have changed
 
@@ -538,7 +535,7 @@ bool CSG::intersect_seg_diff(BVPtr bv, const LineSeg3& seg, double& t, Point3d& 
     else
     {
       // need to find intersection between non-expanded _op2 and pq
-      i2 = _op2->intersect_seg(bv2, pq, t, isect2, dummy_normal);
+      i2 = _op2->intersect_seg(bv2, seg, t, isect2, dummy_normal);
 
       // due to cases above, we should always have an intersection
       assert(i2);
@@ -556,8 +553,8 @@ bool CSG::intersect_seg_diff(BVPtr bv, const LineSeg3& seg, double& t, Point3d& 
   }
 
   // setup point of intersection and normal
-  isect = T.transform(isect2);
-  normal = T.transform(-normal2);
+  isect = isect2;
+  normal = -normal2;
 
   FILE_LOG(LOG_COLDET) << "  reversed segment intersects second primitive first" << endl;
   FILE_LOG(LOG_COLDET) << "  -- reporting intersection at " << t << endl;
@@ -573,7 +570,8 @@ bool CSG::intersect_seg_diff(BVPtr bv, const LineSeg3& seg, double& t, Point3d& 
 void CSG::set_mesh(shared_ptr<const IndexedTriArray> mesh)
 {
   // transform the mesh using the current transform
-  const Pose3d& T = get_pose();
+  shared_ptr<const Pose3d> P = get_pose();
+  Transform3d T = Pose3d::calc_relative_pose(GLOBAL, P);
   _mesh = shared_ptr<IndexedTriArray>(new IndexedTriArray(mesh->transform(T)));
 
   // setup sub mesh (it will be just the standard mesh)
@@ -595,14 +593,15 @@ osg::Node* CSG::create_visualization()
   #ifdef USE_OSG
   const unsigned X = 0, Y = 1, Z = 2;
 
-  // get the inverse of the current transformation
-  Pose3d T_inv = Pose3d::inverse(get_pose());
+  // compute the transform from the global frame to the current pose
+  shared_ptr<const Pose3d> P = get_pose();
+  Transform3d T = Pose3d::calc_relative_pose(GLOBAL, P);
 
   // back the transformation out of the mesh (if any); NOTE: we have to do this
   // b/c the base Primitive class uses the transform in the visualization
   IndexedTriArray mesh;
   if (_mesh)
-    mesh = _mesh->transform(T_inv);
+    mesh = _mesh->transform(T);
 
   // create a new group to hold the geometry
   osg::Group* group = new osg::Group;
@@ -688,12 +687,12 @@ void CSG::center_mesh()
   if (!_mesh)
     return;
 
-  // center the mesh, first backing out the current transform
-  // get the inverse of the current transform
-  Pose3d Tinv = Pose3d::inverse(get_pose());
+  // determine the transform from the global frame to the current pose
+  shared_ptr<const Pose3d> P = get_pose();
+  Transform3d T = Pose3d::calc_relative_pose(GLOBAL, P);
 
   // back the transform out of the mesh
-  IndexedTriArray mesh = _mesh->transform(Tinv);
+  IndexedTriArray mesh = _mesh->transform(T);
 
   // get the c.o.m. of this new mesh
   std::list<Triangle> tris;
@@ -704,13 +703,10 @@ void CSG::center_mesh()
   mesh = mesh.translate(-centroid);
 
   // re-transform the mesh
-  _mesh = shared_ptr<IndexedTriArray>(new IndexedTriArray(mesh.transform(get_pose())));
+  _mesh = shared_ptr<IndexedTriArray>(new IndexedTriArray(mesh.transform(T.inverse())));
 
   // re-calculate mass properties 
   calc_mass_properties();
-
-  // center-of-mass should be approximately zero
-  assert(_com.norm() < NEAR_ZERO);
 
   // update the visualization
   update_visualization();
@@ -873,9 +869,10 @@ void CSG::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& share
     std::ifstream in(filename.c_str());
     if (in.fail())
     {
-      // transform the mesh w/transform backed out
-      Pose3d iT = Pose3d::inverse(get_pose());
-      IndexedTriArray mesh_xform = _mesh->transform(iT);
+      // transform the mesh to the CSG frame
+      shared_ptr<const Pose3d> P = get_pose();
+      Transform3d T = Pose3d::calc_relative_pose(GLOBAL, P);
+      IndexedTriArray mesh_xform = _mesh->transform(T);
 
       // write the mesh
       mesh_xform.write_to_obj(filename);
@@ -902,7 +899,7 @@ void CSG::calc_mass_properties()
   mesh.get_tris(std::back_inserter(tris));
 
   // compute the centroid of the triangle mesh
-  _com = CompGeom::calc_centroid_3D(tris.begin(), tris.end());
+  _jF->x = Origin3d(CompGeom::calc_centroid_3D(tris.begin(), tris.end()));
 
   // calculate volume integrals
   double volume_ints[10];
@@ -913,7 +910,7 @@ void CSG::calc_mass_properties()
 
   // compute the mass if density is given
   if (_density)
-    _mass = *_density * volume;
+    _J.m = *_density * volume;
 
 // NOTE: we no longer transform the inertial components, since we recompute
   // compute the center-of-mass
@@ -925,39 +922,36 @@ void CSG::calc_mass_properties()
   //  Point3d com = calc_com();
 
   // compute the inertia tensor relative to world origin
-  _J(X,X) = (_mass/volume) * (volume_ints[5] + volume_ints[6]);
-  _J(Y,Y) = (_mass/volume) * (volume_ints[4] + volume_ints[6]);
-  _J(Z,Z) = (_mass/volume) * (volume_ints[4] + volume_ints[5]);
-  _J(X,Y) = (-_mass/volume) * volume_ints[7];
-  _J(Y,Z) = (-_mass/volume) * volume_ints[8];
-  _J(X,Z) = (-_mass/volume) * volume_ints[9];
+  _J.J(X,X) = (_J.m/volume) * (volume_ints[5] + volume_ints[6]);
+  _J.J(Y,Y) = (_J.m/volume) * (volume_ints[4] + volume_ints[6]);
+  _J.J(Z,Z) = (_J.m/volume) * (volume_ints[4] + volume_ints[5]);
+  _J.J(X,Y) = (-_J.m/volume) * volume_ints[7];
+  _J.J(Y,Z) = (-_J.m/volume) * volume_ints[8];
+  _J.J(X,Z) = (-_J.m/volume) * volume_ints[9];
 
   // set the symmetric values for J
-  _J(Y,X) = _J(X,Y);
-  _J(Z,Y) = _J(Y,Z);
-  _J(Z,X) = _J(X,Z);
-
-  // rotate/scale the inertia tensor
-  transform_inertia(_mass, _J, _com, _T, _J, _com);
+  _J.J(Y,X) = _J.J(X,Y);
+  _J.J(Z,Y) = _J.J(Y,Z);
+  _J.J(Z,X) = _J.J(X,Z);
 
   // if one or more values of J is NaN, don't verify anything
   for (unsigned i=X; i<= Z; i++)
     for (unsigned j=i; j<= Z; j++)
-      if (std::isnan(_J(i,j)))
+      if (std::isnan(_J.J(i,j)))
       {
-        _J = ZEROS_3x3;
+        _J.J = ZEROS_3x3;
         return;
       }
 
   // verify that the inertial properties are correct
   LinAlgd LA;
-  if (!LA.is_SPSD(_J, std::sqrt(std::numeric_limits<double>::epsilon())))
+  if (!LA.is_SPSD(_J.J, std::sqrt(std::numeric_limits<double>::epsilon())))
   {
     std::cerr << "CSG::calc_mass_properties() warning() - inertial properties ";
     std::cerr << "are bad" << std::endl;
     std::cerr << "  inertia tensor: " << std::endl << _J;
     std::cerr << "  likely due to non-manifold mesh" << std::endl;
-    _J = ZEROS_3x3;
+    _J.J = ZEROS_3x3;
   }
 }
 
@@ -978,8 +972,9 @@ void CSG::get_vertices(BVPtr bv, vector<const Point3d*>& vertices)
   // if the vector of vertices is NULL, compute it
   if (!_vertices)
   {
-    // get the transform of the CSG
-    const Pose3d& T = get_pose();
+    // get the transform from the current pose of the CSG to the global frame
+    shared_ptr<const Pose3d> P = get_pose();
+    Transform3d T = Pose3d::calc_relative_pose(P, GLOBAL);
 
     // get the BVHs
     BVPtr bv1 = _op1->get_BVH_root();

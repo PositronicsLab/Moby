@@ -506,7 +506,7 @@ double CollisionDetection::calc_distance(CollisionGeometryPtr a, CollisionGeomet
   double min_dist = std::numeric_limits<double>::max();
 
   // determine the transform from b's frame to a's frame
-  Transform3d bTa = Transform3d::inverse(aTb);
+  Transform3d bTa = Transform3d::invert(aTb);
 
   // get the primitives 
   PrimitivePtr a_primitive = a->get_geometry(); 

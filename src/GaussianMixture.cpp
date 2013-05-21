@@ -31,8 +31,9 @@ osg::Node* GaussianMixture::create_visualization()
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
-  // get the transform
-  const Pose3d& T = get_pose();
+  // get the pose and compute transform from the global frame to it 
+  shared_ptr<const Pose3d> P = get_pose();
+  Transform3d T = Pose3d::calc_relative_pose(GLOBAL, P);
 
   // create necessary OSG elements for visualization
   osg::Group* group = new osg::Group;
@@ -66,7 +67,7 @@ osg::Node* GaussianMixture::create_visualization()
     osg::Vec3Array* varray = new osg::Vec3Array(verts.size());
     for (unsigned i=0; i< verts.size(); i++)
     {
-      Point3d v = T.inverse_transform(verts[i]);
+      Point3d v = T.transform(verts[i]);
       (*varray)[i] = osg::Vec3((float) v[X], (float) v[Y], (float) v[Z]);
     }
     geom->setVertexArray(varray);
@@ -245,7 +246,7 @@ double GaussianMixture::gauss(const Gauss& g, double x, double y)
 
   // rotate x and y into the Gaussian space
   Matrix3d R = Matrix3d::rot_Z(g.th);
-  Vector3d p = R.transpose_mult(Vector3d(x,y,(double) 0.0));
+  Origin3d p = R.transpose_mult(Origin3d(x,y,(double) 0.0));
   x = p[X];
   y = p[Y];
 
@@ -265,7 +266,7 @@ Vector3d GaussianMixture::grad(const Gauss& g, double x, double y)
 
   // rotate x and y into the Gaussian space
   Matrix3d R = Matrix3d::rot_Z(g.th);
-  Vector3d p = R.transpose_mult(Vector3d(x,y,(double) 0.0));
+  Origin3d p = R.transpose_mult(Origin3d(x,y,(double) 0.0));
   x = p[X];
   y = p[Y];
 
@@ -339,7 +340,7 @@ void GaussianMixture::rebuild(const vector<Gauss>& gauss)
 }
 
 /// Sets the transform for the primitive
-void GaussianMixture::set_pose(const Pose3d& T)
+void GaussianMixture::set_pose(shared_ptr<const Pose3d> T)
 {
   // call parent method
   Primitive::set_pose(T);
@@ -354,8 +355,8 @@ void GaussianMixture::construct_BVs()
   const unsigned X = 0, Y = 1, Z = 2;
   list<BVPtr> children;
 
-  // get the transform
-  const Pose3d& T = get_pose();
+  // get the pose of this shape 
+  shared_ptr<const Pose3d> P = get_pose();
   
   // iterate over all Gaussians
   for (unsigned i=0; i< _gauss.size(); i++)
@@ -368,6 +369,7 @@ void GaussianMixture::construct_BVs()
     obb->center[X] = _gauss[i].x0;
     obb->center[Y] = _gauss[i].y0;
     obb->center[Z] = HEIGHT*0.5;
+    obb->center.pose = P;
 
     // setup the OBB half-lengths
     obb->l[X] = _gauss[i].sigma_x*3.0;
@@ -376,10 +378,6 @@ void GaussianMixture::construct_BVs()
 
     // setup the R matrix
     obb->R = Matrix3d::rot_Z(_gauss[i].th);
-
-    // transform the obb
-    obb->center = T.transform(obb->center);
-    obb->R = T.q * obb->R;
 
     // add the OBB as a child of the root
     children.push_back(obb);
@@ -410,8 +408,9 @@ void GaussianMixture::construct_vertices()
   // clear vector of vertices
   _vertices.resize(_gauss.size());
 
-  // get the transform
-  const Pose3d& T = get_pose();
+  // get the transform from the current pose to the global frame
+  shared_ptr<const Pose3d> P = get_pose();
+  Transform3d T = Pose3d::calc_relative_pose(P, GLOBAL);
 
   // number of samples per Gaussian dimension
   const unsigned NSAMPLES = 100;
@@ -457,7 +456,7 @@ void GaussianMixture::construct_vertices()
          }
 
         // add the point
-        v.push_back(Point3d(x, y, hi));
+        v.push_back(Point3d(x, y, hi, P));
       }
 
     // transform all points
@@ -475,11 +474,12 @@ bool GaussianMixture::point_inside(BVPtr bv, const Point3d& point, Vector3d& nor
   int n=0;
   const int NMAX = _gauss.size(); 
 
-  // get the current transform
-  const Pose3d& T = get_pose();
- 
+  // get the transform from the point pose to the Gaussian pose
+  shared_ptr<const Pose3d> P = get_pose();
+  Transform3d T = Pose3d::calc_relative_pose(point.pose, P); 
+
   // convert the point to primitive space
-  Point3d p = T.inverse_transform(point);
+  Point3d p = T.transform(point);
 
   // find max(z) of gaussians
   double tempX,tempY,tempZ,tempMax;
@@ -529,6 +529,7 @@ bool GaussianMixture::point_inside(BVPtr bv, const Point3d& point, Vector3d& nor
 
     // normalize the normal
     normal.normalize();
+    normal = T.inverse_transform(normal);
 
     if(tempMax-p[2] <= std::exp(PARAM_BOUND*2)) //error bound
     {      
@@ -571,8 +572,8 @@ double GaussianMixture::df(const Gauss& g, const Point3d& p, const Point3d& q, d
 
   // rotate x and y into the Gaussian space
   Matrix3d R = Matrix3d::rot_Z(g.th);
-  Vector3d r = R.transpose_mult(Vector3d(x,y,(double) 0.0));
-  Vector3d dr = R.transpose_mult(Vector3d(dx, dy, (double) 0.0));
+  Origin3d r = R.transpose_mult(Origin3d(x,y,(double) 0.0));
+  Origin3d dr = R.transpose_mult(Origin3d(dx, dy, (double) 0.0));
   double xx = r[X];
   double yy = r[Y];
   double dxx = dr[X];
@@ -631,12 +632,13 @@ bool GaussianMixture::intersect_seg(BVPtr bv, const LineSeg3& seg,double& tisect
   // setup intersection vectors
   SAFESTATIC vector<double> t, depth;
 
-  // get the current transform
-  const Pose3d& T = get_pose();
- 
+  // get the transform from the line segment pose to the primitive pose
+  shared_ptr<const Pose3d> P = get_pose();
+  Transform3d T = Pose3d::calc_relative_pose(seg.first.pose, P); 
+
   // convert the line segment to primitive space
-  Point3d p = T.inverse_transform(seg.first);
-  Point3d q = T.inverse_transform(seg.second);
+  Point3d p = T.transform(seg.first);
+  Point3d q = T.transform(seg.second);
 
   // determine whether any starting points are inside the Gaussians
   depth.resize(_gauss.size());
@@ -652,7 +654,7 @@ bool GaussianMixture::intersect_seg(BVPtr bv, const LineSeg3& seg,double& tisect
     isect = seg.first; 
     
     // compute the transformed normal
-    normal = T.transform(grad(_gauss[mini], p[X], p[Y]));
+    normal = T.inverse_transform(grad(_gauss[mini], p[X], p[Y]));
 
     return true;
   }
@@ -693,10 +695,10 @@ bool GaussianMixture::intersect_seg(BVPtr bv, const LineSeg3& seg,double& tisect
   // compute transformed normal
   double x = p[X] + (q[X] - p[X])*tisect;
   double y = p[Y] + (q[Y] - p[Y])*tisect;
-  normal = T.transform(grad(_gauss[mini], x, y));
+  normal = T.inverse_transform(grad(_gauss[mini], x, y));
 
   // compute and transform intersection point
-  isect = T.transform(p + (q-p)*tisect);
+  isect = seg.first + (seg.second-seg.first)*tisect;
 
   return true;
 

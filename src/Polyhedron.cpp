@@ -15,10 +15,11 @@
 #include <Moby/Polyhedron.h>
 
 using namespace Ravelin;
-using namespace Moby;
+using boost::shared_ptr;
 using std::vector;
 using std::make_pair;
 using std::pair;
+using namespace Moby;
 
 // ******************************************************************
 // functions for debugging
@@ -199,14 +200,14 @@ void Polyhedron::operator=(const Polyhedron& p)
 }
 
 /// Computes the Minkowski sum of two convex polyhedra
-PolyhedronPtr Polyhedron::minkowski(Polyhedron& p1, const Pose3d& T1, Polyhedron& p2, const Pose3d& T2, bool reflect_p2)
+PolyhedronPtr Polyhedron::minkowski(Polyhedron& p1, shared_ptr<const Pose3d> T1, Polyhedron& p2, shared_ptr<const Pose3d> T2, bool reflect_p2)
 {
   // verify that both polyhedra are convex
   if (!p1.is_convex() || !p2.is_convex())
     throw std::runtime_error("Polyhedron::minkowski() only operates on convex polyhedra");
 
   // we'll transform p2 to p1's frame
-  Pose3d T2_to_T1 = Pose3d::inverse(T1) * T2;
+  Transform3d T2_to_T1 = Pose3d::calc_relative_pose(T2, T1);
   Polyhedron p2_copy = p2;
   p2_copy.transform(T2_to_T1);
 
@@ -466,7 +467,7 @@ void Polyhedron::translate(const Vector3d& x)
  * \note none of the vertex or triangle pointers change; rather the data
  *       that they point to changes
  */
-void Polyhedron::transform(const Pose3d& T)
+void Polyhedron::transform(const Transform3d& T)
 {
   // transform underlying mesh
   _mesh = _mesh.transform(T); 

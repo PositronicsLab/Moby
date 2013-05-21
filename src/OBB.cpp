@@ -196,15 +196,18 @@ double OBB::calc_sq_dist(const OBB& o, const Point3d& p)
 {
   const unsigned THREE_D = 3;
 
+  // verify that the frames are correct
+  assert(o.get_relative_pose() == p.pose);
+
   // transform the point to OBB coordinates
-  Point3d point = o.R.transpose_mult(p - o.center);
+  Point3d pt(o.R.transpose_mult(Origin3d(p - o.center)), o.get_relative_pose());
 
   // compute the distance
   double sq_dist = 0.0;
   for (unsigned i=0; i< THREE_D; i++)
   {
-    if (point[i] < -o.l[i] || point[i] > o.l[i])
-      sq_dist += (o.l[i] - point[i]) * (o.l[i] - point[i]);
+    if (pt[i] < -o.l[i] || pt[i] > o.l[i])
+      sq_dist += (o.l[i] - pt[i]) * (o.l[i] - pt[i]);
     else
       return 0.0;
   }
@@ -215,16 +218,19 @@ double OBB::calc_sq_dist(const OBB& o, const Point3d& p)
 /// Determines whether a point is outside a OBB to within the given tolerance
 bool OBB::outside(const OBB& a, const Point3d& p, double tol)
 {
+  // verify that the frames are correct
+  assert(a.get_relative_pose() == p.pose);
+
   // transform the point to OBB coordinates
-  Point3d point = a.R.transpose_mult(p - a.center);
+  Point3d pt(a.R.transpose_mult(Origin3d(p - a.center)), a.get_relative_pose());
 
   // OBB is now effectively a centered AABB; check whether point is 
   // outside of the AABB
   for (unsigned i=0; i< 3; i++)
   {
-    if (!CompGeom::rel_equal(point[i], -a.l[i], tol) && point[i] < -a.l[i])
+    if (!CompGeom::rel_equal(pt[i], -a.l[i], tol) && pt[i] < -a.l[i])
       return true;
-    if (!CompGeom::rel_equal(point[i], a.l[i], tol) && point[i] > a.l[i])
+    if (!CompGeom::rel_equal(pt[i], a.l[i], tol) && pt[i] > a.l[i])
       return true;
   }
 
@@ -250,13 +256,19 @@ bool OBB::outside(const OBB& a, const Point3d& p, double tol)
  */
 bool OBB::intersects(const OBB& a, const LineSeg3& seg, double& tmin, double tmax, Point3d& q)
 {
+  // verify that the line segment and the OBB are in the same pose
+  assert(a.get_relative_pose() == seg.first.pose);
+  assert(a.get_relative_pose() == seg.second.pose);
+
   // compute the inverse of the OBB transform
-  Pose3d T(Quatd(a.R), a.center);
-  T.invert();
+  Transform3d T;
+  T.q = a.R;
+  T.x = Origin3d(a.center);
+  T.source = T.target = seg.first.pose;
 
   // convert the line segment to OBB space
-  Point3d p = T.transform(seg.first);
-  Vector3d d = T.transform(seg.second) - p;
+  Point3d p = T.inverse_transform(seg.first);
+  Vector3d d = T.inverse_transform(seg.second) - p;
 
   FILE_LOG(LOG_BV) << "OBB::intersects() entered" << endl; 
   FILE_LOG(LOG_BV) << "  -- checking intersection between line segment " << seg.first << " / " << seg.second << " and OBB: " << endl << a;
@@ -302,7 +314,7 @@ bool OBB::intersects(const OBB& a, const LineSeg3& seg, double& tmin, double tma
   }
 
   // ray intersects all three slabs; return point q and intersection t value
-  q = a.center + a.R * (p + d * tmin);
+  q = a.center + a.R * Origin3d(p + d * tmin);
 
   FILE_LOG(LOG_BV) << "OBB::intersects() - seg and OBB intersect; first intersection: " << tmin << "(" << q << ")" << endl; 
   FILE_LOG(LOG_BV) << "OBB::intersects() exiting" << endl; 
@@ -374,12 +386,16 @@ bool OBB::intersects(const OBB& a, const OBB& b)
   FILE_LOG(LOG_BV) << " OBB 1: " << endl << a;
   FILE_LOG(LOG_BV) << " OBB 2: " << endl << b;
 
+  // verify that both OBB's are defined relative to the same frame
+  assert(a.get_relative_pose() == b.get_relative_pose());
+  shared_ptr<const Pose3d> P = a.get_relative_pose();
+
   // transpose of A's matrix will convert to A's coordinate frame
   // Compute rotation matrix expressing b in a's coordinate frame
   const Matrix3d Rab = a.R.transpose_mult(b.R);
   
   // compute translation vector t in coordinate frame of a
-  Vector3d t = a.R.transpose_mult(b.center - a.center);
+  Vector3d t(a.R.transpose_mult(Origin3d(b.center - a.center)), P);
 
   // compute common subexpressions; add in an epsilon term to counteract
   // arithmetic errors when two edges are parallel and their cross product
@@ -513,10 +529,10 @@ std::ostream& OBB::to_vrml(std::ostream& out, const Pose3d& T) const
 
   // make the OBB orientation matrix right handed
   Matrix3d Rr = R;
-  Point3d x = Rr.get_column(X);
-  Point3d y = Rr.get_column(Y);
+  Vector3d x(Rr.get_column(X), GLOBAL);
+  Vector3d y(Rr.get_column(Y), GLOBAL);
   Vector3d z = Vector3d::cross(x, y);
-  Rr.set_column(Z, z);
+  Rr.set_column(Z, Origin3d(z));
 
   // convert the orientation to axis-angle representation
   AAngled aa = Rr;
@@ -750,10 +766,12 @@ XMLTreePtr OBB::save_to_xml_tree() const
 BVPtr OBB::calc_vel_exp_BV(CollisionGeometryPtr g, double dt, const Twistd& v) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
-  shared_ptr<const Pose3d> GLOBAL;
+  SAFESTATIC shared_ptr<Pose3d> obb_frame(new Pose3d);
 
-  // for this to work, OBB must be defined relative to g 
-  assert(center.pose == g->get_pose());
+  // setup the OBB frame
+  obb_frame->rpose = get_relative_pose();
+  obb_frame->x = center;
+  obb_frame->q = R;
 
   // get the corresponding body
   RigidBodyPtr b = dynamic_pointer_cast<RigidBody>(g->get_single_body());
@@ -769,10 +787,9 @@ BVPtr OBB::calc_vel_exp_BV(CollisionGeometryPtr g, double dt, const Twistd& v) c
   }
 
   // transform the velocity to the global frame
-  Twistd v0 = Pose3d::transform(v.pose, GLOBAL, v);
-
-  // get matrix for transforming vectors from b's frame to world frame
-  shared_ptr<const Pose3d> wTb = b->get_pose();
+  Twistd vo = Pose3d::transform(v.pose, obb_frame, v);
+  Vector3d lv = vo.get_linear();
+  Vector3d av = vo.get_angular();
 
   // copy the OBB, expanded by linear velocity
   OBBPtr o(new OBB);
@@ -795,118 +812,35 @@ BVPtr OBB::calc_vel_exp_BV(CollisionGeometryPtr g, double dt, const Twistd& v) c
     return o;
   }
 
-  // get the position of the center-of-mass of the body
-  Point3d com = b->get_position();
-
   // determine vertices in OBB coordinates
+/*
   const unsigned OBB_VERTS = 8;
-  Point3d verts[OBB_VERTS];
-  verts[0] = Point3d(-o->l[X], -o->l[Y], -o->l[Z]);
-  verts[1] = Point3d(-o->l[X], -o->l[Y], o->l[Z]);
-  verts[2] = Point3d(-o->l[X], o->l[Y], -o->l[Z]);
-  verts[3] = Point3d(-o->l[X], o->l[Y], o->l[Z]);
-  verts[4] = Point3d(o->l[X], -o->l[Y], -o->l[Z]);
-  verts[5] = Point3d(o->l[X], -o->l[Y], o->l[Z]);
-  verts[6] = Point3d(o->l[X], o->l[Y], -o->l[Z]);
-  verts[7] = Point3d(o->l[X], o->l[Y], o->l[Z]);
+  Vector3d verts[OBB_VERTS];
+  verts[0] = Vector3d(-o->l[X], -o->l[Y], -o->l[Z], obb_frame);
+  verts[1] = Vector3d(-o->l[X], -o->l[Y], +o->l[Z], obb_frame);
+  verts[2] = Vector3d(-o->l[X], +o->l[Y], -o->l[Z], obb_frame);
+  verts[3] = Vector3d(-o->l[X], +o->l[Y], +o->l[Z], obb_frame);
+  verts[4] = Vector3d(+o->l[X], -o->l[Y], -o->l[Z], obb_frame);
+  verts[5] = Vector3d(+o->l[X], -o->l[Y], +o->l[Z], obb_frame);
+  verts[6] = Vector3d(+o->l[X], +o->l[Y], -o->l[Z], obb_frame);
+  verts[7] = Vector3d(+o->l[X], +o->l[Y], +o->l[Z], obb_frame);
 
   FILE_LOG(LOG_BV) << "linearly expanded OBB vertices:" << endl;
   if (LOGGING(LOG_BV))
     for (unsigned i=0; i< OBB_VERTS; i++)
       FILE_LOG(LOG_BV) << "  " << i << ": " << verts[i] << endl; 
 
-  // setup transform from OBB orientation to world orientation
-  Matrix3d wTo = Matrix3d(wTb->q) * o->R;
+  // compute the cross product between omega and vector to the first box vertex 
+  Vector3d wxv = Vector3d::cross(av, verts[0])*dt;
+*/
+  // compute the cross product between omega and vector to a box vertex 
+  Vector3d corner(-o->l[X], -o->l[Y], -o->l[Z], obb_frame);
+  Vector3d wxv = Vector3d::cross(av, corner)*dt;
 
-  // setup the angular velocity in the OBB frame
-  Vector3d w = wTo.transpose_mult(av);
-
-  // normalize the angular velocity vector
-  Vector3d wn = Vector3d::normalize(w);
-
-  // setup projection matrix
-  Matrix3d P;
-  Opsd::outer_prod(wn, -wn, P);
-  P += Matrix3d::identity();
-
-  // determine c
-  Vector3d c = P * Vector3d(std::fabs(w[X])+(double) 1.0, w[Y], w[Z]);
-  double cnorm = c.norm();
-  Vector3d chat = Vector3d::zero();
-  if (cnorm > NEAR_ZERO) 
-    chat = c/cnorm;
-
-  // determine d 
-  Vector3d d = P * Vector3d(w[X], std::fabs(w[Y]) + (double) 1.0, w[Z]);
-  double dnorm = d.norm();
-  Vector3d dhat = Vector3d::zero();
-  if (dnorm > NEAR_ZERO) 
-    dhat = d/dnorm;
-
-  // determine e
-  Vector3d e = P * Vector3d(w[X], w[Y], std::fabs(w[Z]) + (double) 1.0);
-  double enorm = e.norm();
-  Vector3d ehat = Vector3d::zero();
-  if (enorm > NEAR_ZERO)
-    ehat = e/enorm;
-
-  // get the center of the OBB (with respect to the OBB frame)
-  Point3d center_o = o->R.transpose_mult(o->center); 
-
-  // compute the current minima and maxima along the three OBB axes
-  Point3d min_o = center_o - o->l;
-  Point3d max_o = center_o + o->l;
-
-  // process all vertices
-  for (unsigned i=0; i< OBB_VERTS; i++)
-  {
-    // get the radial vector
-    Vector3d r = center_o + verts[i];
-
-    // calculate the new lengths
-    Vector3d lprime;
-    const double wnxr = Vector3d::cross(wn, r).norm();
-    lprime[X] = (cnorm > NEAR_ZERO) ? (chat*wnxr)[X] : (double) 0.0;
-    lprime[Y] = (dnorm > NEAR_ZERO) ? (dhat*wnxr)[Y] : (double) 0.0;
-    lprime[Z] = (enorm > NEAR_ZERO) ? (ehat*wnxr)[Z] : (double) 0.0;
-
-    // compute the OBB center
-    Point3d center_new = wn * wn.dot(r); 
-
-    // compute new minima and maxima
-    Point3d min_i = center_new - lprime;
-    Point3d max_i = center_new + lprime;
-
-    FILE_LOG(LOG_BV) << "min_o: " << min_o << "  max_o: " << max_o << endl;
-    FILE_LOG(LOG_BV) << "min_i: " << min_i << "  max_i: " << max_i << endl;
-
-    // merge the OBBs
-    Point3d minimum, maximum;
-    for (unsigned j=X; j<= Z; j++)
-    {
-      minimum[j] = std::min(min_i[j], min_o[j]);
-      maximum[j] = std::max(max_i[j], max_o[j]);
-    }
-
-    // compute the new center and lengths
-    o->center = (maximum+minimum)*0.5;
-    o->l = (maximum-minimum)*0.5;
-
-    // store the new maximum and minimum
-    max_o = maximum;
-    min_o = minimum;
-    
-    FILE_LOG(LOG_BV) << "expanding vertex " << verts[i] << endl;
-    FILE_LOG(LOG_BV) << "  forming new OBB..." << endl;
-    FILE_LOG(LOG_BV) << "    l': " << lprime << endl;
-    FILE_LOG(LOG_BV) << "    center: " << center_new << endl;
-    FILE_LOG(LOG_BV) << "  ...unioning with running OBB" << endl;
-    FILE_LOG(LOG_BV) << "    unioned l: " << o->l << endl;
-    FILE_LOG(LOG_BV) << "    unioned center: " << (o->R * o->center) << endl;
-  }
-
-  // convert the OBB center to the body frame
-  o->center = o->R * o->center;
+  // compute contributions to all three axes
+  o->l[X] += std::fabs(wxv[X]);   
+  o->l[Y] += std::fabs(wxv[Y]);   
+  o->l[Z] += std::fabs(wxv[Z]);   
 
   FILE_LOG(LOG_BV) << "  angular velocity expanded bounding box: " << endl << *o;
   FILE_LOG(LOG_BV) << "OBB::calc_vel_exp_OBB() exited" << endl;
