@@ -317,7 +317,6 @@ bool C2ACCD::query_intersect_seg_tri(const LineSeg3& seg, const Triangle& tri, d
  */
 void C2ACCD::determine_contacts(CollisionGeometryPtr a, CollisionGeometryPtr b, double toc, vector<Event>& contacts) const
 {
-  shared_ptr<const Pose3d> GLOBAL;
   FILE_LOG(LOG_COLDET) << "C2ACCD::determine_contacts() entered" << endl;
 
   // get the rigid bodies
@@ -795,7 +794,6 @@ bool C2ACCD::check_collision(CollisionGeometryPtr a, CollisionGeometryPtr b, vec
 double C2ACCD::calc_mu(double dist, const Vector3d& n, CollisionGeometryPtr g, boost::shared_ptr<SSR> ssr, bool positive)
 {
   const unsigned N_RECT_VERTS = 4;
-  const shared_ptr<const Pose3d> GLOBAL;  
 
   // get the rigid body
   RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(g->get_single_body());
@@ -1445,8 +1443,6 @@ void C2ACCD::save_to_xml(XMLTreePtr node, list<shared_ptr<const Base> >& shared_
  */
 bool C2ACCD::is_collision(double epsilon)
 {
-  shared_ptr<const Pose3d> GLOBAL;
-
   // clear the set of colliding pairs and list of colliding triangles
   colliding_pairs.clear();
   colliding_tris.clear();
@@ -1991,15 +1987,26 @@ bool C2ACCD::project_and_intersect(const Triangle& ta, const Triangle& tb, vecto
 {
   const unsigned N_TRI_VERTS = 3;
 
+  // setup useful poses
+  shared_ptr<const Pose2d> GLOBAL_2D;
+  shared_ptr<const Pose3d> P = ta.a.pose;
+
+  // verify that the poses are all identical
+  assert(P== tb.a.pose);
+  assert(ta.b.pose == tb.b.pose);
+  assert(ta.c.pose == tb.c.pose);
+  assert(ta.a.pose == ta.b.pose);
+  assert(P == ta.c.pose);
+
   // project the triangles to 2D
   Matrix3d R = CompGeom::calc_3D_to_2D_matrix(ta.calc_normal());
-  double offset1 = CompGeom::determine_3D_to_2D_offset(ta.a, R);
-  double offset2 = CompGeom::determine_3D_to_2D_offset(tb.a, R);
+  double offset1 = CompGeom::determine_3D_to_2D_offset(Origin3d(ta.a), R);
+  double offset2 = CompGeom::determine_3D_to_2D_offset(Origin3d(tb.a), R);
   Point2d t1[N_TRI_VERTS], t2[N_TRI_VERTS];
   for (unsigned i=0; i< N_TRI_VERTS; i++)
   {
-    t1[i] = CompGeom::to_2D(ta.get_vertex(i), R);
-    t2[i] = CompGeom::to_2D(tb.get_vertex(i), R);
+    t1[i] = Point2d(CompGeom::to_2D(ta.get_vertex(i), R), GLOBAL_2D);
+    t2[i] = Point2d(CompGeom::to_2D(tb.get_vertex(i), R), GLOBAL_2D);
   }
 
   // make t1 and t2 ccw
@@ -2015,7 +2022,7 @@ bool C2ACCD::project_and_intersect(const Triangle& ta, const Triangle& tb, vecto
   // determine contact points
   Matrix3d RT = Matrix3d::transpose(R);
   for (Point2d* begin = output; begin != end; begin++)
-    contact_points.push_back(CompGeom::to_3D(*begin, RT, (offset1+offset2)*(double) 0.5));
+    contact_points.push_back(Point3d(CompGeom::to_3D(*begin, RT, (offset1+offset2)*(double) 0.5), P));
 
   return end != output;
 }
@@ -2024,17 +2031,26 @@ bool C2ACCD::project_and_intersect(const Triangle& ta, const Triangle& tb, vecto
 bool C2ACCD::project_and_intersect(const Triangle& t, const LineSeg3& s, vector<Point3d>& contact_points)
 {
   const unsigned N_TRI_VERTS = 3;
+  shared_ptr<const Pose2d> GLOBAL_2D;
+
+  // verify that poses are equal
+  shared_ptr<const Pose3d> P = t.a.pose;
+  assert(P == t.b.pose);
+  assert(P == t.c.pose);
+  assert(P == s.first.pose);
+  assert(P == s.second.pose);
 
   // project the triangle to 2D
   Matrix3d R = CompGeom::calc_3D_to_2D_matrix(t.calc_normal());
-  double offset1 = CompGeom::determine_3D_to_2D_offset(t.a, R);
-  double offset2 = CompGeom::determine_3D_to_2D_offset(s.first, R);
+  double offset1 = CompGeom::determine_3D_to_2D_offset(Origin3d(t.a), R);
+  double offset2 = CompGeom::determine_3D_to_2D_offset(Origin3d(s.first), R);
   Point2d t0[N_TRI_VERTS];
   for (unsigned i=0; i< N_TRI_VERTS; i++)
-    t0[i] = CompGeom::to_2D(t.get_vertex(i), R);
+    t0[i] = Point2d(CompGeom::to_2D(t.get_vertex(i), R), GLOBAL_2D);
 
   // project s to 2D
-  LineSeg2 s0(CompGeom::to_2D(s.first, R), CompGeom::to_2D(s.second, R));
+  LineSeg2 s0(Point2d(CompGeom::to_2D(s.first, R), GLOBAL_2D),
+              Point2d(CompGeom::to_2D(s.second, R), GLOBAL_2D));
 
   // if t0 is not ccw, make it so
   if (!CompGeom::ccw(t0, t0+N_TRI_VERTS))
@@ -2047,7 +2063,7 @@ bool C2ACCD::project_and_intersect(const Triangle& t, const LineSeg3& s, vector<
   // determine contact points
   Matrix3d RT = Matrix3d::transpose(R);
   for (Point2d* begin = output; begin != end; begin++)
-    contact_points.push_back(CompGeom::to_3D(*begin, RT, (offset1+offset2)*(double) 0.5));
+    contact_points.push_back(Point3d(CompGeom::to_3D(*begin, RT, (offset1+offset2)*(double) 0.5), P));
 
   return end != output;
 }
@@ -2056,15 +2072,16 @@ bool C2ACCD::project_and_intersect(const Triangle& t, const LineSeg3& s, vector<
 bool C2ACCD::project_and_intersect(const Triangle& t, const Point3d& p)
 {
   const unsigned N_TRI_VERTS = 3;
+  shared_ptr<const Pose2d> GLOBAL_2D;
 
   // project the triangle to 2D
   Matrix3d R = CompGeom::calc_3D_to_2D_matrix(t.calc_normal());
   Point2d t0[N_TRI_VERTS];
   for (unsigned i=0; i< N_TRI_VERTS; i++)
-    t0[i] = CompGeom::to_2D(t.get_vertex(i), R);
+    t0[i] = Point2d(CompGeom::to_2D(t.get_vertex(i), R), GLOBAL_2D);
 
   // project p to 2D
-  Point2d p0 = CompGeom::to_2D(p, R);
+  Point2d p0(CompGeom::to_2D(p, R), GLOBAL_2D);
 
   // if t0 is not ccw, make it so
   if (!CompGeom::ccw(t0, t0+N_TRI_VERTS))

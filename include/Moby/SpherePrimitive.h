@@ -19,15 +19,15 @@ class SpherePrimitive : public Primitive
   public: 
     SpherePrimitive();
     SpherePrimitive(double radius);
-    SpherePrimitive(const Ravelin::Pose3d& T);
+    SpherePrimitive(boost::shared_ptr<const Ravelin::Pose3d> T);
     SpherePrimitive(double radius, unsigned n);
-    SpherePrimitive(double radius, const Ravelin::Pose3d& T);
-    SpherePrimitive(double radius, unsigned n, const Ravelin::Pose3d& T);
+    SpherePrimitive(double radius, boost::shared_ptr<const Ravelin::Pose3d> T);
+    SpherePrimitive(double radius, unsigned n, boost::shared_ptr<const Ravelin::Pose3d> T);
     void set_radius(double radius);
     void set_num_points(unsigned n);
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
-    virtual void set_pose(const Ravelin::Pose3d& T);
+    virtual void set_pose(boost::shared_ptr<const Ravelin::Pose3d> T);
     virtual BVPtr get_BVH_root();
     virtual bool point_inside(BVPtr bv, const Ravelin::Point3d& p, Ravelin::Vector3d& normal) const;
     virtual bool intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Ravelin::Point3d& isect, Ravelin::Vector3d& normal) const;

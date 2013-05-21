@@ -404,12 +404,12 @@ void DeformableBody::reset_accumulators()
 }
 
 /// Transforms the dynamic body
-void DeformableBody::transform(const Pose3d& T)
+void DeformableBody::translate(const Origin3d& x)
 {
   for (unsigned i=0; i< _nodes.size(); i++)
   {
     // transform the node position
-    _nodes[i]->x = T.transform(_nodes[i]->x);
+    _nodes[i]->x += x;
   }
 
   // calculate the position of the center-of-mass
@@ -418,6 +418,23 @@ void DeformableBody::transform(const Pose3d& T)
   // update the geometries too
   update_geometries();
 }
+
+/// Transforms the dynamic body
+void DeformableBody::rotate(const Quatd& q)
+{
+  for (unsigned i=0; i< _nodes.size(); i++)
+  {
+    // transform the node position
+    _nodes[i]->x = q * _nodes[i]->x;
+  }
+
+  // calculate the position of the center-of-mass
+  calc_com_and_vels();
+
+  // update the geometries too
+  update_geometries();
+}
+
 
 /// Calculates the kinetic energy of the deformable body
 double DeformableBody::calc_kinetic_energy() const
@@ -653,7 +670,6 @@ void DeformableBody::set_mesh(shared_ptr<const IndexedTetraArray> tetra_mesh, sh
     _geometry = CollisionGeometryPtr(new CollisionGeometry);
   _geometry->set_single_body(get_this());
   _geometry->set_geometry(_cgeom_primitive);
-  _geometry->set_relative_pose(Pose3d::identity());
   update_geometries(); 
 }
 
@@ -1005,37 +1021,25 @@ void DeformableBody::load_from_xml(shared_ptr<const XMLTree> node, map<string, B
   }
 
   // read a transform to be applied to the body, if provided
-  Pose3d T;
   const XMLAttrib* xlat_attr = node->get_attrib("translation");
   const XMLAttrib* rpy_attr = node->get_attrib("rpy");
   const XMLAttrib* quat_attr = node->get_attrib("quat");
   if (xlat_attr && rpy_attr)
   {
-    T.x = xlat_attr->get_origin_value();
-    T.q = rpy_attr->get_rpy_value();
-    transform(T);
+    rotate(rpy_attr->get_rpy_value());
+    translate(xlat_attr->get_origin_value());
   }
   else if (xlat_attr && quat_attr)
   {
-    T.x = xlat_attr->get_origin_value();
-    T.q = quat_attr->get_quat_value();
-    transform(T);
+    rotate(rpy_attr->get_quat_value());
+    translate(xlat_attr->get_origin_value());
   }
   else if (xlat_attr)
-  {
-    T.x = xlat_attr->get_origin_value();
-    transform(T);
-  }
+    translate(xlat_attr->get_origin_value());
   else if (rpy_attr)
-  {
-    T.q = rpy_attr->get_rpy_value();
-    transform(T);
-  }
+    rotate(rpy_attr->get_rpy_value());
   else if (quat_attr)
-  {
-    T.q = quat_attr->get_quat_value();
-    transform(T);
-  }
+    rotate(rpy_attr->get_quat_value());
 }
 
 /// Implements Base::save_to_xml()

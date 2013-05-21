@@ -47,7 +47,7 @@ class SSL : public BV
     boost::shared_ptr<const SSL> get_this() const { return boost::dynamic_pointer_cast<const SSL>(shared_from_this()); }
     virtual std::ostream& to_vrml(std::ostream& out, const Ravelin::Pose3d& T) const;
     unsigned calc_size() const;
-    virtual boost::shared_ptr<const Ravelin::Pose3d> get_pose() const { return p1.pose; }
+    virtual boost::shared_ptr<const Ravelin::Pose3d> get_relative_pose() const { return p1.pose; }
     virtual Ravelin::Point3d get_lower_bounds() const;
     virtual Ravelin::Point3d get_upper_bounds() const;
 

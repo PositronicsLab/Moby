@@ -611,7 +611,6 @@ double MeshDCD::calc_first_isect(const Point3d& p, const Vector3d& pdot, const T
  */
 void MeshDCD::determine_contacts_deformable_rigid(CollisionGeometryPtr a, CollisionGeometryPtr b, double t, double dt, vector<Event>& contacts)
 {
-  shared_ptr<const Pose3d> GLOBAL;
   Point3d p;
 
   FILE_LOG(LOG_COLDET) << "MeshDCD::determine_contacts_deformable_rigid() entered" << endl;
@@ -686,8 +685,6 @@ void MeshDCD::determine_contacts_rigid_deformable(CollisionGeometryPtr a, Collis
  */
 void MeshDCD::determine_contacts_deformable(CollisionGeometryPtr a, CollisionGeometryPtr b, double t, double dt, vector<Event>& contacts)
 {
-  shared_ptr<const Pose3d> GLOBAL;
-
   // get the transform for the second collision geometry
   Transform3d wTb = Pose3d::calc_relative_pose(b->get_pose(), GLOBAL);
 
@@ -757,8 +754,6 @@ void MeshDCD::determine_contacts_deformable(CollisionGeometryPtr a, CollisionGeo
  */
 void MeshDCD::determine_contacts_rigid(CollisionGeometryPtr a, CollisionGeometryPtr b, double t, double dt, vector<Event>& contacts)
 {
-  shared_ptr<const Pose3d> GLOBAL;
-
   // get the two rigid bodies
   RigidBodyPtr rba = dynamic_pointer_cast<RigidBody>(a->get_single_body());
   RigidBodyPtr rbb = dynamic_pointer_cast<RigidBody>(b->get_single_body());
@@ -1235,7 +1230,9 @@ double MeshDCD::intersect_rect(const Vector3d& normal, const Vector3d& axis1, co
   const unsigned X = 0, Y = 1, Z = 2;
   const double INF = std::numeric_limits<double>::max();
 
-std::cout << "intersect rect!" << std::endl;
+  // get the pose of the frame verything should be in
+  shared_ptr<const Pose3d> P = normal.pose;
+
   // determine the length of the rectangle axes
   double l1 = axis1.norm();
   double l2 = axis2.norm();
@@ -1258,8 +1255,8 @@ std::cout << "intersect rect!" << std::endl;
   R.set_row(Z, normal);
 
   // project the query segment to the rectangle coordinates
-  Point3d q1 = R * (qs.first - center);
-  Point3d q2 = R * (qs.second - center);
+  Point3d q1(R * Origin3d(qs.first - center), P);
+  Point3d q2(R * Origin3d(qs.second - center), P);
 
   // clip
   double mt0 = (double) 0.0, mt1 = (double) 1.0;
@@ -1347,13 +1344,13 @@ std::cout << "intersect rect!" << std::endl;
   }
 
   // determine new q1 and q2
-  Vector3d dxyz(dx, dy, (double) 0.0);
+  Vector3d dxyz(dx, dy, (double) 0.0, P);
   q2 = q1 + dxyz*mt1;
   q1 += dxyz*mt0;
 
   // transform points back from box coordinates
-  isect1 = Matrix3d::transpose(R)*q1 + center; 
-  isect2 = Matrix3d::transpose(R)*q2 + center;
+  isect1 = Matrix3d::transpose(R)*Origin3d(q1) + center; 
+  isect2 = Matrix3d::transpose(R)*Origin3d(q2) + center;
 
   // determine intersection parameter
   // q1 + (q2 - q1)*t = z
@@ -1394,7 +1391,7 @@ double MeshDCD::intersect_rects(const Vector3d& normal, const Point3d r1[4], con
   Matrix3d R = CompGeom::calc_3D_to_2D_matrix(normal);
 
   // determine the offset when converting from 2D back to 3D
-  double offset = CompGeom::determine_3D_to_2D_offset(r1[0], R);
+  double offset = CompGeom::determine_3D_to_2D_offset(Origin3d(r1[0]), R);
 
   // convert r1 and r2 to 2D
   Point2d r1_2D[RECT_VERTS], r2_2D[RECT_VERTS];

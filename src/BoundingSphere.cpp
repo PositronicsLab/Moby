@@ -60,9 +60,6 @@ BVPtr BoundingSphere::calc_vel_exp_BV(CollisionGeometryPtr g, double dt, const T
   // get the corresponding body
   SingleBodyPtr b = g->get_single_body();
 
-  // verify that the BV is in the proper frame
-  assert(center.pose == g->get_pose());
-
   // if the body does not move, just return the OBB
   if (!b->is_enabled() || v.get_linear().norm()*dt < NEAR_ZERO)
   {
@@ -74,7 +71,7 @@ BVPtr BoundingSphere::calc_vel_exp_BV(CollisionGeometryPtr g, double dt, const T
   }
 
   // get the velocity in the proper frame
-  Twistd vx = Pose3d::transform(v.pose, center.pose, v); 
+  Twistd vx = Pose3d::transform(v.pose, get_relative_pose(), v); 
 
   // otherwise, create a SSL 
   shared_ptr<SSL> ssl(new SSL);
@@ -99,7 +96,7 @@ bool BoundingSphere::intersects(const BoundingSphere& s1, const BoundingSphere& 
 {
   // determine transformed s2 center
   Point3d s2c = s1Ts2.x + s2.center;
-  s2c.pose = s1.get_pose();
+  s2c.pose = s1.get_relative_pose();
 
   // get the squared distance between the two spheres centers
   double dist_sq = (s1.center - s2c).norm_sq();

@@ -22,7 +22,7 @@ class GaussianMixture : public Primitive
     void rebuild(const std::vector<Gauss>& gauss);
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
-    virtual void set_pose(const Ravelin::Pose3d& T);
+    virtual void set_pose(boost::shared_ptr<const Ravelin::Pose3d> T);
     virtual BVPtr get_BVH_root() { return boost::dynamic_pointer_cast<BV>(_root); }
     virtual void get_vertices(BVPtr bv, std::vector<const Ravelin::Point3d*>& vertices);
     virtual bool point_inside(BVPtr bv, const Ravelin::Point3d& p, Ravelin::Vector3d& normal) const;

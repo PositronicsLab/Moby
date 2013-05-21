@@ -77,7 +77,7 @@ Point3d Tetrahedron::calc_point(double u, double v, double w) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
-  Point3d bary(u, v, w);
+  Origin3d bary(u, v, w);
   Matrix3d M;
   M.set_column(X, b - a);
   M.set_column(Y, c - a);
@@ -97,7 +97,7 @@ void Tetrahedron::determine_barycentric_coords(const Point3d& p, double& u, doub
   M.set_column(Z, d - a);
   M.inverse();
 
-  Point3d bary = M * (p - a);
+  Point3d bary(M * Origin3d(p - a), a.pose);
   u = bary[X];
   v = bary[Y];
   w = bary[Z];

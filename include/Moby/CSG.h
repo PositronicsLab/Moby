@@ -18,7 +18,7 @@ class CSG : public Primitive
   public: 
     enum BooleanOperation { eUnion, eIntersection, eDifference };
     CSG();
-    CSG(const Ravelin::Pose3d& T);
+    CSG(boost::shared_ptr<const Ravelin::Pose3d> T);
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual void set_intersection_tolerance(double tol);
@@ -36,7 +36,7 @@ class CSG : public Primitive
     PrimitivePtr get_operand1() const { return _op1; }
     PrimitivePtr get_operand2() const { return _op2; }
     BooleanOperation get_operator() const { return _op; }
-    virtual void set_pose(const Ravelin::Pose3d& T);
+    virtual void set_pose(boost::shared_ptr<const Ravelin::Pose3d> T);
 
   private:
     bool intersect_seg_union(BVPtr bv, const LineSeg3& seg, double& t, Ravelin::Point3d& isect, Ravelin::Vector3d& normal) const;

@@ -130,11 +130,10 @@ void CollisionGeometry::write_vrml(const std::string& filename) const
  * \sa get_relF()
  * \sa set_relF() 
  */
-void CollisionGeometry::set_relative_pose(const Pose3d& P)
+void CollisionGeometry::set_relative_pose(shared_ptr<const Pose3d> P)
 {
-  // update the global transform
-  _F->x = P.x;
-  _F->q = P.q;
+  // update the transform
+  *_F = *P;
 }
 
 /// Implements Base::load_from_xml()
@@ -147,13 +146,13 @@ void CollisionGeometry::load_from_xml(shared_ptr<const XMLTree> node, std::map<s
   assert (strcasecmp(node->name.c_str(), "CollisionGeometry") == 0);
 
   // read relative pose, if specified
-  Pose3d TR;
+  shared_ptr<Pose3d> TR(new Pose3d);
   const XMLAttrib* rel_origin_attr = node->get_attrib("relative-origin");
   const XMLAttrib* rel_rpy_attr = node->get_attrib("relative-rpy");
   if (rel_origin_attr)
-    TR.x = rel_origin_attr->get_origin_value();
+    TR->x = rel_origin_attr->get_origin_value();
   if (rel_rpy_attr)
-    TR.q = rel_rpy_attr->get_rpy_value();
+    TR->q = rel_rpy_attr->get_rpy_value();
   set_relative_pose(TR);
 
   // read the primitive ID, if any

@@ -60,7 +60,7 @@ class OBB : public BV
     virtual std::ostream& to_vrml(std::ostream& out, const Ravelin::Pose3d& T) const;
     unsigned calc_size() const;
     XMLTreePtr save_to_xml_tree() const;
-    virtual boost::shared_ptr<const Ravelin::Pose3d> get_pose() const { return center.pose; }
+    virtual boost::shared_ptr<const Ravelin::Pose3d> get_relative_pose() const { return center.pose; }
     virtual Ravelin::Point3d get_lower_bounds() const;
     virtual Ravelin::Point3d get_upper_bounds() const;
     static OBBPtr load_from_xml(boost::shared_ptr<const XMLTree> root);

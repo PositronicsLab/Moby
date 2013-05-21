@@ -8,7 +8,6 @@
 #define _CRB_ALGORITHM_H
 
 #include <Ravelin/SpatialRBInertiad.h>
-#include <Ravelin/LinAlgd.h>
 #include <Ravelin/MatrixNd.h>
 
 namespace Moby {
@@ -16,6 +15,8 @@ namespace Moby {
 /// Computes forward dynamics using composite-rigid body method
 class CRBAlgorithm
 {
+  friend class RCArticulatedBody;
+
   public:
     CRBAlgorithm();
     ~CRBAlgorithm() {}
@@ -25,8 +26,6 @@ class CRBAlgorithm
     void apply_impulse(const Ravelin::Wrenchd& w, RigidBodyPtr link);
     void calc_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::MatrixNd& M);
     void calc_generalized_forces(Ravelin::Wrenchd& f0, Ravelin::VectorNd& C);
-    void invalidate_position_data() { _position_data_valid = false; }
-    void invalidate_velocity_data() { }
     bool factorize_cholesky(Ravelin::MatrixNd& M);
     Ravelin::VectorNd& M_solve(Ravelin::VectorNd& xb);
     Ravelin::MatrixNd& M_solve(Ravelin::MatrixNd& XB);
@@ -34,9 +33,6 @@ class CRBAlgorithm
   private:
     std::vector<unsigned> _lambda;
     void setup_parent_array();
-
-    /// Is positional data valid?
-    bool _position_data_valid;
 
     /// The body that this algorithm operates on
     boost::weak_ptr<RCArticulatedBody> _body;
@@ -81,7 +77,7 @@ class CRBAlgorithm
     std::vector<Ravelin::Twistd> _sprime;
 
     // temporaries for solving and linear algebra
-    Ravelin::LinAlgd _LA;
+    boost::shared_ptr<Ravelin::LinAlgd> _LA;
     Ravelin::MatrixNd _uM, _vM;
     Ravelin::VectorNd _sM;
 

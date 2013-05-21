@@ -80,7 +80,7 @@ void FixedJoint::setup_joint()
   // get the transforms
   shared_ptr<const Pose3d> Ti = inboard->get_pose();
   shared_ptr<const Pose3d> To = outboard->get_pose();
-
+/*
   // get the rotation matrices
   Matrix3d Ri = Ti->q;
   Matrix3d Ro = To->q;
@@ -95,9 +95,10 @@ void FixedJoint::setup_joint()
   _ui = Ti->inverse_transform(Point3d(To->x));
 
   // compute the constant orientation term
-  _rconst[X] = Vector3d::dot(Ri.get_row(X), Ro.get_row(X));
-  _rconst[Y] = Vector3d::dot(Ri.get_row(Y), Ro.get_row(Y));
-  _rconst[Z] = Vector3d::dot(Ri.get_row(Z), Ro.get_row(Z));
+  _rconst[X] = Vector3d(Ri.get_row(X), GLOBAL).dot(Vector3d(Ro.get_row(X), GLOBAL));
+  _rconst[Y] = Vector3d(Ri.get_row(Y), GLOBAL).dot(Vector3d(Ro.get_row(Y), GLOBAL));
+  _rconst[Z] = Vector3d(Ri.get_row(Z), GLOBAL).dot(Vector3d(Ro.get_row(Z), GLOBAL));
+*/
 }
 
 /// Sets the inboard link
@@ -146,6 +147,7 @@ const vector<Twistd>& FixedJoint::get_spatial_axes_dot()
 /// Computes the constraint Jacobian with respect to a body
 void FixedJoint::calc_constraint_jacobian_euler(RigidBodyPtr body, unsigned idx, double Cq[7])
 {
+/*
   const unsigned X = 0, Y = 1, Z = 2;
 
   if (idx >= num_constraint_eqns())
@@ -321,11 +323,13 @@ void FixedJoint::calc_constraint_jacobian_euler(RigidBodyPtr body, unsigned idx,
         break;
     }
   }
+*/
 }
 
 /// Computes the time derivative of the constraint Jacobian with respect to a body
 void FixedJoint::calc_constraint_jacobian_dot_euler(RigidBodyPtr body, unsigned idx, double Cq[7])
 {
+/*
   const unsigned X = 0, Y = 1, Z = 2;
 
   if (idx >= num_constraint_eqns())
@@ -578,11 +582,13 @@ void FixedJoint::calc_constraint_jacobian_dot_euler(RigidBodyPtr body, unsigned 
         break;
     }
   }
+*/
 }
 
 /// Evaluates the constraint equations
 void FixedJoint::evaluate_constraints(double C[])
 {
+/*
   const unsigned X = 0, Y = 1, Z = 2;
 
   // get the two links
@@ -598,13 +604,18 @@ void FixedJoint::evaluate_constraints(double C[])
   // evaluate the relative position
   Point3d rpos = T1->transform(_ui) + T1->x - T2->x; 
 
+  const double XX = Vector3d(R1.get_row(X), GLOBAL).dot(Vector3d(R2.get_row(X), GLOBAL));
+  const double YY = Vector3d(R1.get_row(Y), GLOBAL).dot(Vector3d(R2.get_row(Y), GLOBAL));
+  const double ZZ = Vector3d(R1.get_row(Z), GLOBAL).dot(Vector3d(R2.get_row(Z), GLOBAL));
+
   // setup C
   C[0] = rpos[0];
   C[1] = rpos[1];
   C[2] = rpos[2];
-  C[3] = Vector3d::dot(R1.get_row(X), R2.get_row(X)) - _rconst[X];
-  C[4] = Vector3d::dot(R1.get_row(Y), R2.get_row(Y)) - _rconst[Y];
-  C[5] = Vector3d::dot(R1.get_row(Z), R2.get_row(Z)) - _rconst[Z];
+  C[3] = XX - _rconst[X];
+  C[4] = YY - _rconst[Y];
+  C[5] = ZZ - _rconst[Z];
+*/
 }
 
 /// Implements Base::load_from_xml()

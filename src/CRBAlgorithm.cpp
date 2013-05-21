@@ -27,7 +27,6 @@ using boost::shared_ptr;
 
 CRBAlgorithm::CRBAlgorithm()
 {
-  _position_data_valid = false;
 }
 
 /// Computes the parent array for sparse Cholesky factorization
@@ -128,7 +127,6 @@ void CRBAlgorithm::transform_and_mult(RigidBodyPtr link, const SpatialRBInertiad
 void CRBAlgorithm::calc_generalized_inertia(RCArticulatedBodyPtr body)
 {
   const unsigned SPATIAL_DIM = 6;
-  const shared_ptr<Pose3d> GLOBAL;
 
   // get the appropriate M
   MatrixNd& M = this->_M;
@@ -440,8 +438,6 @@ void CRBAlgorithm::calc_joint_space_inertia(RCArticulatedBodyPtr body, MatrixNd&
 /// Calculates the generalized inertia matrix for the given representation
 void CRBAlgorithm::calc_generalized_inertia_axisangle(MatrixNd& M)
 {
-  const shared_ptr<Pose3d> GLOBAL;
-
   // get the set of links
   RCArticulatedBodyPtr body(_body);
   ReferenceFrameType rftype = body->get_computation_frame_type();
@@ -659,22 +655,16 @@ void CRBAlgorithm::precalc(RCArticulatedBodyPtr body)
   const vector<JointPtr>& joints = body->get_implicit_joints();
 
   // compute spatial isolated inertias and generalized inertia matrix
-  if (!_position_data_valid)
+  // do the calculations
+  calc_generalized_inertia(body);
+
+  // attempt to do a Cholesky factorization of M
+  MatrixNd& fM = this->_fM;
+  MatrixNd& M = this->_M;
+  if ((_rank_deficient = !_LA->factor_chol(fM)))
   {
-    // do the calculations
-    calc_generalized_inertia(body);
-
-    // attempt to do a Cholesky factorization of M
-    MatrixNd& fM = this->_fM;
-    MatrixNd& M = this->_M;
-    if ((_rank_deficient = !_LA.factor_chol(fM)))
-    {
-      fM = M;
-      _LA.svd(fM, _uM, _sM, _vM);
-    }
-
-    // validate position data
-    _position_data_valid = true;
+    fM = M;
+    _LA->svd(fM, _uM, _sM, _vM);
   }
 }
 
@@ -725,9 +715,9 @@ VectorNd& CRBAlgorithm::M_solve_noprecalc(VectorNd& xb)
 {
   // determine whether the matrix is rank-deficient
   if (this->_rank_deficient)
-    _LA.solve_LS_fast(_uM, _sM, _vM, xb);
+    _LA->solve_LS_fast(_uM, _sM, _vM, xb);
   else
-    _LA.solve_chol_fast(_fM, xb);
+    _LA->solve_chol_fast(_fM, xb);
 
   return xb;
 }
@@ -737,11 +727,11 @@ MatrixNd& CRBAlgorithm::M_solve_noprecalc(MatrixNd& XB)
 {
   // determine whether the matrix is rank-deficient
   if (this->_rank_deficient)
-    _LA.solve_LS_fast(_uM, _sM, _vM, XB);
+    _LA->solve_LS_fast(_uM, _sM, _vM, XB);
   else
-    _LA.solve_chol_fast(_fM, XB);
+    _LA->solve_chol_fast(_fM, XB);
 
-  return result;
+  return XB;
 }
 
 /// Executes the composite rigid-body method on an articulated body with a fixed base
@@ -1215,7 +1205,6 @@ void CRBAlgorithm::apply_impulse(const Wrenchd& w, RigidBodyPtr link)
 void CRBAlgorithm::apply_impulse(const Wrenchd& w, RigidBodyPtr link)
 {
   const unsigned OPSPACE_DIM = 6;
-  const shared_ptr<Pose3d> GLOBAL;
   Twistd dv0;
   VectorNd& b = _b;
   VectorNd& augV = _augV;

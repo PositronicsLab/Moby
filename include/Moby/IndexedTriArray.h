@@ -39,7 +39,7 @@ class IndexedTriArray
 
     unsigned num_tris() const { return (_facets) ? _facets->size() : 0; }
     Triangle get_triangle(unsigned i) const;
-    IndexedTriArray transform(const Ravelin::Pose3d& T) const;
+    IndexedTriArray transform(const Ravelin::Transform3d& T) const;
     IndexedTriArray rotate_scale(const Ravelin::Matrix3d& T) const;
     IndexedTriArray translate(const Ravelin::Vector3d& v) const;
     IndexedTriArray compress_vertices() const;

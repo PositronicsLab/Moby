@@ -51,7 +51,7 @@ class BV : public boost::enable_shared_from_this<BV>
     virtual bool intersects(const LineSeg3& seg, double& tmin, double tmax, Ravelin::Point3d& q) const = 0;
 
     /// Gets the associated pose for this bounding volume
-    virtual boost::shared_ptr<const Ravelin::Pose3d> get_pose() const = 0;
+    virtual boost::shared_ptr<const Ravelin::Pose3d> get_relative_pose() const = 0;
 
     /// Virtual function for transforming the BV
     virtual void transform(const Ravelin::Transform3d& T, BV* result) const = 0;

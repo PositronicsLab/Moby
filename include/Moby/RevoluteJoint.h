@@ -30,7 +30,7 @@ class RevoluteJoint : public Joint
     virtual void evaluate_constraints(double C[]);
 
     /// Revolute joint can never be in a singular configuration
-    virtual bool is_sngular_config() const { return false; }
+    virtual bool is_singular_config() const { return false; }
 
   private:
     virtual void calc_constraint_jacobian_euler(RigidBodyPtr body, unsigned index, double Cq[7]);

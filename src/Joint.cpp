@@ -41,6 +41,7 @@ Joint::Joint()
 
   // initialize the two frames
   _F = shared_ptr<Pose3d>(new Pose3d);
+  _Fb = shared_ptr<Pose3d>(new Pose3d);
   _Fprime = shared_ptr<Pose3d>(new Pose3d);
   _Fprime->rpose = _F;
 }
@@ -70,6 +71,7 @@ Joint::Joint(boost::weak_ptr<RigidBody> inboard, boost::weak_ptr<RigidBody> outb
 
   // initialize the two frames
   _F = shared_ptr<Pose3d>(new Pose3d);
+  _Fb = shared_ptr<Pose3d>(new Pose3d);
   _Fprime = shared_ptr<Pose3d>(new Pose3d);
   _Fprime->rpose = _F;
 }  
@@ -86,30 +88,7 @@ void Joint::determine_q_tare()
   // we want the joint to induce identity transform, so set q to zero 
   q.set_zero();
 
-  // get the global position - use the inboard link
-  Point3d position = get_location(false);
-
-  // get the joint transform
-  shared_ptr<const Pose3d> Tj = get_pose(); 
-
-  // get the inboard and outboard links
-  RigidBodyPtr inboard(get_inboard_link());
-  RigidBodyPtr outboard(get_outboard_link());
-
-  // get the transforms for the two bodies
-  shared_ptr<const Pose3d> Ti = inboard->get_pose();
-  shared_ptr<const Pose3d> To = outboard->get_pose();
-
-  // determine the vector from the inboard link to the joint (link coords)
-  Point3d inboard_to_joint = Ti->inverse_transform(position);
-
-  // compute the vector from the joint to the outboard link in joint frame
-  Point3d x = (Pose3d::inverse(*Ti) * (*To)).x;
-  Point3d joint_to_outboard_jf = Tj->inverse_transform(x - Point3d(inboard_to_joint));    
-
-  // update vector in joint frame
-  RigidBody::InnerJointData& ijd = outboard->get_inner_joint_data(inboard);
-  ijd.joint_to_com_vec_jf = joint_to_outboard_jf;
+  // TODO: finish implementing this
 
   // reset q
   q = q_save;
@@ -251,6 +230,9 @@ void Joint::set_outboard_link(RigidBodyPtr outboard)
   if (!outboard)
     return;
 
+  // setup Fb's pose relative to the outboard 
+  _Fb->rpose = outboard->get_pose();
+
   //update spatial axes if both links are set
   if (!_outboard_link.expired() && !_inboard_link.expired())
     update_spatial_axes();
@@ -326,15 +308,11 @@ Point3d Joint::get_location(bool use_outboard) const
   // compute the global position
   if (!use_outboard)
   {
-    boost::shared_ptr<const Pose3d> T = inboard->get_pose();
-    const RigidBody::OuterJointData& o = inboard->get_outer_joint_data(outboard);
-    return T->x + T->transform(o.com_to_joint_vec);
+    // TODO: convert the pose to global position
   }
   else
   {
-    boost::shared_ptr<const Pose3d> T = outboard->get_pose();
-    const RigidBody::InnerJointData& i = outboard->get_inner_joint_data(inboard);
-    return T->x + T->transform(-i.joint_to_com_vec_of); 
+    // TODO: convert the pose to global position
   }
 }
 
@@ -625,8 +603,8 @@ void Joint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, 
     // compute the vector from the joint to the outboard link in joint frame
     Vector3d joint_to_outboard_jf = (Ti->inverse() * *To).x - inboard_to_joint;    
     // add/replace this as an inner joint
-    inboard->add_outer_joint(outboard, get_this(), inboard_to_joint);
-    outboard->add_inner_joint(inboard, get_this(), joint_to_outboard_jf, joint_to_outboard_lf);
+    inboard->add_outer_joint(get_this());
+    outboard->add_inner_joint(get_this());
   }
 }
 

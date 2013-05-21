@@ -12,6 +12,7 @@
 #include <set>
 #include <stack>
 #include <fstream>
+#include <Ravelin/Origin2d.h>
 #include <Moby/Polyhedron.h>
 #include <Moby/CompGeom.h>
 
@@ -1667,9 +1668,9 @@ Matrix3d CompGeom::calc_3D_to_2D_matrix(const Vector3d& normal)
   Vector3d v1, v2;
   Vector3d::determine_orthonormal_basis(normal, v1, v2);
   Matrix3d R;
-  R.set_row(X, v1);
-  R.set_row(Y, v2);
-  R.set_row(Z, normal);
+  R.set_row(X, Origin3d(v1));
+  R.set_row(Y, Origin3d(v2));
+  R.set_row(Z, Origin3d(normal));
 
   return R;
 }
@@ -1681,10 +1682,10 @@ Matrix3d CompGeom::calc_3D_to_2D_matrix(const Vector3d& normal)
  * \return the offset necessary to add to the Z-coordinate of a 3D vector 
  *         converted from 2D using the transpose of R
  */
-double CompGeom::determine_3D_to_2D_offset(const Vector3d& v, const Matrix3d& R)
+double CompGeom::determine_3D_to_2D_offset(const Origin3d& o, const Matrix3d& R)
 {
   const unsigned Z = 2;
-  return (R * v)[Z];
+  return (R * o)[Z];
 }
 
 /// Determines the location of a point on a triangle
@@ -2206,12 +2207,12 @@ bool CompGeom::between(const Point2d& a, const Point2d& b, const Point2d& c, dou
  * \param RT the matrix that projects 2D points to 3D
  * \param offset the last dimension of the 3D point is set to this value
  */
-Point3d CompGeom::to_3D(const Point2d& p, const Matrix3d& RT, double offset)
+Origin3d CompGeom::to_3D(const Point2d& p, const Matrix3d& RT, double offset)
 {
   const unsigned X = 0, Y = 1;
 
   // transform the vector
-  return RT * Point3d(p[X], p[Y], offset);
+  return RT * Origin3d(p[X], p[Y], offset);
 }
 
 /// Converts a 2D point to a 3D point 
@@ -2220,7 +2221,7 @@ Point3d CompGeom::to_3D(const Point2d& p, const Matrix3d& RT, double offset)
  * \param RT the matrix that projects 2D points to 3D
  * \param offset the last dimension of the 3D point is set to this value
  */
-Point3d CompGeom::to_3D(const Point2d& p, const Matrix3d& RT)
+Origin3d CompGeom::to_3D(const Point2d& p, const Matrix3d& RT)
 {
   const unsigned X = 0, Y = 1;
 
@@ -2237,7 +2238,7 @@ Point3d CompGeom::to_3D(const Point2d& p, const Matrix3d& RT)
   const double vy = p[Y];
 
   // transform the point 
-  return Point3d(rxx*vx + rxy*vy, ryx*vx + ryy*vy, rzx*vx + rzy*vy);
+  return Origin3d(rxx*vx + rxy*vy, ryx*vx + ryy*vy, rzx*vx + rzy*vy);
 }
 
 /// Converts a 3D point to a 2D point 
@@ -2246,7 +2247,7 @@ Point3d CompGeom::to_3D(const Point2d& p, const Matrix3d& RT)
  * \param R the matrix that projects 3D points to 2D
  * \note the last dimension is stripped
  */
-Point2d CompGeom::to_2D(const Point3d& p, const Matrix3d& R)
+Origin2d CompGeom::to_2D(const Point3d& p, const Matrix3d& R)
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
@@ -2264,7 +2265,7 @@ Point2d CompGeom::to_2D(const Point3d& p, const Matrix3d& R)
   const double vz = p[Z];
 
   // transform the vector without the last row
-  return Point2d(rxx*vx + rxy*vy + rxz*vz, ryx*vx + ryy*vy + ryz*vz);
+  return Origin2d(rxx*vx + rxy*vy + rxz*vz, ryx*vx + ryy*vy + ryz*vz);
 }
 
 /**

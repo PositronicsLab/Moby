@@ -51,6 +51,9 @@ class Joint : public Visualizable
     void determine_q_tare();
     boost::shared_ptr<const Ravelin::Pose3d> get_pose() const { return _F; };
 
+    /// Gets the pose of this joint relative to the outboard link (rather than the inboard link as is standard)
+    boost::shared_ptr<const Ravelin::Pose3d> get_pose_outboard() const { return _Fb; };
+
     /// Sets whether this constraint is implicit or explicit (or unknown)
     void set_constraint_type(ConstraintType type) { _constraint_type = type; }
 
@@ -58,7 +61,7 @@ class Joint : public Visualizable
     /**
      * \note only used by reduced-coordinate articulated bodies
      */
-    virtual bool is_sngular_config() const = 0;
+    virtual bool is_singular_config() const = 0;
 
     /// Gets the shared pointer to this joint
     JointPtr get_this() { return boost::dynamic_pointer_cast<Joint>(shared_from_this()); }
@@ -250,6 +253,9 @@ class Joint : public Visualizable
 
     /// The frame of this joint
     boost::shared_ptr<Ravelin::Pose3d> _F;
+
+    /// The frame of this joint _backward_ from the outboard link
+    boost::shared_ptr<Ravelin::Pose3d> _Fb;
 
     /// Computes the constraint Jacobian for this joint with respect to the given body in Rodrigues parameters
     /**

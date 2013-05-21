@@ -27,7 +27,7 @@ class AABB : public BV
     virtual std::ostream& to_vrml(std::ostream& out, const Ravelin::Pose3d& T) const;
     virtual BVPtr calc_vel_exp_BV(CollisionGeometryPtr g, double dt, const Ravelin::Twistd& v) const;
     virtual double calc_volume() const;
-    virtual boost::shared_ptr<const Ravelin::Pose3d> get_pose() const { return minp.pose; }
+    virtual boost::shared_ptr<const Ravelin::Pose3d> get_relative_pose() const { return minp.pose; }
     virtual Ravelin::Point3d get_lower_bounds() const;
     virtual Ravelin::Point3d get_upper_bounds() const;
     OBB get_OBB() const;

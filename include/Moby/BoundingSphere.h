@@ -36,7 +36,7 @@ class BoundingSphere : public BV
     BoundingSphere(ForwardIterator begin, ForwardIterator end);
 
     /// Gets the pose for this BV
-    virtual boost::shared_ptr<const Ravelin::Pose3d> get_pose() const { return center.pose; }
+    virtual boost::shared_ptr<const Ravelin::Pose3d> get_relative_pose() const { return center.pose; }
 
     /// Gets the lower bounds on the bounding sphere
     virtual Ravelin::Point3d get_lower_bounds() const { return Ravelin::Point3d(center[0]-radius, center[1]-radius, center[2] - radius); }
