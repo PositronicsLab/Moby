@@ -37,7 +37,6 @@ class TriangleMeshPrimitive : public Primitive
     virtual void get_vertices(BVPtr bv, std::vector<const Ravelin::Point3d*>& vertices);
     virtual bool point_inside(BVPtr bv, const Ravelin::Point3d& p, Ravelin::Vector3d& normal) const;
     virtual bool intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Ravelin::Point3d& isect, Ravelin::Vector3d& normal) const;
-    virtual bool intersect_seg(const Ravelin::Point3d* u, BVPtr bv, const LineSeg3& seg, double& t, Ravelin::Point3d& isect, Ravelin::Vector3d& normal) const;
     virtual const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >& get_sub_mesh(BVPtr bv);
     virtual boost::shared_ptr<const IndexedTriArray> get_mesh() { return _mesh; }
     virtual void set_deformable(bool flag);

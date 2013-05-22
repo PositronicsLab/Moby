@@ -31,8 +31,6 @@ class IndexedTetraArray : public Base
     void center();
     unsigned num_tetra() const { return (_tetra) ? _tetra->size() : 0; }
     IndexedTetraArray transform(const Ravelin::Transform3d& T) const;
-    IndexedTetraArray rotate_scale(const Ravelin::Matrix3d& T) const;
-    IndexedTetraArray translate(const Ravelin::Vector3d& v) const;
     IndexedTetraArray compress_vertices() const;
     static IndexedTetraArray read_from_tetra(const std::string& filename);
     static void write_to_tetra(const IndexedTetraArray& mesh, const std::string& filename);

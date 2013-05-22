@@ -102,7 +102,8 @@ void IndexedTetraArray::load_from_xml(shared_ptr<const XMLTree> node, map<string
     center();
 
   // read in the transform, if specified
-  Pose3d T;
+  Transform3d T;
+  T.source = T.target = GLOBAL;
   const XMLAttrib* xlat_attr = node->get_attrib("translation");
   const XMLAttrib* rpy_attr = node->get_attrib("rpy"); 
   if (xlat_attr || rpy_attr)
@@ -217,26 +218,8 @@ void IndexedTetraArray::validate()
   }
 }
 
-/// Rotates this mesh to a new mesh
-IndexedTetraArray IndexedTetraArray::rotate_scale(const Matrix3d& R) const
-{
-  IndexedTetraArray it;
-
-  // can just copy tetra 
-  it._tetra = _tetra; 
-
-  // need to rotate vertices
-  shared_ptr<vector<Point3d> > new_vertices(new vector<Point3d>(*_vertices));
-  it._vertices = new_vertices;
-  vector<Point3d>& vertices = *new_vertices;
-  for (unsigned i=0; i< vertices.size(); i++)
-    vertices[i] = R * vertices[i];
-
-  return it;
-}
-
 /// Transforms this mesh to a new mesh
-IndexedTetraArray IndexedTetraArray::transform(const Pose3d& T) const
+IndexedTetraArray IndexedTetraArray::transform(const Transform3d& T) const
 {
   IndexedTetraArray it;
 
@@ -249,24 +232,6 @@ IndexedTetraArray IndexedTetraArray::transform(const Pose3d& T) const
   vector<Point3d>& vertices = *new_vertices;
   for (unsigned i=0; i< vertices.size(); i++)
     vertices[i] = T.transform(vertices[i]);
-
-  return it;
-}
-
-/// Translates this mesh to a new mesh
-IndexedTetraArray IndexedTetraArray::translate(const Vector3d& x) const
-{
-  IndexedTetraArray it;
-
-  // can just copy tetra 
-  it._tetra = _tetra; 
-
-  // need to translate vertices
-  shared_ptr<vector<Point3d> > new_vertices(new vector<Point3d>(*_vertices));
-  it._vertices = new_vertices;
-  vector<Point3d>& vertices = *new_vertices;
-  for (unsigned i=0; i< vertices.size(); i++)
-    vertices[i] += x;
 
   return it;
 }

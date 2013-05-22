@@ -51,9 +51,7 @@ class RCArticulatedBody : public ArticulatedBody
     RCArticulatedBody();
     virtual ~RCArticulatedBody() {}
     virtual Ravelin::MatrixNd& calc_jacobian(const Ravelin::Point3d& point, RigidBodyPtr link, Ravelin::MatrixNd& J);
-    virtual Ravelin::MatrixNd& calc_jacobian_column(JointPtr joint, const Ravelin::Point3d& point, boost::shared_ptr<const Ravelin::Pose3d> base_pose, const std::map<JointPtr, Ravelin::VectorNd>& q, Ravelin::MatrixNd& Jc);
-    virtual Ravelin::MatrixNd& calc_jacobian_column(JointPtr joint, const Ravelin::Point3d& point, Ravelin::MatrixNd& Jc);
-    virtual Ravelin::MatrixNd& calc_jacobian_floating_base(const Ravelin::Point3d& point, Ravelin::MatrixNd& J);
+    virtual Ravelin::MatrixNd& calc_jacobian(const Ravelin::Point3d& point, const Ravelin::Pose3d& base_pose, const std::map<JointPtr, Ravelin::VectorNd>& q, RigidBodyPtr link, Ravelin::MatrixNd& J);
     virtual void reset_accumulators();
     virtual void update_link_poses();    
     virtual void update_link_velocities();
@@ -130,6 +128,8 @@ class RCArticulatedBody : public ArticulatedBody
     const std::vector<JointPtr>& get_implicit_joints() const { return _ijoints; }
 
   private:
+    virtual Ravelin::MatrixNd& calc_jacobian_column(JointPtr joint, const Ravelin::Point3d& point, Ravelin::MatrixNd& Jc);
+    virtual Ravelin::MatrixNd& calc_jacobian_floating_base(const Ravelin::Point3d& point, Ravelin::MatrixNd& J);
     bool all_children_processed(RigidBodyPtr link) const;
     void calc_fwd_dyn_loops();
     void calc_fwd_dyn_advanced_friction(double dt);

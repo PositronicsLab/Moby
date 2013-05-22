@@ -178,29 +178,21 @@ void TriangleMeshPrimitive::center()
   if (!_mesh)
     return;
 
-  // NOTE: we no longer do this b/c transforms are *not* applied directly
-  // to the primitive
-  Transform3d Tinv = Transform3d::identity();
-
-  // back the transform out of the mesh
-  IndexedTriArray mesh = _mesh->transform(Tinv);
-
-  // get the c.o.m. of this new mesh
-  std::list<Triangle> tris;
-  mesh.get_tris(std::back_inserter(tris));
-  Point3d centroid = CompGeom::calc_centroid_3D(tris.begin(), tris.end());
-
-  // translate this mesh so that its origin is at its c.o.m.
-  mesh = mesh.translate(-centroid);
+  // the mesh is in the global frame; transform the inertial pose to the global
+  // frame too
+/*
+  Pose3d X = *_jF;
+  X.x = -X.x;
+  X.update_relative_pose(GLOBAL);
+  Transform3d T = Pose3d::calc_relative_pose(
+*/
+  Transform3d T;
 
   // re-transform the mesh
-  _mesh = shared_ptr<IndexedTriArray>(new IndexedTriArray(mesh.transform(get_pose())));
+  _mesh = shared_ptr<IndexedTriArray>(new IndexedTriArray(_mesh->transform(T)));
 
   // re-calculate mass properties 
   calc_mass_properties();
-
-  // center-of-mass should be approximately zero
-  assert(_com.norm() < NEAR_ZERO);
 
   // update the visualization
   update_visualization();
@@ -307,11 +299,10 @@ void TriangleMeshPrimitive::save_to_xml(XMLTreePtr node, list<shared_ptr<const B
     if (!_mesh)
       return;
 
-    // TODO: fix this to use a transform instead
-    // transform the mesh w/transform backed out
-    Transform3d iT = Pose3d::calc_relative_pose(_T, GLOBAL);
-    Pose3d iT = _T;
-    IndexedTriArray mesh_xform = _mesh->transform(iT);
+    // get the transform from the global pose to the primitive pose
+    shared_ptr<const Pose3d> P = get_pose();
+    Transform3d T = Pose3d::calc_relative_pose(GLOBAL, P);
+    IndexedTriArray mesh_xform = _mesh->transform(T);
 
     // write the mesh
     mesh_xform.write_to_obj(filename);
@@ -358,8 +349,9 @@ void TriangleMeshPrimitive::calc_mass_properties()
   // if there is no mesh, set things to some defaults
   if (!_mesh)
   {
-    _com = ZEROS_3;
-    _J = ZEROS_3x3;
+    _J.m = 0.0;
+    _J.h.set_zero();
+    _J.J.set_zero();
     return;
   }
 
@@ -380,7 +372,7 @@ void TriangleMeshPrimitive::calc_mass_properties()
   mesh->get_tris(std::back_inserter(tris));
 
   // compute the centroid of the triangle mesh
-  _com = CompGeom::calc_centroid_3D(tris.begin(), tris.end());
+  _jF->x = CompGeom::calc_centroid_3D(tris.begin(), tris.end());
 
   // calculate volume integrals
   mesh->calc_volume_ints(volume_ints);
@@ -390,7 +382,7 @@ void TriangleMeshPrimitive::calc_mass_properties()
 
   // compute the mass if density is given
   if (_density)
-    _mass = *_density * volume;
+    _J.m = *_density * volume;
 
 // NOTE: we no longer transform the inertial components, since we recompute
   // compute the center-of-mass
@@ -402,27 +394,24 @@ void TriangleMeshPrimitive::calc_mass_properties()
   //  Point3d com = calc_com();
 
   // compute the inertia tensor relative to world origin
-  _J(X,X) = (_mass/volume) * (volume_ints[5] + volume_ints[6]);
-  _J(Y,Y) = (_mass/volume) * (volume_ints[4] + volume_ints[6]);
-  _J(Z,Z) = (_mass/volume) * (volume_ints[4] + volume_ints[5]);
-  _J(X,Y) = (-_mass/volume) * volume_ints[7];
-  _J(Y,Z) = (-_mass/volume) * volume_ints[8];
-  _J(X,Z) = (-_mass/volume) * volume_ints[9];
+  _J.J(X,X) = (_J.m/volume) * (volume_ints[5] + volume_ints[6]);
+  _J.J(Y,Y) = (_J.m/volume) * (volume_ints[4] + volume_ints[6]);
+  _J.J(Z,Z) = (_J.m/volume) * (volume_ints[4] + volume_ints[5]);
+  _J.J(X,Y) = (-_J.m/volume) * volume_ints[7];
+  _J.J(Y,Z) = (-_J.m/volume) * volume_ints[8];
+  _J.J(X,Z) = (-_J.m/volume) * volume_ints[9];
 
   // set the symmetric values for J
-  _J(Y,X) = _J(X,Y);
-  _J(Z,Y) = _J(Y,Z);
-  _J(Z,X) = _J(X,Z);
-
-  // rotate/scale the inertia tensor
-  transform_inertia(_mass, _J, _com, _T, _J, _com);
+  _J.J(Y,X) = _J.J(X,Y);
+  _J.J(Z,Y) = _J.J(Y,Z);
+  _J.J(Z,X) = _J.J(X,Z);
 
   // if one or more values of J is NaN, don't verify anything
   for (unsigned i=X; i<= Z; i++)
     for (unsigned j=i; j<= Z; j++)
-      if (std::isnan(_J(i,j)))
+      if (std::isnan(_J.J(i,j)))
       {
-        _J = ZEROS_3x3;
+        _J.J.set_zero();
         return;
       }
 }
@@ -580,154 +569,6 @@ bool TriangleMeshPrimitive::point_inside(BVPtr bv, const Point3d& p, Vector3d& n
   return false;
 }
 
-/// Intersects a line segment against the triangle mesh and returns first point of intersection (special method for self collision checks)
-bool TriangleMeshPrimitive::intersect_seg(const Point3d* u, BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Vector3d& normal) const
-{
-  const unsigned LEAF_TRIS_CUTOFF = 5;
-  const double EXPANSION_CONST = 0.01;
-
-  // setup statistics variables
-  unsigned n_bv_tests = 0;
-  unsigned n_tri_tests = 0;
-
-  // setup first point of intersection
-  double tfirst = std::numeric_limits<double>::max();
-
-  // create a stack and add the BV to it
-  stack<BVPtr> S;
-  S.push(bv);
-
-  // get the vertex corresponding to u and get all facets incident to u
-  assert(_mesh_vertex_map.find(u) != _mesh_vertex_map.end());
-  unsigned vidx = _mesh_vertex_map.find(u)->second;
-  const list<unsigned>& ifacets = _mesh->get_incident_facets(vidx);
-  vector<unsigned> incident_facets(ifacets.begin(), ifacets.end());
-  std::sort(incident_facets.begin(), incident_facets.end());
-
-  // process until stack is empty
-  while (!S.empty())
-  {
-    // get the BV from the top of the stack
-    bv = S.top();
-    S.pop();
-
-    // if the BV is a leaf, add all thick triangles to output if there are
-    // not many thick triangles; otherwise, see whether the line segment
-    // intersects the OBB
-    if (bv->is_leaf())
-    {
-      // get the list of thick triangles 
-      assert(_tris.find(bv) != _tris.end());
-      const list<shared_ptr<AThickTri> >& tris = _tris.find(bv)->second;
-    
-      // expand the BV 
-      BVPtr ebv;
-      if (!is_deformable())
-      {
-        assert(dynamic_pointer_cast<OBB>(bv));
-        OBB eobb = *dynamic_pointer_cast<OBB>(bv);
-        eobb.l *= ((double) 1.0 + EXPANSION_CONST);
-        ebv = BVPtr(new OBB(eobb));
-      }
-      else
-      {
-        assert(dynamic_pointer_cast<BoundingSphere>(bv));
-        BoundingSphere bs = *dynamic_pointer_cast<BoundingSphere>(bv);
-        bs.radius *= ((double) 1.0 + EXPANSION_CONST);
-        ebv = BVPtr(new BoundingSphere(bs));
-      }
-
-      // if the list is sufficiently small or there is an intersection with
-      // the BV, check all triangles
-      double tmin = 0, tmax = 1;
-      Point3d pt;
-      if (tris.size() <= LEAF_TRIS_CUTOFF || (++n_bv_tests && ebv->intersects(seg, tmin, tmax, pt)))
-      {
-        BOOST_FOREACH(shared_ptr<AThickTri> tri, tris)
-        {
-          // don't do intersection test if u comes from tri
-          if (std::binary_search(incident_facets.begin(), incident_facets.end(), tri->tri_idx))
-            continue;
-
-          // otherwise, check...
-          n_tri_tests++;
-          FILE_LOG(LOG_COLDET) << "   -- intersecting thick tri: " << endl << tri->tri <<"  and segment " << seg.first << " / " << seg.second << endl;
-          double tx;
-          if (tri->intersect_seg(seg, tx, pt) && tx < tfirst)
-          {
-            // project the point onto the actual triangle
-            Vector3d tri_normal = tri->tri.calc_normal();
-            double tri_offset = tri->tri.calc_offset(tri_normal);
-
-            // compute P = I - n*n'
-            Matrix3d P;
-            Opsd::outer_prod(tri_normal, -tri_normal, P);
-            P += Matrix3d::identity();
-            Point3d proj_point = P * pt;
-            double remainder = tri_offset - proj_point.dot(tri_normal);
-            proj_point += tri_normal * remainder;
-
-            // ensure that projected point does not occur on vertex / edge
-            if (!is_degen_point_on_tri(tri, proj_point))
-            {
-              tfirst = tx;
-              isect = pt;
-              normal = tri->determine_normal(isect);
-              FILE_LOG(LOG_COLDET) << "  intersection detected!  time of impact: " << t << endl;
-            }
-            else
-            {
-              FILE_LOG(LOG_COLDET) << "  intersection detected, but point of intersection on vertex/edge" << endl;
-              FILE_LOG(LOG_COLDET) << "    intersection point: " << isect << endl;
-            }
-          }
-        }
-      }
-    }
-    else
-    {
-      // copy the BV to an expanded one
-      BVPtr ebv;
-      if (!is_deformable())
-      {
-        assert(dynamic_pointer_cast<OBB>(bv));
-        OBB eobb = *dynamic_pointer_cast<OBB>(bv);
-        eobb.l *= ((double) 1.0 + EXPANSION_CONST);
-        ebv = BVPtr(new OBB(eobb));
-      }
-      else
-      {
-        assert(dynamic_pointer_cast<BoundingSphere>(bv));
-        BoundingSphere bs = *dynamic_pointer_cast<BoundingSphere>(bv);
-        bs.radius *= ((double) 1.0 + EXPANSION_CONST);
-        ebv = BVPtr(new BoundingSphere(bs));
-      }
-
-      double tmin = 0, tmax = 1;
-      Point3d pt;
-      n_bv_tests++;
-      if (ebv->intersects(seg, tmin, tmax, pt))
-      {
-        FILE_LOG(LOG_COLDET) << " -- internal BV " << bv << " and line segment intersect; testing " << bv->children.size() << " child OBB nodes" << std::endl;
-        BOOST_FOREACH(BVPtr child, bv->children)
-        {
-          FILE_LOG(LOG_COLDET) << "    -- child: " << child << std::endl;
-          S.push(child);
-        }
-      }
-    }
-  }
-
-  // look for valid intersection
-  t = tfirst;
-
-  FILE_LOG(LOG_COLDET) << "# of BV / line segment tests: " << n_bv_tests << endl;
-  FILE_LOG(LOG_COLDET) << "# of tri / line segment tests: " << n_tri_tests << endl;
-
-  return (tfirst > -NEAR_ZERO && tfirst < 1.0 + NEAR_ZERO);
-}
-
-
 /// Intersects a line segment against the triangle mesh and returns first point of intersection
 bool TriangleMeshPrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Vector3d& normal) const
 {
@@ -799,7 +640,7 @@ bool TriangleMeshPrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double&
             Matrix3d P;
             Opsd::outer_prod(tri_normal, -tri_normal, P);
             P += Matrix3d::identity();
-            Point3d proj_point = P * pt;
+            Point3d proj_point(P * Origin3d(pt), tri_normal.pose);
             double remainder = tri_offset - proj_point.dot(tri_normal);
             proj_point += tri_normal * remainder;
 
@@ -880,18 +721,26 @@ void TriangleMeshPrimitive::get_vertices(BVPtr bv, vector<const Point3d*>& verti
 }
 
 /// Transforms this primitive
-void TriangleMeshPrimitive::set_pose(shared_ptr<const Pose3d> T)
+void TriangleMeshPrimitive::set_pose(shared_ptr<const Pose3d> p)
 {
-  // TODO: fix this to use a transform3
-  // determine the transformation from the old to the new transform 
-  Pose3d Trel = T * Pose3d::invert(_T);
+  // determine the transformation from the global frame to the old pose
+  Transform3d cTg = Pose3d::calc_relative_pose(GLOBAL, _F);
+
+  // determine the transformation from the old to the new pose
+  Transform3d pTc = Pose3d::calc_relative_pose(_F, p);
+
+  // determine the transformation from the new pose to the global frame 
+  Transform3d gTp = Pose3d::calc_relative_pose(p, GLOBAL);
+
+  // compute the transformation
+  Transform3d T = gTp * pTc * cTg;
 
   // go ahead and set the new transform
-  Primitive::set_pose(T);
+  Primitive::set_pose(p);
 
   // transform mesh
   if (_mesh)
-    _mesh = shared_ptr<IndexedTriArray>(new IndexedTriArray(_mesh->transform(Trel)));
+    _mesh = shared_ptr<IndexedTriArray>(new IndexedTriArray(_mesh->transform(T)));
 
   // vertices and bounding volumes are no longer valid
   _vertices = shared_ptr<vector<Point3d> >();
