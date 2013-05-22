@@ -212,7 +212,7 @@ bool GeneralizedCCD::is_contact(double dt, const vector<pair<DynamicBodyPtr, Vec
 
     // get the transforms from a to b and back
     aTb = Pose3d::calc_relative_pose(b->get_pose(), a->get_pose());
-    bTa = Transform3d::inverse(aTb);
+    bTa = Transform3d::invert(aTb);
 
     // test the geometries for contact
     check_geoms(dt, a, b, aTb, bTa, a_vel, b_vel, contacts);

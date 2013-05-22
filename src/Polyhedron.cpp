@@ -447,21 +447,6 @@ Polyhedron::LocationType Polyhedron::location(const Point3d& point, double tol) 
     return eOutside;
 }
 
-/// Translates this polyhedron by the given vector
-/**
- * \note none of the vertex or triangle pointers change; rather the data
- *       that they point to changes
- */
-void Polyhedron::translate(const Vector3d& x)
-{
-  // translate underlying mesh
-  _mesh = _mesh.translate(x); 
-
-  // translate the bounding box
-  _bb_min += x;
-  _bb_max += x;
-}
-
 /// Transforms this polyhedron by the given transformation matrix
 /**
  * \note none of the vertex or triangle pointers change; rather the data

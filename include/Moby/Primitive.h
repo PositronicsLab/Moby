@@ -95,25 +95,6 @@ class Primitive : public virtual Base
      */
     virtual bool intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Ravelin::Point3d& isect, Ravelin::Vector3d& normal) const = 0;
 
-    /// Determines whether a line segment and the shape intersect
-    /**
-     * Special version for self-intersection testing (for deformable geoms).
-     * \param u a pointer to the point used to determine the line segment
-     * \param bv a bounding volume (to speed intersection testing)
-     * \param seg the line segment
-     * \param t the parameter of the intersection (seg.first + seg.second*t)
-     *        (if intersection)
-     * \param isect the point of intersection, on return (if any)
-     * \param normal the normal to the shape at the point of intersection, 
-     *          on return (if any)
-     * \return <b>true</b> if intersection, <b>false</b> otherwise 
-     */
-    virtual bool intersect_seg(const Ravelin::Point3d* u, BVPtr bv, const LineSeg3& seg, double& t, Ravelin::Point3d& isect, Ravelin::Vector3d& normal) const
-    {
-      throw std::runtime_error("Primitive::intersect_seg() not defined!");
-      return false;
-    }
-
     /// Gets mesh data for the geometry with the specified bounding volume
     /**
      * \param bv the bounding data from which the corresponding mesh data will

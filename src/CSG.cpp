@@ -687,23 +687,13 @@ void CSG::center_mesh()
   if (!_mesh)
     return;
 
+  // TODO: use inertial frame to translate the mesh
   // determine the transform from the global frame to the current pose
   shared_ptr<const Pose3d> P = get_pose();
   Transform3d T = Pose3d::calc_relative_pose(GLOBAL, P);
 
-  // back the transform out of the mesh
-  IndexedTriArray mesh = _mesh->transform(T);
-
-  // get the c.o.m. of this new mesh
-  std::list<Triangle> tris;
-  mesh.get_tris(std::back_inserter(tris));
-  Point3d centroid = CompGeom::calc_centroid_3D(tris.begin(), tris.end());
-
-  // translate this mesh so that its origin is at its c.o.m.
-  mesh = mesh.translate(-centroid);
-
   // re-transform the mesh
-  _mesh = shared_ptr<IndexedTriArray>(new IndexedTriArray(mesh.transform(T.inverse())));
+  _mesh = shared_ptr<IndexedTriArray>(new IndexedTriArray(_mesh->transform(T)));
 
   // re-calculate mass properties 
   calc_mass_properties();

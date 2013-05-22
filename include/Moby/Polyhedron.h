@@ -36,7 +36,6 @@ class Polyhedron
     void operator=(const Polyhedron& p);
     const IndexedTriArray& get_mesh() const { return _mesh; }
     void transform(const Ravelin::Transform3d& T);
-    void translate(const Ravelin::Vector3d& p);
     const std::vector<Ravelin::Point3d>& get_vertices() const { return _mesh.get_vertices(); }
     const std::vector<IndexedTri>& get_facets() const { return _mesh.get_facets(); }
     bool inside(const Ravelin::Point3d& point, double tol = NEAR_ZERO);

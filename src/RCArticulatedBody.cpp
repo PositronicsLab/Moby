@@ -56,9 +56,13 @@ RCArticulatedBody::RCArticulatedBody()
 /// Determines whether all of the children of a link have been processed
 bool RCArticulatedBody::all_children_processed(RigidBodyPtr link) const
 {
-  for (unsigned k=0; k< link->num_child_links(); k++)
-    if (!_processed[link->get_child_link(k)->get_index()])
+  const std::set<JointPtr>& joints = link->get_outer_joints();
+  BOOST_FOREACH(JointPtr j, joints)
+  {
+    RigidBodyPtr child = j->get_outboard_link();
+    if (!_processed[child->get_index()])
       return false;
+  }
 
   return true;
 }
@@ -210,9 +214,10 @@ void RCArticulatedBody::add_generalized_force(DynamicBody::GeneralizedCoordinate
 bool RCArticulatedBody::treat_link_as_leaf(RigidBodyPtr link) const
 {
   // if all children have lower link indices, link treatable as end-effector
-  BOOST_FOREACH(const RigidBody::OuterJointData& ojd, link->get_outer_joints_data())
+  const std::set<JointPtr>& joints = link->get_outer_joints();
+  BOOST_FOREACH(JointPtr j, joints)
   {
-    RigidBodyPtr child(ojd.child);
+    RigidBodyPtr child = j->get_outboard_link();
     if (child->get_index() > link->get_index())
       return false;
   }
@@ -287,14 +292,9 @@ void RCArticulatedBody::set_links(const vector<RigidBodyPtr>& links)
   for (unsigned i=1; i< _links.size(); i++)
   {
     // look for an unknown constraint
-    BOOST_FOREACH(const RigidBody::InnerJointData& ijd, _links[i]->get_inner_joints_data())
-    {
-      JointPtr joint(ijd.inner_joint);
-
-      // look for an unknown constraint type -- that means joints have not been processed
+    BOOST_FOREACH(JointPtr joint, _links[i]->get_inner_joints())
       if (joint->get_constraint_type() == Joint::eUnknown)
         return;
-    }
 
     // no unknown constraint; look for an implicit constraint
     if (!_links[i]->get_inner_joint_implicit())
@@ -362,14 +362,10 @@ void RCArticulatedBody::set_joints(const vector<JointPtr>& joints)
       continue;
 
     // get all outer joints for this link
-    const list<RigidBody::OuterJointData>& outer = link->get_outer_joints_data();
-    BOOST_FOREACH(const RigidBody::OuterJointData& ojd, outer)
+    BOOST_FOREACH(JointPtr joint, link->get_outer_joints())
     {
-      // get the joint
-      JointPtr joint(ojd.outer_joint);
-
       // see whether the child has already been processed
-      RigidBodyPtr child(ojd.child);
+      RigidBodyPtr child(joint->get_outboard_link());
       if (processed[child])
         _ejoints.push_back(joint);
       else
@@ -521,61 +517,46 @@ void RCArticulatedBody::update_link_velocities()
  * \return a pointer to a 6x6 matrix; top three dimensions will be linear
  *         velocity and bottom three dimensions will be angular velocity
  */
-// TODO: fix this
-MatrixNd& RCArticulatedBody::calc_jacobian_floating_base(const Vector3d& point, MatrixNd& J)
+MatrixNd& RCArticulatedBody::calc_jacobian_floating_base(const Point3d& point, MatrixNd& J)
 {
-  const unsigned SIX_D = 6, A = 0, B = 1, C = 2, D = 3;
+  const unsigned SPATIAL_DIM = 6;
+  SAFESTATIC vector<Twistd> sbase, sbase_prime;
+  SAFESTATIC shared_ptr<Pose3d> P(new Pose3d);
+
+  // get the base link and the base pose
+  RigidBodyPtr base = get_base_link();
+  shared_ptr<const Pose3d> baseP = base->get_pose();
+
+  // setup the twists at the base link - first three vectors are linear motion
+  // and second three are angular
+  sbase.clear();
+  sbase.resize(SPATIAL_DIM, Twistd::zero(baseP));
+  sbase[3][0] = 1.0;  sbase[4][1] = 1.0;  sbase[5][2] = 1.0;
+  sbase[0][3] = 1.0;  sbase[1][4] = 1.0;  sbase[2][5] = 1.0;
+
+  // convert the poses to the point frame
+  P->x = Origin3d(point);
+  Pose3d::transform(baseP, P, sbase, sbase_prime);
 
   // init the base Jacobian
-  J.resize(SIX_D, SIX_D);
-
-  // get the base transform
-  const Matrix4& base_pose = _links.front()->get_pose();
-
-  // get the offset from the base center-of-mass
-  Vector3d offset = point - base_pose.get_translation();
-
-  // compute the column-wise cross product of the base orientation and the offset
-  Matrix3 RB;
-  base_pose.get_rotation(&RB);
-  Vector3d RBa, RBb, RBc;
-  RB.get_column(A, RBa.begin());
-  RB.get_column(B, RBb.begin());
-  RB.get_column(C, RBc.begin());
-  Vector3d cross1 = Vector3d::cross(RBa, offset);
-  Vector3d cross2 = Vector3d::cross(RBb, offset);
-  Vector3d cross3 = Vector3d::cross(RBc, offset);
-
-  // make a 3x3 matrix from the cross products
-  Matrix3 cross;
-  cross.set_column(A, cross1);
-  cross.set_column(B, cross2);
-  cross.set_column(C, cross3);
-
-  // set the upper left submatrix of the Jacobian
-  J.set_sub_mat(A,A, IDENTITY_3x3);
-
-  // set the lower left submatrix of the Jacobian
-  J.set_sub_mat(D,A, ZEROS_3x3);
-
-  // set the upper right submatrix of the Jacobian
-  J.set_sub_mat(A,D, cross);  
-
-  // set the lower right submatrix of the Jacobian
-  J.set_sub_mat(D,D, RB);
-
+  J.resize(SPATIAL_DIM, SPATIAL_DIM);
+  for (unsigned i=0; i< SPATIAL_DIM; i++)
+  {
+    SharedVectorNd Ji = J.column(i);
+    sbase_prime[i].transpose_to_vector(Ji);
+  }
+ 
   return J;
 }
 
 /// Calculates the Jacobian for the current robot configuration at a given point and with respect to a given link
-// TODO: fix this
 MatrixNd& RCArticulatedBody::calc_jacobian(const Point3d& p, RigidBodyPtr link, MatrixNd& J)
 {
-  const unsigned NSPATIAL = 6;
+  const unsigned SPATIAL_DIM = 6;
   SAFESTATIC MatrixNd Jsub;
 
   // resize the Jacobian
-  J.set_zero(NSPATIAL, num_generalized_coordinates(DynamicBody::eSpatial));
+  J.set_zero(SPATIAL_DIM, num_generalized_coordinates(DynamicBody::eSpatial));
 
   if (is_floating_base())
   {
@@ -614,8 +595,7 @@ MatrixNd& RCArticulatedBody::calc_jacobian(const Point3d& p, RigidBodyPtr link, 
  *       transforms, computing the Jacobian, restoring the old joint values and
  *       link transforms; thus, it will be slower than a special purpose method
  */
-// TODO: fix this
-MatrixNd& RCArticulatedBody::calc_jacobian_column(JointPtr joint, const Point3d& point, const Matrix4& base_pose, const map<JointPtr, VectorNd>& q, MatrixNd& Jc)
+MatrixNd& RCArticulatedBody::calc_jacobian(const Point3d& point, const Pose3d& base_pose, const map<JointPtr, VectorNd>& q, RigidBodyPtr link, MatrixNd& Jc)
 {
   // store current joint values
   map<JointPtr, VectorNd> currentQ;
@@ -626,17 +606,23 @@ MatrixNd& RCArticulatedBody::calc_jacobian_column(JointPtr joint, const Point3d&
   for (map<JointPtr, VectorNd>::const_iterator i = q.begin(); i != q.end(); i++)
     i->first->q = i->second;
   
+  // save the current base pose and set it to that desired
+  RigidBodyPtr base = get_base_link();
+  Pose3d saved_base_pose = *base->get_pose();
+  base->set_pose(base_pose);
+
   // update link transforms
   update_link_poses();
 
   // compute and store the Jacobian
-  calc_jacobian_column(joint, point, Jc);
+  calc_jacobian(point, link, Jc);
 
   // restore joint values
   for (map<JointPtr, VectorNd>::const_iterator i = currentQ.begin(); i != currentQ.end(); i++)
     i->first->q = i->second;
 
-  // restore transforms
+  // restore the base pose and transforms
+  base->set_pose(saved_base_pose);
   update_link_poses();
 
   return Jc;
@@ -651,10 +637,11 @@ MatrixNd& RCArticulatedBody::calc_jacobian_column(JointPtr joint, const Point3d&
  *         the bottom three dimensions will be the contribution to angular
  *         velocity
  */
-// TODO: fix this
 MatrixNd& RCArticulatedBody::calc_jacobian_column(JointPtr joint, const Point3d& point, MatrixNd& Jc)
 {
   const unsigned SPATIAL_DIM = 6;
+  SAFESTATIC shared_ptr<Pose3d> target(new Pose3d);
+  SAFESTATIC vector<Twistd> sprime;
 
   // NOTE: spatial algebra provides us with a simple means to compute the
   // Jacobian of a joint with respect to a point.  The spatial axis of the
@@ -670,16 +657,16 @@ MatrixNd& RCArticulatedBody::calc_jacobian_column(JointPtr joint, const Point3d&
   Jc.resize(SPATIAL_DIM, s.size());
 
   // compute a spatial transformation using the point as the target frame
-  Matrix4 target(&IDENTITY_3x3, &point);
-  RigidBodyPtr outboard(joint->get_outboard_link());
-  SpatialTransform X_0i_i(outboard->get_pose(), target);
+  target->rpose = point.pose;
+  target->x = Origin3d(point);
+  target->q.set_identity();
+  Pose3d::transform(joint->get_pose(), target, s, sprime);
 
   // calculate the Jacobian column
-  for (unsigned i=0; i< s.size(); i++)
+  for (unsigned i=0; i< sprime.size(); i++)
   {
-    SVector6 sx = X_0i_i.transform(sa.get_column(i));
-    Vector3d top = sx.get_upper();
-    Vector3d bot = sx.get_lower();
+    Vector3d top = sprime[i].get_upper();
+    Vector3d bot = sprime[i].get_lower();
     Jc(0,i) = bot[0];
     Jc(1,i) = bot[1];
     Jc(2,i) = bot[2];
@@ -1302,6 +1289,7 @@ void RCArticulatedBody::determine_explicit_constraint_movement_jacobian(MatrixNd
 // TODO: fix this
 void RCArticulatedBody::determine_explicit_constraint_jacobians(const EventProblemData& q, MatrixNd& Jx, MatrixNd& Dx) const
 {
+/*
   SAFESTATIC vector<Twistd> so;
   SAFESTATIC MatrixNd sub, pinv_si;
   SAFESTATIC VectorNd vsub;
@@ -1350,7 +1338,7 @@ void RCArticulatedBody::determine_explicit_constraint_jacobians(const EventProbl
     RigidBodyPtr rbo = joint->get_outboard_link();
 
     // get the outboard body's transform
-    const Matrix4& To = rbo->get_pose();
+    shared_ptr<const Pose3d> To = rbo->get_pose();
 
     // get the spatial movement (axes) of this joint (rbo frame)
     const vector<Twistd>& s = joint->get_spatial_axes();
@@ -1364,16 +1352,16 @@ void RCArticulatedBody::determine_explicit_constraint_jacobians(const EventProbl
       pinv_si = si;
       LinAlg::pseudo_inverse(pinv_si, LinAlg::svd2);
     }
-/*
+
     // special case: floating base
-    if (_floating_base)
-    {
-      SpatialTransform X(To, IDENTITY_3x3, base->get_position());
-      MatrixNd::transpose(pinv_si, sx);
-      X.transform(sx, so);
-      D.set_sub_mat(r, 0, so, true); 
-    }
-*/
+//    if (_floating_base)
+//    {
+//      SpatialTransform X(To, IDENTITY_3x3, base->get_position());
+//      MatrixNd::transpose(pinv_si, sx);
+//      X.transform(sx, so);
+//      D.set_sub_mat(r, 0, so, true); 
+//    }
+
 
     // now, loop over implicit joints
     for (unsigned k=0; k< _ijoints.size(); k++)
@@ -1447,12 +1435,14 @@ void RCArticulatedBody::determine_explicit_constraint_jacobians(const EventProbl
     // update ii
     ii += joint->num_dof();
   }
+*/
 }
 
 /// Determines the ndof x ngc Jacobian for explicit constraint movement (ndof is the number of degrees of freedom of the explicit constraints)
 // TODO: fix this
 void RCArticulatedBody::determine_explicit_constraint_movement_jacobian(MatrixNd& D)
 {
+/*
   SAFESTATIC vector<Twistd> so;
   SAFESTATIC MatrixNd sub, pinv_si;
   double Cqi[6], Cqo[6];
@@ -1491,16 +1481,16 @@ void RCArticulatedBody::determine_explicit_constraint_movement_jacobian(MatrixNd
       pinv_si = si;
       LinAlg::pseudo_inverse(pinv_si, LinAlg::svd2);
     }
-/*
+
     // special case: floating base
-    if (_floating_base)
-    {
-      SpatialTransform X(To, IDENTITY_3x3, base->get_position());
-      MatrixNd::transpose(pinv_si, sx);
-      X.transform(sx, so);
-      D.set_sub_mat(r, 0, so, true); 
-    }
-*/
+//    if (_floating_base)
+//    {
+//      SpatialTransform X(To, IDENTITY_3x3, base->get_position());
+//      MatrixNd::transpose(pinv_si, sx);
+//      X.transform(sx, so);
+//      D.set_sub_mat(r, 0, so, true); 
+//    }
+
     // now, loop over implicit joints
     for (unsigned k=0; k< _ijoints.size(); k++)
     {
@@ -1521,6 +1511,7 @@ void RCArticulatedBody::determine_explicit_constraint_movement_jacobian(MatrixNd
       D.set_sub_mat(r,idx,sub);
     }
   }
+*/
 }
 
 /// Determines the constraint Jacobian for explicit constraints via impulse application (considerably slower than alternative method)
@@ -1582,6 +1573,7 @@ void RCArticulatedBody::determine_explicit_constraint_jacobian(MatrixNd& J)
 // TODO: fix this
 void RCArticulatedBody::determine_explicit_constraint_jacobian(MatrixNd& J)
 {
+/*
   SAFESTATIC vector<Twistd> so;
   SAFESTATIC VectorNd sub;
   double Cqi[6], Cqo[6];
@@ -1665,6 +1657,7 @@ void RCArticulatedBody::determine_explicit_constraint_jacobian(MatrixNd& J)
       }
     }
   }
+*/
 }
 
 /// Determines the time derivative of the constraint Jacobian for explicit constraints
@@ -1675,6 +1668,7 @@ void RCArticulatedBody::determine_explicit_constraint_jacobian(MatrixNd& J)
 // TODO: fix this
 void RCArticulatedBody::determine_explicit_constraint_jacobian_dot(MatrixNd& J) const
 {
+/*
   SAFESTATIC vector<Twistd> so;
   SAFESTATIC VectorNd sub;
   double Cqi[6], Cqo[6];
@@ -1829,6 +1823,7 @@ void RCArticulatedBody::determine_explicit_constraint_jacobian_dot(MatrixNd& J) 
       }
     }
   }
+*/
 }
 
 /// Sets the generalized acceleration for this body
@@ -2332,72 +2327,61 @@ VectorNd& RCArticulatedBody::get_generalized_forces(DynamicBody::GeneralizedCoor
 }
 
 /// Converts a force to a generalized force
-// TODO: fix this
+// TODO: fix this to work with bodies with loops
 VectorNd& RCArticulatedBody::convert_to_generalized_force(DynamicBody::GeneralizedCoordinateType gctype, SingleBodyPtr body, const Wrenchd& w, VectorNd& gf)
 {
   const unsigned SPATIAL_DIM = 6;
-  SAFESTATIC vector<Twistd> J;
-  SAFESTATIC VectorNd jf;
+  SAFESTATIC vector<Twistd> J, sprime;
 
   // get the body as a rigid body
-  RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(body);
-  assert(rb);
+  RigidBodyPtr link = dynamic_pointer_cast<RigidBody>(body);
+  assert(link);
 
-  // transform w to computation frame
-  Wrenchd wt = Pose3d::transform(w.pose, get_computation_frame(), w);
-
-  // make f/t a spatial vector in the frame
-  SpatialTransform X = SpatialTransform(IDENTITY_3x3, p, IDENTITY_4x4);
-  SVector6 sf(f, t);
-  SVector6 ft = X.transform(sf);
-
-  // determine the Jacobian in the global frame
-  const unsigned BASE_DIM = (_floating_base) ? SPATIAL_DIM : 0;
-  J.set_zero(SPATIAL_DIM, _n_joint_DOF_implicit);
+  // compute the Jacobian in w's frame
+  J.resize(num_joint_dof_implicit(), Twistd::zero(w.pose));  
   for (unsigned i=0; i< _ijoints.size(); i++)
   {
-    // get the gc index for the joint
-    unsigned idx = _ijoints[i]->get_coord_index() - BASE_DIM;
+    // if link is not a descent of this joint's inboard, keep looping
+    RigidBodyPtr inboard = _ijoints[i]->get_inboard_link();
+    if (!inboard->is_descendant_link(link))
+      continue;
 
-    // only add in Jacobian contribution if joint i supports the link
-    if (supports(_ijoints[i], rb))
-      J.set_sub_mat(0, idx, _ijoints[i]->get_spatial_axes(eGlobal));
+    // transform the Jacobian
+    const vector<Twistd>& s = _ijoints[i]->get_spatial_axes();
+    Pose3d::transform(_ijoints[i]->get_pose(), w.pose, s, sprime);
+    for (unsigned j=0, k=_ijoints[i]->get_coord_index(); j < s.size(); j++, k++)
+      J[k] = sprime[j];    
   }
+
+  // resize gf
+  gf.resize(num_generalized_coordinates(gctype)); 
 
   // get the torque on the joints
-  if (!_floating_base)
-  {
-    J.transpose_mult(ft, gf);
-    return gf;
-  }
-  else
-    J.transpose_mult(ft, jf);
+  SharedVectorNd jf = gf.segment(0, J.size());
+  transpose_mult(J, w, jf);
 
-  FILE_LOG(LOG_DYNAMICS) << "RCArticulatedBody::convert_to_generalized_force() - converting " << std::endl << "  " << f << " / " << t << " to generalized force" << std::endl;
-  FILE_LOG(LOG_DYNAMICS) << "  -- spatial force (global frame): " << ft << std::endl;
-  FILE_LOG(LOG_DYNAMICS) << "  -- Jacobian: " << std::endl << J.transpose();
-  FILE_LOG(LOG_DYNAMICS) << "  -- joint torques: " << jf << std::endl;
-
-  // resize the generalized force vector
-  gf.resize(num_generalized_coordinates(gctype));
-  gf.set_sub_vec(gf.size() - _n_joint_DOF_implicit, jf);
+  FILE_LOG(LOG_DYNAMICS) << "RCArticulatedBody::convert_to_generalized_force() - converting " << std::endl << "  " << w << " to generalized force" << std::endl;
+  FILE_LOG(LOG_DYNAMICS) << "  -- joint torques: " << gf.segment(0, J.size()) << std::endl;
 
   // determine the generalized force on the base
   RigidBodyPtr base = _links.front();
   if (gctype == DynamicBody::eSpatial)
   {
-    gf.set_sub_vec(0, base->sum_forces());
-    gf.set_sub_vec(3, base->sum_torques() - base->calc_inertial_forces());
+    Wrenchd wbase = base->sum_wrenches() - base->calc_inertial_forces();
+    wbase += Pose3d::transform(w.pose, wbase.pose, w);
+    SharedVectorNd gfbase = gf.segment(J.size(), gf.size());
+    wbase.to_vector(gfbase);
   }
   else
   {
-    Vector3d fb = base->get_pose().transpose_mult_vector(f);
-    base->convert_to_generalized_force(gctype, base, p, fb, t, jf);
-    FILE_LOG(LOG_DYNAMICS) << "  -- generalized force on base: " << jf << std::endl;
-    gf.set_sub_vec(0, jf);
+// TODO: fix this
+//    Vector3d fb = base->get_pose().transpose_mult_vector(f);
+//    base->convert_to_generalized_force(gctype, base, p, fb, t, jf);
+//    FILE_LOG(LOG_DYNAMICS) << "  -- generalized force on base: " << jf << std::endl;
+//    gf.set_sub_vec(0, jf);
   }
 
-  // resize the generalized force vector
+  // return the generalized force vector
   return gf;
 }
 

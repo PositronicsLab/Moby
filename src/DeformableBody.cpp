@@ -94,10 +94,12 @@ unsigned DeformableBody::num_generalized_coordinates(DynamicBody::GeneralizedCoo
 /**
  * See wikipedia entry on angular momentum for more information.
  */
+// TODO: fix the code below (frame calculations are likely off)
 void DeformableBody::calc_com_and_vels()
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
+/*
   // init the center of mass and mass
   _F->x = ZEROS_3;
   _J.m = (double) 0.0;
@@ -112,7 +114,7 @@ void DeformableBody::calc_com_and_vels()
   FILE_LOG(LOG_DEFORM) << "new center of mass: " << _F->x << endl;
 
   // compute the linear velocity
-  Vector3d xd = calc_point_vel(_F->x);
+  Vector3d xd = calc_point_vel(Point3d(_F->x, GLOBAL));
 
   // set the inertial offset to zero
   _J.h.set_zero();
@@ -142,7 +144,7 @@ void DeformableBody::calc_com_and_vels()
   Matrix3d Jinv = Matrix3d::inverse(_J.J);
 
   // now determine the angular momentum of the body
-  Vector3d P = Vector3d::cross(_F->x, xd * _J.m);
+  Vector3d P = Vector3d::cross(Vector3d(_F->x, GLOBAL), xd * _J.m);
   for (unsigned i=0; i< _nodes.size(); i++)
     P += Vector3d::cross(_nodes[i]->x - _F->x, _nodes[i]->xd * _nodes[i]->mass);
 
@@ -152,6 +154,7 @@ void DeformableBody::calc_com_and_vels()
   // setup the twist
   _xd.set_angular(omega);
   _xd.set_linear(xd);
+*/
 }
 
 /// Gets the generalized coordinates of the deformable body
@@ -425,7 +428,7 @@ void DeformableBody::rotate(const Quatd& q)
   for (unsigned i=0; i< _nodes.size(); i++)
   {
     // transform the node position
-    _nodes[i]->x = q * _nodes[i]->x;
+    _nodes[i]->x = Point3d(q * Origin3d(_nodes[i]->x), GLOBAL);
   }
 
   // calculate the position of the center-of-mass
