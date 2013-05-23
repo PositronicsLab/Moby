@@ -34,9 +34,9 @@ void MCArticulatedBody::apply_generalized_impulse(DynamicBody::GeneralizedCoordi
 
   for (unsigned i=0, k=0; i< _links.size(); i++)
   {
-    const unsigned ngc = _links[i]->num_generalized_coordinates(gctype);
+    const unsigned ngc = _links[i]->num_generalized_coordinates_single(gctype);
     gj.get_sub_vec(k, k+ngc, j);
-    _links[i]->apply_generalized_impulse(gctype, j);
+    _links[i]->apply_generalized_impulse_single(gctype, j);
     k += ngc;
   }
 }
@@ -49,9 +49,9 @@ void MCArticulatedBody::add_generalized_force(DynamicBody::GeneralizedCoordinate
 
   for (unsigned i=0, k=0; i< _links.size(); i++)
   {
-    const unsigned NGC = _links[i]->num_generalized_coordinates(gctype);
+    const unsigned NGC = _links[i]->num_generalized_coordinates_single(gctype);
     gf.get_sub_vec(k, k+NGC, f);
-    _links[i]->add_generalized_force(gctype, f);
+    _links[i]->add_generalized_force_single(gctype, f);
     k += NGC;
   }
 }
@@ -69,9 +69,9 @@ VectorN& MCArticulatedBody::get_generalized_coordinates(DynamicBody::Generalized
   // get the generalized coordinates
   for (unsigned i=0, k=0; i< _links.size(); i++)
   {
-    _links[i]->get_generalized_coordinates(gctype, gc_body);
+    _links[i]->get_generalized_coordinates_single(gctype, gc_body);
     gc.set_sub_vec(k, gc_body);
-    k += _links[i]->num_generalized_coordinates(gctype);
+    k += _links[i]->num_generalized_coordinates_single(gctype);
   }
 
   // evaluate all joints constraints
@@ -105,9 +105,9 @@ VectorN& MCArticulatedBody::get_generalized_velocity(DynamicBody::GeneralizedCoo
   // get the generalized velocities 
   for (unsigned i=0, k=0; i< _links.size(); i++)
   {
-    _links[i]->get_generalized_velocity(gctype, gv_body);
+    _links[i]->get_generalized_velocity_single(gctype, gv_body);
     gv.set_sub_vec(k, gv_body);
-    k += _links[i]->num_generalized_coordinates(gctype);
+    k += _links[i]->num_generalized_coordinates_single(gctype);
   }
 
   return gv; 
@@ -126,9 +126,9 @@ VectorN& MCArticulatedBody::get_generalized_acceleration(DynamicBody::Generalize
   // get the generalized accelerations
   for (unsigned i=0, k=0; i< _links.size(); i++)
   {
-    _links[i]->get_generalized_acceleration(gctype, ga_body);
+    _links[i]->get_generalized_acceleration_single(gctype, ga_body);
     ga.set_sub_vec(k, ga_body);
-    k += _links[i]->num_generalized_coordinates(gctype);
+    k += _links[i]->num_generalized_coordinates_single(gctype);
   }
 
   return ga; 
@@ -146,7 +146,7 @@ void MCArticulatedBody::compile()
   _gc_indices.clear();
   _gc_indices.push_back(0);
   for (unsigned i=1; i<= _links.size(); i++)
-    _gc_indices.push_back(_gc_indices.back() + _links[i-1]->num_generalized_coordinates(DynamicBody::eSpatial));
+    _gc_indices.push_back(_gc_indices.back() + _links[i-1]->num_generalized_coordinates_single(DynamicBody::eSpatial));
 
   // setup explicit joint generalized coordinate and constraint indices
   for (unsigned i=0, cidx = 0, ridx=0; i< _joints.size(); i++)
@@ -198,9 +198,9 @@ MatrixN& MCArticulatedBody::get_generalized_inertia(DynamicBody::GeneralizedCoor
   for (unsigned i=0, k=0; i< _links.size(); i++)
   {
     // set the proper component of the generalized inertia matrix
-    _links[i]->get_generalized_inertia(gctype, gI);
+    _links[i]->get_generalized_inertia_single(gctype, gI);
     M.set_sub_mat(k, k, gI);
-    k += _links[i]->num_generalized_coordinates(gctype);
+    k += _links[i]->num_generalized_coordinates_single(gctype);
   }
 
   return M;
@@ -832,7 +832,7 @@ void MCArticulatedBody::apply_impulse(const Vector3& j, const Vector3& k, const 
   #endif
 
   // setup generalized impulses 
-  link->convert_to_generalized_force(DynamicBody::eSpatial, link, contact_point, j, k, gj);
+  link->convert_to_generalized_force_single(DynamicBody::eSpatial, link, contact_point, j, k, gj);
   Qj.set_zero(NGC);
   unsigned gc_idx_start = _gc_indices[link->get_index()];
   Qj.set_sub_vec(gc_idx_start, gj); 
@@ -877,9 +877,9 @@ VectorN& MCArticulatedBody::get_generalized_forces(DynamicBody::GeneralizedCoord
   // get the generalized forces 
   for (unsigned i=0, k=0; i< _links.size(); i++)
   {
-    _links[i]->get_generalized_forces(gctype, f);
+    _links[i]->get_generalized_forces_single(gctype, f);
     gf.set_sub_vec(k, f);
-    k += _links[i]->num_generalized_coordinates(gctype);
+    k += _links[i]->num_generalized_coordinates_single(gctype);
   }
 
   return gf;
@@ -914,7 +914,7 @@ unsigned MCArticulatedBody::num_generalized_coordinates(DynamicBody::Generalized
 {
   unsigned ngc = 0;
   for (unsigned i=0; i< _links.size(); i++)
-    ngc += _links[i]->num_generalized_coordinates(gctype);
+    ngc += _links[i]->num_generalized_coordinates_single(gctype);
 
   return ngc;
 }
@@ -1620,9 +1620,9 @@ void MCArticulatedBody::set_generalized_coordinates(DynamicBody::GeneralizedCoor
   // get the generalized coordinates
   for (unsigned i=0, k=0; i< _links.size(); i++)
   {
-    const unsigned NGC = _links[i]->num_generalized_coordinates(gctype);
+    const unsigned NGC = _links[i]->num_generalized_coordinates_single(gctype);
     gc.get_sub_vec(k, k+NGC, sub_vec);
-    _links[i]->set_generalized_coordinates(gctype, sub_vec);
+    _links[i]->set_generalized_coordinates_single(gctype, sub_vec);
     k += NGC;
   }
 }
@@ -1635,9 +1635,9 @@ void MCArticulatedBody::set_generalized_velocity(DynamicBody::GeneralizedCoordin
   // get the generalized velocities 
   for (unsigned i=0, k=0; i< _links.size(); i++)
   {
-    const unsigned NGC = _links[i]->num_generalized_coordinates(gctype);
+    const unsigned NGC = _links[i]->num_generalized_coordinates_single(gctype);
     gv.get_sub_vec(k, k+NGC, tmpv);
-    _links[i]->set_generalized_velocity(gctype, tmpv);
+    _links[i]->set_generalized_velocity_single(gctype, tmpv);
     k += NGC;
   }
 
@@ -1671,7 +1671,7 @@ VectorN& MCArticulatedBody::convert_to_generalized_force(GeneralizedCoordinateTy
   assert(rb);
 
   // get the generalized force for the link
-  link->convert_to_generalized_force(gctype, link, p, f, t, link_gf);
+  link->convert_to_generalized_force_single(gctype, link, p, f, t, link_gf);
 
   // set the appropriate part in the vector
   for (unsigned i=0, k=0; i< _links.size(); i++)
@@ -1681,7 +1681,7 @@ VectorN& MCArticulatedBody::convert_to_generalized_force(GeneralizedCoordinateTy
       gf.set_sub_vec(k, link_gf);
       return gf;
     }
-    k += _links[i]->num_generalized_coordinates(gctype);
+    k += _links[i]->num_generalized_coordinates_single(gctype);
   }
 
   assert(false);

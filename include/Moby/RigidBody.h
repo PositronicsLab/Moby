@@ -41,8 +41,10 @@ class CollisionGeometry;
  */
 class RigidBody : public SingleBody
 {
-  public:
+  friend class RCArticulatedBody;
+  friend class MCArticulatedBody;
 
+  public:
     RigidBody();
     virtual ~RigidBody() {}
     virtual void integrate(double t, double h, boost::shared_ptr<Integrator> integrator);
@@ -89,8 +91,6 @@ class RigidBody : public SingleBody
     void remove_outer_joint(JointPtr joint);
     virtual double calc_kinetic_energy() const;
     virtual Ravelin::Vector3d calc_point_vel(const Ravelin::Point3d& p) const;
-    virtual void update_velocity(const EventProblemData& q);
-    virtual void update_event_data(EventProblemData& q);
     bool is_base() const;
     bool is_ground() const;
     virtual Ravelin::Point3d get_position() const;
@@ -187,6 +187,19 @@ class RigidBody : public SingleBody
     virtual boost::shared_ptr<const Ravelin::Pose3d> get_visualization_pose() { return _F; }
 
   private:  
+    Ravelin::VectorNd& get_generalized_coordinates_single(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& gc);
+    Ravelin::VectorNd& get_generalized_velocity_single(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& gv);
+    Ravelin::VectorNd& get_generalized_acceleration_single(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& ga);
+    void add_generalized_force_single(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gf);
+    void apply_generalized_impulse_single(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gf);
+    void set_generalized_coordinates_single(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gc);
+    void set_generalized_velocity_single(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gv);
+    Ravelin::MatrixNd& get_generalized_inertia_single(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::MatrixNd& M);
+    Ravelin::VectorNd& get_generalized_forces_single(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& f);
+    Ravelin::VectorNd& convert_to_generalized_force_single(DynamicBody::GeneralizedCoordinateType gctype, SingleBodyPtr body, const Ravelin::Wrenchd& w, Ravelin::VectorNd& gf);
+    unsigned num_generalized_coordinates_single(DynamicBody::GeneralizedCoordinateType gctype) const;
+    Ravelin::MatrixNd& solve_generalized_inertia_single(DynamicBody::GeneralizedCoordinateType gc, const Ravelin::MatrixNd& B, Ravelin::MatrixNd& X);
+    Ravelin::VectorNd& solve_generalized_inertia_single(DynamicBody::GeneralizedCoordinateType gc, const Ravelin::VectorNd& b, Ravelin::VectorNd& x);
     void synchronize();
     RigidBodyPtr get_parent_link(JointPtr j) const;
     RigidBodyPtr get_child_link(JointPtr j) const;

@@ -678,6 +678,19 @@ void RigidBody::apply_impulse(const Wrenchd& w)
   }
 }
 
+/// Gets the generalized inertia of this rigid body
+unsigned RigidBody::num_generalized_coordinates(GeneralizedCoordinateType gctype) const
+{
+  // if this body part of an articulated body, call that function instead
+  if (!_abody.expired())
+  {
+    ArticulatedBodyPtr ab(_abody);
+    return ab->num_generalized_coordinates(gctype);
+  }
+  else
+    return num_generalized_coordinates_single(gctype);
+}
+ 
 /// Adds a generalized force to this rigid body
 void RigidBody::add_generalized_force(GeneralizedCoordinateType gctype, const VectorNd& gf)
 {
@@ -732,6 +745,20 @@ void RigidBody::add_generalized_force(GeneralizedCoordinateType gctype, const Ve
 /// Applies a generalized impulse to this rigid body
 void RigidBody::apply_generalized_impulse(GeneralizedCoordinateType gctype, const VectorNd& gj)
 {
+  // if this body part of an articulated body, call that function instead
+  if (!_abody.expired())
+  {
+    ArticulatedBodyPtr ab(_abody);
+    ab->apply_generalized_impulse(gctype, gj);
+    return;
+  }
+  else
+    apply_generalized_impulse_single(gctype, gj);
+}
+
+/// Applies a generalized impulse to this rigid body
+void RigidBody::apply_generalized_impulse_single(GeneralizedCoordinateType gctype, const VectorNd& gj)
+{
   Wrenchd w;
 
   // don't do anything if this body is disabled
@@ -773,6 +800,19 @@ void RigidBody::apply_generalized_impulse(GeneralizedCoordinateType gctype, cons
 /// Solves using the generalized inertia matrix
 MatrixNd& RigidBody::solve_generalized_inertia(GeneralizedCoordinateType gctype, const MatrixNd& B, MatrixNd& X)
 {
+  // if this body part of an articulated body, call that function instead
+  if (!_abody.expired())
+  {
+    ArticulatedBodyPtr ab(_abody);
+    return ab->solve_generalized_inertia(gctype, B, X);
+  }
+  else
+    return solve_generalized_inertia_single(gctype, B, X);
+}
+
+/// Solves using the generalized inertia matrix (does not call articulated body version)
+MatrixNd& RigidBody::solve_generalized_inertia_single(GeneralizedCoordinateType gctype, const MatrixNd& B, MatrixNd& X)
+{
   // get proper generalized inertia matrix
   MatrixNd M;
   get_generalized_inertia(gctype, M);
@@ -785,6 +825,19 @@ MatrixNd& RigidBody::solve_generalized_inertia(GeneralizedCoordinateType gctype,
 /// Solves using the generalized inertia matrix
 VectorNd& RigidBody::solve_generalized_inertia(GeneralizedCoordinateType gctype, const VectorNd& b, VectorNd& x)
 {
+  // if this body part of an articulated body, call that function instead
+  if (!_abody.expired())
+  {
+    ArticulatedBodyPtr ab(_abody);
+    return ab->solve_generalized_inertia(gctype, b, x);
+  }
+  else
+    return solve_generalized_inertia_single(gctype, b, x);
+}
+
+/// Solves using the generalized inertia matrix
+VectorNd& RigidBody::solve_generalized_inertia_single(GeneralizedCoordinateType gctype, const VectorNd& b, VectorNd& x)
+{
   // get proper generalized inertia matrix
   MatrixNd M;
   get_generalized_inertia(gctype, M);
@@ -794,8 +847,8 @@ VectorNd& RigidBody::solve_generalized_inertia(GeneralizedCoordinateType gctype,
   return x;
 }
 
-/// Gets the generalized position of this rigid body
-VectorNd& RigidBody::get_generalized_coordinates(GeneralizedCoordinateType gctype, VectorNd& gc) 
+/// Gets the generalized position of this rigid body (does not call articulated body version)
+VectorNd& RigidBody::get_generalized_coordinates_single(GeneralizedCoordinateType gctype, VectorNd& gc) 
 {
   // special case: disabled body
   if (!_enabled)
@@ -825,8 +878,21 @@ VectorNd& RigidBody::get_generalized_coordinates(GeneralizedCoordinateType gctyp
   return gc; 
 }
 
-/// Sets the generalized coordinates of this rigid body
-void RigidBody::set_generalized_coordinates(GeneralizedCoordinateType gctype, const VectorNd& gc)
+/// Gets the generalized position of this rigid body
+VectorNd& RigidBody::get_generalized_coordinates(GeneralizedCoordinateType gctype, VectorNd& gc) 
+{
+  // if this body part of an articulated body, call that function instead
+  if (!_abody.expired())
+  {
+    ArticulatedBodyPtr ab(_abody);
+    return ab->get_generalized_coordinates(gctype, gc);
+  }
+  else
+    return get_generalized_coordinates_single(gctype, gc);
+}
+
+/// Sets the generalized coordinates of this rigid body (does not call articulated body)
+void RigidBody::set_generalized_coordinates_single(GeneralizedCoordinateType gctype, const VectorNd& gc)
 {
   assert(gc.size() == num_generalized_coordinates(gctype));
 
@@ -869,8 +935,34 @@ void RigidBody::set_generalized_coordinates(GeneralizedCoordinateType gctype, co
   }
 }
 
+/// Sets the generalized coordinates of this rigid body
+void RigidBody::set_generalized_coordinates(GeneralizedCoordinateType gctype, const VectorNd& gc)
+{
+  // if this body part of an articulated body, call that function instead
+  if (!_abody.expired())
+  {
+    ArticulatedBodyPtr ab(_abody);
+    ab->set_generalized_coordinates(gctype, gc);
+  }
+  else
+    set_generalized_coordinates_single(gctype, gc);
+}
+
 /// Sets the generalized velocity of this rigid body
 void RigidBody::set_generalized_velocity(GeneralizedCoordinateType gctype, const VectorNd& gv)
+{
+  // if this body part of an articulated body, call that function instead
+  if (!_abody.expired())
+  {
+    ArticulatedBodyPtr ab(_abody);
+    ab->set_generalized_velocity(gctype, gv);
+  }
+  else
+    set_generalized_velocity_single(gctype, gv);
+}
+
+/// Sets the generalized velocity of this rigid body (does not call articulated body version)
+void RigidBody::set_generalized_velocity_single(GeneralizedCoordinateType gctype, const VectorNd& gv)
 {
   // special case: disabled body
   if (!_enabled)
@@ -915,6 +1007,19 @@ void RigidBody::set_generalized_velocity(GeneralizedCoordinateType gctype, const
 
 /// Gets the generalized velocity of this rigid body
 VectorNd& RigidBody::get_generalized_velocity(GeneralizedCoordinateType gctype, VectorNd& gv) 
+{
+  // if this body part of an articulated body, call that function instead
+  if (!_abody.expired())
+  {
+    ArticulatedBodyPtr ab(_abody);
+    return ab->get_generalized_velocity(gctype, gv);
+  }
+  else
+    return get_generalized_velocity_single(gctype, gv);
+}
+
+/// Gets the generalized velocity of this rigid body (does not call articulated body version)
+VectorNd& RigidBody::get_generalized_velocity_single(GeneralizedCoordinateType gctype, VectorNd& gv) 
 {
   // special case: disabled body
   if (!_enabled)
@@ -977,6 +1082,19 @@ VectorNd& RigidBody::get_generalized_velocity(GeneralizedCoordinateType gctype, 
 /// Gets the generalized acceleration of this body
 VectorNd& RigidBody::get_generalized_acceleration(GeneralizedCoordinateType gctype, VectorNd& ga)
 {
+  // if this body part of an articulated body, call that function instead
+  if (!_abody.expired())
+  {
+    ArticulatedBodyPtr ab(_abody);
+    return ab->get_generalized_acceleration(gctype, ga);
+  }
+  else
+    return get_generalized_acceleration_single(gctype, ga);
+}
+
+/// Gets the generalized acceleration of this body (does not call articulated body version)
+VectorNd& RigidBody::get_generalized_acceleration_single(GeneralizedCoordinateType gctype, VectorNd& ga)
+{
   // special case: body is disabled
   if (!_enabled)
     return ga.resize(0);
@@ -1036,7 +1154,20 @@ VectorNd& RigidBody::get_generalized_acceleration(GeneralizedCoordinateType gcty
 }
 
 /// Gets the generalized inertia of this rigid body
-MatrixNd& RigidBody::get_generalized_inertia(GeneralizedCoordinateType gctype, MatrixNd& M) 
+MatrixNd& RigidBody::get_generalized_inertia(GeneralizedCoordinateType gctype, MatrixNd& M)
+{
+  // if this body part of an articulated body, call that function instead
+  if (!_abody.expired())
+  {
+    ArticulatedBodyPtr ab(_abody);
+    return ab->get_generalized_inertia(gctype, M);
+  }
+  else
+    return get_generalized_inertia_single(gctype, M);
+}
+ 
+/// Gets the generalized inertia of this rigid body (does not call articulated body version)
+MatrixNd& RigidBody::get_generalized_inertia_single(GeneralizedCoordinateType gctype, MatrixNd& M) 
 {
   const unsigned X = 0, Y = 1, Z = 2, SPATIAL_DIM = 6, EULER_DIM = 7;
 
@@ -1112,8 +1243,21 @@ MatrixNd& RigidBody::get_generalized_inertia(GeneralizedCoordinateType gctype, M
   return M;
 }
 
-/// Gets the generalized external forces
-VectorNd& RigidBody::get_generalized_forces(GeneralizedCoordinateType gctype, VectorNd& gf) 
+/// Gets the generalized inertia of this rigid body
+VectorNd& RigidBody::get_generalized_forces(GeneralizedCoordinateType gctype, VectorNd& gf)
+{
+  // if this body part of an articulated body, call that function instead
+  if (!_abody.expired())
+  {
+    ArticulatedBodyPtr ab(_abody);
+    return ab->get_generalized_forces(gctype, gf);
+  }
+  else
+    return get_generalized_forces_single(gctype, gf);
+}
+
+/// Gets the generalized external forces (does not call articulated body version)
+VectorNd& RigidBody::get_generalized_forces_single(GeneralizedCoordinateType gctype, VectorNd& gf) 
 {
   // special case: disabled body
   if (!_enabled)
@@ -1168,6 +1312,19 @@ VectorNd& RigidBody::get_generalized_forces(GeneralizedCoordinateType gctype, Ve
 
 /// Converts a force to a generalized force
 VectorNd& RigidBody::convert_to_generalized_force(GeneralizedCoordinateType gctype, SingleBodyPtr body, const Wrenchd& w, VectorNd& gf) 
+{
+  // if this belongs to an articulated body, call the articulated body method
+  if (!_abody.expired())
+  {
+    ArticulatedBodyPtr ab(_abody);
+    return ab->convert_to_generalized_force(gctype, body, w, gf); 
+  }
+  else
+    return convert_to_generalized_force_single(gctype, body, w, gf);
+}
+
+/// Converts a force to a generalized force (does not call articulated body version)
+VectorNd& RigidBody::convert_to_generalized_force_single(GeneralizedCoordinateType gctype, SingleBodyPtr body, const Wrenchd& w, VectorNd& gf) 
 {
   // verify that body == this
   assert(body.get() == this);
@@ -1229,20 +1386,12 @@ double RigidBody::calc_kinetic_energy() const
 }
 
 /// Gets the number of generalized coordinates
-unsigned RigidBody::num_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype) const
+unsigned RigidBody::num_generalized_coordinates_single(DynamicBody::GeneralizedCoordinateType gctype) const
 {
   const unsigned NGC_EULER = 7, NGC_SPATIAL = 6;
 
   // no generalized coordinates if this body is disabled
   if (!_enabled)
-    return 0;
-
-  // look for other case where # of g.c.'s is zero: reduced coordinate 
-  // articulated body with fixed base and rigid body is the base
-  ArticulatedBodyPtr abody = get_articulated_body();
-  RCArticulatedBodyPtr rcab = dynamic_pointer_cast<RCArticulatedBody>(abody);
-  assert(!(rcab && rcab->get_base_link() != get_this()));
-  if (rcab && !rcab->is_floating_base())
     return 0;
 
   // return the proper number of coordinates
@@ -1298,11 +1447,11 @@ JointPtr RigidBody::get_inner_joint_implicit() const
   return ij; 
 }
 
+// TODO: fix this (if necessary)
+/*
 /// Updates the velocity of this body using impulses computed via event data
 void RigidBody::update_velocity(const EventProblemData& q)
 {
-  // TODO: fix this (if necessary)
-/*
   // check for easy exit
   if (q.N_CONTACTS == 0 || !_enabled)
     return;
@@ -1372,14 +1521,14 @@ void RigidBody::update_velocity(const EventProblemData& q)
   for (unsigned i=0; i< q.contact_events.size(); i++)
     FILE_LOG(LOG_EVENT) << "  contact velocity at " << q.contact_events[i]->contact_point << " along normal " << q.contact_events[i]->contact_normal << ": " << q.contact_events[i]->contact_normal.dot(calc_point_vel(q.contact_events[i]->contact_point)) << std::endl;
   FILE_LOG(LOG_EVENT) << "RigidBody::update_velocity() exited" << std::endl;
-*/
 }
+*/
 
+// TODO: fix this (if necessary)
+/*
 /// Adds contributions to the event matrices
 void RigidBody::update_event_data(EventProblemData& q) 
 {
-  // TODO: fix this (if necessary)
-/*
   if (q.N_CONTACTS == 0 || !_enabled)
     return;
 
@@ -1670,8 +1819,8 @@ void RigidBody::update_event_data(EventProblemData& q)
       q.Dc_iM_DcT(jj+1,ii+1) = q.Dc_iM_DcT(ii+1,jj+1);
     }
   } 
-*/
 }
+*/
 
 /// Determines whether this link is a "ground" (fixed link)
 bool RigidBody::is_ground() const

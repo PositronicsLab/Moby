@@ -14,8 +14,6 @@
 #include <boost/shared_ptr.hpp>
 #include <Moby/Constants.h>
 #include <Moby/Types.h>
-#include <Moby/Joint.h>
-#include <Moby/RigidBody.h>
 #include <Moby/ContactParameters.h>
 
 namespace osg { class Node; }
@@ -129,6 +127,7 @@ class Event
     void compute_cross_event_data(const Event& e, Ravelin::MatrixNd& M) const;
 
   private:
+    unsigned get_super_bodies(DynamicBodyPtr& sb1, DynamicBodyPtr& sb2) const;
     static void determine_convex_set(std::list<Event*>& group);
     static bool is_contact_manifold_2D(const std::list<Event*>& group);
 

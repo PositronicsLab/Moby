@@ -19,6 +19,7 @@
 
 namespace Moby {
 
+class EventProblemData;
 class RigidBody;
 
 /// Defines an articulated body simulated using maximal coordinate methods

@@ -470,7 +470,7 @@ double ImpactEventHandler::calc_ke(EventProblemData& q, const VectorNd& z)
 
   // calculate KE
   double KE = (double) 0.0;
-  set_generalized_velocities(q);
+  apply_impulses(q);
   for (unsigned i=0; i< q.super_bodies.size(); i++)
     KE += q.super_bodies[i]->calc_kinetic_energy();
 

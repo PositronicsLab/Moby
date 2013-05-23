@@ -14,7 +14,7 @@
 #include <Moby/Integrator.h>
 #include <Moby/Log.h>
 #include <Moby/Visualizable.h>
-#include <Moby/EventProblemData.h>
+#include <Moby/Event.h>
 #include <Moby/RecurrentForce.h>
 
 namespace Moby {

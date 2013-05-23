@@ -50,8 +50,6 @@ class PSDeformableBody : public DeformableBody
     void set_spring(unsigned i, Spring &s) { _springs[i] = s; }
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
-    virtual void update_event_data(EventProblemData& epd);
-    virtual void update_velocity(const EventProblemData& epd);
     virtual double calc_potential_energy() const;
     virtual boost::shared_ptr<Ravelin::Pose3d> get_computation_frame_pose() const;
     virtual void set_computation_frame_type(ReferenceFrameType rftype);
