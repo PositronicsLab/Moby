@@ -4,11 +4,10 @@
 #include <vector>
 #include <Ravelin/MatrixNd.h>
 #include <Ravelin/VectorNd.h>
+#include <Moby/Event.h>
 #include <Moby/Types.h>
 
 namespace Moby {
-
-class Event;
 
 struct EventProblemData
 {
@@ -55,9 +54,11 @@ struct EventProblemData
     super_bodies = q.super_bodies; 
 
     // the vectors of events
+    events = q.events;
     contact_events = q.contact_events;
     limit_events = q.limit_events;
     constraint_events = q.constraint_events;
+    constraint_events_objects = q.constraint_events_objects;
 
     // cross-event terms
     Jc_iM_JcT = q.Jc_iM_JcT;
@@ -113,9 +114,11 @@ struct EventProblemData
 
     // clear all vectors
     super_bodies.clear();
+    events.clear();
     contact_events.clear();
     limit_events.clear();
     constraint_events.clear();
+    constraint_events_objects.clear();
 
     // reset all Ravelin::VectorNd sizes
     Jc_v.resize(0);
@@ -175,6 +178,83 @@ struct EventProblemData
     z.get_sub_vec(BETAU_C_IDX, ALPHA_L_IDX, workv);
     workv2.set_sub_vec(N_LIN_CONE*2, workv);
     beta_c += workv2;
+  }
+
+  // partitions event vectors into contact and limit events
+  void partition_events()
+  {
+    const unsigned UINF = std::numeric_limits<unsigned>::max();
+    contact_events.clear();
+    limit_events.clear();
+
+    BOOST_FOREACH(Event* e, events)
+    {
+      if (e->event_type == Event::eContact)
+        contact_events.push_back(e);
+      else
+      {
+        assert(e->event_type == Event::eLimit);
+        limit_events.push_back(e);
+      }
+    }
+
+    // now, sort the contact events such that events that use a true friction
+    // cone are at the end
+    for (unsigned i=0, j=contact_events.size()-1; i< j; )
+    {
+      if (contact_events[i]->contact_NK == UINF)
+      {
+        std::swap(contact_events[i], contact_events[j]);
+        j--;
+      } 
+      else
+        i++;
+    }
+  }
+
+  /// Adds constraint events
+  void add_constraint_events()
+  {
+    // clear the vectors
+    constraint_events_objects.clear();
+    constraint_events.clear();
+
+    // determine the articulated bodies
+    std::vector<ArticulatedBodyPtr> abodies;
+    BOOST_FOREACH(const Event* e, events)
+    {
+      if (e->event_type == Event::eContact)
+      {
+        SingleBodyPtr sb1 = e->contact_geom1->get_single_body();
+        SingleBodyPtr sb2 = e->contact_geom2->get_single_body();
+        ArticulatedBodyPtr ab1 = sb1->get_articulated_body();
+        ArticulatedBodyPtr ab2 = sb2->get_articulated_body();
+        if (ab1)
+          abodies.push_back(ab1);
+        if (ab2)
+          abodies.push_back(ab2);
+      }
+      else if (e->event_type == Event::eLimit)
+      {
+        RigidBodyPtr rb = e->limit_joint->get_outboard_link();
+        abodies.push_back(rb->get_articulated_body());
+      }
+      else
+        assert(false);
+    }
+
+    // make the vector of articulated bodies unique
+    std::sort(abodies.begin(), abodies.end());
+    abodies.erase(std::unique(abodies.begin(), abodies.end()), abodies.end());
+
+    // determine the constraint events
+    for (unsigned i=0; i< abodies.size(); i++)
+      abodies[i]->get_constraint_events(constraint_events_objects);
+
+    // add the pointers to the constraint event objects to the constraint events
+    constraint_events.resize(constraint_events_objects.size());
+    for (unsigned i=0; i< constraint_events_objects.size(); i++)
+      constraint_events[i] = &constraint_events_objects[i];
   }
 
   // sets stacked vector from alpha_c, beta_c, etc.
@@ -260,7 +340,8 @@ struct EventProblemData
   std::vector<DynamicBodyPtr> super_bodies; 
 
   // the vectors of events
-  std::vector<Event*> contact_events, limit_events, constraint_events;
+  std::vector<Event*> events, contact_events, limit_events, constraint_events;
+  std::vector<Event> constraint_events_objects;
 
   // cross-event terms
   Ravelin::MatrixNd Jc_iM_JcT, Jc_iM_DcT, Jc_iM_JlT, Jc_iM_DtT, Jc_iM_JxT, Jc_iM_DxT;

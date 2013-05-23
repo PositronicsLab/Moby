@@ -129,7 +129,6 @@ void ImpactEventHandler::apply_model(const vector<Event>& events)
 void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& events)
 {
   double ke_minus = 0.0, ke_plus = 0.0;
-  vector<Event> constraint_event_objects;
   SAFESTATIC EventProblemData epd;
 
   FILE_LOG(LOG_EVENT) << "ImpactEventHandler::apply_model_to_connected_events() entered" << endl;
@@ -137,11 +136,14 @@ void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& eve
   // reset problem data
   epd.reset();
 
+  // save the events
+  epd.events = vector<Event*>(events.begin(), events.end());
+
   // determine sets of contact and limit events
-  partition_events(events, epd.contact_events, epd.limit_events);
+  epd.partition_events();
 
   // add events for constraints for articulated bodies
-  add_constraint_events(events, constraint_event_objects, epd.constraint_events);
+  epd.add_constraint_events();
 
   // compute all event cross-terms
   compute_problem_data(epd);
@@ -171,8 +173,8 @@ void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& eve
   else
     solve_nqp(epd, poisson_eps);
 
-  // set new generalized velocities 
-  set_generalized_velocities(epd);
+  // apply impulses 
+  apply_impulses(epd);
 
   // compute energy
   if (LOGGING(LOG_EVENT))
@@ -213,92 +215,66 @@ bool ImpactEventHandler::use_qp_solver(const EventProblemData& epd)
   return true;
 }
 
-/// Adds constraint events
-void ImpactEventHandler::add_constraint_events(const list<Event*>& events, vector<Event>& constraint_events_objects, vector<Event*>& constraint_events)
+/// Applies impulses to bodies
+void ImpactEventHandler::apply_impulses(const EventProblemData& q) const
 {
-  // clear the vectors
-  constraint_events_objects.clear();
-  constraint_events.clear();
+  map<DynamicBodyPtr, VectorNd> gj;
+  map<DynamicBodyPtr, VectorNd>::iterator gj_iter;
+  VectorNd workv;
 
-  // determine the articulated bodies
-  vector<ArticulatedBodyPtr> abodies;
-  BOOST_FOREACH(const Event* e, events)
+  // loop over all contact events first
+  for (unsigned i=0; i< q.contact_events.size(); i++)
   {
-    if (e->event_type == Event::eContact)
-    {
-      SingleBodyPtr sb1 = e->contact_geom1->get_single_body();
-      SingleBodyPtr sb2 = e->contact_geom2->get_single_body();
-      ArticulatedBodyPtr ab1 = sb1->get_articulated_body();
-      ArticulatedBodyPtr ab2 = sb2->get_articulated_body();
-      if (ab1)
-        abodies.push_back(ab1);
-      if (ab2)
-        abodies.push_back(ab2);
-    }
-    else if (e->event_type == Event::eLimit)
-    {
-      RigidBodyPtr rb = e->limit_joint->get_outboard_link();
-      abodies.push_back(rb->get_articulated_body());
-    }
-    else
-      assert(false);
-  }
+    // get the contact wrench
+    const Event& e = *q.contact_events[i];
+    const Wrenchd& w = e.contact_impulse;
 
-  // make the vector of articulated bodies unique
-  std::sort(abodies.begin(), abodies.end());
-  abodies.erase(std::unique(abodies.begin(), abodies.end()), abodies.end());
+    // get the two single bodies of the contact
+    SingleBodyPtr sb1 = e.contact_geom1->get_single_body();
+    SingleBodyPtr sb2 = e.contact_geom2->get_single_body();
 
-  // determine the constraint events
-  for (unsigned i=0; i< abodies.size(); i++)
-    abodies[i]->get_constraint_events(constraint_events_objects);
+    // get the two super bodies
+    DynamicBodyPtr db1 = sb1->get_super_body();
+    DynamicBodyPtr db2 = sb2->get_super_body();
 
-  // add the pointers to the constraint event objects to the constraint events
-  constraint_events.resize(constraint_events_objects.size());
-  for (unsigned i=0; i< constraint_events_objects.size(); i++)
-    constraint_events[i] = &constraint_events_objects[i];
-}
-
-/// Partitions the events into contact and limit events
-void ImpactEventHandler::partition_events(const list<Event*>& all, vector<Event*>& contacts, vector<Event*>& limits)
-{
-  const unsigned UINF = std::numeric_limits<unsigned>::max();
-  contacts.clear();
-  limits.clear();
-
-  BOOST_FOREACH(Event* e, all)
-  {
-    if (e->event_type == Event::eContact)
-      contacts.push_back(e);
+    // convert wrench on first body to generalized forces
+    if ((gj_iter = gj.find(db1)) == gj.end())
+      db1->convert_to_generalized_force(DynamicBody::eSpatial, sb1, w, gj[db1]);
     else
     {
-      assert(e->event_type == Event::eLimit);
-      limits.push_back(e);
+      db1->convert_to_generalized_force(DynamicBody::eSpatial, sb1, w, workv);
+      gj_iter->second += workv; 
+    }
+
+    // convert wrench on second body to generalized forces
+    if ((gj_iter = gj.find(db2)) == gj.end())
+      db2->convert_to_generalized_force(DynamicBody::eSpatial, sb2, -w, gj[db2]);
+    else
+    {
+      db2->convert_to_generalized_force(DynamicBody::eSpatial, sb2, -w, workv);
+      gj_iter->second += workv; 
     }
   }
 
-  // now, sort the contact events such that events that use a true friction
-  // cone are at the end
-  for (unsigned i=0, j=contacts.size()-1; i< j; )
+  // TODO: figure out how to apply limit impulses
+  // TODO: figure out how to apply constraint impulses
+  // loop over all limit events next
+  for (unsigned i=0; i< q.limit_events.size(); i++)
   {
-    if (contacts[i]->contact_NK == UINF)
-    {
-      std::swap(contacts[i], contacts[j]);
-      j--;
-    } 
-    else
-      i++;
+    const Event& e = *q.limit_events[i];
   }
-}
 
-/// Determines and sets the new generalized velocities
-void ImpactEventHandler::set_generalized_velocities(const EventProblemData& q)
-{
+  // apply all generalized impacts
+  for (map<DynamicBodyPtr, VectorNd>::const_iterator i = gj.begin(); i != gj.end(); i++)
+    i->first->apply_generalized_impulse(DynamicBody::eSpatial, i->second);
 }
 
 /// Computes the data to the LCP / QP problems
 void ImpactEventHandler::compute_problem_data(EventProblemData& q)
 {
   const unsigned UINF = std::numeric_limits<unsigned>::max();
+  MatrixNd updM;
+  VectorNd updq;
 
   // determine set of "super" bodies from contact events
   q.super_bodies.clear();
@@ -420,7 +396,7 @@ void ImpactEventHandler::compute_problem_data(EventProblemData& q)
   for (unsigned i=0; i< q.events.size(); i++)
   {
     // get the event data
-    q.events[i]->calc_event_data(_updM, _updq); 
+    q.events[i]->calc_event_data(updM, updq); 
 
     // get the index mapping for event i
     const vector<unsigned>& mapping_i = q.mappings[i];
@@ -430,29 +406,29 @@ void ImpactEventHandler::compute_problem_data(EventProblemData& q)
     for (unsigned r=0; r< N; r++)
     {
       for (unsigned s=0; s< N; s++)
-        q.M(mapping_i[r], mapping_i[s]) = _updM(r,s);
-      q.q[mapping_i[r]] = _updq[r]; 
+        q.M(mapping_i[r], mapping_i[s]) = updM(r,s);
+      q.q[mapping_i[r]] = updq[r]; 
     }
 
     // loop over all over events
     for (unsigned j=i+1; j< q.events.size(); j++)
     {
       // get the cross event data, if any
-      if (q.events[i]->calc_cross_event_data(*q.events[j], _updM)) 
+      if (q.events[i]->calc_cross_event_data(*q.events[j], updM)) 
       {
         // get the index mapping for event j 
         const vector<unsigned>& mapping_j = q.mappings[j];
 
         // verify that updM is of the size we expect
-        assert(_updM.rows() == N && _updM.columns() == M);
+        assert(updM.rows() == N && updM.columns() == M);
 
         // update M
         const unsigned M = mapping_j.size();
         for (unsigned r=0; r< N; r++)
           for (unsigned s=0; s< M; s++)
           {
-            q.M(mapping_i[r], mapping_j[s]) = _updM(r,s);
-            q.M(mapping_j[s], mapping_i[r]) = _updM(r,s);
+            q.M(mapping_i[r], mapping_j[s]) = updM(r,s);
+            q.M(mapping_j[s], mapping_i[r]) = updM(r,s);
           }
       }
     }
@@ -472,39 +448,40 @@ void ImpactEventHandler::update_event_data(EventProblemData& q, unsigned i)
   // loop through all bodies
   for (unsigned i=0; i< ebodies.size(); i++)
   {
-    ebodies[i]->calc_event_data(e, 
+//    ebodies[i]->calc_event_data(e, 
   }
 }
 
 /// Solves the (frictionless) LCP
 void ImpactEventHandler::solve_lcp(EventProblemData& q, VectorNd& z)
 {
-  SAFESTATIC MatrixNd UL, LR, MM;
+  SAFESTATIC MatrixNd UL, LR, MM, U, V;
   SAFESTATIC MatrixNd UR, t2, iJx_iM_JxT;
-  SAFESTATIC VectorNd alpha_c, alpha_l, alpha_x, v1, v2, qq;
+  SAFESTATIC VectorNd alpha_c, alpha_l, alpha_x, v1, v2, qq, S;
 
   // setup sizes
   UL.resize(q.N_CONTACTS, q.N_CONTACTS);
   UR.resize(q.N_CONTACTS, q.N_LIMITS);
   LR.resize(q.N_LIMITS, q.N_LIMITS);
 
-  // setup primary terms -- first upper left hand block of matrix
+  // prepare to invert Jx*inv(M)*Jx'
   iJx_iM_JxT = q.Jx_iM_JxT;
-  try
-  {
-    LinAlg::pseudo_inverse(iJx_iM_JxT, LinAlg::svd1);
-  }
-  catch (NumericalException e)
-  {
-    iJx_iM_JxT = q.Jx_iM_JxT;
-    LinAlg::pseudo_inverse(iJx_iM_JxT, LinAlg::svd2);
-  }
+  _LA.svd(iJx_iM_JxT, U, S, V);
+
+  // setup primary terms -- first upper left hand block of matrix
+  MatrixNd::transpose(q.Jc_iM_JxT, t2);
+  _LA.solve_LS_fast(U, S, V, t2);
+  q.Jc_iM_JxT.mult(t2, UL); 
+  
   q.Jc_iM_JxT.mult(iJx_iM_JxT, t2);
   t2.mult_transpose(q.Jc_iM_JxT, UL);
+
   // now do upper right hand block of matrix
-  t2.mult_transpose(q.Jl_iM_JxT, UR);
+  MatrixNd::transpose(q.Jl_iM_JxT, t2);
+  _LA.solve_LS_fast(U, S, V, t2);
+  q.Jc_iM_JxT.mult(t2, UR);
+  
   // now lower right hand block of matrix
-  q.Jl_iM_JxT.mult(iJx_iM_JxT, t2);
   t2.mult_transpose(q.Jl_iM_JxT, LR);
 
   // subtract secondary terms
@@ -521,12 +498,12 @@ void ImpactEventHandler::solve_lcp(EventProblemData& q, VectorNd& z)
   MM.resize(q.N_CONTACTS + q.N_LIMITS, q.N_CONTACTS + q.N_LIMITS);
   MM.set_sub_mat(0, 0, UL);
   MM.set_sub_mat(0, q.N_CONTACTS, UR);
-  MM.set_sub_mat(q.N_CONTACTS, 0, UR, true);
+  MM.set_sub_mat(q.N_CONTACTS, 0, UR, Ravelin::eTranspose);
   MM.set_sub_mat(q.N_CONTACTS, q.N_CONTACTS, LR);
 
   // setup the LCP vector
   qq.resize(MM.rows());
-  iJx_iM_JxT.mult(q.Jx_v, v2); 
+  _LA.solve_LS_fast(U, S, V, v2 = q.Jx_v); 
   q.Jc_iM_JxT.mult(v2, v1);
   v1 -= q.Jc_v;
   qq.set_sub_vec(0, v1);
@@ -570,7 +547,7 @@ void ImpactEventHandler::solve_lcp(EventProblemData& q, VectorNd& z)
   v1 += v2;
   v1 += q.Jx_v;
   v1.negate();
-  iJx_iM_JxT.mult(v1, alpha_x);
+  _LA.solve_LS_fast(U, S, V, alpha_x = v1);
 
   // setup the homogeneous solution
   z.set_zero();

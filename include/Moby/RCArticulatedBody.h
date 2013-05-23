@@ -24,6 +24,7 @@
 namespace Moby {
 
 class Joint;
+class EventProblemData;
 
 /// Defines an articulated body for use with reduced-coordinate dynamics algorithms
 /**
@@ -75,8 +76,6 @@ class RCArticulatedBody : public ArticulatedBody
     virtual unsigned num_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype) const;
     virtual void set_links(const std::vector<RigidBodyPtr>& links);
     virtual void set_joints(const std::vector<JointPtr>& links);
-    virtual void update_event_data(EventProblemData& epd);
-    virtual void update_velocity(const EventProblemData& epd);
     virtual unsigned num_joint_dof_explicit() const;
     virtual unsigned num_joint_dof_implicit() const { return _n_joint_DOF_implicit; }
     void set_floating_base(bool flag);

@@ -412,7 +412,7 @@ VectorNd& RCArticulatedBody::get_generalized_acceleration(DynamicBody::Generaliz
   if (_floating_base)
   {
     RigidBodyPtr base = _links.front();
-    base->get_generalized_acceleration(gctype, base_ga);
+    base->get_generalized_acceleration_single(gctype, base_ga);
     ga.set_sub_vec(num_joint_dof_implicit(), base_ga);
   }
 
@@ -1918,7 +1918,7 @@ VectorNd& RCArticulatedBody::get_generalized_coordinates(DynamicBody::Generalize
   // acceleration in the base frame
   assert(!_links.empty());
   RigidBodyPtr base = _links.front();
-  base->get_generalized_coordinates(gctype, base_gc);
+  base->get_generalized_coordinates_single(gctype, base_gc);
   gc.set_sub_vec(num_joint_dof_implicit(), base_gc);
     
   return gc;
@@ -1943,7 +1943,7 @@ void RCArticulatedBody::set_generalized_coordinates(DynamicBody::GeneralizedCoor
     assert(!_links.empty());
     RigidBodyPtr base = _links.front();
     gc.get_sub_vec(num_joint_dof_implicit(), gc.size(), base_gc);
-    base->set_generalized_coordinates(gctype, base_gc);
+    base->set_generalized_coordinates_single(gctype, base_gc);
   }
 
   // link transforms must now be updated
@@ -2010,7 +2010,7 @@ VectorNd& RCArticulatedBody::get_generalized_velocity(DynamicBody::GeneralizedCo
   // get the generalized velocity for the base
   assert(!_links.empty());
   RigidBodyPtr base = _links.front();
-  base->get_generalized_velocity(gctype, base_gv);
+  base->get_generalized_velocity_single(gctype, base_gv);
   gv.set_sub_vec(num_joint_dof_implicit(), base_gv);
 
   return gv;
@@ -2367,8 +2367,7 @@ VectorNd& RCArticulatedBody::convert_to_generalized_force(DynamicBody::Generaliz
   RigidBodyPtr base = _links.front();
   if (gctype == DynamicBody::eSpatial)
   {
-    Wrenchd wbase = base->sum_wrenches() - base->calc_inertial_forces();
-    wbase += Pose3d::transform(w.pose, wbase.pose, w);
+    Wrenchd wbase = Pose3d::transform(w.pose, base->get_computation_frame(), w);
     SharedVectorNd gfbase = gf.segment(J.size(), gf.size());
     wbase.to_vector(gfbase);
   }

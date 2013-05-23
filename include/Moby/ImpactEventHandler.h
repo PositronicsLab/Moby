@@ -15,6 +15,7 @@
 #include <Moby/Types.h>
 #include <Moby/LCP.h>
 #include <Moby/Event.h>
+#include <Moby/EventProblemData.h>
 
 namespace Moby {
 
@@ -135,20 +136,18 @@ class ImpactEventHandler
     void apply_model(const std::vector<Event>& events);
     void apply_model_to_connected_events(const std::list<Event*>& events);
     static void compute_problem_data(EventProblemData& epd);
-    static void solve_lcp(EventProblemData& epd, Ravelin::VectorNd& z);
+    void solve_lcp(EventProblemData& epd, Ravelin::VectorNd& z);
     void solve_qp(EventProblemData& epd, double eps);
     static void solve_nqp(EventProblemData& epd, double eps);
     void solve_qp_work(EventProblemData& epd, Ravelin::VectorNd& z);
     void solve_qp_work_general(EventProblemData& epd, Ravelin::VectorNd& z);
     void solve_qp_work_ijoints(EventProblemData& epd, Ravelin::VectorNd& z);
-    static double calc_ke(EventProblemData& epd, const Ravelin::VectorNd& z);
+    double calc_ke(EventProblemData& epd, const Ravelin::VectorNd& z);
     bool opt_satisfied(const EventProblemData& q, const std::vector<bool>& working_set, double& KE, Ravelin::VectorNd& x, unsigned j);
     void update_problem(const EventProblemData& qorig, EventProblemData& qnew);
     void update_solution(const EventProblemData& q, const Ravelin::VectorNd& x, const std::vector<bool>& working_set, unsigned jidx, Ravelin::VectorNd& z);
     static void solve_nqp_work(EventProblemData& epd, Ravelin::VectorNd& z);
-    static void set_generalized_velocities(const EventProblemData& epd);
-    static void partition_events(const std::list<Event*>& events, std::vector<Event*>& contacts, std::vector<Event*>& limits);
-    static void add_constraint_events(const std::list<Event*>& events, std::vector<Event>& constraint_event_objects, std::vector<Event*>& constraint_events);
+    void apply_impulses(const EventProblemData& epd) const;
     static void contact_select(const std::vector<int>& alpha_c_indices, const std::vector<int>& beta_nbeta_c_indices, const Ravelin::VectorNd& x, Ravelin::VectorNd& alpha_c, Ravelin::VectorNd& beta_c);
     static void contact_select(const std::vector<int>& alpha_c_indices, const std::vector<int>& beta_nbeta_c_indices, const Ravelin::MatrixNd& m, Ravelin::MatrixNd& alpha_c_rows, Ravelin::MatrixNd& beta_c_rows);
     static double sqr(double x) { return x*x; }

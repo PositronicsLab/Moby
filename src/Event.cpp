@@ -1242,3 +1242,49 @@ double Event::calc_event_tol() const
     assert(false);
 }
 
+/// Gets the super bodies for the event
+unsigned Event::get_super_bodies(DynamicBodyPtr& db1, DynamicBodyPtr& db2) const
+{
+  // look for empty event
+  if (event_type == Event::eNone)
+    return 0;
+
+  // look for limit event
+  if (event_type == Event::eLimit)
+  {
+    RigidBodyPtr outboard = limit_joint->get_outboard_link();
+    db1 = outboard->get_articulated_body();
+    return 1;
+  }
+  else if (event_type == Event::eConstraint)
+  {
+    RigidBodyPtr outboard = constraint_joint->get_outboard_link();
+    db1 = outboard->get_articulated_body();
+    return 1;
+  }  
+  else if (event_type == Event::eContact)
+  {
+    SingleBodyPtr sb1 = contact_geom1->get_single_body();
+    SingleBodyPtr sb2 = contact_geom2->get_single_body();
+    ArticulatedBodyPtr ab1 = sb1->get_articulated_body();
+    ArticulatedBodyPtr ab2 = sb2->get_articulated_body();
+    if (ab1)
+      db1 = ab1;
+    else
+    {
+      if (sb1->is_enabled())
+        db1 = sb1;
+    }
+    if (ab2)
+      db2 = ab2;
+    else
+    {
+      if (sb2->is_enabled())
+        db2 = sb2;
+    }
+    return 2;
+  }
+  else
+    assert(false);
+}
+
