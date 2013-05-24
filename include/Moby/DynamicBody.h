@@ -138,7 +138,7 @@ class DynamicBody : public Visualizable
      * \param gf the generalized force, on return
      * \note uses the current generalized coordinates
      */
-    virtual Ravelin::VectorNd& convert_to_generalized_force(GeneralizedCoordinateType gctype, SingleBodyPtr body, const Ravelin::Wrenchd& w, Ravelin::VectorNd& gf) = 0;
+    virtual Ravelin::VectorNd& convert_to_generalized_force(GeneralizedCoordinateType gctype, SingleBodyPtr body, const Ravelin::Wrenchd& w, const Ravelin::Point3d& p, Ravelin::VectorNd& gf) = 0;
 
     /// The controller callback, if any, for this body
     void (*controller)(boost::shared_ptr<DynamicBody>, double, void*);

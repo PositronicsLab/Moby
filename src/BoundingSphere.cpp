@@ -30,6 +30,19 @@ BoundingSphere& BoundingSphere::operator=(const BoundingSphere& source)
   return *this;
 }
 
+/// Transforms the BoundingSphere using the given transform
+void BoundingSphere::transform(const Transform3d& T, BV* result) const
+{
+  // get the BoundingSphere 
+  BoundingSphere& s = *((BoundingSphere*) result);
+
+  // copy this
+  s = *this;
+
+  // transform the center
+  s.center = T.transform(center);
+}
+
 /// Sends the bounding sphere to VRML
 std::ostream& BoundingSphere::to_vrml(std::ostream& out, const Pose3d& T) const
 {

@@ -2328,7 +2328,7 @@ VectorNd& RCArticulatedBody::get_generalized_forces(DynamicBody::GeneralizedCoor
 
 /// Converts a force to a generalized force
 // TODO: fix this to work with bodies with loops
-VectorNd& RCArticulatedBody::convert_to_generalized_force(DynamicBody::GeneralizedCoordinateType gctype, SingleBodyPtr body, const Wrenchd& w, VectorNd& gf)
+VectorNd& RCArticulatedBody::convert_to_generalized_force(DynamicBody::GeneralizedCoordinateType gctype, SingleBodyPtr body, const Wrenchd& w, const Point3d& p, VectorNd& gf)
 {
   const unsigned SPATIAL_DIM = 6;
   SAFESTATIC vector<Twistd> J, sprime;

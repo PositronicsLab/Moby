@@ -25,11 +25,12 @@ class IndexedTetraArray : public Base
     IndexedTetraArray(boost::shared_ptr<const std::vector<Ravelin::Point3d> > vertices, const std::vector<IndexedTetra>& facets);
     IndexedTetraArray(boost::shared_ptr<const std::vector<Ravelin::Point3d> > vertices, boost::shared_ptr<const std::vector<IndexedTetra> > facets);
 
-    template <class InputIterator1, class InputIterator2>
-    IndexedTetraArray(InputIterator1 vertices, InputIterator1 verts_end, InputIterator2 facets_begin, InputIterator2 facets_end);
+    template <class ForwardIterator1, class ForwardIterator2>
+    IndexedTetraArray(ForwardIterator1 vertices, ForwardIterator1 verts_end, ForwardIterator2 facets_begin, ForwardIterator2 facets_end);
 
     void center();
     unsigned num_tetra() const { return (_tetra) ? _tetra->size() : 0; }
+    boost::shared_ptr<const Ravelin::Pose3d> get_pose() const;
     IndexedTetraArray transform(const Ravelin::Transform3d& T) const;
     IndexedTetraArray compress_vertices() const;
     static IndexedTetraArray read_from_tetra(const std::string& filename);
@@ -57,6 +58,8 @@ class IndexedTetraArray : public Base
   private:
     void validate();
 
+    /// The pose that these vertices are defined in
+    boost::shared_ptr<const Ravelin::Pose3d> _pose;
     boost::shared_ptr<const std::vector<IndexedTetra> > _tetra;
     boost::shared_ptr<const std::vector<Ravelin::Point3d> > _vertices;
 

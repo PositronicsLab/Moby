@@ -34,6 +34,20 @@ SSL::SSL(const SSL& s, const Vector3d& v)
   radius = s.radius + v.norm();
 }
 
+/// Transforms the SSL using the given transform
+void SSL::transform(const Transform3d& T, BV* result) const
+{
+  // get the SSL
+  SSL& s = *((SSL*) result);
+
+  // copy this
+  s = *this;
+
+  // transform the two points on the line 
+  s.p1 = T.transform(p1);
+  s.p2 = T.transform(p2);
+}
+
 /// Copies one SSL to another
 void SSL::operator=(const SSL& s)
 {

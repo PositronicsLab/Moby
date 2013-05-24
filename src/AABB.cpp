@@ -95,6 +95,24 @@ bool AABB::intersects(const AABB& a, const LineSeg3& seg, double& tmin, double t
   return true;
 }
 
+/// Transforms the OBB using the given transform
+void AABB::transform(const Transform3d& T, BV* result) const
+{
+  // get the AABB
+  AABB& aabb = *((AABB*) result);
+
+  // copy this
+  aabb = *this;
+
+  // get the OBB version of this transformed
+  OBB o;
+  get_OBB().transform(T, &o);
+
+  // now setup the AABB boundary points
+  aabb.minp = o.get_lower_bounds();
+  aabb.maxp = o.get_lower_bounds();
+}
+
 /// Determines whether a point is outside of a AABB
 bool AABB::outside(const AABB& a, const Point3d& point, double tol)
 {

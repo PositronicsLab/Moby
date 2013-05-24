@@ -4,6 +4,7 @@
  * License (found in COPYING).
  ****************************************************************************/
 
+#include <boost/make_shared.hpp>
 #include <fstream>
 #include <Moby/CollisionGeometry.h>
 #include <Moby/XMLTree.h>
@@ -13,6 +14,7 @@
 #include <Moby/DeformableBody.h>
 
 using boost::shared_ptr;
+using boost::make_shared;
 using boost::dynamic_pointer_cast;
 using boost::static_pointer_cast;
 using std::vector;
@@ -34,7 +36,6 @@ DeformableBody::DeformableBody()
 
   // initialize the identity transform
   _identity_pose = shared_ptr<Pose3d>(new Pose3d);
-  _identity_pose->set_identity();
 
   // ensure that config updates are enabled
   _config_updates_enabled = true;
@@ -65,7 +66,7 @@ void DeformableBody::apply_generalized_impulse(DynamicBody::GeneralizedCoordinat
   assert(num_generalized_coordinates(gctype) == gj.size());
   for (unsigned i=0; i< _nodes.size(); i++)
   {
-    Vector3d j(gj[i*THREE_D], gj[i*THREE_D+1], gj[i*THREE_D+2]);
+    Vector3d j(gj[i*THREE_D], gj[i*THREE_D+1], gj[i*THREE_D+2], GLOBAL);
     _nodes[i]->xd += j/_nodes[i]->mass;
   }
 }
@@ -78,7 +79,7 @@ void DeformableBody::add_generalized_force(DynamicBody::GeneralizedCoordinateTyp
   assert(num_generalized_coordinates(gctype) == gf.size());
   for (unsigned i=0; i< _nodes.size(); i++)
   {
-    Vector3d f(gf[i*THREE_D], gf[i*THREE_D+1], gf[i*THREE_D+2]);
+    Vector3d f(gf[i*THREE_D], gf[i*THREE_D+1], gf[i*THREE_D+2], GLOBAL);
     _nodes[i]->f += f;
   }
 }
@@ -94,12 +95,10 @@ unsigned DeformableBody::num_generalized_coordinates(DynamicBody::GeneralizedCoo
 /**
  * See wikipedia entry on angular momentum for more information.
  */
-// TODO: fix the code below (frame calculations are likely off)
 void DeformableBody::calc_com_and_vels()
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
-/*
   // init the center of mass and mass
   _F->x = ZEROS_3;
   _J.m = (double) 0.0;
@@ -114,7 +113,7 @@ void DeformableBody::calc_com_and_vels()
   FILE_LOG(LOG_DEFORM) << "new center of mass: " << _F->x << endl;
 
   // compute the linear velocity
-  Vector3d xd = calc_point_vel(Point3d(_F->x, GLOBAL));
+  Vector3d xd = calc_point_vel(Point3d(0.0, 0.0, 0.0, _F));
 
   // set the inertial offset to zero
   _J.h.set_zero();
@@ -144,17 +143,19 @@ void DeformableBody::calc_com_and_vels()
   Matrix3d Jinv = Matrix3d::inverse(_J.J);
 
   // now determine the angular momentum of the body
-  Vector3d P = Vector3d::cross(Vector3d(_F->x, GLOBAL), xd * _J.m);
+  Vector3d P(0.0, 0.0, 0.0, _F);
   for (unsigned i=0; i< _nodes.size(); i++)
-    P += Vector3d::cross(_nodes[i]->x - _F->x, _nodes[i]->xd * _nodes[i]->mass);
+  {
+    Vector3d r = Pose3d::transform(_nodes[i]->x.pose, _F, _nodes[i]->x);
+    P += Vector3d::cross(r, _nodes[i]->xd * _nodes[i]->mass);
+  }
 
   // set the angular velocity
-  Vector3d omega = Jinv * P;
+  Vector3d omega(Jinv * Origin3d(P), _F);
 
   // setup the twist
   _xd.set_angular(omega);
   _xd.set_linear(xd);
-*/
 }
 
 /// Gets the generalized coordinates of the deformable body
@@ -168,7 +169,7 @@ VectorNd& DeformableBody::get_generalized_coordinates(DynamicBody::GeneralizedCo
   // populate the gc vector
   for (unsigned i=0, j=0; i< _nodes.size(); i++)
   {
-    const Vector3d& x = _nodes[i]->x;
+    const Point3d& x = _nodes[i]->x;
     gc[j++] = x[X];
     gc[j++] = x[Y];
     gc[j++] = x[Z];
@@ -354,47 +355,39 @@ VectorNd& DeformableBody::get_generalized_forces(DynamicBody::GeneralizedCoordin
 }
 
 /// Converts a force and torque to a generalized force on the body
-// TODO: fix this
-VectorNd& DeformableBody::convert_to_generalized_force(DynamicBody::GeneralizedCoordinateType gctype, SingleBodyPtr body, const Wrenchd& w, VectorNd& gf)
-{
-  return gf;
-}
-
-/*
-VectorNd& DeformableBody::convert_to_generalized_force(DynamicBody::GeneralizedCoordinateType gctype, SingleBodyPtr body, const Vector3d& p, const Vector3d& f, const Vector3d& t, VectorNd& gf)
+VectorNd& DeformableBody::convert_to_generalized_force(DynamicBody::GeneralizedCoordinateType gctype, SingleBodyPtr body, const Wrenchd& w, const Point3d& p, VectorNd& gf)
 {
   const unsigned THREE_D = 3, X = 0, Y = 1, Z = 2;
   gf.set_zero(_nodes.size() * THREE_D);
+
+  // convert the wrench to the global frame
+  Wrenchd w0 = Pose3d::transform(w.pose, GLOBAL, w);
+  Vector3d f = w0.get_force();
 
   // determine in what tetrahedron the point lies (or is closest)
   unsigned i = find_closest_tetrahedron(p);
 
   // get (and correct) the barycentric coordinates for p
-  double u, v, w;
+  double bu, bv, bw;
   const Tetrahedron& tet = _tetra_mesh->get_tetrahedron(i);
-  tet.determine_barycentric_coords(p, u, v, w);
+  tet.determine_barycentric_coords(p, bu, bv, bw);
 
   // correct barycentric coordinates
-  if (u < (double) 0.0) u = (double) 0.0;
-  else if (u > (double) 1.0) u = (double) 1.0;
-  if (v < (double) 0.0) v = (double) 0.0;
-  else if (u + v > (double) 1.0) v = (double) 1.0 - u;
-  if (w < (double) 0.0) w = (double) 0.0;
-  else if (u + v + w > (double) 1.0) w = (double) 1.0 - u - v;
+  if (bu < 0.0) bu = 0.0;
+  else if (bu > 1.0) bu = 1.0;
+  if (bv < 0.0) bv = 0.0;
+  else if (bu + bv > 1.0) bv = 1.0 - bu;
+  if (bw < 0.0) bw = 0.0;
+  else if (bu + bv + bw > 1.0) bw = 1.0 - bu - bv;
 
   // now determine forces on the nodes
-  Vector3 fa = f*u;
-  Vector3 fb = f*v;
-  Vector3 fc = f*w;
-  Vector3 fd = f*((double) 1.0-u-v-w);
-  gf.set_sub_vec(_tetrahedra[i].a*3, fa);
-  gf.set_sub_vec(_tetrahedra[i].b*3, fb);
-  gf.set_sub_vec(_tetrahedra[i].c*3, fc);
-  gf.set_sub_vec(_tetrahedra[i].d*3, fd);
+  gf.set_sub_vec(_tetrahedra[i].a*3, f*bu);
+  gf.set_sub_vec(_tetrahedra[i].b*3, f*bv);
+  gf.set_sub_vec(_tetrahedra[i].c*3, f*bw);
+  gf.set_sub_vec(_tetrahedra[i].d*3, f*(1.0-bu-bv-bw));
 
   return gf;
 }
-*/
 
 /// Resets the force / torque accumulators on the deformable body
 void DeformableBody::reset_accumulators()
@@ -467,6 +460,9 @@ unsigned DeformableBody::find_closest_tetrahedron(const Point3d& p) const
 {
   FILE_LOG(LOG_DEFORM) << "DeformableBody::find_closest_tetrahedron() entered" << endl;
 
+  // convert the point to the global frame
+  Point3d p0 = Pose3d::transform(p.pose, GLOBAL, p);
+
   // get the vector of tetrahedra
   assert(_tetrahedra.size() > 0);
 
@@ -475,9 +471,9 @@ unsigned DeformableBody::find_closest_tetrahedron(const Point3d& p) const
 
   // determine all tetrahedra that p could lie within
   list<unsigned> tet_ids;
-  get_tetrahedra(p, std::back_inserter(tet_ids));
+  get_tetrahedra(p0, std::back_inserter(tet_ids));
   if (tet_ids.empty())
-    FILE_LOG(LOG_DEFORM) << " -- warning: point " << p << " not inside any tetrahedra!" << std::endl;
+    FILE_LOG(LOG_DEFORM) << " -- warning: point " << p0 << " not inside any tetrahedra!" << std::endl;
 
   // if list is empty, determine the closest bounding boxes 
   if (tet_ids.empty())
@@ -496,14 +492,14 @@ unsigned DeformableBody::find_closest_tetrahedron(const Point3d& p) const
     Tetrahedron tet(_nodes[_tetrahedra[id].a]->x, _nodes[_tetrahedra[id].b]->x,
                     _nodes[_tetrahedra[id].c]->x, _nodes[_tetrahedra[id].d]->x);
 
-    FILE_LOG(LOG_DEFORM) << "distance of " << p << " to tetrahedron " << id << std::endl;
+    FILE_LOG(LOG_DEFORM) << "distance of " << p0 << " to tetrahedron " << id << std::endl;
     FILE_LOG(LOG_DEFORM) << "  " << _nodes[_tetrahedra[id].a]->x << std::endl;
     FILE_LOG(LOG_DEFORM) << "  " << _nodes[_tetrahedra[id].b]->x << std::endl;
     FILE_LOG(LOG_DEFORM) << "  " << _nodes[_tetrahedra[id].c]->x << std::endl;
     FILE_LOG(LOG_DEFORM) << "  " << _nodes[_tetrahedra[id].d]->x << std::endl;
 
     // determine the distance from the point to the tetrahedron
-    double dist = tet.calc_signed_dist(p);
+    double dist = tet.calc_signed_dist(p0);
     FILE_LOG(LOG_DEFORM) << "is " << dist << std::endl;
     if (dist > min_dist)
       continue;
@@ -601,12 +597,15 @@ void DeformableBody::set_mesh(shared_ptr<const IndexedTetraArray> tetra_mesh, sh
   // set the default mass
   const double DEFAULT_MASS = (double) 1.0;
 
-  // store the meshes
-  _tetra_mesh = tetra_mesh;
-  _tri_mesh = tri_mesh;
+  // store the triangle mesh
+  _tri_mesh = tri_mesh; 
 
   // store the tetrahedra
   _tetrahedra = tetra_mesh->get_tetra();
+
+  // transform the tetrahedral mesh 
+  Transform3d T = Pose3d::calc_relative_pose(tetra_mesh->get_pose(), GLOBAL);
+  _tetra_mesh = make_shared<const IndexedTetraArray>(tetra_mesh->transform(T)); 
 
   // get the vertices of the meshes
   const vector<Point3d>& tet_vertices = tetra_mesh->get_vertices();
@@ -618,7 +617,7 @@ void DeformableBody::set_mesh(shared_ptr<const IndexedTetraArray> tetra_mesh, sh
   {
     _nodes[i] = shared_ptr<Node>(new Node);
     _nodes[i]->x = tet_vertices[i];
-    _nodes[i]->xd = _nodes[i]->xdd = ZEROS_3;
+    _nodes[i]->xd = _nodes[i]->xdd = Vector3d(0.0, 0.0, 0.0, GLOBAL);
     _nodes[i]->mass = DEFAULT_MASS;
   }
 
@@ -635,6 +634,10 @@ void DeformableBody::set_mesh(shared_ptr<const IndexedTetraArray> tetra_mesh, sh
   _vertex_map = vector<VertexMap>(tri_vertices.size());
   for (unsigned i=0; i< tri_vertices.size(); i++)
   {
+    // verify that triangle mesh vertex is in global frame (this is my
+    // assumption, but I'm not sure of the implication if it's false)
+    assert(tri_vertices[i].pose == GLOBAL);
+
     // get the closest tetrahedron
     unsigned closest = find_closest_tetrahedron(tri_vertices[i]);
 
@@ -652,12 +655,12 @@ void DeformableBody::set_mesh(shared_ptr<const IndexedTetraArray> tetra_mesh, sh
     tet.determine_barycentric_coords(tri_vertices[i], u, v, w);
 
     // correct barycentric coordinates
-    if (u < (double) 0.0) u = (double) 0.0;
-    else if (u > (double) 1.0) u = (double) 1.0;
-    if (v < (double) 0.0) v = (double) 0.0;
-    else if (u + v > (double) 1.0) v = (double) 1.0 - u;
-    if (w < (double) 0.0) w = (double) 0.0;
-    else if (u + v + w > (double) 1.0) w = (double) 1.0 - u - v;
+    if (u < 0.0) u = 0.0;
+    else if (u > 1.0) u = 1.0;
+    if (v < 0.0) v = 0.0;
+    else if (u + v > 1.0) v = 1.0 - u;
+    if (w < 0.0) w = 0.0;
+    else if (u + v + w > 1.0) w = 1.0 - u - v;
 
     // store barycentric coords
     _vertex_map[i].uvw[0] = u;
@@ -736,7 +739,10 @@ Vector3d DeformableBody::calc_point_vel(const Point3d& p) const
   const Vector3d& vd = _nodes[itet.d]->xd;
 
   // determine the velocity at p using the barycentric function
-  return vb*u + vc*v + vd*w + va*((double) 1.0 - u - v - w);
+  Vector3d vx = vb*u + vc*v + vd*w + va*(1.0 - u - v - w);
+
+  // convert the velocity to the desired frame
+  return Pose3d::transform(vx.pose, p.pose, vx);
 }
 
 /*

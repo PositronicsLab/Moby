@@ -52,6 +52,8 @@ class DummyBV : public BV
     /// Gets the upper bounds
     virtual Ravelin::Point3d get_upper_bounds() { double INF = std::numeric_limits<double>::max(); return Ravelin::Point3d(INF, INF, INF); }
 
+    /// Transforms the dummy BV (does nothing)
+    virtual void transform(const Ravelin::Transform3d& T, BV* result) const {}
 }; // end class
 
 } // end namespace

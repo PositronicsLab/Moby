@@ -228,30 +228,31 @@ void ImpactEventHandler::apply_impulses(const EventProblemData& q) const
     // get the contact wrench
     const Event& e = *q.contact_events[i];
     const Wrenchd& w = e.contact_impulse;
+    const Point3d& p = e.contact_point;
 
     // get the two single bodies of the contact
     SingleBodyPtr sb1 = e.contact_geom1->get_single_body();
     SingleBodyPtr sb2 = e.contact_geom2->get_single_body();
 
     // get the two super bodies
-    DynamicBodyPtr db1 = sb1->get_super_body();
-    DynamicBodyPtr db2 = sb2->get_super_body();
+    DynamicBodyPtr b1 = sb1->get_super_body();
+    DynamicBodyPtr b2 = sb2->get_super_body();
 
     // convert wrench on first body to generalized forces
-    if ((gj_iter = gj.find(db1)) == gj.end())
-      db1->convert_to_generalized_force(DynamicBody::eSpatial, sb1, w, gj[db1]);
+    if ((gj_iter = gj.find(b1)) == gj.end())
+      b1->convert_to_generalized_force(DynamicBody::eSpatial, sb1, w, p, gj[b1]);
     else
     {
-      db1->convert_to_generalized_force(DynamicBody::eSpatial, sb1, w, workv);
+      b1->convert_to_generalized_force(DynamicBody::eSpatial, sb1, w, p, workv);
       gj_iter->second += workv; 
     }
 
     // convert wrench on second body to generalized forces
-    if ((gj_iter = gj.find(db2)) == gj.end())
-      db2->convert_to_generalized_force(DynamicBody::eSpatial, sb2, -w, gj[db2]);
+    if ((gj_iter = gj.find(b2)) == gj.end())
+      b2->convert_to_generalized_force(DynamicBody::eSpatial, sb2, -w, p, gj[b2]);
     else
     {
-      db2->convert_to_generalized_force(DynamicBody::eSpatial, sb2, -w, workv);
+      b2->convert_to_generalized_force(DynamicBody::eSpatial, sb2, -w, p, workv);
       gj_iter->second += workv; 
     }
   }

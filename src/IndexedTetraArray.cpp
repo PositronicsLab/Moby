@@ -33,6 +33,16 @@ IndexedTetraArray::IndexedTetraArray(shared_ptr<const vector<Point3d> > vertices
 {
   _vertices = vertices;
 
+  // verify that all vertices are in the same frame
+  #ifndef NDEBUG
+  for (unsigned i=1; i < vertices->size(); i++)
+    assert(vertices->front().pose == (*vertices)[i].pose);
+  #endif  
+
+  // get the pose that the vertices are defined in
+  if (!_vertices->empty())
+    _pose = _vertices->front().pose;
+
   // setup tetra 
   shared_ptr<vector<IndexedTetra> > new_tetra(new vector<IndexedTetra>(tetra));
   _tetra = new_tetra;
@@ -47,6 +57,16 @@ IndexedTetraArray::IndexedTetraArray(shared_ptr<const vector<Point3d> > vertices
   _vertices = vertices;
   _tetra = tetra;
 
+  // verify that all vertices are in the same frame
+  #ifndef NDEBUG
+  for (unsigned i=1; i < vertices->size(); i++)
+    assert(vertices->front().pose == (*vertices)[i].pose);
+  #endif  
+
+  // get the pose that the vertices are defined in
+  if (!_vertices->empty())
+    _pose = _vertices->front().pose;
+
   // validate indices within range and tetrahedra oriented correctly
   validate();  
 }
@@ -56,6 +76,7 @@ IndexedTetraArray& IndexedTetraArray::operator=(const IndexedTetraArray& mesh)
 {
   _vertices = mesh._vertices;
   _tetra = mesh._tetra;
+  _pose = mesh._pose;
 
   return *this;
 }
@@ -232,6 +253,9 @@ IndexedTetraArray IndexedTetraArray::transform(const Transform3d& T) const
   vector<Point3d>& vertices = *new_vertices;
   for (unsigned i=0; i< vertices.size(); i++)
     vertices[i] = T.transform(vertices[i]);
+
+  // setup new pose
+  it._pose = T.target;
 
   return it;
 }

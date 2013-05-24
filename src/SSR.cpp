@@ -39,6 +39,22 @@ SSR::SSR(const SSR& s, const Vector3d& v)
   radius = s.radius + v.norm();
 }
 
+/// Transforms the SSR using the given transform
+void SSR::transform(const Transform3d& T, BV* result) const
+{
+  // get the SSR
+  SSR& s = *((SSR*) result);
+
+  // copy this
+  s = *this;
+
+  // transform the center
+  s.center = T.transform(center);
+
+  // transform the orientation
+  s.R = Matrix3d(T.q) * R;
+}
+
 /// Copies one SSR to another
 void SSR::operator=(const SSR& s)
 {

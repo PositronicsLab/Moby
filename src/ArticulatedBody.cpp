@@ -38,7 +38,7 @@ double ArticulatedBody::get_aspeed() const
   double max_aspeed = (double) 0.0;
   for (unsigned i=0; i< _links.size(); i++)
   {
-    double aspeed = _links[i]->velocity().get_angular().norm();
+    double aspeed = _links[i]->get_aspeed();
     if (aspeed > max_aspeed)
       max_aspeed = aspeed;
   }

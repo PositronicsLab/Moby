@@ -1311,13 +1311,13 @@ VectorNd& RigidBody::get_generalized_forces_single(GeneralizedCoordinateType gct
 }
 
 /// Converts a force to a generalized force
-VectorNd& RigidBody::convert_to_generalized_force(GeneralizedCoordinateType gctype, SingleBodyPtr body, const Wrenchd& w, VectorNd& gf) 
+VectorNd& RigidBody::convert_to_generalized_force(GeneralizedCoordinateType gctype, SingleBodyPtr body, const Wrenchd& w, const Point3d& p, VectorNd& gf) 
 {
   // if this belongs to an articulated body, call the articulated body method
   if (!_abody.expired())
   {
     ArticulatedBodyPtr ab(_abody);
-    return ab->convert_to_generalized_force(gctype, body, w, gf); 
+    return ab->convert_to_generalized_force(gctype, body, w, p, gf); 
   }
   else
     return convert_to_generalized_force_single(gctype, body, w, gf);
