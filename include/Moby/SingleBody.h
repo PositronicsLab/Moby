@@ -54,9 +54,15 @@ class SingleBody : public DynamicBody
     /// Calculates the velocity at a point on the body in a given direction
     double calc_point_vel(const Ravelin::Point3d& point, const Ravelin::Vector3d& dir) { return calc_point_vel(point).dot(dir); }
 
-  private:
+    /// Gets the maximum angular speed of this body (useful for collision detection)
+    virtual double get_aspeed() const 
+    { 
+      const Ravelin::Twistd& v = velocity();
+      boost::shared_ptr<const Ravelin::Pose3d> F = get_pose();
+      Ravelin::Twistd vi = Ravelin::Pose3d::transform(v.pose, F, v);
+      return vi.get_angular().norm(); 
+    }
 
-    virtual double get_aspeed() const { return velocity().get_angular().norm(); }
 }; // end class
 
 } // end namespace

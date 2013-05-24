@@ -32,6 +32,22 @@ OBB::OBB()
   l.set_zero();
 }
 
+/// Transforms the OBB using the given transform
+void OBB::transform(const Transform3d& T, BV* result) const
+{
+  // get the OBB
+  OBB& o = *((OBB*) result);
+
+  // copy this
+  o = *this;
+
+  // transform the center
+  o.center = T.transform(center);
+
+  // transform the orientation
+  o.R = Matrix3d(T.q) * R;
+}
+
 /// Copies an OBB
 /**
  * \note userdata and node info (children) are not copied

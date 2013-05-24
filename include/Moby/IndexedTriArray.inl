@@ -26,11 +26,21 @@ inline std::ostream& operator<<(std::ostream& out, const IndexedTriArray& mesh)
  *        IndexedTri objects
  * \param facets_end an iterator to the end of a container of IndexedTri objects
  */
-template <class InputIterator1, class InputIterator2>
-IndexedTriArray::IndexedTriArray(InputIterator1 verts_begin, InputIterator1 verts_end, InputIterator2 facets_begin, InputIterator2 facets_end)
+template <class ForwardIterator1, class ForwardIterator2>
+IndexedTriArray::IndexedTriArray(ForwardIterator1 verts_begin, ForwardIterator1 verts_end, ForwardIterator2 facets_begin, ForwardIterator2 facets_end)
 {
   _vertices = boost::shared_ptr<const std::vector<Ravelin::Point3d> >(new std::vector<Ravelin::Point3d>(verts_begin, verts_end));
   _facets = boost::shared_ptr<const std::vector<IndexedTri> >(new std::vector<IndexedTri>(facets_begin, facets_end));
+
+  // verify that all vertices are in the same frame
+  #ifndef NDEBUG
+  for (ForwardIterator1 i = verts_begin; i != verts_end; i++)
+    assert(i->pose != verts_begin->pose);
+  #endif  
+
+  // get the pose that the vertices are defined in
+  if (!_vertices->empty())
+    _pose = _vertices->front().pose;
 
   // validate that indices are within range
   validate();

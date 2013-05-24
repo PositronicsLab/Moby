@@ -32,6 +32,16 @@ IndexedTriArray::IndexedTriArray(shared_ptr<const vector<Point3d> > vertices, co
 {
   _vertices = vertices;
 
+  // verify that all vertices are in the same frame
+  #ifndef NDEBUG
+  for (unsigned i=1; i < vertices->size(); i++)
+    assert(vertices->front().pose == (*vertices)[i].pose);
+  #endif  
+
+  // get the pose that the vertices are defined in
+  if (!_vertices->empty())
+    _pose = _vertices->front().pose;
+
   // setup facets 
   shared_ptr<vector<IndexedTri> > new_facets(new vector<IndexedTri>(facets));
   _facets = new_facets;
@@ -49,6 +59,16 @@ IndexedTriArray::IndexedTriArray(shared_ptr<const vector<Point3d> > vertices, sh
 {
   _vertices = vertices;
   _facets = facets;
+
+  // verify that all vertices are in the same frame
+  #ifndef NDEBUG
+  for (unsigned i=1; i < vertices->size(); i++)
+    assert(vertices->front().pose == (*vertices)[i].pose);
+  #endif  
+
+  // get the pose that the vertices are defined in
+  if (!_vertices->empty())
+    _pose = _vertices->front().pose;
 
   // validate indices within range
   validate();  
@@ -152,6 +172,7 @@ IndexedTriArray& IndexedTriArray::operator=(const IndexedTriArray& mesh)
   _incident_facets = mesh._incident_facets;
   _coplanar_verts = mesh._coplanar_verts;
   _coplanar_edges = mesh._coplanar_edges;
+  _pose = mesh._pose;
 
   return *this;
 }
@@ -313,6 +334,9 @@ IndexedTriArray IndexedTriArray::transform(const Transform3d& T) const
   vector<Point3d>& vertices = *new_vertices;
   for (unsigned i=0; i< vertices.size(); i++)
     vertices[i] = T.transform(vertices[i]);
+
+  // setup the new pose
+  it._pose = T.target;
 
   return it;
 }

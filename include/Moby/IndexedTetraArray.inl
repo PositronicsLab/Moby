@@ -26,11 +26,21 @@ inline std::ostream& operator<<(std::ostream& out, const IndexedTetraArray& mesh
  *        IndexedTetra objects
  * \param tetra_end an iterator to the end of a container of IndexedTetra objects
  */
-template <class InputIterator1, class InputIterator2>
-IndexedTetraArray::IndexedTetraArray(InputIterator1 verts_begin, InputIterator1 verts_end, InputIterator2 tetra_begin, InputIterator2 tetra_end)
+template <class ForwardIterator1, class ForwardIterator2>
+IndexedTetraArray::IndexedTetraArray(ForwardIterator1 verts_begin, ForwardIterator1 verts_end, ForwardIterator2 tetra_begin, ForwardIterator2 tetra_end)
 {
   _vertices = boost::shared_ptr<const std::vector<Ravelin::Point3d> >(new std::vector<Ravelin::Point3d>(verts_begin, verts_end));
   _tetra = boost::shared_ptr<const std::vector<IndexedTetra> >(new std::vector<IndexedTetra>(tetra_begin, tetra_end));
+
+  // verify that all vertices are in the same frame
+  #ifndef NDEBUG
+  for (ForwardIterator1 i = verts_begin; i != verts_end; i++)
+    assert(i->pose != verts_begin->pose);
+  #endif  
+
+  // get the pose that the vertices are defined in
+  if (!_vertices->empty())
+    _pose = _vertices->front().pose;
 
   // validate that indices are within range and tetrahedra oriented correctly
   validate();

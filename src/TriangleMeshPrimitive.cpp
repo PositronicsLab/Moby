@@ -178,21 +178,21 @@ void TriangleMeshPrimitive::center()
   if (!_mesh)
     return;
 
-  // the mesh is in the global frame; transform the inertial pose to the global
-  // frame too
-/*
-  Pose3d X = *_jF;
-  X.x = -X.x;
-  X.update_relative_pose(GLOBAL);
-  Transform3d T = Pose3d::calc_relative_pose(
-*/
-  Transform3d T;
+  // we want to transform the mesh so that the inertial pose is coincident
+  // with the primitive pose; first, prepare the transformation
+  Transform3d T = Pose3d::calc_relative_pose(_jF, _F);
 
-  // re-transform the mesh
+  // mesh is in frame _F and will remain in frame _F (hack Ravelin)
+  T.source = _mesh->get_pose();
+
+  // do the transformation
   _mesh = shared_ptr<IndexedTriArray>(new IndexedTriArray(_mesh->transform(T)));
 
   // re-calculate mass properties 
   calc_mass_properties();
+
+  // verify that the inertial frame is near zero
+  assert(Point3d(_jF->x, GLOBAL).norm() < NEAR_ZERO);
 
   // update the visualization
   update_visualization();
@@ -259,9 +259,6 @@ void TriangleMeshPrimitive::load_from_xml(shared_ptr<const XMLTree> node, map<st
 
   // update the visualization, if necessary
   update_visualization();
-
-  // recompute mass properties
-  calc_mass_properties();
 }
 
 /// Implements Base::save_to_xml()

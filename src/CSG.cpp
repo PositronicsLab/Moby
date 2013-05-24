@@ -687,16 +687,21 @@ void CSG::center_mesh()
   if (!_mesh)
     return;
 
-  // TODO: use inertial frame to translate the mesh
-  // determine the transform from the global frame to the current pose
-  shared_ptr<const Pose3d> P = get_pose();
-  Transform3d T = Pose3d::calc_relative_pose(GLOBAL, P);
+  // we want to transform the mesh so that the inertial pose is coincident
+  // with the primitive pose; first, prepare the transformation
+  Transform3d T = Pose3d::calc_relative_pose(_jF, _F);
 
-  // re-transform the mesh
+  // mesh is in frame _F and will remain in frame _F (hack Ravelin)
+  T.source = _mesh->get_pose();
+
+  // do the transformation
   _mesh = shared_ptr<IndexedTriArray>(new IndexedTriArray(_mesh->transform(T)));
 
-  // re-calculate mass properties 
+  // re-calculate mass properties
   calc_mass_properties();
+
+  // verify that the inertial frame is near zero
+  assert(Point3d(_jF->x, GLOBAL).norm() < NEAR_ZERO);
 
   // update the visualization
   update_visualization();

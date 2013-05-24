@@ -28,8 +28,8 @@ class IndexedTriArray
     IndexedTriArray(boost::shared_ptr<const std::vector<Ravelin::Point3d> > vertices, const std::vector<IndexedTri>& facets);
     IndexedTriArray(boost::shared_ptr<const std::vector<Ravelin::Point3d> > vertices, boost::shared_ptr<const std::vector<IndexedTri> > facets);
 
-    template <class InputIterator1, class InputIterator2>
-    IndexedTriArray(InputIterator1 vertices, InputIterator1 verts_end, InputIterator2 facets_begin, InputIterator2 facets_end);
+    template <class ForwardIterator1, class ForwardIterator2>
+    IndexedTriArray(ForwardIterator1 vertices, ForwardIterator1 verts_end, ForwardIterator2 facets_begin, ForwardIterator2 facets_end);
 
     template <class OutputIterator>
     OutputIterator get_tris(OutputIterator output_begin) const; 
@@ -50,6 +50,12 @@ class IndexedTriArray
     std::vector<std::list<unsigned> > determine_vertex_facet_map() const;
     std::map<sorted_pair<unsigned>, std::list<unsigned> > determine_edge_facet_map() const;
     void calc_volume_ints(double volume_ints[10]) const;
+
+    /// Gets the pose that these vertices are defined in
+    /**
+     * The mesh never changes this pose.
+     */
+    boost::shared_ptr<const Ravelin::Pose3d> get_pose() const { return _pose; }
 
     /// Gets the indices of facets incident to a vertex
     const std::list<unsigned>& get_incident_facets(unsigned i) const { if (i >= _vertices->size()) throw InvalidIndexException(); return (*_incident_facets)[i]; }
@@ -84,6 +90,8 @@ class IndexedTriArray
     /// Sorted vector of coplanar vertices (all faces touching each vertex are coplanar)
     std::vector<unsigned> _coplanar_verts;
 
+    /// The pose the vertices are defined in
+    boost::shared_ptr<const Ravelin::Pose3d> _pose;
     boost::shared_ptr<const std::vector<IndexedTri> > _facets;
     boost::shared_ptr<const std::vector<Ravelin::Point3d> > _vertices;
     boost::shared_ptr<const std::vector<std::list<unsigned > > > _incident_facets;
