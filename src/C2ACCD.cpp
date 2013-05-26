@@ -2020,9 +2020,13 @@ bool C2ACCD::project_and_intersect(const Triangle& ta, const Triangle& tb, vecto
   Point2d* end = CompGeom::intersect_tris(t1, t2, output);
 
   // determine contact points
+  double offset = (offset1+offset2)*0.5;
   Matrix3d RT = Matrix3d::transpose(R);
   for (Point2d* begin = output; begin != end; begin++)
-    contact_points.push_back(Point3d(CompGeom::to_3D(*begin, RT, (offset1+offset2)*(double) 0.5), P));
+  {
+    Origin2d o(*begin);
+    contact_points.push_back(Point3d(CompGeom::to_3D(o, RT, offset), P));
+  }
 
   return end != output;
 }
@@ -2061,9 +2065,13 @@ bool C2ACCD::project_and_intersect(const Triangle& t, const LineSeg3& s, vector<
   Point2d* end = CompGeom::intersect_seg_tri(s0, t0, output);
 
   // determine contact points
+  double offset = (offset1+offset2)*0.5;
   Matrix3d RT = Matrix3d::transpose(R);
   for (Point2d* begin = output; begin != end; begin++)
-    contact_points.push_back(Point3d(CompGeom::to_3D(*begin, RT, (offset1+offset2)*(double) 0.5), P));
+  {
+    Origin2d o(*begin);
+    contact_points.push_back(Point3d(CompGeom::to_3D(o, RT, offset), P));
+  }
 
   return end != output;
 }

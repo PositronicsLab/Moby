@@ -23,7 +23,7 @@ SSR::SSR(ForwardIterator begin, ForwardIterator end)
   if (is_2D)
   {
     // init the 2D centroid
-    Ravelin::Point2d centroid;
+    Ravelin::Origin2d centroid;
 
     // points are less than 3D; must use SVD
     double plane_offset;
@@ -46,11 +46,11 @@ SSR::SSR(ForwardIterator begin, ForwardIterator end)
     {
       std::pair<Ravelin::Point2d, Ravelin::Point2d> ep;
       CompGeom::determine_seg_endpoints(points_2D.begin(), points_2D.end(), ep);
-      centroid = (ep.first + ep.second) * 0.5;
+      centroid = Ravelin::Origin2d((ep.first + ep.second) * 0.5);
     }
     else
       // determine the centroid of the hull
-      centroid = CompGeom::calc_centroid_2D(hull_2D.begin(), hull_2D.end());
+      centroid = Ravelin::Origin2d(CompGeom::calc_centroid_2D(hull_2D.begin(), hull_2D.end()));
 
     // project the centroid back to 3D
     R.transpose();
@@ -208,7 +208,7 @@ void SSR::align(ForwardIterator begin, ForwardIterator end, const Ravelin::Vecto
     if (d2_2D.norm() < NEAR_ZERO)
       d2_2D = Ravelin::Vector2d(1,0);
   }
-  d2 = CompGeom::to_3D(d2_2D, R2d);
+  d2 = CompGeom::to_3D(Ravelin::Origin2d(d2_2D), R2d);
   d2.normalize();
 }
 

@@ -126,7 +126,7 @@ osg::Node* Primitive::get_visualization()
   update_visualization();  
   #endif
 
-  return _vtransform;
+  return (osg::Node*) _vtransform;
 }
 
 /// Updates the visualization on the primitive 

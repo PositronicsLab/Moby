@@ -2201,13 +2201,13 @@ bool CompGeom::between(const Point2d& a, const Point2d& b, const Point2d& c, dou
     return ((a[Y] <= c[Y]) && (c[Y] <= b[Y])) || ((a[Y] >= c[Y]) && (c[Y] >= b[Y]));
 }
 
-/// Converts a 2D vector to a 3D vector
+/// Converts a point in 2D to a point in 3D
 /**
- * \param v the vector to transform
+ * \param p the point to transform
  * \param RT the matrix that projects 2D points to 3D
  * \param offset the last dimension of the 3D point is set to this value
  */
-Origin3d CompGeom::to_3D(const Point2d& p, const Matrix3d& RT, double offset)
+Origin3d CompGeom::to_3D(const Origin2d& p, const Matrix3d& RT, double offset)
 {
   const unsigned X = 0, Y = 1;
 
@@ -2221,7 +2221,7 @@ Origin3d CompGeom::to_3D(const Point2d& p, const Matrix3d& RT, double offset)
  * \param RT the matrix that projects 2D points to 3D
  * \param offset the last dimension of the 3D point is set to this value
  */
-Origin3d CompGeom::to_3D(const Point2d& p, const Matrix3d& RT)
+Origin3d CompGeom::to_3D(const Origin2d& p, const Matrix3d& RT)
 {
   const unsigned X = 0, Y = 1;
 

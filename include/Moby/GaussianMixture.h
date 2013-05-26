@@ -29,11 +29,7 @@ class GaussianMixture : public Primitive
     virtual bool intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Ravelin::Point3d& isect, Ravelin::Vector3d& normal) const;
     virtual boost::shared_ptr<const IndexedTriArray> get_mesh() { return _mesh; }
     virtual const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >& get_sub_mesh(BVPtr bv);
-
-    // visualization
-    #ifdef USE_OSG
     virtual osg::Node* create_visualization();
-    #endif
 
     private:
       static Ravelin::Vector3d grad(const Gauss& g, double x, double y);

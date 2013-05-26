@@ -139,9 +139,10 @@ OBB OBB::calc_low_dim_OBB(ForwardIterator begin, ForwardIterator end)
     centroid = (ep.first + ep.second) * 0.5;
     
     // project the endpoints and centroid to 3D
-    Ravelin::Point3d center(CompGeom::to_3D(centroid, R, offset), P);
-    Ravelin::Point3d ep1(CompGeom::to_3D(ep.first, R, offset), P);
-    Ravelin::Point3d ep2(CompGeom::to_3D(ep.second, R, offset), P);
+    Ravelin::Origin2d oc(centroid), o1(ep.first), o2(ep.second);
+    Ravelin::Point3d center(CompGeom::to_3D(oc, R, offset), P);
+    Ravelin::Point3d ep1(CompGeom::to_3D(o1, R, offset), P);
+    Ravelin::Point3d ep2(CompGeom::to_3D(o2, R, offset), P);
 
     // see whether we have zero-dimensional or one-dimensional OBB
     Ravelin::Vector3d d1 = ep2 - ep1;
@@ -189,12 +190,12 @@ OBB OBB::calc_low_dim_OBB(ForwardIterator begin, ForwardIterator end)
 
   // project direction to 3D
   Ravelin::Matrix3d RT = Ravelin::Matrix3d::transpose(R);
-  Ravelin::Vector3d d2(CompGeom::to_3D(v2 - v1, RT), P);
+  Ravelin::Vector3d d2(CompGeom::to_3D(Ravelin::Origin2d(v2 - v1), RT), P);
   d2.normalize();
 
   // get v1 and v3 in 3D
-  Ravelin::Point3d v13d(CompGeom::to_3D(v1, RT, offset), P);
-  Ravelin::Point3d v33d(CompGeom::to_3D(v3, RT, offset), P);
+  Ravelin::Point3d v13d(CompGeom::to_3D(Ravelin::Origin2d(v1), RT, offset), P);
+  Ravelin::Point3d v33d(CompGeom::to_3D(Ravelin::Origin2d(v3), RT, offset), P);
  
   // start to setup the OBB
   OBB o;
@@ -310,7 +311,8 @@ OBB OBB::calc_min_volume_OBB(ForwardIterator begin, ForwardIterator end)
         // this will be the minimum volume box
         OBB box;
         box.R = IDENTITY_3x3;
-        box.center = CompGeom::to_3D(a, RT, offset); 
+        Ravelin::Origin2d oa(a); 
+        box.center = Ravelin::Point3d(CompGeom::to_3D(oa, RT, offset), P); 
         box.l[X] = box.l[Y] = box.l[Z] = (double) 0.0; 
         return box;
       }
@@ -319,16 +321,17 @@ OBB OBB::calc_min_volume_OBB(ForwardIterator begin, ForwardIterator end)
       Ravelin::Point2d points[4] = { a, b, c, d };
       std::pair<Ravelin::Point2d, Ravelin::Point2d> ep;
       CompGeom::determine_seg_endpoints(points, points+4, ep);
+      Ravelin::Origin2d ep1(ep.first), ep2(ep.second);
 
       // compute the centroid of the line
-      Ravelin::Point2d centroid = (ep.first + ep.second)*(double) 0.5;
+      Ravelin::Origin2d centroid((ep.first + ep.second)*(double) 0.5);
 
       // project the centroid to 3D
-      Ravelin::Point3d centroid_3d = CompGeom::to_3D(centroid, RT, offset);
+      Ravelin::Point3d centroid_3d(CompGeom::to_3D(centroid, RT, offset), P);
 
       // determine the direction of the line
-      Ravelin::Vector3d dir(CompGeom::to_3D(ep.second, RT, offset) -
-                            CompGeom::to_3D(ep.first, RT, offset), P);
+      Ravelin::Vector3d dir(CompGeom::to_3D(ep1, RT, offset) -
+                            CompGeom::to_3D(ep2, RT, offset), P);
       dir.normalize();
 
       // setup the bounding box -- it will be zero volume
@@ -344,13 +347,13 @@ OBB OBB::calc_min_volume_OBB(ForwardIterator begin, ForwardIterator end)
     }
 
     // compute the centroid of the bounding rectangle
-    Ravelin::Point2d centroid_2D = (a + c) * (double) 0.5;
+    Ravelin::Origin2d centroid_2D((a + c) * (double) 0.5);
 
     // project the centroid to 3D
     Ravelin::Point3d centroid(CompGeom::to_3D(centroid_2D, RT, offset), P);
 
     // determine the bounding rectangle edges in 3D
-    Ravelin::Vector3d d2(CompGeom::to_3D(b - a, RT), P);
+    Ravelin::Vector3d d2(CompGeom::to_3D(Ravelin::Origin2d(b - a), RT), P);
     d2.normalize();
 
     // setup the OBB and calculate its volume
@@ -691,7 +694,7 @@ void OBB::align(ForwardIterator begin, ForwardIterator end, const Ravelin::Vecto
     if (d2_2D.norm() < NEAR_ZERO)
       d2_2D = Ravelin::Vector2d(1,0);
   }
-  d2 = CompGeom::to_3D(d2_2D, R2d);
+  d2 = CompGeom::to_3D(Ravelin::Origin2d(d2_2D), R2d);
   d2.normalize();
 }
 
