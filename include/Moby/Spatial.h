@@ -122,7 +122,7 @@ Ravelin::MatrixNd& mult(const Ravelin::SpatialABInertiad& I, const std::vector<R
 Ravelin::MatrixNd& mult(const Ravelin::SpatialABInertiad& I, const std::vector<Ravelin::Twistd>& s, Ravelin::MatrixNd& result);
 Ravelin::Twistd spatial_cross(const Ravelin::Twistd& v1, const Ravelin::Twistd& v2);
 Ravelin::VectorNd& concat(const Ravelin::VectorNd& v, const Ravelin::Wrenchd& w, Ravelin::VectorNd& result);
-Ravelin::SVector6d mult(const std::vector<Ravelin::SVector6d>& v, const Ravelin::VectorNd& v);
+Ravelin::SVector6d mult(const std::vector<Ravelin::SVector6d>& t, const Ravelin::VectorNd& v);
 Ravelin::MatrixNd& mult(const std::vector<Ravelin::SVector6d>& v, const Ravelin::MatrixNd& m, Ravelin::MatrixNd& result);
 Ravelin::MatrixNd& mult(const std::vector<Ravelin::Twistd>& t, const Ravelin::MatrixNd& m, Ravelin::MatrixNd& result);
 Ravelin::MatrixNd& mult(const std::vector<Ravelin::Wrenchd>& w, const Ravelin::MatrixNd& m, Ravelin::MatrixNd& result);

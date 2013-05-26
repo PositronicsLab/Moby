@@ -86,25 +86,49 @@ Point3d Tetrahedron::calc_point(double u, double v, double w) const
 }
 
 /// Determines the barycentric coordinates of a point in space
-void Tetrahedron::determine_barycentric_coords(const Point3d& p, double& u, double& v, double& w) const
+void Tetrahedron::determine_barycentric_coords(const Point3d& px, double& u, double& v, double& w) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
-  // algorithm taken from double Time Physics course notes (Mueller, et al.)
+  // transform point to tetrahedron space
+  Point3d p = Pose3d::transform(px.pose, a.pose, px);
+
+  // Form system of linear equations
+  // a(x)*u + b(x)*v + c(x)*w + d(x)*(1-u-v-w) = p(x)
+  // a(y)*u + b(y)*v + c(y)*w + d(y)*(1-u-v-w) = p(y)
+  // a(z)*u + b(z)*v + c(z)*w + d(z)*(1-u-v-w) = p(z)
+  // This yields:
+  // | ax-dx bx-dx cx-dx | * | u | = | px - dz |
+  // | ay-dy by-dy cy-dy | * | v | = | py - dz |
+  // | az-dz bz-dz cz-dz | * | w | = | pz - dz |
+  Matrix3d M;
+  M.set_column(X, a - d);
+  M.set_column(Y, b - d);
+  M.set_column(Z, c - d);
+  M.invert();
+  Origin3d bary = M * Origin3d(p - d);
+
+/*
+  // algorithm taken from Real Time Physics course notes (Mueller, et al.)
   Matrix3d M;
   M.set_column(X, b - a);
   M.set_column(Y, c - a);
   M.set_column(Z, d - a);
-  M.inverse();
+  M.invert();
 
   Point3d bary(M * Origin3d(p - a), a.pose);
+*/
+
+  // compute barycentric coordinates
   u = bary[X];
   v = bary[Y];
   w = bary[Z];
 
+  // verify that barycentric coordinate is good and the points are nearby
   assert(!std::isnan(u));
   assert(!std::isnan(v));
   assert(!std::isnan(w));
+  assert((calc_point(u, v, w) - p).norm() < NEAR_ZERO); 
 }
 
 /// Calculates the centroid of a tetrahedron

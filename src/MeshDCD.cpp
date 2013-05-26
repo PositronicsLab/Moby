@@ -1415,7 +1415,7 @@ double MeshDCD::intersect_rects(const Vector3d& normal, const Point3d r1[4], con
   // project the points of intersection back to 3D
   Point3d isects_3D[RECT_VERTS*2];
   for (unsigned i=0; i< nisects; i++)
-    isects_3D[i] = CompGeom::to_3D(isects[i], Matrix3d::transpose(R), offset);
+    isects_3D[i] = CompGeom::to_3D(Origin2d(isects[i]), Matrix3d::transpose(R), offset);
 
   // determine the first times of intersection
   // r1[1]+(r1[2]-r1[1])*t = p

@@ -16,6 +16,14 @@
 #include <sstream>
 #include <boost/shared_ptr.hpp>
 #include <boost/foreach.hpp>
+#include <Ravelin/Origin2d.h>
+#include <Ravelin/Point2d.h>
+#include <Ravelin/Vector2d.h>
+#include <Ravelin/Matrix2d.h>
+#include <Ravelin/Origin3d.h>
+#include <Ravelin/Point3d.h>
+#include <Ravelin/Vector3d.h>
+#include <Ravelin/Matrix3d.h>
 #include <Moby/Constants.h>
 #include <Moby/Triangle.h>
 #include <Moby/FastThreadable.h>
@@ -76,8 +84,8 @@ class CompGeom
     static long double volume(const Ravelin::Point3d& a, const Ravelin::Point3d& b, const Ravelin::Point3d& c, const Ravelin::Point3d& d);
     static VisibilityType volume_sign(const Ravelin::Point3d& a, const Ravelin::Point3d& b, const Ravelin::Point3d& c, const Ravelin::Point3d& d, double tol = NEAR_ZERO);
     static bool coplanar(const Triangle& t1, const Triangle& t2, double tol = NEAR_ZERO);
-    static Ravelin::Origin3d to_3D(const Ravelin::Point2d& p, const Ravelin::Matrix3d& RT);
-    static Ravelin::Origin3d to_3D(const Ravelin::Point2d& p, const Ravelin::Matrix3d& RT, double offset);
+    static Ravelin::Origin3d to_3D(const Ravelin::Origin2d& p, const Ravelin::Matrix3d& RT);
+    static Ravelin::Origin3d to_3D(const Ravelin::Origin2d& p, const Ravelin::Matrix3d& RT, double offset);
     static Ravelin::Origin2d to_2D(const Ravelin::Point3d& p, const Ravelin::Matrix3d& R);
     static bool point_in_tri(const Ravelin::Point3d& p, const Triangle& t, double tol = NEAR_ZERO);
     static bool coplanar(const Ravelin::Point3d& a, const Ravelin::Point3d& b, const Ravelin::Point3d& c, const Ravelin::Point3d& d, double tol = NEAR_ZERO);
@@ -112,53 +120,53 @@ class CompGeom
     template <class ForwardIterator>
     static void calc_min_area_bounding_rect(ForwardIterator begin, ForwardIterator end, Ravelin::Point2d& p1, Ravelin::Point2d& p2, Ravelin::Point2d& p3, Ravelin::Point2d& p4);
 
-    template <class InputIterator, class OutputIterator>
-    static OutputIterator intersect_polygons(InputIterator pbegin, InputIterator pend, InputIterator qbegin, InputIterator qend, const Ravelin::Vector3d& normal, OutputIterator isect_begin);
+    template <class ForwardIterator, class OutputIterator>
+    static OutputIterator intersect_polygons(ForwardIterator pbegin, ForwardIterator pend, ForwardIterator qbegin, ForwardIterator qend, const Ravelin::Vector3d& normal, OutputIterator isect_begin);
 
-    template <class InputIterator, class OutputIterator>
-    static OutputIterator intersect_polygons(InputIterator pbegin, InputIterator pend, InputIterator qbegin, InputIterator qend, OutputIterator isect_begin);
+    template <class ForwardIterator, class OutputIterator>
+    static OutputIterator intersect_polygons(ForwardIterator pbegin, ForwardIterator pend, ForwardIterator qbegin, ForwardIterator qend, OutputIterator isect_begin);
 
-    template <class InputIterator>
-    static bool ccw(InputIterator begin, InputIterator end, const Ravelin::Vector3d& normal, double tol = NEAR_ZERO);
+    template <class ForwardIterator>
+    static bool ccw(ForwardIterator begin, ForwardIterator end, const Ravelin::Vector3d& normal, double tol = NEAR_ZERO);
 
-    template <class InputIterator>
-    static bool ccw(InputIterator begin, InputIterator end, double tol = NEAR_ZERO);
+    template <class ForwardIterator>
+    static bool ccw(ForwardIterator begin, ForwardIterator end, double tol = NEAR_ZERO);
 
-    template <class InputIterator>
-    static bool is_convex_polygon(InputIterator begin, InputIterator end, double tol = NEAR_ZERO);
+    template <class ForwardIterator>
+    static bool is_convex_polygon(ForwardIterator begin, ForwardIterator end, double tol = NEAR_ZERO);
 
-    template <class InputIterator>
-    static bool is_convex_polygon(InputIterator begin, InputIterator end, const Ravelin::Vector3d& normal, double tol = NEAR_ZERO);
+    template <class ForwardIterator>
+    static bool is_convex_polygon(ForwardIterator begin, ForwardIterator end, const Ravelin::Vector3d& normal, double tol = NEAR_ZERO);
 
-    template <class InputIterator, class OutputIterator>
-    static OutputIterator calc_convex_hull(InputIterator source_begin, InputIterator source_end, const Ravelin::Vector3d& normal, OutputIterator target_begin);
+    template <class ForwardIterator, class OutputIterator>
+    static OutputIterator calc_convex_hull(ForwardIterator source_begin, ForwardIterator source_end, const Ravelin::Vector3d& normal, OutputIterator target_begin);
 
-    template <class InputIterator, class OutputIterator>
-    static OutputIterator calc_convex_hull(InputIterator source_begin, InputIterator source_end, OutputIterator target_begin);
+    template <class ForwardIterator, class OutputIterator>
+    static OutputIterator calc_convex_hull(ForwardIterator source_begin, ForwardIterator source_end, OutputIterator target_begin);
 
-    template <class InputIterator>
-    static PolygonLocationType polygon_location(InputIterator begin, InputIterator end, const Ravelin::Point2d& point);
+    template <class ForwardIterator>
+    static PolygonLocationType polygon_location(ForwardIterator begin, ForwardIterator end, const Ravelin::Point2d& point);
 
     template <class ForwardIterator>
     static Ravelin::Point2d calc_centroid_2D(ForwardIterator begin, ForwardIterator end);
 
-    template <class InputIterator>
-    static Ravelin::Point3d calc_centroid_2D(InputIterator begin, InputIterator end, const Ravelin::Vector3d& normal);
+    template <class ForwardIterator>
+    static Ravelin::Point3d calc_centroid_2D(ForwardIterator begin, ForwardIterator end, const Ravelin::Vector3d& normal);
 
-    template <class InputIterator>
-    static double calc_polygon_area(InputIterator begin, InputIterator end, const Ravelin::Vector3d& normal);  
+    template <class ForwardIterator>
+    static double calc_polygon_area(ForwardIterator begin, ForwardIterator end, const Ravelin::Vector3d& normal);  
 
-    template <class InputIterator>
-    static double calc_polygon_area(InputIterator begin, InputIterator end);
+    template <class ForwardIterator>
+    static double calc_polygon_area(ForwardIterator begin, ForwardIterator end);
 
-    template <class InputIterator>
-    static void project_plane(InputIterator begin, InputIterator end, const Ravelin::Vector3d& normal, double offset);
+    template <class ForwardIterator>
+    static void project_plane(ForwardIterator begin, ForwardIterator end, const Ravelin::Vector3d& normal, double offset);
 
-    template <class InputIterator>
-    static double fit_plane(InputIterator begin, InputIterator end, Ravelin::Vector3d& normal, double& offset);
+    template <class ForwardIterator>
+    static double fit_plane(ForwardIterator begin, ForwardIterator end, Ravelin::Vector3d& normal, double& offset);
 
-    template <class InputIterator, class OutputIterator>
-    static OutputIterator triangulate_convex_polygon(InputIterator source_begin, InputIterator source_end, OutputIterator target_begin);
+    template <class ForwardIterator, class OutputIterator>
+    static OutputIterator triangulate_convex_polygon(ForwardIterator source_begin, ForwardIterator source_end, OutputIterator target_begin);
 
     template <class OutputIterator>
     static OutputIterator intersect_tris(const Triangle& t1, const Triangle& t2, OutputIterator begin);
@@ -166,41 +174,41 @@ class CompGeom
     template <class OutputIterator>
     static OutputIterator intersect_coplanar_tris(const Triangle& t1, const Triangle& t2, const Ravelin::Vector3d& normal, OutputIterator begin);
 
-    template <class InputIterator, class OutputIterator>
-    static OutputIterator to_2D(InputIterator begin, InputIterator end, OutputIterator begin_target, const Ravelin::Matrix3d& R);
+    template <class ForwardIterator, class OutputIterator>
+    static OutputIterator to_2D(ForwardIterator begin, ForwardIterator end, OutputIterator begin_target, const Ravelin::Matrix3d& R);
 
-    template <class InputIterator, class OutputIterator>
-    static OutputIterator to_3D(InputIterator begin, InputIterator end, OutputIterator begin_target, const Ravelin::Matrix3d& RT, double offset);
+    template <class ForwardIterator, class OutputIterator>
+    static OutputIterator to_3D(ForwardIterator begin, ForwardIterator end, OutputIterator begin_target, const Ravelin::Matrix3d& RT, double offset);
 
-    template <class InputIterator>
-    static void determine_seg_endpoints(InputIterator begin, InputIterator end, std::pair<Ravelin::Point3d, Ravelin::Point3d>& endpoints);
+    template <class ForwardIterator>
+    static void determine_seg_endpoints(ForwardIterator begin, ForwardIterator end, std::pair<Ravelin::Point3d, Ravelin::Point3d>& endpoints);
 
-    template <class InputIterator>
-    static void determine_seg_endpoints(InputIterator begin, InputIterator end, std::pair<Ravelin::Point3d*, Ravelin::Point3d*>& endpoints);
+    template <class ForwardIterator>
+    static void determine_seg_endpoints(ForwardIterator begin, ForwardIterator end, std::pair<Ravelin::Point3d*, Ravelin::Point3d*>& endpoints);
 
-    template <class InputIterator>
-    static void determine_seg_endpoints(InputIterator begin, InputIterator end, std::pair<Ravelin::Point2d, Ravelin::Point2d>& endpoints);
+    template <class ForwardIterator>
+    static void determine_seg_endpoints(ForwardIterator begin, ForwardIterator end, std::pair<Ravelin::Point2d, Ravelin::Point2d>& endpoints);
 
-    template <class InputIterator>
-    static void determine_seg_endpoints(InputIterator begin, InputIterator end, std::pair<Ravelin::Point2d*, Ravelin::Point2d*>& endpoints);
+    template <class ForwardIterator>
+    static void determine_seg_endpoints(ForwardIterator begin, ForwardIterator end, std::pair<Ravelin::Point2d*, Ravelin::Point2d*>& endpoints);
 
-    template <class InputIterator>
-    static PolyhedronPtr calc_convex_hull(InputIterator first, InputIterator last);
+    template <class ForwardIterator>
+    static PolyhedronPtr calc_convex_hull(ForwardIterator first, ForwardIterator last);
 
-    template <class InputIterator>
-    static Ravelin::Point3d calc_centroid_3D(InputIterator first, InputIterator last);
+    template <class ForwardIterator>
+    static Ravelin::Point3d calc_centroid_3D(ForwardIterator first, ForwardIterator last);
     
-    template <class InputIterator>
-    static PolyhedronPtr calc_hs_intersection(InputIterator start, InputIterator end, const Ravelin::VectorNd& interior_point);
+    template <class ForwardIterator>
+    static PolyhedronPtr calc_hs_intersection(ForwardIterator start, ForwardIterator end, const Ravelin::VectorNd& interior_point);
 
-    template <class InputIterator>
-    static double find_hs_interior_point(InputIterator start, InputIterator end, Ravelin::Point3d& point);
+    template <class ForwardIterator>
+    static double find_hs_interior_point(ForwardIterator start, ForwardIterator end, Ravelin::Point3d& point);
 
-    template <class InputIterator>
-    static unsigned calc_dimensionality(InputIterator first, InputIterator last, double tol = NEAR_ZERO);
+    template <class ForwardIterator>
+    static unsigned calc_dimensionality(ForwardIterator first, ForwardIterator last, double tol = NEAR_ZERO);
 
-    template <class InputIterator>
-    static bool intersect_seg_convex_polygon(InputIterator begin, InputIterator end, const LineSeg2& seg, double& te, double& tl, double tol = NEAR_ZERO);
+    template <class ForwardIterator>
+    static bool intersect_seg_convex_polygon(ForwardIterator begin, ForwardIterator end, const LineSeg2& seg, double& te, double& tl, double tol = NEAR_ZERO);
 
     template <class ForwardIterator, class OutputIterator>
     static OutputIterator intersect_seg_polygon(ForwardIterator begin, ForwardIterator end, const LineSeg2& seg, OutputIterator outbegin);

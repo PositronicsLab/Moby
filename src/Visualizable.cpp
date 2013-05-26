@@ -119,11 +119,13 @@ void Visualizable::update_visualization()
   if (!T)
     return;
 
-  // TODO: convert the pose to reference the global frame
+  // convert the pose to reference the global frame
+  Pose3d T0 = *T;
+  T0.convert_to_pose(GLOBAL);
 
   // update the transform
   osg::Matrixd m;
-  to_osg_matrix(*T, m);
+  to_osg_matrix(T0, m);
   _group->setMatrix(m);
   #endif
 }
@@ -196,8 +198,10 @@ osg::Group* Visualizable::construct_from_node(shared_ptr<const XMLTree> node, co
       assert(prm);
 
       // create the group and add a node to it
+      #ifdef USE_OSG
       group = new osg::Group;
       group->addChild(prm->get_visualization());
+      #endif
     }
   }
   // visualization-filename attribute
