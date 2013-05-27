@@ -23,7 +23,6 @@ namespace Moby {
 class RigidBody;
 class ArticulatedBody;
 class CollisionGeometry;  
-class DStruct;
 
 /// Implements the CollisionDetection abstract class to perform exact contact finding using abstract shapes 
 class GeneralizedCCD : public CollisionDetection
@@ -68,18 +67,44 @@ class GeneralizedCCD : public CollisionDetection
     // structure passed to determine_TOI
     struct DStruct
     {
-      CollisionGeometryPtr gb;    // body from which point is taken
-      CollisionGeometryPtr gs;    // body against which point is tested
-      Ravelin::Point3d p0;         // point in bs coordinates (before integration)
-      Ravelin::Vector3d romega;     // relative angular velocity (3x1 vector, global frame)
-      double thetad;        // norm of relative angular velocity
-      double lvd;           // norm of relative linear velocity
-      Ravelin::Vector3d k1;         // constant vector used to calculate point velocity
-      Ravelin::Matrix3d k2;         // constant matrix used to calculate point velocity
-      Ravelin::Twistd bs_v;      // velocity of body bs
-      Ravelin::Vector3d u;          // vector from c.o.m. to point (in bb coordinates) 
-      Ravelin::Quatd q0;            // initial relative orientation
-      BVPtr s_BV;         // BV corresponding to part of gs
+      CollisionGeometryPtr gb; // geometry from which point is taken
+      CollisionGeometryPtr gs; // geometry against which point is tested
+
+      // norm of relative angular velocity
+      double norm_omega;           
+
+      // norm of relative linear velocity
+      double norm_xd;              
+
+      // gs's pose *relative to the world frame* at time t0
+      boost::shared_ptr<Ravelin::Pose3d> Pgs;
+
+      // angular velocity of bs in world frame (constant over interval)
+      Ravelin::Vector3d omega_s;
+
+      // angular velocity of bb in world frame (constant over interval)
+      Ravelin::Vector3d omega_b;
+
+      // quaternion from gs to world frame (at time t0)
+      Ravelin::Quatd wQs; 
+
+      // quaternion from gb to world frame (at time t0)
+      Ravelin::Quatd wQb; 
+
+      // vertex to test for intersection (defined in gs's frame) 
+      Ravelin::Point3d u;     
+
+      // relative linear velocity (defined in gs's frame) 
+      Ravelin::Vector3d rxdot;
+ 
+      // relative angular velocity (defined in gs's frame)
+      Ravelin::Vector3d romega;
+
+      // relative orientation (orientation of gb in gs's frame) at time t0 
+      Ravelin::Quatd q0;      
+
+      // BV corresponding to part of gs
+      BVPtr s_BV;              
     };
 
     /// Structure used for computing deviation in a direction
@@ -119,6 +144,7 @@ class GeneralizedCCD : public CollisionDetection
     void update_bounds_vector(std::vector<std::pair<double, BoundsStruct> >& bounds, const std::map<SingleBodyPtr, Ravelin::Twistd >& vel_map, AxisType axis);
     void build_bv_vector(const std::map<SingleBodyPtr, Ravelin::Twistd >& vel_map, std::vector<std::pair<double, BoundsStruct> >& bounds);
     std::map<SingleBodyPtr, Ravelin::Twistd> get_velocities(const std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> >& q0, const std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> >& q1, double dt) const;
+    static Ravelin::Quatd integrate(const Ravelin::Quatd& q, const Ravelin::Vector3d& omega, double dt);
 
     template <class RandomAccessIterator>
     void insertion_sort(RandomAccessIterator begin, RandomAccessIterator end);
