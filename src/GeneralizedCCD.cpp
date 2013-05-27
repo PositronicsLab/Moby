@@ -730,8 +730,8 @@ void GeneralizedCCD::populate_dstruct(DStruct* ds, CollisionGeometryPtr gb, Coll
   ds->romega = bbav - bs_avel;
 
   // determine magnitudes of linear and angular velocities
-  ds->thetad = ds->romega.norm();
-  ds->lvd = (bblv - bs_lvel).norm();
+  ds->norm_omega = ds->romega.norm();
+  ds->norm_xd = (bblv - bs_lvel).norm();
 
   // determine Rb and R;
   Matrix3d Rb, Rs;
@@ -768,6 +768,88 @@ void GeneralizedCCD::populate_dstruct(DStruct* ds, CollisionGeometryPtr gb, Coll
   ds->bs_v = bs->velocity();
 }
 
+/// Implements DETERMINE-TOC() [very fast, fully linearized version]
+/**
+ * \param t0 the time before integration
+ * \param tf the time after integration
+ * \param dstruct structure passed to determine_TOI of precomputed data
+ * \param pt the contact point (if any) in world coordinates
+ * \param normal the normal (if any) in world coordinates
+ * \return the time of impact [0, 1] such that t0 = 0 and t1 = 1; if the time 
+ *         of impact is greater than 1.0, then the time of impact is not in the 
+ *         interval [t0, tf] and should be discarded
+ * \pre rigid body states are at time t
+ */
+double GeneralizedCCD::determine_TOI_fast(double t0, double tf, const DStruct* ds, Point3d& pt, Vector3d& normal) const
+{
+  const double INF = std::numeric_limits<double>::max();
+
+  // get the static collision geometry
+  CollisionGeometryPtr gs = ds->gs;
+
+  // get gs's pose, relative to the world frame
+  shared_ptr<Pose3d> Pgs = ds->Pgs;
+
+  // get the primitive for gs (the body treated as static) 
+  shared_ptr<const Primitive> gs_primitive = gs->get_geometry();
+
+  FILE_LOG(LOG_COLDET) << "GeneralizedCCD::determine_TOI() entered" << endl;
+  FILE_LOG(LOG_COLDET) << "  time t0: " << t0 << endl;
+  FILE_LOG(LOG_COLDET) << "  time tf: " << tf << endl;
+
+  // get point in gs's frame 
+  const Point3d& u0 = ds->u0;
+  const Point3d& uf = ds->uf;
+
+  // intersect the line segment with the geometry
+  double t;
+  if (gs_primitive->intersect_seg(gs_BV, LineSeg3(u0, uf), t, pt, normal))
+  {
+    FILE_LOG(LOG_COLDET) << "  intersection detected!  time of impact: " << t << " (true: " << (ta + (tb-ta)*t) << ")" << endl;
+
+    // transform time to account for dt 
+    t *= (tf-t0);
+
+    FILE_LOG(LOG_COLDET) << "     -- point intersection (untransformed): " << pt << endl;
+    FILE_LOG(LOG_COLDET) << "     -- normal (untransformed): " << normal << endl;
+
+    // since all calculations are in body S's frame; we need to integrate
+    // body S's state to time t to transform the contact point and normal
+    // first integrate orientation
+    Quatd qf = integrate(wQs_t0, ds->omega_s, t);
+
+    // now integrate position of the c.o.m. 
+    const Vector3d& xdot = ds->bs_xd;  
+    Point3d x = gs->get_transform().get_translation();
+    x += xdot*t;
+
+    // transform contact point and normal to global coords
+    pt = qf * pt + x;
+    normal = qf * normal;
+
+    // look for degenerate normal
+    if (std::fabs(normal.norm() - (double) 1.0) > NEAR_ZERO)
+    {
+      FILE_LOG(LOG_COLDET) << "    -- degenerate normal detected! (" << normal << "); not reporting intersection" << endl;
+      continue;
+    }
+        
+    FILE_LOG(LOG_COLDET) << "     -- point intersection: " << pt << endl;
+    FILE_LOG(LOG_COLDET) << "     -- normal: " << normal << endl;
+    FILE_LOG(LOG_COLDET) << "# of bisections: " << nbisects << endl;
+    FILE_LOG(LOG_COLDET) << "GeneralizedCCD::determine_TOI() exited" << endl;
+
+    return t;
+  }
+
+  FILE_LOG(LOG_COLDET) << "  no impact detected" << endl;
+  FILE_LOG(LOG_COLDET) << "GeneralizedCCD::determine_TOI() exited" << endl;
+
+  // still here?  no contact...
+  return INF; 
+}
+
+
 /// Implements DETERMINE-TOC()
 /**
  * \param t0 the time before integration
@@ -778,7 +860,33 @@ void GeneralizedCCD::populate_dstruct(DStruct* ds, CollisionGeometryPtr gb, Coll
  * \return the time of impact [0, 1] such that t0 = 0 and t1 = 1; if the time 
  *         of impact is greater than 1.0, then the time of impact is not in the 
  *         interval [t0, tf] and should be discarded
- * \pre rigid body states are at time t0
+ * \pre rigid body states are at time t
+ *
+ * The math behind this function (I use LaTeXiT to visualize) follows:
+ *
+ * We are interested in testing the path traced by a point on body B against
+ * the geometry of another body S. We will do all calculations relative to
+ * S's (moving) frame so that an observer at S can treat himself as stationary.
+ *
+ * Notation/defs: v relative linear velocity
+ *                \theta relative angular velocity
+ *                r vector from center-of-mass of B to point u
+ *                superscript (A) to right (vector defined in A's frame
+ *                superscripts (A,B) to left and right (transform from B to A)
+ *                subscript (A) to right (vector for body A)
+ * 
+ * The velocity of point u on B (in S's frame) is:
+ * \dot{u}^S(t)& = v^S + \theta^S \times ~^ST^0(t) [u^0(t)-x_B^0(t)]\\
+ * & = v^S + \theta^S \times ~^ST^0(t) [x_B^0(t) +~^0R^B(t) r^B-x_B^0(t)]\\
+ * & = v^S + \theta^S \times~^SR^0(t)~^0R^B(t)r^B
+ *
+ * We define ^SR^0(t) using a first-order approximation as follows:
+ * ^SR^0(t)& = [~^0R^S(t_0) + (t_f-t_0)\cdot \omega_S^0\times ~^0R^S(t_0)]^T\\
+ * & = ~^SR^0(t_0) - (t_f-t_0)\cdot~^SR^0(t_0)\omega_S^0\times
+ *
+ * Similarly, ^0R^B(t) is defined as:
+ * ^0R^B(t)& = ~^0R^B(t_0) + (t_f-t_0)\cdot\omega_B^0\times~^0R^B(t_0)
+ *
  */
 double GeneralizedCCD::determine_TOI(double t0, double tf, const DStruct* ds, Point3d& pt, Vector3d& normal) const
 {
@@ -790,60 +898,53 @@ double GeneralizedCCD::determine_TOI(double t0, double tf, const DStruct* ds, Po
   // init bisection statistics
   unsigned nbisects = 0;
 
-  // get the two geometries
+  // get the static collision geometry
   CollisionGeometryPtr gs = ds->gs;
-  CollisionGeometryPtr gb = ds->gb;
 
-  // get the primitive for gs 
+  // get gs's pose, relative to the world frame
+  shared_ptr<Pose3d> Pgs = ds->Pgs;
+
+  // get the primitive for gs (the body treated as static) 
   shared_ptr<const Primitive> gs_primitive = gs->get_geometry();
-
-  // get the two rigid bodies
-  RigidBodyPtr bs = dynamic_pointer_cast<RigidBody>(gs->get_single_body());
-  RigidBodyPtr bb = dynamic_pointer_cast<RigidBody>(gb->get_single_body());
-
-  // setup the quaternions used for interpolation
-  Matrix3d Rs = gs->get_transform().get_rotation();
-  Matrix3d Rb = gb->get_transform().get_rotation();
-  Quatd qs(&Rs);
-  Quatd qb(&Rb);
 
   FILE_LOG(LOG_COLDET) << "GeneralizedCCD::determine_TOI() entered" << endl;
   FILE_LOG(LOG_COLDET) << "  time t0: " << t0 << endl;
   FILE_LOG(LOG_COLDET) << "  time tf: " << tf << endl;
 
-  // get p0 object (for simplicity)
-  const Point3d& p0 = ds->p0;
+  // get point in gs's frame and times t0 and tf 
+  const Point3d& u0 = ds->u0;
+  const Point3d& uf = ds->uf;
 
-  // get the BV for S
+  // get the BV for gs
   BVPtr gs_BV = ds->s_BV; 
 
-  // setup quaternions for interpolation
-  const Quatd& q0 = ds->q0; 
+  // setup quaternions at time t0
+  const Quatd& wQs_t0 = ds->wQs; 
+  const Quatd& wQb_t0 = ds->wQb;
+  const Quatd& q0 = ds->q0;
 
-  // integrate q0 to dt to get the other quaternion for interpolation
-  Quatd qf = q0 + Quatd::deriv(q0, ds->romega)*(tf-t0);
-  qf.normalize();
+  // integrate the two quaternions to time tf
+  Quatd sQw_tf = integrate(wQs_t0, ds->omega_s, tf-t0);
+  Quatd bQw_tf = integrate(wQb_t0, ds->omega_b, tf-t0);
 
-  // (Euler) integrate the position of the point to dt; note: we do this
-  // because the derivative is constant
-  Vector3d pdot = ds->k1 + ds->k2*ds->u;
-  Point3d pf = p0 + pdot*(tf-t0);
+  // (Euler) integrate the position of the point to dt
+  Quatd qf = Quatd::inverse(sQw_tf) * bQw_tf;
 
   // setup the axes of the bounding box
-  Vector3d p0pf = pf - p0;
-  double norm_p0pf = p0pf.norm();
-  if (norm_p0pf < std::numeric_limits<double>::epsilon())
+  Vector3d u0uf = uf - u0;
+  double norm_u0uf = u0uf.norm();
+  if (norm_u0uf < std::numeric_limits<double>::epsilon())
   {
     // arbitrary bounding box
-    nalpha = Vector3d(1,0,0);
-    nbeta = Vector3d(0,1,0);
-    ngamma = Vector3d(0,0,1);
+    nalpha = Vector3d(1,0,0,Pgs);
+    nbeta = Vector3d(0,1,0,Pgs);
+    ngamma = Vector3d(0,0,1,Pgs);
     O.R = Matrix3d::identity();
   }
   else
   {
-    // primary axis of bounding box aligned w/p0pf
-    nalpha = p0pf/norm_p0pf;
+    // primary axis of bounding box aligned w/u0uf
+    nalpha = u0uf/norm_u0uf;
     Vector3d::determine_orthonormal_basis(nalpha, nbeta, ngamma);
     O.R.set_column(X, nalpha);
     O.R.set_column(Y, nbeta);
@@ -857,12 +958,12 @@ double GeneralizedCCD::determine_TOI(double t0, double tf, const DStruct* ds, Po
   double rho1_max = -1.0, rho1_min = -1.0, rho2_max = -1.0, rho2_min = -1.0, rho3_max = -1.0, rho3_min = -1.0;
   double max_d1 = -INF, max_d2 = -INF, max_d3 = -INF;
   double min_d1 = INF, min_d2 = INF, min_d3 = INF;
-  if (bound_u(ds->u, q0, qf, normal1, normal2))
+  if (bound_u(ds->u0, q0, qf, normal1, normal2))
   {
     if (nalpha.dot(normal1)*nalpha.dot(normal2) > 0)
     {
-      max_d1 = calc_max_dev(ds->u, nalpha, q0, qf, rho1_max);
-      min_d1 = calc_min_dev(ds->u, nalpha, q0, qf, rho1_min);
+      max_d1 = calc_max_dev(ds->u0, nalpha, q0, qf, rho1_max);
+      min_d1 = calc_min_dev(ds->u0, nalpha, q0, qf, rho1_min);
 
       // scale rho values to (tf-t0)
       rho1_max *= (tf-t0);
@@ -870,8 +971,8 @@ double GeneralizedCCD::determine_TOI(double t0, double tf, const DStruct* ds, Po
     }
     if (nbeta.dot(normal1)*nbeta.dot(normal2) > 0)
     {
-      max_d2 = calc_max_dev(ds->u, nbeta, q0, qf, rho2_max);
-      min_d2 = calc_min_dev(ds->u, nbeta, q0, qf, rho2_min);
+      max_d2 = calc_max_dev(ds->u0, nbeta, q0, qf, rho2_max);
+      min_d2 = calc_min_dev(ds->u0, nbeta, q0, qf, rho2_min);
 
       // scale rho values to (tf-t0)
       rho2_max *= (tf-t0);
@@ -879,8 +980,8 @@ double GeneralizedCCD::determine_TOI(double t0, double tf, const DStruct* ds, Po
     }
     if (ngamma.dot(normal1)*ngamma.dot(normal2) > 0)
     {
-      max_d3 = calc_max_dev(ds->u, ngamma, q0, qf, rho3_max);
-      min_d3 = calc_min_dev(ds->u, ngamma, q0, qf, rho3_min);
+      max_d3 = calc_max_dev(ds->u0, ngamma, q0, qf, rho3_max);
+      min_d3 = calc_min_dev(ds->u0, ngamma, q0, qf, rho3_min);
 
       // scale rho values to (tf-t0)
       rho3_max *= (tf-t0);
@@ -905,12 +1006,12 @@ double GeneralizedCCD::determine_TOI(double t0, double tf, const DStruct* ds, Po
     const double dt = tb - ta;
 
     // bisect if angular velocity * dt > M_PI
-    if (ds->thetad*dt > M_PI)
+    if (ds->norm_omega*dt > M_PI)
     {
       // if the linear velocity is near zero, no need to check more than 2*pi
-      if (ds->lvd*dt < NEAR_ZERO)
+      if (ds->norm_xd*dt < NEAR_ZERO)
       {
-        const double delta = M_PI/ds->thetad;
+        const double delta = M_PI/ds->norm_omega;
         double tmid = ta + delta;
         tb = tmid + delta;
         assert(ta + NEAR_ZERO > t0);
@@ -930,12 +1031,20 @@ double GeneralizedCCD::determine_TOI(double t0, double tf, const DStruct* ds, Po
       }
     }
 
-    // determine pa and pb
-    Point3d pa = p0 + pdot*ta;
-    Point3d pb = p0 + pdot*tb;
+    // integrate the two quaternions to time ta
+    Quatd sQw_ta = integrate(wQs_t0, ds->omega_s, ta-t0);
+    Quatd bQw_ta = integrate(wQb_t0, ds->omega_b, ta-t0);
+
+    // integrate the two quaternions to time tb 
+    Quatd sQw_tb = integrate(wQs_t0, ds->omega_s, tb-t0);
+    Quatd bQw_tb = integrate(wQb_t0, ds->omega_b, tb-t0);
+
+    // determine ua and ub
+    Point3d ua = u0 + udot*(ta-t0);
+    Point3d ub = u0 + udot*(tb-t0);
 
     FILE_LOG(LOG_COLDET) << " -- checking segment for time [" << ta << ", " << tb << "]" << endl;
-    FILE_LOG(LOG_COLDET) << "  p(" << ta << ") = " << pa << "  p(" << tb << ") ~= " << pb << endl;
+    FILE_LOG(LOG_COLDET) << "  p(" << ta << ") = " << ua << "  p(" << tb << ") ~= " << ub << endl;
 
     // interpolation parameter ranges from [0,1]; 0 corresponds to t0, 1 corresponds
     // to tf.  Determine what ta, tb correspond to
@@ -955,9 +1064,9 @@ double GeneralizedCCD::determine_TOI(double t0, double tf, const DStruct* ds, Po
     if (rho3_min >= ta && rho3_min <= tb) dn_gamma = min_d3;
     
     // calculate deviation at endpoints
-    pair<double, double> deva = calc_deviations(ds->u, nalpha, q0, qf, sa, sb);
-    pair<double, double> devb = calc_deviations(ds->u, nbeta, q0, qf, sa, sb);
-    pair<double, double> devg = calc_deviations(ds->u, ngamma, q0, qf, sa, sb);
+    pair<double, double> deva = calc_deviations(ds->u0, nalpha, q0, qf, sa, sb);
+    pair<double, double> devb = calc_deviations(ds->u0, nbeta, q0, qf, sa, sb);
+    pair<double, double> devg = calc_deviations(ds->u0, ngamma, q0, qf, sa, sb);
   
     // set deviation maxima/minima    
     dn_alpha = std::min(dn_alpha, deva.first);
@@ -968,19 +1077,19 @@ double GeneralizedCCD::determine_TOI(double t0, double tf, const DStruct* ds, Po
     dp_gamma = std::max(dp_gamma, devg.second);
 
     // determine the half deviations in each direction
-    double len_pab = (pb - pa).norm();
-    double d_alpha = std::max(std::fabs(dp_alpha - dn_alpha), len_pab*(double) 0.5);
+    double len_uab = (ub - ua).norm();
+    double d_alpha = std::max(std::fabs(dp_alpha - dn_alpha), len_uab*(double) 0.5);
     double d_beta = std::fabs(dp_beta - dn_beta);
     double d_gamma = std::fabs(dp_gamma - dn_gamma);
 
     // setup the bounding box
-    double nu = (d_beta + d_gamma + d_alpha)*2.0 - len_pab;
+    double nu = (d_beta + d_gamma + d_alpha)*2.0 - len_uab;
     assert(nu > -NEAR_ZERO);
     FILE_LOG(LOG_COLDET) << " -- dalpha: [" << dn_alpha << ", " << dp_alpha << "]" << endl;
     FILE_LOG(LOG_COLDET) << " -- dbeta: [" << dn_beta << ", " << dp_beta << "]" << endl;
     FILE_LOG(LOG_COLDET) << " -- dgamma: [" << dn_gamma << ", " << dp_gamma << "]" << endl;
     FILE_LOG(LOG_COLDET) << " -- nu contribution along alpha/beta: " << nu << endl;
-    Point3d cab = (pa + pb)*0.5;
+    Point3d cab = (ua + ub)*0.5;
     Point3d mini = cab - nalpha*d_alpha - nbeta*d_beta - ngamma*d_gamma;
     Point3d maxi = cab + nalpha*d_alpha + nbeta*d_beta + ngamma*d_gamma;
     O.center = (maxi+mini)*0.5;
@@ -1000,6 +1109,8 @@ double GeneralizedCCD::determine_TOI(double t0, double tf, const DStruct* ds, Po
         FILE_LOG(LOG_COLDET) << *gs_OBB << endl;
     }
 
+    // TODO: is this a problem that Pgs is relative to world and gs's pose 
+    //       relative to bs? 
     // NOTE: O and gs_BV are both in S's frame
     if (!BV::intersects(&O, gs_BV.get()))
     {
@@ -1027,7 +1138,7 @@ double GeneralizedCCD::determine_TOI(double t0, double tf, const DStruct* ds, Po
 
       // intersect the line segment with the geometry
       double t;
-      if (gs_primitive->intersect_seg(gs_BV, LineSeg3(pa, pb), t, pt, normal))
+      if (gs_primitive->intersect_seg(gs_BV, LineSeg3(ua, ub), t, pt, normal))
       {
         FILE_LOG(LOG_COLDET) << "  intersection detected!  time of impact: " << t << " (true: " << (ta + (tb-ta)*t) << ")" << endl;
 
@@ -1040,8 +1151,7 @@ double GeneralizedCCD::determine_TOI(double t0, double tf, const DStruct* ds, Po
         // since all calculations are in body S's frame; we need to integrate
         // body S's state to time t to transform the contact point and normal
         // first integrate orientation
-        Quatd qf = qs + Quatd::deriv(qs, ds->bs_omega)*t;
-        qf.normalize();
+        Quatd qf = integrate(wQs_t0, ds->omega_s, t);
 
         // now integrate position of the c.o.m. 
         const Vector3d& xdot = ds->bs_xd;  
@@ -1081,6 +1191,16 @@ double GeneralizedCCD::determine_TOI(double t0, double tf, const DStruct* ds, Po
 
   // still here?  no contact...
   return INF; 
+}
+
+// TODO: given that we're linearly interpolating anyway, does it make sense
+//       to do all of this work?
+/// Integrates a quaternion over an interval using Euler integration
+Quatd GeneralizedCCD::integrate(const Quatd& q, const Vector3d& omega, double dt)
+{
+  Quatd qf = q + Quatd::deriv(q, omega)*dt;
+  qf.normalize();
+  return qf;
 }
 
 /// Determines the two planes that bound a u vector between two rotations
