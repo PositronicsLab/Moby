@@ -1831,8 +1831,10 @@ void C2ACCD::build_BV_tree(CollisionGeometryPtr geom)
 
     // add all children to the queue
     if (!bv->is_leaf())
+    {
       BOOST_FOREACH(BVPtr child, bv->children)
         Q.push(child);
+    }
 
     // wipe out userdata
     bv->userdata = shared_ptr<void>();

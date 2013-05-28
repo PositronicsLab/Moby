@@ -140,7 +140,7 @@ void DeformableBody::calc_com_and_vels()
   _J.J(Z,Y) = _J.J(Y,Z);
 
   // invert J
-  Matrix3d Jinv = Matrix3d::inverse(_J.J);
+  Matrix3d Jinv = Matrix3d::invert(_J.J);
 
   // now determine the angular momentum of the body
   Vector3d P(0.0, 0.0, 0.0, _F);
@@ -1242,8 +1242,10 @@ AABBPtr DeformableBody::build_AABB_tree(map<BVPtr, list<unsigned> >& aabb_tetra_
     {
       Q.pop();
       BOOST_FOREACH(BVPtr child, aabb->children)
+      {
         if (!child->is_leaf())
           Q.push(dynamic_pointer_cast<AABB>(child));
+      }
     }
   }
 
@@ -1256,8 +1258,10 @@ AABBPtr DeformableBody::build_AABB_tree(map<BVPtr, list<unsigned> >& aabb_tetra_
     aabb->minp -= eps;
     aabb->maxp += eps;
     if (!aabb->is_leaf())
+    {
       BOOST_FOREACH(BVPtr child, aabb->children)
         Q.push(dynamic_pointer_cast<AABB>(child));
+    }
   }
 
   // wipe out userdata 
@@ -1270,8 +1274,10 @@ AABBPtr DeformableBody::build_AABB_tree(map<BVPtr, list<unsigned> >& aabb_tetra_
 
     // add all children to the queue
     if (!aabb->is_leaf())
+    {
       BOOST_FOREACH(BVPtr child, aabb->children)
         Q.push(dynamic_pointer_cast<AABB>(child));
+    }
 
     // wipe out userdata
     aabb->userdata = shared_ptr<void>();
