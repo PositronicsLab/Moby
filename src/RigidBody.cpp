@@ -169,7 +169,7 @@ void RigidBody::set_inertia(const SpatialRBInertiad& inertia)
   _J = inertia;
 }
 
-/// Sets the current 4x4 homogeneous transformation for this rigid body
+/// Sets the current 3D pose for this rigid body
 /**
  * Also updates the transforms for associated visualization and collision data.
  */

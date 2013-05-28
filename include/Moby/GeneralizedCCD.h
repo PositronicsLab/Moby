@@ -144,7 +144,6 @@ class GeneralizedCCD : public CollisionDetection
     void update_bounds_vector(std::vector<std::pair<double, BoundsStruct> >& bounds, const std::map<SingleBodyPtr, Ravelin::Twistd >& vel_map, AxisType axis);
     void build_bv_vector(const std::map<SingleBodyPtr, Ravelin::Twistd >& vel_map, std::vector<std::pair<double, BoundsStruct> >& bounds);
     std::map<SingleBodyPtr, Ravelin::Twistd> get_velocities(const std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> >& q0, const std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> >& q1, double dt) const;
-    static Ravelin::Quatd integrate(const Ravelin::Quatd& q, const Ravelin::Vector3d& omega, double dt);
 
     template <class RandomAccessIterator>
     void insertion_sort(RandomAccessIterator begin, RandomAccessIterator end);
