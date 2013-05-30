@@ -754,24 +754,29 @@ void MeshDCD::determine_contacts_deformable(CollisionGeometryPtr a, CollisionGeo
  */
 void MeshDCD::determine_contacts_rigid(CollisionGeometryPtr a, CollisionGeometryPtr b, double t, double dt, vector<Event>& contacts)
 {
+  Transform3d T;
+
+  // setup temporary frame
+  shared_ptr<Pose3d> Px(new Pose3d);
+  Px->rpose = GLOBAL;
+
   // get the two rigid bodies
   RigidBodyPtr rba = dynamic_pointer_cast<RigidBody>(a->get_single_body());
   RigidBodyPtr rbb = dynamic_pointer_cast<RigidBody>(b->get_single_body());
 
-  // get twists from the two bodies
-  const Twistd& ta = rba->velocity(); 
-  const Twistd& tb = rbb->velocity(); 
+  // get computation frames
+  shared_ptr<const Pose3d> CA = rba->get_computation_frame(); 
+  shared_ptr<const Pose3d> CB = rbb->get_computation_frame(); 
+  shared_ptr<Pose3d> CAx(new Pose3d(*CA));
+  shared_ptr<Pose3d> CBx(new Pose3d(*CB));
 
-  // get twists in the same frame
-  Twistd t0a = Pose3d::transform(rba->get_computation_frame(), GLOBAL, ta); 
-  Twistd t0b = Pose3d::transform(rbb->get_computation_frame(), GLOBAL, tb); 
+  // transform computation frames to make them relative to GLOBAL pose
+  CAx->update_relative_pose(GLOBAL);
+  CBx->update_relative_pose(GLOBAL);
 
-  // get the relative linear and angular velocities
-  Vector3d rlv = t0a.get_linear() - t0b.get_linear();
-
-  // get the angular velocities of the two bodies
-  const Vector3d& omegaA = t0a.get_angular();
-  const Vector3d& omegaB = t0b.get_angular();
+  // get twists from the two bodies in the computation frames
+  Twistd va = Pose3d::transform(CA, CAx, rba->velocity()); 
+  Twistd vb = Pose3d::transform(CB, CBx, rbb->velocity()); 
 
   // get the meshes from a and b
   const IndexedTriArray& mesh_a = *a->get_geometry()->get_mesh();
@@ -780,56 +785,69 @@ void MeshDCD::determine_contacts_rigid(CollisionGeometryPtr a, CollisionGeometry
   // get the transformation from poses to global frame
   Transform3d wTa = Pose3d::calc_relative_pose(a->get_pose(), GLOBAL); 
   Transform3d wTb = Pose3d::calc_relative_pose(b->get_pose(), GLOBAL); 
+
+  // compute transform from geometry frames to computation frames
+  Transform3d caxTa = Pose3d::calc_relative_pose(a->get_pose(), CAx);
+  Transform3d cbxTb = Pose3d::calc_relative_pose(b->get_pose(), CBx);
+
   // check all tris of a against all tris of b
   for (unsigned i=0; i< mesh_a.num_tris(); i++)
   {
-    // get the transformed triangle
+    // get the triangle
     Triangle tA = mesh_a.get_triangle(i);
+
+    // transform the triangle to the global frame
     Triangle TtA = Triangle::transform(tA, wTa);
+
+    // vertices are in frame A; transform the triangle to CAx frame 
+    Triangle TtAi = Triangle::transform(tA, caxTa);
+    Vector3d ra = TtAi.a;
+    Vector3d rb = TtAi.b; 
+    Vector3d rc = TtAi.c; 
+
+    // compute the point velocity at each point of the triangle
+    Vector3d vA_a = va.get_linear() + Vector3d::cross(va.get_angular(), ra);
+    Vector3d vA_b = va.get_linear() + Vector3d::cross(va.get_angular(), rb);
+    Vector3d vA_c = va.get_linear() + Vector3d::cross(va.get_angular(), rc);
+
+    // convert point velocities to the global frame
+    Vector3d vA_a_0 = CAx->transform(vA_a);
+    Vector3d vA_b_0 = CAx->transform(vA_b);
+    Vector3d vA_c_0 = CAx->transform(vA_c);
+
+    // determine line segments for a's vertices in global frame
+    Vector3d pAa = TtA.a + vA_a_0*t;
+    Vector3d pAb = TtA.b + vA_b_0*t;
+    Vector3d pAc = TtA.c + vA_c_0*t;
 
     for (unsigned j=0; j< mesh_b.num_tris(); j++)
     {
-      // get the transformed triangle
+      // get the triangle
       Triangle tB = mesh_b.get_triangle(j);
+
+      // transform the triangle to the global frame
       Triangle TtB = Triangle::transform(tB, wTb);
 
-      // TODO: this must be fixed to account for global frame
-      // determine angular velocities at a's vertices
-      Vector3d wAa = Vector3d::cross(omegaA, TtA.a - rba->get_position())
-                  - Vector3d::cross(omegaB, TtA.a - rbb->get_position());
-      Vector3d wAb = Vector3d::cross(omegaA, TtA.b - rba->get_position())
-                  - Vector3d::cross(omegaB, TtA.b - rbb->get_position());
-      Vector3d wAc = Vector3d::cross(omegaA, TtA.c - rba->get_position())
-                  - Vector3d::cross(omegaB, TtA.c - rbb->get_position());
+      // vertices are in frame B; transform the triangle to CBx frame 
+      Triangle TtBi = Triangle::transform(tB, cbxTb);
+      Vector3d ra = TtBi.a;
+      Vector3d rb = TtBi.b; 
+      Vector3d rc = TtBi.c; 
 
-      // TODO: this must be fixed to account for global frame
-      // determine angular velocities at b's vertices
-      Vector3d wBa = Vector3d::cross(omegaA, TtB.a - rbb->get_position())
-                  - Vector3d::cross(omegaB, TtB.a - rbb->get_position());
-      Vector3d wBb = Vector3d::cross(omegaA, TtB.b - rbb->get_position());
-                  - Vector3d::cross(omegaB, TtB.b - rbb->get_position());
-      Vector3d wBc = Vector3d::cross(omegaA, TtB.c - rbb->get_position());
-                  - Vector3d::cross(omegaB, TtB.c - rbb->get_position());
+      // compute the point velocity at each point of the triangle
+      Vector3d vB_a = vb.get_linear() + Vector3d::cross(vb.get_angular(), rb);
+      Vector3d vB_b = vb.get_linear() + Vector3d::cross(vb.get_angular(), rb);
+      Vector3d vB_c = vb.get_linear() + Vector3d::cross(vb.get_angular(), rb);
 
-      // determine point velocities at a's vertices
-      Vector3d pAadot = rlv + wAa;
-      Vector3d pAbdot = rlv + wAb;
-      Vector3d pAcdot = rlv + wAc;
+      // convert point velocities to the global frame
+      Vector3d vB_a_0 = CBx->transform(vB_a);
+      Vector3d vB_b_0 = CBx->transform(vB_b);
+      Vector3d vB_c_0 = CBx->transform(vB_c);
 
-      // determine point velocities at b's vertices
-      Vector3d pBadot = rlv + wBa;
-      Vector3d pBbdot = rlv + wBb;
-      Vector3d pBcdot = rlv + wBc;
-
-      // determine line segments for a's vertices
-      Vector3d pAa = TtA.a + pAadot*t;
-      Vector3d pAb = TtA.b + pAbdot*t;
-      Vector3d pAc = TtA.c + pAcdot*t;
-
-      // determine line segments for a's vertices
-      Vector3d pBa = TtB.a + pBadot*t;
-      Vector3d pBb = TtB.b + pBbdot*t;
-      Vector3d pBc = TtB.c + pBcdot*t;
+      // determine line segments for b's vertices in global frame
+      Vector3d pBa = TtB.a + vB_a_0*t;
+      Vector3d pBb = TtB.b + vB_b_0*t;
+      Vector3d pBc = TtB.c + vB_c_0*t;
 
       // calculate line segment triangle intersections
       double t0;

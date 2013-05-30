@@ -33,6 +33,7 @@ SSR::SSR(const Point3d& center, const Matrix3d& R, const Vector2d& l, double rad
 /// Initializes a SSR from an SSR (s) extruded along a direction (v)
 SSR::SSR(const SSR& s, const Vector3d& v)
 {
+  assert(s.get_relative_pose() == v.pose);
   center = s.center;
   R = s.R;
   l = s.l;
@@ -110,6 +111,10 @@ double SSR::calc_dist(const SSR& o, const Point3d& p)
 /// Computes the squared distance and closest point between a rectangle in 3D and a point
 double SSR::calc_sq_dist(const Point3d& p, const Point3d& rect_center, const Vector3d& axis1, const Vector3d& axis2, const Vector2d& lengths, Point3d& cp_rect)
 {
+  assert(p.pose == rect_center.pose);
+  assert(axis1.pose == rect_center.pose);
+  assert(axis2.pose == rect_center.pose);
+
   // setup extents
   double extents[2] = { lengths[0]*0.5, lengths[1]*0.5 };
 
@@ -156,6 +161,10 @@ double SSR::calc_sq_dist(const Point3d& p, const Point3d& rect_center, const Vec
 /// Calculates the squared distance between a line and a line segment
 double SSR::calc_sq_dist(const Point3d& origin, const Vector3d& dir, const LineSeg3& seg, Point3d& cp_line, Point3d& cp_seg, double& line_param)
 {
+  assert(origin.pose == dir.pose);
+  assert(origin.pose == seg.first.pose);
+  assert(origin.pose == seg.second.pose);
+
   // setup the line segment center and direction
   Point3d center = (seg.first + seg.second)*0.5;
   
@@ -235,6 +244,11 @@ double SSR::calc_sq_dist(const Point3d& origin, const Vector3d& dir, const LineS
 double SSR::calc_sq_dist(const Point3d& origin, const Vector3d& dir, const Point3d& rect_center, const Vector3d& axis1, const Vector3d& axis2, const Vector2d& lengths, Point3d& cp_line, Point3d& cp_rect, double& line_param)
 {
   const unsigned N_RECT_EDGES = 4;
+
+  assert(origin.pose == dir.pose);
+  assert(origin.pose == rect_center.pose);
+  assert(axis1.pose == rect_center.pose);
+  assert(axis2.pose == rect_center.pose);
 
   // setup the extents
   double extents[2] = { lengths[0]*0.5, lengths[1]*0.5 };
@@ -318,6 +332,11 @@ double SSR::calc_sq_dist(const Point3d& origin, const Vector3d& dir, const Point
 /// Calculates the squared distance between a line segment and a rectangle in 3D
 double SSR::calc_sq_dist(const LineSeg3& seg, const Point3d& rect_center, const Vector3d& axis1, const Vector3d& axis2, const Vector2d& lengths, Point3d& cp_seg, Point3d& cp_rect)
 {
+  assert(rect_center.pose == seg.first.pose);
+  assert(rect_center.pose == seg.second.pose);
+  assert(rect_center.pose == axis1.pose);
+  assert(rect_center.pose == axis2.pose);
+
   // calculate the line segment extents
   Vector3d seg_dir_unnormalized = seg.second - seg.first;
   double seg_len = seg_dir_unnormalized.norm();
@@ -355,6 +374,12 @@ double SSR::calc_sq_dist(const LineSeg3& seg, const Point3d& rect_center, const 
 /// Calculates the squared distance between two rectangles in 3D
 double SSR::calc_sq_dist(const Point3d& a_center, const Vector3d& aaxis1, const Vector3d& aaxis2, const Vector2d& alengths, const Point3d& b_center, const Vector3d& baxis1, const Vector3d& baxis2, const Vector2d& blengths, Point3d& cpa, Point3d& cpb)
 {
+  assert(a_center.pose == aaxis1.pose);
+  assert(a_center.pose == aaxis2.pose);
+  assert(a_center.pose == b_center.pose);
+  assert(a_center.pose == baxis1.pose);
+  assert(a_center.pose == baxis2.pose);
+
   const unsigned N_RECT_EDGES = 4;
 
   // setup the extents for the four rectangles

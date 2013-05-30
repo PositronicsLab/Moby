@@ -97,6 +97,8 @@ BVPtr BoundingSphere::calc_swept_BV(CollisionGeometryPtr g, const Twistd& v) con
 /// Determines whether two bounding spheres intersect
 bool BoundingSphere::intersects(const BoundingSphere& s1, const BoundingSphere& s2)
 {
+  assert(s1.get_relative_pose() == s2.get_relative_pose());
+
   // get the squared distance between the two spheres centers
   double dist_sq = (s1.center - s2.center).norm_sq();
 
@@ -107,6 +109,9 @@ bool BoundingSphere::intersects(const BoundingSphere& s1, const BoundingSphere& 
 /// Determines whether two bounding spheres intersect
 bool BoundingSphere::intersects(const BoundingSphere& s1, const BoundingSphere& s2, const Transform3d& s1Ts2)
 {
+  assert(s1Ts2.target == s1.get_relative_pose() && 
+         s1Ts2.source == s2.get_relative_pose());
+
   // determine transformed s2 center
   Point3d s2c = s1Ts2.x + s2.center;
   s2c.pose = s1.get_relative_pose();
@@ -121,6 +126,8 @@ bool BoundingSphere::intersects(const BoundingSphere& s1, const BoundingSphere& 
 /// Calculates the signed distance between two bounding spheres
 double BoundingSphere::calc_dist(const BoundingSphere& s1, const BoundingSphere& s2)
 {
+  assert(s1.get_relative_pose() == s2.get_relative_pose());
+
   // get the distance between the sphere centers
   double dist = (s1.center - s2.center).norm();
 

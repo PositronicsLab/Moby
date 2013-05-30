@@ -21,6 +21,7 @@ SSL::SSL()
 /// Initializes a SSL from the given values
 SSL::SSL(const Point3d& p0, const Point3d& p1, double radius)
 {
+  assert(p1.pose == p2.pose);
   this->p1 = p0;
   this->p2 = p1;
   this->radius = radius;
@@ -29,6 +30,7 @@ SSL::SSL(const Point3d& p0, const Point3d& p1, double radius)
 /// Initializes a SSL from an SSL (s) extruded along a direction (v)
 SSL::SSL(const SSL& s, const Vector3d& v)
 {
+  assert(v.pose == s.get_relative_pose());
   p1 = s.p1; 
   p2 = s.p2;
   radius = s.radius + v.norm();
@@ -76,6 +78,8 @@ double SSL::calc_dist(const SSL& o, const Point3d& p)
  */
 double SSL::calc_sq_dist(const LineSeg3& seg0, const LineSeg3& seg1, Point3d& cp0, Point3d& cp1)
 {
+  assert(seg0.first.pose == seg1.first.pose);
+
   const Point3d& p0 = seg0.first;
   const Point3d& p1 = seg0.second;
   const Point3d& q1 = seg1.first;
@@ -421,6 +425,8 @@ double SSL::calc_sq_dist(const LineSeg3& seg, const Point3d& q, Point3d& cp)
 /// Calculates the distance between two sphere-swept lines and also calculates closest points
 double SSL::calc_dist(const SSL& a, const SSL& b, Point3d& cpa, Point3d& cpb)
 {
+  assert(a.get_relative_pose() == b.get_relative_pose());
+
   // get the two line segments and calculate the distance between them
   LineSeg3 s1(a.p1, a.p2);
   LineSeg3 s2(b.p1, b.p2);
@@ -452,6 +458,9 @@ double SSL::calc_dist(const SSL& a, const SSL& b, Point3d& cpa, Point3d& cpb)
  */
 double SSL::calc_dist(const SSL& a, const SSL& b, const Transform3d& aTb, Point3d& cpa, Point3d& cpb)
 {
+  assert(aTb.target == a.get_relative_pose() && 
+         aTb.source == b.get_relative_pose());
+
   // create a new SSL (b in a's frame)
   SSL b_a;
   b_a.p1 = aTb.transform(b.p1);
@@ -464,16 +473,21 @@ double SSL::calc_dist(const SSL& a, const SSL& b, const Transform3d& aTb, Point3
 /// Determines whether two SSLs intersect
 bool SSL::intersects(const SSL& a, const SSL& b)
 {
+  assert(a.get_relative_pose() == b.get_relative_pose());
+
   Point3d tmp;
   double dist = calc_dist(a, b, tmp, tmp);
   return (dist <= (double) 0.0);
 }
 
 /// Determines whether two SSLs intersect
-bool SSL::intersects(const SSL& a, const SSL& b, const Transform3d& T)
+bool SSL::intersects(const SSL& a, const SSL& b, const Transform3d& aTb)
 {
+  assert(aTb.target == a.get_relative_pose() && 
+         aTb.source == b.get_relative_pose());
+
   Point3d tmp;
-  double dist = calc_dist(a, b, T, tmp, tmp);
+  double dist = calc_dist(a, b, aTb, tmp, tmp);
   return (dist <= (double) 0.0);
 }
 

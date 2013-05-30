@@ -76,6 +76,9 @@ OBB::OBB(const OBB& o, const Vector3d& v)
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
+  // verify poses are compatible
+  assert(o.get_relative_pose() == v.pose);
+
   // if the vector is essentially zero, just set this to o 
   if (v.norm_sq() < std::numeric_limits<double>::epsilon())
   {

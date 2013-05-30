@@ -325,6 +325,7 @@ bool BV::intersects(const AABB* A, const BoundingSphere* S)
   FILE_LOG(LOG_COLDET) << "BV::intersects() [AABB/sphere] entered" << endl;
 
   // transform the sphere center to OBB space
+  assert(A->get_relative_pose() == S->get_relative_pose());
   Point3d center = S->center;
   center.pose = A->get_relative_pose();
   center += A->maxp - A->minp;

@@ -60,7 +60,7 @@ class RigidBody : public SingleBody
     const Ravelin::SpatialRBInertiad& get_inertia() const;
     boost::shared_ptr<const Ravelin::Pose3d> get_inertial_pose() const { return _jF; }
 
-    virtual void set_visualization_data(osg::Node* vdata) { Visualizable::set_visualization_data(vdata); synchronize(); }
+    virtual void set_visualization_data(osg::Node* vdata) { Visualizable::set_visualization_data(vdata); }
 
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
@@ -93,7 +93,6 @@ class RigidBody : public SingleBody
     virtual Ravelin::Vector3d calc_point_vel(const Ravelin::Point3d& p) const;
     bool is_base() const;
     bool is_ground() const;
-    virtual Ravelin::Point3d get_position() const;
     boost::shared_ptr<const Ravelin::Pose3d> get_computation_frame() const;
     virtual void set_computation_frame_type(ReferenceFrameType rftype);
 
@@ -200,7 +199,6 @@ class RigidBody : public SingleBody
     unsigned num_generalized_coordinates_single(DynamicBody::GeneralizedCoordinateType gctype) const;
     Ravelin::MatrixNd& solve_generalized_inertia_single(const Ravelin::MatrixNd& B, Ravelin::MatrixNd& X);
     Ravelin::VectorNd& solve_generalized_inertia_single(const Ravelin::VectorNd& b, Ravelin::VectorNd& x);
-    void synchronize();
     RigidBodyPtr get_parent_link(JointPtr j) const;
     RigidBodyPtr get_child_link(JointPtr j) const;
 
