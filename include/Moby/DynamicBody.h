@@ -61,10 +61,10 @@ class DynamicBody : public Visualizable
     virtual unsigned num_generalized_coordinates(GeneralizedCoordinateType gctype) const = 0;
 
     /// Adds a generalized force to the body
-    virtual void add_generalized_force(GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gf) = 0;
+    virtual void add_generalized_force(const Ravelin::VectorNd& gf) = 0;
 
     /// Applies a generalized impulse to the body
-    virtual void apply_generalized_impulse(GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gj) = 0;
+    virtual void apply_generalized_impulse(const Ravelin::VectorNd& gj) = 0;
 
     /// Gets the generalized coordinates of this body
     virtual Ravelin::VectorNd& get_generalized_coordinates(GeneralizedCoordinateType gctype, Ravelin::VectorNd& gc) = 0;
@@ -73,7 +73,7 @@ class DynamicBody : public Visualizable
     virtual Ravelin::VectorNd& get_generalized_velocity(GeneralizedCoordinateType gctype, Ravelin::VectorNd& gv) = 0;
 
     /// Gets the generalized acceleration of this body
-    virtual Ravelin::VectorNd& get_generalized_acceleration(GeneralizedCoordinateType gctype, Ravelin::VectorNd& ga) = 0;
+    virtual Ravelin::VectorNd& get_generalized_acceleration(Ravelin::VectorNd& ga) = 0;
 
     /// Sets the generalized coordinates of this body
     virtual void set_generalized_coordinates(GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gc) = 0;
@@ -86,49 +86,49 @@ class DynamicBody : public Visualizable
     virtual void set_generalized_velocity(GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gv) = 0;
 
     /// Gets the generalized inertia of this body
-    virtual Ravelin::MatrixNd& get_generalized_inertia(GeneralizedCoordinateType gctype, Ravelin::MatrixNd& M) = 0;
+    virtual Ravelin::MatrixNd& get_generalized_inertia(Ravelin::MatrixNd& M) = 0;
 
     /// Solves using the inverse generalized inertia
-    Ravelin::MatrixNd& solve_generalized_inertia(GeneralizedCoordinateType gctype, const Ravelin::MatrixNd& B, Ravelin::MatrixNd& X);
+    Ravelin::MatrixNd& solve_generalized_inertia(const Ravelin::MatrixNd& B, Ravelin::MatrixNd& X);
 
     /// Solves using the inverse generalized inertia
-    Ravelin::SharedMatrixNd& solve_generalized_inertia(GeneralizedCoordinateType gctype, const Ravelin::SharedMatrixNd& B, Ravelin::SharedMatrixNd& X);
+    Ravelin::SharedMatrixNd& solve_generalized_inertia(const Ravelin::SharedMatrixNd& B, Ravelin::SharedMatrixNd& X);
 
     /// Solves using the inverse generalized inertia
-    Ravelin::MatrixNd& solve_generalized_inertia(GeneralizedCoordinateType gctype, const Ravelin::SharedMatrixNd& B, Ravelin::MatrixNd& X);
+    Ravelin::MatrixNd& solve_generalized_inertia(const Ravelin::SharedMatrixNd& B, Ravelin::MatrixNd& X);
 
     /// Solves using the inverse generalized inertia
-    Ravelin::SharedMatrixNd& solve_generalized_inertia(GeneralizedCoordinateType gctype, const Ravelin::MatrixNd& B, Ravelin::SharedMatrixNd& X);
+    Ravelin::SharedMatrixNd& solve_generalized_inertia(const Ravelin::MatrixNd& B, Ravelin::SharedMatrixNd& X);
 
     /// Solves using the inverse generalized inertia
-    Ravelin::VectorNd& solve_generalized_inertia(GeneralizedCoordinateType gctype, const Ravelin::VectorNd& b, Ravelin::VectorNd& x);
+    Ravelin::VectorNd& solve_generalized_inertia(const Ravelin::VectorNd& b, Ravelin::VectorNd& x);
 
     /// Solves using the inverse generalized inertia
-    Ravelin::VectorNd& solve_generalized_inertia(GeneralizedCoordinateType gctype, const Ravelin::SharedVectorNd& b, Ravelin::VectorNd& x);
+    Ravelin::VectorNd& solve_generalized_inertia(const Ravelin::SharedVectorNd& b, Ravelin::VectorNd& x);
 
     /// Solves using the inverse generalized inertia
-    Ravelin::SharedVectorNd& solve_generalized_inertia(GeneralizedCoordinateType gctype, const Ravelin::VectorNd& b, Ravelin::SharedVectorNd& x);
+    Ravelin::SharedVectorNd& solve_generalized_inertia(const Ravelin::VectorNd& b, Ravelin::SharedVectorNd& x);
 
     /// Solves using the inverse generalized inertia
-    Ravelin::SharedVectorNd& solve_generalized_inertia(GeneralizedCoordinateType gctype, const Ravelin::SharedVectorNd& b, Ravelin::SharedVectorNd& x);
+    Ravelin::SharedVectorNd& solve_generalized_inertia(const Ravelin::SharedVectorNd& b, Ravelin::SharedVectorNd& x);
 
     /// Solves the transpose matrix using the inverse generalized inertia
-    Ravelin::MatrixNd& transpose_solve_generalized_inertia(GeneralizedCoordinateType gctype, const Ravelin::MatrixNd& B, Ravelin::MatrixNd& X);
+    Ravelin::MatrixNd& transpose_solve_generalized_inertia(const Ravelin::MatrixNd& B, Ravelin::MatrixNd& X);
 
     /// Solves the transpose matrix using the inverse generalized inertia
-    Ravelin::MatrixNd& transpose_solve_generalized_inertia(GeneralizedCoordinateType gctype, const Ravelin::SharedMatrixNd& B, Ravelin::MatrixNd& X);
+    Ravelin::MatrixNd& transpose_solve_generalized_inertia(const Ravelin::SharedMatrixNd& B, Ravelin::MatrixNd& X);
 
     /// Solves the transpose matrix using the inverse generalized inertia
-    Ravelin::SharedMatrixNd& transpose_solve_generalized_inertia(GeneralizedCoordinateType gctype, const Ravelin::MatrixNd& B, Ravelin::SharedMatrixNd& X);
+    Ravelin::SharedMatrixNd& transpose_solve_generalized_inertia(const Ravelin::MatrixNd& B, Ravelin::SharedMatrixNd& X);
 
     /// Solves the transpose matrix using the inverse generalized inertia
-    Ravelin::SharedMatrixNd& transpose_solve_generalized_inertia(GeneralizedCoordinateType gctype, const Ravelin::SharedMatrixNd& B, Ravelin::SharedMatrixNd& X);
+    Ravelin::SharedMatrixNd& transpose_solve_generalized_inertia(const Ravelin::SharedMatrixNd& B, Ravelin::SharedMatrixNd& X);
 
     /// Gets the external forces on this body
     /**
      * \note uses the current generalized coordinates
      */
-    virtual Ravelin::VectorNd& get_generalized_forces(GeneralizedCoordinateType gctype, Ravelin::VectorNd& f) = 0;
+    virtual Ravelin::VectorNd& get_generalized_forces(Ravelin::VectorNd& f) = 0;
 
     /// Converts a force to a generalized force
     /**
@@ -138,7 +138,7 @@ class DynamicBody : public Visualizable
      * \param gf the generalized force, on return
      * \note uses the current generalized coordinates
      */
-    virtual Ravelin::VectorNd& convert_to_generalized_force(GeneralizedCoordinateType gctype, SingleBodyPtr body, const Ravelin::Wrenchd& w, const Ravelin::Point3d& p, Ravelin::VectorNd& gf) = 0;
+    virtual Ravelin::VectorNd& convert_to_generalized_force(SingleBodyPtr body, const Ravelin::Wrenchd& w, const Ravelin::Point3d& p, Ravelin::VectorNd& gf) = 0;
 
     /// The controller callback, if any, for this body
     void (*controller)(boost::shared_ptr<DynamicBody>, double, void*);

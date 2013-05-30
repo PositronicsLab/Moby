@@ -59,11 +59,11 @@ void DeformableBody::enable_config_updates()
 }  
 
 /// Applies a generalized impulse to the deformable body
-void DeformableBody::apply_generalized_impulse(DynamicBody::GeneralizedCoordinateType gctype, const VectorNd& gj)
+void DeformableBody::apply_generalized_impulse( const VectorNd& gj)
 {
   const unsigned THREE_D = 3;
 
-  assert(num_generalized_coordinates(gctype) == gj.size());
+  assert(num_generalized_coordinates(DynamicBody::eSpatial) == gj.size());
   for (unsigned i=0; i< _nodes.size(); i++)
   {
     Vector3d j(gj[i*THREE_D], gj[i*THREE_D+1], gj[i*THREE_D+2], GLOBAL);
@@ -72,11 +72,11 @@ void DeformableBody::apply_generalized_impulse(DynamicBody::GeneralizedCoordinat
 }
 
 /// Adds a generalized force to the deformable body
-void DeformableBody::add_generalized_force(DynamicBody::GeneralizedCoordinateType gctype, const VectorNd& gf)
+void DeformableBody::add_generalized_force( const VectorNd& gf)
 {
   const unsigned THREE_D = 3;
 
-  assert(num_generalized_coordinates(gctype) == gf.size());
+  assert(num_generalized_coordinates(DynamicBody::eSpatial) == gf.size());
   for (unsigned i=0; i< _nodes.size(); i++)
   {
     Vector3d f(gf[i*THREE_D], gf[i*THREE_D+1], gf[i*THREE_D+2], GLOBAL);
@@ -199,7 +199,7 @@ VectorNd& DeformableBody::get_generalized_velocity(DynamicBody::GeneralizedCoord
 }
 
 /// Gets the generalized velocity of the deformable body
-VectorNd& DeformableBody::get_generalized_acceleration(DynamicBody::GeneralizedCoordinateType gctype, VectorNd& ga)
+VectorNd& DeformableBody::get_generalized_acceleration( VectorNd& ga)
 {
   const unsigned THREE_D = 3, X = 0, Y = 1, Z = 2;
   
@@ -275,7 +275,7 @@ void DeformableBody::set_generalized_velocity(DynamicBody::GeneralizedCoordinate
 }
 
 /// Solves using the generalized inertia
-MatrixNd& DeformableBody::solve_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, const MatrixNd& B, MatrixNd& X)
+MatrixNd& DeformableBody::solve_generalized_inertia( const MatrixNd& B, MatrixNd& X)
 {
   const unsigned THREE_D = 3;
   assert(B.rows() == THREE_D * _nodes.size());
@@ -297,7 +297,7 @@ MatrixNd& DeformableBody::solve_generalized_inertia(DynamicBody::GeneralizedCoor
 }
 
 /// Solves using the generalized inertia
-VectorNd& DeformableBody::solve_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, const VectorNd& b, VectorNd& x)
+VectorNd& DeformableBody::solve_generalized_inertia( const VectorNd& b, VectorNd& x)
 {
   const unsigned THREE_D = 3;
   assert(b.size() == THREE_D * _nodes.size());
@@ -320,7 +320,7 @@ VectorNd& DeformableBody::solve_generalized_inertia(DynamicBody::GeneralizedCoor
 
 
 /// Gets the generalized inertia for the body
-MatrixNd& DeformableBody::get_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, MatrixNd& M)
+MatrixNd& DeformableBody::get_generalized_inertia( MatrixNd& M)
 {
   const unsigned THREE_D = 3;
 
@@ -335,7 +335,7 @@ MatrixNd& DeformableBody::get_generalized_inertia(DynamicBody::GeneralizedCoordi
 }
 
 /// Gets the generalized forces for the body
-VectorNd& DeformableBody::get_generalized_forces(DynamicBody::GeneralizedCoordinateType gctype, VectorNd& f)
+VectorNd& DeformableBody::get_generalized_forces( VectorNd& f)
 {
   const unsigned THREE_D = 3, X = 0, Y = 1, Z = 2;
   
@@ -355,7 +355,7 @@ VectorNd& DeformableBody::get_generalized_forces(DynamicBody::GeneralizedCoordin
 }
 
 /// Converts a force and torque to a generalized force on the body
-VectorNd& DeformableBody::convert_to_generalized_force(DynamicBody::GeneralizedCoordinateType gctype, SingleBodyPtr body, const Wrenchd& w, const Point3d& p, VectorNd& gf)
+VectorNd& DeformableBody::convert_to_generalized_force( SingleBodyPtr body, const Wrenchd& w, const Point3d& p, VectorNd& gf)
 {
   const unsigned THREE_D = 3, X = 0, Y = 1, Z = 2;
   gf.set_zero(_nodes.size() * THREE_D);

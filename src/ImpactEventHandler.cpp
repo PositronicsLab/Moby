@@ -240,19 +240,19 @@ void ImpactEventHandler::apply_impulses(const EventProblemData& q) const
 
     // convert wrench on first body to generalized forces
     if ((gj_iter = gj.find(b1)) == gj.end())
-      b1->convert_to_generalized_force(DynamicBody::eSpatial, sb1, w, p, gj[b1]);
+      b1->convert_to_generalized_force(sb1, w, p, gj[b1]);
     else
     {
-      b1->convert_to_generalized_force(DynamicBody::eSpatial, sb1, w, p, workv);
+      b1->convert_to_generalized_force(sb1, w, p, workv);
       gj_iter->second += workv; 
     }
 
     // convert wrench on second body to generalized forces
     if ((gj_iter = gj.find(b2)) == gj.end())
-      b2->convert_to_generalized_force(DynamicBody::eSpatial, sb2, -w, p, gj[b2]);
+      b2->convert_to_generalized_force(sb2, -w, p, gj[b2]);
     else
     {
-      b2->convert_to_generalized_force(DynamicBody::eSpatial, sb2, -w, p, workv);
+      b2->convert_to_generalized_force(sb2, -w, p, workv);
       gj_iter->second += workv; 
     }
   }
@@ -267,7 +267,7 @@ void ImpactEventHandler::apply_impulses(const EventProblemData& q) const
 
   // apply all generalized impacts
   for (map<DynamicBodyPtr, VectorNd>::const_iterator i = gj.begin(); i != gj.end(); i++)
-    i->first->apply_generalized_impulse(DynamicBody::eSpatial, i->second);
+    i->first->apply_generalized_impulse(i->second);
 }
 
 /// Computes the data to the LCP / QP problems

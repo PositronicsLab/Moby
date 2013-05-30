@@ -65,9 +65,9 @@ void SSR::operator=(const SSR& s)
 }
 
 /// Calculates the velocity-expanded bounding volume
-BVPtr SSR::calc_vel_exp_BV(CollisionGeometryPtr g, double dt, const Twistd& v) const
+BVPtr SSR::calc_swept_BV(CollisionGeometryPtr g, const Twistd& v) const
 {
-  throw std::runtime_error("SSR::calc_vel_exp_BV() not implemented!");
+  throw std::runtime_error("SSR::calc_swept_BV() not implemented!");
   return BVPtr();
 }
 

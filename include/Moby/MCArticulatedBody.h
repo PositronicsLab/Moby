@@ -39,17 +39,17 @@ class MCArticulatedBody : public ArticulatedBody
   public:
     MCArticulatedBody();
     virtual ~MCArticulatedBody() {}
-    virtual Ravelin::MatrixNd& get_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::MatrixNd& M);
+    virtual Ravelin::MatrixNd& get_generalized_inertia(Ravelin::MatrixNd& M);
     virtual unsigned num_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype) const;
-    virtual void add_generalized_force(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gf);
-    virtual void apply_generalized_impulse(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gj);
+    virtual void add_generalized_force(const Ravelin::VectorNd& gf);
+    virtual void apply_generalized_impulse(const Ravelin::VectorNd& gj);
     virtual Ravelin::VectorNd& get_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& gv);
-    virtual Ravelin::VectorNd& get_generalized_acceleration(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& ga); 
+    virtual Ravelin::VectorNd& get_generalized_acceleration(Ravelin::VectorNd& ga); 
     virtual void set_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gv);
     virtual void set_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gc);
     virtual Ravelin::VectorNd& get_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& gc);
     virtual Ravelin::VectorNd& get_generalized_velocities(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& gv) { return get_generalized_velocity(gctype, gv); }
-    virtual Ravelin::VectorNd& get_generalized_forces(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& Qf);
+    virtual Ravelin::VectorNd& get_generalized_forces(Ravelin::VectorNd& Qf);
     virtual void reset_accumulators();
     virtual void apply_impulse(const Ravelin::Wrenchd& j, RigidBodyPtr link);
     virtual void calc_fwd_dyn(double dt);
@@ -57,7 +57,7 @@ class MCArticulatedBody : public ArticulatedBody
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     MCArticulatedBodyPtr get_this() { return boost::dynamic_pointer_cast<MCArticulatedBody>(shared_from_this()); }
     boost::shared_ptr<const MCArticulatedBody> get_this() const { return boost::dynamic_pointer_cast<const MCArticulatedBody>(shared_from_this()); }
-    virtual Ravelin::VectorNd& convert_to_generalized_force(DynamicBody::GeneralizedCoordinateType gctype, SingleBodyPtr link, const Ravelin::Wrenchd& f, const Ravelin::Point3d& p, Ravelin::VectorNd& gf);
+    virtual Ravelin::VectorNd& convert_to_generalized_force(SingleBodyPtr link, const Ravelin::Wrenchd& f, const Ravelin::Point3d& p, Ravelin::VectorNd& gf);
     virtual void update_event_data(EventProblemData& epd);
     virtual void update_velocity(const EventProblemData& epd);
     virtual void integrate(double t, double h, boost::shared_ptr<Integrator> integrator);
@@ -138,8 +138,8 @@ class MCArticulatedBody : public ArticulatedBody
     Ravelin::MatrixNd& calc_Jx_iM_JyT(const SparseJacobian& Jx, const SparseJacobian& Jy, Ravelin::MatrixNd& Jx_iM_JyT) const;
     static void get_sub_jacobian(const std::vector<unsigned>& rows, const SparseJacobian& J, SparseJacobian& Jx);
     static void increment_dof(RigidBodyPtr rb1, RigidBodyPtr rb2, unsigned k, double h);
-    virtual Ravelin::VectorNd& solve_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& b, Ravelin::VectorNd& x);
-    virtual Ravelin::MatrixNd& solve_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::MatrixNd& B, Ravelin::MatrixNd& X);
+    virtual Ravelin::VectorNd& solve_generalized_inertia(const Ravelin::VectorNd& b, Ravelin::VectorNd& x) { return iM_mult(b, x); }
+    virtual Ravelin::MatrixNd& solve_generalized_inertia(const Ravelin::MatrixNd& B, Ravelin::MatrixNd& X);
     void select_sub_contact_Jacobians(const EventProblemData& q, SparseJacobian& Jc_sub, SparseJacobian& Dc_sub) const;
     Ravelin::VectorNd& solve_Jx_iM_JxT(const Ravelin::VectorNd& rhs, Ravelin::VectorNd& x) const;
 

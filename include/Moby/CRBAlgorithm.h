@@ -24,7 +24,7 @@ class CRBAlgorithm
     void set_body(RCArticulatedBodyPtr body) { _body = body; setup_parent_array(); }
     void calc_fwd_dyn();
     void apply_impulse(const Ravelin::Wrenchd& w, RigidBodyPtr link);
-    void calc_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::MatrixNd& M);
+    void calc_generalized_inertia(Ravelin::MatrixNd& M);
     void calc_generalized_forces(Ravelin::Wrenchd& f0, Ravelin::VectorNd& C);
     bool factorize_cholesky(Ravelin::MatrixNd& M);
     Ravelin::VectorNd& M_solve(Ravelin::VectorNd& xb);
@@ -52,8 +52,6 @@ class CRBAlgorithm
     /// Determines whether the system of equations for forward dynamics is rank-deficient
      bool _rank_deficient;
 
-    void calc_generalized_inertia_axisangle(Ravelin::MatrixNd& M);
-    void calc_generalized_inertia_euler(Ravelin::MatrixNd& M);
     void calc_joint_space_inertia(RCArticulatedBodyPtr body, Ravelin::MatrixNd& H, std::vector<Ravelin::SpatialRBInertiad>& Ic);
     void apply_coulomb_joint_friction(RCArticulatedBodyPtr body);
     void precalc(RCArticulatedBodyPtr body);

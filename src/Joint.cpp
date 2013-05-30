@@ -305,15 +305,16 @@ Point3d Joint::get_location(bool use_outboard) const
   RigidBodyPtr inboard(_inboard_link);
   RigidBodyPtr outboard(_outboard_link);
 
+
   // compute the global position
   if (!use_outboard)
   {
-    // TODO: convert the pose to global position
   }
   else
   {
-    // TODO: convert the pose to global position
   }
+
+  // TODO: convert the pose to global position and return something...
 }
 
 /// Gets the scaled and limited actuator forces

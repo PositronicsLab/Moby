@@ -68,17 +68,17 @@ std::ostream& BoundingSphere::to_vrml(std::ostream& out, const Pose3d& T) const
 }
 
 /// Calculates the velocity expanded bounding volume for the bounding sphere (calculates an OBB)
-BVPtr BoundingSphere::calc_vel_exp_BV(CollisionGeometryPtr g, double dt, const Twistd& v) const
+BVPtr BoundingSphere::calc_swept_BV(CollisionGeometryPtr g, const Twistd& v) const
 {
   // get the corresponding body
   SingleBodyPtr b = g->get_single_body();
 
   // if the body does not move, just return the OBB
-  if (!b->is_enabled() || v.get_linear().norm()*dt < NEAR_ZERO)
+  if (!b->is_enabled() || v.get_linear().norm() < NEAR_ZERO)
   {
-    FILE_LOG(LOG_BV) << "BoundingSphere::calc_vel_exp_BV() entered" << endl;
+    FILE_LOG(LOG_BV) << "BoundingSphere::calc_swept_BV() entered" << endl;
     FILE_LOG(LOG_BV) << "  -- using original bounding sphere" << endl;
-    FILE_LOG(LOG_BV) << "BoundingSphere::calc_vel_exp_BV() exited" << endl;
+    FILE_LOG(LOG_BV) << "BoundingSphere::calc_swept_BV() exited" << endl;
 
     return const_pointer_cast<BoundingSphere>(get_this());
   }
@@ -89,7 +89,7 @@ BVPtr BoundingSphere::calc_vel_exp_BV(CollisionGeometryPtr g, double dt, const T
   // otherwise, create a SSL 
   shared_ptr<SSL> ssl(new SSL);
   ssl->p1 = this->center;
-  ssl->p2 = this->center + vx.get_linear()*dt;
+  ssl->p2 = this->center + vx.get_linear();
   ssl->radius = this->radius;
   return ssl;
 }
