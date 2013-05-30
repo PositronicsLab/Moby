@@ -27,31 +27,31 @@ MCArticulatedBody::MCArticulatedBody()
 }
 
 /// Applies a generalized impulse to the articulated body
-void MCArticulatedBody::apply_generalized_impulse(DynamicBody::GeneralizedCoordinateType gctype, const VectorNd& gj)
+void MCArticulatedBody::apply_generalized_impulse(const VectorNd& gj)
 {
   SAFESTATIC VectorNd j;
-  j.resize(num_generalized_coordinates(gctype));
+  j.resize(num_generalized_coordinates(DynamicBody::eSpatial));
 
   for (unsigned i=0, k=0; i< _links.size(); i++)
   {
-    const unsigned ngc = _links[i]->num_generalized_coordinates_single(gctype);
+    const unsigned ngc = _links[i]->num_generalized_coordinates_single(DynamicBody::eSpatial);
     gj.get_sub_vec(k, k+ngc, j);
-    _links[i]->apply_generalized_impulse_single(gctype, j);
+    _links[i]->apply_generalized_impulse_single(j);
     k += ngc;
   }
 }
 
 /// Adds a generalized force to the articulated body
-void MCArticulatedBody::add_generalized_force(DynamicBody::GeneralizedCoordinateType gctype, const VectorNd& gf)
+void MCArticulatedBody::add_generalized_force( const VectorNd& gf)
 {
   SAFESTATIC VectorNd f;
-  f.resize(num_generalized_coordinates(gctype));
+  f.resize(num_generalized_coordinates(DynamicBody::eSpatial));
 
   for (unsigned i=0, k=0; i< _links.size(); i++)
   {
-    const unsigned NGC = _links[i]->num_generalized_coordinates_single(gctype);
+    const unsigned NGC = _links[i]->num_generalized_coordinates_single(DynamicBody::eSpatial);
     gf.get_sub_vec(k, k+NGC, f);
-    _links[i]->add_generalized_force_single(gctype, f);
+    _links[i]->add_generalized_force_single(f);
     k += NGC;
   }
 }
@@ -114,21 +114,21 @@ VectorNd& MCArticulatedBody::get_generalized_velocity(DynamicBody::GeneralizedCo
 }
 
 /// Gets the generalized velocity for this body
-VectorNd& MCArticulatedBody::get_generalized_acceleration(DynamicBody::GeneralizedCoordinateType gctype, VectorNd& ga) 
+VectorNd& MCArticulatedBody::get_generalized_acceleration( VectorNd& ga) 
 {
   // necessary temporary vector
   SAFESTATIC VectorNd ga_body;
 
   // determine number of generalized coordinates 
-  const unsigned NGC = num_generalized_coordinates(gctype);
+  const unsigned NGC = num_generalized_coordinates(DynamicBody::eSpatial);
   ga.resize(NGC);
 
   // get the generalized accelerations
   for (unsigned i=0, k=0; i< _links.size(); i++)
   {
-    _links[i]->get_generalized_acceleration_single(gctype, ga_body);
+    _links[i]->get_generalized_acceleration_single(ga_body);
     ga.set_sub_vec(k, ga_body);
-    k += _links[i]->num_generalized_coordinates_single(gctype);
+    k += _links[i]->num_generalized_coordinates_single(DynamicBody::eSpatial);
   }
 
   return ga; 
@@ -187,20 +187,20 @@ void MCArticulatedBody::determine_inertias()
 }
 
 /// Gets the generalized inertia matrix
-MatrixNd& MCArticulatedBody::get_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, MatrixNd& M)
+MatrixNd& MCArticulatedBody::get_generalized_inertia( MatrixNd& M)
 {
   // setup the sparse inertia matrix and inverse inertia matrix
   MatrixNd gI;
 
   // get the generalized inertia
-  const unsigned NGC = num_generalized_coordinates(gctype);
+  const unsigned NGC = num_generalized_coordinates(DynamicBody::eSpatial);
   M.set_zero(NGC, NGC);
   for (unsigned i=0, k=0; i< _links.size(); i++)
   {
     // set the proper component of the generalized inertia matrix
-    _links[i]->get_generalized_inertia_single(gctype, gI);
+    _links[i]->get_generalized_inertia_single(gI);
     M.set_sub_mat(k, k, gI);
-    k += _links[i]->num_generalized_coordinates_single(gctype);
+    k += _links[i]->num_generalized_coordinates_single(DynamicBody::eSpatial);
   }
 
   return M;
@@ -858,19 +858,19 @@ void MCArticulatedBody::apply_impulse(const Wrenchd& w, RigidBodyPtr link)
 }
 
 /// Sets up the generalized force vector
-VectorNd& MCArticulatedBody::get_generalized_forces(DynamicBody::GeneralizedCoordinateType gctype, VectorNd& gf) 
+VectorNd& MCArticulatedBody::get_generalized_forces( VectorNd& gf) 
 {
   SAFESTATIC VectorNd f;
 
   // resize the gf vector
-  gf.resize(num_generalized_coordinates(gctype)); 
+  gf.resize(num_generalized_coordinates(DynamicBody::eSpatial)); 
 
   // get the generalized forces 
   for (unsigned i=0, k=0; i< _links.size(); i++)
   {
-    _links[i]->get_generalized_forces_single(gctype, f);
+    _links[i]->get_generalized_forces_single(f);
     gf.set_sub_vec(k, f);
-    k += _links[i]->num_generalized_coordinates_single(gctype);
+    k += _links[i]->num_generalized_coordinates_single(DynamicBody::eSpatial);
   }
 
   return gf;
@@ -932,44 +932,19 @@ void MCArticulatedBody::get_sub_jacobian(const vector<unsigned>& rows, const MCA
 }
 
 /// Solves using the generalized inertia matrix
-VectorNd& MCArticulatedBody::solve_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, const VectorNd& b, VectorNd& x)
+MatrixNd& MCArticulatedBody::solve_generalized_inertia( const MatrixNd& B, MatrixNd& X)
 {
-  if (gctype == DynamicBody::eSpatial)
-    return iM_mult(b, x);
-  else
-  {
-    SAFESTATIC MatrixNd M;
-    get_generalized_inertia(gctype, M);
-    x = b;
-    _LA.solve_fast(M, x);
-    return x;
-  }
-}
+  X.resize(num_generalized_coordinates(DynamicBody::eSpatial), B.columns()); 
+  VectorNd workv;
 
-/// Solves using the generalized inertia matrix
-MatrixNd& MCArticulatedBody::solve_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, const MatrixNd& B, MatrixNd& X)
-{
-  if (gctype == DynamicBody::eSpatial)
-  {
-    X.resize(num_generalized_coordinates(gctype), B.columns()); 
-    SAFESTATIC VectorNd workv;
-
-    // do the multiplication
-    for (unsigned j=0; j< B.columns(); j++)
-      for (unsigned i=0; i< _iM.size(); i++)
-      {
-        B.get_sub_mat(_gc_indices[i], _gc_indices[i+1], j, j+1, workv);
-        scale_inverse_inertia(i, workv);
-        X.set_sub_mat(_gc_indices[i], j, workv);
-      }
-  }
-  else
-  {
-    SAFESTATIC MatrixNd M;
-    get_generalized_inertia(gctype, M);
-    X = B;
-    _LA.solve_fast(M, X);
-  }
+  // do the multiplication
+  for (unsigned j=0; j< B.columns(); j++)
+    for (unsigned i=0; i< _iM.size(); i++)
+    {
+      B.get_sub_mat(_gc_indices[i], _gc_indices[i+1], j, j+1, workv);
+      scale_inverse_inertia(i, workv);
+      X.set_sub_mat(_gc_indices[i], j, workv);
+    }
 
   return X;
 }
@@ -977,7 +952,7 @@ MatrixNd& MCArticulatedBody::solve_generalized_inertia(DynamicBody::GeneralizedC
 /// Multiplies the inverse of the inertia matrix by a vector
 VectorNd& MCArticulatedBody::iM_mult(const VectorNd& v, VectorNd& result) const
 {
-  SAFESTATIC VectorNd sub;
+  VectorNd sub;
 
   // resize the result vector
   result.resize(_gc_indices.back());
@@ -999,6 +974,7 @@ VectorNd& MCArticulatedBody::scale_inverse_inertia(unsigned i, VectorNd& v) cons
   if (v.size() == 0 || !_links[i]->is_enabled())
     return v.set_zero();
 
+  // TODO: fix this as necessary to account for different computation frames
   // multiply by the inverse
   v[0] *= _iM[i].inv_mass;
   v[1] *= _iM[i].inv_mass;
@@ -1641,19 +1617,19 @@ void MCArticulatedBody::reset_accumulators()
 }
 
 /// Determines a generalized force on the body
-VectorNd& MCArticulatedBody::convert_to_generalized_force(GeneralizedCoordinateType gctype, SingleBodyPtr link, const Wrenchd& w, const Point3d& p, VectorNd& gf)
+VectorNd& MCArticulatedBody::convert_to_generalized_force(SingleBodyPtr link, const Wrenchd& w, const Point3d& p, VectorNd& gf)
 {
   SAFESTATIC VectorNd link_gf;
 
   // setup a zero vector of all generalized forces
-  gf.set_zero(num_generalized_coordinates(gctype));
+  gf.set_zero(num_generalized_coordinates(DynamicBody::eSpatial));
 
   // get the link as a rigid body
   RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(link);
   assert(rb);
 
   // get the generalized force for the link
-  link->convert_to_generalized_force_single(gctype, link, w, link_gf);
+  link->convert_to_generalized_force_single(link, w, link_gf);
 
   // set the appropriate part in the vector
   for (unsigned i=0, k=0; i< _links.size(); i++)
@@ -1663,7 +1639,7 @@ VectorNd& MCArticulatedBody::convert_to_generalized_force(GeneralizedCoordinateT
       gf.set_sub_vec(k, link_gf);
       return gf;
     }
-    k += _links[i]->num_generalized_coordinates_single(gctype);
+    k += _links[i]->num_generalized_coordinates_single(DynamicBody::eSpatial);
   }
 
   assert(false);

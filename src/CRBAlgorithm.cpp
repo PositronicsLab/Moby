@@ -204,23 +204,6 @@ void CRBAlgorithm::calc_generalized_inertia(RCArticulatedBodyPtr body)
   }
 }
 
-/// Calculates the generalized inertia matrix for the given representation
-void CRBAlgorithm::calc_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, MatrixNd& M)
-{
-  // do the precalculation
-  RCArticulatedBodyPtr body(_body);
-  precalc(body);
-
-  // calculate the generalized inertia
-  if (gctype == DynamicBody::eSpatial)
-    calc_generalized_inertia_axisangle(M);
-  else
-  {
-    assert(gctype == DynamicBody::eEuler);
-    calc_generalized_inertia_euler(M);
-  }
-}
-
 /// Computes *just* the joint space inertia matrix
 void CRBAlgorithm::calc_joint_space_inertia(RCArticulatedBodyPtr body, MatrixNd& H, vector<SpatialRBInertiad>& Ic)
 {
@@ -436,10 +419,13 @@ void CRBAlgorithm::calc_joint_space_inertia(RCArticulatedBodyPtr body, MatrixNd&
 }
 
 /// Calculates the generalized inertia matrix for the given representation
-void CRBAlgorithm::calc_generalized_inertia_axisangle(MatrixNd& M)
+void CRBAlgorithm::calc_generalized_inertia(MatrixNd& M)
 {
-  // get the set of links
+  // do the precalculation
   RCArticulatedBodyPtr body(_body);
+  precalc(body);
+
+  // get the set of links
   ReferenceFrameType rftype = body->get_computation_frame_type();
   const vector<RigidBodyPtr>& links = body->get_links();
   const vector<JointPtr>& ijoints = body->get_implicit_joints();
@@ -519,134 +505,6 @@ void CRBAlgorithm::calc_generalized_inertia_axisangle(MatrixNd& M)
 
   FILE_LOG(LOG_DYNAMICS) << "(permuted) [Ic0 K; K' H]: " << std::endl << M;
 }
-
-/// Calculates the generalized inertia of this body with respect to Rodrigues parameters
-/**
- * \note this method does not utilize cached data nor does it cache any data
- *       to speed repeated calculations.
- */
-/*
-void CRBAlgorithm::calc_generalized_inertia_euler(MatrixNd& M)
-{
-  STATIC MatrixNd K, K2, L, tmp1, tmp2;
-  STATIC MatrixNd Ic0_7;
-  STATIC std::vector<Wrenchd> Is;
-  const unsigned SPATIAL_DIM = 6;
-
-  // get the set of links
-  RCArticulatedBodyPtr body(_body);
-  const vector<RigidBodyPtr>& links = body->get_links();
-  const vector<JointPtr>& ijoints = body->get_implicit_joints();
-
-  // get the joint space inertia and composite inertias
-  calc_joint_space_inertia(body, _H, _Ic);
-
-// TODO: need to convert everything to the proper frame (see axis-angle version)
-  throw std::runtime_error("Need conversion!");
-
-  // get the number of base degrees-of-freedom
-  const unsigned N_BASE_DOF = (body->is_floating_base()) ? 7 : 0;
-
-  // resize M and set H
-  M.resize(N_BASE_DOF + body->num_joint_dof_implicit(), N_BASE_DOF + body->num_joint_dof_implicit());
-  M.set_sub_mat(0, 0, _H);
-
-  // look for simplest case
-  if (!body->is_floating_base())
-    return;
- 
-  // get the coordinates at which the base start 
-  const unsigned BASE_START = body->num_joint_dof_implicit();
-
-  // convert six dimensional spatial inertia to seven dimensional
-  to_spatial7_inertia(_Ic.front(), links.front()->get_orientation(), Ic0_7);
-
-  // ************************************************************************
-  // floating base: compute K
-  // ************************************************************************
-
-  // TODO; compute K and K2
-  K.resize(7, body->num_joint_dof_implicit());
-  for (unsigned i=0; i< K.columns(); i++)
-    K(6,i) = (double) 0.0;
-  K2.resize(body->num_joint_dof_implicit(), 7);
-  for (unsigned i=0; i< ijoints.size(); i++)
-  {
-    // get the joint coordinate index
-    JointPtr joint = ijoints[i];
-    unsigned jidx = joint->get_coord_index();
-
-    // get the outboard link and its index
-    RigidBodyPtr outboard = joint->get_outboard_link();
-    unsigned oidx = outboard->get_index();
-
-    // compute Is
-    const std::vector<Twistd>& s = joint->get_spatial_axes();
-    transform_and_mult(outboard, _Ic[oidx], s, Is); 
-
-    // compute the requisite column of K
-    SharedMatrixNd Kb = K.block(0, N_BASE_DOF, jidx, jidx+joint->num_dof());
-    to_matrix(Is, Kb);
-
-    // compute the requisite row of K2
-    Kb.get_sub_mat(0, 3, 0, Kb.columns(), tmp1);
-    K2.set_sub_mat(jidx, 4, tmp1, true);
-    outboard->get_orientation().determine_L(L);
-    L*= (double) 2.0;
-    Is.get_sub_mat(3, 6, 0, Is.columns(), tmp1);
-    L.transpose_mult(tmp1, tmp2);
-    K2.set_sub_mat(jidx, 0, tmp2, true);
-  }
-
-  // setup the remainder of the augmented inertia matrix
-  M.set_sub_mat(BASE_START,BASE_START,Ic0_7);
-  M.set_sub_mat(BASE_START,n_base_dof,K);
-  M.set_sub_mat(n_base_dof,BASE_START,K2);
-
-  FILE_LOG(LOG_DYNAMICS) << "(unpermuted) [Ic0 K; K' H]: " << std::endl << M;
-
-  // swap columns
-  M.get_sub_mat(0, M.rows(), BASE_START, BASE_START+4, workM);
-  M.block(0, M.rows(), BASE_START, BASE_START+4) = M.block(0, M.rows(), BASE_START+4, BASE_START+7);  
-  M.set_sub_mat(0, BASE_START+3, workM);
-}
-
-void CRBAlgorithm::to_spatial7_inertia(const SpatialRBInertiad& I, const Quatd& q, MatrixNd& I7)
-{
-  STATIC MatrixNd work;
-  STATIC MatrixNd work2, L;
-
-  // first resize I7
-  I7.resize(7,7);
-
-  // now get the subcomponents of I 
-  Matrix3d IUL = Matrix3d::skew_symmetric(-I.h);
-  Matrix3d IUR = IDENTITY_3x3*I.m;
-  Matrix3d ILL = I.J;
-  Matrix3d ILR = -IUL;
-
-  // copy the invariant parts
-  I7.set_sub_mat(0, 4, IUR);
-  I7.set_sub_mat(3, 4, ILR);
-
-  // transform and set the non-invariant parts
-  q.determine_L(L) *= (double) 2.0;
-  work.resize(3,3);
-  work.set_sub_mat(0, 0, IUL);
-  work.mult(L, work2);
-  I7.set_sub_mat(0, 0, work2);
-  work.set_sub_mat(0, 0, ILL);
-  work.mult(L, work2);
-  I7.set_sub_mat(3, 0, work2);
-
-  // set the last row
-  I7(6,0) = q.w;
-  I7(6,1) = q.x;
-  I7(6,2) = q.y;
-  I7(6,3) = q.z;
-  I7(6,4) = I7(6,5) = I7(6,6) = (double) 0.0;
-}
-*/
 
 /// Performs necessary pre-computations for computing accelerations or applying impulses
 void CRBAlgorithm::precalc(RCArticulatedBodyPtr body)

@@ -305,7 +305,7 @@ void FSABAlgorithm::apply_generalized_impulse(unsigned index, const vector<vecto
 }
 
 /// Applies a generalized impulse using the algorithm of Drumwright
-void FSABAlgorithm::apply_generalized_impulse(DynamicBody::GeneralizedCoordinateType gctype, const VectorNd& gj)
+void FSABAlgorithm::apply_generalized_impulse(const VectorNd& gj)
 {
   SAFESTATIC VectorNd tmp, tmp2;
   SAFESTATIC vector<VectorNd> mu;
@@ -313,7 +313,7 @@ void FSABAlgorithm::apply_generalized_impulse(DynamicBody::GeneralizedCoordinate
   vector<Twistd> sprime;
 
   // determine the number of generalized coordinates for the base
-  const unsigned N_BASE_GC = (gctype == DynamicBody::eSpatial) ? 6 : 7;
+  const unsigned N_BASE_GC = 6;
 
   // get the body
   RCArticulatedBodyPtr body(_body);

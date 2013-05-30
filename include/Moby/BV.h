@@ -59,12 +59,10 @@ class BV : public boost::enable_shared_from_this<BV>
     /// Virtual function that calculates a velocity-expanded BV
     /**
      * \param g the geometry that this bounding volume represents
-     * \param dt the time step
-     * \param lv the linear velocity
-     * \param av the angular velocity
+     * \param v the "velocity" to sweep by
      * \return the velocity-expanded bounding volume
      */ 
-    virtual BVPtr calc_vel_exp_BV(CollisionGeometryPtr g, double dt, const Ravelin::Twistd& v) const = 0;
+    virtual BVPtr calc_swept_BV(CollisionGeometryPtr g, const Ravelin::Twistd& v) const = 0;
 
     /// Convenience method
     static bool intersects(BVPtr a, BVPtr b) { return intersects(a.get(), b.get()); }

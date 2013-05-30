@@ -692,9 +692,9 @@ unsigned RigidBody::num_generalized_coordinates(GeneralizedCoordinateType gctype
 }
  
 /// Adds a generalized force to this rigid body
-void RigidBody::add_generalized_force(GeneralizedCoordinateType gctype, const VectorNd& gf)
+void RigidBody::add_generalized_force(const VectorNd& gf)
 {
-  assert(gf.size() == num_generalized_coordinates(gctype));
+  assert(gf.size() == num_generalized_coordinates(DynamicBody::eSpatial));
   Wrenchd w;
 
   // if body is not enabled, do nothing
@@ -704,60 +704,30 @@ void RigidBody::add_generalized_force(GeneralizedCoordinateType gctype, const Ve
   // set the pose for w
   w.pose = get_computation_frame();
 
-  // get the force
+  // get the force and torque
   w.set_force(Vector3d(gf[0], gf[1], gf[2]));
-
-  // simplest case: spatial coords
-  if (gctype == eSpatial)
-    w.set_torque(Vector3d(gf[3], gf[4], gf[5]));
-  else
-  {
-    assert(gctype == eEuler);
-
-    // get the computation reference frame
-    ReferenceFrameType rftype = get_computation_frame_type();
-
-    // generalized forces will be in the body's computation frame
-    switch (rftype)
-    {
-      case eLink:
-        w.set_torque(_F->q.L_mult(gf[3], gf[4], gf[5], gf[6]) * (double) 0.5);
-        break;
-
-      case eGlobal:
-        w.set_torque(_F->q.G_mult(gf[3], gf[4], gf[5], gf[6]) * (double) 0.5);
-        break;
-
-      case eJoint:
-       // in this case, we can only do Euler parameters if there is no inner joint
-       // (Euler parameters currently incompatible with joint frame of reference)
-       if (get_inner_joint_implicit())
-         throw std::runtime_error("Unable to do Euler parameters for joint frame of reference");
-        w.set_torque(_F->q.L_mult(gf[3], gf[4], gf[5], gf[6]) * (double) 0.5);
-        break;
-    }    
-  }
+  w.set_torque(Vector3d(gf[3], gf[4], gf[5]));
 
   // add the wrench to the sum of wrenches
   _wrench += w;
 }
 
 /// Applies a generalized impulse to this rigid body
-void RigidBody::apply_generalized_impulse(GeneralizedCoordinateType gctype, const VectorNd& gj)
+void RigidBody::apply_generalized_impulse(const VectorNd& gj)
 {
   // if this body part of an articulated body, call that function instead
   if (!_abody.expired())
   {
     ArticulatedBodyPtr ab(_abody);
-    ab->apply_generalized_impulse(gctype, gj);
+    ab->apply_generalized_impulse(gj);
     return;
   }
   else
-    apply_generalized_impulse_single(gctype, gj);
+    apply_generalized_impulse_single(gj);
 }
 
 /// Applies a generalized impulse to this rigid body
-void RigidBody::apply_generalized_impulse_single(GeneralizedCoordinateType gctype, const VectorNd& gj)
+void RigidBody::apply_generalized_impulse_single(const VectorNd& gj)
 {
   Wrenchd w;
 
@@ -766,56 +736,39 @@ void RigidBody::apply_generalized_impulse_single(GeneralizedCoordinateType gctyp
     return;
 
   // simple error check...
-  assert(gj.size() == num_generalized_coordinates(gctype));
+  assert(gj.size() == num_generalized_coordinates(DynamicBody::eSpatial));
 
   // clear the force and torque accumulators
   _wrench.set_zero();
 
-  // look for easy case (axis-angle)
-  if (gctype == DynamicBody::eSpatial)
-  {
-    // get the impulses
-    w.set_force(Vector3d(gj[0], gj[1], gj[2]));
-    w.set_torque(Vector3d(gj[3], gj[4], gj[5]));
-    w.pose = get_computation_frame();
+  // get the impulses
+  w.set_force(Vector3d(gj[0], gj[1], gj[2]));
+  w.set_torque(Vector3d(gj[3], gj[4], gj[5]));
+  w.pose = get_computation_frame();
 
-    // determine the change in linear velocity
-    _xd += _J.inverse_mult(w);
-  }
-  else
-  {
-    assert(gctype == DynamicBody::eEuler);
-
-    // get proper generalized inertia matrix
-    MatrixNd M;
-    VectorNd gv, qd_delta;
-    get_generalized_inertia(gctype, M);
-    _LA.solve_fast(M, qd_delta = gj);
-    get_generalized_velocity(gctype, gv);
-    gv += qd_delta;
-    set_generalized_velocity(gctype, gv); 
-  }
+  // determine the change in linear velocity
+  _xd += _J.inverse_mult(w);
 }
 
 /// Solves using the generalized inertia matrix
-MatrixNd& RigidBody::solve_generalized_inertia(GeneralizedCoordinateType gctype, const MatrixNd& B, MatrixNd& X)
+MatrixNd& RigidBody::solve_generalized_inertia(const MatrixNd& B, MatrixNd& X)
 {
   // if this body part of an articulated body, call that function instead
   if (!_abody.expired())
   {
     ArticulatedBodyPtr ab(_abody);
-    return ab->solve_generalized_inertia(gctype, B, X);
+    return ab->solve_generalized_inertia(B, X);
   }
   else
-    return solve_generalized_inertia_single(gctype, B, X);
+    return solve_generalized_inertia_single(B, X);
 }
 
 /// Solves using the generalized inertia matrix (does not call articulated body version)
-MatrixNd& RigidBody::solve_generalized_inertia_single(GeneralizedCoordinateType gctype, const MatrixNd& B, MatrixNd& X)
+MatrixNd& RigidBody::solve_generalized_inertia_single(const MatrixNd& B, MatrixNd& X)
 {
   // get proper generalized inertia matrix
   MatrixNd M;
-  get_generalized_inertia(gctype, M);
+  get_generalized_inertia(M);
   X = B;
   _LA.solve_fast(M, X);
 
@@ -823,24 +776,24 @@ MatrixNd& RigidBody::solve_generalized_inertia_single(GeneralizedCoordinateType 
 }
 
 /// Solves using the generalized inertia matrix
-VectorNd& RigidBody::solve_generalized_inertia(GeneralizedCoordinateType gctype, const VectorNd& b, VectorNd& x)
+VectorNd& RigidBody::solve_generalized_inertia(const VectorNd& b, VectorNd& x)
 {
   // if this body part of an articulated body, call that function instead
   if (!_abody.expired())
   {
     ArticulatedBodyPtr ab(_abody);
-    return ab->solve_generalized_inertia(gctype, b, x);
+    return ab->solve_generalized_inertia(b, x);
   }
   else
-    return solve_generalized_inertia_single(gctype, b, x);
+    return solve_generalized_inertia_single(b, x);
 }
 
 /// Solves using the generalized inertia matrix
-VectorNd& RigidBody::solve_generalized_inertia_single(GeneralizedCoordinateType gctype, const VectorNd& b, VectorNd& x)
+VectorNd& RigidBody::solve_generalized_inertia_single(const VectorNd& b, VectorNd& x)
 {
   // get proper generalized inertia matrix
   MatrixNd M;
-  get_generalized_inertia(gctype, M);
+  get_generalized_inertia(M);
   x = b;
   _LA.solve_fast(M, x);
 
@@ -857,22 +810,26 @@ VectorNd& RigidBody::get_generalized_coordinates_single(GeneralizedCoordinateTyp
   // resize vector
   gc.resize(num_generalized_coordinates(gctype));
 
+  // convert pose to global frame
+  Pose3d P = *_F;
+  P.update_relative_pose(GLOBAL);
+
   // get linear components
-  gc[0] = _F->x[0];
-  gc[1] = _F->x[1];
-  gc[2] = _F->x[2];
+  gc[0] = P.x[0];
+  gc[1] = P.x[1];
+  gc[2] = P.x[2];
 
   // get angular components 
   if (gctype == DynamicBody::eSpatial)
-    _F->q.to_rpy(gc[3], gc[4], gc[5]);
+    P.q.to_rpy(gc[3], gc[4], gc[5]);
   else
   {
     // return the generalized position using Euler parameters
     assert(gctype == DynamicBody::eEuler);
-    gc[3] = _F->q.w;
-    gc[4] = _F->q.x;
-    gc[5] = _F->q.y;
-    gc[6] = _F->q.z;
+    gc[3] = P.q.w;
+    gc[4] = P.q.x;
+    gc[5] = P.q.y;
+    gc[6] = P.q.z;
   }
 
   return gc; 
@@ -906,6 +863,7 @@ void RigidBody::set_generalized_coordinates_single(GeneralizedCoordinateType gct
     Origin3d x(gc[0], gc[1], gc[2]);
     Quatd q = Quatd::rpy(gc[3], gc[4], gc[5]); 
 
+    // TODO: fix (if necessary) b/c coords pose in get_gen... in global frame
     // TODO: use shared pointer pose here (pass to set_pose) so we can do checks?
 
     // set the transform
@@ -928,6 +886,7 @@ void RigidBody::set_generalized_coordinates_single(GeneralizedCoordinateType gct
     // normalize the unit quaternion, just in case
     q.normalize();
 
+    // TODO: fix (if necessary) b/c coords pose in get_gen... in global frame
     // TODO: use shared pointer pose here (pass to set_pose) so we can do checks?
 
     // set the transform
@@ -967,6 +926,8 @@ void RigidBody::set_generalized_velocity_single(GeneralizedCoordinateType gctype
   // special case: disabled body
   if (!_enabled)
     return;
+  
+// TODO: fix (if necessary) b/c coords pose in get_gen... in global frame
 
   // set the linear component first
   _xd.set_linear(Vector3d(gv[0], gv[1], gv[2]));
@@ -1025,6 +986,7 @@ VectorNd& RigidBody::get_generalized_velocity_single(GeneralizedCoordinateType g
   if (!_enabled)
     return gv.resize(0);
 
+// TODO: fix (if necessary) b/c coords pose in get_gen... in global frame
   // resize the generalized velocity
   gv.resize(num_generalized_coordinates(gctype));
 
@@ -1080,27 +1042,27 @@ VectorNd& RigidBody::get_generalized_velocity_single(GeneralizedCoordinateType g
 }
 
 /// Gets the generalized acceleration of this body
-VectorNd& RigidBody::get_generalized_acceleration(GeneralizedCoordinateType gctype, VectorNd& ga)
+VectorNd& RigidBody::get_generalized_acceleration(VectorNd& ga)
 {
   // if this body part of an articulated body, call that function instead
   if (!_abody.expired())
   {
     ArticulatedBodyPtr ab(_abody);
-    return ab->get_generalized_acceleration(gctype, ga);
+    return ab->get_generalized_acceleration(ga);
   }
   else
-    return get_generalized_acceleration_single(gctype, ga);
+    return get_generalized_acceleration_single(ga);
 }
 
 /// Gets the generalized acceleration of this body (does not call articulated body version)
-VectorNd& RigidBody::get_generalized_acceleration_single(GeneralizedCoordinateType gctype, VectorNd& ga)
+VectorNd& RigidBody::get_generalized_acceleration_single(VectorNd& ga)
 {
   // special case: body is disabled
   if (!_enabled)
     return ga.resize(0);
 
   // setup the linear components
-  ga.resize(num_generalized_coordinates(gctype));
+  ga.resize(num_generalized_coordinates(DynamicBody::eSpatial));
 
   // get linear and angular components
   Vector3d la = _xdd.get_linear();
@@ -1110,66 +1072,30 @@ VectorNd& RigidBody::get_generalized_acceleration_single(GeneralizedCoordinateTy
   ga[0] = la[0];
   ga[1] = la[1];
   ga[2] = la[2];
-
-  // determine the proper generalized coordinate type
-  if (gctype == DynamicBody::eSpatial)
-  {
-    ga[3] = aa[0];
-    ga[4] = aa[1];
-    ga[5] = aa[2];
-  }
-  else
-  {
-    assert(gctype == DynamicBody::eEuler);
-
-    // going to need Euler coordinate second derivatives of time
-    Quatd qdd;
-
-    // computation frame must be taken into account
-    switch (get_computation_frame_type())
-    {
-      case eGlobal:
-        qdd = _F->q.G_transpose_mult(aa) * 0.5;
-        break;
-
-      case eLink:
-        qdd = _F->q.L_transpose_mult(aa) * 0.5;
-        break;
-
-      case eJoint:
-        if (!(_abody.expired() || is_base()))
-          throw std::runtime_error("Euler coordinates computed in joint frame not supported");
-        qdd = _F->q.L_transpose_mult(aa) * 0.5;         
-        break;
-    }
-
-    // setup the generalized acceration 
-    ga[3] = qdd.w;
-    ga[4] = qdd.x;
-    ga[5] = qdd.y;
-    ga[6] = qdd.z; 
-  }
+  ga[3] = aa[0];
+  ga[4] = aa[1];
+  ga[5] = aa[2];
  
   return ga;
 }
 
 /// Gets the generalized inertia of this rigid body
-MatrixNd& RigidBody::get_generalized_inertia(GeneralizedCoordinateType gctype, MatrixNd& M)
+MatrixNd& RigidBody::get_generalized_inertia(MatrixNd& M)
 {
   // if this body part of an articulated body, call that function instead
   if (!_abody.expired())
   {
     ArticulatedBodyPtr ab(_abody);
-    return ab->get_generalized_inertia(gctype, M);
+    return ab->get_generalized_inertia(M);
   }
   else
-    return get_generalized_inertia_single(gctype, M);
+    return get_generalized_inertia_single(M);
 }
  
 /// Gets the generalized inertia of this rigid body (does not call articulated body version)
-MatrixNd& RigidBody::get_generalized_inertia_single(GeneralizedCoordinateType gctype, MatrixNd& M) 
+MatrixNd& RigidBody::get_generalized_inertia_single(MatrixNd& M) 
 {
-  const unsigned X = 0, Y = 1, Z = 2, SPATIAL_DIM = 6, EULER_DIM = 7;
+  const unsigned X = 0, Y = 1, Z = 2, SPATIAL_DIM = 6;
 
   // special case: disabled body
   if (!_enabled)
@@ -1182,89 +1108,38 @@ MatrixNd& RigidBody::get_generalized_inertia_single(GeneralizedCoordinateType gc
   Matrix3d hxm = Matrix3d::skew_symmetric(J.h * J.m);
   Matrix3d hxhxm = Matrix3d::skew_symmetric(J.h) * hxm;
 
-  if (gctype == DynamicBody::eSpatial)
-  {
-    // arrange the matrix the way we want it: mass upper left, inertia lower right
-    M.resize(SPATIAL_DIM, SPATIAL_DIM);
-    M.set_sub_mat(0, 0, Matrix3d(J.m, 0, 0, 0, J.m, 0, 0, 0, J.m));
-    M.set_sub_mat(3, 0, hxm);
-    M.set_sub_mat(0, 3, hxm, Ravelin::eTranspose);
-    M.set_sub_mat(3, 3, J.J - hxhxm);
-  }
-  else if (gctype == DynamicBody::eEuler) 
-  {
-    // arrange the matrix the way we want it: mass upper left, inertia lower right
-    M.resize(EULER_DIM, EULER_DIM);
-
-    // setup upper left and lower left (doesn't change)
-    M.set_sub_mat(0, 0, Matrix3d(J.m, 0, 0, 0, J.m, 0, 0, 0, J.m));
-    M.set_sub_mat(3, 0, hxm);
-
-    // TODO: compute upper right, lower left blocks
-/*
-    Vector3d ix = LL.get_column(X);
-    Vector3d iy = LL.get_column(Y);
-    Vector3d iz = LL.get_column(Z);
-
-    // compute coordinate specific values
-    Quatd qx, qy, qz;
-    switch (get_computation_frame_type())
-    {
-      case eGlobal:
-        qx = _F->q.G_transpose_mult(ix) * (double) 2.0;
-        qy = _F->q.G_transpose_mult(iy) * (double) 2.0;
-        qz = _F->q.G_transpose_mult(iz) * (double) 2.0;
-        break;
-
-      case eLink:
-        qx = _F->q.L_transpose_mult(ix) * (double) 2.0;
-        qy = _F->q.L_transpose_mult(iy) * (double) 2.0;
-        qz = _F->q.L_transpose_mult(iz) * (double) 2.0;
-        break;
-
-      case eJoint:
-        if (!(_abody.expired() || is_base()))
-          throw std::runtime_error("Euler coordinates computed in joint frame not supported");
-        qx = _F->q.L_transpose_mult(ix) * (double) 2.0;
-        qy = _F->q.L_transpose_mult(iy) * (double) 2.0;
-        qz = _F->q.L_transpose_mult(iz) * (double) 2.0;
-        break;
-    }
-
-    // set lower 4x4 block ([Nikravesh, 1988, p. 295])
-    const Quatd& q = _F->q;
-    M(3,3) = qx.w;  M(3,4) = qx.x;  M(3,5) = qx.y;  M(3,6) = qx.z;
-    M(4,3) = qy.w;  M(4,4) = qy.x;  M(4,5) = qy.y;  M(4,6) = qy.z;
-    M(5,3) = qz.w;  M(5,4) = qz.x;  M(5,5) = qz.y;  M(5,6) = qz.z;
-    M(6,3) = q.w;   M(6,4) = q.x;   M(6,5) = q.y;   M(6,6) = q.z;
-*/
-  }
+  // arrange the matrix the way we want it: mass upper left, inertia lower right
+  M.resize(SPATIAL_DIM, SPATIAL_DIM);
+  M.set_sub_mat(0, 0, Matrix3d(J.m, 0, 0, 0, J.m, 0, 0, 0, J.m));
+  M.set_sub_mat(3, 0, hxm);
+  M.set_sub_mat(0, 3, hxm, Ravelin::eTranspose);
+  M.set_sub_mat(3, 3, J.J - hxhxm);
 
   return M;
 }
 
 /// Gets the generalized inertia of this rigid body
-VectorNd& RigidBody::get_generalized_forces(GeneralizedCoordinateType gctype, VectorNd& gf)
+VectorNd& RigidBody::get_generalized_forces(VectorNd& gf)
 {
   // if this body part of an articulated body, call that function instead
   if (!_abody.expired())
   {
     ArticulatedBodyPtr ab(_abody);
-    return ab->get_generalized_forces(gctype, gf);
+    return ab->get_generalized_forces(gf);
   }
   else
-    return get_generalized_forces_single(gctype, gf);
+    return get_generalized_forces_single(gf);
 }
 
 /// Gets the generalized external forces (does not call articulated body version)
-VectorNd& RigidBody::get_generalized_forces_single(GeneralizedCoordinateType gctype, VectorNd& gf) 
+VectorNd& RigidBody::get_generalized_forces_single(VectorNd& gf) 
 {
   // special case: disabled body
   if (!_enabled)
     return gf.resize(0);
 
   // resize the generalized forces vector
-  const unsigned NGC = num_generalized_coordinates(gctype); 
+  const unsigned NGC = num_generalized_coordinates(DynamicBody::eSpatial); 
   gf.resize(NGC);
 
   // compute external wrenches and inertial forces
@@ -1278,53 +1153,28 @@ VectorNd& RigidBody::get_generalized_forces_single(GeneralizedCoordinateType gct
   gf[0] = f[0];
   gf[1] = f[1];
   gf[2] = f[2];
-
-   // use the proper generalized coordinate type
-  if (gctype == DynamicBody::eSpatial)
-  {
-    gf[3] = t[0];
-    gf[4] = t[1];
-    gf[5] = t[2];
-  }
-  else
-  {
-    assert(gctype == DynamicBody::eEuler);
-
-// TODO: fix this
-/*
-    // get the torque in the body's frame
-    Matrix3 R(&_q);
-    Vector3 tau = R.transpose_mult(tau);
-
-    // determine quaternion parameters
-    Quat qd = Quat::deriv(_q, _omega);
-
-    // set the generalized forces
-    f[3] = tau[0];
-    f[4] = tau[1];
-    f[5] = tau[2];
-    f[6] = -qd.norm_sq();
-*/
-  }
+  gf[3] = t[0];
+  gf[4] = t[1];
+  gf[5] = t[2];
 
   return gf;
 }
 
 /// Converts a force to a generalized force
-VectorNd& RigidBody::convert_to_generalized_force(GeneralizedCoordinateType gctype, SingleBodyPtr body, const Wrenchd& w, const Point3d& p, VectorNd& gf) 
+VectorNd& RigidBody::convert_to_generalized_force(SingleBodyPtr body, const Wrenchd& w, const Point3d& p, VectorNd& gf) 
 {
   // if this belongs to an articulated body, call the articulated body method
   if (!_abody.expired())
   {
     ArticulatedBodyPtr ab(_abody);
-    return ab->convert_to_generalized_force(gctype, body, w, p, gf); 
+    return ab->convert_to_generalized_force(body, w, p, gf); 
   }
   else
-    return convert_to_generalized_force_single(gctype, body, w, gf);
+    return convert_to_generalized_force_single(body, w, gf);
 }
 
 /// Converts a force to a generalized force (does not call articulated body version)
-VectorNd& RigidBody::convert_to_generalized_force_single(GeneralizedCoordinateType gctype, SingleBodyPtr body, const Wrenchd& w, VectorNd& gf) 
+VectorNd& RigidBody::convert_to_generalized_force_single(SingleBodyPtr body, const Wrenchd& w, VectorNd& gf) 
 {
   // verify that body == this
   assert(body.get() == this);
@@ -1341,36 +1191,15 @@ VectorNd& RigidBody::convert_to_generalized_force_single(GeneralizedCoordinateTy
   Vector3d t = wt.get_torque();
 
   // resize gf
-  gf.resize(num_generalized_coordinates(gctype));
+  gf.resize(num_generalized_coordinates(DynamicBody::eSpatial));
 
   // setup the linear components
   gf[0] = f[0];
   gf[1] = f[1];
   gf[2] = f[2];
-
-  // use the proper generalized coordinate type
-  if (gctype == DynamicBody::eSpatial)
-  {
-    gf[3] = t[0];
-    gf[4] = t[1];
-    gf[5] = t[2];
-  }
-  else
-  {
-    assert(gctype == DynamicBody::eEuler);
-// TODO: fix this
-/*
-    // convert the torque to the body's coordinate system
-    Matrix3 R(&_q);
-    tau = R.transpose_mult(tau);
-
-    // setup the generalized force
-    gf[3] = tau[0];
-    gf[4] = tau[1];
-    gf[5] = tau[2];
-    gf[6] = (double) 0.0;
-*/
-  }
+  gf[3] = t[0];
+  gf[4] = t[1];
+  gf[5] = t[2];
 
   return gf; 
 }

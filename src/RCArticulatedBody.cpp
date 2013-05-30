@@ -81,10 +81,10 @@ unsigned RCArticulatedBody::num_generalized_coordinates(DynamicBody::Generalized
 }
 
 /// Updates inverse generalized inertia matrix, as necessary
-void RCArticulatedBody::update_factorized_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype)
+void RCArticulatedBody::update_factorized_generalized_inertia()
 {
   // see whether we need to update
-  if (_fM_valid && _fM_type == gctype)
+  if (_fM_valid)
     return;
 
   // we do need to update; mark M as non rank-deficient for now
@@ -92,23 +92,22 @@ void RCArticulatedBody::update_factorized_generalized_inertia(DynamicBody::Gener
 
   // indicate factorized inertia is valid    
   _fM_valid = true;
-  _fM_type = gctype;
 }
 
 /// Solves using a generalized inertia matrix
-VectorNd& RCArticulatedBody::solve_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, const VectorNd& v, VectorNd& result)
+VectorNd& RCArticulatedBody::solve_generalized_inertia(const VectorNd& v, VectorNd& result)
 {
   // update the inverse / factorized inertia (if necessary)
-  update_factorized_generalized_inertia(gctype);
+  update_factorized_generalized_inertia();
 
   // make x/b one vector
   result = v;
 
-  if (algorithm_type == eFeatherstone || gctype == eEuler || _M_rankdef)
+  if (algorithm_type == eFeatherstone || _M_rankdef)
     _LA->solve_LS_fast(_uM, _sM, _vM, result);
   else
   {
-    assert(algorithm_type == eCRB && gctype == eSpatial);
+    assert(algorithm_type == eCRB);
     _crb.M_solve(result);
   }
   
@@ -116,19 +115,19 @@ VectorNd& RCArticulatedBody::solve_generalized_inertia(DynamicBody::GeneralizedC
 }
 
 /// Solves using a generalized inertia matrix
-MatrixNd& RCArticulatedBody::solve_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, const MatrixNd& m, MatrixNd& result)
+MatrixNd& RCArticulatedBody::solve_generalized_inertia(const MatrixNd& m, MatrixNd& result)
 {
   // update the inverse / factorized inertia (if necessary)
-  update_factorized_generalized_inertia(gctype);
+  update_factorized_generalized_inertia();
 
   // setup the result
   result = m;
 
-  if (algorithm_type == eFeatherstone || gctype == eEuler || _M_rankdef)
+  if (algorithm_type == eFeatherstone || _M_rankdef)
     _LA->solve_LS_fast(_uM, _sM, _vM, result);
   else
   {
-    assert(algorithm_type == eCRB && gctype == eSpatial);
+    assert(algorithm_type == eCRB);
     _crb.M_solve(result);
   }
   
@@ -136,19 +135,19 @@ MatrixNd& RCArticulatedBody::solve_generalized_inertia(DynamicBody::GeneralizedC
 }
 
 /// Solves using the transpose of the generalized inertia matrix
-MatrixNd& RCArticulatedBody::solve_generalized_inertia_transpose(DynamicBody::GeneralizedCoordinateType gctype, const MatrixNd& m, MatrixNd& result)
+MatrixNd& RCArticulatedBody::solve_generalized_inertia_transpose(const MatrixNd& m, MatrixNd& result)
 {
   // update the inverse / factorized inertia (if necessary)
-  update_factorized_generalized_inertia(gctype);
+  update_factorized_generalized_inertia();
 
-  if (algorithm_type == eFeatherstone || gctype == eEuler || _M_rankdef)
+  if (algorithm_type == eFeatherstone || _M_rankdef)
   {
     MatrixNd::transpose(m, result);
     _LA->solve_LS_fast(_uM, _sM, _vM, result);
   }
   else
   {
-    assert(algorithm_type == eCRB && gctype == eSpatial);
+    assert(algorithm_type == eCRB);
     MatrixNd::transpose(m, result);
     _crb.M_solve(result);
   }
@@ -157,10 +156,10 @@ MatrixNd& RCArticulatedBody::solve_generalized_inertia_transpose(DynamicBody::Ge
 }
 
 /// Applies a generalized impulse to the articulated body
-void RCArticulatedBody::apply_generalized_impulse(DynamicBody::GeneralizedCoordinateType gctype, const VectorNd& gj)
+void RCArticulatedBody::apply_generalized_impulse(const VectorNd& gj)
 {
   if (algorithm_type == eFeatherstone)
-    _fsab.apply_generalized_impulse(gctype, gj);
+    _fsab.apply_generalized_impulse(gj);
   else
   {
     assert(algorithm_type == eCRB);
@@ -169,14 +168,14 @@ void RCArticulatedBody::apply_generalized_impulse(DynamicBody::GeneralizedCoordi
     SAFESTATIC VectorNd gv, gv_delta;
 
     // get the current generalized velocity
-    get_generalized_velocity(gctype, gv);
+    get_generalized_velocity(DynamicBody::eSpatial, gv);
 
     // we'll solve for the change in generalized velocity
-    solve_generalized_inertia(gctype, gj, gv_delta);
+    solve_generalized_inertia(gj, gv_delta);
 
     // apply the change in generalized velocity
     gv += gv_delta;
-    set_generalized_velocity(gctype, gv);
+    set_generalized_velocity(DynamicBody::eSpatial, gv);
   }
 
   // reset the force and torque accumulators
@@ -184,7 +183,7 @@ void RCArticulatedBody::apply_generalized_impulse(DynamicBody::GeneralizedCoordi
 }
 
 /// Adds a generalized force to the articulated body
-void RCArticulatedBody::add_generalized_force(DynamicBody::GeneralizedCoordinateType gctype, const VectorNd& gf)
+void RCArticulatedBody::add_generalized_force(const VectorNd& gf)
 {
   unsigned index = 0;
   SAFESTATIC VectorNd f0;
@@ -198,7 +197,7 @@ void RCArticulatedBody::add_generalized_force(DynamicBody::GeneralizedCoordinate
     gf.get_sub_vec(num_joint_dof_implicit(), gf.size(), f0);
 
     // add the force to the base
-    base->add_generalized_force(gctype, f0);
+    base->add_generalized_force(f0);
   }
 
   // add to joint forces
@@ -400,19 +399,19 @@ void RCArticulatedBody::set_joints(const vector<JointPtr>& joints)
  * well as the base momentum; therefore, the derivative of the state vector is 
  * composed of the joint-space accelerations and base forces (and torques).
  */
-VectorNd& RCArticulatedBody::get_generalized_acceleration(DynamicBody::GeneralizedCoordinateType gctype, VectorNd& ga)
+VectorNd& RCArticulatedBody::get_generalized_acceleration(VectorNd& ga)
 {
   const unsigned GC_AA_DIM = 6, GC_ROD_DIM = 7;
   SAFESTATIC VectorNd base_ga;
 
   // resize the state-derivative vector
-  ga.resize(num_generalized_coordinates(gctype));
+  ga.resize(num_generalized_coordinates(DynamicBody::eSpatial));
   
   // setup the generalized acceleration for the base (if any) 
   if (_floating_base)
   {
     RigidBodyPtr base = _links.front();
-    base->get_generalized_acceleration_single(gctype, base_ga);
+    base->get_generalized_acceleration_single(base_ga);
     ga.set_sub_vec(num_joint_dof_implicit(), base_ga);
   }
 
@@ -781,7 +780,7 @@ void RCArticulatedBody::calc_fwd_dyn_loops()
   // get the generalized velocity, generalized forces, and inverse generalized 
   // inertia matrix
   get_generalized_velocity(eSpatial, v);
-  get_generalized_forces(eSpatial, fext);
+  get_generalized_forces(fext);
 
   // determine how many explicit constraint equations
   unsigned N_EXPLICIT_CONSTRAINT_EQNS = 0;
@@ -826,21 +825,21 @@ void RCArticulatedBody::calc_fwd_dyn_loops()
   fext += workv;
 
   // compute the constraint forces 
-  solve_generalized_inertia(DynamicBody::eSpatial, fext, iM_fext);
+  solve_generalized_inertia(fext, iM_fext);
   _Jx.mult(iM_fext, alpha_x) += Jx_dot_v;
   _Jx.mult(v, workv) *= ((double) 2.0 * b_alpha);
   alpha_x += workv;
   C *= (b_beta*b_beta);
   alpha_x += C;
-  solve_generalized_inertia_transpose(DynamicBody::eSpatial, _Jx, iM_JxT);
+  solve_generalized_inertia_transpose(_Jx, iM_JxT);
   _Jx.mult(iM_JxT, Jx_iM_JxT);
   _LA->svd(Jx_iM_JxT, U, S, V);
   _LA->solve_LS_fast(U, S, V, alpha_x);
 
   // compute generalized acceleration
   fext -= _Jx.transpose_mult(alpha_x, workv);
-  solve_generalized_inertia(DynamicBody::eSpatial, fext, a);
-  set_generalized_acceleration(DynamicBody::eSpatial, a);
+  solve_generalized_inertia(fext, a);
+  set_generalized_acceleration(a);
 }
 
 /// Computes the forward dynamics
@@ -1827,7 +1826,7 @@ void RCArticulatedBody::determine_explicit_constraint_jacobian_dot(MatrixNd& J) 
 }
 
 /// Sets the generalized acceleration for this body
-void RCArticulatedBody::set_generalized_acceleration(DynamicBody::GeneralizedCoordinateType gctype, const VectorNd& a)
+void RCArticulatedBody::set_generalized_acceleration(const VectorNd& a)
 {
   SAFESTATIC VectorNd base_a;
 
@@ -1837,18 +1836,8 @@ void RCArticulatedBody::set_generalized_acceleration(DynamicBody::GeneralizedCoo
     RigidBodyPtr base = _links.front();
 // TODO: fix this
 /*
-    if (gctype == DynamicBody::eEuler)
-    {
-      const Quat& q = base->get_orientation();
-      base->set_laccel(base->get_pose().mult_vector(Vector3d(a[0], a[1], a[2])));
-      base->set_aaccel(q.G_mult(a[3], a[4], a[5], a[6]) * (double) 2.0);
-    }
-    else
-    {
-      assert(gctype == DynamicBody::eSpatial);
-      base->set_laccel(Vector3d(a[0], a[1], a[2]));
-      base->set_aaccel(Vector3d(a[3], a[4], a[5]));
-    }
+    base->set_laccel(Vector3d(a[0], a[1], a[2]));
+    base->set_aaccel(Vector3d(a[3], a[4], a[5]));
 */
   }
 
@@ -2017,10 +2006,10 @@ VectorNd& RCArticulatedBody::get_generalized_velocity(DynamicBody::GeneralizedCo
 }
 
 /// Gets the generalized inertia of this body
-MatrixNd& RCArticulatedBody::get_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, MatrixNd& M) 
+MatrixNd& RCArticulatedBody::get_generalized_inertia(MatrixNd& M) 
 {
   // calculate the generalized inertia matrix
-  _crb.calc_generalized_inertia(gctype, M);
+  _crb.calc_generalized_inertia(M);
 
   return M;
 }
@@ -2277,12 +2266,12 @@ void RCArticulatedBody::update_velocity(const EventProblemData& q)
 /**
  * \note does not add forces from explicit joint constraints!
  */
-VectorNd& RCArticulatedBody::get_generalized_forces(DynamicBody::GeneralizedCoordinateType gctype, VectorNd& f) 
+VectorNd& RCArticulatedBody::get_generalized_forces(VectorNd& f) 
 {
   const unsigned SPATIAL_DIM = 6, X = 0, Y = 1, Z = 2, A = 3, B = 4, C = 5;
 
   // resize f
-  f.resize(num_generalized_coordinates(gctype));
+  f.resize(num_generalized_coordinates(DynamicBody::eSpatial));
 
   // compute the generalized forces
   Wrenchd f0;
@@ -2302,33 +2291,16 @@ VectorNd& RCArticulatedBody::get_generalized_forces(DynamicBody::GeneralizedCoor
   {
     // determine external and inertial forces on base 
     RigidBodyPtr base = _links.front();
-    if (gctype == DynamicBody::eSpatial)
-    {
-      unsigned idx = CmQ.size();
-      f[idx++] = -f0[X];  f[idx++] = -f0[Y];  f[idx++] = -f0[Z];    
-      f[idx++] = -f0[A];  f[idx++] = -f0[B];  f[idx++] = -f0[C];    
-    }
-    else
-    {
-// TODO: fix this
-/*
-      assert(gctype == DynamicBody::eEuler);
-      const Quat& q = base->get_orientation();
-      Vector3d base_force = -f0.get_force();
-      Vector3d base_torque = -f0.get_torque();
-      f.set_sub_vec(0, base_force);
-      f.set_sub_vec(3, base_torque);
-      f[6] = Quat::deriv(q, base->get_avel()).norm_sq();
-*/
-    }
+    unsigned idx = CmQ.size();
+    f[idx++] = -f0[X];  f[idx++] = -f0[Y];  f[idx++] = -f0[Z];    
+    f[idx++] = -f0[A];  f[idx++] = -f0[B];  f[idx++] = -f0[C];    
   }
 
   return f;
 }
 
 /// Converts a force to a generalized force
-// TODO: fix this to work with bodies with loops
-VectorNd& RCArticulatedBody::convert_to_generalized_force(DynamicBody::GeneralizedCoordinateType gctype, SingleBodyPtr body, const Wrenchd& w, const Point3d& p, VectorNd& gf)
+VectorNd& RCArticulatedBody::convert_to_generalized_force(SingleBodyPtr body, const Wrenchd& w, const Point3d& p, VectorNd& gf)
 {
   const unsigned SPATIAL_DIM = 6;
   SAFESTATIC vector<Twistd> J, sprime;
@@ -2354,7 +2326,7 @@ VectorNd& RCArticulatedBody::convert_to_generalized_force(DynamicBody::Generaliz
   }
 
   // resize gf
-  gf.resize(num_generalized_coordinates(gctype)); 
+  gf.resize(num_generalized_coordinates(DynamicBody::eSpatial)); 
 
   // get the torque on the joints
   SharedVectorNd jf = gf.segment(0, J.size());
@@ -2365,20 +2337,9 @@ VectorNd& RCArticulatedBody::convert_to_generalized_force(DynamicBody::Generaliz
 
   // determine the generalized force on the base
   RigidBodyPtr base = _links.front();
-  if (gctype == DynamicBody::eSpatial)
-  {
-    Wrenchd wbase = Pose3d::transform(w.pose, base->get_computation_frame(), w);
-    SharedVectorNd gfbase = gf.segment(J.size(), gf.size());
-    wbase.to_vector(gfbase);
-  }
-  else
-  {
-// TODO: fix this
-//    Vector3d fb = base->get_pose().transpose_mult_vector(f);
-//    base->convert_to_generalized_force(gctype, base, p, fb, t, jf);
-//    FILE_LOG(LOG_DYNAMICS) << "  -- generalized force on base: " << jf << std::endl;
-//    gf.set_sub_vec(0, jf);
-  }
+  Wrenchd wbase = Pose3d::transform(w.pose, base->get_computation_frame(), w);
+  SharedVectorNd gfbase = gf.segment(J.size(), gf.size());
+  wbase.to_vector(gfbase);
 
   // return the generalized force vector
   return gf;

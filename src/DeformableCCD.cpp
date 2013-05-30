@@ -557,7 +557,7 @@ BVPtr DeformableCCD::get_vel_exp_BV(CollisionGeometryPtr cg, BVPtr bv, const Twi
   SingleBodyPtr sb = cg->get_single_body();
   RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(sb);
   if (rb)
-    ve_bv = bv->calc_vel_exp_BV(cg, (double) 1.0, v);
+    ve_bv = bv->calc_swept_BV(cg, (double) 1.0, v);
   else
   {
     // must be a deformable body

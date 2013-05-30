@@ -779,7 +779,7 @@ XMLTreePtr OBB::save_to_xml_tree() const
 }
 
 /// Calculates the velocity-expanded OBB for a body
-BVPtr OBB::calc_vel_exp_BV(CollisionGeometryPtr g, double dt, const Twistd& v) const
+BVPtr OBB::calc_swept_BV(CollisionGeometryPtr g, const Twistd& v) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
   SAFESTATIC shared_ptr<Pose3d> obb_frame(new Pose3d);
@@ -809,10 +809,10 @@ BVPtr OBB::calc_vel_exp_BV(CollisionGeometryPtr g, double dt, const Twistd& v) c
 
   // copy the OBB, expanded by linear velocity
   OBBPtr o(new OBB);
-  if (lv.norm() <= NEAR_ZERO/dt) 
+  if (lv.norm() <= NEAR_ZERO) 
     *o = *get_this();
   else
-    *o = OBB(*get_this(), lv*dt);
+    *o = OBB(*get_this(), lv);
 
   FILE_LOG(LOG_BV) << "OBB::calc_vel_exp_OBB() entered" << endl;
   FILE_LOG(LOG_BV) << "  original bounding box: " << endl << *get_this();
@@ -851,7 +851,7 @@ BVPtr OBB::calc_vel_exp_BV(CollisionGeometryPtr g, double dt, const Twistd& v) c
 */
   // compute the cross product between omega and vector to a box vertex 
   Vector3d corner(-o->l[X], -o->l[Y], -o->l[Z], obb_frame);
-  Vector3d wxv = Vector3d::cross(av, corner)*dt;
+  Vector3d wxv = Vector3d::cross(av, corner);
 
   // compute contributions to all three axes
   o->l[X] += std::fabs(wxv[X]);   

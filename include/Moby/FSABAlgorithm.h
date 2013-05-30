@@ -44,7 +44,7 @@ class FSABAlgorithm
     RCArticulatedBodyPtr get_body() const { return RCArticulatedBodyPtr(_body); }
     void set_body(RCArticulatedBodyPtr body) { _body = body; }
     void calc_fwd_dyn();
-    void apply_generalized_impulse(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gj);
+    void apply_generalized_impulse(const Ravelin::VectorNd& gj);
     void apply_impulse(const Ravelin::Wrenchd& j, RigidBodyPtr link);
 
     /// The body that this algorithm operates on
