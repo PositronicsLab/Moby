@@ -1834,11 +1834,9 @@ void RCArticulatedBody::set_generalized_acceleration(const VectorNd& a)
   {
     a.get_sub_vec(num_joint_dof_implicit(), a.size(), base_a);
     RigidBodyPtr base = _links.front();
-// TODO: fix this
-/*
-    base->set_laccel(Vector3d(a[0], a[1], a[2]));
-    base->set_aaccel(Vector3d(a[3], a[4], a[5]));
-*/
+    Twistd& xdd = base->accel();
+    xdd.set_linear(Vector3d(base_a[0], base_a[1], base_a[2]));
+    xdd.set_angular(Vector3d(base_a[3], base_a[4], base_a[5]));
   }
 
   // set joint accelerations

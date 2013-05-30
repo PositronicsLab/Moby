@@ -23,7 +23,7 @@
 #include <Moby/Simulator.h>
 #include <Moby/EventDrivenSimulator.h>
 #include <Moby/RigidBody.h>
-#include <Moby/PSDeformableBody.h>
+//#include <Moby/PSDeformableBody.h>
 #include <Moby/CollisionGeometry.h>
 #include <Moby/BoxPrimitive.h>
 #include <Moby/GaussianMixture.h>
@@ -31,7 +31,7 @@
 #include <Moby/CylinderPrimitive.h>
 #include <Moby/ConePrimitive.h>
 #include <Moby/FixedJoint.h>
-#include <Moby/MCArticulatedBody.h>
+//#include <Moby/MCArticulatedBody.h>
 #include <Moby/RCArticulatedBody.h>
 #include <Moby/PrismaticJoint.h>
 #include <Moby/RevoluteJoint.h>
@@ -46,7 +46,7 @@
 #include <Moby/GravityForce.h>
 #include <Moby/StokesDragForce.h>
 #include <Moby/DampingForce.h>
-#include <Moby/DeformableCCD.h>
+//#include <Moby/DeformableCCD.h>
 #include <Moby/GeneralizedCCD.h>
 #include <Moby/C2ACCD.h>
 #include <Moby/MeshDCD.h>
@@ -165,7 +165,7 @@ std::map<std::string, BasePtr> XMLReader::read(const std::string& fname)
   process_tag("RigidBody", moby_tree, &read_rigid_body, id_map);
 
   // read and construct all deformable bodies
-  process_tag("PSDeformableBody", moby_tree, &read_ps_deformable_body, id_map);
+//  process_tag("PSDeformableBody", moby_tree, &read_ps_deformable_body, id_map);
 
   // read and construct all joints -- we do this after the links have been read
   process_tag("RevoluteJoint", moby_tree, &read_revolute_joint, id_map);
@@ -176,7 +176,7 @@ std::map<std::string, BasePtr> XMLReader::read(const std::string& fname)
   process_tag("JointPlugin", moby_tree, &read_joint_plugin, id_map);
 
   // read and construct all articulated bodies
-  process_tag("MCArticulatedBody", moby_tree, &read_mc_abody, id_map);
+//  process_tag("MCArticulatedBody", moby_tree, &read_mc_abody, id_map);
   process_tag("RCArticulatedBody", moby_tree, &read_rc_abody, id_map);
   process_tag("RCArticulatedBodySymbolicPlugin", moby_tree, &read_rc_abody_symbolic, id_map);
 
@@ -185,7 +185,7 @@ std::map<std::string, BasePtr> XMLReader::read(const std::string& fname)
 
   // read and construct collision detector(s)
   process_tag("GeneralizedCCD", moby_tree, &read_generalized_ccd, id_map);
-  process_tag("DeformableCCD", moby_tree, &read_deformable_ccd, id_map);
+//  process_tag("DeformableCCD", moby_tree, &read_deformable_ccd, id_map);
   process_tag("C2ACCD", moby_tree, &read_c2a_ccd, id_map);
   process_tag("MeshDCD", moby_tree, &read_mesh_dcd, id_map);
   process_tag("CollisionDetectionPlugin", moby_tree, &read_coldet_plugin, id_map);
@@ -250,7 +250,7 @@ void XMLReader::read_deformable_ccd(shared_ptr<const XMLTree> node, std::map<std
   assert(strcasecmp(node->name.c_str(), "DeformableCCD") == 0);
 
   // create a new Base object
-  boost::shared_ptr<Base> b(new DeformableCCD());
+//  boost::shared_ptr<Base> b(new DeformableCCD());
   
   // populate the object
   b->load_from_xml(node, id_map);
@@ -618,7 +618,7 @@ void XMLReader::read_ps_deformable_body(shared_ptr<const XMLTree> node, std::map
   assert(strcasecmp(node->name.c_str(), "PSDeformableBody") == 0);
 
   // create a new PSDeformableBody object
-  boost::shared_ptr<Base> b(new PSDeformableBody());
+//  boost::shared_ptr<Base> b(new PSDeformableBody());
 
   // populate the object
   b->load_from_xml(node, id_map);
@@ -650,7 +650,7 @@ void XMLReader::read_mc_abody(shared_ptr<const XMLTree> node, std::map<std::stri
   assert(strcasecmp(node->name.c_str(), "MCArticulatedBody") == 0);
 
   // create a new MCArticulatedBody object
-  boost::shared_ptr<MCArticulatedBody> link(new MCArticulatedBody());
+//  boost::shared_ptr<MCArticulatedBody> link(new MCArticulatedBody());
   
   // populate the object
   link->load_from_xml(node, id_map);

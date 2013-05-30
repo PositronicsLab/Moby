@@ -79,18 +79,47 @@ shared_ptr<const Pose3d> RigidBody::get_computation_frame() const
 /// (Re)sets the computation frame
 void RigidBody::set_computation_frame_type(ReferenceFrameType rftype)
 {
+  // correct rftype if necessary
+  if (_abody.expired() && rftype == eJoint)
+    rftype = eLink;
+
   // check whether we need to do anything at all
   if (rftype == _rftype)
     return;
 
-  // can't set frame of an articulated body
-  if (!_abody.expired())
-    throw std::runtime_error("Only articulated body can change reference frames of its links!");
+  // get the target reference frame and the necessary transform
+  shared_ptr<const Pose3d> target;
+  switch (rftype)
+  {
+    case eLink:   
+      target = _F;     
+      break;
+ 
+   case eGlobal: 
+      target = GLOBAL; 
+      break;
 
-  // TODO: recompute all values that depend on frame
+    case eJoint:
+      target = (is_base()) ? _F : get_inner_joint_implicit()->get_pose(); 
+      break;
 
-  // finally, set the frame
-  _rftype = rftype; 
+    default: 
+      assert(false);
+  }
+
+  // otherwise, transform everything
+  Transform3d T = Pose3d::calc_relative_pose(_J.pose, target);
+
+  // convert all quantities
+  _xd = T.transform(_xd);
+  _xdd = T.transform(_xdd);
+  _J = T.transform(_J);
+  _wrench = T.transform(_wrench);
+
+  // TODO: do we need to update joints?
+
+  // store the new reference frame type
+  _rftype = rftype;
 }
 
 /// Integrates the body forward in time
@@ -175,14 +204,34 @@ void RigidBody::set_inertia(const SpatialRBInertiad& inertia)
  */
 void RigidBody::set_pose(const Pose3d& p) 
 { 
-  // update/invalidate velocity, acceleration, wrenches, inertias
+  // no need to update quantities if they're in link frame
+  if (!(_rftype == eLink || (_rftype == eJoint && is_base())))
+  {
+    // compute transform for moving quantities to the link frame
+    shared_ptr<Pose3d> y(new Pose3d(p));
+    Transform3d yTx = Pose3d::calc_relative_pose(_J.pose, y);
 
+    // TODO: joint frame depends on current pose
+    // compute target transform
+    shared_ptr<const Pose3d> target = (eJoint) ? get_inner_joint_implicit()->get_pose() : GLOBAL;
+    Transform3d tTy = Pose3d::calc_relative_pose(y, target);
+
+    // combine the two transforms
+    Transform3d T = tTy * yTx;
+
+    // convert all quantities
+    _xd = T.transform(_xd);
+    _xdd = T.transform(_xdd);
+    _J = T.transform(_J);
+    _wrench = T.transform(_wrench);
+  }
+
+  // TODO: do we need to update joints?
+  
+  // TODO: do we need to update relative poes earlier?
   // store pose and transform to necessary relative frame 
   *_F = p; 
   _F->update_relative_pose(get_computation_frame());
-  
-  // synchronize the geometry
-  synchronize();
 }
 
 /// Adds a wrench to the body
@@ -194,11 +243,6 @@ void RigidBody::add_wrench(const Wrenchd& w)
   
   // update the wrench 
   _wrench += w;
-}
-
-/// Synchronizes associated collision mesh transforms with this transform
-void RigidBody::synchronize()
-{
 }
 
 // TODO: fix this
@@ -262,8 +306,6 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
     set_inertia(J);
   }
 
-  // TODO: read the c.o.m. here...
-
   // read the inertia matrix, if provided
   const XMLAttrib* inertia_attr = node->get_attrib("inertia");
   if (inertia_attr)
@@ -271,6 +313,40 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
     SpatialRBInertiad J = get_inertia();
     inertia_attr->get_matrix_value(J.J);
     set_inertia(J);
+  }
+
+  // read the position and orientation, if provided
+  const XMLAttrib* position_attr = node->get_attrib("position");
+  const XMLAttrib* rpy_attr = node->get_attrib("rpy");
+  const XMLAttrib* quat_attr = node->get_attrib("quat");
+  if (position_attr || rpy_attr || quat_attr)
+  {
+    Pose3d T;
+    if (position_attr)
+      T.x = position_attr->get_origin_value();
+    if (quat_attr)
+      T.q = quat_attr->get_quat_value();
+    else if (rpy_attr)
+      T.q = rpy_attr->get_rpy_value();
+    set_pose(T);
+  }
+
+  // read the inertial frame here...
+  const XMLAttrib* com_attr = node->get_attrib("inertial-relative-com");
+  const XMLAttrib* J_rpy_attr = node->get_attrib("inertial-relative-rpy");
+  const XMLAttrib* J_quat_attr = node->get_attrib("inertial-relative-quat");
+  if (com_attr || J_rpy_attr || J_quat_attr)
+  {
+    // reset the inertial frame
+    _jF->set_identity();
+
+    // read the com 
+    if (com_attr)
+      _jF->x = com_attr->get_origin_value();
+    if (J_quat_attr)
+      _jF->q = J_quat_attr->get_quat_value();
+    else if (J_rpy_attr)
+      _jF->q = J_rpy_attr->get_rpy_value();
   }
 
   // set the collision geometries, if provided
@@ -358,23 +434,6 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
     set_inertia(J);
   }
 
-  // read the position and orientation, if provided; note that we do this 
-  // after reading the collision geometries to allow synchronization to occur
-  const XMLAttrib* position_attr = node->get_attrib("position");
-  const XMLAttrib* rpy_attr = node->get_attrib("rpy");
-  const XMLAttrib* quat_attr = node->get_attrib("quat");
-  if (position_attr || rpy_attr || quat_attr)
-  {
-    Pose3d T;
-    if (position_attr)
-      T.x = position_attr->get_origin_value();
-    if (rpy_attr)
-      T.q = rpy_attr->get_rpy_value();
-    else if (quat_attr)
-      T.q = quat_attr->get_quat_value();
-    set_pose(T);
-  }
-
   // read the linear and/or velocity of the body, if provided
   const XMLAttrib* lvel_attr = node->get_attrib("linear-velocity");
   const XMLAttrib* avel_attr = node->get_attrib("angular-velocity");
@@ -420,49 +479,6 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
     else
       set_articulated_body(dynamic_pointer_cast<ArticulatedBody>(id_iter->second));
   }
-/*
-  // get all child links, if specified
-  list<shared_ptr<const XMLTree> > child_nodes = node->find_child_nodes("ChildLink");
-  if (!child_nodes.empty())
-    _child_links.clear();
-
-  for (list<shared_ptr<const XMLTree> >::const_iterator i = child_nodes.begin(); i != child_nodes.end(); i++)
-  {
-    // look for the link-id and com-to-outboard-vec-link attributes
-    const XMLAttrib* link_id_attr = (*i)->get_attrib("link-id");
-    const XMLAttrib* ovec_attr = (*i)->get_attrib("com-to-outer-vec-link");
-    if (!link_id_attr || !ovec_attr)
-    {
-      FILE_LOG(LOG_DYNAMICS) << "RigidBody::load_from_xml() - ChildLink node ";
-      FILE_LOG(LOG_DYNAMICS) << "missing" << endl << "  link-id and/or ";
-      FILE_LOG(LOG_DYNAMICS) << "com-to-outer-vec-link attributes in offending node: ";
-      FILE_LOG(LOG_DYNAMICS) << endl << *node;
-      continue;
-    }
-
-    // get the link ID and the com-to-outer vector
-    const std::string& ID = link_id_attr->get_string_value();
-    Vector3 com_to_outer;
-    ovec_attr->get_vector_value(com_to_outer);
-
-    // make sure that we can find the link ID
-    if ((id_iter = id_map.find(ID)) == id_map.end())
-    {
-      FILE_LOG(LOG_DYNAMICS) << "RigidBody::load_from_xml() - child link-id ";
-      FILE_LOG(LOG_DYNAMICS) << ID << " not found in" << endl << "  offending node: ";
-      FILE_LOG(LOG_DYNAMICS) << endl << "  ** This warning could result from links ";
-      FILE_LOG(LOG_DYNAMICS) << " being constructed before articulated bodies ";
-      FILE_LOG(LOG_DYNAMICS) << endl << "    and may not be serious..." << endl; 
-      cerr << endl << *node;
-    }
-    else
-    {
-      // add the link and the vector
-      RigidBodyPtr link = dynamic_pointer_cast<RigidBody>(id_iter->second);
-      add_child_link_link(link, com_to_outer);
-    }
-  }
-*/
 }
 
 /// Implements Base::save_to_xml()
@@ -477,8 +493,6 @@ void RigidBody::save_to_xml(XMLTreePtr node, list<shared_ptr<const Base> >& shar
   // save whether the body is enabled
   node->attribs.insert(XMLAttrib("enabled", _enabled));
 
-  // TODO: save the inertial frame (and collision frame? and visualization frame?) 
-
   // save the mass
   node->attribs.insert(XMLAttrib("mass", _J.m));
 
@@ -486,12 +500,14 @@ void RigidBody::save_to_xml(XMLTreePtr node, list<shared_ptr<const Base> >& shar
   node->attribs.insert(XMLAttrib("inertia", _J.J));
 
   // convert the current pose to be with respect to global coordinates
-  double alpha, beta, gamma;
   Pose3d F0 = *_F;
   F0.update_relative_pose(GLOBAL);
   node->attribs.insert(XMLAttrib("position", F0.x));
-  F0.q.to_rpy(alpha, beta, gamma);
-  node->attribs.insert(XMLAttrib("rpy", alpha, beta, gamma));
+  node->attribs.insert(XMLAttrib("quat", F0.q));
+
+  // save the inertial frame
+  node->attribs.insert(XMLAttrib("inertial-relative-com", _jF->x));
+  node->attribs.insert(XMLAttrib("inertial-relative-quat", _jF->q));
 
   // save the linear and angular velocities
   shared_ptr<const Pose3d> TARGET(new Pose3d(Quatd::identity(), _F->x)); 
@@ -1718,14 +1734,29 @@ std::ostream& Moby::operator<<(std::ostream& out, const Moby::RigidBody& rb)
   // indicate whether the body is enabled
   out << "  enabled? " << rb.is_enabled() << endl;
 
-  // TODO: write com?
-  // write inertia info
+  // write the computation frame
+  out << "  computation frame: "; 
+  switch (rb.get_computation_frame_type())
+  {
+    case eGlobal: out << "global" << endl; break;
+    case eLink:   out << "link" << endl; break;
+    case eJoint:  out << "joint" << endl; break;
+    default:
+      assert(false);
+  }
+
+  // write inertial info
+  shared_ptr<const Pose3d> jF = rb.get_inertial_pose();
+  out << "  relative c.o.m.: " << jF->x << endl; 
+  out << "  relative inertial frame: " << AAngled(jF->q) << endl; 
   out << "  mass: " << rb.get_inertia().m << endl;
   out << "  inertia: " << endl << rb.get_inertia().J;
 
   // write positions, velocities, and accelerations
-  out << "  position: " << rb.get_position() << endl;
-  out << "  orientation: " << AAngled(rb.get_pose()->q) << endl;
+  Pose3d F0 = *rb.get_pose();
+  F0.update_relative_pose(GLOBAL);
+  out << "  position: " << F0.x << endl;
+  out << "  orientation: " << AAngled(F0.q) << endl;
   out << "  velocity (twist): " << rb.velocity() << endl;
 
   // write sum of forces

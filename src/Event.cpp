@@ -156,11 +156,11 @@ void Event::compute_event_data(MatrixNd& M, VectorNd& q) const
     transpose_mult(twist, -wt, J2t); 
 
     // compute the event inertia matrix for the first body
-    su1->transpose_solve_generalized_inertia(DynamicBody::eSpatial, J1, workM1);
+    su1->transpose_solve_generalized_inertia(J1, workM1);
     J1.mult(workM1, M);
 
     // compute the event inertia matrix for the second body
-    su2->transpose_solve_generalized_inertia(DynamicBody::eSpatial, J2, workM1);
+    su2->transpose_solve_generalized_inertia(J2, workM1);
     J2.mult(workM1, workM2);
     M += workM2;
 
@@ -255,10 +255,10 @@ void Event::compute_cross_event_data(const Event& e, MatrixNd& M) const
     transpose_mult(twist, -wt, J2t); 
 
     // compute the event inertia matrix for the first body
-    su1->transpose_solve_generalized_inertia(DynamicBody::eSpatial, J1, workM1);
+    su1->transpose_solve_generalized_inertia(J1, workM1);
 
     // compute the event inertia matrix for the second body
-    su2->transpose_solve_generalized_inertia(DynamicBody::eSpatial, J2, workM1);
+    su2->transpose_solve_generalized_inertia(J2, workM1);
   }
 } 
 
@@ -282,10 +282,20 @@ double Event::calc_event_vel() const
   if (event_type == eContact)
   {
     assert(contact_geom1 && contact_geom2);
-    SingleBodyPtr sb1 = contact_geom1->get_single_body();
-    SingleBodyPtr sb2 = contact_geom2->get_single_body();
-    assert(sb1 && sb2);
-    return sb1->calc_point_vel(contact_point, contact_normal) - sb2->calc_point_vel(contact_point, contact_normal);
+    SingleBodyPtr sba = contact_geom1->get_single_body();
+    SingleBodyPtr sbb = contact_geom2->get_single_body();
+    assert(sba && sbb);
+
+    // get the twists 
+    const Twistd& va = sba->velocity(); 
+    const Twistd& vb = sbb->velocity(); 
+
+    // compute the twists at the contact point
+    Twistd ta = Pose3d::transform(va.pose, contact_point.pose, va); 
+    Twistd tb = Pose3d::transform(vb.pose, contact_point.pose, vb); 
+
+    // get the linear velocities and project against the normal
+    return contact_normal.dot(ta.get_linear() - tb.get_linear());
   }
   else if (event_type == eLimit)
   {
@@ -1219,19 +1229,20 @@ double Event::calc_event_tol() const
   if (event_type == eContact)
   {
     assert(contact_geom1 && contact_geom2);
-    SingleBodyPtr sb1 = contact_geom1->get_single_body();
-    SingleBodyPtr sb2 = contact_geom2->get_single_body();
-    assert(sb1 && sb2);
+    SingleBodyPtr sba = contact_geom1->get_single_body();
+    SingleBodyPtr sbb = contact_geom2->get_single_body();
+    assert(sba && sbb);
 
-    // get the moment arms
-    Vector3d r1 = contact_point - sb1->get_pose()->x;
-    Vector3d r2 = contact_point - sb2->get_pose()->x;
+    // get the twists 
+    const Twistd& va = sba->velocity(); 
+    const Twistd& vb = sbb->velocity(); 
 
-    // compute the velocity contributions
-    Vector3d v1 = sb1->get_lvel() + Vector3d::cross(sb1->get_avel(), r1);
-    Vector3d v2 = sb2->get_lvel() + Vector3d::cross(sb2->get_avel(), r2);
+    // compute the velocities at the contact point
+    Twistd ta = Pose3d::transform(va.pose, contact_point.pose, va); 
+    Twistd tb = Pose3d::transform(vb.pose, contact_point.pose, vb); 
 
-    return std::max((v1 - v2).norm(), (double) 1.0);
+    // compute the difference in linear velocities
+    return std::max((ta.get_linear() - tb.get_linear()).norm(), (double) 1.0);
   }
   else if (event_type == eLimit)
   {

@@ -149,9 +149,12 @@ void CollisionGeometry::load_from_xml(shared_ptr<const XMLTree> node, std::map<s
   shared_ptr<Pose3d> TR(new Pose3d);
   const XMLAttrib* rel_origin_attr = node->get_attrib("relative-origin");
   const XMLAttrib* rel_rpy_attr = node->get_attrib("relative-rpy");
+  const XMLAttrib* rel_quat_attr = node->get_attrib("relative-quat");
   if (rel_origin_attr)
     TR->x = rel_origin_attr->get_origin_value();
-  if (rel_rpy_attr)
+  if (rel_quat_attr)
+    TR->q = rel_quat_attr->get_quat_value();
+  else if (rel_rpy_attr)
     TR->q = rel_rpy_attr->get_rpy_value();
   set_relative_pose(TR);
 
@@ -192,10 +195,8 @@ void CollisionGeometry::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const 
   node->name = "CollisionGeometry";
 
   // add the relative pose 
-  double alpha, beta, gamma;
-  _F->q.to_rpy(alpha, beta, gamma);
   node->attribs.insert(XMLAttrib("relative-origin", _F->x));
-  node->attribs.insert(XMLAttrib("relative-rpy", alpha, beta, gamma));
+  node->attribs.insert(XMLAttrib("relative-quat", _F->q));
 
   // save the ID of the primitive and add the primitive to the shared list
   if (_geometry)

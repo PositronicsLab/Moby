@@ -304,7 +304,7 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Ravelin::Point3d
   } 
 
   // setup the points
-  std::map<coordT*, Ravelin::Vector3d*> vertex_map;
+  std::map<coordT*, Ravelin::Point3d*> vertex_map;
   SAFESTATIC std::vector<coordT> qhull_points;
   qhull_points.resize(N_POINTS*DIM);
   coordT* points_begin = &qhull_points.front();
@@ -366,6 +366,8 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Ravelin::Point3d
   // close the error stream, if necessary
   if (!LOGGING(LOG_COMPGEOM))
     fclose(errfile);
+
+  return target_begin;
 }
 
 template <class ForwardIterator>
@@ -561,7 +563,8 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Ravelin::Point3d
   Ravelin::Matrix3d R = CompGeom::calc_3D_to_2D_matrix(n);
 
   // get the 2D to 3D offset
-  double offset = CompGeom::determine_3D_to_2D_offset(**source_begin, R);
+  Ravelin::Origin3d p1(**source_begin);
+  double offset = CompGeom::determine_3D_to_2D_offset(p1, R);
 
   // get the transpose (i.e., inverse) of the rotation matrix
   Ravelin::Matrix3d RT = Ravelin::Matrix3d::transpose(R);

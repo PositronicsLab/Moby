@@ -118,6 +118,8 @@ bool AABB::outside(const AABB& a, const Point3d& point, double tol)
 {
   const unsigned THREE_D = 3;
 
+  assert(a.get_relative_pose() == point.pose);
+
   for (unsigned i=0; i< THREE_D; i++)
     if (point[i] < a.minp[i] - tol || point[i] > a.maxp[i] + tol)
       return true;
@@ -129,6 +131,8 @@ bool AABB::outside(const AABB& a, const Point3d& point, double tol)
 bool AABB::intersects(const AABB& a, const AABB& b)
 {
   const unsigned THREE_D = 3;
+
+  assert(a.get_relative_pose() == b.get_relative_pose());
 
   for (unsigned i=0; i< THREE_D; i++)
     if (a.minp[i] > b.maxp[i] || a.maxp[i] < b.minp[i])
@@ -237,6 +241,8 @@ void AABB::get_closest_point(const AABB& a, const Point3d& p, Point3d& closest)
 {
   const unsigned THREE_D = 3; 
 
+  assert(a.get_relative_pose() == p.pose);
+
   // set closest to p initially
   closest = p;
 
@@ -255,6 +261,8 @@ void AABB::get_closest_point(const AABB& a, const Point3d& p, Point3d& closest)
 double AABB::get_farthest_point(const AABB& a, const Point3d& p, Point3d& farthest)
 {
   const unsigned X = 0, Y = 1, Z = 2, NVERTS = 8;
+
+  assert(a.get_relative_pose() == p.pose);
 
   // get the eight vertices of the AABB
   Point3d vertices[NVERTS];
