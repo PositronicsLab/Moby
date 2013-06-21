@@ -142,9 +142,6 @@ void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& eve
   // determine sets of contact and limit events
   epd.partition_events();
 
-  // add events for constraints for articulated bodies
-  epd.add_constraint_events();
-
   // compute all event cross-terms
   compute_problem_data(epd);
 
@@ -292,19 +289,11 @@ void ImpactEventHandler::compute_problem_data(EventProblemData& q)
     q.super_bodies.push_back(get_super_body(outboard));
   }
 
-  // determine set of "super" bodies from constraint events
-  for (unsigned i=0; i< q.constraint_events.size(); i++)
-  {
-    RigidBodyPtr outboard = q.constraint_events[i]->constraint_joint->get_outboard_link();
-    q.super_bodies.push_back(get_super_body(outboard));
-  }
-
   // make super bodies vector unique
   std::sort(q.super_bodies.begin(), q.super_bodies.end());
   q.super_bodies.erase(std::unique(q.super_bodies.begin(), q.super_bodies.end()), q.super_bodies.end());
 
   // initialize constants and set easy to set constants
-  q.N_CONSTRAINTS = q.constraint_events.size();
   q.N_CONTACTS = q.contact_events.size();
   q.N_LIMITS = q.limit_events.size();
 
@@ -392,6 +381,10 @@ void ImpactEventHandler::compute_problem_data(EventProblemData& q)
   q.ALPHA_X_IDX = q.BETA_T_IDX + q.N_CONSTRAINT_DOF_IMP;
   q.BETA_X_IDX = q.ALPHA_X_IDX + q.N_CONSTRAINT_EQNS_EXP;
   q.N_VARS = q.BETA_X_IDX + q.N_CONSTRAINT_DOF_EXP;
+
+  // possibility 1: let this function handle how to separate M into components
+  // possibility 2: add a tangential flag to events
+  // possibility 3: 
 
   // loop over all events
   for (unsigned i=0; i< q.events.size(); i++)

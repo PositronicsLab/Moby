@@ -71,7 +71,6 @@ class ArticulatedBody : public DynamicBody
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual unsigned num_joint_dof() const;
-    void get_constraint_events(std::vector<Event>& cevents) const;
     void find_loops(std::vector<unsigned>& loop_indices, std::vector<std::vector<unsigned> >& loop_links) const;
     void compute_Z_matrices(const std::vector<unsigned>& loop_indices, const std::vector<std::vector<unsigned> >& loop_links, std::vector<Ravelin::MatrixNd>& Zd, std::vector<Ravelin::MatrixNd>& Z1d, std::vector<Ravelin::MatrixNd>& Z) const;
 
