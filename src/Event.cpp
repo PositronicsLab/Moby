@@ -25,7 +25,7 @@
 #include <Moby/SingleBody.h>
 #include <Moby/Spatial.h>
 #include <Moby/RigidBody.h>
-#include <Moby/ArticulatedBody.h>
+#include <Moby/RCArticulatedBody.h>
 #include <Moby/CollisionGeometry.h>
 #include <Moby/Log.h>
 #include <Moby/Event.h>
@@ -40,6 +40,13 @@ using std::multimap;
 using std::set;
 using std::endl;
 using boost::shared_ptr;
+using boost::dynamic_pointer_cast;
+
+// static declarations
+shared_ptr<Pose3d> Event::_event_frame(new Pose3d);
+MatrixNd Event::J1, Event::J2, Event::workM1, Event::workM2;
+vector<Twistd> Event::twist;
+VectorNd Event::v, Event::workv, Event::workv2; 
 
 /// Creates an empty event 
 Event::Event()
@@ -92,10 +99,6 @@ Event& Event::operator=(const Event& e)
 /// Computes the event data
 void Event::compute_event_data(MatrixNd& M, VectorNd& q) const
 {
-  static VectorNd v;
-  static MatrixNd J1, J2, workM1;
-  static vector<Twistd> twist;
-  static shared_ptr<Pose3d> event_frame(new Pose3d);
   Matrix3d workM2;    
 
   if (event_type == eContact)
@@ -112,8 +115,8 @@ void Event::compute_event_data(MatrixNd& M, VectorNd& q) const
     DynamicBodyPtr su2 = sb2->get_super_body();
 
     // setup the contact frame
-    event_frame->q.set_identity();
-    event_frame->x = contact_point;
+    _event_frame->q.set_identity();
+    _event_frame->x = contact_point;
 
     // form the normal and tangential wrenches in contact space
     Wrenchd wn, ws, wt;
@@ -125,9 +128,9 @@ void Event::compute_event_data(MatrixNd& M, VectorNd& q) const
     wt.set_torque(ZEROS_3);
 
     // setup the pose for the contact frame
-    wn.pose = event_frame;
-    ws.pose = event_frame;
-    wt.pose = event_frame;
+    wn.pose = _event_frame;
+    ws.pose = _event_frame;
+    wt.pose = _event_frame;
 
     // get the numbers of generalized coordinates for the two super bodies
     const unsigned NGC1 = su1->num_generalized_coordinates(DynamicBody::eSpatial);
@@ -146,11 +149,11 @@ void Event::compute_event_data(MatrixNd& M, VectorNd& q) const
     SharedVectorNd J2t = J2.row(T); 
 
     // compute the Jacobians for the two bodies
-    su1->calc_jacobian(event_frame, sb1, twist);
+    su1->calc_jacobian(_event_frame, sb1, twist);
     transpose_mult(twist, wn, J1n); 
     transpose_mult(twist, ws, J1s); 
     transpose_mult(twist, wt, J1t); 
-    su2->calc_jacobian(event_frame, sb2, twist);
+    su2->calc_jacobian(_event_frame, sb2, twist);
     transpose_mult(twist, -wn, J2n); 
     transpose_mult(twist, -ws, J2s); 
     transpose_mult(twist, -wt, J2t); 
@@ -175,90 +178,431 @@ void Event::compute_event_data(MatrixNd& M, VectorNd& q) const
   }
   else if (event_type == eLimit)
   {
+    // get the super body
+    ArticulatedBodyPtr ab = limit_joint->get_articulated_body();
+    RCArticulatedBodyPtr su = dynamic_pointer_cast<RCArticulatedBody>(ab);
+
+    // case 1: reduced-coordinate articulated body
+    if (su)
+    {
+      // determine the joint limit index
+      unsigned idx = limit_joint->get_coord_index();
+
+      // setup a vector to solve
+      v.set_zero(su->num_generalized_coordinates(DynamicBody::eSpatial));
+      v[idx] = 1.0;
+
+      // solve
+      su->solve_generalized_inertia(v, workv); 
+      M.resize(1,1);
+      M(0,0) = workv[idx];
+    }
+    else
+    {
+      // TODO: handle absolute coordinate articulated bodies here
+      // note: to do this event handler also needs to setup constraint Jac
+      //       as an equality constraint
+
+      // setup joint velocity Jacobian here (Dx)
+
+      // we need to compute:
+      // | M  Jx' | x | delta xd | = | j |
+      // | Jx 0   |   | lambda   | = | 0 |
+      // such that:
+      // Dx*xd^+ >= 0
+
+      // 
+    }
+
     // get the joint velocity
-    q = limit_joint->qd[limit_dof];
+    q.resize(1);
+    q[0] = limit_joint->qd[limit_dof];
 
     // if we're at an upper limit, negate q
     if (limit_upper)
       q.negate(); 
   }
+} 
+
+/// Determines whether two events are linked
+bool Event::is_linked(const Event& e1, const Event& e2)
+{
+  if (e1.event_type == eContact)
+  {
+    // get the two single bodies
+    SingleBodyPtr e1sb1 = e1.contact_geom1->get_single_body();
+    SingleBodyPtr e1sb2 = e1.contact_geom2->get_single_body();
+
+    // get the two super bodies
+    DynamicBodyPtr e1s1 = e1sb1->get_super_body();
+    DynamicBodyPtr e1s2 = e1sb2->get_super_body();
+
+    // examine against other event type
+    if (e2.event_type == eContact)
+    {
+      // get the two single bodies
+      SingleBodyPtr e2sb1 = e2.contact_geom1->get_single_body();
+      SingleBodyPtr e2sb2 = e2.contact_geom2->get_single_body();
+
+      // get the two super bodies
+      DynamicBodyPtr e2s1 = e2sb1->get_super_body();
+      DynamicBodyPtr e2s2 = e2sb2->get_super_body();
+
+      // see whether there are any bodies in common
+      return e1s1 == e2s1 || e1s1 == e2s2 || e1s2 == e2s1 || e1s2 == e2s2;
+    }
+    else if (e2.event_type == eLimit)
+    {
+      ArticulatedBodyPtr ab = e2.limit_joint->get_articulated_body();
+      return e1s1 == ab || e1s2 == ab; 
+    }
+    else
+    {
+      assert(false);
+    }
+  }
+  else if (e1.event_type == eLimit)
+  {
+    if (e2.event_type == eContact)
+      return is_linked(e2, e1);
+    else if (e2.event_type == eLimit)
+    {
+      ArticulatedBodyPtr ab1 = e1.limit_joint->get_articulated_body();
+      ArticulatedBodyPtr ab2 = e2.limit_joint->get_articulated_body();
+      return ab1 == ab2;
+    }
+    else
+      assert(false);
+  }
   else
   {
-    assert(event_type == eConstraint);
-// TODO: finish implementing this function
+    assert(false);
   }
-} 
+}
 
 /// Updates the event data
 void Event::compute_cross_event_data(const Event& e, MatrixNd& M) const
 {
-  static MatrixNd J1, J2, workM1;
-  static vector<Twistd> twist;
-  static shared_ptr<Pose3d> event_frame(new Pose3d);
+  // TODO: verify that full M is zerod before this call
 
-// TODO: finish implementing this function
-  if (event_type == eContact)
+  // verify that the events are linked
+  if (!is_linked(*this, e))
+    return;
+    
+  switch (event_type)
   {
-    // setup useful indices
-    const unsigned N = 0, S = 1, T = 2;
+    case eContact:
+      switch (e.event_type)
+      {
+        case eContact: compute_cross_contact_contact_event_data(e, M); break;
+        case eLimit:   compute_cross_contact_limit_event_data(e, M); break;
+      }
+      break;
 
-    // get the two single bodies
-    SingleBodyPtr sb1 = contact_geom1->get_single_body();
-    SingleBodyPtr sb2 = contact_geom2->get_single_body();
+    case eLimit:
+      switch (e.event_type)
+      {
+        case eContact: compute_cross_limit_contact_event_data(e, M); break;
+        case eLimit:   compute_cross_limit_limit_event_data(e, M); break;
+      }
+      break;
+  }
+}
 
-    // get the two super bodies
-    DynamicBodyPtr su1 = sb1->get_super_body();
-    DynamicBodyPtr su2 = sb2->get_super_body();
+/// Updates contact/contact cross event data
+void Event::compute_cross_contact_contact_event_data(const Event& e, MatrixNd& M) const
+{
+  static MatrixNd JA1, JB1, JA2, JB2;
 
-    // setup the contact frame
-    event_frame->q.set_identity();
-    event_frame->x = contact_point;
+  // setup useful indices
+  const unsigned N = 0, S = 1, T = 2;
 
-    // form the normal and tangential wrenches in contact space
-    Wrenchd wn, ws, wt;
-    wn.set_force(contact_normal);
-    ws.set_force(contact_tan1);
-    wt.set_force(contact_tan2);
-    wn.set_torque(ZEROS_3);
-    ws.set_torque(ZEROS_3);
-    wt.set_torque(ZEROS_3);
+  // get the four single bodies
+  SingleBodyPtr sba1 = contact_geom1->get_single_body();
+  SingleBodyPtr sba2 = contact_geom2->get_single_body();
+  SingleBodyPtr sbb1 = e.contact_geom1->get_single_body();
+  SingleBodyPtr sbb2 = e.contact_geom2->get_single_body();
 
-    // setup the pose for the contact frame
-    wn.pose = event_frame;
-    ws.pose = event_frame;
-    wt.pose = event_frame;
+  // get the four super bodies
+  DynamicBodyPtr sua1 = sba1->get_super_body();
+  DynamicBodyPtr sua2 = sba2->get_super_body();
+  DynamicBodyPtr sub1 = sbb1->get_super_body();
+  DynamicBodyPtr sub2 = sbb2->get_super_body();
 
-    // get the numbers of generalized coordinates for the two super bodies
-    const unsigned NGC1 = su1->num_generalized_coordinates(DynamicBody::eSpatial);
-    const unsigned NGC2 = su2->num_generalized_coordinates(DynamicBody::eSpatial);
+  // get the numbers of generalized coordinates for the two super bodies
+  const unsigned NGCA1 = sua1->num_generalized_coordinates(DynamicBody::eSpatial);
+  const unsigned NGCA2 = sua2->num_generalized_coordinates(DynamicBody::eSpatial);
+  const unsigned NGCB1 = sub1->num_generalized_coordinates(DynamicBody::eSpatial);
+  const unsigned NGCB2 = sub2->num_generalized_coordinates(DynamicBody::eSpatial);
 
-    // resize Jacobians 
+  // resize Jacobians 
+  JA1.resize(3, NGCA1);
+  JA2.resize(3, NGCA2);
+  JB1.resize(3, NGCB1);
+  JB2.resize(3, NGCB2);
+
+  // get the rows of the Jacobians for output
+  SharedVectorNd JA1n = JA1.row(N); 
+  SharedVectorNd JA1s = JA1.row(S); 
+  SharedVectorNd JA1t = JA1.row(T); 
+  SharedVectorNd JA2n = JA2.row(N); 
+  SharedVectorNd JA2s = JA2.row(S); 
+  SharedVectorNd JA2t = JA2.row(T); 
+  SharedVectorNd JB1n = JB1.row(N); 
+  SharedVectorNd JB1s = JB1.row(S); 
+  SharedVectorNd JB1t = JB1.row(T); 
+  SharedVectorNd JB2n = JB2.row(N); 
+  SharedVectorNd JB2s = JB2.row(S); 
+  SharedVectorNd JB2t = JB2.row(T); 
+
+  // setup the contact frame
+  _event_frame->q.set_identity();
+  _event_frame->x = contact_point;
+
+  // form the normal and tangential wrenches in contact space
+  Wrenchd wn, ws, wt;
+  wn.set_force(contact_normal);
+  ws.set_force(contact_tan1);
+  wt.set_force(contact_tan2);
+  wn.set_torque(ZEROS_3);
+  ws.set_torque(ZEROS_3);
+  wt.set_torque(ZEROS_3);
+
+  // setup the pose for the contact frame
+  wn.pose = _event_frame;
+  ws.pose = _event_frame;
+  wt.pose = _event_frame;
+
+  // compute the Jacobians for the first two bodies
+  sua1->calc_jacobian(_event_frame, sba1, twist);
+  transpose_mult(twist, wn, JA1n); 
+  transpose_mult(twist, ws, JA1s); 
+  transpose_mult(twist, wt, JA1t); 
+  sua2->calc_jacobian(_event_frame, sba2, twist);
+  transpose_mult(twist, -wn, JA2n); 
+  transpose_mult(twist, -ws, JA2s); 
+  transpose_mult(twist, -wt, JA2t); 
+
+  // setup the contact frame
+  _event_frame->x = e.contact_point;
+
+  // form the normal and tangential wrenches in contact space
+  wn.set_force(e.contact_normal);
+  ws.set_force(e.contact_tan1);
+  wt.set_force(e.contact_tan2);
+
+  // compute the Jacobians for the second two bodies
+  sub1->calc_jacobian(_event_frame, sbb1, twist);
+  transpose_mult(twist, wn, JB1n); 
+  transpose_mult(twist, ws, JB1s); 
+  transpose_mult(twist, wt, JB1t); 
+  sub2->calc_jacobian(_event_frame, sbb2, twist);
+  transpose_mult(twist, -wn, JB2n); 
+  transpose_mult(twist, -ws, JB2s); 
+  transpose_mult(twist, -wt, JB2t); 
+
+  // indicate M has not been altered 
+  bool M_altered = false;
+
+  // now check for shared bodies
+  if (sua1 == sub1)
+  {
+    // compute the cross terms 
+    sua1->transpose_solve_generalized_inertia(JB1, workM1);
+    JA1.mult(workM1, M);
+    
+    // indicate M has now been altered
+    M_altered = true;
+  }
+  if (sua1 == sub2)
+  {
+    // compute the cross terms 
+    sua1->transpose_solve_generalized_inertia(JB2, workM1);
+    if (M_altered)
+    {
+      JA1.mult(workM1, workM2);
+      M += workM2;
+    }  
+    else
+      JA1.mult(workM1, M);
+    
+    // indicate M has now been altered
+    M_altered = true;
+  }
+  if (sua2 == sub1)
+  {
+    // compute the cross terms 
+    sua2->transpose_solve_generalized_inertia(JB1, workM1);
+    if (M_altered)
+    {
+      JA2.mult(workM1, workM2);
+      M += workM2;
+    }
+    else  
+      JA2.mult(workM1, M);
+    
+    // indicate M has now been altered
+    M_altered = true;
+  }
+  if (sua2 == sub2)
+  {
+    // compute the cross terms 
+    sua2->transpose_solve_generalized_inertia(JB2, workM1);
+    if (M_altered)
+    {
+      JA2.mult(workM1, workM2);
+      M += workM2;
+    }  
+    else
+      JA2.mult(workM1, M); 
+  }
+} 
+
+/// Updates contact/limit cross event data
+void Event::compute_cross_contact_limit_event_data(const Event& e, MatrixNd& M) const
+{
+  // setup useful indices
+  const unsigned N = 0, S = 1, T = 2;
+
+  // get the articulated body of the event
+  ArticulatedBodyPtr ab = e.limit_joint->get_articulated_body();
+  RCArticulatedBodyPtr su = dynamic_pointer_cast<RCArticulatedBody>(ab);
+  assert(su);
+
+  // get the index of the limit joint
+  unsigned idx = limit_joint->get_coord_index();
+
+  // get the two single bodies
+  SingleBodyPtr sb1 = contact_geom1->get_single_body();
+  SingleBodyPtr sb2 = contact_geom2->get_single_body();
+
+  // get the two super bodies
+  DynamicBodyPtr su1 = sb1->get_super_body();
+  DynamicBodyPtr su2 = sb2->get_super_body();
+
+  // setup the contact frame
+  _event_frame->q.set_identity();
+  _event_frame->x = contact_point;
+
+  // form the normal and tangential wrenches in contact space
+  Wrenchd wn, ws, wt;
+  wn.set_force(contact_normal);
+  ws.set_force(contact_tan1);
+  wt.set_force(contact_tan2);
+  wn.set_torque(ZEROS_3);
+  ws.set_torque(ZEROS_3);
+  wt.set_torque(ZEROS_3);
+
+  // setup the pose for the contact frame
+  wn.pose = _event_frame;
+  ws.pose = _event_frame;
+  wt.pose = _event_frame;
+
+  // get the numbers of generalized coordinates for the two super bodies
+  const unsigned NGC1 = su1->num_generalized_coordinates(DynamicBody::eSpatial);
+  const unsigned NGC2 = su2->num_generalized_coordinates(DynamicBody::eSpatial);
+
+  // see whether limit is equal to su1
+  if (su == su1)
+  {
+    // resize Jacobian
     J1.resize(3, NGC1);
-    J2.resize(3, NGC2);
 
     // get the rows of the Jacobians for output
-    SharedVectorNd J1n = J1.row(N); 
-    SharedVectorNd J1s = J1.row(S); 
-    SharedVectorNd J1t = J1.row(T); 
-    SharedVectorNd J2n = J2.row(N); 
-    SharedVectorNd J2s = J2.row(S); 
-    SharedVectorNd J2t = J2.row(T); 
+    SharedVectorNd Jn = J1.row(N); 
+    SharedVectorNd Js = J1.row(S); 
+    SharedVectorNd Jt = J1.row(T); 
 
     // compute the Jacobians for the two bodies
-    su1->calc_jacobian(event_frame, sb1, twist);
-    transpose_mult(twist, wn, J1n); 
-    transpose_mult(twist, ws, J1s); 
-    transpose_mult(twist, wt, J1t); 
-    su2->calc_jacobian(event_frame, sb2, twist);
-    transpose_mult(twist, -wn, J2n); 
-    transpose_mult(twist, -ws, J2s); 
-    transpose_mult(twist, -wt, J2t); 
+    su1->calc_jacobian(_event_frame, sb1, twist);
+    transpose_mult(twist, wn, Jn); 
+    transpose_mult(twist, ws, Js); 
+    transpose_mult(twist, wt, Jt); 
 
     // compute the event inertia matrix for the first body
     su1->transpose_solve_generalized_inertia(J1, workM1);
 
-    // compute the event inertia matrix for the second body
-    su2->transpose_solve_generalized_inertia(J2, workM1);
+    // get the appropriate row of workM
+    M = workM1.row(idx); 
+  }
+  else
+    // setup M
+    M.set_zero(1, 3);
+
+  // handle case of articulated body equal to contact one super body 
+  if (ab == su2)
+  {
+    // resize Jacobian
+    J1.resize(3, NGC1);
+
+    // get the rows of the Jacobians for output
+    SharedVectorNd Jn = J1.row(N); 
+    SharedVectorNd Js = J1.row(S); 
+    SharedVectorNd Jt = J1.row(T); 
+
+    // compute the Jacobians for the two bodies
+    su2->calc_jacobian(_event_frame, sb2, twist);
+    transpose_mult(twist, -wn, Jn); 
+    transpose_mult(twist, -ws, Js); 
+    transpose_mult(twist, -wt, Jt); 
+
+    // compute the event inertia matrix for the first body
+    su2->transpose_solve_generalized_inertia(J1, workM1);
+
+    // get the appropriate row of workM
+    M += workM1.row(idx); 
+  }
+} 
+
+/// Updates limit/contact cross event data
+void Event::compute_cross_limit_contact_event_data(const Event& e, MatrixNd& M) const
+{
+  // compute the cross event data
+  e.compute_cross_contact_limit_event_data(*this, workM2);
+
+  // transpose the matrix
+  MatrixNd::transpose(workM2, M);
+} 
+
+/// Updates limit/limit cross event data
+void Event::compute_cross_limit_limit_event_data(const Event& e, MatrixNd& M) const
+{
+  // get the super body
+  ArticulatedBodyPtr ab = limit_joint->get_articulated_body();
+  RCArticulatedBodyPtr su = dynamic_pointer_cast<RCArticulatedBody>(ab);
+  assert(su);
+
+  // determine the joint limit indices
+  unsigned idx1 = limit_joint->get_coord_index();
+  unsigned idx2 = e.limit_joint->get_coord_index();
+
+  // case 1: reduced-coordinate articulated body
+  if (su)
+  {
+    // setup a vector to solve
+    workv.set_zero(su->num_generalized_coordinates(DynamicBody::eSpatial));
+    workv[idx1] = 1.0;
+
+    // solve
+    su->solve_generalized_inertia(workv, workv2); 
+    M.resize(1,1);
+    M(0,0) = workv2[idx2];
+  }
+  else
+  {
+      // TODO: handle absolute coordinate articulated bodies here
+      // note: to do this event handler also needs to setup constraint Jac
+      //       as an equality constraint
+
+      // setup joint velocity Jacobian here (Dx)
+
+      // we need to compute:
+      // | M  Jx' | x | delta xd | = | j |
+      // | Jx 0   |   | lambda   | = | 0 |
+      // such that:
+      // Dx*xd^+ >= 0
+
+      // 
   }
 } 
 
@@ -324,9 +668,6 @@ std::ostream& Moby::operator<<(std::ostream& o, const Event& e)
     case Event::eContact:
       o << "(event type: contact)" << std::endl;
       break;
-
-    case Event::eConstraint:
-      o << "(event type: constraint)" << std::endl;
   }
 
   if (e.event_type == Event::eContact)
@@ -515,13 +856,6 @@ void Event::determine_connected_events(const vector<Event>& events, list<list<Ev
       nodes.insert(inboard);
       nodes.insert(outboard);
     }
-    else if ((*i)->event_type == Event::eConstraint)
-    {
-      RigidBodyPtr inboard = (*i)->constraint_joint->get_inboard_link();
-      RigidBodyPtr outboard = (*i)->constraint_joint->get_outboard_link();
-      nodes.insert(inboard);
-      nodes.insert(outboard);
-    }
     else 
       assert(false);
   }
@@ -627,19 +961,6 @@ void Event::determine_connected_events(const vector<Event>& events, list<list<Ev
         {
           RigidBodyPtr inboard = (*i)->limit_joint->get_inboard_link();
           RigidBodyPtr outboard = (*i)->limit_joint->get_outboard_link();
-          if (inboard == node || outboard == node)
-          {
-            groups.back().push_back(*i);
-            i = events_copy.erase(i);
-            continue;
-          }
-          else
-            i++;
-        }
-        else if ((*i)->event_type == Event::eConstraint)
-        {
-          RigidBodyPtr inboard = (*i)->constraint_joint->get_inboard_link();
-          RigidBodyPtr outboard = (*i)->constraint_joint->get_outboard_link();
           if (inboard == node || outboard == node)
           {
             groups.back().push_back(*i);
@@ -1267,12 +1588,6 @@ unsigned Event::get_super_bodies(DynamicBodyPtr& db1, DynamicBodyPtr& db2) const
     db1 = outboard->get_articulated_body();
     return 1;
   }
-  else if (event_type == Event::eConstraint)
-  {
-    RigidBodyPtr outboard = constraint_joint->get_outboard_link();
-    db1 = outboard->get_articulated_body();
-    return 1;
-  }  
   else if (event_type == Event::eContact)
   {
     SingleBodyPtr sb1 = contact_geom1->get_single_body();

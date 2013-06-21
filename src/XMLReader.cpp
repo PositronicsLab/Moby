@@ -253,7 +253,7 @@ void XMLReader::read_deformable_ccd(shared_ptr<const XMLTree> node, std::map<std
 //  boost::shared_ptr<Base> b(new DeformableCCD());
   
   // populate the object
-  b->load_from_xml(node, id_map);
+//  b->load_from_xml(node, id_map);
 }
 
 /// Reads and constructs the GeneralizedCCD object
@@ -621,7 +621,7 @@ void XMLReader::read_ps_deformable_body(shared_ptr<const XMLTree> node, std::map
 //  boost::shared_ptr<Base> b(new PSDeformableBody());
 
   // populate the object
-  b->load_from_xml(node, id_map);
+//  b->load_from_xml(node, id_map);
 }
 
 /// Reads and constructs the RigidBody object
@@ -653,7 +653,7 @@ void XMLReader::read_mc_abody(shared_ptr<const XMLTree> node, std::map<std::stri
 //  boost::shared_ptr<MCArticulatedBody> link(new MCArticulatedBody());
   
   // populate the object
-  link->load_from_xml(node, id_map);
+//  link->load_from_xml(node, id_map);
 }
 
 /// Reads and constructs the RCArticulatedBody object

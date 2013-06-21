@@ -1084,21 +1084,6 @@ void ArticulatedBody::find_loops(vector<unsigned>& loop_indices, vector<vector<u
   }
 }
 
-/// Gets the constraint events for event handling
-void ArticulatedBody::get_constraint_events(vector<Event>& events) const
-{
-  // setup the constraint events
-  for (unsigned i=0; i< _joints.size(); i++)
-  {
-    events.push_back(Event());
-    events.back().t = (double) 0.0;
-    events.back().event_type = Event::eConstraint;
-    events.back().constraint_joint = _joints[i];
-    events.back().constraint_nimpulse.set_zero(_joints[i]->num_constraint_eqns());
-    events.back().constraint_fimpulse.set_zero(_joints[i]->num_dof());
-  }
-}
-
 /// Sets the vector of joints
 void ArticulatedBody::set_joints(const vector<JointPtr>& joints)
 {

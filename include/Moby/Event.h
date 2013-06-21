@@ -26,7 +26,7 @@ class CollisionGeometry;
 class Event 
 {
   public:
-    enum EventType { eNone, eContact, eLimit, eConstraint };
+    enum EventType { eNone, eContact, eLimit };
     enum EventClass { eUndetermined, eSeparating, eResting, eImpacting };
     Event();
     Event(const Event& e) { *this = e; }
@@ -125,8 +125,19 @@ class Event
     bool operator<(const Event& e) const { return t < e.t; }
     void compute_event_data(Ravelin::MatrixNd& M, Ravelin::VectorNd& q) const;
     void compute_cross_event_data(const Event& e, Ravelin::MatrixNd& M) const;
+    void compute_cross_contact_contact_event_data(const Event& e, Ravelin::MatrixNd& M) const;
+    void compute_cross_contact_limit_event_data(const Event& e, Ravelin::MatrixNd& M) const;
+    void compute_cross_limit_contact_event_data(const Event& e, Ravelin::MatrixNd& M) const;
+    void compute_cross_limit_limit_event_data(const Event& e, Ravelin::MatrixNd& M) const;
 
   private:
+    // static variables
+    static boost::shared_ptr<Ravelin::Pose3d> _event_frame;
+    static Ravelin::MatrixNd J1, J2, workM1, workM2;
+    static std::vector<Ravelin::Twistd> twist;
+    static Ravelin::VectorNd v, workv, workv2;
+
+    static bool is_linked(const Event& e1, const Event& e2);
     unsigned get_super_bodies(DynamicBodyPtr& sb1, DynamicBodyPtr& sb2) const;
     static void determine_convex_set(std::list<Event*>& group);
     static bool is_contact_manifold_2D(const std::list<Event*>& group);

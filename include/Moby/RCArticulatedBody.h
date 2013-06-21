@@ -89,6 +89,9 @@ class RCArticulatedBody : public ArticulatedBody
     virtual Ravelin::MatrixNd& transpose_Dx_mult(const Ravelin::MatrixNd& m, Ravelin::MatrixNd& result) { return _Dx.transpose_mult(m, result); }
     virtual boost::shared_ptr<Ravelin::Pose3d> get_computation_frame_pose() const;
     virtual void set_computation_frame_type(ReferenceFrameType rftype);
+    virtual Ravelin::VectorNd& solve_generalized_inertia(const Ravelin::VectorNd& v, Ravelin::VectorNd& result);
+    virtual Ravelin::MatrixNd& solve_generalized_inertia(const Ravelin::MatrixNd& m, Ravelin::MatrixNd& result);
+    Ravelin::MatrixNd& solve_generalized_inertia_transpose(const Ravelin::MatrixNd& m, Ravelin::MatrixNd& result);
 
     /// Gets whether the base of this body is fixed or "floating"
     bool is_floating_base() const { return _floating_base; }
@@ -168,9 +171,6 @@ class RCArticulatedBody : public ArticulatedBody
     static double sgn(double x);
     bool treat_link_as_leaf(RigidBodyPtr link) const;
     void update_factorized_generalized_inertia();
-    virtual Ravelin::VectorNd& solve_generalized_inertia(const Ravelin::VectorNd& v, Ravelin::VectorNd& result);
-    virtual Ravelin::MatrixNd& solve_generalized_inertia(const Ravelin::MatrixNd& m, Ravelin::MatrixNd& result);
-    Ravelin::MatrixNd& solve_generalized_inertia_transpose(const Ravelin::MatrixNd& m, Ravelin::MatrixNd& result);
     void determine_contact_jacobians(const EventProblemData& q, const Ravelin::VectorNd& v, const Ravelin::MatrixNd& M, Ravelin::MatrixNd& Jc, Ravelin::MatrixNd& Dc);
     static bool supports(JointPtr joint, RigidBodyPtr link);
     void determine_generalized_forces(Ravelin::VectorNd& gf) const;
