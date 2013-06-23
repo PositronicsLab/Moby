@@ -33,20 +33,24 @@ struct EventProblemData
     kappa = q.kappa;
 
     // copy indices
-    ALPHA_C_IDX = q.ALPHA_C_IDX;
-    BETA_C_IDX = q.BETA_C_IDX;
-    NBETA_C_IDX = q.NBETA_C_IDX;
-    BETAU_C_IDX = q.BETAU_C_IDX;
-    ALPHA_L_IDX = q.ALPHA_L_IDX;
+    CN_IDX = q.CN_IDX;
+    CS_IDX = q.CS_IDX;
+    CT_IDX = q.CT_IDX;
+    NCS_IDX = q.NCS_IDX;
+    NCT_IDX = q.NCT_IDX;
+    CS_U_IDX = q.CS_U_IDX;
+    CT_U_IDX = q.CT_U_IDX;
+    L_IDX = q.L_IDX;
     ALPHA_X_IDX = q.ALPHA_X_IDX;
     BETA_X_IDX = q.BETA_X_IDX;
     BETA_T_IDX = q.BETA_T_IDX;
     N_VARS = q.N_VARS;  
 
     // copy event velocities
-    Jc_v = q.Jc_v;
-    Dc_v = q.Dc_v;
-    Jl_v = q.Jl_v;
+    Cn_v = q.Cn_v;
+    Cs_v = q.Cs_v;
+    Ct_v = q.Ct_v;
+    L_v = q.L_v;
     Jx_v = q.Jx_v;
     Dx_v = q.Dx_v;
 
@@ -59,21 +63,28 @@ struct EventProblemData
     limit_events = q.limit_events;
 
     // cross-event terms
-    Jc_iM_JcT = q.Jc_iM_JcT;
-    Jc_iM_DcT = q.Jc_iM_DcT;
-    Jc_iM_JlT = q.Jc_iM_JlT;
-    Jc_iM_DtT = q.Jc_iM_DtT;
-    Jc_iM_JxT = q.Jc_iM_JxT;
-    Jc_iM_DxT = q.Jc_iM_DxT;
-    Dc_iM_DcT = q.Dc_iM_DcT;
-    Dc_iM_JlT = q.Dc_iM_JlT;
-    Dc_iM_DtT = q.Dc_iM_DtT;
-    Dc_iM_JxT = q.Dc_iM_JxT;
-    Dc_iM_DxT = q.Dc_iM_DxT;
-    Jl_iM_JlT = q.Jl_iM_JlT;
-    Jl_iM_DtT = q.Jl_iM_DtT;
-    Jl_iM_JxT = q.Jl_iM_JxT;
-    Jl_iM_DxT = q.Jl_iM_DxT;
+    Cn_iM_CnT = q.Cn_iM_CnT;
+    Cn_iM_CsT = q.Cn_iM_CsT;
+    Cn_iM_CtT = q.Cn_iM_CtT;
+    Cn_iM_LT = q.Cn_iM_LT;
+    Cn_iM_DtT = q.Cn_iM_DtT;
+    Cn_iM_JxT = q.Cn_iM_JxT;
+    Cn_iM_DxT = q.Cn_iM_DxT;
+    Cs_iM_CsT = q.Cs_iM_CsT;
+    Cs_iM_CtT = q.Cs_iM_CtT;
+    Cs_iM_LT = q.Cs_iM_LT;
+    Cs_iM_DtT = q.Cs_iM_DtT;
+    Cs_iM_JxT = q.Cs_iM_JxT;
+    Cs_iM_DxT = q.Cs_iM_DxT;
+    Ct_iM_CtT = q.Ct_iM_CtT;
+    Ct_iM_LT = q.Ct_iM_LT;
+    Ct_iM_DtT = q.Ct_iM_DtT;
+    Ct_iM_JxT = q.Ct_iM_JxT;
+    Ct_iM_DxT = q.Ct_iM_DxT;
+    L_iM_LT = q.L_iM_LT;
+    L_iM_DtT = q.L_iM_DtT;
+    L_iM_JxT = q.L_iM_JxT;
+    L_iM_DxT = q.L_iM_DxT;
     Dt_iM_DtT = q.Dt_iM_DtT;
     Dt_iM_JxT = q.Dt_iM_JxT;
     Dt_iM_DxT = q.Dt_iM_DxT;
@@ -82,9 +93,9 @@ struct EventProblemData
     Dx_iM_DxT = q.Dx_iM_DxT;
 
     // copy impulse magnitudes 
-    alpha_c = q.alpha_c;
-    beta_c = q.beta_c;
-    alpha_l = q.alpha_l;
+    cn = q.cn;
+    cs = q.cs;
+    l = q.l;
     beta_t = q.beta_t;
     alpha_x = q.alpha_x;
     beta_x = q.beta_x;     
@@ -102,12 +113,12 @@ struct EventProblemData
     N_CONSTRAINTS = N_CONSTRAINT_DOF_EXP = N_CONSTRAINT_EQNS_EXP = 0;
     N_CONSTRAINT_DOF_IMP = 0;
     use_kappa = false;
-    kappa = (double) 0.0;
+    kappa = 0.0;
 
     // clear all indices
     N_VARS = 0;
-    ALPHA_C_IDX = BETA_C_IDX = NBETA_C_IDX = BETAU_C_IDX = 0;
-    ALPHA_L_IDX = BETA_T_IDX = 0;
+    CS_IDX = CT_IDX = NCS_IDX = NCT_IDX = CS_U_IDX = CT_U_IDX = 0;
+    L_IDX = BETA_T_IDX = 0;
     ALPHA_X_IDX = BETA_X_IDX = 0;
 
     // clear all vectors
@@ -117,34 +128,43 @@ struct EventProblemData
     limit_events.clear();
 
     // reset all Ravelin::VectorNd sizes
-    Jc_v.resize(0);
-    Dc_v.resize(0);
-    Jl_v.resize(0);
+    Cn_v.resize(0);
+    Cs_v.resize(0);
+    Ct_v.resize(0);
+    L_v.resize(0);
     Jx_v.resize(0);
     Dx_v.resize(0);
-    alpha_c.resize(0);
-    beta_c.resize(0);
-    alpha_l.resize(0);
+    cn.resize(0);
+    cs.resize(0);
+    ct.resize(0);
+    l.resize(0);
     beta_t.resize(0);
     alpha_x.resize(0);
     beta_x.resize(0);
 
     // reset all MatrixN sizes
-    Jc_iM_JcT.resize(0,0);
-    Jc_iM_DcT.resize(0,0);
-    Jc_iM_JlT.resize(0,0);
-    Jc_iM_DtT.resize(0,0);
-    Jc_iM_JxT.resize(0,0);
-    Jc_iM_DxT.resize(0,0);
-    Dc_iM_DcT.resize(0,0);
-    Dc_iM_JlT.resize(0,0);
-    Dc_iM_DtT.resize(0,0);
-    Dc_iM_JxT.resize(0,0);
-    Dc_iM_DxT.resize(0,0);
-    Jl_iM_JlT.resize(0,0);
-    Jl_iM_DtT.resize(0,0);
-    Jl_iM_JxT.resize(0,0);
-    Jl_iM_DxT.resize(0,0);
+    Cn_iM_CnT.resize(0,0);
+    Cn_iM_CsT.resize(0,0);
+    Cn_iM_CtT.resize(0,0);
+    Cn_iM_LT.resize(0,0);
+    Cn_iM_DtT.resize(0,0);
+    Cn_iM_JxT.resize(0,0);
+    Cn_iM_DxT.resize(0,0);
+    Cs_iM_CsT.resize(0,0);
+    Cs_iM_CtT.resize(0,0);
+    Cs_iM_LT.resize(0,0);
+    Cs_iM_DtT.resize(0,0);
+    Cs_iM_JxT.resize(0,0);
+    Cs_iM_DxT.resize(0,0);
+    Ct_iM_CtT.resize(0,0);
+    Ct_iM_LT.resize(0,0);
+    Ct_iM_DtT.resize(0,0);
+    Ct_iM_JxT.resize(0,0);
+    Ct_iM_DxT.resize(0,0);
+    L_iM_LT.resize(0,0);
+    L_iM_DtT.resize(0,0);
+    L_iM_JxT.resize(0,0);
+    L_iM_DxT.resize(0,0);
     Dt_iM_DtT.resize(0,0);
     Dt_iM_JxT.resize(0,0);
     Dt_iM_DxT.resize(0,0);
@@ -156,24 +176,24 @@ struct EventProblemData
     contact_working_set.clear();
   }
 
-  // sets alpha_c, beta_c, etc. from stacked vectors
+  // sets cn, cs, etc. from stacked vectors
   void update_from_stacked(const Ravelin::VectorNd& z)
   {
-    alpha_c += z.get_sub_vec(ALPHA_C_IDX, BETA_C_IDX, workv);
-    alpha_l += z.get_sub_vec(ALPHA_L_IDX, BETA_T_IDX, workv);
-    beta_t += z.get_sub_vec(BETA_T_IDX, ALPHA_X_IDX, workv);
-    alpha_x += z.get_sub_vec(ALPHA_X_IDX, BETA_X_IDX, workv);
-    beta_x += z.get_sub_vec(BETA_X_IDX, N_VARS, workv);
+    cn += z.segment(CN_IDX, CS_IDX);
+    l += z.segment(L_IDX, BETA_T_IDX);
+    beta_t += z.segment(BETA_T_IDX, ALPHA_X_IDX);
+    alpha_x += z.segment(ALPHA_X_IDX, BETA_X_IDX);
+    beta_x += z.segment(BETA_X_IDX, N_VARS);
 
-    // finally, setup beta_c (a little involved)
-    z.get_sub_vec(BETA_C_IDX, NBETA_C_IDX, workv);
-    z.get_sub_vec(NBETA_C_IDX, BETAU_C_IDX, workv2);
-    workv -= workv2;
-    workv2.resize(N_LIN_CONE*2 + N_TRUE_CONE);
-    workv2.set_sub_vec(0, workv);
-    z.get_sub_vec(BETAU_C_IDX, ALPHA_L_IDX, workv);
-    workv2.set_sub_vec(N_LIN_CONE*2, workv);
-    beta_c += workv2;
+    // setup cs/ct -- first determine linearized friction cone forces
+    cs.segment(0, N_LIN_CONE) = z.segment(CS_IDX, CT_IDX);
+    cs.segment(0, N_LIN_CONE) -= z.segment(NCS_IDX, NCT_IDX);
+    ct.segment(0, N_LIN_CONE) = z.segment(CT_IDX, NCS_IDX);
+    ct.segment(0, N_LIN_CONE) -= z.segment(NCT_IDX, CS_U_IDX);
+
+    // now determine quadratic friction cone forces
+    cs.segment(N_LIN_CONE, cs.size()) = z.segment(CS_U_IDX, CT_U_IDX);
+    ct.segment(N_LIN_CONE, ct.size()) = z.segment(CT_U_IDX, L_IDX);
   }
 
   // partitions event vectors into contact and limit events
@@ -208,38 +228,64 @@ struct EventProblemData
     }
   }
 
-  // sets stacked vector from alpha_c, beta_c, etc.
+  // sets stacked vector from cn, cs, etc.
   Ravelin::VectorNd& to_stacked(Ravelin::VectorNd& z)
   {
-    z.set_sub_vec(ALPHA_C_IDX, alpha_c);
-    z.set_sub_vec(BETA_C_IDX, beta_c);
-    for (unsigned i=BETA_C_IDX, j=NBETA_C_IDX; i< NBETA_C_IDX; i++, j++)
-      if (z[i] < (double) 0.0)
+    z.set_sub_vec(CN_IDX, cn);
+    z.set_sub_vec(CS_IDX, cs.segment(0, N_LIN_CONE));
+    z.set_sub_vec(CT_IDX, ct.segment(0, N_LIN_CONE));
+    z.set_sub_vec(NCS_IDX, cs.segment(N_LIN_CONE, cs.size()));
+    z.set_sub_vec(NCT_IDX, ct.segment(N_LIN_CONE, ct.size()));
+    for (unsigned i=CS_IDX, j=NCS_IDX; i< CT_IDX; i++, j++)
+    {
+      if (z[i] < 0.0)
       {
-        z[NBETA_C_IDX] = -z[i];
-        z[i] = (double) 0.0;
+        z[j] = -z[i];
+        z[i] = 0.0;
       }
-    z.set_sub_vec(ALPHA_L_IDX, alpha_l);
+      else
+        z[j] = 0.0;
+    }
+    for (unsigned i=CT_IDX, j=NCT_IDX; i< NCS_IDX; i++, j++)
+    {
+      if (z[i] < 0.0)
+      {
+        z[j] = -z[i];
+        z[i] = 0.0;
+      }
+      else
+        z[j] = 0.0;
+    }
+    z.set_sub_vec(L_IDX, l);
     z.set_sub_vec(BETA_T_IDX, beta_t);
     z.set_sub_vec(ALPHA_X_IDX, alpha_x);
     z.set_sub_vec(BETA_X_IDX, beta_x);
     return z;
   }
 
-  // starting index of alpha_c in the stacked vector
-  unsigned ALPHA_C_IDX;
+  // starting index of cn in the stacked vector
+  unsigned CN_IDX;
 
-  // starting index of beta_c in the stacked vector
-  unsigned BETA_C_IDX;
+  // starting index of cs in the stacked vector
+  unsigned CS_IDX;
 
-  // starting index of nbeta_c in the stacked vector
-  unsigned NBETA_C_IDX;
+  // starting index of ct in the stacked vector
+  unsigned CT_IDX;
 
-  // starting index of beta_c (unbounded) in the stacked vector
-  unsigned BETAU_C_IDX;
+  // starting index of -cs in the stacked vector
+  unsigned NCS_IDX;
 
-  // starting index of alpha_l in the stacked vector
-  unsigned ALPHA_L_IDX;
+  // starting index of -ct in the stacked vector
+  unsigned NCT_IDX;
+
+  // starting index of cs (unbounded) in the stacked vector
+  unsigned CS_U_IDX;
+
+  // starting index of ct (unbounded) in the stacked vector
+  unsigned CT_U_IDX;
+
+  // starting index of l in the stacked vector
+  unsigned L_IDX;
 
   // starting index of beta_t in the stacked vector
   unsigned BETA_T_IDX;
@@ -294,15 +340,16 @@ struct EventProblemData
   std::vector<Event*> events, contact_events, limit_events;
 
   // cross-event terms
-  Ravelin::MatrixNd Jc_iM_JcT, Jc_iM_DcT, Jc_iM_JlT, Jc_iM_DtT, Jc_iM_JxT, Jc_iM_DxT;
-  Ravelin::MatrixNd            Dc_iM_DcT, Dc_iM_JlT, Dc_iM_DtT, Dc_iM_JxT, Dc_iM_DxT;
-  Ravelin::MatrixNd                       Jl_iM_JlT, Jl_iM_DtT, Jl_iM_JxT, Jl_iM_DxT;
-  Ravelin::MatrixNd                                  Dt_iM_DtT, Dt_iM_JxT, Dt_iM_DxT;
-  Ravelin::MatrixNd                                             Jx_iM_JxT, Jx_iM_DxT;
-  Ravelin::MatrixNd                                                        Dx_iM_DxT;
+  Ravelin::MatrixNd Cn_iM_CnT, Cn_iM_CsT, Cn_iM_CtT, Cn_iM_LT, Cn_iM_DtT, Cn_iM_JxT, Cn_iM_DxT;
+  Ravelin::MatrixNd            Cs_iM_CsT, Cs_iM_CtT, Cs_iM_LT, Cs_iM_DtT, Cs_iM_JxT, Cs_iM_DxT;
+  Ravelin::MatrixNd                       Ct_iM_CtT, Ct_iM_LT, Ct_iM_DtT, Ct_iM_JxT, Ct_iM_DxT;
+  Ravelin::MatrixNd                                  L_iM_LT,  L_iM_DtT,  L_iM_JxT,  L_iM_DxT;
+  Ravelin::MatrixNd                                            Dt_iM_DtT, Dt_iM_JxT, Dt_iM_DxT;
+  Ravelin::MatrixNd                                            Jx_iM_JxT, Jx_iM_DxT;
+  Ravelin::MatrixNd                                                       Dx_iM_DxT;
 
   // vector-based terms
-  Ravelin::VectorNd Jc_v, Dc_v, Jl_v, Jx_v, Dx_v;
+  Ravelin::VectorNd Cn_v, Cs_v, Ct_v, L_v, Jx_v, Dx_v;
 
   // kappa term
   double kappa;
@@ -311,10 +358,7 @@ struct EventProblemData
   bool use_kappa;
 
   // impulse magnitudes determined by solve_qp()
-  Ravelin::VectorNd alpha_c, beta_c, alpha_l, beta_t, alpha_x, beta_x;
-
-  private:
-    Ravelin::VectorNd workv, workv2;
+  Ravelin::VectorNd cn, cs, ct, l, beta_t, alpha_x, beta_x;
 }; // end struct
 
 } // end namespace Moby

@@ -283,8 +283,6 @@ bool Event::is_linked(const Event& e1, const Event& e2)
 /// Updates the event data
 void Event::compute_cross_event_data(const Event& e, MatrixNd& M) const
 {
-  // TODO: verify that full M is zerod before this call
-
   // verify that the events are linked
   if (!is_linked(*this, e))
     return;

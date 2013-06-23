@@ -38,7 +38,7 @@ using boost::dynamic_pointer_cast;
 /// Solves the quadratic program (potentially solves two QPs, actually)
 void ImpactEventHandler::solve_qp(EventProblemData& q, double poisson_eps)
 {
-  SAFESTATIC VectorNd z, tmp, tmp2;
+  static VectorNd z, tmp, tmp2;
   const double TOL = poisson_eps;
 
   // solve the QP
@@ -55,43 +55,54 @@ void ImpactEventHandler::solve_qp(EventProblemData& q, double poisson_eps)
   // save impulses in q
   q.update_from_stacked(z);
 
-  // update Jc_v, Dc_v, Jl_v, and Jx_v
-  q.Jc_v += q.Jc_iM_JcT.mult(q.alpha_c, tmp);
-  q.Jc_v += q.Jc_iM_DcT.mult(q.beta_c, tmp);
-  q.Jc_v += q.Jc_iM_JlT.mult(q.alpha_l, tmp);
-  q.Jc_v += q.Jc_iM_JxT.mult(q.alpha_x, tmp);
-  q.Dc_v += q.Jc_iM_DcT.transpose_mult(q.alpha_c, tmp);
-  q.Dc_v += q.Dc_iM_DcT.mult(q.beta_c, tmp);
-  q.Dc_v += q.Dc_iM_JlT.mult(q.alpha_l, tmp);
-  q.Dc_v += q.Dc_iM_JxT.mult(q.alpha_x, tmp);
-  q.Jl_v += q.Jc_iM_JlT.transpose_mult(q.alpha_c, tmp);
-  q.Jl_v += q.Dc_iM_JlT.transpose_mult(q.beta_c, tmp);
-  q.Jl_v += q.Jl_iM_JlT.mult(q.alpha_l, tmp);
-  q.Jl_v += q.Jl_iM_JxT.mult(q.alpha_x, tmp);
-  q.Jx_v += q.Jc_iM_JxT.transpose_mult(q.alpha_c, tmp);
-  q.Jx_v += q.Dc_iM_JxT.transpose_mult(q.beta_c, tmp);
-  q.Jx_v += q.Jl_iM_JxT.transpose_mult(q.alpha_l, tmp);
+  // update Cn_v, Cs_v, Ct_v, L_v, and Jx_v
+  q.Cn_v += q.Cn_iM_CnT.mult(q.cn, tmp);
+  q.Cn_v += q.Cn_iM_CsT.mult(q.cs, tmp);
+  q.Cn_v += q.Cn_iM_CtT.mult(q.ct, tmp);
+  q.Cn_v += q.Cn_iM_LT.mult(q.l, tmp);
+  q.Cn_v += q.Cn_iM_JxT.mult(q.alpha_x, tmp);
+  q.Cs_v += q.Cn_iM_CsT.transpose_mult(q.cn, tmp);
+  q.Cs_v += q.Cs_iM_CsT.mult(q.cs, tmp);
+  q.Cs_v += q.Cs_iM_CtT.transpose_mult(q.ct, tmp);
+  q.Cs_v += q.Cs_iM_CtT.mult(q.ct, tmp);
+  q.Cs_v += q.Cs_iM_LT.mult(q.l, tmp);
+  q.Cs_v += q.Cs_iM_JxT.mult(q.alpha_x, tmp);
+  q.Ct_v += q.Cn_iM_CtT.transpose_mult(q.cn, tmp);
+  q.Ct_v += q.Cs_iM_CtT.transpose_mult(q.cs, tmp);
+  q.Ct_v += q.Ct_iM_CtT.mult(q.ct, tmp);
+  q.Ct_v += q.Ct_iM_LT.mult(q.l, tmp);
+  q.Ct_v += q.Ct_iM_JxT.mult(q.alpha_x, tmp);
+  q.L_v += q.Cn_iM_LT.transpose_mult(q.cn, tmp);
+  q.L_v += q.Cs_iM_LT.transpose_mult(q.cs, tmp);
+  q.L_v += q.Ct_iM_LT.transpose_mult(q.ct, tmp);
+  q.L_v += q.L_iM_LT.mult(q.l, tmp);
+  q.L_v += q.L_iM_JxT.mult(q.alpha_x, tmp);
+  q.Jx_v += q.Cn_iM_JxT.transpose_mult(q.cn, tmp);
+  q.Jx_v += q.Cs_iM_JxT.transpose_mult(q.cs, tmp);
+  q.Jx_v += q.Ct_iM_JxT.transpose_mult(q.ct, tmp);
+  q.Jx_v += q.L_iM_JxT.transpose_mult(q.l, tmp);
   q.Jx_v += q.Jx_iM_JxT.mult(q.alpha_x, tmp);
 
   // output results
   FILE_LOG(LOG_EVENT) << "results: " << std::endl;
-  FILE_LOG(LOG_EVENT) << "new Jc_v: " << q.Jc_v << std::endl;
-  FILE_LOG(LOG_EVENT) << "new Dc_v: " << q.Dc_v << std::endl;
-  FILE_LOG(LOG_EVENT) << "new Jl_v: " << q.Jl_v << std::endl;
+  FILE_LOG(LOG_EVENT) << "new Cn_v: " << q.Cn_v << std::endl;
+  FILE_LOG(LOG_EVENT) << "new Cs_v: " << q.Cs_v << std::endl;
+  FILE_LOG(LOG_EVENT) << "new Ct_v: " << q.Ct_v << std::endl;
+  FILE_LOG(LOG_EVENT) << "new L_v: " << q.L_v << std::endl;
   FILE_LOG(LOG_EVENT) << "new Jx_v: " << q.Jx_v << std::endl;
 
   // see whether another QP must be solved
-  if (q.Jc_v.size() > 0 && *min_element(q.Jc_v.begin(), q.Jc_v.end()) < -TOL)
+  if (q.Cn_v.size() > 0 && *min_element(q.Cn_v.begin(), q.Cn_v.end()) < -TOL)
   {
-    FILE_LOG(LOG_EVENT) << "minimum Jc*v: " << *min_element(q.Jc_v.begin(), q.Jc_v.end()) << std::endl;
+    FILE_LOG(LOG_EVENT) << "minimum Cn*v: " << *min_element(q.Cn_v.begin(), q.Cn_v.end()) << std::endl;
     FILE_LOG(LOG_EVENT) << " -- running another QP iteration..." << std::endl;
     solve_qp_work(q, z);
     q.update_from_stacked(z);
   }
   else 
-    if (q.Jl_v.size() > 0 && *min_element(q.Jl_v.begin(), q.Jl_v.end()) < -TOL)
+    if (q.L_v.size() > 0 && *min_element(q.L_v.begin(), q.L_v.end()) < -TOL)
     {
-      FILE_LOG(LOG_EVENT) << "minimum Jl*v: " << *min_element(q.Jl_v.begin(), q.Jl_v.end()) << std::endl;
+      FILE_LOG(LOG_EVENT) << "minimum L*v: " << *min_element(q.L_v.begin(), q.L_v.end()) << std::endl;
       FILE_LOG(LOG_EVENT) << " -- running another QP iteration..." << std::endl;
       solve_qp_work(q, z);
       q.update_from_stacked(z);
@@ -111,18 +122,18 @@ void ImpactEventHandler::solve_qp(EventProblemData& q, double poisson_eps)
 
   // save normal contact impulses
   for (unsigned i=0; i< q.N_CONTACTS; i++)
-    q.contact_events[i]->contact_impulse = q.contact_events[i]->contact_normal * q.alpha_c[i];
+    q.contact_events[i]->contact_impulse = q.contact_events[i]->contact_normal * q.cn[i];
 
   // save tangent contact impulses
-  for (unsigned i=0, j=0; i< q.N_CONTACTS; i++)
+  for (unsigned i=0; i< q.N_CONTACTS; i++)
   {
-    q.contact_events[i]->contact_impulse += q.contact_events[i]->contact_tan1 * q.beta_c[j++];
-    q.contact_events[i]->contact_impulse += q.contact_events[i]->contact_tan2 * q.beta_c[j++];
+    q.contact_events[i]->contact_impulse += q.contact_events[i]->contact_tan1 * q.cs[i];
+    q.contact_events[i]->contact_impulse += q.contact_events[i]->contact_tan2 * q.ct[i];
   }
 
   // save limit impulses
   for (unsigned i=0; i< q.N_LIMITS; i++)
-    q.limit_events[i]->limit_impulse = q.alpha_l[i]; 
+    q.limit_events[i]->limit_impulse = q.l[i]; 
 }
 
 /// Solves the quadratic program (does all of the work) for given active contact set
@@ -143,11 +154,11 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
   const unsigned N_K_TOTAL = q.N_K_TOTAL;
 
   // setup variable indices
-  const unsigned ALPHA_C_IDX = 0;
+  const unsigned CN_IDX = 0;
   const unsigned BETA_C_IDX = N_CONTACTS;
   const unsigned NBETA_C_IDX = N_CONTACTS*2 + BETA_C_IDX;
-  const unsigned ALPHA_L_IDX = N_CONTACTS*2 + NBETA_C_IDX;
-  const unsigned ALPHA_X_IDX = N_LIMITS + ALPHA_L_IDX;
+  const unsigned L_IDX = N_CONTACTS*2 + NBETA_C_IDX;
+  const unsigned ALPHA_X_IDX = N_LIMITS + L_IDX;
   const unsigned N_VARS = N_CONSTRAINT_EQNS_EXP + ALPHA_X_IDX;
 
   // first, solve for impulses that satisfy explicit constraint equations
@@ -169,9 +180,9 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
 
     // compute the nullspace
     A.resize(N_CONSTRAINT_EQNS_EXP, N_VARS);
-    MatrixNd::transpose(q.Jc_iM_JxT, t1);
+    MatrixNd::transpose(q.Cn_iM_JxT, t1);
     MatrixNd::transpose(q.Dc_iM_JxT, t2);
-    MatrixNd::transpose(q.Jl_iM_JxT, t3);
+    MatrixNd::transpose(q.L_iM_JxT, t3);
     neg1. = t2).negate();
     A.set_sub_row_block(0, &t1, &t2, &neg1, &t3, &q.Jx_iM_JxT);
     LinAlg::nullspace(A, R);
@@ -200,16 +211,16 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
   // setup [Q M'; -M 0]
   unsigned col = 0, row = 0;
 
-  // row (block) 1 -- Jc * iM * [Jc' Dc' -Dc' Jl' Jx']
-  neg1. = q.Jc_iM_DcT).negate();
-  H.set_sub_row_block(0, &q.Jc_iM_JcT, &q.Jc_iM_DcT, &neg1, &q.Jc_iM_JlT, 
-                      &q.Jc_iM_JxT);
+  // row (block) 1 -- Cn * iM * [Cn' Dc' -Dc' L' Jx']
+  neg1. = q.Cn_iM_DcT).negate();
+  H.set_sub_row_block(0, &q.Cn_iM_CnT, &q.Cn_iM_DcT, &neg1, &q.Cn_iM_LT, 
+                      &q.Cn_iM_JxT);
   row += N_CONTACTS;
   
-  // row (block) 2 -- Dc * iM * [Jc' Dc' -Dc' Jl' Jx']
-  MatrixNd::transpose(q.Jc_iM_DcT, t1);
+  // row (block) 2 -- Dc * iM * [Cn' Dc' -Dc' L' Jx']
+  MatrixNd::transpose(q.Cn_iM_DcT, t1);
   neg1. = q.Dc_iM_DcT).negate();
-  H.set_sub_row_block(row, &t1, &q.Dc_iM_DcT, &neg1, &q.Dc_iM_JlT, 
+  H.set_sub_row_block(row, &t1, &q.Dc_iM_DcT, &neg1, &q.Dc_iM_LT, 
                       &q.Dc_iM_JxT);
 
   // row (block 3) -- negated block 2
@@ -217,39 +228,39 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
   H.set_sub_mat(row+N_CONTACTS*2, 0, sub.negate());
   row += N_CONTACTS*4;
 
-  // row (block 4) -- Jl * iM * [Jc' Dc' -Dc' Jl Jx']
-  MatrixNd::transpose(q.Jc_iM_JlT, t1);
-  MatrixNd::transpose(q.Dc_iM_JlT, t2);
+  // row (block 4) -- L * iM * [Cn' Dc' -Dc' L Jx']
+  MatrixNd::transpose(q.Cn_iM_LT, t1);
+  MatrixNd::transpose(q.Dc_iM_LT, t2);
   neg1. = t2).negate();
-  H.set_sub_row_block(row, &t1, &t2, &neg1, &q.Jl_iM_JlT, &q.Jl_iM_JxT);
+  H.set_sub_row_block(row, &t1, &t2, &neg1, &q.L_iM_LT, &q.L_iM_JxT);
   row += N_LIMITS;
   
-  // row (block 5) -- Jx * iM * [Jc' Dc' -Dc' Jl Jx']
-  MatrixNd::transpose(q.Jc_iM_JxT, t1);
+  // row (block 5) -- Jx * iM * [Cn' Dc' -Dc' L Jx']
+  MatrixNd::transpose(q.Cn_iM_JxT, t1);
   MatrixNd::transpose(q.Dc_iM_JxT, t2);
-  MatrixNd::transpose(q.Jl_iM_JxT, t3);
+  MatrixNd::transpose(q.L_iM_JxT, t3);
   neg1. = t2).negate();
   H.set_sub_row_block(row, &t1, &t2, &neg1, &t3, &q.Jx_iM_JxT);
 
   // setup c 
-  c.set_sub_vec(ALPHA_C_IDX, q.Jc_v);         
+  c.set_sub_vec(CN_IDX, q.Cn_v);         
   c.set_sub_vec(BETA_C_IDX, q.Dc_v);         
   negv. = q.Dc_v).negate();
   c.set_sub_vec(NBETA_C_IDX, negv);           
-  c.set_sub_vec(ALPHA_L_IDX, q.Jl_v);         
+  c.set_sub_vec(L_IDX, q.L_v);         
   c.set_sub_vec(ALPHA_X_IDX, q.Jx_v);         
 
-  // setup the Jc*v+ >= 0 constraint
-  // Jc*(inv(M)*impulses + v) >= 0, Jc*inv(M)*impulses >= -Jc*v
+  // setup the Cn*v+ >= 0 constraint
+  // Cn*(inv(M)*impulses + v) >= 0, Cn*inv(M)*impulses >= -Cn*v
   row = 0; col = 0;
-  nb.set_sub_vec(row, q.Jc_v);
-  H.get_sub_mat(ALPHA_C_IDX, ALPHA_C_IDX+N_CONTACTS, 0, H.columns(), sub);
+  nb.set_sub_vec(row, q.Cn_v);
+  H.get_sub_mat(CN_IDX, CN_IDX+N_CONTACTS, 0, H.columns(), sub);
   A.set_sub_mat(row, 0, sub);
   row += N_CONTACTS;
   
-  // setup the Jl*v+ >= 0 constraint
-  nb.set_sub_vec(row, q.Jl_v);
-  H.get_sub_mat(ALPHA_L_IDX, ALPHA_L_IDX+N_LIMITS, 0, H.columns(), sub);
+  // setup the L*v+ >= 0 constraint
+  nb.set_sub_vec(row, q.L_v);
+  H.get_sub_mat(L_IDX, L_IDX+N_LIMITS, 0, H.columns(), sub);
   A.set_sub_mat(row, 0, sub);
   row += N_LIMITS;
 
@@ -266,7 +277,7 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
       double theta = (double) j/(q.contact_events[i]->contact_NK/2-1) * M_PI_2;
       const double ct = std::cos(theta);
       const double st = std::sin(theta);
-      A(row, ALPHA_C_IDX+i) = q.contact_events[i]->contact_mu_coulomb;
+      A(row, CN_IDX+i) = q.contact_events[i]->contact_mu_coulomb;
       A(row, BETA_C_IDX+k) = -ct;
       A(row, NBETA_C_IDX+k) = -ct;
       A(row, BETA_C_IDX+k+1) = -st;
@@ -282,7 +293,7 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
   if (q.use_kappa)
   {
     for (unsigned i=0; i< N_CONTACTS; i++)
-      A(row, ALPHA_C_IDX+i) = (double) -1.0;
+      A(row, CN_IDX+i) = (double) -1.0;
     nb[row] = q.kappa;
   }
 
@@ -310,19 +321,19 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
   qq.set_sub_vec(N_VARS, nb);
 
   FILE_LOG(LOG_EVENT) << "ImpactEventHandler::solve_qp() entered" << std::endl;
-  FILE_LOG(LOG_EVENT) << "  Jc * inv(M) * Jc': " << std::endl << q.Jc_iM_JcT;
-  FILE_LOG(LOG_EVENT) << "  Jc * inv(M) * Dc': " << std::endl << q.Jc_iM_DcT;
-  FILE_LOG(LOG_EVENT) << "  Jc * inv(M) * Jl': " << std::endl << q.Jc_iM_JlT;
-  FILE_LOG(LOG_EVENT) << "  Jc * inv(M) * Jx': " << std::endl << q.Jc_iM_JxT;
+  FILE_LOG(LOG_EVENT) << "  Cn * inv(M) * Cn': " << std::endl << q.Cn_iM_CnT;
+  FILE_LOG(LOG_EVENT) << "  Cn * inv(M) * Dc': " << std::endl << q.Cn_iM_DcT;
+  FILE_LOG(LOG_EVENT) << "  Cn * inv(M) * L': " << std::endl << q.Cn_iM_LT;
+  FILE_LOG(LOG_EVENT) << "  Cn * inv(M) * Jx': " << std::endl << q.Cn_iM_JxT;
   FILE_LOG(LOG_EVENT) << "  Dc * inv(M) * Dc': " << std::endl << q.Dc_iM_DcT;
-  FILE_LOG(LOG_EVENT) << "  Dc * inv(M) * Jl': " << std::endl << q.Dc_iM_JlT;
+  FILE_LOG(LOG_EVENT) << "  Dc * inv(M) * L': " << std::endl << q.Dc_iM_LT;
   FILE_LOG(LOG_EVENT) << "  Dc * inv(M) * Jx': " << std::endl << q.Dc_iM_JxT;
-  FILE_LOG(LOG_EVENT) << "  Jl * inv(M) * Jl': " << std::endl << q.Jl_iM_JlT;
-  FILE_LOG(LOG_EVENT) << "  Jl * inv(M) * Jx': " << std::endl << q.Jl_iM_JxT;
+  FILE_LOG(LOG_EVENT) << "  L * inv(M) * L': " << std::endl << q.L_iM_LT;
+  FILE_LOG(LOG_EVENT) << "  L * inv(M) * Jx': " << std::endl << q.L_iM_JxT;
   FILE_LOG(LOG_EVENT) << "  Jx * inv(M) * Jx': " << std::endl << q.Jx_iM_JxT;
-  FILE_LOG(LOG_EVENT) << "  Jc * v: " << q.Jc_v << std::endl;
+  FILE_LOG(LOG_EVENT) << "  Cn * v: " << q.Cn_v << std::endl;
   FILE_LOG(LOG_EVENT) << "  Dc * v: " << q.Dc_v << std::endl;
-  FILE_LOG(LOG_EVENT) << "  Jl * v: " << q.Jl_v << std::endl;
+  FILE_LOG(LOG_EVENT) << "  L * v: " << q.L_v << std::endl;
   FILE_LOG(LOG_EVENT) << "  Jx * v: " << q.Jx_v << std::endl;
   FILE_LOG(LOG_EVENT) << "H matrix: " << std::endl << H;
   FILE_LOG(LOG_EVENT) << "c vector: " << c << std::endl;
@@ -348,20 +359,22 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
 
 void ImpactEventHandler::update_solution(const EventProblemData& q, const VectorNd& x, const vector<bool>& old_working_set, unsigned jidx, VectorNd& z)
 {
-  SAFESTATIC VectorNd workv;
+  unsigned start, end;
 
   // setup NEW constants
-  const unsigned N_VARS = q.N_LIMITS + q.ALPHA_L_IDX;
+  const unsigned N_VARS = q.N_LIMITS + q.L_IDX;
   const unsigned NP_IDX = N_VARS;
   const unsigned MU_IDX = NP_IDX + q.N_CONTACTS + q.N_LIMITS; 
 
   // setup old constants
   const unsigned OLD_N_CONTACTS = q.N_CONTACTS - 1;
-  const unsigned OLD_ALPHA_C_IDX = 0;
-  const unsigned OLD_BETA_C_IDX = OLD_N_CONTACTS;
-  const unsigned OLD_NBETA_C_IDX = OLD_N_CONTACTS*2 + OLD_BETA_C_IDX;
-  const unsigned OLD_ALPHA_L_IDX = OLD_N_CONTACTS*2 + OLD_NBETA_C_IDX;
-  const unsigned OLD_N_VARS = q.N_LIMITS + OLD_ALPHA_L_IDX;
+  const unsigned OLD_CN_IDX = 0;
+  const unsigned OLD_CS_IDX = OLD_N_CONTACTS;
+  const unsigned OLD_CT_IDX = OLD_N_CONTACTS + OLD_CS_IDX;
+  const unsigned OLD_NCS_IDX = OLD_N_CONTACTS + OLD_CT_IDX;
+  const unsigned OLD_NCT_IDX = OLD_N_CONTACTS + OLD_NCS_IDX;
+  const unsigned OLD_L_IDX = OLD_N_CONTACTS + OLD_NCT_IDX;
+  const unsigned OLD_N_VARS = q.N_LIMITS + OLD_L_IDX;
   const unsigned OLD_NP_IDX = OLD_N_VARS;
   const unsigned OLD_MU_IDX = OLD_NP_IDX + OLD_N_CONTACTS + q.N_LIMITS; 
 
@@ -384,44 +397,52 @@ void ImpactEventHandler::update_solution(const EventProblemData& q, const Vector
   z.set_zero(x.size() + 6 + J_NK);
 
   // setup normal contact variables
-  x.get_sub_vec(OLD_ALPHA_C_IDX, OLD_ALPHA_C_IDX+jidx, workv);
-  z.set_sub_vec(q.ALPHA_C_IDX, workv);
-  x.get_sub_vec(OLD_ALPHA_C_IDX+jidx, OLD_BETA_C_IDX, workv);
-  z.set_sub_vec(q.ALPHA_C_IDX+jidx+1, workv);
+  z.segment(q.CN_IDX, q.CN_IDX+jidx) = x.segment(OLD_CN_IDX, OLD_CN_IDX+jidx);
+  start = q.CN_IDX + jidx + 1;
+  end = start + OLD_CS_IDX - OLD_CN_IDX - jidx;
+  z.segment(start, end) = x.segment(OLD_CN_IDX+jidx, OLD_CS_IDX); 
 
-  // setup positive tangent contact variables
-  x.get_sub_vec(OLD_BETA_C_IDX, OLD_BETA_C_IDX+jidx*2, workv);
-  z.set_sub_vec(q.BETA_C_IDX, workv);
-  x.get_sub_vec(OLD_BETA_C_IDX+jidx*2, OLD_NBETA_C_IDX, workv);
-  z.set_sub_vec(q.BETA_C_IDX+(jidx+1)*2, workv);
+  // setup positive first direction tangent contact variables
+  z.segment(q.CS_IDX, q.CS_IDX+jidx) = x.segment(OLD_CS_IDX, OLD_CS_IDX+jidx);
+  start = q.CS_IDX+jidx+1;
+  end = start + OLD_CT_IDX - OLD_CS_IDX - jidx;
+  z.segment(start, end) = x.segment(OLD_CS_IDX+jidx, OLD_CT_IDX);
 
-  // setup negative tangent contact variables and all other primal variables 
-  x.get_sub_vec(OLD_NBETA_C_IDX, OLD_NBETA_C_IDX+jidx*2, workv);
-  z.set_sub_vec(q.NBETA_C_IDX, workv);
-  x.get_sub_vec(OLD_NBETA_C_IDX+jidx*2, OLD_N_VARS, workv);
-  z.set_sub_vec(q.NBETA_C_IDX+(jidx+1)*2, workv);
+  // setup positive second direction tangent contact variables
+  z.segment(q.CT_IDX, q.CT_IDX+jidx) = x.segment(OLD_CT_IDX, OLD_CT_IDX+jidx);
+  start = q.CT_IDX+jidx+1;
+  end = start + OLD_NCS_IDX - OLD_CT_IDX - jidx;
+  z.segment(start, end) = x.segment(OLD_CT_IDX+jidx, OLD_NCS_IDX);
+
+  // setup negative first direction tangent contact variables
+  z.segment(q.NCS_IDX, q.NCS_IDX+jidx) = x.segment(OLD_NCS_IDX, OLD_NCS_IDX+jidx);
+  start = q.NCS_IDX+jidx+1;
+  end = start + OLD_NCT_IDX - OLD_NCS_IDX - jidx;
+  z.segment(start, end) = x.segment(OLD_NCS_IDX+jidx, OLD_NCT_IDX);
+
+  // setup negative second direction tangent contact variables AND
+  // all other variables
+  z.segment(q.NCT_IDX, q.NCT_IDX+jidx) = x.segment(OLD_NCT_IDX, OLD_NCT_IDX+jidx);
+  start = q.NCT_IDX+jidx+1;
+  z.segment(start, z.size()) = x.segment(OLD_NCT_IDX+jidx, OLD_N_VARS);
 
   // setup constraint equation variables
   // constraint ordering: noninterpenetration, joint limits, 
   // contact friction
   // 1. noninterpenetration and joint limit constraints
-  x.get_sub_vec(OLD_NP_IDX, OLD_NP_IDX+jidx, workv);
-  z.set_sub_vec(NP_IDX, workv);
-  x.get_sub_vec(OLD_NP_IDX+jidx, OLD_MU_IDX, workv);
-  z.set_sub_vec(NP_IDX+jidx+1, workv);
+  z.segment(NP_IDX, NP_IDX+jidx) = x.segment(OLD_NP_IDX, OLD_NP_IDX+jidx);
+  z.segment(NP_IDX+jidx+1, OLD_MU_IDX-OLD_NP_IDX-jidx) = x.segment(OLD_NP_IDX+jidx, OLD_MU_IDX);
 
   // 2. contact friction constraints
-  x.get_sub_vec(OLD_MU_IDX, OLD_MU_JIDX, workv);
-  z.set_sub_vec(MU_IDX, workv);
-  x.get_sub_vec(OLD_MU_JIDX, x.size(), workv);
-  z.set_sub_vec(MU_IDX+J_NK, workv);
+  z.segment(MU_IDX, OLD_MU_JIDX-OLD_MU_IDX) = x.segment(OLD_MU_IDX, OLD_MU_JIDX);  
+  z.segment(MU_IDX+J_NK, x.size()-OLD_MU_JIDX) = x.segment(OLD_MU_JIDX, x.size());
 }
 
 /// Checks whether the optimization is satisfied *without* adding contact j
 bool ImpactEventHandler::opt_satisfied(const EventProblemData& q, const vector<bool>& working_set, double& KE, VectorNd& x, unsigned j)
 {
-  SAFESTATIC VectorNd workv, Jc_v, z;
-  SAFESTATIC EventProblemData qcopy;
+  static VectorNd z;
+  static EventProblemData qcopy;
 
   // make a copy of q and set it appropriately
   qcopy = q;
@@ -457,12 +478,13 @@ bool ImpactEventHandler::opt_satisfied(const EventProblemData& q, const vector<b
 /// Computes the kinetic energy of the system using the current impulse set 
 double ImpactEventHandler::calc_ke(EventProblemData& q, const VectorNd& z)
 {
-  SAFESTATIC VectorNd alpha_c, beta_c, alpha_l, alpha_x;
+  static VectorNd cn, cs, ct, l, alpha_x;
 
   // save the current impulses
-  alpha_c = q.alpha_c;
-  beta_c = q.beta_c;
-  alpha_l = q.alpha_l;
+  cn = q.cn;
+  cs = q.cs;
+  ct = q.ct;
+  l = q.l;
   alpha_x = q.alpha_x;
 
   // update impulses
@@ -475,9 +497,10 @@ double ImpactEventHandler::calc_ke(EventProblemData& q, const VectorNd& z)
     KE += q.super_bodies[i]->calc_kinetic_energy();
 
   // reset impulses
-  q.alpha_c = alpha_c;
-  q.beta_c = beta_c;
-  q.alpha_l = alpha_l;
+  q.cn = cn;
+  q.cs = cs;
+  q.ct = ct;
+  q.l = l;
   q.alpha_x = alpha_x;
 
   return KE;
@@ -489,7 +512,7 @@ double ImpactEventHandler::calc_ke(EventProblemData& q, const VectorNd& z)
  */
 void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
 {
-  SAFESTATIC EventProblemData qworking;
+  static EventProblemData qworking;
 
   // if there are explicit constraints, cannot use the fast method
   if (q.N_CONSTRAINT_EQNS_EXP > 0)
@@ -546,7 +569,7 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
 /// Updates problem matrices and vectors based on the working set
 void ImpactEventHandler::update_problem(const EventProblemData& q, EventProblemData& qworking)
 {
-  SAFESTATIC vector<unsigned> norm_indices, tan_indices;
+  static vector<unsigned> indices;
   const unsigned UINF = std::numeric_limits<unsigned>::max();
 
   // determine how many contacts we have
@@ -570,48 +593,55 @@ void ImpactEventHandler::update_problem(const EventProblemData& q, EventProblemD
       qworking.N_LIN_CONE++;
     }
 
-  // setup contact indices set
-  norm_indices.clear();
-  tan_indices.clear();
+  // setup indices set
+  indices.clear();
   for (unsigned i=0, j=0; i< working_set.size(); i++, j+=2)
     if (working_set[i])
-    {
-      norm_indices.push_back(i);
-      tan_indices.push_back(j);
-      tan_indices.push_back(j+1);
-    }
+      indices.push_back(i);
 
   // resize impulse vectors
-  qworking.alpha_c.set_zero(qworking.N_CONTACTS);
-  qworking.beta_c.set_zero(qworking.N_CONTACTS*2);
+  qworking.cn.set_zero(qworking.N_CONTACTS);
+  qworking.cs.set_zero(qworking.N_CONTACTS);
+  qworking.ct.set_zero(qworking.N_CONTACTS);
 
   // update indices
-  qworking.ALPHA_C_IDX = 0;
-  qworking.BETA_C_IDX = qworking.ALPHA_C_IDX + qworking.N_CONTACTS;
-  qworking.NBETA_C_IDX = qworking.BETA_C_IDX + qworking.N_LIN_CONE*2;
-  qworking.BETAU_C_IDX = qworking.NBETA_C_IDX + qworking.N_LIN_CONE*2;
-  qworking.ALPHA_L_IDX = qworking.BETAU_C_IDX + qworking.N_TRUE_CONE;
-  qworking.BETA_T_IDX = qworking.ALPHA_L_IDX + qworking.N_LIMITS;
+  qworking.CN_IDX = 0;
+  qworking.CS_IDX = qworking.CN_IDX + qworking.N_CONTACTS;
+  qworking.CT_IDX = qworking.CS_IDX + qworking.N_CONTACTS;
+  qworking.NCS_IDX = qworking.CT_IDX + qworking.N_CONTACTS;
+  qworking.NCT_IDX = qworking.NCS_IDX + qworking.N_LIN_CONE;
+  qworking.CS_U_IDX = qworking.NCT_IDX + qworking.N_LIN_CONE;
+  qworking.L_IDX = qworking.CS_U_IDX + qworking.N_TRUE_CONE;
+  qworking.BETA_T_IDX = qworking.L_IDX + qworking.N_LIMITS;
   qworking.ALPHA_X_IDX = qworking.BETA_T_IDX + qworking.N_CONSTRAINT_DOF_IMP;
   qworking.BETA_X_IDX = qworking.ALPHA_X_IDX + qworking.N_CONSTRAINT_EQNS_EXP;
   qworking.N_VARS = qworking.BETA_X_IDX + qworking.N_CONSTRAINT_DOF_EXP;
 
   // select appropriate parts of vectors 
-  q.Jc_v.select(norm_indices.begin(), norm_indices.end(), qworking.Jc_v);
-  q.Dc_v.select(tan_indices.begin(), tan_indices.end(), qworking.Dc_v);
+  q.Cn_v.select(indices.begin(), indices.end(), qworking.Cn_v);
+  q.Cs_v.select(indices.begin(), indices.end(), qworking.Cs_v);
+  q.Ct_v.select(indices.begin(), indices.end(), qworking.Ct_v);
 
-  // select appropriate parts of Jc matrices 
-  q.Jc_iM_JcT.select_square(norm_indices.begin(), norm_indices.end(), qworking.Jc_iM_JcT);
-  q.Jc_iM_DcT.select(norm_indices.begin(), norm_indices.end(), tan_indices.begin(), tan_indices.end(), qworking.Jc_iM_DcT);
-  q.Jc_iM_JlT.select_rows(norm_indices.begin(), norm_indices.end(), qworking.Jc_iM_JlT);
-  q.Jc_iM_JxT.select_rows(norm_indices.begin(), norm_indices.end(), qworking.Jc_iM_JxT);
-  q.Jc_iM_DxT.select_rows(norm_indices.begin(), norm_indices.end(), qworking.Jc_iM_DxT);
+  // select appropriate parts of Cn matrices 
+  q.Cn_iM_CnT.select_square(indices.begin(), indices.end(), qworking.Cn_iM_CnT);
+  q.Cn_iM_CsT.select_square(indices.begin(), indices.end(), qworking.Cn_iM_CsT);
+  q.Cn_iM_CtT.select_square(indices.begin(), indices.end(), qworking.Cn_iM_CtT);
+  q.Cn_iM_LT.select_rows(indices.begin(), indices.end(), qworking.Cn_iM_LT);
+  q.Cn_iM_JxT.select_rows(indices.begin(), indices.end(), qworking.Cn_iM_JxT);
+  q.Cn_iM_DxT.select_rows(indices.begin(), indices.end(), qworking.Cn_iM_DxT);
 
-  // select appropriate parts of Dc matrices
-  q.Dc_iM_DcT.select_square(tan_indices.begin(), tan_indices.end(), qworking.Dc_iM_DcT);
-  q.Dc_iM_JlT.select_rows(tan_indices.begin(), tan_indices.end(), qworking.Dc_iM_JlT);
-  q.Dc_iM_JxT.select_rows(tan_indices.begin(), tan_indices.end(), qworking.Dc_iM_JxT);
-  q.Dc_iM_DxT.select_rows(tan_indices.begin(), tan_indices.end(), qworking.Dc_iM_DxT);
+  // select appropriate parts of Cs matrices
+  q.Cs_iM_CsT.select_square(indices.begin(), indices.end(), qworking.Cs_iM_CsT);
+  q.Cs_iM_CtT.select_square(indices.begin(), indices.end(), qworking.Cs_iM_CtT);
+  q.Cs_iM_LT.select_rows(indices.begin(), indices.end(), qworking.Cs_iM_LT);
+  q.Cs_iM_JxT.select_rows(indices.begin(), indices.end(), qworking.Cs_iM_JxT);
+  q.Cs_iM_DxT.select_rows(indices.begin(), indices.end(), qworking.Cs_iM_DxT);
+
+  // select appropriate parts of Ct matrices
+  q.Ct_iM_CtT.select_square(indices.begin(), indices.end(), qworking.Ct_iM_CtT);
+  q.Ct_iM_LT.select_rows(indices.begin(), indices.end(), qworking.Ct_iM_LT);
+  q.Ct_iM_JxT.select_rows(indices.begin(), indices.end(), qworking.Ct_iM_JxT);
+  q.Ct_iM_DxT.select_rows(indices.begin(), indices.end(), qworking.Ct_iM_DxT);
 }
 
 /// Solves the quadratic program (does all of the work)
@@ -620,8 +650,8 @@ void ImpactEventHandler::update_problem(const EventProblemData& q, EventProblemD
  */
 void ImpactEventHandler::solve_qp_work_ijoints(EventProblemData& q, VectorNd& z)
 {
-  SAFESTATIC MatrixNd MM;
-  SAFESTATIC VectorNd qq;
+  MatrixNd MM;
+  VectorNd qq;
 
   // init the QP matrix and vector
   const unsigned KAPPA = (q.use_kappa) ? 1 : 0;
@@ -635,122 +665,143 @@ void ImpactEventHandler::solve_qp_work_ijoints(EventProblemData& q, VectorNd& z)
   SharedVectorNd c = qq.segment(0, q.N_VARS);
   SharedVectorNd nb = qq.segment(q.N_VARS, qq.size()).set_zero();
 
-  // setup row (block) 1 -- Jc * iM * [Jc' Dc' -Dc' Jl' Jx']
+  // setup row (block) 1 -- Cn * iM * [Cn' Cs Ct' -Cs' -Ct' L' ]
   unsigned col_start = 0, col_end = q.N_CONTACTS;
   unsigned row_start = 0, row_end = q.N_CONTACTS;
-  SharedMatrixNd Jc_iM_JcT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += q.N_CONTACTS*2;
-  SharedMatrixNd Jc_iM_DcT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += q.N_CONTACTS*2;
-  SharedMatrixNd Jc_iM_NcT = H.block(row_start, row_end, col_start, col_end);
+  SharedMatrixNd Cn_iM_CnT = H.block(row_start, row_end, col_start, col_end);
+  col_start = col_end; col_end += q.N_CONTACTS;
+  SharedMatrixNd Cn_iM_CsT = H.block(row_start, row_end, col_start, col_end);
+  col_start = col_end; col_end += q.N_CONTACTS;
+  SharedMatrixNd Cn_iM_CtT = H.block(row_start, row_end, col_start, col_end);
+  col_start = col_end; col_end += q.N_CONTACTS;
+  SharedMatrixNd Cn_iM_NCsT = H.block(row_start, row_end, col_start, col_end);
+  col_start = col_end; col_end += q.N_CONTACTS;
+  SharedMatrixNd Cn_iM_NCtT = H.block(row_start, row_end, col_start, col_end);
   col_start = col_end; col_end += q.N_LIMITS;
-  SharedMatrixNd Jc_iM_JlT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += q.N_CONSTRAINT_EQNS_EXP;
-  SharedMatrixNd Jc_iM_JxT = H.block(row_start, row_end, col_start, col_end);
-  SharedMatrixNd Jc_block = H.block(row_start, row_end, 0, col_end);
-  row_start = row_end; row_end += q.N_CONTACTS*2;
+  SharedMatrixNd Cn_iM_LT = H.block(row_start, row_end, col_start, col_end);
+  SharedMatrixNd Cn_block = H.block(row_start, row_end, 0, col_end);
 
-  // setup row (block) 2 -- Dc * iM * [Jc' Dc' -Dc' Jl' Jx']
+  // setup row (block) 2 -- Cs * iM * [Cn' Cs' Ct' -Cs' -Ct' L' Jx']
+  row_start = row_end; row_end += q.N_CONTACTS;
   col_start = 0; col_end = q.N_CONTACTS;
-  SharedMatrixNd Dc_iM_JcT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += q.N_CONTACTS*2;
-  SharedMatrixNd Dc_iM_DcT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += q.N_CONTACTS*2;
-  SharedMatrixNd Dc_iM_NcT = H.block(row_start, row_end, col_start, col_end);
+  SharedMatrixNd Cs_iM_CnT = H.block(row_start, row_end, col_start, col_end);
+  col_start = col_end; col_end += q.N_CONTACTS;
+  SharedMatrixNd Cs_iM_CsT = H.block(row_start, row_end, col_start, col_end);
+  col_start = col_end; col_end += q.N_CONTACTS;
+  SharedMatrixNd Cs_iM_CtT = H.block(row_start, row_end, col_start, col_end);
+  col_start = col_end; col_end += q.N_CONTACTS;
+  SharedMatrixNd Cs_iM_NCsT = H.block(row_start, row_end, col_start, col_end);
+  col_start = col_end; col_end += q.N_CONTACTS;
+  SharedMatrixNd Cs_iM_NCtT = H.block(row_start, row_end, col_start, col_end);
   col_start = col_end; col_end += q.N_LIMITS;
-  SharedMatrixNd Dc_iM_JlT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += q.N_CONSTRAINT_EQNS_EXP;
-  SharedMatrixNd Dc_iM_JxT = H.block(row_start, row_end, col_start, col_end);
-  SharedMatrixNd Dc_block = H.block(row_start, row_end, 0, col_end);
-  row_start = row_end; row_end += q.N_CONTACTS*2;
+  SharedMatrixNd Cs_iM_LT = H.block(row_start, row_end, col_start, col_end);
+  SharedMatrixNd Cs_block = H.block(row_start, row_end, 0, col_end);
 
-  // setup row (block) 3 -- -Dc * iM * [Jc' Dc' -Dc' Jl' Jx']
-  SharedMatrixNd Nc_block = H.block(row_start, row_end, 0, col_end);
+  // setup row (block) 3 -- Ct * iM * [Cn' Cs' Ct' -Cs' -Ct' L' ]
+  row_start = row_end; row_end += q.N_CONTACTS;
+  col_start = 0; col_end = q.N_CONTACTS;
+  SharedMatrixNd Ct_iM_CnT = H.block(row_start, row_end, col_start, col_end);
+  col_start = col_end; col_end += q.N_CONTACTS;
+  SharedMatrixNd Ct_iM_CsT = H.block(row_start, row_end, col_start, col_end);
+  col_start = col_end; col_end += q.N_CONTACTS;
+  SharedMatrixNd Ct_iM_CtT = H.block(row_start, row_end, col_start, col_end);
+  col_start = col_end; col_end += q.N_CONTACTS;
+  SharedMatrixNd Ct_iM_NCsT = H.block(row_start, row_end, col_start, col_end);
+  col_start = col_end; col_end += q.N_CONTACTS;
+  SharedMatrixNd Ct_iM_NCtT = H.block(row_start, row_end, col_start, col_end);
+  col_start = col_end; col_end += q.N_LIMITS;
+  SharedMatrixNd Ct_iM_LT = H.block(row_start, row_end, col_start, col_end);
+  SharedMatrixNd Ct_block = H.block(row_start, row_end, 0, col_end);
+
+  // setup row (block) 4 -- -Cs * iM * [Cn' Cs' Ct' -Cs' -Ct' L' ]
+  row_start = row_end; row_end += q.N_CONTACTS;
+  SharedMatrixNd NCs_block = H.block(row_start, row_end, 0, col_end);
+
+  // setup row (block) 5 -- -Ct * iM * [Cn' Cs' Ct' -Cs' -Ct' L' ]
+  row_start = row_end; row_end += q.N_CONTACTS;
+  SharedMatrixNd NCt_block = H.block(row_start, row_end, 0, col_end);
+
+  // setup row (block 6) -- L * iM *  [Cn' Cs' Ct' -Cs' -Ct' L' ]
   row_start = row_end; row_end += q.N_LIMITS;
-
-  // setup row (block 4) -- Jl * iM *  [Jc' Dc' -Dc' Jl' Jx']
   col_start = 0; col_end = q.N_CONTACTS;
-  SharedMatrixNd Jl_iM_JcT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += q.N_CONTACTS*2;
-  SharedMatrixNd Jl_iM_DcT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += q.N_CONTACTS*2;
-  SharedMatrixNd Jl_iM_NcT = H.block(row_start, row_end, col_start, col_end);
+  SharedMatrixNd L_iM_CnT = H.block(row_start, row_end, col_start, col_end);
+  col_start = col_end; col_end += q.N_CONTACTS;
+  SharedMatrixNd L_iM_CsT = H.block(row_start, row_end, col_start, col_end);
+  col_start = col_end; col_end += q.N_CONTACTS;
+  SharedMatrixNd L_iM_CtT = H.block(row_start, row_end, col_start, col_end);
+  col_start = col_end; col_end += q.N_CONTACTS;
+  SharedMatrixNd L_iM_NCsT = H.block(row_start, row_end, col_start, col_end);
+  col_start = col_end; col_end += q.N_CONTACTS;
+  SharedMatrixNd L_iM_NCtT = H.block(row_start, row_end, col_start, col_end);
   col_start = col_end; col_end += q.N_LIMITS;
-  SharedMatrixNd Jl_iM_JlT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += q.N_CONSTRAINT_EQNS_EXP;
-  SharedMatrixNd Jl_iM_JxT = H.block(row_start, row_end, col_start, col_end);
-  SharedMatrixNd Jl_block = H.block(row_start, row_end, 0, col_end);
-  row_start = row_end; row_end += q.N_CONSTRAINT_EQNS_EXP;
-
-  // setup row (block 5) -- Jx * iM *  [Jc' Dc' -Dc' Jl' Jx']
-  col_start = 0; col_end = q.N_CONTACTS;
-  SharedMatrixNd Jx_iM_JcT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += q.N_CONTACTS*2;
-  SharedMatrixNd Jx_iM_DcT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += q.N_CONTACTS*2;
-  SharedMatrixNd Jx_iM_NcT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += q.N_LIMITS;
-  SharedMatrixNd Jx_iM_JlT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += q.N_CONSTRAINT_EQNS_EXP;
-  SharedMatrixNd Jx_iM_JxT = H.block(row_start, row_end, col_start, col_end);
+  SharedMatrixNd L_iM_LT = H.block(row_start, row_end, col_start, col_end);
+  SharedMatrixNd L_block = H.block(row_start, row_end, 0, col_end);
 
   // copy to row block 1 (contact normals)
-  Jc_iM_JcT = q.Jc_iM_JcT;
-  Jc_iM_DcT = q.Jc_iM_DcT;
-  (Jc_iM_NcT = q.Jc_iM_DcT).negate();
-  Jc_iM_JlT = q.Jc_iM_JlT;
-  Jc_iM_JxT = q.Jc_iM_JxT;
+  Cn_iM_CnT = q.Cn_iM_CnT;
+  Cn_iM_CsT = q.Cn_iM_CsT;
+  Cn_iM_CtT = q.Cn_iM_CtT;
+  (Cn_iM_NCsT = Cn_iM_CsT).negate();
+  (Cn_iM_NCtT = Cn_iM_CtT).negate();
+  Cn_iM_LT = q.Cn_iM_LT;
   
-  // copy to row block 2 (contact tangents)
-  MatrixNd::transpose(q.Jc_iM_DcT, Dc_iM_JcT);
-  Dc_iM_DcT = q.Dc_iM_DcT;
-  (Dc_iM_NcT = q.Dc_iM_DcT).negate();
-  Dc_iM_JlT = q.Dc_iM_JlT;
-  Dc_iM_JxT = q.Dc_iM_JxT;
+  // copy to row block 2 (first contact tangents)
+  MatrixNd::transpose(q.Cn_iM_CsT, Cs_iM_CnT);
+  Cs_iM_CsT = q.Cs_iM_CsT;
+  Cs_iM_CtT = q.Cs_iM_CtT;
+  (Cs_iM_NCsT = Cs_iM_CsT).negate();
+  (Cs_iM_NCtT = Cs_iM_CtT).negate();
+  Cs_iM_LT = q.Cs_iM_LT;
 
-  // copy to row block 3 (negative contact tangents)
-  (Nc_block = Dc_block).negate();
+  // copy to row block 3 (second contact tangents)
+  MatrixNd::transpose(q.Cn_iM_CtT, Ct_iM_CnT);
+  MatrixNd::transpose(q.Cs_iM_CtT, Ct_iM_CsT);
+  Ct_iM_CtT = q.Ct_iM_CtT;
+  (Ct_iM_NCsT = Ct_iM_CsT).negate();
+  (Ct_iM_NCtT = Ct_iM_CtT).negate();
+  Ct_iM_LT = q.Ct_iM_LT;
 
-  // copy to row block 4 (limits)
-  MatrixNd::transpose(q.Jc_iM_JlT, Jl_iM_JcT);
-  MatrixNd::transpose(q.Dc_iM_JlT, Jl_iM_DcT);
-  (Jl_iM_NcT = Jl_iM_DcT).negate();
-  Jl_iM_JlT = q.Jl_iM_JlT;
-  Jl_iM_JxT = q.Jl_iM_JxT;
+  // copy to row block 4 (negative first contact tangents)
+  (NCs_block = Cs_block).negate();
 
-  // copy to row block 5 (explicit constraints)
-  MatrixNd::transpose(q.Jc_iM_JxT, Jx_iM_JcT);
-  MatrixNd::transpose(q.Dc_iM_JxT, Jx_iM_DcT);
-  MatrixNd::transpose(q.Jl_iM_JxT, Jx_iM_JlT);
-  (Jx_iM_NcT = Jx_iM_DcT).negate();
-  Jx_iM_JxT = q.Jx_iM_JxT;
+  // copy to row block 5 (negative second contact tangents)
+  (NCt_block = Ct_block).negate();
+
+  // copy to row block 6 (limits)
+  MatrixNd::transpose(q.Cn_iM_LT, L_iM_CnT);
+  MatrixNd::transpose(q.Cs_iM_LT, L_iM_CsT);
+  MatrixNd::transpose(q.Ct_iM_LT, L_iM_CtT);
+  (L_iM_NCsT = L_iM_CsT).negate();
+  (L_iM_NCtT = L_iM_CtT).negate();
+  L_iM_LT = q.L_iM_LT;
 
   // setup c 
-  c.set_sub_vec(q.ALPHA_C_IDX, q.Jc_v);         
-  c.set_sub_vec(q.BETA_C_IDX, q.Dc_v);         
-  (c.segment(q.NBETA_C_IDX, q.ALPHA_L_IDX) = q.Dc_v).negate();
-  c.set_sub_vec(q.ALPHA_L_IDX, q.Jl_v);         
-  c.set_sub_vec(q.ALPHA_X_IDX, q.Jx_v);         
+  c.set_sub_vec(q.CN_IDX, q.Cn_v);         
+  c.set_sub_vec(q.CS_IDX, q.Cs_v);         
+  c.set_sub_vec(q.CT_IDX, q.Ct_v);         
+  (c.segment(q.CS_IDX, q.CT_IDX) = q.Cs_v).negate();
+  (c.segment(q.CT_IDX, q.L_IDX) = q.Ct_v).negate();
+  c.set_sub_vec(q.L_IDX, q.L_v);         
 
   // ------- setup A/-b -------
-  // setup the Jc*v+ >= 0 constraint
-  // Jc*(inv(M)*impulses + v) >= 0, Jc*inv(M)*impulses >= -Jc*v
+  // setup the Cn*v+ >= 0 constraint
+  // Cn*(inv(M)*impulses + v) >= 0, Cn*inv(M)*impulses >= -Cn*v
   row_start = 0; row_end = q.N_CONTACTS;
-  A.block(row_start, row_end, q.ALPHA_C_IDX, q.N_VARS) = Jc_block;
-  nb.set_sub_vec(row_start, q.Jc_v);
+  A.block(row_start, row_end, q.CN_IDX, q.N_VARS) = Cn_block;
+  nb.set_sub_vec(row_start, q.Cn_v);
   row_start = row_end; row_end += q.N_LIMITS;  
 
-  // setup the Jl*v+ >= 0 constraint
-  A.block(row_start, row_end, q.ALPHA_C_IDX, q.N_VARS) = Jl_block;
-  nb.set_sub_vec(row_start, q.Jl_v);
+  // setup the L*v+ >= 0 constraint
+  A.block(row_start, row_end, q.CN_IDX, q.N_VARS) = L_block;
+  nb.set_sub_vec(row_start, q.L_v);
   row_start = row_end; row_end += q.N_CONTACTS;  
 
   // setup the contact friction constraints
   // mu_c*cn + mu_v*cvel >= beta
-  for (unsigned i=0, k=0; i< q.N_CONTACTS; i++, k+= 2)
+  for (unsigned i=0; i< q.N_CONTACTS; i++)
   {
     // initialize the contact velocity
-    double vel = std::sqrt(sqr(q.Dc_v[k]) + sqr(q.Dc_v[k+1]));
+    double vel = std::sqrt(sqr(q.Cs_v[i]) + sqr(q.Ct_v[i]));
 
     // setup the Coulomb friction inequality constraints for this contact
     for (unsigned j=0; j< q.contact_events[i]->contact_NK/2; j++)
@@ -758,11 +809,11 @@ void ImpactEventHandler::solve_qp_work_ijoints(EventProblemData& q, VectorNd& z)
       double theta = (double) j/(q.contact_events[i]->contact_NK/2-1) * M_PI_2;
       const double ct = std::cos(theta);
       const double st = std::sin(theta);
-      A(row_start, q.ALPHA_C_IDX+i) = q.contact_events[i]->contact_mu_coulomb;
-      A(row_start, q.BETA_C_IDX+k) = -ct;
-      A(row_start, q.NBETA_C_IDX+k) = -ct;
-      A(row_start, q.BETA_C_IDX+k+1) = -st;
-      A(row_start, q.NBETA_C_IDX+k+1) = -st;
+      A(row_start, q.CN_IDX+i) = q.contact_events[i]->contact_mu_coulomb;
+      A(row_start, q.CS_IDX+i) = -ct;
+      A(row_start, q.NCS_IDX+i) = -ct;
+      A(row_start, q.CT_IDX+i) = -st;
+      A(row_start, q.NCT_IDX+i) = -st;
 
       // setup the viscous friction component
       nb[row_start] = q.contact_events[i]->contact_mu_viscous * vel;
@@ -775,7 +826,7 @@ void ImpactEventHandler::solve_qp_work_ijoints(EventProblemData& q, VectorNd& z)
   if (q.use_kappa)
   {
     for (unsigned i=0; i< q.N_CONTACTS; i++)
-      A(row_start, q.ALPHA_C_IDX+i) = (double) -1.0;
+      A(row_start, q.CN_IDX+i) = (double) -1.0;
     nb[row_start] = q.kappa;
   }
 
@@ -784,20 +835,20 @@ void ImpactEventHandler::solve_qp_work_ijoints(EventProblemData& q, VectorNd& z)
   MatrixNd::transpose(A, AT);
   AT.negate();
 
-  FILE_LOG(LOG_EVENT) << "  Jc * inv(M) * Jc': " << std::endl << q.Jc_iM_JcT;
-  FILE_LOG(LOG_EVENT) << "  Jc * inv(M) * Dc': " << std::endl << q.Jc_iM_DcT;
-  FILE_LOG(LOG_EVENT) << "  Jc * inv(M) * Jl': " << std::endl << q.Jc_iM_JlT;
-  FILE_LOG(LOG_EVENT) << "  Jc * inv(M) * Jx': " << std::endl << q.Jc_iM_JxT;
-  FILE_LOG(LOG_EVENT) << "  Dc * inv(M) * Dc': " << std::endl << q.Dc_iM_DcT;
-  FILE_LOG(LOG_EVENT) << "  Dc * inv(M) * Jl': " << std::endl << q.Dc_iM_JlT;
-  FILE_LOG(LOG_EVENT) << "  Dc * inv(M) * Jx': " << std::endl << q.Dc_iM_JxT;
-  FILE_LOG(LOG_EVENT) << "  Jl * inv(M) * Jl': " << std::endl << q.Jl_iM_JlT;
-  FILE_LOG(LOG_EVENT) << "  Jl * inv(M) * Jx': " << std::endl << q.Jl_iM_JxT;
-  FILE_LOG(LOG_EVENT) << "  Jx * inv(M) * Jx': " << std::endl << q.Jx_iM_JxT;
-  FILE_LOG(LOG_EVENT) << "  Jc * v: " << q.Jc_v << std::endl;
-  FILE_LOG(LOG_EVENT) << "  Dc * v: " << q.Dc_v << std::endl;
-  FILE_LOG(LOG_EVENT) << "  Jl * v: " << q.Jl_v << std::endl;
-  FILE_LOG(LOG_EVENT) << "  Jx * v: " << q.Jx_v << std::endl;
+  FILE_LOG(LOG_EVENT) << "  Cn * inv(M) * Cn': " << std::endl << q.Cn_iM_CnT;
+  FILE_LOG(LOG_EVENT) << "  Cn * inv(M) * Cs': " << std::endl << q.Cn_iM_CsT;
+  FILE_LOG(LOG_EVENT) << "  Cn * inv(M) * Ct': " << std::endl << q.Cn_iM_CtT;
+  FILE_LOG(LOG_EVENT) << "  Cn * inv(M) * L': " << std::endl << q.Cn_iM_LT;
+  FILE_LOG(LOG_EVENT) << "  Cs * inv(M) * Cs': " << std::endl << q.Cs_iM_CsT;
+  FILE_LOG(LOG_EVENT) << "  Cs * inv(M) * Ct': " << std::endl << q.Cs_iM_CtT;
+  FILE_LOG(LOG_EVENT) << "  Cs * inv(M) * L': " << std::endl << q.Cs_iM_LT;
+  FILE_LOG(LOG_EVENT) << "  Ct * inv(M) * Ct': " << std::endl << q.Ct_iM_CtT;
+  FILE_LOG(LOG_EVENT) << "  Ct * inv(M) * L': " << std::endl << q.Ct_iM_LT;
+  FILE_LOG(LOG_EVENT) << "  L * inv(M) * L': " << std::endl << q.L_iM_LT;
+  FILE_LOG(LOG_EVENT) << "  Cn * v: " << q.Cn_v << std::endl;
+  FILE_LOG(LOG_EVENT) << "  Cs * v: " << q.Cs_v << std::endl;
+  FILE_LOG(LOG_EVENT) << "  Ct * v: " << q.Ct_v << std::endl;
+  FILE_LOG(LOG_EVENT) << "  L * v: " << q.L_v << std::endl;
   FILE_LOG(LOG_EVENT) << "H matrix: " << std::endl << H;
   FILE_LOG(LOG_EVENT) << "c vector: " << c << std::endl;
   FILE_LOG(LOG_EVENT) << "A matrix: " << std::endl << A;
@@ -819,9 +870,8 @@ void ImpactEventHandler::solve_qp_work_ijoints(EventProblemData& q, VectorNd& z)
  */
 void ImpactEventHandler::solve_qp_work_general(EventProblemData& q, VectorNd& z)
 {
-  SAFESTATIC MatrixNd A, AR, R, RTH;
-  SAFESTATIC MatrixNd H, MM;
-  SAFESTATIC VectorNd c, qq, tmpv, y;
+  MatrixNd A, AR, R, RTH, H, MM;
+  VectorNd c, qq, workv, y;
 
   // first, solve for impulses that satisfy explicit constraint equations
   // and compute the appropriate nullspace 
@@ -844,18 +894,24 @@ void ImpactEventHandler::solve_qp_work_general(EventProblemData& q, VectorNd& z)
     A.resize(q.N_CONSTRAINT_EQNS_EXP, q.N_VARS);
     unsigned col_start = 0, col_end = q.N_CONTACTS;
     const unsigned ROW_START = 0, ROW_END = q.N_CONSTRAINT_EQNS_EXP;
-    SharedMatrixNd block1 = A.block(ROW_START, ROW_END, col_start, col_end);
-    col_start = col_end; col_end += q.N_CONTACTS*2;
-    SharedMatrixNd block2 = A.block(ROW_START, ROW_END, col_start, col_end);
-    col_start = col_end; col_end += q.N_CONTACTS*2;
-    SharedMatrixNd block3 = A.block(ROW_START, ROW_END, col_start, col_end);
+    SharedMatrixNd Cn_block = A.block(ROW_START, ROW_END, col_start, col_end);
+    col_start = col_end; col_end += q.N_CONTACTS;
+    SharedMatrixNd Cs_block = A.block(ROW_START, ROW_END, col_start, col_end);
+    col_start = col_end; col_end += q.N_CONTACTS;
+    SharedMatrixNd Ct_block = A.block(ROW_START, ROW_END, col_start, col_end);
+    col_start = col_end; col_end += q.N_CONTACTS;
+    SharedMatrixNd NCs_block = A.block(ROW_START, ROW_END, col_start, col_end);
+    col_start = col_end; col_end += q.N_CONTACTS;
+    SharedMatrixNd NCt_block = A.block(ROW_START, ROW_END, col_start, col_end);
     col_start = col_end; col_end += q.N_LIMITS;
-    SharedMatrixNd block4 = A.block(ROW_START, ROW_END, col_start, col_end);
+    SharedMatrixNd L_block = A.block(ROW_START, ROW_END, col_start, col_end);
     col_start = col_end; col_end += q.N_CONSTRAINT_EQNS_EXP;
-    MatrixNd::transpose(q.Jc_iM_JxT, block1);
-    MatrixNd::transpose(q.Dc_iM_JxT, block2);
-    (block3 = block2).negate();
-    MatrixNd::transpose(q.Jl_iM_JxT, block4);
+    MatrixNd::transpose(q.Cn_iM_JxT, Cn_block);
+    MatrixNd::transpose(q.Cs_iM_JxT, Cs_block);
+    MatrixNd::transpose(q.Cs_iM_JxT, Ct_block);
+    (NCs_block = Cs_block).negate();
+    (NCt_block = Ct_block).negate();
+    MatrixNd::transpose(q.L_iM_JxT, L_block);
 
     // compute the nullspace
     _LA.nullspace(A, R);
@@ -880,122 +936,182 @@ void ImpactEventHandler::solve_qp_work_general(EventProblemData& q, VectorNd& z)
   SharedVectorNd nb = qq.segment(N_VARS, qq.size()).set_zero();
   assert(nb.size() == N_INEQUAL);
 
-  // setup row (block) 1 -- Jc * iM * [Jc' Dc' -Dc' Jl' Jx']
+  // setup row (block) 1 -- Cn * iM * [Cn' Cs' Ct' -Cs' -Ct' L' Jx']
   unsigned col_start = 0, col_end = q.N_CONTACTS;
   unsigned row_start = 0, row_end = q.N_CONTACTS;
-  SharedMatrixNd Jc_iM_JcT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += q.N_CONTACTS*2;
-  SharedMatrixNd Jc_iM_DcT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += q.N_CONTACTS*2;
-  SharedMatrixNd Jc_iM_NcT = H.block(row_start, row_end, col_start, col_end);
+  SharedMatrixNd Cn_iM_CnT = H.block(row_start, row_end, col_start, col_end);
+  col_start = col_end; col_end += q.N_CONTACTS;
+  SharedMatrixNd Cn_iM_CsT = H.block(row_start, row_end, col_start, col_end);
+  col_start = col_end; col_end += q.N_CONTACTS;
+  SharedMatrixNd Cn_iM_CtT = H.block(row_start, row_end, col_start, col_end);
+  col_start = col_end; col_end += q.N_CONTACTS;
+  SharedMatrixNd Cn_iM_NCsT = H.block(row_start, row_end, col_start, col_end);
+  col_start = col_end; col_end += q.N_CONTACTS;
+  SharedMatrixNd Cn_iM_NCtT = H.block(row_start, row_end, col_start, col_end);
   col_start = col_end; col_end += q.N_LIMITS;
-  SharedMatrixNd Jc_iM_JlT = H.block(row_start, row_end, col_start, col_end);
+  SharedMatrixNd Cn_iM_LT = H.block(row_start, row_end, col_start, col_end);
   col_start = col_end; col_end += q.N_CONSTRAINT_EQNS_EXP;
-  SharedMatrixNd Jc_iM_JxT = H.block(row_start, row_end, col_start, col_end);
-  SharedMatrixNd Jc_block = H.block(row_start, row_end, 0, col_end);
-  row_start = row_end; row_end += q.N_CONTACTS*2;
+  SharedMatrixNd Cn_iM_JxT = H.block(row_start, row_end, col_start, col_end);
+  SharedMatrixNd Cn_block = H.block(row_start, row_end, 0, col_end);
 
-  // setup row (block) 2 -- Dc * iM * [Jc' Dc' -Dc' Jl' Jx']
+  // setup row (block) 2 -- Cs * iM * [Cn' Cs' Ct' -Cs' -Ct' L' Jx']
+  row_start = row_end; row_end += q.N_CONTACTS;
   col_start = 0; col_end = q.N_CONTACTS;
-  SharedMatrixNd Dc_iM_JcT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += q.N_CONTACTS*2;
-  SharedMatrixNd Dc_iM_DcT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += q.N_CONTACTS*2;
-  SharedMatrixNd Dc_iM_NcT = H.block(row_start, row_end, col_start, col_end);
+  SharedMatrixNd Cs_iM_CnT = H.block(row_start, row_end, col_start, col_end);
+  col_start = col_end; col_end += q.N_CONTACTS;
+  SharedMatrixNd Cs_iM_CsT = H.block(row_start, row_end, col_start, col_end);
+  col_start = col_end; col_end += q.N_CONTACTS;
+  SharedMatrixNd Cs_iM_CtT = H.block(row_start, row_end, col_start, col_end);
+  col_start = col_end; col_end += q.N_CONTACTS;
+  SharedMatrixNd Cs_iM_NCsT = H.block(row_start, row_end, col_start, col_end);
+  col_start = col_end; col_end += q.N_CONTACTS;
+  SharedMatrixNd Cs_iM_NCtT = H.block(row_start, row_end, col_start, col_end);
   col_start = col_end; col_end += q.N_LIMITS;
-  SharedMatrixNd Dc_iM_JlT = H.block(row_start, row_end, col_start, col_end);
+  SharedMatrixNd Cs_iM_LT = H.block(row_start, row_end, col_start, col_end);
   col_start = col_end; col_end += q.N_CONSTRAINT_EQNS_EXP;
-  SharedMatrixNd Dc_iM_JxT = H.block(row_start, row_end, col_start, col_end);
-  SharedMatrixNd Dc_block = H.block(row_start, row_end, 0, col_end);
-  row_start = row_end; row_end += q.N_CONTACTS*2;
+  SharedMatrixNd Cs_iM_JxT = H.block(row_start, row_end, col_start, col_end);
+  SharedMatrixNd Cs_block = H.block(row_start, row_end, 0, col_end);
 
-  // setup row (block) 3 -- -Dc * iM * [Jc' Dc' -Dc' Jl' Jx']
-  SharedMatrixNd Nc_block = H.block(row_start, row_end, 0, col_end);
+  // setup row (block) 3 -- Ct * iM * [Cn' Cs' Ct' -Cs' -Ct' L' Jx']
+  row_start = row_end; row_end += q.N_CONTACTS;
+  col_start = 0; col_end = q.N_CONTACTS;
+  SharedMatrixNd Ct_iM_CnT = H.block(row_start, row_end, col_start, col_end);
+  col_start = col_end; col_end += q.N_CONTACTS;
+  SharedMatrixNd Ct_iM_CsT = H.block(row_start, row_end, col_start, col_end);
+  col_start = col_end; col_end += q.N_CONTACTS;
+  SharedMatrixNd Ct_iM_CtT = H.block(row_start, row_end, col_start, col_end);
+  col_start = col_end; col_end += q.N_CONTACTS;
+  SharedMatrixNd Ct_iM_NCsT = H.block(row_start, row_end, col_start, col_end);
+  col_start = col_end; col_end += q.N_CONTACTS;
+  SharedMatrixNd Ct_iM_NCtT = H.block(row_start, row_end, col_start, col_end);
+  col_start = col_end; col_end += q.N_LIMITS;
+  SharedMatrixNd Ct_iM_LT = H.block(row_start, row_end, col_start, col_end);
+  col_start = col_end; col_end += q.N_CONSTRAINT_EQNS_EXP;
+  SharedMatrixNd Ct_iM_JxT = H.block(row_start, row_end, col_start, col_end);
+  SharedMatrixNd Ct_block = H.block(row_start, row_end, 0, col_end);
+
+  // setup row (block) 4 -- -Cs * iM * [Cn' Cs' Ct' -Cs' -Ct' L' Jx']
+  row_start = row_end; row_end += q.N_CONTACTS;
+  SharedMatrixNd NCs_block = H.block(row_start, row_end, 0, col_end);
+
+  // setup row (block) 5 -- -Ct * iM * [Cn' Cs' Ct' -Cs' -Ct' L' Jx']
+  row_start = row_end; row_end += q.N_CONTACTS;
+  SharedMatrixNd NCt_block = H.block(row_start, row_end, 0, col_end);
+
+  // setup row (block 6) -- L * iM *  [Cn' Cs' Ct' -Cs' -Ct' L' Jx']
   row_start = row_end; row_end += q.N_LIMITS;
-
-  // setup row (block 4) -- Jl * iM *  [Jc' Dc' -Dc' Jl' Jx']
   col_start = 0; col_end = q.N_CONTACTS;
-  SharedMatrixNd Jl_iM_JcT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += q.N_CONTACTS*2;
-  SharedMatrixNd Jl_iM_DcT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += q.N_CONTACTS*2;
-  SharedMatrixNd Jl_iM_NcT = H.block(row_start, row_end, col_start, col_end);
+  SharedMatrixNd L_iM_CnT = H.block(row_start, row_end, col_start, col_end);
+  col_start = col_end; col_end += q.N_CONTACTS;
+  SharedMatrixNd L_iM_CsT = H.block(row_start, row_end, col_start, col_end);
+  col_start = col_end; col_end += q.N_CONTACTS;
+  SharedMatrixNd L_iM_CtT = H.block(row_start, row_end, col_start, col_end);
+  col_start = col_end; col_end += q.N_CONTACTS;
+  SharedMatrixNd L_iM_NCsT = H.block(row_start, row_end, col_start, col_end);
+  col_start = col_end; col_end += q.N_CONTACTS;
+  SharedMatrixNd L_iM_NCtT = H.block(row_start, row_end, col_start, col_end);
   col_start = col_end; col_end += q.N_LIMITS;
-  SharedMatrixNd Jl_iM_JlT = H.block(row_start, row_end, col_start, col_end);
+  SharedMatrixNd L_iM_LT = H.block(row_start, row_end, col_start, col_end);
   col_start = col_end; col_end += q.N_CONSTRAINT_EQNS_EXP;
-  SharedMatrixNd Jl_iM_JxT = H.block(row_start, row_end, col_start, col_end);
-  SharedMatrixNd Jl_block = H.block(row_start, row_end, 0, col_end);
-  row_start = row_end; row_end += q.N_CONSTRAINT_EQNS_EXP;
+  SharedMatrixNd L_iM_JxT = H.block(row_start, row_end, col_start, col_end);
+  SharedMatrixNd L_block = H.block(row_start, row_end, 0, col_end);
 
-  // setup row (block 5) -- Jx * iM *  [Jc' Dc' -Dc' Jl' Jx']
+  // setup row (block 5) -- Jx * iM *  [Cn' Cs' Ct' -Cs' -Ct' L' Jx']
+  row_start = row_end; row_end += q.N_CONSTRAINT_EQNS_EXP;
   col_start = 0; col_end = q.N_CONTACTS;
-  SharedMatrixNd Jx_iM_JcT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += q.N_CONTACTS*2;
-  SharedMatrixNd Jx_iM_DcT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += q.N_CONTACTS*2;
-  SharedMatrixNd Jx_iM_NcT = H.block(row_start, row_end, col_start, col_end);
+  SharedMatrixNd Jx_iM_CnT = H.block(row_start, row_end, col_start, col_end);
+  col_start = col_end; col_end += q.N_CONTACTS;
+  SharedMatrixNd Jx_iM_CsT = H.block(row_start, row_end, col_start, col_end);
+  col_start = col_end; col_end += q.N_CONTACTS;
+  SharedMatrixNd Jx_iM_CtT = H.block(row_start, row_end, col_start, col_end);
+  col_start = col_end; col_end += q.N_CONTACTS;
+  SharedMatrixNd Jx_iM_NCsT = H.block(row_start, row_end, col_start, col_end);
+  col_start = col_end; col_end += q.N_CONTACTS;
+  SharedMatrixNd Jx_iM_NCtT = H.block(row_start, row_end, col_start, col_end);
   col_start = col_end; col_end += q.N_LIMITS;
-  SharedMatrixNd Jx_iM_JlT = H.block(row_start, row_end, col_start, col_end);
+  SharedMatrixNd Jx_iM_LT = H.block(row_start, row_end, col_start, col_end);
   col_start = col_end; col_end += q.N_CONSTRAINT_EQNS_EXP;
   SharedMatrixNd Jx_iM_JxT = H.block(row_start, row_end, col_start, col_end);
 
   // copy to row block 1 (contact normals)
-  Jc_iM_JcT = q.Jc_iM_JcT;
-  Jc_iM_DcT = q.Jc_iM_DcT;
-  (Jc_iM_NcT = q.Jc_iM_DcT).negate();
-  Jc_iM_JlT = q.Jc_iM_JlT;
-  Jc_iM_JxT = q.Jc_iM_JxT;
+  Cn_iM_CnT = q.Cn_iM_CnT;
+  Cn_iM_CsT = q.Cn_iM_CsT;
+  Cn_iM_CtT = q.Cn_iM_CtT;
+  (Cn_iM_NCsT = q.Cn_iM_CsT).negate();
+  (Cn_iM_NCtT = q.Cn_iM_CtT).negate();
+  Cn_iM_LT = q.Cn_iM_LT;
+  Cn_iM_JxT = q.Cn_iM_JxT;
   
-  // copy to row block 2 (contact tangents)
-  MatrixNd::transpose(q.Jc_iM_DcT, Dc_iM_JcT);
-  Dc_iM_DcT = q.Dc_iM_DcT;
-  (Dc_iM_NcT = q.Dc_iM_DcT).negate();
-  Dc_iM_JlT = q.Dc_iM_JlT;
-  Dc_iM_JxT = q.Dc_iM_JxT;
+  // copy to row block 2 (first contact tangents)
+  MatrixNd::transpose(q.Cn_iM_CsT, Cs_iM_CnT);
+  Cs_iM_CsT = q.Cs_iM_CsT;
+  Cs_iM_CtT = q.Cs_iM_CtT;
+  (Cs_iM_NCsT = Cs_iM_CsT).negate();
+  (Cs_iM_NCtT = Cs_iM_CtT).negate();
+  Cs_iM_LT = q.Cs_iM_LT;
+  Cs_iM_JxT = q.Cs_iM_JxT;
 
-  // copy to row block 3 (negative contact tangents)
-  (Nc_block = Dc_block).negate();
+  // copy to row block 3 (second contact tangents)
+  MatrixNd::transpose(q.Cn_iM_CtT, Ct_iM_CnT);
+  MatrixNd::transpose(q.Cs_iM_CtT, Ct_iM_CsT);
+  Ct_iM_CtT = q.Ct_iM_CtT;
+  (Ct_iM_NCsT = Ct_iM_CsT).negate();
+  (Ct_iM_NCtT = Ct_iM_CtT).negate();
+  Ct_iM_LT = q.Ct_iM_LT;
+  Ct_iM_JxT = q.Ct_iM_JxT;
 
-  // copy to row block 4 (limits)
-  MatrixNd::transpose(q.Jc_iM_JlT, Jl_iM_JcT);
-  MatrixNd::transpose(q.Dc_iM_JlT, Jl_iM_DcT);
-  (Jl_iM_NcT = Jl_iM_DcT).negate();
-  Jl_iM_JlT = q.Jl_iM_JlT;
-  Jl_iM_JxT = q.Jl_iM_JxT;
+  // copy to row block 4 (negative contact tangents)
+  (NCs_block = Cs_block).negate();
 
-  // copy to row block 5 (explicit constraints)
-  MatrixNd::transpose(q.Jc_iM_JxT, Jx_iM_JcT);
-  MatrixNd::transpose(q.Dc_iM_JxT, Jx_iM_DcT);
-  MatrixNd::transpose(q.Jl_iM_JxT, Jx_iM_JlT);
-  (Jx_iM_NcT = Jx_iM_DcT).negate();
+  // copy to row block 5 (negative contact tangents)
+  (NCt_block = Ct_block).negate();
+
+  // copy to row block 6 (limits)
+  MatrixNd::transpose(q.Cn_iM_LT, L_iM_CnT);
+  MatrixNd::transpose(q.Cs_iM_LT, L_iM_CsT);
+  MatrixNd::transpose(q.Ct_iM_LT, L_iM_CtT);
+  (L_iM_NCsT = L_iM_CsT).negate();
+  (L_iM_NCtT = L_iM_CtT).negate();
+  L_iM_LT = q.L_iM_LT;
+  L_iM_JxT = q.L_iM_JxT;
+
+  // copy to row block 6 (explicit constraints)
+  MatrixNd::transpose(q.Cn_iM_JxT, Jx_iM_CnT);
+  MatrixNd::transpose(q.Cs_iM_JxT, Jx_iM_CsT);
+  MatrixNd::transpose(q.Ct_iM_JxT, Jx_iM_CtT);
+  MatrixNd::transpose(q.L_iM_JxT, Jx_iM_LT);
+  (Jx_iM_NCsT = Jx_iM_CsT).negate();
+  (Jx_iM_NCtT = Jx_iM_CtT).negate();
   Jx_iM_JxT = q.Jx_iM_JxT;
 
   // setup c 
-  c.set_sub_vec(q.ALPHA_C_IDX, q.Jc_v);         
-  c.set_sub_vec(q.BETA_C_IDX, q.Dc_v);         
-  (c.segment(q.NBETA_C_IDX, q.ALPHA_L_IDX) = q.Dc_v).negate();
-  c.set_sub_vec(q.ALPHA_L_IDX, q.Jl_v);         
+  c.set_sub_vec(q.CN_IDX, q.Cn_v);         
+  c.set_sub_vec(q.CS_IDX, q.Cs_v);         
+  c.set_sub_vec(q.CT_IDX, q.Ct_v);         
+  (c.segment(q.NCS_IDX, q.NCT_IDX) = q.Cs_v).negate();
+  (c.segment(q.NCT_IDX, q.CS_U_IDX) = q.Ct_v).negate();
+  c.set_sub_vec(q.L_IDX, q.L_v);         
   c.set_sub_vec(q.ALPHA_X_IDX, q.Jx_v);         
 
   // ------- setup A/-b -------
-  // setup the Jc*v+ >= 0 constraint
-  // Jc*(inv(M)*impulses + v) >= 0, Jc*inv(M)*impulses >= -Jc*v
+  // setup the Cn*v+ >= 0 constraint
+  // Cn*(inv(M)*impulses + v) >= 0, Cn*inv(M)*impulses >= -Cn*v
   row_start = 0; row_end = q.N_CONTACTS;
-  A.block(row_start, row_end, q.ALPHA_C_IDX, q.N_VARS) = Jc_block;
-  nb.set_sub_vec(row_start, q.Jc_v);
+  A.block(row_start, row_end, q.CN_IDX, q.N_VARS) = Cn_block;
+  nb.set_sub_vec(row_start, q.Cn_v);
   row_start = row_end; row_end += q.N_LIMITS;  
 
-  // setup the Jl*v+ >= 0 constraint
-  A.block(row_start, row_end, q.ALPHA_C_IDX, q.N_VARS) = Jl_block;
-  nb.set_sub_vec(row_start, q.Jl_v);
+  // setup the L*v+ >= 0 constraint
+  A.block(row_start, row_end, q.CN_IDX, q.N_VARS) = L_block;
+  nb.set_sub_vec(row_start, q.L_v);
   row_start = row_end; row_end += q.N_CONTACTS;  
 
   // setup the contact friction constraints
   // mu_c*cn + mu_v*cvel >= beta
-  for (unsigned i=0, k=0; i< q.N_CONTACTS; i++, k+= 2)
+  for (unsigned i=0; i< q.N_CONTACTS; i++)
   {
     // initialize the contact velocity
-    double vel = std::sqrt(sqr(q.Dc_v[k]) + sqr(q.Dc_v[k+1]));
+    double vel = std::sqrt(sqr(q.Cs_v[i]) + sqr(q.Ct_v[i]));
 
     // setup the Coulomb friction inequality constraints for this contact
     for (unsigned j=0; j< q.contact_events[i]->contact_NK/2; j++)
@@ -1003,11 +1119,11 @@ void ImpactEventHandler::solve_qp_work_general(EventProblemData& q, VectorNd& z)
       double theta = (double) j/(q.contact_events[i]->contact_NK/2-1) * M_PI_2;
       const double ct = std::cos(theta);
       const double st = std::sin(theta);
-      A(row_start, q.ALPHA_C_IDX+i) = q.contact_events[i]->contact_mu_coulomb;
-      A(row_start, q.BETA_C_IDX+k) = -ct;
-      A(row_start, q.NBETA_C_IDX+k) = -ct;
-      A(row_start, q.BETA_C_IDX+k+1) = -st;
-      A(row_start, q.NBETA_C_IDX+k+1) = -st;
+      A(row_start, q.CN_IDX+i) = q.contact_events[i]->contact_mu_coulomb;
+      A(row_start, q.CS_IDX+i) = -ct;
+      A(row_start, q.NCS_IDX+i) = -ct;
+      A(row_start, q.CT_IDX+i) = -st;
+      A(row_start, q.NCT_IDX+i) = -st;
 
       // setup the viscous friction component
       nb[row_start] = q.contact_events[i]->contact_mu_viscous * vel;
@@ -1020,7 +1136,7 @@ void ImpactEventHandler::solve_qp_work_general(EventProblemData& q, VectorNd& z)
   if (q.use_kappa)
   {
     for (unsigned i=0; i< q.N_CONTACTS; i++)
-      A(row_start, q.ALPHA_C_IDX+i) = (double) -1.0;
+      A(row_start, q.CN_IDX+i) = (double) -1.0;
     nb[row_start] = q.kappa;
   }
 
@@ -1034,31 +1150,37 @@ void ImpactEventHandler::solve_qp_work_general(EventProblemData& q, VectorNd& z)
   R.transpose_mult(H, RTH);
   RTH.mult(R, H_block);
   R.transpose_mult(c, c_seg);
-  RTH.mult(z, tmpv);
-  c_seg += tmpv;
+  RTH.mult(z, workv);
+  c_seg += workv;
 
   // setup constraints A*x >= b in nullspace, yielding
   // A(R*y + z) >= b, yielding R*y >= b - A*z
-  A.mult(z, tmpv);
-  nb += tmpv;
+  A.mult(z, workv);
+  nb += workv;
   A.mult(R, AR_block);
   MatrixNd::transpose(AR_block, ART_block);
   ART_block.negate();
 
   FILE_LOG(LOG_EVENT) << "ImpactEventHandler::solve_qp_work_general() entered" << std::endl;
-  FILE_LOG(LOG_EVENT) << "  Jc * inv(M) * Jc': " << std::endl << q.Jc_iM_JcT;
-  FILE_LOG(LOG_EVENT) << "  Jc * inv(M) * Dc': " << std::endl << q.Jc_iM_DcT;
-  FILE_LOG(LOG_EVENT) << "  Jc * inv(M) * Jl': " << std::endl << q.Jc_iM_JlT;
-  FILE_LOG(LOG_EVENT) << "  Jc * inv(M) * Jx': " << std::endl << q.Jc_iM_JxT;
-  FILE_LOG(LOG_EVENT) << "  Dc * inv(M) * Dc': " << std::endl << q.Dc_iM_DcT;
-  FILE_LOG(LOG_EVENT) << "  Dc * inv(M) * Jl': " << std::endl << q.Dc_iM_JlT;
-  FILE_LOG(LOG_EVENT) << "  Dc * inv(M) * Jx': " << std::endl << q.Dc_iM_JxT;
-  FILE_LOG(LOG_EVENT) << "  Jl * inv(M) * Jl': " << std::endl << q.Jl_iM_JlT;
-  FILE_LOG(LOG_EVENT) << "  Jl * inv(M) * Jx': " << std::endl << q.Jl_iM_JxT;
+  FILE_LOG(LOG_EVENT) << "  Cn * inv(M) * Cn': " << std::endl << q.Cn_iM_CnT;
+  FILE_LOG(LOG_EVENT) << "  Cn * inv(M) * Cs': " << std::endl << q.Cn_iM_CsT;
+  FILE_LOG(LOG_EVENT) << "  Cn * inv(M) * Ct': " << std::endl << q.Cn_iM_CtT;
+  FILE_LOG(LOG_EVENT) << "  Cn * inv(M) * L': " << std::endl << q.Cn_iM_LT;
+  FILE_LOG(LOG_EVENT) << "  Cn * inv(M) * Jx': " << std::endl << q.Cn_iM_JxT;
+  FILE_LOG(LOG_EVENT) << "  Cs * inv(M) * Cs': " << std::endl << q.Cs_iM_CsT;
+  FILE_LOG(LOG_EVENT) << "  Cs * inv(M) * Ct': " << std::endl << q.Cs_iM_CtT;
+  FILE_LOG(LOG_EVENT) << "  Cs * inv(M) * L': " << std::endl << q.Cs_iM_LT;
+  FILE_LOG(LOG_EVENT) << "  Cs * inv(M) * Jx': " << std::endl << q.Cs_iM_JxT;
+  FILE_LOG(LOG_EVENT) << "  Ct * inv(M) * Ct': " << std::endl << q.Ct_iM_CtT;
+  FILE_LOG(LOG_EVENT) << "  Ct * inv(M) * L': " << std::endl << q.Ct_iM_LT;
+  FILE_LOG(LOG_EVENT) << "  Ct * inv(M) * Jx': " << std::endl << q.Ct_iM_JxT;
+  FILE_LOG(LOG_EVENT) << "  L * inv(M) * L': " << std::endl << q.L_iM_LT;
+  FILE_LOG(LOG_EVENT) << "  L * inv(M) * Jx': " << std::endl << q.L_iM_JxT;
   FILE_LOG(LOG_EVENT) << "  Jx * inv(M) * Jx': " << std::endl << q.Jx_iM_JxT;
-  FILE_LOG(LOG_EVENT) << "  Jc * v: " << q.Jc_v << std::endl;
-  FILE_LOG(LOG_EVENT) << "  Dc * v: " << q.Dc_v << std::endl;
-  FILE_LOG(LOG_EVENT) << "  Jl * v: " << q.Jl_v << std::endl;
+  FILE_LOG(LOG_EVENT) << "  Cn * v: " << q.Cn_v << std::endl;
+  FILE_LOG(LOG_EVENT) << "  Cs * v: " << q.Cs_v << std::endl;
+  FILE_LOG(LOG_EVENT) << "  Ct * v: " << q.Ct_v << std::endl;
+  FILE_LOG(LOG_EVENT) << "  L * v: " << q.L_v << std::endl;
   FILE_LOG(LOG_EVENT) << "  Jx * v: " << q.Jx_v << std::endl;
   FILE_LOG(LOG_EVENT) << "H matrix: " << std::endl << H;
   FILE_LOG(LOG_EVENT) << "c vector: " << c << std::endl;
@@ -1068,14 +1190,14 @@ void ImpactEventHandler::solve_qp_work_general(EventProblemData& q, VectorNd& z)
   FILE_LOG(LOG_EVENT) << "LCP vector: " << qq << std::endl; 
 
   // solve the LCP using Lemke's algorithm
-  if (!_lcp.lcp_lemke_regularized(MM, qq, tmpv))
+  if (!_lcp.lcp_lemke_regularized(MM, qq, workv))
     throw std::runtime_error("Unable to solve event QP!");
 
   // get the nullspace solution out
-  FILE_LOG(LOG_EVENT) << "LCP solution: " << tmpv << std::endl; 
-  tmpv.get_sub_vec(0, N_VARS, y);
-  R.mult(y, tmpv);
-  z += tmpv;
+  FILE_LOG(LOG_EVENT) << "LCP solution: " << workv << std::endl; 
+  workv.get_sub_vec(0, N_VARS, y);
+  R.mult(y, workv);
+  z += workv;
 
   FILE_LOG(LOG_EVENT) << "QP solution: " << z << std::endl; 
   FILE_LOG(LOG_EVENT) << "ImpactEventHandler::solve_qp_work_general() exited" << std::endl;
