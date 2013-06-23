@@ -133,7 +133,11 @@ void ImpactEventHandler::solve_qp(EventProblemData& q, double poisson_eps)
 
   // save limit impulses
   for (unsigned i=0; i< q.N_LIMITS; i++)
+  {
     q.limit_events[i]->limit_impulse = q.l[i]; 
+    if (q.limit_events[i]->limit_upper)
+      q.limit_events[i]->limit_impulse = -q.limit_events[i]->limit_impulse;
+  }
 }
 
 /// Solves the quadratic program (does all of the work) for given active contact set

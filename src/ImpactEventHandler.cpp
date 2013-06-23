@@ -11,7 +11,7 @@
 #include <set>
 #include <cmath>
 #include <numeric>
-#include <Moby/ArticulatedBody.h>
+#include <Moby/RCArticulatedBody.h>
 #include <Moby/Constants.h>
 #include <Moby/Event.h>
 #include <Moby/CollisionGeometry.h>
@@ -254,13 +254,39 @@ void ImpactEventHandler::apply_impulses(const EventProblemData& q) const
     }
   }
 
-  // TODO: figure out how to apply limit impulses
-  // TODO: figure out how to apply constraint impulses
   // loop over all limit events next
   for (unsigned i=0; i< q.limit_events.size(); i++)
   {
     const Event& e = *q.limit_events[i];
+    ArticulatedBodyPtr ab = e.limit_joint->get_articulated_body();
+
+    // get the iterator for the articulated body
+    gj_iter = gj.find(ab);
+
+    // apply limit impulses to bodies in independent coordinates
+    if (dynamic_pointer_cast<RCArticulatedBody>(ab))
+    {
+      // get the index of the joint
+      unsigned idx = e.limit_joint->get_coord_index();
+
+      // initialize the vector if necessary
+      if (gj_iter == gj.end())
+      {
+        gj[ab].set_zero(ab->num_generalized_coordinates(DynamicBody::eSpatial));
+        gj_iter = gj.find(ab);
+      }
+
+      // set the limit force
+      gj_iter->second[idx] += e.limit_impulse;
+    }
+    else
+    {
+      // TODO: handle bodies in absolute coordinates here
+      assert(false);
+    }
   }
+
+  // TODO: apply constraint impulses
 
   // apply all generalized impacts
   for (map<DynamicBodyPtr, VectorNd>::const_iterator i = gj.begin(); i != gj.end(); i++)
