@@ -42,9 +42,6 @@ class CollisionGeometry : public virtual Base
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     void set_single_body(boost::shared_ptr<SingleBody> s);
 
-    template <class OutputIterator>
-    OutputIterator get_sub_geometries(OutputIterator begin) const;
-
     /// Gets the parent of this CollisionGeometry (or NULL if there is no parent)
     boost::shared_ptr<CollisionGeometry> get_parent() const { return (_parent.expired()) ? CollisionGeometryPtr() : CollisionGeometryPtr(_parent); }
     

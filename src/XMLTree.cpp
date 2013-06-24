@@ -51,6 +51,51 @@ XMLAttrib::XMLAttrib(const std::string& name, unsigned unsigned_value)
   this->value = oss.str();
 }
 
+/// Constructs a Origin3d-valued attribute with the given name
+XMLAttrib::XMLAttrib(const std::string& name, const Origin3d& o)
+{
+  this->name = name;
+  std::ostringstream oss;
+  oss << o[0] << " " << o[1] << " " << o[2];
+  this->value = oss.str();
+}
+
+/// Constructs a Point3d-valued attribute with the given name
+XMLAttrib::XMLAttrib(const std::string& name, const Point3d& p)
+{
+  this->name = name;
+  std::ostringstream oss;
+  oss << p[0] << " " << p[1] << " " << p[2];
+  this->value = oss.str();
+}
+
+/// Constructs a Vector2d-valued attribute with the given name
+XMLAttrib::XMLAttrib(const std::string& name, const Vector2d& v)
+{
+  this->name = name;
+  std::ostringstream oss;
+  oss << v[0] << " " << v[1];
+  this->value = oss.str();
+}
+
+/// Constructs a Vector3d-valued attribute with the given name
+XMLAttrib::XMLAttrib(const std::string& name, const Vector3d& v)
+{
+  this->name = name;
+  std::ostringstream oss;
+  oss << v[0] << " " << v[1] << " " << v[2];
+  this->value = oss.str();
+}
+
+/// Constructs a Quatd-valued attribute with the given name
+XMLAttrib::XMLAttrib(const std::string& name, const Quatd& q)
+{
+  this->name = name;
+  std::ostringstream oss;
+  oss << q.w << " " << q.x << " " << q.y << " " << q.z;
+  this->value = oss.str();
+}
+
 /// Constructs a vector-valued attribute with the given name
 XMLAttrib::XMLAttrib(const std::string& name, const VectorNd& vector_value)
 {
@@ -317,6 +362,55 @@ std::list<std::string> XMLAttrib::get_strings_value() const
 void XMLAttrib::get_vector_value(VectorNd& v) const
 {
   v = VectorNd::parse(value);
+}
+
+/// Returns an Origin3d value from the attribute
+Origin3d XMLAttrib::get_origin_value() const
+{
+  VectorNd v = VectorNd::parse(value);
+  if (v.size() != 3)
+    throw std::runtime_error("Unable to parse origin from vector!");
+  Origin3d o;
+  o.x() = v[0];
+  o.y() = v[1];
+  o.z() = v[2];
+  return o;
+}
+
+/// Returns a Point3d value from the attribute
+Point3d XMLAttrib::get_point_value() const
+{
+  VectorNd v = VectorNd::parse(value);
+  if (v.size() != 3)
+    throw std::runtime_error("Unable to parse Point3d from vector!");
+  Point3d p;
+  p.x() = v[0];
+  p.y() = v[1];
+  p.z() = v[2];
+  return p;
+}
+
+/// Returns a quaternion value from the attribute
+Quatd XMLAttrib::get_quat_value() const
+{
+  VectorNd v = VectorNd::parse(value);
+  if (v.size() != 4)
+    throw std::runtime_error("Unable to parse quaternion from vector!");
+  Quatd q;
+  q.w = v[0];
+  q.x = v[1];
+  q.y = v[2];
+  q.z = v[3];
+  return q;
+}
+
+/// Returns a quaternion value from a roll-pitch-yaw attribute
+Quatd XMLAttrib::get_rpy_value() const
+{
+  VectorNd v = VectorNd::parse(value);
+  if (v.size() != 3)
+    throw std::runtime_error("Unable to parse roll-pitch-yaw from vector!");
+  return Quatd::rpy(v[0], v[1], v[2]);
 }
 
 /// Gets a list of space-delimited and/or comma-delimited vectors from the underlying string value

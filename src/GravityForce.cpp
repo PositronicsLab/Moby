@@ -13,6 +13,7 @@
 #include <Moby/ArticulatedBody.h>
 #include <Moby/GravityForce.h>
 
+using namespace Ravelin;
 using namespace Moby;
 using boost::shared_ptr;
 using boost::dynamic_pointer_cast;
@@ -20,7 +21,7 @@ using boost::dynamic_pointer_cast;
 /// Constructs a default gravity vector of [0,0,0]
 GravityForce::GravityForce()
 {
-  gravity = ZEROS_3;
+  gravity.set_zero();
 }
 
 /// Copy constructor
@@ -35,7 +36,13 @@ void GravityForce::add_force(DynamicBodyPtr body)
   // check to see whether body is a single body first 
   shared_ptr<SingleBody> sb = dynamic_pointer_cast<SingleBody>(body);
   if (sb)
-    sb->add_force(gravity * sb->calc_mass());
+  {
+    Wrenchd w;
+    Vector3d gx = Pose3d::transform(GLOBAL, body->get_computation_frame(), gravity);
+    w.set_force(gx * sb->get_mass());
+    w.pose = gx.pose; 
+    sb->add_wrench(w);        
+  }
   else
   {
     // it's an articulated body, get it as such
@@ -46,7 +53,13 @@ void GravityForce::add_force(DynamicBodyPtr body)
       
     // apply gravity force to all links
     BOOST_FOREACH(RigidBodyPtr rb, links)
-      rb->add_force(gravity * rb->get_mass());        
+    {
+      Wrenchd w;
+      Vector3d gx = Pose3d::transform(GLOBAL, rb->get_computation_frame(), gravity);
+      w.set_force(gx * rb->get_mass());
+      w.pose = gx.pose; 
+      rb->add_wrench(w);        
+    }
   }
 }
 

@@ -30,6 +30,8 @@ class VariableEulerIntegrator : public VariableStepIntegrator
 
   private:
     Ravelin::VectorNd x0, x1, dx;
+    double calc_abs_err(const Ravelin::VectorNd& x0, const Ravelin::VectorNd& x1);
+    double calc_rel_err(const Ravelin::VectorNd& x0, const Ravelin::VectorNd& x1);
     void integrate_variable(Ravelin::VectorNd& x, Ravelin::VectorNd& (*f)(const Ravelin::VectorNd&, double, double, void*, Ravelin::VectorNd&), double& time, double step_size, void* data);
 }; // end class def
 
