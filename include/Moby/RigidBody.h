@@ -95,9 +95,6 @@ class RigidBody : public SingleBody
     bool is_ground() const;
     boost::shared_ptr<const Ravelin::Pose3d> get_computation_frame() const;
     virtual void set_computation_frame_type(ReferenceFrameType rftype);
-
-    virtual void calc_event_data(const Event& e, const Ravelin::MatrixNd& M, const Ravelin::VectorNd& q);
-    virtual void calc_event_data(const Event& e1, const Event& e2, const Ravelin::MatrixNd& M);
     Ravelin::Wrenchd calc_inertial_forces() const;
 
     template <class OutputIterator>
@@ -105,9 +102,6 @@ class RigidBody : public SingleBody
 
     template <class OutputIterator>
     OutputIterator get_child_links(OutputIterator begin) const;
-
-    template <class OutputIterator>    
-    OutputIterator get_all_collision_geometries(OutputIterator begin) const;
 
     /// Collision geometries, if any, for this rigid body
     std::list<CollisionGeometryPtr> geometries;

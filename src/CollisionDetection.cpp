@@ -71,9 +71,7 @@ void CollisionDetection::set_enabled(BasePtr b, bool enabled)
   RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(b);
   if (rb)
   {
-    std::list<CollisionGeometryPtr> cgs;
-    rb->get_all_collision_geometries(std::back_inserter(cgs));
-    BOOST_FOREACH(CollisionGeometryPtr cg, cgs)
+    BOOST_FOREACH(CollisionGeometryPtr cg, rb->geometries)
       set_enabled(cg, enabled);
     return;
   }
@@ -152,9 +150,7 @@ void CollisionDetection::set_enabled(BasePtr b1, BasePtr b2, bool enabled)
   // next case: b1 is a CG and b2 is a RB
   if (cg1 && rb2)
   {
-    std::list<CollisionGeometryPtr> cgs;
-    rb2->get_all_collision_geometries(std::back_inserter(cgs));
-    BOOST_FOREACH(CollisionGeometryPtr cg, cgs)
+    BOOST_FOREACH(CollisionGeometryPtr cg, rb2->geometries)
       set_enabled(cg1, cg, enabled);
     return;
   }
@@ -162,9 +158,7 @@ void CollisionDetection::set_enabled(BasePtr b1, BasePtr b2, bool enabled)
   // next case: b1 is a RB and b2 is a CG
   if (cg2 && rb1)
   {
-    std::list<CollisionGeometryPtr> cgs;
-    rb1->get_all_collision_geometries(std::back_inserter(cgs));
-    BOOST_FOREACH(CollisionGeometryPtr cg, cgs)
+    BOOST_FOREACH(CollisionGeometryPtr cg, rb1->geometries)
       set_enabled(cg2, cg, enabled);
     return;
   }
@@ -185,11 +179,10 @@ void CollisionDetection::set_enabled(BasePtr b1, BasePtr b2, bool enabled)
   // next case: b1 is DB, b2 is RB
   if (db1 && rb2)
   {
-    std::list<CollisionGeometryPtr> cgs1, cgs2;
+    std::list<CollisionGeometryPtr> cgs1;
     db1->get_all_collision_geometries(std::back_inserter(cgs1));
-    rb2->get_all_collision_geometries(std::back_inserter(cgs2));
     BOOST_FOREACH(CollisionGeometryPtr cg1, cgs1)
-      BOOST_FOREACH(CollisionGeometryPtr cg2, cgs2)
+      BOOST_FOREACH(CollisionGeometryPtr cg2, rb2->geometries)
         set_enabled(cg1, cg2, enabled);
     
     return;
@@ -198,10 +191,9 @@ void CollisionDetection::set_enabled(BasePtr b1, BasePtr b2, bool enabled)
   // next case: b2 is DB, b1 is RB
   if (db2 && rb1)
   {
-    std::list<CollisionGeometryPtr> cgs1, cgs2;
-    rb1->get_all_collision_geometries(std::back_inserter(cgs1));
+    std::list<CollisionGeometryPtr> cgs2;
     db2->get_all_collision_geometries(std::back_inserter(cgs2));
-    BOOST_FOREACH(CollisionGeometryPtr cg1, cgs1)
+    BOOST_FOREACH(CollisionGeometryPtr cg1, rb1->geometries)
       BOOST_FOREACH(CollisionGeometryPtr cg2, cgs2)
         set_enabled(cg1, cg2, enabled);
     
@@ -211,11 +203,8 @@ void CollisionDetection::set_enabled(BasePtr b1, BasePtr b2, bool enabled)
   // next case: both b1 and b2 are RBs
   if (rb1 && rb2)
   {
-    std::list<CollisionGeometryPtr> cgs1, cgs2;
-    rb1->get_all_collision_geometries(std::back_inserter(cgs1));
-    rb2->get_all_collision_geometries(std::back_inserter(cgs2));
-    BOOST_FOREACH(CollisionGeometryPtr cg1, cgs1)
-      BOOST_FOREACH(CollisionGeometryPtr cg2, cgs2)
+    BOOST_FOREACH(CollisionGeometryPtr cg1, rb1->geometries)
+      BOOST_FOREACH(CollisionGeometryPtr cg2, rb2->geometries)
         set_enabled(cg1, cg2, enabled);
     
     return;
@@ -335,22 +324,18 @@ void CollisionDetection::remove_deformable_body(DeformableBodyPtr body)
 /// Adds a rigid body to the collision detector
 void CollisionDetection::add_rigid_body(RigidBodyPtr body)
 {
-  // get all collision geometries for this rigid body
-  std::list<CollisionGeometryPtr> geoms;
-  body->get_all_collision_geometries(std::back_inserter(geoms));
-  
-  // process them
-  BOOST_FOREACH(CollisionGeometryPtr cg, geoms)
+  // process all collision geometries for this rigid body
+  BOOST_FOREACH(CollisionGeometryPtr cg, body->geometries)
     add_collision_geometry(cg); 
 
   // disable all pairs of geometries for this rigid body
-  for (std::list<CollisionGeometryPtr>::const_iterator i = geoms.begin(); i != geoms.end(); i++)
+  for (std::list<CollisionGeometryPtr>::const_iterator i = body->geometries.begin(); i != body->geometries.end(); i++)
   {
     std::list<CollisionGeometryPtr>::const_iterator j = i;
     j++;
-    if (j == geoms.end())
+    if (j == body->geometries.end())
       break;
-    for (; j != geoms.end(); j++)
+    for (; j != body->geometries.end(); j++)
       set_enabled(*i, *j, false);
   }
 }
@@ -358,12 +343,8 @@ void CollisionDetection::add_rigid_body(RigidBodyPtr body)
 /// Removes a rigid body to the collision detector
 void CollisionDetection::remove_rigid_body(RigidBodyPtr body)
 {
-  // get all collision geometries for this rigid body
-  std::list<CollisionGeometryPtr> geoms;
-  body->get_all_collision_geometries(std::back_inserter(geoms));
-  
-  // process them
-  BOOST_FOREACH(CollisionGeometryPtr cg, geoms)
+  // process all geometries from this rigid body 
+  BOOST_FOREACH(CollisionGeometryPtr cg, body->geometries)
     remove_collision_geometry(cg); 
 }
 

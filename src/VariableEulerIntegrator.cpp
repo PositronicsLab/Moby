@@ -9,6 +9,7 @@
 
 using namespace Moby;
 using namespace Ravelin;
+using boost::shared_ptr;
 
 /// Variable step Euler is explicit by default 
 VariableEulerIntegrator::VariableEulerIntegrator()
@@ -25,6 +26,44 @@ void VariableEulerIntegrator::integrate(VectorNd& x, VectorNd& (*f)(const Vector
     integrate_variable(x, f, time, desired_time - time, data);
 }
 
+/// Computes absolute error between two vectors
+double VariableEulerIntegrator::calc_abs_err(const VectorNd& vapprox, const VectorNd& vtrue)
+{
+  if (vapprox.size() != vtrue.size())
+    throw MissizeException();
+
+  // init the absolute error
+  double abs_err = 0.0;
+
+  // get the size
+  const unsigned SZ = vapprox.size();
+
+  // compute the absolute error
+  for (unsigned i=0; i< SZ; i++)
+    abs_err += std::pow(std::fabs(vapprox[i] - vtrue[i]), (double) SZ);
+
+  return std::pow(abs_err, 1.0/SZ);
+}
+
+/// Computes relative error between two vectors
+double VariableEulerIntegrator::calc_rel_err(const VectorNd& vapprox, const VectorNd& vtrue)
+{
+  if (vapprox.size() != vtrue.size())
+    throw MissizeException();
+
+  // init the relative error
+  double rel_err = 0.0;
+
+  // get the size
+  const unsigned SZ = vapprox.size();
+
+  // compute the relative error
+  for (unsigned i=0; i< SZ; i++)
+    rel_err += std::pow(std::fabs(1.0 - std::fabs(vapprox[i]/vtrue[i])), (double) SZ);
+
+  return std::pow(rel_err, 1.0/SZ);
+}
+
 /// Does variable step integration
 void VariableEulerIntegrator::integrate_variable(VectorNd& x, VectorNd& (*f)(const VectorNd&, double, double, void*, VectorNd&), double& time, double step_size, void* data)
 {
@@ -38,8 +77,8 @@ void VariableEulerIntegrator::integrate_variable(VectorNd& x, VectorNd& (*f)(con
   x1 += (f(x1,time+H2, H2, data,dx) *= H2);
 
   // compute error estimate
-  double aerr = VectorNd::calc_abs_err(x0, x1);
-  double rerr = VectorNd::calc_rel_err(x0, x1);
+  double aerr = calc_abs_err(x0, x1);
+  double rerr = calc_rel_err(x0, x1);
 
   // if the error estimate is within tolerance, quit
   // NOTE: second conditional is due to relative error possibly being NaN

@@ -22,28 +22,3 @@ OutputIterator RigidBody::get_child_links(OutputIterator begin) const
   return begin;
 }
 
-/// Gets all collision geometries of this rigid body (including all descendants of collision geometries)
-template <class OutputIterator>
-OutputIterator RigidBody::get_all_collision_geometries(OutputIterator begin) const
-{
-  std::list<CollisionGeometryPtr> descendants;
-
-  // process each collision geometry
-  BOOST_FOREACH(CollisionGeometryPtr g, geometries)
-  {
-    // add the top-level i'th child geometry
-    *begin++ = g;
-
-    // add all descendants of this geometry
-    g->get_sub_geometries(std::back_inserter(descendants));
-    while (!descendants.empty())
-    {
-      *begin++ = descendants.front();
-      descendants.pop_front();
-    }
-  }
-  
-  return begin;
-}
-
-

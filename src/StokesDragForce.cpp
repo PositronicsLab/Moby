@@ -11,7 +11,9 @@
 #include <Moby/DeformableBody.h>
 #include <Moby/StokesDragForce.h>
 
+using namespace Ravelin;
 using namespace Moby;
+using boost::shared_ptr;
 using boost::dynamic_pointer_cast;
 using std::vector;
 
@@ -37,7 +39,13 @@ void StokesDragForce::add_force(DynamicBodyPtr body)
   // if the body is rigid, add drag
   RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(body);
   if (rb)
-    rb->add_force(-rb->get_lvel() * this->b);
+  {
+    Wrenchd w;
+    w.set_force(rb->velocity().get_linear() * -this->b);
+    w.pose = rb->velocity().pose;
+    Wrenchd wx = Pose3d::transform(w.pose, rb->get_computation_frame(), w);
+    rb->add_wrench(wx);
+  }
   else
   {
     // it's an articulated body, get it as such
@@ -48,7 +56,13 @@ void StokesDragForce::add_force(DynamicBodyPtr body)
       
     // apply drag force to all links
     BOOST_FOREACH(RigidBodyPtr rb, links)
-      rb->add_force(-rb->get_lvel() * this->b);        
+    {
+      Wrenchd w;
+      w.set_force(rb->velocity().get_linear() * -this->b);
+      w.pose = rb->velocity().pose;
+      Wrenchd wx = Pose3d::transform(w.pose, rb->get_computation_frame(), w);
+      rb->add_wrench(wx);
+    }
   }
 }
 
