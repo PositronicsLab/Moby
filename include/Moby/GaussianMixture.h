@@ -31,9 +31,7 @@ class GaussianMixture : public Primitive
     virtual const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >& get_sub_mesh(BVPtr bv);
 
     // visualization
-    #ifdef USE_OSG
     virtual osg::Node* create_visualization();
-    #endif
 
     private:
       static Vector3 grad(const Gauss& g, Real x, Real y);
