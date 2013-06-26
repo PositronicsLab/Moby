@@ -1490,7 +1490,7 @@ void CRBAlgorithm::apply_impulse_floating_base(RCArticulatedBodyPtr body, const 
     const SMatrix6N& columns = j->get_spatial_axes(rftype);
 
     // set the column(s) of the Jacobian
-    const unsigned start = j->get_coord_index();
+    const unsigned start = j->get_coord_index() - OPSPACE_DIM;
     J.set_sub_mat(0,start, columns);
 
     // set l to its parent

@@ -24,6 +24,7 @@ struct EventProblemData
     N_K_TOTAL = q.N_K_TOTAL;
     N_LIN_CONE = q.N_LIN_CONE;
     N_TRUE_CONE = q.N_TRUE_CONE;
+    N_LIMITS = q.N_LIMITS;
     N_LOOPS = q.N_LOOPS;
     N_CONTACTS = q.N_CONTACTS;
     N_CONSTRAINTS = q.N_CONSTRAINTS;
@@ -99,7 +100,7 @@ struct EventProblemData
   {
     N_K_TOTAL = N_LIN_CONE = N_TRUE_CONE = N_LOOPS = N_CONTACTS = 0;
     N_CONSTRAINTS = N_CONSTRAINT_DOF_EXP = N_CONSTRAINT_EQNS_EXP = 0;
-    N_CONSTRAINT_DOF_IMP = 0;
+    N_LIMITS = N_CONSTRAINT_DOF_IMP = 0;
     use_kappa = false;
     kappa = (Real) 0.0;
 

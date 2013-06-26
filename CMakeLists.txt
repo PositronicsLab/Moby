@@ -9,6 +9,7 @@ set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/CMakeModules)
 include_directories ("include")
 
 # setup library sources
+<<<<<<< HEAD
 set (SOURCES AABB.cpp AAngle.cpp ArticulatedBody.cpp BV.cpp Base.cpp BoundingSphere.cpp BoxPrimitive.cpp cblas.cpp C2ACCD.cpp CRBAlgorithm.cpp CSG.cpp CollisionDetection.cpp CollisionGeometry.cpp CompGeom.cpp ConePrimitive.cpp ContactParameters.cpp CylinderPrimitive.cpp DampingForce.cpp DeformableBody.cpp DeformableCCD.cpp DynamicBody.cpp Event.cpp EventDrivenSimulator.cpp FSABAlgorithm.cpp FixedJoint.cpp GaussianMixture.cpp GeneralizedCCD.cpp GravityForce.cpp ImpactEventHandler.cpp ImpactEventHandlerQP.cpp ImpactEventHandlerNQP.cpp IndexedTetraArray.cpp IndexedTriArray.cpp Integrator.cpp Joint.cpp LinAlg.cpp Log.cpp MCArticulatedBody.cpp Matrix2.cpp Matrix3.cpp Matrix4.cpp MatrixN.cpp MeshDCD.cpp OBB.cpp ODEPACKIntegrator.cpp Optimization.cpp PSDeformableBody.cpp Polyhedron.cpp Primitive.cpp PrismaticJoint.cpp  Quat.cpp RCArticulatedBody.cpp RNEAlgorithm.cpp RevoluteJoint.cpp RigidBody.cpp SMatrix6N.cpp SingleBody.cpp SQP.cpp SSL.cpp SSR.cpp SVector6.cpp Simulator.cpp SparseMatrixN.cpp SparseVectorN.cpp SpatialABInertia.cpp SpatialRBInertia.cpp SpatialTransform.cpp SpherePrimitive.cpp SphericalJoint.cpp StokesDragForce.cpp Tetrahedron.cpp ThickTriangle.cpp Triangle.cpp TriangleMeshPrimitive.cpp UniversalJoint.cpp Vector2.cpp Vector3.cpp VectorN.cpp Visualizable.cpp URDFReader.cpp XMLReader.cpp XMLTree.cpp XMLWriter.cpp)
 set (APSOURCES blas-ap.cpp f2c-ap.cpp lapack-ap.cpp mpreal.cpp)
 
@@ -106,7 +107,6 @@ if (USE_OSG AND OSG_FOUND)
         include_directories (${OSGVIEWER_INCLUDE_DIR})
         include_directories (${OPENTHREADS_INCLUDE_DIR})
         add_definitions (-DUSE_OSG)
-        set (SOURCES ${SOURCES} OSGGroupWrapper.cpp)
       else (OPENTHREADS_FOUND)
         unset (OSG_FOUND)
       endif (OPENTHREADS_FOUND)

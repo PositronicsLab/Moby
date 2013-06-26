@@ -932,7 +932,7 @@ MatrixN& RCArticulatedBody::calc_jacobian(const Vector3& p, RigidBodyPtr link, M
     calc_jacobian_floating_base(p, _workM2);
 
     // setup the floating base
-    J.set_sub_mat(0,0,_workM);
+    J.set_sub_mat(0,0,_workM2);
   }
 
   // calculate all relevant columns
@@ -2501,7 +2501,8 @@ unsigned RCArticulatedBody::num_joint_dof_explicit() const
 void RCArticulatedBody::determine_contact_jacobians(const EventProblemData& q, 
 const VectorN& v, const MatrixN& M, MatrixN& Jc, MatrixN& Dc)
 {
-/*  SAFESTATIC VectorN vnew, vcurrent;
+/*
+  SAFESTATIC VectorN vnew, vcurrent;
 
   // see whether velocity data is valid
   bool vvalid = !velocities_invalidated();
@@ -2592,7 +2593,6 @@ const VectorN& v, const MatrixN& M, MatrixN& Jc, MatrixN& Dc)
   _iM_JcT.transpose_mult(M, Jc);
   _iM_DcT.transpose_mult(M, Dc);
 */
-
   // resize Jc and Dc
   const unsigned NGC = num_generalized_coordinates(DynamicBody::eAxisAngle);
   Jc.set_zero(q.N_CONTACTS, NGC);
@@ -2663,21 +2663,23 @@ const VectorN& v, const MatrixN& M, MatrixN& Jc, MatrixN& Dc)
 void RCArticulatedBody::update_event_data(EventProblemData& q)
 {
   const unsigned SPATIAL_DIM = 6;
+  SAFESTATIC MatrixN M, workM;
+  SAFESTATIC VectorN v;
 
   // get the generalized velocity (axis angle)
-  get_generalized_velocity(DynamicBody::eAxisAngle, _workv);
+  get_generalized_velocity(DynamicBody::eAxisAngle, v);
 
   // get the generalized inertia matrix
-  _crb.calc_generalized_inertia(DynamicBody::eAxisAngle, _workM);
+  _crb.calc_generalized_inertia(DynamicBody::eAxisAngle, M);
 
   // determine contact normal and tangent Jacobians
-  determine_contact_jacobians(q, _workv, _workM, _Jc, _Dc);
+  determine_contact_jacobians(q, v, M, _Jc, _Dc);
 
   // setup Jx (neqx x ngc) and Dx (nedof x ngc)
   determine_explicit_constraint_jacobians(q, _Jx, _Dx);
 
   // setup Jl (nl x ngc)
-  const unsigned NGC = _workv.size();
+  const unsigned NGC = v.size();
   _Jl.set_zero(q.N_LIMITS, NGC);
   for (unsigned i=0; i< q.limit_events.size(); i++)
   {
@@ -2731,34 +2733,34 @@ void RCArticulatedBody::update_event_data(EventProblemData& q)
   solve_generalized_inertia_transpose(eAxisAngle, _Dt, _iM_DtT);
 
   // update all matrices
-  q.Jc_iM_JcT += _Jc.mult(_iM_JcT, _workM2);
-  q.Jc_iM_DcT += _Jc.mult(_iM_DcT, _workM2);
-  q.Jc_iM_JlT += _Jc.mult(_iM_JlT, _workM2);
-  q.Jc_iM_DtT += _Jc.mult(_iM_DtT, _workM2);
-  q.Jc_iM_JxT += _Jc.mult(_iM_JxT, _workM2);
-  q.Jc_iM_DxT += _Jc.mult(_iM_DxT, _workM2);
-  q.Dc_iM_DcT += _Dc.mult(_iM_DcT, _workM2);
-  q.Dc_iM_JlT += _Dc.mult(_iM_JlT, _workM2);
-  q.Dc_iM_DtT += _Dc.mult(_iM_DtT, _workM2);
-  q.Dc_iM_JxT += _Dc.mult(_iM_JxT, _workM2);
-  q.Dc_iM_DxT += _Dc.mult(_iM_DxT, _workM2);
-  q.Jl_iM_JlT += _Jl.mult(_iM_JlT, _workM2);
-  q.Jl_iM_DtT += _Jl.mult(_iM_DtT, _workM2);
-  q.Jl_iM_JxT += _Jl.mult(_iM_JxT, _workM2);
-  q.Jl_iM_DxT += _Jl.mult(_iM_DxT, _workM2);
-  q.Dt_iM_DtT += _Dt.mult(_iM_DtT, _workM2);
-  q.Dt_iM_JxT += _Dt.mult(_iM_JxT, _workM2);
-  q.Dt_iM_DxT += _Dt.mult(_iM_DxT, _workM2);
-  q.Jx_iM_JxT += _Jx.mult(_iM_JxT, _workM2);
-  q.Jx_iM_DxT += _Jx.mult(_iM_DxT, _workM2);
-  q.Dx_iM_DxT += _Dx.mult(_iM_DxT, _workM2);
+  q.Jc_iM_JcT += _Jc.mult(_iM_JcT, workM);
+  q.Jc_iM_DcT += _Jc.mult(_iM_DcT, workM);
+  q.Jc_iM_JlT += _Jc.mult(_iM_JlT, workM);
+  q.Jc_iM_DtT += _Jc.mult(_iM_DtT, workM);
+  q.Jc_iM_JxT += _Jc.mult(_iM_JxT, workM);
+  q.Jc_iM_DxT += _Jc.mult(_iM_DxT, workM);
+  q.Dc_iM_DcT += _Dc.mult(_iM_DcT, workM);
+  q.Dc_iM_JlT += _Dc.mult(_iM_JlT, workM);
+  q.Dc_iM_DtT += _Dc.mult(_iM_DtT, workM);
+  q.Dc_iM_JxT += _Dc.mult(_iM_JxT, workM);
+  q.Dc_iM_DxT += _Dc.mult(_iM_DxT, workM);
+  q.Jl_iM_JlT += _Jl.mult(_iM_JlT, workM);
+  q.Jl_iM_DtT += _Jl.mult(_iM_DtT, workM);
+  q.Jl_iM_JxT += _Jl.mult(_iM_JxT, workM);
+  q.Jl_iM_DxT += _Jl.mult(_iM_DxT, workM);
+  q.Dt_iM_DtT += _Dt.mult(_iM_DtT, workM);
+  q.Dt_iM_JxT += _Dt.mult(_iM_JxT, workM);
+  q.Dt_iM_DxT += _Dt.mult(_iM_DxT, workM);
+  q.Jx_iM_JxT += _Jx.mult(_iM_JxT, workM);
+  q.Jx_iM_DxT += _Jx.mult(_iM_DxT, workM);
+  q.Dx_iM_DxT += _Dx.mult(_iM_DxT, workM);
 
   // update velocity vectors
-  q.Jc_v += _Jc.mult(_workv, _workv2);
-  q.Dc_v += _Dc.mult(_workv, _workv2);
-  q.Jl_v += _Jl.mult(_workv, _workv2);
-  q.Jx_v += _Jx.mult(_workv, _workv2);
-  q.Dx_v += _Dx.mult(_workv, _workv2);
+  q.Jc_v += _Jc.mult(v, _workv2);
+  q.Dc_v += _Dc.mult(v, _workv2);
+  q.Jl_v += _Jl.mult(v, _workv2);
+  q.Jx_v += _Jx.mult(v, _workv2);
+  q.Dx_v += _Dx.mult(v, _workv2);
 }
 
 /// Updates the body velocities
