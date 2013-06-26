@@ -43,6 +43,7 @@ class Event
     void set_contact_parameters(const ContactParameters& cparams);
     void determine_contact_tangents();
     static void determine_minimal_set(std::list<Event*>& group);
+    static void determine_convex_set(std::list<Event*>& group);
 
     template <class OutputIterator>
     OutputIterator get_super_bodies(OutputIterator begin) const;
@@ -124,7 +125,6 @@ class Event
     bool operator<(const Event& e) const { return t < e.t; }
 
   private:
-    static void determine_convex_set(std::list<Event*>& group);
     static bool is_contact_manifold_2D(const std::list<Event*>& group);
 
     template <class BidirectionalIterator>
