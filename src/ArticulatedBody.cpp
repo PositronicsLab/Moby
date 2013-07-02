@@ -30,6 +30,7 @@ ArticulatedBody::ArticulatedBody()
 {
   _positions_valid = _velocities_valid = false;
   use_advanced_friction_model = false;
+  find_custom_limit_events = NULL;
 }
 
 /// Sets this body as enabled or disabled
