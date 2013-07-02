@@ -76,6 +76,9 @@ class ArticulatedBody : public DynamicBody
     void find_loops(std::vector<unsigned>& loop_indices, std::vector<std::vector<unsigned> >& loop_links) const;
     void compute_Z_matrices(const std::vector<unsigned>& loop_indices, const std::vector<std::vector<unsigned> >& loop_links, std::vector<MatrixN>& Zd, std::vector<MatrixN>& Z1d, std::vector<MatrixN>& Z) const;
 
+    /// Finds (joint) limit events
+    void (*find_custom_limit_events)(const VectorN& q0, const VectorN& q1, Real dt, std::vector<Event>& events); 
+
     /// Gets the number of degrees-of-freedom permitted by implicit constraints
     virtual unsigned num_joint_dof_implicit() const = 0;
 

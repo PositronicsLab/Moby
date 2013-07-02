@@ -93,6 +93,14 @@ OutputIterator ArticulatedBody::find_limit_events(const VectorN& q0, const Vecto
       }
     }
 
+  // find custom limit events, if desired
+  if (find_custom_limit_events)
+  {
+    std::vector<Event> custom;
+    find_custom_limit_events(q0, q1, dt, custom);
+    return std::copy(custom.begin(), custom.end(), output_begin);
+  } 
+
   return output_begin;
 }
 
