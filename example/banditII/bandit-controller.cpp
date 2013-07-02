@@ -242,6 +242,7 @@ void event_callback_fn( std::vector<Event>& events, boost::shared_ptr<void> p ) 
   ss_state_trans << "state_trans_" << step << "_" << iter << ".stl";
   std::string trans_state_file_name = ss_state_trans.str();
 
+  #ifdef USG_OSG
   osg::Node* node_trans = sim->get_transient_vdata();
   osgDB::writeNodeFile(*node_trans, trans_state_file_name);
 
@@ -251,6 +252,7 @@ void event_callback_fn( std::vector<Event>& events, boost::shared_ptr<void> p ) 
 
   osg::Node* node_persist = sim->get_persistent_vdata();
   osgDB::writeNodeFile(*node_persist, persist_state_file_name);
+  #endif
 
   step++;  
 }
