@@ -27,17 +27,23 @@ class SingleBody : public DynamicBody
         DynamicBody::integrate(t, h, integrator);
     }
 
+    /// Gets the computation frame for the body
+    virtual boost::shared_ptr<const Ravelin::Pose3d> get_computation_frame() const = 0;
+
+    /// Gets the mass of the body (for gravity calculation)
+    virtual double get_mass() const = 0;
+
     /// Gets the pose of the body
     virtual boost::shared_ptr<const Ravelin::Pose3d> get_pose() const = 0;
 
     /// Gets the velocity of the body
-    virtual const Ravelin::Twistd& velocity() const = 0;
+    virtual const Ravelin::SVelocityd& velocity() const = 0;
 
-    /// Adds a wrench to the body
-    virtual void add_wrench(const Ravelin::Wrenchd& w) = 0;
+    /// Adds a force to the body
+    virtual void add_force(const Ravelin::SForced& w) = 0;
 
     /// Applies an impulse at a point on the body
-    virtual void apply_impulse(const Ravelin::Wrenchd& w) = 0;
+    virtual void apply_impulse(const Ravelin::SForced& w) = 0;
 
     /// Calculates the mass of the body
     virtual double calc_mass() const = 0;
@@ -57,9 +63,9 @@ class SingleBody : public DynamicBody
     /// Gets the maximum angular speed of this body (useful for collision detection)
     virtual double get_aspeed() const 
     { 
-      const Ravelin::Twistd& v = velocity();
+      const Ravelin::SVelocityd& v = velocity();
       boost::shared_ptr<const Ravelin::Pose3d> F = get_pose();
-      Ravelin::Twistd vi = Ravelin::Pose3d::transform(v.pose, F, v);
+      Ravelin::SVelocityd vi = Ravelin::Pose3d::transform(v.pose, F, v);
       return vi.get_angular().norm(); 
     }
 

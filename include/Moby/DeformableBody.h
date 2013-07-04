@@ -52,21 +52,24 @@ class DeformableBody : public SingleBody
     virtual void set_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gv);
     virtual Ravelin::MatrixNd& get_generalized_inertia(Ravelin::MatrixNd& M);
     virtual Ravelin::VectorNd& get_generalized_forces(Ravelin::VectorNd& f);
-    virtual Ravelin::VectorNd& convert_to_generalized_force(SingleBodyPtr body, const Ravelin::Wrenchd& w, const Ravelin::Point3d& p, Ravelin::VectorNd& gf);
+    virtual Ravelin::VectorNd& convert_to_generalized_force(SingleBodyPtr body, const Ravelin::SForced& w, const Ravelin::Point3d& p, Ravelin::VectorNd& gf);
     virtual void set_mesh(boost::shared_ptr<const IndexedTetraArray> tetra_mesh, boost::shared_ptr<Primitive> tri_mesh);
     virtual Ravelin::Vector3d calc_point_vel(const Ravelin::Point3d& p) const;
-    virtual void add_wrench(const Ravelin::Wrenchd& w);
+    virtual void add_force(const Ravelin::SForced& w);
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual Ravelin::MatrixNd& solve_generalized_inertia(const Ravelin::MatrixNd& B, Ravelin::MatrixNd& X);
     virtual Ravelin::VectorNd& solve_generalized_inertia(const Ravelin::VectorNd& b, Ravelin::VectorNd& x);
     virtual double calc_potential_energy() const = 0;
 
+    /// Gets the computation pose of the deformable body
+    virtual boost::shared_ptr<const Ravelin::Pose3d> get_computation_pose() const { return _F; }
+
     /// Gets the pose of the deformable body 
     virtual boost::shared_ptr<const Ravelin::Pose3d> get_pose() const { return _F; }
 
     /// Gets the linear velocity of the center-of-mass of the body
-    virtual const Ravelin::Twistd& velocity() const { return _xd; }
+    virtual const Ravelin::SVelocityd& velocity() const { return _xd; }
 
     /// Deformable bodies are always enabled
     virtual bool is_enabled() const { return true; } 
@@ -120,7 +123,7 @@ class DeformableBody : public SingleBody
     std::vector<VertexMap> _vertex_map;
 
     /// The velocity of the body (computation frame)
-    Ravelin::Twistd _xd;
+    Ravelin::SVelocityd _xd;
 
     /// The inertia matrix (computation frame)
     Ravelin::SpatialRBInertiad _J;

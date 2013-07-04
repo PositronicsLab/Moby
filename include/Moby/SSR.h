@@ -41,7 +41,7 @@ class SSR : public BV
     SSR(const Ravelin::Point3d& center, const Ravelin::Matrix3d& R, const Ravelin::Vector2d& l, double radius);
     SSR(const SSR& s, const Ravelin::Vector3d& v);
     void operator=(const SSR& s);
-    virtual BVPtr calc_swept_BV(CollisionGeometryPtr g, const Ravelin::Twistd& v) const;
+    virtual BVPtr calc_swept_BV(CollisionGeometryPtr g, const Ravelin::SVelocityd& v) const;
     static double calc_dist(const SSR& a, const Ravelin::Point3d& p);
     static double calc_dist(const SSR& a, const LineSeg3& s);
     static double calc_dist(const SSR& a, const SSR& b, Ravelin::Point3d& cpa, Ravelin::Point3d& cpb);

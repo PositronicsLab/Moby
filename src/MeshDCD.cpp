@@ -775,8 +775,8 @@ void MeshDCD::determine_contacts_rigid(CollisionGeometryPtr a, CollisionGeometry
   CBx->update_relative_pose(GLOBAL);
 
   // get twists from the two bodies in the computation frames
-  Twistd va = Pose3d::transform(CA, CAx, rba->velocity()); 
-  Twistd vb = Pose3d::transform(CB, CBx, rbb->velocity()); 
+  SVelocityd va = Pose3d::transform(CA, CAx, rba->velocity()); 
+  SVelocityd vb = Pose3d::transform(CB, CBx, rbb->velocity()); 
 
   // get the meshes from a and b
   const IndexedTriArray& mesh_a = *a->get_geometry()->get_mesh();

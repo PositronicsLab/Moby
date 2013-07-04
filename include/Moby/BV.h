@@ -62,7 +62,7 @@ class BV : public boost::enable_shared_from_this<BV>
      * \param v the "velocity" to sweep by
      * \return the velocity-expanded bounding volume
      */ 
-    virtual BVPtr calc_swept_BV(CollisionGeometryPtr g, const Ravelin::Twistd& v) const = 0;
+    virtual BVPtr calc_swept_BV(CollisionGeometryPtr g, const Ravelin::SVelocityd& v) const = 0;
 
     /// Convenience method
     static bool intersects(BVPtr a, BVPtr b) { return intersects(a.get(), b.get()); }

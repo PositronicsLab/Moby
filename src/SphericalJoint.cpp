@@ -233,7 +233,7 @@ bool SphericalJoint::assign_axes()
 /**
  * \note these spatial axes are not constant, unlike many joints.
  */
-const vector<Twistd>& SphericalJoint::get_spatial_axes()
+const vector<SVelocityd>& SphericalJoint::get_spatial_axes()
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
@@ -288,7 +288,7 @@ const vector<Twistd>& SphericalJoint::get_spatial_axes()
 /**
  * \note these spatial axes are not constant, unlike many joints.
  */
-const vector<Twistd>& SphericalJoint::get_spatial_axes_dot()
+const vector<SAcceld>& SphericalJoint::get_spatial_axes_dot()
 {
   RigidBodyPtr inboard = get_inboard_link();
   RigidBodyPtr outboard = get_outboard_link();
@@ -479,7 +479,7 @@ void SphericalJoint::evaluate_constraints(double C[])
 }
 
 /// Computes the constraint jacobian with respect to a body
-void SphericalJoint::calc_constraint_jacobian_euler(RigidBodyPtr body, unsigned index, double Cq[7])
+void SphericalJoint::calc_constraint_jacobian(RigidBodyPtr body, unsigned index, double Cq[7])
 {
   const unsigned X = 0, Y = 1, Z = 2, SPATIAL_DIM = 7;
 
@@ -597,7 +597,7 @@ void SphericalJoint::calc_constraint_jacobian_euler(RigidBodyPtr body, unsigned 
 }
 
 /// Computes the time derivative of the constraint jacobian with respect to a body
-void SphericalJoint::calc_constraint_jacobian_dot_euler(RigidBodyPtr body, unsigned index, double Cq[7])
+void SphericalJoint::calc_constraint_jacobian_dot(RigidBodyPtr body, unsigned index, double Cq[7])
 {
   const unsigned X = 0, Y = 1, Z = 2, SPATIAL_DIM = 7;
 

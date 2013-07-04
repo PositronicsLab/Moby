@@ -42,7 +42,7 @@ class PSDeformableBody : public DeformableBody
   public:
     PSDeformableBody();
     virtual void integrate(double t, double h, boost::shared_ptr<Integrator> integrator);
-    virtual void apply_impulse(const Ravelin::Wrenchd& j);
+    virtual void apply_impulse(const Ravelin::SForced& j);
     virtual void calc_fwd_dyn(double dt);
     virtual double calc_mass() const { return _J.m; }
     virtual void set_mesh(boost::shared_ptr<const IndexedTetraArray> tetra_mesh, boost::shared_ptr<Primitive> tri_mesh);
@@ -53,6 +53,7 @@ class PSDeformableBody : public DeformableBody
     virtual double calc_potential_energy() const;
     virtual boost::shared_ptr<Ravelin::Pose3d> get_computation_frame_pose() const;
     virtual void set_computation_frame_type(ReferenceFrameType rftype);
+    virtual double get_mass() const;
 
     /// The default spring stiffness constant
     double default_KP;

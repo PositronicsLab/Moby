@@ -16,8 +16,9 @@
 
 using Ravelin::VectorNd;
 using Ravelin::MatrixNd;
-using Ravelin::Wrenchd;
-using Ravelin::Twistd;
+using Ravelin::SForced;
+using Ravelin::SVelocityd;
+using Ravelin::SAcceld;
 using Ravelin::SpatialRBInertiad;
 using Ravelin::Pose3d;
 using namespace Moby;
@@ -47,7 +48,8 @@ map<JointPtr, VectorNd> RNEAlgorithm::calc_inv_dyn_fixed_base(RCArticulatedBodyP
 {
   queue<RigidBodyPtr> link_queue;
   map<RigidBodyPtr, RCArticulatedBodyInvDynData>::const_iterator idd_iter;
-  vector<Twistd> sprime;
+  vector<SVelocityd> sprime;
+  vector<SAcceld> sdotprime;
 
   FILE_LOG(LOG_DYNAMICS) << "RNEAlgorithm::calc_inv_dyn_fixed_base() entered" << endl;
 
@@ -65,7 +67,7 @@ map<JointPtr, VectorNd> RNEAlgorithm::calc_inv_dyn_fixed_base(RCArticulatedBodyP
   RigidBodyPtr base = links.front();
 
   // setup the vector of link accelerations
-  vector<Twistd> a(links.size(), Twistd::zero());
+  vector<SAcceld> a(links.size(), SAcceld::zero());
 
   // set frames for accelerations 
   for (unsigned i=0; i< links.size(); i++)
@@ -99,7 +101,7 @@ map<JointPtr, VectorNd> RNEAlgorithm::calc_inv_dyn_fixed_base(RCArticulatedBodyP
     JointPtr joint(link->get_inner_joint_implicit());
 
     // get the spatial link velocity
-    const Twistd& v = link->velocity(); 
+    const SVelocityd& v = link->velocity(); 
 
     // get the current joint velocity
     const VectorNd& qd = joint->qd;
@@ -112,18 +114,19 @@ map<JointPtr, VectorNd> RNEAlgorithm::calc_inv_dyn_fixed_base(RCArticulatedBodyP
     const VectorNd& qdd_des = idd_iter->second.qdd;  
 
     // get the spatial axes and time derivative
-    const vector<Twistd>& s = joint->get_spatial_axes();
-    const vector<Twistd>& sdot = joint->get_spatial_axes_dot();
+    const vector<SVelocityd>& s = joint->get_spatial_axes();
+    const vector<SAcceld>& sdot = joint->get_spatial_axes_dot();
 
     // put s into the proper frame (that of v/a) (if necessary)
     Pose3d::transform(s.front().pose, v.pose, s, sprime);  
 
     // add this link's contribution
-    a[i] += spatial_cross(v, mult(sprime, qd));
+    SVelocityd sqd = mult(sprime, qd);
+    a[i] += v.cross(sqd);
     a[i] += mult(s, qdd_des);
 
     // put s into the proper frame (that of v/a) (if necessary)
-    Pose3d::transform(joint->get_pose(), v.pose, sdot, sprime);  
+    Pose3d::transform(joint->get_pose(), v.pose, sdot, sdotprime);  
     a[i] += mult(sprime, qd);
 
     // now add parent's contribution
@@ -137,9 +140,9 @@ map<JointPtr, VectorNd> RNEAlgorithm::calc_inv_dyn_fixed_base(RCArticulatedBodyP
   
   // ** STEP 2: compute link forces -- backward recursion
   vector<bool> processed(links.size(), false);
-  vector<Wrenchd> f(links.size(), Wrenchd::zero());
+  vector<SForced> f(links.size(), SForced::zero());
 
-  // all wrenches should be in the same frame as the individual links
+  // all forces should be in the same frame as the individual links
   for (unsigned i=0; i< links.size(); i++)
     f[i].pose = links[i]->get_computation_frame();
 
@@ -174,22 +177,22 @@ map<JointPtr, VectorNd> RNEAlgorithm::calc_inv_dyn_fixed_base(RCArticulatedBodyP
     FILE_LOG(LOG_DYNAMICS) << "  I * a = " << (link->get_inertia() * a[i]) << endl;
 
     // get the spatial velocity for this link
-    const Twistd& v = link->velocity();
+    const SVelocityd& v = link->velocity();
 
     // add I*a to the link force
     f[i] += link->get_inertia() * a[i];
 
     // update the determined force to this link w/Coriolis + centrifugal terms
-    f[i] += spatial_cross(v, link->get_inertia() * v);
+    f[i] += v.cross(link->get_inertia() * v);
 
     FILE_LOG(LOG_DYNAMICS) << "  force (+ I*a): " << f[i] << endl;    
 
     // determine external forces in link frame
     idd_iter = inv_dyn_data.find(link);
     assert(idd_iter != inv_dyn_data.end());
-    const Wrenchd& fx = idd_iter->second.wext;  
+    const SForced& fx = idd_iter->second.wext;  
 
-    // add in external wrenches
+    // add in external forces
     f[i] -= fx; 
 
     FILE_LOG(LOG_DYNAMICS) << "  force on link after subtracting external force: " << f[i] << endl;
@@ -215,9 +218,9 @@ map<JointPtr, VectorNd> RNEAlgorithm::calc_inv_dyn_fixed_base(RCArticulatedBodyP
     RigidBodyPtr link = links[j];
     const unsigned i = link->get_index();
     JointPtr joint(link->get_inner_joint_implicit());
-    const vector<Twistd>& s = joint->get_spatial_axes();
+    const vector<SVelocityd>& s = joint->get_spatial_axes();
     VectorNd& Q = actuator_forces[joint]; 
-    Wrenchd w = Pose3d::transform(f[i].pose, joint->get_pose(), f[i]); 
+    SForced w = Pose3d::transform(f[i].pose, joint->get_pose(), f[i]); 
     transpose_mult(s, w, Q);
   
     FILE_LOG(LOG_DYNAMICS) << "joint " << joint->id << " inner joint force: " << actuator_forces[joint] << endl;
@@ -263,7 +266,7 @@ void RNEAlgorithm::calc_constraint_forces(RCArticulatedBodyPtr body)
   RigidBodyPtr base = links.front();
 
   // setup the vector of link accelerations
-  vector<Twistd> accels(links.size(), Twistd::zero());
+  vector<SAcceld> accels(links.size(), SAcceld::zero());
   
   // add all child links of the base to the processing queue
   list<RigidBodyPtr> child_links;
@@ -273,7 +276,7 @@ void RNEAlgorithm::calc_constraint_forces(RCArticulatedBodyPtr body)
 
   // ** STEP 1: compute link forces -- backward recursion
   vector<bool> processed(links.size(), false);
-  vector<Wrenchd> forces(links.size(), Wrench::zero());
+  vector<SForced> forces(links.size(), SForce::zero());
 
   // add all leaf links to the queue
   for (unsigned i=1; i< links.size(); i++)
@@ -302,31 +305,31 @@ void RNEAlgorithm::calc_constraint_forces(RCArticulatedBodyPtr body)
     unsigned pidx = parent->get_index();
 
     // get the forces for this link and this link's parent
-    Wrenchd& fi = forces[idx];
-    Wrenchd& fim1 = forces[pidx];
+    SForced& fi = forces[idx];
+    SForced& fim1 = forces[pidx];
 
     // get this link's acceleration
-    Twistd& a = link->get_accel(rftype);
+    SAcceld& a = link->get_accel(rftype);
     
     FILE_LOG(LOG_DYNAMICS) << " computing necessary force; processing link " << link->id << endl;
     FILE_LOG(LOG_DYNAMICS) << "  currently determined link force: " << fi << endl;    
     FILE_LOG(LOG_DYNAMICS) << "  I * a = " << (Iiso[idx] * a) << endl;
 
     // get the spatial velocity for this link
-    const Twistd& v = link->velocity();
+    const SVelocityd& v = link->velocity();
 
     // add I*a to the link force
     fi += Iiso[idx] * a;
 
     // update the determined force to this link w/Coriolis + centrifugal terms
-    fi += SVector6d::spatial_cross(v, Iiso[idx] * v);
+    fi += v.cross(Iiso[idx] * v);
 
     FILE_LOG(LOG_DYNAMICS) << "  force (+ I*a): " << fi << endl;    
 
     // determine external forces in link frame
-    const Wrenchd& wext = link->sum_wrench(); 
+    const SForced& wext = link->sum_force(); 
     shared_ptr<const Pose3d>& T = link->get_pose();
-    Wrenchd fx(T.transpose_mult_vector(fext), T.transpose_mult_vector(text));
+    SForced fx(T.transpose_mult_vector(fext), T.transpose_mult_vector(text));
 
     // subtract external forces in the appropriate frame
     if (rftype == eGlobal)
@@ -385,9 +388,11 @@ map<JointPtr, VectorNd> RNEAlgorithm::calc_inv_dyn_floating_base(RCArticulatedBo
   queue<RigidBodyPtr> link_queue;
   map<RigidBodyPtr, RCArticulatedBodyInvDynData>::const_iterator idd_iter;
   vector<SpatialRBInertiad> I;
-  vector<Twistd> v, a;
-  vector<Wrenchd> Z;
-  vector<Twistd> sprime;
+  vector<SVelocityd> v;
+  vector<SAcceld> a;
+  vector<SForced> Z;
+  vector<SVelocityd> sprime;
+  vector<SAcceld> sdotprime;
 
   FILE_LOG(LOG_DYNAMICS) << "RNEAlgorithm::calc_inv_dyn_floating_base() entered" << endl;
 
@@ -407,7 +412,8 @@ map<JointPtr, VectorNd> RNEAlgorithm::calc_inv_dyn_floating_base(RCArticulatedBo
   a.resize(links.size());
   for (unsigned i=0; i< links.size(); i++)
   {
-    v[i] = a[i] = Twistd::zero();
+    v[i] = SVelocityd::zero();
+    a[i] = SAcceld::zero();
     v[i].pose = a[i].pose = links[i]->get_computation_frame();
   }  
 
@@ -445,14 +451,14 @@ map<JointPtr, VectorNd> RNEAlgorithm::calc_inv_dyn_floating_base(RCArticulatedBo
     const unsigned h = parent->get_index();
 
     // get spatial axes and derivatives
-    const vector<Twistd>& s = joint->get_spatial_axes();
-    const vector<Twistd>& sdot = joint->get_spatial_axes_dot();
+    const vector<SVelocityd>& s = joint->get_spatial_axes();
+    const vector<SAcceld>& sdot = joint->get_spatial_axes_dot();
 
     // put s into the proper frame (that of v/a) 
     Pose3d::transform(joint->get_pose(), link->get_computation_frame(), s, sprime);
 
     // compute s * qdot
-    Twistd sqd = mult(sprime, joint->qd);
+    SVelocityd sqd = mult(sprime, joint->qd);
     
     // get the desired acceleration for the current link
     idd_iter = inv_dyn_data.find(link);
@@ -464,10 +470,10 @@ map<JointPtr, VectorNd> RNEAlgorithm::calc_inv_dyn_floating_base(RCArticulatedBo
 
     // compute velocity and relative acceleration
     v[i] += sqd;
-    a[i] += mult(sprime, qdd_des) + spatial_cross(v[i], sqd);
+    a[i] += mult(sprime, qdd_des) + v[i].cross(sqd);
 
     // compute time derivative of spatial axes contributions (if any)
-    Pose3d::transform(joint->get_pose(), link->get_computation_frame(), sdot, sprime);
+    Pose3d::transform(joint->get_pose(), link->get_computation_frame(), sdot, sdotprime);
     a[i] += mult(sprime, joint->qd);
 
 //    FILE_LOG(LOG_DYNAMICS) << "  s: " << s << endl;
@@ -503,18 +509,18 @@ map<JointPtr, VectorNd> RNEAlgorithm::calc_inv_dyn_floating_base(RCArticulatedBo
     Z[i] = link->get_inertia() * a[i];
 
     // add coriolis and centrifugal forces on link
-    Z[i] += spatial_cross(v[i], link->get_inertia() * v[i]);
+    Z[i] += v[i].cross(link->get_inertia() * v[i]);
 
     // determine external forces on the link in link frame
     idd_iter = inv_dyn_data.find(link);
     assert(idd_iter != inv_dyn_data.end());
-    const Wrenchd& wx = idd_iter->second.wext;
+    const SForced& wx = idd_iter->second.wext;
 
-    // subtract external wrench from Z.A. vector
+    // subtract external force from Z.A. vector
     Z[i] -= wx;
 
     FILE_LOG(LOG_DYNAMICS) << " -- processing link " << link->id << endl;
-    FILE_LOG(LOG_DYNAMICS) << "   external wrench: " << wx << endl;
+    FILE_LOG(LOG_DYNAMICS) << "   external force: " << wx << endl;
     FILE_LOG(LOG_DYNAMICS) << "   ZA vector: " << Z[i] << endl;
   }
   
@@ -578,9 +584,9 @@ map<JointPtr, VectorNd> RNEAlgorithm::calc_inv_dyn_floating_base(RCArticulatedBo
   {
     const unsigned i = links[j]->get_index();
     JointPtr joint(links[j]->get_inner_joint_implicit());
-    const vector<Twistd>& s = joint->get_spatial_axes();
+    const vector<SVelocityd>& s = joint->get_spatial_axes();
     VectorNd& Q = actuator_forces[joint];
-    Wrenchd w = I[i] * a.front() + Z[i];
+    SForced w = I[i] * a.front() + Z[i];
     transpose_mult(s, Pose3d::transform(w.pose, joint->get_pose(), w), Q);
 
     FILE_LOG(LOG_DYNAMICS) << "  processing link: " << links[j]->id << endl;

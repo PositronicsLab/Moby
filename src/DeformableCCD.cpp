@@ -107,7 +107,7 @@ void DeformableCCD::remove_articulated_body(ArticulatedBodyPtr abody)
 }
 
 /// Computes the velocities from states
-map<SingleBodyPtr, Twistd> DeformableCCD::get_velocities(const vector<pair<DynamicBodyPtr, VectorNd> >& q0, const vector<pair<DynamicBodyPtr, VectorNd> >& q1, double dt) const
+map<SingleBodyPtr, SVelocityd> DeformableCCD::get_velocities(const vector<pair<DynamicBodyPtr, VectorNd> >& q0, const vector<pair<DynamicBodyPtr, VectorNd> >& q1, double dt) const
 {
   // first set the generalized velocities
   #ifndef _OPENMP
@@ -131,7 +131,7 @@ map<SingleBodyPtr, Twistd> DeformableCCD::get_velocities(const vector<pair<Dynam
   #endif
 
   // setup the map
-  map<SingleBodyPtr, Twistd> vels;
+  map<SingleBodyPtr, SVelocityd> vels;
 
   // now get the single body linear and angular velocities
   for (unsigned i=0; i< q0.size(); i++)
@@ -178,7 +178,7 @@ bool DeformableCCD::is_contact(double dt, const vector<pair<DynamicBodyPtr, Vect
 
   // get the map of bodies to velocities
   // NOTE: this also sets each body's coordinates and velocities to q0
-  map<SingleBodyPtr, Twistd > vels = get_velocities(q0, q1, dt);
+  map<SingleBodyPtr, SVelocityd > vels = get_velocities(q0, q1, dt);
 
   // clear all velocity expanded BVs
   _ve_BVs.clear();
@@ -201,8 +201,8 @@ bool DeformableCCD::is_contact(double dt, const vector<pair<DynamicBodyPtr, Vect
     SingleBodyPtr sbb = b->get_single_body();
 
     // get the velocities for the two bodies
-    const Twistd& a_vel = vels.find(sba)->second;
-    const Twistd& b_vel = vels.find(sbb)->second;
+    const SVelocityd& a_vel = vels.find(sba)->second;
+    const SVelocityd& b_vel = vels.find(sbb)->second;
 
     // get the transforms from a to b and back
     aTb = Pose3d::calc_relative_pose(b->get_pose(), a->get_pose());
@@ -238,7 +238,7 @@ bool DeformableCCD::is_contact(double dt, const vector<pair<DynamicBodyPtr, Vect
  * \param vels linear and angular velocities of bodies
  * \param set of contacts on return
  */
-void DeformableCCD::check_geoms(double dt, CollisionGeometryPtr a, CollisionGeometryPtr b, const Transform3d& aTb, const Transform3d& bTa, const Twistd& a_vel, const Twistd& b_vel, vector<Event>& contacts)
+void DeformableCCD::check_geoms(double dt, CollisionGeometryPtr a, CollisionGeometryPtr b, const Transform3d& aTb, const Transform3d& bTa, const SVelocityd& a_vel, const SVelocityd& b_vel, vector<Event>& contacts)
 {
   map<BVPtr, vector<const Point3d*> > a_to_test, b_to_test, self_test;
   const Transform3d IDENTITY;
@@ -452,7 +452,7 @@ void DeformableCCD::check_geoms(double dt, CollisionGeometryPtr a, CollisionGeom
 }
 
 /// Checks a set of vertices of geometry a against geometry b
-void DeformableCCD::check_vertices(double dt, CollisionGeometryPtr a, CollisionGeometryPtr b, BVPtr bvb, const std::vector<const Point3d*>& a_verts, const Transform3d& bTa, const Twistd& a_vel, const Twistd& b_vel, double& earliest, vector<Event>& local_contacts, bool self_check) const
+void DeformableCCD::check_vertices(double dt, CollisionGeometryPtr a, CollisionGeometryPtr b, BVPtr bvb, const std::vector<const Point3d*>& a_verts, const Transform3d& bTa, const SVelocityd& a_vel, const SVelocityd& b_vel, double& earliest, vector<Event>& local_contacts, bool self_check) const
 {
   Point3d point;
   Vector3d normal;
@@ -538,7 +538,7 @@ void DeformableCCD::check_vertices(double dt, CollisionGeometryPtr a, CollisionG
 } 
 
 /// Gets the velocity-expanded BV for a BV
-BVPtr DeformableCCD::get_vel_exp_BV(CollisionGeometryPtr cg, BVPtr bv, const Twistd& v)
+BVPtr DeformableCCD::get_vel_exp_BV(CollisionGeometryPtr cg, BVPtr bv, const SVelocityd& v)
 {
   BVPtr ve_bv;
   const double dt = (double) 1.0;
@@ -667,7 +667,7 @@ Event DeformableCCD::create_contact(double toi, CollisionGeometryPtr a, Collisio
 }
 
 /// Populates the DStruct
-void DeformableCCD::populate_dstruct(DStruct* ds, CollisionGeometryPtr gb, CollisionGeometryPtr gs, const Twistd& b_vel, const Twistd& s_vel, BVPtr s_BV) const
+void DeformableCCD::populate_dstruct(DStruct* ds, CollisionGeometryPtr gb, CollisionGeometryPtr gs, const SVelocityd& b_vel, const SVelocityd& s_vel, BVPtr s_BV) const
 {
   // save the BV
   ds->s_BV = s_BV;
@@ -702,7 +702,7 @@ void DeformableCCD::populate_dstruct(DStruct* ds, CollisionGeometryPtr gb, Colli
 }
 
 /// Calculates pdot
-void DeformableCCD::calc_pdot(DStruct* ds, CollisionGeometryPtr gb, CollisionGeometryPtr gs, const Twistd& b_vel, const Twistd& s_vel) const
+void DeformableCCD::calc_pdot(DStruct* ds, CollisionGeometryPtr gb, CollisionGeometryPtr gs, const SVelocityd& b_vel, const SVelocityd& s_vel) const
 {
   // get the single bodies
   SingleBodyPtr bb = gb->get_single_body();
@@ -1183,7 +1183,7 @@ double DeformableCCD::calc_max_dev(const Vector3d& u, const Vector3d& d, const Q
 /****************************************************************************
  Methods for broad phase begin 
 ****************************************************************************/
-void DeformableCCD::broad_phase(const map<SingleBodyPtr, Twistd >& vel_map, vector<pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check)
+void DeformableCCD::broad_phase(const map<SingleBodyPtr, SVelocityd >& vel_map, vector<pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check)
 {
   FILE_LOG(LOG_COLDET) << "DeformableCCD::broad_phase() entered" << std::endl;
 
@@ -1296,7 +1296,7 @@ void DeformableCCD::broad_phase(const map<SingleBodyPtr, Twistd >& vel_map, vect
   FILE_LOG(LOG_COLDET) << "DeformableCCD::broad_phase() exited" << std::endl;
 }
 
-void DeformableCCD::sort_AABBs(const map<SingleBodyPtr, Twistd >& vel_map)
+void DeformableCCD::sort_AABBs(const map<SingleBodyPtr, SVelocityd >& vel_map)
 {
   // if a geometry was added or removed, rebuild the vector of bounds
   // and copy it to x, y, z dimensions
@@ -1372,7 +1372,7 @@ void DeformableCCD::sort_AABBs(const map<SingleBodyPtr, Twistd >& vel_map)
   }
 }
 
-void DeformableCCD::update_bounds_vector(vector<pair<double, BoundsStruct> >& bounds, const map<SingleBodyPtr, Twistd>& vel_map, AxisType axis)
+void DeformableCCD::update_bounds_vector(vector<pair<double, BoundsStruct> >& bounds, const map<SingleBodyPtr, SVelocityd>& vel_map, AxisType axis)
 {
   const unsigned X = 0, Y = 1, Z = 2;
   BVPtr bv_exp;
@@ -1391,7 +1391,7 @@ void DeformableCCD::update_bounds_vector(vector<pair<double, BoundsStruct> >& bo
     if (rb)
     {
       // update the velocities
-      const Twistd& v = vel_map.find(rb)->second;
+      const SVelocityd& v = vel_map.find(rb)->second;
       bounds[i].second.v = v; 
 
       // get the expanded bounding volume
@@ -1474,7 +1474,7 @@ double DeformableCCD::get_max_speed(DeformableBodyPtr db, double dt) const
   return std::sqrt(max_v);
 }
 
-void DeformableCCD::build_bv_vector(const map<SingleBodyPtr, Twistd>& vel_map, vector<pair<double, BoundsStruct> >& bounds)
+void DeformableCCD::build_bv_vector(const map<SingleBodyPtr, SVelocityd>& vel_map, vector<pair<double, BoundsStruct> >& bounds)
 {
   const double INF = std::numeric_limits<double>::max();
 
@@ -1497,7 +1497,7 @@ void DeformableCCD::build_bv_vector(const map<SingleBodyPtr, Twistd>& vel_map, v
 
     // get the velocities for the single body
     assert(vel_map.find(sb) != vel_map.end());
-    const Twistd& v = vel_map.find(sb)->second;
+    const SVelocityd& v = vel_map.find(sb)->second;
 
     // setup the bounds structure
     BoundsStruct bs;

@@ -355,13 +355,13 @@ VectorNd& DeformableBody::get_generalized_forces( VectorNd& f)
 }
 
 /// Converts a force and torque to a generalized force on the body
-VectorNd& DeformableBody::convert_to_generalized_force( SingleBodyPtr body, const Wrenchd& w, const Point3d& p, VectorNd& gf)
+VectorNd& DeformableBody::convert_to_generalized_force( SingleBodyPtr body, const SForced& w, const Point3d& p, VectorNd& gf)
 {
   const unsigned THREE_D = 3, X = 0, Y = 1, Z = 2;
   gf.set_zero(_nodes.size() * THREE_D);
 
-  // convert the wrench to the global frame
-  Wrenchd w0 = Pose3d::transform(w.pose, GLOBAL, w);
+  // convert the force to the global frame
+  SForced w0 = Pose3d::transform(w.pose, GLOBAL, w);
   Vector3d f = w0.get_force();
 
   // determine in what tetrahedron the point lies (or is closest)

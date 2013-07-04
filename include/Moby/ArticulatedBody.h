@@ -98,10 +98,10 @@ class ArticulatedBody : public DynamicBody
 
     /// Abstract method for applying an impulse to this articulated body
     /**
-     * \param w the impulsive wrench 
+     * \param w the impulsive force 
      * \param link link in the articulated body where the impulse is applied
      */
-    virtual void apply_impulse(const Ravelin::Wrenchd& w, RigidBodyPtr link) = 0;
+    virtual void apply_impulse(const Ravelin::SForced& w, RigidBodyPtr link) = 0;
       
     /// Method for resetting the force and torque accumulators on all links
     virtual void reset_accumulators() = 0;
@@ -164,7 +164,7 @@ class ArticulatedBody : public DynamicBody
     Ravelin::VectorNd _dq;
 
     virtual double get_aspeed() const;
-/*    Ravelin::Wrenchd transform_force(RigidBodyPtr link, const Ravelin::Vector3& x) const;
+/*    Ravelin::SForced transform_force(RigidBodyPtr link, const Ravelin::Vector3& x) const;
 */
     static void objective_grad(const Ravelin::VectorNd& x, void* data, Ravelin::VectorNd& g);
 }; // end class
