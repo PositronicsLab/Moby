@@ -7,14 +7,14 @@ set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/CMakeModules)
 
 # setup include directories
 include_directories ("include")
-include_directories ("/Users/drum/Work/Ravelin/include")
+include_directories ("/Users/drum/repo/Ravelin/include")
 
 # setup link directories
 link_directories ("/Users/drum/Work/Ravelin/debug")
 
 # setup library sources
-set (SOURCES OSGGroupWrapper.cpp Integrator.cpp SpherePrimitive.cpp ConePrimitive.cpp CylinderPrimitive.cpp BoxPrimitive.cpp GaussianMixture.cpp CSG.cpp Simulator.cpp EventDrivenSimulator.cpp Spatial.cpp ArticulatedBody.cpp Primitive.cpp Visualizable.cpp AABB.cpp SSL.cpp SSR.cpp BoundingSphere.cpp CompGeom.cpp Polyhedron.cpp ODEPACKIntegrator.cpp EulerIntegrator.cpp VariableStepIntegrator.cpp Rosenbrock4Integrator.cpp RungeKuttaIntegrator.cpp RungeKuttaFehlbergIntegrator.cpp RungeKuttaImplicitIntegrator.cpp ContactParameters.cpp Log.cpp XMLWriter.cpp ThickTriangle.cpp Triangle.cpp Tetrahedron.cpp Base.cpp DynamicBody.cpp SingleBody.cpp XMLTree.cpp FixedJoint.cpp XMLReader.cpp DampingForce.cpp RevoluteJoint.cpp CollisionDetection.cpp CollisionGeometry.cpp MeshDCD.cpp PrismaticJoint.cpp SphericalJoint.cpp UniversalJoint.cpp RigidBody.cpp BV.cpp C2ACCD.cpp OBB.cpp IndexedTetraArray.cpp TriangleMeshPrimitive.cpp IndexedTriArray.cpp Joint.cpp RCArticulatedBody.cpp ImpactEventHandlerQP.cpp ImpactEventHandler.cpp Event.cpp StokesDragForce.cpp VariableEulerIntegrator.cpp GravityForce.cpp DeformableBody.cpp GeneralizedCCD.cpp CRBAlgorithm.cpp RNEAlgorithm.cpp FSABAlgorithm.cpp)
-#set (SOURCES URDFReader.cpp MCArticulatedBody.cpp PSDeformableBody.cpp DeformableCCD.cpp)
+set (SOURCES LCP.cpp OSGGroupWrapper.cpp Integrator.cpp SpherePrimitive.cpp ConePrimitive.cpp CylinderPrimitive.cpp BoxPrimitive.cpp GaussianMixture.cpp CSG.cpp FSABAlgorithm.cpp Simulator.cpp EventDrivenSimulator.cpp Spatial.cpp CRBAlgorithm.cpp RNEAlgorithm.cpp ArticulatedBody.cpp Primitive.cpp Visualizable.cpp AABB.cpp SSL.cpp SSR.cpp BoundingSphere.cpp CompGeom.cpp Polyhedron.cpp Integrator.cpp ODEPACKIntegrator.cpp EulerIntegrator.cpp VariableStepIntegrator.cpp Rosenbrock4Integrator.cpp RungeKuttaIntegrator.cpp RungeKuttaFehlbergIntegrator.cpp RungeKuttaImplicitIntegrator.cpp ContactParameters.cpp Log.cpp XMLWriter.cpp ThickTriangle.cpp Triangle.cpp Tetrahedron.cpp Base.cpp DynamicBody.cpp SingleBody.cpp XMLTree.cpp FixedJoint.cpp XMLReader.cpp DampingForce.cpp RevoluteJoint.cpp CollisionDetection.cpp CollisionGeometry.cpp MeshDCD.cpp PrismaticJoint.cpp SphericalJoint.cpp UniversalJoint.cpp RigidBody.cpp BV.cpp C2ACCD.cpp OBB.cpp IndexedTetraArray.cpp TriangleMeshPrimitive.cpp IndexedTriArray.cpp Joint.cpp RCArticulatedBody.cpp ImpactEventHandlerQP.cpp ImpactEventHandler.cpp Event.cpp StokesDragForce.cpp VariableEulerIntegrator.cpp GeneralizedCCD.cpp)
+#set (SOURCES URDFReader.cpp DeformableBody.cpp MCArticulatedBody.cpp PSDeformableBody.cpp GravityForce.cpp DeformableCCD.cpp)
 
 # build options 
 option (BUILD_SHARED_LIBS "Build Moby as a shared library?" ON)
