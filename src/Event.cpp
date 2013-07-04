@@ -45,7 +45,7 @@ using boost::dynamic_pointer_cast;
 // static declarations
 shared_ptr<Pose3d> Event::_event_frame(new Pose3d);
 MatrixNd Event::J1, Event::J2, Event::workM1, Event::workM2;
-vector<Twistd> Event::twist;
+vector<SVelocityd> Event::vel;
 VectorNd Event::v, Event::workv, Event::workv2; 
 
 /// Creates an empty event 
@@ -118,8 +118,8 @@ void Event::compute_event_data(MatrixNd& M, VectorNd& q) const
     _event_frame->q.set_identity();
     _event_frame->x = contact_point;
 
-    // form the normal and tangential wrenches in contact space
-    Wrenchd wn, ws, wt;
+    // form the normal and tangential forces in contact space
+    SForced wn, ws, wt;
     wn.set_force(contact_normal);
     ws.set_force(contact_tan1); 
     wt.set_force(contact_tan2);
@@ -149,14 +149,14 @@ void Event::compute_event_data(MatrixNd& M, VectorNd& q) const
     SharedVectorNd J2t = J2.row(T); 
 
     // compute the Jacobians for the two bodies
-    su1->calc_jacobian(_event_frame, sb1, twist);
-    transpose_mult(twist, wn, J1n); 
-    transpose_mult(twist, ws, J1s); 
-    transpose_mult(twist, wt, J1t); 
-    su2->calc_jacobian(_event_frame, sb2, twist);
-    transpose_mult(twist, -wn, J2n); 
-    transpose_mult(twist, -ws, J2s); 
-    transpose_mult(twist, -wt, J2t); 
+    su1->calc_jacobian(_event_frame, sb1, vel);
+    transpose_mult(vel, wn, J1n); 
+    transpose_mult(vel, ws, J1s); 
+    transpose_mult(vel, wt, J1t); 
+    su2->calc_jacobian(_event_frame, sb2, vel);
+    transpose_mult(vel, -wn, J2n); 
+    transpose_mult(vel, -ws, J2s); 
+    transpose_mult(vel, -wt, J2t); 
 
     // compute the event inertia matrix for the first body
     su1->transpose_solve_generalized_inertia(J1, workM1);
@@ -357,8 +357,8 @@ void Event::compute_cross_contact_contact_event_data(const Event& e, MatrixNd& M
   _event_frame->q.set_identity();
   _event_frame->x = contact_point;
 
-  // form the normal and tangential wrenches in contact space
-  Wrenchd wn, ws, wt;
+  // form the normal and tangential forces in contact space
+  SForced wn, ws, wt;
   wn.set_force(contact_normal);
   ws.set_force(contact_tan1);
   wt.set_force(contact_tan2);
@@ -372,32 +372,32 @@ void Event::compute_cross_contact_contact_event_data(const Event& e, MatrixNd& M
   wt.pose = _event_frame;
 
   // compute the Jacobians for the first two bodies
-  sua1->calc_jacobian(_event_frame, sba1, twist);
-  transpose_mult(twist, wn, JA1n); 
-  transpose_mult(twist, ws, JA1s); 
-  transpose_mult(twist, wt, JA1t); 
-  sua2->calc_jacobian(_event_frame, sba2, twist);
-  transpose_mult(twist, -wn, JA2n); 
-  transpose_mult(twist, -ws, JA2s); 
-  transpose_mult(twist, -wt, JA2t); 
+  sua1->calc_jacobian(_event_frame, sba1, vel);
+  transpose_mult(vel, wn, JA1n); 
+  transpose_mult(vel, ws, JA1s); 
+  transpose_mult(vel, wt, JA1t); 
+  sua2->calc_jacobian(_event_frame, sba2, vel);
+  transpose_mult(vel, -wn, JA2n); 
+  transpose_mult(vel, -ws, JA2s); 
+  transpose_mult(vel, -wt, JA2t); 
 
   // setup the contact frame
   _event_frame->x = e.contact_point;
 
-  // form the normal and tangential wrenches in contact space
+  // form the normal and tangential forces in contact space
   wn.set_force(e.contact_normal);
   ws.set_force(e.contact_tan1);
   wt.set_force(e.contact_tan2);
 
   // compute the Jacobians for the second two bodies
-  sub1->calc_jacobian(_event_frame, sbb1, twist);
-  transpose_mult(twist, wn, JB1n); 
-  transpose_mult(twist, ws, JB1s); 
-  transpose_mult(twist, wt, JB1t); 
-  sub2->calc_jacobian(_event_frame, sbb2, twist);
-  transpose_mult(twist, -wn, JB2n); 
-  transpose_mult(twist, -ws, JB2s); 
-  transpose_mult(twist, -wt, JB2t); 
+  sub1->calc_jacobian(_event_frame, sbb1, vel);
+  transpose_mult(vel, wn, JB1n); 
+  transpose_mult(vel, ws, JB1s); 
+  transpose_mult(vel, wt, JB1t); 
+  sub2->calc_jacobian(_event_frame, sbb2, vel);
+  transpose_mult(vel, -wn, JB2n); 
+  transpose_mult(vel, -ws, JB2s); 
+  transpose_mult(vel, -wt, JB2t); 
 
   // indicate M has not been altered 
   bool M_altered = false;
@@ -482,8 +482,8 @@ void Event::compute_cross_contact_limit_event_data(const Event& e, MatrixNd& M) 
   _event_frame->q.set_identity();
   _event_frame->x = contact_point;
 
-  // form the normal and tangential wrenches in contact space
-  Wrenchd wn, ws, wt;
+  // form the normal and tangential forces in contact space
+  SForced wn, ws, wt;
   wn.set_force(contact_normal);
   ws.set_force(contact_tan1);
   wt.set_force(contact_tan2);
@@ -512,10 +512,10 @@ void Event::compute_cross_contact_limit_event_data(const Event& e, MatrixNd& M) 
     SharedVectorNd Jt = J1.row(T); 
 
     // compute the Jacobians for the two bodies
-    su1->calc_jacobian(_event_frame, sb1, twist);
-    transpose_mult(twist, wn, Jn); 
-    transpose_mult(twist, ws, Js); 
-    transpose_mult(twist, wt, Jt); 
+    su1->calc_jacobian(_event_frame, sb1, vel);
+    transpose_mult(vel, wn, Jn); 
+    transpose_mult(vel, ws, Js); 
+    transpose_mult(vel, wt, Jt); 
 
     // compute the event inertia matrix for the first body
     su1->transpose_solve_generalized_inertia(J1, workM1);
@@ -539,10 +539,10 @@ void Event::compute_cross_contact_limit_event_data(const Event& e, MatrixNd& M) 
     SharedVectorNd Jt = J1.row(T); 
 
     // compute the Jacobians for the two bodies
-    su2->calc_jacobian(_event_frame, sb2, twist);
-    transpose_mult(twist, -wn, Jn); 
-    transpose_mult(twist, -ws, Js); 
-    transpose_mult(twist, -wt, Jt); 
+    su2->calc_jacobian(_event_frame, sb2, vel);
+    transpose_mult(vel, -wn, Jn); 
+    transpose_mult(vel, -ws, Js); 
+    transpose_mult(vel, -wt, Jt); 
 
     // compute the event inertia matrix for the first body
     su2->transpose_solve_generalized_inertia(J1, workM1);
@@ -628,13 +628,13 @@ double Event::calc_event_vel() const
     SingleBodyPtr sbb = contact_geom2->get_single_body();
     assert(sba && sbb);
 
-    // get the twists 
-    const Twistd& va = sba->velocity(); 
-    const Twistd& vb = sbb->velocity(); 
+    // get the vels 
+    const SVelocityd& va = sba->velocity(); 
+    const SVelocityd& vb = sbb->velocity(); 
 
-    // compute the twists at the contact point
-    Twistd ta = Pose3d::transform(va.pose, contact_point.pose, va); 
-    Twistd tb = Pose3d::transform(vb.pose, contact_point.pose, vb); 
+    // compute the vels at the contact point
+    SVelocityd ta = Pose3d::transform(va.pose, contact_point.pose, va); 
+    SVelocityd tb = Pose3d::transform(vb.pose, contact_point.pose, vb); 
 
     // get the linear velocities and project against the normal
     return contact_normal.dot(ta.get_linear() - tb.get_linear());
@@ -1552,13 +1552,13 @@ double Event::calc_event_tol() const
     SingleBodyPtr sbb = contact_geom2->get_single_body();
     assert(sba && sbb);
 
-    // get the twists 
-    const Twistd& va = sba->velocity(); 
-    const Twistd& vb = sbb->velocity(); 
+    // get the vels 
+    const SVelocityd& va = sba->velocity(); 
+    const SVelocityd& vb = sbb->velocity(); 
 
     // compute the velocities at the contact point
-    Twistd ta = Pose3d::transform(va.pose, contact_point.pose, va); 
-    Twistd tb = Pose3d::transform(vb.pose, contact_point.pose, vb); 
+    SVelocityd ta = Pose3d::transform(va.pose, contact_point.pose, va); 
+    SVelocityd tb = Pose3d::transform(vb.pose, contact_point.pose, vb); 
 
     // compute the difference in linear velocities
     return std::max((ta.get_linear() - tb.get_linear()).norm(), (double) 1.0);

@@ -782,7 +782,7 @@ XMLTreePtr OBB::save_to_xml_tree() const
 }
 
 /// Calculates the velocity-expanded OBB for a body
-BVPtr OBB::calc_swept_BV(CollisionGeometryPtr g, const Twistd& v) const
+BVPtr OBB::calc_swept_BV(CollisionGeometryPtr g, const SVelocityd& v) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
   SAFESTATIC shared_ptr<Pose3d> obb_frame(new Pose3d);
@@ -806,7 +806,7 @@ BVPtr OBB::calc_swept_BV(CollisionGeometryPtr g, const Twistd& v) const
   }
 
   // transform the velocity to the global frame
-  Twistd vo = Pose3d::transform(v.pose, obb_frame, v);
+  SVelocityd vo = Pose3d::transform(v.pose, obb_frame, v);
   Vector3d lv = vo.get_linear();
   Vector3d av = vo.get_angular();
 

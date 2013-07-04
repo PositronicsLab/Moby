@@ -15,8 +15,9 @@
 #include <Ravelin/Vector3d.h>
 #include <Ravelin/MatrixNd.h>
 #include <Ravelin/Pose3d.h>
-#include <Ravelin/Wrenchd.h>
-#include <Ravelin/Twistd.h>
+#include <Ravelin/SForced.h>
+#include <Ravelin/SVelocityd.h>
+#include <Ravelin/SAcceld.h>
 #include <Ravelin/LinAlgd.h>
 #include <Ravelin/SpatialRBInertiad.h>
 #include <Moby/Constants.h>
@@ -48,12 +49,12 @@ class RigidBody : public SingleBody
     RigidBody();
     virtual ~RigidBody() {}
     virtual void integrate(double t, double h, boost::shared_ptr<Integrator> integrator);
-    void add_wrench(const Ravelin::Wrenchd& w);
+    void add_force(const Ravelin::SForced& w);
     void set_pose(const Ravelin::Pose3d& pose);
     void set_inertial_pose(const Ravelin::Pose3d& pose);
     void set_inertia(const Ravelin::SpatialRBInertiad& m);
     void set_enabled(bool flag);
-    void apply_impulse(const Ravelin::Wrenchd& w);
+    void apply_impulse(const Ravelin::SForced& w);
     virtual void rotate(const Ravelin::Quatd& q);
     virtual void translate(const Ravelin::Origin3d& o);
     virtual void calc_fwd_dyn(double dt);
@@ -66,10 +67,10 @@ class RigidBody : public SingleBody
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     bool is_child_link(boost::shared_ptr<const RigidBody> query) const;
     bool is_descendant_link(boost::shared_ptr<const RigidBody> query) const;
-    Ravelin::Twistd& accel() { return _xdd; }
-    const Ravelin::Twistd& accel() const { return _xdd; } 
-    Ravelin::Twistd& velocity();
-    const Ravelin::Twistd& velocity() const { return _xd; }
+    Ravelin::SAcceld& accel() { return _xdd; }
+    const Ravelin::SAcceld& accel() const { return _xdd; } 
+    Ravelin::SVelocityd& velocity();
+    const Ravelin::SVelocityd& velocity() const { return _xd; }
     virtual Ravelin::VectorNd& get_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& gc);
     virtual Ravelin::VectorNd& get_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& gv);
     virtual Ravelin::VectorNd& get_generalized_acceleration(Ravelin::VectorNd& ga);
@@ -79,7 +80,7 @@ class RigidBody : public SingleBody
     virtual void set_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gv);
     virtual Ravelin::MatrixNd& get_generalized_inertia(Ravelin::MatrixNd& M);
     virtual Ravelin::VectorNd& get_generalized_forces(Ravelin::VectorNd& f);
-    virtual Ravelin::VectorNd& convert_to_generalized_force(SingleBodyPtr body, const Ravelin::Wrenchd& w, const Ravelin::Point3d& p, Ravelin::VectorNd& gf);
+    virtual Ravelin::VectorNd& convert_to_generalized_force(SingleBodyPtr body, const Ravelin::SForced& w, const Ravelin::Point3d& p, Ravelin::VectorNd& gf);
     virtual unsigned num_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype) const;
     virtual Ravelin::MatrixNd& solve_generalized_inertia(const Ravelin::MatrixNd& B, Ravelin::MatrixNd& X);
     virtual Ravelin::VectorNd& solve_generalized_inertia(const Ravelin::VectorNd& b, Ravelin::VectorNd& x);
@@ -93,9 +94,9 @@ class RigidBody : public SingleBody
     virtual Ravelin::Vector3d calc_point_vel(const Ravelin::Point3d& p) const;
     bool is_base() const;
     bool is_ground() const;
-    boost::shared_ptr<const Ravelin::Pose3d> get_computation_frame() const;
+    virtual boost::shared_ptr<const Ravelin::Pose3d> get_computation_frame() const;
     virtual void set_computation_frame_type(ReferenceFrameType rftype);
-    Ravelin::Wrenchd calc_inertial_forces() const;
+    Ravelin::SForced calc_inertial_forces() const;
 
     template <class OutputIterator>
     OutputIterator get_parent_links(OutputIterator begin) const;
@@ -119,13 +120,13 @@ class RigidBody : public SingleBody
     double calc_mass() const { return _J.m; }
 
     /// Gets the mass of this body
-    double get_mass() const { return _J.m; }
+    virtual double get_mass() const { return _J.m; }
     
     /// Resets the force and torque accumulators of this body
-    void reset_accumulators() { _wrench.set_zero(); }
+    void reset_accumulators() { _force.set_zero(); }
     
-    /// Gets the external wrench on this body 
-    const Ravelin::Wrenchd& sum_wrenches() const { return _wrench; }
+    /// Gets the external force on this body 
+    const Ravelin::SForced& sum_forces() const { return _force; }
     
     /// Gets whether this body is enabled
     bool is_enabled() const { return _enabled; }
@@ -189,7 +190,7 @@ class RigidBody : public SingleBody
     void set_generalized_velocity_single(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gv);
     Ravelin::MatrixNd& get_generalized_inertia_single(Ravelin::MatrixNd& M);
     Ravelin::VectorNd& get_generalized_forces_single(Ravelin::VectorNd& f);
-    Ravelin::VectorNd& convert_to_generalized_force_single(SingleBodyPtr body, const Ravelin::Wrenchd& w, Ravelin::VectorNd& gf);
+    Ravelin::VectorNd& convert_to_generalized_force_single(SingleBodyPtr body, const Ravelin::SForced& w, Ravelin::VectorNd& gf);
     unsigned num_generalized_coordinates_single(DynamicBody::GeneralizedCoordinateType gctype) const;
     Ravelin::MatrixNd& solve_generalized_inertia_single(const Ravelin::MatrixNd& B, Ravelin::MatrixNd& X);
     Ravelin::VectorNd& solve_generalized_inertia_single(const Ravelin::VectorNd& b, Ravelin::VectorNd& x);
@@ -200,7 +201,7 @@ class RigidBody : public SingleBody
     Ravelin::SpatialRBInertiad _J;
 
     /// Velocity (given computation frame)
-    Ravelin::Twistd _xd;
+    Ravelin::SVelocityd _xd;
 
     /// reference pose for this body
     boost::shared_ptr<Ravelin::Pose3d> _F;
@@ -208,14 +209,14 @@ class RigidBody : public SingleBody
     /// inertial pose for this body
     boost::shared_ptr<Ravelin::Pose3d> _jF;
 
-    /// Cumulative wrench on the body
-    Ravelin::Wrenchd _wrench;
+    /// Cumulative force on the body
+    Ravelin::SForced _force;
 
     /// The link index (if a link in an articulated body)
     unsigned _link_idx;
 
     /// Acceleration (given computation frame)
-    Ravelin::Twistd _xdd;
+    Ravelin::SAcceld _xdd;
 
     /// Flag for determining whether or not the body is physically enabled
     bool _enabled;

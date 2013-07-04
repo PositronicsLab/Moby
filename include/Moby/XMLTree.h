@@ -31,7 +31,8 @@ class XMLAttrib
     XMLAttrib(const std::string& name, double real_value);
     XMLAttrib(const std::string& name, int int_value);
     XMLAttrib(const std::string& name, unsigned unsigned_value);
-    XMLAttrib(const std::string& name, const std::vector<Ravelin::Twistd>& twist_value);
+    XMLAttrib(const std::string& name, const std::vector<Ravelin::SVelocityd>& velocity_values);
+    XMLAttrib(const std::string& name, const std::vector<Ravelin::SAcceld>& accel_values);
     XMLAttrib(const std::string& name, double roll, double pitch, double yaw);
     XMLAttrib(const std::string& name, const Ravelin::Vector2d& vector_value);
     XMLAttrib(const std::string& name, const Ravelin::Point2d& vector_value);
@@ -50,7 +51,8 @@ class XMLAttrib
     double get_real_value() const;
     Ravelin::Origin3d get_origin_value() const;
     Ravelin::Point3d get_point_value() const;
-    std::vector<Ravelin::Twistd> get_twist_values() const;
+    std::vector<Ravelin::SVelocityd> get_velocity_values() const;
+    std::vector<Ravelin::SAcceld> get_accel_values() const;
     int get_int_value() const { return std::atoi(value.c_str()); }
     unsigned get_unsigned_value() const { return (unsigned) std::atoi(value.c_str()); }
     bool get_bool_value() const;

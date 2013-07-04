@@ -40,11 +40,11 @@ void StokesDragForce::add_force(DynamicBodyPtr body)
   RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(body);
   if (rb)
   {
-    Wrenchd w;
+    SForced w;
     w.set_force(rb->velocity().get_linear() * -this->b);
     w.pose = rb->velocity().pose;
-    Wrenchd wx = Pose3d::transform(w.pose, rb->get_computation_frame(), w);
-    rb->add_wrench(wx);
+    SForced wx = Pose3d::transform(w.pose, rb->get_computation_frame(), w);
+    rb->add_force(wx);
   }
   else
   {
@@ -57,11 +57,11 @@ void StokesDragForce::add_force(DynamicBodyPtr body)
     // apply drag force to all links
     BOOST_FOREACH(RigidBodyPtr rb, links)
     {
-      Wrenchd w;
+      SForced w;
       w.set_force(rb->velocity().get_linear() * -this->b);
       w.pose = rb->velocity().pose;
-      Wrenchd wx = Pose3d::transform(w.pose, rb->get_computation_frame(), w);
-      rb->add_wrench(wx);
+      SForced wx = Pose3d::transform(w.pose, rb->get_computation_frame(), w);
+      rb->add_force(wx);
     }
   }
 }

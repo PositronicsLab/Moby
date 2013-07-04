@@ -114,8 +114,8 @@ void Joint::determine_q_dot()
   // get the change in velocity
   RigidBodyPtr inboard = get_inboard_link();
   RigidBodyPtr outboard = get_outboard_link();
-  Twistd vi = inboard->velocity();
-  Twistd vo = outboard->velocity();
+  SVelocityd vi = inboard->velocity();
+  SVelocityd vo = outboard->velocity();
   s.mult(vo - vi, this->qd);
 }
 */
@@ -130,8 +130,8 @@ void Joint::evaluate_constraints_dot(double C[6])
   RigidBodyPtr out = get_outboard_link();
 
   // get the linear angular velocities
-  const Twistd& inv = in->velocity();
-  const Twistd& outv = out->velocity();
+  const SVelocityd& inv = in->velocity();
+  const SVelocityd& outv = out->velocity();
   const Vector3d& lvi = inv.get_linear();
   const Vector3d& lvo = outv.get_linear();
   const Vector3d& avi = inv.get_angular();
@@ -167,7 +167,7 @@ void Joint::calc_s_bar_from_s()
 {
   const unsigned SPATIAL_DIM = 6;
   const unsigned NDOF = num_dof();
-  SAFESTATIC vector<Twistd> sx;
+  SAFESTATIC vector<SVelocityd> sx;
 
   // transform sx to frame located at joint
   RigidBodyPtr outboard = get_outboard_link();
@@ -339,7 +339,7 @@ VectorNd& Joint::get_scaled_force(VectorNd& f)
  * Spatial axes describe the motion of the joint. Note that for rftype = eLink,
  * spatial axes are given in outboard link's frame. 
  */
-const vector<Twistd>& Joint::get_spatial_axes()
+const vector<SVelocityd>& Joint::get_spatial_axes()
 {
   return _s;
 }
@@ -349,7 +349,7 @@ const vector<Twistd>& Joint::get_spatial_axes()
  * Spatial axes describe the motion of the joint. Spatial axes complement are
  * given in identity-oriented frame located at the origin. 
  */
-const vector<Twistd>& Joint::get_spatial_axes_complement()
+const vector<SVelocityd>& Joint::get_spatial_axes_complement()
 {
   calc_s_bar_from_s();
   return _s_bar;
@@ -375,7 +375,7 @@ shared_ptr<const Pose3d> Joint::get_visualization_pose()
 
 /*
 /// Gets the spatial constraints for this joint
-vector<Twistd>& Joint::get_spatial_constraints(ReferenceFrameType rftype, vector<Twistd>& s)
+vector<SVelocityd>& Joint::get_spatial_constraints(ReferenceFrameType rftype, vector<SVelocityd>& s)
 {
   const unsigned X = 0, Y = 1, Z = 2;
   double Cq[7];
@@ -392,7 +392,7 @@ vector<Twistd>& Joint::get_spatial_constraints(ReferenceFrameType rftype, vector
   for (unsigned i=0; i< num_constraint_eqns(); i++)
   {
     // calculate the constraint Jacobian
-    calc_constraint_jacobian_euler(outboard, i, Cq);
+    calc_constraint_jacobian(outboard, i, Cq);
 
     // convert the differential quaternion constraints to an angular velocity
     // representation

@@ -144,14 +144,14 @@ shared_ptr<const Pose3d> RevoluteJoint::get_induced_pose()
 }
 
 /// Gets the derivative for the spatial axes for this joint
-const std::vector<Twistd>& RevoluteJoint::get_spatial_axes_dot()
+const std::vector<SAcceld>& RevoluteJoint::get_spatial_axes_dot()
 {
   return _s_deriv;
 }
 
 /*
 /// Computes the constraint Jacobian with respect to a body
-void RevoluteJoint::calc_constraint_jacobian_euler(RigidBodyPtr body, unsigned index, double Cq[7])
+void RevoluteJoint::calc_constraint_jacobian(RigidBodyPtr body, unsigned index, double Cq[7])
 {
   const unsigned X = 0, Y = 1, Z = 2, SPATIAL_DIM = 7;
 
@@ -474,7 +474,7 @@ void RevoluteJoint::calc_constraint_jacobian_euler(RigidBodyPtr body, unsigned i
 }
 
 /// Computes the time derivative of the constraint Jacobian with respect to a body
-void RevoluteJoint::calc_constraint_jacobian_dot_euler(RigidBodyPtr body, unsigned index, double Cq[7])
+void RevoluteJoint::calc_constraint_jacobian_dot(RigidBodyPtr body, unsigned index, double Cq[7])
 {
   const unsigned X = 0, Y = 1, Z = 2, SPATIAL_DIM = 7;
 
@@ -487,8 +487,8 @@ void RevoluteJoint::calc_constraint_jacobian_dot_euler(RigidBodyPtr body, unsign
   shared_ptr<const Pose3d> F2(new Pose3d(Quatd::identity()), b2->get_pose()->x);
 
   // need velocities in the proper frame
-  Twistd v1 = Pose3d::transform(b1->velocity().pose, F1, b1->velocity());
-  Twistd v2 = Pose3d::transform(b2->velocity().pose, F2, b2->velocity());
+  SVelocityd v1 = Pose3d::transform(b1->velocity().pose, F1, b1->velocity());
+  SVelocityd v2 = Pose3d::transform(b2->velocity().pose, F2, b2->velocity());
 
   // make sure that _u (and by extension _v2) is set
   if (_u.norm_sq() < std::numeric_limits<double>::epsilon())

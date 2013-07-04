@@ -173,7 +173,7 @@ shared_ptr<const Pose3d> ScrewJoint::get_induced_pose()
 }
 
 /// Gets the derivative for the spatial axes for this joint
-const vector<Twistd>& ScrewJoint::get_spatial_axes_dot()
+const vector<SAcceld>& ScrewJoint::get_spatial_axes_dot()
 {
   return _s_deriv;
 }
@@ -225,7 +225,7 @@ void ScrewJoint::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >
 
 /// Calculates the constraint Jacobian
 // TODO: implement this properly
-void ScrewJoint::calc_constraint_jacobian_euler(RigidBodyPtr body, unsigned index, double Cq[7])
+void ScrewJoint::calc_constraint_jacobian(RigidBodyPtr body, unsigned index, double Cq[7])
 {
   const unsigned X = 0, Y = 1, Z = 2, SPATIAL_DIM = 7;
 
@@ -333,7 +333,7 @@ void ScrewJoint::calc_constraint_jacobian_euler(RigidBodyPtr body, unsigned inde
 
 /// Calculates the time derivative of the constraint Jacobian
 // TODO: implement this properly
-void ScrewJoint::calc_constraint_jacobian_dot_euler(RigidBodyPtr body, unsigned index, double Cq[7])
+void ScrewJoint::calc_constraint_jacobian_dot(RigidBodyPtr body, unsigned index, double Cq[7])
 {
   const unsigned X = 0, Y = 1, Z = 2, SPATIAL_DIM = 7;
 

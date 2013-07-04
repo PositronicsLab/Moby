@@ -51,13 +51,13 @@ class MCArticulatedBody : public ArticulatedBody
     virtual Ravelin::VectorNd& get_generalized_velocities(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& gv) { return get_generalized_velocity(gctype, gv); }
     virtual Ravelin::VectorNd& get_generalized_forces(Ravelin::VectorNd& Qf);
     virtual void reset_accumulators();
-    virtual void apply_impulse(const Ravelin::Wrenchd& j, RigidBodyPtr link);
+    virtual void apply_impulse(const Ravelin::SForced& j, RigidBodyPtr link);
     virtual void calc_fwd_dyn(double dt);
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     MCArticulatedBodyPtr get_this() { return boost::dynamic_pointer_cast<MCArticulatedBody>(shared_from_this()); }
     boost::shared_ptr<const MCArticulatedBody> get_this() const { return boost::dynamic_pointer_cast<const MCArticulatedBody>(shared_from_this()); }
-    virtual Ravelin::VectorNd& convert_to_generalized_force(SingleBodyPtr link, const Ravelin::Wrenchd& f, const Ravelin::Point3d& p, Ravelin::VectorNd& gf);
+    virtual Ravelin::VectorNd& convert_to_generalized_force(SingleBodyPtr link, const Ravelin::SForced& f, const Ravelin::Point3d& p, Ravelin::VectorNd& gf);
     virtual void update_event_data(EventProblemData& epd);
     virtual void update_velocity(const EventProblemData& epd);
     virtual void integrate(double t, double h, boost::shared_ptr<Integrator> integrator);

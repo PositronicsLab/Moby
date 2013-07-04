@@ -49,7 +49,7 @@ RigidBody::RigidBody()
   _J.set_zero();
   _xd.set_zero();
   _xdd.set_zero();
-  _wrench.set_zero();
+  _force.set_zero();
   _enabled = true;
   _link_idx = std::numeric_limits<unsigned>::max();
   viscous_coeff = VectorNd::zero(SPATIAL_DIM);
@@ -114,7 +114,7 @@ void RigidBody::set_computation_frame_type(ReferenceFrameType rftype)
   _xd = T.transform(_xd);
   _xdd = T.transform(_xdd);
   _J = T.transform(_J);
-  _wrench = T.transform(_wrench);
+  _force = T.transform(_force);
 
   // TODO: do we need to update joints?
 
@@ -142,10 +142,10 @@ void RigidBody::integrate(double t, double h, shared_ptr<Integrator> integrator)
   FILE_LOG(LOG_DYNAMICS) << "  new velocity: " << _xd << endl;
 }
 
-/// Computes the wrench of inertial forces on the body
-Wrenchd RigidBody::calc_inertial_forces() const
+/// Computes the force of inertial forces on the body
+SForced RigidBody::calc_inertial_forces() const
 {
-  return spatial_cross(_xd, get_inertia() * _xd); 
+  return _xd.cross(get_inertia() * _xd); 
 }
 
 /// Computes the forward dynamics for this body
@@ -154,7 +154,7 @@ void RigidBody::calc_fwd_dyn(double dt)
   // if the body is free, just compute linear and angular acceleration via
   // Newton's and Euler's laws
   if (_abody.expired())
-    _xdd = _J.inverse_mult(sum_wrenches() - calc_inertial_forces()); 
+    _xdd = _J.inverse_mult(sum_forces() - calc_inertial_forces()); 
   else
   {
     // otherwise, need to call forward dynamics on the articulated body
@@ -185,7 +185,7 @@ void RigidBody::set_enabled(bool flag)
 }
 
 /// Sets the linear velocity of this body
-Twistd& RigidBody::velocity() 
+SVelocityd& RigidBody::velocity() 
 { 
   // set the velocity  
   return _xd; 
@@ -223,7 +223,7 @@ void RigidBody::set_pose(const Pose3d& p)
     _xd = T.transform(_xd);
     _xdd = T.transform(_xdd);
     _J = T.transform(_J);
-    _wrench = T.transform(_wrench);
+    _force = T.transform(_force);
   }
 
   // TODO: do we need to update joints?
@@ -234,15 +234,15 @@ void RigidBody::set_pose(const Pose3d& p)
   _F->update_relative_pose(get_computation_frame());
 }
 
-/// Adds a wrench to the body
-void RigidBody::add_wrench(const Wrenchd& w)
+/// Adds a force to the body
+void RigidBody::add_force(const SForced& w)
 {
   // do not add forces to disabled bodies
   if (!_enabled)
     return;
   
-  // update the wrench 
-  _wrench += w;
+  // update the force 
+  _force += w;
 }
 
 // TODO: fix this
@@ -261,7 +261,7 @@ Vector3d RigidBody::calc_point_vel(const Point3d& point) const
   p->x = _F->x;
 
   // transform the velocity to this frame
-  Twistd vp = Pose3d::transform(get_computation_frame(), p, velocity());
+  SVelocityd vp = Pose3d::transform(get_computation_frame(), p, velocity());
 
   // compute the arm
   Vector3d arm = point - _F->x;
@@ -441,7 +441,7 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
   {
     Vector3d lv = ZEROS_3, av = ZEROS_3;
     shared_ptr<const Pose3d> TARGET(new Pose3d(Quatd::identity(), _F->x)); 
-    Twistd v(TARGET);
+    SVelocityd v(TARGET);
     if (lvel_attr) lvel_attr->get_vector_value(lv);
     if (avel_attr) avel_attr->get_vector_value(av);
     v.set_linear(lv);
@@ -511,7 +511,7 @@ void RigidBody::save_to_xml(XMLTreePtr node, list<shared_ptr<const Base> >& shar
 
   // save the linear and angular velocities
   shared_ptr<const Pose3d> TARGET(new Pose3d(Quatd::identity(), _F->x)); 
-  Twistd v = Pose3d::transform(_xd.pose, TARGET, _xd); 
+  SVelocityd v = Pose3d::transform(_xd.pose, TARGET, _xd); 
   node->attribs.insert(XMLAttrib("linear-velocity", v.get_linear()));
   node->attribs.insert(XMLAttrib("angular-velocity", v.get_angular()));
 
@@ -667,9 +667,9 @@ void RigidBody::remove_inner_joint(JointPtr joint)
 
 /// Applies a impulse to this link
 /**
- * \param w the impulse as a wrench 
+ * \param w the impulse as a force 
  */
-void RigidBody::apply_impulse(const Wrenchd& w)
+void RigidBody::apply_impulse(const SForced& w)
 {  
   // if this is not an articulated body, just update linear and angular
   // momenta and velocites
@@ -682,7 +682,7 @@ void RigidBody::apply_impulse(const Wrenchd& w)
     _xd += _J.inverse_mult(w);
 
     // reset the force and torque accumulators for this body
-    _wrench.set_zero();
+    _force.set_zero();
   }
   else
   {
@@ -711,7 +711,7 @@ unsigned RigidBody::num_generalized_coordinates(GeneralizedCoordinateType gctype
 void RigidBody::add_generalized_force(const VectorNd& gf)
 {
   assert(gf.size() == num_generalized_coordinates(DynamicBody::eSpatial));
-  Wrenchd w;
+  SForced w;
 
   // if body is not enabled, do nothing
   if (!_enabled)
@@ -724,8 +724,8 @@ void RigidBody::add_generalized_force(const VectorNd& gf)
   w.set_force(Vector3d(gf[0], gf[1], gf[2]));
   w.set_torque(Vector3d(gf[3], gf[4], gf[5]));
 
-  // add the wrench to the sum of wrenches
-  _wrench += w;
+  // add the force to the sum of forces
+  _force += w;
 }
 
 /// Applies a generalized impulse to this rigid body
@@ -745,7 +745,7 @@ void RigidBody::apply_generalized_impulse(const VectorNd& gj)
 /// Applies a generalized impulse to this rigid body
 void RigidBody::apply_generalized_impulse_single(const VectorNd& gj)
 {
-  Wrenchd w;
+  SForced w;
 
   // don't do anything if this body is disabled
   if (!_enabled)
@@ -755,7 +755,7 @@ void RigidBody::apply_generalized_impulse_single(const VectorNd& gj)
   assert(gj.size() == num_generalized_coordinates(DynamicBody::eSpatial));
 
   // clear the force and torque accumulators
-  _wrench.set_zero();
+  _force.set_zero();
 
   // get the impulses
   w.set_force(Vector3d(gj[0], gj[1], gj[2]));
@@ -1158,8 +1158,8 @@ VectorNd& RigidBody::get_generalized_forces_single(VectorNd& gf)
   const unsigned NGC = num_generalized_coordinates(DynamicBody::eSpatial); 
   gf.resize(NGC);
 
-  // compute external wrenches and inertial forces
-  Wrenchd w = _wrench - calc_inertial_forces();
+  // compute external forces and inertial forces
+  SForced w = _force - calc_inertial_forces();
 
   // get force and torque
   Vector3d f = w.get_force();
@@ -1177,7 +1177,7 @@ VectorNd& RigidBody::get_generalized_forces_single(VectorNd& gf)
 }
 
 /// Converts a force to a generalized force
-VectorNd& RigidBody::convert_to_generalized_force(SingleBodyPtr body, const Wrenchd& w, const Point3d& p, VectorNd& gf) 
+VectorNd& RigidBody::convert_to_generalized_force(SingleBodyPtr body, const SForced& w, const Point3d& p, VectorNd& gf) 
 {
   // if this belongs to an articulated body, call the articulated body method
   if (!_abody.expired())
@@ -1190,7 +1190,7 @@ VectorNd& RigidBody::convert_to_generalized_force(SingleBodyPtr body, const Wren
 }
 
 /// Converts a force to a generalized force (does not call articulated body version)
-VectorNd& RigidBody::convert_to_generalized_force_single(SingleBodyPtr body, const Wrenchd& w, VectorNd& gf) 
+VectorNd& RigidBody::convert_to_generalized_force_single(SingleBodyPtr body, const SForced& w, VectorNd& gf) 
 {
   // verify that body == this
   assert(body.get() == this);
@@ -1200,7 +1200,7 @@ VectorNd& RigidBody::convert_to_generalized_force_single(SingleBodyPtr body, con
     return gf.resize(0);
 
   // transform w to computation frame
-  Wrenchd wt = Pose3d::transform(w.pose, get_computation_frame(), w);
+  SForced wt = Pose3d::transform(w.pose, get_computation_frame(), w);
 
   // get linear and angular components of wt
   Vector3d f = wt.get_force();
@@ -1760,7 +1760,7 @@ std::ostream& Moby::operator<<(std::ostream& out, const Moby::RigidBody& rb)
   out << "  velocity (twist): " << rb.velocity() << endl;
 
   // write sum of forces
-  out << "  forces (wrench): " << rb.sum_wrenches() << endl;
+  out << "  forces: " << rb.sum_forces() << endl;
 
   // write the articulated body
   ArticulatedBodyPtr ab = rb.get_articulated_body();

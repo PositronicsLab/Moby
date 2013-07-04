@@ -138,7 +138,6 @@ class ImpactEventHandler
     static void compute_problem_data(EventProblemData& epd);
     void solve_lcp(EventProblemData& epd, Ravelin::VectorNd& z);
     void solve_qp(EventProblemData& epd, double eps);
-    static void solve_nqp(EventProblemData& epd, double eps);
     void solve_qp_work(EventProblemData& epd, Ravelin::VectorNd& z);
     void solve_qp_work_general(EventProblemData& epd, Ravelin::VectorNd& z);
     void solve_qp_work_ijoints(EventProblemData& epd, Ravelin::VectorNd& z);
