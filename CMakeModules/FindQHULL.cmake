@@ -9,7 +9,8 @@
 
 find_path(
   QHULL_INCLUDE_DIR
-    qhull/qhull_a.h
+  qhull/qhull_a.h
+  libqhull/qhull_a.h
   /usr/local/include
   /usr/include
 )
@@ -17,7 +18,7 @@ find_path(
 if( QHULL_INCLUDE_DIR )
   find_library(
     QHULL_LIBRARY
-    NAMES qhull
+    NAMES qhull 
     PATHS /usr/local/lib /usr/lib
   )
   if( QHULL_LIBRARY )
