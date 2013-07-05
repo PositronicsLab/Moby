@@ -16,6 +16,7 @@
 #include <sstream>
 #include <boost/shared_ptr.hpp>
 #include <boost/foreach.hpp>
+#include <Ravelin/LinAlgd.h>
 #include <Ravelin/Origin2d.h>
 #include <Ravelin/Point2d.h>
 #include <Ravelin/Vector2d.h>

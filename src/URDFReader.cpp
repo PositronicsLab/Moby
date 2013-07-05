@@ -262,131 +262,6 @@ static void from_osg_matrix(const osg::Matrixd& src, Pose3d& tgt)
 }
 #endif
 
-/// Fix for Moby
-void URDFReader::fix_Moby(URDFData& data, const vector<RigidBodyPtr>& links, const vector<JointPtr>& joints)
-{
-  std::map<RigidBodyPtr, RigidBodyPtr> parents;
-  Matrix3d J_out;
-  Point3d com_out;
-
-  // find the base (it will be the link that does not exist as a child)
-  set<RigidBodyPtr> candidates;
-  for (unsigned i=0; i< links.size(); i++)
-    candidates.insert(links[i]);
-  for (std::map<JointPtr, RigidBodyPtr>::const_iterator i = data.joint_child.begin(); i != data.joint_child.end(); i++)
-    candidates.erase(i->second);
-
-  // must be *exactly* one candidate remaining
-  if (candidates.size() != 1)
-  {
-    std::cerr << "URDFReader::fix_Moby() - no bases or multiple bases specified! not reading further!" << std::endl;
-    return;
-  }
-  RigidBodyPtr base = *candidates.begin();
-
-  // add all children of the base link to the queue 
-  queue<RigidBodyPtr> q;
-  find_children(data, base, q, parents);
-
-  // process from base outward 
-  while (!q.empty())
-  {
-    // get the link off of the front of the queue
-    RigidBodyPtr link = q.front();
-    q.pop();
-
-    // get the parent link and the joint
-    JointPtr joint = find_joint(data, link);
-    RigidBodyPtr parent = data.joint_parent.find(joint)->second;
-
-    // see whether this relative transform is ok
-    if (!valid_transformation(data, parent, joint, link))
-    {
-      // correct the transform; first, determine the desired outboard transform
-      // (relative to inboard)
-      const Pose3d& To = data.joint_transforms.find(joint)->second;
-      Pose3d Tx = To;
-      Tx.q.set_identity();
-
-      // now compute the necessary transformation and its inverse
-      Pose3d oTx = Pose3d::inverse(To) * Tx;
-      Pose3d xTo = Pose3d::inverse(oTx);
-
-      std::cerr << "URDFReader warning! Changing transforms! " << std::endl;
-      std::cerr << "  joint transform (" << joint->id << ") was: " << std::endl << To;
-      std::cerr << "  now: " << std::endl << Tx;
-      std::cerr << "  inertial transform (" << link->id << ") was: " << std::endl << data.inertia_transforms[link];
-      std::cerr << "  now: " << std::endl << (data.inertia_transforms[link] * oTx);
-      std::cerr << "  visual transform (" << link->id << ") was: " << std::endl << data.visual_transforms[link];
-      std::cerr << "  now: " << std::endl << (data.visual_transforms[link] * oTx);
-      std::cerr << "  collision transform (" << link->id << ") was: " << std::endl << data.collision_transforms[link];
-      std::cerr << "  now: " << std::endl << (data.collision_transforms[link] * oTx);
-
-      // update all transformations / axes of the outboard 
-      data.joint_transforms[joint] = data.joint_transforms[joint] * oTx;
-      data.inertia_transforms[link] = data.inertia_transforms[link] * oTx;
-      data.visual_transforms[link] = data.visual_transforms[link] * oTx;
-      data.collision_transforms[link] = data.collision_transforms[link] * oTx;
-    
-      // update joint axis, if it is present
-      if (data.joint_axes.find(joint) != data.joint_axes.end())
-        data.joint_axes[joint] = xTo.transform(data.joint_axes[joint]);
-
-      // now update *just* the joint transformation
-      vector<pair<JointPtr, RigidBodyPtr> > outboards;
-      find_outboards(data, link, outboards, parents);
-      for (unsigned i=0; i< outboards.size(); i++)
-      {
-        // get the i'th outboard and its inner joint
-        JointPtr joint = outboards[i].first;
-        RigidBodyPtr outboard = outboards[i].second;
-
-        // update the transform
-        std::cerr << "  child joint transform (" << joint->id << ") was: " << std::endl << data.joint_transforms[joint];
-        std::cerr << "  now: " << std::endl << (xTo * data.joint_transforms[joint]);
-        data.joint_transforms[joint] = xTo * data.joint_transforms[joint];
-      }
-    }
-
-    // add all children to the queue for processing
-    find_children(data, link, q, parents);
-  }
-
-  // ok, now transform all inertias so that their orientation is unchanged
-  // from the reference frame
-  // start with the base
-  Pose3d& jTref = data.inertia_transforms.find(base)->second;
-  Matrix3d jRrefT = Matrix3d::transpose(Matrix3d(jTref.q));
-  Point3d jxref = jTref.x;
-  Primitive::transform_inertia(base->get_mass(), base->get_inertia(), jxref, jRrefT, J_out, com_out); 
-  jTref.x = com_out;
-  jTref.q.set_identity();
-  base->set_inertia(J_out);  
-
-  // now process all children
-  find_children(data, base, q, parents);
-
-  // process from base outward 
-  while (!q.empty())
-  {
-    // get the link off of the front of the queue
-    RigidBodyPtr link = q.front();
-    q.pop();
-
-    // update the inertia
-    Pose3d& jTref = data.inertia_transforms.find(link)->second;
-    Matrix3d jRrefT = Matrix3d::transpose(Matrix3d(jTref.q));
-    Point3d jxref = jTref.x;
-    Primitive::transform_inertia(link->get_mass(), link->get_inertia(), jxref, jRrefT, J_out, com_out); 
-    jTref.q.set_identity();
-    jTref.x = com_out;
-    link->set_inertia(J_out);  
-
-    // now process all children
-    find_children(data, link, q, parents);
-  }
-}
-
 void URDFReader::find_outboards(const URDFData& data, RigidBodyPtr link, vector<pair<JointPtr, RigidBodyPtr> >& outboards, map<RigidBodyPtr, RigidBodyPtr>& parents)
 {
   for (map<JointPtr, RigidBodyPtr>::const_iterator i = data.joint_parent.begin(); i != data.joint_parent.end(); i++)
@@ -397,55 +272,6 @@ void URDFReader::find_outboards(const URDFData& data, RigidBodyPtr link, vector<
       outboards.push_back(make_pair(i->first, outboard));
       parents[outboard] = link;
     } 
-}
-
-/// Determine whether it is possible to get from one reference frame to another
-bool URDFReader::valid_transformation(const URDFData& data, RigidBodyPtr inboard, JointPtr joint, RigidBodyPtr outboard)
-{
-  // get the inboard reference frame (if it's available- it won't be if the
-  // inboard is the base)
-  Pose3d Tref_inboard = IDENTITY_4x4;
-  for (map<JointPtr, RigidBodyPtr>::const_iterator i = data.joint_child.begin(); i != data.joint_child.end(); i++)
-    if (i->second == inboard)
-    {
-      Tref_inboard = data.joint_transforms.find(i->first)->second;
-      break;
-    } 
-
-  // get the outboard reference frame
-  assert(data.joint_transforms.find(joint) != data.joint_transforms.end());
-  Pose3d Tref_outboard = data.joint_transforms.find(joint)->second;
-
-  // get the relative transform and relative rotation
-  Pose3d Trel = Pose3d::inverse(Tref_inboard) * Tref_outboard;
-  Matrix3d Rrel = Trel.q;
-
-  // see whether we can get from Tref_inboard to Tref_outboard based on
-  // joint movement alone
-  if (dynamic_pointer_cast<RevoluteJoint>(joint))
-  {
-    // get the joint axis relative to inboard frame
-    Vector3d axis_0 = Tref_outboard.transform(data.joint_axes.find(joint)->second);
-    Vector3d axis = Tref_inboard.inverse_transform(axis_0);
-
-    // verify that rotation around that axis gives the desired rotation
-    AAngled aa(Rrel, axis);
-    Matrix3d Raa(aa);
-    return std::fabs(Quatd::calc_angle(Quatd(Rrel), Quatd(Raa))) < NEAR_ZERO;    
-  }
-  else if (dynamic_pointer_cast<PrismaticJoint>(joint) || dynamic_pointer_cast<FixedJoint>(joint))
-  {
-    // both orientations must be the same
-    Quatd qd(Rrel);
-    Quatd eye = Quatd::identity();
-    return std::fabs(Quatd::calc_angle(qd, eye)) < NEAR_ZERO;
-  }
-  else
-    // should never be here!
-    assert(false);
-
-  // req'd by compiler...
-  return false; 
 }
 
 void URDFReader::output_data(const URDFData& data, RigidBodyPtr link)
@@ -527,19 +353,12 @@ bool URDFReader::transform_frames(URDFData& data, const vector<RigidBodyPtr>& li
   }
   RigidBodyPtr base = *candidates.begin();
 
-  // fix frame data for Moby 
-  fix_Moby(data, links, joints);
-
   // need to transform base inertia orientation to be relative to global frame
   Pose3d baseT = data.inertia_transforms.find(base)->second; 
   Point3d com_in = baseT.x;
   baseT.x.set_zero();
   Primitive::transform_inertia(base->get_mass(), base->get_inertia(), com_in, baseT, J_out, com_out); 
   base->set_inertia(J_out);
-
-  // update base position and orientation
-  base->set_position(com_out);
-  base->set_orientation(Quatd::identity());
 
   // compute the relative collision transform
   if (data.collision_transforms.find(base) != data.collision_transforms.end())
