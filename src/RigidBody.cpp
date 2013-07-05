@@ -76,6 +76,20 @@ shared_ptr<const Pose3d> RigidBody::get_computation_frame() const
   return shared_ptr<const Pose3d>();
 }
 
+/// Rotates the rigid body
+void RigidBody::rotate(const Quatd& q)
+{
+  // update the rotation 
+  _F->q *= q;
+}
+
+/// Translates the rigid body
+void RigidBody::translate(const Origin3d& x)
+{
+  // update the translation
+  _F->x += x;
+}
+
 /// (Re)sets the computation frame
 void RigidBody::set_computation_frame_type(ReferenceFrameType rftype)
 {
