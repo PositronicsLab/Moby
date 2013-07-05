@@ -57,6 +57,8 @@ class ArticulatedBody : public DynamicBody
   public:
     ArticulatedBody();
     virtual ~ArticulatedBody() {}
+    virtual bool is_floating_base() const = 0;
+    virtual RigidBodyPtr get_base_link() const = 0;
     unsigned num_constraint_eqns_implicit() const;
     unsigned num_constraint_eqns_explicit() const;
     virtual void rotate(const Ravelin::Quatd& q);
@@ -73,6 +75,7 @@ class ArticulatedBody : public DynamicBody
     virtual unsigned num_joint_dof() const;
     void find_loops(std::vector<unsigned>& loop_indices, std::vector<std::vector<unsigned> >& loop_links) const;
     void compute_Z_matrices(const std::vector<unsigned>& loop_indices, const std::vector<std::vector<unsigned> >& loop_links, std::vector<Ravelin::MatrixNd>& Zd, std::vector<Ravelin::MatrixNd>& Z1d, std::vector<Ravelin::MatrixNd>& Z) const;
+    virtual std::vector<Ravelin::SVelocityd>& calc_jacobian(boost::shared_ptr<const Ravelin::Pose3d> frame, DynamicBodyPtr body, std::vector<Ravelin::SVelocityd>& J);
 
     /// Gets the number of degrees-of-freedom permitted by implicit constraints
     virtual unsigned num_joint_dof_implicit() const = 0;

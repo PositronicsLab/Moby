@@ -107,9 +107,46 @@ X& transpose_to_matrix(const std::vector<Ravelin::SAxisd>& t, X& m)
   return m;
 }
 
-/// Computes the "spatial dot product" between a vector of axes and a vector of forces and returns the result in the matrix container (X)
+/// Computes the "spatial dot product" between a vector of velocities and a vector of forces and returns the result in the matrix container (X)
 template <class X>
-X& transpose_mult(const std::vector<Ravelin::SAxisd>& t, const std::vector<Ravelin::SForced>& w, X& result)
+X& transpose_mult(const std::vector<Ravelin::SVelocityd>& t, const std::vector<Ravelin::SForced>& w, X& result)
+{
+  result.resize(t.size(), w.size());
+  double* data = result.data();
+  for (unsigned i=0, k=0; i< t.size(); i++)
+    for (unsigned j=0; j< w.size(); j++)
+      data[k++] = t[i].dot(w[j]);
+
+  return result;
+}
+
+/// Computes the "spatial dot product" between a vector of velocities and a force and returns the result in the matrix container (X)
+template <class X>
+X& transpose_mult(const std::vector<Ravelin::SVelocityd>& t, const Ravelin::SForced& w, X& result)
+{
+  result.resize(t.size(), 1, false);
+  double* data = result.data();
+  for (unsigned i=0, k=0; i< t.size(); i++)
+    data[k++] = t[i].dot(w);
+
+  return result;
+}
+
+/// Computes the "spatial dot product" between a vector of velocities and a momentum and returns the result in the matrix container (X)
+template <class X>
+X& transpose_mult(const std::vector<Ravelin::SVelocityd>& t, const Ravelin::SMomentumd& w, X& result)
+{
+  result.resize(t.size(), 1, false);
+  double* data = result.data();
+  for (unsigned i=0, k=0; i< t.size(); i++)
+    data[k++] = t[i].dot(w);
+
+  return result;
+}
+
+/// Computes the "spatial dot product" between a vector of velocities and a vector of momenta and returns the result in the matrix container (X)
+template <class X>
+X& transpose_mult(const std::vector<Ravelin::SVelocityd>& t, const std::vector<Ravelin::SMomentumd>& w, X& result)
 {
   result.resize(t.size(), w.size());
   double* data = result.data();

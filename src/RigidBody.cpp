@@ -83,6 +83,32 @@ void RigidBody::rotate(const Quatd& q)
   _F->q *= q;
 }
 
+/// Computes the Jacobian
+vector<SVelocityd>& RigidBody::calc_jacobian(shared_ptr<const Pose3d> frame, DynamicBodyPtr body, vector<SVelocityd>& J)
+{
+  const unsigned SPATIAL_DIM = 6;
+
+  if (body != shared_from_this())
+    throw std::runtime_error("RigidBody::calc_jacobian() called with wrong body!");
+
+  // J will be a 6-dimensional vector
+  J.resize(SPATIAL_DIM);
+
+  // setup Jacobian
+  J[0] = SVelocityd(1.0, 0.0, 0.0, 0.0, 0.0, 0.0, _F);
+  J[1] = SVelocityd(0.0, 1.0, 0.0, 0.0, 0.0, 0.0, _F);
+  J[2] = SVelocityd(0.0, 0.0, 1.0, 0.0, 0.0, 0.0, _F);
+  J[3] = SVelocityd(0.0, 0.0, 0.0, 1.0, 0.0, 0.0, _F);
+  J[4] = SVelocityd(0.0, 0.0, 0.0, 0.0, 1.0, 0.0, _F);
+  J[5] = SVelocityd(0.0, 0.0, 0.0, 0.0, 0.0, 1.0, _F);
+
+  // transform J to given pose 
+  for (unsigned i=0; i< SPATIAL_DIM; i++) 
+    J[i] = Pose3d::transform(_F, frame, J[i]);
+
+  return J;
+}
+
 /// Translates the rigid body
 void RigidBody::translate(const Origin3d& x)
 {
@@ -781,6 +807,19 @@ void RigidBody::apply_generalized_impulse_single(const VectorNd& gj)
 }
 
 /// Solves using the generalized inertia matrix
+MatrixNd& RigidBody::transpose_solve_generalized_inertia(const MatrixNd& B, MatrixNd& X)
+{
+  // if this body part of an articulated body, call that function instead
+  if (!_abody.expired())
+  {
+    ArticulatedBodyPtr ab(_abody);
+    return ab->transpose_solve_generalized_inertia(B, X);
+  }
+  else
+    return transpose_solve_generalized_inertia_single(B, X);
+}
+
+/// Solves using the generalized inertia matrix
 MatrixNd& RigidBody::solve_generalized_inertia(const MatrixNd& B, MatrixNd& X)
 {
   // if this body part of an articulated body, call that function instead
@@ -791,6 +830,18 @@ MatrixNd& RigidBody::solve_generalized_inertia(const MatrixNd& B, MatrixNd& X)
   }
   else
     return solve_generalized_inertia_single(B, X);
+}
+
+/// Solves using the generalized inertia matrix (does not call articulated body version)
+MatrixNd& RigidBody::transpose_solve_generalized_inertia_single(const MatrixNd& B, MatrixNd& X)
+{
+  // get proper generalized inertia matrix
+  MatrixNd M;
+  get_generalized_inertia(M);
+  MatrixNd::transpose(B, X);
+  _LA.solve_fast(M, X);
+
+  return X;
 }
 
 /// Solves using the generalized inertia matrix (does not call articulated body version)

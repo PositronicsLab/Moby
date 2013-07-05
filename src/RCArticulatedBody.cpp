@@ -114,6 +114,26 @@ VectorNd& RCArticulatedBody::solve_generalized_inertia(const VectorNd& v, Vector
   return result;
 }
 
+/// Solves the transpose using a generalized inertia matrix
+MatrixNd& RCArticulatedBody::transpose_solve_generalized_inertia(const MatrixNd& m, MatrixNd& result)
+{
+  // update the inverse / factorized inertia (if necessary)
+  update_factorized_generalized_inertia();
+
+  // setup the result
+  MatrixNd::transpose(m, result);
+
+  if (algorithm_type == eFeatherstone || _M_rankdef)
+    _LA->solve_LS_fast(_uM, _sM, _vM, result);
+  else
+  {
+    assert(algorithm_type == eCRB);
+    _crb.M_solve(result);
+  }
+  
+  return result;
+}
+
 /// Solves using a generalized inertia matrix
 MatrixNd& RCArticulatedBody::solve_generalized_inertia(const MatrixNd& m, MatrixNd& result)
 {

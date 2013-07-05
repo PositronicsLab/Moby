@@ -88,18 +88,19 @@ class RCArticulatedBody : public ArticulatedBody
     virtual Ravelin::VectorNd& transpose_Dx_mult(const Ravelin::VectorNd& v, Ravelin::VectorNd& result) { return _Dx.transpose_mult(v, result); }
     virtual Ravelin::MatrixNd& transpose_Dx_mult(const Ravelin::MatrixNd& m, Ravelin::MatrixNd& result) { return _Dx.transpose_mult(m, result); }
     virtual void set_computation_frame_type(ReferenceFrameType rftype);
+    virtual Ravelin::MatrixNd& transpose_solve_generalized_inertia(const Ravelin::MatrixNd& B, Ravelin::MatrixNd& X);
     virtual Ravelin::VectorNd& solve_generalized_inertia(const Ravelin::VectorNd& v, Ravelin::VectorNd& result);
     virtual Ravelin::MatrixNd& solve_generalized_inertia(const Ravelin::MatrixNd& m, Ravelin::MatrixNd& result);
     Ravelin::MatrixNd& solve_generalized_inertia_transpose(const Ravelin::MatrixNd& m, Ravelin::MatrixNd& result);
 
     /// Gets whether the base of this body is fixed or "floating"
-    bool is_floating_base() const { return _floating_base; }
+    virtual bool is_floating_base() const { return _floating_base; }
 
     /// Gets the number of DOF of the implicit joints in the body, not including floating base DOF
     virtual unsigned num_joint_dof() const { return _n_joint_DOF_implicit + num_joint_dof_explicit(); }
 
     /// Gets the base link
-    RigidBodyPtr get_base_link() const { return (!_links.empty()) ? _links.front() : RigidBodyPtr(); }
+    virtual RigidBodyPtr get_base_link() const { return (!_links.empty()) ? _links.front() : RigidBodyPtr(); }
 
     /// The forward dynamics algorithm
     ForwardDynamicsAlgorithmType algorithm_type;

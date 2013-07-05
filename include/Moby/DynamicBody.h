@@ -34,7 +34,7 @@ class DynamicBody : public Visualizable
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual void integrate(double t, double h, boost::shared_ptr<Integrator> integrator);
-    virtual std::vector<Ravelin::SVelocityd>& calc_jacobian(boost::shared_ptr<Ravelin::Pose3d> frame, DynamicBodyPtr body, std::vector<Ravelin::SAxisd>& J);
+    virtual std::vector<Ravelin::SVelocityd>& calc_jacobian(boost::shared_ptr<const Ravelin::Pose3d> frame, DynamicBodyPtr body, std::vector<Ravelin::SVelocityd>& J) = 0;
 
     /// Sets the computation frame type for this body
     virtual void set_computation_frame_type(ReferenceFrameType rftype) = 0;
@@ -89,7 +89,7 @@ class DynamicBody : public Visualizable
     virtual Ravelin::MatrixNd& get_generalized_inertia(Ravelin::MatrixNd& M) = 0;
 
     /// Solves using the inverse generalized inertia
-    Ravelin::MatrixNd& solve_generalized_inertia(const Ravelin::MatrixNd& B, Ravelin::MatrixNd& X);
+    virtual Ravelin::MatrixNd& solve_generalized_inertia(const Ravelin::MatrixNd& B, Ravelin::MatrixNd& X) = 0;
 
     /// Solves using the inverse generalized inertia
     Ravelin::SharedMatrixNd& solve_generalized_inertia(const Ravelin::SharedMatrixNd& B, Ravelin::SharedMatrixNd& X);
@@ -101,7 +101,7 @@ class DynamicBody : public Visualizable
     Ravelin::SharedMatrixNd& solve_generalized_inertia(const Ravelin::MatrixNd& B, Ravelin::SharedMatrixNd& X);
 
     /// Solves using the inverse generalized inertia
-    Ravelin::VectorNd& solve_generalized_inertia(const Ravelin::VectorNd& b, Ravelin::VectorNd& x);
+    virtual Ravelin::VectorNd& solve_generalized_inertia(const Ravelin::VectorNd& b, Ravelin::VectorNd& x) = 0;
 
     /// Solves using the inverse generalized inertia
     Ravelin::VectorNd& solve_generalized_inertia(const Ravelin::SharedVectorNd& b, Ravelin::VectorNd& x);
@@ -113,7 +113,7 @@ class DynamicBody : public Visualizable
     Ravelin::SharedVectorNd& solve_generalized_inertia(const Ravelin::SharedVectorNd& b, Ravelin::SharedVectorNd& x);
 
     /// Solves the transpose matrix using the inverse generalized inertia
-    Ravelin::MatrixNd& transpose_solve_generalized_inertia(const Ravelin::MatrixNd& B, Ravelin::MatrixNd& X);
+    virtual Ravelin::MatrixNd& transpose_solve_generalized_inertia(const Ravelin::MatrixNd& B, Ravelin::MatrixNd& X) = 0;
 
     /// Solves the transpose matrix using the inverse generalized inertia
     Ravelin::MatrixNd& transpose_solve_generalized_inertia(const Ravelin::SharedMatrixNd& B, Ravelin::MatrixNd& X);

@@ -931,8 +931,26 @@ void MCArticulatedBody::get_sub_jacobian(const vector<unsigned>& rows, const MCA
   }
 }
 
+/// Solves using the transpose of the generalized inertia matrix
+MatrixNd& MCArticulatedBody::transpose_solve_generalized_inertia(const MatrixNd& B, MatrixNd& X)
+{
+  X.resize(num_generalized_coordinates(DynamicBody::eSpatial), B.columns()); 
+  VectorNd workv;
+
+  // do the multiplication
+  for (unsigned j=0; j< B.rows(); j++)
+    for (unsigned i=0; i< _iM.size(); i++)
+    {
+      B.get_sub_mat(j, j+1, _gc_indices[i], _gc_indices[i+1], workv);
+      scale_inverse_inertia(i, workv);
+      X.set_sub_mat(_gc_indices[i], j, workv);
+    }
+
+  return X;
+}
+
 /// Solves using the generalized inertia matrix
-MatrixNd& MCArticulatedBody::solve_generalized_inertia( const MatrixNd& B, MatrixNd& X)
+MatrixNd& MCArticulatedBody::solve_generalized_inertia(const MatrixNd& B, MatrixNd& X)
 {
   X.resize(num_generalized_coordinates(DynamicBody::eSpatial), B.columns()); 
   VectorNd workv;

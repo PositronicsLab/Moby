@@ -32,6 +32,88 @@ ArticulatedBody::ArticulatedBody()
   use_advanced_friction_model = false;
 }
 
+/// Gets the Jacobian
+/**
+ * Columns correspond to joint coordinate indices.
+ */
+vector<SVelocityd>& ArticulatedBody::calc_jacobian(boost::shared_ptr<const Pose3d> frame, DynamicBodyPtr body, vector<SVelocityd>& J)
+{
+  const unsigned SPATIAL_DIM = 6;
+
+  // get the number of implicit degrees of freedom
+  const unsigned NIMP_DOF = num_joint_dof_implicit();
+
+  // get the total number of degrees of freedom
+  const unsigned NDOF = (is_floating_base()) ? NIMP_DOF + SPATIAL_DIM : NIMP_DOF;
+
+  // setup the Jacobian
+  J.resize(NDOF); 
+  for (unsigned i=0; i< J.size(); i++)
+    J[i] = SVelocityd::zero(frame);
+
+  // get the current link
+  RigidBodyPtr link = dynamic_pointer_cast<RigidBody>(body);
+  
+  // get the base link
+  RigidBodyPtr base = get_base_link();
+
+  // TODO: verify that get_parent_link() always returns the one we want
+
+  // loop backward through (at most one) joint for each child until we reach 
+  // the parent
+  while (link != base)
+  {
+    // get the parent link
+    RigidBodyPtr parent = link->get_parent_link();
+
+    // get all inner joints for this link
+    const set<JointPtr> ij = link->get_inner_joints();
+
+    // get the joint that yields the parent
+    JointPtr joint;
+    BOOST_FOREACH(JointPtr j, ij)
+    {
+      if (j->get_inboard_link() == parent)
+      {
+        joint = j;
+        break;
+      }
+    }
+    assert(joint);
+ 
+    // get the coordinate index
+    const unsigned CIDX = joint->get_coord_index();
+
+    // get the spatial axes
+    const vector<SAxisd>& s = joint->get_spatial_axes();
+
+    // update J
+    for (unsigned i=0; i< s.size(); i++)
+      J[CIDX+i] = Pose3d::transform(s[i].pose, frame, s[i]);
+
+    // set the link to the parent link
+    link = parent;
+  }
+
+  // if base is floating, setup Jacobian columns at the end
+  if (is_floating_base())
+  {
+    shared_ptr<const Pose3d> bpose = base->get_pose();
+    J[NIMP_DOF+0] = SVelocityd(1.0, 0.0, 0.0, 0.0, 0.0, 0.0, bpose); 
+    J[NIMP_DOF+1] = SVelocityd(0.0, 1.0, 0.0, 0.0, 0.0, 0.0, bpose); 
+    J[NIMP_DOF+2] = SVelocityd(0.0, 0.0, 1.0, 0.0, 0.0, 0.0, bpose); 
+    J[NIMP_DOF+3] = SVelocityd(0.0, 0.0, 0.0, 1.0, 0.0, 0.0, bpose); 
+    J[NIMP_DOF+4] = SVelocityd(0.0, 0.0, 0.0, 0.0, 1.0, 0.0, bpose); 
+    J[NIMP_DOF+5] = SVelocityd(0.0, 0.0, 0.0, 0.0, 0.0, 1.0, bpose); 
+
+    // convert base columns of Jacobian
+    for (unsigned i=NIMP_DOF; i< NIMP_DOF+SPATIAL_DIM; i++)
+      J[i] = Pose3d::transform(J[i].pose, frame, J[i]);
+  }
+
+  return J;
+}
+
 /// Gets the maximum angular speed of the links of this articulated body
 double ArticulatedBody::get_aspeed() const
 {

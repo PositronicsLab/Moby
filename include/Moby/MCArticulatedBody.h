@@ -138,6 +138,7 @@ class MCArticulatedBody : public ArticulatedBody
     Ravelin::MatrixNd& calc_Jx_iM_JyT(const SparseJacobian& Jx, const SparseJacobian& Jy, Ravelin::MatrixNd& Jx_iM_JyT) const;
     static void get_sub_jacobian(const std::vector<unsigned>& rows, const SparseJacobian& J, SparseJacobian& Jx);
     static void increment_dof(RigidBodyPtr rb1, RigidBodyPtr rb2, unsigned k, double h);
+    virtual Ravelin::MatrixNd& transpose_solve_generalized_inertia(const Ravelin::MatrixNd& B, Ravelin::MatrixNd& X);
     virtual Ravelin::VectorNd& solve_generalized_inertia(const Ravelin::VectorNd& b, Ravelin::VectorNd& x) { return iM_mult(b, x); }
     virtual Ravelin::MatrixNd& solve_generalized_inertia(const Ravelin::MatrixNd& B, Ravelin::MatrixNd& X);
     void select_sub_contact_Jacobians(const EventProblemData& q, SparseJacobian& Jc_sub, SparseJacobian& Dc_sub) const;
