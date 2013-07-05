@@ -147,15 +147,15 @@ shared_ptr<const Pose3d> PrismaticJoint::get_induced_pose()
 }
 
 /// Gets the derivative fo the spatial axes for this joint
-vector<SAcceld>& PrismaticJoint::get_spatial_axes_dot()
+vector<SAxisd>& PrismaticJoint::get_spatial_axes_dot()
 {
   return _s_deriv;
 }
 
-/*
 /// Calculates the constraint Jacobian
 void PrismaticJoint::calc_constraint_jacobian(RigidBodyPtr body, unsigned index, double Cq[7])
 {
+/*
   const unsigned X = 0, Y = 1, Z = 2, SPATIAL_DIM = 7;
 
   // get the two links
@@ -883,11 +883,13 @@ void PrismaticJoint::calc_constraint_jacobian(RigidBodyPtr body, unsigned index,
         throw std::runtime_error("Invalid joint constraint index!");
     }
   }
+*/
 }
 
 /// Calculates the time derivative of the constraint Jacobian
 void PrismaticJoint::calc_constraint_jacobian_dot(RigidBodyPtr body, unsigned index, double Cq[7])
 {
+/*
   const unsigned X = 0, Y = 1, Z = 2, SPATIAL_DIM = 7;
 
   // get the two links
@@ -2157,11 +2159,13 @@ void PrismaticJoint::calc_constraint_jacobian_dot(RigidBodyPtr body, unsigned in
         throw std::runtime_error("Invalid joint constraint index!");
     }    
   }
+*/
 }
 
 /// Evaluates the constraint equations
 void PrismaticJoint::evaluate_constraints(double C[])
 {
+/*
   // get the two links
   RigidBodyPtr inner = get_inboard_link();
   RigidBodyPtr outer = get_outboard_link();
@@ -2194,8 +2198,8 @@ void PrismaticJoint::evaluate_constraints(double C[])
   C[2] = v1i.dot(r12);
   C[3] = v1j.dot(r12);
   C[4] = h1.dot(h2);
-}
 */
+}
 
 /// Implements Base::load_from_xml()
 void PrismaticJoint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)

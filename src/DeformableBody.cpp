@@ -745,7 +745,6 @@ Vector3d DeformableBody::calc_point_vel(const Point3d& p) const
   return Pose3d::transform(vx.pose, p.pose, vx);
 }
 
-/*
 /// Adds a force to the body
 void DeformableBody::add_force(const Vector3d& f)
 {
@@ -776,7 +775,6 @@ void DeformableBody::add_force(const Vector3d& f, const Point3d& p)
   _nodes[itet.c]->f += f * v;
   _nodes[itet.c]->f += f * w;
 }
-*/
 
 /// Implements Base::load_from_xml()
 void DeformableBody::load_from_xml(shared_ptr<const XMLTree> node, map<string, BasePtr>& id_map)

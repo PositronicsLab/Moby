@@ -11,6 +11,7 @@
 #include <Moby/SingleBody.h>
 #include <Moby/RigidBody.h>
 #include <Moby/ArticulatedBody.h>
+#include <Moby/DeformableBody.h>
 #include <Moby/GravityForce.h>
 
 using namespace Ravelin;
@@ -33,32 +34,43 @@ GravityForce::GravityForce(const GravityForce& source)
 /// Adds gravity to a body
 void GravityForce::add_force(DynamicBodyPtr body)
 {
-  // check to see whether body is a single body first 
-  shared_ptr<SingleBody> sb = dynamic_pointer_cast<SingleBody>(body);
-  if (sb)
+  // check to see whether body is a rigid body first 
+  shared_ptr<RigidBody> rb = dynamic_pointer_cast<RigidBody>(body);
+  if (rb)
   {
     SForced w;
-    Vector3d gx = Pose3d::transform(GLOBAL, sb->get_computation_frame(), gravity);
-    w.set_force(gx * sb->get_mass());
+    Vector3d gx = Pose3d::transform(GLOBAL, rb->get_computation_frame(), gravity);
+    w.set_force(gx * rb->get_mass());
     w.pose = gx.pose; 
-    sb->add_force(w);        
+    rb->add_force(w);        
   }
   else
   {
     // it's an articulated body, get it as such
     ArticulatedBodyPtr ab = dynamic_pointer_cast<ArticulatedBody>(body);
-      
-    // get the vector of links
-    const std::vector<RigidBodyPtr>& links = ab->get_links();
-      
-    // apply gravity force to all links
-    BOOST_FOREACH(RigidBodyPtr rb, links)
+    if (ab)
     {
-      SForced w;
-      Vector3d gx = Pose3d::transform(GLOBAL, rb->get_computation_frame(), gravity);
-      w.set_force(gx * rb->get_mass());
-      w.pose = gx.pose; 
-      rb->add_force(w);        
+      // get the vector of links
+      const std::vector<RigidBodyPtr>& links = ab->get_links();
+      
+      // apply gravity force to all links
+      BOOST_FOREACH(RigidBodyPtr rb, links)
+      {
+        SForced w;
+        Vector3d gx = Pose3d::transform(GLOBAL, rb->get_computation_frame(), gravity);
+        w.set_force(gx * rb->get_mass());
+        w.pose = gx.pose; 
+        rb->add_force(w);        
+      }
+    }
+    else
+    {
+      // should be a deformable body
+      shared_ptr<DeformableBody> db = dynamic_pointer_cast<DeformableBody>(body);
+
+      // get the gravity vector
+      Vector3d gx = Pose3d::transform(GLOBAL, db->get_computation_frame(), gravity);
+      db->add_force(gx * rb->get_mass());
     }
   }
 }

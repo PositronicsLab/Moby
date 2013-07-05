@@ -39,11 +39,8 @@ class SingleBody : public DynamicBody
     /// Gets the velocity of the body
     virtual const Ravelin::SVelocityd& velocity() const = 0;
 
-    /// Adds a force to the body
-    virtual void add_force(const Ravelin::SForced& w) = 0;
-
     /// Applies an impulse at a point on the body
-    virtual void apply_impulse(const Ravelin::SForced& w) = 0;
+    virtual void apply_impulse(const Ravelin::SMomentumd& w) = 0;
 
     /// Calculates the mass of the body
     virtual double calc_mass() const = 0;

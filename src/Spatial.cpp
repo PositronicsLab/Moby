@@ -23,40 +23,122 @@ VectorNd& concat(const VectorNd& v, const SForced& w, VectorNd& result)
   return result;
 }
 
-/// Multiplies a vector of spatial vectors by a matrix 
-MatrixNd& mult(const vector<SVector6d>& v, const MatrixNd& m, MatrixNd& result)
+/// Concates a vector with a momentum to make a new vector
+VectorNd& concat(const VectorNd& v, const SMomentumd& w, VectorNd& result)
+{
+  const unsigned SPATIAL_DIM = 6;
+  result.resize(v.size()+SPATIAL_DIM);
+  result.set_sub_vec(0, result);
+  result.set_sub_vec(v.size()+0, w.get_linear());
+  result.set_sub_vec(v.size()+3, w.get_angular());
+  return result;
+}
+
+/// Multiplies a vector of spatial momenta by a vector 
+VectorNd& mult(const vector<SMomentumd>& Is, const VectorNd& v, VectorNd& result)
 {
   const unsigned SPATIAL_DIM = 6;
 
-  if (v.size() != m.rows())
+  if (Is.size() != v.rows())
+    throw MissizeException();
+
+  // setup the result
+  result.set_zero(SPATIAL_DIM);
+
+  // if the vector is empty, return now
+  if (Is.empty())
+    return result;
+
+  // verify that all twists are in the same pose
+  for (unsigned i=1; i< Is.size(); i++)
+    if (Is[i].pose != Is[i-1].pose)
+      throw FrameException(); 
+
+  // finally, do the computation
+  const double* vdata = v.data();
+  double* rdata = result.data();
+  for (unsigned j=0; j< SPATIAL_DIM; j++)
+    for (unsigned i=0; i< Is.size(); i++)
+    {
+      const double* Isdata = Is[i].data();
+      rdata[j] += Isdata[j]*vdata[i];
+    }
+
+  return result;
+}
+
+/// Multiplies a vector of spatial momenta by a matrix 
+MatrixNd& mult(const vector<SMomentumd>& Is, const MatrixNd& m, MatrixNd& result)
+{
+  const unsigned SPATIAL_DIM = 6;
+
+  if (Is.size() != m.rows())
     throw MissizeException();
 
   // setup the result
   result.set_zero(SPATIAL_DIM, m.columns());
 
   // if the vector is empty, return now
-  if (v.empty())
+  if (Is.empty())
     return result;
 
   // verify that all twists are in the same pose
-  for (unsigned i=1; i< v.size(); i++)
-    if (v[i].pose != v[i-1].pose)
+  for (unsigned i=1; i< Is.size(); i++)
+    if (Is[i].pose != Is[i-1].pose)
       throw FrameException(); 
 
   // finally, do the computation
+  double* rdata = result.data();
   for (unsigned k=0; k< m.columns(); k++)
   {
     const double* mdata = m.column(k).data();
     for (unsigned j=0; j< SPATIAL_DIM; j++)
-      for (unsigned i=0; i< v.size(); i++)
-        result(k,j) += v[i][j]*mdata[i];
+      for (unsigned i=0; i< Is.size(); i++)
+      {
+        const double* Isdata = Is[i].data();
+        rdata[k+j*result.rows()] += Isdata[j]*mdata[i];
+      }
   }
 
   return result;
 }
 
-/// Multiplies a vector of spatial vectors by a vector
-SVector6d mult(const vector<SVector6d>& t, const VectorNd& v)
+/// Multiplies a spatial inertia by a vector of spatial axes
+MatrixNd& mult(const SpatialABInertiad& I, const std::vector<SAxisd>& s, MatrixNd& result)
+{
+  const unsigned SPATIAL_DIM = 6;
+
+  // resize the result
+  result.resize(SPATIAL_DIM, s.size());
+
+  // compute the individual momenta
+  for (unsigned i=0; i< s.size(); i++)
+  {
+    SMomentumd m = I.mult(s[i]);
+    SharedVectorNd col = result.column(i);
+    m.to_vector(col);
+  } 
+
+  return result;
+}
+
+/// Multiplies a spatial inertia by a vector of spatial axes
+vector<SMomentumd>& mult(const SpatialABInertiad& I, const std::vector<SAxisd>& s, vector<SMomentumd>& result)
+{
+  const unsigned SPATIAL_DIM = 6;
+
+  // resize the result
+  result.resize(s.size());
+
+  // compute the individual momenta
+  for (unsigned i=0; i< s.size(); i++)
+    result[i] = I.mult(s[i]);
+
+  return result;
+}
+
+/// Multiplies a vector of spatial axes by a vector
+SVelocityd mult(const vector<SAxisd>& t, const VectorNd& v)
 {
   const unsigned SPATIAL_DIM = 6;
 
@@ -64,96 +146,7 @@ SVector6d mult(const vector<SVector6d>& t, const VectorNd& v)
     throw MissizeException();
 
   // setup the result
-  SVector6d result = SVector6d::zero();
-
-  // if the vector is empty, return now
-  if (t.empty())
-    return result;
-
-  // verify that all twists are in the same pose
-  result.pose = t.front().pose;
-  for (unsigned i=1; i< t.size(); i++)
-    if (t[i].pose != result.pose)
-      throw FrameException(); 
-
-  // finally, do the computation
-  const double* vdata = v.data();
-  for (unsigned j=0; j< SPATIAL_DIM; j++)
-    for (unsigned i=0; i< t.size(); i++)
-      result[j] += t[i][j]*vdata[i];
-
-  return result;
-}
-/// Multiplies a vector of forces by a vector
-SVector6d mult(const vector<SForced>& w, const VectorNd& v)
-{
-  const unsigned SPATIAL_DIM = 6;
-
-  if (w.size() != v.size())
-    throw MissizeException();
-
-  // setup the result
-  SVector6d result = SVector6d::zero();
-
-  // if the vector is empty, return now
-  if (w.empty())
-    return result;
-
-  // verify that all twists are in the same pose
-  result.pose = w.front().pose;
-  for (unsigned i=1; i< w.size(); i++)
-    if (w[i].pose != result.pose)
-      throw FrameException(); 
-
-  // finally, do the computation
-  const double* vdata = v.data();
-  for (unsigned j=0; j< SPATIAL_DIM; j++)
-    for (unsigned i=0; i< w.size(); i++)
-      result[j] += w[i][j]*vdata[i];
-
-  return result;
-}
-
-/// Multiplies a vector of spatial velocities by a vector
-SVector6d mult(const vector<SVelocityd>& t, const VectorNd& v)
-{
-  const unsigned SPATIAL_DIM = 6;
-
-  if (t.size() != v.size())
-    throw MissizeException();
-
-  // setup the result
-  SVector6d result = SVector6d::zero();
-
-  // if the vector is empty, return now
-  if (t.empty())
-    return result;
-
-  // verify that all twists are in the same pose
-  result.pose = t.front().pose;
-  for (unsigned i=1; i< t.size(); i++)
-    if (t[i].pose != result.pose)
-      throw FrameException(); 
-
-  // finally, do the computation
-  const double* vdata = v.data();
-  for (unsigned j=0; j< SPATIAL_DIM; j++)
-    for (unsigned i=0; i< t.size(); i++)
-      result[j] += t[i][j]*vdata[i];
-
-  return result;
-}
-
-/// Multiplies a vector of spatial accelerations by a vector
-SVector6d mult(const vector<SAcceld>& t, const VectorNd& v)
-{
-  const unsigned SPATIAL_DIM = 6;
-
-  if (t.size() != v.size())
-    throw MissizeException();
-
-  // setup the result
-  SVector6d result = SVector6d::zero();
+  SVelocityd result = SVelocityd::zero();
 
   // if the vector is empty, return now
   if (t.empty())

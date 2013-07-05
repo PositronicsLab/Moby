@@ -26,9 +26,9 @@ using namespace Ravelin;
 using namespace Moby;
 
 /// Computes the OSG visualization
-#ifdef USE_OSG
 osg::Node* GaussianMixture::create_visualization()
 {
+  #ifdef USE_OSG
   const unsigned X = 0, Y = 1, Z = 2;
 
   // get the pose and compute transform from the global frame to it 
@@ -80,8 +80,10 @@ osg::Node* GaussianMixture::create_visualization()
   }
 
   return group;
+  #else
+  return NULL;
+  #endif 
 }
-#endif 
 
 /// Reads the Gaussian parameters
 GaussianMixture::Gauss GaussianMixture::read_gauss_node(shared_ptr<const XMLTree> node)

@@ -54,7 +54,7 @@ class RigidBody : public SingleBody
     void set_inertial_pose(const Ravelin::Pose3d& pose);
     void set_inertia(const Ravelin::SpatialRBInertiad& m);
     void set_enabled(bool flag);
-    void apply_impulse(const Ravelin::SForced& w);
+    void apply_impulse(const Ravelin::SMomentumd& w);
     virtual void rotate(const Ravelin::Quatd& q);
     virtual void translate(const Ravelin::Origin3d& o);
     virtual void calc_fwd_dyn(double dt);

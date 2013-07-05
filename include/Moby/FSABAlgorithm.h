@@ -45,7 +45,7 @@ class FSABAlgorithm
     void set_body(RCArticulatedBodyPtr body) { _body = body; }
     void calc_fwd_dyn();
     void apply_generalized_impulse(const Ravelin::VectorNd& gj);
-    void apply_impulse(const Ravelin::SForced& j, RigidBodyPtr link);
+    void apply_impulse(const Ravelin::SMomentumd& j, RigidBodyPtr link);
 
     /// The body that this algorithm operates on
     boost::weak_ptr<RCArticulatedBody> _body;
@@ -69,7 +69,7 @@ class FSABAlgorithm
     std::vector<Ravelin::SAcceld> _c;
 
     /// The expressions I*s
-    std::vector<Ravelin::MatrixNd> _Is;
+    std::vector<std::vector<Ravelin::SMomentumd> > _Is;
 
     /// Cholesky factorizations sIs
     std::vector<Ravelin::MatrixNd> _sIs;
@@ -108,7 +108,7 @@ class FSABAlgorithm
     void calc_spatial_coriolis_vectors(RCArticulatedBodyPtr body);
     Ravelin::VectorNd& solve_sIs(unsigned idx, const Ravelin::VectorNd& v, Ravelin::VectorNd& result) const;
     Ravelin::MatrixNd& solve_sIs(unsigned idx, const Ravelin::MatrixNd& v, Ravelin::MatrixNd& result) const;
-    Ravelin::MatrixNd& transpose_solve_sIs(unsigned idx, const std::vector<Ravelin::SVelocityd>& m, Ravelin::MatrixNd& result) const;
+    Ravelin::MatrixNd& transpose_solve_sIs(unsigned idx, const std::vector<Ravelin::SAxisd>& m, Ravelin::MatrixNd& result) const;
 }; // end class
 } // end namespace
 

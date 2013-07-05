@@ -173,7 +173,7 @@ shared_ptr<const Pose3d> ScrewJoint::get_induced_pose()
 }
 
 /// Gets the derivative for the spatial axes for this joint
-const vector<SAcceld>& ScrewJoint::get_spatial_axes_dot()
+const vector<SAxisd>& ScrewJoint::get_spatial_axes_dot()
 {
   return _s_deriv;
 }
@@ -224,9 +224,9 @@ void ScrewJoint::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >
 }
 
 /// Calculates the constraint Jacobian
-// TODO: implement this properly
 void ScrewJoint::calc_constraint_jacobian(RigidBodyPtr body, unsigned index, double Cq[7])
 {
+/*
   const unsigned X = 0, Y = 1, Z = 2, SPATIAL_DIM = 7;
 
   // get the two links
@@ -329,12 +329,14 @@ void ScrewJoint::calc_constraint_jacobian(RigidBodyPtr body, unsigned index, dou
         throw std::runtime_error("Invalid joint constraint index!");
     }
   }
+*/
 }
 
 /// Calculates the time derivative of the constraint Jacobian
 // TODO: implement this properly
 void ScrewJoint::calc_constraint_jacobian_dot(RigidBodyPtr body, unsigned index, double Cq[7])
 {
+/*
   const unsigned X = 0, Y = 1, Z = 2, SPATIAL_DIM = 7;
 
   // get the two links
@@ -453,12 +455,14 @@ void ScrewJoint::calc_constraint_jacobian_dot(RigidBodyPtr body, unsigned index,
         throw std::runtime_error("Invalid joint constraint index!");
     }    
   }
+*/
 }
 
 /// Evaluates the constraint equations
 // TODO: implement this properly
 void ScrewJoint::evaluate_constraints(double C[])
 {
+/*
   // get the two links
   RigidBodyPtr inner = get_inboard_link();
   RigidBodyPtr outer = get_outboard_link();
@@ -485,7 +489,7 @@ void ScrewJoint::evaluate_constraints(double C[])
   // 1: h1 x h2 = 0   (joint axis according to body 1 and body2)
   // 2: h2 x s12 = 0  (s12 is a vector defined along the joint axis)
   // 3: tij - pitch*thetaij = 0 (tij/thetaij is relative translation/rotation)
-
+*/
 }
 
 

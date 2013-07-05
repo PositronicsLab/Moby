@@ -51,7 +51,7 @@ class MCArticulatedBody : public ArticulatedBody
     virtual Ravelin::VectorNd& get_generalized_velocities(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& gv) { return get_generalized_velocity(gctype, gv); }
     virtual Ravelin::VectorNd& get_generalized_forces(Ravelin::VectorNd& Qf);
     virtual void reset_accumulators();
-    virtual void apply_impulse(const Ravelin::SForced& j, RigidBodyPtr link);
+    virtual void apply_impulse(const Ravelin::SMomentumd& j, RigidBodyPtr link);
     virtual void calc_fwd_dyn(double dt);
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;

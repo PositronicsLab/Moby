@@ -12,6 +12,8 @@
 #include <Ravelin/Pose3d.h>
 #include <Ravelin/MatrixNd.h>
 #include <Ravelin/SAcceld.h>
+#include <Ravelin/SAxisd.h>
+#include <Ravelin/LinAlgd.h>
 #include <Moby/Base.h>
 #include <Moby/DynamicBody.h>
 #include <Moby/RigidBody.h>
@@ -36,8 +38,8 @@ class Joint : public Visualizable
     virtual ~Joint() {}
     void add_force(const Ravelin::VectorNd& force);
     void reset_force();    
-    virtual const std::vector<Ravelin::SVelocityd>& get_spatial_axes();
-    virtual const std::vector<Ravelin::SVelocityd>& get_spatial_axes_complement();
+    virtual const std::vector<Ravelin::SAxisd>& get_spatial_axes();
+    virtual const std::vector<Ravelin::SAxisd>& get_spatial_axes_complement();
     Ravelin::Point3d get_location(bool use_outboard = false) const;
     Ravelin::VectorNd& get_scaled_force(Ravelin::VectorNd& f);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
@@ -45,7 +47,7 @@ class Joint : public Visualizable
     virtual void set_inboard_link(RigidBodyPtr link);
     virtual void set_outboard_link(RigidBodyPtr link);
     virtual void update_spatial_axes();
-    std::vector<Ravelin::SVelocityd>& get_spatial_constraints(ReferenceFrameType rftype, std::vector<Ravelin::SVelocityd>& s);
+    std::vector<Ravelin::SAxisd>& get_spatial_constraints(ReferenceFrameType rftype, std::vector<Ravelin::SAxisd>& s);
     ConstraintType get_constraint_type() const { return _constraint_type; }
     void evaluate_constraints_dot(double C[6]);
     virtual void determine_q_dot();
@@ -149,7 +151,7 @@ class Joint : public Visualizable
     /**
      * Only applicable for reduced-coordinate articulated bodies
      */
-    virtual const std::vector<Ravelin::SAcceld>& get_spatial_axes_dot() = 0;
+    virtual const std::vector<Ravelin::SAxisd>& get_spatial_axes_dot() = 0;
 
     /// Abstract method to get the local transform for this joint
     /**
@@ -294,14 +296,14 @@ class Joint : public Visualizable
      * Spatial axes are used in the dynamics equations for reduced-coordinate
      * articulated bodies only.
      */
-    std::vector<Ravelin::SVelocityd> _s;
+    std::vector<Ravelin::SAxisd> _s;
 
     /// The complement of the spatial axes (in joint position frame) for the joint
     /**
      * Spatial axes are used in the dynamic equations for reduced-coordinate
      * articulated bodies only.
      */
-    std::vector<Ravelin::SVelocityd> _s_bar;
+    std::vector<Ravelin::SAxisd> _s_bar;
 
     /// The stored "tare" value for the initial joint configuration
     /**
@@ -318,6 +320,9 @@ class Joint : public Visualizable
   private:
     // working variables for calc_s_bar_from_s()
     Ravelin::MatrixNd _ns;
+
+    // shared linear algebra object
+    static Ravelin::LinAlgd _LA;
 
     ConstraintType _constraint_type;
     unsigned _joint_idx;

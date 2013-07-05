@@ -17,6 +17,7 @@
 using Ravelin::VectorNd;
 using Ravelin::MatrixNd;
 using Ravelin::SForced;
+using Ravelin::SAxisd;
 using Ravelin::SVelocityd;
 using Ravelin::SAcceld;
 using Ravelin::SpatialRBInertiad;
@@ -48,8 +49,7 @@ map<JointPtr, VectorNd> RNEAlgorithm::calc_inv_dyn_fixed_base(RCArticulatedBodyP
 {
   queue<RigidBodyPtr> link_queue;
   map<RigidBodyPtr, RCArticulatedBodyInvDynData>::const_iterator idd_iter;
-  vector<SVelocityd> sprime;
-  vector<SAcceld> sdotprime;
+  vector<SAxisd> sprime;
 
   FILE_LOG(LOG_DYNAMICS) << "RNEAlgorithm::calc_inv_dyn_fixed_base() entered" << endl;
 
@@ -114,20 +114,20 @@ map<JointPtr, VectorNd> RNEAlgorithm::calc_inv_dyn_fixed_base(RCArticulatedBodyP
     const VectorNd& qdd_des = idd_iter->second.qdd;  
 
     // get the spatial axes and time derivative
-    const vector<SVelocityd>& s = joint->get_spatial_axes();
-    const vector<SAcceld>& sdot = joint->get_spatial_axes_dot();
+    const vector<SAxisd>& s = joint->get_spatial_axes();
+    const vector<SAxisd>& sdot = joint->get_spatial_axes_dot();
 
     // put s into the proper frame (that of v/a) (if necessary)
     Pose3d::transform(s.front().pose, v.pose, s, sprime);  
 
     // add this link's contribution
     SVelocityd sqd = mult(sprime, qd);
-    a[i] += v.cross(sqd);
-    a[i] += mult(s, qdd_des);
+    a[i] += SAcceld(v.cross(sqd));
+    a[i] += SAcceld(mult(s, qdd_des));
 
     // put s into the proper frame (that of v/a) (if necessary)
-    Pose3d::transform(joint->get_pose(), v.pose, sdot, sdotprime);  
-    a[i] += mult(sprime, qd);
+    Pose3d::transform(joint->get_pose(), v.pose, sdot, sprime);  
+    a[i] += SAcceld(mult(sprime, qd));
 
     // now add parent's contribution
     a[i] += Pose3d::transform(a[h].pose, a[i].pose, a[h]);
@@ -218,7 +218,7 @@ map<JointPtr, VectorNd> RNEAlgorithm::calc_inv_dyn_fixed_base(RCArticulatedBodyP
     RigidBodyPtr link = links[j];
     const unsigned i = link->get_index();
     JointPtr joint(link->get_inner_joint_implicit());
-    const vector<SVelocityd>& s = joint->get_spatial_axes();
+    const vector<SAxisd>& s = joint->get_spatial_axes();
     VectorNd& Q = actuator_forces[joint]; 
     SForced w = Pose3d::transform(f[i].pose, joint->get_pose(), f[i]); 
     transpose_mult(s, w, Q);
@@ -391,8 +391,7 @@ map<JointPtr, VectorNd> RNEAlgorithm::calc_inv_dyn_floating_base(RCArticulatedBo
   vector<SVelocityd> v;
   vector<SAcceld> a;
   vector<SForced> Z;
-  vector<SVelocityd> sprime;
-  vector<SAcceld> sdotprime;
+  vector<SAxisd> sprime;
 
   FILE_LOG(LOG_DYNAMICS) << "RNEAlgorithm::calc_inv_dyn_floating_base() entered" << endl;
 
@@ -451,8 +450,8 @@ map<JointPtr, VectorNd> RNEAlgorithm::calc_inv_dyn_floating_base(RCArticulatedBo
     const unsigned h = parent->get_index();
 
     // get spatial axes and derivatives
-    const vector<SVelocityd>& s = joint->get_spatial_axes();
-    const vector<SAcceld>& sdot = joint->get_spatial_axes_dot();
+    const vector<SAxisd>& s = joint->get_spatial_axes();
+    const vector<SAxisd>& sdot = joint->get_spatial_axes_dot();
 
     // put s into the proper frame (that of v/a) 
     Pose3d::transform(joint->get_pose(), link->get_computation_frame(), s, sprime);
@@ -470,11 +469,11 @@ map<JointPtr, VectorNd> RNEAlgorithm::calc_inv_dyn_floating_base(RCArticulatedBo
 
     // compute velocity and relative acceleration
     v[i] += sqd;
-    a[i] += mult(sprime, qdd_des) + v[i].cross(sqd);
+    a[i] += SAcceld(mult(sprime, qdd_des) + v[i].cross(sqd));
 
     // compute time derivative of spatial axes contributions (if any)
-    Pose3d::transform(joint->get_pose(), link->get_computation_frame(), sdot, sdotprime);
-    a[i] += mult(sprime, joint->qd);
+    Pose3d::transform(joint->get_pose(), link->get_computation_frame(), sdot, sprime);
+    a[i] += SAcceld(mult(sprime, joint->qd));
 
 //    FILE_LOG(LOG_DYNAMICS) << "  s: " << s << endl;
     FILE_LOG(LOG_DYNAMICS) << "  velocity for link " << links[i]->id << ": " << v[i] << endl;
@@ -584,7 +583,7 @@ map<JointPtr, VectorNd> RNEAlgorithm::calc_inv_dyn_floating_base(RCArticulatedBo
   {
     const unsigned i = links[j]->get_index();
     JointPtr joint(links[j]->get_inner_joint_implicit());
-    const vector<SVelocityd>& s = joint->get_spatial_axes();
+    const vector<SAxisd>& s = joint->get_spatial_axes();
     VectorNd& Q = actuator_forces[joint];
     SForced w = I[i] * a.front() + Z[i];
     transpose_mult(s, Pose3d::transform(w.pose, joint->get_pose(), w), Q);

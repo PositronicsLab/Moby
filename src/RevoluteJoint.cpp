@@ -144,15 +144,15 @@ shared_ptr<const Pose3d> RevoluteJoint::get_induced_pose()
 }
 
 /// Gets the derivative for the spatial axes for this joint
-const std::vector<SAcceld>& RevoluteJoint::get_spatial_axes_dot()
+const std::vector<SAxisd>& RevoluteJoint::get_spatial_axes_dot()
 {
   return _s_deriv;
 }
 
-/*
 /// Computes the constraint Jacobian with respect to a body
 void RevoluteJoint::calc_constraint_jacobian(RigidBodyPtr body, unsigned index, double Cq[7])
 {
+/*
   const unsigned X = 0, Y = 1, Z = 2, SPATIAL_DIM = 7;
 
   // get the two links
@@ -471,11 +471,13 @@ void RevoluteJoint::calc_constraint_jacobian(RigidBodyPtr body, unsigned index, 
         throw std::runtime_error("Invalid joint constraint index!");
     }
   }
+*/
 }
 
 /// Computes the time derivative of the constraint Jacobian with respect to a body
 void RevoluteJoint::calc_constraint_jacobian_dot(RigidBodyPtr body, unsigned index, double Cq[7])
 {
+/*
   const unsigned X = 0, Y = 1, Z = 2, SPATIAL_DIM = 7;
 
   // get the two links
@@ -976,11 +978,13 @@ void RevoluteJoint::calc_constraint_jacobian_dot(RigidBodyPtr body, unsigned ind
         throw std::runtime_error("Invalid joint constraint index!");
     }
   }
+*/
 }
 
 /// Evaluates the constraint equations
 void RevoluteJoint::evaluate_constraints(double C[])
 {
+/*
   const unsigned X = 0, Y = 1, Z = 2;
 
   // get the two links
@@ -1007,8 +1011,8 @@ void RevoluteJoint::evaluate_constraints(double C[])
   C[2] = r12[Z];
   C[3] = v1i.dot(v2);
   C[4] = v1j.dot(v2); 
-}
 */
+}
 
 /// Implements Base::load_from_xml()
 void RevoluteJoint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)

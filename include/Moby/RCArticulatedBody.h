@@ -56,7 +56,7 @@ class RCArticulatedBody : public ArticulatedBody
     virtual void reset_accumulators();
     virtual void update_link_poses();    
     virtual void update_link_velocities();
-    virtual void apply_impulse(const Ravelin::SForced& w, RigidBodyPtr link);
+    virtual void apply_impulse(const Ravelin::SMomentumd& w, RigidBodyPtr link);
     virtual void calc_fwd_dyn(double dt);
     virtual void update_visualization();
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);

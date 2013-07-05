@@ -108,7 +108,7 @@ bool CRBAlgorithm::factorize_cholesky(MatrixNd& M)
 }
 
 // Transforms (as necessary) and multiplies
-void CRBAlgorithm::transform_and_mult(RigidBodyPtr link, const SpatialRBInertiad& I, const vector<SVelocityd>& s, vector<SMomentumd>& Is)
+void CRBAlgorithm::transform_and_mult(RigidBodyPtr link, const SpatialRBInertiad& I, const vector<SAxisd>& s, vector<SMomentumd>& Is)
 {
   SpatialRBInertiad Iprime;
 
@@ -120,7 +120,7 @@ void CRBAlgorithm::transform_and_mult(RigidBodyPtr link, const SpatialRBInertiad
   Iprime = Pose3d::transform(I.pose, TARGET, I);
 
   // do the multiplication
-  Iprime.mult(_sprime, Is);
+  mult(Iprime, _sprime, Is);
 }
 
 /// Calculates the generalized inertia of this body
@@ -170,7 +170,7 @@ void CRBAlgorithm::calc_generalized_inertia(RCArticulatedBodyPtr body)
   {
     // get the spatial axes for the joint
     JointPtr joint = ijoints[i];
-    const std::vector<SVelocityd>& s = joint->get_spatial_axes();
+    const std::vector<SAxisd>& s = joint->get_spatial_axes();
 
     // get the index for this joint
     unsigned jidx = joint->get_coord_index();
@@ -360,7 +360,7 @@ void CRBAlgorithm::calc_joint_space_inertia(RCArticulatedBodyPtr body, MatrixNd&
   {
     RigidBodyPtr outboard = ijoints[i]->get_outboard_link(); 
     unsigned oidx = outboard->get_index();
-    const std::vector<SVelocityd>& s = ijoints[i]->get_spatial_axes();
+    const std::vector<SAxisd>& s = ijoints[i]->get_spatial_axes();
     transform_and_mult(outboard, Ic[oidx], s, _momenta[oidx]);
   } 
 
@@ -378,7 +378,7 @@ void CRBAlgorithm::calc_joint_space_inertia(RCArticulatedBodyPtr body, MatrixNd&
     unsigned oiidx = obi->get_index();
 
     // get the spatial axes for jointi
-    const std::vector<SVelocityd>& s = ijoints[i]->get_spatial_axes();
+    const std::vector<SAxisd>& s = ijoints[i]->get_spatial_axes();
 
     // get the appropriate submatrix of H
     SharedMatrixNd subi = H.block(iidx, iidx+NiDOF, iidx, iidx+NiDOF); 
@@ -475,7 +475,7 @@ void CRBAlgorithm::calc_generalized_inertia(MatrixNd& M)
     // get the joint index and spatial axes
     JointPtr joint = ijoints[i];
     unsigned jidx = joint->get_coord_index();
-    const std::vector<SVelocityd>& s = joint->get_spatial_axes();
+    const std::vector<SAxisd>& s = joint->get_spatial_axes();
     RigidBodyPtr ob = joint->get_outboard_link();
     unsigned idx = ob->get_index(); 
 
@@ -806,8 +806,8 @@ void CRBAlgorithm::calc_generalized_forces(SForced& f0, VectorNd& C)
     const SVelocityd& vx = link->velocity(); 
 
     // get spatial axes and derivative for this link's inner joint
-    const std::vector<SVelocityd>& s = joint->get_spatial_axes();
-    const std::vector<SAcceld>& sdot = joint->get_spatial_axes_dot();
+    const std::vector<SAxisd>& s = joint->get_spatial_axes();
+    const std::vector<SAxisd>& sdot = joint->get_spatial_axes_dot();
 
     // get the current joint velocity
     const VectorNd& qd = joint->qd;
@@ -819,7 +819,7 @@ void CRBAlgorithm::calc_generalized_forces(SForced& f0, VectorNd& C)
     SVelocityd sqd = mult(s, qd);
     _a[i] = link->velocity().cross(sqd);
     if (!sdot.empty())
-      _a[i] += mult(Pose3d::transform(sdot[0].pose, _a[i].pose, sdot, _sdotprime), qd); 
+      _a[i] += SAcceld(mult(Pose3d::transform(sdot[0].pose, _a[i].pose, sdot, _sprime), qd)); 
 
     // now add parent's contribution
     _a[i] += Pose3d::transform(_a[h].pose, _a[i].pose, _a[h]);
@@ -913,7 +913,7 @@ void CRBAlgorithm::calc_generalized_forces(SForced& f0, VectorNd& C)
 
     // compute appropriate components of C
     SharedVectorNd Csub = C.segment(jidx, jidx+joint->num_dof()); 
-    const std::vector<SVelocityd>& s = joint->get_spatial_axes();
+    const std::vector<SAxisd>& s = joint->get_spatial_axes();
     transform_and_transpose_mult(s, _w[oidx], Csub);
 
     FILE_LOG(LOG_DYNAMICS) << " -- computing C for link " << ob->id << std::endl;
@@ -988,13 +988,13 @@ void CRBAlgorithm::update_link_accelerations(RCArticulatedBodyPtr body)
     ai = Pose3d::transform(ah.pose, ai.pose, ah);
 
     // get the link spatial axis
-    const std::vector<SVelocityd>& s = joint->get_spatial_axes(); 
+    const std::vector<SAxisd>& s = joint->get_spatial_axes(); 
 
     // determine the link accel
     Pose3d::transform(s.front().pose, ai.pose, s, _sprime);
     SVelocityd sqd = mult(_sprime, joint->qd);
-    ai += link->velocity().cross(sqd);
-    ai += mult(_sprime, joint->qdd); 
+    ai += SAcceld(link->velocity().cross(sqd));
+    ai += SAcceld(mult(_sprime, joint->qdd)); 
 
     FILE_LOG(LOG_DYNAMICS) << "    -- updating link " << link->id << std::endl;
     FILE_LOG(LOG_DYNAMICS) << "      -- parent acceleration: " << ah << std::endl;
@@ -1062,7 +1062,7 @@ void CRBAlgorithm::apply_impulse(const SForced& w, RigidBodyPtr link)
 
 /// TODO: fix this for bodies with kinematic loops
 /// Applies an impulse to an articulated body with a floating base; complexity O(n^2)
-void CRBAlgorithm::apply_impulse(const SForced& w, RigidBodyPtr link)
+void CRBAlgorithm::apply_impulse(const SMomentumd& w, RigidBodyPtr link)
 {
   const unsigned OPSPACE_DIM = 6;
   SVelocityd dv0;
@@ -1091,7 +1091,7 @@ void CRBAlgorithm::apply_impulse(const SForced& w, RigidBodyPtr link)
   while ((j = l->get_inner_joint_implicit()))
   {
     // compute the Jacobian column(s) for the joint
-    const std::vector<SVelocityd>& s = j->get_spatial_axes();
+    const std::vector<SAxisd>& s = j->get_spatial_axes();
 
     // transform spatial axes to global frame
     Pose3d::transform(j->get_pose(), GLOBAL, s, _sprime);
@@ -1104,7 +1104,7 @@ void CRBAlgorithm::apply_impulse(const SForced& w, RigidBodyPtr link)
   }
 
   // transform the impulse to the global frame
-  SForced w0 = Pose3d::transform(w.pose, GLOBAL, w); 
+  SMomentumd w0 = Pose3d::transform(w.pose, GLOBAL, w); 
 
   // compute the impulse applied to the joints
   transpose_mult(_J, w0, workv);

@@ -55,7 +55,8 @@ class DeformableBody : public SingleBody
     virtual Ravelin::VectorNd& convert_to_generalized_force(SingleBodyPtr body, const Ravelin::SForced& w, const Ravelin::Point3d& p, Ravelin::VectorNd& gf);
     virtual void set_mesh(boost::shared_ptr<const IndexedTetraArray> tetra_mesh, boost::shared_ptr<Primitive> tri_mesh);
     virtual Ravelin::Vector3d calc_point_vel(const Ravelin::Point3d& p) const;
-    virtual void add_force(const Ravelin::SForced& w);
+    void add_force(const Ravelin::Vector3d& f);
+    void add_force(const Ravelin::Vector3d& f, const Ravelin::Point3d& p);
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual Ravelin::MatrixNd& solve_generalized_inertia(const Ravelin::MatrixNd& B, Ravelin::MatrixNd& X);
