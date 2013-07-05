@@ -951,8 +951,10 @@ void TriangleMeshPrimitive::build_BB_tree()
 
     // add all children to the queue
     if (!bb->is_leaf())
+    {
       BOOST_FOREACH(BVPtr child, bb->children)
         Q.push(child);
+    }
 
     // wipe out userdata
     bb->userdata = shared_ptr<void>();

@@ -211,65 +211,6 @@ bool CompGeomSpecOne<ForwardIterator, Ravelin::Point3d*>::ccw(ForwardIterator be
   return true;
 }
 
-/// Attempts to fit a plane to a set of points 
-/**
- * The singular value decomposition is used to determine the plane that fits
- * the points best in a least-squares sense.
- * \param points the set of points (in 3D)
- * \param normal contains the "best" normal, on return
- * \param offset the offset such that, for any point on the plane x, 
- *        <normal, x> = offset
- * \return the maximum deviation from the plane
- */
-/*
-template <class ForwardIterator>
-double CompGeomSpecOne<ForwardIterator, Ravelin::Point3d*>::fit_plane(ForwardIterator begin, ForwardIterator end, Ravelin::Vector3d& normal, double& offset)
-{
-  const unsigned THREE_D = 3, X = 0, Y = 1, Z = 2;
-  
-  // compute the mean of the data
-  unsigned n = 0;
-  Ravelin::Point3d mu = Ravelin::Point3d::zero();
-  for (ForwardIterator i = begin; i != end; i++, n++)
-    mu += **i;
-  mu /= n;
-
-  // create a matrix subtracting each point from the mean
-  SAFESTATIC FastThreadable<Ravelin::MatrixNd> Mx, Ux, Vx;
-  SAFESTATIC FastThreadable<Ravelin::VectorNd> Sx;
-  Ravelin::MatrixNd& M = Mx();
-  M.resize(n, THREE_D);
-  unsigned idx = 0;
-  for (ForwardIterator i = begin; i != end; i++)
-  {
-    M.set_row(idx, **i - mu);
-    idx++;
-  }
-
-  // take the svd of the matrix
-  MatrixN& U = Ux();
-  MatrixN& V = Vx();
-  VectorN& S = Sx();
-  LinAlg::svd(M, U, S, V);
-
-  // last column of V should have the singular value we want; normalize it just in case
-  normal[X] = V(X,Z);
-  normal[Y] = V(Y,Z);
-  normal[Z] = V(Z,Z);
-  normal.normalize();
-  
-  // determine offset
-  offset = Ravelin::Vector3d::dot(normal, mu);
-
-  // compute distance from all points
-  double max_dev = 0;
-  for (ForwardIterator i = begin; i != end; i++)
-    max_dev = std::max(max_dev, std::fabs(Ravelin::Vector3::dot(normal, **i) - offset));
-
-  return max_dev;
-}
-*/
-
 template <class ForwardIterator, class OutputIterator>
 OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Ravelin::Point3d*>::calc_convex_hull(ForwardIterator source_begin, ForwardIterator source_end, OutputIterator target_begin)
 {
@@ -667,7 +608,60 @@ bool CompGeomSpecOne<ForwardIterator, Ravelin::Point3d>::ccw(ForwardIterator beg
  *        <normal, x> = offset
  * \return the maximum deviation from the plane
  */
-/*
+template <class ForwardIterator>
+double CompGeomSpecOne<ForwardIterator, Ravelin::Point3d*>::fit_plane(ForwardIterator begin, ForwardIterator end, Ravelin::Vector3d& normal, double& offset)
+{
+  const unsigned THREE_D = 3, X = 0, Y = 1, Z = 2;
+  
+  // compute the mean of the data
+  unsigned n = 0;
+  Ravelin::Point3d mu = Ravelin::Point3d::zero();
+  for (ForwardIterator i = begin; i != end; i++, n++)
+    mu += **i;
+  mu /= n;
+
+  // create a matrix subtracting each point from the mean
+  SAFESTATIC Ravelin::LinAlgd _LA;
+  SAFESTATIC Ravelin::MatrixNd M, U, V;
+  SAFESTATIC Ravelin::VectorNd S;
+  M.resize(n, THREE_D);
+  unsigned idx = 0;
+  for (ForwardIterator i = begin; i != end; i++)
+  {
+    M.set_row(idx, **i - mu);
+    idx++;
+  }
+
+  // take the svd of the matrix
+  _LA.svd(M, U, S, V);
+
+  // last column of V should have the singular value we want; normalize it just in case
+  normal[X] = V(X,Z);
+  normal[Y] = V(Y,Z);
+  normal[Z] = V(Z,Z);
+  normal.normalize();
+  
+  // determine offset
+  offset = Ravelin::Vector3d::dot(normal, mu);
+
+  // compute distance from all points
+  double max_dev = 0;
+  for (ForwardIterator i = begin; i != end; i++)
+    max_dev = std::max(max_dev, std::fabs(Ravelin::Vector3d::dot(normal, **i) - offset));
+
+  return max_dev;
+}
+
+/// Attempts to fit a plane to a set of points 
+/**
+ * The singular value decomposition is used to determine the plane that fits
+ * the points best in a least-squares sense.
+ * \param points the set of points (in 3D)
+ * \param normal contains the "best" normal, on return
+ * \param offset the offset such that, for any point on the plane x, 
+ *        <normal, x> = offset
+ * \return the maximum deviation from the plane
+ */
 template <class ForwardIterator>
 double CompGeomSpecOne<ForwardIterator, Ravelin::Point3d>::fit_plane(ForwardIterator begin, ForwardIterator end, Ravelin::Vector3d& normal, double& offset)
 {
@@ -681,9 +675,9 @@ double CompGeomSpecOne<ForwardIterator, Ravelin::Point3d>::fit_plane(ForwardIter
   mu /= n;
 
   // create a matrix subtracting each point from the mean
-  SAFESTATIC FastThreadable<MatrixN> Mx, Ux, Vx;
-  SAFESTATIC FastThreadable<VectorN> Sx;
-  MatrixN& M = Mx();
+  SAFESTATIC Ravelin::LinAlgd _LA;
+  SAFESTATIC Ravelin::MatrixNd M, U, V;
+  SAFESTATIC Ravelin::VectorNd S;
   M.resize(n, THREE_D);
   unsigned idx = 0;
   for (ForwardIterator i = begin; i != end; i++)
@@ -693,10 +687,7 @@ double CompGeomSpecOne<ForwardIterator, Ravelin::Point3d>::fit_plane(ForwardIter
   }
 
   // take the svd of the matrix
-  MatrixN& U = Ux();
-  MatrixN& V = Vx();
-  VectorN& S = Sx();
-  LinAlg::svd(M, U, S, V);
+  _LA.svd(M, U, S, V);
 
   // last column of V should have the singular value we want; normalize it just in case
   normal[X] = V(X,Z);
@@ -705,16 +696,15 @@ double CompGeomSpecOne<ForwardIterator, Ravelin::Point3d>::fit_plane(ForwardIter
   normal.normalize();
   
   // determine offset
-  offset = Ravelin::Vector3::dot(normal, mu);
+  offset = Ravelin::Vector3d::dot(normal, mu);
 
   // compute distance from all points
   double max_dev = 0;
   for (ForwardIterator i = begin; i != end; i++)
-    max_dev = std::max(max_dev, std::fabs(Ravelin::Vector3::dot(normal, *i) - offset));
+    max_dev = std::max(max_dev, std::fabs(Ravelin::Vector3d::dot(normal, *i) - offset));
 
   return max_dev;
 }
-*/
 
 /// Computes the 3D convex hull of a set of points
 /**

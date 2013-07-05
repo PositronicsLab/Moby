@@ -60,8 +60,6 @@ class URDFReader
 
     static void find_outboards(const URDFData& data, RigidBodyPtr link, std::vector<std::pair<JointPtr, RigidBodyPtr> >& outboards, std::map<RigidBodyPtr, RigidBodyPtr>& parents);
     static void output_data(const URDFData& data, RigidBodyPtr link);
-    static bool valid_transformation(const URDFData& data, RigidBodyPtr parent, JointPtr joint, RigidBodyPtr link);
-    static void fix_Moby(URDFData& data, const std::vector<RigidBodyPtr>& links, const std::vector<JointPtr>& joints);
     static JointPtr find_joint(const URDFData& data, RigidBodyPtr outboard_link);
     static void find_children(const URDFData& data, RigidBodyPtr link, std::queue<RigidBodyPtr>& q, std::map<RigidBodyPtr, RigidBodyPtr>& parents);
     static bool read_texture(boost::shared_ptr<const XMLTree> node, URDFData& data, std::string& fname);

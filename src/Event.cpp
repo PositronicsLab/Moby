@@ -294,6 +294,7 @@ void Event::compute_cross_event_data(const Event& e, MatrixNd& M) const
       {
         case eContact: compute_cross_contact_contact_event_data(e, M); break;
         case eLimit:   compute_cross_contact_limit_event_data(e, M); break;
+        case eNone:    M.resize(0,0); break;
       }
       break;
 
@@ -302,7 +303,12 @@ void Event::compute_cross_event_data(const Event& e, MatrixNd& M) const
       {
         case eContact: compute_cross_limit_contact_event_data(e, M); break;
         case eLimit:   compute_cross_limit_limit_event_data(e, M); break;
+        case eNone:    M.resize(0,0); break;
       }
+      break;
+
+    case eNone:
+      M.resize(0,0);
       break;
   }
 }
