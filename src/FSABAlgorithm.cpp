@@ -36,7 +36,7 @@ FSABAlgorithm::FSABAlgorithm()
 /// Calculates the inverse generalized inertia matrix
 void FSABAlgorithm::calc_inverse_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, MatrixNd& iM)
 {
-  vector<Twistd> sprime;
+  vector<SVelocityd> sprime;
 
   // we currently only handle axis-angle generalized coordinates...
   assert(gctype == DynamicBody::eSpatial);
@@ -49,13 +49,13 @@ void FSABAlgorithm::calc_inverse_generalized_inertia(DynamicBody::GeneralizedCoo
 
   // now, compute s'I
   const vector<RigidBodyPtr>& links = body->get_links();
-  vector<Wrenchd> sTI(links.size());
+  vector<SForced> sTI(links.size());
   for (unsigned i=1; i< links.size(); i++)
   {
     JointPtr joint = links[i]->get_inner_joint_implicit();
     if (links[i]->get_computation_type() == eJoint)
     {
-      const vector<Twistd>& s = joint->get_spatial_axes();
+      const vector<SVelocityd>& s = joint->get_spatial_axes();
       transform(s.front().pose, links[i]->get_computation_pose(), sprime); 
     }
     else
@@ -97,12 +97,12 @@ void FSABAlgorithm::calc_inverse_generalized_inertia(DynamicBody::GeneralizedCoo
 */
 
 /// Applies a generalized impulse using the algorithm of Drumwright
-void FSABAlgorithm::apply_generalized_impulse(unsigned index, const vector<vector<Wrenchd> >& sTI, VectorNd& vgj)
+void FSABAlgorithm::apply_generalized_impulse(unsigned index, const vector<vector<SForced> >& sTI, VectorNd& vgj)
 {
   queue<RigidBodyPtr> link_queue;
   const unsigned SPATIAL_DIM = 6;
   const unsigned BASE_IDX = 0;
-  vector<Twistd> sprime;
+  vector<SVelocityd> sprime;
 
   // get the body as well as sets of links and joints
   RCArticulatedBodyPtr body(_body);
@@ -160,7 +160,7 @@ void FSABAlgorithm::apply_generalized_impulse(unsigned index, const vector<vecto
 
     // get the inner joint and the spatial axis
     JointPtr joint(link->get_inner_joint_implicit());
-    const vector<Twistd>& s = joint->get_spatial_axes();
+    const vector<SVelocityd>& s = joint->get_spatial_axes();
 
     // get I, Y, and mu
     const SpatialABInertiad& I = _I[i];
@@ -181,9 +181,9 @@ void FSABAlgorithm::apply_generalized_impulse(unsigned index, const vector<vecto
     // get Is and sIsmu
     const MatrixNd& Is = _Is[i];
 
-    // update parent impulsive wrench 
+    // update parent impulsive force 
     solve_sIs(i, _mu[i], _sIsmu);
-    Wrenchd Y = _Y[i] + Wrenchd::from_vector(_sIsmu, _Y[i].pose);
+    SMomentumd Y = _Y[i] + SMomentumd::from_vector(_sIsmu, _Y[i].pose);
     _Y[h] += Pose3d::transform(_Y[i].pose, _Y[h].pose, Y);
 
     FILE_LOG(LOG_DYNAMICS) << "  *** Backward recursion processing link " << link->id << endl;
@@ -198,7 +198,8 @@ void FSABAlgorithm::apply_generalized_impulse(unsigned index, const vector<vecto
   {
     // update base components 
     RigidBodyPtr base = links.front();
-    Wrenchd w(vgj[0], vgj[1], vgj[2], vgj[3], vgj[4], vgj[5], _Y.front().pose);
+    // TODO: check ordering is correct
+    SMomentumd w(vgj[0], vgj[1], vgj[2], vgj[3], vgj[4], vgj[5], _Y.front().pose);
     _Y.front() += w;
   }
 
@@ -264,7 +265,7 @@ void FSABAlgorithm::apply_generalized_impulse(unsigned index, const vector<vecto
       continue; 
     
     // get spatial axes of the inner joint for link i
-    const vector<Twistd>& s = joint->get_spatial_axes();
+    const vector<SVelocityd>& s = joint->get_spatial_axes();
     
     FILE_LOG(LOG_DYNAMICS) << "  -- processing link: " << link->id << endl;
     FILE_LOG(LOG_DYNAMICS) << "    -- parent is link " << parent->id << endl;
@@ -310,7 +311,7 @@ void FSABAlgorithm::apply_generalized_impulse(const VectorNd& gj)
   SAFESTATIC VectorNd tmp, tmp2;
   SAFESTATIC vector<VectorNd> mu;
   queue<RigidBodyPtr> link_queue;
-  vector<Twistd> sprime;
+  vector<SVelocityd> sprime;
 
   // determine the number of generalized coordinates for the base
   const unsigned N_BASE_GC = 6;
@@ -378,7 +379,7 @@ void FSABAlgorithm::apply_generalized_impulse(const VectorNd& gj)
 
     // get the inner joint and the spatial axis
     JointPtr joint(link->get_inner_joint_implicit());
-    const vector<Twistd>& s = joint->get_spatial_axes();
+    const vector<SVelocityd>& s = joint->get_spatial_axes();
 
     // get I
     const SpatialABInertiad& I = _I[i];
@@ -401,14 +402,14 @@ void FSABAlgorithm::apply_generalized_impulse(const VectorNd& gj)
 
     // prepare to update parent Y
     solve_sIs(i, _mu[i], _sIsmu);
-    Wrenchd uY = _Y[i] + Wrenchd::from_vector(Is.mult(_sIsmu, tmp), _Y[i].pose);
+    SMomentumd uY = _Y[i] + SMomentumd::from_vector(Is.mult(_sIsmu, tmp), _Y[i].pose);
 
     FILE_LOG(LOG_DYNAMICS) << "  *** Backward recursion processing link " << link->id << endl;
     FILE_LOG(LOG_DYNAMICS) << "    I: " << I << endl;
     FILE_LOG(LOG_DYNAMICS) << "    qm subexp: " << _mu[i] << endl;
     FILE_LOG(LOG_DYNAMICS) << "    recursive Y: " << _Y[i] << endl;
 
-    // update parent wrench
+    // update parent force
     _Y[h] += Pose3d::transform(_Y[i].pose, _Y[h].pose, _Y[i]); 
   }
 
@@ -417,7 +418,8 @@ void FSABAlgorithm::apply_generalized_impulse(const VectorNd& gj)
   {
     // update base components 
     RigidBodyPtr base = links.front();
-    Wrenchd basew(gj[0], gj[1], gj[2], gj[3], gj[4], gj[5], _Y.front().pose);
+    // TODO: check ordering
+    SMomentumd basew(gj[0], gj[1], gj[2], gj[3], gj[4], gj[5], _Y.front().pose);
     _Y.front() += basew;
   }
 
@@ -484,7 +486,7 @@ void FSABAlgorithm::apply_generalized_impulse(const VectorNd& gj)
     JointPtr joint(link->get_inner_joint_implicit());
     
     // get spatial axes of the inner joint for link i
-    const vector<Twistd>& s = joint->get_spatial_axes();
+    const vector<SVelocityd>& s = joint->get_spatial_axes();
     
     // get articulated body inertia for link i
     const SpatialABInertiad& I = _I[i];    
@@ -498,7 +500,7 @@ void FSABAlgorithm::apply_generalized_impulse(const VectorNd& gj)
 
     // determine the joint and link velocity updates
     Pose3d::transform(joint->get_pose(), _Y[i].pose, s, sprime);
-    Wrenchd w1 = _I[i] * Pose3d::transform(_dv[h].pose, _dv[i].pose, _dv[h]);
+    SMomentumd w1 = _I[i] * Pose3d::transform(_dv[h].pose, _dv[i].pose, _dv[h]);
     transpose_mult(sprime, w1 + _Y[i], tmp2).negate();
     tmp2 += _Qi;
     solve_sIs(i, tmp2, _qd_delta);
@@ -530,7 +532,7 @@ void FSABAlgorithm::apply_generalized_impulse(const VectorNd& gj)
 void FSABAlgorithm::calc_spatial_coriolis_vectors(RCArticulatedBodyPtr body)
 {
   FILE_LOG(LOG_DYNAMICS) << "calc_spatial_coriolis_vectors() entered" << endl;
-  vector<Twistd> sprime;
+  vector<SVelocityd> sprime;
 
   // get the set of links
   const vector<RigidBodyPtr >& links = body->get_links();
@@ -549,11 +551,12 @@ void FSABAlgorithm::calc_spatial_coriolis_vectors(RCArticulatedBodyPtr body)
     JointPtr joint(link->get_inner_joint_implicit());
 
     // get the spatial axis and transform it
-    const vector<Twistd>& s = joint->get_spatial_axes();
+    const vector<SVelocityd>& s = joint->get_spatial_axes();
     Pose3d::transform(joint->get_pose(), link->get_computation_frame(), s, sprime);
 
     // compute the coriolis vector
-    _c[idx] = spatial_cross(link->velocity(), mult(sprime, joint->qd));
+    SVelocityd sqd = mult(sprime, joint->qd);
+    _c[idx] = link->velocity().cross(sqd);
 
     FILE_LOG(LOG_DYNAMICS) << "processing link: " << link->id << endl;
     FILE_LOG(LOG_DYNAMICS) << "v: " << link->velocity() << endl;
@@ -568,7 +571,7 @@ void FSABAlgorithm::calc_spatial_zero_accelerations(RCArticulatedBodyPtr body)
   VectorNd tmp, workv;
   MatrixNd workM;
   queue<RigidBodyPtr> link_queue;
-  vector<Twistd> sprime;
+  vector<SVelocityd> sprime;
 
   FILE_LOG(LOG_DYNAMICS) << "calc_spatial_zero_accelerations() entered" << endl;
 
@@ -594,10 +597,10 @@ void FSABAlgorithm::calc_spatial_zero_accelerations(RCArticulatedBodyPtr body)
     const unsigned i = link->get_index();
 
     // get the spatial link velocity
-    const Twistd& v = link->velocity();
+    const SVelocityd& v = link->velocity();
 
     // set 6-dimensional spatial isolated zero-acceleration vector of link  
-    _Z[i] = spatial_cross(v, link->get_inertia() * v) - link->sum_wrenches();
+    _Z[i] = v.cross(link->get_inertia() * v) - link->sum_forces();
     
     FILE_LOG(LOG_DYNAMICS) << "  processing link " << link->id << endl;
     FILE_LOG(LOG_DYNAMICS) << "    Link spatial iso ZA: " << endl << _Z[i] << endl;
@@ -640,13 +643,13 @@ void FSABAlgorithm::calc_spatial_zero_accelerations(RCArticulatedBodyPtr body)
 
     // get the inner joint and the spatial axis
     JointPtr joint(link->get_inner_joint_implicit());
-    const vector<Twistd>& s = joint->get_spatial_axes();
+    const vector<SVelocityd>& s = joint->get_spatial_axes();
     Pose3d::transform(joint->get_pose(), link->get_computation_frame(), s, sprime);
 
     // get I, c, and Z
     const SpatialABInertiad& I = _I[i];
-    const Twistd& c = _c[i];
-    const Wrenchd& Z = _Z[i];
+    const SAcceld& c = _c[i];
+    const SForced& Z = _Z[i];
     
     // compute the qm subexpression
     joint->get_scaled_force(_Q);
@@ -673,7 +676,7 @@ void FSABAlgorithm::calc_spatial_zero_accelerations(RCArticulatedBodyPtr body)
  
     // compute a couple of necessary matrices
     solve_sIs(i, mu, _sIsmu);
-    Wrenchd uZ = Z + (I*c) + Wrenchd::from_vector(Is.mult(_sIsmu, workv), Z.pose);
+    SForced uZ = Z + (I*c) + SForced::from_vector(Is.mult(_sIsmu, workv), Z.pose);
 
     // update the parent zero acceleration
     _Z[h] += Pose3d::transform(uZ.pose, _Z[h].pose, uZ);
@@ -690,7 +693,7 @@ void FSABAlgorithm::calc_spatial_zero_accelerations(RCArticulatedBodyPtr body)
 void FSABAlgorithm::calc_spatial_inertias(RCArticulatedBodyPtr body)
 {
   FILE_LOG(LOG_DYNAMICS) << "calc_spatial_zero_accelerations() entered" << endl;
-  vector<Twistd> sprime;
+  vector<SVelocityd> sprime;
   MatrixNd tmp, tmp2, tmp3;
 
   // get the set of links
@@ -767,7 +770,7 @@ FILE_LOG(LOG_DYNAMICS) << "added link " << parent->id << " to queue for processi
 
     // get the inner joint and the spatial axis
     JointPtr joint(link->get_inner_joint_implicit());
-    const vector<Twistd>& s = joint->get_spatial_axes();
+    const vector<SVelocityd>& s = joint->get_spatial_axes();
     Pose3d::transform(joint->get_pose(), _I[i].pose, s, sprime);
 
     // get I
@@ -819,7 +822,8 @@ void FSABAlgorithm::calc_spatial_accelerations(RCArticulatedBodyPtr body)
 {
   queue<RigidBodyPtr> link_queue;
   VectorNd result;
-  vector<Twistd> sprime, sdotprime;
+  vector<SVelocityd> sprime;
+  vector<SAcceld> sdotprime;
 
   // get the links
   const vector<RigidBodyPtr>& links = body->get_links();
@@ -872,11 +876,11 @@ void FSABAlgorithm::calc_spatial_accelerations(RCArticulatedBodyPtr body)
     const unsigned h = parent->get_index();
     
     // compute transformed parent link acceleration
-    Twistd ah = Pose3d::transform(_a[h].pose, link->get_computation_frame(), _a[h]); 
+    SVelocityd ah = Pose3d::transform(_a[h].pose, link->get_computation_frame(), _a[h]); 
 
     // get the spatial axis and its derivative
-    const vector<Twistd>& s = joint->get_spatial_axes();
-    const vector<Twistd>& sdot = joint->get_spatial_axes_dot();
+    const vector<SVelocityd>& s = joint->get_spatial_axes();
+    const vector<SAcceld>& sdot = joint->get_spatial_axes_dot();
 
     // transform spatial axes
     Pose3d::transform(joint->get_pose(), link->get_computation_frame(), s, sprime);
@@ -884,10 +888,10 @@ void FSABAlgorithm::calc_spatial_accelerations(RCArticulatedBodyPtr body)
 
     // get the Is and qm subexpressions
     const VectorNd& mu = _mu[i];    
-    const Twistd& c = _c[i];
+    const SAcceld& c = _c[i];
 
     // compute joint i acceleration
-    Wrenchd w = _I[i] * ah;
+    SForced w = _I[i] * ah;
     transpose_mult(sprime, w, result);
     result.negate();
     result += mu;
@@ -1013,11 +1017,11 @@ void FSABAlgorithm::calc_impulse_dyn(RCArticulatedBodyPtr body)
 /**
  * \pre forward dynamics have been computed already by calc_fwd_dyn()
  */
-void FSABAlgorithm::apply_impulse(const Wrenchd& w, RigidBodyPtr link)
+void FSABAlgorithm::apply_impulse(const SMomentumd& w, RigidBodyPtr link)
 {
   SAFESTATIC MatrixNd tmp;
   SAFESTATIC VectorNd tmp2, workv;
-  vector<Twistd> sprime;
+  vector<SVelocityd> sprime;
 
   FILE_LOG(LOG_DYNAMICS) << "FSABAlgorithm::apply_impulse() entered" << endl;
   FILE_LOG(LOG_DYNAMICS) << " -- applying impulse " << w << endl;
@@ -1069,7 +1073,7 @@ void FSABAlgorithm::apply_impulse(const Wrenchd& w, RigidBodyPtr link)
 
       // get spatial axes of the inner joint for link i
       JointPtr joint(link->get_inner_joint_implicit());
-      const vector<Twistd>& s = joint->get_spatial_axes();
+      const vector<SVelocityd>& s = joint->get_spatial_axes();
       Pose3d::transform(joint->get_pose(), link->get_computation_frame(), s, sprime);
     
       // get Is for link i
@@ -1081,7 +1085,7 @@ void FSABAlgorithm::apply_impulse(const Wrenchd& w, RigidBodyPtr link)
       tmp.mult(_Y[i], workv);
 
       // compute impulse for h in i's frame (or global frame)
-      Wrenchd Yi = _Y[i] - Wrenchd::from_vector(workv,  _Y[i].pose);
+      SForced Yi = _Y[i] - SForced::from_vector(workv,  _Y[i].pose);
 
       // transform the spatial impulse, if necessary
       _Y[h] = Pose3d::transform(Yi.pose, _Y[h].pose, Yi);
@@ -1153,7 +1157,7 @@ void FSABAlgorithm::apply_impulse(const Wrenchd& w, RigidBodyPtr link)
     JointPtr joint(link->get_inner_joint_implicit());
     
     // get spatial axes of the inner joint for link i
-    const vector<Twistd>& s = joint->get_spatial_axes();
+    const vector<SVelocityd>& s = joint->get_spatial_axes();
     Pose3d::transform(joint->get_pose(), link->get_computation_frame(), s, sprime);
     
     // get articulated body inertia for link i
@@ -1163,7 +1167,8 @@ void FSABAlgorithm::apply_impulse(const Wrenchd& w, RigidBodyPtr link)
     FILE_LOG(LOG_DYNAMICS) << "    -- parent is link " << parent->id << endl;
     
     // determine the joint and link velocity updates
-    Twistd dvh = Pose3d::transform(_dv[h].pose, _dv[i].pose, _dv[h]);
+    SVelocityd dvh = Pose3d::transform(_dv[h].pose, _dv[i].pose, _dv[h]);
+    SForced f = (I * dvh) + _Y[i];
     transpose_mult(sprime, (I * dvh) + _Y[i], tmp2);
     solve_sIs(i, tmp2, _qd_delta).negate();
     _dv[i] = dvh + mult(s, _qd_delta);
@@ -1192,7 +1197,7 @@ void FSABAlgorithm::apply_impulse(const Wrenchd& w, RigidBodyPtr link)
 }
 
 /// Solves a system for sIs*x = m' using a factorization (if sIs is nonsingular) or the pseudo-inverse of sIs otherwise
-MatrixNd& FSABAlgorithm::transpose_solve_sIs(unsigned i, const vector<Twistd>& m, MatrixNd& result) const
+MatrixNd& FSABAlgorithm::transpose_solve_sIs(unsigned i, const vector<SVelocityd>& m, MatrixNd& result) const
 {
   // transpose m
   transpose_to_matrix(m, result);   

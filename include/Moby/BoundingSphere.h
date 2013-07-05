@@ -22,7 +22,7 @@ class BoundingSphere : public BV
     BoundingSphere& operator=(const BoundingSphere& bsphere);
     virtual void transform(const Ravelin::Transform3d& T, BV* result) const;
     virtual std::ostream& to_vrml(std::ostream& out, const Ravelin::Pose3d& T) const;
-    virtual BVPtr calc_swept_BV(CollisionGeometryPtr g, const Ravelin::Twistd& v) const;
+    virtual BVPtr calc_swept_BV(CollisionGeometryPtr g, const Ravelin::SVelocityd& v) const;
     static double calc_dist(const BoundingSphere& s1, const BoundingSphere& s2);
     static bool intersects(const BoundingSphere& a, const BoundingSphere& b);
     static bool intersects(const BoundingSphere& a, const BoundingSphere& b, const Ravelin::Transform3d& aTb);

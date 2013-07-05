@@ -68,7 +68,7 @@ std::ostream& BoundingSphere::to_vrml(std::ostream& out, const Pose3d& T) const
 }
 
 /// Calculates the velocity expanded bounding volume for the bounding sphere (calculates an OBB)
-BVPtr BoundingSphere::calc_swept_BV(CollisionGeometryPtr g, const Twistd& v) const
+BVPtr BoundingSphere::calc_swept_BV(CollisionGeometryPtr g, const SVelocityd& v) const
 {
   // get the corresponding body
   SingleBodyPtr b = g->get_single_body();
@@ -84,7 +84,7 @@ BVPtr BoundingSphere::calc_swept_BV(CollisionGeometryPtr g, const Twistd& v) con
   }
 
   // get the velocity in the proper frame
-  Twistd vx = Pose3d::transform(v.pose, get_relative_pose(), v); 
+  SVelocityd vx = Pose3d::transform(v.pose, get_relative_pose(), v); 
 
   // otherwise, create a SSL 
   shared_ptr<SSL> ssl(new SSL);

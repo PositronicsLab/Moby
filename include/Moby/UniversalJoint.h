@@ -25,8 +25,8 @@ class UniversalJoint : public Joint
     virtual void update_spatial_axes();    
     virtual void determine_q(Ravelin::VectorNd& q);
     virtual boost::shared_ptr<const Ravelin::Pose3d> get_induced_pose();
-    virtual const std::vector<Ravelin::Twistd>& get_spatial_axes();
-    virtual const std::vector<Ravelin::Twistd>& get_spatial_axes_dot();
+    virtual const std::vector<Ravelin::SVelocityd>& get_spatial_axes();
+    virtual const std::vector<Ravelin::SAcceld>& get_spatial_axes_dot();
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual unsigned num_dof() const { return 2; }
@@ -36,8 +36,8 @@ class UniversalJoint : public Joint
     virtual bool is_singular_config() const { return false; }
   
   private:
-    virtual void calc_constraint_jacobian_euler(RigidBodyPtr body, unsigned index, double Cq[7]);
-    virtual void calc_constraint_jacobian_dot_euler(RigidBodyPtr body, unsigned index, double Cq[7]);
+    virtual void calc_constraint_jacobian(RigidBodyPtr body, unsigned index, double Cq[7]);
+    virtual void calc_constraint_jacobian_dot(RigidBodyPtr body, unsigned index, double Cq[7]);
     static bool rel_equal(double x, double y);
     Ravelin::Matrix3d get_rotation() const;
 
@@ -45,7 +45,7 @@ class UniversalJoint : public Joint
     Ravelin::Vector3d _u[2];
 
     /// The derivative of the spatial axis
-    std::vector<Ravelin::Twistd> _s_dot;
+    std::vector<Ravelin::SAcceld> _s_dot;
 
     /// The second joint axis in outer link frame (only used for maximal coordinate articulated bodies)
     Ravelin::Vector3d _h2;

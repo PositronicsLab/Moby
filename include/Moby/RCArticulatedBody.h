@@ -14,7 +14,7 @@
 #include <boost/shared_ptr.hpp>
 #include <Ravelin/Vector3d.h>
 #include <Ravelin/Point3d.h>
-#include <Ravelin/Wrenchd.h>
+#include <Ravelin/SForced.h>
 #include <Moby/Constants.h>
 #include <Moby/ArticulatedBody.h>
 #include <Moby/RigidBody.h>
@@ -56,7 +56,7 @@ class RCArticulatedBody : public ArticulatedBody
     virtual void reset_accumulators();
     virtual void update_link_poses();    
     virtual void update_link_velocities();
-    virtual void apply_impulse(const Ravelin::Wrenchd& w, RigidBodyPtr link);
+    virtual void apply_impulse(const Ravelin::SForced& w, RigidBodyPtr link);
     virtual void calc_fwd_dyn(double dt);
     virtual void update_visualization();
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
@@ -72,7 +72,7 @@ class RCArticulatedBody : public ArticulatedBody
     virtual void set_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gv);
     virtual Ravelin::MatrixNd& get_generalized_inertia(Ravelin::MatrixNd& M);
     virtual Ravelin::VectorNd& get_generalized_forces(Ravelin::VectorNd& f);
-    virtual Ravelin::VectorNd& convert_to_generalized_force(SingleBodyPtr body, const Ravelin::Wrenchd& w, const Ravelin::Point3d& p, Ravelin::VectorNd& gf);
+    virtual Ravelin::VectorNd& convert_to_generalized_force(SingleBodyPtr body, const Ravelin::SForced& w, const Ravelin::Point3d& p, Ravelin::VectorNd& gf);
     virtual unsigned num_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype) const;
     virtual void set_links(const std::vector<RigidBodyPtr>& links);
     virtual void set_joints(const std::vector<JointPtr>& links);
@@ -87,7 +87,6 @@ class RCArticulatedBody : public ArticulatedBody
     virtual Ravelin::MatrixNd& transpose_Jl_mult(const Ravelin::MatrixNd& m, Ravelin::MatrixNd& result) { return _Jl.transpose_mult(m, result); }
     virtual Ravelin::VectorNd& transpose_Dx_mult(const Ravelin::VectorNd& v, Ravelin::VectorNd& result) { return _Dx.transpose_mult(v, result); }
     virtual Ravelin::MatrixNd& transpose_Dx_mult(const Ravelin::MatrixNd& m, Ravelin::MatrixNd& result) { return _Dx.transpose_mult(m, result); }
-    virtual boost::shared_ptr<Ravelin::Pose3d> get_computation_frame_pose() const;
     virtual void set_computation_frame_type(ReferenceFrameType rftype);
     virtual Ravelin::VectorNd& solve_generalized_inertia(const Ravelin::VectorNd& v, Ravelin::VectorNd& result);
     virtual Ravelin::MatrixNd& solve_generalized_inertia(const Ravelin::MatrixNd& m, Ravelin::MatrixNd& result);

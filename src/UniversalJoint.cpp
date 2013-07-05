@@ -150,7 +150,7 @@ void UniversalJoint::update_spatial_axes()
 /**
  * \note these spatial axes are not constant, unlike many joints.
  */
-const vector<Twistd>& UniversalJoint::get_spatial_axes()
+const vector<SVelocityd>& UniversalJoint::get_spatial_axes()
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
@@ -189,7 +189,7 @@ const vector<Twistd>& UniversalJoint::get_spatial_axes()
 /**
  * \note these spatial axes are not constant, unlike many joints.
  */
-const vector<Twistd>& UniversalJoint::get_spatial_axes_dot()
+const vector<SAcceld>& UniversalJoint::get_spatial_axes_dot()
 {
   RigidBodyPtr inboard = get_inboard_link();
   RigidBodyPtr outboard = get_outboard_link();
@@ -286,7 +286,7 @@ shared_ptr<const Pose3d> UniversalJoint::get_induced_pose()
 
 /*
 /// Computes the constraint jacobian
-void UniversalJoint::calc_constraint_jacobian_euler(RigidBodyPtr body, unsigned index, double Cq[7])
+void UniversalJoint::calc_constraint_jacobian(RigidBodyPtr body, unsigned index, double Cq[7])
 {
   const unsigned X = 0, Y = 1, Z = 2, SPATIAL_DIM = 7;
 
@@ -568,7 +568,7 @@ void UniversalJoint::calc_constraint_jacobian_euler(RigidBodyPtr body, unsigned 
 }
 
 /// Computes the constraint jacobian
-void UniversalJoint::calc_constraint_jacobian_dot_euler(RigidBodyPtr body, unsigned index, double Cq[7])
+void UniversalJoint::calc_constraint_jacobian_dot(RigidBodyPtr body, unsigned index, double Cq[7])
 {
   const unsigned X = 0, Y = 1, Z = 2, SPATIAL_DIM = 7;
 

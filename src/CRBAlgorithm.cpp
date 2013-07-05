@@ -108,7 +108,7 @@ bool CRBAlgorithm::factorize_cholesky(MatrixNd& M)
 }
 
 // Transforms (as necessary) and multiplies
-void CRBAlgorithm::transform_and_mult(RigidBodyPtr link, const SpatialRBInertiad& I, const vector<Twistd>& s, vector<Wrenchd>& Is)
+void CRBAlgorithm::transform_and_mult(RigidBodyPtr link, const SpatialRBInertiad& I, const vector<SVelocityd>& s, vector<SMomentumd>& Is)
 {
   SpatialRBInertiad Iprime;
 
@@ -170,7 +170,7 @@ void CRBAlgorithm::calc_generalized_inertia(RCArticulatedBodyPtr body)
   {
     // get the spatial axes for the joint
     JointPtr joint = ijoints[i];
-    const std::vector<Twistd>& s = joint->get_spatial_axes();
+    const std::vector<SVelocityd>& s = joint->get_spatial_axes();
 
     // get the index for this joint
     unsigned jidx = joint->get_coord_index();
@@ -355,13 +355,13 @@ void CRBAlgorithm::calc_joint_space_inertia(RCArticulatedBodyPtr body, MatrixNd&
   // ************************************************************************
 
   // compute the forces
-  _forces.resize(links.size());
+  _momenta.resize(links.size());
   for (unsigned i=0; i < ijoints.size(); i++)
   {
     RigidBodyPtr outboard = ijoints[i]->get_outboard_link(); 
     unsigned oidx = outboard->get_index();
-    const std::vector<Twistd>& s = ijoints[i]->get_spatial_axes();
-    transform_and_mult(outboard, Ic[oidx], s, _forces[oidx]);
+    const std::vector<SVelocityd>& s = ijoints[i]->get_spatial_axes();
+    transform_and_mult(outboard, Ic[oidx], s, _momenta[oidx]);
   } 
 
   // setup H
@@ -378,13 +378,13 @@ void CRBAlgorithm::calc_joint_space_inertia(RCArticulatedBodyPtr body, MatrixNd&
     unsigned oiidx = obi->get_index();
 
     // get the spatial axes for jointi
-    const std::vector<Twistd>& s = ijoints[i]->get_spatial_axes();
+    const std::vector<SVelocityd>& s = ijoints[i]->get_spatial_axes();
 
     // get the appropriate submatrix of H
     SharedMatrixNd subi = H.block(iidx, iidx+NiDOF, iidx, iidx+NiDOF); 
 
     // compute the H term for i,i
-    transform_and_transpose_mult(s, _forces[oiidx], subi);
+    transform_and_transpose_mult(s, _momenta[oiidx], subi);
 
     // determine what will be the new value for m
     for (unsigned j=i+1; j< ijoints.size(); j++)
@@ -408,7 +408,7 @@ void CRBAlgorithm::calc_joint_space_inertia(RCArticulatedBodyPtr body, MatrixNd&
       SharedMatrixNd subjT = H.block(jidx, jidx+NjDOF, iidx, iidx+NiDOF); 
 
       // compute the appropriate submatrix of H
-      transform_and_transpose_mult(s, _forces[ojidx], subj);
+      transform_and_transpose_mult(s, _momenta[ojidx], subj);
 
       // set the transposed part
       MatrixNd::transpose(subj, subjT);
@@ -475,7 +475,7 @@ void CRBAlgorithm::calc_generalized_inertia(MatrixNd& M)
     // get the joint index and spatial axes
     JointPtr joint = ijoints[i];
     unsigned jidx = joint->get_coord_index();
-    const std::vector<Twistd>& s = joint->get_spatial_axes();
+    const std::vector<SVelocityd>& s = joint->get_spatial_axes();
     RigidBodyPtr ob = joint->get_outboard_link();
     unsigned idx = ob->get_index(); 
 
@@ -604,7 +604,7 @@ void CRBAlgorithm::calc_fwd_dyn_fixed_base(RCArticulatedBodyPtr body)
   // ***********************************************************************
 
   // call inverse dynamics to calculate C
-  Wrenchd f0;
+  SForced f0;
   calc_generalized_forces(f0, _C);
   
   // get the number of degrees-of-freedom
@@ -665,7 +665,7 @@ void CRBAlgorithm::calc_fwd_dyn_floating_base(RCArticulatedBodyPtr body)
   const vector<JointPtr>& ijoints = body->get_implicit_joints();
 
   // calculate C
-  Wrenchd f0;
+  SForced f0;
   calc_generalized_forces(f0, _C);
 
   // get the number of degrees-of-freedom
@@ -706,7 +706,7 @@ void CRBAlgorithm::calc_fwd_dyn_floating_base(RCArticulatedBodyPtr body)
   M_solve_noprecalc(_augV = _b); 
 
   // get pointers to a0 and qdd vectors
-  Twistd& a0 = this->_a0;
+  SAcceld& a0 = this->_a0;
   VectorNd& qdd = this->_qdd;
 
   // get out a0, qdd
@@ -733,11 +733,11 @@ void CRBAlgorithm::calc_fwd_dyn_floating_base(RCArticulatedBodyPtr body)
 /**
  * \return the spatial vector of forces on the base, which can be ignored for forward dynamics for fixed bases
  */
-void CRBAlgorithm::calc_generalized_forces(Wrenchd& f0, VectorNd& C)
+void CRBAlgorithm::calc_generalized_forces(SForced& f0, VectorNd& C)
 {
   const unsigned SPATIAL_DIM = 6;
   queue<RigidBodyPtr> link_queue;
-  Wrenchd w;
+  SForced w;
 
   // get the body and the reference frame
   RCArticulatedBodyPtr body(_body);
@@ -757,7 +757,7 @@ void CRBAlgorithm::calc_generalized_forces(Wrenchd& f0, VectorNd& C)
   // here, because we need some data out of it
   // **************************************************************************
 
-  FILE_LOG(LOG_DYNAMICS) << "CRBAlgorithm::calc_generalized_forces entered" << std::endl;
+  FILE_LOG(LOG_DYNAMICS) << "CRBAlgorithm::calc_generalized_forces() entered" << std::endl;
 
   // ** STEP 1: compute accelerations
 
@@ -803,11 +803,11 @@ void CRBAlgorithm::calc_generalized_forces(Wrenchd& f0, VectorNd& C)
     JointPtr joint(link->get_inner_joint_implicit());
 
     // get the spatial link velocity
-    const Twistd& vx = link->velocity(); 
+    const SVelocityd& vx = link->velocity(); 
 
     // get spatial axes and derivative for this link's inner joint
-    const std::vector<Twistd>& s = joint->get_spatial_axes();
-    const std::vector<Twistd>& sdot = joint->get_spatial_axes_dot();
+    const std::vector<SVelocityd>& s = joint->get_spatial_axes();
+    const std::vector<SAcceld>& sdot = joint->get_spatial_axes_dot();
 
     // get the current joint velocity
     const VectorNd& qd = joint->qd;
@@ -816,9 +816,10 @@ void CRBAlgorithm::calc_generalized_forces(Wrenchd& f0, VectorNd& C)
 
     // add this link's contribution
     Pose3d::transform(s.front().pose, _a[i].pose, s, _sprime);
-    _a[i] = spatial_cross(link->velocity(), mult(s, qd));
+    SVelocityd sqd = mult(s, qd);
+    _a[i] = link->velocity().cross(sqd);
     if (!sdot.empty())
-      _a[i] += mult(Pose3d::transform(sdot[0].pose, _a[i].pose, sdot, _sprime), qd); 
+      _a[i] += mult(Pose3d::transform(sdot[0].pose, _a[i].pose, sdot, _sdotprime), qd); 
 
     // now add parent's contribution
     _a[i] += Pose3d::transform(_a[h].pose, _a[i].pose, _a[h]);
@@ -868,16 +869,16 @@ void CRBAlgorithm::calc_generalized_forces(Wrenchd& f0, VectorNd& C)
     FILE_LOG(LOG_DYNAMICS) << "  I * a = " << (link->get_inertia() * _a[i]) << std::endl;
 
     // add I*a to the link force and fictitious forces
-    const Twistd& vx = link->velocity(); 
+    const SVelocityd& vx = link->velocity(); 
     _w[i] += link->get_inertia() * _a[i];
-    _w[i] += spatial_cross(vx, link->get_inertia() * vx);
+    _w[i] += vx.cross(link->get_inertia() * vx);
 
     FILE_LOG(LOG_DYNAMICS) << "  force (+ I*a): " << _w[i] << std::endl;
 
     // subtract external forces
-    Wrenchd wext = link->sum_wrenches(); 
+    SForced wext = link->sum_forces(); 
     _w[i] -= wext;
-    FILE_LOG(LOG_DYNAMICS) << "  external wrenches: " << wext << std::endl;
+    FILE_LOG(LOG_DYNAMICS) << "  external forces: " << wext << std::endl;
     FILE_LOG(LOG_DYNAMICS) << "  force on link after subtracting external force: " << _w[i] << std::endl;
 
     // update the parent force and add parent for processing (if parent)
@@ -912,16 +913,16 @@ void CRBAlgorithm::calc_generalized_forces(Wrenchd& f0, VectorNd& C)
 
     // compute appropriate components of C
     SharedVectorNd Csub = C.segment(jidx, jidx+joint->num_dof()); 
-    const std::vector<Twistd>& s = joint->get_spatial_axes();
+    const std::vector<SVelocityd>& s = joint->get_spatial_axes();
     transform_and_transpose_mult(s, _w[oidx], Csub);
 
     FILE_LOG(LOG_DYNAMICS) << " -- computing C for link " << ob->id << std::endl;
-    FILE_LOG(LOG_DYNAMICS) << "   -- wrenches: " << _w[oidx] << std::endl;
+    FILE_LOG(LOG_DYNAMICS) << "   -- forces: " << _w[oidx] << std::endl;
     FILE_LOG(LOG_DYNAMICS) << "   -- component of C: " << Csub << std::endl;
   }  
 
   FILE_LOG(LOG_DYNAMICS) << "------------------------------------------------" << std::endl;
-  FILE_LOG(LOG_DYNAMICS) << "wrenches on base: " << _w[0] << std::endl;
+  FILE_LOG(LOG_DYNAMICS) << "forces on base: " << _w[0] << std::endl;
   FILE_LOG(LOG_DYNAMICS) << "CRBAlgorithm::calc_generalized_forces() exited" << std::endl;
 
   // store forces on base
@@ -982,16 +983,17 @@ void CRBAlgorithm::update_link_accelerations(RCArticulatedBodyPtr body)
     unsigned h = parent->get_index();
  
     // set link acceleration
-    Twistd& ah = parent->accel();
-    Twistd& ai = link->accel();
+    SAcceld& ah = parent->accel();
+    SAcceld& ai = link->accel();
     ai = Pose3d::transform(ah.pose, ai.pose, ah);
 
     // get the link spatial axis
-    const std::vector<Twistd>& s = joint->get_spatial_axes(); 
+    const std::vector<SVelocityd>& s = joint->get_spatial_axes(); 
 
     // determine the link accel
     Pose3d::transform(s.front().pose, ai.pose, s, _sprime);
-    ai += spatial_cross(link->velocity(), mult(_sprime, joint->qd));
+    SVelocityd sqd = mult(_sprime, joint->qd);
+    ai += link->velocity().cross(sqd);
     ai += mult(_sprime, joint->qdd); 
 
     FILE_LOG(LOG_DYNAMICS) << "    -- updating link " << link->id << std::endl;
@@ -1007,7 +1009,7 @@ void CRBAlgorithm::update_link_accelerations(RCArticulatedBodyPtr body)
 
 /*
 /// Implements RCArticulatedBodyFwdDynAlgo::apply_impulse()
-void CRBAlgorithm::apply_impulse(const Wrenchd& w, RigidBodyPtr link)
+void CRBAlgorithm::apply_impulse(const SForced& w, RigidBodyPtr link)
 {
   // An alternative method for applying impulses using generalized coordinates
   // below...
@@ -1060,10 +1062,10 @@ void CRBAlgorithm::apply_impulse(const Wrenchd& w, RigidBodyPtr link)
 
 /// TODO: fix this for bodies with kinematic loops
 /// Applies an impulse to an articulated body with a floating base; complexity O(n^2)
-void CRBAlgorithm::apply_impulse(const Wrenchd& w, RigidBodyPtr link)
+void CRBAlgorithm::apply_impulse(const SForced& w, RigidBodyPtr link)
 {
   const unsigned OPSPACE_DIM = 6;
-  Twistd dv0;
+  SVelocityd dv0;
   VectorNd& b = _b;
   VectorNd& augV = _augV;
   VectorNd& workv = _workv;
@@ -1089,7 +1091,7 @@ void CRBAlgorithm::apply_impulse(const Wrenchd& w, RigidBodyPtr link)
   while ((j = l->get_inner_joint_implicit()))
   {
     // compute the Jacobian column(s) for the joint
-    const std::vector<Twistd>& s = j->get_spatial_axes();
+    const std::vector<SVelocityd>& s = j->get_spatial_axes();
 
     // transform spatial axes to global frame
     Pose3d::transform(j->get_pose(), GLOBAL, s, _sprime);
@@ -1102,7 +1104,7 @@ void CRBAlgorithm::apply_impulse(const Wrenchd& w, RigidBodyPtr link)
   }
 
   // transform the impulse to the global frame
-  Wrenchd w0 = Pose3d::transform(w.pose, GLOBAL, w); 
+  SForced w0 = Pose3d::transform(w.pose, GLOBAL, w); 
 
   // compute the impulse applied to the joints
   transpose_mult(_J, w0, workv);
@@ -1135,10 +1137,10 @@ void CRBAlgorithm::apply_impulse(const Wrenchd& w, RigidBodyPtr link)
     // get change in base and change in joint velocities
     Vector3d dv0_angular(workv[BASE_A], workv[BASE_B], workv[BASE_G]);
     Vector3d dv0_linear(workv[BASE_X], workv[BASE_Y], workv[BASE_Z]);
-    Twistd dv0(dv0_angular, dv0_linear, w0.pose);
+    SVelocityd dv0(dv0_angular, dv0_linear, w0.pose);
 
     // update the base velocity
-    Twistd& basev = base->velocity();
+    SVelocityd& basev = base->velocity();
     basev += Pose3d::transform(dv0.pose, basev.pose, dv0);
 
     FILE_LOG(LOG_DYNAMICS) << "  change in base velocity: " << dv0 << std::endl;

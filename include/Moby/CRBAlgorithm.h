@@ -23,9 +23,9 @@ class CRBAlgorithm
     RCArticulatedBodyPtr get_body() const { return RCArticulatedBodyPtr(_body); }
     void set_body(RCArticulatedBodyPtr body) { _body = body; setup_parent_array(); }
     void calc_fwd_dyn();
-    void apply_impulse(const Ravelin::Wrenchd& w, RigidBodyPtr link);
+    void apply_impulse(const Ravelin::SForced& w, RigidBodyPtr link);
     void calc_generalized_inertia(Ravelin::MatrixNd& M);
-    void calc_generalized_forces(Ravelin::Wrenchd& f0, Ravelin::VectorNd& C);
+    void calc_generalized_forces(Ravelin::SForced& f0, Ravelin::VectorNd& C);
     bool factorize_cholesky(Ravelin::MatrixNd& M);
     Ravelin::VectorNd& M_solve(Ravelin::VectorNd& xb);
     Ravelin::MatrixNd& M_solve(Ravelin::MatrixNd& XB);
@@ -38,7 +38,7 @@ class CRBAlgorithm
     boost::weak_ptr<RCArticulatedBody> _body;
 
     /// The spatial acceleration of the base computed on the last call to calc_fwd_dyn()
-    Ravelin::Twistd _a0;
+    Ravelin::SAcceld _a0;
 
     /// The vector of joint accelerations computed on the last call to calc_fwd_dyn()
     Ravelin::VectorNd _qdd;
@@ -62,17 +62,20 @@ class CRBAlgorithm
     static void to_spatial7_inertia(const Ravelin::SpatialRBInertiad& I, const Ravelin::Quatd& q, Ravelin::MatrixNd& I7);
     Ravelin::VectorNd& M_solve_noprecalc(Ravelin::VectorNd& xb);
     Ravelin::MatrixNd& M_solve_noprecalc(Ravelin::MatrixNd& XB);
-    void transform_and_mult(RigidBodyPtr link, const Ravelin::SpatialRBInertiad& I, const std::vector<Ravelin::Twistd>& s, std::vector<Ravelin::Wrenchd>& Is);
+    void transform_and_mult(RigidBodyPtr link, const Ravelin::SpatialRBInertiad& I, const std::vector<Ravelin::SVelocityd>& s, std::vector<Ravelin::SMomentumd>& Is);
 
   private:
     // temporary for calc_fwd_dyn() 
-    std::vector<Ravelin::Twistd> _a;
+    std::vector<Ravelin::SAcceld> _a;
 
     // temporary for calc_generalized_forces() 
-    std::vector<Ravelin::Wrenchd> _w;
+    std::vector<Ravelin::SForced> _w;
 
     // temporary spatial axes
-    std::vector<Ravelin::Twistd> _sprime;
+    std::vector<Ravelin::SVelocityd> _sprime;
+
+    // temporary spatial dot axes
+    std::vector<Ravelin::SAcceld> _sdotprime;
 
     // temporaries for solving and linear algebra
     boost::shared_ptr<Ravelin::LinAlgd> _LA;
@@ -82,19 +85,19 @@ class CRBAlgorithm
     // temporaries for calc_generalized_inertia()
     Ravelin::MatrixNd _H;
     std::vector<Ravelin::SpatialRBInertiad> _Ic;
-    std::vector<Ravelin::Wrenchd> _Is;
+    std::vector<Ravelin::SMomentumd> _Is;
 
     // temporaries for calc_joint_space_inertia()
     Ravelin::MatrixNd _workM, _sub;
     std::vector<std::vector<bool> > _supports;
-    std::vector<std::vector<Ravelin::Wrenchd> > _forces;
+    std::vector<std::vector<Ravelin::SMomentumd> > _momenta;
 
     // temporaries for calc_fwd_dyn_fixed_base(), calc_fwd_dyn_floating_base()
     Ravelin::VectorNd _C, _Q, _Qi, _b, _augV;
 
     // temporaries for applying impulse
     Ravelin::VectorNd _workv;
-    std::vector<Ravelin::Twistd> _J;
+    std::vector<Ravelin::SVelocityd> _J;
 
     #include "CRBAlgorithm.inl"
 };

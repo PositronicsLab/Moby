@@ -11,8 +11,8 @@
 #include <Moby/ArticulatedBody.h>
 #include <Moby/DampingForce.h>
 
-using Ravelin::Wrenchd;
-using Ravelin::Twistd;
+using Ravelin::SForced;
+using Ravelin::SVelocityd;
 using Ravelin::Pose3d;
 using std::map;
 using std::cerr;
@@ -34,23 +34,23 @@ DampingForce::DampingForce(const DampingForce& source)
 /// Adds damping force to a rigid body
 void DampingForce::add_damping(RigidBodyPtr rb, double ld, double ad, double ldsq, double adsq)
 {
-  // setup a wrench in the body frame
-  Wrenchd wi;
+  // setup a force in the body frame
+  SForced wi;
   wi.pose = rb->get_pose();
 
   // get the velocity in the body frame
-  Twistd& v = rb->velocity();
-  Twistd vi = Pose3d::transform(v.pose, rb->get_pose(), v);
+  SVelocityd& v = rb->velocity();
+  SVelocityd vi = Pose3d::transform(v.pose, rb->get_pose(), v);
 
-  // make the wrench dampening
+  // make the force dampening
   wi.set_force(vi.get_linear()* -(ld + vi.get_linear().norm() * ldsq));
   wi.set_torque(vi.get_angular()* -(ad + vi.get_angular().norm()* adsq));
 
-  // transform the wrench to the proper frame
-  Wrenchd w = Pose3d::transform(wi.pose, rb->get_computation_frame(), wi);
+  // transform the force to the proper frame
+  SForced w = Pose3d::transform(wi.pose, rb->get_computation_frame(), wi);
 
-  // add the wrench
-  rb->add_wrench(w);
+  // add the force
+  rb->add_force(w);
 }
 
 /// Adds gravity to a body

@@ -147,14 +147,14 @@ shared_ptr<const Pose3d> PrismaticJoint::get_induced_pose()
 }
 
 /// Gets the derivative fo the spatial axes for this joint
-vector<Twistd>& PrismaticJoint::get_spatial_axes_dot()
+vector<SAcceld>& PrismaticJoint::get_spatial_axes_dot()
 {
   return _s_deriv;
 }
 
 /*
 /// Calculates the constraint Jacobian
-void PrismaticJoint::calc_constraint_jacobian_euler(RigidBodyPtr body, unsigned index, double Cq[7])
+void PrismaticJoint::calc_constraint_jacobian(RigidBodyPtr body, unsigned index, double Cq[7])
 {
   const unsigned X = 0, Y = 1, Z = 2, SPATIAL_DIM = 7;
 
@@ -886,7 +886,7 @@ void PrismaticJoint::calc_constraint_jacobian_euler(RigidBodyPtr body, unsigned 
 }
 
 /// Calculates the time derivative of the constraint Jacobian
-void PrismaticJoint::calc_constraint_jacobian_dot_euler(RigidBodyPtr body, unsigned index, double Cq[7])
+void PrismaticJoint::calc_constraint_jacobian_dot(RigidBodyPtr body, unsigned index, double Cq[7])
 {
   const unsigned X = 0, Y = 1, Z = 2, SPATIAL_DIM = 7;
 

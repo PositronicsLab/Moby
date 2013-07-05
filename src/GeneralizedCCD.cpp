@@ -599,7 +599,7 @@ BVPtr GeneralizedCCD::get_swept_BV(CollisionGeometryPtr cg, BVPtr bv, const Pose
   assert(vi != _swept_BVs.end());
 
   // compute the change in velocity from the pose
-  Twistd v = Pose3d::diff(poses.t0, poses.tf);
+  SVelocityd v = Pose3d::diff(poses.t0, poses.tf);
 
   // see whether the velocity-expanded BV has already been calculated
   map<BVPtr, BVPtr>::const_iterator vj;

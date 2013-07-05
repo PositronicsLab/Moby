@@ -59,7 +59,7 @@ void SSL::operator=(const SSL& s)
 }
 
 /// Calculates the velocity-expanded bounding volume
-BVPtr SSL::calc_swept_BV(CollisionGeometryPtr g, const Twistd& v) const
+BVPtr SSL::calc_swept_BV(CollisionGeometryPtr g, const SVelocityd& v) const
 {
   throw std::runtime_error("SSL::calc_swept_BV() not implemented!");
   return BVPtr();

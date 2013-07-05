@@ -11,6 +11,7 @@
 #include <boost/shared_ptr.hpp>
 #include <Ravelin/Pose3d.h>
 #include <Ravelin/MatrixNd.h>
+#include <Ravelin/SAcceld.h>
 #include <Moby/Base.h>
 #include <Moby/DynamicBody.h>
 #include <Moby/RigidBody.h>
@@ -35,8 +36,8 @@ class Joint : public Visualizable
     virtual ~Joint() {}
     void add_force(const Ravelin::VectorNd& force);
     void reset_force();    
-    virtual const std::vector<Ravelin::Twistd>& get_spatial_axes();
-    virtual const std::vector<Ravelin::Twistd>& get_spatial_axes_complement();
+    virtual const std::vector<Ravelin::SVelocityd>& get_spatial_axes();
+    virtual const std::vector<Ravelin::SVelocityd>& get_spatial_axes_complement();
     Ravelin::Point3d get_location(bool use_outboard = false) const;
     Ravelin::VectorNd& get_scaled_force(Ravelin::VectorNd& f);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
@@ -44,7 +45,7 @@ class Joint : public Visualizable
     virtual void set_inboard_link(RigidBodyPtr link);
     virtual void set_outboard_link(RigidBodyPtr link);
     virtual void update_spatial_axes();
-    std::vector<Ravelin::Twistd>& get_spatial_constraints(ReferenceFrameType rftype, std::vector<Ravelin::Twistd>& s);
+    std::vector<Ravelin::SVelocityd>& get_spatial_constraints(ReferenceFrameType rftype, std::vector<Ravelin::SVelocityd>& s);
     ConstraintType get_constraint_type() const { return _constraint_type; }
     void evaluate_constraints_dot(double C[6]);
     virtual void determine_q_dot();
@@ -98,7 +99,7 @@ class Joint : public Visualizable
       {
         // compute the constraint Jacobian using euler parameters
         double Cq2[7];
-        calc_constraint_jacobian_euler(body, index, Cq2);
+        calc_constraint_jacobian(body, index, Cq2);
 
         // convert to axis-angle representation
         Cq[0] = Cq2[0];
@@ -110,7 +111,7 @@ class Joint : public Visualizable
         Cq[5] = ang[2];
       }
       else
-        calc_constraint_jacobian_euler(body, index, Cq);
+        calc_constraint_jacobian(body, index, Cq);
     }
 
     /// Computes the time derivative of the constraint Jacobian for this joint with respect to the given body
@@ -129,7 +130,7 @@ class Joint : public Visualizable
       {
         // compute the constraint Jacobian using euler parameters
         double Cq2[7];
-        calc_constraint_jacobian_dot_euler(body, index, Cq2);
+        calc_constraint_jacobian_dot(body, index, Cq2);
 
         // convert to axis-angle representation
         Cq[0] = Cq2[0];
@@ -141,14 +142,14 @@ class Joint : public Visualizable
         Cq[5] = ang[2];
       }
       else
-        calc_constraint_jacobian_dot_euler(body, index, Cq);
+        calc_constraint_jacobian_dot(body, index, Cq);
     }
 
     /// Abstract method to get the spatial axes derivatives for this joint
     /**
      * Only applicable for reduced-coordinate articulated bodies
      */
-    virtual const std::vector<Ravelin::Twistd>& get_spatial_axes_dot() = 0;
+    virtual const std::vector<Ravelin::SAcceld>& get_spatial_axes_dot() = 0;
 
     /// Abstract method to get the local transform for this joint
     /**
@@ -266,7 +267,7 @@ class Joint : public Visualizable
      * \param Cq a vector that contains the corresponding column of the
      *        constraint Jacobian on return
      */
-    virtual void calc_constraint_jacobian_euler(RigidBodyPtr body, unsigned index, double Cq[]) = 0;
+    virtual void calc_constraint_jacobian(RigidBodyPtr body, unsigned index, double Cq[]) = 0;
  
      /// Computes the time derivative of the constraint Jacobian for this joint with respect to the given body in Rodrigues parameters
     /**
@@ -277,7 +278,7 @@ class Joint : public Visualizable
      * \param Cq a vector that contains the corresponding column of the
      *        constraint Jacobian on return
      */
-    virtual void calc_constraint_jacobian_dot_euler(RigidBodyPtr body, unsigned index, double Cq[]) = 0;
+    virtual void calc_constraint_jacobian_dot(RigidBodyPtr body, unsigned index, double Cq[]) = 0;
 
     virtual boost::shared_ptr<const Ravelin::Pose3d> get_visualization_pose();
 
@@ -293,14 +294,14 @@ class Joint : public Visualizable
      * Spatial axes are used in the dynamics equations for reduced-coordinate
      * articulated bodies only.
      */
-    std::vector<Ravelin::Twistd> _s;
+    std::vector<Ravelin::SVelocityd> _s;
 
     /// The complement of the spatial axes (in joint position frame) for the joint
     /**
      * Spatial axes are used in the dynamic equations for reduced-coordinate
      * articulated bodies only.
      */
-    std::vector<Ravelin::Twistd> _s_bar;
+    std::vector<Ravelin::SVelocityd> _s_bar;
 
     /// The stored "tare" value for the initial joint configuration
     /**
