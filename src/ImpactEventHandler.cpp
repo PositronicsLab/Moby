@@ -168,7 +168,8 @@ void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& eve
   if (use_qp_solver(epd))
     solve_qp(epd, poisson_eps);
   else
-    solve_nqp(epd, poisson_eps);
+    assert(false); 
+//    solve_nqp(epd, poisson_eps);
 
   // apply impulses 
   apply_impulses(epd);
@@ -222,9 +223,9 @@ void ImpactEventHandler::apply_impulses(const EventProblemData& q) const
   // loop over all contact events first
   for (unsigned i=0; i< q.contact_events.size(); i++)
   {
-    // get the contact wrench
+    // get the contact force
     const Event& e = *q.contact_events[i];
-    const Wrenchd& w = e.contact_impulse;
+    const SForced& w = e.contact_impulse;
     const Point3d& p = e.contact_point;
 
     // get the two single bodies of the contact
@@ -235,7 +236,7 @@ void ImpactEventHandler::apply_impulses(const EventProblemData& q) const
     DynamicBodyPtr b1 = sb1->get_super_body();
     DynamicBodyPtr b2 = sb2->get_super_body();
 
-    // convert wrench on first body to generalized forces
+    // convert force on first body to generalized forces
     if ((gj_iter = gj.find(b1)) == gj.end())
       b1->convert_to_generalized_force(sb1, w, p, gj[b1]);
     else
@@ -244,7 +245,7 @@ void ImpactEventHandler::apply_impulses(const EventProblemData& q) const
       gj_iter->second += workv; 
     }
 
-    // convert wrench on second body to generalized forces
+    // convert force on second body to generalized forces
     if ((gj_iter = gj.find(b2)) == gj.end())
       b2->convert_to_generalized_force(sb2, -w, p, gj[b2]);
     else

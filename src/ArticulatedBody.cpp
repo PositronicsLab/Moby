@@ -68,7 +68,7 @@ void ArticulatedBody::compute_Z_matrices(const vector<unsigned>& loop_indices, c
   for (unsigned i=0; i< _joints.size(); i++)
   {
     // get the spatial axes complement for this joint
-    const vector<Twistd>& si_bar = _joints[i]->get_spatial_axes_complement();
+    const vector<SVelocityd>& si_bar = _joints[i]->get_spatial_axes_complement();
 
     // determine the target transform
     Point3d xi = _joints[i]->get_position_global();
@@ -198,7 +198,7 @@ MatrixNd& ArticulatedBody::determine_F(unsigned link_idx, const Pose3d& Tf, cons
   const unsigned UINF = std::numeric_limits<unsigned>::max();
   SAFESTATIC std::queue<JointPtr> q;
   SAFESTATIC MatrixNd J;
-  SAFESTATIC vector<Twistd> sx;
+  SAFESTATIC vector<SVelocityd> sx;
   SAFESTATIC vector<bool> processed;
 
   // determine whether the coordinate index must be modified
@@ -260,7 +260,7 @@ MatrixNd& ArticulatedBody::determine_F(unsigned link_idx, const Pose3d& Tf, cons
     const Pose3d& To = outboard->get_transform();
     
     // get its spatial axes and transform
-    const vector<Twistd>& si = joint->get_spatial_axes(eLink);
+    const vector<SVelocityd>& si = joint->get_spatial_axes(eLink);
     SpatialTransform(To, TfX).transform(si, sx);
 
     // set the appropriate column in F

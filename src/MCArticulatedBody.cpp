@@ -805,7 +805,7 @@ void MCArticulatedBody::calc_joint_accelerations()
 }
 
 /// Applies an impulse to the articulated body
-void MCArticulatedBody::apply_impulse(const Wrenchd& w, RigidBodyPtr link)
+void MCArticulatedBody::apply_impulse(const SForced& w, RigidBodyPtr link)
 {
   SAFESTATIC VectorNd iM_Qj, rhs, delta_xd, Qj, gj, lambda;
   const unsigned NGC = num_generalized_coordinates(DynamicBody::eSpatial);
@@ -1617,7 +1617,7 @@ void MCArticulatedBody::reset_accumulators()
 }
 
 /// Determines a generalized force on the body
-VectorNd& MCArticulatedBody::convert_to_generalized_force(SingleBodyPtr link, const Wrenchd& w, const Point3d& p, VectorNd& gf)
+VectorNd& MCArticulatedBody::convert_to_generalized_force(SingleBodyPtr link, const SForced& w, const Point3d& p, VectorNd& gf)
 {
   SAFESTATIC VectorNd link_gf;
 

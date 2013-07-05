@@ -37,11 +37,11 @@ void GravityForce::add_force(DynamicBodyPtr body)
   shared_ptr<SingleBody> sb = dynamic_pointer_cast<SingleBody>(body);
   if (sb)
   {
-    Wrenchd w;
-    Vector3d gx = Pose3d::transform(GLOBAL, body->get_computation_frame(), gravity);
+    SForced w;
+    Vector3d gx = Pose3d::transform(GLOBAL, sb->get_computation_frame(), gravity);
     w.set_force(gx * sb->get_mass());
     w.pose = gx.pose; 
-    sb->add_wrench(w);        
+    sb->add_force(w);        
   }
   else
   {
@@ -54,11 +54,11 @@ void GravityForce::add_force(DynamicBodyPtr body)
     // apply gravity force to all links
     BOOST_FOREACH(RigidBodyPtr rb, links)
     {
-      Wrenchd w;
+      SForced w;
       Vector3d gx = Pose3d::transform(GLOBAL, rb->get_computation_frame(), gravity);
       w.set_force(gx * rb->get_mass());
       w.pose = gx.pose; 
-      rb->add_wrench(w);        
+      rb->add_force(w);        
     }
   }
 }

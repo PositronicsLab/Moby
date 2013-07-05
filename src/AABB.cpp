@@ -208,7 +208,7 @@ std::ostream& AABB::to_vrml(std::ostream& out, const Pose3d& T) const
 }
 
 /// Constructs a velocity expanded OBB using the AABB
-BVPtr AABB::calc_swept_BV(CollisionGeometryPtr g, const Twistd& v) const
+BVPtr AABB::calc_swept_BV(CollisionGeometryPtr g, const SVelocityd& v) const
 {
   // construct an OBB and use it to determine the velocity-expanded bounding volume
   OBBPtr o(new OBB(get_OBB()));

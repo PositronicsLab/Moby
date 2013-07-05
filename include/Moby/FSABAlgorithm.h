@@ -45,28 +45,28 @@ class FSABAlgorithm
     void set_body(RCArticulatedBodyPtr body) { _body = body; }
     void calc_fwd_dyn();
     void apply_generalized_impulse(const Ravelin::VectorNd& gj);
-    void apply_impulse(const Ravelin::Wrenchd& j, RigidBodyPtr link);
+    void apply_impulse(const Ravelin::SForced& j, RigidBodyPtr link);
 
     /// The body that this algorithm operates on
     boost::weak_ptr<RCArticulatedBody> _body;
 
     /// The spatial velocities
-    std::vector<Ravelin::Twistd> _v;
+    std::vector<Ravelin::SVelocityd> _v;
 
     /// The spatial accelerations
-    std::vector<Ravelin::Twistd> _a;
+    std::vector<Ravelin::SAcceld> _a;
 
     /// The articulated body inertias
     std::vector<Ravelin::SpatialABInertiad> _I;
 
     /// The articulated body spatial zero accelerations
-    std::vector<Ravelin::Wrenchd> _Z;
+    std::vector<Ravelin::SForced> _Z;
 
     /// Vector of link velocity updates
-    std::vector<Ravelin::Twistd> _dv;
+    std::vector<Ravelin::SVelocityd> _dv;
 
     /// The spatial coriolis vectors
-    std::vector<Ravelin::Twistd> _c;
+    std::vector<Ravelin::SAcceld> _c;
 
     /// The expressions I*s
     std::vector<Ravelin::MatrixNd> _Is;
@@ -91,7 +91,7 @@ class FSABAlgorithm
     /// work variables 
     Ravelin::VectorNd _workv, _workv2, _sTY, _qd_delta, _sIsmu, _Qi, _Q;
     Ravelin::MatrixNd _sIss, _workM;
-    std::vector<Ravelin::Wrenchd> _Y;
+    std::vector<Ravelin::SMomentumd> _Y;
 
     /// processed vector
     std::vector<bool> _processed;
@@ -100,7 +100,7 @@ class FSABAlgorithm
     static void push_children(RigidBodyPtr link, std::queue<RigidBodyPtr>& q);
     void apply_coulomb_joint_friction(RCArticulatedBodyPtr body);
     void calc_impulse_dyn(RCArticulatedBodyPtr body);
-    void apply_generalized_impulse(unsigned index, const std::vector<std::vector<Ravelin::Wrenchd> >& sTI, Ravelin::VectorNd& vgj);
+    void apply_generalized_impulse(unsigned index, const std::vector<std::vector<Ravelin::SForced> >& sTI, Ravelin::VectorNd& vgj);
     void set_spatial_velocities(RCArticulatedBodyPtr body);
     void calc_spatial_accelerations(RCArticulatedBodyPtr body);
     void calc_spatial_zero_accelerations(RCArticulatedBodyPtr body);
@@ -108,7 +108,7 @@ class FSABAlgorithm
     void calc_spatial_coriolis_vectors(RCArticulatedBodyPtr body);
     Ravelin::VectorNd& solve_sIs(unsigned idx, const Ravelin::VectorNd& v, Ravelin::VectorNd& result) const;
     Ravelin::MatrixNd& solve_sIs(unsigned idx, const Ravelin::MatrixNd& v, Ravelin::MatrixNd& result) const;
-    Ravelin::MatrixNd& transpose_solve_sIs(unsigned idx, const std::vector<Ravelin::Twistd>& m, Ravelin::MatrixNd& result) const;
+    Ravelin::MatrixNd& transpose_solve_sIs(unsigned idx, const std::vector<Ravelin::SVelocityd>& m, Ravelin::MatrixNd& result) const;
 }; // end class
 } // end namespace
 

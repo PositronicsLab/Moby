@@ -34,7 +34,7 @@ class DynamicBody : public Visualizable
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual void integrate(double t, double h, boost::shared_ptr<Integrator> integrator);
-    virtual std::vector<Ravelin::Twistd>& calc_jacobian(boost::shared_ptr<Ravelin::Pose3d> frame, DynamicBodyPtr body, std::vector<Ravelin::Twistd>& J);
+    virtual std::vector<Ravelin::SVelocityd>& calc_jacobian(boost::shared_ptr<Ravelin::Pose3d> frame, DynamicBodyPtr body, std::vector<Ravelin::SVelocityd>& J);
 
     /// Sets the computation frame type for this body
     virtual void set_computation_frame_type(ReferenceFrameType rftype) = 0;
@@ -134,11 +134,11 @@ class DynamicBody : public Visualizable
     /**
      * \param body the actual rigid body to which the force/torque is applied 
      *               (at the center-of-mass)
-     * \param w the wrench 
+     * \param w the force 
      * \param gf the generalized force, on return
      * \note uses the current generalized coordinates
      */
-    virtual Ravelin::VectorNd& convert_to_generalized_force(SingleBodyPtr body, const Ravelin::Wrenchd& w, const Ravelin::Point3d& p, Ravelin::VectorNd& gf) = 0;
+    virtual Ravelin::VectorNd& convert_to_generalized_force(SingleBodyPtr body, const Ravelin::SForced& w, const Ravelin::Point3d& p, Ravelin::VectorNd& gf) = 0;
 
     /// The controller callback, if any, for this body
     void (*controller)(boost::shared_ptr<DynamicBody>, double, void*);

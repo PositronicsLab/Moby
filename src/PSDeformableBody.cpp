@@ -18,7 +18,7 @@ using Ravelin::VectorNd;
 using Ravelin::MatrixNd;
 using Ravelin::Point3d;
 using Ravelin::Vector3d;
-using Ravelin::Wrenchd;
+using Ravelin::SForced;
 using namespace Moby;
 
 /// Sets up the deformable body
@@ -26,6 +26,17 @@ PSDeformableBody::PSDeformableBody()
 {
   default_KP = 1000;
   default_KV = 25;
+}
+
+/// Gets the mass of this body
+double PSDeformableBody::get_mass() const
+{
+  double mass = 0.0;
+
+  for (unsigned i=0; i< _nodes.size(); i++)
+    mass += _nodes[i]->mass;
+
+  return mass;
 }
 
 /// Sets the mesh for this body
@@ -207,7 +218,7 @@ void PSDeformableBody::calc_fwd_dyn(double dt)
 }
 
 // TODO: implement this
-void PSDeformableBody::apply_impulse(const Wrenchd& w)
+void PSDeformableBody::apply_impulse(const SForced& w)
 {
 }
 

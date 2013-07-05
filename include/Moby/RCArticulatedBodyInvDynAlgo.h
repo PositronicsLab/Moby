@@ -19,8 +19,8 @@ class RCArticulatedBodyInvDynData
 {
   public:
 
-    /// External wrench applied to this link 
-    Ravelin::Wrenchd wext;
+    /// External force applied to this link 
+    Ravelin::SForced wext;
 
     /// Inner joint acceleration (desired)
     Ravelin::VectorNd qdd;

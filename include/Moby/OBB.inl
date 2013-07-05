@@ -22,8 +22,8 @@ inline std::ostream& operator<<(std::ostream& out, const OBB& o)
 
 /// Computes the minimum OBB from a set of lower dimensional (< 3d) points
 /**
- * \param begin an iterator to type Ravelin::Vector3
- * \param end an iterator to type Ravelin::Vector3
+ * \param begin an iterator to type Ravelin::Point3d
+ * \param end an iterator to type Ravelin::Point3d
  */
 template <class ForwardIterator>
 OBB OBB::calc_low_dim_OBB(ForwardIterator begin, ForwardIterator end)

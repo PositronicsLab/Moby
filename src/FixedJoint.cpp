@@ -139,13 +139,13 @@ shared_ptr<const Pose3d> FixedJoint::get_induced_pose()
 }
 
 /// Gets the derivative for the spatial axes for this joint
-const vector<Twistd>& FixedJoint::get_spatial_axes_dot()
+const vector<SAcceld>& FixedJoint::get_spatial_axes_dot()
 {
   return _s_deriv;
 }
 
 /// Computes the constraint Jacobian with respect to a body
-void FixedJoint::calc_constraint_jacobian_euler(RigidBodyPtr body, unsigned idx, double Cq[7])
+void FixedJoint::calc_constraint_jacobian(RigidBodyPtr body, unsigned idx, double Cq[7])
 {
 /*
   const unsigned X = 0, Y = 1, Z = 2;
@@ -327,7 +327,7 @@ void FixedJoint::calc_constraint_jacobian_euler(RigidBodyPtr body, unsigned idx,
 }
 
 /// Computes the time derivative of the constraint Jacobian with respect to a body
-void FixedJoint::calc_constraint_jacobian_dot_euler(RigidBodyPtr body, unsigned idx, double Cq[7])
+void FixedJoint::calc_constraint_jacobian_dot(RigidBodyPtr body, unsigned idx, double Cq[7])
 {
 /*
   const unsigned X = 0, Y = 1, Z = 2;
@@ -348,8 +348,8 @@ void FixedJoint::calc_constraint_jacobian_dot_euler(RigidBodyPtr body, unsigned 
   _F2->x = b2->get_pose()->x;
 
   // need velocities in the proper frame
-  Twistd v1 = Pose3d::transform(b1->velocity().pose, _F1, b1->velocity()); 
-  Twistd v2 = Pose3d::transform(b2->velocity().pose, _F2, b2->velocity()); 
+  SVelocityd v1 = Pose3d::transform(b1->velocity().pose, _F1, b1->velocity()); 
+  SVelocityd v2 = Pose3d::transform(b2->velocity().pose, _F2, b2->velocity()); 
 
   // setup necessary variables
   const Quatd& q1 = b1->get_pose()->q;

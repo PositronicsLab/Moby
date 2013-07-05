@@ -8,11 +8,12 @@
 #include <Moby/Spatial.h>
 
 using namespace Ravelin;
-using namespace Moby;
 using std::vector;
 
-/// Concates a vector with a wrench to make a new vector
-VectorNd& concat(const VectorNd& v, const Wrenchd& w, VectorNd& result)
+namespace Moby {
+
+/// Concates a vector with a force to make a new vector
+VectorNd& concat(const VectorNd& v, const SForced& w, VectorNd& result)
 {
   const unsigned SPATIAL_DIM = 6;
   result.resize(v.size()+SPATIAL_DIM);
@@ -83,8 +84,8 @@ SVector6d mult(const vector<SVector6d>& t, const VectorNd& v)
 
   return result;
 }
-/// Multiplies a vector of wrenches by a vector
-SVector6d mult(const vector<Wrenchd>& w, const VectorNd& v)
+/// Multiplies a vector of forces by a vector
+SVector6d mult(const vector<SForced>& w, const VectorNd& v)
 {
   const unsigned SPATIAL_DIM = 6;
 
@@ -113,8 +114,8 @@ SVector6d mult(const vector<Wrenchd>& w, const VectorNd& v)
   return result;
 }
 
-/// Multiplies a vector of twists by a vector
-SVector6d mult(const vector<Twistd>& t, const VectorNd& v)
+/// Multiplies a vector of spatial velocities by a vector
+SVector6d mult(const vector<SVelocityd>& t, const VectorNd& v)
 {
   const unsigned SPATIAL_DIM = 6;
 
@@ -143,8 +144,35 @@ SVector6d mult(const vector<Twistd>& t, const VectorNd& v)
   return result;
 }
 
-Twistd spatial_cross(const Twistd& v1, const Twistd& v2)
+/// Multiplies a vector of spatial accelerations by a vector
+SVector6d mult(const vector<SAcceld>& t, const VectorNd& v)
 {
-  return SVector6d::spatial_cross(v1, v2);
+  const unsigned SPATIAL_DIM = 6;
+
+  if (t.size() != v.size())
+    throw MissizeException();
+
+  // setup the result
+  SVector6d result = SVector6d::zero();
+
+  // if the vector is empty, return now
+  if (t.empty())
+    return result;
+
+  // verify that all twists are in the same pose
+  result.pose = t.front().pose;
+  for (unsigned i=1; i< t.size(); i++)
+    if (t[i].pose != result.pose)
+      throw FrameException(); 
+
+  // finally, do the computation
+  const double* vdata = v.data();
+  for (unsigned j=0; j< SPATIAL_DIM; j++)
+    for (unsigned i=0; i< t.size(); i++)
+      result[j] += t[i][j]*vdata[i];
+
+  return result;
 }
+
+} // end namespace
 

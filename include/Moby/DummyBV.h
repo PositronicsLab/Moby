@@ -41,7 +41,7 @@ class DummyBV : public BV
      * \param v the velocity
      * \return the velocity-expanded bounding volume
      */ 
-    virtual BVPtr calc_swept_BV(CollisionGeometryPtr g, double dt, const Ravelin::Twistd& v) const { return boost::const_pointer_cast<BV>(get_this()); }
+    virtual BVPtr calc_swept_BV(CollisionGeometryPtr g, double dt, const Ravelin::SVelocityd& v) const { return boost::const_pointer_cast<BV>(get_this()); }
 
     /// Volume will be zero
     virtual double calc_volume() const { return 0.0; }

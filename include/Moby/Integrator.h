@@ -18,7 +18,6 @@ class Integrator : public virtual Base
   public:
     Integrator() { }
     virtual ~Integrator() {}
-    virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
 
     /// Determines whether this is a variable-stepping integrator (false, by default, for inherited classes)
