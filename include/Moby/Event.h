@@ -134,7 +134,7 @@ class Event
     // static variables
     static boost::shared_ptr<Ravelin::Pose3d> _event_frame;
     static Ravelin::MatrixNd J1, J2, workM1, workM2;
-    static std::vector<Ravelin::SAxisd> vel;
+    static std::vector<Ravelin::SVelocityd> vel;
     static Ravelin::VectorNd v, workv, workv2;
 
     static bool is_linked(const Event& e1, const Event& e2);
