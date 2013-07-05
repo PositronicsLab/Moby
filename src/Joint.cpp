@@ -8,6 +8,7 @@
 #include <limits>
 #include <queue>
 #include <Moby/RigidBody.h>
+#include <Moby/Spatial.h>
 #include <Moby/Joint.h>
 #include <Moby/XMLTree.h>
 #include <Moby/RCArticulatedBody.h>
@@ -17,6 +18,9 @@ using std::vector;
 using boost::shared_ptr;
 using namespace Ravelin;
 using namespace Moby;
+
+// shared (static) linear algebra object
+LinAlgd Joint::_LA;
 
 /// Initializes the joint
 /**
@@ -95,30 +99,34 @@ void Joint::determine_q_tare()
 }
 
 /// (Relatively slow) method for determining the joint velocity from current link velocities
-/*
 void Joint::determine_q_dot()
 {
-  // get the pseudo-inverse of the spatial axes
-  MatrixNd s;
-  get_spatial_axes(eGlobal);
-  try
-  {
-    LinAlg::pseudo_inverse(s, LinAlg::svd1); 
-  }
-  catch (NumericalException e)
-  {
-    s.copy_from(get_spatial_axes(eGlobal));
-    LinAlg::pseudo_inverse(s, LinAlg::svd2); 
-  }
+  MatrixNd m, U, V;
+  VectorNd S;
 
-  // get the change in velocity
+  // get the spatial axes
+  const vector<SAxisd>& s = get_spatial_axes();
+
+  // convert to a matrix
+  to_matrix(s, m);
+
+  // compute the SVD
+  _LA.svd(m, U, S, V);
+
+  // get the velocities in computation frames
   RigidBodyPtr inboard = get_inboard_link();
   RigidBodyPtr outboard = get_outboard_link();
   SVelocityd vi = inboard->velocity();
   SVelocityd vo = outboard->velocity();
-  s.mult(vo - vi, this->qd);
+
+  // get velocities in s's frame
+  shared_ptr<const Pose3d> spose = get_pose();
+  SVelocityd svi = Pose3d::transform(vi.pose, spose, vi);
+  SVelocityd svo = Pose3d::transform(vo.pose, spose, vo);
+
+  // compute the change in velocity
+  m.mult(vo - vi, this->qd);
 }
-*/
 
 /// Evaluates the time derivative of the constraint
 void Joint::evaluate_constraints_dot(double C[6])
@@ -161,33 +169,29 @@ void Joint::update_spatial_axes()
 {
 }
 
-/*
 /// Sets s bar from si
 void Joint::calc_s_bar_from_s()
 {
   const unsigned SPATIAL_DIM = 6;
   const unsigned NDOF = num_dof();
-  SAFESTATIC vector<SVelocityd> sx;
+  MatrixNd sx, ns;
 
-  // transform sx to frame located at joint
-  RigidBodyPtr outboard = get_outboard_link();
-  if (!outboard)
-    return;
-  const Matrix4& To = outboard->get_pose();
-  Point3d x = get_location();
-  SpatialTransform(To, IDENTITY_3x3, x).transform(_s, sx);
+  // get s
+  const vector<SAxisd>& s = get_spatial_axes(); 
 
-  // setup ns - it's the standard (i.e., non-spatial) transpose of sx
-  assert(sx.columns() == NDOF);
-  ns.resize(NDOF, SPATIAL_DIM);
-  for (unsigned i=0; i< NDOF; i++)
-    for (unsigned j=0; j< SPATIAL_DIM; j++)
-      ns(i,j) = sx(j,i);
+  // setup ns - it's the standard (i.e., non-spatial) transpose of s
+  assert(s.size() == NDOF);
+  to_matrix(s, sx);
+  MatrixNd::transpose(sx, ns);
 
   // compute the nullspace
-  LinAlg::nullspace(ns, _s_bar);
+  _LA.nullspace(ns, sx);
+
+  // setup s_bar
+  from_matrix(sx, _s_bar);
+  for (unsigned i=0; i< _s_bar.size(); i++)
+    _s_bar[i].pose = get_pose();
 }
-*/
 
 /// Sets the pointer to the inboard link for this joint (and updates the spatial axes, if the outboard link has been set)
 void Joint::set_inboard_link(RigidBodyPtr inboard)
@@ -339,7 +343,7 @@ VectorNd& Joint::get_scaled_force(VectorNd& f)
  * Spatial axes describe the motion of the joint. Note that for rftype = eLink,
  * spatial axes are given in outboard link's frame. 
  */
-const vector<SVelocityd>& Joint::get_spatial_axes()
+const vector<SAxisd>& Joint::get_spatial_axes()
 {
   return _s;
 }
@@ -349,7 +353,7 @@ const vector<SVelocityd>& Joint::get_spatial_axes()
  * Spatial axes describe the motion of the joint. Spatial axes complement are
  * given in identity-oriented frame located at the origin. 
  */
-const vector<SVelocityd>& Joint::get_spatial_axes_complement()
+const vector<SAxisd>& Joint::get_spatial_axes_complement()
 {
   calc_s_bar_from_s();
   return _s_bar;

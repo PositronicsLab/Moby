@@ -45,7 +45,7 @@ using boost::dynamic_pointer_cast;
 // static declarations
 shared_ptr<Pose3d> Event::_event_frame(new Pose3d);
 MatrixNd Event::J1, Event::J2, Event::workM1, Event::workM2;
-vector<SVelocityd> Event::vel;
+vector<SAxisd> Event::vel;
 VectorNd Event::v, Event::workv, Event::workv2; 
 
 /// Creates an empty event 

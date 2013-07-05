@@ -24,7 +24,7 @@ class PrismaticJoint : public Joint
     virtual void update_spatial_axes();    
     virtual void determine_q(Ravelin::VectorNd& q);
     virtual boost::shared_ptr<const Ravelin::Pose3d> get_induced_pose();
-    virtual std::vector<Ravelin::SAcceld>& get_spatial_axes_dot();
+    virtual std::vector<Ravelin::SAxisd>& get_spatial_axes_dot();
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual unsigned num_dof() const { return 1; } 
@@ -45,7 +45,7 @@ class PrismaticJoint : public Joint
     Ravelin::Vector3d _u;
 
     /// The derivative of the spatial axis matrix (used in reduced-coordinate articulated bodies only)
-    std::vector<Ravelin::SAcceld> _s_deriv;
+    std::vector<Ravelin::SAxisd> _s_deriv;
 
     /// Vector attached to inner link and initially orthogonal to joint axis (used in maximal coordinate articulated bodies only); vector specified in inner link frame
     Ravelin::Vector3d _ui;

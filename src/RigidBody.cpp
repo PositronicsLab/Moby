@@ -156,7 +156,7 @@ void RigidBody::integrate(double t, double h, shared_ptr<Integrator> integrator)
   FILE_LOG(LOG_DYNAMICS) << "  new velocity: " << _xd << endl;
 }
 
-/// Computes the force of inertial forces on the body
+/// Computes the acceleration due to inertial forces on the body
 SForced RigidBody::calc_inertial_forces() const
 {
   return _xd.cross(get_inertia() * _xd); 
@@ -683,7 +683,7 @@ void RigidBody::remove_inner_joint(JointPtr joint)
 /**
  * \param w the impulse as a force 
  */
-void RigidBody::apply_impulse(const SForced& w)
+void RigidBody::apply_impulse(const SMomentumd& w)
 {  
   // if this is not an articulated body, just update linear and angular
   // momenta and velocites
@@ -759,7 +759,7 @@ void RigidBody::apply_generalized_impulse(const VectorNd& gj)
 /// Applies a generalized impulse to this rigid body
 void RigidBody::apply_generalized_impulse_single(const VectorNd& gj)
 {
-  SForced w;
+  SMomentumd w;
 
   // don't do anything if this body is disabled
   if (!_enabled)
@@ -772,8 +772,8 @@ void RigidBody::apply_generalized_impulse_single(const VectorNd& gj)
   _force.set_zero();
 
   // get the impulses
-  w.set_force(Vector3d(gj[0], gj[1], gj[2]));
-  w.set_torque(Vector3d(gj[3], gj[4], gj[5]));
+  w.set_linear(Vector3d(gj[0], gj[1], gj[2]));
+  w.set_angular(Vector3d(gj[3], gj[4], gj[5]));
   w.pose = get_computation_frame();
 
   // determine the change in linear velocity

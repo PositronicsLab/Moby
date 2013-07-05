@@ -42,7 +42,7 @@ class PSDeformableBody : public DeformableBody
   public:
     PSDeformableBody();
     virtual void integrate(double t, double h, boost::shared_ptr<Integrator> integrator);
-    virtual void apply_impulse(const Ravelin::SForced& j);
+    virtual void apply_impulse(const Ravelin::SMomentumd& j);
     virtual void calc_fwd_dyn(double dt);
     virtual double calc_mass() const { return _J.m; }
     virtual void set_mesh(boost::shared_ptr<const IndexedTetraArray> tetra_mesh, boost::shared_ptr<Primitive> tri_mesh);

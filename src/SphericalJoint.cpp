@@ -233,7 +233,7 @@ bool SphericalJoint::assign_axes()
 /**
  * \note these spatial axes are not constant, unlike many joints.
  */
-const vector<SVelocityd>& SphericalJoint::get_spatial_axes()
+const vector<SAxisd>& SphericalJoint::get_spatial_axes()
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
@@ -288,7 +288,7 @@ const vector<SVelocityd>& SphericalJoint::get_spatial_axes()
 /**
  * \note these spatial axes are not constant, unlike many joints.
  */
-const vector<SAcceld>& SphericalJoint::get_spatial_axes_dot()
+const vector<SAxisd>& SphericalJoint::get_spatial_axes_dot()
 {
   RigidBodyPtr inboard = get_inboard_link();
   RigidBodyPtr outboard = get_outboard_link();
@@ -454,10 +454,10 @@ shared_ptr<const Pose3d> SphericalJoint::get_induced_pose()
   return _Fprime;
 }
 
-/*
 /// Evaluates the constraint equations
 void SphericalJoint::evaluate_constraints(double C[])
 {
+/*
   const unsigned X = 0, Y = 1, Z = 2;
 
   // get the two links
@@ -476,11 +476,13 @@ void SphericalJoint::evaluate_constraints(double C[])
   C[0] = r12[X];
   C[1] = r12[Y];
   C[2] = r12[Z];
+*/
 }
 
 /// Computes the constraint jacobian with respect to a body
 void SphericalJoint::calc_constraint_jacobian(RigidBodyPtr body, unsigned index, double Cq[7])
 {
+/*
   const unsigned X = 0, Y = 1, Z = 2, SPATIAL_DIM = 7;
 
   // get the two links
@@ -594,11 +596,13 @@ void SphericalJoint::calc_constraint_jacobian(RigidBodyPtr body, unsigned index,
         throw std::runtime_error("Invalid joint constraint index!");
     }
   }
+*/
 }
 
 /// Computes the time derivative of the constraint jacobian with respect to a body
 void SphericalJoint::calc_constraint_jacobian_dot(RigidBodyPtr body, unsigned index, double Cq[7])
 {
+/*
   const unsigned X = 0, Y = 1, Z = 2, SPATIAL_DIM = 7;
 
   // get the two links
@@ -714,8 +718,8 @@ void SphericalJoint::calc_constraint_jacobian_dot(RigidBodyPtr body, unsigned in
         throw std::runtime_error("Invalid joint constraint index!");
     }
   }
-}
 */
+}
 
 /// Implements Base::load_from_xml()
 void SphericalJoint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)

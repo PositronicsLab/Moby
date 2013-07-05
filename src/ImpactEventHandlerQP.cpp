@@ -122,13 +122,19 @@ void ImpactEventHandler::solve_qp(EventProblemData& q, double poisson_eps)
 
   // save normal contact impulses
   for (unsigned i=0; i< q.N_CONTACTS; i++)
-    q.contact_events[i]->contact_impulse = q.contact_events[i]->contact_normal * q.cn[i];
+  {
+    // TODO: setup frame for contact impulse
+    q.contact_events[i]->contact_impulse.set_zero();
+    q.contact_events[i]->contact_impulse.set_linear(q.contact_events[i]->contact_normal * q.cn[i]);
+  }
 
   // save tangent contact impulses
   for (unsigned i=0; i< q.N_CONTACTS; i++)
   {
-    q.contact_events[i]->contact_impulse += q.contact_events[i]->contact_tan1 * q.cs[i];
-    q.contact_events[i]->contact_impulse += q.contact_events[i]->contact_tan2 * q.ct[i];
+    Vector3d contact_j = q.contact_events[i]->contact_impulse.get_linear(); 
+    contact_j += q.contact_events[i]->contact_tan1 * q.cs[i];
+    contact_j += q.contact_events[i]->contact_tan2 * q.ct[i];
+    q.contact_events[i]->contact_impulse.set_linear(contact_j);
   }
 
   // save limit impulses

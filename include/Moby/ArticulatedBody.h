@@ -11,7 +11,7 @@
 #include <boost/shared_ptr.hpp>
 #include <Ravelin/Vector3d.h>
 #include <Ravelin/Matrix3d.h>
-#include <Ravelin/SVector6d.h>
+#include <Ravelin/SMomentumd.h>
 #include <Moby/sorted_pair>
 #include <Moby/Event.h>
 #include <Moby/DynamicBody.h>
@@ -101,7 +101,7 @@ class ArticulatedBody : public DynamicBody
      * \param w the impulsive force 
      * \param link link in the articulated body where the impulse is applied
      */
-    virtual void apply_impulse(const Ravelin::SForced& w, RigidBodyPtr link) = 0;
+    virtual void apply_impulse(const Ravelin::SMomentumd& w, RigidBodyPtr link) = 0;
       
     /// Method for resetting the force and torque accumulators on all links
     virtual void reset_accumulators() = 0;

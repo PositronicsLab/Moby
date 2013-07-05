@@ -225,7 +225,7 @@ void ImpactEventHandler::apply_impulses(const EventProblemData& q) const
   {
     // get the contact force
     const Event& e = *q.contact_events[i];
-    const SForced& w = e.contact_impulse;
+    SForced w(e.contact_impulse);
     const Point3d& p = e.contact_point;
 
     // get the two single bodies of the contact

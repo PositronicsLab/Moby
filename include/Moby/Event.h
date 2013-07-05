@@ -99,7 +99,7 @@ class Event
      * the reverse of this force / impulse is applied to the body of the second 
      * geometry.
      */
-    Ravelin::SForced contact_impulse;
+    Ravelin::SMomentumd contact_impulse;
 
     /// The collision geometries involved (for contact events)
     CollisionGeometryPtr contact_geom1, contact_geom2;
@@ -134,7 +134,7 @@ class Event
     // static variables
     static boost::shared_ptr<Ravelin::Pose3d> _event_frame;
     static Ravelin::MatrixNd J1, J2, workM1, workM2;
-    static std::vector<Ravelin::SVelocityd> vel;
+    static std::vector<Ravelin::SAxisd> vel;
     static Ravelin::VectorNd v, workv, workv2;
 
     static bool is_linked(const Event& e1, const Event& e2);

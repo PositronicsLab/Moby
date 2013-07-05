@@ -30,7 +30,6 @@ class IndexedTetraArray : public Base
 
     void center();
     unsigned num_tetra() const { return (_tetra) ? _tetra->size() : 0; }
-    boost::shared_ptr<const Ravelin::Pose3d> get_pose() const;
     IndexedTetraArray transform(const Ravelin::Transform3d& T) const;
     IndexedTetraArray compress_vertices() const;
     static IndexedTetraArray read_from_tetra(const std::string& filename);
@@ -42,6 +41,12 @@ class IndexedTetraArray : public Base
     Tetrahedron get_tetrahedron(unsigned i) const;
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);  
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
+
+    /// Gets the pose that these vertices are defined in
+    /**
+     * The mesh never changes this pose.
+     */
+    boost::shared_ptr<const Ravelin::Pose3d> get_pose() const { return _pose; }
 
     /// Gets the pointer to the vector of tetrahedra 
     boost::shared_ptr<const std::vector<IndexedTetra> > get_tetra_pointer() const { return _tetra; }

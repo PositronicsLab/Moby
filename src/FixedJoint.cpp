@@ -139,7 +139,7 @@ shared_ptr<const Pose3d> FixedJoint::get_induced_pose()
 }
 
 /// Gets the derivative for the spatial axes for this joint
-const vector<SAcceld>& FixedJoint::get_spatial_axes_dot()
+const vector<SAxisd>& FixedJoint::get_spatial_axes_dot()
 {
   return _s_deriv;
 }
@@ -595,14 +595,17 @@ void FixedJoint::evaluate_constraints(double C[])
   RigidBodyPtr b1 = get_inboard_link();
   RigidBodyPtr b2 = get_outboard_link();
 
+  // get the poses for the two links
+  shared_ptr<const Pose3d> P1 = b1->get_pose();
+  shared_ptr<const Pose3d> P2 = b2->get_pose();
+
+
   // get the transforms and orientations for the two links
-  shared_ptr<const Pose3d> T1 = b1->get_pose();
-  shared_ptr<const Pose3d> T2 = b2->get_pose();
-  Matrix3d R1 = T1->q;
-  Matrix3d R2 = T2->q;
+  Matrix3d R1 = P1->q;
+  Matrix3d R2 = P2->q;
 
   // evaluate the relative position
-  Point3d rpos = T1->transform(_ui) + T1->x - T2->x; 
+  Point3d rpos = P1->transform(_ui) + P1->x - P2->x; 
 
   const double XX = Vector3d(R1.get_row(X), GLOBAL).dot(Vector3d(R2.get_row(X), GLOBAL));
   const double YY = Vector3d(R1.get_row(Y), GLOBAL).dot(Vector3d(R2.get_row(Y), GLOBAL));
