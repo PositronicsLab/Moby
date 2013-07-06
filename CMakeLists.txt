@@ -7,10 +7,10 @@ set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/CMakeModules)
 
 # setup include directories
 include_directories ("include")
-include_directories ("/Users/drum/repo/Ravelin/include")
+#include_directories ("/Users/drum/repo/Ravelin/include")
 
 # setup link directories
-link_directories ("/Users/drum/repo/Ravelin/debug")
+#link_directories ("/Users/drum/repo/Ravelin/debug")
 
 # setup library sources
 set (SOURCES DeformableBody.cpp GravityForce.cpp CRBAlgorithm.cpp RNEAlgorithm.cpp RCArticulatedBody.cpp RigidBody.cpp LCP.cpp OSGGroupWrapper.cpp Integrator.cpp SpherePrimitive.cpp ConePrimitive.cpp CylinderPrimitive.cpp BoxPrimitive.cpp GaussianMixture.cpp CSG.cpp FSABAlgorithm.cpp Simulator.cpp EventDrivenSimulator.cpp Spatial.cpp ArticulatedBody.cpp Primitive.cpp Visualizable.cpp AABB.cpp SSL.cpp SSR.cpp BoundingSphere.cpp CompGeom.cpp Polyhedron.cpp Integrator.cpp ODEPACKIntegrator.cpp EulerIntegrator.cpp VariableStepIntegrator.cpp Rosenbrock4Integrator.cpp RungeKuttaIntegrator.cpp RungeKuttaFehlbergIntegrator.cpp RungeKuttaImplicitIntegrator.cpp ContactParameters.cpp Log.cpp XMLWriter.cpp ThickTriangle.cpp Triangle.cpp Tetrahedron.cpp Base.cpp DynamicBody.cpp SingleBody.cpp XMLTree.cpp FixedJoint.cpp XMLReader.cpp DampingForce.cpp RevoluteJoint.cpp CollisionDetection.cpp CollisionGeometry.cpp MeshDCD.cpp PrismaticJoint.cpp SphericalJoint.cpp UniversalJoint.cpp BV.cpp C2ACCD.cpp OBB.cpp IndexedTetraArray.cpp TriangleMeshPrimitive.cpp IndexedTriArray.cpp Joint.cpp ImpactEventHandlerQP.cpp ImpactEventHandler.cpp Event.cpp StokesDragForce.cpp VariableEulerIntegrator.cpp URDFReader.cpp GeneralizedCCD.cpp)
