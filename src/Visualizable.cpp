@@ -121,7 +121,7 @@ void Visualizable::update_visualization()
 
   // convert the pose to reference the global frame
   Pose3d T0 = *T;
-  T0.convert_to_pose(GLOBAL);
+  T0.update_relative_pose(GLOBAL);
 
   // update the transform
   osg::Matrixd m;
