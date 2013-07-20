@@ -57,30 +57,16 @@ vector<SVelocityd>& ArticulatedBody::calc_jacobian(boost::shared_ptr<const Pose3
   // get the base link
   RigidBodyPtr base = get_base_link();
 
-  // TODO: verify that get_parent_link() always returns the one we want
-
   // loop backward through (at most one) joint for each child until we reach 
   // the parent
   while (link != base)
   {
+    // get the implicit inner joint for this link
+    JointPtr joint = link->get_inner_joint_implicit();
+
     // get the parent link
-    RigidBodyPtr parent = link->get_parent_link();
+    RigidBodyPtr parent = joint->get_inboard_link(); 
 
-    // get all inner joints for this link
-    const set<JointPtr> ij = link->get_inner_joints();
-
-    // get the joint that yields the parent
-    JointPtr joint;
-    BOOST_FOREACH(JointPtr j, ij)
-    {
-      if (j->get_inboard_link() == parent)
-      {
-        joint = j;
-        break;
-      }
-    }
-    assert(joint);
- 
     // get the coordinate index
     const unsigned CIDX = joint->get_coord_index();
 

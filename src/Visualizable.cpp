@@ -20,6 +20,9 @@ using boost::shared_ptr;
 
 Visualizable::Visualizable()
 {
+  // set the visualization relative pose
+  _vF = shared_ptr<Pose3d>(new Pose3d);
+
   #ifdef USE_OSG
   // create the OSGGroupWrapper
   _vizdata = OSGGroupWrapperPtr(new OSGGroupWrapper);
@@ -42,6 +45,17 @@ Visualizable::~Visualizable()
   #ifdef USE_OSG
   _group->unref();
   #endif
+}
+
+/// Sets the visualization relative pose
+void Visualizable::set_visualization_relative_pose(const Pose3d& P)
+{
+  // verify the P's relative pose is correct 
+  if (P.rpose != _vF->rpose)
+    throw std::runtime_error("Visualizable::set_visualization_relative_pose() - pose not relative to the proper pose");
+
+  // set the pose
+  *_vF = P;
 }
 
 /// Sets the visualization data from a OSGGroupWrapper

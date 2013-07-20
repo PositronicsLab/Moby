@@ -34,8 +34,9 @@ DeformableBody::DeformableBody()
   _xd.pose = _F;
   _J.pose = _F;
 
-  // initialize the identity transform
-  _identity_pose = shared_ptr<Pose3d>(new Pose3d);
+  // setup the visualization pose - note: it's always relative to the global frame
+  _vF = shared_ptr<Pose3d>(new Pose3d);
+  _vF->rpose = GLOBAL;
 
   // ensure that config updates are enabled
   _config_updates_enabled = true;
@@ -100,7 +101,9 @@ void DeformableBody::calc_com_and_vels()
   const unsigned X = 0, Y = 1, Z = 2;
 
   // init the center of mass and mass
-  _F->x = ZEROS_3;
+  _F->x.set_zero()
+
+;
   _J.m = (double) 0.0;
 
   // determine the position of the com
@@ -119,7 +122,8 @@ void DeformableBody::calc_com_and_vels()
   _J.h.set_zero();
 
   // compute the moment of inertia matrix
-  _J.J = ZEROS_3x3;
+  _J.J.set_zero();
+
   for (unsigned i=0; i< _nodes.size(); i++)
   {
     Vector3d relpoint = _nodes[i]->x - _F->x;
@@ -395,7 +399,9 @@ void DeformableBody::reset_accumulators()
   for (unsigned i=0; i< _nodes.size(); i++)
   {
     // reset the force on the node
-    _nodes[i]->f = ZEROS_3;
+    _nodes[i]->f .set_zero()
+
+;
   }
 }
 
@@ -964,7 +970,9 @@ void DeformableBody::load_from_xml(shared_ptr<const XMLTree> node, map<string, B
       {
         _nodes[i] = shared_ptr<Node>(new Node);
         _nodes[i]->x = tet_vertices[i];
-        _nodes[i]->xd = _nodes[i]->xdd = ZEROS_3;
+        _nodes[i]->xd = _nodes[i]->xdd .set_zero()
+
+;
         _nodes[i]->mass = DEFAULT_MASS;
       }
     }
@@ -1022,7 +1030,6 @@ void DeformableBody::load_from_xml(shared_ptr<const XMLTree> node, map<string, B
       _geometry = CollisionGeometryPtr(new CollisionGeometry);
     _geometry->set_single_body(get_this());
     _geometry->set_geometry(_cgeom_primitive);
-    _geometry->set_transform(IDENTITY_4x4, false);
     update_geometries(); 
 */
   }
@@ -1357,7 +1364,9 @@ bool DeformableBody::split(AABBPtr source, AABBPtr& tgt1, AABBPtr& tgt2, unsigne
   assert(tetra.size() > 1); 
 
   // determine the centroid of this set of tetrahedra
-  Point3d centroid = ZEROS_3;
+  Point3d centroid;
+  centroid.set_zero();
+
   double total_volume = 0;
   BOOST_FOREACH(unsigned idx, tetra)
   {

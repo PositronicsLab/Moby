@@ -463,7 +463,7 @@ bool BoxPrimitive::point_inside(BVPtr bv, const Point3d& point, Vector3d& normal
   else
   {
     // degenerate normal
-    normal = ZEROS_3;
+    normal .set_zero();
     normal.pose = p.pose;
   }
 

@@ -386,7 +386,9 @@ void C2ACCD::determine_contacts(CollisionGeometryPtr a, CollisionGeometryPtr b, 
       double sdist = tri->calc_signed_dist(e.contact_point);
 
       // get the relative velocity at the contact point
-      Vector3d rvel = rba->calc_point_vel(e.contact_point) - rbb->calc_point_vel(e.contact_point);
+      Vector3d pva = rba->calc_point_vel(e.contact_point);
+      Vector3d pvb = rbb->calc_point_vel(e.contact_point);
+      Vector3d rvel = Pose3d::transform(pva.pose, normal.pose, pva) - Pose3d::transform(pvb.pose, normal.pose, pvb);
 
       FILE_LOG(LOG_COLDET) << " -- normal: " << normal << std::endl;
       FILE_LOG(LOG_COLDET) << " -- contact point: " << e.contact_point << " sdist: " << sdist << endl;
@@ -417,7 +419,7 @@ void C2ACCD::determine_contacts(CollisionGeometryPtr a, CollisionGeometryPtr b, 
     }
 /*
     // determine the normal
-    Vector3 normal = ZEROS_3;
+    Vector3 normal .set_zero();
     if (fB == Triangle::eFace)
     {
       Vector3 tA_center = (tA.a + tA.b + tA.c)*0.333333;

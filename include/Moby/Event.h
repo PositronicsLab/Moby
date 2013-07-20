@@ -44,6 +44,7 @@ class Event
     void update_event_data(Ravelin::MatrixNd& M, Ravelin::VectorNd& q) const;
     void update_cross_event_data(const Event& e, Ravelin::MatrixNd& M) const;
     static void determine_minimal_set(std::list<Event*>& group);
+    boost::shared_ptr<const Ravelin::Pose3d> get_pose() const { return _event_frame; }
 
     template <class OutputIterator>
     OutputIterator get_super_bodies(OutputIterator begin) const;
@@ -132,7 +133,7 @@ class Event
 
   private:
     // static variables
-    static boost::shared_ptr<Ravelin::Pose3d> _event_frame;
+    boost::shared_ptr<Ravelin::Pose3d> _event_frame;
     static Ravelin::MatrixNd J1, J2, workM1, workM2;
     static std::vector<Ravelin::SVelocityd> vel;
     static Ravelin::VectorNd v, workv, workv2;

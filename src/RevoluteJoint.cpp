@@ -27,13 +27,13 @@ RevoluteJoint::RevoluteJoint() : Joint()
   init_data();
 
   // init the joint axes
-  _u = ZEROS_3;
-  _ui = ZEROS_3;
-  _uj = ZEROS_3;
-  _v2 = ZEROS_3;
+  _u.set_zero();
+  _ui.set_zero();
+  _uj.set_zero();
+  _v2.set_zero();
 
   // setup the spatial axis derivative to zero
-  _s_deriv.clear();
+  _s_dot.clear();
 }
 
 /// Initializes the joint with the specified inboard and outboard links
@@ -46,13 +46,13 @@ RevoluteJoint::RevoluteJoint(boost::weak_ptr<RigidBody> inboard, boost::weak_ptr
   init_data();
 
   // init the joint axes
-  _u = ZEROS_3;
-  _ui = ZEROS_3;
-  _uj = ZEROS_3;
-  _v2 = ZEROS_3;
+  _u.set_zero();
+  _ui.set_zero();
+  _uj.set_zero();
+  _v2.set_zero();
 
   // setup the spatial axis derivative to zero
-  _s_deriv.clear();
+  _s_dot.clear();
 }  
 
 /// Sets the axis of rotation for this joint
@@ -84,6 +84,7 @@ void RevoluteJoint::set_axis(const Vector3d& axis)
 void RevoluteJoint::update_spatial_axes()
 {
   const unsigned X = 0, Y = 1, Z = 2;
+  const Vector3d ZEROS_3(0.0, 0.0, 0.0, get_pose());
 
   // call parent method
   Joint::update_spatial_axes();
@@ -91,7 +92,6 @@ void RevoluteJoint::update_spatial_axes()
   try
   {
     // update the spatial axis in joint coordinates
-    _s[0].pose = get_pose();
     _s[0].set_angular(_u);
     _s[0].set_linear(ZEROS_3);
 
@@ -121,12 +121,14 @@ void RevoluteJoint::determine_q(VectorNd& q)
   // get the poses of the joint and outboard link
   shared_ptr<const Pose3d> Fj = get_pose();
   shared_ptr<const Pose3d> Fo = outboard->get_pose();
-  shared_ptr<Pose3d> Fjprime;
 
-  // Fo will be relative to Fj' which will be relative to Fj
-  
+  // compute transforms
+  Transform3d oT0 = Pose3d::calc_relative_pose(GLOBAL, Fo); 
+  Transform3d jT0 = Pose3d::calc_relative_pose(GLOBAL, Fj);
+  Transform3d oTj = oT0 * jT0.inverse();
+
   // determine the joint transformation
-  Matrix3d R = Fjprime->q;
+  Matrix3d R = oTj.q;
   AAngled aa(R, _u);
 
   // set q 
@@ -146,7 +148,7 @@ shared_ptr<const Pose3d> RevoluteJoint::get_induced_pose()
 /// Gets the derivative for the spatial axes for this joint
 const std::vector<SAxisd>& RevoluteJoint::get_spatial_axes_dot()
 {
-  return _s_deriv;
+  return _s_dot;
 }
 
 /// Computes the constraint Jacobian with respect to a body

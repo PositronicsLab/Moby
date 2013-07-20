@@ -83,9 +83,6 @@ class MCArticulatedBody : public ArticulatedBody
   protected:
     virtual void compile();
 
-    /// There is no visualization transform (returns NULL)
-    virtual boost::shared_ptr<const Ravelin::Pose3d> get_visualization_pose() { return boost::shared_ptr<const Ravelin::Pose3d>(); }
-
   private:
     enum JacobianType { eNone, eContactNormal, eContactTangent, eLimit,
                         eJointFriction, eConstraint };

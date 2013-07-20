@@ -19,10 +19,8 @@ namespace Moby {
 // constants
 const boost::shared_ptr<const Ravelin::Pose3d> GLOBAL;
 const double NEAR_ZERO = std::sqrt(std::numeric_limits<double>::epsilon());
-const Ravelin::Vector3d ZEROS_3 = Ravelin::Vector3d::zero();
 const Ravelin::Matrix3d ZEROS_3x3 = Ravelin::Matrix3d::zero();
 const Ravelin::Matrix3d IDENTITY_3x3 = Ravelin::Matrix3d::identity();
-const Ravelin::Pose3d IDENTITY_4x4 = Ravelin::Pose3d::identity();
 const Ravelin::VectorNd EMPTY_VEC(0);
 
 // debugging bits

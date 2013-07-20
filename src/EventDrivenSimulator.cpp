@@ -226,7 +226,7 @@ void EventDrivenSimulator::visualize_contact( Event& event ) {
   // add the root to the transient data scene graph
   add_transient_vdata( contact_root );
 
-  // TODO : remove validator once theta 100% proven
+  // JRT : remove validator once theta 100% proven
   // -----------------------------------------
   // Rotational Validator
   // -----------------------------------------
@@ -525,6 +525,8 @@ double EventDrivenSimulator::step(double step_size)
       break; // no event.. finish up
     else if (Zeno) 
     {
+      // TODO: look for events *after* Zeno points and only handle those?
+
       // move to time of designated Zeno point
       double h = std::min(max_Zeno_step, dt);
       handle_Zeno_point(h, q0, q1);

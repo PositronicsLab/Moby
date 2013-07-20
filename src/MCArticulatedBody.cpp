@@ -175,7 +175,9 @@ void MCArticulatedBody::determine_inertias()
     if (!_links[i]->is_enabled())
     {
       _iM[i].inv_mass = (double) 0.0;
-      _iM[i].inv_inertia = ZEROS_3x3;
+      _iM[i].inv_inertia .set_zero()
+
+x3;
     }
     else
     {
@@ -1473,7 +1475,9 @@ void MCArticulatedBody::increment_dof(RigidBodyPtr rb1, RigidBodyPtr rb2, unsign
     }
     else
     {
-      Point3d omega = ZEROS_3;
+      Point3d omega .set_zero()
+
+;
       omega[k-9] = h;
       Matrix3 omega_hat = Matrix3::skew_symmetric(omega);
       Matrix3 R = rb2->get_transform().get_rotation();
@@ -1498,7 +1502,9 @@ void MCArticulatedBody::increment_dof(RigidBodyPtr rb1, RigidBodyPtr rb2, unsign
     }
     else
     {
-      Vector3d omega = ZEROS_3;
+      Vector3d omega .set_zero()
+
+;
       omega[k-3] = h;
       Matrix3 omega_hat = Matrix3::skew_symmetric(omega);
       Matrix3 R = rb1->get_transform().get_rotation();
@@ -1858,8 +1864,12 @@ void MCArticulatedBody::get_event_data(JacobianType jt, Event* e, RigidBodyPtr r
 
   if (jt == MCArticulatedBody::eNone)
   {
-    tx = ZEROS_3;
-    rx = ZEROS_3;
+    tx .set_zero()
+
+;
+    rx .set_zero()
+
+;
     return;
   }
   else if (jt == MCArticulatedBody::eContactNormal)

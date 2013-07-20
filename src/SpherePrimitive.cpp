@@ -372,7 +372,11 @@ bool SpherePrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Po
     t = (double) 0.0;
     isect = p + center;
     double pnorm = std::sqrt(pp);
-    normal = (pnorm > NEAR_ZERO) ? p/pnorm : ZEROS_3;
+    normal.pose = get_pose();
+    if (pnorm > NEAR_ZERO)
+      normal = p/pnorm;
+    else
+      normal.set_zero();
     return true; 
   }
 

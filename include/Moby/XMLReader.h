@@ -13,6 +13,7 @@
 #include <string>
 #include <vector>
 #include <boost/shared_ptr.hpp>
+#include <Moby/Types.h>
 
 namespace Moby {
 

@@ -31,9 +31,9 @@ SphericalJoint::SphericalJoint() : Joint()
   init_data();
 
   // init the joint axes
-  _u[eAxis1] = ZEROS_3;
-  _u[eAxis2] = ZEROS_3;
-  _u[eAxis3] = ZEROS_3;
+  _u[eAxis1].set_zero();
+  _u[eAxis2].set_zero();
+  _u[eAxis3].set_zero();
   _u[eAxis1].pose = _F;
   _u[eAxis2].pose = _F;
   _u[eAxis3].pose = _F;
@@ -59,9 +59,9 @@ SphericalJoint::SphericalJoint(boost::weak_ptr<RigidBody> inboard, boost::weak_p
   init_data();
 
   // init the joint axes
-  _u[eAxis1] = ZEROS_3;
-  _u[eAxis2] = ZEROS_3;
-  _u[eAxis3] = ZEROS_3;
+  _u[eAxis1].set_zero();
+  _u[eAxis2].set_zero();
+  _u[eAxis3].set_zero();
   _u[eAxis1].pose = _F;
   _u[eAxis2].pose = _F;
   _u[eAxis3].pose = _F;
@@ -236,7 +236,9 @@ bool SphericalJoint::assign_axes()
 const vector<SAxisd>& SphericalJoint::get_spatial_axes()
 {
   const unsigned X = 0, Y = 1, Z = 2;
+  const Vector3d ZEROS_3(0.0, 0.0, 0.0, get_pose());
 
+  // get the inboard and outboard links
   RigidBodyPtr inboard = get_inboard_link();
   RigidBodyPtr outboard = get_outboard_link();
   if (!inboard)
@@ -290,6 +292,9 @@ const vector<SAxisd>& SphericalJoint::get_spatial_axes()
  */
 const vector<SAxisd>& SphericalJoint::get_spatial_axes_dot()
 {
+  const Vector3d ZEROS_3(0.0, 0.0, 0.0, get_pose());
+
+  // get the inboard and outboard links
   RigidBodyPtr inboard = get_inboard_link();
   RigidBodyPtr outboard = get_outboard_link();
   if (!inboard)
@@ -352,12 +357,14 @@ void SphericalJoint::determine_q(VectorNd& q)
   // get the poses of the joint and outboard link
   shared_ptr<const Pose3d> Fj = get_pose();
   shared_ptr<const Pose3d> Fo = outboard->get_pose();
-  shared_ptr<Pose3d> Fjprime;
 
-  // Fo will be relative to Fj' which will be relative to Fj
+  // compute transforms
+  Transform3d oT0 = Pose3d::calc_relative_pose(GLOBAL, Fo); 
+  Transform3d jT0 = Pose3d::calc_relative_pose(GLOBAL, Fj);
+  Transform3d oTj = oT0 * jT0.inverse();
 
   // determine the joint transformation
-  Matrix3d R = Fjprime->q;
+  Matrix3d R = oTj.q;
 
   // determine cos and sin values for q1, q2,  and q3
   double s2 = R(X,Z);

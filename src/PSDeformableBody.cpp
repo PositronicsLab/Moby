@@ -247,10 +247,18 @@ void PSDeformableBody::apply_impulse(const Vector3& j, const Vector3& p)
   _nodes[itet.d]->xd += j * w / _nodes[itet.d]->mass;
 
   // clear the force accumulators on the nodes
-  _nodes[itet.a]->f = ZEROS_3;
-  _nodes[itet.b]->f = ZEROS_3;
-  _nodes[itet.c]->f = ZEROS_3;
-  _nodes[itet.d]->f = ZEROS_3;
+  _nodes[itet.a]->f .set_zero()
+
+;
+  _nodes[itet.b]->f .set_zero()
+
+;
+  _nodes[itet.c]->f .set_zero()
+
+;
+  _nodes[itet.d]->f .set_zero()
+
+;
 FILE_LOG(LOG_COLDET) << "applied impulse " << j << " to " << p << " uvw: " << u << " " << v << " " << w << " (tetra " << closest << ")" << std::endl;
 FILE_LOG(LOG_COLDET) << "  node velocities: " << std::endl;
 for (unsigned i=0; i< _nodes.size(); i++)

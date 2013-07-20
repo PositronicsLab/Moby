@@ -53,6 +53,17 @@ RCArticulatedBody::RCArticulatedBody()
   _fM_valid = false;
 }
 
+/// Sets the computation frame type
+void RCArticulatedBody::set_computation_frame_type(ReferenceFrameType rftype)
+{
+  // set the reference frame
+  _rftype = rftype;
+
+  // set the reference frame type for all links
+  for (unsigned i=0; i< _links.size(); i++)
+    _links[i]->set_computation_frame_type(rftype);
+}
+
 /// Determines whether all of the children of a link have been processed
 bool RCArticulatedBody::all_children_processed(RigidBodyPtr link) const
 {
@@ -307,6 +318,10 @@ void RCArticulatedBody::set_links(const vector<RigidBodyPtr>& links)
   // setup the processed vector
   _processed.resize(links.size());
 
+  // set the reference frame type on all links 
+  for (unsigned i=0; i< _links.size(); i++)
+    _links[i]->set_computation_frame_type(_rftype);
+
   // check to see whether user's numbering scheme is acceptable
   for (unsigned i=1; i< _links.size(); i++)
   {
@@ -447,7 +462,9 @@ VectorNd& RCArticulatedBody::get_generalized_acceleration(VectorNd& ga)
 
 /// Updates the transforms of the links based on the current joint positions
 /**
- * \note all transforms for the body are recalculated, not just joint values that have changed
+ * \note this doesn't actually calculate other than the joint positions; all
+ *       links are defined with respect to the joints, which are defined
+ *       with respect to their inner link 
  */
 void RCArticulatedBody::update_link_poses()
 {

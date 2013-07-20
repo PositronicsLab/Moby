@@ -48,6 +48,10 @@ Joint::Joint()
   _Fb = shared_ptr<Pose3d>(new Pose3d);
   _Fprime = shared_ptr<Pose3d>(new Pose3d);
   _Fprime->rpose = _F;
+
+  // setup the visualization pose
+  _vF->set_identity();
+  _vF->rpose = _F;
 }
 
 /// Initializes the joint with the specified inboard and outboard links
@@ -78,6 +82,9 @@ Joint::Joint(boost::weak_ptr<RigidBody> inboard, boost::weak_ptr<RigidBody> outb
   _Fb = shared_ptr<Pose3d>(new Pose3d);
   _Fprime = shared_ptr<Pose3d>(new Pose3d);
   _Fprime->rpose = _F;
+
+  // setup the visualization pose
+  _vF->rpose = _F;
 }  
 
 /// Determines q tare
@@ -85,17 +92,6 @@ void Joint::determine_q_tare()
 {
   // determine q tare
   determine_q(_q_tare);
-
-  // save current q
-  VectorNd q_save = q;
-
-  // we want the joint to induce identity transform, so set q to zero 
-  q.set_zero();
-
-  // TODO: finish implementing this
-
-  // reset q
-  q = q_save;
 }
 
 /// (Relatively slow) method for determining the joint velocity from current link velocities
@@ -167,6 +163,10 @@ void Joint::evaluate_constraints_dot(double C[6])
  */
 void Joint::update_spatial_axes()
 {
+  // setup the spatial axis vector and frame
+  _s.resize(num_dof());
+  for (unsigned i=0; i< _s.size(); i++)
+    _s[i].pose = get_pose();
 }
 
 /// Sets s bar from si
@@ -234,8 +234,13 @@ void Joint::set_outboard_link(RigidBodyPtr outboard)
   if (!outboard)
     return;
 
+  // get the outboard pose
+  shared_ptr<Pose3d> outboardF = outboard->_F; 
+  assert(!outboardF->rpose);
+
   // setup Fb's pose relative to the outboard 
-  _Fb->rpose = outboard->get_pose();
+  _Fb->rpose = outboardF;
+  outboardF->rpose = _Fprime;
 
   //update spatial axes if both links are set
   if (!_outboard_link.expired() && !_inboard_link.expired())
@@ -295,7 +300,37 @@ void Joint::add_force(const VectorNd& force)
   this->force += force;
 }
 
-/// Gets the global position of this joint
+/// Sets the location of this joint
+/**
+ * \param use_outboard if <b>true</b> then the joint position is calculated 
+ *        using the outboard link rather than inboard link; the position will
+ *        not be identical if the joint constraint is violated (therefore,
+ *        this method will behave identically for reduced-coordinate 
+ *        articulated bodies)
+ */
+void Joint::set_location(const Point3d& point) 
+{
+  // verify inboard and outboard links are set
+  if (_inboard_link.expired())
+    throw std::runtime_error("Joint::set_location() called and inboard link not set");
+  // verify inboard link is set
+  if (_outboard_link.expired())
+    throw std::runtime_error("Joint::set_location() called and outboard link not set");
+
+  // get the inboard and outboard links
+  RigidBodyPtr inboard(_inboard_link);
+  RigidBodyPtr outboard(_outboard_link);
+
+  // convert p to the inboard and outboard links' frames
+  Point3d pi = Pose3d::transform(point.pose, inboard->get_pose(), point);
+  Point3d po = Pose3d::transform(point.pose, outboard->get_pose(), point);
+
+  // set _F's and Fb's origins
+  _F->x = Origin3d(pi);
+  _Fb->x = Origin3d(po);
+}
+
+/// Gets the location of this joint
 /**
  * \param use_outboard if <b>true</b> then the joint position is calculated 
  *        using the outboard link rather than inboard link; the position will
@@ -305,20 +340,23 @@ void Joint::add_force(const VectorNd& force)
  */
 Point3d Joint::get_location(bool use_outboard) const
 {
-  // get the inboard and outboard links
-  RigidBodyPtr inboard(_inboard_link);
+  // get the outboard link
   RigidBodyPtr outboard(_outboard_link);
-
 
   // compute the global position
   if (!use_outboard)
   {
+    // joint is defined with respect to inboard frame
+    Point3d p(_F);
+    p.set_zero();
+    return p;
   }
   else
   {
+    Point3d p(_Fb);
+    p.set_zero();
+    return p;
   }
-
-  // TODO: convert the pose to global position and return something...
 }
 
 /// Gets the scaled and limited actuator forces
@@ -357,24 +395,6 @@ const vector<SAxisd>& Joint::get_spatial_axes_complement()
 {
   calc_s_bar_from_s();
   return _s_bar;
-}
-
-/// Gets the visualization transform for this joint
-shared_ptr<const Pose3d> Joint::get_visualization_pose()
-{
-  // make sure that there is an inboard link
-  if (!get_inboard_link())
-    return shared_ptr<const Pose3d>();
-
-  // get the inboard link
-  RigidBodyPtr inboard(get_inboard_link());
-
-  // set the orientation for the joint to the orientation of the inner link
-  _vtransform = shared_ptr<Pose3d>(new Pose3d);
-  _vtransform->q = inboard->get_pose()->q;
-  _vtransform->x = get_location();
-
-  return _vtransform;
 }
 
 /*

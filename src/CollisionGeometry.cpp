@@ -114,26 +114,18 @@ void CollisionGeometry::write_vrml(const std::string& filename) const
   out.close();
 }
 
-/// Sets the transform of this CollisionGeometry
+/// Sets the relative pose of this geometry.
 /**
- * This method sets the base transform of this geometry. This geometry's true 
- * transform is the result of the relative transform applied to this transform.
- * This method recursively calls itself on each of its children, so that the 
- * user need only make one call to set_transform() at the root of a tree of 
- * transforms.  Note that the calling method must consider the relative 
- * transform applied to this geometry.  If the transform of the parent / 
- * related body is T1 and the relative transform is T2 then set_transform() 
- * should be called with T1 * T2.
- * \param transform the transformation
- * \param relF_accounted determines whether the relative transform is accounted for in transform; if 
- *        <b>false</b>, transform will be transformed by the relative transform before storing and propagating
- * \sa get_relF()
- * \sa set_relF() 
+ * \param P the relative pose (P.pose must be set relative to the single body pose)
  */
-void CollisionGeometry::set_relative_pose(shared_ptr<const Pose3d> P)
+void CollisionGeometry::set_relative_pose(const Pose3d& P)
 {
-  // update the transform
-  *_F = *P;
+  // verify the P's relative pose is correct 
+  if (P.rpose != _F->rpose)
+    throw std::runtime_error("CollisionGeometry::set_relative_pose() - pose not relative to the underlying single body");
+
+  // set the pose
+  *_F = P;
 }
 
 /// Implements Base::load_from_xml()
@@ -146,16 +138,17 @@ void CollisionGeometry::load_from_xml(shared_ptr<const XMLTree> node, std::map<s
   assert (strcasecmp(node->name.c_str(), "CollisionGeometry") == 0);
 
   // read relative pose, if specified
-  shared_ptr<Pose3d> TR(new Pose3d);
+  Pose3d TR;
+  TR.rpose = _F->rpose;
   const XMLAttrib* rel_origin_attr = node->get_attrib("relative-origin");
   const XMLAttrib* rel_rpy_attr = node->get_attrib("relative-rpy");
   const XMLAttrib* rel_quat_attr = node->get_attrib("relative-quat");
   if (rel_origin_attr)
-    TR->x = rel_origin_attr->get_origin_value();
+    TR.x = rel_origin_attr->get_origin_value();
   if (rel_quat_attr)
-    TR->q = rel_quat_attr->get_quat_value();
+    TR.q = rel_quat_attr->get_quat_value();
   else if (rel_rpy_attr)
-    TR->q = rel_rpy_attr->get_rpy_value();
+    TR.q = rel_rpy_attr->get_rpy_value();
   set_relative_pose(TR);
 
   // read the primitive ID, if any

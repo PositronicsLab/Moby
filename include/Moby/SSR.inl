@@ -6,8 +6,8 @@
 
 /// Computes a SSR from a set of points
 /**
- * \param begin an iterator to type Ravelin::Vector3
- * \param end an iterator to type Ravelin::Vector3
+ * \param begin an iterator to type Ravelin::Point3d
+ * \param end an iterator to type Ravelin::Point3d
  * Algorithm taken from [Ericson, 2005]
  */
 template <class ForwardIterator>
@@ -60,7 +60,9 @@ SSR::SSR(ForwardIterator begin, ForwardIterator end)
   else
   {
     // init the center to origin
-    this->center = ZEROS_3;
+    this->center.set_zero();
+    if (begin != end)
+      this->center.pose = begin->pose;
 
     // determine the area and centroid of all triangles
     const std::vector<Ravelin::Point3d>& verts = hull->get_vertices();

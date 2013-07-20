@@ -622,7 +622,7 @@ std::ostream& OBB::to_vrml(std::ostream& out, const Pose3d& T) const
   }
   else
   {
-// TODO: disabling writing triangles for non-leaf nodes
+// EMD: disabling writing triangles for non-leaf nodes
 /*
     std::stack<OBBPtr> s;
     BOOST_FOREACH(OBBPtr obb, this->children)
