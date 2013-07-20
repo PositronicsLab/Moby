@@ -512,7 +512,9 @@ OBB::OBB(ForwardIterator begin, ForwardIterator end)
   std::set<Ravelin::Vector3d> tested;  
 
   // initialize the center to zero
-  this->center = ZEROS_3;
+  this->center.set_zero();
+  if (begin != end)
+    this->center.pose = begin->pose;
 
   // compute the convex hull of the points
   PolyhedronPtr hull = CompGeom::calc_convex_hull(begin, end);

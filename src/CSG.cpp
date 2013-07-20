@@ -934,7 +934,7 @@ void CSG::calc_mass_properties()
     for (unsigned j=i; j<= Z; j++)
       if (std::isnan(_J.J(i,j)))
       {
-        _J.J = ZEROS_3x3;
+        _J.J.set_zero();
         return;
       }
 
@@ -946,7 +946,7 @@ void CSG::calc_mass_properties()
     std::cerr << "are bad" << std::endl;
     std::cerr << "  inertia tensor: " << std::endl << _J;
     std::cerr << "  likely due to non-manifold mesh" << std::endl;
-    _J.J = ZEROS_3x3;
+    _J.J.set_zero();
   }
 }
 

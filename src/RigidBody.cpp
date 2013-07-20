@@ -40,10 +40,15 @@ RigidBody::RigidBody()
 {
   const unsigned SPATIAL_DIM = 6;
 
-  // setup poses
+  // setup reference pose
   _F = shared_ptr<Pose3d>(new Pose3d(Pose3d::identity()));
+
+  // setup inertial pose
   _jF = shared_ptr<Pose3d>(new Pose3d(Pose3d::identity()));
   _jF->rpose = _F;
+
+  // setup visualization pose
+  _vF->rpose = _F;
 
   // set everything else
   _J.set_zero();
@@ -156,8 +161,6 @@ void RigidBody::set_computation_frame_type(ReferenceFrameType rftype)
   _J = T.transform(_J);
   _force = T.transform(_force);
 
-  // TODO: do we need to update joints?
-
   // store the new reference frame type
   _rftype = rftype;
 }
@@ -238,26 +241,54 @@ void RigidBody::set_inertia(const SpatialRBInertiad& inertia)
   _J = inertia;
 }
 
+/// Sets the inertial pose for this rigid body
+/**
+ * Inertial pose should be defined relative to the rigid body pose
+ */
+void RigidBody::set_inertial_pose(const Pose3d& P)
+{
+  // verify that pose is set relative to body pose
+  if (P.rpose != _F)
+    throw std::runtime_error("RigidBody::set_inertial_pose() - inertial pose not defined relative to body pose");
+
+  *_F = P;
+}
+
 /// Sets the current 3D pose for this rigid body
 /**
  * Also updates the transforms for associated visualization and collision data.
  */
 void RigidBody::set_pose(const Pose3d& p) 
 { 
-  // no need to update quantities if they're in link frame
-  if (!(_rftype == eLink || (_rftype == eJoint && is_base())))
-  {
-    // compute transform for moving quantities to the link frame
-    shared_ptr<Pose3d> y(new Pose3d(p));
-    Transform3d yTx = Pose3d::calc_relative_pose(_J.pose, y);
+  // verify that the two poses are relative to the same pose
+  if (p.rpose != _F->rpose)
+    throw std::runtime_error("RigidBody::set_pose() - relative pose is not correct");
 
-    // TODO: joint frame depends on current pose
+  // only need to update quantities if they're not in link frame
+  // (or equivalently, set to joint frame and there is no inner joint)
+  if (_rftype == eLink || (_rftype == eJoint && is_base()))
+  {
+    // just update the pose
+    *_F = p;
+  }
+  else
+  {
+    // update pose now
+    *_F = p;
+
+    // get current frame for quantities
+    // this will either be the joint frame or the global frame
+    shared_ptr<const Pose3d> SOURCE = _J.pose;
+ 
+    // compute transform for moving quantities to the new body frame
+    Transform3d pTs = Pose3d::calc_relative_pose(SOURCE->rpose, _F);
+
     // compute target transform
-    shared_ptr<const Pose3d> target = (eJoint) ? get_inner_joint_implicit()->get_pose() : GLOBAL;
-    Transform3d tTy = Pose3d::calc_relative_pose(y, target);
+    shared_ptr<const Pose3d> target = (_rftype == eJoint) ? get_inner_joint_implicit()->get_pose() : GLOBAL;
+    Transform3d tTp = Pose3d::calc_relative_pose(_F, target);
 
     // combine the two transforms
-    Transform3d T = tTy * yTx;
+    Transform3d T = tTp * pTs;
 
     // convert all quantities
     _xd = T.transform(_xd);
@@ -265,13 +296,13 @@ void RigidBody::set_pose(const Pose3d& p)
     _J = T.transform(_J);
     _force = T.transform(_force);
   }
+}
 
-  // TODO: do we need to update joints?
-  
-  // TODO: do we need to update relative poes earlier?
-  // store pose and transform to necessary relative frame 
-  *_F = p; 
-  _F->update_relative_pose(get_computation_frame());
+/// Gets the desired child link
+RigidBodyPtr RigidBody::get_child_link(JointPtr j) const
+{
+  assert(_outer_joints.find(j) != _outer_joints.end());
+  return j->get_outboard_link();
 }
 
 /// Adds a force to the body
@@ -285,33 +316,21 @@ void RigidBody::add_force(const SForced& w)
   _force += w;
 }
 
-// TODO: fix this
-/// Calculates the velocity of a point on this rigid body
+/// Calculates the velocity of a point on this rigid body in the body frame
 Vector3d RigidBody::calc_point_vel(const Point3d& point) const
 {
   // if the body is disabled, point velocity is zero
   if (!_enabled)
-    return ZEROS_3;
+    return Vector3d::zero(_F);
 
-  // point should be in global frame
-  assert(!point.pose);
+  // convert point to a vector in the body frame
+  Vector3d r = Pose3d::transform(point.pose, _F, point); 
 
-  // setup the desired pose (global orientation, c.o.m.)
-  shared_ptr<Pose3d> p(new Pose3d);
-  p->x = _F->x;
+  // get the velocity in the body frame
+  SVelocityd xd = Pose3d::transform(_xd.pose, _F, _xd);
 
-  // transform the velocity to this frame
-  SVelocityd vp = Pose3d::transform(get_computation_frame(), p, velocity());
-
-  // compute the arm
-  Vector3d arm = point - _F->x;
-
-  // setup relevant pose for vector
-  Vector3d point_vel = vp.get_linear() + Vector3d::cross(vp.get_angular(), arm);
-  point_vel.pose = p;
-
-  // determine the velocity of the point
-  return point_vel; 
+  // compute the point velocity - in the body frame
+  return xd.get_linear() + Vector3d::cross(xd.get_angular(), r);
 }
 
 /// Implements Base::load_from_xml()
@@ -479,7 +498,7 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
   const XMLAttrib* avel_attr = node->get_attrib("angular-velocity");
   if (lvel_attr || avel_attr)
   {
-    Vector3d lv = ZEROS_3, av = ZEROS_3;
+    Vector3d lv = Vector3d::zero(), av = Vector3d::zero();
     shared_ptr<const Pose3d> TARGET(new Pose3d(Quatd::identity(), _F->x)); 
     SVelocityd v(TARGET);
     if (lvel_attr) lvel_attr->get_vector_value(lv);
@@ -758,14 +777,14 @@ void RigidBody::add_generalized_force(const VectorNd& gf)
     return;
 
   // set the pose for w
-  w.pose = get_computation_frame();
+  w.pose = GLOBAL;
 
   // get the force and torque
   w.set_force(Vector3d(gf[0], gf[1], gf[2]));
   w.set_torque(Vector3d(gf[3], gf[4], gf[5]));
 
   // add the force to the sum of forces
-  _force += w;
+  _force += Pose3d::transform(GLOBAL, _force.pose, w);
 }
 
 /// Applies a generalized impulse to this rigid body
@@ -800,10 +819,10 @@ void RigidBody::apply_generalized_impulse_single(const VectorNd& gj)
   // get the impulses
   w.set_linear(Vector3d(gj[0], gj[1], gj[2]));
   w.set_angular(Vector3d(gj[3], gj[4], gj[5]));
-  w.pose = get_computation_frame();
+  w.pose = GLOBAL;
 
   // determine the change in linear velocity
-  _xd += _J.inverse_mult(w);
+  _xd += _J.inverse_mult(Pose3d::transform(GLOBAL, _J.pose, w));
 }
 
 /// Solves using the generalized inertia matrix
@@ -891,7 +910,7 @@ VectorNd& RigidBody::get_generalized_coordinates_single(GeneralizedCoordinateTyp
   // resize vector
   gc.resize(num_generalized_coordinates(gctype));
 
-  // convert pose to global frame
+  // convert current pose to global frame
   Pose3d P = *_F;
   P.update_relative_pose(GLOBAL);
 
@@ -941,14 +960,17 @@ void RigidBody::set_generalized_coordinates_single(GeneralizedCoordinateType gct
   // do easiest case first 
   if (gctype == DynamicBody::eSpatial)
   {
+    // note: generalized coordinates in eSpatial are always set with regard to 
+    // the global frame
     Origin3d x(gc[0], gc[1], gc[2]);
     Quatd q = Quatd::rpy(gc[3], gc[4], gc[5]); 
 
-    // TODO: fix (if necessary) b/c coords pose in get_gen... in global frame
-    // TODO: use shared pointer pose here (pass to set_pose) so we can do checks?
+    // convert the pose to the correct relative frame
+    Pose3d P(q, x);
+    P.update_relative_pose(_F->rpose);
 
     // set the transform
-    set_pose(Pose3d(q, x));
+    set_pose(P);
   }
   else
   {
@@ -967,11 +989,13 @@ void RigidBody::set_generalized_coordinates_single(GeneralizedCoordinateType gct
     // normalize the unit quaternion, just in case
     q.normalize();
 
-    // TODO: fix (if necessary) b/c coords pose in get_gen... in global frame
-    // TODO: use shared pointer pose here (pass to set_pose) so we can do checks?
+    // coordinates are in the global frame; must convert them to the
+    // relative frame
+    Pose3d P(q, x);
+    P.update_relative_pose(_F->rpose); 
 
     // set the transform
-    set_pose(Pose3d(q, x));
+    set_pose(P);
   }
 }
 
@@ -1004,18 +1028,19 @@ void RigidBody::set_generalized_velocity(GeneralizedCoordinateType gctype, const
 /// Sets the generalized velocity of this rigid body (does not call articulated body version)
 void RigidBody::set_generalized_velocity_single(GeneralizedCoordinateType gctype, const VectorNd& gv)
 {
+  SVelocityd xd;
+
   // special case: disabled body
   if (!_enabled)
     return;
   
-// TODO: fix (if necessary) b/c coords pose in get_gen... in global frame
-
-  // set the linear component first
-  _xd.set_linear(Vector3d(gv[0], gv[1], gv[2]));
-
   // simplest case: spatial coordinates
   if (gctype == DynamicBody::eSpatial)
-    _xd.set_angular(Vector3d(gv[3], gv[4], gv[5]));
+  {
+    xd.set_linear(Vector3d(gv[0], gv[1], gv[2]));
+    xd.set_angular(Vector3d(gv[3], gv[4], gv[5]));
+    _xd = Pose3d::transform(GLOBAL, _xd.pose, xd);
+  }
   else
   {
     assert(gctype == DynamicBody::eEuler);
@@ -1027,21 +1052,27 @@ void RigidBody::set_generalized_velocity_single(GeneralizedCoordinateType gctype
     qd.y = gv[5] * 2.0;
     qd.z = gv[6] * 2.0;
 
+    // go ahead and set the linear contribution to xd
+    xd.set_linear(Vector3d(gv[0], gv[1], gv[2]));
+
     // computation frame must be taken into account
     switch (get_computation_frame_type())
     {
       case eGlobal:
-        _xd.set_angular(_F->q.G_mult(qd.w, qd.x, qd.y, qd.z));
+        xd.pose = GLOBAL;
+        xd.set_angular(_F->q.G_mult(qd.w, qd.x, qd.y, qd.z));
+        _xd = Pose3d::transform(GLOBAL, _xd.pose, xd);
         break;
 
       case eLink:
-        _xd.set_angular(_F->q.L_mult(qd.w, qd.x, qd.y, qd.z));
+        xd.pose = _F;
+        xd.set_angular(_F->q.L_mult(qd.w, qd.x, qd.y, qd.z));
+        _xd = Pose3d::transform(_F, _xd.pose, xd);
         break;
 
       case eJoint:
         if (!(_abody.expired() || is_base()))
           throw std::runtime_error("Euler coordinates computed in joint frame not supported");
-        _xd.set_angular(_F->q.L_mult(qd.w, qd.x, qd.y, qd.z));
         break;
     }
   }
@@ -1063,26 +1094,29 @@ VectorNd& RigidBody::get_generalized_velocity(GeneralizedCoordinateType gctype, 
 /// Gets the generalized velocity of this rigid body (does not call articulated body version)
 VectorNd& RigidBody::get_generalized_velocity_single(GeneralizedCoordinateType gctype, VectorNd& gv) 
 {
+  SVelocityd xd;
+
   // special case: disabled body
   if (!_enabled)
     return gv.resize(0);
 
-// TODO: fix (if necessary) b/c coords pose in get_gen... in global frame
   // resize the generalized velocity
   gv.resize(num_generalized_coordinates(gctype));
-
-  // get linear and angular components of velocity
-  Vector3d lv = _xd.get_linear();
-  Vector3d av = _xd.get_angular();
-
-  // setup the linear components
-  gv[0] = lv[0];
-  gv[1] = lv[1];
-  gv[2] = lv[2];
 
   // determine the proper generalized coordinate type
   if (gctype == DynamicBody::eSpatial)
   {
+    // transform velocity to global frame 
+    xd = Pose3d::transform(_xd.pose, GLOBAL, _xd);
+
+    // get linear and angular components of velocity
+    Vector3d lv = xd.get_linear();
+    Vector3d av = xd.get_angular();
+
+    // setup the components
+    gv[0] = lv[0];
+    gv[1] = lv[1];
+    gv[2] = lv[2];
     gv[3] = av[0];
     gv[4] = av[1];
     gv[5] = av[2];
@@ -1098,21 +1132,26 @@ VectorNd& RigidBody::get_generalized_velocity_single(GeneralizedCoordinateType g
     switch (get_computation_frame_type())
     {
       case eGlobal:
-        qd = _F->q.G_transpose_mult(av) * 0.5;
+        xd = Pose3d::transform(_xd.pose, GLOBAL, _xd);
+        qd = _F->q.G_transpose_mult(xd.get_angular()) * 0.5;
         break;
 
       case eLink:
-        qd = _F->q.L_transpose_mult(av) * 0.5;
+        xd = Pose3d::transform(_xd.pose, _F, _xd);
+        qd = _F->q.L_transpose_mult(xd.get_angular()) * 0.5;
         break;
 
       case eJoint:
         if (!(_abody.expired() || is_base()))
           throw std::runtime_error("Euler coordinates computed in joint frame not supported");
-        qd = _F->q.L_transpose_mult(av) * 0.5;         
         break;
     }
 
     // setup the generalized velocity
+    Vector3d lv = xd.get_linear();
+    gv[0] = lv[0];
+    gv[1] = lv[1];
+    gv[2] = lv[2];
     gv[3] = qd.w;
     gv[4] = qd.x;
     gv[5] = qd.y;
@@ -1145,9 +1184,12 @@ VectorNd& RigidBody::get_generalized_acceleration_single(VectorNd& ga)
   // setup the linear components
   ga.resize(num_generalized_coordinates(DynamicBody::eSpatial));
 
+  // transform acceleration to global frame 
+  SAcceld xdd = Pose3d::transform(_xdd.pose, GLOBAL, _xdd);
+
   // get linear and angular components
-  Vector3d la = _xdd.get_linear();
-  Vector3d aa = _xdd.get_angular();
+  Vector3d la = xdd.get_linear();
+  Vector3d aa = xdd.get_angular();
 
   // set linear components
   ga[0] = la[0];
@@ -1182,8 +1224,8 @@ MatrixNd& RigidBody::get_generalized_inertia_single(MatrixNd& M)
   if (!_enabled)
     return M.resize(0,0);
 
-  // get the rigid body inertia as a matrix
-  SpatialRBInertiad J = Pose3d::transform(_J.pose, get_computation_frame(), _J);
+  // get the rigid body inertia as a matrix in the global frame
+  SpatialRBInertiad J = Pose3d::transform(_J.pose, GLOBAL, _J);
 
   // precompute some things
   Matrix3d hxm = Matrix3d::skew_symmetric(J.h * J.m);
@@ -1223,8 +1265,8 @@ VectorNd& RigidBody::get_generalized_forces_single(VectorNd& gf)
   const unsigned NGC = num_generalized_coordinates(DynamicBody::eSpatial); 
   gf.resize(NGC);
 
-  // compute external forces and inertial forces
-  SForced w = _force - calc_inertial_forces();
+  // compute external forces and inertial forces in global frame
+  SForced w = Pose3d::transform(_force.pose, GLOBAL, _force - calc_inertial_forces());
 
   // get force and torque
   Vector3d f = w.get_force();
@@ -1265,7 +1307,7 @@ VectorNd& RigidBody::convert_to_generalized_force_single(SingleBodyPtr body, con
     return gf.resize(0);
 
   // transform w to computation frame
-  SForced wt = Pose3d::transform(w.pose, get_computation_frame(), w);
+  SForced wt = Pose3d::transform(w.pose, GLOBAL, w);
 
   // get linear and angular components of wt
   Vector3d f = wt.get_force();
@@ -1367,7 +1409,11 @@ void RigidBody::update_velocity(const EventProblemData& q)
     return;
 
   // setup summed impulses
-  Vector3 j = ZEROS_3, k = ZEROS_3;
+  Vector3 j .set_zero()
+
+, k .set_zero()
+
+;
 
   FILE_LOG(LOG_EVENT) << "RigidBody::update_velocity() entered" << std::endl;
 

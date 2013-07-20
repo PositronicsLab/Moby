@@ -91,7 +91,6 @@ class DeformableBody : public SingleBody
     DeformableBodyPtr get_this() { return boost::dynamic_pointer_cast<DeformableBody>(shared_from_this()); }
 
   protected:
-    virtual boost::shared_ptr<const Ravelin::Pose3d> get_visualization_pose() { return _identity_pose; }
     void calc_com_and_vels();
     void update_geometries();
     unsigned find_closest_tetrahedron(const Ravelin::Point3d& p) const;
@@ -133,9 +132,6 @@ class DeformableBody : public SingleBody
     boost::shared_ptr<Ravelin::Pose3d> _F;
 
   private:
-    /// The pose for visualization (always identity)
-    boost::shared_ptr<Ravelin::Pose3d> _identity_pose;
-
     AABBPtr build_AABB_tree(std::map<BVPtr, std::list<unsigned> >& aabb_tetra_map);
     void split_tetra(const Ravelin::Point3d& point, unsigned axis, const std::list<unsigned>& otetra, std::list<unsigned>& ptetra, std::list<unsigned>& ntetra);
     bool split(AABBPtr source, AABBPtr& tgt1, AABBPtr& tgt2, unsigned axis, const std::list<unsigned>& tetra, std::list<unsigned>& ptetra, std::list<unsigned>& ntetra);

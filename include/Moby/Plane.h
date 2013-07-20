@@ -17,7 +17,7 @@ namespace Moby {
 class Plane
 {
   public:
-    Plane() { _normal = ZEROS_3; offset = 0; }
+    Plane() { _normal.set_zero(); offset = 0; }
     Plane(double nx, double ny, double nz, double d) { _normal = Ravelin::Vector3d(nx, ny, nz); _normal.normalize(); offset = d; }
     Plane(const Triangle& t) { _normal = t.calc_normal(); offset = t.calc_offset(_normal); }
     Plane(const Ravelin::Vector3d& n, double d) { _normal = Ravelin::Vector3d::normalize(n); offset = d; }

@@ -31,4 +31,9 @@ DynamicBodyPtr SingleBody::get_super_body() const
   }
 }
 
+double SingleBody::calc_point_vel(const Ravelin::Point3d& point, const Ravelin::Vector3d& dir)
+{
+  Vector3d pv = calc_point_vel(point);
+  return Pose3d::transform(pv.pose, dir.pose, pv).dot(dir);
+}
 

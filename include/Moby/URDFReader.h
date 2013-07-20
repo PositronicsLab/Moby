@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright 2005 Evan Drumwright
+ * Copyright 2013 Evan Drumwright
  * This library is distributed under the terms of the GNU Lesser General Public 
  * License (found in COPYING).
  ****************************************************************************/
@@ -48,12 +48,6 @@ class URDFReader
           #endif
         }
 
-        std::map<RigidBodyPtr, Ravelin::Pose3d> inertia_transforms;
-        std::map<RigidBodyPtr, Ravelin::Pose3d> visual_transforms;
-        std::map<RigidBodyPtr, Ravelin::Pose3d> collision_transforms;
-        std::map<JointPtr, Ravelin::Pose3d> joint_transforms;
-        std::map<RigidBodyPtr, void*> visual_transform_nodes; 
-        std::map<JointPtr, Ravelin::Vector3d> joint_axes;
         std::map<JointPtr, RigidBodyPtr> joint_parent, joint_child;
         std::map<std::string, std::pair<Ravelin::VectorNd, std::string> > materials;
     };
@@ -70,7 +64,6 @@ class URDFReader
     static boost::shared_ptr<SpherePrimitive> read_sphere(boost::shared_ptr<const XMLTree> node, URDFData& data);
     static boost::shared_ptr<BoxPrimitive> read_box(boost::shared_ptr<const XMLTree> node, URDFData& data);
     static boost::shared_ptr<CylinderPrimitive> read_cylinder(boost::shared_ptr<const XMLTree> node, URDFData& data);
-    static bool transform_frames(URDFData& data, const std::vector<RigidBodyPtr>& links, const std::vector<JointPtr>& joints);
     static Ravelin::Matrix3d read_inertia(boost::shared_ptr<const XMLTree> node, URDFData& data);
     static double read_mass(boost::shared_ptr<const XMLTree> node, URDFData& data);
     static Ravelin::Pose3d read_origin(boost::shared_ptr<const XMLTree> node, URDFData& data);

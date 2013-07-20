@@ -44,6 +44,7 @@ class RigidBody : public SingleBody
 {
   friend class RCArticulatedBody;
   friend class MCArticulatedBody;
+  friend class Joint;
 
   public:
     RigidBody();
@@ -58,7 +59,7 @@ class RigidBody : public SingleBody
     virtual void rotate(const Ravelin::Quatd& q);
     virtual void translate(const Ravelin::Origin3d& o);
     virtual void calc_fwd_dyn(double dt);
-    const Ravelin::SpatialRBInertiad& get_inertia() const;
+    const Ravelin::SpatialRBInertiad& get_inertia() const { return _J; }
     boost::shared_ptr<const Ravelin::Pose3d> get_inertial_pose() const { return _jF; }
 
     virtual void set_visualization_data(osg::Node* vdata) { Visualizable::set_visualization_data(vdata); }
@@ -178,10 +179,6 @@ class RigidBody : public SingleBody
 
     /// Viscous coefficient for dampening the body motion
     Ravelin::VectorNd viscous_coeff;
-
-  protected:
-    /// Gets the transform for visualization
-    virtual boost::shared_ptr<const Ravelin::Pose3d> get_visualization_pose() { return _F; }
 
   private:  
     Ravelin::VectorNd& get_generalized_coordinates_single(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& gc);

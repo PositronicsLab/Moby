@@ -43,7 +43,6 @@ using boost::shared_ptr;
 using boost::dynamic_pointer_cast;
 
 // static declarations
-shared_ptr<Pose3d> Event::_event_frame(new Pose3d);
 MatrixNd Event::J1, Event::J2, Event::workM1, Event::workM2;
 vector<SVelocityd> Event::vel;
 VectorNd Event::v, Event::workv, Event::workv2; 
@@ -51,6 +50,7 @@ VectorNd Event::v, Event::workv, Event::workv2;
 /// Creates an empty event 
 Event::Event()
 {
+  _event_frame = shared_ptr<Pose3d>(new Pose3d);
   tol = NEAR_ZERO;              // default collision tolerance
   t_true = (double) -1.0;
   event_type = eNone;
@@ -58,9 +58,15 @@ Event::Event()
   limit_epsilon = (double) 0.0;
   limit_upper = false;
   limit_impulse = (double) 0.0;
-  contact_normal = ZEROS_3;
-  contact_impulse = ZEROS_3;
-  contact_point = ZEROS_3;
+  contact_normal .set_zero()
+
+;
+  contact_impulse .set_zero()
+
+;
+  contact_point .set_zero()
+
+;
   contact_mu_coulomb = (double) 0.0;
   contact_mu_viscous = (double) 0.0;
   contact_epsilon = (double) 0.0;
@@ -119,18 +125,10 @@ void Event::compute_event_data(MatrixNd& M, VectorNd& q) const
     _event_frame->x = contact_point;
 
     // form the normal and tangential forces in contact space
-    SForced wn, ws, wt;
+    SForced wn(get_pose()), ws(get_pose()), wt(get_pose());
     wn.set_force(contact_normal);
     ws.set_force(contact_tan1); 
     wt.set_force(contact_tan2);
-    wn.set_torque(ZEROS_3);
-    ws.set_torque(ZEROS_3);
-    wt.set_torque(ZEROS_3);
-
-    // setup the pose for the contact frame
-    wn.pose = _event_frame;
-    ws.pose = _event_frame;
-    wt.pose = _event_frame;
 
     // get the numbers of generalized coordinates for the two super bodies
     const unsigned NGC1 = su1->num_generalized_coordinates(DynamicBody::eSpatial);
@@ -364,18 +362,10 @@ void Event::compute_cross_contact_contact_event_data(const Event& e, MatrixNd& M
   _event_frame->x = contact_point;
 
   // form the normal and tangential forces in contact space
-  SForced wn, ws, wt;
+  SForced wn(get_pose()), ws(get_pose()), wt(get_pose());
   wn.set_force(contact_normal);
   ws.set_force(contact_tan1);
   wt.set_force(contact_tan2);
-  wn.set_torque(ZEROS_3);
-  ws.set_torque(ZEROS_3);
-  wt.set_torque(ZEROS_3);
-
-  // setup the pose for the contact frame
-  wn.pose = _event_frame;
-  ws.pose = _event_frame;
-  wt.pose = _event_frame;
 
   // compute the Jacobians for the first two bodies
   sua1->calc_jacobian(_event_frame, sba1, vel);
@@ -489,13 +479,10 @@ void Event::compute_cross_contact_limit_event_data(const Event& e, MatrixNd& M) 
   _event_frame->x = contact_point;
 
   // form the normal and tangential forces in contact space
-  SForced wn, ws, wt;
+  SForced wn(get_pose()), ws(get_pose()), wt(get_pose());
   wn.set_force(contact_normal);
   ws.set_force(contact_tan1);
   wt.set_force(contact_tan2);
-  wn.set_torque(ZEROS_3);
-  ws.set_torque(ZEROS_3);
-  wt.set_torque(ZEROS_3);
 
   // setup the pose for the contact frame
   wn.pose = _event_frame;

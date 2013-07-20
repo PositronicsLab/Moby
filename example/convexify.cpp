@@ -2,6 +2,7 @@
 #include <Moby/CompGeom.h>
 #include <fstream>
 
+using namespace Ravelin;
 using namespace Moby;
 
 int main(int argc, char* argv[])
@@ -19,7 +20,7 @@ int main(int argc, char* argv[])
   IndexedTriArray mesh = IndexedTriArray::read_from_obj(std::string(argv[1])); 
 
   // get the vertices
-  const std::vector<Vector3>& vertices = mesh.get_vertices();
+  const std::vector<Point3d>& vertices = mesh.get_vertices();
 
   // compute the convex hull
   PolyhedronPtr p = CompGeom::calc_convex_hull(vertices.begin(), vertices.end());    

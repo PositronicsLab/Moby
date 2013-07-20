@@ -123,7 +123,8 @@ void ImpactEventHandler::solve_qp(EventProblemData& q, double poisson_eps)
   // save normal contact impulses
   for (unsigned i=0; i< q.N_CONTACTS; i++)
   {
-    // TODO: setup frame for contact impulse
+    // TODO: verify that contact normal is in event frame 
+    q.contact_events[i]->contact_impulse.pose = q.contact_events[i]->get_pose();
     q.contact_events[i]->contact_impulse.set_zero();
     q.contact_events[i]->contact_impulse.set_linear(q.contact_events[i]->contact_normal * q.cn[i]);
   }

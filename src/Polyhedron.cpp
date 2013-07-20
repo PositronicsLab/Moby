@@ -469,8 +469,12 @@ void Polyhedron::calc_bounding_box()
   const std::vector<Point3d>& vertices = get_vertices();
   if (vertices.empty())
   {
-    _bb_min = ZEROS_3;
-    _bb_max = ZEROS_3;
+    _bb_min .set_zero()
+
+;
+    _bb_max .set_zero()
+
+;
   }
   else
   {

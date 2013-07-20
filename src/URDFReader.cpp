@@ -150,8 +150,6 @@ bool URDFReader::read_robot(shared_ptr<const XMLTree> node, URDFData& data, stri
     name = name_attrib->get_string_value();
     read_links(node, data, links);
     read_joints(node, data, links, joints);
-    if (!transform_frames(data, links, joints))
-      return false; 
   }
   else
   {
@@ -281,212 +279,20 @@ void URDFReader::output_data(const URDFData& data, RigidBodyPtr link)
   JointPtr joint = find_joint(data, link);
   if (joint)
   {
-    std::cout << "  URDF joint transform: " << std::endl << data.joint_transforms.find(joint)->second << std::endl;
-    if (data.joint_axes.find(joint) != data.joint_axes.end())
-      std::cout << "  URDF joint axis: " << data.joint_axes.find(joint)->second << std::endl;
-    std::cout << "  Moby joint position: " << joint->get_position_global() << std::endl;
+    std::cout << "  Moby joint position: " << joint->get_local() << std::endl;
     shared_ptr<RevoluteJoint> rj = dynamic_pointer_cast<RevoluteJoint>(joint);
     shared_ptr<PrismaticJoint> pj = dynamic_pointer_cast<PrismaticJoint>(joint);
     if (rj)
-      std::cout << "  Moby joint axis: " << rj->get_axis_global() << std::endl;
+      std::cout << "  Moby joint axis: " << rj->get_axis() << std::endl;
     else if (pj)
-      std::cout << "  Moby joint axis: " << pj->get_axis_global() << std::endl;
+      std::cout << "  Moby joint axis: " << pj->get_axis() << std::endl;
   }
-  if (data.visual_transforms.find(link) != data.visual_transforms.end())
-    std::cout << "  URDF visualization transform: " << std::endl << data.visual_transforms.find(link)->second;
-  if (data.inertia_transforms.find(link) != data.inertia_transforms.end())
-    std::cout << "  URDF inertia transform: " << std::endl << data.inertia_transforms.find(link)->second;
-  if (data.collision_transforms.find(link) != data.collision_transforms.end())
-    std::cout << "  URDF collision transform: " << std::endl << data.collision_transforms.find(link)->second;
-  std::cout << "  Moby transform: " << std::endl << *link->get_transform();
+  std::cout << "  Moby pose: " << std::endl << *link->get_pose();
   if (!link->geometries.empty())
   {
-    std::cout << "  Moby relative collision transform: " << std::endl << link->geometries.front()->get_rel_transform();
-    std::cout << "  Moby collision transform: " << std::endl << (*link->get_transform() * link->geometries.front()->get_rel_transform());
-  }
-  if (data.visual_transform_nodes.find(link) != data.visual_transform_nodes.end())
-  {
-    Pose3d Tv;
-    #ifdef USE_OSG
-    from_osg_matrix(((osg::MatrixTransform*) data.visual_transform_nodes.find(link)->second)->getMatrix(), Tv);
-    #endif
-    std::cout << "  Moby relative visual transform: " << std::endl << Tv;
-    std::cout << "  Moby visual transform: " << std::endl << (*link->get_transform() * Tv);
+    std::cout << "  Moby collision pose: " << std::endl << *link->geometries.front()->get_pose();
   }
   #endif
-}
-
-/// Transforms frames to Moby format (link positions at c.o.m.)
-/**
- *  URDF defines the reference frame for a link to be identical to the inner
- * joint frame. Inertial, collision, and visualization frames are defined
- * relative to this frame. Joint axes are defined relative to this frame
- * as well.
- */
-bool URDFReader::transform_frames(URDFData& data, const vector<RigidBodyPtr>& links, const vector<JointPtr>& joints)
-{
-  map<RigidBodyPtr, RigidBodyPtr> parents; 
-  Matrix3d J_out;
-  Point3d com_out;
-
-  // output all data (before Moby fixes it)
-  #ifdef DEBUG_URDF 
-  std::cout << "data (pre-fixes)" << std::endl;
-//  for (unsigned i=0; i< links.size(); i++)
-//    output_data(data, links[i]);
-  std::cout << "------------------------------------------" << std::endl;
-  std::cout << "data (post-fixes)" << std::endl;
-  #endif
-
-  // find the base (it will be the link that does not exist as a child)
-  set<RigidBodyPtr> candidates;
-  for (unsigned i=0; i< links.size(); i++)
-    candidates.insert(links[i]);
-  for (std::map<JointPtr, RigidBodyPtr>::const_iterator i = data.joint_child.begin(); i != data.joint_child.end(); i++)
-    candidates.erase(i->second);
-
-  // must be *exactly* one candidate remaining
-  if (candidates.size() != 1)
-  {
-    std::cerr << "URDFReader::transform_frames() - no bases or multiple bases specified! not reading further!" << std::endl;
-    return false;
-  }
-  RigidBodyPtr base = *candidates.begin();
-
-  // need to transform base inertia orientation to be relative to global frame
-  Pose3d baseT = data.inertia_transforms.find(base)->second; 
-  Point3d com_in = baseT.x;
-  baseT.x.set_zero();
-  Primitive::transform_inertia(base->get_mass(), base->get_inertia(), com_in, baseT, J_out, com_out); 
-  base->set_inertia(J_out);
-
-  // compute the relative collision transform
-  if (data.collision_transforms.find(base) != data.collision_transforms.end())
-  {
-    // get the true frame of the collision transform
-    const Pose3d& Trel = data.collision_transforms.find(base)->second;
-    Pose3d Tc = baseT * Trel;
-
-    // now compute the collision transform relative to the base frame
-    Pose3d Tc_rel = Pose3d::inverse(*base->get_transform()) * Tc;
-    assert(!base->geometries.empty());
-    base->geometries.front()->set_rel_transform(Tc_rel, false); 
-  }
-
-  // compute the relative visual transform
-  if (data.visual_transforms.find(base) != data.visual_transforms.end())
-  {
-    // get the true frame of the visual transform
-    const Pose3d& Trel = data.visual_transforms.find(base)->second;
-    Pose3d Tv = baseT * Trel;
-
-    // now compute the collision transform relative to the base frame
-    Pose3d Tv_rel = Pose3d::inverse(*base->get_transform()) * Tv;
-    #ifdef USE_OSG
-    osg::MatrixTransform* group = (osg::MatrixTransform*) data.visual_transform_nodes.find(base)->second;
-    osg::Matrixd m;
-    to_osg_matrix(Tv_rel, m);
-    group->setMatrix(m);
-    #endif
-  }
-
-  // output data for the base
-  output_data(data, base);
-
-  // add all children to the queue  
-  queue<RigidBodyPtr> q;
-  find_children(data, base, q, parents);
-  while (!q.empty())
-  {
-    // get the link off of the front of the queue
-    RigidBodyPtr link = q.front();
-    q.pop();
-
-    // get the parent link
-    assert(parents.find(link) != parents.end());
-    RigidBodyPtr parent = parents.find(link)->second;
-
-    // get the joint transform *relative to parent link reference frame*
-    JointPtr joint = find_joint(data, link);
-    assert(data.joint_transforms.find(joint) != data.joint_transforms.end());
-    const Pose3d& refJc = data.joint_transforms.find(joint)->second;
-
-    // compute the reference frame for the parent
-    Pose3d refPj = data.inertia_transforms.find(parent)->second;
-    Pose3d oPj = *parent->get_transform();
-    Pose3d oPref = oPj * Pose3d::inverse(refPj);
-
-    // compute the *reference* frame (w.r.t. the global frame) for the child 
-    // (and the joint)
-    Pose3d oTref = oPref * refJc;
-    #ifdef DEBUG_URDF
-    std::cout << "link " << link->id << " reference frame: " << std::endl << oTref;
-    #endif
-
-    // compute the desired frame for the child
-    Pose3d refTj = data.inertia_transforms.find(link)->second;
-    Pose3d oTj = oTref * refTj; 
-
-    // compute the relative collision transform
-    if (data.collision_transforms.find(link) != data.collision_transforms.end())
-    {
-      Pose3d refTc = data.collision_transforms.find(link)->second;
-      Pose3d jTc = Pose3d::inverse(refTj) * refTc;
-      assert(!link->geometries.empty());
-      link->geometries.front()->set_rel_transform(jTc, false); 
-    }
-
-    // compute the relative visual transform
-    if (data.visual_transforms.find(link) != data.visual_transforms.end())
-    {
-      Pose3d refTv = data.visual_transforms.find(link)->second;
-      Pose3d jTv = Pose3d::inverse(refTj) * refTv;
-      #ifdef USE_OSG
-      osg::MatrixTransform* group = (osg::MatrixTransform*) data.visual_transform_nodes.find(link)->second;
-      osg::Matrixd m;
-      to_osg_matrix(jTv, m);
-      group->setMatrix(m);
-      #endif
-    }
-
-    // setup the link position and orientation
-    link->set_transform(oTj);
-
-    // get the joint position and the two vectors we need (all in global frame) 
-    Point3d joint_position = oTref.x;
-    Vector3d joint_to_child_com = oTj.x - joint_position;
-    Vector3d parent_com_to_joint = joint_position - parent->get_transform()->x;
-
-    // setup the pointers between the joints and links
-    link->add_inner_joint(parent, joint, joint_to_child_com, link->get_transform()->inverse_transform(joint_to_child_com));
-    parent->add_outer_joint(link, joint, parent->get_transform()->inverse_transform(parent_com_to_joint));
-
-    // setup the joint axis, if necessary, and determine q_tare
-    if (data.joint_axes.find(joint) != data.joint_axes.end())
-    {
-      Vector3d axis = oTref.transform(data.joint_axes.find(joint)->second);
-      shared_ptr<PrismaticJoint> pj = dynamic_pointer_cast<PrismaticJoint>(joint);
-      shared_ptr<RevoluteJoint> rj = dynamic_pointer_cast<RevoluteJoint>(joint);
-      if (pj)
-      {
-        pj->set_axis_global(axis);
-        pj->determine_q_tare();
-      }
-      else if (rj)
-      {
-        rj->set_axis_global(axis);
-        rj->determine_q_tare();
-      }
-    }
-
-    // output data for the link    
-    output_data(data, link);
-
-    // add all children of link to the queue
-    find_children(data, link, q, parents);
-  }
-
-  return true;
 }
 
 /// Attempts to read a robot joint from the given node
@@ -568,17 +374,27 @@ void URDFReader::read_joint(shared_ptr<const XMLTree> node, URDFData& data, cons
     return;
   }
 
+  // setup the appropriate pointers
+  data.joint_parent[joint] = inboard;
+  data.joint_child[joint] = outboard;
+
+  // setup the inboard and outboard links for the joint
+  joint->set_inboard_link(inboard);
+  joint->set_outboard_link(outboard);
+
+  // joint frame is defined relative to the parent link frame
+  shared_ptr<Pose3d> origin(new Pose3d(read_origin(node, data)));
+  origin->rpose = inboard->get_pose(); 
+
+  // child frame is defined relative to the joint frame
+  outboard->set_pose(*origin);
+
   // read optional properties
-  data.joint_transforms[joint] = read_origin(node, data);
   read_axis(node, data, joint);
   read_limits(node, data, joint);
   read_calibration(node, data, joint);
   read_dynamics(node, data, joint);
   read_safety_controller(node, data, joint);
-
-  // setup the appropriate pointers
-  data.joint_parent[joint] = inboard;
-  data.joint_child[joint] = outboard;
 
   // add the joint to the set of joints 
   joints.push_back(joint);
@@ -655,11 +471,24 @@ void URDFReader::read_axis(shared_ptr<const XMLTree> node, URDFData& data, Joint
     }
   }
 
+  // get the outboard link - it's pose is identical to the joint pose
+  RigidBodyPtr outboard = joint->get_outboard_link();
+
+  // setup the axis frame
+  axis.pose = outboard->get_pose();
+
   // verify that joint is of the proper type
   shared_ptr<RevoluteJoint> rj = dynamic_pointer_cast<RevoluteJoint>(joint);
   shared_ptr<PrismaticJoint> pj = dynamic_pointer_cast<PrismaticJoint>(joint);
   if (rj || pj)
-    data.joint_axes[joint] = axis;
+  {
+    if (rj)
+      rj->set_axis(axis);
+    else if (pj)
+      pj->set_axis(axis);
+    else
+      assert(false);
+  }
   else if (axis_specified)
     std::cerr << "URDFReader::read_axis() - joint axis specified for joint w/o axis!" << std::endl;
 }
@@ -778,12 +607,18 @@ void URDFReader::read_inertial(shared_ptr<const XMLTree> node, URDFData& data, R
       double mass = read_mass(*i, data);
       Matrix3d inertia = read_inertia(*i, data);
 
-      // set inertial properties
-      link->set_mass(mass);
-      link->set_inertia(inertia);
+      // read the inertial frame
+      shared_ptr<Pose3d> origin(new Pose3d(read_origin(*i, data)));
 
-      // store relative transform
-      data.inertia_transforms[link] = read_origin(*i, data);
+      // set the inertial frame relative to the link frame
+      origin->rpose = link->get_pose();
+      link->set_inertial_pose(*origin);
+
+      // set inertial properties
+      SpatialRBInertiad J(origin);
+      J.m = mass;
+      J.J = inertia;
+      link->set_inertia(J);
 
       // reading inertial was a success, attempt to read no further...
       // (multiple inertial tags not supported)
@@ -907,9 +742,6 @@ void URDFReader::read_visual(shared_ptr<const XMLTree> node, URDFData& data, Rig
   {
     if (strcasecmp((*i)->name.c_str(), "visual") == 0)
     {
-      // read the origin
-      data.visual_transforms[link] = read_origin(*i, data);
-
       // read the primitive
       PrimitivePtr primitive = read_primitive(*i, data);
       if (!primitive)
@@ -924,6 +756,11 @@ void URDFReader::read_visual(shared_ptr<const XMLTree> node, URDFData& data, Rig
       // read the material
       read_material(*i, data, group);
       group->addChild(primitive->get_visualization());
+
+      // setup the relative pose
+      shared_ptr<Pose3d> origin(new Pose3d(read_origin(*i, data)));
+      origin->rpose = link->get_pose();
+      link->set_visualization_relative_pose(*origin);
 
       // reading visual was a success, attempt to read no further...
       // (multiple visual tags not supported)
@@ -942,9 +779,6 @@ void URDFReader::read_collision(shared_ptr<const XMLTree> node, URDFData& data, 
   {
     if (strcasecmp((*i)->name.c_str(), "collision") == 0)
     {
-      // read the origin
-      data.collision_transforms[link] = read_origin(*i, data);
-
       // read the primitive
       PrimitivePtr primitive = read_primitive(*i, data);
       if (!primitive)
@@ -955,6 +789,11 @@ void URDFReader::read_collision(shared_ptr<const XMLTree> node, URDFData& data, 
       link->geometries.push_back(cg);
       cg->set_single_body(link);
       cg->set_geometry(primitive);
+
+      // setup the relative pose
+      shared_ptr<Pose3d> origin(new Pose3d(read_origin(*i, data)));
+      origin->rpose = link->get_pose();
+      cg->set_relative_pose(*origin);
 
       // reading collision geometry was a success, attempt to read no further...
       // (multiple collision tags not supported)
@@ -1056,7 +895,7 @@ shared_ptr<CylinderPrimitive> URDFReader::read_cylinder(shared_ptr<const XMLTree
 
       // cylinder must be rotated around x axis
       Matrix3d rx90 = Matrix3d::rot_X(M_PI_2);
-      Pose3d T(rx90, Origin3d::zero());
+      shared_ptr<Pose3d> T(new Pose3d(rx90, Origin3d::zero()));
 
       // construct the cylinder 
       double radius = radius_attrib->get_real_value();
@@ -1094,8 +933,8 @@ shared_ptr<SpherePrimitive> URDFReader::read_sphere(shared_ptr<const XMLTree> no
 /// Attempts to read an "origin" tag
 Pose3d URDFReader::read_origin(shared_ptr<const XMLTree> node, URDFData& data)
 {
-  Point3d xyz = ZEROS_3;
-  Vector3d rpy = ZEROS_3;
+  Origin3d xyz;
+  Vector3d rpy;
 
   // look for the tag
   const list<XMLTreePtr>& child_nodes = node->children;

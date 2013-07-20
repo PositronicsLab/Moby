@@ -27,11 +27,11 @@ ScrewJoint::ScrewJoint() : Joint()
   _pitch = (double) 1.0;
 
   // init the joint axes
-  _u = ZEROS_3;
-  _v2 = ZEROS_3;
+  _u.set_zero();
+  _v2.set_zero();
 
   // setup the spatial axis derivative to zero
-  _s_deriv.clear();
+  _s_dot.clear();
 }
 
 /// Initializes the joint with the specified inboard and outboard links
@@ -47,11 +47,11 @@ ScrewJoint::ScrewJoint(boost::weak_ptr<RigidBody> inboard, boost::weak_ptr<Rigid
   _pitch = (double) 1.0;
 
   // init the joint axes
-  _u = ZEROS_3;
-  _v2 = ZEROS_3;
+  _u.set_zero();
+  _v2.set_zero();
 
   // setup the spatial axis derivative to zero
-  _s_deriv.clear();
+  _s_dot.clear();
 }  
 
 /// Sets the global axis for this joint
@@ -175,7 +175,7 @@ shared_ptr<const Pose3d> ScrewJoint::get_induced_pose()
 /// Gets the derivative for the spatial axes for this joint
 const vector<SAxisd>& ScrewJoint::get_spatial_axes_dot()
 {
-  return _s_deriv;
+  return _s_dot;
 }
 
 /// Implements Base::load_from_xml()

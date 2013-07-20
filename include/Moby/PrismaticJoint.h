@@ -45,7 +45,7 @@ class PrismaticJoint : public Joint
     Ravelin::Vector3d _u;
 
     /// The derivative of the spatial axis matrix (used in reduced-coordinate articulated bodies only)
-    std::vector<Ravelin::SAxisd> _s_deriv;
+    std::vector<Ravelin::SAxisd> _s_dot;
 
     /// Vector attached to inner link and initially orthogonal to joint axis (used in maximal coordinate articulated bodies only); vector specified in inner link frame
     Ravelin::Vector3d _ui;

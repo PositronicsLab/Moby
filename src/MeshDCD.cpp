@@ -637,7 +637,9 @@ void MeshDCD::determine_contacts_deformable_rigid(CollisionGeometryPtr a, Collis
     const Point3d& v = verts_a[i];
 
     // get the velocity of the vertex relative to the rigid body
-    Vector3d vdot = sba->calc_point_vel(v) - sbb->calc_point_vel(v);
+    Vector3d pva = sba->calc_point_vel(v);
+    Vector3d pvb = sbb->calc_point_vel(v);
+    Vector3d vdot = Pose3d::transform(pva.pose, v.pose, pva) - Pose3d::transform(pvb.pose, v.pose, pvb); 
 
     FILE_LOG(LOG_COLDET) << " -- testing vertex " << v << " with relative velocity: " << vdot << endl;
 
@@ -706,7 +708,8 @@ void MeshDCD::determine_contacts_deformable(CollisionGeometryPtr a, CollisionGeo
     const Point3d& v = verts_a[i];
 
     // get the velocity of the vertex
-    Vector3d vdot = sba->calc_point_vel(v);
+    Vector3d vdotx = sba->calc_point_vel(v);
+    Vector3d vdot = Pose3d::transform(vdotx.pose, v.pose, vdotx);
 
     // loop over all triangles in mesh b
     for (unsigned j=0; j< mesh_b.num_tris(); j++)
@@ -724,9 +727,14 @@ void MeshDCD::determine_contacts_deformable(CollisionGeometryPtr a, CollisionGeo
       Triangle tri = Triangle::transform(mesh_b.get_triangle(j), wTb);
 
       // get the velocity of the three vertices of the triangle
-      Vector3d adot = sbb->calc_point_vel(tri.a);
-      Vector3d bdot = sbb->calc_point_vel(tri.b);
-      Vector3d cdot = sbb->calc_point_vel(tri.c);
+      Vector3d adotx = sbb->calc_point_vel(tri.a);
+      Vector3d bdotx = sbb->calc_point_vel(tri.b);
+      Vector3d cdotx = sbb->calc_point_vel(tri.c);
+
+      // transform the vertices to the proper frames
+      Vector3d adot = Pose3d::transform(adotx.pose, tri.a.pose, adotx);
+      Vector3d bdot = Pose3d::transform(bdotx.pose, tri.b.pose, bdotx);
+      Vector3d cdot = Pose3d::transform(cdotx.pose, tri.c.pose, cdotx);
 
       // find the first time of intersection, if any
       double t0 = calc_first_isect(v, vdot, tri, adot, bdot, cdot, t);

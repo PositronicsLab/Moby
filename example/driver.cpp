@@ -10,7 +10,6 @@
 #include <fstream>
 #include <boost/foreach.hpp>
 #include <Moby/XMLReader.h>
-#include <Moby/AAngle.h>
 
 #ifdef USE_OSG
 #include <osgViewer/Viewer>
@@ -27,6 +26,8 @@
 #include <Moby/RigidBody.h>
 #include <Moby/EventDrivenSimulator.h>
 
+using boost::shared_ptr;
+using namespace Ravelin;
 using namespace Moby;
 
 /// Handle for dynamic library loading
@@ -49,16 +50,16 @@ unsigned LOG_REPORTING_LEVEL = 0;
 clock_t start_time;
 
 /// The default simulation step size
-const Real DEFAULT_STEP_SIZE = .001;
+const double DEFAULT_STEP_SIZE = .001;
 
 /// The simulation step size
-Real STEP_SIZE = DEFAULT_STEP_SIZE;
+double STEP_SIZE = DEFAULT_STEP_SIZE;
 
 /// The time of the first simulation step
-Real FIRST_STEP_TIME = -1;
+double FIRST_STEP_TIME = -1;
 
 /// The time of the last simulation step
-Real LAST_STEP_TIME = 0;
+double LAST_STEP_TIME = 0;
 
 /// The current simulation iteration
 unsigned ITER = 0;
@@ -89,18 +90,18 @@ bool OUTPUT_TO_TIME = false;
 unsigned MAX_ITER = std::numeric_limits<unsigned>::max(); 
 
 /// The maximum time of the simulation (default infinity)
-Real MAX_TIME = std::numeric_limits<Real>::max();
+double MAX_TIME = std::numeric_limits<double>::max();
 
 /// The total (CPU) clock time used by the simulation
-Real TOTAL_TIME = 0.0;
+double TOTAL_TIME = 0.0;
 
 /// Last 3D output iteration and time output
 unsigned LAST_3D_WRITTEN = -1;
-Real LAST_3D_WRITTEN_T = -std::numeric_limits<Real>::max()/2.0;
+double LAST_3D_WRITTEN_T = -std::numeric_limits<double>::max()/2.0;
 
 /// Last image iteration output
 unsigned LAST_IMG_WRITTEN = -1;
-Real LAST_IMG_WRITTEN_T = -std::numeric_limits<Real>::max()/2.0;
+double LAST_IMG_WRITTEN_T = -std::numeric_limits<double>::max()/2.0;
       
 /// Outputs to stdout
 bool OUTPUT_FRAME_RATE = false;
@@ -125,7 +126,7 @@ std::map<std::string, BasePtr> READ_MAP;
 #endif
 
 /// Pointer to the controller's initializer, called once (if any)
-typedef void (*init_t)(void*, const std::map<std::string, BasePtr>&, Real);
+typedef void (*init_t)(void*, const std::map<std::string, BasePtr>&, double);
 std::list<init_t> INIT;
 
 /// Checks whether was compiled with OpenSceneGraph support
@@ -139,12 +140,12 @@ bool check_osg()
 }
 
 /// Gets the current time (as a floating-point number)
-Real get_current_time()
+double get_current_time()
 {
-  const Real MICROSEC = 1.0/1000000;
+  const double MICROSEC = 1.0/1000000;
   timeval t;
   gettimeofday(&t, NULL);
-  return (Real) t.tv_sec + (Real) t.tv_usec * MICROSEC;
+  return (double) t.tv_sec + (double) t.tv_usec * MICROSEC;
 }
 
 /// runs the simulator and updates all transforms
@@ -205,7 +206,7 @@ void step(void* arg)
   clock_t pre_sim_t = clock();
   s->step(STEP_SIZE);
   clock_t post_sim_t = clock();
-  Real total_t = (post_sim_t - pre_sim_t) / (Real) CLOCKS_PER_SEC;
+  double total_t = (post_sim_t - pre_sim_t) / (double) CLOCKS_PER_SEC;
   TOTAL_TIME += total_t;
 
   // output the iteration / stepping rate
@@ -227,7 +228,7 @@ void step(void* arg)
   // output the frame rate, if desired
   if (OUTPUT_FRAME_RATE)
   {
-    Real tm = get_current_time();
+    double tm = get_current_time();
     std::cout << "instantaneous frame rate: " << (1.0/(tm - LAST_STEP_TIME)) << "fps  avg. frame rate: " << (ITER / (tm - FIRST_STEP_TIME)) << "fps" << std::endl;
     LAST_STEP_TIME = tm;
   }
@@ -236,7 +237,7 @@ void step(void* arg)
   if (ITER >= MAX_ITER || s->current_time > MAX_TIME)
   {
     clock_t end_time = clock();
-    Real elapsed = (end_time - start_time) / (Real) CLOCKS_PER_SEC;
+    double elapsed = (end_time - start_time) / (double) CLOCKS_PER_SEC;
     std::cout << elapsed << " seconds elapsed" << std::endl;
     exit(0);
   }
@@ -279,7 +280,7 @@ void add_lights()
 }
 
 /// Gets the XML sub-tree rooted at the specified tag
-XMLTreeConstPtr find_subtree(XMLTreeConstPtr root, const std::string& name)
+shared_ptr<const XMLTree> find_subtree(shared_ptr<const XMLTree> root, const std::string& name)
 {
   // if we found the tree, return it
   if (strcasecmp(root->name.c_str(), name.c_str()) == 0)
@@ -289,17 +290,17 @@ XMLTreeConstPtr find_subtree(XMLTreeConstPtr root, const std::string& name)
   const std::list<XMLTreePtr>& children = root->children;
   for (std::list<XMLTreePtr>::const_iterator i = children.begin(); i != children.end(); i++)
   {
-    XMLTreeConstPtr node = find_subtree(*i, name);
+    shared_ptr<const XMLTree> node = find_subtree(*i, name);
     if (node)
       return node;
   }
 
   // return NULL if we are here
-  return XMLTreeConstPtr();
+  return shared_ptr<const XMLTree>();
 }
 
 // finds and processes given XML tags
-void process_tag(const std::string& tag, XMLTreeConstPtr root, void (*fn)(XMLTreeConstPtr))
+void process_tag(const std::string& tag, shared_ptr<const XMLTree> root, void (*fn)(shared_ptr<const XMLTree>))
 {
   // if this node is of the given type, process it 
   if (strcasecmp(root->name.c_str(), tag.c_str()) == 0)
@@ -313,7 +314,7 @@ void process_tag(const std::string& tag, XMLTreeConstPtr root, void (*fn)(XMLTre
 }
 
 /// processes the 'camera' tag
-void process_camera_tag(XMLTreeConstPtr node)
+void process_camera_tag(shared_ptr<const XMLTree> node)
 {
   if (!ONSCREEN_RENDER)
     return;
@@ -326,9 +327,9 @@ void process_camera_tag(XMLTreeConstPtr node)
     return;
 
   // get the actual values
-  Vector3 target, position, up;
-  target_attr->get_vector_value(target);
-  position_attr->get_vector_value(position);
+  Vector3d up;
+  Point3d target = target_attr->get_point_value();
+  Point3d position = position_attr->get_point_value();
   up_attr->get_vector_value(up);
 
   // setup osg vectors
@@ -350,7 +351,7 @@ void process_camera_tag(XMLTreeConstPtr node)
 }
 
 /// processes the 'window' tag
-void process_window_tag(XMLTreeConstPtr node)
+void process_window_tag(shared_ptr<const XMLTree> node)
 {
   // don't process if not onscreen rendering
   if (!ONSCREEN_RENDER)
@@ -363,14 +364,16 @@ void process_window_tag(XMLTreeConstPtr node)
   const XMLAttrib* size_attr = node->get_attrib("size");
 
   // get the actual values
-  Vector2 loc(0,0), size(640,480);
+  Vector2d loc(0,0), size(640,480);
   if (loc_attr)
     loc_attr->get_vector_value(loc);
   if (size_attr)
     size_attr->get_vector_value(size);
 
   // setup the window 
+  #ifdef USE_OSG
   viewer_pointer->setUpViewInWindow(loc[0], loc[1], size[0], size[1]);
+  #endif
 }
 
 /// processes all 'driver' options in the XML file
@@ -416,7 +419,7 @@ void process_xml_options(const std::string& xml_fname)
   }
 
   // read the XML Tree 
-  XMLTreeConstPtr driver_tree = XMLTree::read_from_xml(filename);
+  shared_ptr<const XMLTree> driver_tree = XMLTree::read_from_xml(filename);
   if (!driver_tree)
   {
     std::cerr << "process_xml_options() - unable to open file " << xml_fname;
@@ -449,7 +452,7 @@ int main(int argc, char** argv)
   const unsigned ONECHAR_ARG = 3, TWOCHAR_ARG = 4;
 
   #ifdef USE_OSG
-  const Real DYNAMICS_FREQ = 0.001;
+  const double DYNAMICS_FREQ = 0.001;
   osgViewer::Viewer viewer;
   viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
   viewer_pointer = &viewer;

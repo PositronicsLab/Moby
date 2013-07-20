@@ -40,6 +40,7 @@ class Joint : public Visualizable
     void reset_force();    
     virtual const std::vector<Ravelin::SAxisd>& get_spatial_axes();
     virtual const std::vector<Ravelin::SAxisd>& get_spatial_axes_complement();
+    void set_location(const Ravelin::Point3d& p);
     Ravelin::Point3d get_location(bool use_outboard = false) const;
     Ravelin::VectorNd& get_scaled_force(Ravelin::VectorNd& f);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
@@ -281,8 +282,6 @@ class Joint : public Visualizable
      *        constraint Jacobian on return
      */
     virtual void calc_constraint_jacobian_dot(RigidBodyPtr body, unsigned index, double Cq[]) = 0;
-
-    virtual boost::shared_ptr<const Ravelin::Pose3d> get_visualization_pose();
 
     /// Method for initializing all variables in the joint
     /**

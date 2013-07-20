@@ -1,6 +1,7 @@
 #include <Moby/TriangleMeshPrimitive.h>
 #include <Moby/CompGeom.h>
 
+using namespace Ravelin;
 using namespace Moby;
 
 int main(int argc, char* argv[])
@@ -22,14 +23,16 @@ int main(int argc, char* argv[])
   }
 
   // compute the center-of-mass
-  Vector3 com = CompGeom::calc_centroid_3D(tris.begin(), tris.end());
+  Origin3d com(CompGeom::calc_centroid_3D(tris.begin(), tris.end()));
+  Transform3d T;
+  T.x = -com;
   std::cout << "center of mass: " << com << std::endl;
 
   // write the result
   for (int i=1; i< argc; i++)
   {
     // translate the mesh
-    IndexedTriArray xlat = itas[i-1].translate(-com);
+    IndexedTriArray xlat = itas[i-1].transform(T);
 
     // write the file to the new filename
     std::string fname = "centered." + std::string(argv[i]);

@@ -47,7 +47,7 @@ class FixedJoint : public Joint
     Ravelin::Vector3d _ui;
 
     /// The time derivative of the spatial axis -- should be zero vector 6x1
-    std::vector<Ravelin::SAxisd> _s_deriv;
+    std::vector<Ravelin::SAxisd> _s_dot;
 
     /// Temporaries for absolute coordinate calculations
     boost::shared_ptr<Ravelin::Pose3d> _F1, _F2;

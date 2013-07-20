@@ -28,13 +28,13 @@ PrismaticJoint::PrismaticJoint() : Joint()
   init_data();
 
   // set the axes and associated vectors to zeros initially
-  _u = ZEROS_3;
-  _v2 = ZEROS_3;
-  _ui = ZEROS_3;
-  _uj = ZEROS_3;
+  _u.set_zero();
+  _v2.set_zero();
+  _ui.set_zero();
+  _uj.set_zero();
 
   // setup the spatial axis derivative to zero
-  _s_deriv.clear();
+  _s_dot.clear();
 }
 
 /// Initializes the joint with the specified inboard and outboard links
@@ -47,13 +47,13 @@ PrismaticJoint::PrismaticJoint(boost::weak_ptr<RigidBody> inboard, boost::weak_p
   init_data();
 
   // set the axis to zeros initially
-  _u = ZEROS_3;
-  _v2 = ZEROS_3;
-  _ui = ZEROS_3;
-  _uj = ZEROS_3;
+  _u.set_zero();
+  _v2.set_zero();
+  _ui.set_zero();
+  _uj.set_zero();
 
   // setup the spatial axis derivative to zero
-  _s_deriv.clear();
+  _s_dot.clear();
 }  
 
 /// Sets the axis of translation for this joint
@@ -91,6 +91,8 @@ void PrismaticJoint::set_axis(const Vector3d& axis)
 /// Updates the spatial axis for this joint
 void PrismaticJoint::update_spatial_axes()
 {
+  const Vector3d ZEROS_3(0.0, 0.0, 0.0, get_pose());
+
   // call parent method
   Joint::update_spatial_axes();
 
@@ -122,21 +124,20 @@ void PrismaticJoint::determine_q(VectorNd& q)
   // get the poses of the joint and outboard link
   shared_ptr<const Pose3d> Fj = get_pose();
   shared_ptr<const Pose3d> Fo = outboard->get_pose();
-  shared_ptr<Pose3d> Fjprime;
 
-  // Fo will be relative to Fj' which will be relative to Fj
+  // compute transforms
+  Transform3d oT0 = Pose3d::calc_relative_pose(GLOBAL, Fo); 
+  Transform3d jT0 = Pose3d::calc_relative_pose(GLOBAL, Fj);
+  Transform3d oTj = oT0 * jT0.inverse();
 
-  // TODO: fix this (compile error)
-/*
   // get the vector of translation
-  Vector3d x(Fjprime->x);
+  Vector3d x(oTj.x, _u.pose);
   q.resize(num_dof());
   q[DOF_1] = x.norm();
 
   // see whether to reverse q
   if (x.dot(_u) < (double) 0.0)
     q[DOF_1] = -q[DOF_1];
-*/
 }
 
 /// Gets the (local) transform for this joint
@@ -149,7 +150,7 @@ shared_ptr<const Pose3d> PrismaticJoint::get_induced_pose()
 /// Gets the derivative fo the spatial axes for this joint
 vector<SAxisd>& PrismaticJoint::get_spatial_axes_dot()
 {
-  return _s_deriv;
+  return _s_dot;
 }
 
 /// Calculates the constraint Jacobian

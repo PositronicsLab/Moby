@@ -120,9 +120,6 @@ class RCArticulatedBody : public ArticulatedBody
   
      virtual void compile();
 
-    /// There is no visualization pose 
-    virtual boost::shared_ptr<const Ravelin::Pose3d> get_visualization_pose() { return boost::shared_ptr<const Ravelin::Pose3d>(); }    
-
     /// The number of DOF of the implicit joint constraints in the body (does not include floating base DOF!)
     unsigned _n_joint_DOF_implicit;
 

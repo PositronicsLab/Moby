@@ -43,7 +43,7 @@ class RevoluteJoint : public Joint
     Ravelin::Vector3d _ui, _uj; 
 
     /// The derivative of the spatial axis -- should be zero vector 6x1
-    std::vector<Ravelin::SAxisd> _s_deriv;
+    std::vector<Ravelin::SAxisd> _s_dot;
 
     /// The joint axis (defined in outer link coordinates) [used only for maximal coordinate formulations]
     Ravelin::Vector3d _v2;
