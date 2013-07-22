@@ -226,7 +226,7 @@ JointPtr URDFReader::find_joint(const URDFData& data, RigidBodyPtr outboard)
 
 #ifdef USE_OSG
 /// Copies this matrix to an OpenSceneGraph Matrixd object
-static void to_osg_matrix(const Opsd::Pose3d& src, osg::Matrixd& tgt)
+static void to_osg_matrix(const Pose3d& src, osg::Matrixd& tgt)
 {
   // get the rotation matrix
   Matrix3d M = src.q;
