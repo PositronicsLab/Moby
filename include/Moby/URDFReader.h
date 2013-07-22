@@ -48,6 +48,7 @@ class URDFReader
           #endif
         }
 
+        std::map<RigidBodyPtr, void*> visual_transform_nodes;
         std::map<JointPtr, RigidBodyPtr> joint_parent, joint_child;
         std::map<std::string, std::pair<Ravelin::VectorNd, std::string> > materials;
     };
