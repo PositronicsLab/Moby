@@ -26,6 +26,72 @@ class EventDrivenSimulator : public Simulator
   friend class DeformableCCD;
 
   private:
+/*
+    // interval type for generalized velocity
+    class Interval
+    {
+      public:
+        enum IntervalType { eBinary, eTernary, eQuaternary };
+        double get_position(double t);
+        double get_velocity(double t);
+
+        // what type of interval is this?
+        IntervalType type;
+
+        // beginning/end of interval coordinates 
+        double q0, qf;
+
+        // beginning/end of interval velocities
+        double qd0, qdf;
+
+        // midpoint for ternary interval
+        double qc;
+
+        // constant for ternary and quaternary intervals
+        double tc;
+
+        // constants for quaternary intervals
+        double ta, tb, k1, k2, qa, qb;
+
+      private:
+        void calc_ternary_interval();
+        void calc_quaternary_interval();
+    };
+
+    class CoordIterator
+    {
+      friend class PhaseSequence;
+
+      public:
+        CoordIterator() { _counter = 0; _total = 0; }
+        bool has_next() const { return _counter < _total; }
+        void get_next(double& t0, double& tf, std::vector<Ravelin::VectorNd>& q0, std::vector<Ravelin::VectorNd>& qf);
+
+      private:
+        unsigned _counter; 
+    };      
+
+    // class for storing a sequence of generalized coordinates and velocities
+    class PhaseSequence
+    {
+      public:
+ 
+        /// sequence of bodies
+        std::vector<DynamicBodyPtr> bodies;
+
+        /// sequence of generalized coordinates, given per body
+        std::vector<std::vector<Ravelin::VectorNd> > q;
+
+        /// sequence of velocity intervals
+        std::vector<std::vector<Interval> > qd;
+
+        /// gets the generalized velocities at the given t
+        void get_velocities(std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> >& velocities) const;
+
+        /// gets the iterator over the coordinates
+        CoordIterator iterator() const;    
+    };
+*/
     // class for comparing two events for purposes of setting event tolerances
     class EventCompare
     {
@@ -69,14 +135,25 @@ class EventDrivenSimulator : public Simulator
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual void output_object_state(std::ostream& out) const;
     virtual double step(double dt);
+    void get_coords(std::vector<Ravelin::VectorNd>& q) const;
+    void get_velocities(std::vector<Ravelin::VectorNd>& q) const;
+
+    /// The phase sequence
+//    PhaseSequence _phases;
+
+    /// The coordinates vector before and after the step
+    std::vector<Ravelin::VectorNd> _q0, _qf;
+
+    /// The velocities vector before and after the step
+    std::vector<Ravelin::VectorNd> _qd0, _qdf;
+
+    /// Vectors set and passed to collision detection
+    std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> > _x0, _x1;
 
     /// Gets the shared pointer for this
     boost::shared_ptr<EventDrivenSimulator> get_this() { return boost::dynamic_pointer_cast<EventDrivenSimulator>(shared_from_this()); }
     
-    /// The maximum step size taken when handling a Zeno point (default is INF)
-    double max_Zeno_step;
-
-    /// The collision detection mechanisms
+   /// The collision detection mechanisms
     std::list<boost::shared_ptr<CollisionDetection> > collision_detectors;
 
     /// Callback function after a mini-step is completed
@@ -121,19 +198,14 @@ class EventDrivenSimulator : public Simulator
     double event_stime;
 
   private:
-    void handle_Zeno_point(double dt, const std::vector<std::pair<Ravelin::VectorNd, Ravelin::VectorNd> >& q0, std::vector<std::pair<Ravelin::VectorNd, Ravelin::VectorNd> >& q1);
-    static void copy(const std::vector<std::pair<Ravelin::VectorNd, Ravelin::VectorNd> >& source, std::vector<std::pair<Ravelin::VectorNd, Ravelin::VectorNd> >& dest);
+    void integrate_si_Euler(double dt);
     static void determine_treated_bodies(std::list<std::list<Event*> >& groups, std::vector<DynamicBodyPtr>& bodies);
-    double find_and_handle_events(double dt, const std::vector<std::pair<Ravelin::VectorNd, Ravelin::VectorNd> >& q0, const std::vector<std::pair<Ravelin::VectorNd, Ravelin::VectorNd> >& q1, bool& Zeno);
-    bool will_impact(Event& e, const std::vector<std::pair<Ravelin::VectorNd, Ravelin::VectorNd> >& q0, const std::vector<std::pair<Ravelin::VectorNd, Ravelin::VectorNd> >& q1, double dt) const;
-    void get_coords_and_velocities(std::vector<std::pair<Ravelin::VectorNd, Ravelin::VectorNd> >& q) const;
-    void set_coords_and_velocities(const std::vector<std::pair<Ravelin::VectorNd, Ravelin::VectorNd> >& q0, const std::vector<std::pair<Ravelin::VectorNd, Ravelin::VectorNd> >& q1, double t) const;
-    void set_coords_and_velocities(const std::vector<std::pair<Ravelin::VectorNd, Ravelin::VectorNd> >& q) const;
+    double find_and_handle_si_events(double dt);
     void preprocess_event(Event& e);
     void check_violation();
     void find_events(double dt);
-    void find_limit_events(const std::vector<std::pair<Ravelin::VectorNd, Ravelin::VectorNd> >& q0, const std::vector<std::pair<Ravelin::VectorNd, Ravelin::VectorNd> >& q1, double dt, std::vector<Event>& limit_events);
-    double find_TOI(double dt, const std::vector<std::pair<Ravelin::VectorNd, Ravelin::VectorNd> >& q0, const std::vector<std::pair<Ravelin::VectorNd, Ravelin::VectorNd> >& q1); 
+    void find_limit_events(double dt, std::vector<Event>& limit_events);
+    double find_TOI(double dt); 
     void handle_events();
     boost::shared_ptr<ContactParameters> get_contact_parameters(CollisionGeometryPtr geom1, CollisionGeometryPtr geom2) const;
 

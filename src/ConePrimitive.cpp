@@ -49,7 +49,7 @@ ConePrimitive::ConePrimitive(double radius, double height)
 }
 
 /// Constructs a cone along the y-axis with specified radius and height, centered at the origin, with 1 ring and 10 circle points 
-ConePrimitive::ConePrimitive(double radius, double height, shared_ptr<const Pose3d> T) : Primitive(T)
+ConePrimitive::ConePrimitive(double radius, double height, const Pose3d& T) : Primitive(T)
 {
   if (height < (double) 0.0)
     throw std::runtime_error("Attempting to set negative height in ConePrimitive (constructor)");
@@ -64,7 +64,7 @@ ConePrimitive::ConePrimitive(double radius, double height, shared_ptr<const Pose
 }
 
 /// Constructs a cone along the y-axis and centered at the origin with specified, radius, height, points and rings
-ConePrimitive::ConePrimitive(double radius, double height, unsigned npoints, unsigned nrings, shared_ptr<const Pose3d> T) : Primitive(T)
+ConePrimitive::ConePrimitive(double radius, double height, unsigned npoints, unsigned nrings, const Pose3d& T) : Primitive(T)
 {
   if (height < (double) 0.0)
     throw std::runtime_error("Attempting to set negative height in ConePrimitive (constructor)");
@@ -156,19 +156,22 @@ void ConePrimitive::set_num_rings(unsigned n)
 }
 
 /// Transforms the primitive
-void ConePrimitive::set_pose(shared_ptr<const Pose3d> p)
+void ConePrimitive::set_pose(const Pose3d& p)
 {
+  // convert p to a shared pointer
+  shared_ptr<Pose3d> x(new Pose3d(p));
+
   // determine the transformation from the global frame to the old pose
   Transform3d cTg = Pose3d::calc_relative_pose(GLOBAL, _F);
 
   // determine the transformation from the old to the new pose
-  Transform3d pTc = Pose3d::calc_relative_pose(_F, p);
+  Transform3d xTc = Pose3d::calc_relative_pose(_F, x);
 
   // determine the transformation from the new pose to the global frame 
-  Transform3d gTp = Pose3d::calc_relative_pose(p, GLOBAL);
+  Transform3d gTx = Pose3d::calc_relative_pose(x, GLOBAL);
 
   // compute the transformation
-  Transform3d T = gTp * pTc * cTg;
+  Transform3d T = gTx * xTc * cTg;
 
   // go ahead and set the new transform
   Primitive::set_pose(p);

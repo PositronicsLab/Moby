@@ -107,7 +107,7 @@ void UniversalJoint::set_axis(const Vector3d& axis, Axis a)
   Vector3d naxis = Vector3d::normalize(axis); 
 
   // set the axis
-  _u[a] = Pose3d::transform(naxis.pose, get_pose(), naxis); 
+  _u[a] = Pose3d::transform(get_pose(), naxis); 
 
   // update the spatial axes
   update_spatial_axes(); 
@@ -953,9 +953,9 @@ void UniversalJoint::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Bas
   node->name = "UniversalJoint";
 
   // convert local axes to global axes and save
-  u0 = Pose3d::transform(get_pose(), shared_ptr<const Pose3d>(), _u[eAxis1]);
+  u0 = Pose3d::transform(shared_ptr<const Pose3d>(), _u[eAxis1]);
   node->attribs.insert(XMLAttrib("axis1", u0));
-  u0 = Pose3d::transform(get_pose(), shared_ptr<const Pose3d>(), _u[eAxis2]);
+  u0 = Pose3d::transform(shared_ptr<const Pose3d>(), _u[eAxis2]);
   node->attribs.insert(XMLAttrib("axis2", u0));
   node->attribs.insert(XMLAttrib("axis1", _u[eAxis1]));
   node->attribs.insert(XMLAttrib("axis2", _u[eAxis1]));

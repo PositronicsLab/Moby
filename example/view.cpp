@@ -44,7 +44,7 @@ osg::Group* create_group_from_obj(const char* filename)
       in >> v2;
       in >> v3;
       if (in.eof())
-        return false;
+        return NULL;
 
       // create the vertex
       double* vertex = new double[3];
@@ -68,7 +68,7 @@ osg::Group* create_group_from_obj(const char* filename)
       in >> f2;
       in >> f3;
       if (in.eof())
-        return false;
+        return NULL;
 
       // strip out associated texture and normal vertices for f1
       idx = f1.find_first_of('/');

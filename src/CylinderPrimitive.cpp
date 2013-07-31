@@ -50,7 +50,7 @@ CylinderPrimitive::CylinderPrimitive(double radius, double height)
 }
 
 /// Constructs a cylinder along the y-axis with specified radius and height, centered at the origin, with 10 circle points and 2 rings
-CylinderPrimitive::CylinderPrimitive(double radius, double height, shared_ptr<const Pose3d> T) : Primitive(T)
+CylinderPrimitive::CylinderPrimitive(double radius, double height, const Pose3d& T) : Primitive(T)
 {
   if (height < (double) 0.0)
     throw std::runtime_error("Attempting to set negative height in CylinderPrimitive (constructor)");
@@ -65,7 +65,7 @@ CylinderPrimitive::CylinderPrimitive(double radius, double height, shared_ptr<co
 }
 
 /// Constructs a cylinder along the y-axis and centered at the origin with specified, radius, height, number of points and number of rings
-CylinderPrimitive::CylinderPrimitive(double radius, double height, unsigned n, unsigned nrings, shared_ptr<const Pose3d> T) : Primitive(T)
+CylinderPrimitive::CylinderPrimitive(double radius, double height, unsigned n, unsigned nrings, const Pose3d& T) : Primitive(T)
 {
   if (height < (double) 0.0)
     throw std::runtime_error("Attempting to set negative height in CylinderPrimitive (constructor)");
@@ -270,19 +270,22 @@ void CylinderPrimitive::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const 
 }
 
 /// Transforms the primitive
-void CylinderPrimitive::set_pose(shared_ptr<const Pose3d> p)
+void CylinderPrimitive::set_pose(const Pose3d& p)
 {
+  // convert p to a shared pointer
+  shared_ptr<Pose3d> x(new Pose3d(p));
+
   // determine the transformation from the global frame to the old pose
   Transform3d cTg = Pose3d::calc_relative_pose(GLOBAL, _F);
 
   // determine the transformation from the old to the new pose
-  Transform3d pTc = Pose3d::calc_relative_pose(_F, p);
+  Transform3d xTc = Pose3d::calc_relative_pose(_F, x);
 
   // determine the transformation from the new pose to the global frame 
-  Transform3d gTp = Pose3d::calc_relative_pose(p, GLOBAL);
+  Transform3d gTx = Pose3d::calc_relative_pose(x, GLOBAL);
 
   // compute the transformation
-  Transform3d T = gTp * pTc * cTg;
+  Transform3d T = gTx * xTc * cTg;
 
   // go ahead and set the new transform
   Primitive::set_pose(p);
@@ -504,7 +507,7 @@ double CylinderPrimitive::calc_penetration_depth(const Point3d& p) const
 
   // transform the point to cylinder space
   shared_ptr<const Pose3d> P = get_pose();
-  Point3d query = Pose3d::transform(p.pose, P, p);
+  Point3d query = Pose3d::transform(P, p);
 
   FILE_LOG(LOG_COLDET) << "CylinderPrimitive::calc_penetration_depth() entered" << std::endl;
   FILE_LOG(LOG_COLDET) << "  cylinder radius: " << R << "  half height: " << halfheight << std::endl;

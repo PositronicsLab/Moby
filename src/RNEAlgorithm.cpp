@@ -118,7 +118,7 @@ map<JointPtr, VectorNd> RNEAlgorithm::calc_inv_dyn_fixed_base(RCArticulatedBodyP
     const vector<SAxisd>& sdot = joint->get_spatial_axes_dot();
 
     // put s into the proper frame (that of v/a) (if necessary)
-    Pose3d::transform(s.front().pose, v.pose, s, sprime);  
+    Pose3d::transform(v.pose, s, sprime);  
 
     // add this link's contribution
     SVelocityd sqd = mult(sprime, qd);
@@ -126,11 +126,11 @@ map<JointPtr, VectorNd> RNEAlgorithm::calc_inv_dyn_fixed_base(RCArticulatedBodyP
     a[i] += SAcceld(mult(s, qdd_des));
 
     // put s into the proper frame (that of v/a) (if necessary)
-    Pose3d::transform(joint->get_pose(), v.pose, sdot, sprime);  
+    Pose3d::transform(v.pose, sdot, sprime);  
     a[i] += SAcceld(mult(sprime, qd));
 
     // now add parent's contribution
-    a[i] += Pose3d::transform(a[h].pose, a[i].pose, a[h]);
+    a[i] += Pose3d::transform(a[i].pose, a[h]);
 
     FILE_LOG(LOG_DYNAMICS) << " computing link velocity / acceleration; processing link " << link->id << endl;
 //    FILE_LOG(LOG_DYNAMICS) << "  spatial axes: " << s << endl;
@@ -204,7 +204,7 @@ map<JointPtr, VectorNd> RNEAlgorithm::calc_inv_dyn_fixed_base(RCArticulatedBodyP
     if (parent->is_base())
       continue;
     else 
-      f[h] += Pose3d::transform(f[i].pose, f[h].pose, f[i]); 
+      f[h] += Pose3d::transform(f[h].pose, f[i]); 
   }
   
   // ** STEP 3: compute joint forces
@@ -220,7 +220,7 @@ map<JointPtr, VectorNd> RNEAlgorithm::calc_inv_dyn_fixed_base(RCArticulatedBodyP
     JointPtr joint(link->get_inner_joint_implicit());
     const vector<SAxisd>& s = joint->get_spatial_axes();
     VectorNd& Q = actuator_forces[joint]; 
-    SForced w = Pose3d::transform(f[i].pose, joint->get_pose(), f[i]); 
+    SForced w = Pose3d::transform(joint->get_pose(), f[i]); 
     transpose_mult(s, w, Q);
   
     FILE_LOG(LOG_DYNAMICS) << "joint " << joint->id << " inner joint force: " << actuator_forces[joint] << endl;
@@ -454,7 +454,7 @@ map<JointPtr, VectorNd> RNEAlgorithm::calc_inv_dyn_floating_base(RCArticulatedBo
     const vector<SAxisd>& sdot = joint->get_spatial_axes_dot();
 
     // put s into the proper frame (that of v/a) 
-    Pose3d::transform(joint->get_pose(), link->get_computation_frame(), s, sprime);
+    Pose3d::transform(link->get_computation_frame(), s, sprime);
 
     // compute s * qdot
     SVelocityd sqd = mult(sprime, joint->qd);
@@ -465,14 +465,14 @@ map<JointPtr, VectorNd> RNEAlgorithm::calc_inv_dyn_floating_base(RCArticulatedBo
     const VectorNd& qdd_des = idd_iter->second.qdd;
 
     // compute parent contributions to velocity and relative acceleration
-    v[i] = Pose3d::transform(v[h].pose, v[i].pose, v[h]);
+    v[i] = Pose3d::transform(v[i].pose, v[h]);
 
     // compute velocity and relative acceleration
     v[i] += sqd;
     a[i] += SAcceld(mult(sprime, qdd_des) + v[i].cross(sqd));
 
     // compute time derivative of spatial axes contributions (if any)
-    Pose3d::transform(joint->get_pose(), link->get_computation_frame(), sdot, sprime);
+    Pose3d::transform(link->get_computation_frame(), sdot, sprime);
     a[i] += SAcceld(mult(sprime, joint->qd));
 
 //    FILE_LOG(LOG_DYNAMICS) << "  s: " << s << endl;
@@ -558,8 +558,8 @@ map<JointPtr, VectorNd> RNEAlgorithm::calc_inv_dyn_floating_base(RCArticulatedBo
       const unsigned h = parent->get_index();
     
       // add this inertia and Z.A. force to its parent
-      I[h] += Pose3d::transform(I[i].pose, I[h].pose, I[i]);
-      Z[h] += Pose3d::transform(Z[i].pose, Z[h].pose, Z[i]);
+      I[h] += Pose3d::transform(I[h].pose, I[i]);
+      Z[h] += Pose3d::transform(Z[h].pose, Z[i]);
 
       // indicate that the link has been processed
       processed[i] = true;
@@ -586,7 +586,7 @@ map<JointPtr, VectorNd> RNEAlgorithm::calc_inv_dyn_floating_base(RCArticulatedBo
     const vector<SAxisd>& s = joint->get_spatial_axes();
     VectorNd& Q = actuator_forces[joint];
     SForced w = I[i] * a.front() + Z[i];
-    transpose_mult(s, Pose3d::transform(w.pose, joint->get_pose(), w), Q);
+    transpose_mult(s, Pose3d::transform(joint->get_pose(), w), Q);
 
     FILE_LOG(LOG_DYNAMICS) << "  processing link: " << links[j]->id << endl;
 //    FILE_LOG(LOG_DYNAMICS) << "    spatial axis: " << endl << s;

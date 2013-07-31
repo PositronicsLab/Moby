@@ -626,8 +626,8 @@ double Event::calc_event_vel() const
     const SVelocityd& vb = sbb->velocity(); 
 
     // compute the vels at the contact point
-    SVelocityd ta = Pose3d::transform(va.pose, contact_point.pose, va); 
-    SVelocityd tb = Pose3d::transform(vb.pose, contact_point.pose, vb); 
+    SVelocityd ta = Pose3d::transform(contact_point.pose, va); 
+    SVelocityd tb = Pose3d::transform(contact_point.pose, vb); 
 
     // get the linear velocities and project against the normal
     return contact_normal.dot(ta.get_linear() - tb.get_linear());
@@ -1550,8 +1550,8 @@ double Event::calc_event_tol() const
     const SVelocityd& vb = sbb->velocity(); 
 
     // compute the velocities at the contact point
-    SVelocityd ta = Pose3d::transform(va.pose, contact_point.pose, va); 
-    SVelocityd tb = Pose3d::transform(vb.pose, contact_point.pose, vb); 
+    SVelocityd ta = Pose3d::transform(contact_point.pose, va); 
+    SVelocityd tb = Pose3d::transform(contact_point.pose, vb); 
 
     // compute the difference in linear velocities
     return std::max((ta.get_linear() - tb.get_linear()).norm(), (double) 1.0);

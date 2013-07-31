@@ -43,7 +43,7 @@ void StokesDragForce::add_force(DynamicBodyPtr body)
     SForced w;
     w.set_force(rb->velocity().get_linear() * -this->b);
     w.pose = rb->velocity().pose;
-    SForced wx = Pose3d::transform(w.pose, rb->get_computation_frame(), w);
+    SForced wx = Pose3d::transform(rb->get_computation_frame(), w);
     rb->add_force(wx);
   }
   else
@@ -60,7 +60,7 @@ void StokesDragForce::add_force(DynamicBodyPtr body)
       SForced w;
       w.set_force(rb->velocity().get_linear() * -this->b);
       w.pose = rb->velocity().pose;
-      SForced wx = Pose3d::transform(w.pose, rb->get_computation_frame(), w);
+      SForced wx = Pose3d::transform(rb->get_computation_frame(), w);
       rb->add_force(wx);
     }
   }

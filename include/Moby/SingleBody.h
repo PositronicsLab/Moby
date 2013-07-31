@@ -62,7 +62,7 @@ class SingleBody : public DynamicBody
     { 
       const Ravelin::SVelocityd& v = velocity();
       boost::shared_ptr<const Ravelin::Pose3d> F = get_pose();
-      Ravelin::SVelocityd vi = Ravelin::Pose3d::transform(v.pose, F, v);
+      Ravelin::SVelocityd vi = Ravelin::Pose3d::transform(F, v);
       return vi.get_angular().norm(); 
     }
 

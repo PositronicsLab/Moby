@@ -70,7 +70,7 @@ TriangleMeshPrimitive::TriangleMeshPrimitive(const string& filename, bool center
 }
 
 /// Creates the triangle mesh from a geometry file and optionally centers it
-TriangleMeshPrimitive::TriangleMeshPrimitive(const string& filename, shared_ptr<const Pose3d> T, bool center) : Primitive(T) 
+TriangleMeshPrimitive::TriangleMeshPrimitive(const string& filename, const Pose3d& T, bool center) : Primitive(T) 
 { 
   // do not convexify inertia by default
   _convexify_inertia = false;
@@ -718,19 +718,22 @@ void TriangleMeshPrimitive::get_vertices(BVPtr bv, vector<const Point3d*>& verti
 }
 
 /// Transforms this primitive
-void TriangleMeshPrimitive::set_pose(shared_ptr<const Pose3d> p)
+void TriangleMeshPrimitive::set_pose(const Pose3d& p)
 {
+  // convert p to a shared pointer
+  shared_ptr<Pose3d> x(new Pose3d(p));
+
   // determine the transformation from the global frame to the old pose
   Transform3d cTg = Pose3d::calc_relative_pose(GLOBAL, _F);
 
   // determine the transformation from the old to the new pose
-  Transform3d pTc = Pose3d::calc_relative_pose(_F, p);
+  Transform3d xTc = Pose3d::calc_relative_pose(_F, x);
 
   // determine the transformation from the new pose to the global frame 
-  Transform3d gTp = Pose3d::calc_relative_pose(p, GLOBAL);
+  Transform3d gTx = Pose3d::calc_relative_pose(x, GLOBAL);
 
   // compute the transformation
-  Transform3d T = gTp * pTc * cTg;
+  Transform3d T = gTx * xTc * cTg;
 
   // go ahead and set the new transform
   Primitive::set_pose(p);

@@ -24,6 +24,11 @@ double Simulator::integrate(double step_size, ForwardIterator begin, ForwardIter
       Ravelin::VectorNd q;
       FILE_LOG(LOG_SIMULATOR) << "  generalized coordinates (before): " << (*i)->get_generalized_coordinates(DynamicBody::eEuler, q) << std::endl;
       FILE_LOG(LOG_SIMULATOR) << "  generalized velocities (before): " << (*i)->get_generalized_velocity(DynamicBody::eSpatial, q) << std::endl;
+      (*i)->calc_fwd_dyn(0.0);
+      FILE_LOG(LOG_SIMULATOR) << "  generalized acceleration: " << (*i)->get_generalized_acceleration(q) << std::endl;
+      RigidBodyPtr rb = boost::dynamic_pointer_cast<RigidBody>(*i);
+      Ravelin::SVelocityd sv = Ravelin::Pose3d::transform(rb->get_pose(), rb->velocity());
+      FILE_LOG(LOG_SIMULATOR) << "  spatial velocity (before, body frame): " << sv << std::endl;
     }
     (*i)->integrate(current_time, step_size, integrator);
     if (LOGGING(LOG_SIMULATOR))
@@ -31,6 +36,9 @@ double Simulator::integrate(double step_size, ForwardIterator begin, ForwardIter
       Ravelin::VectorNd q;
       FILE_LOG(LOG_SIMULATOR) << "  generalized coordinates (after): " << (*i)->get_generalized_coordinates(DynamicBody::eEuler, q) << std::endl;
       FILE_LOG(LOG_SIMULATOR) << "  generalized velocities (after): " << (*i)->get_generalized_velocity(DynamicBody::eSpatial, q) << std::endl;
+      RigidBodyPtr rb = boost::dynamic_pointer_cast<RigidBody>(*i);
+      Ravelin::SVelocityd sv = Ravelin::Pose3d::transform(rb->get_pose(), rb->velocity());
+      FILE_LOG(LOG_SIMULATOR) << "  spatial velocity (after, body frame): " << sv << std::endl;
     }
   }
 

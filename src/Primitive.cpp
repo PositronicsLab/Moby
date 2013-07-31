@@ -65,13 +65,13 @@ Primitive::Primitive()
 }
 
 /// Constructs a primitive with the specified transform
-Primitive::Primitive(shared_ptr<const Pose3d> F)
+Primitive::Primitive(const Pose3d& F)
 {
   _F = shared_ptr<Pose3d>(new Pose3d);
   _jF = shared_ptr<Pose3d>(new Pose3d);
   _jF->rpose = _F;
   _J.pose = _jF;
-  *_F = *F; 
+  *_F = F; 
   _intersection_tolerance = 1e-5;
   _deformable = false;
 
@@ -207,35 +207,35 @@ void Primitive::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::stri
     set_intersection_tolerance(itol_attr->get_real_value());
 
   // read in transformation, if specified
-  shared_ptr<Pose3d> F(new Pose3d);
+  Pose3d F;
   const XMLAttrib* xlat_attr = node->get_attrib("position");
   const XMLAttrib* rpy_attr = node->get_attrib("rpy");
   const XMLAttrib* quat_attr = node->get_attrib("quat");
   if (xlat_attr && rpy_attr)
   {
-    F->x = xlat_attr->get_origin_value();
-    F->q = rpy_attr->get_rpy_value();
+    F.x = xlat_attr->get_origin_value();
+    F.q = rpy_attr->get_rpy_value();
     set_pose(F);
   }
   else if (xlat_attr && quat_attr)
   {
-    F->x = xlat_attr->get_origin_value();
-    F->q = quat_attr->get_quat_value();
+    F.x = xlat_attr->get_origin_value();
+    F.q = quat_attr->get_quat_value();
     set_pose(F);
   }
   else if (xlat_attr)
   {
-    F->x = xlat_attr->get_origin_value();
+    F.x = xlat_attr->get_origin_value();
     set_pose(F);
   }
   else if (rpy_attr)
   {
-    F->q = rpy_attr->get_rpy_value();
+    F.q = rpy_attr->get_rpy_value();
     set_pose(F);
   }
   else if (quat_attr)
   {
-    F->q = quat_attr->get_quat_value();
+    F.q = quat_attr->get_quat_value();
     set_pose(F);
   }
 
@@ -269,10 +269,10 @@ void Primitive::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >&
 }
 
 /// Sets the transform for this primitive -- transforms mesh and inertial properties (if calculated)
-void Primitive::set_pose(shared_ptr<const Pose3d> F)
+void Primitive::set_pose(const Pose3d& F)
 {
   // save the new transform
-  *_F = *F;
+  *_F = F;
 
   #ifdef USE_OSG
   if (_vtransform)

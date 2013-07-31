@@ -42,14 +42,14 @@ class Primitive : public virtual Base
 
   public:
     Primitive();
-    Primitive(boost::shared_ptr<const Ravelin::Pose3d> T);
+    Primitive(const Ravelin::Pose3d& T);
     virtual ~Primitive();
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     void update_visualization();
     void set_mass(double mass);
     void set_density(double density);
-    virtual void set_pose(boost::shared_ptr<const Ravelin::Pose3d> T);
+    virtual void set_pose(const Ravelin::Pose3d& T);
     virtual void set_intersection_tolerance(double tol);
 
     /// Gets the current intersection tolerance for this primitive

@@ -83,9 +83,6 @@ char THREED_EXT[5] = "obj";
 /// options will set to true)
 bool UPDATE_GRAPHICS = false;
 
-/// If true, outputs (image, vrml) tied to simulation time rather than actual iteration count 
-bool OUTPUT_TO_TIME = false;
-
 /// The maximum number of iterations (default infinity)
 unsigned MAX_ITER = std::numeric_limits<unsigned>::max(); 
 
@@ -178,7 +175,7 @@ void step(void* arg)
   if (IMAGE_IVAL > 0)
   {
     // determine at what iteration nearest frame would be output
-    if ((OUTPUT_TO_TIME && s->current_time - LAST_IMG_WRITTEN_T > STEP_SIZE * IMAGE_IVAL) || (!OUTPUT_TO_TIME && ITER % IMAGE_IVAL == 0))
+    if ((s->current_time - LAST_IMG_WRITTEN_T > STEP_SIZE * IMAGE_IVAL))
     {
       char buffer[128];
       sprintf(buffer, "driver.out.%08u.png", ++LAST_IMG_WRITTEN);
@@ -191,7 +188,7 @@ void step(void* arg)
   if (THREED_IVAL > 0)
   {
     // determine at what iteration nearest frame would be output
-    if ((OUTPUT_TO_TIME && s->current_time - LAST_3D_WRITTEN_T > STEP_SIZE * THREED_IVAL) || (!OUTPUT_TO_TIME && ITER % THREED_IVAL == 0))
+    if ((s->current_time - LAST_3D_WRITTEN_T > STEP_SIZE * THREED_IVAL))
     {
       // write the file (fails silently)
       char buffer[128];
@@ -506,8 +503,6 @@ int main(int argc, char** argv)
       IMAGE_IVAL = std::atoi(&argv[i][ONECHAR_ARG]);
       assert(IMAGE_IVAL >= 0);
     }
-    else if (option.find("-t") != std::string::npos)
-      OUTPUT_TO_TIME = true;
     else if (option.find("-s=") != std::string::npos)
     {
       STEP_SIZE = std::atof(&argv[i][ONECHAR_ARG]);

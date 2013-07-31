@@ -24,7 +24,7 @@ class TriangleMeshPrimitive : public Primitive
   public: 
     TriangleMeshPrimitive();
     TriangleMeshPrimitive(const std::string& filename, bool center = true);
-    TriangleMeshPrimitive(const std::string& filename, boost::shared_ptr<const Ravelin::Pose3d> T, bool center = true);
+    TriangleMeshPrimitive(const std::string& filename, const Ravelin::Pose3d& T, bool center = true);
     void set_edge_sample_length(double len);
     virtual osg::Node* create_visualization();
 
@@ -42,7 +42,7 @@ class TriangleMeshPrimitive : public Primitive
     virtual void set_deformable(bool flag);
     virtual void set_intersection_tolerance(double tol);
     void set_mesh(boost::shared_ptr<const IndexedTriArray> mesh);
-    virtual void set_pose(boost::shared_ptr<const Ravelin::Pose3d> T);
+    virtual void set_pose(const Ravelin::Pose3d& T);
 
   private:
     void center();
