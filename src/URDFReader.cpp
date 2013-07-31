@@ -895,7 +895,7 @@ shared_ptr<CylinderPrimitive> URDFReader::read_cylinder(shared_ptr<const XMLTree
 
       // cylinder must be rotated around x axis
       Matrix3d rx90 = Matrix3d::rot_X(M_PI_2);
-      shared_ptr<Pose3d> T(new Pose3d(rx90, Origin3d::zero()));
+      Pose3d T(rx90, Origin3d::zero());
 
       // construct the cylinder 
       double radius = radius_attrib->get_real_value();

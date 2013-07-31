@@ -40,14 +40,14 @@ void DampingForce::add_damping(RigidBodyPtr rb, double ld, double ad, double lds
 
   // get the velocity in the body frame
   SVelocityd& v = rb->velocity();
-  SVelocityd vi = Pose3d::transform(v.pose, rb->get_pose(), v);
+  SVelocityd vi = Pose3d::transform(rb->get_pose(), v);
 
   // make the force dampening
   wi.set_force(vi.get_linear()* -(ld + vi.get_linear().norm() * ldsq));
   wi.set_torque(vi.get_angular()* -(ad + vi.get_angular().norm()* adsq));
 
   // transform the force to the proper frame
-  SForced w = Pose3d::transform(wi.pose, rb->get_computation_frame(), wi);
+  SForced w = Pose3d::transform(rb->get_computation_frame(), wi);
 
   // add the force
   rb->add_force(w);

@@ -526,11 +526,11 @@ void RCArticulatedBody::update_link_velocities()
     unsigned h = inboard->get_index();
 
     // set this link's velocity to the parent's link velocity
-    outboard->velocity() = Pose3d::transform(ipose, opose, inboard->velocity());
+    outboard->velocity() = Pose3d::transform(opose, inboard->velocity());
 
     // get the (transformed) link spatial axis
     const vector<SAxisd>& s = joint->get_spatial_axes(); 
-    Pose3d::transform(joint->get_pose(), opose, s, sprime); 
+    Pose3d::transform(opose, s, sprime); 
 
     // determine the link velocity due to the parent velocity + joint velocity
     outboard->velocity() += mult(sprime, joint->qd);
@@ -572,7 +572,7 @@ MatrixNd& RCArticulatedBody::calc_jacobian_floating_base(const Point3d& point, M
 
   // convert the poses to the point frame
   P->x = Origin3d(point);
-  Pose3d::transform(baseP, P, sbase, sbase_prime);
+  Pose3d::transform(P, sbase, sbase_prime);
 
   // init the base Jacobian
   J.resize(SPATIAL_DIM, SPATIAL_DIM);
@@ -696,7 +696,7 @@ MatrixNd& RCArticulatedBody::calc_jacobian_column(JointPtr joint, const Point3d&
   target->rpose = point.pose;
   target->x = Origin3d(point);
   target->q.set_identity();
-  Pose3d::transform(joint->get_pose(), target, s, sprime);
+  Pose3d::transform(target, s, sprime);
 
   // calculate the Jacobian column
   for (unsigned i=0; i< sprime.size(); i++)
@@ -2356,7 +2356,7 @@ VectorNd& RCArticulatedBody::convert_to_generalized_force(SingleBodyPtr body, co
 
     // transform the Jacobian
     const vector<SAxisd>& s = _ijoints[i]->get_spatial_axes();
-    Pose3d::transform(_ijoints[i]->get_pose(), w.pose, s, sprime);
+    Pose3d::transform(w.pose, s, sprime);
     for (unsigned j=0, k=_ijoints[i]->get_coord_index(); j < s.size(); j++, k++)
       J[k] = sprime[j];    
   }
@@ -2373,7 +2373,7 @@ VectorNd& RCArticulatedBody::convert_to_generalized_force(SingleBodyPtr body, co
 
   // determine the generalized force on the base
   RigidBodyPtr base = _links.front();
-  SForced wbase = Pose3d::transform(w.pose, base->get_computation_frame(), w);
+  SForced wbase = Pose3d::transform(base->get_computation_frame(), w);
   SharedVectorNd gfbase = gf.segment(J.size(), gf.size());
   wbase.to_vector(gfbase);
 

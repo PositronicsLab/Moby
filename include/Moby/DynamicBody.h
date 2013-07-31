@@ -22,6 +22,8 @@ namespace Moby {
 /// Superclass for deformable bodies and single and multi-rigid bodies  
 class DynamicBody : public Visualizable
 {
+  friend class EventDrivenSimulator;
+
   public:
     enum GeneralizedCoordinateType { eEuler, eSpatial };
 

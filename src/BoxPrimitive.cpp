@@ -46,7 +46,7 @@ BoxPrimitive::BoxPrimitive(double xlen, double ylen, double zlen)
 }
 
 /// Constructs a unit cube transformed by the given matrix
-BoxPrimitive::BoxPrimitive(shared_ptr<const Pose3d> T) : Primitive(T)
+BoxPrimitive::BoxPrimitive(const Pose3d& T) : Primitive(T)
 {
   _xlen = 1;
   _ylen = 1;
@@ -56,7 +56,7 @@ BoxPrimitive::BoxPrimitive(shared_ptr<const Pose3d> T) : Primitive(T)
 }  
 
 /// Constructs a cube of the specified size transformed by the given matrix
-BoxPrimitive::BoxPrimitive(double xlen, double ylen, double zlen, shared_ptr<const Pose3d> T) : Primitive(T)
+BoxPrimitive::BoxPrimitive(double xlen, double ylen, double zlen, const Pose3d& T) : Primitive(T)
 {
   _xlen = xlen;
   _ylen = ylen;
@@ -119,19 +119,22 @@ void BoxPrimitive::set_edge_sample_length(double len)
 }
 
 /// Transforms the primitive
-void BoxPrimitive::set_pose(shared_ptr<const Pose3d> p)
+void BoxPrimitive::set_pose(const Pose3d& p)
 {
+  // convert p to a shared pointer
+  shared_ptr<Pose3d> x(new Pose3d(p));
+
   // determine the transformation from the global frame to the old pose
   Transform3d cTg = Pose3d::calc_relative_pose(GLOBAL, _F);
 
   // determine the transformation from the old to the new pose
-  Transform3d pTc = Pose3d::calc_relative_pose(_F, p);
+  Transform3d xTc = Pose3d::calc_relative_pose(_F, x);
 
   // determine the transformation from the new pose to the global frame 
-  Transform3d gTp = Pose3d::calc_relative_pose(p, GLOBAL);
+  Transform3d gTx = Pose3d::calc_relative_pose(x, GLOBAL);
 
   // compute the transformation
-  Transform3d T = gTp * pTc * cTg;
+  Transform3d T = gTx * xTc * cTg;
 
   // go ahead and set the new transform
   Primitive::set_pose(p);

@@ -35,7 +35,7 @@ IndexedTriArray::IndexedTriArray(ForwardIterator1 verts_begin, ForwardIterator1 
   // verify that all vertices are in the same frame
   #ifndef NDEBUG
   for (ForwardIterator1 i = verts_begin; i != verts_end; i++)
-    assert(i->pose != verts_begin->pose);
+    assert(i->pose == verts_begin->pose);
   #endif  
 
   // get the pose that the vertices are defined in

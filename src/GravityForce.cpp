@@ -39,7 +39,7 @@ void GravityForce::add_force(DynamicBodyPtr body)
   if (rb)
   {
     SForced w;
-    Vector3d gx = Pose3d::transform(GLOBAL, rb->get_computation_frame(), gravity);
+    Vector3d gx = Pose3d::transform(rb->get_computation_frame(), gravity);
     w.set_force(gx * rb->get_mass());
     w.pose = gx.pose; 
     rb->add_force(w);        
@@ -57,7 +57,7 @@ void GravityForce::add_force(DynamicBodyPtr body)
       BOOST_FOREACH(RigidBodyPtr rb, links)
       {
         SForced w;
-        Vector3d gx = Pose3d::transform(GLOBAL, rb->get_computation_frame(), gravity);
+        Vector3d gx = Pose3d::transform(rb->get_computation_frame(), gravity);
         w.set_force(gx * rb->get_mass());
         w.pose = gx.pose; 
         rb->add_force(w);        
@@ -69,7 +69,7 @@ void GravityForce::add_force(DynamicBodyPtr body)
       shared_ptr<DeformableBody> db = dynamic_pointer_cast<DeformableBody>(body);
 
       // get the gravity vector
-      Vector3d gx = Pose3d::transform(GLOBAL, db->get_computation_frame(), gravity);
+      Vector3d gx = Pose3d::transform(db->get_computation_frame(), gravity);
       db->add_force(gx * rb->get_mass());
     }
   }

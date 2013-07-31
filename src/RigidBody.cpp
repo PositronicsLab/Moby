@@ -50,6 +50,13 @@ RigidBody::RigidBody()
   // setup visualization pose
   _vF->rpose = _F;
 
+  // put everything in the link inertia frame by default
+  _rftype = eLinkInertia;
+  _J.pose = _jF;
+  _xd.pose = _jF;
+  _xdd.pose = _jF;
+  _force.pose = _jF;
+
   // set everything else
   _J.set_zero();
   _xd.set_zero();
@@ -67,6 +74,9 @@ shared_ptr<const Pose3d> RigidBody::get_computation_frame() const
   {
     case eLink:
       return _F;
+
+    case eLinkInertia:
+      return _jF;
 
     case eGlobal:
       return shared_ptr<const Pose3d>();
@@ -109,7 +119,7 @@ vector<SVelocityd>& RigidBody::calc_jacobian(shared_ptr<const Pose3d> frame, Dyn
 
   // transform J to given pose 
   for (unsigned i=0; i< SPATIAL_DIM; i++) 
-    J[i] = Pose3d::transform(_F, frame, J[i]);
+    J[i] = Pose3d::transform(frame, J[i]);
 
   return J;
 }
@@ -138,6 +148,10 @@ void RigidBody::set_computation_frame_type(ReferenceFrameType rftype)
   {
     case eLink:   
       target = _F;     
+      break;
+
+    case eLinkInertia:
+      target = _jF;
       break;
  
    case eGlobal: 
@@ -178,7 +192,58 @@ void RigidBody::integrate(double t, double h, shared_ptr<Integrator> integrator)
     return;
 
   // call parent method if still here
-  DynamicBody::integrate(t, h, integrator);
+//  DynamicBody::integrate(t, h, integrator);
+
+  FILE_LOG(LOG_DYNAMICS) << "RigidBody::integrate()" << endl;
+
+  // compute forward dynamics
+  calc_fwd_dyn(h);
+
+  // get the angular velocity
+  Quatd qd = _jF->qL_transpose_mult(_xd.get_angular());
+
+  // setup mixed frame
+  shared_ptr<Pose3d> mixed(new Pose3d);
+
+  // get inertial frame relative to Global
+  Pose3d P = *_jF;
+  P.update_relative_pose(GLOBAL);
+  mixed->x = P.x;
+  FILE_LOG(LOG_DYNAMICS) << "  pose: " << P;
+  FILE_LOG(LOG_DYNAMICS) << "  velocity: " << _xd << endl;
+  FILE_LOG(LOG_DYNAMICS) << "  old velocity (mixed frame): " << Pose3d::transform(mixed, _xd) << endl;
+  FILE_LOG(LOG_DYNAMICS) << "  acceleration: " << _xdd << endl;
+
+  // compute updated inertial frame
+  Matrix3d Rdot = Matrix3d::skew_symmetric(_xd.get_angular()) * P.q;
+  P.x = _xd.get_linear()*h;
+  P.q += qd*h;
+  P.q.normalize();
+  P.rpose = _jF;
+  FILE_LOG(LOG_DYNAMICS) << "  qd: " << qd << std::endl;
+  FILE_LOG(LOG_DYNAMICS) << "  integrated pose: " << P;
+  FILE_LOG(LOG_DYNAMICS) << "  R(dot): " << std::endl << Rdot;
+  Rdot *= h;
+  Rdot += Matrix3d(P.q);
+  Rdot.orthonormalize();
+  FILE_LOG(LOG_DYNAMICS) << "  R+R(dot): " << std::endl << Rdot;
+
+  // convert inertial frame to link frame
+  P.update_relative_pose(_F->rpose);
+  FILE_LOG(LOG_DYNAMICS) << "  old link pose: " << *_F;
+
+  // update the new pose
+  set_pose(P);
+  _xd.set_angular(_xd.get_angular() + _xdd.get_angular()*h); 
+  _xd.set_linear(_xd.get_linear() + _xdd.get_linear()*h); 
+  P = *_jF;
+  P.update_relative_pose(GLOBAL);
+  mixed->x = P.x;
+  FILE_LOG(LOG_DYNAMICS) << "  newlink pose: " << *_F;
+  FILE_LOG(LOG_DYNAMICS) << "  new pose: " << P;
+  FILE_LOG(LOG_DYNAMICS) << "  new pose orientation: " << AAngled(P.q) << std::endl;
+  FILE_LOG(LOG_DYNAMICS) << "  new velocity (mixed frame): " << Pose3d::transform(mixed, _xd) << endl;
+  FILE_LOG(LOG_DYNAMICS) << "  new velocity: " << _xd << endl;
 
   FILE_LOG(LOG_DYNAMICS) << "RigidBody::integrate()" << endl;
   FILE_LOG(LOG_DYNAMICS) << "  new transform: " << endl << _F;
@@ -197,7 +262,8 @@ void RigidBody::calc_fwd_dyn(double dt)
   // if the body is free, just compute linear and angular acceleration via
   // Newton's and Euler's laws
   if (_abody.expired())
-    _xdd = _J.inverse_mult(sum_forces() - calc_inertial_forces()); 
+//    _xdd = _J.inverse_mult(sum_forces() - calc_inertial_forces()); 
+    _xdd = _J.inverse_mult(sum_forces()); 
   else
   {
     // otherwise, need to call forward dynamics on the articulated body
@@ -264,9 +330,9 @@ void RigidBody::set_pose(const Pose3d& p)
   if (p.rpose != _F->rpose)
     throw std::runtime_error("RigidBody::set_pose() - relative pose is not correct");
 
-  // only need to update quantities if they're not in link frame
+  // only need to update quantities if they're not in a link frame
   // (or equivalently, set to joint frame and there is no inner joint)
-  if (_rftype == eLink || (_rftype == eJoint && is_base()))
+  if (_rftype == eLinkInertia || _rftype == eLink || (_rftype == eJoint && is_base()))
   {
     // just update the pose
     *_F = p;
@@ -277,14 +343,26 @@ void RigidBody::set_pose(const Pose3d& p)
     *_F = p;
 
     // get current frame for quantities
-    // this will either be the joint frame or the global frame
     shared_ptr<const Pose3d> SOURCE = _J.pose;
  
     // compute transform for moving quantities to the new body frame
     Transform3d pTs = Pose3d::calc_relative_pose(SOURCE->rpose, _F);
 
     // compute target transform
-    shared_ptr<const Pose3d> target = (_rftype == eJoint) ? get_inner_joint_implicit()->get_pose() : GLOBAL;
+    shared_ptr<const Pose3d> target;
+    switch (_rftype)
+    {
+      case eJoint:
+        target = get_inner_joint_implicit()->get_pose();
+        break;
+
+      case eGlobal:
+        target = GLOBAL; 
+        break;
+
+      default:
+        assert(false);
+    }
     Transform3d tTp = Pose3d::calc_relative_pose(_F, target);
 
     // combine the two transforms
@@ -324,10 +402,10 @@ Vector3d RigidBody::calc_point_vel(const Point3d& point) const
     return Vector3d::zero(_F);
 
   // convert point to a vector in the body frame
-  Vector3d r = Pose3d::transform(point.pose, _F, point); 
+  Vector3d r = Pose3d::transform(_F, point); 
 
   // get the velocity in the body frame
-  SVelocityd xd = Pose3d::transform(_xd.pose, _F, _xd);
+  SVelocityd xd = Pose3d::transform(_F, _xd);
 
   // compute the point velocity - in the body frame
   return xd.get_linear() + Vector3d::cross(xd.get_angular(), r);
@@ -486,7 +564,7 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
       rTR->rpose = Fx;
 
       // transform the inertia and update the inertia for this
-      J += Pose3d::transform(Fx, rTR, Jx); 
+      J += Pose3d::transform(GLOBAL, Jx); 
     }
 
     // set the mass and inertia of the RigidBody additively
@@ -499,13 +577,13 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
   if (lvel_attr || avel_attr)
   {
     Vector3d lv = Vector3d::zero(), av = Vector3d::zero();
-    shared_ptr<const Pose3d> TARGET(new Pose3d(Quatd::identity(), _F->x)); 
-    SVelocityd v(TARGET);
+    SVelocityd v;
+    v.pose = _jF;
     if (lvel_attr) lvel_attr->get_vector_value(lv);
     if (avel_attr) avel_attr->get_vector_value(av);
     v.set_linear(lv);
     v.set_angular(av);
-    velocity() = Pose3d::transform(TARGET, get_computation_frame(), v);
+    velocity() = Pose3d::transform(get_computation_frame(), v);
   }
 
 /*
@@ -570,7 +648,7 @@ void RigidBody::save_to_xml(XMLTreePtr node, list<shared_ptr<const Base> >& shar
 
   // save the linear and angular velocities
   shared_ptr<const Pose3d> TARGET(new Pose3d(Quatd::identity(), _F->x)); 
-  SVelocityd v = Pose3d::transform(_xd.pose, TARGET, _xd); 
+  SVelocityd v = Pose3d::transform(TARGET, _xd); 
   node->attribs.insert(XMLAttrib("linear-velocity", v.get_linear()));
   node->attribs.insert(XMLAttrib("angular-velocity", v.get_angular()));
 
@@ -784,7 +862,7 @@ void RigidBody::add_generalized_force(const VectorNd& gf)
   w.set_torque(Vector3d(gf[3], gf[4], gf[5]));
 
   // add the force to the sum of forces
-  _force += Pose3d::transform(GLOBAL, _force.pose, w);
+  _force += Pose3d::transform(_force.pose, w);
 }
 
 /// Applies a generalized impulse to this rigid body
@@ -822,7 +900,7 @@ void RigidBody::apply_generalized_impulse_single(const VectorNd& gj)
   w.pose = GLOBAL;
 
   // determine the change in linear velocity
-  _xd += _J.inverse_mult(Pose3d::transform(GLOBAL, _J.pose, w));
+  _xd += _J.inverse_mult(Pose3d::transform(_J.pose, w));
 }
 
 /// Solves using the generalized inertia matrix
@@ -1039,7 +1117,7 @@ void RigidBody::set_generalized_velocity_single(GeneralizedCoordinateType gctype
   {
     xd.set_linear(Vector3d(gv[0], gv[1], gv[2]));
     xd.set_angular(Vector3d(gv[3], gv[4], gv[5]));
-    _xd = Pose3d::transform(GLOBAL, _xd.pose, xd);
+    _xd = Pose3d::transform(_xd.pose, xd);
   }
   else
   {
@@ -1060,14 +1138,15 @@ void RigidBody::set_generalized_velocity_single(GeneralizedCoordinateType gctype
     {
       case eGlobal:
         xd.pose = GLOBAL;
-        xd.set_angular(_F->q.G_mult(qd.w, qd.x, qd.y, qd.z));
-        _xd = Pose3d::transform(GLOBAL, _xd.pose, xd);
+        xd.set_angular(_F->qG_mult(qd.w, qd.x, qd.y, qd.z));
+        _xd = Pose3d::transform(_xd.pose, xd);
         break;
 
       case eLink:
+      case eLinkInertia:
         xd.pose = _F;
-        xd.set_angular(_F->q.L_mult(qd.w, qd.x, qd.y, qd.z));
-        _xd = Pose3d::transform(_F, _xd.pose, xd);
+        xd.set_angular(_F->qL_mult(qd.w, qd.x, qd.y, qd.z));
+        _xd = Pose3d::transform(_xd.pose, xd);
         break;
 
       case eJoint:
@@ -1107,7 +1186,7 @@ VectorNd& RigidBody::get_generalized_velocity_single(GeneralizedCoordinateType g
   if (gctype == DynamicBody::eSpatial)
   {
     // transform velocity to global frame 
-    xd = Pose3d::transform(_xd.pose, GLOBAL, _xd);
+    xd = Pose3d::transform(GLOBAL, _xd);
 
     // get linear and angular components of velocity
     Vector3d lv = xd.get_linear();
@@ -1132,13 +1211,14 @@ VectorNd& RigidBody::get_generalized_velocity_single(GeneralizedCoordinateType g
     switch (get_computation_frame_type())
     {
       case eGlobal:
-        xd = Pose3d::transform(_xd.pose, GLOBAL, _xd);
-        qd = _F->q.G_transpose_mult(xd.get_angular()) * 0.5;
+        xd = Pose3d::transform(GLOBAL, _xd);
+        qd = _F->qG_transpose_mult(xd.get_angular()) * 0.5;
         break;
 
       case eLink:
-        xd = Pose3d::transform(_xd.pose, _F, _xd);
-        qd = _F->q.L_transpose_mult(xd.get_angular()) * 0.5;
+      case eLinkInertia:
+        xd = Pose3d::transform(_F, _xd);
+        qd = _F->qL_transpose_mult(xd.get_angular()) * 0.5;
         break;
 
       case eJoint:
@@ -1185,7 +1265,7 @@ VectorNd& RigidBody::get_generalized_acceleration_single(VectorNd& ga)
   ga.resize(num_generalized_coordinates(DynamicBody::eSpatial));
 
   // transform acceleration to global frame 
-  SAcceld xdd = Pose3d::transform(_xdd.pose, GLOBAL, _xdd);
+  SAcceld xdd = Pose3d::transform(GLOBAL, _xdd);
 
   // get linear and angular components
   Vector3d la = xdd.get_linear();
@@ -1225,7 +1305,7 @@ MatrixNd& RigidBody::get_generalized_inertia_single(MatrixNd& M)
     return M.resize(0,0);
 
   // get the rigid body inertia as a matrix in the global frame
-  SpatialRBInertiad J = Pose3d::transform(_J.pose, GLOBAL, _J);
+  SpatialRBInertiad J = Pose3d::transform(GLOBAL, _J);
 
   // precompute some things
   Matrix3d hxm = Matrix3d::skew_symmetric(J.h * J.m);
@@ -1266,7 +1346,7 @@ VectorNd& RigidBody::get_generalized_forces_single(VectorNd& gf)
   gf.resize(NGC);
 
   // compute external forces and inertial forces in global frame
-  SForced w = Pose3d::transform(_force.pose, GLOBAL, _force - calc_inertial_forces());
+  SForced w = Pose3d::transform(GLOBAL, _force - calc_inertial_forces());
 
   // get force and torque
   Vector3d f = w.get_force();
@@ -1307,7 +1387,7 @@ VectorNd& RigidBody::convert_to_generalized_force_single(SingleBodyPtr body, con
     return gf.resize(0);
 
   // transform w to computation frame
-  SForced wt = Pose3d::transform(w.pose, GLOBAL, w);
+  SForced wt = Pose3d::transform(GLOBAL, w);
 
   // get linear and angular components of wt
   Vector3d f = wt.get_force();
@@ -1849,9 +1929,10 @@ std::ostream& Moby::operator<<(std::ostream& out, const Moby::RigidBody& rb)
   out << "  computation frame: "; 
   switch (rb.get_computation_frame_type())
   {
-    case eGlobal: out << "global" << endl; break;
-    case eLink:   out << "link" << endl; break;
-    case eJoint:  out << "joint" << endl; break;
+    case eGlobal:        out << "global" << endl; break;
+    case eLink:          out << "link inertia" << endl; break;
+    case eLinkInertia:   out << "link" << endl; break;
+    case eJoint:         out << "joint" << endl; break;
     default:
       assert(false);
   }

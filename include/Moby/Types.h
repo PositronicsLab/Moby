@@ -48,7 +48,7 @@ typedef std::pair<Ravelin::Point3d, Ravelin::Point3d> LineSeg3;
 typedef std::pair<Ravelin::Point2d, Ravelin::Point2d> LineSeg2;
 
 /// reference frame type for reduced-coordinate dynamics computations
-enum ReferenceFrameType { eGlobal, eLink, eJoint };
+enum ReferenceFrameType { eGlobal, eLink, eLinkInertia, eJoint };
 
 /// Polyhedron smart pointer
 typedef boost::shared_ptr<Polyhedron> PolyhedronPtr;

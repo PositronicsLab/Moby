@@ -75,7 +75,7 @@ vector<SVelocityd>& ArticulatedBody::calc_jacobian(boost::shared_ptr<const Pose3
 
     // update J
     for (unsigned i=0; i< s.size(); i++)
-      J[CIDX+i] = Pose3d::transform(s[i].pose, frame, s[i]);
+      J[CIDX+i] = Pose3d::transform(frame, s[i]);
 
     // set the link to the parent link
     link = parent;
@@ -94,7 +94,7 @@ vector<SVelocityd>& ArticulatedBody::calc_jacobian(boost::shared_ptr<const Pose3
 
     // convert base columns of Jacobian
     for (unsigned i=NIMP_DOF; i< NIMP_DOF+SPATIAL_DIM; i++)
-      J[i] = Pose3d::transform(J[i].pose, frame, J[i]);
+      J[i] = Pose3d::transform(frame, J[i]);
   }
 
   return J;

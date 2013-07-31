@@ -35,7 +35,7 @@ CSG::CSG()
 }
 
 /// Constructs a union CSG with the given transform
-CSG::CSG(shared_ptr<const Pose3d> T) : Primitive(T)
+CSG::CSG(const Pose3d& T) : Primitive(T)
 {
   _op = eUnion;
   calc_mass_properties();
@@ -151,19 +151,22 @@ void CSG::set_intersection_tolerance(double tol)
 }
 
 /// Transforms the CSG
-void CSG::set_pose(shared_ptr<const Pose3d> p)
+void CSG::set_pose(const Pose3d& p)
 {
+  // convert p to a shared pointer
+  shared_ptr<Pose3d> x(new Pose3d(p));
+
   // determine the transformation from the global frame to the old pose
   Transform3d cTg = Pose3d::calc_relative_pose(GLOBAL, _F);
 
   // determine the transformation from the old to the new pose
-  Transform3d pTc = Pose3d::calc_relative_pose(_F, p);
+  Transform3d xTc = Pose3d::calc_relative_pose(_F, x);
 
   // determine the transformation from the new pose to the global frame 
-  Transform3d gTp = Pose3d::calc_relative_pose(p, GLOBAL);
+  Transform3d gTx = Pose3d::calc_relative_pose(x, GLOBAL);
 
   // compute the transformation
-  Transform3d T = gTp * pTc * cTg;
+  Transform3d T = gTx * xTc * cTg;
 
   // call the primitive transform
   Primitive::set_pose(p);

@@ -75,7 +75,7 @@ void PrismaticJoint::set_axis(const Vector3d& axis)
   Vector3d naxis = Vector3d::normalize(axis); 
 
   // transform axis to joint frame
-  _u = Pose3d::transform(naxis.pose, get_pose(), naxis);
+  _u = Pose3d::transform(get_pose(), naxis);
 
   // set the joint axis in the inner link frame
   update_spatial_axes(); 
@@ -2235,7 +2235,7 @@ void PrismaticJoint::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Bas
   node->name = "PrismaticJoint";
 
   // save the joint axis (global coords)
-  Vector3d u0 = Pose3d::transform(_u.pose, shared_ptr<const Pose3d>(), _u);
+  Vector3d u0 = Pose3d::transform(shared_ptr<const Pose3d>(), _u);
   node->attribs.insert(XMLAttrib("axis", u0));
 }
 

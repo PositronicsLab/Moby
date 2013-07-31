@@ -84,7 +84,7 @@ BVPtr BoundingSphere::calc_swept_BV(CollisionGeometryPtr g, const SVelocityd& v)
   }
 
   // get the velocity in the proper frame
-  SVelocityd vx = Pose3d::transform(v.pose, get_relative_pose(), v); 
+  SVelocityd vx = Pose3d::transform(get_relative_pose(), v); 
 
   // otherwise, create a SSL 
   shared_ptr<SSL> ssl(new SSL);

@@ -46,12 +46,14 @@ void CollisionGeometry::set_single_body(SingleBodyPtr s)
  */
 PrimitivePtr CollisionGeometry::set_geometry(PrimitivePtr primitive)
 {
+  Pose3d EYE;
+
   if (_single_body.expired())
     throw std::runtime_error("CollisionGeometry::set_geometry() called before single body set!");
 
   SingleBodyPtr sb(_single_body);
   RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(sb);
-  if (rb && !Pose3d::rel_equal(*rb->get_pose(), *shared_ptr<const Pose3d>()))    
+  if (rb && !Pose3d::rel_equal(*rb->get_pose(), EYE))    
     std::cerr << "CollisionGeometry::set_primitive() warning - rigid body's transform is not identity!" << std::endl;
 
   // save the primitive

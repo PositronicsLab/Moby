@@ -806,7 +806,7 @@ BVPtr OBB::calc_swept_BV(CollisionGeometryPtr g, const SVelocityd& v) const
   }
 
   // transform the velocity to the global frame
-  SVelocityd vo = Pose3d::transform(v.pose, obb_frame, v);
+  SVelocityd vo = Pose3d::transform(obb_frame, v);
   Vector3d lv = vo.get_linear();
   Vector3d av = vo.get_angular();
 

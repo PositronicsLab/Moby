@@ -150,7 +150,7 @@ void DeformableBody::calc_com_and_vels()
   Vector3d P(0.0, 0.0, 0.0, _F);
   for (unsigned i=0; i< _nodes.size(); i++)
   {
-    Vector3d r = Pose3d::transform(_nodes[i]->x.pose, _F, _nodes[i]->x);
+    Vector3d r = Pose3d::transform(_F, _nodes[i]->x);
     P += Vector3d::cross(r, _nodes[i]->xd * _nodes[i]->mass);
   }
 
@@ -365,7 +365,7 @@ VectorNd& DeformableBody::convert_to_generalized_force( SingleBodyPtr body, cons
   gf.set_zero(_nodes.size() * THREE_D);
 
   // convert the force to the global frame
-  SForced w0 = Pose3d::transform(w.pose, GLOBAL, w);
+  SForced w0 = Pose3d::transform(GLOBAL, w);
   Vector3d f = w0.get_force();
 
   // determine in what tetrahedron the point lies (or is closest)
@@ -467,7 +467,7 @@ unsigned DeformableBody::find_closest_tetrahedron(const Point3d& p) const
   FILE_LOG(LOG_DEFORM) << "DeformableBody::find_closest_tetrahedron() entered" << endl;
 
   // convert the point to the global frame
-  Point3d p0 = Pose3d::transform(p.pose, GLOBAL, p);
+  Point3d p0 = Pose3d::transform(GLOBAL, p);
 
   // get the vector of tetrahedra
   assert(_tetrahedra.size() > 0);
@@ -748,7 +748,7 @@ Vector3d DeformableBody::calc_point_vel(const Point3d& p) const
   Vector3d vx = vb*u + vc*v + vd*w + va*(1.0 - u - v - w);
 
   // convert the velocity to the desired frame
-  return Pose3d::transform(vx.pose, p.pose, vx);
+  return Pose3d::transform(p.pose, vx);
 }
 
 /// Adds a force to the body

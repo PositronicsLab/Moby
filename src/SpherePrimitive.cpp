@@ -33,7 +33,7 @@ SpherePrimitive::SpherePrimitive()
 }
 
 /// Creates a sphere with radius 1.0 and 100 points at the given transform
-SpherePrimitive::SpherePrimitive(shared_ptr<const Pose3d> T) : Primitive(T)
+SpherePrimitive::SpherePrimitive(const Pose3d& T) : Primitive(T)
 {
   _radius = 1.0;
   _npoints = 100;
@@ -60,7 +60,7 @@ SpherePrimitive::SpherePrimitive(double radius, unsigned n)
 /**
  * The sphere is composed of 100 points.
  */
-SpherePrimitive::SpherePrimitive(double radius, shared_ptr<const Pose3d> T) : Primitive(T)
+SpherePrimitive::SpherePrimitive(double radius, const Pose3d& T) : Primitive(T)
 {
   _radius = radius;
   _npoints = 100;
@@ -68,7 +68,7 @@ SpherePrimitive::SpherePrimitive(double radius, shared_ptr<const Pose3d> T) : Pr
 }
 
 /// Creates a sphere with the specified radius, transform, and number of points 
-SpherePrimitive::SpherePrimitive(double radius, unsigned n, shared_ptr<const Pose3d> T) : Primitive(T)
+SpherePrimitive::SpherePrimitive(double radius, unsigned n, const Pose3d& T) : Primitive(T)
 {
   _radius = radius;
   _npoints = n;  
@@ -142,19 +142,22 @@ void SpherePrimitive::set_intersection_tolerance(double tol)
 }
 
 /// Transforms the primitive
-void SpherePrimitive::set_pose(shared_ptr<const Pose3d> p)
+void SpherePrimitive::set_pose(const Pose3d& p)
 {
+  // convert p to a shared pointer
+  shared_ptr<Pose3d> x(new Pose3d(p));
+
   // determine the transformation from the global frame to the old pose
   Transform3d cTg = Pose3d::calc_relative_pose(GLOBAL, _F);
 
   // determine the transformation from the old to the new pose
-  Transform3d pTc = Pose3d::calc_relative_pose(_F, p);
+  Transform3d xTc = Pose3d::calc_relative_pose(_F, x);
 
   // determine the transformation from the new pose to the global frame 
-  Transform3d gTp = Pose3d::calc_relative_pose(p, GLOBAL);
+  Transform3d gTx = Pose3d::calc_relative_pose(x, GLOBAL);
 
   // compute the transformation
-  Transform3d T = gTp * pTc * cTg;
+  Transform3d T = gTx * xTc * cTg;
 
   // go ahead and set the new transform
   Primitive::set_pose(p);

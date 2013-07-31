@@ -14,13 +14,14 @@ void DynamicBody::integrate(double t, double h, shared_ptr<Integrator> integrato
   shared_ptr<DynamicBody> shared_this = dynamic_pointer_cast<DynamicBody>(shared_from_this());
 
   get_generalized_coordinates(eEuler, gc);
-  get_generalized_velocity(eSpatial, gv);
+  get_generalized_velocity(eSpatial, gv); // gv depends on gc
   gcgv.resize(gc.size()+gv.size());
   gcgv.set_sub_vec(0, gc);
   gcgv.set_sub_vec(gc.size(), gv);
   integrator->integrate(gcgv, &ode_both, t, h, (void*) &shared_this);
   gcgv.get_sub_vec(0, gc.size(), gc);
   gcgv.get_sub_vec(gc.size(), gcgv.size(), gv);
+  // NOTE: velocity must be set first (it's computed w.r.t. old frame)
   set_generalized_coordinates(eEuler, gc);
   set_generalized_velocity(eSpatial, gv);
 }
@@ -30,7 +31,7 @@ VectorNd& DynamicBody::ode_both(const VectorNd& x, double t, double dt, void* da
 {
   // get the dynamic body
   shared_ptr<DynamicBody>& db = *((shared_ptr<DynamicBody>*) data);
-  const unsigned NGC_ROD = db->num_generalized_coordinates(eEuler);
+  const unsigned NGC_EUL = db->num_generalized_coordinates(eEuler);
 
   // get the necessary vectors
   VectorNd& xp = db->xp;
@@ -38,20 +39,20 @@ VectorNd& DynamicBody::ode_both(const VectorNd& x, double t, double dt, void* da
   VectorNd& xa = db->xa;
 
   // return the derivatives at state x
-  xv.resize(NGC_ROD);
-  x.get_sub_vec(0, NGC_ROD, xp);
-  x.get_sub_vec(NGC_ROD, x.size(), xv);
+  xv.resize(NGC_EUL);
+  x.get_sub_vec(0, NGC_EUL, xp);
+  x.get_sub_vec(NGC_EUL, x.size(), xv);
   db->set_generalized_coordinates(DynamicBody::eEuler, xp);
   db->set_generalized_velocity(DynamicBody::eSpatial, xv);
+
+  // we need the generalized velocity as Rodrigues coordinates
+  db->get_generalized_velocity(DynamicBody::eEuler, xv);
 
   // check whether we could rotate too much
   #ifdef NDEBUG
   if (dt*db->get_aspeed() > M_PI)
     std::cerr << "DynamicBody::ode_both() warning- angular speed*dt " << (dt*db->get_aspeed()) << " sufficiently high to" << std::endl << "potentially miss events!" << std::endl;
   #endif
-
-  // we need the generalized velocity as Rodrigues coordinates
-  db->get_generalized_velocity(DynamicBody::eEuler, xv);
 
   // clear the force accumulators on the body
   db->reset_accumulators();

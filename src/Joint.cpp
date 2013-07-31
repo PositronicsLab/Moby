@@ -117,8 +117,8 @@ void Joint::determine_q_dot()
 
   // get velocities in s's frame
   shared_ptr<const Pose3d> spose = get_pose();
-  SVelocityd svi = Pose3d::transform(vi.pose, spose, vi);
-  SVelocityd svo = Pose3d::transform(vo.pose, spose, vo);
+  SVelocityd svi = Pose3d::transform(spose, vi);
+  SVelocityd svo = Pose3d::transform(spose, vo);
 
   // compute the change in velocity
   m.mult(vo - vi, this->qd);
@@ -322,8 +322,8 @@ void Joint::set_location(const Point3d& point)
   RigidBodyPtr outboard(_outboard_link);
 
   // convert p to the inboard and outboard links' frames
-  Point3d pi = Pose3d::transform(point.pose, inboard->get_pose(), point);
-  Point3d po = Pose3d::transform(point.pose, outboard->get_pose(), point);
+  Point3d pi = Pose3d::transform(inboard->get_pose(), point);
+  Point3d po = Pose3d::transform(outboard->get_pose(), point);
 
   // set _F's and Fb's origins
   _F->x = Origin3d(pi);

@@ -342,7 +342,7 @@ void GaussianMixture::rebuild(const vector<Gauss>& gauss)
 }
 
 /// Sets the transform for the primitive
-void GaussianMixture::set_pose(shared_ptr<const Pose3d> T)
+void GaussianMixture::set_pose(const Pose3d& T)
 {
   // call parent method
   Primitive::set_pose(T);

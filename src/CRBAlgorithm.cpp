@@ -116,8 +116,8 @@ void CRBAlgorithm::transform_and_mult(RigidBodyPtr link, const SpatialRBInertiad
   const shared_ptr<const Pose3d> TARGET = link->get_computation_frame(); 
 
   // transform s and I 
-  Pose3d::transform(s.front().pose, TARGET, s, _sprime);
-  Iprime = Pose3d::transform(I.pose, TARGET, I);
+  Pose3d::transform(TARGET, s, _sprime);
+  Iprime = Pose3d::transform(TARGET, I);
 
   // do the multiplication
   mult(Iprime, _sprime, Is);
@@ -188,7 +188,7 @@ void CRBAlgorithm::calc_generalized_inertia(RCArticulatedBodyPtr body)
   }
 
   // get composite inertia in matrix form
-  Pose3d::transform(_Ic.front().pose, GLOBAL, _Ic.front()).to_matrix(Ic0);
+  Pose3d::transform(GLOBAL, _Ic.front()).to_matrix(Ic0);
 
   // setup the remainder of the augmented inertia matrix
   Opsd::transpose(K, KT);  // TODO: special transpose necessary here?
@@ -340,7 +340,7 @@ void CRBAlgorithm::calc_joint_space_inertia(RCArticulatedBodyPtr body, MatrixNd&
       unsigned h = parent->get_index();
     
       // add this inertia to its parent
-      Ic[h] += Pose3d::transform(Ic[i].pose, Ic[h].pose, Ic[i]); 
+      Ic[h] += Pose3d::transform(Ic[h].pose, Ic[i]); 
 
       FILE_LOG(LOG_DYNAMICS) << "  composite inertia for (child) link " << link->id << ": " << std::endl << Ic[i];
       FILE_LOG(LOG_DYNAMICS) << "  composite inertia for (parent) link " << parent->id << ": " << std::endl << Ic[h];
@@ -488,7 +488,7 @@ void CRBAlgorithm::calc_generalized_inertia(MatrixNd& M)
   }
 
   // get composite inertia in matrix form
-  Pose3d::transform(_Ic.front().pose, GLOBAL, _Ic.front()).to_matrix(Ic0);
+  Pose3d::transform(GLOBAL, _Ic.front()).to_matrix(Ic0);
 
   // transpose K 
   Opsd::transpose(K, KT); // TODO check: spatial transpose?
@@ -815,14 +815,14 @@ void CRBAlgorithm::calc_generalized_forces(SForced& f0, VectorNd& C)
     // **** compute acceleration
 
     // add this link's contribution
-    Pose3d::transform(s.front().pose, _a[i].pose, s, _sprime);
+    Pose3d::transform(_a[i].pose, s, _sprime);
     SVelocityd sqd = mult(s, qd);
     _a[i] = link->velocity().cross(sqd);
     if (!sdot.empty())
-      _a[i] += SAcceld(mult(Pose3d::transform(sdot[0].pose, _a[i].pose, sdot, _sprime), qd)); 
+      _a[i] += SAcceld(mult(Pose3d::transform(_a[i].pose, sdot, _sprime), qd)); 
 
     // now add parent's contribution
-    _a[i] += Pose3d::transform(_a[h].pose, _a[i].pose, _a[h]);
+    _a[i] += Pose3d::transform(_a[i].pose, _a[h]);
 
     FILE_LOG(LOG_DYNAMICS) << " computing link velocity / acceleration; processing link " << link->id << std::endl;
     FILE_LOG(LOG_DYNAMICS) << "  spatial joint velocity: " << (mult(s,qd)) << std::endl;
@@ -886,7 +886,7 @@ void CRBAlgorithm::calc_generalized_forces(SForced& f0, VectorNd& C)
     if (parent)
     {
       unsigned h = parent->get_index();
-      _w[h] += Pose3d::transform(_w[i].pose, _w[h].pose, _w[i]);
+      _w[h] += Pose3d::transform(_w[h].pose, _w[i]);
       link_queue.push(parent);
     }
 
@@ -985,13 +985,13 @@ void CRBAlgorithm::update_link_accelerations(RCArticulatedBodyPtr body)
     // set link acceleration
     SAcceld& ah = parent->accel();
     SAcceld& ai = link->accel();
-    ai = Pose3d::transform(ah.pose, ai.pose, ah);
+    ai = Pose3d::transform(ai.pose, ah);
 
     // get the link spatial axis
     const std::vector<SAxisd>& s = joint->get_spatial_axes(); 
 
     // determine the link accel
-    Pose3d::transform(s.front().pose, ai.pose, s, _sprime);
+    Pose3d::transform(ai.pose, s, _sprime);
     SVelocityd sqd = mult(_sprime, joint->qd);
     ai += SAcceld(link->velocity().cross(sqd));
     ai += SAcceld(mult(_sprime, joint->qdd)); 
@@ -1094,7 +1094,7 @@ void CRBAlgorithm::apply_impulse(const SMomentumd& w, RigidBodyPtr link)
     const std::vector<SAxisd>& s = j->get_spatial_axes();
 
     // transform spatial axes to global frame
-    Pose3d::transform(j->get_pose(), GLOBAL, s, _sprime);
+    Pose3d::transform(GLOBAL, s, _sprime);
 
     // set the column(s) of the Jacobian
     _J.insert(_J.end(), _sprime.begin(), _sprime.end());
@@ -1104,7 +1104,7 @@ void CRBAlgorithm::apply_impulse(const SMomentumd& w, RigidBodyPtr link)
   }
 
   // transform the impulse to the global frame
-  SMomentumd w0 = Pose3d::transform(w.pose, GLOBAL, w); 
+  SMomentumd w0 = Pose3d::transform(GLOBAL, w); 
 
   // compute the impulse applied to the joints
   transpose_mult(_J, w0, workv);
@@ -1141,7 +1141,7 @@ void CRBAlgorithm::apply_impulse(const SMomentumd& w, RigidBodyPtr link)
 
     // update the base velocity
     SVelocityd& basev = base->velocity();
-    basev += Pose3d::transform(dv0.pose, basev.pose, dv0);
+    basev += Pose3d::transform(basev.pose, dv0);
 
     FILE_LOG(LOG_DYNAMICS) << "  change in base velocity: " << dv0 << std::endl;
     FILE_LOG(LOG_DYNAMICS) << "  new base velocity: " << basev << std::endl;
