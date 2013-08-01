@@ -109,6 +109,8 @@ void GeneralizedCCD::remove_articulated_body(ArticulatedBodyPtr abody)
 /// Computes the velocities from states
 map<SingleBodyPtr, pair<Vector3, Vector3> > GeneralizedCCD::get_velocities(const vector<pair<DynamicBodyPtr, VectorN> >& q0, const vector<pair<DynamicBodyPtr, VectorN> >& q1, Real dt) const
 {
+  vector<VectorN> old_qd(q0.size());
+
   // first set the generalized velocities
   #ifndef _OPENMP
   VectorN qd;
@@ -117,6 +119,7 @@ map<SingleBodyPtr, pair<Vector3, Vector3> > GeneralizedCCD::get_velocities(const
     qd.copy_from(q1[i].second) -= q0[i].second;
     // Q: why do we set generalized coords to q1?
     q1[i].first->set_generalized_coordinates(DynamicBody::eRodrigues, q0[i].second);
+    q1[i].first->get_generalized_velocity(DynamicBody::eAxisAngle, old_qd[i]);
     q1[i].first->set_generalized_velocity(DynamicBody::eRodrigues, qd);
   }
   #else
@@ -127,6 +130,7 @@ map<SingleBodyPtr, pair<Vector3, Vector3> > GeneralizedCCD::get_velocities(const
   {
     qd[i].copy_from(q1[i].second) -= q0[i].second;
     q1[i].first->set_generalized_coordinates(DynamicBody::eRodrigues, q0[i].second);
+    q1[i].first->get_generalized_velocity(DynamicBody::eAxisAngle, old_qd[i]);
     q1[i].first->set_generalized_velocity(DynamicBody::eRodrigues, qd[i]);
   }
   #endif
@@ -157,6 +161,10 @@ map<SingleBodyPtr, pair<Vector3, Vector3> > GeneralizedCCD::get_velocities(const
       }
     } 
   }
+
+  // reset the velocities
+  for (unsigned i=0; i< q0.size(); i++)
+    q0[i].first->set_generalized_velocity(DynamicBody::eAxisAngle, old_qd[i]);
 
   return vels;
 }
