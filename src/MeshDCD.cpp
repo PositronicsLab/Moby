@@ -177,7 +177,7 @@ bool MeshDCD::is_contact(Real dt, const vector<pair<DynamicBodyPtr, VectorN> >& 
 void MeshDCD::check_geom(Real dt, CollisionGeometryPtr cg, const vector<pair<DynamicBodyPtr, VectorN> >& q0, const vector<pair<DynamicBodyPtr, VectorN> >& q1, vector<Event>& contacts)
 {
   FILE_LOG(LOG_COLDET) << "MeshDCD::check_geom() entered" << endl;
-  SAFESTATIC VectorN q, qtmp;
+  SAFESTATIC VectorN q, qtmp, old_qd;
 
   // get the body
   DynamicBodyPtr db = cg->get_single_body();
@@ -226,6 +226,9 @@ void MeshDCD::check_geom(Real dt, CollisionGeometryPtr cg, const vector<pair<Dyn
     q += qtmp;
     db->set_generalized_coordinates(DynamicBody::eRodrigues, q);
 
+    // save old generalized velocities
+    db->get_generalized_velocity(DynamicBody::eAxisAngle, old_qd);
+
     // set the generalized velocity for the deformable body
     q.copy_from(qb) -= qa;
     q /= dt;
@@ -233,6 +236,9 @@ void MeshDCD::check_geom(Real dt, CollisionGeometryPtr cg, const vector<pair<Dyn
 
     // determine contacts for the deformable body
     determine_contacts_deformable(cg, cg, t, h, contacts);
+
+    // restore old generalized velocities
+    db->set_generalized_velocity(DynamicBody::eAxisAngle, old_qd);
   }
 
   // remove duplicate contact points
@@ -289,7 +295,7 @@ unsigned MeshDCD::find_body(const vector<pair<DynamicBodyPtr, VectorN> >& q, Dyn
 void MeshDCD::check_geoms(Real dt, CollisionGeometryPtr a, CollisionGeometryPtr b, const vector<pair<DynamicBodyPtr, VectorN> >& q0, const vector<pair<DynamicBodyPtr, VectorN> >& q1, vector<Event>& contacts)
 {
   FILE_LOG(LOG_COLDET) << "MeshDCD::check_geoms() entered" << endl;
-  SAFESTATIC VectorN q, qda, qdb;
+  SAFESTATIC VectorN q, qda, qdb, old_qda, old_qdb;
 
   // get the two super bodies
   DynamicBodyPtr sba = get_super_body(a);
@@ -347,6 +353,10 @@ void MeshDCD::check_geoms(Real dt, CollisionGeometryPtr a, CollisionGeometryPtr 
         t += h;
     }
 
+    // save the current two velocities
+    sba->get_generalized_velocity(DynamicBody::eAxisAngle, old_qda);
+    sbb->get_generalized_velocity(DynamicBody::eAxisAngle, old_qdb);
+
     // set the first body's coordinates and velocity at the time-of-contact
     q.copy_from(qda) *= t;
     q += qa0;
@@ -383,6 +393,10 @@ void MeshDCD::check_geoms(Real dt, CollisionGeometryPtr a, CollisionGeometryPtr 
       assert(dba && dbb);
       determine_contacts_deformable(a, b, t, h, contacts);
     }
+
+    // restore the current two velocities
+    sba->set_generalized_velocity(DynamicBody::eAxisAngle, old_qda);
+    sbb->set_generalized_velocity(DynamicBody::eAxisAngle, old_qdb);
   }
   
   // remove duplicate contact points

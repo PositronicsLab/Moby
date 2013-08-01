@@ -73,9 +73,6 @@ class EventDrivenSimulator : public Simulator
     /// Gets the shared pointer for this
     boost::shared_ptr<EventDrivenSimulator> get_this() { return boost::dynamic_pointer_cast<EventDrivenSimulator>(shared_from_this()); }
     
-    /// The maximum step size taken when handling a Zeno point (default is INF)
-    Real max_Zeno_step;
-
     /// The collision detection mechanisms
     std::list<boost::shared_ptr<CollisionDetection> > collision_detectors;
 
@@ -121,21 +118,18 @@ class EventDrivenSimulator : public Simulator
     Real event_stime;
 
   private:
-    void handle_Zeno_point(Real dt, const std::vector<std::pair<VectorN, VectorN> >& q0, std::vector<std::pair<VectorN, VectorN> >& q1);
-    static void copy(const std::vector<std::pair<VectorN, VectorN> >& source, std::vector<std::pair<VectorN, VectorN> >& dest);
-    static void determine_treated_bodies(std::list<std::list<Event*> >& groups, std::vector<DynamicBodyPtr>& bodies);
-    Real find_and_handle_events(Real dt, const std::vector<std::pair<VectorN, VectorN> >& q0, const std::vector<std::pair<VectorN, VectorN> >& q1, bool& Zeno);
-    bool will_impact(Event& e, const std::vector<std::pair<VectorN, VectorN> >& q0, const std::vector<std::pair<VectorN, VectorN> >& q1, Real dt) const;
-    void get_coords_and_velocities(std::vector<std::pair<VectorN, VectorN> >& q) const;
-    void set_coords_and_velocities(const std::vector<std::pair<VectorN, VectorN> >& q0, const std::vector<std::pair<VectorN, VectorN> >& q1, Real t) const;
-    void set_coords_and_velocities(const std::vector<std::pair<VectorN, VectorN> >& q) const;
     void preprocess_event(Event& e);
     void check_violation();
-    void find_events(Real dt);
-    void find_limit_events(const std::vector<std::pair<VectorN, VectorN> >& q0, const std::vector<std::pair<VectorN, VectorN> >& q1, Real dt, std::vector<Event>& limit_events);
-    Real find_TOI(Real dt, const std::vector<std::pair<VectorN, VectorN> >& q0, const std::vector<std::pair<VectorN, VectorN> >& q1); 
+    Real find_and_handle_si_events(Real dt);
+    void find_limit_events(const std::vector<VectorN>& q0, const std::vector<VectorN>& q1, Real dt, std::vector<Event>& limit_events);
+    Real find_TOI(Real dt); 
     void handle_events();
     boost::shared_ptr<ContactParameters> get_contact_parameters(CollisionGeometryPtr geom1, CollisionGeometryPtr geom2) const;
+    std::vector<VectorN> _q0, _qf, _qdf;
+    std::vector<std::pair<DynamicBodyPtr, VectorN> > _x0, _x1;
+    void integrate_si_Euler(double dt);
+    void get_velocities(std::vector<VectorN>& qd) const;
+    void get_coords(std::vector<VectorN>& q) const;
 
     // Visualization functions
     void visualize_contact( Event& event );

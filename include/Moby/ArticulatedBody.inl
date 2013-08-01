@@ -8,11 +8,12 @@
 template <class OutputIterator>
 OutputIterator ArticulatedBody::find_limit_events(const VectorN& q0, const VectorN& q1, Real dt, OutputIterator output_begin) 
 {
-  SAFESTATIC VectorN dq;
+  SAFESTATIC VectorN dq, old_qd;
 
   // compute the generalized velocity that takes us from q0 to q1
   dq.copy_from(q1) -= q0;
   set_generalized_coordinates(eRodrigues, q0);
+  get_generalized_velocity(eAxisAngle, old_qd);
   set_generalized_velocity(eRodrigues, dq);
 
   for (unsigned i=0; i< _joints.size(); i++)
@@ -92,6 +93,9 @@ OutputIterator ArticulatedBody::find_limit_events(const VectorN& q0, const Vecto
         }
       }
     }
+
+  // reset velocity
+  set_generalized_velocity(DynamicBody::eAxisAngle, old_qd);
 
   // find custom limit events, if desired
   if (find_custom_limit_events)

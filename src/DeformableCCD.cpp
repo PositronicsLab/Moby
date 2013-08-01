@@ -109,14 +109,16 @@ void DeformableCCD::remove_articulated_body(ArticulatedBodyPtr abody)
 /// Computes the velocities from states
 map<SingleBodyPtr, pair<Vector3, Vector3> > DeformableCCD::get_velocities(const vector<pair<DynamicBodyPtr, VectorN> >& q0, const vector<pair<DynamicBodyPtr, VectorN> >& q1, Real dt) const
 {
+  vector<VectorN> old_qd(q0.size());
+
   // first set the generalized velocities
   #ifndef _OPENMP
   VectorN qd;
   for (unsigned i=0; i< q0.size(); i++)
   {
+    q1[i].first->get_generalized_velocity(DynamicBody::eAxisAngle, old_qd[i]);
     qd.copy_from(q1[i].second) -= q0[i].second;
     q1[i].first->set_generalized_coordinates(DynamicBody::eRodrigues, q0[i].second);
-    q1[i].first->set_generalized_velocity(DynamicBody::eRodrigues, qd);
   }
   #else
   SAFESTATIC vector<VectorN> qd;
@@ -124,6 +126,7 @@ map<SingleBodyPtr, pair<Vector3, Vector3> > DeformableCCD::get_velocities(const 
   #pragma #omp parallel for
   for (unsigned i=0; i< q0.size(); i++)
   {
+    q1[i].first->get_generalized_velocity(DynamicBody::eAxisAngle, old_qd[i]);
     qd[i].copy_from(q1[i].second) -= q0[i].second;
     q1[i].first->set_generalized_coordinates(DynamicBody::eRodrigues, q0[i].second);
     q1[i].first->set_generalized_velocity(DynamicBody::eRodrigues, qd[i]);
@@ -156,6 +159,10 @@ map<SingleBodyPtr, pair<Vector3, Vector3> > DeformableCCD::get_velocities(const 
       }
     } 
   }
+
+  // restore generalized velocities
+  for (unsigned i=0; i< q0.size(); i++)
+    q1[i].first->set_generalized_velocity(DynamicBody::eAxisAngle, old_qd[i]);
 
   return vels;
 }

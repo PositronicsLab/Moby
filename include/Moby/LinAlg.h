@@ -57,10 +57,10 @@ class LinAlg
     static VectorN solve_SPD(const MatrixN& A, const VectorN& b);
     static MatrixN& solve_fast(MatrixN& A, MatrixN& XB);
     static VectorN& solve_fast(MatrixN& A, VectorN& xb);
-    static MatrixN& solve_LS_fast1(MatrixN& A, MatrixN& XB, Real tol = -1.0) { solve_LS_fast(A, XB, svd1, tol); }
-    static VectorN& solve_LS_fast1(MatrixN& A, VectorN& xb, Real tol = -1.0) { solve_LS_fast(A, xb, svd1, tol); }
-    static MatrixN& solve_LS_fast2(MatrixN& A, MatrixN& XB, Real tol = -1.0) { solve_LS_fast(A, XB, svd2, tol); }
-    static VectorN& solve_LS_fast2(MatrixN& A, VectorN& xb, Real tol = -1.0) { solve_LS_fast(A, xb, svd2, tol); }
+    static MatrixN& solve_LS_fast1(MatrixN& A, MatrixN& XB, Real tol = -1.0) { return solve_LS_fast(A, XB, svd1, tol); }
+    static VectorN& solve_LS_fast1(MatrixN& A, VectorN& xb, Real tol = -1.0) { return solve_LS_fast(A, xb, svd1, tol); }
+    static MatrixN& solve_LS_fast2(MatrixN& A, MatrixN& XB, Real tol = -1.0) { return solve_LS_fast(A, XB, svd2, tol); }
+    static VectorN& solve_LS_fast2(MatrixN& A, VectorN& xb, Real tol = -1.0) { return solve_LS_fast(A, xb, svd2, tol); }
     static MatrixN& solve_LS_fast(MatrixN& A, MatrixN& XB, void (*svd)(MatrixN&, MatrixN&, VectorN&, MatrixN&), Real tol = -1.0);
     static VectorN& solve_LS_fast(MatrixN& A, VectorN& xb, void (*svd)(MatrixN&, MatrixN&, VectorN&, MatrixN&), Real tol = -1.0);
     static MatrixN& solve_symmetric_fast(MatrixN& A, MatrixN& XB);
