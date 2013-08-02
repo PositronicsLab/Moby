@@ -143,6 +143,9 @@ void PrismaticJoint::determine_q(VectorNd& q)
 /// Gets the (local) transform for this joint
 shared_ptr<const Pose3d> PrismaticJoint::get_induced_pose()
 {
+  // invalidate pose quantities for the outer link
+  invalidate_pose_vectors();
+
   _Fprime->x = Origin3d(_u * (this->q[DOF_1] + this->_q_tare[DOF_1]));
   return _Fprime;
 }

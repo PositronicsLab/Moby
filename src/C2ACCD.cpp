@@ -801,7 +801,7 @@ double C2ACCD::calc_mu(double dist, const Vector3d& n, CollisionGeometryPtr g, b
   RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(g->get_single_body());
 
   // get the velocity of the rigid body in the global frame
-  SVelocityd v = Pose3d::transform(GLOBAL, rb->velocity());
+  SVelocityd v = Pose3d::transform(GLOBAL, rb->get_velocity());
 
   // calculate linear contribution to mu
   double mu = n.dot(v.get_linear());

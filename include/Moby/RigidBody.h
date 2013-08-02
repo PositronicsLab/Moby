@@ -53,13 +53,13 @@ class RigidBody : public SingleBody
     void add_force(const Ravelin::SForced& w);
     void set_pose(const Ravelin::Pose3d& pose);
     void set_inertial_pose(const Ravelin::Pose3d& pose);
-    void set_inertia(const Ravelin::SpatialRBInertiad& m);
     void set_enabled(bool flag);
     void apply_impulse(const Ravelin::SMomentumd& w);
     virtual void rotate(const Ravelin::Quatd& q);
     virtual void translate(const Ravelin::Origin3d& o);
     virtual void calc_fwd_dyn(double dt);
-    const Ravelin::SpatialRBInertiad& get_inertia() const { return _J; }
+    const Ravelin::SpatialRBInertiad& get_inertia();
+    void set_inertia(const Ravelin::SpatialRBInertiad& J);
     boost::shared_ptr<const Ravelin::Pose3d> get_inertial_pose() const { return _jF; }
 
     virtual void set_visualization_data(osg::Node* vdata) { Visualizable::set_visualization_data(vdata); }
@@ -68,10 +68,11 @@ class RigidBody : public SingleBody
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     bool is_child_link(boost::shared_ptr<const RigidBody> query) const;
     bool is_descendant_link(boost::shared_ptr<const RigidBody> query) const;
-    Ravelin::SAcceld& accel() { return _xdd; }
-    const Ravelin::SAcceld& accel() const { return _xdd; } 
-    Ravelin::SVelocityd& velocity();
-    const Ravelin::SVelocityd& velocity() const { return _xd; }
+    const Ravelin::SVelocityd& get_velocity();
+    void set_velocity(const Ravelin::SVelocityd& xd);
+    void set_accel(const Ravelin::SAcceld& xdd);
+    const Ravelin::SAcceld& get_accel();
+    void set_velocity(const Ravelin::SAcceld& xdd);
     virtual Ravelin::VectorNd& get_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& gc);
     virtual Ravelin::VectorNd& get_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& gv);
     virtual Ravelin::VectorNd& get_generalized_acceleration(Ravelin::VectorNd& ga);
@@ -93,14 +94,16 @@ class RigidBody : public SingleBody
     void add_outer_joint(JointPtr j);
     void remove_inner_joint(JointPtr joint);
     void remove_outer_joint(JointPtr joint);
-    virtual double calc_kinetic_energy() const;
+    virtual double calc_kinetic_energy();
     virtual Ravelin::Vector3d calc_point_vel(const Ravelin::Point3d& p) const;
     bool is_base() const;
     bool is_ground() const;
     virtual boost::shared_ptr<const Ravelin::Pose3d> get_computation_frame() const;
     virtual void set_computation_frame_type(ReferenceFrameType rftype);
-    Ravelin::SForced calc_inertial_forces() const;
+    Ravelin::SForced calc_inertial_forces();
     virtual std::vector<Ravelin::SVelocityd>& calc_jacobian(boost::shared_ptr<const Ravelin::Pose3d> frame, DynamicBodyPtr body, std::vector<Ravelin::SVelocityd>& J);
+    const Ravelin::SForced& sum_forces();
+    void reset_accumulators();
 
     template <class OutputIterator>
     OutputIterator get_parent_links(OutputIterator begin) const;
@@ -121,16 +124,10 @@ class RigidBody : public SingleBody
     boost::shared_ptr<const Ravelin::Pose3d> get_pose() const { return _F; }
 
     /// Synonym for get_mass() (implements SingleBody::calc_mass())
-    double calc_mass() const { return _J.m; }
+    double calc_mass() const { return _Jm.m; }
 
     /// Gets the mass of this body
-    virtual double get_mass() const { return _J.m; }
-    
-    /// Resets the force and torque accumulators of this body
-    void reset_accumulators() { _force.set_zero(); }
-    
-    /// Gets the external force on this body 
-    const Ravelin::SForced& sum_forces() const { return _force; }
+    virtual double get_mass() const { return _Jm.m; }
     
     /// Gets whether this body is enabled
     bool is_enabled() const { return _enabled; }
@@ -184,6 +181,7 @@ class RigidBody : public SingleBody
     Ravelin::VectorNd& get_generalized_coordinates_single(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& gc);
     Ravelin::VectorNd& get_generalized_velocity_single(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& gv);
     Ravelin::VectorNd& get_generalized_acceleration_single(Ravelin::VectorNd& ga);
+    void invalidate_pose_vectors();
     void add_generalized_force_single(const Ravelin::VectorNd& gf);
     void apply_generalized_impulse_single(const Ravelin::VectorNd& gf);
     void set_generalized_coordinates_single(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gc);
@@ -197,26 +195,101 @@ class RigidBody : public SingleBody
     RigidBodyPtr get_parent_link(JointPtr j) const;
     RigidBodyPtr get_child_link(JointPtr j) const;
 
-    /// Spatial rigid body inertia matrix (given computation frame) 
-    Ravelin::SpatialRBInertiad _J;
+    /// Indicates whether link frame velocity is valid (up-to-date)
+    bool _xdi_valid;
 
-    /// Velocity (given computation frame)
-    Ravelin::SVelocityd _xd;
+    /// Indicates whether inner joint frame velocity is valid (up-to-date)
+    bool _xdj_valid;
+
+    /// Indicates whether inertial frame velocity is valid (up-to-date)
+    bool _xdm_valid;
+
+    /// Indicates whether link frame acceleration is valid (up-to-date)
+    bool _xddi_valid;
+
+    /// Indicates whether inner joint frame acceleration is valid (up-to-date)
+    bool _xddj_valid;
+
+    /// Indicates whether inertial frame acceleration is valid (up-to-date)
+    bool _xddm_valid;
+
+    /// Indicates whether link frame force is valid (up-to-date)
+    bool _forcei_valid;
+
+    /// Indicates whether inner joint frame force is valid (up-to-date)
+    bool _forcej_valid;
+
+    /// Indicates whether inertial frame force is valid (up-to-date)
+    bool _forcem_valid;
+
+    /// Indicates whether the global frame inertia matrix is valid
+    bool _J0_valid;
+
+    /// Indicates whether the link frame inertia matrix is valid
+    bool _Ji_valid;
+
+    /// Indicates whether the inner joint frame inertia matix is valid 
+    bool _Jj_valid;
+
+    /// Spatial rigid body inertia matrix (global frame) 
+    Ravelin::SpatialRBInertiad _J0;
+
+    /// Velocity (global frame)
+    Ravelin::SVelocityd _xd0;
+
+    /// Acceleration (global frame)
+    Ravelin::SAcceld _xdd0;
+
+    /// Cumulative force on the body (global frame)
+    Ravelin::SForced _force0;
+
+    /// Spatial rigid body inertia matrix (inertial frame) 
+    Ravelin::SpatialRBInertiad _Jm;
+
+    /// Velocity (inertial frame)
+    Ravelin::SVelocityd _xdm;
+
+    /// Acceleration (inertial frame)
+    Ravelin::SAcceld _xddm;
+
+    /// Cumulative force on the body (inertial frame)
+    Ravelin::SForced _forcem;
+
+    /// Spatial rigid body inertia matrix (link frame) 
+    Ravelin::SpatialRBInertiad _Ji;
+
+    /// Velocity (link frame)
+    Ravelin::SVelocityd _xdi;
+
+    /// Acceleration (link frame)
+    Ravelin::SAcceld _xddi;
+
+    /// Cumulative force on the body (link frame)
+    Ravelin::SForced _forcei;
+
+    /// Spatial rigid body inertia matrix (inner joint frame) 
+    Ravelin::SpatialRBInertiad _Jj;
+
+    /// Velocity (inner joint frame)
+    Ravelin::SVelocityd _xdj;
+
+    /// Acceleration (inner joint frame)
+    Ravelin::SAcceld _xddj;
+
+    /// Cumulative force on the body (inner joint frame)
+    Ravelin::SForced _forcej;
 
     /// reference pose for this body
     boost::shared_ptr<Ravelin::Pose3d> _F;
 
+    /// secondary pose for this body
+    boost::shared_ptr<Ravelin::Pose3d> _F2;
+
     /// inertial pose for this body
     boost::shared_ptr<Ravelin::Pose3d> _jF;
 
-    /// Cumulative force on the body
-    Ravelin::SForced _force;
-
     /// The link index (if a link in an articulated body)
     unsigned _link_idx;
-
-    /// Acceleration (given computation frame)
-    Ravelin::SAcceld _xdd;
 
     /// Flag for determining whether or not the body is physically enabled
     bool _enabled;
@@ -230,12 +303,10 @@ class RigidBody : public SingleBody
     /// Outer joints and associated data 
     std::set<JointPtr> _outer_joints; 
 
-    static Ravelin::VectorNd ode_p(const Ravelin::VectorNd& x, double t, void* data);
-    static Ravelin::VectorNd ode_v(const Ravelin::VectorNd& x, double t, void* data);
     Ravelin::LinAlgd _LA;
 }; // end class
 
-std::ostream& operator<<(std::ostream&, const RigidBody&);
+std::ostream& operator<<(std::ostream&, RigidBody&);
 
 // incline inline functions
 #include "RigidBody.inl"

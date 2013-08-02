@@ -443,12 +443,13 @@ void EventDrivenSimulator::integrate_si_Euler(double step_size)
     _bodies[i]->ode_both(x, current_time, step_size, &_bodies[i], dx);
 
     // update the velocity and position
-    dx.get_sub_vec(q.size(), dx.size(), qd);
+    dx.segment(q.size(), dx.size()) *= step_size;
+    qd += dx.segment(q.size(), dx.size());
     _bodies[i]->set_generalized_velocity(DynamicBody::eSpatial, qd);
     _bodies[i]->get_generalized_velocity(DynamicBody::eEuler, qd);
     qd *= step_size;
     q += qd; 
-    _bodies[i]->set_generalized_coordinates(DynamicBody::eEuler, qd);
+    _bodies[i]->set_generalized_coordinates(DynamicBody::eEuler, q);
 
     if (LOGGING(LOG_SIMULATOR))
     {
@@ -468,9 +469,6 @@ void EventDrivenSimulator::integrate_si_Euler(double step_size)
 /// Steps the simulator forward
 double EventDrivenSimulator::step(double step_size)
 {
-  static vector<shared_ptr<void> > x, xplus;
-  static vector<VectorNd> q0, q1, qd0, qd1, qstar;
-  
   const double INF = std::numeric_limits<double>::max();
 
   // clear timings
@@ -504,8 +502,7 @@ double EventDrivenSimulator::step(double step_size)
   // so we need to take precautions to save/restore them as necessary
   while (dt > (double) 0.0)
   {
-    // look for events at time 0; if such events occur, we'll do a
-    // semi-explicit step
+    // look for events
     double t = find_and_handle_si_events(dt);
     if (t > dt)
       break; // no event.. finish up
@@ -1106,7 +1103,12 @@ double EventDrivenSimulator::find_TOI(double dt)
 
       // set the coordinates
       for (unsigned i=0; i< _bodies.size(); i++)
+      {
+        _qf[i] = _qdf[i];
+        _qf[i] *= dt;
+        _qf[i] += _q0[i];
         _bodies[i]->set_generalized_coordinates(DynamicBody::eEuler, _qf[i]);
+      }
 
       // update current_time
       current_time += dt;
@@ -1120,8 +1122,8 @@ double EventDrivenSimulator::find_TOI(double dt)
     {
       _qf[i] = _qdf[i];
       _qf[i] *= h;
-      _q0[i] += _qf[i];
-      _bodies[i]->set_generalized_coordinates(DynamicBody::eEuler, _q0[i]);
+      _qf[i] += _q0[i];
+      _bodies[i]->set_generalized_coordinates(DynamicBody::eEuler, _qf[i]);
     }
     FILE_LOG(LOG_SIMULATOR) << "    current time is " << current_time << endl;
     FILE_LOG(LOG_SIMULATOR) << "    tmin (time to next event): " << tmin << endl;
@@ -1153,12 +1155,13 @@ double EventDrivenSimulator::find_TOI(double dt)
       // of _qdf) 
       for (unsigned i=0; i< _q0.size(); i++)
       {
-        _qdf[i] *= h;
-        _q0[i] += _qdf[i];
+        _qf[i] = _qdf[i];
+        _qf[i] *= h;
+        _q0[i] += _qf[i];
         _bodies[i]->set_generalized_coordinates(DynamicBody::eEuler, _q0[i]);
       }
 
-      // update current time?
+      // update current time
       current_time += h;
 
       return h;
@@ -1175,9 +1178,14 @@ double EventDrivenSimulator::find_TOI(double dt)
 
   // set the coordinates (velocities are already set)
   for (unsigned i=0; i< _bodies.size(); i++)
+  {
+    _qf[i] = _qdf[i];
+    _qf[i] *= dt;
+    _q0[i] += _qf[i];
     _bodies[i]->set_generalized_coordinates(DynamicBody::eEuler, _qf[i]);
+  }
 
-  // update current_time?
+  // update current_time
   current_time += dt;
 
   return INF;

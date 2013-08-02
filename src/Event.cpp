@@ -622,8 +622,8 @@ double Event::calc_event_vel() const
     assert(sba && sbb);
 
     // get the vels 
-    const SVelocityd& va = sba->velocity(); 
-    const SVelocityd& vb = sbb->velocity(); 
+    const SVelocityd& va = sba->get_velocity(); 
+    const SVelocityd& vb = sbb->get_velocity(); 
 
     // compute the vels at the contact point
     SVelocityd ta = Pose3d::transform(contact_point.pose, va); 
@@ -1546,8 +1546,8 @@ double Event::calc_event_tol() const
     assert(sba && sbb);
 
     // get the vels 
-    const SVelocityd& va = sba->velocity(); 
-    const SVelocityd& vb = sbb->velocity(); 
+    const SVelocityd& va = sba->get_velocity(); 
+    const SVelocityd& vb = sbb->get_velocity(); 
 
     // compute the velocities at the contact point
     SVelocityd ta = Pose3d::transform(contact_point.pose, va); 

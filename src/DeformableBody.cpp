@@ -439,7 +439,7 @@ void DeformableBody::rotate(const Quatd& q)
 
 
 /// Calculates the kinetic energy of the deformable body
-double DeformableBody::calc_kinetic_energy() const
+double DeformableBody::calc_kinetic_energy() 
 {
   double KE = (double) 0.0;
   for (unsigned i=0; i< _nodes.size(); i++)
