@@ -63,7 +63,7 @@ class ArticulatedBody : public DynamicBody
     unsigned num_constraint_eqns_explicit() const;
     virtual void rotate(const Ravelin::Quatd& q);
     virtual void translate(const Ravelin::Origin3d& o);
-    virtual double calc_kinetic_energy() const;
+    virtual double calc_kinetic_energy();
     virtual void update_visualization();
     RigidBodyPtr find_link(const std::string& id) const; 
     JointPtr find_joint(const std::string& id) const; 
@@ -166,7 +166,7 @@ class ArticulatedBody : public DynamicBody
     // temporary variables
     Ravelin::VectorNd _dq;
 
-    virtual double get_aspeed() const;
+    virtual double get_aspeed();
 /*    Ravelin::SForced transform_force(RigidBodyPtr link, const Ravelin::Vector3& x) const;
 */
     static void objective_grad(const Ravelin::VectorNd& x, void* data, Ravelin::VectorNd& g);

@@ -456,6 +456,9 @@ Matrix3d SphericalJoint::get_rotation() const
 /// Gets the (local) transform for this joint
 shared_ptr<const Pose3d> SphericalJoint::get_induced_pose()
 {
+  // invalidate pose quantities for the outer link
+  invalidate_pose_vectors();
+
   // note that translation is zero by default 
   _Fprime->q = get_rotation();
   return _Fprime;

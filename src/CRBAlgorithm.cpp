@@ -648,7 +648,8 @@ void CRBAlgorithm::calc_fwd_dyn_fixed_base(RCArticulatedBodyPtr body)
 
   // set spatial acceleration of the base
   this->_a0.set_zero(); 
-  links.front()->accel().set_zero();
+  SAcceld abase = links.front()->get_accel();
+  links.front()->set_accel(SAcceld::zero(links.front()->get_computation_frame()));
 }
 
 /// Executes the composite rigid-body method on an articulated body with a floating base
@@ -714,7 +715,7 @@ void CRBAlgorithm::calc_fwd_dyn_floating_base(RCArticulatedBodyPtr body)
   a0 = _augV.segment(BASE_START,_augV.size());
 
   // set the base acceleration
-  links.front()->accel() = a0;
+  links.front()->set_accel(a0);
 
   FILE_LOG(LOG_DYNAMICS) << "base spatial acceleration: " << a0 << std::endl;
   FILE_LOG(LOG_DYNAMICS) << "joint accelerations:";
@@ -803,7 +804,7 @@ void CRBAlgorithm::calc_generalized_forces(SForced& f0, VectorNd& C)
     JointPtr joint(link->get_inner_joint_implicit());
 
     // get the spatial link velocity
-    const SVelocityd& vx = link->velocity(); 
+    const SVelocityd& vx = link->get_velocity(); 
 
     // get spatial axes and derivative for this link's inner joint
     const std::vector<SAxisd>& s = joint->get_spatial_axes();
@@ -817,7 +818,7 @@ void CRBAlgorithm::calc_generalized_forces(SForced& f0, VectorNd& C)
     // add this link's contribution
     Pose3d::transform(_a[i].pose, s, _sprime);
     SVelocityd sqd = mult(s, qd);
-    _a[i] = link->velocity().cross(sqd);
+    _a[i] = link->get_velocity().cross(sqd);
     if (!sdot.empty())
       _a[i] += SAcceld(mult(Pose3d::transform(_a[i].pose, sdot, _sprime), qd)); 
 
@@ -826,7 +827,7 @@ void CRBAlgorithm::calc_generalized_forces(SForced& f0, VectorNd& C)
 
     FILE_LOG(LOG_DYNAMICS) << " computing link velocity / acceleration; processing link " << link->id << std::endl;
     FILE_LOG(LOG_DYNAMICS) << "  spatial joint velocity: " << (mult(s,qd)) << std::endl;
-    FILE_LOG(LOG_DYNAMICS) << "  link velocity: " << link->velocity() << std::endl;
+    FILE_LOG(LOG_DYNAMICS) << "  link velocity: " << link->get_velocity() << std::endl;
     FILE_LOG(LOG_DYNAMICS) << "  link accel: " << _a[i] << std::endl;
   }
   
@@ -869,7 +870,7 @@ void CRBAlgorithm::calc_generalized_forces(SForced& f0, VectorNd& C)
     FILE_LOG(LOG_DYNAMICS) << "  I * a = " << (link->get_inertia() * _a[i]) << std::endl;
 
     // add I*a to the link force and fictitious forces
-    const SVelocityd& vx = link->velocity(); 
+    const SVelocityd& vx = link->get_velocity(); 
     _w[i] += link->get_inertia() * _a[i];
     _w[i] += vx.cross(link->get_inertia() * vx);
 
@@ -951,7 +952,7 @@ void CRBAlgorithm::update_link_accelerations(RCArticulatedBodyPtr body)
   
   // get the spatial acceleration of the base link (should have already been
   // computed)
-  base->accel() = this->_a0;
+  base->set_accel(this->_a0);
 
   FILE_LOG(LOG_DYNAMICS) << "CRBAlgorithm::update_link_accelerations() entered" << std::endl;
   
@@ -983,9 +984,8 @@ void CRBAlgorithm::update_link_accelerations(RCArticulatedBodyPtr body)
     unsigned h = parent->get_index();
  
     // set link acceleration
-    SAcceld& ah = parent->accel();
-    SAcceld& ai = link->accel();
-    ai = Pose3d::transform(ai.pose, ah);
+    const SAcceld& ah = parent->get_accel();
+    SAcceld ai = Pose3d::transform(link->get_accel().pose, ah);
 
     // get the link spatial axis
     const std::vector<SAxisd>& s = joint->get_spatial_axes(); 
@@ -993,12 +993,13 @@ void CRBAlgorithm::update_link_accelerations(RCArticulatedBodyPtr body)
     // determine the link accel
     Pose3d::transform(ai.pose, s, _sprime);
     SVelocityd sqd = mult(_sprime, joint->qd);
-    ai += SAcceld(link->velocity().cross(sqd));
+    ai += SAcceld(link->get_velocity().cross(sqd));
     ai += SAcceld(mult(_sprime, joint->qdd)); 
+    link->set_accel(ai);
 
     FILE_LOG(LOG_DYNAMICS) << "    -- updating link " << link->id << std::endl;
     FILE_LOG(LOG_DYNAMICS) << "      -- parent acceleration: " << ah << std::endl;
-    FILE_LOG(LOG_DYNAMICS) << "      -- velocity: " << link->velocity() << std::endl;
+    FILE_LOG(LOG_DYNAMICS) << "      -- velocity: " << link->get_velocity() << std::endl;
     FILE_LOG(LOG_DYNAMICS) << "      -- qd: " << joint->qd << std::endl;
     FILE_LOG(LOG_DYNAMICS) << "      -- qdd: " << joint->qdd << std::endl;
     FILE_LOG(LOG_DYNAMICS) << "      -- acceleration: " << ai << std::endl;
@@ -1140,8 +1141,9 @@ void CRBAlgorithm::apply_impulse(const SMomentumd& w, RigidBodyPtr link)
     SVelocityd dv0(dv0_angular, dv0_linear, w0.pose);
 
     // update the base velocity
-    SVelocityd& basev = base->velocity();
+    SVelocityd basev = base->get_velocity();
     basev += Pose3d::transform(basev.pose, dv0);
+    base->set_velocity(basev);
 
     FILE_LOG(LOG_DYNAMICS) << "  change in base velocity: " << dv0 << std::endl;
     FILE_LOG(LOG_DYNAMICS) << "  new base velocity: " << basev << std::endl;

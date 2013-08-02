@@ -101,7 +101,7 @@ map<JointPtr, VectorNd> RNEAlgorithm::calc_inv_dyn_fixed_base(RCArticulatedBodyP
     JointPtr joint(link->get_inner_joint_implicit());
 
     // get the spatial link velocity
-    const SVelocityd& v = link->velocity(); 
+    const SVelocityd& v = link->get_velocity(); 
 
     // get the current joint velocity
     const VectorNd& qd = joint->qd;
@@ -177,7 +177,7 @@ map<JointPtr, VectorNd> RNEAlgorithm::calc_inv_dyn_fixed_base(RCArticulatedBodyP
     FILE_LOG(LOG_DYNAMICS) << "  I * a = " << (link->get_inertia() * a[i]) << endl;
 
     // get the spatial velocity for this link
-    const SVelocityd& v = link->velocity();
+    const SVelocityd& v = link->get_velocity();
 
     // add I*a to the link force
     f[i] += link->get_inertia() * a[i];
@@ -420,7 +420,7 @@ map<JointPtr, VectorNd> RNEAlgorithm::calc_inv_dyn_floating_base(RCArticulatedBo
   RigidBodyPtr base = links.front();
   
   // set velocity for the base
-  v.front() = base->velocity();
+  v.front() = base->get_velocity();
 
   // add all child links of the base to the processing queue
   list<RigidBodyPtr> child_links;
@@ -491,7 +491,7 @@ map<JointPtr, VectorNd> RNEAlgorithm::calc_inv_dyn_floating_base(RCArticulatedBo
   {
     I[i].set_zero();
     Z[i].set_zero();
-    I[i].pose = Z[i].pose = links[i]->velocity().pose;;
+    I[i].pose = Z[i].pose = links[i]->get_computation_frame();
   }
 
   // set all spatial isolated inertias and Z.A. forces

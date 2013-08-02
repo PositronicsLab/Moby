@@ -39,7 +39,7 @@ void DampingForce::add_damping(RigidBodyPtr rb, double ld, double ad, double lds
   wi.pose = rb->get_pose();
 
   // get the velocity in the body frame
-  SVelocityd& v = rb->velocity();
+  const SVelocityd& v = rb->get_velocity();
   SVelocityd vi = Pose3d::transform(rb->get_pose(), v);
 
   // make the force dampening

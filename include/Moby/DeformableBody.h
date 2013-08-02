@@ -41,7 +41,7 @@ class DeformableBody : public SingleBody
     virtual void reset_accumulators();
     virtual void rotate(const Ravelin::Quatd& q);
     virtual void translate(const Ravelin::Origin3d& o);
-    virtual double calc_kinetic_energy() const;
+    virtual double calc_kinetic_energy();
     virtual unsigned num_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype) const;
     virtual void add_generalized_force(const Ravelin::VectorNd& gf);
     virtual void apply_generalized_impulse(const Ravelin::VectorNd& gj);
@@ -70,7 +70,7 @@ class DeformableBody : public SingleBody
     virtual boost::shared_ptr<const Ravelin::Pose3d> get_pose() const { return _F; }
 
     /// Gets the linear velocity of the center-of-mass of the body
-    virtual const Ravelin::SVelocityd& velocity() const { return _xd; }
+    virtual const Ravelin::SVelocityd& get_velocity() { return _xd; }
 
     /// Deformable bodies are always enabled
     virtual bool is_enabled() const { return true; } 

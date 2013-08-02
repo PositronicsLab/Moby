@@ -474,13 +474,13 @@ void FSABAlgorithm::apply_generalized_impulse(const VectorNd& gj)
 
     FILE_LOG(LOG_DYNAMICS) << "base is floating..." << endl;
     FILE_LOG(LOG_DYNAMICS) << "  base transform: " << endl << base->get_pose();
-    FILE_LOG(LOG_DYNAMICS) << "  current base velocity: " << base->velocity() << endl;
+    FILE_LOG(LOG_DYNAMICS) << "  current base velocity: " << base->get_velocity() << endl;
 
     // set the base linear and angular velocities
-    base->velocity() = _v.front();
+    base->set_velocity(_v.front());
 
     FILE_LOG(LOG_DYNAMICS) << "  impulse on the base: " << _Y.front() << endl;
-    FILE_LOG(LOG_DYNAMICS) << "  new base velocity: " << base->velocity() << endl;
+    FILE_LOG(LOG_DYNAMICS) << "  new base velocity: " << base->get_velocity() << endl;
   }
   else 
     _dv.front().set_zero();
@@ -529,7 +529,7 @@ void FSABAlgorithm::apply_generalized_impulse(const VectorNd& gj)
 
     // update the link velocity
     _v[i] += _dv[i];
-    link->velocity() = _v[i];
+    link->set_velocity(_v[i]);
  
     FILE_LOG(LOG_DYNAMICS) << "    -- cumulative transformed impulse on this link: " << _Y[i] << endl;
     FILE_LOG(LOG_DYNAMICS) << "    -- delta qd: " << _qd_delta << "  qd: " << joint->qd << endl;
@@ -573,10 +573,10 @@ void FSABAlgorithm::calc_spatial_coriolis_vectors(RCArticulatedBodyPtr body)
 
     // compute the coriolis vector
     SVelocityd sqd = mult(sprime, joint->qd);
-    _c[idx] = link->velocity().cross(sqd);
+    _c[idx] = link->get_velocity().cross(sqd);
 
     FILE_LOG(LOG_DYNAMICS) << "processing link: " << link->id << endl;
-    FILE_LOG(LOG_DYNAMICS) << "v: " << link->velocity() << endl;
+    FILE_LOG(LOG_DYNAMICS) << "v: " << link->get_velocity() << endl;
     FILE_LOG(LOG_DYNAMICS) << "s * qdot: " << mult(sprime, joint->qd) << endl;
     FILE_LOG(LOG_DYNAMICS) << "c: " << _c[idx] << endl;
   }
@@ -614,7 +614,7 @@ void FSABAlgorithm::calc_spatial_zero_accelerations(RCArticulatedBodyPtr body)
     const unsigned i = link->get_index();
 
     // get the spatial link velocity
-    const SVelocityd& v = link->velocity();
+    const SVelocityd& v = link->get_velocity();
 
     // set 6-dimensional spatial isolated zero-acceleration vector of link  
     _Z[i] = v.cross(link->get_inertia() * v) - link->sum_forces();
@@ -863,7 +863,7 @@ void FSABAlgorithm::calc_spatial_accelerations(RCArticulatedBodyPtr body)
   else
   {
     _a.front() = _I.front().inverse_mult(-_Z.front());
-    base->accel() = _a.front();
+    base->set_accel(_a.front());
   }
   
   // *****************************************************************
@@ -915,7 +915,7 @@ void FSABAlgorithm::calc_spatial_accelerations(RCArticulatedBodyPtr body)
     
     // compute link i spatial acceleration
     _a[i] = ah + c + SAcceld(mult(sdotprime, joint->qd) + mult(sprime, joint->qdd));
-    link->accel() = _a[i];
+    link->set_accel(_a[i]);
 
     FILE_LOG(LOG_DYNAMICS) << endl << endl << "  *** Forward recursion processing link " << link->id << endl;  
     FILE_LOG(LOG_DYNAMICS) << "    a[h]: " << ah << endl;
@@ -1021,7 +1021,7 @@ void FSABAlgorithm::calc_impulse_dyn(RCArticulatedBodyPtr body)
 
   // initialize base velocities to zero, if not a floating base
   if (!body->is_floating_base())
-    base->velocity().set_zero();
+    base->set_velocity(SVelocityd::zero(base->get_computation_frame()));
   
   // compute everything else we need
   calc_spatial_inertias(body);
@@ -1144,13 +1144,13 @@ void FSABAlgorithm::apply_impulse(const SMomentumd& w, RigidBodyPtr link)
 
     FILE_LOG(LOG_DYNAMICS) << "base is floating..." << endl;
     FILE_LOG(LOG_DYNAMICS) << "  base transform: " << endl << base->get_pose();
-    FILE_LOG(LOG_DYNAMICS) << "  current base velocity: " << base->velocity() << endl;
+    FILE_LOG(LOG_DYNAMICS) << "  current base velocity: " << base->get_velocity() << endl;
 
     // set the base linear and angular velocities
-    base->velocity() = _v.front();
+    base->set_velocity(_v.front());
 
     FILE_LOG(LOG_DYNAMICS) << "  impulse on the base: " << _Y.front() << endl;
-    FILE_LOG(LOG_DYNAMICS) << "  new base velocity: " << base->velocity() << endl;
+    FILE_LOG(LOG_DYNAMICS) << "  new base velocity: " << base->get_velocity() << endl;
   }
   else 
     _dv.front().set_zero();
@@ -1196,7 +1196,7 @@ void FSABAlgorithm::apply_impulse(const SMomentumd& w, RigidBodyPtr link)
 
     // update the link velocity
     _v[i] += _dv[i];
-    link->velocity() = _v[i];
+    link->set_velocity(_v[i]);
  
     FILE_LOG(LOG_DYNAMICS) << "    -- cumulative transformed impulse on this link: " << _Y[i] << endl;
     FILE_LOG(LOG_DYNAMICS) << "    -- delta qd: " << _qd_delta << "  qd: " << joint->qd << endl;

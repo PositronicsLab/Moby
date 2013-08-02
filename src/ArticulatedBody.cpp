@@ -101,7 +101,7 @@ vector<SVelocityd>& ArticulatedBody::calc_jacobian(boost::shared_ptr<const Pose3
 }
 
 /// Gets the maximum angular speed of the links of this articulated body
-double ArticulatedBody::get_aspeed() const
+double ArticulatedBody::get_aspeed()
 {
   double max_aspeed = (double) 0.0;
   for (unsigned i=0; i< _links.size(); i++)
@@ -1263,7 +1263,7 @@ void ArticulatedBody::rotate(const Quatd& q)
 }
 
 /// Calculates the combined kinetic energy of all links in this body
-double ArticulatedBody::calc_kinetic_energy() const
+double ArticulatedBody::calc_kinetic_energy() 
 {
   double KE = 0;
   BOOST_FOREACH(RigidBodyPtr rb, _links)

@@ -139,6 +139,9 @@ void RevoluteJoint::determine_q(VectorNd& q)
 /// Gets the pose for this joint
 shared_ptr<const Pose3d> RevoluteJoint::get_induced_pose()
 {
+  // invalidate pose quantities for the outer link
+  invalidate_pose_vectors();
+
   // note that translation is set to zero in the constructors
   _Fprime->q = AAngled(_u, this->q[DOF_1]+this->_q_tare[DOF_1]);
 

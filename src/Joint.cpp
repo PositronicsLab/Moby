@@ -112,8 +112,8 @@ void Joint::determine_q_dot()
   // get the velocities in computation frames
   RigidBodyPtr inboard = get_inboard_link();
   RigidBodyPtr outboard = get_outboard_link();
-  SVelocityd vi = inboard->velocity();
-  SVelocityd vo = outboard->velocity();
+  const SVelocityd& vi = inboard->get_velocity();
+  const SVelocityd& vo = outboard->get_velocity();
 
   // get velocities in s's frame
   shared_ptr<const Pose3d> spose = get_pose();
@@ -121,7 +121,7 @@ void Joint::determine_q_dot()
   SVelocityd svo = Pose3d::transform(spose, vo);
 
   // compute the change in velocity
-  m.mult(vo - vi, this->qd);
+  m.mult(svo - svi, this->qd);
 }
 
 /// Evaluates the time derivative of the constraint
@@ -134,12 +134,12 @@ void Joint::evaluate_constraints_dot(double C[6])
   RigidBodyPtr out = get_outboard_link();
 
   // get the linear angular velocities
-  const SVelocityd& inv = in->velocity();
-  const SVelocityd& outv = out->velocity();
-  const Vector3d& lvi = inv.get_linear();
-  const Vector3d& lvo = outv.get_linear();
-  const Vector3d& avi = inv.get_angular();
-  const Vector3d& avo = outv.get_angular();
+  const SVelocityd& inv = in->get_velocity();
+  const SVelocityd& outv = out->get_velocity();
+  Vector3d lvi = inv.get_linear();
+  Vector3d lvo = outv.get_linear();
+  Vector3d avi = inv.get_angular();
+  Vector3d avo = outv.get_angular();
 
   // compute
   const unsigned NEQ = num_constraint_eqns();
@@ -242,6 +242,12 @@ void Joint::set_outboard_link(RigidBodyPtr outboard)
   _Fb->rpose = outboardF;
   outboardF->rpose = _Fprime;
 
+  // setup the frame
+  outboard->_xdj.pose = get_pose();
+  outboard->_xddj.pose = get_pose();
+  outboard->_Jj.pose = get_pose();
+  outboard->_forcej.pose = get_pose();
+
   //update spatial axes if both links are set
   if (!_outboard_link.expired() && !_inboard_link.expired())
     update_spatial_axes();
@@ -328,6 +334,9 @@ void Joint::set_location(const Point3d& point)
   // set _F's and Fb's origins
   _F->x = Origin3d(pi);
   _Fb->x = Origin3d(po);
+
+  // invalidate all outboard pose vectors
+  outboard->invalidate_pose_vectors();
 }
 
 /// Gets the location of this joint

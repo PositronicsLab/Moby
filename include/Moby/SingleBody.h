@@ -37,7 +37,7 @@ class SingleBody : public DynamicBody
     virtual boost::shared_ptr<const Ravelin::Pose3d> get_pose() const = 0;
 
     /// Gets the velocity of the body
-    virtual const Ravelin::SVelocityd& velocity() const = 0;
+    virtual const Ravelin::SVelocityd& get_velocity() = 0;
 
     /// Applies an impulse at a point on the body
     virtual void apply_impulse(const Ravelin::SMomentumd& w) = 0;
@@ -58,9 +58,9 @@ class SingleBody : public DynamicBody
     double calc_point_vel(const Ravelin::Point3d& point, const Ravelin::Vector3d& dir);
 
     /// Gets the maximum angular speed of this body (useful for collision detection)
-    virtual double get_aspeed() const 
+    virtual double get_aspeed() 
     { 
-      const Ravelin::SVelocityd& v = velocity();
+      const Ravelin::SVelocityd& v = get_velocity();
       boost::shared_ptr<const Ravelin::Pose3d> F = get_pose();
       Ravelin::SVelocityd vi = Ravelin::Pose3d::transform(F, v);
       return vi.get_angular().norm(); 

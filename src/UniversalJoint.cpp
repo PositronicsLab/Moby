@@ -284,6 +284,9 @@ Matrix3d UniversalJoint::get_rotation() const
 /// Gets the transform induced by this joint
 shared_ptr<const Pose3d> UniversalJoint::get_induced_pose()
 {
+  // invalidate pose quantities for the outer link
+  invalidate_pose_vectors();
+
   // get the rotation
   _Fprime->q = get_rotation();
   return _Fprime;

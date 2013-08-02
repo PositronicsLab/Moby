@@ -57,7 +57,7 @@ class DynamicBody : public Visualizable
     virtual void translate(const Ravelin::Origin3d& o) = 0;
 
     /// Calculates the kinetic energy of the body
-    virtual double calc_kinetic_energy() const = 0;
+    virtual double calc_kinetic_energy() = 0;
 
     /// Gets the number of generalized coordinates
     virtual unsigned num_generalized_coordinates(GeneralizedCoordinateType gctype) const = 0;
@@ -155,7 +155,7 @@ class DynamicBody : public Visualizable
     std::list<RecurrentForcePtr>& get_recurrent_forces() { return _rfs; }
 
     /// Gets the angular speed of this body (or maximum angular speed of the links, if this body is articulated)
-    virtual double get_aspeed() const = 0; 
+    virtual double get_aspeed() = 0; 
 
   protected:
 

@@ -526,22 +526,22 @@ void RCArticulatedBody::update_link_velocities()
     unsigned h = inboard->get_index();
 
     // set this link's velocity to the parent's link velocity
-    outboard->velocity() = Pose3d::transform(opose, inboard->velocity());
+    outboard->set_velocity(Pose3d::transform(opose, inboard->get_velocity()));
 
     // get the (transformed) link spatial axis
     const vector<SAxisd>& s = joint->get_spatial_axes(); 
     Pose3d::transform(opose, s, sprime); 
 
     // determine the link velocity due to the parent velocity + joint velocity
-    outboard->velocity() += mult(sprime, joint->qd);
+    outboard->set_velocity(outboard->get_velocity() + mult(sprime, joint->qd));
 
     // indicate that the link has been processed 
     _processed[i] = true;
 
     FILE_LOG(LOG_DYNAMICS) << "    -- updating link " << outboard->id << std::endl;
-    FILE_LOG(LOG_DYNAMICS) << "      -- parent velocity: " << inboard->velocity() << std::endl;
+    FILE_LOG(LOG_DYNAMICS) << "      -- parent velocity: " << inboard->get_velocity() << std::endl;
     FILE_LOG(LOG_DYNAMICS) << "      -- qd: " << joint->qd << std::endl;
-    FILE_LOG(LOG_DYNAMICS) << "      -- link velocity : " << outboard->velocity()  << std::endl;
+    FILE_LOG(LOG_DYNAMICS) << "      -- link velocity : " << outboard->get_velocity()  << std::endl;
   }
 
   FILE_LOG(LOG_DYNAMICS) << "RCArticulatedBody::update_link_velocities() exited" << std::endl;
@@ -1871,9 +1871,10 @@ void RCArticulatedBody::set_generalized_acceleration(const VectorNd& a)
   {
     a.get_sub_vec(num_joint_dof_implicit(), a.size(), base_a);
     RigidBodyPtr base = _links.front();
-    SAcceld& xdd = base->accel();
+    SAcceld xdd;
     xdd.set_linear(Vector3d(base_a[0], base_a[1], base_a[2]));
     xdd.set_angular(Vector3d(base_a[3], base_a[4], base_a[5]));
+    base->set_accel(xdd);
   }
 
   // set joint accelerations

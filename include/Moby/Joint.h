@@ -251,6 +251,7 @@ class Joint : public Visualizable
 
   protected:
     void calc_s_bar_from_s();
+    void invalidate_pose_vectors() { get_outboard_link()->invalidate_pose_vectors(); }
 
     /// The frame induced by the joint 
     boost::shared_ptr<Ravelin::Pose3d> _Fprime;
