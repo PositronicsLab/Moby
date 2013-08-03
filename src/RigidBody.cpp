@@ -248,20 +248,6 @@ void RigidBody::calc_fwd_dyn(double dt)
     const SForced& f = sum_forces(); 
     SAcceld xdd = J.inverse_mult(f - calc_inertial_forces());
 
-// print everything out using F2
-MatrixNd M;
-_F2->set_identity();
-_F2->rpose = _F;
-_F2->update_relative_pose(GLOBAL);
-_F2->q.set_identity();
-std::cout << "J (F2 frame): " << Pose3d::transform(_F2, J).to_matrix(M) << std::endl;
-std::cout << "f (F2 frame): " << Pose3d::transform(_F2, f) << std::endl;
-std::cout << "inertial forces (F2 frame): " << Pose3d::transform(_F2, calc_inertial_forces()) << std::endl;
-std::cout << "acceleration (F2 frame): " << Pose3d::transform(_F2, xdd) << std::endl;
-SAcceld xddx1 = Pose3d::transform(GLOBAL, xdd);
-SAcceld xddx2 = Pose3d::transform(_F2, xddx1);
-std::cout << "acceleration (F2 frame): " << xddx2 << std::endl;
-
     // set the acceleration
     switch (_rftype)
     {
