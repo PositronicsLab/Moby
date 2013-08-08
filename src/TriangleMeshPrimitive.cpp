@@ -211,17 +211,17 @@ void TriangleMeshPrimitive::load_from_xml(shared_ptr<const XMLTree> node, map<st
   assert(strcasecmp(node->name.c_str(), "TriangleMesh") == 0);
 
   // determine whether to convexify for inertial calculation
-  const XMLAttrib* cvx_mesh_attr = node->get_attrib("convexify-inertia");
+  XMLAttrib* cvx_mesh_attr = node->get_attrib("convexify-inertia");
   if (cvx_mesh_attr)
     _convexify_inertia = cvx_mesh_attr->get_bool_value();
 
   // read in the edge sample length
-  const XMLAttrib* esl_attr = node->get_attrib("edge-sample-length");
+  XMLAttrib* esl_attr = node->get_attrib("edge-sample-length");
   if (esl_attr)
     set_edge_sample_length(esl_attr->get_real_value());
 
   // make sure that this Triangle array has a filename specified
-  const XMLAttrib* fname_attr = node->get_attrib("filename");
+  XMLAttrib* fname_attr = node->get_attrib("filename");
   if (!fname_attr)
   {
     cerr << "TriangleMeshPrimitive::load_from_xml() - trying to load a ";
@@ -250,7 +250,7 @@ void TriangleMeshPrimitive::load_from_xml(shared_ptr<const XMLTree> node, map<st
   }
   
   // see whether to center the mesh
-  const XMLAttrib* center_attr = node->get_attrib("center");
+  XMLAttrib* center_attr = node->get_attrib("center");
   if (center_attr && center_attr->get_bool_value())
     this->center();
 

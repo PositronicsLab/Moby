@@ -1606,7 +1606,7 @@ void MeshDCD::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, Bas
   CollisionDetection::load_from_xml(node, id_map);
 
   // get the nu tolerance, if specified
-  const XMLAttrib* nu_attr = node->get_attrib("eps-tolerance");
+  XMLAttrib* nu_attr = node->get_attrib("eps-tolerance");
   if (nu_attr)
     this->eps_tolerance = nu_attr->get_real_value();
 }

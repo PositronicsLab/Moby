@@ -96,7 +96,7 @@ void DynamicBody::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::st
     for (list<shared_ptr<const XMLTree> >::const_iterator i = child_nodes.begin(); i != child_nodes.end(); i++)
     {
       // verify that the dynamic-body-id attribute exists
-      const XMLAttrib* id_attr = (*i)->get_attrib("recurrent-force-id");
+      XMLAttrib* id_attr = (*i)->get_attrib("recurrent-force-id");
 
       // make sure that the ID exists
       if (!id_attr)

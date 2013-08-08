@@ -50,9 +50,6 @@ class FSABAlgorithm
     /// The body that this algorithm operates on
     boost::weak_ptr<RCArticulatedBody> _body;
 
-    /// The spatial velocities
-    std::vector<Ravelin::SVelocityd> _v;
-
     /// The spatial accelerations
     std::vector<Ravelin::SAcceld> _a;
 

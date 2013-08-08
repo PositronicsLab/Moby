@@ -647,12 +647,16 @@ void GeneralizedCCD::load_from_xml(shared_ptr<const XMLTree> node, map<std::stri
   CollisionDetection::load_from_xml(node, id_map);
 
   // get the maximum number of OBB expansions
-  const XMLAttrib* _max_dexp_attr = node->get_attrib("max-dexp");
+  XMLAttrib
+
+* _max_dexp_attr = node->get_attrib("max-dexp");
   if (_max_dexp_attr)
     this->_max_dexp = _max_dexp_attr->get_unsigned_value();
 
   // get the eps tolerance, if specified
-  const XMLAttrib* eps_attr = node->get_attrib("eps-tolerance");
+  XMLAttrib
+
+* eps_attr = node->get_attrib("eps-tolerance");
   if (eps_attr)
     this->eps_tolerance = eps_attr->get_real_value();
 }

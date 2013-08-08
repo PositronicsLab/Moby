@@ -36,8 +36,8 @@ void CRBAlgorithm::setup_parent_array()
   RCArticulatedBodyPtr body(_body);
   const unsigned N = body->num_generalized_coordinates(DynamicBody::eSpatial);
 
-  // get implicit joints
-  const vector<JointPtr>& ijoints = body->get_implicit_joints();
+  // get explicit joints
+  const vector<JointPtr>& ijoints = body->get_explicit_joints();
 
   // determine parent array (lambda)
   _lambda.resize(N);
@@ -46,7 +46,7 @@ void CRBAlgorithm::setup_parent_array()
   for (unsigned i=0; i< N; i++)
     _lambda[i] = std::numeric_limits<unsigned>::max();
   
-  // loop over all implicit joints
+  // loop over all explicit joints
   for (unsigned i=0; i< ijoints.size(); i++)
   {
     // get the index of this joint
@@ -54,7 +54,7 @@ void CRBAlgorithm::setup_parent_array()
 
     // get the parent joint and its index
     RigidBodyPtr inboard = ijoints[i]->get_inboard_link();
-    JointPtr parent = inboard->get_inner_joint_implicit();
+    JointPtr parent = inboard->get_inner_joint_explicit();
     if (!parent)
       continue;
     unsigned pidx = parent->get_coord_index();
@@ -134,8 +134,8 @@ void CRBAlgorithm::calc_generalized_inertia(RCArticulatedBodyPtr body)
   // get the set of links
   const vector<RigidBodyPtr>& links = body->get_links();
 
-  // get implicit joints
-  const vector<JointPtr>& ijoints = body->get_implicit_joints();
+  // get explicit joints
+  const vector<JointPtr>& ijoints = body->get_explicit_joints();
 
   // compute the joint space inertia
   calc_joint_space_inertia(body, _H, _Ic);
@@ -144,7 +144,7 @@ void CRBAlgorithm::calc_generalized_inertia(RCArticulatedBodyPtr body)
   const unsigned N_BASE_DOF = (body->is_floating_base()) ? 6 : 0;
 
   // resize M
-  M.resize(N_BASE_DOF + body->num_joint_dof_implicit(), N_BASE_DOF + body->num_joint_dof_implicit());
+  M.resize(N_BASE_DOF + body->num_joint_dof_explicit(), N_BASE_DOF + body->num_joint_dof_explicit());
 
   // set appropriate part of H
   M.set_sub_mat(0, 0, _H);
@@ -158,7 +158,7 @@ void CRBAlgorithm::calc_generalized_inertia(RCArticulatedBodyPtr body)
   // ************************************************************************
 
   // setup the indices for the base
-  const unsigned BASE_START = body->num_joint_dof_implicit();
+  const unsigned BASE_START = body->num_joint_dof_explicit();
 
   // get components of M
   SharedMatrixNd Ic0 = M.block(BASE_START, M.rows(), BASE_START, M.columns());
@@ -215,7 +215,7 @@ void CRBAlgorithm::calc_joint_space_inertia(RCArticulatedBodyPtr body, MatrixNd&
 
   // get the sets of links and joints
   const vector<RigidBodyPtr>& links = body->get_links();
-  const vector<JointPtr>& ijoints = body->get_implicit_joints();
+  const vector<JointPtr>& ijoints = body->get_explicit_joints();
   const vector<JointPtr>& joints = body->get_joints();
 
   // set the composite inertias to the isolated inertias initially 
@@ -248,8 +248,8 @@ void CRBAlgorithm::calc_joint_space_inertia(RCArticulatedBodyPtr body, MatrixNd&
     RigidBodyPtr link = link_queue.front();
     link_queue.pop();
 
-    // get the implicit inner joint for this link
-    JointPtr joint(link->get_inner_joint_implicit());
+    // get the explicit inner joint for this link
+    JointPtr joint(link->get_inner_joint_explicit());
     unsigned jidx = joint->get_index();
     assert(joint);
 
@@ -265,8 +265,8 @@ void CRBAlgorithm::calc_joint_space_inertia(RCArticulatedBodyPtr body, MatrixNd&
       if (child->get_index() < link->get_index())
         continue;
 
-      // get the inner implicit joint
-      JointPtr child_joint = child->get_inner_joint_implicit();
+      // get the inner explicit joint
+      JointPtr child_joint = child->get_inner_joint_explicit();
       unsigned jiidx = child_joint->get_index();
 
       // setup the supports
@@ -295,7 +295,7 @@ void CRBAlgorithm::calc_joint_space_inertia(RCArticulatedBodyPtr body, MatrixNd&
   }
 
   // resize H 
-  H.set_zero(body->num_joint_dof_implicit(), body->num_joint_dof_implicit());
+  H.set_zero(body->num_joint_dof_explicit(), body->num_joint_dof_explicit());
 
   // ************************************************************************
   // compute spatial composite inertias 
@@ -342,8 +342,9 @@ void CRBAlgorithm::calc_joint_space_inertia(RCArticulatedBodyPtr body, MatrixNd&
       // add this inertia to its parent
       Ic[h] += Pose3d::transform(Ic[h].pose, Ic[i]); 
 
-      FILE_LOG(LOG_DYNAMICS) << "  composite inertia for (child) link " << link->id << ": " << std::endl << Ic[i];
-      FILE_LOG(LOG_DYNAMICS) << "  composite inertia for (parent) link " << parent->id << ": " << std::endl << Ic[h];
+MatrixNd X;
+      FILE_LOG(LOG_DYNAMICS) << "  composite inertia for (child) link " << link->id << ": " << std::endl << Ic[i].to_matrix(X);
+      FILE_LOG(LOG_DYNAMICS) << "  composite inertia for (parent) link " << parent->id << ": " << std::endl << Ic[h].to_matrix(X);
     }
 
     // indicate that the link has been processed
@@ -361,7 +362,11 @@ void CRBAlgorithm::calc_joint_space_inertia(RCArticulatedBodyPtr body, MatrixNd&
     RigidBodyPtr outboard = ijoints[i]->get_outboard_link(); 
     unsigned oidx = outboard->get_index();
     const std::vector<SAxisd>& s = ijoints[i]->get_spatial_axes();
-    transform_and_mult(outboard, Ic[oidx], s, _momenta[oidx]);
+Transform3d Tx = Pose3d::calc_relative_pose(s[0].pose, Ic[oidx].pose);
+    Pose3d::transform(Ic[oidx].pose, s, _sprime);
+    mult(Ic[oidx], _sprime, _momenta[oidx]);
+    FILE_LOG(LOG_DYNAMICS) << "s: " << _sprime[0] << std::endl;
+    FILE_LOG(LOG_DYNAMICS) << "Is[" << i << "]: " << _momenta[oidx][0] << std::endl;
   } 
 
   // setup H
@@ -428,7 +433,7 @@ void CRBAlgorithm::calc_generalized_inertia(MatrixNd& M)
   // get the set of links
   ReferenceFrameType rftype = body->get_computation_frame_type();
   const vector<RigidBodyPtr>& links = body->get_links();
-  const vector<JointPtr>& ijoints = body->get_implicit_joints();
+  const vector<JointPtr>& ijoints = body->get_explicit_joints();
 
   // get the joint space inertia and composite inertias
   calc_joint_space_inertia(body, _H, _Ic);
@@ -438,7 +443,7 @@ void CRBAlgorithm::calc_generalized_inertia(MatrixNd& M)
   const unsigned SPATIAL_DIM = 6;
 
   // resize M and set H
-  M.resize(N_BASE_DOF + body->num_joint_dof_implicit(), N_BASE_DOF + body->num_joint_dof_implicit());
+  M.resize(N_BASE_DOF + body->num_joint_dof_explicit(), N_BASE_DOF + body->num_joint_dof_explicit());
   M.set_sub_mat(0, 0, _H);
 
   // look for simplest case
@@ -452,8 +457,8 @@ void CRBAlgorithm::calc_generalized_inertia(MatrixNd& M)
   // floating base
   // ************************************************************************
 
-  // get the number of implicit joint degrees-of-freedom
-  const unsigned NjDOF = body->num_joint_dof_implicit();
+  // get the number of explicit joint degrees-of-freedom
+  const unsigned NjDOF = body->num_joint_dof_explicit();
 
   // get blocks of M
   SharedMatrixNd K = M.block(0, NjDOF, BASE_START, M.columns()); 
@@ -510,7 +515,7 @@ void CRBAlgorithm::calc_generalized_inertia(MatrixNd& M)
 void CRBAlgorithm::precalc(RCArticulatedBodyPtr body)
 {
   // get the links and joints for the body
-  const vector<JointPtr>& joints = body->get_implicit_joints();
+  const vector<JointPtr>& joints = body->get_explicit_joints();
 
   // compute spatial isolated inertias and generalized inertia matrix
   // do the calculations
@@ -519,7 +524,7 @@ void CRBAlgorithm::precalc(RCArticulatedBodyPtr body)
   // attempt to do a Cholesky factorization of M
   MatrixNd& fM = this->_fM;
   MatrixNd& M = this->_M;
-  if ((_rank_deficient = !_LA->factor_chol(fM)))
+  if ((_rank_deficient = !_LA->factor_chol(fM = M)))
   {
     fM = M;
     _LA->svd(fM, _uM, _sM, _vM);
@@ -597,7 +602,7 @@ void CRBAlgorithm::calc_fwd_dyn_fixed_base(RCArticulatedBodyPtr body)
 {
   // get the set of links and joints for the articulated body
   const vector<RigidBodyPtr>& links = body->get_links();
-  const vector<JointPtr>& ijoints = body->get_implicit_joints();
+  const vector<JointPtr>& ijoints = body->get_explicit_joints();
 
   // ***********************************************************************
   // first, calculate C
@@ -661,9 +666,9 @@ void CRBAlgorithm::calc_fwd_dyn_floating_base(RCArticulatedBodyPtr body)
 {
   FILE_LOG(LOG_DYNAMICS) << "CRBAlgorithm::calc_fwd_dyn_floating_base() entered" << std::endl;
 
-  // get the set of links and implicit joints
+  // get the set of links and explicit joints
   const vector<RigidBodyPtr>& links = body->get_links();
-  const vector<JointPtr>& ijoints = body->get_implicit_joints();
+  const vector<JointPtr>& ijoints = body->get_explicit_joints();
 
   // calculate C
   SForced f0;
@@ -745,7 +750,7 @@ void CRBAlgorithm::calc_generalized_forces(SForced& f0, VectorNd& C)
 
   // get the set of links and joints
   const vector<RigidBodyPtr>& links = body->get_links();
-  const vector<JointPtr>& ijoints = body->get_implicit_joints();
+  const vector<JointPtr>& ijoints = body->get_explicit_joints();
   if (links.empty())
   {
     C.resize(0);
@@ -801,7 +806,7 @@ void CRBAlgorithm::calc_generalized_forces(SForced& f0, VectorNd& C)
     unsigned h = parent->get_index();
 
     // get the joint for this link
-    JointPtr joint(link->get_inner_joint_implicit());
+    JointPtr joint(link->get_inner_joint_explicit());
 
     // get the spatial link velocity
     const SVelocityd& vx = link->get_velocity(); 
@@ -818,7 +823,8 @@ void CRBAlgorithm::calc_generalized_forces(SForced& f0, VectorNd& C)
     // add this link's contribution
     Pose3d::transform(_a[i].pose, s, _sprime);
     SVelocityd sqd = mult(s, qd);
-    _a[i] = link->get_velocity().cross(sqd);
+    sqd.pose = vx.pose;
+    _a[i] = vx.cross(sqd);
     if (!sdot.empty())
       _a[i] += SAcceld(mult(Pose3d::transform(_a[i].pose, sdot, _sprime), qd)); 
 
@@ -888,7 +894,8 @@ void CRBAlgorithm::calc_generalized_forces(SForced& f0, VectorNd& C)
     {
       unsigned h = parent->get_index();
       _w[h] += Pose3d::transform(_w[h].pose, _w[i]);
-      link_queue.push(parent);
+      if (!parent->is_base())
+        link_queue.push(parent);
     }
 
     // indicate that this link has been processed
@@ -898,7 +905,7 @@ void CRBAlgorithm::calc_generalized_forces(SForced& f0, VectorNd& C)
   // ** STEP 3: compute actuator forces (C)
 
   // determine the length of the C vector
-  const unsigned nDOF = body->num_joint_dof_implicit();
+  const unsigned nDOF = body->num_joint_dof_explicit();
 
   // compute actuator forces (C)
   C.resize(nDOF);
@@ -979,7 +986,7 @@ void CRBAlgorithm::update_link_accelerations(RCArticulatedBodyPtr body)
         link_queue.push(rb);
 
     // get the inner joint and the parent link
-    JointPtr joint(link->get_inner_joint_implicit());
+    JointPtr joint(link->get_inner_joint_explicit());
     RigidBodyPtr parent(link->get_parent_link());
     unsigned h = parent->get_index();
  
@@ -1089,7 +1096,7 @@ void CRBAlgorithm::apply_impulse(const SMomentumd& w, RigidBodyPtr link)
   // compute the Jacobian with respect to the contact point
   RigidBodyPtr l = link;
   JointPtr j;
-  while ((j = l->get_inner_joint_implicit()))
+  while ((j = l->get_inner_joint_explicit()))
   {
     // compute the Jacobian column(s) for the joint
     const std::vector<SAxisd>& s = j->get_spatial_axes();
@@ -1150,7 +1157,7 @@ void CRBAlgorithm::apply_impulse(const SMomentumd& w, RigidBodyPtr link)
   }
 
   // apply the change and update link velocities
-  const vector<JointPtr>& ijoints = body->get_implicit_joints();
+  const vector<JointPtr>& ijoints = body->get_explicit_joints();
   for (unsigned i=0; i< ijoints.size(); i++)
   {
     unsigned idx = ijoints[i]->get_coord_index();

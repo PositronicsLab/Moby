@@ -130,7 +130,7 @@ void DampingForce::load_from_xml(shared_ptr<const XMLTree> node, map<std::string
     for (list<shared_ptr<const XMLTree> >::const_iterator i = gain_nodes.begin(); i != gain_nodes.end(); i++)
     {
       // make sure the child node has the body ID
-      const XMLAttrib* id_attr = (*i)->get_attrib("body-id");
+      XMLAttrib* id_attr = (*i)->get_attrib("body-id");
       if (!id_attr)
       {
         cerr << "DampingForce::load_from_xml() - Gains node has no body-id attribute!" << endl;
@@ -159,16 +159,16 @@ void DampingForce::load_from_xml(shared_ptr<const XMLTree> node, map<std::string
       }
 
       // try to read the gains in
-      const XMLAttrib* lgain_attr = (*i)->get_attrib("klinear");
+      XMLAttrib* lgain_attr = (*i)->get_attrib("klinear");
       if (lgain_attr) 
         kl[body] = lgain_attr->get_real_value();
-      const XMLAttrib* again_attr = (*i)->get_attrib("kangular");
+      XMLAttrib* again_attr = (*i)->get_attrib("kangular");
       if (again_attr) 
         ka[body] = again_attr->get_real_value();
-      const XMLAttrib* lgainsq_attr = (*i)->get_attrib("klinear-sq");
+      XMLAttrib* lgainsq_attr = (*i)->get_attrib("klinear-sq");
       if (lgainsq_attr) 
         klsq[body] = lgainsq_attr->get_real_value();
-      const XMLAttrib* againsq_attr = (*i)->get_attrib("kangular-sq");
+      XMLAttrib* againsq_attr = (*i)->get_attrib("kangular-sq");
       if (againsq_attr) 
         kasq[body] = againsq_attr->get_real_value();
     }  

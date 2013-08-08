@@ -722,7 +722,7 @@ void CSG::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, Ba
   Primitive::load_from_xml(node, id_map);
 
   // get operand 1, if present
-  const XMLAttrib* op1_attrib = node->get_attrib("op1-id");
+  XMLAttrib* op1_attrib = node->get_attrib("op1-id");
   if (op1_attrib)
   {
     // get the ID of operand 1
@@ -747,7 +747,7 @@ void CSG::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, Ba
   }
 
   // get operand 2, if present
-  const XMLAttrib* op2_attrib = node->get_attrib("op2-id");
+  XMLAttrib* op2_attrib = node->get_attrib("op2-id");
   if (op2_attrib)
   {
     // get the ID of operand 2
@@ -772,7 +772,7 @@ void CSG::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, Ba
   }
 
   // get operator, if present
-  const XMLAttrib* op_attrib = node->get_attrib("operator");
+  XMLAttrib* op_attrib = node->get_attrib("operator");
   if (op_attrib)
   {
     // get the string
@@ -790,7 +790,7 @@ void CSG::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, Ba
   }
 
   // determine whether we are using a loaded mesh
-  const XMLAttrib* fname_attrib = node->get_attrib("triangle-mesh-filename");
+  XMLAttrib* fname_attrib = node->get_attrib("triangle-mesh-filename");
   if (fname_attrib)
   {
     // setup the file extensions
@@ -813,7 +813,7 @@ void CSG::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, Ba
     }
   
     // see whether to center the mesh
-    const XMLAttrib* center_attr = node->get_attrib("center");
+    XMLAttrib* center_attr = node->get_attrib("center");
     if (center_attr && center_attr->get_bool_value())
       this->center_mesh();
   }

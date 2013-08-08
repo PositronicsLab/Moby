@@ -126,12 +126,12 @@ void PrismaticJoint::determine_q(VectorNd& q)
   shared_ptr<const Pose3d> Fo = outboard->get_pose();
 
   // compute transforms
-  Transform3d oT0 = Pose3d::calc_relative_pose(GLOBAL, Fo); 
-  Transform3d jT0 = Pose3d::calc_relative_pose(GLOBAL, Fj);
-  Transform3d oTj = oT0 * jT0.inverse();
+  Transform3d wTo = Pose3d::calc_relative_pose(Fo, GLOBAL); 
+  Transform3d jTw = Pose3d::calc_relative_pose(GLOBAL, Fj);
+  Transform3d jTo = jTw * wTo;
 
   // get the vector of translation
-  Vector3d x(oTj.x, _u.pose);
+  Vector3d x(jTo.x, _u.pose);
   q.resize(num_dof());
   q[DOF_1] = x.norm();
 
@@ -2215,7 +2215,7 @@ void PrismaticJoint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std:
   assert(strcasecmp(node->name.c_str(), "PrismaticJoint") == 0);
 
   // read the joint axis
-  const XMLAttrib* axis_attrib = node->get_attrib("axis");
+  XMLAttrib* axis_attrib = node->get_attrib("axis");
   if (axis_attrib)
   {
     Vector3d axis;

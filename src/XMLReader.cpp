@@ -105,19 +105,23 @@ std::map<std::string, BasePtr> XMLReader::read(const std::string& fname)
   }
 
   // read the XML Tree 
-  shared_ptr<const XMLTree> moby_tree = XMLTree::read_from_xml(filename);
-  if (!moby_tree)
+  shared_ptr<const XMLTree> root_tree = XMLTree::read_from_xml(filename);
+  if (!root_tree)
   {
     std::cerr << "XMLReader::read() - unable to open file " << fname;
     std::cerr << " for reading" << std::endl;
     chdir(cwd.get());
     return id_map;
   }
-  
-  // find the moby tree 
-  moby_tree = find_subtree(moby_tree, "moby");
 
-  // make sure that the Moby node was found
+ 
+  // find the moby tree 
+  shared_ptr<XMLTree> moby_tree = boost::const_pointer_cast<XMLTree>(find_subtree(root_tree, "moby"));
+
+  // mark the moby root as processed
+  moby_tree->processed = true;
+
+   // make sure that the Moby node was found
   if (!moby_tree)
   {
     std::cerr << "XMLReader::read() - no moby tag found!" << std::endl;
@@ -197,6 +201,32 @@ std::map<std::string, BasePtr> XMLReader::read(const std::string& fname)
   // change back to the initial working directory
   chdir(cwd.get());
 
+  // output unprocessed tags / attributes
+  std::queue<shared_ptr<const XMLTree> > q;
+  q.push(moby_tree);
+  while (!q.empty())
+  {
+    // get the node off the front of the queue
+    shared_ptr<const XMLTree> node = q.front();
+    q.pop();
+
+    // check whether the tag was processed
+    if (!node->processed)
+    {
+      std::cerr << "XMLReader::read() warning- tag '" << node->name << "' not processed" << std::endl;
+      continue;
+    }
+
+    // verify that all attributes were processed
+    BOOST_FOREACH(const XMLAttrib& a, node->attribs)
+      if (!a.processed)
+        std::cerr << "XMLReader::read() warning- attribute '" << a.name << "' in tag '" << node->name << "' not processed" << std::endl;
+
+    // add all children to the queue
+    BOOST_FOREACH(XMLTreePtr child, node->children)
+      q.push(child);
+  }
+
   return id_map;
 }
 
@@ -213,7 +243,10 @@ void XMLReader::process_tag(const std::string& tag, shared_ptr<const XMLTree> ro
   {
     const std::list<XMLTreePtr>& child_nodes = root->children;
     for (std::list<XMLTreePtr>::const_iterator i = child_nodes.begin(); i != child_nodes.end(); i++)
+    {
+      (*i)->processed = true;
       process_tag(tag, *i, fn, id_map);
+    }
   }
 }
 
@@ -273,7 +306,7 @@ void XMLReader::read_generalized_ccd(shared_ptr<const XMLTree> node, std::map<st
 void XMLReader::read_primitive_plugin(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // get the name of the plugin to load
-  const XMLAttrib* plugin_attr = node->get_attrib("plugin");
+  XMLAttrib* plugin_attr = node->get_attrib("plugin");
   if (!plugin_attr)
   {
     std::cerr << "XMLReader::read_primitive_plugin() - no plugin attribute!" << std::endl;
@@ -322,7 +355,7 @@ void XMLReader::read_coldet_plugin(shared_ptr<const XMLTree> node, std::map<std:
   assert(strcasecmp(node->name.c_str(), "CollisionDetectionPlugin") == 0);
 
   // get the name of the plugin to load
-  const XMLAttrib* plugin_attr = node->get_attrib("plugin");
+  XMLAttrib* plugin_attr = node->get_attrib("plugin");
   if (!plugin_attr)
   {
     std::cerr << "XMLReader::read_coldet_plugin() - no plugin attribute!" << std::endl;
@@ -682,7 +715,7 @@ void XMLReader::read_rc_abody_symbolic(shared_ptr<const XMLTree> node, std::map<
   assert(strcasecmp(node->name.c_str(), "RCArticulatedBodySymbolicPlugin") == 0);
 
   // get the name of the plugin to load
-  const XMLAttrib* plugin_attr = node->get_attrib("plugin");
+  XMLAttrib* plugin_attr = node->get_attrib("plugin");
   if (!plugin_attr)
   {
     std::cerr << "XMLReader::read_rc_abody_symbolic() - no plugin attribute!" << std::endl;
@@ -731,7 +764,7 @@ void XMLReader::read_joint_plugin(shared_ptr<const XMLTree> node, std::map<std::
   assert(strcasecmp(node->name.c_str(), "JointPlugin") == 0);
 
   // get the name of the plugin to load
-  const XMLAttrib* plugin_attr = node->get_attrib("plugin");
+  XMLAttrib* plugin_attr = node->get_attrib("plugin");
   if (!plugin_attr)
   {
     std::cerr << "XMLReader::read_joint_plugin() - no plugin attribute!" << std::endl;
@@ -909,7 +942,7 @@ XMLReader::TupleType XMLReader::get_tuple(shared_ptr<const XMLTree> node)
   std::string type;
 
   // get the 'type' attribute
-  const XMLAttrib* type_attr = node->get_attrib("type");
+  XMLAttrib* type_attr = node->get_attrib("type");
   if (type_attr)
     type = type_attr->get_string_value();
 

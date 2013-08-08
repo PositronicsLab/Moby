@@ -38,10 +38,11 @@ void GravityForce::add_force(DynamicBodyPtr body)
   shared_ptr<RigidBody> rb = dynamic_pointer_cast<RigidBody>(body);
   if (rb)
   {
-    SForced w;
-    Vector3d gx = Pose3d::transform(rb->get_computation_frame(), gravity);
-    w.set_force(gx * rb->get_mass());
-    w.pose = gx.pose; 
+    shared_ptr<Pose3d> P(new Pose3d(*rb->get_inertial_pose()));
+    P->update_relative_pose(GLOBAL);
+    P->q.set_identity();
+    SForced w(boost::const_pointer_cast<const Pose3d>(P));
+    w.set_force(gravity * rb->get_mass());
     rb->add_force(w);        
   }
   else
@@ -56,10 +57,11 @@ void GravityForce::add_force(DynamicBodyPtr body)
       // apply gravity force to all links
       BOOST_FOREACH(RigidBodyPtr rb, links)
       {
-        SForced w;
-        Vector3d gx = Pose3d::transform(rb->get_computation_frame(), gravity);
-        w.set_force(gx * rb->get_mass());
-        w.pose = gx.pose; 
+        shared_ptr<Pose3d> P(new Pose3d(*rb->get_inertial_pose()));
+        P->update_relative_pose(GLOBAL);
+        P->q.set_identity();
+        SForced w(boost::const_pointer_cast<const Pose3d>(P));
+        w.set_force(gravity * rb->get_mass());
         rb->add_force(w);        
       }
     }
@@ -69,6 +71,8 @@ void GravityForce::add_force(DynamicBodyPtr body)
       shared_ptr<DeformableBody> db = dynamic_pointer_cast<DeformableBody>(body);
 
       // get the gravity vector
+      // TODO: fix this
+      assert(false);
       Vector3d gx = Pose3d::transform(db->get_computation_frame(), gravity);
       db->add_force(gx * rb->get_mass());
     }
@@ -85,7 +89,7 @@ void GravityForce::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::s
   assert(strcasecmp(node->name.c_str(), "GravityForce") == 0);
 
   // read the acceleration due to gravity, if given
-  const XMLAttrib* gravity_attrib = node->get_attrib("accel");
+  XMLAttrib* gravity_attrib = node->get_attrib("accel");
   if (gravity_attrib)
     gravity_attrib->get_vector_value(gravity);
 }

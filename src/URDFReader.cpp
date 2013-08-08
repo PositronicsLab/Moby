@@ -144,7 +144,7 @@ bool URDFReader::read(const string& fname, std::string& name, vector<RigidBodyPt
 bool URDFReader::read_robot(shared_ptr<const XMLTree> node, URDFData& data, string& name, vector<RigidBodyPtr>& links, vector<JointPtr>& joints)
 {
   // read the robot name
-  const XMLAttrib* name_attrib = node->get_attrib("name");
+  XMLAttrib* name_attrib = node->get_attrib("name");
   if (name_attrib)
   {
     name = name_attrib->get_string_value();
@@ -184,7 +184,7 @@ void URDFReader::read_link(shared_ptr<const XMLTree> node, URDFData& data, vecto
     return;
 
   // link must have the name attribute
-  const XMLAttrib* name_attrib = node->get_attrib("name");
+  XMLAttrib* name_attrib = node->get_attrib("name");
   if (!name_attrib)
     std::cerr << "URDFReader::read_link() - link name not specified! not processing further..." << std::endl;
 
@@ -306,7 +306,7 @@ void URDFReader::read_joint(shared_ptr<const XMLTree> node, URDFData& data, cons
     return;
 
   // link must have the name attribute
-  const XMLAttrib* name_attrib = node->get_attrib("name");
+  XMLAttrib* name_attrib = node->get_attrib("name");
   if (!name_attrib)
   {
     std::cerr << "URDFReader::read_joint() - joint name not specified! not processing further..." << std::endl;
@@ -314,7 +314,7 @@ void URDFReader::read_joint(shared_ptr<const XMLTree> node, URDFData& data, cons
   }
 
   // link must have the name attribute
-  const XMLAttrib* type_attrib = node->get_attrib("type");
+  XMLAttrib* type_attrib = node->get_attrib("type");
   if (!type_attrib)
   {
     std::cerr << "URDFReader::read_joint() - joint type not specified! not processing further..." << std::endl;
@@ -410,7 +410,7 @@ RigidBodyPtr URDFReader::read_parent(shared_ptr<const XMLTree> node, URDFData& d
     if (strcasecmp((*i)->name.c_str(), "parent") == 0)
     {
       // read the link attribute
-      const XMLAttrib* link_attrib = (*i)->get_attrib("link");
+      XMLAttrib* link_attrib = (*i)->get_attrib("link");
       if (!link_attrib)
         continue;
       string link_id = link_attrib->get_string_value();
@@ -435,7 +435,7 @@ RigidBodyPtr URDFReader::read_child(shared_ptr<const XMLTree> node, URDFData& da
     if (strcasecmp((*i)->name.c_str(), "child") == 0)
     {
       // read the link attribute
-      const XMLAttrib* link_attrib = (*i)->get_attrib("link");
+      XMLAttrib* link_attrib = (*i)->get_attrib("link");
       if (!link_attrib)
         continue;
       string link_id = link_attrib->get_string_value();
@@ -463,7 +463,7 @@ void URDFReader::read_axis(shared_ptr<const XMLTree> node, URDFData& data, Joint
     if (strcasecmp((*i)->name.c_str(), "axis") == 0)
     {
       // read the attributes first
-      const XMLAttrib* xyz_attrib = (*i)->get_attrib("xyz");
+      XMLAttrib* xyz_attrib = (*i)->get_attrib("xyz");
       if (!xyz_attrib)
         continue;
       xyz_attrib->get_vector_value(axis);
@@ -503,8 +503,8 @@ void URDFReader::read_dynamics(shared_ptr<const XMLTree> node, URDFData& data, J
     if (strcasecmp((*i)->name.c_str(), "dynamics") == 0)
     {
       // read the attributes first
-      const XMLAttrib* damping_attrib = (*i)->get_attrib("damping");
-      const XMLAttrib* friction_attrib = (*i)->get_attrib("friction");
+      XMLAttrib* damping_attrib = (*i)->get_attrib("damping");
+      XMLAttrib* friction_attrib = (*i)->get_attrib("friction");
 
       // verify that joint is of the proper type
       shared_ptr<RevoluteJoint> rj = dynamic_pointer_cast<RevoluteJoint>(joint);
@@ -536,10 +536,10 @@ void URDFReader::read_limits(shared_ptr<const XMLTree> node, URDFData& data, Joi
     if (strcasecmp((*i)->name.c_str(), "limit") == 0)
     {
       // read the attributes first
-      const XMLAttrib* lower_attrib = (*i)->get_attrib("lower");
-      const XMLAttrib* upper_attrib = (*i)->get_attrib("upper");
-      const XMLAttrib* effort_attrib = (*i)->get_attrib("effort");
-      const XMLAttrib* velocity_attrib = (*i)->get_attrib("velocity");
+      XMLAttrib* lower_attrib = (*i)->get_attrib("lower");
+      XMLAttrib* upper_attrib = (*i)->get_attrib("upper");
+      XMLAttrib* effort_attrib = (*i)->get_attrib("effort");
+      XMLAttrib* velocity_attrib = (*i)->get_attrib("velocity");
 
       // verify that joint is of the proper type
       shared_ptr<RevoluteJoint> rj = dynamic_pointer_cast<RevoluteJoint>(joint);
@@ -635,7 +635,7 @@ bool URDFReader::read_color(shared_ptr<const XMLTree> node, URDFData& data, Vect
   {
     if (strcasecmp((*i)->name.c_str(), "color") == 0)
     {
-      const XMLAttrib* rgba_attrib = (*i)->get_attrib("rgba");
+      XMLAttrib* rgba_attrib = (*i)->get_attrib("rgba");
       if (rgba_attrib)
       {
         rgba_attrib->get_vector_value(color);
@@ -659,7 +659,7 @@ bool URDFReader::read_texture(shared_ptr<const XMLTree> node, URDFData& data, st
   {
     if (strcasecmp((*i)->name.c_str(), "texture") == 0)
     {
-      const XMLAttrib* tfname_attrib = (*i)->get_attrib("filename");
+      XMLAttrib* tfname_attrib = (*i)->get_attrib("filename");
       if (tfname_attrib)
       {
         texture_fname = tfname_attrib->get_string_value();
@@ -687,7 +687,7 @@ void URDFReader::read_material(shared_ptr<const XMLTree> node, URDFData& data, v
     {
       // read the name
       string material_name;
-      const XMLAttrib* name_attr = (*i)->get_attrib("name");
+      XMLAttrib* name_attr = (*i)->get_attrib("name");
       if (name_attr)
         material_name = name_attr->get_string_value(); 
 
@@ -839,7 +839,7 @@ shared_ptr<BoxPrimitive> URDFReader::read_box(shared_ptr<const XMLTree> node, UR
   {
     if (strcasecmp((*i)->name.c_str(), "box") == 0)
     {
-      const XMLAttrib* size_attrib = (*i)->get_attrib("size");
+      XMLAttrib* size_attrib = (*i)->get_attrib("size");
       if (!size_attrib)
         continue;
 
@@ -862,8 +862,8 @@ shared_ptr<TriangleMeshPrimitive> URDFReader::read_trimesh(shared_ptr<const XMLT
   {
     if (strcasecmp((*i)->name.c_str(), "mesh") == 0)
     {
-      const XMLAttrib* filename_attrib = (*i)->get_attrib("filename");
-      const XMLAttrib* scale_attrib = (*i)->get_attrib("scale");
+      XMLAttrib* filename_attrib = (*i)->get_attrib("filename");
+      XMLAttrib* scale_attrib = (*i)->get_attrib("scale");
       if (!filename_attrib)
         continue;
 
@@ -888,8 +888,8 @@ shared_ptr<CylinderPrimitive> URDFReader::read_cylinder(shared_ptr<const XMLTree
   {
     if (strcasecmp((*i)->name.c_str(), "cylinder") == 0)
     {
-      const XMLAttrib* radius_attrib = (*i)->get_attrib("radius");
-      const XMLAttrib* length_attrib = (*i)->get_attrib("length");
+      XMLAttrib* radius_attrib = (*i)->get_attrib("radius");
+      XMLAttrib* length_attrib = (*i)->get_attrib("length");
       if (!radius_attrib || !length_attrib)
         continue;
 
@@ -916,7 +916,7 @@ shared_ptr<SpherePrimitive> URDFReader::read_sphere(shared_ptr<const XMLTree> no
   {
     if (strcasecmp((*i)->name.c_str(), "sphere") == 0)
     {
-      const XMLAttrib* radius_attrib = (*i)->get_attrib("radius");
+      XMLAttrib* radius_attrib = (*i)->get_attrib("radius");
       if (!radius_attrib)
         continue;
 
@@ -943,12 +943,12 @@ Pose3d URDFReader::read_origin(shared_ptr<const XMLTree> node, URDFData& data)
     if (strcasecmp((*i)->name.c_str(), "origin") == 0)
     {
       // look for xyz attribute 
-      const XMLAttrib* xyz_attrib = (*i)->get_attrib("xyz");
+      XMLAttrib* xyz_attrib = (*i)->get_attrib("xyz");
       if (xyz_attrib)
         xyz = xyz_attrib->get_point_value();
 
       // look for rpy attribute
-      const XMLAttrib* rpy_attrib = (*i)->get_attrib("rpy");
+      XMLAttrib* rpy_attrib = (*i)->get_attrib("rpy");
       if (rpy_attrib)
         rpy_attrib->get_vector_value(rpy);
 
@@ -972,7 +972,7 @@ double URDFReader::read_mass(shared_ptr<const XMLTree> node, URDFData& data)
     if (strcasecmp((*i)->name.c_str(), "mass") == 0)
     {
       // look for the "value" attribute
-      const XMLAttrib* value_attrib = (*i)->get_attrib("value");
+      XMLAttrib* value_attrib = (*i)->get_attrib("value");
       if (value_attrib)
         // reading tag was a success, attempt to read no further...
         // (multiple such tags not supported)
@@ -999,12 +999,12 @@ Matrix3d URDFReader::read_inertia(shared_ptr<const XMLTree> node, URDFData& data
     if (strcasecmp((*i)->name.c_str(), "inertia") == 0)
     {
       // look for the six attributes
-      const XMLAttrib* ixx_attrib = (*i)->get_attrib("ixx");
-      const XMLAttrib* ixy_attrib = (*i)->get_attrib("ixy");
-      const XMLAttrib* ixz_attrib = (*i)->get_attrib("ixz");
-      const XMLAttrib* iyy_attrib = (*i)->get_attrib("iyy");
-      const XMLAttrib* iyz_attrib = (*i)->get_attrib("iyz");
-      const XMLAttrib* izz_attrib = (*i)->get_attrib("izz");
+      XMLAttrib* ixx_attrib = (*i)->get_attrib("ixx");
+      XMLAttrib* ixy_attrib = (*i)->get_attrib("ixy");
+      XMLAttrib* ixz_attrib = (*i)->get_attrib("ixz");
+      XMLAttrib* iyy_attrib = (*i)->get_attrib("iyy");
+      XMLAttrib* iyz_attrib = (*i)->get_attrib("iyz");
+      XMLAttrib* izz_attrib = (*i)->get_attrib("izz");
 
       // set values from present attributes
       if (ixx_attrib)

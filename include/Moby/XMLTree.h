@@ -46,27 +46,27 @@ class XMLAttrib
     XMLAttrib(const std::string& name, const Ravelin::Origin3d& origin_value);
     XMLAttrib(const std::string& name, bool bool_value);
     XMLAttrib(const std::string& name, long long_value);
-    const std::string& get_string_value() const { return value; }
+    const std::string& get_string_value() { processed = true; return value; }
     static std::string str(double value);
-    double get_real_value() const;
-    Ravelin::Origin3d get_origin_value() const;
-    Ravelin::Point3d get_point_value() const;
-    std::vector<Ravelin::SVelocityd> get_velocity_values() const;
-    std::vector<Ravelin::SAcceld> get_accel_values() const;
-    int get_int_value() const { return std::atoi(value.c_str()); }
-    unsigned get_unsigned_value() const { return (unsigned) std::atoi(value.c_str()); }
-    bool get_bool_value() const;
-    long get_long_value() const { return std::atol(value.c_str()); }
-    std::list<std::string> get_strings_value() const;
-    Ravelin::Quatd get_quat_value() const;
-    Ravelin::Quatd get_axis_angle_value() const;
-    Ravelin::Quatd get_rpy_value() const;
-    void get_vector_value(Ravelin::VectorNd& v) const;
-    void get_vector_value(Ravelin::Vector2d& v) const;
-    void get_vector_value(Ravelin::Vector3d& v) const;
-    void get_vector_value(Ravelin::SVector6d& v) const;
-    void get_matrix_value(Ravelin::Matrix3d& m) const;
-    void get_matrix_value(Ravelin::MatrixNd& m) const;
+    double get_real_value();
+    Ravelin::Origin3d get_origin_value();
+    Ravelin::Point3d get_point_value();
+    std::vector<Ravelin::SVelocityd> get_velocity_values();
+    std::vector<Ravelin::SAcceld> get_accel_values();
+    int get_int_value() { processed = true; return std::atoi(value.c_str()); }
+    unsigned get_unsigned_value() { processed = true; return (unsigned) std::atoi(value.c_str()); }
+    bool get_bool_value();
+    long get_long_value() { return std::atol(value.c_str()); }
+    std::list<std::string> get_strings_value();
+    Ravelin::Quatd get_quat_value();
+    Ravelin::Quatd get_axis_angle_value();
+    Ravelin::Quatd get_rpy_value();
+    void get_vector_value(Ravelin::VectorNd& v);
+    void get_vector_value(Ravelin::Vector2d& v);
+    void get_vector_value(Ravelin::Vector3d& v);
+    void get_vector_value(Ravelin::SVector6d& v);
+    void get_matrix_value(Ravelin::Matrix3d& m);
+    void get_matrix_value(Ravelin::MatrixNd& m);
     bool operator==(const XMLAttrib& a) const { return name == a.name; }
     bool operator<(const XMLAttrib& a) const { return name < a.name; }
 
@@ -75,6 +75,9 @@ class XMLAttrib
 
     /// The value in string form
     std::string value;
+
+    /// Indicates whether this attribute has been processed
+    bool processed;
 };
 
 /// An XML tree used for serialization 
@@ -84,7 +87,7 @@ class XMLTree : public boost::enable_shared_from_this<XMLTree>
     XMLTree(const std::string& name);
     XMLTree(const std::string& name, const std::list<XMLAttrib>& attributes);
     static boost::shared_ptr<const XMLTree> read_from_xml(const std::string& name);
-    const XMLAttrib* get_attrib(const std::string& attrib_name) const;
+    XMLAttrib* get_attrib(const std::string& attrib_name) const;
     std::list<boost::shared_ptr<const XMLTree> > find_child_nodes(const std::string& name) const;
     std::list<boost::shared_ptr<const XMLTree> > find_child_nodes(const std::list<std::string>& name) const;
     std::list<boost::shared_ptr<const XMLTree> > find_descendant_nodes(const std::string& name) const;
@@ -112,6 +115,9 @@ class XMLTree : public boost::enable_shared_from_this<XMLTree>
 
     /// The object (if any) represented by this node
     boost::shared_ptr<void> object;
+
+    /// Indicates whether this tag has been processed
+    bool processed;
 
   private:
     boost::weak_ptr<XMLTree> _parent;

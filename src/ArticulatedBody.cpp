@@ -40,8 +40,8 @@ vector<SVelocityd>& ArticulatedBody::calc_jacobian(boost::shared_ptr<const Pose3
 {
   const unsigned SPATIAL_DIM = 6;
 
-  // get the number of implicit degrees of freedom
-  const unsigned NIMP_DOF = num_joint_dof_implicit();
+  // get the number of explicit degrees of freedom
+  const unsigned NIMP_DOF = num_joint_dof_explicit();
 
   // get the total number of degrees of freedom
   const unsigned NDOF = (is_floating_base()) ? NIMP_DOF + SPATIAL_DIM : NIMP_DOF;
@@ -61,8 +61,8 @@ vector<SVelocityd>& ArticulatedBody::calc_jacobian(boost::shared_ptr<const Pose3
   // the parent
   while (link != base)
   {
-    // get the implicit inner joint for this link
-    JointPtr joint = link->get_inner_joint_implicit();
+    // get the explicit inner joint for this link
+    JointPtr joint = link->get_inner_joint_explicit();
 
     // get the parent link
     RigidBodyPtr parent = joint->get_inboard_link(); 
@@ -125,7 +125,7 @@ void ArticulatedBody::compute_Z_matrices(const vector<unsigned>& loop_indices, c
 
   // determine number of joint dof to use
   shared_ptr<const RCArticulatedBody> rcab = dynamic_pointer_cast<const RCArticulatedBody>(get_this());
-  const unsigned N_JOINT_DOF = (rcab) ? num_joint_dof_implicit() : num_joint_dof();
+  const unsigned N_JOINT_DOF = (rcab) ? num_joint_dof_explicit() : num_joint_dof();
 
   // resize vectors
   Zd.resize(_joints.size());
@@ -275,13 +275,13 @@ MatrixNd& ArticulatedBody::determine_F(unsigned link_idx, const Pose3d& Tf, cons
 
   // initialize F to all zeros
   if (rcab)
-    F.set_zero(SPATIAL_DIM, num_joint_dof_implicit());
+    F.set_zero(SPATIAL_DIM, num_joint_dof_explicit());
   else
     F.set_zero(SPATIAL_DIM, num_joint_dof());
 
-  // if there is no inner implicit link, return zero
-  JointPtr inner_implicit = _links[link_idx]->get_inner_joint_implicit();
-  if (!inner_implicit)
+  // if there is no inner explicit link, return zero
+  JointPtr inner_explicit = _links[link_idx]->get_inner_joint_explicit();
+  if (!inner_explicit)
     return F;
 
   // do the target transformation (multiplication ordering indicates that 
@@ -290,17 +290,17 @@ MatrixNd& ArticulatedBody::determine_F(unsigned link_idx, const Pose3d& Tf, cons
   Pose3d TfX = Tf * _links[link_idx]->get_transform();
 
   // determine whether the given link is part of a loop
-  if (loop_indices[inner_implicit->get_index()] == UINF)
+  if (loop_indices[inner_explicit->get_index()] == UINF)
   {  
     // not part of a loop: process all joints going backward
     // add inner joint to the queue
-    q.push(inner_implicit);
+    q.push(inner_explicit);
   }
   else
   {
     // part of a loop: process all joints in the loop *and* all joints going
     // backward
-    unsigned loop_idx = loop_indices[inner_implicit->get_index()];
+    unsigned loop_idx = loop_indices[inner_explicit->get_index()];
     for (unsigned i=0; i< loop_indices.size(); i++)
       if (loop_indices[i] == loop_idx)
         q.push(_joints[i]);
@@ -343,13 +343,13 @@ MatrixNd& ArticulatedBody::determine_F(unsigned link_idx, const Pose3d& Tf, cons
 //
 
     // add all inner joints to the queue *unless* it's an rcab and joint is
-    // explicit
+    // implicit
     RigidBodyPtr inboard = joint->get_inboard_link();
     const list<RigidBody::InnerJointData>& ijd_list = inboard->get_inner_joints_data();
     BOOST_FOREACH(const RigidBody::InnerJointData& ijd, ijd_list)
     {
       JointPtr ij(ijd.inner_joint);
-      if (!rcab || ij->get_constraint_type() == Joint::eImplicit)
+      if (!rcab || ij->get_constraint_type() == Joint::eExplicit)
         q.push(ij);
     }
   }
@@ -453,7 +453,7 @@ void ArticulatedBody::calc_fwd_dyn_fx(const VectorNd& x, VectorNd& fc, void* dat
     // determine the applied forces
     w.get_sub_vec(BETA_START, BETA_START+N_EXPLICIT_DOF, ff); // get betax 
     Dx.transpose_mult(ff, DTbx);
-    w.get_sub_vec(FF_START, FF_START+N_IMPLICIT_DOF, ff); // get implicit fric
+    w.get_sub_vec(FF_START, FF_START+N_IMPLICIT_DOF, ff); // get explicit fric
     ff += fext;
     ff += DTbx;
 
@@ -1044,33 +1044,33 @@ SVector6 ArticulatedBody::transform_force(RigidBodyPtr link, const Vector3& x) c
 /// Determines the loop indices corresponding to each joint and the vector of links for each joint
 void ArticulatedBody::find_loops(vector<unsigned>& loop_indices, vector<vector<unsigned> >& loop_links) const
 {
-  SAFESTATIC vector<JointPtr> loop_joints, explicit_joints;
+  SAFESTATIC vector<JointPtr> loop_joints, implicit_joints;
   queue<RigidBodyPtr> q;
 
   // clear vectors
   loop_indices.resize(_joints.size());
-  explicit_joints.clear();
+  implicit_joints.clear();
 
-  // get all explicit joints
+  // get all implicit joints
   for (unsigned i=0; i< _joints.size(); i++)
-    if (_joints[i]->get_constraint_type() == Joint::eExplicit)
-      explicit_joints.push_back(_joints[i]);
+    if (_joints[i]->get_constraint_type() == Joint::eImplicit)
+      implicit_joints.push_back(_joints[i]);
 
   // set all loop indices to INF (indicates no loop) initially
   for (unsigned i=0; i< _joints.size(); i++)
     loop_indices[i] = std::numeric_limits<unsigned>::max();
 
   // look for early exit
-  if (explicit_joints.empty())
+  if (implicit_joints.empty())
     return;
 
-  // two cases: 1) body uses *only* explicit joints and 2) body uses 
-  // implicit and explicit joints
-  if (_joints.size() == explicit_joints.size())
+  // two cases: 1) body uses *only* implicit joints and 2) body uses 
+  // explicit and implicit joints
+  if (_joints.size() == implicit_joints.size())
   {
-    // we're going to reset explicit_joints to hold only the joints that
+    // we're going to reset implicit_joints to hold only the joints that
     // complete loops
-    explicit_joints.clear();
+    implicit_joints.clear();
     for (unsigned i=0; i< _joints.size(); i++)
     {
       RigidBodyPtr inboard = _joints[i]->get_inboard_link();
@@ -1079,7 +1079,7 @@ void ArticulatedBody::find_loops(vector<unsigned>& loop_indices, vector<vector<u
       // check for obvious loop closure
       if (inboard->get_index() > outboard->get_index())
       {
-        explicit_joints.push_back(_joints[i]);
+        implicit_joints.push_back(_joints[i]);
         continue;
       }
 
@@ -1095,7 +1095,7 @@ void ArticulatedBody::find_loops(vector<unsigned>& loop_indices, vector<vector<u
           q.pop();
           if (!link->is_enabled())
           {
-            explicit_joints.push_back(_joints[i]);
+            implicit_joints.push_back(_joints[i]);
             break;
           }
           const set<JointPtr>& ij = link->get_inner_joints();
@@ -1108,13 +1108,13 @@ void ArticulatedBody::find_loops(vector<unsigned>& loop_indices, vector<vector<u
 
   // reset loop links
   loop_links.clear();
-  loop_links.resize(explicit_joints.size());
+  loop_links.resize(implicit_joints.size());
 
   // for every kinematic loop
-  for (unsigned k=0; k< explicit_joints.size(); k++)
+  for (unsigned k=0; k< implicit_joints.size(); k++)
   {
-    // get the explicit joint
-    JointPtr ejoint = explicit_joints[k];
+    // get the implicit joint
+    JointPtr ejoint = implicit_joints[k];
     RigidBodyPtr outboard = ejoint->get_outboard_link();
     bool ground_outboard = outboard->is_ground();
 
@@ -1126,7 +1126,7 @@ void ArticulatedBody::find_loops(vector<unsigned>& loop_indices, vector<vector<u
     RigidBodyPtr inboard = ejoint->get_inboard_link();
     while (true)
     {
-      JointPtr jx = inboard->get_inner_joint_implicit();
+      JointPtr jx = inboard->get_inner_joint_explicit();
       loop_joints.push_back(jx);
       loop_links[k].push_back(inboard->get_index());
       inboard = jx->get_inboard_link();
@@ -1152,9 +1152,19 @@ void ArticulatedBody::find_loops(vector<unsigned>& loop_indices, vector<vector<u
   }
 }
 
-/// Sets the vector of joints
-void ArticulatedBody::set_joints(const vector<JointPtr>& joints)
+/// Sets the vectors of links and joints
+void ArticulatedBody::set_links_and_joints(const vector<RigidBodyPtr>& links, const vector<JointPtr>& joints)
 {
+  // copy the vector
+  _links = links;
+
+  // setup the link in the map 
+  for (unsigned i=0; i< _links.size(); i++)
+  {
+    _links[i]->set_index(i);
+    _links[i]->set_articulated_body(get_this());
+  }
+
   // set vector of joints
   _joints = joints;
 
@@ -1168,20 +1178,15 @@ void ArticulatedBody::set_joints(const vector<JointPtr>& joints)
   compile();
 }
 
-/// Sets the vector of links
-void ArticulatedBody::set_links(const vector<RigidBodyPtr>& links)
+/// Gets the number of explicit joint constraint equations
+unsigned ArticulatedBody::num_constraint_eqns_explicit() const
 {
-  // copy the vector
-  _links = links;
+  unsigned neq = 0;
+  for (unsigned i=0; i< _joints.size(); i++)
+    if (_joints[i]->get_constraint_type() == Joint::eExplicit)
+      neq += _joints[i]->num_constraint_eqns();
 
-  // setup the link in the map 
-  for (unsigned i=0; i< _links.size(); i++)
-  {
-    _links[i]->set_index(i);
-    _links[i]->set_articulated_body(get_this());
-  }
-
-  compile();
+  return neq;
 }
 
 /// Gets the number of implicit joint constraint equations
@@ -1190,17 +1195,6 @@ unsigned ArticulatedBody::num_constraint_eqns_implicit() const
   unsigned neq = 0;
   for (unsigned i=0; i< _joints.size(); i++)
     if (_joints[i]->get_constraint_type() == Joint::eImplicit)
-      neq += _joints[i]->num_constraint_eqns();
-
-  return neq;
-}
-
-/// Gets the number of explicit joint constraint equations
-unsigned ArticulatedBody::num_constraint_eqns_explicit() const
-{
-  unsigned neq = 0;
-  for (unsigned i=0; i< _joints.size(); i++)
-    if (_joints[i]->get_constraint_type() == Joint::eExplicit)
       neq += _joints[i]->num_constraint_eqns();
 
   return neq;
@@ -1311,12 +1305,12 @@ void ArticulatedBody::load_from_xml(shared_ptr<const XMLTree> node, std::map<str
   // assert(strcasecmp(node->name().c_str(), "MCArticulatedBody") == 0);
 
   // determine whether to use the advanced joint friction model
-  const XMLAttrib* jf_attr = node->get_attrib("use-advanced-joint-friction");
+  XMLAttrib* jf_attr = node->get_attrib("use-advanced-joint-friction");
   if (jf_attr)
     use_advanced_friction_model = jf_attr->get_bool_value();
 
   // see whether to load the model from a URDF file
-  const XMLAttrib* urdf_attr = node->get_attrib("urdf");
+  XMLAttrib* urdf_attr = node->get_attrib("urdf");
   if (urdf_attr)
   {
     // get the URDF filename
@@ -1327,11 +1321,7 @@ void ArticulatedBody::load_from_xml(shared_ptr<const XMLTree> node, std::map<str
     std::vector<RigidBodyPtr> links;
     std::vector<JointPtr> joints; 
     if (URDFReader::read(urdf_fname, robot_name, links, joints))
-    {
-      // determine the links and joints
-      set_links(links);
-      set_joints(joints);
-    }
+      set_links_and_joints(links, joints);
     else
       std::cerr << "ArticulatedBody::load_from_xml()- unable to process URDF " << urdf_fname << std::endl;
 
@@ -1365,7 +1355,7 @@ void ArticulatedBody::load_from_xml(shared_ptr<const XMLTree> node, std::map<str
     for (list<shared_ptr<const XMLTree> >::const_iterator i = link_nodes.begin(); i != link_nodes.end(); i++)
     {
       // get the id from the node
-      const XMLAttrib* id = (*i)->get_attrib("id");
+      XMLAttrib* id = (*i)->get_attrib("id");
       if (!id)
         throw std::runtime_error("Articulated body links are required to have unique IDs in XML");
 
@@ -1385,7 +1375,7 @@ void ArticulatedBody::load_from_xml(shared_ptr<const XMLTree> node, std::map<str
     for (list<shared_ptr<const XMLTree> >::const_iterator i = joint_nodes.begin(); i != joint_nodes.end(); i++)
     {
       // get the id from the node
-      const XMLAttrib* id = (*i)->get_attrib("id");
+      XMLAttrib* id = (*i)->get_attrib("id");
       if (!id)
         throw std::runtime_error("Articulated body joints are required to have unique IDs in XML");
 
@@ -1402,8 +1392,7 @@ void ArticulatedBody::load_from_xml(shared_ptr<const XMLTree> node, std::map<str
     }
 
     // set the joints and links
-    set_links(vector<RigidBodyPtr>(links.begin(), links.end()));
-    set_joints(vector<JointPtr>(joints.begin(), joints.end()));
+    set_links_and_joints(vector<RigidBodyPtr>(links.begin(), links.end()), vector<JointPtr>(joints.begin(), joints.end()));
   }
 }
 

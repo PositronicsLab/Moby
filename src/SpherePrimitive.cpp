@@ -300,12 +300,12 @@ void SpherePrimitive::load_from_xml(shared_ptr<const XMLTree> node, std::map<std
   Primitive::load_from_xml(node, id_map);
 
   // read in the radius, if specified
-  const XMLAttrib* radius_attr = node->get_attrib("radius");
+  XMLAttrib* radius_attr = node->get_attrib("radius");
   if (radius_attr)
     set_radius(radius_attr->get_real_value());
 
   // read in the number of points, if specified
-  const XMLAttrib* npoints_attr = node->get_attrib("num-points");
+  XMLAttrib* npoints_attr = node->get_attrib("num-points");
   if (npoints_attr)
     set_num_points(npoints_attr->get_unsigned_value());
 

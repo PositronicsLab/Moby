@@ -213,7 +213,7 @@ void Rosenbrock4Integrator::load_from_xml(shared_ptr<const XMLTree> node, std::m
   Integrator::load_from_xml(node, id_map); 
   
   // get the relative error tolerance
-  const XMLAttrib* rerr_attrib = node->get_attrib("rel-err-tol");
+  XMLAttrib* rerr_attrib = node->get_attrib("rel-err-tol");
   if (rerr_attrib)
     rel_err_tol = rerr_attrib->get_real_value();
 }

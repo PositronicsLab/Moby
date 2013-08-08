@@ -9,6 +9,7 @@
 
 #include <boost/weak_ptr.hpp>
 #include <boost/shared_ptr.hpp>
+#include <Ravelin/SAxisd.h>
 #include <Ravelin/Pose3d.h>
 #include <Ravelin/MatrixNd.h>
 #include <Ravelin/SAcceld.h>
@@ -30,7 +31,7 @@ class VisualizationData;
 class Joint : public Visualizable
 {
   public:
-    enum ConstraintType { eUnknown, eImplicit, eExplicit };
+    enum ConstraintType { eUnknown, eExplicit, eImplicit };
     enum DOFs { DOF_1=0, DOF_2=1, DOF_3=2, DOF_4=3, DOF_5=4, DOF_6=5 };
 
     Joint();

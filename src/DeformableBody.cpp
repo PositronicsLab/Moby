@@ -811,27 +811,27 @@ void DeformableBody::load_from_xml(shared_ptr<const XMLTree> node, map<string, B
       shared_ptr<Node> n(new Node);
 
       // read the node position
-      const XMLAttrib* node_x_attr = (*i)->get_attrib("position");
+      XMLAttrib* node_x_attr = (*i)->get_attrib("position");
       if (node_x_attr)
         n->x = node_x_attr->get_point_value();
 
       // read the node velocity
-      const XMLAttrib* node_xd_attr = (*i)->get_attrib("velocity");
+      XMLAttrib* node_xd_attr = (*i)->get_attrib("velocity");
       if (node_xd_attr)
         node_xd_attr->get_vector_value(n->xd);      
 
       // read the node acceleration
-      const XMLAttrib* node_xdd_attr = (*i)->get_attrib("accel");
+      XMLAttrib* node_xdd_attr = (*i)->get_attrib("accel");
       if (node_xdd_attr)
         node_xdd_attr->get_vector_value(n->xdd);
 
       // read the force on the node
-      const XMLAttrib* node_f_attr = (*i)->get_attrib("force");
+      XMLAttrib* node_f_attr = (*i)->get_attrib("force");
       if (node_f_attr)
         node_f_attr->get_vector_value(n->f);
 
       // read the node mass
-      const XMLAttrib* node_mass_attr = (*i)->get_attrib("mass");
+      XMLAttrib* node_mass_attr = (*i)->get_attrib("mass");
       if (node_mass_attr)
         n->mass = node_mass_attr->get_real_value();
 
@@ -864,7 +864,7 @@ void DeformableBody::load_from_xml(shared_ptr<const XMLTree> node, map<string, B
   }
 
   // read the tetrahedral mesh primitive
-  const XMLAttrib* tetmesh_id_attr = node->get_attrib("tetra-mesh-id");
+  XMLAttrib* tetmesh_id_attr = node->get_attrib("tetra-mesh-id");
   if (tetmesh_id_attr)
   {
     // get the tetrahedra mesh ID
@@ -891,7 +891,7 @@ void DeformableBody::load_from_xml(shared_ptr<const XMLTree> node, map<string, B
   }
 
   // read the primitive that contains the triangle mesh
-  const XMLAttrib* trimesh_prim_id_attr = node->get_attrib("tri-mesh-primitive-id");
+  XMLAttrib* trimesh_prim_id_attr = node->get_attrib("tri-mesh-primitive-id");
   if (trimesh_prim_id_attr)
   {
     // get the triangle mesh primitive ID
@@ -925,8 +925,8 @@ void DeformableBody::load_from_xml(shared_ptr<const XMLTree> node, map<string, B
     list<shared_ptr<const XMLTree> > map_nodes = vmap_nodes.front()->find_child_nodes("Mapping");
     BOOST_FOREACH(shared_ptr<const XMLTree> mapping_node, map_nodes)
     {
-      const XMLAttrib* tetra_id_attr = node->get_attrib("tetra");
-      const XMLAttrib* uvw_id_attr = node->get_attrib("uvw");
+      XMLAttrib* tetra_id_attr = node->get_attrib("tetra");
+      XMLAttrib* uvw_id_attr = node->get_attrib("uvw");
       if (tetra_id_attr && uvw_id_attr)
       {
         VertexMap vmap;
@@ -1035,9 +1035,9 @@ void DeformableBody::load_from_xml(shared_ptr<const XMLTree> node, map<string, B
   }
 
   // read a transform to be applied to the body, if provided
-  const XMLAttrib* xlat_attr = node->get_attrib("translation");
-  const XMLAttrib* rpy_attr = node->get_attrib("rpy");
-  const XMLAttrib* quat_attr = node->get_attrib("quat");
+  XMLAttrib* xlat_attr = node->get_attrib("translation");
+  XMLAttrib* rpy_attr = node->get_attrib("rpy");
+  XMLAttrib* quat_attr = node->get_attrib("quat");
   if (xlat_attr && rpy_attr)
   {
     rotate(rpy_attr->get_rpy_value());

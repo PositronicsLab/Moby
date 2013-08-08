@@ -148,7 +148,7 @@ void MCArticulatedBody::compile()
   for (unsigned i=1; i<= _links.size(); i++)
     _gc_indices.push_back(_gc_indices.back() + _links[i-1]->num_generalized_coordinates_single(DynamicBody::eSpatial));
 
-  // setup explicit joint generalized coordinate and constraint indices
+  // setup implicit joint generalized coordinate and constraint indices
   for (unsigned i=0, cidx = 0, ridx=0; i< _joints.size(); i++)
   {
     _joints[i]->set_coord_index(cidx);
@@ -157,9 +157,9 @@ void MCArticulatedBody::compile()
     ridx += _joints[i]->num_constraint_eqns();
   }
 
-  // mark all joints as explicit
+  // mark all joints as implicit 
   for (unsigned i=0; i< _joints.size(); i++)
-    _joints[i]->set_constraint_type(Joint::eExplicit);
+    _joints[i]->set_constraint_type(Joint::eImplicit);
 }
 
 /// Gets the individual body inertias
@@ -537,13 +537,13 @@ void MCArticulatedBody::calc_fwd_dyn(double dt)
     assert(_joints[i]->get_index() == i);
   #endif
 
-  // setup true indices: converts from an [implicit explicit] DOF to the
+  // setup true indices: converts from an [explicit implicit] DOF to the
   // joint's index that contains that DOF
   vector<unsigned>& true_indices = copt_data.true_indices;
   true_indices.resize(N_JOINT_DOF);
   for (unsigned i=0, ke=0; i< _joints.size(); i++)
   {
-    assert(_joints[i]->get_constraint_type() == Joint::eExplicit);
+    assert(_joints[i]->get_constraint_type() == Joint::eImplicit);
     for (unsigned j=0; j< _joints[i]->num_dof(); j++)
       true_indices[ke++] = i;
   }
@@ -604,8 +604,8 @@ void MCArticulatedBody::calc_fwd_dyn(double dt)
 
   // output results
   FILE_LOG(LOG_DYNAMICS) << " external forces: " << fext << std::endl;
-  FILE_LOG(LOG_DYNAMICS) << " explicit constraint forces: " << alpha_x << std::endl;
-  FILE_LOG(LOG_DYNAMICS) << " explicit friction forces: " << beta_x << std::endl;
+  FILE_LOG(LOG_DYNAMICS) << " implicit constraint forces: " << alpha_x << std::endl;
+  FILE_LOG(LOG_DYNAMICS) << " implicit friction forces: " << beta_x << std::endl;
   FILE_LOG(LOG_DYNAMICS) << " delta: " << delta << std::endl;
   FILE_LOG(LOG_DYNAMICS) << " constraint evaluations: " << C << std::endl;
 
@@ -1843,11 +1843,11 @@ unsigned MCArticulatedBody::num_sub_events(JacobianType jt, Event* e)
       return e->constraint_joint->num_dof();
 
     case MCArticulatedBody::eConstraint:
-      if (e->constraint_joint->get_constraint_type() == Joint::eImplicit)
+      if (e->constraint_joint->get_constraint_type() == Joint::eEXPLICIT)
         return 0;
       else
       {
-        assert(e->constraint_joint->get_constraint_type() == Joint::eExplicit);
+        assert(e->constraint_joint->get_constraint_type() == Joint::eImplicit);
         return e->constraint_joint->num_constraint_eqns();
       }
   }

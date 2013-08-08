@@ -27,7 +27,7 @@ RevoluteJoint::RevoluteJoint() : Joint()
   init_data();
 
   // init the joint axes
-  _u.set_zero();
+  _u.set_zero(_F);
   _ui.set_zero();
   _uj.set_zero();
   _v2.set_zero();
@@ -89,19 +89,12 @@ void RevoluteJoint::update_spatial_axes()
   // call parent method
   Joint::update_spatial_axes();
 
-  try
-  {
-    // update the spatial axis in joint coordinates
-    _s[0].set_angular(_u);
-    _s[0].set_linear(ZEROS_3);
+  // update the spatial axis in joint coordinates
+  _s[0].set_angular(_u);
+  _s[0].set_linear(ZEROS_3);
 
-    // setup s_bar
-    calc_s_bar_from_s();
-  }
-  catch (std::runtime_error e)
-  {
-    // do nothing -- joint data has not yet been set in the link
-  }
+  // setup s_bar
+  calc_s_bar_from_s();
 }
 
 /// Determines (and sets) the value of Q from the axis and the inboard link and outboard link transforms
@@ -123,12 +116,12 @@ void RevoluteJoint::determine_q(VectorNd& q)
   shared_ptr<const Pose3d> Fo = outboard->get_pose();
 
   // compute transforms
-  Transform3d oT0 = Pose3d::calc_relative_pose(GLOBAL, Fo); 
-  Transform3d jT0 = Pose3d::calc_relative_pose(GLOBAL, Fj);
-  Transform3d oTj = oT0 * jT0.inverse();
+  Transform3d wTo = Pose3d::calc_relative_pose(Fo, GLOBAL); 
+  Transform3d jTw = Pose3d::calc_relative_pose(GLOBAL, Fj);
+  Transform3d jTo = jTw * wTo;
 
   // determine the joint transformation
-  Matrix3d R = oTj.q;
+  Matrix3d R = jTo.q;
   AAngled aa(R, _u);
 
   // set q 
@@ -1029,7 +1022,7 @@ void RevoluteJoint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::
   assert(strcasecmp(node->name.c_str(), "RevoluteJoint") == 0);
 
   // read the global joint axis, if given
-  const XMLAttrib* axis_attrib = node->get_attrib("axis");
+  XMLAttrib* axis_attrib = node->get_attrib("axis");
   if (axis_attrib)
   {
     Vector3d axis;

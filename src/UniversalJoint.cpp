@@ -242,12 +242,12 @@ void UniversalJoint::determine_q(VectorNd& q)
   shared_ptr<const Pose3d> Fo = outboard->get_pose();
 
   // compute transforms
-  Transform3d oT0 = Pose3d::calc_relative_pose(GLOBAL, Fo); 
-  Transform3d jT0 = Pose3d::calc_relative_pose(GLOBAL, Fj);
-  Transform3d oTj = oT0 * jT0.inverse();
+  Transform3d wTo = Pose3d::calc_relative_pose(Fo, GLOBAL); 
+  Transform3d jTw = Pose3d::calc_relative_pose(GLOBAL, Fj);
+  Transform3d jTo = jTw * wTo;
 
   // determine the joint transformation
-  Matrix3d R = oTj.q;
+  Matrix3d R = jTo.q;
 
   // determine q1 and q2 -- they are uniquely determined by examining the rotation matrix
   // (see get_rotation())
@@ -924,14 +924,14 @@ void UniversalJoint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std:
   assert(strcasecmp(node->name.c_str(), "UniversalJoint") == 0);
 
   // read the global joint axes, if given
-  const XMLAttrib* axis1_attrib = node->get_attrib("axis1");
+  XMLAttrib* axis1_attrib = node->get_attrib("axis1");
   if (axis1_attrib)
   {
     Vector3d axis1;
     axis1_attrib->get_vector_value(axis1);
     set_axis(axis1, eAxis1);  
   }
-  const XMLAttrib* axis2_attrib = node->get_attrib("axis2");
+  XMLAttrib* axis2_attrib = node->get_attrib("axis2");
   if (axis2_attrib)
   {
     Vector3d axis2;

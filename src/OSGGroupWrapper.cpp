@@ -11,6 +11,7 @@
 #include <osgDB/WriteFile>
 #include <osg/MatrixTransform>
 #endif
+#include <Ravelin/SAxisd.h>
 #include <Ravelin/Pose3d.h>
 #include <Moby/XMLTree.h>
 #include <Moby/OSGGroupWrapper.h>
@@ -102,7 +103,7 @@ void OSGGroupWrapper::load_from_xml(shared_ptr<const XMLTree> node, std::map<std
   assert(strcasecmp(node->name.c_str(), "OSGGroup") == 0);
 
   // if there is no visualization data filename, return now
-  const XMLAttrib* viz_fname_attr = node->get_attrib("filename");
+  XMLAttrib* viz_fname_attr = node->get_attrib("filename");
   if (!viz_fname_attr)
     return;
 
@@ -123,8 +124,8 @@ void OSGGroupWrapper::load_from_xml(shared_ptr<const XMLTree> node, std::map<std
   _group->removeChildren(0, _group->getNumChildren());
 
   // read in the 3d pose, if specified
-  const XMLAttrib* quat_attr = node->get_attrib("quat");
-  const XMLAttrib* origin_attr = node->get_attrib("origin");
+  XMLAttrib* quat_attr = node->get_attrib("quat");
+  XMLAttrib* origin_attr = node->get_attrib("origin");
   if (quat_attr || origin_attr)
   {
     Pose3d T;

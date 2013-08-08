@@ -24,7 +24,7 @@ class RigidBody;
 /// Convex optimization data for computing forward dynamics
 struct ABFwdDynOptData
 {
-  unsigned N_IMPLICIT_DOF; // # degrees-of-freedom for implicit joints
+  unsigned N_IMPLICIT_DOF; // # degrees-of-freedom for explicit joints
   unsigned N_EXPLICIT_CONSTRAINT_EQNS;
   unsigned N_JOINT_DOF;    // total # of joint degrees-of-freedom
   unsigned N_LOOPS;        // # of kinematic loops
@@ -32,10 +32,10 @@ struct ABFwdDynOptData
   Ravelin::VectorNd z;               // the homogeneous solution
   Ravelin::MatrixNd R;               // the nullspace
   Ravelin::MatrixNd G;              // the quadratic objective function
-  Ravelin::MatrixNd Dx;              // the movement Jacobian for explicit joints
+  Ravelin::MatrixNd Dx;              // the movement Jacobian for implicit joints
   Ravelin::VectorNd c;               // the linear objective function
   Ravelin::VectorNd fext;            // external applied force
-  std::vector<unsigned> true_indices; // maps from [implicit; explicit] indices
+  std::vector<unsigned> true_indices; // maps from [explicit; implicit] indices
                                       // to true (body) joint indices
   std::vector<unsigned> loop_indices; // the loop that each joint belongs to
   std::vector<Ravelin::MatrixNd> Z;   // the Z matrices (motion for joints after loops)
@@ -45,10 +45,10 @@ struct ABFwdDynOptData
   std::vector<double> visc;       // the viscous joint friction forces
 
   // for speeding up computations
-  Ravelin::MatrixNd Rff;             // components of R corresponding to implicit frict
+  Ravelin::MatrixNd Rff;             // components of R corresponding to explicit frict
   Ravelin::MatrixNd DxTRbetax;       // Dx' * components of R corresponding to expl. fric
-  Ravelin::VectorNd zff;             // components of z corresponding to implicit frict
-  Ravelin::VectorNd zbetax;          // components of z corresponding to explicit frict
+  Ravelin::VectorNd zff;             // components of z corresponding to explicit frict
+  Ravelin::VectorNd zbetax;          // components of z corresponding to implicit frict
 };
  
 /// Abstract class for articulated bodies
@@ -59,8 +59,8 @@ class ArticulatedBody : public DynamicBody
     virtual ~ArticulatedBody() {}
     virtual bool is_floating_base() const = 0;
     virtual RigidBodyPtr get_base_link() const = 0;
-    unsigned num_constraint_eqns_implicit() const;
     unsigned num_constraint_eqns_explicit() const;
+    unsigned num_constraint_eqns_implicit() const;
     virtual void rotate(const Ravelin::Quatd& q);
     virtual void translate(const Ravelin::Origin3d& o);
     virtual double calc_kinetic_energy();
@@ -68,8 +68,7 @@ class ArticulatedBody : public DynamicBody
     RigidBodyPtr find_link(const std::string& id) const; 
     JointPtr find_joint(const std::string& id) const; 
     void get_adjacent_links(std::list<sorted_pair<RigidBodyPtr> >& links) const;
-    virtual void set_links(const std::vector<RigidBodyPtr>& links);
-    virtual void set_joints(const std::vector<JointPtr>& joints);
+    virtual void set_links_and_joints(const std::vector<RigidBodyPtr>& links, const std::vector<JointPtr>& joints);
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual unsigned num_joint_dof() const;
@@ -77,11 +76,11 @@ class ArticulatedBody : public DynamicBody
     void compute_Z_matrices(const std::vector<unsigned>& loop_indices, const std::vector<std::vector<unsigned> >& loop_links, std::vector<Ravelin::MatrixNd>& Zd, std::vector<Ravelin::MatrixNd>& Z1d, std::vector<Ravelin::MatrixNd>& Z) const;
     virtual std::vector<Ravelin::SVelocityd>& calc_jacobian(boost::shared_ptr<const Ravelin::Pose3d> frame, DynamicBodyPtr body, std::vector<Ravelin::SVelocityd>& J);
 
-    /// Gets the number of degrees-of-freedom permitted by implicit constraints
-    virtual unsigned num_joint_dof_implicit() const = 0;
-
     /// Gets the number of degrees-of-freedom permitted by explicit constraints
     virtual unsigned num_joint_dof_explicit() const = 0;
+
+    /// Gets the number of degrees-of-freedom permitted by implicit constraints
+    virtual unsigned num_joint_dof_implicit() const = 0;
 
     /// Finds (joint) limit events
     template <class OutputIterator>

@@ -34,7 +34,7 @@ using namespace Moby;
 RCArticulatedBody::RCArticulatedBody()
 {
   _floating_base = false;
-  _n_joint_DOF_implicit = 0;
+  _n_joint_DOF_explicit = 0;
 
   // create the linear algebra object
   _LA = shared_ptr<LinAlgd>(new LinAlgd); 
@@ -86,9 +86,9 @@ unsigned RCArticulatedBody::num_generalized_coordinates(DynamicBody::Generalized
     return 0;
 
   if (!_floating_base)
-    return _n_joint_DOF_implicit;
+    return _n_joint_DOF_explicit;
   else
-    return _n_joint_DOF_implicit + _links.front()->num_generalized_coordinates(gctype);
+    return _n_joint_DOF_explicit + _links.front()->num_generalized_coordinates(gctype);
 }
 
 /// Updates inverse generalized inertia matrix, as necessary
@@ -225,18 +225,18 @@ void RCArticulatedBody::add_generalized_force(const VectorNd& gf)
     RigidBodyPtr base = _links.front();
 
     // first, get the force on the base link
-    gf.get_sub_vec(num_joint_dof_implicit(), gf.size(), f0);
+    gf.get_sub_vec(num_joint_dof_explicit(), gf.size(), f0);
 
     // add the force to the base
     base->add_generalized_force(f0);
   }
 
   // add to joint forces
-  for (unsigned i=0; i< _ijoints.size(); i++)
+  for (unsigned i=0; i< _ejoints.size(); i++)
   {
-    unsigned idx = _ijoints[i]->get_coord_index();
-    SharedConstVectorNd f = gf.segment(idx, idx+_ijoints[i]->num_dof());
-    _ijoints[i]->force += f;
+    unsigned idx = _ejoints[i]->get_coord_index();
+    SharedConstVectorNd f = gf.segment(idx, idx+_ejoints[i]->num_dof());
+    _ejoints[i]->force += f;
   } 
 }
 
@@ -282,22 +282,22 @@ void RCArticulatedBody::compile()
   // update processed vector size
   _processed.resize(_links.size());
 
-  // setup implicit joint generalized coordinate and constraint indices
-  for (unsigned i=0, cidx = 0, ridx = 0; i< _ijoints.size(); i++)
-  {
-    _ijoints[i]->set_coord_index(cidx);
-    _ijoints[i]->set_constraint_index(ridx);
-    cidx += _ijoints[i]->num_dof();
-    ridx += _ijoints[i]->num_constraint_eqns();
-  }
-
   // setup explicit joint generalized coordinate and constraint indices
-  for (unsigned i=0, cidx = 0, ridx=0; i< _ejoints.size(); i++)
+  for (unsigned i=0, cidx = 0, ridx = 0; i< _ejoints.size(); i++)
   {
     _ejoints[i]->set_coord_index(cidx);
     _ejoints[i]->set_constraint_index(ridx);
     cidx += _ejoints[i]->num_dof();
     ridx += _ejoints[i]->num_constraint_eqns();
+  }
+
+  // setup explicit joint generalized coordinate and constraint indices
+  for (unsigned i=0, cidx = 0, ridx=0; i< _ijoints.size(); i++)
+  {
+    _ijoints[i]->set_coord_index(cidx);
+    _ijoints[i]->set_constraint_index(ridx);
+    cidx += _ijoints[i]->num_dof();
+    ridx += _ijoints[i]->num_constraint_eqns();
   }
 
   // point both algorithms to this body
@@ -309,46 +309,19 @@ void RCArticulatedBody::compile()
   update_link_velocities();
 }
 
-/// Sets the vector links 
-void RCArticulatedBody::set_links(const vector<RigidBodyPtr>& links)
+/// Sets the vector of links and joints 
+void RCArticulatedBody::set_links_and_joints(const vector<RigidBodyPtr>& links, const vector<JointPtr>& joints)
 {
-  // call the parent method to update the link indices, etc.  
-  ArticulatedBody::set_links(links);
-
   // setup the processed vector
   _processed.resize(links.size());
 
-  // set the reference frame type on all links 
-  for (unsigned i=0; i< _links.size(); i++)
-    _links[i]->set_computation_frame_type(_rftype);
-
-  // check to see whether user's numbering scheme is acceptable
-  for (unsigned i=1; i< _links.size(); i++)
-  {
-    // look for an unknown constraint
-    BOOST_FOREACH(JointPtr joint, _links[i]->get_inner_joints())
-      if (joint->get_constraint_type() == Joint::eUnknown)
-        return;
-
-    // no unknown constraint; look for an implicit constraint
-    if (!_links[i]->get_inner_joint_implicit())
-      throw std::runtime_error("Nonzero link does not have an inner implicit joint!");
-  }
-}
-
-/// Appends a joint to the list of joints
-void RCArticulatedBody::set_joints(const vector<JointPtr>& joints)
-{
   // clear the vectors of joints
-  _ijoints.clear();
   _ejoints.clear();
+  _ijoints.clear();
 
-  // don't do anything if there are no joints
-  if (joints.empty())
-  {
-    _joints.clear();
-    return;
-  }
+  // set the computation frame type on all links 
+  for (unsigned i=0; i< links.size(); i++)
+    links[i]->set_computation_frame_type(_rftype);
 
   // find the base link and setup a processed map
   map<RigidBodyPtr, bool> processed;
@@ -371,16 +344,7 @@ void RCArticulatedBody::set_joints(const vector<JointPtr>& joints)
   // if there is no clearly defined base link, there are no links *and* there
   // are joints, we can't do anything
   if (!base)
-  {
-    if (_links.empty())
-      throw std::runtime_error("Unable to construct RCArticulatedBody with loops w/o links set first!");
-    else 
-      base = _links.front();
-  }
-
-  // verify that base is first link
-  if (base->get_index() != 0)
-    throw std::runtime_error("Base is not first link!");
+    throw std::runtime_error("Could not find base link!"); 
 
   // start processed at the base link
   queue<RigidBodyPtr> link_queue;
@@ -401,11 +365,11 @@ void RCArticulatedBody::set_joints(const vector<JointPtr>& joints)
       // see whether the child has already been processed
       RigidBodyPtr child(joint->get_outboard_link());
       if (processed[child])
-        _ejoints.push_back(joint);
+        _ijoints.push_back(joint);
       else
       {
         link_queue.push(child);
-        _ijoints.push_back(joint);
+        _ejoints.push_back(joint);
       } 
     }
 
@@ -413,19 +377,32 @@ void RCArticulatedBody::set_joints(const vector<JointPtr>& joints)
     processed[link] = true;
   }
 
-  // recalculate the implicit joint degrees-of-freedom of this body
-  _n_joint_DOF_implicit = 0;
-  for (unsigned i=0; i< _ijoints.size(); i++)
-    _n_joint_DOF_implicit += _ijoints[i]->num_dof();
+  // recalculate the explicit joint degrees-of-freedom of this body
+  _n_joint_DOF_explicit = 0;
+  for (unsigned i=0; i< _ejoints.size(); i++)
+    _n_joint_DOF_explicit += _ejoints[i]->num_dof();
 
   // mark joints as the correct type
-  for (unsigned i=0; i< _ijoints.size(); i++)
-    _ijoints[i]->set_constraint_type(Joint::eImplicit);
   for (unsigned i=0; i< _ejoints.size(); i++)
     _ejoints[i]->set_constraint_type(Joint::eExplicit);
+  for (unsigned i=0; i< _ijoints.size(); i++)
+    _ijoints[i]->set_constraint_type(Joint::eImplicit);
 
-  // call the articulated body method
-  ArticulatedBody::set_joints(joints);
+  // check to see whether user's numbering scheme is acceptable
+  for (unsigned i=1; i< links.size(); i++)
+  {
+    // look for an unknown constraint
+    BOOST_FOREACH(JointPtr joint, links[i]->get_inner_joints())
+      if (joint->get_constraint_type() == Joint::eUnknown)
+        throw std::runtime_error("Unknown constraint type found!");
+
+    // no unknown constraint; look for an explicit constraint
+    if (!links[i]->get_inner_joint_explicit())
+      throw std::runtime_error("Nonzero link does not have an inner explicit joint!");
+  }
+
+  // call the parent method to update the link indices, etc.  
+  ArticulatedBody::set_links_and_joints(links, joints);
 }
 
 /// Gets the derivative of the velocity state vector for this articulated body
@@ -447,14 +424,14 @@ VectorNd& RCArticulatedBody::get_generalized_acceleration(VectorNd& ga)
   {
     RigidBodyPtr base = _links.front();
     base->get_generalized_acceleration_single(base_ga);
-    ga.set_sub_vec(num_joint_dof_implicit(), base_ga);
+    ga.set_sub_vec(num_joint_dof_explicit(), base_ga);
   }
 
   // setup the state for the joints
-  for (unsigned i=0; i< _ijoints.size(); i++)
+  for (unsigned i=0; i< _ejoints.size(); i++)
   {
-    unsigned idx = _ijoints[i]->get_coord_index();
-    ga.set_sub_vec(idx, _ijoints[i]->qdd);
+    unsigned idx = _ejoints[i]->get_coord_index();
+    ga.set_sub_vec(idx, _ejoints[i]->qdd);
   }
 
   return ga;
@@ -473,6 +450,21 @@ void RCArticulatedBody::update_link_poses()
   // update all joint poses
   for (unsigned i=0; i< _joints.size(); i++)
     _joints[i]->get_induced_pose();
+
+  // print all link poses and joint poses
+  if (LOGGING(LOG_DYNAMICS))
+  {
+    for (unsigned i=0; i< _links.size(); i++)
+    {
+      Transform3d Tx = Pose3d::calc_relative_pose(_links[i]->get_pose(), GLOBAL);
+      FILE_LOG(LOG_DYNAMICS) << "  link " << _links[i]->id << " pose (relative to global frame): " << Tx.x << " " << AAngled(Tx.q) << std::endl;
+    }
+    for (unsigned i=0; i< _joints.size(); i++)
+    {
+      Transform3d Tx = Pose3d::calc_relative_pose(_joints[i]->get_pose(), GLOBAL);
+      FILE_LOG(LOG_DYNAMICS) << "  joint " << _joints[i]->id << " pose (relative to global frame): " << Tx.x << " " << AAngled(Tx.q) << std::endl;
+    }
+  }
 
   FILE_LOG(LOG_DYNAMICS) << "RCArticulatedBody::update_link_poses() exited" << std::endl;
 }
@@ -520,7 +512,7 @@ void RCArticulatedBody::update_link_velocities()
         link_queue.push(rb);
 
     // get the inner joint and the inboard link
-    JointPtr joint(outboard->get_inner_joint_implicit());
+    JointPtr joint(outboard->get_inner_joint_explicit());
     RigidBodyPtr inboard(joint->get_inboard_link());
     shared_ptr<const Pose3d> ipose = inboard->get_computation_frame();
     unsigned h = inboard->get_index();
@@ -607,7 +599,7 @@ MatrixNd& RCArticulatedBody::calc_jacobian(const Point3d& p, RigidBodyPtr link, 
   RigidBodyPtr base = get_base_link();
   while (link != base)
   {
-    JointPtr joint = link->get_inner_joint_implicit();
+    JointPtr joint = link->get_inner_joint_explicit();
     calc_jacobian_column(joint, p, Jsub); 
     J.set_sub_mat(0,joint->get_coord_index(), Jsub);
     link = link->get_parent_link();
@@ -635,8 +627,8 @@ MatrixNd& RCArticulatedBody::calc_jacobian(const Point3d& point, const Pose3d& b
 {
   // store current joint values
   map<JointPtr, VectorNd> currentQ;
-  for (unsigned i=0; i< _ijoints.size(); i++)
-    currentQ[_ijoints[i]] = _ijoints[i]->q;
+  for (unsigned i=0; i< _ejoints.size(); i++)
+    currentQ[_ejoints[i]] = _ejoints[i]->q;
 
   // overwrite current joint values
   for (map<JointPtr, VectorNd>::const_iterator i = q.begin(); i != q.end(); i++)
@@ -780,8 +772,8 @@ void RCArticulatedBody::calc_fwd_dyn(double dt)
     _joints[i]->add_force(ff);
   }
 
-  // if there are explicit joints, we must do the model with loops
-  if (!_ejoints.empty())
+  // if there are implicit joints, we must do the model with loops
+  if (!_ijoints.empty())
   {
     calc_fwd_dyn_loops();
     return;
@@ -819,43 +811,43 @@ void RCArticulatedBody::calc_fwd_dyn_loops()
   get_generalized_velocity(eSpatial, v);
   get_generalized_forces(fext);
 
-  // determine how many explicit constraint equations
+  // determine how many implicit constraint equations
   unsigned N_EXPLICIT_CONSTRAINT_EQNS = 0;
-  for (unsigned i=0; i< _ejoints.size(); i++)
-    N_EXPLICIT_CONSTRAINT_EQNS = _ejoints[i]->num_constraint_eqns();
+  for (unsigned i=0; i< _ijoints.size(); i++)
+    N_EXPLICIT_CONSTRAINT_EQNS = _ijoints[i]->num_constraint_eqns();
 
-  // evaluate explicit constraints
+  // evaluate implicit constraints
   C.resize(N_EXPLICIT_CONSTRAINT_EQNS);
-  for (unsigned i=0, r=0, s=0; i< _ejoints.size(); i++)
+  for (unsigned i=0, r=0, s=0; i< _ijoints.size(); i++)
   {
-    _ejoints[i]->evaluate_constraints(Cx);
-    for (unsigned j=0; j< _ejoints[i]->num_constraint_eqns(); j++)
+    _ijoints[i]->evaluate_constraints(Cx);
+    for (unsigned j=0; j< _ijoints[i]->num_constraint_eqns(); j++)
       C[r++] = Cx[j];
   }
 
-  // get the explicit constraint Jacobian and its time derivative
-  determine_explicit_constraint_jacobian(_Jx);
-  determine_explicit_constraint_jacobian_dot(Jx_dot);
+  // get the implicit constraint Jacobian and its time derivative
+  determine_implicit_constraint_jacobian(_Jx);
+  determine_implicit_constraint_jacobian_dot(Jx_dot);
 
   // compute Jx * v and Jx_dot * v
   _Jx.mult(v, Jx_v);
   Jx_dot.mult(v, Jx_dot_v);
 
-  // get movement Jacobian for explicit constraints and compute velocities
-  determine_explicit_constraint_movement_jacobian(_Dx);
+  // get movement Jacobian for implicit constraints and compute velocities
+  determine_implicit_constraint_movement_jacobian(_Dx);
   _Dx.mult(v, Dx_v);
-  for (unsigned i=0, k=0; i< _ejoints.size(); i++)
+  for (unsigned i=0, k=0; i< _ijoints.size(); i++)
   {
-    Dx_v.get_sub_vec(k, k+_ejoints[i]->num_dof(), _ejoints[i]->qd);
-    k += _ejoints[i]->num_dof();
+    Dx_v.get_sub_vec(k, k+_ijoints[i]->num_dof(), _ijoints[i]->qd);
+    k += _ijoints[i]->num_dof();
   }
 
-  // add in explicit actuator forces
+  // add in implicit actuator forces
   beta_x.resize(_Dx.rows());
-  for (unsigned i=0, k=0; i< _ejoints.size(); i++)
+  for (unsigned i=0, k=0; i< _ijoints.size(); i++)
   {
-    _ejoints[i]->get_scaled_force(workv);
-    for (unsigned j=0; j< _ejoints[i]->num_dof(); j++)
+    _ijoints[i]->get_scaled_force(workv);
+    for (unsigned j=0; j< _ijoints[i]->num_dof(); j++)
       beta_x[k++] = workv[j];
   }
   _Dx.transpose_mult(beta_x, workv);
@@ -911,56 +903,56 @@ void RCArticulatedBody::calc_fwd_dyn_advanced_friction(double dt)
   iM.get_sub_mat(START_GC, iM.rows(), START_GC, iM.columns(), X);
   iM.get_sub_mat(0, iM.rows(), START_GC, iM.columns(), Y);
 
-  // determine how many explicit constraint equations
+  // determine how many implicit constraint equations
   unsigned N_EXPLICIT_CONSTRAINT_EQNS = 0;
-  for (unsigned i=0; i< _ejoints.size(); i++)
-    N_EXPLICIT_CONSTRAINT_EQNS = _ejoints[i]->num_constraint_eqns();
+  for (unsigned i=0; i< _ijoints.size(); i++)
+    N_EXPLICIT_CONSTRAINT_EQNS = _ijoints[i]->num_constraint_eqns();
 
-  // evaluate explicit constraints
+  // evaluate implicit constraints
   C.resize(N_EXPLICIT_CONSTRAINT_EQNS);
-  for (unsigned i=0, r=0, s=0; i< _ejoints.size(); i++)
+  for (unsigned i=0, r=0, s=0; i< _ijoints.size(); i++)
   {
-    _ejoints[i]->evaluate_constraints(Cx);
-    for (unsigned j=0; j< _ejoints[i]->num_constraint_eqns(); j++)
+    _ijoints[i]->evaluate_constraints(Cx);
+    for (unsigned j=0; j< _ijoints[i]->num_constraint_eqns(); j++)
       C[r++] = Cx[j];
   }
 
-  // get the explicit constraint Jacobian and its time derivative
-  determine_explicit_constraint_jacobian(_Jx);
-  determine_explicit_constraint_jacobian_dot(Jx_dot);
+  // get the implicit constraint Jacobian and its time derivative
+  determine_implicit_constraint_jacobian(_Jx);
+  determine_implicit_constraint_jacobian_dot(Jx_dot);
 
   // compute Jx * v and Jx_dot * v
   _Jx.mult(v, Jx_v);
   Jx_dot.mult(v, Jx_dot_v);
 
-  // get movement Jacobian for explicit constraints and compute velocities
-  determine_explicit_constraint_movement_jacobian(_Dx);
+  // get movement Jacobian for implicit constraints and compute velocities
+  determine_implicit_constraint_movement_jacobian(_Dx);
   _Dx.mult(v, Dx_v);
-  for (unsigned i=0, k=0; i< _ejoints.size(); i++)
+  for (unsigned i=0, k=0; i< _ijoints.size(); i++)
   {
-    Dx_v.get_sub_vec(k, k+_ejoints[i]->num_dof(), _ejoints[i]->qd);
-    k += _ejoints[i]->num_dof();
+    Dx_v.get_sub_vec(k, k+_ijoints[i]->num_dof(), _ijoints[i]->qd);
+    k += _ijoints[i]->num_dof();
   }
 
-  // add in explicit actuator forces
+  // add in implicit actuator forces
   beta_x.resize(_Dx.rows());
-  for (unsigned i=0, k=0; i< _ejoints.size(); i++)
+  for (unsigned i=0, k=0; i< _ijoints.size(); i++)
   {
-    _ejoints[i]->get_scaled_force(workv);
-    for (unsigned j=0; j< _ejoints[i]->num_dof(); j++)
+    _ijoints[i]->get_scaled_force(workv);
+    for (unsigned j=0; j< _ijoints[i]->num_dof(); j++)
       beta_x[k++] = workv[j];
   }
   _Dx.transpose_mult(beta_x, workv);
   fext += workv;
 
-  // determine the number of kinematic loops and number of explicit joint DOF
-  const unsigned N_LOOPS = _ejoints.size();
+  // determine the number of kinematic loops and number of implicit joint DOF
+  const unsigned N_LOOPS = _ijoints.size();
   unsigned N_EXPLICIT_DOF = 0, N_IMPLICIT_DOF = 0;
   for (unsigned i=0; i< _joints.size(); i++)
   {
-    if (_joints[i]->get_constraint_type() == Joint::eExplicit)
+    if (_joints[i]->get_constraint_type() == Joint::eImplicit)
       N_EXPLICIT_DOF += _joints[i]->num_dof();
-    else if (_joints[i]->get_constraint_type() == Joint::eImplicit)
+    else if (_joints[i]->get_constraint_type() == Joint::eExplicit)
       N_IMPLICIT_DOF += _joints[i]->num_dof();
     else
       assert(false);
@@ -1021,7 +1013,7 @@ void RCArticulatedBody::calc_fwd_dyn_advanced_friction(double dt)
     for (unsigned i=0; i< N_LOOPS; i++)
       R(N_JOINT_DOF+N_EXPLICIT_CONSTRAINT_EQNS+i,RG.columns()+i) = (double) 1.0;
 
-    // solve for explicit constraint forces 
+    // solve for implicit constraint forces 
     A = Jx_iM_JxT;
     A *= dt;
     workv = z;
@@ -1066,18 +1058,18 @@ void RCArticulatedBody::calc_fwd_dyn_advanced_friction(double dt)
     assert(_joints[i]->get_index() == i);
   #endif
 
-  // setup true indices: converts from an [implicit explicit] DOF to the
+  // setup true indices: converts from an [explicit implicit] DOF to the
   // joint's index that contains that DOF
   vector<unsigned>& true_indices = copt_data.true_indices;
   true_indices.resize(N_JOINT_DOF);
   for (unsigned i=0, ki=0, ke=0; i< _joints.size(); i++)
   {
-    if (_joints[i]->get_constraint_type() == Joint::eImplicit)
+    if (_joints[i]->get_constraint_type() == Joint::eExplicit)
      for (unsigned j=0; j< _joints[i]->num_dof(); j++)
        true_indices[ki++] = i;
     else
     {
-      assert(_joints[i]->get_constraint_type() == Joint::eExplicit);
+      assert(_joints[i]->get_constraint_type() == Joint::eImplicit);
       for (unsigned j=0; j< _joints[i]->num_dof(); j++)
         true_indices[N_IMPLICIT_DOF + ke++] = i;
     }
@@ -1089,21 +1081,21 @@ void RCArticulatedBody::calc_fwd_dyn_advanced_friction(double dt)
   mu_c.resize(N_JOINT_DOF);
   visc.resize(N_JOINT_DOF);
 
-  // setup mu_c and viscous force vectors for implicit joints
-  for (unsigned i=0, k=0; i< _ijoints.size(); i++)
-    for (unsigned j=0; j< _ijoints[i]->num_dof(); j++, k++)
-    {
-      mu_c[k] = _ijoints[i]->mu_fc*_ijoints[i]->mu_fc;
-      double tmp = _ijoints[i]->mu_fv * std::fabs(_ijoints[i]->qd[j]);
-      visc[k] = tmp*tmp;
-    }
-
   // setup mu_c and viscous force vectors for explicit joints
   for (unsigned i=0, k=0; i< _ejoints.size(); i++)
     for (unsigned j=0; j< _ejoints[i]->num_dof(); j++, k++)
     {
-      mu_c[k+N_IMPLICIT_DOF] = _ejoints[i]->mu_fc * _ejoints[i]->mu_fc;
+      mu_c[k] = _ejoints[i]->mu_fc*_ejoints[i]->mu_fc;
       double tmp = _ejoints[i]->mu_fv * std::fabs(_ejoints[i]->qd[j]);
+      visc[k] = tmp*tmp;
+    }
+
+  // setup mu_c and viscous force vectors for implicit joints
+  for (unsigned i=0, k=0; i< _ijoints.size(); i++)
+    for (unsigned j=0; j< _ijoints[i]->num_dof(); j++, k++)
+    {
+      mu_c[k+N_IMPLICIT_DOF] = _ijoints[i]->mu_fc * _ijoints[i]->mu_fc;
+      double tmp = _ijoints[i]->mu_fv * std::fabs(_ijoints[i]->qd[j]);
       visc[k+N_IMPLICIT_DOF] = tmp*tmp; 
     }
 
@@ -1201,24 +1193,24 @@ void RCArticulatedBody::calc_fwd_dyn_advanced_friction(double dt)
   z.get_sub_vec(N_IMPLICIT_DOF+N_EXPLICIT_CONSTRAINT_EQNS+N_EXPLICIT_DOF, z.size(), delta);
 
   // output results
-  FILE_LOG(LOG_DYNAMICS) << " implicit friction forces: " << ff << std::endl;
-  FILE_LOG(LOG_DYNAMICS) << " explicit constraint forces: " << alpha_x << std::endl;
-  FILE_LOG(LOG_DYNAMICS) << " explicit friction forces: " << beta_x << std::endl;
+  FILE_LOG(LOG_DYNAMICS) << " explicit friction forces: " << ff << std::endl;
+  FILE_LOG(LOG_DYNAMICS) << " implicit constraint forces: " << alpha_x << std::endl;
+  FILE_LOG(LOG_DYNAMICS) << " implicit friction forces: " << beta_x << std::endl;
   FILE_LOG(LOG_DYNAMICS) << " delta: " << delta << std::endl;
   FILE_LOG(LOG_DYNAMICS) << " constraint evaluations: " << C << std::endl;
-
-  // setup implicit joint friction forces
-  for (unsigned i=0, k=0; i< _ijoints.size(); i++)
-  {
-    ff.get_sub_vec(k, k+_ijoints[i]->num_dof(), _ijoints[i]->ff);
-    k += _ijoints[i]->num_dof();
-  }
 
   // setup explicit joint friction forces
   for (unsigned i=0, k=0; i< _ejoints.size(); i++)
   {
-    beta_x.get_sub_vec(k, k+_ejoints[i]->num_dof(), _ejoints[i]->ff);
+    ff.get_sub_vec(k, k+_ejoints[i]->num_dof(), _ejoints[i]->ff);
     k += _ejoints[i]->num_dof();
+  }
+
+  // setup implicit joint friction forces
+  for (unsigned i=0, k=0; i< _ijoints.size(); i++)
+  {
+    beta_x.get_sub_vec(k, k+_ijoints[i]->num_dof(), _ijoints[i]->ff);
+    k += _ijoints[i]->num_dof();
   }
 
   // compute joint constraint forces
@@ -1257,14 +1249,14 @@ void RCArticulatedBody::calc_fwd_dyn_advanced_friction(double dt)
 */
 }
 
-/// Determines the constraint Jacobian for explicit constraints via impulse application (considerably slower than alternative method)
+/// Determines the constraint Jacobian for implicit constraints via impulse application (considerably slower than alternative method)
 /*
-void RCArticulatedBody::determine_explicit_constraint_movement_jacobian(MatrixNd& D)
+void RCArticulatedBody::determine_implicit_constraint_movement_jacobian(MatrixNd& D)
 {
-  // determine the number of explicit DOFs 
+  // determine the number of implicit DOFs 
   unsigned NDOF = 0;
-  for (unsigned i=0; i< _ejoints.size(); i++)
-    NDOF += _ejoints[i]->num_dof();
+  for (unsigned i=0; i< _ijoints.size(); i++)
+    NDOF += _ijoints[i]->num_dof();
   const unsigned NGC = num_generalized_coordinates(DynamicBody::eSpatial);
 
   // resize J 
@@ -1290,22 +1282,22 @@ void RCArticulatedBody::determine_explicit_constraint_movement_jacobian(MatrixNd
     q.set_column(i, gv);
     
     // compute the joint velocity
-    for (unsigned r=0; r< _ejoints.size(); r++)
+    for (unsigned r=0; r< _ijoints.size(); r++)
     {
       // get the coordinate index
-      unsigned cidx = _ejoints[r]->get_coord_index();
+      unsigned cidx = _ijoints[r]->get_coord_index();
 
       // get the spatial axis
-      const vector<SVelocityd>& si = _ejoints[r]->get_spatial_axes(eGlobal);
-      RigidBodyPtr inboard = _ejoints[r]->get_inboard_link();
-      RigidBodyPtr outboard = _ejoints[r]->get_outboard_link();
+      const vector<SVelocityd>& si = _ijoints[r]->get_spatial_axes(eGlobal);
+      RigidBodyPtr inboard = _ijoints[r]->get_inboard_link();
+      RigidBodyPtr outboard = _ijoints[r]->get_outboard_link();
       SVelocityd vh = inboard->get_spatial_velocity(eGlobal);
       SVelocityd vi = outboard->get_spatial_velocity(eGlobal);
 // vi = vh + si*qdot, except these are all loops
       SVelocityd dv = vh - vi;
       MatrixNd si_inv = LinAlg::pseudo_inverse(si);
       VectorNd qdot = si_inv.mult(dv);
-      for (unsigned j=0; j< _ejoints[r]->num_dof(); j++)
+      for (unsigned j=0; j< _ijoints[r]->num_dof(); j++)
         qx(cidx + j, i) = qdot[j];
     }
   }
@@ -1321,9 +1313,9 @@ void RCArticulatedBody::determine_explicit_constraint_movement_jacobian(MatrixNd
 }
 */
 
-/// Determines the ndof x ngc Jacobian for explicit constraint movement (ndof is the number of degrees of freedom of the explicit constraints)
+/// Determines the ndof x ngc Jacobian for implicit constraint movement (ndof is the number of degrees of freedom of the implicit constraints)
 // TODO: fix this
-void RCArticulatedBody::determine_explicit_constraint_jacobians(const EventProblemData& q, MatrixNd& Jx, MatrixNd& Dx) const
+void RCArticulatedBody::determine_implicit_constraint_jacobians(const EventProblemData& q, MatrixNd& Jx, MatrixNd& Dx) const
 {
 /*
   SAFESTATIC vector<SVelocityd> so;
@@ -1332,12 +1324,12 @@ void RCArticulatedBody::determine_explicit_constraint_jacobians(const EventProbl
   double Cqi[6], Cqo[6];
   const unsigned NGC = num_generalized_coordinates(DynamicBody::eSpatial);
 
-  // determine the total number of explicit constraint DOF 
+  // determine the total number of implicit constraint DOF 
   unsigned NDOF = 0, NEQ = 0;
   for (unsigned i=0; i< q.constraint_events.size(); i++)
   {
     JointPtr joint = q.constraint_events[i]->constraint_joint;
-    if (joint->get_constraint_type() == Joint::eExplicit)
+    if (joint->get_constraint_type() == Joint::eImplicit)
     {
       NDOF += joint->num_dof();
       NEQ += joint->num_constraint_eqns();
@@ -1351,17 +1343,17 @@ void RCArticulatedBody::determine_explicit_constraint_jacobians(const EventProbl
   // get the base link
   RigidBodyPtr base = get_base_link();
 
-  // compute the Jacobian for all explicit constraints
+  // compute the Jacobian for all implicit constraints
   for (unsigned i=0, ii=0, jj=0; i< q.constraint_events.size(); i++)
   {
     // get the joint
     JointPtr joint = q.constraint_events[i]->constraint_joint;
 
-    // if it's not explicit, skip it
-    if (joint->get_constraint_type() != Joint::eExplicit)
+    // if it's not implicit, skip it
+    if (joint->get_constraint_type() != Joint::eImplicit)
       continue;
 
-    // it is explicit; see whether it belongs to this body
+    // it is implicit; see whether it belongs to this body
     if (joint->get_articulated_body() != get_this())
     {
       ii += joint->num_dof();
@@ -1399,21 +1391,21 @@ void RCArticulatedBody::determine_explicit_constraint_jacobians(const EventProbl
 //    }
 
 
-    // now, loop over implicit joints
-    for (unsigned k=0; k< _ijoints.size(); k++)
+    // now, loop over explicit joints
+    for (unsigned k=0; k< _ejoints.size(); k++)
     {
       // get the links
-      RigidBodyPtr rba = _ijoints[k]->get_inboard_link();
-      RigidBodyPtr rbb = _ijoints[k]->get_outboard_link();
+      RigidBodyPtr rba = _ejoints[k]->get_inboard_link();
+      RigidBodyPtr rbb = _ejoints[k]->get_outboard_link();
 
       // get the coordinate index of the joint
-      unsigned cidx = _ijoints[k]->get_coord_index();
+      unsigned cidx = _ejoints[k]->get_coord_index();
 
       // get transform for the outboard link
       const Matrix4& rbbT = rbb->get_pose();
 
       // get the spatial axes for the joint (in rbb's frame)
-      const vector<SVelocityd>& sk = _ijoints[k]->get_spatial_axes(eLink);
+      const vector<SVelocityd>& sk = _ejoints[k]->get_spatial_axes(eLink);
 
       // compute the spatial transformation to the outboard link
       SpatialTransform X(rbbT, To);
@@ -1474,9 +1466,9 @@ void RCArticulatedBody::determine_explicit_constraint_jacobians(const EventProbl
 */
 }
 
-/// Determines the ndof x ngc Jacobian for explicit constraint movement (ndof is the number of degrees of freedom of the explicit constraints)
+/// Determines the ndof x ngc Jacobian for implicit constraint movement (ndof is the number of degrees of freedom of the implicit constraints)
 // TODO: fix this
-void RCArticulatedBody::determine_explicit_constraint_movement_jacobian(MatrixNd& D)
+void RCArticulatedBody::determine_implicit_constraint_movement_jacobian(MatrixNd& D)
 {
 /*
   SAFESTATIC vector<SVelocityd> so;
@@ -1484,10 +1476,10 @@ void RCArticulatedBody::determine_explicit_constraint_movement_jacobian(MatrixNd
   double Cqi[6], Cqo[6];
   const unsigned NGC = num_generalized_coordinates(DynamicBody::eSpatial);
 
-  // determine the number of explicit constraint DOF 
+  // determine the number of implicit constraint DOF 
   unsigned NDOF = 0;
-  for (unsigned i=0; i< _ejoints.size(); i++)
-    NDOF += _ejoints[i]->num_dof();
+  for (unsigned i=0; i< _ijoints.size(); i++)
+    NDOF += _ijoints[i]->num_dof();
 
   // resize D
   D.set_zero(NDOF, NGC);
@@ -1495,18 +1487,18 @@ void RCArticulatedBody::determine_explicit_constraint_movement_jacobian(MatrixNd
   // get the base link
   RigidBodyPtr base = get_base_link();
 
-  // compute the Jacobian for all explicit constraints
-  for (unsigned i=0; i< _ejoints.size(); i++)
+  // compute the Jacobian for all implicit constraints
+  for (unsigned i=0; i< _ijoints.size(); i++)
   {
     // get the coordinate index of the joint
-    unsigned r = _ejoints[i]->get_coord_index();
+    unsigned r = _ijoints[i]->get_coord_index();
 
     // get the outboard body of this joint and its transform
-    RigidBodyPtr rbo = _ejoints[i]->get_outboard_link();
+    RigidBodyPtr rbo = _ijoints[i]->get_outboard_link();
     const Matrix4& To = rbo->get_pose();
 
     // get the spatial movement (axes) of this joint (rbo frame)
-    const vector<SVelocityd>& si = _ejoints[i]->get_spatial_axes(eLink);
+    const vector<SVelocityd>& si = _ijoints[i]->get_spatial_axes(eLink);
     pinv_si = si;
     try
     {
@@ -1528,15 +1520,15 @@ void RCArticulatedBody::determine_explicit_constraint_movement_jacobian(MatrixNd
 //    }
 
     // now, loop over implicit joints
-    for (unsigned k=0; k< _ijoints.size(); k++)
+    for (unsigned k=0; k< _ejoints.size(); k++)
     {
       // get the outboard link
-      RigidBodyPtr rbb = _ijoints[k]->get_outboard_link();
-      unsigned idx = _ijoints[k]->get_coord_index();
+      RigidBodyPtr rbb = _ejoints[k]->get_outboard_link();
+      unsigned idx = _ejoints[k]->get_coord_index();
       const Matrix4& Tb = rbb->get_pose();
 
       // get the spatial axes for the joint (rbb frame)
-      const vector<SVelocityd>& sk = _ijoints[k]->get_spatial_axes(eLink);
+      const vector<SVelocityd>& sk = _ejoints[k]->get_spatial_axes(eLink);
 
       // compute the spatial transformation
       SpatialTransform X(Tb, To);
@@ -1550,16 +1542,16 @@ void RCArticulatedBody::determine_explicit_constraint_movement_jacobian(MatrixNd
 */
 }
 
-/// Determines the constraint Jacobian for explicit constraints via impulse application (considerably slower than alternative method)
+/// Determines the constraint Jacobian for implicit constraints via impulse application (considerably slower than alternative method)
 /*
-void RCArticulatedBody::determine_explicit_constraint_jacobian(MatrixNd& J)
+void RCArticulatedBody::determine_implicit_constraint_jacobian(MatrixNd& J)
 {
   double Cx[6];
 
-  // determine the number of explicit constraint equations
+  // determine the number of implicit constraint equations
   unsigned NEQ = 0;
-  for (unsigned i=0; i< _ejoints.size(); i++)
-    NEQ += _ejoints[i]->num_constraint_eqns();
+  for (unsigned i=0; i< _ijoints.size(); i++)
+    NEQ += _ijoints[i]->num_constraint_eqns();
   const unsigned NGC = num_generalized_coordinates(DynamicBody::eSpatial);
 
   // resize J 
@@ -1585,11 +1577,11 @@ void RCArticulatedBody::determine_explicit_constraint_jacobian(MatrixNd& J)
     q.set_column(i, gv);
     
     // compute the constraint dot
-    for (unsigned r=0; r< _ejoints.size(); r++)
+    for (unsigned r=0; r< _ijoints.size(); r++)
     {
-      unsigned cidx = _ejoints[r]->get_constraint_index();
-      _ejoints[r]->evaluate_constraints_dot(Cx);
-      for (unsigned j=0; j< _ejoints[r]->num_constraint_eqns(); j++)
+      unsigned cidx = _ijoints[r]->get_constraint_index();
+      _ijoints[r]->evaluate_constraints_dot(Cx);
+      for (unsigned j=0; j< _ijoints[r]->num_constraint_eqns(); j++)
         dC(j+cidx, i) = Cx[j];
     }
   }
@@ -1605,9 +1597,9 @@ void RCArticulatedBody::determine_explicit_constraint_jacobian(MatrixNd& J)
 }
 */
 
-/// Determines the constraint Jacobian for explicit constraints
+/// Determines the constraint Jacobian for implicit constraints
 // TODO: fix this
-void RCArticulatedBody::determine_explicit_constraint_jacobian(MatrixNd& J)
+void RCArticulatedBody::determine_implicit_constraint_jacobian(MatrixNd& J)
 {
 /*
   SAFESTATIC vector<SVelocityd> so;
@@ -1615,10 +1607,10 @@ void RCArticulatedBody::determine_explicit_constraint_jacobian(MatrixNd& J)
   double Cqi[6], Cqo[6];
   const unsigned NGC = num_generalized_coordinates(DynamicBody::eSpatial);
 
-  // determine the number of explicit constraint equations
+  // determine the number of implicit constraint equations
   unsigned NEQ = 0;
-  for (unsigned i=0; i< _ejoints.size(); i++)
-    NEQ += _ejoints[i]->num_constraint_eqns();
+  for (unsigned i=0; i< _ijoints.size(); i++)
+    NEQ += _ijoints[i]->num_constraint_eqns();
 
   // resize J 
   J.set_zero(NEQ, NGC);
@@ -1626,22 +1618,22 @@ void RCArticulatedBody::determine_explicit_constraint_jacobian(MatrixNd& J)
   // get the base link
   RigidBodyPtr base = get_base_link();
 
-  // compute the constraint Jacobian for all explicit constraints
-  for (unsigned i=0; i< _ejoints.size(); i++)
+  // compute the constraint Jacobian for all implicit constraints
+  for (unsigned i=0; i< _ijoints.size(); i++)
   {
     // get the constraint index for this joint
-    unsigned ridx = _ejoints[i]->get_constraint_index();
+    unsigned ridx = _ijoints[i]->get_constraint_index();
 
     // get the rigid bodies of this joint
-    RigidBodyPtr rbi = _ejoints[i]->get_inboard_link();
-    RigidBodyPtr rbo = _ejoints[i]->get_outboard_link();
+    RigidBodyPtr rbi = _ijoints[i]->get_inboard_link();
+    RigidBodyPtr rbo = _ijoints[i]->get_outboard_link();
 
     // get the constraint equations
-    for (unsigned j=0; j< _ejoints[i]->num_constraint_eqns(); j++, ridx++)
+    for (unsigned j=0; j< _ijoints[i]->num_constraint_eqns(); j++, ridx++)
     {
       // get constraint equations for inner and outer links
-      _ejoints[i]->calc_constraint_jacobian(DynamicBody::eSpatial, rbi, j, Cqi); 
-      _ejoints[i]->calc_constraint_jacobian(DynamicBody::eSpatial, rbo, j, Cqo); 
+      _ijoints[i]->calc_constraint_jacobian(DynamicBody::eSpatial, rbi, j, Cqi); 
+      _ijoints[i]->calc_constraint_jacobian(DynamicBody::eSpatial, rbo, j, Cqo); 
 
       // setup spatial vectors in rbi-centered frame and rbo-centered frame
       SVector6 svi(Cqi), svo(Cqo);
@@ -1659,21 +1651,21 @@ void RCArticulatedBody::determine_explicit_constraint_jacobian(MatrixNd& J)
           J(ridx,k) += svix[k] - svox[k];
       }        
 
-      // now, loop over implicit joints
-      for (unsigned k=0; k< _ijoints.size(); k++)
+      // now, loop over explicit joints
+      for (unsigned k=0; k< _ejoints.size(); k++)
       {
         // get the links
-        RigidBodyPtr rba = _ijoints[k]->get_inboard_link();
-        RigidBodyPtr rbb = _ijoints[k]->get_outboard_link();
+        RigidBodyPtr rba = _ejoints[k]->get_inboard_link();
+        RigidBodyPtr rbb = _ejoints[k]->get_outboard_link();
 
         // get the coordinate index of the joint
-        unsigned cidx = _ijoints[k]->get_coord_index();
+        unsigned cidx = _ejoints[k]->get_coord_index();
 
         // get transform for the outboard link
         const Matrix4& rbbT = rbb->get_pose();
 
         // get the spatial axes for the joint (in rbb's frame)
-        const vector<SVelocityd>& si = _ijoints[k]->get_spatial_axes(eLink);
+        const vector<SVelocityd>& si = _ejoints[k]->get_spatial_axes(eLink);
 
         // setup components corresponding to rbi
         // transform si from rbb's frame to rbi centered frame
@@ -1696,13 +1688,13 @@ void RCArticulatedBody::determine_explicit_constraint_jacobian(MatrixNd& J)
 */
 }
 
-/// Determines the time derivative of the constraint Jacobian for explicit constraints
+/// Determines the time derivative of the constraint Jacobian for implicit constraints
 /**
  * Because this matrix is the product of two matrices, each of which is a 
  * function of time, we have to add the results together.
  */
 // TODO: fix this
-void RCArticulatedBody::determine_explicit_constraint_jacobian_dot(MatrixNd& J) const
+void RCArticulatedBody::determine_implicit_constraint_jacobian_dot(MatrixNd& J) const
 {
 /*
   SAFESTATIC vector<SVelocityd> so;
@@ -1710,10 +1702,10 @@ void RCArticulatedBody::determine_explicit_constraint_jacobian_dot(MatrixNd& J) 
   double Cqi[6], Cqo[6];
   const unsigned NGC = num_generalized_coordinates(DynamicBody::eSpatial);
 
-  // determine the number of explicit constraint equations
+  // determine the number of implicit constraint equations
   unsigned NEQ = 0;
-  for (unsigned i=0; i< _ejoints.size(); i++)
-    NEQ += _ejoints[i]->num_constraint_eqns();
+  for (unsigned i=0; i< _ijoints.size(); i++)
+    NEQ += _ijoints[i]->num_constraint_eqns();
 
   // resize J 
   J.set_zero(NEQ, NGC);
@@ -1722,22 +1714,22 @@ void RCArticulatedBody::determine_explicit_constraint_jacobian_dot(MatrixNd& J) 
   RigidBodyPtr base = get_base_link();
 
   // Jx * \dot{Jy}
-  // compute the constraint Jacobian for all explicit constraints
-  for (unsigned i=0; i< _ejoints.size(); i++)
+  // compute the constraint Jacobian for all implicit constraints
+  for (unsigned i=0; i< _ijoints.size(); i++)
   {
     // get the starting constraint index for this joint
-    unsigned ridx = _ejoints[i]->get_constraint_index();
+    unsigned ridx = _ijoints[i]->get_constraint_index();
 
     // get the rigid bodies of this joint
-    RigidBodyPtr rbi = _ejoints[i]->get_inboard_link();
-    RigidBodyPtr rbo = _ejoints[i]->get_outboard_link();
+    RigidBodyPtr rbi = _ijoints[i]->get_inboard_link();
+    RigidBodyPtr rbo = _ijoints[i]->get_outboard_link();
 
     // get the constraint equations
-    for (unsigned j=0; j< _ejoints[i]->num_constraint_eqns(); j++, ridx++)
+    for (unsigned j=0; j< _ijoints[i]->num_constraint_eqns(); j++, ridx++)
     {
       // get constraint equations for inner and outer links
-      _ejoints[i]->calc_constraint_jacobian(DynamicBody::eSpatial, rbi, j, Cqi); 
-      _ejoints[i]->calc_constraint_jacobian(DynamicBody::eSpatial, rbo, j, Cqo); 
+      _ijoints[i]->calc_constraint_jacobian(DynamicBody::eSpatial, rbi, j, Cqi); 
+      _ijoints[i]->calc_constraint_jacobian(DynamicBody::eSpatial, rbo, j, Cqo); 
 
       // setup spatial vectors
       SVector6 svi(Cqi), svo(Cqo);
@@ -1755,21 +1747,21 @@ void RCArticulatedBody::determine_explicit_constraint_jacobian_dot(MatrixNd& J) 
           J(ridx,k) += svix[k] - svox[k];
       }        
 
-      // now, loop over implicit joints
-      for (unsigned k=0; k< _ijoints.size(); k++)
+      // now, loop over explicit joints
+      for (unsigned k=0; k< _ejoints.size(); k++)
       {
         // get the coordinate index for the joint
-        unsigned cidx = _ijoints[k]->get_coord_index();
+        unsigned cidx = _ejoints[k]->get_coord_index();
 
         // get the links
-        RigidBodyPtr rba = _ijoints[k]->get_inboard_link();
-        RigidBodyPtr rbb = _ijoints[k]->get_outboard_link();
+        RigidBodyPtr rba = _ejoints[k]->get_inboard_link();
+        RigidBodyPtr rbb = _ejoints[k]->get_outboard_link();
 
         // get transform for the outboard link
         const Matrix4& rbbT = rbb->get_pose();
 
         // get the time derivative of the spatial axes for the joint
-        const vector<SVelocityd>& si_dot = _ijoints[k]->get_spatial_axes_dot(eLink);
+        const vector<SVelocityd>& si_dot = _ejoints[k]->get_spatial_axes_dot(eLink);
 
         // setup components corresponding to rbi 
         // transform si from rbb's frame to rbi centered frame
@@ -1791,22 +1783,22 @@ void RCArticulatedBody::determine_explicit_constraint_jacobian_dot(MatrixNd& J) 
   }
 
   // \dot{Jx} * Jy
-  // compute the constraint Jacobian for all explicit constraints
-  for (unsigned i=0, r=0; i< _ejoints.size(); i++)
+  // compute the constraint Jacobian for all implicit constraints
+  for (unsigned i=0, r=0; i< _ijoints.size(); i++)
   {
     // get the starting constraint index for this joint
-    unsigned ridx = _ejoints[i]->get_constraint_index();
+    unsigned ridx = _ijoints[i]->get_constraint_index();
 
     // get the rigid bodies of this joint
-    RigidBodyPtr rbi = _ejoints[i]->get_inboard_link();
-    RigidBodyPtr rbo = _ejoints[i]->get_outboard_link();
+    RigidBodyPtr rbi = _ijoints[i]->get_inboard_link();
+    RigidBodyPtr rbo = _ijoints[i]->get_outboard_link();
 
     // get the constraint equations
-    for (unsigned j=0; j< _ejoints[i]->num_constraint_eqns(); j++, ridx++)
+    for (unsigned j=0; j< _ijoints[i]->num_constraint_eqns(); j++, ridx++)
     {
       // get constraint equations for inner and outer links
-      _ejoints[i]->calc_constraint_jacobian_dot(DynamicBody::eSpatial, rbi, j, Cqi); 
-      _ejoints[i]->calc_constraint_jacobian_dot(DynamicBody::eSpatial, rbo, j, Cqo); 
+      _ijoints[i]->calc_constraint_jacobian_dot(DynamicBody::eSpatial, rbi, j, Cqi); 
+      _ijoints[i]->calc_constraint_jacobian_dot(DynamicBody::eSpatial, rbo, j, Cqo); 
 
       // setup spatial vectors
       SVector6 svi(Cqi), svo(Cqo);
@@ -1824,21 +1816,21 @@ void RCArticulatedBody::determine_explicit_constraint_jacobian_dot(MatrixNd& J) 
           J(ridx,k) += svix[k] - svox[k];
       }        
 
-      // now, loop over implicit joints
-      for (unsigned k=0; k< _ijoints.size(); k++)
+      // now, loop over explicit joints
+      for (unsigned k=0; k< _ejoints.size(); k++)
       {
         // get the coordinate index
-        unsigned cidx = _ijoints[k]->get_coord_index();
+        unsigned cidx = _ejoints[k]->get_coord_index();
 
         // get the links
-        RigidBodyPtr rba = _ijoints[k]->get_inboard_link();
-        RigidBodyPtr rbb = _ijoints[k]->get_outboard_link();
+        RigidBodyPtr rba = _ejoints[k]->get_inboard_link();
+        RigidBodyPtr rbb = _ejoints[k]->get_outboard_link();
 
         // get transform for the outboard link
         const Matrix4& rbbT = rbb->get_pose();
 
         // get the spatial axes for the joint
-        const vector<SVelocityd>& si = _ijoints[k]->get_spatial_axes(eLink);
+        const vector<SVelocityd>& si = _ejoints[k]->get_spatial_axes(eLink);
 
         // setup components corresponding to rbi
         // transform si from rbb's frame to rbi centered frame
@@ -1869,7 +1861,7 @@ void RCArticulatedBody::set_generalized_acceleration(const VectorNd& a)
 
   if (_floating_base)
   {
-    a.get_sub_vec(num_joint_dof_implicit(), a.size(), base_a);
+    a.get_sub_vec(num_joint_dof_explicit(), a.size(), base_a);
     RigidBodyPtr base = _links.front();
     SAcceld xdd;
     xdd.set_linear(Vector3d(base_a[0], base_a[1], base_a[2]));
@@ -1878,10 +1870,10 @@ void RCArticulatedBody::set_generalized_acceleration(const VectorNd& a)
   }
 
   // set joint accelerations
-  for (unsigned i=0; i< _ijoints.size(); i++)
+  for (unsigned i=0; i< _ejoints.size(); i++)
   {
-    unsigned idx = _ijoints[i]->get_coord_index();
-    a.get_sub_vec(idx, idx+_ijoints[i]->num_dof(), _ijoints[i]->qdd);
+    unsigned idx = _ejoints[i]->get_coord_index();
+    a.get_sub_vec(idx, idx+_ejoints[i]->num_dof(), _ejoints[i]->qdd);
   }
 }
 
@@ -1928,11 +1920,11 @@ VectorNd& RCArticulatedBody::get_generalized_coordinates(DynamicBody::Generalize
   // resize gc
   gc.resize(num_generalized_coordinates(gctype));
 
-  // get the joint positions of all implicit joints
-  for (unsigned i=0; i < _ijoints.size(); i++)
+  // get the joint positions of all explicit joints
+  for (unsigned i=0; i < _ejoints.size(); i++)
   {
-    unsigned idx = _ijoints[i]->get_coord_index();
-    gc.set_sub_vec(idx, _ijoints[i]->q);
+    unsigned idx = _ejoints[i]->get_coord_index();
+    gc.set_sub_vec(idx, _ejoints[i]->q);
   }
 
   // see whether the body has a floating base
@@ -1944,7 +1936,7 @@ VectorNd& RCArticulatedBody::get_generalized_coordinates(DynamicBody::Generalize
   assert(!_links.empty());
   RigidBodyPtr base = _links.front();
   base->get_generalized_coordinates_single(gctype, base_gc);
-  gc.set_sub_vec(num_joint_dof_implicit(), base_gc);
+  gc.set_sub_vec(num_joint_dof_explicit(), base_gc);
     
   return gc;
 }
@@ -1956,10 +1948,10 @@ void RCArticulatedBody::set_generalized_coordinates(DynamicBody::GeneralizedCoor
   assert(num_generalized_coordinates(gctype) == gc.size());
 
   // set the generalized coordinates for the implicit joints
-  for (unsigned i=0; i < _ijoints.size(); i++)
+  for (unsigned i=0; i < _ejoints.size(); i++)
   {
-    unsigned idx = _ijoints[i]->get_coord_index();
-    gc.get_sub_vec(idx, idx+_ijoints[i]->num_dof(), _ijoints[i]->q);
+    unsigned idx = _ejoints[i]->get_coord_index();
+    gc.get_sub_vec(idx, idx+_ejoints[i]->num_dof(), _ejoints[i]->q);
   }
 
   // update base gc, if necessary
@@ -1967,7 +1959,7 @@ void RCArticulatedBody::set_generalized_coordinates(DynamicBody::GeneralizedCoor
   {
     assert(!_links.empty());
     RigidBodyPtr base = _links.front();
-    gc.get_sub_vec(num_joint_dof_implicit(), gc.size(), base_gc);
+    gc.get_sub_vec(num_joint_dof_explicit(), gc.size(), base_gc);
     base->set_generalized_coordinates_single(gctype, base_gc);
   }
 
@@ -1981,11 +1973,11 @@ void RCArticulatedBody::set_generalized_velocity(DynamicBody::GeneralizedCoordin
   SAFESTATIC VectorNd Dx_qd, base_gv;
   assert(num_generalized_coordinates(gctype) == gv.size());
 
-  // set the generalized velocities for the implicit joints
-  for (unsigned i=0; i < _ijoints.size(); i++)
+  // set the generalized velocities for the explicit joints
+  for (unsigned i=0; i < _ejoints.size(); i++)
   {
-    unsigned idx = _ijoints[i]->get_coord_index();
-    gv.get_sub_vec(idx, idx+_ijoints[i]->num_dof(), _ijoints[i]->qd);
+    unsigned idx = _ejoints[i]->get_coord_index();
+    gv.get_sub_vec(idx, idx+_ejoints[i]->num_dof(), _ejoints[i]->qd);
   }
 
   // see whether the body has a floating base  
@@ -1993,19 +1985,19 @@ void RCArticulatedBody::set_generalized_velocity(DynamicBody::GeneralizedCoordin
   {
     assert(!_links.empty());
     RigidBodyPtr base = _links.front();
-    gv.get_sub_vec(num_joint_dof_implicit(), gv.size(), base_gv);
+    gv.get_sub_vec(num_joint_dof_explicit(), gv.size(), base_gv);
     base->set_generalized_velocity(gctype, base_gv);
   }
 
-  // compute explicit constraint velocities
-  if (!_ejoints.empty()) 
+  // compute implicit constraint velocities
+  if (!_ijoints.empty()) 
   {
-    determine_explicit_constraint_movement_jacobian(_Dx);
+    determine_implicit_constraint_movement_jacobian(_Dx);
     _Dx.mult(gv, Dx_qd);
-    for (unsigned i=0; i< _ejoints.size(); i++)
+    for (unsigned i=0; i< _ijoints.size(); i++)
     {
-      unsigned idx = _ejoints[i]->get_coord_index();
-      Dx_qd.get_sub_vec(idx, idx+_ejoints[i]->num_dof(), _ejoints[i]->qd);
+      unsigned idx = _ijoints[i]->get_coord_index();
+      Dx_qd.get_sub_vec(idx, idx+_ijoints[i]->num_dof(), _ijoints[i]->qd);
     }
   }
 
@@ -2022,10 +2014,10 @@ VectorNd& RCArticulatedBody::get_generalized_velocity(DynamicBody::GeneralizedCo
   gv.resize(num_generalized_coordinates(gctype));
 
   // get the joint velocities of all joints
-  for (unsigned i=0; i < _ijoints.size(); i++)
+  for (unsigned i=0; i < _ejoints.size(); i++)
   {
-    unsigned idx = _ijoints[i]->get_coord_index();
-    gv.set_sub_vec(idx, _ijoints[i]->qd);
+    unsigned idx = _ejoints[i]->get_coord_index();
+    gv.set_sub_vec(idx, _ejoints[i]->qd);
   }
 
   // see whether the body has a floating base
@@ -2036,7 +2028,7 @@ VectorNd& RCArticulatedBody::get_generalized_velocity(DynamicBody::GeneralizedCo
   assert(!_links.empty());
   RigidBodyPtr base = _links.front();
   base->get_generalized_velocity_single(gctype, base_gv);
-  gv.set_sub_vec(num_joint_dof_implicit(), base_gv);
+  gv.set_sub_vec(num_joint_dof_explicit(), base_gv);
 
   return gv;
 }
@@ -2050,12 +2042,12 @@ MatrixNd& RCArticulatedBody::get_generalized_inertia(MatrixNd& M)
   return M;
 }
 
-/// Gets the number of degrees of freedom for explicit constraints
-unsigned RCArticulatedBody::num_joint_dof_explicit() const
+/// Gets the number of degrees of freedom for implicit constraints
+unsigned RCArticulatedBody::num_joint_dof_implicit() const
 {
   unsigned ndof = 0;
-  for (unsigned i=0; i< _ejoints.size(); i++)
-    ndof += _ejoints[i]->num_dof();
+  for (unsigned i=0; i< _ijoints.size(); i++)
+    ndof += _ijoints[i]->num_dof();
   return ndof;
 }
 
@@ -2150,7 +2142,7 @@ void RCArticulatedBody::update_event_data(EventProblemData& q)
   determine_contact_jacobians(q, v, M, _Jc, _Dc);
 
   // setup Jx (neqx x ngc) and Dx (nedof x ngc)
-  determine_explicit_constraint_jacobians(q, _Jx, _Dx);
+  determine_implicit_constraint_jacobians(q, _Jx, _Dx);
 
   // setup Jl (nl x ngc)
   const unsigned NGC = v.size();
@@ -2181,7 +2173,7 @@ void RCArticulatedBody::update_event_data(EventProblemData& q)
       JointPtr joint = q.constraint_events[i]->constraint_joint;
 
       // look for a fast skip
-      if (joint->get_constraint_type() != Joint::eImplicit)
+      if (joint->get_constraint_type() != Joint::eExplicit)
         continue;
 
       // determine whether the joint belongs to this body
@@ -2300,7 +2292,7 @@ void RCArticulatedBody::update_velocity(const EventProblemData& q)
 
 /// Gets the generalized forces on this body
 /**
- * \note does not add forces from explicit joint constraints!
+ * \note does not add forces from implicit joint constraints!
  */
 VectorNd& RCArticulatedBody::get_generalized_forces(VectorNd& f) 
 {
@@ -2315,11 +2307,11 @@ VectorNd& RCArticulatedBody::get_generalized_forces(VectorNd& f)
   _crb.calc_generalized_forces(f0, CmQ);
 
   // determine the vector of joint forces
-  for (unsigned i=0; i< _ijoints.size(); i++)
+  for (unsigned i=0; i< _ejoints.size(); i++)
   {
-    unsigned idx = _ijoints[i]->get_coord_index();
-    for (unsigned m=0; m< _ijoints[i]->num_dof(); m++, idx++)
-      f[idx] = _ijoints[i]->force[m] - CmQ[idx]; 
+    unsigned idx = _ejoints[i]->get_coord_index();
+    for (unsigned m=0; m< _ejoints[i]->num_dof(); m++, idx++)
+      f[idx] = _ejoints[i]->force[m] - CmQ[idx]; 
   }
 
   // setup joint space part of f
@@ -2347,18 +2339,18 @@ VectorNd& RCArticulatedBody::convert_to_generalized_force(SingleBodyPtr body, co
   assert(link);
 
   // compute the Jacobian in w's frame
-  J.resize(num_joint_dof_implicit(), SAxisd::zero(w.pose));  
-  for (unsigned i=0; i< _ijoints.size(); i++)
+  J.resize(num_joint_dof_explicit(), SAxisd::zero(w.pose));  
+  for (unsigned i=0; i< _ejoints.size(); i++)
   {
     // if link is not a descent of this joint's inboard, keep looping
-    RigidBodyPtr inboard = _ijoints[i]->get_inboard_link();
+    RigidBodyPtr inboard = _ejoints[i]->get_inboard_link();
     if (!inboard->is_descendant_link(link))
       continue;
 
     // transform the Jacobian
-    const vector<SAxisd>& s = _ijoints[i]->get_spatial_axes();
+    const vector<SAxisd>& s = _ejoints[i]->get_spatial_axes();
     Pose3d::transform(w.pose, s, sprime);
-    for (unsigned j=0, k=_ijoints[i]->get_coord_index(); j < s.size(); j++, k++)
+    for (unsigned j=0, k=_ejoints[i]->get_coord_index(); j < s.size(); j++, k++)
       J[k] = sprime[j];    
   }
 
@@ -2390,7 +2382,7 @@ bool RCArticulatedBody::supports(JointPtr joint, RigidBodyPtr link)
 
   do
   {
-    JointPtr j = l->get_inner_joint_implicit();
+    JointPtr j = l->get_inner_joint_explicit();
     // check for l is base
     if (!j)
       return false;
@@ -2421,12 +2413,12 @@ void RCArticulatedBody::load_from_xml(shared_ptr<const XMLTree> node, map<string
 //  assert(strcasecmp(node->name.c_str(), "RCArticulatedBody") == 0);
 
   // get whether the body has a floating base
-  const XMLAttrib* fb_attr = node->get_attrib("floating-base");
+  XMLAttrib* fb_attr = node->get_attrib("floating-base");
   if (fb_attr)
     _floating_base = fb_attr->get_bool_value();
 
   // read the pointer to the forward dynamics algorithm, if provided
-  const XMLAttrib* fdyn_algo_attr = node->get_attrib("fdyn-algorithm");
+  XMLAttrib* fdyn_algo_attr = node->get_attrib("fdyn-algorithm");
   if (fdyn_algo_attr)
   {
     // get the ID
@@ -2452,7 +2444,7 @@ void RCArticulatedBody::load_from_xml(shared_ptr<const XMLTree> node, map<string
   }
 
   // read the forward dynamics algorithm computation frame, if provided
-  const XMLAttrib* fdyn_frame_attr = node->get_attrib("fdyn-algorithm-frame");
+  XMLAttrib* fdyn_frame_attr = node->get_attrib("fdyn-algorithm-frame");
   if (fdyn_frame_attr)
   {
     // get the computation reference frame as a string
@@ -2468,6 +2460,8 @@ void RCArticulatedBody::load_from_xml(shared_ptr<const XMLTree> node, map<string
       set_computation_frame_type(eGlobal);
     else if (strcasecmp(frame.c_str(), "link") == 0)
       set_computation_frame_type(eLink);
+    else if (strcasecmp(frame.c_str(), "linkinertia") == 0)
+      set_computation_frame_type(eLinkInertia);
     else if (strcasecmp(frame.c_str(), "joint") == 0)
       set_computation_frame_type(eJoint);
     else
@@ -2480,10 +2474,10 @@ void RCArticulatedBody::load_from_xml(shared_ptr<const XMLTree> node, map<string
   }
 
   // get baumgarte paramters
-  const XMLAttrib* balpha_attr = node->get_attrib("baumgarte-alpha");
+  XMLAttrib* balpha_attr = node->get_attrib("baumgarte-alpha");
   if (balpha_attr)
     b_alpha = balpha_attr->get_real_value();
-  const XMLAttrib* bbeta_attr = node->get_attrib("baumgarte-beta");
+  XMLAttrib* bbeta_attr = node->get_attrib("baumgarte-beta");
   if (bbeta_attr)
     b_beta = bbeta_attr->get_real_value();
 
@@ -2491,8 +2485,8 @@ void RCArticulatedBody::load_from_xml(shared_ptr<const XMLTree> node, map<string
   compile();
 
   // transform the body, if desired
-  const XMLAttrib* xlat_attr = node->get_attrib("translate");
-  const XMLAttrib* rotate_attr = node->get_attrib("rotate");
+  XMLAttrib* xlat_attr = node->get_attrib("translate");
+  XMLAttrib* rotate_attr = node->get_attrib("rotate");
 
   if (xlat_attr)
   {
@@ -2537,6 +2531,8 @@ void RCArticulatedBody::save_to_xml(XMLTreePtr node, list<shared_ptr<const Base>
     node->attribs.insert(XMLAttrib("fdyn-algorithm-frame", string("global")));
   else if (get_computation_frame_type() == eLink)
     node->attribs.insert(XMLAttrib("fdyn-algorithm-frame", string("link")));
+  else if (get_computation_frame_type() == eLinkInertia)
+    node->attribs.insert(XMLAttrib("fdyn-algorithm-frame", string("linkinertia")));
   else
   {
     assert(get_computation_frame_type() == eJoint);
