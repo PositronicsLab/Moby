@@ -98,7 +98,7 @@ map<JointPtr, VectorNd> RNEAlgorithm::calc_inv_dyn_fixed_base(RCArticulatedBodyP
     unsigned h = parent->get_index();
 
     // get the joint for this link
-    JointPtr joint(link->get_inner_joint_implicit());
+    JointPtr joint(link->get_inner_joint_explicit());
 
     // get the spatial link velocity
     const SVelocityd& v = link->get_velocity(); 
@@ -217,7 +217,7 @@ map<JointPtr, VectorNd> RNEAlgorithm::calc_inv_dyn_fixed_base(RCArticulatedBodyP
   {
     RigidBodyPtr link = links[j];
     const unsigned i = link->get_index();
-    JointPtr joint(link->get_inner_joint_implicit());
+    JointPtr joint(link->get_inner_joint_explicit());
     const vector<SAxisd>& s = joint->get_spatial_axes();
     VectorNd& Q = actuator_forces[joint]; 
     SForced w = Pose3d::transform(joint->get_pose(), f[i]); 
@@ -363,7 +363,7 @@ void RNEAlgorithm::calc_constraint_forces(RCArticulatedBodyPtr body)
   for (unsigned i=1; i< links.size(); i++)
   {
     RigidBodyPtr link = links[i];
-    JointPtr joint(link->get_inner_joint_implicit());
+    JointPtr joint(link->get_inner_joint_explicit());
     joint->get_spatial_constraints(rftype, s);
     transpose_mult(s, forces[link->get_index()], joint->lambda);
   
@@ -443,7 +443,7 @@ map<JointPtr, VectorNd> RNEAlgorithm::calc_inv_dyn_floating_base(RCArticulatedBo
     
     // get the parent link and inner joint
     RigidBodyPtr parent(link->get_parent_link());
-    JointPtr joint(link->get_inner_joint_implicit());
+    JointPtr joint(link->get_inner_joint_explicit());
     
     // get the index of this link and its parent
     const unsigned i = link->get_index();
@@ -582,7 +582,7 @@ map<JointPtr, VectorNd> RNEAlgorithm::calc_inv_dyn_floating_base(RCArticulatedBo
   for (unsigned j=1; j< links.size(); j++)
   {
     const unsigned i = links[j]->get_index();
-    JointPtr joint(links[j]->get_inner_joint_implicit());
+    JointPtr joint(links[j]->get_inner_joint_explicit());
     const vector<SAxisd>& s = joint->get_spatial_axes();
     VectorNd& Q = actuator_forces[joint];
     SForced w = I[i] * a.front() + Z[i];

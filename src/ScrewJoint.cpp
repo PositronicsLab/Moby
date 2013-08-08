@@ -188,12 +188,12 @@ void ScrewJoint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::str
   assert(strcasecmp(node->name.c_str(), "ScrewJoint") == 0);
 
   // read the pitch
-  const XMLAttrib* pitch_attrib = node->get_attrib("pitch");
+  XMLAttrib* pitch_attrib = node->get_attrib("pitch");
   if (pitch_attrib)
     _pitch = pitch_attrib->get_real_value(); 
 
   // read the global joint axis, if given
-  const XMLAttrib* axis_attrib = node->get_attrib("axis");
+  XMLAttrib* axis_attrib = node->get_attrib("axis");
   if (axis_attrib)
   {
     Vector3d axis;

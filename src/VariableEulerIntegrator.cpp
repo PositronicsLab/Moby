@@ -128,7 +128,7 @@ void VariableEulerIntegrator::load_from_xml(shared_ptr<const XMLTree> node, std:
   VariableStepIntegrator::load_from_xml(node, id_map); 
 
   // determine whether the integrator is semi-implicit, if given
-  const XMLAttrib* symp_attr = node->get_attrib("semi-implicit");
+  XMLAttrib* symp_attr = node->get_attrib("semi-implicit");
   if (symp_attr)
     semi_implicit = symp_attr->get_bool_value();
 }

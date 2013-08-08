@@ -1397,12 +1397,12 @@ void C2ACCD::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, Base
   CollisionDetection::load_from_xml(node, id_map);
 
   // get the epsilon tolerance, if specified
-  const XMLAttrib* eps_tol_attr = node->get_attrib("eps-tolerance");
+  XMLAttrib* eps_tol_attr = node->get_attrib("eps-tolerance");
   if (eps_tol_attr)
     this->eps_tolerance = eps_tol_attr->get_real_value();
 
   // get the alpha tolerance, if specified
-  const XMLAttrib* alpha_tol_attr = node->get_attrib("alpha-tolerance");
+  XMLAttrib* alpha_tol_attr = node->get_attrib("alpha-tolerance");
   if (alpha_tol_attr)
     this->alpha_tolerance = alpha_tol_attr->get_real_value();
 }

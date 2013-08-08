@@ -97,28 +97,28 @@ GaussianMixture::Gauss GaussianMixture::read_gauss_node(shared_ptr<const XMLTree
   Gauss gauss;
 
   // read the height, if given 
-  const XMLAttrib* height = node->get_attrib("height");
+  XMLAttrib* height = node->get_attrib("height");
   if (height)
     gauss.A = height->get_real_value();
   else
     gauss.A = (double) 1.0;
 
   // read the center, if given
-  const XMLAttrib* center = node->get_attrib("center");
+  XMLAttrib* center = node->get_attrib("center");
   if (center)
     center->get_vector_value(x);
   gauss.x0 = x[X];
   gauss.y0 = x[Y];
 
   // read the variance, if given
-  const XMLAttrib* variance = node->get_attrib("variance");
+  XMLAttrib* variance = node->get_attrib("variance");
   if (variance)
     variance->get_vector_value(sigma);
   gauss.sigma_x = sigma[X];
   gauss.sigma_y = sigma[Y];
 
   // read theta, if given
-  const XMLAttrib* theta = node->get_attrib("theta");
+  XMLAttrib* theta = node->get_attrib("theta");
   if (theta)
     gauss.th = theta->get_real_value();
   else

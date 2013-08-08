@@ -93,7 +93,7 @@ shared_ptr<const Pose3d> RigidBody::get_computation_frame() const
       return shared_ptr<const Pose3d>();
     
     case eJoint:
-      return (_abody.expired() || is_base()) ? _F : get_inner_joint_implicit()->get_pose();
+      return (_abody.expired() || is_base()) ? _F : get_inner_joint_explicit()->get_pose();
 
     default:
       assert(false);
@@ -108,7 +108,26 @@ void RigidBody::rotate(const Quatd& q)
   // update the rotation 
   _F->q *= q;
 
-  // TODO: invalidate stuff
+  // invalidate vector quantities
+  _forcei_valid = _forcem_valid = false;
+  _xdi_valid = _xdm_valid = false;
+  _xddi_valid = _xddm_valid = false;
+
+  // invalidate inertias
+  _Ji_valid = false;
+  _Jj_valid = false;
+  _J0_valid = false;
+
+  // invalidate every outer rigid body
+  vector<RigidBodyPtr> outer;
+  BOOST_FOREACH(JointPtr j, _outer_joints)
+  {
+    if (j->get_constraint_type() == Joint::eExplicit)
+      outer.push_back(j->get_outboard_link());
+  }
+  vector<RigidBodyPtr>::const_iterator end = std::unique(outer.begin(), outer.end());
+  for (vector<RigidBodyPtr>::const_iterator i = outer.begin(); i != end; i++)
+    (*i)->invalidate_pose_vectors();
 }
 
 /// Computes the Jacobian
@@ -143,7 +162,26 @@ void RigidBody::translate(const Origin3d& x)
   // update the translation
   _F->x += x;
 
-  // TODO: invalidate stuff
+  // invalidate vector quantities
+  _forcei_valid = _forcem_valid = false;
+  _xdi_valid = _xdm_valid = false;
+  _xddi_valid = _xddm_valid = false;
+
+  // invalidate inertias
+  _Ji_valid = false;
+  _Jj_valid = false;
+  _J0_valid = false;
+
+  // invalidate every outer rigid body
+  vector<RigidBodyPtr> outer;
+  BOOST_FOREACH(JointPtr j, _outer_joints)
+  {
+    if (j->get_constraint_type() == Joint::eExplicit)
+      outer.push_back(j->get_outboard_link());
+  }
+  vector<RigidBodyPtr>::const_iterator end = std::unique(outer.begin(), outer.end());
+  for (vector<RigidBodyPtr>::const_iterator i = outer.begin(); i != end; i++)
+    (*i)->invalidate_pose_vectors();
 }
 
 /// (Re)sets the computation frame
@@ -338,7 +376,7 @@ void RigidBody::set_velocity(const SVelocityd& xd)
     _xdm_valid = true;
     _xdm = xd;
   }
-  else if (!is_base() && xd.pose == get_inner_joint_implicit()->get_pose())
+  else if (!is_base() && xd.pose == get_inner_joint_explicit()->get_pose())
   {
     _xdj_valid = true;
     _xdj = xd;
@@ -365,7 +403,7 @@ void RigidBody::set_accel(const SAcceld& xdd)
     _xddm_valid = true;
     _xddm = xdd;
   }
-  else if (!is_base() && xdd.pose == get_inner_joint_implicit()->get_pose())
+  else if (!is_base() && xdd.pose == get_inner_joint_explicit()->get_pose())
   {
     _xddj_valid = true;
     _xddj = xdd;
@@ -392,7 +430,7 @@ void RigidBody::set_inertia(const SpatialRBInertiad& inertia)
     _J0_valid = true;
     _J0 = inertia;
   }
-  else if (!is_base() && inertia.pose == get_inner_joint_implicit()->get_pose())
+  else if (!is_base() && inertia.pose == get_inner_joint_explicit()->get_pose())
   {
     _Jj_valid = true;
     _Jj = inertia;
@@ -438,7 +476,7 @@ const SForced& RigidBody::sum_forces()
 
     case eJoint:
       if (!_forcej_valid)
-        _forcej = Pose3d::transform((is_base()) ? _F : get_inner_joint_implicit()->get_pose(), _force0);
+        _forcej = Pose3d::transform((is_base()) ? _F : get_inner_joint_explicit()->get_pose(), _force0);
       _forcej_valid = true;
       return _forcej;    
 
@@ -469,7 +507,7 @@ const SVelocityd& RigidBody::get_velocity()
 
     case eJoint:
       if (!_xdj_valid)
-        _xdj = Pose3d::transform((is_base()) ? _F : get_inner_joint_implicit()->get_pose(), _xd0);
+        _xdj = Pose3d::transform((is_base()) ? _F : get_inner_joint_explicit()->get_pose(), _xd0);
       _xdj_valid = true;
       return _xdj;    
 
@@ -500,7 +538,7 @@ const SpatialRBInertiad& RigidBody::get_inertia()
 
     case eJoint:
       if (!_Jj_valid)
-        _Jj = Pose3d::transform((is_base()) ? _F : get_inner_joint_implicit()->get_pose(), _Jm);
+        _Jj = Pose3d::transform((is_base()) ? _F : get_inner_joint_explicit()->get_pose(), _Jm);
       _Jj_valid = true;
       return _Jj;    
 
@@ -531,7 +569,7 @@ const SAcceld& RigidBody::get_accel()
 
     case eJoint:
       if (!_xddj_valid)
-        _xddj = Pose3d::transform((is_base()) ? _F : get_inner_joint_implicit()->get_pose(), _xdd0);
+        _xddj = Pose3d::transform((is_base()) ? _F : get_inner_joint_explicit()->get_pose(), _xdd0);
       _xddj_valid = true;
       return _xddj;    
 
@@ -583,7 +621,7 @@ void RigidBody::invalidate_pose_vectors()
   vector<RigidBodyPtr> outer;
   BOOST_FOREACH(JointPtr j, _outer_joints)
   {
-    if (j->get_constraint_type() == Joint::eImplicit)
+    if (j->get_constraint_type() == Joint::eExplicit)
       outer.push_back(j->get_outboard_link());
   }
   vector<RigidBodyPtr>::const_iterator end = std::unique(outer.begin(), outer.end());
@@ -625,7 +663,7 @@ void RigidBody::add_force(const SForced& w)
     // invalidate the remaining forces 
     _forcei_valid = _forcej_valid = false; 
   }
-  else if (!is_base() && w.pose == get_inner_joint_implicit()->get_pose())
+  else if (!is_base() && w.pose == get_inner_joint_explicit()->get_pose())
   {
     if (_forcej_valid)
       _forcej += w;
@@ -666,17 +704,17 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
   // ***********************************************************************
  
   // read the viscous dampening coefficient, if provided
-  const XMLAttrib* viscous_coeff_attr = node->get_attrib("viscous-dampening-coeff");
+  XMLAttrib* viscous_coeff_attr = node->get_attrib("viscous-dampening-coeff");
   if (viscous_coeff_attr)
     viscous_coeff_attr->get_vector_value(viscous_coeff);
  
   // read whether the body is enabled, if provided
-  const XMLAttrib* enabled_attr = node->get_attrib("enabled");
+  XMLAttrib* enabled_attr = node->get_attrib("enabled");
   if (enabled_attr)
     _enabled = enabled_attr->get_bool_value();
 
   // read the mass, if provided
-  const XMLAttrib* mass_attr = node->get_attrib("mass");
+  XMLAttrib* mass_attr = node->get_attrib("mass");
   if (mass_attr)
   {
     SpatialRBInertiad J = Pose3d::transform(_jF, get_inertia());
@@ -685,7 +723,7 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
   }
 
   // read the inertia matrix, if provided
-  const XMLAttrib* inertia_attr = node->get_attrib("inertia");
+  XMLAttrib* inertia_attr = node->get_attrib("inertia");
   if (inertia_attr)
   {
     SpatialRBInertiad J = Pose3d::transform(_jF, get_inertia());
@@ -694,9 +732,9 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
   }
 
   // read the position and orientation, if provided
-  const XMLAttrib* position_attr = node->get_attrib("position");
-  const XMLAttrib* rpy_attr = node->get_attrib("rpy");
-  const XMLAttrib* quat_attr = node->get_attrib("quat");
+  XMLAttrib* position_attr = node->get_attrib("position");
+  XMLAttrib* rpy_attr = node->get_attrib("rpy");
+  XMLAttrib* quat_attr = node->get_attrib("quat");
   if (position_attr || rpy_attr || quat_attr)
   {
     Pose3d T;
@@ -710,9 +748,9 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
   }
 
   // read the inertial frame here...
-  const XMLAttrib* com_attr = node->get_attrib("inertial-relative-com");
-  const XMLAttrib* J_rpy_attr = node->get_attrib("inertial-relative-rpy");
-  const XMLAttrib* J_quat_attr = node->get_attrib("inertial-relative-quat");
+  XMLAttrib* com_attr = node->get_attrib("inertial-relative-com");
+  XMLAttrib* J_rpy_attr = node->get_attrib("inertial-relative-rpy");
+  XMLAttrib* J_quat_attr = node->get_attrib("inertial-relative-quat");
   if (com_attr || J_rpy_attr || J_quat_attr)
   {
     // reset the inertial frame
@@ -758,13 +796,13 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
   if (!ifp_nodes.empty())
   {
     // set inertia to zero initially 
-    SpatialRBInertiad J;
+    SpatialRBInertiad J(_jF);
 
     // loop over all InertiaFromPrimitive nodes
     for (list<shared_ptr<const XMLTree> >::const_iterator i = ifp_nodes.begin(); i != ifp_nodes.end(); i++)
     {
       // make sure the child node has the ID
-      const XMLAttrib* pid_attr = (*i)->get_attrib("primitive-id");
+      XMLAttrib* pid_attr = (*i)->get_attrib("primitive-id");
       if (!pid_attr)
       {
         cerr << "RigidBody::load_from_xml() - InertiaFromPrimitive node "; 
@@ -788,24 +826,34 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
       // get the primitive
       PrimitivePtr primitive = dynamic_pointer_cast<Primitive>(id_iter->second);
 
-      // get the inertia and inertial frame from the primitive
-      const SpatialRBInertiad& Jx = primitive->get_inertia();
-      shared_ptr<const Pose3d> Fx = primitive->get_inertial_pose();
+      // get the inertia from the primitive
+      SpatialRBInertiad Jx = primitive->get_inertia();
 
-      // set the relative transformation initially to identity for this primitive
+      // convert the primitive's inertial frame
+      // we want to treat the primitive's inertial frame as relative to the
+      // rigid body's inertial frame 
+      shared_ptr<const Pose3d> Fx = primitive->get_inertial_pose();
+      shared_ptr<Pose3d> Fxx(new Pose3d(*Fx));
+      Fxx->update_relative_pose(GLOBAL);  // account for relative pose chain
+
+      // now make the relative pose for Fxx be the inertial frame for this
+      Fxx->rpose = _jF;
+
+      // set the relative pose initially to identity for this primitive
       shared_ptr<Pose3d> rTR(new Pose3d); 
 
       // read the relative transformation, if specified
-      const XMLAttrib* rel_origin_attr = (*i)->get_attrib("relative-origin");
-      const XMLAttrib* rel_rpy_attr = (*i)->get_attrib("relative-rpy");
+      XMLAttrib* rel_origin_attr = (*i)->get_attrib("relative-origin");
+      XMLAttrib* rel_rpy_attr = (*i)->get_attrib("relative-rpy");
       if (rel_origin_attr)
         rTR->x = rel_origin_attr->get_origin_value();
       if (rel_rpy_attr)
         rTR->q = rel_rpy_attr->get_rpy_value();
-      rTR->rpose = Fx;
+      rTR->rpose = Fxx;
+      Jx.pose = rTR;
 
       // transform the inertia and update the inertia for this
-      J += Pose3d::transform(GLOBAL, Jx); 
+      J += Pose3d::transform(_jF, Jx); 
     }
 
     // set the mass and inertia of the RigidBody additively
@@ -813,8 +861,8 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
   }
 
   // read the linear and/or velocity of the body, if provided
-  const XMLAttrib* lvel_attr = node->get_attrib("linear-velocity");
-  const XMLAttrib* avel_attr = node->get_attrib("angular-velocity");
+  XMLAttrib* lvel_attr = node->get_attrib("linear-velocity");
+  XMLAttrib* avel_attr = node->get_attrib("angular-velocity");
   if (lvel_attr || avel_attr)
   {
     Vector3d lv = Vector3d::zero(), av = Vector3d::zero();
@@ -832,7 +880,7 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
 
 /*
   // read in the vector from the inner joint to the com in link coordinates
-  const XMLAttrib* d_attr = node->get_attrib("inner-joint-to-com-vector-link");
+  XMLAttrib* d_attr = node->get_attrib("inner-joint-to-com-vector-link");
   if (d_attr)
   {
     Vector3 d;
@@ -841,7 +889,7 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
   }
 */
   // read the articulated body, if given
-  const XMLAttrib* ab_attr = node->get_attrib("articulated-body-id");
+  XMLAttrib* ab_attr = node->get_attrib("articulated-body-id");
   if (ab_attr)
   {
     // get the ID
@@ -1081,7 +1129,7 @@ void RigidBody::apply_impulse(const SMomentumd& w)
         _xdm += dxd;
       _xdj_valid = _xdi_valid = false;
     } 
-    else if (!is_base() && dxd.pose == get_inner_joint_implicit()->get_pose())
+    else if (!is_base() && dxd.pose == get_inner_joint_explicit()->get_pose())
     {
       if (_xdj_valid)
         _xdj += dxd;
@@ -1695,7 +1743,7 @@ double RigidBody::calc_kinetic_energy()
   const SVelocityd& xd = get_velocity();
   const SpatialRBInertiad& J = get_inertia();
 
-  return xd.dot(J * xd) * 0.5;
+ return xd.dot(J * xd) * 0.5;
 }
 
 /// Gets the number of generalized coordinates
@@ -1739,19 +1787,19 @@ RigidBodyPtr RigidBody::get_parent_link() const
   return RigidBodyPtr(inner->get_inboard_link());
 }
 
-/// Gets the implicit inner joint of this link; returns NULL if there is no implicit inner joint
+/// Gets the explicit inner joint of this link; returns NULL if there is no explicit inner joint
 /**
- * Throws an exception if this link has multiple implicit inner joints
+ * Throws an exception if this link has multiple explicit inner joints
  */
-JointPtr RigidBody::get_inner_joint_implicit() const
+JointPtr RigidBody::get_inner_joint_explicit() const
 {
   JointPtr ij;
   BOOST_FOREACH(JointPtr j, _inner_joints)
   {
-    if (j->get_constraint_type() == Joint::eImplicit)
+    if (j->get_constraint_type() == Joint::eExplicit)
     {
       if (ij)
-        throw std::runtime_error("Multiple implicit joints detected for a single link!"); 
+        throw std::runtime_error("Multiple explicit joints detected for a single link!"); 
       else
         ij = j;
     }
@@ -2155,12 +2203,12 @@ bool RigidBody::is_ground() const
   RCArticulatedBodyPtr rcab = dynamic_pointer_cast<RCArticulatedBody>(ab);
   if (rcab)
   {
-    // check whether inner implicit joints are present (if none are present, 
+    // check whether inner explicit joints are present (if none are present, 
     // this is a base link)
     bool is_base = true;
     BOOST_FOREACH(JointPtr j, _inner_joints)
     {
-      if (j->get_constraint_type() == Joint::eImplicit)
+      if (j->get_constraint_type() == Joint::eExplicit)
       {
         is_base = false;
         break;
@@ -2183,14 +2231,14 @@ bool RigidBody::is_base() const
   if (_abody.expired())
     return true;
 
-  // check whether no implicit joints are present
+  // check whether no explicit joints are present
   BOOST_FOREACH(JointPtr j, _inner_joints)
   {
-    if (j->get_constraint_type() == Joint::eImplicit)
+    if (j->get_constraint_type() == Joint::eExplicit)
       return false;
   }
 
-  // no implicit joints... it's the base
+  // no explicit joints... it's the base
   return true;
 }
 

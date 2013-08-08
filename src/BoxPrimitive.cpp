@@ -313,9 +313,9 @@ void BoxPrimitive::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::s
   Primitive::load_from_xml(node, id_map);
 
   // get the length attributes, if specified
-  const XMLAttrib* xlen_attr = node->get_attrib("xlen");
-  const XMLAttrib* ylen_attr = node->get_attrib("ylen");
-  const XMLAttrib* zlen_attr = node->get_attrib("zlen");
+  XMLAttrib* xlen_attr = node->get_attrib("xlen");
+  XMLAttrib* ylen_attr = node->get_attrib("ylen");
+  XMLAttrib* zlen_attr = node->get_attrib("zlen");
 
   // set lengths to zero initially
   double xlen = 0, ylen = 0, zlen = 0;
@@ -326,7 +326,7 @@ void BoxPrimitive::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::s
   if (zlen_attr) zlen = zlen_attr->get_real_value();
 
   // read in the edge sample length
-  const XMLAttrib* esl_attr = node->get_attrib("edge-sample-length");
+  XMLAttrib* esl_attr = node->get_attrib("edge-sample-length");
   if (esl_attr)
     set_edge_sample_length(esl_attr->get_real_value());
 

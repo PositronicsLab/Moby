@@ -224,22 +224,22 @@ void CylinderPrimitive::load_from_xml(shared_ptr<const XMLTree> node, std::map<s
   Primitive::load_from_xml(node, id_map);
 
   // read in the radius, if specified
-  const XMLAttrib* radius_attr = node->get_attrib("radius");
+  XMLAttrib* radius_attr = node->get_attrib("radius");
   if (radius_attr)
     _radius = radius_attr->get_real_value();
 
   // read in the height, if specified
-  const XMLAttrib* height_attr = node->get_attrib("height");
+  XMLAttrib* height_attr = node->get_attrib("height");
   if (height_attr)
     _height = height_attr->get_real_value();
 
   // read in the number of circle points, if specified
-  const XMLAttrib* npoints_attr = node->get_attrib("num-circle-points");
+  XMLAttrib* npoints_attr = node->get_attrib("num-circle-points");
   if (npoints_attr)
     _npoints = npoints_attr->get_unsigned_value();
 
   // read in the number of rings of the cylinder, if specified
-  const XMLAttrib* nrings_attr = node->get_attrib("num-rings");
+  XMLAttrib* nrings_attr = node->get_attrib("num-rings");
   if (nrings_attr)
     _nrings = nrings_attr->get_unsigned_value();
 

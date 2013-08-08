@@ -317,9 +317,9 @@ void process_camera_tag(shared_ptr<const XMLTree> node)
     return;
 
   // read all attributes
-  const XMLAttrib* target_attr = node->get_attrib("target");
-  const XMLAttrib* position_attr = node->get_attrib("position");
-  const XMLAttrib* up_attr = node->get_attrib("up");
+  XMLAttrib* target_attr = node->get_attrib("target");
+  XMLAttrib* position_attr = node->get_attrib("position");
+  XMLAttrib* up_attr = node->get_attrib("up");
   if (!target_attr || !position_attr || !up_attr)
     return;
 
@@ -355,10 +355,10 @@ void process_window_tag(shared_ptr<const XMLTree> node)
     return;
 
   // read window location
-  const XMLAttrib* loc_attr = node->get_attrib("location");
+  XMLAttrib* loc_attr = node->get_attrib("location");
 
   // read window size
-  const XMLAttrib* size_attr = node->get_attrib("size");
+  XMLAttrib* size_attr = node->get_attrib("size");
 
   // get the actual values
   Vector2d loc(0,0), size(640,480);

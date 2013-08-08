@@ -200,6 +200,9 @@ void Joint::set_inboard_link(RigidBodyPtr inboard)
   if (!inboard)
     return;
 
+  // add this joint to the outer joints
+  inboard->_outer_joints.insert(get_this());
+
   // setup F's pose relative to the inboard
   _F->rpose = inboard->get_pose();
 
@@ -233,6 +236,9 @@ void Joint::set_outboard_link(RigidBodyPtr outboard)
   _outboard_link = outboard;
   if (!outboard)
     return;
+
+  // add this joint to the outer joints
+  outboard->_inner_joints.insert(get_this());
 
   // get the outboard pose
   shared_ptr<Pose3d> outboardF = outboard->_F; 
@@ -473,59 +479,56 @@ void Joint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, 
   Visualizable::load_from_xml(node, id_map);
 
   // read the lower limits, if given
-  const XMLAttrib* lolimit_attr = node->get_attrib("lower-limits");
+  XMLAttrib* lolimit_attr = node->get_attrib("lower-limits");
   if (lolimit_attr)
     lolimit_attr->get_vector_value(lolimit);
 
   // read the upper limits, if given
-  const XMLAttrib* hilimit_attr = node->get_attrib("upper-limits");
+  XMLAttrib* hilimit_attr = node->get_attrib("upper-limits");
   if (hilimit_attr)
     hilimit_attr->get_vector_value(hilimit);
 
   // read the maximum actuator force, if given
-  const XMLAttrib* maxforce_attr = node->get_attrib("max-forces");
+  XMLAttrib* maxforce_attr = node->get_attrib("max-forces");
   if (maxforce_attr)
     maxforce_attr->get_vector_value(maxforce);
 
   // read the joint positions, if given
-  const XMLAttrib* q_attr = node->get_attrib("q");
+  XMLAttrib* q_attr = node->get_attrib("q");
   if (q_attr)
     q_attr->get_vector_value(q);
   else
     q.set_zero(num_dof());
 
   // read the joint velocities, if given
-  const XMLAttrib* qd_attr = node->get_attrib("qd");
+  XMLAttrib* qd_attr = node->get_attrib("qd");
   if (qd_attr)
     qd_attr->get_vector_value(qd);
 
   // read the joint positions, if given
-  const XMLAttrib* q_init_attr = node->get_attrib("q-tare");
+  XMLAttrib* q_init_attr = node->get_attrib("q-tare");
   if (q_init_attr)
-  {
-    _determine_q_tare = false;
     q_init_attr->get_vector_value(_q_tare);
-  }
   else
-    _determine_q_tare = true;
+    _q_tare.set_zero(num_dof());
 
   // read the Coulomb friction coefficient, if given
-  const XMLAttrib* fc_attr = node->get_attrib("coulomb-friction-coeff");
+  XMLAttrib* fc_attr = node->get_attrib("coulomb-friction-coeff");
   if (fc_attr)
     mu_fc = fc_attr->get_real_value();
 
   // read the viscous friction coefficient, if given
-  const XMLAttrib* fv_attr = node->get_attrib("viscous-friction-coeff");
+  XMLAttrib* fv_attr = node->get_attrib("viscous-friction-coeff");
   if (fv_attr)
     mu_fv = fv_attr->get_real_value();
 
   // read the restitution coefficient, if given
-  const XMLAttrib* resti_attr = node->get_attrib("restitution-coeff");
+  XMLAttrib* resti_attr = node->get_attrib("restitution-coeff");
   if (resti_attr)
     limit_restitution = resti_attr->get_real_value();
 
   // read the articulated body, if given
-  const XMLAttrib* ab_attr = node->get_attrib("articulated-body-id");
+  XMLAttrib* ab_attr = node->get_attrib("articulated-body-id");
   if (ab_attr)
   {
     // get the ID
@@ -548,7 +551,7 @@ void Joint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, 
   }
 
   // read the inboard link id, if given
-  const XMLAttrib* inboard_attr = node->get_attrib("inboard-link-id");
+  XMLAttrib* inboard_attr = node->get_attrib("inboard-link-id");
   if (inboard_attr)
   {
     // get the ID of the inboard link
@@ -575,7 +578,7 @@ void Joint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, 
   }
 
   // read the outboard link id, if given
-  const XMLAttrib* outboard_attr = node->get_attrib("outboard-link-id");
+  XMLAttrib* outboard_attr = node->get_attrib("outboard-link-id");
   if (outboard_attr)
   {
     // get the ID of the outboard link
@@ -602,7 +605,7 @@ void Joint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, 
   }
 
   // get the global position of the joint, if possible
-  const XMLAttrib* pos_attr = node->get_attrib("location");
+  XMLAttrib* pos_attr = node->get_attrib("location");
   if (pos_attr)
   {
     // get the position of the joint
@@ -621,21 +624,25 @@ void Joint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, 
     RigidBodyPtr inboard(get_inboard_link());
     RigidBodyPtr outboard(get_outboard_link());
 
+    // get the poses for the two bodies
+    shared_ptr<const Pose3d> Pi = inboard->get_pose();
+    shared_ptr<const Pose3d> Po = outboard->get_pose();
+
     // get the transforms for the two bodies
-    shared_ptr<const Pose3d> Ti = inboard->get_pose();
-    shared_ptr<const Pose3d> To = outboard->get_pose();
+    Transform3d wTi = Pose3d::calc_relative_pose(Pi, GLOBAL);
+    Transform3d wTo = Pose3d::calc_relative_pose(Po, GLOBAL);
 
     // determine the vector from the inboard link to the joint (link coords)
-    Point3d inboard_to_joint = Ti->inverse_transform(position);
+    Point3d inboard_to_joint = wTi.inverse_transform(position);
 
     // determine the vector from the joint to the outboard link (link coords)
-    Point3d joint_to_outboard_lf = -To->inverse_transform(position);
+    Point3d joint_to_outboard_lf = -wTo.inverse_transform(position);
 
     // NOTE: the calculation immediately below assumes that the induced
     //       transform (i.e., the transform that the joint applies) is initally
     //       identity
     // compute the vector from the joint to the outboard link in joint frame
-    Vector3d joint_to_outboard_jf = (Ti->inverse() * *To).x - inboard_to_joint;    
+    Vector3d joint_to_outboard_jf = (wTi.inverse() * wTo).x - inboard_to_joint;    
     // add/replace this as an inner joint
     inboard->add_outer_joint(get_this());
     outboard->add_inner_joint(get_this());

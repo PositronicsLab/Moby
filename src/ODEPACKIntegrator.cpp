@@ -158,7 +158,7 @@ void ODEPACKIntegrator::load_from_xml(shared_ptr<const XMLTree> node, std::map<s
   VariableStepIntegrator::load_from_xml(node, id_map); 
 
   // get whether the stiff integrator should be used
-  const XMLAttrib* stiff_attrib = node->get_attrib("stiff");
+  XMLAttrib* stiff_attrib = node->get_attrib("stiff");
   if (stiff_attrib)
     use_stiff_integrator = stiff_attrib->get_bool_value();
 }

@@ -183,7 +183,7 @@ void Primitive::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::stri
   Base::load_from_xml(node, id_map);
 
   // read in the mass, if specified
-  const XMLAttrib* mass_attr = node->get_attrib("mass");
+  XMLAttrib* mass_attr = node->get_attrib("mass");
   if (mass_attr)
   {
     if (mass_attr->get_real_value() < 0.0)
@@ -192,7 +192,7 @@ void Primitive::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::stri
   }
 
   // read in the density if specified
-  const XMLAttrib* density_attr = node->get_attrib("density");
+  XMLAttrib* density_attr = node->get_attrib("density");
   if (density_attr)
   {
     _density = shared_ptr<double>(new double);
@@ -202,15 +202,15 @@ void Primitive::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::stri
   }
 
   // read the intersection tolerance
-  const XMLAttrib* itol_attr = node->get_attrib("intersection-tolerance");
+  XMLAttrib* itol_attr = node->get_attrib("intersection-tolerance");
   if (itol_attr)
     set_intersection_tolerance(itol_attr->get_real_value());
 
   // read in transformation, if specified
   Pose3d F;
-  const XMLAttrib* xlat_attr = node->get_attrib("position");
-  const XMLAttrib* rpy_attr = node->get_attrib("rpy");
-  const XMLAttrib* quat_attr = node->get_attrib("quat");
+  XMLAttrib* xlat_attr = node->get_attrib("position");
+  XMLAttrib* rpy_attr = node->get_attrib("rpy");
+  XMLAttrib* quat_attr = node->get_attrib("quat");
   if (xlat_attr && rpy_attr)
   {
     F.x = xlat_attr->get_origin_value();

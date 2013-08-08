@@ -16,17 +16,17 @@ void VariableStepIntegrator::load_from_xml(shared_ptr<const XMLTree> node, std::
   Integrator::load_from_xml(node, id_map); 
  
   // get the absolute error tolerance
-  const XMLAttrib* aerr_attrib = node->get_attrib("abs-err-tol");
+  XMLAttrib* aerr_attrib = node->get_attrib("abs-err-tol");
   if (aerr_attrib)
     aerr_tolerance = aerr_attrib->get_real_value();
 
   // get the relative error tolerance
-  const XMLAttrib* rerr_attrib = node->get_attrib("rel-err-tol");
+  XMLAttrib* rerr_attrib = node->get_attrib("rel-err-tol");
   if (rerr_attrib)
     rerr_tolerance = rerr_attrib->get_real_value();
 
   // get the minimum step size
-  const XMLAttrib* mss_attrib = node->get_attrib("min-step-size");
+  XMLAttrib* mss_attrib = node->get_attrib("min-step-size");
   if (mss_attrib)
     min_step_size = mss_attrib->get_real_value();
 }

@@ -52,7 +52,7 @@ void FSABAlgorithm::calc_inverse_generalized_inertia(DynamicBody::GeneralizedCoo
   vector<SForced> sTI(links.size());
   for (unsigned i=1; i< links.size(); i++)
   {
-    JointPtr joint = links[i]->get_inner_joint_implicit();
+    JointPtr joint = links[i]->get_inner_joint_explicit();
     if (links[i]->get_computation_type() == eJoint)
     {
       const vector<SAxisd>& s = joint->get_spatial_axes();
@@ -107,7 +107,7 @@ void FSABAlgorithm::apply_generalized_impulse(unsigned index, const vector<vecto
   // get the body as well as sets of links and joints
   RCArticulatedBodyPtr body(_body);
   const vector<RigidBodyPtr>& links = body->get_links();
-  const vector<JointPtr>& joints = body->get_implicit_joints();
+  const vector<JointPtr>& joints = body->get_explicit_joints();
 
   // determine the number of generalized coordinates for the base
   const unsigned N_BASE_GC = (body->is_floating_base()) ? SPATIAL_DIM : 0;
@@ -159,7 +159,7 @@ void FSABAlgorithm::apply_generalized_impulse(unsigned index, const vector<vecto
     unsigned h = parent->get_index();
 
     // get the inner joint and the spatial axis
-    JointPtr joint(link->get_inner_joint_implicit());
+    JointPtr joint(link->get_inner_joint_explicit());
     const vector<SAxisd>& s = joint->get_spatial_axes();
 
     // get I, Y, and mu
@@ -258,7 +258,7 @@ void FSABAlgorithm::apply_generalized_impulse(unsigned index, const vector<vecto
     unsigned h = parent->get_index(); 
     
     // get the inboard joint
-    JointPtr joint(link->get_inner_joint_implicit());
+    JointPtr joint(link->get_inner_joint_explicit());
 
     // check the starting index of this joint
     const unsigned CSTART = joint->get_coord_index();
@@ -343,7 +343,7 @@ void FSABAlgorithm::apply_generalized_impulse(const VectorNd& gj)
 
   // get the sets of links and joints
   const vector<RigidBodyPtr>& links = body->get_links();
-  const vector<JointPtr>& joints = body->get_implicit_joints();
+  const vector<JointPtr>& joints = body->get_explicit_joints();
 
   // init mu and Y 
   _mu.resize(links.size());
@@ -394,7 +394,7 @@ void FSABAlgorithm::apply_generalized_impulse(const VectorNd& gj)
     unsigned h = parent->get_index();
 
     // get the inner joint and the spatial axis
-    JointPtr joint(link->get_inner_joint_implicit());
+    JointPtr joint(link->get_inner_joint_explicit());
     const vector<SAxisd>& s = joint->get_spatial_axes();
 
     // get I
@@ -470,14 +470,11 @@ void FSABAlgorithm::apply_generalized_impulse(const VectorNd& gj)
     _dv.front() = _I.front().inverse_mult(-_Y.front());
 
     // update the base velocity
-    _v.front() += _dv.front();
+    base->set_velocity(base->get_velocity() + _dv.front());
 
     FILE_LOG(LOG_DYNAMICS) << "base is floating..." << endl;
     FILE_LOG(LOG_DYNAMICS) << "  base transform: " << endl << base->get_pose();
     FILE_LOG(LOG_DYNAMICS) << "  current base velocity: " << base->get_velocity() << endl;
-
-    // set the base linear and angular velocities
-    base->set_velocity(_v.front());
 
     FILE_LOG(LOG_DYNAMICS) << "  impulse on the base: " << _Y.front() << endl;
     FILE_LOG(LOG_DYNAMICS) << "  new base velocity: " << base->get_velocity() << endl;
@@ -500,7 +497,7 @@ void FSABAlgorithm::apply_generalized_impulse(const VectorNd& gj)
     unsigned h = parent->get_index(); 
     
     // get the inboard joint
-    JointPtr joint(link->get_inner_joint_implicit());
+    JointPtr joint(link->get_inner_joint_explicit());
     
     // get spatial axes of the inner joint for link i
     const vector<SAxisd>& s = joint->get_spatial_axes();
@@ -528,12 +525,11 @@ void FSABAlgorithm::apply_generalized_impulse(const VectorNd& gj)
     joint->qd += _qd_delta;
 
     // update the link velocity
-    _v[i] += _dv[i];
-    link->set_velocity(_v[i]);
+    link->set_velocity(link->get_velocity() + _dv[i]);
  
     FILE_LOG(LOG_DYNAMICS) << "    -- cumulative transformed impulse on this link: " << _Y[i] << endl;
     FILE_LOG(LOG_DYNAMICS) << "    -- delta qd: " << _qd_delta << "  qd: " << joint->qd << endl;
-    FILE_LOG(LOG_DYNAMICS) << "    -- delta v: " << _dv[i] << "  v: " << _v[i] << endl;
+    FILE_LOG(LOG_DYNAMICS) << "    -- delta v: " << _dv[i] << endl;
    
     // place all children on the link queue
     push_children(link, link_queue);
@@ -565,7 +561,7 @@ void FSABAlgorithm::calc_spatial_coriolis_vectors(RCArticulatedBodyPtr body)
     unsigned idx = link->get_index();
 
     // get the link's joint
-    JointPtr joint(link->get_inner_joint_implicit());
+    JointPtr joint(link->get_inner_joint_explicit());
 
     // get the spatial axis and transform it
     const vector<SAxisd>& s = joint->get_spatial_axes();
@@ -659,7 +655,7 @@ void FSABAlgorithm::calc_spatial_zero_accelerations(RCArticulatedBodyPtr body)
     const unsigned h = parent->get_index();
 
     // get the inner joint and the spatial axis
-    JointPtr joint(link->get_inner_joint_implicit());
+    JointPtr joint(link->get_inner_joint_explicit());
     const vector<SAxisd>& s = joint->get_spatial_axes();
     Pose3d::transform(link->get_computation_frame(), s, sprime);
 
@@ -786,7 +782,7 @@ FILE_LOG(LOG_DYNAMICS) << "added link " << parent->id << " to queue for processi
     const unsigned h = parent->get_index();
 
     // get the inner joint and the spatial axis
-    JointPtr joint(link->get_inner_joint_implicit());
+    JointPtr joint(link->get_inner_joint_explicit());
     const vector<SAxisd>& s = joint->get_spatial_axes();
     Pose3d::transform(_I[i].pose, s, sprime);
 
@@ -844,9 +840,6 @@ void FSABAlgorithm::calc_spatial_accelerations(RCArticulatedBodyPtr body)
   // get the links
   const vector<RigidBodyPtr>& links = body->get_links();
 
-  // clear spatial values for all links
-  _a.resize(links.size());
-
   // get the base link
   RigidBodyPtr base = links.front();
 
@@ -856,14 +849,14 @@ void FSABAlgorithm::calc_spatial_accelerations(RCArticulatedBodyPtr body)
   // set spatial acceleration of base
   if (!body->is_floating_base())
   {
-    _a.front().set_zero(); 
+    base->set_accel(SAcceld::zero(base->get_computation_frame()));
     FILE_LOG(LOG_DYNAMICS) << "  negated base Z: " << (-_Z.front()) << endl;
-    FILE_LOG(LOG_DYNAMICS) << "  base acceleration: " << _a.front() << endl;
+    FILE_LOG(LOG_DYNAMICS) << "  base acceleration: (zero)" << endl;
   }
   else
   {
-    _a.front() = _I.front().inverse_mult(-_Z.front());
-    base->set_accel(_a.front());
+    SAcceld a0 = _I.front().inverse_mult(-_Z.front());
+    base->set_accel(a0);
   }
   
   // *****************************************************************
@@ -886,13 +879,13 @@ void FSABAlgorithm::calc_spatial_accelerations(RCArticulatedBodyPtr body)
       
     // get the parent link and the inner joint
     RigidBodyPtr parent(link->get_parent_link());
-    JointPtr joint(link->get_inner_joint_implicit());
+    JointPtr joint(link->get_inner_joint_explicit());
 
     // get the parent index
     const unsigned h = parent->get_index();
     
     // compute transformed parent link acceleration
-    SAcceld ah = Pose3d::transform(link->get_computation_frame(), _a[h]); 
+    SAcceld ah = Pose3d::transform(link->get_computation_frame(), parent->get_accel()); 
 
     // get the spatial axis and its derivative
     const vector<SAxisd>& s = joint->get_spatial_axes();
@@ -914,22 +907,26 @@ void FSABAlgorithm::calc_spatial_accelerations(RCArticulatedBodyPtr body)
     solve_sIs(i, result, joint->qdd);
     
     // compute link i spatial acceleration
-    _a[i] = ah + c + SAcceld(mult(sdotprime, joint->qd) + mult(sprime, joint->qdd));
-    link->set_accel(_a[i]);
+    SAcceld ai;
+    if (sdotprime.empty())
+      ai = ah + c + SAcceld(mult(sprime, joint->qdd));
+    else
+      ai = ah + c + SAcceld(mult(sdotprime, joint->qd) + mult(sprime, joint->qdd));
+    link->set_accel(ai);
 
     FILE_LOG(LOG_DYNAMICS) << endl << endl << "  *** Forward recursion processing link " << link->id << endl;  
     FILE_LOG(LOG_DYNAMICS) << "    a[h]: " << ah << endl;
     FILE_LOG(LOG_DYNAMICS) << "    qm(subexp): " << mu << endl;
     FILE_LOG(LOG_DYNAMICS) << "    qdd: " << joint->qdd << endl;
-    FILE_LOG(LOG_DYNAMICS) << "    spatial acceleration: " << _a[i] << endl;
+    FILE_LOG(LOG_DYNAMICS) << "    spatial acceleration: " << link->get_accel() << endl;
   }
   
   FILE_LOG(LOG_DYNAMICS) << "    joint accel: ";
   for (unsigned i=1; i< links.size(); i++)
-    FILE_LOG(LOG_DYNAMICS) << JointPtr(links[i]->get_inner_joint_implicit())->qdd << " ";
+    FILE_LOG(LOG_DYNAMICS) << JointPtr(links[i]->get_inner_joint_explicit())->qdd << " ";
   FILE_LOG(LOG_DYNAMICS) << "joint q: ";
   for (unsigned i=1; i< links.size(); i++)
-    FILE_LOG(LOG_DYNAMICS) << JointPtr(links[i]->get_inner_joint_implicit())->q << " ";
+    FILE_LOG(LOG_DYNAMICS) << JointPtr(links[i]->get_inner_joint_explicit())->q << " ";
   FILE_LOG(LOG_DYNAMICS) << endl;
   FILE_LOG(LOG_DYNAMICS) << "calc_joint_accels() exited" << endl;
 
@@ -937,8 +934,8 @@ void FSABAlgorithm::calc_spatial_accelerations(RCArticulatedBodyPtr body)
   for (unsigned i=0; i< links.size(); i++)
   {
     FILE_LOG(LOG_DYNAMICS) << "*** Link: " << links[i]->id << endl;
-    FILE_LOG(LOG_DYNAMICS) << "  v: " << _v[links[i]->get_index()] << endl;
-    FILE_LOG(LOG_DYNAMICS) << "  a: " << _a[links[i]->get_index()] << endl;
+    FILE_LOG(LOG_DYNAMICS) << "  v: " << links[i]->get_velocity() << endl;
+    FILE_LOG(LOG_DYNAMICS) << "  a: " << links[i]->get_accel() << endl;
     FILE_LOG(LOG_DYNAMICS) << "  c: " << _c[links[i]->get_index()] << endl;
     FILE_LOG(LOG_DYNAMICS) << "  Z: " << _Z[links[i]->get_index()] << endl;
     FILE_LOG(LOG_DYNAMICS) << "  I: " << endl << _I[links[i]->get_index()];
@@ -961,7 +958,7 @@ void FSABAlgorithm::calc_fwd_dyn()
 
   // get the links and joints for the body
   const vector<RigidBodyPtr>& links = body->get_links();
-  const vector<JointPtr>& joints = body->get_implicit_joints();
+  const vector<JointPtr>& joints = body->get_explicit_joints();
 
   // get the base link
   RigidBodyPtr base = links.front();
@@ -1014,7 +1011,7 @@ void FSABAlgorithm::calc_impulse_dyn(RCArticulatedBodyPtr body)
 
   // get the links and joints for the body
   const vector<RigidBodyPtr>& links = body->get_links();
-  const vector<JointPtr>& joints = body->get_implicit_joints();
+  const vector<JointPtr>& joints = body->get_explicit_joints();
 
   // get the base link
   RigidBodyPtr base = links.front();
@@ -1088,7 +1085,7 @@ void FSABAlgorithm::apply_impulse(const SMomentumd& w, RigidBodyPtr link)
       const unsigned h = parent->get_index();
 
       // get spatial axes of the inner joint for link i
-      JointPtr joint(link->get_inner_joint_implicit());
+      JointPtr joint(link->get_inner_joint_explicit());
       const vector<SAxisd>& s = joint->get_spatial_axes();
       Pose3d::transform(link->get_computation_frame(), s, sprime);
     
@@ -1139,17 +1136,13 @@ void FSABAlgorithm::apply_impulse(const SMomentumd& w, RigidBodyPtr link)
     // determine the change in velocity
     _dv.front() = _I.front().inverse_mult(-_Y.front());
 
-    // update the base velocity
-    _v.front() += _dv.front();
-
     FILE_LOG(LOG_DYNAMICS) << "base is floating..." << endl;
     FILE_LOG(LOG_DYNAMICS) << "  base transform: " << endl << base->get_pose();
     FILE_LOG(LOG_DYNAMICS) << "  current base velocity: " << base->get_velocity() << endl;
-
-    // set the base linear and angular velocities
-    base->set_velocity(_v.front());
-
     FILE_LOG(LOG_DYNAMICS) << "  impulse on the base: " << _Y.front() << endl;
+
+    // update the base velocity
+    base->set_velocity(base->get_velocity() + _dv.front());
     FILE_LOG(LOG_DYNAMICS) << "  new base velocity: " << base->get_velocity() << endl;
   }
   else 
@@ -1170,7 +1163,7 @@ void FSABAlgorithm::apply_impulse(const SMomentumd& w, RigidBodyPtr link)
     unsigned h = parent->get_index(); 
     
     // get the inboard joint
-    JointPtr joint(link->get_inner_joint_implicit());
+    JointPtr joint(link->get_inner_joint_explicit());
     
     // get spatial axes of the inner joint for link i
     const vector<SAxisd>& s = joint->get_spatial_axes();
@@ -1195,12 +1188,11 @@ void FSABAlgorithm::apply_impulse(const SMomentumd& w, RigidBodyPtr link)
     joint->qd += _qd_delta;
 
     // update the link velocity
-    _v[i] += _dv[i];
-    link->set_velocity(_v[i]);
+    link->set_velocity(link->get_velocity() + _dv[i]);
  
     FILE_LOG(LOG_DYNAMICS) << "    -- cumulative transformed impulse on this link: " << _Y[i] << endl;
     FILE_LOG(LOG_DYNAMICS) << "    -- delta qd: " << _qd_delta << "  qd: " << joint->qd << endl;
-    FILE_LOG(LOG_DYNAMICS) << "    -- delta v: " << _dv[i] << "  v: " << _v[i] << endl;
+    FILE_LOG(LOG_DYNAMICS) << "    -- delta v: " << _dv[i] << endl;
    
     // place all children on the link queue
     push_children(link, link_queue);

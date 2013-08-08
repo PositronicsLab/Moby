@@ -25,7 +25,7 @@
       </RigidBody>
 
     <!-- Setup the simulator -->
-    <Simulator id="simulator" integrator-id="euler">
+    <Simulator id="simulator" integrator-id="rk4">
       <DynamicBody dynamic-body-id="box" />
       <RecurrentForce recurrent-force-id="gravity" enabled="true" />
     </Simulator> 

@@ -58,7 +58,8 @@ Base::Base(const Base* b)
 void Base::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // read the ID, if specified
-  const XMLAttrib* id_attrib = node->get_attrib("id");
+  XMLAttrib
+* id_attrib = node->get_attrib("id");
   if (id_attrib)
     id = id_attrib->get_string_value();
 

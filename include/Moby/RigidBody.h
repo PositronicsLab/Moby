@@ -89,7 +89,7 @@ class RigidBody : public SingleBody
     virtual Ravelin::MatrixNd& solve_generalized_inertia(const Ravelin::MatrixNd& B, Ravelin::MatrixNd& X);
     virtual Ravelin::VectorNd& solve_generalized_inertia(const Ravelin::VectorNd& b, Ravelin::VectorNd& x);
     RigidBodyPtr get_parent_link() const;
-    JointPtr get_inner_joint_implicit() const;
+    JointPtr get_inner_joint_explicit() const;
     void add_inner_joint(JointPtr j);
     void add_outer_joint(JointPtr j);
     void remove_inner_joint(JointPtr joint);

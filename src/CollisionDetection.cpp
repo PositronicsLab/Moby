@@ -558,7 +558,7 @@ void CollisionDetection::load_from_xml(shared_ptr<const XMLTree> node, std::map<
     for (std::list<shared_ptr<const XMLTree> >::const_iterator i = body_children.begin(); i != body_children.end(); i++)
     {
       // get the ID attribute
-      const XMLAttrib* id_attrib = (*i)->get_attrib("body-id");
+      XMLAttrib* id_attrib = (*i)->get_attrib("body-id");
       if (!id_attrib)
       {
         std::cerr << "CollisionDetection::load_from_xml() - did not find ";
@@ -585,7 +585,7 @@ void CollisionDetection::load_from_xml(shared_ptr<const XMLTree> node, std::map<
       else
       {
         // check to see whether adjacent links are disabled
-        const XMLAttrib* disable_adj_attrib = (*i)->get_attrib("disable-adjacent-links");
+        XMLAttrib* disable_adj_attrib = (*i)->get_attrib("disable-adjacent-links");
         bool disable_adj = ((disable_adj_attrib && disable_adj_attrib->get_bool_value()) || disable_adjacent_default);
 
         // add the body to the collision detector
@@ -607,7 +607,7 @@ void CollisionDetection::load_from_xml(shared_ptr<const XMLTree> node, std::map<
     for (std::list<shared_ptr<const XMLTree> >::const_iterator i = geom_children.begin(); i != geom_children.end(); i++)
     {
       // get the ID attribute
-      const XMLAttrib* id_attrib = (*i)->get_attrib("geometry-id");
+      XMLAttrib* id_attrib = (*i)->get_attrib("geometry-id");
       if (!id_attrib)
       {
         std::cerr << "CollisionDetection::load_from_xml() - did not find ";
@@ -637,8 +637,8 @@ void CollisionDetection::load_from_xml(shared_ptr<const XMLTree> node, std::map<
   for (std::list<shared_ptr<const XMLTree> >::const_iterator i = child_nodes.begin(); i != child_nodes.end(); i++)
   {
     // get the two ID attributes
-    const XMLAttrib* id1_attrib = (*i)->get_attrib("object1-id");
-    const XMLAttrib* id2_attrib = (*i)->get_attrib("object2-id");
+    XMLAttrib* id1_attrib = (*i)->get_attrib("object1-id");
+    XMLAttrib* id2_attrib = (*i)->get_attrib("object2-id");
 
     // make sure that they were read
     if (!id1_attrib || !id2_attrib)
@@ -680,7 +680,7 @@ void CollisionDetection::load_from_xml(shared_ptr<const XMLTree> node, std::map<
   for (std::list<shared_ptr<const XMLTree> >::const_iterator i = child_nodes.begin(); i != child_nodes.end(); i++)
   {  
     // get the ID attribute
-    const XMLAttrib* id_attrib = (*i)->get_attrib("object-id");
+    XMLAttrib* id_attrib = (*i)->get_attrib("object-id");
     if (!id_attrib)
     {
       std::cerr << "CollisionDetection::load_from_xml() - did not find ";
@@ -706,7 +706,7 @@ void CollisionDetection::load_from_xml(shared_ptr<const XMLTree> node, std::map<
   }
 
   // read the contact simulator ID, if specified
-  const XMLAttrib* sim_attrib = node->get_attrib("simulator-id");
+  XMLAttrib* sim_attrib = node->get_attrib("simulator-id");
   if (sim_attrib)
   {
     // get the ID

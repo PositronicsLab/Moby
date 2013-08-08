@@ -166,8 +166,8 @@ osg::Group* Visualizable::construct_from_node(shared_ptr<const XMLTree> node, co
   osg::Group* group = NULL;
 
   // get the relevant attributes
-  const XMLAttrib* viz_id_attr = node->get_attrib("visualization-id");
-  const XMLAttrib* vfile_id_attr = node->get_attrib("visualization-filename");
+  XMLAttrib* viz_id_attr = node->get_attrib("visualization-id");
+  XMLAttrib* vfile_id_attr = node->get_attrib("visualization-filename");
 
   // check that some visualization data exists
   if (!viz_id_attr && !vfile_id_attr)
@@ -250,8 +250,8 @@ void Visualizable::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::s
   Base::load_from_xml(node, id_map);
 
   // get the relevant attributes
-  const XMLAttrib* viz_id_attr = node->get_attrib("visualization-id");
-  const XMLAttrib* vfile_id_attr = node->get_attrib("visualization-filename");
+  XMLAttrib* viz_id_attr = node->get_attrib("visualization-id");
+  XMLAttrib* vfile_id_attr = node->get_attrib("visualization-filename");
 
   // get whether there are any visualization nodes
   std::list<shared_ptr<const XMLTree> > viz_nodes = node->find_child_nodes("Visualization");
@@ -296,9 +296,9 @@ void Visualizable::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::s
         continue;
 
       // look for a visualization-rel-x attributes
-      const XMLAttrib* rel_origin_attr = (*i)->get_attrib("visualization-rel-origin");
-      const XMLAttrib* rel_rpy_attr = (*i)->get_attrib("visualization-rel-rpy");
-      const XMLAttrib* rel_quat_attr = (*i)->get_attrib("visualization-rel-quat");
+      XMLAttrib* rel_origin_attr = (*i)->get_attrib("visualization-rel-origin");
+      XMLAttrib* rel_rpy_attr = (*i)->get_attrib("visualization-rel-rpy");
+      XMLAttrib* rel_quat_attr = (*i)->get_attrib("visualization-rel-quat");
       if (rel_origin_attr || rel_rpy_attr || rel_quat_attr)
       {
         // create a new transform group

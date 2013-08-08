@@ -48,8 +48,8 @@ void ContactParameters::load_from_xml(shared_ptr<const XMLTree> node, std::map<s
   assert(strcasecmp(node->name.c_str(), "ContactParameters") == 0);
 
   // verify that there are object IDs
-  const XMLAttrib* o1_attr = node->get_attrib("object1-id");
-  const XMLAttrib* o2_attr = node->get_attrib("object2-id");
+  XMLAttrib* o1_attr = node->get_attrib("object1-id");
+  XMLAttrib* o2_attr = node->get_attrib("object2-id");
   if (!o1_attr || !o2_attr)
   {
     std::cerr << "ContactParameters::load_from_xml() - no object1-id and/or ";
@@ -90,22 +90,22 @@ void ContactParameters::load_from_xml(shared_ptr<const XMLTree> node, std::map<s
   objects = make_sorted_pair(o1, o2);
 
   // get the value for epsilon, if specified
-  const XMLAttrib* rest_attr = node->get_attrib("epsilon");
+  XMLAttrib* rest_attr = node->get_attrib("epsilon");
   if (rest_attr)
     epsilon = rest_attr->get_real_value();
 
   // get the coefficient of Coulombic friction
-  const XMLAttrib* fc_attr = node->get_attrib("mu-coulomb");
+  XMLAttrib* fc_attr = node->get_attrib("mu-coulomb");
   if (fc_attr)
     mu_coulomb = fc_attr->get_real_value();
 
   // get the coefficient of viscous friction
-  const XMLAttrib* fv_attr = node->get_attrib("mu-viscous");
+  XMLAttrib* fv_attr = node->get_attrib("mu-viscous");
   if (fv_attr)
     mu_viscous = fv_attr->get_real_value();
 
   // get the number of friction directions, if specified
-  const XMLAttrib* nk_attr = node->get_attrib("friction-cone-edges");
+  XMLAttrib* nk_attr = node->get_attrib("friction-cone-edges");
   if (nk_attr)
     NK = nk_attr->get_unsigned_value();
   if (NK < 4)

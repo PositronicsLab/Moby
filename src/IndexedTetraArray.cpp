@@ -104,7 +104,16 @@ void IndexedTetraArray::load_from_xml(shared_ptr<const XMLTree> node, map<string
   assert(strcasecmp(node->name.c_str(), "TetraMesh") == 0);
 
   // make sure that this Tetra array has a filename specified
-  const XMLAttrib* fname_attr = node->get_attrib("filename");
+  XMLAttrib
+
+
+
+
+
+
+
+
+* fname_attr = node->get_attrib("filename");
   if (!fname_attr)
   {
     cerr << "IndexedTetraArray::load_from_xml() - trying to load a ";
@@ -118,15 +127,42 @@ void IndexedTetraArray::load_from_xml(shared_ptr<const XMLTree> node, map<string
   *this = IndexedTetraArray::read_from_tetra(fname);
   
   // see whether to center the mesh
-  const XMLAttrib* center_attr = node->get_attrib("center");
+  XMLAttrib
+
+
+
+
+
+
+
+
+* center_attr = node->get_attrib("center");
   if (center_attr && center_attr->get_bool_value())
     center();
 
   // read in the transform, if specified
   Transform3d T;
   T.source = T.target = GLOBAL;
-  const XMLAttrib* xlat_attr = node->get_attrib("translation");
-  const XMLAttrib* rpy_attr = node->get_attrib("rpy"); 
+  XMLAttrib
+
+
+
+
+
+
+
+
+* xlat_attr = node->get_attrib("translation");
+  XMLAttrib
+
+
+
+
+
+
+
+
+* rpy_attr = node->get_attrib("rpy"); 
   if (xlat_attr || rpy_attr)
   {
     if (xlat_attr)

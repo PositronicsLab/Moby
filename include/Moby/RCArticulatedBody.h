@@ -74,10 +74,9 @@ class RCArticulatedBody : public ArticulatedBody
     virtual Ravelin::VectorNd& get_generalized_forces(Ravelin::VectorNd& f);
     virtual Ravelin::VectorNd& convert_to_generalized_force(SingleBodyPtr body, const Ravelin::SForced& w, const Ravelin::Point3d& p, Ravelin::VectorNd& gf);
     virtual unsigned num_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype) const;
-    virtual void set_links(const std::vector<RigidBodyPtr>& links);
-    virtual void set_joints(const std::vector<JointPtr>& links);
-    virtual unsigned num_joint_dof_explicit() const;
-    virtual unsigned num_joint_dof_implicit() const { return _n_joint_DOF_implicit; }
+    virtual void set_links_and_joints(const std::vector<RigidBodyPtr>& links, const std::vector<JointPtr>& joints);
+    virtual unsigned num_joint_dof_implicit() const;
+    virtual unsigned num_joint_dof_explicit() const { return _n_joint_DOF_explicit; }
     void set_floating_base(bool flag);
     virtual Ravelin::VectorNd& transpose_Jc_mult(const Ravelin::VectorNd& v, Ravelin::VectorNd& result) { return _Jc.transpose_mult(v, result); } 
     virtual Ravelin::MatrixNd& transpose_Jc_mult(const Ravelin::MatrixNd& m, Ravelin::MatrixNd& result) { return _Jc.transpose_mult(m, result); }
@@ -96,8 +95,8 @@ class RCArticulatedBody : public ArticulatedBody
     /// Gets whether the base of this body is fixed or "floating"
     virtual bool is_floating_base() const { return _floating_base; }
 
-    /// Gets the number of DOF of the implicit joints in the body, not including floating base DOF
-    virtual unsigned num_joint_dof() const { return _n_joint_DOF_implicit + num_joint_dof_explicit(); }
+    /// Gets the number of DOF of the explicit joints in the body, not including floating base DOF
+    virtual unsigned num_joint_dof() const { return _n_joint_DOF_explicit + num_joint_dof_implicit(); }
 
     /// Gets the base link
     virtual RigidBodyPtr get_base_link() const { return (!_links.empty()) ? _links.front() : RigidBodyPtr(); }
@@ -120,11 +119,11 @@ class RCArticulatedBody : public ArticulatedBody
   
      virtual void compile();
 
-    /// The number of DOF of the implicit joint constraints in the body (does not include floating base DOF!)
-    unsigned _n_joint_DOF_implicit;
+    /// The number of DOF of the explicit joint constraints in the body (does not include floating base DOF!)
+    unsigned _n_joint_DOF_explicit;
 
-    /// Gets the vector of implicit joint constraints
-    const std::vector<JointPtr>& get_implicit_joints() const { return _ijoints; }
+    /// Gets the vector of explicit joint constraints
+    const std::vector<JointPtr>& get_explicit_joints() const { return _ejoints; }
 
   private:
     virtual Ravelin::MatrixNd& calc_jacobian_column(JointPtr joint, const Ravelin::Point3d& point, Ravelin::MatrixNd& Jc);
@@ -133,11 +132,11 @@ class RCArticulatedBody : public ArticulatedBody
     void calc_fwd_dyn_loops();
     void calc_fwd_dyn_advanced_friction(double dt);
 
-    /// The vector of implicit joint constraints
-    std::vector<JointPtr> _ijoints;
-
     /// The vector of explicit joint constraints
     std::vector<JointPtr> _ejoints;
+
+    /// The vector of implicit joint constraints
+    std::vector<JointPtr> _ijoints;
 
     /// Variables used for events
     Ravelin::MatrixNd _Jc, _Dc, _Jl, _Jx, _Dx, _Dt;
@@ -174,11 +173,11 @@ class RCArticulatedBody : public ArticulatedBody
     void determine_generalized_accelerations(Ravelin::VectorNd& xdd) const;
     void determine_constraint_force_transform(Ravelin::MatrixNd& K) const;
     void set_generalized_acceleration(const Ravelin::VectorNd& a);
-    void determine_explicit_constraint_movement_jacobian(Ravelin::MatrixNd& D);
-    void determine_explicit_constraint_jacobians(const EventProblemData& q, Ravelin::MatrixNd& Jx, Ravelin::MatrixNd& Dx) const;
-    void determine_explicit_constraint_jacobian(Ravelin::MatrixNd& J);
-    void determine_explicit_constraint_jacobian_dot(Ravelin::MatrixNd& J) const;
-    void set_explicit_constraint_forces(const Ravelin::VectorNd& lambda);
+    void determine_implicit_constraint_movement_jacobian(Ravelin::MatrixNd& D);
+    void determine_implicit_constraint_jacobians(const EventProblemData& q, Ravelin::MatrixNd& Jx, Ravelin::MatrixNd& Dx) const;
+    void determine_implicit_constraint_jacobian(Ravelin::MatrixNd& J);
+    void determine_implicit_constraint_jacobian_dot(Ravelin::MatrixNd& J) const;
+    void set_implicit_constraint_forces(const Ravelin::VectorNd& lambda);
 }; // end class
 
 } // end namespace

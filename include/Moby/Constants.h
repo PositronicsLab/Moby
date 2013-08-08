@@ -9,6 +9,7 @@
 
 #include <limits>
 #include <cmath>
+#include <Ravelin/SAxisd.h>
 #include <Ravelin/Vector3d.h>
 #include <Ravelin/VectorNd.h>
 #include <Ravelin/Matrix3d.h>

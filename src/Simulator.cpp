@@ -261,12 +261,12 @@ void Simulator::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::stri
   // ***********************************************************************
   
   // get the current time 
-  const XMLAttrib* time_attr = node->get_attrib("current-time");
+  XMLAttrib* time_attr = node->get_attrib("current-time");
   if (time_attr)
     this->current_time = time_attr->get_real_value();
 
   // get the integrator, if specified
-  const XMLAttrib* int_id_attr = node->get_attrib("integrator-id");
+  XMLAttrib* int_id_attr = node->get_attrib("integrator-id");
   if (int_id_attr)
   {
     const std::string& id = int_id_attr->get_string_value(); 
@@ -291,7 +291,7 @@ void Simulator::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::stri
     for (std::list<shared_ptr<const XMLTree> >::const_iterator i = child_nodes.begin(); i != child_nodes.end(); i++)
     {
       // verify that the dynamic-body-id attribute exists
-      const XMLAttrib* id_attr = (*i)->get_attrib("dynamic-body-id");
+      XMLAttrib* id_attr = (*i)->get_attrib("dynamic-body-id");
 
       // make sure that the ID exists
       if (!id_attr)
@@ -324,7 +324,7 @@ void Simulator::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::stri
     for (std::list<shared_ptr<const XMLTree> >::const_iterator i = child_nodes.begin(); i != child_nodes.end(); i++)
     {
       // verify that the dynamic-body-id attribute exists
-      const XMLAttrib* id_attr = (*i)->get_attrib("recurrent-force-id");
+      XMLAttrib* id_attr = (*i)->get_attrib("recurrent-force-id");
 
       // make sure that the ID exists
       if (!id_attr)

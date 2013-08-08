@@ -1254,7 +1254,7 @@ void EventDrivenSimulator::load_from_xml(shared_ptr<const XMLTree> node, map<std
   collision_detectors.clear();
 
   // get the collision detector, if specified
-  const XMLAttrib* coldet_attrib = node->get_attrib("collision-detector-id");
+  XMLAttrib* coldet_attrib = node->get_attrib("collision-detector-id");
   if (coldet_attrib)
   {
     // get the ID of the collision detector
@@ -1284,7 +1284,7 @@ void EventDrivenSimulator::load_from_xml(shared_ptr<const XMLTree> node, map<std
   child_nodes = node->find_child_nodes("CollisionDetector");
   BOOST_FOREACH(shared_ptr<const XMLTree> child_node, child_nodes)
   {
-    const XMLAttrib* id_attrib = child_node->get_attrib("id");
+    XMLAttrib* id_attrib = child_node->get_attrib("id");
     if (!id_attrib)
       continue;
 

@@ -65,6 +65,11 @@ class CRBAlgorithm
     void transform_and_mult(RigidBodyPtr link, const Ravelin::SpatialRBInertiad& I, const std::vector<Ravelin::SAxisd>& s, std::vector<Ravelin::SMomentumd>& Is);
 
   private:
+    // temporaries for transform_and_transpose_mult() functions
+    std::vector<Ravelin::SForced> _tandt_fx;
+    std::vector<Ravelin::SMomentumd> _tandt_wx;
+    std::vector<Ravelin::SAxisd> _tandt_tx;
+
     // temporary for calc_fwd_dyn() 
     std::vector<Ravelin::SAcceld> _a;
 

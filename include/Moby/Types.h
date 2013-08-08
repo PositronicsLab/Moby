@@ -15,6 +15,7 @@
 #include <vector>
 #include <list>
 #include <boost/shared_ptr.hpp>
+#include <Ravelin/SAxisd.h>
 #include <Ravelin/Point3d.h>
 #include <Ravelin/Point2d.h>
 

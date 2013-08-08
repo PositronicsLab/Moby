@@ -76,7 +76,14 @@ void StokesDragForce::load_from_xml(shared_ptr<const XMLTree> node, std::map<std
   assert(strcasecmp(node->name.c_str(), "StokesDragForce") == 0);
 
   // read the drag coefficient, if given
-  const XMLAttrib* b_attrib = node->get_attrib("drag-b");
+  XMLAttrib
+
+
+
+
+
+
+* b_attrib = node->get_attrib("drag-b");
   if (b_attrib)
     this->b = b_attrib->get_real_value();
 }

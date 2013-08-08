@@ -61,8 +61,8 @@ class MCArticulatedBody : public ArticulatedBody
     virtual void update_event_data(EventProblemData& epd);
     virtual void update_velocity(const EventProblemData& epd);
     virtual void integrate(double t, double h, boost::shared_ptr<Integrator> integrator);
-    virtual unsigned num_joint_dof_explicit() const { return num_joint_dof(); }
-    virtual unsigned num_joint_dof_implicit() const { return 0; }
+    virtual unsigned num_joint_dof_implicit() const { return num_joint_dof(); }
+    virtual unsigned num_joint_dof_explicit() const { return 0; }
     virtual Ravelin::VectorNd& transpose_Jc_mult(const Ravelin::VectorNd& v, Ravelin::VectorNd& result) { return mult_transpose_sparse(_Jc, v, result); } 
     virtual Ravelin::MatrixNd& transpose_Jc_mult(const Ravelin::MatrixNd& m, Ravelin::MatrixNd& result) { return mult_transpose_sparse(_Jc, m, result); }
     virtual Ravelin::VectorNd& transpose_Dc_mult(const Ravelin::VectorNd& v, Ravelin::VectorNd& result) { return mult_transpose_sparse(_Dc, v, result); }

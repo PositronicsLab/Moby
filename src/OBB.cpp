@@ -678,17 +678,26 @@ OBBPtr OBB::load_from_xml(shared_ptr<const XMLTree> root)
   OBBPtr obb(new OBB);
   
   // read the center, length, and axes attributes
-  const XMLAttrib* cattrib = root->get_attrib("center");
+  XMLAttrib
+
+
+* cattrib = root->get_attrib("center");
   if (cattrib)
     center = cattrib->get_point_value();
 
   // read the lengths attribute
-  const XMLAttrib* lattrib = root->get_attrib("lengths");
+  XMLAttrib
+
+
+* lattrib = root->get_attrib("lengths");
   if (lattrib)
     lattrib->get_vector_value(lengths);
 
   // read the axes attribute
-  const XMLAttrib* aattrib = root->get_attrib("axes");
+  XMLAttrib
+
+
+* aattrib = root->get_attrib("axes");
   if (aattrib)
     aattrib->get_matrix_value(R);
 
@@ -713,7 +722,10 @@ OBBPtr OBB::load_from_xml(shared_ptr<const XMLTree> root)
       {
         // read the thickness
         double thickness = 0.0;
-        const XMLAttrib* tattr = node->get_attrib("thickness");
+        XMLAttrib
+
+
+* tattr = node->get_attrib("thickness");
         if (!tattr)
           cerr << "OBB::load_from_xml() - no thickness specified in Triangle node" << endl;
         else 
@@ -721,9 +733,18 @@ OBBPtr OBB::load_from_xml(shared_ptr<const XMLTree> root)
 
         // construct the triangle
         Point3d va, vb, vc;
-        const XMLAttrib* vaattr = node->get_attrib("vertex1");
-        const XMLAttrib* vbattr = node->get_attrib("vertex2");
-        const XMLAttrib* vcattr = node->get_attrib("vertex3");
+        XMLAttrib
+
+
+* vaattr = node->get_attrib("vertex1");
+        XMLAttrib
+
+
+* vbattr = node->get_attrib("vertex2");
+        XMLAttrib
+
+
+* vcattr = node->get_attrib("vertex3");
         if (!vaattr)
           cerr << "OBB::load_from_xml() - missing vertex in Triangle node" << endl;    
         else
