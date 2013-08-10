@@ -10,7 +10,6 @@
 #include <map>
 #include <vector>
 #include <boost/shared_ptr.hpp>
-#include <Ravelin/Point3d.h>
 #include <Ravelin/Vector3d.h>
 #include <Ravelin/Matrix3d.h>
 #include <Ravelin/Pose3d.h>
@@ -69,7 +68,7 @@ class Primitive : public virtual Base
     bool is_deformable() const { return _deformable; }
 
     /// Gets vertices corresponding to the bounding volume
-    virtual void get_vertices(BVPtr bv, std::vector<const Ravelin::Point3d*>& vertices) = 0; 
+    virtual void get_vertices(BVPtr bv, std::vector<const Point3d*>& vertices) = 0; 
 
     /// Determines whether a point is inside/on the geometry
     /**
@@ -80,7 +79,7 @@ class Primitive : public virtual Base
      * \return <b>true</b> if the point is inside or on the geometry, 
      *         <b>false</b> otherwise
      */
-    virtual bool point_inside(BVPtr bv, const Ravelin::Point3d& p, Ravelin::Vector3d& normal) const = 0;
+    virtual bool point_inside(BVPtr bv, const Point3d& p, Ravelin::Vector3d& normal) const = 0;
 
     /// Determines whether a line segment and the shape intersect
     /**
@@ -93,7 +92,7 @@ class Primitive : public virtual Base
      *          on return (if any)
      * \return <b>true</b> if intersection, <b>false</b> otherwise 
      */
-    virtual bool intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Ravelin::Point3d& isect, Ravelin::Vector3d& normal) const = 0;
+    virtual bool intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Ravelin::Vector3d& normal) const = 0;
 
     /// Gets mesh data for the geometry with the specified bounding volume
     /**

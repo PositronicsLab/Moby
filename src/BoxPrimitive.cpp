@@ -152,7 +152,7 @@ void BoxPrimitive::set_pose(const Pose3d& p)
   // transform vertices
   if (_vertices)
     for (unsigned i=0; i< _vertices->size(); i++)
-      (*_vertices)[i] = T.transform((*_vertices)[i]);
+      (*_vertices)[i] = T.transform_point((*_vertices)[i]);
 
   // recalculate the mass properties
   calc_mass_properties();
@@ -182,14 +182,14 @@ void BoxPrimitive::get_vertices(BVPtr bv, vector<const Point3d*>& vertices)
     const double ZLEN = _zlen*(double) 0.5 + _intersection_tolerance;
 
     // add the vertices 
-    _vertices->push_back(T.transform(Point3d(XLEN,YLEN,ZLEN,P)));
-    _vertices->push_back(T.transform(Point3d(XLEN,YLEN,-ZLEN,P)));
-    _vertices->push_back(T.transform(Point3d(XLEN,-YLEN,ZLEN,P)));
-    _vertices->push_back(T.transform(Point3d(XLEN,-YLEN,-ZLEN,P)));
-    _vertices->push_back(T.transform(Point3d(-XLEN,YLEN,ZLEN,P)));
-    _vertices->push_back(T.transform(Point3d(-XLEN,YLEN,-ZLEN,P)));
-    _vertices->push_back(T.transform(Point3d(-XLEN,-YLEN,ZLEN,P)));
-    _vertices->push_back(T.transform(Point3d(-XLEN,-YLEN,-ZLEN,P)));
+    _vertices->push_back(T.transform_point(Point3d(XLEN,YLEN,ZLEN,P)));
+    _vertices->push_back(T.transform_point(Point3d(XLEN,YLEN,-ZLEN,P)));
+    _vertices->push_back(T.transform_point(Point3d(XLEN,-YLEN,ZLEN,P)));
+    _vertices->push_back(T.transform_point(Point3d(XLEN,-YLEN,-ZLEN,P)));
+    _vertices->push_back(T.transform_point(Point3d(-XLEN,YLEN,ZLEN,P)));
+    _vertices->push_back(T.transform_point(Point3d(-XLEN,YLEN,-ZLEN,P)));
+    _vertices->push_back(T.transform_point(Point3d(-XLEN,-YLEN,ZLEN,P)));
+    _vertices->push_back(T.transform_point(Point3d(-XLEN,-YLEN,-ZLEN,P)));
     
     // now we want to add vertices by subdividing edges
     // note: these edges come from facets in get_mesh()
@@ -424,7 +424,7 @@ bool BoxPrimitive::point_inside(BVPtr bv, const Point3d& point, Vector3d& normal
   l[Z] = _zlen * (double) 0.5;
 
   // convert the point to primitive space
-  Point3d p = T.transform(point);
+  Point3d p = T.transform_point(point);
 
   FILE_LOG(LOG_COLDET) << "BoxPrimitive::point_inside() entered" << endl; 
   FILE_LOG(LOG_COLDET) << "  -- querying point " << p << " and box: " << l << endl;
@@ -445,23 +445,23 @@ bool BoxPrimitive::point_inside(BVPtr bv, const Point3d& point, Vector3d& normal
   if (absPZ < absPX - NEAR_ZERO && absPZ < absPY - NEAR_ZERO)
   {
     if (p[Z] < (double) 0.0)
-      normal = T.inverse_transform(Vector3d(0,0,-1,P));
+      normal = T.inverse_transform_vector(Vector3d(0,0,-1,P));
     else
-      normal = T.inverse_transform(Vector3d(0,0,1,P));
+      normal = T.inverse_transform_vector(Vector3d(0,0,1,P));
   }
   else if (absPY < absPZ - NEAR_ZERO && absPY < absPX - NEAR_ZERO)
   {
     if (p[Y] < (double) 0.0)
-      normal = T.inverse_transform(Vector3d(0,-1,0,P));
+      normal = T.inverse_transform_vector(Vector3d(0,-1,0,P));
     else
-      normal = T.inverse_transform(Vector3d(0,1,0,P));
+      normal = T.inverse_transform_vector(Vector3d(0,1,0,P));
   }
   else if (absPX < absPY - NEAR_ZERO && absPX < absPZ - NEAR_ZERO)
   {
     if (p[X] < (double) 0.0)
-      normal = T.inverse_transform(Vector3d(-1,0,0,P));
+      normal = T.inverse_transform_vector(Vector3d(-1,0,0,P));
     else
-      normal = T.inverse_transform(Vector3d(1,0,0,P));
+      normal = T.inverse_transform_vector(Vector3d(1,0,0,P));
   }
   else
   {
@@ -497,8 +497,8 @@ bool BoxPrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point
   l[Z] = _zlen * (double) 0.5;
 
   // convert the line segment to primitive space
-  Point3d p = T.transform(seg.first);
-  Point3d q = T.transform(seg.second);
+  Point3d p = T.transform_point(seg.first);
+  Point3d q = T.transform_point(seg.second);
   Vector3d d = q - p;
 
   FILE_LOG(LOG_COLDET) << "BoxPrimitive::intersect_seg() entered" << endl; 
@@ -520,23 +520,23 @@ bool BoxPrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point
     if (absPZ < absPX && absPZ < absPY)
     {
       if (p[Z] < (double) 0.0)
-        normal = T.inverse_transform(Vector3d(0,0,-1,P));
+        normal = T.inverse_transform_vector(Vector3d(0,0,-1,P));
       else
-        normal = T.inverse_transform(Vector3d(0,0,1,P));
+        normal = T.inverse_transform_vector(Vector3d(0,0,1,P));
     }
     else if (absPY < absPZ && absPY < absPX)
     {
       if (p[Y] < (double) 0.0)
-        normal = T.inverse_transform(Vector3d(0,-1,0,P));
+        normal = T.inverse_transform_vector(Vector3d(0,-1,0,P));
       else
-        normal = T.inverse_transform(Vector3d(0,1,0,P));
+        normal = T.inverse_transform_vector(Vector3d(0,1,0,P));
     }
     else
     {
       if (p[X] < (double) 0.0)
-        normal = T.inverse_transform(Vector3d(-1,0,0,P));
+        normal = T.inverse_transform_vector(Vector3d(-1,0,0,P));
       else
-        normal = T.inverse_transform(Vector3d(1,0,0,P));
+        normal = T.inverse_transform_vector(Vector3d(1,0,0,P));
     }
 
     FILE_LOG(LOG_COLDET) << " -- point is already inside the box..." << endl;
@@ -590,11 +590,11 @@ bool BoxPrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point
     return false;
 
   // transform the normal back out of box space
-  normal = T.inverse_transform(normal);
+  normal = T.inverse_transform_vector(normal);
   assert(std::fabs(normal.norm() - (double) 1.0) < NEAR_ZERO);
 
   // transform intersection point out of box space 
-  isect = T.inverse_transform(isect);
+  isect = T.inverse_transform_point(isect);
 
   FILE_LOG(LOG_COLDET) << "BoxPrimitive::intersects() - seg and box intersect; first intersection: " << tmin << "(" << isect << ")" << endl; 
   FILE_LOG(LOG_COLDET) << "BoxPrimitive::intersects() exiting" << endl; 

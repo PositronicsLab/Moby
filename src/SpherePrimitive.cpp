@@ -172,7 +172,7 @@ void SpherePrimitive::set_pose(const Pose3d& p)
   // transform vertices
   if (_vertices)
     for (unsigned i=0; i< _vertices->size(); i++)
-      (*_vertices)[i] = T.transform((*_vertices)[i]);
+      (*_vertices)[i] = T.transform_point((*_vertices)[i]);
 
   // invalidate this primitive
   _invalidated = true;

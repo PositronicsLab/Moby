@@ -58,10 +58,10 @@ bool CompGeom::in_cone(BidirectionalIterator a, BidirectionalIterator b, Bidirec
 
 /// Triangulates a polygon (in 2D)
 /**
- * \param begin a bidirectional iterator to a container of Ravelin::Point2d objects
- * \param end a bidirectional iterator to a container of Ravelin::Point2d objects
+ * \param begin a bidirectional iterator to a container of Point2d objects
+ * \param end a bidirectional iterator to a container of Point2d objects
  * \param outbegin an iterator to a container of type 
- *         std::pair<const Ravelin::Point2d*, const Ravelin::Point2d*>; output will be written here
+ *         std::pair<const Point2d*, const Point2d*>; output will be written here
  * \param tol tolerance to test for zero
  * \return an iterator to the end of the output
  * \todo re-implement using faster O(n lg n) algorithm (currently runs in O(n^2) time)
@@ -71,21 +71,21 @@ OutputIterator CompGeom::triangulate_polygon_2D(BidirectionalIterator begin, Bid
 {
   // make a list out of the polygon; simultaneously get # of vertices
   unsigned n = 0;
-  std::list<const Ravelin::Point2d*> poly;
+  std::list<const Point2d*> poly;
   for (BidirectionalIterator v = begin; v != end; v++, n++)
     poly.push_back(&*v);
 
   // initialize ear for all vertices
-  std::map<const Ravelin::Point2d*, bool> ear;
-  for (std::list<const Ravelin::Point2d*>::iterator v1 = poly.begin(); v1 != poly.end(); v1++)
+  std::map<const Point2d*, bool> ear;
+  for (std::list<const Point2d*>::iterator v1 = poly.begin(); v1 != poly.end(); v1++)
   {
     // get the next vertex
-    std::list<const Ravelin::Point2d*>::iterator v2 = v1;
+    std::list<const Point2d*>::iterator v2 = v1;
     if (++v2 == poly.end())
       v2 = poly.begin();
 
     // get the previous vertex
-    std::list<const Ravelin::Point2d*>::iterator v0 = (v1 == poly.begin()) ? poly.end() : v1;
+    std::list<const Point2d*>::iterator v0 = (v1 == poly.begin()) ? poly.end() : v1;
     v0--;
 
     // set the ear
@@ -96,22 +96,22 @@ OutputIterator CompGeom::triangulate_polygon_2D(BidirectionalIterator begin, Bid
   while (n > 3)
   {
     // inner loop searches for an ear
-    std::list<const Ravelin::Point2d*>::iterator v2 = poly.begin();
+    std::list<const Point2d*>::iterator v2 = poly.begin();
     do
     {
       if (ear[*v2])
       {
         // ear found.  get the next and previous vertices
-        std::list<const Ravelin::Point2d*>::iterator v3 = v2;
-        std::list<const Ravelin::Point2d*>::iterator v1 = (v2 == poly.begin()) ? poly.end() : v2;
+        std::list<const Point2d*>::iterator v3 = v2;
+        std::list<const Point2d*>::iterator v1 = (v2 == poly.begin()) ? poly.end() : v2;
         v1--;
         v3++;
         if (v3 == poly.end())
           v3 = poly.begin();
 
         // get next and previous vertices v3 and v1, respectively
-        std::list<const Ravelin::Point2d*>::iterator v4 = v3;
-        std::list<const Ravelin::Point2d*>::iterator v0 = (v1 == poly.begin()) ? poly.end() : v1;
+        std::list<const Point2d*>::iterator v4 = v3;
+        std::list<const Point2d*>::iterator v0 = (v1 == poly.begin()) ? poly.end() : v1;
         v0--;
         v4++;
         if (v4 == poly.end())
@@ -143,12 +143,12 @@ OutputIterator CompGeom::triangulate_polygon_2D(BidirectionalIterator begin, Bid
  * The facets may represent a polygon, a polyhedron, or even an open polyhedron.  However, the facets may not intersect.
  */
 template <class ForwardIterator>
-Ravelin::Point3d CompGeom::calc_centroid_3D(ForwardIterator first, ForwardIterator last)
+Point3d CompGeom::calc_centroid_3D(ForwardIterator first, ForwardIterator last)
 {
   double area_sum = 0;
   
   // compute the area of each facet and contribution from each facet
-  Ravelin::Point3d centroid = Ravelin::Point3d::zero();
+  Point3d centroid = Point3d::zero();
   for (ForwardIterator i = first; i != last; i++)
   {
     double area = i->calc_area();
@@ -163,7 +163,7 @@ Ravelin::Point3d CompGeom::calc_centroid_3D(ForwardIterator first, ForwardIterat
 }
 
 /*****************************************************************************
- Ravelin::Point3d* versions of functions BEGIN
+ Point3d* versions of functions BEGIN
  ****************************************************************************/
 
 /**
@@ -171,7 +171,7 @@ Ravelin::Point3d CompGeom::calc_centroid_3D(ForwardIterator first, ForwardIterat
  * \note Degenerate polygons (alternating representation) will fail!
  */
 template <class ForwardIterator>
-bool CompGeomSpecOne<ForwardIterator, Ravelin::Point3d*>::ccw(ForwardIterator begin, ForwardIterator end, const Ravelin::Vector3d& normal, double tol)
+bool CompGeomSpecOne<ForwardIterator, Point3d*>::ccw(ForwardIterator begin, ForwardIterator end, const Ravelin::Vector3d& normal, double tol)
 {
   assert(tol >= 0.0);
 
@@ -212,7 +212,7 @@ bool CompGeomSpecOne<ForwardIterator, Ravelin::Point3d*>::ccw(ForwardIterator be
 }
 
 template <class ForwardIterator, class OutputIterator>
-OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Ravelin::Point3d*>::calc_convex_hull(ForwardIterator source_begin, ForwardIterator source_end, OutputIterator target_begin)
+OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Point3d*>::calc_convex_hull(ForwardIterator source_begin, ForwardIterator source_end, OutputIterator target_begin)
 {
   const unsigned X = 0, Y = 1, Z = 2;
   int exit_code;
@@ -245,7 +245,7 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Ravelin::Point3d
   } 
 
   // setup the points
-  std::map<coordT*, Ravelin::Point3d*> vertex_map;
+  std::map<coordT*, Point3d*> vertex_map;
   SAFESTATIC std::vector<coordT> qhull_points;
   qhull_points.resize(N_POINTS*DIM);
   coordT* points_begin = &qhull_points.front();
@@ -312,7 +312,7 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Ravelin::Point3d
 }
 
 template <class ForwardIterator>
-unsigned CompGeomSpecOne<ForwardIterator, Ravelin::Point3d*>::calc_dimensionality(ForwardIterator first, ForwardIterator last, double tol)
+unsigned CompGeomSpecOne<ForwardIterator, Point3d*>::calc_dimensionality(ForwardIterator first, ForwardIterator last, double tol)
 {
   assert(tol >= 0.0);
 
@@ -382,7 +382,7 @@ unsigned CompGeomSpecOne<ForwardIterator, Ravelin::Point3d*>::calc_dimensionalit
  * \param endpoints the two farthest points on the segment on return
  */
 template <class ForwardIterator>
-void CompGeom::determine_seg_endpoints(ForwardIterator begin, ForwardIterator end, std::pair<Ravelin::Point3d*, Ravelin::Point3d*>& endpoints)
+void CompGeom::determine_seg_endpoints(ForwardIterator begin, ForwardIterator end, std::pair<Point3d*, Point3d*>& endpoints)
 {
   // make sure that we have been given valid input
   assert(begin != end);
@@ -439,7 +439,7 @@ void CompGeom::determine_seg_endpoints(ForwardIterator begin, ForwardIterator en
  *       source collection
  */
 template <class ForwardIterator, class OutputIterator>
-OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Ravelin::Point3d*>::to_2D(ForwardIterator begin_source, ForwardIterator end_source, OutputIterator begin_target, const Ravelin::Matrix3d& R)
+OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Point3d*>::to_2D(ForwardIterator begin_source, ForwardIterator end_source, OutputIterator begin_target, const Ravelin::Matrix3d& R)
 {
   // project the points to 2D
   for (ForwardIterator i = begin_source; i != end_source; i++, begin_target++)
@@ -450,7 +450,7 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Ravelin::Point3d
 
 /// Determines whether a polygon (in 3D) is convex
 template <class ForwardIterator>
-bool CompGeomSpecOne<ForwardIterator, Ravelin::Point3d*>::is_convex_polygon(ForwardIterator begin, ForwardIterator end, const Ravelin::Vector3d& normal, double tol)
+bool CompGeomSpecOne<ForwardIterator, Point3d*>::is_convex_polygon(ForwardIterator begin, ForwardIterator end, const Ravelin::Vector3d& normal, double tol)
 {
   const unsigned X = 0, Y = 1, Z = 2;
   assert(tol >= 0.0);
@@ -459,7 +459,7 @@ bool CompGeomSpecOne<ForwardIterator, Ravelin::Point3d*>::is_convex_polygon(Forw
   Ravelin::Matrix3d R = CompGeom::calc_3D_to_2D_matrix(normal);
 
   // project the points to 2D
-  std::list<Ravelin::Point2d> points_2D(std::distance(begin, end));
+  std::list<Point2d> points_2D(std::distance(begin, end));
   CompGeom::to_2D(begin, end, points_2D.begin(), R);
 
   // if the 2D polygon is not ccw, make it so
@@ -482,7 +482,7 @@ bool CompGeomSpecOne<ForwardIterator, Ravelin::Point3d*>::is_convex_polygon(Forw
  * \return the new end of the target container
  */
 template <class ForwardIterator, class OutputIterator>
-OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Ravelin::Point3d*>::calc_convex_hull(ForwardIterator source_begin, ForwardIterator source_end, const Ravelin::Vector3d& normal, OutputIterator target_begin)
+OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Point3d*>::calc_convex_hull(ForwardIterator source_begin, ForwardIterator source_end, const Ravelin::Vector3d& normal, OutputIterator target_begin)
 {  
   FILE_LOG(LOG_COMPGEOM) << "computing 2D convex hull of following points:" << std::endl;
   for (ForwardIterator i = source_begin; i != source_end; i++)
@@ -512,12 +512,12 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Ravelin::Point3d
 
   // project the points to 2D
   unsigned sz = std::distance(source_begin, source_end);
-  std::vector<Ravelin::Point2d> points_2D(sz);
+  std::vector<Point2d> points_2D(sz);
   CompGeom::to_2D(source_begin, source_end, points_2D.begin(), R);
 
   // compute correspondences
-  std::vector<Ravelin::Point2d*> points_2D_ptr(sz);
-  std::map<Ravelin::Point2d*, Ravelin::Point3d*> mapping;
+  std::vector<Point2d*> points_2D_ptr(sz);
+  std::map<Point2d*, Point3d*> mapping;
   unsigned i=0;
   for (ForwardIterator j=source_begin; j != source_end; i++, j++)
   {
@@ -529,12 +529,12 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Ravelin::Point3d
     FILE_LOG(LOG_COMPGEOM) << "  " << points_2D[i] << std::endl;
 
   // compute the convex hull
-  std::list<Ravelin::Point2d*> hull(sz);
-  std::list<Ravelin::Point2d*>::iterator hull_end = CompGeom::calc_convex_hull(points_2D_ptr.begin(), points_2D_ptr.end(), hull.begin());
+  std::list<Point2d*> hull(sz);
+  std::list<Point2d*>::iterator hull_end = CompGeom::calc_convex_hull(points_2D_ptr.begin(), points_2D_ptr.end(), hull.begin());
 
   // use the mapping to 3D
-  std::list<Ravelin::Point3d*> hull3D;
-  for (std::list<Ravelin::Point2d*>::iterator i = hull.begin(); i != hull_end; i++)
+  std::list<Point3d*> hull3D;
+  for (std::list<Point2d*>::iterator i = hull.begin(); i != hull_end; i++)
     hull3D.push_back(mapping[*i]);
 
   // reverse the hull if necessary
@@ -546,7 +546,7 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Ravelin::Point3d
 }
 
 /*****************************************************************************
- Ravelin::Point3d* versions of functions END 
+ Point3d* versions of functions END 
  ****************************************************************************/
 
 /*****************************************************************************
@@ -558,7 +558,7 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Ravelin::Point3d
  * \note Degenerate polygons (alternating representation) will fail!
  */
 template <class ForwardIterator>
-bool CompGeomSpecOne<ForwardIterator, Ravelin::Point3d>::ccw(ForwardIterator begin, ForwardIterator end, const Ravelin::Vector3d& normal, double tol)
+bool CompGeomSpecOne<ForwardIterator, Point3d>::ccw(ForwardIterator begin, ForwardIterator end, const Ravelin::Vector3d& normal, double tol)
 {
   assert(tol >= 0.0);
 
@@ -609,13 +609,13 @@ bool CompGeomSpecOne<ForwardIterator, Ravelin::Point3d>::ccw(ForwardIterator beg
  * \return the maximum deviation from the plane
  */
 template <class ForwardIterator>
-double CompGeomSpecOne<ForwardIterator, Ravelin::Point3d*>::fit_plane(ForwardIterator begin, ForwardIterator end, Ravelin::Vector3d& normal, double& offset)
+double CompGeomSpecOne<ForwardIterator, Point3d*>::fit_plane(ForwardIterator begin, ForwardIterator end, Ravelin::Vector3d& normal, double& offset)
 {
   const unsigned THREE_D = 3, X = 0, Y = 1, Z = 2;
   
   // compute the mean of the data
   unsigned n = 0;
-  Ravelin::Point3d mu = Ravelin::Point3d::zero();
+  Point3d mu = Point3d::zero();
   for (ForwardIterator i = begin; i != end; i++, n++)
     mu += **i;
   mu /= n;
@@ -663,13 +663,13 @@ double CompGeomSpecOne<ForwardIterator, Ravelin::Point3d*>::fit_plane(ForwardIte
  * \return the maximum deviation from the plane
  */
 template <class ForwardIterator>
-double CompGeomSpecOne<ForwardIterator, Ravelin::Point3d>::fit_plane(ForwardIterator begin, ForwardIterator end, Ravelin::Vector3d& normal, double& offset)
+double CompGeomSpecOne<ForwardIterator, Point3d>::fit_plane(ForwardIterator begin, ForwardIterator end, Ravelin::Vector3d& normal, double& offset)
 {
   const unsigned THREE_D = 3, X = 0, Y = 1, Z = 2;
   
   // compute the mean of the data
   unsigned n = 0;
-  Ravelin::Point3d mu = Ravelin::Point3d::zero();
+  Point3d mu = Point3d::zero();
   for (ForwardIterator i = begin; i != end; i++, n++)
     mu += *i;
   mu /= n;
@@ -713,7 +713,7 @@ double CompGeomSpecOne<ForwardIterator, Ravelin::Point3d>::fit_plane(ForwardIter
  * \return a pointer to the newly created polyhedron
  */
 template <class ForwardIterator>
-PolyhedronPtr CompGeomSpecOne<ForwardIterator, Ravelin::Point3d>::calc_convex_hull(ForwardIterator first, ForwardIterator last)
+PolyhedronPtr CompGeomSpecOne<ForwardIterator, Point3d>::calc_convex_hull(ForwardIterator first, ForwardIterator last)
 {
   const unsigned X = 0, Y = 1, Z = 2;
   int exit_code;
@@ -796,13 +796,13 @@ PolyhedronPtr CompGeomSpecOne<ForwardIterator, Ravelin::Point3d>::calc_convex_hu
   }
 
   // construct a new vector of vertices
-  std::vector<Ravelin::Point3d> vertices; 
+  std::vector<Point3d> vertices; 
 
   // get all of the vertices
   std::map<vertexT*, unsigned> vertex_map;
   for (vertexT* vertex=qh vertex_list;vertex && vertex->next;vertex= vertex->next)
   {
-    Ravelin::Point3d v;
+    Point3d v;
     for (unsigned i=0; i< (unsigned) DIM; i++)
       v[i] = vertex->point[i];
     vertices.push_back(v);
@@ -876,7 +876,7 @@ PolyhedronPtr CompGeomSpecOne<ForwardIterator, Ravelin::Point3d>::calc_convex_hu
  * \return the dimensionality (0 [point], 1 [line], 2 [plane], 3 [full space])
  */
 template <class ForwardIterator>
-unsigned CompGeomSpecOne<ForwardIterator, Ravelin::Point3d>::calc_dimensionality(ForwardIterator first, ForwardIterator last, double tol)
+unsigned CompGeomSpecOne<ForwardIterator, Point3d>::calc_dimensionality(ForwardIterator first, ForwardIterator last, double tol)
 {
   assert(tol >= 0.0);
 
@@ -946,7 +946,7 @@ unsigned CompGeomSpecOne<ForwardIterator, Ravelin::Point3d>::calc_dimensionality
  * \param endpoints the two farthest points on the segment on return
  */
 template <class ForwardIterator>
-void CompGeom::determine_seg_endpoints(ForwardIterator begin, ForwardIterator end, std::pair<Ravelin::Point3d, Ravelin::Point3d>& endpoints)
+void CompGeom::determine_seg_endpoints(ForwardIterator begin, ForwardIterator end, std::pair<Point3d, Point3d>& endpoints)
 {
   // make sure that we have been given valid input
   assert(begin != end);
@@ -1003,7 +1003,7 @@ void CompGeom::determine_seg_endpoints(ForwardIterator begin, ForwardIterator en
  *       source collection
  */
 template <class ForwardIterator, class OutputIterator>
-OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Ravelin::Point3d>::to_2D(ForwardIterator begin_source, ForwardIterator end_source, OutputIterator begin_target, const Ravelin::Matrix3d& R)
+OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Point3d>::to_2D(ForwardIterator begin_source, ForwardIterator end_source, OutputIterator begin_target, const Ravelin::Matrix3d& R)
 {
   // project the points to 2D
   for (ForwardIterator i = begin_source; i != end_source; i++, begin_target++)
@@ -1014,7 +1014,7 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Ravelin::Point3d
 
 /// Determines whether a polygon (in 3D) is convex
 template <class ForwardIterator>
-bool CompGeomSpecOne<ForwardIterator, Ravelin::Point3d>::is_convex_polygon(ForwardIterator begin, ForwardIterator end, const Ravelin::Vector3d& normal, double tol)
+bool CompGeomSpecOne<ForwardIterator, Point3d>::is_convex_polygon(ForwardIterator begin, ForwardIterator end, const Ravelin::Vector3d& normal, double tol)
 {
   const unsigned X = 0, Y = 1, Z = 2;
   assert(tol >= 0.0);
@@ -1023,7 +1023,7 @@ bool CompGeomSpecOne<ForwardIterator, Ravelin::Point3d>::is_convex_polygon(Forwa
   Ravelin::Matrix3d R = CompGeom::calc_3D_to_2D_matrix(normal);
 
   // project the points to 2D
-  std::list<Ravelin::Point2d> points_2D(std::distance(begin, end));
+  std::list<Point2d> points_2D(std::distance(begin, end));
   CompGeom::to_2D(begin, end, points_2D.begin(), R);
 
   // if the 2D polygon is not ccw, make it so
@@ -1046,7 +1046,7 @@ bool CompGeomSpecOne<ForwardIterator, Ravelin::Point3d>::is_convex_polygon(Forwa
  * \return the new end of the target container
  */
 template <class ForwardIterator, class OutputIterator>
-OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Ravelin::Point3d>::calc_convex_hull(ForwardIterator source_begin, ForwardIterator source_end, const Ravelin::Vector3d& normal, OutputIterator target_begin)
+OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Point3d>::calc_convex_hull(ForwardIterator source_begin, ForwardIterator source_end, const Ravelin::Vector3d& normal, OutputIterator target_begin)
 {  
   FILE_LOG(LOG_COMPGEOM) << "computing 2D convex hull of following points:" << std::endl;
   for (ForwardIterator i = source_begin; i != source_end; i++)
@@ -1075,12 +1075,12 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Ravelin::Point3d
 
   // project the points to 2D
   unsigned sz = std::distance(source_begin, source_end);
-  std::vector<Ravelin::Point2d> points_2D(sz);
+  std::vector<Point2d> points_2D(sz);
   CompGeom::to_2D(source_begin, source_end, R, points_2D);
 
   // compute correspondences
-  std::vector<Ravelin::Point2d*> points_2D_ptr(sz);
-  std::map<Ravelin::Point2d*, const Ravelin::Point3d*> mapping;
+  std::vector<Point2d*> points_2D_ptr(sz);
+  std::map<Point2d*, const Point3d*> mapping;
   unsigned i=0;
   for (ForwardIterator j=source_begin; j != source_end; i++, j++)
   {
@@ -1092,12 +1092,12 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Ravelin::Point3d
     FILE_LOG(LOG_COMPGEOM) << "  " << points_2D[i] << std::endl;
 
   // compute the convex hull
-  std::list<Ravelin::Point2d*> hull(sz);
-  std::list<Ravelin::Point2d*>::iterator hull_end = calc_convex_hull(points_2D_ptr.begin(), points_2D_ptr.end(), hull.begin());
+  std::list<Point2d*> hull(sz);
+  std::list<Point2d*>::iterator hull_end = calc_convex_hull(points_2D_ptr.begin(), points_2D_ptr.end(), hull.begin());
 
   // use the mapping to 3D
-  std::list<Ravelin::Point3d> hull3D;
-  for (std::list<Ravelin::Point2d*>::iterator i = hull.begin(); i != hull_end; i++)
+  std::list<Point3d> hull3D;
+  for (std::list<Point2d*>::iterator i = hull.begin(); i != hull_end; i++)
     hull3D.push_back(*mapping[*i]);
 
   // reverse the hull if necessary
@@ -1113,7 +1113,7 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Ravelin::Point3d
  ****************************************************************************/
 
 /*****************************************************************************
- Ravelin::Point2d versions of functions BEGIN
+ Point2d versions of functions BEGIN
  ****************************************************************************/
 
 /// Computes the minimum area bounding rectangle of a set of points
@@ -1123,14 +1123,14 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Ravelin::Point3d
  * rectangle (ordered as edges).
  */
 template <class ForwardIterator>
-void CompGeomSpecOne<ForwardIterator, Ravelin::Point2d>::calc_min_area_bounding_rect(ForwardIterator begin, ForwardIterator end, Ravelin::Point2d& x1, Ravelin::Point2d& x2, Ravelin::Point2d& x3, Ravelin::Point2d& x4)
+void CompGeomSpecOne<ForwardIterator, Point2d>::calc_min_area_bounding_rect(ForwardIterator begin, ForwardIterator end, Point2d& x1, Point2d& x2, Point2d& x3, Point2d& x4)
 {
   enum Flag { F_NONE, F_LEFT, F_RIGHT, F_BOTTOM, F_TOP };
   const unsigned X = 0, Y = 1;
-  std::pair<Ravelin::Point2d, Ravelin::Point2d> ep;
+  std::pair<Point2d, Point2d> ep;
 
   // calculate the convex hull of the points in ccw order
-  std::vector<Ravelin::Point2d> points, hull;
+  std::vector<Point2d> points, hull;
   for (; begin != end; begin++)
     points.push_back(*begin);
   CompGeom::calc_convex_hull(points.begin(), points.end(), std::back_inserter(hull));
@@ -1257,7 +1257,7 @@ void CompGeomSpecOne<ForwardIterator, Ravelin::Point2d>::calc_min_area_bounding_
 
   // the dimensions of the axis-aligned box; the extents store width and height
   // for now
-  Ravelin::Point2d center((double) 0.5 * (xmin + xmax), (double) 0.5 * (ymin + ymax));
+  Point2d center((double) 0.5 * (xmin + xmax), (double) 0.5 * (ymin + ymax));
   Ravelin::Vector2d axis[2] = { Ravelin::Vector2d((double) 1.0, (double) 0.0), 
                       Ravelin::Vector2d((double) 0.0, (double) 1.0) };
   double extent[2] = { (double) 0.5 * (xmax - xmin), (double) 0.5 * (ymax - ymin) };
@@ -1381,14 +1381,14 @@ void CompGeomSpecOne<ForwardIterator, Ravelin::Point2d>::calc_min_area_bounding_
   x4 = center - axis[X]*extent[X] + axis[Y]*extent[Y];
 }
 
-/// Determines the endpoints for a container of collinear Ravelin::Point2d objects
+/// Determines the endpoints for a container of collinear Point2d objects
 /**
- * \param begin iterator to beginning of container of type Ravelin::Point2d
- * \param end iterator to end of container of type Ravelin::Point2d
+ * \param begin iterator to beginning of container of type Point2d
+ * \param end iterator to end of container of type Point2d
  * \param endpoints the two farthest points on the segment on return
  */
 template <class ForwardIterator>
-void CompGeom::determine_seg_endpoints(ForwardIterator begin, ForwardIterator end, std::pair<Ravelin::Point2d, Ravelin::Point2d>& endpoints)
+void CompGeom::determine_seg_endpoints(ForwardIterator begin, ForwardIterator end, std::pair<Point2d, Point2d>& endpoints)
 {
   // make sure that we have been given valid input
   assert(begin != end);
@@ -1434,8 +1434,8 @@ void CompGeom::determine_seg_endpoints(ForwardIterator begin, ForwardIterator en
 
 /// Computes the intersection of a polygon and a line segment
 /**
- * \param begin iterator pointing to start of collection of Ravelin::Point2d elements
- * \param end iterator pointing to end of collection of Ravelin::Point2d elements
+ * \param begin iterator pointing to start of collection of Point2d elements
+ * \param end iterator pointing to end of collection of Point2d elements
  * \param seg the line segment
  * \param outbegin an iterator to a container of type LineSeg2 that will 
  *        store line segments on/in the polygon on return 
@@ -1445,7 +1445,7 @@ void CompGeom::determine_seg_endpoints(ForwardIterator begin, ForwardIterator en
  * \note first vertex should not appear twice
  */
 template <class ForwardIterator, class OutputIterator>
-OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Ravelin::Point2d>::intersect_seg_polygon(ForwardIterator begin, ForwardIterator end, const LineSeg2& seg, OutputIterator outbegin)
+OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Point2d>::intersect_seg_polygon(ForwardIterator begin, ForwardIterator end, const LineSeg2& seg, OutputIterator outbegin)
 {
   std::list<double> points;
 
@@ -1459,7 +1459,7 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Ravelin::Point2d
   double inv_seg_len_sq = 1.0/(seg.first - seg.second).norm_sq();
 
   // intersect all line segments
-  Ravelin::Point2d isect1, isect2;
+  Point2d isect1, isect2;
   for (ForwardIterator i = begin; i != end; i++)
   {
     // get the next vertex
@@ -1494,8 +1494,8 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Ravelin::Point2d
   {
     std::list<double>::const_iterator j = i;
     j++;
-    Ravelin::Point2d p1 = seg.first * (*i) + seg.second * (1.0 - (*i));
-    Ravelin::Point2d p2 = seg.first * (*j) + seg.second * (1.0 - (*j));
+    Point2d p1 = seg.first * (*i) + seg.second * (1.0 - (*i));
+    Point2d p2 = seg.first * (*j) + seg.second * (1.0 - (*j));
     *outbegin++ = LineSeg2(p1, p2);
   }
 
@@ -1504,8 +1504,8 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Ravelin::Point2d
 
 /// Computes the intersection of a convex polygon and a line segment
 /**
- * \param begin iterator pointing to start of collection of Ravelin::Point2d elements
- * \param end iterator pointing to end of collection of Ravelin::Point2d elements
+ * \param begin iterator pointing to start of collection of Point2d elements
+ * \param end iterator pointing to end of collection of Point2d elements
  * \param seg the line segment
  * \param te the parameter of the line segment for the beginning of the
  *        intersection; (1-te)*seg.first + te*seg.second is point of 
@@ -1519,7 +1519,7 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Ravelin::Point2d
  * \note taken from http://geometryalgorithms.com 
  */
 template <class ForwardIterator>
-bool CompGeomSpecOne<ForwardIterator, Ravelin::Point2d>::intersect_seg_convex_polygon(ForwardIterator begin, ForwardIterator end, const LineSeg2& seg, double& te, double& tl, double tol)
+bool CompGeomSpecOne<ForwardIterator, Point2d>::intersect_seg_convex_polygon(ForwardIterator begin, ForwardIterator end, const LineSeg2& seg, double& te, double& tl, double tol)
 {
   assert(tol >= 0.0);
 
@@ -1527,7 +1527,7 @@ bool CompGeomSpecOne<ForwardIterator, Ravelin::Point2d>::intersect_seg_convex_po
   te = 0;
   tl = 1;
 
-  Ravelin::Point2d dS = seg.second - seg.first;
+  Point2d dS = seg.second - seg.first;
 
   // iterate over all vertices
   for (ForwardIterator i = begin; i != end; i++)
@@ -1593,7 +1593,7 @@ bool CompGeomSpecOne<ForwardIterator, Ravelin::Point2d>::intersect_seg_convex_po
  *       source collection
  */
 template <class ForwardIterator, class OutputIterator>
-OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Ravelin::Point2d>::to_3D(ForwardIterator begin_source, ForwardIterator end_source, OutputIterator begin_target, const Ravelin::Matrix3d& RT, double offset)
+OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Point2d>::to_3D(ForwardIterator begin_source, ForwardIterator end_source, OutputIterator begin_target, const Ravelin::Matrix3d& RT, double offset)
 {
   // project the points back to 3D
   for (ForwardIterator i = begin_source; i != end_source; i++, begin_target++)
@@ -1607,7 +1607,7 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Ravelin::Point2d
  * \note Degenerate polygons (alternating representation) will fail!
  */
 template <class ForwardIterator>
-bool CompGeomSpecOne<ForwardIterator, Ravelin::Point2d>::ccw(ForwardIterator begin, ForwardIterator end, double tol)
+bool CompGeomSpecOne<ForwardIterator, Point2d>::ccw(ForwardIterator begin, ForwardIterator end, double tol)
 {
   assert(tol >= 0.0);
 
@@ -1634,15 +1634,15 @@ bool CompGeomSpecOne<ForwardIterator, Ravelin::Point2d>::ccw(ForwardIterator beg
 
 /// Calculates the convex hull of a set of points in 2D using quickhull
 /**
- * \param source_begin an iterator to the beginning of a container of Ravelin::Point2d*
- * \param source_end an iterator pointing to the end of a container of Ravelin::Point2d*
+ * \param source_begin an iterator to the beginning of a container of Point2d*
+ * \param source_end an iterator pointing to the end of a container of Point2d*
  * \param target_begin an iterator to the beginning of a container of indices;
  *         on return, contains the convex hull (NOTE: size of this container
  *         must be as large as the source container)
  * \return the new end of the target container
  */
 template <class ForwardIterator, class OutputIterator>
-OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Ravelin::Point2d>::calc_convex_hull(ForwardIterator source_begin, ForwardIterator source_end, OutputIterator target_begin)
+OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Point2d>::calc_convex_hull(ForwardIterator source_begin, ForwardIterator source_end, OutputIterator target_begin)
 {
   const unsigned X = 0, Y = 1;
   int exit_code;
@@ -1679,7 +1679,7 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Ravelin::Point2d
   SAFESTATIC std::vector<coordT> qhull_points;
   qhull_points.resize(N_POINTS*DIM);
   coordT* points_begin = &qhull_points.front();
-  std::map<coordT*, Ravelin::Point2d*> vertex_map;
+  std::map<coordT*, Point2d*> vertex_map;
   unsigned j=0;
   for (ForwardIterator i = source_begin; i != source_end; i++)
   {
@@ -1720,13 +1720,13 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Ravelin::Point2d
   }
 
   // ordered list of edges
-  std::map<Ravelin::Point2d*, std::list<Ravelin::Point2d*> > edges;
+  std::map<Point2d*, std::list<Point2d*> > edges;
   
   // iterate through all facets  
   for (facetT* facet=qh facet_list;facet && facet->next;facet=facet->next)
   {
     // setup a list of vertices for the facet
-    std::list<Ravelin::Point2d*> facet_vertices;
+    std::list<Point2d*> facet_vertices;
     
     // get all vertices in the facet
     vertexT* vertex;
@@ -1751,11 +1751,11 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Ravelin::Point2d
   #endif  
 
   // construct the set of processed vertex
-  std::set<Ravelin::Point2d*> processed;
+  std::set<Point2d*> processed;
   
   // construct the hull; compute the area at the same time of the 2D polygon
-  Ravelin::Point2d* current_vertex = edges.begin()->first;
-  std::list<Ravelin::Point2d> hull;
+  Point2d* current_vertex = edges.begin()->first;
+  std::list<Point2d> hull;
 
   while (true)
   {
@@ -1766,7 +1766,7 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Ravelin::Point2d
     processed.insert(current_vertex);
     
     // get adjacent vertices
-    std::list<Ravelin::Point2d*>& adj_v = edges[current_vertex];
+    std::list<Point2d*>& adj_v = edges[current_vertex];
     
     // see which vertices have been processed
     if (processed.find(adj_v.front()) == processed.end())
@@ -1789,11 +1789,11 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Ravelin::Point2d
 }
 
 /*****************************************************************************
- Ravelin::Point2d versions of functions END 
+ Point2d versions of functions END 
  ****************************************************************************/
 
 /*****************************************************************************
- Ravelin::Point2d* versions of functions BEGIN
+ Point2d* versions of functions BEGIN
  ****************************************************************************/
 
 /// Computes the minimum area bounding rectangle of a set of points
@@ -1803,14 +1803,14 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Ravelin::Point2d
  * rectangle (ordered as edges).
  */
 template <class ForwardIterator>
-void CompGeomSpecOne<ForwardIterator, Ravelin::Point2d*>::calc_min_area_bounding_rect(ForwardIterator begin, ForwardIterator end, Ravelin::Point2d& x1, Ravelin::Point2d& x2, Ravelin::Point2d& x3, Ravelin::Point2d& x4)
+void CompGeomSpecOne<ForwardIterator, Point2d*>::calc_min_area_bounding_rect(ForwardIterator begin, ForwardIterator end, Point2d& x1, Point2d& x2, Point2d& x3, Point2d& x4)
 {
   enum Flag { F_NONE, F_LEFT, F_RIGHT, F_BOTTOM, F_TOP };
   const unsigned X = 0, Y = 1;
-  std::pair<Ravelin::Point2d*, Ravelin::Point2d*> ep;
+  std::pair<Point2d*, Point2d*> ep;
 
   // calculate the convex hull of the points in ccw order
-  std::vector<Ravelin::Point2d*> points, hull;
+  std::vector<Point2d*> points, hull;
   for (; begin != end; begin++)
     points.push_back(&*begin);
   CompGeom::calc_convex_hull(points.begin(), points.end(), std::back_inserter(hull));
@@ -1937,7 +1937,7 @@ void CompGeomSpecOne<ForwardIterator, Ravelin::Point2d*>::calc_min_area_bounding
 
   // the dimensions of the axis-aligned box; the extents store width and height
   // for now
-  Ravelin::Point2d center((double) 0.5 * (xmin + xmax), (double) 0.5 * (ymin + ymax));
+  Point2d center((double) 0.5 * (xmin + xmax), (double) 0.5 * (ymin + ymax));
   Ravelin::Vector2d axis[2] = { Ravelin::Vector2d((double) 1.0, (double) 0.0), 
                       Ravelin::Vector2d((double) 0.0, (double) 1.0) };
   double extent[2] = { (double) 0.5 * (xmax - xmin), (double) 0.5 * (ymax - ymin) };
@@ -2063,8 +2063,8 @@ void CompGeomSpecOne<ForwardIterator, Ravelin::Point2d*>::calc_min_area_bounding
 
 /// Computes the intersection of a polygon and a line segment
 /**
- * \param begin iterator pointing to start of collection of Ravelin::Point2d elements
- * \param end iterator pointing to end of collection of Ravelin::Point2d elements
+ * \param begin iterator pointing to start of collection of Point2d elements
+ * \param end iterator pointing to end of collection of Point2d elements
  * \param seg the line segment
  * \param outbegin an iterator to a container of type LineSeg2 that will 
  *        store line segments on/in the polygon on return 
@@ -2074,7 +2074,7 @@ void CompGeomSpecOne<ForwardIterator, Ravelin::Point2d*>::calc_min_area_bounding
  * \note first vertex should not appear twice
  */
 template <class ForwardIterator, class OutputIterator>
-OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Ravelin::Point2d*>::intersect_seg_polygon(ForwardIterator begin, ForwardIterator end, const LineSeg2& seg, OutputIterator outbegin)
+OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Point2d*>::intersect_seg_polygon(ForwardIterator begin, ForwardIterator end, const LineSeg2& seg, OutputIterator outbegin)
 {
   std::list<double> points;
 
@@ -2088,7 +2088,7 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Ravelin::Point2d
   double inv_seg_len_sq = 1.0/(seg.first - seg.second).norm_sq();
 
   // intersect all line segments
-  Ravelin::Point2d isect1, isect2;
+  Point2d isect1, isect2;
   for (ForwardIterator i = begin; i != end; i++)
   {
     // get the next vertex
@@ -2123,22 +2123,22 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Ravelin::Point2d
   {
     std::list<double>::const_iterator j = i;
     j++;
-    Ravelin::Point2d p1 = seg.first * (*i) + seg.second * (1.0 - (*i));
-    Ravelin::Point2d p2 = seg.first * (*j) + seg.second * (1.0 - (*j));
+    Point2d p1 = seg.first * (*i) + seg.second * (1.0 - (*i));
+    Point2d p2 = seg.first * (*j) + seg.second * (1.0 - (*j));
     *outbegin++ = LineSeg2(p1, p2);
   }
 
   return outbegin;
 }
 
-/// Determines the endpoints for a container of collinear Ravelin::Point2d* objects
+/// Determines the endpoints for a container of collinear Point2d* objects
 /**
- * \param begin iterator to beginning of container of type Ravelin::Point2d*
- * \param end iterator to end of container of type Ravelin::Point2d*
+ * \param begin iterator to beginning of container of type Point2d*
+ * \param end iterator to end of container of type Point2d*
  * \param endpoints the two farthest points on the segment on return
  */
 template <class ForwardIterator>
-void CompGeom::determine_seg_endpoints(ForwardIterator begin, ForwardIterator end, std::pair<Ravelin::Point2d*, Ravelin::Point2d*>& endpoints)
+void CompGeom::determine_seg_endpoints(ForwardIterator begin, ForwardIterator end, std::pair<Point2d*, Point2d*>& endpoints)
 {
   // make sure that we have been given valid input
   assert(begin != end);
@@ -2184,8 +2184,8 @@ void CompGeom::determine_seg_endpoints(ForwardIterator begin, ForwardIterator en
 
 /// Computes the intersection of a convex polygon and a line segment
 /**
- * \param begin iterator pointing to start of collection of Ravelin::Point2d* elements
- * \param end iterator pointing to end of collection of Ravelin::Point2d* elements
+ * \param begin iterator pointing to start of collection of Point2d* elements
+ * \param end iterator pointing to end of collection of Point2d* elements
  * \param seg the line segment
  * \param te the parameter of the line segment for the beginning of the
  *        intersection; (1-te)*seg.first + te*seg.second is point of 
@@ -2199,7 +2199,7 @@ void CompGeom::determine_seg_endpoints(ForwardIterator begin, ForwardIterator en
  * \note taken from http://geometryalgorithms.com 
  */
 template <class ForwardIterator>
-bool CompGeomSpecOne<ForwardIterator, Ravelin::Point2d*>::intersect_seg_convex_polygon(ForwardIterator begin, ForwardIterator end, const LineSeg2& seg, double& te, double& tl, double tol)
+bool CompGeomSpecOne<ForwardIterator, Point2d*>::intersect_seg_convex_polygon(ForwardIterator begin, ForwardIterator end, const LineSeg2& seg, double& te, double& tl, double tol)
 {
   assert(tol >= 0.0);
 
@@ -2273,7 +2273,7 @@ bool CompGeomSpecOne<ForwardIterator, Ravelin::Point2d*>::intersect_seg_convex_p
  *       source collection
  */
 template <class ForwardIterator, class OutputIterator>
-OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Ravelin::Point2d*>::to_3D(ForwardIterator begin_source, ForwardIterator end_source, OutputIterator begin_target, const Ravelin::Matrix3d& RT, double offset)
+OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Point2d*>::to_3D(ForwardIterator begin_source, ForwardIterator end_source, OutputIterator begin_target, const Ravelin::Matrix3d& RT, double offset)
 {
   // project the points back to 3D
   for (ForwardIterator i = begin_source; i != end_source; i++, begin_target++)
@@ -2287,7 +2287,7 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Ravelin::Point2d
  * \note Degenerate polygons (alternating representation) will fail!
  */
 template <class ForwardIterator>
-bool CompGeomSpecOne<ForwardIterator, Ravelin::Point2d*>::ccw(ForwardIterator begin, ForwardIterator end, double tol)
+bool CompGeomSpecOne<ForwardIterator, Point2d*>::ccw(ForwardIterator begin, ForwardIterator end, double tol)
 {
   assert(tol >= 0.0);
 
@@ -2314,7 +2314,7 @@ bool CompGeomSpecOne<ForwardIterator, Ravelin::Point2d*>::ccw(ForwardIterator be
 
 /// Determines whether a polygon in 2D is convex
 template <class ForwardIterator>
-bool CompGeomSpecOne<ForwardIterator, Ravelin::Point2d*>::is_convex_polygon(ForwardIterator begin, ForwardIterator end, double tol)
+bool CompGeomSpecOne<ForwardIterator, Point2d*>::is_convex_polygon(ForwardIterator begin, ForwardIterator end, double tol)
 {
   assert(tol >= 0.0);
 
@@ -2345,15 +2345,15 @@ bool CompGeomSpecOne<ForwardIterator, Ravelin::Point2d*>::is_convex_polygon(Forw
 
 /// Calculates the convex hull of a set of points in 2D using quickhull
 /**
- * \param source_begin an iterator to the beginning of a container of Ravelin::Point2d*
- * \param source_end an iterator pointing to the end of a container of Ravelin::Point2d*
+ * \param source_begin an iterator to the beginning of a container of Point2d*
+ * \param source_end an iterator pointing to the end of a container of Point2d*
  * \param target_begin an iterator to the beginning of a container of indices;
  *         on return, contains the convex hull (NOTE: size of this container
  *         must be as large as the source container)
  * \return the new end of the target container
  */
 template <class ForwardIterator, class OutputIterator>
-OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Ravelin::Point2d*>::calc_convex_hull(ForwardIterator source_begin, ForwardIterator source_end, OutputIterator target_begin)
+OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Point2d*>::calc_convex_hull(ForwardIterator source_begin, ForwardIterator source_end, OutputIterator target_begin)
 {
   const unsigned X = 0, Y = 1;
   int exit_code;
@@ -2385,7 +2385,7 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Ravelin::Point2d
   assert(N_POINTS > 2);
   
   // setup the points
-  std::map<coordT*, Ravelin::Point2d*> vertex_map;
+  std::map<coordT*, Point2d*> vertex_map;
   SAFESTATIC std::vector<coordT> qhull_points;
   qhull_points.resize(N_POINTS*DIM);
   coordT* points_begin = &qhull_points.front();
@@ -2430,13 +2430,13 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Ravelin::Point2d
   }
 
   // ordered list of edges
-  std::map<Ravelin::Point2d*, std::list<Ravelin::Point2d*> > edges;
+  std::map<Point2d*, std::list<Point2d*> > edges;
   
   // iterate through all facets  
   for (facetT* facet=qh facet_list;facet && facet->next;facet=facet->next)
   {
     // setup a list of vertices for the facet
-    std::list<Ravelin::Point2d*> facet_vertices;
+    std::list<Point2d*> facet_vertices;
     
     // get all vertices in the facet
     vertexT* vertex;
@@ -2461,11 +2461,11 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Ravelin::Point2d
   #endif  
 
   // construct the set of processed vertex
-  std::set<Ravelin::Point2d*> processed;
+  std::set<Point2d*> processed;
   
   // construct the hull; compute the area at the same time of the 2D polygon
-  Ravelin::Point2d* current_vertex = edges.begin()->first;
-  std::list<Ravelin::Point2d*> hull;
+  Point2d* current_vertex = edges.begin()->first;
+  std::list<Point2d*> hull;
 
   while (true)
   {
@@ -2476,7 +2476,7 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Ravelin::Point2d
     processed.insert(current_vertex);
     
     // get adjacent vertices
-    std::list<Ravelin::Point2d*>& adj_v = edges[current_vertex];
+    std::list<Point2d*>& adj_v = edges[current_vertex];
     
     // see which vertices have been processed
     if (processed.find(adj_v.front()) == processed.end())
@@ -2499,13 +2499,13 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Ravelin::Point2d
 }
 
 /*****************************************************************************
- Ravelin::Point2d* versions of functions END 
+ Point2d* versions of functions END 
  ****************************************************************************/
 
 /// Computes the intersection of a polygon and a line segment
 /**
- * \param begin iterator pointing to start of collection of Ravelin::Point2d elements
- * \param end iterator pointing to end of collection of Ravelin::Point2d elements
+ * \param begin iterator pointing to start of collection of Point2d elements
+ * \param end iterator pointing to end of collection of Point2d elements
  * \param seg the line segment
  * \param outbegin an iterator to a container of type LineSeg2 that will 
  *        store line segments on/in the polygon on return 
@@ -2529,7 +2529,7 @@ OutputIterator CompGeom::intersect_seg_polygon(ForwardIterator begin, ForwardIte
 template <class ForwardIterator>
 PolyhedronPtr CompGeom::calc_convex_hull(ForwardIterator first, ForwardIterator last)
 {
-  return CompGeomSpecOne<ForwardIterator, Ravelin::Point3d>::calc_convex_hull(first, last);
+  return CompGeomSpecOne<ForwardIterator, Point3d>::calc_convex_hull(first, last);
 }
 
 /// Finds an interior point of a set of halfspaces using linear programming
@@ -2544,7 +2544,7 @@ PolyhedronPtr CompGeom::calc_convex_hull(ForwardIterator first, ForwardIterator 
  */
 /*
 template <class ForwardIterator>
-double CompGeom::find_hs_interior_point(ForwardIterator start, ForwardIterator end, Ravelin::Point3d& point)
+double CompGeom::find_hs_interior_point(ForwardIterator start, ForwardIterator end, Point3d& point)
 {
   assert(std::numeric_limits<double>::has_infinity);
   const double inf = std::numeric_limits<double>::max();
@@ -2679,7 +2679,7 @@ PolyhedronPtr CompGeom::calc_hs_intersection(ForwardIterator start, ForwardItera
 
   // determine the intersection vertices; NOTE: this code was motivated by
   // qhull's qh_printafacet() and qh_printfacets() functions
-  std::list<Ravelin::Point3d> points;
+  std::list<Point3d> points;
   for (facetT* facet=qh facet_list;facet && facet->next;facet=facet->next)
   {
     if (facet->offset > 0)
@@ -2739,8 +2739,8 @@ PolyhedronPtr CompGeom::calc_hs_intersection(ForwardIterator start, ForwardItera
 
 /// Computes the intersection of a convex polygon and a line segment
 /**
- * \param begin iterator pointing to start of collection of Ravelin::Point2d elements
- * \param end iterator pointing to end of collection of Ravelin::Point2d elements
+ * \param begin iterator pointing to start of collection of Point2d elements
+ * \param end iterator pointing to end of collection of Point2d elements
  * \param seg the line segment
  * \param te the parameter of the line segment for the beginning of the
  *        intersection; (1-te)*seg.first + te*seg.second is point of 
@@ -2761,11 +2761,11 @@ bool CompGeom::intersect_seg_convex_polygon(ForwardIterator begin, ForwardIterat
 }
 
 /**
- * Converts a collection of Ravelin::Vector3d objects to Ravelin::Point2d objects
+ * Converts a collection of Ravelin::Vector3d objects to Point2d objects
  * \param source_begin an iterator pointing to the beginning of the Ravelin::Vector3d 
  *        objects
  * \param source_end an iterator pointing to the end of the Ravelin::Vector3d objects
- * \param begin_target an iterator pointing to the beginning of the Ravelin::Point2d
+ * \param begin_target an iterator pointing to the beginning of the Point2d
  *        objects
  * \param R the projection matrix from 3D to 2D (on return)
  * \return the end of the output range
@@ -2779,11 +2779,11 @@ OutputIterator CompGeom::to_2D(ForwardIterator begin_source, ForwardIterator end
 }
 
 /**
- * Converts a collection of Ravelin::Point2d objects to Ravelin::Vector3d objects
+ * Converts a collection of Point2d objects to Ravelin::Vector3d objects
  * \param source_begin an iterator pointing to the beginning of the Ravelin::Vector3d 
  *        objects
  * \param source_end an iterator pointing to the end of the Ravelin::Vector3d objects
- * \param begin_target an iterator pointing to the beginning of the Ravelin::Point2d
+ * \param begin_target an iterator pointing to the beginning of the Point2d
  *        objects
  * \param R the projection matrix from 2D to 3D
  * \param offset the offset that must be added to the Z-coordinate of points
@@ -2843,11 +2843,11 @@ OutputIterator CompGeom::intersect_coplanar_tris(const Triangle& t1, const Trian
   // project triangles to 2D
   Ravelin::Matrix3d R = calc_3D_to_2D_matrix(normal);
   double offset = determine_3D_to_2D_offset(Ravelin::Origin3d(t1.a), R);
-  Ravelin::Point2d t1_2D[TRI_VERTS], t2_2D[TRI_VERTS];
+  Point2d t1_2D[TRI_VERTS], t2_2D[TRI_VERTS];
   for (unsigned i=0; i< TRI_VERTS; i++)
   {
-    t1_2D[i] = Ravelin::Point2d(to_2D(t1.get_vertex(i), R), boost::shared_ptr<Ravelin::Pose2d>());
-    t2_2D[i] = Ravelin::Point2d(to_2D(t2.get_vertex(i), R), boost::shared_ptr<Ravelin::Pose2d>());
+    t1_2D[i] = Point2d(to_2D(t1.get_vertex(i), R), boost::shared_ptr<Ravelin::Pose2d>());
+    t2_2D[i] = Point2d(to_2D(t2.get_vertex(i), R), boost::shared_ptr<Ravelin::Pose2d>());
   } 
 
   // verify triangles are ccw and reverse if necessary
@@ -2857,15 +2857,15 @@ OutputIterator CompGeom::intersect_coplanar_tris(const Triangle& t1, const Trian
     std::swap(t2_2D[1], t2_2D[2]);
 
   // intersect triangles
-  std::list<Ravelin::Point2d> points;
+  std::list<Point2d> points;
   intersect_tris(t1_2D, t2_2D, std::back_inserter(points));
 
   // project points back to 3D
   Ravelin::Matrix3d RT = Ravelin::Matrix3d::transpose(R);
-  BOOST_FOREACH(const Ravelin::Point2d& p, points)
+  BOOST_FOREACH(const Point2d& p, points)
   {
     Ravelin::Origin2d o(p);
-    *begin++ = Ravelin::Point3d(to_3D(o, RT, offset), t1.a.pose);
+    *begin++ = Point3d(to_3D(o, RT, offset), t1.a.pose);
   }
 
   return begin;
@@ -2918,35 +2918,35 @@ OutputIterator CompGeom::intersect_polygons(ForwardIterator pbegin, ForwardItera
   double offset = determine_3D_to_2D_offset(Ravelin::Origin3d(*pbegin), R);
   
   // convert the two polygons to 2D
-  std::vector<Ravelin::Point2d> p, q;
+  std::vector<Point2d> p, q;
   for (ForwardIterator i = pbegin; i != pend; i++)
-    p.push_back(Ravelin::Point2d(to_2D(*i, R), boost::shared_ptr<Ravelin::Pose2d>()));
+    p.push_back(Point2d(to_2D(*i, R), boost::shared_ptr<Ravelin::Pose2d>()));
   for (ForwardIterator i = qbegin; i != qend; i++)
-    q.push_back(Ravelin::Point2d(to_2D(*i, R), boost::shared_ptr<Ravelin::Pose2d>()));
+    q.push_back(Point2d(to_2D(*i, R), boost::shared_ptr<Ravelin::Pose2d>()));
 
   // do the intersection
-  std::list<Ravelin::Point2d> isect_2D;
-  std::insert_iterator<std::list<Ravelin::Point2d> > ii(isect_2D, isect_2D.begin());
+  std::list<Point2d> isect_2D;
+  std::insert_iterator<std::list<Point2d> > ii(isect_2D, isect_2D.begin());
   intersect_polygons(p.begin(), p.end(), q.begin(), q.end(), ii);
 
   // transform the polygon of intersection to 3D
   R.transpose();
-  std::list<Ravelin::Point3d> polygon;
-  for (std::list<Ravelin::Point2d>::const_iterator i = isect_2D.begin(); i != isect_2D.end(); i++)
+  std::list<Point3d> polygon;
+  for (std::list<Point2d>::const_iterator i = isect_2D.begin(); i != isect_2D.end(); i++)
   {
     Ravelin::Origin2d o(*i);
-    polygon.push_back(Ravelin::Point3d(to_3D(o, R, offset), pbegin->pose));
+    polygon.push_back(Point3d(to_3D(o, R, offset), pbegin->pose));
   }
 
   // verify that the polygon is ccw; if not, make it so
-  for (std::list<Ravelin::Point3d>::const_iterator i = polygon.begin(); i != polygon.end(); i++)
+  for (std::list<Point3d>::const_iterator i = polygon.begin(); i != polygon.end(); i++)
   {
     // get the next two points
-    std::list<Ravelin::Point3d>::const_iterator j = i;
+    std::list<Point3d>::const_iterator j = i;
     j++;
     if (j == polygon.end())
       j = polygon.begin();
-    std::list<Ravelin::Point3d>::const_iterator k = j;
+    std::list<Point3d>::const_iterator k = j;
     k++;
     if (k == polygon.end())
       k = polygon.begin();
@@ -3010,7 +3010,7 @@ OutputIterator CompGeom::intersect_polygons(ForwardIterator pbegin, ForwardItera
   unsigned a = 0, b = 0, aa = 0, ba = 0;
   tInFlag inflag = Unknown;
   bool first_point = true;
-  Ravelin::Point2d origin(0,0);
+  Point2d origin(0,0);
   OutputIterator current = isect_begin;
 
   do
@@ -3027,7 +3027,7 @@ OutputIterator CompGeom::intersect_polygons(ForwardIterator pbegin, ForwardItera
     OrientationType bHA = area_sign(pbegin[a1], pbegin[a], qbegin[b]);
     
     // if A and B intersect, update inflag
-    Ravelin::Point2d p, q;
+    Point2d p, q;
     SegSegIntersectType code = intersect_segs(std::make_pair(pbegin[a1], pbegin[a]), std::make_pair(qbegin[b1], qbegin[b]), p, q);
     if (code == eSegSegVertex || code == eSegSegIntersect)
     {
@@ -3096,7 +3096,7 @@ OutputIterator CompGeom::intersect_polygons(ForwardIterator pbegin, ForwardItera
  * Taken from O'Rourke, p. 259.
  */
 template <class OutputIterator>
-unsigned CompGeom::advance(unsigned a, unsigned* aa, unsigned n, bool inside, const Ravelin::Point2d& p, OutputIterator& current)
+unsigned CompGeom::advance(unsigned a, unsigned* aa, unsigned n, bool inside, const Point2d& p, OutputIterator& current)
 {
   if (inside)
     *current = p;
@@ -3121,7 +3121,7 @@ OutputIterator CompGeom::intersect_tris(const Triangle& t1, const Triangle& t2, 
     return intersect_coplanar_tris(t1, t2, t1.calc_normal(), begin);
 
   // intersect the triangles
-  Ravelin::Point3d p1, p2;
+  Point3d p1, p2;
   if (!intersect_noncoplanar_tris(t1, t2, p1, p2))
     // no intersection, clear the list and return
     return begin;
@@ -3135,10 +3135,10 @@ OutputIterator CompGeom::intersect_tris(const Triangle& t1, const Triangle& t2, 
 
 /// Calculates the convex hull of a set of points in 2D using quickhull
 /**
- * \param source_begin an iterator to the beginning of a container of Ravelin::Point2d 
- *        or Ravelin::Point2d*
- * \param source_end an iterator pointing to the end of a container of Ravelin::Point2d
- *        or Ravelin::Point2d*
+ * \param source_begin an iterator to the beginning of a container of Point2d 
+ *        or Point2d*
+ * \param source_end an iterator pointing to the end of a container of Point2d
+ *        or Point2d*
  * \param target_begin an iterator to the beginning of a container of indices;
  *         on return, contains the convex hull (NOTE: size of this container
  *         must be as large as the source container)
@@ -3201,9 +3201,9 @@ OutputIterator CompGeom::triangulate_convex_polygon(ForwardIterator source_begin
     return target_begin;
 
   // compute the center of the points, and create new points
-  std::list<Ravelin::Point3d> new_points;
+  std::list<Point3d> new_points;
   unsigned sz = 0;
-  Ravelin::Point3d center = Ravelin::Point3d::zero();
+  Point3d center = Point3d::zero();
   for (ForwardIterator i = source_begin; i != source_end; i++, sz++)
   {
     center += *i;
@@ -3221,10 +3221,10 @@ OutputIterator CompGeom::triangulate_convex_polygon(ForwardIterator source_begin
   center /= sz;
 
   // now, create triangles
-  for (std::list<Ravelin::Point3d>::const_iterator i = new_points.begin(); i != new_points.end(); i++)
+  for (std::list<Point3d>::const_iterator i = new_points.begin(); i != new_points.end(); i++)
   {
     // get the next point
-    std::list<Ravelin::Point3d>::const_iterator j = i;
+    std::list<Point3d>::const_iterator j = i;
     j++;
     if (j == new_points.end())
       j = new_points.begin();    
@@ -3293,13 +3293,13 @@ void CompGeom::project_plane(ForwardIterator begin, ForwardIterator end, const R
  *         outside of the polygon
  */
 template <class ForwardIterator>
-CompGeom::PolygonLocationType CompGeom::polygon_location(ForwardIterator begin, ForwardIterator end, const Ravelin::Point2d& point)
+CompGeom::PolygonLocationType CompGeom::polygon_location(ForwardIterator begin, ForwardIterator end, const Point2d& point)
 {
   const unsigned X = 0, Y = 1;
   int l_cross = 0, r_cross = 0;  
   
   // copy the polygon to a vector, shifted so that the point is at the origin
-  std::vector<Ravelin::Point2d> poly_copy;
+  std::vector<Point2d> poly_copy;
   for (ForwardIterator i=begin; i != end; i++)
     poly_copy.push_back(*i - point);
   
@@ -3388,7 +3388,7 @@ double CompGeom::calc_polygon_area(ForwardIterator begin, ForwardIterator end, c
   Ravelin::Matrix3d R = calc_3D_to_2D_matrix(normal);
 
   // project the points to 2D
-  std::list<Ravelin::Point2d> points_2D;
+  std::list<Point2d> points_2D;
   to_2D(begin, end, std::back_inserter(points_2D), R);
 
   // make sure that 2D polygon is ccw
@@ -3396,7 +3396,7 @@ double CompGeom::calc_polygon_area(ForwardIterator begin, ForwardIterator end, c
 
   FILE_LOG(LOG_COMPGEOM) << "CompGeom::calc_polygon_area() entered" << std::endl;
   FILE_LOG(LOG_COMPGEOM) << "  points (2D): " << std::endl;
-  for (std::list<Ravelin::Point2d>::const_iterator i = points_2D.begin(); i != points_2D.end(); i++)
+  for (std::list<Point2d>::const_iterator i = points_2D.begin(); i != points_2D.end(); i++)
     FILE_LOG(LOG_COMPGEOM) << "    " << *i << std::endl;
   FILE_LOG(LOG_COMPGEOM) << "CompGeom::calc_polygon_area() exited" << std::endl;
   
@@ -3409,17 +3409,17 @@ double CompGeom::calc_polygon_area(ForwardIterator begin, ForwardIterator end, c
  * \param end an iterator to a polygon in 2D
  */
 template <class ForwardIterator>
-Ravelin::Point2d CompGeom::calc_centroid_2D(ForwardIterator begin, ForwardIterator end)
+Point2d CompGeom::calc_centroid_2D(ForwardIterator begin, ForwardIterator end)
 {
   const unsigned X = 0, Y = 1;
 
   // now, compute the area of the polygon
   double area = 0;
   std::list<double> a;
-  for (std::list<Ravelin::Point2d>::const_iterator i = begin; i != end; i++)
+  for (std::list<Point2d>::const_iterator i = begin; i != end; i++)
   {
     // get the next element; wrap around
-    std::list<Ravelin::Point2d>::const_iterator j = i;
+    std::list<Point2d>::const_iterator j = i;
     j++;
     if (j == end)
       j = begin;
@@ -3435,13 +3435,13 @@ Ravelin::Point2d CompGeom::calc_centroid_2D(ForwardIterator begin, ForwardIterat
     area = -area;  
   
   // compute the 2D centroid
-  Ravelin::Point2d centroid(0.0,0.0);
+  Point2d centroid(0.0,0.0);
   std::list<double>::const_iterator i;
-  std::list<Ravelin::Point2d>::const_iterator j;
+  std::list<Point2d>::const_iterator j;
   for (i = a.begin(), j = begin; i != a.end(); i++, j++)
   {
     // get the next point
-    std::list<Ravelin::Point2d>::const_iterator k = j;
+    std::list<Point2d>::const_iterator k = j;
     k++;
     if (k == end)
       k = begin;
@@ -3459,7 +3459,7 @@ Ravelin::Point2d CompGeom::calc_centroid_2D(ForwardIterator begin, ForwardIterat
  * \param normal a vector normal to the plane that contains the points
  */
 template <class ForwardIterator>
-Ravelin::Point3d CompGeom::calc_centroid_2D(ForwardIterator begin, ForwardIterator end, const Ravelin::Vector3d& normal)
+Point3d CompGeom::calc_centroid_2D(ForwardIterator begin, ForwardIterator end, const Ravelin::Vector3d& normal)
 {
   const unsigned X = 0, Y = 1;
 
@@ -3473,8 +3473,8 @@ Ravelin::Point3d CompGeom::calc_centroid_2D(ForwardIterator begin, ForwardIterat
   double offset = determine_3D_to_2D_offset(*begin, R);
 
   // project the points to 2D
-  std::list<Ravelin::Point2d> points_2D;
-  std::insert_iterator<std::list<Ravelin::Point2d> > ii(points_2D, points_2D.begin());
+  std::list<Point2d> points_2D;
+  std::insert_iterator<std::list<Point2d> > ii(points_2D, points_2D.begin());
   to_2D(begin, end, ii, R);
 
   // make sure that 2D polygon is ccw
@@ -3484,16 +3484,16 @@ Ravelin::Point3d CompGeom::calc_centroid_2D(ForwardIterator begin, ForwardIterat
   for (ForwardIterator i = begin; i != end; i++)
     FILE_LOG(LOG_COMPGEOM) << *i << std::endl;
   FILE_LOG(LOG_COMPGEOM) << "2D points:" << std::endl;
-  for (std::list<Ravelin::Point2d>::const_iterator i = points_2D.begin(); i != points_2D.end(); i++)
+  for (std::list<Point2d>::const_iterator i = points_2D.begin(); i != points_2D.end(); i++)
     FILE_LOG(LOG_COMPGEOM) << "    " << *i << std::endl;
 
   // now, compute the area of the polygon
   double area = 0;
   std::list<double> a;
-  for (std::list<Ravelin::Point2d>::const_iterator i = points_2D.begin(); i != points_2D.end(); i++)
+  for (std::list<Point2d>::const_iterator i = points_2D.begin(); i != points_2D.end(); i++)
   {
     // get the next element; wrap around
-    std::list<Ravelin::Point2d>::const_iterator j = i;
+    std::list<Point2d>::const_iterator j = i;
     j++;
     if (j == points_2D.end())
       j = points_2D.begin();
@@ -3509,13 +3509,13 @@ Ravelin::Point3d CompGeom::calc_centroid_2D(ForwardIterator begin, ForwardIterat
   assert(area >= 0);
   
   // compute the 2D centroid
-  Ravelin::Point2d centroid(0,0);
+  Point2d centroid(0,0);
   std::list<double>::const_iterator i;
-  std::list<Ravelin::Point2d>::const_iterator j;
+  std::list<Point2d>::const_iterator j;
   for (i = a.begin(), j = points_2D.begin(); i != a.end(); i++, j++)
   {
     // get the next point
-    std::list<Ravelin::Point2d>::const_iterator k = j;
+    std::list<Point2d>::const_iterator k = j;
     k++;
     if (k == points_2D.end())
       k = points_2D.begin();
@@ -3531,7 +3531,7 @@ Ravelin::Point3d CompGeom::calc_centroid_2D(ForwardIterator begin, ForwardIterat
   FILE_LOG(LOG_COMPGEOM) << "RT: " << std::endl << RT;
   
   // project the centroid back to 3D
-  return Ravelin::Point3d(to_3D(Ravelin::Origin2d(centroid), RT, offset), P);
+  return Point3d(to_3D(Ravelin::Origin2d(centroid), RT, offset), P);
 }
 
 /// Computes the minimum area bounding rectangle of a set of points
@@ -3541,7 +3541,7 @@ Ravelin::Point3d CompGeom::calc_centroid_2D(ForwardIterator begin, ForwardIterat
  * rectangle (ordered as edges).
  */
 template <class ForwardIterator>
-void CompGeom::calc_min_area_bounding_rect(ForwardIterator begin, ForwardIterator end, Ravelin::Point2d& x1, Ravelin::Point2d& x2, Ravelin::Point2d& x3, Ravelin::Point2d& x4)
+void CompGeom::calc_min_area_bounding_rect(ForwardIterator begin, ForwardIterator end, Point2d& x1, Point2d& x2, Point2d& x3, Point2d& x4)
 {
   CompGeomSpecOne<ForwardIterator, typename std::iterator_traits<ForwardIterator>::value_type>::calc_min_area_bounding_rect(begin, end, x1, x2, x3, x4);
 }
@@ -3551,7 +3551,7 @@ void CompGeom::calc_min_area_bounding_rect(ForwardIterator begin, ForwardIterato
  * \note this method adapted from www.geometrictools.com
  */
 template <class OutputIterator>
-OutputIterator CompGeom::intersect_tris(const Ravelin::Point2d t1[3], const Ravelin::Point2d t2[3], OutputIterator output_begin)
+OutputIterator CompGeom::intersect_tris(const Point2d t1[3], const Point2d t2[3], OutputIterator output_begin)
 {
   const unsigned X = 0, Y = 1;
 
@@ -3560,7 +3560,7 @@ OutputIterator CompGeom::intersect_tris(const Ravelin::Point2d t1[3], const Rave
   assert(ccw(t2, t2+3));
 
   // init the potential intersection to t2 
-  Ravelin::Point2d isects[6];
+  Point2d isects[6];
   isects[0] = t2[0];
   isects[1] = t2[1];
   isects[2] = t2[2];
@@ -3589,16 +3589,16 @@ OutputIterator CompGeom::intersect_tris(const Ravelin::Point2d t1[3], const Rave
 /*
  * \param seg the line segment
  * \param tri the triangle 
- * \param output_begin an iterator to the beginning of a container of Ravelin::Point2d; 
+ * \param output_begin an iterator to the beginning of a container of Point2d; 
  *        points of intersection will be stored here on return
- * \return an iterator to the end of a container of Ravelin::Point2d; 
+ * \return an iterator to the end of a container of Point2d; 
  *        points of intersection will be stored here on return
  * \note this code adapted from http://www.geometrictools.com
  */
 template <class OutputIterator>
-OutputIterator CompGeom::intersect_seg_tri(const LineSeg2& seg, const Ravelin::Point2d tri[3], OutputIterator output_begin)
+OutputIterator CompGeom::intersect_seg_tri(const LineSeg2& seg, const Point2d tri[3], OutputIterator output_begin)
 {
-  Ravelin::Point2d isect, isect2;
+  Point2d isect, isect2;
   CompGeom::SegTriIntersectType code = intersect_seg_tri(seg, tri, isect, isect2);
   
   switch (code)
@@ -3683,16 +3683,16 @@ double CompGeom::determine_line_param(const T& p0, const U& dir, const T& v)
 /**
  * \param seg1 the first line segment
  * \param seg2 the second line segment
- * \param output_begin an iterator to the beginning of a container of Ravelin::Point2d; 
+ * \param output_begin an iterator to the beginning of a container of Point2d; 
  *        points of intersection will be stored here on return
- * \return an iterator to the end of a container of Ravelin::Point2d; 
+ * \return an iterator to the end of a container of Point2d; 
  *        points of intersection will be stored here on return
  */ 
 template <class OutputIterator>
 OutputIterator CompGeom::intersect_segs(const LineSeg2& s1, const LineSeg2& s2, OutputIterator output_begin)
 {
   // do the intersection
-  Ravelin::Point2d isect, isect2;
+  Point2d isect, isect2;
   SegSegIntersectType isect_type = intersect_segs(s1, s2, isect, isect2);
 
   // switch on the intersection type

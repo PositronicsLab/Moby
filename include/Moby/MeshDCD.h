@@ -54,14 +54,14 @@ class MeshDCD : public CollisionDetection
     /// The intersection tolerance
     double isect_tolerance;
 
-    double intersect_rects(const Ravelin::Vector3d& normal, const Ravelin::Point3d r1[4], const Ravelin::Point3d r2[4], Ravelin::Point3d& isect1, Ravelin::Point3d& isect2);
-    double calc_first_isect(const Triangle& t, const LineSeg3& s1, const LineSeg3& s2, Ravelin::Point3d& p1, Ravelin::Point3d& p2); 
+    double intersect_rects(const Ravelin::Vector3d& normal, const Point3d r1[4], const Point3d r2[4], Point3d& isect1, Point3d& isect2);
+    double calc_first_isect(const Triangle& t, const LineSeg3& s1, const LineSeg3& s2, Point3d& p1, Point3d& p2); 
   private:
-    double intersect_rect(const Ravelin::Vector3d& normal, const Ravelin::Vector3d& axis1, const Ravelin::Vector3d& axis2, const LineSeg3& rs1, const LineSeg3& rs2, const LineSeg3& s, Ravelin::Point3d& isect1, Ravelin::Point3d& isect2);
+    double intersect_rect(const Ravelin::Vector3d& normal, const Ravelin::Vector3d& axis1, const Ravelin::Vector3d& axis2, const LineSeg3& rs1, const LineSeg3& rs2, const LineSeg3& s, Point3d& isect1, Point3d& isect2);
     static unsigned determine_cubic_roots(double a, double b, double c, double x[3]);
     void add_rigid_body_model(RigidBodyPtr body);
     bool intersect_BV_trees(boost::shared_ptr<BV> a, boost::shared_ptr<BV> b, const Ravelin::Transform3d& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b);
-    static Event create_contact(double toi, CollisionGeometryPtr a, CollisionGeometryPtr b, const Ravelin::Point3d& point, const Ravelin::Vector3d& vpoint, const Triangle& t);
+    static Event create_contact(double toi, CollisionGeometryPtr a, CollisionGeometryPtr b, const Point3d& point, const Ravelin::Vector3d& vpoint, const Triangle& t);
     void check_geoms(double dt, CollisionGeometryPtr a, CollisionGeometryPtr b, const std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> >& q0, const std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> >& q1, std::vector<Event>& contacts); 
     void check_geom(double dt, CollisionGeometryPtr cg, const std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> >& q0, const std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> >& q1, std::vector<Event>& contacts); 
     void broad_phase(std::vector<std::pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check);
@@ -69,9 +69,9 @@ class MeshDCD : public CollisionDetection
     void determine_contacts_deformable(CollisionGeometryPtr a, CollisionGeometryPtr b, double t, double dt, std::vector<Event>& contacts);
     void determine_contacts_rigid_deformable(CollisionGeometryPtr a, CollisionGeometryPtr b, double t, double dt, std::vector<Event>& contacts);
     void determine_contacts_deformable_rigid(CollisionGeometryPtr a, CollisionGeometryPtr b, double t, double dt, std::vector<Event>& contacts);
-    double calc_first_isect(const Triangle& t, const LineSeg3& seg, Ravelin::Point3d& p);
-    static double calc_first_isect(const Ravelin::Point3d& p, const Ravelin::Vector3d& pdot, const Triangle& t, const Ravelin::Vector3d& adot, const Ravelin::Vector3d& bdot, const Ravelin::Vector3d& cdot, double dt);
-    static double calc_param(const LineSeg3& seg, const Ravelin::Point3d& p);
+    double calc_first_isect(const Triangle& t, const LineSeg3& seg, Point3d& p);
+    static double calc_first_isect(const Point3d& p, const Ravelin::Vector3d& pdot, const Triangle& t, const Ravelin::Vector3d& adot, const Ravelin::Vector3d& bdot, const Ravelin::Vector3d& cdot, double dt);
+    static double calc_param(const LineSeg3& seg, const Point3d& p);
     bool is_collision(CollisionGeometryPtr a, CollisionGeometryPtr b);
     bool is_collision(CollisionGeometryPtr cg);
     static DynamicBodyPtr get_super_body(CollisionGeometryPtr a);

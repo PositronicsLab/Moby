@@ -953,7 +953,7 @@ void FSABAlgorithm::calc_fwd_dyn()
 
   // get the body and the reference frame
   RCArticulatedBodyPtr body(_body);
-  if (!body->_ejoints.empty())
+  if (!body->_ijoints.empty())
     throw std::runtime_error("FSABAlgorithm cannot process bodies with kinematic loops!");
 
   // get the links and joints for the body
@@ -1041,7 +1041,7 @@ void FSABAlgorithm::apply_impulse(const SMomentumd& w, RigidBodyPtr link)
 
   // get the computation reference frame
   RCArticulatedBodyPtr body(_body);   
-  if (!body->_ejoints.empty())
+  if (!body->_ijoints.empty())
     throw std::runtime_error("FSABAlgorithm cannot process bodies with kinematic loops!");
 
   // prepare to compute impulses

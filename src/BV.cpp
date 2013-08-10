@@ -313,7 +313,7 @@ bool BV::intersects(const OBB* O, const BoundingSphere* S, const Transform3d& OT
 {
   // create a new bounding sphere in O's frame
   BoundingSphere s = *S;
-  s.center = OTS.transform(S->center);
+  s.center = OTS.transform_point(S->center);
   return intersects(O, &s);
 }
 
@@ -364,7 +364,7 @@ bool BV::intersects(const AABB* A, const BoundingSphere* S, const Transform3d& A
 {
   // create a new bounding sphere in O's frame
   BoundingSphere s = *S;
-  s.center = ATS.transform(S->center);
+  s.center = ATS.transform_point(S->center);
   return intersects(A, &s);
 }
 
@@ -391,7 +391,7 @@ bool BV::intersects(const SSR* S, const BoundingSphere* B)
 bool BV::intersects(const SSR* S, const BoundingSphere* B, const Transform3d& STB)
 {
   // transform the center of the bounding sphere
-  Point3d xc = STB.transform(B->center);
+  Point3d xc = STB.transform_point(B->center);
 
   // determine the distance between S and xformed center of the bounding sphere
   double dist = SSR::calc_dist(*S, xc);
@@ -526,8 +526,8 @@ bool BV::intersects(const SSR* A, const SSL* B)
 /// Tests intersection between a SSR and a SSL
 bool BV::intersects(const SSR* A, const SSL* B, const Transform3d& aTb)
 {
-  Point3d Bp1 = aTb.transform(B->p1);
-  Point3d Bp2 = aTb.transform(B->p2);
+  Point3d Bp1 = aTb.transform_point(B->p1);
+  Point3d Bp2 = aTb.transform_point(B->p2);
   double dist = SSR::calc_dist(*A, LineSeg3(Bp1, Bp2));
   return dist <= B->radius;
 }

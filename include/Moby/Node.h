@@ -25,7 +25,7 @@ struct Node
   }
 
   /// The global position of the node
-  Ravelin::Point3d x;
+  Point3d x;
 
   /// The linear velocity of the node
   Ravelin::Vector3d xd;

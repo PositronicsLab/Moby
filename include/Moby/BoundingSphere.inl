@@ -5,7 +5,7 @@ BoundingSphere::BoundingSphere(ForwardIterator begin, ForwardIterator end)
   const unsigned THREE_D = 3;
 
   // determine an AABB bounding the points
-  Ravelin::Point3d lo(INF, INF, INF), hi(-INF, -INF, -INF);
+  Point3d lo(INF, INF, INF), hi(-INF, -INF, -INF);
   for (ForwardIterator i = begin; i != end; i++)
     for (unsigned j=0; j< THREE_D; j++)
     {

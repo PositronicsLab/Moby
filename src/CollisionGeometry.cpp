@@ -19,7 +19,6 @@ using boost::dynamic_pointer_cast;
 using Ravelin::Pose3d;
 using Ravelin::Origin3d;
 using Ravelin::AAngled;
-using Ravelin::Point3d;
 using boost::shared_ptr;
 using namespace Moby;
 

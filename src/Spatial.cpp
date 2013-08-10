@@ -137,6 +137,40 @@ vector<SMomentumd>& mult(const SpatialABInertiad& I, const std::vector<SAxisd>& 
   return result;
 }
 
+/// Multiplies a spatial inertia by a vector of spatial axes
+MatrixNd& mult(const SpatialRBInertiad& I, const std::vector<SAxisd>& s, MatrixNd& result)
+{
+  const unsigned SPATIAL_DIM = 6;
+
+  // resize the result
+  result.resize(SPATIAL_DIM, s.size());
+
+  // compute the individual momenta
+  for (unsigned i=0; i< s.size(); i++)
+  {
+    SMomentumd m = I.mult(s[i]);
+    SharedVectorNd col = result.column(i);
+    m.to_vector(col);
+  } 
+
+  return result;
+}
+
+/// Multiplies a spatial inertia by a vector of spatial axes
+vector<SMomentumd>& mult(const SpatialRBInertiad& I, const std::vector<SAxisd>& s, vector<SMomentumd>& result)
+{
+  const unsigned SPATIAL_DIM = 6;
+
+  // resize the result
+  result.resize(s.size());
+
+  // compute the individual momenta
+  for (unsigned i=0; i< s.size(); i++)
+    result[i] = I.mult(s[i]);
+
+  return result;
+}
+
 /// Multiplies a vector of spatial axes by a vector
 SVelocityd mult(const vector<SAxisd>& t, const VectorNd& v)
 {

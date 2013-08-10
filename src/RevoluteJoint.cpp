@@ -62,7 +62,7 @@ void RevoluteJoint::set_axis(const Vector3d& axis)
   Vector3d naxis = Vector3d::normalize(axis);
 
   // transform the axis as necessary
-  _u = Pose3d::transform(_F, naxis);
+  _u = Pose3d::transform_vector(_F, naxis);
 
   // update the spatial axes
   update_spatial_axes(); 
@@ -77,7 +77,7 @@ void RevoluteJoint::set_axis(const Vector3d& axis)
     throw std::runtime_error("Attempt to set joint axis without setting inboard and outboard links first!");
  
   // compute joint axis in outer link frame 
-  _v2 = Pose3d::transform(b2->get_pose(), naxis); 
+  _v2 = Pose3d::transform_vector(b2->get_pose(), naxis); 
 }        
 
 /// Updates the spatial axis for this joint
@@ -1045,7 +1045,7 @@ void RevoluteJoint::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base
   node->name = "RevoluteJoint";
 
   // save the joint axis (global coordinates)
-  Vector3d u0 = Pose3d::transform(shared_ptr<const Pose3d>(), _u);
+  Vector3d u0 = Pose3d::transform_vector(shared_ptr<const Pose3d>(), _u);
   node->attribs.insert(XMLAttrib("axis", u0));
 }
 

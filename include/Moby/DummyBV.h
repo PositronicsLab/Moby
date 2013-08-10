@@ -29,10 +29,10 @@ class DummyBV : public BV
     std::ostream& to_vrml(std::ostream& out, const Ravelin::Pose3d& T) const { return out; }
 
     /// Determines whether a point is outside the bounding volume
-    virtual bool outside(const Ravelin::Point3d& point, double tol = NEAR_ZERO) { return false; }
+    virtual bool outside(const Point3d& point, double tol = NEAR_ZERO) { return false; }
 
     /// Determines whether a line segment intersects the bounding volume
-    virtual bool intersects(const LineSeg3& seg, double& tmin, double tmax, Ravelin::Point3d& q) const { q = seg.first*tmin + seg.second*((double) 1.0 - tmin); return true; }
+    virtual bool intersects(const LineSeg3& seg, double& tmin, double tmax, Point3d& q) const { q = seg.first*tmin + seg.second*((double) 1.0 - tmin); return true; }
 
     /// Virtual function that calculates a velocity-expanded BV
     /**
@@ -47,10 +47,10 @@ class DummyBV : public BV
     virtual double calc_volume() const { return 0.0; }
 
     /// Gets the lower bounds
-    virtual Ravelin::Point3d get_lower_bounds() { double INF = std::numeric_limits<double>::max(); return Ravelin::Point3d(-INF, -INF, -INF); }
+    virtual Point3d get_lower_bounds() { double INF = std::numeric_limits<double>::max(); return Point3d(-INF, -INF, -INF); }
 
     /// Gets the upper bounds
-    virtual Ravelin::Point3d get_upper_bounds() { double INF = std::numeric_limits<double>::max(); return Ravelin::Point3d(INF, INF, INF); }
+    virtual Point3d get_upper_bounds() { double INF = std::numeric_limits<double>::max(); return Point3d(INF, INF, INF); }
 
     /// Transforms the dummy BV (does nothing)
     virtual void transform(const Ravelin::Transform3d& T, BV* result) const {}

@@ -34,9 +34,9 @@ class TriangleMeshPrimitive : public Primitive
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);  
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual BVPtr get_BVH_root();
-    virtual void get_vertices(BVPtr bv, std::vector<const Ravelin::Point3d*>& vertices);
-    virtual bool point_inside(BVPtr bv, const Ravelin::Point3d& p, Ravelin::Vector3d& normal) const;
-    virtual bool intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Ravelin::Point3d& isect, Ravelin::Vector3d& normal) const;
+    virtual void get_vertices(BVPtr bv, std::vector<const Point3d*>& vertices);
+    virtual bool point_inside(BVPtr bv, const Point3d& p, Ravelin::Vector3d& normal) const;
+    virtual bool intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Ravelin::Vector3d& normal) const;
     virtual const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >& get_sub_mesh(BVPtr bv);
     virtual boost::shared_ptr<const IndexedTriArray> get_mesh() { return _mesh; }
     virtual void set_deformable(bool flag);
@@ -74,9 +74,9 @@ class TriangleMeshPrimitive : public Primitive
 
     void construct_mesh_vertices(boost::shared_ptr<const IndexedTriArray> mesh);
     void build_BB_tree();
-    void split_tris(const Ravelin::Point3d& point, const Ravelin::Vector3d& normal, const IndexedTriArray& orig_mesh, const std::list<unsigned>& ofacets, std::list<unsigned>& pfacets, std::list<unsigned>& nfacets);
+    void split_tris(const Point3d& point, const Ravelin::Vector3d& normal, const IndexedTriArray& orig_mesh, const std::list<unsigned>& ofacets, std::list<unsigned>& pfacets, std::list<unsigned>& nfacets);
     bool split(boost::shared_ptr<const IndexedTriArray> mesh, BVPtr source, BVPtr& tgt1, BVPtr& tgt2, const Ravelin::Vector3d& axis);
-    static bool is_degen_point_on_tri(boost::shared_ptr<AThickTri> tri, const Ravelin::Point3d& p);
+    static bool is_degen_point_on_tri(boost::shared_ptr<AThickTri> tri, const Point3d& p);
 
     template <class InputIterator, class OutputIterator>
     static OutputIterator get_vertices(const IndexedTriArray& tris, InputIterator fselect_begin, InputIterator fselect_end, OutputIterator output);
@@ -85,7 +85,7 @@ class TriangleMeshPrimitive : public Primitive
     std::map<BVPtr, std::list<unsigned> > _mesh_tris;
 
     /// Vertices used by get_vertices() [and referenced by _mesh_vertices]
-    boost::shared_ptr<std::vector<Ravelin::Point3d> > _vertices;
+    boost::shared_ptr<std::vector<Point3d> > _vertices;
 
     /// Mapping from BVs to vertex indices contained within
     std::map<BVPtr, std::list<unsigned> > _mesh_vertices;
@@ -96,8 +96,8 @@ class TriangleMeshPrimitive : public Primitive
     /// List of triangles covered by a bounding volume
     std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> > _smesh;
 
-    /// Mapping from Ravelin::Point3d pointers to mesh vertex indices
-    std::map<const Ravelin::Point3d*, unsigned> _mesh_vertex_map;
+    /// Mapping from Point3d pointers to mesh vertex indices
+    std::map<const Point3d*, unsigned> _mesh_vertex_map;
 }; // end class
 
 #include "TriangleMeshPrimitive.inl"

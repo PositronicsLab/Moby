@@ -529,7 +529,7 @@ void GeneralizedCCD::check_vertices(double dt, CollisionGeometryPtr a, Collision
   BOOST_FOREACH(const Point3d* v, a_verts)
   {
     // get point in s's frame at time 0 (for distance sorting) 
-    Point3d u_s = ds.sTb_t0.transform(*v);
+    Point3d u_s = ds.sTb_t0.transform_point(*v);
 
     // compute point at time t0 in b coordinates
     if (LOGGING(LOG_COLDET))
@@ -538,7 +538,7 @@ void GeneralizedCCD::check_vertices(double dt, CollisionGeometryPtr a, Collision
       RigidBodyPtr rbb = dynamic_pointer_cast<RigidBody>(b->get_single_body()); 
       FILE_LOG(LOG_COLDET) << "    -- checking vertex " << *v << " of " << rba->id << " against " << rbb->id << endl;
       FILE_LOG(LOG_COLDET) << "     -- u_s (local): " << u_s << endl; 
-      FILE_LOG(LOG_COLDET) << "     -- u_s (global): " << Pb_t0->transform(*v) << endl;
+      FILE_LOG(LOG_COLDET) << "     -- u_s (global): " << Pb_t0->transform_point(*v) << endl;
     }
 
     // we'll sort on inverse distance from the center of mass (origin of b frame) 
@@ -563,7 +563,7 @@ void GeneralizedCCD::check_vertices(double dt, CollisionGeometryPtr a, Collision
     {
       RigidBodyPtr rba = dynamic_pointer_cast<RigidBody>(a->get_single_body()); 
       FILE_LOG(LOG_COLDET) << "    -- checking vertex u: " << ds.u_b << " of " << rba->id << endl; 
-      FILE_LOG(LOG_COLDET) << "     -- global pos (t0): " << Pb_t0->transform(ds.u_b) << endl;
+      FILE_LOG(LOG_COLDET) << "     -- global pos (t0): " << Pb_t0->transform_point(ds.u_b) << endl;
     }
 
     // determine TOI, if any
@@ -775,8 +775,8 @@ double GeneralizedCCD::determine_TOI_fast(double t0, double tf, const DStruct* d
   shared_ptr<const Pose3d> Ps_tf = ds->Ps_tf;
 
   // get u- in gs's frame- at times t0 and tf
-  Point3d u0 = ds->sTb_t0.transform(u_b);
-  Point3d uf = ds->sTb_tf.transform(u_b);
+  Point3d u0 = ds->sTb_t0.transform_point(u_b);
+  Point3d uf = ds->sTb_tf.transform_point(u_b);
 
   // check for intersection 
   double t;
@@ -893,8 +893,8 @@ double GeneralizedCCD::determine_TOI(double t0, double tf, const DStruct* ds, Po
   Vector3d u = ds->u_b;
 
   // get u- in gs's frame- at times t0 and tf
-  Point3d u0_s = sTb_t0.transform(ds->u_b);
-  Point3d uf_s = sTb_tf.transform(ds->u_b);
+  Point3d u0_s = sTb_t0.transform_point(ds->u_b);
+  Point3d uf_s = sTb_tf.transform_point(ds->u_b);
 
   // setup the axes of the bounding box
   Vector3d u0uf = uf_s - u0_s;

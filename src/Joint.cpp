@@ -334,8 +334,8 @@ void Joint::set_location(const Point3d& point)
   RigidBodyPtr outboard(_outboard_link);
 
   // convert p to the inboard and outboard links' frames
-  Point3d pi = Pose3d::transform(inboard->get_pose(), point);
-  Point3d po = Pose3d::transform(outboard->get_pose(), point);
+  Point3d pi = Pose3d::transform_point(inboard->get_pose(), point);
+  Point3d po = Pose3d::transform_point(outboard->get_pose(), point);
 
   // set _F's and Fb's origins
   _F->x = Origin3d(pi);
@@ -609,7 +609,8 @@ void Joint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, 
   if (pos_attr)
   {
     // get the position of the joint
-    Point3d position = pos_attr->get_point_value();
+    Point3d position;
+    pos_attr->get_vector_value(position);
 
     // make sure that both inboard and outboard links have been set
     if (!get_inboard_link() || !get_outboard_link())
@@ -633,10 +634,10 @@ void Joint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, 
     Transform3d wTo = Pose3d::calc_relative_pose(Po, GLOBAL);
 
     // determine the vector from the inboard link to the joint (link coords)
-    Point3d inboard_to_joint = wTi.inverse_transform(position);
+    Point3d inboard_to_joint = wTi.inverse_transform_point(position);
 
     // determine the vector from the joint to the outboard link (link coords)
-    Point3d joint_to_outboard_lf = -wTo.inverse_transform(position);
+    Point3d joint_to_outboard_lf = -wTo.inverse_transform_point(position);
 
     // NOTE: the calculation immediately below assumes that the induced
     //       transform (i.e., the transform that the joint applies) is initally

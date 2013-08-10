@@ -52,11 +52,11 @@ class DeformableBody : public SingleBody
     virtual void set_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gv);
     virtual Ravelin::MatrixNd& get_generalized_inertia(Ravelin::MatrixNd& M);
     virtual Ravelin::VectorNd& get_generalized_forces(Ravelin::VectorNd& f);
-    virtual Ravelin::VectorNd& convert_to_generalized_force(SingleBodyPtr body, const Ravelin::SForced& w, const Ravelin::Point3d& p, Ravelin::VectorNd& gf);
+    virtual Ravelin::VectorNd& convert_to_generalized_force(SingleBodyPtr body, const Ravelin::SForced& w, const Point3d& p, Ravelin::VectorNd& gf);
     virtual void set_mesh(boost::shared_ptr<const IndexedTetraArray> tetra_mesh, boost::shared_ptr<Primitive> tri_mesh);
-    virtual Ravelin::Vector3d calc_point_vel(const Ravelin::Point3d& p) const;
+    virtual Ravelin::Vector3d calc_point_vel(const Point3d& p) const;
     void add_force(const Ravelin::Vector3d& f);
-    void add_force(const Ravelin::Vector3d& f, const Ravelin::Point3d& p);
+    void add_force(const Ravelin::Vector3d& f, const Point3d& p);
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual Ravelin::MatrixNd& solve_generalized_inertia(const Ravelin::MatrixNd& B, Ravelin::MatrixNd& X);
@@ -93,11 +93,11 @@ class DeformableBody : public SingleBody
   protected:
     void calc_com_and_vels();
     void update_geometries();
-    unsigned find_closest_tetrahedron(const Ravelin::Point3d& p) const;
+    unsigned find_closest_tetrahedron(const Point3d& p) const;
     Tetrahedron get_tetrahedron(unsigned i) const;
 
     template <class OutputIterator>
-    OutputIterator get_tetrahedra(const Ravelin::Point3d& p, OutputIterator output_begin) const;
+    OutputIterator get_tetrahedra(const Point3d& p, OutputIterator output_begin) const;
 
     /// The nodes comprising the deformable body
     std::vector<boost::shared_ptr<Node> > _nodes;
@@ -133,7 +133,7 @@ class DeformableBody : public SingleBody
 
   private:
     AABBPtr build_AABB_tree(std::map<BVPtr, std::list<unsigned> >& aabb_tetra_map);
-    void split_tetra(const Ravelin::Point3d& point, unsigned axis, const std::list<unsigned>& otetra, std::list<unsigned>& ptetra, std::list<unsigned>& ntetra);
+    void split_tetra(const Point3d& point, unsigned axis, const std::list<unsigned>& otetra, std::list<unsigned>& ptetra, std::list<unsigned>& ntetra);
     bool split(AABBPtr source, AABBPtr& tgt1, AABBPtr& tgt2, unsigned axis, const std::list<unsigned>& tetra, std::list<unsigned>& ptetra, std::list<unsigned>& ntetra);
 
     template <class InputIterator, class OutputIterator>

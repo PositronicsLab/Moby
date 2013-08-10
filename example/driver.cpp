@@ -325,8 +325,9 @@ void process_camera_tag(shared_ptr<const XMLTree> node)
 
   // get the actual values
   Vector3d up;
-  Point3d target = target_attr->get_point_value();
-  Point3d position = position_attr->get_point_value();
+  Point3d target, position;
+  target_attr->get_vector_value(target);
+  position_attr->get_vector_value(position);
   up_attr->get_vector_value(up);
 
   // setup osg vectors

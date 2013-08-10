@@ -1085,7 +1085,7 @@ void CRBAlgorithm::apply_impulse(const SMomentumd& w, RigidBodyPtr link)
   precalc(body); 
 
   // does not work for bodies with kinematic loops
-  assert(body->_ejoints.empty());
+  assert(body->_ijoints.empty());
 
   // get the base link
   RigidBodyPtr base = body->get_base_link();

@@ -7,7 +7,7 @@
   </DRIVER>
 
   <MOBY>
-    <Cylinder id="c" radius="1" height="5" global-axis="y" circle-points="100" density="1.0" />
+    <Cylinder id="c" radius="1" height="5" density="1.0" />
     <Box id="b3" xlen="10" ylen="1" zlen="10" density="10.0" />
     <Sphere id="sphere" radius="1.5811" mass="1" />
 
@@ -16,7 +16,7 @@
     <GravityForce id="gravity" accel="0 -9.81 0 " />
 
   <Simulator integrator-id="euler" collision-detector-id="ccd">
-    <RecurrentForce recurrent-force-id="gravity" enabled="true" /> 
+    <RecurrentForce recurrent-force-id="gravity" /> 
     <DynamicBody dynamic-body-id="chain" />
   </Simulator>
 
@@ -30,7 +30,7 @@
         <Visualization visualization-id="sphere" />
       </RigidBody>
 
-      <RevoluteJoint id="q" q="1.5708" q-tare="-1.5708" qd="0" location="0 0 0" inboard-link-id="base" outboard-link-id="l1" type="revolute" maxforce="10000" lower-limits="-3.14" upper-limits="3.14" coulomb-friction-coeff="0" viscous-friction-coeff="0" restitution-coeff="1" axis="0 0 1" />
+      <RevoluteJoint id="q" q="1.5708" q-tare="-1.5708" qd="0" location="0 0 0" inboard-link-id="base" outboard-link-id="l1" type="revolute" max-forces="10000" lower-limits="-3.14" upper-limits="3.14" coulomb-friction-coeff="0" viscous-friction-coeff="0" restitution-coeff="1" axis="0 0 1" />
     </RCArticulatedBody>
 
   </MOBY>

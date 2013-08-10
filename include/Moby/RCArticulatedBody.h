@@ -13,7 +13,6 @@
 #include <vector>
 #include <boost/shared_ptr.hpp>
 #include <Ravelin/Vector3d.h>
-#include <Ravelin/Point3d.h>
 #include <Ravelin/SForced.h>
 #include <Moby/Constants.h>
 #include <Moby/ArticulatedBody.h>
@@ -51,8 +50,8 @@ class RCArticulatedBody : public ArticulatedBody
     enum ForwardDynamicsAlgorithmType { eFeatherstone, eCRB }; 
     RCArticulatedBody();
     virtual ~RCArticulatedBody() {}
-    virtual Ravelin::MatrixNd& calc_jacobian(const Ravelin::Point3d& point, RigidBodyPtr link, Ravelin::MatrixNd& J);
-    virtual Ravelin::MatrixNd& calc_jacobian(const Ravelin::Point3d& point, const Ravelin::Pose3d& base_pose, const std::map<JointPtr, Ravelin::VectorNd>& q, RigidBodyPtr link, Ravelin::MatrixNd& J);
+    virtual Ravelin::MatrixNd& calc_jacobian(const Point3d& point, RigidBodyPtr link, Ravelin::MatrixNd& J);
+    virtual Ravelin::MatrixNd& calc_jacobian(const Point3d& point, const Ravelin::Pose3d& base_pose, const std::map<JointPtr, Ravelin::VectorNd>& q, RigidBodyPtr link, Ravelin::MatrixNd& J);
     virtual void reset_accumulators();
     virtual void update_link_poses();    
     virtual void update_link_velocities();
@@ -72,7 +71,7 @@ class RCArticulatedBody : public ArticulatedBody
     virtual void set_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gv);
     virtual Ravelin::MatrixNd& get_generalized_inertia(Ravelin::MatrixNd& M);
     virtual Ravelin::VectorNd& get_generalized_forces(Ravelin::VectorNd& f);
-    virtual Ravelin::VectorNd& convert_to_generalized_force(SingleBodyPtr body, const Ravelin::SForced& w, const Ravelin::Point3d& p, Ravelin::VectorNd& gf);
+    virtual Ravelin::VectorNd& convert_to_generalized_force(SingleBodyPtr body, const Ravelin::SForced& w, const Point3d& p, Ravelin::VectorNd& gf);
     virtual unsigned num_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype) const;
     virtual void set_links_and_joints(const std::vector<RigidBodyPtr>& links, const std::vector<JointPtr>& joints);
     virtual unsigned num_joint_dof_implicit() const;
@@ -126,8 +125,8 @@ class RCArticulatedBody : public ArticulatedBody
     const std::vector<JointPtr>& get_explicit_joints() const { return _ejoints; }
 
   private:
-    virtual Ravelin::MatrixNd& calc_jacobian_column(JointPtr joint, const Ravelin::Point3d& point, Ravelin::MatrixNd& Jc);
-    virtual Ravelin::MatrixNd& calc_jacobian_floating_base(const Ravelin::Point3d& point, Ravelin::MatrixNd& J);
+    virtual Ravelin::MatrixNd& calc_jacobian_column(JointPtr joint, const Point3d& point, Ravelin::MatrixNd& Jc);
+    virtual Ravelin::MatrixNd& calc_jacobian_floating_base(const Point3d& point, Ravelin::MatrixNd& J);
     bool all_children_processed(RigidBodyPtr link) const;
     void calc_fwd_dyn_loops();
     void calc_fwd_dyn_advanced_friction(double dt);

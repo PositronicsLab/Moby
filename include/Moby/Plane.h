@@ -21,11 +21,11 @@ class Plane
     Plane(double nx, double ny, double nz, double d) { _normal = Ravelin::Vector3d(nx, ny, nz); _normal.normalize(); offset = d; }
     Plane(const Triangle& t) { _normal = t.calc_normal(); offset = t.calc_offset(_normal); }
     Plane(const Ravelin::Vector3d& n, double d) { _normal = Ravelin::Vector3d::normalize(n); offset = d; }
-    Plane(const Ravelin::Vector3d& normal, const Ravelin::Point3d& point) { _normal = Ravelin::Vector3d::normalize(normal); offset = normal.dot(point); }
+    Plane(const Ravelin::Vector3d& normal, const Point3d& point) { _normal = Ravelin::Vector3d::normalize(normal); offset = normal.dot(point); }
     Plane(const Plane& p) { operator=(p); }
     void operator=(const Plane& p) { _normal = p._normal; offset = p.offset; }
-    double calc_signed_distance(const Ravelin::Point3d& p) const { return _normal.dot(p) - offset; }
-    bool on_plane(const Ravelin::Point3d& p) { return std::fabs(calc_signed_distance(p)) < NEAR_ZERO * std::max((double) 1.0, std::max(p.norm_inf(), std::fabs(offset))); }
+    double calc_signed_distance(const Point3d& p) const { return _normal.dot(p) - offset; }
+    bool on_plane(const Point3d& p) { return std::fabs(calc_signed_distance(p)) < NEAR_ZERO * std::max((double) 1.0, std::max(p.norm_inf(), std::fabs(offset))); }
     Plane operator-() const { return Plane(-_normal, -offset); }
     bool operator==(const Plane& p) const { double dot = _normal.dot(p.get_normal()); return (std::fabs(dot - 1.0) < NEAR_ZERO && std::fabs(offset - p.offset) < NEAR_ZERO); }
     bool operator<(const Plane& p) const;

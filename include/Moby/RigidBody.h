@@ -82,7 +82,7 @@ class RigidBody : public SingleBody
     virtual void set_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gv);
     virtual Ravelin::MatrixNd& get_generalized_inertia(Ravelin::MatrixNd& M);
     virtual Ravelin::VectorNd& get_generalized_forces(Ravelin::VectorNd& f);
-    virtual Ravelin::VectorNd& convert_to_generalized_force(SingleBodyPtr body, const Ravelin::SForced& w, const Ravelin::Point3d& p, Ravelin::VectorNd& gf);
+    virtual Ravelin::VectorNd& convert_to_generalized_force(SingleBodyPtr body, const Ravelin::SForced& w, const Point3d& p, Ravelin::VectorNd& gf);
     virtual unsigned num_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype) const;
     virtual Ravelin::MatrixNd& transpose_solve_generalized_inertia(const Ravelin::MatrixNd& B, Ravelin::MatrixNd& X);
     Ravelin::MatrixNd& transpose_solve_generalized_inertia_single(const Ravelin::MatrixNd& B, Ravelin::MatrixNd& X);
@@ -95,7 +95,7 @@ class RigidBody : public SingleBody
     void remove_inner_joint(JointPtr joint);
     void remove_outer_joint(JointPtr joint);
     virtual double calc_kinetic_energy();
-    virtual Ravelin::Vector3d calc_point_vel(const Ravelin::Point3d& p) const;
+    virtual Ravelin::Vector3d calc_point_vel(const Point3d& p) const;
     bool is_base() const;
     bool is_ground() const;
     virtual boost::shared_ptr<const Ravelin::Pose3d> get_computation_frame() const;

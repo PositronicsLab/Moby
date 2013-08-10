@@ -6,7 +6,7 @@
 
 inline std::ostream& operator<<(std::ostream& out, const IndexedTriArray& mesh)
 {
-   const std::vector<Ravelin::Point3d>& verts = mesh.get_vertices();
+   const std::vector<Point3d>& verts = mesh.get_vertices();
    const std::vector<IndexedTri>& facets = mesh.get_facets();
    BOOST_FOREACH(const IndexedTri& tri, facets)
    {
@@ -19,9 +19,9 @@ inline std::ostream& operator<<(std::ostream& out, const IndexedTriArray& mesh)
 
 /// Creates an indexed triangle mesh from containers of vertices and facets
 /**
- * \param vertices an iterator to the beginning of a container of Ravelin::Point3d
+ * \param vertices an iterator to the beginning of a container of Point3d
  *        objects
- * \param verts_end an iterator to the end of a container of Ravelin::Point3d objects
+ * \param verts_end an iterator to the end of a container of Point3d objects
  * \param facets_begin an iterator to the beginning of a container of 
  *        IndexedTri objects
  * \param facets_end an iterator to the end of a container of IndexedTri objects
@@ -29,7 +29,7 @@ inline std::ostream& operator<<(std::ostream& out, const IndexedTriArray& mesh)
 template <class ForwardIterator1, class ForwardIterator2>
 IndexedTriArray::IndexedTriArray(ForwardIterator1 verts_begin, ForwardIterator1 verts_end, ForwardIterator2 facets_begin, ForwardIterator2 facets_end)
 {
-  _vertices = boost::shared_ptr<const std::vector<Ravelin::Point3d> >(new std::vector<Ravelin::Point3d>(verts_begin, verts_end));
+  _vertices = boost::shared_ptr<const std::vector<Point3d> >(new std::vector<Point3d>(verts_begin, verts_end));
   _facets = boost::shared_ptr<const std::vector<IndexedTri> >(new std::vector<IndexedTri>(facets_begin, facets_end));
 
   // verify that all vertices are in the same frame
@@ -60,7 +60,7 @@ template <class OutputIterator>
 OutputIterator IndexedTriArray::get_tris(OutputIterator output_begin) const 
 {
   // get facets and vertices
-  const std::vector<Ravelin::Point3d>& vertices = get_vertices();
+  const std::vector<Point3d>& vertices = get_vertices();
   const std::vector<IndexedTri>& facets = get_facets();
 
   for (unsigned i=0; i< facets.size(); i++)

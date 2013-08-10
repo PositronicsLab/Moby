@@ -40,7 +40,7 @@ void BoundingSphere::transform(const Transform3d& T, BV* result) const
   s = *this;
 
   // transform the center
-  s.center = T.transform(center);
+  s.center = T.transform_point(center);
 }
 
 /// Sends the bounding sphere to VRML

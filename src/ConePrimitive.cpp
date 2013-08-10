@@ -186,7 +186,7 @@ void ConePrimitive::set_pose(const Pose3d& p)
   // transform vertices
   if (_vertices)
     for (unsigned i=0; i< _vertices->size(); i++)
-      (*_vertices)[i] = T.transform((*_vertices)[i]);
+      (*_vertices)[i] = T.transform_point((*_vertices)[i]);
 
   // indicate that this primitive has become invalidated
   _invalidated = true;
@@ -225,11 +225,11 @@ shared_ptr<const IndexedTriArray> ConePrimitive::get_mesh()
       const double THETA = i * (M_PI * (double) 2.0/_npoints);
       const double CT = std::cos(THETA);
       const double ST = std::sin(THETA);
-      points.push_back(T.transform(Point3d(CT*R, -HH, ST*R, P)));
+      points.push_back(T.transform_point(Point3d(CT*R, -HH, ST*R, P)));
     }
 
     // create one more vertex for the tip of the cone
-    points.push_back(T.transform(Point3d(0.0, HH, 0.0)));
+    points.push_back(T.transform_point(Point3d(0.0, HH, 0.0)));
 
     // compute the convex hull
     PolyhedronPtr hull = CompGeom::calc_convex_hull(points.begin(), points.end());
@@ -378,12 +378,12 @@ void ConePrimitive::get_vertices(BVPtr bv, std::vector<const Point3d*>& vertices
         const double THETA = i*(M_PI * (double) 2.0/_npoints);
         const double CT = std::cos(THETA);
         const double ST = std::sin(THETA);
-        _vertices->push_back(T.transform(Point3d(CT*R, HEIGHT, ST*R, P)));
+        _vertices->push_back(T.transform_point(Point3d(CT*R, HEIGHT, ST*R, P)));
       }
     }
 
     // create one more vertex for the tip of the cone
-    _vertices->push_back(T.transform(Point3d(0.0, H * (double) 0.5, 0.0)));
+    _vertices->push_back(T.transform_point(Point3d(0.0, H * (double) 0.5, 0.0)));
   }
 
   // copy the addresses of the computed vertices into 'vertices' 
@@ -444,7 +444,7 @@ bool ConePrimitive::point_inside(BVPtr bv, const Point3d& p, Vector3d& normal) c
   // transform the point to cone frame 
   shared_ptr<const Pose3d> P = get_pose();
   Transform3d T = Pose3d::calc_relative_pose(p.pose, P);
-  Point3d query = T.transform(p);
+  Point3d query = T.transform_point(p);
 
   // determine the angle theta
   double theta = std::atan(_radius/_height);
@@ -463,7 +463,7 @@ bool ConePrimitive::point_inside(BVPtr bv, const Point3d& p, Vector3d& normal) c
   normal = determine_normal(query);
 
   // transform the normal back to the desired pose
-  normal = T.inverse_transform(normal);
+  normal = T.inverse_transform_vector(normal);
 
   return true;
 }
@@ -480,7 +480,7 @@ double ConePrimitive::calc_penetration_depth(const Point3d& p) const
   // transform the point to cone frame 
   shared_ptr<const Pose3d> P = get_pose();
   Transform3d T = Pose3d::calc_relative_pose(p.pose, P);
-  Point3d query = T.transform(p);
+  Point3d query = T.transform_point(p);
 
   // determine the angle theta
   double theta = std::atan(_radius/_height);
@@ -569,8 +569,8 @@ bool ConePrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Poin
   // transform the line segment to cone frame 
   shared_ptr<const Pose3d> P = get_pose();
   Transform3d T = Pose3d::calc_relative_pose(seg.first.pose, P);
-  Point3d p = T.transform(seg.first);
-  Point3d q = T.transform(seg.second);
+  Point3d p = T.transform_point(seg.first);
+  Point3d q = T.transform_point(seg.second);
 
   // determine the angle theta
   double theta = std::atan(_radius/_height);
@@ -634,10 +634,10 @@ bool ConePrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Poin
         t = std::sqrt((isects[0] - p).norm_sq()/dir.norm_sq());
 
         // transform that point from the cone frame
-        isect = T.inverse_transform(isects[0]);
+        isect = T.inverse_transform_point(isects[0]);
 
         // determine the normal to the point
-        normal = T.inverse_transform(determine_normal(isects[0]));
+        normal = T.inverse_transform_vector(determine_normal(isects[0]));
 
         return true;
       }
@@ -651,10 +651,10 @@ bool ConePrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Poin
         t = std::sqrt((isects[0] - p).norm_sq()/dir.norm_sq());
 
         // transform the intersection point from the cone frame
-        isect = T.inverse_transform(isects[0]);
+        isect = T.inverse_transform_point(isects[0]);
 
         // determine the normal to the point
-        normal = T.inverse_transform(determine_normal(isects[0]));
+        normal = T.inverse_transform_vector(determine_normal(isects[0]));
 
         return true;
       }
@@ -676,10 +676,10 @@ bool ConePrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Poin
         t = std::sqrt((isects[0] - p).norm_sq()/dir.norm_sq());
 
         // transform the intersection point from the cone frame
-        isect = T.inverse_transform(isects[0]);
+        isect = T.inverse_transform_point(isects[0]);
 
         // determine the normal to the point
-        normal = T.inverse_transform(determine_normal(isects[0]));
+        normal = T.inverse_transform_vector(determine_normal(isects[0]));
 
         return true;
       }
@@ -700,13 +700,13 @@ bool ConePrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Poin
     {
       // ray intersection
       // transform point from cone frame
-      isect = T.inverse_transform(isects[0]);
+      isect = T.inverse_transform_point(isects[0]);
 
       // determine the intersection parameter
       t = std::sqrt((isects[0] - p).norm_sq()/dir.norm_sq());
       
       // determine the normal to the point
-      normal = T.inverse_transform(determine_normal(isects[0]));
+      normal = T.inverse_transform_vector(determine_normal(isects[0]));
 
       return true;
     }

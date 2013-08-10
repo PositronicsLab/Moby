@@ -46,8 +46,8 @@ void SSL::transform(const Transform3d& T, BV* result) const
   s = *this;
 
   // transform the two points on the line 
-  s.p1 = T.transform(p1);
-  s.p2 = T.transform(p2);
+  s.p1 = T.transform_point(p1);
+  s.p2 = T.transform_point(p2);
 }
 
 /// Copies one SSL to another
@@ -463,8 +463,8 @@ double SSL::calc_dist(const SSL& a, const SSL& b, const Transform3d& aTb, Point3
 
   // create a new SSL (b in a's frame)
   SSL b_a;
-  b_a.p1 = aTb.transform(b.p1);
-  b_a.p2 = aTb.transform(b.p2);
+  b_a.p1 = aTb.transform_point(b.p1);
+  b_a.p2 = aTb.transform_point(b.p2);
   b_a.radius = b.radius;
 
   return calc_dist(a, b_a, cpa, cpb); 

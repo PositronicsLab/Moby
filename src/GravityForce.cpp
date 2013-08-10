@@ -73,7 +73,7 @@ void GravityForce::add_force(DynamicBodyPtr body)
       // get the gravity vector
       // TODO: fix this
       assert(false);
-      Vector3d gx = Pose3d::transform(db->get_computation_frame(), gravity);
+      Vector3d gx = Pose3d::transform_vector(db->get_computation_frame(), gravity);
       db->add_force(gx * rb->get_mass());
     }
   }

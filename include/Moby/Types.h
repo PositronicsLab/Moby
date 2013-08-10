@@ -15,9 +15,9 @@
 #include <vector>
 #include <list>
 #include <boost/shared_ptr.hpp>
+#include <Ravelin/Vector2d.h>
+#include <Ravelin/Vector3d.h>
 #include <Ravelin/SAxisd.h>
-#include <Ravelin/Point3d.h>
-#include <Ravelin/Point2d.h>
 
 namespace Moby {
 
@@ -42,11 +42,17 @@ class AABB;
 class OBB;
 class BV;
 
-/// Typedef to make specifying line segments easier
-typedef std::pair<Ravelin::Point3d, Ravelin::Point3d> LineSeg3;
+/// Typedef to distinguish between a 2D vector and a point
+typedef Ravelin::Vector2d Point2d;
+
+/// Typedef to distinguish between a 3D vector and a point
+typedef Ravelin::Vector3d Point3d;
 
 /// Typedef to make specifying line segments easier
-typedef std::pair<Ravelin::Point2d, Ravelin::Point2d> LineSeg2;
+typedef std::pair<Point3d, Point3d> LineSeg3;
+
+/// Typedef to make specifying line segments easier
+typedef std::pair<Point2d, Point2d> LineSeg2;
 
 /// reference frame type for reduced-coordinate dynamics computations
 enum ReferenceFrameType { eGlobal, eLink, eLinkInertia, eJoint };

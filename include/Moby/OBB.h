@@ -12,7 +12,6 @@
 #include <queue>
 #include <boost/tuple/tuple.hpp>
 #include <boost/enable_shared_from_this.hpp>
-#include <Ravelin/Point3d.h>
 #include <Ravelin/Vector3d.h>
 #include <Ravelin/AAngled.h>
 #include <Ravelin/MatrixNd.h>
@@ -41,28 +40,28 @@ class OBB : public BV
   public:
     OBB();
     OBB(const OBB& obb) { operator=(obb); }
-    OBB(const Ravelin::Point3d& center, const Ravelin::Matrix3d& R, const Ravelin::Vector3d& l);
+    OBB(const Point3d& center, const Ravelin::Matrix3d& R, const Ravelin::Vector3d& l);
     OBB(const OBB& o, const Ravelin::Vector3d& v);
     void operator=(const OBB& obb);
     virtual void transform(const Ravelin::Transform3d& T, BV* result) const;
     virtual BVPtr calc_swept_BV(CollisionGeometryPtr g, const Ravelin::SVelocityd& v) const;
-    static double calc_sq_dist(const OBB& o, const Ravelin::Point3d& p);
-    static double calc_dist(const OBB& a, const OBB& b, Ravelin::Point3d& cpa, Ravelin::Point3d& cpb);
-    static double calc_dist(const OBB& a, const OBB& b, const Ravelin::Transform3d& aTb, Ravelin::Point3d& cpa, Ravelin::Point3d& cpb);
+    static double calc_sq_dist(const OBB& o, const Point3d& p);
+    static double calc_dist(const OBB& a, const OBB& b, Point3d& cpa, Point3d& cpb);
+    static double calc_dist(const OBB& a, const OBB& b, const Ravelin::Transform3d& aTb, Point3d& cpa, Point3d& cpb);
     static bool intersects(const OBB& a, const OBB& b);
     static bool intersects(const OBB& a, const OBB& b, const Ravelin::Transform3d& aTb);
-    static bool intersects(const OBB& a, const LineSeg3& seg, double& tmin, double tmax, Ravelin::Point3d& q);
-    virtual bool intersects(const LineSeg3& seg, double& tmin, double tmax, Ravelin::Point3d& q) const { return OBB::intersects(*this, seg, tmin, tmax, q); }
-    static bool outside(const OBB& a, const Ravelin::Point3d& point, double tol = NEAR_ZERO);
-    virtual bool outside(const Ravelin::Point3d& point, double tol = NEAR_ZERO) const { return OBB::outside(*this, point, tol); }
+    static bool intersects(const OBB& a, const LineSeg3& seg, double& tmin, double tmax, Point3d& q);
+    virtual bool intersects(const LineSeg3& seg, double& tmin, double tmax, Point3d& q) const { return OBB::intersects(*this, seg, tmin, tmax, q); }
+    static bool outside(const OBB& a, const Point3d& point, double tol = NEAR_ZERO);
+    virtual bool outside(const Point3d& point, double tol = NEAR_ZERO) const { return OBB::outside(*this, point, tol); }
     OBBPtr get_this() { return boost::dynamic_pointer_cast<OBB>(shared_from_this()); }
     boost::shared_ptr<const OBB> get_this() const { return boost::dynamic_pointer_cast<const OBB>(shared_from_this()); }
     virtual std::ostream& to_vrml(std::ostream& out, const Ravelin::Pose3d& T) const;
     unsigned calc_size() const;
     XMLTreePtr save_to_xml_tree() const;
     virtual boost::shared_ptr<const Ravelin::Pose3d> get_relative_pose() const { return center.pose; }
-    virtual Ravelin::Point3d get_lower_bounds() const;
-    virtual Ravelin::Point3d get_upper_bounds() const;
+    virtual Point3d get_lower_bounds() const;
+    virtual Point3d get_upper_bounds() const;
     static OBBPtr load_from_xml(boost::shared_ptr<const XMLTree> root);
 
     template <class ForwardIterator>
@@ -81,7 +80,7 @@ class OBB : public BV
     virtual double calc_volume() const { return l[0] * l[1] * l[2]; }
 
     /// Center of the bounding box
-    Ravelin::Point3d center;
+    Point3d center;
 
     /// Half-lengths of the OBBs in the three axes directions (i.e., in the box frame)
     Ravelin::Vector3d l;
@@ -94,7 +93,7 @@ class OBB : public BV
     static OBB calc_low_dim_OBB(ForwardIterator begin, ForwardIterator end);
 
     template <class ForwardIterator>
-    static void calc_lengths(const Ravelin::Vector3d& d1, const Ravelin::Vector3d& d2, const Ravelin::Vector3d& d3, const Ravelin::Point3d& center, ForwardIterator begin, ForwardIterator end, double lengths[3]);
+    static void calc_lengths(const Ravelin::Vector3d& d1, const Ravelin::Vector3d& d2, const Ravelin::Vector3d& d3, const Point3d& center, ForwardIterator begin, ForwardIterator end, double lengths[3]);
 
     template <class ForwardIterator>
     static void align(ForwardIterator begin, ForwardIterator end, const Ravelin::Vector3d& d1, Ravelin::Vector3d& d2);

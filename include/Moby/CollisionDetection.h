@@ -153,7 +153,7 @@ class CollisionDetection : public virtual Base
     std::set<sorted_pair<CollisionGeometryPtr> > colliding_pairs;
 
     /// The map of geometries to closest points (from last call to calc_distances())
-    std::map<std::pair<CollisionGeometryPtr, CollisionGeometryPtr>, std::pair<Ravelin::Point3d, Ravelin::Point3d> > closest_points;
+    std::map<std::pair<CollisionGeometryPtr, CollisionGeometryPtr>, std::pair<Point3d, Point3d> > closest_points;
 
     /// Distances between geometries (from last call to calc_distances())
     std::map<sorted_pair<CollisionGeometryPtr>, double> distances;
@@ -169,7 +169,7 @@ class CollisionDetection : public virtual Base
     template <class OutputIterator>
     OutputIterator get_dynamic_bodies(OutputIterator output_begin) const;
 
-    static double calc_distance(CollisionGeometryPtr a, CollisionGeometryPtr b, const Ravelin::Transform3d& aTb, Ravelin::Point3d& cpa, Ravelin::Point3d& cpb); 
+    static double calc_distance(CollisionGeometryPtr a, CollisionGeometryPtr b, const Ravelin::Transform3d& aTb, Point3d& cpa, Point3d& cpb); 
 
     /// The set of geometries checked by the collision detector
     std::set<CollisionGeometryPtr> _geoms;

@@ -333,7 +333,7 @@ IndexedTriArray IndexedTriArray::transform(const Transform3d& T) const
   it._vertices = new_vertices;
   vector<Point3d>& vertices = *new_vertices;
   for (unsigned i=0; i< vertices.size(); i++)
-    vertices[i] = T.transform(vertices[i]);
+    vertices[i] = T.transform_point(vertices[i]);
 
   // setup the new pose
   it._pose = T.target;

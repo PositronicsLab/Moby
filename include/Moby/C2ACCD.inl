@@ -104,7 +104,7 @@ OutputIterator C2ACCD::get_vertices(const IndexedTriArray& tris, InputIterator f
   std::list<unsigned>::const_iterator new_end = std::unique(verts.begin(), verts.end());
 
   // copy vertices to output
-  const std::vector<Ravelin::Point3d>& vertices = tris.get_vertices();
+  const std::vector<Point3d>& vertices = tris.get_vertices();
   for (std::list<unsigned>::const_iterator i = verts.begin(); i != new_end; i++)
     *output++ = vertices[*i];
 
