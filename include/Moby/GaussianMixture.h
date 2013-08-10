@@ -24,18 +24,18 @@ class GaussianMixture : public Primitive
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual void set_pose(const Ravelin::Pose3d& T);
     virtual BVPtr get_BVH_root() { return boost::dynamic_pointer_cast<BV>(_root); }
-    virtual void get_vertices(BVPtr bv, std::vector<const Ravelin::Point3d*>& vertices);
-    virtual bool point_inside(BVPtr bv, const Ravelin::Point3d& p, Ravelin::Vector3d& normal) const;
-    virtual bool intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Ravelin::Point3d& isect, Ravelin::Vector3d& normal) const;
+    virtual void get_vertices(BVPtr bv, std::vector<const Point3d*>& vertices);
+    virtual bool point_inside(BVPtr bv, const Point3d& p, Ravelin::Vector3d& normal) const;
+    virtual bool intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Ravelin::Vector3d& normal) const;
     virtual boost::shared_ptr<const IndexedTriArray> get_mesh() { return _mesh; }
     virtual const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >& get_sub_mesh(BVPtr bv);
     virtual osg::Node* create_visualization();
 
     private:
       static Ravelin::Vector3d grad(const Gauss& g, double x, double y);
-      static double f(const Gauss& g, const Ravelin::Point3d& p, const Ravelin::Point3d& q, double t);
-      static double df(const Gauss& g, const Ravelin::Point3d& p, const Ravelin::Point3d& q, double t);
-      static double newton_raphson(const Gauss& g, const Ravelin::Point3d& p, const Ravelin::Point3d& q);
+      static double f(const Gauss& g, const Point3d& p, const Point3d& q, double t);
+      static double df(const Gauss& g, const Point3d& p, const Point3d& q, double t);
+      static double newton_raphson(const Gauss& g, const Point3d& p, const Point3d& q);
       static Gauss read_gauss_node(boost::shared_ptr<const XMLTree> node);
       static double gauss(const Gauss& g, double x, double y);
       void construct_vertices();
@@ -61,7 +61,7 @@ class GaussianMixture : public Primitive
       std::map<OBBPtr, unsigned> _obbs;
 
       /// Set of vertices sampled at regular intervals
-      std::vector<std::vector<Ravelin::Point3d> > _vertices;
+      std::vector<std::vector<Point3d> > _vertices;
 
       /// Set of submeshes
       std::vector<std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> > > _submesh; 

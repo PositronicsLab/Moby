@@ -25,8 +25,8 @@ class IndexedTriArray
 {
   public:
     IndexedTriArray() {}
-    IndexedTriArray(boost::shared_ptr<const std::vector<Ravelin::Point3d> > vertices, const std::vector<IndexedTri>& facets);
-    IndexedTriArray(boost::shared_ptr<const std::vector<Ravelin::Point3d> > vertices, boost::shared_ptr<const std::vector<IndexedTri> > facets);
+    IndexedTriArray(boost::shared_ptr<const std::vector<Point3d> > vertices, const std::vector<IndexedTri>& facets);
+    IndexedTriArray(boost::shared_ptr<const std::vector<Point3d> > vertices, boost::shared_ptr<const std::vector<IndexedTri> > facets);
 
     template <class ForwardIterator1, class ForwardIterator2>
     IndexedTriArray(ForwardIterator1 vertices, ForwardIterator1 verts_end, ForwardIterator2 facets_begin, ForwardIterator2 facets_end);
@@ -64,13 +64,13 @@ class IndexedTriArray
     boost::shared_ptr<const std::vector<IndexedTri> > get_facets_pointer() const { return _facets; }
 
     /// Gets the pointer to the vector of vertices
-    boost::shared_ptr<const std::vector<Ravelin::Point3d> > get_vertices_pointer() const { return _vertices; }
+    boost::shared_ptr<const std::vector<Point3d> > get_vertices_pointer() const { return _vertices; }
 
     /// Gets the vector of facets
     const std::vector<IndexedTri>& get_facets() const { return *_facets; }
 
     /// Gets the vector of verties
-    const std::vector<Ravelin::Point3d>& get_vertices() const { return *_vertices; }
+    const std::vector<Point3d>& get_vertices() const { return *_vertices; }
 
     /// Determines whether a vertex is coplanar (all faces touching the vertex are coplanar)
     bool is_coplanar(unsigned vidx) const { return std::binary_search(_coplanar_verts.begin(), _coplanar_verts.end(), vidx); }
@@ -93,7 +93,7 @@ class IndexedTriArray
     /// The pose the vertices are defined in
     boost::shared_ptr<const Ravelin::Pose3d> _pose;
     boost::shared_ptr<const std::vector<IndexedTri> > _facets;
-    boost::shared_ptr<const std::vector<Ravelin::Point3d> > _vertices;
+    boost::shared_ptr<const std::vector<Point3d> > _vertices;
     boost::shared_ptr<const std::vector<std::list<unsigned > > > _incident_facets;
 }; // end class
 

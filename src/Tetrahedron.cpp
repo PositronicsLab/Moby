@@ -91,7 +91,7 @@ void Tetrahedron::determine_barycentric_coords(const Point3d& px, double& u, dou
   const unsigned X = 0, Y = 1, Z = 2;
 
   // transform point to tetrahedron space
-  Point3d p = Pose3d::transform(a.pose, px);
+  Point3d p = Pose3d::transform_point(a.pose, px);
 
   // Form system of linear equations
   // a(x)*u + b(x)*v + c(x)*w + d(x)*(1-u-v-w) = p(x)

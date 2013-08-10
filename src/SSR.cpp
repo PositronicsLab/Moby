@@ -50,7 +50,7 @@ void SSR::transform(const Transform3d& T, BV* result) const
   s = *this;
 
   // transform the center
-  s.center = T.transform(center);
+  s.center = T.transform_point(center);
 
   // transform the orientation
   s.R = Matrix3d(T.q) * R;
@@ -487,7 +487,7 @@ double SSR::calc_dist(const SSR& a, const SSR& b, const Transform3d& aTb, Point3
 {
   // create a new SSR (b in a's frame)
   SSR b_a;
-  b_a.center = aTb.transform(b.center);
+  b_a.center = aTb.transform_point(b.center);
   Matrix3d R = aTb.q;
   b_a.R = R * b.R;
   b_a.l = b.l;

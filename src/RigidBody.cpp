@@ -47,7 +47,7 @@ RigidBody::RigidBody()
   // setup inertial pose
   _jF = shared_ptr<Pose3d>(new Pose3d(Pose3d::identity()));
   _jF->rpose = _F;
-  _Jm.pose = _xdm.pose = _xddm.pose = _forcem.pose = _jF;
+  _Jm.pose = _Jm.h.pose = _xdm.pose = _xddm.pose = _forcem.pose = _jF;
 
   // setup visualization pose
   _vF->rpose = _F;
@@ -671,6 +671,9 @@ void RigidBody::add_force(const SForced& w)
     // invalidate the remaining forces 
     _forcei_valid = _forcem_valid = false; 
   }
+  else
+    // invalidate the remaining forces 
+    _forcei_valid = _forcej_valid = _forcem_valid = false; 
 }
 
 /// Calculates the velocity of a point on this rigid body in the body frame
@@ -681,7 +684,7 @@ Vector3d RigidBody::calc_point_vel(const Point3d& point) const
     return Vector3d::zero(_F);
 
   // convert point to a vector in the body frame
-  Vector3d r = Pose3d::transform(_F, point); 
+  Vector3d r = Pose3d::transform_point(_F, point); 
 
   // get the velocity in the body frame
   SVelocityd xd = Pose3d::transform(_F, _xd0);

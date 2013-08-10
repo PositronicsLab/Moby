@@ -29,9 +29,9 @@ class CylinderPrimitive : public Primitive
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual BVPtr get_BVH_root();
-    virtual void get_vertices(BVPtr bv, std::vector<const Ravelin::Point3d*>& vertices); 
-    virtual bool point_inside(BVPtr bv, const Ravelin::Point3d& p, Ravelin::Vector3d& normal) const;
-    virtual bool intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Ravelin::Point3d& isect, Ravelin::Vector3d& normal) const;
+    virtual void get_vertices(BVPtr bv, std::vector<const Point3d*>& vertices); 
+    virtual bool point_inside(BVPtr bv, const Point3d& p, Ravelin::Vector3d& normal) const;
+    virtual bool intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Ravelin::Vector3d& normal) const;
     virtual const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >& get_sub_mesh(BVPtr bv); 
     virtual boost::shared_ptr<const IndexedTriArray> get_mesh();
     virtual void set_intersection_tolerance(double tol);
@@ -47,15 +47,15 @@ class CylinderPrimitive : public Primitive
     unsigned get_circle_points() const { return _npoints; }
     
   private:
-    double calc_penetration_depth(const Ravelin::Point3d& p) const;
-    unsigned intersect_line(const Ravelin::Point3d& origin, const Ravelin::Vector3d& dir, double& t0, double& t1) const;
+    double calc_penetration_depth(const Point3d& p) const;
+    unsigned intersect_line(const Point3d& origin, const Ravelin::Vector3d& dir, double& t0, double& t1) const;
     virtual void calc_mass_properties(); 
  
     /// Pointer to the determined mesh (w/transform applied), if any
     boost::shared_ptr<IndexedTriArray> _mesh;
 
     /// Pointer to the vector of vertices (w/transform and intersection tolerance applied), if any
-    boost::shared_ptr<std::vector<Ravelin::Point3d> > _vertices;
+    boost::shared_ptr<std::vector<Point3d> > _vertices;
 
     /// Radius of the cylinder
     double _radius;

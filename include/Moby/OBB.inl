@@ -22,8 +22,8 @@ inline std::ostream& operator<<(std::ostream& out, const OBB& o)
 
 /// Computes the minimum OBB from a set of lower dimensional (< 3d) points
 /**
- * \param begin an iterator to type Ravelin::Point3d
- * \param end an iterator to type Ravelin::Point3d
+ * \param begin an iterator to type Point3d
+ * \param end an iterator to type Point3d
  */
 template <class ForwardIterator>
 OBB OBB::calc_low_dim_OBB(ForwardIterator begin, ForwardIterator end)
@@ -45,7 +45,7 @@ OBB OBB::calc_low_dim_OBB(ForwardIterator begin, ForwardIterator end)
 
   // find non-coincident points, if possible to establish a line
   ForwardIterator i = begin;
-  Ravelin::Point3d p1 = *i++, p2;
+  Point3d p1 = *i++, p2;
   for (; i != end; i++)
   {
     p2 = *i;
@@ -88,7 +88,7 @@ OBB OBB::calc_low_dim_OBB(ForwardIterator begin, ForwardIterator end)
     }
 
     // determine "lowest" point on the line
-    Ravelin::Point3d lowest = p1 + d1*min_proj;
+    Point3d lowest = p1 + d1*min_proj;
 
     // setup the OBB
     Ravelin::Vector3d d2, d3;
@@ -122,27 +122,27 @@ OBB OBB::calc_low_dim_OBB(ForwardIterator begin, ForwardIterator end)
   boost::shared_ptr<const Ravelin::Pose2d> GLOBAL_2D;
   Ravelin::Matrix3d R = CompGeom::calc_3D_to_2D_matrix(normal);
   double offset = CompGeom::determine_3D_to_2D_offset(Ravelin::Origin3d(*begin), R);
-  std::list<Ravelin::Point2d> points_2D;
+  std::list<Point2d> points_2D;
   for (ForwardIterator i = begin; i != end; i++)
-    points_2D.push_back(Ravelin::Point2d(CompGeom::to_2D(*i, R), GLOBAL_2D)); 
+    points_2D.push_back(Point2d(CompGeom::to_2D(*i, R), GLOBAL_2D)); 
 
   // compute the convex hull of the points
-  std::list<Ravelin::Point2d> hull_2D;
+  std::list<Point2d> hull_2D;
   CompGeom::calc_convex_hull(points_2D.begin(), points_2D.end(), std::back_inserter(hull_2D));
 
   // handle degeneracy
   if (hull_2D.empty())
   {
     // determine seg endpoints
-    std::pair<Ravelin::Point2d, Ravelin::Point2d> ep;
+    std::pair<Point2d, Point2d> ep;
     CompGeom::determine_seg_endpoints(points_2D.begin(), points_2D.end(), ep);
     centroid = (ep.first + ep.second) * 0.5;
     
     // project the endpoints and centroid to 3D
     Ravelin::Origin2d oc(centroid), o1(ep.first), o2(ep.second);
-    Ravelin::Point3d center(CompGeom::to_3D(oc, R, offset), P);
-    Ravelin::Point3d ep1(CompGeom::to_3D(o1, R, offset), P);
-    Ravelin::Point3d ep2(CompGeom::to_3D(o2, R, offset), P);
+    Point3d center(CompGeom::to_3D(oc, R, offset), P);
+    Point3d ep1(CompGeom::to_3D(o1, R, offset), P);
+    Point3d ep2(CompGeom::to_3D(o2, R, offset), P);
 
     // see whether we have zero-dimensional or one-dimensional OBB
     Ravelin::Vector3d d1 = ep2 - ep1;
@@ -185,7 +185,7 @@ OBB OBB::calc_low_dim_OBB(ForwardIterator begin, ForwardIterator end)
   }
 
   // determine the minimum bounding rectangle
-  Ravelin::Point2d v1, v2, v3, v4;
+  Point2d v1, v2, v3, v4;
   CompGeom::calc_min_area_bounding_rect(hull_2D.begin(), hull_2D.end(), v1, v2, v3, v4);
 
   // project direction to 3D
@@ -194,8 +194,8 @@ OBB OBB::calc_low_dim_OBB(ForwardIterator begin, ForwardIterator end)
   d2.normalize();
 
   // get v1 and v3 in 3D
-  Ravelin::Point3d v13d(CompGeom::to_3D(Ravelin::Origin2d(v1), RT, offset), P);
-  Ravelin::Point3d v33d(CompGeom::to_3D(Ravelin::Origin2d(v3), RT, offset), P);
+  Point3d v13d(CompGeom::to_3D(Ravelin::Origin2d(v1), RT, offset), P);
+  Point3d v33d(CompGeom::to_3D(Ravelin::Origin2d(v3), RT, offset), P);
  
   // start to setup the OBB
   OBB o;
@@ -217,8 +217,8 @@ OBB OBB::calc_low_dim_OBB(ForwardIterator begin, ForwardIterator end)
 
 /// Computes the minimum OBB from a set of points
 /**
- * \param begin an iterator to type Ravelin::Point3d
- * \param end an iterator to type Ravelin::Point3d
+ * \param begin an iterator to type Point3d
+ * \param end an iterator to type Point3d
  * Algorithm taken from http://www.geometrictools.com - thanks Dave Eberly!
  */
 template <class ForwardIterator>
@@ -264,8 +264,8 @@ OBB OBB::calc_min_volume_OBB(ForwardIterator begin, ForwardIterator end)
   }
 
   // process triangles
-  const std::vector<Ravelin::Point3d>& hull_verts = hull_mesh.get_vertices();
-  std::vector<Ravelin::Point2d> proj_verts(hull_verts.size());
+  const std::vector<Point3d>& hull_verts = hull_mesh.get_vertices();
+  std::vector<Point2d> proj_verts(hull_verts.size());
   for (unsigned i=0; i< hull_mesh.num_tris(); i++)
   {
     // make sure that we are to process this triangle
@@ -298,7 +298,7 @@ OBB OBB::calc_min_volume_OBB(ForwardIterator begin, ForwardIterator end)
     }
 
     // calculate the minimum area bounding rectangle
-    Ravelin::Point2d a, b, c, d;
+    Point2d a, b, c, d;
     CompGeom::calc_min_area_bounding_rect(proj_verts.begin(), proj_verts.end(), a, b, c, d);
 
     // special case: the minimum area bounding rectangle is just a line
@@ -312,14 +312,14 @@ OBB OBB::calc_min_volume_OBB(ForwardIterator begin, ForwardIterator end)
         OBB box;
         box.R = IDENTITY_3x3;
         Ravelin::Origin2d oa(a); 
-        box.center = Ravelin::Point3d(CompGeom::to_3D(oa, RT, offset), P); 
+        box.center = Point3d(CompGeom::to_3D(oa, RT, offset), P); 
         box.l[X] = box.l[Y] = box.l[Z] = (double) 0.0; 
         return box;
       }
 
       // determine the line endpoints
-      Ravelin::Point2d points[4] = { a, b, c, d };
-      std::pair<Ravelin::Point2d, Ravelin::Point2d> ep;
+      Point2d points[4] = { a, b, c, d };
+      std::pair<Point2d, Point2d> ep;
       CompGeom::determine_seg_endpoints(points, points+4, ep);
       Ravelin::Origin2d ep1(ep.first), ep2(ep.second);
 
@@ -327,7 +327,7 @@ OBB OBB::calc_min_volume_OBB(ForwardIterator begin, ForwardIterator end)
       Ravelin::Origin2d centroid((ep.first + ep.second)*(double) 0.5);
 
       // project the centroid to 3D
-      Ravelin::Point3d centroid_3d(CompGeom::to_3D(centroid, RT, offset), P);
+      Point3d centroid_3d(CompGeom::to_3D(centroid, RT, offset), P);
 
       // determine the direction of the line
       Ravelin::Vector3d dir(CompGeom::to_3D(ep1, RT, offset) -
@@ -350,7 +350,7 @@ OBB OBB::calc_min_volume_OBB(ForwardIterator begin, ForwardIterator end)
     Ravelin::Origin2d centroid_2D((a + c) * (double) 0.5);
 
     // project the centroid to 3D
-    Ravelin::Point3d centroid(CompGeom::to_3D(centroid_2D, RT, offset), P);
+    Point3d centroid(CompGeom::to_3D(centroid_2D, RT, offset), P);
 
     // determine the bounding rectangle edges in 3D
     Ravelin::Vector3d d2(CompGeom::to_3D(Ravelin::Origin2d(b - a), RT), P);
@@ -441,7 +441,7 @@ OBB OBB::calc_min_volume_OBB(ForwardIterator begin, ForwardIterator end)
           for (unsigned n=0; n< hull_verts.size(); n++)
           {
             // get point in frame
-            Ravelin::Point3d pt = hull_verts[n] - hull_verts[i];
+            Point3d pt = hull_verts[n] - hull_verts[i];
 
             // determine projections
             double d1_dot = d1.dot(pt);
@@ -469,7 +469,7 @@ OBB OBB::calc_min_volume_OBB(ForwardIterator begin, ForwardIterator end)
           min_box_volume = volume;
 
           // determine minimum corner of the box
-          Ravelin::Point3d corner = hull_verts[i] + d1*d1_min_proj + d2*d2_min_proj + 
+          Point3d corner = hull_verts[i] + d1*d1_min_proj + d2*d2_min_proj + 
                            d3*d3_min_proj;
 
           // setup the new minimum box
@@ -499,8 +499,8 @@ OBB OBB::calc_min_volume_OBB(ForwardIterator begin, ForwardIterator end)
 
 /// Computes an OBB from a set of points
 /**
- * \param begin an iterator to type Ravelin::Point3d
- * \param end an iterator to type Ravelin::Point3d
+ * \param begin an iterator to type Point3d
+ * \param end an iterator to type Point3d
  * Algorithm taken from [Ericson, 2005]
  */
 template <class ForwardIterator>
@@ -526,11 +526,11 @@ OBB::OBB(ForwardIterator begin, ForwardIterator end)
   }  
 
   // determine the area and centroid of all triangles
-  const std::vector<Ravelin::Point3d>& verts = hull->get_vertices();
+  const std::vector<Point3d>& verts = hull->get_vertices();
   unsigned n = hull->get_facets().size();
   double total_area = 0;
   std::vector<double> areas(n);
-  std::vector<Ravelin::Point3d> centroids(n);
+  std::vector<Point3d> centroids(n);
   for (unsigned i=0; i< n; i++)
   {
     const IndexedTri& itri = hull->get_facets()[i];
@@ -557,9 +557,9 @@ OBB::OBB(ForwardIterator begin, ForwardIterator end)
       {
         const IndexedTri& itri = hull->get_facets()[k];
         Triangle tri(verts[itri.a], verts[itri.b], verts[itri.c]); 
-        const Ravelin::Point3d& a = tri.a;
-        const Ravelin::Point3d& b = tri.b;
-        const Ravelin::Point3d& c = tri.c;
+        const Point3d& a = tri.a;
+        const Point3d& b = tri.b;
+        const Point3d& c = tri.c;
         C(i,j) += areas[k]/12.0 * (centroids[k][i]*centroids[k][j] + a[i]*a[j] + b[i]*b[j] + c[i]*c[j]);
       }
       C(i,j) *= 1.0/total_area;
@@ -640,7 +640,7 @@ OBB::OBB(ForwardIterator begin, ForwardIterator end)
 /// Expands this OBB (if necessary) to fit the given points
 /**
  * \param begin an iterator to the beginning of a container of type Ravelin:Point3d:
- * \param end an iterator to the end of a container of type Ravelin::Point3d
+ * \param end an iterator to the end of a container of type Point3d
  */
 template <class ForwardIterator>
 void OBB::expand_to_fit(ForwardIterator begin, ForwardIterator end)
@@ -648,12 +648,12 @@ void OBB::expand_to_fit(ForwardIterator begin, ForwardIterator end)
   const unsigned THREE_D = 3; 
 
   // get the corners of the OBB as if it were an AABB
-  Ravelin::Point3d lo = -this->l, hi = this->l;
+  Point3d lo = -this->l, hi = this->l;
 
   // process all points
   for (ForwardIterator i=begin; i != end; i++)
   {
-    Ravelin::Point3d pt = R.transpose_mult(*i - this->center);
+    Point3d pt = R.transpose_mult(*i - this->center);
     for (unsigned i=0; i< THREE_D; i++)
       if (pt[i] < lo[i])
         lo[i] = pt[i];
@@ -679,12 +679,12 @@ void OBB::align(ForwardIterator begin, ForwardIterator end, const Ravelin::Vecto
   // project all points to the plane perpendicular to the first direction
   boost::shared_ptr<const Ravelin::Pose2d> GLOBAL_2D;
   Ravelin::Matrix3d R2d = CompGeom::calc_3D_to_2D_matrix(d1);
-  std::list<Ravelin::Point2d> points_2D;
+  std::list<Point2d> points_2D;
   for (ForwardIterator i = begin; i != end; i++)
-    points_2D.push_back(Ravelin::Point2d(CompGeom::to_2D(*i, R2d), GLOBAL_2D)); 
+    points_2D.push_back(Point2d(CompGeom::to_2D(*i, R2d), GLOBAL_2D)); 
 
   // determine the minimum bounding rectangle of the projected points
-  Ravelin::Point2d p1, p2, p3, p4;
+  Point2d p1, p2, p3, p4;
   CompGeom::calc_min_area_bounding_rect(points_2D.begin(), points_2D.end(), p1, p2, p3, p4);
 
   // project the vectors of the minimum bounding rectangle back to 3D
@@ -755,7 +755,7 @@ OutputIterator OBB::get_vertices(OutputIterator begin) const
 }
 
 template <class ForwardIterator>
-void OBB::calc_lengths(const Ravelin::Vector3d& d1, const Ravelin::Vector3d& d2, const Ravelin::Vector3d& d3, const Ravelin::Point3d& center, ForwardIterator begin, ForwardIterator end, double lengths[3])
+void OBB::calc_lengths(const Ravelin::Vector3d& d1, const Ravelin::Vector3d& d2, const Ravelin::Vector3d& d3, const Point3d& center, ForwardIterator begin, ForwardIterator end, double lengths[3])
 {
   // compute the lengths
   lengths[0] = 0.0;

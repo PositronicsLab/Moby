@@ -71,7 +71,7 @@ class DeformableCCD : public CollisionDetection
       CollisionGeometryPtr gb;    // body from which point is taken
       CollisionGeometryPtr gs;    // body against which point is tested
       const Ravelin::Vector3d* u; // pointer to vector from com to point (bb coords) 
-      Ravelin::Point3d p0;        // point in bs coordinates (before integration)
+      Point3d p0;        // point in bs coordinates (before integration)
       Ravelin::Vector3d romega;   // rel. angular velocity (3x1 vector, global frame)
       double thetad;        // norm of relative angular velocity
       double lvd;           // norm of relative linear velocity
@@ -109,11 +109,11 @@ class DeformableCCD : public CollisionDetection
     void populate_dstruct(DStruct* ds, CollisionGeometryPtr gb, CollisionGeometryPtr gs, const Ravelin::SVelocityd& b_vel, const Ravelin::SVelocityd& s_vel, BVPtr s_BV) const;
     void calc_pdot(DStruct* ds, CollisionGeometryPtr gb, CollisionGeometryPtr gs, const Ravelin::SVelocityd& s_vel, const Ravelin::SVelocityd& b_vel) const;
     void add_rigid_body_model(RigidBodyPtr body);
-    double determine_TOI(double t0, double tf, const DStruct* ds, Ravelin::Point3d& pt, Ravelin::Vector3d& normal) const;
+    double determine_TOI(double t0, double tf, const DStruct* ds, Point3d& pt, Ravelin::Vector3d& normal) const;
     BVPtr get_vel_exp_BV(CollisionGeometryPtr g, BVPtr bv, const Ravelin::SVelocityd& v);
     bool intersect_BV_trees(boost::shared_ptr<BV> a, boost::shared_ptr<BV> b, const Ravelin::Transform3d& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b);
-    static Event create_contact(double toi, CollisionGeometryPtr a, CollisionGeometryPtr b, const Ravelin::Point3d& point, const Ravelin::Vector3d& normal);
-    void check_vertices(double dt, CollisionGeometryPtr a, CollisionGeometryPtr b, BVPtr ob, const std::vector<const Ravelin::Point3d*>& a_verts, const Ravelin::Transform3d& bTa_t0, const Ravelin::SVelocityd& a_vel, const Ravelin::SVelocityd& b_vel, double& earliest, std::vector<Event>& local_contacts, bool self_check) const;
+    static Event create_contact(double toi, CollisionGeometryPtr a, CollisionGeometryPtr b, const Point3d& point, const Ravelin::Vector3d& normal);
+    void check_vertices(double dt, CollisionGeometryPtr a, CollisionGeometryPtr b, BVPtr ob, const std::vector<const Point3d*>& a_verts, const Ravelin::Transform3d& bTa_t0, const Ravelin::SVelocityd& a_vel, const Ravelin::SVelocityd& b_vel, double& earliest, std::vector<Event>& local_contacts, bool self_check) const;
     void check_geoms(double dt, CollisionGeometryPtr a, CollisionGeometryPtr b, const Ravelin::Transform3d& aTb_t0, const Ravelin::Transform3d& bTa_t0, const Ravelin::SVelocityd& a_vel, const Ravelin::SVelocityd& b_vel, std::vector<Event>& contacts); 
     void broad_phase(const std::map<SingleBodyPtr, Ravelin::SVelocityd >& vel_map, std::vector<std::pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check);
     void sort_AABBs(const std::map<SingleBodyPtr, Ravelin::SVelocityd >& vel_map);

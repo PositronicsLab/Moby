@@ -175,8 +175,8 @@ shared_ptr<const IndexedTriArray> CylinderPrimitive::get_mesh()
       const double THETA = i * (M_PI * (double) 2.0/_npoints);
       const double CT = std::cos(THETA);
       const double ST = std::sin(THETA);
-      points.push_back(T.transform(Point3d(CT*R, HH, ST*R, P)));
-      points.push_back(T.transform(Point3d(CT*R, -HH, ST*R, P)));
+      points.push_back(T.transform_point(Point3d(CT*R, HH, ST*R, P)));
+      points.push_back(T.transform_point(Point3d(CT*R, -HH, ST*R, P)));
     }
 
     // compute the convex hull
@@ -303,7 +303,7 @@ void CylinderPrimitive::set_pose(const Pose3d& p)
   // transform vertices
   if (_vertices)
     for (unsigned i=0; i< _vertices->size(); i++)
-      (*_vertices)[i] = T.transform((*_vertices)[i]);
+      (*_vertices)[i] = T.transform_point((*_vertices)[i]);
 
   // invalidate this primitive
   _invalidated = true;
@@ -409,7 +409,7 @@ void CylinderPrimitive::get_vertices(BVPtr bv, std::vector<const Point3d*>& vert
         double THETA = i*(M_PI * (double) 2.0/_npoints);
         const double CT = std::cos(THETA);
         const double ST = std::sin(THETA);
-        _vertices->push_back(T.transform(Point3d(CT*R, HEIGHT, ST*R, P)));
+        _vertices->push_back(T.transform_point(Point3d(CT*R, HEIGHT, ST*R, P)));
       }
     }
   }
@@ -430,7 +430,7 @@ bool CylinderPrimitive::point_inside(BVPtr bv, const Point3d& p, Vector3d& norma
   // transform the point to cylinder space
   shared_ptr<const Pose3d> P = get_pose();
   Transform3d T = Pose3d::calc_relative_pose(p.pose, P);
-  Point3d query = T.transform(p);
+  Point3d query = T.transform_point(p);
 
   FILE_LOG(LOG_COLDET) << "CylinderPrimitive::point_inside() entered" << std::endl;
   FILE_LOG(LOG_COLDET) << "  cylinder radius: " << R << "  half height: " << halfheight << std::endl;
@@ -486,7 +486,7 @@ bool CylinderPrimitive::point_inside(BVPtr bv, const Point3d& p, Vector3d& norma
     normal = Vector3d::normalize(Vector3d(query[X],0,query[Z]));
 */
   // transform the normal
-  normal = T.inverse_transform(normal);
+  normal = T.inverse_transform_vector(normal);
 
   FILE_LOG(LOG_COLDET) << " point is inside cylinder" << std::endl;
   FILE_LOG(LOG_COLDET) << "CylinderPrimitive::point_inside() exited" << std::endl;
@@ -507,7 +507,7 @@ double CylinderPrimitive::calc_penetration_depth(const Point3d& p) const
 
   // transform the point to cylinder space
   shared_ptr<const Pose3d> P = get_pose();
-  Point3d query = Pose3d::transform(P, p);
+  Point3d query = Pose3d::transform_point(P, p);
 
   FILE_LOG(LOG_COLDET) << "CylinderPrimitive::calc_penetration_depth() entered" << std::endl;
   FILE_LOG(LOG_COLDET) << "  cylinder radius: " << R << "  half height: " << halfheight << std::endl;
@@ -795,7 +795,7 @@ bool CylinderPrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, 
   Transform3d T = Pose3d::calc_relative_pose(seg.first.pose, P);
 
   // compute transformed segment
-  LineSeg3 nseg(T.transform(seg.first), T.transform(seg.second));
+  LineSeg3 nseg(T.transform_point(seg.first), T.transform_point(seg.second));
 
   // check whether the first point is already within the cylinder
   double p_depth = calc_penetration_depth(nseg.first);
@@ -812,7 +812,7 @@ bool CylinderPrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, 
     // set point and time of intersection
     isect = nseg.first;
     t = (double) 0.0;
-    normal = T.inverse_transform(normal);
+    normal = T.inverse_transform_vector(normal);
 
     FILE_LOG(LOG_COLDET) << "  -- point is inside!" << std::endl;
     FILE_LOG(LOG_COLDET) << "CylinderPrimitive::intersect_seg() exited" << std::endl;
@@ -867,7 +867,7 @@ bool CylinderPrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, 
   const double HALFH = _height * (double) 0.5;
 
   // determine the normal in cylinder coordinates
-  Point3d isect_cyl = T.transform(isect);
+  Point3d isect_cyl = T.transform_point(isect);
   if (isect_cyl[Y] >= HALFH - NEAR_ZERO)
     normal = Vector3d(0,1,0,P);
   else if (isect_cyl[Y] <= -HALFH + NEAR_ZERO)
@@ -879,7 +879,7 @@ bool CylinderPrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, 
   }
 
   // transform normal to global coords
-  normal = T.inverse_transform(normal);
+  normal = T.inverse_transform_vector(normal);
 
   FILE_LOG(LOG_COLDET) << " -- line segment intersects cylinder" << std::endl;
   FILE_LOG(LOG_COLDET) << "    point of intersection (transformed): " << isect << std::endl;

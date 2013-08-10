@@ -25,14 +25,14 @@ class BoxPrimitive : public Primitive
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual BVPtr get_BVH_root();
-    virtual bool point_inside(BVPtr bv, const Ravelin::Point3d& p, Ravelin::Vector3d& normal) const;
-    virtual bool intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Ravelin::Point3d& isect, Ravelin::Vector3d& normal) const;
+    virtual bool point_inside(BVPtr bv, const Point3d& p, Ravelin::Vector3d& normal) const;
+    virtual bool intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Ravelin::Vector3d& normal) const;
     virtual const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >& get_sub_mesh(BVPtr bv);
     virtual void set_intersection_tolerance(double tol);
     virtual void set_pose(const Ravelin::Pose3d& T);
     void set_edge_sample_length(double len);
     virtual boost::shared_ptr<const IndexedTriArray> get_mesh();
-    virtual void get_vertices(BVPtr, std::vector<const Ravelin::Point3d*>& vertices);
+    virtual void get_vertices(BVPtr, std::vector<const Point3d*>& vertices);
     virtual osg::Node* create_visualization();
 
     /// Get the x-length of this box
@@ -46,8 +46,8 @@ class BoxPrimitive : public Primitive
 
   private:
     enum FaceID { ePOSX, eNEGX, ePOSY, eNEGY, ePOSZ, eNEGZ };
-    void determine_normal(const Ravelin::Vector3d& lengths, const Ravelin::Point3d& p, Ravelin::Vector3d& normal) const;
-    bool determine_normal_abs(const Ravelin::Vector3d& lengths, const Ravelin::Point3d& p, Ravelin::Vector3d& normal) const;
+    void determine_normal(const Ravelin::Vector3d& lengths, const Point3d& p, Ravelin::Vector3d& normal) const;
+    bool determine_normal_abs(const Ravelin::Vector3d& lengths, const Point3d& p, Ravelin::Vector3d& normal) const;
 
     virtual void calc_mass_properties();
 
@@ -58,7 +58,7 @@ class BoxPrimitive : public Primitive
     boost::shared_ptr<IndexedTriArray> _mesh;
 
     /// Pointer to the vector of vertices (w/transform and intersection tolerance applied), if any
-    boost::shared_ptr<std::vector<Ravelin::Point3d> > _vertices;
+    boost::shared_ptr<std::vector<Point3d> > _vertices;
 
     /// The bounding volume (surprise, it's just a box)
     OBBPtr _obb; 

@@ -83,7 +83,7 @@ class Event
     JointPtr constraint_joint;
 
     /// The point contact (for contact events)
-    Ravelin::Point3d contact_point;
+    Point3d contact_point;
     
     /// The vector pointing outward from the contact on the first body, in world coordinates (for contact events)
     Ravelin::Vector3d contact_normal;  

@@ -29,12 +29,12 @@ class SpherePrimitive : public Primitive
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual void set_pose(const Ravelin::Pose3d& T);
     virtual BVPtr get_BVH_root();
-    virtual bool point_inside(BVPtr bv, const Ravelin::Point3d& p, Ravelin::Vector3d& normal) const;
-    virtual bool intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Ravelin::Point3d& isect, Ravelin::Vector3d& normal) const;
+    virtual bool point_inside(BVPtr bv, const Point3d& p, Ravelin::Vector3d& normal) const;
+    virtual bool intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Ravelin::Vector3d& normal) const;
     virtual const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >& get_sub_mesh(BVPtr bv);
     virtual boost::shared_ptr<const IndexedTriArray> get_mesh();
     virtual void set_intersection_tolerance(double tol);
-    virtual void get_vertices(BVPtr bv, std::vector<const Ravelin::Point3d*>& vertices);
+    virtual void get_vertices(BVPtr bv, std::vector<const Point3d*>& vertices);
     virtual osg::Node* create_visualization();
 
     /// Gets the radius for this sphere
@@ -50,7 +50,7 @@ class SpherePrimitive : public Primitive
     boost::shared_ptr<IndexedTriArray> _mesh;
 
     /// Pointer to the vector of vertices (w/transform and intersection tolerance applied), if any
-    boost::shared_ptr<std::vector<Ravelin::Point3d> > _vertices;
+    boost::shared_ptr<std::vector<Point3d> > _vertices;
 
     /// The bounding volume for the sphere
     boost::shared_ptr<BoundingSphere> _bsph; 

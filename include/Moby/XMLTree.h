@@ -35,9 +35,7 @@ class XMLAttrib
     XMLAttrib(const std::string& name, const std::vector<Ravelin::SAcceld>& accel_values);
     XMLAttrib(const std::string& name, double roll, double pitch, double yaw);
     XMLAttrib(const std::string& name, const Ravelin::Vector2d& vector_value);
-    XMLAttrib(const std::string& name, const Ravelin::Point2d& vector_value);
     XMLAttrib(const std::string& name, const Ravelin::Vector3d& vector_value);
-    XMLAttrib(const std::string& name, const Ravelin::Point3d& vector_value);
     XMLAttrib(const std::string& name, const Ravelin::VectorNd& vector_value);
     XMLAttrib(const std::string& name, const Ravelin::SVector6d& vector_value);
     XMLAttrib(const std::string& name, const Ravelin::MatrixNd& matrix_value);
@@ -50,7 +48,6 @@ class XMLAttrib
     static std::string str(double value);
     double get_real_value();
     Ravelin::Origin3d get_origin_value();
-    Ravelin::Point3d get_point_value();
     std::vector<Ravelin::SVelocityd> get_velocity_values();
     std::vector<Ravelin::SAcceld> get_accel_values();
     int get_int_value() { processed = true; return std::atoi(value.c_str()); }

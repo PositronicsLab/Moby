@@ -41,8 +41,8 @@ class Joint : public Visualizable
     void reset_force();    
     virtual const std::vector<Ravelin::SAxisd>& get_spatial_axes();
     virtual const std::vector<Ravelin::SAxisd>& get_spatial_axes_complement();
-    void set_location(const Ravelin::Point3d& p);
-    Ravelin::Point3d get_location(bool use_outboard = false) const;
+    void set_location(const Point3d& p);
+    Point3d get_location(bool use_outboard = false) const;
     Ravelin::VectorNd& get_scaled_force(Ravelin::VectorNd& f);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);

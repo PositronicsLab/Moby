@@ -639,7 +639,7 @@ void MeshDCD::determine_contacts_deformable_rigid(CollisionGeometryPtr a, Collis
     // get the velocity of the vertex relative to the rigid body
     Vector3d pva = sba->calc_point_vel(v);
     Vector3d pvb = sbb->calc_point_vel(v);
-    Vector3d vdot = Pose3d::transform(v.pose, pva) - Pose3d::transform(v.pose, pvb); 
+    Vector3d vdot = Pose3d::transform_vector(v.pose, pva) - Pose3d::transform_vector(v.pose, pvb); 
 
     FILE_LOG(LOG_COLDET) << " -- testing vertex " << v << " with relative velocity: " << vdot << endl;
 
@@ -709,7 +709,7 @@ void MeshDCD::determine_contacts_deformable(CollisionGeometryPtr a, CollisionGeo
 
     // get the velocity of the vertex
     Vector3d vdotx = sba->calc_point_vel(v);
-    Vector3d vdot = Pose3d::transform(v.pose, vdotx);
+    Vector3d vdot = Pose3d::transform_vector(v.pose, vdotx);
 
     // loop over all triangles in mesh b
     for (unsigned j=0; j< mesh_b.num_tris(); j++)
@@ -732,9 +732,9 @@ void MeshDCD::determine_contacts_deformable(CollisionGeometryPtr a, CollisionGeo
       Vector3d cdotx = sbb->calc_point_vel(tri.c);
 
       // transform the vertices to the proper frames
-      Vector3d adot = Pose3d::transform(tri.a.pose, adotx);
-      Vector3d bdot = Pose3d::transform(tri.b.pose, bdotx);
-      Vector3d cdot = Pose3d::transform(tri.c.pose, cdotx);
+      Vector3d adot = Pose3d::transform_vector(tri.a.pose, adotx);
+      Vector3d bdot = Pose3d::transform_vector(tri.b.pose, bdotx);
+      Vector3d cdot = Pose3d::transform_vector(tri.c.pose, cdotx);
 
       // find the first time of intersection, if any
       double t0 = calc_first_isect(v, vdot, tri, adot, bdot, cdot, t);
@@ -819,9 +819,9 @@ void MeshDCD::determine_contacts_rigid(CollisionGeometryPtr a, CollisionGeometry
     Vector3d vA_c = va.get_linear() + Vector3d::cross(va.get_angular(), rc);
 
     // convert point velocities to the global frame
-    Vector3d vA_a_0 = CAx->transform(vA_a);
-    Vector3d vA_b_0 = CAx->transform(vA_b);
-    Vector3d vA_c_0 = CAx->transform(vA_c);
+    Vector3d vA_a_0 = CAx->transform_vector(vA_a);
+    Vector3d vA_b_0 = CAx->transform_vector(vA_b);
+    Vector3d vA_c_0 = CAx->transform_vector(vA_c);
 
     // determine line segments for a's vertices in global frame
     Vector3d pAa = TtA.a + vA_a_0*t;
@@ -848,9 +848,9 @@ void MeshDCD::determine_contacts_rigid(CollisionGeometryPtr a, CollisionGeometry
       Vector3d vB_c = vb.get_linear() + Vector3d::cross(vb.get_angular(), rb);
 
       // convert point velocities to the global frame
-      Vector3d vB_a_0 = CBx->transform(vB_a);
-      Vector3d vB_b_0 = CBx->transform(vB_b);
-      Vector3d vB_c_0 = CBx->transform(vB_c);
+      Vector3d vB_a_0 = CBx->transform_vector(vB_a);
+      Vector3d vB_b_0 = CBx->transform_vector(vB_b);
+      Vector3d vB_c_0 = CBx->transform_vector(vB_c);
 
       // determine line segments for b's vertices in global frame
       Vector3d pBa = TtB.a + vB_a_0*t;

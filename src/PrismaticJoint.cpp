@@ -75,15 +75,15 @@ void PrismaticJoint::set_axis(const Vector3d& axis)
   Vector3d naxis = Vector3d::normalize(axis); 
 
   // transform axis to joint frame
-  _u = Pose3d::transform(get_pose(), naxis);
+  _u = Pose3d::transform_vector(get_pose(), naxis);
 
   // set the joint axis in the inner link frame
   update_spatial_axes(); 
 /*
   // set the joint axis in the outer link frame and setup associated
   // vectors needed for maximal coordinate articulated bodies
-  _v2 = inner->get_transform().mult_vector(naxis);
-  _v2 = outer->get_transform().transpose_mult_vector(_v2);
+  _v2 = inner->get_transform_vector().mult_vector(naxis);
+  _v2 = outer->get_transform_vector().transpose_mult_vector(_v2);
   Vector3d::determine_orthonormal_basis(_u, _ui, _uj);
 */
 }        
@@ -2181,15 +2181,15 @@ void PrismaticJoint::evaluate_constraints(double C[])
   Vector3d v1 = get_axis_global();
 
   // determine axis in global coordinates
-  Vector3d v2 = outer->get_transform().mult_vector(_v2);
+  Vector3d v2 = outer->get_transform_vector().mult_vector(_v2);
 
   // determine v1i, v1j
   Vector3d v1i, v1j;
   Vector3d::determine_orthonormal_basis(v1, v1i, v1j);
 
   // determine h1 and h2
-  Vector3d h1 = inner->get_transform().mult_vector(_ui);
-  Vector3d h2 = outer->get_transform().mult_vector(_uj);
+  Vector3d h1 = inner->get_transform_vector().mult_vector(_ui);
+  Vector3d h2 = outer->get_transform_vector().mult_vector(_uj);
 
   // determine the global positions of the attachment points and subtract them
   const Vector3d& p1 = get_position_global(false); 
@@ -2238,7 +2238,7 @@ void PrismaticJoint::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Bas
   node->name = "PrismaticJoint";
 
   // save the joint axis (global coords)
-  Vector3d u0 = Pose3d::transform(shared_ptr<const Pose3d>(), _u);
+  Vector3d u0 = Pose3d::transform_vector(shared_ptr<const Pose3d>(), _u);
   node->attribs.insert(XMLAttrib("axis", u0));
 }
 

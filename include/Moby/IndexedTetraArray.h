@@ -22,8 +22,8 @@ class IndexedTetraArray : public Base
 {
   public:
     IndexedTetraArray() {}
-    IndexedTetraArray(boost::shared_ptr<const std::vector<Ravelin::Point3d> > vertices, const std::vector<IndexedTetra>& facets);
-    IndexedTetraArray(boost::shared_ptr<const std::vector<Ravelin::Point3d> > vertices, boost::shared_ptr<const std::vector<IndexedTetra> > facets);
+    IndexedTetraArray(boost::shared_ptr<const std::vector<Point3d> > vertices, const std::vector<IndexedTetra>& facets);
+    IndexedTetraArray(boost::shared_ptr<const std::vector<Point3d> > vertices, boost::shared_ptr<const std::vector<IndexedTetra> > facets);
 
     template <class ForwardIterator1, class ForwardIterator2>
     IndexedTetraArray(ForwardIterator1 vertices, ForwardIterator1 verts_end, ForwardIterator2 facets_begin, ForwardIterator2 facets_end);
@@ -52,13 +52,13 @@ class IndexedTetraArray : public Base
     boost::shared_ptr<const std::vector<IndexedTetra> > get_tetra_pointer() const { return _tetra; }
 
     /// Gets the pointer to the vector of vertices
-    boost::shared_ptr<const std::vector<Ravelin::Point3d> > get_vertices_pointer() const { return _vertices; }
+    boost::shared_ptr<const std::vector<Point3d> > get_vertices_pointer() const { return _vertices; }
 
     /// Gets the vector of facets
     const std::vector<IndexedTetra>& get_tetra() const { return *_tetra; }
 
     /// Gets the vector of verties
-    const std::vector<Ravelin::Point3d>& get_vertices() const { return *_vertices; }
+    const std::vector<Point3d>& get_vertices() const { return *_vertices; }
 
   private:
     void validate();
@@ -66,7 +66,7 @@ class IndexedTetraArray : public Base
     /// The pose that these vertices are defined in
     boost::shared_ptr<const Ravelin::Pose3d> _pose;
     boost::shared_ptr<const std::vector<IndexedTetra> > _tetra;
-    boost::shared_ptr<const std::vector<Ravelin::Point3d> > _vertices;
+    boost::shared_ptr<const std::vector<Point3d> > _vertices;
 
 }; // end class
 

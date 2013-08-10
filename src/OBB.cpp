@@ -42,7 +42,7 @@ void OBB::transform(const Transform3d& T, BV* result) const
   o = *this;
 
   // transform the center
-  o.center = T.transform(center);
+  o.center = T.transform_point(center);
 
   // transform the orientation
   o.R = Matrix3d(T.q) * R;
@@ -286,8 +286,8 @@ bool OBB::intersects(const OBB& a, const LineSeg3& seg, double& tmin, double tma
   T.source = T.target = seg.first.pose;
 
   // convert the line segment to OBB space
-  Point3d p = T.inverse_transform(seg.first);
-  Vector3d d = T.inverse_transform(seg.second) - p;
+  Point3d p = T.inverse_transform_point(seg.first);
+  Vector3d d = T.inverse_transform_vector(seg.second) - p;
 
   FILE_LOG(LOG_BV) << "OBB::intersects() entered" << endl; 
   FILE_LOG(LOG_BV) << "  -- checking intersection between line segment " << seg.first << " / " << seg.second << " and OBB: " << endl << a;
@@ -365,7 +365,7 @@ double OBB::calc_dist(const OBB& a, const OBB& b, const Transform3d& aTb, Point3
   OBB bcopy(b);
 
   // transform the center and orientation of b
-  bcopy.center = aTb.transform(b.center);
+  bcopy.center = aTb.transform_point(b.center);
   Matrix3d R = aTb.q;
   bcopy.R = R * b.R;
 
@@ -383,7 +383,7 @@ bool OBB::intersects(const OBB& a, const OBB& b, const Transform3d& aTb)
   OBB bcopy(b);
 
   // transform the center and orientation of b
-  bcopy.center = aTb.transform(b.center);
+  bcopy.center = aTb.transform_point(b.center);
   Matrix3d R = aTb.q;
   bcopy.R = R * b.R;
 
@@ -678,26 +678,17 @@ OBBPtr OBB::load_from_xml(shared_ptr<const XMLTree> root)
   OBBPtr obb(new OBB);
   
   // read the center, length, and axes attributes
-  XMLAttrib
-
-
-* cattrib = root->get_attrib("center");
+  XMLAttrib* cattrib = root->get_attrib("center");
   if (cattrib)
-    center = cattrib->get_point_value();
+    cattrib->get_vector_value(center);
 
   // read the lengths attribute
-  XMLAttrib
-
-
-* lattrib = root->get_attrib("lengths");
+  XMLAttrib* lattrib = root->get_attrib("lengths");
   if (lattrib)
     lattrib->get_vector_value(lengths);
 
   // read the axes attribute
-  XMLAttrib
-
-
-* aattrib = root->get_attrib("axes");
+  XMLAttrib* aattrib = root->get_attrib("axes");
   if (aattrib)
     aattrib->get_matrix_value(R);
 
@@ -722,10 +713,7 @@ OBBPtr OBB::load_from_xml(shared_ptr<const XMLTree> root)
       {
         // read the thickness
         double thickness = 0.0;
-        XMLAttrib
-
-
-* tattr = node->get_attrib("thickness");
+        XMLAttrib* tattr = node->get_attrib("thickness");
         if (!tattr)
           cerr << "OBB::load_from_xml() - no thickness specified in Triangle node" << endl;
         else 
@@ -733,30 +721,21 @@ OBBPtr OBB::load_from_xml(shared_ptr<const XMLTree> root)
 
         // construct the triangle
         Point3d va, vb, vc;
-        XMLAttrib
-
-
-* vaattr = node->get_attrib("vertex1");
-        XMLAttrib
-
-
-* vbattr = node->get_attrib("vertex2");
-        XMLAttrib
-
-
-* vcattr = node->get_attrib("vertex3");
+        XMLAttrib* vaattr = node->get_attrib("vertex1");
+        XMLAttrib* vbattr = node->get_attrib("vertex2");
+        XMLAttrib* vcattr = node->get_attrib("vertex3");
         if (!vaattr)
           cerr << "OBB::load_from_xml() - missing vertex in Triangle node" << endl;    
         else
-          va = vaattr->get_point_value();
+          vaattr->get_vector_value(va);
         if (!vbattr)
           cerr << "OBB::load_from_xml() - missing vertex in Triangle node" << endl;    
         else
-          vb = vbattr->get_point_value();
+          vbattr->get_vector_value(vb);
         if (!vcattr)
           cerr << "OBB::load_from_xml() - missing vertex in Triangle node" << endl;    
         else
-          vc = vcattr->get_point_value();
+          vcattr->get_vector_value(vc);
       
         Triangle tri(va, vb, vb);
         tt_list->push_back(ThickTriangle(tri, thickness));

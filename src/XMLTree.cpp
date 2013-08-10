@@ -65,16 +65,6 @@ XMLAttrib::XMLAttrib(const std::string& name, const Origin3d& o)
   this->processed = false;
 }
 
-/// Constructs a Point3d-valued attribute with the given name
-XMLAttrib::XMLAttrib(const std::string& name, const Point3d& p)
-{
-  this->name = name;
-  std::ostringstream oss;
-  oss << p[0] << " " << p[1] << " " << p[2];
-  this->value = oss.str();
-  this->processed = false;
-}
-
 /// Constructs a Vector2d-valued attribute with the given name
 XMLAttrib::XMLAttrib(const std::string& name, const Vector2d& v)
 {
@@ -405,22 +395,6 @@ Origin3d XMLAttrib::get_origin_value()
   o.y() = v[1];
   o.z() = v[2];
   return o;
-}
-
-/// Returns a Point3d value from the attribute
-Point3d XMLAttrib::get_point_value() 
-{
-  // indicate this attribute has been processed
-  processed = true;
-
-  VectorNd v = VectorNd::parse(value);
-  if (v.size() != 3)
-    throw std::runtime_error("Unable to parse Point3d from vector!");
-  Point3d p;
-  p.x() = v[0];
-  p.y() = v[1];
-  p.z() = v[2];
-  return p;
 }
 
 /// Returns a quaternion value from the attribute

@@ -150,7 +150,7 @@ void DeformableBody::calc_com_and_vels()
   Vector3d P(0.0, 0.0, 0.0, _F);
   for (unsigned i=0; i< _nodes.size(); i++)
   {
-    Vector3d r = Pose3d::transform(_F, _nodes[i]->x);
+    Vector3d r = Pose3d::transform_point(_F, _nodes[i]->x);
     P += Vector3d::cross(r, _nodes[i]->xd * _nodes[i]->mass);
   }
 
@@ -467,7 +467,7 @@ unsigned DeformableBody::find_closest_tetrahedron(const Point3d& p) const
   FILE_LOG(LOG_DEFORM) << "DeformableBody::find_closest_tetrahedron() entered" << endl;
 
   // convert the point to the global frame
-  Point3d p0 = Pose3d::transform(GLOBAL, p);
+  Point3d p0 = Pose3d::transform_point(GLOBAL, p);
 
   // get the vector of tetrahedra
   assert(_tetrahedra.size() > 0);
@@ -748,7 +748,7 @@ Vector3d DeformableBody::calc_point_vel(const Point3d& p) const
   Vector3d vx = vb*u + vc*v + vd*w + va*(1.0 - u - v - w);
 
   // convert the velocity to the desired frame
-  return Pose3d::transform(p.pose, vx);
+  return Pose3d::transform_point(p.pose, vx);
 }
 
 /// Adds a force to the body
@@ -813,7 +813,7 @@ void DeformableBody::load_from_xml(shared_ptr<const XMLTree> node, map<string, B
       // read the node position
       XMLAttrib* node_x_attr = (*i)->get_attrib("position");
       if (node_x_attr)
-        n->x = node_x_attr->get_point_value();
+        node_x_attr->get_vector_value(n->x);
 
       // read the node velocity
       XMLAttrib* node_xd_attr = (*i)->get_attrib("velocity");
@@ -930,7 +930,8 @@ void DeformableBody::load_from_xml(shared_ptr<const XMLTree> node, map<string, B
       if (tetra_id_attr && uvw_id_attr)
       {
         VertexMap vmap;
-        Point3d uvw = uvw_id_attr->get_point_value();
+        Point3d uvw;
+        uvw_id_attr->get_vector_value(uvw);
         vmap.tetra = tetra_id_attr->get_unsigned_value();
         vmap.uvw[0] = uvw[0];
         vmap.uvw[1] = uvw[1];

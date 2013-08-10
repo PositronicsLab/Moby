@@ -73,8 +73,6 @@ X& to_matrix(const std::vector<Ravelin::SForced>& w, X& m)
 template <class X>
 X& to_matrix(const std::vector<Ravelin::SMomentumd>& w, X& m)
 {
-  // TODO: check whether SMomentum should be defined with linear components on
-  // top and angular on bottom
   const unsigned SPATIAL_DIM = 6;
   m.resize(SPATIAL_DIM, w.size());
   double* data = m.data();
@@ -224,6 +222,8 @@ Ravelin::MatrixNd& mult(const std::vector<Ravelin::SMomentumd>& Is, const Raveli
 Ravelin::VectorNd& mult(const std::vector<Ravelin::SMomentumd>& Is, const Ravelin::VectorNd& v, Ravelin::VectorNd& result);
 std::vector<Ravelin::SMomentumd>& mult(const Ravelin::SpatialABInertiad& I, const std::vector<Ravelin::SAxisd>& s, std::vector<Ravelin::SMomentumd>& result);
 Ravelin::MatrixNd& mult(const Ravelin::SpatialABInertiad& I, const std::vector<Ravelin::SAxisd>& s, Ravelin::MatrixNd& result);
+std::vector<Ravelin::SMomentumd>& mult(const Ravelin::SpatialRBInertiad& I, const std::vector<Ravelin::SAxisd>& s, std::vector<Ravelin::SMomentumd>& result);
+Ravelin::MatrixNd& mult(const Ravelin::SpatialRBInertiad& I, const std::vector<Ravelin::SAxisd>& s, Ravelin::MatrixNd& result);
 Ravelin::VectorNd& concat(const Ravelin::VectorNd& v, const Ravelin::SForced& w, Ravelin::VectorNd& result);
 Ravelin::VectorNd& concat(const Ravelin::VectorNd& v, const Ravelin::SMomentumd& w, Ravelin::VectorNd& result);
 Ravelin::SVelocityd mult(const std::vector<Ravelin::SAxisd>& a, const Ravelin::VectorNd& v);

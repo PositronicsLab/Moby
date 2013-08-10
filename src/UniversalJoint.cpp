@@ -107,7 +107,7 @@ void UniversalJoint::set_axis(const Vector3d& axis, Axis a)
   Vector3d naxis = Vector3d::normalize(axis); 
 
   // set the axis
-  _u[a] = Pose3d::transform(get_pose(), naxis); 
+  _u[a] = Pose3d::transform_vector(get_pose(), naxis); 
 
   // update the spatial axes
   update_spatial_axes(); 
@@ -119,8 +119,8 @@ void UniversalJoint::set_axis(const Vector3d& axis, Axis a)
     RigidBodyPtr outboard = get_outboard_link();
 // TODO: re-enable this with fix to joint equations
 /*
-    Vector3d h2_g = inboard->get_transform().mult_vector(naxis);
-    _h2 = outboard->get_transform().transpose_mult_vector(h2_g);
+    Vector3d h2_g = inboard->get_transform_vector().mult_vector(naxis);
+    _h2 = outboard->get_transform_vector().transpose_mult_vector(h2_g);
 */
   }
 }        
@@ -898,8 +898,8 @@ void UniversalJoint::evaluate_constraints(double C[])
   // have been altered however
 
   // determine h1 and h2 in global coordinates
-  Vector3d h1 = inner->get_transform().mult_vector(_u[0]);
-  Vector3d h2 = outer->get_transform().mult_vector(_h2);
+  Vector3d h1 = inner->get_transform_vector().mult_vector(_u[0]);
+  Vector3d h2 = outer->get_transform_vector().mult_vector(_h2);
 
   // determine the global positions of the attachment points and subtract them
   Vector3d r1 = get_position_global(false);
@@ -956,9 +956,9 @@ void UniversalJoint::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Bas
   node->name = "UniversalJoint";
 
   // convert local axes to global axes and save
-  u0 = Pose3d::transform(shared_ptr<const Pose3d>(), _u[eAxis1]);
+  u0 = Pose3d::transform_vector(shared_ptr<const Pose3d>(), _u[eAxis1]);
   node->attribs.insert(XMLAttrib("axis1", u0));
-  u0 = Pose3d::transform(shared_ptr<const Pose3d>(), _u[eAxis2]);
+  u0 = Pose3d::transform_vector(shared_ptr<const Pose3d>(), _u[eAxis2]);
   node->attribs.insert(XMLAttrib("axis2", u0));
   node->attribs.insert(XMLAttrib("axis1", _u[eAxis1]));
   node->attribs.insert(XMLAttrib("axis2", _u[eAxis1]));

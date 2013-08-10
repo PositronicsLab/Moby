@@ -45,10 +45,10 @@ class BV : public boost::enable_shared_from_this<BV>
 ;
 
     /// Determines whether a point is outside the bounding volume
-    virtual bool outside(const Ravelin::Point3d& point, double tol = NEAR_ZERO) const = 0;
+    virtual bool outside(const Point3d& point, double tol = NEAR_ZERO) const = 0;
 
     /// Determines whether a line segment intersects the bounding volume
-    virtual bool intersects(const LineSeg3& seg, double& tmin, double tmax, Ravelin::Point3d& q) const = 0;
+    virtual bool intersects(const LineSeg3& seg, double& tmin, double tmax, Point3d& q) const = 0;
 
     /// Gets the associated pose for this bounding volume
     virtual boost::shared_ptr<const Ravelin::Pose3d> get_relative_pose() const = 0;
@@ -71,15 +71,15 @@ class BV : public boost::enable_shared_from_this<BV>
     static bool intersects(BVPtr a, BVPtr b, const Ravelin::Transform3d& T) { return intersects(a.get(), b.get(), T); }
 
     /// Convenience method
-    static double calc_distance(BVPtr a, BVPtr b, Ravelin::Point3d& cp1, Ravelin::Point3d& cp2) { return calc_distance(a.get(), b.get(), cp1, cp2); }
+    static double calc_distance(BVPtr a, BVPtr b, Point3d& cp1, Point3d& cp2) { return calc_distance(a.get(), b.get(), cp1, cp2); }
 
     /// Convenience method
-    static double calc_distance(BVPtr a, BVPtr b, const Ravelin::Transform3d& aTb, Ravelin::Point3d& cp1, Ravelin::Point3d& cp2) { return calc_distance(a.get(), b.get(), aTb, cp1, cp2); }
+    static double calc_distance(BVPtr a, BVPtr b, const Ravelin::Transform3d& aTb, Point3d& cp1, Point3d& cp2) { return calc_distance(a.get(), b.get(), aTb, cp1, cp2); }
 
     static bool intersects(const BV* a, const BV* b);
     static bool intersects(const BV* a, const BV* b, const Ravelin::Transform3d& T);
-    static double calc_distance(const BV* a, const BV* b, Ravelin::Point3d& cp1, Ravelin::Point3d& cp2);
-    static double calc_distance(const BV* a, const BV* b, const Ravelin::Transform3d& aTb, Ravelin::Point3d& cp1, Ravelin::Point3d& cp2);
+    static double calc_distance(const BV* a, const BV* b, Point3d& cp1, Point3d& cp2);
+    static double calc_distance(const BV* a, const BV* b, const Ravelin::Transform3d& aTb, Point3d& cp1, Point3d& cp2);
 
     BVPtr get_this() { return boost::dynamic_pointer_cast<BV>(shared_from_this()); }
     boost::shared_ptr<const BV> get_this() const { return boost::dynamic_pointer_cast<const BV>(shared_from_this()); }
@@ -104,10 +104,10 @@ class BV : public boost::enable_shared_from_this<BV>
     virtual double calc_volume() const = 0;
 
     /// Gets the lower bound on a AABB around the bounding volume when a transform of T is applied
-    virtual Ravelin::Point3d get_lower_bounds() const = 0;
+    virtual Point3d get_lower_bounds() const = 0;
 
     /// Gets the upper bound on a AABB around the bounding volume when a transform of T is applied
-    virtual Ravelin::Point3d get_upper_bounds() const = 0;
+    virtual Point3d get_upper_bounds() const = 0;
 
   private:
 

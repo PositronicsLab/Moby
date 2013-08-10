@@ -23,9 +23,9 @@ class CSG : public Primitive
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual void set_intersection_tolerance(double tol);
     virtual BVPtr get_BVH_root();
-    virtual void get_vertices(BVPtr bv, std::vector<const Ravelin::Point3d*>& vertices); 
-    virtual bool point_inside(BVPtr bv, const Ravelin::Point3d& p, Ravelin::Vector3d& normal) const;
-    virtual bool intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Ravelin::Point3d& isect, Ravelin::Vector3d& normal) const;
+    virtual void get_vertices(BVPtr bv, std::vector<const Point3d*>& vertices); 
+    virtual bool point_inside(BVPtr bv, const Point3d& p, Ravelin::Vector3d& normal) const;
+    virtual bool intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Ravelin::Vector3d& normal) const;
     virtual const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >& get_sub_mesh(BVPtr bv);
     virtual osg::Node* create_visualization();
     virtual boost::shared_ptr<const IndexedTriArray> get_mesh(); 
@@ -39,9 +39,9 @@ class CSG : public Primitive
     virtual void set_pose(const Ravelin::Pose3d& T);
 
   private:
-    bool intersect_seg_union(BVPtr bv, const LineSeg3& seg, double& t, Ravelin::Point3d& isect, Ravelin::Vector3d& normal) const;
-    bool intersect_seg_intersect(BVPtr bv, const LineSeg3& seg, double& t, Ravelin::Point3d& isect, Ravelin::Vector3d& normal) const;
-    bool intersect_seg_diff(BVPtr bv, const LineSeg3& seg, double& t, Ravelin::Point3d& isect, Ravelin::Vector3d& normal) const;
+    bool intersect_seg_union(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Ravelin::Vector3d& normal) const;
+    bool intersect_seg_intersect(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Ravelin::Vector3d& normal) const;
+    bool intersect_seg_diff(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Ravelin::Vector3d& normal) const;
     virtual void calc_mass_properties();
     void center_mesh();
 
@@ -58,7 +58,7 @@ class CSG : public Primitive
     std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> > _smesh;
 
     /// The set of vertices
-    boost::shared_ptr<std::vector<Ravelin::Point3d> > _vertices;
+    boost::shared_ptr<std::vector<Point3d> > _vertices;
 
     /// A pointer to the computed triangle mesh
     boost::shared_ptr<IndexedTriArray> _mesh;

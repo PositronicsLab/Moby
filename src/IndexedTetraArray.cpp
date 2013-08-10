@@ -104,16 +104,7 @@ void IndexedTetraArray::load_from_xml(shared_ptr<const XMLTree> node, map<string
   assert(strcasecmp(node->name.c_str(), "TetraMesh") == 0);
 
   // make sure that this Tetra array has a filename specified
-  XMLAttrib
-
-
-
-
-
-
-
-
-* fname_attr = node->get_attrib("filename");
+  XMLAttrib* fname_attr = node->get_attrib("filename");
   if (!fname_attr)
   {
     cerr << "IndexedTetraArray::load_from_xml() - trying to load a ";
@@ -127,42 +118,15 @@ void IndexedTetraArray::load_from_xml(shared_ptr<const XMLTree> node, map<string
   *this = IndexedTetraArray::read_from_tetra(fname);
   
   // see whether to center the mesh
-  XMLAttrib
-
-
-
-
-
-
-
-
-* center_attr = node->get_attrib("center");
+  XMLAttrib* center_attr = node->get_attrib("center");
   if (center_attr && center_attr->get_bool_value())
     center();
 
   // read in the transform, if specified
   Transform3d T;
   T.source = T.target = GLOBAL;
-  XMLAttrib
-
-
-
-
-
-
-
-
-* xlat_attr = node->get_attrib("translation");
-  XMLAttrib
-
-
-
-
-
-
-
-
-* rpy_attr = node->get_attrib("rpy"); 
+  XMLAttrib* xlat_attr = node->get_attrib("translation");
+  XMLAttrib* rpy_attr = node->get_attrib("rpy"); 
   if (xlat_attr || rpy_attr)
   {
     if (xlat_attr)
@@ -288,7 +252,7 @@ IndexedTetraArray IndexedTetraArray::transform(const Transform3d& T) const
   it._vertices = new_vertices;
   vector<Point3d>& vertices = *new_vertices;
   for (unsigned i=0; i< vertices.size(); i++)
-    vertices[i] = T.transform(vertices[i]);
+    vertices[i] = T.transform_point(vertices[i]);
 
   // setup new pose
   it._pose = T.target;

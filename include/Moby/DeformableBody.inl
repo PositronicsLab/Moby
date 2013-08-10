@@ -47,11 +47,11 @@ OutputIterator DeformableBody::get_vertices(InputIterator tselect_begin, InputIt
  *        hold the IDs of the tetrahedra that _may_ contain p
  */
 template <class OutputIterator>
-OutputIterator DeformableBody::get_tetrahedra(const Ravelin::Point3d& p, OutputIterator output_begin) const
+OutputIterator DeformableBody::get_tetrahedra(const Point3d& p, OutputIterator output_begin) const
 {
   const double TOL = 1e-5;
   std::stack<BVPtr> S;
-  Ravelin::Point3d closest, farthest;
+  Point3d closest, farthest;
   bool output = false;
 
   FILE_LOG(LOG_BV) << "DeformableBody::get_tetrahedra() entered" << std::endl;

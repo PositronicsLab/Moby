@@ -67,7 +67,7 @@ osg::Node* GaussianMixture::create_visualization()
     osg::Vec3Array* varray = new osg::Vec3Array(verts.size());
     for (unsigned i=0; i< verts.size(); i++)
     {
-      Point3d v = T.transform(verts[i]);
+      Point3d v = T.transform_point(verts[i]);
       (*varray)[i] = osg::Vec3((float) v[X], (float) v[Y], (float) v[Z]);
     }
     geom->setVertexArray(varray);
@@ -463,7 +463,7 @@ void GaussianMixture::construct_vertices()
 
     // transform all points
     for (unsigned i=0; i< v.size(); i++)
-      v[i] = T.transform(v[i]);
+      v[i] = T.transform_point(v[i]);
   }
 }
 
@@ -481,7 +481,7 @@ bool GaussianMixture::point_inside(BVPtr bv, const Point3d& point, Vector3d& nor
   Transform3d T = Pose3d::calc_relative_pose(point.pose, P); 
 
   // convert the point to primitive space
-  Point3d p = T.transform(point);
+  Point3d p = T.transform_point(point);
 
   // find max(z) of gaussians
   double tempX,tempY,tempZ,tempMax;
@@ -531,7 +531,7 @@ bool GaussianMixture::point_inside(BVPtr bv, const Point3d& point, Vector3d& nor
 
     // normalize the normal
     normal.normalize();
-    normal = T.inverse_transform(normal);
+    normal = T.inverse_transform_vector(normal);
 
     if(tempMax-p[2] <= std::exp(PARAM_BOUND*2)) //error bound
     {      
@@ -639,8 +639,8 @@ bool GaussianMixture::intersect_seg(BVPtr bv, const LineSeg3& seg,double& tisect
   Transform3d T = Pose3d::calc_relative_pose(seg.first.pose, P); 
 
   // convert the line segment to primitive space
-  Point3d p = T.transform(seg.first);
-  Point3d q = T.transform(seg.second);
+  Point3d p = T.transform_point(seg.first);
+  Point3d q = T.transform_point(seg.second);
 
   // determine whether any starting points are inside the Gaussians
   depth.resize(_gauss.size());
@@ -656,7 +656,7 @@ bool GaussianMixture::intersect_seg(BVPtr bv, const LineSeg3& seg,double& tisect
     isect = seg.first; 
     
     // compute the transformed normal
-    normal = T.inverse_transform(grad(_gauss[mini], p[X], p[Y]));
+    normal = T.inverse_transform_vector(grad(_gauss[mini], p[X], p[Y]));
 
     return true;
   }
@@ -697,7 +697,7 @@ bool GaussianMixture::intersect_seg(BVPtr bv, const LineSeg3& seg,double& tisect
   // compute transformed normal
   double x = p[X] + (q[X] - p[X])*tisect;
   double y = p[Y] + (q[Y] - p[Y])*tisect;
-  normal = T.inverse_transform(grad(_gauss[mini], x, y));
+  normal = T.inverse_transform_vector(grad(_gauss[mini], x, y));
 
   // compute and transform intersection point
   isect = seg.first + (seg.second-seg.first)*tisect;
@@ -772,8 +772,8 @@ bool GaussianMixture::intersect_seg(BVPtr bv, const LineSeg3& seg,double& tisect
       // cout<<"X= "<<isect[0] <<" Y= "<<isect[1] <<" Z= "<<isect[2] <<endl;
 
       // transform intersection point and normal
-      isect = T.transform(isect);
-      normal = T.transform(normal);
+      isect = T.transform_point(isect);
+      normal = T.transform_vector(normal);
 
       return true;
     }
@@ -783,8 +783,8 @@ bool GaussianMixture::intersect_seg(BVPtr bv, const LineSeg3& seg,double& tisect
       // cout<<"X= "<<isect[0] <<" Y= "<<isect[1] <<" Z= "<<isect[2] <<endl;
 
       // transform intersection point and normal
-      isect = T.transform(isect);
-      normal = T.transform(normal);
+      isect = T.transform_point(isect);
+      normal = T.transform_vector(normal);
 
       return true;
     }
@@ -870,8 +870,8 @@ bool GaussianMixture::intersect_seg(BVPtr bv, const LineSeg3& seg,double& tisect
   normal.normalize();
 
   // transform intersection points and normals
-  isect = T.transform(isect);
-  normal = T.transform(normal);
+  isect = T.transform_point(isect);
+  normal = T.transform_vector(normal);
 
   cout <<"X= "<<isect[0]<<" Y= "<<isect[1]<<" Z= "<<isect[2]<<endl;
   cout <<"normal[0]= "<<normal[0]<<" normal[1]= "<<normal[1]<<" normal[z]= "<<normal[z]<<endl;

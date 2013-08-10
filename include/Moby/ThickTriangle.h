@@ -22,10 +22,10 @@ class ThickTriangle
   public:
     ThickTriangle(const Triangle& t, double epsilon) { construct_from_triangle(t, epsilon); }
     void operator=(const ThickTriangle& t) { _planes = t._planes; _normal = t._normal; tri = t.tri; }
-    bool intersect_seg(const LineSeg3& seg, double& tnear, Ravelin::Point3d& isect) const;
-    bool intersect_seg(const LineSeg3& seg, double& tnear, Ravelin::Point3d& isect, Ravelin::Vector3d& normal) const;
-    bool point_inside(const Ravelin::Point3d& point) const;
-    Ravelin::Vector3d determine_normal(const Ravelin::Point3d& p) const;
+    bool intersect_seg(const LineSeg3& seg, double& tnear, Point3d& isect) const;
+    bool intersect_seg(const LineSeg3& seg, double& tnear, Point3d& isect, Ravelin::Vector3d& normal) const;
+    bool point_inside(const Point3d& point) const;
+    Ravelin::Vector3d determine_normal(const Point3d& p) const;
     const std::list<Plane>& planes() const { return _planes; }
     void construct_from_triangle(const Triangle& t, double epsilon);
 

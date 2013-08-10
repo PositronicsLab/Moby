@@ -521,7 +521,7 @@ double CollisionDetection::calc_distance(CollisionGeometryPtr a, CollisionGeomet
       {
         min_dist = dist;
         cpa = cpa_tmp;
-        cpb = bTa.transform(cpb_tmp);
+        cpb = bTa.transform_point(cpb_tmp);
       }
     }
   }

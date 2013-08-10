@@ -62,8 +62,8 @@ class C2ACCD : public CollisionDetection
         unsigned tri_idx;             // the index of this triangle
     };
 
-    double calc_dist(boost::shared_ptr<SSR> a, boost::shared_ptr<SSR> b, const Ravelin::Transform3d& aTb, Ravelin::Point3d& cpa, Ravelin::Point3d& cpb) const;
-    static bool query_intersect_seg_tri(const LineSeg3& seg, const Triangle& tri, double& t, Ravelin::Point3d& p);
+    double calc_dist(boost::shared_ptr<SSR> a, boost::shared_ptr<SSR> b, const Ravelin::Transform3d& aTb, Point3d& cpa, Point3d& cpb) const;
+    static bool query_intersect_seg_tri(const LineSeg3& seg, const Triangle& tri, double& t, Point3d& p);
     void determine_contacts(CollisionGeometryPtr a, CollisionGeometryPtr b, double toc, std::vector<Event>& contacts) const;
     bool check_collision(CollisionGeometryPtr a, CollisionGeometryPtr b, std::vector<std::pair<unsigned, unsigned> >& colliding_tris) const;
     double do_CA(double step_size, CollisionGeometryPtr a, CollisionGeometryPtr b, boost::shared_ptr<SSR> ssr_a, boost::shared_ptr<SSR> ssr_b, const Ravelin::Transform3d& aTb, double dt);
@@ -71,17 +71,17 @@ class C2ACCD : public CollisionDetection
     double calc_mu(double dist, const Ravelin::Vector3d& n, CollisionGeometryPtr g, boost::shared_ptr<SSR> ssr, bool positive);
     void add_rigid_body_model(RigidBodyPtr body);
     bool intersect_BV_trees(boost::shared_ptr<BV> a, boost::shared_ptr<BV> b, const Ravelin::Transform3d& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b);
-    void check_vertices(double dt, CollisionGeometryPtr a, CollisionGeometryPtr b, BVPtr ob, const std::vector<const Ravelin::Point3d*>& a_verts, const Ravelin::Transform3d bTa_t0, const Ravelin::SVelocityd& a_vel, const Ravelin::SVelocityd& b_vel, double& earliest, std::vector<Event>& local_contacts) const;
+    void check_vertices(double dt, CollisionGeometryPtr a, CollisionGeometryPtr b, BVPtr ob, const std::vector<const Point3d*>& a_verts, const Ravelin::Transform3d bTa_t0, const Ravelin::SVelocityd& a_vel, const Ravelin::SVelocityd& b_vel, double& earliest, std::vector<Event>& local_contacts) const;
     void check_geoms(double dt, CollisionGeometryPtr a, CollisionGeometryPtr b, const std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> >& q0, const std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> >& q1, std::vector<Event>& contacts); 
     void build_BV_tree(CollisionGeometryPtr geom);
     bool split(BVPtr source, BVPtr& tgt1, BVPtr& tgt2, const Ravelin::Vector3d& axis, bool deformable);
-    void split_tris(const Ravelin::Point3d& point, const Ravelin::Vector3d& normal, const IndexedTriArray& orig_mesh, const std::list<unsigned>& ofacets, std::list<unsigned>& pfacets, std::list<unsigned>& nfacets);
-    void get_vertices(BVPtr bv, std::vector<const Ravelin::Point3d*>& vertices) const;
+    void split_tris(const Point3d& point, const Ravelin::Vector3d& normal, const IndexedTriArray& orig_mesh, const std::list<unsigned>& ofacets, std::list<unsigned>& pfacets, std::list<unsigned>& nfacets);
+    void get_vertices(BVPtr bv, std::vector<const Point3d*>& vertices) const;
     static bool coplanar_tris(const Triangle& ta, const Triangle& tb);
-    static bool project_and_intersect(const Triangle& ta, const Triangle& tb, std::vector<Ravelin::Point3d>& contact_points);
-    static bool project_and_intersect(const Triangle& t, const LineSeg3& s, std::vector<Ravelin::Point3d>& contact_points);
-    static bool project_and_intersect(const Triangle& t, const Ravelin::Point3d& p);
-    void determine_closest_features(const Triangle& ta, const Triangle& tb, Triangle::FeatureType& fa, Triangle::FeatureType& fb, std::vector<Ravelin::Point3d>& contact_points) const;
+    static bool project_and_intersect(const Triangle& ta, const Triangle& tb, std::vector<Point3d>& contact_points);
+    static bool project_and_intersect(const Triangle& t, const LineSeg3& s, std::vector<Point3d>& contact_points);
+    static bool project_and_intersect(const Triangle& t, const Point3d& p);
+    void determine_closest_features(const Triangle& ta, const Triangle& tb, Triangle::FeatureType& fa, Triangle::FeatureType& fb, std::vector<Point3d>& contact_points) const;
     void determine_closest_tris(CollisionGeometryPtr a, CollisionGeometryPtr b, const Ravelin::Transform3d& aTb, std::vector<std::pair<Triangle, Triangle> >& closest_tris) const;
     static DynamicBodyPtr get_super_body(CollisionGeometryPtr a);
     static unsigned find_body(const std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> >& q, DynamicBodyPtr body);

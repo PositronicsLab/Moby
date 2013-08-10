@@ -945,7 +945,7 @@ Pose3d URDFReader::read_origin(shared_ptr<const XMLTree> node, URDFData& data)
       // look for xyz attribute 
       XMLAttrib* xyz_attrib = (*i)->get_attrib("xyz");
       if (xyz_attrib)
-        xyz = xyz_attrib->get_point_value();
+        xyz = xyz_attrib->get_origin_value();
 
       // look for rpy attribute
       XMLAttrib* rpy_attrib = (*i)->get_attrib("rpy");

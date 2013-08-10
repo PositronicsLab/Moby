@@ -174,7 +174,7 @@ void CSG::set_pose(const Pose3d& p)
   // transform the vertices
   if (_vertices)
     for (unsigned i=0; i< _vertices->size(); i++)
-      (*_vertices)[i] = T.transform((*_vertices)[i]);
+      (*_vertices)[i] = T.transform_point((*_vertices)[i]);
 
   // invalidate this primitive
   _invalidated = true;
@@ -256,7 +256,7 @@ bool CSG::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect
   Transform3d T = Pose3d::calc_relative_pose(seg.first.pose, P);
 
   // compute updated line segment
-  LineSeg3 nseg(T.transform(seg.first), T.transform(seg.second));
+  LineSeg3 nseg(T.transform_point(seg.first), T.transform_point(seg.second));
 
   // reset intersection tolerances (if necessary)
   if (std::fabs(_op1->get_intersection_tolerance() - _intersection_tolerance) > NEAR_ZERO)
@@ -283,8 +283,8 @@ bool CSG::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect
   // transform intersection point and normal (if necessary)
   if (flag)
   {
-    isect = T.inverse_transform(isect);
-    normal = T.inverse_transform(normal);
+    isect = T.inverse_transform_point(isect);
+    normal = T.inverse_transform_vector(normal);
   }
 
   return flag;
@@ -1037,7 +1037,7 @@ void CSG::get_vertices(BVPtr bv, vector<const Point3d*>& vertices)
 
     // transform all vertices using the current transform of the CSG
     for (unsigned i=0; i< _vertices->size(); i++)
-      (*_vertices)[i] = T.transform((*_vertices)[i]);
+      (*_vertices)[i] = T.transform_point((*_vertices)[i]);
 
     // clear validation flags for both operands
     _op1->_invalidated = _op2->_invalidated = false;

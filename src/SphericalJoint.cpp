@@ -134,7 +134,7 @@ void SphericalJoint::set_axis(const Vector3d& axis, Axis a)
 { 
   // normalize the axis in case the caller did not
   Vector3d naxis = Vector3d::normalize(axis);
-  _u[a] = Pose3d::transform(get_pose(), naxis); 
+  _u[a] = Pose3d::transform_vector(get_pose(), naxis); 
   update_spatial_axes(); 
 }        
 
@@ -780,9 +780,9 @@ void SphericalJoint::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Bas
   node->name = "SphericalJoint";
 
   // convert local axes to global axes and save
-  u0 = Pose3d::transform(shared_ptr<const Pose3d>(), _u[eAxis1]);
+  u0 = Pose3d::transform_vector(shared_ptr<const Pose3d>(), _u[eAxis1]);
   node->attribs.insert(XMLAttrib("axis1", u0));
-  u0 = Pose3d::transform(shared_ptr<const Pose3d>(), _u[eAxis2]);
+  u0 = Pose3d::transform_vector(shared_ptr<const Pose3d>(), _u[eAxis2]);
   node->attribs.insert(XMLAttrib("axis2", u0));
 }
 

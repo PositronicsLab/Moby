@@ -52,10 +52,10 @@ class SingleBody : public DynamicBody
     virtual bool is_enabled() const = 0;
 
     /// Calculates the velocity at a point on the body *in the body frame*
-    virtual Ravelin::Vector3d calc_point_vel(const Ravelin::Point3d& point) const = 0;
+    virtual Ravelin::Vector3d calc_point_vel(const Point3d& point) const = 0;
 
     /// Calculates the velocity at a point on the body in a given direction
-    double calc_point_vel(const Ravelin::Point3d& point, const Ravelin::Vector3d& dir);
+    double calc_point_vel(const Point3d& point, const Ravelin::Vector3d& dir);
 
     /// Gets the maximum angular speed of this body (useful for collision detection)
     virtual double get_aspeed() 

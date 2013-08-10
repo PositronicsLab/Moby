@@ -49,9 +49,9 @@ double Triangle::calc_signed_dist(const Point3d& p) const
 /// Transforms the given triangle using the specified pose 
 Triangle Triangle::transform(const Triangle& t, const Transform3d& m)
 {
-  Point3d a = m.transform(t.a);
-  Point3d b = m.transform(t.b);
-  Point3d c = m.transform(t.c);
+  Point3d a = m.transform_point(t.a);
+  Point3d b = m.transform_point(t.b);
+  Point3d c = m.transform_point(t.c);
   
   return Triangle(a, b, c);
 }

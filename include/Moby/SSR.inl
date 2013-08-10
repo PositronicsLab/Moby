@@ -6,8 +6,8 @@
 
 /// Computes a SSR from a set of points
 /**
- * \param begin an iterator to type Ravelin::Point3d
- * \param end an iterator to type Ravelin::Point3d
+ * \param begin an iterator to type Point3d
+ * \param end an iterator to type Point3d
  * Algorithm taken from [Ericson, 2005]
  */
 template <class ForwardIterator>
@@ -32,19 +32,19 @@ SSR::SSR(ForwardIterator begin, ForwardIterator end)
     // transform all points to 2D
     Ravelin::Matrix3d R = CompGeom::calc_3D_to_2D_matrix(normal);
     double offset = CompGeom::determine_3D_to_2D_offset(Ravelin::Origin3d(*begin), R);
-    std::list<Ravelin::Point2d> points_2D;
-    std::list<Ravelin::Point2d*> points_2D_ptr;
+    std::list<Point2d> points_2D;
+    std::list<Point2d*> points_2D_ptr;
     for (ForwardIterator i = begin; i != end; i++)
-      points_2D.push_back(Ravelin::Point2d(CompGeom::to_2D(*i, R), GLOBAL_2D));
+      points_2D.push_back(Point2d(CompGeom::to_2D(*i, R), GLOBAL_2D));
     
     // compute the convex hull of the points
-    std::list<Ravelin::Point2d> hull_2D;
+    std::list<Point2d> hull_2D;
     CompGeom::calc_convex_hull(points_2D.begin(), points_2D.end(), std::back_inserter(hull_2D));
 
     // handle degeneracy
     if (hull_2D.empty())
     {
-      std::pair<Ravelin::Point2d, Ravelin::Point2d> ep;
+      std::pair<Point2d, Point2d> ep;
       CompGeom::determine_seg_endpoints(points_2D.begin(), points_2D.end(), ep);
       centroid = Ravelin::Origin2d((ep.first + ep.second) * 0.5);
     }
@@ -65,11 +65,11 @@ SSR::SSR(ForwardIterator begin, ForwardIterator end)
       this->center.pose = begin->pose;
 
     // determine the area and centroid of all triangles
-    const std::vector<Ravelin::Point3d>& verts = hull->get_vertices();
+    const std::vector<Point3d>& verts = hull->get_vertices();
     unsigned n = hull->get_facets().size();
     double total_area = 0;
     std::vector<double> areas(n);
-    std::vector<Ravelin::Point3d> centroids(n);
+    std::vector<Point3d> centroids(n);
     for (unsigned i=0; i< n; i++)
     {
       const IndexedTri& itri = hull->get_facets()[i];
@@ -96,9 +96,9 @@ SSR::SSR(ForwardIterator begin, ForwardIterator end)
         {
           const IndexedTri& itri = hull->get_facets()[k];
           Triangle tri(verts[itri.a], verts[itri.b], verts[itri.c]); 
-          const Ravelin::Point3d& a = tri.a;
-          const Ravelin::Point3d& b = tri.b;
-          const Ravelin::Point3d& c = tri.c;
+          const Point3d& a = tri.a;
+          const Point3d& b = tri.b;
+          const Point3d& c = tri.c;
           C(i,j) += areas[k]/12.0 * (centroids[k][i]*centroids[k][j] + a[i]*a[j] + b[i]*b[j] + c[i]*c[j]);
         }
         C(i,j) *= 1.0/total_area;
@@ -147,13 +147,13 @@ void SSR::calc_lengths_and_radius(ForwardIterator begin, ForwardIterator end)
   T.x = center;
 
   // setup the extents
-  Ravelin::Point2d extents((double) 0.0, (double) 0.0);
+  Point2d extents((double) 0.0, (double) 0.0);
 
   // determine the lengths of the rectangle
   for (ForwardIterator i = begin; i != end; i++)
   {
     // transform the point to the SSR frame
-    Ravelin::Point3d p = T.inverse_transform(*i);
+    Point3d p = T.inverse_transform_point(*i);
 
     // get the y and z points
     double py = p[Y]; 
@@ -193,12 +193,12 @@ void SSR::align(ForwardIterator begin, ForwardIterator end, const Ravelin::Vecto
 
   // project all points to the plane perpendicular to the first direction
   Ravelin::Matrix3d R2d = CompGeom::calc_3D_to_2D_matrix(d1);
-  std::list<Ravelin::Point2d> points_2D;
+  std::list<Point2d> points_2D;
   for (ForwardIterator i = begin; i != end; i++)
-    points_2D.push_back(Ravelin::Point2d(CompGeom::to_2D(*i, R2d), GLOBAL_2D));
+    points_2D.push_back(Point2d(CompGeom::to_2D(*i, R2d), GLOBAL_2D));
 
   // determine the minimum bounding rectangle of the projected points
-  Ravelin::Point2d p1, p2, p3, p4;
+  Point2d p1, p2, p3, p4;
   CompGeom::calc_min_area_bounding_rect(points_2D.begin(), points_2D.end(), p1, p2, p3, p4);
 
   // project the vectors of the minimum bounding rectangle back to 3D

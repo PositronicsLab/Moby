@@ -388,7 +388,7 @@ void C2ACCD::determine_contacts(CollisionGeometryPtr a, CollisionGeometryPtr b, 
       // get the relative velocity at the contact point
       Vector3d pva = rba->calc_point_vel(e.contact_point);
       Vector3d pvb = rbb->calc_point_vel(e.contact_point);
-      Vector3d rvel = Pose3d::transform(normal.pose, pva) - Pose3d::transform(normal.pose, pvb);
+      Vector3d rvel = Pose3d::transform_vector(normal.pose, pva) - Pose3d::transform_vector(normal.pose, pvb);
 
       FILE_LOG(LOG_COLDET) << " -- normal: " << normal << std::endl;
       FILE_LOG(LOG_COLDET) << " -- contact point: " << e.contact_point << " sdist: " << sdist << endl;
@@ -955,8 +955,8 @@ double C2ACCD::do_CA(double step_size, CollisionGeometryPtr a, CollisionGeometry
       cpb.pose = Ta;
 
       // transform closest points to global frame
-      cpa = Pose3d::transform(shared_ptr<const Pose3d>(), cpa);
-      cpb = Pose3d::transform(shared_ptr<const Pose3d>(), cpb);
+      cpa = Pose3d::transform_point(shared_ptr<const Pose3d>(), cpa);
+      cpb = Pose3d::transform_point(shared_ptr<const Pose3d>(), cpb);
       FILE_LOG(LOG_COLDET) << " -- SSR leafs detected, distance: " << dist << " closest points: " << cpa << " and " << cpb << endl;
 
       // compute dt for the primitives 
@@ -989,8 +989,8 @@ double C2ACCD::do_CA(double step_size, CollisionGeometryPtr a, CollisionGeometry
         cpb.pose = Ta;
 
         // transform closest points to global frame
-        cpa = Pose3d::transform(shared_ptr<const Pose3d>(), cpa);
-        cpb = Pose3d::transform(shared_ptr<const Pose3d>(), cpb);
+        cpa = Pose3d::transform_point(shared_ptr<const Pose3d>(), cpa);
+        cpb = Pose3d::transform_point(shared_ptr<const Pose3d>(), cpb);
 
         // compute dt for the pair; if dt* > dt, ignore
         double dtstar = (double) 0.0;
@@ -1023,8 +1023,8 @@ double C2ACCD::do_CA(double step_size, CollisionGeometryPtr a, CollisionGeometry
         cpb.pose = Ta;
 
         // transform closest points to global frame
-        cpa = Pose3d::transform(shared_ptr<const Pose3d>(), cpa);
-        cpb = Pose3d::transform(shared_ptr<const Pose3d>(), cpb);
+        cpa = Pose3d::transform_point(shared_ptr<const Pose3d>(), cpa);
+        cpb = Pose3d::transform_point(shared_ptr<const Pose3d>(), cpb);
 
         // compute dt for the pair; if dt* > dt, ignore
         double dtstar = (double) 0.0;
@@ -1060,8 +1060,8 @@ double C2ACCD::do_CA(double step_size, CollisionGeometryPtr a, CollisionGeometry
           cpb.pose = Ta;
 
           // transform closest points to global frame
-          cpa = Pose3d::transform(shared_ptr<const Pose3d>(), cpa);
-          cpb = Pose3d::transform(shared_ptr<const Pose3d>(), cpb);
+          cpa = Pose3d::transform_point(shared_ptr<const Pose3d>(), cpa);
+          cpb = Pose3d::transform_point(shared_ptr<const Pose3d>(), cpb);
 
           // compute dt for the pair; if dt* > dt, ignore
           double dtstar = (double) 0.0;
@@ -1094,8 +1094,8 @@ double C2ACCD::do_CA(double step_size, CollisionGeometryPtr a, CollisionGeometry
           cpb.pose = Ta;
 
           // transform closest points to global frame
-          cpa = Pose3d::transform(shared_ptr<const Pose3d>(), cpa);
-          cpb = Pose3d::transform(shared_ptr<const Pose3d>(), cpb);
+          cpa = Pose3d::transform_point(shared_ptr<const Pose3d>(), cpa);
+          cpb = Pose3d::transform_point(shared_ptr<const Pose3d>(), cpb);
 
           // compute dt for the pair; if dt* > dt, ignore
           double dtstar = (double) 0.0;

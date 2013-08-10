@@ -33,12 +33,12 @@ class ConePrimitive : public Primitive
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual BVPtr get_BVH_root();
     virtual void set_pose(const Ravelin::Pose3d& T);
-    virtual bool point_inside(BVPtr bv, const Ravelin::Point3d& p, Ravelin::Vector3d& normal) const;
-    virtual bool intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Ravelin::Point3d& isect, Ravelin::Vector3d& normal) const;
+    virtual bool point_inside(BVPtr bv, const Point3d& p, Ravelin::Vector3d& normal) const;
+    virtual bool intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Ravelin::Vector3d& normal) const;
     virtual const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >& get_sub_mesh(BVPtr bv);
     virtual boost::shared_ptr<const IndexedTriArray> get_mesh();
     virtual void set_intersection_tolerance(double tol);
-    virtual void get_vertices(BVPtr bv, std::vector<const Ravelin::Point3d*>& vertices);
+    virtual void get_vertices(BVPtr bv, std::vector<const Point3d*>& vertices);
     virtual osg::Node* create_visualization();
 
     /// Gets the number of rings on the cone
@@ -56,14 +56,14 @@ class ConePrimitive : public Primitive
   private:
     static double sqr(double x) { return x*x; }
     virtual void calc_mass_properties(); 
-    double calc_penetration_depth(const Ravelin::Point3d& p) const; 
-    Ravelin::Vector3d determine_normal(const Ravelin::Point3d& query) const;
+    double calc_penetration_depth(const Point3d& p) const; 
+    Ravelin::Vector3d determine_normal(const Point3d& query) const;
 
     /// Pointer to the determined mesh (w/transform applied), if any
     boost::shared_ptr<IndexedTriArray> _mesh;
 
     /// Pointer to the vector of vertices (w/transform and intersection tolerance applied), if any
-    boost::shared_ptr<std::vector<Ravelin::Point3d> > _vertices;
+    boost::shared_ptr<std::vector<Point3d> > _vertices;
 
     /// The bounding volume for the primitive
     boost::shared_ptr<OBB> _obb; 
