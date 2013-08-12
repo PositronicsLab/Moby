@@ -800,10 +800,15 @@ FILE_LOG(LOG_DYNAMICS) << "added link " << parent->id << " to queue for processi
 
     // if the joint is not rank deficient, compute a Cholesky factorization 
     // of sIs
-    if (!_rank_deficient[i])
-      _LA->factor_chol(_sIs[i]);
+    if (_sIs[i].rows() == 1)
+      _sIs[i].data()[0] = 1.0/_sIs[i].data()[0];
     else
-      _LA->svd(_sIs[i], _usIs[i], _ssIs[i], _vsIs[i]);
+    { 
+      if (!_rank_deficient[i])
+        _LA->factor_chol(_sIs[i]);
+      else
+        _LA->svd(_sIs[i], _usIs[i], _ssIs[i], _vsIs[i]);
+    }
 
     // get Is
     const vector<SMomentumd>& Is = _Is[i];
@@ -1210,6 +1215,13 @@ MatrixNd& FSABAlgorithm::transpose_solve_sIs(unsigned i, const vector<SAxisd>& m
   // transpose m
   transpose_to_matrix(m, result);   
 
+  // look for simplest case
+  if (_sIs[i].rows() == 1)
+  {
+    result *= _sIs[i].data()[0];
+    return result;
+  } 
+
   // determine whether we are dealing with a rank-deficient sIs
   if (_rank_deficient[i])
     _LA->solve_LS_fast(_usIs[i], _ssIs[i], _vsIs[i], result);
@@ -1224,6 +1236,13 @@ MatrixNd& FSABAlgorithm::solve_sIs(unsigned i, const MatrixNd& m, MatrixNd& resu
 {
   result = m;
 
+  // look for simplest case
+  if (_sIs[i].rows() == 1)
+  {
+    result *= _sIs[i].data()[0];
+    return result;
+  } 
+
   // determine whether we are dealing with a rank-deficient sIs
   if (_rank_deficient[i])
     _LA->solve_LS_fast(_usIs[i], _ssIs[i], _vsIs[i], result);
@@ -1237,6 +1256,13 @@ MatrixNd& FSABAlgorithm::solve_sIs(unsigned i, const MatrixNd& m, MatrixNd& resu
 VectorNd& FSABAlgorithm::solve_sIs(unsigned i, const VectorNd& v, VectorNd& result) const
 {
   result = v;
+
+  // look for simplest case
+  if (_sIs[i].rows() == 1)
+  {
+    result *= _sIs[i].data()[0];
+    return result;
+  } 
 
   // determine whether we are dealing with a rank-deficient sIs
   if (_rank_deficient[i])

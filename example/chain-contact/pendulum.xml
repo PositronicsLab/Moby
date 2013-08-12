@@ -1,4 +1,4 @@
-<!-- A pendulum bob striking a wall, reduced coordinate version -->
+<!-- An extremely simple pendulum -->
 
 <XML>
   <DRIVER>
@@ -7,26 +7,23 @@
   </DRIVER>
 
   <MOBY>
-    <Cylinder id="c" radius="1" height="5" density="1.0" />
-    <Box id="b3" xlen="10" ylen="1" zlen="10" density="10.0" />
     <Sphere id="sphere" radius="1.5811" mass="1" />
 
     <EulerIntegrator id="euler" />
 
     <GravityForce id="gravity" accel="0 -9.81 0 " />
 
-  <Simulator integrator-id="euler" collision-detector-id="ccd">
+  <Simulator integrator-id="euler">
     <RecurrentForce recurrent-force-id="gravity" /> 
     <DynamicBody dynamic-body-id="chain" />
   </Simulator>
 
-  <RCArticulatedBody id="chain" fdyn-algorithm="crb" fdyn-algorithm-frame="global" floating-base="false">
+  <RCArticulatedBody id="chain" fdyn-algorithm="crb" fdyn-algorithm-frame="linkinertia" floating-base="false">
 
       <RigidBody id="base" position="0 0 0"/>
 
-      <RigidBody id="l1" position="1 0 0" rpy="0 0 1.5708" xvisualization-id="cyl">
+      <RigidBody id="l1" position="1 0 0" rpy="0 0 1.5708">
         <InertiaFromPrimitive primitive-id="sphere" />
-        <CollisionGeometry primitive-id="sphere" />
         <Visualization visualization-id="sphere" />
       </RigidBody>
 
