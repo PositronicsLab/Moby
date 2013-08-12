@@ -221,7 +221,15 @@ void CRBAlgorithm::calc_joint_space_inertia(RCArticulatedBodyPtr body, MatrixNd&
   // set the composite inertias to the isolated inertias initially 
   Ic.resize(links.size());
   for (unsigned i=0; i< links.size(); i++)
+  {
     Ic[links[i]->get_index()] = links[i]->get_inertia();
+    if (LOGGING(LOG_DYNAMICS))
+    {
+      MatrixNd X;
+      Ic[links[i]->get_index()].to_matrix(X);
+      FILE_LOG(LOG_DYNAMICS) << "isolated inertia for link " << links[i]->id << ": " << endl << X;
+    }
+  }
 
   // ************************************************************************
   // first, determine the supports for the joints and the number of joint DOF
@@ -342,9 +350,14 @@ void CRBAlgorithm::calc_joint_space_inertia(RCArticulatedBodyPtr body, MatrixNd&
       // add this inertia to its parent
       Ic[h] += Pose3d::transform(Ic[h].pose, Ic[i]); 
 
-MatrixNd X;
-      FILE_LOG(LOG_DYNAMICS) << "  composite inertia for (child) link " << link->id << ": " << std::endl << Ic[i].to_matrix(X);
-      FILE_LOG(LOG_DYNAMICS) << "  composite inertia for (parent) link " << parent->id << ": " << std::endl << Ic[h].to_matrix(X);
+      if (LOGGING(LOG_DYNAMICS))
+      {
+        MatrixNd X;
+        FILE_LOG(LOG_DYNAMICS) << "  composite inertia for (child) link " << link->id << ": " << std::endl << Ic[i].to_matrix(X);
+        FILE_LOG(LOG_DYNAMICS) << "  composite inertia for (child) link " << link->id << ": " << std::endl << Ic[i];
+        FILE_LOG(LOG_DYNAMICS) << "  composite inertia for (parent) link " << parent->id << ": " << std::endl << Ic[h].to_matrix(X);
+        FILE_LOG(LOG_DYNAMICS) << "  composite inertia for (parent) link " << parent->id << ": " << std::endl << Ic[h];
+      }
     }
 
     // indicate that the link has been processed

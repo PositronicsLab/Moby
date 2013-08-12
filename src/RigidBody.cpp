@@ -47,7 +47,7 @@ RigidBody::RigidBody()
   // setup inertial pose
   _jF = shared_ptr<Pose3d>(new Pose3d(Pose3d::identity()));
   _jF->rpose = _F;
-  _Jm.pose = _Jm.h.pose = _xdm.pose = _xddm.pose = _forcem.pose = _jF;
+  _Jm.pose = _xdm.pose = _xddm.pose = _forcem.pose = _jF;
 
   // setup visualization pose
   _vF->rpose = _F;

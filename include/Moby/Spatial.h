@@ -92,14 +92,20 @@ template <class X>
 X& transpose_to_matrix(const std::vector<Ravelin::SAxisd>& t, X& m)
 {
   const unsigned SPATIAL_DIM = 6;
-  m.resize(SPATIAL_DIM, t.size());
+  m.resize(t.size(), SPATIAL_DIM);
   double* data = m.data();
-  for (unsigned k=0, i=0; i< t.size(); i++)
+  const unsigned LDM = t.size();
+  for (unsigned i=0; i< t.size(); i++)
   {
+    unsigned k = 0;
     Ravelin::Vector3d lin = t[i].get_linear();  
     Ravelin::Vector3d ang = t[i].get_angular();
-    data[k++] = lin[0];  data[k++] = lin[1];  data[k++] = lin[2];
-    data[k++] = ang[0];  data[k++] = ang[1];  data[k++] = ang[2];
+    data[k] = lin[0]; k += LDM; 
+    data[k] = lin[1]; k += LDM; 
+    data[k] = lin[2]; k += LDM; 
+    data[k] = ang[0]; k += LDM; 
+    data[k] = ang[1]; k += LDM; 
+    data[k] = ang[2];
   }
 
   return m;

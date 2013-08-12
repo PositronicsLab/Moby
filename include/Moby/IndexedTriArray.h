@@ -7,6 +7,7 @@
 #ifndef _INDEXED_TRIANGLE_ARRAY_H
 #define _INDEXED_TRIANGLE_ARRAY_H
 
+#include <map>
 #include <iostream>
 #include <cmath>
 #include <list>
