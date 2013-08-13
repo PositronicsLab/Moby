@@ -836,6 +836,7 @@ FILE_LOG(LOG_DYNAMICS) << "added link " << parent->id << " to queue for processi
     FILE_LOG(LOG_DYNAMICS) << "  Is*s/(s'Is): " << std::endl << tmp;
     FILE_LOG(LOG_DYNAMICS) << "  Is*s/(s'Is)*I: " << std::endl << tmp3;
     FILE_LOG(LOG_DYNAMICS) << "  inertial update: " << uI << std::endl;
+    FILE_LOG(LOG_DYNAMICS) << "  transformed I: " << Pose3d::transform(_I[h].pose, uI) << std::endl;
 
     // update the parent inertia
     _I[h] += Pose3d::transform(_I[h].pose, uI);
