@@ -830,6 +830,13 @@ FILE_LOG(LOG_DYNAMICS) << "added link " << parent->id << " to queue for processi
     MatrixNd::mult(tmp, tmp2, tmp3);
     SpatialABInertiad uI = I - SpatialABInertiad::from_matrix(tmp3, I.pose);
 
+    // output the updates
+    FILE_LOG(LOG_DYNAMICS) << "  Is: " << _Is[i][0] << std::endl;
+    FILE_LOG(LOG_DYNAMICS) << "  s/(s'Is): " << _sIss << std::endl;
+    FILE_LOG(LOG_DYNAMICS) << "  Is*s/(s'Is): " << std::endl << tmp;
+    FILE_LOG(LOG_DYNAMICS) << "  Is*s/(s'Is)*I: " << std::endl << tmp3;
+    FILE_LOG(LOG_DYNAMICS) << "  inertial update: " << uI << std::endl;
+
     // update the parent inertia
     _I[h] += Pose3d::transform(_I[h].pose, uI);
   }

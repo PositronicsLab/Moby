@@ -92,11 +92,11 @@ MatrixNd& mult(const vector<SMomentumd>& Is, const MatrixNd& m, MatrixNd& result
   for (unsigned k=0; k< m.columns(); k++)
   {
     const double* mdata = m.column(k).data();
-    for (unsigned j=0; j< SPATIAL_DIM; j++)
-      for (unsigned i=0; i< Is.size(); i++)
+    for (unsigned j=0; j< SPATIAL_DIM; j++)  // j is row index for Is
+      for (unsigned i=0; i< Is.size(); i++)  // i is column index for Is
       {
         const double* Isdata = Is[i].data();
-        rdata[k+j*result.rows()] += Isdata[j]*mdata[i];
+        rdata[k*result.rows()+j] += Isdata[j]*mdata[i];
       }
   }
 
