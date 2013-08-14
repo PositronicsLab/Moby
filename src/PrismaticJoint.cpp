@@ -151,7 +151,7 @@ shared_ptr<const Pose3d> PrismaticJoint::get_induced_pose()
 }
 
 /// Gets the derivative fo the spatial axes for this joint
-vector<SAxisd>& PrismaticJoint::get_spatial_axes_dot()
+vector<SVelocityd>& PrismaticJoint::get_spatial_axes_dot()
 {
   return _s_dot;
 }

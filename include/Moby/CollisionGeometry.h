@@ -11,7 +11,6 @@
 #include <list>
 #include <vector>
 #include <map>
-#include <Ravelin/SAxisd.h>
 #include <Ravelin/Pose3d.h>
 #include <boost/foreach.hpp>
 #include <boost/shared_ptr.hpp>

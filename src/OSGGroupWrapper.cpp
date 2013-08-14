@@ -11,7 +11,7 @@
 #include <osgDB/WriteFile>
 #include <osg/MatrixTransform>
 #endif
-#include <Ravelin/SAxisd.h>
+#include <Ravelin/SVelocityd.h>
 #include <Ravelin/Pose3d.h>
 #include <Moby/XMLTree.h>
 #include <Moby/OSGGroupWrapper.h>

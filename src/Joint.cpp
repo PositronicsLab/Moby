@@ -101,7 +101,7 @@ void Joint::determine_q_dot()
   VectorNd S;
 
   // get the spatial axes
-  const vector<SAxisd>& s = get_spatial_axes();
+  const vector<SVelocityd>& s = get_spatial_axes();
 
   // convert to a matrix
   to_matrix(s, m);
@@ -177,7 +177,7 @@ void Joint::calc_s_bar_from_s()
   MatrixNd sx, ns;
 
   // get s
-  const vector<SAxisd>& s = get_spatial_axes(); 
+  const vector<SVelocityd>& s = get_spatial_axes(); 
 
   // setup ns - it's the standard (i.e., non-spatial) transpose of s
   assert(s.size() == NDOF);
@@ -396,7 +396,7 @@ VectorNd& Joint::get_scaled_force(VectorNd& f)
  * Spatial axes describe the motion of the joint. Note that for rftype = eLink,
  * spatial axes are given in outboard link's frame. 
  */
-const vector<SAxisd>& Joint::get_spatial_axes()
+const vector<SVelocityd>& Joint::get_spatial_axes()
 {
   return _s;
 }
@@ -406,7 +406,7 @@ const vector<SAxisd>& Joint::get_spatial_axes()
  * Spatial axes describe the motion of the joint. Spatial axes complement are
  * given in identity-oriented frame located at the origin. 
  */
-const vector<SAxisd>& Joint::get_spatial_axes_complement()
+const vector<SVelocityd>& Joint::get_spatial_axes_complement()
 {
   calc_s_bar_from_s();
   return _s_bar;

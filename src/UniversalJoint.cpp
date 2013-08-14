@@ -149,7 +149,7 @@ void UniversalJoint::update_spatial_axes()
 /**
  * \note these spatial axes are not constant, unlike many joints.
  */
-const vector<SAxisd>& UniversalJoint::get_spatial_axes()
+const vector<SVelocityd>& UniversalJoint::get_spatial_axes()
 {
   const unsigned X = 0, Y = 1, Z = 2;
   const Vector3d ZEROS_3(0.0, 0.0, 0.0, get_pose());
@@ -189,7 +189,7 @@ const vector<SAxisd>& UniversalJoint::get_spatial_axes()
 /**
  * \note these spatial axes are not constant, unlike many joints.
  */
-const vector<SAxisd>& UniversalJoint::get_spatial_axes_dot()
+const vector<SVelocityd>& UniversalJoint::get_spatial_axes_dot()
 {
   const Vector3d ZEROS_3(0.0, 0.0, 0.0, get_pose());
 

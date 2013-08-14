@@ -473,7 +473,7 @@ void RCArticulatedBody::update_link_poses()
 void RCArticulatedBody::update_link_velocities()
 {
   queue<RigidBodyPtr> link_queue;
-  vector<SAxisd> sprime;
+  vector<SVelocityd> sprime;
 
   // look for easy exit
   if (_links.empty() || _joints.empty())
@@ -521,7 +521,7 @@ void RCArticulatedBody::update_link_velocities()
     outboard->set_velocity(Pose3d::transform(opose, inboard->get_velocity()));
 
     // get the (transformed) link spatial axis
-    const vector<SAxisd>& s = joint->get_spatial_axes(); 
+    const vector<SVelocityd>& s = joint->get_spatial_axes(); 
     Pose3d::transform(opose, s, sprime); 
 
     // determine the link velocity due to the parent velocity + joint velocity
@@ -669,7 +669,7 @@ MatrixNd& RCArticulatedBody::calc_jacobian_column(JointPtr joint, const Point3d&
 {
   const unsigned SPATIAL_DIM = 6;
   SAFESTATIC shared_ptr<Pose3d> target(new Pose3d);
-  SAFESTATIC vector<SAxisd> sprime;
+  SAFESTATIC vector<SVelocityd> sprime;
 
   // NOTE: spatial algebra provides us with a simple means to compute the
   // Jacobian of a joint with respect to a point.  The spatial axis of the
@@ -681,7 +681,7 @@ MatrixNd& RCArticulatedBody::calc_jacobian_column(JointPtr joint, const Point3d&
   // link or global frame) to the new frame will give us the desired vector.
 
   // get the spatial axis of the joint 
-  const vector<SAxisd>& s = joint->get_spatial_axes();
+  const vector<SVelocityd>& s = joint->get_spatial_axes();
   Jc.resize(SPATIAL_DIM, s.size());
 
   // compute a spatial transformation using the point as the target frame
@@ -2331,15 +2331,15 @@ VectorNd& RCArticulatedBody::get_generalized_forces(VectorNd& f)
 VectorNd& RCArticulatedBody::convert_to_generalized_force(SingleBodyPtr body, const SForced& w, const Point3d& p, VectorNd& gf)
 {
   const unsigned SPATIAL_DIM = 6;
-  static vector<SAxisd> J;
-  static vector<SAxisd> sprime;
+  static vector<SVelocityd> J;
+  static vector<SVelocityd> sprime;
 
   // get the body as a rigid body
   RigidBodyPtr link = dynamic_pointer_cast<RigidBody>(body);
   assert(link);
 
   // compute the Jacobian in w's frame
-  J.resize(num_joint_dof_explicit(), SAxisd::zero(w.pose));  
+  J.resize(num_joint_dof_explicit(), SVelocityd::zero(w.pose));  
   for (unsigned i=0; i< _ejoints.size(); i++)
   {
     // if link is not a descent of this joint's inboard, keep looping
@@ -2348,7 +2348,7 @@ VectorNd& RCArticulatedBody::convert_to_generalized_force(SingleBodyPtr body, co
       continue;
 
     // transform the Jacobian
-    const vector<SAxisd>& s = _ejoints[i]->get_spatial_axes();
+    const vector<SVelocityd>& s = _ejoints[i]->get_spatial_axes();
     Pose3d::transform(w.pose, s, sprime);
     for (unsigned j=0, k=_ejoints[i]->get_coord_index(); j < s.size(); j++, k++)
       J[k] = sprime[j];    

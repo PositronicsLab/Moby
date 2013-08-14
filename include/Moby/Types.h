@@ -17,7 +17,6 @@
 #include <boost/shared_ptr.hpp>
 #include <Ravelin/Vector2d.h>
 #include <Ravelin/Vector3d.h>
-#include <Ravelin/SAxisd.h>
 
 namespace Moby {
 

@@ -598,8 +598,13 @@ BVPtr GeneralizedCCD::get_swept_BV(CollisionGeometryPtr cg, BVPtr bv, const Pose
   vi = _swept_BVs.find(cg);
   assert(vi != _swept_BVs.end());
 
+  // get the poses
+  Pose3d P0(poses.t0), Pf(poses.tf);
+  P0.update_relative_pose(GLOBAL);
+  Pf.update_relative_pose(GLOBAL);
+
   // compute the change in velocity from the pose
-  SVelocityd v = Pose3d::diff(poses.t0, poses.tf);
+  SVelocityd v = Pose3d::diff(P0, Pf);
 
   // see whether the velocity-expanded BV has already been calculated
   map<BVPtr, BVPtr>::const_iterator vj;
@@ -1519,7 +1524,7 @@ bool GeneralizedCCD::is_collision(double epsilon)
     PrimitivePtr g1_primitive = g1->get_geometry();
     BVPtr bv1 = g1_primitive->get_BVH_root();
 
-    // get the pose for this geometry
+    // get the pose for this BVH 
     shared_ptr<const Pose3d> Pg1 = bv1->get_relative_pose();
 
     // loop through all other geometries

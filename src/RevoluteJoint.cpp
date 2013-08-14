@@ -142,7 +142,7 @@ shared_ptr<const Pose3d> RevoluteJoint::get_induced_pose()
 }
 
 /// Gets the derivative for the spatial axes for this joint
-const std::vector<SAxisd>& RevoluteJoint::get_spatial_axes_dot()
+const std::vector<SVelocityd>& RevoluteJoint::get_spatial_axes_dot()
 {
   return _s_dot;
 }
