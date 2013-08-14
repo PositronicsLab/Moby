@@ -1514,30 +1514,30 @@ bool GeneralizedCCD::is_collision(double epsilon)
   // iterate over geometries 
   for (std::set<CollisionGeometryPtr>::const_iterator i = _geoms.begin(); i != _geoms.end(); i++)
   {
-    // get the first geometry and its primitive 
+    // get the first geometry, its primitive, and its bounding volume 
     CollisionGeometryPtr g1 = *i;
     PrimitivePtr g1_primitive = g1->get_geometry();
+    BVPtr bv1 = g1_primitive->get_BVH_root();
 
     // get the pose for this geometry
-    shared_ptr<const Pose3d> Pg1 = g1->get_pose();
+    shared_ptr<const Pose3d> Pg1 = bv1->get_relative_pose();
 
     // loop through all other geometries
     std::set<CollisionGeometryPtr>::const_iterator j = i;
     j++;
     for (; j != _geoms.end(); j++)
     {
-      // get the second geometry and its primitive 
+      // get the second geometry, its primitive, and its bounding volume 
       CollisionGeometryPtr g2 = *j;
       PrimitivePtr g2_primitive = g2->get_geometry();
-      shared_ptr<const Pose3d> Pg2 = g2->get_pose();
+      BVPtr bv2 = g2_primitive->get_BVH_root();
 
       // see whether to check
       if (!is_checked(g1, g2))
         continue; 
 
-      // get the two BV trees
-      BVPtr bv1 = g1_primitive->get_BVH_root();
-      BVPtr bv2 = g2_primitive->get_BVH_root();
+      // get the pose for the second bounding volume
+      shared_ptr<const Pose3d> Pg2 = bv2->get_relative_pose();
 
       // compute the transform from g2 to g1 
       Transform3d g1Tg2 = Pose3d::calc_relative_pose(Pg2, Pg1); 
