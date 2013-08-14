@@ -437,7 +437,7 @@ bool OBB::intersects(const OBB& a, const OBB& b)
   }
 
   // test axes L = B0, L = B1, L = B2
-  Vector3d Rab_col;
+  Vector3d Rab_col(t.pose);
   for (unsigned i=0; i< THREE_D; i++)
   {
     ra = a.l[eDim0] * abs_Rab(0,i) + a.l[eDim1]*abs_Rab(1,i) + a.l[eDim2]*abs_Rab(2,i);
