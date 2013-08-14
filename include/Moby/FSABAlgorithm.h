@@ -105,7 +105,7 @@ class FSABAlgorithm
     void calc_spatial_coriolis_vectors(RCArticulatedBodyPtr body);
     Ravelin::VectorNd& solve_sIs(unsigned idx, const Ravelin::VectorNd& v, Ravelin::VectorNd& result) const;
     Ravelin::MatrixNd& solve_sIs(unsigned idx, const Ravelin::MatrixNd& v, Ravelin::MatrixNd& result) const;
-    Ravelin::MatrixNd& transpose_solve_sIs(unsigned idx, const std::vector<Ravelin::SAxisd>& m, Ravelin::MatrixNd& result) const;
+    Ravelin::MatrixNd& transpose_solve_sIs(unsigned idx, const std::vector<Ravelin::SVelocityd>& m, Ravelin::MatrixNd& result) const;
 }; // end class
 } // end namespace
 

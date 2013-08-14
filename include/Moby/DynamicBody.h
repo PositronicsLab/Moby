@@ -9,7 +9,6 @@
 
 #include <boost/shared_ptr.hpp>
 #include <boost/foreach.hpp>
-#include <Ravelin/SAxisd.h>
 #include <Moby/Base.h>
 #include <Moby/Constants.h>
 #include <Moby/Integrator.h>

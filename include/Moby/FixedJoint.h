@@ -23,7 +23,7 @@ class FixedJoint : public Joint
     virtual void set_outboard_link(RigidBodyPtr link);
     virtual void determine_q(Ravelin::VectorNd& q) { }
     virtual boost::shared_ptr<const Ravelin::Pose3d> get_induced_pose();
-    virtual const std::vector<Ravelin::SAxisd>& get_spatial_axes_dot();
+    virtual const std::vector<Ravelin::SVelocityd>& get_spatial_axes_dot();
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual unsigned num_dof() const { return 0; }
@@ -47,7 +47,7 @@ class FixedJoint : public Joint
     Ravelin::Vector3d _ui;
 
     /// The time derivative of the spatial axis -- should be zero vector 6x1
-    std::vector<Ravelin::SAxisd> _s_dot;
+    std::vector<Ravelin::SVelocityd> _s_dot;
 
     /// Temporaries for absolute coordinate calculations
     boost::shared_ptr<Ravelin::Pose3d> _F1, _F2;

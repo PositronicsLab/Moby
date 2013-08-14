@@ -1,5 +1,5 @@
 template <class Mat>
-Mat& transform_and_transpose_mult(const std::vector<Ravelin::SAxisd>& t, const std::vector<Ravelin::SMomentumd>& w, Mat& result)
+Mat& transform_and_transpose_mult(const std::vector<Ravelin::SVelocityd>& t, const std::vector<Ravelin::SMomentumd>& w, Mat& result)
 {
   const unsigned M = t.size();
   const unsigned N = w.size();
@@ -40,7 +40,7 @@ Mat& transform_and_transpose_mult(const std::vector<Ravelin::SAxisd>& t, const s
 }
 
 template <class Vec>
-Vec& transform_and_transpose_mult(const std::vector<Ravelin::SAxisd>& t, const Ravelin::SMomentumd& w, Vec& result)
+Vec& transform_and_transpose_mult(const std::vector<Ravelin::SVelocityd>& t, const Ravelin::SMomentumd& w, Vec& result)
 {
   const unsigned M = t.size();
   const unsigned SPATIAL_DIM = 6;
@@ -66,7 +66,7 @@ Vec& transform_and_transpose_mult(const std::vector<Ravelin::SAxisd>& t, const R
 }
 
 template <class Mat>
-Mat& transform_and_transpose_mult(const std::vector<Ravelin::SAxisd>& t, const std::vector<Ravelin::SForced>& w, Mat& result)
+Mat& transform_and_transpose_mult(const std::vector<Ravelin::SVelocityd>& t, const std::vector<Ravelin::SForced>& w, Mat& result)
 {
   const unsigned M = t.size();
   const unsigned N = w.size();
@@ -106,7 +106,7 @@ Mat& transform_and_transpose_mult(const std::vector<Ravelin::SAxisd>& t, const s
 }
 
 template <class Vec>
-Vec& transform_and_transpose_mult(const std::vector<Ravelin::SAxisd>& t, const Ravelin::SForced& w, Vec& result)
+Vec& transform_and_transpose_mult(const std::vector<Ravelin::SVelocityd>& t, const Ravelin::SForced& w, Vec& result)
 {
   const unsigned M = t.size();
   const unsigned SPATIAL_DIM = 6;

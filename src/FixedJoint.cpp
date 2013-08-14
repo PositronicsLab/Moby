@@ -135,7 +135,7 @@ shared_ptr<const Pose3d> FixedJoint::get_induced_pose()
 }
 
 /// Gets the derivative for the spatial axes for this joint
-const vector<SAxisd>& FixedJoint::get_spatial_axes_dot()
+const vector<SVelocityd>& FixedJoint::get_spatial_axes_dot()
 {
   return _s_dot;
 }

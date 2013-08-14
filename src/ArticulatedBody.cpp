@@ -71,7 +71,7 @@ vector<SVelocityd>& ArticulatedBody::calc_jacobian(boost::shared_ptr<const Pose3
     const unsigned CIDX = joint->get_coord_index();
 
     // get the spatial axes
-    const vector<SAxisd>& s = joint->get_spatial_axes();
+    const vector<SVelocityd>& s = joint->get_spatial_axes();
 
     // update J
     for (unsigned i=0; i< s.size(); i++)

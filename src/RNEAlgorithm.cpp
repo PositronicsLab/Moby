@@ -17,7 +17,7 @@
 using Ravelin::VectorNd;
 using Ravelin::MatrixNd;
 using Ravelin::SForced;
-using Ravelin::SAxisd;
+using Ravelin::SVelocityd;
 using Ravelin::SVelocityd;
 using Ravelin::SAcceld;
 using Ravelin::SpatialRBInertiad;
@@ -49,7 +49,7 @@ map<JointPtr, VectorNd> RNEAlgorithm::calc_inv_dyn_fixed_base(RCArticulatedBodyP
 {
   queue<RigidBodyPtr> link_queue;
   map<RigidBodyPtr, RCArticulatedBodyInvDynData>::const_iterator idd_iter;
-  vector<SAxisd> sprime;
+  vector<SVelocityd> sprime;
 
   FILE_LOG(LOG_DYNAMICS) << "RNEAlgorithm::calc_inv_dyn_fixed_base() entered" << endl;
 
@@ -114,8 +114,8 @@ map<JointPtr, VectorNd> RNEAlgorithm::calc_inv_dyn_fixed_base(RCArticulatedBodyP
     const VectorNd& qdd_des = idd_iter->second.qdd;  
 
     // get the spatial axes and time derivative
-    const vector<SAxisd>& s = joint->get_spatial_axes();
-    const vector<SAxisd>& sdot = joint->get_spatial_axes_dot();
+    const vector<SVelocityd>& s = joint->get_spatial_axes();
+    const vector<SVelocityd>& sdot = joint->get_spatial_axes_dot();
 
     // put s into the proper frame (that of v/a) (if necessary)
     Pose3d::transform(v.pose, s, sprime);  
@@ -218,7 +218,7 @@ map<JointPtr, VectorNd> RNEAlgorithm::calc_inv_dyn_fixed_base(RCArticulatedBodyP
     RigidBodyPtr link = links[j];
     const unsigned i = link->get_index();
     JointPtr joint(link->get_inner_joint_explicit());
-    const vector<SAxisd>& s = joint->get_spatial_axes();
+    const vector<SVelocityd>& s = joint->get_spatial_axes();
     VectorNd& Q = actuator_forces[joint]; 
     SForced w = Pose3d::transform(joint->get_pose(), f[i]); 
     transpose_mult(s, w, Q);
@@ -391,7 +391,7 @@ map<JointPtr, VectorNd> RNEAlgorithm::calc_inv_dyn_floating_base(RCArticulatedBo
   vector<SVelocityd> v;
   vector<SAcceld> a;
   vector<SForced> Z;
-  vector<SAxisd> sprime;
+  vector<SVelocityd> sprime;
 
   FILE_LOG(LOG_DYNAMICS) << "RNEAlgorithm::calc_inv_dyn_floating_base() entered" << endl;
 
@@ -450,8 +450,8 @@ map<JointPtr, VectorNd> RNEAlgorithm::calc_inv_dyn_floating_base(RCArticulatedBo
     const unsigned h = parent->get_index();
 
     // get spatial axes and derivatives
-    const vector<SAxisd>& s = joint->get_spatial_axes();
-    const vector<SAxisd>& sdot = joint->get_spatial_axes_dot();
+    const vector<SVelocityd>& s = joint->get_spatial_axes();
+    const vector<SVelocityd>& sdot = joint->get_spatial_axes_dot();
 
     // put s into the proper frame (that of v/a) 
     Pose3d::transform(link->get_computation_frame(), s, sprime);
@@ -583,7 +583,7 @@ map<JointPtr, VectorNd> RNEAlgorithm::calc_inv_dyn_floating_base(RCArticulatedBo
   {
     const unsigned i = links[j]->get_index();
     JointPtr joint(links[j]->get_inner_joint_explicit());
-    const vector<SAxisd>& s = joint->get_spatial_axes();
+    const vector<SVelocityd>& s = joint->get_spatial_axes();
     VectorNd& Q = actuator_forces[joint];
     SForced w = I[i] * a.front() + Z[i];
     transpose_mult(s, Pose3d::transform(joint->get_pose(), w), Q);

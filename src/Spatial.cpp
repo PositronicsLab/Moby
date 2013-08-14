@@ -104,7 +104,7 @@ MatrixNd& mult(const vector<SMomentumd>& Is, const MatrixNd& m, MatrixNd& result
 }
 
 /// Multiplies a spatial inertia by a vector of spatial axes
-MatrixNd& mult(const SpatialABInertiad& I, const std::vector<SAxisd>& s, MatrixNd& result)
+MatrixNd& mult(const SpatialABInertiad& I, const std::vector<SVelocityd>& s, MatrixNd& result)
 {
   const unsigned SPATIAL_DIM = 6;
 
@@ -123,7 +123,7 @@ MatrixNd& mult(const SpatialABInertiad& I, const std::vector<SAxisd>& s, MatrixN
 }
 
 /// Multiplies a spatial inertia by a vector of spatial axes
-vector<SMomentumd>& mult(const SpatialABInertiad& I, const std::vector<SAxisd>& s, vector<SMomentumd>& result)
+vector<SMomentumd>& mult(const SpatialABInertiad& I, const std::vector<SVelocityd>& s, vector<SMomentumd>& result)
 {
   const unsigned SPATIAL_DIM = 6;
 
@@ -138,7 +138,7 @@ vector<SMomentumd>& mult(const SpatialABInertiad& I, const std::vector<SAxisd>& 
 }
 
 /// Multiplies a spatial inertia by a vector of spatial axes
-MatrixNd& mult(const SpatialRBInertiad& I, const std::vector<SAxisd>& s, MatrixNd& result)
+MatrixNd& mult(const SpatialRBInertiad& I, const std::vector<SVelocityd>& s, MatrixNd& result)
 {
   const unsigned SPATIAL_DIM = 6;
 
@@ -157,7 +157,7 @@ MatrixNd& mult(const SpatialRBInertiad& I, const std::vector<SAxisd>& s, MatrixN
 }
 
 /// Multiplies a spatial inertia by a vector of spatial axes
-vector<SMomentumd>& mult(const SpatialRBInertiad& I, const std::vector<SAxisd>& s, vector<SMomentumd>& result)
+vector<SMomentumd>& mult(const SpatialRBInertiad& I, const std::vector<SVelocityd>& s, vector<SMomentumd>& result)
 {
   const unsigned SPATIAL_DIM = 6;
 
@@ -172,7 +172,7 @@ vector<SMomentumd>& mult(const SpatialRBInertiad& I, const std::vector<SAxisd>& 
 }
 
 /// Multiplies a vector of spatial axes by a vector
-SVelocityd mult(const vector<SAxisd>& t, const VectorNd& v)
+SVelocityd mult(const vector<SVelocityd>& t, const VectorNd& v)
 {
   const unsigned SPATIAL_DIM = 6;
 
