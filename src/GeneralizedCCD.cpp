@@ -1420,6 +1420,9 @@ void GeneralizedCCD::update_bounds_vector(vector<pair<double, BoundsStruct> >& b
     // get the poses
     const PosePair& pp = poses.find(geom)->second; 
 
+    // get the expanded bounding volume
+    BVPtr swept_bv = get_swept_BV(geom, bv, pp);
+
     // prepare transform to global frame
     Transform3d T = Pose3d::calc_relative_pose(pp.t0, GLOBAL); 
 
@@ -1524,8 +1527,10 @@ bool GeneralizedCCD::is_collision(double epsilon)
     PrimitivePtr g1_primitive = g1->get_geometry();
     BVPtr bv1 = g1_primitive->get_BVH_root();
 
-    // get the pose for this BVH 
-    shared_ptr<const Pose3d> Pg1 = bv1->get_relative_pose();
+    // get the poses for the geometry and the bounding volume
+    shared_ptr<const Pose3d> Pg1 = g1->get_pose();
+    shared_ptr<const Pose3d> Pbv1 = bv1->get_relative_pose();
+    Transform3d g1Tbv1 = Pose3d::calc_relative_pose(Pbv1, Pg1);
 
     // loop through all other geometries
     std::set<CollisionGeometryPtr>::const_iterator j = i;
@@ -1541,14 +1546,16 @@ bool GeneralizedCCD::is_collision(double epsilon)
       if (!is_checked(g1, g2))
         continue; 
 
-      // get the pose for the second bounding volume
-      shared_ptr<const Pose3d> Pg2 = bv2->get_relative_pose();
+      // get the poses for the second geometry and bounding volume
+      shared_ptr<const Pose3d> Pg2 = g2->get_pose();
+      shared_ptr<const Pose3d> Pbv2 = bv2->get_relative_pose();
+      Transform3d bv2Tg2 = Pose3d::calc_relative_pose(Pg2, Pbv2);
 
-      // compute the transform from g2 to g1 
-      Transform3d g1Tg2 = Pose3d::calc_relative_pose(Pg2, Pg1); 
+      // compute the transform from g1 to g2 
+      Transform3d g2Tg1 = Pose3d::calc_relative_pose(Pg1, Pg2); 
 
       // if intersects, add to colliding pairs
-      if (intersect_BV_trees(bv1, bv2, g1Tg2, g1, g2))
+      if (intersect_BV_trees(bv1, bv2, Transform3d::invert(bv2Tg2 * g2Tg1 * g1Tbv1), g1, g2))
         colliding_pairs.insert(make_sorted_pair(g1, g2));
     } 
   }
