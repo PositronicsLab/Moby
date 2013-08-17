@@ -1427,7 +1427,6 @@ void GeneralizedCCD::update_bounds_vector(vector<pair<double, BoundsStruct> >& b
     Transform3d T = Pose3d::calc_relative_pose(pp.t0, GLOBAL); 
 
     // get the expanded bounding volume and transform it to global frame
-    BVPtr swept_bv = get_swept_BV(geom, bv, pp);
     OBB obb;
     swept_bv->transform(T, &obb);
 
