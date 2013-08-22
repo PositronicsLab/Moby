@@ -42,7 +42,7 @@ class OBB : public BV
     OBB(const OBB& obb) { operator=(obb); }
     OBB(const Point3d& center, const Ravelin::Matrix3d& R, const Ravelin::Vector3d& l);
     OBB(const OBB& o, const Ravelin::Vector3d& v);
-    void operator=(const OBB& obb);
+    OBB& operator=(const OBB& obb);
     virtual void transform(const Ravelin::Transform3d& T, BV* result) const;
     virtual BVPtr calc_swept_BV(CollisionGeometryPtr g, const Ravelin::SVelocityd& v) const;
     static double calc_sq_dist(const OBB& o, const Point3d& p);

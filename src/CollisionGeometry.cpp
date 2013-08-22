@@ -85,7 +85,7 @@ void CollisionGeometry::write_vrml(const std::string& filename) const
   out << "  children [" << std::endl;
   
   // get the geometry
-  const std::vector<Point3d>& vertices = _geometry->get_mesh()->get_vertices();
+  const std::vector<Origin3d>& vertices = _geometry->get_mesh()->get_vertices();
   const std::vector<IndexedTri>& facets = _geometry->get_mesh()->get_facets();
 
   // write the mesh

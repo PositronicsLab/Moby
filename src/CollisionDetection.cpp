@@ -483,6 +483,10 @@ double CollisionDetection::calc_distances()
  */
 double CollisionDetection::calc_distance(CollisionGeometryPtr a, CollisionGeometryPtr b, const Transform3d& aTb, Point3d& cpa, Point3d& cpb)
 {
+  // get the poses of a and b
+  shared_ptr<const Pose3d> Pa = a->get_pose();
+  shared_ptr<const Pose3d> Pb = b->get_pose();
+
   // setup the minimum distance
   double min_dist = std::numeric_limits<double>::max();
 
@@ -501,13 +505,13 @@ double CollisionDetection::calc_distance(CollisionGeometryPtr a, CollisionGeomet
   for (unsigned i=0; i< a_mesh.num_tris(); i++)
   {
     // get the triangle
-    Triangle ta = a_mesh.get_triangle(i);
+    Triangle ta = a_mesh.get_triangle(i, Pa);
 
     // loop over all triangles in b
     for (unsigned j=0; j< b_mesh.num_tris(); j++)
     {
       // get the untransformed second triangle
-      Triangle utb = b_mesh.get_triangle(j);
+      Triangle utb = b_mesh.get_triangle(j, Pb);
 
       // transform the second triangle
       Triangle tb = Triangle::transform(utb, aTb);

@@ -39,13 +39,13 @@ OutputIterator C2ACCD::intersect_BV_leafs(BVPtr a, BVPtr b, const Ravelin::Trans
   BOOST_FOREACH(unsigned a_idx, a_tris)
   {
     // get the triangle
-    Triangle ta = a_mesh.get_triangle(a_idx);
+    Triangle ta = a_mesh.get_triangle(a_idx, aTb.target);
 
     // loop over all triangles in b
     BOOST_FOREACH(unsigned b_idx, b_tris)
     {
       // get the untransformed second triangle
-      Triangle utb = b_mesh.get_triangle(b_idx);
+      Triangle utb = b_mesh.get_triangle(b_idx, aTb.source);
 
       // transform second triangle
       Triangle tb = Triangle::transform(utb, aTb);
@@ -104,7 +104,7 @@ OutputIterator C2ACCD::get_vertices(const IndexedTriArray& tris, InputIterator f
   std::list<unsigned>::const_iterator new_end = std::unique(verts.begin(), verts.end());
 
   // copy vertices to output
-  const std::vector<Point3d>& vertices = tris.get_vertices();
+  const std::vector<Ravelin::Origin3d>& vertices = tris.get_vertices();
   for (std::list<unsigned>::const_iterator i = verts.begin(); i != new_end; i++)
     *output++ = vertices[*i];
 

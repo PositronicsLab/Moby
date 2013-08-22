@@ -52,11 +52,13 @@ void OBB::transform(const Transform3d& T, BV* result) const
 /**
  * \note userdata and node info (children) are not copied
  */
-void OBB::operator=(const OBB& obb)
+OBB& OBB::operator=(const OBB& obb)
 {
   this->R = obb.R;
   this->center = obb.center;
   this->l = obb.l;
+  this->geom = obb.geom;
+  return *this;
 }
 
 /// Constructs an OBB with given center, principle axes and lengths of principle axes
@@ -103,6 +105,9 @@ OBB::OBB(const OBB& o, const Vector3d& v)
 
   // get expanded center
   center = o.center + v*0.5;
+
+  // copy geometry
+  geom = o.geom;
 
   // compute the lengths of the expanded bounding box using the current directions
   double l1[3];

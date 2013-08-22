@@ -627,14 +627,14 @@ void MeshDCD::determine_contacts_deformable_rigid(CollisionGeometryPtr a, Collis
   const IndexedTriArray& mesh_b = *b->get_geometry()->get_mesh();
 
   // get all vertices of mesh a
-  const vector<Point3d>& verts_a = mesh_a.get_vertices();
+  const vector<Origin3d>& verts_a = mesh_a.get_vertices();
 
   // loop over all vertices
   for (unsigned i=0; i< verts_a.size(); i++)
   {
     // get the vertex -- it's a world coordinate (no transforms are used for
     // deformable bodies/geometries)
-    const Point3d& v = verts_a[i];
+    Point3d v(verts_a[i], GLOBAL);
 
     // get the velocity of the vertex relative to the rigid body
     Vector3d pva = sba->calc_point_vel(v);
@@ -647,7 +647,7 @@ void MeshDCD::determine_contacts_deformable_rigid(CollisionGeometryPtr a, Collis
     for (unsigned j=0; j< mesh_b.num_tris(); j++)
     {
       // get the triangle transformed into the world frame
-      Triangle tri = Triangle::transform(mesh_b.get_triangle(j), wTb);
+      Triangle tri = Triangle::transform(mesh_b.get_triangle(j, wTb.source), wTb);
 
       // do line segment triangle intersection in b's frame
       double t = calc_first_isect(tri, LineSeg3(v, v+vdot*dt), p);
@@ -687,6 +687,10 @@ void MeshDCD::determine_contacts_rigid_deformable(CollisionGeometryPtr a, Collis
  */
 void MeshDCD::determine_contacts_deformable(CollisionGeometryPtr a, CollisionGeometryPtr b, double t, double dt, vector<Event>& contacts)
 {
+  // get the two poses
+  shared_ptr<const Pose3d> Pa = a->get_pose();
+  shared_ptr<const Pose3d> Pb = b->get_pose();
+
   // get the transform for the second collision geometry
   Transform3d wTb = Pose3d::calc_relative_pose(b->get_pose(), GLOBAL);
 
@@ -699,13 +703,13 @@ void MeshDCD::determine_contacts_deformable(CollisionGeometryPtr a, CollisionGeo
   const IndexedTriArray& mesh_b = *b->get_geometry()->get_mesh();
 
   // get all vertices of mesh a
-  const vector<Point3d>& verts_a = mesh_a.get_vertices();
+  const vector<Origin3d>& verts_a = mesh_a.get_vertices();
 
   // loop over all vertices
   for (unsigned i=0; i< verts_a.size(); i++)
   {
     // get the vertex
-    const Point3d& v = verts_a[i];
+    Point3d v(verts_a[i], Pa);
 
     // get the velocity of the vertex
     Vector3d vdotx = sba->calc_point_vel(v);
@@ -724,7 +728,7 @@ void MeshDCD::determine_contacts_deformable(CollisionGeometryPtr a, CollisionGeo
       }
 
       // get the triangle, transformed into global frame
-      Triangle tri = Triangle::transform(mesh_b.get_triangle(j), wTb);
+      Triangle tri = Triangle::transform(mesh_b.get_triangle(j, wTb.source), wTb);
 
       // get the velocity of the three vertices of the triangle
       Vector3d adotx = sbb->calc_point_vel(tri.a);
@@ -764,14 +768,13 @@ void MeshDCD::determine_contacts_rigid(CollisionGeometryPtr a, CollisionGeometry
 {
   Transform3d T;
 
-  // setup temporary frame
-  shared_ptr<Pose3d> Px(new Pose3d);
-  Px->rpose = GLOBAL;
-
   // get the two rigid bodies
   RigidBodyPtr rba = dynamic_pointer_cast<RigidBody>(a->get_single_body());
   RigidBodyPtr rbb = dynamic_pointer_cast<RigidBody>(b->get_single_body());
 
+  // get the transformation between geometry frames
+  Transform3d aTb = Pose3d::calc_relative_pose(b->get_pose(), a->get_pose());
+/*
   // get computation frames
   shared_ptr<const Pose3d> CA = rba->get_computation_frame(); 
   shared_ptr<const Pose3d> CB = rbb->get_computation_frame(); 
@@ -781,15 +784,16 @@ void MeshDCD::determine_contacts_rigid(CollisionGeometryPtr a, CollisionGeometry
   // transform computation frames to make them relative to GLOBAL pose
   CAx->update_relative_pose(GLOBAL);
   CBx->update_relative_pose(GLOBAL);
-
+*/
   // get twists from the two bodies in the computation frames
-  SVelocityd va = Pose3d::transform(CAx, rba->get_velocity()); 
-  SVelocityd vb = Pose3d::transform(CBx, rbb->get_velocity()); 
+  SVelocityd va = Pose3d::transform(a->get_pose(), rba->get_velocity()); 
+  SVelocityd vb = Pose3d::transform(a->get_pose(), rbb->get_velocity()); 
 
   // get the meshes from a and b
   const IndexedTriArray& mesh_a = *a->get_geometry()->get_mesh();
   const IndexedTriArray& mesh_b = *b->get_geometry()->get_mesh();
 
+/*
   // get the transformation from poses to global frame
   Transform3d wTa = Pose3d::calc_relative_pose(a->get_pose(), GLOBAL); 
   Transform3d wTb = Pose3d::calc_relative_pose(b->get_pose(), GLOBAL); 
@@ -797,99 +801,83 @@ void MeshDCD::determine_contacts_rigid(CollisionGeometryPtr a, CollisionGeometry
   // compute transform from geometry frames to computation frames
   Transform3d caxTa = Pose3d::calc_relative_pose(a->get_pose(), CAx);
   Transform3d cbxTb = Pose3d::calc_relative_pose(b->get_pose(), CBx);
-
+*/
   // check all tris of a against all tris of b
   for (unsigned i=0; i< mesh_a.num_tris(); i++)
   {
-    // get the triangle
-    Triangle tA = mesh_a.get_triangle(i);
-
-    // transform the triangle to the global frame
-    Triangle TtA = Triangle::transform(tA, wTa);
-
-    // vertices are in frame A; transform the triangle to CAx frame 
-    Triangle TtAi = Triangle::transform(tA, caxTa);
-    Vector3d ra = TtAi.a;
-    Vector3d rb = TtAi.b; 
-    Vector3d rc = TtAi.c; 
+    // get the triangle and its vertices in A's frame
+    Triangle tA = mesh_a.get_triangle(i, a->get_pose());
+    Vector3d ra = tA.a;
+    Vector3d rb = tA.b; 
+    Vector3d rc = tA.c; 
 
     // compute the point velocity at each point of the triangle
     Vector3d vA_a = va.get_linear() + Vector3d::cross(va.get_angular(), ra);
     Vector3d vA_b = va.get_linear() + Vector3d::cross(va.get_angular(), rb);
     Vector3d vA_c = va.get_linear() + Vector3d::cross(va.get_angular(), rc);
 
-    // convert point velocities to the global frame
-    Vector3d vA_a_0 = CAx->transform_vector(vA_a);
-    Vector3d vA_b_0 = CAx->transform_vector(vA_b);
-    Vector3d vA_c_0 = CAx->transform_vector(vA_c);
-
-    // determine line segments for a's vertices in global frame
-    Vector3d pAa = TtA.a + vA_a_0*t;
-    Vector3d pAb = TtA.b + vA_b_0*t;
-    Vector3d pAc = TtA.c + vA_c_0*t;
+    // determine line segments for a's vertices
+    Vector3d pAa = ra + vA_a*t;
+    Vector3d pAb = rb + vA_b*t;
+    Vector3d pAc = rc + vA_c*t;
 
     for (unsigned j=0; j< mesh_b.num_tris(); j++)
     {
-      // get the triangle
-      Triangle tB = mesh_b.get_triangle(j);
+      // get the triangle- transformed to a's frame- and its vertices
+      Triangle tB = Triangle::transform(mesh_b.get_triangle(j, b->get_pose()), aTb);
+      Vector3d ra = tB.a;
+      Vector3d rb = tB.b; 
+      Vector3d rc = tB.c; 
 
-      // transform the triangle to the global frame
+/*
+      // transform the triangle to a's frame
       Triangle TtB = Triangle::transform(tB, wTb);
-
+*/
       // vertices are in frame B; transform the triangle to CBx frame 
-      Triangle TtBi = Triangle::transform(tB, cbxTb);
-      Vector3d ra = TtBi.a;
-      Vector3d rb = TtBi.b; 
-      Vector3d rc = TtBi.c; 
 
       // compute the point velocity at each point of the triangle
       Vector3d vB_a = vb.get_linear() + Vector3d::cross(vb.get_angular(), rb);
       Vector3d vB_b = vb.get_linear() + Vector3d::cross(vb.get_angular(), rb);
       Vector3d vB_c = vb.get_linear() + Vector3d::cross(vb.get_angular(), rb);
 
-      // convert point velocities to the global frame
-      Vector3d vB_a_0 = CBx->transform_vector(vB_a);
-      Vector3d vB_b_0 = CBx->transform_vector(vB_b);
-      Vector3d vB_c_0 = CBx->transform_vector(vB_c);
-
       // determine line segments for b's vertices in global frame
-      Vector3d pBa = TtB.a + vB_a_0*t;
-      Vector3d pBb = TtB.b + vB_b_0*t;
-      Vector3d pBc = TtB.c + vB_c_0*t;
+      Vector3d pBa = ra + vB_a*t;
+      Vector3d pBb = rb + vB_b*t;
+      Vector3d pBc = rc + vB_c*t;
 
       // calculate line segment triangle intersections
       double t0;
       Point3d p;
 
       // calculate intersections between vertex a of A and triangle B
-      t0 = calc_first_isect(TtB, LineSeg3(TtA.a, pAa), p);
+      t0 = calc_first_isect(tB, LineSeg3(tA.a, pAa), p);
       if (t0 <= (double) 1.0)
-        contacts.push_back(create_contact(t0, a, b, p, TtA.a, TtB));
+        contacts.push_back(create_contact(t0, a, b, p, vA_a, tB));
 
       // calculate intersections between vertex b of A and triangle B
-      t0 = calc_first_isect(TtB, LineSeg3(TtA.b, pAb), p);
+      t0 = calc_first_isect(tB, LineSeg3(tA.b, pAb), p);
       if (t0 <= (double) 1.0)
-        contacts.push_back(create_contact(t0, a, b, p, TtA.b, TtB));
+        contacts.push_back(create_contact(t0, a, b, p, vA_b, tB));
 
       // calculate intersections between vertex c of A and triangle B
-      t0 = calc_first_isect(TtB, LineSeg3(TtA.c, pAc), p);
+      t0 = calc_first_isect(tB, LineSeg3(tA.c, pAc), p);
       if (t0 <= (double) 1.0)
-        contacts.push_back(create_contact(t0, a, b, p, TtA.c, TtB));
+        contacts.push_back(create_contact(t0, a, b, p, vA_c, tB));
 
        // calculate intersections between vertex a of B and triangle A
-      t0 = calc_first_isect(TtA, LineSeg3(TtB.a, pBa), p);
+      t0 = calc_first_isect(tA, LineSeg3(tB.a, pBa), p);
       if (t0 <= (double) 1.0)
-        contacts.push_back(create_contact(t0, a, b, p, TtB.a, TtA));
+        contacts.push_back(create_contact(t0, a, b, p, vB_a, tA));
 
       // calculate intersections between vertex b of B and triangle A
-      t0 = calc_first_isect(TtA, LineSeg3(TtB.b, pBb), p);
+      t0 = calc_first_isect(tA, LineSeg3(tB.b, pBb), p);
       if (t0 <= (double) 1.0)
-        contacts.push_back(create_contact(t0, a, b, p, TtB.b, TtA));
+        contacts.push_back(create_contact(t0, a, b, p, vB_b, tA));
 
       // calculate intersections between vertex c of B and triangle A
-      t = calc_first_isect(TtA, LineSeg3(TtB.c, pBc), p);
+      t = calc_first_isect(tA, LineSeg3(tB.c, pBc), p);
       if (t <= 1.0)
-        contacts.push_back(create_contact(t, a, b, p, TtB.c, TtA));
+        contacts.push_back(create_contact(t, a, b, p, vB_c, tA));
     }
   }
 }
@@ -1023,6 +1011,7 @@ Event MeshDCD::create_contact(double toi, CollisionGeometryPtr a, CollisionGeome
 {
   Event e;
   e.event_type = Event::eContact;
+  e.t = toi;
   e.contact_geom1 = a;
   e.contact_geom2 = b;
   e.contact_point = p;
@@ -1566,7 +1555,7 @@ bool MeshDCD::is_collision(CollisionGeometryPtr cg)
         continue;
 
       // check triangle intersection
-      if (CompGeom::query_intersect_tri_tri(tarray.get_triangle(i), tarray.get_triangle(j)))
+      if (CompGeom::query_intersect_tri_tri(tarray.get_triangle(i, GLOBAL), tarray.get_triangle(j, GLOBAL)))
         return true;
     }
   } 
@@ -1587,8 +1576,8 @@ bool MeshDCD::is_collision(CollisionGeometryPtr a, CollisionGeometryPtr b)
   PrimitivePtr b_primitive = b->get_geometry();
 
   // get the two BV trees
-  BVPtr bva = a_primitive->get_BVH_root();
-  BVPtr bvb = b_primitive->get_BVH_root();
+  BVPtr bva = a_primitive->get_BVH_root(a);
+  BVPtr bvb = b_primitive->get_BVH_root(b);
 
   // if intersects, add to colliding pairs
   return intersect_BV_trees(bva, bvb, aTb, a, b);
@@ -1713,8 +1702,8 @@ bool MeshDCD::is_collision(double epsilon)
         continue; 
 
       // get the two BV trees
-      BVPtr bv1 = g1_primitive->get_BVH_root();
-      BVPtr bv2 = g2_primitive->get_BVH_root();
+      BVPtr bv1 = g1_primitive->get_BVH_root(g1);
+      BVPtr bv2 = g2_primitive->get_BVH_root(g2);
 
       // compute the relative transform
       Transform3d g1Tg2 = Pose3d::calc_relative_pose(g2->get_pose(), g1->get_pose());
@@ -1729,7 +1718,7 @@ bool MeshDCD::is_collision(double epsilon)
 }
 
 /// Intersects two BV trees; returns <b>true</b> if one (or more) pair of the underlying triangles intersects
-bool MeshDCD::intersect_BV_trees(BVPtr a, BVPtr b, const Transform3d&  aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b) 
+bool MeshDCD::intersect_BV_trees(BVPtr a, BVPtr b, const Transform3d& gaTgb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b) 
 {
   std::queue<tuple<BVPtr, BVPtr, bool> > q;
 
@@ -1739,7 +1728,7 @@ bool MeshDCD::intersect_BV_trees(BVPtr a, BVPtr b, const Transform3d&  aTb, Coll
   FILE_LOG(LOG_COLDET) << "MeshDCD::intersect_BV_trees() entered" << endl;
 
   // intersect the BVs at the top level
-  if (!BV::intersects(a, b, aTb))
+  if (!BV::intersects(a, b, gaTgb))
   {
     FILE_LOG(LOG_COLDET) << "  no intersection at top-level BVs" << endl;
     FILE_LOG(LOG_COLDET) << "MeshDCD::intersect_BV_trees() exited" << endl;
@@ -1764,10 +1753,7 @@ bool MeshDCD::intersect_BV_trees(BVPtr a, BVPtr b, const Transform3d&  aTb, Coll
     // check for bv1 and bv2 both leafs
     if (bv1->is_leaf() && bv2->is_leaf())
     {
-      if (!rev)
-        intersect_BV_leafs(bv1, bv2, aTb, geom_a, geom_b, std::back_inserter(colliding_tris));
-      else
-        intersect_BV_leafs(bv2, bv1, aTb, geom_a, geom_b, std::back_inserter(colliding_tris));
+      intersect_BV_leafs(bv1, bv2, gaTgb, geom_a, geom_b, std::back_inserter(colliding_tris));
 
       // see whether we want to exit early
       if (mode == eFirstContact && !colliding_tris.empty() && last != &colliding_tris.back())
@@ -1779,15 +1765,45 @@ bool MeshDCD::intersect_BV_trees(BVPtr a, BVPtr b, const Transform3d&  aTb, Coll
     {
       // check the children of o1
       BOOST_FOREACH(BVPtr child, bv1->children)
-        if ((!rev && BV::intersects(child, bv2, aTb)) || (rev && BV::intersects(bv2, child, aTb)))
-          q.push(make_tuple(child, bv2, rev));
+      {
+        // check for intersection
+        if (BV::intersects(child, bv2, gaTgb))
+          q.push(make_tuple(child, bv2, !rev));
+      }
     }
     else
-      BOOST_FOREACH(BVPtr child, bv2->children)
+    {
+      // drill down through bv1, if possible
+      if (bv1->is_leaf())
       {
-        if ((!rev && BV::intersects(bv1, child, aTb)) || (rev && BV::intersects(child, bv1, aTb)))
-          q.push(make_tuple(child, bv1, !rev));
+        // check the children of bv2 
+        BOOST_FOREACH(BVPtr child, bv2->children)
+        {
+          if (BV::intersects(bv1, child, gaTgb))
+            q.push(make_tuple(bv1, child, !rev));
+        }
       }
+      else // neither bv1 nor bv2 are leafs, now we use rev
+      {
+        if (rev) // go down a's side
+        {
+          BOOST_FOREACH(BVPtr child, bv1->children)
+          {
+            if (BV::intersects(child, bv2, gaTgb))
+              q.push(make_tuple(child, bv2, !rev));
+          }
+        }
+        else  // go down b's side
+        {
+          // check the children of bv2 
+          BOOST_FOREACH(BVPtr child, bv2->children)
+          {
+            if (BV::intersects(bv1, child, gaTgb))
+              q.push(make_tuple(bv1, child, !rev));
+          }
+        }
+      }
+    }
   }
 
   // see whether we have an intersection

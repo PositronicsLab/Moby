@@ -58,15 +58,9 @@ Event::Event()
   limit_epsilon = (double) 0.0;
   limit_upper = false;
   limit_impulse = (double) 0.0;
-  contact_normal .set_zero()
-
-;
-  contact_impulse .set_zero()
-
-;
-  contact_point .set_zero()
-
-;
+  contact_normal.set_zero();
+  contact_impulse.set_zero();
+  contact_point.set_zero();
   contact_mu_coulomb = (double) 0.0;
   contact_mu_viscous = (double) 0.0;
   contact_epsilon = (double) 0.0;
@@ -689,8 +683,9 @@ std::ostream& Moby::operator<<(std::ostream& o, const Event& e)
     else
       o << "geom2: (undefined)" << std::endl;
 
-    o << "contact point: " << e.contact_point << std::endl;
-    o << "normal: " << e.contact_normal << std::endl;
+    o << "contact point / normal pose: " << Pose3d(*e.contact_point.pose).update_relative_pose(GLOBAL) << std::endl;
+    o << "contact point: " << e.contact_point << " frame: " << std::endl;
+    o << "normal: " << e.contact_normal << " frame: " << std::endl;
 
     // determine the relative normal velocity at the contact point
     // get the rigid bodies of the contact

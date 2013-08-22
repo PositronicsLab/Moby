@@ -40,13 +40,13 @@ OutputIterator DeformableCCD::intersect_BV_leafs(BVPtr a, BVPtr b, const Ravelin
   BOOST_FOREACH(unsigned a_idx, a_tris)
   {
     // get the triangle
-    Triangle ta = a_mesh.get_triangle(a_idx);
+    Triangle ta = a_mesh.get_triangle(a_idx, aTb.target);
 
     // loop over all triangles in b
     BOOST_FOREACH(unsigned b_idx, b_tris)
     {
       // get the untransformed second triangle
-      Triangle utb = b_mesh.get_triangle(b_idx);
+      Triangle utb = b_mesh.get_triangle(b_idx, aTb.source);
 
       // transform second triangle
       Triangle tb = Triangle::transform(utb, aTb);

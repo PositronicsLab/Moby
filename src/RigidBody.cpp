@@ -138,6 +138,13 @@ vector<SVelocityd>& RigidBody::calc_jacobian(shared_ptr<const Pose3d> frame, Dyn
   if (body != shared_from_this())
     throw std::runtime_error("RigidBody::calc_jacobian() called with wrong body!");
 
+  // if the body is disabled, do not compute a Jacobian
+  if (!is_enabled())
+  {
+    J.resize(0);
+    return J;
+  }
+
   // J will be a 6-dimensional vector
   J.resize(SPATIAL_DIM);
 
