@@ -197,13 +197,13 @@ if (BUILD_TOOLS)
 
   # plugins
 #  add_library(controller "MODULE" example/bouncing-sphere/controller.cpp)
-  add_library(grasp-controller "MODULE" example/banditII/grasp-controller.cpp)
-  add_library(bandit-controller "MODULE" example/banditII/bandit-controller.cpp)
-  add_library(pinch-controller "MODULE" example/banditII/pinch-controller.cpp)
-  add_library(push-controller "MODULE" example/banditII/push-controller.cpp)
-  add_library(noball-controller "MODULE" example/banditII/noball-controller.cpp)
-  add_library(pinch-release-controller "MODULE" example/banditII/pinch-release-controller.cpp)
-  add_library(block-collider-controller "MODULE" example/banditII/block-collider-controller.cpp)
+#  add_library(grasp-controller "MODULE" example/banditII/grasp-controller.cpp)
+#  add_library(bandit-controller "MODULE" example/banditII/bandit-controller.cpp)
+#  add_library(pinch-controller "MODULE" example/banditII/pinch-controller.cpp)
+#  add_library(push-controller "MODULE" example/banditII/push-controller.cpp)
+#  add_library(noball-controller "MODULE" example/banditII/noball-controller.cpp)
+#  add_library(pinch-release-controller "MODULE" example/banditII/pinch-release-controller.cpp)
+#  add_library(block-collider-controller "MODULE" example/banditII/block-collider-controller.cpp)
 
   # tools
   add_executable(moby-regress example/regress.cpp)
@@ -224,13 +224,13 @@ if (BUILD_TOOLS)
 
   # uncomment to build example plugins
 #  target_link_libraries(controller Moby)
-  target_link_libraries(grasp-controller Moby)
-  target_link_libraries(bandit-controller Moby)
-  target_link_libraries(pinch-controller Moby)
-  target_link_libraries(push-controller Moby)
-  target_link_libraries(noball-controller Moby)
-  target_link_libraries(pinch-release-controller Moby)
-  target_link_libraries(block-collider-controller Moby)
+#  target_link_libraries(grasp-controller Moby)
+#  target_link_libraries(bandit-controller Moby)
+#  target_link_libraries(pinch-controller Moby)
+#  target_link_libraries(push-controller Moby)
+#  target_link_libraries(noball-controller Moby)
+#  target_link_libraries(pinch-release-controller Moby)
+#  target_link_libraries(block-collider-controller Moby)
 
   # tools
   target_link_libraries(moby-regress Moby)
