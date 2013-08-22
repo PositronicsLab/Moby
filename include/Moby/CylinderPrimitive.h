@@ -28,7 +28,7 @@ class CylinderPrimitive : public Primitive
     virtual void set_pose(const Ravelin::Pose3d& T);
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
-    virtual BVPtr get_BVH_root();
+    virtual BVPtr get_BVH_root(CollisionGeometryPtr geom);
     virtual void get_vertices(BVPtr bv, std::vector<const Point3d*>& vertices); 
     virtual bool point_inside(BVPtr bv, const Point3d& p, Ravelin::Vector3d& normal) const;
     virtual bool intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Ravelin::Vector3d& normal) const;
@@ -69,8 +69,8 @@ class CylinderPrimitive : public Primitive
     /// Number of rings used to create virtual vertices
     unsigned _nrings;
 
-    /// The bounding volume around the cylinder
-    boost::shared_ptr<OBB> _obb;
+    /// The bounding volumes around the cylinder, indexed by geometry
+    std::map<CollisionGeometryPtr, OBBPtr> _obbs;
 
     /// The "sub" mesh 
     std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> > _smesh;

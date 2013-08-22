@@ -23,7 +23,7 @@ class GaussianMixture : public Primitive
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual void set_pose(const Ravelin::Pose3d& T);
-    virtual BVPtr get_BVH_root() { return boost::dynamic_pointer_cast<BV>(_root); }
+    virtual BVPtr get_BVH_root(CollisionGeometryPtr geom);
     virtual void get_vertices(BVPtr bv, std::vector<const Point3d*>& vertices);
     virtual bool point_inside(BVPtr bv, const Point3d& p, Ravelin::Vector3d& normal) const;
     virtual bool intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Ravelin::Vector3d& normal) const;
@@ -39,7 +39,7 @@ class GaussianMixture : public Primitive
       static Gauss read_gauss_node(boost::shared_ptr<const XMLTree> node);
       static double gauss(const Gauss& g, double x, double y);
       void construct_vertices();
-      void construct_BVs();
+      void construct_BVs(CollisionGeometryPtr geom);
       void create_mesh();
 
       /// Note: there are no mass properties, because this can have no mass!
@@ -51,7 +51,10 @@ class GaussianMixture : public Primitive
       /// Submesh pair
       std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> > _mesh_pair; 
 
-      /// The root bounding volume (OBB)
+      /// The collision geometry this mixture is associated with
+      CollisionGeometryPtr _geom;
+
+      /// The bounding volumes (OBB)
       OBBPtr _root;
 
       /// The set of Gaussians

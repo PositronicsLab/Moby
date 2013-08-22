@@ -18,6 +18,12 @@ struct EventProblemData
   }
 
   // copies event problem data
+  EventProblemData& operator=(const EventProblemData& q)
+  {
+    return copy_from(q);
+  }
+
+  // copies event problem data
   EventProblemData& copy_from(const EventProblemData& q)
   {
     N_K_TOTAL = q.N_K_TOTAL;
@@ -95,6 +101,7 @@ struct EventProblemData
     // copy impulse magnitudes 
     cn = q.cn;
     cs = q.cs;
+    ct = q.ct;
     l = q.l;
     beta_t = q.beta_t;
     alpha_x = q.alpha_x;

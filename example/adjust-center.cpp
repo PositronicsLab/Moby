@@ -19,7 +19,7 @@ int main(int argc, char* argv[])
 
   // load file
   itas = IndexedTriArray::read_from_obj(std::string(argv[1]));
-  itas.get_tris(std::back_inserter(tris));
+  itas.get_tris(std::back_inserter(tris), GLOBAL);
 
   // get the adjustments
   Origin3d adjust;

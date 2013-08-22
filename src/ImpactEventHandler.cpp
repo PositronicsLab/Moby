@@ -440,9 +440,9 @@ void ImpactEventHandler::compute_problem_data(EventProblemData& q)
 
     // setup appropriate parts of contact velocities
     data = workv.data();
-    q.Cn_v = *data++;
-    q.Cs_v = *data++;
-    q.Ct_v = *data;
+    q.Cn_v[i] = *data++;
+    q.Cs_v[i] = *data++;
+    q.Ct_v[i] = *data;
 
     // compute cross event data for contact events
     for (unsigned j=i+1; j< q.contact_events.size(); j++)

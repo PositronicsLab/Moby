@@ -123,18 +123,22 @@ void ImpactEventHandler::solve_qp(EventProblemData& q, double poisson_eps)
   // save normal contact impulses
   for (unsigned i=0; i< q.N_CONTACTS; i++)
   {
-    // TODO: verify that contact normal is in event frame 
-    q.contact_events[i]->contact_impulse.pose = q.contact_events[i]->get_pose();
+    shared_ptr<const Pose3d> pose = q.contact_events[i]->get_pose();
+    q.contact_events[i]->contact_impulse.pose = pose;
     q.contact_events[i]->contact_impulse.set_zero();
-    q.contact_events[i]->contact_impulse.set_linear(q.contact_events[i]->contact_normal * q.cn[i]);
+    Vector3d n = Pose3d::transform_vector(pose, q.contact_events[i]->contact_normal); 
+    q.contact_events[i]->contact_impulse.set_linear(n * q.cn[i]);
   }
 
   // save tangent contact impulses
   for (unsigned i=0; i< q.N_CONTACTS; i++)
   {
+    shared_ptr<const Pose3d> pose = q.contact_events[i]->get_pose();
+    Vector3d t1 = Pose3d::transform_vector(pose, q.contact_events[i]->contact_tan1); 
+    Vector3d t2 = Pose3d::transform_vector(pose, q.contact_events[i]->contact_tan2); 
     Vector3d contact_j = q.contact_events[i]->contact_impulse.get_linear(); 
-    contact_j += q.contact_events[i]->contact_tan1 * q.cs[i];
-    contact_j += q.contact_events[i]->contact_tan2 * q.ct[i];
+    contact_j += t1 * q.cs[i];
+    contact_j += t2 * q.ct[i];
     q.contact_events[i]->contact_impulse.set_linear(contact_j);
   }
 
@@ -368,6 +372,7 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
 }
 */
 
+/// Updates the solution by adding a contact
 void ImpactEventHandler::update_solution(const EventProblemData& q, const VectorNd& x, const vector<bool>& old_working_set, unsigned jidx, VectorNd& z)
 {
   unsigned start, end;
@@ -404,7 +409,8 @@ void ImpactEventHandler::update_solution(const EventProblemData& q, const Vector
     OLD_MU_JIDX += q.contact_events[i]->contact_NK/2;
   }
 
-  // initialize z
+  // initialize z -- x is the old solution to the LCP
+  // NOTE: each contact adds six variables plus friction directions
   z.set_zero(x.size() + 6 + J_NK);
 
   // setup normal contact variables
@@ -435,18 +441,23 @@ void ImpactEventHandler::update_solution(const EventProblemData& q, const Vector
   // all other variables
   z.segment(q.NCT_IDX, q.NCT_IDX+jidx) = x.segment(OLD_NCT_IDX, OLD_NCT_IDX+jidx);
   start = q.NCT_IDX+jidx+1;
-  z.segment(start, z.size()) = x.segment(OLD_NCT_IDX+jidx, OLD_N_VARS);
+  end = start + OLD_NP_IDX - OLD_NCT_IDX - jidx;
+  z.segment(start, end) = x.segment(OLD_NCT_IDX+jidx, OLD_N_VARS);
 
   // setup constraint equation variables
   // constraint ordering: noninterpenetration, joint limits, 
   // contact friction
   // 1. noninterpenetration and joint limit constraints
   z.segment(NP_IDX, NP_IDX+jidx) = x.segment(OLD_NP_IDX, OLD_NP_IDX+jidx);
-  z.segment(NP_IDX+jidx+1, OLD_MU_IDX-OLD_NP_IDX-jidx) = x.segment(OLD_NP_IDX+jidx, OLD_MU_IDX);
+  start = NP_IDX+jidx+1;
+  end = start + OLD_MU_IDX - OLD_NP_IDX - jidx;
+  z.segment(start, end) = x.segment(OLD_NP_IDX+jidx, OLD_MU_IDX);
 
   // 2. contact friction constraints
-  z.segment(MU_IDX, OLD_MU_JIDX-OLD_MU_IDX) = x.segment(OLD_MU_IDX, OLD_MU_JIDX);  
-  z.segment(MU_IDX+J_NK, x.size()-OLD_MU_JIDX) = x.segment(OLD_MU_JIDX, x.size());
+  z.segment(MU_IDX, MU_IDX+OLD_MU_JIDX-OLD_MU_IDX) = x.segment(OLD_MU_IDX, OLD_MU_JIDX);  
+  start = MU_IDX+OLD_MU_JIDX-OLD_MU_IDX+J_NK;
+  end = start + x.size() - OLD_MU_JIDX;
+  z.segment(start, end) = x.segment(OLD_MU_JIDX, x.size());
 }
 
 /// Checks whether the optimization is satisfied *without* adding contact j
@@ -536,7 +547,7 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
   unsigned N_QP_CONTACT_VARS = q.N_CONTACTS*6 + q.N_K_TOTAL;
 
   // if we're not dealing with many contacts, exit now 
-  if (N_QP_CONTACT_VARS < 50)
+  if (N_QP_CONTACT_VARS < 500)
   {
     solve_qp_work_ijoints(q, z);
     return;
@@ -622,7 +633,8 @@ void ImpactEventHandler::update_problem(const EventProblemData& q, EventProblemD
   qworking.NCS_IDX = qworking.CT_IDX + qworking.N_CONTACTS;
   qworking.NCT_IDX = qworking.NCS_IDX + qworking.N_LIN_CONE;
   qworking.CS_U_IDX = qworking.NCT_IDX + qworking.N_LIN_CONE;
-  qworking.L_IDX = qworking.CS_U_IDX + qworking.N_TRUE_CONE;
+  qworking.CT_U_IDX = qworking.CS_U_IDX + qworking.N_TRUE_CONE;
+  qworking.L_IDX = qworking.CT_U_IDX + qworking.N_TRUE_CONE;
   qworking.BETA_T_IDX = qworking.L_IDX + qworking.N_LIMITS;
   qworking.ALPHA_X_IDX = qworking.BETA_T_IDX + qworking.N_CONSTRAINT_DOF_IMP;
   qworking.BETA_X_IDX = qworking.ALPHA_X_IDX + qworking.N_CONSTRAINT_EQNS_EXP;
@@ -790,8 +802,8 @@ void ImpactEventHandler::solve_qp_work_ijoints(EventProblemData& q, VectorNd& z)
   c.set_sub_vec(q.CN_IDX, q.Cn_v);         
   c.set_sub_vec(q.CS_IDX, q.Cs_v);         
   c.set_sub_vec(q.CT_IDX, q.Ct_v);         
-  (c.segment(q.CS_IDX, q.CT_IDX) = q.Cs_v).negate();
-  (c.segment(q.CT_IDX, q.L_IDX) = q.Ct_v).negate();
+  (c.segment(q.NCS_IDX, q.NCT_IDX) = q.Cs_v).negate();
+  (c.segment(q.NCT_IDX, q.L_IDX) = q.Ct_v).negate();
   c.set_sub_vec(q.L_IDX, q.L_v);         
 
   // ------- setup A/-b -------

@@ -319,8 +319,8 @@ void GeneralizedCCD::check_geoms(double dt, CollisionGeometryPtr a, const PosePa
   PrimitivePtr bprimitive = b->get_geometry();
 
   // get the two top-level BVs for a and b
-  BVPtr bv_a = aprimitive->get_BVH_root();
-  BVPtr bv_b = bprimitive->get_BVH_root(); 
+  BVPtr bv_a = aprimitive->get_BVH_root(a);
+  BVPtr bv_b = bprimitive->get_BVH_root(b); 
 
   // compute transform between a and b at t0
   Transform3d aTb = Pose3d::calc_relative_pose(b_poses.t0, a_poses.t0);
@@ -528,8 +528,12 @@ void GeneralizedCCD::check_vertices(double dt, CollisionGeometryPtr a, Collision
   Q.clear();
   BOOST_FOREACH(const Point3d* v, a_verts)
   {
+    // get v in proper frame
+    Point3d vb = *v;
+    vb.pose = ds.sTb_t0.source;
+
     // get point in s's frame at time 0 (for distance sorting) 
-    Point3d u_s = ds.sTb_t0.transform_point(*v);
+    Point3d u_s = ds.sTb_t0.transform_point(vb);
 
     // compute point at time t0 in b coordinates
     if (LOGGING(LOG_COLDET))
@@ -538,7 +542,7 @@ void GeneralizedCCD::check_vertices(double dt, CollisionGeometryPtr a, Collision
       RigidBodyPtr rbb = dynamic_pointer_cast<RigidBody>(b->get_single_body()); 
       FILE_LOG(LOG_COLDET) << "    -- checking vertex " << *v << " of " << rba->id << " against " << rbb->id << endl;
       FILE_LOG(LOG_COLDET) << "     -- u_s (local): " << u_s << endl; 
-      FILE_LOG(LOG_COLDET) << "     -- u_s (global): " << Pb_t0->transform_point(*v) << endl;
+      FILE_LOG(LOG_COLDET) << "     -- u_s (global): " << Pb_t0->transform_point(vb) << endl;
     }
 
     // we'll sort on inverse distance from the center of mass (origin of b frame) 
@@ -652,16 +656,12 @@ void GeneralizedCCD::load_from_xml(shared_ptr<const XMLTree> node, map<std::stri
   CollisionDetection::load_from_xml(node, id_map);
 
   // get the maximum number of OBB expansions
-  XMLAttrib
-
-* _max_dexp_attr = node->get_attrib("max-dexp");
+  XMLAttrib* _max_dexp_attr = node->get_attrib("max-dexp");
   if (_max_dexp_attr)
     this->_max_dexp = _max_dexp_attr->get_unsigned_value();
 
   // get the eps tolerance, if specified
-  XMLAttrib
-
-* eps_attr = node->get_attrib("eps-tolerance");
+  XMLAttrib* eps_attr = node->get_attrib("eps-tolerance");
   if (eps_attr)
     this->eps_tolerance = eps_attr->get_real_value();
 }
@@ -882,24 +882,36 @@ double GeneralizedCCD::determine_TOI(double t0, double tf, const DStruct* ds, Po
   shared_ptr<const Pose3d> Ps_t0 = ds->Ps_t0;
   shared_ptr<const Pose3d> Ps_tf = ds->Ps_tf;
 
-  // get useful transforms
-  const Transform3d& sTb_t0 = ds->sTb_t0;
-  const Transform3d& sTb_tf = ds->sTb_tf;
-
   FILE_LOG(LOG_COLDET) << "GeneralizedCCD::determine_TOI() entered" << endl;
   FILE_LOG(LOG_COLDET) << "  time t0: " << t0 << endl;
   FILE_LOG(LOG_COLDET) << "  time tf: " << tf << endl;
 
-  // get the BV for gs
-  BVPtr gs_BV = ds->s_BV; 
-  assert(gs->get_pose() == gs_BV->get_relative_pose());
+  // get the BV for gs and get the transform from gs's frame to the bv's frame
+  // (which always remains relative to gs's frame)
+  BVPtr gs_BV = ds->s_BV;
+  Transform3d bvsTs_t0 = Pose3d::calc_relative_pose(Ps_t0, gs_BV->get_relative_pose());
+  Transform3d bvsTs_tf = Pose3d::calc_relative_pose(Ps_tf, gs_BV->get_relative_pose());
 
-  // get u in gb's frame (this vector remains constant over time) 
-  Vector3d u = ds->u_b;
+  // get transforms between gb's frame and gs_BV's frame
+  const Transform3d& sTb_t0 = ds->sTb_t0;
+  const Transform3d& sTb_tf = ds->sTb_tf;
+  Transform3d bvsTb_t0 = bvsTs_t0 * sTb_t0; 
+  Transform3d bvsTb_tf = bvsTs_tf * sTb_tf; 
 
-  // get u- in gs's frame- at times t0 and tf
-  Point3d u0_s = sTb_t0.transform_point(ds->u_b);
-  Point3d uf_s = sTb_tf.transform_point(ds->u_b);
+  // get pose of gs_BV at t0 and tf
+  Pose3d eye_Ts_t0(bvsTs_t0.source), eye_Ts_tf(bvsTs_tf.source);
+  Pose3d Pbvs_t0 = bvsTs_t0.transform(eye_Ts_t0);
+  Pose3d Pbvs_tf = bvsTs_tf.transform(eye_Ts_tf);
+
+  // get u in gb's frame (this vector remains constant over time) at t0
+  Vector3d u0 = ds->u_b;
+  u0.pose = sTb_t0.source;
+  Point3d u0_s = bvsTb_t0.transform_point(u0);
+
+  // get u- in gb's frame at tf 
+  Vector3d uf = ds->u_b;
+  uf.pose = sTb_tf.source;
+  Point3d uf_s = bvsTb_tf.transform_point(uf);
 
   // setup the axes of the bounding box
   Vector3d u0uf = uf_s - u0_s;
@@ -929,16 +941,16 @@ double GeneralizedCCD::determine_TOI(double t0, double tf, const DStruct* ds, Po
   // determine whether minimum/maximum deviation is between two planes;
   // if so, determine the interpolation value that yields the minimum
   // and maximum deviation
-  Vector3d normal1, normal2;
+  Vector3d normal1(gs_BV->get_relative_pose()), normal2(gs_BV->get_relative_pose());
   double rho1_max = -1.0, rho1_min = -1.0, rho2_max = -1.0, rho2_min = -1.0, rho3_max = -1.0, rho3_min = -1.0;
   double max_d1 = -INF, max_d2 = -INF, max_d3 = -INF;
   double min_d1 = INF, min_d2 = INF, min_d3 = INF;
-  if (bound_u(u, q0, qf, normal1, normal2))
+  if (bound_u(u0, q0, qf, normal1, normal2))
   {
     if (nalpha.dot(normal1)*nalpha.dot(normal2) > 0)
     {
-      max_d1 = calc_max_dev(u, nalpha, q0, qf, rho1_max);
-      min_d1 = calc_min_dev(u, nalpha, q0, qf, rho1_min);
+      max_d1 = calc_max_dev(u0, nalpha, q0, qf, rho1_max);
+      min_d1 = calc_min_dev(u0, nalpha, q0, qf, rho1_min);
 
       // scale rho values to (tf-t0)
       rho1_max *= (tf-t0);
@@ -946,8 +958,8 @@ double GeneralizedCCD::determine_TOI(double t0, double tf, const DStruct* ds, Po
     }
     if (nbeta.dot(normal1)*nbeta.dot(normal2) > 0)
     {
-      max_d2 = calc_max_dev(u, nbeta, q0, qf, rho2_max);
-      min_d2 = calc_min_dev(u, nbeta, q0, qf, rho2_min);
+      max_d2 = calc_max_dev(u0, nbeta, q0, qf, rho2_max);
+      min_d2 = calc_min_dev(u0, nbeta, q0, qf, rho2_min);
 
       // scale rho values to (tf-t0)
       rho2_max *= (tf-t0);
@@ -955,8 +967,8 @@ double GeneralizedCCD::determine_TOI(double t0, double tf, const DStruct* ds, Po
     }
     if (ngamma.dot(normal1)*ngamma.dot(normal2) > 0)
     {
-      max_d3 = calc_max_dev(u, ngamma, q0, qf, rho3_max);
-      min_d3 = calc_min_dev(u, ngamma, q0, qf, rho3_min);
+      max_d3 = calc_max_dev(u0, ngamma, q0, qf, rho3_max);
+      min_d3 = calc_min_dev(u0, ngamma, q0, qf, rho3_min);
 
       // scale rho values to (tf-t0)
       rho3_max *= (tf-t0);
@@ -980,14 +992,14 @@ double GeneralizedCCD::determine_TOI(double t0, double tf, const DStruct* ds, Po
     // setup delta t
     const double dt = tb - ta;
 
-    // interpolation parameter ranges from [0,1]; 0 corresponds to t0, 1 corresponds
-    // to tf.  Determine what ta, tb correspond to
+    // interpolation parameter ranges from [0,1]; 0 corresponds to t0, 
+    // 1 corresponds to tf.  Determine what ta, tb correspond to
     const double sa = ta/(tf-t0);
     const double sb = tb/(tf-t0);
 
     // determine point u at times ta and tb
-    Point3d ua(Transform3d::interpolate_transform_vector(sTb_t0, sTb_tf, sa, Origin3d(ds->u_b)), gs_BV->get_relative_pose());
-    Point3d ub(Transform3d::interpolate_transform_vector(sTb_t0, sTb_tf, sb, Origin3d(ds->u_b)), gs_BV->get_relative_pose());
+    Point3d ua(Transform3d::interpolate_transform_vector(bvsTb_t0, bvsTb_tf, sa, Origin3d(ds->u_b)), gs_BV->get_relative_pose());
+    Point3d ub(Transform3d::interpolate_transform_vector(bvsTb_t0, bvsTb_tf, sb, Origin3d(ds->u_b)), gs_BV->get_relative_pose());
 
     FILE_LOG(LOG_COLDET) << " -- checking segment for time [" << ta << ", " << tb << "]" << endl;
     FILE_LOG(LOG_COLDET) << "  p(" << ta << ") = " << ua << "  p(" << tb << ") ~= " << ub << endl;
@@ -1005,9 +1017,9 @@ double GeneralizedCCD::determine_TOI(double t0, double tf, const DStruct* ds, Po
     if (rho3_min >= ta && rho3_min <= tb) dn_gamma = min_d3;
     
     // calculate deviation at endpoints
-    pair<double, double> deva = calc_deviations(u, nalpha, q0, qf, sa, sb);
-    pair<double, double> devb = calc_deviations(u, nbeta, q0, qf, sa, sb);
-    pair<double, double> devg = calc_deviations(u, ngamma, q0, qf, sa, sb);
+    pair<double, double> deva = calc_deviations(u0, nalpha, q0, qf, sa, sb);
+    pair<double, double> devb = calc_deviations(u0, nbeta, q0, qf, sa, sb);
+    pair<double, double> devg = calc_deviations(u0, ngamma, q0, qf, sa, sb);
   
     // set deviation maxima/minima    
     dn_alpha = std::min(dn_alpha, deva.first);
@@ -1050,7 +1062,7 @@ double GeneralizedCCD::determine_TOI(double t0, double tf, const DStruct* ds, Po
         FILE_LOG(LOG_COLDET) << *gs_OBB << endl;
     }
 
-    // NOTE: O and gs_BV are both in S's frame
+    // O is in gs_BV's frame
     if (!BV::intersects(&O, gs_BV.get()))
     {
       FILE_LOG(LOG_COLDET) << "   -- no intersection; continuing looping..." << endl;
@@ -1092,8 +1104,8 @@ double GeneralizedCCD::determine_TOI(double t0, double tf, const DStruct* ds, Po
         Origin3d cpo(cp);
         Origin3d no(normal);
         double s = t/(tf-t0);
-        cp = Pose3d::interpolate_transform_point(*Ps_t0, *Ps_tf, s, cpo);
-        normal = Pose3d::interpolate_transform_vector(*Ps_t0, *Ps_tf, s, no);
+        cp = Pose3d::interpolate_transform_point(Pbvs_t0, Pbvs_tf, s, cpo);
+        normal = Pose3d::interpolate_transform_vector(Pbvs_t0, Pbvs_tf, s, no);
 
         // look for degenerate normal
         if (std::fabs(normal.norm() - (double) 1.0) > NEAR_ZERO)
@@ -1424,12 +1436,12 @@ void GeneralizedCCD::update_bounds_vector(vector<pair<double, BoundsStruct> >& b
     BVPtr swept_bv = get_swept_BV(geom, bv, pp);
 
     // prepare transform to global frame
-    Transform3d T = Pose3d::calc_relative_pose(pp.t0, GLOBAL); 
+    Transform3d t0Tbv = Pose3d::calc_relative_pose(swept_bv->get_relative_pose(), pp.t0);
+    Transform3d wTt0 = Pose3d::calc_relative_pose(pp.t0, GLOBAL); 
 
-    // get the expanded bounding volume and transform it to global frame
-    BVPtr swept_bv = get_swept_BV(geom, bv, pp);
+    // transform swept bounding volume to global frame
     OBB obb;
-    swept_bv->transform(T, &obb);
+    swept_bv->transform(wTt0 * t0Tbv, &obb);
 
     // get the bound for the bounding volume
     Point3d bound = (bounds[i].second.end) ? obb.get_upper_bounds() : obb.get_lower_bounds();
@@ -1481,7 +1493,7 @@ void GeneralizedCCD::build_bv_vector(const map<CollisionGeometryPtr, PosePair>& 
     PrimitivePtr p = (*i)->get_geometry();
 
     // get the top-level BV for the geometry
-    BVPtr bv = p->get_BVH_root();
+    BVPtr bv = p->get_BVH_root(*i);
 
     // get the poses for the geometry 
     assert(poses.find(*i) != poses.end());
@@ -1525,7 +1537,7 @@ bool GeneralizedCCD::is_collision(double epsilon)
     // get the first geometry, its primitive, and its bounding volume 
     CollisionGeometryPtr g1 = *i;
     PrimitivePtr g1_primitive = g1->get_geometry();
-    BVPtr bv1 = g1_primitive->get_BVH_root();
+    BVPtr bv1 = g1_primitive->get_BVH_root(g1);
 
     // get the poses for the geometry and the bounding volume
     shared_ptr<const Pose3d> Pg1 = g1->get_pose();
@@ -1540,7 +1552,7 @@ bool GeneralizedCCD::is_collision(double epsilon)
       // get the second geometry, its primitive, and its bounding volume 
       CollisionGeometryPtr g2 = *j;
       PrimitivePtr g2_primitive = g2->get_geometry();
-      BVPtr bv2 = g2_primitive->get_BVH_root();
+      BVPtr bv2 = g2_primitive->get_BVH_root(g2);
 
       // see whether to check
       if (!is_checked(g1, g2))

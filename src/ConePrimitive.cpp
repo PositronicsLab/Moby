@@ -11,6 +11,7 @@
 #include <osg/ShapeDrawable>
 #endif
 #include <Moby/Constants.h>
+#include <Moby/CollisionGeometry.h>
 #include <Moby/CompGeom.h>
 #include <Moby/XMLTree.h>
 #include <Moby/OBB.h>
@@ -18,6 +19,7 @@
 
 using namespace Ravelin;
 using namespace Moby;
+using std::map;
 using std::pair;
 using boost::shared_ptr;
 using std::list;
@@ -85,6 +87,8 @@ ConePrimitive::ConePrimitive(double radius, double height, unsigned npoints, uns
 /// Sets the radius for this cone
 void ConePrimitive::set_radius(double radius)
 {
+  const unsigned X = 0, Y = 1, Z = 2;
+
   _radius = radius;
   if (_radius < 0.0)
     throw std::runtime_error("Attempting to pass negative radius to ConePrimitive::set_radius()");
@@ -100,20 +104,42 @@ void ConePrimitive::set_radius(double radius)
 
   // need to update visualization
   update_visualization();
+
+  // set lengths on each OBB
+  for (map<CollisionGeometryPtr, OBBPtr>::iterator i = _obbs.begin(); i != _obbs.end(); i++)
+  {
+    // setup OBB half-lengths
+    i->second->l[X] = _radius + _intersection_tolerance;
+    i->second->l[Y] = _height*0.5 + _intersection_tolerance;
+    i->second->l[Z] = _radius + _intersection_tolerance;
+  }
 }
 
 /// Sets the intersection tolerance
 void ConePrimitive::set_intersection_tolerance(double tol)
 {
+  const unsigned X = 0, Y = 1, Z = 2;
+
   Primitive::set_intersection_tolerance(tol);
 
   // vertices are no longer valid
   _vertices = shared_ptr<vector<Point3d> >();
+
+  // set lengths on each OBB
+  for (map<CollisionGeometryPtr, OBBPtr>::iterator i = _obbs.begin(); i != _obbs.end(); i++)
+  {
+    // setup OBB half-lengths
+    i->second->l[X] = _radius + _intersection_tolerance;
+    i->second->l[Y] = _height*0.5 + _intersection_tolerance;
+    i->second->l[Z] = _radius + _intersection_tolerance;
+  }
 }
 
 /// Sets the height for this cone
 void ConePrimitive::set_height(double height)
 {
+  const unsigned X = 0, Y = 1, Z = 2;
+
   _height = height;
   if (_height < 0.0)
     throw std::runtime_error("Attempting to pass negative height to ConePrimitive::set_height()");
@@ -129,6 +155,15 @@ void ConePrimitive::set_height(double height)
 
   // need to update visualization
   update_visualization();
+
+  // set lengths on each OBB
+  for (map<CollisionGeometryPtr, OBBPtr>::iterator i = _obbs.begin(); i != _obbs.end(); i++)
+  {
+    // setup OBB half-lengths
+    i->second->l[X] = _radius + _intersection_tolerance;
+    i->second->l[Y] = _height*0.5 + _intersection_tolerance;
+    i->second->l[Z] = _radius + _intersection_tolerance;
+  }
 }
 
 /// Sets the number of points in the rings of the cone 
@@ -164,10 +199,6 @@ void ConePrimitive::set_pose(const Pose3d& p)
   // determine the transformation from the old pose to the new one 
   Transform3d T = Pose3d::calc_relative_pose(_F, x);
 
-  // "correct" T's source (points will be in global frame)
-  T.source = GLOBAL;
-  T.target = GLOBAL;
-
   // go ahead and set the new transform
   Primitive::set_pose(p);
 
@@ -188,6 +219,24 @@ void ConePrimitive::set_pose(const Pose3d& p)
 
   // recalculate the mass properties
   calc_mass_properties();
+
+  // transform bounding volumes
+  for (map<CollisionGeometryPtr, OBBPtr>::iterator i = _obbs.begin(); i != _obbs.end(); i++)
+  {
+    // get the pose for the geometry
+    shared_ptr<const Pose3d> gpose = i->first->get_pose();
+
+    // create a new pose, which will be defined relative to the geometry's pose 
+    shared_ptr<Pose3d> T(new Pose3d);
+
+    // setup the relative pose for the OBB center
+    *T = *get_pose();
+    T->update_relative_pose(gpose);
+
+    // setup the obb center and orientation
+    i->second->center = Point3d(T->x, gpose);
+    i->second->R = T->q;
+  }
 }
 
 /// Gets the triangle mesh for the cone, computing it if necessary
@@ -230,7 +279,7 @@ shared_ptr<const IndexedTriArray> ConePrimitive::get_mesh()
     PolyhedronPtr hull = CompGeom::calc_convex_hull(points.begin(), points.end());
 
     // set the mesh
-    const std::vector<Point3d>& v = hull->get_vertices();
+    const std::vector<Origin3d>& v = hull->get_vertices();
     const std::vector<IndexedTri>& f = hull->get_facets();
     _mesh = boost::shared_ptr<IndexedTriArray>(new IndexedTriArray(v.begin(), v.end(), f.begin(), f.end()));
 
@@ -396,33 +445,44 @@ const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >&
 }
 
 /// Gets the OBB
-BVPtr ConePrimitive::get_BVH_root()
+BVPtr ConePrimitive::get_BVH_root(CollisionGeometryPtr geom)
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
   // cone not applicable for deformable bodies 
   if (is_deformable())
-    throw std::runtime_error("ConePrimitive::get_BVH_root() - primitive unusable for deformable bodies!");
+    throw std::runtime_error("ConePrimitive::get_BVH_root(CollisionGeometryPtr geom) - primitive unusable for deformable bodies!");
 
-  // create the OBB if necessary
-  if (!_obb)
-    _obb = shared_ptr<OBB>(new OBB);
+  // get the pointer to the bounding box
+  OBBPtr& obb = _obbs[geom];
 
-  // setup the center of the OBB 
-  _obb->center = Point3d(get_pose()->x, get_pose());
-  
-  // setup the orientation of the OBB
-  _obb->R = get_pose()->q;
+  // create the bounding box, if necessary
+  if (!obb)
+  {
+    // create the bounding box
+    obb = shared_ptr<OBB>(new OBB);
 
-  // must orthonormalize OBB orientation, b/c T may have scaling applied
-  _obb->R.orthonormalize();
+    // get the pose for the geometry
+    shared_ptr<const Pose3d> gpose = geom->get_pose();
 
-  // cone nominally points upward
-  _obb->l[X] = _radius;
-  _obb->l[Y] = _height*0.5;
-  _obb->l[Z] = _radius;
+    // create a new pose, which will be defined relative to the geometry's pose 
+    shared_ptr<Pose3d> T(new Pose3d);
 
-  return _obb;
+    // setup the relative pose for the OBB center
+    *T = *get_pose();
+    T->update_relative_pose(gpose);
+
+    // setup the obb center and orientation
+    obb->center = Point3d(T->x, gpose);
+    obb->R = T->q;
+
+    // setup OBB half-lengths
+    obb->l[X] = _radius + _intersection_tolerance;
+    obb->l[Y] = _height*0.5 + _intersection_tolerance;
+    obb->l[Z] = _radius + _intersection_tolerance;
+  }
+
+  return obb;
 }
 
 /// The signum function

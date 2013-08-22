@@ -29,19 +29,9 @@ using std::string;
 using boost::shared_ptr;
 
 /// Initializes a mesh using a pointer to vertices
-IndexedTetraArray::IndexedTetraArray(shared_ptr<const vector<Point3d> > vertices, const vector<IndexedTetra>& tetra)
+IndexedTetraArray::IndexedTetraArray(shared_ptr<const vector<Origin3d> > vertices, const vector<IndexedTetra>& tetra)
 {
   _vertices = vertices;
-
-  // verify that all vertices are in the same frame
-  #ifndef NDEBUG
-  for (unsigned i=1; i < vertices->size(); i++)
-    assert(vertices->front().pose == (*vertices)[i].pose);
-  #endif  
-
-  // get the pose that the vertices are defined in
-  if (!_vertices->empty())
-    _pose = _vertices->front().pose;
 
   // setup tetra 
   shared_ptr<vector<IndexedTetra> > new_tetra(new vector<IndexedTetra>(tetra));
@@ -52,20 +42,10 @@ IndexedTetraArray::IndexedTetraArray(shared_ptr<const vector<Point3d> > vertices
 }
 
 /// Initializes a mesh using pointers to vertices and tetra
-IndexedTetraArray::IndexedTetraArray(shared_ptr<const vector<Point3d> > vertices, shared_ptr<const vector<IndexedTetra> > tetra)
+IndexedTetraArray::IndexedTetraArray(shared_ptr<const vector<Origin3d> > vertices, shared_ptr<const vector<IndexedTetra> > tetra)
 {
   _vertices = vertices;
   _tetra = tetra;
-
-  // verify that all vertices are in the same frame
-  #ifndef NDEBUG
-  for (unsigned i=1; i < vertices->size(); i++)
-    assert(vertices->front().pose == (*vertices)[i].pose);
-  #endif  
-
-  // get the pose that the vertices are defined in
-  if (!_vertices->empty())
-    _pose = _vertices->front().pose;
 
   // validate indices within range and tetrahedra oriented correctly
   validate();  
@@ -76,19 +56,20 @@ IndexedTetraArray& IndexedTetraArray::operator=(const IndexedTetraArray& mesh)
 {
   _vertices = mesh._vertices;
   _tetra = mesh._tetra;
-  _pose = mesh._pose;
 
   return *this;
 }
 
 /// Gets the desired tetrahedron
-Tetrahedron IndexedTetraArray::get_tetrahedron(unsigned i) const
+Tetrahedron IndexedTetraArray::get_tetrahedron(unsigned i, shared_ptr<const Pose3d> P) const
 {
-  const vector<Point3d>& vertices = get_vertices();
+  const vector<Origin3d>& vertices = get_vertices();
   const vector<IndexedTetra>& tetra = get_tetra();
 
-  return Tetrahedron(vertices[tetra[i].a], vertices[tetra[i].b], 
-                     vertices[tetra[i].c], vertices[tetra[i].d]);
+  return Tetrahedron(Point3d(vertices[tetra[i].a], P), 
+                     Point3d(vertices[tetra[i].b], P), 
+                     Point3d(vertices[tetra[i].c], P), 
+                     Point3d(vertices[tetra[i].d], P));
 }
 
 /// Implements Base::load_from_xml()
@@ -172,26 +153,26 @@ void IndexedTetraArray::save_to_xml(XMLTreePtr node, list<shared_ptr<const Base>
 void IndexedTetraArray::center()
 {
   // determine the centroid of this array of tetrahedra
-  Point3d centroid = Point3d::zero();
+  Point3d centroid = Point3d::zero(GLOBAL);
   double total_volume = 0;
   for (unsigned i=0; i< num_tetra(); i++)
   {
-    Tetrahedron tet = get_tetrahedron(i);
+    Tetrahedron tet = get_tetrahedron(i, GLOBAL);
     double volume = tet.calc_volume();
-    centroid += Vector3d(tet.calc_centroid()*volume);
+    centroid += tet.calc_centroid()*volume;
     total_volume += volume;
   }
   centroid /= total_volume;
 
   // translate the mesh so that the centroid is at the origin
   for (unsigned i=0; i< _vertices->size(); i++)
-    ((Point3d&) (*_vertices)[i]) -= Vector3d(centroid);
+    ((Origin3d&) (*_vertices)[i]) -= Origin3d(centroid);
 }
 
 /// Verifies that all indices are within range and orients tetrahedra CCW
 void IndexedTetraArray::validate()
 {
-  const vector<Point3d>& vertices = get_vertices();
+  const vector<Origin3d>& vertices = get_vertices();
   shared_ptr<const vector<IndexedTetra> > tetra_pointer = get_tetra_pointer();
   vector<IndexedTetra>& tetra = *boost::const_pointer_cast<vector<IndexedTetra> >(_tetra);
 
@@ -202,35 +183,52 @@ void IndexedTetraArray::validate()
 
   for (unsigned i=0; i< tetra.size(); i++)
   {
+    // get the vertices
+    Point3d va(vertices[tetra[i].a], GLOBAL);
+    Point3d vb(vertices[tetra[i].b], GLOBAL);
+    Point3d vc(vertices[tetra[i].c], GLOBAL);
+    Point3d vd(vertices[tetra[i].d], GLOBAL);
+
     // determine the centroid
-    Point3d centroid = vertices[tetra[i].a] + vertices[tetra[i].b] +
-                       vertices[tetra[i].c] + vertices[tetra[i].d];
+    Point3d centroid = va + vb + vc + vd;
     centroid *= 0.25;
 
     try
     {
       // check triangle abc
-      Triangle abc(vertices[tetra[i].a], vertices[tetra[i].b], vertices[tetra[i].c]); 
+      Triangle abc(va, vb, vc); 
       if (abc.calc_signed_dist(centroid) > 0)
+      {
         std::swap(tetra[i].b, tetra[i].c);
+        std::swap(vb, vc);
+      }
 
       // check triangle bdc
-      Triangle bdc(vertices[tetra[i].b], vertices[tetra[i].d], vertices[tetra[i].c]); 
+      Triangle bdc(vb, vd, vc);
       if (bdc.calc_signed_dist(centroid) > 0)
+      {
         std::swap(tetra[i].d, tetra[i].c);
+        std::swap(vd, vc);
+      }
 
       // check triangle dac
-      Triangle dac(vertices[tetra[i].d], vertices[tetra[i].a], vertices[tetra[i].c]); 
+      Triangle dac(vd, va, vc);
       if (dac.calc_signed_dist(centroid) > 0)
+      {
         std::swap(tetra[i].a, tetra[i].c);
+        std::swap(va, vc);
+      }
 
       // check triangle dba
-      Triangle dba(vertices[tetra[i].d], vertices[tetra[i].b], vertices[tetra[i].a]); 
+      Triangle dba(vd, vb, va); 
       if (dba.calc_signed_dist(centroid) > 0)
+      {
         std::swap(tetra[i].b, tetra[i].a);
+        std::swap(vb, va);
+      }
 
       // verify that centroid is now inside tetrahedron
-      assert(!Tetrahedron(vertices[tetra[i].a], vertices[tetra[i].b], vertices[tetra[i].c], vertices[tetra[i].d]).outside(centroid));
+      assert(!Tetrahedron(va, vb, vc, vd).outside(centroid));
     }
     catch (DegenerateTriangleException e)
     {
@@ -248,14 +246,11 @@ IndexedTetraArray IndexedTetraArray::transform(const Transform3d& T) const
   it._tetra = _tetra; 
 
   // need to transform vertices
-  shared_ptr<vector<Point3d> > new_vertices(new vector<Point3d>(*_vertices));
+  shared_ptr<vector<Origin3d> > new_vertices(new vector<Origin3d>(*_vertices));
   it._vertices = new_vertices;
-  vector<Point3d>& vertices = *new_vertices;
+  vector<Origin3d>& vertices = *new_vertices;
   for (unsigned i=0; i< vertices.size(); i++)
-    vertices[i] = T.transform_point(vertices[i]);
-
-  // setup new pose
-  it._pose = T.target;
+    vertices[i] = T.q * vertices[i] + T.x;
 
   return it;
 }
@@ -264,7 +259,7 @@ IndexedTetraArray IndexedTetraArray::transform(const Transform3d& T) const
 IndexedTetraArray IndexedTetraArray::compress_vertices() const
 {
   // get tetra and vertices
-  vector<Point3d> vertices = get_vertices();
+  vector<Origin3d> vertices = get_vertices();
   vector<IndexedTetra> tetra = get_tetra();
 
   // determine unused vertices
@@ -311,7 +306,7 @@ void IndexedTetraArray::write_to_tetra(const IndexedTetraArray& mesh, const stri
   const unsigned X = 0, Y = 1, Z = 2;
 
   // get vertices and tetra
-  const vector<Point3d>& vertices = mesh.get_vertices();
+  const vector<Origin3d>& vertices = mesh.get_vertices();
   const vector<IndexedTetra>& tetra = mesh.get_tetra();
 
   // open the file for writing
@@ -342,7 +337,7 @@ void IndexedTetraArray::write_to_obj(const IndexedTetraArray& mesh, const string
   const unsigned X = 0, Y = 1, Z = 2;
 
   // get vertices and tetra
-  const vector<Point3d>& vertices = mesh.get_vertices();
+  const vector<Origin3d>& vertices = mesh.get_vertices();
   const vector<IndexedTetra>& tetra = mesh.get_tetra();
 
   // open the file for writing
@@ -387,7 +382,7 @@ IndexedTetraArray IndexedTetraArray::read_from_tetra(const string& filename)
   int i1, i2, i3, i4;
 
   // create arrays for vertices and tetra
-  vector<Point3d> vertices;
+  vector<Origin3d> vertices;
   vector<IndexedTetra> tetra;
 
   // open the file
@@ -422,7 +417,7 @@ IndexedTetraArray IndexedTetraArray::read_from_tetra(const string& filename)
       }
 
       // create and add the vertex
-      vertices.push_back(Point3d(v1, v2, v3));
+      vertices.push_back(Origin3d(v1, v2, v3));
       continue;
     }
   

@@ -14,11 +14,13 @@
 #include <Moby/sorted_pair>
 #include <Moby/XMLTree.h>
 #include <Moby/BoundingSphere.h>
+#include <Moby/CollisionGeometry.h>
 #include <Moby/SpherePrimitive.h>
 
 using namespace Ravelin;
 using namespace Moby;
 using boost::shared_ptr; 
+using std::map;
 using std::vector;
 using std::list;
 using std::pair;
@@ -113,6 +115,10 @@ void SpherePrimitive::set_radius(double radius)
 
   // need to update the visualization
   update_visualization();
+
+  // set radius on each bounding sphere
+  for (map<CollisionGeometryPtr, shared_ptr<BoundingSphere> >::iterator i = _bsphs.begin(); i != _bsphs.end(); i++)
+    i->second->radius = _radius + _intersection_tolerance;
 }
 
 /// Sets the number of points used in this sphere 
@@ -139,6 +145,10 @@ void SpherePrimitive::set_intersection_tolerance(double tol)
   // vertices are no longer valid
   _vertices = shared_ptr<vector<Point3d> >();
   _invalidated = true;
+
+  // set radius on each bounding sphere
+  for (map<CollisionGeometryPtr, shared_ptr<BoundingSphere> >::iterator i = _bsphs.begin(); i != _bsphs.end(); i++)
+    i->second->radius = _radius + _intersection_tolerance;
 }
 
 /// Transforms the primitive
@@ -149,10 +159,6 @@ void SpherePrimitive::set_pose(const Pose3d& p)
 
   // determine the transformation from the old pose to the new one 
   Transform3d T = Pose3d::calc_relative_pose(_F, x);
-
-  // "correct" T's source (points will be in global frame)
-  T.source = GLOBAL;
-  T.target = GLOBAL;
 
   // go ahead and set the new transform
   Primitive::set_pose(p);
@@ -174,6 +180,23 @@ void SpherePrimitive::set_pose(const Pose3d& p)
 
   // recalculate the mass properties
   calc_mass_properties();
+
+  // fix poses on bounding spheres
+  for (map<CollisionGeometryPtr, shared_ptr<BoundingSphere> >::iterator i = _bsphs.begin(); i != _bsphs.end(); i++)
+  {
+    // get the pose for the geometry
+    shared_ptr<const Pose3d> gpose = i->first->get_pose();
+
+    // create a new pose, which will be defined relative to the geometry's pose 
+    shared_ptr<Pose3d> T(new Pose3d);
+
+    // setup the relative pose for the bounding sphere center
+    *T = *get_pose();
+    T->update_relative_pose(gpose);
+
+    // setup the obb center and orientation
+    i->second->center = Point3d(T->x, gpose);
+  }
 }
 
 /// Gets the mesh, computing it if necessary
@@ -212,7 +235,7 @@ shared_ptr<const IndexedTriArray> SpherePrimitive::get_mesh()
     PolyhedronPtr hull = CompGeom::calc_convex_hull(points.begin(), points.end());
 
     // set the mesh
-    const vector<Point3d>& v = hull->get_vertices();
+    const vector<Origin3d>& v = hull->get_vertices();
     const vector<IndexedTri>& f = hull->get_facets();
     _mesh = boost::shared_ptr<IndexedTriArray>(new IndexedTriArray(v.begin(), v.end(), f.begin(), f.end()));
 
@@ -325,22 +348,36 @@ void SpherePrimitive::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Ba
 }
 
 /// Gets the root bounding volume
-BVPtr SpherePrimitive::get_BVH_root() 
+BVPtr SpherePrimitive::get_BVH_root(CollisionGeometryPtr geom) 
 {
   // sphere not applicable for deformable bodies 
   if (is_deformable())
-    throw std::runtime_error("SpherePrimitive::get_BVH_root() - primitive unusable for deformable bodies!");
+    throw std::runtime_error("SpherePrimitive::get_BVH_root(CollisionGeometryPtr geom) - primitive unusable for deformable bodies!");
 
-  // set the radius and center
-  if (!_bsph)
-    _bsph = shared_ptr<BoundingSphere>(new BoundingSphere);
+  // get the pointer to the bounding sphere
+  shared_ptr<BoundingSphere>& bsph = _bsphs[geom];
 
-  // set the radius and center
-  _bsph->radius = _radius + _intersection_tolerance;
-  _bsph->center = get_pose()->x;
-  _bsph->center.pose = get_pose();
+  // if the bounding sphere hasn't been created, create it and initialize it
+  if (!bsph)
+  {
+    // create the sphere
+    bsph = shared_ptr<BoundingSphere>(new BoundingSphere);
 
-  return _bsph;
+    // get the pose for the geometry
+    shared_ptr<const Pose3d> gpose = geom->get_pose();
+
+    // create a new pose, which will be defined relative to the geometry's pose 
+    shared_ptr<Pose3d> T(new Pose3d);
+
+    // setup the relative pose for the OBB center
+    *T = *get_pose();
+    T->update_relative_pose(gpose);
+
+    // setup the sphere center
+    bsph->center = Point3d(T->x, gpose);
+  }
+
+  return bsph;
 }
 
 /// Determines whether there is an intersection between the primitive and a line segment
@@ -354,10 +391,11 @@ bool SpherePrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Po
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
-  // account for sphere center in translation
-  const Origin3d& center = get_pose()->x;
-  Vector3d p = seg.first - center;
-  Vector3d q = seg.second - center;
+  // transform the segments to sphere space
+  shared_ptr<const Pose3d> P = get_pose();
+  Transform3d T = Pose3d::calc_relative_pose(seg.first.pose, P);
+  Vector3d p = T.transform_point(seg.first); 
+  Vector3d q = T.transform_point(seg.second);
 
   // get the radius plus the intersection tolerance
   const double R = _radius;
@@ -368,13 +406,18 @@ bool SpherePrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Po
   {
     // set the intersection
     t = (double) 0.0;
-    isect = p + center;
+    isect = p;
     double pnorm = std::sqrt(pp);
     normal.pose = get_pose();
     if (pnorm > NEAR_ZERO)
       normal = p/pnorm;
     else
       normal.set_zero();
+
+    // transform the intersection points and normal back to p's frame
+    isect = T.inverse_transform_point(isect);
+    normal = T.inverse_transform_vector(normal);
+
     return true; 
   }
 
@@ -419,6 +462,10 @@ bool SpherePrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Po
   isect = seg.first*t1 + seg.second*(1-t1);
   normal = Vector3d::normalize(Vector3d(isect));
 
+  // transform the intersection point and normal back to p's frame
+  isect = T.inverse_transform_point(isect); 
+  normal = T.inverse_transform_vector(normal);
+
   t = t1;
   return true;
 }
@@ -426,11 +473,10 @@ bool SpherePrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Po
 /// Determines whether a point is inside or on the sphere
 bool SpherePrimitive::point_inside(BVPtr bv, const Point3d& p, Vector3d& normal) const
 {
-  // get the sphere translation
-  const Origin3d& center = get_pose()->x;
-
-  // subtract sphere translation from the query point
-  Vector3d query = p - center;
+  // transform the point to sphere space
+  shared_ptr<const Pose3d> P = get_pose();
+  Transform3d T = Pose3d::calc_relative_pose(p.pose, P);
+  Point3d query = T.transform_point(p);
 
   // check whether query outside of radius
   if (query.norm_sq() > _radius * _radius) 
@@ -438,6 +484,9 @@ bool SpherePrimitive::point_inside(BVPtr bv, const Point3d& p, Vector3d& normal)
 
   // determine normal
   normal = Vector3d::normalize(query);
+
+  // transform the normal back to p's space
+  normal = T.inverse_transform_vector(normal);
 
   return true;
 }

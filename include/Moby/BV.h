@@ -97,6 +97,9 @@ class BV : public boost::enable_shared_from_this<BV>
     /// Userdata for the BV
     boost::shared_ptr<void> userdata;
 
+    /// The collision geometry associated with this bounding volume
+    CollisionGeometryPtr geom;
+
     /// The children of this BV
     std::list<BVPtr> children;
 

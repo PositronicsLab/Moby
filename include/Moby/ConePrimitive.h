@@ -31,7 +31,7 @@ class ConePrimitive : public Primitive
     void set_num_rings(unsigned n);
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
-    virtual BVPtr get_BVH_root();
+    virtual BVPtr get_BVH_root(CollisionGeometryPtr geom);
     virtual void set_pose(const Ravelin::Pose3d& T);
     virtual bool point_inside(BVPtr bv, const Point3d& p, Ravelin::Vector3d& normal) const;
     virtual bool intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Ravelin::Vector3d& normal) const;
@@ -65,8 +65,8 @@ class ConePrimitive : public Primitive
     /// Pointer to the vector of vertices (w/transform and intersection tolerance applied), if any
     boost::shared_ptr<std::vector<Point3d> > _vertices;
 
-    /// The bounding volume for the primitive
-    boost::shared_ptr<OBB> _obb; 
+    /// The bounding volumes for the primitive, indexed by geometry
+    std::map<CollisionGeometryPtr, OBBPtr> _obbs; 
 
     /// Radius of the bottom ring of the cone
     double _radius;

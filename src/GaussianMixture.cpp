@@ -7,6 +7,7 @@
 #include <Moby/Polyhedron.h>
 #include <Moby/XMLTree.h>
 #include <Moby/GaussianMixture.h>
+#include <Moby/CollisionGeometry.h>
 #include <Moby/OBB.h>
 #ifdef USE_OSG
 #include <osg/Geode>
@@ -125,6 +126,24 @@ GaussianMixture::Gauss GaussianMixture::read_gauss_node(shared_ptr<const XMLTree
     gauss.th = (double) 0.0;
 
   return gauss;
+}
+
+/// Gets the BVH root
+BVPtr GaussianMixture::get_BVH_root(CollisionGeometryPtr geom)
+{
+  // verify that the geometry matches the stored geometry, if any
+  if (_geom)
+    assert(geom == _geom);
+  else
+  {
+    // store the geometry
+    _geom = geom;
+
+    // build the bounding volume hierarchy
+    construct_BVs(geom);
+  }
+
+  return _root;
 }
 
 /// Loads the primitive from an XML file
@@ -331,9 +350,6 @@ void GaussianMixture::rebuild(const vector<Gauss>& gauss)
   // copy the Gaussians
   _gauss = gauss;
 
-  // construct bounding volumes
-  construct_BVs();
-
   // construct sets of vertices
   construct_vertices();
 
@@ -349,29 +365,35 @@ void GaussianMixture::set_pose(const Pose3d& T)
 
   // reconstruct bounding volumes and vertices
   rebuild(_gauss);
+
+  // re-construct the BVs
+  if (_geom)
+    construct_BVs(_geom);
 }
 
 /// Constructs the bounding volumes used for faster intersection testing
-void GaussianMixture::construct_BVs()
+void GaussianMixture::construct_BVs(CollisionGeometryPtr geom)
 {
   const unsigned X = 0, Y = 1, Z = 2;
   list<BVPtr> children;
 
-  // get the pose of this shape 
-  shared_ptr<const Pose3d> P = get_pose();
-  
+  // setup a pose relative to the collision geometry
+  Pose3d T(get_pose());
+  T.update_relative_pose(geom->get_pose());  
+
   // iterate over all Gaussians
   for (unsigned i=0; i< _gauss.size(); i++)
   {
     // create an OBB for the Gaussian
     shared_ptr<OBB> obb(new OBB);
+    obb->geom = geom;
 
     // setup the OBB center
     const double HEIGHT = gauss(_gauss[i], _gauss[i].x0, _gauss[i].y0);
-    obb->center[X] = _gauss[i].x0;
-    obb->center[Y] = _gauss[i].y0;
-    obb->center[Z] = HEIGHT*0.5;
-    obb->center.pose = P;
+    obb->center[X] = T.x[X] + _gauss[i].x0;
+    obb->center[Y] = T.x[Y] + _gauss[i].y0;
+    obb->center[Z] = T.x[Z] + HEIGHT*0.5;   
+    obb->center.pose = geom->get_pose();
 
     // setup the OBB half-lengths
     obb->l[X] = _gauss[i].sigma_x*3.0;
@@ -379,7 +401,7 @@ void GaussianMixture::construct_BVs()
     obb->l[Z] = HEIGHT*0.5;
 
     // setup the R matrix
-    obb->R = Matrix3d::rot_Z(_gauss[i].th);
+    obb->R = T.q * Matrix3d::rot_Z(_gauss[i].th);
 
     // add the OBB as a child of the root
     children.push_back(obb);
@@ -398,6 +420,7 @@ void GaussianMixture::construct_BVs()
 
   // setup an OBB over *all* Gaussians
   _root = shared_ptr<OBB>(new OBB(verts.begin(), verts.end()));
+  _root->geom = geom;
   _root->children = children;
 }
 

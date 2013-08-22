@@ -22,6 +22,7 @@
 #include <Moby/XMLTree.h>
 #include <Moby/OBB.h>
 #include <Moby/BoundingSphere.h>
+#include <Moby/CollisionGeometry.h>
 #include <Moby/TriangleMeshPrimitive.h>
 
 using namespace Ravelin;
@@ -97,11 +98,11 @@ void TriangleMeshPrimitive::set_deformable(bool flag)
 {
   Primitive::set_deformable(flag);
 
-  // vertices, mesh, and BVH are no longer valid 
+  // vertices, mesh, and BVHs are no longer valid 
   _mesh = shared_ptr<IndexedTriArray>();
-  _vertices = shared_ptr<vector<Point3d> >();
+  _vertices.clear();
   _mesh_vertices.clear();
-  _root = BVPtr();
+  _roots.clear();
   _invalidated = true;
 }
 
@@ -111,7 +112,7 @@ void TriangleMeshPrimitive::set_edge_sample_length(double len)
   _edge_sample_length = len;
 
   // vertices are no longer valid
-  _vertices = shared_ptr<vector<Point3d> >();
+  _vertices.clear();
   _mesh_vertices.clear();
   _invalidated = true;
 }
@@ -145,7 +146,7 @@ osg::Node* TriangleMeshPrimitive::create_visualization()
     IndexedTriArray mesh = _mesh->transform(T_inv);
 
     // get the vertices and facets
-    const std::vector<Point3d>& verts = mesh.get_vertices();
+    const std::vector<Origin3d>& verts = mesh.get_vertices();
     const std::vector<IndexedTri>& facets = mesh.get_facets();
 
     // create the vertex array
@@ -181,9 +182,6 @@ void TriangleMeshPrimitive::center()
   // we want to transform the mesh so that the inertial pose is coincident
   // with the primitive pose; first, prepare the transformation
   Transform3d T = Pose3d::calc_relative_pose(_jF, _F);
-
-  // mesh is in frame _F and will remain in frame _F (hack Ravelin)
-  T.source = _mesh->get_pose();
 
   // do the transformation
   _mesh = shared_ptr<IndexedTriArray>(new IndexedTriArray(_mesh->transform(T)));
@@ -315,16 +313,10 @@ void TriangleMeshPrimitive::set_mesh(boost::shared_ptr<const IndexedTriArray> me
   _mesh = mesh;
 
   // vertices and bounding volumes are no longer valid
-  _vertices = shared_ptr<vector<Point3d> >();
+  _vertices.clear();
   _mesh_vertices.clear();
-  _root = BVPtr();
+  _roots.clear();;
   _invalidated = true;
-
-  // map pointers to vertices
-  _mesh_vertex_map.clear();
-  const vector<Point3d>& verts = _mesh->get_vertices();
-  for (unsigned i=0; i< verts.size(); i++)
-    _mesh_vertex_map[&verts[i]] = i;
 
   // recalculate the mass properties
   if (!is_deformable())
@@ -357,7 +349,7 @@ void TriangleMeshPrimitive::calc_mass_properties()
   const IndexedTriArray* mesh = NULL;
   if (_convexify_inertia)
   {
-    const vector<Point3d>& verts = _mesh->get_vertices();
+    const vector<Origin3d>& verts = _mesh->get_vertices();
     poly = CompGeom::calc_convex_hull(verts.begin(), verts.end());
     mesh = &poly->get_mesh();
   }
@@ -366,7 +358,7 @@ void TriangleMeshPrimitive::calc_mass_properties()
 
   // get triangles
   std::list<Triangle> tris;
-  mesh->get_tris(std::back_inserter(tris));
+  mesh->get_tris(std::back_inserter(tris), get_pose());
 
   // compute the centroid of the triangle mesh
   _jF->x = CompGeom::calc_centroid_3D(tris.begin(), tris.end());
@@ -414,13 +406,14 @@ void TriangleMeshPrimitive::calc_mass_properties()
 }
 
 /// Gets the pointer to the root bounding box
-BVPtr TriangleMeshPrimitive::get_BVH_root()
+BVPtr TriangleMeshPrimitive::get_BVH_root(CollisionGeometryPtr geom)
 {
   // build the bounding box if necessary
-  if (!_root)
-    build_BB_tree();
+  BVPtr& root = _roots[geom]; 
+  if (root)
+    build_BB_tree(geom);
 
-  return _root; 
+  return root; 
 }
 
 /// Determines whether the point on a thick triangle is degenerate
@@ -704,9 +697,9 @@ bool TriangleMeshPrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double&
 /// Gets vertices corresponding to the bounding volume
 void TriangleMeshPrimitive::get_vertices(BVPtr bv, vector<const Point3d*>& vertices) 
 {
-  // if there are no vertices, we need to build them
-  if (!_vertices)
-    build_BB_tree();
+  // get the vertices for this geometry
+  shared_ptr<vector<Point3d> >& verts = _vertices[bv->geom];
+  assert(verts);
 
   // get the mesh covered by the BV
   map<BVPtr, list<unsigned> >::const_iterator v_iter = _mesh_vertices.find(bv);
@@ -714,7 +707,7 @@ void TriangleMeshPrimitive::get_vertices(BVPtr bv, vector<const Point3d*>& verti
 
   // get the vertex indices
   for (list<unsigned>::const_iterator i = vlist.begin(); i != vlist.end(); i++)
-    vertices.push_back(&(*_vertices)[*i]);
+    vertices.push_back(&(*verts)[*i]);
 }
 
 /// Transforms this primitive
@@ -743,9 +736,9 @@ void TriangleMeshPrimitive::set_pose(const Pose3d& p)
     _mesh = shared_ptr<IndexedTriArray>(new IndexedTriArray(_mesh->transform(T)));
 
   // vertices and bounding volumes are no longer valid
-  _vertices = shared_ptr<vector<Point3d> >();
+  _vertices.clear();
   _mesh_vertices.clear();
-  _root = BVPtr();
+  _roots.clear();
   _invalidated = true;
 
   // recalculate the mass properties
@@ -760,20 +753,48 @@ void TriangleMeshPrimitive::set_pose(const Pose3d& p)
 /*
  * \return the root of the bounding box tree
  */
-void TriangleMeshPrimitive::build_BB_tree()
+void TriangleMeshPrimitive::build_BB_tree(CollisionGeometryPtr geom)
 {
   const unsigned THREE_D = 3;
   BVPtr child1, child2;
 
   FILE_LOG(LOG_BV) << "TriangleMeshPrimitive::build_BB_tree() entered" << endl;
 
-  // clear any existing data
-  _mesh_tris.clear();
-  _mesh_vertices.clear();
-  _tris.clear();
+  // clear any existing data for BVs for this geometry
+  BVPtr& geom_root = _roots[geom];
+  if (geom_root)
+  {
+    std::queue<BVPtr> q;
+    q.push(geom_root);
+    while (!q.empty())
+    {
+      // get the bv off of the front of the queue
+      BVPtr bv = q.front();
+      q.pop();
+
+      // add children of the bv to the queue
+      BOOST_FOREACH(BVPtr child, bv->children)
+        q.push(child);
+
+      // clear data associated with this bv
+      _mesh_tris.erase(bv);
+      _mesh_vertices.erase(bv);
+      _tris.erase(bv);
+    }
+  }
 
   // get the vertices from the mesh
-  const vector<Point3d>& vertices = _mesh->get_vertices();
+  const vector<Origin3d>& verts = _mesh->get_vertices();
+
+ // create a new pose that will be defined relative to the geometry
+  shared_ptr<Pose3d> T(new Pose3d);
+  *T = *get_pose();
+  T->update_relative_pose(geom->get_pose());
+
+  // transform the vertices into Point3d objects
+  vector<Point3d> vertices(verts.size());
+  for (unsigned i=0; i< verts.size(); i++)
+    vertices[i] = Point3d(verts[i], T);
 
   // build an BV around all vertices 
   BVPtr root;
@@ -781,6 +802,9 @@ void TriangleMeshPrimitive::build_BB_tree()
     root = BVPtr(new OBB(vertices.begin(), vertices.end()));
   else
     root = BVPtr(new BoundingSphere(vertices.begin(), vertices.end()));
+
+  // point the root to the geometry
+  root->geom = geom;
 
   // set root to point to all facet indices
   list<unsigned> tris_idx;
@@ -852,7 +876,7 @@ void TriangleMeshPrimitive::build_BB_tree()
     {
       try
       {
-        ttris1.push_back(shared_ptr<AThickTri>(new AThickTri(_mesh->get_triangle(idx), _intersection_tolerance)));
+        ttris1.push_back(shared_ptr<AThickTri>(new AThickTri(_mesh->get_triangle(idx, get_pose()), _intersection_tolerance)));
         ttris1.back()->mesh = _mesh;
         ttris1.back()->tri_idx = idx;
       }
@@ -868,7 +892,7 @@ void TriangleMeshPrimitive::build_BB_tree()
     {
       try
       {
-        ttris2.push_back(shared_ptr<AThickTri>(new AThickTri(_mesh->get_triangle(idx), _intersection_tolerance)));
+        ttris2.push_back(shared_ptr<AThickTri>(new AThickTri(_mesh->get_triangle(idx, get_pose()), _intersection_tolerance)));
         ttris2.back()->mesh = _mesh;
         ttris2.back()->tri_idx = idx;
       }
@@ -964,7 +988,7 @@ void TriangleMeshPrimitive::build_BB_tree()
   }
 
   // save the root
-  _root = root;
+  geom_root = root;
 
   // output how many triangles are in each bounding box
   if (LOGGING(LOG_BV))
@@ -993,7 +1017,7 @@ void TriangleMeshPrimitive::build_BB_tree()
   }
 
   // build set of mesh vertices
-  construct_mesh_vertices(_mesh);
+  construct_mesh_vertices(_mesh, geom, T);
 
   FILE_LOG(LOG_BV) << "Primitive::build_BB_tree() exited" << endl;
 }
@@ -1005,28 +1029,31 @@ void TriangleMeshPrimitive::set_intersection_tolerance(double tol)
 
   // mesh, vertices, and BVH are no longer valid
   _mesh = shared_ptr<IndexedTriArray>();
-  _vertices = shared_ptr<vector<Point3d> >();
+  _vertices.clear();
   _mesh_vertices.clear();
-  _root = BVPtr();
+  _roots.clear();
 }
 
 /// Creates the set of mesh vertices
-void TriangleMeshPrimitive::construct_mesh_vertices(shared_ptr<const IndexedTriArray> mesh)
+void TriangleMeshPrimitive::construct_mesh_vertices(shared_ptr<const IndexedTriArray> mesh, CollisionGeometryPtr geom, shared_ptr<const Pose3d> P)
 {
   const unsigned EDGES_PER_TRI = 3;
 
-  // clear the map of mesh vertices
-  _mesh_vertices.clear();
-
   // get the sets of vertices and facets from the mesh
-  const vector<Point3d>& mesh_vertices = mesh->get_vertices();
+  const vector<Origin3d>& mesh_vertices = mesh->get_vertices();
   const vector<IndexedTri>& mesh_facets = mesh->get_facets();
 
   // also, we'll need the vertex-to-facet map
   vector<list<unsigned> > vf_map = mesh->determine_vertex_facet_map();
 
   // create a new vector of vertices
-  _vertices = shared_ptr<vector<Point3d> >(new vector<Point3d>(mesh_vertices));
+  shared_ptr<vector<Point3d> >& vertices = _vertices[geom];
+  if (!vertices)
+    vertices = shared_ptr<vector<Point3d> >(new vector<Point3d>(mesh_vertices.size()));
+  else
+    vertices->resize(mesh_vertices.size());
+  for (unsigned i=0; i< mesh_vertices.size(); i++)
+    (*vertices)[i] = Point3d(mesh_vertices[i], P);
 
   // now, modify the vertices based on the intersection tolerance
   for (unsigned i=0; i< mesh_vertices.size(); i++)
@@ -1035,11 +1062,11 @@ void TriangleMeshPrimitive::construct_mesh_vertices(shared_ptr<const IndexedTriA
     const list<unsigned>& ifacets = vf_map[i];
 
     // setup the current normal
-    Vector3d normal = Vector3d::zero();
+    Vector3d normal = Vector3d::zero(P);
 
     // add all coincident normals together, then normalize
     BOOST_FOREACH(unsigned j, ifacets)
-      normal += mesh->get_triangle(j).calc_normal();
+      normal += mesh->get_triangle(j, P).calc_normal();
 
     // if we can't normalize, skip this vertex 
     if (normal.norm() < NEAR_ZERO)
@@ -1048,7 +1075,7 @@ void TriangleMeshPrimitive::construct_mesh_vertices(shared_ptr<const IndexedTriA
     // otherwise, normalize the normal and add intersection tolerance (in dir
     // of normal) to vertex i
     normal.normalize();
-    (*_vertices)[i] += normal*_intersection_tolerance;
+    (*vertices)[i] += normal*_intersection_tolerance;
   }
 
   // now, add additional samples based on edges in the mesh
@@ -1078,14 +1105,14 @@ void TriangleMeshPrimitive::construct_mesh_vertices(shared_ptr<const IndexedTriA
           unsigned vi = q.front().first;
           unsigned vj = q.front().second;
           q.pop();
-          const Point3d& v1 = (*_vertices)[vi];
-          const Point3d& v2 = (*_vertices)[vj];
+          const Point3d& v1 = (*vertices)[vi];
+          const Point3d& v2 = (*vertices)[vj];
 
           // subdivide, adding a vertex as necessary
           if ((v1-v2).norm() > _edge_sample_length)
           {
-            unsigned vk = _vertices->size();
-            _vertices->push_back((v1+v2) * (double) 0.5);
+            unsigned vk = vertices->size();
+            vertices->push_back((v1+v2) * (double) 0.5);
             ess.push_back(vk);
             q.push(make_sorted_pair(vi,vk));
             q.push(make_sorted_pair(vk,vj));
@@ -1131,7 +1158,7 @@ void TriangleMeshPrimitive::construct_mesh_vertices(shared_ptr<const IndexedTriA
 void TriangleMeshPrimitive::split_tris(const Point3d& point, const Vector3d& normal, const IndexedTriArray& orig_mesh, const list<unsigned>& ofacets, list<unsigned>& pfacets, list<unsigned>& nfacets) 
 {
   // get original vertices and facets
-  const vector<Point3d>& vertices = orig_mesh.get_vertices();
+  const vector<Origin3d>& vertices = orig_mesh.get_vertices();
   const vector<IndexedTri>& facets = orig_mesh.get_facets();
 
   // determine the splitting plane: ax + by + cz = d
@@ -1141,10 +1168,15 @@ void TriangleMeshPrimitive::split_tris(const Point3d& point, const Vector3d& nor
   Plane plane(normal, offset);
   BOOST_FOREACH(unsigned i, ofacets)
   {
+    // setup the vertices in the same pose as the normal
+    Point3d pa(vertices[facets[i].a], normal.pose);
+    Point3d pb(vertices[facets[i].b], normal.pose);
+    Point3d pc(vertices[facets[i].c], normal.pose);
+
     // get the three signed distances
-    double sa = plane.calc_signed_distance(vertices[facets[i].a]);
-    double sb = plane.calc_signed_distance(vertices[facets[i].b]);
-    double sc = plane.calc_signed_distance(vertices[facets[i].c]);
+    double sa = plane.calc_signed_distance(pa);
+    double sb = plane.calc_signed_distance(pb);
+    double sc = plane.calc_signed_distance(pc);
     double min_s = std::min(sa, std::min(sb, sc));
     double max_s = std::max(sa, std::max(sb, sc));    
 
@@ -1156,7 +1188,7 @@ void TriangleMeshPrimitive::split_tris(const Point3d& point, const Vector3d& nor
     else
     {
       // triangle is split down the middle; get its centroid
-      Triangle tri(vertices[facets[i].a], vertices[facets[i].b], vertices[facets[i].c]);
+      Triangle tri(pa, pb, pc);
       Point3d tri_centroid = tri.calc_centroid();
       double scent = plane.calc_signed_distance(tri_centroid);
       if (scent > 0)
@@ -1187,7 +1219,7 @@ bool TriangleMeshPrimitive::split(shared_ptr<const IndexedTriArray> mesh, shared
   // determine the centroid of this set of triangles
   list<Triangle> t_tris;
   BOOST_FOREACH(unsigned idx, tris)
-    t_tris.push_back(mesh->get_triangle(idx)); 
+    t_tris.push_back(mesh->get_triangle(idx, source->get_relative_pose())); 
   Point3d centroid = CompGeom::calc_centroid_3D(t_tris.begin(), t_tris.end());
 
   // get the side of the splitting plane of the triangles
@@ -1197,8 +1229,8 @@ bool TriangleMeshPrimitive::split(shared_ptr<const IndexedTriArray> mesh, shared
 
   // get vertices from both meshes
   vector<Point3d> pverts, nverts;
-  get_vertices(*mesh, ptris.begin(), ptris.end(), std::back_inserter(pverts));
-  get_vertices(*mesh, ntris.begin(), ntris.end(), std::back_inserter(nverts));
+  get_vertices(*mesh, ptris.begin(), ptris.end(), std::back_inserter(pverts), centroid.pose);
+  get_vertices(*mesh, ntris.begin(), ntris.end(), std::back_inserter(nverts), centroid.pose);
 
   // create two new BVs 
   if (!is_deformable())
@@ -1211,6 +1243,10 @@ bool TriangleMeshPrimitive::split(shared_ptr<const IndexedTriArray> mesh, shared
     tgt1 = shared_ptr<BoundingSphere>(new BoundingSphere(pverts.begin(), pverts.end()));
     tgt2 = shared_ptr<BoundingSphere>(new BoundingSphere(nverts.begin(), nverts.end()));
   }
+
+  // setup geometry pointers
+  tgt1->geom = source->geom;
+  tgt2->geom = source->geom;
 
   // setup mesh data for the BVs
   _mesh_tris[tgt1] = ptris;

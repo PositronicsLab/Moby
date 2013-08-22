@@ -359,7 +359,7 @@ VectorNd& DeformableBody::get_generalized_forces( VectorNd& f)
 }
 
 /// Converts a force and torque to a generalized force on the body
-VectorNd& DeformableBody::convert_to_generalized_force( SingleBodyPtr body, const SForced& w, const Point3d& p, VectorNd& gf)
+VectorNd& DeformableBody::convert_to_generalized_force(SingleBodyPtr body, const SForced& w, const Point3d& p, VectorNd& gf)
 {
   const unsigned THREE_D = 3, X = 0, Y = 1, Z = 2;
   gf.set_zero(_nodes.size() * THREE_D);
@@ -373,8 +373,12 @@ VectorNd& DeformableBody::convert_to_generalized_force( SingleBodyPtr body, cons
 
   // get (and correct) the barycentric coordinates for p
   double bu, bv, bw;
-  const Tetrahedron& tet = _tetra_mesh->get_tetrahedron(i);
-  tet.determine_barycentric_coords(p, bu, bv, bw);
+
+  // NOTE: the vertices composing the tetrahedral mesh are initialized 
+  // in the global frame elsewhere
+  Tetrahedron tet = _tetra_mesh->get_tetrahedron(i, GLOBAL);
+  Point3d p0 = Pose3d::transform_point(GLOBAL, p);
+  tet.determine_barycentric_coords(p0, bu, bv, bw);
 
   // correct barycentric coordinates
   if (bu < 0.0) bu = 0.0;
@@ -399,9 +403,7 @@ void DeformableBody::reset_accumulators()
   for (unsigned i=0; i< _nodes.size(); i++)
   {
     // reset the force on the node
-    _nodes[i]->f .set_zero()
-
-;
+    _nodes[i]->f.set_zero();
   }
 }
 
@@ -560,7 +562,7 @@ std::ostream& DeformableBody::to_vrml(std::ostream& o, double scale) const
   // now draw each vertex in the original trimesh
   for (unsigned i=0; i< ita->get_vertices().size(); i++)
   {
-    const Point3d& v = ita->get_vertices()[i];
+    const Origin3d& v = ita->get_vertices()[i];
     o << "Transform {" << endl;
     o << "  translation " << v[X] << " " << v[Y] << " " << v[Z] << endl;
     o << "  children Shape {" << endl;
@@ -609,20 +611,19 @@ void DeformableBody::set_mesh(shared_ptr<const IndexedTetraArray> tetra_mesh, sh
   // store the tetrahedra
   _tetrahedra = tetra_mesh->get_tetra();
 
-  // transform the tetrahedral mesh 
-  Transform3d T = Pose3d::calc_relative_pose(tetra_mesh->get_pose(), GLOBAL);
-  _tetra_mesh = make_shared<const IndexedTetraArray>(tetra_mesh->transform(T)); 
+  // store the tetrahedral mesh 
+  _tetra_mesh = tetra_mesh; 
 
   // get the vertices of the meshes
-  const vector<Point3d>& tet_vertices = tetra_mesh->get_vertices();
-  const vector<Point3d>& tri_vertices = tri_mesh->get_mesh()->get_vertices();
+  const vector<Origin3d>& tet_vertices = tetra_mesh->get_vertices();
+  const vector<Origin3d>& tri_vertices = tri_mesh->get_mesh()->get_vertices();
 
   // setup the nodes in the body based on the tetrahedra vertices
   _nodes = vector<shared_ptr<Node> >(tet_vertices.size());
   for (unsigned i=0; i< tet_vertices.size(); i++)
   {
     _nodes[i] = shared_ptr<Node>(new Node);
-    _nodes[i]->x = tet_vertices[i];
+    _nodes[i]->x = Point3d(tet_vertices[i], GLOBAL);
     _nodes[i]->xd = _nodes[i]->xdd = Vector3d(0.0, 0.0, 0.0, GLOBAL);
     _nodes[i]->mass = DEFAULT_MASS;
   }
@@ -640,12 +641,8 @@ void DeformableBody::set_mesh(shared_ptr<const IndexedTetraArray> tetra_mesh, sh
   _vertex_map = vector<VertexMap>(tri_vertices.size());
   for (unsigned i=0; i< tri_vertices.size(); i++)
   {
-    // verify that triangle mesh vertex is in global frame (this is my
-    // assumption, but I'm not sure of the implication if it's false)
-    assert(tri_vertices[i].pose == GLOBAL);
-
     // get the closest tetrahedron
-    unsigned closest = find_closest_tetrahedron(tri_vertices[i]);
+    unsigned closest = find_closest_tetrahedron(Point3d(tri_vertices[i], GLOBAL));
 
     // should be one that is closest
     assert(closest < std::numeric_limits<unsigned>::max());
@@ -658,7 +655,7 @@ void DeformableBody::set_mesh(shared_ptr<const IndexedTetraArray> tetra_mesh, sh
 
     // determine the barycentric coordinates
     double u, v, w;
-    tet.determine_barycentric_coords(tri_vertices[i], u, v, w);
+    tet.determine_barycentric_coords(Point3d(tri_vertices[i], GLOBAL), u, v, w);
 
     // correct barycentric coordinates
     if (u < 0.0) u = 0.0;
@@ -689,7 +686,7 @@ void DeformableBody::set_mesh(shared_ptr<const IndexedTetraArray> tetra_mesh, sh
 void DeformableBody::update_geometries()
 {
   // setup the vertices for the triangle mesh
-  vector<Point3d> vertices(_tri_mesh->get_mesh()->get_vertices().size());
+  vector<Origin3d> vertices(_tri_mesh->get_mesh()->get_vertices().size());
  
   // get the facets for the triangle mesh
   const vector<IndexedTri> facets = _tri_mesh->get_mesh()->get_facets();
@@ -1305,7 +1302,7 @@ AABBPtr DeformableBody::build_AABB_tree(map<BVPtr, list<unsigned> >& aabb_tetra_
 }
 
 /// Splits a collection of tetrahedra along a splitting plane into 2 new meshes 
-void DeformableBody::split_tetra(const Point3d& point, unsigned axis, const list<unsigned>& otetra, list<unsigned>& ptetra, list<unsigned>& ntetra) 
+void DeformableBody::split_tetra(const Origin3d& point, unsigned axis, const list<unsigned>& otetra, list<unsigned>& ptetra, list<unsigned>& ntetra) 
 {
   // determine the splitting plane: ax + by + cz = d
   double offset = point[axis];
@@ -1365,7 +1362,7 @@ bool DeformableBody::split(AABBPtr source, AABBPtr& tgt1, AABBPtr& tgt2, unsigne
   assert(tetra.size() > 1); 
 
   // determine the centroid of this set of tetrahedra
-  Point3d centroid;
+  Origin3d centroid;
   centroid.set_zero();
 
   double total_volume = 0;
@@ -1373,7 +1370,7 @@ bool DeformableBody::split(AABBPtr source, AABBPtr& tgt1, AABBPtr& tgt2, unsigne
   {
     Tetrahedron tet = get_tetrahedron(idx);
     double volume = tet.calc_volume();
-    centroid += Vector3d(tet.calc_centroid())*volume;
+    centroid += Origin3d(tet.calc_centroid())*volume;
     total_volume += volume;
   }
   centroid /= total_volume;
