@@ -29,6 +29,7 @@ class Plane
     Plane operator-() const { return Plane(-_normal, -offset); }
     bool operator==(const Plane& p) const { double dot = _normal.dot(p.get_normal()); return (std::fabs(dot - 1.0) < NEAR_ZERO && std::fabs(offset - p.offset) < NEAR_ZERO); }
     bool operator<(const Plane& p) const;
+    boost::shared_ptr<const Ravelin::Pose3d> get_pose() const { return _normal.pose; }
 
     /// Gets the outward pointing normal to the plane
     const Ravelin::Vector3d& get_normal() const { return _normal; }

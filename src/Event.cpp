@@ -115,8 +115,12 @@ void Event::compute_event_data(MatrixNd& M, VectorNd& q) const
     DynamicBodyPtr su2 = sb2->get_super_body();
 
     // setup the contact frame
+    *_event_frame = *contact_point.pose;
+/*
     _event_frame->q.set_identity();
     _event_frame->x = contact_point;
+*/
+    _event_frame->update_relative_pose(GLOBAL);
 
     // form the normal and tangential forces in contact space
     SForced wn(get_pose()), ws(get_pose()), wt(get_pose());
