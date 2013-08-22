@@ -28,6 +28,7 @@ class ThickTriangle
     Ravelin::Vector3d determine_normal(const Point3d& p) const;
     const std::list<Plane>& planes() const { return _planes; }
     void construct_from_triangle(const Triangle& t, double epsilon);
+    boost::shared_ptr<const Ravelin::Pose3d> get_pose() const;
 
     /// The original triangle  
     Triangle tri;
