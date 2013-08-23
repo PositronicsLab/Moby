@@ -36,12 +36,6 @@ OutputIterator GeneralizedCCD::intersect_BV_leafs(BVPtr a, BVPtr b, const Raveli
   const std::list<unsigned>& a_tris = mdata_a.second;
   const std::list<unsigned>& b_tris = mdata_b.second;
 
-  // NOTE: all meshes are stored in the global frame for efficiency reasons
-  //       so we must hack the transform
-  Ravelin::Transform3d aTb_prime = aTb;
-  aTb_prime.source = GLOBAL; 
-  aTb_prime.target = GLOBAL; 
-
   // do intersections
   BOOST_FOREACH(unsigned a_idx, a_tris)
   {
@@ -55,7 +49,7 @@ OutputIterator GeneralizedCCD::intersect_BV_leafs(BVPtr a, BVPtr b, const Raveli
       Triangle utb = b_mesh.get_triangle(b_idx, aTb.source);
 
       // transform second triangle
-      Triangle tb = Triangle::transform(utb, aTb_prime);
+      Triangle tb = Triangle::transform(utb, aTb);
 
       // see whether triangles intersect
       if (!CompGeom::query_intersect_tri_tri(ta, tb))

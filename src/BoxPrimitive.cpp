@@ -153,10 +153,8 @@ void BoxPrimitive::set_pose(const Pose3d& p)
   // invalidate this primitive (in case it is part of a CSG)
   _invalidated = true;
 
-  // transform vertices
-  if (_vertices)
-    for (unsigned i=0; i< _vertices->size(); i++)
-      (*_vertices)[i] = T.transform_point((*_vertices)[i]);
+  // clear the set of vertices 
+  _vertices.reset();
 
   // transform bounding volumes
   for (map<CollisionGeometryPtr, OBBPtr>::iterator i = _obbs.begin(); i != _obbs.end(); i++)
@@ -191,9 +189,15 @@ void BoxPrimitive::get_vertices(BVPtr bv, vector<const Point3d*>& vertices)
       return;
     }
 
-    // get the transform from the primitive to global coordinates 
-    shared_ptr<const Pose3d> P = get_pose();
-    Transform3d T = Pose3d::calc_relative_pose(P, GLOBAL);
+    // get the pose for the geometry
+    shared_ptr<const Pose3d> gpose = bv->geom->get_pose();
+
+    // create a new pose, which will be defined relative to the geometry's pose 
+    shared_ptr<Pose3d> T(new Pose3d);
+
+    // setup the relative pose for the OBB center
+    *T = *get_pose();
+    T->update_relative_pose(gpose);
 
     // determine the vertices in the mesh
     _vertices = shared_ptr<vector<Point3d> >(new vector<Point3d>());
@@ -204,14 +208,14 @@ void BoxPrimitive::get_vertices(BVPtr bv, vector<const Point3d*>& vertices)
     const double ZLEN = _zlen*(double) 0.5 + _intersection_tolerance;
 
     // add the vertices 
-    _vertices->push_back(T.transform_point(Point3d(XLEN,YLEN,ZLEN,P)));
-    _vertices->push_back(T.transform_point(Point3d(XLEN,YLEN,-ZLEN,P)));
-    _vertices->push_back(T.transform_point(Point3d(XLEN,-YLEN,ZLEN,P)));
-    _vertices->push_back(T.transform_point(Point3d(XLEN,-YLEN,-ZLEN,P)));
-    _vertices->push_back(T.transform_point(Point3d(-XLEN,YLEN,ZLEN,P)));
-    _vertices->push_back(T.transform_point(Point3d(-XLEN,YLEN,-ZLEN,P)));
-    _vertices->push_back(T.transform_point(Point3d(-XLEN,-YLEN,ZLEN,P)));
-    _vertices->push_back(T.transform_point(Point3d(-XLEN,-YLEN,-ZLEN,P)));
+    _vertices->push_back(T->transform_point(Point3d(XLEN,YLEN,ZLEN,T)));
+    _vertices->push_back(T->transform_point(Point3d(XLEN,YLEN,-ZLEN,T)));
+    _vertices->push_back(T->transform_point(Point3d(XLEN,-YLEN,ZLEN,T)));
+    _vertices->push_back(T->transform_point(Point3d(XLEN,-YLEN,-ZLEN,T)));
+    _vertices->push_back(T->transform_point(Point3d(-XLEN,YLEN,ZLEN,T)));
+    _vertices->push_back(T->transform_point(Point3d(-XLEN,YLEN,-ZLEN,T)));
+    _vertices->push_back(T->transform_point(Point3d(-XLEN,-YLEN,ZLEN,T)));
+    _vertices->push_back(T->transform_point(Point3d(-XLEN,-YLEN,-ZLEN,T)));
     
     // now we want to add vertices by subdividing edges
     // note: these edges come from facets in get_mesh()
@@ -417,6 +421,7 @@ BVPtr BoxPrimitive::get_BVH_root(CollisionGeometryPtr geom)
   {
     // create the bounding box
     obb = shared_ptr<OBB>(new OBB);
+    obb->geom = geom;
 
     // get the pose for the geometry
     shared_ptr<const Pose3d> gpose = geom->get_pose();

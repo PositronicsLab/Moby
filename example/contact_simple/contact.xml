@@ -25,10 +25,10 @@
       <Body body-id="ground" />
     </CC2ACCD>
 
-    <!--GeneralizedCCD id="ccd" eps-tolerance="1e-3" toi-tolerance="1e-3">
+    <GeneralizedCCD id="ccd" eps-tolerance="1e-3" toi-tolerance="1e-3">
       <Body body-id="box" />
       <Body body-id="ground" />
-    </GeneralizedCCD-->
+    </GeneralizedCCD>
 
     <!-- Gravity force -->
     <GravityForce id="gravity" accel="0 -9.81 0"  />
@@ -46,7 +46,7 @@
       </RigidBody>
 
     <!-- Setup the simulator -->
-    <EventDrivenSimulator id="simulator" integrator-id="rk4" collision-detector-id="dcd">
+    <EventDrivenSimulator id="simulator" integrator-id="rk4" collision-detector-id="ccd">
       <DynamicBody dynamic-body-id="box" />
       <DynamicBody dynamic-body-id="ground" />
       <RecurrentForce recurrent-force-id="gravity"  />

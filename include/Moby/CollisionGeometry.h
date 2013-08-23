@@ -33,6 +33,8 @@ class SingleBody;
  */
 class CollisionGeometry : public virtual Base
 {
+  friend class GeneralizedCCD;
+
   public:
     CollisionGeometry();
     void set_relative_pose(const Ravelin::Pose3d& pose);  
