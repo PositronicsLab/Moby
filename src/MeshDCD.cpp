@@ -875,9 +875,9 @@ void MeshDCD::determine_contacts_rigid(CollisionGeometryPtr a, CollisionGeometry
         contacts.push_back(create_contact(t0, a, b, p, vB_b, tA));
 
       // calculate intersections between vertex c of B and triangle A
-      t = calc_first_isect(tA, LineSeg3(tB.c, pBc), p);
-      if (t <= 1.0)
-        contacts.push_back(create_contact(t, a, b, p, vB_c, tA));
+      t0 = calc_first_isect(tA, LineSeg3(tB.c, pBc), p);
+      if (t0 <= 1.0)
+        contacts.push_back(create_contact(t0, a, b, p, vB_c, tA));
     }
   }
 }
@@ -1014,12 +1014,15 @@ Event MeshDCD::create_contact(double toi, CollisionGeometryPtr a, CollisionGeome
   e.t = toi;
   e.contact_geom1 = a;
   e.contact_geom2 = b;
-  e.contact_point = p;
+  e.contact_point = Pose3d::transform_point(GLOBAL, p);
   e.contact_normal = t.calc_normal();
 
   // see whether to reverse the normal
   if (pdot.dot(e.contact_normal) > 0)
     e.contact_normal = -e.contact_normal;
+
+  // transform the normal
+  e.contact_normal = Pose3d::transform_vector(GLOBAL, e.contact_normal);
 
   return e;
 }

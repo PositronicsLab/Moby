@@ -114,19 +114,29 @@ void Event::compute_event_data(MatrixNd& M, VectorNd& q) const
     DynamicBodyPtr su1 = sb1->get_super_body();
     DynamicBodyPtr su2 = sb2->get_super_body();
 
-    // setup the contact frame
-    *_event_frame = *contact_point.pose;
-/*
+    // verify the contact point, normal, and tangents are in the global frame
+    assert(contact_point.pose == GLOBAL);
+    assert(contact_normal.pose == GLOBAL);
+    assert(contact_tan1.pose == GLOBAL);
+    assert(contact_tan2.pose == GLOBAL);
+
+    // setup the impulse frame
     _event_frame->q.set_identity();
     _event_frame->x = contact_point;
-*/
-    _event_frame->update_relative_pose(GLOBAL);
 
     // form the normal and tangential forces in contact space
-    SForced wn(get_pose()), ws(get_pose()), wt(get_pose());
-    wn.set_force(contact_normal);
-    ws.set_force(contact_tan1); 
-    wt.set_force(contact_tan2);
+    SForced wne, wse, wte;
+    wne.pose = _event_frame;
+    wse.pose = _event_frame;
+    wte.pose = _event_frame;
+    wne.set_force(contact_normal);
+    wse.set_force(contact_tan1); 
+    wte.set_force(contact_tan2);
+
+    // transform forces to global frame
+    SForced wn = Pose3d::transform(GLOBAL, wne);
+    SForced ws = Pose3d::transform(GLOBAL, wse);
+    SForced wt = Pose3d::transform(GLOBAL, wte);
 
     // get the numbers of generalized coordinates for the two super bodies
     const unsigned NGC1 = su1->num_generalized_coordinates(DynamicBody::eSpatial);
@@ -145,14 +155,21 @@ void Event::compute_event_data(MatrixNd& M, VectorNd& q) const
     SharedVectorNd J2t = J2.row(T); 
 
     // compute the Jacobians for the two bodies
-    su1->calc_jacobian(_event_frame, sb1, vel);
+    su1->calc_jacobian(get_pose(), sb1, vel);
     transpose_mult(vel, wn, J1n); 
     transpose_mult(vel, ws, J1s); 
     transpose_mult(vel, wt, J1t); 
-    su2->calc_jacobian(_event_frame, sb2, vel);
+    su2->calc_jacobian(get_pose(), sb2, vel);
     transpose_mult(vel, -wn, J2n); 
     transpose_mult(vel, -ws, J2s); 
     transpose_mult(vel, -wt, J2t); 
+
+    FILE_LOG(LOG_EVENT) << "Event: " << std::endl << *this;
+    FILE_LOG(LOG_EVENT) << "normal (global frame): " << wn << std::endl;
+    FILE_LOG(LOG_EVENT) << "tangent 1 (global frame): " << ws << std::endl;
+    FILE_LOG(LOG_EVENT) << "tangent 2 (global frame): " << wt << std::endl;
+    FILE_LOG(LOG_EVENT) << "Contact Jacobian for body " << su1->id << ": " << std::endl << J1;
+    FILE_LOG(LOG_EVENT) << "Contact Jacobian for body " << su2->id << ": " << std::endl << J2;
 
     // compute the event inertia matrix for the first body
     su1->transpose_solve_generalized_inertia(J1, workM1);
@@ -366,11 +383,11 @@ void Event::compute_cross_contact_contact_event_data(const Event& e, MatrixNd& M
   wt.set_force(contact_tan2);
 
   // compute the Jacobians for the first two bodies
-  sua1->calc_jacobian(_event_frame, sba1, vel);
+  sua1->calc_jacobian(get_pose(), sba1, vel);
   transpose_mult(vel, wn, JA1n); 
   transpose_mult(vel, ws, JA1s); 
   transpose_mult(vel, wt, JA1t); 
-  sua2->calc_jacobian(_event_frame, sba2, vel);
+  sua2->calc_jacobian(get_pose(), sba2, vel);
   transpose_mult(vel, -wn, JA2n); 
   transpose_mult(vel, -ws, JA2s); 
   transpose_mult(vel, -wt, JA2t); 
@@ -379,16 +396,16 @@ void Event::compute_cross_contact_contact_event_data(const Event& e, MatrixNd& M
   _event_frame->x = e.contact_point;
 
   // form the normal and tangential forces in contact space
-  wn.set_force(e.contact_normal);
-  ws.set_force(e.contact_tan1);
-  wt.set_force(e.contact_tan2);
+  wn.set_force(contact_normal);
+  ws.set_force(contact_tan1);
+  wt.set_force(contact_tan2);
 
   // compute the Jacobians for the second two bodies
-  sub1->calc_jacobian(_event_frame, sbb1, vel);
+  sub1->calc_jacobian(get_pose(), sbb1, vel);
   transpose_mult(vel, wn, JB1n); 
   transpose_mult(vel, ws, JB1s); 
   transpose_mult(vel, wt, JB1t); 
-  sub2->calc_jacobian(_event_frame, sbb2, vel);
+  sub2->calc_jacobian(get_pose(), sbb2, vel);
   transpose_mult(vel, -wn, JB2n); 
   transpose_mult(vel, -ws, JB2s); 
   transpose_mult(vel, -wt, JB2t); 
@@ -481,11 +498,6 @@ void Event::compute_cross_contact_limit_event_data(const Event& e, MatrixNd& M) 
   wn.set_force(contact_normal);
   ws.set_force(contact_tan1);
   wt.set_force(contact_tan2);
-
-  // setup the pose for the contact frame
-  wn.pose = _event_frame;
-  ws.pose = _event_frame;
-  wt.pose = _event_frame;
 
   // get the numbers of generalized coordinates for the two super bodies
   const unsigned NGC1 = su1->num_generalized_coordinates(DynamicBody::eSpatial);
@@ -687,7 +699,7 @@ std::ostream& Moby::operator<<(std::ostream& o, const Event& e)
     else
       o << "geom2: (undefined)" << std::endl;
 
-    o << "contact point / normal pose: " << Pose3d(*e.contact_point.pose).update_relative_pose(GLOBAL) << std::endl;
+    o << "contact point / normal pose: " << ((e.contact_point.pose) ? Pose3d(*e.contact_point.pose).update_relative_pose(GLOBAL) : GLOBAL) << std::endl;
     o << "contact point: " << e.contact_point << " frame: " << std::endl;
     o << "normal: " << e.contact_normal << " frame: " << std::endl;
 
