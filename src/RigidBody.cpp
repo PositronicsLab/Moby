@@ -148,20 +148,20 @@ vector<SVelocityd>& RigidBody::calc_jacobian(shared_ptr<const Pose3d> frame, Dyn
   // J will be a 6-dimensional vector
   J.resize(SPATIAL_DIM);
 
-  // setup Jacobian
-  J[0] = SVelocityd(1.0, 0.0, 0.0, 0.0, 0.0, 0.0, _jF);
-  J[1] = SVelocityd(0.0, 1.0, 0.0, 0.0, 0.0, 0.0, _jF);
-  J[2] = SVelocityd(0.0, 0.0, 1.0, 0.0, 0.0, 0.0, _jF);
-  J[3] = SVelocityd(0.0, 0.0, 0.0, 1.0, 0.0, 0.0, _jF);
-  J[4] = SVelocityd(0.0, 0.0, 0.0, 0.0, 1.0, 0.0, _jF);
-  J[5] = SVelocityd(0.0, 0.0, 0.0, 0.0, 0.0, 1.0, _jF);
+  // setup Jacobian -- linear components will be first
+  J[0] = SVelocityd(0.0, 0.0, 0.0, 1.0, 0.0, 0.0, _jF);
+  J[1] = SVelocityd(0.0, 0.0, 0.0, 0.0, 1.0, 0.0, _jF);
+  J[2] = SVelocityd(0.0, 0.0, 0.0, 0.0, 0.0, 1.0, _jF);
+  J[3] = SVelocityd(1.0, 0.0, 0.0, 0.0, 0.0, 0.0, _jF);
+  J[4] = SVelocityd(0.0, 1.0, 0.0, 0.0, 0.0, 0.0, _jF);
+  J[5] = SVelocityd(0.0, 0.0, 1.0, 0.0, 0.0, 0.0, _jF);
 
   // transform J to given pose 
   for (unsigned i=0; i< SPATIAL_DIM; i++) 
     J[i] = Pose3d::transform(frame, J[i]);
 
   FILE_LOG(LOG_DYNAMICS) << "RigidBody::calc_jacobian() entered" << std::endl;
-  FILE_LOG(LOG_DYNAMICS) << "  pose: " << Pose3d(*frame).update_relative_pose(GLOBAL) << std::endl;
+  FILE_LOG(LOG_DYNAMICS) << "  pose: " << ((frame) ? Pose3d(*frame).update_relative_pose(GLOBAL) : GLOBAL) << std::endl;
   if (LOGGING(LOG_DYNAMICS))
     for (unsigned i=0; i< SPATIAL_DIM; i++)
       FILE_LOG(LOG_DYNAMICS) << " Jacobian column: " << J[i] << std::endl; 

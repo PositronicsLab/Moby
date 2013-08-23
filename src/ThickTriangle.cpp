@@ -59,8 +59,11 @@ void ThickTriangle::construct_from_triangle(const Triangle& tri, double epsilon)
 }
 
 /// Determines the normal to this thick triangle
-Vector3d ThickTriangle::determine_normal(const Point3d& p) const
+Vector3d ThickTriangle::determine_normal(const Point3d& point) const
 {
+  // convert the point to the thick triangle's space
+  Point3d p = Pose3d::transform_point(get_pose(), point);
+
   std::list<Plane>::const_reverse_iterator i = _planes.rbegin();
 
   // determine which plane is closest -- the negative plane
@@ -77,8 +80,11 @@ Vector3d ThickTriangle::determine_normal(const Point3d& p) const
 /// Determines whether a point is on or inside a thick triangle
 bool ThickTriangle::point_inside(const Point3d& point) const
 {
+  // convert the point to the thick triangle's space
+  Point3d p = Pose3d::transform_point(get_pose(), point);
+
   BOOST_FOREACH(const Plane& plane, _planes)
-    if (plane.calc_signed_distance(point) >= 0.0)
+    if (plane.calc_signed_distance(p) >= 0.0)
       return false;
 
   return true;
@@ -164,7 +170,7 @@ bool ThickTriangle::intersect_seg(const LineSeg3& seg, double& tnear, Point3d& i
   }
 
   // still here?  successful intersection
-  isect = p0 + dir*tnear;
+  isect = Pose3d::transform_point(seg.first.pose, p0 + dir*tnear);
 
   FILE_LOG(LOG_COLDET) << "  point of intersection: " << isect << endl;
   FILE_LOG(LOG_COLDET) << "ThickTriangle::intersect_seg() exited" << endl;
