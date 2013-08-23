@@ -993,8 +993,8 @@ double GeneralizedCCD::determine_TOI(double t0, double tf, const DStruct* ds, Po
     const double sb = tb/(tf-t0);
 
     // determine point u at times ta and tb in frame s
-    Point3d ua(Transform3d::interpolate_transform_vector(sTb_t0, sTb_tf, sa, Origin3d(ds->u_b)), gs->get_pose());
-    Point3d ub(Transform3d::interpolate_transform_vector(sTb_t0, sTb_tf, sb, Origin3d(ds->u_b)), gs->get_pose());
+    Point3d ua(Transform3d::interpolate_transform_point(sTb_t0, sTb_tf, sa, Origin3d(ds->u_b)), gs->get_pose());
+    Point3d ub(Transform3d::interpolate_transform_point(sTb_t0, sTb_tf, sb, Origin3d(ds->u_b)), gs->get_pose());
 
     FILE_LOG(LOG_COLDET) << " -- checking segment for time [" << ta << ", " << tb << "]" << endl;
     FILE_LOG(LOG_COLDET) << "  p(" << ta << ") = " << ua << "  p(" << tb << ") ~= " << ub << endl;
@@ -1136,8 +1136,8 @@ double GeneralizedCCD::determine_TOI(double t0, double tf, const DStruct* ds, Po
 bool GeneralizedCCD::bound_u(const Vector3d& u, const Quatd& q0, const Quatd& qf, Vector3d& normal1, Vector3d& normal2)
 {
   // compute the rotated u
-  Vector3d u0(q0*Origin3d(u), u.pose);
-  Vector3d uf(qf*Origin3d(u), u.pose);
+  Vector3d u0(q0*Origin3d(u), normal1.pose);
+  Vector3d uf(qf*Origin3d(u), normal1.pose);
 
   // determine a vector perpendicular to both
   Vector3d perp = Vector3d::cross(u0, uf);
@@ -1169,7 +1169,7 @@ double GeneralizedCCD::calc_deviation(double alpha, void* params)
   Quatd q = Quatd::lerp(data.q1, data.q2, alpha);
 
   // do the arithmetic
-  return Vector3d::dot(data.d, Vector3d(q*Origin3d(data.u), data.u.pose));
+  return Vector3d::dot(data.d, Vector3d(q*Origin3d(data.u), data.d.pose));
 }
 
 /// Computes the minimum deviation over interval [0,1] using bracketing and Brent's method
