@@ -13,6 +13,7 @@
 #include <boost/algorithm/string.hpp>
 #include <Ravelin/LinAlgd.h>
 #include <Moby/XMLTree.h>
+#include <Moby/CollisionGeometry.h>
 #include <Moby/CSG.h>
 
 using std::endl;
@@ -958,9 +959,13 @@ void CSG::get_vertices(BVPtr bv, vector<const Point3d*>& vertices)
   // if the vector of vertices is NULL, compute it
   if (!_vertices)
   {
-    // get the transform from the current pose of the CSG to the global frame
-    shared_ptr<const Pose3d> P = get_pose();
-    Transform3d T = Pose3d::calc_relative_pose(P, GLOBAL);
+    // get the pose for the geometry
+    shared_ptr<const Pose3d> gpose = bv->geom->get_pose();
+
+    // create a new pose, which will be defined relative to the geometry's base
+    shared_ptr<Pose3d> T(new Pose3d);
+    *T = *get_pose();
+    T->update_relative_pose(gpose);
 
     // get the BVHs
     BVPtr bv1 = _op1->get_BVH_root(bv->geom);
@@ -976,6 +981,7 @@ void CSG::get_vertices(BVPtr bv, vector<const Point3d*>& vertices)
       _op1->get_vertices(bv1, v1);
       _op2->get_vertices(bv2, v2);
 
+      // transform the vertices
       BOOST_FOREACH(const Point3d* v, v1)
         _vertices->push_back(*v);
       BOOST_FOREACH(const Point3d* v, v2)
@@ -1025,7 +1031,7 @@ void CSG::get_vertices(BVPtr bv, vector<const Point3d*>& vertices)
 
     // transform all vertices using the current transform of the CSG
     for (unsigned i=0; i< _vertices->size(); i++)
-      (*_vertices)[i] = T.transform_point((*_vertices)[i]);
+      (*_vertices)[i] = T->transform_point((*_vertices)[i]);
 
     // clear validation flags for both operands
     _op1->_invalidated = _op2->_invalidated = false;

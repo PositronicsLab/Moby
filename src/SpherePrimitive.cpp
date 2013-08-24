@@ -170,10 +170,8 @@ void SpherePrimitive::set_pose(const Pose3d& p)
     _smesh.first = _mesh;
   }
 
-  // transform vertices
-  if (_vertices)
-    for (unsigned i=0; i< _vertices->size(); i++)
-      (*_vertices)[i] = T.transform_point((*_vertices)[i]);
+  // clear the vertices
+  _vertices.reset();
 
   // invalidate this primitive
   _invalidated = true;
@@ -215,7 +213,6 @@ shared_ptr<const IndexedTriArray> SpherePrimitive::get_mesh()
 
     // get the translation for the transform
     shared_ptr<const Pose3d> T = get_pose();
-    const Origin3d& xlat = T->x;
 
     // determine the vertices in the mesh
     // NOTE: they will all be defined in the global frame
@@ -228,7 +225,7 @@ shared_ptr<const IndexedTriArray> SpherePrimitive::get_mesh()
       const double R = std::sqrt((double) 1.0 - Y*Y);
       const double PHI = k * INC;
       Vector3d unit(std::cos(PHI)*R, Y, std::sin(PHI)*R);
-      points.push_back(xlat + unit*_radius);
+      points.push_back(T->transform_point(unit*_radius));
     }
 
     // compute the convex hull
@@ -269,9 +266,13 @@ void SpherePrimitive::get_vertices(BVPtr bv, std::vector<const Point3d*>& vertic
       return;
     }
 
+    // get the pose for the geometry
+    shared_ptr<const Pose3d> gpose = bv->geom->get_pose();
+
     // get the translation for the transform
-    shared_ptr<const Pose3d> T = get_pose();
-    const Origin3d& xlat = T->x;
+    shared_ptr<Pose3d> T(new Pose3d);
+    *T = *get_pose();
+    T->update_relative_pose(gpose); 
 
     // determine the vertices in the mesh
     // NOTE: they will all be defined in the global frame
@@ -283,8 +284,8 @@ void SpherePrimitive::get_vertices(BVPtr bv, std::vector<const Point3d*>& vertic
       const double Y = k * OFF - (double) 1.0 + (OFF * (double) 0.5);
       const double R = std::sqrt((double) 1.0 - Y*Y);
       const double PHI = k * INC;
-      Vector3d unit(std::cos(PHI)*R, Y, std::sin(PHI)*R);
-      (*_vertices)[k] = xlat + unit*(_radius + _intersection_tolerance);
+      Vector3d unit(std::cos(PHI)*R, Y, std::sin(PHI)*R, T);
+      (*_vertices)[k] = T->transform_point(unit*(_radius + _intersection_tolerance));
     }
   }
 
@@ -362,6 +363,7 @@ BVPtr SpherePrimitive::get_BVH_root(CollisionGeometryPtr geom)
   {
     // create the sphere
     bsph = shared_ptr<BoundingSphere>(new BoundingSphere);
+    bsph->geom = geom;
 
     // get the pose for the geometry
     shared_ptr<const Pose3d> gpose = geom->get_pose();

@@ -377,10 +377,18 @@ void Event::compute_cross_contact_contact_event_data(const Event& e, MatrixNd& M
   _event_frame->x = contact_point;
 
   // form the normal and tangential forces in contact space
-  SForced wn(get_pose()), ws(get_pose()), wt(get_pose());
-  wn.set_force(contact_normal);
-  ws.set_force(contact_tan1);
-  wt.set_force(contact_tan2);
+  SForced wne, wse, wte;
+  wne.pose = _event_frame;
+  wse.pose = _event_frame;
+  wte.pose = _event_frame;
+  wne.set_force(contact_normal);
+  wse.set_force(contact_tan1); 
+  wte.set_force(contact_tan2);
+
+  // transform forces to global frame
+  SForced wn = Pose3d::transform(GLOBAL, wne);
+  SForced ws = Pose3d::transform(GLOBAL, wse);
+  SForced wt = Pose3d::transform(GLOBAL, wte);
 
   // compute the Jacobians for the first two bodies
   sua1->calc_jacobian(get_pose(), sba1, vel);
@@ -396,9 +404,17 @@ void Event::compute_cross_contact_contact_event_data(const Event& e, MatrixNd& M
   _event_frame->x = e.contact_point;
 
   // form the normal and tangential forces in contact space
-  wn.set_force(contact_normal);
-  ws.set_force(contact_tan1);
-  wt.set_force(contact_tan2);
+  wne.pose = _event_frame;
+  wse.pose = _event_frame;
+  wte.pose = _event_frame;
+  wne.set_force(e.contact_normal);
+  wse.set_force(e.contact_tan1); 
+  wte.set_force(e.contact_tan2);
+
+  // transform forces to global frame
+  wn = Pose3d::transform(GLOBAL, wne);
+  ws = Pose3d::transform(GLOBAL, wse);
+  wt = Pose3d::transform(GLOBAL, wte);
 
   // compute the Jacobians for the second two bodies
   sub1->calc_jacobian(get_pose(), sbb1, vel);

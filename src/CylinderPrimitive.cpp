@@ -310,10 +310,8 @@ void CylinderPrimitive::set_pose(const Pose3d& p)
     _smesh.first = _mesh;
   }
 
-  // transform vertices
-  if (_vertices)
-    for (unsigned i=0; i< _vertices->size(); i++)
-      (*_vertices)[i] = T.transform_point((*_vertices)[i]);
+  // invalidate the vertices
+  _vertices.reset();
 
   // invalidate this primitive
   _invalidated = true;
@@ -383,6 +381,7 @@ BVPtr CylinderPrimitive::get_BVH_root(CollisionGeometryPtr geom)
   {
     // create the bounding box
     obb = shared_ptr<OBB>(new OBB);
+    obb->geom = geom;
 
     // get the pose for the geometry
     shared_ptr<const Pose3d> gpose = geom->get_pose();
@@ -431,9 +430,13 @@ void CylinderPrimitive::get_vertices(BVPtr bv, std::vector<const Point3d*>& vert
       return; 
     }
 
-    // get the current primitive transform
-    shared_ptr<const Pose3d> P = get_pose();
-    Transform3d T = Pose3d::calc_relative_pose(P, GLOBAL);
+    // get the pose for the geometry
+    shared_ptr<const Pose3d> gpose = bv->geom->get_pose();
+
+    // create a new pose, which will be defined relative to the geometry's pose
+    shared_ptr<Pose3d> T(new Pose3d);
+    *T = *get_pose();
+    T->update_relative_pose(gpose);
 
     // create the vector of vertices
     _vertices = shared_ptr<vector<Point3d> >(new vector<Point3d>());
@@ -448,7 +451,7 @@ void CylinderPrimitive::get_vertices(BVPtr bv, std::vector<const Point3d*>& vert
         double THETA = i*(M_PI * (double) 2.0/_npoints);
         const double CT = std::cos(THETA);
         const double ST = std::sin(THETA);
-        _vertices->push_back(T.transform_point(Point3d(CT*R, HEIGHT, ST*R, P)));
+        _vertices->push_back(T->transform_point(Point3d(CT*R, HEIGHT, ST*R, T)));
       }
     }
   }
