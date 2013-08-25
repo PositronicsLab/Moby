@@ -62,7 +62,7 @@ class Primitive : public virtual Base
     virtual void set_deformable(bool flag) { _deformable = flag; }
 
     /// Gets the root bounding volume for this primitive
-    virtual BVPtr get_BVH_root() = 0; 
+    virtual BVPtr get_BVH_root(CollisionGeometryPtr geom) = 0; 
 
     /// Returns whether this primitive is deformable
     bool is_deformable() const { return _deformable; }

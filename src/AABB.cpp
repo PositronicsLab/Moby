@@ -12,6 +12,15 @@ using namespace Moby;
 using std::pair;
 using std::endl;
 
+/// Copies an AABB
+AABB& AABB::operator=(const AABB& a)
+{
+  geom = a.geom;
+  minp = a.minp;
+  maxp = a.maxp;
+  return *this;
+}
+
 /// Determines whether an OBB and a line/ray/line segment intersect
 /**
  * When intersecting, return intersection distance tmin and point q of
@@ -161,6 +170,7 @@ OBB AABB::get_OBB() const
   o.R = IDENTITY_3x3;
   o.center = maxp*0.5 + minp*0.5;
   o.l = maxp*0.5 - minp*0.5;
+  o.geom = geom;
   return o;
 }
 

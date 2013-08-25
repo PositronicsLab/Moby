@@ -12,12 +12,14 @@
 #include <Moby/XMLTree.h>
 #include <Moby/OBB.h>
 #include <Moby/Constants.h>
+#include <Moby/CollisionGeometry.h>
 #include <Moby/BoxPrimitive.h>
 
 using namespace Ravelin;
 using namespace Moby;
 using boost::shared_ptr;
 using boost::dynamic_pointer_cast; 
+using std::map;
 using std::list;
 using std::vector;
 using std::make_pair;
@@ -89,6 +91,8 @@ void BoxPrimitive::set_intersection_tolerance(double tol)
  */
 void BoxPrimitive::set_size(double xlen, double ylen, double zlen)
 {
+  const unsigned X = 0, Y = 1, Z = 2;
+
   _xlen = xlen;
   _ylen = ylen;
   _zlen = zlen;
@@ -103,6 +107,15 @@ void BoxPrimitive::set_size(double xlen, double ylen, double zlen)
 
   // recalculate the mass properties
   calc_mass_properties();
+
+  // set lengths on each OBB
+  for (map<CollisionGeometryPtr, OBBPtr>::iterator i = _obbs.begin(); i != _obbs.end(); i++)
+  {
+    // setup OBB half-lengths
+    i->second->l[X] = _xlen * (double) 0.5;
+    i->second->l[Y] = _ylen * (double) 0.5;
+    i->second->l[Z] = _zlen * (double) 0.5;
+  }
 
   // need to update visualization
   update_visualization();
@@ -127,10 +140,6 @@ void BoxPrimitive::set_pose(const Pose3d& p)
   // determine the transformation from the old pose to the new one 
   Transform3d T = Pose3d::calc_relative_pose(_F, x);
 
-  // "correct" T's source (points will be in global frame)
-  T.source = GLOBAL;
-  T.target = GLOBAL;
-
   // go ahead and set the new transform
   Primitive::set_pose(p);
 
@@ -144,10 +153,26 @@ void BoxPrimitive::set_pose(const Pose3d& p)
   // invalidate this primitive (in case it is part of a CSG)
   _invalidated = true;
 
-  // transform vertices
-  if (_vertices)
-    for (unsigned i=0; i< _vertices->size(); i++)
-      (*_vertices)[i] = T.transform_point((*_vertices)[i]);
+  // clear the set of vertices 
+  _vertices.reset();
+
+  // transform bounding volumes
+  for (map<CollisionGeometryPtr, OBBPtr>::iterator i = _obbs.begin(); i != _obbs.end(); i++)
+  {
+    // get the pose for the geometry
+    shared_ptr<const Pose3d> gpose = i->first->get_pose();
+
+    // create a new pose, which will be defined relative to the geometry's pose 
+    shared_ptr<Pose3d> T(new Pose3d);
+
+    // setup the relative pose for the OBB center
+    *T = *get_pose();
+    T->update_relative_pose(gpose);
+
+    // setup the obb center and orientation
+    i->second->center = Point3d(T->x, gpose);
+    i->second->R = T->q;
+  }
 
   // recalculate the mass properties
   calc_mass_properties();
@@ -164,9 +189,15 @@ void BoxPrimitive::get_vertices(BVPtr bv, vector<const Point3d*>& vertices)
       return;
     }
 
-    // get the transform from the primitive to global coordinates 
-    shared_ptr<const Pose3d> P = get_pose();
-    Transform3d T = Pose3d::calc_relative_pose(P, GLOBAL);
+    // get the pose for the geometry
+    shared_ptr<const Pose3d> gpose = bv->geom->get_pose();
+
+    // create a new pose, which will be defined relative to the geometry's pose 
+    shared_ptr<Pose3d> T(new Pose3d);
+
+    // setup the relative pose for the OBB center
+    *T = *get_pose();
+    T->update_relative_pose(gpose);
 
     // determine the vertices in the mesh
     _vertices = shared_ptr<vector<Point3d> >(new vector<Point3d>());
@@ -177,14 +208,14 @@ void BoxPrimitive::get_vertices(BVPtr bv, vector<const Point3d*>& vertices)
     const double ZLEN = _zlen*(double) 0.5 + _intersection_tolerance;
 
     // add the vertices 
-    _vertices->push_back(T.transform_point(Point3d(XLEN,YLEN,ZLEN,P)));
-    _vertices->push_back(T.transform_point(Point3d(XLEN,YLEN,-ZLEN,P)));
-    _vertices->push_back(T.transform_point(Point3d(XLEN,-YLEN,ZLEN,P)));
-    _vertices->push_back(T.transform_point(Point3d(XLEN,-YLEN,-ZLEN,P)));
-    _vertices->push_back(T.transform_point(Point3d(-XLEN,YLEN,ZLEN,P)));
-    _vertices->push_back(T.transform_point(Point3d(-XLEN,YLEN,-ZLEN,P)));
-    _vertices->push_back(T.transform_point(Point3d(-XLEN,-YLEN,ZLEN,P)));
-    _vertices->push_back(T.transform_point(Point3d(-XLEN,-YLEN,-ZLEN,P)));
+    _vertices->push_back(T->transform_point(Point3d(XLEN,YLEN,ZLEN,T)));
+    _vertices->push_back(T->transform_point(Point3d(XLEN,YLEN,-ZLEN,T)));
+    _vertices->push_back(T->transform_point(Point3d(XLEN,-YLEN,ZLEN,T)));
+    _vertices->push_back(T->transform_point(Point3d(XLEN,-YLEN,-ZLEN,T)));
+    _vertices->push_back(T->transform_point(Point3d(-XLEN,YLEN,ZLEN,T)));
+    _vertices->push_back(T->transform_point(Point3d(-XLEN,YLEN,-ZLEN,T)));
+    _vertices->push_back(T->transform_point(Point3d(-XLEN,-YLEN,ZLEN,T)));
+    _vertices->push_back(T->transform_point(Point3d(-XLEN,-YLEN,-ZLEN,T)));
     
     // now we want to add vertices by subdividing edges
     // note: these edges come from facets in get_mesh()
@@ -374,33 +405,45 @@ void BoxPrimitive::calc_mass_properties()
 }
 
 /// Gets the bounding volume for this plane
-BVPtr BoxPrimitive::get_BVH_root()
+BVPtr BoxPrimitive::get_BVH_root(CollisionGeometryPtr geom)
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
   // box not applicable for deformable bodies 
   if (is_deformable())
-    throw std::runtime_error("BoxPrimitive::get_BVH_root() - primitive unusable for deformable bodies!");
+    throw std::runtime_error("BoxPrimitive::get_BVH_root(CollisionGeometryPtr geom) - primitive unusable for deformable bodies!");
+
+  // get the pointer to the bounding box
+  OBBPtr& obb = _obbs[geom];
 
   // create the bounding box, if necessary
-  if (!_obb)
-    _obb = shared_ptr<OBB>(new OBB);
+  if (!obb)
+  {
+    // create the bounding box
+    obb = shared_ptr<OBB>(new OBB);
+    obb->geom = geom;
 
-  // get the transform
-  shared_ptr<const Pose3d> T = get_pose();
+    // get the pose for the geometry
+    shared_ptr<const Pose3d> gpose = geom->get_pose();
 
-  // setup the center of the OBB 
-  _obb->center = Point3d(T->x, T);
-  
-  // setup the orientation of the OBB
-  _obb->R = T->q;
+    // create a new pose, which will be defined relative to the geometry's pose 
+    shared_ptr<Pose3d> T(new Pose3d);
 
-  // setup OBB half-lengths
-  _obb->l[X] = _xlen * (double) 0.5;
-  _obb->l[Y] = _ylen * (double) 0.5;
-  _obb->l[Z] = _zlen * (double) 0.5;
+    // setup the relative pose for the OBB center
+    *T = *get_pose();
+    T->update_relative_pose(gpose);
 
-  return _obb;
+    // setup the obb center and orientation
+    obb->center = Point3d(T->x, gpose);
+    obb->R = T->q;
+
+    // setup OBB half-lengths
+    obb->l[X] = _xlen * (double) 0.5;
+    obb->l[Y] = _ylen * (double) 0.5;
+    obb->l[Z] = _zlen * (double) 0.5;
+  }
+
+  return obb;
 }
 
 /// Tests whether a point is inside or on the box
@@ -461,7 +504,7 @@ bool BoxPrimitive::point_inside(BVPtr bv, const Point3d& point, Vector3d& normal
   else
   {
     // degenerate normal
-    normal .set_zero();
+    normal.set_zero();
     normal.pose = p.pose;
   }
 

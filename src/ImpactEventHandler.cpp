@@ -56,11 +56,7 @@ void ImpactEventHandler::process_events(const vector<Event>& events)
 
   // apply the method to all contacts
   if (!events.empty())
-  {
-    vector<Event> nev;
-    nev.push_back(events.front());
     apply_model(events);
-  }
   else
     FILE_LOG(LOG_EVENT) << " (no events?!)" << endl;
     
@@ -440,9 +436,9 @@ void ImpactEventHandler::compute_problem_data(EventProblemData& q)
 
     // setup appropriate parts of contact velocities
     data = workv.data();
-    q.Cn_v = *data++;
-    q.Cs_v = *data++;
-    q.Ct_v = *data;
+    q.Cn_v[i] = *data++;
+    q.Cs_v[i] = *data++;
+    q.Ct_v[i] = *data;
 
     // compute cross event data for contact events
     for (unsigned j=i+1; j< q.contact_events.size(); j++)

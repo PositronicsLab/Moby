@@ -16,6 +16,11 @@ SSR::SSR(ForwardIterator begin, ForwardIterator end)
   const unsigned X = 0, Y = 1, Z = 2, THREE_D = 3;
   Ravelin::Vector3d normal;
   boost::shared_ptr<const Ravelin::Pose2d> GLOBAL_2D;
+  boost::shared_ptr<const Ravelin::Pose3d> P;
+
+  // get the pose, if any
+  if (begin != end)
+    P = begin->pose;
 
   // compute the convex hull of the points
   PolyhedronPtr hull = CompGeom::calc_convex_hull(begin, end);
@@ -61,11 +66,10 @@ SSR::SSR(ForwardIterator begin, ForwardIterator end)
   {
     // init the center to origin
     this->center.set_zero();
-    if (begin != end)
-      this->center.pose = begin->pose;
+    this->center.pose = P;
 
     // determine the area and centroid of all triangles
-    const std::vector<Point3d>& verts = hull->get_vertices();
+    const std::vector<Ravelin::Origin3d>& verts = hull->get_vertices();
     unsigned n = hull->get_facets().size();
     double total_area = 0;
     std::vector<double> areas(n);
@@ -73,11 +77,13 @@ SSR::SSR(ForwardIterator begin, ForwardIterator end)
     for (unsigned i=0; i< n; i++)
     {
       const IndexedTri& itri = hull->get_facets()[i];
-      Triangle tri(verts[itri.a], verts[itri.b], verts[itri.c]); 
+      Triangle tri(Point3d(verts[itri.a], P), 
+                   Point3d(verts[itri.b], P), 
+                   Point3d(verts[itri.c], P)); 
       areas[i] = tri.calc_area();
       centroids[i] = (tri.a + tri.b + tri.c);
       total_area += areas[i];
-      this->center += Ravelin::Origin3d(centroids[i]*areas[i]);
+      this->center += centroids[i]*areas[i];
     }
     this->center /= (total_area*3.0);
 
@@ -95,7 +101,7 @@ SSR::SSR(ForwardIterator begin, ForwardIterator end)
         for (unsigned k=0; k< n; k++)
         {
           const IndexedTri& itri = hull->get_facets()[k];
-          Triangle tri(verts[itri.a], verts[itri.b], verts[itri.c]); 
+          Triangle tri(Point3d(verts[itri.a], P), Point3d(verts[itri.b], P), Point3d(verts[itri.c], P)); 
           const Point3d& a = tri.a;
           const Point3d& b = tri.b;
           const Point3d& c = tri.c;

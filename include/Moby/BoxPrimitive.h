@@ -24,7 +24,7 @@ class BoxPrimitive : public Primitive
     void set_size(double xlen, double ylen, double zlen);
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
-    virtual BVPtr get_BVH_root();
+    virtual BVPtr get_BVH_root(CollisionGeometryPtr geom);
     virtual bool point_inside(BVPtr bv, const Point3d& p, Ravelin::Vector3d& normal) const;
     virtual bool intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Ravelin::Vector3d& normal) const;
     virtual const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >& get_sub_mesh(BVPtr bv);
@@ -60,8 +60,8 @@ class BoxPrimitive : public Primitive
     /// Pointer to the vector of vertices (w/transform and intersection tolerance applied), if any
     boost::shared_ptr<std::vector<Point3d> > _vertices;
 
-    /// The bounding volume (surprise, it's just a box)
-    OBBPtr _obb; 
+    /// The bounding volume (no surprise, it's just a box)
+    std::map<CollisionGeometryPtr, OBBPtr> _obbs; 
 
     /// The box lengths
     double _xlen, _ylen, _zlen;

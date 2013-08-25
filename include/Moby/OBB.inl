@@ -264,7 +264,7 @@ OBB OBB::calc_min_volume_OBB(ForwardIterator begin, ForwardIterator end)
   }
 
   // process triangles
-  const std::vector<Point3d>& hull_verts = hull_mesh.get_vertices();
+  const std::vector<Ravelin::Origin3d>& hull_verts = hull_mesh.get_vertices();
   std::vector<Point2d> proj_verts(hull_verts.size());
   for (unsigned i=0; i< hull_mesh.num_tris(); i++)
   {
@@ -273,7 +273,7 @@ OBB OBB::calc_min_volume_OBB(ForwardIterator begin, ForwardIterator end)
       continue;
 
     // determine the plane equation for triangle i
-    Triangle t = hull_mesh.get_triangle(i);
+    Triangle t = hull_mesh.get_triangle(i, P);
     Ravelin::Vector3d normal = t.calc_normal();
     Ravelin::Matrix3d R = CompGeom::calc_3D_to_2D_matrix(normal);
     double offset = CompGeom::determine_3D_to_2D_offset(Ravelin::Origin3d(t.a), R);
@@ -286,11 +286,14 @@ OBB OBB::calc_min_volume_OBB(ForwardIterator begin, ForwardIterator end)
     double min_height = INF, max_height = -INF;
     for (unsigned j=0; j< hull_verts.size(); j++)
     {
+      // get the hull vertex as a Point3d
+      Point3d hv(hull_verts[j], P);
+
       // project the vertex onto the plane containing the triangle
-      proj_verts[j] = CompGeom::to_2D(hull_verts[j], R);
+      proj_verts[j] = CompGeom::to_2D(hv, R);
 
       // compute the projection onto the normal
-      double dot = hull_verts[j].dot(normal) - offset;
+      double dot = hv.dot(normal) - offset;
       if (dot < min_height)
         min_height = dot;
       if (dot > max_height)
@@ -399,7 +402,7 @@ OBB OBB::calc_min_volume_OBB(ForwardIterator begin, ForwardIterator end)
     for (unsigned j=0; j< ivs.size(); j++)
     {
       // determine edge 1
-      Ravelin::Vector3d d1 = hull_verts[ivs[j]] - hull_verts[i];
+      Ravelin::Vector3d d1(hull_verts[ivs[j]] - hull_verts[i], P);
       double d1_len = d1.norm();
       if (d1_len < NEAR_ZERO)
         continue;
@@ -408,7 +411,7 @@ OBB OBB::calc_min_volume_OBB(ForwardIterator begin, ForwardIterator end)
       for (unsigned k=j+1; k< ivs.size(); k++)
       {
         // determine edge 2
-        Ravelin::Vector3d d2 = hull_verts[ivs[k]] - hull_verts[i];
+        Ravelin::Vector3d d2(hull_verts[ivs[k]] - hull_verts[i], P);
         double d2_len = d2.norm();
         if (d2_len < NEAR_ZERO)
           continue;
@@ -421,7 +424,7 @@ OBB OBB::calc_min_volume_OBB(ForwardIterator begin, ForwardIterator end)
         for (unsigned m=k+1; m< ivs.size(); m++)
         {
           // determine edge 3
-          Ravelin::Vector3d d3 = hull_verts[ivs[m]] - hull_verts[i];
+          Ravelin::Vector3d d3(hull_verts[ivs[m]] - hull_verts[i], P);
           double d3_len = d3.norm();
           if (d3_len < NEAR_ZERO)
             continue;
@@ -441,7 +444,7 @@ OBB OBB::calc_min_volume_OBB(ForwardIterator begin, ForwardIterator end)
           for (unsigned n=0; n< hull_verts.size(); n++)
           {
             // get point in frame
-            Point3d pt = hull_verts[n] - hull_verts[i];
+            Point3d pt(hull_verts[n] - hull_verts[i], P);
 
             // determine projections
             double d1_dot = d1.dot(pt);
@@ -469,8 +472,8 @@ OBB OBB::calc_min_volume_OBB(ForwardIterator begin, ForwardIterator end)
           min_box_volume = volume;
 
           // determine minimum corner of the box
-          Point3d corner = hull_verts[i] + d1*d1_min_proj + d2*d2_min_proj + 
-                           d3*d3_min_proj;
+          Point3d corner = Point3d(hull_verts[i], P) + d1*d1_min_proj + 
+                            d2*d2_min_proj + d3*d3_min_proj;
 
           // setup the new minimum box
           min_box.R.set_column(X, d1);
@@ -510,11 +513,15 @@ OBB::OBB(ForwardIterator begin, ForwardIterator end)
   Ravelin::Vector3d normal;
   std::list<Ravelin::Vector3d> test;
   std::set<Ravelin::Vector3d> tested;  
+  boost::shared_ptr<const Ravelin::Pose3d> P;
+
+  // setup the pose
+  if (begin != end)
+    P = begin->pose;
 
   // initialize the center to zero
   this->center.set_zero();
-  if (begin != end)
-    this->center.pose = begin->pose;
+  this->center.pose = P;
 
   // compute the convex hull of the points
   PolyhedronPtr hull = CompGeom::calc_convex_hull(begin, end);
@@ -526,7 +533,7 @@ OBB::OBB(ForwardIterator begin, ForwardIterator end)
   }  
 
   // determine the area and centroid of all triangles
-  const std::vector<Point3d>& verts = hull->get_vertices();
+  const std::vector<Ravelin::Origin3d>& verts = hull->get_vertices();
   unsigned n = hull->get_facets().size();
   double total_area = 0;
   std::vector<double> areas(n);
@@ -534,7 +541,9 @@ OBB::OBB(ForwardIterator begin, ForwardIterator end)
   for (unsigned i=0; i< n; i++)
   {
     const IndexedTri& itri = hull->get_facets()[i];
-    Triangle tri(verts[itri.a], verts[itri.b], verts[itri.c]); 
+    Triangle tri(Point3d(verts[itri.a], P), 
+                 Point3d(verts[itri.b], P), 
+                 Point3d(verts[itri.c], P)); 
     areas[i] = tri.calc_area();
     centroids[i] = (tri.a + tri.b + tri.c);
     total_area += areas[i];
@@ -556,7 +565,7 @@ OBB::OBB(ForwardIterator begin, ForwardIterator end)
       for (unsigned k=0; k< n; k++)
       {
         const IndexedTri& itri = hull->get_facets()[k];
-        Triangle tri(verts[itri.a], verts[itri.b], verts[itri.c]); 
+        Triangle tri(Point3d(verts[itri.a], P), Point3d(verts[itri.b], P), Point3d(verts[itri.c], P)); 
         const Point3d& a = tri.a;
         const Point3d& b = tri.b;
         const Point3d& c = tri.c;

@@ -22,8 +22,8 @@ class IndexedTetraArray : public Base
 {
   public:
     IndexedTetraArray() {}
-    IndexedTetraArray(boost::shared_ptr<const std::vector<Point3d> > vertices, const std::vector<IndexedTetra>& facets);
-    IndexedTetraArray(boost::shared_ptr<const std::vector<Point3d> > vertices, boost::shared_ptr<const std::vector<IndexedTetra> > facets);
+    IndexedTetraArray(boost::shared_ptr<const std::vector<Ravelin::Origin3d> > vertices, const std::vector<IndexedTetra>& facets);
+    IndexedTetraArray(boost::shared_ptr<const std::vector<Ravelin::Origin3d> > vertices, boost::shared_ptr<const std::vector<IndexedTetra> > facets);
 
     template <class ForwardIterator1, class ForwardIterator2>
     IndexedTetraArray(ForwardIterator1 vertices, ForwardIterator1 verts_end, ForwardIterator2 facets_begin, ForwardIterator2 facets_end);
@@ -38,35 +38,27 @@ class IndexedTetraArray : public Base
     static void write_to_obj(const IndexedTetraArray& mesh, const std::string& filename);
     void write_to_obj(const std::string& filename) const { write_to_obj(*this, filename); }
     IndexedTetraArray& operator=(const IndexedTetraArray& mesh);
-    Tetrahedron get_tetrahedron(unsigned i) const;
+    Tetrahedron get_tetrahedron(unsigned i, boost::shared_ptr<const Ravelin::Pose3d> P) const;
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);  
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
-
-    /// Gets the pose that these vertices are defined in
-    /**
-     * The mesh never changes this pose.
-     */
-    boost::shared_ptr<const Ravelin::Pose3d> get_pose() const { return _pose; }
 
     /// Gets the pointer to the vector of tetrahedra 
     boost::shared_ptr<const std::vector<IndexedTetra> > get_tetra_pointer() const { return _tetra; }
 
     /// Gets the pointer to the vector of vertices
-    boost::shared_ptr<const std::vector<Point3d> > get_vertices_pointer() const { return _vertices; }
+    boost::shared_ptr<const std::vector<Ravelin::Origin3d> > get_vertices_pointer() const { return _vertices; }
 
     /// Gets the vector of facets
     const std::vector<IndexedTetra>& get_tetra() const { return *_tetra; }
 
     /// Gets the vector of verties
-    const std::vector<Point3d>& get_vertices() const { return *_vertices; }
+    const std::vector<Ravelin::Origin3d>& get_vertices() const { return *_vertices; }
 
   private:
     void validate();
 
-    /// The pose that these vertices are defined in
-    boost::shared_ptr<const Ravelin::Pose3d> _pose;
     boost::shared_ptr<const std::vector<IndexedTetra> > _tetra;
-    boost::shared_ptr<const std::vector<Point3d> > _vertices;
+    boost::shared_ptr<const std::vector<Ravelin::Origin3d> > _vertices;
 
 }; // end class
 

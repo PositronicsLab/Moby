@@ -1182,7 +1182,7 @@ double EventDrivenSimulator::find_TOI(double dt)
     _qf[i] = _qdf[i];
     _qf[i] *= dt;
     _q0[i] += _qf[i];
-    _bodies[i]->set_generalized_coordinates(DynamicBody::eEuler, _qf[i]);
+    _bodies[i]->set_generalized_coordinates(DynamicBody::eEuler, _q0[i]);
   }
 
   // update current_time

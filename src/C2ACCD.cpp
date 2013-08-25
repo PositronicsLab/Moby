@@ -503,10 +503,11 @@ void C2ACCD::determine_closest_tris(CollisionGeometryPtr a, CollisionGeometryPtr
       // find closest of all pairs of triangles in ssrs
       BOOST_FOREACH(unsigned ta_idx, mesh_a.second)
       {
-        Triangle ta = mesh_a.first->get_triangle(ta_idx);
+        Triangle ta = mesh_a.first->get_triangle(ta_idx, aTb.target);
         BOOST_FOREACH(unsigned tb_idx, mesh_b.second)
         {
-          Triangle tb = Triangle::transform(mesh_b.first->get_triangle(tb_idx), aTb);
+          Triangle utb = mesh_b.first->get_triangle(tb_idx, aTb.source);
+          Triangle tb = Triangle::transform(utb, aTb);
           double dist = std::sqrt(Triangle::calc_sq_dist(ta, tb, dummy, dummy));
           if (dist + NEAR_ZERO < max_dist)
           {
@@ -750,10 +751,11 @@ bool C2ACCD::check_collision(CollisionGeometryPtr a, CollisionGeometryPtr b, vec
       // do pairwise triangle intersections
       BOOST_FOREACH(unsigned ta_idx, mesh_a.second)
       {
-        Triangle ta = mesh_a.first->get_triangle(ta_idx);
+        Triangle ta = mesh_a.first->get_triangle(ta_idx, aTb.target);
         BOOST_FOREACH(unsigned tb_idx, mesh_b.second)
         {
-          Triangle tb = Triangle::transform(mesh_b.first->get_triangle(tb_idx), aTb);
+          Triangle utb = mesh_b.first->get_triangle(tb_idx, aTb.source);
+          Triangle tb = Triangle::transform(utb, aTb);
           if (CompGeom::query_intersect_tri_tri(ta, tb))
             colliding_tris.push_back(make_pair(ta_idx, tb_idx));
         }
@@ -829,7 +831,7 @@ double C2ACCD::calc_mu(double dist, const Vector3d& n, CollisionGeometryPtr g, b
     pair<shared_ptr<const IndexedTriArray>, list<unsigned> >& mesh_tris = _meshes.find(ssr)->second;
     BOOST_FOREACH(unsigned tri_idx, mesh_tris.second)
     {
-      Triangle t = mesh_tris.first->get_triangle(tri_idx);
+      Triangle t = mesh_tris.first->get_triangle(tri_idx, g->get_pose());
       tri_verts.push_back(t.a);
       tri_verts.push_back(t.b);    
       tri_verts.push_back(t.c);    
@@ -1365,11 +1367,12 @@ double C2ACCD::calc_dist(shared_ptr<SSR> a, shared_ptr<SSR> b, const Transform3d
   double min_dist = std::numeric_limits<double>::max();
   BOOST_FOREACH(unsigned ta_idx, mesh_a.second)
   {
-    Triangle ta = mesh_a.first->get_triangle(ta_idx);
+    Triangle ta = mesh_a.first->get_triangle(ta_idx, aTb.target);
     FILE_LOG(LOG_COLDET) << "   ta: " << ta << endl; 
     BOOST_FOREACH(unsigned tb_idx, mesh_b.second)
     {
-      Triangle tb = Triangle::transform(mesh_b.first->get_triangle(tb_idx), aTb);
+      Triangle utb = mesh_b.first->get_triangle(tb_idx, aTb.source);
+      Triangle tb = Triangle::transform(utb, aTb);
       FILE_LOG(LOG_COLDET) << "    tb: " << tb << endl;
       double dist = Triangle::calc_sq_dist(ta, tb, cpa_cand, cpb_cand);
       FILE_LOG(LOG_COLDET) << "    sq dist: " << dist << endl;
@@ -1686,7 +1689,12 @@ void C2ACCD::build_BV_tree(CollisionGeometryPtr geom)
   shared_ptr<const IndexedTriArray> mesh = geom->get_geometry()->get_mesh();
 
   // get the vertices from the mesh
-  const vector<Point3d>& vertices = mesh->get_vertices();
+  const vector<Origin3d>& verts = mesh->get_vertices();
+
+  // make vertices using points
+  vector<Point3d> vertices(verts.size());
+  for (unsigned i=0; i< verts.size(); i++)
+    vertices[i] = Point3d(verts[i], geom->get_pose());
 
   // build an BV around all vertices 
   BVPtr root;
@@ -1878,20 +1886,25 @@ void C2ACCD::build_BV_tree(CollisionGeometryPtr geom)
 void C2ACCD::split_tris(const Point3d& point, const Vector3d& normal, const IndexedTriArray& orig_mesh, const list<unsigned>& ofacets, list<unsigned>& pfacets, list<unsigned>& nfacets) 
 {
   // get original vertices and facets
-  const vector<Point3d>& vertices = orig_mesh.get_vertices();
+  const vector<Origin3d>& vertices = orig_mesh.get_vertices();
   const vector<IndexedTri>& facets = orig_mesh.get_facets();
 
   // determine the splitting plane: ax + by + cz = d
-  double offset = Vector3d::dot(Vector3d(point), normal);
+  double offset = Vector3d::dot(point, normal);
 
   // determine the side of the splitting plane of the triangles
   Plane plane(normal, offset);
   BOOST_FOREACH(unsigned i, ofacets)
   {
+    // get the vertices from the facet in the same plane as the normal
+    Point3d pa(vertices[facets[i].a], normal.pose);    
+    Point3d pb(vertices[facets[i].b], normal.pose);    
+    Point3d pc(vertices[facets[i].c], normal.pose);    
+
     // get the three signed distances
-    double sa = plane.calc_signed_distance(vertices[facets[i].a]);
-    double sb = plane.calc_signed_distance(vertices[facets[i].b]);
-    double sc = plane.calc_signed_distance(vertices[facets[i].c]);
+    double sa = plane.calc_signed_distance(pa);
+    double sb = plane.calc_signed_distance(pb);
+    double sc = plane.calc_signed_distance(pc);
     double min_s = std::min(sa, std::min(sb, sc));
     double max_s = std::max(sa, std::max(sb, sc));    
 
@@ -1903,7 +1916,7 @@ void C2ACCD::split_tris(const Point3d& point, const Vector3d& normal, const Inde
     else
     {
       // triangle is split down the middle; get its centroid
-      Triangle tri(vertices[facets[i].a], vertices[facets[i].b], vertices[facets[i].c]);
+      Triangle tri(pa, pb, pc);
       Point3d tri_centroid = tri.calc_centroid();
       double scent = plane.calc_signed_distance(tri_centroid);
       if (scent > 0)
@@ -1936,7 +1949,7 @@ bool C2ACCD::split(shared_ptr<BV> source, shared_ptr<BV>& tgt1, shared_ptr<BV>& 
   // determine the centroid of this set of triangles
   list<Triangle> t_tris;
   BOOST_FOREACH(unsigned idx, tris)
-    t_tris.push_back(mesh->get_triangle(idx)); 
+    t_tris.push_back(mesh->get_triangle(idx, source->get_relative_pose())); 
   Point3d centroid = CompGeom::calc_centroid_3D(t_tris.begin(), t_tris.end());
 
   // get the side of the splitting plane of the triangles
@@ -1945,9 +1958,16 @@ bool C2ACCD::split(shared_ptr<BV> source, shared_ptr<BV>& tgt1, shared_ptr<BV>& 
     return false;
 
   // get vertices from both meshes
-  vector<Point3d> pverts, nverts;
-  get_vertices(*mesh, ptris.begin(), ptris.end(), std::back_inserter(pverts));
-  get_vertices(*mesh, ntris.begin(), ntris.end(), std::back_inserter(nverts));
+  vector<Origin3d> porigins, norigins;
+  get_vertices(*mesh, ptris.begin(), ptris.end(), std::back_inserter(porigins));
+  get_vertices(*mesh, ntris.begin(), ntris.end(), std::back_inserter(norigins));
+
+  // setup the vertices
+  vector<Point3d> pverts(porigins.size()), nverts(norigins.size());
+  for (unsigned i=0; i< porigins.size(); i++)
+    pverts[i] = Point3d(porigins[i], centroid.pose);
+  for (unsigned i=0; i< norigins.size(); i++)
+    nverts[i] = Point3d(norigins[i], centroid.pose);
 
   // create two new BVs 
   if (!deformable)

@@ -29,7 +29,7 @@ class Event
     enum EventType { eNone, eContact, eLimit };
     enum EventClass { eUndetermined, eSeparating, eResting, eImpacting };
     Event();
-    Event(const Event& e) { *this = e; }
+    Event(const Event& e) { _event_frame = boost::shared_ptr<Ravelin::Pose3d>(new Ravelin::Pose3d); *this = e; }
     static void determine_connected_events(const std::vector<Event>& events, std::list<std::list<Event*> >& groups);
     static void remove_nonimpacting_groups(std::list<std::list<Event*> >& groups);
     Event& operator=(const Event& e);
@@ -44,7 +44,7 @@ class Event
     void update_event_data(Ravelin::MatrixNd& M, Ravelin::VectorNd& q) const;
     void update_cross_event_data(const Event& e, Ravelin::MatrixNd& M) const;
     static void determine_minimal_set(std::list<Event*>& group);
-    boost::shared_ptr<const Ravelin::Pose3d> get_pose() const { return _event_frame; }
+    boost::shared_ptr<const Ravelin::Pose3d> get_pose() const { return GLOBAL; }
 
     template <class OutputIterator>
     OutputIterator get_super_bodies(OutputIterator begin) const;

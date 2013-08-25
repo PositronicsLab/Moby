@@ -15,7 +15,7 @@
  *         are copied here on return
  */
 template <class InputIterator, class OutputIterator>
-OutputIterator TriangleMeshPrimitive::get_vertices(const IndexedTriArray& tris, InputIterator fselect_begin, InputIterator fselect_end, OutputIterator output)
+OutputIterator TriangleMeshPrimitive::get_vertices(const IndexedTriArray& tris, InputIterator fselect_begin, InputIterator fselect_end, OutputIterator output, boost::shared_ptr<const Ravelin::Pose3d> P)
 {
   // init a list of vertices
   std::list<unsigned> verts;
@@ -35,9 +35,9 @@ OutputIterator TriangleMeshPrimitive::get_vertices(const IndexedTriArray& tris, 
   std::list<unsigned>::const_iterator new_end = std::unique(verts.begin(), verts.end());
 
   // copy vertices to output
-  const std::vector<Point3d>& vertices = tris.get_vertices();
+  const std::vector<Ravelin::Origin3d>& vertices = tris.get_vertices();
   for (std::list<unsigned>::const_iterator i = verts.begin(); i != new_end; i++)
-    *output++ = vertices[*i];
+    *output++ = Point3d(vertices[*i], P);
 
   return output;
 }

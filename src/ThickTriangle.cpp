@@ -13,6 +13,20 @@ using namespace Ravelin;
 using namespace Moby;
 using std::endl;
 
+/// Gets the pose from a thick triangle
+boost::shared_ptr<const Ravelin::Pose3d> ThickTriangle::get_pose() const
+{
+  assert(!_planes.empty());
+  boost::shared_ptr<const Ravelin::Pose3d> pose = _planes.front().get_pose();
+
+  #ifndef NDEBUG
+  for (std::list<Plane>::const_iterator i = _planes.begin(); i != _planes.end(); i++)
+    assert(i->get_pose() == pose);
+  #endif
+
+  return pose;
+}
+
 /// Constructs a thick triangle from a triangle
 void ThickTriangle::construct_from_triangle(const Triangle& tri, double epsilon)
 {
@@ -45,8 +59,11 @@ void ThickTriangle::construct_from_triangle(const Triangle& tri, double epsilon)
 }
 
 /// Determines the normal to this thick triangle
-Vector3d ThickTriangle::determine_normal(const Point3d& p) const
+Vector3d ThickTriangle::determine_normal(const Point3d& point) const
 {
+  // convert the point to the thick triangle's space
+  Point3d p = Pose3d::transform_point(get_pose(), point);
+
   std::list<Plane>::const_reverse_iterator i = _planes.rbegin();
 
   // determine which plane is closest -- the negative plane
@@ -63,8 +80,11 @@ Vector3d ThickTriangle::determine_normal(const Point3d& p) const
 /// Determines whether a point is on or inside a thick triangle
 bool ThickTriangle::point_inside(const Point3d& point) const
 {
+  // convert the point to the thick triangle's space
+  Point3d p = Pose3d::transform_point(get_pose(), point);
+
   BOOST_FOREACH(const Plane& plane, _planes)
-    if (plane.calc_signed_distance(point) >= 0.0)
+    if (plane.calc_signed_distance(p) >= 0.0)
       return false;
 
   return true;
@@ -82,9 +102,14 @@ bool ThickTriangle::point_inside(const Point3d& point) const
  */
 bool ThickTriangle::intersect_seg(const LineSeg3& seg, double& tnear, Point3d& isect) const
 {
+  // convert the segment to the thick triangle's space
+  boost::shared_ptr<const Pose3d> pose = get_pose();
+  Point3d s1 = Pose3d::transform_point(pose, seg.first);
+  Point3d s2 = Pose3d::transform_point(pose, seg.second);
+
   // determine the line segment parametrically
-  const Point3d& p0 = seg.first;
-  Vector3d dir = seg.second - seg.first;
+  const Point3d& p0 = s1;
+  Vector3d dir = s2 - s1;
 
   // init tnear and tfar
   tnear = 0; 
@@ -145,7 +170,7 @@ bool ThickTriangle::intersect_seg(const LineSeg3& seg, double& tnear, Point3d& i
   }
 
   // still here?  successful intersection
-  isect = p0 + dir*tnear;
+  isect = Pose3d::transform_point(seg.first.pose, p0 + dir*tnear);
 
   FILE_LOG(LOG_COLDET) << "  point of intersection: " << isect << endl;
   FILE_LOG(LOG_COLDET) << "ThickTriangle::intersect_seg() exited" << endl;

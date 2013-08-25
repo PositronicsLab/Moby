@@ -68,8 +68,8 @@ class GeneralizedCCD : public CollisionDetection
       CollisionGeometryPtr gb; // geometry from which point is taken
       CollisionGeometryPtr gs; // geometry against which point is tested
 
-      // gs's poses at time t0,tf (should be defined relative to global frame)
-      boost::shared_ptr<const Ravelin::Pose3d> Ps_t0, Ps_tf;
+      // gs's poses at time t0,tf 
+      Ravelin::Pose3d Ps_t0, Ps_tf;
 
       // transforms from gb's frame to gs's frame at t0,tf
       Ravelin::Transform3d sTb_t0, sTb_tf;
@@ -87,8 +87,8 @@ class GeneralizedCCD : public CollisionDetection
     /// Pair of poses (one at time t0, the other at time tf)
     struct PosePair
     {
-      boost::shared_ptr<const Ravelin::Pose3d> t0;
-      boost::shared_ptr<const Ravelin::Pose3d> tf;
+      Ravelin::Pose3d t0;
+      Ravelin::Pose3d tf;
     };
 
     /// Structure used for computing deviation in a direction
@@ -115,7 +115,7 @@ class GeneralizedCCD : public CollisionDetection
     static double calc_min_dev(const Ravelin::Vector3d& u, const Ravelin::Vector3d& d, const Ravelin::Quatd& q1, const Ravelin::Quatd& q2, double& t);
     static double calc_max_dev(const Ravelin::Vector3d& u, const Ravelin::Vector3d& d, const Ravelin::Quatd& q1, const Ravelin::Quatd& q2, double& t);
     static std::pair<double, double> calc_deviations(const Ravelin::Vector3d& u, const Ravelin::Vector3d& d, const Ravelin::Quatd& q1, const Ravelin::Quatd& q2, double ta, double tb);
-    static void populate_dstruct(DStruct* ds, CollisionGeometryPtr gb, boost::shared_ptr<const Ravelin::Pose3d> Pb_t0, boost::shared_ptr<const Ravelin::Pose3d> Pb_tf, CollisionGeometryPtr gs, boost::shared_ptr<const Ravelin::Pose3d> Ps_t0, boost::shared_ptr<const Ravelin::Pose3d> Ps_tf, BVPtr s_BV);
+    static void populate_dstruct(DStruct* ds, CollisionGeometryPtr gb, const Ravelin::Pose3d& Pb_t0, const Ravelin::Pose3d& Pb_tf, CollisionGeometryPtr gs, const Ravelin::Pose3d& Ps_t0, const Ravelin::Pose3d& Ps_tf, BVPtr s_BV);
     void add_rigid_body_model(RigidBodyPtr body);
     double determine_TOI(double t0, double tf, const DStruct* ds, Point3d& pt, Ravelin::Vector3d& normal) const;
     double determine_TOI_fast(double t0, double tf, const DStruct* ds, Point3d& pt, Ravelin::Vector3d& normal) const;

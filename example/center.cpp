@@ -19,7 +19,7 @@ int main(int argc, char* argv[])
   for (int i=1; i< argc; i++)
   {
     itas.push_back(IndexedTriArray::read_from_obj(std::string(argv[i])));
-    itas.back().get_tris(std::back_inserter(tris));
+    itas.back().get_tris(std::back_inserter(tris), GLOBAL);
   }
 
   // compute the center-of-mass

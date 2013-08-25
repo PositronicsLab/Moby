@@ -14,11 +14,13 @@
 #include <Moby/CompGeom.h>
 #include <Moby/XMLTree.h>
 #include <Moby/OBB.h>
+#include <Moby/CollisionGeometry.h>
 #include <Moby/CylinderPrimitive.h>
 
 using namespace Ravelin;
 using namespace Moby;
 using boost::shared_ptr;
+using std::map;
 using std::list;
 using std::vector;
 using std::pair;
@@ -86,6 +88,8 @@ CylinderPrimitive::CylinderPrimitive(double radius, double height, unsigned n, u
 /// Sets the radius for this cylinder
 void CylinderPrimitive::set_radius(double radius)
 {
+  const unsigned X = 0, Y = 1, Z = 2;
+
   _radius = radius;
   if (_radius < 0.0)
     throw std::runtime_error("Attempting to set negative radius on call to CylinderPrimitive::set_radius()");
@@ -101,11 +105,21 @@ void CylinderPrimitive::set_radius(double radius)
 
   // need up update visualization
   update_visualization();
+
+  // re-set lengths on each OBB
+  for (map<CollisionGeometryPtr, OBBPtr>::iterator i = _obbs.begin(); i != _obbs.end(); i++)
+  {
+    i->second->l[X] = _radius + _intersection_tolerance;
+    i->second->l[Y] = _height*0.5 + _intersection_tolerance;
+    i->second->l[Z] = _radius + _intersection_tolerance;
+  }
 }
 
 /// Sets the height for this cylinder
 void CylinderPrimitive::set_height(double height)
 {
+  const unsigned X = 0, Y = 1, Z = 2;
+
   _height = height;
   if (_height < 0.0)
     throw std::runtime_error("Attempting to set negative height on call to CylinderPrimitive::set_height()");
@@ -121,6 +135,14 @@ void CylinderPrimitive::set_height(double height)
 
   // need up update visualization
   update_visualization();
+
+  // re-set lengths on each OBB
+  for (map<CollisionGeometryPtr, OBBPtr>::iterator i = _obbs.begin(); i != _obbs.end(); i++)
+  {
+    i->second->l[X] = _radius + _intersection_tolerance;
+    i->second->l[Y] = _height*0.5 + _intersection_tolerance;
+    i->second->l[Z] = _radius + _intersection_tolerance;
+  }
 }
 
 /// Sets the number of points in the circles of the cylinder 
@@ -183,7 +205,7 @@ shared_ptr<const IndexedTriArray> CylinderPrimitive::get_mesh()
     PolyhedronPtr hull = CompGeom::calc_convex_hull(points.begin(), points.end());
 
     // get the mesh
-    const std::vector<Point3d>& v = hull->get_vertices();
+    const std::vector<Origin3d>& v = hull->get_vertices();
     const std::vector<IndexedTri>& f = hull->get_facets();
     _mesh = shared_ptr<IndexedTriArray>(new IndexedTriArray(v.begin(), v.end(), f.begin(), f.end()));
 
@@ -278,15 +300,8 @@ void CylinderPrimitive::set_pose(const Pose3d& p)
   // determine the transformation from the old pose to the new one 
   Transform3d T = Pose3d::calc_relative_pose(_F, x);
 
-  // "correct" T's source (points will be in global frame)
-  T.source = GLOBAL;
-  T.target = GLOBAL;
-
   // go ahead and set the new transform
   Primitive::set_pose(p);
-
-  // OBB is no longer valid
-  _obb = OBBPtr();
 
   // transform mesh
   if (_mesh)
@@ -295,16 +310,32 @@ void CylinderPrimitive::set_pose(const Pose3d& p)
     _smesh.first = _mesh;
   }
 
-  // transform vertices
-  if (_vertices)
-    for (unsigned i=0; i< _vertices->size(); i++)
-      (*_vertices)[i] = T.transform_point((*_vertices)[i]);
+  // invalidate the vertices
+  _vertices.reset();
 
   // invalidate this primitive
   _invalidated = true;
 
   // recalculate the mass properties
   calc_mass_properties();
+
+ // transform bounding volumes
+  for (map<CollisionGeometryPtr, OBBPtr>::iterator i = _obbs.begin(); i != _obbs.end(); i++)
+  {
+    // get the pose for the geometry
+    shared_ptr<const Pose3d> gpose = i->first->get_pose();
+
+    // create a new pose, which will be defined relative to the geometry's pose 
+    shared_ptr<Pose3d> T(new Pose3d);
+
+    // setup the relative pose for the OBB center
+    *T = *get_pose();
+    T->update_relative_pose(gpose);
+
+    // setup the obb center and orientation
+    i->second->center = Point3d(T->x, gpose);
+    i->second->R = T->q;
+  }
 }
 
 /// Calculates mass properties for the cylinder
@@ -334,33 +365,45 @@ void CylinderPrimitive::calc_mass_properties()
 }
 
 /// Gets the OBB
-BVPtr CylinderPrimitive::get_BVH_root()
+BVPtr CylinderPrimitive::get_BVH_root(CollisionGeometryPtr geom)
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
   // cylinder not applicable for deformable bodies 
   if (is_deformable())
-    throw std::runtime_error("CylinderPrimitive::get_BVH_root() - primitive unusable for deformable bodies!");
+    throw std::runtime_error("CylinderPrimitive::get_BVH_root(CollisionGeometryPtr geom) - primitive unusable for deformable bodies!");
 
-  // create the OBB if necessary
-  if (!_obb)
-    _obb = shared_ptr<OBB>(new OBB);
+  // get the pointer to the bounding box
+  OBBPtr& obb = _obbs[geom];
 
-  // setup the center of the OBB 
-  _obb->center = Point3d(get_pose()->x, get_pose());
-  
-  // setup the orientation of the OBB
-  _obb->R = get_pose()->q;
+  // create the bounding box, if necessary
+  if (!obb)
+  {
+    // create the bounding box
+    obb = shared_ptr<OBB>(new OBB);
+    obb->geom = geom;
 
-  // must orthonormalize OBB orientation, b/c T may have scaling applied
-  _obb->R.orthonormalize();
+    // get the pose for the geometry
+    shared_ptr<const Pose3d> gpose = geom->get_pose();
 
-  // cylinder nominally points upward
-  _obb->l[X] = _radius;
-  _obb->l[Y] = _height*0.5;
-  _obb->l[Z] = _radius;
+    // create a new pose, which will be defined relative to the geometry's pose 
+    shared_ptr<Pose3d> T(new Pose3d);
 
-  return _obb;
+    // setup the relative pose for the OBB center
+    *T = *get_pose();
+    T->update_relative_pose(gpose);
+
+    // setup the obb center and orientation
+    obb->center = Point3d(T->x, gpose);
+    obb->R = T->q;
+
+    // setup OBB half-lengths
+    obb->l[X] = _radius + _intersection_tolerance;
+    obb->l[Y] = _height*0.5 + _intersection_tolerance;
+    obb->l[Z] = _radius + _intersection_tolerance;
+  }
+
+  return obb;
 }
 
 /// Gets a sub-mesh for the primitive
@@ -387,9 +430,13 @@ void CylinderPrimitive::get_vertices(BVPtr bv, std::vector<const Point3d*>& vert
       return; 
     }
 
-    // get the current primitive transform
-    shared_ptr<const Pose3d> P = get_pose();
-    Transform3d T = Pose3d::calc_relative_pose(P, GLOBAL);
+    // get the pose for the geometry
+    shared_ptr<const Pose3d> gpose = bv->geom->get_pose();
+
+    // create a new pose, which will be defined relative to the geometry's pose
+    shared_ptr<Pose3d> T(new Pose3d);
+    *T = *get_pose();
+    T->update_relative_pose(gpose);
 
     // create the vector of vertices
     _vertices = shared_ptr<vector<Point3d> >(new vector<Point3d>());
@@ -404,7 +451,7 @@ void CylinderPrimitive::get_vertices(BVPtr bv, std::vector<const Point3d*>& vert
         double THETA = i*(M_PI * (double) 2.0/_npoints);
         const double CT = std::cos(THETA);
         const double ST = std::sin(THETA);
-        _vertices->push_back(T.transform_point(Point3d(CT*R, HEIGHT, ST*R, P)));
+        _vertices->push_back(T->transform_point(Point3d(CT*R, HEIGHT, ST*R, T)));
       }
     }
   }
@@ -762,10 +809,20 @@ unsigned CylinderPrimitive::intersect_line(const Point3d& origin, const Vector3d
 /// Sets the intersection tolerance
 void CylinderPrimitive::set_intersection_tolerance(double tol)
 {
+  const unsigned X = 0, Y = 1, Z = 2;
+
   Primitive::set_intersection_tolerance(tol);
 
   // vertices are no longer valid
   _vertices = shared_ptr<vector<Point3d> >();
+
+  // re-set lengths on each OBB
+  for (map<CollisionGeometryPtr, OBBPtr>::iterator i = _obbs.begin(); i != _obbs.end(); i++)
+  {
+    i->second->l[X] = _radius + _intersection_tolerance;
+    i->second->l[Y] = _height*0.5 + _intersection_tolerance;
+    i->second->l[Z] = _radius + _intersection_tolerance;
+  }
 }
 
 /// Computes the intersection between a cylinder and a line segment

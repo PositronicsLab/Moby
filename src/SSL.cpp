@@ -31,6 +31,7 @@ SSL::SSL(const Point3d& p0, const Point3d& p1, double radius)
 SSL::SSL(const SSL& s, const Vector3d& v)
 {
   assert(v.pose == s.get_relative_pose());
+  geom = s.geom;
   p1 = s.p1; 
   p2 = s.p2;
   radius = s.radius + v.norm();
@@ -51,11 +52,13 @@ void SSL::transform(const Transform3d& T, BV* result) const
 }
 
 /// Copies one SSL to another
-void SSL::operator=(const SSL& s)
+SSL& SSL::operator=(const SSL& s)
 {
   p1 = s.p1;
   p2 = s.p2;
   radius = s.radius;
+  geom = s.geom;
+  return *this;
 }
 
 /// Calculates the velocity-expanded bounding volume

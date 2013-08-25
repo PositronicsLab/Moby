@@ -13,6 +13,7 @@
 #include <boost/algorithm/string.hpp>
 #include <Ravelin/LinAlgd.h>
 #include <Moby/XMLTree.h>
+#include <Moby/CollisionGeometry.h>
 #include <Moby/CSG.h>
 
 using std::endl;
@@ -159,10 +160,6 @@ void CSG::set_pose(const Pose3d& p)
   // determine the transformation from the old pose to the new one 
   Transform3d T = Pose3d::calc_relative_pose(_F, x);
 
-  // "correct" T's source (points will be in global frame)
-  T.source = GLOBAL;
-  T.target = GLOBAL;
-
   // call the primitive transform
   Primitive::set_pose(p);
 
@@ -179,13 +176,13 @@ void CSG::set_pose(const Pose3d& p)
 }
 
 /// Gets the bounding volume
-BVPtr CSG::get_BVH_root()
+BVPtr CSG::get_BVH_root(CollisionGeometryPtr geom)
 {
   const unsigned THREE_D = 3;
 
   // CSG not applicable for deformable bodies 
   if (is_deformable())
-    throw std::runtime_error("CSG::get_BVH_root() - primitive unusable for deformable bodies!");
+    throw std::runtime_error("CSG::get_BVH_root(CollisionGeometryPtr geom) - primitive unusable for deformable bodies!");
 
   // return no BVH if either operand is not set
   if (!_op1 || !_op2)
@@ -196,8 +193,8 @@ BVPtr CSG::get_BVH_root()
     _aabb = shared_ptr<AABB>(new AABB);
 
   // get the bounding volumes for the operands
-  shared_ptr<BV> bv1 = _op1->get_BVH_root();
-  shared_ptr<BV> bv2 = _op2->get_BVH_root();
+  shared_ptr<BV> bv1 = _op1->get_BVH_root(geom);
+  shared_ptr<BV> bv2 = _op2->get_BVH_root(geom);
 
   // get the lower and upper bounds for the operands
   Point3d low1 = bv1->get_lower_bounds();
@@ -294,8 +291,8 @@ bool CSG::intersect_seg_union(BVPtr bv, const LineSeg3& seg, double& t, Point3d&
   Vector3d normal1, normal2;
 
   // get the root bounding volumes
-  BVPtr bv1 = _op1->get_BVH_root();
-  BVPtr bv2 = _op2->get_BVH_root();
+  BVPtr bv1 = _op1->get_BVH_root(bv->geom);
+  BVPtr bv2 = _op2->get_BVH_root(bv->geom);
 
   // perform the individual intersections
   bool i1 = _op1->intersect_seg(bv1, seg, t1, isect1, normal1);
@@ -344,8 +341,8 @@ bool CSG::intersect_seg_intersect(BVPtr bv, const LineSeg3& seg, double& t, Poin
   Point3d isect1, isect2;
 
   // get the root bounding volumes
-  BVPtr bv1 = _op1->get_BVH_root();
-  BVPtr bv2 = _op2->get_BVH_root();
+  BVPtr bv1 = _op1->get_BVH_root(bv->geom);
+  BVPtr bv2 = _op2->get_BVH_root(bv->geom);
 
   // perform the individual intersections
   bool i1 = _op1->intersect_seg(bv1, seg, t1, isect1, normal1);
@@ -389,8 +386,8 @@ bool CSG::intersect_seg_diff(BVPtr bv, const LineSeg3& seg, double& t, Point3d& 
   Vector3d normal1, normal2;
 
   // get the root bounding volumes
-  BVPtr bv1 = _op1->get_BVH_root();
-  BVPtr bv2 = _op2->get_BVH_root();
+  BVPtr bv1 = _op1->get_BVH_root(bv->geom);
+  BVPtr bv2 = _op2->get_BVH_root(bv->geom);
 
   FILE_LOG(LOG_COLDET) << "CSG::intersect_seg_diff() entered" << endl;
   FILE_LOG(LOG_COLDET) << "  segment (CSG space): " << seg.first << " / " << seg.second << endl;
@@ -609,7 +606,7 @@ osg::Node* CSG::create_visualization()
   group->addChild(geode);
 
   // get the vertices and facets
-  const std::vector<Point3d>& verts = mesh.get_vertices();
+  const std::vector<Origin3d>& verts = mesh.get_vertices();
   const std::vector<IndexedTri>& facets = mesh.get_facets();
   
   // setup the vertices 
@@ -688,9 +685,6 @@ void CSG::center_mesh()
   // we want to transform the mesh so that the inertial pose is coincident
   // with the primitive pose; first, prepare the transformation
   Transform3d T = Pose3d::calc_relative_pose(_jF, _F);
-
-  // mesh is in frame _F and will remain in frame _F (hack Ravelin)
-  T.source = _mesh->get_pose();
 
   // do the transformation
   _mesh = shared_ptr<IndexedTriArray>(new IndexedTriArray(_mesh->transform(T)));
@@ -889,7 +883,7 @@ void CSG::calc_mass_properties()
 
   // get triangles
   std::list<Triangle> tris;
-  mesh.get_tris(std::back_inserter(tris));
+  mesh.get_tris(std::back_inserter(tris), GLOBAL);
 
   // compute the centroid of the triangle mesh
   _jF->x = Origin3d(CompGeom::calc_centroid_3D(tris.begin(), tris.end()));
@@ -965,13 +959,17 @@ void CSG::get_vertices(BVPtr bv, vector<const Point3d*>& vertices)
   // if the vector of vertices is NULL, compute it
   if (!_vertices)
   {
-    // get the transform from the current pose of the CSG to the global frame
-    shared_ptr<const Pose3d> P = get_pose();
-    Transform3d T = Pose3d::calc_relative_pose(P, GLOBAL);
+    // get the pose for the geometry
+    shared_ptr<const Pose3d> gpose = bv->geom->get_pose();
+
+    // create a new pose, which will be defined relative to the geometry's base
+    shared_ptr<Pose3d> T(new Pose3d);
+    *T = *get_pose();
+    T->update_relative_pose(gpose);
 
     // get the BVHs
-    BVPtr bv1 = _op1->get_BVH_root();
-    BVPtr bv2 = _op2->get_BVH_root();
+    BVPtr bv1 = _op1->get_BVH_root(bv->geom);
+    BVPtr bv2 = _op2->get_BVH_root(bv->geom);
 
     // create the vector of vertices
     _vertices = shared_ptr<vector<Point3d> >(new vector<Point3d>());
@@ -983,6 +981,7 @@ void CSG::get_vertices(BVPtr bv, vector<const Point3d*>& vertices)
       _op1->get_vertices(bv1, v1);
       _op2->get_vertices(bv2, v2);
 
+      // transform the vertices
       BOOST_FOREACH(const Point3d* v, v1)
         _vertices->push_back(*v);
       BOOST_FOREACH(const Point3d* v, v2)
@@ -1032,7 +1031,7 @@ void CSG::get_vertices(BVPtr bv, vector<const Point3d*>& vertices)
 
     // transform all vertices using the current transform of the CSG
     for (unsigned i=0; i< _vertices->size(); i++)
-      (*_vertices)[i] = T.transform_point((*_vertices)[i]);
+      (*_vertices)[i] = T->transform_point((*_vertices)[i]);
 
     // clear validation flags for both operands
     _op1->_invalidated = _op2->_invalidated = false;
