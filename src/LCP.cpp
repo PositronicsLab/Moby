@@ -68,7 +68,7 @@ bool LCP::lcp_lemke_regularized(const MatrixNd& M, const VectorNd& q, VectorNd& 
       {
         // check z'w
         std::transform(z.begin(), z.end(), _wx.begin(), _wx.begin(), std::multiplies<double>());
-        pair<dIterator, dIterator> mmax = boost::minmax_element(_wx.begin(), _wx.end());
+        pair<ColumnIteratord, ColumnIteratord> mmax = boost::minmax_element(_wx.begin(), _wx.end());
         if (*mmax.first >= -ZERO_TOL && *mmax.second < ZERO_TOL)
         {
           FILE_LOG(LOG_OPT) << "  solved with no regularization necessary!" << endl;
@@ -110,7 +110,7 @@ bool LCP::lcp_lemke_regularized(const MatrixNd& M, const VectorNd& q, VectorNd& 
         {
           // check z'w
           std::transform(z.begin(), z.end(), _wx.begin(), _wx.begin(), std::multiplies<double>());
-          pair<dIterator, dIterator> mmax = boost::minmax_element(_wx.begin(), _wx.end());
+          pair<ColumnIteratord, ColumnIteratord> mmax = boost::minmax_element(_wx.begin(), _wx.end());
           if (*mmax.first > -ZERO_TOL && *mmax.second < ZERO_TOL)
           {
             FILE_LOG(LOG_OPT) << "  solved with regularization factor: " << lambda << endl;
@@ -271,7 +271,7 @@ bool LCP::lcp_lemke(const MatrixNd& M, const VectorNd& q, VectorNd& z, double pi
   }
 
   // determine initial leaving variable
-  dIterator min_x = std::min_element(_x.begin(), _x.begin() + n);
+  ColumnIteratord min_x = std::min_element(_x.begin(), _x.begin() + n);
   double tval = -*min_x;
   BOOST_FOREACH(unsigned i, _nonbas) // add w variables to basis
     _bas.push_back(i+n);
@@ -417,7 +417,7 @@ bool LCP::lcp_lemke(const MatrixNd& M, const VectorNd& q, VectorNd& z, double pi
       select(_dl.begin(), _j.begin(), _j.end(), _dj.begin());
 
       // get the maximum
-      dIterator maxdj = std::max_element(_dj.begin(), _dj.end());
+      ColumnIteratord maxdj = std::max_element(_dj.begin(), _dj.end());
       lvindex = std::distance(_dj.begin(), maxdj);
     }
     assert(lvindex < _j.size());
@@ -576,7 +576,7 @@ bool LCP::lcp_lemke(const SparseMatrixNd& M, const VectorNd& q, VectorNd& z, dou
   }
 
   // determine initial leaving variable
-  dIterator min_x = std::min_element(_x.begin(), _x.begin() + n);
+  ColumnIteratord min_x = std::min_element(_x.begin(), _x.begin() + n);
   double tval = -*min_x;
   BOOST_FOREACH(unsigned i, _nonbas) // add w variables to basis
     _bas.push_back(i+n);
@@ -702,7 +702,7 @@ bool LCP::lcp_lemke(const SparseMatrixNd& M, const VectorNd& q, VectorNd& z, dou
       select(_dl.begin(), _j.begin(), _j.end(), _dj.begin());
 
       // get the maximum
-      dIterator maxdj = std::max_element(_dj.begin(), _dj.end());
+      ColumnIteratord maxdj = std::max_element(_dj.begin(), _dj.end());
       lvindex = std::distance(_dj.begin(), maxdj);
     }
     assert(lvindex < _j.size());
