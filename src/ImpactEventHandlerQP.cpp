@@ -547,7 +547,7 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
   unsigned N_QP_CONTACT_VARS = q.N_CONTACTS*6 + q.N_K_TOTAL;
 
   // if we're not dealing with many contacts, exit now 
-  if (N_QP_CONTACT_VARS < 500)
+  if (N_QP_CONTACT_VARS < 50)
   {
     solve_qp_work_ijoints(q, z);
     return;
