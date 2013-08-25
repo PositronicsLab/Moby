@@ -27,7 +27,7 @@ struct EventProblemData
     N_CONTACTS = q.N_CONTACTS;
     N_CONSTRAINTS = q.N_CONSTRAINTS;
     N_CONSTRAINT_DOF_EXP = q.N_CONSTRAINT_DOF_EXP;
-    N_CONSTRAINT_EQNS_EXP = q.N_CONSTRAINT_EQNS_EXP;
+    N_CONSTRAINT_EQNS_IMP = q.N_CONSTRAINT_EQNS_IMP;
     N_CONSTRAINT_DOF_IMP = q.N_CONSTRAINT_DOF_IMP;
     use_kappa = q.use_kappa;
     kappa = q.kappa;
@@ -110,7 +110,7 @@ struct EventProblemData
   void reset()
   {
     N_K_TOTAL = N_LIN_CONE = N_TRUE_CONE = N_LOOPS = N_CONTACTS = 0;
-    N_CONSTRAINTS = N_CONSTRAINT_DOF_EXP = N_CONSTRAINT_EQNS_EXP = 0;
+    N_CONSTRAINTS = N_CONSTRAINT_DOF_EXP = N_CONSTRAINT_EQNS_IMP = 0;
     N_CONSTRAINT_DOF_IMP = 0;
     use_kappa = false;
     kappa = 0.0;
@@ -324,8 +324,8 @@ struct EventProblemData
   // the number of explicit joint constraint degrees-of-freedom used in joint friction computation
   unsigned N_CONSTRAINT_DOF_EXP;
 
-  // the number of explicit joint constraint equations (total)
-  unsigned N_CONSTRAINT_EQNS_EXP;
+  // the number of implicit joint constraint equations (total)
+  unsigned N_CONSTRAINT_EQNS_IMP;
 
   // the number of implicit joint constraint degrees-of-freedom used in joint friction computation
   unsigned N_CONSTRAINT_DOF_IMP;
@@ -350,12 +350,6 @@ struct EventProblemData
 
   // vector-based terms
   Ravelin::VectorNd Cn_v, Cs_v, Ct_v, L_v, Jx_v, Dx_v;
-
-  // kappa term
-  double kappa;
-
-  // determines whether to use kappa term
-  bool use_kappa;
 
   // impulse magnitudes determined by solve_qp()
   Ravelin::VectorNd cn, cs, ct, l, beta_t, alpha_x, beta_x;
