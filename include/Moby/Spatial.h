@@ -27,7 +27,7 @@ void from_matrix(const X& m, std::vector<Ravelin::SVelocityd>& w)
   const unsigned SPATIAL_DIM = 6;
   assert(m.rows() == SPATIAL_DIM);
   w.resize(m.size());
-  Ravelin::dIterator_const data = m.begin();
+  Ravelin::ColumnIteratord_const data = m.column_iterator_begin();
   for (unsigned k=0, i=0; i< w.size(); i++, k+= SPATIAL_DIM)
     w[i] = Ravelin::SVelocityd(data[k+0], data[k+1], data[k+2], data[k+3], data[k+4], data[k+5]);
 }
@@ -38,7 +38,7 @@ X& to_matrix(const std::vector<Ravelin::SVelocityd>& w, X& m)
 {
   const unsigned SPATIAL_DIM = 6;
   m.resize(SPATIAL_DIM, w.size());
-  Ravelin::dIterator data = m.begin();
+  Ravelin::ColumnIteratord data = m.column_iterator_begin();
   for (unsigned k=0, i=0; i< w.size(); i++)
   {
     Ravelin::Vector3d f = w[i].get_angular();  
@@ -56,7 +56,7 @@ X& to_matrix(const std::vector<Ravelin::SForced>& w, X& m)
 {
   const unsigned SPATIAL_DIM = 6;
   m.resize(SPATIAL_DIM, w.size());
-  Ravelin::dIterator data = m.begin();
+  Ravelin::ColumnIteratord data = m.column_iterator_begin();
   for (unsigned k=0, i=0; i< w.size(); i++)
   {
     Ravelin::Vector3d f = w[i].get_force();  
@@ -74,7 +74,7 @@ X& to_matrix(const std::vector<Ravelin::SMomentumd>& w, X& m)
 {
   const unsigned SPATIAL_DIM = 6;
   m.resize(SPATIAL_DIM, w.size());
-  Ravelin::dIterator data = m.begin();
+  Ravelin::ColumnIteratord data = m.column_iterator_begin();
   for (unsigned k=0, i=0; i< w.size(); i++)
   {
     Ravelin::Vector3d f = w[i].get_linear();  
@@ -94,7 +94,7 @@ X& transpose_to_matrix(const std::vector<Ravelin::SVelocityd>& t, X& m)
   m.resize(t.size(), SPATIAL_DIM);
   for (unsigned i=0; i< t.size(); i++)
   {
-    Ravelin::dIterator data = m.block_iterator_begin(i, i+1, 0, SPATIAL_DIM);
+    Ravelin::ColumnIteratord data = m.block_column_iterator_begin(i, i+1, 0, SPATIAL_DIM);
     Ravelin::Vector3d lin = t[i].get_linear();  
     Ravelin::Vector3d ang = t[i].get_angular();
     data[0] = lin[0]; 
@@ -113,7 +113,7 @@ template <class X>
 X& transpose_mult(const std::vector<Ravelin::SVelocityd>& t, const std::vector<Ravelin::SForced>& w, X& result)
 {
   result.resize(t.size(), w.size());
-  Ravelin::dIterator data = result.begin();
+  Ravelin::ColumnIteratord data = result.column_iterator_begin();
   for (unsigned i=0, k=0; i< t.size(); i++)
     for (unsigned j=0; j< w.size(); j++)
       data[k++] = t[i].dot(w[j]);
@@ -126,7 +126,7 @@ template <class X>
 X& transpose_mult(const std::vector<Ravelin::SVelocityd>& t, const Ravelin::SForced& w, X& result)
 {
   result.resize(t.size(), 1, false);
-  Ravelin::dIterator data = result.begin();
+  Ravelin::ColumnIteratord data = result.column_iterator_begin();
   for (unsigned i=0, k=0; i< t.size(); i++)
     data[k++] = t[i].dot(w);
 
@@ -138,7 +138,7 @@ template <class X>
 X& transpose_mult(const std::vector<Ravelin::SVelocityd>& t, const Ravelin::SMomentumd& w, X& result)
 {
   result.resize(t.size(), 1, false);
-  Ravelin::dIterator data = result.begin();
+  Ravelin::ColumnIteratord data = result.column_iterator_begin();
   for (unsigned i=0, k=0; i< t.size(); i++)
     data[k++] = t[i].dot(w);
 
@@ -150,7 +150,7 @@ template <class X>
 X& transpose_mult(const std::vector<Ravelin::SVelocityd>& t, const std::vector<Ravelin::SMomentumd>& w, X& result)
 {
   result.resize(t.size(), w.size());
-  Ravelin::dIterator data = result.begin();
+  Ravelin::ColumnIteratord data = result.column_iterator_begin();
   for (unsigned i=0, k=0; i< t.size(); i++)
     for (unsigned j=0; j< w.size(); j++)
       data[k++] = t[i].dot(w[j]);
@@ -164,7 +164,7 @@ X& transpose_mult(const std::vector<Ravelin::SVelocityd>& t, const Y& y, X& resu
 {
   const unsigned SPATIAL_DIM = 6;
   result.resize(t.size(), y.columns(), false);
-  Ravelin::dIterator data = result.begin();
+  Ravelin::ColumnIteratord data = result.column_iterator_begin();
   for (unsigned i=0, k=0; i< t.size(); i++)
     for (unsigned j=0; j< y.columns(); j++)
       data[k++] = t[i].dot(y.column(j));
@@ -177,7 +177,7 @@ template <class X>
 X& transpose_mult(const std::vector<Ravelin::SMomentumd>& w, const Ravelin::SVelocityd& t, X& result)
 {
   result.resize(w.size());
-  Ravelin::dIterator data = result.begin();
+  Ravelin::ColumnIteratord data = result.column_iterator_begin();
   for (unsigned i=0; i< w.size(); i++)
     data[i] = w[i].dot(t);
 

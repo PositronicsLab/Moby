@@ -92,24 +92,24 @@ void ImpactEventHandler::solve_qp(EventProblemData& q, double poisson_eps)
   FILE_LOG(LOG_EVENT) << "new Jx_v: " << q.Jx_v << std::endl;
 
   // see whether another QP must be solved
-  if (q.Cn_v.size() > 0 && *min_element(q.Cn_v.begin(), q.Cn_v.end()) < -TOL)
+  if (q.Cn_v.size() > 0 && *min_element(q.Cn_v.column_iterator_begin(), q.Cn_v.column_iterator_end()) < -TOL)
   {
-    FILE_LOG(LOG_EVENT) << "minimum Cn*v: " << *min_element(q.Cn_v.begin(), q.Cn_v.end()) << std::endl;
+    FILE_LOG(LOG_EVENT) << "minimum Cn*v: " << *min_element(q.Cn_v.column_iterator_begin(), q.Cn_v.column_iterator_end()) << std::endl;
     FILE_LOG(LOG_EVENT) << " -- running another QP iteration..." << std::endl;
     solve_qp_work(q, z);
     q.update_from_stacked(z);
   }
   else 
-    if (q.L_v.size() > 0 && *min_element(q.L_v.begin(), q.L_v.end()) < -TOL)
+    if (q.L_v.size() > 0 && *min_element(q.L_v.column_iterator_begin(), q.L_v.column_iterator_end()) < -TOL)
     {
-      FILE_LOG(LOG_EVENT) << "minimum L*v: " << *min_element(q.L_v.begin(), q.L_v.end()) << std::endl;
+      FILE_LOG(LOG_EVENT) << "minimum L*v: " << *min_element(q.L_v.column_iterator_begin(), q.L_v.column_iterator_end()) << std::endl;
       FILE_LOG(LOG_EVENT) << " -- running another QP iteration..." << std::endl;
       solve_qp_work(q, z);
       q.update_from_stacked(z);
     }
   else
   {
-    pair<dIterator, dIterator> mm = boost::minmax_element(q.Jx_v.begin(), q.Jx_v.end());
+    pair<ColumnIteratord, ColumnIteratord> mm = boost::minmax_element(q.Jx_v.column_iterator_begin(), q.Jx_v.column_iterator_end());
     if (q.Jx_v.size() > 0 && (*mm.first < -TOL || *mm.second > TOL))
     {
       FILE_LOG(LOG_EVENT) << "minimum J*v: " << *mm.first << std::endl;
@@ -809,8 +809,10 @@ void ImpactEventHandler::solve_qp_work_ijoints(EventProblemData& q, VectorNd& z)
   // ------- setup A/-b -------
   // setup the Cn*v+ >= 0 constraint
   // Cn*(inv(M)*impulses + v) >= 0, Cn*inv(M)*impulses >= -Cn*v
+  FILE_LOG(LOG_EVENT) << "Cn block: " << std::endl << Cn_block;
   row_start = 0; row_end = q.N_CONTACTS;
   A.block(row_start, row_end, q.CN_IDX, q.N_VARS) = Cn_block;
+  FILE_LOG(LOG_EVENT) << "A: " << std::endl << A;
   nb.set_sub_vec(row_start, q.Cn_v);
   row_start = row_end; row_end += q.N_LIMITS;  
 

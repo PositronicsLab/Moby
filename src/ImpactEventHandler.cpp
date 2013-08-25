@@ -59,7 +59,11 @@ void ImpactEventHandler::process_events(const vector<Event>& events)
   {
     vector<Event> nev;
     nev.push_back(events.front());
-    apply_model(events);
+    nev.front().contact_point.set_zero();
+    nev.front().contact_point[0] = 0.5;
+    nev.front().contact_point[2] = 0.5;
+//    apply_model(events);
+    apply_model(nev);
   }
   else
     FILE_LOG(LOG_EVENT) << " (no events?!)" << endl;
