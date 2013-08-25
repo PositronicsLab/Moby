@@ -56,15 +56,7 @@ void ImpactEventHandler::process_events(const vector<Event>& events)
 
   // apply the method to all contacts
   if (!events.empty())
-  {
-    vector<Event> nev;
-    nev.push_back(events.front());
-    nev.front().contact_point.set_zero();
-    nev.front().contact_point[0] = 0.5;
-    nev.front().contact_point[2] = 0.5;
-//    apply_model(events);
-    apply_model(nev);
-  }
+    apply_model(events);
   else
     FILE_LOG(LOG_EVENT) << " (no events?!)" << endl;
     
