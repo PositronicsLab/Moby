@@ -15,10 +15,10 @@
     <RungeKuttaFehlbergIntegrator id="rk4" rel-err-tol="1e-6" abs-err-tol="1e-6" />
 
     <!-- Collision detector -->
-    <MMeshDCD id="dcd" eps-tolerance="1e-6">
+    <MeshDCD id="dcd" eps-tolerance="1e-6">
       <Body body-id="box" />
       <Body body-id="ground" />
-    </MMeshDCD>
+    </MeshDCD>
 
     <CC2ACCD id="c2a" eps-tolerance="1e-4" alpha-tolerance="1e-4">
       <Body body-id="box" />
@@ -41,7 +41,7 @@
       </RigidBody>
 
       <!-- the ground -->
-      <RigidBody name="ground" id="ground" enabled="false" vvisualization-filename="ground.wrl" position="0 -.25 0">
+      <RigidBody id="ground" enabled="false" vvisualization-filename="ground.wrl" position="0 -.25 0">
         <CollisionGeometry primitive-id="b3" />  
       </RigidBody>
 

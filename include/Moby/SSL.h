@@ -30,7 +30,7 @@ class SSL : public BV
     SSL(const SSL& obb) { operator=(obb); }
     SSL(const Point3d& p1, const Point3d& p2, double radius);
     SSL(const SSL& s, const Ravelin::Vector3d& v);
-    void operator=(const SSL& s);
+    SSL& operator=(const SSL& s);
     virtual void transform(const Ravelin::Transform3d& T, BV* result) const;
     virtual BVPtr calc_swept_BV(CollisionGeometryPtr g, const Ravelin::SVelocityd& v) const;
     static double calc_dist(const SSL& o, const Point3d& p);

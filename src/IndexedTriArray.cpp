@@ -28,19 +28,9 @@ using std::string;
 using boost::shared_ptr;
 
 /// Initializes a mesh using a pointer to vertices
-IndexedTriArray::IndexedTriArray(shared_ptr<const vector<Point3d> > vertices, const vector<IndexedTri>& facets)
+IndexedTriArray::IndexedTriArray(shared_ptr<const vector<Origin3d> > vertices, const vector<IndexedTri>& facets)
 {
   _vertices = vertices;
-
-  // verify that all vertices are in the same frame
-  #ifndef NDEBUG
-  for (unsigned i=1; i < vertices->size(); i++)
-    assert(vertices->front().pose == (*vertices)[i].pose);
-  #endif  
-
-  // get the pose that the vertices are defined in
-  if (!_vertices->empty())
-    _pose = _vertices->front().pose;
 
   // setup facets 
   shared_ptr<vector<IndexedTri> > new_facets(new vector<IndexedTri>(facets));
@@ -55,20 +45,10 @@ IndexedTriArray::IndexedTriArray(shared_ptr<const vector<Point3d> > vertices, co
 }
 
 /// Initializes a mesh using pointers to vertices and facets
-IndexedTriArray::IndexedTriArray(shared_ptr<const vector<Point3d> > vertices, shared_ptr<const vector<IndexedTri> > facets)
+IndexedTriArray::IndexedTriArray(shared_ptr<const vector<Origin3d> > vertices, shared_ptr<const vector<IndexedTri> > facets)
 {
   _vertices = vertices;
   _facets = facets;
-
-  // verify that all vertices are in the same frame
-  #ifndef NDEBUG
-  for (unsigned i=1; i < vertices->size(); i++)
-    assert(vertices->front().pose == (*vertices)[i].pose);
-  #endif  
-
-  // get the pose that the vertices are defined in
-  if (!_vertices->empty())
-    _pose = _vertices->front().pose;
 
   // validate indices within range
   validate();  
@@ -90,19 +70,19 @@ void IndexedTriArray::calc_volume_ints(double volume_ints[10]) const
   // order:  1, x, y, z, x^2, y^2, z^2, xy, yz, zx
 
   // get the facets and vertices in the mesh
-  const std::vector<Point3d>& verts = get_vertices(); 
+  const std::vector<Origin3d>& verts = get_vertices(); 
   const std::vector<IndexedTri>& facets = get_facets(); 
 
   // process all triangles in the mesh
   for (unsigned i = 0; i < facets.size(); i++)
   {
     // get the three vertices of the triangle
-    const Point3d& v0 = verts[facets[i].a];
-    const Point3d& v1 = verts[facets[i].b];
-    const Point3d& v2 = verts[facets[i].c];
+    const Origin3d& v0 = verts[facets[i].a];
+    const Origin3d& v1 = verts[facets[i].b];
+    const Origin3d& v2 = verts[facets[i].c];
 
     // get the cross-product of the edges
-    Vector3d cross = Vector3d::cross(v1 - v0, v2 - v0);
+    Vector3d cross = Vector3d::cross(Vector3d(v1 - v0, GLOBAL), Vector3d(v2 - v0, GLOBAL));
 
     // compute integral terms
     double tmp0, tmp1, tmp2;
@@ -172,7 +152,6 @@ IndexedTriArray& IndexedTriArray::operator=(const IndexedTriArray& mesh)
   _incident_facets = mesh._incident_facets;
   _coplanar_verts = mesh._coplanar_verts;
   _coplanar_edges = mesh._coplanar_edges;
-  _pose = mesh._pose;
 
   return *this;
 }
@@ -231,22 +210,22 @@ map<sorted_pair<unsigned>, list<unsigned> > IndexedTriArray::determine_edge_face
 }
 
 /// Gets the i'th triangle from this mesh
-Triangle IndexedTriArray::get_triangle(unsigned i) const
+Triangle IndexedTriArray::get_triangle(unsigned i, shared_ptr<const Pose3d> P) const
 {
   if (i >= _facets->size())
     throw InvalidIndexException();
 
   // get the facets and vertices as objects
-  const vector<Point3d>& vertices = get_vertices();
+  const vector<Origin3d>& vertices = get_vertices();
   const vector<IndexedTri>& facets = get_facets();
 
-  return Triangle(vertices[facets[i].a], vertices[facets[i].b], vertices[facets[i].c]);
+  return Triangle(Point3d(vertices[facets[i].a], P), Point3d(vertices[facets[i].b], P), Point3d(vertices[facets[i].c], P));
 }
 
 /// Verifies that all indices are within range
 void IndexedTriArray::validate() const
 {
-  const vector<Point3d>& vertices = get_vertices();
+  const vector<Origin3d>& vertices = get_vertices();
   const vector<IndexedTri>& facets = get_facets();
 
   unsigned nv = vertices.size();
@@ -268,11 +247,11 @@ IndexedTriArray IndexedTriArray::merge(const IndexedTriArray& mesh1, const Index
     return mesh1;
 
   // get the vertices and facets from the first mesh
-  vector<Point3d> vertices = mesh1.get_vertices();
+  vector<Origin3d> vertices = mesh1.get_vertices();
   vector<IndexedTri> facets = mesh1.get_facets();
 
   // get the vertices and facets from the first mesh
-  const vector<Point3d>& vertices2 = mesh2.get_vertices();
+  const vector<Origin3d>& vertices2 = mesh2.get_vertices();
   vector<IndexedTri> facets2 = mesh2.get_facets();
 
   // setup a mapping for vertices in the second mesh
@@ -329,14 +308,11 @@ IndexedTriArray IndexedTriArray::transform(const Transform3d& T) const
   it._incident_facets = _incident_facets;
 
   // need to transform vertices
-  shared_ptr<vector<Point3d> > new_vertices(new vector<Point3d>(*_vertices));
+  shared_ptr<vector<Origin3d> > new_vertices(new vector<Origin3d>(*_vertices));
   it._vertices = new_vertices;
-  vector<Point3d>& vertices = *new_vertices;
+  vector<Origin3d>& vertices = *new_vertices;
   for (unsigned i=0; i< vertices.size(); i++)
-    vertices[i] = T.transform_point(vertices[i]);
-
-  // setup the new pose
-  it._pose = T.target;
+    vertices[i] = T.q * vertices[i] + T.x;
 
   return it;
 }
@@ -365,7 +341,7 @@ void IndexedTriArray::calc_incident_facets()
 IndexedTriArray IndexedTriArray::compress_vertices() const
 {
   // get facets and vertices
-  vector<Point3d> vertices = get_vertices();
+  vector<Origin3d> vertices = get_vertices();
   vector<IndexedTri> facets = get_facets();
 
   // determine unused vertices
@@ -409,7 +385,7 @@ void IndexedTriArray::write_to_obj(const IndexedTriArray& mesh, const string& fi
   const unsigned X = 0, Y = 1, Z = 2;
 
   // get vertices and facets
-  const vector<Point3d>& vertices = mesh.get_vertices();
+  const vector<Origin3d>& vertices = mesh.get_vertices();
   const vector<IndexedTri>& facets = mesh.get_facets();
 
   // open the file for writing
@@ -442,7 +418,7 @@ IndexedTriArray IndexedTriArray::read_from_obj(const string& filename)
   int i1, i2, i3;
 
   // create arrays for vertices and facets
-  vector<Point3d> vertices;
+  vector<Origin3d> vertices;
   vector<IndexedTri> facets;
 
   // open the file
@@ -477,7 +453,7 @@ IndexedTriArray IndexedTriArray::read_from_obj(const string& filename)
       }
 
       // create and add the vertex
-      vertices.push_back(Point3d(v1, v2, v3));
+      vertices.push_back(Origin3d(v1, v2, v3));
       continue;
     }
   
@@ -532,7 +508,9 @@ IndexedTriArray IndexedTriArray::read_from_obj(const string& filename)
         i3--;
 
       // if triangle is degenerate, do not store it
-      Triangle tri(vertices[i1], vertices[i2], vertices[i3]);
+      Triangle tri(Point3d(vertices[i1], GLOBAL), 
+                   Point3d(vertices[i2], GLOBAL),
+                   Point3d(vertices[i3], GLOBAL));
       if (tri.calc_area() < NEAR_ZERO)
         continue;
 
@@ -576,7 +554,7 @@ void IndexedTriArray::determine_coplanar_features()
 
   // get the vertices and facets
   const vector<IndexedTri>& f = get_facets();
-  const vector<Point3d>& v = get_vertices();
+  const vector<Origin3d>& v = get_vertices();
 
   // init lists which will hold the temporary result
   list<sorted_pair<unsigned> > cp_edges;
@@ -591,14 +569,14 @@ void IndexedTriArray::determine_coplanar_features()
 
     // get the normal to the first face
     const IndexedTri& fi = f[*liter++];
-    Vector3d fn = Triangle(v[fi.a], v[fi.b], v[fi.c]).calc_normal();
+    Vector3d fn = Triangle(Point3d(v[fi.a], GLOBAL), Point3d(v[fi.b], GLOBAL), Point3d(v[fi.c], GLOBAL)).calc_normal();
 
     // iterate
     while (liter != v_f_map[i].end()) 
     {
       // get the normal to the second face
       const IndexedTri& fli = f[*liter++];      
-      Vector3d fn2 = Triangle(v[fli.a], v[fli.b], v[fli.c]).calc_normal();
+      Vector3d fn2 = Triangle(Point3d(v[fli.a], GLOBAL), Point3d(v[fli.b], GLOBAL), Point3d(v[fli.c], GLOBAL)).calc_normal();
 
       // check angle between the two normals -- note: we allow the normals to
       // be completely opposed
@@ -621,14 +599,14 @@ void IndexedTriArray::determine_coplanar_features()
 
     // get the normal to the first face
     const IndexedTri& fi = f[*liter++];
-    Vector3d fn = Triangle(v[fi.a], v[fi.b], v[fi.c]).calc_normal();
+    Vector3d fn = Triangle(Point3d(v[fi.a], GLOBAL), Point3d(v[fi.b], GLOBAL), Point3d(v[fi.c], GLOBAL)).calc_normal();
 
     // iterate
     while (liter != i->second.end()) 
     {
       // get the normal to the second face
       const IndexedTri& fli = f[*liter++];      
-      Vector3d fn2 = Triangle(v[fli.a], v[fli.b], v[fli.c]).calc_normal();
+      Vector3d fn2 = Triangle(Point3d(v[fli.a], GLOBAL), Point3d(v[fli.b], GLOBAL), Point3d(v[fli.c], GLOBAL)).calc_normal();
 
       // check angle between the two normals -- note: we allow the normals to
       // be completely opposed

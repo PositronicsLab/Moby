@@ -1929,12 +1929,48 @@ long double CompGeom::volume(const Point3d& a, const Point3d& b, const Point3d& 
   return ax * (by*cz-bz*cy) + ay * (bz*cx-bx*cz) + az * (bx*cy-by*cx);
 }
 
+/// Gets the volume of a tetrahedron composed of vertices a, b, c, d
+long double CompGeom::volume(const Origin3d& a, const Origin3d& b, const Origin3d& c, const Origin3d& d)
+{
+  const unsigned X = 0, Y = 1, Z = 2;
+  
+  long double ax = a[X] - d[X];
+  long double ay = a[Y] - d[Y];
+  long double az = a[Z] - d[Z];
+  long double bx = b[X] - d[X];
+  long double by = b[Y] - d[Y];
+  long double bz = b[Z] - d[Z];
+  long double cx = c[X] - d[X];
+  long double cy = c[Y] - d[Y];
+  long double cz = c[Z] - d[Z];
+  return ax * (by*cz-bz*cy) + ay * (bz*cx-bx*cz) + az * (bx*cy-by*cx);
+}
+
+
 /// Gets the sign of the volume of a tetrahedron composed of vertices a, b, c, d
 /**
  * \returns -1 if d is "visible" from the plane of (a,b,c); 0 if the a,b,c, and
  *          d are coplanar, and +1 otherwise
  */
 CompGeom::VisibilityType CompGeom::volume_sign(const Point3d& a, const Point3d& b, const Point3d& c, const Point3d& d, double tol)
+{
+  assert(tol >= 0.0);
+
+  long double v = volume(a, b, c, d);
+  if (v < -tol)
+    return eVisible;
+  else if (v > tol)
+    return eInvisible;
+  else
+    return eCoplanar;
+}
+
+/// Gets the sign of the volume of a tetrahedron composed of vertices a, b, c, d
+/**
+ * \returns -1 if d is "visible" from the plane of (a,b,c); 0 if the a,b,c, and
+ *          d are coplanar, and +1 otherwise
+ */
+CompGeom::VisibilityType CompGeom::volume_sign(const Origin3d& a, const Origin3d& b, const Origin3d& c, const Origin3d& d, double tol)
 {
   assert(tol >= 0.0);
 

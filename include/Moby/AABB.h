@@ -37,6 +37,7 @@ class AABB : public BV
     static bool intersects(const AABB& a, const LineSeg3& seg, double& tmin, double tmax, Point3d& q);
     static void get_closest_point(const AABB& a, const Point3d& p, Point3d& closest);
     static double get_farthest_point(const AABB& a, const Point3d& p, Point3d& farthest);
+    AABB& operator=(const AABB& a);
 
     /// The lower corner of the AABB
     Point3d minp;

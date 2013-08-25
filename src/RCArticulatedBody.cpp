@@ -401,6 +401,9 @@ void RCArticulatedBody::set_links_and_joints(const vector<RigidBodyPtr>& links, 
       throw std::runtime_error("Nonzero link does not have an inner explicit joint!");
   }
 
+  // look whether it's a floating base
+  _floating_base = base->is_enabled();
+
   // call the parent method to update the link indices, etc.  
   ArticulatedBody::set_links_and_joints(links, joints);
 }

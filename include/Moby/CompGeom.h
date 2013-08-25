@@ -81,7 +81,9 @@ class CompGeom
     static PolygonLocationType in_tri(const Point2d t[3], const Point2d& p, double tol = NEAR_ZERO);
     static bool collinear(const Point2d& a, const Point2d& b, const Point2d& c, double tol = NEAR_ZERO);
     static long double volume(const Point3d& a, const Point3d& b, const Point3d& c, const Point3d& d);
+    static long double volume(const Ravelin::Origin3d& a, const Ravelin::Origin3d& b, const Ravelin::Origin3d& c, const Ravelin::Origin3d& d);
     static VisibilityType volume_sign(const Point3d& a, const Point3d& b, const Point3d& c, const Point3d& d, double tol = NEAR_ZERO);
+    static VisibilityType volume_sign(const Ravelin::Origin3d& a, const Ravelin::Origin3d& b, const Ravelin::Origin3d& c, const Ravelin::Origin3d& d, double tol = NEAR_ZERO);
     static bool coplanar(const Triangle& t1, const Triangle& t2, double tol = NEAR_ZERO);
     static Ravelin::Origin3d to_3D(const Ravelin::Origin2d& p, const Ravelin::Matrix3d& RT);
     static Ravelin::Origin3d to_3D(const Ravelin::Origin2d& p, const Ravelin::Matrix3d& RT, double offset);

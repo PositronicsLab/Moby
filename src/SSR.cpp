@@ -34,6 +34,7 @@ SSR::SSR(const Point3d& center, const Matrix3d& R, const Vector2d& l, double rad
 SSR::SSR(const SSR& s, const Vector3d& v)
 {
   assert(s.get_relative_pose() == v.pose);
+  geom = s.geom;
   center = s.center;
   R = s.R;
   l = s.l;
@@ -57,12 +58,14 @@ void SSR::transform(const Transform3d& T, BV* result) const
 }
 
 /// Copies one SSR to another
-void SSR::operator=(const SSR& s)
+SSR& SSR::operator=(const SSR& s)
 {
   center = s.center;
+  geom = s.geom;
   R = s.R;
   l = s.l;
   radius = s.radius;
+  return *this;
 }
 
 /// Calculates the velocity-expanded bounding volume

@@ -15,7 +15,7 @@ Mat& transform_and_transpose_mult(const std::vector<Ravelin::SVelocityd>& t, con
   }
 
   // get iterator to the result matrix
-  Ravelin::dIterator data = result.begin();
+  Ravelin::ColumnIteratord data = result.column_iterator_begin();
 
   // do minimum number of necessary transformations
   if (M < N)
@@ -53,7 +53,7 @@ Vec& transform_and_transpose_mult(const std::vector<Ravelin::SVelocityd>& t, con
     return result;
 
   // get iterator to the result matrix
-  Ravelin::dIterator data = result.begin();
+  Ravelin::ColumnIteratord data = result.column_iterator_begin();
 
   // convert w to the same frame as t
   Ravelin::SMomentumd wx = Ravelin::Pose3d::transform(t[0].pose, w);
@@ -82,7 +82,7 @@ Mat& transform_and_transpose_mult(const std::vector<Ravelin::SVelocityd>& t, con
   }
 
   // get iterator to the result matrix
-  Ravelin::dIterator data = result.begin();
+  Ravelin::ColumnIteratord data = result.column_iterator_begin();
 
   // do minimum number of necessary transformations
   if (M < N)
@@ -119,7 +119,7 @@ Vec& transform_and_transpose_mult(const std::vector<Ravelin::SVelocityd>& t, con
     return result;
 
   // get iterator to the result matrix
-  Ravelin::dIterator data = result.begin();
+  Ravelin::ColumnIteratord data = result.column_iterator_begin();
 
   // convert w to the same frame as t
   Ravelin::SForced wx = Ravelin::Pose3d::transform(t[0].pose, w);
