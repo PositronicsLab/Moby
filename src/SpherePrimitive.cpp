@@ -163,14 +163,8 @@ void SpherePrimitive::set_pose(const Pose3d& p)
   // go ahead and set the new transform
   Primitive::set_pose(p);
 
-  // transform mesh
-  if (_mesh)
-  {
-    _mesh = shared_ptr<IndexedTriArray>(new IndexedTriArray(_mesh->transform(T)));
-    _smesh.first = _mesh;
-  }
-
-  // clear the vertices
+  // clear the mesh and vertices
+  _mesh.reset(); 
   _vertices.reset();
 
   // invalidate this primitive
@@ -185,15 +179,13 @@ void SpherePrimitive::set_pose(const Pose3d& p)
     // get the pose for the geometry
     shared_ptr<const Pose3d> gpose = i->first->get_pose();
 
-    // create a new pose, which will be defined relative to the geometry's pose 
-    shared_ptr<Pose3d> T(new Pose3d);
+    // verify that this pose is defined w.r.t. the global frame
+    shared_ptr<const Pose3d> P = get_pose();
+    assert(!P->rpose);
 
-    // setup the relative pose for the bounding sphere center
-    *T = *get_pose();
-    T->update_relative_pose(gpose);
-
-    // setup the obb center and orientation
-    i->second->center = Point3d(T->x, gpose);
+    // setup the bounding sphere center; we're assuming that the primitive
+    // pose is defined relative to the geometry frame
+    i->second->center = Point3d(P->x, gpose);
   }
 }
 
@@ -269,10 +261,16 @@ void SpherePrimitive::get_vertices(BVPtr bv, std::vector<const Point3d*>& vertic
     // get the pose for the geometry
     shared_ptr<const Pose3d> gpose = bv->geom->get_pose();
 
-    // get the translation for the transform
-    shared_ptr<Pose3d> T(new Pose3d);
-    *T = *get_pose();
-    T->update_relative_pose(gpose); 
+    // verify that this pose is defined w.r.t. the global frame
+    shared_ptr<const Pose3d> P = get_pose();
+    assert(!P->rpose);
+
+    // setup transform
+    Transform3d T;
+    T.source = gpose;
+    T.target = gpose;
+    T.x = P->x;
+    T.q = P->q;
 
     // determine the vertices in the mesh
     // NOTE: they will all be defined in the global frame
@@ -284,8 +282,8 @@ void SpherePrimitive::get_vertices(BVPtr bv, std::vector<const Point3d*>& vertic
       const double Y = k * OFF - (double) 1.0 + (OFF * (double) 0.5);
       const double R = std::sqrt((double) 1.0 - Y*Y);
       const double PHI = k * INC;
-      Vector3d unit(std::cos(PHI)*R, Y, std::sin(PHI)*R, T);
-      (*_vertices)[k] = T->transform_point(unit*(_radius + _intersection_tolerance));
+      Vector3d unit(std::cos(PHI)*R, Y, std::sin(PHI)*R, gpose);
+      (*_vertices)[k] = T.transform_point(unit*(_radius + _intersection_tolerance));
     }
   }
 
@@ -368,15 +366,13 @@ BVPtr SpherePrimitive::get_BVH_root(CollisionGeometryPtr geom)
     // get the pose for the geometry
     shared_ptr<const Pose3d> gpose = geom->get_pose();
 
-    // create a new pose, which will be defined relative to the geometry's pose 
-    shared_ptr<Pose3d> T(new Pose3d);
+    // get the pose for this geometry
+    shared_ptr<const Pose3d> P = get_pose(); 
 
-    // setup the relative pose for the OBB center
-    *T = *get_pose();
-    T->update_relative_pose(gpose);
-
-    // setup the sphere center
-    bsph->center = Point3d(T->x, gpose);
+    // setup the bounding sphere center; we're assuming that the primitive
+    // pose is defined relative to the geometry frame
+    bsph->center = Point3d(P->x, gpose);
+    bsph->radius = _radius + _intersection_tolerance;
   }
 
   return bsph;
