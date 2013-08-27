@@ -25,6 +25,8 @@
 #include <Moby/XMLTree.h>
 #include <Moby/Integrator.h>
 #include <Moby/OBB.h>
+#include <Moby/BoundingSphere.h>
+#include <Moby/SSL.h>
 #include <Moby/GeneralizedCCD.h>
 #include <Moby/EventDrivenSimulator.h>
 
@@ -543,7 +545,7 @@ void GeneralizedCCD::check_vertices(double dt, CollisionGeometryPtr a, Collision
       RigidBodyPtr rbb = dynamic_pointer_cast<RigidBody>(b->get_single_body()); 
       FILE_LOG(LOG_COLDET) << "    -- checking vertex " << *v << " of " << rba->id << " against " << rbb->id << endl;
       FILE_LOG(LOG_COLDET) << "     -- u_s (local): " << u_s << endl; 
-      FILE_LOG(LOG_COLDET) << "     -- u_s (global): " << Pb_t0.transform_point(vb) << endl;
+      FILE_LOG(LOG_COLDET) << "     -- u_s (global): " << Pose3d::transform_point(GLOBAL, Pb_t0.transform_point(vb)) << endl;
     }
 
     // we'll sort on inverse distance from the center of mass (origin of b frame) 
@@ -620,13 +622,14 @@ BVPtr GeneralizedCCD::get_swept_BV(CollisionGeometryPtr cg, BVPtr bv, const Pose
 
   // otherwise, calculate it
   OBBPtr obb = boost::dynamic_pointer_cast<OBB>(bv);
-  if (LOGGING(LOG_BV) && obb)
+  if (LOGGING(LOG_BV) && boost::dynamic_pointer_cast<OBB>(bv))
   {
+    OBBPtr obb = boost::dynamic_pointer_cast<OBB>(bv);
     FILE_LOG(LOG_BV) << "calculating velocity-expanded OBB for: " << obb << std::endl;
     FILE_LOG(LOG_BV) << "unexpanded OBB: " << *obb << std::endl;
   }
   BVPtr swept_bv = bv->calc_swept_BV(cg, v);
-  FILE_LOG(LOG_BV) << "new OBB: " << swept_bv << std::endl;
+  FILE_LOG(LOG_BV) << "new BV: " << swept_bv << std::endl;
 
   // store the bounding volume
   #ifdef _OPENMP
@@ -1414,6 +1417,9 @@ void GeneralizedCCD::sort_AABBs(const map<CollisionGeometryPtr, PosePair>& poses
 void GeneralizedCCD::update_bounds_vector(vector<pair<double, BoundsStruct> >& bounds, const map<CollisionGeometryPtr, PosePair>& poses, AxisType axis)
 {
   const unsigned X = 0, Y = 1, Z = 2;
+  OBB obb;
+  BoundingSphere bsph;
+  SSL ssl;
 
   FILE_LOG(LOG_COLDET) << " -- update_bounds_vector() entered (axis=" << axis << ")" << std::endl;
 
@@ -1437,11 +1443,17 @@ void GeneralizedCCD::update_bounds_vector(vector<pair<double, BoundsStruct> >& b
     Transform3d wTbv = Pose3d::calc_relative_pose(swept_bv->get_relative_pose(), GLOBAL);
 
     // transform swept bounding volume to global frame
-    OBB obb;
-    swept_bv->transform(wTbv, &obb);
+    BV* bvX;
+    if (dynamic_pointer_cast<OBB>(swept_bv))
+      bvX = &obb; 
+    else if (dynamic_pointer_cast<BoundingSphere>(swept_bv))
+      bvX = &bsph;
+    else if (dynamic_pointer_cast<SSL>(swept_bv))
+      bvX = &ssl; 
+    swept_bv->transform(wTbv, bvX);
 
     // get the bound for the bounding volume
-    Point3d bound = (bounds[i].second.end) ? obb.get_upper_bounds() : obb.get_lower_bounds();
+    Point3d bound = (bounds[i].second.end) ? bvX->get_upper_bounds() : bvX->get_lower_bounds();
     FILE_LOG(LOG_COLDET) << "  updating collision geometry: " << geom << "  rigid body: " << geom->get_single_body()->id << std::endl;
 
     // update the bounds for the given axis
