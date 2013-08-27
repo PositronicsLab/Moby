@@ -110,21 +110,7 @@ void GeneralizedCCD::remove_articulated_body(ArticulatedBodyPtr abody)
 map<CollisionGeometryPtr, GeneralizedCCD::PosePair> GeneralizedCCD::get_poses(const vector<pair<DynamicBodyPtr, VectorNd> >& q0, const vector<pair<DynamicBodyPtr, VectorNd> >& q1) const
 {
   map<CollisionGeometryPtr, GeneralizedCCD::PosePair> poses;
-
-  // set generalized coordinates to q1 first
-  #ifndef _OPENMP
-  for (unsigned i=0; i< q0.size(); i++)
-    q1[i].first->set_generalized_coordinates(DynamicBody::eEuler, q1[i].second);
-  #else
-  #pragma #omp parallel for
-  for (unsigned i=0; i< q0.size(); i++)
-    q1[i].first->set_generalized_coordinates(DynamicBody::eEuler, q1[i].second);
-  #endif
-
-  // get the poses from all collision geometries and save 
-  BOOST_FOREACH(CollisionGeometryPtr g, _geoms)
-  for (unsigned i=0; i< q0.size(); i++)
-    poses[g].tf = *g->get_pose();
+  map<CollisionGeometryPtr, Transform3d> global_transforms;
 
   // set generalized coordinates to q0
   #ifndef _OPENMP
@@ -139,7 +125,41 @@ map<CollisionGeometryPtr, GeneralizedCCD::PosePair> GeneralizedCCD::get_poses(co
   // get the poses from all collision geometries 
   BOOST_FOREACH(CollisionGeometryPtr g, _geoms)
   for (unsigned i=0; i< q0.size(); i++)
-    poses[g].t0 = *g->get_pose();
+  {
+    shared_ptr<const Pose3d> P = g->get_pose();
+    poses[g].t0 = *P;
+    global_transforms[g] = Pose3d::calc_relative_pose(P, GLOBAL);
+  }
+
+  // set generalized coordinates to q1
+  #ifndef _OPENMP
+  for (unsigned i=0; i< q0.size(); i++)
+    q1[i].first->set_generalized_coordinates(DynamicBody::eEuler, q1[i].second);
+  #else
+  #pragma #omp parallel for
+  for (unsigned i=0; i< q0.size(); i++)
+    q1[i].first->set_generalized_coordinates(DynamicBody::eEuler, q1[i].second);
+  #endif
+
+  // get the poses from all collision geometries and save 
+  BOOST_FOREACH(CollisionGeometryPtr g, _geoms)
+  for (unsigned i=0; i< q0.size(); i++)
+  {
+    // get the transform from the pose at q1 to the global frame
+    Transform3d q1Tw = Pose3d::calc_relative_pose(GLOBAL, g->get_pose());
+
+    // get the transform from the pose at q0 to the pose at q1
+    const Transform3d& wTq0 = global_transforms[g];
+    Transform3d q1Tq0 = q1Tw * wTq0;
+
+     // get the pose pair
+    GeneralizedCCD::PosePair& pp = poses[g];
+    
+    // apply the transform to g's current pose
+    pp.tf.rpose = g->get_pose()->rpose;
+    pp.tf.q = q1Tq0.q;
+    pp.tf.x = q1Tq0.x;
+  }
 
   return poses;
 }
