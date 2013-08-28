@@ -165,6 +165,8 @@ void SpherePrimitive::set_pose(const Pose3d& p)
 
   // clear the mesh and vertices
   _mesh.reset(); 
+  _smesh.first.reset();
+  _smesh.second.clear();
   _vertices.reset();
 
   // invalidate this primitive
@@ -283,7 +285,7 @@ void SpherePrimitive::get_vertices(BVPtr bv, std::vector<const Point3d*>& vertic
       const double R = std::sqrt((double) 1.0 - Y*Y);
       const double PHI = k * INC;
       Vector3d unit(std::cos(PHI)*R, Y, std::sin(PHI)*R, gpose);
-      (*_vertices)[k] = T.transform_point(unit*(_radius + _intersection_tolerance));
+      (*_vertices)[k] = T.transform_point(unit*(_radius));
     }
   }
 
@@ -368,6 +370,7 @@ BVPtr SpherePrimitive::get_BVH_root(CollisionGeometryPtr geom)
 
     // get the pose for this geometry
     shared_ptr<const Pose3d> P = get_pose(); 
+    assert(!P->rpose);
 
     // setup the bounding sphere center; we're assuming that the primitive
     // pose is defined relative to the geometry frame

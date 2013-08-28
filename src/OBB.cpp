@@ -89,7 +89,7 @@ OBB::OBB(const OBB& o, const Vector3d& v)
   }
 
   // get the axes of o
-  Vector3d axis1, axis2, axis3;
+  Vector3d axis1(o.center.pose), axis2(o.center.pose), axis3(o.center.pose);
   o.R.get_column(X, axis1);
   o.R.get_column(Y, axis2);
   o.R.get_column(Z, axis3);
@@ -810,10 +810,8 @@ BVPtr OBB::calc_swept_BV(CollisionGeometryPtr g, const SVelocityd& v) const
     return const_pointer_cast<OBB>(get_this());
   }
 
-  // transform the velocity to the global frame
-  SVelocityd vo = Pose3d::transform(obb_frame, v);
-  Vector3d lv = vo.get_linear();
-  Vector3d av = vo.get_angular();
+  // get the linear velocity
+  Vector3d lv = Pose3d::transform(center.pose, v).get_linear();
 
   // copy the OBB, expanded by linear velocity
   OBBPtr o(new OBB);
@@ -825,6 +823,10 @@ BVPtr OBB::calc_swept_BV(CollisionGeometryPtr g, const SVelocityd& v) const
   FILE_LOG(LOG_BV) << "OBB::calc_vel_exp_OBB() entered" << endl;
   FILE_LOG(LOG_BV) << "  original bounding box: " << endl << *get_this();
   FILE_LOG(LOG_BV) << "  linear velocity expanded bounding box: " << endl << *o;
+
+  // transform the velocity to the desired frame
+  SVelocityd vo = Pose3d::transform(obb_frame, v);
+  Vector3d av = vo.get_angular();
 
   // if there is no angular velocity, nothing more needs to be done
   double av_norm = av.norm();
@@ -857,9 +859,13 @@ BVPtr OBB::calc_swept_BV(CollisionGeometryPtr g, const SVelocityd& v) const
   // compute the cross product between omega and vector to the first box vertex 
   Vector3d wxv = Vector3d::cross(av, verts[0])*dt;
 */
+  // transform the lengths to the obb frame
+  Vector3d lengths(o->l[X], o->l[Y], o->l[Z], center.pose);
+  Vector3d l = Pose3d::transform_vector(obb_frame, lengths);
+
   // compute the cross product between omega and vector to a box vertex 
-  Vector3d corner(-o->l[X], -o->l[Y], -o->l[Z], obb_frame);
-  Vector3d wxv = Vector3d::cross(av, corner);
+  Vector3d corner(-l[X], -l[Y], -l[Z], obb_frame);
+  Vector3d wxv = Pose3d::transform_vector(center.pose, Vector3d::cross(av, corner));
 
   // compute contributions to all three axes
   o->l[X] += std::fabs(wxv[X]);   

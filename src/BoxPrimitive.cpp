@@ -112,9 +112,9 @@ void BoxPrimitive::set_size(double xlen, double ylen, double zlen)
   for (map<CollisionGeometryPtr, OBBPtr>::iterator i = _obbs.begin(); i != _obbs.end(); i++)
   {
     // setup OBB half-lengths
-    i->second->l[X] = _xlen * (double) 0.5;
-    i->second->l[Y] = _ylen * (double) 0.5;
-    i->second->l[Z] = _zlen * (double) 0.5;
+    i->second->l[X] = _xlen * (double) 0.5 + _intersection_tolerance;
+    i->second->l[Y] = _ylen * (double) 0.5 + _intersection_tolerance;
+    i->second->l[Z] = _zlen * (double) 0.5 + _intersection_tolerance;
   }
 
   // need to update visualization
@@ -143,12 +143,10 @@ void BoxPrimitive::set_pose(const Pose3d& p)
   // go ahead and set the new transform
   Primitive::set_pose(p);
 
-  // transform the mesh
-  if (_mesh)
-  {
-    _mesh = shared_ptr<IndexedTriArray>(new IndexedTriArray(_mesh->transform(T)));
-    _smesh.first = _mesh;
-  }
+  // invalidate the mesh 
+  _mesh.reset();
+  _smesh.first.reset();
+  _smesh.second.clear();
 
   // invalidate this primitive (in case it is part of a CSG)
   _invalidated = true;
@@ -162,16 +160,13 @@ void BoxPrimitive::set_pose(const Pose3d& p)
     // get the pose for the geometry
     shared_ptr<const Pose3d> gpose = i->first->get_pose();
 
-    // create a new pose, which will be defined relative to the geometry's pose 
-    shared_ptr<Pose3d> T(new Pose3d);
-
-    // setup the relative pose for the OBB center
-    *T = *get_pose();
-    T->update_relative_pose(gpose);
+    // verify that this pose is defined w.r.t. the global frame
+    shared_ptr<const Pose3d> P = get_pose();
+    assert(!P->rpose);
 
     // setup the obb center and orientation
-    i->second->center = Point3d(T->x, gpose);
-    i->second->R = T->q;
+    i->second->center = Point3d(P->x, gpose);
+    i->second->R = P->q;
   }
 
   // recalculate the mass properties
@@ -189,33 +184,37 @@ void BoxPrimitive::get_vertices(BVPtr bv, vector<const Point3d*>& vertices)
       return;
     }
 
-    // get the pose for the geometry
+    // get the geometry pose
     shared_ptr<const Pose3d> gpose = bv->geom->get_pose();
 
-    // create a new pose, which will be defined relative to the geometry's pose 
-    shared_ptr<Pose3d> T(new Pose3d);
+    // verify that this pose is defined w.r.t. the global frame
+    shared_ptr<const Pose3d> P = get_pose();
+    assert(!P->rpose);
 
-    // setup the relative pose for the OBB center
-    *T = *get_pose();
-    T->update_relative_pose(gpose);
+    // setup transform
+    Transform3d T;
+    T.source = gpose;
+    T.target = gpose;
+    T.x = P->x;
+    T.q = P->q;
 
     // determine the vertices in the mesh
     _vertices = shared_ptr<vector<Point3d> >(new vector<Point3d>());
 
     // setup half-lengths
-    const double XLEN = _xlen*(double) 0.5 + _intersection_tolerance;
-    const double YLEN = _ylen*(double) 0.5 + _intersection_tolerance;
-    const double ZLEN = _zlen*(double) 0.5 + _intersection_tolerance;
+    const double XLEN = _xlen*(double) 0.5;
+    const double YLEN = _ylen*(double) 0.5;
+    const double ZLEN = _zlen*(double) 0.5;
 
     // add the vertices 
-    _vertices->push_back(T->transform_point(Point3d(XLEN,YLEN,ZLEN,T)));
-    _vertices->push_back(T->transform_point(Point3d(XLEN,YLEN,-ZLEN,T)));
-    _vertices->push_back(T->transform_point(Point3d(XLEN,-YLEN,ZLEN,T)));
-    _vertices->push_back(T->transform_point(Point3d(XLEN,-YLEN,-ZLEN,T)));
-    _vertices->push_back(T->transform_point(Point3d(-XLEN,YLEN,ZLEN,T)));
-    _vertices->push_back(T->transform_point(Point3d(-XLEN,YLEN,-ZLEN,T)));
-    _vertices->push_back(T->transform_point(Point3d(-XLEN,-YLEN,ZLEN,T)));
-    _vertices->push_back(T->transform_point(Point3d(-XLEN,-YLEN,-ZLEN,T)));
+    _vertices->push_back(T.transform_point(Point3d(XLEN,YLEN,ZLEN,gpose)));
+    _vertices->push_back(T.transform_point(Point3d(XLEN,YLEN,-ZLEN,gpose)));
+    _vertices->push_back(T.transform_point(Point3d(XLEN,-YLEN,ZLEN,gpose)));
+    _vertices->push_back(T.transform_point(Point3d(XLEN,-YLEN,-ZLEN,gpose)));
+    _vertices->push_back(T.transform_point(Point3d(-XLEN,YLEN,ZLEN,gpose)));
+    _vertices->push_back(T.transform_point(Point3d(-XLEN,YLEN,-ZLEN,gpose)));
+    _vertices->push_back(T.transform_point(Point3d(-XLEN,-YLEN,ZLEN,gpose)));
+    _vertices->push_back(T.transform_point(Point3d(-XLEN,-YLEN,-ZLEN,gpose)));
     
     // now we want to add vertices by subdividing edges
     // note: these edges come from facets in get_mesh()
@@ -426,21 +425,18 @@ BVPtr BoxPrimitive::get_BVH_root(CollisionGeometryPtr geom)
     // get the pose for the geometry
     shared_ptr<const Pose3d> gpose = geom->get_pose();
 
-    // create a new pose, which will be defined relative to the geometry's pose 
-    shared_ptr<Pose3d> T(new Pose3d);
-
-    // setup the relative pose for the OBB center
-    *T = *get_pose();
-    T->update_relative_pose(gpose);
+    // get the pose for this geometry
+    shared_ptr<const Pose3d> P = get_pose(); 
+    assert(!P->rpose);
 
     // setup the obb center and orientation
-    obb->center = Point3d(T->x, gpose);
-    obb->R = T->q;
+    obb->center = Point3d(P->x, gpose);
+    obb->R = P->q;
 
     // setup OBB half-lengths
-    obb->l[X] = _xlen * (double) 0.5;
-    obb->l[Y] = _ylen * (double) 0.5;
-    obb->l[Z] = _zlen * (double) 0.5;
+    obb->l[X] = _xlen * (double) 0.5 + _intersection_tolerance;
+    obb->l[Y] = _ylen * (double) 0.5 + _intersection_tolerance;
+    obb->l[Z] = _zlen * (double) 0.5 + _intersection_tolerance;
   }
 
   return obb;
