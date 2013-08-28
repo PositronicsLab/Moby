@@ -163,10 +163,9 @@ void CSG::set_pose(const Pose3d& p)
   // call the primitive transform
   Primitive::set_pose(p);
 
-  // transform the vertices
-  if (_vertices)
-    for (unsigned i=0; i< _vertices->size(); i++)
-      (*_vertices)[i] = T.transform_point((*_vertices)[i]);
+  // invalidate vertices and the mesh 
+  _vertices.reset();
+  _mesh.reset();
 
   // invalidate this primitive
   _invalidated = true;
@@ -192,6 +191,7 @@ BVPtr CSG::get_BVH_root(CollisionGeometryPtr geom)
   if (!_aabb)
     _aabb = shared_ptr<AABB>(new AABB);
 
+// TODO: pose should be taken into account
   // get the bounding volumes for the operands
   shared_ptr<BV> bv1 = _op1->get_BVH_root(geom);
   shared_ptr<BV> bv2 = _op2->get_BVH_root(geom);
@@ -948,6 +948,7 @@ void CSG::get_vertices(BVPtr bv, vector<const Point3d*>& vertices)
   Vector3d dummy;
   vector<const Point3d*> v1, v2;
 
+// TODO: verify this works with poses
   // if one of the operands is not set, quit
   if (!_op1 || !_op2)
     return;

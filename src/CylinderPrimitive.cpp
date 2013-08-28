@@ -303,14 +303,10 @@ void CylinderPrimitive::set_pose(const Pose3d& p)
   // go ahead and set the new transform
   Primitive::set_pose(p);
 
-  // transform mesh
-  if (_mesh)
-  {
-    _mesh = shared_ptr<IndexedTriArray>(new IndexedTriArray(_mesh->transform(T)));
-    _smesh.first = _mesh;
-  }
-
-  // invalidate the vertices
+  // invalidate the vertices and mesh
+  _mesh.reset();
+  _smesh.first.reset();
+  _smesh.second.clear();
   _vertices.reset();
 
   // invalidate this primitive
@@ -325,16 +321,13 @@ void CylinderPrimitive::set_pose(const Pose3d& p)
     // get the pose for the geometry
     shared_ptr<const Pose3d> gpose = i->first->get_pose();
 
-    // create a new pose, which will be defined relative to the geometry's pose 
-    shared_ptr<Pose3d> T(new Pose3d);
-
-    // setup the relative pose for the OBB center
-    *T = *get_pose();
-    T->update_relative_pose(gpose);
+    // get the pose for this geometry
+    shared_ptr<const Pose3d> P = get_pose(); 
+    assert(!P->rpose);
 
     // setup the obb center and orientation
-    i->second->center = Point3d(T->x, gpose);
-    i->second->R = T->q;
+    i->second->center = Point3d(P->x, gpose);
+    i->second->R = P->q;
   }
 }
 
@@ -386,16 +379,13 @@ BVPtr CylinderPrimitive::get_BVH_root(CollisionGeometryPtr geom)
     // get the pose for the geometry
     shared_ptr<const Pose3d> gpose = geom->get_pose();
 
-    // create a new pose, which will be defined relative to the geometry's pose 
-    shared_ptr<Pose3d> T(new Pose3d);
-
-    // setup the relative pose for the OBB center
-    *T = *get_pose();
-    T->update_relative_pose(gpose);
+    // get the pose for this geometry
+    shared_ptr<const Pose3d> P = get_pose(); 
+    assert(!P->rpose);
 
     // setup the obb center and orientation
-    obb->center = Point3d(T->x, gpose);
-    obb->R = T->q;
+    obb->center = Point3d(P->x, gpose);
+    obb->R = P->q;
 
     // setup OBB half-lengths
     obb->l[X] = _radius + _intersection_tolerance;
@@ -420,8 +410,8 @@ void CylinderPrimitive::get_vertices(BVPtr bv, std::vector<const Point3d*>& vert
   // create the vector of vertices if necessary
   if (!_vertices)
   {
-    const double R = _radius + _intersection_tolerance;
-    const double H = _height + (_intersection_tolerance * (double) 2.0);
+    const double R = _radius;
+    const double H = _height;
 
     // if radius or height <= 0, num rings < 2, or circle points < 3, return now
     if (_radius <= 0.0 || _height <= 0.0 || _nrings < 2 || _npoints < 3)
@@ -433,10 +423,15 @@ void CylinderPrimitive::get_vertices(BVPtr bv, std::vector<const Point3d*>& vert
     // get the pose for the geometry
     shared_ptr<const Pose3d> gpose = bv->geom->get_pose();
 
-    // create a new pose, which will be defined relative to the geometry's pose
-    shared_ptr<Pose3d> T(new Pose3d);
-    *T = *get_pose();
-    T->update_relative_pose(gpose);
+    // get the pose of this primitive
+    shared_ptr<const Pose3d> P = get_pose();
+
+    // setup transform
+    Transform3d T;
+    T.source = gpose;
+    T.target = gpose;
+    T.x = P->x;
+    T.q = P->q;
 
     // create the vector of vertices
     _vertices = shared_ptr<vector<Point3d> >(new vector<Point3d>());
@@ -451,7 +446,7 @@ void CylinderPrimitive::get_vertices(BVPtr bv, std::vector<const Point3d*>& vert
         double THETA = i*(M_PI * (double) 2.0/_npoints);
         const double CT = std::cos(THETA);
         const double ST = std::sin(THETA);
-        _vertices->push_back(T->transform_point(Point3d(CT*R, HEIGHT, ST*R, T)));
+        _vertices->push_back(T.transform_point(Point3d(CT*R, HEIGHT, ST*R, gpose)));
       }
     }
   }
