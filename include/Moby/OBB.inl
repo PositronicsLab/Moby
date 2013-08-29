@@ -719,7 +719,7 @@ OutputIterator OBB::get_vertices(OutputIterator begin) const
   const unsigned X = 0, Y = 1, Z = 2;
 
   // get the three axes of the OBB, scaled by axis lengths
-  Ravelin::Vector3d axis1, axis2, axis3;
+  Ravelin::Vector3d axis1(center.pose), axis2(center.pose), axis3(center.pose);
   R.get_column(X, axis1); 
   R.get_column(Y, axis2); 
   R.get_column(Z, axis3); 

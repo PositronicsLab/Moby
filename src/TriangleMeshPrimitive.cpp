@@ -731,11 +731,8 @@ void TriangleMeshPrimitive::set_pose(const Pose3d& p)
   // go ahead and set the new transform
   Primitive::set_pose(p);
 
-  // transform mesh
-  if (_mesh)
-    _mesh = shared_ptr<IndexedTriArray>(new IndexedTriArray(_mesh->transform(T)));
-
-  // vertices and bounding volumes are no longer valid
+  // reset mesh, vertices, and bounding volumes 
+  _mesh.reset();
   _vertices.clear();
   _mesh_vertices.clear();
   _roots.clear();
@@ -786,15 +783,23 @@ void TriangleMeshPrimitive::build_BB_tree(CollisionGeometryPtr geom)
   // get the vertices from the mesh
   const vector<Origin3d>& verts = _mesh->get_vertices();
 
- // create a new pose that will be defined relative to the geometry
-  shared_ptr<Pose3d> T(new Pose3d);
-  *T = *get_pose();
-  T->update_relative_pose(geom->get_pose());
+  // get the geometry pose
+  shared_ptr<const Pose3d> gpose = geom->get_pose();
+
+  // get pose of this primitive
+  shared_ptr<const Pose3d> P = get_pose();
+
+  // setup transform
+  Transform3d T;
+  T.source = gpose;
+  T.target = gpose;
+  T.x = P->x;
+  T.q = P->q;
 
   // transform the vertices into Point3d objects
   vector<Point3d> vertices(verts.size());
   for (unsigned i=0; i< verts.size(); i++)
-    vertices[i] = Point3d(verts[i], T);
+    vertices[i] = T.transform_point(Point3d(verts[i], gpose));
 
   // build an BV around all vertices 
   BVPtr root;
@@ -1017,7 +1022,7 @@ void TriangleMeshPrimitive::build_BB_tree(CollisionGeometryPtr geom)
   }
 
   // build set of mesh vertices
-  construct_mesh_vertices(_mesh, geom, T);
+  construct_mesh_vertices(_mesh, geom, gpose);
 
   FILE_LOG(LOG_BV) << "Primitive::build_BB_tree() exited" << endl;
 }

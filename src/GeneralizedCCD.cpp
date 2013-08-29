@@ -25,6 +25,8 @@
 #include <Moby/XMLTree.h>
 #include <Moby/Integrator.h>
 #include <Moby/OBB.h>
+#include <Moby/BoundingSphere.h>
+#include <Moby/SSL.h>
 #include <Moby/GeneralizedCCD.h>
 #include <Moby/EventDrivenSimulator.h>
 
@@ -110,21 +112,7 @@ void GeneralizedCCD::remove_articulated_body(ArticulatedBodyPtr abody)
 map<CollisionGeometryPtr, GeneralizedCCD::PosePair> GeneralizedCCD::get_poses(const vector<pair<DynamicBodyPtr, VectorNd> >& q0, const vector<pair<DynamicBodyPtr, VectorNd> >& q1) const
 {
   map<CollisionGeometryPtr, GeneralizedCCD::PosePair> poses;
-
-  // set generalized coordinates to q1 first
-  #ifndef _OPENMP
-  for (unsigned i=0; i< q0.size(); i++)
-    q1[i].first->set_generalized_coordinates(DynamicBody::eEuler, q1[i].second);
-  #else
-  #pragma #omp parallel for
-  for (unsigned i=0; i< q0.size(); i++)
-    q1[i].first->set_generalized_coordinates(DynamicBody::eEuler, q1[i].second);
-  #endif
-
-  // get the poses from all collision geometries and save 
-  BOOST_FOREACH(CollisionGeometryPtr g, _geoms)
-  for (unsigned i=0; i< q0.size(); i++)
-    poses[g].tf = *g->get_pose();
+  map<CollisionGeometryPtr, Transform3d> global_transforms;
 
   // set generalized coordinates to q0
   #ifndef _OPENMP
@@ -139,7 +127,41 @@ map<CollisionGeometryPtr, GeneralizedCCD::PosePair> GeneralizedCCD::get_poses(co
   // get the poses from all collision geometries 
   BOOST_FOREACH(CollisionGeometryPtr g, _geoms)
   for (unsigned i=0; i< q0.size(); i++)
-    poses[g].t0 = *g->get_pose();
+  {
+    shared_ptr<const Pose3d> P = g->get_pose();
+    poses[g].t0 = *P;
+    global_transforms[g] = Pose3d::calc_relative_pose(P, GLOBAL);
+  }
+
+  // set generalized coordinates to q1
+  #ifndef _OPENMP
+  for (unsigned i=0; i< q0.size(); i++)
+    q1[i].first->set_generalized_coordinates(DynamicBody::eEuler, q1[i].second);
+  #else
+  #pragma #omp parallel for
+  for (unsigned i=0; i< q0.size(); i++)
+    q1[i].first->set_generalized_coordinates(DynamicBody::eEuler, q1[i].second);
+  #endif
+
+  // get the poses from all collision geometries and save 
+  BOOST_FOREACH(CollisionGeometryPtr g, _geoms)
+  for (unsigned i=0; i< q0.size(); i++)
+  {
+    // get the transform from the pose at q1 to the global frame
+    Transform3d q1Tw = Pose3d::calc_relative_pose(GLOBAL, g->get_pose());
+
+    // get the transform from the pose at q0 to the pose at q1
+    const Transform3d& wTq0 = global_transforms[g];
+    Transform3d q1Tq0 = q1Tw * wTq0;
+
+     // get the pose pair
+    GeneralizedCCD::PosePair& pp = poses[g];
+    
+    // apply the transform to g's current pose
+    pp.tf.rpose = g->get_pose()->rpose;
+    pp.tf.q = q1Tq0.q;
+    pp.tf.x = q1Tq0.x;
+  }
 
   return poses;
 }
@@ -543,7 +565,7 @@ void GeneralizedCCD::check_vertices(double dt, CollisionGeometryPtr a, Collision
       RigidBodyPtr rbb = dynamic_pointer_cast<RigidBody>(b->get_single_body()); 
       FILE_LOG(LOG_COLDET) << "    -- checking vertex " << *v << " of " << rba->id << " against " << rbb->id << endl;
       FILE_LOG(LOG_COLDET) << "     -- u_s (local): " << u_s << endl; 
-      FILE_LOG(LOG_COLDET) << "     -- u_s (global): " << Pb_t0.transform_point(vb) << endl;
+      FILE_LOG(LOG_COLDET) << "     -- u_s (global): " << Pose3d::transform_point(GLOBAL, Pb_t0.transform_point(vb)) << endl;
     }
 
     // we'll sort on inverse distance from the center of mass (origin of b frame) 
@@ -620,13 +642,14 @@ BVPtr GeneralizedCCD::get_swept_BV(CollisionGeometryPtr cg, BVPtr bv, const Pose
 
   // otherwise, calculate it
   OBBPtr obb = boost::dynamic_pointer_cast<OBB>(bv);
-  if (LOGGING(LOG_BV) && obb)
+  if (LOGGING(LOG_BV) && boost::dynamic_pointer_cast<OBB>(bv))
   {
+    OBBPtr obb = boost::dynamic_pointer_cast<OBB>(bv);
     FILE_LOG(LOG_BV) << "calculating velocity-expanded OBB for: " << obb << std::endl;
     FILE_LOG(LOG_BV) << "unexpanded OBB: " << *obb << std::endl;
   }
   BVPtr swept_bv = bv->calc_swept_BV(cg, v);
-  FILE_LOG(LOG_BV) << "new OBB: " << swept_bv << std::endl;
+  FILE_LOG(LOG_BV) << "new BV: " << swept_bv << std::endl;
 
   // store the bounding volume
   #ifdef _OPENMP
@@ -1414,6 +1437,9 @@ void GeneralizedCCD::sort_AABBs(const map<CollisionGeometryPtr, PosePair>& poses
 void GeneralizedCCD::update_bounds_vector(vector<pair<double, BoundsStruct> >& bounds, const map<CollisionGeometryPtr, PosePair>& poses, AxisType axis)
 {
   const unsigned X = 0, Y = 1, Z = 2;
+  OBB obb;
+  BoundingSphere bsph;
+  SSL ssl;
 
   FILE_LOG(LOG_COLDET) << " -- update_bounds_vector() entered (axis=" << axis << ")" << std::endl;
 
@@ -1437,11 +1463,17 @@ void GeneralizedCCD::update_bounds_vector(vector<pair<double, BoundsStruct> >& b
     Transform3d wTbv = Pose3d::calc_relative_pose(swept_bv->get_relative_pose(), GLOBAL);
 
     // transform swept bounding volume to global frame
-    OBB obb;
-    swept_bv->transform(wTbv, &obb);
+    BV* bvX;
+    if (dynamic_pointer_cast<OBB>(swept_bv))
+      bvX = &obb; 
+    else if (dynamic_pointer_cast<BoundingSphere>(swept_bv))
+      bvX = &bsph;
+    else if (dynamic_pointer_cast<SSL>(swept_bv))
+      bvX = &ssl; 
+    swept_bv->transform(wTbv, bvX);
 
     // get the bound for the bounding volume
-    Point3d bound = (bounds[i].second.end) ? obb.get_upper_bounds() : obb.get_lower_bounds();
+    Point3d bound = (bounds[i].second.end) ? bvX->get_upper_bounds() : bvX->get_lower_bounds();
     FILE_LOG(LOG_COLDET) << "  updating collision geometry: " << geom << "  rigid body: " << geom->get_single_body()->id << std::endl;
 
     // update the bounds for the given axis

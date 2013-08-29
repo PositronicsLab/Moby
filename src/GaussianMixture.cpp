@@ -377,9 +377,19 @@ void GaussianMixture::construct_BVs(CollisionGeometryPtr geom)
   const unsigned X = 0, Y = 1, Z = 2;
   list<BVPtr> children;
 
-  // setup a pose relative to the collision geometry
-  Pose3d T(get_pose());
-  T.update_relative_pose(geom->get_pose());  
+  // get the collision geometry pose
+  shared_ptr<const Pose3d> gpose = geom->get_pose();
+
+  // get the pose
+  shared_ptr<const Pose3d> P = get_pose();
+  assert(!P->rpose);
+
+  // setup a transform
+  Transform3d T;
+  T.source = gpose;
+  T.target = gpose;
+  T.q = P->q;
+  T.x = P->x;
 
   // iterate over all Gaussians
   for (unsigned i=0; i< _gauss.size(); i++)
@@ -390,10 +400,7 @@ void GaussianMixture::construct_BVs(CollisionGeometryPtr geom)
 
     // setup the OBB center
     const double HEIGHT = gauss(_gauss[i], _gauss[i].x0, _gauss[i].y0);
-    obb->center[X] = T.x[X] + _gauss[i].x0;
-    obb->center[Y] = T.x[Y] + _gauss[i].y0;
-    obb->center[Z] = T.x[Z] + HEIGHT*0.5;   
-    obb->center.pose = geom->get_pose();
+    obb->center = T.transform_point(Point3d(_gauss[i].x0, _gauss[i].y0, HEIGHT*0.5, gpose));
 
     // setup the OBB half-lengths
     obb->l[X] = _gauss[i].sigma_x*3.0;
