@@ -641,7 +641,6 @@ BVPtr GeneralizedCCD::get_swept_BV(CollisionGeometryPtr cg, BVPtr bv, const Pose
     return vj->second;
 
   // otherwise, calculate it
-  OBBPtr obb = boost::dynamic_pointer_cast<OBB>(bv);
   if (LOGGING(LOG_BV) && boost::dynamic_pointer_cast<OBB>(bv))
   {
     OBBPtr obb = boost::dynamic_pointer_cast<OBB>(bv);
