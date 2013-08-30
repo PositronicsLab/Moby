@@ -55,28 +55,35 @@ void ImpactEventHandler::solve_qp(EventProblemData& q, double poisson_eps)
   // save impulses in q
   q.update_from_stacked(z);
 
-  // update Cn_v, Cs_v, Ct_v, L_v, and Jx_v
+  // update Cn_v
   q.Cn_v += q.Cn_iM_CnT.mult(q.cn, tmp);
   q.Cn_v += q.Cn_iM_CsT.mult(q.cs, tmp);
   q.Cn_v += q.Cn_iM_CtT.mult(q.ct, tmp);
   q.Cn_v += q.Cn_iM_LT.mult(q.l, tmp);
   q.Cn_v += q.Cn_iM_JxT.mult(q.alpha_x, tmp);
+
+  // update Cs_v
   q.Cs_v += q.Cn_iM_CsT.transpose_mult(q.cn, tmp);
   q.Cs_v += q.Cs_iM_CsT.mult(q.cs, tmp);
-  q.Cs_v += q.Cs_iM_CtT.transpose_mult(q.ct, tmp);
   q.Cs_v += q.Cs_iM_CtT.mult(q.ct, tmp);
   q.Cs_v += q.Cs_iM_LT.mult(q.l, tmp);
   q.Cs_v += q.Cs_iM_JxT.mult(q.alpha_x, tmp);
+
+  // update Ct_v
   q.Ct_v += q.Cn_iM_CtT.transpose_mult(q.cn, tmp);
   q.Ct_v += q.Cs_iM_CtT.transpose_mult(q.cs, tmp);
   q.Ct_v += q.Ct_iM_CtT.mult(q.ct, tmp);
   q.Ct_v += q.Ct_iM_LT.mult(q.l, tmp);
   q.Ct_v += q.Ct_iM_JxT.mult(q.alpha_x, tmp);
+
+  // update L_v
   q.L_v += q.Cn_iM_LT.transpose_mult(q.cn, tmp);
   q.L_v += q.Cs_iM_LT.transpose_mult(q.cs, tmp);
   q.L_v += q.Ct_iM_LT.transpose_mult(q.ct, tmp);
   q.L_v += q.L_iM_LT.mult(q.l, tmp);
   q.L_v += q.L_iM_JxT.mult(q.alpha_x, tmp);
+
+  // update Jx_v
   q.Jx_v += q.Cn_iM_JxT.transpose_mult(q.cn, tmp);
   q.Jx_v += q.Cs_iM_JxT.transpose_mult(q.cs, tmp);
   q.Jx_v += q.Ct_iM_JxT.transpose_mult(q.ct, tmp);
@@ -85,6 +92,11 @@ void ImpactEventHandler::solve_qp(EventProblemData& q, double poisson_eps)
 
   // output results
   FILE_LOG(LOG_EVENT) << "results: " << std::endl;
+  FILE_LOG(LOG_EVENT) << "cn: " << q.cn << std::endl;
+  FILE_LOG(LOG_EVENT) << "cs: " << q.cs << std::endl;
+  FILE_LOG(LOG_EVENT) << "ct: " << q.ct << std::endl;
+  FILE_LOG(LOG_EVENT) << "l: " << q.l << std::endl;
+  FILE_LOG(LOG_EVENT) << "alpha_x: " << q.alpha_x << std::endl;
   FILE_LOG(LOG_EVENT) << "new Cn_v: " << q.Cn_v << std::endl;
   FILE_LOG(LOG_EVENT) << "new Cs_v: " << q.Cs_v << std::endl;
   FILE_LOG(LOG_EVENT) << "new Ct_v: " << q.Ct_v << std::endl;
@@ -120,26 +132,28 @@ void ImpactEventHandler::solve_qp(EventProblemData& q, double poisson_eps)
     }
   }
 
+  // setup a temporary frame
+  shared_ptr<Pose3d> P(new Pose3d);
+
   // save normal contact impulses
   for (unsigned i=0; i< q.N_CONTACTS; i++)
   {
-    shared_ptr<const Pose3d> pose = q.contact_events[i]->get_pose();
-    q.contact_events[i]->contact_impulse.pose = pose;
-    q.contact_events[i]->contact_impulse.set_zero();
-    Vector3d n = Pose3d::transform_vector(pose, q.contact_events[i]->contact_normal); 
-    q.contact_events[i]->contact_impulse.set_linear(n * q.cn[i]);
-  }
+    // setup the contact frame
+    P->q.set_identity();
+    P->x = q.contact_events[i]->contact_point;
 
-  // save tangent contact impulses
-  for (unsigned i=0; i< q.N_CONTACTS; i++)
-  {
-    shared_ptr<const Pose3d> pose = q.contact_events[i]->get_pose();
-    Vector3d t1 = Pose3d::transform_vector(pose, q.contact_events[i]->contact_tan1); 
-    Vector3d t2 = Pose3d::transform_vector(pose, q.contact_events[i]->contact_tan2); 
-    Vector3d contact_j = q.contact_events[i]->contact_impulse.get_linear(); 
-    contact_j += t1 * q.cs[i];
-    contact_j += t2 * q.ct[i];
-    q.contact_events[i]->contact_impulse.set_linear(contact_j);
+    // setup the impulse in the contact frame
+    Vector3d j;
+    j = q.contact_events[i]->contact_normal * q.cn[i];
+    j += q.contact_events[i]->contact_tan1 * q.cs[i];
+    j += q.contact_events[i]->contact_tan2 * q.ct[i];
+
+    // setup the spatial impulse
+    SMomentumd jx(boost::const_pointer_cast<const Pose3d>(P));
+    jx.set_linear(j);    
+
+    // transform the impulse to the global frame
+    q.contact_events[i]->contact_impulse = Pose3d::transform(GLOBAL, jx);
   }
 
   // save limit impulses
@@ -165,7 +179,7 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
   // get the number of different types of each event
   const unsigned N_CONTACTS = q.N_CONTACTS;
   const unsigned N_LIMITS = q.N_LIMITS;
-  const unsigned N_CONSTRAINT_EQNS_EXP = q.N_CONSTRAINT_EQNS_EXP;
+  const unsigned N_CONSTRAINT_EQNS_IMP = q.N_CONSTRAINT_EQNS_IMP;
   const unsigned N_K_TOTAL = q.N_K_TOTAL;
 
   // setup variable indices
@@ -174,11 +188,11 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
   const unsigned NBETA_C_IDX = N_CONTACTS*2 + BETA_C_IDX;
   const unsigned L_IDX = N_CONTACTS*2 + NBETA_C_IDX;
   const unsigned ALPHA_X_IDX = N_LIMITS + L_IDX;
-  const unsigned N_VARS = N_CONSTRAINT_EQNS_EXP + ALPHA_X_IDX;
+  const unsigned N_VARS = N_CONSTRAINT_EQNS_IMP + ALPHA_X_IDX;
 
   // first, solve for impulses that satisfy explicit constraint equations
   // and compute the appropriate nullspace 
-  if (N_CONSTRAINT_EQNS_EXP > 0)
+  if (N_CONSTRAINT_EQNS_IMP > 0)
   {
     // compute the homogeneous solution
     A. = q.Jx_iM_JxT);
@@ -194,7 +208,7 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
     }
 
     // compute the nullspace
-    A.resize(N_CONSTRAINT_EQNS_EXP, N_VARS);
+    A.resize(N_CONSTRAINT_EQNS_IMP, N_VARS);
     MatrixNd::transpose(q.Cn_iM_JxT, t1);
     MatrixNd::transpose(q.Dc_iM_JxT, t2);
     MatrixNd::transpose(q.L_iM_JxT, t3);
@@ -214,8 +228,7 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
   const unsigned N_VARS = R.columns();
 
   // init the QP matrix and vector
-  const unsigned KAPPA = (q.use_kappa) ? 1 : 0;
-  const unsigned N_INEQUAL = N_CONTACTS + N_K_TOTAL + N_LIMITS + KAPPA;
+  const unsigned N_INEQUAL = N_CONTACTS + N_K_TOTAL + N_LIMITS + 1;
   H.resize(N_VARS, N_VARS);
   c.resize(H.rows());
   A.set_zero(N_INEQUAL, N_VARS);
@@ -303,14 +316,14 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
     }
   }
 
-  // setup the normal impulse constraint
-  // 1'cn <= kappa (equiv. to -1'cn >= -kappa)
-  if (q.use_kappa)
+  // setup the normal velocity constraint
+  // 1'N*v+ <= 1'N*v-  (in our form) -1'N*v+ >= -1'N*v- 
+  for (unsigned i=0; i< Cn_block.columns(); i++)
   {
-    for (unsigned i=0; i< N_CONTACTS; i++)
-      A(row, CN_IDX+i) = (double) -1.0;
-    nb[row] = q.kappa;
+    SharedConstVectorNd Cn_col = Cn_block.column(i);
+    A(row, i) = -std::accumulate(Cn_col.begin(), Cn_col.end(), 0.0);
   }
+  nb[row] = q.kappa;
 
   // setup optimizations in nullspace 
   R.transpose_mult(H, RTH);
@@ -536,8 +549,8 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
 {
   static EventProblemData qworking;
 
-  // if there are explicit constraints, cannot use the fast method
-  if (q.N_CONSTRAINT_EQNS_EXP > 0)
+  // if there are implicit constraints, cannot use the fast method
+  if (q.N_CONSTRAINT_EQNS_IMP > 0)
   {
     solve_qp_work_general(q, z);
     return;
@@ -636,9 +649,9 @@ void ImpactEventHandler::update_problem(const EventProblemData& q, EventProblemD
   qworking.CT_U_IDX = qworking.CS_U_IDX + qworking.N_TRUE_CONE;
   qworking.L_IDX = qworking.CT_U_IDX + qworking.N_TRUE_CONE;
   qworking.BETA_T_IDX = qworking.L_IDX + qworking.N_LIMITS;
-  qworking.ALPHA_X_IDX = qworking.BETA_T_IDX + qworking.N_CONSTRAINT_DOF_IMP;
-  qworking.BETA_X_IDX = qworking.ALPHA_X_IDX + qworking.N_CONSTRAINT_EQNS_EXP;
-  qworking.N_VARS = qworking.BETA_X_IDX + qworking.N_CONSTRAINT_DOF_EXP;
+  qworking.ALPHA_X_IDX = qworking.BETA_T_IDX + qworking.N_CONSTRAINT_DOF_EXP;
+  qworking.BETA_X_IDX = qworking.ALPHA_X_IDX + qworking.N_CONSTRAINT_EQNS_IMP;
+  qworking.N_VARS = qworking.BETA_X_IDX + qworking.N_CONSTRAINT_DOF_IMP;
 
   // select appropriate parts of vectors 
   q.Cn_v.select(indices.begin(), indices.end(), qworking.Cn_v);
@@ -677,8 +690,7 @@ void ImpactEventHandler::solve_qp_work_ijoints(EventProblemData& q, VectorNd& z)
   VectorNd qq;
 
   // init the QP matrix and vector
-  const unsigned KAPPA = (q.use_kappa) ? 1 : 0;
-  const unsigned N_INEQUAL = q.N_CONTACTS + q.N_K_TOTAL + q.N_LIMITS + KAPPA;
+  const unsigned N_INEQUAL = q.N_CONTACTS + q.N_K_TOTAL + q.N_LIMITS + 1;
   MM.set_zero(q.N_VARS + N_INEQUAL, q.N_VARS + N_INEQUAL);
   qq.resize(MM.rows());
 
@@ -846,14 +858,14 @@ void ImpactEventHandler::solve_qp_work_ijoints(EventProblemData& q, VectorNd& z)
     }
   }
 
-  // setup the normal impulse constraint
-  // 1'cn <= kappa (equiv. to -1'cn >= -kappa)
-  if (q.use_kappa)
+  // setup the normal velocity constraint
+  // 1'N*v+ <= 1'N*v-  (in our form) -1'N*v+ >= -1'N*v- 
+  for (unsigned i=0; i< Cn_block.columns(); i++)
   {
-    for (unsigned i=0; i< q.N_CONTACTS; i++)
-      A(row_start, q.CN_IDX+i) = (double) -1.0;
-    nb[row_start] = q.kappa;
+    SharedConstVectorNd Cn_col = Cn_block.column(i);
+    A(row_start, i) = -std::accumulate(Cn_col.begin(), Cn_col.end(), 0.0);
   }
+  nb[row_start] = q.kappa;
 
   // set A = -A'
   SharedMatrixNd AT = MM.block(0, q.N_VARS, q.N_VARS, MM.rows());
@@ -898,9 +910,9 @@ void ImpactEventHandler::solve_qp_work_general(EventProblemData& q, VectorNd& z)
   MatrixNd A, AR, R, RTH, H, MM;
   VectorNd c, qq, workv, y;
 
-  // first, solve for impulses that satisfy explicit constraint equations
+  // first, solve for impulses that satisfy implicit constraint equations
   // and compute the appropriate nullspace 
-  if (q.N_CONSTRAINT_EQNS_EXP > 0)
+  if (q.N_CONSTRAINT_EQNS_IMP > 0)
   {
     // compute the homogeneous solution
     A = q.Jx_iM_JxT;
@@ -916,9 +928,9 @@ void ImpactEventHandler::solve_qp_work_general(EventProblemData& q, VectorNd& z)
     }
 
     // prepare to compute the nullspace
-    A.resize(q.N_CONSTRAINT_EQNS_EXP, q.N_VARS);
+    A.resize(q.N_CONSTRAINT_EQNS_IMP, q.N_VARS);
     unsigned col_start = 0, col_end = q.N_CONTACTS;
-    const unsigned ROW_START = 0, ROW_END = q.N_CONSTRAINT_EQNS_EXP;
+    const unsigned ROW_START = 0, ROW_END = q.N_CONSTRAINT_EQNS_IMP;
     SharedMatrixNd Cn_block = A.block(ROW_START, ROW_END, col_start, col_end);
     col_start = col_end; col_end += q.N_CONTACTS;
     SharedMatrixNd Cs_block = A.block(ROW_START, ROW_END, col_start, col_end);
@@ -930,7 +942,7 @@ void ImpactEventHandler::solve_qp_work_general(EventProblemData& q, VectorNd& z)
     SharedMatrixNd NCt_block = A.block(ROW_START, ROW_END, col_start, col_end);
     col_start = col_end; col_end += q.N_LIMITS;
     SharedMatrixNd L_block = A.block(ROW_START, ROW_END, col_start, col_end);
-    col_start = col_end; col_end += q.N_CONSTRAINT_EQNS_EXP;
+    col_start = col_end; col_end += q.N_CONSTRAINT_EQNS_IMP;
     MatrixNd::transpose(q.Cn_iM_JxT, Cn_block);
     MatrixNd::transpose(q.Cs_iM_JxT, Cs_block);
     MatrixNd::transpose(q.Cs_iM_JxT, Ct_block);
@@ -951,8 +963,7 @@ void ImpactEventHandler::solve_qp_work_general(EventProblemData& q, VectorNd& z)
   const unsigned N_VARS = R.columns();
 
   // init the QP matrix and vector
-  const unsigned KAPPA = (q.use_kappa) ? 1 : 0;
-  const unsigned N_INEQUAL = q.N_CONTACTS + q.N_K_TOTAL + q.N_LIMITS + KAPPA;
+  const unsigned N_INEQUAL = q.N_CONTACTS + q.N_K_TOTAL + q.N_LIMITS + 1;
   H.resize(q.N_VARS, q.N_VARS);
   c.resize(H.rows());
   A.set_zero(N_INEQUAL, q.N_VARS);
@@ -975,7 +986,7 @@ void ImpactEventHandler::solve_qp_work_general(EventProblemData& q, VectorNd& z)
   SharedMatrixNd Cn_iM_NCtT = H.block(row_start, row_end, col_start, col_end);
   col_start = col_end; col_end += q.N_LIMITS;
   SharedMatrixNd Cn_iM_LT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += q.N_CONSTRAINT_EQNS_EXP;
+  col_start = col_end; col_end += q.N_CONSTRAINT_EQNS_IMP;
   SharedMatrixNd Cn_iM_JxT = H.block(row_start, row_end, col_start, col_end);
   SharedMatrixNd Cn_block = H.block(row_start, row_end, 0, col_end);
 
@@ -993,7 +1004,7 @@ void ImpactEventHandler::solve_qp_work_general(EventProblemData& q, VectorNd& z)
   SharedMatrixNd Cs_iM_NCtT = H.block(row_start, row_end, col_start, col_end);
   col_start = col_end; col_end += q.N_LIMITS;
   SharedMatrixNd Cs_iM_LT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += q.N_CONSTRAINT_EQNS_EXP;
+  col_start = col_end; col_end += q.N_CONSTRAINT_EQNS_IMP;
   SharedMatrixNd Cs_iM_JxT = H.block(row_start, row_end, col_start, col_end);
   SharedMatrixNd Cs_block = H.block(row_start, row_end, 0, col_end);
 
@@ -1011,7 +1022,7 @@ void ImpactEventHandler::solve_qp_work_general(EventProblemData& q, VectorNd& z)
   SharedMatrixNd Ct_iM_NCtT = H.block(row_start, row_end, col_start, col_end);
   col_start = col_end; col_end += q.N_LIMITS;
   SharedMatrixNd Ct_iM_LT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += q.N_CONSTRAINT_EQNS_EXP;
+  col_start = col_end; col_end += q.N_CONSTRAINT_EQNS_IMP;
   SharedMatrixNd Ct_iM_JxT = H.block(row_start, row_end, col_start, col_end);
   SharedMatrixNd Ct_block = H.block(row_start, row_end, 0, col_end);
 
@@ -1037,12 +1048,12 @@ void ImpactEventHandler::solve_qp_work_general(EventProblemData& q, VectorNd& z)
   SharedMatrixNd L_iM_NCtT = H.block(row_start, row_end, col_start, col_end);
   col_start = col_end; col_end += q.N_LIMITS;
   SharedMatrixNd L_iM_LT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += q.N_CONSTRAINT_EQNS_EXP;
+  col_start = col_end; col_end += q.N_CONSTRAINT_EQNS_IMP;
   SharedMatrixNd L_iM_JxT = H.block(row_start, row_end, col_start, col_end);
   SharedMatrixNd L_block = H.block(row_start, row_end, 0, col_end);
 
   // setup row (block 5) -- Jx * iM *  [Cn' Cs' Ct' -Cs' -Ct' L' Jx']
-  row_start = row_end; row_end += q.N_CONSTRAINT_EQNS_EXP;
+  row_start = row_end; row_end += q.N_CONSTRAINT_EQNS_IMP;
   col_start = 0; col_end = q.N_CONTACTS;
   SharedMatrixNd Jx_iM_CnT = H.block(row_start, row_end, col_start, col_end);
   col_start = col_end; col_end += q.N_CONTACTS;
@@ -1055,7 +1066,7 @@ void ImpactEventHandler::solve_qp_work_general(EventProblemData& q, VectorNd& z)
   SharedMatrixNd Jx_iM_NCtT = H.block(row_start, row_end, col_start, col_end);
   col_start = col_end; col_end += q.N_LIMITS;
   SharedMatrixNd Jx_iM_LT = H.block(row_start, row_end, col_start, col_end);
-  col_start = col_end; col_end += q.N_CONSTRAINT_EQNS_EXP;
+  col_start = col_end; col_end += q.N_CONSTRAINT_EQNS_IMP;
   SharedMatrixNd Jx_iM_JxT = H.block(row_start, row_end, col_start, col_end);
 
   // copy to row block 1 (contact normals)
@@ -1156,14 +1167,14 @@ void ImpactEventHandler::solve_qp_work_general(EventProblemData& q, VectorNd& z)
     }
   }
 
-  // setup the normal impulse constraint
-  // 1'cn <= kappa (equiv. to -1'cn >= -kappa)
-  if (q.use_kappa)
+  // setup the normal velocity constraint
+  // 1'N*v+ <= 1'N*v-  (in our form) -1'N*v+ >= -1'N*v- 
+  for (unsigned i=0; i< Cn_block.columns(); i++)
   {
-    for (unsigned i=0; i< q.N_CONTACTS; i++)
-      A(row_start, q.CN_IDX+i) = (double) -1.0;
-    nb[row_start] = q.kappa;
+    SharedConstVectorNd Cn_col = Cn_block.column(i);
+    A(row_start, i) = -std::accumulate(Cn_col.begin(), Cn_col.end(), 0.0);
   }
+  nb[row_start] = q.kappa;
 
   // get useful blocks of MM and segments of qq
   SharedMatrixNd H_block = MM.block(0, N_VARS, 0, N_VARS);

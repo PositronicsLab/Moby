@@ -35,7 +35,6 @@ struct EventProblemData
     N_CONSTRAINT_DOF_EXP = q.N_CONSTRAINT_DOF_EXP;
     N_CONSTRAINT_EQNS_IMP = q.N_CONSTRAINT_EQNS_IMP;
     N_CONSTRAINT_DOF_IMP = q.N_CONSTRAINT_DOF_IMP;
-    use_kappa = q.use_kappa;
     kappa = q.kappa;
 
     // copy indices
@@ -119,7 +118,6 @@ struct EventProblemData
     N_K_TOTAL = N_LIN_CONE = N_TRUE_CONE = N_LOOPS = N_CONTACTS = 0;
     N_CONSTRAINTS = N_CONSTRAINT_DOF_EXP = N_CONSTRAINT_EQNS_IMP = 0;
     N_CONSTRAINT_DOF_IMP = 0;
-    use_kappa = false;
     kappa = 0.0;
 
     // clear all indices
@@ -327,6 +325,9 @@ struct EventProblemData
 
   // the total number of constraints
   unsigned N_CONSTRAINTS;
+
+  // the velocity in the normal direction for frictionless contacts
+  double kappa;
 
   // the number of explicit joint constraint degrees-of-freedom used in joint friction computation
   unsigned N_CONSTRAINT_DOF_EXP;

@@ -152,13 +152,11 @@ void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& eve
     }
   }
 
-// NOTE: we disable this per Ruina's suggestion
-/*
   // solve the (non-frictional) linear complementarity problem to determine
   // the kappa constant
-  solve_lcp(epd);
-*/
-  epd.kappa = (double) -std::numeric_limits<float>::max();
+  VectorNd z;
+  solve_lcp(epd, z);
+  epd.kappa = 10e6;
 
   // determine what type of QP solver to use
   if (use_qp_solver(epd))
@@ -329,7 +327,7 @@ void ImpactEventHandler::compute_problem_data(EventProblemData& q)
   {
     ArticulatedBodyPtr abody = dynamic_pointer_cast<ArticulatedBody>(q.super_bodies[i]);
     if (abody) {
-      q.N_CONSTRAINT_EQNS_EXP += abody->num_constraint_eqns_explicit();
+      q.N_CONSTRAINT_EQNS_IMP += abody->num_constraint_eqns_implicit();
       if (abody->use_advanced_friction_model)
       {
         q.N_CONSTRAINT_DOF_IMP += abody->num_joint_dof_implicit();
@@ -365,43 +363,43 @@ void ImpactEventHandler::compute_problem_data(EventProblemData& q)
   q.Cn_iM_CsT.set_zero(q.N_CONTACTS, q.N_CONTACTS);
   q.Cn_iM_CtT.set_zero(q.N_CONTACTS, q.N_CONTACTS);
   q.Cn_iM_LT.set_zero(q.N_CONTACTS, q.N_LIMITS);
-  q.Cn_iM_DtT.set_zero(q.N_CONTACTS, q.N_CONSTRAINT_DOF_IMP);
-  q.Cn_iM_JxT.set_zero(q.N_CONTACTS, q.N_CONSTRAINT_EQNS_EXP);
-  q.Cn_iM_DxT.set_zero(q.N_CONTACTS, q.N_CONSTRAINT_DOF_EXP);
+  q.Cn_iM_DtT.set_zero(q.N_CONTACTS, q.N_CONSTRAINT_DOF_EXP);
+  q.Cn_iM_JxT.set_zero(q.N_CONTACTS, q.N_CONSTRAINT_EQNS_IMP);
+  q.Cn_iM_DxT.set_zero(q.N_CONTACTS, q.N_CONSTRAINT_DOF_IMP);
   q.Cs_iM_CsT.set_zero(q.N_CONTACTS, q.N_CONTACTS);
   q.Cs_iM_CtT.set_zero(q.N_CONTACTS, q.N_CONTACTS);
   q.Cs_iM_LT.set_zero(q.N_CONTACTS, q.N_LIMITS);
-  q.Cs_iM_DtT.set_zero(q.N_CONTACTS, q.N_CONSTRAINT_DOF_IMP);
-  q.Cs_iM_JxT.set_zero(q.N_CONTACTS, q.N_CONSTRAINT_EQNS_EXP);
-  q.Cs_iM_DxT.set_zero(q.N_CONTACTS, q.N_CONSTRAINT_DOF_EXP);
+  q.Cs_iM_DtT.set_zero(q.N_CONTACTS, q.N_CONSTRAINT_DOF_EXP);
+  q.Cs_iM_JxT.set_zero(q.N_CONTACTS, q.N_CONSTRAINT_EQNS_IMP);
+  q.Cs_iM_DxT.set_zero(q.N_CONTACTS, q.N_CONSTRAINT_DOF_IMP);
   q.Ct_iM_CtT.set_zero(q.N_CONTACTS, q.N_CONTACTS);
   q.Ct_iM_LT.set_zero(q.N_CONTACTS, q.N_LIMITS);
-  q.Ct_iM_DtT.set_zero(q.N_CONTACTS, q.N_CONSTRAINT_DOF_IMP);
-  q.Ct_iM_JxT.set_zero(q.N_CONTACTS, q.N_CONSTRAINT_EQNS_EXP);
-  q.Ct_iM_DxT.set_zero(q.N_CONTACTS, q.N_CONSTRAINT_DOF_EXP);
+  q.Ct_iM_DtT.set_zero(q.N_CONTACTS, q.N_CONSTRAINT_DOF_EXP);
+  q.Ct_iM_JxT.set_zero(q.N_CONTACTS, q.N_CONSTRAINT_EQNS_IMP);
+  q.Ct_iM_DxT.set_zero(q.N_CONTACTS, q.N_CONSTRAINT_DOF_IMP);
   q.L_iM_LT.set_zero(q.N_LIMITS, q.N_LIMITS);
-  q.L_iM_DtT.set_zero(q.N_LIMITS, q.N_CONSTRAINT_DOF_IMP);
-  q.L_iM_JxT.set_zero(q.N_LIMITS, q.N_CONSTRAINT_EQNS_EXP);
-  q.L_iM_DxT.set_zero(q.N_LIMITS, q.N_CONSTRAINT_DOF_EXP);
-  q.Dt_iM_DtT.set_zero(q.N_CONSTRAINT_DOF_IMP, q.N_CONSTRAINT_DOF_IMP);
-  q.Dt_iM_JxT.set_zero(q.N_CONSTRAINT_DOF_IMP, q.N_CONSTRAINT_EQNS_EXP);
-  q.Dt_iM_DxT.set_zero(q.N_CONSTRAINT_DOF_IMP, q.N_CONSTRAINT_DOF_EXP);
-  q.Jx_iM_JxT.set_zero(q.N_CONSTRAINT_EQNS_EXP, q.N_CONSTRAINT_EQNS_EXP);
-  q.Jx_iM_DxT.set_zero(q.N_CONSTRAINT_EQNS_EXP, q.N_CONSTRAINT_DOF_EXP);
-  q.Dx_iM_DxT.set_zero(q.N_CONSTRAINT_DOF_EXP, q.N_CONSTRAINT_DOF_EXP);
+  q.L_iM_DtT.set_zero(q.N_LIMITS, q.N_CONSTRAINT_DOF_EXP);
+  q.L_iM_JxT.set_zero(q.N_LIMITS, q.N_CONSTRAINT_EQNS_IMP);
+  q.L_iM_DxT.set_zero(q.N_LIMITS, q.N_CONSTRAINT_DOF_IMP);
+  q.Dt_iM_DtT.set_zero(q.N_CONSTRAINT_DOF_EXP, q.N_CONSTRAINT_DOF_EXP);
+  q.Dt_iM_JxT.set_zero(q.N_CONSTRAINT_DOF_EXP, q.N_CONSTRAINT_EQNS_IMP);
+  q.Dt_iM_DxT.set_zero(q.N_CONSTRAINT_DOF_EXP, q.N_CONSTRAINT_DOF_IMP);
+  q.Jx_iM_JxT.set_zero(q.N_CONSTRAINT_EQNS_IMP, q.N_CONSTRAINT_EQNS_IMP);
+  q.Jx_iM_DxT.set_zero(q.N_CONSTRAINT_EQNS_IMP, q.N_CONSTRAINT_DOF_IMP);
+  q.Dx_iM_DxT.set_zero(q.N_CONSTRAINT_DOF_IMP, q.N_CONSTRAINT_DOF_IMP);
   q.Cn_v.set_zero(q.N_CONTACTS);
   q.Cs_v.set_zero(q.N_CONTACTS);
   q.Ct_v.set_zero(q.N_CONTACTS);
   q.L_v.set_zero(q.N_LIMITS);
-  q.Jx_v.set_zero(q.N_CONSTRAINT_EQNS_EXP);
-  q.Dx_v.set_zero(q.N_CONSTRAINT_DOF_EXP);
+  q.Jx_v.set_zero(q.N_CONSTRAINT_EQNS_IMP);
+  q.Dx_v.set_zero(q.N_CONSTRAINT_DOF_IMP);
   q.cn.set_zero(q.N_CONTACTS);
   q.cs.set_zero(q.N_CONTACTS);
   q.ct.set_zero(q.N_CONTACTS);
   q.l.set_zero(q.N_LIMITS);
-  q.beta_t.set_zero(q.N_CONSTRAINT_DOF_IMP);
-  q.alpha_x.set_zero(q.N_CONSTRAINT_EQNS_EXP);
-  q.beta_x.set_zero(q.N_CONSTRAINT_DOF_EXP);
+  q.beta_t.set_zero(q.N_CONSTRAINT_DOF_EXP);
+  q.alpha_x.set_zero(q.N_CONSTRAINT_EQNS_IMP);
+  q.beta_x.set_zero(q.N_CONSTRAINT_DOF_IMP);
 
   // setup indices
   q.CN_IDX = 0;
@@ -413,9 +411,9 @@ void ImpactEventHandler::compute_problem_data(EventProblemData& q)
   q.CT_U_IDX = q.CS_U_IDX + q.N_TRUE_CONE;
   q.L_IDX = q.CT_U_IDX + q.N_TRUE_CONE;
   q.BETA_T_IDX = q.L_IDX + q.N_LIMITS;
-  q.ALPHA_X_IDX = q.BETA_T_IDX + q.N_CONSTRAINT_DOF_IMP;
-  q.BETA_X_IDX = q.ALPHA_X_IDX + q.N_CONSTRAINT_EQNS_EXP;
-  q.N_VARS = q.BETA_X_IDX + q.N_CONSTRAINT_DOF_EXP;
+  q.ALPHA_X_IDX = q.BETA_T_IDX + q.N_CONSTRAINT_DOF_EXP;
+  q.BETA_X_IDX = q.ALPHA_X_IDX + q.N_CONSTRAINT_EQNS_IMP;
+  q.N_VARS = q.BETA_X_IDX + q.N_CONSTRAINT_DOF_IMP;
 
   // TODO: add event computation and cross computation methods to Joint
 
@@ -495,7 +493,7 @@ void ImpactEventHandler::solve_lcp(EventProblemData& q, VectorNd& z)
 {
   SAFESTATIC MatrixNd UL, LR, MM, U, V;
   SAFESTATIC MatrixNd UR, t2, iJx_iM_JxT;
-  SAFESTATIC VectorNd cn, l, alpha_x, v1, v2, qq, S;
+  SAFESTATIC VectorNd alpha_x, v1, v2, qq, S, Cn_vplus;
 
   // setup sizes
   UL.resize(q.N_CONTACTS, q.N_CONTACTS);
@@ -562,13 +560,10 @@ void ImpactEventHandler::solve_lcp(EventProblemData& q, VectorNd& z)
     throw std::runtime_error("Unable to solve event LCP!");
 
   // determine the value of kappa
-  q.kappa = (double) 0.0;
-  for (unsigned i=0; i< q.N_CONTACTS; i++)
-    q.kappa += z[i];
-
-  // get cn and l
-  z.get_sub_vec(0, q.N_CONTACTS, cn);
-  z.get_sub_vec(q.N_CONTACTS, z.size(), l);
+  SharedConstVectorNd cn = z.segment(0, q.N_CONTACTS);
+  SharedConstVectorNd l = z.segment(q.N_CONTACTS, z.size());
+  q.Cn_iM_CnT.mult(cn, Cn_vplus) += q.Cn_v;
+  q.kappa = Cn_vplus.norm1();
 
   // Mv^* - Mv = Cn'*cn + L'*l + Jx'*alpha_x
 
@@ -588,7 +583,7 @@ void ImpactEventHandler::solve_lcp(EventProblemData& q, VectorNd& z)
   _LA.solve_LS_fast(U, S, V, alpha_x = v1);
 
   // setup the homogeneous solution
-  z.set_zero();
+  z.set_zero(q.N_VARS);
   z.set_sub_vec(q.CN_IDX, cn);
   z.set_sub_vec(q.L_IDX, l);
   z.set_sub_vec(q.ALPHA_X_IDX, alpha_x);
