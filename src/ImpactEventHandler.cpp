@@ -424,7 +424,7 @@ void ImpactEventHandler::compute_problem_data(EventProblemData& q)
     q.contact_events[i]->compute_event_data(workM, workv);
 
     // setup appropriate parts of contact inertia matrices
-    const double* data = workM.data();
+    ColumnIteratord_const data = workM.column_iterator_begin();
     q.Cn_iM_CnT(i,i) = *data++;
     q.Cn_iM_CsT(i,i) = *data++;
     q.Cn_iM_CtT(i,i) = *data; data += 2; // advance past Cs_iM_CnT
@@ -433,7 +433,7 @@ void ImpactEventHandler::compute_problem_data(EventProblemData& q)
     q.Ct_iM_CtT(i,i) = *data;
 
     // setup appropriate parts of contact velocities
-    data = workv.data();
+    data = workv.column_iterator_begin();
     q.Cn_v[i] = *data++;
     q.Cs_v[i] = *data++;
     q.Ct_v[i] = *data;
@@ -448,7 +448,7 @@ void ImpactEventHandler::compute_problem_data(EventProblemData& q)
       q.contact_events[i]->compute_cross_event_data(*q.contact_events[j], workM);
 
       // setup appropriate parts of contact inertia matrices
-      const double* data = workM.data();
+      ColumnIteratord_const data = workM.column_iterator_begin();
       q.Cn_iM_CnT(i,j) = q.Cn_iM_CnT(j,i) = *data++;
       q.Cn_iM_CsT(i,j) = q.Cn_iM_CsT(j,i) = *data++;
       q.Cn_iM_CtT(i,j) = q.Cn_iM_CtT(j,i) = *data; data += 2; // advance to Cs_iM_CsT
@@ -467,7 +467,7 @@ void ImpactEventHandler::compute_problem_data(EventProblemData& q)
       q.contact_events[i]->compute_cross_event_data(*q.limit_events[j], workM);
 
       // setup appropriate parts of contact / limit inertia matrices
-      const double* data = workM.data();
+      ColumnIteratord_const data = workM.column_iterator_begin();
       q.Cn_iM_LT(i,j) = q.Cn_iM_LT(j,i) = *data++;
       q.Cs_iM_LT(i,j) = q.Cs_iM_LT(j,i) = *data++;
       q.Ct_iM_LT(i,j) = q.Ct_iM_LT(j,i) = *data; 

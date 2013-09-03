@@ -613,6 +613,12 @@ void RigidBody::set_pose(const Pose3d& p)
   // update the pose
   *_F = p;
 
+  // update the mixed pose 
+  _F2->set_identity();
+  _F2->rpose = _F;
+  _F2->update_relative_pose(GLOBAL);
+  _F2->q.set_identity();
+
   // invalidate pose vectors
   invalidate_pose_vectors();
 }
@@ -1240,7 +1246,10 @@ void RigidBody::apply_generalized_impulse_single(const VectorNd& gj)
   // get the impulses
   w.set_linear(Vector3d(gj[0], gj[1], gj[2]));
   w.set_angular(Vector3d(gj[3], gj[4], gj[5]));
-  w.pose = GLOBAL;
+  w.pose = _F2;
+
+  // convert the impulse to the global frame
+  SMomentumd w0 = Pose3d::transform(GLOBAL, w);
 
   // get the inertia
   if (!_J0_valid)
@@ -1248,7 +1257,7 @@ void RigidBody::apply_generalized_impulse_single(const VectorNd& gj)
   _J0_valid = true;
 
   // determine the change in velocity
-  _xd0 += _J0.inverse_mult(w);
+  _xd0 += _J0.inverse_mult(w0);
 
   // invalidate velocities
   _xdi_valid = _xdj_valid = _xdm_valid = false;
@@ -1461,12 +1470,6 @@ void RigidBody::set_generalized_velocity_single(GeneralizedCoordinateType gctype
   if (!_enabled)
     return;
 
-  // setup the pose for generalized velocity
-  _F2->set_identity();
-  _F2->rpose = _F;
-  _F2->update_relative_pose(GLOBAL);
-  _F2->q.set_identity();
-
   // get the velocity
   SVelocityd xd;
   xd.pose = _F2;
@@ -1518,12 +1521,6 @@ VectorNd& RigidBody::get_generalized_velocity_single(GeneralizedCoordinateType g
 
   // resize the generalized velocity
   gv.resize(num_generalized_coordinates(gctype));
-
-  // setup the pose for generalized velocity
-  _F2->set_identity();
-  _F2->rpose = _F;
-  _F2->update_relative_pose(GLOBAL);
-  _F2->q.set_identity();
 
   // get the velocity
   SVelocityd xd = Pose3d::transform(_F2, _xd0);
@@ -1583,12 +1580,6 @@ VectorNd& RigidBody::get_generalized_acceleration_single(VectorNd& ga)
   // setup the linear components
   ga.resize(num_generalized_coordinates(DynamicBody::eSpatial));
 
-   // setup the pose for generalized acceleration
-  _F2->set_identity();
-  _F2->rpose = _F;
-  _F2->update_relative_pose(GLOBAL);
-  _F2->q.set_identity();
-
   // get the acceleration 
   SAcceld xdd = Pose3d::transform(_F2, _xdd0);
 
@@ -1619,7 +1610,7 @@ MatrixNd& RigidBody::get_generalized_inertia(MatrixNd& M)
   else
     return get_generalized_inertia_single(M);
 }
- 
+
 /// Gets the generalized inertia of this rigid body (does not call articulated body version)
 MatrixNd& RigidBody::get_generalized_inertia_single(MatrixNd& M) 
 {
@@ -1628,12 +1619,6 @@ MatrixNd& RigidBody::get_generalized_inertia_single(MatrixNd& M)
   // special case: disabled body
   if (!_enabled)
     return M.resize(0,0);
-
-   // setup the pose for generalized inertia 
-  _F2->set_identity();
-  _F2->rpose = _F;
-  _F2->update_relative_pose(GLOBAL);
-  _F2->q.set_identity();
 
   // get the inertia 
   SpatialRBInertiad J = Pose3d::transform(_F2, _Jm);
@@ -1676,12 +1661,6 @@ VectorNd& RigidBody::get_generalized_forces_single(VectorNd& gf)
   const unsigned NGC = num_generalized_coordinates(DynamicBody::eSpatial); 
   gf.resize(NGC);
 
-   // setup the pose for generalized inertia 
-  _F2->set_identity();
-  _F2->rpose = _F;
-  _F2->update_relative_pose(GLOBAL);
-  _F2->q.set_identity();
-
   // compute external forces and inertial forces in global frame
   SForced w = Pose3d::transform(_F2, _force0) - Pose3d::transform(_F2, calc_inertial_forces());
 
@@ -1722,12 +1701,6 @@ VectorNd& RigidBody::convert_to_generalized_force_single(SingleBodyPtr body, con
   // special case: disabled body
   if (!_enabled)
     return gf.resize(0);
-
-   // setup the pose for generalized inertia 
-  _F2->set_identity();
-  _F2->rpose = _F;
-  _F2->update_relative_pose(GLOBAL);
-  _F2->q.set_identity();
 
   // transform w to computation frame
   SForced wt = Pose3d::transform(_F2, w);

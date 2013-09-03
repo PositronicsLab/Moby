@@ -59,6 +59,9 @@ class DynamicBody : public Visualizable
     /// Calculates the kinetic energy of the body
     virtual double calc_kinetic_energy() = 0;
 
+    /// Gets the frame for generalized coordinates
+    virtual boost::shared_ptr<const Ravelin::Pose3d> get_gc_pose() const = 0;
+
     /// Gets the number of generalized coordinates
     virtual unsigned num_generalized_coordinates(GeneralizedCoordinateType gctype) const = 0;
 

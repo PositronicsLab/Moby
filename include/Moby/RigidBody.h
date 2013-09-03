@@ -123,6 +123,13 @@ class RigidBody : public SingleBody
     /// Gets the current pose of this body
     boost::shared_ptr<const Ravelin::Pose3d> get_pose() const { return _F; }
 
+    // Gets the pose used in generalized coordinates calculations
+    boost::shared_ptr<const Ravelin::Pose3d> get_gc_pose() const { return _F2; }
+
+
+    // Gets the "mixed" pose of this body (pose origin at the body's reference point but pose aligned with global frame)
+    boost::shared_ptr<const Ravelin::Pose3d> get_mixed_pose() const { return _F2; }
+
     /// Synonym for get_mass() (implements SingleBody::calc_mass())
     double calc_mass() const { return _Jm.m; }
 
