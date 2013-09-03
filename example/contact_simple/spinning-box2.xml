@@ -35,7 +35,7 @@
 
     <!-- Rigid bodies -->
       <!-- the box -->
-      <RigidBody id="box" enabled="true" position="0 .50001 0" angular-velocity="0 1.00 0" visualization-id="b1" linear-velocity="0 0 0">
+      <RigidBody id="box" enabled="true" position="0 .50001 0" angular-velocity="0 10.00 0" visualization-id="b1" linear-velocity="0 0 0">
         <InertiaFromPrimitive primitive-id="b1" />
         <CollisionGeometry primitive-id="b1" />
       </RigidBody>

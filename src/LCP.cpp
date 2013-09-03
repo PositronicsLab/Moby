@@ -55,6 +55,9 @@ bool LCP::lcp_lemke_regularized(const MatrixNd& M, const VectorNd& q, VectorNd& 
   // assign value for zero tolerance, if necessary
   const double ZERO_TOL = (zero_tol > (double) 0.0) ? zero_tol : q.size() * std::numeric_limits<double>::epsilon();
 
+// TODO: remove this
+z.set_zero();
+
   // try non-regularized version first
   bool result = lcp_lemke(_MMx, _qqx, z, piv_tol, zero_tol);
   if (result)
@@ -270,6 +273,9 @@ bool LCP::lcp_lemke(const MatrixNd& M, const VectorNd& q, VectorNd& z, double pi
     return true; 
   }
 
+  // use a new pivot tolerance if necessary
+  const double PIV_TOL = (piv_tol > (double) 0.0) ? piv_tol : std::numeric_limits<double>::epsilon() * n * std::max((double) 1.0, M.norm_inf());
+
   // determine initial leaving variable
   ColumnIteratord min_x = std::min_element(_x.begin(), _x.begin() + n);
   double tval = -*min_x;
@@ -279,6 +285,8 @@ bool LCP::lcp_lemke(const MatrixNd& M, const VectorNd& q, VectorNd& z, double pi
   iiter = _bas.begin();
   std::advance(iiter, lvindex);
   leaving = *iiter;
+  FILE_LOG(LOG_OPT) << " -- x: " << _x << endl;
+  FILE_LOG(LOG_OPT) << " -- first pivot: leaving index=" << lvindex << "  entering index=" << entering << " minimum value: " << tval << endl;
 
   // pivot in the artificial variable
   *iiter = t;    // replace w var with _z0 in basic indices
@@ -296,6 +304,14 @@ bool LCP::lcp_lemke(const MatrixNd& M, const VectorNd& q, VectorNd& z, double pi
   // main iterations begin here
   for (unsigned iter=0; iter < MAXITER; iter++)
   {
+    if (LOGGING(LOG_OPT))
+    {
+      std::ostringstream basic;
+      for (unsigned i=0; i< _bas.size(); i++)
+        basic << " " << _bas[i];
+      FILE_LOG(LOG_OPT) << "basic variables:" << basic.str() << std::endl;
+    }
+
     // check whether done; if not, get new entering variable
     if (leaving == t)
     {
@@ -338,6 +354,7 @@ bool LCP::lcp_lemke(const MatrixNd& M, const VectorNd& q, VectorNd& z, double pi
     }
     catch (SingularException e)
     {
+      FILE_LOG(LOG_OPT) << " -- warning: regular linear system solver failed; trying LS solver..." << std::endl;
       try
       {
         // use slower SVD pseudo-inverse
@@ -351,9 +368,6 @@ bool LCP::lcp_lemke(const MatrixNd& M, const VectorNd& q, VectorNd& z, double pi
         _LA.solve_LS_fast2(_Al, _dl);
       }
     }
-
-    // use a new pivot tolerance if necessary
-    const double PIV_TOL = (piv_tol > (double) 0.0) ? piv_tol : std::numeric_limits<double>::epsilon() * n * std::max((double) 1.0, _Be.norm_inf());
 
     // ** find new leaving variable
     _j.clear();
@@ -370,7 +384,14 @@ bool LCP::lcp_lemke(const MatrixNd& M, const VectorNd& q, VectorNd& z, double pi
       return false;
     }
 
-    FILE_LOG(LOG_OPT) << " -- column of M': " << _dl << endl;
+    if (LOGGING(LOG_OPT))
+    {
+      std::ostringstream j;
+      for (unsigned i=0; i< _j.size(); i++)
+        j << " " << _j[i];
+      FILE_LOG(LOG_OPT) << "d: " << _dl << std::endl;
+      FILE_LOG(LOG_OPT) << "j (before min ratio):" << j.str() << std::endl;
+    }
 
     // select elements j from x and d
     _xj.resize(_j.size());
@@ -395,6 +416,14 @@ bool LCP::lcp_lemke(const MatrixNd& M, const VectorNd& q, VectorNd& z, double pi
       else
         iiter = _j.erase(iiter);
 
+    if (LOGGING(LOG_OPT))
+    {
+      std::ostringstream j;
+      for (unsigned i=0; i< _j.size(); i++)
+        j << " " << _j[i];
+      FILE_LOG(LOG_OPT) << "j (after min ratio):" << j.str() << std::endl;
+    }
+
     // if j is empty, then likely the zero tolerance is too low
     if (_j.empty())
     {
@@ -407,21 +436,16 @@ bool LCP::lcp_lemke(const MatrixNd& M, const VectorNd& q, VectorNd& z, double pi
     // check whether artificial index among these
     _tlist.clear();
     select(_bas.begin(), _j.begin(), _j.end(), std::back_inserter(_tlist));
-    iiter = std::find(_tlist.begin(), _tlist.end(), t);
-    if (iiter != _tlist.end()) 
-      lvindex = std::distance(_tlist.begin(), iiter);
+    if (std::find(_tlist.begin(), _tlist.end(), t) != _tlist.end())
+    {
+      iiter = std::find(_bas.begin(), _bas.end(), t); 
+      lvindex = iiter - _bas.begin();
+    }
     else
     {
-      // redetermine dj
-      _dj.resize(_j.size());
-      select(_dl.begin(), _j.begin(), _j.end(), _dj.begin());
-
-      // get the maximum
-      ColumnIteratord maxdj = std::max_element(_dj.begin(), _dj.end());
-      lvindex = std::distance(_dj.begin(), maxdj);
+      // several indices pass the minimum ratio test, pick one randomly
+      lvindex = _j[rand() % _j.size()];
     }
-    assert(lvindex < _j.size());
-    select(_j.begin(), &lvindex, &lvindex+1, &lvindex);
 
     // set leaving = bas(lvindex)
     iiter = _bas.begin();
@@ -435,6 +459,7 @@ bool LCP::lcp_lemke(const MatrixNd& M, const VectorNd& q, VectorNd& z, double pi
     _x[lvindex] = ratio;
     _Bl.set_column(lvindex, _Be);
     *iiter = entering;
+    FILE_LOG(LOG_OPT) << " -- pivoting: leaving index=" << lvindex << "  entering index=" << entering << endl;
   }
 
   FILE_LOG(LOG_OPT) << " -- maximum number of iterations exceeded" << endl;
@@ -566,7 +591,7 @@ bool LCP::lcp_lemke(const SparseMatrixNd& M, const VectorNd& q, VectorNd& z, dou
       double minw = *std::min_element(_wl.begin(), _wl.end());
       double w_dot_z = std::fabs(_wl.dot(z));
       FILE_LOG(LOG_OPT) << "  z: " << z << std::endl;
-      FILE_LOG(LOG_OPT) << "  _w: " << _wl << std::endl;
+      FILE_LOG(LOG_OPT) << "  w: " << _wl << std::endl;
       FILE_LOG(LOG_OPT) << "  minimum w: " << minw << std::endl;
       FILE_LOG(LOG_OPT) << "  w'z: " << w_dot_z << std::endl;
     }
@@ -719,6 +744,7 @@ bool LCP::lcp_lemke(const SparseMatrixNd& M, const VectorNd& q, VectorNd& z, dou
     _x -= _dl;
     _x[lvindex] = ratio;
     _sBl.set_column(lvindex, _Be);
+    FILE_LOG(LOG_OPT) << " -- pivoting: leaving index=" << lvindex << "  entering index=" << entering << endl;
     *iiter = entering;
   }
 

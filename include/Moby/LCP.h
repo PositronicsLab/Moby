@@ -28,7 +28,7 @@ bool lcp_lemke(const Ravelin::MatrixNd& M, const Ravelin::VectorNd& q, Ravelin::
     // temporaries for Lemke solver
     Ravelin::VectorNd _d, _Be, _u, _z0, _x, _dl, _xj, _dj, _wl, _result;
     Ravelin::MatrixNd _Bl, _Al, _t1, _t2;
-    std::vector<unsigned> _all, _tlist, _bas, _nonbas, _j;
+    std::vector<unsigned> _all, _tlist, _bas, _nonbas, _j, _max_elm;
 
     // temporary for sparse Lemke solver
     Ravelin::SparseMatrixNd _sBl;

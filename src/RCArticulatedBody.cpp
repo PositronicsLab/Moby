@@ -53,6 +53,15 @@ RCArticulatedBody::RCArticulatedBody()
   _fM_valid = false;
 }
 
+/// Gets the frame used for generalized coordinate calculations
+shared_ptr<const Pose3d> RCArticulatedBody::get_gc_pose() const
+{
+  if (_links.empty())
+    throw std::runtime_error("Cannot return gc pose when articulated body has no links");
+
+  return _links.front()->get_gc_pose();
+}
+
 /// Sets the computation frame type
 void RCArticulatedBody::set_computation_frame_type(ReferenceFrameType rftype)
 {
