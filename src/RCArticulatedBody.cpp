@@ -97,7 +97,7 @@ unsigned RCArticulatedBody::num_generalized_coordinates(DynamicBody::Generalized
   if (!_floating_base)
     return _n_joint_DOF_explicit;
   else
-    return _n_joint_DOF_explicit + _links.front()->num_generalized_coordinates(gctype);
+    return _n_joint_DOF_explicit + _links.front()->num_generalized_coordinates_single(gctype);
 }
 
 /// Updates inverse generalized inertia matrix, as necessary

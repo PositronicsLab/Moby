@@ -26,7 +26,7 @@ void from_matrix(const X& m, std::vector<Ravelin::SVelocityd>& w)
 {
   const unsigned SPATIAL_DIM = 6;
   assert(m.rows() == SPATIAL_DIM);
-  w.resize(m.size());
+  w.resize(m.columns());
   Ravelin::ColumnIteratord_const data = m.column_iterator_begin();
   for (unsigned k=0, i=0; i< w.size(); i++, k+= SPATIAL_DIM)
     w[i] = Ravelin::SVelocityd(data[k+0], data[k+1], data[k+2], data[k+3], data[k+4], data[k+5]);

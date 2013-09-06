@@ -6,20 +6,13 @@
     <Box id="b3" xlen="10" ylen=".5" zlen="10" density="10.0" />
 
     <!-- Collision detector -->
-    <GeneralizedCCD ori-integrator-id="euler-quat" id="ccd" collision-tolerance="1e-6" toi-tolerance="1e-6" eps-tolerance="1e-3" disable-adjacent-ab-links="true">
+    <GeneralizedCCD id="ccd" toi-tolerance="1e-6" eps-tolerance="1e-3" disable-adjacent-ab-links="true">
       <Body body-id="chain"/>
       <Body body-id="platform" />
     </GeneralizedCCD>
 
-    <C2ACCD ori-integrator-id="euler-quat" id="c2a" alpha-tolerance="1e-2" toi-tolerance="1e-6" eps-tolerance="1e-3" disable-adjacent-ab-links="true">
-      <Body body-id="chain"/>
-      <Body body-id="platform" />
-    </C2ACCD>
-
     <!-- integrators, collision and contact methods, forces, fdyn algos -->
-    <EulerIntegrator id="euler" type="VectorN" />
-    <EulerIntegrator id="euler-quat" type="Quat" />
-    <RungeKuttaIntegrator id="rk4" type="VectorN" />
+    <RungeKuttaIntegrator id="rk4" />
     <GravityForce id="gravity" accel="0 -9.81 0 " />
 
     <!-- the simulator -->
@@ -49,8 +42,8 @@
       </RigidBody>
 
       <!-- joints in the chain -->
-      <RevoluteJoint id="q" qd="0" global-position="0 0 0" inboard-link-id="base" outboard-link-id="l1" maxforce="10000" global-axis="0 0 1" lower-limits="-100000" upper-limits="100000" coulomb-friction-coeff="0" viscous-friction-coeff="0" restitution-coeff="0" />
-      <RevoluteJoint id="q2" qd="0" global-position="5 0 0" inboard-link-id="l1" outboard-link-id="l2" maxforce="10000" global-axis="0 0 1" lower-limits="-100000" upper-limits="100000" coulomb-friction-coeff="0" viscous-friction-coeff="0" restitution-coeff="0" />
+      <RevoluteJoint id="q" qd="0" location="0 0 0" inboard-link-id="base" outboard-link-id="l1" maxforce="10000" axis="0 0 1" lower-limits="-100000" upper-limits="100000" coulomb-friction-coeff="0" viscous-friction-coeff="0" restitution-coeff="0" />
+      <RevoluteJoint id="q2" qd="0" location="5 0 0" inboard-link-id="l1" outboard-link-id="l2" maxforce="10000" axis="0 0 1" lower-limits="-100000" upper-limits="100000" coulomb-friction-coeff="0" viscous-friction-coeff="0" restitution-coeff="0" />
     </RCArticulatedBody>
 
     <!-- setup the platform rigid body; it is not active -->
