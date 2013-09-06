@@ -132,6 +132,8 @@ void RevoluteJoint::determine_q(VectorNd& q)
 /// Gets the pose for this joint
 shared_ptr<const Pose3d> RevoluteJoint::get_induced_pose()
 {
+  assert(std::fabs(_u.norm() - 1.0) < NEAR_ZERO);
+
   // invalidate pose quantities for the outer link
   invalidate_pose_vectors();
 
