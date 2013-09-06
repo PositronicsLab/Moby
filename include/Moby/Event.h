@@ -127,6 +127,8 @@ class Event
     void compute_event_data(Ravelin::MatrixNd& M, Ravelin::VectorNd& q) const;
     void compute_cross_event_data(const Event& e, Ravelin::MatrixNd& M) const;
     void compute_cross_contact_contact_event_data(const Event& e, Ravelin::MatrixNd& M) const;
+    void compute_cross_contact_contact_event_data(const Event& e, Ravelin::MatrixNd& M, DynamicBodyPtr su) const;
+    void compute_cross_contact_contact_event_data(const Event& e, Ravelin::MatrixNd& M, DynamicBodyPtr su, const Ravelin::MatrixNd& J) const;
     void compute_cross_contact_limit_event_data(const Event& e, Ravelin::MatrixNd& M) const;
     void compute_cross_limit_contact_event_data(const Event& e, Ravelin::MatrixNd& M) const;
     void compute_cross_limit_limit_event_data(const Event& e, Ravelin::MatrixNd& M) const;

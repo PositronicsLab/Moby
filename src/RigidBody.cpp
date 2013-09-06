@@ -1190,6 +1190,14 @@ unsigned RigidBody::num_generalized_coordinates(GeneralizedCoordinateType gctype
 /// Adds a generalized force to this rigid body
 void RigidBody::add_generalized_force(const VectorNd& gf)
 {
+  if (!_abody.expired())
+  {
+    ArticulatedBodyPtr ab(_abody);
+    ab->add_generalized_force(gf);
+    return;
+  }
+  
+  // if we're still here, this is only an individual body
   assert(gf.size() == num_generalized_coordinates(DynamicBody::eSpatial));
   SForced w;
 
@@ -1198,17 +1206,14 @@ void RigidBody::add_generalized_force(const VectorNd& gf)
     return;
 
   // set the pose for w
-  w.pose = GLOBAL;
+  w.pose = _F2;
 
   // get the force and torque
   w.set_force(Vector3d(gf[0], gf[1], gf[2]));
   w.set_torque(Vector3d(gf[3], gf[4], gf[5]));
 
   // add the force to the sum of forces
-  _force0 += w;
-
-  // invalidate other forces
-  _forcei_valid = _forcej_valid = _forcem_valid = false;
+  add_force(w);
 }
 
 /// Applies a generalized impulse to this rigid body

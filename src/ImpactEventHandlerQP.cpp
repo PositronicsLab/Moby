@@ -560,7 +560,7 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
   unsigned N_QP_CONTACT_VARS = q.N_CONTACTS*6 + q.N_K_TOTAL;
 
   // if we're not dealing with many contacts, exit now 
-  if (N_QP_CONTACT_VARS < 50)
+  if (N_QP_CONTACT_VARS < 500)
   {
     solve_qp_work_ijoints(q, z);
     return;
@@ -688,6 +688,21 @@ void ImpactEventHandler::solve_qp_work_ijoints(EventProblemData& q, VectorNd& z)
 {
   MatrixNd MM;
   VectorNd qq;
+
+  FILE_LOG(LOG_EVENT) << "  Cn * inv(M) * Cn': " << std::endl << q.Cn_iM_CnT;
+  FILE_LOG(LOG_EVENT) << "  Cn * inv(M) * Cs': " << std::endl << q.Cn_iM_CsT;
+  FILE_LOG(LOG_EVENT) << "  Cn * inv(M) * Ct': " << std::endl << q.Cn_iM_CtT;
+  FILE_LOG(LOG_EVENT) << "  Cn * inv(M) * L': " << std::endl << q.Cn_iM_LT;
+  FILE_LOG(LOG_EVENT) << "  Cs * inv(M) * Cs': " << std::endl << q.Cs_iM_CsT;
+  FILE_LOG(LOG_EVENT) << "  Cs * inv(M) * Ct': " << std::endl << q.Cs_iM_CtT;
+  FILE_LOG(LOG_EVENT) << "  Cs * inv(M) * L': " << std::endl << q.Cs_iM_LT;
+  FILE_LOG(LOG_EVENT) << "  Ct * inv(M) * Ct': " << std::endl << q.Ct_iM_CtT;
+  FILE_LOG(LOG_EVENT) << "  Ct * inv(M) * L': " << std::endl << q.Ct_iM_LT;
+  FILE_LOG(LOG_EVENT) << "  L * inv(M) * L': " << std::endl << q.L_iM_LT;
+  FILE_LOG(LOG_EVENT) << "  Cn * v: " << q.Cn_v << std::endl;
+  FILE_LOG(LOG_EVENT) << "  Cs * v: " << q.Cs_v << std::endl;
+  FILE_LOG(LOG_EVENT) << "  Ct * v: " << q.Ct_v << std::endl;
+  FILE_LOG(LOG_EVENT) << "  L * v: " << q.L_v << std::endl;
 
   // init the QP matrix and vector
   const unsigned N_INEQUAL = q.N_CONTACTS + q.N_K_TOTAL + q.N_LIMITS + 1;
@@ -872,20 +887,6 @@ void ImpactEventHandler::solve_qp_work_ijoints(EventProblemData& q, VectorNd& z)
   MatrixNd::transpose(A, AT);
   AT.negate();
 
-  FILE_LOG(LOG_EVENT) << "  Cn * inv(M) * Cn': " << std::endl << q.Cn_iM_CnT;
-  FILE_LOG(LOG_EVENT) << "  Cn * inv(M) * Cs': " << std::endl << q.Cn_iM_CsT;
-  FILE_LOG(LOG_EVENT) << "  Cn * inv(M) * Ct': " << std::endl << q.Cn_iM_CtT;
-  FILE_LOG(LOG_EVENT) << "  Cn * inv(M) * L': " << std::endl << q.Cn_iM_LT;
-  FILE_LOG(LOG_EVENT) << "  Cs * inv(M) * Cs': " << std::endl << q.Cs_iM_CsT;
-  FILE_LOG(LOG_EVENT) << "  Cs * inv(M) * Ct': " << std::endl << q.Cs_iM_CtT;
-  FILE_LOG(LOG_EVENT) << "  Cs * inv(M) * L': " << std::endl << q.Cs_iM_LT;
-  FILE_LOG(LOG_EVENT) << "  Ct * inv(M) * Ct': " << std::endl << q.Ct_iM_CtT;
-  FILE_LOG(LOG_EVENT) << "  Ct * inv(M) * L': " << std::endl << q.Ct_iM_LT;
-  FILE_LOG(LOG_EVENT) << "  L * inv(M) * L': " << std::endl << q.L_iM_LT;
-  FILE_LOG(LOG_EVENT) << "  Cn * v: " << q.Cn_v << std::endl;
-  FILE_LOG(LOG_EVENT) << "  Cs * v: " << q.Cs_v << std::endl;
-  FILE_LOG(LOG_EVENT) << "  Ct * v: " << q.Ct_v << std::endl;
-  FILE_LOG(LOG_EVENT) << "  L * v: " << q.L_v << std::endl;
   FILE_LOG(LOG_EVENT) << "H matrix: " << std::endl << H;
   FILE_LOG(LOG_EVENT) << "c vector: " << c << std::endl;
   FILE_LOG(LOG_EVENT) << "A matrix: " << std::endl << A;

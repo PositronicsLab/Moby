@@ -156,7 +156,7 @@ void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& eve
   // the kappa constant
   VectorNd z;
   solve_lcp(epd, z);
-  epd.kappa = 10e6;
+  epd.kappa = 10;
 
   // determine what type of QP solver to use
   if (use_qp_solver(epd))
@@ -417,44 +417,67 @@ void ImpactEventHandler::compute_problem_data(EventProblemData& q)
 
   // TODO: add event computation and cross computation methods to Joint
 
+  // get iterators to the proper matrices
+  RowIteratord CnCn = q.Cn_iM_CnT.row_iterator_begin();
+  RowIteratord CnCs = q.Cn_iM_CsT.row_iterator_begin();
+  RowIteratord CnCt = q.Cn_iM_CtT.row_iterator_begin();
+  RowIteratord CsCs = q.Cs_iM_CsT.row_iterator_begin();
+  RowIteratord CsCt = q.Cs_iM_CtT.row_iterator_begin();
+  RowIteratord CtCt = q.Ct_iM_CtT.row_iterator_begin();
+
   // process contact events, setting up matrices
   for (unsigned i=0; i< q.contact_events.size(); i++) 
   {
-    // compute matrix / vector for contact event i
-    q.contact_events[i]->compute_event_data(workM, workv);
-
-    // setup appropriate parts of contact inertia matrices
-    ColumnIteratord_const data = workM.column_iterator_begin();
-    q.Cn_iM_CnT(i,i) = *data++;
-    q.Cn_iM_CsT(i,i) = *data++;
-    q.Cn_iM_CtT(i,i) = *data; data += 2; // advance past Cs_iM_CnT
-    q.Cs_iM_CsT(i,i) = *data++;
-    q.Cs_iM_CtT(i,i) = *data; data += 3; // advance to Ct_iM_CtT
-    q.Ct_iM_CtT(i,i) = *data;
-
-    // setup appropriate parts of contact velocities
-    data = workv.column_iterator_begin();
-    q.Cn_v[i] = *data++;
-    q.Cs_v[i] = *data++;
-    q.Ct_v[i] = *data;
-
     // compute cross event data for contact events
-    for (unsigned j=i+1; j< q.contact_events.size(); j++)
+    for (unsigned j=0; j< q.contact_events.size(); j++)
     {
       // reset workM
       workM.set_zero(3, 3);
 
-      // compute matrix for cross event
-      q.contact_events[i]->compute_cross_event_data(*q.contact_events[j], workM);
+      // check whether i==j (single contact event)
+      if (i == j)
+      {
+        // compute matrix / vector for contact event i
+        workv.set_zero(3);
+        q.contact_events[i]->compute_event_data(workM, workv);
 
-      // setup appropriate parts of contact inertia matrices
-      ColumnIteratord_const data = workM.column_iterator_begin();
-      q.Cn_iM_CnT(i,j) = q.Cn_iM_CnT(j,i) = *data++;
-      q.Cn_iM_CsT(i,j) = q.Cn_iM_CsT(j,i) = *data++;
-      q.Cn_iM_CtT(i,j) = q.Cn_iM_CtT(j,i) = *data; data += 2; // advance to Cs_iM_CsT
-      q.Cs_iM_CsT(i,j) = q.Cs_iM_CsT(j,i) = *data++;
-      q.Cs_iM_CtT(i,j) = q.Cs_iM_CtT(j,i) = *data; data += 3; // advance to Ct_iM_CtT
-      q.Ct_iM_CtT(i,j) = q.Ct_iM_CtT(j,i) = *data;
+        // setup appropriate parts of contact inertia matrices
+        RowIteratord_const data = workM.row_iterator_begin();
+        *CnCn = *data++;
+        *CnCs = *data++;
+        *CnCt = *data; data += 2; // advance past Cs_iM_CnT
+        *CsCs = *data++;
+        *CsCt = *data; data += 3; // advance to Ct_iM_CtT
+        *CtCt = *data;
+
+        // setup appropriate parts of contact velocities
+        data = workv.row_iterator_begin();
+        q.Cn_v[i] = *data++;
+        q.Cs_v[i] = *data++;
+        q.Ct_v[i] = *data;
+      }
+      else
+      {
+        // compute matrix for cross event
+        q.contact_events[i]->compute_cross_event_data(*q.contact_events[j], workM);
+
+        // setup appropriate parts of contact inertia matrices
+        RowIteratord_const data = workM.row_iterator_begin();
+        *CnCn = *data++;
+        *CnCs = *data++;
+        *CnCt = *data; data += 2; // advance to Cs_iM_CsT
+        *CsCs = *data++;
+        *CsCt = *data; data += 3; // advance to Ct_iM_CtT
+        *CtCt = *data;
+      }
+
+      // advance the iterators
+      CnCn++;
+      CnCs++;
+      CnCt++;
+      CsCs++;
+      CsCt++;
+      CtCt++;
     }
 
     // compute cross event data for limit events 
