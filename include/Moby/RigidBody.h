@@ -189,7 +189,6 @@ class RigidBody : public SingleBody
     Ravelin::VectorNd& get_generalized_velocity_single(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& gv);
     Ravelin::VectorNd& get_generalized_acceleration_single(Ravelin::VectorNd& ga);
     void invalidate_pose_vectors();
-    void add_generalized_force_single(const Ravelin::VectorNd& gf);
     void apply_generalized_impulse_single(const Ravelin::VectorNd& gf);
     void set_generalized_coordinates_single(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gc);
     void set_generalized_velocity_single(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gv);

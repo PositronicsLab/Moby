@@ -25,6 +25,7 @@ class CRBAlgorithm
     void calc_fwd_dyn();
     void apply_impulse(const Ravelin::SMomentumd& w, RigidBodyPtr link);
     void calc_generalized_inertia(Ravelin::MatrixNd& M);
+    void calc_generalized_inertia(Ravelin::MatrixNd& M, boost::shared_ptr<const Ravelin::Pose3d> P);
     void calc_generalized_forces(Ravelin::SForced& f0, Ravelin::VectorNd& C);
     bool factorize_cholesky(Ravelin::MatrixNd& M);
     Ravelin::VectorNd& M_solve(Ravelin::VectorNd& xb);

@@ -29,8 +29,8 @@ OutputIterator Event::get_super_bodies(OutputIterator begin) const
   switch (nb)
   {
     case 0: break;
-    case 1: *begin++ = db1; break;
-    case 2: *begin++ = db1; *begin++ = db2; break;
+    case 1: if (db1) *begin++ = db1; break;
+    case 2: if (db1) *begin++ = db1; if (db2) *begin++ = db2; break;
     default:
       assert(false);
   }

@@ -226,7 +226,7 @@ void RCArticulatedBody::apply_generalized_impulse(const VectorNd& gj)
 void RCArticulatedBody::add_generalized_force(const VectorNd& gf)
 {
   unsigned index = 0;
-  SAFESTATIC VectorNd f0;
+  SForced f0;
 
   if (_floating_base)
   {
@@ -237,7 +237,8 @@ void RCArticulatedBody::add_generalized_force(const VectorNd& gf)
     gf.get_sub_vec(num_joint_dof_explicit(), gf.size(), f0);
 
     // add the force to the base
-    base->add_generalized_force(f0);
+    SForced fx = Pose3d::transform(base->get_gc_pose(), f0);
+    base->add_force(fx);
   }
 
   // add to joint forces
@@ -2332,8 +2333,9 @@ VectorNd& RCArticulatedBody::get_generalized_forces(VectorNd& f)
     // determine external and inertial forces on base 
     RigidBodyPtr base = _links.front();
     unsigned idx = CmQ.size();
-    f[idx++] = -f0[X];  f[idx++] = -f0[Y];  f[idx++] = -f0[Z];    
-    f[idx++] = -f0[A];  f[idx++] = -f0[B];  f[idx++] = -f0[C];    
+    SForced fb = Pose3d::transform(base->get_gc_pose(), f0);
+    f[idx++] = -fb[X];  f[idx++] = -fb[Y];  f[idx++] = -fb[Z];    
+    f[idx++] = -fb[A];  f[idx++] = -fb[B];  f[idx++] = -fb[C];    
   }
 
   return f;
@@ -2350,8 +2352,14 @@ VectorNd& RCArticulatedBody::convert_to_generalized_force(SingleBodyPtr body, co
   RigidBodyPtr link = dynamic_pointer_cast<RigidBody>(body);
   assert(link);
 
+  // get the gc frame
+  shared_ptr<const Pose3d> P = _links.front()->get_gc_pose();
+
+  // get w in P's frame
+  SForced wP = Pose3d::transform(P, w);
+
   // compute the Jacobian in w's frame
-  J.resize(num_joint_dof_explicit(), SVelocityd::zero(w.pose));  
+  J.resize(num_joint_dof_explicit(), SVelocityd::zero(P));  
   for (unsigned i=0; i< _ejoints.size(); i++)
   {
     // if link is not a descent of this joint's inboard, keep looping
@@ -2361,7 +2369,7 @@ VectorNd& RCArticulatedBody::convert_to_generalized_force(SingleBodyPtr body, co
 
     // transform the Jacobian
     const vector<SVelocityd>& s = _ejoints[i]->get_spatial_axes();
-    Pose3d::transform(w.pose, s, sprime);
+    Pose3d::transform(P, s, sprime);
     for (unsigned j=0, k=_ejoints[i]->get_coord_index(); j < s.size(); j++, k++)
       J[k] = sprime[j];    
   }
@@ -2371,16 +2379,15 @@ VectorNd& RCArticulatedBody::convert_to_generalized_force(SingleBodyPtr body, co
 
   // get the torque on the joints
   SharedVectorNd jf = gf.segment(0, J.size());
-  transpose_mult(J, w, jf);
+  transpose_mult(J, wP, jf);
 
   FILE_LOG(LOG_DYNAMICS) << "RCArticulatedBody::convert_to_generalized_force() - converting " << std::endl << "  " << w << " to generalized force" << std::endl;
   FILE_LOG(LOG_DYNAMICS) << "  -- joint torques: " << gf.segment(0, J.size()) << std::endl;
 
   // determine the generalized force on the base
   RigidBodyPtr base = _links.front();
-  SForced wbase = Pose3d::transform(base->get_computation_frame(), w);
   SharedVectorNd gfbase = gf.segment(J.size(), gf.size());
-  wbase.to_vector(gfbase);
+  wP.to_vector(gfbase);
 
   // return the generalized force vector
   return gf;

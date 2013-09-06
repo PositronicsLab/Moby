@@ -336,56 +336,77 @@ void Event::compute_cross_event_data(const Event& e, MatrixNd& M) const
 }
 
 /// Updates contact/contact cross event data
+/**
+ * From two contact points, we can have up to three separate super bodies. 
+ */
 void Event::compute_cross_contact_contact_event_data(const Event& e, MatrixNd& M) const
 {
-  static MatrixNd JA1, JB1, JA2, JB2;
+  // get the unique super bodies
+  DynamicBodyPtr bodies[4];
+  DynamicBodyPtr* end = get_super_bodies(bodies);
+  end = e.get_super_bodies(end);
+  std::sort(bodies, end);
+  end = std::unique(bodies, end);
+
+  // determine how many unique super bodies we have
+  const unsigned NSUPER = end - bodies;
+
+  // clear M
+  M.set_zero(3,3);
+
+  // if we have exactly two super bodies, process them individually
+  if (NSUPER == 1)
+    compute_cross_contact_contact_event_data(e, M, bodies[0]);
+  if (NSUPER == 2)
+  {
+    compute_cross_contact_contact_event_data(e, M, bodies[0]);
+    compute_cross_contact_contact_event_data(e, M, bodies[1]);
+  }
+  else if (NSUPER == 3)
+  {
+    // find the one common super body
+    DynamicBodyPtr bodies1[2], bodies2[2], isect[1];
+    DynamicBodyPtr* end1 = get_super_bodies(bodies1);
+    DynamicBodyPtr* end2 = e.get_super_bodies(bodies2);
+    std::sort(bodies1, end1);
+    std::sort(bodies2, end2);
+    DynamicBodyPtr* isect_end = std::set_intersection(bodies1, end1, bodies2, end2, isect);
+    assert(isect_end - isect == 1);
+    compute_cross_contact_contact_event_data(e, M, isect[0]);
+  }
+  else if (NSUPER == 4)
+    assert(false);
+}
+
+/// Computes cross contact data for one super body
+void Event::compute_cross_contact_contact_event_data(const Event& e, MatrixNd& M, DynamicBodyPtr su) const
+{
+  static MatrixNd J;
 
   // setup useful indices
   const unsigned N = 0, S = 1, T = 2;
 
-  // get the four single bodies
+  // get the first two single bodies
   SingleBodyPtr sba1 = contact_geom1->get_single_body();
   SingleBodyPtr sba2 = contact_geom2->get_single_body();
-  SingleBodyPtr sbb1 = e.contact_geom1->get_single_body();
-  SingleBodyPtr sbb2 = e.contact_geom2->get_single_body();
 
-  // get the four super bodies
+  // get the first two super bodies
   DynamicBodyPtr sua1 = sba1->get_super_body();
   DynamicBodyPtr sua2 = sba2->get_super_body();
-  DynamicBodyPtr sub1 = sbb1->get_super_body();
-  DynamicBodyPtr sub2 = sbb2->get_super_body();
 
-  // get the four gc poses for the four super bodies
-  shared_ptr<const Pose3d> Pa1 = sua1->get_gc_pose();
-  shared_ptr<const Pose3d> Pa2 = sua2->get_gc_pose();
-  shared_ptr<const Pose3d> Pb1 = sub1->get_gc_pose();
-  shared_ptr<const Pose3d> Pb2 = sub2->get_gc_pose();
+  // get the gc pose for the super body
+  shared_ptr<const Pose3d> P = su->get_gc_pose();
 
-  // get the numbers of generalized coordinates for the two super bodies
-  const unsigned NGCA1 = sua1->num_generalized_coordinates(DynamicBody::eSpatial);
-  const unsigned NGCA2 = sua2->num_generalized_coordinates(DynamicBody::eSpatial);
-  const unsigned NGCB1 = sub1->num_generalized_coordinates(DynamicBody::eSpatial);
-  const unsigned NGCB2 = sub2->num_generalized_coordinates(DynamicBody::eSpatial);
+  // get the number of generalized coordinates for the super body
+  const unsigned NGC = su->num_generalized_coordinates(DynamicBody::eSpatial);
 
-  // resize Jacobians 
-  JA1.resize(3, NGCA1);
-  JA2.resize(3, NGCA2);
-  JB1.resize(3, NGCB1);
-  JB2.resize(3, NGCB2);
+  // resize Jacobian 
+  J.resize(3, NGC);
 
-  // get the rows of the Jacobians for output
-  SharedVectorNd JA1n = JA1.row(N); 
-  SharedVectorNd JA1s = JA1.row(S); 
-  SharedVectorNd JA1t = JA1.row(T); 
-  SharedVectorNd JA2n = JA2.row(N); 
-  SharedVectorNd JA2s = JA2.row(S); 
-  SharedVectorNd JA2t = JA2.row(T); 
-  SharedVectorNd JB1n = JB1.row(N); 
-  SharedVectorNd JB1s = JB1.row(S); 
-  SharedVectorNd JB1t = JB1.row(T); 
-  SharedVectorNd JB2n = JB2.row(N); 
-  SharedVectorNd JB2s = JB2.row(S); 
-  SharedVectorNd JB2t = JB2.row(T); 
+  // get the rows of the Jacobian for output
+  SharedVectorNd Jn = J.row(N); 
+  SharedVectorNd Js = J.row(S); 
+  SharedVectorNd Jt = J.row(T); 
 
   // setup the contact frame
   _event_frame->q.set_identity();
@@ -397,114 +418,102 @@ void Event::compute_cross_contact_contact_event_data(const Event& e, MatrixNd& M
   wse.set_force(contact_tan1); 
   wte.set_force(contact_tan2);
 
-  // transform forces to global frame for body A1
-  SForced wn1 = Pose3d::transform(Pa1, wne);
-  SForced ws1 = Pose3d::transform(Pa1, wse);
-  SForced wt1 = Pose3d::transform(Pa1, wte);
+  // transform forces to desired frame for body
+  SForced wn = Pose3d::transform(P, wne);
+  SForced ws = Pose3d::transform(P, wse);
+  SForced wt = Pose3d::transform(P, wte);
 
-  // transform forces to global frame for body A2
-  SForced wn2 = Pose3d::transform(Pa2, wne);
-  SForced ws2 = Pose3d::transform(Pa2, wse);
-  SForced wt2 = Pose3d::transform(Pa2, wte);
+  // compute the Jacobians, checking to see whether necessary
+  if (sua1 == su)
+  {
+    su->calc_jacobian(P, sua1, vel);
+    transpose_mult(vel, wn, Jn); 
+    transpose_mult(vel, ws, Js); 
+    transpose_mult(vel, wt, Jt); 
+    compute_cross_contact_contact_event_data(e, M, su, J);
+  }
+  if (sua2 == su)
+  {
+    su->calc_jacobian(P, sua2, vel);
+    transpose_mult(vel, -wn, Jn); 
+    transpose_mult(vel, -ws, Js); 
+    transpose_mult(vel, -wt, Jt); 
+    compute_cross_contact_contact_event_data(e, M, su, J);
+  }
+} 
 
-  // compute the Jacobians for the first two bodies
-  sua1->calc_jacobian(Pa1, sba1, vel);
-  transpose_mult(vel, wn1, JA1n); 
-  transpose_mult(vel, ws1, JA1s); 
-  transpose_mult(vel, wt1, JA1t); 
-  sua2->calc_jacobian(Pa2, sba2, vel);
-  transpose_mult(vel, -wn2, JA2n); 
-  transpose_mult(vel, -ws2, JA2s); 
-  transpose_mult(vel, -wt2, JA2t); 
+/// Computes cross contact data for one super body
+void Event::compute_cross_contact_contact_event_data(const Event& e, MatrixNd& M, DynamicBodyPtr su, const MatrixNd& J) const
+{
+  static MatrixNd Jx, workM, work3x3;
+
+  // setup useful indices
+  const unsigned N = 0, S = 1, T = 2;
+
+  // get the second two single bodies
+  SingleBodyPtr sbb1 = e.contact_geom1->get_single_body();
+  SingleBodyPtr sbb2 = e.contact_geom2->get_single_body();
+
+  // get the second two super bodies
+  DynamicBodyPtr sub1 = sbb1->get_super_body();
+  DynamicBodyPtr sub2 = sbb2->get_super_body();
+
+  // get the gc pose for the super body
+  shared_ptr<const Pose3d> P = su->get_gc_pose();
+
+  // get the number of generalized coordinates for the super body
+  const unsigned NGC = su->num_generalized_coordinates(DynamicBody::eSpatial);
+
+  // resize Jacobian 
+  Jx.resize(3, NGC);
+
+  // get the rows of the Jacobians for output
+  SharedVectorNd Jn = Jx.row(N); 
+  SharedVectorNd Js = Jx.row(S); 
+  SharedVectorNd Jt = Jx.row(T); 
 
   // setup the contact frame
-  wne.pose = e._event_frame;
-  wse.pose = e._event_frame;
-  wte.pose = e._event_frame;
-  e._event_frame->q.set_identity();
-  e._event_frame->x = e.contact_point;
+  _event_frame->q.set_identity();
+  _event_frame->x = e.contact_point;
 
   // form the normal and tangential forces in contact space
+  SForced wne(_event_frame), wse(_event_frame), wte(_event_frame);
   wne.set_force(e.contact_normal);
   wse.set_force(e.contact_tan1); 
   wte.set_force(e.contact_tan2);
 
-  // transform forces to global frame for body B1
-  wn1 = Pose3d::transform(Pb1, wne);
-  ws1 = Pose3d::transform(Pb1, wse);
-  wt1 = Pose3d::transform(Pb1, wte);
+  // transform forces to desired frame for body
+  SForced wn = Pose3d::transform(P, wne);
+  SForced ws = Pose3d::transform(P, wse);
+  SForced wt = Pose3d::transform(P, wte);
 
-  // transform forces to global frame for body B2
-  wn2 = Pose3d::transform(Pb2, wne);
-  ws2 = Pose3d::transform(Pb2, wse);
-  wt2 = Pose3d::transform(Pb2, wte);
+  // compute the Jacobians, checking to see whether necessary
+  if (sub1 == su)
+  {
+    // first compute the Jacobian
+    su->calc_jacobian(P, sub1, vel);
+    transpose_mult(vel, wn, Jn); 
+    transpose_mult(vel, ws, Js); 
+    transpose_mult(vel, wt, Jt);
 
-  // compute the Jacobians for the second two bodies
-  sub1->calc_jacobian(Pb1, sbb1, vel);
-  transpose_mult(vel, wn1, JB1n); 
-  transpose_mult(vel, ws1, JB1s); 
-  transpose_mult(vel, wt1, JB1t); 
-  sub2->calc_jacobian(Pb2, sbb2, vel);
-  transpose_mult(vel, -wn2, JB2n); 
-  transpose_mult(vel, -ws2, JB2s); 
-  transpose_mult(vel, -wt2, JB2t); 
+    // now update M 
+    su->transpose_solve_generalized_inertia(Jx, workM);
+    J.mult(workM, work3x3);
+    M += work3x3;
+   }
+  if (sub2 == su)
+  {
+    su->calc_jacobian(P, sub2, vel);
+    transpose_mult(vel, -wn, Jn); 
+    transpose_mult(vel, -ws, Js); 
+    transpose_mult(vel, -wt, Jt); 
 
-  // indicate M has not been altered 
-  bool M_altered = false;
-
-  // now check for shared bodies
-  if (sua1 == sub1)
-  {
-    // compute the cross terms 
-    sua1->transpose_solve_generalized_inertia(JB1, workM1);
-    JA1.mult(workM1, M);
-    
-    // indicate M has now been altered
-    M_altered = true;
+    // now update M
+    su->transpose_solve_generalized_inertia(Jx, workM);
+    J.mult(workM, work3x3);
+    M += work3x3;
   }
-  if (sua1 == sub2)
-  {
-    // compute the cross terms 
-    sua1->transpose_solve_generalized_inertia(JB2, workM1);
-    if (M_altered)
-    {
-      JA1.mult(workM1, workM2);
-      M += workM2;
-    }  
-    else
-      JA1.mult(workM1, M);
-    
-    // indicate M has now been altered
-    M_altered = true;
-  }
-  if (sua2 == sub1)
-  {
-    // compute the cross terms 
-    sua2->transpose_solve_generalized_inertia(JB1, workM1);
-    if (M_altered)
-    {
-      JA2.mult(workM1, workM2);
-      M += workM2;
-    }
-    else  
-      JA2.mult(workM1, M);
-    
-    // indicate M has now been altered
-    M_altered = true;
-  }
-  if (sua2 == sub2)
-  {
-    // compute the cross terms 
-    sua2->transpose_solve_generalized_inertia(JB2, workM1);
-    if (M_altered)
-    {
-      JA2.mult(workM1, workM2);
-      M += workM2;
-    }  
-    else
-      JA2.mult(workM1, M); 
-  }
-} 
+}
 
 /// Updates contact/limit cross event data
 void Event::compute_cross_contact_limit_event_data(const Event& e, MatrixNd& M) const
@@ -535,6 +544,7 @@ void Event::compute_cross_contact_limit_event_data(const Event& e, MatrixNd& M) 
   // setup the contact frame
   _event_frame->q.set_identity();
   _event_frame->x = contact_point;
+  _event_frame->rpose = GLOBAL;
 
   // form the normal and tangential forces in contact space
   SForced wne(_event_frame), wse(_event_frame), wte(_event_frame);
@@ -1214,6 +1224,9 @@ void Event::determine_convex_set(list<Event*>& group)
     points.push_back(&e->contact_point);
   }
 
+  FILE_LOG(LOG_EVENT) << "Event::determine_convex_set() entered" << std::endl;
+  FILE_LOG(LOG_EVENT) << " -- initial number of contact points: " << points.size() << std::endl;
+
   // determine whether points are collinear
   const Point3d& pA = *points.front(); 
   const Point3d& pZ = *points.back();
@@ -1228,6 +1241,8 @@ void Event::determine_convex_set(list<Event*>& group)
   // easiest case: collinear
   if (collinear)
   {
+    FILE_LOG(LOG_EVENT) << " -- contact points are all collinear" << std::endl;
+
     // just get endpoints
     pair<Point3d*, Point3d*> ep;
     CompGeom::determine_seg_endpoints(points.begin(), points.end(), ep);
@@ -1242,11 +1257,15 @@ void Event::determine_convex_set(list<Event*>& group)
     }
     assert(!group.empty());
 
+    FILE_LOG(LOG_EVENT) << " -- remaining contact points after removal: " << group.size() << std::endl;
+
     return;
   }
   // determine whether the contact manifold is 2D or 3D
   else if (is_contact_manifold_2D(group))
   { 
+    FILE_LOG(LOG_EVENT) << " -- contact points appear to be on a 2D contact manifold" << std::endl;
+
     try
     {
       // compute the 2D convex hull
@@ -1256,6 +1275,8 @@ void Event::determine_convex_set(list<Event*>& group)
     }
     catch (NumericalException e)
     {
+      FILE_LOG(LOG_EVENT) << " -- unable to compute 2D convex hull; falling back to computing line endpoints" << std::endl;
+
       // compute the segment endpoints
       pair<Point3d*, Point3d*> ep;
       CompGeom::determine_seg_endpoints(points.begin(), points.end(), ep);
@@ -1269,6 +1290,8 @@ void Event::determine_convex_set(list<Event*>& group)
           i = group.erase(i);
       }
 
+      FILE_LOG(LOG_EVENT) << " -- remaining contact points after removal: " << group.size() << std::endl;
+
       return;
     }
   }
@@ -1276,6 +1299,8 @@ void Event::determine_convex_set(list<Event*>& group)
   {
     try
     {
+      FILE_LOG(LOG_EVENT) << " -- contact points appear to be on a 3D contact manifold" << std::endl;
+
       // compute the 3D convex hull
       CompGeom::calc_convex_hull(points.begin(), points.end(), std::back_inserter(hull));
       if (hull.empty())
@@ -1285,8 +1310,12 @@ void Event::determine_convex_set(list<Event*>& group)
     {
       try
       {
+        FILE_LOG(LOG_EVENT) << " -- 3D convex hull failed; trying 2D convex hull" << std::endl;
+
         // compute the 2D convex hull
         CompGeom::calc_convex_hull(points.begin(), points.end(), group.front()->contact_normal, std::back_inserter(hull));
+        if (hull.empty())
+          throw NumericalException();
       }
       catch (NumericalException e)
       {
@@ -1303,23 +1332,27 @@ void Event::determine_convex_set(list<Event*>& group)
             i = group.erase(i);
         }
 
+        FILE_LOG(LOG_EVENT) << " -- unable to compute 2D convex hull; falling back to computing line endpoints" << std::endl;
+        FILE_LOG(LOG_EVENT) << " -- remaining contact points after removal using 2D convex hull: " << group.size() << std::endl;
+
         return;
       }      
     }
   }
 
-  // sort all points in the hull
+  // if we're here, convex hull was successful. now sort the hull
   std::sort(hull.begin(), hull.end());
 
-  // iterate through events, looking for the contact points 
+  // remove points
   for (list<Event*>::iterator i = group.begin(); i != group.end(); )
   {
-    if (std::binary_search(hull.begin(), hull.end(), &(*i)->contact_point))
+    if (std::binary_search(hull.begin(), hull.end(), &((*i)->contact_point)))
       i++;
     else
       i = group.erase(i);
   }
-  assert(group.size() == hull.size() && group.size() >= 3);
+
+  FILE_LOG(LOG_EVENT) << " -- remaining contact points after removal using convex hull: " << group.size() << std::endl;
 }
 
 /// Determines whether all events in a set are 2D or 3D
@@ -1613,9 +1646,14 @@ double Event::calc_event_tol() const
     const SVelocityd& va = sba->get_velocity(); 
     const SVelocityd& vb = sbb->get_velocity(); 
 
+    // setup the event frame
+    _event_frame->x = contact_point;
+    _event_frame->q.set_identity();
+    _event_frame->rpose = GLOBAL;
+
     // compute the velocities at the contact point
-    SVelocityd ta = Pose3d::transform(contact_point.pose, va); 
-    SVelocityd tb = Pose3d::transform(contact_point.pose, vb); 
+    SVelocityd ta = Pose3d::transform(_event_frame, va); 
+    SVelocityd tb = Pose3d::transform(_event_frame, vb); 
 
     // compute the difference in linear velocities
     return std::max((ta.get_linear() - tb.get_linear()).norm(), (double) 1.0);
