@@ -2,11 +2,11 @@
 
 <XML>
   <MOBY>
-    <Cylinder id="c" radius="1" height="5" axis="y" circle-points="100" density="1.0" />
-    <Box id="b3" xlen="10" ylen=".5" zlen="10" density="10.0" />
+    <Cylinder id="c" radius="1" height="5" num-circle-points="100" density="1.0" />
+    <Box id="b3" xlen="1" ylen="10" zlen="1" density="10.0" />
 
     <!-- Collision detector -->
-    <GeneralizedCCD id="ccd" toi-tolerance="1e-6" eps-tolerance="1e-3" disable-adjacent-ab-links="true">
+    <GeneralizedCCD id="ccd" eps-tolerance="1e-3">
       <Body body-id="chain"/>
       <Body body-id="platform" />
     </GeneralizedCCD>
@@ -16,11 +16,11 @@
     <GravityForce id="gravity" accel="0 -9.81 0 " />
 
     <!-- the simulator -->
-    <EventDrivenSimulator integrator-id="euler" collision-detector-id="ccd">
-      <RecurrentForce recurrent-force-id="gravity" enabled="true" /> 
+    <EventDrivenSimulator integrator-id="rk4" collision-detector-id="ccd">
+      <RecurrentForce recurrent-force-id="gravity" /> 
       <DynamicBody dynamic-body-id="chain" />
       <DynamicBody dynamic-body-id="platform" />
-      <ContactParameters object1-id="platform" object2-id="chain" restitution="0" mu-coulomb="1" mu-viscous=".1" />
+      <ContactParameters object1-id="platform" object2-id="chain" mu-coulomb="1" mu-viscous=".1" />
     </EventDrivenSimulator>
     
     <!-- the chain -->
@@ -31,24 +31,24 @@
         <InertiaFromPrimitive primitive-id="c" />
       </RigidBody>
 
-      <RigidBody id="l1" transform="0 -1 0 2.5; 1 0 0 0; 0 0 1 0; 0 0 0 1" visualization-id="c">
+      <RigidBody id="l1" position="2.5 0 0" rpy="0 0 1.5708" visualization-id="c">
         <InertiaFromPrimitive primitive-id="c" />
         <CollisionGeometry primitive-id="c" max-tri-area="10" />
       </RigidBody>
 
-      <RigidBody id="l2" transform="0 -1 0 7.5; 1 0 0 0; 0 0 1 0; 0 0 0 1" visualization-id="c">
+      <RigidBody id="l2" position="7.5 0 0" rpy="0 0 1.5708" visualization-id="c">
         <InertiaFromPrimitive primitive-id="c" />
-        <CCollisionGeometry primitive-id="c" />
+        <CollisionGeometry primitive-id="c" />
       </RigidBody>
 
       <!-- joints in the chain -->
-      <RevoluteJoint id="q" qd="0" location="0 0 0" inboard-link-id="base" outboard-link-id="l1" maxforce="10000" axis="0 0 1" lower-limits="-100000" upper-limits="100000" coulomb-friction-coeff="0" viscous-friction-coeff="0" restitution-coeff="0" />
-      <RevoluteJoint id="q2" qd="0" location="5 0 0" inboard-link-id="l1" outboard-link-id="l2" maxforce="10000" axis="0 0 1" lower-limits="-100000" upper-limits="100000" coulomb-friction-coeff="0" viscous-friction-coeff="0" restitution-coeff="0" />
+      <RevoluteJoint id="q" qd="0" location="0 0 0" inboard-link-id="base" outboard-link-id="l1" max-force="10000" axis="0 0 1" lower-limits="-100000" upper-limits="100000" coulomb-friction-coeff="0" viscous-friction-coeff="0" restitution-coeff="0" />
+      <RevoluteJoint id="q2" qd="0" location="5 0 0" inboard-link-id="l1" outboard-link-id="l2" max-force="10000" axis="0 0 1" lower-limits="-100000" upper-limits="100000" coulomb-friction-coeff="0" viscous-friction-coeff="0" restitution-coeff="0" />
     </RCArticulatedBody>
 
     <!-- setup the platform rigid body; it is not active -->
     <RigidBody id="platform" enabled="false"
-      position="-6 -9 0" visualization-id="b3" >
+      position="-1 0 0" visualization-id="b3" >
         <CollisionGeometry primitive-id="b3" />
     </RigidBody>
 
