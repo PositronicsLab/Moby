@@ -16,10 +16,8 @@
 #include <Moby/CollisionGeometry.h>
 
 using boost::dynamic_pointer_cast;
-using Ravelin::Pose3d;
-using Ravelin::Origin3d;
-using Ravelin::AAngled;
 using boost::shared_ptr;
+using namespace Ravelin;
 using namespace Moby;
 
 /// Constructs a CollisionGeometry with no triangle mesh, identity transformation and relative transformation
@@ -45,15 +43,19 @@ void CollisionGeometry::set_single_body(SingleBodyPtr s)
  */
 PrimitivePtr CollisionGeometry::set_geometry(PrimitivePtr primitive)
 {
-  Pose3d EYE;
+  Quatd EYE;
 
   if (_single_body.expired())
     throw std::runtime_error("CollisionGeometry::set_geometry() called before single body set!");
 
   SingleBodyPtr sb(_single_body);
   RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(sb);
-  if (rb && !Pose3d::rel_equal(*rb->get_pose(), EYE))    
-    std::cerr << "CollisionGeometry::set_primitive() warning - rigid body's transform is not identity!" << std::endl;
+  if (rb && !Quatd::rel_equal(rb->get_pose()->q, EYE))
+  {
+    std::cerr << "CollisionGeometry::set_primitive() warning - rigid body's orientation is not identity." << std::endl;
+    std::cerr << "  At the rigid body's current orientation (" << AAngled(rb->get_pose()->q) << ")" << std::endl;
+    std::cerr << "  the primitive wll have the orientation (" << AAngled(primitive->get_pose()->q) << ")" << std::endl;
+  }
 
   // save the primitive
   _geometry = primitive;
