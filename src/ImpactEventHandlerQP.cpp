@@ -874,13 +874,13 @@ void ImpactEventHandler::solve_qp_work_ijoints(EventProblemData& q, VectorNd& z)
   }
 
   // setup the normal velocity constraint
-  // 1'N*v+ <= 1'N*v-  (in our form) -1'N*v+ >= -1'N*v- 
+  // 1'N*v+ <= kappa  (in our form) -1'N*v+ >= -kappa
   for (unsigned i=0; i< Cn_block.columns(); i++)
   {
     SharedConstVectorNd Cn_col = Cn_block.column(i);
     A(row_start, i) = -std::accumulate(Cn_col.begin(), Cn_col.end(), 0.0);
   }
-  nb[row_start] = q.kappa;
+  nb[row_start] = -std::accumulate(q.Cn_v.row_iterator_begin(), q.Cn_v.row_iterator_end(), 0.0) + q.kappa;
 
   // set A = -A'
   SharedMatrixNd AT = MM.block(0, q.N_VARS, q.N_VARS, MM.rows());
@@ -1175,7 +1175,7 @@ void ImpactEventHandler::solve_qp_work_general(EventProblemData& q, VectorNd& z)
     SharedConstVectorNd Cn_col = Cn_block.column(i);
     A(row_start, i) = -std::accumulate(Cn_col.begin(), Cn_col.end(), 0.0);
   }
-  nb[row_start] = q.kappa;
+  nb[row_start] = -std::accumulate(q.Cn_v.row_iterator_begin(), q.Cn_v.row_iterator_end(), 0.0) + q.kappa;
 
   // get useful blocks of MM and segments of qq
   SharedMatrixNd H_block = MM.block(0, N_VARS, 0, N_VARS);
