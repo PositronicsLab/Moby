@@ -47,8 +47,8 @@ class CylinderPrimitive : public Primitive
     unsigned get_circle_points() const { return _npoints; }
     
   private:
-    double calc_penetration_depth(const Point3d& p) const;
-    unsigned intersect_line(const Point3d& origin, const Ravelin::Vector3d& dir, double& t0, double& t1) const;
+    double calc_penetration_depth(boost::shared_ptr<const Ravelin::Pose3d> P, const Point3d& p) const;
+    unsigned intersect_line(boost::shared_ptr<const Ravelin::Pose3d> P, const Point3d& origin, const Ravelin::Vector3d& dir, double& t0, double& t1) const;
     virtual void calc_mass_properties(); 
  
     /// Pointer to the determined mesh (w/transform applied), if any

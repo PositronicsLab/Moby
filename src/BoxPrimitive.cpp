@@ -446,9 +446,22 @@ BVPtr BoxPrimitive::get_BVH_root(CollisionGeometryPtr geom)
 bool BoxPrimitive::point_inside(BVPtr bv, const Point3d& point, Vector3d& normal) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
+  static shared_ptr<Pose3d> P;
+
+  // get the pose for the collision geometry
+  shared_ptr<const Pose3d> gpose = bv->geom->get_pose(); 
+
+  // get the pose for this geometry and BV
+  shared_ptr<const Pose3d> bpose = get_pose(); 
+  assert(!bpose->rpose);
+
+  // setup a new pose
+  if (!P)
+    P = shared_ptr<Pose3d>(new Pose3d);
+  *P = *bpose;
+  P->rpose = gpose;
 
   // form the transformation from box space to query space (and back) 
-  shared_ptr<const Pose3d> P = get_pose();
   Transform3d T = Pose3d::calc_relative_pose(point.pose, P);
 
   // setup lengths
@@ -519,9 +532,22 @@ bool BoxPrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point
   const unsigned X = 0, Y = 1, Z = 2;
   double tmin = (double) 0.0;
   double tmax = (double) 2.0;
+  static shared_ptr<Pose3d> P;
+
+  // get the pose for the collision geometry
+  shared_ptr<const Pose3d> gpose = bv->geom->get_pose(); 
+
+  // get the pose for this geometry and BV
+  shared_ptr<const Pose3d> bpose = get_pose(); 
+  assert(!bpose->rpose);
+
+  // setup a new pose
+  if (!P)
+    P = shared_ptr<Pose3d>(new Pose3d);
+  *P = *bpose;
+  P->rpose = gpose;
 
   // form a transform between segment space and box space 
-  shared_ptr<const Pose3d> P = get_pose();
   Transform3d T = Pose3d::calc_relative_pose(seg.first.pose, P);
 
   // setup lengths
@@ -620,7 +646,7 @@ bool BoxPrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point
   // ray intersects all three slabs
   // determine normal; if it is degenerate, report no intersection
   isect = p + d * tmin;
-  if (!determine_normal_abs(l, isect, normal))
+  if (!determine_normal_abs(l, isect, P, normal))
     return false;
 
   // transform the normal back out of box space
@@ -645,14 +671,11 @@ bool BoxPrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point
 /**
  * \return <b>true</b> if the normal is valid, <b>false</b> if degenerate
  */
-void BoxPrimitive::determine_normal(const Vector3d& lengths, const Point3d& p, Vector3d& normal) const
+void BoxPrimitive::determine_normal(const Vector3d& lengths, const Point3d& p, shared_ptr<const Pose3d> P, Vector3d& normal) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
   const unsigned NFACES = 6;
   pair<double, BoxPrimitive::FaceID> distances[NFACES];
-
-  // get the pose of the primitive
-  shared_ptr<const Pose3d> P = get_pose();
 
   distances[0] = make_pair(p[X] - lengths[X], ePOSX);
   distances[1] = make_pair(p[X] + lengths[X], eNEGX);
@@ -680,14 +703,11 @@ void BoxPrimitive::determine_normal(const Vector3d& lengths, const Point3d& p, V
 /**
  * \return <b>true</b> if the normal is valid, <b>false</b> if degenerate
  */
-bool BoxPrimitive::determine_normal_abs(const Vector3d& lengths, const Point3d& p, Vector3d& normal) const
+bool BoxPrimitive::determine_normal_abs(const Vector3d& lengths, const Point3d& p, shared_ptr<const Pose3d> P, Vector3d& normal) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
   const unsigned NFACES = 6;
   pair<double, BoxPrimitive::FaceID> distances[NFACES];
-
-   // get the pose of the primitive
-  shared_ptr<const Pose3d> P = get_pose();
 
   distances[0] = make_pair(std::fabs(p[X] - lengths[X]), ePOSX);
   distances[1] = make_pair(std::fabs(p[X] + lengths[X]), eNEGX);

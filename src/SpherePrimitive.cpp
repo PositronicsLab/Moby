@@ -391,9 +391,22 @@ BVPtr SpherePrimitive::get_BVH_root(CollisionGeometryPtr geom)
 bool SpherePrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Vector3d& normal) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
+  static shared_ptr<Pose3d> P;
+
+  // get the pose for the collision geometry
+  shared_ptr<const Pose3d> gpose = bv->geom->get_pose(); 
+
+  // get the pose for this geometry and BV
+  shared_ptr<const Pose3d> bpose = get_pose(); 
+  assert(!bpose->rpose);
+
+  // setup a new pose
+  if (!P)
+    P = shared_ptr<Pose3d>(new Pose3d);
+  *P = *bpose;
+  P->rpose = gpose;
 
   // transform the segments to sphere space
-  shared_ptr<const Pose3d> P = get_pose();
   Transform3d T = Pose3d::calc_relative_pose(seg.first.pose, P);
   Vector3d p = T.transform_point(seg.first); 
   Vector3d q = T.transform_point(seg.second);
@@ -474,8 +487,22 @@ bool SpherePrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Po
 /// Determines whether a point is inside or on the sphere
 bool SpherePrimitive::point_inside(BVPtr bv, const Point3d& p, Vector3d& normal) const
 {
+  static shared_ptr<Pose3d> P;
+
+  // get the pose for the collision geometry
+  shared_ptr<const Pose3d> gpose = bv->geom->get_pose(); 
+
+  // get the pose for this geometry and BV
+  shared_ptr<const Pose3d> bpose = get_pose(); 
+  assert(!bpose->rpose);
+
+  // setup a new pose
+  if (!P)
+    P = shared_ptr<Pose3d>(new Pose3d);
+  *P = *bpose;
+  P->rpose = gpose;
+
   // transform the point to sphere space
-  shared_ptr<const Pose3d> P = get_pose();
   Transform3d T = Pose3d::calc_relative_pose(p.pose, P);
   Point3d query = T.transform_point(p);
 

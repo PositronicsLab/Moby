@@ -501,13 +501,26 @@ void GaussianMixture::construct_vertices()
 bool GaussianMixture::point_inside(BVPtr bv, const Point3d& point, Vector3d& normal) const
 {
   double a,b,c,X,Y,Z,X_next,eps;
+  static shared_ptr<Pose3d> P;
   
   const double PARAM_BOUND = -5.0;
   int n=0;
   const int NMAX = _gauss.size(); 
 
+  // get the pose for the collision geometry
+  shared_ptr<const Pose3d> gpose = bv->geom->get_pose(); 
+
+  // get the pose for this geometry and BV
+  shared_ptr<const Pose3d> bpose = get_pose(); 
+  assert(!bpose->rpose);
+
+  // setup a new pose
+  if (!P)
+    P = shared_ptr<Pose3d>(new Pose3d);
+  *P = *bpose;
+  P->rpose = gpose;
+
   // get the transform from the point pose to the Gaussian pose
-  shared_ptr<const Pose3d> P = get_pose();
   Transform3d T = Pose3d::calc_relative_pose(point.pose, P); 
 
   // convert the point to primitive space
@@ -660,12 +673,25 @@ bool GaussianMixture::intersect_seg(BVPtr bv, const LineSeg3& seg,double& tisect
 {
   const unsigned X = 0, Y = 1, Z = 2;
   const double INF = std::numeric_limits<double>::max();
+  static shared_ptr<Pose3d> P;
 
   // setup intersection vectors
   SAFESTATIC vector<double> t, depth;
 
+  // get the pose for the collision geometry
+  shared_ptr<const Pose3d> gpose = bv->geom->get_pose(); 
+
+  // get the pose for this geometry and BV
+  shared_ptr<const Pose3d> bpose = get_pose(); 
+  assert(!bpose->rpose);
+
+  // setup a new pose
+  if (!P)
+    P = shared_ptr<Pose3d>(new Pose3d);
+  *P = *bpose;
+  P->rpose = gpose;
+
   // get the transform from the line segment pose to the primitive pose
-  shared_ptr<const Pose3d> P = get_pose();
   Transform3d T = Pose3d::calc_relative_pose(seg.first.pose, P); 
 
   // convert the line segment to primitive space

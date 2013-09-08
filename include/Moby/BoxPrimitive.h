@@ -46,8 +46,8 @@ class BoxPrimitive : public Primitive
 
   private:
     enum FaceID { ePOSX, eNEGX, ePOSY, eNEGY, ePOSZ, eNEGZ };
-    void determine_normal(const Ravelin::Vector3d& lengths, const Point3d& p, Ravelin::Vector3d& normal) const;
-    bool determine_normal_abs(const Ravelin::Vector3d& lengths, const Point3d& p, Ravelin::Vector3d& normal) const;
+    void determine_normal(const Ravelin::Vector3d& lengths, const Point3d& p, boost::shared_ptr<const Ravelin::Pose3d> P, Ravelin::Vector3d& normal) const;
+    bool determine_normal_abs(const Ravelin::Vector3d& lengths, const Point3d& p, boost::shared_ptr<const Ravelin::Pose3d> P, Ravelin::Vector3d& normal) const;
 
     virtual void calc_mass_properties();
 
