@@ -56,8 +56,8 @@ class ConePrimitive : public Primitive
   private:
     static double sqr(double x) { return x*x; }
     virtual void calc_mass_properties(); 
-    double calc_penetration_depth(const Point3d& p) const; 
-    Ravelin::Vector3d determine_normal(const Point3d& query) const;
+    double calc_penetration_depth(boost::shared_ptr<const Ravelin::Pose3d> P, const Point3d& p) const; 
+    Ravelin::Vector3d determine_normal(boost::shared_ptr<const Ravelin::Pose3d> P, const Point3d& query) const;
 
     /// Pointer to the determined mesh (w/transform applied), if any
     boost::shared_ptr<IndexedTriArray> _mesh;

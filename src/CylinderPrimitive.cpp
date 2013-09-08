@@ -463,9 +463,22 @@ bool CylinderPrimitive::point_inside(BVPtr bv, const Point3d& p, Vector3d& norma
   const unsigned X = 0, Y = 1, Z = 2;
   const double R = _radius;
   const double halfheight = _height*0.5;
+  static shared_ptr<Pose3d> P;
+
+  // get the pose for the collision geometry
+  shared_ptr<const Pose3d> gpose = bv->geom->get_pose(); 
+
+  // get the pose for this geometry and BV
+  shared_ptr<const Pose3d> bpose = get_pose(); 
+  assert(!bpose->rpose);
+
+  // setup a new pose
+  if (!P)
+    P = shared_ptr<Pose3d>(new Pose3d);
+  *P = *bpose;
+  P->rpose = gpose;
 
   // transform the point to cylinder space
-  shared_ptr<const Pose3d> P = get_pose();
   Transform3d T = Pose3d::calc_relative_pose(p.pose, P);
   Point3d query = T.transform_point(p);
 
@@ -503,16 +516,16 @@ bool CylinderPrimitive::point_inside(BVPtr bv, const Point3d& p, Vector3d& norma
   if (-dcaptop < -dcapbot)
   {
     if (-dcaptop < std::sqrt(-cdist_sq))
-      normal = Vector3d(0,1,0);
+      normal = Vector3d(0,1,0,P);
     else
-      normal = Vector3d::normalize(Vector3d(query[X],(double) 0.0, query[Z]));
+      normal = Vector3d::normalize(Vector3d(query[X],(double) 0.0, query[Z],P));
   }
   else
   {
     if (-dcapbot < std::sqrt(-cdist_sq))
-      normal = Vector3d(0,-1,0);
+      normal = Vector3d(0,-1,0,P);
     else
-      normal = Vector3d::normalize(Vector3d(query[X],(double) 0.0, query[Z]));
+      normal = Vector3d::normalize(Vector3d(query[X],(double) 0.0, query[Z],P));
   }
 /*
   if (dcaptop >= dcapbot && dcaptop >= -NEAR_ZERO)
@@ -535,7 +548,7 @@ bool CylinderPrimitive::point_inside(BVPtr bv, const Point3d& p, Vector3d& norma
 /**
  * Returns -INF for points outside the cylinder.
  */
-double CylinderPrimitive::calc_penetration_depth(const Point3d& p) const
+double CylinderPrimitive::calc_penetration_depth(shared_ptr<const Pose3d> P, const Point3d& p) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
   const double INF = std::numeric_limits<double>::max();
@@ -543,7 +556,6 @@ double CylinderPrimitive::calc_penetration_depth(const Point3d& p) const
   const double halfheight = _height*0.5;
 
   // transform the point to cylinder space
-  shared_ptr<const Pose3d> P = get_pose();
   Point3d query = Pose3d::transform_point(P, p);
 
   FILE_LOG(LOG_COLDET) << "CylinderPrimitive::calc_penetration_depth() entered" << std::endl;
@@ -576,12 +588,9 @@ double CylinderPrimitive::calc_penetration_depth(const Point3d& p) const
 }
 
 /// Determines the number of intersections between a line and this cylinder
-unsigned CylinderPrimitive::intersect_line(const Point3d& origin, const Vector3d& dir, double& t0, double& t1) const
+unsigned CylinderPrimitive::intersect_line(shared_ptr<const Pose3d> Px, const Point3d& origin, const Vector3d& dir, double& t0, double& t1) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
-
-  // get the current pose
-  shared_ptr<const Pose3d> Px = get_pose();
 
   // create a coordinate system for the cylinder.  In this system, the 
   // cylinder segment center C is the origin and the cylinder axis direction
@@ -832,20 +841,33 @@ bool CylinderPrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, 
   const unsigned Y = 1;
   const double R = _radius;
   const double halfheight = _height*0.5;
+  static shared_ptr<Pose3d> P;
 
   FILE_LOG(LOG_COLDET) << "CylinderPrimitive::intersect_seg() entered" << std::endl;
   FILE_LOG(LOG_COLDET) << "  cylinder radius: " << R << "  half height: " << halfheight << std::endl;
   FILE_LOG(LOG_COLDET) << "  segment: " << seg.first << " / " << seg.second << std::endl;
 
-  // form a Pose3d from the transform
-  shared_ptr<const Pose3d> P = get_pose();
+  // get the pose for the collision geometry
+  shared_ptr<const Pose3d> gpose = bv->geom->get_pose(); 
+
+  // get the pose for this geometry and BV
+  shared_ptr<const Pose3d> bpose = get_pose(); 
+  assert(!bpose->rpose);
+
+  // setup a new pose
+  if (!P)
+    P = shared_ptr<Pose3d>(new Pose3d);
+  *P = *bpose;
+  P->rpose = gpose;
+
+  // transform segment to primitive frame 
   Transform3d T = Pose3d::calc_relative_pose(seg.first.pose, P);
 
   // compute transformed segment
   LineSeg3 nseg(T.transform_point(seg.first), T.transform_point(seg.second));
 
   // check whether the first point is already within the cylinder
-  double p_depth = calc_penetration_depth(nseg.first);
+  double p_depth = calc_penetration_depth(P, nseg.first);
 
   if (p_depth >= (double) 0.0)
   {
@@ -879,7 +901,7 @@ bool CylinderPrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, 
 
   // do line / cylinder intersection
   double t0, t1;
-  unsigned nisects = intersect_line(nseg.first, dir/seg_len, t0, t1);
+  unsigned nisects = intersect_line(P, nseg.first, dir/seg_len, t0, t1);
 
   // if no intersections or not a ray intersection, quit now
   if (nisects == 0 || (nisects == 1 && t0 < (double) 0.0) || 

@@ -496,8 +496,22 @@ static double sgn(double x) { return x / std::fabs(x); }
  */
 bool ConePrimitive::point_inside(BVPtr bv, const Point3d& p, Vector3d& normal) const
 {
+  static shared_ptr<Pose3d> P;
+
+  // get the pose for the collision geometry
+  shared_ptr<const Pose3d> gpose = bv->geom->get_pose(); 
+
+  // get the pose for this geometry and BV
+  shared_ptr<const Pose3d> bpose = get_pose(); 
+  assert(!bpose->rpose);
+
+  // setup a new pose
+  if (!P)
+    P = shared_ptr<Pose3d>(new Pose3d);
+  *P = *bpose;
+  P->rpose = gpose;
+
   // transform the point to cone frame 
-  shared_ptr<const Pose3d> P = get_pose();
   Transform3d T = Pose3d::calc_relative_pose(p.pose, P);
   Point3d query = T.transform_point(p);
 
@@ -515,7 +529,7 @@ bool ConePrimitive::point_inside(BVPtr bv, const Point3d& p, Vector3d& normal) c
     return false;
 
   // determine the normal (the gradient: derived using Mathematica)
-  normal = determine_normal(query);
+  normal = determine_normal(P, query);
 
   // transform the normal back to the desired pose
   normal = T.inverse_transform_vector(normal);
@@ -527,13 +541,12 @@ bool ConePrimitive::point_inside(BVPtr bv, const Point3d& p, Vector3d& normal) c
 /**
  * \return the penetration depth, or -INF if the point is outside the cone
  */
-double ConePrimitive::calc_penetration_depth(const Point3d& p) const
+double ConePrimitive::calc_penetration_depth(shared_ptr<const Pose3d> P, const Point3d& p) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
   const double INF = std::numeric_limits<double>::max();
 
   // transform the point to cone frame 
-  shared_ptr<const Pose3d> P = get_pose();
   Transform3d T = Pose3d::calc_relative_pose(p.pose, P);
   Point3d query = T.transform_point(p);
 
@@ -569,12 +582,9 @@ double ConePrimitive::calc_penetration_depth(const Point3d& p) const
 /**
  * \note the normal may be degenerate (NaN)
  */
-Vector3d ConePrimitive::determine_normal(const Point3d& query) const
+Vector3d ConePrimitive::determine_normal(boost::shared_ptr<const Ravelin::Pose3d> P, const Point3d& query) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
-
-  // get the current pose
-  shared_ptr<const Pose3d> P = get_pose();
 
   // determine the normal (the gradient: derived using Mathematica)
   const double xx = query[X];
@@ -602,12 +612,26 @@ Vector3d ConePrimitive::determine_normal(const Point3d& query) const
 bool ConePrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Vector3d& normal) const
 {
   const unsigned Y = 1;
+  static shared_ptr<Pose3d> P;
+
+  // get the pose for the collision geometry
+  shared_ptr<const Pose3d> gpose = bv->geom->get_pose(); 
+
+  // get the pose for this geometry and BV
+  shared_ptr<const Pose3d> bpose = get_pose(); 
+  assert(!bpose->rpose);
+
+  // setup a new pose
+  if (!P)
+    P = shared_ptr<Pose3d>(new Pose3d);
+  *P = *bpose;
+  P->rpose = gpose;
 
   // we'll need a second intersection point for temporary storage
   Point3d isects[3];
 
   // first check whether the first point is inside/on the cone
-  double dp = calc_penetration_depth(seg.first);
+  double dp = calc_penetration_depth(P, seg.first);
   if (dp >= (double) 0.0)
   {
     // first point is inside/on the cone
@@ -622,7 +646,6 @@ bool ConePrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Poin
   }
 
   // transform the line segment to cone frame 
-  shared_ptr<const Pose3d> P = get_pose();
   Transform3d T = Pose3d::calc_relative_pose(seg.first.pose, P);
   Point3d p = T.transform_point(seg.first);
   Point3d q = T.transform_point(seg.second);
@@ -692,7 +715,7 @@ bool ConePrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Poin
         isect = T.inverse_transform_point(isects[0]);
 
         // determine the normal to the point
-        normal = T.inverse_transform_vector(determine_normal(isects[0]));
+        normal = T.inverse_transform_vector(determine_normal(P, isects[0]));
 
         return true;
       }
@@ -709,7 +732,7 @@ bool ConePrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Poin
         isect = T.inverse_transform_point(isects[0]);
 
         // determine the normal to the point
-        normal = T.inverse_transform_vector(determine_normal(isects[0]));
+        normal = T.inverse_transform_vector(determine_normal(P, isects[0]));
 
         return true;
       }
@@ -734,7 +757,7 @@ bool ConePrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Poin
         isect = T.inverse_transform_point(isects[0]);
 
         // determine the normal to the point
-        normal = T.inverse_transform_vector(determine_normal(isects[0]));
+        normal = T.inverse_transform_vector(determine_normal(P, isects[0]));
 
         return true;
       }
@@ -761,7 +784,7 @@ bool ConePrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Poin
       t = std::sqrt((isects[0] - p).norm_sq()/dir.norm_sq());
       
       // determine the normal to the point
-      normal = T.inverse_transform_vector(determine_normal(isects[0]));
+      normal = T.inverse_transform_vector(determine_normal(P, isects[0]));
 
       return true;
     }

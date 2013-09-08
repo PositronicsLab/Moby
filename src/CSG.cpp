@@ -240,11 +240,25 @@ BVPtr CSG::get_BVH_root(CollisionGeometryPtr geom)
 
 bool CSG::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Vector3d& normal) const
 {
+  static shared_ptr<Pose3d> P;
+
   if (!_op1 || !_op2)
     throw std::runtime_error("One or more CSG operands are missing!");
 
+  // get the pose for the collision geometry
+  shared_ptr<const Pose3d> gpose = bv->geom->get_pose(); 
+
+  // get the pose for this geometry and BV
+  shared_ptr<const Pose3d> bpose = get_pose(); 
+  assert(!bpose->rpose);
+
+  // setup a new pose
+  if (!P)
+    P = shared_ptr<Pose3d>(new Pose3d);
+  *P = *bpose;
+  P->rpose = gpose;
+
   // compute transform from line segment pose to primitive pose
-  shared_ptr<const Pose3d> P = get_pose();
   Transform3d T = Pose3d::calc_relative_pose(seg.first.pose, P);
 
   // compute updated line segment
