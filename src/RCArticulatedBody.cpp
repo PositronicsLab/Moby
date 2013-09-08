@@ -2384,10 +2384,13 @@ VectorNd& RCArticulatedBody::convert_to_generalized_force(SingleBodyPtr body, co
   FILE_LOG(LOG_DYNAMICS) << "RCArticulatedBody::convert_to_generalized_force() - converting " << std::endl << "  " << w << " to generalized force" << std::endl;
   FILE_LOG(LOG_DYNAMICS) << "  -- joint torques: " << gf.segment(0, J.size()) << std::endl;
 
-  // determine the generalized force on the base
-  RigidBodyPtr base = _links.front();
-  SharedVectorNd gfbase = gf.segment(J.size(), gf.size());
-  wP.to_vector(gfbase);
+  // determine the generalized force on the base, if the base is floating
+  if (_floating_base)
+  {
+    RigidBodyPtr base = _links.front();
+    SharedVectorNd gfbase = gf.segment(J.size(), gf.size());
+    wP.to_vector(gfbase);
+  }
 
   // return the generalized force vector
   return gf;
