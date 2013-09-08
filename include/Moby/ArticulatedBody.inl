@@ -8,6 +8,11 @@
 template <class OutputIterator>
 OutputIterator ArticulatedBody::find_limit_events(const Ravelin::VectorNd& q0, const Ravelin::VectorNd& q1, double dt, OutputIterator output_begin) 
 {
+  static Ravelin::VectorNd _dq_current;
+
+  // store the current generalized velocity
+  get_generalized_velocity(eSpatial, _dq_current);
+
   // compute the generalized velocity that takes us from q0 to q1
   (_dq = q1) -= q0;
   set_generalized_coordinates(eEuler, q0);
@@ -91,7 +96,9 @@ OutputIterator ArticulatedBody::find_limit_events(const Ravelin::VectorNd& q0, c
       }
     }
 
+  // restore the generalized velocity
+  set_generalized_velocity(eSpatial, _dq_current);
+
   return output_begin;
 }
-
 
