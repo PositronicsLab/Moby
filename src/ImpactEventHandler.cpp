@@ -156,7 +156,6 @@ void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& eve
   // the kappa constant
   VectorNd z;
   solve_lcp(epd, z);
-  epd.kappa = 10;
 
   // determine what type of QP solver to use
   if (use_qp_solver(epd))
