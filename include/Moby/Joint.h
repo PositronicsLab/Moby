@@ -40,6 +40,7 @@ class Joint : public Visualizable
     virtual const std::vector<Ravelin::SVelocityd>& get_spatial_axes();
     virtual const std::vector<Ravelin::SVelocityd>& get_spatial_axes_complement();
     void set_location(const Point3d& p);
+    void set_location(const Point3d& p, RigidBodyPtr inboard, RigidBodyPtr outboard);
     Point3d get_location(bool use_outboard = false) const;
     Ravelin::VectorNd& get_scaled_force(Ravelin::VectorNd& f);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;

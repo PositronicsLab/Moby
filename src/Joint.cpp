@@ -246,7 +246,7 @@ void Joint::set_outboard_link(RigidBodyPtr outboard)
 
   // setup Fb's pose relative to the outboard 
   _Fb->rpose = outboardF;
-  outboardF->rpose = _Fprime;
+  outboardF->update_relative_pose(_Fprime);
 
   // setup the frame
   outboard->_xdj.pose = get_pose();
@@ -313,13 +313,6 @@ void Joint::add_force(const VectorNd& force)
 }
 
 /// Sets the location of this joint
-/**
- * \param use_outboard if <b>true</b> then the joint position is calculated 
- *        using the outboard link rather than inboard link; the position will
- *        not be identical if the joint constraint is violated (therefore,
- *        this method will behave identically for reduced-coordinate 
- *        articulated bodies)
- */
 void Joint::set_location(const Point3d& point) 
 {
   // verify inboard and outboard links are set
@@ -343,6 +336,31 @@ void Joint::set_location(const Point3d& point)
 
   // invalidate all outboard pose vectors
   outboard->invalidate_pose_vectors();
+}
+
+/// Sets the location of this joint with specified inboard and outboard links
+void Joint::set_location(const Point3d& point, RigidBodyPtr inboard, RigidBodyPtr outboard) 
+{
+  assert(inboard && outboard);
+
+  // convert p to the inboard and outboard links' frames
+  Point3d pi = Pose3d::transform_point(inboard->get_pose(), point);
+  Point3d po = Pose3d::transform_point(outboard->get_pose(), point);
+
+  // set _F's and Fb's origins
+  _F->x = Origin3d(pi);
+  _Fb->x = Origin3d(po);
+
+  // invalidate all outboard pose vectors
+  outboard->invalidate_pose_vectors();
+
+  // set inboard and outboard links
+  set_inboard_link(inboard);
+  set_outboard_link(outboard);
+
+  // setup joint pointers
+  if (inboard) inboard->add_outer_joint(get_this());
+  if (outboard) outboard->add_inner_joint(get_this());
 }
 
 /// Gets the location of this joint
@@ -469,6 +487,7 @@ vector<SVelocityd>& Joint::get_spatial_constraints(ReferenceFrameType rftype, ve
 void Joint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   std::map<std::string, BasePtr>::const_iterator id_iter;
+  RigidBodyPtr inboard, outboard;
 
   // ***********************************************************************
   // don't verify that the node is correct, b/c Joint will 
@@ -571,10 +590,7 @@ void Joint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, 
       #endif
     }
     else
-    {
-      RigidBodyPtr inboard(boost::dynamic_pointer_cast<RigidBody>(id_iter->second));
-      set_inboard_link(inboard);
-    }
+      inboard = boost::dynamic_pointer_cast<RigidBody>(id_iter->second);
   }
 
   // read the outboard link id, if given
@@ -598,10 +614,7 @@ void Joint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, 
       #endif
     }
     else
-    {
-      RigidBodyPtr outboard(boost::dynamic_pointer_cast<RigidBody>(id_iter->second));
-      set_outboard_link(outboard);
-    }
+      outboard = boost::dynamic_pointer_cast<RigidBody>(id_iter->second);
   }
 
   // get the global position of the joint, if possible
@@ -613,7 +626,7 @@ void Joint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, 
     pos_attr->get_vector_value(position);
 
     // make sure that both inboard and outboard links have been set
-    if (!get_inboard_link() || !get_outboard_link())
+    if (!inboard || !outboard)
     {
       std::cerr << "Joint::load_from_xml() - global position";
       std::cerr << " specified w/o " << std::endl << "  inboard and/or";
@@ -621,32 +634,18 @@ void Joint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, 
       return;
     }
 
-    // get the inboard and outboard links
-    RigidBodyPtr inboard(get_inboard_link());
-    RigidBodyPtr outboard(get_outboard_link());
+    // set the joint location
+    set_location(position, inboard, outboard);
+  }
+  else // no location specified
+  {
+    // set the inboard and outboard links, as specified
+    if (inboard) set_inboard_link(inboard);
+    if (outboard) set_outboard_link(outboard);
 
-    // get the poses for the two bodies
-    shared_ptr<const Pose3d> Pi = inboard->get_pose();
-    shared_ptr<const Pose3d> Po = outboard->get_pose();
-
-    // get the transforms for the two bodies
-    Transform3d wTi = Pose3d::calc_relative_pose(Pi, GLOBAL);
-    Transform3d wTo = Pose3d::calc_relative_pose(Po, GLOBAL);
-
-    // determine the vector from the inboard link to the joint (link coords)
-    Point3d inboard_to_joint = wTi.inverse_transform_point(position);
-
-    // determine the vector from the joint to the outboard link (link coords)
-    Point3d joint_to_outboard_lf = -wTo.inverse_transform_point(position);
-
-    // NOTE: the calculation immediately below assumes that the induced
-    //       transform (i.e., the transform that the joint applies) is initally
-    //       identity
-    // compute the vector from the joint to the outboard link in joint frame
-    Vector3d joint_to_outboard_jf = (wTi.inverse() * wTo).x - inboard_to_joint;    
     // add/replace this as an inner joint
-    inboard->add_outer_joint(get_this());
-    outboard->add_inner_joint(get_this());
+    if (inboard) inboard->add_outer_joint(get_this());
+    if (outboard) outboard->add_inner_joint(get_this());
   }
 }
 
