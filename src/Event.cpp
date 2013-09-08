@@ -426,7 +426,7 @@ void Event::compute_cross_contact_contact_event_data(const Event& e, MatrixNd& M
   // compute the Jacobians, checking to see whether necessary
   if (sua1 == su)
   {
-    su->calc_jacobian(P, sua1, vel);
+    su->calc_jacobian(P, sba1, vel);
     transpose_mult(vel, wn, Jn); 
     transpose_mult(vel, ws, Js); 
     transpose_mult(vel, wt, Jt); 
@@ -434,7 +434,7 @@ void Event::compute_cross_contact_contact_event_data(const Event& e, MatrixNd& M
   }
   if (sua2 == su)
   {
-    su->calc_jacobian(P, sua2, vel);
+    su->calc_jacobian(P, sba2, vel);
     transpose_mult(vel, -wn, Jn); 
     transpose_mult(vel, -ws, Js); 
     transpose_mult(vel, -wt, Jt); 
@@ -491,7 +491,7 @@ void Event::compute_cross_contact_contact_event_data(const Event& e, MatrixNd& M
   if (sub1 == su)
   {
     // first compute the Jacobian
-    su->calc_jacobian(P, sub1, vel);
+    su->calc_jacobian(P, sbb1, vel);
     transpose_mult(vel, wn, Jn); 
     transpose_mult(vel, ws, Js); 
     transpose_mult(vel, wt, Jt);
@@ -503,7 +503,7 @@ void Event::compute_cross_contact_contact_event_data(const Event& e, MatrixNd& M
    }
   if (sub2 == su)
   {
-    su->calc_jacobian(P, sub2, vel);
+    su->calc_jacobian(P, sbb2, vel);
     transpose_mult(vel, -wn, Jn); 
     transpose_mult(vel, -ws, Js); 
     transpose_mult(vel, -wt, Jt); 
