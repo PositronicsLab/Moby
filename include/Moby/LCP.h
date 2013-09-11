@@ -17,13 +17,14 @@ class LCP
   public:
     LCP();
     bool lcp_lemke_regularized(const Ravelin::MatrixNd& M, const Ravelin::VectorNd& q, Ravelin::VectorNd& z, int min_exp = -20, unsigned step_exp = 4, int max_exp = 20, double piv_tol = -1.0, double zero_tol = -1.0);
+    bool lcp_lemke_regularized(const Ravelin::SparseMatrixNd& M, const Ravelin::VectorNd& q, Ravelin::VectorNd& z, int min_exp = -20, unsigned step_exp = 4, int max_exp = 20, double piv_tol = -1.0, double zero_tol = -1.0);
 bool lcp_lemke(const Ravelin::MatrixNd& M, const Ravelin::VectorNd& q, Ravelin::VectorNd& z, double piv_tol = -1.0, double zero_tol = -1.0);
     bool lcp_lemke(const Ravelin::SparseMatrixNd& M, const Ravelin::VectorNd& q, Ravelin::VectorNd& z, double piv_tol = -1.0, double zero_tol = -1.0);
 
   private:
     // temporaries for regularized solver
-    Ravelin::MatrixNd _MMx, _MM;
-    Ravelin::VectorNd _qqx, _wx, _qq;
+    Ravelin::MatrixNd _MM;
+    Ravelin::VectorNd _wx;
 
     // temporaries for Lemke solver
     Ravelin::VectorNd _d, _Be, _u, _z0, _x, _dl, _xj, _dj, _wl, _result;
@@ -32,6 +33,7 @@ bool lcp_lemke(const Ravelin::MatrixNd& M, const Ravelin::VectorNd& q, Ravelin::
 
     // temporary for sparse Lemke solver
     Ravelin::SparseMatrixNd _sBl;
+    Ravelin::SparseMatrixNd _MMs, _MMx, _eye, _zero, _diag_lambda;
 
     // linear algebra
     Ravelin::LinAlgd _LA;
