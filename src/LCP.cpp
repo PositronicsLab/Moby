@@ -48,18 +48,14 @@ bool LCP::lcp_lemke_regularized(const MatrixNd& M, const VectorNd& q, VectorNd& 
     return true;
   }
 
-  // copy MM and qq  
-  _MMx = M;
-  _qqx = q;
+  // copy MM
+  _MM = M;
 
   // assign value for zero tolerance, if necessary
   const double ZERO_TOL = (zero_tol > (double) 0.0) ? zero_tol : q.size() * std::numeric_limits<double>::epsilon();
 
-// TODO: remove this
-z.set_zero();
-
   // try non-regularized version first
-  bool result = lcp_lemke(_MMx, _qqx, z, piv_tol, zero_tol);
+  bool result = lcp_lemke(_MM, q, z, piv_tol, zero_tol);
   if (result)
   {
     // verify that solution truly is a solution -- check z
@@ -94,21 +90,14 @@ z.set_zero();
     for (unsigned i=0; i< M.rows(); i++)
       _MM(i,i) += lambda;
 
-    // recopy q
-    _qq = q;
-
     // try to solve the LCP
-    if ((result = lcp_lemke(_MM, _qq, z, piv_tol, zero_tol)))
+    if ((result = lcp_lemke(_MM, q, z, piv_tol, zero_tol)))
     {
       // verify that solution truly is a solution -- check z
       if (*std::min_element(z.begin(), z.end()) > -ZERO_TOL)
       {
         // check w
-        _MM = M;
-        for (unsigned i=0; i< M.rows(); i++)
-          _MM(i,i) += lambda;
-        _qq = q;
-        _MM.mult(z, _wx) += _qq;
+        _MM.mult(z, _wx) += q;
         if (*std::min_element(_wx.begin(), _wx.end()) > -ZERO_TOL)
         {
           // check z'w
@@ -471,6 +460,99 @@ bool LCP::lcp_lemke(const MatrixNd& M, const VectorNd& q, VectorNd& z, double pi
   return false;
 }
 
+/// Regularized wrapper around Lemke's algorithm for srpase matrices
+bool LCP::lcp_lemke_regularized(const SparseMatrixNd& M, const VectorNd& q, VectorNd& z, int min_exp, unsigned step_exp, int max_exp, double piv_tol, double zero_tol)
+{
+  FILE_LOG(LOG_OPT) << "LCP::lcp_lemke_regularized() entered" << endl;
+
+  // look for fast exit
+  if (q.size() == 0)
+  {
+    z.resize(0);
+    return true;
+  }
+
+  // copy MM
+  _MMs = M;
+
+  // assign value for zero tolerance, if necessary
+  const double ZERO_TOL = (zero_tol > (double) 0.0) ? zero_tol : q.size() * std::numeric_limits<double>::epsilon();
+
+  // try non-regularized version first
+  bool result = lcp_lemke(_MMs, q, z, piv_tol, zero_tol);
+  if (result)
+  {
+    // verify that solution truly is a solution -- check z
+    if (*std::min_element(z.begin(), z.end()) >= -ZERO_TOL)
+    {
+      // check w
+      M.mult(z, _wx) += q;
+      if (*std::min_element(_wx.begin(), _wx.end()) >= -ZERO_TOL)
+      {
+        // check z'w
+        std::transform(z.begin(), z.end(), _wx.begin(), _wx.begin(), std::multiplies<double>());
+        pair<ColumnIteratord, ColumnIteratord> mmax = boost::minmax_element(_wx.begin(), _wx.end());
+        if (*mmax.first >= -ZERO_TOL && *mmax.second < ZERO_TOL)
+        {
+          FILE_LOG(LOG_OPT) << "  solved with no regularization necessary!" << endl;
+          FILE_LOG(LOG_OPT) << "LCP::lcp_lemke_regularized() exited" << endl;
+          return true;
+        }
+      }
+    }
+  }
+
+  // add a zero sparse diagonal matrix to _MMs
+  _eye = SparseMatrixNd::identity(q.size());
+  (_zero = _eye) *= 0.0;
+  _MMs += _zero; 
+
+  // start the regularization process
+  int rf = min_exp;
+  while (rf < max_exp)
+  {
+    // setup regularization factor
+    double lambda = std::pow((double) 10.0, (double) rf);
+    (_diag_lambda = _eye) *= lambda;
+
+    // regularize M
+    (_MMx = _MMs) += _diag_lambda;
+
+    // try to solve the LCP
+    if ((result = lcp_lemke(_MMx, q, z, piv_tol, zero_tol)))
+    {
+      // verify that solution truly is a solution -- check z
+      if (*std::min_element(z.begin(), z.end()) > -ZERO_TOL)
+      {
+        // check w
+        _MMx.mult(z, _wx) += q;
+        if (*std::min_element(_wx.begin(), _wx.end()) > -ZERO_TOL)
+        {
+          // check z'w
+          std::transform(z.begin(), z.end(), _wx.begin(), _wx.begin(), std::multiplies<double>());
+          pair<ColumnIteratord, ColumnIteratord> mmax = boost::minmax_element(_wx.begin(), _wx.end());
+          if (*mmax.first > -ZERO_TOL && *mmax.second < ZERO_TOL)
+          {
+            FILE_LOG(LOG_OPT) << "  solved with regularization factor: " << lambda << endl;
+            FILE_LOG(LOG_OPT) << "LCP::lcp_lemke_regularized() exited" << endl;
+
+            return true;
+          }
+        }
+      }
+    }
+
+    // increase rf
+    rf += step_exp;
+  }
+
+  FILE_LOG(LOG_OPT) << "  unable to solve given any regularization!" << endl;
+  FILE_LOG(LOG_OPT) << "LCP::lcp_lemke_regularized() exited" << endl;
+
+  // still here?  failure...
+  return false;
+}
+
 /// Lemke's algorithm for solving linear complementarity problems using sparse matrices
 /**
  * \param z a vector "close" to the solution on input (optional); contains
@@ -717,21 +799,16 @@ bool LCP::lcp_lemke(const SparseMatrixNd& M, const VectorNd& q, VectorNd& z, dou
     // check whether artificial index among these
     _tlist.clear();
     select(_bas.begin(), _j.begin(), _j.end(), std::back_inserter(_tlist));
-    iiter = std::find(_tlist.begin(), _tlist.end(), t);
-    if (iiter != _tlist.end()) 
-      lvindex = std::distance(_tlist.begin(), iiter);
+    if (std::find(_tlist.begin(), _tlist.end(), t) != _tlist.end())
+    {
+      iiter = std::find(_bas.begin(), _bas.end(), t); 
+      lvindex = iiter - _bas.begin();
+    }
     else
     {
-      // redetermine dj
-      _dj.resize(_j.size());
-      select(_dl.begin(), _j.begin(), _j.end(), _dj.begin());
-
-      // get the maximum
-      ColumnIteratord maxdj = std::max_element(_dj.begin(), _dj.end());
-      lvindex = std::distance(_dj.begin(), maxdj);
+      // several indices pass the minimum ratio test, pick one randomly
+      lvindex = _j[rand() % _j.size()];
     }
-    assert(lvindex < _j.size());
-    select(_j.begin(), &lvindex, &lvindex+1, &lvindex);
 
     // set leaving = bas(lvindex)
     iiter = _bas.begin();
@@ -744,8 +821,8 @@ bool LCP::lcp_lemke(const SparseMatrixNd& M, const VectorNd& q, VectorNd& z, dou
     _x -= _dl;
     _x[lvindex] = ratio;
     _sBl.set_column(lvindex, _Be);
-    FILE_LOG(LOG_OPT) << " -- pivoting: leaving index=" << lvindex << "  entering index=" << entering << endl;
     *iiter = entering;
+    FILE_LOG(LOG_OPT) << " -- pivoting: leaving index=" << lvindex << "  entering index=" << entering << endl;
   }
 
   FILE_LOG(LOG_OPT) << " -- maximum number of iterations exceeded" << endl;
