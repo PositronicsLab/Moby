@@ -36,6 +36,9 @@ class SingleBody : public DynamicBody
     /// Gets the pose of the body
     virtual boost::shared_ptr<const Ravelin::Pose3d> get_pose() const = 0;
 
+    /// Gets the acceleration of the body
+    virtual const Ravelin::SAcceld& get_accel() = 0;
+
     /// Gets the velocity of the body
     virtual const Ravelin::SVelocityd& get_velocity() = 0;
 

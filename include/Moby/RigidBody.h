@@ -71,7 +71,7 @@ class RigidBody : public SingleBody
     const Ravelin::SVelocityd& get_velocity();
     void set_velocity(const Ravelin::SVelocityd& xd);
     void set_accel(const Ravelin::SAcceld& xdd);
-    const Ravelin::SAcceld& get_accel();
+    virtual const Ravelin::SAcceld& get_accel();
     void set_velocity(const Ravelin::SAcceld& xdd);
     virtual Ravelin::VectorNd& get_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& gc);
     virtual Ravelin::VectorNd& get_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& gv);
@@ -102,6 +102,7 @@ class RigidBody : public SingleBody
     virtual void set_computation_frame_type(ReferenceFrameType rftype);
     Ravelin::SForced calc_inertial_forces();
     virtual std::vector<Ravelin::SVelocityd>& calc_jacobian(boost::shared_ptr<const Ravelin::Pose3d> frame, DynamicBodyPtr body, std::vector<Ravelin::SVelocityd>& J);
+    virtual std::vector<Ravelin::SVelocityd>& calc_jacobian_dot(boost::shared_ptr<const Ravelin::Pose3d> frame, DynamicBodyPtr body, std::vector<Ravelin::SVelocityd>& J);
     const Ravelin::SForced& sum_forces();
     void reset_accumulators();
 

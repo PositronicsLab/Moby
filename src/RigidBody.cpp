@@ -131,6 +131,18 @@ void RigidBody::rotate(const Quatd& q)
 }
 
 /// Computes the Jacobian
+vector<SVelocityd>& RigidBody::calc_jacobian_dot(shared_ptr<const Pose3d> frame, DynamicBodyPtr body, vector<SVelocityd>& J)
+{
+  const unsigned SPATIAL_DIM = 6;
+
+  if (body != shared_from_this())
+    throw std::runtime_error("RigidBody::calc_jacobian_dot() called with wrong body!");
+
+  J.clear();
+  return J;
+}
+
+/// Computes the Jacobian
 vector<SVelocityd>& RigidBody::calc_jacobian(shared_ptr<const Pose3d> frame, DynamicBodyPtr body, vector<SVelocityd>& J)
 {
   const unsigned SPATIAL_DIM = 6;
