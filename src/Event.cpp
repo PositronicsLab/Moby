@@ -1188,33 +1188,47 @@ void Event::compute_contact_jacobians(const Event& e, VectorN& Nc, VectorN& Dcs,
 /// Uses the convex hull of the contact manifold to reject contact points
 void Event::determine_convex_set(list<Event*>& group)
 {
-  vector<Point3d*> hull;
-
   // don't do anything if there are three or fewer points
   if (group.size() <= 3)
     return;
 
+  // separate into groups of contact points with identical friction coeff.
+  struct DblComp
+  {
+    bool operator()(const std::pair<double, double>& a, const std::pair<double, double>& b)
+    {
+      return (a.first < b.first - NEAR_ZERO && a.second < b.second - NEAR_ZERO);
+    }
+  };
+  std::map<std::pair<double, double>, std::list<Event*>, DblComp> groups;
+
+  // setup a group of non-contact events
+  std::list<Event*> nc_events;
+
   // verify that all points have same coefficient of friction
-  bool found_contact = false;
-  double mu_coulomb, mu_viscous;
   BOOST_FOREACH(Event* e, group)
   {
     if (e->event_type != Event::eContact)
-      continue;
-    if (found_contact)
-    {
-      // look for coefficients of friction not being identical 
-      if (!CompGeom::rel_equal(mu_coulomb, e->contact_mu_coulomb, NEAR_ZERO) ||
-          !CompGeom::rel_equal(mu_viscous, e->contact_mu_viscous, NEAR_ZERO))
-        return; 
-    }
+      nc_events.push_back(e);
     else
-    {
-      mu_coulomb = e->contact_mu_coulomb;
-      mu_viscous = e->contact_mu_viscous;
-      found_contact = true;
-    }
+      // add to the proper group
+      groups[std::make_pair(e->contact_mu_coulomb, e->contact_mu_viscous)].push_back(e);
   }
+
+  // reset the group
+  group.clear();
+
+  // process each group
+  for (std::map<std::pair<double, double>, std::list<Event*>, DblComp>::iterator i = groups.begin(); i != groups.end(); i++)
+  {  
+    process_convex_set_group(i->second);
+    group.insert(group.end(), i->second.begin(), i->second.end());
+  }
+}
+
+void Event::process_convex_set_group(list<Event*>& group)
+{
+  vector<Point3d*> hull;
 
   // get all points
   vector<Point3d*> points;

@@ -473,43 +473,6 @@ void ImpactEventHandler::update_solution(const EventProblemData& q, const Vector
   z.segment(start, end) = x.segment(OLD_MU_JIDX, x.size());
 }
 
-/// Checks whether the optimization is satisfied *without* adding contact j
-bool ImpactEventHandler::opt_satisfied(const EventProblemData& q, const vector<bool>& working_set, double& KE, VectorNd& x, unsigned j)
-{
-  static VectorNd z;
-  static EventProblemData qcopy;
-
-  // make a copy of q and set it appropriately
-  qcopy = q;
-  qcopy.contact_working_set = working_set;
-  vector<bool>& ws = qcopy.contact_working_set;
-  ws[j] = true;
-  const unsigned JIDX = std::count(ws.begin(), ws.begin()+j, true);
-  update_problem(q, qcopy);
-
-  // copy x to appropriate parts of z to facilitate warm-starting
-  // setup variable indices
-  update_solution(qcopy, x, working_set, JIDX, z);   
-
-  // solve the problem with addition of contact j
-  solve_qp_work_ijoints(qcopy, z); 
-
-  // check whether normal force for contact j is zero
-  if (z[JIDX] < NEAR_ZERO)
-    return true; 
-
-  // check whether there is an appreciable change in K.E.
-  double new_KE = calc_ke(qcopy, z);
-  if (new_KE < KE - NEAR_ZERO)
-  {
-    x = z;
-    KE = new_KE;
-    return false;
-  }
-  else
-    return true;   
-}
-
 /// Computes the kinetic energy of the system using the current impulse set 
 double ImpactEventHandler::calc_ke(EventProblemData& q, const VectorNd& z)
 {
@@ -547,8 +510,6 @@ double ImpactEventHandler::calc_ke(EventProblemData& q, const VectorNd& z)
  */
 void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
 {
-  static EventProblemData qworking;
-
   // if there are implicit constraints, cannot use the fast method
   if (q.N_CONSTRAINT_EQNS_IMP > 0)
   {
@@ -559,13 +520,10 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
   // determine the number of QP variables used for contacts
   unsigned N_QP_CONTACT_VARS = q.N_CONTACTS*6 + q.N_K_TOTAL;
 
-  // if we're not dealing with many contacts, exit now 
-  if (N_QP_CONTACT_VARS < 500)
-  {
-    solve_qp_work_ijoints(q, z);
-    return;
-  }
+  // the algorithm below is inefficient 
+  solve_qp_work_ijoints(q, z);
 
+/*
   // setup the working set -- set only first contact to active
   qworking = q;
   vector<bool>& working_set = qworking.contact_working_set;
@@ -599,6 +557,7 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
   // update qworking 
   update_problem(q, qworking);
   q = qworking;
+*/
 }
 
 /// Updates problem matrices and vectors based on the working set

@@ -143,6 +143,7 @@ class Event
     static bool is_linked(const Event& e1, const Event& e2);
     unsigned get_super_bodies(DynamicBodyPtr& sb1, DynamicBodyPtr& sb2) const;
     static void determine_convex_set(std::list<Event*>& group);
+    static void process_convex_set_group(std::list<Event*>& group);
     static bool is_contact_manifold_2D(const std::list<Event*>& group);
 
     template <class BidirectionalIterator>
