@@ -142,7 +142,6 @@ class ImpactEventHandler
     void solve_qp_work_general(EventProblemData& epd, Ravelin::VectorNd& z);
     void solve_qp_work_ijoints(EventProblemData& epd, Ravelin::VectorNd& z);
     double calc_ke(EventProblemData& epd, const Ravelin::VectorNd& z);
-    bool opt_satisfied(const EventProblemData& q, const std::vector<bool>& working_set, double& KE, Ravelin::VectorNd& x, unsigned j);
     void update_problem(const EventProblemData& qorig, EventProblemData& qnew);
     void update_solution(const EventProblemData& q, const Ravelin::VectorNd& x, const std::vector<bool>& working_set, unsigned jidx, Ravelin::VectorNd& z);
     static void solve_nqp_work(EventProblemData& epd, Ravelin::VectorNd& z);
