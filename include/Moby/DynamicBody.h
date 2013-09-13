@@ -37,6 +37,7 @@ class DynamicBody : public Visualizable
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual void integrate(double t, double h, boost::shared_ptr<Integrator> integrator);
     virtual std::vector<Ravelin::SVelocityd>& calc_jacobian(boost::shared_ptr<const Ravelin::Pose3d> frame, DynamicBodyPtr body, std::vector<Ravelin::SVelocityd>& J) = 0;
+    virtual std::vector<Ravelin::SVelocityd>& calc_jacobian_dot(boost::shared_ptr<const Ravelin::Pose3d> frame, DynamicBodyPtr body, std::vector<Ravelin::SVelocityd>& J) = 0;
 
     /// Sets the computation frame type for this body
     virtual void set_computation_frame_type(ReferenceFrameType rftype) = 0;

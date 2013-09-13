@@ -32,6 +32,74 @@ ArticulatedBody::ArticulatedBody()
   use_advanced_friction_model = false;
 }
 
+/// Gets the time-derivative of the Jacobian
+/**
+ * Columns correspond to joint coordinate indices.
+ */
+vector<SVelocityd>& ArticulatedBody::calc_jacobian_dot(boost::shared_ptr<const Pose3d> frame, DynamicBodyPtr body, vector<SVelocityd>& J)
+{
+  const unsigned SPATIAL_DIM = 6;
+
+  // get the number of explicit degrees of freedom
+  const unsigned NIMP_DOF = num_joint_dof_explicit();
+
+  // get the total number of degrees of freedom
+  const unsigned NDOF = (is_floating_base()) ? NIMP_DOF + SPATIAL_DIM : NIMP_DOF;
+
+  // setup the Jacobian
+  J.resize(NDOF); 
+  for (unsigned i=0; i< J.size(); i++)
+    J[i] = SVelocityd::zero(frame);
+
+  // get the current link
+  RigidBodyPtr link = dynamic_pointer_cast<RigidBody>(body);
+  
+  // get the base link
+  RigidBodyPtr base = get_base_link();
+
+  // loop backward through (at most one) joint for each child until we reach 
+  // the parent
+  while (link != base)
+  {
+    // get the explicit inner joint for this link
+    JointPtr joint = link->get_inner_joint_explicit();
+
+    // get the parent link
+    RigidBodyPtr parent = joint->get_inboard_link(); 
+
+    // get the coordinate index
+    const unsigned CIDX = joint->get_coord_index();
+
+    // get the spatial axes
+    const vector<SVelocityd>& s = joint->get_spatial_axes_dot();
+
+    // update J
+    for (unsigned i=0; i< s.size(); i++)
+      J[CIDX+i] = Pose3d::transform(frame, s[i]);
+
+    // set the link to the parent link
+    link = parent;
+  }
+
+  // if base is floating, setup Jacobian columns at the end
+  if (is_floating_base())
+  {
+    shared_ptr<const Pose3d> bpose = base->get_pose();
+    J[NIMP_DOF+0] = SVelocityd::zero(bpose); 
+    J[NIMP_DOF+1] = SVelocityd::zero(bpose); 
+    J[NIMP_DOF+2] = SVelocityd::zero(bpose); 
+    J[NIMP_DOF+3] = SVelocityd::zero(bpose); 
+    J[NIMP_DOF+4] = SVelocityd::zero(bpose); 
+    J[NIMP_DOF+5] = SVelocityd::zero(bpose); 
+
+    // convert base columns of Jacobian
+    for (unsigned i=NIMP_DOF; i< NIMP_DOF+SPATIAL_DIM; i++)
+      J[i] = Pose3d::transform(frame, J[i]);
+  }
+
+  return J;
+}
+
 /// Gets the Jacobian
 /**
  * Columns correspond to joint coordinate indices.
