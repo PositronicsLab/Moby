@@ -137,6 +137,7 @@ class ImpactEventHandler
     void apply_model_to_connected_events(const std::list<Event*>& events);
     static void compute_problem_data(EventProblemData& epd);
     void solve_lcp(EventProblemData& epd, Ravelin::VectorNd& z);
+    void solve_lcp(const Ravelin::MatrixNd& M, const Ravelin::VectorNd& q, Ravelin::VectorNd& z);
     void solve_qp(EventProblemData& epd, double eps);
     void solve_qp_work(EventProblemData& epd, Ravelin::VectorNd& z);
     void solve_qp_work_general(EventProblemData& epd, Ravelin::VectorNd& z);
