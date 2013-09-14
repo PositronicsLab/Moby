@@ -854,11 +854,45 @@ void ImpactEventHandler::solve_qp_work_ijoints(EventProblemData& q, VectorNd& z)
   FILE_LOG(LOG_EVENT) << "LCP vector: " << qq << std::endl; 
 
   // solve the LCP using Lemke's algorithm
-  if (!_lcp.lcp_lemke_regularized(MM, qq, z))
-    throw std::runtime_error("Unable to solve event QP!");
+  solve_lcp(MM, qq, z);
 
   FILE_LOG(LOG_EVENT) << "QP solution: " << z << std::endl; 
   FILE_LOG(LOG_EVENT) << "ImpactEventHandler::solve_qp_work_ijoints() exited" << std::endl;
+}
+
+/// Solves the linear complementarity problem intelligently (using sparse matrices, if possible)
+void ImpactEventHandler::solve_lcp(const MatrixNd& M, const VectorNd& q, VectorNd& z)
+{
+  #ifdef USE_SUPERLU
+  const double SPARSE_PCT = 0.9;  // if 90% of matrix is sparse, triggers sparse arithmetic
+
+  // get the infinity-norm of the matrix
+  const double MINF = M.norm_inf();
+
+  // setup a sensible zero tolerance
+  const double ZERO_TOL = std::max(1.0, MINF) * std::numeric_limits<double>::epsilon() * M.rows();
+
+  // get the number of zeros in the matrix
+  unsigned nz = 0;
+  for (ColumnIteratord_const i = M.column_iterator_begin(); i != i.end(); i++)
+    if (std::fabs(*i) < ZERO_TOL)
+      nz++;
+
+  // use the proper method depending on sparsity 
+  if ((double) nz/M.size() > SPARSE_PCT)
+  {
+    // create the new sparse matrix
+    SparseMatrixNd sM(SparseMatrixNd::eCSC, M, ZERO_TOL);
+    _lcp.lcp_lemke_regularized(sM, q, z);
+  }
+  else
+    if (!_lcp.lcp_lemke_regularized(M, q, z))
+      throw std::runtime_error("Unable to solve event QP!");
+  #else
+  if (!_lcp.lcp_lemke_regularized(M, q, z))
+    throw std::runtime_error("Unable to solve event QP!");
+
+  #endif
 }
 
 /// Solves the quadratic program (does all of the work)
