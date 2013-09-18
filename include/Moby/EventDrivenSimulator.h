@@ -197,23 +197,42 @@ class EventDrivenSimulator : public Simulator
     /// System time spent by event handling on the last step
     double event_stime;
 
+    /// The relative error tolerance for adaptive Euler stepping
+    double rel_err_tol;
+
+    /// The absolute error tolerance for adaptive Euler stepping
+    double abs_err_tol;
+
   private:
     void integrate_si_Euler(double dt);
     static void determine_treated_bodies(std::list<std::list<Event*> >& groups, std::vector<DynamicBodyPtr>& bodies);
+    double find_events(double dt);
+    double find_next_event_time() const;
     double find_and_handle_si_events(double dt);
     void preprocess_event(Event& e);
     void check_violation();
-    void find_events(double dt);
     void find_limit_events(double dt, std::vector<Event>& limit_events);
     double find_TOI(double dt); 
     void handle_events();
     boost::shared_ptr<ContactParameters> get_contact_parameters(CollisionGeometryPtr geom1, CollisionGeometryPtr geom2) const;
+    bool has_active_acceleration_events() const;
+    bool has_active_velocity_events() const;
+    bool solve_acceleration_events();
+    void step_adaptive_si_Euler(double dt);
+    void step_si_Euler(double dt);
+    void set_coords(double t);
+    void set_velocities(double t);
+    void set_coords(const std::vector<Ravelin::VectorNd>& q) const;
+    void set_velocities(const std::vector<Ravelin::VectorNd>& qd) const;
 
     // Visualization functions
     void visualize_contact( Event& event );
 
     /// Determines whether the simulation constraints have been violated
     bool _simulation_violated;
+
+    /// Work vector
+    Ravelin::VectorNd _workV;
 
     /// The vector of events
     std::vector<Event> _events;

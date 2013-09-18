@@ -74,6 +74,8 @@ class CollisionDetection : public virtual Base
 
     /// Determines whether there is a contact between the given pairs of states 
     /**
+     * Generalized coordinates are set to q1 on entry; generalized coordinates
+     * should be set to q0 on return.
      * \param events the set of determined contacts, on return
      * \return <b>true</b> if there is contact in the time interval, 
      *           <b>false</b> otherwise

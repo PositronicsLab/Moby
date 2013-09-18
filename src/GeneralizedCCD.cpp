@@ -114,16 +114,6 @@ map<CollisionGeometryPtr, GeneralizedCCD::PosePair> GeneralizedCCD::get_poses(co
   map<CollisionGeometryPtr, GeneralizedCCD::PosePair> poses;
   map<CollisionGeometryPtr, Transform3d> global_transforms;
 
-  // set generalized coordinates to q0
-  #ifndef _OPENMP
-  for (unsigned i=0; i< q1.size(); i++)
-    q0[i].first->set_generalized_coordinates(DynamicBody::eEuler, q0[i].second);
-  #else
-  #pragma #omp parallel for
-  for (unsigned i=0; i< q1.size(); i++)
-    q0[i].first->set_generalized_coordinates(DynamicBody::eEuler, q0[i].second);
-  #endif
-
   // get the poses from all collision geometries 
   BOOST_FOREACH(CollisionGeometryPtr g, _geoms)
   for (unsigned i=0; i< q0.size(); i++)
@@ -162,6 +152,16 @@ map<CollisionGeometryPtr, GeneralizedCCD::PosePair> GeneralizedCCD::get_poses(co
     pp.tf.q = q1Tq0.q;
     pp.tf.x = q1Tq0.x;
   }
+
+  // re-set generalized coordinates to q0
+  #ifndef _OPENMP
+  for (unsigned i=0; i< q1.size(); i++)
+    q0[i].first->set_generalized_coordinates(DynamicBody::eEuler, q0[i].second);
+  #else
+  #pragma #omp parallel for
+  for (unsigned i=0; i< q1.size(); i++)
+    q0[i].first->set_generalized_coordinates(DynamicBody::eEuler, q0[i].second);
+  #endif
 
   return poses;
 }
