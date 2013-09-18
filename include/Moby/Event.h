@@ -27,30 +27,37 @@ class Event
 {
   public:
     enum EventType { eNone, eContact, eLimit };
-    enum EventClass { eUndetermined, eSeparating, eResting, eImpacting };
+    enum EventClass { ePositive, eZero, eNegative };
+    enum DerivType { eVel, eAccel };
+    enum CoulombFrictionType { eUndetermined, eSlipping, eSticking }; 
     Event();
     Event(const Event& e) { _event_frame = boost::shared_ptr<Ravelin::Pose3d>(new Ravelin::Pose3d); *this = e; }
     static void determine_connected_events(const std::vector<Event>& events, std::list<std::list<Event*> >& groups);
     static void remove_nonimpacting_groups(std::list<std::list<Event*> >& groups);
     Event& operator=(const Event& e);
     double calc_event_vel() const;
-    double calc_event_tol() const;
+    double calc_event_accel() const;
+    double calc_vevent_tol() const;
+    double calc_aevent_tol() const;
     EventClass determine_event_class() const;
-    bool is_impacting() const { return determine_event_class() == eImpacting; }
-    bool is_resting() const { return determine_event_class() == eResting; }
-    bool is_separating() const { return determine_event_class() == eSeparating; }
+    bool is_impacting() const { return determine_event_class() == eNegative; }
+    bool is_resting() const { return determine_event_class() == eZero; }
+    bool is_separating() const { return determine_event_class() == ePositive; }
     void set_contact_parameters(const ContactParameters& cparams);
     void determine_contact_tangents();
-    void update_event_data(Ravelin::MatrixNd& M, Ravelin::VectorNd& q) const;
-    void update_cross_event_data(const Event& e, Ravelin::MatrixNd& M) const;
     static void determine_minimal_set(std::list<Event*>& group);
     boost::shared_ptr<const Ravelin::Pose3d> get_pose() const { return GLOBAL; }
-
+    void compute_event_data(Ravelin::MatrixNd& M, Ravelin::VectorNd& q) const;
+    void compute_cross_event_data(const Event& e, Ravelin::MatrixNd& M) const;
+	
     template <class OutputIterator>
     OutputIterator get_super_bodies(OutputIterator begin) const;
 
     /// The type of event
     EventType event_type;
+
+    /// The derivative type of the event
+    DerivType deriv_type;
 
     /// The time that the event occurs [0,1]
     double t;
@@ -94,6 +101,15 @@ class Event
     /// The second tangent direction to the contact normal
     Ravelin::Vector3d contact_tan2;
 
+    /// The time derivative of the contact normal 
+    Ravelin::Vector3d contact_normal_dot;  
+
+    /// The time derivative of the first tangent direction 
+    Ravelin::Vector3d contact_tan1_dot;
+
+    /// The time derivative of the second tangent direction 
+    Ravelin::Vector3d contact_tan2_dot;
+
     /// Impulse that has been applied (for contact events)
     /**
      * Impulse applied to the body of the first geometry; 
@@ -122,24 +138,38 @@ class Event
     /// Tolerance for the event (users never need to modify this)
     double tol;
 
+    /// Sticking tolerance for acceleration-level events (users never need to modify this)
+    double stick_tol;
+
     void write_vrml(const std::string& filename, double sphere_radius = 0.1, double normal_length = 1.0) const;
     bool operator<(const Event& e) const { return t < e.t; }
-    void compute_event_data(Ravelin::MatrixNd& M, Ravelin::VectorNd& q) const;
-    void compute_cross_event_data(const Event& e, Ravelin::MatrixNd& M) const;
-    void compute_cross_contact_contact_event_data(const Event& e, Ravelin::MatrixNd& M) const;
-    void compute_cross_contact_contact_event_data(const Event& e, Ravelin::MatrixNd& M, DynamicBodyPtr su) const;
-    void compute_cross_contact_contact_event_data(const Event& e, Ravelin::MatrixNd& M, DynamicBodyPtr su, const Ravelin::MatrixNd& J) const;
-    void compute_cross_contact_limit_event_data(const Event& e, Ravelin::MatrixNd& M) const;
-    void compute_cross_limit_contact_event_data(const Event& e, Ravelin::MatrixNd& M) const;
-    void compute_cross_limit_limit_event_data(const Event& e, Ravelin::MatrixNd& M) const;
 
   private:
     // static variables
     boost::shared_ptr<Ravelin::Pose3d> _event_frame;
-    static Ravelin::MatrixNd J1, J2, workM1, workM2;
+    static Ravelin::MatrixNd J, Jx, Jy, J1, J2, dJ1, dJ2, workM1, workM2;
     static std::vector<Ravelin::SVelocityd> vel;
     static Ravelin::VectorNd v, workv, workv2;
 
+    // the type of friction contact (acceleration-level only)
+    CoulombFrictionType _ftype;
+    void compute_vevent_data(Ravelin::MatrixNd& M, Ravelin::VectorNd& q) const;
+    void compute_cross_vevent_data(const Event& e, Ravelin::MatrixNd& M) const;
+    void compute_aevent_data(Ravelin::MatrixNd& M, Ravelin::VectorNd& q) const;
+    void compute_cross_aevent_data(const Event& e, Ravelin::MatrixNd& M) const;	
+    void compute_cross_contact_contact_vevent_data(const Event& e, Ravelin::MatrixNd& M) const;
+    void compute_cross_contact_contact_vevent_data(const Event& e, Ravelin::MatrixNd& M, DynamicBodyPtr su) const;
+    void compute_cross_contact_contact_vevent_data(const Event& e, Ravelin::MatrixNd& M, DynamicBodyPtr su, const Ravelin::MatrixNd& J) const;
+    void compute_cross_contact_limit_vevent_data(const Event& e, Ravelin::MatrixNd& M) const;
+    void compute_cross_limit_contact_vevent_data(const Event& e, Ravelin::MatrixNd& M) const;
+    void compute_cross_limit_limit_vevent_data(const Event& e, Ravelin::MatrixNd& M) const;
+    void compute_cross_contact_contact_aevent_data(const Event& e, Ravelin::MatrixNd& M) const;
+    void compute_cross_contact_contact_aevent_data(const Event& e, Ravelin::MatrixNd& M, DynamicBodyPtr su) const;
+    void compute_cross_contact_contact_aevent_data(const Event& e, Ravelin::MatrixNd& M, DynamicBodyPtr su, const Ravelin::MatrixNd& J) const;
+    void compute_cross_contact_limit_aevent_data(const Event& e, Ravelin::MatrixNd& M) const;
+    void compute_cross_limit_contact_aevent_data(const Event& e, Ravelin::MatrixNd& M) const;
+    void compute_cross_limit_limit_aevent_data(const Event& e, Ravelin::MatrixNd& M) const;
+    void compute_dotv_data(Ravelin::VectorNd& q) const;
     static bool is_linked(const Event& e1, const Event& e2);
     unsigned get_super_bodies(DynamicBodyPtr& sb1, DynamicBodyPtr& sb2) const;
     static void determine_convex_set(std::list<Event*>& group);
