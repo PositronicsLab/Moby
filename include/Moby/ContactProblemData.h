@@ -4,7 +4,7 @@
 #include <vector>
 #include <Ravelin/MatrixNd.h>
 #include <Ravelin/VectorNd.h>
-#include <Moby/Contact.h>
+#include <Moby/Event.h>
 #include <Moby/Types.h>
 
 namespace Moby {
@@ -234,8 +234,8 @@ struct ContactProblemData
   // the vector of "super" bodies
   std::vector<DynamicBodyPtr> super_bodies;
 
-  // the vectors of (only) contacts
-  std::vector<Contact*> contacts;
+  // the vectors of acceleration-level events 
+  std::vector<Event*> events;
 
   // cross-contact terms
   Ravelin::MatrixNd Cn_iM_CnT, Cn_iM_CsT, Cn_iM_CtT, Cn_iM_muS_CqT;
