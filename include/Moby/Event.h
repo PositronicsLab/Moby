@@ -146,6 +146,16 @@ class Event
     bool operator<(const Event& e) const { return t < e.t; }
 
   private:
+    // structure for comparing pairs of doubles
+    struct DblComp
+    {
+      bool operator()(const std::pair<double, double>& a, const std::pair<double, double>& b)
+      {
+        return (a.first < b.first - NEAR_ZERO && a.second < b.second - NEAR_ZERO);
+      }
+    };
+
+
     // static variables
     boost::shared_ptr<Ravelin::Pose3d> _event_frame;
     static Ravelin::MatrixNd J, Jx, Jy, J1, J2, dJ1, dJ2, workM1, workM2;

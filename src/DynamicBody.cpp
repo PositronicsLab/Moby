@@ -67,7 +67,7 @@ VectorNd& DynamicBody::ode_both(const VectorNd& x, double t, double dt, void* da
     (*db->controller)(db, t, db->controller_arg);
 
   // calculate forward dynamics at state x
-  db->calc_fwd_dyn(dt);
+  db->calc_fwd_dyn();
   db->get_generalized_acceleration(xa);
 
   dx.resize(x.size());

@@ -46,7 +46,7 @@ class DynamicBody : public Visualizable
     ReferenceFrameType get_computation_frame_type() const { return _rftype; }
 
     /// Forces a recalculation of forward dynamics
-    virtual void calc_fwd_dyn(double dt) = 0;
+    virtual void calc_fwd_dyn() = 0;
 
     /// Resets the force and torque accumulators on the dynamic body
     virtual void reset_accumulators() = 0;
