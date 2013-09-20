@@ -169,7 +169,7 @@ double PSDeformableBody::calc_potential_energy() const
 }
 
 /// Calculates forward dynamics for the deformable body
-void PSDeformableBody::calc_fwd_dyn(double dt)
+void PSDeformableBody::calc_fwd_dyn()
 {
   FILE_LOG(LOG_DEFORM) << "PSDeformableBody::calc_fwd_dyn() entered" << endl;
 

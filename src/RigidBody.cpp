@@ -301,12 +301,17 @@ SForced RigidBody::calc_inertial_forces()
 }
 
 /// Computes the forward dynamics for this body
-void RigidBody::calc_fwd_dyn(double dt)
+void RigidBody::calc_fwd_dyn()
 {
   // if the body is free, just compute linear and angular acceleration via
   // Newton's and Euler's laws
   if (_abody.expired())
   {
+    // don't do anything if the body is enabled
+    if (!is_enabled())
+      return;
+
+    // otherwise, calculate forward dynamics
     const SpatialRBInertiad& J = get_inertia();
     const SForced& f = sum_forces(); 
     SAcceld xdd = J.inverse_mult(f - calc_inertial_forces());
@@ -350,7 +355,7 @@ void RigidBody::calc_fwd_dyn(double dt)
     ArticulatedBodyPtr abody(_abody);
   
     // calculate forward dynamics on it
-    abody->calc_fwd_dyn(dt);
+    abody->calc_fwd_dyn();
   }
 }
 
@@ -365,7 +370,7 @@ void RigidBody::set_enabled(bool flag)
   // mark as enabled / disabled
   _enabled = flag;  
 
-  // if disabled, then zero the velocities
+  // if disabled, then zero the velocities and accelerations
   if (!_enabled)
   {
     _xd0.set_zero();
@@ -376,8 +381,8 @@ void RigidBody::set_enabled(bool flag)
     _xddj.set_zero();
     _xdm.set_zero();
     _xddm.set_zero();
-    _xdi_valid = _xdj_valid = _xdm_valid = false;
-    _xddi_valid = _xddj_valid = _xddm_valid = false;
+    _xdi_valid = _xdj_valid = _xdm_valid = true;
+    _xddi_valid = _xddj_valid = _xddm_valid = true;
   }
 }
 
@@ -575,6 +580,12 @@ const SpatialRBInertiad& RigidBody::get_inertia()
 /// Gets the current body acceleration 
 const SAcceld& RigidBody::get_accel() 
 {
+  // do simplified case where body is disabled
+  if (!is_enabled())
+  {
+    _xddi_valid = _xddm_valid = _xddj_valid = true;
+  }
+
   switch (_rftype)
   {
     case eGlobal:

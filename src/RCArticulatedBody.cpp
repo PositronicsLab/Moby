@@ -749,7 +749,7 @@ double RCArticulatedBody::sgn(double x)
  * are stored in the individual links.
  * \note only computes the forward dynamics if the state-derivative is no longer valid
  */
-void RCArticulatedBody::calc_fwd_dyn(double dt)
+void RCArticulatedBody::calc_fwd_dyn()
 {
   SAFESTATIC VectorNd ff;
 
@@ -762,13 +762,6 @@ void RCArticulatedBody::calc_fwd_dyn(double dt)
   else
     FILE_LOG(LOG_DYNAMICS) << "joint ";
   FILE_LOG(LOG_DYNAMICS) << "coordinate system" << std::endl;
-
-  // see whether to use advanced friction model 
-  if (use_advanced_friction_model)
-  {
-    calc_fwd_dyn_advanced_friction(dt);
-    return;
-  }
 
   // do forward dynamics with old Coulomb model
   for (unsigned i=0; i< _joints.size(); i++)
