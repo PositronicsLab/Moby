@@ -12,7 +12,7 @@
     <Box id="b3" xlen="10" ylen=".5" zlen="2" density="10.0" />
 
     <!-- Integrator -->
-    <RungeKuttaFehlbergIntegrator id="rk4" rel-err-tol="1e-6" abs-err-tol="1e-6" />
+    <RungeKuttaIntegrator id="rk4" rel-err-tol="1e-6" abs-err-tol="1e-6" />
 
     <!-- Collision detector -->
     <MeshDCD id="dcd" eps-tolerance="1e-6">

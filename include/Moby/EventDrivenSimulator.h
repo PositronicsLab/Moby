@@ -208,11 +208,12 @@ class EventDrivenSimulator : public Simulator
     static void determine_treated_bodies(std::list<std::list<Event*> >& groups, std::vector<DynamicBodyPtr>& bodies);
     double find_events(double dt);
     double find_next_event_time() const;
+    void remove_next_events();
     double find_and_handle_si_events(double dt);
     void preprocess_event(Event& e);
     void check_violation();
     void find_limit_events(double dt, std::vector<Event>& limit_events);
-    double find_TOI(double dt); 
+    double integrate_to_TOI(double dt); 
     void handle_events();
     boost::shared_ptr<ContactParameters> get_contact_parameters(CollisionGeometryPtr geom1, CollisionGeometryPtr geom2) const;
     bool has_active_acceleration_events() const;
