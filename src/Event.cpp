@@ -1909,6 +1909,7 @@ void Event::determine_convex_set(list<Event*>& group)
   if (group.size() <= 3)
     return;
 
+  // separate into groups of contact points with identical friction coeff.
   std::map<std::pair<double, double>, std::list<Event*>, DblComp> groups;
 
   // setup a group of non-contact events
