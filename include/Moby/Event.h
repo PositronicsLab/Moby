@@ -40,6 +40,7 @@ class Event
     double calc_vevent_tol() const;
     double calc_aevent_tol() const;
     EventClass determine_event_class() const;
+    CoulombFrictionType get_friction_type() const {return _ftype; }
     bool is_impacting() const { return determine_event_class() == eNegative; }
     bool is_resting() const { return determine_event_class() == eZero; }
     bool is_separating() const { return determine_event_class() == ePositive; }

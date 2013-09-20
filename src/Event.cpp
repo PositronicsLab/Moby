@@ -1894,6 +1894,14 @@ void Event::compute_contact_jacobians(const Event& e, VectorN& Nc, VectorN& Dcs,
 }
 */
 
+// separate into groups of contact points with identical friction coeff.
+struct DblComp
+{
+  bool operator()(const std::pair<double, double>& a, const std::pair<double, double>& b)
+  {
+    return (a.first < b.first - NEAR_ZERO && a.second < b.second - NEAR_ZERO);
+  }
+};
 /// Uses the convex hull of the contact manifold to reject contact points
 void Event::determine_convex_set(list<Event*>& group)
 {
@@ -1901,14 +1909,6 @@ void Event::determine_convex_set(list<Event*>& group)
   if (group.size() <= 3)
     return;
 
-  // separate into groups of contact points with identical friction coeff.
-  struct DblComp
-  {
-    bool operator()(const std::pair<double, double>& a, const std::pair<double, double>& b)
-    {
-      return (a.first < b.first - NEAR_ZERO && a.second < b.second - NEAR_ZERO);
-    }
-  };
   std::map<std::pair<double, double>, std::list<Event*>, DblComp> groups;
 
   // setup a group of non-contact events
