@@ -138,7 +138,14 @@ vector<SVelocityd>& RigidBody::calc_jacobian_dot(shared_ptr<const Pose3d> frame,
   if (body != shared_from_this())
     throw std::runtime_error("RigidBody::calc_jacobian_dot() called with wrong body!");
 
-  J.clear();
+  J.resize(6);
+  J[0].set_zero(frame);
+  J[1].set_zero(frame);
+  J[2].set_zero(frame);
+  J[3].set_zero(frame);
+  J[4].set_zero(frame);
+  J[5].set_zero(frame);
+
   return J;
 }
 
