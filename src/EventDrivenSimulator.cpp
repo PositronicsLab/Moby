@@ -562,8 +562,9 @@ double EventDrivenSimulator::step(double step_size)
   #endif
   FILE_LOG(LOG_SIMULATOR) << "+stepping simulation from time: " << this->current_time << std::endl;
 
-  // store the current generalized coordintes 
+  // store the current generalized coordintes and velocities 
   get_coords(_q0);
+  get_velocities(_qd0);
 
   // integrate the systems forward 
   integrate(dt);
@@ -580,6 +581,8 @@ double EventDrivenSimulator::step(double step_size)
     double TOE = find_events(dt);
     if (TOE >= 1.0)
     {
+      FILE_LOG(LOG_SIMULATOR) << "find_events() found no events" << std::endl;
+
       // no events: update generalized coordinates and velocities
       set_coords(_qf);
       set_velocities(_qdf);
@@ -591,10 +594,25 @@ double EventDrivenSimulator::step(double step_size)
     }
     else if (TOE <= NEAR_ZERO)
     {
+      FILE_LOG(LOG_SIMULATOR) << "find_events() TOE of ~0 reported" << std::endl;
+
       // see whether need to use an impact model
       if (has_active_velocity_events())
       {
-        // TODO: handle velocity events
+        FILE_LOG(LOG_SIMULATOR) << "-- active velocity events detected" << std::endl;
+
+        // remove events after the current time
+        remove_next_events();
+
+        // handle velocity events
+        handle_events();
+
+        // get the new velocities
+        get_velocities(_qd0);
+
+        // re-classify all events at current time as velocity events
+        for (unsigned i=0; i< _events.size(); i++)
+          _events[i].deriv_type = Event::eVel;
 
         // integrate the system forward by dt again
         integrate(dt);
@@ -610,6 +628,15 @@ double EventDrivenSimulator::step(double step_size)
         // if no active acceleration events at t0
         if (has_active_acceleration_events())
         {
+          FILE_LOG(LOG_SIMULATOR) << "-- active acceleration events detected" << std::endl;
+
+          // remove events after the current time
+          remove_next_events();
+
+          // re-classify all events at current time as velocity events
+          for (unsigned i=0; i< _events.size(); i++)
+            _events[i].deriv_type = Event::eAccel;
+
           // attempt to solve for acceleration events
           if (solve_acceleration_events())
           {
@@ -628,6 +655,10 @@ double EventDrivenSimulator::step(double step_size)
           }
           else
           {
+            // re-classify all events at current time as velocity events
+            for (unsigned i=0; i< _events.size(); i++)
+              _events[i].deriv_type = Event::eVel;
+
             // could not solve for acceleration events; must do adaptive
             // semi-implicit step
             step_adaptive_si_Euler(dt);
@@ -636,20 +667,24 @@ double EventDrivenSimulator::step(double step_size)
         }
         else
         {
-          // no active acceleration events; find next event grouping 
-          double toe_next = find_next_event_time();          
+          FILE_LOG(LOG_SIMULATOR) << "no active velocity or acceleration event found!" << std::endl;
 
-          // if toe_next > 1, set it to 1.0
-          if (toe_next > 1.0)
-            toe_next = 1.0; 
+          // no active acceleration events; find next event grouping 
+          double TOE_next = find_next_event_time();          
+
+          // if TOE_next > 1, set it to 1.0
+          if (TOE_next > 1.0)
+            TOE_next = 1.0; 
 
           // linearly interpolate phase state to next event grouping (by time)
-          set_coords(toe_next);
-          set_velocities(toe_next);
+          set_coords(TOE_next);
+          set_velocities(TOE_next);
+          get_coords(_q0);
+          get_velocities(_qd0);
 
           // update time and dt
-          current_time += toe_next*dt;
-          dt -= (toe_next*dt);
+          current_time += TOE_next*dt;
+          dt -= (TOE_next*dt);
 
           // check for integation complete
           if (dt < NEAR_ZERO)
@@ -672,10 +707,12 @@ double EventDrivenSimulator::step(double step_size)
     }
     else
     {
+      FILE_LOG(LOG_SIMULATOR) << "find_events() reports TOE=" << TOE << std::endl;
+
       // event detected at TOE > 0
-      // linearly interpolate phase state to TOE
-      set_coords(TOE);
-      set_velocities(TOE);
+      // phase state already linearly interpolated to TOE (in find_events())
+      get_coords(_q0);
+      get_velocities(_qd0);
 
       // update time and dt
       current_time += TOE*dt;
@@ -899,6 +936,13 @@ double EventDrivenSimulator::find_events(double dt)
       _events[i].tol = j->second;
   }
 
+  // step to first event time
+  if (!_events.empty())
+  {
+    set_coords(_events.front().t);
+    set_velocities(_events.front().t);
+  }
+
   // check whether any events are at current time
   for (unsigned i=0; i< _events.size(); i++)
   {
@@ -908,21 +952,29 @@ double EventDrivenSimulator::find_events(double dt)
     // set event type as velocity initially
     _events[i].deriv_type = Event::eVel;
 
-    // check whether the event is actually a velocity event
-//    if (_events[i].is_resting())
-        
-
-  // TODO: setup event classification
+    // check whether we can encode the event as an acceleration event
+    if (_events[i].determine_event_class() == Event::eZero)
+      _events[i].deriv_type = Event::eAccel;
   }
 
-  // find and integrate body positions to the time-of-impact
-  double h = find_TOI(dt);
+  // if there are no events remaining, return now 
+  if (_events.empty())
+    return 1.0;
 
-
-
-  return h;  
+  // find the first TOI 
+  return _events.front().t;
 }
 
+/// Removes events after time 0
+void EventDrivenSimulator::remove_next_events()
+{
+  for (unsigned i=0; i< _events.size(); i++)
+    if (_events[i].t > NEAR_ZERO)
+    {
+      _events.erase(_events.begin()+i, _events.end());
+      return;
+    }
+}
 
 /// Finds the next event time (after 0)
 double EventDrivenSimulator::find_next_event_time() const
@@ -1135,7 +1187,7 @@ double EventDrivenSimulator::find_and_handle_si_events(double dt)
   }
 
   // find and integrate body positions to the time-of-impact
-  double h = find_TOI(dt);
+  double h = integrate_to_TOI(dt);
 
   // handle the events
   if (h < dt)
@@ -1590,11 +1642,11 @@ void EventDrivenSimulator::find_limit_events(double dt, vector<Event>& events)
 }
 
 /// Finds the next time-of-impact out of a set of events
-double EventDrivenSimulator::find_TOI(double dt)
+double EventDrivenSimulator::integrate_to_TOI(double dt)
 {
   const double INF = std::numeric_limits<double>::max();
 
-  FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::find_TOI() entered with dt=" << dt << endl;
+  FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::integrate_to_TOI() entered with dt=" << dt << endl;
 
   // get the iterator start
   vector<Event>::iterator citer = _events.begin();
@@ -1608,7 +1660,7 @@ double EventDrivenSimulator::find_TOI(double dt)
   {
     // set tmin
     double tmin = citer->t*dt;
-    FILE_LOG(LOG_SIMULATOR) << "  -- find_TOI() while loop, current time=" << current_time << " tmin=" << tmin << endl;
+    FILE_LOG(LOG_SIMULATOR) << "  -- integrate_to_TOI() while loop, current time=" << current_time << " tmin=" << tmin << endl;
 
     // check for exit
     if (tmin > dt)
@@ -1648,7 +1700,7 @@ double EventDrivenSimulator::find_TOI(double dt)
     FILE_LOG(LOG_SIMULATOR) << "    moving forward by " << h << endl;
 
     // check for impacting event
-    bool impacting = citer->is_impacting();
+    bool impacting = citer->determine_event_class() == Event::eNegative;
 
     // find all events at the same time as the event we are examining
     for (citer++; citer != _events.end(); citer++)
@@ -1660,7 +1712,7 @@ double EventDrivenSimulator::find_TOI(double dt)
       // see whether this event is impacting (if we don't yet have an
       // impacting event)
       if (!impacting)
-        impacting = citer->is_impacting(); 
+        impacting = citer->determine_event_class() == Event::eNegative; 
     }
 
     // see whether we are done
@@ -1689,7 +1741,7 @@ double EventDrivenSimulator::find_TOI(double dt)
   }
 
   // contact map is empty, no contacts
-  FILE_LOG(LOG_SIMULATOR) << "-- find_TOI(): no impacts detected; integrating forward by " << dt << endl;
+  FILE_LOG(LOG_SIMULATOR) << "-- integrate_to_TOI(): no impacts detected; integrating forward by " << dt << endl;
 
   // events vector is no longer valid; clear it
   _events.clear();

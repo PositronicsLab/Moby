@@ -72,7 +72,7 @@ using boost::dynamic_pointer_cast;
     // **********************************************************
     list<list<Event*> > groups;
     Event::determine_connected_events(contacts, groups);
-    Event::remove_nonimpacting_groups(groups);
+    Event::remove_inactive_groups(groups);
 
     // **********************************************************
     // do method for each connected set
@@ -146,7 +146,6 @@ using boost::dynamic_pointer_cast;
     VectorNd z;
     solve_lcp(epd, z);
     std::cout << "Resting Event forces : " << z << std::endl;
-//    epd.kappa = 10;
 
     // apply FORCES
     apply_forces(epd);
@@ -243,8 +242,10 @@ using boost::dynamic_pointer_cast;
     q.contact_working_set.resize(q.N_CONTACTS, true);
 
     // compute number of friction polygon edges
+    q.N_STICKING = 0;
     for (unsigned i=0; i<  q.events.size(); i++)
     {
+      q.N_STICKING += (q.events[i]->get_friction_type() == Event::eSticking) ? 1 : 0;
       if ( q.events[i]->contact_NK < UINF)
       {
           q.N_K_TOTAL +=  q.events[i]->contact_NK/2;
@@ -255,17 +256,17 @@ using boost::dynamic_pointer_cast;
 
     // initialize the problem matrices / vectors
     q.Cn_iM_CnT.set_zero(q.N_CONTACTS, q.N_CONTACTS);
-    q.Cn_iM_CsT.set_zero(q.N_CONTACTS, q.N_CONTACTS);
-    q.Cn_iM_CtT.set_zero(q.N_CONTACTS, q.N_CONTACTS);
-    q.Cs_iM_CnT.set_zero(q.N_CONTACTS, q.N_CONTACTS);
-    q.Cs_iM_CsT.set_zero(q.N_CONTACTS, q.N_CONTACTS);
-    q.Cs_iM_CtT.set_zero(q.N_CONTACTS, q.N_CONTACTS);
-    q.Ct_iM_CnT.set_zero(q.N_CONTACTS, q.N_CONTACTS);
-    q.Ct_iM_CsT.set_zero(q.N_CONTACTS, q.N_CONTACTS);
-    q.Ct_iM_CtT.set_zero(q.N_CONTACTS, q.N_CONTACTS);
+    q.Cn_iM_CsT.set_zero(q.N_STICKING, q.N_CONTACTS);
+    q.Cn_iM_CtT.set_zero(q.N_STICKING, q.N_CONTACTS);
+    q.Cs_iM_CnT.set_zero(q.N_CONTACTS, q.N_STICKING);
+    q.Cs_iM_CsT.set_zero(q.N_STICKING, q.N_STICKING);
+    q.Cs_iM_CtT.set_zero(q.N_STICKING, q.N_STICKING);
+    q.Ct_iM_CnT.set_zero(q.N_CONTACTS, q.N_STICKING);
+    q.Ct_iM_CsT.set_zero(q.N_STICKING, q.N_STICKING);
+    q.Ct_iM_CtT.set_zero(q.N_STICKING, q.N_STICKING);
     q.Cn_a.set_zero(q.N_CONTACTS);
-    q.Cs_a.set_zero(q.N_CONTACTS);
-    q.Ct_a.set_zero(q.N_CONTACTS);
+    q.Cs_a.set_zero(q.N_STICKING);
+    q.Ct_a.set_zero(q.N_STICKING);
     q.cn.set_zero(q.N_CONTACTS);
     q.cs.set_zero(q.N_CONTACTS);
     q.ct.set_zero(q.N_CONTACTS);
@@ -291,11 +292,9 @@ using boost::dynamic_pointer_cast;
     RowIteratord CtCt = q.Ct_iM_CtT.row_iterator_begin();
 
     // process contact events, setting up matrices
-//    q.N_STICKING = 0;
     for (unsigned i=0; i<  q.events.size(); i++)
     {
       const Event* ci =  q.events[i];
-//      q.N_STICKING += (ci->get_friction_type() == Event::eSticking) ? 1 : 0;
       const unsigned ROWS = (ci->get_friction_type() == Event::eSticking) ? 3 : 1;
       // compute cross event data for contact events
       for (unsigned j=0; j<  q.events.size(); j++)
@@ -407,8 +406,6 @@ using boost::dynamic_pointer_cast;
         }
       }
     }
-    q.N_STICKING = q.Cn_iM_CsT.columns()/2;
-
   }
 
   /// Solves the Resting Event LCP
@@ -425,55 +422,118 @@ using boost::dynamic_pointer_cast;
   LL.resize(NK_DIRS, q.N_CONTACTS+q.N_STICKING*4);
 
   // now do upper right hand block of LCP matrix
+  /*     n          r          r           r           r
+  n  Cn_iM_CnT  Cn_iM_CsT  -Cn_iM_CsT   Cn_iM_CtT  -Cn_iM_CtT
+  r  Cs_iM_CnT  Cs_iM_CsT  -Cs_iM_CsT   Cs_iM_CtT  -Cs_iM_CtT
+  r -Cs_iM_CnT -Cs_iM_CsT   Cs_iM_CsT  -Cs_iM_CtT   Cs_iM_CtT
+  r  Ct_iM_CnT  Ct_iM_CsT  -Ct_iM_CsT   Ct_iM_CtT  -Ct_iM_CtT
+  r -Ct_iM_CnT -Ct_iM_CsT   Ct_iM_CsT  -Ct_iM_CtT   Ct_iM_CtT
+    */
+
+  // Set positive submatrices
+  /*     n          r          r           r           r
+  n  Cn_iM_CnT  Cn_iM_CsT               Cn_iM_CtT
+  r  Cs_iM_CnT  Cs_iM_CsT               Cs_iM_CtT
+  r                         Cs_iM_CsT               Cs_iM_CtT
+  r  Ct_iM_CnT  Ct_iM_CsT               Ct_iM_CtT
+  r                         Ct_iM_CsT               Ct_iM_CtT
+    */
   UL.set_sub_mat(0,0,q.Cn_iM_CnT);
-  UL.set_sub_mat(q.N_CONTACTS,0,q.Cs_iM_CnT);
-  UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING*2,0,q.Ct_iM_CnT);
-
-  UL.set_sub_mat(0,q.N_CONTACTS,q.Cn_iM_CsT);
-  UL.set_sub_mat(q.N_CONTACTS,q.N_CONTACTS,q.Cs_iM_CsT);
-  UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING*2,q.N_CONTACTS,q.Ct_iM_CsT);
-
-  UL.set_sub_mat(0,q.N_CONTACTS+q.N_STICKING*2,q.Cn_iM_CtT);
-  UL.set_sub_mat(q.N_CONTACTS,q.N_CONTACTS+q.N_STICKING*2,q.Cs_iM_CtT);
-  UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING*2,q.N_CONTACTS+q.N_STICKING*2,q.Ct_iM_CtT);
-
-  // lower left & upper right block of matrix
-  for(unsigned i=0,j=0;i<q.N_CONTACTS;i++)
-  {
-    const Event* ci =  q.events[i];
-    if(ci->get_friction_type() == Event::eSticking)
-    {
-      int nk4 = ( q.events[i]->contact_NK+4)/4;
-      for(unsigned k=0;k<NK_DIRS;k++)
-      {
-        // TODO: MIGHT NEED TO NEGATE
-        // muK
-        LL(j*nk4+k,i) =  q.events[i]->contact_mu_coulomb;
-        // Xs
-        LL(j*nk4+k,j) = -cos((M_PI*k)/(2.0*nk4));
-        // XsT
-        UR(j,j*nk4+k) = cos((M_PI*k)/(2.0*nk4));
-        // Xt
-        LL(j*nk4+k,j) = -sin((M_PI*k)/(2.0*nk4));
-        // XtT
-        UR(j,j*nk4+k) = sin((M_PI*k)/(2.0*nk4));
-      }
-      j++;
-    }
-  }
-
   // setup the LCP matrix
   MM.set_zero(UL.rows() + LL.rows(), UL.columns() + UR.columns());
   MM.set_sub_mat(0, 0, UL);
-  MM.set_sub_mat(0, UL.columns(), UR);
-  MM.set_sub_mat(UL.rows(), 0, LL);
 
   // setup the LCP vector
   qq.set_zero(MM.rows());
   qq.set_sub_vec(0,q.Cn_a);
-  qq.set_sub_vec(q.Cs_a.rows(),q.Cs_a);
-  qq.set_sub_vec(q.Ct_a.rows(),q.Ct_a);
 
+  if(q.N_STICKING > 0){
+    UL.set_sub_mat(q.N_CONTACTS,q.N_CONTACTS,q.Cs_iM_CsT);
+    UL.set_sub_mat(q.N_CONTACTS,0,q.Cs_iM_CnT);
+    UL.set_sub_mat(0,q.N_CONTACTS,q.Cn_iM_CsT);
+    UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING,q.N_CONTACTS+q.N_STICKING,q.Cs_iM_CsT);
+    UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING*2,0,q.Ct_iM_CnT);
+    UL.set_sub_mat(0,q.N_CONTACTS+q.N_STICKING*2,q.Cn_iM_CtT);
+    UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING*2,q.N_CONTACTS,q.Ct_iM_CsT);
+    UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING*3,q.N_CONTACTS+q.N_STICKING,q.Ct_iM_CsT);
+    UL.set_sub_mat(q.N_CONTACTS,q.N_CONTACTS+q.N_STICKING*2,q.Cs_iM_CtT);
+    UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING,q.N_CONTACTS+q.N_STICKING*3,q.Cs_iM_CtT);
+    UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING*2,q.N_CONTACTS+q.N_STICKING*2,q.Ct_iM_CtT);
+    UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING*3,q.N_CONTACTS+q.N_STICKING*3,q.Ct_iM_CtT);
+
+    // Set neagtive submatrices
+    /*     n          r          r           r           r
+    n                        -Cn_iM_CsT              -Cn_iM_CtT
+    r                        -Cs_iM_CsT              -Cs_iM_CtT
+    r -Cs_iM_CnT -Cs_iM_CsT              -Cs_iM_CtT
+    r                        -Ct_iM_CsT              -Ct_iM_CtT
+    r -Ct_iM_CnT -Ct_iM_CsT              -Ct_iM_CtT
+      */
+
+    q.Cn_iM_CsT.negate();
+    q.Cn_iM_CtT.negate();
+    q.Cs_iM_CnT.negate();
+    q.Cs_iM_CsT.negate();
+    q.Cs_iM_CtT.negate();
+    q.Ct_iM_CnT.negate();
+    q.Ct_iM_CsT.negate();
+    q.Ct_iM_CtT.negate();
+
+    UL.set_sub_mat(q.N_CONTACTS,q.N_CONTACTS+q.N_STICKING,q.Cs_iM_CsT);
+    UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING,0,q.Cs_iM_CnT);
+    UL.set_sub_mat(0,q.N_CONTACTS+q.N_STICKING,q.Cn_iM_CsT);
+    UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING,q.N_CONTACTS,q.Cs_iM_CsT);
+    UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING*3,0,q.Ct_iM_CnT);
+    UL.set_sub_mat(0,q.N_CONTACTS+q.N_STICKING*3,q.Cn_iM_CtT);
+    UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING*3,q.N_CONTACTS,q.Ct_iM_CsT);
+    UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING*3,q.N_CONTACTS+q.N_STICKING*2,q.Ct_iM_CsT);
+    UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING,q.N_CONTACTS+q.N_STICKING*2,q.Cs_iM_CtT);
+    UL.set_sub_mat(q.N_CONTACTS,q.N_CONTACTS+q.N_STICKING*3,q.Cs_iM_CtT);
+    UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING*2,q.N_CONTACTS+q.N_STICKING*3,q.Ct_iM_CtT);
+    UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING*3,q.N_CONTACTS+q.N_STICKING*2,q.Ct_iM_CtT);
+
+
+    // lower left & upper right block of matrix
+    for(unsigned i=0,j=0;i<q.N_CONTACTS;i++)
+    {
+      const Event* ci =  q.events[i];
+      if(ci->get_friction_type() == Event::eSticking)
+      {
+        int nk4 = ( ci->contact_NK+4)/4;
+        for(unsigned k=0;k<nk4;k++)
+        {
+          // TODO: MIGHT NEED TO NEGATE
+          // muK
+          LL(j*nk4+k,i) = ci->contact_mu_coulomb;
+          // Xs
+          LL(j*nk4+k,q.N_CONTACTS+j) = -cos((M_PI*k)/(2.0*nk4));
+          LL(j*nk4+k,q.N_CONTACTS+q.N_STICKING+j) = -cos((M_PI*k)/(2.0*nk4));
+          // XsT
+          UR(q.N_CONTACTS+j,j*nk4+k) = cos((M_PI*k)/(2.0*nk4));
+          UR(q.N_CONTACTS+q.N_STICKING+j,j*nk4+k) = cos((M_PI*k)/(2.0*nk4));
+          // Xt
+          LL(j*nk4+k,q.N_CONTACTS+q.N_STICKING+j) = -sin((M_PI*k)/(2.0*nk4));
+          LL(j*nk4+k,q.N_CONTACTS+q.N_STICKING*3+j) = -sin((M_PI*k)/(2.0*nk4));
+          // XtT
+          UR(q.N_CONTACTS+q.N_STICKING+j,j*nk4+k) = sin((M_PI*k)/(2.0*nk4));
+          UR(q.N_CONTACTS+q.N_STICKING*3+j,j*nk4+k) = sin((M_PI*k)/(2.0*nk4));
+        }
+        j++;
+      }
+    }
+
+    // setup the LCP matrix
+    MM.set_sub_mat(0, UL.columns(), UR);
+    MM.set_sub_mat(UL.rows(), 0, LL);
+
+    // setup the LCP vector
+    qq.set_sub_vec(q.N_CONTACTS,q.Cs_a);
+    qq.set_sub_vec(q.N_CONTACTS+q.N_STICKING*2,q.Ct_a);
+    q.Cs_a.negate();
+    q.Ct_a.negate();
+    qq.set_sub_vec(q.N_CONTACTS+q.N_STICKING,q.Cs_a);
+    qq.set_sub_vec(q.N_CONTACTS+q.N_STICKING*3,q.Ct_a);
+  }
   FILE_LOG(LOG_EVENT) << " LCP matrix: " << std::endl << MM;
   FILE_LOG(LOG_EVENT) << " LCP vector: " << qq << std::endl;
 
@@ -481,15 +541,25 @@ using boost::dynamic_pointer_cast;
   if (!_lcp.lcp_lemke_regularized(MM, qq, z))
    throw std::runtime_error("Unable to solve resting contact LCP!");
 
-  z.get_sub_vec(0,q.N_CONTACTS,q.cn);
-  z.get_sub_vec(q.N_CONTACTS,q.N_CONTACTS+q.N_STICKING,q.cs);
-  z.get_sub_vec(q.N_CONTACTS+q.N_STICKING,q.N_CONTACTS+q.N_STICKING*2,workv);
-  q.cs -= workv;
-  z.get_sub_vec(q.N_CONTACTS+q.N_STICKING*2,q.N_CONTACTS+q.N_STICKING*3,q.ct);
-  z.get_sub_vec(q.N_CONTACTS+q.N_STICKING*3,q.N_CONTACTS+q.N_STICKING*4,workv);
-  q.ct -= workv;
+  for(unsigned i=0,j=0;i<q.N_CONTACTS;i++)
+  {
+    const Event* ci =  q.events[i];
+    q.cn[i] = z[i];
+    if(ci->get_friction_type() == Event::eSticking)
+    {
+      q.cs[i] = z[q.N_CONTACTS+j] - z[q.N_CONTACTS+q.N_STICKING+j];
+      q.ct[i] = z[q.N_CONTACTS+q.N_STICKING*2+j] - z[q.N_CONTACTS+q.N_STICKING*3+j];
+      j++;
+    }
+    else
+    {
+      // Negated (against dir of sliding Q?)
+      q.cs[i] = -ci->contact_mu_coulomb/q.cn[i];
+      q.ct[i] = 0.0;
+    }
+  }
 
-  FILE_LOG(LOG_EVENT) << " LCP result (siz [N_CONTACTS+N_STICKING*2): " << z << std::endl;
+  FILE_LOG(LOG_EVENT) << " LCP result : " << z << std::endl;
   FILE_LOG(LOG_EVENT) << "RestingContactHandler::solve_lcp() exited" << std::endl;
  }
 
