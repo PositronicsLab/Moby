@@ -33,16 +33,13 @@ class Event
     Event();
     Event(const Event& e) { _event_frame = boost::shared_ptr<Ravelin::Pose3d>(new Ravelin::Pose3d); *this = e; }
     static void determine_connected_events(const std::vector<Event>& events, std::list<std::list<Event*> >& groups);
-    static void remove_nonimpacting_groups(std::list<std::list<Event*> >& groups);
+    static void remove_inactive_groups(std::list<std::list<Event*> >& groups);
     Event& operator=(const Event& e);
     double calc_event_vel() const;
     double calc_event_accel() const;
     double calc_vevent_tol() const;
     double calc_aevent_tol() const;
     EventClass determine_event_class() const;
-    bool is_impacting() const { return determine_event_class() == eNegative; }
-    bool is_resting() const { return determine_event_class() == eZero; }
-    bool is_separating() const { return determine_event_class() == ePositive; }
     void set_contact_parameters(const ContactParameters& cparams);
     void determine_contact_tangents();
     static void determine_minimal_set(std::list<Event*>& group);
