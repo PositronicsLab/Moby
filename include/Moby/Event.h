@@ -33,7 +33,7 @@ class Event
     Event();
     Event(const Event& e) { _event_frame = boost::shared_ptr<Ravelin::Pose3d>(new Ravelin::Pose3d); *this = e; }
     static void determine_connected_events(const std::vector<Event>& events, std::list<std::list<Event*> >& groups);
-    static void remove_nonimpacting_groups(std::list<std::list<Event*> >& groups);
+    static void remove_inactive_groups(std::list<std::list<Event*> >& groups);
     Event& operator=(const Event& e);
     double calc_event_vel() const;
     double calc_event_accel() const;
@@ -50,7 +50,7 @@ class Event
     boost::shared_ptr<const Ravelin::Pose3d> get_pose() const { return GLOBAL; }
     void compute_event_data(Ravelin::MatrixNd& M, Ravelin::VectorNd& q) const;
     void compute_cross_event_data(const Event& e, Ravelin::MatrixNd& M) const;
-	
+
     template <class OutputIterator>
     OutputIterator get_super_bodies(OutputIterator begin) const;
 
@@ -92,7 +92,7 @@ class Event
 
     /// The point contact (for contact events)
     Point3d contact_point;
-    
+
     /// The vector pointing outward from the contact on the first body, in world coordinates (for contact events)
     Ravelin::Vector3d contact_normal;  
 

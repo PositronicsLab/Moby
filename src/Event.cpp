@@ -404,14 +404,14 @@ void Event::compute_dotv_data(VectorNd& q) const
     transpose_mult(vel, -wt2, J2t); 
 
     // compute the time-derivatives of the Jacobians for the two bodies
-    su1->calc_jacobian_dot(P1, sb1, vel);
-    transpose_mult(vel, dwn1, dJ1n); 
-    transpose_mult(vel, dws1, dJ1s); 
-    transpose_mult(vel, dwt1, dJ1t); 
-    su2->calc_jacobian_dot(P2, sb2, vel);
-    transpose_mult(vel, -dwn2, dJ2n); 
-    transpose_mult(vel, -dws2, dJ2s); 
-    transpose_mult(vel, -dwt2, dJ2t); 
+//    su1->calc_jacobian_dot(P1, sb1, vel);
+//    transpose_mult(vel, dwn1, dJ1n);
+//    transpose_mult(vel, dws1, dJ1s);
+//    transpose_mult(vel, dwt1, dJ1t);
+//    su2->calc_jacobian_dot(P2, sb2, vel);
+//    transpose_mult(vel, -dwn2, dJ2n);
+//    transpose_mult(vel, -dws2, dJ2s);
+//    transpose_mult(vel, -dwt2, dJ2t);
 
     // update J1 and J2
     J1 += dJ1;
@@ -469,10 +469,10 @@ void Event::compute_dotv_data(VectorNd& q) const
     transpose_mult(vel, -wn2, J2n); 
 
     // compute the time-derivatives of the Jacobians for the two bodies
-    su1->calc_jacobian_dot(P1, sb1, vel);
-    transpose_mult(vel, dwn1, dJ1n); 
-    su2->calc_jacobian_dot(P2, sb2, vel);
-    transpose_mult(vel, -dwn2, dJ2n); 
+//    su1->calc_jacobian_dot(P1, sb1, vel);
+//    transpose_mult(vel, dwn1, dJ1n);
+//    su2->calc_jacobian_dot(P2, sb2, vel);
+//    transpose_mult(vel, -dwn2, dJ2n);
 
     // update J1 and J2
     J1 += dJ1;
@@ -2148,26 +2148,26 @@ void Event::determine_minimal_set(list<Event*>& group)
   }
 }
 
-/// Removes groups of contacts that contain no impacts
-void Event::remove_nonimpacting_groups(list<list<Event*> >& groups)
+/// Removes groups of contacts that contain no active contacts 
+void Event::remove_inactive_groups(list<list<Event*> >& groups)
 {
   typedef list<list<Event*> >::iterator ListIter;
 
   for (ListIter i = groups.begin(); i != groups.end(); )
   {
     // look for impact in list i
-    bool impact_detected = false;
+    bool active_detected = false;
     BOOST_FOREACH(Event* e, *i)
     {
-      if (e->is_impacting())
+      if (e->determine_event_class() == Event::eNegative)
       {
-        impact_detected = true;
+        active_detected = true;
         break;
       }
     }
 
-    // if no impact in the list, remove the list
-    if (!impact_detected)
+    // if no active event in the list, remove the list
+    if (!active_detected)
     {
       ListIter j = i;
       j++;
@@ -2348,7 +2348,7 @@ void Event::determine_contact_tangents()
   }
 }
 
-/// Determines the type of event (impacting, resting, or separating)
+/// Determines the type of event 
 Event::EventClass Event::determine_event_class() const
 {
   if (deriv_type == eVel)
@@ -2358,8 +2358,6 @@ Event::EventClass Event::determine_event_class() const
 
     FILE_LOG(LOG_SIMULATOR) << "-- event type: " << event_type << " velocity: " << vel << std::endl;
 
-    // if the velocity is less than zero, we have
-    // an impacting contact
     if (vel > tol)
       return ePositive;
     else if (vel < -tol)
@@ -2374,8 +2372,6 @@ Event::EventClass Event::determine_event_class() const
 
     FILE_LOG(LOG_SIMULATOR) << "-- event type: " << event_type << " acceleration: " << acc << std::endl;
 
-    // if the velocity is less than zero, we have
-    // an impacting contact
     if (acc > tol)
       return ePositive;
     else if (acc < -tol)
@@ -2426,8 +2422,9 @@ double Event::calc_vevent_tol() const
 
 /// Computes the event tolerance
 /**
- * Positive velocity indicates separation, negative velocity indicates
- * impact, zero velocity indicates rest.
+ * Positive velocity indicates separation, negative acceleration indicates
+ * contact must be treated, zero acceleration indicates rest, positive
+ * acceleration indicates contact is separating.
  */
 double Event::calc_aevent_tol() const
 {

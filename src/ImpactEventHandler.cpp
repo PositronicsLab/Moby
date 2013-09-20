@@ -78,7 +78,7 @@ void ImpactEventHandler::apply_model(const vector<Event>& events)
   // **********************************************************
   list<list<Event*> > groups;
   Event::determine_connected_events(events, groups);
-  Event::remove_nonimpacting_groups(groups);
+  Event::remove_inactive_groups(groups);
 
   // **********************************************************
   // do method for each connected set 
@@ -111,7 +111,7 @@ void ImpactEventHandler::apply_model(const vector<Event>& events)
   // determine whether there are any impacting events remaining
   for (list<list<Event*> >::const_iterator i = groups.begin(); i != groups.end(); i++)
     for (list<Event*>::const_iterator j = i->begin(); j != i->end(); j++)
-      if ((*j)->is_impacting())
+      if ((*j)->determine_event_class() == Event::eNegative)
 
   // if there are any events still impacting, throw an exception 
   if (!impacting.empty())
