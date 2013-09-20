@@ -625,14 +625,20 @@ double EventDrivenSimulator::step(double step_size)
       }
       else
       {
+        // compute forward dynamics for all bodies (at t0)
+        calc_fwd_dyn();
+
+        // compute the directional derivatives
+        compute_directional_derivatives();
+
         // if no active acceleration events at t0
         if (has_active_acceleration_events())
         {
           FILE_LOG(LOG_SIMULATOR) << "-- active acceleration events detected" << std::endl;
-
+  
           // remove events after the current time
           remove_next_events();
-
+  
           // re-classify all events at current time as velocity events
           for (unsigned i=0; i< _events.size(); i++)
             _events[i].deriv_type = Event::eAccel;
@@ -742,6 +748,55 @@ double EventDrivenSimulator::step(double step_size)
     post_step_callback_fn(this);
   
   return step_size;
+}
+
+void EventDrivenSimulator::compute_directional_derivatives()
+{
+  // determine contact direction derivatives
+  for (unsigned i=0; i< _events.size(); i++)
+  {
+    // verify that this is a contact event
+    if (_events[i].event_type != Event::eContact)
+      continue;
+
+    // get the first single body (we need consider only one of the two bodies)
+    SingleBodyPtr sba = _events[i].contact_geom1->get_single_body();
+
+    // get the angular velocity of the body in the global frame
+    Vector3d omega0 = Pose3d::transform(GLOBAL, sba->get_velocity()).get_angular();
+
+    // get the contact directions
+    const Vector3d& n = _events[i].contact_normal;
+    const Vector3d& tan1 = _events[i].contact_tan1;
+    const Vector3d& tan2 = _events[i].contact_tan2;
+
+    // compute the directional derivatives
+    _events[i].contact_normal_dot = Vector3d::cross(omega0, n);
+    _events[i].contact_tan1_dot = Vector3d::cross(omega0, tan1);
+    _events[i].contact_tan2_dot = Vector3d::cross(omega0, tan2);
+  }
+}  
+
+/// Computes forward dynamics for all bodies
+void EventDrivenSimulator::calc_fwd_dyn() const
+{
+  BOOST_FOREACH(DynamicBodyPtr db, _bodies)
+  {
+    // clear the force accumulators on the body
+    db->reset_accumulators();
+
+    // add all recurrent forces on the body
+    const list<RecurrentForcePtr>& rfs = db->get_recurrent_forces();
+    BOOST_FOREACH(RecurrentForcePtr rf, rfs)
+      rf->add_force(db);
+
+    // call the body's controller
+    if (db->controller)
+      (*db->controller)(db, current_time, db->controller_arg);
+
+    // calculate forward dynamics at state x
+    db->calc_fwd_dyn();
+  }
 }
 
 /// Does a semi-implicit step with adaptive error tolerances 

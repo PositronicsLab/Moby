@@ -204,6 +204,7 @@ class EventDrivenSimulator : public Simulator
     double abs_err_tol;
 
   private:
+    void calc_fwd_dyn() const;
     void integrate_si_Euler(double dt);
     static void determine_treated_bodies(std::list<std::list<Event*> >& groups, std::vector<DynamicBodyPtr>& bodies);
     double find_events(double dt);
@@ -225,6 +226,7 @@ class EventDrivenSimulator : public Simulator
     void set_velocities(double t);
     void set_coords(const std::vector<Ravelin::VectorNd>& q) const;
     void set_velocities(const std::vector<Ravelin::VectorNd>& qd) const;
+    void compute_directional_derivatives();
 
     // Visualization functions
     void visualize_contact( Event& event );
