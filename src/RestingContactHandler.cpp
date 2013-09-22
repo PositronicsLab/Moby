@@ -39,7 +39,7 @@ using boost::dynamic_pointer_cast;
   RestingContactHandler::RestingContactHandler(){}
 
   // Processes impacts
-  void RestingContactHandler::process_contacts(const vector<Event>& contacts)
+  void RestingContactHandler::process_events(const vector<Event>& contacts)
   {
     FILE_LOG(LOG_EVENT) << "*************************************************************";
     FILE_LOG(LOG_EVENT) << endl;
@@ -417,9 +417,9 @@ using boost::dynamic_pointer_cast;
 
   const unsigned NK_DIRS = q.N_STICKING*((q.N_K_TOTAL+4)/4);
   // setup sizes
-  UL.resize(q.N_CONTACTS+q.N_STICKING*4, q.N_CONTACTS+q.N_STICKING*4);
-  UR.resize(q.N_CONTACTS+q.N_STICKING*4, NK_DIRS);
-  LL.resize(NK_DIRS, q.N_CONTACTS+q.N_STICKING*4);
+  UL.set_zero(q.N_CONTACTS+q.N_STICKING*4, q.N_CONTACTS+q.N_STICKING*4);
+  UR.set_zero(q.N_CONTACTS+q.N_STICKING*4, NK_DIRS);
+  LL.set_zero(NK_DIRS, q.N_CONTACTS+q.N_STICKING*4);
 
   // now do upper right hand block of LCP matrix
   /*     n          r          r           r           r
@@ -504,7 +504,7 @@ using boost::dynamic_pointer_cast;
         {
           // TODO: MIGHT NEED TO NEGATE
           // muK
-          LL(j*nk4+k,i) = ci->contact_mu_coulomb;
+          LL(j*nk4+k,i) = 0.4;//ci->contact_mu_coulomb;
           // Xs
           LL(j*nk4+k,q.N_CONTACTS+j) = -cos((M_PI*k)/(2.0*nk4));
           LL(j*nk4+k,q.N_CONTACTS+q.N_STICKING+j) = -cos((M_PI*k)/(2.0*nk4));
@@ -558,6 +558,11 @@ using boost::dynamic_pointer_cast;
       q.ct[i] = 0.0;
     }
   }
+
+  std::cout << "cn " << q.cn << std::endl;
+  std::cout << "cs " << q.cs << std::endl;
+  std::cout << "ct " << q.ct << std::endl;
+
 
   FILE_LOG(LOG_EVENT) << " LCP result : " << z << std::endl;
   FILE_LOG(LOG_EVENT) << "RestingContactHandler::solve_lcp() exited" << std::endl;
