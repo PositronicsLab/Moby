@@ -1086,8 +1086,12 @@ void Event::compute_cross_contact_contact_aevent_data(const Event& c, MatrixNd& 
   // determine how many unique super bodies we have
   const unsigned NSUPER = end - bodies;
 
+  // determine how many rows and columns
+  const unsigned ROWS = (_ftype == eSlipping) ? 1 : 3;
+  const unsigned COLS = (c._ftype == eSlipping) ? 1 : 3;
+
   // clear M
-  M.set_zero(3,3);
+  M.set_zero(ROWS,COLS);
 
   // if we have exactly two super bodies, process them individually
   if (NSUPER == 1)
