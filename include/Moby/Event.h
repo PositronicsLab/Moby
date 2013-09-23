@@ -40,13 +40,17 @@ class Event
     double calc_vevent_tol() const;
     double calc_aevent_tol() const;
     EventClass determine_event_class() const;
+    CoulombFrictionType get_friction_type() const {return _ftype; }
+    bool is_impacting() const { return determine_event_class() == eNegative; }
+    bool is_resting() const { return determine_event_class() == eZero; }
+    bool is_separating() const { return determine_event_class() == ePositive; }
     void set_contact_parameters(const ContactParameters& cparams);
     void determine_contact_tangents();
     static void determine_minimal_set(std::list<Event*>& group);
     boost::shared_ptr<const Ravelin::Pose3d> get_pose() const { return GLOBAL; }
     void compute_event_data(Ravelin::MatrixNd& M, Ravelin::VectorNd& q) const;
     void compute_cross_event_data(const Event& e, Ravelin::MatrixNd& M) const;
-	
+
     template <class OutputIterator>
     OutputIterator get_super_bodies(OutputIterator begin) const;
 
@@ -88,7 +92,7 @@ class Event
 
     /// The point contact (for contact events)
     Point3d contact_point;
-    
+
     /// The vector pointing outward from the contact on the first body, in world coordinates (for contact events)
     Ravelin::Vector3d contact_normal;  
 
