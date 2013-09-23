@@ -499,12 +499,13 @@ using boost::dynamic_pointer_cast;
       const Event* ci =  q.events[i];
       if(ci->get_friction_type() == Event::eSticking)
       {
+        std::cout << "Contact " << i << " is sticking" << std::endl;
         int nk4 = ( ci->contact_NK+4)/4;
         for(unsigned k=0;k<nk4;k++)
         {
           // TODO: MIGHT NEED TO NEGATE
           // muK
-          LL(j*nk4+k,i) = 0.4;//ci->contact_mu_coulomb;
+          LL(j*nk4+k,i) = ci->contact_mu_coulomb;
           // Xs
           LL(j*nk4+k,q.N_CONTACTS+j) = -cos((M_PI*k)/(2.0*nk4));
           LL(j*nk4+k,q.N_CONTACTS+q.N_STICKING+j) = -cos((M_PI*k)/(2.0*nk4));
@@ -554,7 +555,7 @@ using boost::dynamic_pointer_cast;
     else
     {
       // Negated (against dir of sliding Q?)
-      q.cs[i] = -ci->contact_mu_coulomb/q.cn[i];
+      q.cs[i] = -ci->contact_mu_coulomb*q.cn[i];
       q.ct[i] = 0.0;
     }
   }
