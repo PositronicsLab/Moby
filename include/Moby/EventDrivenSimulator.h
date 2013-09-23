@@ -197,11 +197,14 @@ class EventDrivenSimulator : public Simulator
     /// System time spent by event handling on the last step
     double event_stime;
 
-    /// The relative error tolerance for adaptive Euler stepping
+    /// The relative error tolerance for adaptive Euler stepping (default=1e-8)
     double rel_err_tol;
 
-    /// The absolute error tolerance for adaptive Euler stepping
+    /// The absolute error tolerance for adaptive Euler stepping (default=1e-8)
     double abs_err_tol;
+
+    /// The minimum step size (default=1e-5)
+    double minimum_step;
 
   private:
     void calc_fwd_dyn() const;
