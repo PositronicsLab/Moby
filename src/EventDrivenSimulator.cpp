@@ -1092,8 +1092,8 @@ bool EventDrivenSimulator::solve_acceleration_events()
   assert(!_events.empty());
 
   // attempt to process the events
-  return false;
-//  return RestingContactMethod::process_events(_events);
+//  return false;
+  return _resting_contact_handler.process_events(_events);
 }
 
 /*

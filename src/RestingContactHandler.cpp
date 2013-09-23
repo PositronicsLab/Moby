@@ -39,7 +39,7 @@ using boost::dynamic_pointer_cast;
   RestingContactHandler::RestingContactHandler(){}
 
   // Processes impacts
-  void RestingContactHandler::process_events(const vector<Event>& contacts)
+  bool RestingContactHandler::process_events(const vector<Event>& contacts)
   {
     FILE_LOG(LOG_EVENT) << "*************************************************************";
     FILE_LOG(LOG_EVENT) << endl;
@@ -57,6 +57,9 @@ using boost::dynamic_pointer_cast;
     FILE_LOG(LOG_EVENT) << "*************************************************************" << endl;
     FILE_LOG(LOG_EVENT) << "RestingContactHandler::process_contacts() exited" << endl;
     FILE_LOG(LOG_EVENT) << "*************************************************************" << endl;
+
+    // TODO: fix this to check for K.E. gain
+    return false;
   }
 
   /// Applies the model to a set of contacts
