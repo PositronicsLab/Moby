@@ -18,7 +18,7 @@ class RestingContactHandler
 {
   public:
     RestingContactHandler();
-    void process_events(const std::vector<Event>& contacts);
+    bool process_events(const std::vector<Event>& contacts);
 
   private:
     static DynamicBodyPtr get_super_body(SingleBodyPtr sb);
