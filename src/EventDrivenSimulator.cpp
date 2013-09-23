@@ -49,6 +49,7 @@ EventDrivenSimulator::EventDrivenSimulator()
   // setup absolute and relative error tolerances
   rel_err_tol = NEAR_ZERO;
   abs_err_tol = NEAR_ZERO;
+  minimum_step = 1e-5;
 }
 
 /// Gets the contact data between a pair of geometries (if any)
@@ -806,17 +807,23 @@ void EventDrivenSimulator::step_adaptive_si_Euler(double dt)
   static vector<VectorNd> q0_save, qd0_save;
 
   assert(dt > 0.0);
-
+ 
   // save the current generalized coordinates and velocities
   get_coords(q0_save);
   get_velocities(qd0_save);  
 
   // take a step of size dt
   step_si_Euler(dt);
+  if (dt <= minimum_step)   // look for a minimum step
+  {
+    if (post_mini_step_callback_fn)
+      post_mini_step_callback_fn(this);
+    return;
+  }
   get_coords(qf_full);
   get_velocities(qdf_full);
-
-  // take two steps of size dt/2
+ 
+   // take two steps of size dt/2
   set_coords(q0_save);
   set_velocities(qd0_save);
   step_si_Euler(dt*0.5);
@@ -839,7 +846,7 @@ void EventDrivenSimulator::step_adaptive_si_Euler(double dt)
     std::transform(iter, iter.end(), iter, fabs);
 
     // determine maximum step size 
-    for (unsigned j=0; j< qf_full.size(); j++)
+    for (unsigned j=0; j< qf_full[i].size(); j++)
     {
       if (qf_full[i][j] > rel_err_tol * std::fabs(qf_halves[i][j]) + abs_err_tol)
         max_step *= (abs_err_tol + rel_err_tol*qf_halves[i][j])/qf_full[i][j];
@@ -849,7 +856,7 @@ void EventDrivenSimulator::step_adaptive_si_Euler(double dt)
   }
 
   // see whether we need to take an adaptive step 
-  if (std::fabs(max_step - 1.0) > NEAR_ZERO)
+  if (std::fabs(max_step - dt) > NEAR_ZERO)
   {
     // scale the maximum step slightly
     max_step *= 0.9;

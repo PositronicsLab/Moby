@@ -1385,8 +1385,8 @@ double Event::calc_event_accel() const
     SAcceld tab = Pose3d::transform(contact_point.pose, ab); 
 
     // compute 
-    double ddot = contact_normal.dot(tva.get_linear() - tvb.get_linear());
-    ddot += 2.0*contact_normal_dot.dot(taa.get_linear() - tab.get_linear());
+    double ddot = contact_normal.dot(taa.get_linear() - tab.get_linear());
+    ddot += 2.0*contact_normal_dot.dot(tva.get_linear() - tvb.get_linear());
     return ddot;
   }
   else
