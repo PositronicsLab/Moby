@@ -18,6 +18,7 @@
 #include <Moby/Log.h>
 #include <Moby/XMLTree.h>
 #include <Moby/NumericalException.h>
+#include <Moby/CompGeom.h>
 
 #include <Moby/Event.h>
 #include <Moby/RestingContactHandler.h>
@@ -41,6 +42,7 @@ using boost::dynamic_pointer_cast;
   // Processes impacts
   bool RestingContactHandler::process_events(const vector<Event>& contacts)
   {
+    bool RETURN_FLAG = false;
     FILE_LOG(LOG_EVENT) << "*************************************************************";
     FILE_LOG(LOG_EVENT) << endl;
     FILE_LOG(LOG_EVENT) << "RestingContactHandler::process_contacts() entered";
@@ -49,8 +51,17 @@ using boost::dynamic_pointer_cast;
     FILE_LOG(LOG_EVENT) << endl;
 
     // apply the method to all contacts
-    if (!contacts.empty())
-      apply_model(contacts);
+    if (!contacts.empty()){
+      try
+      {
+        apply_model(contacts);
+        RETURN_FLAG = true;
+      }
+      catch(EnergyToleranceException e)
+      {
+        FILE_LOG(LOG_EVENT) << "Resting Contacting formulation failed: try using Impact model instead" << endl;
+      }
+    }
     else
       FILE_LOG(LOG_EVENT) << " (no contacts?!)" << endl;
 
@@ -59,7 +70,7 @@ using boost::dynamic_pointer_cast;
     FILE_LOG(LOG_EVENT) << "*************************************************************" << endl;
 
     // TODO: fix this to check for K.E. gain
-    return false;
+    return RETURN_FLAG;
   }
 
   /// Applies the model to a set of contacts
@@ -103,14 +114,6 @@ using boost::dynamic_pointer_cast;
         for (list<Event*>::iterator j = i->begin(); j != i->end(); j++)
           FILE_LOG(LOG_EVENT) << "    contact: " << std::endl << **j;
     }
-
-//    // determine whether there are any contacting contacts remaining
-//    for (list<list<Event*> >::const_iterator i = groups.begin(); i != groups.end(); i++)
-//      for (list<Event*>::const_iterator j = i->begin(); j != i->end(); j++)
-//        if ((*j)->is_contacting())
-//            // if there are any contacts still contacting, throw an exception
-//            if (!contacting.empty())
-//              throw ImpactToleranceException(contacting);
   }
 
   /**
@@ -119,8 +122,11 @@ using boost::dynamic_pointer_cast;
    */
   void RestingContactHandler::apply_model_to_connected_contacts(const list<Event*>& contacts)
   {
-    double ke_minus = 0.0, ke_plus = 0.0;
     SAFESTATIC ContactProblemData epd;
+    SAFESTATIC VectorNd v,a;
+    SAFESTATIC MatrixNd M;
+
+    const double h = 0.1;
 
     FILE_LOG(LOG_EVENT) << "RestingContactHandler::apply_model_to_connected_contacts() entered" << endl;
 
@@ -133,39 +139,61 @@ using boost::dynamic_pointer_cast;
     // compute all contact cross-terms
     compute_problem_data(epd);
 
+    VectorNd ke_minus(epd.super_bodies.size()), ke_plus(epd.super_bodies.size());
     // compute energy
-    if (LOGGING(LOG_EVENT))
+
+    for (unsigned i=0; i< epd.super_bodies.size(); i++)
     {
-      for (unsigned i=0; i< epd.super_bodies.size(); i++)
-      {
-        double ke = epd.super_bodies[i]->calc_kinetic_energy();
-        FILE_LOG(LOG_EVENT) << "  body " << epd.super_bodies[i]->id << " pre-contact handling KE: " << ke << endl;
-        ke_minus += ke;
-      }
+      epd.super_bodies[i]->calc_fwd_dyn();
+      epd.super_bodies[i]->get_generalized_acceleration(a);
+      epd.super_bodies[i]->get_generalized_velocity(DynamicBody::eSpatial,v);
+      epd.super_bodies[i]->get_generalized_inertia(M);
+      a *= h;
+      a += v;
+      M.mult(a,v);
+      ke_minus[i] = v.dot(a);
     }
 
     // solve the (non-frictional) linear complementarity problem to determine
     // the kappa constant
     VectorNd z;
     solve_lcp(epd, z);
-    std::cout << "Resting Event forces : " << z << std::endl;
+    FILE_LOG(LOG_EVENT) << "Resting Event forces : " << z << std::endl;
 
     // apply FORCES
     apply_forces(epd);
 
+    bool ENERGY_GAINED = true;
     // compute energy
-    if (LOGGING(LOG_EVENT))
+    for (unsigned i=0; i< epd.super_bodies.size(); i++)
     {
-      for (unsigned i=0; i< epd.super_bodies.size(); i++)
-      {
-        double ke = epd.super_bodies[i]->calc_kinetic_energy();
-        FILE_LOG(LOG_EVENT) << "  body " << epd.super_bodies[i]->id << " post-contact handling KE: " << ke << endl;
-        ke_plus += ke;
+      epd.super_bodies[i]->calc_fwd_dyn();
+      epd.super_bodies[i]->get_generalized_acceleration(a);
+      epd.super_bodies[i]->get_generalized_velocity(DynamicBody::eSpatial,v);
+      epd.super_bodies[i]->get_generalized_inertia(M);
+      a *= h;
+      a += v;
+      M.mult(a,v);
+      ke_plus[i] = v.dot(a);
+      // Test if energy has been gained by this body
+      ENERGY_GAINED = !CompGeom::rel_equal(ke_plus[i],ke_minus[i]) && ((ke_plus[i]-ke_minus[i]) > 0);
+      FILE_LOG(LOG_EVENT) << "energy gained? " << ENERGY_GAINED << ", from " << ke_minus[i] << " to " << ke_plus[i] << std::endl;
+    }
+
+    FILE_LOG(LOG_EVENT) << "energy before = " << ke_minus << "\n energy after = " << ke_plus << endl;
+
+    if (ENERGY_GAINED){
+      FILE_LOG(LOG_EVENT) << "warning! KE gain detected! energy before=" << ke_minus << " energy after=" << ke_plus << endl;
+      epd.cn.negate();
+      epd.cs.negate();
+      epd.ct.negate();
+      apply_forces(epd);
+
+      for (unsigned i=0; i< epd.super_bodies.size(); i++){
+        epd.super_bodies[i]->calc_fwd_dyn();
+        epd.super_bodies[i]->get_generalized_acceleration(a);
       }
-      if (ke_plus > ke_minus){
-          FILE_LOG(LOG_EVENT) << "warning! KE gain detected! energy before=" << ke_minus << " energy after=" << ke_plus << endl;
-          FILE_LOG(LOG_EVENT) << "Resting Contacting formulation failed: try using Impact model instead" << endl;
-      }
+      throw EnergyToleranceException(contacts);
     }
 
     FILE_LOG(LOG_EVENT) << "RestingContactHandler::apply_model_to_connected_contacts() exiting" << endl;
@@ -502,7 +530,6 @@ using boost::dynamic_pointer_cast;
       const Event* ci =  q.events[i];
       if(ci->get_friction_type() == Event::eSticking)
       {
-        std::cout << "Contact " << i << " is sticking" << std::endl;
         int nk4 = ( ci->contact_NK+4)/4;
         for(unsigned k=0;k<nk4;k++)
         {
@@ -563,10 +590,9 @@ using boost::dynamic_pointer_cast;
     }
   }
 
-  std::cout << "cn " << q.cn << std::endl;
-  std::cout << "cs " << q.cs << std::endl;
-  std::cout << "ct " << q.ct << std::endl;
-
+  FILE_LOG(LOG_EVENT) << "cn " << q.cn << std::endl;
+  FILE_LOG(LOG_EVENT) << "cs " << q.cs << std::endl;
+  FILE_LOG(LOG_EVENT) << "ct " << q.ct << std::endl;
 
   FILE_LOG(LOG_EVENT) << " LCP result : " << z << std::endl;
   FILE_LOG(LOG_EVENT) << "RestingContactHandler::solve_lcp() exited" << std::endl;
