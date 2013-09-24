@@ -385,6 +385,7 @@ void URDFReader::read_joint(shared_ptr<const XMLTree> node, URDFData& data, cons
   // joint frame is defined relative to the parent link frame
   shared_ptr<Pose3d> origin(new Pose3d(read_origin(node, data)));
   origin->rpose = inboard->get_pose(); 
+  origin->update_relative_pose(outboard->get_pose()->rpose);
 
   // child frame is defined relative to the joint frame
   outboard->set_pose(*origin);

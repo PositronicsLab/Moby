@@ -179,12 +179,12 @@ SVelocityd mult(const vector<SVelocityd>& t, const VectorNd& v)
   if (t.size() != v.size())
     throw MissizeException();
 
+  // verify that the vector is not empty - we lose frame info!
+  if (t.empty())
+    throw std::runtime_error("loss of frame information");
+
   // setup the result
   SVelocityd result = SVelocityd::zero();
-
-  // if the vector is empty, return now
-  if (t.empty())
-    return result;
 
   // verify that all twists are in the same pose
   result.pose = t.front().pose;

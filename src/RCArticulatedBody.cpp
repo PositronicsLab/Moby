@@ -538,7 +538,10 @@ void RCArticulatedBody::update_link_velocities()
     Pose3d::transform(opose, s, sprime); 
 
     // determine the link velocity due to the parent velocity + joint velocity
-    outboard->set_velocity(outboard->get_velocity() + mult(sprime, joint->qd));
+    if (sprime.empty())
+      outboard->set_velocity(outboard->get_velocity());
+    else
+      outboard->set_velocity(outboard->get_velocity() + mult(sprime, joint->qd));
 
     // indicate that the link has been processed 
     _processed[i] = true;
@@ -1992,7 +1995,7 @@ void RCArticulatedBody::set_generalized_velocity(DynamicBody::GeneralizedCoordin
     assert(!_links.empty());
     RigidBodyPtr base = _links.front();
     gv.get_sub_vec(num_joint_dof_explicit(), gv.size(), base_gv);
-    base->set_generalized_velocity(gctype, base_gv);
+    base->set_generalized_velocity_single(gctype, base_gv);
   }
 
   // compute implicit constraint velocities
