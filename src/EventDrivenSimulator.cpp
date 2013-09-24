@@ -640,9 +640,13 @@ double EventDrivenSimulator::step(double step_size)
           // remove events after the current time
           remove_next_events();
   
-          // re-classify all events at current time as velocity events
+          // re-classify all events at current time as acceleration events
+          // and preprocess the event
           for (unsigned i=0; i< _events.size(); i++)
+          {
             _events[i].deriv_type = Event::eAccel;
+            preprocess_event(_events[i]);
+          }
 
           // attempt to solve for acceleration events
           if (solve_acceleration_events())
