@@ -146,9 +146,13 @@ template <class ForwardIterator>
 Point3d CompGeom::calc_centroid_3D(ForwardIterator first, ForwardIterator last)
 {
   double area_sum = 0;
+
+  // look for no point
+  if (first == last)
+    return Point3d::zero();
   
   // compute the area of each facet and contribution from each facet
-  Point3d centroid = Point3d::zero();
+  Point3d centroid = Point3d::zero(first->a.pose);
   for (ForwardIterator i = first; i != last; i++)
   {
     double area = i->calc_area();

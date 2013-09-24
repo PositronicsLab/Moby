@@ -183,7 +183,7 @@ void CRBAlgorithm::calc_generalized_inertia(RCArticulatedBodyPtr body)
     transform_and_mult(outboard, _Ic[oidx], s, _Is);
 
     // compute the requisite columns of K
-    SharedMatrixNd Kb = K.block(0, SPATIAL_DIM, jidx, jidx+joint->num_dof()); 
+    SharedMatrixNd Kb = KT.block(0, SPATIAL_DIM, jidx, jidx+joint->num_dof()); 
     to_matrix(_Is, Kb);
   }
 
@@ -191,7 +191,7 @@ void CRBAlgorithm::calc_generalized_inertia(RCArticulatedBodyPtr body)
   Pose3d::transform(GLOBAL, _Ic.front()).to_matrix(Ic0);
 
   // setup the remainder of the augmented inertia matrix
-  Opsd::transpose(K, KT);  // TODO: special transpose necessary here?
+  Opsd::transpose(KT, K);  // TODO: special transpose necessary here? check whether matrix is symmetric
 
   FILE_LOG(LOG_DYNAMICS) << "(unpermuted) [H K; K' Ic0]: " << std::endl << M;
 
@@ -375,7 +375,6 @@ void CRBAlgorithm::calc_joint_space_inertia(RCArticulatedBodyPtr body, MatrixNd&
     RigidBodyPtr outboard = ijoints[i]->get_outboard_link(); 
     unsigned oidx = outboard->get_index();
     const std::vector<SVelocityd>& s = ijoints[i]->get_spatial_axes();
-Transform3d Tx = Pose3d::calc_relative_pose(s[0].pose, Ic[oidx].pose);
     Pose3d::transform(Ic[oidx].pose, s, _sprime);
     mult(Ic[oidx], _sprime, _momenta[oidx]);
     FILE_LOG(LOG_DYNAMICS) << "s: " << _sprime[0] << std::endl;
@@ -835,9 +834,14 @@ void CRBAlgorithm::calc_generalized_forces(SForced& f0, VectorNd& C)
 
     // add this link's contribution
     Pose3d::transform(_a[i].pose, s, _sprime);
-    SVelocityd sqd = mult(s, qd);
-    sqd.pose = vx.pose;
-    _a[i] = vx.cross(sqd);
+    if (_sprime.empty())
+      _a[i].set_zero(vx.pose);
+    else
+    {
+      SVelocityd sqd = mult(_sprime, qd);
+      sqd.pose = vx.pose;
+      _a[i] = vx.cross(sqd);
+    }
     if (!sdot.empty())
       _a[i] += SAcceld(mult(Pose3d::transform(_a[i].pose, sdot, _sprime), qd)); 
 
@@ -1012,9 +1016,12 @@ void CRBAlgorithm::update_link_accelerations(RCArticulatedBodyPtr body)
 
     // determine the link accel
     Pose3d::transform(ai.pose, s, _sprime);
-    SVelocityd sqd = mult(_sprime, joint->qd);
-    ai += SAcceld(link->get_velocity().cross(sqd));
-    ai += SAcceld(mult(_sprime, joint->qdd)); 
+    if (!_sprime.empty())
+    {
+      SVelocityd sqd = mult(_sprime, joint->qd);
+      ai += SAcceld(link->get_velocity().cross(sqd));
+      ai += SAcceld(mult(_sprime, joint->qdd)); 
+    }
     link->set_accel(ai);
 
     FILE_LOG(LOG_DYNAMICS) << "    -- updating link " << link->id << std::endl;

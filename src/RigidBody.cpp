@@ -490,8 +490,8 @@ void RigidBody::set_inertial_pose(const Pose3d& P)
   if (P.rpose != _F)
     throw std::runtime_error("RigidBody::set_inertial_pose() - inertial pose not defined relative to body pose");
 
-  // set the pose
-  *_F = P;
+  // set the inertial pose
+  *_jF = P;
 
   // invalidate vectors using inertial frame 
   _xdm_valid = _xddm_valid = _forcem_valid = false; 
@@ -1382,12 +1382,18 @@ VectorNd& RigidBody::solve_generalized_inertia_single(const VectorNd& b, VectorN
 /// Gets the generalized position of this rigid body (does not call articulated body version)
 VectorNd& RigidBody::get_generalized_coordinates_single(GeneralizedCoordinateType gctype, VectorNd& gc) 
 {
+  const unsigned N_SPATIAL = 6, N_EULER = 7;
+
   // special case: disabled body
   if (!_enabled)
     return gc.resize(0);
 
   // resize vector
-  gc.resize(num_generalized_coordinates(gctype));
+  switch (gctype)
+  {
+    case eEuler:   gc.resize(N_EULER); break;
+    case eSpatial: gc.resize(N_SPATIAL); break;
+  }
 
   // convert current pose to global frame
   Pose3d P = *_F;
@@ -1430,8 +1436,6 @@ VectorNd& RigidBody::get_generalized_coordinates(GeneralizedCoordinateType gctyp
 /// Sets the generalized coordinates of this rigid body (does not call articulated body)
 void RigidBody::set_generalized_coordinates_single(GeneralizedCoordinateType gctype, const VectorNd& gc)
 {
-  assert(gc.size() == num_generalized_coordinates(gctype));
-
   // special case: disabled body
   if (!_enabled)
     return;
@@ -1556,12 +1560,18 @@ VectorNd& RigidBody::get_generalized_velocity(GeneralizedCoordinateType gctype, 
 /// Gets the generalized velocity of this rigid body (does not call articulated body version)
 VectorNd& RigidBody::get_generalized_velocity_single(GeneralizedCoordinateType gctype, VectorNd& gv) 
 {
+  const unsigned N_SPATIAL = 6, N_EULER = 7;
+
   // special case: disabled body
   if (!_enabled)
     return gv.resize(0);
 
-  // resize the generalized velocity
-  gv.resize(num_generalized_coordinates(gctype));
+  // resize the generalized velocity vector
+  switch (gctype)
+  {
+    case eEuler:   gv.resize(N_EULER); break;
+    case eSpatial: gv.resize(N_SPATIAL); break;
+  }
 
   // get the velocity
   SVelocityd xd = Pose3d::transform(_F2, _xd0);
@@ -1614,12 +1624,14 @@ VectorNd& RigidBody::get_generalized_acceleration(VectorNd& ga)
 /// Gets the generalized acceleration of this body (does not call articulated body version)
 VectorNd& RigidBody::get_generalized_acceleration_single(VectorNd& ga)
 {
+  const unsigned N_SPATIAL = 6;
+
   // special case: body is disabled
   if (!_enabled)
     return ga.resize(0);
 
   // setup the linear components
-  ga.resize(num_generalized_coordinates(DynamicBody::eSpatial));
+  ga.resize(N_SPATIAL);
 
   // get the acceleration 
   SAcceld xdd = Pose3d::transform(_F2, _xdd0);
