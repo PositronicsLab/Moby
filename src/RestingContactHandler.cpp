@@ -58,8 +58,9 @@ using boost::dynamic_pointer_cast;
         apply_model(contacts);
         RETURN_FLAG = true;
       }
-      catch(EnergyToleranceException e)
+      catch(RestingContactFailException e)
       {
+
         FILE_LOG(LOG_EVENT) << "Resting Contacting formulation failed: try using Impact model instead" << endl;
       }
     }
@@ -194,7 +195,7 @@ using boost::dynamic_pointer_cast;
         epd.super_bodies[i]->get_generalized_acceleration(a);
       }
 
-      throw EnergyToleranceException(contacts);
+      throw RestingContactFailException(contacts);
     }
 
     FILE_LOG(LOG_EVENT) << "RestingContactHandler::apply_model_to_connected_contacts() exiting" << endl;
@@ -498,17 +499,8 @@ using boost::dynamic_pointer_cast;
   // setup the LCP vector
   qq.set_zero(MM.rows());
   qq.set_sub_vec(0,q.Cn_a);
-//  FILE_LOG(LOG_EVENT) << " Cn_iM_CnT : "  << std::endl << q.Cn_iM_CnT;
 
   if(q.N_STICKING > 0){
-//    FILE_LOG(LOG_EVENT) << " Cn_iM_CsT : " << std::endl << q.Cn_iM_CsT ;
-//    FILE_LOG(LOG_EVENT) << " Cn_iM_CtT : " << std::endl << q.Cn_iM_CtT ;
-//    FILE_LOG(LOG_EVENT) << " Cs_iM_CnT : " << std::endl << q.Cs_iM_CnT ;
-//    FILE_LOG(LOG_EVENT) << " Cs_iM_CsT : " << std::endl << q.Cs_iM_CsT ;
-//    FILE_LOG(LOG_EVENT) << " Cs_iM_CtT : "  << std::endl<< q.Cs_iM_CtT;
-//    FILE_LOG(LOG_EVENT) << " Ct_iM_CnT : "  << std::endl<< q.Ct_iM_CnT ;
-//    FILE_LOG(LOG_EVENT) << " Ct_iM_CsT : " << std::endl << q.Ct_iM_CsT ;
-//    FILE_LOG(LOG_EVENT) << " Ct_iM_CtT : "  << std::endl<< q.Ct_iM_CtT ;
 
     UL.set_sub_mat(q.N_CONTACTS,q.N_CONTACTS,q.Cs_iM_CsT);
     UL.set_sub_mat(q.N_CONTACTS,0,q.Cs_iM_CnT);
@@ -585,8 +577,6 @@ using boost::dynamic_pointer_cast;
       }
     }
 
-//    FILE_LOG(LOG_EVENT) << " UPPER RIGHT : "  << std::endl<< UR;
-//    FILE_LOG(LOG_EVENT) << " LOWER LEFT : " << std::endl << LL;
     // setup the LCP matrix
     MM.set_sub_mat(0, UL.columns(), UR);
     MM.set_sub_mat(UL.rows(), 0, LL);
@@ -599,7 +589,7 @@ using boost::dynamic_pointer_cast;
     qq.set_sub_vec(q.N_CONTACTS+q.N_STICKING,q.Cs_a);
     qq.set_sub_vec(q.N_CONTACTS+q.N_STICKING*3,q.Ct_a);
   }
-//  FILE_LOG(LOG_EVENT) << " UPPER LEFT : "  << std::endl<< UL;
+
   MM.set_sub_mat(0, 0, UL);
 
   FILE_LOG(LOG_EVENT) << " LCP matrix: " << std::endl << MM;
@@ -607,7 +597,7 @@ using boost::dynamic_pointer_cast;
 
   // solve the LCP
   if (!_lcp.lcp_lemke_regularized(MM, qq, z))
-   throw std::runtime_error("Unable to solve resting contact LCP!");
+    throw RestingContactFailException(qq,MM);
 
   for(unsigned i=0,j=0;i<q.N_CONTACTS;i++)
   {

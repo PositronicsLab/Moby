@@ -37,15 +37,35 @@ class RestingContactHandler
 }; // end class
 
 /// Exception thrown when trying to initialize a fixed size vector/matrix with the wrong size
-class EnergyToleranceException : public std::runtime_error
+//class EnergyToleranceException : public std::runtime_error
+//{
+//  public:
+//    EnergyToleranceException(const std::list<Event*>& contact_events) : std::runtime_error("post-event Kinetic Energy exceeds pre-event Kinetic Energy!") { events = contact_events; }
+
+//    virtual ~EnergyToleranceException() throw() { }
+
+//  std::list<Event*> events;
+//}; // end class
+
+class RestingContactFailException : public std::runtime_error
 {
   public:
-    EnergyToleranceException(const std::list<Event*>& contact_events) : std::runtime_error("post-event Kinetic Energy exceeds pre-event Kinetic Energy!") { events = contact_events; }
+    RestingContactFailException(const std::list<Event*>& contact_events) : std::runtime_error("post-event Kinetic Energy exceeds pre-event Kinetic Energy!") { events = contact_events; type = EnergyTolerance;}
+    RestingContactFailException(const Ravelin::VectorNd& lcpv, const Ravelin::MatrixNd& lcpM) : std::runtime_error("Unable to solve resting contact LCP!") { v = lcpv; M = lcpM; type = LCPFail;}
 
-    virtual ~EnergyToleranceException() throw() { }
+    virtual ~RestingContactFailException() throw() { }
 
-  std::list<Event*> events;
+    enum FailType{
+      LCPFail,
+      EnergyTolerance
+    };
+
+    FailType type;
+    std::list<Event*> events;
+    Ravelin::VectorNd v;
+    Ravelin::MatrixNd M;
 }; // end class
+
 } // end namespace
 
 #endif // RESTINGCONTACTHANDLER_H
