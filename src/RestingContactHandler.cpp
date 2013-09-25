@@ -566,7 +566,7 @@ using boost::dynamic_pointer_cast;
         {
           // TODO: MIGHT NEED TO NEGATE
           // muK
-          LL(r+k,i) = 0.4;//ci->contact_mu_coulomb;
+          LL(r+k,i) = ci->contact_mu_coulomb;
           // Xs
           LL(r+k,q.N_CONTACTS+j)                = -cos((M_PI*k)/(2.0*nk4));
           LL(r+k,q.N_CONTACTS+q.N_STICKING+j)   = -cos((M_PI*k)/(2.0*nk4));
