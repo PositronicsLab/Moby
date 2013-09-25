@@ -1478,21 +1478,10 @@ std::ostream& Moby::operator<<(std::ostream& o, const Event& e)
     o << "contact point / normal pose: " << ((e.contact_point.pose) ? Pose3d(*e.contact_point.pose).update_relative_pose(GLOBAL) : GLOBAL) << std::endl;
     o << "contact point: " << e.contact_point << " frame: " << std::endl;
     o << "normal: " << e.contact_normal << " frame: " << std::endl;
-
-    // determine the relative normal velocity at the contact point
-    // get the rigid bodies of the contact
-    if (e.contact_geom1 && e.contact_geom2)
-    {
-      SingleBodyPtr sb1(e.contact_geom1->get_single_body());
-      SingleBodyPtr sb2(e.contact_geom2->get_single_body());
-      if (sb1 && sb2)
-      {
-        double cp1 = sb1->calc_point_vel(e.contact_point, e.contact_normal);
-        double cp2 = sb2->calc_point_vel(e.contact_point, e.contact_normal);
-        double rvel = cp1 - cp2; 
-        o << "relative normal velocity: " << rvel << std::endl;
-      }
-    }
+    if (e.deriv_type == Event::eVel)
+      o << "relative normal velocity: " << e.calc_event_vel() << std::endl;
+    else
+      o << "relative normal acceleration: " << e.calc_event_accel() << std::endl;
   }
 
   return o;

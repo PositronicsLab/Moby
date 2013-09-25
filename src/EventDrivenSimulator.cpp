@@ -46,6 +46,9 @@ EventDrivenSimulator::EventDrivenSimulator()
   _simulation_violated = false;
   render_contact_points = false;
 
+  // setup the resting contact force
+  _resting_contact_forces = shared_ptr<RestingContactForce>(new RestingContactForce);
+
   // setup absolute and relative error tolerances
   rel_err_tol = NEAR_ZERO;
   abs_err_tol = NEAR_ZERO;
@@ -546,6 +549,22 @@ double EventDrivenSimulator::step(double step_size)
   const double INF = std::numeric_limits<double>::max();
   const double SMALL_STEP = 1e-4;
 
+  // make sure every body has a pointer to the resting contact handler
+  BOOST_FOREACH(DynamicBodyPtr db, _bodies)
+  {
+    bool found = false;
+    BOOST_FOREACH(RecurrentForcePtr rf, db->get_recurrent_forces())
+    {
+      if (rf == _resting_contact_forces)
+      {
+        found = true;
+        break;
+      }
+    }
+    if (!found)
+      db->get_recurrent_forces().push_back(_resting_contact_forces);
+  }
+
   // clear timings
   dynamics_utime = (double) 0.0;
   dynamics_stime = (double) 0.0;
@@ -553,6 +572,10 @@ double EventDrivenSimulator::step(double step_size)
   event_stime = (double) 0.0;
   coldet_utime = (double) 0.0;
   coldet_stime = (double) 0.0;
+
+  // clear all resting contact forces
+  for (map<DynamicBodyPtr, VectorNd>::iterator i = _resting_contact_forces->resting_contact_forces.begin(); i != _resting_contact_forces->resting_contact_forces.end(); i++)
+    i->second.resize(0);
 
   // setup the amount remaining to step
   double dt = step_size;
@@ -766,6 +789,7 @@ void EventDrivenSimulator::compute_directional_derivatives()
 
     // get the first single body (we need consider only one of the two bodies)
     SingleBodyPtr sba = _events[i].contact_geom1->get_single_body();
+
 
     // get the angular velocity of the body in the global frame
     Vector3d omega0 = Pose3d::transform(GLOBAL, sba->get_velocity()).get_angular();
@@ -1096,7 +1120,6 @@ bool EventDrivenSimulator::solve_acceleration_events()
   assert(!_events.empty());
 
   // attempt to process the events
-//  return false;
   return _resting_contact_handler.process_events(_events);
 }
 

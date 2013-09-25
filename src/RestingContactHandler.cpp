@@ -18,6 +18,7 @@
 #include <Moby/Log.h>
 #include <Moby/XMLTree.h>
 #include <Moby/NumericalException.h>
+#include <Moby/RestingContactForce.h>
 #include <Moby/CompGeom.h>
 
 #include <Moby/Event.h>
@@ -199,7 +200,7 @@ using boost::dynamic_pointer_cast;
     FILE_LOG(LOG_EVENT) << "RestingContactHandler::apply_model_to_connected_contacts() exiting" << endl;
   }
 
-  /// Applies impulses to bodies
+  /// Applies resting contact forces to bodies and saves the generalized forces
   void RestingContactHandler::apply_forces(const ContactProblemData& q) const
   {
     map<DynamicBodyPtr, VectorNd> gj;
@@ -241,9 +242,27 @@ using boost::dynamic_pointer_cast;
       }
     }
 
-     // apply all generalized forces NOTE: this is simply chnaged from apply_generalized_impulse()-- scale by dt?
+    // apply all generalized forces 
     for (map<DynamicBodyPtr, VectorNd>::const_iterator i = gj.begin(); i != gj.end(); i++)
-      i->first->apply_generalized_impulse(i->second);
+    {
+      // apply the force     
+      i->first->add_generalized_force(i->second);
+
+      // add it to the resting contact recurrent force, so it can be added
+      // upon integration
+      BOOST_FOREACH(RecurrentForcePtr rf, i->first->get_recurrent_forces())
+      {
+        shared_ptr<RestingContactForce> rcf = dynamic_pointer_cast<RestingContactForce>(rf);
+        if (rcf)
+        {
+          VectorNd& f = rcf->resting_contact_forces[i->first]; 
+          if (f.size() == i->second.size())
+            f += i->second;
+          else
+            f = i->second;
+        }
+      }
+    }
   }
 
   /// Computes the data to the LCP / QP problems
@@ -308,7 +327,7 @@ using boost::dynamic_pointer_cast;
     q.CS_IDX = q.CN_IDX + q.N_CONTACTS;
     q.CT_IDX = q.CS_IDX + q.N_CONTACTS;
     q.NCS_IDX = q.CT_IDX + q.N_CONTACTS;
-//    q.NCT_IDX = q.NCS_IDX + q.N_LIN_CONE;
+    q.NCT_IDX = q.NCS_IDX + q.N_CONTACTS;
     // TODO: add event computation and cross computation methods to Joint
 
     // get iterators to the proper matrices
@@ -588,6 +607,33 @@ using boost::dynamic_pointer_cast;
       q.cs[i] = -ci->contact_mu_coulomb*q.cn[i];
       q.ct[i] = 0.0;
     }
+  }
+
+  // setup a temporary frame
+  shared_ptr<Pose3d> P(new Pose3d);
+
+  // save normal contact impulses
+  for (unsigned i=0; i< q.events.size(); i++)
+  {
+    // verify that the event type is a contact
+    assert(q.events[i]->event_type == Event::eContact);
+
+    // setup the contact frame
+    P->q.set_identity();
+    P->x = q.events[i]->contact_point;
+
+    // setup the impulse in the contact frame
+    Vector3d f;
+    f = q.events[i]->contact_normal * q.cn[i];
+    f += q.events[i]->contact_tan1 * q.cs[i];
+    f += q.events[i]->contact_tan2 * q.ct[i];
+
+    // setup the spatial force
+    SForced fx(boost::const_pointer_cast<const Pose3d>(P));
+    fx.set_force(f);    
+
+    // transform the impulse to the global frame
+    q.events[i]->contact_impulse = Pose3d::transform(GLOBAL, fx);
   }
 
   FILE_LOG(LOG_EVENT) << "cn " << q.cn << std::endl;
