@@ -28,72 +28,6 @@ class EventDrivenSimulator : public Simulator
   friend class DeformableCCD;
 
   private:
-/*
-    // interval type for generalized velocity
-    class Interval
-    {
-      public:
-        enum IntervalType { eBinary, eTernary, eQuaternary };
-        double get_position(double t);
-        double get_velocity(double t);
-
-        // what type of interval is this?
-        IntervalType type;
-
-        // beginning/end of interval coordinates 
-        double q0, qf;
-
-        // beginning/end of interval velocities
-        double qd0, qdf;
-
-        // midpoint for ternary interval
-        double qc;
-
-        // constant for ternary and quaternary intervals
-        double tc;
-
-        // constants for quaternary intervals
-        double ta, tb, k1, k2, qa, qb;
-
-      private:
-        void calc_ternary_interval();
-        void calc_quaternary_interval();
-    };
-
-    class CoordIterator
-    {
-      friend class PhaseSequence;
-
-      public:
-        CoordIterator() { _counter = 0; _total = 0; }
-        bool has_next() const { return _counter < _total; }
-        void get_next(double& t0, double& tf, std::vector<Ravelin::VectorNd>& q0, std::vector<Ravelin::VectorNd>& qf);
-
-      private:
-        unsigned _counter; 
-    };      
-
-    // class for storing a sequence of generalized coordinates and velocities
-    class PhaseSequence
-    {
-      public:
- 
-        /// sequence of bodies
-        std::vector<DynamicBodyPtr> bodies;
-
-        /// sequence of generalized coordinates, given per body
-        std::vector<std::vector<Ravelin::VectorNd> > q;
-
-        /// sequence of velocity intervals
-        std::vector<std::vector<Interval> > qd;
-
-        /// gets the generalized velocities at the given t
-        void get_velocities(std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> >& velocities) const;
-
-        /// gets the iterator over the coordinates
-        CoordIterator iterator() const;    
-    };
-*/
     // class for comparing two events for purposes of setting event tolerances
     class EventCompare
     {
@@ -139,9 +73,6 @@ class EventDrivenSimulator : public Simulator
     virtual double step(double dt);
     void get_coords(std::vector<Ravelin::VectorNd>& q) const;
     void get_velocities(std::vector<Ravelin::VectorNd>& q) const;
-
-    /// The phase sequence
-//    PhaseSequence _phases;
 
     /// The coordinates vector before and after the step
     std::vector<Ravelin::VectorNd> _q0, _qf;

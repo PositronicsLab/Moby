@@ -306,13 +306,6 @@ void RigidBody::integrate(double t, double h, shared_ptr<Integrator> integrator)
 */
 }
 
-/// Computes the acceleration due to inertial forces on the body
-SForced RigidBody::calc_inertial_forces()
-{
-  const SVelocityd& xd = get_velocity(); 
-  return xd.cross(get_inertia() * xd); 
-}
-
 /// Computes the forward dynamics for this body
 void RigidBody::calc_fwd_dyn()
 {
@@ -327,7 +320,7 @@ void RigidBody::calc_fwd_dyn()
     // otherwise, calculate forward dynamics
     const SpatialRBInertiad& J = get_inertia();
     const SForced& f = sum_forces(); 
-    SAcceld xdd = J.inverse_mult(f - calc_inertial_forces());
+    SAcceld xdd = J.inverse_mult(f);
 
     // set the acceleration
     switch (_rftype)
@@ -630,10 +623,23 @@ const SAcceld& RigidBody::get_accel()
 /// Resets the force accumulators on this body
 void RigidBody::reset_accumulators()
 {
-  _force0.set_zero();
-  _forcei.set_zero(); _forcei_valid = true;
-  _forcem.set_zero(); _forcem_valid = true;
-  _forcej.set_zero(); _forcej_valid = true;
+  // invalidate accumulators
+  _forcei_valid = false;
+  _forcem_valid = false;
+  _forcej_valid = false;
+
+  // compute the velocity-derived forces on the body 
+  const SVelocityd& xd = get_velocity(); 
+  SForced f = xd.cross(get_inertia() * xd); 
+
+  // update the accumulator
+  switch (_rftype)
+  {
+    case eGlobal:       _force0 = f; break;
+    case eLink:         _forcei = f; _forcei_valid = true; break;
+    case eLinkInertia:  _forcem = f; _forcem_valid = true; break;
+    case eJoint:        _forcej = f; _forcej_valid = true; break;
+  }
 }
 
 /// Sets the current 3D pose for this rigid body
@@ -1714,8 +1720,8 @@ VectorNd& RigidBody::get_generalized_forces_single(VectorNd& gf)
   const unsigned NGC = num_generalized_coordinates(DynamicBody::eSpatial); 
   gf.resize(NGC);
 
-  // compute external forces and inertial forces in global frame
-  SForced w = Pose3d::transform(_F2, _force0) - Pose3d::transform(_F2, calc_inertial_forces());
+  // compute external forces in global frame
+  SForced w = Pose3d::transform(_F2, _force0);
 
   // get force and torque
   Vector3d f = w.get_force();

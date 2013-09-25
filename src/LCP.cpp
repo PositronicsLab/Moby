@@ -52,7 +52,9 @@ bool LCP::lcp_lemke_regularized(const MatrixNd& M, const VectorNd& q, VectorNd& 
   _MM = M;
 
   // assign value for zero tolerance, if necessary
-  const double ZERO_TOL = (zero_tol > (double) 0.0) ? zero_tol : q.size() * std::numeric_limits<double>::epsilon();
+  const double ZERO_TOL = (zero_tol > (double) 0.0) ? zero_tol : q.size() * M.norm_inf() * std::numeric_limits<double>::epsilon();
+
+  FILE_LOG(LOG_OPT) << " zero tolerance: " << ZERO_TOL << endl;
 
   // try non-regularized version first
   bool result = lcp_lemke(_MM, q, z, piv_tol, zero_tol);
@@ -74,7 +76,17 @@ bool LCP::lcp_lemke_regularized(const MatrixNd& M, const VectorNd& q, VectorNd& 
           FILE_LOG(LOG_OPT) << "LCP::lcp_lemke_regularized() exited" << endl;
           return true;
         }
+        else
+        {
+          FILE_LOG(LOG_OPT) << "  LCP::lcp_lemke() - 'w' not solved to desired tolerance" << std::endl;
+          FILE_LOG(LOG_OPT) << "  w: " << _wx << std::endl;
+        }
       }
+    }
+    else
+    {
+      FILE_LOG(LOG_OPT) << "  LCP::lcp_lemke() - 'z' not solved to desired tolerance" << std::endl;
+      FILE_LOG(LOG_OPT) << "  z: " << z << std::endl;
     }
   }
 
@@ -111,6 +123,16 @@ bool LCP::lcp_lemke_regularized(const MatrixNd& M, const VectorNd& q, VectorNd& 
             return true;
           }
         }
+        else
+        {
+          FILE_LOG(LOG_OPT) << "  LCP::lcp_lemke() - 'w' not solved to desired tolerance" << std::endl;
+          FILE_LOG(LOG_OPT) << "  w: " << _wx << std::endl;
+        }
+      }
+      else
+      {
+        FILE_LOG(LOG_OPT) << "  LCP::lcp_lemke() - 'z' not solved to desired tolerance" << std::endl;
+        FILE_LOG(LOG_OPT) << "  z: " << z << std::endl;
       }
     }
 
