@@ -167,7 +167,7 @@ struct ContactProblemData
   unsigned N_K_TOTAL;
 
   // the total number of sticking contacts (out of N_CONTACTS)
-  unsigned N_STICKING; // NOTE!:THis value is not calculated yet
+  unsigned N_STICKING;
 
   // the number of contacts
   unsigned N_CONTACTS;

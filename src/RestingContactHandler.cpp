@@ -58,8 +58,9 @@ using boost::dynamic_pointer_cast;
         apply_model(contacts);
         RETURN_FLAG = true;
       }
-      catch(EnergyToleranceException e)
+      catch(RestingContactFailException e)
       {
+
         FILE_LOG(LOG_EVENT) << "Resting Contacting formulation failed: try using Impact model instead" << endl;
       }
     }
@@ -164,7 +165,7 @@ using boost::dynamic_pointer_cast;
     // apply FORCES
     apply_forces(epd);
 
-    bool ENERGY_GAINED = true;
+    bool ENERGY_GAINED = false;
     // compute energy
     for (unsigned i=0; i< epd.super_bodies.size(); i++)
     {
@@ -177,24 +178,24 @@ using boost::dynamic_pointer_cast;
       M.mult(a,v);
       ke_plus[i] = v.dot(a);
       // Test if energy has been gained by this body
-      ENERGY_GAINED = !CompGeom::rel_equal(ke_plus[i],ke_minus[i]) && ((ke_plus[i]-ke_minus[i]) > 0);
-      FILE_LOG(LOG_EVENT) << "energy gained? " << ENERGY_GAINED << ", from " << ke_minus[i] << " to " << ke_plus[i] << std::endl;
+      ENERGY_GAINED |= !CompGeom::rel_equal(ke_plus[i],ke_minus[i]) && ((ke_plus[i]-ke_minus[i]) > 0);
     }
 
-    FILE_LOG(LOG_EVENT) << "energy before = " << ke_minus << "\n energy after = " << ke_plus << endl;
+    FILE_LOG(LOG_EVENT) << "energy before = " << ke_minus << ", energy after = " << ke_plus << endl;
 
     if (ENERGY_GAINED){
       FILE_LOG(LOG_EVENT) << "warning! KE gain detected! energy before=" << ke_minus << " energy after=" << ke_plus << endl;
+      // Back out Contact forces applied by Resting Contact
       epd.cn.negate();
       epd.cs.negate();
       epd.ct.negate();
       apply_forces(epd);
-
       for (unsigned i=0; i< epd.super_bodies.size(); i++){
         epd.super_bodies[i]->calc_fwd_dyn();
         epd.super_bodies[i]->get_generalized_acceleration(a);
       }
-      throw EnergyToleranceException(contacts);
+
+      throw RestingContactFailException(contacts);
     }
 
     FILE_LOG(LOG_EVENT) << "RestingContactHandler::apply_model_to_connected_contacts() exiting" << endl;
@@ -465,11 +466,15 @@ using boost::dynamic_pointer_cast;
   SAFESTATIC VectorNd qq,workv;
   FILE_LOG(LOG_EVENT) << "RestingContactHandler::solve_lcp() entered" << std::endl;
 
-  const unsigned NK_DIRS = q.N_STICKING*((q.N_K_TOTAL+4)/4);
+  unsigned NK_DIRS = 0;
+  for(unsigned i=0,j=0,r=0;i<q.N_CONTACTS;i++)
+    if(q.events[i]->get_friction_type() == Event::eSticking)
+      NK_DIRS+=(q.events[i]->contact_NK+4)/4;
   // setup sizes
   UL.set_zero(q.N_CONTACTS+q.N_STICKING*4, q.N_CONTACTS+q.N_STICKING*4);
   UR.set_zero(q.N_CONTACTS+q.N_STICKING*4, NK_DIRS);
   LL.set_zero(NK_DIRS, q.N_CONTACTS+q.N_STICKING*4);
+  MM.set_zero(UL.rows() + LL.rows(), UL.columns() + UR.columns());
 
   // now do upper right hand block of LCP matrix
   /*     n          r          r           r           r
@@ -490,14 +495,13 @@ using boost::dynamic_pointer_cast;
     */
   UL.set_sub_mat(0,0,q.Cn_iM_CnT);
   // setup the LCP matrix
-  MM.set_zero(UL.rows() + LL.rows(), UL.columns() + UR.columns());
-  MM.set_sub_mat(0, 0, UL);
 
   // setup the LCP vector
   qq.set_zero(MM.rows());
   qq.set_sub_vec(0,q.Cn_a);
 
   if(q.N_STICKING > 0){
+
     UL.set_sub_mat(q.N_CONTACTS,q.N_CONTACTS,q.Cs_iM_CsT);
     UL.set_sub_mat(q.N_CONTACTS,0,q.Cs_iM_CnT);
     UL.set_sub_mat(0,q.N_CONTACTS,q.Cn_iM_CsT);
@@ -544,7 +548,7 @@ using boost::dynamic_pointer_cast;
 
 
     // lower left & upper right block of matrix
-    for(unsigned i=0,j=0;i<q.N_CONTACTS;i++)
+    for(unsigned i=0,j=0,r=0;i<q.N_CONTACTS;i++)
     {
       const Event* ci =  q.events[i];
       if(ci->get_friction_type() == Event::eSticking)
@@ -554,20 +558,21 @@ using boost::dynamic_pointer_cast;
         {
           // TODO: MIGHT NEED TO NEGATE
           // muK
-          LL(j*nk4+k,i) = ci->contact_mu_coulomb;
+          LL(r+k,i) = ci->contact_mu_coulomb;
           // Xs
-          LL(j*nk4+k,q.N_CONTACTS+j) = -cos((M_PI*k)/(2.0*nk4));
-          LL(j*nk4+k,q.N_CONTACTS+q.N_STICKING+j) = -cos((M_PI*k)/(2.0*nk4));
-          // XsT
-          UR(q.N_CONTACTS+j,j*nk4+k) = cos((M_PI*k)/(2.0*nk4));
-          UR(q.N_CONTACTS+q.N_STICKING+j,j*nk4+k) = cos((M_PI*k)/(2.0*nk4));
+          LL(r+k,q.N_CONTACTS+j)                = -cos((M_PI*k)/(2.0*nk4));
+          LL(r+k,q.N_CONTACTS+q.N_STICKING+j)   = -cos((M_PI*k)/(2.0*nk4));
           // Xt
-          LL(j*nk4+k,q.N_CONTACTS+q.N_STICKING+j) = -sin((M_PI*k)/(2.0*nk4));
-          LL(j*nk4+k,q.N_CONTACTS+q.N_STICKING*3+j) = -sin((M_PI*k)/(2.0*nk4));
+          LL(r+k,q.N_CONTACTS+q.N_STICKING*2+j) = -sin((M_PI*k)/(2.0*nk4));
+          LL(r+k,q.N_CONTACTS+q.N_STICKING*3+j) = -sin((M_PI*k)/(2.0*nk4));
+          // XsT
+          UR(q.N_CONTACTS+j,r+k)                =  cos((M_PI*k)/(2.0*nk4));
+          UR(q.N_CONTACTS+q.N_STICKING+j,r+k)   =  cos((M_PI*k)/(2.0*nk4));
           // XtT
-          UR(q.N_CONTACTS+q.N_STICKING+j,j*nk4+k) = sin((M_PI*k)/(2.0*nk4));
-          UR(q.N_CONTACTS+q.N_STICKING*3+j,j*nk4+k) = sin((M_PI*k)/(2.0*nk4));
+          UR(q.N_CONTACTS+q.N_STICKING*2+j,r+k) =  sin((M_PI*k)/(2.0*nk4));
+          UR(q.N_CONTACTS+q.N_STICKING*3+j,r+k) =  sin((M_PI*k)/(2.0*nk4));
         }
+        r+=nk4;
         j++;
       }
     }
@@ -584,12 +589,15 @@ using boost::dynamic_pointer_cast;
     qq.set_sub_vec(q.N_CONTACTS+q.N_STICKING,q.Cs_a);
     qq.set_sub_vec(q.N_CONTACTS+q.N_STICKING*3,q.Ct_a);
   }
+
+  MM.set_sub_mat(0, 0, UL);
+
   FILE_LOG(LOG_EVENT) << " LCP matrix: " << std::endl << MM;
   FILE_LOG(LOG_EVENT) << " LCP vector: " << qq << std::endl;
 
   // solve the LCP
   if (!_lcp.lcp_lemke_regularized(MM, qq, z))
-   throw std::runtime_error("Unable to solve resting contact LCP!");
+    throw RestingContactFailException(qq,MM);
 
   for(unsigned i=0,j=0;i<q.N_CONTACTS;i++)
   {
