@@ -2321,15 +2321,16 @@ void Event::determine_contact_tangents()
   // get the velocities at the point of contat
   const SVelocityd& va = sba->get_velocity(); 
   const SVelocityd& vb = sbb->get_velocity();
-  boost::shared_ptr<const Pose3d> cp_pose(new Pose3d(Ravelin::Origin3d(contact_point),contact_point.pose));
-  SVelocityd ta = Pose3d::transform(cp_pose, va);
-  SVelocityd tb = Pose3d::transform(cp_pose, vb);
+  SVelocityd ta = Pose3d::transform(contact_point.pose, va);
+  SVelocityd tb = Pose3d::transform(contact_point.pose, vb);
   Vector3d rvel = ta.get_linear() - tb.get_linear();
-  rvel.pose = GLOBAL;
+
+  // get the normal in the same frame
+  Vector3d normal_cp = Pose3d::transform_vector(contact_point.pose, contact_normal);
 
   // now remove the normal components from this relative velocity
-  double dot = contact_normal.dot(rvel);
-  rvel -= (contact_normal * dot);
+  double dot = normal_cp.dot(rvel);
+  rvel -= (normal_cp * dot);
 
   // see whether we can use this vector as a contact tangent and set the
   // friction type 
