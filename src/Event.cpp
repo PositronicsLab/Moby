@@ -535,8 +535,8 @@ void Event::compute_vevent_data(MatrixNd& M, VectorNd& q) const
     const unsigned NGC2 = su2->num_generalized_coordinates(DynamicBody::eSpatial);
 
     // resize the Jacobians 
-    J1.resize(3, NGC1);
-    J2.resize(3, NGC2);
+    J1.set_zero(3, NGC1);
+    J2.set_zero(3, NGC2);
 
     // get the rows of the Jacobians for output
     SharedVectorNd J1n = J1.row(N); 
@@ -1479,7 +1479,21 @@ std::ostream& Moby::operator<<(std::ostream& o, const Event& e)
     o << "contact point: " << e.contact_point << " frame: " << std::endl;
     o << "normal: " << e.contact_normal << " frame: " << std::endl;
     if (e.deriv_type == Event::eVel)
+    {
+      if (e.contact_geom1 && e.contact_geom2)
+      {
+        SingleBodyPtr sb1(e.contact_geom1->get_single_body());
+        SingleBodyPtr sb2(e.contact_geom2->get_single_body());
+        if (sb1 && sb2)
+        {
+          double cp1 = sb1->calc_point_vel(e.contact_point, e.contact_normal);
+          double cp2 = sb2->calc_point_vel(e.contact_point, e.contact_normal);
+          double rvel = cp1 - cp2;
+          o << "relative normal velocity (old calculation): " << rvel << std::endl;
+        }
+      }
       o << "relative normal velocity: " << e.calc_event_vel() << std::endl;
+    }
     else
       o << "relative normal acceleration: " << e.calc_event_accel() << std::endl;
   }
