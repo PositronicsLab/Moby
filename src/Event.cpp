@@ -1415,6 +1415,15 @@ double Event::calc_event_vel() const
     SVelocityd ta = Pose3d::transform(contact_point.pose, va); 
     SVelocityd tb = Pose3d::transform(contact_point.pose, vb); 
 
+    // do a comparison (EMD: I've seen an issue with this and am trying
+    // to reproduce it
+    #ifndef NDEBUG
+    double cpa = sba->calc_point_vel(contact_point, contact_normal);
+    double cpb = sbb->calc_point_vel(contact_point, contact_normal);
+    double rvel = cpa - cpb;
+    assert(std::fabs(rvel - contact_normal.dot(ta.get_linear() - tb.get_linear())) < NEAR_ZERO);
+    #endif
+
     // get the linear velocities and project against the normal
     return contact_normal.dot(ta.get_linear() - tb.get_linear());
   }
@@ -1479,21 +1488,7 @@ std::ostream& Moby::operator<<(std::ostream& o, const Event& e)
     o << "contact point: " << e.contact_point << " frame: " << std::endl;
     o << "normal: " << e.contact_normal << " frame: " << std::endl;
     if (e.deriv_type == Event::eVel)
-    {
-      if (e.contact_geom1 && e.contact_geom2)
-      {
-        SingleBodyPtr sb1(e.contact_geom1->get_single_body());
-        SingleBodyPtr sb2(e.contact_geom2->get_single_body());
-        if (sb1 && sb2)
-        {
-          double cp1 = sb1->calc_point_vel(e.contact_point, e.contact_normal);
-          double cp2 = sb2->calc_point_vel(e.contact_point, e.contact_normal);
-          double rvel = cp1 - cp2;
-          o << "relative normal velocity (old calculation): " << rvel << std::endl;
-        }
-      }
       o << "relative normal velocity: " << e.calc_event_vel() << std::endl;
-    }
     else
       o << "relative normal acceleration: " << e.calc_event_accel() << std::endl;
   }
