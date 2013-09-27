@@ -553,23 +553,23 @@ void GeneralizedCCD::check_vertices(double dt, CollisionGeometryPtr a, Collision
   BOOST_FOREACH(const Point3d* v, a_verts)
   {
     // get v in proper frame
-    Point3d vb = *v;
+    Point3d va = *v;
 
-    // get point in s's frame at time 0 (for distance sorting) 
-    Point3d u_s = ds.sTb_t0.transform_point(vb);
+    // get point in b's frame at time 0 (for distance sorting) 
+    Point3d u_b = ds.bTa_t0.transform_point(va);
 
-    // compute point at time t0 in b coordinates
+    // compute point at time t0 in a coordinates
     if (LOGGING(LOG_COLDET))
     {
       RigidBodyPtr rba = dynamic_pointer_cast<RigidBody>(a->get_single_body()); 
       RigidBodyPtr rbb = dynamic_pointer_cast<RigidBody>(b->get_single_body()); 
       FILE_LOG(LOG_COLDET) << "    -- checking vertex " << *v << " of " << rba->id << " against " << rbb->id << endl;
-      FILE_LOG(LOG_COLDET) << "     -- u_s (local): " << u_s << endl; 
-      FILE_LOG(LOG_COLDET) << "     -- u_s (global): " << Pose3d::transform_point(GLOBAL, Pb_t0.transform_point(vb)) << endl;
+      FILE_LOG(LOG_COLDET) << "     -- u_b (local): " << u_b << endl; 
+      FILE_LOG(LOG_COLDET) << "     -- u_b (global): " << Pose3d::transform_point(GLOBAL, Pb_t0.transform_point(va)) << endl;
     }
 
     // we'll sort on inverse distance from the center of mass (origin of b frame) 
-    double dist = 1.0/u_s.norm_sq();
+    double dist = 1.0/u_b.norm_sq();
 
     // push the vertices onto the queue
     // NOTE: assumes that center of geometry of body a is its C.O.M.
@@ -584,13 +584,13 @@ void GeneralizedCCD::check_vertices(double dt, CollisionGeometryPtr a, Collision
   while (!Q.empty())
   {
     // setup u in the DStruct
-    ds.u_b = Q.back().second;
+    ds.u_a = Q.back().second;
 
     if (LOGGING(LOG_COLDET))
     {
       RigidBodyPtr rba = dynamic_pointer_cast<RigidBody>(a->get_single_body()); 
-      FILE_LOG(LOG_COLDET) << "    -- checking vertex u: " << ds.u_b << " of " << rba->id << endl; 
-      FILE_LOG(LOG_COLDET) << "     -- global pos (t0): " << Pb_t0.transform_point(ds.u_b) << endl;
+      FILE_LOG(LOG_COLDET) << "    -- checking vertex u: " << ds.u_a << " of " << rba->id << endl; 
+      FILE_LOG(LOG_COLDET) << "     -- global pos (t0): " << Pb_t0.transform_point(ds.u_a) << endl;
     }
 
     // determine TOI, if any
@@ -739,32 +739,32 @@ Event GeneralizedCCD::create_contact(double toi, CollisionGeometryPtr a, Collisi
 }
 
 /// Populates the DStruct
-void GeneralizedCCD::populate_dstruct(DStruct* ds, CollisionGeometryPtr gb, const Pose3d& Pb_t0, const Pose3d& Pb_tf, CollisionGeometryPtr gs, const Pose3d& Ps_t0, const Pose3d& Ps_tf, BVPtr s_BV)
+void GeneralizedCCD::populate_dstruct(DStruct* ds, CollisionGeometryPtr ga, const Pose3d& Pa_t0, const Pose3d& Pa_tf, CollisionGeometryPtr gb, const Pose3d& Pb_t0, const Pose3d& Pb_tf, BVPtr b_BV)
 {
   // save the BV
-  ds->s_BV = s_BV;
+  ds->b_BV = b_BV;
 
   // save the geometries 
+  ds->ga = ga;
   ds->gb = gb;
-  ds->gs = gs;
 
   // save frames 
-  ds->Ps_t0 = Ps_t0;
-  ds->Ps_tf = Ps_tf;
+  ds->Pb_t0 = Pb_t0;
+  ds->Pb_tf = Pb_tf;
 
   // compute relative poses at time t0 
+  *ga->_F = Pa_t0;
   *gb->_F = Pb_t0;
-  *gs->_F = Ps_t0;
-  ds->sTb_t0 = Pose3d::calc_relative_pose(gb->get_pose(), gs->get_pose());
+  ds->bTa_t0 = Pose3d::calc_relative_pose(ga->get_pose(), gb->get_pose());
 
   // compute relative poses at time tf 
+  *ga->_F = Pa_tf;
   *gb->_F = Pb_tf;
-  *gs->_F = Ps_tf;
-  ds->sTb_tf = Pose3d::calc_relative_pose(gb->get_pose(), gs->get_pose());
+  ds->bTa_tf = Pose3d::calc_relative_pose(ga->get_pose(), gb->get_pose());
 
   // setup quaternion endpoints for interpolation
-  ds->q0 = ds->sTb_t0.q;
-  ds->qf = ds->sTb_tf.q;
+  ds->q0 = ds->bTa_t0.q;
+  ds->qf = ds->bTa_tf.q;
 }
 
 /// Implements DETERMINE-TOC() [very fast, fully linearized version]
@@ -787,33 +787,33 @@ double GeneralizedCCD::determine_TOI_fast(double t0, double tf, const DStruct* d
   Vector3d nalpha, nbeta, ngamma;
 
   // get the static collision geometry
-  CollisionGeometryPtr gs = ds->gs;
+  CollisionGeometryPtr gb = ds->gb;
 
   // get the primitive for gs (the body treated as static) 
-  shared_ptr<const Primitive> gs_primitive = gs->get_geometry();
+  shared_ptr<const Primitive> gb_primitive = gb->get_geometry();
 
   FILE_LOG(LOG_COLDET) << "GeneralizedCCD::determine_TOI() entered" << endl;
   FILE_LOG(LOG_COLDET) << "  time t0: " << t0 << endl;
   FILE_LOG(LOG_COLDET) << "  time tf: " << tf << endl;
 
-  // get point in gb's frame
-  const Point3d& u_b = ds->u_b;
+  // get point in ga's frame
+  const Point3d& u_a = ds->u_a;
 
-  // get the BV for gs
-  BVPtr gs_BV = ds->s_BV; 
-  assert(gs->get_pose() == gs_BV->get_relative_pose());
+  // get the BV for gb
+  BVPtr gb_BV = ds->b_BV; 
+  assert(gb->get_pose() == gb_BV->get_relative_pose());
 
   // get useful poses
-  const Pose3d& Ps_t0 = ds->Ps_t0;
-  const Pose3d& Ps_tf = ds->Ps_tf;
+  const Pose3d& Pb_t0 = ds->Pb_t0;
+  const Pose3d& Pb_tf = ds->Pb_tf;
 
-  // get u- in gs's frame- at times t0 and tf
-  Point3d u0 = ds->sTb_t0.transform_point(u_b);
-  Point3d uf = ds->sTb_tf.transform_point(u_b);
+  // get u- in gb's frame- at times t0 and tf
+  Point3d u0 = ds->bTa_t0.transform_point(u_a);
+  Point3d uf = ds->bTa_tf.transform_point(u_a);
 
   // check for intersection 
   double t;
-  if (gs_primitive->intersect_seg(gs_BV, LineSeg3(u0, uf), t, cp, normal))
+  if (gb_primitive->intersect_seg(gb_BV, LineSeg3(u0, uf), t, cp, normal))
   {
     FILE_LOG(LOG_COLDET) << "  intersection detected!  time of impact: " << t << " (true: " << (t0 + (tf-t0)*t) << ")" << endl;
 
@@ -828,8 +828,8 @@ double GeneralizedCCD::determine_TOI_fast(double t0, double tf, const DStruct* d
     Origin3d cpo(cp);
     Origin3d no(normal);
     double s = t/(tf-t0);
-    cp = Pose3d::interpolate_transform_point(Ps_t0, Ps_tf, s, cpo);
-    normal = Pose3d::interpolate_transform_vector(Ps_t0, Ps_tf, s, no);
+    cp = Pose3d::interpolate_transform_point(Pb_t0, Pb_tf, s, cpo);
+    normal = Pose3d::interpolate_transform_vector(Pb_t0, Pb_tf, s, no);
 
     // look for degenerate normal
     if (std::fabs(normal.norm() - (double) 1.0) > NEAR_ZERO)
@@ -901,42 +901,42 @@ double GeneralizedCCD::determine_TOI(double t0, double tf, const DStruct* ds, Po
   unsigned nbisects = 0;
 
   // get the static collision geometry
-  CollisionGeometryPtr gs = ds->gs;
+  CollisionGeometryPtr gb = ds->gb;
 
-  // get the primitive for gs (the body treated as static) 
-  shared_ptr<const Primitive> gs_primitive = gs->get_geometry();
+  // get the primitive for gb (the body treated as static) 
+  shared_ptr<const Primitive> gb_primitive = gb->get_geometry();
 
   // get useful poses
-  const Pose3d& Ps_t0 = ds->Ps_t0;
-  const Pose3d& Ps_tf = ds->Ps_tf;
+  const Pose3d& Pb_t0 = ds->Pb_t0;
+  const Pose3d& Pb_tf = ds->Pb_tf;
 
   FILE_LOG(LOG_COLDET) << "GeneralizedCCD::determine_TOI() entered" << endl;
   FILE_LOG(LOG_COLDET) << "  time t0: " << t0 << endl;
   FILE_LOG(LOG_COLDET) << "  time tf: " << tf << endl;
 
-  // get the BV for gs
-  BVPtr gs_BV = ds->s_BV;
+  // get the BV for gb
+  BVPtr gb_BV = ds->b_BV;
 
-  // get transforms between gb's frame and gs's frame
-  const Transform3d& sTb_t0 = ds->sTb_t0;
-  const Transform3d& sTb_tf = ds->sTb_tf;
+  // get transforms between ga's frame and gb's frame
+  const Transform3d& bTa_t0 = ds->bTa_t0;
+  const Transform3d& bTa_tf = ds->bTa_tf;
 
-  // get u in gb's frame (this vector remains constant over time) at t0
-  const Vector3d& u = ds->u_b;
-  Point3d u0_s = sTb_t0.transform_point(u);
+  // get u in ga's frame (this vector remains constant over time) at t0
+  const Vector3d& u = ds->u_a;
+  Point3d u0_b = bTa_t0.transform_point(u);
 
   // get u in gb's frame at tf 
-  Point3d uf_s = sTb_tf.transform_point(u);
+  Point3d uf_b = bTa_tf.transform_point(u);
 
   // setup the axes of the bounding box
-  Vector3d u0uf = uf_s - u0_s;
+  Vector3d u0uf = uf_b - u0_b;
   double norm_u0uf = u0uf.norm();
   if (norm_u0uf < std::numeric_limits<double>::epsilon())
   {
     // arbitrary bounding box
-    nalpha = Vector3d(1,0,0, gs->get_pose());
-    nbeta = Vector3d(0,1,0, gs->get_pose());
-    ngamma = Vector3d(0,0,1, gs->get_pose());
+    nalpha = Vector3d(1,0,0, gb->get_pose());
+    nbeta = Vector3d(0,1,0, gb->get_pose());
+    ngamma = Vector3d(0,0,1, gb->get_pose());
     O.R = Matrix3d::identity();
   }
   else
@@ -958,7 +958,7 @@ double GeneralizedCCD::determine_TOI(double t0, double tf, const DStruct* ds, Po
   // determine whether minimum/maximum deviation is between two planes;
   // if so, determine the interpolation value that yields the minimum
   // and maximum deviation
-  Vector3d normal1(gs->get_pose()), normal2(gs->get_pose());
+  Vector3d normal1(gb->get_pose()), normal2(gb->get_pose());
   double rho1_max = -1.0, rho1_min = -1.0, rho2_max = -1.0, rho2_min = -1.0, rho3_max = -1.0, rho3_min = -1.0;
   double max_d1 = -INF, max_d2 = -INF, max_d3 = -INF;
   double min_d1 = INF, min_d2 = INF, min_d3 = INF;
@@ -1002,41 +1002,42 @@ double GeneralizedCCD::determine_TOI(double t0, double tf, const DStruct* ds, Po
   while (!Q.empty())
   {
     // get the element off of the top of the queue
-    double ta = Q.top().first;
-    double tb = Q.top().second;
+    double tx = Q.top().first;
+    double ty = Q.top().second;
     Q.pop();
 
     // setup delta t
-    const double dt = tb - ta;
+    const double dt = ty - tx;
+    assert(dt > 0.0);
 
     // interpolation parameter ranges from [0,1]; 0 corresponds to t0, 
-    // 1 corresponds to tf.  Determine what ta, tb correspond to
-    const double sa = ta/(tf-t0);
-    const double sb = tb/(tf-t0);
+    // 1 corresponds to tf.  Determine what tx, ty correspond to
+    const double sx = tx/(tf-t0);
+    const double sy = ty/(tf-t0);
 
-    // determine point u at times ta and tb in frame s
-    Point3d ua(Transform3d::interpolate_transform_point(sTb_t0, sTb_tf, sa, Origin3d(ds->u_b)), gs->get_pose());
-    Point3d ub(Transform3d::interpolate_transform_point(sTb_t0, sTb_tf, sb, Origin3d(ds->u_b)), gs->get_pose());
+    // determine point u at times tx and ty in frame b 
+    Point3d ux(Transform3d::interpolate_transform_point(bTa_t0, bTa_tf, sx, Origin3d(ds->u_a)), gb->get_pose());
+    Point3d uy(Transform3d::interpolate_transform_point(bTa_t0, bTa_tf, sy, Origin3d(ds->u_a)), gb->get_pose());
 
-    FILE_LOG(LOG_COLDET) << " -- checking segment for time [" << ta << ", " << tb << "]" << endl;
-    FILE_LOG(LOG_COLDET) << "  p(" << ta << ") = " << ua << "  p(" << tb << ") ~= " << ub << endl;
+    FILE_LOG(LOG_COLDET) << " -- checking segment for time [" << tx << ", " << ty << "]" << endl;
+    FILE_LOG(LOG_COLDET) << "  p(" << tx << ") = " << ux << "  p(" << ty << ") ~= " << uy << endl;
 
     // init deviation maxima/minima
     double dp_alpha = -INF, dp_beta = -INF, dp_gamma = -INF;
     double dn_alpha = INF, dn_beta = INF, dn_gamma = INF;
 
     // see whether this interval contains a minimum/maximum 
-    if (rho1_max >= ta && rho1_max <= tb) dp_alpha = max_d1;
-    if (rho1_min >= ta && rho1_min <= tb) dn_alpha = min_d1;
-    if (rho2_max >= ta && rho2_max <= tb) dp_beta = max_d2;
-    if (rho2_min >= ta && rho2_min <= tb) dn_beta = min_d2;
-    if (rho3_max >= ta && rho3_max <= tb) dp_gamma = max_d3;
-    if (rho3_min >= ta && rho3_min <= tb) dn_gamma = min_d3;
+    if (rho1_max >= tx && rho1_max <= ty) dp_alpha = max_d1;
+    if (rho1_min >= tx && rho1_min <= ty) dn_alpha = min_d1;
+    if (rho2_max >= tx && rho2_max <= ty) dp_beta = max_d2;
+    if (rho2_min >= tx && rho2_min <= ty) dn_beta = min_d2;
+    if (rho3_max >= tx && rho3_max <= ty) dp_gamma = max_d3;
+    if (rho3_min >= tx && rho3_min <= ty) dn_gamma = min_d3;
     
     // calculate deviation at endpoints
-    pair<double, double> deva = calc_deviations(u, nalpha, q0, qf, sa, sb);
-    pair<double, double> devb = calc_deviations(u, nbeta, q0, qf, sa, sb);
-    pair<double, double> devg = calc_deviations(u, ngamma, q0, qf, sa, sb);
+    pair<double, double> deva = calc_deviations(u, nalpha, q0, qf, sx, sy);
+    pair<double, double> devb = calc_deviations(u, nbeta, q0, qf, sx, sy);
+    pair<double, double> devg = calc_deviations(u, ngamma, q0, qf, sx, sy);
   
     // set deviation maxima/minima    
     dn_alpha = std::min(dn_alpha, deva.first);
@@ -1047,40 +1048,40 @@ double GeneralizedCCD::determine_TOI(double t0, double tf, const DStruct* ds, Po
     dp_gamma = std::max(dp_gamma, devg.second);
 
     // determine the half deviations in each direction
-    double len_uab = (ub - ua).norm();
-    double d_alpha = std::max(std::fabs(dp_alpha - dn_alpha), len_uab*(double) 0.5);
+    double len_uxy = (uy - ux).norm();
+    double d_alpha = std::max(std::fabs(dp_alpha - dn_alpha), len_uxy*(double) 0.5);
     double d_beta = std::fabs(dp_beta - dn_beta);
     double d_gamma = std::fabs(dp_gamma - dn_gamma);
 
     // setup the bounding box
-    double nu = (d_beta + d_gamma + d_alpha)*2.0 - len_uab;
+    double nu = (d_beta + d_gamma + d_alpha)*2.0 - len_uxy;
     assert(nu > -NEAR_ZERO);
     FILE_LOG(LOG_COLDET) << " -- dalpha: [" << dn_alpha << ", " << dp_alpha << "]" << endl;
     FILE_LOG(LOG_COLDET) << " -- dbeta: [" << dn_beta << ", " << dp_beta << "]" << endl;
     FILE_LOG(LOG_COLDET) << " -- dgamma: [" << dn_gamma << ", " << dp_gamma << "]" << endl;
     FILE_LOG(LOG_COLDET) << " -- nu contribution along alpha/beta: " << nu << endl;
-    Point3d cab = (ua + ub)*0.5;
-    Point3d mini = cab - nalpha*d_alpha - nbeta*d_beta - ngamma*d_gamma;
-    Point3d maxi = cab + nalpha*d_alpha + nbeta*d_beta + ngamma*d_gamma;
+    Point3d cxy = (ux + uy)*0.5;
+    Point3d mini = cxy - nalpha*d_alpha - nbeta*d_beta - ngamma*d_gamma;
+    Point3d maxi = cxy + nalpha*d_alpha + nbeta*d_beta + ngamma*d_gamma;
     O.center = (maxi+mini)*0.5;
     O.l = O.R.transpose_mult(Origin3d((maxi-mini)*0.5));
     O.l[0] = std::fabs(O.l[0]);
     O.l[1] = std::fabs(O.l[1]);
     O.l[2] = std::fabs(O.l[2]);
 
-    // determine whether there is an intersection with the bounding box for S
+    // determine whether there is an intersection with the bounding box for b
     FILE_LOG(LOG_COLDET) << " -- nu: " << nu << endl;
     FILE_LOG(LOG_COLDET) << " -- checking BV intersection of: " << endl;
-    FILE_LOG(LOG_COLDET) << O << " and " << endl << gs_BV;
+    FILE_LOG(LOG_COLDET) << O << " and " << endl << gb_BV;
     if (LOGGING(LOG_COLDET))
     {
-      OBBPtr gs_OBB = dynamic_pointer_cast<OBB>(gs_BV);
-      if (gs_OBB)
-        FILE_LOG(LOG_COLDET) << *gs_OBB << endl;
+      OBBPtr gb_OBB = dynamic_pointer_cast<OBB>(gb_BV);
+      if (gb_OBB)
+        FILE_LOG(LOG_COLDET) << *gb_OBB << endl;
     }
 
-    // O is in gs_BV's frame
-    if (!BV::intersects(&O, gs_BV.get()))
+    // O is in gb_BV's frame
+    if (!BV::intersects(&O, gb_BV.get()))
     {
       FILE_LOG(LOG_COLDET) << "   -- no intersection; continuing looping..." << endl;
       continue;
@@ -1095,9 +1096,9 @@ double GeneralizedCCD::determine_TOI(double t0, double tf, const DStruct* ds, Po
       FILE_LOG(LOG_COLDET) << "   -- intersection detected; trajectory segment must be bisected" << endl;
 
       // add two elements to the queue
-      double ti = (ta+tb)*0.5;
-      Q.push(make_pair(ta, ti));
-      Q.push(make_pair(ti, tb));
+      double ti = (tx+ty)*0.5;
+      Q.push(make_pair(tx, ti));
+      Q.push(make_pair(ti, ty));
       nbisects++;
     }
     else
@@ -1106,23 +1107,23 @@ double GeneralizedCCD::determine_TOI(double t0, double tf, const DStruct* ds, Po
 
       // intersect the line segment with the geometry
       double t;
-      if (gs_primitive->intersect_seg(gs_BV, LineSeg3(ua, ub), t, cp, normal))
+      if (gb_primitive->intersect_seg(gb_BV, LineSeg3(ux, uy), t, cp, normal))
       {
-        FILE_LOG(LOG_COLDET) << "  intersection detected!  time of impact: " << t << " (true: " << (ta + (tb-ta)*t) << ")" << endl;
+        FILE_LOG(LOG_COLDET) << "  intersection detected!  time of impact: " << t << " (true: " << (tx + (ty-tx)*t) << ")" << endl;
 
-        // transform time to account for ta and tb
-        t = ta + (tb-ta)*t;
+        // transform time to account for tx and ty
+        t = tx + (ty-tx)*t;
 
         FILE_LOG(LOG_COLDET) << "     -- point intersection (untransformed): " << cp << endl;
         FILE_LOG(LOG_COLDET) << "     -- normal (untransformed): " << normal << endl;
 
-        // since all calculations are in gs's frame; interpolate gs to time t
+        // since all calculations are in gb's frame; interpolate gb to time t
         // and transform contact point and normal to global coordinates
         Origin3d cpo(cp);
         Origin3d no(normal);
         double s = t/(tf-t0);
-        cp = Pose3d::interpolate_transform_point(Ps_t0, Ps_tf, s, cpo);
-        normal = Pose3d::interpolate_transform_vector(Ps_t0, Ps_tf, s, no);
+        cp = Pose3d::interpolate_transform_point(Pb_t0, Pb_tf, s, cpo);
+        normal = Pose3d::interpolate_transform_vector(Pb_t0, Pb_tf, s, no);
 
         // look for degenerate normal
         if (std::fabs(normal.norm() - (double) 1.0) > NEAR_ZERO)
