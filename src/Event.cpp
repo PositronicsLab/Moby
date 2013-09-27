@@ -424,7 +424,11 @@ void Event::compute_dotv_data(VectorNd& q) const
     FILE_LOG(LOG_EVENT) << "Contact Jacobian for body " << su1->id << ": " << std::endl << J1;
     FILE_LOG(LOG_EVENT) << "Contact Jacobian for body " << su2->id << ": " << std::endl << J2;
 
-    // update v using \dot{J}*[n t1 t2]
+    // scale J
+    J1 *= 2.0;
+    J2 *= 2.0;
+
+    // update v using 2*\dot{J}*[n t1 t2]
     su1->get_generalized_velocity(DynamicBody::eSpatial, v);
     q += J1.mult(v, workv);
     su2->get_generalized_velocity(DynamicBody::eSpatial, v);
@@ -483,7 +487,11 @@ void Event::compute_dotv_data(VectorNd& q) const
     FILE_LOG(LOG_EVENT) << "Contact Jacobian for body " << su1->id << ": " << std::endl << J1;
     FILE_LOG(LOG_EVENT) << "Contact Jacobian for body " << su2->id << ": " << std::endl << J2;
 
-    // update v using \dot{J}*[n t1 t2]
+    // scale J
+    J1 *= 2.0;
+    J2 *= 2.0;
+
+    // update v using 2*\dot{J}*[n t1 t2]
     su1->get_generalized_velocity(DynamicBody::eSpatial, v);
     q += J1.mult(v, workv);
     su2->get_generalized_velocity(DynamicBody::eSpatial, v);
@@ -1378,15 +1386,24 @@ double Event::calc_event_accel() const
     const SAcceld& aa = sba->get_accel(); 
     const SAcceld& ab = sbb->get_accel(); 
 
+    // setup the event frame
+    _event_frame->x = contact_point;
+    _event_frame->q.set_identity();
+    _event_frame->rpose = GLOBAL;
+
     // compute the velocities and accelerations at the contact point
-    SVelocityd tva = Pose3d::transform(contact_point.pose, va); 
-    SVelocityd tvb = Pose3d::transform(contact_point.pose, vb); 
-    SAcceld taa = Pose3d::transform(contact_point.pose, aa); 
-    SAcceld tab = Pose3d::transform(contact_point.pose, ab); 
+    SVelocityd tva = Pose3d::transform(_event_frame, va); 
+    SVelocityd tvb = Pose3d::transform(_event_frame, vb); 
+    SAcceld taa = Pose3d::transform(_event_frame, aa); 
+    SAcceld tab = Pose3d::transform(_event_frame, ab); 
+
+    // get the contact normal and derivative in the correct pose
+    Vector3d normal = Pose3d::transform_vector(_event_frame, contact_normal);
+    Vector3d normal_dot = Pose3d::transform_vector(_event_frame, contact_normal_dot);
 
     // compute 
-    double ddot = contact_normal.dot(taa.get_linear() - tab.get_linear());
-    ddot += 2.0*contact_normal_dot.dot(tva.get_linear() - tvb.get_linear());
+    double ddot = normal.dot(taa.get_linear() - tab.get_linear());
+    ddot += 2.0*normal_dot.dot(tva.get_linear() - tvb.get_linear());
     return ddot;
   }
   else
@@ -1411,22 +1428,20 @@ double Event::calc_event_vel() const
     const SVelocityd& va = sba->get_velocity(); 
     const SVelocityd& vb = sbb->get_velocity(); 
 
-    // compute the vels at the contact point
-    SVelocityd ta = Pose3d::transform(contact_point.pose, va); 
-    SVelocityd tb = Pose3d::transform(contact_point.pose, vb); 
+    // setup the event frame
+    _event_frame->x = contact_point;
+    _event_frame->q.set_identity();
+    _event_frame->rpose = GLOBAL;
 
-    // do a comparison (EMD: I've seen an issue with this and am trying
-    // to reproduce it
-    #ifndef NDEBUG
-    double cpa = sba->calc_point_vel(contact_point, contact_normal);
-    double cpb = sbb->calc_point_vel(contact_point, contact_normal);
-    double rvel = cpa - cpb;
-    double rvel2 = contact_normal.dot(ta.get_linear() - tb.get_linear());
-    assert(std::fabs(rvel - rvel2) < NEAR_ZERO);
-    #endif
+    // compute the velocities at the contact point
+    SVelocityd ta = Pose3d::transform(_event_frame, va); 
+    SVelocityd tb = Pose3d::transform(_event_frame, vb); 
+
+    // get the contact normal in the correct pose
+    Vector3d normal = Pose3d::transform_vector(_event_frame, contact_normal);
 
     // get the linear velocities and project against the normal
-    return contact_normal.dot(ta.get_linear() - tb.get_linear());
+    return normal.dot(ta.get_linear() - tb.get_linear());
   }
   else if (event_type == eLimit)
   {
