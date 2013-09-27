@@ -51,7 +51,7 @@ void CSG::set_operand1(PrimitivePtr p)
 
   // computed mesh and vertices are no longer valid
   _mesh = shared_ptr<IndexedTriArray>();
-  _vertices = shared_ptr<vector<Point3d> >();
+  _vertices.clear();
   _smesh = pair<shared_ptr<IndexedTriArray>, list<unsigned> >();
   _invalidated = true;
 
@@ -68,7 +68,7 @@ void CSG::set_operand2(PrimitivePtr p)
 
   // computed mesh and vertices are no longer valid
   _mesh = shared_ptr<IndexedTriArray>();
-  _vertices = shared_ptr<vector<Point3d> >();
+  _vertices.clear();
   _smesh = pair<shared_ptr<IndexedTriArray>, list<unsigned> >();
   _invalidated = true;
 
@@ -82,7 +82,7 @@ void CSG::set_operator(BooleanOperation op)
 
   // computed mesh and vertices are no longer valid
   _mesh = shared_ptr<IndexedTriArray>();
-  _vertices = shared_ptr<vector<Point3d> >();
+  _vertices.clear();
   _smesh = pair<shared_ptr<IndexedTriArray>, list<unsigned> >();
   _invalidated = true;
 
@@ -148,7 +148,7 @@ void CSG::set_intersection_tolerance(double tol)
     _op2->set_intersection_tolerance(_intersection_tolerance);
 
   // vertices are no longer valid
-  _vertices = shared_ptr<vector<Point3d> >();
+  _vertices.clear();
 }
 
 /// Transforms the CSG
@@ -164,7 +164,7 @@ void CSG::set_pose(const Pose3d& p)
   Primitive::set_pose(p);
 
   // invalidate vertices and the mesh 
-  _vertices.reset();
+  _vertices.clear();
   _mesh.reset();
 
   // invalidate this primitive
@@ -967,12 +967,15 @@ void CSG::get_vertices(BVPtr bv, vector<const Point3d*>& vertices)
   if (!_op1 || !_op2)
     return;
 
+  // get the vertices for this geometry
+  vector<Point3d>& verts = _vertices[bv->geom];
+
   // if either operand is invalidated, clear the vector of vertices
   if (_op1->_invalidated || _op2->_invalidated)
-    _vertices = shared_ptr<vector<Point3d> >();
+    verts.clear();
 
   // if the vector of vertices is NULL, compute it
-  if (!_vertices)
+  if (verts.empty())
   {
     // get the pose for the geometry
     shared_ptr<const Pose3d> gpose = bv->geom->get_pose();
@@ -986,9 +989,6 @@ void CSG::get_vertices(BVPtr bv, vector<const Point3d*>& vertices)
     BVPtr bv1 = _op1->get_BVH_root(bv->geom);
     BVPtr bv2 = _op2->get_BVH_root(bv->geom);
 
-    // create the vector of vertices
-    _vertices = shared_ptr<vector<Point3d> >(new vector<Point3d>());
-
     // if union, add vertices from both
     if (_op == eUnion)
     {
@@ -998,9 +998,9 @@ void CSG::get_vertices(BVPtr bv, vector<const Point3d*>& vertices)
 
       // transform the vertices
       BOOST_FOREACH(const Point3d* v, v1)
-        _vertices->push_back(*v);
+        verts.push_back(*v);
       BOOST_FOREACH(const Point3d* v, v2)
-        _vertices->push_back(*v);
+        verts.push_back(*v);
     }
     // intersection: return vertices of v1 inside v2 and vice versa
     else if (_op == eIntersection)
@@ -1012,12 +1012,12 @@ void CSG::get_vertices(BVPtr bv, vector<const Point3d*>& vertices)
       // look for vertices of v2 inside op1
       for (unsigned i=0; i< v2.size(); i++)
         if (_op1->point_inside(bv1, *v2[i], dummy))
-          _vertices->push_back(*v2[i]);
+          verts.push_back(*v2[i]);
 
       // look for vertices of v1 inside op2
       for (unsigned i=0; i< v1.size(); i++)
         if (_op2->point_inside(bv2, *v1[i], dummy))
-          _vertices->push_back(*v1[i]);
+          verts.push_back(*v1[i]);
     }
     else
     {
@@ -1029,7 +1029,7 @@ void CSG::get_vertices(BVPtr bv, vector<const Point3d*>& vertices)
       // look for vertices of v1 that are not inside v2
       for (unsigned i=0; i< v1.size(); i++)
         if (!_op2->point_inside(bv2, *v1[i], dummy))
-          _vertices->push_back(*v1[i]);
+          verts.push_back(*v1[i]);
 
       // get the vertices from op2 
       _op2->set_intersection_tolerance((double) 0.0);
@@ -1038,23 +1038,23 @@ void CSG::get_vertices(BVPtr bv, vector<const Point3d*>& vertices)
       // look for vertices of v2 that are inside v1
       for (unsigned i=0; i< v2.size(); i++)
         if (_op1->point_inside(bv1, *v2[i], dummy))
-          _vertices->push_back(*v2[i]);
+          verts.push_back(*v2[i]);
 
       // reset the intersection tolerance
       _op2->set_intersection_tolerance(_intersection_tolerance);
     }
 
     // transform all vertices using the current transform of the CSG
-    for (unsigned i=0; i< _vertices->size(); i++)
-      (*_vertices)[i] = T->transform_point((*_vertices)[i]);
+    for (unsigned i=0; i< verts.size(); i++)
+      verts[i] = T->transform_point(verts[i]);
 
     // clear validation flags for both operands
     _op1->_invalidated = _op2->_invalidated = false;
   }
 
   // copy _vertices to the passed vector
-  vertices.resize(_vertices->size());
-  for (unsigned i=0; i< vertices.size(); i++)
-    vertices[i] = &(*_vertices)[i];
+  vertices.resize(verts.size());
+  for (unsigned i=0; i< verts.size(); i++)
+    vertices[i] = &verts[i];
 }
 

@@ -106,7 +106,7 @@ void SpherePrimitive::set_radius(double radius)
 
   // mesh, vertices are no longer valid
   _mesh = shared_ptr<IndexedTriArray>();
-  _vertices = shared_ptr<vector<Point3d> >();
+  _vertices.clear();
   _smesh = pair<shared_ptr<IndexedTriArray>, list<unsigned> >();
   _invalidated = true;
 
@@ -133,7 +133,7 @@ void SpherePrimitive::set_num_points(unsigned n)
     throw std::runtime_error("Attempting to call SpherePrimitive::set_num_points() with n < 5");
 
   // vertices are no longer valid
-  _vertices = shared_ptr<vector<Point3d> >();
+  _vertices.clear();
   _invalidated = true;
 }
 
@@ -143,7 +143,7 @@ void SpherePrimitive::set_intersection_tolerance(double tol)
   Primitive::set_intersection_tolerance(tol);
 
   // vertices are no longer valid
-  _vertices = shared_ptr<vector<Point3d> >();
+  _vertices.clear();
   _invalidated = true;
 
   // set radius on each bounding sphere
@@ -167,7 +167,7 @@ void SpherePrimitive::set_pose(const Pose3d& p)
   _mesh.reset(); 
   _smesh.first.reset();
   _smesh.second.clear();
-  _vertices.reset();
+  _vertices.clear();
 
   // invalidate this primitive
   _invalidated = true;
@@ -251,8 +251,11 @@ const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >&
 /// Gets vertices for the primitive
 void SpherePrimitive::get_vertices(BVPtr bv, std::vector<const Point3d*>& vertices)
 {
+  // get the vertices for the geometry
+  vector<Point3d>& verts = _vertices[bv->geom];
+
   // create the vector of vertices if necessary
-  if (!_vertices)
+  if (verts.empty())
   {
     if (_radius == 0.0 || _npoints < 6)
     {
@@ -276,7 +279,6 @@ void SpherePrimitive::get_vertices(BVPtr bv, std::vector<const Point3d*>& vertic
 
     // determine the vertices in the mesh
     // NOTE: they will all be defined in the global frame
-    _vertices = shared_ptr<vector<Point3d> >(new vector<Point3d>(_npoints));
     const double INC = (double) M_PI * ((double) 3.0 - std::sqrt((double) 5.0));
     const double OFF = (double) 2.0 / _npoints;
     for (unsigned k=0; k< _npoints; k++)
@@ -285,14 +287,14 @@ void SpherePrimitive::get_vertices(BVPtr bv, std::vector<const Point3d*>& vertic
       const double R = std::sqrt((double) 1.0 - Y*Y);
       const double PHI = k * INC;
       Vector3d unit(std::cos(PHI)*R, Y, std::sin(PHI)*R, gpose);
-      (*_vertices)[k] = T.transform_point(unit*(_radius));
+      verts[k] = T.transform_point(unit*(_radius));
     }
   }
 
   // copy the addresses of the computed vertices into 'vertices' 
-  vertices.resize(_vertices->size());
-  for (unsigned i=0; i< _vertices->size(); i++)
-    vertices[i] = &(*_vertices)[i];
+  vertices.resize(verts.size());
+  for (unsigned i=0; i< verts.size(); i++)
+    vertices[i] = &verts[i];
 }
 
 /// Creates the visualization for this primitive

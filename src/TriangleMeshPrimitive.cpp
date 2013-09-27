@@ -698,8 +698,7 @@ bool TriangleMeshPrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double&
 void TriangleMeshPrimitive::get_vertices(BVPtr bv, vector<const Point3d*>& vertices) 
 {
   // get the vertices for this geometry
-  shared_ptr<vector<Point3d> >& verts = _vertices[bv->geom];
-  assert(verts);
+  vector<Point3d>& verts = _vertices[bv->geom];
 
   // get the mesh covered by the BV
   map<BVPtr, list<unsigned> >::const_iterator v_iter = _mesh_vertices.find(bv);
@@ -707,7 +706,7 @@ void TriangleMeshPrimitive::get_vertices(BVPtr bv, vector<const Point3d*>& verti
 
   // get the vertex indices
   for (list<unsigned>::const_iterator i = vlist.begin(); i != vlist.end(); i++)
-    vertices.push_back(&(*verts)[*i]);
+    vertices.push_back(&verts[*i]);
 }
 
 /// Transforms this primitive
@@ -1052,13 +1051,10 @@ void TriangleMeshPrimitive::construct_mesh_vertices(shared_ptr<const IndexedTriA
   vector<list<unsigned> > vf_map = mesh->determine_vertex_facet_map();
 
   // create a new vector of vertices
-  shared_ptr<vector<Point3d> >& vertices = _vertices[geom];
-  if (!vertices)
-    vertices = shared_ptr<vector<Point3d> >(new vector<Point3d>(mesh_vertices.size()));
-  else
-    vertices->resize(mesh_vertices.size());
+  vector<Point3d>& vertices = _vertices[geom];
+  vertices.resize(mesh_vertices.size());
   for (unsigned i=0; i< mesh_vertices.size(); i++)
-    (*vertices)[i] = Point3d(mesh_vertices[i], P);
+    vertices[i] = Point3d(mesh_vertices[i], P);
 
   // now, modify the vertices based on the intersection tolerance
   for (unsigned i=0; i< mesh_vertices.size(); i++)
@@ -1080,7 +1076,7 @@ void TriangleMeshPrimitive::construct_mesh_vertices(shared_ptr<const IndexedTriA
     // otherwise, normalize the normal and add intersection tolerance (in dir
     // of normal) to vertex i
     normal.normalize();
-    (*vertices)[i] += normal*_intersection_tolerance;
+    vertices[i] += normal*_intersection_tolerance;
   }
 
   // now, add additional samples based on edges in the mesh
@@ -1110,14 +1106,14 @@ void TriangleMeshPrimitive::construct_mesh_vertices(shared_ptr<const IndexedTriA
           unsigned vi = q.front().first;
           unsigned vj = q.front().second;
           q.pop();
-          const Point3d& v1 = (*vertices)[vi];
-          const Point3d& v2 = (*vertices)[vj];
+          const Point3d& v1 = vertices[vi];
+          const Point3d& v2 = vertices[vj];
 
           // subdivide, adding a vertex as necessary
           if ((v1-v2).norm() > _edge_sample_length)
           {
-            unsigned vk = vertices->size();
-            vertices->push_back((v1+v2) * (double) 0.5);
+            unsigned vk = vertices.size();
+            vertices.push_back((v1+v2) * (double) 0.5);
             ess.push_back(vk);
             q.push(make_sorted_pair(vi,vk));
             q.push(make_sorted_pair(vk,vj));
