@@ -754,7 +754,9 @@ Vector3d RigidBody::calc_point_vel(const Point3d& point) const
   SVelocityd xd = Pose3d::transform(_F, _xd0);
 
   // compute the point velocity - in the body frame
-  return xd.get_linear() + Vector3d::cross(xd.get_angular(), r);
+  Vector3d pv = xd.get_linear() + Vector3d::cross(xd.get_angular(), r);
+  pv.pose = _F;
+  return pv;
 }
 
 /// Implements Base::load_from_xml()
