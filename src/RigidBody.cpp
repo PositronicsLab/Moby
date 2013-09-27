@@ -632,13 +632,16 @@ void RigidBody::reset_accumulators()
   const SVelocityd& xd = get_velocity(); 
   SForced f = xd.cross(get_inertia() * xd); 
 
+  // update force in global frame
+  _force0 = Pose3d::transform(GLOBAL, f);
+
   // update the accumulator
   switch (_rftype)
   {
-    case eGlobal:       _force0 = f; break;
     case eLink:         _forcei = f; _forcei_valid = true; break;
     case eLinkInertia:  _forcem = f; _forcem_valid = true; break;
     case eJoint:        _forcej = f; _forcej_valid = true; break;
+    case eGlobal:       break;  // do nothing
   }
 }
 

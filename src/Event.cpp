@@ -1421,7 +1421,8 @@ double Event::calc_event_vel() const
     double cpa = sba->calc_point_vel(contact_point, contact_normal);
     double cpb = sbb->calc_point_vel(contact_point, contact_normal);
     double rvel = cpa - cpb;
-    assert(std::fabs(rvel - contact_normal.dot(ta.get_linear() - tb.get_linear())) < NEAR_ZERO);
+    double rvel2 = contact_normal.dot(ta.get_linear() - tb.get_linear());
+    assert(std::fabs(rvel - rvel2) < NEAR_ZERO);
     #endif
 
     // get the linear velocities and project against the normal
