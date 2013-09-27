@@ -968,15 +968,6 @@ double EventDrivenSimulator::find_events(double dt)
   // sort the set of events
   std::sort(_events.begin(), _events.end()); 
 
-  // set the "real" time for the events and compute the event tolerances
-  // output the events
-  if (LOGGING(LOG_EVENT))
-  {
-    FILE_LOG(LOG_EVENT) << "Events to be processed:" << std::endl;
-    for (unsigned i=0; i< _events.size(); i++)
-      FILE_LOG(LOG_EVENT) << _events[i] << std::endl;
-  }
-
   // set the "real" time for the events
   for (unsigned i=0; i< _events.size(); i++)
   {
@@ -993,6 +984,8 @@ double EventDrivenSimulator::find_events(double dt)
     set_velocities(_events.front().t);
   }
 
+calc_fwd_dyn();
+
   // check whether any events are at current time
   for (unsigned i=0; i< _events.size(); i++)
   {
@@ -1005,6 +998,15 @@ double EventDrivenSimulator::find_events(double dt)
     // check whether we can encode the event as an acceleration event
     if (_events[i].determine_event_class() == Event::eZero)
       _events[i].deriv_type = Event::eAccel;
+  }
+
+  // set the "real" time for the events and compute the event tolerances
+  // output the events
+  if (LOGGING(LOG_EVENT))
+  {
+    FILE_LOG(LOG_EVENT) << "Events to be processed:" << std::endl;
+    for (unsigned i=0; i< _events.size(); i++)
+      FILE_LOG(LOG_EVENT) << _events[i] << std::endl;
   }
 
   // if there are no events remaining, return now 
