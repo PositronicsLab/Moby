@@ -57,8 +57,8 @@ class BoxPrimitive : public Primitive
     /// Pointer to the determined mesh (w/transform applied), if any
     boost::shared_ptr<IndexedTriArray> _mesh;
 
-    /// Pointer to the vector of vertices (w/transform and intersection tolerance applied), if any
-    boost::shared_ptr<std::vector<Point3d> > _vertices;
+    /// Map from the geometry to the vector of vertices (w/transform and intersection tolerance applied), if any
+    std::map<CollisionGeometryPtr, std::vector<Point3d> > _vertices;
 
     /// The bounding volume (no surprise, it's just a box)
     std::map<CollisionGeometryPtr, OBBPtr> _obbs; 

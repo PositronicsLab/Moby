@@ -96,7 +96,7 @@ void CylinderPrimitive::set_radius(double radius)
 
   // mesh, vertices are no longer valid
   _mesh = shared_ptr<IndexedTriArray>();
-  _vertices = shared_ptr<vector<Point3d> >();
+  _vertices.clear();
   _smesh = pair<shared_ptr<IndexedTriArray>, list<unsigned> >();
   _invalidated = true;
 
@@ -126,7 +126,7 @@ void CylinderPrimitive::set_height(double height)
 
   // mesh, vertices are no longer valid
   _mesh = shared_ptr<IndexedTriArray>();
-  _vertices = shared_ptr<vector<Point3d> >();
+  _vertices.clear();
   _smesh = pair<shared_ptr<IndexedTriArray>, list<unsigned> >();
   _invalidated = true;
   
@@ -153,7 +153,7 @@ void CylinderPrimitive::set_num_circle_points(unsigned n)
     throw std::runtime_error("Attempting to call CylinderPrimitive::set_circle_points() with n < 3");
 
   // vertices are no longer valid
-  _vertices = shared_ptr<vector<Point3d> >();
+  _vertices.clear();
   _invalidated = true;
 }
 
@@ -165,7 +165,7 @@ void CylinderPrimitive::set_num_rings(unsigned n)
     throw std::runtime_error("Attempting to call CylinderPrimitive::set_num_rings() with n < 2");
 
   // vertices are no longer valid
-  _vertices = shared_ptr<vector<Point3d> >();
+  _vertices.clear();
   _invalidated = true;
 }
 
@@ -307,7 +307,7 @@ void CylinderPrimitive::set_pose(const Pose3d& p)
   _mesh.reset();
   _smesh.first.reset();
   _smesh.second.clear();
-  _vertices.reset();
+  _vertices.clear();
 
   // invalidate this primitive
   _invalidated = true;
@@ -407,8 +407,11 @@ const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >&
 /// Gets vertices from the primitive
 void CylinderPrimitive::get_vertices(BVPtr bv, std::vector<const Point3d*>& vertices)
 {
+  // get the vertices for the geometry
+  vector<Point3d>& verts = _vertices[bv->geom];
+
   // create the vector of vertices if necessary
-  if (!_vertices)
+  if (verts.empty())
   {
     const double R = _radius;
     const double H = _height;
@@ -433,9 +436,6 @@ void CylinderPrimitive::get_vertices(BVPtr bv, std::vector<const Point3d*>& vert
     T.x = P->x;
     T.q = P->q;
 
-    // create the vector of vertices
-    _vertices = shared_ptr<vector<Point3d> >(new vector<Point3d>());
-
     // create vertices evenly spaced in 2D
     // NOTE: we wish to create the vertices in the global frame
     for (unsigned j=0; j< _nrings; j++)
@@ -446,15 +446,15 @@ void CylinderPrimitive::get_vertices(BVPtr bv, std::vector<const Point3d*>& vert
         double THETA = i*(M_PI * (double) 2.0/_npoints);
         const double CT = std::cos(THETA);
         const double ST = std::sin(THETA);
-        _vertices->push_back(T.transform_point(Point3d(CT*R, HEIGHT, ST*R, gpose)));
+        verts.push_back(T.transform_point(Point3d(CT*R, HEIGHT, ST*R, gpose)));
       }
     }
   }
 
   // copy the addresses of the computed vertices into 'vertices' 
-  vertices.resize(_vertices->size());
-  for (unsigned i=0; i< _vertices->size(); i++)
-    vertices[i] = &(*_vertices)[i];
+  vertices.resize(verts.size());
+  for (unsigned i=0; i< verts.size(); i++)
+    vertices[i] = &verts[i];
 }
 
 /// Determines whether a point is inside the cylinder; if so, determines the normal
@@ -818,7 +818,7 @@ void CylinderPrimitive::set_intersection_tolerance(double tol)
   Primitive::set_intersection_tolerance(tol);
 
   // vertices are no longer valid
-  _vertices = shared_ptr<vector<Point3d> >();
+  _vertices.clear();
 
   // re-set lengths on each OBB
   for (map<CollisionGeometryPtr, OBBPtr>::iterator i = _obbs.begin(); i != _obbs.end(); i++)

@@ -57,8 +57,8 @@ class CSG : public Primitive
     /// The "sub" mesh 
     std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> > _smesh;
 
-    /// The set of vertices
-    boost::shared_ptr<std::vector<Point3d> > _vertices;
+    /// Map from the geometry to the vector of vertices (w/transform and intersection tolerance applied), if any
+    std::map<CollisionGeometryPtr, std::vector<Point3d> > _vertices;
 
     /// A pointer to the computed triangle mesh
     boost::shared_ptr<IndexedTriArray> _mesh;

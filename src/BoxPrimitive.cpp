@@ -81,7 +81,7 @@ void BoxPrimitive::set_intersection_tolerance(double tol)
   Primitive::set_intersection_tolerance(tol);
 
   // vertices are no longer valid
-  _vertices = shared_ptr<vector<Point3d> >();
+  _vertices.clear();
   _invalidated = true;
 }
 
@@ -101,7 +101,7 @@ void BoxPrimitive::set_size(double xlen, double ylen, double zlen)
 
   // mesh, vertices are no longer valid
   _mesh = shared_ptr<IndexedTriArray>();
-  _vertices = shared_ptr<vector<Point3d> >();
+  _vertices.clear();
   _smesh = pair<shared_ptr<IndexedTriArray>, list<unsigned> >();
   _invalidated = true;
 
@@ -127,7 +127,7 @@ void BoxPrimitive::set_edge_sample_length(double len)
   _edge_sample_length = len;
 
   // vertices are no longer valid
-  _vertices = shared_ptr<vector<Point3d> >();
+  _vertices.clear();
   _invalidated = true;
 }
 
@@ -152,7 +152,7 @@ void BoxPrimitive::set_pose(const Pose3d& p)
   _invalidated = true;
 
   // clear the set of vertices 
-  _vertices.reset();
+  _vertices.clear();
 
   // transform bounding volumes
   for (map<CollisionGeometryPtr, OBBPtr>::iterator i = _obbs.begin(); i != _obbs.end(); i++)
@@ -176,7 +176,11 @@ void BoxPrimitive::set_pose(const Pose3d& p)
 /// Gets the set of vertices for the BoxPrimitive (constructing, if necessary)
 void BoxPrimitive::get_vertices(BVPtr bv, vector<const Point3d*>& vertices)
 {
-  if (!_vertices)
+  // get the vertices for the geometry
+  vector<Point3d>& verts = _vertices[bv->geom];
+
+  // see whether the vertices have been defined
+  if (verts.empty())
   {
     if (_xlen <= 0.0 || _ylen <= 0.0 || _zlen <= 0.0)
     {
@@ -198,23 +202,20 @@ void BoxPrimitive::get_vertices(BVPtr bv, vector<const Point3d*>& vertices)
     T.x = P->x;
     T.q = P->q;
 
-    // determine the vertices in the mesh
-    _vertices = shared_ptr<vector<Point3d> >(new vector<Point3d>());
-
     // setup half-lengths
     const double XLEN = _xlen*(double) 0.5;
     const double YLEN = _ylen*(double) 0.5;
     const double ZLEN = _zlen*(double) 0.5;
 
     // add the vertices 
-    _vertices->push_back(T.transform_point(Point3d(XLEN,YLEN,ZLEN,gpose)));
-    _vertices->push_back(T.transform_point(Point3d(XLEN,YLEN,-ZLEN,gpose)));
-    _vertices->push_back(T.transform_point(Point3d(XLEN,-YLEN,ZLEN,gpose)));
-    _vertices->push_back(T.transform_point(Point3d(XLEN,-YLEN,-ZLEN,gpose)));
-    _vertices->push_back(T.transform_point(Point3d(-XLEN,YLEN,ZLEN,gpose)));
-    _vertices->push_back(T.transform_point(Point3d(-XLEN,YLEN,-ZLEN,gpose)));
-    _vertices->push_back(T.transform_point(Point3d(-XLEN,-YLEN,ZLEN,gpose)));
-    _vertices->push_back(T.transform_point(Point3d(-XLEN,-YLEN,-ZLEN,gpose)));
+    verts.push_back(T.transform_point(Point3d(XLEN,YLEN,ZLEN,gpose)));
+    verts.push_back(T.transform_point(Point3d(XLEN,YLEN,-ZLEN,gpose)));
+    verts.push_back(T.transform_point(Point3d(XLEN,-YLEN,ZLEN,gpose)));
+    verts.push_back(T.transform_point(Point3d(XLEN,-YLEN,-ZLEN,gpose)));
+    verts.push_back(T.transform_point(Point3d(-XLEN,YLEN,ZLEN,gpose)));
+    verts.push_back(T.transform_point(Point3d(-XLEN,YLEN,-ZLEN,gpose)));
+    verts.push_back(T.transform_point(Point3d(-XLEN,-YLEN,ZLEN,gpose)));
+    verts.push_back(T.transform_point(Point3d(-XLEN,-YLEN,-ZLEN,gpose)));
     
     // now we want to add vertices by subdividing edges
     // note: these edges come from facets in get_mesh()
@@ -239,25 +240,25 @@ void BoxPrimitive::get_vertices(BVPtr bv, vector<const Point3d*>& vertices)
       // vertices
       sorted_pair<unsigned> sp = q.front();
       q.pop();
-      const Point3d& v1 = (*_vertices)[sp.first];
-      const Point3d& v2 = (*_vertices)[sp.second];
+      const Point3d& v1 = verts[sp.first];
+      const Point3d& v2 = verts[sp.second];
 
       // if edge is sufficiently small, don't need to do any more processing
       if ((v1-v2).norm() <= _edge_sample_length)
         continue;
 
       // subdivide the edge by first creating a new vertex
-      unsigned vidx = _vertices->size();
-      _vertices->push_back((v1+v2) * (double) 0.5);
+      unsigned vidx = verts.size();
+      verts.push_back((v1+v2) * (double) 0.5);
       q.push(make_sorted_pair(sp.first, vidx)); 
       q.push(make_sorted_pair(sp.second, vidx)); 
     }
   }
 
   // copy the addresses of the computed vertices into 'vertices' 
-  vertices.resize(_vertices->size());
-  for (unsigned i=0; i< _vertices->size(); i++)
-    vertices[i] = &(*_vertices)[i];
+  vertices.resize(verts.size());
+  for (unsigned i=0; i< verts.size(); i++)
+    vertices[i] = &verts[i];
 }
 
 /// Recomputes the triangle mesh for the BoxPrimitive

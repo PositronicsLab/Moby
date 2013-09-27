@@ -96,7 +96,7 @@
       </RigidBody>
 
       <!-- the ground -->
-      <RigidBody name="ground" id="ground" enabled="false" visualization-filename="ground.wrl" position="0 -.25 0">
+      <RigidBody name="ground" id="ground" enabled="false" vvisualization-filename="ground.wrl" position="0 -.25 0">
         <CollisionGeometry primitive-id="ground-primitive" />  
       </RigidBody>
 

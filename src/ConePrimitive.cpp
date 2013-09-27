@@ -95,7 +95,7 @@ void ConePrimitive::set_radius(double radius)
 
   // mesh, vertices are no longer valid
   _mesh = shared_ptr<IndexedTriArray>();
-  _vertices = shared_ptr<vector<Point3d> >();
+  _vertices.clear();
   _smesh = pair<shared_ptr<IndexedTriArray>, list<unsigned> >();
   _invalidated = true;
 
@@ -123,7 +123,7 @@ void ConePrimitive::set_intersection_tolerance(double tol)
   Primitive::set_intersection_tolerance(tol);
 
   // vertices are no longer valid
-  _vertices = shared_ptr<vector<Point3d> >();
+  _vertices.clear();
 
   // set lengths on each OBB
   for (map<CollisionGeometryPtr, OBBPtr>::iterator i = _obbs.begin(); i != _obbs.end(); i++)
@@ -146,7 +146,7 @@ void ConePrimitive::set_height(double height)
 
   // mesh, vertices are no longer valid
   _mesh = shared_ptr<IndexedTriArray>();
-  _vertices = shared_ptr<vector<Point3d> >();
+  _vertices.clear();
   _smesh = pair<shared_ptr<IndexedTriArray>, list<unsigned> >();
   _invalidated = true;
 
@@ -174,7 +174,7 @@ void ConePrimitive::set_circle_points(unsigned n)
     throw std::runtime_error("Too few points to represent a circle in ConePrimitive::set_circle_points()");
 
   // vertices are no longer valid
-  _vertices = shared_ptr<vector<Point3d> >();
+  _vertices.clear();
   _invalidated = true;
 }
 
@@ -186,7 +186,7 @@ void ConePrimitive::set_num_rings(unsigned n)
     throw std::runtime_error("Too few rings in ConePrimitive::set_num_rings()");
 
   // vertices are no longer valid
-  _vertices = shared_ptr<vector<Point3d> >();
+  _vertices.clear();
   _invalidated = true;
 }
 
@@ -208,7 +208,7 @@ void ConePrimitive::set_pose(const Pose3d& p)
   _smesh.second.clear();
 
   // transform vertices
-  _vertices.reset();
+  _vertices.clear();
 
   // indicate that this primitive has become invalidated
   _invalidated = true;
@@ -384,8 +384,11 @@ void ConePrimitive::calc_mass_properties()
 /// Gets vertices from the primitive
 void ConePrimitive::get_vertices(BVPtr bv, std::vector<const Point3d*>& vertices)
 {
+  // get the vertices for the geometry
+  vector<Point3d>& verts = _vertices[bv->geom];
+
   // create the vector of vertices if necessary
-  if (!_vertices)
+  if (verts.empty())
   {
     // setup constant for the expanded radius
     const double H = _height;
@@ -411,9 +414,6 @@ void ConePrimitive::get_vertices(BVPtr bv, std::vector<const Point3d*>& vertices
     T.x = P->x;
     T.q = P->q;
 
-    // create the vector of vertices
-    _vertices = shared_ptr<vector<Point3d> >(new vector<Point3d>());
-
     // create vertices
     for (unsigned j=0; j< _nrings; j++)
     {
@@ -424,18 +424,18 @@ void ConePrimitive::get_vertices(BVPtr bv, std::vector<const Point3d*>& vertices
         const double THETA = i*(M_PI * (double) 2.0/_npoints);
         const double CT = std::cos(THETA);
         const double ST = std::sin(THETA);
-        _vertices->push_back(T.transform_point(Point3d(CT*R, HEIGHT, ST*R, gpose)));
+        verts.push_back(T.transform_point(Point3d(CT*R, HEIGHT, ST*R, gpose)));
       }
     }
 
     // create one more vertex for the tip of the cone
-    _vertices->push_back(T.transform_point(Point3d(0.0, H * (double) 0.5, 0.0, gpose)));
+    verts.push_back(T.transform_point(Point3d(0.0, H * (double) 0.5, 0.0, gpose)));
   }
 
   // copy the addresses of the computed vertices into 'vertices' 
-  vertices.resize(_vertices->size());
-  for (unsigned i=0; i< _vertices->size(); i++)
-    vertices[i] = &(*_vertices)[i];
+  vertices.resize(verts.size());
+  for (unsigned i=0; i< verts.size(); i++)
+    vertices[i] = &verts[i];
 }
 
 /// Gets a sub-mesh for the primitive

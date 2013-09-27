@@ -84,8 +84,8 @@ class TriangleMeshPrimitive : public Primitive
     /// Mapping from BVs to triangles contained within (not necessary to index this per geometry)
     std::map<BVPtr, std::list<unsigned> > _mesh_tris;
 
-    /// Vertices used by get_vertices() [and referenced by _mesh_vertices]
-    std::map<CollisionGeometryPtr, boost::shared_ptr<std::vector<Point3d> > > _vertices;
+    /// Map from the geometry to the vector of vertices (w/transform and intersection tolerance applied), if any
+    std::map<CollisionGeometryPtr, std::vector<Point3d> > _vertices;
 
     /// Mapping from BVs to vertex indices contained within (not necessary to index this per geometry)
     std::map<BVPtr, std::list<unsigned> > _mesh_vertices;
