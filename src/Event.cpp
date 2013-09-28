@@ -395,44 +395,50 @@ void Event::compute_dotv_data(VectorNd& q) const
 
     // compute the Jacobians for the two bodies
     su1->calc_jacobian(P1, sb1, vel);
-    transpose_mult(vel, wn1, J1n); 
-    transpose_mult(vel, ws1, J1s); 
-    transpose_mult(vel, wt1, J1t); 
+    transpose_mult(vel, dwn1, J1n); 
+    transpose_mult(vel, dws1, J1s); 
+    transpose_mult(vel, dwt1, J1t); 
     su2->calc_jacobian(P2, sb2, vel);
-    transpose_mult(vel, -wn2, J2n); 
-    transpose_mult(vel, -ws2, J2s); 
-    transpose_mult(vel, -wt2, J2t); 
+    transpose_mult(vel, -dwn2, J2n); 
+    transpose_mult(vel, -dws2, J2s); 
+    transpose_mult(vel, -dwt2, J2t); 
 
     // compute the time-derivatives of the Jacobians for the two bodies
     su1->calc_jacobian_dot(P1, sb1, vel);
-    transpose_mult(vel, dwn1, dJ1n); 
-    transpose_mult(vel, dws1, dJ1s); 
-    transpose_mult(vel, dwt1, dJ1t); 
+    transpose_mult(vel, wn1, dJ1n); 
+    transpose_mult(vel, ws1, dJ1s); 
+    transpose_mult(vel, wt1, dJ1t); 
     su2->calc_jacobian_dot(P2, sb2, vel);
-    transpose_mult(vel, -dwn2, dJ2n); 
-    transpose_mult(vel, -dws2, dJ2s); 
-    transpose_mult(vel, -dwt2, dJ2t); 
+    transpose_mult(vel, -wn2, dJ2n); 
+    transpose_mult(vel, -ws2, dJ2s); 
+    transpose_mult(vel, -wt2, dJ2t); 
 
     // update J1 and J2
     J1 += dJ1;
     J2 += dJ2;
 
+    // scale J
+    J1 *= 2.0;
+    J2 *= 2.0;
+
+    FILE_LOG(LOG_EVENT) << "Event::compute_dotv_data() entered" << std::endl;
     FILE_LOG(LOG_EVENT) << "Contact: " << std::endl << *this;
     FILE_LOG(LOG_EVENT) << "normal (global frame): " << Pose3d::transform(GLOBAL, wne) << std::endl;
+    FILE_LOG(LOG_EVENT) << "normal time derivative (global frame): " << Pose3d::transform(GLOBAL, dwne) << std::endl;
     FILE_LOG(LOG_EVENT) << "tangent 1 (global frame): " << Pose3d::transform(GLOBAL, wse) << std::endl;
     FILE_LOG(LOG_EVENT) << "tangent 2 (global frame): " << Pose3d::transform(GLOBAL, wte) << std::endl;
     FILE_LOG(LOG_EVENT) << "Contact Jacobian for body " << su1->id << ": " << std::endl << J1;
     FILE_LOG(LOG_EVENT) << "Contact Jacobian for body " << su2->id << ": " << std::endl << J2;
 
-    // scale J
-    J1 *= 2.0;
-    J2 *= 2.0;
-
     // update v using 2*\dot{J}*[n t1 t2]
     su1->get_generalized_velocity(DynamicBody::eSpatial, v);
+    FILE_LOG(LOG_EVENT) << "Body 1 generalized velocity: " << v << std::endl;
     q += J1.mult(v, workv);
     su2->get_generalized_velocity(DynamicBody::eSpatial, v);
+    FILE_LOG(LOG_EVENT) << "Body 2 generalized velocity: " << v << std::endl;
     q += J2.mult(v, workv);
+
+    FILE_LOG(LOG_EVENT) << "Event::compute_dotv_data() exited" << std::endl;
   }
   else
   {
@@ -468,34 +474,40 @@ void Event::compute_dotv_data(VectorNd& q) const
 
     // compute the Jacobians for the two bodies
     su1->calc_jacobian(P1, sb1, vel);
-    transpose_mult(vel, wn1, J1n); 
+    transpose_mult(vel, dwn1, J1n); 
     su2->calc_jacobian(P2, sb2, vel);
-    transpose_mult(vel, -wn2, J2n); 
+    transpose_mult(vel, -dwn2, J2n); 
 
     // compute the time-derivatives of the Jacobians for the two bodies
     su1->calc_jacobian_dot(P1, sb1, vel);
-    transpose_mult(vel, dwn1, dJ1n); 
+    transpose_mult(vel, wn1, dJ1n); 
     su2->calc_jacobian_dot(P2, sb2, vel);
-    transpose_mult(vel, -dwn2, dJ2n); 
+    transpose_mult(vel, -wn2, dJ2n); 
 
     // update J1 and J2
     J1 += dJ1;
     J2 += dJ2;
 
-    FILE_LOG(LOG_EVENT) << "Contact: " << std::endl << *this;
-    FILE_LOG(LOG_EVENT) << "normal (global frame): " << Pose3d::transform(GLOBAL, wne) << std::endl;
-    FILE_LOG(LOG_EVENT) << "Contact Jacobian for body " << su1->id << ": " << std::endl << J1;
-    FILE_LOG(LOG_EVENT) << "Contact Jacobian for body " << su2->id << ": " << std::endl << J2;
-
     // scale J
     J1 *= 2.0;
     J2 *= 2.0;
 
+    FILE_LOG(LOG_EVENT) << "Event::compute_dotv_data() entered" << std::endl;
+    FILE_LOG(LOG_EVENT) << "Contact: " << std::endl << *this;
+    FILE_LOG(LOG_EVENT) << "normal (global frame): " << Pose3d::transform(GLOBAL, wne) << std::endl;
+    FILE_LOG(LOG_EVENT) << "normal time derivative (global frame): " << Pose3d::transform(GLOBAL, dwne) << std::endl;
+    FILE_LOG(LOG_EVENT) << "Contact Jacobian for body " << su1->id << ": " << std::endl << J1;
+    FILE_LOG(LOG_EVENT) << "Contact Jacobian for body " << su2->id << ": " << std::endl << J2;
+
     // update v using 2*\dot{J}*[n t1 t2]
     su1->get_generalized_velocity(DynamicBody::eSpatial, v);
+    FILE_LOG(LOG_EVENT) << "Body 1 generalized velocity: " << v << std::endl;
     q += J1.mult(v, workv);
     su2->get_generalized_velocity(DynamicBody::eSpatial, v);
+    FILE_LOG(LOG_EVENT) << "Body 2 generalized velocity: " << v << std::endl;
     q += J2.mult(v, workv);
+
+    FILE_LOG(LOG_EVENT) << "Event::compute_dotv_data() exited" << std::endl;
   }
 }
 
@@ -1366,6 +1378,69 @@ void Event::set_contact_parameters(const ContactParameters& cparams)
   assert(contact_NK >= 4);
 }
 
+double calc_event_accel2(const Event& e)
+{
+  assert (e.event_type == Event::eContact);
+  SingleBodyPtr sba = e.contact_geom1->get_single_body();
+  SingleBodyPtr sbb = e.contact_geom2->get_single_body();
+
+  // get the vels and accelerations
+  const SVelocityd& va = sba->get_velocity(); 
+  const SVelocityd& vb = sbb->get_velocity(); 
+  const SAcceld& aa = sba->get_accel(); 
+  const SAcceld& ab = sbb->get_accel(); 
+
+  // get the bodies as rigid bodies
+  RigidBodyPtr rba = dynamic_pointer_cast<RigidBody>(sba);
+  RigidBodyPtr rbb = dynamic_pointer_cast<RigidBody>(sbb);
+
+  // transform velocity and acceleration to mixed frames
+  shared_ptr<const Pose3d> Pa = rba->get_mixed_pose(); 
+  shared_ptr<const Pose3d> Pb = rbb->get_mixed_pose(); 
+  SVelocityd tva = Pose3d::transform(Pa, va);
+  SVelocityd tvb = Pose3d::transform(Pb, vb);
+  SAcceld taa = Pose3d::transform(Pa, aa);
+  SAcceld tab = Pose3d::transform(Pb, ab);
+
+  // transform normal and derivative to mixed frame
+  shared_ptr<Pose3d> P(new Pose3d);
+  P->x = e.contact_point;
+  P->rpose = GLOBAL;
+  Vector3d normal = Pose3d::transform_vector(P, e.contact_normal);
+  Vector3d normal_dot = Pose3d::transform_vector(P, e.contact_normal_dot);
+
+  // setup terms
+  Vector3d ra(e.contact_point - Pa->x);
+  Vector3d rb(e.contact_point - Pb->x);
+  Vector3d xda = tva.get_linear(); 
+  Vector3d xdb = tvb.get_linear(); 
+  Vector3d xdda = taa.get_linear(); 
+  Vector3d xddb = tab.get_linear(); 
+  Vector3d wa = tva.get_angular();
+  Vector3d wb = tvb.get_angular();
+  Vector3d ala = taa.get_angular();
+  Vector3d alb = tab.get_angular();
+  ra.pose = GLOBAL;
+  rb.pose = GLOBAL;
+  xda.pose = GLOBAL;
+  xdb.pose = GLOBAL;
+  wa.pose = GLOBAL;
+  wb.pose = GLOBAL;
+  xdda.pose = GLOBAL;
+  xddb.pose = GLOBAL;
+  ala.pose = GLOBAL;
+  alb.pose = GLOBAL;
+  Vector3d v1(xdda - xddb + Vector3d::cross(ala, ra) - Vector3d::cross(alb, rb) + Vector3d::cross(wa, -xda) - Vector3d::cross(wb, -xdb));
+  Vector3d v2(xda - xdb + Vector3d::cross(wa, ra) - Vector3d::cross(wb, rb));
+  v1.pose = normal.pose;
+  v2.pose = normal.pose;
+
+  // get the linear velocities and project against the normal
+  return normal.dot(v1) + 2.0*normal_dot.dot(v2);
+}
+
+
+
 /// Computes the acceleration of this contact
 /**
  * Positive acceleration indicates acceleration away, negative acceleration
@@ -1404,11 +1479,56 @@ double Event::calc_event_accel() const
     // compute 
     double ddot = normal.dot(taa.get_linear() - tab.get_linear());
     ddot += 2.0*normal_dot.dot(tva.get_linear() - tvb.get_linear());
+    assert(CompGeom::rel_equal(ddot, calc_event_accel2(*this), 1e-4));
     return ddot;
   }
   else
     assert(false);
 }  
+
+double calc_event_vel2(const Event& e)
+{
+  assert (e.event_type == Event::eContact);
+  SingleBodyPtr sba = e.contact_geom1->get_single_body();
+  SingleBodyPtr sbb = e.contact_geom2->get_single_body();
+
+  // get the vels 
+  const SVelocityd& va = sba->get_velocity(); 
+  const SVelocityd& vb = sbb->get_velocity(); 
+
+  // get the bodies as rigid bodies
+  RigidBodyPtr rba = dynamic_pointer_cast<RigidBody>(sba);
+  RigidBodyPtr rbb = dynamic_pointer_cast<RigidBody>(sbb);
+
+  // transform velocity to mixed frames
+  shared_ptr<const Pose3d> Pa = rba->get_mixed_pose(); 
+  shared_ptr<const Pose3d> Pb = rbb->get_mixed_pose(); 
+  SVelocityd ta = Pose3d::transform(Pa, va);
+  SVelocityd tb = Pose3d::transform(Pb, vb);
+
+  // transform normal to mixed frame
+  shared_ptr<Pose3d> P(new Pose3d);
+  P->x = e.contact_point;
+  P->rpose = GLOBAL;
+  Vector3d normal = Pose3d::transform_vector(P, e.contact_normal);
+
+  // get the linear velocities and project against the normal
+  Vector3d ra(e.contact_point - Pa->x);
+  Vector3d rb(e.contact_point - Pb->x);
+  Vector3d xda = ta.get_linear(); 
+  Vector3d xdb = tb.get_linear(); 
+  Vector3d wa = ta.get_angular();
+  Vector3d wb = tb.get_angular();
+  ra.pose = GLOBAL;
+  rb.pose = GLOBAL;
+  xda.pose = GLOBAL;
+  xdb.pose = GLOBAL;
+  wa.pose = GLOBAL;
+  wb.pose = GLOBAL;
+  Vector3d v(xda - xdb + Vector3d::cross(wa, ra) - Vector3d::cross(wb, rb));
+  v.pose = normal.pose;
+  return v.dot(normal);
+}
 
 /// Computes the velocity of this event
 /**
@@ -1441,6 +1561,7 @@ double Event::calc_event_vel() const
     Vector3d normal = Pose3d::transform_vector(_event_frame, contact_normal);
 
     // get the linear velocities and project against the normal
+    assert(std::fabs(normal.dot(ta.get_linear() - tb.get_linear()) - calc_event_vel2(*this)) < NEAR_ZERO);
     return normal.dot(ta.get_linear() - tb.get_linear());
   }
   else if (event_type == eLimit)

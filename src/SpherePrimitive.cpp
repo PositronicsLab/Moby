@@ -277,6 +277,9 @@ void SpherePrimitive::get_vertices(BVPtr bv, std::vector<const Point3d*>& vertic
     T.x = P->x;
     T.q = P->q;
 
+    // resize number of points
+    verts.resize(_npoints);
+
     // determine the vertices in the mesh
     // NOTE: they will all be defined in the global frame
     const double INC = (double) M_PI * ((double) 3.0 - std::sqrt((double) 5.0));
