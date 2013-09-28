@@ -644,6 +644,16 @@ using boost::dynamic_pointer_cast;
     q.events[i]->contact_impulse = Pose3d::transform(GLOBAL, fx);
   }
 
+  if (LOGGING(LOG_EVENT))
+  {
+    // compute LCP 'w' vector
+    VectorNd w;
+    MM.mult(z, w) += qq;
+
+    // output new acceleration
+    FILE_LOG(LOG_EVENT) << "new normal acceleration: " << w.segment(0, q.events.size()) << std::endl;
+  } 
+
   FILE_LOG(LOG_EVENT) << "cn " << q.cn << std::endl;
   FILE_LOG(LOG_EVENT) << "cs " << q.cs << std::endl;
   FILE_LOG(LOG_EVENT) << "ct " << q.ct << std::endl;
