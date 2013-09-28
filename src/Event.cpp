@@ -1268,7 +1268,7 @@ void Event::compute_cross_contact_contact_aevent_data(const Event& c, MatrixNd& 
   _event_frame->q.set_identity();
   _event_frame->x = c.contact_point;
 
-  if (_ftype == eSticking)
+  if (c._ftype == eSticking)
   {
     // resize Jacobian 
     Jx.resize(3, NGC);

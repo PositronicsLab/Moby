@@ -12,12 +12,6 @@
     <Box id="b7" xlen=".7" ylen="1" zlen=".7" density="10.0"/>
     <Box id="ground-primitive" xlen="100" ylen=".5" zlen="100" density="10.0" />
 
-    <!-- Visualization primitives -->
-    <SoSeparator id="box1-viz" filename="box1.wrl" />
-    <SoSeparator id="box2-viz" filename="box2.wrl" />
-    <SoSeparator id="box3-viz" filename="box3.wrl" />
-    <SoSeparator id="box4-viz" filename="box4.wrl" />
-
     <!-- Integrator -->
     <EulerIntegrator id="euler" type="VectorN" symplectic="false" />
     <EulerIntegrator id="euler-quat" type="Quat" symplectic="false" />
@@ -27,16 +21,12 @@
 5">
       <Body body-id="box1" />
       <Body body-id="box2" />
-      <Body body-id="box3" />
-      <Body body-id="box4" />
       <Body body-id="ground" />
     </GeneralizedCCD>
 
     <CollisionDetectionPlugin id="plugin-ccd" plugin="./libcoldet-plugin.so">
       <Body body-id="box1" />
       <Body body-id="box2" />
-      <Body body-id="box3" />
-      <Body body-id="box4" />
       <Body body-id="ground" />
     </CollisionDetectionPlugin>
 
@@ -56,18 +46,6 @@
         <CollisionGeometry primitive-id="b1" />
       </RigidBody>
 
-      <!-- the boxes -->
-      <RigidBody id="box3" enabled="true" position="0 2.5 0" angular-velocity="0 0 0" visualization-id="b1" linear-velocity="0 0 0">
-        <InertiaFromPrimitive primitive-id="b1" />
-        <CollisionGeometry primitive-id="b1" />
-      </RigidBody>
-
-      <!-- the boxes -->
-      <RigidBody id="box4" enabled="true" position="0 3.5 0" angular-velocity="0 0 0" visualization-id="b1" linear-velocity="0 0 0">
-        <InertiaFromPrimitive primitive-id="b1" />
-        <CollisionGeometry primitive-id="b1" />
-      </RigidBody>
-
       <!-- the ground -->
       <RigidBody name="ground" id="ground" enabled="false" vvisualization-filename="ground.wrl" position="0 -.25 0">
         <CollisionGeometry primitive-id="ground-primitive" />  
@@ -78,14 +56,10 @@
     <EventDrivenSimulator id="simulator" integrator-id="euler" collision-detector-id="ccd">
       <DynamicBody dynamic-body-id="box1" />
       <DynamicBody dynamic-body-id="box2" />
-      <DynamicBody dynamic-body-id="box3" />
-      <DynamicBody dynamic-body-id="box4" />
       <DynamicBody dynamic-body-id="ground" />
       <RecurrentForce recurrent-force-id="gravity" enabled="true" />
       <ContactParameters object1-id="ground" object2-id="box1" restitution="0" mu-coulomb=".0001" />
       <ContactParameters object1-id="box1" object2-id="box2" restitution="0" mu-coulomb=".0001" />
-      <ContactParameters object1-id="box2" object2-id="box3" restitution="0" mu-coulomb=".0001" />
-      <ContactParameters object1-id="box3" object2-id="box4" restitution="0" mu-coulomb=".0001" />
     </EventDrivenSimulator> 
   </MOBY>
 </XML>
