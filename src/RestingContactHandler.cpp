@@ -343,10 +343,11 @@ using boost::dynamic_pointer_cast;
     RowIteratord CtCt = q.Ct_iM_CtT.row_iterator_begin();
 
     // process contact events, setting up matrices
-    for (unsigned i=0; i<  q.events.size(); i++)
+    for (unsigned i=0, k=0; i<  q.events.size(); i++)
     {
       const Event* ci =  q.events[i];
       const unsigned ROWS = (ci->get_friction_type() == Event::eSticking) ? 3 : 1;
+
       // compute cross event data for contact events
       for (unsigned j=0; j<  q.events.size(); j++)
       {
@@ -374,8 +375,11 @@ using boost::dynamic_pointer_cast;
             // setup appropriate parts of contact velocities
             data = workv.row_iterator_begin();
             q.Cn_a[i] = *data++;
-            q.Cs_a[i] = *data++;
-            q.Ct_a[i] = *data;
+            q.Cs_a[k] = *data++;
+            q.Ct_a[k] = *data;
+
+            // update k (NOTE: we need k b/c some contacts may be slipping)
+            k++;
           }
           else
           {
