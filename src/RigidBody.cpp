@@ -630,7 +630,7 @@ void RigidBody::reset_accumulators()
 
   // compute the velocity-derived forces on the body 
   const SVelocityd& xd = get_velocity(); 
-  SForced f = xd.cross(get_inertia() * xd); 
+  SForced f = -(xd.cross(get_inertia() * xd)); 
 
   // update force in global frame
   _force0 = Pose3d::transform(GLOBAL, f);
