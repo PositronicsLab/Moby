@@ -20,10 +20,6 @@
       <Body body-id="box1" />
       <Body body-id="box2" />
       <Body body-id="box3" />
-      <Body body-id="box4" />
-      <Body body-id="box5" />
-      <Body body-id="box6" />
-      <Body body-id="box7" />
       <Body body-id="ground" />
     </GeneralizedCCD>
 
@@ -60,30 +56,6 @@
         <CollisionGeometry primitive-id="b3" />
       </RigidBody>
 
-      <!-- the boxes -->
-      <RigidBody id="box4" enabled="true" position="0 3.5 0" angular-velocity="0 0 0" visualization-id="b4" linear-velocity="0 0 0">
-        <InertiaFromPrimitive primitive-id="b4" />
-        <CollisionGeometry primitive-id="b4" />
-      </RigidBody>
-
-      <!-- the boxes -->
-      <RigidBody id="box5" enabled="true" position="0 4.5 0" angular-velocity="0 0 0" visualization-id="b5" linear-velocity="0 0 0">
-        <InertiaFromPrimitive primitive-id="b5" />
-        <CollisionGeometry primitive-id="b5" />
-      </RigidBody>
-
-      <!-- the boxes -->
-      <RigidBody id="box6" enabled="true" position="0 5.5 0" angular-velocity="0 0 0" visualization-id="b6" linear-velocity="0 0 0">
-        <InertiaFromPrimitive primitive-id="b6" />
-        <CollisionGeometry primitive-id="b6" />
-      </RigidBody>
-
-      <!-- the boxes -->
-      <RigidBody id="box7" enabled="true" position="0 6.5 0" angular-velocity="0 0 0" visualization-id="b7" linear-velocity="0 0 0">
-        <InertiaFromPrimitive primitive-id="b7" />
-        <CollisionGeometry primitive-id="b7" />
-      </RigidBody>
-
       <!-- the ground -->
       <RigidBody name="ground" id="ground" enabled="false" vvisualization-filename="ground.wrl" position="0 -.25 0">
         <CollisionGeometry primitive-id="ground-primitive" />  
@@ -95,19 +67,11 @@
       <DynamicBody dynamic-body-id="box1" />
       <DynamicBody dynamic-body-id="box2" />
       <DynamicBody dynamic-body-id="box3" />
-      <DynamicBody dynamic-body-id="box4" />
-      <DynamicBody dynamic-body-id="box5" />
-      <DynamicBody dynamic-body-id="box6" />
-      <DynamicBody dynamic-body-id="box7" />
       <DynamicBody dynamic-body-id="ground" />
-      <RecurrentForce recurrent-force-id="gravity" enabled="true" />
+      <RecurrentForce recurrent-force-id="gravity" />
       <ContactParameters object1-id="ground" object2-id="box1" restitution="0" mu-coulomb=".0001" />
       <ContactParameters object1-id="box1" object2-id="box2" restitution="0" mu-coulomb=".0001" />
       <ContactParameters object1-id="box2" object2-id="box3" restitution="0" mu-coulomb=".0001" />
-      <ContactParameters object1-id="box3" object2-id="box4" restitution="0" mu-coulomb=".0001" />
-      <ContactParameters object1-id="box4" object2-id="box5" restitution="0" mu-coulomb=".0001" />
-      <ContactParameters object1-id="box5" object2-id="box6" restitution="0" mu-coulomb=".0001" />
-      <ContactParameters object1-id="box6" object2-id="box7" restitution="0" mu-coulomb=".0001" />
     </EventDrivenSimulator> 
   </MOBY>
 </XML>

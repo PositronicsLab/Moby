@@ -41,9 +41,9 @@
       </RigidBody>
 
       <!-- the boxes -->
-      <RigidBody id="box2" enabled="true" position="0 1.5 0" angular-velocity="0 0 0" visualization-id="b1" linear-velocity="0 0 0">
-        <InertiaFromPrimitive primitive-id="b1" />
-        <CollisionGeometry primitive-id="b1" />
+      <RigidBody id="box2" enabled="true" position="0 1.5 0" angular-velocity="0 0 0" visualization-id="b2" linear-velocity="0 0 0">
+        <InertiaFromPrimitive primitive-id="b2" />
+        <CollisionGeometry primitive-id="b2" />
       </RigidBody>
 
       <!-- the ground -->
