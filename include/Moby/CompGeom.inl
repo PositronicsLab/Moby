@@ -491,6 +491,7 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Point3d*>::calc_
   FILE_LOG(LOG_COMPGEOM) << "computing 2D convex hull of following points:" << std::endl;
   for (ForwardIterator i = source_begin; i != source_end; i++)
     FILE_LOG(LOG_COMPGEOM) << "  " << **i << std::endl;
+  FILE_LOG(LOG_COMPGEOM) << "using normal: " << normal << std::endl;
   
   // **************************************************************
   // first, we need to project the 3D surface to a 2D polygon

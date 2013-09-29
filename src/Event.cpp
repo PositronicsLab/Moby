@@ -2112,7 +2112,12 @@ void Event::process_convex_set_group(list<Event*>& group)
     }
     assert(!group.empty());
 
-    FILE_LOG(LOG_EVENT) << " -- remaining contact points after removal: " << group.size() << std::endl;
+    FILE_LOG(LOG_EVENT) << " -- remaining contact points after removal: " << std::endl;
+    if (LOGGING(LOG_EVENT))
+    {
+      BOOST_FOREACH(const Event* e, group)
+        FILE_LOG(LOG_EVENT) << *e << std::endl;
+    }
 
     return;
   }
@@ -2123,8 +2128,13 @@ void Event::process_convex_set_group(list<Event*>& group)
 
     try
     {
+      // attempt to fit a plane to the points
+      Vector3d normal;
+      double offset;
+      CompGeom::fit_plane(points.begin(), points.end(), normal, offset);
+
       // compute the 2D convex hull
-      CompGeom::calc_convex_hull(points.begin(), points.end(), group.front()->contact_normal, std::back_inserter(hull));
+      CompGeom::calc_convex_hull(points.begin(), points.end(), normal, std::back_inserter(hull));
       if (hull.empty())
         throw NumericalException();
     }
@@ -2145,7 +2155,12 @@ void Event::process_convex_set_group(list<Event*>& group)
           i = group.erase(i);
       }
 
-      FILE_LOG(LOG_EVENT) << " -- remaining contact points after removal: " << group.size() << std::endl;
+      FILE_LOG(LOG_EVENT) << " -- remaining contact points after removal: " << std::endl;
+      if (LOGGING(LOG_EVENT))
+      {
+        BOOST_FOREACH(const Event* e, group)
+          FILE_LOG(LOG_EVENT) << *e << std::endl;
+      }
 
       return;
     }
@@ -2167,8 +2182,13 @@ void Event::process_convex_set_group(list<Event*>& group)
       {
         FILE_LOG(LOG_EVENT) << " -- 3D convex hull failed; trying 2D convex hull" << std::endl;
 
+        // attempt to fit a plane to the points
+        Vector3d normal;
+        double offset;
+        CompGeom::fit_plane(points.begin(), points.end(), normal, offset);
+
         // compute the 2D convex hull
-        CompGeom::calc_convex_hull(points.begin(), points.end(), group.front()->contact_normal, std::back_inserter(hull));
+        CompGeom::calc_convex_hull(points.begin(), points.end(), normal, std::back_inserter(hull));
         if (hull.empty())
           throw NumericalException();
       }
@@ -2188,7 +2208,12 @@ void Event::process_convex_set_group(list<Event*>& group)
         }
 
         FILE_LOG(LOG_EVENT) << " -- unable to compute 2D convex hull; falling back to computing line endpoints" << std::endl;
-        FILE_LOG(LOG_EVENT) << " -- remaining contact points after removal using 2D convex hull: " << group.size() << std::endl;
+        FILE_LOG(LOG_EVENT) << " -- remaining contact points after removal: " << std::endl;
+        if (LOGGING(LOG_EVENT))
+        {
+          BOOST_FOREACH(const Event* e, group)
+            FILE_LOG(LOG_EVENT) << *e << std::endl;
+        }
 
         return;
       }      
