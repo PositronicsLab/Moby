@@ -836,7 +836,7 @@ void TriangleMeshPrimitive::build_BB_tree(CollisionGeometryPtr geom)
     // split the bounding box across each of the three axes
     for (unsigned i=0; i< 3; i++)
     {
-      Vector3d axis;
+      Vector3d axis(gpose);
 
       // get the i'th column of R if an OBB
       if (!is_deformable())
@@ -847,9 +847,9 @@ void TriangleMeshPrimitive::build_BB_tree(CollisionGeometryPtr geom)
       }
       else
       {
-        if (i == 0) axis = Vector3d(1,0,0);
-        else if (i == 1) axis = Vector3d(0,1,0);
-        else axis = Vector3d(0,0,1); 
+        if (i == 0) axis = Vector3d(1,0,0,gpose);
+        else if (i == 1) axis = Vector3d(0,1,0,gpose);
+        else axis = Vector3d(0,0,1,gpose); 
       }
 
       // split the bounding box across the axis
