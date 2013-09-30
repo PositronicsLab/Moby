@@ -307,12 +307,12 @@ using boost::dynamic_pointer_cast;
 
     // initialize the problem matrices / vectors
     q.Cn_iM_CnT.set_zero(q.N_CONTACTS, q.N_CONTACTS);
-    q.Cn_iM_CsT.set_zero(q.N_STICKING, q.N_CONTACTS);
-    q.Cn_iM_CtT.set_zero(q.N_STICKING, q.N_CONTACTS);
-    q.Cs_iM_CnT.set_zero(q.N_CONTACTS, q.N_STICKING);
+    q.Cn_iM_CsT.set_zero(q.N_CONTACTS, q.N_STICKING);
+    q.Cn_iM_CtT.set_zero(q.N_CONTACTS, q.N_STICKING);
+    q.Cs_iM_CnT.set_zero(q.N_STICKING, q.N_CONTACTS);
     q.Cs_iM_CsT.set_zero(q.N_STICKING, q.N_STICKING);
     q.Cs_iM_CtT.set_zero(q.N_STICKING, q.N_STICKING);
-    q.Ct_iM_CnT.set_zero(q.N_CONTACTS, q.N_STICKING);
+    q.Ct_iM_CnT.set_zero(q.N_STICKING, q.N_CONTACTS);
     q.Ct_iM_CsT.set_zero(q.N_STICKING, q.N_STICKING);
     q.Ct_iM_CtT.set_zero(q.N_STICKING, q.N_STICKING);
     q.Cn_a.set_zero(q.N_CONTACTS);
