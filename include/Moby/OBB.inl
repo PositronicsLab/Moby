@@ -588,7 +588,7 @@ OBB::OBB(ForwardIterator begin, ForwardIterator end)
   // but add all three eigenvectors
   for (unsigned i=0; i< 3; i++)
   {
-    Ravelin::Vector3d col;
+    Ravelin::Vector3d col(this->center.pose);
     C.get_column(i, col);
     double nrm = col.norm();
     if (nrm < NEAR_ZERO)
