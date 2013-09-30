@@ -600,7 +600,8 @@ using boost::dynamic_pointer_cast;
   FILE_LOG(LOG_EVENT) << " LCP vector: " << qq << std::endl;
 
   // solve the LCP
-  if (!_lcp.lcp_lemke_regularized(MM, qq, z))
+  //if (!_lcp.lcp_lemke_regularized(MM, qq, z))
+  if (!_lcp.lcp_lemke(MM, qq, z))
     throw RestingContactFailException(qq,MM);
 
   for(unsigned i=0,j=0;i<q.N_CONTACTS;i++)
