@@ -613,7 +613,7 @@ OBB::OBB(ForwardIterator begin, ForwardIterator end)
       continue;
 
     // align OBB with minimum bounding rectangle using the normal
-    Ravelin::Vector3d d2, d3;
+    Ravelin::Vector3d d2(this->center.pose), d3(this->center.pose);
     align(begin, end, normal, d2);
     d3 = Ravelin::Vector3d::normalize(Ravelin::Vector3d::cross(normal, d2));
 
