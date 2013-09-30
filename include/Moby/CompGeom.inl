@@ -618,9 +618,16 @@ double CompGeomSpecOne<ForwardIterator, Point3d*>::fit_plane(ForwardIterator beg
 {
   const unsigned THREE_D = 3, X = 0, Y = 1, Z = 2;
   
+  if (begin == end)
+  {
+    normal = Ravelin::Vector3d::zero();
+    offset = 0.0;
+    return 0.0;
+  }
+
   // compute the mean of the data
   unsigned n = 0;
-  Point3d mu = Point3d::zero();
+  Point3d mu = Point3d::zero((*begin)->pose);
   for (ForwardIterator i = begin; i != end; i++, n++)
     mu += **i;
   mu /= n;
@@ -641,6 +648,7 @@ double CompGeomSpecOne<ForwardIterator, Point3d*>::fit_plane(ForwardIterator beg
   _LA.svd(M, U, S, V);
 
   // last column of V should have the singular value we want; normalize it just in case
+  normal.pose = (*begin)->pose;
   normal[X] = V(X,Z);
   normal[Y] = V(Y,Z);
   normal[Z] = V(Z,Z);
@@ -672,9 +680,15 @@ double CompGeomSpecOne<ForwardIterator, Point3d>::fit_plane(ForwardIterator begi
 {
   const unsigned THREE_D = 3, X = 0, Y = 1, Z = 2;
   
+  if(begin == end){
+      normal = Ravelin::Vector3d::zero();
+      offset = 0;
+      return 0;
+  }
   // compute the mean of the data
   unsigned n = 0;
-  Point3d mu = Point3d::zero();
+  Point3d mu = Point3d::zero(begin->pose);
+  
   for (ForwardIterator i = begin; i != end; i++, n++)
     mu += *i;
   mu /= n;
@@ -695,6 +709,7 @@ double CompGeomSpecOne<ForwardIterator, Point3d>::fit_plane(ForwardIterator begi
   _LA.svd(M, U, S, V);
 
   // last column of V should have the singular value we want; normalize it just in case
+  normal.pose = begin->pose;
   normal[X] = V(X,Z);
   normal[Y] = V(Y,Z);
   normal[Z] = V(Z,Z);

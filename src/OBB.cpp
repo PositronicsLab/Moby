@@ -131,7 +131,7 @@ OBB::OBB(const OBB& o, const Vector3d& v)
 
   // determine the vector that results in the minimum bounding volume given
   // that one direction is v
-  Vector3d vmin;
+  Vector3d vmin(vdir.pose);
   align(verts.begin(), verts.end(), vdir, vmin);
 
   // determine the third vector

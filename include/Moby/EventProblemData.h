@@ -218,18 +218,20 @@ struct EventProblemData
         limit_events.push_back(e);
       }
     }
-
+    
     // now, sort the contact events such that events that use a true friction
     // cone are at the end
-    for (unsigned i=0, j=contact_events.size()-1; i< j; )
-    {
-      if (contact_events[i]->contact_NK == UINF)
+    if(!contact_events.empty()){
+      for (unsigned i=0, j=contact_events.size()-1; i< j; )
       {
-        std::swap(contact_events[i], contact_events[j]);
-        j--;
-      } 
-      else
-        i++;
+        if (contact_events[i]->contact_NK == UINF)
+        {
+          std::swap(contact_events[i], contact_events[j]);
+          j--;
+        } 
+        else
+          i++;
+      }
     }
   }
 
