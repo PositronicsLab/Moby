@@ -410,7 +410,7 @@ BVPtr TriangleMeshPrimitive::get_BVH_root(CollisionGeometryPtr geom)
 {
   // build the bounding box if necessary
   BVPtr& root = _roots[geom]; 
-  if (root)
+  if (!root)
     build_BB_tree(geom);
 
   return root; 
