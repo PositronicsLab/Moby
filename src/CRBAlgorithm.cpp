@@ -500,7 +500,7 @@ void CRBAlgorithm::calc_generalized_inertia(MatrixNd& M)
     transform_and_mult(ob, _Ic[idx], s, _Is);
 
     // set appropriate block in K matrix
-    SharedMatrixNd Kb = K.block(0, N_BASE_DOF, jidx, jidx+joint->num_dof());
+    SharedMatrixNd Kb = KT.block(0, SPATIAL_DIM, jidx, jidx+joint->num_dof()); 
     to_matrix(_Is, Kb);
   }
 
@@ -508,7 +508,7 @@ void CRBAlgorithm::calc_generalized_inertia(MatrixNd& M)
   Pose3d::transform(GLOBAL, _Ic.front()).to_matrix(Ic0);
 
   // transpose K 
-  Opsd::transpose(K, KT); // TODO check: spatial transpose?
+  Opsd::transpose(KT, K); // TODO check: spatial transpose?
 
   FILE_LOG(LOG_DYNAMICS) << "(unpermuted) [Ic0 K; K' H]: " << std::endl << M;
 
