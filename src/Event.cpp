@@ -1479,7 +1479,14 @@ double Event::calc_event_accel() const
     // compute 
     double ddot = normal.dot(taa.get_linear() - tab.get_linear());
     ddot += 2.0*normal_dot.dot(tva.get_linear() - tvb.get_linear());
-    assert(CompGeom::rel_equal(ddot, calc_event_accel2(*this), 1e-4));
+    #ifndef NDEBUG
+    if (!CompGeom::rel_equal(ddot, calc_event_accel2(*this), 1e-4))
+    {
+      std::cerr << "Event::calc_event_accel() warning: accelerations do not much to desired tolerance" << std::endl;
+      std::cerr << " -- computed acceleration: " << ddot << std::endl;
+      std::cerr << " -- checked acceleration: " << calc_event_accel2(*this) << std::endl;
+    }
+    #endif
     return ddot;
   }
   else
@@ -1617,7 +1624,7 @@ std::ostream& Moby::operator<<(std::ostream& o, const Event& e)
       }    
       else
         o << "body2: (undefined)" << std::endl;
-     }
+    }
     else
       o << "geom2: (undefined)" << std::endl;
 
@@ -1625,7 +1632,37 @@ std::ostream& Moby::operator<<(std::ostream& o, const Event& e)
     o << "contact point: " << e.contact_point << " frame: " << std::endl;
     o << "normal: " << e.contact_normal << " frame: " << std::endl;
     if (e.deriv_type == Event::eVel)
-      o << "relative normal velocity: " << e.calc_event_vel() << std::endl;
+    {
+      SingleBodyPtr sba = e.contact_geom1->get_single_body();
+      SingleBodyPtr sbb = e.contact_geom2->get_single_body();
+      assert(sba && sbb);
+
+      // get the vels 
+      const SVelocityd& va = sba->get_velocity(); 
+      const SVelocityd& vb = sbb->get_velocity(); 
+
+      // setup the event frame
+      shared_ptr<Pose3d> event_frame(new Pose3d);
+      event_frame->x = e.contact_point;
+      event_frame->q.set_identity();
+      event_frame->rpose = GLOBAL;
+
+      // compute the velocities at the contact point
+      SVelocityd ta = Pose3d::transform(event_frame, va); 
+      SVelocityd tb = Pose3d::transform(event_frame, vb); 
+
+      // get the contact normal in the correct pose
+      Vector3d normal = Pose3d::transform_vector(event_frame, e.contact_normal);
+      Vector3d tan1 = Pose3d::transform_vector(event_frame, e.contact_tan1);
+      Vector3d tan2 = Pose3d::transform_vector(event_frame, e.contact_tan2);
+
+      // get the linear velocities and project against the normal
+      Vector3d rvlin = ta.get_linear() - tb.get_linear();
+      assert(std::fabs(normal.dot(rvlin) - calc_event_vel2(e)) < NEAR_ZERO);
+      o << "relative normal velocity: " << normal.dot(rvlin) << std::endl;
+      o << "relative tangent 1 velocity: " << tan1.dot(rvlin) << std::endl;
+      o << "relative tangent 2 velocity: " << tan2.dot(rvlin) << std::endl;
+    }
     else
       o << "relative normal acceleration: " << e.calc_event_accel() << std::endl;
   }
@@ -2191,6 +2228,18 @@ void Event::process_convex_set_group(list<Event*>& group)
         CompGeom::calc_convex_hull(points.begin(), points.end(), normal, std::back_inserter(hull));
         if (hull.empty())
           throw NumericalException();
+
+/*
+        // hull was successful, fix normals as necessary
+        BOOST_FOREACH(Event* e, group)
+        {
+          double dot = e->contact_normal.dot(normal);
+          if (std::fabs(dot - 1.0) > NEAR_ZERO && std::fabs(dot + 1.0) > NEAR_ZERO)
+          {
+            // need to fix the normal
+          }
+        }
+*/
       }
       catch (NumericalException e)
       {
