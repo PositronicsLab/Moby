@@ -170,9 +170,14 @@ vector<SVelocityd>& RigidBody::calc_jacobian(shared_ptr<const Pose3d> frame, Dyn
     return J;
   }
 
+// construct a matrix
+MatrixNd X(SPATIAL_DIM, SPATIAL_DIM);
+Pose3d::spatial_transform_to_matrix(_jF, frame, X);
+
   // J will be a 6-dimensional vector
   J.resize(SPATIAL_DIM);
 
+/*
   // setup Jacobian -- linear components will be first
   J[0] = SVelocityd(0.0, 0.0, 0.0, 1.0, 0.0, 0.0, _jF);
   J[1] = SVelocityd(0.0, 0.0, 0.0, 0.0, 1.0, 0.0, _jF);
@@ -184,6 +189,11 @@ vector<SVelocityd>& RigidBody::calc_jacobian(shared_ptr<const Pose3d> frame, Dyn
   // transform J to given pose 
   for (unsigned i=0; i< SPATIAL_DIM; i++) 
     J[i] = Pose3d::transform(frame, J[i]);
+*/
+
+  for (unsigned i=0; i< SPATIAL_DIM; i++)
+    for (unsigned j=0; j< SPATIAL_DIM; j++)
+      J[i][j] = X(i,j);
 
   FILE_LOG(LOG_DYNAMICS) << "RigidBody::calc_jacobian() entered" << std::endl;
   FILE_LOG(LOG_DYNAMICS) << "  pose: " << ((frame) ? Pose3d(*frame).update_relative_pose(GLOBAL) : GLOBAL) << std::endl;

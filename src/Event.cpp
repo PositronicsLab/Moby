@@ -205,11 +205,11 @@ void Event::compute_aevent_data(MatrixNd& M, VectorNd& q) const
     transpose_mult(vel, -wt2, J2t); 
 
     FILE_LOG(LOG_EVENT) << "Contact: " << std::endl << *this;
-    FILE_LOG(LOG_EVENT) << "normal (global frame): " << Pose3d::transform(GLOBAL, wne) << std::endl;
-    FILE_LOG(LOG_EVENT) << "tangent 1 (global frame): " << Pose3d::transform(GLOBAL, wse) << std::endl;
-    FILE_LOG(LOG_EVENT) << "tangent 2 (global frame): " << Pose3d::transform(GLOBAL, wte) << std::endl;
-    FILE_LOG(LOG_EVENT) << "Contact Jacobian for body " << su1->id << ": " << std::endl << J1;
-    FILE_LOG(LOG_EVENT) << "Contact Jacobian for body " << su2->id << ": " << std::endl << J2;
+    FILE_LOG(LOG_EVENT) << "normal (mixed frame 1): " << wn1 << std::endl;
+    FILE_LOG(LOG_EVENT) << "tangent 1 (mixed frame 1): " << ws1 << std::endl;
+    FILE_LOG(LOG_EVENT) << "tangent 2 (mixed frame 1): " << wt1 << std::endl;
+    FILE_LOG(LOG_EVENT) << "Contact Jacobian in mixed frame 1 for body " << su1->id << ": " << std::endl << J1;
+    FILE_LOG(LOG_EVENT) << "Contact Jacobian in mixed frame 2 for body " << su2->id << ": " << std::endl << J2;
 
     // compute the contact inertia matrix for the first body
     su1->transpose_solve_generalized_inertia(J1, workM1);
@@ -267,10 +267,10 @@ void Event::compute_aevent_data(MatrixNd& M, VectorNd& q) const
     transpose_mult(vel, -ws2, J2s); 
 
     FILE_LOG(LOG_EVENT) << "Contact: " << std::endl << *this;
-    FILE_LOG(LOG_EVENT) << "normal (global frame): " << Pose3d::transform(GLOBAL, wne) << std::endl;
-    FILE_LOG(LOG_EVENT) << "sliding direction (global frame): " << Pose3d::transform(GLOBAL, wse) << std::endl;
-    FILE_LOG(LOG_EVENT) << "Contact Jacobian for body " << su1->id << ": " << std::endl << J1;
-    FILE_LOG(LOG_EVENT) << "Contact Jacobian for body " << su2->id << ": " << std::endl << J2;
+    FILE_LOG(LOG_EVENT) << "normal (mixed frame 1): " << wn1 << std::endl;
+    FILE_LOG(LOG_EVENT) << "tangent 1 (mixed frame 1): " << ws1 << std::endl;
+    FILE_LOG(LOG_EVENT) << "Contact Jacobian in mixed frame 1 for body " << su1->id << ": " << std::endl << J1;
+    FILE_LOG(LOG_EVENT) << "Contact Jacobian in mixed frame 2 for body " << su2->id << ": " << std::endl << J2;
 
     // setup the first solution vector (N - u_s*Q)
     dJ1 *= -contact_mu_coulomb; 
@@ -577,7 +577,7 @@ void Event::compute_vevent_data(MatrixNd& M, VectorNd& q) const
     SForced wt2 = Pose3d::transform(P2, wte);
 
     // compute the Jacobians for the two bodies
-    su1->calc_jacobian(P1, sb1, vel);
+    su1->calc_jacobian(_event_frame, sb1, vel);
     transpose_mult(vel, wn1, J1n); 
     transpose_mult(vel, ws1, J1s); 
     transpose_mult(vel, wt1, J1t); 
@@ -587,11 +587,11 @@ void Event::compute_vevent_data(MatrixNd& M, VectorNd& q) const
     transpose_mult(vel, -wt2, J2t); 
 
     FILE_LOG(LOG_EVENT) << "Event: " << std::endl << *this;
-    FILE_LOG(LOG_EVENT) << "normal (global frame): " << Pose3d::transform(GLOBAL, wne) << std::endl;
-    FILE_LOG(LOG_EVENT) << "tangent 1 (global frame): " << Pose3d::transform(GLOBAL, wse) << std::endl;
-    FILE_LOG(LOG_EVENT) << "tangent 2 (global frame): " << Pose3d::transform(GLOBAL, wte) << std::endl;
-    FILE_LOG(LOG_EVENT) << "Contact Jacobian for body " << su1->id << ": " << std::endl << J1;
-    FILE_LOG(LOG_EVENT) << "Contact Jacobian for body " << su2->id << ": " << std::endl << J2;
+    FILE_LOG(LOG_EVENT) << "normal (mixed frame 1): " << wn1 << std::endl;
+    FILE_LOG(LOG_EVENT) << "tangent 1 (mixed frame 1): " << ws1 << std::endl;
+    FILE_LOG(LOG_EVENT) << "tangent 2 (mixed frame 1): " << wt1 << std::endl;
+    FILE_LOG(LOG_EVENT) << "Contact Jacobian in mixed frame 1 for body " << su1->id << ": " << std::endl << J1;
+    FILE_LOG(LOG_EVENT) << "Contact Jacobian in mixed frame 2 for body " << su2->id << ": " << std::endl << J2;
 
     // compute the event inertia matrix for the first body
     su1->transpose_solve_generalized_inertia(J1, workM1);
@@ -1439,8 +1439,6 @@ double calc_event_accel2(const Event& e)
   return normal.dot(v1) + 2.0*normal_dot.dot(v2);
 }
 
-
-
 /// Computes the acceleration of this contact
 /**
  * Positive acceleration indicates acceleration away, negative acceleration
@@ -1567,6 +1565,16 @@ double Event::calc_event_vel() const
     // get the contact normal in the correct pose
     Vector3d normal = Pose3d::transform_vector(_event_frame, contact_normal);
 
+    FILE_LOG(LOG_EVENT) << "Event::calc_event_vel() entered" << std::endl;
+    FILE_LOG(LOG_EVENT) << "normal (event frame): " << normal << std::endl;
+    FILE_LOG(LOG_EVENT) << "tangent 1 (event frame): " << Pose3d::transform_vector(_event_frame, contact_tan1) << std::endl;
+    FILE_LOG(LOG_EVENT) << "tangent 2 (event frame): " << Pose3d::transform_vector(_event_frame, contact_tan2) << std::endl;
+    FILE_LOG(LOG_EVENT) << "spatial velocity (mixed frame) for body A: " << Pose3d::transform(dynamic_pointer_cast<RigidBody>(sba)->get_mixed_pose(), ta) << std::endl;
+    FILE_LOG(LOG_EVENT) << "spatial velocity (event frame) for body A: " << ta << std::endl;
+    FILE_LOG(LOG_EVENT) << "spatial velocity (mixed frame) for body B: " << Pose3d::transform(dynamic_pointer_cast<RigidBody>(sbb)->get_mixed_pose(), tb) << std::endl;
+    FILE_LOG(LOG_EVENT) << "spatial velocity (event frame) for body B: " << tb << std::endl;
+    FILE_LOG(LOG_EVENT) << "Event::calc_event_vel() exited" << std::endl;
+
     // get the linear velocities and project against the normal
     assert(std::fabs(normal.dot(ta.get_linear() - tb.get_linear()) - calc_event_vel2(*this)) < NEAR_ZERO);
     return normal.dot(ta.get_linear() - tb.get_linear());
@@ -1662,6 +1670,8 @@ std::ostream& Moby::operator<<(std::ostream& o, const Event& e)
       o << "relative normal velocity: " << normal.dot(rvlin) << std::endl;
       o << "relative tangent 1 velocity: " << tan1.dot(rvlin) << std::endl;
       o << "relative tangent 2 velocity: " << tan2.dot(rvlin) << std::endl;
+      o << "calc_event_vel() reports: " << std::endl;
+      e.calc_event_vel();
     }
     else
       o << "relative normal acceleration: " << e.calc_event_accel() << std::endl;
