@@ -36,7 +36,7 @@ ArticulatedBody::ArticulatedBody()
 /**
  * Columns correspond to joint coordinate indices.
  */
-vector<SVelocityd>& ArticulatedBody::calc_jacobian_dot(boost::shared_ptr<const Pose3d> frame, DynamicBodyPtr body, vector<SVelocityd>& J)
+MatrixNd& ArticulatedBody::calc_jacobian_dot(boost::shared_ptr<const Pose3d> frame, DynamicBodyPtr body, MatrixNd& J)
 {
   const unsigned SPATIAL_DIM = 6;
 
@@ -47,9 +47,7 @@ vector<SVelocityd>& ArticulatedBody::calc_jacobian_dot(boost::shared_ptr<const P
   const unsigned NDOF = (is_floating_base()) ? NIMP_DOF + SPATIAL_DIM : NIMP_DOF;
 
   // setup the Jacobian
-  J.resize(NDOF); 
-  for (unsigned i=0; i< J.size(); i++)
-    J[i] = SVelocityd::zero(frame);
+  J.set_zero(NDOF, SPATIAL_DIM); 
 
   // get the current link
   RigidBodyPtr link = dynamic_pointer_cast<RigidBody>(body);
@@ -75,26 +73,13 @@ vector<SVelocityd>& ArticulatedBody::calc_jacobian_dot(boost::shared_ptr<const P
 
     // update J
     for (unsigned i=0; i< s.size(); i++)
-      J[CIDX+i] = Pose3d::transform(frame, s[i]);
+    {
+      SharedVectorNd v = J.row(CIDX+i);
+      Pose3d::transform(frame, s[i]).transpose_to_vector(v);
+    }
 
     // set the link to the parent link
     link = parent;
-  }
-
-  // if base is floating, setup Jacobian columns at the end
-  if (is_floating_base())
-  {
-    shared_ptr<const Pose3d> bpose = base->get_pose();
-    J[NIMP_DOF+0] = SVelocityd::zero(bpose); 
-    J[NIMP_DOF+1] = SVelocityd::zero(bpose); 
-    J[NIMP_DOF+2] = SVelocityd::zero(bpose); 
-    J[NIMP_DOF+3] = SVelocityd::zero(bpose); 
-    J[NIMP_DOF+4] = SVelocityd::zero(bpose); 
-    J[NIMP_DOF+5] = SVelocityd::zero(bpose); 
-
-    // convert base columns of Jacobian
-    for (unsigned i=NIMP_DOF; i< NIMP_DOF+SPATIAL_DIM; i++)
-      J[i] = Pose3d::transform(frame, J[i]);
   }
 
   return J;
@@ -104,7 +89,7 @@ vector<SVelocityd>& ArticulatedBody::calc_jacobian_dot(boost::shared_ptr<const P
 /**
  * Columns correspond to joint coordinate indices.
  */
-vector<SVelocityd>& ArticulatedBody::calc_jacobian(boost::shared_ptr<const Pose3d> frame, DynamicBodyPtr body, vector<SVelocityd>& J)
+MatrixNd& ArticulatedBody::calc_jacobian(boost::shared_ptr<const Pose3d> frame, DynamicBodyPtr body, MatrixNd& J)
 {
   const unsigned SPATIAL_DIM = 6;
 
@@ -115,9 +100,7 @@ vector<SVelocityd>& ArticulatedBody::calc_jacobian(boost::shared_ptr<const Pose3
   const unsigned NDOF = (is_floating_base()) ? NIMP_DOF + SPATIAL_DIM : NIMP_DOF;
 
   // setup the Jacobian
-  J.resize(NDOF); 
-  for (unsigned i=0; i< J.size(); i++)
-    J[i] = SVelocityd::zero(frame);
+  J.set_zero(NDOF,SPATIAL_DIM); 
 
   // get the current link
   RigidBodyPtr link = dynamic_pointer_cast<RigidBody>(body);
@@ -143,7 +126,10 @@ vector<SVelocityd>& ArticulatedBody::calc_jacobian(boost::shared_ptr<const Pose3
 
     // update J
     for (unsigned i=0; i< s.size(); i++)
-      J[CIDX+i] = Pose3d::transform(frame, s[i]);
+    {
+      SharedVectorNd v = J.row(CIDX+i);
+      Pose3d::transform(frame, s[i]).transpose_to_vector(v);
+    }
 
     // set the link to the parent link
     link = parent;
@@ -152,17 +138,9 @@ vector<SVelocityd>& ArticulatedBody::calc_jacobian(boost::shared_ptr<const Pose3
   // if base is floating, setup Jacobian columns at the end
   if (is_floating_base())
   {
-    shared_ptr<const Pose3d> bpose = base->get_pose();
-    J[NIMP_DOF+0] = SVelocityd(1.0, 0.0, 0.0, 0.0, 0.0, 0.0, bpose); 
-    J[NIMP_DOF+1] = SVelocityd(0.0, 1.0, 0.0, 0.0, 0.0, 0.0, bpose); 
-    J[NIMP_DOF+2] = SVelocityd(0.0, 0.0, 1.0, 0.0, 0.0, 0.0, bpose); 
-    J[NIMP_DOF+3] = SVelocityd(0.0, 0.0, 0.0, 1.0, 0.0, 0.0, bpose); 
-    J[NIMP_DOF+4] = SVelocityd(0.0, 0.0, 0.0, 0.0, 1.0, 0.0, bpose); 
-    J[NIMP_DOF+5] = SVelocityd(0.0, 0.0, 0.0, 0.0, 0.0, 1.0, bpose); 
-
-    // convert base columns of Jacobian
-    for (unsigned i=NIMP_DOF; i< NIMP_DOF+SPATIAL_DIM; i++)
-      J[i] = Pose3d::transform(frame, J[i]);
+    shared_ptr<const Pose3d> bpose = base->get_mixed_pose();
+    SharedMatrixNd Jbase = J.block(NIMP_DOF, NIMP_DOF+SPATIAL_DIM, 0, SPATIAL_DIM);
+    Pose3d::spatial_transform_to_matrix(bpose, frame, Jbase);
   }
 
   return J;

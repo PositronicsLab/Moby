@@ -131,7 +131,7 @@ void RigidBody::rotate(const Quatd& q)
 }
 
 /// Computes the Jacobian
-vector<SVelocityd>& RigidBody::calc_jacobian_dot(shared_ptr<const Pose3d> frame, DynamicBodyPtr body, vector<SVelocityd>& J)
+MatrixNd& RigidBody::calc_jacobian_dot(shared_ptr<const Pose3d> frame, DynamicBodyPtr body, MatrixNd& J)
 {
   const unsigned SPATIAL_DIM = 6;
 
@@ -140,23 +140,17 @@ vector<SVelocityd>& RigidBody::calc_jacobian_dot(shared_ptr<const Pose3d> frame,
 
   if (!is_enabled())
   {
-    J.resize(0);
+    J.set_zero(SPATIAL_DIM, 0);
     return J;
   }
   
-  J.resize(SPATIAL_DIM);
-  J[0].set_zero(frame);
-  J[1].set_zero(frame);
-  J[2].set_zero(frame);
-  J[3].set_zero(frame);
-  J[4].set_zero(frame);
-  J[5].set_zero(frame);
+  J.set_zero(SPATIAL_DIM, SPATIAL_DIM);
 
   return J;
 }
 
 /// Computes the Jacobian
-vector<SVelocityd>& RigidBody::calc_jacobian(shared_ptr<const Pose3d> frame, DynamicBodyPtr body, vector<SVelocityd>& J)
+MatrixNd& RigidBody::calc_jacobian(shared_ptr<const Pose3d> frame, DynamicBodyPtr body, MatrixNd& J)
 {
   const unsigned SPATIAL_DIM = 6;
 
@@ -166,40 +160,15 @@ vector<SVelocityd>& RigidBody::calc_jacobian(shared_ptr<const Pose3d> frame, Dyn
   // if the body is disabled, do not compute a Jacobian
   if (!is_enabled())
   {
-    J.resize(0);
+    J.set_zero(6, 0);
     return J;
   }
 
-// construct a matrix
-MatrixNd X(SPATIAL_DIM, SPATIAL_DIM);
-Pose3d::spatial_transform_to_matrix(_jF, frame, X);
-
-  // J will be a 6-dimensional vector
-  J.resize(SPATIAL_DIM);
-
-/*
-  // setup Jacobian -- linear components will be first
-  J[0] = SVelocityd(0.0, 0.0, 0.0, 1.0, 0.0, 0.0, _jF);
-  J[1] = SVelocityd(0.0, 0.0, 0.0, 0.0, 1.0, 0.0, _jF);
-  J[2] = SVelocityd(0.0, 0.0, 0.0, 0.0, 0.0, 1.0, _jF);
-  J[3] = SVelocityd(1.0, 0.0, 0.0, 0.0, 0.0, 0.0, _jF);
-  J[4] = SVelocityd(0.0, 1.0, 0.0, 0.0, 0.0, 0.0, _jF);
-  J[5] = SVelocityd(0.0, 0.0, 1.0, 0.0, 0.0, 0.0, _jF);
-
-  // transform J to given pose 
-  for (unsigned i=0; i< SPATIAL_DIM; i++) 
-    J[i] = Pose3d::transform(frame, J[i]);
-*/
-
-  for (unsigned i=0; i< SPATIAL_DIM; i++)
-    for (unsigned j=0; j< SPATIAL_DIM; j++)
-      J[i][j] = X(i,j);
+  // construct the spatial transform
+  Pose3d::spatial_transform_to_matrix2(_F2, frame, J);
 
   FILE_LOG(LOG_DYNAMICS) << "RigidBody::calc_jacobian() entered" << std::endl;
   FILE_LOG(LOG_DYNAMICS) << "  pose: " << ((frame) ? Pose3d(*frame).update_relative_pose(GLOBAL) : GLOBAL) << std::endl;
-  if (LOGGING(LOG_DYNAMICS))
-    for (unsigned i=0; i< SPATIAL_DIM; i++)
-      FILE_LOG(LOG_DYNAMICS) << " Jacobian column: " << J[i] << std::endl; 
 
   return J;
 }
