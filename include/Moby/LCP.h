@@ -22,6 +22,8 @@ bool lcp_lemke(const Ravelin::MatrixNd& M, const Ravelin::VectorNd& q, Ravelin::
     bool lcp_lemke(const Ravelin::SparseMatrixNd& M, const Ravelin::VectorNd& q, Ravelin::VectorNd& z, double piv_tol = -1.0, double zero_tol = -1.0);
 
   private:
+    static void set_basis(unsigned n, unsigned count, std::vector<unsigned>& bas, std::vector<unsigned>& nbas);
+
     // temporaries for regularized solver
     Ravelin::MatrixNd _MM;
     Ravelin::VectorNd _wx;

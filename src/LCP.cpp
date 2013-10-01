@@ -40,7 +40,8 @@ LCP::LCP()
 bool LCP::lcp_lemke_regularized(const MatrixNd& M, const VectorNd& q, VectorNd& z, int min_exp, unsigned step_exp, int max_exp, double piv_tol, double zero_tol)
 {
   FILE_LOG(LOG_OPT) << "LCP::lcp_lemke_regularized() entered" << endl;
-
+  pair<ColumnIteratord, ColumnIteratord> mmax;
+ 
   // look for fast exit
   if (q.size() == 0)
   {
@@ -52,7 +53,7 @@ bool LCP::lcp_lemke_regularized(const MatrixNd& M, const VectorNd& q, VectorNd& 
   _MM = M;
 
   // assign value for zero tolerance, if necessary
-  const double ZERO_TOL = (zero_tol > (double) 0.0) ? zero_tol : q.size() * M.norm_inf() * std::numeric_limits<double>::epsilon();
+  const double ZERO_TOL = (zero_tol > (double) 0.0) ? zero_tol : q.size() * M.norm_inf() * NEAR_ZERO;
 
   FILE_LOG(LOG_OPT) << " zero tolerance: " << ZERO_TOL << endl;
 
@@ -69,7 +70,7 @@ bool LCP::lcp_lemke_regularized(const MatrixNd& M, const VectorNd& q, VectorNd& 
       {
         // check z'w
         std::transform(z.begin(), z.end(), _wx.begin(), _wx.begin(), std::multiplies<double>());
-        pair<ColumnIteratord, ColumnIteratord> mmax = boost::minmax_element(_wx.begin(), _wx.end());
+        mmax = boost::minmax_element(_wx.begin(), _wx.end());
         if (*mmax.first >= -ZERO_TOL && *mmax.second < ZERO_TOL)
         {
           FILE_LOG(LOG_OPT) << "  solved with no regularization necessary!" << endl;
@@ -78,15 +79,19 @@ bool LCP::lcp_lemke_regularized(const MatrixNd& M, const VectorNd& q, VectorNd& 
         }
         else
         {
-          FILE_LOG(LOG_OPT) << "  LCP::lcp_lemke() - 'w' not solved to desired tolerance" << std::endl;
-          FILE_LOG(LOG_OPT) << "  w: " << _wx << std::endl;
+          FILE_LOG(LOG_OPT) << "LCP::lcp_lemke() - '<w, z> not within tolerance(min value: " << *mmax.first << " max value: " << *mmax.second << ")" << std::endl; 
         }
+      }
+      else
+      {
+        FILE_LOG(LOG_OPT) << "  LCP::lcp_lemke() - 'w' not solved to desired tolerance" << std::endl;
+        FILE_LOG(LOG_OPT) << "  minimum w: " << *std::min_element(_wx.column_iterator_begin(), _wx.column_iterator_end()) << std::endl;
       }
     }
     else
     {
       FILE_LOG(LOG_OPT) << "  LCP::lcp_lemke() - 'z' not solved to desired tolerance" << std::endl;
-      FILE_LOG(LOG_OPT) << "  z: " << z << std::endl;
+      FILE_LOG(LOG_OPT) << "  minimum z: " << *std::min_element(z.column_iterator_begin(), z.column_iterator_end()) << std::endl;
     }
   }
 
@@ -114,7 +119,7 @@ bool LCP::lcp_lemke_regularized(const MatrixNd& M, const VectorNd& q, VectorNd& 
         {
           // check z'w
           std::transform(z.begin(), z.end(), _wx.begin(), _wx.begin(), std::multiplies<double>());
-          pair<ColumnIteratord, ColumnIteratord> mmax = boost::minmax_element(_wx.begin(), _wx.end());
+          mmax = boost::minmax_element(_wx.begin(), _wx.end());
           if (*mmax.first > -ZERO_TOL && *mmax.second < ZERO_TOL)
           {
             FILE_LOG(LOG_OPT) << "  solved with regularization factor: " << lambda << endl;
@@ -122,17 +127,21 @@ bool LCP::lcp_lemke_regularized(const MatrixNd& M, const VectorNd& q, VectorNd& 
 
             return true;
           }
+          else
+          {
+            FILE_LOG(LOG_OPT) << "LCP::lcp_lemke() - '<w, z> not within tolerance(min value: " << *mmax.first << " max value: " << *mmax.second << ")" << std::endl; 
+          }
         }
         else
         {
           FILE_LOG(LOG_OPT) << "  LCP::lcp_lemke() - 'w' not solved to desired tolerance" << std::endl;
-          FILE_LOG(LOG_OPT) << "  w: " << _wx << std::endl;
+          FILE_LOG(LOG_OPT) << "  minimum w: " << *std::min_element(_wx.column_iterator_begin(), _wx.column_iterator_end()) << std::endl;
         }
       }
       else
       {
         FILE_LOG(LOG_OPT) << "  LCP::lcp_lemke() - 'z' not solved to desired tolerance" << std::endl;
-        FILE_LOG(LOG_OPT) << "  z: " << z << std::endl;
+        FILE_LOG(LOG_OPT) << "  minimum z: " << *std::min_element(z.column_iterator_begin(), z.column_iterator_end()) << std::endl;
       }
     }
 
@@ -145,6 +154,25 @@ bool LCP::lcp_lemke_regularized(const MatrixNd& M, const VectorNd& q, VectorNd& 
 
   // still here?  failure...
   return false;
+}
+
+/// Sets a basis
+void LCP::set_basis(unsigned n, unsigned count, vector<unsigned>& bas, vector<unsigned>& nbas)
+{
+  // clear bas and nbas
+  bas.clear();
+  nbas.clear();
+
+  unsigned long long n2 = 1 << (n-1);
+  for (unsigned i=0; i< n; i++)
+  {
+    if (count / n2 > 0)
+      bas.push_back(i);
+    else
+      nbas.push_back(i);
+    count = count % n2;
+    n2 >> 1;
+  } 
 }
 
 /// Lemke's algorithm for solving linear complementarity problems
@@ -172,6 +200,7 @@ bool LCP::lcp_lemke(const MatrixNd& M, const VectorNd& q, VectorNd& z, double pi
   _j.clear();
 
   // copy z to z0
+z.set_zero(n);
   _z0 = z;
 
   // come up with a sensible value for zero tolerance if none is given
@@ -237,25 +266,35 @@ bool LCP::lcp_lemke(const MatrixNd& M, const VectorNd& q, VectorNd& z, double pi
   }
 
   // solve B*x = -q
-  try
-  {
-    _Al = _Bl;
-    _x = q;
-    _LA.solve_fast(_Al, _x);
-  }
-  catch (SingularException e)
+  unsigned basis_count = std::numeric_limits<unsigned>::max();
+  while (true)
   {
     try
     {
-      // use slower SVD pseudo-inverse
       _Al = _Bl;
       _x = q;
-      _LA.solve_LS_fast1(_Al, _x);
+      _LA.solve_fast(_Al, _x);
+      break;
     }
-    catch (NumericalException e)
+    catch (SingularException e)
     {
-      _Al = _Bl;
-      _LA.solve_LS_fast2(_Al, _x);
+      // if initial basis didn't work, prepare to iterate through all 2^n bases
+      if (basis_count == std::numeric_limits<unsigned>::max())
+        basis_count = 0;
+        
+      // cycle through all bases until we find one that works
+      set_basis(n, basis_count++, _bas, _nonbas);
+
+      // select columns of M corresponding to z vars in the basis
+      M.select(_all.begin(), _all.end(), _bas.begin(), _bas.end(), _t1);
+
+      // select columns of I corresponding to z vars not in the basis
+      _Bl.select(_all.begin(), _all.end(), _nonbas.begin(), _nonbas.end(), _t2);
+
+      // setup the basis matrix
+      _Bl.resize(n, _t1.columns() + _t2.columns());
+      _Bl.set_sub_mat(0,0,_t1);
+      _Bl.set_sub_mat(0,_t1.columns(),_t2);
     }
   }
   _x.negate();
