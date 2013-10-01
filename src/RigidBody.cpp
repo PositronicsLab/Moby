@@ -1206,10 +1206,7 @@ void RigidBody::apply_impulse(const SMomentumd& w)
     } 
 
     // reset the force and torque accumulators for this body
-    _force0.set_zero();
-    _forcei.set_zero(); _forcei_valid = true;
-    _forcem.set_zero(); _forcem_valid = true;
-    _forcej.set_zero(); _forcej_valid = true;
+    reset_accumulators();
   }
   else
   {
@@ -1290,16 +1287,25 @@ void RigidBody::apply_generalized_impulse_single(const VectorNd& gj)
   assert(gj.size() == num_generalized_coordinates(DynamicBody::eSpatial));
 
   // clear the force accumulators (and validate them all)
-  _force0.set_zero();
-  _forcei.set_zero(); _forcei_valid = true;
-  _forcej.set_zero(); _forcej_valid = true;
-  _forcem.set_zero(); _forcem_valid = true;
+  reset_accumulators();
 
   // get the impulses
   w.set_linear(Vector3d(gj[0], gj[1], gj[2]));
   w.set_angular(Vector3d(gj[3], gj[4], gj[5]));
   w.pose = _F2;
 
+  // convert the impulse tho the inertial frame
+  SMomentumd wm = Pose3d::transform(_jF, w);
+ 
+  // get the current velocity in the inertial frame
+  SVelocityd v = Pose3d::transform(_jF, get_velocity());
+
+  // update the velocity
+  v += _Jm.inverse_mult(wm);
+
+  set_velocity(v);
+
+/*
   // convert the impulse to the global frame
   SMomentumd w0 = Pose3d::transform(GLOBAL, w);
 
@@ -1313,6 +1319,7 @@ void RigidBody::apply_generalized_impulse_single(const VectorNd& gj)
 
   // invalidate velocities
   _xdi_valid = _xdj_valid = _xdm_valid = false;
+*/
 }
 
 /// Solves using the generalized inertia matrix
@@ -1725,21 +1732,33 @@ MatrixNd& RigidBody::get_generalized_inertia_inverse(MatrixNd& M) const
   // get the inertia 
   SpatialRBInertiad J = Pose3d::transform(_F2, _Jm);
 
+// NOTE: these will all be zero
+/*
   // get center-of-mass vector and the skew symmetric tensor
   Origin3d c = J.h/J.m;
   Matrix3d cx = Matrix3d::skew_symmetric(c);
-
+*/
   // compute the inverse of the c.o.m. inertia matrix
   Matrix3d iJ = Matrix3d::invert(J.J);
 
+// NOTE: these will all be zero
+/*
   // compute cx * inv(J)
   Matrix3d cxiJ = cx * iJ;
+*/
 
   // compute the inverse mass
   double inv_m = 1.0/J.m;
 
+// NOTE: these will all be zero
+/*
   // compute upper left hand block: cx * inv(J) * cx' + 1/m I
   Matrix3d UL = cxiJ * -cx;
+  UL.xx() += inv_m;
+  UL.yy() += inv_m;
+  UL.zz() += inv_m;
+*/
+  Matrix3d UL = Matrix3d::zero();
   UL.xx() += inv_m;
   UL.yy() += inv_m;
   UL.zz() += inv_m;
@@ -1747,8 +1766,10 @@ MatrixNd& RigidBody::get_generalized_inertia_inverse(MatrixNd& M) const
   // arrange the matrix the way we want it
   M.resize(SPATIAL_DIM, SPATIAL_DIM);
   M.set_sub_mat(0, 0, UL);
-  M.set_sub_mat(3, 0, cxiJ, Ravelin::eTranspose);
-  M.set_sub_mat(0, 3, cxiJ);
+//  M.set_sub_mat(3, 0, cxiJ, Ravelin::eTranspose);
+  M.set_sub_mat(3, 0, Matrix3d::zero());
+  M.set_sub_mat(0, 3, Matrix3d::zero());
+//  M.set_sub_mat(0, 3, cxiJ);
   M.set_sub_mat(3, 3, iJ);
 
   return M;
