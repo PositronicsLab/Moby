@@ -100,8 +100,8 @@ class RigidBody : public SingleBody
     bool is_ground() const;
     virtual boost::shared_ptr<const Ravelin::Pose3d> get_computation_frame() const;
     virtual void set_computation_frame_type(ReferenceFrameType rftype);
-    virtual std::vector<Ravelin::SVelocityd>& calc_jacobian(boost::shared_ptr<const Ravelin::Pose3d> frame, DynamicBodyPtr body, std::vector<Ravelin::SVelocityd>& J);
-    virtual std::vector<Ravelin::SVelocityd>& calc_jacobian_dot(boost::shared_ptr<const Ravelin::Pose3d> frame, DynamicBodyPtr body, std::vector<Ravelin::SVelocityd>& J);
+    virtual Ravelin::MatrixNd& calc_jacobian(boost::shared_ptr<const Ravelin::Pose3d> frame, DynamicBodyPtr body, Ravelin::MatrixNd& J);
+    virtual Ravelin::MatrixNd& calc_jacobian_dot(boost::shared_ptr<const Ravelin::Pose3d> frame, DynamicBodyPtr body, Ravelin::MatrixNd& J);
     const Ravelin::SForced& sum_forces();
     void reset_accumulators();
 

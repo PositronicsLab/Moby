@@ -158,8 +158,7 @@ class Event
 
     // static variables
     boost::shared_ptr<Ravelin::Pose3d> _event_frame;
-    static Ravelin::MatrixNd J, Jx, Jy, J1, J2, dJ1, dJ2, workM1, workM2;
-    static std::vector<Ravelin::SVelocityd> vel;
+    static Ravelin::MatrixNd JJ, J, Jx, Jy, J1, J2, dJ1, dJ2, workM1, workM2;
     static Ravelin::VectorNd v, workv, workv2;
 
     // the type of friction contact (acceleration-level only)

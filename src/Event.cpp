@@ -44,8 +44,7 @@ using boost::dynamic_pointer_cast;
 
 // static declarations
 MatrixNd Event::J1, Event::J2, Event::workM1, Event::workM2;
-MatrixNd Event::J, Event::Jx, Event::Jy, Event::dJ1, Event::dJ2;
-vector<SVelocityd> Event::vel;
+MatrixNd Event::JJ, Event::J, Event::Jx, Event::Jy, Event::dJ1, Event::dJ2;
 VectorNd Event::v, Event::workv, Event::workv2; 
 
 /// Creates an empty event 
@@ -129,7 +128,7 @@ void Event::compute_aevent_data(MatrixNd& M, VectorNd& q) const
   assert(event_type == eContact);
 
   // setup useful indices
-  const unsigned N = 0, S = 1, T = 2;
+  const unsigned N = 0, S = 1, T = 2, THREE_D = 3;
 
   // get the two single bodies
   SingleBodyPtr sb1 = contact_geom1->get_single_body();
@@ -142,10 +141,6 @@ void Event::compute_aevent_data(MatrixNd& M, VectorNd& q) const
   // get the numbers of generalized coordinates for the two super bodies
   const unsigned NGC1 = su1->num_generalized_coordinates(DynamicBody::eSpatial);
   const unsigned NGC2 = su2->num_generalized_coordinates(DynamicBody::eSpatial);
-
-  // get the two gc poses for the two bodies
-  shared_ptr<const Pose3d> P1 = su1->get_gc_pose();
-  shared_ptr<const Pose3d> P2 = su2->get_gc_pose();
 
   // verify the contact point, normal, and tangents are in the global frame
   assert(contact_point.pose == GLOBAL);
@@ -163,53 +158,28 @@ void Event::compute_aevent_data(MatrixNd& M, VectorNd& q) const
   // case 1: sticking friction
   if (_ftype == eSticking)
   {
-    // form the normal and tangential forces in contact space
-    SForced wne, wse, wte;
-    wne.pose = _event_frame;
-    wse.pose = _event_frame;
-    wte.pose = _event_frame;
-    wne.set_force(contact_normal);
-    wse.set_force(contact_tan1); 
-    wte.set_force(contact_tan2);
+    // get the directions in the event frame
+    Vector3d normal = Pose3d::transform_vector(_event_frame, contact_normal);
+    Vector3d tan1 = Pose3d::transform_vector(_event_frame, contact_tan1);
+    Vector3d tan2 = Pose3d::transform_vector(_event_frame, contact_tan2);
+
+    // setup a matrix of contact directions
+    Matrix3d R;
+    R.set_column(N, normal);
+    R.set_column(S, tan1);
+    R.set_column(T, tan2);
 
     // resize the Jacobians 
-    J1.resize(3, NGC1);
-    J2.resize(3, NGC2);
-
-    // get the rows of the Jacobians for output
-    SharedVectorNd J1n = J1.row(N); 
-    SharedVectorNd J1s = J1.row(S); 
-    SharedVectorNd J1t = J1.row(T); 
-    SharedVectorNd J2n = J2.row(N); 
-    SharedVectorNd J2s = J2.row(S); 
-    SharedVectorNd J2t = J2.row(T); 
-
-    // transform forces to proper frame for first body
-    SForced wn1 = Pose3d::transform(P1, wne);
-    SForced ws1 = Pose3d::transform(P1, wse);
-    SForced wt1 = Pose3d::transform(P1, wte);
-
-    // transform forces to proper frame for second body
-    SForced wn2 = Pose3d::transform(P2, wne);
-    SForced ws2 = Pose3d::transform(P2, wse);
-    SForced wt2 = Pose3d::transform(P2, wte);
+    J1.resize(THREE_D, NGC1);
+    J2.resize(THREE_D, NGC2);
 
     // compute the Jacobians for the two bodies
-    su1->calc_jacobian(P1, sb1, vel);
-    transpose_mult(vel, wn1, J1n); 
-    transpose_mult(vel, ws1, J1s); 
-    transpose_mult(vel, wt1, J1t); 
-    su2->calc_jacobian(P2, sb2, vel);
-    transpose_mult(vel, -wn2, J2n); 
-    transpose_mult(vel, -ws2, J2s); 
-    transpose_mult(vel, -wt2, J2t); 
-
-    FILE_LOG(LOG_EVENT) << "Contact: " << std::endl << *this;
-    FILE_LOG(LOG_EVENT) << "normal (mixed frame 1): " << wn1 << std::endl;
-    FILE_LOG(LOG_EVENT) << "tangent 1 (mixed frame 1): " << ws1 << std::endl;
-    FILE_LOG(LOG_EVENT) << "tangent 2 (mixed frame 1): " << wt1 << std::endl;
-    FILE_LOG(LOG_EVENT) << "Contact Jacobian in mixed frame 1 for body " << su1->id << ": " << std::endl << J1;
-    FILE_LOG(LOG_EVENT) << "Contact Jacobian in mixed frame 2 for body " << su2->id << ": " << std::endl << J2;
+    su1->calc_jacobian(_event_frame, sb1, JJ);
+    SharedConstMatrixNd Jlin1 = JJ.block(0, THREE_D, 0, JJ.columns());
+    R.transpose_mult(Jlin1, J1);
+    su2->calc_jacobian(_event_frame, sb2, JJ);
+    SharedConstMatrixNd Jlin2 = JJ.block(0, THREE_D, 0, JJ.columns());
+    (-R).transpose_mult(Jlin2, J2);
 
     // compute the contact inertia matrix for the first body
     su1->transpose_solve_generalized_inertia(J1, workM1);
@@ -231,12 +201,9 @@ void Event::compute_aevent_data(MatrixNd& M, VectorNd& q) const
   }
   else
   {
-    // form the normal and sliding forces in contact space
-    SForced wne, wse;
-    wne.pose = _event_frame;
-    wse.pose = _event_frame;
-    wne.set_force(contact_normal);
-    wse.set_force(contact_tan1); 
+    // get the normal and sliding directions in the event frame
+    Vector3d normal = Pose3d::transform_vector(_event_frame, contact_normal);
+    Vector3d tan1 = Pose3d::transform_vector(_event_frame, contact_tan1);
 
     // resize the Jacobians 
     J1.resize(1,NGC1);
@@ -244,33 +211,21 @@ void Event::compute_aevent_data(MatrixNd& M, VectorNd& q) const
     dJ1.resize(1,NGC1);
     dJ2.resize(1,NGC2);
 
-    // get the rows of the Jacobians for output
-    SharedVectorNd J1n = J1.row(N); 
-    SharedVectorNd J1s = dJ1.row(N); 
-    SharedVectorNd J2n = J2.row(N); 
-    SharedVectorNd J2s = dJ2.row(N); 
-
-    // transform forces to proper frame for first body
-    SForced wn1 = Pose3d::transform(P1, wne);
-    SForced ws1 = Pose3d::transform(P1, wse);
-
-    // transform forces to proper frame for second body
-    SForced wn2 = Pose3d::transform(P2, wne);
-    SForced ws2 = Pose3d::transform(P2, wse);
+    // get shared vectors
+    SharedVectorNd J1n = J1.row(0);
+    SharedVectorNd J1s = dJ1.row(0);
+    SharedVectorNd J2n = J2.row(0);
+    SharedVectorNd J2s = dJ2.row(0);
 
     // compute the Jacobians for the two bodies
-    su1->calc_jacobian(P1, sb1, vel);
-    transpose_mult(vel, wn1, J1n); 
-    transpose_mult(vel, ws1, J1s); 
-    su2->calc_jacobian(P2, sb2, vel);
-    transpose_mult(vel, -wn2, J2n); 
-    transpose_mult(vel, -ws2, J2s); 
-
-    FILE_LOG(LOG_EVENT) << "Contact: " << std::endl << *this;
-    FILE_LOG(LOG_EVENT) << "normal (mixed frame 1): " << wn1 << std::endl;
-    FILE_LOG(LOG_EVENT) << "tangent 1 (mixed frame 1): " << ws1 << std::endl;
-    FILE_LOG(LOG_EVENT) << "Contact Jacobian in mixed frame 1 for body " << su1->id << ": " << std::endl << J1;
-    FILE_LOG(LOG_EVENT) << "Contact Jacobian in mixed frame 2 for body " << su2->id << ": " << std::endl << J2;
+    su1->calc_jacobian(_event_frame, sb1, JJ);
+    SharedConstMatrixNd Jlin1 = JJ.block(0, THREE_D, 0, JJ.columns());
+    Jlin1.transpose_mult(normal, J1n);
+    Jlin1.transpose_mult(tan1, J1s);
+    su2->calc_jacobian(_event_frame, sb2, JJ);
+    SharedConstMatrixNd Jlin2 = JJ.block(0, THREE_D, 0, JJ.columns());
+    Jlin2.transpose_mult(-normal, J2n);
+    Jlin2.transpose_mult(-tan1, J2s);
 
     // setup the first solution vector (N - u_s*Q)
     dJ1 *= -contact_mu_coulomb; 
@@ -305,7 +260,7 @@ void Event::compute_dotv_data(VectorNd& q) const
   assert(event_type == eContact);
 
   // setup useful indices
-  const unsigned N = 0, S = 1, T = 2;
+  const unsigned N = 0, S = 1, T = 2, THREE_D = 3;
 
   // get the two single bodies
   SingleBodyPtr sb1 = contact_geom1->get_single_body();
@@ -319,10 +274,6 @@ void Event::compute_dotv_data(VectorNd& q) const
   const unsigned NGC1 = su1->num_generalized_coordinates(DynamicBody::eSpatial);
   const unsigned NGC2 = su2->num_generalized_coordinates(DynamicBody::eSpatial);
 
-  // get the two gc poses for the two bodies
-  shared_ptr<const Pose3d> P1 = su1->get_gc_pose();
-  shared_ptr<const Pose3d> P2 = su2->get_gc_pose();
-
   // verify the derivative of the direction vectors are in the global frame
   assert(contact_normal_dot.pose == GLOBAL);
   assert(contact_tan1_dot.pose == GLOBAL);
@@ -335,100 +286,54 @@ void Event::compute_dotv_data(VectorNd& q) const
   // case 1: sticking friction
   if (_ftype == eSticking)
   {
-    // form the normal and tangential forces in contact space
-    SForced wne, wse, wte;
-    wne.pose = _event_frame;
-    wse.pose = _event_frame;
-    wte.pose = _event_frame;
-    wne.set_force(contact_normal);
-    wse.set_force(contact_tan1); 
-    wte.set_force(contact_tan2);
+    // get the directions in the event frame
+    Vector3d normal = Pose3d::transform_vector(_event_frame, contact_normal);
+    Vector3d tan1 = Pose3d::transform_vector(_event_frame, contact_tan1);
+    Vector3d tan2 = Pose3d::transform_vector(_event_frame, contact_tan2);
 
-    // form the time-derivatives of normal / tangential forces in contact space
-    SForced dwne, dwse, dwte;
-    dwne.pose = _event_frame;
-    dwse.pose = _event_frame;
-    dwte.pose = _event_frame;
-    dwne.set_force(contact_normal_dot);
-    dwse.set_force(contact_tan1_dot); 
-    dwte.set_force(contact_tan2_dot);
+    // get the directional derivatives in the event frame 
+    Vector3d dnormal = Pose3d::transform_vector(_event_frame, contact_normal_dot);
+    Vector3d dtan1 = Pose3d::transform_vector(_event_frame, contact_tan1_dot);
+    Vector3d dtan2 = Pose3d::transform_vector(_event_frame, contact_tan2_dot);
+
+    // setup a matrices of contact directions and directional derivatives
+    Matrix3d R, dR;
+    R.set_column(N, normal);
+    R.set_column(S, tan1);
+    R.set_column(T, tan2);
+    dR.set_column(N, dnormal);
+    dR.set_column(S, dtan1);
+    dR.set_column(T, dtan2);
 
     // resize the Jacobians 
-    J1.resize(3, NGC1);
-    J2.resize(3, NGC2);
-    dJ1.resize(3, NGC1);
-    dJ2.resize(3, NGC2);
-
-    // get the rows of the Jacobians for output
-    SharedVectorNd J1n = J1.row(N); 
-    SharedVectorNd J1s = J1.row(S); 
-    SharedVectorNd J1t = J1.row(T); 
-    SharedVectorNd J2n = J2.row(N); 
-    SharedVectorNd J2s = J2.row(S); 
-    SharedVectorNd J2t = J2.row(T); 
-    SharedVectorNd dJ1n = dJ1.row(N); 
-    SharedVectorNd dJ1s = dJ1.row(S); 
-    SharedVectorNd dJ1t = dJ1.row(T); 
-    SharedVectorNd dJ2n = dJ2.row(N); 
-    SharedVectorNd dJ2s = dJ2.row(S); 
-    SharedVectorNd dJ2t = dJ2.row(T); 
-
-    // transform forces to proper frame for first body
-    SForced wn1 = Pose3d::transform(P1, wne);
-    SForced ws1 = Pose3d::transform(P1, wse);
-    SForced wt1 = Pose3d::transform(P1, wte);
-
-    // transform forces to proper frame for second body
-    SForced wn2 = Pose3d::transform(P2, wne);
-    SForced ws2 = Pose3d::transform(P2, wse);
-    SForced wt2 = Pose3d::transform(P2, wte);
-
-    // transform forces to proper frame for first body
-    SForced dwn1 = Pose3d::transform(P1, dwne);
-    SForced dws1 = Pose3d::transform(P1, dwse);
-    SForced dwt1 = Pose3d::transform(P1, dwte);
-
-    // transform forces to proper frame for second body
-    SForced dwn2 = Pose3d::transform(P2, dwne);
-    SForced dws2 = Pose3d::transform(P2, dwse);
-    SForced dwt2 = Pose3d::transform(P2, dwte);
+    J1.resize(THREE_D, NGC1);
+    J2.resize(THREE_D, NGC2);
+    dJ1.resize(THREE_D, NGC1);
+    dJ2.resize(THREE_D, NGC2);
 
     // compute the Jacobians for the two bodies
-    su1->calc_jacobian(P1, sb1, vel);
-    transpose_mult(vel, dwn1, J1n); 
-    transpose_mult(vel, dws1, J1s); 
-    transpose_mult(vel, dwt1, J1t); 
-    su2->calc_jacobian(P2, sb2, vel);
-    transpose_mult(vel, -dwn2, J2n); 
-    transpose_mult(vel, -dws2, J2s); 
-    transpose_mult(vel, -dwt2, J2t); 
+    su1->calc_jacobian(_event_frame, sb1, JJ);
+    SharedConstMatrixNd Jlin1 = JJ.block(0, THREE_D, 0, JJ.columns());
+    dR.transpose_mult(Jlin1, J1);
+    su2->calc_jacobian(_event_frame, sb2, JJ);
+    SharedConstMatrixNd Jlin2 = JJ.block(0, THREE_D, 0, JJ.columns());
+    (-dR).transpose_mult(Jlin2, J2);
 
     // compute the time-derivatives of the Jacobians for the two bodies
-    su1->calc_jacobian_dot(P1, sb1, vel);
-    transpose_mult(vel, wn1, dJ1n); 
-    transpose_mult(vel, ws1, dJ1s); 
-    transpose_mult(vel, wt1, dJ1t); 
-    su2->calc_jacobian_dot(P2, sb2, vel);
-    transpose_mult(vel, -wn2, dJ2n); 
-    transpose_mult(vel, -ws2, dJ2s); 
-    transpose_mult(vel, -wt2, dJ2t); 
+    su1->calc_jacobian_dot(_event_frame, sb1, JJ);
+    SharedConstMatrixNd dJlin1 = JJ.block(0, THREE_D, 0, JJ.columns());
+    R.transpose_mult(dJlin1, dJ1); 
+    su2->calc_jacobian_dot(_event_frame, sb2, JJ);
+    SharedConstMatrixNd dJlin2 = JJ.block(0, THREE_D, 0, JJ.columns());
+    (-R).transpose_mult(dJlin2, dJ2);
 
     // update J1 and J2
-    J1 += dJ1;
-    J2 += dJ2;
+    if (dJ1.columns() > 0) J1 += dJ1;
+    if (dJ2.columns() > 0) J2 += dJ2;
 
     // scale J
     J1 *= 2.0;
     J2 *= 2.0;
-
-    FILE_LOG(LOG_EVENT) << "Event::compute_dotv_data() entered" << std::endl;
-    FILE_LOG(LOG_EVENT) << "Contact: " << std::endl << *this;
-    FILE_LOG(LOG_EVENT) << "normal (global frame): " << Pose3d::transform(GLOBAL, wne) << std::endl;
-    FILE_LOG(LOG_EVENT) << "normal time derivative (global frame): " << Pose3d::transform(GLOBAL, dwne) << std::endl;
-    FILE_LOG(LOG_EVENT) << "tangent 1 (global frame): " << Pose3d::transform(GLOBAL, wse) << std::endl;
-    FILE_LOG(LOG_EVENT) << "tangent 2 (global frame): " << Pose3d::transform(GLOBAL, wte) << std::endl;
-    FILE_LOG(LOG_EVENT) << "Contact Jacobian for body " << su1->id << ": " << std::endl << J1;
-    FILE_LOG(LOG_EVENT) << "Contact Jacobian for body " << su2->id << ": " << std::endl << J2;
 
     // update v using 2*\dot{J}*[n t1 t2]
     su1->get_generalized_velocity(DynamicBody::eSpatial, v);
@@ -442,15 +347,9 @@ void Event::compute_dotv_data(VectorNd& q) const
   }
   else
   {
-    // form the normal force in contact space
-    SForced wne;
-    wne.pose = _event_frame;
-    wne.set_force(contact_normal);
-
-    // form the time-derivative of normal forces in contact space
-    SForced dwne;
-    dwne.pose = _event_frame;
-    dwne.set_force(contact_normal_dot);
+    // get the normal and its time derivative in the event frame
+    Vector3d normal = Pose3d::transform_vector(_event_frame, contact_normal);
+    Vector3d dnormal = Pose3d::transform_vector(_event_frame, contact_normal_dot);
 
     // resize the Jacobians 
     J1.resize(1, NGC1);
@@ -464,25 +363,21 @@ void Event::compute_dotv_data(VectorNd& q) const
     SharedVectorNd dJ1n = dJ1.row(N); 
     SharedVectorNd dJ2n = dJ2.row(N); 
 
-    // transform forces to proper frame for first and second bodies
-    SForced wn1 = Pose3d::transform(P1, wne);
-    SForced wn2 = Pose3d::transform(P2, wne);
-
-    // transform forces to proper frame for first and second bodies
-    SForced dwn1 = Pose3d::transform(P1, dwne);
-    SForced dwn2 = Pose3d::transform(P2, dwne);
-
     // compute the Jacobians for the two bodies
-    su1->calc_jacobian(P1, sb1, vel);
-    transpose_mult(vel, dwn1, J1n); 
-    su2->calc_jacobian(P2, sb2, vel);
-    transpose_mult(vel, -dwn2, J2n); 
+    su1->calc_jacobian(_event_frame, sb1, JJ);
+    SharedConstMatrixNd Jlin1 = JJ.block(0, THREE_D, 0, JJ.columns());
+    Jlin1.transpose_mult(dnormal, J1n);
+    su2->calc_jacobian(_event_frame, sb2, JJ);
+    SharedConstMatrixNd Jlin2 = JJ.block(0, THREE_D, 0, JJ.columns());
+    Jlin2.transpose_mult(-dnormal, J2n);
 
     // compute the time-derivatives of the Jacobians for the two bodies
-    su1->calc_jacobian_dot(P1, sb1, vel);
-    transpose_mult(vel, wn1, dJ1n); 
-    su2->calc_jacobian_dot(P2, sb2, vel);
-    transpose_mult(vel, -wn2, dJ2n); 
+    su1->calc_jacobian_dot(_event_frame, sb1, JJ);
+    SharedConstMatrixNd dJlin1 = JJ.block(0, THREE_D, 0, JJ.columns());
+    dJlin1.transpose_mult(normal, dJ1n);
+    su2->calc_jacobian_dot(_event_frame, sb2, JJ);
+    SharedConstMatrixNd dJlin2 = JJ.block(0, THREE_D, 0, JJ.columns());
+    dJlin2.transpose_mult(-normal, dJ2n);
 
     // update J1 and J2
     J1 += dJ1;
@@ -491,13 +386,6 @@ void Event::compute_dotv_data(VectorNd& q) const
     // scale J
     J1 *= 2.0;
     J2 *= 2.0;
-
-    FILE_LOG(LOG_EVENT) << "Event::compute_dotv_data() entered" << std::endl;
-    FILE_LOG(LOG_EVENT) << "Contact: " << std::endl << *this;
-    FILE_LOG(LOG_EVENT) << "normal (global frame): " << Pose3d::transform(GLOBAL, wne) << std::endl;
-    FILE_LOG(LOG_EVENT) << "normal time derivative (global frame): " << Pose3d::transform(GLOBAL, dwne) << std::endl;
-    FILE_LOG(LOG_EVENT) << "Contact Jacobian for body " << su1->id << ": " << std::endl << J1;
-    FILE_LOG(LOG_EVENT) << "Contact Jacobian for body " << su2->id << ": " << std::endl << J2;
 
     // update v using 2*\dot{J}*[n t1 t2]
     su1->get_generalized_velocity(DynamicBody::eSpatial, v);
@@ -517,7 +405,7 @@ void Event::compute_vevent_data(MatrixNd& M, VectorNd& q) const
   if (event_type == eContact)
   {
     // setup useful indices
-    const unsigned N = 0, S = 1, T = 2;
+    const unsigned N = 0, S = 1, T = 2, THREE_D = 3;
 
     // get the two single bodies
     SingleBodyPtr sb1 = contact_geom1->get_single_body();
@@ -526,10 +414,6 @@ void Event::compute_vevent_data(MatrixNd& M, VectorNd& q) const
     // get the two super bodies
     DynamicBodyPtr su1 = sb1->get_super_body();
     DynamicBodyPtr su2 = sb2->get_super_body();
-
-    // get the two gc poses for the two bodies
-    shared_ptr<const Pose3d> P1 = su1->get_gc_pose();
-    shared_ptr<const Pose3d> P2 = su2->get_gc_pose();
 
     // verify the contact point, normal, and tangents are in the global frame
     assert(contact_point.pose == GLOBAL);
@@ -541,57 +425,37 @@ void Event::compute_vevent_data(MatrixNd& M, VectorNd& q) const
     _event_frame->q.set_identity();
     _event_frame->x = contact_point;
 
-    // form the normal and tangential forces in contact space
-    SForced wne, wse, wte;
-    wne.pose = _event_frame;
-    wse.pose = _event_frame;
-    wte.pose = _event_frame;
-    wne.set_force(contact_normal);
-    wse.set_force(contact_tan1); 
-    wte.set_force(contact_tan2);
-
     // get the numbers of generalized coordinates for the two super bodies
     const unsigned NGC1 = su1->num_generalized_coordinates(DynamicBody::eSpatial);
     const unsigned NGC2 = su2->num_generalized_coordinates(DynamicBody::eSpatial);
 
     // resize the Jacobians 
-    J1.set_zero(3, NGC1);
-    J2.set_zero(3, NGC2);
+    J1.set_zero(THREE_D, NGC1);
+    J2.set_zero(THREE_D, NGC2);
 
-    // get the rows of the Jacobians for output
-    SharedVectorNd J1n = J1.row(N); 
-    SharedVectorNd J1s = J1.row(S); 
-    SharedVectorNd J1t = J1.row(T); 
-    SharedVectorNd J2n = J2.row(N); 
-    SharedVectorNd J2s = J2.row(S); 
-    SharedVectorNd J2t = J2.row(T); 
+    // get the directions in the event frame
+    Vector3d normal = Pose3d::transform_vector(_event_frame, contact_normal);
+    Vector3d tan1 = Pose3d::transform_vector(_event_frame, contact_tan1);
+    Vector3d tan2 = Pose3d::transform_vector(_event_frame, contact_tan2);
 
-    // transform forces to proper frame for first body
-    SForced wn1 = Pose3d::transform(P1, wne);
-    SForced ws1 = Pose3d::transform(P1, wse);
-    SForced wt1 = Pose3d::transform(P1, wte);
-
-    // transform forces to proper frame for second body
-    SForced wn2 = Pose3d::transform(P2, wne);
-    SForced ws2 = Pose3d::transform(P2, wse);
-    SForced wt2 = Pose3d::transform(P2, wte);
+    // setup a matrix of contact directions
+    Matrix3d R;
+    R.set_column(N, normal);
+    R.set_column(S, tan1);
+    R.set_column(T, tan2);
 
     // compute the Jacobians for the two bodies
-    su1->calc_jacobian(_event_frame, sb1, vel);
-    transpose_mult(vel, wn1, J1n); 
-    transpose_mult(vel, ws1, J1s); 
-    transpose_mult(vel, wt1, J1t); 
-    su2->calc_jacobian(P2, sb2, vel);
-    transpose_mult(vel, -wn2, J2n); 
-    transpose_mult(vel, -ws2, J2s); 
-    transpose_mult(vel, -wt2, J2t); 
+    su1->calc_jacobian(_event_frame, sb1, JJ);
+    SharedConstMatrixNd Jlin1 = JJ.block(0, THREE_D, 0, JJ.columns());
+    R.transpose_mult(Jlin1, J1);
+std::cout << "Jacobian1: " << std::endl << JJ;
+    su2->calc_jacobian(_event_frame, sb2, JJ);
+    SharedConstMatrixNd Jlin2 = JJ.block(0, THREE_D, 0, JJ.columns());
+    (-R).transpose_mult(Jlin2, J2);
+std::cout << "Jacobian2: " << std::endl << JJ;
 
-    FILE_LOG(LOG_EVENT) << "Event: " << std::endl << *this;
-    FILE_LOG(LOG_EVENT) << "normal (mixed frame 1): " << wn1 << std::endl;
-    FILE_LOG(LOG_EVENT) << "tangent 1 (mixed frame 1): " << ws1 << std::endl;
-    FILE_LOG(LOG_EVENT) << "tangent 2 (mixed frame 1): " << wt1 << std::endl;
-    FILE_LOG(LOG_EVENT) << "Contact Jacobian in mixed frame 1 for body " << su1->id << ": " << std::endl << J1;
-    FILE_LOG(LOG_EVENT) << "Contact Jacobian in mixed frame 2 for body " << su2->id << ": " << std::endl << J2;
+std::cout << "R' * Jacobian1: " << std::endl << J1;
+std::cout << "-R' * Jacobian2: " << std::endl << J2;
 
     // compute the event inertia matrix for the first body
     su1->transpose_solve_generalized_inertia(J1, workM1);
@@ -607,7 +471,6 @@ void Event::compute_vevent_data(MatrixNd& M, VectorNd& q) const
     J1.mult(v, q);
 
     // free v1 and allocate v2 and workv
-    Vector3d workv;
     su2->get_generalized_velocity(DynamicBody::eSpatial, v);
     q += J2.mult(v, workv);
   }
@@ -795,7 +658,7 @@ void Event::compute_cross_contact_contact_vevent_data(const Event& e, MatrixNd& 
 void Event::compute_cross_contact_contact_vevent_data(const Event& e, MatrixNd& M, DynamicBodyPtr su) const
 {
   // setup useful indices
-  const unsigned N = 0, S = 1, T = 2;
+  const unsigned N = 0, S = 1, T = 2, THREE_D = 3;
 
   // get the first two single bodies
   SingleBodyPtr sba1 = contact_geom1->get_single_body();
@@ -805,50 +668,40 @@ void Event::compute_cross_contact_contact_vevent_data(const Event& e, MatrixNd& 
   DynamicBodyPtr sua1 = sba1->get_super_body();
   DynamicBodyPtr sua2 = sba2->get_super_body();
 
-  // get the gc pose for the super body
-  shared_ptr<const Pose3d> P = su->get_gc_pose();
-
   // get the number of generalized coordinates for the super body
   const unsigned NGC = su->num_generalized_coordinates(DynamicBody::eSpatial);
 
   // resize Jacobian 
-  J.resize(3, NGC);
-
-  // get the rows of the Jacobian for output
-  SharedVectorNd Jn = J.row(N); 
-  SharedVectorNd Js = J.row(S); 
-  SharedVectorNd Jt = J.row(T); 
+  J.resize(THREE_D, NGC);
 
   // setup the contact frame
   _event_frame->q.set_identity();
   _event_frame->x = contact_point;
 
-  // form the normal and tangential forces in contact space
-  SForced wne(_event_frame), wse(_event_frame), wte(_event_frame);
-  wne.set_force(contact_normal);
-  wse.set_force(contact_tan1); 
-  wte.set_force(contact_tan2);
+  // get the directions in the event frame
+  Vector3d normal = Pose3d::transform_vector(_event_frame, contact_normal);
+  Vector3d tan1 = Pose3d::transform_vector(_event_frame, contact_tan1);
+  Vector3d tan2 = Pose3d::transform_vector(_event_frame, contact_tan2);
 
-  // transform forces to desired frame for body
-  SForced wn = Pose3d::transform(P, wne);
-  SForced ws = Pose3d::transform(P, wse);
-  SForced wt = Pose3d::transform(P, wte);
+  // setup a matrix of contact directions
+  Matrix3d R;
+  R.set_column(N, normal);
+  R.set_column(S, tan1);
+  R.set_column(T, tan2);
 
   // compute the Jacobians, checking to see whether necessary
   if (sua1 == su)
   {
-    su->calc_jacobian(P, sba1, vel);
-    transpose_mult(vel, wn, Jn); 
-    transpose_mult(vel, ws, Js); 
-    transpose_mult(vel, wt, Jt); 
+    su->calc_jacobian(_event_frame, sba1, JJ);
+    SharedConstMatrixNd Jlin = JJ.block(0, THREE_D, 0, JJ.columns());
+    R.transpose_mult(Jlin, J);
     compute_cross_contact_contact_vevent_data(e, M, su, J);
   }
   if (sua2 == su)
   {
-    su->calc_jacobian(P, sba2, vel);
-    transpose_mult(vel, -wn, Jn); 
-    transpose_mult(vel, -ws, Js); 
-    transpose_mult(vel, -wt, Jt); 
+    su->calc_jacobian(_event_frame, sba2, JJ);
+    SharedConstMatrixNd Jlin = JJ.block(0, THREE_D, 0, JJ.columns());
+    (-R).transpose_mult(Jlin, J);
     compute_cross_contact_contact_vevent_data(e, M, su, J);
   }
 } 
@@ -857,7 +710,7 @@ void Event::compute_cross_contact_contact_vevent_data(const Event& e, MatrixNd& 
 void Event::compute_cross_contact_contact_vevent_data(const Event& e, MatrixNd& M, DynamicBodyPtr su, const MatrixNd& J) const
 {
   // setup useful indices
-  const unsigned N = 0, S = 1, T = 2;
+  const unsigned N = 0, S = 1, T = 2, THREE_D = 3;
 
   // get the second two single bodies
   SingleBodyPtr sbb1 = e.contact_geom1->get_single_body();
@@ -867,54 +720,44 @@ void Event::compute_cross_contact_contact_vevent_data(const Event& e, MatrixNd& 
   DynamicBodyPtr sub1 = sbb1->get_super_body();
   DynamicBodyPtr sub2 = sbb2->get_super_body();
 
-  // get the gc pose for the super body
-  shared_ptr<const Pose3d> P = su->get_gc_pose();
-
   // get the number of generalized coordinates for the super body
   const unsigned NGC = su->num_generalized_coordinates(DynamicBody::eSpatial);
 
   // resize Jacobian 
-  Jx.resize(3, NGC);
-
-  // get the rows of the Jacobians for output
-  SharedVectorNd Jn = Jx.row(N); 
-  SharedVectorNd Js = Jx.row(S); 
-  SharedVectorNd Jt = Jx.row(T); 
+  Jx.resize(THREE_D, NGC);
 
   // setup the contact frame
   _event_frame->q.set_identity();
   _event_frame->x = e.contact_point;
 
-  // form the normal and tangential forces in contact space
-  SForced wne(_event_frame), wse(_event_frame), wte(_event_frame);
-  wne.set_force(e.contact_normal);
-  wse.set_force(e.contact_tan1); 
-  wte.set_force(e.contact_tan2);
+  // get the directions in the event frame
+  Vector3d normal = Pose3d::transform_vector(_event_frame, e.contact_normal);
+  Vector3d tan1 = Pose3d::transform_vector(_event_frame, e.contact_tan1);
+  Vector3d tan2 = Pose3d::transform_vector(_event_frame, e.contact_tan2);
 
-  // transform forces to desired frame for body
-  SForced wn = Pose3d::transform(P, wne);
-  SForced ws = Pose3d::transform(P, wse);
-  SForced wt = Pose3d::transform(P, wte);
+  // setup a matrix of contact directions
+  Matrix3d R;
+  R.set_column(N, normal);
+  R.set_column(S, tan1);
+  R.set_column(T, tan2);
 
   // compute the Jacobians, checking to see whether necessary
   if (sub1 == su)
   {
     // first compute the Jacobian
-    su->calc_jacobian(P, sbb1, vel);
-    transpose_mult(vel, wn, Jn); 
-    transpose_mult(vel, ws, Js); 
-    transpose_mult(vel, wt, Jt);
+    su->calc_jacobian(_event_frame, sbb1, JJ);
+    SharedConstMatrixNd Jlin = JJ.block(0, THREE_D, 0, JJ.columns());
+    R.transpose_mult(Jlin, Jx);
 
     // now update M 
     su->transpose_solve_generalized_inertia(Jx, workM1);
     M += J.mult(workM1, workM2);
-   }
+  }
   if (sub2 == su)
   {
-    su->calc_jacobian(P, sbb2, vel);
-    transpose_mult(vel, -wn, Jn); 
-    transpose_mult(vel, -ws, Js); 
-    transpose_mult(vel, -wt, Jt); 
+    su->calc_jacobian(_event_frame, sbb2, JJ);
+    SharedConstMatrixNd Jlin = JJ.block(0, THREE_D, 0, JJ.columns());
+    (-R).transpose_mult(Jlin, Jx);
 
     // now update M
     su->transpose_solve_generalized_inertia(Jx, workM1);
@@ -926,7 +769,7 @@ void Event::compute_cross_contact_contact_vevent_data(const Event& e, MatrixNd& 
 void Event::compute_cross_contact_limit_vevent_data(const Event& e, MatrixNd& M) const
 {
   // setup useful indices
-  const unsigned N = 0, S = 1, T = 2;
+  const unsigned N = 0, S = 1, T = 2, THREE_D = 3;
 
   // get the articulated body of the event
   ArticulatedBodyPtr ab = e.limit_joint->get_articulated_body();
@@ -940,10 +783,6 @@ void Event::compute_cross_contact_limit_vevent_data(const Event& e, MatrixNd& M)
   SingleBodyPtr sb1 = contact_geom1->get_single_body();
   SingleBodyPtr sb2 = contact_geom2->get_single_body();
 
-  // get the two gc poses for the two bodies
-  shared_ptr<const Pose3d> P1 = sb1->get_gc_pose();
-  shared_ptr<const Pose3d> P2 = sb2->get_gc_pose();
-
   // get the two super bodies
   DynamicBodyPtr su1 = sb1->get_super_body();
   DynamicBodyPtr su2 = sb2->get_super_body();
@@ -953,21 +792,16 @@ void Event::compute_cross_contact_limit_vevent_data(const Event& e, MatrixNd& M)
   _event_frame->x = contact_point;
   _event_frame->rpose = GLOBAL;
 
-  // form the normal and tangential forces in contact space
-  SForced wne(_event_frame), wse(_event_frame), wte(_event_frame);
-  wne.set_force(contact_normal);
-  wse.set_force(contact_tan1); 
-  wte.set_force(contact_tan2);
+  // get the directions in the event frame
+  Vector3d normal = Pose3d::transform_vector(_event_frame, contact_normal);
+  Vector3d tan1 = Pose3d::transform_vector(_event_frame, contact_tan1);
+  Vector3d tan2 = Pose3d::transform_vector(_event_frame, contact_tan2);
 
-  // transform forces to global frame
-  SForced wn1 = Pose3d::transform(P1, wne);
-  SForced ws1 = Pose3d::transform(P1, wse);
-  SForced wt1 = Pose3d::transform(P1, wte);
-
-  // transform forces to global frame
-  SForced wn2 = Pose3d::transform(P2, wne);
-  SForced ws2 = Pose3d::transform(P2, wse);
-  SForced wt2 = Pose3d::transform(P2, wte);
+  // setup a matrix of contact directions
+  Matrix3d R;
+  R.set_column(N, normal);
+  R.set_column(S, tan1);
+  R.set_column(T, tan2);
 
   // get the numbers of generalized coordinates for the two super bodies
   const unsigned NGC1 = su1->num_generalized_coordinates(DynamicBody::eSpatial);
@@ -977,18 +811,12 @@ void Event::compute_cross_contact_limit_vevent_data(const Event& e, MatrixNd& M)
   if (su == su1)
   {
     // resize Jacobian
-    J1.resize(3, NGC1);
-
-    // get the rows of the Jacobians for output
-    SharedVectorNd Jn = J1.row(N); 
-    SharedVectorNd Js = J1.row(S); 
-    SharedVectorNd Jt = J1.row(T); 
+    J1.resize(THREE_D, NGC1);
 
     // compute the Jacobians for the two bodies
-    su1->calc_jacobian(P1, sb1, vel);
-    transpose_mult(vel, wn1, Jn); 
-    transpose_mult(vel, ws1, Js); 
-    transpose_mult(vel, wt1, Jt); 
+    su1->calc_jacobian(_event_frame, sb1, JJ);
+    SharedConstMatrixNd Jlin = JJ.block(0, THREE_D, 0, JJ.columns());
+    R.transpose_mult(Jlin, J1);
 
     // compute the event inertia matrix for the first body
     su1->transpose_solve_generalized_inertia(J1, workM1);
@@ -1004,18 +832,12 @@ void Event::compute_cross_contact_limit_vevent_data(const Event& e, MatrixNd& M)
   if (ab == su2)
   {
     // resize Jacobian
-    J1.resize(3, NGC1);
-
-    // get the rows of the Jacobians for output
-    SharedVectorNd Jn = J1.row(N); 
-    SharedVectorNd Js = J1.row(S); 
-    SharedVectorNd Jt = J1.row(T); 
+    J1.resize(THREE_D, NGC1);
 
     // compute the Jacobians for the two bodies
-    su2->calc_jacobian(P2, sb2, vel);
-    transpose_mult(vel, -wn2, Jn); 
-    transpose_mult(vel, -ws2, Js); 
-    transpose_mult(vel, -wt2, Jt); 
+    su2->calc_jacobian(_event_frame, sb2, JJ);
+    SharedConstMatrixNd Jlin = JJ.block(0, THREE_D, 0, JJ.columns());
+    (-R).transpose_mult(Jlin, J1);
 
     // compute the event inertia matrix for the first body
     su2->transpose_solve_generalized_inertia(J1, workM1);
@@ -1143,7 +965,7 @@ void Event::compute_cross_contact_contact_aevent_data(const Event& c, MatrixNd& 
   static MatrixNd J;
 
   // setup useful indices
-  const unsigned N = 0, S = 1, T = 2;
+  const unsigned N = 0, S = 1, T = 2, THREE_D = 3;
 
   // get the first two single bodies
   SingleBodyPtr sba1 = contact_geom1->get_single_body();
@@ -1152,9 +974,6 @@ void Event::compute_cross_contact_contact_aevent_data(const Event& c, MatrixNd& 
   // get the first two super bodies
   DynamicBodyPtr sua1 = sba1->get_super_body();
   DynamicBodyPtr sua2 = sba2->get_super_body();
-
-  // get the gc pose for the super body
-  shared_ptr<const Pose3d> P = su->get_gc_pose();
 
   // get the number of generalized coordinates for the super body
   const unsigned NGC = su->num_generalized_coordinates(DynamicBody::eSpatial);
@@ -1166,43 +985,36 @@ void Event::compute_cross_contact_contact_aevent_data(const Event& c, MatrixNd& 
   if (_ftype == eSticking)
   {
     // resize Jacobian 
-    J.resize(3, NGC);
-
-    // get the rows of the Jacobian for output
-    SharedVectorNd Jn = J.row(N); 
-    SharedVectorNd Js = J.row(S); 
-    SharedVectorNd Jt = J.row(T); 
+    J.resize(THREE_D, NGC);
 
     // setup the contact frame
     _event_frame->q.set_identity();
     _event_frame->x = contact_point;
 
-    // form the normal and tangential forces in contact space
-    SForced wne(_event_frame), wse(_event_frame), wte(_event_frame);
-    wne.set_force(contact_normal);
-    wse.set_force(contact_tan1); 
-    wte.set_force(contact_tan2);
+    // get the directions in the event frame
+    Vector3d normal = Pose3d::transform_vector(_event_frame, contact_normal);
+    Vector3d tan1 = Pose3d::transform_vector(_event_frame, contact_tan1);
+    Vector3d tan2 = Pose3d::transform_vector(_event_frame, contact_tan2);
 
-    // transform forces to desired frame for body
-    SForced wn = Pose3d::transform(P, wne);
-    SForced ws = Pose3d::transform(P, wse);
-    SForced wt = Pose3d::transform(P, wte);
+    // setup a matrix of contact directions
+    Matrix3d R;
+    R.set_column(N, normal);
+    R.set_column(S, tan1);
+    R.set_column(T, tan2);
 
     // compute the Jacobians, checking to see whether necessary
     if (sua1 == su)
     {
-      su->calc_jacobian(P, sba1, vel);
-      transpose_mult(vel, wn, Jn); 
-      transpose_mult(vel, ws, Js); 
-      transpose_mult(vel, wt, Jt); 
+      su->calc_jacobian(_event_frame, sba1, JJ);
+      SharedConstMatrixNd Jlin = JJ.block(0, THREE_D, 0, JJ.columns());
+      R.transpose_mult(Jlin, J);
       compute_cross_contact_contact_aevent_data(c, M, su, J);
     }
     if (sua2 == su)
     {
-      su->calc_jacobian(P, sba2, vel);
-      transpose_mult(vel, -wn, Jn); 
-      transpose_mult(vel, -ws, Js); 
-      transpose_mult(vel, -wt, Jt); 
+      su->calc_jacobian(_event_frame, sba2, JJ);
+      SharedConstMatrixNd Jlin = JJ.block(0, THREE_D, 0, JJ.columns());
+      (-R).transpose_mult(Jlin, J);
       compute_cross_contact_contact_aevent_data(c, M, su, J);
     }
   }
@@ -1218,24 +1030,22 @@ void Event::compute_cross_contact_contact_aevent_data(const Event& c, MatrixNd& 
     _event_frame->q.set_identity();
     _event_frame->x = contact_point;
 
-    // form the normal force in contact space
-    SForced wne(_event_frame);
-    wne.set_force(contact_normal);
-
-    // transform forces to desired frame for body
-    SForced wn = Pose3d::transform(P, wne);
+    // get the normal in the event frame
+    Vector3d normal = Pose3d::transform_vector(_event_frame, contact_normal);
 
     // compute the Jacobians, checking to see whether necessary
     if (sua1 == su)
     {
-      su->calc_jacobian(P, sba1, vel);
-      transpose_mult(vel, wn, Jn); 
+      su->calc_jacobian(_event_frame, sba1, JJ);
+      SharedConstMatrixNd Jlin = JJ.block(0, THREE_D, 0, JJ.columns());
+      Jlin.transpose_mult(normal, Jn);
       compute_cross_contact_contact_aevent_data(c, M, su, J);
     }
     if (sua2 == su)
     {
-      su->calc_jacobian(P, sba2, vel);
-      transpose_mult(vel, -wn, Jn); 
+      su->calc_jacobian(_event_frame, sba2, JJ);
+      SharedConstMatrixNd Jlin = JJ.block(0, THREE_D, 0, JJ.columns());
+      Jlin.transpose_mult(-normal, Jn);
       compute_cross_contact_contact_aevent_data(c, M, su, J);
     }
   }
@@ -1245,7 +1055,7 @@ void Event::compute_cross_contact_contact_aevent_data(const Event& c, MatrixNd& 
 void Event::compute_cross_contact_contact_aevent_data(const Event& c, MatrixNd& M, DynamicBodyPtr su, const MatrixNd& J) const
 {
   // setup useful indices
-  const unsigned N = 0, S = 1, T = 2;
+  const unsigned N = 0, S = 1, T = 2, THREE_D = 3;
 
   // get the second two single bodies
   SingleBodyPtr sbb1 = c.contact_geom1->get_single_body();
@@ -1271,32 +1081,26 @@ void Event::compute_cross_contact_contact_aevent_data(const Event& c, MatrixNd& 
   if (c._ftype == eSticking)
   {
     // resize Jacobian 
-    Jx.resize(3, NGC);
+    Jx.resize(THREE_D, NGC);
 
-    // get the rows of the Jacobians for output
-    SharedVectorNd Jn = Jx.row(N); 
-    SharedVectorNd Js = Jx.row(S); 
-    SharedVectorNd Jt = Jx.row(T); 
+    // get the directions in the event frame
+    Vector3d normal = Pose3d::transform_vector(_event_frame, c.contact_normal);
+    Vector3d tan1 = Pose3d::transform_vector(_event_frame, c.contact_tan1);
+    Vector3d tan2 = Pose3d::transform_vector(_event_frame, c.contact_tan2);
 
-    // form the normal and tangential forces in contact space
-    SForced wne(_event_frame), wse(_event_frame), wte(_event_frame);
-    wne.set_force(c.contact_normal);
-    wse.set_force(c.contact_tan1); 
-    wte.set_force(c.contact_tan2);
-
-    // transform forces to desired frame for body
-    SForced wn = Pose3d::transform(P, wne);
-    SForced ws = Pose3d::transform(P, wse);
-    SForced wt = Pose3d::transform(P, wte);
+    // setup a matrix of contact directions
+    Matrix3d R;
+    R.set_column(N, normal);
+    R.set_column(S, tan1);
+    R.set_column(T, tan2);
 
     // compute the Jacobians, checking to see whether necessary
     if (sub1 == su)
     {
       // first compute the Jacobian
-      su->calc_jacobian(P, sbb1, vel);
-      transpose_mult(vel, wn, Jn); 
-      transpose_mult(vel, ws, Js); 
-      transpose_mult(vel, wt, Jt);
+      su->calc_jacobian(_event_frame, sbb1, JJ);
+      SharedConstMatrixNd Jlin = JJ.block(0, THREE_D, 0, JJ.columns());
+      R.transpose_mult(Jlin, Jx);
 
       // now update M 
       su->transpose_solve_generalized_inertia(Jx, workM1);
@@ -1304,10 +1108,10 @@ void Event::compute_cross_contact_contact_aevent_data(const Event& c, MatrixNd& 
     }
     if (sub2 == su)
     {
-      su->calc_jacobian(P, sbb2, vel);
-      transpose_mult(vel, -wn, Jn); 
-      transpose_mult(vel, -ws, Js); 
-      transpose_mult(vel, -wt, Jt); 
+      // first compute the Jacobian
+      su->calc_jacobian(_event_frame, sbb2, JJ);
+      SharedConstMatrixNd Jlin = JJ.block(0, THREE_D, 0, JJ.columns());
+      (-R).transpose_mult(Jlin, Jx);
 
       // now update M
       su->transpose_solve_generalized_inertia(Jx, workM1);
@@ -1324,24 +1128,18 @@ void Event::compute_cross_contact_contact_aevent_data(const Event& c, MatrixNd& 
     SharedVectorNd Jxn = Jx.row(N);
     SharedVectorNd Jyn = Jy.row(N);
 
-    // form the normal and sliding forces in contact space
-    SForced wne, wse;
-    wne.pose = _event_frame;
-    wse.pose = _event_frame;
-    wne.set_force(c.contact_normal);
-    wse.set_force(c.contact_tan1); 
-
-    // transform forces to proper frame
-    SForced wn = Pose3d::transform(P, wne);
-    SForced ws = Pose3d::transform(P, wse);
+    // get the normal and sliding directions in the event frame
+    Vector3d normal = Pose3d::transform_vector(_event_frame, c.contact_normal);
+    Vector3d tan1 = Pose3d::transform_vector(_event_frame, c.contact_tan1);
 
     // compute the Jacobians, checking to see whether necessary
     if (sub1 == su)
     {
       // first compute the Jacobian
-      su->calc_jacobian(P, sbb1, vel);
-      transpose_mult(vel, wn, Jxn); 
-      transpose_mult(vel, ws, Jyn); 
+      su->calc_jacobian(_event_frame, sbb1, JJ);
+      SharedConstMatrixNd Jlin = JJ.block(0, THREE_D, 0, JJ.columns());
+      Jlin.transpose_mult(normal, Jxn);
+      Jlin.transpose_mult(tan1, Jyn);
 
       // setup the first solution vector (N - u_s*Q)
       Jy *= -contact_mu_coulomb; 
@@ -1353,9 +1151,10 @@ void Event::compute_cross_contact_contact_aevent_data(const Event& c, MatrixNd& 
     }
     if (sub2 == su)
     {
-      su->calc_jacobian(P, sbb2, vel);
-      transpose_mult(vel, -wn, Jxn); 
-      transpose_mult(vel, -ws, Jyn); 
+      su->calc_jacobian(_event_frame, sbb2, JJ);
+      SharedConstMatrixNd Jlin = JJ.block(0, THREE_D, 0, JJ.columns());
+      Jlin.transpose_mult(-normal, Jxn);
+      Jlin.transpose_mult(-tan1, Jyn);
 
       // setup the first solution vector (N - u_s*Q)
       Jy *= -contact_mu_coulomb; 
