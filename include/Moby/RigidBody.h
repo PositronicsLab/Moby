@@ -193,6 +193,7 @@ class RigidBody : public SingleBody
     void set_generalized_coordinates_single(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gc);
     void set_generalized_velocity_single(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gv);
     Ravelin::MatrixNd& get_generalized_inertia_single(Ravelin::MatrixNd& M);
+    Ravelin::MatrixNd& get_generalized_inertia_inverse(Ravelin::MatrixNd& M) const;
     Ravelin::VectorNd& get_generalized_forces_single(Ravelin::VectorNd& f);
     Ravelin::VectorNd& convert_to_generalized_force_single(SingleBodyPtr body, const Ravelin::SForced& w, Ravelin::VectorNd& gf);
     unsigned num_generalized_coordinates_single(DynamicBody::GeneralizedCoordinateType gctype) const;

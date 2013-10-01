@@ -1346,9 +1346,13 @@ MatrixNd& RigidBody::transpose_solve_generalized_inertia_single(const MatrixNd& 
 {
   // get proper generalized inertia matrix
   MatrixNd M;
+  get_generalized_inertia_inverse(M);
+  M.mult_transpose(B, X);
+/*
   get_generalized_inertia(M);
-  MatrixNd::transpose(B, X);
+  MatrixNd::tranpose(X, B);
   _LA.solve_fast(M, X);
+*/
 
   return X;
 }
@@ -1358,9 +1362,13 @@ MatrixNd& RigidBody::solve_generalized_inertia_single(const MatrixNd& B, MatrixN
 {
   // get proper generalized inertia matrix
   MatrixNd M;
+  get_generalized_inertia_inverse(M);
+  M.mult(B, X);
+/*
   get_generalized_inertia(M);
   X = B;
   _LA.solve_fast(M, X);
+*/
 
   return X;
 }
@@ -1383,9 +1391,13 @@ VectorNd& RigidBody::solve_generalized_inertia_single(const VectorNd& b, VectorN
 {
   // get proper generalized inertia matrix
   MatrixNd M;
+  get_generalized_inertia_inverse(M);
+  M.mult(b, x);
+/*
   get_generalized_inertia(M);
   x = b;
   _LA.solve_fast(M, x);
+*/
 
   return x;
 }
@@ -1697,6 +1709,47 @@ MatrixNd& RigidBody::get_generalized_inertia_single(MatrixNd& M)
   M.set_sub_mat(3, 0, hxm);
   M.set_sub_mat(0, 3, hxm, Ravelin::eTranspose);
   M.set_sub_mat(3, 3, J.J - hxhxm);
+
+  return M;
+}
+
+/// Gets the generalized inertia of this rigid body (does not call articulated body version)
+MatrixNd& RigidBody::get_generalized_inertia_inverse(MatrixNd& M) const 
+{
+  const unsigned X = 0, Y = 1, Z = 2, SPATIAL_DIM = 6;
+
+  // special case: disabled body
+  if (!_enabled)
+    return M.resize(0,0);
+
+  // get the inertia 
+  SpatialRBInertiad J = Pose3d::transform(_F2, _Jm);
+
+  // get center-of-mass vector and the skew symmetric tensor
+  Origin3d c = J.h/J.m;
+  Matrix3d cx = Matrix3d::skew_symmetric(c);
+
+  // compute the inverse of the c.o.m. inertia matrix
+  Matrix3d iJ = Matrix3d::invert(J.J);
+
+  // compute cx * inv(J)
+  Matrix3d cxiJ = cx * iJ;
+
+  // compute the inverse mass
+  double inv_m = 1.0/J.m;
+
+  // compute upper left hand block: cx * inv(J) * cx' + 1/m I
+  Matrix3d UL = cxiJ * -cx;
+  UL.xx() += inv_m;
+  UL.yy() += inv_m;
+  UL.zz() += inv_m;
+
+  // arrange the matrix the way we want it
+  M.resize(SPATIAL_DIM, SPATIAL_DIM);
+  M.set_sub_mat(0, 0, UL);
+  M.set_sub_mat(3, 0, cxiJ, Ravelin::eTranspose);
+  M.set_sub_mat(0, 3, cxiJ);
+  M.set_sub_mat(3, 3, iJ);
 
   return M;
 }
