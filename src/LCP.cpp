@@ -494,7 +494,8 @@ z.set_zero(n);
     else
     {
       // several indices pass the minimum ratio test, pick one randomly
-      lvindex = _j[rand() % _j.size()];
+//      lvindex = _j[rand() % _j.size()];
+      lvindex = _j[0];
     }
 
     // set leaving = bas(lvindex)

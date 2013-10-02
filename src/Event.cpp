@@ -448,14 +448,9 @@ void Event::compute_vevent_data(MatrixNd& M, VectorNd& q) const
     su1->calc_jacobian(_event_frame, sb1, JJ);
     SharedConstMatrixNd Jlin1 = JJ.block(0, THREE_D, 0, JJ.columns());
     R.transpose_mult(Jlin1, J1);
-std::cout << "Jacobian1: " << std::endl << JJ;
     su2->calc_jacobian(_event_frame, sb2, JJ);
     SharedConstMatrixNd Jlin2 = JJ.block(0, THREE_D, 0, JJ.columns());
     (-R).transpose_mult(Jlin2, J2);
-std::cout << "Jacobian2: " << std::endl << JJ;
-
-std::cout << "R' * Jacobian1: " << std::endl << J1;
-std::cout << "-R' * Jacobian2: " << std::endl << J2;
 
     // compute the event inertia matrix for the first body
     su1->transpose_solve_generalized_inertia(J1, workM1);
