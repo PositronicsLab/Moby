@@ -500,16 +500,14 @@ using boost::dynamic_pointer_cast;
   r -Cs_iM_CnT -Cs_iM_CsT   Cs_iM_CsT  -Cs_iM_CtT   Cs_iM_CtT
   r  Ct_iM_CnT  Ct_iM_CsT  -Ct_iM_CsT   Ct_iM_CtT  -Ct_iM_CtT
   r -Ct_iM_CnT -Ct_iM_CsT   Ct_iM_CsT  -Ct_iM_CtT   Ct_iM_CtT
-    */
-
   // Set positive submatrices
-  /*     n          r          r           r           r
+         n          r          r           r           r
   n  Cn_iM_CnT  Cn_iM_CsT               Cn_iM_CtT
   r  Cs_iM_CnT  Cs_iM_CsT               Cs_iM_CtT
   r                         Cs_iM_CsT               Cs_iM_CtT
   r  Ct_iM_CnT  Ct_iM_CsT               Ct_iM_CtT
   r                         Ct_iM_CsT               Ct_iM_CtT
-    */
+  */
   UL.set_sub_mat(0,0,q.Cn_iM_CnT);
   // setup the LCP matrix
 
@@ -550,19 +548,22 @@ using boost::dynamic_pointer_cast;
     q.Ct_iM_CsT.negate();
     q.Ct_iM_CtT.negate();
 
-    UL.set_sub_mat(q.N_CONTACTS,q.N_CONTACTS+q.N_STICKING,q.Cs_iM_CsT);
     UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING,0,q.Cs_iM_CnT);
     UL.set_sub_mat(0,q.N_CONTACTS+q.N_STICKING,q.Cn_iM_CsT);
+
+    UL.set_sub_mat(q.N_CONTACTS,q.N_CONTACTS+q.N_STICKING,q.Cs_iM_CsT);
     UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING,q.N_CONTACTS,q.Cs_iM_CsT);
+
     UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING*3,0,q.Ct_iM_CnT);
     UL.set_sub_mat(0,q.N_CONTACTS+q.N_STICKING*3,q.Cn_iM_CtT);
+
     UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING*3,q.N_CONTACTS,q.Ct_iM_CsT);
-    UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING*3,q.N_CONTACTS+q.N_STICKING*2,q.Ct_iM_CsT);
+    UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING*2,q.N_CONTACTS+q.N_STICKING,q.Ct_iM_CsT);
     UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING,q.N_CONTACTS+q.N_STICKING*2,q.Cs_iM_CtT);
     UL.set_sub_mat(q.N_CONTACTS,q.N_CONTACTS+q.N_STICKING*3,q.Cs_iM_CtT);
+
     UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING*2,q.N_CONTACTS+q.N_STICKING*3,q.Ct_iM_CtT);
     UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING*3,q.N_CONTACTS+q.N_STICKING*2,q.Ct_iM_CtT);
-
 
     // lower left & upper right block of matrix
     for(unsigned i=0,j=0,r=0;i<q.N_CONTACTS;i++)
@@ -573,7 +574,6 @@ using boost::dynamic_pointer_cast;
         int nk4 = ( ci->contact_NK+4)/4;
         for(unsigned k=0;k<nk4;k++)
         {
-          // TODO: MIGHT NEED TO NEGATE
           // muK
           LL(r+k,i) = ci->contact_mu_coulomb;
           // Xs
