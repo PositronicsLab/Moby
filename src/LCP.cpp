@@ -495,6 +495,8 @@ z.set_zero(n);
     {
       // several indices pass the minimum ratio test, pick one randomly
 //      lvindex = _j[rand() % _j.size()];
+// NOTE: solver seems *much* more capable of solving when we pick the first
+// element rather than picking a random one
       lvindex = _j[0];
     }
 
@@ -869,7 +871,11 @@ bool LCP::lcp_lemke(const SparseMatrixNd& M, const VectorNd& q, VectorNd& z, dou
     else
     {
       // several indices pass the minimum ratio test, pick one randomly
-      lvindex = _j[rand() % _j.size()];
+//      lvindex = _j[rand() % _j.size()];
+
+      // NOTE: solver seems *much* more capable of solving when we pick the first
+      // element rather than picking a random one
+      lvindex = _j[0];
     }
 
     // set leaving = bas(lvindex)

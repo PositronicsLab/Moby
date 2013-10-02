@@ -192,10 +192,21 @@ using boost::dynamic_pointer_cast;
     if (ENERGY_GAINED){
       FILE_LOG(LOG_EVENT) << "warning! KE gain detected! energy before=" << ke_minus << " energy after=" << ke_plus << endl;
       // restore old forces
-      for (unsigned i=0; i< epd.super_bodies.size(); i++){
+      for (unsigned i=0; i< epd.super_bodies.size(); i++)
+      {
+        // remove resting contact forces
+        BOOST_FOREACH(RecurrentForcePtr rf, epd.super_bodies[i]->get_recurrent_forces())
+        {
+          shared_ptr<RestingContactForce> rcf = dynamic_pointer_cast<RestingContactForce>(rf);
+          if (rcf)
+          {
+            VectorNd& f = rcf->resting_contact_forces[epd.super_bodies[i]]; 
+            f.resize(0);
+          }
+        }
+      
         epd.super_bodies[i]->set_generalized_forces(gf[i]);
         epd.super_bodies[i]->calc_fwd_dyn();
-        epd.super_bodies[i]->get_generalized_acceleration(a);
       }
 
       throw RestingContactFailException(contacts);
