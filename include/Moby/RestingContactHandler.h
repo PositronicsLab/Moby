@@ -37,16 +37,6 @@ class RestingContactHandler
 }; // end class
 
 /// Exception thrown when trying to initialize a fixed size vector/matrix with the wrong size
-//class EnergyToleranceException : public std::runtime_error
-//{
-//  public:
-//    EnergyToleranceException(const std::list<Event*>& contact_events) : std::runtime_error("post-event Kinetic Energy exceeds pre-event Kinetic Energy!") { events = contact_events; }
-
-//    virtual ~EnergyToleranceException() throw() { }
-
-//  std::list<Event*> events;
-//}; // end class
-
 class RestingContactFailException : public std::runtime_error
 {
   public:
