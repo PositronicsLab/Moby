@@ -68,6 +68,9 @@ class DynamicBody : public Visualizable
     /// Gets the number of generalized coordinates
     virtual unsigned num_generalized_coordinates(GeneralizedCoordinateType gctype) const = 0;
 
+    /// Sets the generalized forces on the body
+    virtual void set_generalized_forces(const Ravelin::VectorNd& gf) = 0;
+
     /// Adds a generalized force to the body
     virtual void add_generalized_force(const Ravelin::VectorNd& gf) = 0;
 

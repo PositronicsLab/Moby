@@ -125,7 +125,8 @@ using boost::dynamic_pointer_cast;
   void RestingContactHandler::apply_model_to_connected_contacts(const list<Event*>& contacts)
   {
     SAFESTATIC ContactProblemData epd;
-    SAFESTATIC VectorNd v,a;
+    SAFESTATIC VectorNd v,a, ke_minus, ke_plus;
+    SAFESTATIC vector<VectorNd> gf;
     SAFESTATIC MatrixNd M;
 
     const double h = 0.1;
@@ -141,11 +142,15 @@ using boost::dynamic_pointer_cast;
     // compute all contact cross-terms
     compute_problem_data(epd);
 
-    VectorNd ke_minus(epd.super_bodies.size()), ke_plus(epd.super_bodies.size());
-    // compute energy
+    ke_minus.resize(epd.super_bodies.size());
+    ke_plus.resize(epd.super_bodies.size());
+    gf.resize(epd.super_bodies.size());
 
+    // compute first-order approximation to KE (using acceleration) before
+    // contact forces are computed; store generalized forces at the same time
     for (unsigned i=0; i< epd.super_bodies.size(); i++)
     {
+      epd.super_bodies[i]->get_generalized_forces(gf[i]);
       epd.super_bodies[i]->calc_fwd_dyn();
       epd.super_bodies[i]->get_generalized_acceleration(a);
       epd.super_bodies[i]->get_generalized_velocity(DynamicBody::eSpatial,v);
@@ -166,7 +171,8 @@ using boost::dynamic_pointer_cast;
     apply_forces(epd);
 
     bool ENERGY_GAINED = false;
-    // compute energy
+    // compute first-order approximation to KE (using acceleration) before
+    // contact forces are computed
     for (unsigned i=0; i< epd.super_bodies.size(); i++)
     {
       epd.super_bodies[i]->calc_fwd_dyn();
@@ -185,17 +191,24 @@ using boost::dynamic_pointer_cast;
 
     if (ENERGY_GAINED){
       FILE_LOG(LOG_EVENT) << "warning! KE gain detected! energy before=" << ke_minus << " energy after=" << ke_plus << endl;
-      // Back out Contact forces applied by Resting Contact
-      epd.cn.negate();
-      epd.cs.negate();
-      epd.ct.negate();
-      apply_forces(epd);
+      // restore old forces
       for (unsigned i=0; i< epd.super_bodies.size(); i++){
+        epd.super_bodies[i]->set_generalized_forces(gf[i]);
         epd.super_bodies[i]->calc_fwd_dyn();
         epd.super_bodies[i]->get_generalized_acceleration(a);
       }
 
       throw RestingContactFailException(contacts);
+    }
+
+    // check the normal acceleration
+    if (LOGGING(LOG_EVENT))
+    {
+      BOOST_FOREACH(const Event* e, contacts)
+      {
+        if (e->calc_event_accel() < -NEAR_ZERO)
+          FILE_LOG(LOG_EVENT) << "RestingContactHandler::apply_model_to_connected_contacts() warning- post-contact acceleration is unacceptably negative!" << std::endl;
+      }
     }
 
     FILE_LOG(LOG_EVENT) << "RestingContactHandler::apply_model_to_connected_contacts() exiting" << endl;
