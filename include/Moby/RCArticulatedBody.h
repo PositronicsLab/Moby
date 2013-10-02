@@ -62,6 +62,7 @@ class RCArticulatedBody : public ArticulatedBody
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     RCArticulatedBodyPtr get_this() { return boost::dynamic_pointer_cast<RCArticulatedBody>(shared_from_this()); }
     boost::shared_ptr<const RCArticulatedBody> get_this() const { return boost::dynamic_pointer_cast<const RCArticulatedBody>(shared_from_this()); }
+    virtual void set_generalized_forces(const Ravelin::VectorNd& gf);
     virtual void add_generalized_force(const Ravelin::VectorNd& gf);
     virtual void apply_generalized_impulse(const Ravelin::VectorNd& gj);
     virtual Ravelin::VectorNd& get_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& gc);

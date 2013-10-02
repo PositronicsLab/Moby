@@ -222,6 +222,35 @@ void RCArticulatedBody::apply_generalized_impulse(const VectorNd& gj)
   reset_accumulators();
 }
 
+/// Sets the generalized forces for the articulated body
+void RCArticulatedBody::set_generalized_forces(const VectorNd& gf)
+{
+  unsigned index = 0;
+  SForced f0;
+
+  if (_floating_base)
+  {
+    // get the base
+    RigidBodyPtr base = _links.front();
+
+    // first, get the force on the base link
+    gf.get_sub_vec(num_joint_dof_explicit(), gf.size(), f0);
+
+    // add the force to the base
+    SForced fx = Pose3d::transform(base->get_gc_pose(), f0);
+    base->set_force(fx);
+  }
+
+  // add to joint forces
+  for (unsigned i=0; i< _ejoints.size(); i++)
+  {
+    unsigned idx = _ejoints[i]->get_coord_index();
+    SharedConstVectorNd f = gf.segment(idx, idx+_ejoints[i]->num_dof());
+    _ejoints[i]->force = f;
+  } 
+}
+
+
 /// Adds a generalized force to the articulated body
 void RCArticulatedBody::add_generalized_force(const VectorNd& gf)
 {

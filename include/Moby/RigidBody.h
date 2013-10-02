@@ -73,6 +73,7 @@ class RigidBody : public SingleBody
     void set_accel(const Ravelin::SAcceld& xdd);
     virtual const Ravelin::SAcceld& get_accel();
     void set_velocity(const Ravelin::SAcceld& xdd);
+    virtual void set_generalized_forces(const Ravelin::VectorNd& gf);
     virtual Ravelin::VectorNd& get_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& gc);
     virtual Ravelin::VectorNd& get_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& gv);
     virtual Ravelin::VectorNd& get_generalized_acceleration(Ravelin::VectorNd& ga);
@@ -185,6 +186,7 @@ class RigidBody : public SingleBody
     Ravelin::VectorNd viscous_coeff;
 
   private:  
+    void set_force(const Ravelin::SForced& w);
     Ravelin::VectorNd& get_generalized_coordinates_single(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& gc);
     Ravelin::VectorNd& get_generalized_velocity_single(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& gv);
     Ravelin::VectorNd& get_generalized_acceleration_single(Ravelin::VectorNd& ga);

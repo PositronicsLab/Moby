@@ -679,6 +679,46 @@ RigidBodyPtr RigidBody::get_child_link(JointPtr j) const
   return j->get_outboard_link();
 }
 
+/// Sets the force on the body (this function is private b/c I can't imagine where it should be called by the user)
+void RigidBody::set_force(const SForced& w)
+{
+  // do not add forces to disabled bodies
+  if (!_enabled)
+    return;
+  
+  // update the force 
+  _force0 = Pose3d::transform(GLOBAL, w);
+
+  // see whether we update a force 
+  if (w.pose == _F)
+  {
+    _forcei_valid = true;
+    _forcei = w;
+
+    // invalidate the remaining forces 
+    _forcej_valid = _forcem_valid = false; 
+  }
+  else if (w.pose == _jF)
+  {
+    _forcem_valid = true;
+    _forcem = w;
+
+    // invalidate the remaining forces 
+    _forcei_valid = _forcej_valid = false; 
+  }
+  else if (!is_base() && w.pose == get_inner_joint_explicit()->get_pose())
+  {
+    _forcej_valid = true;
+    _forcej = w;
+
+    // invalidate the remaining forces 
+    _forcei_valid = _forcem_valid = false; 
+  }
+  else
+    // invalidate the remaining forces 
+    _forcei_valid = _forcej_valid = _forcem_valid = false; 
+}
+
 /// Adds a force to the body
 void RigidBody::add_force(const SForced& w)
 {
@@ -1209,7 +1249,36 @@ unsigned RigidBody::num_generalized_coordinates(GeneralizedCoordinateType gctype
   else
     return num_generalized_coordinates_single(gctype);
 }
- 
+
+/// Sets the generalized forces on the rigid body
+void RigidBody::set_generalized_forces(const Ravelin::VectorNd& gf)
+{ 
+  if (!_abody.expired())
+  {
+    ArticulatedBodyPtr ab(_abody);
+    ab->add_generalized_force(gf);
+    return;
+  }
+  
+  // if we're still here, this is only an individual body
+  assert(gf.size() == num_generalized_coordinates(DynamicBody::eSpatial));
+  SForced w;
+
+  // if body is not enabled, do nothing
+  if (!_enabled)
+    return;
+
+  // set the pose for w
+  w.pose = _F2;
+
+  // get the force and torque
+  w.set_force(Vector3d(gf[0], gf[1], gf[2]));
+  w.set_torque(Vector3d(gf[3], gf[4], gf[5]));
+
+  // add the force to the sum of forces
+  set_force(w);
+}
+
 /// Adds a generalized force to this rigid body
 void RigidBody::add_generalized_force(const VectorNd& gf)
 {
