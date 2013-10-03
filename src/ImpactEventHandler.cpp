@@ -513,61 +513,69 @@ void ImpactEventHandler::compute_problem_data(EventProblemData& q)
 /// Solves the (frictionless) LCP
 void ImpactEventHandler::solve_lcp(EventProblemData& q, VectorNd& z)
 {
-  SAFESTATIC MatrixNd UL, LR, MM, U, V;
-  SAFESTATIC MatrixNd UR, t2, iJx_iM_JxT;
-  SAFESTATIC VectorNd alpha_x, v1, v2, qq, S, Cn_vplus;
+  SAFESTATIC MatrixNd A, B, C, D, MM;
+  SAFESTATIC VectorNd alpha_x, v, a, b, qq, Cn_vplus;
+  const unsigned NCONTACTS = q.N_CONTACTS;
+  const unsigned NLIMITS = q.N_LIMITS;
+  const unsigned NIMP = q.N_CONSTRAINT_EQNS_IMP;
 
-  // setup sizes
-  UL.resize(q.N_CONTACTS, q.N_CONTACTS);
-  UR.resize(q.N_CONTACTS, q.N_LIMITS);
-  LR.resize(q.N_LIMITS, q.N_LIMITS);
+  // we do this by solving the MLCP:
+  // |  A  C  | | u | + | a | = | 0 | 
+  // |  D  B  | | v |   | b |   | r |
 
-  // prepare to invert Jx*inv(M)*Jx'
-  iJx_iM_JxT = q.Jx_iM_JxT;
-  _LA.svd(iJx_iM_JxT, U, S, V);
+  // A is the matrix Jx*inv(M)*Jx', Jx is implicit joint constraint Jacobians
+  // NOTE: we assume that Jx is of full row rank (no dependent constraints)
 
-  // setup primary terms -- first upper left hand block of matrix
-  MatrixNd::transpose(q.Cn_iM_JxT, t2);
-  _LA.solve_LS_fast(U, S, V, t2);
-  q.Cn_iM_JxT.mult(t2, UL); 
-  
-  q.Cn_iM_JxT.mult(iJx_iM_JxT, t2);
-  t2.mult_transpose(q.Cn_iM_JxT, UL);
+  // u = alphax
+  // v = [ cn; l ]
+  // r = [ Cn*v+; L*v+ ] 
 
-  // now do upper right hand block of matrix
-  MatrixNd::transpose(q.L_iM_JxT, t2);
-  _LA.solve_LS_fast(U, S, V, t2);
-  q.Cn_iM_JxT.mult(t2, UR);
-  
-  // now lower right hand block of matrix
-  t2.mult_transpose(q.L_iM_JxT, LR);
+  // Assuming that C is of full row rank (no dependent joint constraints)
+  // A is invertible; then we just need to solve the LCP:
 
-  // subtract secondary terms
-  UL -= q.Cn_iM_CnT;
-  UR -= q.Cn_iM_LT;
-  LR -= q.L_iM_LT;
+  // | B - D*inv(A)*C | | v | + | b - D*inv(A)*a | = | w |
+  // and use the result to solve for u:
+  // u = -inv(A)*(a + Cv)
 
-  // now negate all terms
-  UL.negate();
-  UR.negate();
-  LR.negate();
+  // compute SVD of Jx*inv(M)*Jx'
+  A = q.Jx_iM_JxT; 
+  _LA.svd(A, _AU, _AS, _AV);
+
+  // setup the B matrix
+  // B = [ Cn; L ]*inv(M)*[ Cn' L' ]
+  B.resize(NCONTACTS+NLIMITS, NCONTACTS+NLIMITS);
+  B.set_sub_mat(0, 0, q.Cn_iM_CnT);  
+  B.set_sub_mat(0, NLIMITS, q.Cn_iM_LT);
+  B.set_sub_mat(NLIMITS, 0, q.Cn_iM_LT, Ravelin::eTranspose);
+  B.set_sub_mat(NLIMITS, NLIMITS, q.L_iM_LT);
+
+  // setup the C matrix and compute inv(A)*C
+  // C = Jx*inv(M)*[ Cn' L' ]; note: D = C'
+  C.resize(NIMP, NCONTACTS+NLIMITS);
+  C.set_sub_mat(0,0, q.Cn_iM_JxT, Ravelin::eTranspose);
+  C.set_sub_mat(0,NCONTACTS, q.L_iM_JxT, Ravelin::eTranspose);
+  MatrixNd::transpose(C, D);
+  _LA.solve_LS_fast(_AU, _AS, _AV, C);
+
+  // setup the a vector and compute inv(A)*a
+  // a = [ Jx*v ]
+  a = q.Jx_v;
+  _LA.solve_LS_fast(_AU, _AS, _AV, a);
+
+  // setup the b vector
+  // b = [ Cn*v; L*v ]
+  b.resize(NLIMITS+NCONTACTS);
+  b.set_sub_vec(0, q.Cn_v);
+  b.set_sub_vec(NCONTACTS, q.L_v);
 
   // setup the LCP matrix
-  MM.resize(q.N_CONTACTS + q.N_LIMITS, q.N_CONTACTS + q.N_LIMITS);
-  MM.set_sub_mat(0, 0, UL);
-  MM.set_sub_mat(0, q.N_CONTACTS, UR);
-  MM.set_sub_mat(q.N_CONTACTS, 0, UR, Ravelin::eTranspose);
-  MM.set_sub_mat(q.N_CONTACTS, q.N_CONTACTS, LR);
+  D.mult(C, MM);
+  MM -= B;
+  MM.negate();
 
   // setup the LCP vector
-  qq.resize(MM.rows());
-  _LA.solve_LS_fast(U, S, V, v2 = q.Jx_v); 
-  q.Cn_iM_JxT.mult(v2, v1);
-  v1 -= q.Cn_v;
-  qq.set_sub_vec(0, v1);
-  q.L_iM_JxT.mult(v2, v1);
-  v1 -= q.L_v;
-  qq.set_sub_vec(q.N_CONTACTS, v1);
+  D.mult(a, qq);
+  qq -= b;
   qq.negate();
 
   FILE_LOG(LOG_EVENT) << "ImpulseEventHandler::solve_lcp() entered" << std::endl;
@@ -578,31 +586,19 @@ void ImpactEventHandler::solve_lcp(EventProblemData& q, VectorNd& z)
   FILE_LOG(LOG_EVENT) << "  LCP vector: " << qq << std::endl;
 
   // solve the LCP
-  if (!_lcp.lcp_lemke_regularized(MM, qq, z))
+  if (!_lcp.lcp_lemke_regularized(MM, qq, v))
     throw std::runtime_error("Unable to solve event LCP!");
 
+  // compute alphax
+  // u = -inv(A)*(a + Cv)
+  C.mult(v, alpha_x) += a;
+  alpha_x.negate();   
+
   // determine the value of kappa
-  SharedConstVectorNd cn = z.segment(0, q.N_CONTACTS);
-  SharedConstVectorNd l = z.segment(q.N_CONTACTS, z.size());
+  SharedConstVectorNd cn = v.segment(0, q.N_CONTACTS);
+  SharedConstVectorNd l = v.segment(q.N_CONTACTS, v.size());
   q.Cn_iM_CnT.mult(cn, Cn_vplus) += q.Cn_v;
   q.kappa = Cn_vplus.norm1();
-
-  // Mv^* - Mv = Cn'*cn + L'*l + Jx'*alpha_x
-
-  // Mv^* - Mv^- = Jx'*alpha_x
-  // Jx*v^*     = 0
-  // v^* = v^- + inv(M)*Jx'*alpha_x
-  // Jx*v^- + Jx*inv(M)*Jx'*alpha_x = 0
-
-  // Jx*inv(M)*Jx'*alpha_x = -Jx*(v + inv(M)*Cn'*cn + inv(M)*L'*l)
-
-  // compute alpha_x 
-  q.Cn_iM_JxT.transpose_mult(cn, v1);
-  q.L_iM_JxT.transpose_mult(l, v2); 
-  v1 += v2;
-  v1 += q.Jx_v;
-  v1.negate();
-  _LA.solve_LS_fast(U, S, V, alpha_x = v1);
 
   // setup the homogeneous solution
   z.set_zero(q.N_VARS);

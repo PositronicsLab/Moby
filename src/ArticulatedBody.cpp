@@ -41,10 +41,10 @@ MatrixNd& ArticulatedBody::calc_jacobian_dot(boost::shared_ptr<const Pose3d> fra
   const unsigned SPATIAL_DIM = 6;
 
   // get the number of explicit degrees of freedom
-  const unsigned NIMP_DOF = num_joint_dof_explicit();
+  const unsigned NEXP_DOF = num_joint_dof_explicit();
 
   // get the total number of degrees of freedom
-  const unsigned NDOF = (is_floating_base()) ? NIMP_DOF + SPATIAL_DIM : NIMP_DOF;
+  const unsigned NDOF = (is_floating_base()) ? NEXP_DOF + SPATIAL_DIM : NEXP_DOF;
 
   // setup the Jacobian
   J.set_zero(NDOF, SPATIAL_DIM); 
@@ -94,13 +94,13 @@ MatrixNd& ArticulatedBody::calc_jacobian(boost::shared_ptr<const Pose3d> frame, 
   const unsigned SPATIAL_DIM = 6;
 
   // get the number of explicit degrees of freedom
-  const unsigned NIMP_DOF = num_joint_dof_explicit();
+  const unsigned NEXP_DOF = num_joint_dof_explicit();
 
   // get the total number of degrees of freedom
-  const unsigned NDOF = (is_floating_base()) ? NIMP_DOF + SPATIAL_DIM : NIMP_DOF;
+  const unsigned NDOF = (is_floating_base()) ? NEXP_DOF + SPATIAL_DIM : NEXP_DOF;
 
   // setup the Jacobian
-  J.set_zero(NDOF,SPATIAL_DIM); 
+  J.set_zero(SPATIAL_DIM, NDOF); 
 
   // get the current link
   RigidBodyPtr link = dynamic_pointer_cast<RigidBody>(body);
@@ -127,7 +127,7 @@ MatrixNd& ArticulatedBody::calc_jacobian(boost::shared_ptr<const Pose3d> frame, 
     // update J
     for (unsigned i=0; i< s.size(); i++)
     {
-      SharedVectorNd v = J.row(CIDX+i);
+      SharedVectorNd v = J.column(CIDX+i);
       Pose3d::transform(frame, s[i]).transpose_to_vector(v);
     }
 
@@ -139,7 +139,7 @@ MatrixNd& ArticulatedBody::calc_jacobian(boost::shared_ptr<const Pose3d> frame, 
   if (is_floating_base())
   {
     shared_ptr<const Pose3d> bpose = base->get_mixed_pose();
-    SharedMatrixNd Jbase = J.block(NIMP_DOF, NIMP_DOF+SPATIAL_DIM, 0, SPATIAL_DIM);
+    SharedMatrixNd Jbase = J.block(0, SPATIAL_DIM, NEXP_DOF, NEXP_DOF+SPATIAL_DIM);
     Pose3d::spatial_transform_to_matrix(bpose, frame, Jbase);
   }
 

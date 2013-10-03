@@ -772,7 +772,7 @@ void Event::compute_cross_contact_limit_vevent_data(const Event& e, MatrixNd& M)
   assert(su);
 
   // get the index of the limit joint
-  unsigned idx = limit_joint->get_coord_index();
+  unsigned idx = e.limit_joint->get_coord_index();
 
   // get the two single bodies
   SingleBodyPtr sb1 = contact_geom1->get_single_body();

@@ -629,7 +629,7 @@ MatrixNd& RCArticulatedBody::calc_jacobian(const Point3d& p, RigidBodyPtr link, 
   SAFESTATIC MatrixNd Jsub;
 
   // resize the Jacobian
-  J.set_zero(SPATIAL_DIM, num_generalized_coordinates(DynamicBody::eSpatial));
+  J.set_zero(num_generalized_coordinates(DynamicBody::eSpatial), SPATIAL_DIM);
 
   if (is_floating_base())
   {
@@ -637,7 +637,7 @@ MatrixNd& RCArticulatedBody::calc_jacobian(const Point3d& p, RigidBodyPtr link, 
     calc_jacobian_floating_base(p, Jsub);
 
     // setup the floating base
-    J.set_sub_mat(0,0,Jsub);
+    J.set_sub_mat(num_joint_dof_explicit(),0,Jsub);
   }
 
   // calculate all relevant columns
@@ -646,7 +646,7 @@ MatrixNd& RCArticulatedBody::calc_jacobian(const Point3d& p, RigidBodyPtr link, 
   {
     JointPtr joint = link->get_inner_joint_explicit();
     calc_jacobian_column(joint, p, Jsub); 
-    J.set_sub_mat(0,joint->get_coord_index(), Jsub);
+    J.set_sub_mat(joint->get_coord_index(), 0, Jsub);
     link = link->get_parent_link();
   }
 
