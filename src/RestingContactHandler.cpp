@@ -170,7 +170,7 @@ using boost::dynamic_pointer_cast;
     // apply FORCES
     apply_forces(epd);
 
-    bool ENERGY_GAINED = false;
+    bool energy_gained = false;
     // compute first-order approximation to KE (using acceleration) before
     // contact forces are computed
     for (unsigned i=0; i< epd.super_bodies.size(); i++)
@@ -184,12 +184,13 @@ using boost::dynamic_pointer_cast;
       M.mult(a,v);
       ke_plus[i] = v.dot(a);
       // Test if energy has been gained by this body
-      ENERGY_GAINED |= !CompGeom::rel_equal(ke_plus[i],ke_minus[i]) && ((ke_plus[i]-ke_minus[i]) > 0);
+      energy_gained |= std::isnan(ke_plus[i]);
+      energy_gained |= !CompGeom::rel_equal(ke_plus[i],ke_minus[i]) && ((ke_plus[i]-ke_minus[i]) > 0);
     }
 
     FILE_LOG(LOG_EVENT) << "energy before = " << ke_minus << ", energy after = " << ke_plus << endl;
 
-    if (ENERGY_GAINED){
+    if (energy_gained){
       FILE_LOG(LOG_EVENT) << "warning! KE gain detected! energy before=" << ke_minus << " energy after=" << ke_plus << endl;
       // restore old forces
       for (unsigned i=0; i< epd.super_bodies.size(); i++)
