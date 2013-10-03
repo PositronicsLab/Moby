@@ -588,15 +588,15 @@ double EventDrivenSimulator::step(double step_size)
         // remove events after the current time
         remove_next_events();
 
+        // re-classify all events at current time as velocity events
+        for (unsigned i=0; i< _events.size(); i++)
+          _events[i].deriv_type = Event::eVel;
+
         // handle velocity events
         handle_events();
 
         // get the new velocities
         get_velocities(_qd0);
-
-        // re-classify all events at current time as velocity events
-        for (unsigned i=0; i< _events.size(); i++)
-          _events[i].deriv_type = Event::eVel;
 
         // integrate the system forward by dt again
         integrate(dt);
@@ -810,7 +810,7 @@ void EventDrivenSimulator::step_adaptive_si_Euler(double dt)
   }
   get_coords(qf_full);
   get_velocities(qdf_full);
- 
+/* 
    // take two steps of size dt/2
   set_coords(q0_save);
   set_velocities(qd0_save);
@@ -859,7 +859,7 @@ void EventDrivenSimulator::step_adaptive_si_Euler(double dt)
     // do this again
     step_adaptive_si_Euler(dt - max_step);
   }
-   
+*/   
   // call the mini-callback
   if (post_mini_step_callback_fn)
     post_mini_step_callback_fn(this);
@@ -983,8 +983,6 @@ double EventDrivenSimulator::find_events(double dt)
     set_coords(_events.front().t);
     set_velocities(_events.front().t);
   }
-
-calc_fwd_dyn();
 
   // check whether any events are at current time
   for (unsigned i=0; i< _events.size(); i++)
