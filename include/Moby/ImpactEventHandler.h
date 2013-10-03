@@ -154,6 +154,8 @@ class ImpactEventHandler
 
     Ravelin::LinAlgd _LA;
     LCP _lcp;
+    Ravelin::MatrixNd _AU, _AV;
+    Ravelin::VectorNd _AS;
 }; // end class
 } // end namespace
 

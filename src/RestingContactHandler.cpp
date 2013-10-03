@@ -46,10 +46,18 @@ using boost::dynamic_pointer_cast;
     bool RETURN_FLAG = false;
     FILE_LOG(LOG_EVENT) << "*************************************************************";
     FILE_LOG(LOG_EVENT) << endl;
-    FILE_LOG(LOG_EVENT) << "RestingContactHandler::process_contacts() entered";
+    FILE_LOG(LOG_EVENT) << "RestingContactHandler::process_events() entered";
     FILE_LOG(LOG_EVENT) << endl;
     FILE_LOG(LOG_EVENT) << "*************************************************************";
     FILE_LOG(LOG_EVENT) << endl;
+
+    // verify that every event is a contact event
+    for (unsigned i=0; i< contacts.size(); i++)
+      if (contacts[i].event_type != Event::eContact)
+      {
+        std::cerr << "RestingContactHandler::process_events() warning- non-contact event detected (currently not handled)" << std::endl;
+        return false;
+      }
 
     // apply the method to all contacts
     if (!contacts.empty()){
@@ -68,10 +76,9 @@ using boost::dynamic_pointer_cast;
       FILE_LOG(LOG_EVENT) << " (no contacts?!)" << endl;
 
     FILE_LOG(LOG_EVENT) << "*************************************************************" << endl;
-    FILE_LOG(LOG_EVENT) << "RestingContactHandler::process_contacts() exited" << endl;
+    FILE_LOG(LOG_EVENT) << "RestingContactHandler::process_events() exited" << endl;
     FILE_LOG(LOG_EVENT) << "*************************************************************" << endl;
 
-    // TODO: fix this to check for K.E. gain
     return RETURN_FLAG;
   }
 
