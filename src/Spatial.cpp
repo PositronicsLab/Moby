@@ -17,7 +17,7 @@ VectorNd& concat(const VectorNd& v, const SForced& w, VectorNd& result)
 {
   const unsigned SPATIAL_DIM = 6;
   result.resize(v.size()+SPATIAL_DIM);
-  result.set_sub_vec(0, result);
+  result.set_sub_vec(0, v);
   result.set_sub_vec(v.size()+0, w.get_force());
   result.set_sub_vec(v.size()+3, w.get_torque());
   return result;

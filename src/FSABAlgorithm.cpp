@@ -555,9 +555,11 @@ void FSABAlgorithm::calc_spatial_coriolis_vectors(RCArticulatedBodyPtr body)
 
   // process all links except the base
   for (unsigned i=1; i< links.size(); i++)
-  {  
+  {
     // get the link
     RigidBodyPtr link = links[i];
+_c[i].set_zero(link->get_velocity().pose);
+continue;
     unsigned idx = link->get_index();
 
     // get the link's joint
@@ -613,7 +615,8 @@ void FSABAlgorithm::calc_spatial_zero_accelerations(RCArticulatedBodyPtr body)
     const SVelocityd& v = link->get_velocity();
 
     // set 6-dimensional spatial isolated zero-acceleration vector of link  
-    _Z[i] = v.cross(link->get_inertia() * v) - link->sum_forces();
+//    _Z[i] = v.cross(link->get_inertia() * v) - link->sum_forces();
+    _Z[i] = -link->sum_forces();
     
     FILE_LOG(LOG_DYNAMICS) << "  processing link " << link->id << endl;
     FILE_LOG(LOG_DYNAMICS) << "    Link spatial iso ZA: " << endl << _Z[i] << endl;
