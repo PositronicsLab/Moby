@@ -47,7 +47,7 @@ MatrixNd& ArticulatedBody::calc_jacobian_dot(boost::shared_ptr<const Pose3d> fra
   const unsigned NDOF = (is_floating_base()) ? NEXP_DOF + SPATIAL_DIM : NEXP_DOF;
 
   // setup the Jacobian
-  J.set_zero(NDOF, SPATIAL_DIM); 
+  J.set_zero(SPATIAL_DIM, NDOF); 
 
   // get the current link
   RigidBodyPtr link = dynamic_pointer_cast<RigidBody>(body);
@@ -74,13 +74,16 @@ MatrixNd& ArticulatedBody::calc_jacobian_dot(boost::shared_ptr<const Pose3d> fra
     // update J
     for (unsigned i=0; i< s.size(); i++)
     {
-      SharedVectorNd v = J.row(CIDX+i);
+      SharedVectorNd v = J.column(CIDX+i);
       Pose3d::transform(frame, s[i]).transpose_to_vector(v);
     }
 
     // set the link to the parent link
     link = parent;
   }
+
+  // NOTE: we do not even check for a floating base, because the 
+  // time-derivative of its Jacobian will always be zero
 
   return J;
 }
@@ -140,7 +143,7 @@ MatrixNd& ArticulatedBody::calc_jacobian(boost::shared_ptr<const Pose3d> frame, 
   {
     shared_ptr<const Pose3d> bpose = base->get_mixed_pose();
     SharedMatrixNd Jbase = J.block(0, SPATIAL_DIM, NEXP_DOF, NEXP_DOF+SPATIAL_DIM);
-    Pose3d::spatial_transform_to_matrix(bpose, frame, Jbase);
+    Pose3d::spatial_transform_to_matrix2(bpose, frame, Jbase);
   }
 
   return J;

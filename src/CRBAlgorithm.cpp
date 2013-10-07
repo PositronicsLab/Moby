@@ -123,7 +123,40 @@ void CRBAlgorithm::transform_and_mult(RigidBodyPtr link, const SpatialRBInertiad
   mult(Iprime, _sprime, Is);
 }
 
+/// Gets the frame in which kinematics and dynamics computations occur
+/**
+ * Only valid for bodies with floating bases.
+ */
+shared_ptr<const Pose3d> CRBAlgorithm::get_computation_frame(RCArticulatedBodyPtr body)
+{
+  assert(body->is_floating_base());
+
+  // get the base 
+  RigidBodyPtr base = body->get_base_link();
+
+  switch (body->get_computation_frame_type())
+  {
+    case eLink:
+    case eJoint:
+      return base->get_pose();
+
+    case eLinkInertia:
+      return base->get_inertial_pose();
+
+    case eGlobal:
+      return shared_ptr<const Pose3d>();
+
+    default:
+      assert(false);
+  }
+
+  return shared_ptr<const Pose3d>();
+}
+
 /// Calculates the generalized inertia of this body
+/**
+ * Specialized function for use with the CRB algorithm
+ */
 void CRBAlgorithm::calc_generalized_inertia(RCArticulatedBodyPtr body)
 {
   const unsigned SPATIAL_DIM = 6;
@@ -187,21 +220,27 @@ void CRBAlgorithm::calc_generalized_inertia(RCArticulatedBodyPtr body)
     to_matrix(_Is, Kb);
   }
 
-  // get composite inertia in matrix form
-  Pose3d::transform(GLOBAL, _Ic.front()).to_matrix(Ic0);
+  // get composite inertia in desired frame
+  shared_ptr<const Pose3d> P = get_computation_frame(body);
+  Pose3d::transform(P, _Ic.front()).to_matrix(Ic0);
 
   // setup the remainder of the augmented inertia matrix
-  Opsd::transpose(KT, K);  // TODO: special transpose necessary here? check whether matrix is symmetric
+  Opsd::transpose(KT, K);  
 
-  FILE_LOG(LOG_DYNAMICS) << "(unpermuted) [H K; K' Ic0]: " << std::endl << M;
-
-  // swap last three and second-to-last three rows if body is a floating base
-  if (body->is_floating_base())
+  // must account for spatial transpose operation
+  for (unsigned i=0; i< 3; i++)
   {
-    M.get_sub_mat(BASE_START, BASE_START+3, 0, M.columns(), _workM);
-    M.block(BASE_START, BASE_START+3, 0, M.columns()) = M.block(BASE_START+3, BASE_START+6, 0, M.columns());
-    M.block(BASE_START+3, BASE_START+6, 0, M.columns()) = _workM;
+    KT.get_row(i, _rowi);
+    KT.row(i) = KT.row(i+3);
+    KT.row(i+3) = _rowi;
   }
+
+  FILE_LOG(LOG_DYNAMICS) << "[H K'; K Ic0]: " << std::endl << M;
+
+  // swap last three and second-to-last three rows 
+  M.get_sub_mat(BASE_START, BASE_START+3, 0, M.columns(), _workM);
+  M.block(BASE_START, BASE_START+3, 0, M.columns()) = M.block(BASE_START+3, BASE_START+6, 0, M.columns());
+  M.block(BASE_START+3, BASE_START+6, 0, M.columns()) = _workM;
 }
 
 /// Computes *just* the joint space inertia matrix
@@ -377,8 +416,11 @@ void CRBAlgorithm::calc_joint_space_inertia(RCArticulatedBodyPtr body, MatrixNd&
     const std::vector<SVelocityd>& s = ijoints[i]->get_spatial_axes();
     Pose3d::transform(Ic[oidx].pose, s, _sprime);
     mult(Ic[oidx], _sprime, _momenta[oidx]);
-    FILE_LOG(LOG_DYNAMICS) << "s: " << _sprime[0] << std::endl;
-    FILE_LOG(LOG_DYNAMICS) << "Is[" << i << "]: " << _momenta[oidx][0] << std::endl;
+    if (_sprime.size() > 0)
+    {
+      FILE_LOG(LOG_DYNAMICS) << "s: " << _sprime[0] << std::endl;
+      FILE_LOG(LOG_DYNAMICS) << "Is[" << i << "]: " << _momenta[oidx][0] << std::endl;
+    }
   } 
 
   // setup H
@@ -436,6 +478,9 @@ void CRBAlgorithm::calc_joint_space_inertia(RCArticulatedBodyPtr body, MatrixNd&
 }
 
 /// Calculates the generalized inertia matrix for the given representation
+/**
+ * Generic method provided for use with generalized coordinates.
+ */
 void CRBAlgorithm::calc_generalized_inertia(MatrixNd& M)
 {
   // do the precalculation
@@ -505,20 +550,26 @@ void CRBAlgorithm::calc_generalized_inertia(MatrixNd& M)
   }
 
   // get composite inertia in matrix form
-  Pose3d::transform(GLOBAL, _Ic.front()).to_matrix(Ic0);
+  shared_ptr<const Pose3d> P = body->get_base_link()->get_mixed_pose();
+  Pose3d::transform(P, _Ic.front()).to_matrix(Ic0);
 
   // transpose K 
-  Opsd::transpose(KT, K); // TODO check: spatial transpose?
+  Opsd::transpose(KT, K); 
 
-  FILE_LOG(LOG_DYNAMICS) << "(unpermuted) [Ic0 K; K' H]: " << std::endl << M;
-
-  // swap last three and next-to-last three columns if body is a floating base
-  if (body->is_floating_base())
+  // must account for spatial transpose operation
+  for (unsigned i=0; i< 3; i++)
   {
-    M.get_sub_mat(0, M.rows(), BASE_START, BASE_START+3, _workM);
-    M.block(0, M.rows(), BASE_START, BASE_START+3) = M.block(0, M.rows(), BASE_START+3, BASE_START+6);
-    M.block(0, M.rows(), BASE_START+3, BASE_START+6) = _workM;
+    KT.get_row(i, _rowi);
+    KT.row(i) = KT.row(i+3);
+    KT.row(i+3) = _rowi;
   }
+
+  FILE_LOG(LOG_DYNAMICS) << "[H K'; K Ic0]: " << std::endl << M;
+
+  // swap last three and next-to-last three columns
+  M.get_sub_mat(0, M.rows(), BASE_START, BASE_START+3, _workM);
+  M.block(0, M.rows(), BASE_START, BASE_START+3) = M.block(0, M.rows(), BASE_START+3, BASE_START+6);
+  M.block(0, M.rows(), BASE_START+3, BASE_START+6) = _workM;
 
   FILE_LOG(LOG_DYNAMICS) << "(permuted) [Ic0 K; K' H]: " << std::endl << M;
 }
@@ -704,8 +755,14 @@ void CRBAlgorithm::calc_fwd_dyn_floating_base(RCArticulatedBodyPtr body)
     _Q.set_sub_vec(j, _Qi);
   }
 
+  FILE_LOG(LOG_DYNAMICS) << "Q: " << _Q << std::endl;
+  FILE_LOG(LOG_DYNAMICS) << "C: " << _C << std::endl;
+  FILE_LOG(LOG_DYNAMICS) << "M: " << std::endl << this->_M;
+
   // setup the simulataneous equations to solve: [Featherstone, 1987], eq. 7.24
   concat(_Q -= _C, -f0, _b);
+  FILE_LOG(LOG_DYNAMICS) << "b: " << _b << std::endl;
+  FILE_LOG(LOG_DYNAMICS) << "link + external forces on base: " << f0 << std::endl;
 
   // swap last three and next to last three elements of b
   const unsigned SPATIAL_DIM = 6;
@@ -713,13 +770,7 @@ void CRBAlgorithm::calc_fwd_dyn_floating_base(RCArticulatedBodyPtr body)
   std::swap(_b[BASE_START+0], _b[BASE_START+3]);
   std::swap(_b[BASE_START+1], _b[BASE_START+4]);
   std::swap(_b[BASE_START+2], _b[BASE_START+5]);
-
-  FILE_LOG(LOG_DYNAMICS) << "link + external forces on base: " << f0 << std::endl;
-  FILE_LOG(LOG_DYNAMICS) << "Q: " << _Q << std::endl;
-  FILE_LOG(LOG_DYNAMICS) << "C: " << _C << std::endl;
-  FILE_LOG(LOG_DYNAMICS) << "b: " << _b << std::endl;
-  FILE_LOG(LOG_DYNAMICS) << "M: " << std::endl << this->_M;
-  
+ 
   // solve for accelerations
   M_solve_noprecalc(_augV = _b); 
 
@@ -730,6 +781,7 @@ void CRBAlgorithm::calc_fwd_dyn_floating_base(RCArticulatedBodyPtr body)
   // get out a0, qdd
   qdd = _augV.segment(0, BASE_START);
   a0 = _augV.segment(BASE_START,_augV.size());
+  a0.pose = f0.pose;
 
   // set the base acceleration
   links.front()->set_accel(a0);
@@ -834,8 +886,9 @@ void CRBAlgorithm::calc_generalized_forces(SForced& f0, VectorNd& C)
 
     // add this link's contribution
     Pose3d::transform(_a[i].pose, s, _sprime);
-    if (_sprime.empty())
+//    if (_sprime.empty())
       _a[i].set_zero(vx.pose);
+/*
     else
     {
       SVelocityd sqd = mult(_sprime, qd);
@@ -847,9 +900,10 @@ void CRBAlgorithm::calc_generalized_forces(SForced& f0, VectorNd& C)
 
     // now add parent's contribution
     _a[i] += Pose3d::transform(_a[i].pose, _a[h]);
-
+*/
     FILE_LOG(LOG_DYNAMICS) << " computing link velocity / acceleration; processing link " << link->id << std::endl;
-    FILE_LOG(LOG_DYNAMICS) << "  spatial joint velocity: " << (mult(s,qd)) << std::endl;
+    if (s.size() > 0)
+      FILE_LOG(LOG_DYNAMICS) << "  spatial joint velocity: " << (mult(s,qd)) << std::endl;
     FILE_LOG(LOG_DYNAMICS) << "  link velocity: " << link->get_velocity() << std::endl;
     FILE_LOG(LOG_DYNAMICS) << "  link accel: " << _a[i] << std::endl;
   }
@@ -864,7 +918,7 @@ void CRBAlgorithm::calc_generalized_forces(SForced& f0, VectorNd& C)
   for (unsigned i=0; i< links.size(); i++)
   {
     _w[i].set_zero();
-    _w[i].pose = _a[i].pose;
+    _w[i].pose = links[i]->get_computation_frame();
   }
 
   // add all leaf links to the queue
@@ -894,8 +948,8 @@ void CRBAlgorithm::calc_generalized_forces(SForced& f0, VectorNd& C)
 
     // add I*a to the link force and fictitious forces
     const SVelocityd& vx = link->get_velocity(); 
-    _w[i] += link->get_inertia() * _a[i];
-    _w[i] += vx.cross(link->get_inertia() * vx);
+//    _w[i] += link->get_inertia() * _a[i];
+//    _w[i] += vx.cross(link->get_inertia() * vx);
 
     FILE_LOG(LOG_DYNAMICS) << "  force (+ I*a): " << _w[i] << std::endl;
 
@@ -911,8 +965,7 @@ void CRBAlgorithm::calc_generalized_forces(SForced& f0, VectorNd& C)
     {
       unsigned h = parent->get_index();
       _w[h] += Pose3d::transform(_w[h].pose, _w[i]);
-      if (!parent->is_base())
-        link_queue.push(parent);
+      link_queue.push(parent);
     }
 
     // indicate that this link has been processed
