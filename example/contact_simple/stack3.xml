@@ -17,7 +17,7 @@
     <Box id="ground-primitive" xlen="100" ylen=".5" zlen="100" density="10.0" />
 
     <!-- Integrator -->
-    <EulerIntegrator id="euler"  />
+    <ODEPACKIntegrator id="euler" abs-err-tol="1e-3" rel-err-tol="1e-3" />
 
     <!-- collision detector -->
     <GeneralizedCCD id="ccd" eps-tolerance="1e-3" intersection-tolerance="1e-5" toi-tolerance="1e-5">

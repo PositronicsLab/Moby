@@ -633,7 +633,7 @@ using boost::dynamic_pointer_cast;
 
   // solve the LCP
   //if (!_lcp.lcp_lemke_regularized(MM, qq, z))
-  if (!_lcp.lcp_lemke(MM, qq, z))
+  if (!solve_lcp(MM, qq, z))
     throw RestingContactFailException(qq,MM);
 
   for(unsigned i=0,j=0;i<q.N_CONTACTS;i++)
@@ -708,3 +708,41 @@ using boost::dynamic_pointer_cast;
     else
       return sb;
   }
+
+bool RestingContactHandler::solve_lcp(const MatrixNd& M, const VectorNd& q, VectorNd& z)
+{
+  #ifdef USE_SUPERLU
+  const double SPARSE_PCT = 0.0;  // if 90% of matrix is sparse, triggers sparse arithmetic
+
+  // get the infinity-norm of the matrix
+  const double MINF = M.norm_inf();
+
+  // setup a sensible zero tolerance
+  const double ZERO_TOL = std::max(1.0, MINF) * std::numeric_limits<double>::epsilon() * M.rows();
+
+  // get the number of zeros in the matrix
+  unsigned nz = 0;
+  for (ColumnIteratord_const i = M.column_iterator_begin(); i != i.end(); i++)
+    if (std::fabs(*i) < ZERO_TOL)
+      nz++;
+
+  // use the proper method depending on sparsity 
+  FILE_LOG(LOG_EVENT) << "Order of LCP matrix: " << M.size() << std::endl;
+  FILE_LOG(LOG_EVENT) << "Sparsity percentage (higher = sparser): " << ((double) nz/M.size()) << std::endl;
+
+  if ((double) nz/M.size() > SPARSE_PCT)
+  {
+    // create the new sparse matrix
+    SparseMatrixNd sM(SparseMatrixNd::eCSC, M, ZERO_TOL);
+    _lcp.lcp_lemke(sM, q, z);
+  }
+  else
+    if (!_lcp.lcp_lemke(M, q, z))
+      return false; 
+  #else
+  if (!_lcp.lcp_lemke(M, q, z))
+    return false; 
+  #endif
+  return true;
+}
+
