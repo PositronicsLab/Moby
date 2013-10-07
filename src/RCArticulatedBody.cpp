@@ -590,6 +590,7 @@ void RCArticulatedBody::update_link_velocities()
  * \return a pointer to a 6x6 matrix; top three dimensions will be linear
  *         velocity and bottom three dimensions will be angular velocity
  */
+/*
 MatrixNd& RCArticulatedBody::calc_jacobian_floating_base(const Point3d& point, MatrixNd& J)
 {
   const unsigned SPATIAL_DIM = 6;
@@ -598,7 +599,7 @@ MatrixNd& RCArticulatedBody::calc_jacobian_floating_base(const Point3d& point, M
 
   // get the base link and the base pose
   RigidBodyPtr base = get_base_link();
-  shared_ptr<const Pose3d> baseP = base->get_pose();
+  shared_ptr<const Pose3d> baseP = base->get_mixed_pose();
 
   // setup the twists at the base link - first three vectors are linear motion
   // and second three are angular
@@ -629,29 +630,37 @@ MatrixNd& RCArticulatedBody::calc_jacobian(const Point3d& p, RigidBodyPtr link, 
   SAFESTATIC MatrixNd Jsub;
 
   // resize the Jacobian
-  J.set_zero(num_generalized_coordinates(DynamicBody::eSpatial), SPATIAL_DIM);
+  J.set_zero(SPATIAL_DIM, num_generalized_coordinates(DynamicBody::eSpatial));
+
+  // get the base link
+  RigidBodyPtr base = get_base_link();
 
   if (is_floating_base())
   {
-    // calculate the floating base
-    calc_jacobian_floating_base(p, Jsub);
+shared_ptr<Pose3d> frame(new Pose3d);
+frame->rpose = p.pose;
+frame->q.set_identity();
+frame->x = Origin3d(p);
+
+    // construct the spatial transform
+    Pose3d::spatial_transform_to_matrix2(base->get_mixed_pose(), frame, Jsub);
 
     // setup the floating base
-    J.set_sub_mat(num_joint_dof_explicit(),0,Jsub);
+    J.set_sub_mat(0, num_joint_dof_explicit(),Jsub);
   }
 
   // calculate all relevant columns
-  RigidBodyPtr base = get_base_link();
   while (link != base)
   {
     JointPtr joint = link->get_inner_joint_explicit();
     calc_jacobian_column(joint, p, Jsub); 
-    J.set_sub_mat(joint->get_coord_index(), 0, Jsub);
+    J.set_sub_mat(0, joint->get_coord_index(), Jsub);
     link = link->get_parent_link();
   }
 
   return J;
 }
+*/
 
 /// Calculates the column(s) of a Jacobian matrix
 /*
@@ -668,6 +677,7 @@ MatrixNd& RCArticulatedBody::calc_jacobian(const Point3d& p, RigidBodyPtr link, 
  *       transforms, computing the Jacobian, restoring the old joint values and
  *       link transforms; thus, it will be slower than a special purpose method
  */
+/*
 MatrixNd& RCArticulatedBody::calc_jacobian(const Point3d& point, const Pose3d& base_pose, const map<JointPtr, VectorNd>& q, RigidBodyPtr link, MatrixNd& Jc)
 {
   // store current joint values
@@ -700,6 +710,7 @@ MatrixNd& RCArticulatedBody::calc_jacobian(const Point3d& point, const Pose3d& b
 
   return Jc;
 }
+*/
 
 /// Calculates column(s) of a Jacobian matrix
 /*

@@ -32,6 +32,7 @@ class CRBAlgorithm
     Ravelin::MatrixNd& M_solve(Ravelin::MatrixNd& XB);
 
   private:
+    static boost::shared_ptr<const Ravelin::Pose3d> get_computation_frame(RCArticulatedBodyPtr body);
     std::vector<unsigned> _lambda;
     void setup_parent_array();
 
@@ -87,6 +88,7 @@ class CRBAlgorithm
 
     // temporaries for calc_generalized_inertia()
     Ravelin::MatrixNd _H;
+    Ravelin::VectorNd _rowi;
     std::vector<Ravelin::SpatialRBInertiad> _Ic;
     std::vector<Ravelin::SMomentumd> _Is;
 
