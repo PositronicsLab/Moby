@@ -712,7 +712,7 @@ using boost::dynamic_pointer_cast;
 bool RestingContactHandler::solve_lcp(const MatrixNd& M, const VectorNd& q, VectorNd& z)
 {
   #ifdef USE_SUPERLU
-  const double SPARSE_PCT = 0.0;  // if 90% of matrix is sparse, triggers sparse arithmetic
+  const double SPARSE_PCT = 0.85;  // if 85% of matrix is sparse, triggers sparse arithmetic
 
   // get the infinity-norm of the matrix
   const double MINF = M.norm_inf();
