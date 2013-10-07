@@ -50,8 +50,10 @@ class RCArticulatedBody : public ArticulatedBody
     enum ForwardDynamicsAlgorithmType { eFeatherstone, eCRB }; 
     RCArticulatedBody();
     virtual ~RCArticulatedBody() {}
+/*
     virtual Ravelin::MatrixNd& calc_jacobian(const Point3d& point, RigidBodyPtr link, Ravelin::MatrixNd& J);
     virtual Ravelin::MatrixNd& calc_jacobian(const Point3d& point, const Ravelin::Pose3d& base_pose, const std::map<JointPtr, Ravelin::VectorNd>& q, RigidBodyPtr link, Ravelin::MatrixNd& J);
+*/
     virtual void reset_accumulators();
     virtual void update_link_poses();    
     virtual void update_link_velocities();
@@ -128,7 +130,9 @@ class RCArticulatedBody : public ArticulatedBody
 
   private:
     virtual Ravelin::MatrixNd& calc_jacobian_column(JointPtr joint, const Point3d& point, Ravelin::MatrixNd& Jc);
+/*
     virtual Ravelin::MatrixNd& calc_jacobian_floating_base(const Point3d& point, Ravelin::MatrixNd& J);
+*/
     bool all_children_processed(RigidBodyPtr link) const;
     void calc_fwd_dyn_loops();
     void calc_fwd_dyn_advanced_friction(double dt);
