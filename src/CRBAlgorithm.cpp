@@ -550,7 +550,7 @@ void CRBAlgorithm::calc_generalized_inertia(MatrixNd& M)
   }
 
   // get composite inertia in matrix form
-  shared_ptr<const Pose3d> P = body->get_base_link()->get_mixed_pose();
+  shared_ptr<const Pose3d> P = body->get_base_link()->get_gc_pose();
   Pose3d::transform(P, _Ic.front()).to_matrix(Ic0);
 
   // transpose K 

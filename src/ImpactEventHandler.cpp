@@ -500,7 +500,7 @@ void ImpactEventHandler::compute_problem_data(EventProblemData& q)
   for (unsigned i=0; i< q.limit_events.size(); i++)
   {
     // compute matrix / vector for contact event i
-    q.contact_events[i]->compute_event_data(workM, workv);
+    q.limit_events[i]->compute_event_data(workM, workv);
 
     // setup appropriate entry of limit inertia matrix and limit velocity
     q.L_iM_LT(i,i) = workM(0,0);
