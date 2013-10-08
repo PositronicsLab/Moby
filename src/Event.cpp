@@ -445,20 +445,12 @@ void Event::compute_vevent_data(MatrixNd& M, VectorNd& q) const
     R.set_column(T, tan2);
 
     // compute the Jacobians for the two bodies
-FILE_LOG(LOG_EVENT) << "R: " << std::endl << R;
     su1->calc_jacobian(_event_frame, sb1, JJ);
-FILE_LOG(LOG_EVENT) << "J1: " << std::endl << JJ;
     SharedConstMatrixNd Jlin1 = JJ.block(0, THREE_D, 0, JJ.columns());
     R.transpose_mult(Jlin1, J1);
     su2->calc_jacobian(_event_frame, sb2, JJ);
-FILE_LOG(LOG_EVENT) << "J2: " << std::endl << JJ;
     SharedConstMatrixNd Jlin2 = JJ.block(0, THREE_D, 0, JJ.columns());
     (-R).transpose_mult(Jlin2, J2);
-MatrixNd M1, M2;
-su1->get_generalized_inertia(M1);
-su1->get_generalized_inertia(M2);
-FILE_LOG(LOG_EVENT) << "generalized inertia1: " << std::endl << M1;
-FILE_LOG(LOG_EVENT) << "generalized inertia2: " << std::endl << M2;
 
     // compute the event inertia matrix for the first body
     su1->transpose_solve_generalized_inertia(J1, workM1);
@@ -472,7 +464,6 @@ FILE_LOG(LOG_EVENT) << "generalized inertia2: " << std::endl << M2;
     // compute the event velocity
     su1->get_generalized_velocity(DynamicBody::eSpatial, v);
     J1.mult(v, q);
-FILE_LOG(LOG_EVENT) << "generalized velocity: " << v << std::endl;
 
     // free v1 and allocate v2 and workv
     su2->get_generalized_velocity(DynamicBody::eSpatial, v);
@@ -826,7 +817,7 @@ void Event::compute_cross_contact_limit_vevent_data(const Event& e, MatrixNd& M)
     su1->transpose_solve_generalized_inertia(J1, workM1);
 
     // get the appropriate row of workM
-    M = workM1.row(idx); 
+    M = workM1.column(idx); 
   }
   else
     // setup M
@@ -847,7 +838,7 @@ void Event::compute_cross_contact_limit_vevent_data(const Event& e, MatrixNd& M)
     su2->transpose_solve_generalized_inertia(J1, workM1);
 
     // get the appropriate row of workM
-    M += workM1.row(idx); 
+    M += workM1.column(idx); 
   }
 } 
 
