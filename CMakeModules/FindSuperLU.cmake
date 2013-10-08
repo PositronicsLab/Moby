@@ -10,13 +10,21 @@ find_path(SUPERLU_INCLUDES
   NAMES
   supermatrix.h
   PATHS
-  $ENV{SUPERLUDIR}
+  ${SUPERLU_PATH}/include
+  $ENV{SUPERLUDIR}/include
   ${INCLUDE_INSTALL_DIR}
   PATH_SUFFIXES
   superlu
 )
 
-find_library(SUPERLU_LIBRARIES superlu PATHS $ENV{SUPERLUDIR} ${LIB_INSTALL_DIR})
+find_library(SUPERLU_LIBRARIES 
+  NAMES
+  superlu
+  superlu_4.3 
+  PATHS 
+  ${SUPERLU_PATH}/lib
+  $ENV{SUPERLUDIR}/lib 
+  ${LIB_INSTALL_DIR})
   
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(SUPERLU DEFAULT_MSG
