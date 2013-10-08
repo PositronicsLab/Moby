@@ -479,7 +479,7 @@ void Event::compute_vevent_data(MatrixNd& M, VectorNd& q) const
     if (su)
     {
       // determine the joint limit index
-      unsigned idx = limit_joint->get_coord_index();
+      unsigned idx = limit_joint->get_coord_index() + limit_dof;
 
       // setup a vector to solve
       v.set_zero(su->num_generalized_coordinates(DynamicBody::eSpatial));
@@ -817,7 +817,11 @@ void Event::compute_cross_contact_limit_vevent_data(const Event& e, MatrixNd& M)
     su1->transpose_solve_generalized_inertia(J1, workM1);
 
     // get the appropriate row of workM
-    M = workM1.column(idx); 
+    M = workM1.row(idx);
+
+    // determine whether to negate the row
+    if (e.limit_upper)
+      M.negate();
   }
   else
     // setup M
@@ -838,7 +842,11 @@ void Event::compute_cross_contact_limit_vevent_data(const Event& e, MatrixNd& M)
     su2->transpose_solve_generalized_inertia(J1, workM1);
 
     // get the appropriate row of workM
-    M += workM1.column(idx); 
+    M += workM1.row(idx); 
+
+    // determine whether to negate the row
+    if (e.limit_upper)
+      M.negate();
   }
 } 
 
@@ -861,8 +869,8 @@ void Event::compute_cross_limit_limit_vevent_data(const Event& e, MatrixNd& M) c
   assert(su);
 
   // determine the joint limit indices
-  unsigned idx1 = limit_joint->get_coord_index();
-  unsigned idx2 = e.limit_joint->get_coord_index();
+  unsigned idx1 = limit_joint->get_coord_index() + limit_dof;
+  unsigned idx2 = e.limit_joint->get_coord_index() + e.limit_dof;
 
   // case 1: reduced-coordinate articulated body
   if (su)
@@ -873,8 +881,16 @@ void Event::compute_cross_limit_limit_vevent_data(const Event& e, MatrixNd& M) c
 
     // solve
     su->solve_generalized_inertia(workv, workv2); 
+
+    // determine whether to negate
+    double value = workv2[idx2];
+    if ((limit_upper && !e.limit_upper) ||
+        (!limit_upper && e.limit_upper))
+      value = -value;
+
+    // setup M
     M.resize(1,1);
-    M(0,0) = workv2[idx2];
+    M.data()[0] = value;
   }
   else
   {
@@ -1281,6 +1297,11 @@ double Event::calc_event_accel() const
     #endif
     return ddot;
   }
+  else if (event_type == eLimit)
+  {
+    double qdd = limit_joint->qdd[limit_dof];
+    return (limit_upper) ? -qdd : qdd;
+  }
   else
     assert(false);
 }  
@@ -1363,10 +1384,12 @@ double Event::calc_event_vel() const
     FILE_LOG(LOG_EVENT) << "normal (event frame): " << normal << std::endl;
     FILE_LOG(LOG_EVENT) << "tangent 1 (event frame): " << Pose3d::transform_vector(_event_frame, contact_tan1) << std::endl;
     FILE_LOG(LOG_EVENT) << "tangent 2 (event frame): " << Pose3d::transform_vector(_event_frame, contact_tan2) << std::endl;
+/*
     FILE_LOG(LOG_EVENT) << "spatial velocity (mixed frame) for body A: " << Pose3d::transform(dynamic_pointer_cast<RigidBody>(sba)->get_mixed_pose(), ta) << std::endl;
     FILE_LOG(LOG_EVENT) << "spatial velocity (event frame) for body A: " << ta << std::endl;
     FILE_LOG(LOG_EVENT) << "spatial velocity (mixed frame) for body B: " << Pose3d::transform(dynamic_pointer_cast<RigidBody>(sbb)->get_mixed_pose(), tb) << std::endl;
     FILE_LOG(LOG_EVENT) << "spatial velocity (event frame) for body B: " << tb << std::endl;
+*/
     FILE_LOG(LOG_EVENT) << "Event::calc_event_vel() exited" << std::endl;
 
     // get the linear velocities and project against the normal
@@ -1402,7 +1425,15 @@ std::ostream& Moby::operator<<(std::ostream& o, const Event& e)
       break;
   }
 
-  if (e.event_type == Event::eContact)
+  if (e.event_type == Event::eLimit)
+  {
+    o << "limit joint ID: " << e.limit_joint->id << std::endl;
+    o << "limit joint coordinate index: " << e.limit_joint->get_coord_index() << std::endl;
+    o << "limit joint DOF: " << e.limit_dof << std::endl;
+    o << "upper limit? " << e.limit_upper << std::endl;
+    o << "limit velocity: " << e.calc_event_vel() << std::endl;
+  }
+  else if (e.event_type == Event::eContact)
   {
     if (e.contact_geom1)
     {

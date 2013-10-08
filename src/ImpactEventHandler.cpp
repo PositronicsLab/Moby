@@ -99,7 +99,24 @@ void ImpactEventHandler::apply_model(const vector<Event>& events)
 
       // determine a reduced set of events
       Event::determine_minimal_set(revents);
-
+/*
+// sort all remaining events based on coordinate index
+std::list<Event*> tmp;
+while (!revents.empty())
+{
+  Event* x = revents.front();
+  unsigned cidx = x->limit_joint->get_coord_index();
+  BOOST_FOREACH(Event* e, revents)
+    if (cidx > e->limit_joint->get_coord_index())
+    {
+      x = e;
+      cidx = x->limit_joint->get_coord_index();
+    }
+  tmp.push_back(x);
+  revents.erase(std::find(revents.begin(), revents.end(), x));
+}
+revents = tmp;
+*/
       // apply model to the reduced contacts   
       apply_model_to_connected_events(revents);
 
@@ -261,7 +278,7 @@ void ImpactEventHandler::apply_impulses(const EventProblemData& q) const
     if (dynamic_pointer_cast<RCArticulatedBody>(ab))
     {
       // get the index of the joint
-      unsigned idx = e.limit_joint->get_coord_index();
+      unsigned idx = e.limit_joint->get_coord_index() + e.limit_dof;
 
       // initialize the vector if necessary
       if (gj_iter == gj.end())
@@ -479,7 +496,7 @@ void ImpactEventHandler::compute_problem_data(EventProblemData& q)
       CtCt++;
     }
 
-    // compute cross event data for limit events 
+    // compute cross event data for contact/limit events 
     for (unsigned j=0; j< q.limit_events.size(); j++)
     {
       // reset workM
@@ -490,9 +507,9 @@ void ImpactEventHandler::compute_problem_data(EventProblemData& q)
 
       // setup appropriate parts of contact / limit inertia matrices
       ColumnIteratord_const data = workM.column_iterator_begin();
-      q.Cn_iM_LT(i,j) = q.Cn_iM_LT(j,i) = *data++;
-      q.Cs_iM_LT(i,j) = q.Cs_iM_LT(j,i) = *data++;
-      q.Ct_iM_LT(i,j) = q.Ct_iM_LT(j,i) = *data; 
+      q.Cn_iM_LT(i,j) = *data++;
+      q.Cs_iM_LT(i,j) = *data++;
+      q.Ct_iM_LT(i,j) = *data; 
     }
   }
 
@@ -503,10 +520,23 @@ void ImpactEventHandler::compute_problem_data(EventProblemData& q)
     q.limit_events[i]->compute_event_data(workM, workv);
 
     // setup appropriate entry of limit inertia matrix and limit velocity
-    q.L_iM_LT(i,i) = workM(0,0);
-    q.L_v[i] = workv[0];
+    q.L_iM_LT(i,i) = workM.data()[0];
+    q.L_v[i] = workv.data()[0];
 
-    // NOTE: cross event data has already been computed
+    // compute cross/cross limit event data
+    for (unsigned j=0; j< q.limit_events.size(); j++)
+    {
+      // reset workM
+      workM.resize(1,1);
+
+      // compute matrix for cross event
+      q.limit_events[i]->compute_cross_event_data(*q.limit_events[j], workM);
+
+      // setup appropriate part of limit / limit inertia matrix
+      q.L_iM_LT(i,j) = q.L_iM_LT(j,i) = workM.data()[0];
+    }
+
+    // NOTE: cross data has already been computed for contact/limit events
   }
 }
 
@@ -545,9 +575,9 @@ void ImpactEventHandler::solve_lcp(EventProblemData& q, VectorNd& z)
   // B = [ Cn; L ]*inv(M)*[ Cn' L' ]
   B.resize(NCONTACTS+NLIMITS, NCONTACTS+NLIMITS);
   B.set_sub_mat(0, 0, q.Cn_iM_CnT);  
-  B.set_sub_mat(0, NLIMITS, q.Cn_iM_LT);
-  B.set_sub_mat(NLIMITS, 0, q.Cn_iM_LT, Ravelin::eTranspose);
-  B.set_sub_mat(NLIMITS, NLIMITS, q.L_iM_LT);
+  B.set_sub_mat(0, NCONTACTS, q.Cn_iM_LT);
+  B.set_sub_mat(NCONTACTS, 0, q.Cn_iM_LT, Ravelin::eTranspose);
+  B.set_sub_mat(NCONTACTS, NCONTACTS, q.L_iM_LT);
 
   // setup the C matrix and compute inv(A)*C
   // C = Jx*inv(M)*[ Cn' L' ]; note: D = C'
