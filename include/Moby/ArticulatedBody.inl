@@ -10,7 +10,6 @@ OutputIterator ArticulatedBody::find_limit_events(const Ravelin::VectorNd& q0, c
 {
   static Ravelin::VectorNd _dq_current;
 
-return output_begin;
   // store the current generalized velocity
   get_generalized_velocity(eSpatial, _dq_current);
 
