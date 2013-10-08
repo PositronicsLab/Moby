@@ -141,7 +141,7 @@ MatrixNd& ArticulatedBody::calc_jacobian(boost::shared_ptr<const Pose3d> frame, 
   // if base is floating, setup Jacobian columns at the end
   if (is_floating_base())
   {
-    shared_ptr<const Pose3d> bpose = base->get_mixed_pose();
+    shared_ptr<const Pose3d> bpose = base->get_gc_pose();
     SharedMatrixNd Jbase = J.block(0, SPATIAL_DIM, NEXP_DOF, NEXP_DOF+SPATIAL_DIM);
     Pose3d::spatial_transform_to_matrix2(bpose, frame, Jbase);
   }
