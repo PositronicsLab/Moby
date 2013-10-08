@@ -599,7 +599,7 @@ MatrixNd& RCArticulatedBody::calc_jacobian_floating_base(const Point3d& point, M
 
   // get the base link and the base pose
   RigidBodyPtr base = get_base_link();
-  shared_ptr<const Pose3d> baseP = base->get_mixed_pose();
+  shared_ptr<const Pose3d> baseP = base->get_gc_pose();
 
   // setup the twists at the base link - first three vectors are linear motion
   // and second three are angular
@@ -643,7 +643,7 @@ frame->q.set_identity();
 frame->x = Origin3d(p);
 
     // construct the spatial transform
-    Pose3d::spatial_transform_to_matrix2(base->get_mixed_pose(), frame, Jsub);
+    Pose3d::spatial_transform_to_matrix2(base->get_gc_pose(), frame, Jsub);
 
     // setup the floating base
     J.set_sub_mat(0, num_joint_dof_explicit(),Jsub);
@@ -2388,19 +2388,25 @@ VectorNd& RCArticulatedBody::convert_to_generalized_force(SingleBodyPtr body, co
   RigidBodyPtr link = dynamic_pointer_cast<RigidBody>(body);
   assert(link);
 
+  // NOTE: we can ignore p, since we know what link the force is applied to 
+ 
   // get the gc frame
   shared_ptr<const Pose3d> P = _links.front()->get_gc_pose();
 
-  // get w in P's frame
+  // get w in the mixed frame 
   SForced wP = Pose3d::transform(P, w);
 
+  // clear the Jacobian
+  J.resize(num_joint_dof_explicit());
+  for (unsigned i=0; i< J.size(); i++)
+    J[i] = SVelocityd::zero(P);  
+
   // compute the Jacobian in w's frame
-  J.resize(num_joint_dof_explicit(), SVelocityd::zero(P));  
   for (unsigned i=0; i< _ejoints.size(); i++)
   {
-    // if link is not a descent of this joint's inboard, keep looping
-    RigidBodyPtr inboard = _ejoints[i]->get_inboard_link();
-    if (!inboard->is_descendant_link(link))
+    // if link is not a descendent of this joint's outboard, keep looping
+    RigidBodyPtr outboard = _ejoints[i]->get_outboard_link();
+    if (!outboard->is_descendant_link(link))
       continue;
 
     // transform the Jacobian
