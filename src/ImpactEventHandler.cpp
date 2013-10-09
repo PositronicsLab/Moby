@@ -524,7 +524,7 @@ void ImpactEventHandler::compute_problem_data(EventProblemData& q)
     q.L_v[i] = workv.data()[0];
 
     // compute cross/cross limit event data
-    for (unsigned j=0; j< q.limit_events.size(); j++)
+    for (unsigned j=i+1; j< q.limit_events.size(); j++)
     {
       // reset workM
       workM.resize(1,1);
