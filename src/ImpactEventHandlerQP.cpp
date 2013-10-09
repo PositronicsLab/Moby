@@ -879,7 +879,7 @@ void ImpactEventHandler::solve_lcp(const MatrixNd& M, const VectorNd& q, VectorN
       nz++;
 
   // use the proper method depending on sparsity 
-  FILE_LOG(LOG_EVENT) << "Order of LCP matrix: " << M.size() << std::endl;
+  FILE_LOG(LOG_EVENT) << "Order of LCP matrix: " << M.rows() << std::endl;
   FILE_LOG(LOG_EVENT) << "Sparsity percentage (higher = sparser): " << ((double) nz/M.size()) << std::endl;
 
   if ((double) nz/M.size() > SPARSE_PCT)
