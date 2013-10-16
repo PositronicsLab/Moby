@@ -9,11 +9,12 @@
   <MOBY>
     <!-- Primitives -->
     <box id="b1" xlen="1" ylen="1" zlen="1" density="1.0" edge-sample-length="1" />
-    <box id="b3" xlen="10" ylen=".5" zlen="10" density="10.0" />
+    <box id="b3" xlen="500" ylen=".5" zlen="50" density="10.0" />
 
     <!-- Integrator -->
+    <ODEPACKIntegrator id="odepack" abs-err-tol="1e-8" rel-err-tol="1e-8" />
     <EulerIntegrator id="euler" />
-    <RungeKuttaIntegrator id="rk4" rel-err-tol="1e-6" abs-err-tol="1e-6" />
+    <RungeKuttaIntegrator id="rk4" />
 
     <!-- Collision detector -->
     <MeshDCD id="dcd" eps-tolerance="1e-6">
@@ -36,22 +37,22 @@
 
     <!-- Rigid bodies -->
       <!-- the obj -->
-      <RigidBody id="obj" enabled="true" position="0 1.255 0" angular-velocity="0 10 0" visualization-id="b1" linear-velocity="10 0 0">
+      <RigidBody id="obj" enabled="true" position="0 1.255 0" angular-velocity="0 5 4" visualization-id="b1" linear-velocity="5 1 0">
         <InertiaFromPrimitive primitive-id="b1" />
         <CollisionGeometry primitive-id="b1" />
       </RigidBody>
 
       <!-- the ground -->
-      <RigidBody id="ground" enabled="false" visualization-id="b3" position="0 -.5 0">
+      <RigidBody id="ground" enabled="false" visualization-id="b3" position="0 -.25 0">
         <CollisionGeometry primitive-id="b3" />  
       </RigidBody>
 
     <!-- Setup the simulator -->
-    <EventDrivenSimulator id="simulator" integrator-id="euler" collision-detector-id="ccd">
+    <EventDrivenSimulator id="simulator" integrator-id="odepack" collision-detector-id="ccd">
       <DynamicBody dynamic-body-id="obj" />
       <DynamicBody dynamic-body-id="ground" />
       <RecurrentForce recurrent-force-id="gravity"  />
-      <ContactParameters object1-id="ground" object2-id="obj" restitution="0" mu-coulomb="0.4" mu-viscous="0.4" ffriction-cone-edges="16" />
+      <ContactParameters object1-id="ground" object2-id="obj" restitution="0" mu-coulomb="0.06" mu-viscous="0.00" ffriction-cone-edges="32" />
     </EventDrivenSimulator> 
   </MOBY>
 </XML>

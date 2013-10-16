@@ -35,7 +35,9 @@ static VectorNd& (*fn_VectorNd)(const VectorNd&, double, double, void*, VectorNd
 
 static void fdouble_VectorNd(int* neq, double* t, double* y, double* ydot)
 {
-  static VectorNd x((unsigned) *neq, y), xdot;
+  static VectorNd x, xdot;
+  x.resize(*neq);
+  std::copy(y, y+*neq, x.data());
   (*fn_VectorNd)(x, *t, tnew - *t, fn_data, xdot);
   std::copy(xdot.data(), xdot.data()+*neq, ydot);
 }
