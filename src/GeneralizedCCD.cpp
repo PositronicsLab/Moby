@@ -109,10 +109,10 @@ void GeneralizedCCD::remove_articulated_body(ArticulatedBodyPtr abody)
 }
 
 /// Computes the poses from states
-map<CollisionGeometryPtr, GeneralizedCCD::PosePair> GeneralizedCCD::get_poses(const vector<pair<DynamicBodyPtr, VectorNd> >& q0, const vector<pair<DynamicBodyPtr, VectorNd> >& q1) const
+map<CollisionGeometryPtr, GeneralizedCCD::PosePair> GeneralizedCCD::get_poses(const vector<pair<DynamicBodyPtr, VectorNd> >& q0, const vector<pair<DynamicBodyPtr, VectorNd> >& q1)
 {
   map<CollisionGeometryPtr, GeneralizedCCD::PosePair> poses;
-  map<CollisionGeometryPtr, Pose3d> global_poses;
+  map<CollisionGeometryPtr, Pose3d> global_poses_t0, global_poses_tf;
 
   // re-set generalized coordinates to q0
   #ifndef _OPENMP
@@ -130,7 +130,7 @@ map<CollisionGeometryPtr, GeneralizedCCD::PosePair> GeneralizedCCD::get_poses(co
     Pose3d P0 = *g->get_pose();
     poses[g].t0 = P0;
     P0.update_relative_pose(GLOBAL);
-    global_poses[g] = P0;
+    global_poses_t0[g] = P0;
   }
 
   // set generalized coordinates to q1
@@ -147,11 +147,13 @@ map<CollisionGeometryPtr, GeneralizedCCD::PosePair> GeneralizedCCD::get_poses(co
   BOOST_FOREACH(CollisionGeometryPtr g, _geoms)
   {
     // get the transform from the pose at q0 to the pose at q1
-    const Pose3d& P0 = global_poses[g];
+    const Pose3d& P0 = global_poses_t0[g];
 
     // setup pose
-    Pose3d P1 = *g->get_pose();
+    Pose3d& P1 = global_poses_tf[g]; 
+    P1 = *g->get_pose();
     P1.update_relative_pose(GLOBAL);
+    FILE_LOG(LOG_COLDET) << "Body for collision geometry: " << g->get_single_body()->id << " pose in global frame: " << std::endl << Matrix3d(P1.q) << P1.x << std::endl;
 
     // compute the differential between the two poses
     SVelocityd diff = Pose3d::diff(P0, P1);
@@ -163,6 +165,42 @@ map<CollisionGeometryPtr, GeneralizedCCD::PosePair> GeneralizedCCD::get_poses(co
     diff.pose = g->get_pose()->rpose;
     pp.tf = pp.t0 + diff;
   }
+
+  // loop over all pairs of geometries, computing transforms
+  for (set<CollisionGeometryPtr>::const_iterator i = _geoms.begin(); i != _geoms.end(); i++)
+  {
+    // get the poses for i
+    const Pose3d& P0i = global_poses_t0[*i];
+    const Pose3d& P1i = global_poses_tf[*i];
+
+    set<CollisionGeometryPtr>::const_iterator j = i;
+    for (++j; j != _geoms.end(); j++)
+    {
+      // get the *inverse* poses for j
+      Pose3d iP0j = global_poses_t0[*j].inverse();
+      Pose3d iP1j = global_poses_tf[*j].inverse();
+
+      // compute the transforms from i to j
+      TransformPair Tpair;
+      Tpair.t0.q = iP0j.q * P0i.q;
+      Tpair.t0.x = iP0j.x + iP0j.q * P0i.x;
+      Tpair.tf.q = iP1j.q * P1i.q;
+      Tpair.tf.x = iP1j.x + iP1j.q * P1i.x;
+
+      // setup the source and target for each transform
+      Tpair.t0.source = Tpair.tf.source = (*i)->get_pose();
+      Tpair.t0.target = Tpair.tf.target = (*j)->get_pose();
+
+      // store the pair
+      _transform_pairs[make_pair(*i, *j)] = Tpair;
+
+      // make an inverse pair
+      TransformPair Tpair_inv;
+      Tpair_inv.t0 = Tpair.t0.inverse();
+      Tpair_inv.tf = Tpair.tf.inverse();
+      _transform_pairs[make_pair(*j, *i)] = Tpair_inv;
+    }
+  } 
 
   // re-set generalized coordinates to q0
   #ifndef _OPENMP
@@ -184,6 +222,8 @@ map<CollisionGeometryPtr, GeneralizedCCD::PosePair> GeneralizedCCD::get_poses(co
       FILE_LOG(LOG_COLDET) << "Body for collision geometry: " << g->get_single_body()->id << std::endl;
       FILE_LOG(LOG_COLDET) << "pose at t0: " << pp.t0 << std::endl;
       FILE_LOG(LOG_COLDET) << "pose at tf: " << pp.tf << std::endl;
+      FILE_LOG(LOG_COLDET) << "pose at t0 (global frame): " << Pose3d(pp.t0).update_relative_pose(GLOBAL) << std::endl;
+      FILE_LOG(LOG_COLDET) << "pose at tf (global frame): " << Pose3d(pp.tf).update_relative_pose(GLOBAL) << std::endl;
     }
   }
 
@@ -372,8 +412,9 @@ void GeneralizedCCD::check_geoms(double dt, CollisionGeometryPtr a, const PosePa
   *a->_F = a_poses.t0;
   *b->_F = b_poses.t0;
 
-  // compute transform between a and b at t0
-  Transform3d aTb = Pose3d::calc_relative_pose(b->get_pose(), a->get_pose());
+  // get transform between a and b at t0
+  assert(_transform_pairs.find(make_pair(b, a)) != _transform_pairs.end());
+  const Transform3d& aTb = _transform_pairs.find(make_pair(b, a))->second.t0;
 
   // add the two top-level BVs to the queue for processing
   queue<BVProcess> q;
@@ -588,8 +629,8 @@ void GeneralizedCCD::check_vertices(double dt, CollisionGeometryPtr a, Collision
       RigidBodyPtr rba = dynamic_pointer_cast<RigidBody>(a->get_single_body()); 
       RigidBodyPtr rbb = dynamic_pointer_cast<RigidBody>(b->get_single_body()); 
       FILE_LOG(LOG_COLDET) << "    -- checking vertex " << *v << " of " << rba->id << " against " << rbb->id << endl;
-      FILE_LOG(LOG_COLDET) << "     -- u_b (local): " << u_b << endl; 
-      FILE_LOG(LOG_COLDET) << "     -- u_b (global): " << Pose3d::transform_point(GLOBAL, u_b) << endl;
+      FILE_LOG(LOG_COLDET) << "     -- u (b frame): " << u_b << endl; 
+      FILE_LOG(LOG_COLDET) << "     -- u (global frame): " << Pose3d::transform_point(GLOBAL, u_b) << endl;
     }
 
     // we'll sort on inverse distance from the center of mass (origin of b frame) 
@@ -765,7 +806,7 @@ Event GeneralizedCCD::create_contact(double toi, CollisionGeometryPtr a, Collisi
 }
 
 /// Populates the DStruct
-void GeneralizedCCD::populate_dstruct(DStruct* ds, CollisionGeometryPtr ga, const Pose3d& Pa_t0, const Pose3d& Pa_tf, CollisionGeometryPtr gb, const Pose3d& Pb_t0, const Pose3d& Pb_tf, BVPtr b_BV)
+void GeneralizedCCD::populate_dstruct(DStruct* ds, CollisionGeometryPtr ga, const Pose3d& Pa_t0, const Pose3d& Pa_tf, CollisionGeometryPtr gb, const Pose3d& Pb_t0, const Pose3d& Pb_tf, BVPtr b_BV) const
 {
   // save the BV
   ds->b_BV = b_BV;
@@ -778,15 +819,18 @@ void GeneralizedCCD::populate_dstruct(DStruct* ds, CollisionGeometryPtr ga, cons
   ds->Pb_t0 = Pb_t0;
   ds->Pb_tf = Pb_tf;
 
-  // compute relative poses at time t0 
-  *ga->_F = Pa_t0;
-  *gb->_F = Pb_t0;
-  ds->bTa_t0 = Pose3d::calc_relative_pose(ga->get_pose(), gb->get_pose());
+  // get relative poses at time t0 and tf
+  assert(_transform_pairs.find(make_pair(ga, gb))!= _transform_pairs.end());
+  const TransformPair& Tpair = _transform_pairs.find(make_pair(ga, gb))->second;
+  ds->bTa_t0 = Tpair.t0;
+  ds->bTa_tf = Tpair.tf;
 
-  // compute relative poses at time tf 
-  *ga->_F = Pa_tf;
-  *gb->_F = Pb_tf;
-  ds->bTa_tf = Pose3d::calc_relative_pose(ga->get_pose(), gb->get_pose());
+  FILE_LOG(LOG_COLDET) << "populate_dstruct() entered" << std::endl;
+  FILE_LOG(LOG_COLDET) << "  body for geometry a: " << ds->ga->get_single_body()->id << std::endl;
+  FILE_LOG(LOG_COLDET) << "  body for geometry b: " << ds->gb->get_single_body()->id << std::endl;
+  FILE_LOG(LOG_COLDET) << "  bTa_t0 origin: " << ds->bTa_t0.x << std::endl << "orientation: " << std::endl << Matrix3d(ds->bTa_t0.q);
+  FILE_LOG(LOG_COLDET) << "  bTa_tf origin: " << ds->bTa_tf.x << std::endl << "orientation: " << std::endl << Matrix3d(ds->bTa_tf.q);
+  FILE_LOG(LOG_COLDET) << "populate_dstruct() exited" << std::endl;
 
   // setup quaternion endpoints for interpolation
   ds->q0 = ds->bTa_t0.q;
