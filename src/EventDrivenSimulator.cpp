@@ -286,6 +286,14 @@ void EventDrivenSimulator::visualize_contact( Event& event ) {
 /// Handles events
 void EventDrivenSimulator::handle_events()
 {
+  // call the callback function, if any
+  if (event_callback_fn)
+    (*event_callback_fn)(_events, event_callback_data);
+
+  // preprocess events
+  for (unsigned i=0; i< _events.size(); i++)
+    preprocess_event(_events[i]);
+
   // if the setting is enabled, draw all contact events
   if( render_contact_points ) {
     for ( std::vector<Event>::iterator it = _events.begin(); it < _events.end(); it++ ) {
@@ -294,14 +302,6 @@ void EventDrivenSimulator::handle_events()
       visualize_contact( event );
     }
   }
-
-  // call the callback function, if any
-  if (event_callback_fn)
-    (*event_callback_fn)(_events, event_callback_data);
-
-  // preprocess events
-  for (unsigned i=0; i< _events.size(); i++)
-    preprocess_event(_events[i]);
 
   // begin timeing for event handling 
   tms start;  
@@ -977,11 +977,54 @@ double EventDrivenSimulator::find_events(double dt)
       _events[i].tol = j->second;
   }
 
+  // each group of events can be handled in x ways:
+  // 1. one or more events is impacting; all events need to be handled with
+  //    an impact method
+  // 2. all events are separating at the velocity level; these events do not 
+  //    need to be handled
+  // 3. all events are resting at the velocity level; these events need to
+  //    be checked at the acceleration level
+
   // step to first event time
   if (!_events.empty())
   {
-    set_coords(_events.front().t);
-    set_velocities(_events.front().t);
+    while (true)
+    {
+      // set the coordinates and velocities
+      set_coords(_events.front().t);
+      set_velocities(_events.front().t);
+
+      // if all contacts at the current time are separating, remove those 
+      // contacts and step to the next set of contacts
+      bool all_separating = true;
+      for (unsigned i=0; i< _events.size(); i++)
+      {
+        // look to see whether we can stop examining events
+        if (std::fabs(_events[i].t - _events[0].t) > NEAR_ZERO)
+          break;
+        else if (!_events[i].is_separating())
+        {
+          all_separating = false;
+          break;
+        }
+      }
+
+      // if not all are separating, break out now
+      if (!all_separating)
+        break;
+
+      // otherwise remove contacts not occurring simultaneously with
+      // the first contacts
+      vector<Event>::iterator i = _events.begin();
+      while (++i != _events.end())
+        if (std::fabs(i->t - _events[0].t) > NEAR_ZERO)
+          break;
+      _events.erase(_events.begin(), i);
+
+      // if there are no events remaining, indicate no events
+      if (_events.empty())
+        return 1.0;
+    } 
   }
 
   // check whether any events are at current time
