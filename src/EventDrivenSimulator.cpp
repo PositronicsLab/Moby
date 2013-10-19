@@ -1086,9 +1086,13 @@ bool EventDrivenSimulator::has_active_acceleration_events() const
 {
   // loop through all events
   for (unsigned i=0; i< _events.size(); i++)
-    if (_events[i].deriv_type == Event::eAccel && 
+  {
+    if (std::fabs(_events[i].t - _events[0].t) > NEAR_ZERO)
+      return false; 
+    else if (_events[i].deriv_type == Event::eAccel && 
         _events[i].determine_event_class() == Event::eNegative)
       return true;
+  }
 
   // made it here? no active acceleration-level events
   return false;
@@ -1098,9 +1102,13 @@ bool EventDrivenSimulator::has_active_velocity_events() const
 {
   // loop through all events
   for (unsigned i=0; i< _events.size(); i++)
-    if (_events[i].deriv_type == Event::eVel && 
+  {
+    if (std::fabs(_events[i].t - _events[0].t) > NEAR_ZERO)
+      return false; 
+    else if (_events[i].deriv_type == Event::eVel && 
         _events[i].determine_event_class() == Event::eNegative)
       return true;
+  }
 
   // made it here? no active velocity-level events
   return false;
