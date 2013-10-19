@@ -1290,7 +1290,7 @@ double Event::calc_event_accel() const
     #ifndef NDEBUG
     if (!CompGeom::rel_equal(ddot, calc_event_accel2(*this), 1e-4))
     {
-      std::cerr << "Event::calc_event_accel() warning: accelerations do not much to desired tolerance" << std::endl;
+      std::cerr << "Event::calc_event_accel() warning: accelerations do not match to desired tolerance" << std::endl;
       std::cerr << " -- computed acceleration: " << ddot << std::endl;
       std::cerr << " -- checked acceleration: " << calc_event_accel2(*this) << std::endl;
     }
