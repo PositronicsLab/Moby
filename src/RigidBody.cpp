@@ -1489,10 +1489,10 @@ VectorNd& RigidBody::get_generalized_coordinates_single(GeneralizedCoordinateTyp
   {
     // return the generalized position using Euler parameters
     assert(gctype == DynamicBody::eEuler);
-    gc[3] = P.q.w;
-    gc[4] = P.q.x;
-    gc[5] = P.q.y;
-    gc[6] = P.q.z;
+    gc[3] = P.q.x;
+    gc[4] = P.q.y;
+    gc[5] = P.q.z;
+    gc[6] = P.q.w;
   }
 
   return gc; 
@@ -1542,10 +1542,10 @@ void RigidBody::set_generalized_coordinates_single(GeneralizedCoordinateType gct
 
     // get the unit quaternion
     Quatd q;
-    q.w = gc[3];
-    q.x = gc[4];
-    q.y = gc[5];
-    q.z = gc[6];
+    q.x = gc[3];
+    q.y = gc[4];
+    q.z = gc[5];
+    q.w = gc[6];
 
     // normalize the unit quaternion, just in case
     q.normalize();
@@ -1609,13 +1609,17 @@ void RigidBody::set_generalized_velocity_single(GeneralizedCoordinateType gctype
 
     // get the quaternion derivatives
     Quatd qd;
-    qd.w = gv[3] * 2.0;
-    qd.x = gv[4] * 2.0;
-    qd.y = gv[5] * 2.0;
-    qd.z = gv[6] * 2.0;
+    qd.x = gv[3] * 2.0;
+    qd.y = gv[4] * 2.0;
+    qd.z = gv[5] * 2.0;
+    qd.w = gv[6] * 2.0;
+
+    // setup the pose
+    Pose3d F = *_F;
+    F.update_relative_pose(GLOBAL);
 
     // setup the angular component
-    xd.set_angular(_F2->qG_mult(qd.w, qd.x, qd.y, qd.z));
+    xd.set_angular(F.q.G_mult(qd.x, qd.y, qd.z, qd.w));
   }
 
   // set the velocity
@@ -1674,13 +1678,15 @@ VectorNd& RigidBody::get_generalized_velocity_single(GeneralizedCoordinateType g
     assert(gctype == DynamicBody::eEuler);
 
     // going to need Euler coordinate derivatives
-    Quatd qd = _F2->qG_transpose_mult(xd.get_angular()) * 0.5;
+    Pose3d F = *_F;
+    F.update_relative_pose(GLOBAL);
+    Quatd qd = F.q.G_transpose_mult(xd.get_angular()) * 0.5;
 
     // setup the angular components 
-    gv[3] = qd.w;
-    gv[4] = qd.x;
-    gv[5] = qd.y;
-    gv[6] = qd.z; 
+    gv[3] = qd.x;
+    gv[4] = qd.y;
+    gv[5] = qd.z;
+    gv[6] = qd.w; 
   }
 
   return gv;
