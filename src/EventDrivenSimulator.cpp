@@ -656,6 +656,7 @@ double EventDrivenSimulator::step(double step_size)
             // could not solve for acceleration events; must do adaptive
             // semi-implicit step
             step_adaptive_si_Euler(dt);
+assert(false);
             break;
           }
         }
