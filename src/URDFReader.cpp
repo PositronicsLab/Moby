@@ -378,17 +378,18 @@ void URDFReader::read_joint(shared_ptr<const XMLTree> node, URDFData& data, cons
   data.joint_parent[joint] = inboard;
   data.joint_child[joint] = outboard;
 
-  // setup the inboard and outboard links for the joint
-  joint->set_inboard_link(inboard);
-  joint->set_outboard_link(outboard);
-
   // joint frame is defined relative to the parent link frame
   shared_ptr<Pose3d> origin(new Pose3d(read_origin(node, data)));
   origin->rpose = inboard->get_pose(); 
+  Point3d location_origin(0.0, 0.0, 0.0, origin);
+  Point3d location = Pose3d::transform_point(GLOBAL, location_origin);
   origin->update_relative_pose(outboard->get_pose()->rpose);
 
   // child frame is defined relative to the joint frame
   outboard->set_pose(*origin);
+
+  // setup the inboard and outboard links for the joint
+  joint->set_location(location, inboard, outboard);
 
   // read optional properties
   read_axis(node, data, joint);
@@ -476,7 +477,7 @@ void URDFReader::read_axis(shared_ptr<const XMLTree> node, URDFData& data, Joint
   RigidBodyPtr outboard = joint->get_outboard_link();
 
   // setup the axis frame
-  axis.pose = outboard->get_pose();
+  axis.pose = joint->get_pose();
 
   // verify that joint is of the proper type
   shared_ptr<RevoluteJoint> rj = dynamic_pointer_cast<RevoluteJoint>(joint);
