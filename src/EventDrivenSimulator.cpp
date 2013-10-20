@@ -1041,7 +1041,6 @@ double EventDrivenSimulator::find_events(double dt)
       _events[i].deriv_type = Event::eAccel;
   }
 
-  // set the "real" time for the events and compute the event tolerances
   // output the events
   if (LOGGING(LOG_EVENT))
   {
@@ -1199,7 +1198,6 @@ double EventDrivenSimulator::find_and_handle_si_events(double dt)
   // sort the set of events
   std::sort(_events.begin(), _events.end()); 
 
-  // set the "real" time for the events and compute the event tolerances
   // output the events
   if (LOGGING(LOG_EVENT))
   {
@@ -1283,6 +1281,7 @@ double EventDrivenSimulator::integrate_to_TOI(double dt)
         _qf[i] *= dt;
         _qf[i] += _q0[i];
         _bodies[i]->set_generalized_coordinates(DynamicBody::eEuler, _qf[i]);
+        _bodies[i]->set_generalized_velocity(DynamicBody::eEuler, _qdf[i]);
       }
 
       // update current_time
@@ -1299,6 +1298,7 @@ double EventDrivenSimulator::integrate_to_TOI(double dt)
       _qf[i] *= h;
       _qf[i] += _q0[i];
       _bodies[i]->set_generalized_coordinates(DynamicBody::eEuler, _qf[i]);
+      _bodies[i]->set_generalized_velocity(DynamicBody::eEuler, _qdf[i]);
     }
     FILE_LOG(LOG_SIMULATOR) << "    current time is " << current_time << endl;
     FILE_LOG(LOG_SIMULATOR) << "    tmin (time to next event): " << tmin << endl;
@@ -1332,8 +1332,9 @@ double EventDrivenSimulator::integrate_to_TOI(double dt)
       {
         _qf[i] = _qdf[i];
         _qf[i] *= h;
-        _q0[i] += _qf[i];
-        _bodies[i]->set_generalized_coordinates(DynamicBody::eEuler, _q0[i]);
+        _qf[i] += _q0[i];
+        _bodies[i]->set_generalized_coordinates(DynamicBody::eEuler, _qf[i]);
+        _bodies[i]->set_generalized_velocity(DynamicBody::eEuler, _qdf[i]);
       }
 
       // update current time
@@ -1356,8 +1357,9 @@ double EventDrivenSimulator::integrate_to_TOI(double dt)
   {
     _qf[i] = _qdf[i];
     _qf[i] *= dt;
-    _q0[i] += _qf[i];
-    _bodies[i]->set_generalized_coordinates(DynamicBody::eEuler, _q0[i]);
+    _qf[i] += _q0[i];
+    _bodies[i]->set_generalized_coordinates(DynamicBody::eEuler, _qf[i]);
+    _bodies[i]->set_generalized_velocity(DynamicBody::eEuler, _qdf[i]);
   }
 
   // update current_time
