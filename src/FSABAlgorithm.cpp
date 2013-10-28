@@ -514,12 +514,13 @@ void FSABAlgorithm::apply_generalized_impulse(const VectorNd& gj)
 
     // determine the joint and link velocity updates
     Pose3d::transform(_Y[i].pose, s, sprime);
-    SMomentumd w1 = _I[i] * Pose3d::transform(_dv[i].pose, _dv[h]);
+    SMomentumd w1 = _I[i] * Pose3d::transform(_Y[i].pose, _dv[h]);
     transpose_mult(sprime, w1 + _Y[i], tmp2).negate();
     tmp2 += _Qi;
     solve_sIs(i, tmp2, _qd_delta);
-    _dv[i] = Pose3d::transform(_dv[i].pose, _dv[h]);
-    _dv[i] += mult(sprime, _qd_delta);
+    _dv[i] = Pose3d::transform(_Y[i].pose, _dv[h]);
+    if (joint->num_dof() > 0)
+      _dv[i] += mult(sprime, _qd_delta);
     
     // update the joint velocity
     joint->qd += _qd_delta;
