@@ -834,7 +834,8 @@ FILE_LOG(LOG_DYNAMICS) << "added link " << parent->id << " to queue for processi
     SpatialABInertiad uI = I - SpatialABInertiad::from_matrix(tmp3, I.pose);
 
     // output the updates
-    FILE_LOG(LOG_DYNAMICS) << "  Is: " << _Is[i][0] << std::endl;
+    if (LOGGING(LOG_DYNAMICS) && _Is[i].size() > 0)
+      FILE_LOG(LOG_DYNAMICS) << "  Is: " << _Is[i][0] << std::endl;
     FILE_LOG(LOG_DYNAMICS) << "  s/(s'Is): " << _sIss << std::endl;
     FILE_LOG(LOG_DYNAMICS) << "  Is*s/(s'Is): " << std::endl << tmp;
     FILE_LOG(LOG_DYNAMICS) << "  Is*s/(s'Is)*I: " << std::endl << tmp3;
@@ -923,11 +924,11 @@ void FSABAlgorithm::calc_spatial_accelerations(RCArticulatedBodyPtr body)
     solve_sIs(i, result, joint->qdd);
     
     // compute link i spatial acceleration
-    SAcceld ai;
-    if (sdotprime.empty())
-      ai = ah + c + SAcceld(mult(sprime, joint->qdd));
-    else
-      ai = ah + c + SAcceld(mult(sdotprime, joint->qd) + mult(sprime, joint->qdd));
+    SAcceld ai = ah + c;
+    if (!sprime.empty())
+      ai += SAcceld(mult(sprime, joint->qdd));
+    if (!sdotprime.empty())
+      ai += SAcceld(mult(sdotprime, joint->qd));
     link->set_accel(ai);
 
     FILE_LOG(LOG_DYNAMICS) << endl << endl << "  *** Forward recursion processing link " << link->id << endl;  
