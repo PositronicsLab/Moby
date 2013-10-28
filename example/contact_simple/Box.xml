@@ -12,7 +12,7 @@
     <box id="b3" xlen="500" ylen=".5" zlen="50" density="10.0" />
 
     <!-- Integrator -->
-    <ODEPACKIntegrator id="odepack" abs-err-tol="1e-8" rel-err-tol="1e-8" />
+    <ODEPACKIntegrator id="odepack" abs-err-tol="1e-14" rel-err-tol="1e-14" />
     <EulerIntegrator id="euler" />
     <RungeKuttaIntegrator id="rk4" />
 
@@ -48,11 +48,11 @@
       </RigidBody>
 
     <!-- Setup the simulator -->
-    <EventDrivenSimulator id="simulator" integrator-id="odepack" collision-detector-id="ccd">
+    <EventDrivenSimulator id="simulator" integrator-id="euler" collision-detector-id="ccd">
       <DynamicBody dynamic-body-id="obj" />
       <DynamicBody dynamic-body-id="ground" />
       <RecurrentForce recurrent-force-id="gravity"  />
-      <ContactParameters object1-id="ground" object2-id="obj" restitution="0" mu-coulomb="0.06" mu-viscous="0.00" ffriction-cone-edges="32" />
+      <ContactParameters object1-id="ground" object2-id="obj" restitution="0" mu-coulomb="0.1" mu-viscous="0.00" ffriction-cone-edges="32" />
     </EventDrivenSimulator> 
   </MOBY>
 </XML>

@@ -944,7 +944,8 @@ void CRBAlgorithm::calc_generalized_forces(SForced& f0, VectorNd& C)
    
     FILE_LOG(LOG_DYNAMICS) << " computing necessary force; processing link " << link->id << std::endl;
     FILE_LOG(LOG_DYNAMICS) << "  currently determined link force: " << _w[i] << std::endl;    
-    FILE_LOG(LOG_DYNAMICS) << "  I * a = " << (link->get_inertia() * _a[i]) << std::endl;
+    if (LOGGING(LOG_DYNAMICS) && link != body->get_base_link())
+      FILE_LOG(LOG_DYNAMICS) << "  I * a = " << (link->get_inertia() * _a[i]) << std::endl;
 
     // add I*a to the link force and fictitious forces
     const SVelocityd& vx = link->get_velocity(); 
