@@ -230,9 +230,9 @@ void CRBAlgorithm::calc_generalized_inertia(RCArticulatedBodyPtr body)
   // must account for spatial transpose operation
   for (unsigned i=0; i< 3; i++)
   {
-    KT.get_row(i, _rowi);
-    KT.row(i) = KT.row(i+3);
-    KT.row(i+3) = _rowi;
+    K.get_column(i, _rowi);
+    K.column(i) = K.column(i+3);
+    K.column(i+3) = _rowi;
   }
 
   FILE_LOG(LOG_DYNAMICS) << "[H K'; K Ic0]: " << std::endl << M;
@@ -559,9 +559,9 @@ void CRBAlgorithm::calc_generalized_inertia(MatrixNd& M)
   // must account for spatial transpose operation
   for (unsigned i=0; i< 3; i++)
   {
-    KT.get_row(i, _rowi);
-    KT.row(i) = KT.row(i+3);
-    KT.row(i+3) = _rowi;
+    K.get_column(i, _rowi);
+    K.column(i) = K.column(i+3);
+    K.column(i+3) = _rowi;
   }
 
   FILE_LOG(LOG_DYNAMICS) << "[H K'; K Ic0]: " << std::endl << M;
