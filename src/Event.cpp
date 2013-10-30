@@ -1913,7 +1913,7 @@ void Event::determine_convex_set(list<Event*>& group)
     return;
 
   // separate into groups of contact points with identical friction coeff.
-  std::map<std::pair<double, double>, std::list<Event*>, DblComp> groups;
+  std::map<std::pair<double, double>, std::list<Event*>, Event::DblComp> groups;
 
   // setup a group of non-contact events
   std::list<Event*> nc_events;
@@ -1932,7 +1932,7 @@ void Event::determine_convex_set(list<Event*>& group)
   group.clear();
 
   // process each group
-  for (std::map<std::pair<double, double>, std::list<Event*>, DblComp>::iterator i = groups.begin(); i != groups.end(); i++)
+  for (std::map<std::pair<double, double>, std::list<Event*>, Event::DblComp>::iterator i = groups.begin(); i != groups.end(); i++)
   {  
     process_convex_set_group(i->second);
     group.insert(group.end(), i->second.begin(), i->second.end());

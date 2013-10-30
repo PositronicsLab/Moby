@@ -149,7 +149,7 @@ class Event
     // structure for comparing pairs of doubles
     struct DblComp
     {
-      bool operator()(const std::pair<double, double>& a, const std::pair<double, double>& b)
+      bool operator()(const std::pair<double, double>& a, const std::pair<double, double>& b) const
       {
         return (a.first < b.first - NEAR_ZERO && a.second < b.second - NEAR_ZERO);
       }
