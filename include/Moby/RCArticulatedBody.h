@@ -146,6 +146,9 @@ class RCArticulatedBody : public ArticulatedBody
     Ravelin::MatrixNd _Jc, _Dc, _Jl, _Jx, _Dx, _Dt;
     Ravelin::MatrixNd _iM_JcT, _iM_DcT, _iM_JlT, _iM_JxT, _iM_DxT, _iM_DtT;
 
+    /// Indicates when position data has been invalidated
+    bool _position_invalidated;
+
     /// The CRB algorithm
     CRBAlgorithm _crb;
 
@@ -154,19 +157,6 @@ class RCArticulatedBody : public ArticulatedBody
 
     /// Linear algebra object
     boost::shared_ptr<Ravelin::LinAlgd> _LA;
-
-    /// The factorized generalized inertia matrix
-    Ravelin::MatrixNd _fM;
-
-    /// The svd of the generalized inertia matrix
-    Ravelin::MatrixNd _uM, _vM;
-    Ravelin::VectorNd _sM;
-
-    /// Indicates whether the generalized inertia needs to be refactored
-    bool _fM_valid;
-
-    /// Indicates whether the generalized inertia is rank deficient
-    bool _M_rankdef;
 
     static double sgn(double x);
     bool treat_link_as_leaf(RigidBodyPtr link) const;
