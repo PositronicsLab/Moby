@@ -514,12 +514,13 @@ void FSABAlgorithm::apply_generalized_impulse(const VectorNd& gj)
 
     // determine the joint and link velocity updates
     Pose3d::transform(_Y[i].pose, s, sprime);
-    SMomentumd w1 = _I[i] * Pose3d::transform(_dv[i].pose, _dv[h]);
+    SMomentumd w1 = _I[i] * Pose3d::transform(_Y[i].pose, _dv[h]);
     transpose_mult(sprime, w1 + _Y[i], tmp2).negate();
     tmp2 += _Qi;
     solve_sIs(i, tmp2, _qd_delta);
-    _dv[i] = Pose3d::transform(_dv[i].pose, _dv[h]);
-    _dv[i] += mult(sprime, _qd_delta);
+    _dv[i] = Pose3d::transform(_Y[i].pose, _dv[h]);
+    if (joint->num_dof() > 0)
+      _dv[i] += mult(sprime, _qd_delta);
     
     // update the joint velocity
     joint->qd += _qd_delta;
@@ -834,7 +835,8 @@ FILE_LOG(LOG_DYNAMICS) << "added link " << parent->id << " to queue for processi
     SpatialABInertiad uI = I - SpatialABInertiad::from_matrix(tmp3, I.pose);
 
     // output the updates
-    FILE_LOG(LOG_DYNAMICS) << "  Is: " << _Is[i][0] << std::endl;
+    if (LOGGING(LOG_DYNAMICS) && _Is[i].size() > 0)
+      FILE_LOG(LOG_DYNAMICS) << "  Is: " << _Is[i][0] << std::endl;
     FILE_LOG(LOG_DYNAMICS) << "  s/(s'Is): " << _sIss << std::endl;
     FILE_LOG(LOG_DYNAMICS) << "  Is*s/(s'Is): " << std::endl << tmp;
     FILE_LOG(LOG_DYNAMICS) << "  Is*s/(s'Is)*I: " << std::endl << tmp3;
@@ -923,11 +925,11 @@ void FSABAlgorithm::calc_spatial_accelerations(RCArticulatedBodyPtr body)
     solve_sIs(i, result, joint->qdd);
     
     // compute link i spatial acceleration
-    SAcceld ai;
-    if (sdotprime.empty())
-      ai = ah + c + SAcceld(mult(sprime, joint->qdd));
-    else
-      ai = ah + c + SAcceld(mult(sdotprime, joint->qd) + mult(sprime, joint->qdd));
+    SAcceld ai = ah + c;
+    if (!sprime.empty())
+      ai += SAcceld(mult(sprime, joint->qdd));
+    if (!sdotprime.empty())
+      ai += SAcceld(mult(sdotprime, joint->qd));
     link->set_accel(ai);
 
     FILE_LOG(LOG_DYNAMICS) << endl << endl << "  *** Forward recursion processing link " << link->id << endl;  

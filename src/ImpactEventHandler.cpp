@@ -129,6 +129,7 @@ revents = tmp;
   for (list<list<Event*> >::const_iterator i = groups.begin(); i != groups.end(); i++)
     for (list<Event*>::const_iterator j = i->begin(); j != i->end(); j++)
       if ((*j)->determine_event_class() == Event::eNegative)
+        impacting.push_back(*j);
 
   // if there are any events still impacting, throw an exception 
   if (!impacting.empty())

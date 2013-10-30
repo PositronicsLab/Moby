@@ -864,7 +864,6 @@ void ImpactEventHandler::solve_qp_work_ijoints(EventProblemData& q, VectorNd& z)
     qq += c;
     FILE_LOG(LOG_EVENT) << "computed energy dissipation: " << zsub.dot(qq) << std::endl;
   }    
-
   FILE_LOG(LOG_EVENT) << "ImpactEventHandler::solve_qp_work_ijoints() exited" << std::endl;
 }
 
