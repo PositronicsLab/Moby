@@ -49,8 +49,8 @@ RCArticulatedBody::RCArticulatedBody()
   b_alpha = (double) 0.0;
   b_beta = (double) 0.0;
 
-  // mark inverse inertia as invalid
-  _fM_valid = false;
+  // invalidate position quanitites 
+  _position_invalidated = true;
 }
 
 /// Gets the frame used for generalized coordinate calculations
@@ -104,24 +104,14 @@ unsigned RCArticulatedBody::num_generalized_coordinates(DynamicBody::Generalized
 void RCArticulatedBody::update_factorized_generalized_inertia()
 {
   // see whether we need to update
-  if (_fM_valid)
+  if (!_position_invalidated)
     return;
 
-  // we do need to update; mark M as non rank-deficient for now
-  _M_rankdef = false;
+  // do precalculation on the body 
+  _crb.precalc(dynamic_pointer_cast<RCArticulatedBody>(shared_from_this()));
 
   // indicate factorized inertia is valid    
-  _fM_valid = true;
-
-  // get the generalized inertia and factorize it
-  get_generalized_inertia(_fM); 
-  bool success = _LA->factor_chol(_fM);
-  if (!success)
-  {
-    get_generalized_inertia(_fM); 
-    _LA->svd(_fM, _uM, _sM, _vM);
-    _M_rankdef = true;
-  }
+  _position_invalidated = false;
 }
 
 /// Solves using a generalized inertia matrix
@@ -133,10 +123,8 @@ VectorNd& RCArticulatedBody::solve_generalized_inertia(const VectorNd& v, Vector
   // make x/b one vector
   result = v;
 
-  if (_M_rankdef)
-    _LA->solve_LS_fast(_uM, _sM, _vM, result);
-  else
-    _crb.M_solve(result);
+  // solve once
+  _crb.M_solve_noprecalc(result);
 
   return result;
 }
@@ -150,10 +138,8 @@ MatrixNd& RCArticulatedBody::transpose_solve_generalized_inertia(const MatrixNd&
   // setup the result
   MatrixNd::transpose(m, result);
 
-  if (_M_rankdef)
-    _LA->solve_LS_fast(_uM, _sM, _vM, result);
-  else
-    _crb.M_solve(result);
+  // solve
+  _crb.M_solve_noprecalc(result);
 
   return result;
 }
@@ -167,10 +153,8 @@ MatrixNd& RCArticulatedBody::solve_generalized_inertia(const MatrixNd& m, Matrix
   // setup the result
   result = m;
 
-  if (_M_rankdef)
-    _LA->solve_LS_fast(_uM, _sM, _vM, result);
-  else
-    _crb.M_solve(result);
+  // solve
+  _crb.M_solve_noprecalc(result);
   
   return result;
 }
@@ -470,7 +454,7 @@ void RCArticulatedBody::update_link_poses()
   FILE_LOG(LOG_DYNAMICS) << "RCArticulatedBody::update_link_poses() entered" << std::endl;
 
   // indicate factorized inertia matrix is no longer valid
-  _fM_valid = false;
+  _position_invalidated = true;
 
   // update all joint poses
   for (unsigned i=0; i< _joints.size(); i++)
