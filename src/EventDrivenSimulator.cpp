@@ -477,6 +477,73 @@ void EventDrivenSimulator::integrate_si_Euler(double step_size)
 }
 
 /// Steps the simulator forward
+double EventDrivenSimulator::step(double step_size)
+{
+  const double INF = std::numeric_limits<double>::max();
+
+  // clear timings
+  dynamics_utime = (double) 0.0;
+  dynamics_stime = (double) 0.0;
+  event_utime = (double) 0.0;
+  event_stime = (double) 0.0;
+  coldet_utime = (double) 0.0;
+  coldet_stime = (double) 0.0;
+
+  // setup the amount remaining to step
+  double dt = step_size;
+
+  // clear one-step visualization data
+  #ifdef USE_OSG
+  _transient_vdata->removeChildren(0, _transient_vdata->getNumChildren());
+  #endif
+  FILE_LOG(LOG_SIMULATOR) << "+stepping simulation from time: " << this->current_time << std::endl;
+
+  // store the current generalized coordintes 
+  get_coords(_q0);
+
+  // integrate the systems forward by dt
+  integrate_si_Euler(dt);
+
+  // save the new phase coordinates 
+  get_coords(_qf);
+  get_velocities(_qdf);
+
+  // methods below assume that coords/velocities of the bodies may be modified,
+  // so we need to take precautions to save/restore them as necessary
+  while (dt > (double) 0.0)
+  {
+    // look for events
+    double t = find_and_handle_si_events(dt);
+    if (t > dt)
+      break; // no event.. finish up
+
+    // events have been handled already; reduce dt and keep integrating
+    dt -= t;
+
+    // call the mini-callback
+    if (post_mini_step_callback_fn)
+      post_mini_step_callback_fn(this);
+
+    // get the new velocities
+    get_velocities(_qdf);
+
+    // update the coordinates using the new velocities
+    for (unsigned i=0; i< _q0.size(); i++)
+    {
+      _qf[i] = _qdf[i];
+      _qf[i] *= dt;
+      _qf[i] += _q0[i];
+    }
+  }
+
+  // call the callback 
+  if (post_step_callback_fn)
+    post_step_callback_fn(this);
+  
+  return step_size;
+}
+
+/// Steps the simulator forward
 /*
   Approach:
   1. Compute a small (and inexpensive) Euler step to get
@@ -504,6 +571,7 @@ void EventDrivenSimulator::integrate_si_Euler(double step_size)
     [after reintegration]
     gc after: [0 0 0], gv after: [0 0 0]
 */
+/*
 double EventDrivenSimulator::step(double step_size)
 {
   const double INF = std::numeric_limits<double>::max();
@@ -738,6 +806,7 @@ double EventDrivenSimulator::step(double step_size)
   
   return step_size;
 }
+*/
 
 void EventDrivenSimulator::compute_directional_derivatives()
 {
