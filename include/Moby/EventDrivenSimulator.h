@@ -31,7 +31,7 @@ class EventDrivenSimulator : public Simulator
     // class for comparing two events for purposes of setting event tolerances
     class EventCompare
     {
-      public: bool operator()(const Event& a, const Event& b)
+      public: bool operator()(const Event& a, const Event& b) const
       {
         // check for event type disparity
         if (a.event_type != b.event_type)

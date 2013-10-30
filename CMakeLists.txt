@@ -90,8 +90,8 @@ if (LIBXML2_FOUND)
 endif (LIBXML2_FOUND)
 
 # setup include directories, compiler flags, and libraries for required pkgs
-include_directories (${BOOST_INCLUDE_DIRS})
-include_directories (${QHULL_INCLUDE_DIRS})
+include_directories (${BOOST_INCLUDE_DIR})
+include_directories (${QHULL_INCLUDE_DIR})
 
 # configure checks: optional libraries
 CHECK_LIBRARY_EXISTS(odepack dlsode_ "" HAVE_ODEPACK)
