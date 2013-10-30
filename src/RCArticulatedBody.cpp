@@ -112,6 +112,16 @@ void RCArticulatedBody::update_factorized_generalized_inertia()
 
   // indicate factorized inertia is valid    
   _fM_valid = true;
+
+  // get the generalized inertia and factorize it
+  get_generalized_inertia(_fM); 
+  bool success = _LA->factor_chol(_fM);
+  if (!success)
+  {
+    get_generalized_inertia(_fM); 
+    _LA->svd(_fM, _uM, _sM, _vM);
+    _M_rankdef = true;
+  }
 }
 
 /// Solves using a generalized inertia matrix
@@ -123,14 +133,11 @@ VectorNd& RCArticulatedBody::solve_generalized_inertia(const VectorNd& v, Vector
   // make x/b one vector
   result = v;
 
-  if (algorithm_type == eFeatherstone || _M_rankdef)
+  if (_M_rankdef)
     _LA->solve_LS_fast(_uM, _sM, _vM, result);
   else
-  {
-    assert(algorithm_type == eCRB);
     _crb.M_solve(result);
-  }
-  
+
   return result;
 }
 
@@ -143,14 +150,11 @@ MatrixNd& RCArticulatedBody::transpose_solve_generalized_inertia(const MatrixNd&
   // setup the result
   MatrixNd::transpose(m, result);
 
-  if (algorithm_type == eFeatherstone || _M_rankdef)
+  if (_M_rankdef)
     _LA->solve_LS_fast(_uM, _sM, _vM, result);
   else
-  {
-    assert(algorithm_type == eCRB);
     _crb.M_solve(result);
-  }
-  
+
   return result;
 }
 
@@ -163,34 +167,10 @@ MatrixNd& RCArticulatedBody::solve_generalized_inertia(const MatrixNd& m, Matrix
   // setup the result
   result = m;
 
-  if (algorithm_type == eFeatherstone || _M_rankdef)
+  if (_M_rankdef)
     _LA->solve_LS_fast(_uM, _sM, _vM, result);
   else
-  {
-    assert(algorithm_type == eCRB);
     _crb.M_solve(result);
-  }
-  
-  return result;
-}
-
-/// Solves using the transpose of the generalized inertia matrix
-MatrixNd& RCArticulatedBody::solve_generalized_inertia_transpose(const MatrixNd& m, MatrixNd& result)
-{
-  // update the inverse / factorized inertia (if necessary)
-  update_factorized_generalized_inertia();
-
-  if (algorithm_type == eFeatherstone || _M_rankdef)
-  {
-    MatrixNd::transpose(m, result);
-    _LA->solve_LS_fast(_uM, _sM, _vM, result);
-  }
-  else
-  {
-    assert(algorithm_type == eCRB);
-    MatrixNd::transpose(m, result);
-    _crb.M_solve(result);
-  }
   
   return result;
 }
@@ -488,6 +468,9 @@ VectorNd& RCArticulatedBody::get_generalized_acceleration(VectorNd& ga)
 void RCArticulatedBody::update_link_poses()
 {
   FILE_LOG(LOG_DYNAMICS) << "RCArticulatedBody::update_link_poses() entered" << std::endl;
+
+  // indicate factorized inertia matrix is no longer valid
+  _fM_valid = false;
 
   // update all joint poses
   for (unsigned i=0; i< _joints.size(); i++)
@@ -909,7 +892,7 @@ void RCArticulatedBody::calc_fwd_dyn_loops()
   alpha_x += workv;
   C *= (b_beta*b_beta);
   alpha_x += C;
-  solve_generalized_inertia_transpose(_Jx, iM_JxT);
+  transpose_solve_generalized_inertia(_Jx, iM_JxT);
   _Jx.mult(iM_JxT, Jx_iM_JxT);
   _LA->svd(Jx_iM_JxT, U, S, V);
   _LA->solve_LS_fast(U, S, V, alpha_x);
