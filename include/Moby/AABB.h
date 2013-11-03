@@ -21,26 +21,29 @@ class AABB : public BV
     template <class InputIterator>
     AABB(InputIterator begin, InputIterator end);
 
-    virtual bool outside(const Vector3& point, Real tol = NEAR_ZERO) const { return AABB::outside(*this, point, tol); }
-    virtual bool intersects(const LineSeg3& seg, Real& tmin, Real tmax, Vector3& q) const { return AABB::intersects(*this, seg, tmin, tmax, q); }
-    virtual std::ostream& to_vrml(std::ostream& out, const Matrix4& T) const;
-    virtual BVPtr calc_vel_exp_BV(CollisionGeometryPtr g, Real dt, const Vector3& lv, const Vector3& av) const;
-    virtual Real calc_volume() const;
-    virtual Vector3 get_lower_bounds(const Matrix4& T);
-    virtual Vector3 get_upper_bounds(const Matrix4& T);
+    virtual void transform(const Ravelin::Transform3d& T, BV* result) const;
+    virtual bool outside(const Point3d& point, double tol = NEAR_ZERO) const { return AABB::outside(*this, point, tol); }
+    virtual bool intersects(const LineSeg3& seg, double& tmin, double tmax, Point3d& q) const { return AABB::intersects(*this, seg, tmin, tmax, q); }
+    virtual std::ostream& to_vrml(std::ostream& out, const Ravelin::Pose3d& T) const;
+    virtual BVPtr calc_swept_BV(CollisionGeometryPtr g, const Ravelin::SVelocityd& v) const;
+    virtual double calc_volume() const;
+    virtual boost::shared_ptr<const Ravelin::Pose3d> get_relative_pose() const { return minp.pose; }
+    virtual Point3d get_lower_bounds() const;
+    virtual Point3d get_upper_bounds() const;
     OBB get_OBB() const;
     static bool intersects(const AABB& a, const AABB& b);
-    static bool intersects(const AABB& a, const AABB& b, const Matrix4& aTb);
-    static bool outside(const AABB& a, const Vector3& point, Real tol = NEAR_ZERO);
-    static bool intersects(const AABB& a, const LineSeg3& seg, Real& tmin, Real tmax, Vector3& q);
-    static void get_closest_point(const AABB& a, const Vector3& p, Vector3& closest);
-    static Real get_farthest_point(const AABB& a, const Vector3& p, Vector3& farthest);
+    static bool intersects(const AABB& a, const AABB& b, const Ravelin::Transform3d& aTb);
+    static bool outside(const AABB& a, const Point3d& point, double tol = NEAR_ZERO);
+    static bool intersects(const AABB& a, const LineSeg3& seg, double& tmin, double tmax, Point3d& q);
+    static void get_closest_point(const AABB& a, const Point3d& p, Point3d& closest);
+    static double get_farthest_point(const AABB& a, const Point3d& p, Point3d& farthest);
+    AABB& operator=(const AABB& a);
 
     /// The lower corner of the AABB
-    Vector3 minp;
+    Point3d minp;
 
     /// The upper corner of the AABB;
-    Vector3 maxp;
+    Point3d maxp;
 }; // end class
 
 #include "AABB.inl"

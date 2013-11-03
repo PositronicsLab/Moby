@@ -14,7 +14,6 @@
 #include <boost/tuple/tuple.hpp>
 #include <Moby/CompGeom.h>
 #include <Moby/CollisionDetection.h>
-#include <Moby/LinAlg.h>
 #include <Moby/Event.h>
 #include <Moby/Constants.h>
 #include <Moby/Polyhedron.h>
@@ -31,7 +30,6 @@
 #include <Moby/SpherePrimitive.h>
 #include <Moby/BoxPrimitive.h>
 
-using namespace Moby;
 using boost::dynamic_pointer_cast;
 using boost::static_pointer_cast;
 using boost::shared_ptr;
@@ -47,6 +45,8 @@ using std::vector;
 using std::priority_queue;
 using std::pair;
 using std::make_pair;
+using namespace Ravelin;
+using namespace Moby;
 
 /// Constructs a collision detector with default tolerances
 /**
@@ -118,9 +118,9 @@ void MeshDCD::remove_articulated_body(ArticulatedBodyPtr abody)
 /**
  * \pre body states are at time tf
  */
-bool MeshDCD::is_contact(Real dt, const vector<pair<DynamicBodyPtr, VectorN> >& q0, const vector<pair<DynamicBodyPtr, VectorN> >& q1, vector<Event>& contacts)
+bool MeshDCD::is_contact(double dt, const vector<pair<DynamicBodyPtr, VectorNd> >& q0, const vector<pair<DynamicBodyPtr, VectorNd> >& q1, vector<Event>& contacts)
 {
-  VectorN qd;
+  VectorNd qd;
 
   // clear the contact set 
   contacts.clear();
@@ -149,7 +149,7 @@ bool MeshDCD::is_contact(Real dt, const vector<pair<DynamicBodyPtr, VectorN> >& 
 
   // remove contacts with degenerate normals
   for (unsigned i=0; i< contacts.size(); )
-    if (std::fabs(contacts[i].contact_normal.norm() - (Real) 1.0) > NEAR_ZERO)
+    if (std::fabs(contacts[i].contact_normal.norm() - (double) 1.0) > NEAR_ZERO)
     {
       contacts[i] = contacts.back();
       contacts.pop_back();
@@ -174,10 +174,10 @@ bool MeshDCD::is_contact(Real dt, const vector<pair<DynamicBodyPtr, VectorN> >& 
 }
 
 /// Does a collision check for a geometry for a deformable body
-void MeshDCD::check_geom(Real dt, CollisionGeometryPtr cg, const vector<pair<DynamicBodyPtr, VectorN> >& q0, const vector<pair<DynamicBodyPtr, VectorN> >& q1, vector<Event>& contacts)
+void MeshDCD::check_geom(double dt, CollisionGeometryPtr cg, const vector<pair<DynamicBodyPtr, VectorNd> >& q0, const vector<pair<DynamicBodyPtr, VectorNd> >& q1, vector<Event>& contacts)
 {
   FILE_LOG(LOG_COLDET) << "MeshDCD::check_geom() entered" << endl;
-  SAFESTATIC VectorN q, qtmp, old_qd;
+  SAFESTATIC VectorNd q, qtmp;
 
   // get the body
   DynamicBodyPtr db = cg->get_single_body();
@@ -186,19 +186,19 @@ void MeshDCD::check_geom(Real dt, CollisionGeometryPtr cg, const vector<pair<Dyn
   const unsigned db_idx = find_body(q0, db);
   assert(db_idx != std::numeric_limits<unsigned>::max());
   assert(db_idx == find_body(q1, db));
-  const VectorN& qa = q0[db_idx].second;
-  const VectorN& qb = q1[db_idx].second;
+  const VectorNd& qa = q0[db_idx].second;
+  const VectorNd& qb = q1[db_idx].second;
 
   // check for contact at qb
-  db->set_generalized_coordinates(DynamicBody::eRodrigues, qb);
+  db->set_generalized_coordinates(DynamicBody::eEuler, qb);
   bool contact = is_collision(cg);
 
   // if there is contact, we want to find TOC to within sufficient tolerance
   if (contact)
   {
     // setup t and h
-    Real t = (Real) 0.0;
-    Real h = (Real) 1.0;
+    double t = (double) 0.0;
+    double h = (double) 1.0;
 
     // loop invariant: contact at t0+h
     while (h > eps_tolerance)
@@ -207,10 +207,10 @@ void MeshDCD::check_geom(Real dt, CollisionGeometryPtr cg, const vector<pair<Dyn
       h *= 0.5;
 
       // step forward by h
-      q.copy_from(qa) *= ((Real) 1.0 - t+h);
-      qtmp.copy_from(qb) *= (t+h);
+      (q = qa) *= ((double) 1.0 - t+h);
+      (qtmp = qb) *= (t+h);
       q += qtmp;
-      db->set_generalized_coordinates(DynamicBody::eRodrigues, q);
+      db->set_generalized_coordinates(DynamicBody::eEuler, q);
 
       // check for contact
       bool contact = is_collision(cg);
@@ -221,24 +221,18 @@ void MeshDCD::check_geom(Real dt, CollisionGeometryPtr cg, const vector<pair<Dyn
     }
 
     // set the coordinates for the deformable body
-    q.copy_from(qa) *= ((Real) 1.0 - t);
-    qtmp.copy_from(qb) *= t;
+    (q = qa) *= ((double) 1.0 - t);
+    (qtmp = qb) *= t;
     q += qtmp;
-    db->set_generalized_coordinates(DynamicBody::eRodrigues, q);
-
-    // save old generalized velocities
-    db->get_generalized_velocity(DynamicBody::eAxisAngle, old_qd);
+    db->set_generalized_coordinates(DynamicBody::eEuler, q);
 
     // set the generalized velocity for the deformable body
-    q.copy_from(qb) -= qa;
+    (q = qb) -= qa;
     q /= dt;
-    db->set_generalized_velocity(DynamicBody::eRodrigues, q);
+    db->set_generalized_velocity(DynamicBody::eEuler, q);
 
     // determine contacts for the deformable body
     determine_contacts_deformable(cg, cg, t, h, contacts);
-
-    // restore old generalized velocities
-    db->set_generalized_velocity(DynamicBody::eAxisAngle, old_qd);
   }
 
   // remove duplicate contact points
@@ -273,7 +267,7 @@ DynamicBodyPtr MeshDCD::get_super_body(CollisionGeometryPtr geom)
 }
 
 /// Finds the index of the body / state pair for the given body
-unsigned MeshDCD::find_body(const vector<pair<DynamicBodyPtr, VectorN> >& q, DynamicBodyPtr body)
+unsigned MeshDCD::find_body(const vector<pair<DynamicBodyPtr, VectorNd> >& q, DynamicBodyPtr body)
 {
   for (unsigned i=0; i< q.size(); i++)
     if (q[i].first == body)
@@ -292,10 +286,10 @@ unsigned MeshDCD::find_body(const vector<pair<DynamicBodyPtr, VectorN> >& q, Dyn
  * \param vels linear and angular velocities of bodies
  * \param contacts on return
  */
-void MeshDCD::check_geoms(Real dt, CollisionGeometryPtr a, CollisionGeometryPtr b, const vector<pair<DynamicBodyPtr, VectorN> >& q0, const vector<pair<DynamicBodyPtr, VectorN> >& q1, vector<Event>& contacts)
+void MeshDCD::check_geoms(double dt, CollisionGeometryPtr a, CollisionGeometryPtr b, const vector<pair<DynamicBodyPtr, VectorNd> >& q0, const vector<pair<DynamicBodyPtr, VectorNd> >& q1, vector<Event>& contacts)
 {
   FILE_LOG(LOG_COLDET) << "MeshDCD::check_geoms() entered" << endl;
-  SAFESTATIC VectorN q, qda, qdb, old_qda, old_qdb;
+  SAFESTATIC VectorNd q, qda, qdb;
 
   // get the two super bodies
   DynamicBodyPtr sba = get_super_body(a);
@@ -308,26 +302,28 @@ void MeshDCD::check_geoms(Real dt, CollisionGeometryPtr a, CollisionGeometryPtr 
   assert(idx_b == find_body(q1, sbb));
   assert(idx_a != std::numeric_limits<unsigned>::max());
   assert(idx_b != std::numeric_limits<unsigned>::max());
-  const VectorN& qa0 = q0[idx_a].second;
-  const VectorN& qa1 = q1[idx_a].second;
-  const VectorN& qb0 = q0[idx_b].second;
-  const VectorN& qb1 = q1[idx_b].second;
+  const VectorNd& qa0 = q0[idx_a].second;
+  const VectorNd& qa1 = q1[idx_a].second;
+  const VectorNd& qb0 = q0[idx_b].second;
+  const VectorNd& qb1 = q1[idx_b].second;
 
   // compute the velocities
-  qda.copy_from(qa1) -= qa0;
-  qdb.copy_from(qb1) -= qb0;
+  (qda = qa1) -= qa0;
+  qda /= dt;
+  (qdb = qb1) -= qb0;
+  qdb /= dt;
 
   // check for contact at q1 states 
-  sba->set_generalized_coordinates(DynamicBody::eRodrigues, qa1);
-  sbb->set_generalized_coordinates(DynamicBody::eRodrigues, qb1);
+  sba->set_generalized_coordinates(DynamicBody::eEuler, qa1);
+  sbb->set_generalized_coordinates(DynamicBody::eEuler, qb1);
   bool contact = is_collision(a, b);
 
   // if there is contact, we want to find TOC to within sufficient tolerance
   if (contact)
   {
     // setup t0 and h
-    Real t = (Real) 0.0;
-    Real h = (Real) 1.0;
+    double t = (double) 0.0;
+    double h = (double) 1.0;
 
     // loop invariant: contact at t0+h
     while (h > eps_tolerance)
@@ -336,14 +332,14 @@ void MeshDCD::check_geoms(Real dt, CollisionGeometryPtr a, CollisionGeometryPtr 
       h *= 0.5;
 
       // set new state for sba
-      q.copy_from(qda) *= (t+h);
+      (q = qda) *= (t+h);
       q += qa0;
-      sba->set_generalized_coordinates(DynamicBody::eRodrigues, q);
+      sba->set_generalized_coordinates(DynamicBody::eEuler, q);
 
       // set new state for sbb
-      q.copy_from(qdb) *= (t+h);
+      (q = qdb) *= (t+h);
       q += qb0;
-      sbb->set_generalized_coordinates(DynamicBody::eRodrigues, q);
+      sbb->set_generalized_coordinates(DynamicBody::eEuler, q);
 
       // check for contact
       bool contact = is_collision(a, b);
@@ -353,21 +349,17 @@ void MeshDCD::check_geoms(Real dt, CollisionGeometryPtr a, CollisionGeometryPtr 
         t += h;
     }
 
-    // save the current two velocities
-    sba->get_generalized_velocity(DynamicBody::eAxisAngle, old_qda);
-    sbb->get_generalized_velocity(DynamicBody::eAxisAngle, old_qdb);
-
     // set the first body's coordinates and velocity at the time-of-contact
-    q.copy_from(qda) *= t;
+    (q = qda) *= t;
     q += qa0;
-    sba->set_generalized_coordinates(DynamicBody::eRodrigues, q);
-    sba->set_generalized_velocity(DynamicBody::eRodrigues, qda /= dt);
+    sba->set_generalized_coordinates(DynamicBody::eEuler, q);
+    sba->set_generalized_velocity(DynamicBody::eEuler, qda);
 
     // set the second body's coordinates at the time-of-contact
-    q.copy_from(qdb) *= t;
+    (q = qdb) *= t;
     q += qb0;
-    sbb->set_generalized_coordinates(DynamicBody::eRodrigues, q);
-    sbb->set_generalized_velocity(DynamicBody::eRodrigues, qdb /= dt);
+    sbb->set_generalized_coordinates(DynamicBody::eEuler, q);
+    sbb->set_generalized_velocity(DynamicBody::eEuler, qdb);
 
     // determine the types of the two bodies
     RigidBodyPtr rba = dynamic_pointer_cast<RigidBody>(sba);
@@ -393,10 +385,6 @@ void MeshDCD::check_geoms(Real dt, CollisionGeometryPtr a, CollisionGeometryPtr 
       assert(dba && dbb);
       determine_contacts_deformable(a, b, t, h, contacts);
     }
-
-    // restore the current two velocities
-    sba->set_generalized_velocity(DynamicBody::eAxisAngle, old_qda);
-    sbb->set_generalized_velocity(DynamicBody::eAxisAngle, old_qdb);
   }
   
   // remove duplicate contact points
@@ -422,14 +410,14 @@ void MeshDCD::check_geoms(Real dt, CollisionGeometryPtr a, CollisionGeometryPtr 
 /**
  * \return the number of real roots
  */
-unsigned MeshDCD::determine_cubic_roots(Real a, Real b, Real c, Real x[3])
+unsigned MeshDCD::determine_cubic_roots(double a, double b, double c, double x[3])
 {
   // determine p, q
-  Real p = b - a*a/3;
-  Real q = c + (2*a*a*a - 9*a*b)/27;
+  double p = b - a*a/3;
+  double q = c + (2*a*a*a - 9*a*b)/27;
 
-  // typedef the Real complex type
-  typedef std::complex<Real> rcomplex;
+  // typedef the double complex type
+  typedef std::complex<double> rcomplex;
 
   // determine the six values of u (not all unique)
   rcomplex croot(q*q/4 + p*p*p/27);
@@ -444,14 +432,14 @@ unsigned MeshDCD::determine_cubic_roots(Real a, Real b, Real c, Real x[3])
   rcomplex u2c = u2a * umul2; 
 
   // determine the six values of x (not all unique)
-  Real xx[6];
+  double xx[6];
   unsigned xidx = 0;
-  xx[xidx++] = (u1a - p/((Real) 3.0*u1a) - a/3).real();
-  xx[xidx++] = (u1b - p/((Real) 3.0*u1b) - a/3).real();
-  xx[xidx++] = (u1c - p/((Real) 3.0*u1c) - a/3).real();
-  xx[xidx++] = (u2a - p/((Real) 3.0*u2a) - a/3).real();
-  xx[xidx++] = (u2b - p/((Real) 3.0*u2b) - a/3).real();
-  xx[xidx++] = (u2c - p/((Real) 3.0*u2c) - a/3).real();
+  xx[xidx++] = (u1a - p/((double) 3.0*u1a) - a/3).real();
+  xx[xidx++] = (u1b - p/((double) 3.0*u1b) - a/3).real();
+  xx[xidx++] = (u1c - p/((double) 3.0*u1c) - a/3).real();
+  xx[xidx++] = (u2a - p/((double) 3.0*u2a) - a/3).real();
+  xx[xidx++] = (u2b - p/((double) 3.0*u2b) - a/3).real();
+  xx[xidx++] = (u2c - p/((double) 3.0*u2c) - a/3).real();
 
   // find real roots
   unsigned nreal = 0;
@@ -473,43 +461,43 @@ unsigned MeshDCD::determine_cubic_roots(Real a, Real b, Real c, Real x[3])
 }
 
 /// Intersects a line segment against a triangle with vertices moving at different velocities
-Real MeshDCD::calc_first_isect(const Vector3& p, const Vector3& pdot, const Triangle& T, const Vector3& Tadot, const Vector3& Tbdot, const Vector3& Tcdot, Real dt) 
+double MeshDCD::calc_first_isect(const Point3d& p, const Vector3d& pdot, const Triangle& T, const Vector3d& Tadot, const Vector3d& Tbdot, const Vector3d& Tcdot, double dt) 
 {
   const unsigned X = 0, Y = 1, Z = 2;
-  const Real INF = std::numeric_limits<Real>::max();
+  const double INF = std::numeric_limits<double>::max();
 
   // setup everything to match Mathematica output
-  Real P0X = p[X];
-  Real P0Y = p[Y];
-  Real P0Z = p[Z];
-  Real PdotX = pdot[X];
-  Real PdotY = pdot[Y];
-  Real PdotZ = pdot[Z];
-  Real A0X = T.a[X];
-  Real A0Y = T.a[Y];
-  Real A0Z = T.a[Z];
-  Real AdotX = Tadot[X];
-  Real AdotY = Tadot[Y];
-  Real AdotZ = Tadot[Z];
-  Real B0X = T.b[X];
-  Real B0Y = T.b[Y];
-  Real B0Z = T.b[Z];
-  Real BdotX = Tbdot[X];
-  Real BdotY = Tbdot[Y];
-  Real BdotZ = Tbdot[Z];
-  Real C0X = T.c[X];
-  Real C0Y = T.c[Y];
-  Real C0Z = T.c[Z];
-  Real CdotX = Tcdot[X];
-  Real CdotY = Tcdot[Y];
-  Real CdotZ = Tcdot[Z];
+  double P0X = p[X];
+  double P0Y = p[Y];
+  double P0Z = p[Z];
+  double PdotX = pdot[X];
+  double PdotY = pdot[Y];
+  double PdotZ = pdot[Z];
+  double A0X = T.a[X];
+  double A0Y = T.a[Y];
+  double A0Z = T.a[Z];
+  double AdotX = Tadot[X];
+  double AdotY = Tadot[Y];
+  double AdotZ = Tadot[Z];
+  double B0X = T.b[X];
+  double B0Y = T.b[Y];
+  double B0Z = T.b[Z];
+  double BdotX = Tbdot[X];
+  double BdotY = Tbdot[Y];
+  double BdotZ = Tbdot[Z];
+  double C0X = T.c[X];
+  double C0Y = T.c[Y];
+  double C0Z = T.c[Z];
+  double CdotX = Tcdot[X];
+  double CdotY = Tcdot[Y];
+  double CdotZ = Tcdot[Z];
 
   // setup terms for cubic polynomial
-  Real d =  -A0Z*B0Y*P0X + A0Y*B0Z*P0X + A0Z*C0Y*P0X - B0Z*C0Y*P0X - 
+  double d =  -A0Z*B0Y*P0X + A0Y*B0Z*P0X + A0Z*C0Y*P0X - B0Z*C0Y*P0X - 
             A0Y*C0Z*P0X + B0Y*C0Z*P0X + A0Z*B0X*P0Y - A0X*B0Z*P0Y - A0Z*C0X*P0Y 
             + B0Z*C0X*P0Y + A0X*C0Z*P0Y - B0X*C0Z*P0Y - A0Y*B0X*P0Z + 
             A0X*B0Y*P0Z + A0Y*C0X*P0Z - B0Y*C0X*P0Z - A0X*C0Y*P0Z + B0X*C0Y*P0Z;
-  Real c = (-(AdotZ*B0Y*P0X) + AdotY*B0Z*P0X - A0Z*BdotY*P0X + 
+  double c = (-(AdotZ*B0Y*P0X) + AdotY*B0Z*P0X - A0Z*BdotY*P0X + 
        A0Y*BdotZ*P0X + AdotZ*C0Y*P0X - BdotZ*C0Y*P0X - 
        AdotY*C0Z*P0X + BdotY*C0Z*P0X + A0Z*CdotY*P0X - 
        B0Z*CdotY*P0X - A0Y*CdotZ*P0X + B0Y*CdotZ*P0X + 
@@ -527,7 +515,7 @@ Real MeshDCD::calc_first_isect(const Vector3& p, const Vector3& pdot, const Tria
        B0Z*C0X*PdotY + A0X*C0Z*PdotY - B0X*C0Z*PdotY - 
        A0Y*B0X*PdotZ + A0X*B0Y*PdotZ + A0Y*C0X*PdotZ - 
        B0Y*C0X*PdotZ - A0X*C0Y*PdotZ + B0X*C0Y*PdotZ);
-  Real b = (-(AdotZ*BdotY*P0X) + AdotY*BdotZ*P0X + 
+  double b = (-(AdotZ*BdotY*P0X) + AdotY*BdotZ*P0X + 
        AdotZ*CdotY*P0X - BdotZ*CdotY*P0X - AdotY*CdotZ*P0X + 
        BdotY*CdotZ*P0X + AdotZ*BdotX*P0Y - AdotX*BdotZ*P0Y - 
        AdotZ*CdotX*P0Y + BdotZ*CdotX*P0Y + AdotX*CdotZ*P0Y - 
@@ -546,7 +534,7 @@ Real MeshDCD::calc_first_isect(const Vector3& p, const Vector3& pdot, const Tria
        BdotY*C0X*PdotZ - AdotX*C0Y*PdotZ + BdotX*C0Y*PdotZ + 
        A0Y*CdotX*PdotZ - B0Y*CdotX*PdotZ - A0X*CdotY*PdotZ + 
        B0X*CdotY*PdotZ);
-  Real a = (-(AdotZ*BdotY*PdotX) + AdotY*BdotZ*PdotX + 
+  double a = (-(AdotZ*BdotY*PdotX) + AdotY*BdotZ*PdotX + 
        AdotZ*CdotY*PdotX - BdotZ*CdotY*PdotX - 
        AdotY*CdotZ*PdotX + BdotY*CdotZ*PdotX + 
        AdotZ*BdotX*PdotY - AdotX*BdotZ*PdotY - 
@@ -563,8 +551,8 @@ Real MeshDCD::calc_first_isect(const Vector3& p, const Vector3& pdot, const Tria
     a = b;
     b = c;
     c = d;
-    Real r1 = (-b + std::sqrt(b*b - 4*a*c))/(2*a);
-    Real r2 = (-b - std::sqrt(b*b - 4*a*c))/(2*a);
+    double r1 = (-b + std::sqrt(b*b - 4*a*c))/(2*a);
+    double r2 = (-b - std::sqrt(b*b - 4*a*c))/(2*a);
  
     // if root is negative or greater than dt, make it inf
     if (r1 < 0.0 || r1 > dt || std::isnan(r1))
@@ -591,7 +579,7 @@ Real MeshDCD::calc_first_isect(const Vector3& p, const Vector3& pdot, const Tria
     d /= a;
 
     // find the (up to three) roots
-    Real r[3];
+    double r[3];
     unsigned nroots = determine_cubic_roots(b, c, d, r);
 
     // if a root is negative or greater than dt, make it inf
@@ -605,7 +593,7 @@ Real MeshDCD::calc_first_isect(const Vector3& p, const Vector3& pdot, const Tria
         r[i] = INF;
 
     // find and return the minimum 
-    Real minimum = r[0];
+    double minimum = r[0];
     for (unsigned i=1; i< nroots; i++)
       if (r[i] < minimum)
         minimum = r[i];
@@ -621,9 +609,9 @@ Real MeshDCD::calc_first_isect(const Vector3& p, const Vector3& pdot, const Tria
  * \param t the time-of-contact
  * \param dt the time step
  */
-void MeshDCD::determine_contacts_deformable_rigid(CollisionGeometryPtr a, CollisionGeometryPtr b, Real t, Real dt, vector<Event>& contacts)
+void MeshDCD::determine_contacts_deformable_rigid(CollisionGeometryPtr a, CollisionGeometryPtr b, double t, double dt, vector<Event>& contacts)
 {
-  Vector3 p;
+  Point3d p;
 
   FILE_LOG(LOG_COLDET) << "MeshDCD::determine_contacts_deformable_rigid() entered" << endl;
 
@@ -631,25 +619,27 @@ void MeshDCD::determine_contacts_deformable_rigid(CollisionGeometryPtr a, Collis
   SingleBodyPtr sba = a->get_single_body();
   SingleBodyPtr sbb = b->get_single_body();
 
-  // get the transform from and into b's frame
-  const Matrix4& wTb = b->get_transform();
+  // get the transform from b to global frame
+  Transform3d wTb = Pose3d::calc_relative_pose(b->get_pose(), GLOBAL);
 
   // get the meshes from a and b
   const IndexedTriArray& mesh_a = *a->get_geometry()->get_mesh();
   const IndexedTriArray& mesh_b = *b->get_geometry()->get_mesh();
 
   // get all vertices of mesh a
-  const vector<Vector3>& verts_a = mesh_a.get_vertices();
+  const vector<Origin3d>& verts_a = mesh_a.get_vertices();
 
   // loop over all vertices
   for (unsigned i=0; i< verts_a.size(); i++)
   {
     // get the vertex -- it's a world coordinate (no transforms are used for
     // deformable bodies/geometries)
-    const Vector3& v = verts_a[i];
+    Point3d v(verts_a[i], GLOBAL);
 
     // get the velocity of the vertex relative to the rigid body
-    Vector3 vdot = sba->calc_point_vel(v) - sbb->calc_point_vel(v);
+    Vector3d pva = sba->calc_point_vel(v);
+    Vector3d pvb = sbb->calc_point_vel(v);
+    Vector3d vdot = Pose3d::transform_vector(v.pose, pva) - Pose3d::transform_vector(v.pose, pvb); 
 
     FILE_LOG(LOG_COLDET) << " -- testing vertex " << v << " with relative velocity: " << vdot << endl;
 
@@ -657,16 +647,16 @@ void MeshDCD::determine_contacts_deformable_rigid(CollisionGeometryPtr a, Collis
     for (unsigned j=0; j< mesh_b.num_tris(); j++)
     {
       // get the triangle transformed into the world frame
-      Triangle tri = Triangle::transform(mesh_b.get_triangle(j), wTb);
+      Triangle tri = Triangle::transform(mesh_b.get_triangle(j, wTb.source), wTb);
 
       // do line segment triangle intersection in b's frame
-      Real t = calc_first_isect(tri, LineSeg3(v, v+vdot*dt), p);
+      double t = calc_first_isect(tri, LineSeg3(v, v+vdot*dt), p);
 
       FILE_LOG(LOG_COLDET) << "  ++ against tri: " << tri << endl;
       FILE_LOG(LOG_COLDET) << "     intersection parameter: " << t << endl;
 
       // see whether to create a contact
-      if (t <= (Real) 1.0)
+      if (t <= (double) 1.0)
         contacts.push_back(create_contact(t, a, b, p, vdot, tri));
     }
   }
@@ -681,7 +671,7 @@ void MeshDCD::determine_contacts_deformable_rigid(CollisionGeometryPtr a, Collis
  * \param t the time-of-contact
  * \param dt the time step
  */
-void MeshDCD::determine_contacts_rigid_deformable(CollisionGeometryPtr a, CollisionGeometryPtr b, Real t, Real dt, vector<Event>& contacts)
+void MeshDCD::determine_contacts_rigid_deformable(CollisionGeometryPtr a, CollisionGeometryPtr b, double t, double dt, vector<Event>& contacts)
 {
   // we can just use the deformable / deformable method for this
   determine_contacts_deformable(a, b, t, dt, contacts);
@@ -695,10 +685,14 @@ void MeshDCD::determine_contacts_rigid_deformable(CollisionGeometryPtr a, Collis
  * \param dt the time step
  * \note checks vertices from geometry a against geometry b
  */
-void MeshDCD::determine_contacts_deformable(CollisionGeometryPtr a, CollisionGeometryPtr b, Real t, Real dt, vector<Event>& contacts)
+void MeshDCD::determine_contacts_deformable(CollisionGeometryPtr a, CollisionGeometryPtr b, double t, double dt, vector<Event>& contacts)
 {
+  // get the two poses
+  shared_ptr<const Pose3d> Pa = a->get_pose();
+  shared_ptr<const Pose3d> Pb = b->get_pose();
+
   // get the transform for the second collision geometry
-  const Matrix4& wTb = b->get_transform();
+  Transform3d wTb = Pose3d::calc_relative_pose(b->get_pose(), GLOBAL);
 
   // get the deformable bodies
   SingleBodyPtr sba = a->get_single_body();
@@ -709,16 +703,17 @@ void MeshDCD::determine_contacts_deformable(CollisionGeometryPtr a, CollisionGeo
   const IndexedTriArray& mesh_b = *b->get_geometry()->get_mesh();
 
   // get all vertices of mesh a
-  const vector<Vector3>& verts_a = mesh_a.get_vertices();
+  const vector<Origin3d>& verts_a = mesh_a.get_vertices();
 
   // loop over all vertices
   for (unsigned i=0; i< verts_a.size(); i++)
   {
     // get the vertex
-    const Vector3& v = verts_a[i];
+    Point3d v(verts_a[i], Pa);
 
     // get the velocity of the vertex
-    Vector3 vdot = sba->calc_point_vel(v);
+    Vector3d vdotx = sba->calc_point_vel(v);
+    Vector3d vdot = Pose3d::transform_vector(v.pose, vdotx);
 
     // loop over all triangles in mesh b
     for (unsigned j=0; j< mesh_b.num_tris(); j++)
@@ -733,19 +728,24 @@ void MeshDCD::determine_contacts_deformable(CollisionGeometryPtr a, CollisionGeo
       }
 
       // get the triangle, transformed into global frame
-      Triangle tri = Triangle::transform(mesh_b.get_triangle(j), wTb);
+      Triangle tri = Triangle::transform(mesh_b.get_triangle(j, wTb.source), wTb);
 
       // get the velocity of the three vertices of the triangle
-      Vector3 adot = sbb->calc_point_vel(tri.a);
-      Vector3 bdot = sbb->calc_point_vel(tri.b);
-      Vector3 cdot = sbb->calc_point_vel(tri.c);
+      Vector3d adotx = sbb->calc_point_vel(tri.a);
+      Vector3d bdotx = sbb->calc_point_vel(tri.b);
+      Vector3d cdotx = sbb->calc_point_vel(tri.c);
+
+      // transform the vertices to the proper frames
+      Vector3d adot = Pose3d::transform_vector(tri.a.pose, adotx);
+      Vector3d bdot = Pose3d::transform_vector(tri.b.pose, bdotx);
+      Vector3d cdot = Pose3d::transform_vector(tri.c.pose, cdotx);
 
       // find the first time of intersection, if any
-      Real t0 = calc_first_isect(v, vdot, tri, adot, bdot, cdot, t);
+      double t0 = calc_first_isect(v, vdot, tri, adot, bdot, cdot, t);
       if (t0 <= t)
       {
         // determine the point of contact at time t0 + t
-        Vector3 p = v + vdot*t0;
+        Point3d p = v + vdot*t0;
 
         // determine the triangle at time t0 + t
         Triangle abc(tri.a + adot*t0, tri.b + bdot*t0, tri.c + cdot*t0);
@@ -764,123 +764,138 @@ void MeshDCD::determine_contacts_deformable(CollisionGeometryPtr a, CollisionGeo
  * \param t the time-of-contact
  * \param dt the time step
  */
-void MeshDCD::determine_contacts_rigid(CollisionGeometryPtr a, CollisionGeometryPtr b, Real t, Real dt, vector<Event>& contacts)
+void MeshDCD::determine_contacts_rigid(CollisionGeometryPtr a, CollisionGeometryPtr b, double t, double dt, vector<Event>& contacts)
 {
+  Transform3d T;
+
   // get the two rigid bodies
   RigidBodyPtr rba = dynamic_pointer_cast<RigidBody>(a->get_single_body());
   RigidBodyPtr rbb = dynamic_pointer_cast<RigidBody>(b->get_single_body());
 
-  // get the relative linear and angular velocities
-  Vector3 rlv = rba->get_lvel() - rbb->get_lvel();
+  // get the transformation between geometry frames
+  Transform3d aTb = Pose3d::calc_relative_pose(b->get_pose(), a->get_pose());
+/*
+  // get computation frames
+  shared_ptr<const Pose3d> CA = rba->get_computation_frame(); 
+  shared_ptr<const Pose3d> CB = rbb->get_computation_frame(); 
+  shared_ptr<Pose3d> CAx(new Pose3d(*CA));
+  shared_ptr<Pose3d> CBx(new Pose3d(*CB));
 
-  // get the angular velocities of the two bodies
-  const Vector3& omegaA = rba->get_avel();
-  const Vector3& omegaB = rbb->get_avel();
+  // transform computation frames to make them relative to GLOBAL pose
+  CAx->update_relative_pose(GLOBAL);
+  CBx->update_relative_pose(GLOBAL);
+*/
+  // get twists from the two bodies in the computation frames
+  SVelocityd va = Pose3d::transform(a->get_pose(), rba->get_velocity()); 
+  SVelocityd vb = Pose3d::transform(a->get_pose(), rbb->get_velocity()); 
 
   // get the meshes from a and b
   const IndexedTriArray& mesh_a = *a->get_geometry()->get_mesh();
   const IndexedTriArray& mesh_b = *b->get_geometry()->get_mesh();
 
+/*
+  // get the transformation from poses to global frame
+  Transform3d wTa = Pose3d::calc_relative_pose(a->get_pose(), GLOBAL); 
+  Transform3d wTb = Pose3d::calc_relative_pose(b->get_pose(), GLOBAL); 
+
+  // compute transform from geometry frames to computation frames
+  Transform3d caxTa = Pose3d::calc_relative_pose(a->get_pose(), CAx);
+  Transform3d cbxTb = Pose3d::calc_relative_pose(b->get_pose(), CBx);
+*/
   // check all tris of a against all tris of b
   for (unsigned i=0; i< mesh_a.num_tris(); i++)
   {
-    // get the transformed triangle
-    Triangle tA = mesh_a.get_triangle(i);
-    Triangle TtA = Triangle::transform(tA, a->get_transform());
+    // get the triangle and its vertices in A's frame
+    Triangle tA = mesh_a.get_triangle(i, a->get_pose());
+    Vector3d ra = tA.a;
+    Vector3d rb = tA.b; 
+    Vector3d rc = tA.c; 
+
+    // compute the point velocity at each point of the triangle
+    Vector3d vA_a = va.get_linear() + Vector3d::cross(va.get_angular(), ra);
+    Vector3d vA_b = va.get_linear() + Vector3d::cross(va.get_angular(), rb);
+    Vector3d vA_c = va.get_linear() + Vector3d::cross(va.get_angular(), rc);
+
+    // determine line segments for a's vertices
+    Vector3d pAa = ra + vA_a*t;
+    Vector3d pAb = rb + vA_b*t;
+    Vector3d pAc = rc + vA_c*t;
 
     for (unsigned j=0; j< mesh_b.num_tris(); j++)
     {
-      // get the transformed triangle
-      Triangle tB = mesh_b.get_triangle(j);
-      Triangle TtB = Triangle::transform(tB, b->get_transform());
+      // get the triangle- transformed to a's frame- and its vertices
+      Triangle tB = Triangle::transform(mesh_b.get_triangle(j, b->get_pose()), aTb);
+      Vector3d ra = tB.a;
+      Vector3d rb = tB.b; 
+      Vector3d rc = tB.c; 
 
-      // determine angular velocities at a's vertices
-      Vector3 wAa = Vector3::cross(omegaA, TtA.a - rba->get_position())
-                  - Vector3::cross(omegaB, TtA.a - rbb->get_position());
-      Vector3 wAb = Vector3::cross(omegaA, TtA.b - rba->get_position())
-                  - Vector3::cross(omegaB, TtA.b - rbb->get_position());
-      Vector3 wAc = Vector3::cross(omegaA, TtA.c - rba->get_position())
-                  - Vector3::cross(omegaB, TtA.c - rbb->get_position());
+/*
+      // transform the triangle to a's frame
+      Triangle TtB = Triangle::transform(tB, wTb);
+*/
+      // vertices are in frame B; transform the triangle to CBx frame 
 
-      // determine angular velocities at b's vertices
-      Vector3 wBa = Vector3::cross(omegaA, TtB.a - rbb->get_position())
-                  - Vector3::cross(omegaB, TtB.a - rbb->get_position());
-      Vector3 wBb = Vector3::cross(omegaA, TtB.b - rbb->get_position());
-                  - Vector3::cross(omegaB, TtB.b - rbb->get_position());
-      Vector3 wBc = Vector3::cross(omegaA, TtB.c - rbb->get_position());
-                  - Vector3::cross(omegaB, TtB.c - rbb->get_position());
+      // compute the point velocity at each point of the triangle
+      Vector3d vB_a = vb.get_linear() + Vector3d::cross(vb.get_angular(), rb);
+      Vector3d vB_b = vb.get_linear() + Vector3d::cross(vb.get_angular(), rb);
+      Vector3d vB_c = vb.get_linear() + Vector3d::cross(vb.get_angular(), rb);
 
-      // determine point velocities at a's vertices
-      Vector3 pAadot = rlv + wAa;
-      Vector3 pAbdot = rlv + wAb;
-      Vector3 pAcdot = rlv + wAc;
-
-      // determine point velocities at b's vertices
-      Vector3 pBadot = rlv + wBa;
-      Vector3 pBbdot = rlv + wBb;
-      Vector3 pBcdot = rlv + wBc;
-
-      // determine line segments for a's vertices
-      Vector3 pAa = TtA.a + pAadot*t;
-      Vector3 pAb = TtA.b + pAbdot*t;
-      Vector3 pAc = TtA.c + pAcdot*t;
-
-      // determine line segments for a's vertices
-      Vector3 pBa = TtB.a + pBadot*t;
-      Vector3 pBb = TtB.b + pBbdot*t;
-      Vector3 pBc = TtB.c + pBcdot*t;
+      // determine line segments for b's vertices in global frame
+      Vector3d pBa = ra + vB_a*t;
+      Vector3d pBb = rb + vB_b*t;
+      Vector3d pBc = rc + vB_c*t;
 
       // calculate line segment triangle intersections
-      Real t0;
-      Vector3 p;
+      double t0;
+      Point3d p;
 
       // calculate intersections between vertex a of A and triangle B
-      t0 = calc_first_isect(TtB, LineSeg3(TtA.a, pAa), p);
-      if (t0 <= (Real) 1.0)
-        contacts.push_back(create_contact(t0, a, b, p, TtA.a, TtB));
+      t0 = calc_first_isect(tB, LineSeg3(tA.a, pAa), p);
+      if (t0 <= (double) 1.0)
+        contacts.push_back(create_contact(t0, a, b, p, vA_a, tB));
 
       // calculate intersections between vertex b of A and triangle B
-      t0 = calc_first_isect(TtB, LineSeg3(TtA.b, pAb), p);
-      if (t0 <= (Real) 1.0)
-        contacts.push_back(create_contact(t0, a, b, p, TtA.b, TtB));
+      t0 = calc_first_isect(tB, LineSeg3(tA.b, pAb), p);
+      if (t0 <= (double) 1.0)
+        contacts.push_back(create_contact(t0, a, b, p, vA_b, tB));
 
       // calculate intersections between vertex c of A and triangle B
-      t0 = calc_first_isect(TtB, LineSeg3(TtA.c, pAc), p);
-      if (t0 <= (Real) 1.0)
-        contacts.push_back(create_contact(t0, a, b, p, TtA.c, TtB));
+      t0 = calc_first_isect(tB, LineSeg3(tA.c, pAc), p);
+      if (t0 <= (double) 1.0)
+        contacts.push_back(create_contact(t0, a, b, p, vA_c, tB));
 
        // calculate intersections between vertex a of B and triangle A
-      t0 = calc_first_isect(TtA, LineSeg3(TtB.a, pBa), p);
-      if (t0 <= (Real) 1.0)
-        contacts.push_back(create_contact(t0, a, b, p, TtB.a, TtA));
+      t0 = calc_first_isect(tA, LineSeg3(tB.a, pBa), p);
+      if (t0 <= (double) 1.0)
+        contacts.push_back(create_contact(t0, a, b, p, vB_a, tA));
 
       // calculate intersections between vertex b of B and triangle A
-      t0 = calc_first_isect(TtA, LineSeg3(TtB.b, pBb), p);
-      if (t0 <= (Real) 1.0)
-        contacts.push_back(create_contact(t0, a, b, p, TtB.b, TtA));
+      t0 = calc_first_isect(tA, LineSeg3(tB.b, pBb), p);
+      if (t0 <= (double) 1.0)
+        contacts.push_back(create_contact(t0, a, b, p, vB_b, tA));
 
       // calculate intersections between vertex c of B and triangle A
-      t = calc_first_isect(TtA, LineSeg3(TtB.c, pBc), p);
-      if (t <= 1.0)
-        contacts.push_back(create_contact(t, a, b, p, TtB.c, TtA));
+      t0 = calc_first_isect(tA, LineSeg3(tB.c, pBc), p);
+      if (t0 <= 1.0)
+        contacts.push_back(create_contact(t0, a, b, p, vB_c, tA));
     }
   }
 }
 
 /* version that attempted to do edge contacts
 /// Determines the contacts between two geometries for rigid bodies
-void MeshDCD::determine_contacts_rigid(CollisionGeometryPtr a, CollisionGeometryPtr b, Real dt, vector<Event>& contact_map)
+void MeshDCD::determine_contacts_rigid(CollisionGeometryPtr a, CollisionGeometryPtr b, double dt, vector<Event>& contact_map)
 {
   // get the two rigid bodies
   RigidBodyPtr rba = dynamic_pointer_cast<RigidBody>(a->get_single_body());
   RigidBodyPtr rbb = dynamic_pointer_cast<RigidBody>(b->get_single_body());
 
   // get the relative linear and angular velocities
-  Vector3 rlv = rba->get_lvel() - rbb->get_lvel();
+  Vector3d rlv = rba->get_lvel() - rbb->get_lvel();
 
   // get the angular velocities of the two bodies
-  const Vector3& omegaA = rba->get_avel();
-  const Vector3& omegaB = rbb->get_avel();
+  const Vector3d& omegaA = rba->get_avel();
+  const Vector3d& omegaB = rbb->get_avel();
 
   // get the meshes from a and b
   const IndexedTriArray& mesh_a = a->get_geometry()->get_mesh();
@@ -900,44 +915,44 @@ void MeshDCD::determine_contacts_rigid(CollisionGeometryPtr a, CollisionGeometry
       Triangle TtB = Triangle::transform(tB, b->get_transform());
 
       // determine angular velocities at a's vertices
-      Vector3 wAa = Vector3::cross(omegaA, TtA.a - rba->get_position())
-                  - Vector3::cross(omegaB, TtA.a - rbb->get_position());
-      Vector3 wAb = Vector3::cross(omegaA, TtA.b - rba->get_position())
-                  - Vector3::cross(omegaB, TtA.b - rbb->get_position());
-      Vector3 wAc = Vector3::cross(omegaA, TtA.c - rba->get_position())
-                  - Vector3::cross(omegaB, TtA.c - rbb->get_position());
+      Vector3d wAa = Vector3d::cross(omegaA, TtA.a - rba->get_position())
+                  - Vector3d::cross(omegaB, TtA.a - rbb->get_position());
+      Vector3d wAb = Vector3d::cross(omegaA, TtA.b - rba->get_position())
+                  - Vector3d::cross(omegaB, TtA.b - rbb->get_position());
+      Vector3d wAc = Vector3d::cross(omegaA, TtA.c - rba->get_position())
+                  - Vector3d::cross(omegaB, TtA.c - rbb->get_position());
 
       // determine angular velocities at b's vertices
-      Vector3 wBa = Vector3::cross(omegaA, TtB.a - rbb->get_position())
-                  - Vector3::cross(omegaB, TtB.a - rbb->get_position());
-      Vector3 wBb = Vector3::cross(omegaA, TtB.b - rbb->get_position());
-                  - Vector3::cross(omegaB, TtB.b - rbb->get_position());
-      Vector3 wBc = Vector3::cross(omegaA, TtB.c - rbb->get_position());
-                  - Vector3::cross(omegaB, TtB.c - rbb->get_position());
+      Vector3d wBa = Vector3d::cross(omegaA, TtB.a - rbb->get_position())
+                  - Vector3d::cross(omegaB, TtB.a - rbb->get_position());
+      Vector3d wBb = Vector3d::cross(omegaA, TtB.b - rbb->get_position());
+                  - Vector3d::cross(omegaB, TtB.b - rbb->get_position());
+      Vector3d wBc = Vector3d::cross(omegaA, TtB.c - rbb->get_position());
+                  - Vector3d::cross(omegaB, TtB.c - rbb->get_position());
 
       // determine point velocities at a's vertices
-      Vector3 pAadot = rlv + wAa; 
-      Vector3 pAbdot = rlv + wAb;
-      Vector3 pAcdot = rlv + wAc;
+      Vector3d pAadot = rlv + wAa; 
+      Vector3d pAbdot = rlv + wAb;
+      Vector3d pAcdot = rlv + wAc;
 
       // determine point velocities at b's vertices
-      Vector3 pBadot = rlv + wBa;
-      Vector3 pBbdot = rlv + wBb;
-      Vector3 pBcdot = rlv + wBc;
+      Vector3d pBadot = rlv + wBa;
+      Vector3d pBbdot = rlv + wBb;
+      Vector3d pBcdot = rlv + wBc;
 
       // determine mean velocity vectors for a
-      Vector3 pAabdot = (pAadot + pAbdot)*(Real) 0.5 * dt;
-      Vector3 pAacdot = (pAadot + pAcdot)*(Real) 0.5 * dt;
-      Vector3 pAbcdot = (pAbdot + pAcdot)*(Real) 0.5 * dt;
+      Vector3d pAabdot = (pAadot + pAbdot)*(double) 0.5 * dt;
+      Vector3d pAacdot = (pAadot + pAcdot)*(double) 0.5 * dt;
+      Vector3d pAbcdot = (pAbdot + pAcdot)*(double) 0.5 * dt;
 
       // determine mean velocity vectors for b
-      Vector3 pBabdot = (pBadot + pBbdot)*(Real) 0.5 * dt;
-      Vector3 pBacdot = (pBadot + pBcdot)*(Real) 0.5 * dt;
-      Vector3 pBbcdot = (pBbdot + pBcdot)*(Real) 0.5 * dt;
+      Vector3d pBabdot = (pBadot + pBbdot)*(double) 0.5 * dt;
+      Vector3d pBacdot = (pBadot + pBcdot)*(double) 0.5 * dt;
+      Vector3d pBbcdot = (pBbdot + pBcdot)*(double) 0.5 * dt;
 
       // calculate line segment triangle intersections
-      Real t;
-      Vector3 p1, p2;
+      double t;
+      Vector3d p1, p2;
 
       // calculate intersections between edge ab of A and triangle B
       t = calc_first_isect(TtB, LineSeg3(TtA.a, TtA.a + pAabdot), LineSeg3(TtA.b, TtA.b + pAabdot), p1, p2);
@@ -992,18 +1007,22 @@ void MeshDCD::determine_contacts_rigid(CollisionGeometryPtr a, CollisionGeometry
 */
 
 /// Creates a contact
-Event MeshDCD::create_contact(Real toi, CollisionGeometryPtr a, CollisionGeometryPtr b, const Vector3& p, const Vector3& pdot, const Triangle& t)
+Event MeshDCD::create_contact(double toi, CollisionGeometryPtr a, CollisionGeometryPtr b, const Point3d& p, const Vector3d& pdot, const Triangle& t)
 {
   Event e;
   e.event_type = Event::eContact;
+  e.t = toi;
   e.contact_geom1 = a;
   e.contact_geom2 = b;
-  e.contact_point = p;
+  e.contact_point = Pose3d::transform_point(GLOBAL, p);
   e.contact_normal = t.calc_normal();
 
   // see whether to reverse the normal
   if (pdot.dot(e.contact_normal) > 0)
     e.contact_normal = -e.contact_normal;
+
+  // transform the normal
+  e.contact_normal = Pose3d::transform_vector(GLOBAL, e.contact_normal);
 
   return e;
 }
@@ -1017,10 +1036,10 @@ Event MeshDCD::create_contact(Real toi, CollisionGeometryPtr a, CollisionGeometr
  * \param p2 the second point of intersection
  * \return the parameter of intersection
  */
-Real MeshDCD::calc_first_isect(const Triangle& t, const LineSeg3& s1, const LineSeg3& s2, Vector3& p1, Vector3& p2)
+double MeshDCD::calc_first_isect(const Triangle& t, const LineSeg3& s1, const LineSeg3& s2, Point3d& p1, Point3d& p2)
 {
   const unsigned TRI_VERTS = 3;
-  const Real INF = std::numeric_limits<Real>::max();
+  const double INF = std::numeric_limits<double>::max();
 
   FILE_LOG(LOG_COLDET) << "MeshDCD::calc_first_isect() entered" << endl;
   FILE_LOG(LOG_COLDET) << "  triangle: " << t << endl;
@@ -1028,20 +1047,20 @@ Real MeshDCD::calc_first_isect(const Triangle& t, const LineSeg3& s1, const Line
   FILE_LOG(LOG_COLDET) << "  seg 2: " << s2.first << ", " << s2.second << endl;
 
   // check for colinear segments
-  Vector3 a = s2.first - s1.first;
-  Vector3 b = s2.second - s2.first;
-  Vector3 ahat = Vector3::normalize(a);
-  Vector3 bhat = Vector3::normalize(b);
-  if (std::fabs(std::fabs(ahat.dot(bhat)) - (Real) 1.0) < std::sqrt(NEAR_ZERO)) 
+  Vector3d a = s2.first - s1.first;
+  Vector3d b = s2.second - s2.first;
+  Vector3d ahat = Vector3d::normalize(a);
+  Vector3d bhat = Vector3d::normalize(b);
+  if (std::fabs(std::fabs(ahat.dot(bhat)) - (double) 1.0) < std::sqrt(NEAR_ZERO)) 
   {
-    Real t1 = calc_first_isect(t, s1, p1);
-    Real t2 = calc_first_isect(t, s2, p2);
-    if (t1 < (Real) 0.0 || t1 > (Real) 1.0)
+    double t1 = calc_first_isect(t, s1, p1);
+    double t2 = calc_first_isect(t, s2, p2);
+    if (t1 < (double) 0.0 || t1 > (double) 1.0)
     {
       t1 = INF;
       p1 = p2;
     }
-    if (t2 < (Real) 0.0 || t2 > (Real) 1.0)
+    if (t2 < (double) 0.0 || t2 > (double) 1.0)
     {
       t2 = INF;
       p2 = p1;
@@ -1050,16 +1069,16 @@ Real MeshDCD::calc_first_isect(const Triangle& t, const LineSeg3& s1, const Line
   }
 
   // get the plane of the rectangle
-  Vector3 normal = Vector3::normalize(Vector3::cross(a, b));
-  Plane plane(normal, Vector3::dot(normal, s2.first));
+  Vector3d normal = Vector3d::normalize(Vector3d::cross(a, b));
+  Plane plane(normal, Vector3d::dot(normal, s2.first));
 
   // redetermine b to make it orthogonal to a and the normal
-  b = -Vector3::cross(a, normal);
+  b = -Vector3d::cross(a, normal);
 
   // compute the signed distance of the triangle vertices to the plane; use an
   // epsilon-thick plane test
   int pos = 0, neg = 0, zero = 0, sign[TRI_VERTS];
-  Real dist[TRI_VERTS];
+  double dist[TRI_VERTS];
   for (unsigned i=0; i< TRI_VERTS; i++)
   {
     dist[i] = plane.calc_signed_distance(t.get_vertex(i));
@@ -1096,8 +1115,8 @@ Real MeshDCD::calc_first_isect(const Triangle& t, const LineSeg3& s1, const Line
 
   FILE_LOG(LOG_COLDET) << "... triangle transversely intersects plane; doing rectangle intersection..." << endl;
 
-  Real tx;
-  Vector3 isect0, isect1;
+  double tx;
+  Point3d isect0, isect1;
   if (zero == 0)
   {
     // determine the single vertex on one side of the plane
@@ -1155,8 +1174,8 @@ Real MeshDCD::calc_first_isect(const Triangle& t, const LineSeg3& s1, const Line
   // at this point, triangle transversely intersects the rectangle plane;
   // compute the line segment of intersection between the triangle and the
   // plane.  Then test for intersection between this segment and the rectangle.
-  Real tx;
-  Vector3 isect0, isect1;
+  double tx;
+  Vector3d isect0, isect1;
   if (zero == 0)
   {
     // determine the single vertex on one side of the plane
@@ -1224,55 +1243,57 @@ Real MeshDCD::calc_first_isect(const Triangle& t, const LineSeg3& s1, const Line
  * \param isect2 the second point of intersection
  * \return the lowest line segment parameter t of intersection or INF if no intersection
  */
-Real MeshDCD::intersect_rect(const Vector3& normal, const Vector3& axis1, const Vector3& axis2, const LineSeg3& rs1, const LineSeg3& rs2, const LineSeg3& qs, Vector3& isect1, Vector3& isect2)
+double MeshDCD::intersect_rect(const Vector3d& normal, const Vector3d& axis1, const Vector3d& axis2, const LineSeg3& rs1, const LineSeg3& rs2, const LineSeg3& qs, Point3d& isect1, Point3d& isect2)
 {
   const unsigned X = 0, Y = 1, Z = 2;
-  const Real INF = std::numeric_limits<Real>::max();
+  const double INF = std::numeric_limits<double>::max();
 
-std::cout << "intersect rect!" << std::endl;
+  // get the pose of the frame verything should be in
+  shared_ptr<const Pose3d> P = normal.pose;
+
   // determine the length of the rectangle axes
-  Real l1 = axis1.norm();
-  Real l2 = axis2.norm();
+  double l1 = axis1.norm();
+  double l2 = axis2.norm();
 
   // get the direction of the two axes of the rectangle
-  Vector3 u1 = axis1/l1;
-  Vector3 u2 = axis2/l2;
+  Vector3d u1 = axis1/l1;
+  Vector3d u2 = axis2/l2;
 
   // half the axis lengths
-  l1 *= (Real) 0.5;
-  l2 *= (Real) 0.5;
+  l1 *= (double) 0.5;
+  l2 *= (double) 0.5;
 
   // determine the center of the rectangle
-  Vector3 center = rs1.first + axis1*(Real) 0.5 + axis2*(Real) 0.5;
+  Point3d center = rs1.first + axis1*(double) 0.5 + axis2*(double) 0.5;
 
   // determine the projection matrix to convert to box coordinates
-  Matrix3 R;
+  Matrix3d R;
   R.set_row(X, u1);
   R.set_row(Y, u2);
   R.set_row(Z, normal);
 
   // project the query segment to the rectangle coordinates
-  Vector3 q1 = R * (qs.first - center);
-  Vector3 q2 = R * (qs.second - center);
+  Point3d q1(R * Origin3d(qs.first - center), P);
+  Point3d q2(R * Origin3d(qs.second - center), P);
 
   // clip
-  Real mt0 = (Real) 0.0, mt1 = (Real) 1.0;
-  Real dx = q2[X] - q1[X];
-  Real dy = q2[Y] - q1[Y];
+  double mt0 = (double) 0.0, mt1 = (double) 1.0;
+  double dx = q2[X] - q1[X];
+  double dy = q2[Y] - q1[Y];
   
   // clip against left edge
-  Real mp = -dx, mq = -(-l1 - q1[X]);
-  Real mr = mq/mp;
-  if (std::fabs(mp) < NEAR_ZERO && mq < (Real) 0.0)
+  double mp = -dx, mq = -(-l1 - q1[X]);
+  double mr = mq/mp;
+  if (std::fabs(mp) < NEAR_ZERO && mq < (double) 0.0)
     return INF;
-  if (mp < (Real) 0.0)
+  if (mp < (double) 0.0)
   {
     if (mr > mt1)
       return INF;
     else if (mr > mt0)
       mt0 = mr;
   }
-  else if (mp > (Real) 0.0)
+  else if (mp > (double) 0.0)
   {
     if (mr < mt0)
       return INF;
@@ -1283,16 +1304,16 @@ std::cout << "intersect rect!" << std::endl;
   // clip against right edge
   mp = dx, mq = (l1 - q1[X]);
   mr = mq/mp;
-  if (std::fabs(mp) < NEAR_ZERO && mq < (Real) 0.0)
+  if (std::fabs(mp) < NEAR_ZERO && mq < (double) 0.0)
     return INF;
-  if (mp < (Real) 0.0)
+  if (mp < (double) 0.0)
   {
     if (mr > mt1)
       return INF;
     else if (mr > mt0)
       mt0 = mr;
   }
-  else if (mp > (Real) 0.0)
+  else if (mp > (double) 0.0)
   {
     if (mr < mt0)
       return INF;
@@ -1303,16 +1324,16 @@ std::cout << "intersect rect!" << std::endl;
   // clip against bottom edge
   mp = -dy, mq = -(-l2 - q1[Y]);
   mr = mq/mp;
-  if (std::fabs(mp) < NEAR_ZERO && mq < (Real) 0.0)
+  if (std::fabs(mp) < NEAR_ZERO && mq < (double) 0.0)
     return INF;
-  if (mp < (Real) 0.0)
+  if (mp < (double) 0.0)
   {
     if (mr > mt1)
       return INF;
     else if (mr > mt0)
       mt0 = mr;
   }
-  else if (mp > (Real) 0.0)
+  else if (mp > (double) 0.0)
   {
     if (mr < mt0)
       return INF;
@@ -1323,16 +1344,16 @@ std::cout << "intersect rect!" << std::endl;
   // clip against top edge
   mp = dy, mq = (l2 - q1[Y]);
   mr = mq/mp;
-  if (std::fabs(mp) < NEAR_ZERO && mq < (Real) 0.0)
+  if (std::fabs(mp) < NEAR_ZERO && mq < (double) 0.0)
     return INF;
-  if (mp < (Real) 0.0)
+  if (mp < (double) 0.0)
   {
     if (mr > mt1)
       return INF;
     else if (mr > mt0)
       mt0 = mr;
   }
-  else if (mp > (Real) 0.0)
+  else if (mp > (double) 0.0)
   {
     if (mr < mt0)
       return INF;
@@ -1341,35 +1362,35 @@ std::cout << "intersect rect!" << std::endl;
   }
 
   // determine new q1 and q2
-  Vector3 dxyz(dx, dy, (Real) 0.0);
+  Vector3d dxyz(dx, dy, (double) 0.0, P);
   q2 = q1 + dxyz*mt1;
   q1 += dxyz*mt0;
 
   // transform points back from box coordinates
-  isect1 = Matrix3::transpose(R)*q1 + center; 
-  isect2 = Matrix3::transpose(R)*q2 + center;
+  isect1 = Matrix3d::transpose(R)*Origin3d(q1) + center; 
+  isect2 = Matrix3d::transpose(R)*Origin3d(q2) + center;
 
   // determine intersection parameter
   // q1 + (q2 - q1)*t = z
   // (q1 - z)/(q2 - q1) = t
-  Real denom1 = (rs1.second - rs1.first).norm_sq();
-  Real denom2 = (rs2.second - rs2.first).norm_sq();
-  Real s1 = (rs1.first - isect1).norm_sq();
-  Real s2 = (rs1.first - isect2).norm_sq();
-  Real t1 = (rs2.first - isect1).norm_sq();
-  Real t2 = (rs2.first - isect2).norm_sq(); 
-  Real s = (s1 < s2) ? std::sqrt(s1/denom1) : std::sqrt(s2/denom1);
-  Real t = (t1 < t2) ? std::sqrt(t1/denom2) : std::sqrt(t2/denom2);
+  double denom1 = (rs1.second - rs1.first).norm_sq();
+  double denom2 = (rs2.second - rs2.first).norm_sq();
+  double s1 = (rs1.first - isect1).norm_sq();
+  double s2 = (rs1.first - isect2).norm_sq();
+  double t1 = (rs2.first - isect1).norm_sq();
+  double t2 = (rs2.first - isect2).norm_sq(); 
+  double s = (s1 < s2) ? std::sqrt(s1/denom1) : std::sqrt(s2/denom1);
+  double t = (t1 < t2) ? std::sqrt(t1/denom2) : std::sqrt(t2/denom2);
 
   // finally, determine the true t
-  if (s < (Real) 0.0)
+  if (s < (double) 0.0)
     s = INF;
-  if (t < (Real) 0.0)
+  if (t < (double) 0.0)
     t = INF;
   if (s > 1 || t > 1)
     return INF;
   t += s;
-  t *= (Real) 0.5;
+  t *= (double) 0.5;
 
   // now, determine the true intersection points
   isect1 = rs1.first + (rs1.second - rs1.first)*t;
@@ -1379,19 +1400,19 @@ std::cout << "intersect rect!" << std::endl;
 }
 
 /// Intersects two rectangles
-Real MeshDCD::intersect_rects(const Vector3& normal, const Vector3 r1[4], const Vector3 r2[4], Vector3& isect1, Vector3& isect2)
+double MeshDCD::intersect_rects(const Vector3d& normal, const Point3d r1[4], const Point3d r2[4], Point3d& isect1, Point3d& isect2)
 {
   const unsigned RECT_VERTS = 4;
-  const Real INF = std::numeric_limits<Real>::max();
+  const double INF = std::numeric_limits<double>::max();
 
   // determine the projection matrix from 3D to 2D 
-  Matrix3 R = CompGeom::calc_3D_to_2D_matrix(normal);
+  Matrix3d R = CompGeom::calc_3D_to_2D_matrix(normal);
 
   // determine the offset when converting from 2D back to 3D
-  Real offset = CompGeom::determine_3D_to_2D_offset(r1[0], R);
+  double offset = CompGeom::determine_3D_to_2D_offset(Origin3d(r1[0]), R);
 
   // convert r1 and r2 to 2D
-  Vector2 r1_2D[RECT_VERTS], r2_2D[RECT_VERTS];
+  Point2d r1_2D[RECT_VERTS], r2_2D[RECT_VERTS];
   for (unsigned i=0; i< RECT_VERTS; i++)
   {
     r1_2D[i] = CompGeom::to_2D(r1[i], R);
@@ -1399,8 +1420,8 @@ Real MeshDCD::intersect_rects(const Vector3& normal, const Vector3 r1[4], const 
   }
 
   // intersect the polygons -- determine the points of intersection
-  Vector2 isects[RECT_VERTS*2];
-  Vector2* iend = CompGeom::intersect_polygons(r1_2D, r1_2D+RECT_VERTS,
+  Point2d isects[RECT_VERTS*2];
+  Point2d* iend = CompGeom::intersect_polygons(r1_2D, r1_2D+RECT_VERTS,
                                                r2_2D, r2_2D+RECT_VERTS,
                                                isects);
 
@@ -1410,23 +1431,23 @@ Real MeshDCD::intersect_rects(const Vector3& normal, const Vector3 r1[4], const 
     return INF;
 
   // project the points of intersection back to 3D
-  Vector3 isects_3D[RECT_VERTS*2];
+  Point3d isects_3D[RECT_VERTS*2];
   for (unsigned i=0; i< nisects; i++)
-    isects_3D[i] = CompGeom::to_3D(isects[i], Matrix3::transpose(R), offset);
+    isects_3D[i] = CompGeom::to_3D(Origin2d(isects[i]), Matrix3d::transpose(R), offset);
 
   // determine the first times of intersection
   // r1[1]+(r1[2]-r1[1])*t = p
   // r1[0]+(r1[3]-r1[0])*t = p
-  Real t[RECT_VERTS*2];
+  double t[RECT_VERTS*2];
   for (unsigned i=0; i< nisects; i++)
   {
     t[i] = (isects_3D[i] - r1[1]).norm()/(r1[2]-r1[1]).norm();
     t[i] += (isects_3D[i] - r1[0]).norm()/(r1[3]-r1[0]).norm();
-    t[i] *= (Real) 0.5;
+    t[i] *= (double) 0.5;
   }
 
   // get minimum t
-  Real mint = *std::min_element(t, t+nisects);
+  double mint = *std::min_element(t, t+nisects);
 
   // determine points of intersection
   isect1 = r1[1] + (r1[2] - r1[1])*mint;
@@ -1436,21 +1457,21 @@ Real MeshDCD::intersect_rects(const Vector3& normal, const Vector3 r1[4], const 
 }
 
 /// Calculates the first point of intersection between a line segment and a triangle
-Real MeshDCD::calc_first_isect(const Triangle& t, const LineSeg3& seg, Vector3& p)
+double MeshDCD::calc_first_isect(const Triangle& t, const LineSeg3& seg, Point3d& p)
 {
-  const Real INF = std::numeric_limits<Real>::max();
+  const double INF = std::numeric_limits<double>::max();
 
   // setup the thick triangle
   ThickTriangle ttri(t, isect_tolerance);
 
-  Real tnear;
+  double tnear;
   bool success = ttri.intersect_seg(seg, tnear, p);
   if (!success)
     return INF;
   else
     return tnear;
 /*
-  Vector3 p1, p2;
+  Vector3d p1, p2;
 
   FILE_LOG(LOG_COLDET) << "     segment: " << seg.first << " / " << seg.second << endl;
 
@@ -1463,7 +1484,7 @@ Real MeshDCD::calc_first_isect(const Triangle& t, const LineSeg3& seg, Vector3& 
   }
   catch (NumericalException e)
   {
-    return std::numeric_limits<Real>::max();
+    return std::numeric_limits<double>::max();
   }
 
   // look for cases we care about
@@ -1474,8 +1495,8 @@ Real MeshDCD::calc_first_isect(const Triangle& t, const LineSeg3& seg, Vector3& 
   }
   else if (isect == CompGeom::eSegTriInside || isect == CompGeom::eSegTriPlanarIntersect)
   {
-    Real t1 = calc_param(seg, p1);
-    Real t2 = calc_param(seg, p2);
+    double t1 = calc_param(seg, p1);
+    double t2 = calc_param(seg, p2);
     if (t1 < t2)
     {
       p = p1;
@@ -1489,7 +1510,7 @@ Real MeshDCD::calc_first_isect(const Triangle& t, const LineSeg3& seg, Vector3& 
   }
 
   // still here?  no intersection
-  return std::numeric_limits<Real>::max();
+  return std::numeric_limits<double>::max();
 */
 }
 
@@ -1497,7 +1518,7 @@ Real MeshDCD::calc_first_isect(const Triangle& t, const LineSeg3& seg, Vector3& 
 /**
  * p = seg.first + (seg.second-seg.first)*t
  */
-Real MeshDCD::calc_param(const LineSeg3& seg, const Vector3& p)
+double MeshDCD::calc_param(const LineSeg3& seg, const Point3d& p)
 {
   // t = (p - seg.first)/(seg.second - seg.first) 
   return (p - seg.first).norm() / (seg.second - seg.first).norm();
@@ -1537,7 +1558,7 @@ bool MeshDCD::is_collision(CollisionGeometryPtr cg)
         continue;
 
       // check triangle intersection
-      if (CompGeom::query_intersect_tri_tri(tarray.get_triangle(i), tarray.get_triangle(j)))
+      if (CompGeom::query_intersect_tri_tri(tarray.get_triangle(i, GLOBAL), tarray.get_triangle(j, GLOBAL)))
         return true;
     }
   } 
@@ -1552,25 +1573,21 @@ bool MeshDCD::is_collision(CollisionGeometryPtr a, CollisionGeometryPtr b)
   PrimitivePtr a_primitive = a->get_geometry();
 
   // get the transform and the inverse transform for this geometry
-  const Matrix4& wTa = a->get_transform();
-  Matrix4 aTw = Matrix4::inverse_transform(wTa);
+  Transform3d aTb = Pose3d::calc_relative_pose(b->get_pose(), a->get_pose());
 
   // get the second primitive 
   PrimitivePtr b_primitive = b->get_geometry();
 
   // get the two BV trees
-  BVPtr bva = a_primitive->get_BVH_root();
-  BVPtr bvb = b_primitive->get_BVH_root();
-
-  // get the transform for b and its inverse
-  const Matrix4& wTb = b->get_transform(); 
+  BVPtr bva = a_primitive->get_BVH_root(a);
+  BVPtr bvb = b_primitive->get_BVH_root(b);
 
   // if intersects, add to colliding pairs
-  return intersect_BV_trees(bva, bvb, aTw * wTb, a, b);
+  return intersect_BV_trees(bva, bvb, aTb, a, b);
 }
 
 /// Implements Base::load_from_xml()
-void MeshDCD::load_from_xml(XMLTreeConstPtr node, map<std::string, BasePtr>& id_map)
+void MeshDCD::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, BasePtr>& id_map)
 {
   map<std::string, BasePtr>::const_iterator id_iter;
 
@@ -1581,7 +1598,7 @@ void MeshDCD::load_from_xml(XMLTreeConstPtr node, map<std::string, BasePtr>& id_
   CollisionDetection::load_from_xml(node, id_map);
 
   // get the nu tolerance, if specified
-  const XMLAttrib* nu_attr = node->get_attrib("eps-tolerance");
+  XMLAttrib* nu_attr = node->get_attrib("eps-tolerance");
   if (nu_attr)
     this->eps_tolerance = nu_attr->get_real_value();
 }
@@ -1591,7 +1608,7 @@ void MeshDCD::load_from_xml(XMLTreeConstPtr node, map<std::string, BasePtr>& id_
  * \note neither the contact cache nor the pairs currently in collision are 
  *       saved
  */
-void MeshDCD::save_to_xml(XMLTreePtr node, list<BaseConstPtr>& shared_objects) const
+void MeshDCD::save_to_xml(XMLTreePtr node, list<shared_ptr<const Base> >& shared_objects) const
 {
   // call parent save_to_xml() method first
   CollisionDetection::save_to_xml(node, shared_objects);
@@ -1661,7 +1678,7 @@ void MeshDCD::broad_phase(vector<pair<CollisionGeometryPtr, CollisionGeometryPtr
 /**
  * \note the epsilon parameter is ignored
  */
-bool MeshDCD::is_collision(Real epsilon)
+bool MeshDCD::is_collision(double epsilon)
 {
   // clear the set of colliding pairs and list of colliding triangles
   colliding_pairs.clear();
@@ -1673,10 +1690,6 @@ bool MeshDCD::is_collision(Real epsilon)
     // get the first geometry and its primitive 
     CollisionGeometryPtr g1 = *i;
     PrimitivePtr g1_primitive = g1->get_geometry();
-
-    // get the transform and the inverse transform for this geometry
-    const Matrix4& wTg1 = g1->get_transform();
-    Matrix4 g1Tw = Matrix4::inverse_transform(wTg1);
 
     // loop through all other geometries
     std::set<CollisionGeometryPtr>::const_iterator j = i;
@@ -1692,14 +1705,14 @@ bool MeshDCD::is_collision(Real epsilon)
         continue; 
 
       // get the two BV trees
-      BVPtr bv1 = g1_primitive->get_BVH_root();
-      BVPtr bv2 = g2_primitive->get_BVH_root();
+      BVPtr bv1 = g1_primitive->get_BVH_root(g1);
+      BVPtr bv2 = g2_primitive->get_BVH_root(g2);
 
-      // get the transform for g2 and its inverse
-      const Matrix4& wTg2 = g2->get_transform(); 
+      // compute the relative transform
+      Transform3d g1Tg2 = Pose3d::calc_relative_pose(g2->get_pose(), g1->get_pose());
 
       // if intersects, add to colliding pairs
-      if (intersect_BV_trees(bv1, bv2, g1Tw * wTg2, g1, g2))
+      if (intersect_BV_trees(bv1, bv2, g1Tg2, g1, g2))
         colliding_pairs.insert(make_sorted_pair(g1, g2));
     } 
   }
@@ -1708,7 +1721,7 @@ bool MeshDCD::is_collision(Real epsilon)
 }
 
 /// Intersects two BV trees; returns <b>true</b> if one (or more) pair of the underlying triangles intersects
-bool MeshDCD::intersect_BV_trees(BVPtr a, BVPtr b, const Matrix4& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b) 
+bool MeshDCD::intersect_BV_trees(BVPtr a, BVPtr b, const Transform3d& gaTgb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b) 
 {
   std::queue<tuple<BVPtr, BVPtr, bool> > q;
 
@@ -1718,7 +1731,7 @@ bool MeshDCD::intersect_BV_trees(BVPtr a, BVPtr b, const Matrix4& aTb, Collision
   FILE_LOG(LOG_COLDET) << "MeshDCD::intersect_BV_trees() entered" << endl;
 
   // intersect the BVs at the top level
-  if (!BV::intersects(a, b, aTb))
+  if (!BV::intersects(a, b, gaTgb))
   {
     FILE_LOG(LOG_COLDET) << "  no intersection at top-level BVs" << endl;
     FILE_LOG(LOG_COLDET) << "MeshDCD::intersect_BV_trees() exited" << endl;
@@ -1743,10 +1756,7 @@ bool MeshDCD::intersect_BV_trees(BVPtr a, BVPtr b, const Matrix4& aTb, Collision
     // check for bv1 and bv2 both leafs
     if (bv1->is_leaf() && bv2->is_leaf())
     {
-      if (!rev)
-        intersect_BV_leafs(bv1, bv2, aTb, geom_a, geom_b, std::back_inserter(colliding_tris));
-      else
-        intersect_BV_leafs(bv2, bv1, aTb, geom_a, geom_b, std::back_inserter(colliding_tris));
+      intersect_BV_leafs(bv1, bv2, gaTgb, geom_a, geom_b, std::back_inserter(colliding_tris));
 
       // see whether we want to exit early
       if (mode == eFirstContact && !colliding_tris.empty() && last != &colliding_tris.back())
@@ -1758,15 +1768,45 @@ bool MeshDCD::intersect_BV_trees(BVPtr a, BVPtr b, const Matrix4& aTb, Collision
     {
       // check the children of o1
       BOOST_FOREACH(BVPtr child, bv1->children)
-        if ((!rev && BV::intersects(child, bv2, aTb)) || (rev && BV::intersects(bv2, child, aTb)))
-          q.push(make_tuple(child, bv2, rev));
+      {
+        // check for intersection
+        if (BV::intersects(child, bv2, gaTgb))
+          q.push(make_tuple(child, bv2, !rev));
+      }
     }
     else
-      BOOST_FOREACH(BVPtr child, bv2->children)
+    {
+      // drill down through bv1, if possible
+      if (bv1->is_leaf())
       {
-        if ((!rev && BV::intersects(bv1, child, aTb)) || (rev && BV::intersects(child, bv1, aTb)))
-          q.push(make_tuple(child, bv1, !rev));
+        // check the children of bv2 
+        BOOST_FOREACH(BVPtr child, bv2->children)
+        {
+          if (BV::intersects(bv1, child, gaTgb))
+            q.push(make_tuple(bv1, child, !rev));
+        }
       }
+      else // neither bv1 nor bv2 are leafs, now we use rev
+      {
+        if (rev) // go down a's side
+        {
+          BOOST_FOREACH(BVPtr child, bv1->children)
+          {
+            if (BV::intersects(child, bv2, gaTgb))
+              q.push(make_tuple(child, bv2, !rev));
+          }
+        }
+        else  // go down b's side
+        {
+          // check the children of bv2 
+          BOOST_FOREACH(BVPtr child, bv2->children)
+          {
+            if (BV::intersects(bv1, child, gaTgb))
+              q.push(make_tuple(bv1, child, !rev));
+          }
+        }
+      }
+    }
   }
 
   // see whether we have an intersection

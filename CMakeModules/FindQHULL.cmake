@@ -9,15 +9,14 @@
 
 find_path(
   QHULL_INCLUDE_DIR
-    qhull/qhull_a.h
-  /usr/local/include
-  /usr/include
+  qhull/qhull_a.h libqhull/qhull_a.h
+  PATHS /usr/local/include /usr/include
 )
 
 if( QHULL_INCLUDE_DIR )
   find_library(
     QHULL_LIBRARY
-    NAMES qhull
+    NAMES libqhullstatic libqhull qhullstatic qhull 
     PATHS /usr/local/lib /usr/lib
   )
   if( QHULL_LIBRARY )
@@ -28,6 +27,8 @@ if( QHULL_INCLUDE_DIR )
     set(QHULL_INCLUDE_DIRS ${QHULL_INCLUDE_DIR})
     set(QHULL_LIBRARIES ${QHULL_LIBRARY})
   endif(QHULL_LIBRARY)
+else(QHULL_INCLUDE_DIR)
+  message(FATAL_ERROR "FindQHull: Could not find qhull_a.h")
 endif(QHULL_INCLUDE_DIR)
 	    
 if(QHULL_FOUND)

@@ -11,12 +11,15 @@
 #include <osg/ShapeDrawable>
 #endif
 #include <Moby/Constants.h>
+#include <Moby/CollisionGeometry.h>
 #include <Moby/CompGeom.h>
 #include <Moby/XMLTree.h>
 #include <Moby/OBB.h>
 #include <Moby/ConePrimitive.h>
 
+using namespace Ravelin;
 using namespace Moby;
+using std::map;
 using std::pair;
 using boost::shared_ptr;
 using std::list;
@@ -33,11 +36,11 @@ ConePrimitive::ConePrimitive()
 }
 
 /// Constructs a cone along the y-axis with specified radius and height, centered at the origin, with 1 ring and 10 circle points 
-ConePrimitive::ConePrimitive(Real radius, Real height)
+ConePrimitive::ConePrimitive(double radius, double height)
 {
-  if (height < (Real) 0.0)
+  if (height < (double) 0.0)
     throw std::runtime_error("Attempting to set negative height in ConePrimitive (constructor)");
-  if (radius < (Real) 0.0)
+  if (radius < (double) 0.0)
     throw std::runtime_error("Attempting to set negative radius in ConePrimitive (constructor)");
 
   _radius = radius;
@@ -48,11 +51,11 @@ ConePrimitive::ConePrimitive(Real radius, Real height)
 }
 
 /// Constructs a cone along the y-axis with specified radius and height, centered at the origin, with 1 ring and 10 circle points 
-ConePrimitive::ConePrimitive(Real radius, Real height, const Matrix4& T) : Primitive(T)
+ConePrimitive::ConePrimitive(double radius, double height, const Pose3d& T) : Primitive(T)
 {
-  if (height < (Real) 0.0)
+  if (height < (double) 0.0)
     throw std::runtime_error("Attempting to set negative height in ConePrimitive (constructor)");
-  if (radius < (Real) 0.0)
+  if (radius < (double) 0.0)
     throw std::runtime_error("Attempting to set negative radius in ConePrimitive (constructor)");
 
   _radius = radius;
@@ -63,11 +66,11 @@ ConePrimitive::ConePrimitive(Real radius, Real height, const Matrix4& T) : Primi
 }
 
 /// Constructs a cone along the y-axis and centered at the origin with specified, radius, height, points and rings
-ConePrimitive::ConePrimitive(Real radius, Real height, unsigned npoints, unsigned nrings, const Matrix4& T) : Primitive(T)
+ConePrimitive::ConePrimitive(double radius, double height, unsigned npoints, unsigned nrings, const Pose3d& T) : Primitive(T)
 {
-  if (height < (Real) 0.0)
+  if (height < (double) 0.0)
     throw std::runtime_error("Attempting to set negative height in ConePrimitive (constructor)");
-  if (radius < (Real) 0.0)
+  if (radius < (double) 0.0)
     throw std::runtime_error("Attempting to set negative radius in ConePrimitive (constructor)");
   if (npoints < 3)
     throw std::runtime_error("Attempting to set number of circle points < 3 in ConePrimitive (constructor)");
@@ -82,15 +85,17 @@ ConePrimitive::ConePrimitive(Real radius, Real height, unsigned npoints, unsigne
 }
 
 /// Sets the radius for this cone
-void ConePrimitive::set_radius(Real radius)
+void ConePrimitive::set_radius(double radius)
 {
+  const unsigned X = 0, Y = 1, Z = 2;
+
   _radius = radius;
   if (_radius < 0.0)
     throw std::runtime_error("Attempting to pass negative radius to ConePrimitive::set_radius()");
 
   // mesh, vertices are no longer valid
   _mesh = shared_ptr<IndexedTriArray>();
-  _vertices = shared_ptr<vector<Vector3> >();
+  _vertices.clear();
   _smesh = pair<shared_ptr<IndexedTriArray>, list<unsigned> >();
   _invalidated = true;
 
@@ -99,27 +104,49 @@ void ConePrimitive::set_radius(Real radius)
 
   // need to update visualization
   update_visualization();
+
+  // set lengths on each OBB
+  for (map<CollisionGeometryPtr, OBBPtr>::iterator i = _obbs.begin(); i != _obbs.end(); i++)
+  {
+    // setup OBB half-lengths
+    i->second->l[X] = _radius + _intersection_tolerance;
+    i->second->l[Y] = _height*0.5 + _intersection_tolerance;
+    i->second->l[Z] = _radius + _intersection_tolerance;
+  }
 }
 
 /// Sets the intersection tolerance
-void ConePrimitive::set_intersection_tolerance(Real tol)
+void ConePrimitive::set_intersection_tolerance(double tol)
 {
+  const unsigned X = 0, Y = 1, Z = 2;
+
   Primitive::set_intersection_tolerance(tol);
 
   // vertices are no longer valid
-  _vertices = shared_ptr<vector<Vector3> >();
+  _vertices.clear();
+
+  // set lengths on each OBB
+  for (map<CollisionGeometryPtr, OBBPtr>::iterator i = _obbs.begin(); i != _obbs.end(); i++)
+  {
+    // setup OBB half-lengths
+    i->second->l[X] = _radius + _intersection_tolerance;
+    i->second->l[Y] = _height*0.5 + _intersection_tolerance;
+    i->second->l[Z] = _radius + _intersection_tolerance;
+  }
 }
 
 /// Sets the height for this cone
-void ConePrimitive::set_height(Real height)
+void ConePrimitive::set_height(double height)
 {
+  const unsigned X = 0, Y = 1, Z = 2;
+
   _height = height;
   if (_height < 0.0)
     throw std::runtime_error("Attempting to pass negative height to ConePrimitive::set_height()");
 
   // mesh, vertices are no longer valid
   _mesh = shared_ptr<IndexedTriArray>();
-  _vertices = shared_ptr<vector<Vector3> >();
+  _vertices.clear();
   _smesh = pair<shared_ptr<IndexedTriArray>, list<unsigned> >();
   _invalidated = true;
 
@@ -128,6 +155,15 @@ void ConePrimitive::set_height(Real height)
 
   // need to update visualization
   update_visualization();
+
+  // set lengths on each OBB
+  for (map<CollisionGeometryPtr, OBBPtr>::iterator i = _obbs.begin(); i != _obbs.end(); i++)
+  {
+    // setup OBB half-lengths
+    i->second->l[X] = _radius + _intersection_tolerance;
+    i->second->l[Y] = _height*0.5 + _intersection_tolerance;
+    i->second->l[Z] = _radius + _intersection_tolerance;
+  }
 }
 
 /// Sets the number of points in the rings of the cone 
@@ -138,7 +174,7 @@ void ConePrimitive::set_circle_points(unsigned n)
     throw std::runtime_error("Too few points to represent a circle in ConePrimitive::set_circle_points()");
 
   // vertices are no longer valid
-  _vertices = shared_ptr<vector<Vector3> >();
+  _vertices.clear();
   _invalidated = true;
 }
 
@@ -150,36 +186,50 @@ void ConePrimitive::set_num_rings(unsigned n)
     throw std::runtime_error("Too few rings in ConePrimitive::set_num_rings()");
 
   // vertices are no longer valid
-  _vertices = shared_ptr<vector<Vector3> >();
+  _vertices.clear();
   _invalidated = true;
 }
 
 /// Transforms the primitive
-void ConePrimitive::set_transform(const Matrix4& T)
+void ConePrimitive::set_pose(const Pose3d& p)
 {
-  // determine the transformation from the old to the new transform 
-  Matrix4 Trel = T * Matrix4::inverse_transform(_T);
+  // convert p to a shared pointer
+  shared_ptr<Pose3d> x(new Pose3d(p));
+
+  // determine the transformation from the old pose to the new one 
+  Transform3d T = Pose3d::calc_relative_pose(_F, x);
 
   // go ahead and set the new transform
-  Primitive::set_transform(T);
+  Primitive::set_pose(p);
 
-  // transform mesh
-  if (_mesh)
-  {
-    _mesh = shared_ptr<IndexedTriArray>(new IndexedTriArray(_mesh->transform(Trel)));
-    _smesh.first = _mesh;
-  }
+  // invalidate mesh and vertices 
+  _mesh.reset();
+  _smesh.first.reset();
+  _smesh.second.clear();
 
   // transform vertices
-  if (_vertices)
-    for (unsigned i=0; i< _vertices->size(); i++)
-      (*_vertices)[i] = Trel.mult_point((*_vertices)[i]);
+  _vertices.clear();
 
   // indicate that this primitive has become invalidated
   _invalidated = true;
 
   // recalculate the mass properties
   calc_mass_properties();
+
+  // transform bounding volumes
+  for (map<CollisionGeometryPtr, OBBPtr>::iterator i = _obbs.begin(); i != _obbs.end(); i++)
+  {
+    // get the pose for the geometry
+    shared_ptr<const Pose3d> gpose = i->first->get_pose();
+
+    // get the pose for this geometry
+    shared_ptr<const Pose3d> P = get_pose(); 
+    assert(!P->rpose);
+
+    // setup the obb center and orientation
+    i->second->center = Point3d(P->x, gpose);
+    i->second->R = P->q;
+  }
 }
 
 /// Gets the triangle mesh for the cone, computing it if necessary
@@ -188,8 +238,8 @@ shared_ptr<const IndexedTriArray> ConePrimitive::get_mesh()
   // compute the mesh if necessary
   if (!_mesh)
   {
-    const Real R = _radius;
-    const Real HH = _height * (Real) 0.5;
+    const double R = _radius;
+    const double HH = _height * (double) 0.5;
 
     // if radius or height = 0, # of rings < 1 or circle points < 3, return now
     if (_radius <= 0.0 || _height <= 0.0 || _nrings < 1 || _npoints < 3)
@@ -199,27 +249,30 @@ shared_ptr<const IndexedTriArray> ConePrimitive::get_mesh()
       return _mesh;
     }
 
-    // get the current transform
-    const Matrix4& T = get_transform();
+    // prepare to transform to the global frame 
+    shared_ptr<const Pose3d> GLOBAL;
+    shared_ptr<const Pose3d> P = get_pose();
+    Transform3d T = Pose3d::calc_relative_pose(P, GLOBAL);
 
     // determine the vertices in the mesh
-    list<Vector3> points; 
+    // NOTE: we wish for points to be defined in the GLOBAL frame
+    list<Point3d> points; 
     for (unsigned i=0; i< _npoints; i++)
     {
-      const Real THETA = i * (M_PI * (Real) 2.0/_npoints);
-      const Real CT = std::cos(THETA);
-      const Real ST = std::sin(THETA);
-      points.push_back(T.mult_point(Vector3(CT*R, -HH, ST*R)));
+      const double THETA = i * (M_PI * (double) 2.0/_npoints);
+      const double CT = std::cos(THETA);
+      const double ST = std::sin(THETA);
+      points.push_back(T.transform_point(Point3d(CT*R, -HH, ST*R, P)));
     }
 
     // create one more vertex for the tip of the cone
-    points.push_back(T.mult_point(Vector3(0.0, HH, 0.0)));
+    points.push_back(T.transform_point(Point3d(0.0, HH, 0.0)));
 
     // compute the convex hull
     PolyhedronPtr hull = CompGeom::calc_convex_hull(points.begin(), points.end());
 
     // set the mesh
-    const std::vector<Vector3>& v = hull->get_vertices();
+    const std::vector<Origin3d>& v = hull->get_vertices();
     const std::vector<IndexedTri>& f = hull->get_facets();
     _mesh = boost::shared_ptr<IndexedTriArray>(new IndexedTriArray(v.begin(), v.end(), f.begin(), f.end()));
 
@@ -249,7 +302,7 @@ osg::Node* ConePrimitive::create_visualization()
 }
 
 /// Implements Base::load_from_xml() for serialization
-void ConePrimitive::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void ConePrimitive::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // verify that the node type is cone
   assert(strcasecmp(node->name.c_str(), "Cone") == 0);
@@ -258,22 +311,22 @@ void ConePrimitive::load_from_xml(XMLTreeConstPtr node, std::map<std::string, Ba
   Primitive::load_from_xml(node, id_map);
 
   // read in the radius, if specified
-  const XMLAttrib* radius_attr = node->get_attrib("radius");
+  XMLAttrib* radius_attr = node->get_attrib("radius");
   if (radius_attr)
     _radius = radius_attr->get_real_value();
 
   // read in the height, if specified
-  const XMLAttrib* height_attr = node->get_attrib("height");
+  XMLAttrib* height_attr = node->get_attrib("height");
   if (height_attr)
     _height = height_attr->get_real_value();
 
   // read in the number of circle points, if specified
-  const XMLAttrib* npoints_attr = node->get_attrib("num-circle-points");
+  XMLAttrib* npoints_attr = node->get_attrib("num-circle-points");
   if (npoints_attr)
     _npoints = npoints_attr->get_unsigned_value();
 
   // read in the number of rings of the cylinder, if specified
-  const XMLAttrib* nrings_attr = node->get_attrib("num-rings");
+  XMLAttrib* nrings_attr = node->get_attrib("num-rings");
   if (nrings_attr)
     _nrings = nrings_attr->get_unsigned_value();
 
@@ -282,7 +335,7 @@ void ConePrimitive::load_from_xml(XMLTreeConstPtr node, std::map<std::string, Ba
 }
 
 /// Implements Base::save_to_xml() for serialization
-void ConePrimitive::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
+void ConePrimitive::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& shared_objects) const
 {
   // save the parent data
   Primitive::save_to_xml(node, shared_objects);
@@ -307,38 +360,38 @@ void ConePrimitive::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared
 void ConePrimitive::calc_mass_properties()
 {
   // get the current transform
-  const Matrix4& T = get_transform();
+  shared_ptr<const Pose3d> T = get_pose();
 
   // determine the radius squared (we'll need this) 
-  const Real RSQ = _radius * _radius;
+  const double RSQ = _radius * _radius;
 
   // compute the mass if density is given
   if (_density)
   {
-    const Real volume = 1.0/3.0 * M_PI * RSQ * _height;
-    _mass = *_density * volume;
+    const double volume = 1.0/3.0 * M_PI * RSQ * _height;
+    _J.m = *_density * volume;
   }
 
   // compute the non-longitudinal elements
-  const Real HSQ = _height * _height;
-  const Real NL_ELM = 0.1 * _mass * HSQ + (3.0/20.0) * _mass * RSQ;
-  const Real LONG_ELM = (1.0/3.0) * _mass * RSQ;
+  const double HSQ = _height * _height;
+  const double NL_ELM = 0.1 * _J.m * HSQ + (3.0/20.0) * _J.m * RSQ;
+  const double LONG_ELM = (1.0/3.0) * _J.m * RSQ;
 
   // compute the inertia matrix
-  Matrix3 J(NL_ELM, 0, 0, 0, LONG_ELM, 0, 0, 0, NL_ELM);
-
-  // transform the inertia matrix using the current transform
-  transform_inertia(_mass, J, ZEROS_3, T, _J, _com);
+  _J.J = Matrix3d(NL_ELM, 0, 0, 0, LONG_ELM, 0, 0, 0, NL_ELM);
 }
 
 /// Gets vertices from the primitive
-void ConePrimitive::get_vertices(BVPtr bv, std::vector<const Vector3*>& vertices)
+void ConePrimitive::get_vertices(BVPtr bv, std::vector<const Point3d*>& vertices)
 {
+  // get the vertices for the geometry
+  vector<Point3d>& verts = _vertices[bv->geom];
+
   // create the vector of vertices if necessary
-  if (!_vertices)
+  if (verts.empty())
   {
     // setup constant for the expanded radius
-    const Real H = _height + (_intersection_tolerance * (Real) 2.0);
+    const double H = _height;
 
     // if the radius, height, or rings = 0 or circle points < 3, return now
     if (_radius == 0.0 || _height == 0.0 || _nrings == 0 || _npoints < 3)
@@ -347,34 +400,42 @@ void ConePrimitive::get_vertices(BVPtr bv, std::vector<const Vector3*>& vertices
       return; 
     }
 
-    // get the current transform for the primitive
-    const Matrix4& T = get_transform();
+    // get the pose for the geometry
+    shared_ptr<const Pose3d> gpose = bv->geom->get_pose();
 
-    // create the vector of vertices
-    _vertices = shared_ptr<vector<Vector3> >(new vector<Vector3>());
+    // get the pose for this geometry
+    shared_ptr<const Pose3d> P = get_pose(); 
+    assert(!P->rpose);
+
+    // setup transform
+    Transform3d T;
+    T.source = gpose;
+    T.target = gpose;
+    T.x = P->x;
+    T.q = P->q;
 
     // create vertices
     for (unsigned j=0; j< _nrings; j++)
     {
-      const Real HEIGHT = -(H * (Real) 0.5) + (j*H)/_nrings;
-      const Real R = (_radius + _intersection_tolerance) * (Real) (_nrings - j)/_nrings;
+      const double HEIGHT = -(H * (double) 0.5) + (j*H)/_nrings;
+      const double R = _radius * (double) (_nrings - j)/_nrings;
       for (unsigned i=0; i< _npoints; i++)
       {
-        const Real THETA = i*(M_PI * (Real) 2.0/_npoints);
-        const Real CT = std::cos(THETA);
-        const Real ST = std::sin(THETA);
-        _vertices->push_back(T.mult_point(Vector3(CT*R, HEIGHT, ST*R)));
+        const double THETA = i*(M_PI * (double) 2.0/_npoints);
+        const double CT = std::cos(THETA);
+        const double ST = std::sin(THETA);
+        verts.push_back(T.transform_point(Point3d(CT*R, HEIGHT, ST*R, gpose)));
       }
     }
 
     // create one more vertex for the tip of the cone
-    _vertices->push_back(T.mult_point(Vector3(0.0, H * (Real) 0.5, 0.0)));
+    verts.push_back(T.transform_point(Point3d(0.0, H * (double) 0.5, 0.0, gpose)));
   }
 
   // copy the addresses of the computed vertices into 'vertices' 
-  vertices.resize(_vertices->size());
-  for (unsigned i=0; i< _vertices->size(); i++)
-    vertices[i] = &(*_vertices)[i];
+  vertices.resize(verts.size());
+  for (unsigned i=0; i< verts.size(); i++)
+    vertices[i] = &verts[i];
 }
 
 /// Gets a sub-mesh for the primitive
@@ -386,73 +447,92 @@ const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >&
 }
 
 /// Gets the OBB
-BVPtr ConePrimitive::get_BVH_root()
+BVPtr ConePrimitive::get_BVH_root(CollisionGeometryPtr geom)
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
   // cone not applicable for deformable bodies 
   if (is_deformable())
-    throw std::runtime_error("ConePrimitive::get_BVH_root() - primitive unusable for deformable bodies!");
+    throw std::runtime_error("ConePrimitive::get_BVH_root(CollisionGeometryPtr geom) - primitive unusable for deformable bodies!");
 
-  // create the OBB if necessary
-  if (!_obb)
-    _obb = shared_ptr<OBB>(new OBB);
+  // get the pointer to the bounding box
+  OBBPtr& obb = _obbs[geom];
 
-  // setup the center of the OBB 
-  _obb->center = get_transform().get_translation();
-  
-  // setup the orientation of the OBB
-  _obb->R(X,X) = get_transform()(X,X);
-  _obb->R(X,Y) = get_transform()(X,Y);
-  _obb->R(X,Z) = get_transform()(X,Z);
-  _obb->R(Y,X) = get_transform()(Y,X);
-  _obb->R(Y,Y) = get_transform()(Y,Y);
-  _obb->R(Y,Z) = get_transform()(Y,Z);
-  _obb->R(Z,X) = get_transform()(Z,X);
-  _obb->R(Z,Y) = get_transform()(Z,Y);
-  _obb->R(Z,Z) = get_transform()(Z,Z);
+  // create the bounding box, if necessary
+  if (!obb)
+  {
+    // create the bounding box
+    obb = shared_ptr<OBB>(new OBB);
+    obb->geom = geom;
 
-  // must orthonormalize OBB orientation, b/c T may have scaling applied
-  _obb->R.orthonormalize();
+    // get the pose for the geometry
+    shared_ptr<const Pose3d> gpose = geom->get_pose();
 
-  // cone nominally points upward
-  _obb->l[X] = _radius;
-  _obb->l[Y] = _height*0.5;
-  _obb->l[Z] = _radius;
+    // get the pose for this geometry
+    shared_ptr<const Pose3d> P = get_pose(); 
+    assert(!P->rpose);
 
-  return _obb;
+    // setup the obb center and orientation
+    obb->center = Point3d(P->x, gpose);
+    obb->R = P->q;
+
+    // setup OBB half-lengths
+    obb->l[X] = _radius + _intersection_tolerance;
+    obb->l[Y] = _height*0.5 + _intersection_tolerance;
+    obb->l[Z] = _radius + _intersection_tolerance;
+  }
+
+  return obb;
 }
 
 /// The signum function
 namespace Moby {
-static Real sgn(Real x) { return x / std::fabs(x); }
+static double sgn(double x) { return x / std::fabs(x); }
 }
 
 /// Determines whether a point is inside the cone; if so, determines the normal
 /**
  * Derived/adapted from Eberly. D.  "Intersection of a Line and a Cone"
  */
-bool ConePrimitive::point_inside(BVPtr bv, const Vector3& p, Vector3& normal) const
+bool ConePrimitive::point_inside(BVPtr bv, const Point3d& p, Vector3d& normal) const
 {
+  static shared_ptr<Pose3d> P;
+
+  // get the pose for the collision geometry
+  shared_ptr<const Pose3d> gpose = bv->geom->get_pose(); 
+
+  // get the pose for this geometry and BV
+  shared_ptr<const Pose3d> bpose = get_pose(); 
+  assert(!bpose->rpose);
+
+  // setup a new pose
+  if (!P)
+    P = shared_ptr<Pose3d>(new Pose3d);
+  *P = *bpose;
+  P->rpose = gpose;
+
   // transform the point to cone frame 
-  const Matrix4& T = get_transform();
-  Vector3 query = T.inverse_mult_point(p);
+  Transform3d T = Pose3d::calc_relative_pose(p.pose, P);
+  Point3d query = T.transform_point(p);
 
   // determine the angle theta
-  Real theta = std::atan(_radius/_height);
+  double theta = std::atan(_radius/_height);
 
   // setup A
-  Vector3 A(0,-1,0);
+  Vector3d A(0,-1,0, P);
 
   // setup v
-  Vector3 V(0,_height,0);
+  Vector3d V(0,_height,0, P);
 
   // see whether the point is outside
-  if (A.dot(Vector3::normalize(query - V)) < std::cos(theta))
+  if (A.dot(Vector3d::normalize(query - V)) < std::cos(theta))
     return false;
 
   // determine the normal (the gradient: derived using Mathematica)
-  normal = determine_normal(query);
+  normal = determine_normal(P, query);
+
+  // transform the normal back to the desired pose
+  normal = T.inverse_transform_vector(normal);
 
   return true;
 }
@@ -461,39 +541,39 @@ bool ConePrimitive::point_inside(BVPtr bv, const Vector3& p, Vector3& normal) co
 /**
  * \return the penetration depth, or -INF if the point is outside the cone
  */
-Real ConePrimitive::calc_penetration_depth(const Vector3& p) const
+double ConePrimitive::calc_penetration_depth(shared_ptr<const Pose3d> P, const Point3d& p) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
-  const Real INF = std::numeric_limits<Real>::max();
+  const double INF = std::numeric_limits<double>::max();
 
-  // verify the point is inside
-  const Matrix4& T = get_transform();
-  Vector3 query = T.inverse_mult_point(p);
+  // transform the point to cone frame 
+  Transform3d T = Pose3d::calc_relative_pose(p.pose, P);
+  Point3d query = T.transform_point(p);
 
   // determine the angle theta
-  Real theta = std::atan(_radius/_height);
+  double theta = std::atan(_radius/_height);
 
   // setup A
-  Vector3 A(0,-1,0);
+  Vector3d A(0,-1,0,P);
 
   // setup v
-  Vector3 V(0,_height,0);
+  Vector3d V(0,_height,0,P);
 
   // see whether the point is outside
-  if (A.dot(Vector3::normalize(query - V)) < std::cos(theta))
+  if (A.dot(Vector3d::normalize(query - V)) < std::cos(theta))
     return -INF;
 
   // get the radius of the cone at the vertical location of the point
   // radius at +1/2 height = 0
   // radius at -1/2 height = R
-  const Real RR = -_radius * (query[Y] / _height) + (Real) 0.5 * _radius ;
+  const double RR = -_radius * (query[Y] / _height) + (double) 0.5 * _radius ;
 
   // get the distance from the horizontal part of the cone
-  Real dcone = RR - std::sqrt(sqr(query[X]) + sqr(query[Z]));
+  double dcone = RR - std::sqrt(sqr(query[X]) + sqr(query[Z]));
 
   // get the distance from the vertical parts of the cone
-  Real dv1 = (Real) 0.5 * _height - query[Y];
-  Real dv2 = (Real) 0.5 * _height + query[Y];
+  double dv1 = (double) 0.5 * _height - query[Y];
+  double dv2 = (double) 0.5 * _height + query[Y];
 
   return std::min(std::min(dv1, dv2), dcone);
 }
@@ -502,19 +582,19 @@ Real ConePrimitive::calc_penetration_depth(const Vector3& p) const
 /**
  * \note the normal may be degenerate (NaN)
  */
-Vector3 ConePrimitive::determine_normal(const Vector3& query) const
+Vector3d ConePrimitive::determine_normal(boost::shared_ptr<const Ravelin::Pose3d> P, const Point3d& query) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
   // determine the normal (the gradient: derived using Mathematica)
-  const Real xx = query[X];
-  const Real xy = query[Y];
-  const Real xz = query[Z];
-  const Real usqrt = xx*xx + (xy-_height)*(xy-_height) + xz*xz;
-  const Real D = std::pow(usqrt, (Real) 1.5);
+  const double xx = query[X];
+  const double xy = query[Y];
+  const double xz = query[Z];
+  const double usqrt = xx*xx + (xy-_height)*(xy-_height) + xz*xz;
+  const double D = std::pow(usqrt, (double) 1.5);
 
   // setup the normal
-  Vector3 normal;
+  Vector3d normal(P);
   normal[X] = (xy - _height)*std::fabs(xx)*Moby::sgn(xx)/D;
   normal[Y] = -1.0/std::sqrt(usqrt) + (xy - _height)*std::fabs(xy-_height)*Moby::sgn(xy-_height)/D;
   normal[Z] = (xy - _height)*std::fabs(xz)*Moby::sgn(xz)/D;
@@ -529,16 +609,30 @@ Vector3 ConePrimitive::determine_normal(const Vector3& query) const
  *       method only returns intersection if the second endpoint of the segment
  *       is farther inside than the first
  */
-bool ConePrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, Real& t, Vector3& isect, Vector3& normal) const
+bool ConePrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Vector3d& normal) const
 {
   const unsigned Y = 1;
+  static shared_ptr<Pose3d> P;
+
+  // get the pose for the collision geometry
+  shared_ptr<const Pose3d> gpose = bv->geom->get_pose(); 
+
+  // get the pose for this geometry and BV
+  shared_ptr<const Pose3d> bpose = get_pose(); 
+  assert(!bpose->rpose);
+
+  // setup a new pose
+  if (!P)
+    P = shared_ptr<Pose3d>(new Pose3d);
+  *P = *bpose;
+  P->rpose = gpose;
 
   // we'll need a second intersection point for temporary storage
-  Vector3 isects[3];
+  Point3d isects[3];
 
   // first check whether the first point is inside/on the cone
-  Real dp = calc_penetration_depth(seg.first);
-  if (dp >= (Real) 0.0)
+  double dp = calc_penetration_depth(P, seg.first);
+  if (dp >= (double) 0.0)
   {
     // first point is inside/on the cone
     // get the normal
@@ -546,38 +640,38 @@ bool ConePrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, Real& t, Vector
       return false;
 
     // indicate intersection
-    t = (Real) 0.0;
+    t = (double) 0.0;
     isect = seg.first;
     return true;
   }
 
   // transform the line segment to cone frame 
-  const Matrix4& T = get_transform();
-  Vector3 p = T.inverse_mult_point(seg.first);
-  Vector3 q = T.inverse_mult_point(seg.second);
+  Transform3d T = Pose3d::calc_relative_pose(seg.first.pose, P);
+  Point3d p = T.transform_point(seg.first);
+  Point3d q = T.transform_point(seg.second);
 
   // determine the angle theta
-  Real theta = std::atan(_radius/_height);
+  double theta = std::atan(_radius/_height);
 
   // determine the unit-length line direction vector
-  Vector3 dir = Vector3::normalize(q - p);
-  Real fAdD = -dir[Y];
-  Real fCosSqr = std::cos(theta);
+  Vector3d dir = Vector3d::normalize(q - p);
+  double fAdD = -dir[Y];
+  double fCosSqr = std::cos(theta);
   fCosSqr *= fCosSqr;
-  Vector3 kE = p - Vector3(0,_height,0);
-  Real fAdE = -kE[Y];
-  Real fDdE = dir.dot(kE);
-  Real fEdE = kE.dot(kE);
-  Real fC2 = fAdD*fAdD - fCosSqr;
-  Real fC1 = fAdD*fAdE - fCosSqr*fDdE;
-  Real fC0 = fAdE*fAdE - fCosSqr*fEdE;
+  Vector3d kE = p - Vector3d(0,_height,0,P);
+  double fAdE = -kE[Y];
+  double fDdE = dir.dot(kE);
+  double fEdE = kE.dot(kE);
+  double fC2 = fAdD*fAdD - fCosSqr;
+  double fC1 = fAdD*fAdE - fCosSqr*fDdE;
+  double fC0 = fAdE*fAdE - fCosSqr*fEdE;
 
   // solve the quadratic; keep only those points for which A dot X-V >= 0
   if (std::fabs(fC2) >= NEAR_ZERO)
   {
     // c2 != 0
-    Real fDiscr = fC1*fC1 - fC0*fC2;
-    if (fDiscr < (Real) 0.0)
+    double fDiscr = fC1*fC1 - fC0*fC2;
+    if (fDiscr < (double) 0.0)
     {
       // Q(t) = 0 has no real-valued roots; the line does not intersect
       // the double sided cone
@@ -589,22 +683,22 @@ bool ConePrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, Real& t, Vector
       // both o fthem might intersect the portion of the double-sided cone
       // behind the vertex.  We are interested only in those intersections in
       // "front" of the vertex
-      Real fRoot = std::sqrt(fDiscr);
-      Real fInvC2 = ((Real) 1.0)/fC2;
+      double fRoot = std::sqrt(fDiscr);
+      double fInvC2 = ((double) 1.0)/fC2;
       unsigned nisect = 0;
 
-      Real fT = (-fC1 - fRoot)*fInvC2;
+      double fT = (-fC1 - fRoot)*fInvC2;
       isects[nisect] = p + dir*fT;
-      kE = isects[nisect] - Vector3(0,_height,0);          
-      Real fDot = -kE[Y];
-      if (fDot > (Real) 0.0)
+      kE = isects[nisect] - Vector3d(0,_height,0,P);          
+      double fDot = -kE[Y];
+      if (fDot > (double) 0.0)
         nisect++;
 
       fT = (-fC1 + fRoot)*fInvC2;
       isects[nisect] = p + dir*fT;
-      kE = isects[nisect] - Vector3(0,_height,0);
+      kE = isects[nisect] - Vector3d(0,_height,0,P);
       fDot = -kE[Y];
-      if (fDot > (Real) 0.0)
+      if (fDot > (double) 0.0)
         nisect++;
 
       if (nisect == 2)
@@ -618,10 +712,10 @@ bool ConePrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, Real& t, Vector
         t = std::sqrt((isects[0] - p).norm_sq()/dir.norm_sq());
 
         // transform that point from the cone frame
-        isect = T.mult_point(isects[0]);
+        isect = T.inverse_transform_point(isects[0]);
 
         // determine the normal to the point
-        normal = determine_normal(isects[0]);
+        normal = T.inverse_transform_vector(determine_normal(P, isects[0]));
 
         return true;
       }
@@ -635,10 +729,10 @@ bool ConePrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, Real& t, Vector
         t = std::sqrt((isects[0] - p).norm_sq()/dir.norm_sq());
 
         // transform the intersection point from the cone frame
-        isect = T.mult_point(isects[0]);
+        isect = T.inverse_transform_point(isects[0]);
 
         // determine the normal to the point
-        normal = determine_normal(isects[0]);
+        normal = T.inverse_transform_vector(determine_normal(P, isects[0]));
 
         return true;
       }
@@ -652,18 +746,18 @@ bool ConePrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, Real& t, Vector
     {
       // one repeated real root (line is tangent to the cone)
       isects[0] = p - dir*(fC1/fC2);
-      kE = isects[0] - Vector3(0,_height,0);
-      if (-kE[Y] > (Real) 0.0)
+      kE = isects[0] - Vector3d(0,_height,0,P);
+      if (-kE[Y] > (double) 0.0)
       {
         // have a single point intersection
         // determine the intersection parameter
         t = std::sqrt((isects[0] - p).norm_sq()/dir.norm_sq());
 
         // transform the intersection point from the cone frame
-        isect = T.mult_point(isects[0]);
+        isect = T.inverse_transform_point(isects[0]);
 
         // determine the normal to the point
-        normal = determine_normal(isects[0]);
+        normal = T.inverse_transform_vector(determine_normal(P, isects[0]));
 
         return true;
       }
@@ -677,20 +771,20 @@ bool ConePrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, Real& t, Vector
   else if (std::fabs(fC1) > NEAR_ZERO)
   {
     // c2 = 0, c1 != 0 (D is a direction vector on the cone boundary)
-    isects[0] = p - (((Real) 0.5) * fC0/fC1)*dir;
-    kE = isects[0] - Vector3(0,_height,0);
-    Real fDot = -kE[Y];
-    if (fDot > (Real) 0.0)
+    isects[0] = p - (((double) 0.5) * fC0/fC1)*dir;
+    kE = isects[0] - Vector3d(0,_height,0,P);
+    double fDot = -kE[Y];
+    if (fDot > (double) 0.0)
     {
       // ray intersection
       // transform point from cone frame
-      isect = T.mult_point(isects[0]);
+      isect = T.inverse_transform_point(isects[0]);
 
       // determine the intersection parameter
       t = std::sqrt((isects[0] - p).norm_sq()/dir.norm_sq());
       
       // determine the normal to the point
-      normal = determine_normal(isects[0]);
+      normal = T.inverse_transform_vector(determine_normal(P, isects[0]));
 
       return true;
     }

@@ -4,14 +4,14 @@
  * License (found in COPYING).
  ****************************************************************************/
 
+#include <strings.h>
 #include <Moby/XMLTree.h>
 #include <Moby/Integrator.h>
 
-namespace Moby {
+using namespace Moby;
 
 /// Implements Base::save_to_xml()
-template <>
-void Integrator<VectorN>::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
+void Integrator::save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const
 {
   // call parent method
   Base::save_to_xml(node, shared_objects);
@@ -20,27 +20,4 @@ void Integrator<VectorN>::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& 
   node->name = "Integrator";
 }
 
-/// Implements Base::save_to_xml()
-template <>
-void Integrator<Vector3>::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
-{
-  // call parent method
-  Base::save_to_xml(node, shared_objects);
-
-  // set the node's name
-  node->name = "Integrator";
-}
-
-/// Implements Base::save_to_xml()
-template <>
-void Integrator<Quat>::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
-{
-  // call parent method
-  Base::save_to_xml(node, shared_objects);
-
-  // set the node's name
-  node->name = "Integrator";
-}
-
-}
 

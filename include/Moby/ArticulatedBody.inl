@@ -6,22 +6,24 @@
 
 /// Gets the time for the first contact with a joint limit (assuming Euler integration, so this is only first-order accurate)
 template <class OutputIterator>
-OutputIterator ArticulatedBody::find_limit_events(const VectorN& q0, const VectorN& q1, Real dt, OutputIterator output_begin) 
+OutputIterator ArticulatedBody::find_limit_events(const Ravelin::VectorNd& q0, const Ravelin::VectorNd& q1, double dt, OutputIterator output_begin) 
 {
-  SAFESTATIC VectorN dq, old_qd;
+  static Ravelin::VectorNd _dq_current;
+
+  // store the current generalized velocity
+  get_generalized_velocity(eSpatial, _dq_current);
 
   // compute the generalized velocity that takes us from q0 to q1
-  dq.copy_from(q1) -= q0;
-  set_generalized_coordinates(eRodrigues, q0);
-  get_generalized_velocity(eAxisAngle, old_qd);
-  set_generalized_velocity(eRodrigues, dq);
+  (_dq = q1) -= q0;
+  set_generalized_coordinates(eEuler, q0);
+  set_generalized_velocity(eEuler, _dq);
 
   for (unsigned i=0; i< _joints.size(); i++)
     for (unsigned j=0; j< _joints[i]->num_dof(); j++)
     {
       // get the current joint position and velocity
-      Real q = _joints[i]->q[j];
-      Real qd = _joints[i]->qd[j];
+      double q = _joints[i]->q[j];
+      double qd = _joints[i]->qd[j];
 
       // setup an event for this joint/dof in case we need it
       Event e;
@@ -34,15 +36,15 @@ OutputIterator ArticulatedBody::find_limit_events(const VectorN& q0, const Vecto
       if (q >= _joints[i]->hilimit[j])
       {
         // add event for upper limit
-        e.t = (Real) 0.0;
+        e.t = (double) 0.0;
         e.limit_upper = true;
         *output_begin++ = e;
 
         // check whether lower limit is also an event
-        if (_joints[i]->qd[j] < (Real) 0.0)
+        if (_joints[i]->qd[j] < (double) 0.0)
         {
-          Real toc = (_joints[i]->lolimit[j] - q)/qd;
-          if (toc < (Real) 1.0)
+          double toc = (_joints[i]->lolimit[j] - q)/qd;
+          if (toc < (double) 1.0)
           {
             e.t = toc;
             e.limit_upper = false;
@@ -52,15 +54,15 @@ OutputIterator ArticulatedBody::find_limit_events(const VectorN& q0, const Vecto
       }
       else if (q <= _joints[i]->lolimit[j])
       {
-        e.t = (Real) 0.0;
+        e.t = (double) 0.0;
         e.limit_upper = false;
         *output_begin++ = e;
 
         // check whether upper limit is also an event
-        if (qd > (Real) 0.0)
+        if (qd > (double) 0.0)
         {
-          Real toc = (_joints[i]->hilimit[j] - q)/qd;
-          if (toc < (Real) 1.0)
+          double toc = (_joints[i]->hilimit[j] - q)/qd;
+          if (toc < (double) 1.0)
           {
             e.t = toc;
             e.limit_upper = true;
@@ -71,22 +73,22 @@ OutputIterator ArticulatedBody::find_limit_events(const VectorN& q0, const Vecto
       else
       {
         // only check appropriate limit
-        if (qd > (Real) 0.0)
+        if (qd > (double) 0.0)
         {
-          Real toc = (_joints[i]->hilimit[j] - q)/qd;
-          if (toc < (Real) 1.0)
+          double toc = (_joints[i]->hilimit[j] - q)/qd;
+          if (toc < (double) 1.0)
           {
-            e.t = std::max((Real) 0.0, toc);
+            e.t = std::max((double) 0.0, toc);
             e.limit_upper = true;
             *output_begin++ = e;
           }
         }
-        else if (qd < (Real) 0.0)
+        else if (qd < (double) 0.0)
         {
-          Real toc = (_joints[i]->lolimit[j] - q)/qd;
-          if (toc < (Real) 1.0)
+          double toc = (_joints[i]->lolimit[j] - q)/qd;
+          if (toc < (double) 1.0)
           {
-            e.t = std::max((Real) 0.0, toc);
+            e.t = std::max((double) 0.0, toc);
             e.limit_upper = false;
             *output_begin++ = e;
           }
@@ -94,18 +96,9 @@ OutputIterator ArticulatedBody::find_limit_events(const VectorN& q0, const Vecto
       }
     }
 
-  // reset velocity
-  set_generalized_velocity(DynamicBody::eAxisAngle, old_qd);
-
-  // find custom limit events, if desired
-  if (find_custom_limit_events)
-  {
-    std::vector<Event> custom;
-    find_custom_limit_events(q0, q1, dt, custom);
-    return std::copy(custom.begin(), custom.end(), output_begin);
-  } 
+  // restore the generalized velocity
+  set_generalized_velocity(eSpatial, _dq_current);
 
   return output_begin;
 }
-
 

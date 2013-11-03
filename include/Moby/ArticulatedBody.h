@@ -9,13 +9,12 @@
 
 #include <vector>
 #include <boost/shared_ptr.hpp>
+#include <Ravelin/Vector3d.h>
+#include <Ravelin/Matrix3d.h>
+#include <Ravelin/SMomentumd.h>
 #include <Moby/sorted_pair>
 #include <Moby/Event.h>
 #include <Moby/DynamicBody.h>
-#include <Moby/Vector3.h>
-#include <Moby/Matrix3.h>
-#include <Moby/SVector6.h>
-#include <Moby/Optimization.h>
 #include <Moby/Joint.h>
 
 namespace Moby {
@@ -25,31 +24,31 @@ class RigidBody;
 /// Convex optimization data for computing forward dynamics
 struct ABFwdDynOptData
 {
-  unsigned N_IMPLICIT_DOF; // # degrees-of-freedom for implicit joints
+  unsigned N_IMPLICIT_DOF; // # degrees-of-freedom for explicit joints
   unsigned N_EXPLICIT_CONSTRAINT_EQNS;
   unsigned N_JOINT_DOF;    // total # of joint degrees-of-freedom
   unsigned N_LOOPS;        // # of kinematic loops
 
-  VectorN z;               // the homogeneous solution
-  MatrixN R;               // the nullspace
-  MatrixN G;              // the quadratic objective function
-  MatrixN Dx;              // the movement Jacobian for explicit joints
-  VectorN c;               // the linear objective function
-  VectorN fext;            // external applied force
-  std::vector<unsigned> true_indices; // maps from [implicit; explicit] indices
+  Ravelin::VectorNd z;               // the homogeneous solution
+  Ravelin::MatrixNd R;               // the nullspace
+  Ravelin::MatrixNd G;              // the quadratic objective function
+  Ravelin::MatrixNd Dx;              // the movement Jacobian for implicit joints
+  Ravelin::VectorNd c;               // the linear objective function
+  Ravelin::VectorNd fext;            // external applied force
+  std::vector<unsigned> true_indices; // maps from [explicit; implicit] indices
                                       // to true (body) joint indices
   std::vector<unsigned> loop_indices; // the loop that each joint belongs to
-  std::vector<MatrixN> Z;   // the Z matrices (motion for joints after loops)
-  std::vector<MatrixN> Zd;  // Z matrices to be multiplied by delta
-  std::vector<MatrixN> Z1d; // Z matrices to be multiplied by (1-delta)
-  std::vector<Real> mu_c;       // squared Coulomb joint friction coefficients
-  std::vector<Real> visc;       // the viscous joint friction forces
+  std::vector<Ravelin::MatrixNd> Z;   // the Z matrices (motion for joints after loops)
+  std::vector<Ravelin::MatrixNd> Zd;  // Z matrices to be multiplied by delta
+  std::vector<Ravelin::MatrixNd> Z1d; // Z matrices to be multiplied by (1-delta)
+  std::vector<double> mu_c;       // squared Coulomb joint friction coefficients
+  std::vector<double> visc;       // the viscous joint friction forces
 
   // for speeding up computations
-  MatrixN Rff;             // components of R corresponding to implicit frict
-  MatrixN DxTRbetax;       // Dx' * components of R corresponding to expl. fric
-  VectorN zff;             // components of z corresponding to implicit frict
-  VectorN zbetax;          // components of z corresponding to explicit frict
+  Ravelin::MatrixNd Rff;             // components of R corresponding to explicit frict
+  Ravelin::MatrixNd DxTRbetax;       // Dx' * components of R corresponding to expl. fric
+  Ravelin::VectorNd zff;             // components of z corresponding to explicit frict
+  Ravelin::VectorNd zbetax;          // components of z corresponding to implicit frict
 };
  
 /// Abstract class for articulated bodies
@@ -58,36 +57,35 @@ class ArticulatedBody : public DynamicBody
   public:
     ArticulatedBody();
     virtual ~ArticulatedBody() {}
-    virtual void set_enabled(bool flag);
-    unsigned num_constraint_eqns_implicit() const;
+    virtual bool is_floating_base() const = 0;
+    virtual RigidBodyPtr get_base_link() const = 0;
     unsigned num_constraint_eqns_explicit() const;
-    virtual void transform(const Matrix4& T);
-    virtual Real calc_kinetic_energy() const;
+    unsigned num_constraint_eqns_implicit() const;
+    virtual void rotate(const Ravelin::Quatd& q);
+    virtual void translate(const Ravelin::Origin3d& o);
+    virtual double calc_kinetic_energy();
     virtual void update_visualization();
     RigidBodyPtr find_link(const std::string& id) const; 
     JointPtr find_joint(const std::string& id) const; 
     void get_adjacent_links(std::list<sorted_pair<RigidBodyPtr> >& links) const;
-    virtual void set_links(const std::vector<RigidBodyPtr>& links);
-    virtual void set_joints(const std::vector<JointPtr>& joints);
-    virtual void load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map);
-    virtual void save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const;
+    virtual void set_links_and_joints(const std::vector<RigidBodyPtr>& links, const std::vector<JointPtr>& joints);
+    virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
+    virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual unsigned num_joint_dof() const;
-    void get_constraint_events(std::vector<Event>& cevents) const;
     void find_loops(std::vector<unsigned>& loop_indices, std::vector<std::vector<unsigned> >& loop_links) const;
-    void compute_Z_matrices(const std::vector<unsigned>& loop_indices, const std::vector<std::vector<unsigned> >& loop_links, std::vector<MatrixN>& Zd, std::vector<MatrixN>& Z1d, std::vector<MatrixN>& Z) const;
-
-    /// Finds (joint) limit events
-    void (*find_custom_limit_events)(const VectorN& q0, const VectorN& q1, Real dt, std::vector<Event>& events); 
-
-    /// Gets the number of degrees-of-freedom permitted by implicit constraints
-    virtual unsigned num_joint_dof_implicit() const = 0;
+    void compute_Z_matrices(const std::vector<unsigned>& loop_indices, const std::vector<std::vector<unsigned> >& loop_links, std::vector<Ravelin::MatrixNd>& Zd, std::vector<Ravelin::MatrixNd>& Z1d, std::vector<Ravelin::MatrixNd>& Z) const;
+    virtual Ravelin::MatrixNd& calc_jacobian(boost::shared_ptr<const Ravelin::Pose3d> frame, DynamicBodyPtr body, Ravelin::MatrixNd& J);
+    virtual Ravelin::MatrixNd& calc_jacobian_dot(boost::shared_ptr<const Ravelin::Pose3d> frame, DynamicBodyPtr body, Ravelin::MatrixNd& J);
 
     /// Gets the number of degrees-of-freedom permitted by explicit constraints
     virtual unsigned num_joint_dof_explicit() const = 0;
 
+    /// Gets the number of degrees-of-freedom permitted by implicit constraints
+    virtual unsigned num_joint_dof_implicit() const = 0;
+
     /// Finds (joint) limit events
     template <class OutputIterator>
-    OutputIterator find_limit_events(const VectorN& q0, const VectorN& q1, Real dt, OutputIterator begin);
+    OutputIterator find_limit_events(const Ravelin::VectorNd& q0, const Ravelin::VectorNd& q1, double dt, OutputIterator begin);
 
     /// Gets the set of links
     virtual const std::vector<RigidBodyPtr>& get_links() const { return _links; }
@@ -95,68 +93,48 @@ class ArticulatedBody : public DynamicBody
     /// Gets the set of joints
     virtual const std::vector<JointPtr>& get_joints() const { return _joints; }
 
-    /// Returns true if any of the link positions have changed
-    bool positions_invalidated() const { return !_positions_valid; }
-
-    /// Returns true if any of the link velocities have changed
-    bool velocities_invalidated() const { return !_velocities_valid; }
-
-    /// Invalidates the link positions (manually)
-    virtual void invalidate_positions() { _positions_valid = false; }
-
-    /// Invalidates the link velocities (manually)
-    virtual void invalidate_velocities() { _velocities_valid = false; }
-
-    /// Validates the link positions (manually)
-    void validate_positions() { _positions_valid = true; }
-
-    /// Validates the link velocities (manually)
-    void validate_velocities() { _velocities_valid = true; }
-
     /// Gets shared pointer to this object as type ArticulatedBody
     ArticulatedBodyPtr get_this() { return boost::dynamic_pointer_cast<ArticulatedBody>(shared_from_this()); }
 
     /// Gets shared pointer to this object as type const ArticulateBody
-    ArticulatedBodyConstPtr get_this() const { return boost::dynamic_pointer_cast<const ArticulatedBody>(shared_from_this()); }
+    boost::shared_ptr<const ArticulatedBody> get_this() const { return boost::dynamic_pointer_cast<const ArticulatedBody>(shared_from_this()); }
 
     /// Abstract method for applying an impulse to this articulated body
     /**
-     * \param j the linear component of an impulse
-     * \param k the angular component of an impulse
-     * \param p the point at which to apply the impulse
+     * \param w the impulsive force 
      * \param link link in the articulated body where the impulse is applied
      */
-    virtual void apply_impulse(const Vector3& j, const Vector3& k, const Vector3& p, RigidBodyPtr link) = 0;
+    virtual void apply_impulse(const Ravelin::SMomentumd& w, RigidBodyPtr link) = 0;
       
     /// Method for resetting the force and torque accumulators on all links
-    virtual void reset_accumulators();
+    virtual void reset_accumulators() = 0;
 
     /// Use the advanced (but relatively slow) full friction model?
     bool use_advanced_friction_model;
 
     /// Multiplies Jc' for this body by the given vector 
-    virtual VectorN& transpose_Jc_mult(const VectorN& v, VectorN& result) = 0; 
+    virtual Ravelin::VectorNd& transpose_Jc_mult(const Ravelin::VectorNd& v, Ravelin::VectorNd& result) = 0; 
 
     /// Multiplies Jc' for this body by the given matrix
-    virtual MatrixN& transpose_Jc_mult(const MatrixN& m, MatrixN& result) = 0;
+    virtual Ravelin::MatrixNd& transpose_Jc_mult(const Ravelin::MatrixNd& m, Ravelin::MatrixNd& result) = 0;
 
     /// Multiplies Dc' for this body by the given vector 
-    virtual VectorN& transpose_Dc_mult(const VectorN& v, VectorN& result) = 0;
+    virtual Ravelin::VectorNd& transpose_Dc_mult(const Ravelin::VectorNd& v, Ravelin::VectorNd& result) = 0;
 
     /// Multiplies Dc' for this body by the given matrix 
-    virtual MatrixN& transpose_Dc_mult(const MatrixN& m, MatrixN& result) = 0;
+    virtual Ravelin::MatrixNd& transpose_Dc_mult(const Ravelin::MatrixNd& m, Ravelin::MatrixNd& result) = 0;
 
     /// Multiplies Jl' for this body by the given vector 
-    virtual VectorN& transpose_Jl_mult(const VectorN& v, VectorN& result) = 0;
+    virtual Ravelin::VectorNd& transpose_Jl_mult(const Ravelin::VectorNd& v, Ravelin::VectorNd& result) = 0;
 
     /// Multiplies Jl' for this body by the given matrix
-    virtual MatrixN& transpose_Jl_mult(const MatrixN& m, MatrixN& result) = 0;
+    virtual Ravelin::MatrixNd& transpose_Jl_mult(const Ravelin::MatrixNd& m, Ravelin::MatrixNd& result) = 0;
 
     /// Multiplies Dx' for this body by the given vector 
-    virtual VectorN& transpose_Dx_mult(const VectorN& v, VectorN& result) = 0;
+    virtual Ravelin::VectorNd& transpose_Dx_mult(const Ravelin::VectorNd& v, Ravelin::VectorNd& result) = 0;
 
     /// Multiplies Dx' for this body by the given matrix 
-    virtual MatrixN& transpose_Dx_mult(const MatrixN& m, MatrixN& result) = 0; 
+    virtual Ravelin::MatrixNd& transpose_Dx_mult(const Ravelin::MatrixNd& m, Ravelin::MatrixNd& result) = 0; 
 
   protected:
     /// Vector for processing links
@@ -170,13 +148,13 @@ class ArticulatedBody : public DynamicBody
      */
     virtual void compile() = 0;
 
-    MatrixN& determine_F(unsigned link_idx, const Matrix4& Tf, const std::vector<unsigned>& loop_indices, MatrixN& F) const;
-    static Real calc_fwd_dyn_f0(const VectorN& x, void* data);
-    static void calc_fwd_dyn_fx(const VectorN& x, VectorN& fc, void* data);
-    static void calc_fwd_dyn_grad0(const VectorN& x, VectorN& grad, void* data);
-    static void calc_fwd_dyn_cJac(const VectorN& x, MatrixN& J, void* data);
-    static void calc_fwd_dyn_hess(const VectorN& x, Real objscal, const VectorN& lambda, const VectorN& nu, MatrixN& H, void* data);
-    void calc_joint_constraint_forces(const std::vector<unsigned>& loop_indices, const VectorN& delta, const std::vector<MatrixN>& Zd, const std::vector<MatrixN>& Z1d, const std::vector<MatrixN>& Z, const VectorN& ff) const;
+    Ravelin::MatrixNd& determine_F(unsigned link_idx, boost::shared_ptr<const Ravelin::Pose3d> Tf, const std::vector<unsigned>& loop_indices, Ravelin::MatrixNd& F) const;
+    static double calc_fwd_dyn_f0(const Ravelin::VectorNd& x, void* data);
+    static void calc_fwd_dyn_fx(const Ravelin::VectorNd& x, Ravelin::VectorNd& fc, void* data);
+    static void calc_fwd_dyn_grad0(const Ravelin::VectorNd& x, Ravelin::VectorNd& grad, void* data);
+    static void calc_fwd_dyn_cJac(const Ravelin::VectorNd& x, Ravelin::MatrixNd& J, void* data);
+    static void calc_fwd_dyn_hess(const Ravelin::VectorNd& x, double objscal, const Ravelin::VectorNd& lambda, const Ravelin::VectorNd& nu, Ravelin::MatrixNd& H, void* data);
+    void calc_joint_constraint_forces(const std::vector<unsigned>& loop_indices, const Ravelin::VectorNd& delta, const std::vector<Ravelin::MatrixNd>& Zd, const std::vector<Ravelin::MatrixNd>& Z1d, const std::vector<Ravelin::MatrixNd>& Z, const Ravelin::VectorNd& ff) const;
 
     /// The set of links for this articulated body
     std::vector<RigidBodyPtr> _links;
@@ -185,12 +163,13 @@ class ArticulatedBody : public DynamicBody
     std::vector<JointPtr> _joints;
 
   private:
-    virtual Real get_aspeed() const;
-    SVector6 transform_force(RigidBodyPtr link, const Vector3& x) const;
-    static void objective_grad(const VectorN& x, void* data, VectorN& g);
+    // temporary variables
+    Ravelin::VectorNd _dq;
 
-    bool _positions_valid;
-    bool _velocities_valid;
+    virtual double get_aspeed();
+/*    Ravelin::SForced transform_force(RigidBodyPtr link, const Ravelin::Vector3& x) const;
+*/
+    static void objective_grad(const Ravelin::VectorNd& x, void* data, Ravelin::VectorNd& g);
 }; // end class
 
 #include "ArticulatedBody.inl"

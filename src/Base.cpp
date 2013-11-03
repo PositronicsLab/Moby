@@ -9,6 +9,7 @@
 #include <Moby/XMLTree.h>
 #include <Moby/Base.h>
 
+using boost::shared_ptr;
 using namespace Moby;
 
 namespace Moby {
@@ -54,10 +55,11 @@ Base::Base(const Base* b)
  *        object is stored
  * \param id_map a map from node IDs to read objects
  */
-void Base::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void Base::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // read the ID, if specified
-  const XMLAttrib* id_attrib = node->get_attrib("id");
+  XMLAttrib
+* id_attrib = node->get_attrib("id");
   if (id_attrib)
     id = id_attrib->get_string_value();
 
@@ -78,7 +80,7 @@ void Base::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& i
  * \param node the XML node to which this object should be serialized 
  * \param on output, a list of shared objects which should also be serialized
  */
-void Base::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
+void Base::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& shared_objects) const
 {
   // set the ID for the node
   node->attribs.insert(XMLAttrib("id", id));

@@ -18,20 +18,20 @@ class ContactParameters : public Base
   public:
     ContactParameters();
     ContactParameters(BasePtr o1, BasePtr o2);
-    virtual void load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map);
-    virtual void save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const;
+    virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
+    virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
 
     /// The objects in contact
     sorted_pair<BasePtr> objects;  
 
     /// Coefficient of restitution for contact (default is 0.0)
-    Real epsilon;
+    double epsilon;
 
     /// Coefficient of Coulomb friction for contact (default is 0.0)
-    Real mu_coulomb;
+    double mu_coulomb;
 
     /// Coefficient of viscous friction for contact (default is 0.0)
-    Real mu_viscous;
+    double mu_viscous;
 
     /// Number of edges in the polygon friction cone, minimum of 4 (default 4)
     unsigned NK;

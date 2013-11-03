@@ -7,7 +7,6 @@
 #ifndef _DAMPING_FORCE_H
 #define _DAMPING_FORCE_H
 
-#include <Moby/Vector3.h>
 #include <Moby/RecurrentForce.h>
 
 namespace Moby {
@@ -20,20 +19,23 @@ class DampingForce : public RecurrentForce
     DampingForce(const DampingForce& source);
     virtual ~DampingForce() {}
     virtual void add_force(boost::shared_ptr<DynamicBody> body);
-    virtual void load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map);
-    virtual void save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const;
+    virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
+    virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
 
     /// The mapping from bodies to linear damping constants
-    std::map<DynamicBodyPtr, Real> kl;
+    std::map<DynamicBodyPtr, double> kl;
 
     /// The mapping from bodies to angular damping constants
-    std::map<DynamicBodyPtr, Real> ka;
+    std::map<DynamicBodyPtr, double> ka;
 
     /// The mapping from bodies to linear squared damping constants
-    std::map<DynamicBodyPtr, Real> klsq;
+    std::map<DynamicBodyPtr, double> klsq;
 
     /// The mapping from bodies to angular squared damping constants
-    std::map<DynamicBodyPtr, Real> kasq;
+    std::map<DynamicBodyPtr, double> kasq;
+
+  private:
+    static void add_damping(RigidBodyPtr rb, double ld, double ad, double ldsq, double adsq);
 }; // end class
 } // end namespace
 

@@ -4,7 +4,7 @@
  * License (found in COPYING).
  ****************************************************************************/
 
-/// Constructs a Polyhedron from iterators to a container holding Vector3 objects and iterators to a container holding IndexedTri types
+/// Constructs a Polyhedron from iterators to a container holding Point3d objects and iterators to a container holding IndexedTri types
 template <class InputIterator1, class InputIterator2>
 Polyhedron::Polyhedron(InputIterator1 verts_begin, InputIterator1 verts_end, InputIterator2 facets_begin, InputIterator2 facets_end)
 {

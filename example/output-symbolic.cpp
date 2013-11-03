@@ -9,6 +9,7 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <Moby/Types.h>
 #include <Moby/XMLReader.h>
 #include <Moby/RCArticulatedBody.h>
 #include <Moby/Joint.h>
@@ -113,7 +114,7 @@ std::string form_symbolic(const std::string& prefix, const std::string& suffix, 
 }
 
 /// Converts a Moby vector to a Mathematica column vector
-std::string to_mathematica_columnv(const VectorN& v)
+std::string to_mathematica_columnv(const VectorNd& v)
 {
   std::ostringstream s; 
   s << "{ {" << (double) v[0] << "} ";
@@ -125,7 +126,7 @@ std::string to_mathematica_columnv(const VectorN& v)
 }
 
 /// Converts a Moby matrix to Mathematica format
-std::string to_mathematica(const MatrixN& m)
+std::string to_mathematica(const MatrixNd& m)
 {
   std::ostringstream s; 
   s << "{ ";

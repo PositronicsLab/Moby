@@ -18,6 +18,7 @@
 #include <Moby/XMLTree.h>
 #include <Moby/IndexedTetraArray.h>
 
+using namespace Ravelin;
 using namespace Moby;
 using std::cerr;
 using std::endl;
@@ -28,7 +29,7 @@ using std::string;
 using boost::shared_ptr;
 
 /// Initializes a mesh using a pointer to vertices
-IndexedTetraArray::IndexedTetraArray(shared_ptr<const vector<Vector3> > vertices, const vector<IndexedTetra>& tetra)
+IndexedTetraArray::IndexedTetraArray(shared_ptr<const vector<Origin3d> > vertices, const vector<IndexedTetra>& tetra)
 {
   _vertices = vertices;
 
@@ -41,7 +42,7 @@ IndexedTetraArray::IndexedTetraArray(shared_ptr<const vector<Vector3> > vertices
 }
 
 /// Initializes a mesh using pointers to vertices and tetra
-IndexedTetraArray::IndexedTetraArray(shared_ptr<const vector<Vector3> > vertices, shared_ptr<const vector<IndexedTetra> > tetra)
+IndexedTetraArray::IndexedTetraArray(shared_ptr<const vector<Origin3d> > vertices, shared_ptr<const vector<IndexedTetra> > tetra)
 {
   _vertices = vertices;
   _tetra = tetra;
@@ -60,20 +61,22 @@ IndexedTetraArray& IndexedTetraArray::operator=(const IndexedTetraArray& mesh)
 }
 
 /// Gets the desired tetrahedron
-Tetrahedron IndexedTetraArray::get_tetrahedron(unsigned i) const
+Tetrahedron IndexedTetraArray::get_tetrahedron(unsigned i, shared_ptr<const Pose3d> P) const
 {
-  const vector<Vector3>& vertices = get_vertices();
+  const vector<Origin3d>& vertices = get_vertices();
   const vector<IndexedTetra>& tetra = get_tetra();
 
-  return Tetrahedron(vertices[tetra[i].a], vertices[tetra[i].b], 
-                     vertices[tetra[i].c], vertices[tetra[i].d]);
+  return Tetrahedron(Point3d(vertices[tetra[i].a], P), 
+                     Point3d(vertices[tetra[i].b], P), 
+                     Point3d(vertices[tetra[i].c], P), 
+                     Point3d(vertices[tetra[i].d], P));
 }
 
 /// Implements Base::load_from_xml()
 /**
  * \note if centering is done, it is done <i<before</i> any transform is applied
  */
-void IndexedTetraArray::load_from_xml(XMLTreeConstPtr node, map<string, BasePtr>& id_map)
+void IndexedTetraArray::load_from_xml(shared_ptr<const XMLTree> node, map<string, BasePtr>& id_map)
 {
   // load data from the Primitive 
   Base::load_from_xml(node, id_map);
@@ -82,7 +85,7 @@ void IndexedTetraArray::load_from_xml(XMLTreeConstPtr node, map<string, BasePtr>
   assert(strcasecmp(node->name.c_str(), "TetraMesh") == 0);
 
   // make sure that this Tetra array has a filename specified
-  const XMLAttrib* fname_attr = node->get_attrib("filename");
+  XMLAttrib* fname_attr = node->get_attrib("filename");
   if (!fname_attr)
   {
     cerr << "IndexedTetraArray::load_from_xml() - trying to load a ";
@@ -96,23 +99,21 @@ void IndexedTetraArray::load_from_xml(XMLTreeConstPtr node, map<string, BasePtr>
   *this = IndexedTetraArray::read_from_tetra(fname);
   
   // see whether to center the mesh
-  const XMLAttrib* center_attr = node->get_attrib("center");
+  XMLAttrib* center_attr = node->get_attrib("center");
   if (center_attr && center_attr->get_bool_value())
     center();
 
   // read in the transform, if specified
-  const XMLAttrib* transform_attr = node->get_attrib("transform");
-  if (transform_attr)
+  Transform3d T;
+  T.source = T.target = GLOBAL;
+  XMLAttrib* xlat_attr = node->get_attrib("translation");
+  XMLAttrib* rpy_attr = node->get_attrib("rpy"); 
+  if (xlat_attr || rpy_attr)
   {
-    Matrix4 T;
-    transform_attr->get_matrix_value(T);
-    if (!Matrix4::valid_transform(T))
-    {
-      cerr << "IndexedTetraArray::load_from_xml() warning: invalid transform ";
-      cerr << endl << T << " when reading node " << endl;
-      cerr << *node << endl;
-      cerr << "  --> possibly a floating-point error..." << endl;
-    }
+    if (xlat_attr)
+      T.x = xlat_attr->get_origin_value();
+    if (rpy_attr)
+      T.q = xlat_attr->get_rpy_value(); 
 
     // transform the tetra array
     *this = IndexedTetraArray::transform(T);
@@ -120,7 +121,7 @@ void IndexedTetraArray::load_from_xml(XMLTreeConstPtr node, map<string, BasePtr>
 }
 
 /// Implements Base::save_to_xml()
-void IndexedTetraArray::save_to_xml(XMLTreePtr node, list<BaseConstPtr>& shared_objects) const
+void IndexedTetraArray::save_to_xml(XMLTreePtr node, list<shared_ptr<const Base> >& shared_objects) const
 {
   // call this parent's save_to_xml() method
   Base::save_to_xml(node, shared_objects);
@@ -152,12 +153,12 @@ void IndexedTetraArray::save_to_xml(XMLTreePtr node, list<BaseConstPtr>& shared_
 void IndexedTetraArray::center()
 {
   // determine the centroid of this array of tetrahedra
-  Vector3 centroid = ZEROS_3;
-  Real total_volume = 0;
+  Point3d centroid = Point3d::zero(GLOBAL);
+  double total_volume = 0;
   for (unsigned i=0; i< num_tetra(); i++)
   {
-    Tetrahedron tet = get_tetrahedron(i);
-    Real volume = tet.calc_volume();
+    Tetrahedron tet = get_tetrahedron(i, GLOBAL);
+    double volume = tet.calc_volume();
     centroid += tet.calc_centroid()*volume;
     total_volume += volume;
   }
@@ -165,13 +166,13 @@ void IndexedTetraArray::center()
 
   // translate the mesh so that the centroid is at the origin
   for (unsigned i=0; i< _vertices->size(); i++)
-    ((Vector3&) (*_vertices)[i]) -= centroid;
+    ((Origin3d&) (*_vertices)[i]) -= Origin3d(centroid);
 }
 
 /// Verifies that all indices are within range and orients tetrahedra CCW
 void IndexedTetraArray::validate()
 {
-  const vector<Vector3>& vertices = get_vertices();
+  const vector<Origin3d>& vertices = get_vertices();
   shared_ptr<const vector<IndexedTetra> > tetra_pointer = get_tetra_pointer();
   vector<IndexedTetra>& tetra = *boost::const_pointer_cast<vector<IndexedTetra> >(_tetra);
 
@@ -182,35 +183,52 @@ void IndexedTetraArray::validate()
 
   for (unsigned i=0; i< tetra.size(); i++)
   {
+    // get the vertices
+    Point3d va(vertices[tetra[i].a], GLOBAL);
+    Point3d vb(vertices[tetra[i].b], GLOBAL);
+    Point3d vc(vertices[tetra[i].c], GLOBAL);
+    Point3d vd(vertices[tetra[i].d], GLOBAL);
+
     // determine the centroid
-    Vector3 centroid = vertices[tetra[i].a] + vertices[tetra[i].b] +
-                       vertices[tetra[i].c] + vertices[tetra[i].d];
+    Point3d centroid = va + vb + vc + vd;
     centroid *= 0.25;
 
     try
     {
       // check triangle abc
-      Triangle abc(vertices[tetra[i].a], vertices[tetra[i].b], vertices[tetra[i].c]); 
+      Triangle abc(va, vb, vc); 
       if (abc.calc_signed_dist(centroid) > 0)
+      {
         std::swap(tetra[i].b, tetra[i].c);
+        std::swap(vb, vc);
+      }
 
       // check triangle bdc
-      Triangle bdc(vertices[tetra[i].b], vertices[tetra[i].d], vertices[tetra[i].c]); 
+      Triangle bdc(vb, vd, vc);
       if (bdc.calc_signed_dist(centroid) > 0)
+      {
         std::swap(tetra[i].d, tetra[i].c);
+        std::swap(vd, vc);
+      }
 
       // check triangle dac
-      Triangle dac(vertices[tetra[i].d], vertices[tetra[i].a], vertices[tetra[i].c]); 
+      Triangle dac(vd, va, vc);
       if (dac.calc_signed_dist(centroid) > 0)
+      {
         std::swap(tetra[i].a, tetra[i].c);
+        std::swap(va, vc);
+      }
 
       // check triangle dba
-      Triangle dba(vertices[tetra[i].d], vertices[tetra[i].b], vertices[tetra[i].a]); 
+      Triangle dba(vd, vb, va); 
       if (dba.calc_signed_dist(centroid) > 0)
+      {
         std::swap(tetra[i].b, tetra[i].a);
+        std::swap(vb, va);
+      }
 
       // verify that centroid is now inside tetrahedron
-      assert(!Tetrahedron(vertices[tetra[i].a], vertices[tetra[i].b], vertices[tetra[i].c], vertices[tetra[i].d]).outside(centroid));
+      assert(!Tetrahedron(va, vb, vc, vd).outside(centroid));
     }
     catch (DegenerateTriangleException e)
     {
@@ -219,26 +237,8 @@ void IndexedTetraArray::validate()
   }
 }
 
-/// Rotates this mesh to a new mesh
-IndexedTetraArray IndexedTetraArray::rotate_scale(const Matrix3& R) const
-{
-  IndexedTetraArray it;
-
-  // can just copy tetra 
-  it._tetra = _tetra; 
-
-  // need to rotate vertices
-  shared_ptr<vector<Vector3> > new_vertices(new vector<Vector3>(*_vertices));
-  it._vertices = new_vertices;
-  vector<Vector3>& vertices = *new_vertices;
-  for (unsigned i=0; i< vertices.size(); i++)
-    vertices[i] = R * vertices[i];
-
-  return it;
-}
-
 /// Transforms this mesh to a new mesh
-IndexedTetraArray IndexedTetraArray::transform(const Matrix4& T) const
+IndexedTetraArray IndexedTetraArray::transform(const Transform3d& T) const
 {
   IndexedTetraArray it;
 
@@ -246,29 +246,11 @@ IndexedTetraArray IndexedTetraArray::transform(const Matrix4& T) const
   it._tetra = _tetra; 
 
   // need to transform vertices
-  shared_ptr<vector<Vector3> > new_vertices(new vector<Vector3>(*_vertices));
+  shared_ptr<vector<Origin3d> > new_vertices(new vector<Origin3d>(*_vertices));
   it._vertices = new_vertices;
-  vector<Vector3>& vertices = *new_vertices;
+  vector<Origin3d>& vertices = *new_vertices;
   for (unsigned i=0; i< vertices.size(); i++)
-    vertices[i] = T.mult_point(vertices[i]);
-
-  return it;
-}
-
-/// Translates this mesh to a new mesh
-IndexedTetraArray IndexedTetraArray::translate(const Vector3& x) const
-{
-  IndexedTetraArray it;
-
-  // can just copy tetra 
-  it._tetra = _tetra; 
-
-  // need to translate vertices
-  shared_ptr<vector<Vector3> > new_vertices(new vector<Vector3>(*_vertices));
-  it._vertices = new_vertices;
-  vector<Vector3>& vertices = *new_vertices;
-  for (unsigned i=0; i< vertices.size(); i++)
-    vertices[i] += x;
+    vertices[i] = T.q * vertices[i] + T.x;
 
   return it;
 }
@@ -277,7 +259,7 @@ IndexedTetraArray IndexedTetraArray::translate(const Vector3& x) const
 IndexedTetraArray IndexedTetraArray::compress_vertices() const
 {
   // get tetra and vertices
-  vector<Vector3> vertices = get_vertices();
+  vector<Origin3d> vertices = get_vertices();
   vector<IndexedTetra> tetra = get_tetra();
 
   // determine unused vertices
@@ -324,7 +306,7 @@ void IndexedTetraArray::write_to_tetra(const IndexedTetraArray& mesh, const stri
   const unsigned X = 0, Y = 1, Z = 2;
 
   // get vertices and tetra
-  const vector<Vector3>& vertices = mesh.get_vertices();
+  const vector<Origin3d>& vertices = mesh.get_vertices();
   const vector<IndexedTetra>& tetra = mesh.get_tetra();
 
   // open the file for writing
@@ -355,7 +337,7 @@ void IndexedTetraArray::write_to_obj(const IndexedTetraArray& mesh, const string
   const unsigned X = 0, Y = 1, Z = 2;
 
   // get vertices and tetra
-  const vector<Vector3>& vertices = mesh.get_vertices();
+  const vector<Origin3d>& vertices = mesh.get_vertices();
   const vector<IndexedTetra>& tetra = mesh.get_tetra();
 
   // open the file for writing
@@ -396,11 +378,11 @@ IndexedTetraArray IndexedTetraArray::read_from_tetra(const string& filename)
 {
   const unsigned BUF_SIZE = 2048;
   char buffer[BUF_SIZE];
-  Real v1, v2, v3;
+  double v1, v2, v3;
   int i1, i2, i3, i4;
 
   // create arrays for vertices and tetra
-  vector<Vector3> vertices;
+  vector<Origin3d> vertices;
   vector<IndexedTetra> tetra;
 
   // open the file
@@ -435,7 +417,7 @@ IndexedTetraArray IndexedTetraArray::read_from_tetra(const string& filename)
       }
 
       // create and add the vertex
-      vertices.push_back(Vector3(v1, v2, v3));
+      vertices.push_back(Origin3d(v1, v2, v3));
       continue;
     }
   

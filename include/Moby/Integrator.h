@@ -1,6 +1,6 @@
 /****************************************************************************
  * Copyright 2005 Evan Drumwright
- * This library is distributed under the terms of the GNU Lesser General Public 
+ * Ravelin::VectorNdhis library is distributed under the terms of the GNU Lesser General Public 
  * License (found in COPYING).
  ****************************************************************************/
 
@@ -13,14 +13,12 @@
 namespace Moby {
 
 /// An abstract class for an ODE integration mechanism
-template <class T>
 class Integrator : public virtual Base
 {
   public:
     Integrator() { }
     virtual ~Integrator() {}
-    virtual void load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map);
-    virtual void save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const;
+    virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
 
     /// Determines whether this is a variable-stepping integrator (false, by default, for inherited classes)
     virtual bool is_variable() const { return false; }
@@ -32,22 +30,8 @@ class Integrator : public virtual Base
      * \param time the current time, contains the new time on return
      * \param step_size the step size for integration
      */
-    virtual void integrate(T& x, T& (*f)(const T&, Real, Real, void*, T&), Real& time, Real step_size, void* data) = 0;
+    virtual void integrate(Ravelin::VectorNd& x, Ravelin::VectorNd& (*f)(const Ravelin::VectorNd&, double, double, void*, Ravelin::VectorNd&), double& time, double step_size, void* data) = 0;
 }; // end class
-
-// specialized templates below; these are necessary to ensure that the type of the integrator is written to the XML file
-
-template <>
-void Integrator<Quat>::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const;
-
-template <>
-void Integrator<VectorN>::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const;
-
-template <>
-void Integrator<Vector3>::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const;
-
-// include inline functions
-#include "Integrator.inl"
 
 } // end namespace
 

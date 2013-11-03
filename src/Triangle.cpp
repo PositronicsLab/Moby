@@ -11,10 +11,12 @@
 #include <Moby/DegenerateTriangleException.h>
 #include <Moby/Triangle.h>
 
+using std::pair;
+using namespace Ravelin;
 using namespace Moby;
 
 /// Constructs the triangle, making copies of the vertices
-Triangle::Triangle(const Vector3& a, const Vector3& b, const Vector3& c)
+Triangle::Triangle(const Point3d& a, const Point3d& b, const Point3d& c)
 {
   this->a = a;
   this->b = b;
@@ -36,20 +38,20 @@ Triangle::~Triangle()
 }
 
 /// Calculates the signed distance of a point from the triangle's plane
-Real Triangle::calc_signed_dist(const Vector3& p) const
+double Triangle::calc_signed_dist(const Point3d& p) const
 {
-  Vector3 normal = calc_normal();
-  Real offset = calc_offset(normal);
+  Vector3d normal = calc_normal();
+  double offset = calc_offset(normal);
   Plane plane(normal, offset);
   return plane.calc_signed_distance(p);
 }
 
-/// Transforms the given triangle using the specified transformation matrix
-Triangle Triangle::transform(const Triangle& t, const Matrix4& m)
+/// Transforms the given triangle using the specified pose 
+Triangle Triangle::transform(const Triangle& t, const Transform3d& m)
 {
-  Vector3 a = m.mult_point(t.a);
-  Vector3 b = m.mult_point(t.b);
-  Vector3 c = m.mult_point(t.c);
+  Point3d a = m.transform_point(t.a);
+  Point3d b = m.transform_point(t.b);
+  Point3d c = m.transform_point(t.c);
   
   return Triangle(a, b, c);
 }
@@ -58,7 +60,7 @@ Triangle Triangle::transform(const Triangle& t, const Matrix4& m)
 /**
  * \param i a zero-index in the range [0,2]
  */
-const Vector3& Triangle::get_vertex(unsigned i) const
+const Point3d& Triangle::get_vertex(unsigned i) const
 {
   switch (i)
   {
@@ -80,10 +82,10 @@ const Vector3& Triangle::get_vertex(unsigned i) const
 /**
  * \note uses relative tolerance
  */
-Triangle::FeatureType Triangle::determine_feature(const Vector3& point) const
+Triangle::FeatureType Triangle::determine_feature(const Point3d& point) const
 {
   // get the point in barycentric coordinates
-  Real s, t;
+  double s, t;
   determine_barycentric_coords(point, s, t);
 
   // get the feature
@@ -94,7 +96,7 @@ Triangle::FeatureType Triangle::determine_feature(const Vector3& point) const
 /**
  * \note uses relative tolerance
  */
-Triangle::FeatureType Triangle::determine_feature(Real s, Real t) const
+Triangle::FeatureType Triangle::determine_feature(double s, double t) const
 {
   const unsigned X = 0, Y= 1, Z = 2;
 
@@ -103,33 +105,33 @@ Triangle::FeatureType Triangle::determine_feature(Real s, Real t) const
     return eNone;
 
   // get the largest value for the first vertex
-  Real lg_a = std::max(std::max(std::fabs(a[X]), std::fabs(a[Y])), std::fabs(a[Z]));
+  double lg_a = std::max(std::max(std::fabs(a[X]), std::fabs(a[Y])), std::fabs(a[Z]));
 
   // determine the tolerance for the first vertex
-  Real s_tol = (lg_a > 1.0) ? NEAR_ZERO : NEAR_ZERO/lg_a;
+  double s_tol = (lg_a > 1.0) ? NEAR_ZERO : NEAR_ZERO/lg_a;
 
   // see whether on vertex a
   if (std::fabs(s - 1.0) < s_tol)
     return eVertexA;
 
   // get the largest value for the second vertex
-  Real lg_b = std::max(std::max(std::fabs(b[X]), std::fabs(b[Y])), std::fabs(b[Z]));
+  double lg_b = std::max(std::max(std::fabs(b[X]), std::fabs(b[Y])), std::fabs(b[Z]));
 
   // determine the tolerance for the second vertex
-  Real t_tol = (lg_b > 1.0) ? NEAR_ZERO : NEAR_ZERO/lg_b;
+  double t_tol = (lg_b > 1.0) ? NEAR_ZERO : NEAR_ZERO/lg_b;
 
   // see whether on vertex b
   if (std::fabs(t - 1.0) < t_tol)
     return eVertexB;
 
   // get the largest value for the third vertex
-  Real lg_c = std::max(std::max(std::fabs(c[X]), std::fabs(c[Y])), std::fabs(c[Z]));
+  double lg_c = std::max(std::max(std::fabs(c[X]), std::fabs(c[Y])), std::fabs(c[Z]));
 
   // determine the tolerance for the third vertex
-  Real u_tol = (lg_c > 1.0) ? NEAR_ZERO : NEAR_ZERO/lg_c;
+  double u_tol = (lg_c > 1.0) ? NEAR_ZERO : NEAR_ZERO/lg_c;
 
   // see whether on vertex c
-  const Real u = 1.0 - s - t;
+  const double u = 1.0 - s - t;
   if (std::fabs(u - 1.0) < u_tol)
     return eVertexC;
 
@@ -146,39 +148,39 @@ Triangle::FeatureType Triangle::determine_feature(Real s, Real t) const
 } 
 
 /// Calculates the outward facing normal for this triangle (triangle is assumed to be oriented counter-clockwise)
-Vector3 Triangle::calc_normal() const
+Vector3d Triangle::calc_normal() const
 {
-  Vector3 cr = Vector3::cross(b - a, c - b);
-  Real cr_nrm = cr.norm();
-  if (cr_nrm > std::numeric_limits<Real>::epsilon())
+  Vector3d cr = Vector3d::cross(b - a, c - b);
+  double cr_nrm = cr.norm();
+  if (cr_nrm > std::numeric_limits<double>::epsilon())
     return cr/cr_nrm; 
   else
     throw DegenerateTriangleException(); 
 }
 
 /// Computes the area of a triangle
-Real Triangle::calc_area() const
+double Triangle::calc_area() const
 {
-  return Vector3::norm(Vector3::cross(b - a, c - a))/2.0;
+  return Vector3d::norm(Vector3d::cross(b - a, c - a))/2.0;
 }
 
 /// Computes the AABB for this triangle
-std::pair<Vector3, Vector3> Triangle::calc_AABB() const
+std::pair<Point3d, Point3d> Triangle::calc_AABB() const
 {
   const unsigned TRI_VERTS = 3, THREE_D = 3;
 
   // init box corners
-  std::pair<Vector3, Vector3> corners;
+  std::pair<Point3d, Point3d> corners;
   for (unsigned i=0; i< THREE_D; i++)
   {
-    corners.first[i] = std::numeric_limits<Real>::max();
-    corners.second[i] = -std::numeric_limits<Real>::max();
+    corners.first[i] = std::numeric_limits<double>::max();
+    corners.second[i] = -std::numeric_limits<double>::max();
   }
 
   // compute AABB
   for (unsigned i=0; i< TRI_VERTS; i++)
   {
-    const Vector3& v = get_vertex(i);
+    const Point3d& v = get_vertex(i);
     for (unsigned j=0; j< THREE_D; j++)
     {
       corners.first[j] = std::min(corners.first[j], v[j]);
@@ -193,26 +195,26 @@ std::pair<Vector3, Vector3> Triangle::calc_AABB() const
 /**
  * \note adapted from http://www.geometrictools.com
  */
-void Triangle::determine_barycentric_coords(const Vector2 tri[3], const Vector2& v, Real& s, Real& t)
+void Triangle::determine_barycentric_coords(const Point2d tri[3], const Point2d& v, double& s, double& t)
 {
 /* OLD CODE: seemed to work fine, but Eberly's appears more robust numerically
-  const Real r1 = v[X] - tri[2][X];
-  const Real r2 = v[Y] - tri[2][Y];
-  const Real x1 = tri[0][X];
-  const Real x2 = tri[1][X];
-  const Real x3 = tri[2][X];
-  const Real y1 = tri[0][Y];
-  const Real y2 = tri[1][Y];
-  const Real y3 = tri[2][Y];
-  const Real denom = 1.0/(-x2*y1 + x3*y1 + x1*y2 - x3*y2 - x1*y3 + x2*y3);
-  Real rs1 = r1*denom;
-  Real rs2 = r2*denom;
+  const double r1 = v[X] - tri[2][X];
+  const double r2 = v[Y] - tri[2][Y];
+  const double x1 = tri[0][X];
+  const double x2 = tri[1][X];
+  const double x3 = tri[2][X];
+  const double y1 = tri[0][Y];
+  const double y2 = tri[1][Y];
+  const double y3 = tri[2][Y];
+  const double denom = 1.0/(-x2*y1 + x3*y1 + x1*y2 - x3*y2 - x1*y3 + x2*y3);
+  double rs1 = r1*denom;
+  double rs2 = r2*denom;
   s = (y2-y3)*rs1 + (x3-x2)*rs2;
   t = (y3-y1)*rs1 + (x1-x3)*rs2;
 */
 
   // Compute the vectors relative to V2 of the triangle.
-  Vector2 diff[3] =
+  Vector2d diff[3] =
   {
     tri[0] - tri[2],
     tri[1] - tri[2],
@@ -223,28 +225,28 @@ void Triangle::determine_barycentric_coords(const Vector2 tri[3], const Vector2&
   // for computing barycentric coordinates can be ill-conditioned.  To avoid
   // this, uniformly scale the triangle edges to be of order 1.  The scaling
   // of all differences does not change the barycentric coordinates.
-  Real fmax = (Real)0.0;
+  double fmax = (double)0.0;
   for (unsigned i = 0; i < 2; i++)
     for (unsigned j = 0; j < 2; j++)
     {
-      Real val = std::fabs(diff[i][j]);
+      double val = std::fabs(diff[i][j]);
       if (val > fmax)
         fmax = val;
      }
 
   // Scale down only large data.
-  Real inv_max = (Real)0.0;
-  if (fmax > (Real)1.0)
+  double inv_max = (double)0.0;
+  if (fmax > (double)1.0)
   {
-    inv_max = ((Real)1.0)/fmax;
+    inv_max = ((double)1.0)/fmax;
     for (unsigned i = 0; i < 3; i++)
       diff[i] *= inv_max;
   }
 
-  Real det = diff[0].dot_perp(diff[1]);
+  double det = diff[0].dot_perp(diff[1]);
   if (std::fabs(det) > NEAR_ZERO)
   {
-    Real inv_det = ((Real)1.0)/det;
+    double inv_det = ((double)1.0)/det;
     s = diff[2].dot_perp(diff[1])*inv_det;
     t = diff[0].dot_perp(diff[2])*inv_det;
   }
@@ -252,13 +254,13 @@ void Triangle::determine_barycentric_coords(const Vector2 tri[3], const Vector2&
   {
     // The triangle is a sliver.  Determine the longest edge and
     // compute barycentric coordinates with respect to that edge.
-    Vector2 kE2 = tri[0] - tri[1];
-    if (inv_max != (Real) 0.0)
+    Vector2d kE2 = tri[0] - tri[1];
+    if (inv_max != (double) 0.0)
       kE2 *= inv_max;
 
-    Real max_len = kE2.norm();
+    double max_len = kE2.norm();
     unsigned imaxidx = 2;
-    Real len = diff[1].norm();
+    double len = diff[1].norm();
     if (len > max_len)
     {
       imaxidx = 1;
@@ -273,33 +275,33 @@ void Triangle::determine_barycentric_coords(const Vector2 tri[3], const Vector2&
 
     if (max_len > NEAR_ZERO)
     {
-      Real inv_len = ((Real) 1.0)/max_len;
+      double inv_len = ((double) 1.0)/max_len;
       if (imaxidx == 0)
       {
         // P-V2 = t(V0-V2)
         s = diff[2].dot(diff[0])*inv_len;
-        t = (Real) 0.0;
+        t = (double) 0.0;
       }
       else if (imaxidx == 1)
       {
         // P-V2 = t(V1-V2)
-        s = (Real) 0.0;
+        s = (double) 0.0;
         t = diff[2].dot(diff[1])*inv_len;
       }
       else if (imaxidx == 2)
       {
         // P-V1 = t(V0-V1)
         diff[2] = v - tri[1];
-        if (inv_max != (Real) 0.0)
+        if (inv_max != (double) 0.0)
            diff[2] *= inv_max;
 
         s = diff[2].dot(kE2)*inv_len;
-        t = (Real) 1.0 - s;
+        t = (double) 1.0 - s;
       }
       else
       {
         // The triangle is a nearly a point, just return equal weights.
-        s = ((Real) 1.0)/(Real) 3.0;
+        s = ((double) 1.0)/(double) 3.0;
         t = s;
       }
     }
@@ -307,43 +309,43 @@ void Triangle::determine_barycentric_coords(const Vector2 tri[3], const Vector2&
 }
 
 /// Determines the barycentric coordinates corresponding to a point for this triangle
-void Triangle::determine_barycentric_coords(const Vector3& v, Real& s, Real& t) const
+void Triangle::determine_barycentric_coords(const Point3d& v, double& s, double& t) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
   // determine which coordinate has the minimum variance
-  std::pair<Vector3, Vector3> aabb = calc_AABB();
-  const Real varx = aabb.second[X] - aabb.first[X];
-  const Real vary = aabb.second[Y] - aabb.first[Y];
-  const Real varz = aabb.second[Z] - aabb.first[Z];
+  std::pair<Point3d, Point3d> aabb = calc_AABB();
+  const double varx = aabb.second[X] - aabb.first[X];
+  const double vary = aabb.second[Y] - aabb.first[Y];
+  const double varz = aabb.second[Z] - aabb.first[Z];
 
   // project to 2D
-  Vector2 tri_2D[3];
-  Vector2 v_2D;
+  Point2d tri_2D[3];
+  Point2d v_2D;
 
   if (varx < vary && varx < varz)
   {
     // minimum variance in the x direction; project to yz plane
-    tri_2D[0] = Vector2(a[Y], a[Z]);
-    tri_2D[1] = Vector2(b[Y], b[Z]);
-    tri_2D[2] = Vector2(c[Y], c[Z]);
-    v_2D = Vector2(v[Y], v[Z]);
+    tri_2D[0] = Point2d(a[Y], a[Z]);
+    tri_2D[1] = Point2d(b[Y], b[Z]);
+    tri_2D[2] = Point2d(c[Y], c[Z]);
+    v_2D = Point2d(v[Y], v[Z]);
   }
   else if (vary < varx && vary < varz)
   {
     // minimum variance in the y direction; project to xz plane
-    tri_2D[0] = Vector2(a[X], a[Z]);
-    tri_2D[1] = Vector2(b[X], b[Z]);
-    tri_2D[2] = Vector2(c[X], c[Z]);
-    v_2D = Vector2(v[X], v[Z]);
+    tri_2D[0] = Point2d(a[X], a[Z]);
+    tri_2D[1] = Point2d(b[X], b[Z]);
+    tri_2D[2] = Point2d(c[X], c[Z]);
+    v_2D = Point2d(v[X], v[Z]);
   }
   else
   {
     // minimum variance in the z direction; project to xy plane
-    tri_2D[0] = Vector2(a[X], a[Y]);
-    tri_2D[1] = Vector2(b[X], b[Y]);
-    tri_2D[2] = Vector2(c[X], c[Y]);
-    v_2D = Vector2(v[X], v[Y]);
+    tri_2D[0] = Point2d(a[X], a[Y]);
+    tri_2D[1] = Point2d(b[X], b[Y]);
+    tri_2D[2] = Point2d(c[X], c[Y]);
+    v_2D = Point2d(v[X], v[Y]);
   }
   
   // now determine barycentric coordinates for 2D triangle
@@ -352,51 +354,51 @@ void Triangle::determine_barycentric_coords(const Vector3& v, Real& s, Real& t) 
   // minimum variance is in x direction
   if (varx < vary && varx < varz)
   {
-    const Real r1 = v[Y] - _c[Y];
-    const Real r2 = v[Z] - _c[Z];
-    const Real y1 = _a[Y];
-    const Real y2 = _b[Y];
-    const Real y3 = _c[Y];
-    const Real z1 = _a[Z];
-    const Real z2 = _b[Z];
-    const Real z3 = _c[Z];
-    const Real denom = 1.0/(-y2*z1 + y3*z1 + y1*z2 - y3*z2 - y1*z3 + y2*z3);
-    Real rs1 = r1*denom;
-    Real rs2 = r2*denom;
+    const double r1 = v[Y] - _c[Y];
+    const double r2 = v[Z] - _c[Z];
+    const double y1 = _a[Y];
+    const double y2 = _b[Y];
+    const double y3 = _c[Y];
+    const double z1 = _a[Z];
+    const double z2 = _b[Z];
+    const double z3 = _c[Z];
+    const double denom = 1.0/(-y2*z1 + y3*z1 + y1*z2 - y3*z2 - y1*z3 + y2*z3);
+    double rs1 = r1*denom;
+    double rs2 = r2*denom;
     s = (z2-z3)*rs1 + (y3-y2)*rs2;
     t = (z3-z1)*rs1 + (y1-y3)*rs2;
   }
   // minimum variance is in y direction
   else if (vary < varx && vary < varz)
   {
-    const Real r1 = v[X] - _c[X];
-    const Real r2 = v[Z] - _c[Z];
-    const Real x1 = _a[X];
-    const Real x2 = _b[X];
-    const Real x3 = _c[X];
-    const Real z1 = _a[Z];
-    const Real z2 = _b[Z];
-    const Real z3 = _c[Z];
-    const Real denom = 1.0/(-x2*z1 + x3*z1 + x1*z2 - x3*z2 - x1*z3 + x2*z3);
-    Real rs1 = r1*denom;
-    Real rs2 = r2*denom;
+    const double r1 = v[X] - _c[X];
+    const double r2 = v[Z] - _c[Z];
+    const double x1 = _a[X];
+    const double x2 = _b[X];
+    const double x3 = _c[X];
+    const double z1 = _a[Z];
+    const double z2 = _b[Z];
+    const double z3 = _c[Z];
+    const double denom = 1.0/(-x2*z1 + x3*z1 + x1*z2 - x3*z2 - x1*z3 + x2*z3);
+    double rs1 = r1*denom;
+    double rs2 = r2*denom;
     s = (z2-z3)*rs1 + (x3-x2)*rs2;
     t = (z3-z1)*rs1 + (x1-x3)*rs2;
   }
   // minimum variance is in z direction
   else
   {
-    const Real r1 = v[X] - _c[X];
-    const Real r2 = v[Y] - _c[Y];
-    const Real x1 = _a[X];
-    const Real x2 = _b[X];
-    const Real x3 = _c[X];
-    const Real y1 = _a[Y];
-    const Real y2 = _b[Y];
-    const Real y3 = _c[Y];
-    const Real denom = 1.0/(-x2*y1 + x3*y1 + x1*y2 - x3*y2 - x1*y3 + x2*y3);
-    Real rs1 = r1*denom;
-    Real rs2 = r2*denom;
+    const double r1 = v[X] - _c[X];
+    const double r2 = v[Y] - _c[Y];
+    const double x1 = _a[X];
+    const double x2 = _b[X];
+    const double x3 = _c[X];
+    const double y1 = _a[Y];
+    const double y2 = _b[Y];
+    const double y3 = _c[Y];
+    const double denom = 1.0/(-x2*y1 + x3*y1 + x1*y2 - x3*y2 - x1*y3 + x2*y3);
+    double rs1 = r1*denom;
+    double rs2 = r2*denom;
     s = (y2-y3)*rs1 + (x3-x2)*rs2;
     t = (y3-y1)*rs1 + (x1-x3)*rs2;
   }
@@ -404,7 +406,7 @@ void Triangle::determine_barycentric_coords(const Vector3& v, Real& s, Real& t) 
 }
 
 /// Sends the triangle to the specified stream using VRML
-void Triangle::to_vrml(std::ostream& o, Vector3 diffuse_color, bool wireframe) const
+void Triangle::to_vrml(std::ostream& o, Point3d diffuse_color, bool wireframe) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
   
@@ -432,25 +434,25 @@ void Triangle::to_vrml(std::ostream& o, Vector3 diffuse_color, bool wireframe) c
 }
 
 /// Determines the distance between a line and a line segment
-Real Triangle::calc_sq_dist(const Vector3& origin, const Vector3& dir, const LineSeg3& seg, Vector3& cp_line, Vector3& cp_seg, Real& t_line, Real& t_seg)
+double Triangle::calc_sq_dist(const Point3d& origin, const Vector3d& dir, const LineSeg3& seg, Point3d& cp_line, Point3d& cp_seg, double& t_line, double& t_seg)
 {
   // determine the origins of the segment
-  Vector3 seg_origin = (seg.first + seg.second)*0.5;
+  Point3d seg_origin = (seg.first + seg.second)*0.5;
 
   // determine the directions of the segment
-  Vector3 seg_dir = seg.second - seg.first;
-  Real seg_dir_len = seg_dir.norm();
+  Point3d seg_dir = seg.second - seg.first;
+  double seg_dir_len = seg_dir.norm();
   seg_dir /= seg_dir_len;
 
   // determine the extents of the segment
-  Real seg_extent = seg_dir_len * 0.5;
+  double seg_extent = seg_dir_len * 0.5;
 
-  Vector3 kDiff = origin - seg_origin;
-  Real fA01 = -dir.dot(seg_dir);
-  Real fB0 = kDiff.dot(dir);
-  Real fC = kDiff.norm_sq();
-  Real fDet = std::fabs(1.0 - fA01*fA01);
-  Real fB1, fS0, fS1, fSqrDist, fExtDet;
+  Vector3d kDiff = origin - seg_origin;
+  double fA01 = -dir.dot(seg_dir);
+  double fB0 = kDiff.dot(dir);
+  double fC = kDiff.norm_sq();
+  double fDet = std::fabs(1.0 - fA01*fA01);
+  double fB1, fS0, fS1, fSqrDist, fExtDet;
 
   if (fDet >= NEAR_ZERO)
   {
@@ -465,7 +467,7 @@ Real Triangle::calc_sq_dist(const Vector3& origin, const Vector3& dir, const Lin
       {
         // Two interior points are closest, one on the line and one
         // on the segment.
-        Real fInvDet = (1.0)/fDet;
+        double fInvDet = (1.0)/fDet;
         fS0 = (fA01*fB1-fB0)*fInvDet;
         fS1 *= fInvDet;
         fSqrDist = fS0*(fS0+fA01*fS1+(2.0)*fB0)+fS1*(fA01*fS0+fS1+(2.0)*fB1)+fC;
@@ -514,44 +516,44 @@ Real Triangle::calc_sq_dist(const Vector3& origin, const Vector3& dir, const Lin
  * \return the Euclidean distance between this triangle and the point
  * \note code adapted from www.geometrictools.com 
  */
-Real Triangle::calc_sq_dist(const Triangle& tri, const Vector3& origin, const Vector3& dir, Vector3& cp_line, Vector3& cp_tri, Real& t_line)
+double Triangle::calc_sq_dist(const Triangle& tri, const Point3d& origin, const Vector3d& dir, Point3d& cp_line, Point3d& cp_tri, double& t_line)
 {
-  Real t, t_seg;
-  Vector3 tmp1, tmp2;
+  double t, t_seg;
+  Point3d tmp1, tmp2;
 
   // Test if line intersects triangle.  If so, the squared distance is zero.
-  Vector3 edge0 = tri.b - tri.a;
-  Vector3 edge1 = tri.c - tri.a;
-  Vector3 normal = tri.calc_normal();
+  Vector3d edge0 = tri.b - tri.a;
+  Vector3d edge1 = tri.c - tri.a;
+  Vector3d normal = tri.calc_normal();
 
   // get the direction and origin of the line segment
-  Real fNdD = normal.dot(dir);
+  double fNdD = normal.dot(dir);
   if (std::fabs(fNdD) > NEAR_ZERO)
   {
     // The line and triangle are not parallel, so the line intersects
     // the plane of the triangle.
-    Vector3 kDiff = origin - tri.a;
-    Vector3 kU, kV;
-    Vector3::determine_orthonormal_basis(dir,kU,kV);
-    Real fUdE0 = kU.dot(edge0);
-    Real fUdE1 = kU.dot(edge1);
-    Real fUdDiff = kU.dot(kDiff);
-    Real fVdE0 = kV.dot(edge0);
-    Real fVdE1 = kV.dot(edge1);
-    Real fVdDiff = kV.dot(kDiff);
-    Real fInvDet = (1.0)/(fUdE0*fVdE1 - fUdE1*fVdE0);
+    Vector3d kDiff = origin - tri.a;
+    Vector3d kU, kV;
+    Vector3d::determine_orthonormal_basis(dir,kU,kV);
+    double fUdE0 = kU.dot(edge0);
+    double fUdE1 = kU.dot(edge1);
+    double fUdDiff = kU.dot(kDiff);
+    double fVdE0 = kV.dot(edge0);
+    double fVdE1 = kV.dot(edge1);
+    double fVdDiff = kV.dot(kDiff);
+    double fInvDet = (1.0)/(fUdE0*fVdE1 - fUdE1*fVdE0);
 
     // Barycentric coordinates for the point of intersection.
-    Real fB1 = (fVdE1*fUdDiff - fUdE1*fVdDiff)*fInvDet;
-    Real fB2 = (fUdE0*fVdDiff - fVdE0*fUdDiff)*fInvDet;
-    Real fB0 = 1.0 - fB1 - fB2;
+    double fB1 = (fVdE1*fUdDiff - fUdE1*fVdDiff)*fInvDet;
+    double fB2 = (fUdE0*fVdDiff - fVdE0*fUdDiff)*fInvDet;
+    double fB0 = 1.0 - fB1 - fB2;
 
     if (fB0 >= 0.0 && fB1 >= 0.0 && fB2 >= 0.0)
     {
       // Line parameter for the point of intersection.
-      Real fDdE0 = dir.dot(edge0);
-      Real fDdE1 = dir.dot(edge1);
-      Real fDdDiff = dir.dot(kDiff);
+      double fDdE0 = dir.dot(edge0);
+      double fDdE1 = dir.dot(edge1);
+      double fDdDiff = dir.dot(kDiff);
       t_line = fB1*fDdE0 + fB2*fDdE1 - fDdDiff;
 
       // The intersection point is inside or on the triangle.
@@ -566,11 +568,11 @@ Real Triangle::calc_sq_dist(const Triangle& tri, const Vector3& origin, const Ve
   // triangle or (2) the line and triangle are parallel.  Regardless, the
   // closest point on the triangle is on an edge of the triangle.  Compare
   // the line to all three edges of the triangle.
-  Real fSqrDist = std::numeric_limits<Real>::max();
+  double fSqrDist = std::numeric_limits<double>::max();
   for (unsigned i0 = 2, i1 = 0; i1 < 3; i0 = i1++)
   {
     LineSeg3 edge(tri.get_vertex(i0), tri.get_vertex(i1));
-    Real fSqrDistTmp = calc_sq_dist(origin, dir, edge, tmp1, tmp2, t, t_seg);
+    double fSqrDistTmp = calc_sq_dist(origin, dir, edge, tmp1, tmp2, t, t_seg);
     if (fSqrDistTmp < fSqrDist)
     {
       cp_line = tmp1;
@@ -584,19 +586,19 @@ Real Triangle::calc_sq_dist(const Triangle& tri, const Vector3& origin, const Ve
 }
 
 /// Computes the closest distance between a triangle and a line segment
-Real Triangle::calc_sq_dist(const Triangle& tri, const LineSeg3& seg, Vector3& cp_tri, Vector3& cp_seg)
+double Triangle::calc_sq_dist(const Triangle& tri, const LineSeg3& seg, Point3d& cp_tri, Point3d& cp_seg)
 {
   // compute the segment origin, direction, and extent
-  Vector3 origin = (seg.first + seg.second) * 0.5;
-  Vector3 dir = seg.second - seg.first;
-  Real dir_len = dir.norm();
-  Real extent = dir_len * 0.5;
+  Point3d origin = (seg.first + seg.second) * 0.5;
+  Vector3d dir = seg.second - seg.first;
+  double dir_len = dir.norm();
+  double extent = dir_len * 0.5;
   dir /= dir_len;
 
   // get the squared distance between a line containing the segment and
   // the triangle
-  Real t_line;
-  Real fSqrDist = calc_sq_dist(tri, origin, dir, cp_seg, cp_tri, t_line);
+  double t_line;
+  double fSqrDist = calc_sq_dist(tri, origin, dir, cp_seg, cp_tri, t_line);
 
   if (t_line >= -extent)
   {
@@ -619,12 +621,12 @@ Real Triangle::calc_sq_dist(const Triangle& tri, const LineSeg3& seg, Vector3& c
  * \return the squared Euclidean distance between this triangle and the point
  * \note code adapted from www.geometrictools.com 
  */
-Real Triangle::calc_sq_dist(const Triangle& t1, const Triangle& t2, Vector3& cp1, Vector3& cp2)
+double Triangle::calc_sq_dist(const Triangle& t1, const Triangle& t2, Point3d& cp1, Point3d& cp2)
 {
-  Vector3 tmp1, tmp2;
+  Point3d tmp1, tmp2;
 
   // compare edges of t1 to the interior of t2
-  Real fSqrDist = std::numeric_limits<Real>::max(), fSqrDistTmp;
+  double fSqrDist = std::numeric_limits<double>::max(), fSqrDistTmp;
   LineSeg3 seg;
   for (unsigned i0 = 2, i1 = 0; i1 < 3; i0 = i1++)
   {
@@ -665,22 +667,22 @@ Real Triangle::calc_sq_dist(const Triangle& t1, const Triangle& t2, Vector3& cp1
  * \note I took this code almost verbatim from Dave Eberly; need to ask his
  *       permission to use it!
  */
-Real Triangle::calc_sq_dist(const Triangle& tri, const Vector3& point, Vector3& cp)
+double Triangle::calc_sq_dist(const Triangle& tri, const Point3d& point, Point3d& cp)
 {
   // compute needed quantities
-  Vector3 k_diff = tri.a - point;
-  Vector3 E0 = tri.b - tri.a;
-  Vector3 E1 = tri.c - tri.a;
-  Real A00 = E0.norm_sq();
-  Real A01 = Vector3::dot(E0, E1);
-  Real A11 = E1.norm_sq(); 
-  Real B0 = Vector3::dot(k_diff, E0);
-  Real B1 = Vector3::dot(k_diff, E1);
-  Real C = k_diff.norm_sq();
-  Real det = std::fabs(A00*A11-A01*A01);
-  Real s = A01*B1-A11*B0;
-  Real t = A01*B0-A00*B1;
-  Real sqr_dist;
+  Vector3d k_diff = tri.a - point;
+  Vector3d E0 = tri.b - tri.a;
+  Vector3d E1 = tri.c - tri.a;
+  double A00 = E0.norm_sq();
+  double A01 = Vector3d::dot(E0, E1);
+  double A11 = E1.norm_sq(); 
+  double B0 = Vector3d::dot(k_diff, E0);
+  double B1 = Vector3d::dot(k_diff, E1);
+  double C = k_diff.norm_sq();
+  double det = std::fabs(A00*A11-A01*A01);
+  double s = A01*B1-A11*B0;
+  double t = A01*B0-A00*B1;
+  double sqr_dist;
 
   if (s + t <= det)
   {
@@ -767,7 +769,7 @@ Real Triangle::calc_sq_dist(const Triangle& tri, const Vector3& point, Vector3& 
     else  
     {
       // region 0
-      Real inv_det = 1.0/det;
+      double inv_det = 1.0/det;
       s *= inv_det;
       t *= inv_det;
       sqr_dist = s*(A00*s+A01*t+(2.0*B0)) + t*(A01*s+A11*t+(2.0*B1)) + C;
@@ -775,7 +777,7 @@ Real Triangle::calc_sq_dist(const Triangle& tri, const Vector3& point, Vector3& 
   }
   else
   {
-    Real tmp0, tmp1, numer, denom;
+    double tmp0, tmp1, numer, denom;
 
     if (s < 0.0)  
     {

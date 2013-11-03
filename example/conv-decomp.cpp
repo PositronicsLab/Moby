@@ -9,6 +9,7 @@
 #include <sstream>
 #include <stack>
 
+using namespace Ravelin;
 using namespace Moby;
 using boost::shared_ptr;
 
@@ -16,46 +17,46 @@ using boost::shared_ptr;
 bool DEBUG = false;
 bool SPLIT_DEGENERATE = false;
 bool RANDOMIZE = false;
-Real COPLANAR_TOL = 1e-8;
-Real COLINEAR_TOL = 1e-8;
-Real SPLIT_TOL = 1e-8;
-Real CONVEXITY_TOL = 1e-8;
-Real EDGE_ON_PLANE_TOL = 1e-8;
-Real MAX_TRI_AREA = std::numeric_limits<Real>::max();
+double COPLANAR_TOL = 1e-8;
+double COLINEAR_TOL = 1e-8;
+double SPLIT_TOL = 1e-8;
+double CONVEXITY_TOL = 1e-8;
+double EDGE_ON_PLANE_TOL = 1e-8;
+double MAX_TRI_AREA = std::numeric_limits<double>::max();
 
 // list of vertices -- this is necessary to keep created vertices around
 // until program exit
-std::list<Vector3*> new_verts;
+std::list<Point3d*> new_verts;
 
 // a triangle with pointers to vertices
 struct Tri
 {
-  Tri(const Vector3* a, const Vector3* b, const Vector3* c)
+  Tri(const Point3d* a, const Point3d* b, const Point3d* c)
   {
     this->a = a;
     this->b = b;
     this->c = c;
   }
 
-  const Vector3* a;
-  const Vector3* b;
-  const Vector3* c;
-  Vector3 calc_normal() const { return Vector3::cross(*b - *a, *c - *b); }
-  Real calc_offset(const Vector3& normal) const { return normal.dot(*a); }
+  const Point3d* a;
+  const Point3d* b;
+  const Point3d* c;
+  Vector3d calc_normal() const { return Vector3d::cross(*b - *a, *c - *b); }
+  double calc_offset(const Vector3d& normal) const { return normal.dot(*a); }
 };
 
 // an edge
 struct Edge
 {
-  Edge(const Vector3* v1, const Vector3* v2) { v = make_sorted_pair(v1, v2); }
+  Edge(const Point3d* v1, const Point3d* v2) { v = make_sorted_pair(v1, v2); }
 
   // the two vertices of the edge
-  sorted_pair<const Vector3*> v;
+  sorted_pair<const Point3d*> v;
 
   // the two facets of the edge
   shared_ptr<const Tri> f1, f2;
 
-  bool is_convex(Real concavity_tol) const
+  bool is_convex(double concavity_tol) const
   {
     // if not both faces set, edge is certainly not convex 
     assert(f1);
@@ -63,11 +64,11 @@ struct Edge
       return false;
 
     // get the plane going through f1
-    Vector3 normal = f1->calc_normal();
-    Real d = f1->calc_offset(normal);
+    Vector3d normal = f1->calc_normal();
+    double d = f1->calc_offset(normal);
 
     // get the vertex of f2 not on this edge
-    const Vector3* vert;
+    const Point3d* vert;
     if ((f2->a == v.first && f2->b == v.second) ||
         (f2->a == v.second && f2->b == v.first))
       vert = f2->c;
@@ -82,7 +83,7 @@ struct Edge
     }  
 
     // see whether the vertex is on the positive side of the plane
-    return Vector3::dot(normal, *vert) - d <= concavity_tol;
+    return Vector3d::dot(normal, *vert) - d <= concavity_tol;
   }
 
   bool operator==(const Edge& e) const
@@ -99,14 +100,14 @@ struct Edge
 // a plane
 struct Plane
 {
-  Real a, b, c, d;
+  double a, b, c, d;
   Plane() {}
-  Plane(Real nx, Real ny, Real nz, Real dd)
+  Plane(double nx, double ny, double nz, double dd)
   {
-    const Real NEAR_ZERO = std::sqrt(std::numeric_limits<Real>::epsilon());
+    const double NEAR_ZERO = std::sqrt(std::numeric_limits<double>::epsilon());
     a = nx; b = ny; c = nz;
     d = dd;
-    Real nrm = std::sqrt(a*a + b*b + c*c);
+    double nrm = std::sqrt(a*a + b*b + c*c);
     assert(nrm > NEAR_ZERO);
     a /= nrm;
     b /= nrm;
@@ -121,21 +122,21 @@ struct Plane
     d = p.d;
   }
 
-  Real plane_eq(const Vector3& v) const
+  double plane_eq(const Vector3d& v) const
   {
     return v[0]*a + v[1]*b + v[2]*c - d;
   }
 
-  bool on_plane(const Vector3& v) const
+  bool on_plane(const Point3d& v) const
   {
-    const Real NEAR_ZERO = std::sqrt(std::numeric_limits<Real>::epsilon());
+    const double NEAR_ZERO = std::sqrt(std::numeric_limits<double>::epsilon());
     return std::fabs(v[0]*a + v[1]*b + v[2]*c - d) < NEAR_ZERO;
   }
 
   bool operator==(const Plane& p) const
   {
-    const Real NEAR_ZERO = std::sqrt(std::numeric_limits<Real>::epsilon());
-    Real dot = a*p.a + b*p.b + c*p.c;
+    const double NEAR_ZERO = std::sqrt(std::numeric_limits<double>::epsilon());
+    double dot = a*p.a + b*p.b + c*p.c;
     if (std::fabs(dot - 1.0) < NEAR_ZERO && std::fabs(d - p.d) < NEAR_ZERO)
       return true;
     if (std::fabs(dot + 1.0) < NEAR_ZERO && std::fabs(d + p.d) < NEAR_ZERO)
@@ -176,15 +177,15 @@ class BSP
     BSP(BSP* parent) { _negative = _positive = NULL; _split = false; _parent = parent; }
     ~BSP() { if (_split) { delete _negative; delete _positive; } }
     void split(const Plane& p);
-    std::list<std::list<Vector3> > get_all_points() const;
+    std::list<std::list<Point3d> > get_all_points() const;
     std::list<BSP*> get_leafs() const;
-    std::list<Vector3> get_points() const;
+    std::list<Point3d> get_points() const;
     void get_subspaces(EdgePtr e, std::list<BSP*>& spaces);
     void to_vrml(std::ostream& out) const;
     void check() const;
-    bool inside_or_on(const Vector3& v) const;
+    bool inside_or_on(const Point3d& v) const;
     const Plane& plane() const { return _plane; }
-    std::list<BSP*> find_nodes(const Vector3& v) const;
+    std::list<BSP*> find_nodes(const Point3d& v) const;
 
     /// Determines whether this BSP has been split
     bool is_leaf() const { return !_split; }
@@ -227,7 +228,7 @@ class BSP
 std::ofstream BSP::_log;
 
 /// Finds all leaf BSP nodes that v belongs to
-std::list<BSP*> BSP::find_nodes(const Vector3& v) const
+std::list<BSP*> BSP::find_nodes(const Point3d& v) const
 {
   // if we're at this point, we can assume that this node is within all
   // halfspaces above
@@ -240,7 +241,7 @@ std::list<BSP*> BSP::find_nodes(const Vector3& v) const
   else
   {
     // check where v is with regard to the splitting plane
-    Real val = _plane.plane_eq(v);
+    double val = _plane.plane_eq(v);
     if (val > SPLIT_TOL)
       return _positive->find_nodes(v);
     else if (val < -SPLIT_TOL)
@@ -256,7 +257,7 @@ std::list<BSP*> BSP::find_nodes(const Vector3& v) const
 }
 
 /// Determines whether a vertex is inside or on this BSP node
-bool BSP::inside_or_on(const Vector3& point) const
+bool BSP::inside_or_on(const Point3d& point) const
 {
   // get all splitting planes
   std::list<std::pair<Plane, bool> > planes;
@@ -274,7 +275,7 @@ bool BSP::inside_or_on(const Vector3& point) const
   // check signed distance from all splitting planes
   for (std::list<std::pair<Plane, bool> >::const_iterator j = planes.begin(); j != planes.end(); j++)
   {
-    Real sdist = j->first.plane_eq(point);
+    double sdist = j->first.plane_eq(point);
     if (sdist < 0.0)
     {
       if (j->second && -sdist > SPLIT_TOL)
@@ -311,13 +312,13 @@ std::list<BSP*> BSP::get_leafs() const
 void BSP::to_vrml(std::ostream& out) const
 {
   const unsigned X = 0, Y = 1, Z = 2, THREE_D = 3;
-  const Real INF = std::numeric_limits<Real>::max();
+  const double INF = std::numeric_limits<double>::max();
 
   // determine the bounding box on all points
-  std::list<std::list<Vector3> > points = get_all_points();
-  Vector3 bb_lo(INF, INF, INF), bb_hi(-INF, -INF, -INF);
-  for (std::list<std::list<Vector3> >::const_iterator i = points.begin(); i != points.end(); i++)
-    for (std::list<Vector3>::const_iterator j = i->begin(); j != i->end(); j++)
+  std::list<std::list<Point3d> > points = get_all_points();
+  Point3d bb_lo(INF, INF, INF), bb_hi(-INF, -INF, -INF);
+  for (std::list<std::list<Point3d> >::const_iterator i = points.begin(); i != points.end(); i++)
+    for (std::list<Point3d>::const_iterator j = i->begin(); j != i->end(); j++)
       for (unsigned k=0; k< THREE_D; k++)
       {
         bb_lo[k] = std::min(bb_lo[k], (*j)[k]);
@@ -340,75 +341,82 @@ void BSP::to_vrml(std::ostream& out) const
 /// Writes this BSP in VRML format to an output stream
 void BSP::to_vrml(std::ostream& out, std::list<std::pair<Plane, bool> > half_spaces) const
 {
-  Real r_color, g_color, b_color;
+  double r_color, g_color, b_color;
 
   // if this is a leaf, do nothing (leaves should be written by their parents)
   if (is_leaf())
     return;
 
   // setup the half-space for CompGeom::find_hs_interior_point()
-  std::list<std::pair<Vector3, Real> > hs;
+  std::list<std::pair<Point3d, double> > hs;
   for (std::list<std::pair<Plane, bool> >::const_iterator i = half_spaces.begin(); i != half_spaces.end(); i++)
     if (i->second)
-      hs.push_back(std::make_pair(Vector3(-i->first.a, -i->first.b, -i->first.c), -i->first.d));
+      hs.push_back(std::make_pair(Point3d(-i->first.a, -i->first.b, -i->first.c), -i->first.d));
     else
-      hs.push_back(std::make_pair(Vector3(i->first.a, i->first.b, i->first.c), i->first.d));
+      hs.push_back(std::make_pair(Point3d(i->first.a, i->first.b, i->first.c), i->first.d));
 
   // add the positive half-space of this child to the set of half-spaces
-  hs.push_back(std::make_pair(Vector3(-_plane.a, -_plane.b, -_plane.c), -_plane.d));
+  hs.push_back(std::make_pair(Point3d(-_plane.a, -_plane.b, -_plane.c), -_plane.d));
 
   // find the interior point to the halfspaces
-  Vector3 ip;
-  Real dist = CompGeom::find_hs_interior_point(hs.begin(), hs.end(), ip);
+  Point3d ip;
+// NOTE: we've disabled the following line b/c of removal of linear programming from Moby (hence this utility does not work!) 
+//  double dist = CompGeom::find_hs_interior_point(hs.begin(), hs.end(), ip);
+double dist = -1.0;
   if (dist < 0.0)
   {
     std::cerr << "could not find point interior to positive half-spaces!" << std::endl;
     std::cerr << "halfspaces:" << std::endl;
-    for (std::list<std::pair<Vector3, Real> >::const_iterator i=hs.begin(); i != hs.end(); i++)
+    for (std::list<std::pair<Point3d, double> >::const_iterator i=hs.begin(); i != hs.end(); i++)
       std::cerr << "  normal: " << i->first << " offset: " << i->second << std::endl;
 
     return;
   }
 
   // compute the halfspace intersection
-  PolyhedronPtr hs_isect = CompGeom::calc_hs_intersection(hs.begin(), hs.end(), ip);
+// NOTE; this function is disabled (and hence this utility will not work), unless we re-integrate linear programming with Moby
+//  PolyhedronPtr hs_isect = CompGeom::calc_hs_intersection(hs.begin(), hs.end(), ip);
+  PolyhedronPtr hs_isect;
   if (hs_isect && _positive->is_leaf())
   {
     // write only leaves to VRML as a wireframe
-    r_color = (Real) rand() / RAND_MAX;
-    g_color = (Real) rand() / RAND_MAX;
-    b_color = (Real) rand() / RAND_MAX;
+    r_color = (double) rand() / RAND_MAX;
+    g_color = (double) rand() / RAND_MAX;
+    b_color = (double) rand() / RAND_MAX;
     out << "# halfspace: " << _positive << std::endl;
-    Polyhedron::to_vrml(out, *hs_isect, Vector3(r_color, g_color, b_color), true);
+    Polyhedron::to_vrml(out, *hs_isect, Point3d(r_color, g_color, b_color), true);
     out << std::endl;
   }
 
   // now, write the negative half-space
   hs.pop_back();
-  hs.push_back(std::make_pair(Vector3(_plane.a, _plane.b, _plane.c), _plane.d));
+  hs.push_back(std::make_pair(Point3d(_plane.a, _plane.b, _plane.c), _plane.d));
 
   // find the interior point to the halfspaces
-  dist = CompGeom::find_hs_interior_point(hs.begin(), hs.end(), ip);
+// NOTE: we've disabled the following line b/c of removal of linear programming from Moby (hence this utility does not work!) 
+//  dist = CompGeom::find_hs_interior_point(hs.begin(), hs.end(), ip);
+  dist = -1.0;
   if (dist < 0.0)
   {
     std::cerr << "could not find point interior to negative half-spaces!" << std::endl;
     std::cerr << "halfspaces:" << std::endl;
-    for (std::list<std::pair<Vector3, Real> >::const_iterator i=hs.begin(); i != hs.end(); i++)
+    for (std::list<std::pair<Point3d, double> >::const_iterator i=hs.begin(); i != hs.end(); i++)
       std::cerr << "  normal: " << i->first << " offset: " << i->second << std::endl;
 
     return;
   }
 
   // compute the halfspace intersection
-  hs_isect = CompGeom::calc_hs_intersection(hs.begin(), hs.end(), ip);
+// NOTE; this function is disabled (and hence this utility will not work), unless we re-integrate linear programming with Moby
+//  hs_isect = CompGeom::calc_hs_intersection(hs.begin(), hs.end(), ip);
   if (hs_isect && _negative->is_leaf())
   {
     // write only leaves to VRML as a wireframe
-    r_color = (Real) rand() / RAND_MAX;
-    g_color = (Real) rand() / RAND_MAX;
-    b_color = (Real) rand() / RAND_MAX;
+    r_color = (double) rand() / RAND_MAX;
+    g_color = (double) rand() / RAND_MAX;
+    b_color = (double) rand() / RAND_MAX;
     out << "# halfspace: " << _negative << std::endl;
-    Polyhedron::to_vrml(out, *hs_isect, Vector3(r_color, g_color, b_color), true);
+    Polyhedron::to_vrml(out, *hs_isect, Point3d(r_color, g_color, b_color), true);
     out << std::endl;
   }
 
@@ -476,12 +484,12 @@ std::set<EdgePtr> BSP::find_edges(const std::list<Edge>& edges) const
 }
 
 /// Gets all points from this (leaf) BSP only
-std::list<Vector3> BSP::get_points() const
+std::list<Point3d> BSP::get_points() const
 {
   assert(is_leaf());
 
   // determine all unique vertices
-  std::set<const Vector3*> unique_points;
+  std::set<const Point3d*> unique_points;
   for (unsigned i=0; i< _edges.size(); i++)
   {
     unique_points.insert(_edges[i]->v.first);
@@ -489,28 +497,28 @@ std::list<Vector3> BSP::get_points() const
   }
 
   // create a list and add the vertices to it
-  std::list<Vector3> points;
-  for (std::set<const Vector3*>::const_iterator i = unique_points.begin(); i != unique_points.end(); i++)
+  std::list<Point3d> points;
+  for (std::set<const Point3d*>::const_iterator i = unique_points.begin(); i != unique_points.end(); i++)
     points.push_back(**i);
   return points;
 }
 
 /// Gets all points from this BSP and all children
-std::list<std::list<Vector3> > BSP::get_all_points() const
+std::list<std::list<Point3d> > BSP::get_all_points() const
 {
   // if this is a leaf, just add all unique points
   if (is_leaf())
   {
     // create the list
-    std::list<std::list<Vector3> > points;
+    std::list<std::list<Point3d> > points;
     points.push_back(get_points());
     return points;
   }
   else
   {
     // get the points from both children
-    std::list<std::list<Vector3> > p1 = _positive->get_all_points();
-    std::list<std::list<Vector3> > p2 = _negative->get_all_points();
+    std::list<std::list<Point3d> > p1 = _positive->get_all_points();
+    std::list<std::list<Point3d> > p2 = _negative->get_all_points();
     p1.insert(p1.end(), p2.begin(), p2.end());
     return p1;
   }
@@ -566,7 +574,7 @@ void BSP::get_subspaces(EdgePtr e, std::list<BSP*>& spaces)
 }
 
 /// Determines whether three points are collinear to some given tolerance
-bool collinear(const Vector3& a, const Vector3& b, const Vector3& c, Real tol)
+bool collinear(const Point3d& a, const Point3d& b, const Point3d& c, double tol)
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
@@ -583,7 +591,7 @@ void BSP::check() const
 
 void BSP::check(const std::stack<std::pair<Plane, bool> >& hs) const
 {
-  const Real NEAR_ZERO = std::sqrt(std::numeric_limits<Real>::epsilon());
+  const double NEAR_ZERO = std::sqrt(std::numeric_limits<double>::epsilon());
 
   // if this is an internal node, add splitting plane and call recursively
   // on child nodes
@@ -608,7 +616,7 @@ void BSP::check(const std::stack<std::pair<Plane, bool> >& hs) const
     }
 
     // determine set of vertices
-    std::set<const Vector3*> verts;
+    std::set<const Point3d*> verts;
     for (unsigned i=0; i< _edges.size(); i++)
     {
       verts.insert(_edges[i]->v.first);
@@ -616,12 +624,12 @@ void BSP::check(const std::stack<std::pair<Plane, bool> >& hs) const
     }
 
     // get the signed distance of each vertex from each plane
-    for (std::set<const Vector3*>::const_iterator i = verts.begin(); i != verts.end(); i++)
+    for (std::set<const Point3d*>::const_iterator i = verts.begin(); i != verts.end(); i++)
     {
-      Real max_outside_distance = 0.0;
+      double max_outside_distance = 0.0;
       for (std::list<std::pair<Plane, bool> >::const_iterator j = hs_list.begin(); j != hs_list.end(); j++)
       {
-        Real sdist = j->first.plane_eq(**i);
+        double sdist = j->first.plane_eq(**i);
         if (sdist < 0.0)
         {
           if (j->second)
@@ -639,7 +647,7 @@ void BSP::check(const std::stack<std::pair<Plane, bool> >& hs) const
 /// Splits this BSP using the given splitting plane
 void BSP::split(const Plane& plane)
 {
-  const Real NEAR_ZERO = std::sqrt(std::numeric_limits<Real>::epsilon());
+  const double NEAR_ZERO = std::sqrt(std::numeric_limits<double>::epsilon());
 
   // guarantee that the BSP is not already split
   assert(!_split);
@@ -654,14 +662,14 @@ void BSP::split(const Plane& plane)
   _log << "splitting space " << this << " using splitting plane: " << plane.a << "x + " << plane.b << "y + " << plane.c << "z = " << plane.d << std::endl;
 
   // get the plane normal
-  Vector3 pnormal(plane.a, plane.b, plane.c);
+  Vector3d pnormal(plane.a, plane.b, plane.c);
 
   // determine where all edges lie with respect to the splitting plane
   for (unsigned i=0; i< _edges.size(); i++)
   {
-    Real val1 = plane.plane_eq(*_edges[i]->v.first);
-    Real val2 = plane.plane_eq(*_edges[i]->v.second);
-    Vector3 nedge = (*_edges[i]->v.second - *_edges[i]->v.first);
+    double val1 = plane.plane_eq(*_edges[i]->v.first);
+    double val2 = plane.plane_eq(*_edges[i]->v.second);
+    Vector3d nedge = (*_edges[i]->v.second - *_edges[i]->v.first);
     if (nedge.norm() > NEAR_ZERO)
       nedge.normalize();
 
@@ -702,10 +710,10 @@ void BSP::split(const Plane& plane)
     else
     {
       // edge lies across the plane; split the edge by the plane
-      Real t = CompGeom::intersect_seg_plane(Vector3(plane.a, plane.b, plane.c), plane.d, LineSeg3(*_edges[i]->v.first, *_edges[i]->v.second));
+      double t = CompGeom::intersect_seg_plane(Point3d(plane.a, plane.b, plane.c), plane.d, LineSeg3(*_edges[i]->v.first, *_edges[i]->v.second));
 
       // form the vertex on the plane
-      Vector3* vert = new Vector3(*_edges[i]->v.first + (*_edges[i]->v.second - *_edges[i]->v.first) * t);
+      Point3d* vert = new Point3d(*_edges[i]->v.first + (*_edges[i]->v.second - *_edges[i]->v.first) * t);
       assert(std::fabs(plane.plane_eq(*vert)) < NEAR_ZERO);
 
       // save the vertex
@@ -764,7 +772,7 @@ void BSP::split(const Plane& plane)
   }
 
   // get all vertices from positive and negative sides
-  std::set<const Vector3*> pverts, nverts;
+  std::set<const Point3d*> pverts, nverts;
   for (unsigned i=0; i< pedges.size(); i++)
   {
     pverts.insert(pedges[i]->v.first);
@@ -793,12 +801,12 @@ void BSP::split(const Plane& plane)
   // determine three noncolinear points on the positive side
   if (!SPLIT_DEGENERATE)
   {
-    std::set<const Vector3*>::const_iterator k = pverts.begin();
-    Vector3 PA = **(k++);
-    Vector3 PB(0,0,0), PC(0,0,0);
+    std::set<const Point3d*>::const_iterator k = pverts.begin();
+    Point3d PA = **(k++);
+    Point3d PB(0,0,0), PC(0,0,0);
     while (true)
     {
-      std::set<const Vector3*>::const_iterator j = k;
+      std::set<const Point3d*>::const_iterator j = k;
       j++;
       if (j == pverts.end())
       {
@@ -822,16 +830,16 @@ void BSP::split(const Plane& plane)
     }
 
     // determine the normal of the plane through the positive points
-    Vector3 Pn = Vector3::cross(PB-PA, PC-PA);
+    Vector3d Pn = Vector3d::cross(PB-PA, PC-PA);
     Pn.normalize();
 
     // determine three noncolinear points on the negative side
     k = nverts.begin();
-    Vector3 NA = **(k++);
-    Vector3 NB(0,0,0), NC(0,0,0);
+    Point3d NA = **(k++);
+    Point3d NB(0,0,0), NC(0,0,0);
     while (true)
     {
-      std::set<const Vector3*>::const_iterator j = k;
+      std::set<const Point3d*>::const_iterator j = k;
       j++;
       if (j == nverts.end())
       {
@@ -855,13 +863,13 @@ void BSP::split(const Plane& plane)
     }
 
     // determine the normal of the plane through the negative points
-    Vector3 Nn = Vector3::cross(NB-NA, NC-NA);
+    Vector3d Nn = Vector3d::cross(NB-NA, NC-NA);
     Nn.normalize();
 
     // check for all points coplanar on the positive side
-    Real Pd = Vector3::dot(Pn, PA);
+    double Pd = Vector3d::dot(Pn, PA);
     for (k = ++(++pverts.begin()); k != pverts.end(); k++)
-      if (std::fabs(Vector3::dot(Pn, **k) - Pd) > COPLANAR_TOL)
+      if (std::fabs(Vector3d::dot(Pn, **k) - Pd) > COPLANAR_TOL)
         break;
 
     // all points coplanar indicates no split possible
@@ -872,9 +880,9 @@ void BSP::split(const Plane& plane)
     }
 
     // check for all points coplanar on the negative side
-    Real Nd = Vector3::dot(Nn, NA);
+    double Nd = Vector3d::dot(Nn, NA);
     for (k = ++(++nverts.begin()); k != nverts.end(); k++)
-      if (std::fabs(Vector3::dot(Nn, **k) - Nd) > COPLANAR_TOL)
+      if (std::fabs(Vector3d::dot(Nn, **k) - Nd) > COPLANAR_TOL)
         break;
 
     // all points coplanar indicates no split possible
@@ -909,8 +917,8 @@ void BSP::split(const Plane& plane)
    // output debugging info
   _log << "created new subspaces: " << _positive << ", " << _negative << std::endl;
   _log << "  vertices in subspace " << _positive << ": " << std::endl;
-  std::list<Vector3> points = _positive->get_points();
-  BOOST_FOREACH(const Vector3& p, points)
+  std::list<Point3d> points = _positive->get_points();
+  BOOST_FOREACH(const Point3d& p, points)
     _log << "   " << p << std::endl;  
   _log << "  edges in subspace " << _positive << ": " << std::endl;
   for (unsigned i=0; i< pedges.size(); i++)
@@ -919,7 +927,7 @@ void BSP::split(const Plane& plane)
     _log << "   " << i->second << " [from " << i->first << "]" << std::endl;
   _log << "  vertices in subspace " << _negative << ": " << std::endl;
   points = _negative->get_points();
-  BOOST_FOREACH(const Vector3& p, points)
+  BOOST_FOREACH(const Point3d& p, points)
     _log << "   " << p << std::endl;  
   _log << "  edges in subspace " << _negative << ": " << std::endl;
   for (unsigned i=0; i< nedges.size(); i++)
@@ -937,7 +945,7 @@ void edges_to_vrml(std::ostream& out, ForwardIterator begin, ForwardIterator end
   out << "IndexedLineSet { " << std::endl;
   out << "  coord Coordinate {" << std::endl;
   out << "    point [ " << std::endl;
-  std::map<const Vector3*, unsigned> ncedgesV;
+  std::map<const Point3d*, unsigned> ncedgesV;
   for (ForwardIterator i = begin; i != end; i++)
   {
     BSP::_log << "  writing edge: " << *i << std::endl;
@@ -978,7 +986,7 @@ void print_syntax()
 }
 
 /// Subdivides a mesh such that each triangle is no bigger than the maximum area
-IndexedTriArray subdivide(const IndexedTriArray& mesh, Real max_tri_area)
+IndexedTriArray subdivide(const IndexedTriArray& mesh, double max_tri_area)
 {
   // setup a list of triangles within the size limit and a queue of triangles
   // to process
@@ -986,7 +994,7 @@ IndexedTriArray subdivide(const IndexedTriArray& mesh, Real max_tri_area)
   std::queue<IndexedTri> tri_q;
 
   // get triangles and vertices from the mesh
-  std::vector<Vector3> verts = mesh.get_vertices();  
+  std::vector<Point3d> verts = mesh.get_vertices();  
   const std::vector<IndexedTri>& facets = mesh.get_facets();  
 
   // copy triangles into the list or queue as appropriate
@@ -1007,7 +1015,7 @@ IndexedTriArray subdivide(const IndexedTriArray& mesh, Real max_tri_area)
     tri_q.pop();
 
     // determine the Steiner point 
-    Vector3 steiner = (verts[t.a] + verts[t.b] + verts[t.c])*0.333333333;
+    Point3d steiner = (verts[t.a] + verts[t.b] + verts[t.c])*0.333333333;
 
     // add it to the vertices
     verts.push_back(steiner);
@@ -1039,20 +1047,20 @@ IndexedTriArray subdivide(const IndexedTriArray& mesh, Real max_tri_area)
 }
 
 /// Determines points from intersection of the BSP half-spaces
-std::map<BSP*, std::list<Vector3> > determine_extra_points(const BSP& bsp, const IndexedTriArray& mesh)
+std::map<BSP*, std::list<Point3d> > determine_extra_points(const BSP& bsp, const IndexedTriArray& mesh)
 {
   // setup the map
-  std::map<BSP*, std::list<Vector3> > epoints;
+  std::map<BSP*, std::list<Point3d> > epoints;
 
   // subdivide the mesh
   IndexedTriArray subdiv_mesh = subdivide(mesh, MAX_TRI_AREA);
 
   // get vertices of the mesh
-  const std::vector<Vector3>& verts = subdiv_mesh.get_vertices();
+  const std::vector<Point3d>& verts = subdiv_mesh.get_vertices();
 
   // for every vertex, check to see whether the vertex is inside or on the
   // leaf; if it is, store it as an extra point for this leaf
-  BOOST_FOREACH(const Vector3& v, verts)
+  BOOST_FOREACH(const Point3d& v, verts)
   {
     // find the BSP nodes that this vertex 'belongs' to
     std::list<BSP*> nodes = bsp.find_nodes(v);
@@ -1112,32 +1120,32 @@ int main(int argc, char* argv[])
         break;
 
       case 'v':
-        CONVEXITY_TOL = (Real) atof(optarg);
+        CONVEXITY_TOL = (double) atof(optarg);
         std::cout << "- convexity tolerance set to " << CONVEXITY_TOL << std::endl;
         break;
 
       case 'p':
-        COPLANAR_TOL = (Real) atof(optarg);
+        COPLANAR_TOL = (double) atof(optarg);
         std::cout << "- coplanar tolerance set to " << COPLANAR_TOL << std::endl;
         break;
       
       case 'l':
-        COLINEAR_TOL = (Real) atof(optarg);
+        COLINEAR_TOL = (double) atof(optarg);
         std::cout << "- colinear tolerance set to " << COLINEAR_TOL << std::endl;
         break;
 
       case 'm':
-        MAX_TRI_AREA = (Real) atof(optarg);
+        MAX_TRI_AREA = (double) atof(optarg);
         std::cout << "- maximum triangle area set to " << MAX_TRI_AREA << std::endl;
         break;
 
       case 's':
-        SPLIT_TOL = (Real) atof(optarg);
+        SPLIT_TOL = (double) atof(optarg);
         std::cout << "- splitting tolerance set to " << SPLIT_TOL << std::endl;
         break;
 
       case 't':
-        EDGE_ON_PLANE_TOL = (Real) atof(optarg);
+        EDGE_ON_PLANE_TOL = (double) atof(optarg);
         std::cout << "- straddling tolerance set to " << EDGE_ON_PLANE_TOL << std::endl;
         break;
 
@@ -1168,7 +1176,7 @@ int main(int argc, char* argv[])
 
   // read in the file
   IndexedTriArray t = IndexedTriArray::read_from_obj(std::string(argv[optind]));
-  const std::vector<Vector3>& verts = t.get_vertices(); 
+  const std::vector<Point3d>& verts = t.get_vertices(); 
   const std::vector<IndexedTri>& tris = t.get_facets();
 
   // determine the root of the filename
@@ -1176,13 +1184,13 @@ int main(int argc, char* argv[])
   fname_root = fname_root.substr(0,fname_root.find_last_of('.'));
 
   // determine all edges
-  std::map<sorted_pair<const Vector3*>, EdgePtr> edges;
+  std::map<sorted_pair<const Point3d*>, EdgePtr> edges;
   for (unsigned i=0; i< tris.size(); i++)
   {
     // make sorted pairs from the vertices
-    sorted_pair<const Vector3*> s1(&verts[tris[i].a], &verts[tris[i].b]);
-    sorted_pair<const Vector3*> s2(&verts[tris[i].b], &verts[tris[i].c]);
-    sorted_pair<const Vector3*> s3(&verts[tris[i].c], &verts[tris[i].a]);
+    sorted_pair<const Point3d*> s1(&verts[tris[i].a], &verts[tris[i].b]);
+    sorted_pair<const Point3d*> s2(&verts[tris[i].b], &verts[tris[i].c]);
+    sorted_pair<const Point3d*> s3(&verts[tris[i].c], &verts[tris[i].a]);
 
     // try to find the edges in the set already
     EdgePtr e1 = edges[s1];
@@ -1245,7 +1253,7 @@ int main(int argc, char* argv[])
   // determine non-convex edges and setup vector of all edges
   std::set<EdgePtr> ncedges_set;
   std::vector<EdgePtr> edgesV;
-  for (std::map<sorted_pair<const Vector3*>, EdgePtr>::const_iterator i = edges.begin(); i != edges.end(); i++)
+  for (std::map<sorted_pair<const Point3d*>, EdgePtr>::const_iterator i = edges.begin(); i != edges.end(); i++)
   {
     edgesV.push_back(i->second);
     if (!i->second->is_convex(CONVEXITY_TOL))
@@ -1294,13 +1302,13 @@ int main(int argc, char* argv[])
 
     // determine the plane that will effectively split the non-convex edge
     assert((*i)->f1);
-    Vector3 normal = (*i)->f1->calc_normal();
+    Vector3d normal = (*i)->f1->calc_normal();
     if ((*i)->f2)
     {
       normal -= (*i)->f2->calc_normal();
       normal.normalize();
     }
-    Real d = Vector3::dot(normal, *(*i)->v.first);
+    double d = Vector3d::dot(normal, *(*i)->v.first);
     Plane plane(normal[X], normal[Y], normal[Z], d);
 
     // write non-convex edge to VRML
@@ -1364,7 +1372,7 @@ int main(int argc, char* argv[])
   BSP::_log << " preparing to write half-spaces" << std::endl;
   BSP::_log << "===================================================" << std::endl;
   std::cout << "determining extra points" << std::endl;
-  std::map<BSP*, std::list<Vector3> > extra_points = determine_extra_points(bsp, t);
+  std::map<BSP*, std::list<Point3d> > extra_points = determine_extra_points(bsp, t);
 
   // get all BSP leaf nodes
   std::list<BSP*> leafs = bsp.get_leafs();
@@ -1387,7 +1395,7 @@ int main(int argc, char* argv[])
     }
 
     // get the points from the BSP node
-    std::list<Vector3> points = (*i)->get_points();
+    std::list<Point3d> points = (*i)->get_points();
     points.insert(points.end(), extra_points[*i].begin(), extra_points[*i].end());
     std::cout << "BSP #" << index << ": " << (*i) << " number of points: " << points.size();
 
@@ -1396,7 +1404,7 @@ int main(int argc, char* argv[])
     {
       std::cout << " (< 4 points = degenerate; not writing)" << std::endl;
       std::cout << " points:" << std::endl;
-      BOOST_FOREACH(const Vector3& pt, points)
+      BOOST_FOREACH(const Point3d& pt, points)
         std::cout << "   " << pt << std::endl;
       continue;
     }
@@ -1407,7 +1415,7 @@ int main(int argc, char* argv[])
     {
       std::cout << " (unable to calculate hull = degenerate; not writing)" << std::endl;
       std::cout << " points:" << std::endl;
-      BOOST_FOREACH(const Vector3& pt, points)
+      BOOST_FOREACH(const Point3d& pt, points)
         std::cout << "   " << pt << std::endl;
       continue;
     }
@@ -1426,7 +1434,7 @@ int main(int argc, char* argv[])
   BSP::_log.close();
 
   // free memory
-  BOOST_FOREACH(Vector3* v, new_verts)
+  BOOST_FOREACH(Point3d* v, new_verts)
     delete v;
 }
 

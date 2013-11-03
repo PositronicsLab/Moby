@@ -1,0 +1,171 @@
+\documentclass[11pt, letterpaper]{article}
+\usepackage{times}
+\usepackage{url}
+\usepackage{doc}
+\usepackage{fontenc}
+\usepackage{setspace}
+\usepackage{parskip}
+\pagestyle{plain}
+\begin{document}
+\singlespacing
+\noindent
+Moby version ????: A C++ library for dynamic simulation of rigid and    multi-bodies (including robots).
+\newline
+\noindent
+Author: Dr. Evan Drumwright (http://robotics.gwu.edu/~drum/)
+\newline
+\noindent
+Copyright \copyright ???? Dr. Evan Drumwright
+\section{Introduction}
+
+\noindent
+Moby incorporates cutting edge technology, including
+\begin{enumerate}
+\item Featherstone’s O(n) dynamics algorithm
+\item Continuous collision detection
+\item Impulse-based contact methods
+\item OpenMP parallelism
+\item Smart pointers
+\end{enumerate}
+
+This simulator is at its early state. We appreciate your feedbacks and please report bugs and difficulties you face when using Moby. We appreciate your contribution and effort towards the project.
+
+{\bfseries Note} that the following instructions apply to either Mac or Linux users. Windows is {\bfseries unsupported} and there are no plans to support it at any point in the future. The sheer number of required packages will likely make a port futile. (If you install these packages and manage to port Moby to Windows with minimal change, we'll consider incorporating your modifications.)
+
+\section{Setting Up}
+\begin{enumerate}
+\item Create a copy of Moby's Repository.  In this step you need to clone Moby's repository into a newly/empty created directory in your machine.  Moby lives in a git repository.
+\begin{itemize}
+\item[-]Make sure you have git installed in your machine.  To read more about the command \texttt{git clone} please click on the following link: \url{http://gitref.org/creating/}
+
+Ubuntu: Check in the Software Center or in the Terminal type: \$ \texttt{aptitude search git}
+\newline
+{\bfseries Note}: This command requires you to install aptitude, which is a utility that allows you to search online for any applications through the terminal.  Search the Software Center for aptitude.
+
+\item[-]To clone a git repository, open a Terminal and run the following git command:
+\$ \texttt{git clone https://github.com/edrumwri/Moby.git\\ path/to/my/Moby}
+
+\item[-]Change the current directory in your Terminal to the directory where Moby is cloned and continue with the instructions.
+\end{itemize}
+\end{enumerate}
+
+\section{Requirements}
+\begin{itemize}
+\item[-] BLAS and LAPACK Library
+\item[-] \emph{ATLAS}
+\item[-] GUI for CMake
+\item[-] Qhull
+\end{itemize}
+
+Moby can benefit from a speedy CBLAS implementation. We use \emph{ATLAS}, which is a high speed implementation, though the CBLAS implementation included with the \emph{GNU Scientific Library} (GSL) is usable as well. {\bfseries Note} that if gcc 4.2 or higher is installed, Moby will use OpenMP and multithreading will be automatically supported. ({\bfseries LATER NOTE}: OpenMP use is currently disabled.)
+
+\section{Installing Required Parts}
+As stated earlier, the following steps will build Moby on a Mac machine (or a Linux [Ubuntu] machine). They will not work on a Windows machine.
+
+\begin{enumerate}
+\item {\bfseries BLAS and LAPACK} 
+\newline
+*If you have OS 10.3+, you may ignore the following step.*
+
+Basic Linear Algebra Subroutine (BLAS) is a collection of routines that provide fast implementation of common linear algebra procedures.
+
+Linear Algebra Package (LAPACK) is a software library for numerical linear algebra. It provides routine for solving systems of linear equations and least squares, eigenvalue problems, and singular value decomposition.
+\begin{itemize}
+\item[-] These two libraries should be included in your system. If not, you must download these two libraries.
+\newline
+{\bfseries Note} that you might need to have Xcode installed in your machine to be able to access these two libraries.
+
+Mac: Xcode is available for installation through the App Store.
+
+Linux: As Xcode is not available for Linux users, there are other alternatives it.  {\em Unknown if not having Xcode makes a difference.} BLAS and LAPACK should be available in the Software Center. {\bfseries Note} that when installing LAPACK, you might be missing the Fortran library.  Simply install the library.
+\end{itemize}
+
+\item {\bfseries GUI for CMake}
+
+{\bfseries CMake} is a system that manages the compiler-independent build in any operating system. CMake configuration file calls CMakeLists.txt and is placed in each source directory and is used for standard build files. Each CMake file consists of some commands.  The command's format is the name of the command followed by the list of the command's arguments. Installing CMake GUI allows you to manage those commands and modify them in a more interactive manner.
+
+Mac: On your terminal run the following command to install CMake GUI: \$ sudo port install cmake +gui
+\newline
+{\bfseries Note} all of the ``sudo port'' commands are executable only if you have MacPort installed in your machine.
+
+-	Visit the following website if you need to install Mac Port:\newline http://www.macports.org/install.php/
+
+Linux:
+\begin{enumerate}
+\item In the terminal and type in: \$ sudo apt-get install cmake
+\item In order to get the GUI, type in: \$ aptitude search cmake.  There will be several different options for the GUI. In order to install, type in: \$ sudo apt-get cmake-qt-gui. {\bfseries Note} that in order to use this version of the GUI, you will need to install the necessary qt files.
+\end{enumerate}
+
+\item {\bfseries Qhull}
+
+Qhull computes the convex hull, Delaunay triangulation, Voronoi diagram, half-space intersection about a point, furthest-site Delaunay triangulation, and furthest-site Voronoi diagram. The source code runs in 2D, 3D, 4D, and higher dimensions. Qhull implements the Quickhull algorithm for computing the convex hull. It handles round off errors from floating point arithmetic. Qhull computes volumes, surface areas, and approximations to the convex hull (http://www.qhull.org/). 
+
+Mac: On your terminal run the following command to install Qhull:\newline
+\$ sudo port install qhull
+\newline
+{\bfseries Note}: If you have been asked by your system to update MacPort, you can run the following command: \$sudo port -–v selfupdate, then continue with Qhull installation.
+
+Linux: 
+\begin{enumerate}
+\item On your terminal type in: \$ aptitude search qhull
+\item Use the following command to install the necessary components for qhull: \$ sudo apt-get install *application*
+\newline
+{\bfseries Note} *application* represents any necessary components you need to install for qhull
+\end{enumerate}
+\end{enumerate}
+
+\section{Building Moby}
+\begin{em}
+There are some options to build Moby when using scons. Do we want them to be included here? The options are listed below:
+\begin{enumerate}
+\item[-] CC: The C++ compiler
+
+\item[-] BUILD\_EXAMPLES: Set to true to build the examples (default)
+
+\item[-] SHARED\_LIBRARY: Set to true to build Moby as a shared library, or false as a static library (default)
+\newline
+{\bfseries Note} that PQP\_Moby will be built as a static library, regardless
+
+\item[-] DEBUG: Set to true to build with debug options (default), or false to build optimized
+
+\item[-] PROFILE: Set to true to build for profiling
+
+\item[-] INCLUDE\_PATHS: Additional colon-separated include paths
+
+\item[-] LIB\_PATHS: Additional colon-separated library paths
+
+\item[-] FRAMEWORK\_PATHS: Additional colon-separated paths to frameworks (OSX only)
+\end{enumerate}
+\end{em}
+
+Mac: Build using cmake. In the terminal type in: \$ make -–j 9
+
+Linux: 
+\begin{enumerate}
+\item Open CMake GUI.
+\item In the box ``Where is the source code'' put in the directory where you cloned Moby.
+\item In the box ``Where to build the binaries'', create a new directory (you can use the same directory where you cloned Moby, but it might be easier to make a new one).
+\item Press Configure and choose your options. Then press generate.
+\begin{enumerate}
+\item If any errors appear, read them and install any missing components.
+\end{enumerate}
+\item Once completed, in your terminal change your directory to the one you put in the box ``Where to build the binaries''.
+\item In the terminal type in: \$ make -–j 9
+\begin{enumerate}
+\item If any errors appear, return the directory path/to/my/Moby.  In the command line type: \$ git pull.  {\bfseries Note}: If you get any errors about missing headers, it is due an option called USE\_PATH which is ``on'' in CMake.  This option lets Moby use the PATH nonlinear optimization solver if installed.
+\begin{enumerate}
+\item If any errors about changes in files that need to be committed or stashed before continuing appear, type in: \$ git stash.  This should resolve any issues with those files.  Afterwards, you can go back and type in: \$ git pull.
+\begin{enumerate}
+\item Return your directory to your newly created one. The command make -–j 9 should work now.
+\end{enumerate}
+\item {\em If any other errors arise, please let us know.}
+\end{enumerate}
+\end{enumerate}
+\end{enumerate}
+
+\section{Examples}
+Moby includes a number of examples, though a few (banditll/bandit-claw.xml and banditll/bandit-in-envn.xml) do not currently work; these examples worked in the past, but have been superseded by other examples. These examples are officially deprecated, though will not be removed until a future release of Moby.
+
+\section{Utilities}
+The examples directory contains a number of utilities for viewing and modifying 3D geometries in Wavefront (.obj), OpenInventor (.iv), and VRmL 1.0/97 formats (.wrl). These utilities are described further in example/README. In addition to those utilities, a kinematic editor is included in the directory Kinematic. This utility is described further in Kinematic/README.
+\end{document}

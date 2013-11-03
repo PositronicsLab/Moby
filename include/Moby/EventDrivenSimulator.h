@@ -11,6 +11,8 @@
 #include <Moby/sorted_pair>
 #include <Moby/Simulator.h>
 #include <Moby/ImpactEventHandler.h>
+#include <Moby/RestingContactHandler.h>
+#include <Moby/RestingContactForce.h>
 #include <Moby/Event.h>
 
 namespace Moby {
@@ -29,7 +31,7 @@ class EventDrivenSimulator : public Simulator
     // class for comparing two events for purposes of setting event tolerances
     class EventCompare
     {
-      public: bool operator()(const Event& a, const Event& b)
+      public: bool operator()(const Event& a, const Event& b) const
       {
         // check for event type disparity
         if (a.event_type != b.event_type)
@@ -65,15 +67,26 @@ class EventDrivenSimulator : public Simulator
   public:
     EventDrivenSimulator();
     virtual ~EventDrivenSimulator() {}
-    virtual void load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map);
-    virtual void save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const;
+    virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
+    virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual void output_object_state(std::ostream& out) const;
-    virtual Real step(Real dt);
+    virtual double step(double dt);
+    void get_coords(std::vector<Ravelin::VectorNd>& q) const;
+    void get_velocities(std::vector<Ravelin::VectorNd>& q) const;
+
+    /// The coordinates vector before and after the step
+    std::vector<Ravelin::VectorNd> _q0, _qf;
+
+    /// The velocities vector before and after the step
+    std::vector<Ravelin::VectorNd> _qd0, _qdf;
+
+    /// Vectors set and passed to collision detection
+    std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> > _x0, _x1;
 
     /// Gets the shared pointer for this
     boost::shared_ptr<EventDrivenSimulator> get_this() { return boost::dynamic_pointer_cast<EventDrivenSimulator>(shared_from_this()); }
     
-    /// The collision detection mechanisms
+   /// The collision detection mechanisms
     std::list<boost::shared_ptr<CollisionDetection> > collision_detectors;
 
     /// Callback function after a mini-step is completed
@@ -106,30 +119,50 @@ class EventDrivenSimulator : public Simulator
     bool render_contact_points;
 
     /// User time spent by collision detection on the last step
-    Real coldet_utime;
+    double coldet_utime;
 
     /// System time spent by collision detection on the last step
-    Real coldet_stime;
+    double coldet_stime;
 
     /// User time spent by event handling on the last step
-    Real event_utime;
+    double event_utime;
 
     /// System time spent by event handling on the last step
-    Real event_stime;
+    double event_stime;
+
+    /// The relative error tolerance for adaptive Euler stepping (default=1e-8)
+    double rel_err_tol;
+
+    /// The absolute error tolerance for adaptive Euler stepping (default=1e-8)
+    double abs_err_tol;
+
+    /// The minimum step size (default=1e-5)
+    double minimum_step;
 
   private:
+    void calc_fwd_dyn() const;
+    void integrate_si_Euler(double dt);
+    static void determine_treated_bodies(std::list<std::list<Event*> >& groups, std::vector<DynamicBodyPtr>& bodies);
+    double find_events(double dt);
+    double find_next_event_time() const;
+    void remove_next_events();
+    double find_and_handle_si_events(double dt);
     void preprocess_event(Event& e);
     void check_violation();
-    Real find_and_handle_si_events(Real dt);
-    void find_limit_events(const std::vector<VectorN>& q0, const std::vector<VectorN>& q1, Real dt, std::vector<Event>& limit_events);
-    Real find_TOI(Real dt); 
+    void find_limit_events(double dt, std::vector<Event>& limit_events);
+    double integrate_to_TOI(double dt); 
     void handle_events();
     boost::shared_ptr<ContactParameters> get_contact_parameters(CollisionGeometryPtr geom1, CollisionGeometryPtr geom2) const;
-    std::vector<VectorN> _q0, _qf, _qdf;
-    std::vector<std::pair<DynamicBodyPtr, VectorN> > _x0, _x1;
-    void integrate_si_Euler(double dt);
-    void get_velocities(std::vector<VectorN>& qd) const;
-    void get_coords(std::vector<VectorN>& q) const;
+    bool has_active_acceleration_events() const;
+    bool has_active_velocity_events() const;
+    bool solve_acceleration_events();
+    void step_adaptive_si_Euler(double dt);
+    void step_si_Euler(double dt);
+    void set_coords(double t);
+    void set_velocities(double t);
+    void set_coords(const std::vector<Ravelin::VectorNd>& q) const;
+    void set_velocities(const std::vector<Ravelin::VectorNd>& qd) const;
+    void compute_directional_derivatives();
 
     // Visualization functions
     void visualize_contact( Event& event );
@@ -137,14 +170,23 @@ class EventDrivenSimulator : public Simulator
     /// Determines whether the simulation constraints have been violated
     bool _simulation_violated;
 
+    /// Work vector
+    Ravelin::VectorNd _workV;
+
     /// The vector of events
     std::vector<Event> _events;
 
     /// Event tolerances
-    std::map<Event, Real, EventCompare> _event_tolerances;
+    std::map<Event, double, EventCompare> _event_tolerances;
 
     /// Object for handling impact events
     ImpactEventHandler _impact_event_handler;
+
+    /// Object for handling resting contacts
+    RestingContactHandler _resting_contact_handler;
+
+    /// Last generalized resting contact forces computed
+    boost::shared_ptr<RestingContactForce> _resting_contact_forces;
 }; // end class
 
 } // end namespace

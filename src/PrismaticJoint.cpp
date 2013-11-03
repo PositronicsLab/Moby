@@ -7,12 +7,14 @@
 #include <cmath>
 #include <iostream>
 #include <Moby/Constants.h>
-#include <Moby/AAngle.h>
 #include <Moby/XMLTree.h>
 #include <Moby/RigidBody.h>
 #include <Moby/UndefinedAxisException.h>
 #include <Moby/PrismaticJoint.h>
 
+using std::vector;
+using boost::shared_ptr;
+using namespace Ravelin;
 using namespace Moby;
 
 /// Initializes the joint
@@ -26,18 +28,13 @@ PrismaticJoint::PrismaticJoint() : Joint()
   init_data();
 
   // set the axes and associated vectors to zeros initially
-  _u = ZEROS_3;
-  _v2 = ZEROS_3;
-  _ui = ZEROS_3;
-  _uj = ZEROS_3;
-
-  // set the rotation for the transform to identity
-  const Matrix3 IDENTITY_3x3 = Matrix3::identity();
-  _T.set_rotation(&IDENTITY_3x3);
+  _u.set_zero();
+  _v2.set_zero();
+  _ui.set_zero();
+  _uj.set_zero();
 
   // setup the spatial axis derivative to zero
-  _si_deriv = SMatrix6N(1);
-  _si_deriv.set_column(0, SVector6(0,0,0,0,0,0));
+  _s_dot.clear();
 }
 
 /// Initializes the joint with the specified inboard and outboard links
@@ -50,42 +47,16 @@ PrismaticJoint::PrismaticJoint(boost::weak_ptr<RigidBody> inboard, boost::weak_p
   init_data();
 
   // set the axis to zeros initially
-  _u = ZEROS_3;
-  _v2 = ZEROS_3;
-  _ui = ZEROS_3;
-  _uj = ZEROS_3;
-
-  // set the rotation for the transform to identity
-  const Matrix3 IDENTITY_3x3 = Matrix3::identity();
-  _T.set_rotation(&IDENTITY_3x3);
+  _u.set_zero();
+  _v2.set_zero();
+  _ui.set_zero();
+  _uj.set_zero();
 
   // setup the spatial axis derivative to zero
-  _si_deriv = SMatrix6N(1);
-  _si_deriv.set_column(0, SVector6(0,0,0,0,0,0));
+  _s_dot.clear();
 }  
 
-/// Gets the global axis for this joint
-/**
- * The global axis for this joint takes the orientation of the inboard link into account; thus, if the orientation
- * of the inboard link changes, then the global axis changes.
- * \sa getAxisLocal()
- * \sa setAxisLocal()
- */
-Vector3 PrismaticJoint::get_axis_global() const
-{
-  // make sure that the inboard link has been set
-  RigidBodyPtr inboard_link(get_inboard_link());
-  if (!inboard_link)
-  {
-    std::cerr << "PrismaticJoint::get_axis_global() - attempt to get axis w/o inboard link!" << std::endl;
-    return ZEROS_3;
-  }
-
-  // transform into global coordinates and return
-  return inboard_link->get_transform().mult_vector(_u);
-}
-
-/// Sets the local axis of translation for this joint
+/// Sets the axis of translation for this joint
 /**
  * The local axis for this joint does not take the orientation of the 
  * inboard link into account; thus, if the orientation of the inboard link 
@@ -94,139 +65,101 @@ Vector3 PrismaticJoint::get_axis_global() const
  * \sa get_axis_global()
  * \sa set_axis_global()
  */
-void PrismaticJoint::set_axis_local(const Vector3& axis) 
+void PrismaticJoint::set_axis(const Vector3d& axis) 
 {
   // check that axis is ok 
-  if (std::fabs(axis.norm() - (Real) 1.0) < NEAR_ZERO)
+  if (std::fabs(axis.norm() - (double) 1.0) < NEAR_ZERO)
     throw UndefinedAxisException(); 
  
   // normalize the axis, in case caller did not 
-  Vector3 naxis = Vector3::normalize(axis); 
+  Vector3d naxis = Vector3d::normalize(axis); 
 
-  // get the inboard and outboard links
-  RigidBodyPtr inner = get_inboard_link();
-  RigidBodyPtr outer = get_outboard_link();
-
-  // make sure that the links have been set
-  if (!inner || !outer)
-    throw std::runtime_error("Unable to set joint axis without links being set!");
+  // transform axis to joint frame
+  _u = Pose3d::transform_vector(get_pose(), naxis);
 
   // set the joint axis in the inner link frame
-  _u = naxis; 
   update_spatial_axes(); 
-
+/*
   // set the joint axis in the outer link frame and setup associated
   // vectors needed for maximal coordinate articulated bodies
-  _v2 = inner->get_transform().mult_vector(naxis);
-  _v2 = outer->get_transform().transpose_mult_vector(_v2);
-  Vector3::determine_orthonormal_basis(_u, _ui, _uj);
+  _v2 = inner->get_transform_vector().mult_vector(naxis);
+  _v2 = outer->get_transform_vector().transpose_mult_vector(_v2);
+  Vector3d::determine_orthonormal_basis(_u, _ui, _uj);
+*/
 }        
-
-/// Sets the global axis for this joint
-/**
- * The global axis for this joint takes the orientation of the inboard link into account; thus, if the orientation
- * of the inboard link changes, then the global axis changes.
- * \sa getAxisLocal()
- * \sa setAxisLocal()
- */
-void PrismaticJoint::set_axis_global(const Vector3& axis)
-{
-  // check that axis is unit vector 
-  if (std::fabs(axis.norm() - (Real) 1.0) < NEAR_ZERO)
-    throw UndefinedAxisException(); 
-
-   // normalize the axis, in case caller did not 
-  Vector3 naxis = Vector3::normalize(axis); 
-
-  // get the inboard and outboard links
-  RigidBodyPtr inboard_link = get_inboard_link();
-  RigidBodyPtr outboard_link = get_outboard_link();
-
-  // transform the axis into local coordinates and update spatial axis
-  _u = inboard_link->get_transform().transpose_mult_vector(naxis);
-  update_spatial_axes();
-
-  // set the joint axis in the outer link frame and setup associated
-  // vectors needed for maximal coordinate articulated bodies
-  _v2 = outboard_link->get_transform().transpose_mult_vector(naxis);
-  Vector3::determine_orthonormal_basis(_u, _ui, _uj);
-}
 
 /// Updates the spatial axis for this joint
 void PrismaticJoint::update_spatial_axes()
 {
+  const Vector3d ZEROS_3(0.0, 0.0, 0.0, get_pose());
+
   // call parent method
   Joint::update_spatial_axes();
 
-  // get the inboard and outboard links
-  RigidBodyPtr inboard = get_inboard_link();
-  RigidBodyPtr outboard = get_outboard_link();
-  if (!inboard || !outboard)
-    return;
-
   // if the axis is not normal, return
-  if (std::fabs(_u.norm_sq() - (Real) 1.0) > NEAR_ZERO)
+  if (std::fabs(_u.norm_sq() - (double) 1.0) > NEAR_ZERO)
     return;
-
-  // get the axis in outer link coordinates
-  Vector3 u0 = inboard->get_transform().mult_vector(_u);
-  Vector3 ui = outboard->get_transform().transpose_mult_vector(u0);
 
   // update the spatial axis in link coordinates
-  SVector6 si_vec;
-  si_vec.set_upper(ZEROS_3);
-  si_vec.set_lower(ui);
-  _si.set_column(0, si_vec);
+  _s[0].set_linear(_u);
+  _s[0].set_angular(ZEROS_3);
 
   // update the complement of the spatial axis in link coordinates
-  calc_s_bar_from_si();
+  calc_s_bar_from_s();
 }
 
 /// Determines (and sets) the value of Q from the axis and the inboard link and outboard link transforms
-void PrismaticJoint::determine_q(VectorN& q)
+void PrismaticJoint::determine_q(VectorNd& q)
 {
-  RigidBodyPtr inboard = get_inboard_link();
   RigidBodyPtr outboard = get_outboard_link();
 
-  // verify that the inboard and outboard links are set
-  if (!inboard || !outboard)
-    throw std::runtime_error("determine_q() called on NULL inboard and/or outboard links!");
+  // verify that the outboard link is set
+  if (!outboard)
+    throw std::runtime_error("determine_q() called on NULL outboard link!");
 
   // if axis is not defined, can't use this method
   if (std::fabs(_u.norm() - 1.0) > NEAR_ZERO)
     throw UndefinedAxisException();
 
-  // get the attachment points on the link (global coords)
-  Vector3 p1 = get_position_global(false);
-  Vector3 p2 = get_position_global(true);
+  // get the poses of the joint and outboard link
+  shared_ptr<const Pose3d> Fj = get_pose();
+  shared_ptr<const Pose3d> Fo = outboard->get_pose();
 
-  // get the joint axis in the global frame
-  Vector3 ug = inboard->get_transform().mult_vector(_u);
+  // compute transforms
+  Transform3d wTo = Pose3d::calc_relative_pose(Fo, GLOBAL); 
+  Transform3d jTw = Pose3d::calc_relative_pose(GLOBAL, Fj);
+  Transform3d jTo = jTw * wTo;
 
-  // now, we'll project p2 onto the axis ug; points will be setup so that
-  // ug passes through origin on inboard
+  // get the vector of translation
+  Vector3d x(jTo.x, _u.pose);
   q.resize(num_dof());
-  q[DOF_1] = ug.dot(p2-p1);
+  q[DOF_1] = x.norm();
+
+  // see whether to reverse q
+  if (x.dot(_u) < (double) 0.0)
+    q[DOF_1] = -q[DOF_1];
 }
 
 /// Gets the (local) transform for this joint
-const Matrix4& PrismaticJoint::get_transform()
+shared_ptr<const Pose3d> PrismaticJoint::get_induced_pose()
 {
-  // note that rotation is set to identity in the constructors
-  _T.set_translation(_u * (this->q[DOF_1] + this->_q_tare[DOF_1]));
+  // invalidate pose quantities for the outer link
+  invalidate_pose_vectors();
 
-  return _T;
+  _Fprime->x = Origin3d(_u * (this->q[DOF_1] + this->_q_tare[DOF_1]));
+  return _Fprime;
 }
 
 /// Gets the derivative fo the spatial axes for this joint
-SMatrix6N& PrismaticJoint::get_spatial_axes_dot(ReferenceFrameType rftype)
+vector<SVelocityd>& PrismaticJoint::get_spatial_axes_dot()
 {
-  return _si_deriv;
+  return _s_dot;
 }
 
 /// Calculates the constraint Jacobian
-void PrismaticJoint::calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsigned index, Real Cq[7])
+void PrismaticJoint::calc_constraint_jacobian(RigidBodyPtr body, unsigned index, double Cq[7])
 {
+/*
   const unsigned X = 0, Y = 1, Z = 2, SPATIAL_DIM = 7;
 
   // get the two links
@@ -234,51 +167,51 @@ void PrismaticJoint::calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsig
   RigidBodyPtr outer = get_outboard_link();
 
   // make sure that _u (and by extension _ui, _uj, _v2) is set
-  if (_u.norm_sq() < std::numeric_limits<Real>::epsilon())
+  if (_u.norm_sq() < std::numeric_limits<double>::epsilon())
     throw UndefinedAxisException(); 
 
   // mke sure that body is one of the links
   if (inner != body && outer != body)
   {
     for (unsigned i=0; i< SPATIAL_DIM; i++)
-      Cq[i] = (Real) 0.0;
+      Cq[i] = (double) 0.0;
     return;
   }
 
   // setup constants for calculations
-  const Quat& q1 = inner->get_orientation();
-  const Quat& q2 = outer->get_orientation();
-  const Vector3& p1 = inner->get_outer_joint_data(outer).com_to_joint_vec;
-  const Vector3& p2 = outer->get_inner_joint_data(inner).joint_to_com_vec_of;
-  const Real x1 = inner->get_position()[X];
-  const Real y1 = inner->get_position()[Y];
-  const Real z1 = inner->get_position()[Z];
-  const Real x2 = outer->get_position()[X];
-  const Real y2 = outer->get_position()[Y];
-  const Real z2 = outer->get_position()[Z];
-  const Real p1x = p1[X];
-  const Real p1y = p1[Y];
-  const Real p1z = p1[Z];
-  const Real p2x = -p2[X];
-  const Real p2y = -p2[Y];
-  const Real p2z = -p2[Z];
-  const Real qw1 = q1.w;
-  const Real qx1 = q1.x;
-  const Real qy1 = q1.y;
-  const Real qz1 = q1.z;
-  const Real qw2 = q2.w;
-  const Real qx2 = q2.x;
-  const Real qy2 = q2.y;
-  const Real qz2 = q2.z;
-  const Real uix = _ui[X];
-  const Real uiy = _ui[Y];
-  const Real uiz = _ui[Z];
-  const Real ujx = _uj[X];
-  const Real ujy = _uj[Y];
-  const Real ujz = _uj[Z];
-  const Real v2x = _v2[X];
-  const Real v2y = _v2[Y];
-  const Real v2z = _v2[Z];
+  const Quatd& q1 = inner->get_orientation();
+  const Quatd& q2 = outer->get_orientation();
+  const Vector3d& p1 = inner->get_outer_joint_data(outer).com_to_joint_vec;
+  const Vector3d& p2 = outer->get_inner_joint_data(inner).joint_to_com_vec_of;
+  const double x1 = inner->get_position()[X];
+  const double y1 = inner->get_position()[Y];
+  const double z1 = inner->get_position()[Z];
+  const double x2 = outer->get_position()[X];
+  const double y2 = outer->get_position()[Y];
+  const double z2 = outer->get_position()[Z];
+  const double p1x = p1[X];
+  const double p1y = p1[Y];
+  const double p1z = p1[Z];
+  const double p2x = -p2[X];
+  const double p2y = -p2[Y];
+  const double p2z = -p2[Z];
+  const double qw1 = q1.w;
+  const double qx1 = q1.x;
+  const double qy1 = q1.y;
+  const double qz1 = q1.z;
+  const double qw2 = q2.w;
+  const double qx2 = q2.x;
+  const double qy2 = q2.y;
+  const double qz2 = q2.z;
+  const double uix = _ui[X];
+  const double uiy = _ui[Y];
+  const double uiz = _ui[Z];
+  const double ujx = _uj[X];
+  const double ujy = _uj[Y];
+  const double ujz = _uj[Z];
+  const double v2x = _v2[X];
+  const double v2y = _v2[Y];
+  const double v2z = _v2[Z];
 
   // setup the constraint equations (from Shabana, p. 437), eq. 7.179
   if (body == inner)
@@ -954,11 +887,13 @@ void PrismaticJoint::calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsig
         throw std::runtime_error("Invalid joint constraint index!");
     }
   }
+*/
 }
 
 /// Calculates the time derivative of the constraint Jacobian
-void PrismaticJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, unsigned index, Real Cq[7])
+void PrismaticJoint::calc_constraint_jacobian_dot(RigidBodyPtr body, unsigned index, double Cq[7])
 {
+/*
   const unsigned X = 0, Y = 1, Z = 2, SPATIAL_DIM = 7;
 
   // get the two links
@@ -966,67 +901,67 @@ void PrismaticJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, u
   RigidBodyPtr outer = get_outboard_link();
 
   // make sure that _u (and by extension _ui, _uj, _v2) is set
-  if (_u.norm_sq() < std::numeric_limits<Real>::epsilon())
+  if (_u.norm_sq() < std::numeric_limits<double>::epsilon())
     throw UndefinedAxisException(); 
 
   // mke sure that body is one of the links
   if (inner != body && outer != body)
   {
     for (unsigned i=0; i< SPATIAL_DIM; i++)
-      Cq[i] = (Real) 0.0;
+      Cq[i] = (double) 0.0;
     return;
   }
 
   // setup constants for calculations
-  const Quat& q1 = inner->get_orientation();
-  const Quat& q2 = outer->get_orientation();
-  const Quat qd1 = Quat::deriv(q1, inner->get_avel());
-  const Quat qd2 = Quat::deriv(q2, outer->get_avel());
-  const Vector3& p1 = inner->get_outer_joint_data(outer).com_to_joint_vec;
-  const Vector3& p2 = outer->get_inner_joint_data(inner).joint_to_com_vec_of;
-  const Real x1 = inner->get_position()[X];
-  const Real y1 = inner->get_position()[Y];
-  const Real z1 = inner->get_position()[Z];
-  const Real x2 = outer->get_position()[X];
-  const Real y2 = outer->get_position()[Y];
-  const Real z2 = outer->get_position()[Z];
-  const Real dx1 = inner->get_lvel()[X];
-  const Real dy1 = inner->get_lvel()[Y];
-  const Real dz1 = inner->get_lvel()[Z];
-  const Real dx2 = outer->get_lvel()[X];
-  const Real dy2 = outer->get_lvel()[Y];
-  const Real dz2 = outer->get_lvel()[Z];
-  const Real p1x = p1[X];
-  const Real p1y = p1[Y];
-  const Real p1z = p1[Z];
-  const Real p2x = -p2[X];
-  const Real p2y = -p2[Y];
-  const Real p2z = -p2[Z];
-  const Real qw1 = q1.w;
-  const Real qx1 = q1.x;
-  const Real qy1 = q1.y;
-  const Real qz1 = q1.z;
-  const Real qw2 = q2.w;
-  const Real qx2 = q2.x;
-  const Real qy2 = q2.y;
-  const Real qz2 = q2.z;
-  const Real dqw1 = qd1.w;
-  const Real dqx1 = qd1.x;
-  const Real dqy1 = qd1.y;
-  const Real dqz1 = qd1.z;
-  const Real dqw2 = qd2.w;
-  const Real dqx2 = qd2.x;
-  const Real dqy2 = qd2.y;
-  const Real dqz2 = qd2.z;
-  const Real uix = _ui[X];
-  const Real uiy = _ui[Y];
-  const Real uiz = _ui[Z];
-  const Real ujx = _uj[X];
-  const Real ujy = _uj[Y];
-  const Real ujz = _uj[Z];
-  const Real v2x = _v2[X];
-  const Real v2y = _v2[Y];
-  const Real v2z = _v2[Z];
+  const Quatd& q1 = inner->get_orientation();
+  const Quatd& q2 = outer->get_orientation();
+  const Quatd qd1 = Quatd::deriv(q1, inner->get_avel());
+  const Quatd qd2 = Quatd::deriv(q2, outer->get_avel());
+  const Vector3d& p1 = inner->get_outer_joint_data(outer).com_to_joint_vec;
+  const Vector3d& p2 = outer->get_inner_joint_data(inner).joint_to_com_vec_of;
+  const double x1 = inner->get_position()[X];
+  const double y1 = inner->get_position()[Y];
+  const double z1 = inner->get_position()[Z];
+  const double x2 = outer->get_position()[X];
+  const double y2 = outer->get_position()[Y];
+  const double z2 = outer->get_position()[Z];
+  const double dx1 = inner->get_lvel()[X];
+  const double dy1 = inner->get_lvel()[Y];
+  const double dz1 = inner->get_lvel()[Z];
+  const double dx2 = outer->get_lvel()[X];
+  const double dy2 = outer->get_lvel()[Y];
+  const double dz2 = outer->get_lvel()[Z];
+  const double p1x = p1[X];
+  const double p1y = p1[Y];
+  const double p1z = p1[Z];
+  const double p2x = -p2[X];
+  const double p2y = -p2[Y];
+  const double p2z = -p2[Z];
+  const double qw1 = q1.w;
+  const double qx1 = q1.x;
+  const double qy1 = q1.y;
+  const double qz1 = q1.z;
+  const double qw2 = q2.w;
+  const double qx2 = q2.x;
+  const double qy2 = q2.y;
+  const double qz2 = q2.z;
+  const double dqw1 = qd1.w;
+  const double dqx1 = qd1.x;
+  const double dqy1 = qd1.y;
+  const double dqz1 = qd1.z;
+  const double dqw2 = qd2.w;
+  const double dqx2 = qd2.x;
+  const double dqy2 = qd2.y;
+  const double dqz2 = qd2.z;
+  const double uix = _ui[X];
+  const double uiy = _ui[Y];
+  const double uiz = _ui[Z];
+  const double ujx = _uj[X];
+  const double ujy = _uj[Y];
+  const double ujz = _uj[Z];
+  const double v2x = _v2[X];
+  const double v2y = _v2[Y];
+  const double v2z = _v2[Z];
 
   // setup the constraint equations (from Shabana, p. 437), eq. 7.179
   if (body == inner)
@@ -1035,9 +970,9 @@ void PrismaticJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, u
     switch (index)
     {
       case 0:
-        Cq[0] = (Real) 0.0;
-        Cq[1] = (Real) 0.0;
-        Cq[2] = (Real) 0.0;
+        Cq[0] = (double) 0.0;
+        Cq[1] = (double) 0.0;
+        Cq[2] = (double) 0.0;
         Cq[3] = (4*qw1*uix - 2*qz1*uiy + 2*qy1*uiz)*
     ((4*dqw2*qw2 + 4*dqx2*qx2)*v2x + 
       2*(-(dqz2*qw2) + dqy2*qx2 + dqx2*qy2 - dqw2*qz2)*v2y + 
@@ -1124,9 +1059,9 @@ void PrismaticJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, u
         break;
 
       case 1:
-        Cq[0] = (Real) 0.0;
-        Cq[1] = (Real) 0.0;
-        Cq[2] = (Real) 0.0;
+        Cq[0] = (double) 0.0;
+        Cq[1] = (double) 0.0;
+        Cq[2] = (double) 0.0;
         Cq[3] = (4*qw1*ujx - 2*qz1*ujy + 2*qy1*ujz)*
     ((4*dqw2*qw2 + 4*dqx2*qx2)*v2x + 
       2*(-(dqz2*qw2) + dqy2*qx2 + dqx2*qy2 - dqw2*qz2)*v2y + 
@@ -1213,9 +1148,9 @@ void PrismaticJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, u
         break;
 
       case 2:
-        Cq[0] = (Real) 0.0;
-        Cq[1] = (Real) 0.0;
-        Cq[2] = (Real) 0.0;
+        Cq[0] = (double) 0.0;
+        Cq[1] = (double) 0.0;
+        Cq[2] = (double) 0.0;
         Cq[3] = (dz1 - dz2 + 2*p1x*(-(dqy1*qw1) + dqz1*qx1 - dqw1*qy1 + dqx1*qz1) + 
       2*p1y*(dqx1*qw1 + dqw1*qx1 + dqz1*qy1 + dqy1*qz1) + 
       2*p1z*(2*dqw1*qw1 + 2*dqz1*qz1) - 
@@ -1444,9 +1379,9 @@ void PrismaticJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, u
         break;
 
       case 3:
-        Cq[0] = (Real) 0.0;
-        Cq[1] = (Real) 0.0;
-        Cq[2] = (Real) 0.0;
+        Cq[0] = (double) 0.0;
+        Cq[1] = (double) 0.0;
+        Cq[2] = (double) 0.0;
         Cq[3] = (dz1 - dz2 + 2*p1x*(-(dqy1*qw1) + dqz1*qx1 - dqw1*qy1 + dqx1*qz1) + 
       2*p1y*(dqx1*qw1 + dqw1*qx1 + dqz1*qy1 + dqy1*qz1) + 
       2*p1z*(2*dqw1*qw1 + 2*dqz1*qz1) - 
@@ -1675,9 +1610,9 @@ void PrismaticJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, u
         break;
 
       case 4:
-        Cq[0] = (Real) 0.0;
-        Cq[1] = (Real) 0.0;
-        Cq[2] = (Real) 0.0;
+        Cq[0] = (double) 0.0;
+        Cq[1] = (double) 0.0;
+        Cq[2] = (double) 0.0;
         Cq[3] = (4*qw1*uix - 2*qz1*uiy + 2*qy1*uiz)*
     ((4*dqw2*qw2 + 4*dqx2*qx2)*ujx + 
       2*(-(dqz2*qw2) + dqy2*qx2 + dqx2*qy2 - dqw2*qz2)*ujy + 
@@ -1773,9 +1708,9 @@ void PrismaticJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, u
     switch (index)
     {
       case 0:
-        Cq[0] = (Real) 0.0;
-        Cq[1] = (Real) 0.0;
-        Cq[2] = (Real) 0.0;
+        Cq[0] = (double) 0.0;
+        Cq[1] = (double) 0.0;
+        Cq[2] = (double) 0.0;
         Cq[3] = (2*(-(qw1*qy1) + qx1*qz1)*uix + 2*(qw1*qx1 + qy1*qz1)*uiy + 
       (-1 + 2*(qw1*qw1 + qz1*qz1))*uiz)*
     (-2*dqy2*v2x + 2*dqx2*v2y + 4*dqw2*v2z) + 
@@ -1863,9 +1798,9 @@ void PrismaticJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, u
         break;
 
       case 1:
-        Cq[0] = (Real) 0.0;
-        Cq[1] = (Real) 0.0;
-        Cq[2] = (Real) 0.0;
+        Cq[0] = (double) 0.0;
+        Cq[1] = (double) 0.0;
+        Cq[2] = (double) 0.0;
         Cq[3] = (2*(-(qw1*qy1) + qx1*qz1)*ujx + 2*(qw1*qx1 + qy1*qz1)*ujy + 
       (-1 + 2*(qw1*qw1 + qz1*qz1))*ujz)*
     (-2*dqy2*v2x + 2*dqx2*v2y + 4*dqw2*v2z) + 
@@ -1953,9 +1888,9 @@ void PrismaticJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, u
         break;
 
       case 2:
-        Cq[0] = (Real) 0.0;
-        Cq[1] = (Real) 0.0;
-        Cq[2] = (Real) 0.0;
+        Cq[0] = (double) 0.0;
+        Cq[1] = (double) 0.0;
+        Cq[2] = (double) 0.0;
         Cq[3] = (-4*p2x*qw2 - 2*p2z*qy2 + 2*p2y*qz2)*
     ((4*dqw1*qw1 + 4*dqx1*qx1)*uix + 
       2*(-(dqz1*qw1) + dqy1*qx1 + dqx1*qy1 - dqw1*qz1)*uiy + 
@@ -2044,9 +1979,9 @@ void PrismaticJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, u
         break;
 
       case 3:
-        Cq[0] = (Real) 0.0;
-        Cq[1] = (Real) 0.0;
-        Cq[2] = (Real) 0.0;
+        Cq[0] = (double) 0.0;
+        Cq[1] = (double) 0.0;
+        Cq[2] = (double) 0.0;
         Cq[3] = (-4*p2x*qw2 - 2*p2z*qy2 + 2*p2y*qz2)*
     ((4*dqw1*qw1 + 4*dqx1*qx1)*ujx + 
       2*(-(dqz1*qw1) + dqy1*qx1 + dqx1*qy1 - dqw1*qz1)*ujy + 
@@ -2135,9 +2070,9 @@ void PrismaticJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, u
         break;
 
       case 4:
-        Cq[0] = (Real) 0.0;
-        Cq[1] = (Real) 0.0;
-        Cq[2] = (Real) 0.0;
+        Cq[0] = (double) 0.0;
+        Cq[1] = (double) 0.0;
+        Cq[2] = (double) 0.0;
         Cq[3] = (2*(-(qw1*qy1) + qx1*qz1)*uix + 2*(qw1*qx1 + qy1*qz1)*uiy + 
       (-1 + 2*(qw1*qw1 + qz1*qz1))*uiz)*
     (-2*dqy2*ujx + 2*dqx2*ujy + 4*dqw2*ujz) + 
@@ -2228,11 +2163,13 @@ void PrismaticJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, u
         throw std::runtime_error("Invalid joint constraint index!");
     }    
   }
+*/
 }
 
 /// Evaluates the constraint equations
-void PrismaticJoint::evaluate_constraints(Real C[])
+void PrismaticJoint::evaluate_constraints(double C[])
 {
+/*
   // get the two links
   RigidBodyPtr inner = get_inboard_link();
   RigidBodyPtr outer = get_outboard_link();
@@ -2241,23 +2178,23 @@ void PrismaticJoint::evaluate_constraints(Real C[])
   // have been altered
 
   // get v1 in global coordinates
-  Vector3 v1 = get_axis_global();
+  Vector3d v1 = get_axis_global();
 
   // determine axis in global coordinates
-  Vector3 v2 = outer->get_transform().mult_vector(_v2);
+  Vector3d v2 = outer->get_transform_vector().mult_vector(_v2);
 
   // determine v1i, v1j
-  Vector3 v1i, v1j;
-  Vector3::determine_orthonormal_basis(v1, v1i, v1j);
+  Vector3d v1i, v1j;
+  Vector3d::determine_orthonormal_basis(v1, v1i, v1j);
 
   // determine h1 and h2
-  Vector3 h1 = inner->get_transform().mult_vector(_ui);
-  Vector3 h2 = outer->get_transform().mult_vector(_uj);
+  Vector3d h1 = inner->get_transform_vector().mult_vector(_ui);
+  Vector3d h2 = outer->get_transform_vector().mult_vector(_uj);
 
   // determine the global positions of the attachment points and subtract them
-  const Vector3& p1 = get_position_global(false); 
-  const Vector3& p2 = get_position_global(true); 
-  Vector3 r12 = p1 - p2; 
+  const Vector3d& p1 = get_position_global(false); 
+  const Vector3d& p2 = get_position_global(true); 
+  Vector3d r12 = p1 - p2; 
 
   // evaluate the constraint equations
   C[0] = v1i.dot(v2);
@@ -2265,10 +2202,11 @@ void PrismaticJoint::evaluate_constraints(Real C[])
   C[2] = v1i.dot(r12);
   C[3] = v1j.dot(r12);
   C[4] = h1.dot(h2);
+*/
 }
 
 /// Implements Base::load_from_xml()
-void PrismaticJoint::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void PrismaticJoint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // read the information from the articulated body joint
   Joint::load_from_xml(node, id_map);
@@ -2276,22 +2214,13 @@ void PrismaticJoint::load_from_xml(XMLTreeConstPtr node, std::map<std::string, B
   // verify that the node name is correct
   assert(strcasecmp(node->name.c_str(), "PrismaticJoint") == 0);
 
-  // read the local joint axis
-  const XMLAttrib* laxis_attrib = node->get_attrib("local-axis");
-  if (laxis_attrib)
+  // read the joint axis
+  XMLAttrib* axis_attrib = node->get_attrib("axis");
+  if (axis_attrib)
   {
-    Vector3 laxis;
-    laxis_attrib->get_vector_value(laxis);
-    set_axis_local(laxis);
-  }
-
-  // read the global joint axis, if given
-  const XMLAttrib* gaxis_attrib = node->get_attrib("global-axis");
-  if (gaxis_attrib)
-  {
-    Vector3 gaxis;
-    gaxis_attrib->get_vector_value(gaxis);
-    set_axis_global(gaxis);  
+    Vector3d axis;
+    axis_attrib->get_vector_value(axis);
+    set_axis(axis);
   }
 
   // set the joint tare
@@ -2300,7 +2229,7 @@ void PrismaticJoint::load_from_xml(XMLTreeConstPtr node, std::map<std::string, B
 }
 
 /// Implements Base::save_to_xml()
-void PrismaticJoint::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
+void PrismaticJoint::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& shared_objects) const
 {
   // get the majority of the info from Joint::save_to_xml()
   Joint::save_to_xml(node, shared_objects);
@@ -2308,7 +2237,8 @@ void PrismaticJoint::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& share
   // rename the node
   node->name = "PrismaticJoint";
 
-  // save the local joint axis
-  node->attribs.insert(XMLAttrib("local-axis", _u));
+  // save the joint axis (global coords)
+  Vector3d u0 = Pose3d::transform_vector(shared_ptr<const Pose3d>(), _u);
+  node->attribs.insert(XMLAttrib("axis", u0));
 }
 

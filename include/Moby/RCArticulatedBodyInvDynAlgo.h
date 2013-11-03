@@ -9,8 +9,6 @@
 
 #include <map>
 #include <Moby/Base.h>
-#include <Moby/MatrixN.h>
-#include <Moby/Vector3.h>
 
 namespace Moby {
 
@@ -21,14 +19,11 @@ class RCArticulatedBodyInvDynData
 {
   public:
 
-    /// External force applied to this link's center-of-mass (in global frame)
-    Vector3 fext;
-
-    /// External torque applied to this link's center-of-mass (in global frame)
-    Vector3 text;
+    /// External force applied to this link 
+    Ravelin::SForced wext;
 
     /// Inner joint acceleration (desired)
-    VectorN qdd;
+    Ravelin::VectorNd qdd;
 };
   
 /// Abstract class for performing inverse dynamics computation on a reduced-coordinate articulatedc body
@@ -47,7 +42,7 @@ class RCArticulatedBodyInvDynAlgo : public virtual Base
      * to achieve these accelerations.
      * \return a map from joints to computed actuator forces
      */
-    virtual std::map<boost::shared_ptr<Joint>, VectorN> calc_inv_dyn(boost::shared_ptr<RCArticulatedBody> body, const std::map<boost::shared_ptr<RigidBody>, RCArticulatedBodyInvDynData>& inv_dyn_data) = 0;
+    virtual std::map<boost::shared_ptr<Joint>, Ravelin::VectorNd> calc_inv_dyn(boost::shared_ptr<RCArticulatedBody> body, const std::map<boost::shared_ptr<RigidBody>, RCArticulatedBodyInvDynData>& inv_dyn_data) = 0;
 }; // end class
 } // end namespace
 

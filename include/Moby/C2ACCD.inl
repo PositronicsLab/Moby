@@ -14,14 +14,14 @@ C2ACCD::C2ACCD(InputIterator begin, InputIterator end)
 
 /// Intersects two BV leafs together and returns collision data (if any)
 template <class OutputIterator>
-OutputIterator C2ACCD::intersect_BV_leafs(BVPtr a, BVPtr b, const Matrix4& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b, OutputIterator output_begin) const
+OutputIterator C2ACCD::intersect_BV_leafs(BVPtr a, BVPtr b, const Ravelin::Transform3d& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b, OutputIterator output_begin) const
 {
   // NOTE: if we want to speed up this static collision check (slightly),
   // we could institute an object-level map from BV leafs to triangles
 
   // get the primitives 
-  PrimitiveConstPtr a_primitive = geom_a->get_geometry(); 
-  PrimitiveConstPtr b_primitive = geom_b->get_geometry();
+  boost::shared_ptr<const Primitive> a_primitive = geom_a->get_geometry(); 
+  boost::shared_ptr<const Primitive> b_primitive = geom_b->get_geometry();
 
   // get the mesh data from the plugins
   const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >& mdata_a = _meshes.find(a)->second;
@@ -39,13 +39,13 @@ OutputIterator C2ACCD::intersect_BV_leafs(BVPtr a, BVPtr b, const Matrix4& aTb, 
   BOOST_FOREACH(unsigned a_idx, a_tris)
   {
     // get the triangle
-    Triangle ta = a_mesh.get_triangle(a_idx);
+    Triangle ta = a_mesh.get_triangle(a_idx, aTb.target);
 
     // loop over all triangles in b
     BOOST_FOREACH(unsigned b_idx, b_tris)
     {
       // get the untransformed second triangle
-      Triangle utb = b_mesh.get_triangle(b_idx);
+      Triangle utb = b_mesh.get_triangle(b_idx, aTb.source);
 
       // transform second triangle
       Triangle tb = Triangle::transform(utb, aTb);
@@ -78,9 +78,9 @@ OutputIterator C2ACCD::intersect_BV_leafs(BVPtr a, BVPtr b, const Matrix4& aTb, 
  * \param tris the triangle mesh
  * \param fselect_begin iterator to a container of type unsigned (facet indices)
  * \param fselect_end iterator to a container of type unsigned (facet indices)
- * \param output beginning iterator to a container of type Vector3; unique
+ * \param output beginning iterator to a container of type Ravelin::Vector3; unique
  *        vertices are copied here on return
- * \return ending iterator to a container of type Vector3; unique vertices
+ * \return ending iterator to a container of type Ravelin::Vector3; unique vertices
  *         are copied here on return
  */
 template <class InputIterator, class OutputIterator>
@@ -104,7 +104,7 @@ OutputIterator C2ACCD::get_vertices(const IndexedTriArray& tris, InputIterator f
   std::list<unsigned>::const_iterator new_end = std::unique(verts.begin(), verts.end());
 
   // copy vertices to output
-  const std::vector<Vector3>& vertices = tris.get_vertices();
+  const std::vector<Ravelin::Origin3d>& vertices = tris.get_vertices();
   for (std::list<unsigned>::const_iterator i = verts.begin(); i != new_end; i++)
     *output++ = vertices[*i];
 

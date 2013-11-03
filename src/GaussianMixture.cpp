@@ -7,6 +7,7 @@
 #include <Moby/Polyhedron.h>
 #include <Moby/XMLTree.h>
 #include <Moby/GaussianMixture.h>
+#include <Moby/CollisionGeometry.h>
 #include <Moby/OBB.h>
 #ifdef USE_OSG
 #include <osg/Geode>
@@ -22,16 +23,18 @@ using std::pair;
 using std::make_pair;
 using boost::shared_ptr;
 using boost::dynamic_pointer_cast;
+using namespace Ravelin;
 using namespace Moby;
 
 /// Computes the OSG visualization
-#ifdef USE_OSG
 osg::Node* GaussianMixture::create_visualization()
 {
+  #ifdef USE_OSG
   const unsigned X = 0, Y = 1, Z = 2;
 
-  // get the transform
-  const Matrix4& T = get_transform();
+  // get the pose and compute transform from the global frame to it 
+  shared_ptr<const Pose3d> P = get_pose();
+  Transform3d T = Pose3d::calc_relative_pose(GLOBAL, P);
 
   // create necessary OSG elements for visualization
   osg::Group* group = new osg::Group;
@@ -59,13 +62,13 @@ osg::Node* GaussianMixture::create_visualization()
     subgroup->getOrCreateStateSet()->setAttribute(mat);
 
     // get the vertices for this Gaussian 
-    const std::vector<Vector3>& verts = _vertices[j];
+    const std::vector<Point3d>& verts = _vertices[j];
 
     // create the vertex array, backing current transform out
     osg::Vec3Array* varray = new osg::Vec3Array(verts.size());
     for (unsigned i=0; i< verts.size(); i++)
     {
-      Vector3 v = T.inverse_mult_point(verts[i]);
+      Point3d v = T.transform_point(verts[i]);
       (*varray)[i] = osg::Vec3((float) v[X], (float) v[Y], (float) v[Z]);
     }
     geom->setVertexArray(varray);
@@ -78,58 +81,73 @@ osg::Node* GaussianMixture::create_visualization()
   }
 
   return group;
-}
-#else
-osg::Node* GaussianMixture::create_visualization()
-{
+  #else
   return NULL;
+  #endif 
 }
-#endif 
 
 /// Reads the Gaussian parameters
-GaussianMixture::Gauss GaussianMixture::read_gauss_node(XMLTreeConstPtr node)
+GaussianMixture::Gauss GaussianMixture::read_gauss_node(shared_ptr<const XMLTree> node)
 {
   const unsigned X = 0, Y = 1;
 
   // setup default center and variance
-  Vector2 x((Real) 0.0, (Real) 0.0), sigma((Real) 1.0, (Real) 1.0);
+  Vector2d x((double) 0.0, (double) 0.0), sigma((double) 1.0, (double) 1.0);
 
   // create the structure
   Gauss gauss;
 
   // read the height, if given 
-  const XMLAttrib* height = node->get_attrib("height");
+  XMLAttrib* height = node->get_attrib("height");
   if (height)
     gauss.A = height->get_real_value();
   else
-    gauss.A = (Real) 1.0;
+    gauss.A = (double) 1.0;
 
   // read the center, if given
-  const XMLAttrib* center = node->get_attrib("center");
+  XMLAttrib* center = node->get_attrib("center");
   if (center)
     center->get_vector_value(x);
   gauss.x0 = x[X];
   gauss.y0 = x[Y];
 
   // read the variance, if given
-  const XMLAttrib* variance = node->get_attrib("variance");
+  XMLAttrib* variance = node->get_attrib("variance");
   if (variance)
     variance->get_vector_value(sigma);
   gauss.sigma_x = sigma[X];
   gauss.sigma_y = sigma[Y];
 
   // read theta, if given
-  const XMLAttrib* theta = node->get_attrib("theta");
+  XMLAttrib* theta = node->get_attrib("theta");
   if (theta)
     gauss.th = theta->get_real_value();
   else
-    gauss.th = (Real) 0.0;
+    gauss.th = (double) 0.0;
 
   return gauss;
 }
 
+/// Gets the BVH root
+BVPtr GaussianMixture::get_BVH_root(CollisionGeometryPtr geom)
+{
+  // verify that the geometry matches the stored geometry, if any
+  if (_geom)
+    assert(geom == _geom);
+  else
+  {
+    // store the geometry
+    _geom = geom;
+
+    // build the bounding volume hierarchy
+    construct_BVs(geom);
+  }
+
+  return _root;
+}
+
 /// Loads the primitive from an XML file
-void GaussianMixture::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void GaussianMixture::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // load data from the Primitive
   Primitive::load_from_xml(node, id_map);
@@ -139,8 +157,8 @@ void GaussianMixture::load_from_xml(XMLTreeConstPtr node, std::map<std::string, 
 
   // read the Gaussian parameters
   vector<Gauss> gauss;
-  list<XMLTreeConstPtr> g_nodes = node->find_child_nodes("Gaussian");
-  BOOST_FOREACH(XMLTreeConstPtr g_node, g_nodes)
+  list<shared_ptr<const XMLTree> > g_nodes = node->find_child_nodes("Gaussian");
+  BOOST_FOREACH(shared_ptr<const XMLTree> g_node, g_nodes)
     gauss.push_back(read_gauss_node(g_node));
 
   // rebuild
@@ -148,7 +166,7 @@ void GaussianMixture::load_from_xml(XMLTreeConstPtr node, std::map<std::string, 
 }
 
 /// Saves the primitive to an XML description
-void GaussianMixture::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
+void GaussianMixture::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& shared_objects) const
 {
   // save primitive data
   Primitive::save_to_xml(node, shared_objects);
@@ -164,8 +182,8 @@ void GaussianMixture::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shar
 
     // write all parameters
     subnode->attribs.insert(XMLAttrib("height", _gauss[i].A));
-    subnode->attribs.insert(XMLAttrib("center", Vector2(_gauss[i].x0, _gauss[i].y0)));
-    subnode->attribs.insert(XMLAttrib("variance", Vector2(_gauss[i].sigma_x, _gauss[i].sigma_y)));
+    subnode->attribs.insert(XMLAttrib("center", Vector2d(_gauss[i].x0, _gauss[i].y0)));
+    subnode->attribs.insert(XMLAttrib("variance", Vector2d(_gauss[i].sigma_x, _gauss[i].sigma_y)));
     subnode->attribs.insert(XMLAttrib("theta", _gauss[i].th));
 
     // add the child
@@ -192,8 +210,8 @@ const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >&
 void GaussianMixture::create_mesh()
 {
   unsigned j, k;
-  Real x, y;
-  vector<Vector3> vertices;
+  double x, y;
+  vector<Point3d> vertices;
 
   // number of samples per Gaussian dimension
   const unsigned NSAMPLES = 10;
@@ -210,15 +228,15 @@ void GaussianMixture::create_mesh()
     vertices.clear();
 
     // get x start and y start
-    const Real X_START = _gauss[i].x0 - _gauss[i].sigma_x*3.0;
-    const Real X_INC = _gauss[i].sigma_x*6.0/(NSAMPLES-1);
-    const Real Y_START = _gauss[i].y0 - _gauss[i].sigma_y*3.0;
-    const Real Y_INC = _gauss[i].sigma_y*6.0/(NSAMPLES-1);
+    const double X_START = _gauss[i].x0 - _gauss[i].sigma_x*3.0;
+    const double X_INC = _gauss[i].sigma_x*6.0/(NSAMPLES-1);
+    const double Y_START = _gauss[i].y0 - _gauss[i].sigma_y*3.0;
+    const double Y_INC = _gauss[i].sigma_y*6.0/(NSAMPLES-1);
 
     // iterate
     for (x = X_START, j = 0; j< NSAMPLES; j++, x += X_INC)
       for (y = Y_START, k = 0; k< NSAMPLES; k++, y += Y_INC)
-        vertices.push_back(Vector3(x, y, gauss(_gauss[i], x, y)));
+        vertices.push_back(Point3d(x, y, gauss(_gauss[i], x, y)));
 
     // compute the 3D convex hull
     PolyhedronPtr poly = CompGeom::calc_convex_hull(vertices.begin(), vertices.end());
@@ -243,60 +261,60 @@ void GaussianMixture::create_mesh()
 }
 
 /// Computes the Gaussian height at a point (NOTE: primitive transform is not accounted for!)
-Real GaussianMixture::gauss(const Gauss& g, Real x, Real y)
+double GaussianMixture::gauss(const Gauss& g, double x, double y)
 {
   const unsigned X = 0, Y = 1;
 
   // rotate x and y into the Gaussian space
-  Matrix3 R = Matrix3::rot_Z(g.th);
-  Vector3 p = R.transpose_mult(Vector3(x,y,(Real) 0.0));
+  Matrix3d R = Matrix3d::rot_Z(g.th);
+  Origin3d p = R.transpose_mult(Origin3d(x,y,(double) 0.0));
   x = p[X];
   y = p[Y];
 
   // precompute some things
-  Real k1 = (x - g.x0) * (x - g.x0);
-  Real k2 = (Real) 2.0*g.sigma_x*g.sigma_x;
-  Real k3 = (y - g.y0) * (y - g.y0);
-  Real k4 = (Real) 2.0*g.sigma_y*g.sigma_y;
+  double k1 = (x - g.x0) * (x - g.x0);
+  double k2 = (double) 2.0*g.sigma_x*g.sigma_x;
+  double k3 = (y - g.y0) * (y - g.y0);
+  double k4 = (double) 2.0*g.sigma_y*g.sigma_y;
 
   return g.A * std::exp(-(k1/k2 + k3/k4));
 }
 
 /// Computes the Gaussian gradient at a point on the Gaussian (NOTE: primitive transform is not accounted for!)
-Vector3 GaussianMixture::grad(const Gauss& g, Real x, Real y)
+Vector3d GaussianMixture::grad(const Gauss& g, double x, double y)
 {
   const unsigned X = 0, Y = 1;
 
   // rotate x and y into the Gaussian space
-  Matrix3 R = Matrix3::rot_Z(g.th);
-  Vector3 p = R.transpose_mult(Vector3(x,y,(Real) 0.0));
+  Matrix3d R = Matrix3d::rot_Z(g.th);
+  Origin3d p = R.transpose_mult(Origin3d(x,y,(double) 0.0));
   x = p[X];
   y = p[Y];
 
   // precompute some things
-  Real k1 = (x - g.x0) * (x - g.x0);
-  Real k2 = (Real) 2.0*g.sigma_x*g.sigma_x;
-  Real k3 = (y - g.y0) * (y - g.y0);
-  Real k4 = (Real) 2.0*g.sigma_y*g.sigma_y;
+  double k1 = (x - g.x0) * (x - g.x0);
+  double k2 = (double) 2.0*g.sigma_x*g.sigma_x;
+  double k3 = (y - g.y0) * (y - g.y0);
+  double k4 = (double) 2.0*g.sigma_y*g.sigma_y;
 
   // setup the gradient
-  Vector3 v;
-  v[0] = g.A * std::exp(-(k1/k2 + k3/k4)) * (Real) -2.0 * (x - g.x0)/k2;
-  v[1] = g.A * std::exp(-(k1/k2 + k3/k4)) * (Real) -2.0 * (y - g.y0)/k4;
+  Vector3d v;
+  v[0] = g.A * std::exp(-(k1/k2 + k3/k4)) * (double) -2.0 * (x - g.x0)/k2;
+  v[1] = g.A * std::exp(-(k1/k2 + k3/k4)) * (double) -2.0 * (y - g.y0)/k4;
 
   // handle divide by zeros
   if (std::isnan(v[0]))
-    v[0] = (Real) 0.0;
+    v[0] = (double) 0.0;
   if (std::isnan(v[1]))
-    v[1] = (Real) 0.0;
-  Real nrm = v.norm();
+    v[1] = (double) 0.0;
+  double nrm = v.norm();
   if (nrm < NEAR_ZERO)
-    return Vector3(0,0,1);
+    return Vector3d(0,0,1);
   else
     return v/nrm;
 }
 
-void GaussianMixture::get_vertices(BVPtr bv, vector<const Vector3*>& vertices)
+void GaussianMixture::get_vertices(BVPtr bv, vector<const Point3d*>& vertices)
 {
   typedef map<OBBPtr, unsigned>::const_iterator OBBMapIter;
 
@@ -311,7 +329,7 @@ void GaussianMixture::get_vertices(BVPtr bv, vector<const Vector3*>& vertices)
     vertices.clear();
     for (unsigned j=0; j< _vertices.size(); j++)
     {
-      const vector<Vector3>& verts = _vertices[j]; 
+      const vector<Point3d>& verts = _vertices[j]; 
       for (unsigned i=0; i< verts.size(); i++)
         vertices.push_back(&verts[i]);
     }
@@ -320,7 +338,7 @@ void GaussianMixture::get_vertices(BVPtr bv, vector<const Vector3*>& vertices)
   }
 
   // otherwise, get the vector of vertices
-  const vector<Vector3>& verts = _vertices[iter->second]; 
+  const vector<Point3d>& verts = _vertices[iter->second]; 
   vertices.resize(verts.size());
   for (unsigned i=0; i< verts.size(); i++)
     vertices[i] = &verts[i];
@@ -332,9 +350,6 @@ void GaussianMixture::rebuild(const vector<Gauss>& gauss)
   // copy the Gaussians
   _gauss = gauss;
 
-  // construct bounding volumes
-  construct_BVs();
-
   // construct sets of vertices
   construct_vertices();
 
@@ -343,35 +358,49 @@ void GaussianMixture::rebuild(const vector<Gauss>& gauss)
 }
 
 /// Sets the transform for the primitive
-void GaussianMixture::set_transform(const Matrix4& T)
+void GaussianMixture::set_pose(const Pose3d& T)
 {
   // call parent method
-  Primitive::set_transform(T);
+  Primitive::set_pose(T);
 
   // reconstruct bounding volumes and vertices
   rebuild(_gauss);
+
+  // re-construct the BVs
+  if (_geom)
+    construct_BVs(_geom);
 }
 
 /// Constructs the bounding volumes used for faster intersection testing
-void GaussianMixture::construct_BVs()
+void GaussianMixture::construct_BVs(CollisionGeometryPtr geom)
 {
   const unsigned X = 0, Y = 1, Z = 2;
   list<BVPtr> children;
 
-  // get the transform
-  const Matrix4& T = get_transform();
-  
+  // get the collision geometry pose
+  shared_ptr<const Pose3d> gpose = geom->get_pose();
+
+  // get the pose
+  shared_ptr<const Pose3d> P = get_pose();
+  assert(!P->rpose);
+
+  // setup a transform
+  Transform3d T;
+  T.source = gpose;
+  T.target = gpose;
+  T.q = P->q;
+  T.x = P->x;
+
   // iterate over all Gaussians
   for (unsigned i=0; i< _gauss.size(); i++)
   {
     // create an OBB for the Gaussian
     shared_ptr<OBB> obb(new OBB);
+    obb->geom = geom;
 
     // setup the OBB center
-    const Real HEIGHT = gauss(_gauss[i], _gauss[i].x0, _gauss[i].y0);
-    obb->center[X] = _gauss[i].x0;
-    obb->center[Y] = _gauss[i].y0;
-    obb->center[Z] = HEIGHT*0.5;
+    const double HEIGHT = gauss(_gauss[i], _gauss[i].x0, _gauss[i].y0);
+    obb->center = T.transform_point(Point3d(_gauss[i].x0, _gauss[i].y0, HEIGHT*0.5, gpose));
 
     // setup the OBB half-lengths
     obb->l[X] = _gauss[i].sigma_x*3.0;
@@ -379,11 +408,7 @@ void GaussianMixture::construct_BVs()
     obb->l[Z] = HEIGHT*0.5;
 
     // setup the R matrix
-    obb->R = Matrix3::rot_Z(_gauss[i].th);
-
-    // transform the obb
-    obb->center = T.mult_point(obb->center);
-    obb->R = T.get_rotation() * obb->R;
+    obb->R = T.q * Matrix3d::rot_Z(_gauss[i].th);
 
     // add the OBB as a child of the root
     children.push_back(obb);
@@ -393,7 +418,7 @@ void GaussianMixture::construct_BVs()
   }
 
   // get the vertices from all children
-  vector<Vector3> verts;
+  vector<Point3d> verts;
   BOOST_FOREACH(BVPtr bv, children)
   {
     shared_ptr<OBB> obb = dynamic_pointer_cast<OBB>(bv);
@@ -402,6 +427,7 @@ void GaussianMixture::construct_BVs()
 
   // setup an OBB over *all* Gaussians
   _root = shared_ptr<OBB>(new OBB(verts.begin(), verts.end()));
+  _root->geom = geom;
   _root->children = children;
 }
 
@@ -409,13 +435,14 @@ void GaussianMixture::construct_BVs()
 void GaussianMixture::construct_vertices()
 {
   unsigned j, k;
-  Real x, y;
+  double x, y;
 
   // clear vector of vertices
   _vertices.resize(_gauss.size());
 
-  // get the transform
-  const Matrix4& T = get_transform();
+  // get the transform from the current pose to the global frame
+  shared_ptr<const Pose3d> P = get_pose();
+  Transform3d T = Pose3d::calc_relative_pose(P, GLOBAL);
 
   // number of samples per Gaussian dimension
   const unsigned NSAMPLES = 100;
@@ -423,34 +450,34 @@ void GaussianMixture::construct_vertices()
   for (unsigned i=0; i< _gauss.size(); i++)
   {
     // setup vertex mapping
-    vector<Vector3>& v = _vertices[i];
+    vector<Point3d>& v = _vertices[i];
     v.clear();
 
     // get x start and y start
-    const Real X_START = _gauss[i].x0 - _gauss[i].sigma_x*3.0;
-    const Real X_INC = _gauss[i].sigma_x*6.0/(NSAMPLES-1);
-    const Real Y_START = _gauss[i].y0 - _gauss[i].sigma_y*3.0;
-    const Real Y_INC = _gauss[i].sigma_y*6.0/(NSAMPLES-1);
+    const double X_START = _gauss[i].x0 - _gauss[i].sigma_x*3.0;
+    const double X_INC = _gauss[i].sigma_x*6.0/(NSAMPLES-1);
+    const double Y_START = _gauss[i].y0 - _gauss[i].sigma_y*3.0;
+    const double Y_INC = _gauss[i].sigma_y*6.0/(NSAMPLES-1);
 
     // iterate
     for (x = X_START, j = 0; j< NSAMPLES; j++, x += X_INC)
       for (y = Y_START, k = 0; k< NSAMPLES; k++, y += Y_INC)
       {
         // get the height for this Gaussian
-        Real hi = gauss(_gauss[i], x, y);
+        double hi = gauss(_gauss[i], x, y);
 
         // if the height is zero, we can use it directly
         if (hi > NEAR_ZERO)
         {
           // otherwise, verify that point is not inside any (other) Gaussians
-          Real maxh = (Real) 0.0;
+          double maxh = (double) 0.0;
           for (unsigned r=0; r< _gauss.size() && maxh < NEAR_ZERO; r++)
           {
             if (r == i)
               continue;
 
             // get the height
-            Real h = gauss(_gauss[r], x, y);
+            double h = gauss(_gauss[r], x, y);
             if (h > maxh)
               maxh = h;
            }
@@ -461,42 +488,56 @@ void GaussianMixture::construct_vertices()
          }
 
         // add the point
-        v.push_back(Vector3(x, y, hi));
+        v.push_back(Point3d(x, y, hi, P));
       }
 
     // transform all points
     for (unsigned i=0; i< v.size(); i++)
-      v[i] = T.mult_point(v[i]);
+      v[i] = T.transform_point(v[i]);
   }
 }
 
 /// Determines whether a point is inside one of the Gaussians
-bool GaussianMixture::point_inside(BVPtr bv, const Vector3& point, Vector3& normal) const
+bool GaussianMixture::point_inside(BVPtr bv, const Point3d& point, Vector3d& normal) const
 {
-  Real a,b,c,X,Y,Z,X_next,eps;
+  double a,b,c,X,Y,Z,X_next,eps;
+  static shared_ptr<Pose3d> P;
   
-  const Real PARAM_BOUND = -5.0;
+  const double PARAM_BOUND = -5.0;
   int n=0;
   const int NMAX = _gauss.size(); 
 
-  // get the current transform
-  const Matrix4& T = get_transform();
- 
+  // get the pose for the collision geometry
+  shared_ptr<const Pose3d> gpose = bv->geom->get_pose(); 
+
+  // get the pose for this geometry and BV
+  shared_ptr<const Pose3d> bpose = get_pose(); 
+  assert(!bpose->rpose);
+
+  // setup a new pose
+  if (!P)
+    P = shared_ptr<Pose3d>(new Pose3d);
+  *P = *bpose;
+  P->rpose = gpose;
+
+  // get the transform from the point pose to the Gaussian pose
+  Transform3d T = Pose3d::calc_relative_pose(point.pose, P); 
+
   // convert the point to primitive space
-  Vector3 p = T.inverse_mult_point(point);
+  Point3d p = T.transform_point(point);
 
   // find max(z) of gaussians
-  Real tempX,tempY,tempZ,tempMax;
+  double tempX,tempY,tempZ,tempMax;
   tempX=p[0];
   tempY=p[1];
-  tempMax = -std::numeric_limits<Real>::max();
+  tempMax = -std::numeric_limits<double>::max();
   int num = 0;
   for(int i=0;i<_gauss.size();i++){
 
     // compute some constants
-    const Real CTH = std::cos(_gauss[i].th);
-    const Real STH = std::sin(_gauss[i].th); 
-    const Real S2TH = std::sin((Real) 2.0 * _gauss[i].th); 
+    const double CTH = std::cos(_gauss[i].th);
+    const double STH = std::sin(_gauss[i].th); 
+    const double S2TH = std::sin((double) 2.0 * _gauss[i].th); 
 
     a = CTH*CTH/2/_gauss[i].sigma_x*_gauss[i].sigma_x + STH*STH/2/_gauss[i].sigma_y*_gauss[i].sigma_y;
     b = -S2TH/4/_gauss[i].sigma_x*_gauss[i].sigma_x + S2TH/4/_gauss[i].sigma_y*_gauss[i].sigma_y;
@@ -514,9 +555,9 @@ bool GaussianMixture::point_inside(BVPtr bv, const Vector3& point, Vector3& norm
   if(p[2] <= tempMax)
   {
     // compute some constants
-    const Real CTH = std::cos(_gauss[num].th);
-    const Real STH = std::sin(_gauss[num].th); 
-    const Real S2TH = std::sin((Real) 2.0 * _gauss[num].th); 
+    const double CTH = std::cos(_gauss[num].th);
+    const double STH = std::sin(_gauss[num].th); 
+    const double S2TH = std::sin((double) 2.0 * _gauss[num].th); 
 
     // normal -------------------------------------------------------------
     a = CTH/2/_gauss[num].sigma_x*_gauss[num].sigma_x + STH/2/_gauss[num].sigma_y*_gauss[num].sigma_y;
@@ -533,6 +574,7 @@ bool GaussianMixture::point_inside(BVPtr bv, const Vector3& point, Vector3& norm
 
     // normalize the normal
     normal.normalize();
+    normal = T.inverse_transform_vector(normal);
 
     if(tempMax-p[2] <= std::exp(PARAM_BOUND*2)) //error bound
     {      
@@ -552,61 +594,61 @@ bool GaussianMixture::point_inside(BVPtr bv, const Vector3& point, Vector3& norm
 }
 
 /// Evaluates the intersection function (for Newton-Raphson)
-Real GaussianMixture::f(const Gauss& g, const Vector3& p, const Vector3& q, Real t)
+double GaussianMixture::f(const Gauss& g, const Point3d& p, const Point3d& q, double t)
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
   // evaluate
-  Real x = p[X] + (q[X] - p[X])*t;
-  Real y = p[Y] + (q[Y] - p[Y])*t;
+  double x = p[X] + (q[X] - p[X])*t;
+  double y = p[Y] + (q[Y] - p[Y])*t;
   return p[Z] + (q[Z] - p[Z])*t - gauss(g, x, y);
 }
 
 /// Evaluates the intersection function (for Newton-Raphson)
-Real GaussianMixture::df(const Gauss& g, const Vector3& p, const Vector3& q, Real t)
+double GaussianMixture::df(const Gauss& g, const Point3d& p, const Point3d& q, double t)
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
   // evaluate
-  Real dx = (q[X] - p[X]);
-  Real dy = (q[Y] - p[Y]);
-  Real x = p[X] + (q[X] - p[X])*t;
-  Real y = p[Y] + (q[Y] - p[Y])*t;
+  double dx = (q[X] - p[X]);
+  double dy = (q[Y] - p[Y]);
+  double x = p[X] + (q[X] - p[X])*t;
+  double y = p[Y] + (q[Y] - p[Y])*t;
 
   // rotate x and y into the Gaussian space
-  Matrix3 R = Matrix3::rot_Z(g.th);
-  Vector3 r = R.transpose_mult(Vector3(x,y,(Real) 0.0));
-  Vector3 dr = R.transpose_mult(Vector3(dx, dy, (Real) 0.0));
-  Real xx = r[X];
-  Real yy = r[Y];
-  Real dxx = dr[X];
-  Real dyy = dr[Y];
+  Matrix3d R = Matrix3d::rot_Z(g.th);
+  Origin3d r = R.transpose_mult(Origin3d(x,y,(double) 0.0));
+  Origin3d dr = R.transpose_mult(Origin3d(dx, dy, (double) 0.0));
+  double xx = r[X];
+  double yy = r[Y];
+  double dxx = dr[X];
+  double dyy = dr[Y];
 
   // precompute some things
-  Real k1 = (xx - g.x0) * (xx - g.x0);
-  Real k2 = (Real) 2.0*g.sigma_x*g.sigma_x;
-  Real k3 = (yy - g.y0) * (yy - g.y0);
-  Real k4 = (Real) 2.0*g.sigma_y*g.sigma_y;
+  double k1 = (xx - g.x0) * (xx - g.x0);
+  double k2 = (double) 2.0*g.sigma_x*g.sigma_x;
+  double k3 = (yy - g.y0) * (yy - g.y0);
+  double k4 = (double) 2.0*g.sigma_y*g.sigma_y;
 
   // compute derivatives of these
-  Real dk1 = (Real) 2.0 * (xx - g.x0) * dxx;
-  Real dk3 = (Real) 2.0 * (yy - g.y0) * dyy;
+  double dk1 = (double) 2.0 * (xx - g.x0) * dxx;
+  double dk3 = (double) 2.0 * (yy - g.y0) * dyy;
 
   return q[Z] - p[Z] - g.A * std::exp(-(k1/k2 + k3/k4)) * -(dk1/k2 + dk3/k4);
 }
 
 /// Performs Newton-Raphson to find a point of intersection with a line segment and a Gaussian
-Real GaussianMixture::newton_raphson(const Gauss& g, const Vector3& p, const Vector3& q)
+double GaussianMixture::newton_raphson(const Gauss& g, const Point3d& p, const Point3d& q)
 {
   const unsigned ITER_MAX = 20;
-  const Real INF = std::numeric_limits<Real>::max();
-  const Real TTOL = NEAR_ZERO;
+  const double INF = std::numeric_limits<double>::max();
+  const double TTOL = NEAR_ZERO;
 
-  Real t = (Real) 0.5;
+  double t = (double) 0.5;
   for (unsigned j=0; j< ITER_MAX; j++)
   {
     // do update
-    Real dt = -f(g, p, q, t)/df(g, p, q, t);
+    double dt = -f(g, p, q, t)/df(g, p, q, t);
     t += dt;
 
     // check for convergence
@@ -615,8 +657,8 @@ Real GaussianMixture::newton_raphson(const Gauss& g, const Vector3& p, const Vec
       // look for bad convergence
       if (t < -NEAR_ZERO)
         return INF;
-      else if (t < (Real) 0.0)
-        return (Real) 0.0; 
+      else if (t < (double) 0.0)
+        return (double) 0.0; 
       else
         return t;
     }
@@ -627,20 +669,34 @@ Real GaussianMixture::newton_raphson(const Gauss& g, const Vector3& p, const Vec
 }
 
 /// Computes line segment intersection (if any)
-bool GaussianMixture::intersect_seg(BVPtr bv, const LineSeg3& seg,Real& tisect,Vector3& isect, Vector3& normal) const
+bool GaussianMixture::intersect_seg(BVPtr bv, const LineSeg3& seg,double& tisect,Point3d& isect, Vector3d& normal) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
-  const Real INF = std::numeric_limits<Real>::max();
+  const double INF = std::numeric_limits<double>::max();
+  static shared_ptr<Pose3d> P;
 
   // setup intersection vectors
-  SAFESTATIC vector<Real> t, depth;
+  SAFESTATIC vector<double> t, depth;
 
-  // get the current transform
-  const Matrix4& T = get_transform();
- 
+  // get the pose for the collision geometry
+  shared_ptr<const Pose3d> gpose = bv->geom->get_pose(); 
+
+  // get the pose for this geometry and BV
+  shared_ptr<const Pose3d> bpose = get_pose(); 
+  assert(!bpose->rpose);
+
+  // setup a new pose
+  if (!P)
+    P = shared_ptr<Pose3d>(new Pose3d);
+  *P = *bpose;
+  P->rpose = gpose;
+
+  // get the transform from the line segment pose to the primitive pose
+  Transform3d T = Pose3d::calc_relative_pose(seg.first.pose, P); 
+
   // convert the line segment to primitive space
-  Vector3 p = T.inverse_mult_point(seg.first);
-  Vector3 q = T.inverse_mult_point(seg.second);
+  Point3d p = T.transform_point(seg.first);
+  Point3d q = T.transform_point(seg.second);
 
   // determine whether any starting points are inside the Gaussians
   depth.resize(_gauss.size());
@@ -649,14 +705,14 @@ bool GaussianMixture::intersect_seg(BVPtr bv, const LineSeg3& seg,Real& tisect,V
 
   // see whether any points are inside the Gaussians
   unsigned mini = std::min_element(depth.begin(), depth.end()) - depth.begin();
-  if (depth[mini] < (Real) 0.0)
+  if (depth[mini] < (double) 0.0)
   {
     // point is inside, compute and transform the normal
-    tisect = (Real) 0.0;
+    tisect = (double) 0.0;
     isect = seg.first; 
     
     // compute the transformed normal
-    normal = T.mult_vector(grad(_gauss[mini], p[X], p[Y]));
+    normal = T.inverse_transform_vector(grad(_gauss[mini], p[X], p[Y]));
 
     return true;
   }
@@ -668,7 +724,7 @@ bool GaussianMixture::intersect_seg(BVPtr bv, const LineSeg3& seg,Real& tisect,V
 
   // see whether all points are outside
   mini = std::min_element(depth.begin(), depth.end()) - depth.begin();
-  if (depth[mini] > (Real) 0.0)
+  if (depth[mini] > (double) 0.0)
     return false;
 
   // still here? use Newton-Raphson 
@@ -680,7 +736,7 @@ bool GaussianMixture::intersect_seg(BVPtr bv, const LineSeg3& seg,Real& tisect,V
   for (unsigned i=0; i< _gauss.size(); i++)
   {
     // only apply to appropriate points 
-    if (depth[i] > (Real) 0.0)
+    if (depth[i] > (double) 0.0)
       continue;
 
     // apply Newton-Raphson
@@ -695,12 +751,12 @@ bool GaussianMixture::intersect_seg(BVPtr bv, const LineSeg3& seg,Real& tisect,V
   isect = p + (q-p)*tisect;
 
   // compute transformed normal
-  Real x = p[X] + (q[X] - p[X])*tisect;
-  Real y = p[Y] + (q[Y] - p[Y])*tisect;
-  normal = T.mult_vector(grad(_gauss[mini], x, y));
+  double x = p[X] + (q[X] - p[X])*tisect;
+  double y = p[Y] + (q[Y] - p[Y])*tisect;
+  normal = T.inverse_transform_vector(grad(_gauss[mini], x, y));
 
   // compute and transform intersection point
-  isect = T.mult_point(p + (q-p)*tisect);
+  isect = seg.first + (seg.second-seg.first)*tisect;
 
   return true;
 
@@ -712,10 +768,10 @@ bool GaussianMixture::intersect_seg(BVPtr bv, const LineSeg3& seg,Real& tisect,V
   z1=q[2];
  
    // seg.second is p vector
-  Real tempX,tempY,tempZ,tempMax;
+  double tempX,tempY,tempZ,tempMax;
   tempX=p[0];
   tempY=p[1];
-  tempMax = -std::numeric_limits<Real>::max();
+  tempMax = -std::numeric_limits<double>::max();
   int num = 0;
 
   // find max(z) of gaussians (we need to find out which Gaussian is tallest
@@ -723,9 +779,9 @@ bool GaussianMixture::intersect_seg(BVPtr bv, const LineSeg3& seg,Real& tisect,V
   for(unsigned i=0; i<_gauss.size();i++){
 
     // compute some constants
-    const Real CTH = std::cos(_gauss[i].th);
-    const Real STH = std::sin(_gauss[i].th); 
-    const Real S2TH = std::sin((Real) 2.0 * _gauss[i].th); 
+    const double CTH = std::cos(_gauss[i].th);
+    const double STH = std::sin(_gauss[i].th); 
+    const double S2TH = std::sin((double) 2.0 * _gauss[i].th); 
 
     a = CTH*CTH/2/_gauss[i].sigma_x*_gauss[i].sigma_x + STH*STH/2/_gauss[i].sigma_y*_gauss[i].sigma_y;
     b = -S2TH/4/_gauss[i].sigma_x*_gauss[i].sigma_x + S2TH/4/_gauss[i].sigma_y*_gauss[i].sigma_y;
@@ -742,13 +798,13 @@ bool GaussianMixture::intersect_seg(BVPtr bv, const LineSeg3& seg,Real& tisect,V
   // check whether the first point in the line segment is already inside
   if(p[2] <= tempMax)
   {
-    t = (Real) 0.0;
+    t = (double) 0.0;
     isect = p;
 
     // compute some constants
-    const Real CTH = std::cos(_gauss[num].th);
-    const Real STH = std::sin(_gauss[num].th); 
-    const Real S2TH = std::sin((Real) 2.0 * _gauss[num].th); 
+    const double CTH = std::cos(_gauss[num].th);
+    const double STH = std::sin(_gauss[num].th); 
+    const double S2TH = std::sin((double) 2.0 * _gauss[num].th); 
 
     // normal -------------------------------------------------------------
     a = CTH/2/_gauss[num].sigma_x*_gauss[num].sigma_x + STH/2/_gauss[num].sigma_y*_gauss[num].sigma_y;
@@ -772,8 +828,8 @@ bool GaussianMixture::intersect_seg(BVPtr bv, const LineSeg3& seg,Real& tisect,V
       // cout<<"X= "<<isect[0] <<" Y= "<<isect[1] <<" Z= "<<isect[2] <<endl;
 
       // transform intersection point and normal
-      isect = T.mult_point(isect);
-      normal = T.mult_vector(normal);
+      isect = T.transform_point(isect);
+      normal = T.transform_vector(normal);
 
       return true;
     }
@@ -783,8 +839,8 @@ bool GaussianMixture::intersect_seg(BVPtr bv, const LineSeg3& seg,Real& tisect,V
       // cout<<"X= "<<isect[0] <<" Y= "<<isect[1] <<" Z= "<<isect[2] <<endl;
 
       // transform intersection point and normal
-      isect = T.mult_point(isect);
-      normal = T.mult_vector(normal);
+      isect = T.transform_point(isect);
+      normal = T.transform_vector(normal);
 
       return true;
     }
@@ -802,16 +858,16 @@ bool GaussianMixture::intersect_seg(BVPtr bv, const LineSeg3& seg,Real& tisect,V
   eps=1;num=0;
   while(eps>= std::exp (PARAM_BOUND) && n<=NMAX)
   {
-    Real tempZ,tempdiffZ;
-    Real tempMax = -std::numeric_limits<Real>::max();
+    double tempZ,tempdiffZ;
+    double tempMax = -std::numeric_limits<double>::max();
     num = 0;
     // find Max F(x,y)
     for(int i=0;i<_gauss.size();i++){
 
       // compute some constants
-      const Real CTH = std::cos(_gauss[i].th);
-      const Real STH = std::sin(_gauss[i].th); 
-      const Real S2TH = std::sin((Real) 2.0 * _gauss[i].th); 
+      const double CTH = std::cos(_gauss[i].th);
+      const double STH = std::sin(_gauss[i].th); 
+      const double S2TH = std::sin((double) 2.0 * _gauss[i].th); 
 
       a = CTH*CTH/2/_gauss[i].sigma_x*_gauss[i].sigma_x + STH*STH/2/_gauss[i].sigma_y*_gauss[i].sigma_y;
       b = -S2TH/4/_gauss[i].sigma_x*_gauss[i].sigma_x + S2TH/4/_gauss[i].sigma_y*_gauss[i].sigma_y;
@@ -825,9 +881,9 @@ bool GaussianMixture::intersect_seg(BVPtr bv, const LineSeg3& seg,Real& tisect,V
     }
 
     // compute some constants
-    const Real CTH = std::cos(_gauss[num].th);
-    const Real STH = std::sin(_gauss[num].th); 
-    const Real S2TH = std::sin((Real) 2.0 * _gauss[num].th); 
+    const double CTH = std::cos(_gauss[num].th);
+    const double STH = std::sin(_gauss[num].th); 
+    const double S2TH = std::sin((double) 2.0 * _gauss[num].th); 
 
     a = CTH*CTH/2/_gauss[num].sigma_x*_gauss[num].sigma_x + STH*STH/2/_gauss[num].sigma_y*_gauss[num].sigma_y;
     b = -S2TH/4/_gauss[num].sigma_x*_gauss[num].sigma_x + S2TH/4/_gauss[num].sigma_y*_gauss[num].sigma_y;
@@ -858,9 +914,9 @@ bool GaussianMixture::intersect_seg(BVPtr bv, const LineSeg3& seg,Real& tisect,V
   // w.r.t F(x,y)
 
   // compute some constants
-  const Real CTH = std::cos(_gauss[num].th);
-  const Real STH = std::sin(_gauss[num].th); 
-  const Real S2TH = std::sin((Real) 2.0 * _gauss[num].th); 
+  const double CTH = std::cos(_gauss[num].th);
+  const double STH = std::sin(_gauss[num].th); 
+  const double S2TH = std::sin((double) 2.0 * _gauss[num].th); 
 
   normal[0] = _gauss[num].A*std::exp((S2TH/(2*_gauss[num].sigma_x*_gauss[num].sigma_x) - S2TH/(2*_gauss[num].sigma_y*_gauss[num].sigma_y))*(X - _gauss[num].x0)*(Y - _gauss[num].y0) - (CTH*CTH/(2*_gauss[num].sigma_y*_gauss[num].sigma_y) + STH*STH/(2*_gauss[num].sigma_x*_gauss[num].sigma_x))*(Y - _gauss[num].y0)*(Y - _gauss[num].y0) - (CTH*CTH/(2*_gauss[num].sigma_x*_gauss[num].sigma_x) + STH*STH/(2*_gauss[num].sigma_y*_gauss[num].sigma_y))*(X - _gauss[num].x0)*(X - _gauss[num].x0))*((S2TH/(2*_gauss[num].sigma_x*_gauss[num].sigma_x) - S2TH/(2*_gauss[num].sigma_y*_gauss[num].sigma_y))*(Y - _gauss[num].y0) - (CTH*CTH/(2*_gauss[num].sigma_x*_gauss[num].sigma_x) + STH*STH/(2*_gauss[num].sigma_y*_gauss[num].sigma_y))*(2*X - 2*_gauss[num].x0));
   normal[1] = _gauss[num].A*std::exp((S2TH/(2*_gauss[num].sigma_x*_gauss[num].sigma_x) - S2TH/(2*_gauss[num].sigma_y*_gauss[num].sigma_y))*(X - _gauss[num].x0)*(Y - _gauss[num].y0) - (CTH*CTH/(2*_gauss[num].sigma_y*_gauss[num].sigma_y) + STH*STH/(2*_gauss[num].sigma_x*_gauss[num].sigma_x))*(Y - _gauss[num].y0)*(Y - _gauss[num].y0) - (CTH*CTH/(2*_gauss[num].sigma_x*_gauss[num].sigma_x) + STH*STH/(2*_gauss[num].sigma_y*_gauss[num].sigma_y))*(X - _gauss[num].x0)*(X - _gauss[num].x0))*((S2TH/(2*_gauss[num].sigma_x*_gauss[num].sigma_x) - S2TH/(2*_gauss[num].sigma_y*_gauss[num].sigma_y))*(X - _gauss[num].x0) - (CTH*CTH/(2*_gauss[num].sigma_y*_gauss[num].sigma_y) + STH*STH/(2*_gauss[num].sigma_x*_gauss[num].sigma_x))*(2*Y - 2*_gauss[num].y0));
@@ -870,8 +926,8 @@ bool GaussianMixture::intersect_seg(BVPtr bv, const LineSeg3& seg,Real& tisect,V
   normal.normalize();
 
   // transform intersection points and normals
-  isect = T.mult_point(isect);
-  normal = T.mult_vector(normal);
+  isect = T.transform_point(isect);
+  normal = T.transform_vector(normal);
 
   cout <<"X= "<<isect[0]<<" Y= "<<isect[1]<<" Z= "<<isect[2]<<endl;
   cout <<"normal[0]= "<<normal[0]<<" normal[1]= "<<normal[1]<<" normal[z]= "<<normal[z]<<endl;

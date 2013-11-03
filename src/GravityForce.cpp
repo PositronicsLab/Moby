@@ -11,8 +11,10 @@
 #include <Moby/SingleBody.h>
 #include <Moby/RigidBody.h>
 #include <Moby/ArticulatedBody.h>
+#include <Moby/DeformableBody.h>
 #include <Moby/GravityForce.h>
 
+using namespace Ravelin;
 using namespace Moby;
 using boost::shared_ptr;
 using boost::dynamic_pointer_cast;
@@ -20,7 +22,7 @@ using boost::dynamic_pointer_cast;
 /// Constructs a default gravity vector of [0,0,0]
 GravityForce::GravityForce()
 {
-  gravity = ZEROS_3;
+  gravity.set_zero();
 }
 
 /// Copy constructor
@@ -32,26 +34,53 @@ GravityForce::GravityForce(const GravityForce& source)
 /// Adds gravity to a body
 void GravityForce::add_force(DynamicBodyPtr body)
 {
-  // check to see whether body is a single body first 
-  shared_ptr<SingleBody> sb = dynamic_pointer_cast<SingleBody>(body);
-  if (sb)
-    sb->add_force(gravity * sb->calc_mass());
+  // check to see whether body is a rigid body first 
+  shared_ptr<RigidBody> rb = dynamic_pointer_cast<RigidBody>(body);
+  if (rb)
+  {
+    shared_ptr<Pose3d> P(new Pose3d(*rb->get_inertial_pose()));
+    P->update_relative_pose(GLOBAL);
+    P->q.set_identity();
+    SForced w(boost::const_pointer_cast<const Pose3d>(P));
+    w.set_force(gravity * rb->get_mass());
+    rb->add_force(w);        
+  }
   else
   {
     // it's an articulated body, get it as such
     ArticulatedBodyPtr ab = dynamic_pointer_cast<ArticulatedBody>(body);
+    if (ab)
+    {
+      // get the vector of links
+      const std::vector<RigidBodyPtr>& links = ab->get_links();
       
-    // get the vector of links
-    const std::vector<RigidBodyPtr>& links = ab->get_links();
-      
-    // apply gravity force to all links
-    BOOST_FOREACH(RigidBodyPtr rb, links)
-      rb->add_force(gravity * rb->get_mass());        
+      // apply gravity force to all links
+      BOOST_FOREACH(RigidBodyPtr rb, links)
+      {
+        shared_ptr<Pose3d> P(new Pose3d(*rb->get_inertial_pose()));
+        P->update_relative_pose(GLOBAL);
+        P->q.set_identity();
+        SForced w(boost::const_pointer_cast<const Pose3d>(P));
+        w.set_force(gravity * rb->get_mass());
+        rb->add_force(w);        
+      }
+    }
+    else
+    {
+      // should be a deformable body
+      shared_ptr<DeformableBody> db = dynamic_pointer_cast<DeformableBody>(body);
+
+      // get the gravity vector
+      // TODO: fix this
+      assert(false);
+      Vector3d gx = Pose3d::transform_vector(db->get_computation_frame(), gravity);
+      db->add_force(gx * rb->get_mass());
+    }
   }
 }
 
 /// Implements Base::load_from_xml()
-void GravityForce::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void GravityForce::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // load XML data for the parent class
   RecurrentForce::load_from_xml(node, id_map);
@@ -60,13 +89,13 @@ void GravityForce::load_from_xml(XMLTreeConstPtr node, std::map<std::string, Bas
   assert(strcasecmp(node->name.c_str(), "GravityForce") == 0);
 
   // read the acceleration due to gravity, if given
-  const XMLAttrib* gravity_attrib = node->get_attrib("accel");
+  XMLAttrib* gravity_attrib = node->get_attrib("accel");
   if (gravity_attrib)
     gravity_attrib->get_vector_value(gravity);
 }
 
 /// Implements Base::save_to_xml()
-void GravityForce::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const 
+void GravityForce::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& shared_objects) const 
 {
   // save XML data from the parent class
   RecurrentForce::save_to_xml(node, shared_objects);

@@ -20,21 +20,22 @@ namespace Moby {
 class ThickTriangle
 {
   public:
-    ThickTriangle(const Triangle& t, Real epsilon) { construct_from_triangle(t, epsilon); }
+    ThickTriangle(const Triangle& t, double epsilon) { construct_from_triangle(t, epsilon); }
     void operator=(const ThickTriangle& t) { _planes = t._planes; _normal = t._normal; tri = t.tri; }
-    bool intersect_seg(const LineSeg3& seg, Real& tnear, Vector3& isect) const;
-    bool intersect_seg(const LineSeg3& seg, Real& tnear, Vector3& isect, Vector3& normal) const;
-    bool point_inside(const Vector3& point) const;
-    Vector3 determine_normal(const Vector3& p) const;
+    bool intersect_seg(const LineSeg3& seg, double& tnear, Point3d& isect) const;
+    bool intersect_seg(const LineSeg3& seg, double& tnear, Point3d& isect, Ravelin::Vector3d& normal) const;
+    bool point_inside(const Point3d& point) const;
+    Ravelin::Vector3d determine_normal(const Point3d& p) const;
     const std::list<Plane>& planes() const { return _planes; }
-    void construct_from_triangle(const Triangle& t, Real epsilon);
+    void construct_from_triangle(const Triangle& t, double epsilon);
+    boost::shared_ptr<const Ravelin::Pose3d> get_pose() const;
 
     /// The original triangle  
     Triangle tri;
 
   private:
     std::list<Plane> _planes;
-    Vector3 _normal;  
+    Ravelin::Vector3d _normal;  
 }; // end class
 
 inline std::ostream& operator<<(std::ostream& out, const ThickTriangle& t)
