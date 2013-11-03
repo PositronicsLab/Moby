@@ -14,7 +14,6 @@
 #include <Moby/Triangle.h>
 #include <Moby/Polyhedron.h>
 #include <Moby/RigidBody.h>
-#include <Moby/DeformableBody.h>
 #include <Moby/ArticulatedBody.h>
 #include <Moby/XMLTree.h>
 #include <Moby/EventDrivenSimulator.h>
@@ -53,17 +52,6 @@ void CollisionDetection::set_enabled(BasePtr b, bool enabled)
       disabled.erase(cg);
     else
       disabled.insert(cg);
-    return;
-  }
-
-  // try a deformable body next
-  DeformableBodyPtr db = dynamic_pointer_cast<DeformableBody>(b);
-  if (db)
-  {
-    std::list<CollisionGeometryPtr> cgs;
-    db->get_all_collision_geometries(std::back_inserter(cgs));
-    BOOST_FOREACH(CollisionGeometryPtr cg, cgs)
-      set_enabled(cg, enabled);
     return;
   }
 
@@ -109,8 +97,6 @@ void CollisionDetection::set_enabled(BasePtr b1, BasePtr b2, bool enabled)
   // try casting as all object types for simplicity 
   CollisionGeometryPtr cg1 = dynamic_pointer_cast<CollisionGeometry>(b1);
   CollisionGeometryPtr cg2 = dynamic_pointer_cast<CollisionGeometry>(b2);
-  DeformableBodyPtr db1 = dynamic_pointer_cast<DeformableBody>(b1); 
-  DeformableBodyPtr db2 = dynamic_pointer_cast<DeformableBody>(b2); 
   RigidBodyPtr rb1 = dynamic_pointer_cast<RigidBody>(b1);
   RigidBodyPtr rb2 = dynamic_pointer_cast<RigidBody>(b2);
   ArticulatedBodyPtr ab1 = dynamic_pointer_cast<ArticulatedBody>(b1);
@@ -127,26 +113,6 @@ void CollisionDetection::set_enabled(BasePtr b1, BasePtr b2, bool enabled)
     return;
   }
 
-  // next case: b1 1 is a CG and b2 is a DB
-  if (cg1 && db2)
-  {
-    std::list<CollisionGeometryPtr> cgs;
-    db2->get_all_collision_geometries(std::back_inserter(cgs));
-    BOOST_FOREACH(CollisionGeometryPtr cg, cgs)
-      set_enabled(cg1, cg, enabled);
-    return;
-  }
-
-  // next case: b1 is a DB and b2 is a CG
-  if (cg2 && db1)
-  {
-    std::list<CollisionGeometryPtr> cgs;
-    db1->get_all_collision_geometries(std::back_inserter(cgs));
-    BOOST_FOREACH(CollisionGeometryPtr cg, cgs)
-      set_enabled(cg2, cg, enabled);
-    return;
-  }
-
   // next case: b1 is a CG and b2 is a RB
   if (cg1 && rb2)
   {
@@ -160,43 +126,6 @@ void CollisionDetection::set_enabled(BasePtr b1, BasePtr b2, bool enabled)
   {
     BOOST_FOREACH(CollisionGeometryPtr cg, rb1->geometries)
       set_enabled(cg2, cg, enabled);
-    return;
-  }
-
-  // next case: both b1 and b2 are DBs
-  if (db1 && db2)
-  {
-    std::list<CollisionGeometryPtr> cgs1, cgs2;
-    db1->get_all_collision_geometries(std::back_inserter(cgs1));
-    db2->get_all_collision_geometries(std::back_inserter(cgs2));
-    BOOST_FOREACH(CollisionGeometryPtr cg1, cgs1)
-      BOOST_FOREACH(CollisionGeometryPtr cg2, cgs2)
-        set_enabled(cg1, cg2, enabled);
-    
-    return;
-  }
-
-  // next case: b1 is DB, b2 is RB
-  if (db1 && rb2)
-  {
-    std::list<CollisionGeometryPtr> cgs1;
-    db1->get_all_collision_geometries(std::back_inserter(cgs1));
-    BOOST_FOREACH(CollisionGeometryPtr cg1, cgs1)
-      BOOST_FOREACH(CollisionGeometryPtr cg2, rb2->geometries)
-        set_enabled(cg1, cg2, enabled);
-    
-    return;
-  }
-  
-  // next case: b2 is DB, b1 is RB
-  if (db2 && rb1)
-  {
-    std::list<CollisionGeometryPtr> cgs2;
-    db2->get_all_collision_geometries(std::back_inserter(cgs2));
-    BOOST_FOREACH(CollisionGeometryPtr cg1, rb1->geometries)
-      BOOST_FOREACH(CollisionGeometryPtr cg2, cgs2)
-        set_enabled(cg1, cg2, enabled);
-    
     return;
   }
 
@@ -225,24 +154,6 @@ void CollisionDetection::set_enabled(BasePtr b1, BasePtr b2, bool enabled)
     const vector<RigidBodyPtr>& links = ab1->get_links();
     BOOST_FOREACH(RigidBodyPtr rb, links)
       set_enabled(cg2, rb, enabled);
-    return;
-  }
-
-  // next case: b1 is DB, b2 is AB
-  if (db1 && ab2)
-  {
-    const vector<RigidBodyPtr>& links = ab2->get_links();
-    BOOST_FOREACH(RigidBodyPtr rb, links)
-      set_enabled(db1, rb, enabled);
-    return;
-  }
-
-  // next case: b1 is AB, b2 is DB
-  if (ab1 && db2)
-  {
-    const vector<RigidBodyPtr>& links = ab1->get_links();
-    BOOST_FOREACH(RigidBodyPtr rb, links)
-      set_enabled(db2, rb, enabled);
     return;
   }
 
@@ -295,30 +206,6 @@ void CollisionDetection::remove_dynamic_body(DynamicBodyPtr db)
   else
     remove_rigid_body(dynamic_pointer_cast<RigidBody>(db));
 
-}
-
-/// Adds a deformable body to the collision detector
-void CollisionDetection::add_deformable_body(DeformableBodyPtr body)
-{
-  // get all collision geometries for this deformable body
-  std::list<CollisionGeometryPtr> geoms;
-  body->get_all_collision_geometries(std::back_inserter(geoms));
-  
-  // process them
-  BOOST_FOREACH(CollisionGeometryPtr cg, geoms)
-    add_collision_geometry(cg); 
-}
-
-/// Removes a deformable body to the collision detector
-void CollisionDetection::remove_deformable_body(DeformableBodyPtr body)
-{
-  // get all collision geometries for this deformable body
-  std::list<CollisionGeometryPtr> geoms;
-  body->get_all_collision_geometries(std::back_inserter(geoms));
-  
-  // process them
-  BOOST_FOREACH(CollisionGeometryPtr cg, geoms)
-    remove_collision_geometry(cg);
 }
 
 /// Adds a rigid body to the collision detector
@@ -602,7 +489,7 @@ void CollisionDetection::load_from_xml(shared_ptr<const XMLTree> node, std::map<
           if (rb)
             add_rigid_body(rb);
           else
-            add_deformable_body(dynamic_pointer_cast<DeformableBody>(db));
+            assert(false);
         }
       }
     }

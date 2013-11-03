@@ -15,7 +15,6 @@
 #include <Moby/Base.h>
 #include <Moby/Event.h>
 #include <Moby/RigidBody.h>
-#include <Moby/DeformableBody.h>
 
 namespace Moby {
 
@@ -58,8 +57,6 @@ class CollisionDetection : public virtual Base
     void remove_dynamic_body(DynamicBodyPtr body);
     virtual void remove_collision_geometry(CollisionGeometryPtr geom);
     virtual void remove_all_collision_geometries();
-    virtual void add_deformable_body(DeformableBodyPtr body);
-    virtual void remove_deformable_body(DeformableBodyPtr body);
     virtual void add_rigid_body(RigidBodyPtr body); 
     virtual void remove_rigid_body(RigidBodyPtr body); 
     virtual void add_articulated_body(ArticulatedBodyPtr abody, bool disable_adjacent);

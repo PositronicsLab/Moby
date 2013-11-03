@@ -370,7 +370,6 @@ void process_window_tag(shared_ptr<const XMLTree> node)
     size_attr->get_vector_value(size);
 
   // setup the window 
-  #ifdef USE_OSG
   viewer_pointer->setUpViewInWindow(loc[0], loc[1], size[0], size[1]);
   #endif
 }

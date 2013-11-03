@@ -171,7 +171,7 @@ void LCP::set_basis(unsigned n, unsigned count, vector<unsigned>& bas, vector<un
     else
       nbas.push_back(i);
     count = count % n2;
-    n2 >> 1;
+    n2 = n2 >> 1;
   } 
 }
 
