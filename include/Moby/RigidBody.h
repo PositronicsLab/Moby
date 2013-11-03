@@ -105,7 +105,7 @@ class RigidBody : public SingleBody
     virtual Ravelin::MatrixNd& calc_jacobian_dot(boost::shared_ptr<const Ravelin::Pose3d> frame, DynamicBodyPtr body, Ravelin::MatrixNd& J);
     const Ravelin::SForced& sum_forces();
     void reset_accumulators();
-    Ravelin::SForced calc_pseudo_forces() const;
+    Ravelin::SForced calc_pseudo_forces();
 
     template <class OutputIterator>
     OutputIterator get_parent_links(OutputIterator begin) const;

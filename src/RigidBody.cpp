@@ -612,11 +612,10 @@ void RigidBody::reset_accumulators()
   _forcei_valid = true;
   _forcem_valid = true;
   _forcej_valid = true;
-  _force0_valid = true;
 }
 
 /// Computes the pseudo forces
-SForced RigidBody::calc_pseudo_forces() const
+SForced RigidBody::calc_pseudo_forces()
 {
   const SVelocityd& xd = get_velocity();
   return xd.cross(get_inertia() * xd);
