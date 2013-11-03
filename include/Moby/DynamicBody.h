@@ -30,7 +30,6 @@ class DynamicBody : public Visualizable
     DynamicBody() 
     { 
       controller = NULL; 
-      _enabled = true;
     }
 
     virtual ~DynamicBody() {}
@@ -172,16 +171,7 @@ class DynamicBody : public Visualizable
     /// The computation frame type
     ReferenceFrameType _rftype;
 
-    /// Sets the body to be enabled or disabled
-    virtual void set_enabled(bool flag) { _enabled = flag; }
-
-    /// Gets whether the body is enabled
-    bool is_enabled() const { return _enabled; }
-
   private:
-
-    /// Whether the body is enabled or disabled
-    bool _enabled;
 
     /// Set of recurrent forces applied to this body
     std::list<RecurrentForcePtr> _rfs;
