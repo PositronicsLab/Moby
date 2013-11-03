@@ -77,8 +77,6 @@ class CollisionDetection : public virtual Base
      * Generalized coordinates are set to q1 on entry; generalized coordinates
      * should be set to q0 on return.
      * \param events the set of determined contacts, on return
-     * \pre body states are set to appropriate states in q1
-     * \post body states are arbitrary on return
      * \return <b>true</b> if there is contact in the time interval, 
      *           <b>false</b> otherwise
      */
