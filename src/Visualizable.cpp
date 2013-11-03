@@ -157,7 +157,7 @@ osg::Group* Visualizable::get_visualization_data() const
 /// Utility method for load_from_xml()
 /**
  * This method searches for visualization-filename,
- * visualization-separator-id, and visualization-primitive-id attributes for
+ * visualization-id attributes for
  * a given node and creates a separator based on the attribute found.
  */
 osg::Group* Visualizable::construct_from_node(shared_ptr<const XMLTree> node, const std::map<std::string, BasePtr>& id_map)
