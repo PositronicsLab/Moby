@@ -30,28 +30,6 @@ using std::queue;
 ArticulatedBody::ArticulatedBody()
 {
   use_advanced_friction_model = false;
-  find_custom_limit_events = NULL;
-}
-
-/// Sets this body as enabled or disabled
-void ArticulatedBody::set_enabled(bool flag)
-{
-  DynamicBody::set_enabled(flag);
-
-  if (!flag)
-  {
-    // clear all accumulators
-    reset_accumulators();
-
-    // set all velocities to zero
-    for (unsigned i=0; i< _joints.size(); i++)
-      _joints[i]->qd.set_zero();
-    for (unsigned i=0; i< _links.size(); i++)
-    {
-      _links[i]->set_lvel(ZEROS_3);
-      _links[i]->set_avel(ZEROS_3);
-    }
-  }
 }
 
 /// Gets the time-derivative of the Jacobian
@@ -1098,9 +1076,6 @@ void ArticulatedBody::calc_fwd_dyn_hess(const VectorNd& x, double objscal, const
 /// Transforms a force and torque on a link to a given position
 SVector6 ArticulatedBody::transform_force(RigidBodyPtr link, const Vector3& x) const
 {
-  if (!is_enabled())
-    return ZEROS_6;
-
   // get the link position
   const Vector3& com = link->get_position();
 
@@ -1342,14 +1317,12 @@ double ArticulatedBody::calc_kinetic_energy()
 
 /// Resets force and torque accumulators on the body
 /**
- * Force and torque accumulators on all links and joints are reset.
+ * Force and torque accumulators on all links are reset.
  */
 void ArticulatedBody::reset_accumulators()
 {
   BOOST_FOREACH(RigidBodyPtr rb, _links)
     rb->reset_accumulators();
-  BOOST_FOREACH(JointPtr j, _joints)
-    j->reset_force();
 }
 
 /// Finds the link with the given name

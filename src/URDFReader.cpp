@@ -39,7 +39,6 @@
 #include <Moby/RevoluteJoint.h>
 #include <Moby/SphericalJoint.h>
 #include <Moby/UniversalJoint.h>
-#include <Moby/DeformableCCD.h>
 #include <Moby/XMLTree.h>
 #include <Moby/URDFReader.h>
 

@@ -12,7 +12,6 @@
 #include <Moby/ArticulatedBody.h>
 #include <Moby/RCArticulatedBody.h>
 #include <Moby/RigidBody.h>
-#include <Moby/DeformableBody.h>
 #include <Moby/Joint.h>
 #include <Moby/XMLTree.h>
 #include <Moby/Simulator.h>

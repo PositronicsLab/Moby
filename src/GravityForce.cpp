@@ -11,7 +11,6 @@
 #include <Moby/SingleBody.h>
 #include <Moby/RigidBody.h>
 #include <Moby/ArticulatedBody.h>
-#include <Moby/DeformableBody.h>
 #include <Moby/GravityForce.h>
 
 using namespace Ravelin;
@@ -64,17 +63,6 @@ void GravityForce::add_force(DynamicBodyPtr body)
         w.set_force(gravity * rb->get_mass());
         rb->add_force(w);        
       }
-    }
-    else
-    {
-      // should be a deformable body
-      shared_ptr<DeformableBody> db = dynamic_pointer_cast<DeformableBody>(body);
-
-      // get the gravity vector
-      // TODO: fix this
-      assert(false);
-      Vector3d gx = Pose3d::transform_vector(db->get_computation_frame(), gravity);
-      db->add_force(gx * rb->get_mass());
     }
   }
 }
