@@ -13,32 +13,28 @@
 namespace Moby {
 
 /// A class for performing 4th-order variable-step Runge-Kutta integration
-template <class T>
-class RungeKuttaFehlbergIntegrator : public VariableStepIntegrator<T>
+class RungeKuttaFehlbergIntegrator : public VariableStepIntegrator
 {
   public:
     RungeKuttaFehlbergIntegrator();
-    virtual void integrate(T& x, T& (*f)(const T&, Real, Real, void*, T&), Real& time, Real step_size, void* data);
-    virtual void load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map);
-    virtual void save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const;
+    virtual void integrate(Ravelin::VectorNd& x, Ravelin::VectorNd& (*f)(const Ravelin::VectorNd&, double, double, void*, Ravelin::VectorNd&), double& time, double step_size, void* data);
+    virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
+    virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
 
   private:
-    void rkf45 ( void f ( Real t, Real* y, Real* yp, void* data), int neqn, Real* y, Real* yp, Real& t, Real tout, bool init);
-    void fehl (void f ( Real t, Real* y, Real* yp, void* data), int neqn, Real* y, Real t, Real h, Real* yp, Real* f1, Real* f2, Real* f3, Real* f4, Real* f5, Real* s);
-    static void fprime(Real t, Real* y, Real* yprime, void* data);
-    static Real sign(Real x);
-    T _x, _xprime;
-    T& (*_f)(const T&, Real, Real, void*, T&);
+    void rkf45 ( void f ( double t, double* y, double* yp, void* data), int neqn, double* y, double* yp, double& t, double tout, bool init);
+    void fehl (void f ( double t, double* y, double* yp, void* data), int neqn, double* y, double t, double h, double* yp, double* f1, double* f2, double* f3, double* f4, double* f5, double* s);
+    static void fprime(double t, double* y, double* yprime, void* data);
+    static double sign(double x);
+    Ravelin::VectorNd _x, _xprime;
+    Ravelin::VectorNd& (*_f)(const Ravelin::VectorNd&, double, double, void*, Ravelin::VectorNd&);
     void* _data;
     unsigned _N;
-    Real _dt;
-    std::vector<Real> f1, f2, f3, f4, f5;
-    Real _h;
+    double _dt;
+    std::vector<double> f1, f2, f3, f4, f5;
+    double _h;
     int _kop;
 }; // end class def
-
-// include inline functions
-#include "RungeKuttaFehlbergIntegrator.inl"
 
 } // end namespace
 

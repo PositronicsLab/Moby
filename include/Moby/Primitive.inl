@@ -9,9 +9,9 @@
  * \param tris the triangle mesh
  * \param fselect_begin iterator to a container of type unsigned (facet indices)
  * \param fselect_end iterator to a container of type unsigned (facet indices)
- * \param output beginning iterator to a container of type Vector3; unique
+ * \param output beginning iterator to a container of type Point3d; unique
  *        vertices are copied here on return
- * \return ending iterator to a container of type Vector3; unique vertices
+ * \return ending iterator to a container of type Point3d; unique vertices
  *         are copied here on return
  */
 template <class InputIterator, class OutputIterator>
@@ -35,7 +35,7 @@ OutputIterator Primitive::get_vertices(const IndexedTriArray& tris, InputIterato
   std::list<unsigned>::const_iterator new_end = std::unique(verts.begin(), verts.end());
 
   // copy vertices to output
-  const std::vector<Vector3>& vertices = tris.get_vertices();
+  const std::vector<Point3d>& vertices = tris.get_vertices();
   for (std::list<unsigned>::const_iterator i = verts.begin(); i != new_end; i++)
     *output++ = vertices[*i];
 

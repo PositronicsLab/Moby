@@ -10,6 +10,8 @@
 #include <Moby/SSL.h>
 #include <Moby/BoundingSphere.h>
 
+using std::pair;
+using namespace Ravelin;
 using namespace Moby;
 using boost::shared_ptr;
 using boost::const_pointer_cast;
@@ -17,8 +19,8 @@ using std::endl;
 
 BoundingSphere::BoundingSphere()
 {
-  center = ZEROS_3;
-  radius = 0.0f;
+  center.set_zero();
+  radius = 0.0;
 }
 
 BoundingSphere& BoundingSphere::operator=(const BoundingSphere& source)
@@ -28,17 +30,30 @@ BoundingSphere& BoundingSphere::operator=(const BoundingSphere& source)
   return *this;
 }
 
+/// Transforms the BoundingSphere using the given transform
+void BoundingSphere::transform(const Transform3d& T, BV* result) const
+{
+  // get the BoundingSphere 
+  BoundingSphere& s = *((BoundingSphere*) result);
+
+  // copy this
+  s = *this;
+
+  // transform the center
+  s.center = T.transform_point(center);
+}
+
 /// Sends the bounding sphere to VRML
-std::ostream& BoundingSphere::to_vrml(std::ostream& out, const Matrix4& T) const
+std::ostream& BoundingSphere::to_vrml(std::ostream& out, const Pose3d& T) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
   // determine the new center for the bounding sphere
-  Vector3 c = center + T.get_translation();
+  Point3d c = center + T.x;
 
   // setup a random color
-  Vector3 color((Real) rand()/RAND_MAX, (Real) rand()/RAND_MAX,
-                (Real) rand()/RAND_MAX);
+  Point3d color((double) rand()/RAND_MAX, (double) rand()/RAND_MAX,
+                (double) rand()/RAND_MAX);
 
   // setup the VRML output
   out << "Transform {" << std::endl;
@@ -53,25 +68,28 @@ std::ostream& BoundingSphere::to_vrml(std::ostream& out, const Matrix4& T) const
 }
 
 /// Calculates the velocity expanded bounding volume for the bounding sphere (calculates an OBB)
-BVPtr BoundingSphere::calc_vel_exp_BV(CollisionGeometryPtr g, Real dt, const Vector3& lv, const Vector3& av) const
+BVPtr BoundingSphere::calc_swept_BV(CollisionGeometryPtr g, const SVelocityd& v) const
 {
   // get the corresponding body
   SingleBodyPtr b = g->get_single_body();
 
   // if the body does not move, just return the OBB
-  if (!b->is_enabled() || lv.norm()*dt < NEAR_ZERO)
+  if (!b->is_enabled() || v.get_linear().norm() < NEAR_ZERO)
   {
-    FILE_LOG(LOG_BV) << "BoundingSphere::calc_vel_exp_BV() entered" << endl;
+    FILE_LOG(LOG_BV) << "BoundingSphere::calc_swept_BV() entered" << endl;
     FILE_LOG(LOG_BV) << "  -- using original bounding sphere" << endl;
-    FILE_LOG(LOG_BV) << "BoundingSphere::calc_vel_exp_BV() exited" << endl;
+    FILE_LOG(LOG_BV) << "BoundingSphere::calc_swept_BV() exited" << endl;
 
     return const_pointer_cast<BoundingSphere>(get_this());
   }
 
+  // get the velocity in the proper frame
+  SVelocityd vx = Pose3d::transform(get_relative_pose(), v); 
+
   // otherwise, create a SSL 
   shared_ptr<SSL> ssl(new SSL);
   ssl->p1 = this->center;
-  ssl->p2 = this->center + lv*dt;
+  ssl->p2 = this->center + vx.get_linear();
   ssl->radius = this->radius;
   return ssl;
 }
@@ -79,68 +97,76 @@ BVPtr BoundingSphere::calc_vel_exp_BV(CollisionGeometryPtr g, Real dt, const Vec
 /// Determines whether two bounding spheres intersect
 bool BoundingSphere::intersects(const BoundingSphere& s1, const BoundingSphere& s2)
 {
+  assert(s1.get_relative_pose() == s2.get_relative_pose());
+
   // get the squared distance between the two spheres centers
-  Real dist_sq = (s1.center - s2.center).norm_sq();
+  double dist_sq = (s1.center - s2.center).norm_sq();
 
   // see whether the spheres are overlapping
   return dist_sq < (s1.radius + s2.radius)*(s1.radius + s2.radius);
 }
 
 /// Determines whether two bounding spheres intersect
-bool BoundingSphere::intersects(const BoundingSphere& s1, const BoundingSphere& s2, const Matrix4& s1Ts2)
+bool BoundingSphere::intersects(const BoundingSphere& s1, const BoundingSphere& s2, const Transform3d& s1Ts2)
 {
+  assert(s1Ts2.target == s1.get_relative_pose() && 
+         s1Ts2.source == s2.get_relative_pose());
+
   // determine transformed s2 center
-  Vector3 s2c = s1Ts2.get_translation() + s2.center;
+  Point3d s2c = s1Ts2.x + s2.center;
+  s2c.pose = s1.get_relative_pose();
 
   // get the squared distance between the two spheres centers
-  Real dist_sq = (s1.center - s2c).norm_sq();
+  double dist_sq = (s1.center - s2c).norm_sq();
 
   // see whether the spheres are overlapping
   return dist_sq < (s1.radius + s2.radius)*(s1.radius + s2.radius);
 }
 
 /// Calculates the signed distance between two bounding spheres
-Real BoundingSphere::calc_dist(const BoundingSphere& s1, const BoundingSphere& s2)
+double BoundingSphere::calc_dist(const BoundingSphere& s1, const BoundingSphere& s2)
 {
+  assert(s1.get_relative_pose() == s2.get_relative_pose());
+
   // get the distance between the sphere centers
-  Real dist = (s1.center - s2.center).norm();
+  double dist = (s1.center - s2.center).norm();
 
   return dist - s1.radius - s2.radius; 
 }
 
 /// Determines whether a point is outside of the bounding sphere
-bool BoundingSphere::outside(const BoundingSphere& a, const Vector3& point, Real tol)
+bool BoundingSphere::outside(const BoundingSphere& a, const Point3d& point, double tol)
 {
-  Vector3 cx = point - a.center;
-  return cx.norm_sq() > (Real) a.radius*a.radius + std::sqrt(tol);
+  Point3d cx = point - a.center;
+  return cx.norm_sq() > (double) a.radius*a.radius + std::sqrt(tol);
 }
 
 /// Determines whether there is an intersection between the primitive and a line segment
-bool BoundingSphere::intersects(const BoundingSphere& s, const LineSeg3& seg, Real& tmin, Real tmax, Vector3& isect) 
+bool BoundingSphere::intersects(const BoundingSphere& s, const LineSeg3& seg, double& tmin, double tmax, Point3d& isect) 
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
   // account for sphere center in translation
-  Vector3 p = seg.first - s.center;
-  Vector3 q = seg.second - s.center;
+  Point3d p = seg.first - s.center;
+  Point3d q = seg.second - s.center;
 
   // look for:
   // (seg.first*t + seg.second*(1-t))^2 = r^2
 
   // use quadratic formula
-  const Real px = p[X];
-  const Real py = p[Y];
-  const Real pz = p[Z];
-  const Real qx = q[X];
-  const Real qy = q[Y];
-  const Real qz = q[Z];
-  const Real a = px*px + py*py + pz*pz - 2*px*qx + qx*qx - 2*py*qy + qy*qy -
+  const double px = p[X];
+  const double py = p[Y];
+  const double pz = p[Z];
+  const double qx = q[X];
+  const double qy = q[Y];
+  const double qz = q[Z];
+  const double a = px*px + py*py + pz*pz - 2*px*qx + qx*qx - 2*py*qy + qy*qy -
                  2*pz*qz + qz*qz;
-  const Real b = 2*px*qx - 2*qx*qx + 2*py*qy - 2*qy*qy + 2*pz*qz - 2*qz*qz;
-  const Real c = qx*qx + qy*qy + qz*qz - s.radius*s.radius;
+  const double b = 2*px*qx - 2*qx*qx + 2*py*qy - 2*qy*qy + 2*pz*qz - 2*qz*qz;
+  const double c = qx*qx + qy*qy + qz*qz - s.radius*s.radius;
 
   // check for no solution
-  Real disc = b*b - 4*a*c;
+  double disc = b*b - 4*a*c;
   if (disc < 0.0)
     return false;
 
@@ -154,7 +180,7 @@ bool BoundingSphere::intersects(const BoundingSphere& s, const LineSeg3& seg, Re
     std::swap(tmin, tmax);
 
   // compute isect
-  isect = seg.first*tmin + seg.second*((Real) 1.0 - tmin);
+  isect = seg.first*tmin + seg.second*((double) 1.0 - tmin);
 
   return true;
 }

@@ -6,7 +6,7 @@
 
 /// Intersects two BV leafs together and returns collision data (if any)
 template <class OutputIterator>
-OutputIterator MeshDCD::intersect_BV_leafs(BVPtr a, BVPtr b, const Matrix4& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b, OutputIterator output_begin) const
+OutputIterator MeshDCD::intersect_BV_leafs(BVPtr a, BVPtr b, const Ravelin::Transform3d& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b, OutputIterator output_begin) const
 {
   // NOTE: if we want to speed up this static collision check (slightly),
   // we could institute an object-level map from BV leafs to triangles
@@ -31,13 +31,13 @@ OutputIterator MeshDCD::intersect_BV_leafs(BVPtr a, BVPtr b, const Matrix4& aTb,
   BOOST_FOREACH(unsigned a_idx, a_tris)
   {
     // get the triangle
-    Triangle ta = a_mesh.get_triangle(a_idx);
+    Triangle ta = a_mesh.get_triangle(a_idx, aTb.target);
 
     // loop over all triangles in b
     BOOST_FOREACH(unsigned b_idx, b_tris)
     {
       // get the untransformed second triangle
-      Triangle utb = b_mesh.get_triangle(b_idx);
+      Triangle utb = b_mesh.get_triangle(b_idx, aTb.source);
 
       // transform second triangle
       Triangle tb = Triangle::transform(utb, aTb);

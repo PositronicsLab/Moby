@@ -11,37 +11,35 @@ class GaussianMixture : public Primitive
 
     struct Gauss
     {
-      Real A;        // height of the Gaussian
-      Real sigma_x;  // variance in x direction
-      Real sigma_y;  // variance in y direction
-      Real x0;       // x coordinate of Gaussian center
-      Real y0;       // y coordinate of Gaussian center
-      Real th;       // planar rotation of the Gaussian
+      double A;        // height of the Gaussian
+      double sigma_x;  // variance in x direction
+      double sigma_y;  // variance in y direction
+      double x0;       // x coordinate of Gaussian center
+      double y0;       // y coordinate of Gaussian center
+      double th;       // planar rotation of the Gaussian
     };
 
     void rebuild(const std::vector<Gauss>& gauss);
-    virtual void load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map);
-    virtual void save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const;
-    virtual void set_transform(const Matrix4& T);
-    virtual BVPtr get_BVH_root() { return boost::dynamic_pointer_cast<BV>(_root); }
-    virtual void get_vertices(BVPtr bv, std::vector<const Vector3*>& vertices);
-    virtual bool point_inside(BVPtr bv, const Vector3& p, Vector3& normal) const;
-    virtual bool intersect_seg(BVPtr bv, const LineSeg3& seg, Real& t, Vector3& isect, Vector3& normal) const;
+    virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
+    virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
+    virtual void set_pose(const Ravelin::Pose3d& T);
+    virtual BVPtr get_BVH_root(CollisionGeometryPtr geom);
+    virtual void get_vertices(BVPtr bv, std::vector<const Point3d*>& vertices);
+    virtual bool point_inside(BVPtr bv, const Point3d& p, Ravelin::Vector3d& normal) const;
+    virtual bool intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Ravelin::Vector3d& normal) const;
     virtual boost::shared_ptr<const IndexedTriArray> get_mesh() { return _mesh; }
     virtual const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >& get_sub_mesh(BVPtr bv);
-
-    // visualization
     virtual osg::Node* create_visualization();
 
     private:
-      static Vector3 grad(const Gauss& g, Real x, Real y);
-      static Real f(const Gauss& g, const Vector3& p, const Vector3& q, Real t);
-      static Real df(const Gauss& g, const Vector3& p, const Vector3& q, Real t);
-      static Real newton_raphson(const Gauss& g, const Vector3& p, const Vector3& q);
-      static Gauss read_gauss_node(XMLTreeConstPtr node);
-      static Real gauss(const Gauss& g, Real x, Real y);
+      static Ravelin::Vector3d grad(const Gauss& g, double x, double y);
+      static double f(const Gauss& g, const Point3d& p, const Point3d& q, double t);
+      static double df(const Gauss& g, const Point3d& p, const Point3d& q, double t);
+      static double newton_raphson(const Gauss& g, const Point3d& p, const Point3d& q);
+      static Gauss read_gauss_node(boost::shared_ptr<const XMLTree> node);
+      static double gauss(const Gauss& g, double x, double y);
       void construct_vertices();
-      void construct_BVs();
+      void construct_BVs(CollisionGeometryPtr geom);
       void create_mesh();
 
       /// Note: there are no mass properties, because this can have no mass!
@@ -53,7 +51,10 @@ class GaussianMixture : public Primitive
       /// Submesh pair
       std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> > _mesh_pair; 
 
-      /// The root bounding volume (OBB)
+      /// The collision geometry this mixture is associated with
+      CollisionGeometryPtr _geom;
+
+      /// The bounding volumes (OBB)
       OBBPtr _root;
 
       /// The set of Gaussians
@@ -63,7 +64,7 @@ class GaussianMixture : public Primitive
       std::map<OBBPtr, unsigned> _obbs;
 
       /// Set of vertices sampled at regular intervals
-      std::vector<std::vector<Vector3> > _vertices;
+      std::vector<std::vector<Point3d> > _vertices;
 
       /// Set of submeshes
       std::vector<std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> > > _submesh; 

@@ -17,6 +17,7 @@
 #include <Moby/SpherePrimitive.h>
 #include <Moby/ConePrimitive.h>
 
+using namespace Ravelin;
 using namespace Moby;
 using std::cerr;
 using std::endl;
@@ -27,7 +28,7 @@ using std::string;
 using boost::shared_ptr;
 
 /// Initializes a mesh using a pointer to vertices
-IndexedTriArray::IndexedTriArray(shared_ptr<const vector<Vector3> > vertices, const vector<IndexedTri>& facets)
+IndexedTriArray::IndexedTriArray(shared_ptr<const vector<Origin3d> > vertices, const vector<IndexedTri>& facets)
 {
   _vertices = vertices;
 
@@ -44,7 +45,7 @@ IndexedTriArray::IndexedTriArray(shared_ptr<const vector<Vector3> > vertices, co
 }
 
 /// Initializes a mesh using pointers to vertices and facets
-IndexedTriArray::IndexedTriArray(shared_ptr<const vector<Vector3> > vertices, shared_ptr<const vector<IndexedTri> > facets)
+IndexedTriArray::IndexedTriArray(shared_ptr<const vector<Origin3d> > vertices, shared_ptr<const vector<IndexedTri> > facets)
 {
   _vertices = vertices;
   _facets = facets;
@@ -58,34 +59,34 @@ IndexedTriArray::IndexedTriArray(shared_ptr<const vector<Vector3> > vertices, sh
 }
 
 /// Calculates the volume integrals of this primitive as a triangle mesh
-void IndexedTriArray::calc_volume_ints(Real volume_ints[10]) const
+void IndexedTriArray::calc_volume_ints(double volume_ints[10]) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
-  const Real f_1_6th = 1.0/6.0;
-  const Real f_1_24th = 1.0/24.0;
-  const Real f_1_60th = 1.0/60.0;
-  const Real f_1_120th = 1.0/120.0;
+  const double f_1_6th = 1.0/6.0;
+  const double f_1_24th = 1.0/24.0;
+  const double f_1_60th = 1.0/60.0;
+  const double f_1_120th = 1.0/120.0;
 
   // order:  1, x, y, z, x^2, y^2, z^2, xy, yz, zx
 
   // get the facets and vertices in the mesh
-  const std::vector<Vector3>& verts = get_vertices(); 
+  const std::vector<Origin3d>& verts = get_vertices(); 
   const std::vector<IndexedTri>& facets = get_facets(); 
 
   // process all triangles in the mesh
   for (unsigned i = 0; i < facets.size(); i++)
   {
     // get the three vertices of the triangle
-    const Vector3& v0 = verts[facets[i].a];
-    const Vector3& v1 = verts[facets[i].b];
-    const Vector3& v2 = verts[facets[i].c];
+    const Origin3d& v0 = verts[facets[i].a];
+    const Origin3d& v1 = verts[facets[i].b];
+    const Origin3d& v2 = verts[facets[i].c];
 
     // get the cross-product of the edges
-    Vector3 cross = Vector3::cross(v1 - v0, v2 - v0);
+    Vector3d cross = Vector3d::cross(Vector3d(v1 - v0, GLOBAL), Vector3d(v2 - v0, GLOBAL));
 
     // compute integral terms
-    Real tmp0, tmp1, tmp2;
-    Real F1x, F2x, F3x, G0x, G1x, G2x;
+    double tmp0, tmp1, tmp2;
+    double F1x, F2x, F3x, G0x, G1x, G2x;
     tmp0 = v0[X] + v1[X];
     F1x = tmp0 + v2[X];
     tmp1 = v0[X]*v0[X];
@@ -96,7 +97,7 @@ void IndexedTriArray::calc_volume_ints(Real volume_ints[10]) const
     G1x = F2x + v1[X]*(F1x + v1[X]);
     G2x = F2x + v2[X]*(F1x + v2[X]);
 
-    Real F1y, F2y, F3y, G0y, G1y, G2y;
+    double F1y, F2y, F3y, G0y, G1y, G2y;
     tmp0 = v0[Y] + v1[Y];
     F1y = tmp0 + v2[Y];
     tmp1 = v0[Y]*v0[Y];
@@ -107,7 +108,7 @@ void IndexedTriArray::calc_volume_ints(Real volume_ints[10]) const
     G1y = F2y + v1[Y]*(F1y + v1[Y]);
     G2y = F2y + v2[Y]*(F1y + v2[Y]);
 
-    Real F1z, F2z, F3z, G0z, G1z, G2z;
+    double F1z, F2z, F3z, G0z, G1z, G2z;
     tmp0 = v0[Z] + v1[Z];
     F1z = tmp0 + v2[Z];
     tmp1 = v0[Z]*v0[Z];
@@ -209,22 +210,22 @@ map<sorted_pair<unsigned>, list<unsigned> > IndexedTriArray::determine_edge_face
 }
 
 /// Gets the i'th triangle from this mesh
-Triangle IndexedTriArray::get_triangle(unsigned i) const
+Triangle IndexedTriArray::get_triangle(unsigned i, shared_ptr<const Pose3d> P) const
 {
   if (i >= _facets->size())
     throw InvalidIndexException();
 
   // get the facets and vertices as objects
-  const vector<Vector3>& vertices = get_vertices();
+  const vector<Origin3d>& vertices = get_vertices();
   const vector<IndexedTri>& facets = get_facets();
 
-  return Triangle(vertices[facets[i].a], vertices[facets[i].b], vertices[facets[i].c]);
+  return Triangle(Point3d(vertices[facets[i].a], P), Point3d(vertices[facets[i].b], P), Point3d(vertices[facets[i].c], P));
 }
 
 /// Verifies that all indices are within range
 void IndexedTriArray::validate() const
 {
-  const vector<Vector3>& vertices = get_vertices();
+  const vector<Origin3d>& vertices = get_vertices();
   const vector<IndexedTri>& facets = get_facets();
 
   unsigned nv = vertices.size();
@@ -237,7 +238,7 @@ void IndexedTriArray::validate() const
 /**
  * \note this method runs in time O(nm)
  */
-IndexedTriArray IndexedTriArray::merge(const IndexedTriArray& mesh1, const IndexedTriArray& mesh2, Real equal_tol)
+IndexedTriArray IndexedTriArray::merge(const IndexedTriArray& mesh1, const IndexedTriArray& mesh2, double equal_tol)
 {
   // if one mesh is empty, just return the other
   if (!mesh1._vertices)
@@ -246,11 +247,11 @@ IndexedTriArray IndexedTriArray::merge(const IndexedTriArray& mesh1, const Index
     return mesh1;
 
   // get the vertices and facets from the first mesh
-  vector<Vector3> vertices = mesh1.get_vertices();
+  vector<Origin3d> vertices = mesh1.get_vertices();
   vector<IndexedTri> facets = mesh1.get_facets();
 
   // get the vertices and facets from the first mesh
-  const vector<Vector3>& vertices2 = mesh2.get_vertices();
+  const vector<Origin3d>& vertices2 = mesh2.get_vertices();
   vector<IndexedTri> facets2 = mesh2.get_facets();
 
   // setup a mapping for vertices in the second mesh
@@ -259,11 +260,11 @@ IndexedTriArray IndexedTriArray::merge(const IndexedTriArray& mesh1, const Index
   // determine the mapping for vertices in the second mesh
   for (unsigned i=0; i< vertices2.size(); i++)
   {
-    Real closest_dist = (vertices.front() - vertices2[i]).norm();
+    double closest_dist = (vertices.front() - vertices2[i]).norm();
     unsigned closest = 0;
     for (unsigned j=1; j< vertices.size(); j++)
     {
-      Real dist = (vertices[j] - vertices2[i]).norm();
+      double dist = (vertices[j] - vertices2[i]).norm();
       if (dist < closest_dist)
       {
         closest_dist = dist;
@@ -297,27 +298,8 @@ IndexedTriArray IndexedTriArray::merge(const IndexedTriArray& mesh1, const Index
   return IndexedTriArray(vertices.begin(), vertices.end(), facets.begin(), facets.end());
 }
 
-/// Rotates this mesh to a new mesh
-IndexedTriArray IndexedTriArray::rotate_scale(const Matrix3& R) const
-{
-  IndexedTriArray it;
-
-  // can just copy facets and incident tris
-  it._facets = _facets; 
-  it._incident_facets = _incident_facets;
-
-  // need to rotate vertices
-  shared_ptr<vector<Vector3> > new_vertices(new vector<Vector3>(*_vertices));
-  it._vertices = new_vertices;
-  vector<Vector3>& vertices = *new_vertices;
-  for (unsigned i=0; i< vertices.size(); i++)
-    vertices[i] = R * vertices[i];
-
-  return it;
-}
-
 /// Transforms this mesh to a new mesh
-IndexedTriArray IndexedTriArray::transform(const Matrix4& T) const
+IndexedTriArray IndexedTriArray::transform(const Transform3d& T) const
 {
   IndexedTriArray it;
 
@@ -326,30 +308,11 @@ IndexedTriArray IndexedTriArray::transform(const Matrix4& T) const
   it._incident_facets = _incident_facets;
 
   // need to transform vertices
-  shared_ptr<vector<Vector3> > new_vertices(new vector<Vector3>(*_vertices));
+  shared_ptr<vector<Origin3d> > new_vertices(new vector<Origin3d>(*_vertices));
   it._vertices = new_vertices;
-  vector<Vector3>& vertices = *new_vertices;
+  vector<Origin3d>& vertices = *new_vertices;
   for (unsigned i=0; i< vertices.size(); i++)
-    vertices[i] = T.mult_point(vertices[i]);
-
-  return it;
-}
-
-/// Translates this mesh to a new mesh
-IndexedTriArray IndexedTriArray::translate(const Vector3& x) const
-{
-  IndexedTriArray it;
-
-  // can just copy facets and incident tris
-  it._facets = _facets; 
-  it._incident_facets = _incident_facets;
-
-  // need to translate vertices
-  shared_ptr<vector<Vector3> > new_vertices(new vector<Vector3>(*_vertices));
-  it._vertices = new_vertices;
-  vector<Vector3>& vertices = *new_vertices;
-  for (unsigned i=0; i< vertices.size(); i++)
-    vertices[i] += x;
+    vertices[i] = T.q * vertices[i] + T.x;
 
   return it;
 }
@@ -378,7 +341,7 @@ void IndexedTriArray::calc_incident_facets()
 IndexedTriArray IndexedTriArray::compress_vertices() const
 {
   // get facets and vertices
-  vector<Vector3> vertices = get_vertices();
+  vector<Origin3d> vertices = get_vertices();
   vector<IndexedTri> facets = get_facets();
 
   // determine unused vertices
@@ -422,7 +385,7 @@ void IndexedTriArray::write_to_obj(const IndexedTriArray& mesh, const string& fi
   const unsigned X = 0, Y = 1, Z = 2;
 
   // get vertices and facets
-  const vector<Vector3>& vertices = mesh.get_vertices();
+  const vector<Origin3d>& vertices = mesh.get_vertices();
   const vector<IndexedTri>& facets = mesh.get_facets();
 
   // open the file for writing
@@ -451,11 +414,11 @@ IndexedTriArray IndexedTriArray::read_from_obj(const string& filename)
 {
   const unsigned BUF_SIZE = 2048;
   char buffer[BUF_SIZE];
-  Real v1, v2, v3;
+  double v1, v2, v3;
   int i1, i2, i3;
 
   // create arrays for vertices and facets
-  vector<Vector3> vertices;
+  vector<Origin3d> vertices;
   vector<IndexedTri> facets;
 
   // open the file
@@ -490,7 +453,7 @@ IndexedTriArray IndexedTriArray::read_from_obj(const string& filename)
       }
 
       // create and add the vertex
-      vertices.push_back(Vector3(v1, v2, v3));
+      vertices.push_back(Origin3d(v1, v2, v3));
       continue;
     }
   
@@ -545,7 +508,9 @@ IndexedTriArray IndexedTriArray::read_from_obj(const string& filename)
         i3--;
 
       // if triangle is degenerate, do not store it
-      Triangle tri(vertices[i1], vertices[i2], vertices[i3]);
+      Triangle tri(Point3d(vertices[i1], GLOBAL), 
+                   Point3d(vertices[i2], GLOBAL),
+                   Point3d(vertices[i3], GLOBAL));
       if (tri.calc_area() < NEAR_ZERO)
         continue;
 
@@ -589,7 +554,7 @@ void IndexedTriArray::determine_coplanar_features()
 
   // get the vertices and facets
   const vector<IndexedTri>& f = get_facets();
-  const vector<Vector3>& v = get_vertices();
+  const vector<Origin3d>& v = get_vertices();
 
   // init lists which will hold the temporary result
   list<sorted_pair<unsigned> > cp_edges;
@@ -604,14 +569,14 @@ void IndexedTriArray::determine_coplanar_features()
 
     // get the normal to the first face
     const IndexedTri& fi = f[*liter++];
-    Vector3 fn = Triangle(v[fi.a], v[fi.b], v[fi.c]).calc_normal();
+    Vector3d fn = Triangle(Point3d(v[fi.a], GLOBAL), Point3d(v[fi.b], GLOBAL), Point3d(v[fi.c], GLOBAL)).calc_normal();
 
     // iterate
     while (liter != v_f_map[i].end()) 
     {
       // get the normal to the second face
       const IndexedTri& fli = f[*liter++];      
-      Vector3 fn2 = Triangle(v[fli.a], v[fli.b], v[fli.c]).calc_normal();
+      Vector3d fn2 = Triangle(Point3d(v[fli.a], GLOBAL), Point3d(v[fli.b], GLOBAL), Point3d(v[fli.c], GLOBAL)).calc_normal();
 
       // check angle between the two normals -- note: we allow the normals to
       // be completely opposed
@@ -634,14 +599,14 @@ void IndexedTriArray::determine_coplanar_features()
 
     // get the normal to the first face
     const IndexedTri& fi = f[*liter++];
-    Vector3 fn = Triangle(v[fi.a], v[fi.b], v[fi.c]).calc_normal();
+    Vector3d fn = Triangle(Point3d(v[fi.a], GLOBAL), Point3d(v[fi.b], GLOBAL), Point3d(v[fi.c], GLOBAL)).calc_normal();
 
     // iterate
     while (liter != i->second.end()) 
     {
       // get the normal to the second face
       const IndexedTri& fli = f[*liter++];      
-      Vector3 fn2 = Triangle(v[fli.a], v[fli.b], v[fli.c]).calc_normal();
+      Vector3d fn2 = Triangle(Point3d(v[fli.a], GLOBAL), Point3d(v[fli.b], GLOBAL), Point3d(v[fli.c], GLOBAL)).calc_normal();
 
       // check angle between the two normals -- note: we allow the normals to
       // be completely opposed

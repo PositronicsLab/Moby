@@ -19,7 +19,7 @@ class SingleBody : public DynamicBody
     virtual DynamicBodyPtr get_super_body() const;
 
     /// Integrates this body
-    virtual void integrate(Real t, Real h, boost::shared_ptr<Integrator<VectorN> > integrator)
+    virtual void integrate(double t, double h, boost::shared_ptr<Integrator> integrator)
     {
       if (!is_enabled())
         return;
@@ -27,39 +27,48 @@ class SingleBody : public DynamicBody
         DynamicBody::integrate(t, h, integrator);
     }
 
-    /// Gets the position of the center-of-mass of the body
-    virtual const Vector3& get_position() const = 0;
+    /// Gets the computation frame for the body
+    virtual boost::shared_ptr<const Ravelin::Pose3d> get_computation_frame() const = 0;
 
-    /// Gets the linear velocity of the center-of-mass of the body
-    virtual const Vector3& get_lvel() const = 0;
+    /// Gets the mass of the body (for gravity calculation)
+    virtual double get_mass() const = 0;
 
-    /// Gets the angular velocity of the body
-    virtual const Vector3& get_avel() const = 0;
+    /// Gets the pose of the body
+    virtual boost::shared_ptr<const Ravelin::Pose3d> get_pose() const = 0;
 
-    /// Adds a force to the body
-    virtual void add_force(const Vector3& f) = 0;
+    /// Gets the acceleration of the body
+    virtual const Ravelin::SAcceld& get_accel() = 0;
 
-    /// Adds a force at a point on the body
-    virtual void add_force(const Vector3& f, const Vector3& point) = 0;
+    /// Gets the velocity of the body
+    virtual const Ravelin::SVelocityd& get_velocity() = 0;
 
     /// Applies an impulse at a point on the body
-    virtual void apply_impulse(const Vector3& j, const Vector3& point) = 0;
+    virtual void apply_impulse(const Ravelin::SMomentumd& w) = 0;
 
     /// Calculates the mass of the body
-    virtual Real calc_mass() const = 0;
+    virtual double calc_mass() const = 0;
 
     /// Gets the articulated body that this body is a part of (if any)
     virtual ArticulatedBodyPtr get_articulated_body() const = 0;
 
-    /// Calculates the velocity at a point on the body
-    virtual Vector3 calc_point_vel(const Vector3& point) const = 0;
+    /// Determines whether the body is enabled
+    virtual bool is_enabled() const = 0;
+
+    /// Calculates the velocity at a point on the body *in the body frame*
+    virtual Ravelin::Vector3d calc_point_vel(const Point3d& point) const = 0;
 
     /// Calculates the velocity at a point on the body in a given direction
-    Real calc_point_vel(const Vector3& point, const Vector3& dir) { return calc_point_vel(point).dot(dir); }
+    double calc_point_vel(const Point3d& point, const Ravelin::Vector3d& dir);
 
-  private:
+    /// Gets the maximum angular speed of this body (useful for collision detection)
+    virtual double get_aspeed() 
+    { 
+      const Ravelin::SVelocityd& v = get_velocity();
+      boost::shared_ptr<const Ravelin::Pose3d> F = get_pose();
+      Ravelin::SVelocityd vi = Ravelin::Pose3d::transform(F, v);
+      return vi.get_angular().norm(); 
+    }
 
-    virtual Real get_aspeed() const { return get_avel().norm(); }
 }; // end class
 
 } // end namespace

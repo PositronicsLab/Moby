@@ -11,11 +11,13 @@
 #include <osgDB/WriteFile>
 #include <osg/MatrixTransform>
 #endif
-#include <Moby/Matrix4.h>
+#include <Ravelin/SVelocityd.h>
+#include <Ravelin/Pose3d.h>
 #include <Moby/XMLTree.h>
-#include <Moby/InvalidTransformException.h>
 #include <Moby/OSGGroupWrapper.h>
 
+using boost::shared_ptr;
+using namespace Ravelin;
 using namespace Moby;
 
 OSGGroupWrapper::OSGGroupWrapper()
@@ -70,21 +72,29 @@ OSGGroupWrapper::~OSGGroupWrapper()
 
 #ifdef USE_OSG
 /// Copies this matrix to an OpenSceneGraph Matrixd object
-static void to_osg_matrix(const Matrix4& src, osg::Matrixd& tgt)
+static void to_osg_matrix(const Pose3d& src, osg::Matrixd& tgt)
 {
+  // get the rotation matrix
+  Matrix3d M = src.q;
+
+  // setup the rotation components of tgt
   const unsigned X = 0, Y = 1, Z = 2, W = 3;
   for (unsigned i=X; i<= Z; i++)
-    for (unsigned j=X; j<= W; j++)
-      tgt(j,i) = src(i,j);
+    for (unsigned j=X; j<= Z; j++)
+      tgt(j,i) = M(i,j);
+
+  // setup the translation components of tgt
+  for (unsigned i=X; i<= Z; i++)
+    tgt(W,i) = src.x[i];
 
   // set constant values of the matrix
-  tgt(X,W) = tgt(Y,W) = tgt(Z,W) = (Real) 0.0;
-  tgt(W,W) = (Real) 1.0;
+  tgt(X,W) = tgt(Y,W) = tgt(Z,W) = (double) 0.0;
+  tgt(W,W) = (double) 1.0;
 }
 #endif
 
 /// Implements Base::load_from_xml()
-void OSGGroupWrapper::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void OSGGroupWrapper::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // load the Base data
   Base::load_from_xml(node, id_map);
@@ -93,7 +103,7 @@ void OSGGroupWrapper::load_from_xml(XMLTreeConstPtr node, std::map<std::string, 
   assert(strcasecmp(node->name.c_str(), "OSGGroup") == 0);
 
   // if there is no visualization data filename, return now
-  const XMLAttrib* viz_fname_attr = node->get_attrib("filename");
+  XMLAttrib* viz_fname_attr = node->get_attrib("filename");
   if (!viz_fname_attr)
     return;
 
@@ -113,14 +123,16 @@ void OSGGroupWrapper::load_from_xml(XMLTreeConstPtr node, std::map<std::string, 
   // remove all children from the root separator
   _group->removeChildren(0, _group->getNumChildren());
 
-  // read in the transform, if specified
-  const XMLAttrib* transform_attr = node->get_attrib("transform");
-  if (transform_attr)
+  // read in the 3d pose, if specified
+  XMLAttrib* quat_attr = node->get_attrib("quat");
+  XMLAttrib* origin_attr = node->get_attrib("origin");
+  if (quat_attr || origin_attr)
   {
-    Matrix4 T;
-    transform_attr->get_matrix_value(T);
-    if (!Matrix4::valid_transform(T))
-      throw InvalidTransformException(T);
+    Pose3d T;
+    if (quat_attr)
+      T.q = quat_attr->get_quat_value();
+    if (origin_attr)
+      T.x = origin_attr->get_origin_value();
 
     // create the SoTransform and add it to the root separator
     osg::Matrixd m;
@@ -138,7 +150,7 @@ void OSGGroupWrapper::load_from_xml(XMLTreeConstPtr node, std::map<std::string, 
 }
 
 /// Implements Base::save_to_xml()
-void OSGGroupWrapper::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
+void OSGGroupWrapper::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& shared_objects) const
 {
   // save the Base data
   Base::save_to_xml(node, shared_objects);

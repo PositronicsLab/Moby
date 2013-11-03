@@ -4,8 +4,8 @@
  * License (found in COPYING).
  ****************************************************************************/
 
-#ifndef _SINGULAR_EXCEPTION_H_
-#define _SINGULAR_EXCEPTION_H_
+#ifndef _MOBY_SINGULAR_EXCEPTION_H_
+#define _MOBY_SINGULAR_EXCEPTION_H_
 
 #include <stdexcept>
 

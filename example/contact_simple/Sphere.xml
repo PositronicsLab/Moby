@@ -1,0 +1,58 @@
+<!-- A obj just sitting on the ground.  -->
+
+<XML>
+  <DRIVER>
+    <camera position="0 0 10" target="0 0 0" up="0 1 0" />
+    <window location="0 0" size="640 480" />
+  </DRIVER>
+
+  <MOBY>
+    <!-- Primitives -->
+  <Sphere id="b1" radius="0.5" density="1.0" num-points="2500" />
+    <box id="b3" xlen="10" ylen=".5" zlen="10" density="10.0" />
+
+    <!-- Integrator -->
+    <RungeKuttaIntegrator id="rk4" rel-err-tol="1e-6" abs-err-tol="1e-6" />
+
+    <!-- Collision detector -->
+    <MeshDCD id="dcd" eps-tolerance="1e-6">
+      <Body body-id="obj" />
+      <Body body-id="ground" />
+    </MeshDCD>
+
+    <CC2ACCD id="c2a" eps-tolerance="1e-4" alpha-tolerance="1e-4">
+      <Body body-id="obj" />
+      <Body body-id="ground" />
+    </CC2ACCD>
+
+    <GeneralizedCCD id="ccd" eps-tolerance="1e-3" toi-tolerance="1e-3">
+      <Body body-id="obj" />
+      <Body body-id="ground" />
+    </GeneralizedCCD>
+
+    <!-- Gravity force -->
+    <GravityForce id="gravity" accel="0 -9.81 0"  />
+
+    <!-- Rigid bodies -->
+      <!-- the obj -->
+      <RigidBody id="obj" enabled="true" position="0 0.255 0" angular-velocity="0 0 0" visualization-id="b1" linear-velocity="0 0 0">
+        <InertiaFromPrimitive primitive-id="b1" />
+        <CollisionGeometry primitive-id="b1" />
+      </RigidBody>
+
+      <!-- the ground -->
+      <RigidBody id="ground" enabled="false" visualization-id="b3" position="0 -.5 0">
+        <CollisionGeometry primitive-id="b3" />  
+      </RigidBody>
+
+    <!-- Setup the simulator -->
+    <EventDrivenSimulator id="simulator" integrator-id="rk4" collision-detector-id="ccd">
+      <DynamicBody dynamic-body-id="obj" />
+      <DynamicBody dynamic-body-id="ground" />
+      <RecurrentForce recurrent-force-id="gravity"  />
+      <ContactParameters object1-id="ground" object2-id="obj" restitution="0" mu-coulomb="0" mu-viscous="0" ffriction-cone-edges="16" />
+    </EventDrivenSimulator> 
+  </MOBY>
+</XML>
+
+

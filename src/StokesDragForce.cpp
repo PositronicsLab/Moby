@@ -11,14 +11,16 @@
 #include <Moby/DeformableBody.h>
 #include <Moby/StokesDragForce.h>
 
+using namespace Ravelin;
 using namespace Moby;
+using boost::shared_ptr;
 using boost::dynamic_pointer_cast;
 using std::vector;
 
 /// Constructs a default drag coefficient of 0 
 StokesDragForce::StokesDragForce()
 {
-  this->b = (Real) 0.0;
+  this->b = (double) 0.0;
 }
 
 /// Copy constructor
@@ -37,7 +39,13 @@ void StokesDragForce::add_force(DynamicBodyPtr body)
   // if the body is rigid, add drag
   RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(body);
   if (rb)
-    rb->add_force(-rb->get_lvel() * this->b);
+  {
+    SForced w;
+    w.set_force(rb->get_velocity().get_linear() * -this->b);
+    w.pose = rb->get_velocity().pose;
+    SForced wx = Pose3d::transform(rb->get_computation_frame(), w);
+    rb->add_force(wx);
+  }
   else
   {
     // it's an articulated body, get it as such
@@ -48,12 +56,18 @@ void StokesDragForce::add_force(DynamicBodyPtr body)
       
     // apply drag force to all links
     BOOST_FOREACH(RigidBodyPtr rb, links)
-      rb->add_force(-rb->get_lvel() * this->b);        
+    {
+      SForced w;
+      w.set_force(rb->get_velocity().get_linear() * -this->b);
+      w.pose = rb->get_velocity().pose;
+      SForced wx = Pose3d::transform(rb->get_computation_frame(), w);
+      rb->add_force(wx);
+    }
   }
 }
 
 /// Implements Base::load_from_xml()
-void StokesDragForce::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void StokesDragForce::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // load XML data for the parent class
   RecurrentForce::load_from_xml(node, id_map);
@@ -62,13 +76,20 @@ void StokesDragForce::load_from_xml(XMLTreeConstPtr node, std::map<std::string, 
   assert(strcasecmp(node->name.c_str(), "StokesDragForce") == 0);
 
   // read the drag coefficient, if given
-  const XMLAttrib* b_attrib = node->get_attrib("drag-b");
+  XMLAttrib
+
+
+
+
+
+
+* b_attrib = node->get_attrib("drag-b");
   if (b_attrib)
     this->b = b_attrib->get_real_value();
 }
 
 /// Implements Base::save_to_xml()
-void StokesDragForce::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const 
+void StokesDragForce::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& shared_objects) const 
 {
   // save XML data from the parent class
   RecurrentForce::save_to_xml(node, shared_objects);

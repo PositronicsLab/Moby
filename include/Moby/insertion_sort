@@ -1,0 +1,39 @@
+/****************************************************************************
+ * Copyright 2013 Evan Drumwright
+ * This library is distributed under the terms of the GNU Lesser General Public 
+ * License (found in COPYING).
+ ****************************************************************************/
+
+#ifndef _MOBY_INSERTION_SORT_
+#define _MOBY_INSERTION_SORT_
+
+namespace Moby {
+
+/// Does insertion sort -- custom comparison function not supported (uses operator<)
+template <class BidirectionalIterator>
+static void insertion_sort(BidirectionalIterator first, BidirectionalIterator last)
+{
+  // safety check; exit if nothing to do
+  if (first == last)
+    return;
+
+  BidirectionalIterator min = first;
+
+  // loop
+  BidirectionalIterator i = first;
+  i++;
+  for (; i != last; i++)
+    if (*i < *min)
+      min = i;
+
+  // swap the iterators
+  std::iter_swap(first, min);
+  while (++first != last)
+    for (BidirectionalIterator j = first; *j < *(j-1); --j)
+      std::iter_swap((j-1), j);
+} // end function
+
+} // end namespace
+
+#endif
+

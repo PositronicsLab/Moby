@@ -12,11 +12,14 @@
 #include <Moby/XMLTree.h>
 #include <Moby/OBB.h>
 #include <Moby/Constants.h>
+#include <Moby/CollisionGeometry.h>
 #include <Moby/BoxPrimitive.h>
 
+using namespace Ravelin;
 using namespace Moby;
 using boost::shared_ptr;
 using boost::dynamic_pointer_cast; 
+using std::map;
 using std::list;
 using std::vector;
 using std::make_pair;
@@ -30,37 +33,37 @@ BoxPrimitive::BoxPrimitive()
   _xlen = 1;
   _ylen = 1;
   _zlen = 1;
-  _edge_sample_length = std::numeric_limits<Real>::max();
+  _edge_sample_length = std::numeric_limits<double>::max();
   calc_mass_properties();
 }
 
 /// Constructs a cube of the specified size
-BoxPrimitive::BoxPrimitive(Real xlen, Real ylen, Real zlen)
+BoxPrimitive::BoxPrimitive(double xlen, double ylen, double zlen)
 {
   _xlen = xlen;
   _ylen = ylen;
   _zlen = zlen;
-  _edge_sample_length = std::numeric_limits<Real>::max();
+  _edge_sample_length = std::numeric_limits<double>::max();
   calc_mass_properties();
 }
 
 /// Constructs a unit cube transformed by the given matrix
-BoxPrimitive::BoxPrimitive(const Matrix4& T) : Primitive(T)
+BoxPrimitive::BoxPrimitive(const Pose3d& T) : Primitive(T)
 {
   _xlen = 1;
   _ylen = 1;
   _zlen = 1;
-  _edge_sample_length = std::numeric_limits<Real>::max();
+  _edge_sample_length = std::numeric_limits<double>::max();
   calc_mass_properties();
 }  
 
 /// Constructs a cube of the specified size transformed by the given matrix
-BoxPrimitive::BoxPrimitive(Real xlen, Real ylen, Real zlen, const Matrix4& T) : Primitive(T)
+BoxPrimitive::BoxPrimitive(double xlen, double ylen, double zlen, const Pose3d& T) : Primitive(T)
 {
   _xlen = xlen;
   _ylen = ylen;
   _zlen = zlen;
-  _edge_sample_length = std::numeric_limits<Real>::max();
+  _edge_sample_length = std::numeric_limits<double>::max();
   calc_mass_properties();
 }
 
@@ -73,12 +76,12 @@ const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >&
 }
 
 /// Sets the intersection tolerance
-void BoxPrimitive::set_intersection_tolerance(Real tol)
+void BoxPrimitive::set_intersection_tolerance(double tol)
 {
   Primitive::set_intersection_tolerance(tol);
 
   // vertices are no longer valid
-  _vertices = shared_ptr<vector<Vector3> >();
+  _vertices.clear();
   _invalidated = true;
 }
 
@@ -86,8 +89,10 @@ void BoxPrimitive::set_intersection_tolerance(Real tol)
 /**
  * \note forces recomputation of the mesh
  */
-void BoxPrimitive::set_size(Real xlen, Real ylen, Real zlen)
+void BoxPrimitive::set_size(double xlen, double ylen, double zlen)
 {
+  const unsigned X = 0, Y = 1, Z = 2;
+
   _xlen = xlen;
   _ylen = ylen;
   _zlen = zlen;
@@ -96,59 +101,86 @@ void BoxPrimitive::set_size(Real xlen, Real ylen, Real zlen)
 
   // mesh, vertices are no longer valid
   _mesh = shared_ptr<IndexedTriArray>();
-  _vertices = shared_ptr<vector<Vector3> >();
+  _vertices.clear();
   _smesh = pair<shared_ptr<IndexedTriArray>, list<unsigned> >();
   _invalidated = true;
 
   // recalculate the mass properties
   calc_mass_properties();
 
+  // set lengths on each OBB
+  for (map<CollisionGeometryPtr, OBBPtr>::iterator i = _obbs.begin(); i != _obbs.end(); i++)
+  {
+    // setup OBB half-lengths
+    i->second->l[X] = _xlen * (double) 0.5 + _intersection_tolerance;
+    i->second->l[Y] = _ylen * (double) 0.5 + _intersection_tolerance;
+    i->second->l[Z] = _zlen * (double) 0.5 + _intersection_tolerance;
+  }
+
   // need to update visualization
   update_visualization();
 }
 
 /// Sets the edge sample length for this box
-void BoxPrimitive::set_edge_sample_length(Real len)
+void BoxPrimitive::set_edge_sample_length(double len)
 {
   _edge_sample_length = len;
 
   // vertices are no longer valid
-  _vertices = shared_ptr<vector<Vector3> >();
+  _vertices.clear();
   _invalidated = true;
 }
 
 /// Transforms the primitive
-void BoxPrimitive::set_transform(const Matrix4& T)
+void BoxPrimitive::set_pose(const Pose3d& p)
 {
-  // determine the transformation from the old to the new transform 
-  Matrix4 Trel = T * Matrix4::inverse_transform(_T);
+  // convert p to a shared pointer
+  shared_ptr<Pose3d> x(new Pose3d(p));
+
+  // determine the transformation from the old pose to the new one 
+  Transform3d T = Pose3d::calc_relative_pose(_F, x);
 
   // go ahead and set the new transform
-  Primitive::set_transform(T);
+  Primitive::set_pose(p);
 
-  // transform mesh
-  if (_mesh)
-  {
-    _mesh = shared_ptr<IndexedTriArray>(new IndexedTriArray(_mesh->transform(Trel)));
-    _smesh.first = _mesh;
-  }
+  // invalidate the mesh 
+  _mesh.reset();
+  _smesh.first.reset();
+  _smesh.second.clear();
 
   // invalidate this primitive (in case it is part of a CSG)
   _invalidated = true;
 
-  // transform vertices
-  if (_vertices)
-    for (unsigned i=0; i< _vertices->size(); i++)
-      (*_vertices)[i] = Trel.mult_point((*_vertices)[i]);
+  // clear the set of vertices 
+  _vertices.clear();
+
+  // transform bounding volumes
+  for (map<CollisionGeometryPtr, OBBPtr>::iterator i = _obbs.begin(); i != _obbs.end(); i++)
+  {
+    // get the pose for the geometry
+    shared_ptr<const Pose3d> gpose = i->first->get_pose();
+
+    // verify that this pose is defined w.r.t. the global frame
+    shared_ptr<const Pose3d> P = get_pose();
+    assert(!P->rpose);
+
+    // setup the obb center and orientation
+    i->second->center = Point3d(P->x, gpose);
+    i->second->R = P->q;
+  }
 
   // recalculate the mass properties
   calc_mass_properties();
 }
 
 /// Gets the set of vertices for the BoxPrimitive (constructing, if necessary)
-void BoxPrimitive::get_vertices(BVPtr bv, vector<const Vector3*>& vertices)
+void BoxPrimitive::get_vertices(BVPtr bv, vector<const Point3d*>& vertices)
 {
-  if (!_vertices)
+  // get the vertices for the geometry
+  vector<Point3d>& verts = _vertices[bv->geom];
+
+  // see whether the vertices have been defined
+  if (verts.empty())
   {
     if (_xlen <= 0.0 || _ylen <= 0.0 || _zlen <= 0.0)
     {
@@ -156,26 +188,34 @@ void BoxPrimitive::get_vertices(BVPtr bv, vector<const Vector3*>& vertices)
       return;
     }
 
-    // get the transform for the primitive
-    const Matrix4& T = get_transform();
+    // get the geometry pose
+    shared_ptr<const Pose3d> gpose = bv->geom->get_pose();
 
-    // determine the vertices in the mesh
-    _vertices = shared_ptr<vector<Vector3> >(new vector<Vector3>());
+    // verify that this pose is defined w.r.t. the global frame
+    shared_ptr<const Pose3d> P = get_pose();
+    assert(!P->rpose);
+
+    // setup transform
+    Transform3d T;
+    T.source = gpose;
+    T.target = gpose;
+    T.x = P->x;
+    T.q = P->q;
 
     // setup half-lengths
-    const Real XLEN = _xlen*(Real) 0.5 + _intersection_tolerance;
-    const Real YLEN = _ylen*(Real) 0.5 + _intersection_tolerance;
-    const Real ZLEN = _zlen*(Real) 0.5 + _intersection_tolerance;
+    const double XLEN = _xlen*(double) 0.5;
+    const double YLEN = _ylen*(double) 0.5;
+    const double ZLEN = _zlen*(double) 0.5;
 
     // add the vertices 
-    _vertices->push_back(T.mult_point(Vector3(XLEN,YLEN,ZLEN)));
-    _vertices->push_back(T.mult_point(Vector3(XLEN,YLEN,-ZLEN)));
-    _vertices->push_back(T.mult_point(Vector3(XLEN,-YLEN,ZLEN)));
-    _vertices->push_back(T.mult_point(Vector3(XLEN,-YLEN,-ZLEN)));
-    _vertices->push_back(T.mult_point(Vector3(-XLEN,YLEN,ZLEN)));
-    _vertices->push_back(T.mult_point(Vector3(-XLEN,YLEN,-ZLEN)));
-    _vertices->push_back(T.mult_point(Vector3(-XLEN,-YLEN,ZLEN)));
-    _vertices->push_back(T.mult_point(Vector3(-XLEN,-YLEN,-ZLEN)));
+    verts.push_back(T.transform_point(Point3d(XLEN,YLEN,ZLEN,gpose)));
+    verts.push_back(T.transform_point(Point3d(XLEN,YLEN,-ZLEN,gpose)));
+    verts.push_back(T.transform_point(Point3d(XLEN,-YLEN,ZLEN,gpose)));
+    verts.push_back(T.transform_point(Point3d(XLEN,-YLEN,-ZLEN,gpose)));
+    verts.push_back(T.transform_point(Point3d(-XLEN,YLEN,ZLEN,gpose)));
+    verts.push_back(T.transform_point(Point3d(-XLEN,YLEN,-ZLEN,gpose)));
+    verts.push_back(T.transform_point(Point3d(-XLEN,-YLEN,ZLEN,gpose)));
+    verts.push_back(T.transform_point(Point3d(-XLEN,-YLEN,-ZLEN,gpose)));
     
     // now we want to add vertices by subdividing edges
     // note: these edges come from facets in get_mesh()
@@ -200,25 +240,25 @@ void BoxPrimitive::get_vertices(BVPtr bv, vector<const Vector3*>& vertices)
       // vertices
       sorted_pair<unsigned> sp = q.front();
       q.pop();
-      const Vector3& v1 = (*_vertices)[sp.first];
-      const Vector3& v2 = (*_vertices)[sp.second];
+      const Point3d& v1 = verts[sp.first];
+      const Point3d& v2 = verts[sp.second];
 
       // if edge is sufficiently small, don't need to do any more processing
       if ((v1-v2).norm() <= _edge_sample_length)
         continue;
 
       // subdivide the edge by first creating a new vertex
-      unsigned vidx = _vertices->size();
-      _vertices->push_back((v1+v2) * (Real) 0.5);
+      unsigned vidx = verts.size();
+      verts.push_back((v1+v2) * (double) 0.5);
       q.push(make_sorted_pair(sp.first, vidx)); 
       q.push(make_sorted_pair(sp.second, vidx)); 
     }
   }
 
   // copy the addresses of the computed vertices into 'vertices' 
-  vertices.resize(_vertices->size());
-  for (unsigned i=0; i< _vertices->size(); i++)
-    vertices[i] = &(*_vertices)[i];
+  vertices.resize(verts.size());
+  for (unsigned i=0; i< verts.size(); i++)
+    vertices[i] = &verts[i];
 }
 
 /// Recomputes the triangle mesh for the BoxPrimitive
@@ -230,20 +270,20 @@ shared_ptr<const IndexedTriArray> BoxPrimitive::get_mesh()
     const unsigned BOX_VERTS = 8, BOX_FACETS = 12;
 
     // setup lengths
-    Real XLEN = _xlen * (Real) 0.5;
-    Real YLEN = _ylen * (Real) 0.5;
-    Real ZLEN = _zlen * (Real) 0.5;
+    double XLEN = _xlen * (double) 0.5;
+    double YLEN = _ylen * (double) 0.5;
+    double ZLEN = _zlen * (double) 0.5;
 
     // need eight vertices
-    Vector3 verts[BOX_VERTS];
-    verts[0] = Vector3(XLEN,YLEN,ZLEN);
-    verts[1] = Vector3(XLEN,YLEN,-ZLEN);
-    verts[2] = Vector3(XLEN,-YLEN,ZLEN);
-    verts[3] = Vector3(XLEN,-YLEN,-ZLEN);
-    verts[4] = Vector3(-XLEN,YLEN,ZLEN);
-    verts[5] = Vector3(-XLEN,YLEN,-ZLEN);
-    verts[6] = Vector3(-XLEN,-YLEN,ZLEN);
-    verts[7] = Vector3(-XLEN,-YLEN,-ZLEN);
+    Point3d verts[BOX_VERTS];
+    verts[0] = Point3d(XLEN,YLEN,ZLEN);
+    verts[1] = Point3d(XLEN,YLEN,-ZLEN);
+    verts[2] = Point3d(XLEN,-YLEN,ZLEN);
+    verts[3] = Point3d(XLEN,-YLEN,-ZLEN);
+    verts[4] = Point3d(-XLEN,YLEN,ZLEN);
+    verts[5] = Point3d(-XLEN,YLEN,-ZLEN);
+    verts[6] = Point3d(-XLEN,-YLEN,ZLEN);
+    verts[7] = Point3d(-XLEN,-YLEN,-ZLEN);
 
     // create 12 new triangles, making sure to do so ccw
     IndexedTri facets[BOX_FACETS];
@@ -277,7 +317,7 @@ shared_ptr<const IndexedTriArray> BoxPrimitive::get_mesh()
 osg::Node* BoxPrimitive::create_visualization()
 {
   #ifdef USE_OSG
-  const Real HALF = (Real) 0.5;
+  const double HALF = (double) 0.5;
   osg::Box* box = new osg::Box;
   osg::Vec3 half_lens(_xlen * HALF, _ylen * HALF, _zlen * HALF);
   box->setHalfLengths(half_lens);
@@ -290,7 +330,7 @@ osg::Node* BoxPrimitive::create_visualization()
 }
 
 /// Implements Base::load_from_xml() for serialization
-void BoxPrimitive::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void BoxPrimitive::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // verify that the node type is BoxPrimitive
   assert(strcasecmp(node->name.c_str(), "Box") == 0);
@@ -299,12 +339,12 @@ void BoxPrimitive::load_from_xml(XMLTreeConstPtr node, std::map<std::string, Bas
   Primitive::load_from_xml(node, id_map);
 
   // get the length attributes, if specified
-  const XMLAttrib* xlen_attr = node->get_attrib("xlen");
-  const XMLAttrib* ylen_attr = node->get_attrib("ylen");
-  const XMLAttrib* zlen_attr = node->get_attrib("zlen");
+  XMLAttrib* xlen_attr = node->get_attrib("xlen");
+  XMLAttrib* ylen_attr = node->get_attrib("ylen");
+  XMLAttrib* zlen_attr = node->get_attrib("zlen");
 
   // set lengths to zero initially
-  Real xlen = 0, ylen = 0, zlen = 0;
+  double xlen = 0, ylen = 0, zlen = 0;
 
   // get the lengths
   if (xlen_attr) xlen = xlen_attr->get_real_value();
@@ -312,7 +352,7 @@ void BoxPrimitive::load_from_xml(XMLTreeConstPtr node, std::map<std::string, Bas
   if (zlen_attr) zlen = zlen_attr->get_real_value();
 
   // read in the edge sample length
-  const XMLAttrib* esl_attr = node->get_attrib("edge-sample-length");
+  XMLAttrib* esl_attr = node->get_attrib("edge-sample-length");
   if (esl_attr)
     set_edge_sample_length(esl_attr->get_real_value());
 
@@ -324,7 +364,7 @@ void BoxPrimitive::load_from_xml(XMLTreeConstPtr node, std::map<std::string, Bas
 }
 
 /// Implements Base::save_to_xml() for serialization
-void BoxPrimitive::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
+void BoxPrimitive::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& shared_objects) const
 {
   // save the parent data
   Primitive::save_to_xml(node, shared_objects);
@@ -345,82 +385,94 @@ void BoxPrimitive::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_
 void BoxPrimitive::calc_mass_properties()
 {
   // get the current transform
-  const Matrix4& T = get_transform();
+  shared_ptr<const Pose3d> T = get_pose();
 
   // compute the mass if necessary 
   if (_density)
   {
-    const Real volume = _xlen * _ylen * _zlen;
-    _mass = *_density * volume;
+    const double volume = _xlen * _ylen * _zlen;
+    _J.m = *_density * volume;
   } 
 
   // compute some constants
-  const Real XSQ = _xlen * _xlen;
-  const Real YSQ = _ylen * _ylen;
-  const Real ZSQ = _zlen * _zlen;
-  const Real M = _mass/12.0;
+  const double XSQ = _xlen * _xlen;
+  const double YSQ = _ylen * _ylen;
+  const double ZSQ = _zlen * _zlen;
+  const double M = _J.m/12.0;
 
   // compute the inertia matrix
-  Matrix3 J(M*(YSQ+ZSQ), 0, 0, 0, M*(XSQ+ZSQ), 0, 0, 0, M*(XSQ+YSQ));
-
-  // transform the inertia matrix
-  transform_inertia(_mass, J, ZEROS_3, T, _J, _com);
+  _J.J = Matrix3d(M*(YSQ+ZSQ), 0, 0, 0, M*(XSQ+ZSQ), 0, 0, 0, M*(XSQ+YSQ));
 }
 
 /// Gets the bounding volume for this plane
-BVPtr BoxPrimitive::get_BVH_root()
+BVPtr BoxPrimitive::get_BVH_root(CollisionGeometryPtr geom)
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
   // box not applicable for deformable bodies 
   if (is_deformable())
-    throw std::runtime_error("BoxPrimitive::get_BVH_root() - primitive unusable for deformable bodies!");
+    throw std::runtime_error("BoxPrimitive::get_BVH_root(CollisionGeometryPtr geom) - primitive unusable for deformable bodies!");
+
+  // get the pointer to the bounding box
+  OBBPtr& obb = _obbs[geom];
 
   // create the bounding box, if necessary
-  if (!_obb)
-    _obb = shared_ptr<OBB>(new OBB);
+  if (!obb)
+  {
+    // create the bounding box
+    obb = shared_ptr<OBB>(new OBB);
+    obb->geom = geom;
 
-  // get the transform
-  const Matrix4& T = get_transform();
+    // get the pose for the geometry
+    shared_ptr<const Pose3d> gpose = geom->get_pose();
 
-  // setup the center of the OBB 
-  _obb->center = T.get_translation();
-  
-  // setup the orientation of the OBB
-  _obb->R(X,X) = T(X,X);
-  _obb->R(X,Y) = T(X,Y);
-  _obb->R(X,Z) = T(X,Z);
-  _obb->R(Y,X) = T(Y,X);
-  _obb->R(Y,Y) = T(Y,Y);
-  _obb->R(Y,Z) = T(Y,Z);
-  _obb->R(Z,X) = T(Z,X);
-  _obb->R(Z,Y) = T(Z,Y);
-  _obb->R(Z,Z) = T(Z,Z);
+    // get the pose for this geometry
+    shared_ptr<const Pose3d> P = get_pose(); 
+    assert(!P->rpose);
 
-  // setup OBB half-lengths
-  _obb->l[X] = _xlen * (Real) 0.5;
-  _obb->l[Y] = _ylen * (Real) 0.5;
-  _obb->l[Z] = _zlen * (Real) 0.5;
+    // setup the obb center and orientation
+    obb->center = Point3d(P->x, gpose);
+    obb->R = P->q;
 
-  return _obb;
+    // setup OBB half-lengths
+    obb->l[X] = _xlen * (double) 0.5 + _intersection_tolerance;
+    obb->l[Y] = _ylen * (double) 0.5 + _intersection_tolerance;
+    obb->l[Z] = _zlen * (double) 0.5 + _intersection_tolerance;
+  }
+
+  return obb;
 }
 
 /// Tests whether a point is inside or on the box
-bool BoxPrimitive::point_inside(BVPtr bv, const Vector3& point, Vector3& normal) const
+bool BoxPrimitive::point_inside(BVPtr bv, const Point3d& point, Vector3d& normal) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
+  static shared_ptr<Pose3d> P;
 
-  // form a Matrix4 from the transform
-  const Matrix4& T = get_transform();
+  // get the pose for the collision geometry
+  shared_ptr<const Pose3d> gpose = bv->geom->get_pose(); 
+
+  // get the pose for this geometry and BV
+  shared_ptr<const Pose3d> bpose = get_pose(); 
+  assert(!bpose->rpose);
+
+  // setup a new pose
+  if (!P)
+    P = shared_ptr<Pose3d>(new Pose3d);
+  *P = *bpose;
+  P->rpose = gpose;
+
+  // form the transformation from box space to query space (and back) 
+  Transform3d T = Pose3d::calc_relative_pose(point.pose, P);
 
   // setup lengths
-  Vector3 l;
-  l[X] = _xlen * (Real) 0.5;
-  l[Y] = _ylen * (Real) 0.5;
-  l[Z] = _zlen * (Real) 0.5;
+  Vector3d l(P);
+  l[X] = _xlen * (double) 0.5;
+  l[Y] = _ylen * (double) 0.5;
+  l[Z] = _zlen * (double) 0.5;
 
   // convert the point to primitive space
-  Vector3 p = T.inverse_mult_point(point);
+  Point3d p = T.transform_point(point);
 
   FILE_LOG(LOG_COLDET) << "BoxPrimitive::point_inside() entered" << endl; 
   FILE_LOG(LOG_COLDET) << "  -- querying point " << p << " and box: " << l << endl;
@@ -435,34 +487,35 @@ bool BoxPrimitive::point_inside(BVPtr bv, const Vector3& point, Vector3& normal)
   }
 
   // p is inside the box; determine the normal
-  Real absPX = l[X] - std::fabs(p[X]);
-  Real absPY = l[Y] - std::fabs(p[Y]);
-  Real absPZ = l[Z] - std::fabs(p[Z]);
+  double absPX = l[X] - std::fabs(p[X]);
+  double absPY = l[Y] - std::fabs(p[Y]);
+  double absPZ = l[Z] - std::fabs(p[Z]);
   if (absPZ < absPX - NEAR_ZERO && absPZ < absPY - NEAR_ZERO)
   {
-    if (p[Z] < (Real) 0.0)
-      normal = T.mult_vector(Vector3(0,0,-1));
+    if (p[Z] < (double) 0.0)
+      normal = T.inverse_transform_vector(Vector3d(0,0,-1,P));
     else
-      normal = T.mult_vector(Vector3(0,0,1));
+      normal = T.inverse_transform_vector(Vector3d(0,0,1,P));
   }
   else if (absPY < absPZ - NEAR_ZERO && absPY < absPX - NEAR_ZERO)
   {
-    if (p[Y] < (Real) 0.0)
-      normal = T.mult_vector(Vector3(0,-1,0));
+    if (p[Y] < (double) 0.0)
+      normal = T.inverse_transform_vector(Vector3d(0,-1,0,P));
     else
-      normal = T.mult_vector(Vector3(0,1,0));
+      normal = T.inverse_transform_vector(Vector3d(0,1,0,P));
   }
   else if (absPX < absPY - NEAR_ZERO && absPX < absPZ - NEAR_ZERO)
   {
-    if (p[X] < (Real) 0.0)
-      normal = T.mult_vector(Vector3(-1,0,0));
+    if (p[X] < (double) 0.0)
+      normal = T.inverse_transform_vector(Vector3d(-1,0,0,P));
     else
-      normal = T.mult_vector(Vector3(1,0,0));
+      normal = T.inverse_transform_vector(Vector3d(1,0,0,P));
   }
   else
   {
     // degenerate normal
-    normal = ZEROS_3;
+    normal.set_zero();
+    normal.pose = p.pose;
   }
 
   FILE_LOG(LOG_COLDET) << "  ** point is inside" << endl;
@@ -475,25 +528,39 @@ bool BoxPrimitive::point_inside(BVPtr bv, const Vector3& point, Vector3& normal)
  *       method only returns intersection if the second endpoint of the segment
  *       is farther inside than the first
  */
-bool BoxPrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, Real& t, Vector3& isect, Vector3& normal) const
+bool BoxPrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Vector3d& normal) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
-  Real tmin = (Real) 0.0;
-  Real tmax = (Real) 2.0;
+  double tmin = (double) 0.0;
+  double tmax = (double) 2.0;
+  static shared_ptr<Pose3d> P;
 
-  // form a Matrix4 from the transform
-  const Matrix4& T = get_transform();
+  // get the pose for the collision geometry
+  shared_ptr<const Pose3d> gpose = bv->geom->get_pose(); 
+
+  // get the pose for this geometry and BV
+  shared_ptr<const Pose3d> bpose = get_pose(); 
+  assert(!bpose->rpose);
+
+  // setup a new pose
+  if (!P)
+    P = shared_ptr<Pose3d>(new Pose3d);
+  *P = *bpose;
+  P->rpose = gpose;
+
+  // form a transform between segment space and box space 
+  Transform3d T = Pose3d::calc_relative_pose(seg.first.pose, P);
 
   // setup lengths
-  Vector3 l;
-  l[X] = _xlen * (Real) 0.5;
-  l[Y] = _ylen * (Real) 0.5;
-  l[Z] = _zlen * (Real) 0.5;
+  Vector3d l(P);
+  l[X] = _xlen * (double) 0.5;
+  l[Y] = _ylen * (double) 0.5;
+  l[Z] = _zlen * (double) 0.5;
 
   // convert the line segment to primitive space
-  Vector3 p = T.inverse_mult_point(seg.first);
-  Vector3 q = T.inverse_mult_point(seg.second);
-  Vector3 d = q - p;
+  Point3d p = T.transform_point(seg.first);
+  Point3d q = T.transform_point(seg.second);
+  Vector3d d = q - p;
 
   FILE_LOG(LOG_COLDET) << "BoxPrimitive::intersect_seg() entered" << endl; 
   FILE_LOG(LOG_COLDET) << "  -- checking intersection between line segment " << p << " / " << (d + p) << " and box: " << l << endl;
@@ -504,33 +571,33 @@ bool BoxPrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, Real& t, Vector3
       p[Z] >= -l[Z] - NEAR_ZERO && p[Z] <= l[Z] + NEAR_ZERO)
   {
     // set time and point of intersection
-    t = (Real) 0.0;
+    t = (double) 0.0;
     isect = seg.first;
 
     // determine normal
-    Real absPX = l[X] - std::fabs(p[X]);
-    Real absPY = l[Y] - std::fabs(p[Y]);
-    Real absPZ = l[Z] - std::fabs(p[Z]);
+    double absPX = l[X] - std::fabs(p[X]);
+    double absPY = l[Y] - std::fabs(p[Y]);
+    double absPZ = l[Z] - std::fabs(p[Z]);
     if (absPZ < absPX && absPZ < absPY)
     {
-      if (p[Z] < (Real) 0.0)
-        normal = T.mult_vector(Vector3(0,0,-1));
+      if (p[Z] < (double) 0.0)
+        normal = T.inverse_transform_vector(Vector3d(0,0,-1,P));
       else
-        normal = T.mult_vector(Vector3(0,0,1));
+        normal = T.inverse_transform_vector(Vector3d(0,0,1,P));
     }
     else if (absPY < absPZ && absPY < absPX)
     {
-      if (p[Y] < (Real) 0.0)
-        normal = T.mult_vector(Vector3(0,-1,0));
+      if (p[Y] < (double) 0.0)
+        normal = T.inverse_transform_vector(Vector3d(0,-1,0,P));
       else
-        normal = T.mult_vector(Vector3(0,1,0));
+        normal = T.inverse_transform_vector(Vector3d(0,1,0,P));
     }
     else
     {
-      if (p[X] < (Real) 0.0)
-        normal = T.mult_vector(Vector3(-1,0,0));
+      if (p[X] < (double) 0.0)
+        normal = T.inverse_transform_vector(Vector3d(-1,0,0,P));
       else
-        normal = T.mult_vector(Vector3(1,0,0));
+        normal = T.inverse_transform_vector(Vector3d(1,0,0,P));
     }
 
     FILE_LOG(LOG_COLDET) << " -- point is already inside the box..." << endl;
@@ -553,9 +620,9 @@ bool BoxPrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, Real& t, Vector3
     else
     {
       // compute intersection value of line with near and far plane of slab
-      Real ood = 1.0 / d[i];
-      Real t1 = (-l[i] - p[i]) * ood;
-      Real t2 = (l[i] - p[i]) * ood;
+      double ood = 1.0 / d[i];
+      double t1 = (-l[i] - p[i]) * ood;
+      double t2 = (l[i] - p[i]) * ood;
 
       FILE_LOG(LOG_COLDET) << "  ood: " << ood << " t1: " << t1 << "  t2: " << t2 << endl; 
 
@@ -568,7 +635,7 @@ bool BoxPrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, Real& t, Vector3
       tmax = std::min(tmax, t2);
 
       // exit with no collision as soon as slab intersection becomes empty
-      if (tmin > tmax + NEAR_ZERO || tmin > (Real) 1.0)
+      if (tmin > tmax + NEAR_ZERO || tmin > (double) 1.0)
       {
         FILE_LOG(LOG_COLDET) << "  tmin (" << tmin << ") > 1.0 or tmax (" << tmax << ") -- seg and box do not intersect" << endl;
 
@@ -578,17 +645,17 @@ bool BoxPrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, Real& t, Vector3
   }
 
   // ray intersects all three slabs
-  // determine normal; if it degenerate, report no intersection
+  // determine normal; if it is degenerate, report no intersection
   isect = p + d * tmin;
-  if (!determine_normal_abs(l, isect, normal))
+  if (!determine_normal_abs(l, isect, P, normal))
     return false;
 
   // transform the normal back out of box space
-  normal = T.mult_vector(normal);
-  assert(std::fabs(normal.norm() - (Real) 1.0) < NEAR_ZERO);
+  normal = T.inverse_transform_vector(normal);
+  assert(std::fabs(normal.norm() - (double) 1.0) < NEAR_ZERO);
 
   // transform intersection point out of box space 
-  isect = T.mult_point(isect);
+  isect = T.inverse_transform_point(isect);
 
   FILE_LOG(LOG_COLDET) << "BoxPrimitive::intersects() - seg and box intersect; first intersection: " << tmin << "(" << isect << ")" << endl; 
   FILE_LOG(LOG_COLDET) << "BoxPrimitive::intersects() exiting" << endl; 
@@ -605,11 +672,11 @@ bool BoxPrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, Real& t, Vector3
 /**
  * \return <b>true</b> if the normal is valid, <b>false</b> if degenerate
  */
-void BoxPrimitive::determine_normal(const Vector3& lengths, const Vector3& p, Vector3& normal)
+void BoxPrimitive::determine_normal(const Vector3d& lengths, const Point3d& p, shared_ptr<const Pose3d> P, Vector3d& normal) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
   const unsigned NFACES = 6;
-  pair<Real, BoxPrimitive::FaceID> distances[NFACES];
+  pair<double, BoxPrimitive::FaceID> distances[NFACES];
 
   distances[0] = make_pair(p[X] - lengths[X], ePOSX);
   distances[1] = make_pair(p[X] + lengths[X], eNEGX);
@@ -624,12 +691,12 @@ void BoxPrimitive::determine_normal(const Vector3& lengths, const Vector3& p, Ve
   // work ok (normal is degenerate in this case)
   switch (distances[0].second)
   {
-    case ePOSX:  normal = Vector3(1,0,0); break;
-    case eNEGX:  normal = Vector3(-1,0,0); break;
-    case ePOSY:  normal = Vector3(0,1,0); break;
-    case eNEGY:  normal = Vector3(0,-1,0); break;
-    case ePOSZ:  normal = Vector3(0,0,1); break;
-    case eNEGZ:  normal = Vector3(0,0,-1); break;
+    case ePOSX:  normal = Vector3d(1,0,0,P); break;
+    case eNEGX:  normal = Vector3d(-1,0,0,P); break;
+    case ePOSY:  normal = Vector3d(0,1,0,P); break;
+    case eNEGY:  normal = Vector3d(0,-1,0,P); break;
+    case ePOSZ:  normal = Vector3d(0,0,1,P); break;
+    case eNEGZ:  normal = Vector3d(0,0,-1,P); break;
   }
 }
 
@@ -637,11 +704,11 @@ void BoxPrimitive::determine_normal(const Vector3& lengths, const Vector3& p, Ve
 /**
  * \return <b>true</b> if the normal is valid, <b>false</b> if degenerate
  */
-bool BoxPrimitive::determine_normal_abs(const Vector3& lengths, const Vector3& p, Vector3& normal)
+bool BoxPrimitive::determine_normal_abs(const Vector3d& lengths, const Point3d& p, shared_ptr<const Pose3d> P, Vector3d& normal) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
   const unsigned NFACES = 6;
-  pair<Real, BoxPrimitive::FaceID> distances[NFACES];
+  pair<double, BoxPrimitive::FaceID> distances[NFACES];
 
   distances[0] = make_pair(std::fabs(p[X] - lengths[X]), ePOSX);
   distances[1] = make_pair(std::fabs(p[X] + lengths[X]), eNEGX);
@@ -656,12 +723,12 @@ bool BoxPrimitive::determine_normal_abs(const Vector3& lengths, const Vector3& p
   // work ok (normal is degenerate in this case)
   switch (distances[0].second)
   {
-    case ePOSX:  normal = Vector3(1,0,0); break;
-    case eNEGX:  normal = Vector3(-1,0,0); break;
-    case ePOSY:  normal = Vector3(0,1,0); break;
-    case eNEGY:  normal = Vector3(0,-1,0); break;
-    case ePOSZ:  normal = Vector3(0,0,1); break;
-    case eNEGZ:  normal = Vector3(0,0,-1); break;
+    case ePOSX:  normal = Vector3d(1,0,0,P); break;
+    case eNEGX:  normal = Vector3d(-1,0,0,P); break;
+    case ePOSY:  normal = Vector3d(0,1,0,P); break;
+    case eNEGY:  normal = Vector3d(0,-1,0,P); break;
+    case ePOSZ:  normal = Vector3d(0,0,1,P); break;
+    case eNEGZ:  normal = Vector3d(0,0,-1,P); break;
   }
 
   return !CompGeom::rel_equal(distances[0].second, distances[1].second, NEAR_ZERO);

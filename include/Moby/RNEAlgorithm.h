@@ -18,12 +18,12 @@ namespace Moby {
 class RNEAlgorithm : public RCArticulatedBodyInvDynAlgo
 {
   public:
-    std::map<JointPtr, VectorN> calc_inv_dyn(RCArticulatedBodyPtr body, const std::map<RigidBodyPtr, RCArticulatedBodyInvDynData>& inv_dyn_data);
+    std::map<JointPtr, Ravelin::VectorNd> calc_inv_dyn(RCArticulatedBodyPtr body, const std::map<RigidBodyPtr, RCArticulatedBodyInvDynData>& inv_dyn_data);
     void calc_constraint_forces(RCArticulatedBodyPtr body);
 
   private:
-    std::map<JointPtr, VectorN> calc_inv_dyn_fixed_base(RCArticulatedBodyPtr body, const std::map<RigidBodyPtr, RCArticulatedBodyInvDynData>& inv_dyn_data) const;
-    std::map<JointPtr, VectorN> calc_inv_dyn_floating_base(RCArticulatedBodyPtr body, const std::map<RigidBodyPtr, RCArticulatedBodyInvDynData>& inv_dyn_data) const;
+    std::map<JointPtr, Ravelin::VectorNd> calc_inv_dyn_fixed_base(RCArticulatedBodyPtr body, const std::map<RigidBodyPtr, RCArticulatedBodyInvDynData>& inv_dyn_data) const;
+    std::map<JointPtr, Ravelin::VectorNd> calc_inv_dyn_floating_base(RCArticulatedBodyPtr body, const std::map<RigidBodyPtr, RCArticulatedBodyInvDynData>& inv_dyn_data) const;
 };
 } // end namespace
 

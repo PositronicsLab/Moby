@@ -9,6 +9,7 @@
 #include <Moby/XMLTree.h>
 #include <Moby/ContactParameters.h>
 
+using boost::shared_ptr;
 using namespace Moby;
 
 /// Constructs a ContactParameters object with no object pointers
@@ -39,7 +40,7 @@ ContactParameters::ContactParameters(BasePtr o1, BasePtr o2)
  * This method does not read the Base information (i.e., name()), because
  * a name for this object is unnecessary.
  */
-void ContactParameters::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void ContactParameters::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   std::map<std::string, BasePtr>::const_iterator id_iter;
 
@@ -47,8 +48,8 @@ void ContactParameters::load_from_xml(XMLTreeConstPtr node, std::map<std::string
   assert(strcasecmp(node->name.c_str(), "ContactParameters") == 0);
 
   // verify that there are object IDs
-  const XMLAttrib* o1_attr = node->get_attrib("object1-id");
-  const XMLAttrib* o2_attr = node->get_attrib("object2-id");
+  XMLAttrib* o1_attr = node->get_attrib("object1-id");
+  XMLAttrib* o2_attr = node->get_attrib("object2-id");
   if (!o1_attr || !o2_attr)
   {
     std::cerr << "ContactParameters::load_from_xml() - no object1-id and/or ";
@@ -89,22 +90,22 @@ void ContactParameters::load_from_xml(XMLTreeConstPtr node, std::map<std::string
   objects = make_sorted_pair(o1, o2);
 
   // get the value for epsilon, if specified
-  const XMLAttrib* rest_attr = node->get_attrib("epsilon");
+  XMLAttrib* rest_attr = node->get_attrib("epsilon");
   if (rest_attr)
     epsilon = rest_attr->get_real_value();
 
   // get the coefficient of Coulombic friction
-  const XMLAttrib* fc_attr = node->get_attrib("mu-coulomb");
+  XMLAttrib* fc_attr = node->get_attrib("mu-coulomb");
   if (fc_attr)
     mu_coulomb = fc_attr->get_real_value();
 
   // get the coefficient of viscous friction
-  const XMLAttrib* fv_attr = node->get_attrib("mu-viscous");
+  XMLAttrib* fv_attr = node->get_attrib("mu-viscous");
   if (fv_attr)
     mu_viscous = fv_attr->get_real_value();
 
   // get the number of friction directions, if specified
-  const XMLAttrib* nk_attr = node->get_attrib("friction-cone-edges");
+  XMLAttrib* nk_attr = node->get_attrib("friction-cone-edges");
   if (nk_attr)
     NK = nk_attr->get_unsigned_value();
   if (NK < 4)
@@ -118,7 +119,7 @@ void ContactParameters::load_from_xml(XMLTreeConstPtr node, std::map<std::string
  * This method does not write the Base information, because neither a name
  * nor a unique ID are useful.
  */
-void ContactParameters::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
+void ContactParameters::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& shared_objects) const
 {
   // set the node name
   node->name = "ContactParameters";

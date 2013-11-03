@@ -1,6 +1,7 @@
 #include <Moby/TriangleMeshPrimitive.h>
 #include <Moby/CompGeom.h>
 
+using namespace Ravelin;
 using namespace Moby;
 
 int main(int argc, char* argv[])
@@ -18,16 +19,18 @@ int main(int argc, char* argv[])
 
   // load file
   itas = IndexedTriArray::read_from_obj(std::string(argv[1]));
-  itas.get_tris(std::back_inserter(tris));
+  itas.get_tris(std::back_inserter(tris), GLOBAL);
 
   // get the adjustments
-  Vector3 adjust;
+  Origin3d adjust;
   adjust[X] = std::atof(argv[2]);
   adjust[Y] = std::atof(argv[3]);
   adjust[Z] = std::atof(argv[4]);
+  Transform3d T;
+  T.x = adjust;
 
   // write the result
-  IndexedTriArray xlat = itas.translate(adjust);
+  IndexedTriArray xlat = itas.transform(T);
 
   // write the file to the new filename
   std::string fname = "adjusted." + std::string(argv[1]);

@@ -8,7 +8,6 @@
 #include <stack>
 #include <list>
 #include <set>
-#include <Moby/AAngle.h>
 #include <Moby/Constants.h>
 #include <Moby/CompGeom.h>
 #include <Moby/CollisionGeometry.h>
@@ -18,17 +17,17 @@
 #include <Moby/DeformableBody.h>
 #include <Moby/ArticulatedBody.h>
 #include <Moby/XMLTree.h>
-#include <Moby/XMLTree.h>
 #include <Moby/EventDrivenSimulator.h>
 #include <Moby/CollisionDetection.h>
 
-using namespace Moby;
+using namespace Ravelin;
 using boost::shared_ptr;
 using boost::dynamic_pointer_cast;
 using std::vector;
 using std::make_pair;
 using std::list;
 using std::pair;
+using namespace Moby;
 
 CollisionDetection::CollisionDetection()
 {
@@ -72,9 +71,7 @@ void CollisionDetection::set_enabled(BasePtr b, bool enabled)
   RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(b);
   if (rb)
   {
-    std::list<CollisionGeometryPtr> cgs;
-    rb->get_all_collision_geometries(std::back_inserter(cgs));
-    BOOST_FOREACH(CollisionGeometryPtr cg, cgs)
+    BOOST_FOREACH(CollisionGeometryPtr cg, rb->geometries)
       set_enabled(cg, enabled);
     return;
   }
@@ -153,9 +150,7 @@ void CollisionDetection::set_enabled(BasePtr b1, BasePtr b2, bool enabled)
   // next case: b1 is a CG and b2 is a RB
   if (cg1 && rb2)
   {
-    std::list<CollisionGeometryPtr> cgs;
-    rb2->get_all_collision_geometries(std::back_inserter(cgs));
-    BOOST_FOREACH(CollisionGeometryPtr cg, cgs)
+    BOOST_FOREACH(CollisionGeometryPtr cg, rb2->geometries)
       set_enabled(cg1, cg, enabled);
     return;
   }
@@ -163,9 +158,7 @@ void CollisionDetection::set_enabled(BasePtr b1, BasePtr b2, bool enabled)
   // next case: b1 is a RB and b2 is a CG
   if (cg2 && rb1)
   {
-    std::list<CollisionGeometryPtr> cgs;
-    rb1->get_all_collision_geometries(std::back_inserter(cgs));
-    BOOST_FOREACH(CollisionGeometryPtr cg, cgs)
+    BOOST_FOREACH(CollisionGeometryPtr cg, rb1->geometries)
       set_enabled(cg2, cg, enabled);
     return;
   }
@@ -186,11 +179,10 @@ void CollisionDetection::set_enabled(BasePtr b1, BasePtr b2, bool enabled)
   // next case: b1 is DB, b2 is RB
   if (db1 && rb2)
   {
-    std::list<CollisionGeometryPtr> cgs1, cgs2;
+    std::list<CollisionGeometryPtr> cgs1;
     db1->get_all_collision_geometries(std::back_inserter(cgs1));
-    rb2->get_all_collision_geometries(std::back_inserter(cgs2));
     BOOST_FOREACH(CollisionGeometryPtr cg1, cgs1)
-      BOOST_FOREACH(CollisionGeometryPtr cg2, cgs2)
+      BOOST_FOREACH(CollisionGeometryPtr cg2, rb2->geometries)
         set_enabled(cg1, cg2, enabled);
     
     return;
@@ -199,10 +191,9 @@ void CollisionDetection::set_enabled(BasePtr b1, BasePtr b2, bool enabled)
   // next case: b2 is DB, b1 is RB
   if (db2 && rb1)
   {
-    std::list<CollisionGeometryPtr> cgs1, cgs2;
-    rb1->get_all_collision_geometries(std::back_inserter(cgs1));
+    std::list<CollisionGeometryPtr> cgs2;
     db2->get_all_collision_geometries(std::back_inserter(cgs2));
-    BOOST_FOREACH(CollisionGeometryPtr cg1, cgs1)
+    BOOST_FOREACH(CollisionGeometryPtr cg1, rb1->geometries)
       BOOST_FOREACH(CollisionGeometryPtr cg2, cgs2)
         set_enabled(cg1, cg2, enabled);
     
@@ -212,11 +203,8 @@ void CollisionDetection::set_enabled(BasePtr b1, BasePtr b2, bool enabled)
   // next case: both b1 and b2 are RBs
   if (rb1 && rb2)
   {
-    std::list<CollisionGeometryPtr> cgs1, cgs2;
-    rb1->get_all_collision_geometries(std::back_inserter(cgs1));
-    rb2->get_all_collision_geometries(std::back_inserter(cgs2));
-    BOOST_FOREACH(CollisionGeometryPtr cg1, cgs1)
-      BOOST_FOREACH(CollisionGeometryPtr cg2, cgs2)
+    BOOST_FOREACH(CollisionGeometryPtr cg1, rb1->geometries)
+      BOOST_FOREACH(CollisionGeometryPtr cg2, rb2->geometries)
         set_enabled(cg1, cg2, enabled);
     
     return;
@@ -336,22 +324,18 @@ void CollisionDetection::remove_deformable_body(DeformableBodyPtr body)
 /// Adds a rigid body to the collision detector
 void CollisionDetection::add_rigid_body(RigidBodyPtr body)
 {
-  // get all collision geometries for this rigid body
-  std::list<CollisionGeometryPtr> geoms;
-  body->get_all_collision_geometries(std::back_inserter(geoms));
-  
-  // process them
-  BOOST_FOREACH(CollisionGeometryPtr cg, geoms)
+  // process all collision geometries for this rigid body
+  BOOST_FOREACH(CollisionGeometryPtr cg, body->geometries)
     add_collision_geometry(cg); 
 
   // disable all pairs of geometries for this rigid body
-  for (std::list<CollisionGeometryPtr>::const_iterator i = geoms.begin(); i != geoms.end(); i++)
+  for (std::list<CollisionGeometryPtr>::const_iterator i = body->geometries.begin(); i != body->geometries.end(); i++)
   {
     std::list<CollisionGeometryPtr>::const_iterator j = i;
     j++;
-    if (j == geoms.end())
+    if (j == body->geometries.end())
       break;
-    for (; j != geoms.end(); j++)
+    for (; j != body->geometries.end(); j++)
       set_enabled(*i, *j, false);
   }
 }
@@ -359,12 +343,8 @@ void CollisionDetection::add_rigid_body(RigidBodyPtr body)
 /// Removes a rigid body to the collision detector
 void CollisionDetection::remove_rigid_body(RigidBodyPtr body)
 {
-  // get all collision geometries for this rigid body
-  std::list<CollisionGeometryPtr> geoms;
-  body->get_all_collision_geometries(std::back_inserter(geoms));
-  
-  // process them
-  BOOST_FOREACH(CollisionGeometryPtr cg, geoms)
+  // process all geometries from this rigid body 
+  BOOST_FOREACH(CollisionGeometryPtr cg, body->geometries)
     remove_collision_geometry(cg); 
 }
 
@@ -449,16 +429,16 @@ void CollisionDetection::remove_collision_geometry(CollisionGeometryPtr geom)
  * \note does not calculate inter-geometry distances (i.e., in case a geometry
  *       is deformable)
  */  
-Real CollisionDetection::calc_distances()
+double CollisionDetection::calc_distances()
 {
-  Vector3 cp1, cp2;
+  Point3d cp1, cp2;
 
   // clear the mapping of distances first
   distances.clear();
   closest_points.clear();
 
   // determine distance between each pair of bodies
-  Real min_dist = std::numeric_limits<Real>::max();
+  double min_dist = std::numeric_limits<double>::max();
   for (std::set<CollisionGeometryPtr>::const_iterator i = _geoms.begin(); i != _geoms.end(); i++)
   {
     std::set<CollisionGeometryPtr>::const_iterator j = i; 
@@ -472,14 +452,13 @@ Real CollisionDetection::calc_distances()
       CollisionGeometryPtr g1 = *i;
       CollisionGeometryPtr g2 = *j;
 
-      // get the inverse transform for g1
-      Matrix4 g1Tw = Matrix4::inverse_transform(g1->get_transform());
-
-      // get the transform for g2
-      const Matrix4& wTg2 = g2->get_transform(); 
+      // get the two poses
+      shared_ptr<const Pose3d> p1 = g1->get_pose();
+      shared_ptr<const Pose3d> p2 = g2->get_pose();
+      Transform3d p1Tp2 = Pose3d::calc_relative_pose(p2, p1);
 
       // otherwise, compute the distance
-      Real dist = calc_distance(g1, g2, g1Tw * wTg2, cp1, cp2);
+      double dist = calc_distance(g1, g2, p1Tp2, cp1, cp2);
       min_dist = std::min(dist, min_dist);    
 
       // save the distance
@@ -502,13 +481,17 @@ Real CollisionDetection::calc_distances()
  * \param cpb the closest point to a on b (in b's frame)
  * \return the squared distance between cpa and cpb
  */
-Real CollisionDetection::calc_distance(CollisionGeometryPtr a, CollisionGeometryPtr b, const Matrix4& aTb, Vector3& cpa, Vector3& cpb)
+double CollisionDetection::calc_distance(CollisionGeometryPtr a, CollisionGeometryPtr b, const Transform3d& aTb, Point3d& cpa, Point3d& cpb)
 {
+  // get the poses of a and b
+  shared_ptr<const Pose3d> Pa = a->get_pose();
+  shared_ptr<const Pose3d> Pb = b->get_pose();
+
   // setup the minimum distance
-  Real min_dist = std::numeric_limits<Real>::max();
+  double min_dist = std::numeric_limits<double>::max();
 
   // determine the transform from b's frame to a's frame
-  Matrix4 bTa = Matrix4::inverse_transform(aTb);
+  Transform3d bTa = Transform3d::invert(aTb);
 
   // get the primitives 
   PrimitivePtr a_primitive = a->get_geometry(); 
@@ -522,27 +505,27 @@ Real CollisionDetection::calc_distance(CollisionGeometryPtr a, CollisionGeometry
   for (unsigned i=0; i< a_mesh.num_tris(); i++)
   {
     // get the triangle
-    Triangle ta = a_mesh.get_triangle(i);
+    Triangle ta = a_mesh.get_triangle(i, Pa);
 
     // loop over all triangles in b
     for (unsigned j=0; j< b_mesh.num_tris(); j++)
     {
       // get the untransformed second triangle
-      Triangle utb = b_mesh.get_triangle(j);
+      Triangle utb = b_mesh.get_triangle(j, Pb);
 
       // transform the second triangle
       Triangle tb = Triangle::transform(utb, aTb);
-
+ 
       // get distance between the two triangles
-      Vector3 cpa_tmp, cpb_tmp;
-      Real dist = Triangle::calc_sq_dist(ta, tb, cpa_tmp, cpb_tmp);
+      Point3d cpa_tmp, cpb_tmp;
+      double dist = Triangle::calc_sq_dist(ta, tb, cpa_tmp, cpb_tmp);
 
       // if it's the minimum distance, save the closest points
       if (dist < min_dist)
       {
         min_dist = dist;
         cpa = cpa_tmp;
-        cpb = bTa.mult_point(cpb_tmp);
+        cpb = bTa.transform_point(cpb_tmp);
       }
     }
   }
@@ -551,9 +534,9 @@ Real CollisionDetection::calc_distance(CollisionGeometryPtr a, CollisionGeometry
 }
 
 /// Implements Base::load_from_xml()
-void CollisionDetection::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void CollisionDetection::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
-  std::list<XMLTreeConstPtr> child_nodes;
+  std::list<shared_ptr<const XMLTree> > child_nodes;
   std::map<std::string, BasePtr>::const_iterator id_iter;
 
   // ***********************************************************************
@@ -565,8 +548,8 @@ void CollisionDetection::load_from_xml(XMLTreeConstPtr node, std::map<std::strin
   Base::load_from_xml(node, id_map);
 
   // get the list of body and geometry child nodes
-  std::list<XMLTreeConstPtr> body_children = node->find_child_nodes("Body");
-  std::list<XMLTreeConstPtr> geom_children = node->find_child_nodes("CollisionGeometry");
+  std::list<shared_ptr<const XMLTree> > body_children = node->find_child_nodes("Body");
+  std::list<shared_ptr<const XMLTree> > geom_children = node->find_child_nodes("CollisionGeometry");
 
   // if either body or geometry child nodes were specified, we'll remove all
   // geometries currently in the detector 
@@ -576,10 +559,10 @@ void CollisionDetection::load_from_xml(XMLTreeConstPtr node, std::map<std::strin
     remove_all_collision_geometries();
 
     // add any given bodies to the collision detector
-    for (std::list<XMLTreeConstPtr>::const_iterator i = body_children.begin(); i != body_children.end(); i++)
+    for (std::list<shared_ptr<const XMLTree> >::const_iterator i = body_children.begin(); i != body_children.end(); i++)
     {
       // get the ID attribute
-      const XMLAttrib* id_attrib = (*i)->get_attrib("body-id");
+      XMLAttrib* id_attrib = (*i)->get_attrib("body-id");
       if (!id_attrib)
       {
         std::cerr << "CollisionDetection::load_from_xml() - did not find ";
@@ -606,7 +589,7 @@ void CollisionDetection::load_from_xml(XMLTreeConstPtr node, std::map<std::strin
       else
       {
         // check to see whether adjacent links are disabled
-        const XMLAttrib* disable_adj_attrib = (*i)->get_attrib("disable-adjacent-links");
+        XMLAttrib* disable_adj_attrib = (*i)->get_attrib("disable-adjacent-links");
         bool disable_adj = ((disable_adj_attrib && disable_adj_attrib->get_bool_value()) || disable_adjacent_default);
 
         // add the body to the collision detector
@@ -625,10 +608,10 @@ void CollisionDetection::load_from_xml(XMLTreeConstPtr node, std::map<std::strin
     }
       
     // add any given geometries to the collision detector
-    for (std::list<XMLTreeConstPtr>::const_iterator i = geom_children.begin(); i != geom_children.end(); i++)
+    for (std::list<shared_ptr<const XMLTree> >::const_iterator i = geom_children.begin(); i != geom_children.end(); i++)
     {
       // get the ID attribute
-      const XMLAttrib* id_attrib = (*i)->get_attrib("geometry-id");
+      XMLAttrib* id_attrib = (*i)->get_attrib("geometry-id");
       if (!id_attrib)
       {
         std::cerr << "CollisionDetection::load_from_xml() - did not find ";
@@ -655,11 +638,11 @@ void CollisionDetection::load_from_xml(XMLTreeConstPtr node, std::map<std::strin
 
   // read all disabled pairs
   child_nodes = node->find_child_nodes("DisabledPair");
-  for (std::list<XMLTreeConstPtr>::const_iterator i = child_nodes.begin(); i != child_nodes.end(); i++)
+  for (std::list<shared_ptr<const XMLTree> >::const_iterator i = child_nodes.begin(); i != child_nodes.end(); i++)
   {
     // get the two ID attributes
-    const XMLAttrib* id1_attrib = (*i)->get_attrib("object1-id");
-    const XMLAttrib* id2_attrib = (*i)->get_attrib("object2-id");
+    XMLAttrib* id1_attrib = (*i)->get_attrib("object1-id");
+    XMLAttrib* id2_attrib = (*i)->get_attrib("object2-id");
 
     // make sure that they were read
     if (!id1_attrib || !id2_attrib)
@@ -698,10 +681,10 @@ void CollisionDetection::load_from_xml(XMLTreeConstPtr node, std::map<std::strin
 
   // read all disabled bodies
   child_nodes = node->find_child_nodes("Disabled");
-  for (std::list<XMLTreeConstPtr>::const_iterator i = child_nodes.begin(); i != child_nodes.end(); i++)
+  for (std::list<shared_ptr<const XMLTree> >::const_iterator i = child_nodes.begin(); i != child_nodes.end(); i++)
   {  
     // get the ID attribute
-    const XMLAttrib* id_attrib = (*i)->get_attrib("object-id");
+    XMLAttrib* id_attrib = (*i)->get_attrib("object-id");
     if (!id_attrib)
     {
       std::cerr << "CollisionDetection::load_from_xml() - did not find ";
@@ -727,7 +710,7 @@ void CollisionDetection::load_from_xml(XMLTreeConstPtr node, std::map<std::strin
   }
 
   // read the contact simulator ID, if specified
-  const XMLAttrib* sim_attrib = node->get_attrib("simulator-id");
+  XMLAttrib* sim_attrib = node->get_attrib("simulator-id");
   if (sim_attrib)
   {
     // get the ID
@@ -770,7 +753,7 @@ void CollisionDetection::load_from_xml(XMLTreeConstPtr node, std::map<std::strin
  * \note neither the contact cache nor the pairs currently in collision are 
  *       saved
  */
-void CollisionDetection::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
+void CollisionDetection::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& shared_objects) const
 {
   // call parent save_to_xml() method first
   Base::save_to_xml(node, shared_objects);

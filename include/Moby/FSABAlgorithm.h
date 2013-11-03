@@ -8,7 +8,7 @@
 #define _FS_AB_ALGORITHM_H
 
 #include <queue>
-#include <Moby/SpatialABInertia.h>
+#include <Ravelin/SpatialABInertiad.h>
 
 namespace Moby {
 
@@ -36,78 +36,76 @@ namespace Moby {
  */
 class FSABAlgorithm 
 {
+  friend class RCArticulatedBody;
+
   public:
     FSABAlgorithm();
     ~FSABAlgorithm() {}
     RCArticulatedBodyPtr get_body() const { return RCArticulatedBodyPtr(_body); }
     void set_body(RCArticulatedBodyPtr body) { _body = body; }
     void calc_fwd_dyn();
-    void apply_generalized_impulse(DynamicBody::GeneralizedCoordinateType gctype, const VectorN& gj);
-    void apply_impulse(const Vector3& j, const Vector3& k, const Vector3& contact_point, RigidBodyPtr link);
-    void calc_inverse_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, MatrixN& iM);
-    void invalidate_position_data() { _position_data_valid = false; }
-    void invalidate_velocity_data() { _velocity_data_valid = false; }
+    void apply_generalized_impulse(const Ravelin::VectorNd& gj);
+    void apply_impulse(const Ravelin::SMomentumd& j, RigidBodyPtr link);
 
     /// The body that this algorithm operates on
     boost::weak_ptr<RCArticulatedBody> _body;
 
-    /// The reference frame all quantities are computed in
-    ReferenceFrameType _rftype;
-
-    /// The spatial velocities
-    std::vector<SVector6> _v;
-
     /// The spatial accelerations
-    std::vector<SVector6> _a;
-
-    /// The spatial isolated inertias
-    std::vector<SpatialRBInertia> _Iiso;
+    std::vector<Ravelin::SAcceld> _a;
 
     /// The articulated body inertias
-    std::vector<SpatialABInertia> _I;
+    std::vector<Ravelin::SpatialABInertiad> _I;
 
     /// The articulated body spatial zero accelerations
-    std::vector<SVector6> _Z;
+    std::vector<Ravelin::SForced> _Z;
 
     /// Vector of link velocity updates
-    std::vector<SVector6> _dv;
+    std::vector<Ravelin::SVelocityd> _dv;
 
     /// The spatial coriolis vectors
-    std::vector<SVector6> _c;
+    std::vector<Ravelin::SAcceld> _c;
 
-    /// The expression I*s
-    std::vector<SMatrix6N> _Is;
+    /// The expressions I*s
+    std::vector<std::vector<Ravelin::SMomentumd> > _Is;
 
-    /// The temporary factorizations inv(sIs)
-    std::vector<MatrixN> _sIs;
+    /// Cholesky factorizations sIs
+    std::vector<Ravelin::MatrixNd> _sIs;
+
+    /// SVDs of sIs
+    std::vector<Ravelin::MatrixNd> _usIs, _vsIs;
+    std::vector<Ravelin::VectorNd> _ssIs;
 
     /// Determines whether the equations for a joint are rank deficient 
     std::vector<bool> _rank_deficient;
 
     /// The temporary expression Q - I*s'*c - s'*Z
-    std::vector<VectorN> _mu;
+    std::vector<Ravelin::VectorNd> _mu;
 
   private:
-    /// Is positional data valid?
-    bool _position_data_valid;
+    // pointer to the linear algebra routines
+    boost::shared_ptr<Ravelin::LinAlgd> _LA;
 
-    /// Is velocity data valid?
-    bool _velocity_data_valid;
+    /// work variables 
+    Ravelin::VectorNd _workv, _workv2, _sTY, _qd_delta, _sIsmu, _Qi, _Q;
+    Ravelin::MatrixNd _sIss, _workM;
+    std::vector<Ravelin::SMomentumd> _Y;
 
-    static Real sgn(Real x);
+    /// processed vector
+    std::vector<bool> _processed;
+
+    static double sgn(double x);
     static void push_children(RigidBodyPtr link, std::queue<RigidBodyPtr>& q);
-    void apply_coulomb_joint_friction(RCArticulatedBodyPtr body, ReferenceFrameType rftype);
-    void calc_impulse_dyn(RCArticulatedBodyPtr body, ReferenceFrameType rftype);
-    void apply_generalized_impulse(unsigned index, const std::vector<MatrixN>& sTI, VectorN& vgj) const;
-    void set_spatial_iso_inertias(RCArticulatedBodyPtr body, ReferenceFrameType rftype);
-    void set_spatial_velocities(RCArticulatedBodyPtr body, ReferenceFrameType rftype);
-    void calc_spatial_accelerations(RCArticulatedBodyPtr body, ReferenceFrameType rftype);
-    void calc_spatial_zero_accelerations(RCArticulatedBodyPtr body, ReferenceFrameType rftype);
-    void calc_spatial_inertias(RCArticulatedBodyPtr body, ReferenceFrameType rftype);
-    void calc_spatial_coriolis_vectors(RCArticulatedBodyPtr body, ReferenceFrameType rftype);
-    VectorN& solve_sIs(unsigned idx, const VectorN& v, VectorN& result) const;
-    MatrixN& solve_sIs(unsigned idx, const MatrixN& v, MatrixN& result) const;
-    MatrixN& transpose_solve_sIs(unsigned idx, const SMatrix6N& m, MatrixN& result) const;
+    void apply_coulomb_joint_friction(RCArticulatedBodyPtr body);
+    void calc_impulse_dyn(RCArticulatedBodyPtr body);
+    void apply_generalized_impulse(unsigned index, const std::vector<std::vector<Ravelin::SForced> >& sTI, Ravelin::VectorNd& vgj);
+    void set_spatial_velocities(RCArticulatedBodyPtr body);
+    void calc_spatial_accelerations(RCArticulatedBodyPtr body);
+    void calc_spatial_zero_accelerations(RCArticulatedBodyPtr body);
+    void calc_spatial_inertias(RCArticulatedBodyPtr body);
+    void calc_spatial_coriolis_vectors(RCArticulatedBodyPtr body);
+    Ravelin::VectorNd& solve_sIs(unsigned idx, const Ravelin::VectorNd& v, Ravelin::VectorNd& result) const;
+    Ravelin::MatrixNd& solve_sIs(unsigned idx, const Ravelin::MatrixNd& v, Ravelin::MatrixNd& result) const;
+    Ravelin::MatrixNd& transpose_solve_sIs(unsigned idx, const std::vector<Ravelin::SVelocityd>& m, Ravelin::MatrixNd& result) const;
 }; // end class
 } // end namespace
 

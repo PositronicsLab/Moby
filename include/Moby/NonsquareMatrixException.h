@@ -4,8 +4,8 @@
  * License (found in COPYING).
  ****************************************************************************/
 
-#ifndef _NONSQUARE_MATRIX_EXCEPTION_H_
-#define _NONSQUARE_MATRIX_EXCEPTION_H_
+#ifndef _MOBY_NONSQUARE_MATRIX_EXCEPTION_H_
+#define _MOBY_NONSQUARE_MATRIX_EXCEPTION_H_
 
 #include <stdexcept>
 

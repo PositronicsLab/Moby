@@ -9,7 +9,7 @@
  * \return the size of step taken
  */
 template <class ForwardIterator>
-Real Simulator::integrate(Real step_size, ForwardIterator begin, ForwardIterator end)
+double Simulator::integrate(double step_size, ForwardIterator begin, ForwardIterator end)
 {
   // begin timing dynamics
   tms start;  
@@ -21,24 +21,24 @@ Real Simulator::integrate(Real step_size, ForwardIterator begin, ForwardIterator
     // integrate the body
     if (LOGGING(LOG_SIMULATOR))
     {
-      VectorN q;
-      FILE_LOG(LOG_SIMULATOR) << "  generalized coordinates (before): " << (*i)->get_generalized_coordinates(DynamicBody::eRodrigues, q) << std::endl;
-      FILE_LOG(LOG_SIMULATOR) << "  generalized velocities (before): " << (*i)->get_generalized_velocity(DynamicBody::eAxisAngle, q) << std::endl;
+      Ravelin::VectorNd q;
+      FILE_LOG(LOG_SIMULATOR) << "  generalized coordinates (before): " << (*i)->get_generalized_coordinates(DynamicBody::eEuler, q) << std::endl;
+      FILE_LOG(LOG_SIMULATOR) << "  generalized velocities (before): " << (*i)->get_generalized_velocity(DynamicBody::eSpatial, q) << std::endl;
     }
     (*i)->integrate(current_time, step_size, integrator);
     if (LOGGING(LOG_SIMULATOR))
     {
-      VectorN q;
-      FILE_LOG(LOG_SIMULATOR) << "  generalized coordinates (after): " << (*i)->get_generalized_coordinates(DynamicBody::eRodrigues, q) << std::endl;
-      FILE_LOG(LOG_SIMULATOR) << "  generalized velocities (after): " << (*i)->get_generalized_velocity(DynamicBody::eAxisAngle, q) << std::endl;
+      Ravelin::VectorNd q;
+      FILE_LOG(LOG_SIMULATOR) << "  generalized coordinates (after): " << (*i)->get_generalized_coordinates(DynamicBody::eEuler, q) << std::endl;
+      FILE_LOG(LOG_SIMULATOR) << "  generalized velocities (after): " << (*i)->get_generalized_velocity(DynamicBody::eSpatial, q) << std::endl;
     }
   }
 
   // tabulate dynamics computation
   tms stop;  
   times(&stop);
-  dynamics_utime += (Real) (stop.tms_utime-start.tms_utime)/CLOCKS_PER_SEC;
-  dynamics_stime += (Real) (stop.tms_stime-start.tms_stime)/CLOCKS_PER_SEC;
+  dynamics_utime += (double) (stop.tms_utime-start.tms_utime)/CLOCKS_PER_SEC;
+  dynamics_stime += (double) (stop.tms_stime-start.tms_stime)/CLOCKS_PER_SEC;
 
   return step_size;
 }

@@ -26,33 +26,34 @@ class DummyBV : public BV
     virtual ~DummyBV() {}
 
     /// Nothing will be output
-    std::ostream& to_vrml(std::ostream& out, const Matrix4& T) const { return out; }
+    std::ostream& to_vrml(std::ostream& out, const Ravelin::Pose3d& T) const { return out; }
 
     /// Determines whether a point is outside the bounding volume
-    virtual bool outside(const Vector3& point, Real tol = NEAR_ZERO) { return false; }
+    virtual bool outside(const Point3d& point, double tol = NEAR_ZERO) { return false; }
 
     /// Determines whether a line segment intersects the bounding volume
-    virtual bool intersects(const LineSeg3& seg, Real& tmin, Real tmax, Vector3& q) const { q = seg.first*tmin + seg.second*((Real) 1.0 - tmin); return true; }
+    virtual bool intersects(const LineSeg3& seg, double& tmin, double tmax, Point3d& q) const { q = seg.first*tmin + seg.second*((double) 1.0 - tmin); return true; }
 
     /// Virtual function that calculates a velocity-expanded BV
     /**
      * \param g the geometry that this bounding volume represents
      * \param dt the time step
-     * \param lv the linear velocity
-     * \param av the angular velocity
+     * \param v the velocity
      * \return the velocity-expanded bounding volume
      */ 
-    virtual BVPtr calc_vel_exp_BV(CollisionGeometryPtr g, Real dt, const Vector3& lv, const Vector3& av) const { return boost::const_pointer_cast<BV>(get_this()); }
+    virtual BVPtr calc_swept_BV(CollisionGeometryPtr g, double dt, const Ravelin::SVelocityd& v) const { return boost::const_pointer_cast<BV>(get_this()); }
 
     /// Volume will be zero
-    virtual Real calc_volume() const { return 0.0; }
+    virtual double calc_volume() const { return 0.0; }
 
     /// Gets the lower bounds
-    virtual Vector3 get_lower_bounds(const Matrix4& T) { Real INF = std::numeric_limits<Real>::max(); return Vector3(-INF, -INF, -INF); }
+    virtual Point3d get_lower_bounds() { double INF = std::numeric_limits<double>::max(); return Point3d(-INF, -INF, -INF); }
 
     /// Gets the upper bounds
-    virtual Vector3 get_upper_bounds(const Matrix4& T) { Real INF = std::numeric_limits<Real>::max(); return Vector3(INF, INF, INF); }
+    virtual Point3d get_upper_bounds() { double INF = std::numeric_limits<double>::max(); return Point3d(INF, INF, INF); }
 
+    /// Transforms the dummy BV (does nothing)
+    virtual void transform(const Ravelin::Transform3d& T, BV* result) const {}
 }; // end class
 
 } // end namespace

@@ -11,24 +11,28 @@
 #include <limits>
 #include <cmath>
 #include <sstream>
+#include <Ravelin/MatrixNd.h>
 #include <Moby/MissizeException.h>
-#include <Moby/MatrixN.h>
 #include <Moby/XMLTree.h>
 
+using boost::shared_ptr;
 using namespace Moby;
+using namespace Ravelin;
 
 /// Constructs an XMLAttrib object from a name and a string value
 XMLAttrib::XMLAttrib(const std::string& name, const std::string& string_value)
 {
   this->name = name;
   this->value = string_value;
+  this->processed = false;
 }
 
 /// Constructs a real-valued attribute with the given name
-XMLAttrib::XMLAttrib(const std::string& name, Real real_value)
+XMLAttrib::XMLAttrib(const std::string& name, double real_value)
 {
   this->name = name;
   this->value = str(real_value);
+  this->processed = false;
 }
 
 /// Constructs an integer-valued attribute with the given name
@@ -38,6 +42,7 @@ XMLAttrib::XMLAttrib(const std::string& name, int int_value)
   std::ostringstream oss;
   oss << int_value;
   this->value = oss.str();
+  this->processed = false;
 }
 
 /// Constructs an unsigned integer-valued attribute with the given name
@@ -47,11 +52,53 @@ XMLAttrib::XMLAttrib(const std::string& name, unsigned unsigned_value)
   std::ostringstream oss;
   oss << unsigned_value;
   this->value = oss.str();
+  this->processed = false;
+}
+
+/// Constructs a Origin3d-valued attribute with the given name
+XMLAttrib::XMLAttrib(const std::string& name, const Origin3d& o)
+{
+  this->name = name;
+  std::ostringstream oss;
+  oss << o[0] << " " << o[1] << " " << o[2];
+  this->value = oss.str();
+  this->processed = false;
+}
+
+/// Constructs a Vector2d-valued attribute with the given name
+XMLAttrib::XMLAttrib(const std::string& name, const Vector2d& v)
+{
+  this->name = name;
+  std::ostringstream oss;
+  oss << v[0] << " " << v[1];
+  this->value = oss.str();
+  this->processed = false;
+}
+
+/// Constructs a Vector3d-valued attribute with the given name
+XMLAttrib::XMLAttrib(const std::string& name, const Vector3d& v)
+{
+  this->name = name;
+  std::ostringstream oss;
+  oss << v[0] << " " << v[1] << " " << v[2];
+  this->value = oss.str();
+  this->processed = false;
+}
+
+/// Constructs a Quatd-valued attribute with the given name
+XMLAttrib::XMLAttrib(const std::string& name, const Quatd& q)
+{
+  this->name = name;
+  std::ostringstream oss;
+  oss << q.w << " " << q.x << " " << q.y << " " << q.z;
+  this->value = oss.str();
+  this->processed = false;
 }
 
 /// Constructs a vector-valued attribute with the given name
-XMLAttrib::XMLAttrib(const std::string& name, const VectorN& vector_value)
+XMLAttrib::XMLAttrib(const std::string& name, const VectorNd& vector_value)
 {
+  this->processed = false;
   this->name = name;
   std::ostringstream oss;
 
@@ -74,8 +121,9 @@ XMLAttrib::XMLAttrib(const std::string& name, const VectorN& vector_value)
 }
 
 /// Constructs a vector-valued attribute with the given name
-XMLAttrib::XMLAttrib(const std::string& name, const SVector6& vector_value)
+XMLAttrib::XMLAttrib(const std::string& name, const SVector6d& vector_value)
 {
+  this->processed = false;
   this->name = name;
   std::ostringstream oss;
 
@@ -91,8 +139,9 @@ XMLAttrib::XMLAttrib(const std::string& name, const SVector6& vector_value)
 }
 
 /// Constructs a vector-valued attribute with the given name
-XMLAttrib::XMLAttrib(const std::string& name, const MatrixN& matrix_value)
+XMLAttrib::XMLAttrib(const std::string& name, const MatrixNd& matrix_value)
 {  
+  this->processed = false;
   this->name = name;
   std::ostringstream oss;
 
@@ -125,8 +174,9 @@ XMLAttrib::XMLAttrib(const std::string& name, const MatrixN& matrix_value)
 }
 
 /// Constructs a vector-valued attribute with the given name
-XMLAttrib::XMLAttrib(const std::string& name, const Matrix3& matrix_value)
+XMLAttrib::XMLAttrib(const std::string& name, const Matrix3d& matrix_value)
 {  
+  this->processed = false;
   this->name = name;
   std::ostringstream oss;
 
@@ -151,39 +201,10 @@ XMLAttrib::XMLAttrib(const std::string& name, const Matrix3& matrix_value)
   this->value = oss.str();
 }
 
-/// Constructs a vector-valued attribute with the given name
-XMLAttrib::XMLAttrib(const std::string& name, const Matrix4& matrix_value)
-{  
-  this->name = name;
-  std::ostringstream oss;
-
-  // set the first value of the matrix
-  oss << str(matrix_value(0,0));
-
-  // for each row of the matrix
-  for (unsigned j=0; j< 3; j++)
-  {
-    // determine column iteration
-    unsigned i = (j == 0) ? 1 : 0;
-
-    // for each column of the matrix
-    for (; i< matrix_value.columns(); i++)
-      oss << " " << str(matrix_value(j,i));
-
-    // separate rows with a semicolon
-    oss << ";";
-  }
-
-  // write the fourth row
-  oss << " 0 0 0 1";
-
-  // get the string value
-  this->value = oss.str();
-}
-
 /// Constructs a Boolean-valued attribute from the given value
 XMLAttrib::XMLAttrib(const std::string& name, bool bool_value)
 {
+  this->processed = false;
   this->name = name;
   this->value = (bool_value) ? "true" : "false";  
 }
@@ -191,6 +212,7 @@ XMLAttrib::XMLAttrib(const std::string& name, bool bool_value)
 /// Constructs a long-valued attribute from the given value
 XMLAttrib::XMLAttrib(const std::string& name, long long_value)
 {
+  this->processed = false;
   this->name = name;
   std::ostringstream oss;
   oss << long_value;
@@ -198,11 +220,11 @@ XMLAttrib::XMLAttrib(const std::string& name, long long_value)
 }
 
 /// Gets a real value as a string
-std::string XMLAttrib::str(Real value)
+std::string XMLAttrib::str(double value)
 {
-  if (value == std::numeric_limits<Real>::infinity())
+  if (value == std::numeric_limits<double>::infinity())
     return std::string("inf");
-  else if (value == -std::numeric_limits<Real>::infinity())
+  else if (value == -std::numeric_limits<double>::infinity())
     return std::string("-inf");
   else
   {
@@ -213,14 +235,17 @@ std::string XMLAttrib::str(Real value)
 }
 
 /// Gets a floating point value from the underlying string representation
-Real XMLAttrib::get_real_value() const
+double XMLAttrib::get_real_value()
 {
+  // indicate this attribute has been processed
+  processed = true;
+
   if (strcasecmp(this->value.c_str(), "inf") == 0)
-    return std::numeric_limits<Real>::infinity();
+    return std::numeric_limits<double>::infinity();
   else if (strcasecmp(this->value.c_str(), "-inf") == 0)
-    return -std::numeric_limits<Real>::infinity();
+    return -std::numeric_limits<double>::infinity();
   else
-    return (Real) std::atof(this->value.c_str());
+    return (double) std::atof(this->value.c_str());
 }
 
 /// Gets a Boolean value from the underlying string representation
@@ -228,8 +253,11 @@ Real XMLAttrib::get_real_value() const
  * \note an error message will be output to stderr if the string is not either 
  *         "true" or "false" (case insensitive)
  */
-bool XMLAttrib::get_bool_value() const
+bool XMLAttrib::get_bool_value()
 {
+  // indicate this attribute has been processed
+  processed = true;
+
   // remove leading and trailing whitespace from the string
   unsigned idx_first = this->value.find_first_not_of(" \t\n");
   unsigned idx_last = this->value.find_last_not_of(" \t\n");
@@ -246,7 +274,7 @@ bool XMLAttrib::get_bool_value() const
   }
 }
 
-XMLTreeConstPtr XMLTree::read_from_xml(const std::string& fname)
+shared_ptr<const XMLTree> XMLTree::read_from_xml(const std::string& fname)
 {
   xmlDoc* doc;
 
@@ -264,14 +292,14 @@ XMLTreeConstPtr XMLTree::read_from_xml(const std::string& fname)
   {
     std::cerr << "XMLTree::read_from_xml() - unable to open file " << fname;
     std::cerr << " for reading" << std::endl;
-    return XMLTreeConstPtr();
+    return shared_ptr<const XMLTree>();
   }
   
   // get the document for parsing
   xmlNode* root = xmlDocGetRootElement(doc);
 
   // construct the XML tree
-  XMLTreeConstPtr node = construct_xml_tree(root);
+  shared_ptr<const XMLTree> node = construct_xml_tree(root);
 
   // free the XML document
   xmlFreeDoc(doc);
@@ -280,7 +308,7 @@ XMLTreeConstPtr XMLTree::read_from_xml(const std::string& fname)
 }
 
 /// Constructs an XML tree from a xmlNode object
-XMLTreeConstPtr XMLTree::construct_xml_tree(xmlNode* root)
+shared_ptr<const XMLTree> XMLTree::construct_xml_tree(xmlNode* root)
 {
   // construct a new node
   XMLTreePtr node(new XMLTree(std::string((char*) root->name)));
@@ -301,8 +329,11 @@ XMLTreeConstPtr XMLTree::construct_xml_tree(xmlNode* root)
 }
 
 /// Gets a list of space-delimited and/or comma-delimited strings from the underlying string value
-std::list<std::string> XMLAttrib::get_strings_value() const
+std::list<std::string> XMLAttrib::get_strings_value()
 {
+  // indicate this attribute has been processed
+  processed = true;
+
   std::list<std::string> values;
   std::string copy = this->value;
   while (true)
@@ -342,63 +373,114 @@ std::list<std::string> XMLAttrib::get_strings_value() const
 }
 
 /// Gets a list of space-delimited and/or comma-delimited vectors from the underlying string value
-void XMLAttrib::get_vector_value(VectorN& v) const
+void XMLAttrib::get_vector_value(VectorNd& v)
 {
-  v = VectorN::parse(value);
+  // indicate this attribute has been processed
+  processed = true;
+
+  v = VectorNd::parse(value);
+}
+
+/// Returns an Origin3d value from the attribute
+Origin3d XMLAttrib::get_origin_value() 
+{
+  // indicate this attribute has been processed
+  processed = true;
+
+  VectorNd v = VectorNd::parse(value);
+  if (v.size() != 3)
+    throw std::runtime_error("Unable to parse origin from vector!");
+  Origin3d o;
+  o.x() = v[0];
+  o.y() = v[1];
+  o.z() = v[2];
+  return o;
+}
+
+/// Returns a quaternion value from the attribute
+Quatd XMLAttrib::get_quat_value()
+{
+  // indicate this attribute has been processed
+  processed = true;
+
+  VectorNd v = VectorNd::parse(value);
+  if (v.size() != 4)
+    throw std::runtime_error("Unable to parse quaternion from vector!");
+  Quatd q;
+  q.w = v[0];
+  q.x = v[1];
+  q.y = v[2];
+  q.z = v[3];
+  return q;
+}
+
+/// Returns a quaternion value from a roll-pitch-yaw attribute
+Quatd XMLAttrib::get_rpy_value()
+{
+  // indicate this attribute has been processed
+  processed = true;
+
+  VectorNd v = VectorNd::parse(value);
+  if (v.size() != 3)
+    throw std::runtime_error("Unable to parse roll-pitch-yaw from vector!");
+  return Quatd::rpy(v[0], v[1], v[2]);
 }
 
 /// Gets a list of space-delimited and/or comma-delimited vectors from the underlying string value
-void XMLAttrib::get_vector_value(Vector2& v) const
+void XMLAttrib::get_vector_value(Vector2d& v)
 {
-  VectorN w = VectorN::parse(value);
+  // indicate this attribute has been processed
+  processed = true;
+
+  VectorNd w = VectorNd::parse(value);
   if (w.size() != v.size())
     throw MissizeException();
-  v = Vector2(w.begin());
+  v = Vector2d(w[0], w[1]);
 }  
 
 /// Gets a list of space-delimited and/or comma-delimited vectors from the underlying string value
-void XMLAttrib::get_vector_value(Vector3& v) const
+void XMLAttrib::get_vector_value(Vector3d& v)
 {
-  VectorN w = VectorN::parse(value);
+  // indicate this attribute has been processed
+  processed = true;
+
+  VectorNd w = VectorNd::parse(value);
   if (w.size() != v.size())
     throw MissizeException();
-  v = Vector3(w.begin());
+  v = Vector3d(w[0], w[1], w[2]);
 }  
 
 /// Gets a list of space-delimited and/or comma-delimited vectors from the underlying string value
-void XMLAttrib::get_vector_value(SVector6& v) const
+void XMLAttrib::get_vector_value(SVector6d& v)
 {
-  VectorN w = VectorN::parse(value);
+  // indicate this attribute has been processed
+  processed = true;
+
+  VectorNd w = VectorNd::parse(value);
   if (w.size() != v.size())
     throw MissizeException();
-  v = SVector6(w.begin());
+  v = SVector6d(w[0], w[1], w[2], w[3], w[4], w[5]);
 }  
 
 /// Gets a list of space-delimited and/or comma-delimited strings from the underlying string value
-void XMLAttrib::get_matrix_value(Matrix3& m) const
+void XMLAttrib::get_matrix_value(Matrix3d& m)
 {
-  MatrixN n;
+  // indicate this attribute has been processed
+  processed = true;
+
+  MatrixNd n;
   get_matrix_value(n);
-  if (n.rows() != m.size() || n.columns() != m.size())
+  if (n.rows() != m.rows() || n.columns() != m.rows())
     throw MissizeException();
-  m = Matrix3(n.begin());
+  m = Matrix3d(n.data());
 } 
 
 /// Gets a list of space-delimited and/or comma-delimited strings from the underlying string value
-void XMLAttrib::get_matrix_value(Matrix4& m) const
+void XMLAttrib::get_matrix_value(MatrixNd& m)
 {
-  const unsigned X = 0, W = 3;
-  MatrixN n;
-  get_matrix_value(n);
-  if (n.rows() != m.size() || n.columns() != m.size())
-    throw MissizeException();
-  MatrixN o = n.get_sub_mat(X,W,X,W+1);
-  m = Matrix4(o.begin());
-} 
+  // indicate this attribute has been processed
+  processed = true;
 
-/// Gets a list of space-delimited and/or comma-delimited strings from the underlying string value
-void XMLAttrib::get_matrix_value(MatrixN& m) const
-{
   // construct the list of properties
   std::list<std::list<std::string> > plist;
   std::list<std::string> clist;
@@ -477,11 +559,11 @@ void XMLAttrib::get_matrix_value(MatrixN& m) const
     for (std::list<std::string>::const_iterator j = i->begin(); j != i->end(); j++)
     {
       if (strcasecmp(j->c_str(), "inf") == 0)
-        m(r,s) = std::numeric_limits<Real>::infinity();
+        m(r,s) = std::numeric_limits<double>::infinity();
       else if (strcasecmp(j->c_str(), "-inf") == 0)
-        m(r,s) = -std::numeric_limits<Real>::infinity();
+        m(r,s) = -std::numeric_limits<double>::infinity();
       else
-        m(r,s) = (Real) atof(j->c_str());
+        m(r,s) = (double) atof(j->c_str());
       s++;
     }
     r++;
@@ -499,6 +581,7 @@ std::ostream& Moby::operator<<(std::ostream& out, const XMLAttrib& attr)
 /// Constructs a XMLTree with no attributes
 XMLTree::XMLTree(const std::string& name)
 {
+  this->processed = false;
   this->name = name;
 }
 
@@ -507,6 +590,7 @@ XMLTree::XMLTree(const std::string& name, const std::list<XMLAttrib>& attributes
 {
   this->name = name;
   this->attribs = std::set<XMLAttrib>(attributes.begin(), attributes.end());
+  this->processed = false;
 }
 
 /// Gets the specified attribute
@@ -514,7 +598,7 @@ XMLTree::XMLTree(const std::string& name, const std::list<XMLAttrib>& attributes
  * \return a pointer to the attribute with the specified name, or NULL if the
  *         requested attribute does not exist
  */
-const XMLAttrib* XMLTree::get_attrib(const std::string& attrib_name) const
+XMLAttrib* XMLTree::get_attrib(const std::string& attrib_name) const
 {
   // construct an empty attribute
   XMLAttrib attr(attrib_name, "");
@@ -523,13 +607,13 @@ const XMLAttrib* XMLTree::get_attrib(const std::string& attrib_name) const
   std::set<XMLAttrib>::const_iterator attrib_iter = this->attribs.find(attr);
 
   // return the appropriate value
-  return (attrib_iter == this->attribs.end()) ? NULL : &(*attrib_iter);
+  return (attrib_iter == this->attribs.end()) ? NULL : (XMLAttrib*) &(*attrib_iter);
 }
 
 /// Returns a list of all child nodes (not including further descendants) matching any of the names in the given list (case insensitive)
-std::list<XMLTreeConstPtr> XMLTree::find_child_nodes(const std::list<std::string>& names) const
+std::list<shared_ptr<const XMLTree> > XMLTree::find_child_nodes(const std::list<std::string>& names) const
 {
-  std::list<XMLTreeConstPtr> matches;
+  std::list<shared_ptr<const XMLTree> > matches;
 
   // construct a set out of the list of names -- all names are converted to
   // lowercase first
@@ -563,9 +647,9 @@ std::list<XMLTreeConstPtr> XMLTree::find_child_nodes(const std::list<std::string
 }
 
 /// Returns a list of all child nodes (not including further descendants) matching the given name (case insensitive)
-std::list<XMLTreeConstPtr> XMLTree::find_child_nodes(const std::string& name) const
+std::list<shared_ptr<const XMLTree> > XMLTree::find_child_nodes(const std::string& name) const
 {
-  std::list<XMLTreeConstPtr> matches;
+  std::list<shared_ptr<const XMLTree> > matches;
 
   // convert the name to lowercase
   std::string name_lower = name;

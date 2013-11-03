@@ -17,7 +17,6 @@
 #include <Moby/Log.h>
 #include <Moby/Integrator.h>
 #include <Moby/RigidBody.h>
-#include <Moby/VectorN.h>
 #include <Moby/ArticulatedBody.h>
 
 namespace osg { 
@@ -43,19 +42,19 @@ class Simulator : public virtual Base
   public:
     Simulator();
     virtual ~Simulator(); 
-    virtual Real step(Real step_size);
+    virtual double step(double step_size);
     DynamicBodyPtr find_dynamic_body(const std::string& name) const;
     void add_dynamic_body(DynamicBodyPtr body);
     void remove_dynamic_body(DynamicBodyPtr body);
     void update_visualization();
-    virtual void save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const;
-    virtual void load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map);  
+    virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
+    virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);  
 
     /// The current simulation time
-    Real current_time;
+    double current_time;
 
     /// The integrator used to step the simulation
-    boost::shared_ptr<Integrator<VectorN> > integrator;
+    boost::shared_ptr<Integrator> integrator;
 
     /// Gets the list of dynamic bodies in the simulator
     /**
@@ -76,10 +75,10 @@ class Simulator : public virtual Base
     void (*post_step_callback_fn)(Simulator* s);
 
     /// User time spent by dynamics on the last step
-    Real dynamics_utime;
+    double dynamics_utime;
 
     /// System time spent by dynamics on the last step
-    Real dynamics_stime;
+    double dynamics_stime;
 
   protected:
     osg::Group* _persistent_vdata;
@@ -89,10 +88,10 @@ class Simulator : public virtual Base
     std::vector<DynamicBodyPtr> _bodies;
   
     template <class ForwardIterator>
-    Real integrate(Real step_size, ForwardIterator begin, ForwardIterator end);
+    double integrate(double step_size, ForwardIterator begin, ForwardIterator end);
 
     /// Integrates all dynamic bodies
-    Real integrate(Real step_size) { return integrate(step_size, _bodies.begin(), _bodies.end()); }
+    double integrate(double step_size) { return integrate(step_size, _bodies.begin(), _bodies.end()); }
 }; // end class
 
 // include inline functions

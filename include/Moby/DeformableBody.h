@@ -9,6 +9,8 @@
 
 #include <iostream>
 #include <boost/shared_ptr.hpp>
+#include <Ravelin/Matrix3d.h>
+#include <Ravelin/SpatialRBInertiad.h>
 #include <Moby/Node.h>
 #include <Moby/AABB.h>
 #include <Moby/Visualizable.h>
@@ -35,39 +37,40 @@ class DeformableBody : public SingleBody
 {
   public:
     DeformableBody();
-    std::ostream& to_vrml(std::ostream& o, Real scale) const;
+    std::ostream& to_vrml(std::ostream& o, double scale) const;
     virtual void reset_accumulators();
-    virtual void transform(const Matrix4& T);
-    virtual Real calc_kinetic_energy() const;
+    virtual void rotate(const Ravelin::Quatd& q);
+    virtual void translate(const Ravelin::Origin3d& o);
+    virtual double calc_kinetic_energy();
     virtual unsigned num_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype) const;
-    virtual void add_generalized_force(DynamicBody::GeneralizedCoordinateType gctype, const VectorN& gf);
-    virtual void apply_generalized_impulse(DynamicBody::GeneralizedCoordinateType gctype, const VectorN& gj);
-    virtual VectorN& get_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, VectorN& gc);
-    virtual VectorN& get_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, VectorN& gv);
-    virtual VectorN& get_generalized_acceleration(DynamicBody::GeneralizedCoordinateType gctype, VectorN& ga);
-    virtual void set_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, const VectorN& gc);
-    virtual void set_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, const VectorN& gv);
-    virtual MatrixN& get_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, MatrixN& M);
-    virtual VectorN& get_generalized_forces(DynamicBody::GeneralizedCoordinateType gctype, VectorN& f);
-    virtual VectorN& convert_to_generalized_force(DynamicBody::GeneralizedCoordinateType gctype, SingleBodyPtr body, const Vector3& p, const Vector3& f, const Vector3& t, VectorN& gf);
+    virtual void add_generalized_force(const Ravelin::VectorNd& gf);
+    virtual void apply_generalized_impulse(const Ravelin::VectorNd& gj);
+    virtual Ravelin::VectorNd& get_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& gc);
+    virtual Ravelin::VectorNd& get_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& gv);
+    virtual Ravelin::VectorNd& get_generalized_acceleration(Ravelin::VectorNd& ga);
+    virtual void set_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gc);
+    virtual void set_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gv);
+    virtual Ravelin::MatrixNd& get_generalized_inertia(Ravelin::MatrixNd& M);
+    virtual Ravelin::VectorNd& get_generalized_forces(Ravelin::VectorNd& f);
+    virtual Ravelin::VectorNd& convert_to_generalized_force(SingleBodyPtr body, const Ravelin::SForced& w, const Point3d& p, Ravelin::VectorNd& gf);
     virtual void set_mesh(boost::shared_ptr<const IndexedTetraArray> tetra_mesh, boost::shared_ptr<Primitive> tri_mesh);
-    virtual Vector3 calc_point_vel(const Vector3& p) const;
-    virtual void add_force(const Vector3& f);
-    virtual void add_force(const Vector3& f, const Vector3& p);
-    virtual void load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map);
-    virtual void save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const;
-    virtual MatrixN& solve_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, const MatrixN& B, MatrixN& X);
-    virtual VectorN& solve_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, const VectorN& b, VectorN& x);
-    virtual Real calc_potential_energy() const = 0;
+    virtual Ravelin::Vector3d calc_point_vel(const Point3d& p) const;
+    void add_force(const Ravelin::Vector3d& f);
+    void add_force(const Ravelin::Vector3d& f, const Point3d& p);
+    virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
+    virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
+    virtual Ravelin::MatrixNd& solve_generalized_inertia(const Ravelin::MatrixNd& B, Ravelin::MatrixNd& X);
+    virtual Ravelin::VectorNd& solve_generalized_inertia(const Ravelin::VectorNd& b, Ravelin::VectorNd& x);
+    virtual double calc_potential_energy() const = 0;
 
-    /// Gets the position of the center-of-mass of the deformable body
-    virtual const Vector3& get_position() const { return _x; }
+    /// Gets the computation pose of the deformable body
+    virtual boost::shared_ptr<const Ravelin::Pose3d> get_computation_pose() const { return _F; }
+
+    /// Gets the pose of the deformable body 
+    virtual boost::shared_ptr<const Ravelin::Pose3d> get_pose() const { return _F; }
 
     /// Gets the linear velocity of the center-of-mass of the body
-    virtual const Vector3& get_lvel() const { return _xd; }
-
-    /// Gets the angular velocity of the body
-    virtual const Vector3& get_avel() const { return _omega; }
+    virtual const Ravelin::SVelocityd& get_velocity() { return _xd; }
 
     /// Deformable bodies are always enabled
     virtual bool is_enabled() const { return true; } 
@@ -88,14 +91,13 @@ class DeformableBody : public SingleBody
     DeformableBodyPtr get_this() { return boost::dynamic_pointer_cast<DeformableBody>(shared_from_this()); }
 
   protected:
-    virtual const Matrix4* get_visualization_transform() { return &IDENTITY_4x4; }
     void calc_com_and_vels();
     void update_geometries();
-    unsigned find_closest_tetrahedron(const Vector3& p) const;
+    unsigned find_closest_tetrahedron(const Point3d& p) const;
     Tetrahedron get_tetrahedron(unsigned i) const;
 
     template <class OutputIterator>
-    OutputIterator get_tetrahedra(const Vector3& p, OutputIterator output_begin) const;
+    OutputIterator get_tetrahedra(const Point3d& p, OutputIterator output_begin) const;
 
     /// The nodes comprising the deformable body
     std::vector<boost::shared_ptr<Node> > _nodes;
@@ -107,7 +109,7 @@ class DeformableBody : public SingleBody
       unsigned tetra;   
 
       /// Barycentric coordinates of the vertex
-      Real uvw[3];
+      double uvw[3];
     };
 
     /// The tetrahedral mesh for the body's geometry 
@@ -120,27 +122,18 @@ class DeformableBody : public SingleBody
     /// The vertex map
     std::vector<VertexMap> _vertex_map;
 
-    /// The mass
-    Real _mass;
+    /// The velocity of the body (computation frame)
+    Ravelin::SVelocityd _xd;
 
-    /// The position of the center-of-mass of the deformable body
-    Vector3 _x;
+    /// The inertia matrix (computation frame)
+    Ravelin::SpatialRBInertiad _J;
 
-    /// The velocity of the center-of-mass of the body (global frame)
-    Vector3 _xd;
-
-    /// The angular velocity of the body (global frame)
-    Vector3 _omega;
-
-    /// The moment of inertia matrix (global frame)
-    Matrix3 _J;
-
-    /// The inverse moment of inertia matrix (global frame)
-    Matrix3 _Jinv;
+    /// Pose of the body 
+    boost::shared_ptr<Ravelin::Pose3d> _F;
 
   private:
     AABBPtr build_AABB_tree(std::map<BVPtr, std::list<unsigned> >& aabb_tetra_map);
-    void split_tetra(const Vector3& point, unsigned axis, const std::list<unsigned>& otetra, std::list<unsigned>& ptetra, std::list<unsigned>& ntetra);
+    void split_tetra(const Ravelin::Origin3d& point, unsigned axis, const std::list<unsigned>& otetra, std::list<unsigned>& ptetra, std::list<unsigned>& ntetra);
     bool split(AABBPtr source, AABBPtr& tgt1, AABBPtr& tgt2, unsigned axis, const std::list<unsigned>& tetra, std::list<unsigned>& ptetra, std::list<unsigned>& ntetra);
 
     template <class InputIterator, class OutputIterator>

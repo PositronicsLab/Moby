@@ -21,7 +21,7 @@ class GeneralizedCCDPlugin
     virtual BVPtr get_BVH_root() = 0;
 
     /// Gets vertices corresponding to the bounding volume
-    virtual void get_vertices(BVPtr bv, std::vector<Vector3>& vertices) = 0; 
+    virtual void get_vertices(BVPtr bv, std::vector<Point3d>& vertices) = 0; 
 
     /// Determines whether a point is inside/on the geometry
     /**
@@ -32,7 +32,7 @@ class GeneralizedCCDPlugin
      * \return <b>true</b> if the point is inside or on the geometry, 
      *         <b>false</b> otherwise
      */
-    virtual bool point_inside(BVPtr bv, const Vector3& p, Vector3& normal) = 0;
+    virtual bool point_inside(BVPtr bv, const Point3d& p, Ravelin::Vector3d& normal) = 0;
 
     /// Determines whether a line segment and the shape intersect
     /**
@@ -44,7 +44,7 @@ class GeneralizedCCDPlugin
      * \return the parameter,t, of the intersection seg.first + seg.second*t
      *         or -1 if no intersection
      */
-    virtual Real intersect_seg(BVPtr bv, const LineSeg3& seg, Vector3& isect, Vector3& normal) = 0;
+    virtual double intersect_seg(BVPtr bv, const LineSeg3& seg, Point3d& isect, Ravelin::Vector3d& normal) = 0;
 
     /// Gets mesh data for the geometry with the specified bounding volume
     /**

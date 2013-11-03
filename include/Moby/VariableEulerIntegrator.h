@@ -12,14 +12,13 @@
 namespace Moby {
 
 /// A class for performing 4th-order variable-step Runge-Kutta integration
-template <class T>
-class VariableEulerIntegrator : public VariableStepIntegrator<T>
+class VariableEulerIntegrator : public VariableStepIntegrator
 {
   public:
     VariableEulerIntegrator();
-    virtual void integrate(T& x, T& (*f)(const T&, Real, Real, void*, T&), Real& time, Real step_size, void* data);
-    virtual void load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map);
-    virtual void save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const;
+    virtual void integrate(Ravelin::VectorNd& x, Ravelin::VectorNd& (*f)(const Ravelin::VectorNd&, double, double, void*, Ravelin::VectorNd&), double& time, double step_size, void* data);
+    virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
+    virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
 
     /// If set to <b>true</b>, semi-implicit integration is used
     /**
@@ -30,12 +29,11 @@ class VariableEulerIntegrator : public VariableStepIntegrator<T>
     bool semi_implicit;
 
   private:
-    T x0, x1, dx;
-    void integrate_variable(T& x, T& (*f)(const T&, Real, Real, void*, T&), Real& time, Real step_size, void* data);
+    Ravelin::VectorNd x0, x1, dx;
+    double calc_abs_err(const Ravelin::VectorNd& x0, const Ravelin::VectorNd& x1);
+    double calc_rel_err(const Ravelin::VectorNd& x0, const Ravelin::VectorNd& x1);
+    void integrate_variable(Ravelin::VectorNd& x, Ravelin::VectorNd& (*f)(const Ravelin::VectorNd&, double, double, void*, Ravelin::VectorNd&), double& time, double step_size, void* data);
 }; // end class def
-
-// include inline functions
-#include "VariableEulerIntegrator.inl"
 
 } // end namespace
 

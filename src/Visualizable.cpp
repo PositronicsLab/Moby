@@ -14,10 +14,15 @@
 #include <Moby/Primitive.h>
 #include <Moby/Visualizable.h>
 
+using namespace Ravelin;
 using namespace Moby;
+using boost::shared_ptr;
 
 Visualizable::Visualizable()
 {
+  // set the visualization relative pose
+  _vF = shared_ptr<Pose3d>(new Pose3d);
+
   #ifdef USE_OSG
   // create the OSGGroupWrapper
   _vizdata = OSGGroupWrapperPtr(new OSGGroupWrapper);
@@ -40,6 +45,17 @@ Visualizable::~Visualizable()
   #ifdef USE_OSG
   _group->unref();
   #endif
+}
+
+/// Sets the visualization relative pose
+void Visualizable::set_visualization_relative_pose(const Pose3d& P)
+{
+  // verify the P's relative pose is correct 
+  if (P.rpose != _vF->rpose)
+    throw std::runtime_error("Visualizable::set_visualization_relative_pose() - pose not relative to the proper pose");
+
+  // set the pose
+  *_vF = P;
 }
 
 /// Sets the visualization data from a OSGGroupWrapper
@@ -73,20 +89,28 @@ void Visualizable::set_visualization_data(osg::Node* vdata)
   #endif
 }
 
+#ifdef USE_OSG
 /// Copies this matrix to an OpenSceneGraph Matrixd object
-static void to_osg_matrix(const Matrix4& src, osg::Matrixd& tgt)
+static void to_osg_matrix(const Pose3d& src, osg::Matrixd& tgt)
 {
-  #ifdef USE_OSG
+  // get the rotation matrix
+  Matrix3d M = src.q;
+
+  // setup the rotation components of tgt
   const unsigned X = 0, Y = 1, Z = 2, W = 3;
-  for (unsigned i=X; i<= W; i++)
+  for (unsigned i=X; i<= Z; i++)
     for (unsigned j=X; j<= Z; j++)
-      tgt(i,j) = src(j,i);
+      tgt(j,i) = M(i,j);
+
+  // setup the translation components of tgt
+  for (unsigned i=X; i<= Z; i++)
+    tgt(W,i) = src.x[i];
 
   // set constant values of the matrix
-  tgt(X,W) = tgt(Y,W) = tgt(Z,W) = (Real) 0.0;
-  tgt(W,W) = (Real) 1.0;
-  #endif
+  tgt(X,W) = tgt(Y,W) = tgt(Z,W) = (double) 0.0;
+  tgt(W,W) = (double) 1.0;
 }
+#endif
 
 /// Updates the visualization using the appropriate transform
 /**
@@ -105,13 +129,17 @@ void Visualizable::update_visualization()
     return;
 
   // get the transform; if there is none, quit now
-  const Matrix4* T = get_visualization_transform();
+  shared_ptr<const Pose3d> T = get_visualization_pose();
   if (!T)
     return;
 
+  // convert the pose to reference the global frame
+  Pose3d T0 = *T;
+  T0.update_relative_pose(GLOBAL);
+
   // update the transform
   osg::Matrixd m;
-  to_osg_matrix(*T, m);
+  to_osg_matrix(T0, m);
   _group->setMatrix(m);
   #endif
 }
@@ -129,17 +157,17 @@ osg::Group* Visualizable::get_visualization_data() const
 /// Utility method for load_from_xml()
 /**
  * This method searches for visualization-filename,
- * visualization-separator-id, and visualization-primitive-id attributes for
+ * visualization-id attributes for
  * a given node and creates a separator based on the attribute found.
  */
-osg::Group* Visualizable::construct_from_node(XMLTreeConstPtr node, const std::map<std::string, BasePtr>& id_map)
+osg::Group* Visualizable::construct_from_node(shared_ptr<const XMLTree> node, const std::map<std::string, BasePtr>& id_map)
 {  
   std::map<std::string, BasePtr>::const_iterator id_iter; 
   osg::Group* group = NULL;
 
   // get the relevant attributes
-  const XMLAttrib* viz_id_attr = node->get_attrib("visualization-id");
-  const XMLAttrib* vfile_id_attr = node->get_attrib("visualization-filename");
+  XMLAttrib* viz_id_attr = node->get_attrib("visualization-id");
+  XMLAttrib* vfile_id_attr = node->get_attrib("visualization-filename");
 
   // check that some visualization data exists
   if (!viz_id_attr && !vfile_id_attr)
@@ -214,7 +242,7 @@ osg::Group* Visualizable::construct_from_node(XMLTreeConstPtr node, const std::m
 }
 
 /// Implements Base::load_from_xml() 
-void Visualizable::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void Visualizable::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   OSGGroupWrapperPtr wrap;
 
@@ -222,11 +250,11 @@ void Visualizable::load_from_xml(XMLTreeConstPtr node, std::map<std::string, Bas
   Base::load_from_xml(node, id_map);
 
   // get the relevant attributes
-  const XMLAttrib* viz_id_attr = node->get_attrib("visualization-id");
-  const XMLAttrib* vfile_id_attr = node->get_attrib("visualization-filename");
+  XMLAttrib* viz_id_attr = node->get_attrib("visualization-id");
+  XMLAttrib* vfile_id_attr = node->get_attrib("visualization-filename");
 
   // get whether there are any visualization nodes
-  std::list<XMLTreeConstPtr> viz_nodes = node->find_child_nodes("Visualization");
+  std::list<shared_ptr<const XMLTree> > viz_nodes = node->find_child_nodes("Visualization");
 
   // check that some visualization data exists
   if (!viz_id_attr && !vfile_id_attr && viz_nodes.empty())
@@ -258,7 +286,7 @@ void Visualizable::load_from_xml(XMLTreeConstPtr node, std::map<std::string, Bas
     osg::Group* root = NULL;
 
     // handle all Visualization nodes
-    for (std::list<XMLTreeConstPtr>::const_iterator i = viz_nodes.begin(); i != viz_nodes.end(); i++)
+    for (std::list<shared_ptr<const XMLTree> >::const_iterator i = viz_nodes.begin(); i != viz_nodes.end(); i++)
     {
       // get the group from the child node
       osg::Group* child_group = construct_from_node(*i, id_map);
@@ -267,16 +295,23 @@ void Visualizable::load_from_xml(XMLTreeConstPtr node, std::map<std::string, Bas
       if (!child_group)
         continue;
 
-      // look for a visualization-rel-transform attribute
-      const XMLAttrib* rel_trans_attr = (*i)->get_attrib("visualization-rel-transform");
-      if (rel_trans_attr)
+      // look for a visualization-rel-x attributes
+      XMLAttrib* rel_origin_attr = (*i)->get_attrib("visualization-rel-origin");
+      XMLAttrib* rel_rpy_attr = (*i)->get_attrib("visualization-rel-rpy");
+      XMLAttrib* rel_quat_attr = (*i)->get_attrib("visualization-rel-quat");
+      if (rel_origin_attr || rel_rpy_attr || rel_quat_attr)
       {
         // create a new transform group
         osg::MatrixTransform* xgroup = new osg::MatrixTransform;
 
         // create the transform and set it
-        Matrix4 Tx;
-        rel_trans_attr->get_matrix_value(Tx);
+        Pose3d Tx;
+        if (rel_origin_attr)
+          Tx.x = rel_origin_attr->get_origin_value();
+        if (rel_rpy_attr)
+          Tx.q = rel_rpy_attr->get_rpy_value();
+        else if (rel_quat_attr)
+          Tx.q = rel_quat_attr->get_quat_value();
         osg::Matrixd T;
         to_osg_matrix(Tx, T);
         xgroup->setMatrix(T);
@@ -307,7 +342,7 @@ void Visualizable::load_from_xml(XMLTreeConstPtr node, std::map<std::string, Bas
 }
 
 /// Implements Base::save_to_xml() 
-void Visualizable::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
+void Visualizable::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& shared_objects) const
 {
   // save the Base data
   Base::save_to_xml(node, shared_objects);

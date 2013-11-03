@@ -17,10 +17,11 @@
 #include <Moby/XMLTree.h>
 #include <Moby/Simulator.h>
 
-using namespace Moby;
 using std::vector;
 using boost::shared_ptr;
 using boost::dynamic_pointer_cast;
+using namespace Ravelin;
+using namespace Moby;
 
 /// Sets up the simulator
 /**
@@ -60,7 +61,7 @@ Simulator::~Simulator()
  * \param step_size the step size
  * \return step_size
  */
-Real Simulator::step(Real step_size)
+double Simulator::step(double step_size)
 {
   #ifdef USE_OSG
   // clear one-step visualization data
@@ -68,8 +69,8 @@ Real Simulator::step(Real step_size)
   #endif
 
   // clear dynamics timings
-  dynamics_utime = (Real) 0.0;
-  dynamics_stime = (Real) 0.0;
+  dynamics_utime = (double) 0.0;
+  dynamics_stime = (double) 0.0;
 
   // compute forward dynamics and integrate 
   current_time += integrate(step_size);
@@ -247,9 +248,9 @@ void Simulator::add_transient_vdata(osg::Node* vdata)
 }
 
 /// Implements Base::load_from_xml()
-void Simulator::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void Simulator::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
-  std::list<XMLTreeConstPtr> child_nodes;
+  std::list<shared_ptr<const XMLTree> > child_nodes;
   std::map<std::string, BasePtr>::const_iterator id_iter;
 
   // load parent data
@@ -260,12 +261,12 @@ void Simulator::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePt
   // ***********************************************************************
   
   // get the current time 
-  const XMLAttrib* time_attr = node->get_attrib("current-time");
+  XMLAttrib* time_attr = node->get_attrib("current-time");
   if (time_attr)
     this->current_time = time_attr->get_real_value();
 
   // get the integrator, if specified
-  const XMLAttrib* int_id_attr = node->get_attrib("integrator-id");
+  XMLAttrib* int_id_attr = node->get_attrib("integrator-id");
   if (int_id_attr)
   {
     const std::string& id = int_id_attr->get_string_value(); 
@@ -276,7 +277,7 @@ void Simulator::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePt
       std::cerr << std::endl << *node;
     }
     else
-      integrator = dynamic_pointer_cast<Integrator<VectorN> >(id_iter->second);
+      integrator = dynamic_pointer_cast<Integrator>(id_iter->second);
   }
 
   // get all dynamic bodies used in the simulator
@@ -287,10 +288,10 @@ void Simulator::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePt
     _bodies.clear();
 
     // process all DynamicBody child nodes
-    for (std::list<XMLTreeConstPtr>::const_iterator i = child_nodes.begin(); i != child_nodes.end(); i++)
+    for (std::list<shared_ptr<const XMLTree> >::const_iterator i = child_nodes.begin(); i != child_nodes.end(); i++)
     {
       // verify that the dynamic-body-id attribute exists
-      const XMLAttrib* id_attr = (*i)->get_attrib("dynamic-body-id");
+      XMLAttrib* id_attr = (*i)->get_attrib("dynamic-body-id");
 
       // make sure that the ID exists
       if (!id_attr)
@@ -320,10 +321,10 @@ void Simulator::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePt
   if (!child_nodes.empty())
   {
     // process all child nodes
-    for (std::list<XMLTreeConstPtr>::const_iterator i = child_nodes.begin(); i != child_nodes.end(); i++)
+    for (std::list<shared_ptr<const XMLTree> >::const_iterator i = child_nodes.begin(); i != child_nodes.end(); i++)
     {
       // verify that the dynamic-body-id attribute exists
-      const XMLAttrib* id_attr = (*i)->get_attrib("recurrent-force-id");
+      XMLAttrib* id_attr = (*i)->get_attrib("recurrent-force-id");
 
       // make sure that the ID exists
       if (!id_attr)
@@ -351,7 +352,7 @@ void Simulator::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePt
 }
 
 /// Implements Base::save_to_xml()
-void Simulator::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
+void Simulator::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& shared_objects) const
 {
   // call the parent save_to_xml() method
   Base::save_to_xml(node, shared_objects);

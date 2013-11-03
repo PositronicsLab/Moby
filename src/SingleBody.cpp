@@ -7,6 +7,7 @@
 #include <Moby/ArticulatedBody.h>
 #include <Moby/SingleBody.h>
 
+using namespace Ravelin;
 using namespace Moby;
 
 /// Gets the "super" body
@@ -30,4 +31,9 @@ DynamicBodyPtr SingleBody::get_super_body() const
   }
 }
 
+double SingleBody::calc_point_vel(const Point3d& point, const Ravelin::Vector3d& dir)
+{
+  Vector3d pv = calc_point_vel(point);
+  return Pose3d::transform_vector(dir.pose, pv).dot(dir);
+}
 

@@ -1,0 +1,82 @@
+<!-- A stack of boxes, each one smaller than the next. -->
+
+<XML>
+  <DRIVER>
+    <camera position="0 0 10" target="0 0 0" up="0 1 0" />
+    <window location="0 0" size="640 480" />
+  </DRIVER>
+  <MOBY>
+    <!-- Primitives -->
+    <Box id="b1" xlen="1" ylen="1" zlen="1" density="10.0"/>
+    <Box id="b2" xlen=".95" ylen="1" zlen=".95" density="10.0"/>
+    <Box id="b3" xlen=".9" ylen="1" zlen=".9" density="10.0"/>
+    <Box id="b4" xlen=".85" ylen="1" zlen=".85" density="10.0"/>
+    <Box id="b5" xlen=".8" ylen="1" zlen=".8" density="10.0"/>
+    <Box id="b6" xlen=".75" ylen="1" zlen=".75" density="10.0"/>
+    <Box id="b7" xlen=".7" ylen="1" zlen=".7" density="10.0"/>
+    <Box id="ground-primitive" xlen="100" ylen=".5" zlen="100" density="10.0" />
+
+    <!-- Integrator -->
+    <ODEPACKIntegrator id="euler" abs-err-tol="1e-3" rel-err-tol="1e-3" />
+
+    <!-- collision detector -->
+    <GeneralizedCCD id="ccd" eps-tolerance="1e-3" intersection-tolerance="1e-5" toi-tolerance="1e-5">
+      <Body body-id="box1" />
+      <Body body-id="box2" />
+      <Body body-id="box3" />
+      <Body body-id="ground" />
+    </GeneralizedCCD>
+
+    <CollisionDetectionPlugin id="plugin-ccd" plugin="./libcoldet-plugin.so">
+      <Body body-id="box1" />
+      <Body body-id="box2" />
+      <Body body-id="box3" />
+      <Body body-id="box4" />
+      <Body body-id="box5" />
+      <Body body-id="box6" />
+      <Body body-id="box7" />
+      <Body body-id="ground" />
+    </CollisionDetectionPlugin>
+
+    <!-- Gravity force -->
+    <GravityForce id="gravity" accel="0 -9.81 0"  />
+
+    <!-- Rigid bodies -->
+      <!-- the boxes -->
+      <RigidBody id="box1" enabled="true" position="0 .5 0" angular-velocity="0 0 0" visualization-id="b1" linear-velocity="0 0 0">
+        <InertiaFromPrimitive primitive-id="b1" />
+        <CollisionGeometry primitive-id="b1" />
+      </RigidBody>
+
+      <!-- the boxes -->
+      <RigidBody id="box2" enabled="true" position="0 1.5 0" angular-velocity="0 0 0" visualization-id="b2" linear-velocity="0 0 0">
+        <InertiaFromPrimitive primitive-id="b2" />
+        <CollisionGeometry primitive-id="b2" />
+      </RigidBody>
+
+      <!-- the boxes -->
+      <RigidBody id="box3" enabled="true" position="0 2.5 0" angular-velocity="0 0 0" visualization-id="b3" linear-velocity="0 0 0">
+        <InertiaFromPrimitive primitive-id="b3" />
+        <CollisionGeometry primitive-id="b3" />
+      </RigidBody>
+
+      <!-- the ground -->
+      <RigidBody name="ground" id="ground" enabled="false" vvisualization-filename="ground.wrl" position="0 -.25 0">
+        <CollisionGeometry primitive-id="ground-primitive" />  
+      </RigidBody>
+
+    <!-- NOTE: replace 'ccd' with 'plugin-ccd' to use the much faster plugin
+         collision detector -->
+    <EventDrivenSimulator id="simulator" integrator-id="euler" collision-detector-id="ccd">
+      <DynamicBody dynamic-body-id="box1" />
+      <DynamicBody dynamic-body-id="box2" />
+      <DynamicBody dynamic-body-id="box3" />
+      <DynamicBody dynamic-body-id="ground" />
+      <RecurrentForce recurrent-force-id="gravity" />
+      <ContactParameters object1-id="ground" object2-id="box1" restitution="0" mu-coulomb=".0001" />
+      <ContactParameters object1-id="box1" object2-id="box2" restitution="0" mu-coulomb=".0001" />
+      <ContactParameters object1-id="box2" object2-id="box3" restitution="0" mu-coulomb=".0001" />
+    </EventDrivenSimulator> 
+  </MOBY>
+</XML>
+

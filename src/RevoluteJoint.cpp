@@ -7,12 +7,13 @@
 #include <cmath>
 #include <iostream>
 #include <Moby/Constants.h>
-#include <Moby/AAngle.h>
 #include <Moby/RigidBody.h>
 #include <Moby/XMLTree.h>
 #include <Moby/UndefinedAxisException.h>
 #include <Moby/RevoluteJoint.h>
 
+using boost::shared_ptr;
+using namespace Ravelin;
 using namespace Moby;
 
 /// Initializes the joint
@@ -26,17 +27,13 @@ RevoluteJoint::RevoluteJoint() : Joint()
   init_data();
 
   // init the joint axes
-  _u = ZEROS_3;
-  _ui = ZEROS_3;
-  _uj = ZEROS_3;
-  _v2 = ZEROS_3;
-
-  // set the translation to zero
-  _T.set_translation(ZEROS_3);
+  _u.set_zero(_F);
+  _ui.set_zero();
+  _uj.set_zero();
+  _v2.set_zero();
 
   // setup the spatial axis derivative to zero
-  _si_deriv = SMatrix6N(1);
-  _si_deriv.set_column(0, SVector6(0,0,0,0,0,0));
+  _s_dot.clear();
 }
 
 /// Initializes the joint with the specified inboard and outboard links
@@ -49,245 +46,162 @@ RevoluteJoint::RevoluteJoint(boost::weak_ptr<RigidBody> inboard, boost::weak_ptr
   init_data();
 
   // init the joint axes
-  _u = ZEROS_3;
-  _ui = ZEROS_3;
-  _uj = ZEROS_3;
-  _v2 = ZEROS_3;
-
-  // set the translation to zero
-  _T.set_translation(ZEROS_3);
+  _u.set_zero();
+  _ui.set_zero();
+  _uj.set_zero();
+  _v2.set_zero();
 
   // setup the spatial axis derivative to zero
-  _si_deriv = SMatrix6N(1);
-  _si_deriv.set_column(0, SVector6(0,0,0,0,0,0));
+  _s_dot.clear();
 }  
 
-/// Gets the global axis for this joint
-/**
- * The global axis for this joint takes the orientation of the inboard link into account; thus, if the orientation
- * of the inboard link changes, then the global axis changes.
- * \sa getAxisLocal()
- * \sa setAxisLocal()
- */
-Vector3 RevoluteJoint::get_axis_global() const
-{
-  // get the inboard link 
-  RigidBodyPtr inboard_link = get_inboard_link();
-
-  // make sure that the inboard link has been set
-  if (!inboard_link)
-  {
-    std::cerr << "RevoluteJoint::get_axis_global() - attempt to get axis w/o inboard link!" << std::endl;
-    return ZEROS_3;
-  }
-
-  // get the transform for the inboard link
-  const Matrix4& T = inboard_link->get_transform();
-  
-  // transform into global coordinates and return
-  return T.transpose_mult_vector(_u);
-}
-
-/// Sets the local axis of rotation for this joint
-/**
- * The local axis for this joint does not take the orientation of the 
- * inboard link into account; thus, if the orientation of the inboard link 
- * changes, then the local axis remains constant.
- * \param axis a unit vector
- * \sa get_axis_global()
- * \sa set_axis_global()
- */
-void RevoluteJoint::set_axis_local(const Vector3& axis) 
+/// Sets the axis of rotation for this joint
+void RevoluteJoint::set_axis(const Vector3d& axis) 
 { 
   // normalize the joint axis, in case the caller didn't 
-  Vector3 naxis = Vector3::normalize(axis);
+  Vector3d naxis = Vector3d::normalize(axis);
 
-  // get the inboard and outboard links 
-  RigidBodyPtr inner = get_inboard_link();
-  RigidBodyPtr outer = get_outboard_link();
-  if (!inner || !outer)
-    throw std::runtime_error("Unable to set joint axis without both links set!");
+  // transform the axis as necessary
+  _u = Pose3d::transform_vector(_F, naxis);
 
-  // set joint axis in inner link frame
-  _u = naxis; 
+  // update the spatial axes
   update_spatial_axes(); 
 
   // setup ui and uj
-  Vector3::determine_orthonormal_basis(_u, _ui, _uj);
-  
-  // set joint axis in outer link frame
-  _v2 = inner->get_transform().mult_vector(naxis);
-  _v2 = outer->get_transform().transpose_mult_vector(_v2);
+  Vector3d::determine_orthonormal_basis(_u, _ui, _uj);
+ 
+  // get the two links
+  RigidBodyPtr b1 = get_inboard_link();
+  RigidBodyPtr b2 = get_outboard_link();
+  if (!b1 || !b2)
+    throw std::runtime_error("Attempt to set joint axis without setting inboard and outboard links first!");
+ 
+  // compute joint axis in outer link frame 
+  _v2 = Pose3d::transform_vector(b2->get_pose(), naxis); 
 }        
-
-/// Sets the global axis for this joint
-/**
- * The global axis for this joint takes the orientation of the inboard link into account; thus, if the orientation
- * of the inboard link changes, then the global axis changes.
- * \sa getAxisLocal()
- * \sa setAxisLocal()
- */
-void RevoluteJoint::set_axis_global(const Vector3& axis)
-{
-  // normalize the joint axis, in case the caller didn't 
-  Vector3 naxis = Vector3::normalize(axis);
-
-  // get the inboard and outboard links
-  RigidBodyPtr inboard_link = get_inboard_link();
-  RigidBodyPtr outboard_link = get_outboard_link();
-
-  // make sure that the links have been set
-  if (!inboard_link || !outboard_link)
-    throw std::runtime_error("Unable to set joint axis without links being set!");
-
-  // transform the axis into local coordinates
-  _u = inboard_link->get_transform().transpose_mult_vector(naxis);
-  _v2 = outboard_link->get_transform().transpose_mult_vector(naxis);
-
-  // setup ui and uj
-  Vector3::determine_orthonormal_basis(_u, _ui, _uj);
-  
-  // update the spatial axis
-  update_spatial_axes();
-}
 
 /// Updates the spatial axis for this joint
 void RevoluteJoint::update_spatial_axes()
 {
   const unsigned X = 0, Y = 1, Z = 2;
+  const Vector3d ZEROS_3(0.0, 0.0, 0.0, get_pose());
 
   // call parent method
   Joint::update_spatial_axes();
 
-  // make sure the outboard link exists
-  RigidBodyPtr inboard = get_inboard_link();
-  RigidBodyPtr outboard = get_outboard_link();
-  if (!inboard || !outboard)
-    return;
+  // update the spatial axis in joint coordinates
+  _s[0].set_angular(_u);
+  _s[0].set_linear(ZEROS_3);
 
-  try
-  {
-    // get the joint to com vector in outer link coordinates
-    const Vector3& di = outboard->get_inner_joint_data(inboard).joint_to_com_vec_of;
-
-    // get the joint axis in outer link coordinates
-    Vector3 u0 = inboard->get_transform().mult_vector(_u);
-    Vector3 ui = outboard->get_transform().transpose_mult_vector(u0);
-
-    // update the spatial axis in link coordinates
-    Vector3 x = Vector3::cross(ui, di);
-    SVector6 si_vec;
-    si_vec.set_upper(ui);
-    si_vec.set_lower(x);
-    _si.set_column(0, si_vec);
-
-    // setup s_bar
-    calc_s_bar_from_si();
-  }
-  catch (std::runtime_error e)
-  {
-    // do nothing -- joint data has not yet been set in the link
-  }
+  // setup s_bar
+  calc_s_bar_from_s();
 }
 
 /// Determines (and sets) the value of Q from the axis and the inboard link and outboard link transforms
-void RevoluteJoint::determine_q(VectorN& q)
+void RevoluteJoint::determine_q(VectorNd& q)
 {
-  // get the inboard and outboard link pointers
-  RigidBodyPtr inboard = get_inboard_link();
+  // get the outboard link pointer
   RigidBodyPtr outboard = get_outboard_link();
   
-  // verify that the inboard and outboard links are set
-  if (!inboard || !outboard)
-    throw std::runtime_error("determine_q() called on NULL inboard and/or outboard links!");
+  // verify that the outboard link is set
+  if (!outboard)
+    throw std::runtime_error("determine_q() called on NULL outboard link!");
 
   // if axis is not defined, can't use this method
   if (std::fabs(_u.norm() - 1.0) > NEAR_ZERO)
     throw UndefinedAxisException();
 
-  // get the link transforms
-  Matrix3 R_inboard, R_outboard;
-  inboard->get_transform().get_rotation(&R_inboard);
-  outboard->get_transform().get_rotation(&R_outboard);
+  // get the poses of the joint and outboard link
+  shared_ptr<const Pose3d> Fj = get_pose();
+  shared_ptr<const Pose3d> Fo = outboard->get_pose();
+
+  // compute transforms
+  Transform3d wTo = Pose3d::calc_relative_pose(Fo, GLOBAL); 
+  Transform3d jTw = Pose3d::calc_relative_pose(GLOBAL, Fj);
+  Transform3d jTo = jTw * wTo;
 
   // determine the joint transformation
-  Matrix3 R_local = R_inboard.transpose_mult(R_outboard);
-  AAngle aa(&R_local, &_u);
+  Matrix3d R = jTo.q;
+  AAngled aa(R, _u);
 
   // set q 
   q.resize(num_dof());
   q[DOF_1] = aa.angle;
 }
 
-/// Gets the (local) transform for this joint
-const Matrix4& RevoluteJoint::get_transform()
+/// Gets the pose for this joint
+shared_ptr<const Pose3d> RevoluteJoint::get_induced_pose()
 {
-  // note that translation is set to zero in the constructors
-  AAngle a(&_u, this->q[DOF_1]+this->_q_tare[DOF_1]);
-  _T.set_rotation(&a);
-  assert(_T.get_translation().norm() < NEAR_ZERO);
+  assert(std::fabs(_u.norm() - 1.0) < NEAR_ZERO);
 
-  return _T;
+  // invalidate pose quantities for the outer link
+  invalidate_pose_vectors();
+
+  // note that translation is set to zero in the constructors
+  _Fprime->q = AAngled(_u, this->q[DOF_1]+this->_q_tare[DOF_1]);
+
+  return _Fprime;
 }
 
 /// Gets the derivative for the spatial axes for this joint
-const SMatrix6N& RevoluteJoint::get_spatial_axes_dot(ReferenceFrameType rftype)
+const std::vector<SVelocityd>& RevoluteJoint::get_spatial_axes_dot()
 {
-  return _si_deriv;
+  return _s_dot;
 }
 
 /// Computes the constraint Jacobian with respect to a body
-void RevoluteJoint::calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsigned index, Real Cq[7])
+void RevoluteJoint::calc_constraint_jacobian(RigidBodyPtr body, unsigned index, double Cq[7])
 {
+/*
   const unsigned X = 0, Y = 1, Z = 2, SPATIAL_DIM = 7;
 
   // get the two links
-  RigidBodyPtr inner = get_inboard_link();
-  RigidBodyPtr outer = get_outboard_link();
+  RigidBodyPtr b1 = get_inboard_link();
+  RigidBodyPtr b2 = get_outboard_link();
 
   // make sure that _u (and by extension _v2) is set
-  if (_u.norm_sq() < std::numeric_limits<Real>::epsilon())
+  if (_u.norm_sq() < std::numeric_limits<double>::epsilon())
     throw std::runtime_error("Revolute joint axis has not been set; set before calling dynamics functions.");
 
   // mke sure that body is one of the links
-  if (inner != body && outer != body)
+  if (b1 != body && b2 != body)
   {
     for (unsigned i=0; i< SPATIAL_DIM; i++)
-      Cq[i] = (Real) 0.0;
+      Cq[i] = (double) 0.0;
     return;
   }
 
   // setup constants for calculations
-  const Quat& q1 = inner->get_orientation();
-  const Quat& q2 = outer->get_orientation();
-  const Vector3& p1 = inner->get_outer_joint_data(outer).com_to_joint_vec;
-  const Vector3& p2 = outer->get_inner_joint_data(inner).joint_to_com_vec_of;
-  const Real p1x = p1[X];
-  const Real p1y = p1[Y];
-  const Real p1z = p1[Z];
-  const Real p2x = -p2[X];
-  const Real p2y = -p2[Y];
-  const Real p2z = -p2[Z];
-  const Real qw1 = q1.w;
-  const Real qx1 = q1.x;
-  const Real qy1 = q1.y;
-  const Real qz1 = q1.z;
-  const Real qw2 = q2.w;
-  const Real qx2 = q2.x;
-  const Real qy2 = q2.y;
-  const Real qz2 = q2.z;
-  const Real uix = _ui[X];
-  const Real uiy = _ui[Y];
-  const Real uiz = _ui[Z];
-  const Real ujx = _uj[X];
-  const Real ujy = _uj[Y];
-  const Real ujz = _uj[Z];
-  const Real v2x = _v2[X];
-  const Real v2y = _v2[Y];
-  const Real v2z = _v2[Z];
+  const Quatd& q1 = b1->get_orientation();
+  const Quatd& q2 = b2->get_orientation();
+  const Vector3d& p1 = b1->get_outer_joint_data(b2).com_to_joint_vec;
+  const Vector3d& p2 = b2->get_inner_joint_data(b1).joint_to_com_vec_of;
+  const double p1x = p1[X];
+  const double p1y = p1[Y];
+  const double p1z = p1[Z];
+  const double p2x = -p2[X];
+  const double p2y = -p2[Y];
+  const double p2z = -p2[Z];
+  const double qw1 = q1.w;
+  const double qx1 = q1.x;
+  const double qy1 = q1.y;
+  const double qz1 = q1.z;
+  const double qw2 = q2.w;
+  const double qx2 = q2.x;
+  const double qy2 = q2.y;
+  const double qz2 = q2.z;
+  const double uix = _ui[X];
+  const double uiy = _ui[Y];
+  const double uiz = _ui[Z];
+  const double ujx = _uj[X];
+  const double ujy = _uj[Y];
+  const double ujz = _uj[Z];
+  const double v2x = _v2[X];
+  const double v2y = _v2[Y];
+  const double v2z = _v2[Z];
 
   // setup the constraint equations (from Shabana, p. 436), eq. 7.176
-  if (body == inner)
+  if (body == b1)
   {
     switch (index)
     {
@@ -557,77 +471,87 @@ void RevoluteJoint::calc_constraint_jacobian_rodrigues(RigidBodyPtr body, unsign
         throw std::runtime_error("Invalid joint constraint index!");
     }
   }
+*/
 }
 
 /// Computes the time derivative of the constraint Jacobian with respect to a body
-void RevoluteJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, unsigned index, Real Cq[7])
+void RevoluteJoint::calc_constraint_jacobian_dot(RigidBodyPtr body, unsigned index, double Cq[7])
 {
+/*
   const unsigned X = 0, Y = 1, Z = 2, SPATIAL_DIM = 7;
 
   // get the two links
-  RigidBodyPtr inner = get_inboard_link();
-  RigidBodyPtr outer = get_outboard_link();
+  RigidBodyPtr b1 = get_inboard_link();
+  RigidBodyPtr b2 = get_outboard_link();
+
+  // setup frames
+  shared_ptr<const Pose3d> F1(new Pose3d(Quatd::identity()), b1->get_pose()->x);
+  shared_ptr<const Pose3d> F2(new Pose3d(Quatd::identity()), b2->get_pose()->x);
+
+  // need velocities in the proper frame
+  SVelocityd v1 = Pose3d::transform(b1->velocity().pose, F1, b1->velocity());
+  SVelocityd v2 = Pose3d::transform(b2->velocity().pose, F2, b2->velocity());
 
   // make sure that _u (and by extension _v2) is set
-  if (_u.norm_sq() < std::numeric_limits<Real>::epsilon())
+  if (_u.norm_sq() < std::numeric_limits<double>::epsilon())
     throw std::runtime_error("Revolute joint axis has not been set; set before calling dynamics functions.");
 
   // mke sure that body is one of the links
-  if (inner != body && outer != body)
+  if (b1 != body && b2 != body)
   {
     for (unsigned i=0; i< SPATIAL_DIM; i++)
-      Cq[i] = (Real) 0.0;
+      Cq[i] = (double) 0.0;
     return;
   }
 
   // setup constants for calculations
-  const Quat& q1 = inner->get_orientation();
-  const Quat& q2 = outer->get_orientation();
-  const Quat qd1 = Quat::deriv(q1, inner->get_avel());
-  const Quat qd2 = Quat::deriv(q2, outer->get_avel());
-  const Vector3& p1 = inner->get_outer_joint_data(outer).com_to_joint_vec;
-  const Vector3& p2 = outer->get_inner_joint_data(inner).joint_to_com_vec_of;
-  const Real dqw1 = qd1.w;
-  const Real dqx1 = qd1.x;
-  const Real dqy1 = qd1.y;
-  const Real dqz1 = qd1.z;
-  const Real dqw2 = qd2.w;
-  const Real dqx2 = qd2.x;
-  const Real dqy2 = qd2.y;
-  const Real dqz2 = qd2.z;
-  const Real p1x = p1[X];
-  const Real p1y = p1[Y];
-  const Real p1z = p1[Z];
-  const Real p2x = -p2[X];
-  const Real p2y = -p2[Y];
-  const Real p2z = -p2[Z];
-  const Real qw1 = q1.w;
-  const Real qx1 = q1.x;
-  const Real qy1 = q1.y;
-  const Real qz1 = q1.z;
-  const Real qw2 = q2.w;
-  const Real qx2 = q2.x;
-  const Real qy2 = q2.y;
-  const Real qz2 = q2.z;
-  const Real uix = _ui[X];
-  const Real uiy = _ui[Y];
-  const Real uiz = _ui[Z];
-  const Real ujx = _uj[X];
-  const Real ujy = _uj[Y];
-  const Real ujz = _uj[Z];
-  const Real v2x = _v2[X];
-  const Real v2y = _v2[Y];
-  const Real v2z = _v2[Z];
+  const Quatd& q1 = b1->get_pose()->q;
+  const Quatd& q2 = b2->get_pose()->q;
+  const Quatd qd1 = Quatd::deriv(q1, v1.get_angular());
+  const Quatd qd2 = Quatd::deriv(q2, v2.get_angular());
+  const Vector3d& p1 = b1->get_outer_joint_data(b2).com_to_joint_vec;
+  const Vector3d& p2 = b2->get_inner_joint_data(b1).joint_to_com_vec_of;
+  const double dqw1 = qd1.w;
+  const double dqx1 = qd1.x;
+  const double dqy1 = qd1.y;
+  const double dqz1 = qd1.z;
+  const double dqw2 = qd2.w;
+  const double dqx2 = qd2.x;
+  const double dqy2 = qd2.y;
+  const double dqz2 = qd2.z;
+  const double p1x = p1[X];
+  const double p1y = p1[Y];
+  const double p1z = p1[Z];
+  const double p2x = -p2[X];
+  const double p2y = -p2[Y];
+  const double p2z = -p2[Z];
+  const double qw1 = q1.w;
+  const double qx1 = q1.x;
+  const double qy1 = q1.y;
+  const double qz1 = q1.z;
+  const double qw2 = q2.w;
+  const double qx2 = q2.x;
+  const double qy2 = q2.y;
+  const double qz2 = q2.z;
+  const double uix = _ui[X];
+  const double uiy = _ui[Y];
+  const double uiz = _ui[Z];
+  const double ujx = _uj[X];
+  const double ujy = _uj[Y];
+  const double ujz = _uj[Z];
+  const double v2x = _v2[X];
+  const double v2y = _v2[Y];
+  const double v2z = _v2[Z];
 
   // setup the constraint equations (from Shabana, p. 436), eq. 7.176
-  if (body == inner)
+  if (body == b1)
   {
     switch (index)
     {
       case 0:
-        Cq[0] = (Real) 0.0;     
-        Cq[1] = (Real) 0.0;     
-        Cq[2] = (Real) 0.0;     
+        Cq[0] = (double) 0.0;     
+        Cq[1] = (double) 0.0;     
+        Cq[2] = (double) 0.0;     
         Cq[3] = 4*p1x*dqw1 + 2*p1z*dqy1 - 2*p1y*dqz1; 
         Cq[4] = 4*p1x*dqx1 + 2*p1y*dqy1 + 2*p1z*dqz1; 
         Cq[5] = 2*p1z*dqw1 + 2*p1y*dqx1; 
@@ -635,9 +559,9 @@ void RevoluteJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, un
         break;
 
       case 1:
-        Cq[0] = (Real) 0.0;     
-        Cq[1] = (Real) 0.0;     
-        Cq[2] = (Real) 0.0;     
+        Cq[0] = (double) 0.0;     
+        Cq[1] = (double) 0.0;     
+        Cq[2] = (double) 0.0;     
         Cq[3] = 4*p1y*dqw1 - 2*p1z*dqx1 + 2*p1x*dqz1; 
         Cq[4] = -2*p1z*dqw1 + 2*p1x*dqy1; 
         Cq[5] = 2*p1x*dqx1 + 4*p1y*dqy1 + 2*p1z*dqz1; 
@@ -645,9 +569,9 @@ void RevoluteJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, un
         break;
 
       case 2:
-        Cq[0] = (Real) 0.0;
-        Cq[1] = (Real) 0.0;
-        Cq[2] = (Real) 0.0;
+        Cq[0] = (double) 0.0;
+        Cq[1] = (double) 0.0;
+        Cq[2] = (double) 0.0;
         Cq[3] = 4*p1z*dqw1 + 2*p1y*dqx1 - 2*p1x*dqy1;
         Cq[4] = 2*p1y*dqw1 + 2*p1x*dqz1;
         Cq[5] = -2*p1x*dqw1 + 2*p1y*dqz1;
@@ -655,9 +579,9 @@ void RevoluteJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, un
         break;
 
       case 3:
-        Cq[0] = (Real) 0.0;
-        Cq[1] = (Real) 0.0;
-        Cq[2] = (Real) 0.0;
+        Cq[0] = (double) 0.0;
+        Cq[1] = (double) 0.0;
+        Cq[2] = (double) 0.0;
         Cq[3] = (4*qw1*uix - 2*qz1*uiy + 2*qy1*uiz)*
     ((4*dqw2*qw2 + 4*dqx2*qx2)*v2x + 
       2*(-(dqz2*qw2) + dqy2*qx2 + dqx2*qy2 - dqw2*qz2)*v2y + 
@@ -744,9 +668,9 @@ void RevoluteJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, un
         break;
  
       case 4:
-        Cq[0] = (Real) 0.0;
-        Cq[1] = (Real) 0.0;
-        Cq[2] = (Real) 0.0;
+        Cq[0] = (double) 0.0;
+        Cq[1] = (double) 0.0;
+        Cq[2] = (double) 0.0;
         Cq[3] = (4*qw1*ujx - 2*qz1*ujy + 2*qy1*ujz)*
     ((4*dqw2*qw2 + 4*dqx2*qx2)*v2x + 
       2*(-(dqz2*qw2) + dqy2*qx2 + dqx2*qy2 - dqw2*qz2)*v2y + 
@@ -841,9 +765,9 @@ void RevoluteJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, un
     switch (index)
     {
       case 0:
-        Cq[0] = (Real) 0.0;     
-        Cq[1] = (Real) 0.0;      
-        Cq[2] = (Real) 0.0;      
+        Cq[0] = (double) 0.0;     
+        Cq[1] = (double) 0.0;      
+        Cq[2] = (double) 0.0;      
         Cq[3] = -4*p2x*dqw2 - 2*p2z*dqy2 + 2*p2y*dqz2; 
         Cq[4] = -4*p2x*dqx2 - 2*p2y*dqy2 - 2*p2z*dqz2; 
         Cq[5] = -2*p2z*dqw2 - 2*p2y*dqx2; 
@@ -851,9 +775,9 @@ void RevoluteJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, un
         break;
 
       case 1:
-        Cq[0] = (Real) 0.0;      
-        Cq[1] = (Real) 0.0;     
-        Cq[2] = (Real) 0.0;      
+        Cq[0] = (double) 0.0;      
+        Cq[1] = (double) 0.0;     
+        Cq[2] = (double) 0.0;      
         Cq[3] = -4*p2y*dqw2 + 2*p2z*dqx2 - 2*p2x*dqz2; 
         Cq[4] = 2*p2z*dqw2 - 2*p2x*dqy2; 
         Cq[5] = -2*p2x*dqx2 - 4*p2y*dqy2 - 2*p2z*dqz2; 
@@ -861,9 +785,9 @@ void RevoluteJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, un
         break;
 
       case 2:
-        Cq[0] = (Real) 0.0;
-        Cq[1] = (Real) 0.0;
-        Cq[2] = (Real) 0.0;
+        Cq[0] = (double) 0.0;
+        Cq[1] = (double) 0.0;
+        Cq[2] = (double) 0.0;
         Cq[3] = -4*p2z*dqw2 - 2*p2y*dqx2 + 2*p2x*dqy2;
         Cq[4] = -2*p2y*dqw2 - 2*p2x*dqz2;
         Cq[5] = 2*p2x*dqw2 - 2*p2y*dqz2;
@@ -871,9 +795,9 @@ void RevoluteJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, un
         break;
 
       case 3:
-        Cq[0] = (Real) 0.0;
-        Cq[1] = (Real) 0.0;
-        Cq[2] = (Real) 0.0;
+        Cq[0] = (double) 0.0;
+        Cq[1] = (double) 0.0;
+        Cq[2] = (double) 0.0;
         Cq[3] = (2*(-(qw1*qy1) + qx1*qz1)*uix + 2*(qw1*qx1 + qy1*qz1)*uiy + 
       (-1 + 2*(qw1*qw1 + qz1*qz1))*uiz)*
     (-2*dqy2*v2x + 2*dqx2*v2y + 4*dqw2*v2z) + 
@@ -961,9 +885,9 @@ void RevoluteJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, un
         break;
  
       case 4:
-        Cq[0] = (Real) 0.0;
-        Cq[1] = (Real) 0.0;
-        Cq[2] = (Real) 0.0;
+        Cq[0] = (double) 0.0;
+        Cq[1] = (double) 0.0;
+        Cq[2] = (double) 0.0;
         Cq[3] = (2*(-(qw1*qy1) + qx1*qz1)*ujx + 2*(qw1*qx1 + qy1*qz1)*ujy + 
       (-1 + 2*(qw1*qw1 + qz1*qz1))*ujz)*
     (-2*dqy2*v2x + 2*dqx2*v2y + 4*dqw2*v2z) + 
@@ -1054,30 +978,32 @@ void RevoluteJoint::calc_constraint_jacobian_dot_rodrigues(RigidBodyPtr body, un
         throw std::runtime_error("Invalid joint constraint index!");
     }
   }
+*/
 }
 
 /// Evaluates the constraint equations
-void RevoluteJoint::evaluate_constraints(Real C[])
+void RevoluteJoint::evaluate_constraints(double C[])
 {
+/*
   const unsigned X = 0, Y = 1, Z = 2;
 
   // get the two links
-  RigidBodyPtr inner = get_inboard_link();
-  RigidBodyPtr outer = get_outboard_link();
+  RigidBodyPtr b1 = get_inboard_link();
+  RigidBodyPtr b2 = get_outboard_link();
 
   // This code was developed using [Shabana, 2003], p. 435-436; variable names
   // have been altered however
 
   // determine v1, v1i, v1j, and v2 (all in global coordinates)
-  Vector3 v1i, v1j;
-  Vector3 v1 = inner->get_transform().mult_vector(_u);
-  Vector3 v2 = outer->get_transform().mult_vector(_v2);
-  Vector3::determine_orthonormal_basis(v1, v1i, v1j);
+  Vector3d v1i, v1j;
+  Vector3d v1 = Pose3d::transform(get_pose(), GLOBAL, _u);
+  Vector3d v2 = Pose3d::transform(b2->get_pose(), GLOBAL, _v2);
+  Vector3d::determine_orthonormal_basis(v1, v1i, v1j);
 
   // determine the global positions of the attachment points and subtract them
-  Vector3 r1 = get_position_global(false);
-  Vector3 r2 = get_position_global(true);
-  Vector3 r12 = r1 - r2; 
+  Vector3d r1 = get_location(false);
+  Vector3d r2 = get_location(true);
+  Vector3d r12 = r1 - r2; 
 
   // evaluate the constraint equations
   C[0] = r12[X];
@@ -1085,10 +1011,11 @@ void RevoluteJoint::evaluate_constraints(Real C[])
   C[2] = r12[Z];
   C[3] = v1i.dot(v2);
   C[4] = v1j.dot(v2); 
+*/
 }
 
 /// Implements Base::load_from_xml()
-void RevoluteJoint::load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map)
+void RevoluteJoint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // read the information from the articulated body joint
   Joint::load_from_xml(node, id_map);
@@ -1096,22 +1023,13 @@ void RevoluteJoint::load_from_xml(XMLTreeConstPtr node, std::map<std::string, Ba
   // verify that the node name is correct
   assert(strcasecmp(node->name.c_str(), "RevoluteJoint") == 0);
 
-  // read the local joint axis
-  const XMLAttrib* laxis_attrib = node->get_attrib("local-axis");
-  if (laxis_attrib)
-  {
-    Vector3 laxis;
-    laxis_attrib->get_vector_value(laxis);
-    set_axis_local(laxis);
-  }
-
   // read the global joint axis, if given
-  const XMLAttrib* gaxis_attrib = node->get_attrib("global-axis");
-  if (gaxis_attrib)
+  XMLAttrib* axis_attrib = node->get_attrib("axis");
+  if (axis_attrib)
   {
-    Vector3 gaxis;
-    gaxis_attrib->get_vector_value(gaxis);
-    set_axis_global(gaxis);  
+    Vector3d axis;
+    axis_attrib->get_vector_value(axis);
+    set_axis(axis);  
   }
 
   // compute _q_tare if necessary 
@@ -1120,7 +1038,7 @@ void RevoluteJoint::load_from_xml(XMLTreeConstPtr node, std::map<std::string, Ba
 }
 
 /// Implements Base::save_to_xml()
-void RevoluteJoint::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
+void RevoluteJoint::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& shared_objects) const
 {
   // get info from Joint::save_to_xml()
   Joint::save_to_xml(node, shared_objects);
@@ -1128,7 +1046,8 @@ void RevoluteJoint::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared
   // rename the node
   node->name = "RevoluteJoint";
 
-  // save the local joint axis
-  node->attribs.insert(XMLAttrib("local-axis", _u));
+  // save the joint axis (global coordinates)
+  Vector3d u0 = Pose3d::transform_vector(shared_ptr<const Pose3d>(), _u);
+  node->attribs.insert(XMLAttrib("axis", u0));
 }
 

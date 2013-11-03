@@ -9,11 +9,11 @@
 #include <fstream>
 #include <boost/foreach.hpp>
 #include <Moby/XMLReader.h>
-#include <Moby/AAngle.h>
 #include <Moby/Log.h>
 #include <Moby/Simulator.h>
 #include <Moby/RigidBody.h>
 
+using namespace Ravelin;
 using namespace Moby;
 
 /// Handle for dynamic library loading
@@ -26,19 +26,19 @@ unsigned ITER = 0;
 clock_t start_time; 
 
 /// The default simulation step size
-const Real DEFAULT_STEP_SIZE = .001;
+const double DEFAULT_STEP_SIZE = .001;
 
 /// The simulation step size
-Real STEP_SIZE = DEFAULT_STEP_SIZE;
+double STEP_SIZE = DEFAULT_STEP_SIZE;
 
 /// Total (CPU) clock time used by the simulation
-Real TOTAL_TIME = 0.0;
+double TOTAL_TIME = 0.0;
 
 /// The maximum number of iterations (default infinity)
 unsigned MAX_ITER = std::numeric_limits<unsigned>::max(); 
 
 /// The maximum time of the simulation (default infinity)
-Real MAX_TIME = std::numeric_limits<Real>::max();
+double MAX_TIME = std::numeric_limits<double>::max();
 
 /// The output file
 std::ofstream outfile;
@@ -51,16 +51,16 @@ bool OUTPUT_SIM_RATE = false;
 std::map<std::string, BasePtr> READ_MAP;
 
 /// Pointer to the controller's initializer, called once (if any)
-typedef void (*init_t)(void*, const std::map<std::string, BasePtr>&, Real);
+typedef void (*init_t)(void*, const std::map<std::string, BasePtr>&, double);
 std::list<init_t> INIT;
 
 /// Gets the current time (as a floating-point number)
-Real get_current_time()
+double get_current_time()
 {
-  const Real MICROSEC = 1.0/1000000;
+  const double MICROSEC = 1.0/1000000;
   timeval t;
   gettimeofday(&t, NULL);
-  return (Real) t.tv_sec + (Real) t.tv_usec * MICROSEC;
+  return (double) t.tv_sec + (double) t.tv_usec * MICROSEC;
 }
 
 bool compbody(DynamicBodyPtr b1, DynamicBodyPtr b2)
@@ -77,11 +77,11 @@ bool step(void* arg)
   // get the generalized coordinates for all bodies in alphabetical order
   std::vector<DynamicBodyPtr> bodies = s->get_dynamic_bodies();
   std::sort(bodies.begin(), bodies.end(), compbody);
-  VectorN q;
+  VectorNd q;
   outfile << s->current_time;
   for (unsigned i=0; i< bodies.size(); i++)  
   {
-    bodies[i]->get_generalized_coordinates(DynamicBody::eRodrigues, q);
+    bodies[i]->get_generalized_coordinates(DynamicBody::eEuler, q);
     for (unsigned j=0; j< q.size(); j++)
       outfile << " " << q[j];
   }
@@ -97,7 +97,7 @@ bool step(void* arg)
   clock_t pre_sim_t = clock();
   s->step(STEP_SIZE);
   clock_t post_sim_t = clock();
-  Real total_t = (post_sim_t - pre_sim_t) / (Real) CLOCKS_PER_SEC;
+  double total_t = (post_sim_t - pre_sim_t) / (double) CLOCKS_PER_SEC;
   TOTAL_TIME += total_t;
 
   // output the iteration / stepping rate
@@ -223,7 +223,7 @@ int main(int argc, char** argv)
 
   // write the number of clock ticks elapsed
   clock_t end_time = clock();
-  Real elapsed = (end_time - start_time) / (Real) CLOCKS_PER_SEC;
+  double elapsed = (end_time - start_time) / (double) CLOCKS_PER_SEC;
   outfile << elapsed << std::endl;
 
   // close the output file

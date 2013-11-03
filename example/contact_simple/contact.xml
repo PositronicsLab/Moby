@@ -12,20 +12,10 @@
     <Box id="b3" xlen="10" ylen=".5" zlen="2" density="10.0" />
 
     <!-- Integrator -->
-    <RungeKuttaFehlbergIntegrator id="rk4" rel-err-tol="1e-6" abs-err-tol="1e-6" />
+    <RungeKuttaIntegrator id="rk4" />
 
     <!-- Collision detector -->
-    <MMeshDCD id="dcd" eps-tolerance="1e-6">
-      <Body body-id="box" />
-      <Body body-id="ground" />
-    </MMeshDCD>
-
-    <CC2ACCD id="c2a" eps-tolerance="1e-4" alpha-tolerance="1e-4">
-      <Body body-id="box" />
-      <Body body-id="ground" />
-    </CC2ACCD>
-
-    <GeneralizedCCD id="ccd" eps-tolerance="1e-3" toi-tolerance="1e-3">
+    <GeneralizedCCD id="ccd" eps-tolerance="1e-3" >
       <Body body-id="box" />
       <Body body-id="ground" />
     </GeneralizedCCD>
@@ -35,22 +25,22 @@
 
     <!-- Rigid bodies -->
       <!-- the box -->
-      <RigidBody name="box" id="box" enabled="true" position="0 .50001 0" angular-velocity="0 0.00 0" visualization-id="b1" linear-velocity="0 0 0">
+      <RigidBody id="box" enabled="true" position="0 .50001 0" angular-velocity="0 0.00 0" visualization-id="b1" linear-velocity="0 0 0">
         <InertiaFromPrimitive primitive-id="b1" />
         <CollisionGeometry primitive-id="b1" />
       </RigidBody>
 
       <!-- the ground -->
-      <RigidBody name="ground" id="ground" enabled="false" vvisualization-filename="ground.wrl" position="0 -.25 0">
+      <RigidBody id="ground" enabled="false" visualization-id="b3" position="0 -.25 0">
         <CollisionGeometry primitive-id="b3" />  
       </RigidBody>
 
     <!-- Setup the simulator -->
-    <EventDrivenSimulator id="simulator" integrator-id="rk4" collision-detector-id="ccd" collision-tolerance="1e-4" TOI-tolerance="1e-3">
+    <EventDrivenSimulator id="simulator" integrator-id="rk4" collision-detector-id="ccd">
       <DynamicBody dynamic-body-id="box" />
       <DynamicBody dynamic-body-id="ground" />
-      <RecurrentForce recurrent-force-id="gravity" enabled="true" />
-      <ContactParameters object1-id="ground" object2-id="box" restitution="0" mu-coulomb="0" mu-viscous="0" ffriction-cone-edges="16" />
+      <RecurrentForce recurrent-force-id="gravity"  />
+      <ContactParameters object1-id="ground" object2-id="box" epsilon="0" mu-coulomb="0" mu-viscous="0" friction-cone-edges="8" />
     </EventDrivenSimulator> 
   </MOBY>
 </XML>

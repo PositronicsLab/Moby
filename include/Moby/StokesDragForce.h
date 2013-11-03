@@ -7,7 +7,6 @@
 #ifndef _STOKES_DRAG_FORCE_H
 #define _STOKES_DRAG_FORCE_H
 
-#include <Moby/Vector3.h>
 #include <Moby/RecurrentForce.h>
 
 namespace Moby {
@@ -18,11 +17,11 @@ class StokesDragForce : public RecurrentForce
     StokesDragForce(const StokesDragForce& source);
     virtual ~StokesDragForce() {}
     virtual void add_force(boost::shared_ptr<DynamicBody> body);
-    virtual void load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map);
-    virtual void save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const;
+    virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
+    virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
 
     /// The drag coefficient 
-    Real b;
+    double b;
 }; // end class
 } // end namespace
 

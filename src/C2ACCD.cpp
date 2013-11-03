@@ -14,7 +14,6 @@
 #include <boost/tuple/tuple_comparison.hpp>
 #include <Moby/CompGeom.h>
 #include <Moby/CollisionDetection.h>
-#include <Moby/LinAlg.h>
 #include <Moby/Event.h>
 #include <Moby/Constants.h>
 #include <Moby/Polyhedron.h>
@@ -24,14 +23,12 @@
 #include <Moby/XMLTree.h>
 #include <Moby/Integrator.h>
 #include <Moby/SSR.h>
-#include <Moby/Optimization.h>
 #include <Moby/C2ACCD.h>
 
 // To delete
 #include <Moby/SpherePrimitive.h>
 #include <Moby/BoxPrimitive.h>
 
-using namespace Moby;
 using boost::dynamic_pointer_cast;
 using boost::static_pointer_cast;
 using boost::shared_ptr;
@@ -48,6 +45,8 @@ using std::priority_queue;
 using std::pair;
 using std::make_pair;
 using std::stack;
+using namespace Ravelin;
+using namespace Moby;
 
 /// For Alistair's priority queue modification
 struct SSRPair
@@ -56,10 +55,10 @@ struct SSRPair
   {
     first = a;
     second = b;
-    priority = (Real) 0.0;
+    priority = (double) 0.0;
   }
 
-  SSRPair(shared_ptr<SSR> a, shared_ptr<SSR> b, Real priority)
+  SSRPair(shared_ptr<SSR> a, shared_ptr<SSR> b, double priority)
   {
     first = a;
     second = b;
@@ -72,7 +71,7 @@ struct SSRPair
   }
 
   shared_ptr<SSR> first, second;
-  Real priority;
+  double priority;
 };
 
 /// Constructs a collision detector with default tolerances
@@ -127,7 +126,7 @@ void C2ACCD::remove_articulated_body(ArticulatedBodyPtr abody)
 /**
  * \pre body states are at time tf
  */
-bool C2ACCD::is_contact(Real dt, const vector<pair<DynamicBodyPtr, VectorN> >& q0, const vector<pair<DynamicBodyPtr, VectorN> >& q1,vector<Event>& contacts)
+bool C2ACCD::is_contact(double dt, const vector<pair<DynamicBodyPtr, VectorNd> >& q0, const vector<pair<DynamicBodyPtr, VectorNd> >& q1,vector<Event>& contacts)
 {
   typedef pair<CollisionGeometryPtr, BVPtr> CG_BV;
 
@@ -195,7 +194,7 @@ DynamicBodyPtr C2ACCD::get_super_body(CollisionGeometryPtr geom)
 }
 
 /// Finds the index of the body / state pair for the given body
-unsigned C2ACCD::find_body(const vector<pair<DynamicBodyPtr, VectorN> >& q, DynamicBodyPtr body)
+unsigned C2ACCD::find_body(const vector<pair<DynamicBodyPtr, VectorNd> >& q, DynamicBodyPtr body)
 {
   for (unsigned i=0; i< q.size(); i++)
     if (q[i].first == body)
@@ -211,9 +210,9 @@ unsigned C2ACCD::find_body(const vector<pair<DynamicBodyPtr, VectorN> >& q, Dyna
  * \param b the second geometry
  * \param contacts on return
  */
-void C2ACCD::check_geoms(Real dt, CollisionGeometryPtr a, CollisionGeometryPtr b, const vector<pair<DynamicBodyPtr, VectorN> >& q0, const vector<pair<DynamicBodyPtr, VectorN> >& q1, vector<Event>& contacts)
+void C2ACCD::check_geoms(double dt, CollisionGeometryPtr a, CollisionGeometryPtr b, const vector<pair<DynamicBodyPtr, VectorNd> >& q0, const vector<pair<DynamicBodyPtr, VectorNd> >& q1, vector<Event>& contacts)
 {
-  VectorN q, qtmp;
+  VectorNd q, qtmp;
 
   FILE_LOG(LOG_COLDET) << "C2ACCD::check_geoms() entered" << endl;
   FILE_LOG(LOG_COLDET) << "  checking geometry " << a->id << " for body " << a->get_single_body()->id << std::endl;
@@ -234,45 +233,47 @@ void C2ACCD::check_geoms(Real dt, CollisionGeometryPtr a, CollisionGeometryPtr b
   assert(idx_b == find_body(q1, bb));
   assert(idx_a != std::numeric_limits<unsigned>::max());
   assert(idx_b != std::numeric_limits<unsigned>::max());
-  const VectorN& qa0 = q0[idx_a].second;
-  const VectorN& qa1 = q1[idx_a].second;
-  const VectorN& qb0 = q0[idx_b].second;
-  const VectorN& qb1 = q1[idx_b].second;
+  const VectorNd& qa0 = q0[idx_a].second;
+  const VectorNd& qa1 = q1[idx_a].second;
+  const VectorNd& qb0 = q0[idx_b].second;
+  const VectorNd& qb1 = q1[idx_b].second;
 
   // set bodies to states qa0 and qb0
-  ba->set_generalized_coordinates(DynamicBody::eRodrigues, qa0);
-  bb->set_generalized_coordinates(DynamicBody::eRodrigues, qb0);
+  ba->set_generalized_coordinates(DynamicBody::eEuler, qa0);
+  bb->set_generalized_coordinates(DynamicBody::eEuler, qb0);
 
   // step to TOC
-  Real TOC = (Real) 0.0;
-  Real h;
+  double TOC = (double) 0.0;
+  double h;
   do
   {
     // get the transforms from a to b
-    Matrix4 aTb = Matrix4::inverse_transform(a->get_transform()) * b->get_transform();
+    shared_ptr<const Pose3d> Ta = a->get_pose();
+    shared_ptr<const Pose3d> Tb = b->get_pose();
+    Transform3d aTb = Pose3d::calc_relative_pose(Tb, Ta);
 
     // determine a safe step we can take
-    Real dcur = std::numeric_limits<Real>::max();
-    h = do_CA(dt, a, b, ssr_a, ssr_b, aTb, (Real) 1.0 - TOC);
+    double dcur = std::numeric_limits<double>::max();
+    h = do_CA(dt, a, b, ssr_a, ssr_b, aTb, (double) 1.0 - TOC);
     FILE_LOG(LOG_COLDET) << " -- determined h: " << h << "  TOC: " << TOC << endl;
 
     // update the TOC
     TOC += h;
 
     // advance the bodies' states to time TOC
-    q.copy_from(qa0) *= ((Real) 1.0 - TOC);
-    qtmp.copy_from(qa1) *= TOC;
+    (q = qa0) *= ((double) 1.0 - TOC);
+    (qtmp = qa1) *= TOC;
     q += qtmp;
-    ba->set_generalized_coordinates(DynamicBody::eRodrigues, q);
-    q.copy_from(qb0) *= ((Real) 1.0 - TOC);
-    qtmp.copy_from(qb1) *= TOC;
+    ba->set_generalized_coordinates(DynamicBody::eEuler, q);
+    (q = qb0) *= ((double) 1.0 - TOC);
+    (qtmp = qb1) *= TOC;
     q += qtmp;
-    bb->set_generalized_coordinates(DynamicBody::eRodrigues, q);
+    bb->set_generalized_coordinates(DynamicBody::eEuler, q);
   }
-  while (h > alpha_tolerance && TOC < (Real) 1.0);
+  while (h > alpha_tolerance && TOC < (double) 1.0);
 
   // if there is an impact, determine contacts
-  if (TOC < (Real) 1.0)
+  if (TOC < (double) 1.0)
     determine_contacts(a, b, TOC, contacts);
 
   FILE_LOG(LOG_COLDET) << "TOC: " << TOC << endl;
@@ -280,9 +281,9 @@ void C2ACCD::check_geoms(Real dt, CollisionGeometryPtr a, CollisionGeometryPtr b
 }
 
 /// Attempts to do line segment / triangle intersection and returns the first point of contact (p) and associated parameter (t)
-bool C2ACCD::query_intersect_seg_tri(const LineSeg3& seg, const Triangle& tri, Real& t, Vector3& p)
+bool C2ACCD::query_intersect_seg_tri(const LineSeg3& seg, const Triangle& tri, double& t, Point3d& p)
 {
-  Vector3 p1, p2;
+  Point3d p1, p2;
   CompGeom::SegTriIntersectType itype = CompGeom::intersect_seg_tri(seg, tri, p1, p2);
   if (itype == CompGeom::eSegTriNoIntersect || 
       itype == CompGeom::eSegTriInclEdge ||
@@ -293,9 +294,9 @@ bool C2ACCD::query_intersect_seg_tri(const LineSeg3& seg, const Triangle& tri, R
     return false;
 
   // determine parameters of both
-  Real seglen = (seg.second - seg.first).norm();
-  Real t1 = (p1 - seg.first).norm() / seglen;
-  Real t2 = (p2 - seg.first).norm() / seglen;
+  double seglen = (seg.second - seg.first).norm();
+  double t1 = (p1 - seg.first).norm() / seglen;
+  double t2 = (p2 - seg.first).norm() / seglen;
   if (t1 < t2)
   {
     t = t1;
@@ -314,7 +315,7 @@ bool C2ACCD::query_intersect_seg_tri(const LineSeg3& seg, const Triangle& tri, R
 /**
  * The bodies should be right at the point of contact.
  */
-void C2ACCD::determine_contacts(CollisionGeometryPtr a, CollisionGeometryPtr b, Real toc, vector<Event>& contacts) const
+void C2ACCD::determine_contacts(CollisionGeometryPtr a, CollisionGeometryPtr b, double toc, vector<Event>& contacts) const
 {
   FILE_LOG(LOG_COLDET) << "C2ACCD::determine_contacts() entered" << endl;
 
@@ -329,8 +330,12 @@ void C2ACCD::determine_contacts(CollisionGeometryPtr a, CollisionGeometryPtr b, 
   vector<pair<unsigned, unsigned> > colliding_tris;
 
   // determine aTb
-  const Matrix4& Ta = a->get_transform();
-  Matrix4 aTb = Matrix4::inverse_transform(Ta)*b->get_transform();
+  shared_ptr<const Pose3d> Ta = a->get_pose();
+  shared_ptr<const Pose3d> Tb = b->get_pose();
+  Transform3d aTb = Pose3d::calc_relative_pose(Tb, Ta);
+
+  // setup transformation from Ta to global frame
+  Transform3d wTa = Pose3d::calc_relative_pose(Ta, GLOBAL);
 
   // determine closest triangles
   vector<pair<Triangle, Triangle> > closest_tris;
@@ -339,11 +344,11 @@ void C2ACCD::determine_contacts(CollisionGeometryPtr a, CollisionGeometryPtr b, 
   // determine features from closest triangles
   for (unsigned i=0; i< closest_tris.size(); i++)
   {
-    // transform the two triangles and determine closest features
-    Triangle tA = Triangle::transform(closest_tris[i].first, Ta);
-    Triangle tB = Triangle::transform(closest_tris[i].second, Ta);
+    // transform the two triangles to global frame & determine closest features
+    Triangle tA = Triangle::transform(closest_tris[i].first, wTa);
+    Triangle tB = Triangle::transform(closest_tris[i].second, wTa);
     Triangle::FeatureType fA, fB; 
-    vector<Vector3> contact_points;
+    vector<Point3d> contact_points;
     determine_closest_features(tA, tB, fA, fB, contact_points);
 
     FILE_LOG(LOG_COLDET) << "  -- examining triangles " << tA << " and " << tB << endl;
@@ -366,7 +371,7 @@ void C2ACCD::determine_contacts(CollisionGeometryPtr a, CollisionGeometryPtr b, 
     for (unsigned j=0; j< contact_points.size(); j++)
     {
       // get the normal
-      Vector3 normal = tri->calc_normal();
+      Vector3d normal = tri->calc_normal();
 
       // setup the contact 
       Event e;
@@ -378,10 +383,12 @@ void C2ACCD::determine_contacts(CollisionGeometryPtr a, CollisionGeometryPtr b, 
       e.contact_point = contact_points[j];
 
       // get the signed distance
-      Real sdist = tri->calc_signed_dist(e.contact_point);
+      double sdist = tri->calc_signed_dist(e.contact_point);
 
       // get the relative velocity at the contact point
-      Vector3 rvel = rba->calc_point_vel(e.contact_point) - rbb->calc_point_vel(e.contact_point);
+      Vector3d pva = rba->calc_point_vel(e.contact_point);
+      Vector3d pvb = rbb->calc_point_vel(e.contact_point);
+      Vector3d rvel = Pose3d::transform_vector(normal.pose, pva) - Pose3d::transform_vector(normal.pose, pvb);
 
       FILE_LOG(LOG_COLDET) << " -- normal: " << normal << std::endl;
       FILE_LOG(LOG_COLDET) << " -- contact point: " << e.contact_point << " sdist: " << sdist << endl;
@@ -393,13 +400,13 @@ void C2ACCD::determine_contacts(CollisionGeometryPtr a, CollisionGeometryPtr b, 
 
       // get the normal dotted with the point and the relative velocity
 /*
-      if (sdist < (Real) 0.0 && normal.dot(rvel) > (Real) 0.0)
+      if (sdist < (double) 0.0 && normal.dot(rvel) > (double) 0.0)
       {
         FILE_LOG(LOG_COLDET) << "reversing normal!" << std::endl;
         c.normal = -c.normal;
       }
 */
-      if (sdist < (Real) 0.0)
+      if (sdist < (double) 0.0)
       {
         if (tri == &tB)
           e.contact_normal = -e.contact_normal;
@@ -412,15 +419,15 @@ void C2ACCD::determine_contacts(CollisionGeometryPtr a, CollisionGeometryPtr b, 
     }
 /*
     // determine the normal
-    Vector3 normal = ZEROS_3;
+    Vector3 normal .set_zero();
     if (fB == Triangle::eFace)
     {
       Vector3 tA_center = (tA.a + tA.b + tA.c)*0.333333;
       normal = tB.calc_normal();
-      Real sdist = tB.calc_signed_dist(tA_center);
+      double sdist = tB.calc_signed_dist(tA_center);
       FILE_LOG(LOG_COLDET) << "    normal " << normal << " comes from triangle B" << endl;
       FILE_LOG(LOG_COLDET) << "      signed distance from center of A: " << sdist << endl;
-      if (sdist < (Real) 0.0)
+      if (sdist < (double) 0.0)
       {
         normal = -normal;
         FILE_LOG(LOG_COLDET) << "      ** reversing normal!" << endl;
@@ -430,10 +437,10 @@ void C2ACCD::determine_contacts(CollisionGeometryPtr a, CollisionGeometryPtr b, 
     {
       Vector3 tB_center = (tB.a + tB.b + tB.c)*0.333333;
       normal = tA.calc_normal();
-      Real sdist = tA.calc_signed_dist(tB_center);
+      double sdist = tA.calc_signed_dist(tB_center);
       FILE_LOG(LOG_COLDET) << "    normal " << normal << " comes from triangle A" << endl;
       FILE_LOG(LOG_COLDET) << "      signed distance from center of B: " << sdist << endl;
-      if (tA.calc_signed_dist(tB_center) > (Real) 0.0)
+      if (tA.calc_signed_dist(tB_center) > (double) 0.0)
       {
         normal = -normal;
         FILE_LOG(LOG_COLDET) << "      ** reversing normal!" << endl;
@@ -455,9 +462,9 @@ void C2ACCD::determine_contacts(CollisionGeometryPtr a, CollisionGeometryPtr b, 
   }
 }
 
-void C2ACCD::determine_closest_tris(CollisionGeometryPtr a, CollisionGeometryPtr b, const Matrix4& aTb, vector<pair<Triangle, Triangle> >& closest_tris) const
+void C2ACCD::determine_closest_tris(CollisionGeometryPtr a, CollisionGeometryPtr b, const Transform3d& aTb, vector<pair<Triangle, Triangle> >& closest_tris) const
 {
-  Vector3 dummy;
+  Point3d dummy;
 
   // get the root SSRs
   shared_ptr<SSR> ssr_a = _root_SSRs.find(a)->second;
@@ -468,7 +475,7 @@ void C2ACCD::determine_closest_tris(CollisionGeometryPtr a, CollisionGeometryPtr
   Q.push(make_pair(ssr_a, ssr_b));
 
   // setup the distance
-  Real max_dist = std::numeric_limits<Real>::max();
+  double max_dist = std::numeric_limits<double>::max();
 
   // process until the queue is empty
   while (!Q.empty())
@@ -478,7 +485,7 @@ void C2ACCD::determine_closest_tris(CollisionGeometryPtr a, CollisionGeometryPtr
     Q.pop();
 
     // get the distance between the two SSRs
-    Real dist = SSR::calc_dist(*ssrs.first, *ssrs.second, aTb, dummy, dummy);
+    double dist = SSR::calc_dist(*ssrs.first, *ssrs.second, aTb, dummy, dummy);
     if (dist > max_dist)
       continue;
 
@@ -496,11 +503,12 @@ void C2ACCD::determine_closest_tris(CollisionGeometryPtr a, CollisionGeometryPtr
       // find closest of all pairs of triangles in ssrs
       BOOST_FOREACH(unsigned ta_idx, mesh_a.second)
       {
-        Triangle ta = mesh_a.first->get_triangle(ta_idx);
+        Triangle ta = mesh_a.first->get_triangle(ta_idx, aTb.target);
         BOOST_FOREACH(unsigned tb_idx, mesh_b.second)
         {
-          Triangle tb = Triangle::transform(mesh_b.first->get_triangle(tb_idx), aTb);
-          Real dist = std::sqrt(Triangle::calc_sq_dist(ta, tb, dummy, dummy));
+          Triangle utb = mesh_b.first->get_triangle(tb_idx, aTb.source);
+          Triangle tb = Triangle::transform(utb, aTb);
+          double dist = std::sqrt(Triangle::calc_sq_dist(ta, tb, dummy, dummy));
           if (dist + NEAR_ZERO < max_dist)
           {
             // distance is appreciably lower...  clear the vector of closest
@@ -544,10 +552,10 @@ void C2ACCD::determine_closest_tris(CollisionGeometryPtr a, CollisionGeometryPtr
 
 /// Determines the contacts between two geometries (intersecting version)
 /*
-void C2ACCD::determine_contacts(CollisionGeometryPtr a, CollisionGeometryPtr b, Real dt, Real toc, vector<Event>& contacts) const
+void C2ACCD::determine_contacts(CollisionGeometryPtr a, CollisionGeometryPtr b, double dt, double toc, vector<Event>& contacts) const
 {
   const unsigned N_TRI_VERTS = 3;
-  Real beta = 0.001;
+  double beta = 0.001;
 
   FILE_LOG(LOG_COLDET) << "C2ACCD::determine_contacts() entered" << endl;
 
@@ -559,7 +567,7 @@ void C2ACCD::determine_contacts(CollisionGeometryPtr a, CollisionGeometryPtr b, 
   vector<pair<unsigned, unsigned> > colliding_tris;
 
   // save the bodies' states
-  VectorN qa, qadot, qb, qbdot;
+  VectorNd qa, qadot, qb, qbdot;
   rba->get_position_state(qa);
   rbb->get_position_state(qb);
 
@@ -607,8 +615,8 @@ void C2ACCD::determine_contacts(CollisionGeometryPtr a, CollisionGeometryPtr b, 
   shared_ptr<const IndexedTriArray> mesh_b = _meshes.find(ssr_b)->second.first;
 
   // get the transforms for rigid bodies a and b
-  const Matrix4& Ta = rba->get_transform();
-  const Matrix4& Tb = rbb->get_transform();
+  const Pose3d& Ta = rba->get_pose();
+  const Pose3d& Tb = rbb->get_pose();
 
   // setup a multimap for storing contact parameters and data
   vector<Event> contact_store;
@@ -634,7 +642,7 @@ void C2ACCD::determine_contacts(CollisionGeometryPtr a, CollisionGeometryPtr b, 
       Vector3 v_dot = rba->calc_point_vel(v) - rbb->calc_point_vel(v);
 
       // calculate the first intersection, if any
-      Real tparam;
+      double tparam;
       Vector3 isect;
       FILE_LOG(LOG_COLDET) << " -- checking intersection between triangle " << tb << " and line seg " << v << " / " << (v+v_dot*dt) << endl;
       if (query_intersect_seg_tri(LineSeg3(v, v+v_dot*dt), tb, tparam, isect))
@@ -645,7 +653,7 @@ void C2ACCD::determine_contacts(CollisionGeometryPtr a, CollisionGeometryPtr b, 
         c.contact_geometry = Contact::ePoint;
         c.point = isect;
         c.normal = tb.calc_normal();
-        if (tb.calc_signed_dist(v) < (Real) 0.0)
+        if (tb.calc_signed_dist(v) < (double) 0.0)
           c.normal = -c.normal;
         contact_store.insert(make_pair(tparam, c));
       }
@@ -661,7 +669,7 @@ void C2ACCD::determine_contacts(CollisionGeometryPtr a, CollisionGeometryPtr b, 
       Vector3 v_dot = rbb->calc_point_vel(v) - rba->calc_point_vel(v);
 
       // calculate the first intersection, if any
-      Real tparam;
+      double tparam;
       Vector3 isect;
       FILE_LOG(LOG_COLDET) << " -- checking intersection between triangle " << ta << " and line seg " << v << " / " << (v+v_dot*dt) << endl;
       if (query_intersect_seg_tri(LineSeg3(v, v+v_dot*dt), ta, tparam, isect))
@@ -672,7 +680,7 @@ void C2ACCD::determine_contacts(CollisionGeometryPtr a, CollisionGeometryPtr b, 
         c.contact_geometry = Contact::ePoint;
         c.point = isect;
         c.normal = -ta.calc_normal();
-        if (ta.calc_signed_dist(v) < (Real) 0.0)
+        if (ta.calc_signed_dist(v) < (double) 0.0)
           c.normal = -c.normal;
         contact_store.insert(make_pair(tparam, c));
       }
@@ -690,7 +698,7 @@ void C2ACCD::determine_contacts(CollisionGeometryPtr a, CollisionGeometryPtr b, 
     FILE_LOG(LOG_COLDET) << "C2ACCD::determine_contacts() exited" << endl;
     return;
   }
-  Real first_t = contact_store.begin()->first;
+  double first_t = contact_store.begin()->first;
   for (vector<Event>::const_iterator i = contact_store.begin(); i != contact_store.end(); i++)
   {
     if (i->first > first_t + NEAR_ZERO)
@@ -713,9 +721,9 @@ bool C2ACCD::check_collision(CollisionGeometryPtr a, CollisionGeometryPtr b, vec
   shared_ptr<SSR> ssr_b = _root_SSRs.find(b)->second;
 
   // compute transformation from b's frame to a's frame
-  const Matrix4& Ta = a->get_transform();
-  const Matrix4& Tb = b->get_transform();
-  Matrix4 aTb = Matrix4::inverse_transform(Ta) * Tb;
+  shared_ptr<const Pose3d> Ta = a->get_pose();
+  shared_ptr<const Pose3d> Tb = b->get_pose();
+  Transform3d aTb = Pose3d::calc_relative_pose(Tb, Ta);
 
   // setup a queue for checking
   queue<pair<shared_ptr<SSR>, shared_ptr<SSR> > > Q;
@@ -743,10 +751,11 @@ bool C2ACCD::check_collision(CollisionGeometryPtr a, CollisionGeometryPtr b, vec
       // do pairwise triangle intersections
       BOOST_FOREACH(unsigned ta_idx, mesh_a.second)
       {
-        Triangle ta = mesh_a.first->get_triangle(ta_idx);
+        Triangle ta = mesh_a.first->get_triangle(ta_idx, aTb.target);
         BOOST_FOREACH(unsigned tb_idx, mesh_b.second)
         {
-          Triangle tb = Triangle::transform(mesh_b.first->get_triangle(tb_idx), aTb);
+          Triangle utb = mesh_b.first->get_triangle(tb_idx, aTb.source);
+          Triangle tb = Triangle::transform(utb, aTb);
           if (CompGeom::query_intersect_tri_tri(ta, tb))
             colliding_tris.push_back(make_pair(ta_idx, tb_idx));
         }
@@ -767,8 +776,8 @@ bool C2ACCD::check_collision(CollisionGeometryPtr a, CollisionGeometryPtr b, vec
     else
     {
       // neither is a leaf; test against children of SSR with larger volume
-      Real vol_a = test.first->calc_volume();
-      Real vol_b = test.second->calc_volume();
+      double vol_a = test.first->calc_volume();
+      double vol_b = test.second->calc_volume();
       if (vol_a < vol_b)
       {
         BOOST_FOREACH(BVPtr child, test.second->children)
@@ -786,15 +795,18 @@ bool C2ACCD::check_collision(CollisionGeometryPtr a, CollisionGeometryPtr b, vec
 }
 
 /// Determines the motion bound on a SSR
-Real C2ACCD::calc_mu(Real dist, const Vector3& n, CollisionGeometryPtr g, boost::shared_ptr<SSR> ssr, bool positive)
+double C2ACCD::calc_mu(double dist, const Vector3d& n, CollisionGeometryPtr g, boost::shared_ptr<SSR> ssr, bool positive)
 {
   const unsigned N_RECT_VERTS = 4;
-  
+
   // get the rigid body
   RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(g->get_single_body());
 
+  // get the velocity of the rigid body in the global frame
+  SVelocityd v = Pose3d::transform(GLOBAL, rb->get_velocity());
+
   // calculate linear contribution to mu
-  Real mu = n.dot(rb->get_lvel());
+  double mu = n.dot(v.get_linear());
   if (!positive)
     mu = -mu;
 //  mu = std::fabs(mu);
@@ -804,11 +816,8 @@ Real C2ACCD::calc_mu(Real dist, const Vector3& n, CollisionGeometryPtr g, boost:
   FILE_LOG(LOG_COLDET) << " linear contribution to mu: " << mu << std::endl;
 
   // get the angular velocity of rb and the angular speed of rb
-  const Vector3& omega = rb->get_avel();
-  Real aspeed = omega.norm();
-
-  // get the inverse rotation matrix for rb
-  Matrix3 RT = Matrix3::transpose(rb->get_transform().get_rotation());
+  const Vector3d& omega = v.get_linear();
+  double aspeed = omega.norm();
 
   // two cases: ssr is an internal node or a leaf node
   if (ssr->is_leaf())
@@ -817,12 +826,12 @@ Real C2ACCD::calc_mu(Real dist, const Vector3& n, CollisionGeometryPtr g, boost:
 
     // ** calculate directed motion bound on triangle vertices
     // get all triangle vertices (local frame)
-    std::vector<Vector3> tri_verts;
+    std::vector<Point3d> tri_verts;
     assert(_meshes.find(ssr) != _meshes.end());
     pair<shared_ptr<const IndexedTriArray>, list<unsigned> >& mesh_tris = _meshes.find(ssr)->second;
     BOOST_FOREACH(unsigned tri_idx, mesh_tris.second)
     {
-      Triangle t = mesh_tris.first->get_triangle(tri_idx);
+      Triangle t = mesh_tris.first->get_triangle(tri_idx, g->get_pose());
       tri_verts.push_back(t.a);
       tri_verts.push_back(t.b);    
       tri_verts.push_back(t.c);    
@@ -832,10 +841,10 @@ Real C2ACCD::calc_mu(Real dist, const Vector3& n, CollisionGeometryPtr g, boost:
     }
 
     // determine the maximum projection
-    Real mx_proj = (Real) 0.0;
+    double mx_proj = (double) 0.0;
     for (unsigned i=0; i< tri_verts.size(); i++)
     {
-      Real proj = Vector3::cross(tri_verts[i], omega).norm();
+      double proj = Vector3d::cross(Vector3d(tri_verts[i]), omega).norm();
       if (proj > mx_proj)
         mx_proj = proj;
     } 
@@ -846,8 +855,8 @@ Real C2ACCD::calc_mu(Real dist, const Vector3& n, CollisionGeometryPtr g, boost:
     FILE_LOG(LOG_COLDET) << "  -- maximum projection: " << mx_proj << endl;
 
     // update mu
-    if (mx_proj > (Real) 0.0)
-      mu += Vector3::cross(omega, n).norm() * mx_proj;
+    if (mx_proj > (double) 0.0)
+      mu += Vector3d::cross(omega, n).norm() * mx_proj;
   }
   else
   {
@@ -855,7 +864,7 @@ Real C2ACCD::calc_mu(Real dist, const Vector3& n, CollisionGeometryPtr g, boost:
 
     // ** calculate direction motion bound on SSR rectangle vertices
     // get the rectangle vertices (local frame)
-    Vector3 rect_verts[N_RECT_VERTS];
+    Point3d rect_verts[N_RECT_VERTS];
     ssr->get_rect_verts(rect_verts);
 
     FILE_LOG(LOG_COLDET) << "    rectangle vertex 1: " << rect_verts[0] << endl;
@@ -864,9 +873,9 @@ Real C2ACCD::calc_mu(Real dist, const Vector3& n, CollisionGeometryPtr g, boost:
     FILE_LOG(LOG_COLDET) << "    rectangle vertex 4: " << rect_verts[3] << endl;
 
     // determine the maximum projection
-    Real mx_proj = (Real) 0.0;
+    double mx_proj = (double) 0.0;
     for (unsigned i=0; i< N_RECT_VERTS; i++)
-      mx_proj = std::max(mx_proj, Vector3::cross(rect_verts[i], omega).norm());
+      mx_proj = std::max(mx_proj, Vector3d::cross(Vector3d(rect_verts[i]), omega).norm());
 
     // normalize with aspeed
     mx_proj /= aspeed;
@@ -874,8 +883,8 @@ Real C2ACCD::calc_mu(Real dist, const Vector3& n, CollisionGeometryPtr g, boost:
     FILE_LOG(LOG_COLDET) << "  -- maximum projection: " << mx_proj << endl;
 
     // update mu
-    if (mx_proj > (Real) 0.0)
-      mu += Vector3::cross(omega, n).norm()*(mx_proj + ssr->radius);
+    if (mx_proj > (double) 0.0)
+      mu += Vector3d::cross(omega, n).norm()*(mx_proj + ssr->radius);
   }
 
   FILE_LOG(LOG_COLDET) << "  -- determined mu: " << mu << endl;
@@ -884,44 +893,44 @@ Real C2ACCD::calc_mu(Real dist, const Vector3& n, CollisionGeometryPtr g, boost:
 }
 
 /// CA step (Mirtich's approach)
-Real C2ACCD::do_CAStep(Real dist, const Vector3& dab, CollisionGeometryPtr a, CollisionGeometryPtr b, shared_ptr<SSR> ssr_a, shared_ptr<SSR> ssr_b)
+double C2ACCD::do_CAStep(double dist, const Vector3d& dab, CollisionGeometryPtr a, CollisionGeometryPtr b, shared_ptr<SSR> ssr_a, shared_ptr<SSR> ssr_b)
 {
   FILE_LOG(LOG_COLDET) << "C2ACCD::do_CAStep() entered" << endl;
 
-  if (dist <= (Real) 0.0)
+  if (dist <= (double) 0.0)
   {
     FILE_LOG(LOG_COLDET) << "  distance is zero; exiting..." << endl;
     return 0.0;
   } 
 
   // determine n
-  Real dab_len = dab.norm();
-  Vector3 n = dab/dab_len;
+  double dab_len = dab.norm();
+  Vector3d n = dab/dab_len;
 
   // get the individual bodies
   RigidBodyPtr rba = dynamic_pointer_cast<RigidBody>(a->get_single_body());
   RigidBodyPtr rbb = dynamic_pointer_cast<RigidBody>(b->get_single_body());
 
   // determine the motion bound on each 
-  Real mu_a = calc_mu(dist, n, a, ssr_a, true);
-  Real mu_b = calc_mu(dist, n, b, ssr_b, false);
-  Real mu = mu_a + mu_b;
+  double mu_a = calc_mu(dist, n, a, ssr_a, true);
+  double mu_b = calc_mu(dist, n, b, ssr_b, false);
+  double mu = mu_a + mu_b;
 
   // if mu is negative, there is no max step
-  if (mu <= (Real) 0.0)
-    return std::numeric_limits<Real>::max();
+  if (mu <= (double) 0.0)
+    return std::numeric_limits<double>::max();
 
   // solve for the maximum step 
-  Real mdt = std::max(dist - eps_tolerance, (Real) 0.0)/mu; 
+  double mdt = std::max(dist - eps_tolerance, (double) 0.0)/mu; 
 
   FILE_LOG(LOG_COLDET) << "C2ACCD::do_CAStep() determined max dt: " << mdt << endl;
   return mdt;
 }
 
 /// CA algorithm (no "control")
-Real C2ACCD::do_CA(Real step_size, CollisionGeometryPtr a, CollisionGeometryPtr b, shared_ptr<SSR> ssr_a, shared_ptr<SSR> ssr_b, const Matrix4& aTb, Real dt)
+double C2ACCD::do_CA(double step_size, CollisionGeometryPtr a, CollisionGeometryPtr b, shared_ptr<SSR> ssr_a, shared_ptr<SSR> ssr_b, const Transform3d& aTb, double dt)
 {
-  const Real TTOL = alpha_tolerance / step_size;
+  const double TTOL = alpha_tolerance / step_size;
   FILE_LOG(LOG_COLDET) << "C2ACCD::do_CA() entered" << endl;
 
   // place the two SSR's onto a priority queue
@@ -939,16 +948,23 @@ Real C2ACCD::do_CA(Real step_size, CollisionGeometryPtr a, CollisionGeometryPtr 
     {
       // compute the distance between the triangles in the SSRs and get closest
       // points in global frame
-      Vector3 cpa, cpb;
-      Real dist = calc_dist(ssrs.first, ssrs.second, aTb, cpa, cpb);
-      cpa = a->get_transform().mult_point(cpa);
-      cpb = a->get_transform().mult_point(cpb);
+      Point3d cpa, cpb;
+      double dist = calc_dist(ssrs.first, ssrs.second, aTb, cpa, cpb);
+
+      // indicate closest points are in a's frame
+      shared_ptr<const Pose3d> Ta = a->get_pose();
+      cpa.pose = Ta;
+      cpb.pose = Ta;
+
+      // transform closest points to global frame
+      cpa = Pose3d::transform_point(shared_ptr<const Pose3d>(), cpa);
+      cpb = Pose3d::transform_point(shared_ptr<const Pose3d>(), cpb);
       FILE_LOG(LOG_COLDET) << " -- SSR leafs detected, distance: " << dist << " closest points: " << cpa << " and " << cpb << endl;
 
       // compute dt for the primitives 
       if ((cpa - cpb).norm() > NEAR_ZERO)
       {
-        Real dtstar = do_CAStep(dist, cpb - cpa, a, b, ssrs.first, ssrs.second);
+        double dtstar = do_CAStep(dist, cpb - cpa, a, b, ssrs.first, ssrs.second);
         if (dtstar < dt)
           dt = dtstar;
       }
@@ -966,13 +982,20 @@ Real C2ACCD::do_CA(Real step_size, CollisionGeometryPtr a, CollisionGeometryPtr 
 
         // compute the distance between the SSRs and get closest points in 
         // global frame
-        Vector3 cpa, cpb;
-        Real dist = SSR::calc_dist(*ssrs.first, *bchild, aTb, cpa, cpb);
-        cpa = a->get_transform().mult_point(cpa);
-        cpb = a->get_transform().mult_point(cpb);
+        Point3d cpa, cpb;
+        double dist = SSR::calc_dist(*ssrs.first, *bchild, aTb, cpa, cpb);
+
+        // indicate closest points are in a's frame
+        shared_ptr<const Pose3d> Ta = a->get_pose();
+        cpa.pose = Ta;
+        cpb.pose = Ta;
+
+        // transform closest points to global frame
+        cpa = Pose3d::transform_point(shared_ptr<const Pose3d>(), cpa);
+        cpb = Pose3d::transform_point(shared_ptr<const Pose3d>(), cpb);
 
         // compute dt for the pair; if dt* > dt, ignore
-        Real dtstar = (Real) 0.0;
+        double dtstar = (double) 0.0;
         if ((cpa - cpb).norm() > NEAR_ZERO)
         {
           dtstar = do_CAStep(dist, cpa - cpb, b, a, bchild, ssrs.first);
@@ -981,7 +1004,7 @@ Real C2ACCD::do_CA(Real step_size, CollisionGeometryPtr a, CollisionGeometryPtr 
         }
 
         // smaller bound..  add it for processing
-        Q.push(SSRPair(ssrs.first, bchild, (Real) 1.0/dtstar));
+        Q.push(SSRPair(ssrs.first, bchild, (double) 1.0/dtstar));
       }
     }
     else if (ssrs.second->is_leaf())
@@ -993,13 +1016,20 @@ Real C2ACCD::do_CA(Real step_size, CollisionGeometryPtr a, CollisionGeometryPtr 
 
         // compute the distance between the SSRs and get closest points in 
         // global frame
-        Vector3 cpa, cpb;
-        Real dist = SSR::calc_dist(*achild, *ssrs.second, aTb, cpa, cpb);
-        cpa = a->get_transform().mult_point(cpa);
-        cpb = a->get_transform().mult_point(cpb);
+        Point3d cpa, cpb;
+        double dist = SSR::calc_dist(*achild, *ssrs.second, aTb, cpa, cpb);
+
+        // indicate closest points are in a's frame
+        shared_ptr<const Pose3d> Ta = a->get_pose();
+        cpa.pose = Ta;
+        cpb.pose = Ta;
+
+        // transform closest points to global frame
+        cpa = Pose3d::transform_point(shared_ptr<const Pose3d>(), cpa);
+        cpb = Pose3d::transform_point(shared_ptr<const Pose3d>(), cpb);
 
         // compute dt for the pair; if dt* > dt, ignore
-        Real dtstar = (Real) 0.0;
+        double dtstar = (double) 0.0;
         if ((cpa - cpb).norm() > NEAR_ZERO)
         {
           dtstar = do_CAStep(dist, cpb - cpa, a, b, achild, ssrs.second);
@@ -1008,7 +1038,7 @@ Real C2ACCD::do_CA(Real step_size, CollisionGeometryPtr a, CollisionGeometryPtr 
         }
 
         // smaller bound..  add it for processing
-        Q.push(SSRPair(achild, ssrs.second, (Real) 1.0/dtstar));
+        Q.push(SSRPair(achild, ssrs.second, (double) 1.0/dtstar));
       }
     }
     else
@@ -1023,13 +1053,20 @@ Real C2ACCD::do_CA(Real step_size, CollisionGeometryPtr a, CollisionGeometryPtr 
 
           // compute the distance between the SSRs and get closest points in 
           // global frame
-          Vector3 cpa, cpb;
-          Real dist = SSR::calc_dist(*achild, *ssrs.second, aTb, cpa, cpb);
-          cpa = a->get_transform().mult_point(cpa);
-          cpb = a->get_transform().mult_point(cpb);
+          Point3d cpa, cpb;
+          double dist = SSR::calc_dist(*achild, *ssrs.second, aTb, cpa, cpb);
+
+          // indicate closest points are in a's frame
+          shared_ptr<const Pose3d> Ta = a->get_pose();
+          cpa.pose = Ta;
+          cpb.pose = Ta;
+
+          // transform closest points to global frame
+          cpa = Pose3d::transform_point(shared_ptr<const Pose3d>(), cpa);
+          cpb = Pose3d::transform_point(shared_ptr<const Pose3d>(), cpb);
 
           // compute dt for the pair; if dt* > dt, ignore
-          Real dtstar = (Real) 0.0;
+          double dtstar = (double) 0.0;
           if ((cpa - cpb).norm() > NEAR_ZERO)
           {
             dtstar = do_CAStep(dist, cpb - cpa, a, b, achild, ssrs.second);
@@ -1038,7 +1075,7 @@ Real C2ACCD::do_CA(Real step_size, CollisionGeometryPtr a, CollisionGeometryPtr 
           }
 
           // smaller bound..  add it for processing
-          Q.push(SSRPair(achild, ssrs.second, (Real) 1.0/dtstar));
+          Q.push(SSRPair(achild, ssrs.second, (double) 1.0/dtstar));
         }
       }
       else
@@ -1050,13 +1087,20 @@ Real C2ACCD::do_CA(Real step_size, CollisionGeometryPtr a, CollisionGeometryPtr 
 
           // compute the distance between the SSRs and get closest points in 
           // global frame
-          Vector3 cpa, cpb;
-          Real dist = SSR::calc_dist(*ssrs.first, *bchild, aTb, cpa, cpb);
-          cpa = a->get_transform().mult_point(cpa);
-          cpb = a->get_transform().mult_point(cpb);
+          Point3d cpa, cpb;
+          double dist = SSR::calc_dist(*ssrs.first, *bchild, aTb, cpa, cpb);
+
+          // indicate closest points are in a's frame
+          shared_ptr<const Pose3d> Ta = a->get_pose();
+          cpa.pose = Ta;
+          cpb.pose = Ta;
+
+          // transform closest points to global frame
+          cpa = Pose3d::transform_point(shared_ptr<const Pose3d>(), cpa);
+          cpb = Pose3d::transform_point(shared_ptr<const Pose3d>(), cpb);
 
           // compute dt for the pair; if dt* > dt, ignore
-          Real dtstar = (Real) 0.0;
+          double dtstar = (double) 0.0;
           if ((cpa - cpb).norm() > NEAR_ZERO)
           {
             dtstar = do_CAStep(dist, cpa - cpb, b, a, bchild, ssrs.first);
@@ -1065,7 +1109,7 @@ Real C2ACCD::do_CA(Real step_size, CollisionGeometryPtr a, CollisionGeometryPtr 
           }
 
           // smaller bound..  add it for processing
-          Q.push(SSRPair(ssrs.first, bchild, (Real) 1.0/dtstar));
+          Q.push(SSRPair(ssrs.first, bchild, (double) 1.0/dtstar));
         }
       } 
     }
@@ -1077,9 +1121,9 @@ Real C2ACCD::do_CA(Real step_size, CollisionGeometryPtr a, CollisionGeometryPtr 
 
 /*
 /// C2A algorithm
-Real C2ACCD::do_C2A(CollisionGeometryPtr a, CollisionGeometryPtr b, shared_ptr<SSR> ssr_a, shared_ptr<SSR> ssr_b, const Matrix4& aTb, Real& dcur, Real dtcur, Real w)
+double C2ACCD::do_C2A(CollisionGeometryPtr a, CollisionGeometryPtr b, shared_ptr<SSR> ssr_a, shared_ptr<SSR> ssr_b, const Pose3d& aTb, double& dcur, double dtcur, double w)
 {
-  const Real DTHRESH = eps_tolerance;
+  const double DTHRESH = eps_tolerance;
 
   FILE_LOG(LOG_COLDET) << "C2ACCD::do_C2A() entered" << endl;
   FILE_LOG(LOG_COLDET) << "  SSR a: " << ssr_a << "  SSR b: " << ssr_b << endl;
@@ -1087,7 +1131,7 @@ Real C2ACCD::do_C2A(CollisionGeometryPtr a, CollisionGeometryPtr b, shared_ptr<S
 
   // increase w near the end of the conservative advancement
   if (dcur < DTHRESH)
-    w = (Real) 1.0;
+    w = (double) 1.0;
 
   if (ssr_a->is_leaf() && ssr_b->is_leaf())
   {
@@ -1096,7 +1140,7 @@ Real C2ACCD::do_C2A(CollisionGeometryPtr a, CollisionGeometryPtr b, shared_ptr<S
 
     // calculate the distance and closest points between ssr_a and ssr_b
     Vector3 cpa, cpb, cpa_cand, cpb_cand;
-    Real d = std::numeric_limits<Real>::max();
+    double d = std::numeric_limits<double>::max();
 
     // get triangles in ssr_a and ssr_b
     assert(_meshes.find(ssr_a) != _meshes.end());
@@ -1113,7 +1157,7 @@ Real C2ACCD::do_C2A(CollisionGeometryPtr a, CollisionGeometryPtr b, shared_ptr<S
       BOOST_FOREACH(unsigned tb_idx, mesh_b.second)
       {
         Triangle tb = Triangle::transform(mesh_b.first->get_triangle(tb_idx), aTb);
-        Real dist = Triangle::calc_sq_dist(ta, tb, cpa_cand, cpb_cand);
+        double dist = Triangle::calc_sq_dist(ta, tb, cpa_cand, cpb_cand);
         if (dist < d)
         {
           d = dist;
@@ -1130,15 +1174,15 @@ Real C2ACCD::do_C2A(CollisionGeometryPtr a, CollisionGeometryPtr b, shared_ptr<S
       dcur = d;
     
     // determine cpa and cpb in the global frame, and determine dab
-    cpa = a->get_transform().mult_point(cpa);
-    cpb = a->get_transform().mult_point(cpb);
+    cpa = a->get_pose().mult_point(cpa);
+    cpb = a->get_pose().mult_point(cpb);
     Vector3 dab = cpb - cpa;
 
     FILE_LOG(LOG_COLDET) << " -- closest triangle pair distance: " << d << endl;
     FILE_LOG(LOG_COLDET) << " -- closest points (global frame): " << cpa << " and " << cpb << endl;
 
     // calculate the conservative advancement step
-    Real dt = do_CAStep(d, dab, a, b, ssr_a, ssr_b);
+    double dt = do_CAStep(d, dab, a, b, ssr_a, ssr_b);
 
     if (dt < dtcur)
       dtcur = dt;
@@ -1149,7 +1193,7 @@ Real C2ACCD::do_C2A(CollisionGeometryPtr a, CollisionGeometryPtr b, shared_ptr<S
     return dtcur;
   }
 
-  vector<tuple<Real, Vector3, Vector3, shared_ptr<SSR> > > distances;
+  vector<tuple<double, Vector3, Vector3, shared_ptr<SSR> > > distances;
   if (!ssr_a->is_leaf())
   {
     // compute the distances
@@ -1157,22 +1201,22 @@ Real C2ACCD::do_C2A(CollisionGeometryPtr a, CollisionGeometryPtr b, shared_ptr<S
     {
       Vector3 cpa, cpb;
       shared_ptr<SSR> achild = dynamic_pointer_cast<SSR>(bv);
-      Real d = SSR::calc_dist(*achild, *ssr_b, aTb, cpa, cpb);
+      double d = SSR::calc_dist(*achild, *ssr_b, aTb, cpa, cpb);
       distances.push_back(make_tuple(d, cpa, cpb, achild));
     }
 
     // find the smallest distance
-    vector<tuple<Real, Vector3, Vector3, shared_ptr<SSR> > >::const_iterator closest = std::min_element(distances.begin(), distances.end());
+    vector<tuple<double, Vector3, Vector3, shared_ptr<SSR> > >::const_iterator closest = std::min_element(distances.begin(), distances.end());
     if (closest->get<0>() > w*dcur)
       return do_C2A(a, b, closest->get<3>(), ssr_b, aTb, dcur, dtcur, w);
     else
     {
-      Vector3 cpa = a->get_transform().mult_point(closest->get<1>());
-      Vector3 cpb = a->get_transform().mult_point(closest->get<2>());
+      Vector3 cpa = a->get_pose().mult_point(closest->get<1>());
+      Vector3 cpb = a->get_pose().mult_point(closest->get<2>());
       Vector3 dab = cpb - cpa;
 
       // calculate conservative advancement
-      Real dt = do_CAStep(closest->get<0>(), dab, a, b, closest->get<3>(), ssr_b);
+      double dt = do_CAStep(closest->get<0>(), dab, a, b, closest->get<3>(), ssr_b);
       if (dt < dtcur)
         dtcur = dt;
     }
@@ -1184,22 +1228,22 @@ Real C2ACCD::do_C2A(CollisionGeometryPtr a, CollisionGeometryPtr b, shared_ptr<S
     {
       Vector3 cpa, cpb;
       shared_ptr<SSR> bchild = dynamic_pointer_cast<SSR>(bv);
-      Real d = SSR::calc_dist(*ssr_a, *bchild, aTb, cpa, cpb);
+      double d = SSR::calc_dist(*ssr_a, *bchild, aTb, cpa, cpb);
       distances.push_back(make_tuple(d, cpa, cpb, bchild));
     }
 
     // find the smallest distance
-    vector<tuple<Real, Vector3, Vector3, shared_ptr<SSR> > >::const_iterator closest = std::min_element(distances.begin(), distances.end());
+    vector<tuple<double, Vector3, Vector3, shared_ptr<SSR> > >::const_iterator closest = std::min_element(distances.begin(), distances.end());
     if (closest->get<0>() > w*dcur)
       return do_C2A(a, b, ssr_a, closest->get<3>(), aTb, dcur, dtcur, w);
     else
     {
-      Vector3 cpa = a->get_transform().mult_point(closest->get<1>());
-      Vector3 cpb = a->get_transform().mult_point(closest->get<2>());
+      Vector3 cpa = a->get_pose().mult_point(closest->get<1>());
+      Vector3 cpb = a->get_pose().mult_point(closest->get<2>());
       Vector3 dab = cpb - cpa;
 
       // calculate conservative advancement
-      Real dt = do_CAStep(closest->get<0>(), dab, a, b, ssr_a, ssr_b);
+      double dt = do_CAStep(closest->get<0>(), dab, a, b, ssr_a, ssr_b);
       if (dt < dtcur)
         dtcur = dt;
     }
@@ -1228,8 +1272,8 @@ Real C2ACCD::do_C2A(CollisionGeometryPtr a, CollisionGeometryPtr b, shared_ptr<S
 
   // calculate distances
   Vector3 cpa1, cpa2, cpb1, cpb2;
-  Real d1 = SSR::calc_dist(*A, *C, aTb, cpa1, cpb1);
-  Real d2 = SSR::calc_dist(*B, *D, aTb, cpa2, cpb2);
+  double d1 = SSR::calc_dist(*A, *C, aTb, cpa1, cpb1);
+  double d2 = SSR::calc_dist(*B, *D, aTb, cpa2, cpb2);
   FILE_LOG(LOG_COLDET) << " -- A: " << A << " B: " << B << " C: " << C << " D: " << D << endl;
   FILE_LOG(LOG_COLDET) << " -- d1: " << d1 << "  d2: " << d2 << endl;
 
@@ -1240,12 +1284,12 @@ Real C2ACCD::do_C2A(CollisionGeometryPtr a, CollisionGeometryPtr b, shared_ptr<S
     else
     {
       // determine cpa2 and cpb2 in global frame and determine dab
-      cpa2 = a->get_transform().mult_point(cpa2);
-      cpb2 = b->get_transform().mult_point(cpb2);
+      cpa2 = a->get_pose().mult_point(cpa2);
+      cpb2 = b->get_pose().mult_point(cpb2);
       Vector3 dab = cpb2 - cpa2;
 
       // calculate conservative advancement
-      Real dt = do_CAStep(d2, dab, a, b, B);
+      double dt = do_CAStep(d2, dab, a, b, B);
 
       if (dt < dtcur)
         dtcur = dt;
@@ -1255,12 +1299,12 @@ Real C2ACCD::do_C2A(CollisionGeometryPtr a, CollisionGeometryPtr b, shared_ptr<S
     else
     {
       // get cpa1 and cpb1 in global frame and determine dab
-      cpa1 = a->get_transform().mult_point(cpa1);
-      cpb1 = a->get_transform().mult_point(cpb1);
+      cpa1 = a->get_pose().mult_point(cpa1);
+      cpb1 = a->get_pose().mult_point(cpb1);
       Vector3 dab = cpb1 - cpa1;
 
       // calculate conservative advancement
-      Real dt = do_CAStep(d1, dab, a, b, A);
+      double dt = do_CAStep(d1, dab, a, b, A);
 
       if (dt < dtcur)
         dtcur = dt;
@@ -1273,12 +1317,12 @@ Real C2ACCD::do_C2A(CollisionGeometryPtr a, CollisionGeometryPtr b, shared_ptr<S
     else
     {
       // get cpa1 and cpb1 in global frame and determine dab
-      cpa1 = a->get_transform().mult_point(cpa1);
-      cpb1 = a->get_transform().mult_point(cpb1);
+      cpa1 = a->get_pose().mult_point(cpa1);
+      cpb1 = a->get_pose().mult_point(cpb1);
       Vector3 dab = cpb1 - cpa1;
 
       // calculate conservative advancement
-      Real dt = do_CAStep(d1, dab, a, b, A);
+      double dt = do_CAStep(d1, dab, a, b, A);
 
       if (dt < dtcur)
         dtcur = dt;
@@ -1288,12 +1332,12 @@ Real C2ACCD::do_C2A(CollisionGeometryPtr a, CollisionGeometryPtr b, shared_ptr<S
     else
     {
       // determine cpa2 and cpb2 in global frame and determine dab
-      cpa2 = a->get_transform().mult_point(cpa2);
-      cpb2 = a->get_transform().mult_point(cpb2);
+      cpa2 = a->get_pose().mult_point(cpa2);
+      cpb2 = a->get_pose().mult_point(cpb2);
       Vector3 dab = cpb2 - cpa2;
 
       // calculate conservative advancement
-      Real dt = do_CAStep(d2, dab, a, b, B);
+      double dt = do_CAStep(d2, dab, a, b, B);
 
       if (dt < dtcur)
         dtcur = dt;
@@ -1308,10 +1352,9 @@ Real C2ACCD::do_C2A(CollisionGeometryPtr a, CollisionGeometryPtr b, shared_ptr<S
 */
 
 /// Calculates the smallest distance between triangles in two SSR leaf nodes
-Real C2ACCD::calc_dist(shared_ptr<SSR> a, shared_ptr<SSR> b, const Matrix4& aTb, Vector3& cpa, Vector3& cpb) const
+double C2ACCD::calc_dist(shared_ptr<SSR> a, shared_ptr<SSR> b, const Transform3d& aTb, Point3d& cpa, Point3d& cpb) const
 {
   FILE_LOG(LOG_COLDET) << "C2ACCD::calc_dist() entered" << endl;
-  FILE_LOG(LOG_COLDET) << "  aTb: " << endl << aTb;
 
   // get the meshes for the two SSRs
   assert(_meshes.find(a) != _meshes.end());
@@ -1320,17 +1363,18 @@ Real C2ACCD::calc_dist(shared_ptr<SSR> a, shared_ptr<SSR> b, const Matrix4& aTb,
   const pair<shared_ptr<const IndexedTriArray>, list<unsigned> >& mesh_b = _meshes.find(b)->second;
 
   // find closest points on triangles
-  Vector3 cpa_cand, cpb_cand;
-  Real min_dist = std::numeric_limits<Real>::max();
+  Point3d cpa_cand, cpb_cand;
+  double min_dist = std::numeric_limits<double>::max();
   BOOST_FOREACH(unsigned ta_idx, mesh_a.second)
   {
-    Triangle ta = mesh_a.first->get_triangle(ta_idx);
+    Triangle ta = mesh_a.first->get_triangle(ta_idx, aTb.target);
     FILE_LOG(LOG_COLDET) << "   ta: " << ta << endl; 
     BOOST_FOREACH(unsigned tb_idx, mesh_b.second)
     {
-      Triangle tb = Triangle::transform(mesh_b.first->get_triangle(tb_idx), aTb);
+      Triangle utb = mesh_b.first->get_triangle(tb_idx, aTb.source);
+      Triangle tb = Triangle::transform(utb, aTb);
       FILE_LOG(LOG_COLDET) << "    tb: " << tb << endl;
-      Real dist = Triangle::calc_sq_dist(ta, tb, cpa_cand, cpb_cand);
+      double dist = Triangle::calc_sq_dist(ta, tb, cpa_cand, cpb_cand);
       FILE_LOG(LOG_COLDET) << "    sq dist: " << dist << endl;
       if (dist < min_dist)
       {
@@ -1345,7 +1389,7 @@ Real C2ACCD::calc_dist(shared_ptr<SSR> a, shared_ptr<SSR> b, const Matrix4& aTb,
 }
 
 /// Implements Base::load_from_xml()
-void C2ACCD::load_from_xml(XMLTreeConstPtr node, map<std::string, BasePtr>& id_map)
+void C2ACCD::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, BasePtr>& id_map)
 {
   map<std::string, BasePtr>::const_iterator id_iter;
 
@@ -1356,12 +1400,12 @@ void C2ACCD::load_from_xml(XMLTreeConstPtr node, map<std::string, BasePtr>& id_m
   CollisionDetection::load_from_xml(node, id_map);
 
   // get the epsilon tolerance, if specified
-  const XMLAttrib* eps_tol_attr = node->get_attrib("eps-tolerance");
+  XMLAttrib* eps_tol_attr = node->get_attrib("eps-tolerance");
   if (eps_tol_attr)
     this->eps_tolerance = eps_tol_attr->get_real_value();
 
   // get the alpha tolerance, if specified
-  const XMLAttrib* alpha_tol_attr = node->get_attrib("alpha-tolerance");
+  XMLAttrib* alpha_tol_attr = node->get_attrib("alpha-tolerance");
   if (alpha_tol_attr)
     this->alpha_tolerance = alpha_tol_attr->get_real_value();
 }
@@ -1371,7 +1415,7 @@ void C2ACCD::load_from_xml(XMLTreeConstPtr node, map<std::string, BasePtr>& id_m
  * \note neither the contact cache nor the pairs currently in collision are 
  *       saved
  */
-void C2ACCD::save_to_xml(XMLTreePtr node, list<BaseConstPtr>& shared_objects) const
+void C2ACCD::save_to_xml(XMLTreePtr node, list<shared_ptr<const Base> >& shared_objects) const
 {
   // call parent save_to_xml() method first
   CollisionDetection::save_to_xml(node, shared_objects);
@@ -1402,7 +1446,7 @@ void C2ACCD::save_to_xml(XMLTreePtr node, list<BaseConstPtr>& shared_objects) co
 /**
  * \note the epsilon parameter is ignored
  */
-bool C2ACCD::is_collision(Real epsilon)
+bool C2ACCD::is_collision(double epsilon)
 {
   // clear the set of colliding pairs and list of colliding triangles
   colliding_pairs.clear();
@@ -1415,8 +1459,8 @@ bool C2ACCD::is_collision(Real epsilon)
     CollisionGeometryPtr g1 = *i;
 
     // get the transform and the inverse transform for this geometry
-    const Matrix4& wTg1 = g1->get_transform();
-    Matrix4 g1Tw = Matrix4::inverse_transform(wTg1);
+    shared_ptr<const Pose3d> T1 = g1->get_pose();
+    Transform3d g1Tw = Pose3d::calc_relative_pose(GLOBAL, T1);
 
     // loop through all other geometries
     std::set<CollisionGeometryPtr>::const_iterator j = i;
@@ -1435,10 +1479,11 @@ bool C2ACCD::is_collision(Real epsilon)
       BVPtr bv2 = _root_SSRs[g2];
 
       // get the transform for g2 and its inverse
-      const Matrix4& wTg2 = g2->get_transform(); 
+      shared_ptr<const Pose3d> T2 = g2->get_pose();
+      Transform3d g1Tg2 = Pose3d::calc_relative_pose(T2, T1);
 
       // if intersects, add to colliding pairs
-      if (intersect_BV_trees(bv1, bv2, g1Tw * wTg2, g1, g2))
+      if (intersect_BV_trees(bv1, bv2, g1Tg2, g1, g2))
         colliding_pairs.insert(make_sorted_pair(g1, g2));
     } 
   }
@@ -1447,7 +1492,7 @@ bool C2ACCD::is_collision(Real epsilon)
 }
 
 /// Intersects two BV trees; returns <b>true</b> if one (or more) pair of the underlying triangles intersects
-bool C2ACCD::intersect_BV_trees(BVPtr a, BVPtr b, const Matrix4& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b) 
+bool C2ACCD::intersect_BV_trees(BVPtr a, BVPtr b, const Transform3d& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b) 
 {
   std::queue<tuple<BVPtr, BVPtr, bool> > q;
 
@@ -1520,7 +1565,7 @@ bool C2ACCD::intersect_BV_trees(BVPtr a, BVPtr b, const Matrix4& aTb, CollisionG
 
 /*
 /// Calculates the distance between two geometries as well as the closest points
-Real C2ACCD::calc_distance(CollisionGeometryPtr a, CollisionGeometryPtr b, Vector3& cpa, Vector3& cpb)
+double C2ACCD::calc_distance(CollisionGeometryPtr a, CollisionGeometryPtr b, Vector3& cpa, Vector3& cpb)
 {
   // junk variables (variables necessary for calling a function, but whose
   // value we don't use)
@@ -1531,12 +1576,12 @@ Real C2ACCD::calc_distance(CollisionGeometryPtr a, CollisionGeometryPtr b, Vecto
   shared_ptr<SSR> ssrb = _root_SSRs[b];
 
   // determine the relative transform from b to a
-  const Matrix4& Ta = a->get_transform();
-  const Matrix4& Tb = b->get_transform();
-  Matrix4 aTb = Matrix4::inverse_transform(Ta) * Tb;
+  shared_ptr<const Pose3d> Ta = a->get_pose();
+  shared_ptr<const Pose3d> Tb = b->get_pose();
+  Transform3d aTb = Pose3d::calc_relative_pose(Tb, Ta);
 
   // setup the minimum distance
-  Real min_dist = std::numeric_limits<Real>::max(); 
+  double min_dist = std::numeric_limits<double>::max(); 
 
   // now, add the pair to the queue for processing
   queue<pair<shared_ptr<SSR>, shared_ptr<SSR> > Q;
@@ -1548,7 +1593,7 @@ Real C2ACCD::calc_distance(CollisionGeometryPtr a, CollisionGeometryPtr b, Vecto
     // get the distance between the bounding volumes at the front of the queue
     pair<shared_ptr<SSR>, shared_ptr<SSR> > front = Q.front();
     Q.pop();
-    Real dist = SSR::calc_dist(*front.first, *front.second, aTb, junkA, junkB);
+    double dist = SSR::calc_dist(*front.first, *front.second, aTb, junkA, junkB);
 
     // if the distance is greater than the minimum encountered distance, don't
     // process this pair further
@@ -1572,7 +1617,7 @@ Real C2ACCD::calc_distance(CollisionGeometryPtr a, CollisionGeometryPtr b, Vecto
           BOOST_FOREACH(unsigned t2_idx, mesh_b.second)
           {
             Triangle t2 = mesh_b.first->get_triangle(t2_idx);
-            Real dist = Triangle::calc_sq_dist(t1, t2, junkA, junkB);
+            double dist = Triangle::calc_sq_dist(t1, t2, junkA, junkB);
             if (dist < min_dist)
             {
               min_dist = dist;
@@ -1600,8 +1645,8 @@ Real C2ACCD::calc_distance(CollisionGeometryPtr a, CollisionGeometryPtr b, Vecto
       // neither is a leaf; drill down BV with greater volume
       else
       {
-        Real vol_a = front.first->calc_volume();
-        Real vol_b = front.second->calc_volume();
+        double vol_a = front.first->calc_volume();
+        double vol_b = front.second->calc_volume();
         if (vol_a > vol_b)
           BOOST_FOREACH(BVPtr child, front.first->children)
             Q.push(make_pair(child, front.second));
@@ -1638,13 +1683,18 @@ void C2ACCD::build_BV_tree(CollisionGeometryPtr geom)
   bool deformable = dynamic_pointer_cast<DeformableBody>(geom->get_single_body());
 
   // get the intersection tolerance for the primitive
-  Real intersection_tolerance = geom->get_geometry()->get_intersection_tolerance();
+  double intersection_tolerance = geom->get_geometry()->get_intersection_tolerance();
 
   // get the mesh
   shared_ptr<const IndexedTriArray> mesh = geom->get_geometry()->get_mesh();
 
   // get the vertices from the mesh
-  const vector<Vector3>& vertices = mesh->get_vertices();
+  const vector<Origin3d>& verts = mesh->get_vertices();
+
+  // make vertices using points
+  vector<Point3d> vertices(verts.size());
+  for (unsigned i=0; i< verts.size(); i++)
+    vertices[i] = Point3d(verts[i], geom->get_pose());
 
   // build an BV around all vertices 
   BVPtr root;
@@ -1679,20 +1729,20 @@ void C2ACCD::build_BV_tree(CollisionGeometryPtr geom)
     // split the bounding volume across each of the three axes
     for (unsigned i=0; i< 3; i++)
     {
-      Vector3 axis;
+      Vector3d axis;
 
       // get the i'th column of R if an RSS
       if (!deformable)
       {
         shared_ptr<SSR> ssr = dynamic_pointer_cast<SSR>(bv);
         assert(ssr);
-        ssr->R.get_column(i, axis.begin());
+        ssr->R.get_column(i, axis);
       }
       else
       {
-        if (i == 0) axis = Vector3(1,0,0);
-        else if (i == 1) axis = Vector3(0,1,0);
-        else axis = Vector3(0,0,1); 
+        if (i == 0) axis = Vector3d(1,0,0);
+        else if (i == 1) axis = Vector3d(0,1,0);
+        else axis = Vector3d(0,0,1); 
       }
 
       // split the bounding volume across the axis
@@ -1732,12 +1782,12 @@ void C2ACCD::build_BV_tree(CollisionGeometryPtr geom)
     // for any children with a greater volume than the bv in question,
     // remove the grandchildren and add them as children
     BVPtr bv = Q.front();
-    Real vol = bv->calc_volume();
+    double vol = bv->calc_volume();
     bool erased_one = false;
     for (list<BVPtr>::iterator i = bv->children.begin(); i != bv->children.end(); )
     {
       // get the volume of this child
-      Real voli = (*i)->calc_volume();
+      double voli = (*i)->calc_volume();
       if (!(*i)->is_leaf() && voli > vol + NEAR_ZERO)
       {
         erased_one = true;
@@ -1791,8 +1841,10 @@ void C2ACCD::build_BV_tree(CollisionGeometryPtr geom)
 
     // add all children to the queue
     if (!bv->is_leaf())
+    {
       BOOST_FOREACH(BVPtr child, bv->children)
         Q.push(child);
+    }
 
     // wipe out userdata
     bv->userdata = shared_ptr<void>();
@@ -1831,25 +1883,30 @@ void C2ACCD::build_BV_tree(CollisionGeometryPtr geom)
 }
 
 /// Splits a collection of triangles along a splitting plane into 2 new meshes 
-void C2ACCD::split_tris(const Vector3& point, const Vector3& normal, const IndexedTriArray& orig_mesh, const list<unsigned>& ofacets, list<unsigned>& pfacets, list<unsigned>& nfacets) 
+void C2ACCD::split_tris(const Point3d& point, const Vector3d& normal, const IndexedTriArray& orig_mesh, const list<unsigned>& ofacets, list<unsigned>& pfacets, list<unsigned>& nfacets) 
 {
   // get original vertices and facets
-  const vector<Vector3>& vertices = orig_mesh.get_vertices();
+  const vector<Origin3d>& vertices = orig_mesh.get_vertices();
   const vector<IndexedTri>& facets = orig_mesh.get_facets();
 
   // determine the splitting plane: ax + by + cz = d
-  Real offset = Vector3::dot(point, normal);
+  double offset = Vector3d::dot(point, normal);
 
   // determine the side of the splitting plane of the triangles
   Plane plane(normal, offset);
   BOOST_FOREACH(unsigned i, ofacets)
   {
+    // get the vertices from the facet in the same plane as the normal
+    Point3d pa(vertices[facets[i].a], normal.pose);    
+    Point3d pb(vertices[facets[i].b], normal.pose);    
+    Point3d pc(vertices[facets[i].c], normal.pose);    
+
     // get the three signed distances
-    Real sa = plane.calc_signed_distance(vertices[facets[i].a]);
-    Real sb = plane.calc_signed_distance(vertices[facets[i].b]);
-    Real sc = plane.calc_signed_distance(vertices[facets[i].c]);
-    Real min_s = std::min(sa, std::min(sb, sc));
-    Real max_s = std::max(sa, std::max(sb, sc));    
+    double sa = plane.calc_signed_distance(pa);
+    double sb = plane.calc_signed_distance(pb);
+    double sc = plane.calc_signed_distance(pc);
+    double min_s = std::min(sa, std::min(sb, sc));
+    double max_s = std::max(sa, std::max(sb, sc));    
 
     // see whether we can cleanly put the triangle into one side
     if (min_s > 0)
@@ -1859,9 +1916,9 @@ void C2ACCD::split_tris(const Vector3& point, const Vector3& normal, const Index
     else
     {
       // triangle is split down the middle; get its centroid
-      Triangle tri(vertices[facets[i].a], vertices[facets[i].b], vertices[facets[i].c]);
-      Vector3 tri_centroid = tri.calc_centroid();
-      Real scent = plane.calc_signed_distance(tri_centroid);
+      Triangle tri(pa, pb, pc);
+      Point3d tri_centroid = tri.calc_centroid();
+      double scent = plane.calc_signed_distance(tri_centroid);
       if (scent > 0)
         pfacets.push_back(i);
       else
@@ -1871,7 +1928,7 @@ void C2ACCD::split_tris(const Vector3& point, const Vector3& normal, const Index
 }
 
 /// Splits a bounding box  along a given axis into two new bounding boxes; returns true if split successful
-bool C2ACCD::split(shared_ptr<BV> source, shared_ptr<BV>& tgt1, shared_ptr<BV>& tgt2, const Vector3& axis, bool deformable) 
+bool C2ACCD::split(shared_ptr<BV> source, shared_ptr<BV>& tgt1, shared_ptr<BV>& tgt2, const Vector3d& axis, bool deformable) 
 {
   // setup two lists of triangles
   list<unsigned> ptris, ntris;
@@ -1892,8 +1949,8 @@ bool C2ACCD::split(shared_ptr<BV> source, shared_ptr<BV>& tgt1, shared_ptr<BV>& 
   // determine the centroid of this set of triangles
   list<Triangle> t_tris;
   BOOST_FOREACH(unsigned idx, tris)
-    t_tris.push_back(mesh->get_triangle(idx)); 
-  Vector3 centroid = CompGeom::calc_centroid_3D(t_tris.begin(), t_tris.end());
+    t_tris.push_back(mesh->get_triangle(idx, source->get_relative_pose())); 
+  Point3d centroid = CompGeom::calc_centroid_3D(t_tris.begin(), t_tris.end());
 
   // get the side of the splitting plane of the triangles
   split_tris(centroid, axis, *mesh, tris, ptris, ntris);
@@ -1901,9 +1958,16 @@ bool C2ACCD::split(shared_ptr<BV> source, shared_ptr<BV>& tgt1, shared_ptr<BV>& 
     return false;
 
   // get vertices from both meshes
-  vector<Vector3> pverts, nverts;
-  get_vertices(*mesh, ptris.begin(), ptris.end(), std::back_inserter(pverts));
-  get_vertices(*mesh, ntris.begin(), ntris.end(), std::back_inserter(nverts));
+  vector<Origin3d> porigins, norigins;
+  get_vertices(*mesh, ptris.begin(), ptris.end(), std::back_inserter(porigins));
+  get_vertices(*mesh, ntris.begin(), ntris.end(), std::back_inserter(norigins));
+
+  // setup the vertices
+  vector<Point3d> pverts(porigins.size()), nverts(norigins.size());
+  for (unsigned i=0; i< porigins.size(); i++)
+    pverts[i] = Point3d(porigins[i], centroid.pose);
+  for (unsigned i=0; i< norigins.size(); i++)
+    nverts[i] = Point3d(norigins[i], centroid.pose);
 
   // create two new BVs 
   if (!deformable)
@@ -1943,19 +2007,30 @@ bool C2ACCD::coplanar_tris(const Triangle& ta, const Triangle& tb)
 }
 
 /// Projects two triangles to 2D and attempts to intersect them
-bool C2ACCD::project_and_intersect(const Triangle& ta, const Triangle& tb, vector<Vector3>& contact_points)
+bool C2ACCD::project_and_intersect(const Triangle& ta, const Triangle& tb, vector<Point3d>& contact_points)
 {
   const unsigned N_TRI_VERTS = 3;
 
+  // setup useful poses
+  shared_ptr<const Pose2d> GLOBAL_2D;
+  shared_ptr<const Pose3d> P = ta.a.pose;
+
+  // verify that the poses are all identical
+  assert(P== tb.a.pose);
+  assert(ta.b.pose == tb.b.pose);
+  assert(ta.c.pose == tb.c.pose);
+  assert(ta.a.pose == ta.b.pose);
+  assert(P == ta.c.pose);
+
   // project the triangles to 2D
-  Matrix3 R = CompGeom::calc_3D_to_2D_matrix(ta.calc_normal());
-  Real offset1 = CompGeom::determine_3D_to_2D_offset(ta.a, R);
-  Real offset2 = CompGeom::determine_3D_to_2D_offset(tb.a, R);
-  Vector2 t1[N_TRI_VERTS], t2[N_TRI_VERTS];
+  Matrix3d R = CompGeom::calc_3D_to_2D_matrix(ta.calc_normal());
+  double offset1 = CompGeom::determine_3D_to_2D_offset(Origin3d(ta.a), R);
+  double offset2 = CompGeom::determine_3D_to_2D_offset(Origin3d(tb.a), R);
+  Point2d t1[N_TRI_VERTS], t2[N_TRI_VERTS];
   for (unsigned i=0; i< N_TRI_VERTS; i++)
   {
-    t1[i] = CompGeom::to_2D(ta.get_vertex(i), R);
-    t2[i] = CompGeom::to_2D(tb.get_vertex(i), R);
+    t1[i] = Point2d(CompGeom::to_2D(ta.get_vertex(i), R), GLOBAL_2D);
+    t2[i] = Point2d(CompGeom::to_2D(tb.get_vertex(i), R), GLOBAL_2D);
   }
 
   // make t1 and t2 ccw
@@ -1965,62 +2040,80 @@ bool C2ACCD::project_and_intersect(const Triangle& ta, const Triangle& tb, vecto
     std::swap(t2[1], t2[2]);
 
   // now attempt to intersect
-  Vector2 output[6];
-  Vector2* end = CompGeom::intersect_tris(t1, t2, output);
+  Point2d output[6];
+  Point2d* end = CompGeom::intersect_tris(t1, t2, output);
 
   // determine contact points
-  Matrix3 RT = Matrix3::transpose(R);
-  for (Vector2* begin = output; begin != end; begin++)
-    contact_points.push_back(CompGeom::to_3D(*begin, RT, (offset1+offset2)*(Real) 0.5));
+  double offset = (offset1+offset2)*0.5;
+  Matrix3d RT = Matrix3d::transpose(R);
+  for (Point2d* begin = output; begin != end; begin++)
+  {
+    Origin2d o(*begin);
+    contact_points.push_back(Point3d(CompGeom::to_3D(o, RT, offset), P));
+  }
 
   return end != output;
 }
 
 /// Projects a triangle and a line segment to 2D and attempts to intersect them
-bool C2ACCD::project_and_intersect(const Triangle& t, const LineSeg3& s, vector<Vector3>& contact_points)
+bool C2ACCD::project_and_intersect(const Triangle& t, const LineSeg3& s, vector<Point3d>& contact_points)
 {
   const unsigned N_TRI_VERTS = 3;
+  shared_ptr<const Pose2d> GLOBAL_2D;
+
+  // verify that poses are equal
+  shared_ptr<const Pose3d> P = t.a.pose;
+  assert(P == t.b.pose);
+  assert(P == t.c.pose);
+  assert(P == s.first.pose);
+  assert(P == s.second.pose);
 
   // project the triangle to 2D
-  Matrix3 R = CompGeom::calc_3D_to_2D_matrix(t.calc_normal());
-  Real offset1 = CompGeom::determine_3D_to_2D_offset(t.a, R);
-  Real offset2 = CompGeom::determine_3D_to_2D_offset(s.first, R);
-  Vector2 t0[N_TRI_VERTS];
+  Matrix3d R = CompGeom::calc_3D_to_2D_matrix(t.calc_normal());
+  double offset1 = CompGeom::determine_3D_to_2D_offset(Origin3d(t.a), R);
+  double offset2 = CompGeom::determine_3D_to_2D_offset(Origin3d(s.first), R);
+  Point2d t0[N_TRI_VERTS];
   for (unsigned i=0; i< N_TRI_VERTS; i++)
-    t0[i] = CompGeom::to_2D(t.get_vertex(i), R);
+    t0[i] = Point2d(CompGeom::to_2D(t.get_vertex(i), R), GLOBAL_2D);
 
   // project s to 2D
-  LineSeg2 s0(CompGeom::to_2D(s.first, R), CompGeom::to_2D(s.second, R));
+  LineSeg2 s0(Point2d(CompGeom::to_2D(s.first, R), GLOBAL_2D),
+              Point2d(CompGeom::to_2D(s.second, R), GLOBAL_2D));
 
   // if t0 is not ccw, make it so
   if (!CompGeom::ccw(t0, t0+N_TRI_VERTS))
     std::swap(t0[1], t0[2]);
 
   // now attempt to intersect
-  Vector2 output[2];
-  Vector2* end = CompGeom::intersect_seg_tri(s0, t0, output);
+  Point2d output[2];
+  Point2d* end = CompGeom::intersect_seg_tri(s0, t0, output);
 
   // determine contact points
-  Matrix3 RT = Matrix3::transpose(R);
-  for (Vector2* begin = output; begin != end; begin++)
-    contact_points.push_back(CompGeom::to_3D(*begin, RT, (offset1+offset2)*(Real) 0.5));
+  double offset = (offset1+offset2)*0.5;
+  Matrix3d RT = Matrix3d::transpose(R);
+  for (Point2d* begin = output; begin != end; begin++)
+  {
+    Origin2d o(*begin);
+    contact_points.push_back(Point3d(CompGeom::to_3D(o, RT, offset), P));
+  }
 
   return end != output;
 }
 
 /// Determines whether a point lies inside the 2D projection of the triangle
-bool C2ACCD::project_and_intersect(const Triangle& t, const Vector3& p)
+bool C2ACCD::project_and_intersect(const Triangle& t, const Point3d& p)
 {
   const unsigned N_TRI_VERTS = 3;
+  shared_ptr<const Pose2d> GLOBAL_2D;
 
   // project the triangle to 2D
-  Matrix3 R = CompGeom::calc_3D_to_2D_matrix(t.calc_normal());
-  Vector2 t0[N_TRI_VERTS];
+  Matrix3d R = CompGeom::calc_3D_to_2D_matrix(t.calc_normal());
+  Point2d t0[N_TRI_VERTS];
   for (unsigned i=0; i< N_TRI_VERTS; i++)
-    t0[i] = CompGeom::to_2D(t.get_vertex(i), R);
+    t0[i] = Point2d(CompGeom::to_2D(t.get_vertex(i), R), GLOBAL_2D);
 
   // project p to 2D
-  Vector2 p0 = CompGeom::to_2D(p, R);
+  Point2d p0(CompGeom::to_2D(p, R), GLOBAL_2D);
 
   // if t0 is not ccw, make it so
   if (!CompGeom::ccw(t0, t0+N_TRI_VERTS))
@@ -2031,17 +2124,17 @@ bool C2ACCD::project_and_intersect(const Triangle& t, const Vector3& p)
 }
 
 /// Determines the closest features between two triangles
-void C2ACCD::determine_closest_features(const Triangle& ta, const Triangle& tb, Triangle::FeatureType& fa, Triangle::FeatureType& fb, vector<Vector3>& contact_points) const
+void C2ACCD::determine_closest_features(const Triangle& ta, const Triangle& tb, Triangle::FeatureType& fa, Triangle::FeatureType& fb, vector<Point3d>& contact_points) const
 {
-  const Real TOL = NEAR_ZERO;
+  const double TOL = NEAR_ZERO;
 
   FILE_LOG(LOG_COLDET) << " -- C2ACCD::determine_closest_features() entered" << endl;
   FILE_LOG(LOG_COLDET) << "    examining triangle: " << ta << endl;
   FILE_LOG(LOG_COLDET) << "          and triangle: " << tb << endl;
 
   // FACE / FACE check 
-  Real dot = std::fabs(Vector3::dot(ta.calc_normal(), tb.calc_normal()));
-  if (std::fabs(dot - (Real) 1.0) < TOL)
+  double dot = std::fabs(ta.calc_normal().dot(tb.calc_normal()));
+  if (std::fabs(dot - (double) 1.0) < TOL)
   {
     // project ta and tb to 2D for further checking
     if (project_and_intersect(ta, tb, contact_points))
@@ -2057,12 +2150,12 @@ void C2ACCD::determine_closest_features(const Triangle& ta, const Triangle& tb, 
   }
 
   // determine distances of vertices to faces
-  Real dist_ta_tba = ta.calc_signed_dist(tb.a);
-  Real dist_ta_tbb = ta.calc_signed_dist(tb.b);
-  Real dist_ta_tbc = ta.calc_signed_dist(tb.c);
-  Real dist_taa_tb = tb.calc_signed_dist(ta.a);
-  Real dist_tab_tb = tb.calc_signed_dist(ta.b);
-  Real dist_tac_tb = tb.calc_signed_dist(ta.c);
+  double dist_ta_tba = ta.calc_signed_dist(tb.a);
+  double dist_ta_tbb = ta.calc_signed_dist(tb.b);
+  double dist_ta_tbc = ta.calc_signed_dist(tb.c);
+  double dist_taa_tb = tb.calc_signed_dist(ta.a);
+  double dist_tab_tb = tb.calc_signed_dist(ta.b);
+  double dist_tac_tb = tb.calc_signed_dist(ta.c);
 
   FILE_LOG(LOG_COLDET) << " distance from a on triangle b to triangle a: " << dist_ta_tba << endl;
   FILE_LOG(LOG_COLDET) << " distance from b on triangle b to triangle a: " << dist_ta_tbb << endl;
@@ -2158,7 +2251,7 @@ void C2ACCD::determine_closest_features(const Triangle& ta, const Triangle& tb, 
   }
 
   // setup distances and faces
-  vector<tuple<Real, Vector3, const Triangle*, bool> > df;
+  vector<tuple<double, Point3d, const Triangle*, bool> > df;
   df.push_back(make_tuple(std::fabs(dist_ta_tba), tb.a, &ta, true));
   df.push_back(make_tuple(std::fabs(dist_ta_tbb), tb.b, &ta, true));
   df.push_back(make_tuple(std::fabs(dist_ta_tbc), tb.c, &ta, true));
@@ -2174,24 +2267,24 @@ void C2ACCD::determine_closest_features(const Triangle& ta, const Triangle& tb, 
   while (!df.empty())
   {
     // get the tuple
-    tuple<Real, Vector3, const Triangle*, bool> tup = df.back();
+    tuple<double, Point3d, const Triangle*, bool> tup = df.back();
     df.pop_back();
     
     // get the point and the triangle
-    const Vector3& p = tup.get<1>();
+    const Point3d& p = tup.get<1>();
     const Triangle& tri = *tup.get<2>();
     bool tri_from_A = tup.get<3>();
     if (project_and_intersect(tri, p))
     {
       // get the closest point between the triangle and p
-      Vector3 closest;
+      Point3d closest;
       Triangle::calc_sq_dist(tri, p, closest);
 
       fa = Triangle::eFace;
       fb = Triangle::eVertexA;
       if (!tri_from_A)
         std::swap(fa, fb);
-      contact_points.push_back((p+closest)*(Real) 0.5);
+      contact_points.push_back((p+closest)*(double) 0.5);
       FILE_LOG(LOG_COLDET) << "    vertex / face contact determined" << endl;
       FILE_LOG(LOG_COLDET) << "      contact point: " << contact_points.back() << endl;
       return;
@@ -2205,7 +2298,7 @@ void C2ACCD::determine_closest_features(const Triangle& ta, const Triangle& tb, 
   // now must check EDGE / EDGE, EDGE / VERTEX, VERTEX / VERTEX
 /*
   // setup minimum distance
-  Real min_dist = std::numeric_limits<Real>::max();
+  double min_dist = std::numeric_limits<double>::max();
 
   // EDGE / EDGE: check each edge of ta against each edge of tb
   for (unsigned i=0; i< N_TRI_EDGES; i++)
@@ -2216,7 +2309,7 @@ void C2ACCD::determine_closest_features(const Triangle& ta, const Triangle& tb, 
       {
         // get distance between the two edges
         Vector3 dummy1, dummy2;
-        Real sq_dist = CompGeom::calc_closest_points(ta_edges[i], tb_edges[j], dummy1, dummy2);
+        double sq_dist = CompGeom::calc_closest_points(ta_edges[i], tb_edges[j], dummy1, dummy2);
         if (sq_dist > min_dist)
           continue;
 
@@ -2244,9 +2337,9 @@ void C2ACCD::determine_closest_features(const Triangle& ta, const Triangle& tb, 
   // FACE / VERTEX: 
   // check each vertex of ta against tb
   Vector3 dummy;
-  Real sq_dist_tb_taa = CompGeom::calc_sq_dist(tb, ta.a, dummy);
-  Real sq_dist_tb_tab = CompGeom::calc_sq_dist(tb, ta.b, dummy);
-  Real sq_dist_tb_tac = CompGeom::calc_sq_dist(tb, ta.c, dummy);
+  double sq_dist_tb_taa = CompGeom::calc_sq_dist(tb, ta.a, dummy);
+  double sq_dist_tb_tab = CompGeom::calc_sq_dist(tb, ta.b, dummy);
+  double sq_dist_tb_tac = CompGeom::calc_sq_dist(tb, ta.c, dummy);
   if (sq_dist_tb_taa < min_dist)
   {
     fa = Triangle::eVertexA;
@@ -2266,9 +2359,9 @@ void C2ACCD::determine_closest_features(const Triangle& ta, const Triangle& tb, 
     min_dist = sq_dist_tb_tac;
   }
   // check each vertex of tb against ta
-  Real sq_dist_ta_tba = CompGeom::calc_sq_dist(ta, tb.a, dummy);
-  Real sq_dist_ta_tbb = CompGeom::calc_sq_dist(ta, tb.b, dummy);
-  Real sq_dist_ta_tbc = CompGeom::calc_sq_dist(ta, tb.c, dummy);
+  double sq_dist_ta_tba = CompGeom::calc_sq_dist(ta, tb.a, dummy);
+  double sq_dist_ta_tbb = CompGeom::calc_sq_dist(ta, tb.b, dummy);
+  double sq_dist_ta_tbc = CompGeom::calc_sq_dist(ta, tb.c, dummy);
   if (sq_dist_ta_tba < min_dist)
   {
     fa = Triangle::eFace;

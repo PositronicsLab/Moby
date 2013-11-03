@@ -11,13 +11,14 @@
 #include <Moby/Joint.h>
 #include <Moby/Constants.h>
 #include <Moby/RigidBody.h>
-#include <Moby/SpatialRBInertia.h>
 #include <Moby/RCArticulatedBody.h>
 #include <Moby/NumericalException.h>
 #include <Moby/ArticulatedBody.h>
 #include <Moby/URDFReader.h>
 
 using namespace Moby;
+using namespace Ravelin;
+using std::set;
 using boost::shared_ptr;
 using boost::dynamic_pointer_cast;
 using std::list;
@@ -28,7 +29,6 @@ using std::queue;
 
 ArticulatedBody::ArticulatedBody()
 {
-  _positions_valid = _velocities_valid = false;
   use_advanced_friction_model = false;
   find_custom_limit_events = NULL;
 }
@@ -54,13 +54,130 @@ void ArticulatedBody::set_enabled(bool flag)
   }
 }
 
-/// Gets the maximum angular speed of the links of this articulated body
-Real ArticulatedBody::get_aspeed() const
+/// Gets the time-derivative of the Jacobian
+/**
+ * Columns correspond to joint coordinate indices.
+ */
+MatrixNd& ArticulatedBody::calc_jacobian_dot(boost::shared_ptr<const Pose3d> frame, DynamicBodyPtr body, MatrixNd& J)
 {
-  Real max_aspeed = (Real) 0.0;
+  const unsigned SPATIAL_DIM = 6;
+
+  // get the number of explicit degrees of freedom
+  const unsigned NEXP_DOF = num_joint_dof_explicit();
+
+  // get the total number of degrees of freedom
+  const unsigned NDOF = (is_floating_base()) ? NEXP_DOF + SPATIAL_DIM : NEXP_DOF;
+
+  // setup the Jacobian
+  J.set_zero(SPATIAL_DIM, NDOF); 
+
+  // get the current link
+  RigidBodyPtr link = dynamic_pointer_cast<RigidBody>(body);
+  
+  // get the base link
+  RigidBodyPtr base = get_base_link();
+
+  // loop backward through (at most one) joint for each child until we reach 
+  // the parent
+  while (link != base)
+  {
+    // get the explicit inner joint for this link
+    JointPtr joint = link->get_inner_joint_explicit();
+
+    // get the parent link
+    RigidBodyPtr parent = joint->get_inboard_link(); 
+
+    // get the coordinate index
+    const unsigned CIDX = joint->get_coord_index();
+
+    // get the spatial axes
+    const vector<SVelocityd>& s = joint->get_spatial_axes_dot();
+
+    // update J
+    for (unsigned i=0; i< s.size(); i++)
+    {
+      SharedVectorNd v = J.column(CIDX+i);
+      Pose3d::transform(frame, s[i]).transpose_to_vector(v);
+    }
+
+    // set the link to the parent link
+    link = parent;
+  }
+
+  // NOTE: we do not even check for a floating base, because the 
+  // time-derivative of its Jacobian will always be zero
+
+  return J;
+}
+
+/// Gets the Jacobian
+/**
+ * Columns correspond to joint coordinate indices.
+ */
+MatrixNd& ArticulatedBody::calc_jacobian(boost::shared_ptr<const Pose3d> frame, DynamicBodyPtr body, MatrixNd& J)
+{
+  const unsigned SPATIAL_DIM = 6;
+
+  // get the number of explicit degrees of freedom
+  const unsigned NEXP_DOF = num_joint_dof_explicit();
+
+  // get the total number of degrees of freedom
+  const unsigned NDOF = (is_floating_base()) ? NEXP_DOF + SPATIAL_DIM : NEXP_DOF;
+
+  // setup the Jacobian
+  J.set_zero(SPATIAL_DIM, NDOF); 
+
+  // get the current link
+  RigidBodyPtr link = dynamic_pointer_cast<RigidBody>(body);
+  
+  // get the base link
+  RigidBodyPtr base = get_base_link();
+
+  // loop backward through (at most one) joint for each child until we reach 
+  // the parent
+  while (link != base)
+  {
+    // get the explicit inner joint for this link
+    JointPtr joint = link->get_inner_joint_explicit();
+
+    // get the parent link
+    RigidBodyPtr parent = joint->get_inboard_link(); 
+
+    // get the coordinate index
+    const unsigned CIDX = joint->get_coord_index();
+
+    // get the spatial axes
+    const vector<SVelocityd>& s = joint->get_spatial_axes();
+
+    // update J
+    for (unsigned i=0; i< s.size(); i++)
+    {
+      SharedVectorNd v = J.column(CIDX+i);
+      Pose3d::transform(frame, s[i]).transpose_to_vector(v);
+    }
+
+    // set the link to the parent link
+    link = parent;
+  }
+
+  // if base is floating, setup Jacobian columns at the end
+  if (is_floating_base())
+  {
+    shared_ptr<const Pose3d> bpose = base->get_gc_pose();
+    SharedMatrixNd Jbase = J.block(0, SPATIAL_DIM, NEXP_DOF, NEXP_DOF+SPATIAL_DIM);
+    Pose3d::spatial_transform_to_matrix2(bpose, frame, Jbase);
+  }
+
+  return J;
+}
+
+/// Gets the maximum angular speed of the links of this articulated body
+double ArticulatedBody::get_aspeed()
+{
+  double max_aspeed = (double) 0.0;
   for (unsigned i=0; i< _links.size(); i++)
   {
-    Real aspeed = _links[i]->get_avel().norm();
+    double aspeed = _links[i]->get_aspeed();
     if (aspeed > max_aspeed)
       max_aspeed = aspeed;
   }
@@ -69,16 +186,17 @@ Real ArticulatedBody::get_aspeed() const
 }
 
 /// Computes the Z matrices
-void ArticulatedBody::compute_Z_matrices(const vector<unsigned>& loop_indices, const vector<vector<unsigned> >& loop_links, vector<MatrixN>& Zd, vector<MatrixN>& Z1d, vector<MatrixN>& Z) const
+/*
+void ArticulatedBody::compute_Z_matrices(const vector<unsigned>& loop_indices, const vector<vector<unsigned> >& loop_links, vector<MatrixNd>& Zd, vector<MatrixNd>& Z1d, vector<MatrixNd>& Z) const
 {
   SAFESTATIC std::queue<RigidBodyPtr> q;
-  SAFESTATIC MatrixN Fsum, F;
+  SAFESTATIC MatrixNd Fsum, F;
   const unsigned UINF = std::numeric_limits<unsigned>::max();
   const unsigned SPATIAL_DIM = 6;
 
   // determine number of joint dof to use
   shared_ptr<const RCArticulatedBody> rcab = dynamic_pointer_cast<const RCArticulatedBody>(get_this());
-  const unsigned N_JOINT_DOF = (rcab) ? num_joint_dof_implicit() : num_joint_dof();
+  const unsigned N_JOINT_DOF = (rcab) ? num_joint_dof_explicit() : num_joint_dof();
 
   // resize vectors
   Zd.resize(_joints.size());
@@ -89,11 +207,11 @@ void ArticulatedBody::compute_Z_matrices(const vector<unsigned>& loop_indices, c
   for (unsigned i=0; i< _joints.size(); i++)
   {
     // get the spatial axes complement for this joint
-    const SMatrix6N& si_bar = _joints[i]->get_spatial_axes_complement();
+    const vector<SVelocityd>& si_bar = _joints[i]->get_spatial_axes_complement();
 
     // determine the target transform
-    Vector3 xi = _joints[i]->get_position_global();
-    Matrix4 Tf(&IDENTITY_3x3, &xi);
+    Point3d xi = _joints[i]->get_position_global();
+    Pose3d Tf(&IDENTITY_3x3, &xi);
 
     // clear Fsum for this joint
     Fsum.set_zero(SPATIAL_DIM, N_JOINT_DOF);
@@ -209,15 +327,17 @@ void ArticulatedBody::compute_Z_matrices(const vector<unsigned>& loop_indices, c
     }
   }
 }
+*/
 
 /// Computes the 'F' matrix (which transforms joint torques to a spatial force on the given link) in the given frame
-MatrixN& ArticulatedBody::determine_F(unsigned link_idx, const Matrix4& Tf, const vector<unsigned>& loop_indices, MatrixN& F) const
+/*
+MatrixNd& ArticulatedBody::determine_F(unsigned link_idx, const Pose3d& Tf, const vector<unsigned>& loop_indices, MatrixNd& F) const
 {
   const unsigned SPATIAL_DIM = 6;
   const unsigned UINF = std::numeric_limits<unsigned>::max();
   SAFESTATIC std::queue<JointPtr> q;
-  SAFESTATIC MatrixN J;
-  SAFESTATIC SMatrix6N sx;
+  SAFESTATIC MatrixNd J;
+  SAFESTATIC vector<SVelocityd> sx;
   SAFESTATIC vector<bool> processed;
 
   // determine whether the coordinate index must be modified
@@ -226,32 +346,32 @@ MatrixN& ArticulatedBody::determine_F(unsigned link_idx, const Matrix4& Tf, cons
 
   // initialize F to all zeros
   if (rcab)
-    F.set_zero(SPATIAL_DIM, num_joint_dof_implicit());
+    F.set_zero(SPATIAL_DIM, num_joint_dof_explicit());
   else
     F.set_zero(SPATIAL_DIM, num_joint_dof());
 
-  // if there is no inner implicit link, return zero
-  JointPtr inner_implicit = _links[link_idx]->get_inner_joint_implicit();
-  if (!inner_implicit)
+  // if there is no inner explicit link, return zero
+  JointPtr inner_explicit = _links[link_idx]->get_inner_joint_explicit();
+  if (!inner_explicit)
     return F;
 
   // do the target transformation (multiplication ordering indicates that 
   // we want spatial axes transformed first to target link frame then to target
   // frame) 
-  Matrix4 TfX = Tf * _links[link_idx]->get_transform();
+  Pose3d TfX = Tf * _links[link_idx]->get_transform();
 
   // determine whether the given link is part of a loop
-  if (loop_indices[inner_implicit->get_index()] == UINF)
+  if (loop_indices[inner_explicit->get_index()] == UINF)
   {  
     // not part of a loop: process all joints going backward
     // add inner joint to the queue
-    q.push(inner_implicit);
+    q.push(inner_explicit);
   }
   else
   {
     // part of a loop: process all joints in the loop *and* all joints going
     // backward
-    unsigned loop_idx = loop_indices[inner_implicit->get_index()];
+    unsigned loop_idx = loop_indices[inner_explicit->get_index()];
     for (unsigned i=0; i< loop_indices.size(); i++)
       if (loop_indices[i] == loop_idx)
         q.push(_joints[i]);
@@ -276,37 +396,37 @@ MatrixN& ArticulatedBody::determine_F(unsigned link_idx, const Matrix4& Tf, cons
 
     // get the outboard link and its transform
     RigidBodyPtr outboard = joint->get_outboard_link();
-    const Matrix4& To = outboard->get_transform();
+    const Pose3d& To = outboard->get_transform();
     
     // get its spatial axes and transform
-    const SMatrix6N& si = joint->get_spatial_axes(eLink);
+    const vector<SVelocityd>& si = joint->get_spatial_axes(eLink);
     SpatialTransform(To, TfX).transform(si, sx);
 
     // set the appropriate column in F
     const unsigned ST_IDX = joint->get_coord_index() - SUB;
     F.set_sub_mat(0, ST_IDX, sx);
-/*    for (unsigned i=0; i< THREE_D; i++)
-      for (unsigned j=0; j< sx.columns(); j++)
-      {
-        F(i+THREE_D,ST_IDX+j) = sx(i,j);
-        F(i,ST_IDX+j) = sx(THREE_D+i,j);
-      }
-*/
+//    for (unsigned i=0; i< THREE_D; i++)
+//      for (unsigned j=0; j< sx.columns(); j++)
+//      {
+//        F(i+THREE_D,ST_IDX+j) = sx(i,j);
+//        F(i,ST_IDX+j) = sx(THREE_D+i,j);
+//      }
+//
 
     // add all inner joints to the queue *unless* it's an rcab and joint is
-    // explicit
+    // implicit
     RigidBodyPtr inboard = joint->get_inboard_link();
     const list<RigidBody::InnerJointData>& ijd_list = inboard->get_inner_joints_data();
     BOOST_FOREACH(const RigidBody::InnerJointData& ijd, ijd_list)
     {
       JointPtr ij(ijd.inner_joint);
-      if (!rcab || ij->get_constraint_type() == Joint::eImplicit)
+      if (!rcab || ij->get_constraint_type() == Joint::eExplicit)
         q.push(ij);
     }
   }
 
   // compute transpose of F
-  MatrixN::transpose(F, J);
+  MatrixNd::transpose(F, J);
 
   // compute pseudo-inverse of J
   F.copy_from(J);
@@ -324,29 +444,29 @@ MatrixN& ArticulatedBody::determine_F(unsigned link_idx, const Matrix4& Tf, cons
 }
 
 // objective and inequality constraint functions for convex optimization
-Real ArticulatedBody::calc_fwd_dyn_f0(const VectorN& x, void* data)
+double ArticulatedBody::calc_fwd_dyn_f0(const VectorNd& x, void* data)
 {
-  SAFESTATIC VectorN Gx;
-  const Real INFEAS_TOL = 1e-8;
+  SAFESTATIC VectorNd Gx;
+  const double INFEAS_TOL = 1e-8;
 
   // setup constants
   const ABFwdDynOptData& opt_data = *(const ABFwdDynOptData*) data;
 
   // get necessary data
-  const MatrixN& G = opt_data.G;
-  const VectorN& c = opt_data.c;
+  const MatrixNd& G = opt_data.G;
+  const VectorNd& c = opt_data.c;
 
   // objective function is quadratic
-  G.mult(x, Gx) *= (Real) 0.5;
+  G.mult(x, Gx) *= (double) 0.5;
   Gx += c;
   return x.dot(Gx);
 }
 
 // inequality constraint functions for convex optimization
-void ArticulatedBody::calc_fwd_dyn_fx(const VectorN& x, VectorN& fc, void* data)
+void ArticulatedBody::calc_fwd_dyn_fx(const VectorNd& x, VectorNd& fc, void* data)
 {
-  SAFESTATIC VectorN Gx, w, tmp, ff, DTbx, lambda;
-  const Real INFEAS_TOL = 1e-8;
+  SAFESTATIC VectorNd Gx, w, tmp, ff, DTbx, lambda;
+  const double INFEAS_TOL = 1e-8;
 
   // optimization vector:
   // ff
@@ -365,16 +485,16 @@ void ArticulatedBody::calc_fwd_dyn_fx(const VectorN& x, VectorN& fc, void* data)
   const unsigned N_EXPLICIT_DOF = N_JOINT_DOF - N_IMPLICIT_DOF;
 
   // get necessary data
-  const VectorN& z = opt_data.z;
-  const MatrixN& R = opt_data.R;
-  const MatrixN& G = opt_data.G;
-  const VectorN& c = opt_data.c;
-  const MatrixN& Dx = opt_data.Dx;
+  const VectorNd& z = opt_data.z;
+  const MatrixNd& R = opt_data.R;
+  const MatrixNd& G = opt_data.G;
+  const VectorNd& c = opt_data.c;
+  const MatrixNd& Dx = opt_data.Dx;
   const vector<unsigned>& true_indices = opt_data.true_indices;
   const vector<unsigned>& loop_indices = opt_data.loop_indices;
-  const vector<Real>& mu_c = opt_data.mu_c;
-  const vector<Real>& visc = opt_data.visc;
-  const VectorN& fext = opt_data.fext;
+  const vector<double>& mu_c = opt_data.mu_c;
+  const vector<double>& visc = opt_data.visc;
+  const VectorNd& fext = opt_data.fext;
 
   // setup constraint index
   unsigned index = 0;
@@ -388,7 +508,7 @@ void ArticulatedBody::calc_fwd_dyn_fx(const VectorN& x, VectorN& fc, void* data)
 
   // compute delta <= 1 constraints
   for (unsigned i=0; i< N_LOOPS; i++)
-    fc[index++] = w[DELTA_START+i] - (Real) 1.0 - INFEAS_TOL;
+    fc[index++] = w[DELTA_START+i] - (double) 1.0 - INFEAS_TOL;
 
   // compute joint friction constraints
   for (unsigned i=0; i< N_JOINT_DOF; i++)
@@ -399,12 +519,12 @@ void ArticulatedBody::calc_fwd_dyn_fx(const VectorN& x, VectorN& fc, void* data)
     // get the frictional force
     unsigned jidx = true_indices[i];
     const unsigned FIDX = (i < N_IMPLICIT_DOF) ? i : BETA_START + i - N_IMPLICIT_DOF;
-    Real fx = w[FIDX];
+    double fx = w[FIDX];
 
     // determine the applied forces
     w.get_sub_vec(BETA_START, BETA_START+N_EXPLICIT_DOF, ff); // get betax 
     Dx.transpose_mult(ff, DTbx);
-    w.get_sub_vec(FF_START, FF_START+N_IMPLICIT_DOF, ff); // get implicit fric
+    w.get_sub_vec(FF_START, FF_START+N_IMPLICIT_DOF, ff); // get explicit fric
     ff += fext;
     ff += DTbx;
 
@@ -412,21 +532,21 @@ void ArticulatedBody::calc_fwd_dyn_fx(const VectorN& x, VectorN& fc, void* data)
     if (loop_indices[jidx] != std::numeric_limits<unsigned>::max())
     {
       // get the three Z's
-      const MatrixN& Zd = opt_data.Zd[jidx];
-      const MatrixN& Z1d = opt_data.Z1d[jidx];
-      const MatrixN& Z = opt_data.Z[jidx];
+      const MatrixNd& Zd = opt_data.Zd[jidx];
+      const MatrixNd& Z1d = opt_data.Z1d[jidx];
+      const MatrixNd& Z = opt_data.Z[jidx];
 
       // determine delta
-      const Real DELTA = w[DELTA_START+loop_indices[jidx]];
+      const double DELTA = w[DELTA_START+loop_indices[jidx]];
  
       // compute lambda
       Zd.mult(ff, lambda) *= DELTA;
-      lambda += (Z1d.mult(ff, tmp) *= ((Real) 1.0 - DELTA));
+      lambda += (Z1d.mult(ff, tmp) *= ((double) 1.0 - DELTA));
       lambda += Z.mult(ff, tmp);
     }
     else
     {
-      const MatrixN& Z = opt_data.Z[jidx];
+      const MatrixNd& Z = opt_data.Z[jidx];
       Z.mult(ff, lambda);
     } 
 
@@ -436,24 +556,24 @@ void ArticulatedBody::calc_fwd_dyn_fx(const VectorN& x, VectorN& fc, void* data)
 }
 
 /// Calculates the joint constraint forces based on generalized force
-void ArticulatedBody::calc_joint_constraint_forces(const vector<unsigned>& loop_indices, const VectorN& delta, const vector<MatrixN>& Zd, const vector<MatrixN>& Z1d, const vector<MatrixN>& Z, const VectorN& ff) const
+void ArticulatedBody::calc_joint_constraint_forces(const vector<unsigned>& loop_indices, const VectorNd& delta, const vector<MatrixNd>& Zd, const vector<MatrixNd>& Z1d, const vector<MatrixNd>& Z, const VectorNd& ff) const
 {
-  SAFESTATIC VectorN tmp;
+  SAFESTATIC VectorNd tmp;
 
   for (unsigned i=0; i< _joints.size(); i++)
   {
     // get lambda for the joint
-    VectorN& lambda = _joints[i]->lambda;
+    VectorNd& lambda = _joints[i]->lambda;
 
     // two cases: joint is part of a loop or not
     if (loop_indices[i] != std::numeric_limits<unsigned>::max())
     {
       // determine delta
-      const Real DELTA = delta[loop_indices[i]];
+      const double DELTA = delta[loop_indices[i]];
  
       // compute lambda
       Zd[i].mult(ff, lambda) *= DELTA;
-      lambda += (Z1d[i].mult(ff, tmp) *= ((Real) 1.0 - DELTA));
+      lambda += (Z1d[i].mult(ff, tmp) *= ((double) 1.0 - DELTA));
       lambda += Z[i].mult(ff, tmp);
     }
     else
@@ -462,14 +582,14 @@ void ArticulatedBody::calc_joint_constraint_forces(const vector<unsigned>& loop_
 }
 
 // objective and inequality constraint gradients for convex optimization
-void ArticulatedBody::calc_fwd_dyn_grad0(const VectorN& x, VectorN& grad, void* data)
+void ArticulatedBody::calc_fwd_dyn_grad0(const VectorNd& x, VectorNd& grad, void* data)
 {
   // setup constants
   const ABFwdDynOptData& opt_data = *(const ABFwdDynOptData*) data;
 
   // get necessary data
-  const MatrixN& G = opt_data.G;
-  const VectorN& c = opt_data.c;
+  const MatrixNd& G = opt_data.G;
+  const VectorNd& c = opt_data.c;
 
   // objective function is quadratic
   G.mult(x, grad);
@@ -477,11 +597,11 @@ void ArticulatedBody::calc_fwd_dyn_grad0(const VectorN& x, VectorN& grad, void* 
 }
 
 // objective and inequality constraint gradients for convex optimization
-void ArticulatedBody::calc_fwd_dyn_cJac(const VectorN& x, MatrixN& J, void* data)
+void ArticulatedBody::calc_fwd_dyn_cJac(const VectorNd& x, MatrixNd& J, void* data)
 {
-  SAFESTATIC VectorN tmpv, tmpv2, grad;
-  SAFESTATIC VectorN ff, fff, wff, wdelta, Zf, Zdf, Z1df;
-  SAFESTATIC MatrixN Rd, dX;
+  SAFESTATIC VectorNd tmpv, tmpv2, grad;
+  SAFESTATIC VectorNd ff, fff, wff, wdelta, Zf, Zdf, Z1df;
+  SAFESTATIC MatrixNd Rd, dX;
 
   // setup constants
   const ABFwdDynOptData& opt_data = *(const ABFwdDynOptData*) data;
@@ -493,11 +613,11 @@ void ArticulatedBody::calc_fwd_dyn_cJac(const VectorN& x, MatrixN& J, void* data
   const unsigned BETA_START = N_IMPLICIT_DOF + N_EXPLICIT_CONSTRAINT_EQNS;
 
   // get necessary data
-  const VectorN& z = opt_data.z;
-  const MatrixN& R = opt_data.R;
-  const MatrixN& G = opt_data.G;
-  const VectorN& c = opt_data.c;
-  const VectorN& fext = opt_data.fext;
+  const VectorNd& z = opt_data.z;
+  const MatrixNd& R = opt_data.R;
+  const MatrixNd& G = opt_data.G;
+  const VectorNd& c = opt_data.c;
+  const VectorNd& fext = opt_data.fext;
   const vector<unsigned>& true_indices = opt_data.true_indices;
   const vector<unsigned>& loop_indices = opt_data.loop_indices;
 
@@ -525,26 +645,25 @@ void ArticulatedBody::calc_fwd_dyn_cJac(const VectorN& x, MatrixN& J, void* data
   // joint friction constraints
   for (unsigned i=0; i< N_JOINT_DOF; i++)
   {
-/*
     // setup numerical gradient 
-    unsigned n = x.size();
-    const Real h = NEAR_ZERO;
-    const Real INV_H2 = 1.0 / (h*2);
-    VectorN xx = x;
-    grad.resize(n);
-    for (unsigned i=0; i< n; i++)
-    {
-      xx[i] += h;
-      Real v1 = calc_fwd_dyn_fx(xx, m, data);
-      xx[i] -= 2*h;
-      Real v2 = calc_fwd_dyn_fx(xx, m, data);
-      xx[i] += h;
-      v1 -= v2;
-      v1 *= INV_H2;
-      grad[i] = v1;
-    }
-    return;
-*/
+//    unsigned n = x.size();
+//    const double h = NEAR_ZERO;
+//    const double INV_H2 = 1.0 / (h*2);
+//    VectorNd xx = x;
+//    grad.resize(n);
+//    for (unsigned i=0; i< n; i++)
+//    {
+//      xx[i] += h;
+//      double v1 = calc_fwd_dyn_fx(xx, m, data);
+//      xx[i] -= 2*h;
+//      double v2 = calc_fwd_dyn_fx(xx, m, data);
+//      xx[i] += h;
+//      v1 -= v2;
+//      v1 *= INV_H2;
+//      grad[i] = v1;
+//    }
+//    return;
+
     // get the DOF and joint index
     unsigned idx = i;
     unsigned jidx = true_indices[idx];
@@ -553,21 +672,21 @@ void ArticulatedBody::calc_fwd_dyn_cJac(const VectorN& x, MatrixN& J, void* data
     const unsigned FIDX = (idx < N_IMPLICIT_DOF) ? idx : BETA_START + idx - N_IMPLICIT_DOF;
 
     // get necessary constants
-    const Real MUCSQ = opt_data.mu_c[idx];
+    const double MUCSQ = opt_data.mu_c[idx];
 
     // get the three Z's
-    const MatrixN& Zd = opt_data.Zd[jidx];
-    const MatrixN& Z1d = opt_data.Z1d[jidx];
-    const MatrixN& Z = opt_data.Z[jidx];
+    const MatrixNd& Zd = opt_data.Zd[jidx];
+    const MatrixNd& Z1d = opt_data.Z1d[jidx];
+    const MatrixNd& Z = opt_data.Z[jidx];
 
     // get components of R
-    const MatrixN& R = opt_data.R;
-    const MatrixN& Rff = opt_data.Rff;
-    const MatrixN& DxTRbetax = opt_data.DxTRbetax;
+    const MatrixNd& R = opt_data.R;
+    const MatrixNd& Rff = opt_data.Rff;
+    const MatrixNd& DxTRbetax = opt_data.DxTRbetax;
 
     // get components of z
-    const VectorN& zff = opt_data.zff;
-    const VectorN& zbetax = opt_data.zbetax;
+    const VectorNd& zff = opt_data.zff;
+    const VectorNd& zbetax = opt_data.zbetax;
 
     // setup variables
     Rff.mult(x, wff) += zff;
@@ -584,9 +703,9 @@ void ArticulatedBody::calc_fwd_dyn_cJac(const VectorN& x, MatrixN& J, void* data
       // setup delta-related variables
       const unsigned LOOP_IDX = DELTA_START+loop_indices[jidx];
       R.get_sub_mat(LOOP_IDX, LOOP_IDX+1, 0, R.columns(), Rd);
-      const Real ZDELTA = opt_data.z[LOOP_IDX];
+      const double ZDELTA = opt_data.z[LOOP_IDX];
       Rd.mult(x, wdelta);
-      const Real DELTA = wdelta[0] + ZDELTA;
+      const double DELTA = wdelta[0] + ZDELTA;
 
       // compute first component of gradient (dX' * Z' * Z * f)
       Z.mult(fff, Zf);
@@ -623,7 +742,7 @@ void ArticulatedBody::calc_fwd_dyn_cJac(const VectorN& x, MatrixN& J, void* data
       Z1d.transpose_mult(Zf, tmpv);
       Z.transpose_mult(Z1df, tmpv2);
       tmpv += tmpv2;
-      dX.transpose_mult(tmpv, tmpv2) *= ((Real) 1.0 - DELTA);
+      dX.transpose_mult(tmpv, tmpv2) *= ((double) 1.0 - DELTA);
       grad += tmpv2;
 
       // compute eight component of gradient (d * Rd' * f' * Zd' * Zd * f)
@@ -656,12 +775,12 @@ void ArticulatedBody::calc_fwd_dyn_cJac(const VectorN& x, MatrixN& J, void* data
       // compute 14th component of gradient (-(1-d) * Rd' * f' * Z1d' * Z1d * f)
       Z1d.transpose_mult(Z1df, tmpv);
       Rd.get_row(0, tmpv2);
-      tmpv2 *= (fff.dot(tmpv) * (DELTA - (Real) 1.0));
+      tmpv2 *= (fff.dot(tmpv) * (DELTA - (double) 1.0));
       grad += tmpv2;
 
       // compute 15th component of gradient ((1-d)^2 * dX' * Z1d' * Z1d * f)
       dX.transpose_mult(tmpv, tmpv2);
-      tmpv2 *= ((Real) 1.0 - (Real) 2.0*DELTA + DELTA*DELTA);
+      tmpv2 *= ((double) 1.0 - (double) 2.0*DELTA + DELTA*DELTA);
       grad += tmpv2;
 
       // scale gradient
@@ -690,10 +809,10 @@ void ArticulatedBody::calc_fwd_dyn_cJac(const VectorN& x, MatrixN& J, void* data
 }
 
 // objective and inequality constraint gradients for convex optimization
-void ArticulatedBody::calc_fwd_dyn_hess(const VectorN& x, Real objscal, const VectorN& hlambda, const VectorN& nu, MatrixN& H, void* data)
+void ArticulatedBody::calc_fwd_dyn_hess(const VectorNd& x, double objscal, const VectorNd& hlambda, const VectorNd& nu, MatrixNd& H, void* data)
 {
-  SAFESTATIC MatrixN dX, tmpM, tmpM2, tmpM3, f, Rd;
-  SAFESTATIC VectorN wdelta, wff, fff, tmpv;
+  SAFESTATIC MatrixNd dX, tmpM, tmpM2, tmpM3, f, Rd;
+  SAFESTATIC VectorNd wdelta, wff, fff, tmpv;
 
   // setup constants
   const ABFwdDynOptData& opt_data = *(const ABFwdDynOptData*) data;
@@ -705,10 +824,10 @@ void ArticulatedBody::calc_fwd_dyn_hess(const VectorN& x, Real objscal, const Ve
   const unsigned BETA_START = N_IMPLICIT_DOF + N_EXPLICIT_CONSTRAINT_EQNS;
 
   // get necessary data
-  const MatrixN& G = opt_data.G;
+  const MatrixNd& G = opt_data.G;
   const vector<unsigned>& true_indices = opt_data.true_indices;
   const vector<unsigned>& loop_indices = opt_data.loop_indices;
-  const VectorN& fext = opt_data.fext;
+  const VectorNd& fext = opt_data.fext;
 
   // objective function 
   H.copy_from(G) *= objscal;
@@ -723,21 +842,21 @@ void ArticulatedBody::calc_fwd_dyn_hess(const VectorN& x, Real objscal, const Ve
     const unsigned FIDX = (idx < N_IMPLICIT_DOF) ? idx : BETA_START + idx - N_IMPLICIT_DOF;
 
     // get necessary constants
-    const Real MUCSQ = opt_data.mu_c[idx];
+    const double MUCSQ = opt_data.mu_c[idx];
 
     // get the three Z's
-    const MatrixN& Zd = opt_data.Zd[jidx];
-    const MatrixN& Z1d = opt_data.Z1d[jidx];
-    const MatrixN& Z = opt_data.Z[jidx];
+    const MatrixNd& Zd = opt_data.Zd[jidx];
+    const MatrixNd& Z1d = opt_data.Z1d[jidx];
+    const MatrixNd& Z = opt_data.Z[jidx];
 
     // get components of R
-    const MatrixN& R = opt_data.R;
-    const MatrixN& Rff = opt_data.Rff;
-    const MatrixN& DxTRbetax = opt_data.DxTRbetax;
+    const MatrixNd& R = opt_data.R;
+    const MatrixNd& Rff = opt_data.Rff;
+    const MatrixNd& DxTRbetax = opt_data.DxTRbetax;
 
     // get components of z
-    const VectorN& zff = opt_data.zff;
-    const VectorN& zbetax = opt_data.zbetax;
+    const VectorNd& zff = opt_data.zff;
+    const VectorNd& zbetax = opt_data.zbetax;
 
     // setup variables
     Rff.mult(x, wff) += zff;
@@ -760,14 +879,14 @@ void ArticulatedBody::calc_fwd_dyn_hess(const VectorN& x, Real objscal, const Ve
       // compute components necessary for delta
       const unsigned LOOP_IDX = DELTA_START+loop_indices[jidx];
       R.get_sub_mat(LOOP_IDX, LOOP_IDX+1, 0, R.columns(), Rd);
-      const Real ZDELTA = opt_data.z[LOOP_IDX];
+      const double ZDELTA = opt_data.z[LOOP_IDX];
       Rd.mult(x, wdelta);
-      const Real DELTA = wdelta[0] + ZDELTA;
+      const double DELTA = wdelta[0] + ZDELTA;
 
       // compute second and third components of Hessian 
       // ((Rd' * f' + 2d * dX') * Z' * Zd * dX)
       Rd.transpose_mult_transpose(f,tmpM);
-      MatrixN::transpose(dX, tmpM2) *= ((Real) 2.0 * DELTA);
+      MatrixNd::transpose(dX, tmpM2) *= ((double) 2.0 * DELTA);
       tmpM += tmpM2;
       tmpM.mult_transpose(Z, tmpM2);
       tmpM2.mult(Zd, tmpM);
@@ -778,7 +897,7 @@ void ArticulatedBody::calc_fwd_dyn_hess(const VectorN& x, Real objscal, const Ve
       Zd.mult(f, tmpM);
       Z.transpose_mult(tmpM, tmpM2);
       dX.transpose_mult(tmpM2, tmpM);
-      tmpM.mult(Rd, tmpM2) *= (Real) 2.0;
+      tmpM.mult(Rd, tmpM2) *= (double) 2.0;
       tmpM3 += tmpM2;
 
       // 1st part of 4th component of gradient (dX' * Zd' * Z * f * dD)
@@ -809,14 +928,14 @@ void ArticulatedBody::calc_fwd_dyn_hess(const VectorN& x, Real objscal, const Ve
       dX.transpose_mult_transpose(Z, tmpM);
       tmpM.mult(Z1d, tmpM2);
       tmpM2.mult(dX, tmpM);
-      tmpM *= ((Real) 2.0 - DELTA*(Real) 2.0);
+      tmpM *= ((double) 2.0 - DELTA*(double) 2.0);
       tmpM3 += tmpM;
 
       // compute 2nd part of 6th Hessian component -dD * f' * Z1d' * Z * dX
       // (also accounts for 2nd part of 7th Hessian component)
       f.transpose_mult_transpose(Z1d, tmpM);
       tmpM.mult(Z, tmpM2);
-      tmpM2.mult(dX, tmpM) *= (Real) -2.0;
+      tmpM2.mult(dX, tmpM) *= (double) -2.0;
       Rd.transpose_mult(tmpM, tmpM2);
       tmpM3 += tmpM2;      
 
@@ -826,7 +945,7 @@ void ArticulatedBody::calc_fwd_dyn_hess(const VectorN& x, Real objscal, const Ve
       tmpM.mult(Zd, tmpM2);
       tmpM2.mult(dX, tmpM);
       Rd.transpose_mult(tmpM, tmpM2);
-      tmpM2 *= (DELTA * (Real) 2.0);
+      tmpM2 *= (DELTA * (double) 2.0);
       tmpM3 += tmpM2;
 
       // part 3: dD' * Rd * f' * Zd' * Zd * f
@@ -844,7 +963,7 @@ void ArticulatedBody::calc_fwd_dyn_hess(const VectorN& x, Real objscal, const Ve
       // part 2: (2*d * dD' * f' * Zd' * Zd * dX)
       f.transpose_mult_transpose(Zd, tmpM);
       tmpM.mult(Zd, tmpM2);
-      tmpM2.mult(dX, tmpM) *= ((Real) 2.0 * DELTA);
+      tmpM2.mult(dX, tmpM) *= ((double) 2.0 * DELTA);
       Rd.transpose_mult(tmpM, tmpM2);
       tmpM3 += tmpM2;
 
@@ -852,7 +971,7 @@ void ArticulatedBody::calc_fwd_dyn_hess(const VectorN& x, Real objscal, const Ve
       // (1-2d) * Rd' * f' * Zd' * Z1d * dX
       f.transpose_mult_transpose(Zd, tmpM);
       tmpM.mult(Z1d, tmpM2);
-      tmpM2.mult(dX, tmpM) *= ((Real) 1.0 - DELTA*(Real) 2.0);
+      tmpM2.mult(dX, tmpM) *= ((double) 1.0 - DELTA*(double) 2.0);
       Rd.transpose_mult(tmpM, tmpM2);
       tmpM3 += tmpM2;      
 
@@ -860,7 +979,7 @@ void ArticulatedBody::calc_fwd_dyn_hess(const VectorN& x, Real objscal, const Ve
       // part 2: -2 * dD' * Rd * f' * Z1d' * Zd * f 
       f.transpose_mult_transpose(Z1d, tmpM2);
       tmpM2.mult(Zd, tmpM);
-      tmpM.mult(f, tmpM2) *= (Real) -2.0;
+      tmpM.mult(f, tmpM2) *= (double) -2.0;
       tmpM.copy_from(Rd) *= tmpM2(0,0);
       Rd.transpose_mult(tmpM, tmpM2);
       tmpM3 += tmpM2;
@@ -870,7 +989,7 @@ void ArticulatedBody::calc_fwd_dyn_hess(const VectorN& x, Real objscal, const Ve
       // NOTE: this is used to compute part 1 of 13th component of Hessian too
       dX.transpose_mult_transpose(Zd, tmpM);
       tmpM.mult(Z1d, tmpM2);
-      tmpM2.mult(dX, tmpM) *= ((Real) 1.0 - DELTA*(Real) 2.0 + DELTA*DELTA);
+      tmpM2.mult(dX, tmpM) *= ((double) 1.0 - DELTA*(double) 2.0 + DELTA*DELTA);
       tmpM3 += tmpM;
 
       // part 2: -dD' * f' * Z1d' * Zd * dX
@@ -888,7 +1007,7 @@ void ArticulatedBody::calc_fwd_dyn_hess(const VectorN& x, Real objscal, const Ve
       // part 3: -d * dD' * f' * Zd' * Z1d * dX
       f.transpose_mult_transpose(Zd, tmpM);
       tmpM.mult(Z1d, tmpM2);
-      tmpM2.mult(dX, tmpM) *= ((Real) 1.0 - DELTA*(Real) 2.0);
+      tmpM2.mult(dX, tmpM) *= ((double) 1.0 - DELTA*(double) 2.0);
       Rd.transpose_mult(tmpM, tmpM2);
       tmpM3 += tmpM2;
 
@@ -901,7 +1020,7 @@ void ArticulatedBody::calc_fwd_dyn_hess(const VectorN& x, Real objscal, const Ve
       // part 2: (-(1-d) * Rd' * f' * Z1d' * Z1d * dX)
       f.transpose_mult_transpose(Z1d, tmpM);
       tmpM.mult(Z1d, tmpM2);
-      tmpM2.mult(dX, tmpM) *= ((Real) -2.0 - DELTA*(Real) 2.0); // double
+      tmpM2.mult(dX, tmpM) *= ((double) -2.0 - DELTA*(double) 2.0); // double
       Rd.transpose_mult(tmpM, tmpM2);
       tmpM3 += tmpM2;
 
@@ -909,13 +1028,13 @@ void ArticulatedBody::calc_fwd_dyn_hess(const VectorN& x, Real objscal, const Ve
       // part 1: ((1-d)^2 * dX' * Z1d' * Z1d * dX)
       dX.transpose_mult_transpose(Z1d, tmpM);
       tmpM.mult(Z1d, tmpM2);
-      tmpM2.mult(dX, tmpM) *= ((Real) 1.0 - (Real) 2.0*DELTA + DELTA*DELTA);
+      tmpM2.mult(dX, tmpM) *= ((double) 1.0 - (double) 2.0*DELTA + DELTA*DELTA);
       tmpM3 += tmpM;
 
       // part 2: 2*(1-d)*dD' * f' * Z1d' * Z1d * dX
       f.transpose_mult_transpose(Z1d, tmpM);
       tmpM.mult(Z1d, tmpM2);
-      tmpM2.mult(dX, tmpM) *= ((Real) 2.0 - DELTA*(Real) 2.0);
+      tmpM2.mult(dX, tmpM) *= ((double) 2.0 - DELTA*(double) 2.0);
       Rd.transpose_mult(tmpM, tmpM2);
       tmpM3 += tmpM2;
 
@@ -951,30 +1070,28 @@ void ArticulatedBody::calc_fwd_dyn_hess(const VectorN& x, Real objscal, const Ve
       H += tmpM3;
     }
 
-/*
     // setup numerical Hessian
-    unsigned n = x.size();
-    const Real h = NEAR_ZERO;
-    const Real INV_H2 = 1.0 / (h*2);
-    VectorN xx = x;
-    VectorN v1, v2;
-    H.resize(n);
-    for (unsigned i=0; i< n; i++)
-    {
-      xx[i] += h;
-      calc_fwd_dyn_grad(xx, m, v1, data);
-      xx[i] -= 2*h;
-      calc_fwd_dyn_grad(xx, m, v2, data);
-      xx[i] += h;
-      v1 -= v2;
-      v1 *= INV_H2;
-      H.set_column(i, v1);
-    }
+//    unsigned n = x.size();
+//    const double h = NEAR_ZERO;
+//    const double INV_H2 = 1.0 / (h*2);
+//    VectorNd xx = x;
+//    VectorNd v1, v2;
+//    H.resize(n);
+//    for (unsigned i=0; i< n; i++)
+//    {
+//      xx[i] += h;
+//      calc_fwd_dyn_grad(xx, m, v1, data);
+//      xx[i] -= 2*h;
+//      calc_fwd_dyn_grad(xx, m, v2, data);
+//      xx[i] += h;
+//      v1 -= v2;
+//      v1 *= INV_H2;
+//      H.set_column(i, v1);
+//    }
     // average values of the Hessian
-    for (unsigned i=0; i< n; i++)
-      for (unsigned j=i+1; j< n; j++)
-        H(i,j) = H(j,i) = 0.5*(H(i,j) + H(j,i));
-*/
+//    for (unsigned i=0; i< n; i++)
+//      for (unsigned j=i+1; j< n; j++)
+//        H(i,j) = H(j,i) = 0.5*(H(i,j) + H(j,i));
   }
 }
 
@@ -996,37 +1113,38 @@ SVector6 ArticulatedBody::transform_force(RigidBodyPtr link, const Vector3& x) c
 
   return SVector6(f, t - Vector3::cross(xlat, f));
 } 
+*/
 
 /// Determines the loop indices corresponding to each joint and the vector of links for each joint
 void ArticulatedBody::find_loops(vector<unsigned>& loop_indices, vector<vector<unsigned> >& loop_links) const
 {
-  SAFESTATIC vector<JointPtr> loop_joints, explicit_joints;
+  SAFESTATIC vector<JointPtr> loop_joints, implicit_joints;
   queue<RigidBodyPtr> q;
 
   // clear vectors
   loop_indices.resize(_joints.size());
-  explicit_joints.clear();
+  implicit_joints.clear();
 
-  // get all explicit joints
+  // get all implicit joints
   for (unsigned i=0; i< _joints.size(); i++)
-    if (_joints[i]->get_constraint_type() == Joint::eExplicit)
-      explicit_joints.push_back(_joints[i]);
+    if (_joints[i]->get_constraint_type() == Joint::eImplicit)
+      implicit_joints.push_back(_joints[i]);
 
   // set all loop indices to INF (indicates no loop) initially
   for (unsigned i=0; i< _joints.size(); i++)
     loop_indices[i] = std::numeric_limits<unsigned>::max();
 
   // look for early exit
-  if (explicit_joints.empty())
+  if (implicit_joints.empty())
     return;
 
-  // two cases: 1) body uses *only* explicit joints and 2) body uses 
-  // implicit and explicit joints
-  if (_joints.size() == explicit_joints.size())
+  // two cases: 1) body uses *only* implicit joints and 2) body uses 
+  // explicit and implicit joints
+  if (_joints.size() == implicit_joints.size())
   {
-    // we're going to reset explicit_joints to hold only the joints that
+    // we're going to reset implicit_joints to hold only the joints that
     // complete loops
-    explicit_joints.clear();
+    implicit_joints.clear();
     for (unsigned i=0; i< _joints.size(); i++)
     {
       RigidBodyPtr inboard = _joints[i]->get_inboard_link();
@@ -1035,7 +1153,7 @@ void ArticulatedBody::find_loops(vector<unsigned>& loop_indices, vector<vector<u
       // check for obvious loop closure
       if (inboard->get_index() > outboard->get_index())
       {
-        explicit_joints.push_back(_joints[i]);
+        implicit_joints.push_back(_joints[i]);
         continue;
       }
 
@@ -1051,12 +1169,12 @@ void ArticulatedBody::find_loops(vector<unsigned>& loop_indices, vector<vector<u
           q.pop();
           if (!link->is_enabled())
           {
-            explicit_joints.push_back(_joints[i]);
+            implicit_joints.push_back(_joints[i]);
             break;
           }
-          const list<RigidBody::InnerJointData>& ijd_list = link->get_inner_joints_data();
-          BOOST_FOREACH(const RigidBody::InnerJointData ijd, ijd_list)
-            q.push(RigidBodyPtr(ijd.parent));
+          const set<JointPtr>& ij = link->get_inner_joints();
+          BOOST_FOREACH(JointPtr j, ij)
+            q.push(RigidBodyPtr(j->get_inboard_link()));
          }
        }
      }
@@ -1064,13 +1182,13 @@ void ArticulatedBody::find_loops(vector<unsigned>& loop_indices, vector<vector<u
 
   // reset loop links
   loop_links.clear();
-  loop_links.resize(explicit_joints.size());
+  loop_links.resize(implicit_joints.size());
 
   // for every kinematic loop
-  for (unsigned k=0; k< explicit_joints.size(); k++)
+  for (unsigned k=0; k< implicit_joints.size(); k++)
   {
-    // get the explicit joint
-    JointPtr ejoint = explicit_joints[k];
+    // get the implicit joint
+    JointPtr ejoint = implicit_joints[k];
     RigidBodyPtr outboard = ejoint->get_outboard_link();
     bool ground_outboard = outboard->is_ground();
 
@@ -1082,7 +1200,7 @@ void ArticulatedBody::find_loops(vector<unsigned>& loop_indices, vector<vector<u
     RigidBodyPtr inboard = ejoint->get_inboard_link();
     while (true)
     {
-      JointPtr jx = inboard->get_inner_joint_implicit();
+      JointPtr jx = inboard->get_inner_joint_explicit();
       loop_joints.push_back(jx);
       loop_links[k].push_back(inboard->get_index());
       inboard = jx->get_inboard_link();
@@ -1108,24 +1226,19 @@ void ArticulatedBody::find_loops(vector<unsigned>& loop_indices, vector<vector<u
   }
 }
 
-/// Gets the constraint events for event handling
-void ArticulatedBody::get_constraint_events(vector<Event>& events) const
+/// Sets the vectors of links and joints
+void ArticulatedBody::set_links_and_joints(const vector<RigidBodyPtr>& links, const vector<JointPtr>& joints)
 {
-  // setup the constraint events
-  for (unsigned i=0; i< _joints.size(); i++)
-  {
-    events.push_back(Event());
-    events.back().t = (Real) 0.0;
-    events.back().event_type = Event::eConstraint;
-    events.back().constraint_joint = _joints[i];
-    events.back().constraint_nimpulse.set_zero(_joints[i]->num_constraint_eqns());
-    events.back().constraint_fimpulse.set_zero(_joints[i]->num_dof());
-  }
-}
+  // copy the vector
+  _links = links;
 
-/// Sets the vector of joints
-void ArticulatedBody::set_joints(const vector<JointPtr>& joints)
-{
+  // setup the link in the map 
+  for (unsigned i=0; i< _links.size(); i++)
+  {
+    _links[i]->set_index(i);
+    _links[i]->set_articulated_body(get_this());
+  }
+
   // set vector of joints
   _joints = joints;
 
@@ -1139,20 +1252,15 @@ void ArticulatedBody::set_joints(const vector<JointPtr>& joints)
   compile();
 }
 
-/// Sets the vector of links
-void ArticulatedBody::set_links(const vector<RigidBodyPtr>& links)
+/// Gets the number of explicit joint constraint equations
+unsigned ArticulatedBody::num_constraint_eqns_explicit() const
 {
-  // copy the vector
-  _links = links;
+  unsigned neq = 0;
+  for (unsigned i=0; i< _joints.size(); i++)
+    if (_joints[i]->get_constraint_type() == Joint::eExplicit)
+      neq += _joints[i]->num_constraint_eqns();
 
-  // setup the link in the map 
-  for (unsigned i=0; i< _links.size(); i++)
-  {
-    _links[i]->set_index(i);
-    _links[i]->set_articulated_body(get_this());
-  }
-
-  compile();
+  return neq;
 }
 
 /// Gets the number of implicit joint constraint equations
@@ -1161,17 +1269,6 @@ unsigned ArticulatedBody::num_constraint_eqns_implicit() const
   unsigned neq = 0;
   for (unsigned i=0; i< _joints.size(); i++)
     if (_joints[i]->get_constraint_type() == Joint::eImplicit)
-      neq += _joints[i]->num_constraint_eqns();
-
-  return neq;
-}
-
-/// Gets the number of explicit joint constraint equations
-unsigned ArticulatedBody::num_constraint_eqns_explicit() const
-{
-  unsigned neq = 0;
-  for (unsigned i=0; i< _joints.size(); i++)
-    if (_joints[i]->get_constraint_type() == Joint::eExplicit)
       neq += _joints[i]->num_constraint_eqns();
 
   return neq;
@@ -1215,17 +1312,28 @@ void ArticulatedBody::get_adjacent_links(list<sorted_pair<RigidBodyPtr> >& links
 /**
  * The given transformation is cumulative; the links will not necessarily be set to T.
  */
-void ArticulatedBody::transform(const Matrix4& T)
+void ArticulatedBody::translate(const Origin3d& x)
 {
   // apply transform to all links
   BOOST_FOREACH(RigidBodyPtr rb, _links)
-    rb->transform(T);
+    rb->translate(x);
+}
+
+/// Transforms all links in the articulated body by the given transform
+/**
+ * The given transformation is cumulative; the links will not necessarily be set to T.
+ */
+void ArticulatedBody::rotate(const Quatd& q)
+{
+  // apply transform to all links
+  BOOST_FOREACH(RigidBodyPtr rb, _links)
+    rb->rotate(q);
 }
 
 /// Calculates the combined kinetic energy of all links in this body
-Real ArticulatedBody::calc_kinetic_energy() const
+double ArticulatedBody::calc_kinetic_energy() 
 {
-  Real KE = 0;
+  double KE = 0;
   BOOST_FOREACH(RigidBodyPtr rb, _links)
     KE += rb->calc_kinetic_energy();
 
@@ -1262,7 +1370,7 @@ void ArticulatedBody::update_visualization()
 }
 
 /// Loads a MCArticulatedBody object from an XML node
-void ArticulatedBody::load_from_xml(XMLTreeConstPtr node, std::map<string, BasePtr>& id_map)
+void ArticulatedBody::load_from_xml(shared_ptr<const XMLTree> node, std::map<string, BasePtr>& id_map)
 {
   map<string, BasePtr>::const_iterator id_iter;
 
@@ -1273,12 +1381,12 @@ void ArticulatedBody::load_from_xml(XMLTreeConstPtr node, std::map<string, BaseP
   // assert(strcasecmp(node->name().c_str(), "MCArticulatedBody") == 0);
 
   // determine whether to use the advanced joint friction model
-  const XMLAttrib* jf_attr = node->get_attrib("use-advanced-joint-friction");
+  XMLAttrib* jf_attr = node->get_attrib("use-advanced-joint-friction");
   if (jf_attr)
     use_advanced_friction_model = jf_attr->get_bool_value();
 
   // see whether to load the model from a URDF file
-  const XMLAttrib* urdf_attr = node->get_attrib("urdf");
+  XMLAttrib* urdf_attr = node->get_attrib("urdf");
   if (urdf_attr)
   {
     // get the URDF filename
@@ -1289,11 +1397,7 @@ void ArticulatedBody::load_from_xml(XMLTreeConstPtr node, std::map<string, BaseP
     std::vector<RigidBodyPtr> links;
     std::vector<JointPtr> joints; 
     if (URDFReader::read(urdf_fname, robot_name, links, joints))
-    {
-      // determine the links and joints
-      set_links(links);
-      set_joints(joints);
-    }
+      set_links_and_joints(links, joints);
     else
       std::cerr << "ArticulatedBody::load_from_xml()- unable to process URDF " << urdf_fname << std::endl;
 
@@ -1311,10 +1415,10 @@ void ArticulatedBody::load_from_xml(XMLTreeConstPtr node, std::map<string, BaseP
   joint_node_names.push_back("JointPlugin");
 
   // read the set of joint nodes and concatenate them into a single list
-  list<XMLTreeConstPtr> joint_nodes = node->find_child_nodes(joint_node_names);
+  list<shared_ptr<const XMLTree> > joint_nodes = node->find_child_nodes(joint_node_names);
   
   // read the set of link nodes
-  list<XMLTreeConstPtr> link_nodes = node->find_child_nodes("RigidBody");
+  list<shared_ptr<const XMLTree> > link_nodes = node->find_child_nodes("RigidBody");
 
   // if there were links read or joints read, add them 
   if (!joint_nodes.empty() || !link_nodes.empty())
@@ -1324,10 +1428,10 @@ void ArticulatedBody::load_from_xml(XMLTreeConstPtr node, std::map<string, BaseP
     list<RigidBodyPtr> links;
 
     // process all link nodes
-    for (list<XMLTreeConstPtr>::const_iterator i = link_nodes.begin(); i != link_nodes.end(); i++)
+    for (list<shared_ptr<const XMLTree> >::const_iterator i = link_nodes.begin(); i != link_nodes.end(); i++)
     {
       // get the id from the node
-      const XMLAttrib* id = (*i)->get_attrib("id");
+      XMLAttrib* id = (*i)->get_attrib("id");
       if (!id)
         throw std::runtime_error("Articulated body links are required to have unique IDs in XML");
 
@@ -1344,10 +1448,10 @@ void ArticulatedBody::load_from_xml(XMLTreeConstPtr node, std::map<string, BaseP
     }
 
     // process all joint nodes in the same manner
-    for (list<XMLTreeConstPtr>::const_iterator i = joint_nodes.begin(); i != joint_nodes.end(); i++)
+    for (list<shared_ptr<const XMLTree> >::const_iterator i = joint_nodes.begin(); i != joint_nodes.end(); i++)
     {
       // get the id from the node
-      const XMLAttrib* id = (*i)->get_attrib("id");
+      XMLAttrib* id = (*i)->get_attrib("id");
       if (!id)
         throw std::runtime_error("Articulated body joints are required to have unique IDs in XML");
 
@@ -1364,13 +1468,12 @@ void ArticulatedBody::load_from_xml(XMLTreeConstPtr node, std::map<string, BaseP
     }
 
     // set the joints and links
-    set_links(vector<RigidBodyPtr>(links.begin(), links.end()));
-    set_joints(vector<JointPtr>(joints.begin(), joints.end()));
+    set_links_and_joints(vector<RigidBodyPtr>(links.begin(), links.end()), vector<JointPtr>(joints.begin(), joints.end()));
   }
 }
 
 /// Saves this object to a XML tree
-void ArticulatedBody::save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const
+void ArticulatedBody::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& shared_objects) const
 {
   // call parent method
   DynamicBody::save_to_xml(node, shared_objects);

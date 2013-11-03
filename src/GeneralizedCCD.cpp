@@ -16,7 +16,6 @@
 #include <boost/tuple/tuple.hpp>
 #include <Moby/CompGeom.h>
 #include <Moby/CollisionDetection.h>
-#include <Moby/LinAlg.h>
 #include <Moby/Event.h>
 #include <Moby/Constants.h>
 #include <Moby/Polyhedron.h>
@@ -26,6 +25,8 @@
 #include <Moby/XMLTree.h>
 #include <Moby/Integrator.h>
 #include <Moby/OBB.h>
+#include <Moby/BoundingSphere.h>
+#include <Moby/SSL.h>
 #include <Moby/GeneralizedCCD.h>
 #include <Moby/EventDrivenSimulator.h>
 
@@ -33,7 +34,6 @@
 #include <Moby/SpherePrimitive.h>
 #include <Moby/BoxPrimitive.h>
 
-using namespace Moby;
 using boost::dynamic_pointer_cast;
 using boost::static_pointer_cast;
 using boost::shared_ptr;
@@ -49,6 +49,8 @@ using std::vector;
 using std::priority_queue;
 using std::pair;
 using std::make_pair;
+using namespace Ravelin;
+using namespace Moby;
 
 /// Constructs a collision detector with default tolerances
 /**
@@ -56,10 +58,10 @@ using std::make_pair;
  */
 GeneralizedCCD::GeneralizedCCD()
 {
-  eps_tolerance = std::sqrt(std::numeric_limits<Real>::epsilon());
+  eps_tolerance = std::sqrt(std::numeric_limits<double>::epsilon());
   _max_dexp = std::numeric_limits<unsigned>::max();
   pthread_mutex_init(&_contact_mutex, NULL);
-  pthread_mutex_init(&_ve_BVs_mutex, NULL);
+  pthread_mutex_init(&_swept_BVs_mutex, NULL);
   _rebuild_bounds_vecs = true;
   return_all_contacts = true;
 }
@@ -106,67 +108,126 @@ void GeneralizedCCD::remove_articulated_body(ArticulatedBodyPtr abody)
   _rebuild_bounds_vecs = true;
 }
 
-/// Computes the velocities from states
-map<SingleBodyPtr, pair<Vector3, Vector3> > GeneralizedCCD::get_velocities(const vector<pair<DynamicBodyPtr, VectorN> >& q0, const vector<pair<DynamicBodyPtr, VectorN> >& q1, Real dt) const
+/// Computes the poses from states
+map<CollisionGeometryPtr, GeneralizedCCD::PosePair> GeneralizedCCD::get_poses(const vector<pair<DynamicBodyPtr, VectorNd> >& q0, const vector<pair<DynamicBodyPtr, VectorNd> >& q1)
 {
-  vector<VectorN> old_qd(q0.size());
+  map<CollisionGeometryPtr, GeneralizedCCD::PosePair> poses;
+  map<CollisionGeometryPtr, Pose3d> global_poses_t0, global_poses_tf;
 
-  // first set the generalized velocities
+  // re-set generalized coordinates to q0
   #ifndef _OPENMP
-  VectorN qd;
-  for (unsigned i=0; i< q0.size(); i++)
-  {
-    qd.copy_from(q1[i].second) -= q0[i].second;
-    // Q: why do we set generalized coords to q1?
-    q1[i].first->set_generalized_coordinates(DynamicBody::eRodrigues, q0[i].second);
-    q1[i].first->get_generalized_velocity(DynamicBody::eAxisAngle, old_qd[i]);
-    q1[i].first->set_generalized_velocity(DynamicBody::eRodrigues, qd);
-  }
+  for (unsigned i=0; i< q1.size(); i++)
+    q0[i].first->set_generalized_coordinates(DynamicBody::eEuler, q0[i].second);
   #else
-  SAFESTATIC vector<VectorN> qd;
-  qd.resize(q0.size());
   #pragma #omp parallel for
-  for (unsigned i=0; i< q0.size(); i++)
-  {
-    qd[i].copy_from(q1[i].second) -= q0[i].second;
-    q1[i].first->set_generalized_coordinates(DynamicBody::eRodrigues, q0[i].second);
-    q1[i].first->get_generalized_velocity(DynamicBody::eAxisAngle, old_qd[i]);
-    q1[i].first->set_generalized_velocity(DynamicBody::eRodrigues, qd[i]);
-  }
+  for (unsigned i=0; i< q1.size(); i++)
+    q0[i].first->set_generalized_coordinates(DynamicBody::eEuler, q0[i].second);
   #endif
 
-  // setup the map
-  map<SingleBodyPtr, pair<Vector3, Vector3> > vels;
-
-  // now get the single body linear and angular velocities
-  for (unsigned i=0; i< q0.size(); i++)
+  // get the poses from all collision geometries 
+  BOOST_FOREACH(CollisionGeometryPtr g, _geoms)
   {
-    SingleBodyPtr sb = dynamic_pointer_cast<SingleBody>(q0[i].first);
-    if (sb)
-    {
-      pair<Vector3, Vector3>& v = vels[sb];
-      v.first = sb->get_lvel();
-      v.second = sb->get_avel();
-    }
-    else
-    {
-      ArticulatedBodyPtr ab = dynamic_pointer_cast<ArticulatedBody>(q0[i].first);
-      assert(ab);
-      const vector<RigidBodyPtr>& links = ab->get_links();
-      for (unsigned j=0; j< links.size(); j++)
-      {
-        pair<Vector3, Vector3>& v = vels[links[j]];
-        v.first = links[j]->get_lvel();
-        v.second = links[j]->get_avel();
-      }
-    } 
+    Pose3d P0 = *g->get_pose();
+    poses[g].t0 = P0;
+    P0.update_relative_pose(GLOBAL);
+    global_poses_t0[g] = P0;
   }
 
-  // reset the velocities
+  // set generalized coordinates to q1
+  #ifndef _OPENMP
   for (unsigned i=0; i< q0.size(); i++)
-    q0[i].first->set_generalized_velocity(DynamicBody::eAxisAngle, old_qd[i]);
+    q1[i].first->set_generalized_coordinates(DynamicBody::eEuler, q1[i].second);
+  #else
+  #pragma #omp parallel for
+  for (unsigned i=0; i< q0.size(); i++)
+    q1[i].first->set_generalized_coordinates(DynamicBody::eEuler, q1[i].second);
+  #endif
 
-  return vels;
+  // get the poses from all collision geometries and save 
+  BOOST_FOREACH(CollisionGeometryPtr g, _geoms)
+  {
+    // get the transform from the pose at q0 to the pose at q1
+    const Pose3d& P0 = global_poses_t0[g];
+
+    // setup pose
+    Pose3d& P1 = global_poses_tf[g]; 
+    P1 = *g->get_pose();
+    P1.update_relative_pose(GLOBAL);
+    FILE_LOG(LOG_COLDET) << "Body for collision geometry: " << g->get_single_body()->id << " pose in global frame: " << std::endl << Matrix3d(P1.q) << P1.x << std::endl;
+
+    // compute the differential between the two poses
+    SVelocityd diff = Pose3d::diff(P0, P1);
+
+    // get the pose pair
+    GeneralizedCCD::PosePair& pp = poses[g];
+    
+    // apply the transform to g's current pose
+    diff.pose = g->get_pose()->rpose;
+    pp.tf = pp.t0 + diff;
+  }
+
+  // loop over all pairs of geometries, computing transforms
+  for (set<CollisionGeometryPtr>::const_iterator i = _geoms.begin(); i != _geoms.end(); i++)
+  {
+    // get the poses for i
+    const Pose3d& P0i = global_poses_t0[*i];
+    const Pose3d& P1i = global_poses_tf[*i];
+
+    set<CollisionGeometryPtr>::const_iterator j = i;
+    for (++j; j != _geoms.end(); j++)
+    {
+      // get the *inverse* poses for j
+      Pose3d iP0j = global_poses_t0[*j].inverse();
+      Pose3d iP1j = global_poses_tf[*j].inverse();
+
+      // compute the transforms from i to j
+      TransformPair Tpair;
+      Tpair.t0.q = iP0j.q * P0i.q;
+      Tpair.t0.x = iP0j.x + iP0j.q * P0i.x;
+      Tpair.tf.q = iP1j.q * P1i.q;
+      Tpair.tf.x = iP1j.x + iP1j.q * P1i.x;
+
+      // setup the source and target for each transform
+      Tpair.t0.source = Tpair.tf.source = (*i)->get_pose();
+      Tpair.t0.target = Tpair.tf.target = (*j)->get_pose();
+
+      // store the pair
+      _transform_pairs[make_pair(*i, *j)] = Tpair;
+
+      // make an inverse pair
+      TransformPair Tpair_inv;
+      Tpair_inv.t0 = Tpair.t0.inverse();
+      Tpair_inv.tf = Tpair.tf.inverse();
+      _transform_pairs[make_pair(*j, *i)] = Tpair_inv;
+    }
+  } 
+
+  // re-set generalized coordinates to q0
+  #ifndef _OPENMP
+  for (unsigned i=0; i< q1.size(); i++)
+    q0[i].first->set_generalized_coordinates(DynamicBody::eEuler, q0[i].second);
+  #else
+  #pragma #omp parallel for
+  for (unsigned i=0; i< q1.size(); i++)
+    q0[i].first->set_generalized_coordinates(DynamicBody::eEuler, q0[i].second);
+  #endif
+
+  if (LOGGING(LOG_COLDET))
+  {
+    BOOST_FOREACH(CollisionGeometryPtr g, _geoms)
+    {
+      // get the pose pair
+      const GeneralizedCCD::PosePair& pp = poses[g];
+
+      FILE_LOG(LOG_COLDET) << "Body for collision geometry: " << g->get_single_body()->id << std::endl;
+      FILE_LOG(LOG_COLDET) << "pose at t0: " << pp.t0 << std::endl;
+      FILE_LOG(LOG_COLDET) << "pose at tf: " << pp.tf << std::endl;
+      FILE_LOG(LOG_COLDET) << "pose at t0 (global frame): " << Pose3d(pp.t0).update_relative_pose(GLOBAL) << std::endl;
+      FILE_LOG(LOG_COLDET) << "pose at tf (global frame): " << Pose3d(pp.tf).update_relative_pose(GLOBAL) << std::endl;
+    }
+  }
+
+  return poses;
 }
 
 #ifndef _OPENMP
@@ -174,7 +235,7 @@ map<SingleBodyPtr, pair<Vector3, Vector3> > GeneralizedCCD::get_velocities(const
 /**
  * \pre body states are at time tf
  */
-bool GeneralizedCCD::is_contact(Real dt, const vector<pair<DynamicBodyPtr, VectorN> >& q0, const vector<pair<DynamicBodyPtr, VectorN> >& q1, vector<Event>& contacts)
+bool GeneralizedCCD::is_contact(double dt, const vector<pair<DynamicBodyPtr, VectorNd> >& q0, const vector<pair<DynamicBodyPtr, VectorNd> >& q1, vector<Event>& contacts)
 {
   DStruct ds;
   typedef pair<CollisionGeometryPtr, BVPtr> CG_BV;
@@ -186,16 +247,16 @@ bool GeneralizedCCD::is_contact(Real dt, const vector<pair<DynamicBodyPtr, Vecto
 
   // get the map of bodies to velocities
   // NOTE: this also sets each body's coordinates and velocities to q0
-  map<SingleBodyPtr, pair<Vector3, Vector3> > vels = get_velocities(q0, q1, dt);
+  map<CollisionGeometryPtr, PosePair> poses = get_poses(q0, q1);
 
-  // clear all velocity expanded BVs
-  _ve_BVs.clear();
+  // clear all swept BVs
+  _swept_BVs.clear();
   BOOST_FOREACH(CollisionGeometryPtr cg, _geoms)
-    _ve_BVs[cg] = map<BVPtr, BVPtr>();
+    _swept_BVs[cg] = map<BVPtr, BVPtr>();
 
   // do broad phase; NOTE: broad phase yields updated BVs
   vector<pair<CollisionGeometryPtr, CollisionGeometryPtr> > to_check;
-  broad_phase(vels, to_check);
+  broad_phase(poses, to_check);
 
   // check the geometries
   for (unsigned i=0; i< to_check.size(); i++)
@@ -204,24 +265,19 @@ bool GeneralizedCCD::is_contact(Real dt, const vector<pair<DynamicBodyPtr, Vecto
     CollisionGeometryPtr a = to_check[i].first;
     CollisionGeometryPtr b = to_check[i].second;
 
-    // get the two rigid bodies
+    #ifndef NDEBUG    
     RigidBodyPtr rba = dynamic_pointer_cast<RigidBody>(a->get_single_body());
     RigidBodyPtr rbb = dynamic_pointer_cast<RigidBody>(b->get_single_body());
-
-    // verify that the two bodies are rigid
     if (!rba || !rbb)
       throw std::runtime_error("One or more bodies is not rigid; GeneralizedCCD only works with rigid bodies");
+    #endif
 
-    // get the velocities for the two bodies
-    const pair<Vector3, Vector3>& a_vel = vels.find(rba)->second;
-    const pair<Vector3, Vector3>& b_vel = vels.find(rbb)->second;
-
-    // get the transforms from a to b and back
-    Matrix4 aTb = Matrix4::inverse_transform(a->get_transform()) * b->get_transform();
-    Matrix4 bTa = Matrix4::inverse_transform(b->get_transform()) * a->get_transform(); 
+    // get the poses for the two geometries 
+    const PosePair& a_poses = poses.find(a)->second;
+    const PosePair& b_poses = poses.find(b)->second;
 
     // test the geometries for contact
-    check_geoms(dt, a, b, aTb, bTa, a_vel, b_vel, contacts);
+    check_geoms(dt, a, a_poses, b, b_poses, contacts);
   } 
 
   FILE_LOG(LOG_COLDET) << "contacts:" << endl;
@@ -236,6 +292,10 @@ bool GeneralizedCCD::is_contact(Real dt, const vector<pair<DynamicBodyPtr, Vecto
 
   FILE_LOG(LOG_COLDET) << "GeneralizedCCD::is_contact() exited" << endl << endl;
 
+  // return geometry poses to their previous states
+  for (map<CollisionGeometryPtr, PosePair>::const_iterator i = poses.begin(); i != poses.end(); i++)
+    *i->first->_F = i->second.t0;
+
   // indicate whether impact has occurred
   return !contacts.empty();
 }
@@ -244,7 +304,7 @@ bool GeneralizedCCD::is_contact(Real dt, const vector<pair<DynamicBodyPtr, Vecto
 /**
  * \pre body states are at time tf
  */
-bool GeneralizedCCD::is_contact(Real dt, const vector<pair<DynamicBodyPtr, VectorN> >& q0, const vector<pair<DynamicBodyPtr, VectorN> >& q1, vector<Event>& contacts)
+bool GeneralizedCCD::is_contact(double dt, const vector<pair<DynamicBodyPtr, VectorNd> >& q0, const vector<pair<DynamicBodyPtr, VectorNd> >& q1, vector<Event>& contacts)
 {
   DStruct ds;
   typedef pair<CollisionGeometryPtr, BVPtr> CG_BV;
@@ -256,16 +316,16 @@ bool GeneralizedCCD::is_contact(Real dt, const vector<pair<DynamicBodyPtr, Vecto
 
   // get the map of bodies to velocities
   // NOTE: this also sets each body's coordinates and velocities to q0
-  map<SingleBodyPtr, pair<Vector3, Vector3> > vels = get_velocities(q0, q1, dt);
+  map<CollisionGeometryPtr, PosePair> poses = get_pose_pairs(q0, q1);
 
-  // clear all velocity expanded BVs
-  _ve_BVs.clear();
+  // clear all swept BVs
+  _swept_BVs.clear();
   BOOST_FOREACH(CollisionGeometryPtr cg, _geoms)
-    _ve_BVs[cg] = map<BVPtr, BVPtr>();
+    _swept_BVs[cg] = map<BVPtr, BVPtr>();
 
   // do broad phase; NOTE: broad phase yields updated BVs
   vector<pair<CollisionGeometryPtr, CollisionGeometryPtr> > to_check;
-  broad_phase(vels, to_check);
+  broad_phase(poses, to_check);
   vector<vector<Event> > events(to_check.size());
 
   // check the geometries
@@ -276,24 +336,19 @@ bool GeneralizedCCD::is_contact(Real dt, const vector<pair<DynamicBodyPtr, Vecto
     CollisionGeometryPtr a = to_check[i].first;
     CollisionGeometryPtr b = to_check[i].second;
 
-    // get the two rigid bodies
+    #ifndef NDEBUG    
     RigidBodyPtr rba = dynamic_pointer_cast<RigidBody>(a->get_single_body());
     RigidBodyPtr rbb = dynamic_pointer_cast<RigidBody>(b->get_single_body());
-
-    // verify that the two bodies are rigid
     if (!rba || !rbb)
       throw std::runtime_error("One or more bodies is not rigid; GeneralizedCCD only works with rigid bodies");
+    #endif
 
     // get the velocities for the two bodies
-    const pair<Vector3, Vector3>& a_vel = vels.find(rba)->second;
-    const pair<Vector3, Vector3>& b_vel = vels.find(rbb)->second;
-
-    // get the transforms from a to b and back
-    Matrix4 aTb = Matrix4::inverse_transform(a->get_transform()) * b->get_transform();
-    Matrix4 bTa = Matrix4::inverse_transform(b->get_transform()) * a->get_transform(); 
+    const PosePair& a_poses = poses.find(a)->second;
+    const PosePair& b_poses = poses.find(b)->second;
 
     // test the geometries for contact
-    check_geoms(dt, a, b, aTb, bTa, a_vel, b_vel, events[i]);
+    check_geoms(dt, a, a_poses, b, b_poses, events[i]);
   } 
 
   // integrate all contacts into a single structure 
@@ -309,6 +364,10 @@ bool GeneralizedCCD::is_contact(Real dt, const vector<pair<DynamicBodyPtr, Vecto
 
   FILE_LOG(LOG_COLDET) << "GeneralizedCCD::is_contact() exited" << endl << endl;
 
+  // return geometry poses to their previous states
+  for (map<CollisionGeometryPtr, PosePair>::const_iterator i = poses.begin(); i != poses.end(); i++)
+    *i->first->_F = i->second.t0;
+
   // indicate whether impact has occurred
   return !contacts.empty();
 }
@@ -323,9 +382,9 @@ bool GeneralizedCCD::is_contact(Real dt, const vector<pair<DynamicBodyPtr, Vecto
  * \param vels linear and angular velocities of bodies
  * \param contacts on return
  */
-void GeneralizedCCD::check_geoms(Real dt, CollisionGeometryPtr a, CollisionGeometryPtr b, const Matrix4& aTb, const Matrix4& bTa, const pair<Vector3, Vector3>& a_vel, const pair<Vector3, Vector3>& b_vel, vector<Event>& contacts)
+void GeneralizedCCD::check_geoms(double dt, CollisionGeometryPtr a, const PosePair& a_poses, CollisionGeometryPtr b, const PosePair& b_poses, vector<Event>& contacts)
 {
-  map<BVPtr, vector<const Vector3*> > a_to_test, b_to_test;
+  map<BVPtr, vector<const Point3d*> > a_to_test, b_to_test;
 
   FILE_LOG(LOG_COLDET) << "GeneralizedCCD::check_geoms() entered" << endl;
   FILE_LOG(LOG_COLDET) << "  checking geometry " << a->id << " for body " << a->get_single_body()->id << std::endl;
@@ -336,30 +395,32 @@ void GeneralizedCCD::check_geoms(Real dt, CollisionGeometryPtr a, CollisionGeome
   unsigned n_verts_tested = 0;
 
   // set the earliest TOC
-  Real earliest = (Real) 1.0; 
+  double earliest = (double) 1.0; 
 
   // setup the contact set for these two geometries 
   vector<Event> local_contacts;
-
-  // get the velocities for a and b
-  const Vector3& alv = a_vel.first;
-  const Vector3& aav = a_vel.second;
-  const Vector3& blv = b_vel.first;
-  const Vector3& bav = b_vel.second;
 
   // get the primitives for a and b
   PrimitivePtr aprimitive = a->get_geometry();
   PrimitivePtr bprimitive = b->get_geometry();
 
   // get the two top-level BVs for a and b
-  BVPtr bv_a = aprimitive->get_BVH_root();
-  BVPtr bv_b = bprimitive->get_BVH_root(); 
+  BVPtr bv_a = aprimitive->get_BVH_root(a);
+  BVPtr bv_b = bprimitive->get_BVH_root(b); 
+
+  // set poses for the collision geometries
+  *a->_F = a_poses.t0;
+  *b->_F = b_poses.t0;
+
+  // get transform between a and b at t0
+  assert(_transform_pairs.find(make_pair(b, a)) != _transform_pairs.end());
+  const Transform3d& aTb = _transform_pairs.find(make_pair(b, a))->second.t0;
 
   // add the two top-level BVs to the queue for processing
   queue<BVProcess> q;
   q.push(BVProcess());
-  q.back().bva = get_vel_exp_BV(a, bv_a, alv, aav);
-  q.back().bvb = get_vel_exp_BV(b, bv_b, blv, bav);
+  q.back().bva = get_swept_BV(a, bv_a, a_poses);
+  q.back().bvb = get_swept_BV(b, bv_b, b_poses);
   q.back().nexp = 0;
   q.back().ax = bv_a;
   q.back().bx = bv_b;
@@ -388,8 +449,8 @@ void GeneralizedCCD::check_geoms(Real dt, CollisionGeometryPtr a, CollisionGeome
     }
 
     // calculate the volume for the OBBs
-    Real ax_vol = ax->calc_volume();
-    Real bx_vol = bx->calc_volume();
+    double ax_vol = ax->calc_volume();
+    double bx_vol = bx->calc_volume();
 
     // velocity expanded BVs do intersect; if both BVs are leafs OR maximum
     // depth has been reached, intersect
@@ -398,8 +459,8 @@ void GeneralizedCCD::check_geoms(Real dt, CollisionGeometryPtr a, CollisionGeome
     if ((ax->is_leaf() && bx->is_leaf()) || nexp >= _max_dexp)
     {
       // get testing vertex vectors for ax and bx
-      vector<const Vector3*>& ax_test = a_to_test[ax];
-      vector<const Vector3*>& bx_test = b_to_test[bx];
+      vector<const Point3d*>& ax_test = a_to_test[ax];
+      vector<const Point3d*>& bx_test = b_to_test[bx];
 
       // get the sets of vertices for ax and bx
       aprimitive->get_vertices(ax, bx_test);
@@ -412,7 +473,7 @@ void GeneralizedCCD::check_geoms(Real dt, CollisionGeometryPtr a, CollisionGeome
       BOOST_FOREACH(BVPtr bv, ax->children)
       {
         q.push(BVProcess());
-        q.back().bva = get_vel_exp_BV(a, bv, alv, aav);
+        q.back().bva = get_swept_BV(a, bv, a_poses);
         q.back().bvb = bvb; 
         q.back().nexp = nexp+1;
         q.back().ax = bv;
@@ -426,7 +487,7 @@ void GeneralizedCCD::check_geoms(Real dt, CollisionGeometryPtr a, CollisionGeome
       {
         q.push(BVProcess());
         q.back().bva = bva; 
-        q.back().bvb = get_vel_exp_BV(b, bv, blv, bav);
+        q.back().bvb = get_swept_BV(b, bv, b_poses);
         q.back().nexp = nexp+1;
         q.back().ax = ax;
         q.back().bx = bv;
@@ -438,29 +499,29 @@ void GeneralizedCCD::check_geoms(Real dt, CollisionGeometryPtr a, CollisionGeome
   }
 
   // make vectors of vertices unique
-  for (map<BVPtr, vector<const Vector3*> >::iterator i = a_to_test.begin(); i != a_to_test.end(); i++)
+  for (map<BVPtr, vector<const Point3d*> >::iterator i = a_to_test.begin(); i != a_to_test.end(); i++)
   {
     std::sort(i->second.begin(), i->second.end());
     i->second.erase(std::unique(i->second.begin(), i->second.end()), i->second.end());
   }
-  for (map<BVPtr, vector<const Vector3*> >::iterator i = b_to_test.begin(); i != b_to_test.end(); i++)
+  for (map<BVPtr, vector<const Point3d*> >::iterator i = b_to_test.begin(); i != b_to_test.end(); i++)
   {
     std::sort(i->second.begin(), i->second.end());
     i->second.erase(std::unique(i->second.begin(), i->second.end()), i->second.end());
   }
 
   // call check_vertices on bounding volumes from geometry b
-  for (map<BVPtr, vector<const Vector3*> >::iterator i = b_to_test.begin(); i != b_to_test.end(); i++)
+  for (map<BVPtr, vector<const Point3d*> >::iterator i = b_to_test.begin(); i != b_to_test.end(); i++)
   {
     n_verts_tested += i->second.size();
-    check_vertices(dt, a, b, i->first, i->second, bTa, a_vel, b_vel, earliest, local_contacts);
+    check_vertices(dt, a, b, i->first, i->second, a_poses, b_poses, earliest, local_contacts);
   }
 
   // call check_vertices on bounding volumes from geometry a
-  for (map<BVPtr, vector<const Vector3*> >::iterator i = a_to_test.begin(); i != a_to_test.end(); i++)
+  for (map<BVPtr, vector<const Point3d*> >::iterator i = a_to_test.begin(); i != a_to_test.end(); i++)
   {
     n_verts_tested += i->second.size();
-    check_vertices(dt, b, a, i->first, i->second, aTb, b_vel, a_vel, earliest, local_contacts);
+    check_vertices(dt, b, a, i->first, i->second, b_poses, a_poses, earliest, local_contacts);
   }
 
   if (LOGGING(LOG_COLDET))
@@ -474,7 +535,7 @@ void GeneralizedCCD::check_geoms(Real dt, CollisionGeometryPtr a, CollisionGeome
 
   // get the time-of-impact tolerance
   shared_ptr<EventDrivenSimulator> sim(simulator);
-  const Real TOI_TOLERANCE = std::numeric_limits<Real>::epsilon();
+  const double TOI_TOLERANCE = std::numeric_limits<double>::epsilon();
 
   // sort the vector of contacts
   std::sort(local_contacts.begin(), local_contacts.end());
@@ -524,82 +585,97 @@ void GeneralizedCCD::check_geoms(Real dt, CollisionGeometryPtr a, CollisionGeome
 }
 
 /// Checks a set of vertices of geometry a against geometry b
-void GeneralizedCCD::check_vertices(Real dt, CollisionGeometryPtr a, CollisionGeometryPtr b, BVPtr bvb, const std::vector<const Vector3*>& a_verts, const Matrix4& bTa, const pair<Vector3, Vector3>& a_vel, const pair<Vector3, Vector3>& b_vel, Real& earliest, vector<Event>& local_contacts) const
+void GeneralizedCCD::check_vertices(double dt, CollisionGeometryPtr a, CollisionGeometryPtr b, BVPtr bvb, const std::vector<const Point3d*>& a_verts, const PosePair& a_poses, const PosePair& b_poses, double& earliest, vector<Event>& local_contacts) const
 {
-  Vector3 point, normal;
+  Vector3d normal;
+  Point3d point;
+
+  // get the poses
+  const Pose3d& Pa_t0 = a_poses.t0;
+  const Pose3d& Pa_tf = a_poses.tf;
+  const Pose3d& Pb_t0 = b_poses.t0;
+  const Pose3d& Pb_tf = b_poses.tf;
 
   // get the time-of-impact tolerance
   shared_ptr<EventDrivenSimulator> sim(simulator);
-  const Real TOI_TOLERANCE = std::numeric_limits<Real>::epsilon();
+  const double TOI_TOLERANCE = std::numeric_limits<double>::epsilon();
 
   // get the two bodies
-  RigidBodyPtr rba = dynamic_pointer_cast<RigidBody>(a->get_single_body()); 
-  RigidBodyPtr rbb = dynamic_pointer_cast<RigidBody>(b->get_single_body()); 
+  if (LOGGING(LOG_COLDET))
+  {
+    RigidBodyPtr rba = dynamic_pointer_cast<RigidBody>(a->get_single_body()); 
+    RigidBodyPtr rbb = dynamic_pointer_cast<RigidBody>(b->get_single_body()); 
+    FILE_LOG(LOG_COLDET) << "  -- checking body " << rba->id << " against " << rbb->id << endl;
+  }
 
-  // get the velocities for a and b
-  const Vector3& alv = a_vel.first;
-  const Vector3& aav = a_vel.second;
-  const Vector3& blv = b_vel.first;
-  const Vector3& bav = b_vel.second;
-
-  FILE_LOG(LOG_COLDET) << "  -- checking body " << rba->id << " against " << rbb->id << endl;
-  FILE_LOG(LOG_COLDET) << "    -- relative transform " << endl << bTa;
+  // populate the DStruct for checking vertices of a against b
+  DStruct ds;
+  populate_dstruct(&ds, a, Pa_t0, Pa_tf, b, Pb_t0, Pb_tf, bvb);
 
   // setup a "queue" for checking vertices
-  vector<pair<Real, pair<Vector3, Vector3> > > Q;
+  vector<pair<double, Point3d> > Q;
   Q.clear();
-  BOOST_FOREACH(const Vector3* v, a_verts)
+  BOOST_FOREACH(const Point3d* v, a_verts)
   {
-    // compute point at time t0 in b coordinates
-    FILE_LOG(LOG_COLDET) << "    -- checking vertex " << *v << " of " << rba->id << " against " << rbb->id << endl;
-    Vector3 p0 = bTa.mult_point(*v);
+    // get v in proper frame
+    Point3d va = *v;
 
-    FILE_LOG(LOG_COLDET) << "     -- p0 (local): " << p0 << endl; 
-    FILE_LOG(LOG_COLDET) << "     -- p0 (global): " << (b->get_transform().mult_point(p0)) << endl;
+    // get point in b's frame at time 0 (for distance sorting) 
+    Point3d u_b = ds.bTa_t0.transform_point(va);
+
+    // compute point at time t0 in a coordinates
+    if (LOGGING(LOG_COLDET))
+    {
+      RigidBodyPtr rba = dynamic_pointer_cast<RigidBody>(a->get_single_body()); 
+      RigidBodyPtr rbb = dynamic_pointer_cast<RigidBody>(b->get_single_body()); 
+      FILE_LOG(LOG_COLDET) << "    -- checking vertex " << *v << " of " << rba->id << " against " << rbb->id << endl;
+      FILE_LOG(LOG_COLDET) << "     -- u (b frame): " << u_b << endl; 
+      FILE_LOG(LOG_COLDET) << "     -- u (global frame): " << Pose3d::transform_point(GLOBAL, u_b) << endl;
+    }
 
     // we'll sort on inverse distance from the center of mass (origin of b frame) 
-    Real dist = 1.0/p0.norm_sq();
+    double dist = 1.0/u_b.norm_sq();
 
     // push the vertices onto the queue
     // NOTE: assumes that center of geometry of body a is its C.O.M.
     //       (if the assumption is wrong, this will only make things slower)
-    Q.push_back(make_pair(dist, make_pair(p0, *v)));
+    Q.push_back(make_pair(dist, *v));
   }
 
   // sort the queue
   std::sort(Q.begin(), Q.end());
 
-  // populate the DStruct for checking vertices of a against b
-  DStruct ds;
-  populate_dstruct(&ds, a, b, alv, aav, blv, bav, bvb);
-
   // check all vertices of a against b
   while (!Q.empty())
   {
-    // setup the vertex and u in the DStruct
-    ds.p0 = Q.back().second.first;
-    ds.u = Q.back().second.second;
+    // setup u in the DStruct
+    ds.u_a = Q.back().second;
 
-    FILE_LOG(LOG_COLDET) << "    -- checking vertex p0 (local) of " << rba->id << ": " <<  ds.p0 << "  u: " << ds.u << endl; 
-    FILE_LOG(LOG_COLDET) << "     -- global pos (t0): " << b->get_transform().mult_point(ds.p0) << endl;
+    if (LOGGING(LOG_COLDET))
+    {
+      RigidBodyPtr rba = dynamic_pointer_cast<RigidBody>(a->get_single_body()); 
+      FILE_LOG(LOG_COLDET) << "    -- checking vertex u: " << ds.u_a << " of " << rba->id << endl; 
+      FILE_LOG(LOG_COLDET) << "     -- global pos (t0): " << Pose3d::transform_point(GLOBAL, ds.bTa_t0.transform_point(ds.u_a)) << std::endl;
+      FILE_LOG(LOG_COLDET) << "     -- global pos (tf): " << Pose3d::transform_point(GLOBAL, ds.bTa_tf.transform_point(ds.u_a)) << std::endl;
+    }
 
     // determine TOI, if any
     // NOTE: this has been modified to account for the method of dealing with
     // Zeno points in ImpulseContactSimulator; it is considerably slower as a
     // result
-    Real toi;
+    double toi;
     if (!return_all_contacts)
-      toi = determine_TOI(0.0, earliest, &ds, point, normal);
+      toi = determine_TOI_fast(0.0, earliest, &ds, point, normal);
     else
-      toi = determine_TOI(0.0, (Real) 1.0, &ds, point, normal);
+      toi = determine_TOI_fast(0.0, (double) 1.0, &ds, point, normal);
   
     // insert into the contacts set if the TOI is finite 
-    if (toi < std::numeric_limits<Real>::max())
+    if (toi < std::numeric_limits<double>::max())
     {
       // insert the contacts
       local_contacts.push_back(create_contact(toi, a, b, point, normal));
       if (toi < earliest)
-        earliest = std::min(toi + TOI_TOLERANCE/dt, (Real) 1.0);
+        earliest = std::min(toi + TOI_TOLERANCE/dt, (double) 1.0);
     }
 
     // move onto the next vertex
@@ -607,50 +683,54 @@ void GeneralizedCCD::check_vertices(Real dt, CollisionGeometryPtr a, CollisionGe
   }
 } 
 
-/// Gets the velocity-expanded OBB for a BV 
-BVPtr GeneralizedCCD::get_vel_exp_BV(CollisionGeometryPtr cg, BVPtr bv, const Vector3& lv, const Vector3& av)
+/// Gets the swept BV, creating it if necessary
+BVPtr GeneralizedCCD::get_swept_BV(CollisionGeometryPtr cg, BVPtr bv, const PosePair& poses)
 {
   // verify that the map for the geometry has already been setup
   map<CollisionGeometryPtr, map<BVPtr, BVPtr> >::iterator vi;
-  vi = _ve_BVs.find(cg);
-  assert(vi != _ve_BVs.end());
+  vi = _swept_BVs.find(cg);
+  assert(vi != _swept_BVs.end());
 
   // see whether the velocity-expanded BV has already been calculated
   map<BVPtr, BVPtr>::const_iterator vj;
   #ifdef _OPENMP
-  pthread_mutex_lock(&_ve_BVs_mutex);
+  pthread_mutex_lock(&_swept_BVs_mutex);
   #endif
   vj = vi->second.find(bv);
   #ifdef _OPENMP
-  pthread_mutex_unlock(&_ve_BVs_mutex);
+  pthread_mutex_unlock(&_swept_BVs_mutex);
   #endif
   if (vj != vi->second.end())
     return vj->second;
 
-  // otherwise, calculate it
-  OBBPtr obb = boost::dynamic_pointer_cast<OBB>(bv);
-  if (LOGGING(LOG_BV) && obb)
+  // compute the change in velocity from the pose
+  SVelocityd v = Pose3d::diff(poses.t0, poses.tf);
+  FILE_LOG(LOG_COLDET) << "differential for " << cg->get_single_body()->id << ": " << v << std::endl;
+
+  // compute the swept BV
+  if (LOGGING(LOG_BV) && boost::dynamic_pointer_cast<OBB>(bv))
   {
+    OBBPtr obb = boost::dynamic_pointer_cast<OBB>(bv);
     FILE_LOG(LOG_BV) << "calculating velocity-expanded OBB for: " << obb << std::endl;
     FILE_LOG(LOG_BV) << "unexpanded OBB: " << *obb << std::endl;
   }
-  BVPtr ve_bv = bv->calc_vel_exp_BV(cg, (Real) 1.0, lv, av);
-  FILE_LOG(LOG_BV) << "new OBB: " << ve_bv << std::endl;
+  BVPtr swept_bv = bv->calc_swept_BV(cg, v);
+  FILE_LOG(LOG_BV) << "new BV: " << swept_bv << std::endl;
 
   // store the bounding volume
   #ifdef _OPENMP
-  pthread_mutex_lock(&_ve_BVs_mutex);
+  pthread_mutex_lock(&_swept_BVs_mutex);
   #endif
-  vi->second[bv] = ve_bv;
+  vi->second[bv] = swept_bv;
   #ifdef _OPENMP
-  pthread_mutex_unlock(&_ve_BVs_mutex);
+  pthread_mutex_unlock(&_swept_BVs_mutex);
   #endif
 
-  return ve_bv;
+  return swept_bv;
 }
 
 /// Implements Base::load_from_xml()
-void GeneralizedCCD::load_from_xml(XMLTreeConstPtr node, map<std::string, BasePtr>& id_map)
+void GeneralizedCCD::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, BasePtr>& id_map)
 {
   map<std::string, BasePtr>::const_iterator id_iter;
 
@@ -661,12 +741,12 @@ void GeneralizedCCD::load_from_xml(XMLTreeConstPtr node, map<std::string, BasePt
   CollisionDetection::load_from_xml(node, id_map);
 
   // get the maximum number of OBB expansions
-  const XMLAttrib* _max_dexp_attr = node->get_attrib("max-dexp");
+  XMLAttrib* _max_dexp_attr = node->get_attrib("max-dexp");
   if (_max_dexp_attr)
     this->_max_dexp = _max_dexp_attr->get_unsigned_value();
 
   // get the eps tolerance, if specified
-  const XMLAttrib* eps_attr = node->get_attrib("eps-tolerance");
+  XMLAttrib* eps_attr = node->get_attrib("eps-tolerance");
   if (eps_attr)
     this->eps_tolerance = eps_attr->get_real_value();
 }
@@ -676,7 +756,7 @@ void GeneralizedCCD::load_from_xml(XMLTreeConstPtr node, map<std::string, BasePt
  * \note neither the contact cache nor the pairs currently in collision are 
  *       saved
  */
-void GeneralizedCCD::save_to_xml(XMLTreePtr node, list<BaseConstPtr>& shared_objects) const
+void GeneralizedCCD::save_to_xml(XMLTreePtr node, list<shared_ptr<const Base> >& shared_objects) const
 {
   // call parent save_to_xml() method first
   CollisionDetection::save_to_xml(node, shared_objects);
@@ -693,7 +773,7 @@ void GeneralizedCCD::save_to_xml(XMLTreePtr node, list<BaseConstPtr>& shared_obj
 ****************************************************************************/
 
 /// Creates a contact event given the bare-minimum info
-Event GeneralizedCCD::create_contact(Real toi, CollisionGeometryPtr a, CollisionGeometryPtr b, const Vector3& point, const Vector3& normal)
+Event GeneralizedCCD::create_contact(double toi, CollisionGeometryPtr a, CollisionGeometryPtr b, const Point3d& point, const Vector3d& normal)
 {
   Event e;
   e.t = toi;
@@ -704,7 +784,7 @@ Event GeneralizedCCD::create_contact(Real toi, CollisionGeometryPtr a, Collision
   e.contact_geom2 = b;  
 
   // check for valid normal here
-  assert(std::fabs(e.contact_normal.norm() - (Real) 1.0) < NEAR_ZERO);
+  assert(std::fabs(e.contact_normal.norm() - (double) 1.0) < NEAR_ZERO);
 
   // make the body first that comes first alphabetically
   if (LOGGING(LOG_COLDET))
@@ -718,75 +798,46 @@ Event GeneralizedCCD::create_contact(Real toi, CollisionGeometryPtr a, Collision
     }
   }
 
+  // transform contact point and normal to global frame
+  e.contact_point = Pose3d::transform_point(GLOBAL, e.contact_point);
+  e.contact_normal = Pose3d::transform_vector(GLOBAL, e.contact_normal);
+
   return e;
 }
 
 /// Populates the DStruct
-void GeneralizedCCD::populate_dstruct(DStruct* ds, CollisionGeometryPtr gb, CollisionGeometryPtr gs, const Vector3& bblv, const Vector3& bbav, const Vector3& bs_lvel, const Vector3& bs_avel, BVPtr s_BV)
+void GeneralizedCCD::populate_dstruct(DStruct* ds, CollisionGeometryPtr ga, const Pose3d& Pa_t0, const Pose3d& Pa_tf, CollisionGeometryPtr gb, const Pose3d& Pb_t0, const Pose3d& Pb_tf, BVPtr b_BV) const
 {
   // save the BV
-  ds->s_BV = s_BV;
+  ds->b_BV = b_BV;
 
   // save the geometries 
+  ds->ga = ga;
   ds->gb = gb;
-  ds->gs = gs;
 
-  // get the rigid bodies
-  RigidBodyPtr bb = dynamic_pointer_cast<RigidBody>(gb->get_single_body());
-  RigidBodyPtr bs = dynamic_pointer_cast<RigidBody>(gs->get_single_body());
+  // save frames 
+  ds->Pb_t0 = Pb_t0;
+  ds->Pb_tf = Pb_tf;
 
-  // get positions of the centers-of-mass of b and s
-  const Vector3& xs = bs->get_position();
-  const Vector3& xb = bb->get_position();
+  // get relative poses at time t0 and tf
+  assert(_transform_pairs.find(make_pair(ga, gb))!= _transform_pairs.end());
+  const TransformPair& Tpair = _transform_pairs.find(make_pair(ga, gb))->second;
+  ds->bTa_t0 = Tpair.t0;
+  ds->bTa_tf = Tpair.tf;
 
-  // get velocities of the rigid bodies
-  const Matrix3 omegas_hat = Matrix3::skew_symmetric(bs_avel);
-  const Matrix3 omegab_hat = Matrix3::skew_symmetric(bbav);
+  FILE_LOG(LOG_COLDET) << "populate_dstruct() entered" << std::endl;
+  FILE_LOG(LOG_COLDET) << "  body for geometry a: " << ds->ga->get_single_body()->id << std::endl;
+  FILE_LOG(LOG_COLDET) << "  body for geometry b: " << ds->gb->get_single_body()->id << std::endl;
+  FILE_LOG(LOG_COLDET) << "  bTa_t0 origin: " << ds->bTa_t0.x << std::endl << "orientation: " << std::endl << Matrix3d(ds->bTa_t0.q);
+  FILE_LOG(LOG_COLDET) << "  bTa_tf origin: " << ds->bTa_tf.x << std::endl << "orientation: " << std::endl << Matrix3d(ds->bTa_tf.q);
+  FILE_LOG(LOG_COLDET) << "populate_dstruct() exited" << std::endl;
 
-  // determine the relative angular velocity (vector form)
-  ds->romega = bbav - bs_avel;
-
-  // determine magnitudes of linear and angular velocities
-  ds->thetad = ds->romega.norm();
-  ds->lvd = (bblv - bs_lvel).norm();
-
-  // determine Rb and R;
-  Matrix3 Rb, Rs;
-  gb->get_transform().get_rotation(&Rb);
-  gs->get_transform().get_rotation(&Rs);
-
-  // precalculate constants
-  /***********************************************************************
-  1. We start from the following formula for calculating the position of
-     a point in body S's frame:
-
-     p_s = R_S^T ( R_B u + \bar{x}_B ) - R_S^T \bar{x}_S
-
-  2. Upon differentiation w.r.t. time, we get:
-
-     \dot{p}_b = \dot{R}_S^T ( R_B u + \bar{x}_B + 
-                 R_S^T ( \dot{R}_B u + \dot{\bar{x}}_S ) -
-                 R_S^T \dot{\bar{x}}_S - \dot{R}_S^T \bar{x}_S
-  
-  3. After rearranging some terms and using the identity 
-     \dot{R} = \hat{\omega} R, we get the constants below.
-  ***********************************************************************/
-  ds->k1 = Rs.transpose_mult(bblv - bs_lvel - omegas_hat * (xb - xs));
-  ds->k2 = Rs.transpose_mult(omegab_hat - omegas_hat)*Rb;
-
-  // compute quaternions
-  Quat qs(&Rs);
-  Quat qb(&Rb);
-
-  // setup quaternion for interpolation and quaternion derivative
-  ds->q0 = Quat::conjugate(qs) * qb;
-
-  // setup velocities of bs
-  ds->bs_xd = bs->get_lvel();
-  ds->bs_omega = bs->get_avel();
+  // setup quaternion endpoints for interpolation
+  ds->q0 = ds->bTa_t0.q;
+  ds->qf = ds->bTa_tf.q;
 }
 
-/// Implements DETERMINE-TOC()
+/// Implements DETERMINE-TOC() [very fast, fully linearized version]
 /**
  * \param t0 the time before integration
  * \param tf the time after integration
@@ -796,91 +847,197 @@ void GeneralizedCCD::populate_dstruct(DStruct* ds, CollisionGeometryPtr gb, Coll
  * \return the time of impact [0, 1] such that t0 = 0 and t1 = 1; if the time 
  *         of impact is greater than 1.0, then the time of impact is not in the 
  *         interval [t0, tf] and should be discarded
- * \pre rigid body states are at time t0
+ * \pre rigid body states are at time t
  */
-Real GeneralizedCCD::determine_TOI(Real t0, Real tf, const DStruct* ds, Vector3& pt, Vector3& normal) const
+double GeneralizedCCD::determine_TOI_fast(double t0, double tf, const DStruct* ds, Point3d& cp, Vector3d& normal) const
 {
-  const Real INF = std::numeric_limits<Real>::max();
+  const double INF = std::numeric_limits<double>::max();
   const unsigned X = 0, Y = 1, Z = 2;
   OBB O;
-  Vector3 nalpha, nbeta, ngamma;
+  Vector3d nalpha, nbeta, ngamma;
 
-  // init bisection statistics
-  unsigned nbisects = 0;
-
-  // get the two geometries
-  CollisionGeometryPtr gs = ds->gs;
+  // get the static collision geometry
   CollisionGeometryPtr gb = ds->gb;
 
-  // get the primitive for gs 
-  PrimitiveConstPtr gs_primitive = gs->get_geometry();
-
-  // get the two rigid bodies
-  RigidBodyPtr bs = dynamic_pointer_cast<RigidBody>(gs->get_single_body());
-  RigidBodyPtr bb = dynamic_pointer_cast<RigidBody>(gb->get_single_body());
-
-  // setup the quaternions used for interpolation
-  Matrix3 Rs = gs->get_transform().get_rotation();
-  Matrix3 Rb = gb->get_transform().get_rotation();
-  Quat qs(&Rs);
-  Quat qb(&Rb);
+  // get the primitive for gs (the body treated as static) 
+  shared_ptr<const Primitive> gb_primitive = gb->get_geometry();
 
   FILE_LOG(LOG_COLDET) << "GeneralizedCCD::determine_TOI() entered" << endl;
   FILE_LOG(LOG_COLDET) << "  time t0: " << t0 << endl;
   FILE_LOG(LOG_COLDET) << "  time tf: " << tf << endl;
 
-  // get p0 object (for simplicity)
-  const Vector3& p0 = ds->p0;
+  // get point in ga's frame
+  const Point3d& u_a = ds->u_a;
 
-  // get the BV for S
-  BVPtr gs_BV = ds->s_BV; 
+  // get the BV for gb
+  BVPtr gb_BV = ds->b_BV; 
+  assert(gb->get_pose() == gb_BV->get_relative_pose());
 
-  // setup quaternions for interpolation
-  const Quat& q0 = ds->q0; 
+  // get useful poses
+  const Pose3d& Pb_t0 = ds->Pb_t0;
+  const Pose3d& Pb_tf = ds->Pb_tf;
 
-  // integrate q0 to dt to get the other quaternion for interpolation
-  Quat qf = q0 + Quat::deriv(q0, ds->romega)*(tf-t0);
-  qf.normalize();
+  // get u- in gb's frame- at times t0 and tf
+  Point3d u0 = ds->bTa_t0.transform_point(u_a);
+  Point3d uf = ds->bTa_tf.transform_point(u_a);
 
-  // (Euler) integrate the position of the point to dt; note: we do this
-  // because the derivative is constant
-  Vector3 pdot = ds->k1 + ds->k2*ds->u;
-  Vector3 pf = p0 + pdot*(tf-t0);
+  // check for intersection 
+  double t;
+  if (gb_primitive->intersect_seg(gb_BV, LineSeg3(u0, uf), t, cp, normal))
+  {
+    FILE_LOG(LOG_COLDET) << "  intersection detected!  time of impact: " << t << " (true: " << (t0 + (tf-t0)*t) << ")" << endl;
+
+    // transform time to account for ta and tb
+    t = t0 + (tf-t0)*t;
+
+    FILE_LOG(LOG_COLDET) << "     -- point intersection (untransformed): " << cp << endl;
+    FILE_LOG(LOG_COLDET) << "     -- normal (untransformed): " << normal << endl;
+
+    // since all calculations are in gs's frame; interpolate gs to time t
+    // and transform contact point and normal to global coordinates
+    Origin3d cpo(cp);
+    Origin3d no(normal);
+    double s = t/(tf-t0);
+    cp = Pose3d::interpolate_transform_point(Pb_t0, Pb_tf, s, cpo);
+    normal = Pose3d::interpolate_transform_vector(Pb_t0, Pb_tf, s, no);
+
+    // look for degenerate normal
+    if (std::fabs(normal.norm() - (double) 1.0) > NEAR_ZERO)
+    {
+      FILE_LOG(LOG_COLDET) << "    -- degenerate normal detected! (" << normal << "); not reporting intersection" << endl;
+      return INF;
+    }        
+    
+    FILE_LOG(LOG_COLDET) << "     -- point intersection: " << cp << endl;
+    FILE_LOG(LOG_COLDET) << "     -- normal: " << normal << endl;
+    FILE_LOG(LOG_COLDET) << "GeneralizedCCD::determine_TOI_fast() exited" << endl;
+
+    return t;
+  }
+
+  FILE_LOG(LOG_COLDET) << "  no impact detected" << endl;
+  FILE_LOG(LOG_COLDET) << "GeneralizedCCD::determine_TOI_fast() exited" << endl;
+
+  // still here?  no contact...
+  return INF; 
+}
+
+/// Implements DETERMINE-TOC()
+/**
+ * \param t0 the time before integration
+ * \param tf the time after integration
+ * \param dstruct structure passed to determine_TOI of precomputed data
+ * \param cp the contact point (if any) in world coordinates
+ * \param normal the normal (if any) in world coordinates
+ * \return the time of impact [0, 1] such that t0 = 0 and t1 = 1; if the time 
+ *         of impact is greater than 1.0, then the time of impact is not in the 
+ *         interval [t0, tf] and should be discarded
+ * \pre rigid body states are at time t
+ *
+ * The math behind this function (I use LaTeXiT to visualize) follows:
+ *
+ * We are interested in testing the path traced by a point on body B against
+ * the geometry of another body S. We will do all calculations relative to
+ * S's (moving) frame so that an observer at S can treat himself as stationary.
+ *
+ * Notation/defs: v relative linear velocity
+ *                \theta relative angular velocity
+ *                r vector from center-of-mass of B to point u
+ *                superscricp (A) to right (vector defined in A's frame
+ *                superscricps (A,B) to left and right (transform from B to A)
+ *                subscricp (A) to right (vector for body A)
+ * 
+ * The velocity of point u on B (in S's frame) is:
+ * \dot{u}^S(t)& = v^S + \theta^S \times ~^ST^0(t) [u^0(t)-x_B^0(t)]\\
+ * & = v^S + \theta^S \times ~^ST^0(t) [x_B^0(t) +~^0R^B(t) r^B-x_B^0(t)]\\
+ * & = v^S + \theta^S \times~^SR^0(t)~^0R^B(t)r^B
+ *
+ * We define ^SR^0(t) using a first-order approximation as follows:
+ * ^SR^0(t)& = [~^0R^S(t_0) + (t_f-t_0)\cdot \omega_S^0\times ~^0R^S(t_0)]^T\\
+ * & = ~^SR^0(t_0) - (t_f-t_0)\cdot~^SR^0(t_0)\omega_S^0\times
+ *
+ * Similarly, ^0R^B(t) is defined as:
+ * ^0R^B(t)& = ~^0R^B(t_0) + (t_f-t_0)\cdot\omega_B^0\times~^0R^B(t_0)
+ *
+ */
+double GeneralizedCCD::determine_TOI(double t0, double tf, const DStruct* ds, Point3d& cp, Vector3d& normal) const
+{
+  const double INF = std::numeric_limits<double>::max();
+  const unsigned X = 0, Y = 1, Z = 2;
+  OBB O;
+  Vector3d nalpha, nbeta, ngamma;
+
+  // init bisection statistics
+  unsigned nbisects = 0;
+
+  // get the static collision geometry
+  CollisionGeometryPtr gb = ds->gb;
+
+  // get the primitive for gb (the body treated as static) 
+  shared_ptr<const Primitive> gb_primitive = gb->get_geometry();
+
+  // get useful poses
+  const Pose3d& Pb_t0 = ds->Pb_t0;
+  const Pose3d& Pb_tf = ds->Pb_tf;
+
+  FILE_LOG(LOG_COLDET) << "GeneralizedCCD::determine_TOI() entered" << endl;
+  FILE_LOG(LOG_COLDET) << "  time t0: " << t0 << endl;
+  FILE_LOG(LOG_COLDET) << "  time tf: " << tf << endl;
+
+  // get the BV for gb
+  BVPtr gb_BV = ds->b_BV;
+
+  // get transforms between ga's frame and gb's frame
+  const Transform3d& bTa_t0 = ds->bTa_t0;
+  const Transform3d& bTa_tf = ds->bTa_tf;
+
+  // get u in ga's frame (this vector remains constant over time) at t0
+  const Vector3d& u = ds->u_a;
+  Point3d u0_b = bTa_t0.transform_point(u);
+
+  // get u in gb's frame at tf 
+  Point3d uf_b = bTa_tf.transform_point(u);
 
   // setup the axes of the bounding box
-  Vector3 p0pf = pf - p0;
-  Real norm_p0pf = p0pf.norm();
-  if (norm_p0pf < std::numeric_limits<Real>::epsilon())
+  Vector3d u0uf = uf_b - u0_b;
+  double norm_u0uf = u0uf.norm();
+  if (norm_u0uf < std::numeric_limits<double>::epsilon())
   {
     // arbitrary bounding box
-    nalpha = Vector3(1,0,0);
-    nbeta = Vector3(0,1,0);
-    ngamma = Vector3(0,0,1);
-    O.R = Matrix3::identity();
+    nalpha = Vector3d(1,0,0, gb->get_pose());
+    nbeta = Vector3d(0,1,0, gb->get_pose());
+    ngamma = Vector3d(0,0,1, gb->get_pose());
+    O.R = Matrix3d::identity();
   }
   else
   {
-    // primary axis of bounding box aligned w/p0pf
-    nalpha = p0pf/norm_p0pf;
-    Vector3::determine_orthonormal_basis(nalpha, nbeta, ngamma);
+    // primary axis of bounding box aligned w/u0uf
+    nalpha = u0uf/norm_u0uf;
+    Vector3d::determine_orthonormal_basis(nalpha, nbeta, ngamma);
     O.R.set_column(X, nalpha);
     O.R.set_column(Y, nbeta);
     O.R.set_column(Z, ngamma);
   }
 
+  // setup quaternion endpoints of interpolation
+  const Quatd& q0 = ds->q0;
+  const Quatd& qf = ds->qf; 
+
+  // NOTE: collision geometry (and therefore BV) should probably be updated to proper time
+
   // determine whether minimum/maximum deviation is between two planes;
   // if so, determine the interpolation value that yields the minimum
   // and maximum deviation
-  Vector3 normal1, normal2;
-  Real rho1_max = -1.0, rho1_min = -1.0, rho2_max = -1.0, rho2_min = -1.0, rho3_max = -1.0, rho3_min = -1.0;
-  Real max_d1 = -INF, max_d2 = -INF, max_d3 = -INF;
-  Real min_d1 = INF, min_d2 = INF, min_d3 = INF;
-  if (bound_u(ds->u, q0, qf, normal1, normal2))
+  Vector3d normal1(gb->get_pose()), normal2(gb->get_pose());
+  double rho1_max = -1.0, rho1_min = -1.0, rho2_max = -1.0, rho2_min = -1.0, rho3_max = -1.0, rho3_min = -1.0;
+  double max_d1 = -INF, max_d2 = -INF, max_d3 = -INF;
+  double min_d1 = INF, min_d2 = INF, min_d3 = INF;
+  if (bound_u(u, q0, qf, normal1, normal2))
   {
     if (nalpha.dot(normal1)*nalpha.dot(normal2) > 0)
     {
-      max_d1 = calc_max_dev(ds->u, nalpha, q0, qf, rho1_max);
-      min_d1 = calc_min_dev(ds->u, nalpha, q0, qf, rho1_min);
+      max_d1 = calc_max_dev(u, nalpha, q0, qf, rho1_max);
+      min_d1 = calc_min_dev(u, nalpha, q0, qf, rho1_min);
 
       // scale rho values to (tf-t0)
       rho1_max *= (tf-t0);
@@ -888,8 +1045,8 @@ Real GeneralizedCCD::determine_TOI(Real t0, Real tf, const DStruct* ds, Vector3&
     }
     if (nbeta.dot(normal1)*nbeta.dot(normal2) > 0)
     {
-      max_d2 = calc_max_dev(ds->u, nbeta, q0, qf, rho2_max);
-      min_d2 = calc_min_dev(ds->u, nbeta, q0, qf, rho2_min);
+      max_d2 = calc_max_dev(u, nbeta, q0, qf, rho2_max);
+      min_d2 = calc_min_dev(u, nbeta, q0, qf, rho2_min);
 
       // scale rho values to (tf-t0)
       rho2_max *= (tf-t0);
@@ -897,8 +1054,8 @@ Real GeneralizedCCD::determine_TOI(Real t0, Real tf, const DStruct* ds, Vector3&
     }
     if (ngamma.dot(normal1)*ngamma.dot(normal2) > 0)
     {
-      max_d3 = calc_max_dev(ds->u, ngamma, q0, qf, rho3_max);
-      min_d3 = calc_min_dev(ds->u, ngamma, q0, qf, rho3_min);
+      max_d3 = calc_max_dev(u, ngamma, q0, qf, rho3_max);
+      min_d3 = calc_min_dev(u, ngamma, q0, qf, rho3_min);
 
       // scale rho values to (tf-t0)
       rho3_max *= (tf-t0);
@@ -907,7 +1064,7 @@ Real GeneralizedCCD::determine_TOI(Real t0, Real tf, const DStruct* ds, Vector3&
   }
 
   // setup the queue
-  typedef pair<Real, Real> RPair;
+  typedef pair<double, double> RPair;
   priority_queue<RPair, vector<RPair>, std::greater<RPair> > Q;
   Q.push(make_pair(t0, tf));
 
@@ -915,67 +1072,42 @@ Real GeneralizedCCD::determine_TOI(Real t0, Real tf, const DStruct* ds, Vector3&
   while (!Q.empty())
   {
     // get the element off of the top of the queue
-    Real ta = Q.top().first;
-    Real tb = Q.top().second;
+    double tx = Q.top().first;
+    double ty = Q.top().second;
     Q.pop();
 
     // setup delta t
-    const Real dt = tb - ta;
+    const double dt = ty - tx;
+    assert(dt > 0.0);
 
-    // bisect if angular velocity * dt > M_PI
-    if (ds->thetad*dt > M_PI)
-    {
-      // if the linear velocity is near zero, no need to check more than 2*pi
-      if (ds->lvd*dt < NEAR_ZERO)
-      {
-        const Real delta = M_PI/ds->thetad;
-        Real tmid = ta + delta;
-        tb = tmid + delta;
-        assert(ta + NEAR_ZERO > t0);
-        assert(tf + NEAR_ZERO > tb);
-        Q.push(make_pair(ta, tmid));
-        Q.push(make_pair(tmid, tb));
-        nbisects++;
-        continue;
-      }
-      else
-      {
-        Real tmid = (ta+tb)*0.5;
-        Q.push(make_pair(ta, tmid));
-        Q.push(make_pair(tmid, tb));
-        nbisects++;
-        continue;  
-      }
-    }
+    // interpolation parameter ranges from [0,1]; 0 corresponds to t0, 
+    // 1 corresponds to tf.  Determine what tx, ty correspond to
+    const double sx = tx/(tf-t0);
+    const double sy = ty/(tf-t0);
 
-    // determine pa and pb
-    Vector3 pa = p0 + pdot*ta;
-    Vector3 pb = p0 + pdot*tb;
+    // determine point u at times tx and ty in frame b 
+    Point3d ux(Transform3d::interpolate_transform_point(bTa_t0, bTa_tf, sx, Origin3d(ds->u_a)), gb->get_pose());
+    Point3d uy(Transform3d::interpolate_transform_point(bTa_t0, bTa_tf, sy, Origin3d(ds->u_a)), gb->get_pose());
 
-    FILE_LOG(LOG_COLDET) << " -- checking segment for time [" << ta << ", " << tb << "]" << endl;
-    FILE_LOG(LOG_COLDET) << "  p(" << ta << ") = " << pa << "  p(" << tb << ") ~= " << pb << endl;
-
-    // interpolation parameter ranges from [0,1]; 0 corresponds to t0, 1 corresponds
-    // to tf.  Determine what ta, tb correspond to
-    const Real sa = ta/(tf-t0);
-    const Real sb = tb/(tf-t0);
+    FILE_LOG(LOG_COLDET) << " -- checking segment for time [" << tx << ", " << ty << "]" << endl;
+    FILE_LOG(LOG_COLDET) << "  p(" << tx << ") = " << ux << "  p(" << ty << ") ~= " << uy << endl;
 
     // init deviation maxima/minima
-    Real dp_alpha = -INF, dp_beta = -INF, dp_gamma = -INF;
-    Real dn_alpha = INF, dn_beta = INF, dn_gamma = INF;
+    double dp_alpha = -INF, dp_beta = -INF, dp_gamma = -INF;
+    double dn_alpha = INF, dn_beta = INF, dn_gamma = INF;
 
     // see whether this interval contains a minimum/maximum 
-    if (rho1_max >= ta && rho1_max <= tb) dp_alpha = max_d1;
-    if (rho1_min >= ta && rho1_min <= tb) dn_alpha = min_d1;
-    if (rho2_max >= ta && rho2_max <= tb) dp_beta = max_d2;
-    if (rho2_min >= ta && rho2_min <= tb) dn_beta = min_d2;
-    if (rho3_max >= ta && rho3_max <= tb) dp_gamma = max_d3;
-    if (rho3_min >= ta && rho3_min <= tb) dn_gamma = min_d3;
+    if (rho1_max >= tx && rho1_max <= ty) dp_alpha = max_d1;
+    if (rho1_min >= tx && rho1_min <= ty) dn_alpha = min_d1;
+    if (rho2_max >= tx && rho2_max <= ty) dp_beta = max_d2;
+    if (rho2_min >= tx && rho2_min <= ty) dn_beta = min_d2;
+    if (rho3_max >= tx && rho3_max <= ty) dp_gamma = max_d3;
+    if (rho3_min >= tx && rho3_min <= ty) dn_gamma = min_d3;
     
     // calculate deviation at endpoints
-    pair<Real, Real> deva = calc_deviations(ds->u, nalpha, q0, qf, sa, sb);
-    pair<Real, Real> devb = calc_deviations(ds->u, nbeta, q0, qf, sa, sb);
-    pair<Real, Real> devg = calc_deviations(ds->u, ngamma, q0, qf, sa, sb);
+    pair<double, double> deva = calc_deviations(u, nalpha, q0, qf, sx, sy);
+    pair<double, double> devb = calc_deviations(u, nbeta, q0, qf, sx, sy);
+    pair<double, double> devg = calc_deviations(u, ngamma, q0, qf, sx, sy);
   
     // set deviation maxima/minima    
     dn_alpha = std::min(dn_alpha, deva.first);
@@ -986,40 +1118,40 @@ Real GeneralizedCCD::determine_TOI(Real t0, Real tf, const DStruct* ds, Vector3&
     dp_gamma = std::max(dp_gamma, devg.second);
 
     // determine the half deviations in each direction
-    Real len_pab = (pb - pa).norm();
-    Real d_alpha = std::max(std::fabs(dp_alpha - dn_alpha), len_pab*(Real) 0.5);
-    Real d_beta = std::fabs(dp_beta - dn_beta);
-    Real d_gamma = std::fabs(dp_gamma - dn_gamma);
+    double len_uxy = (uy - ux).norm();
+    double d_alpha = std::max(std::fabs(dp_alpha - dn_alpha), len_uxy*(double) 0.5);
+    double d_beta = std::fabs(dp_beta - dn_beta);
+    double d_gamma = std::fabs(dp_gamma - dn_gamma);
 
     // setup the bounding box
-    Real nu = (d_beta + d_gamma + d_alpha)*2.0 - len_pab;
+    double nu = (d_beta + d_gamma + d_alpha)*2.0 - len_uxy;
     assert(nu > -NEAR_ZERO);
     FILE_LOG(LOG_COLDET) << " -- dalpha: [" << dn_alpha << ", " << dp_alpha << "]" << endl;
     FILE_LOG(LOG_COLDET) << " -- dbeta: [" << dn_beta << ", " << dp_beta << "]" << endl;
     FILE_LOG(LOG_COLDET) << " -- dgamma: [" << dn_gamma << ", " << dp_gamma << "]" << endl;
     FILE_LOG(LOG_COLDET) << " -- nu contribution along alpha/beta: " << nu << endl;
-    Vector3 cab = (pa + pb)*0.5;
-    Vector3 mini = cab - nalpha*d_alpha - nbeta*d_beta - ngamma*d_gamma;
-    Vector3 maxi = cab + nalpha*d_alpha + nbeta*d_beta + ngamma*d_gamma;
+    Point3d cxy = (ux + uy)*0.5;
+    Point3d mini = cxy - nalpha*d_alpha - nbeta*d_beta - ngamma*d_gamma;
+    Point3d maxi = cxy + nalpha*d_alpha + nbeta*d_beta + ngamma*d_gamma;
     O.center = (maxi+mini)*0.5;
-    O.l = O.R.transpose_mult((maxi-mini)*0.5);
+    O.l = O.R.transpose_mult(Origin3d((maxi-mini)*0.5));
     O.l[0] = std::fabs(O.l[0]);
     O.l[1] = std::fabs(O.l[1]);
     O.l[2] = std::fabs(O.l[2]);
 
-    // determine whether there is an intersection with the bounding box for S
+    // determine whether there is an intersection with the bounding box for b
     FILE_LOG(LOG_COLDET) << " -- nu: " << nu << endl;
     FILE_LOG(LOG_COLDET) << " -- checking BV intersection of: " << endl;
-    FILE_LOG(LOG_COLDET) << O << " and " << endl << gs_BV;
+    FILE_LOG(LOG_COLDET) << O << " and " << endl << gb_BV;
     if (LOGGING(LOG_COLDET))
     {
-      OBBPtr gs_OBB = dynamic_pointer_cast<OBB>(gs_BV);
-      if (gs_OBB)
-        FILE_LOG(LOG_COLDET) << *gs_OBB << endl;
+      OBBPtr gb_OBB = dynamic_pointer_cast<OBB>(gb_BV);
+      if (gb_OBB)
+        FILE_LOG(LOG_COLDET) << *gb_OBB << endl;
     }
 
-    // NOTE: O and gs_BV are both in S's frame
-    if (!BV::intersects(&O, gs_BV.get()))
+    // O is in gb_BV's frame
+    if (!BV::intersects(&O, gb_BV.get()))
     {
       FILE_LOG(LOG_COLDET) << "   -- no intersection; continuing looping..." << endl;
       continue;
@@ -1034,9 +1166,9 @@ Real GeneralizedCCD::determine_TOI(Real t0, Real tf, const DStruct* ds, Vector3&
       FILE_LOG(LOG_COLDET) << "   -- intersection detected; trajectory segment must be bisected" << endl;
 
       // add two elements to the queue
-      Real ti = (ta+tb)*0.5;
-      Q.push(make_pair(ta, ti));
-      Q.push(make_pair(ti, tb));
+      double ti = (tx+ty)*0.5;
+      Q.push(make_pair(tx, ti));
+      Q.push(make_pair(ti, ty));
       nbisects++;
     }
     else
@@ -1044,41 +1176,33 @@ Real GeneralizedCCD::determine_TOI(Real t0, Real tf, const DStruct* ds, Vector3&
       FILE_LOG(LOG_COLDET) << "   -- intersection detected and nu less than tolerance" << endl;
 
       // intersect the line segment with the geometry
-      Real t;
-      if (gs_primitive->intersect_seg(gs_BV, LineSeg3(pa, pb), t, pt, normal))
+      double t;
+      if (gb_primitive->intersect_seg(gb_BV, LineSeg3(ux, uy), t, cp, normal))
       {
-        FILE_LOG(LOG_COLDET) << "  intersection detected!  time of impact: " << t << " (true: " << (ta + (tb-ta)*t) << ")" << endl;
+        FILE_LOG(LOG_COLDET) << "  intersection detected!  time of impact: " << t << " (true: " << (tx + (ty-tx)*t) << ")" << endl;
 
-        // transform time to account for ta and tb
-        t = ta + (tb-ta)*t;
+        // transform time to account for tx and ty
+        t = tx + (ty-tx)*t;
 
-        FILE_LOG(LOG_COLDET) << "     -- point intersection (untransformed): " << pt << endl;
+        FILE_LOG(LOG_COLDET) << "     -- point intersection (untransformed): " << cp << endl;
         FILE_LOG(LOG_COLDET) << "     -- normal (untransformed): " << normal << endl;
 
-        // since all calculations are in body S's frame; we need to integrate
-        // body S's state to time t to transform the contact point and normal
-        // first integrate orientation
-        Quat qf = qs + Quat::deriv(qs, ds->bs_omega)*t;
-        qf.normalize();
-
-        // now integrate position of the c.o.m. 
-        const Vector3& xdot = ds->bs_xd;  
-        Vector3 x = gs->get_transform().get_translation();
-        x += xdot*t;
-
-        // transform contact point and normal to global coords
-        pt = qf * pt + x;
-        normal = qf * normal;
+        // since all calculations are in gb's frame; interpolate gb to time t
+        // and transform contact point and normal to global coordinates
+        Origin3d cpo(cp);
+        Origin3d no(normal);
+        double s = t/(tf-t0);
+        cp = Pose3d::interpolate_transform_point(Pb_t0, Pb_tf, s, cpo);
+        normal = Pose3d::interpolate_transform_vector(Pb_t0, Pb_tf, s, no);
 
         // look for degenerate normal
-        if (std::fabs(normal.norm() - (Real) 1.0) > NEAR_ZERO)
+        if (std::fabs(normal.norm() - (double) 1.0) > NEAR_ZERO)
         {
           FILE_LOG(LOG_COLDET) << "    -- degenerate normal detected! (" << normal << "); not reporting intersection" << endl;
           continue;
-        }
+        }        
         
-        
-        FILE_LOG(LOG_COLDET) << "     -- point intersection: " << pt << endl;
+        FILE_LOG(LOG_COLDET) << "     -- point intersection: " << cp << endl;
         FILE_LOG(LOG_COLDET) << "     -- normal: " << normal << endl;
         FILE_LOG(LOG_COLDET) << "# of bisections: " << nbisects << endl;
         FILE_LOG(LOG_COLDET) << "GeneralizedCCD::determine_TOI() exited" << endl;
@@ -1101,28 +1225,28 @@ Real GeneralizedCCD::determine_TOI(Real t0, Real tf, const DStruct* ds, Vector3&
   return INF; 
 }
 
-/// Determines the two planes that bound a u vector between two rotations
-bool GeneralizedCCD::bound_u(const Vector3& u, const Quat& q0, const Quat& qf, Vector3& normal1, Vector3& normal2)
+/// Determines the two planes that bound a vector between two rotations
+bool GeneralizedCCD::bound_u(const Vector3d& u, const Quatd& q0, const Quatd& qf, Vector3d& normal1, Vector3d& normal2)
 {
   // compute the rotated u
-  Vector3 u0 = q0*u;
-  Vector3 uf = qf*u;
+  Vector3d u0(q0*Origin3d(u), normal1.pose);
+  Vector3d uf(qf*Origin3d(u), normal1.pose);
 
   // determine a vector perpendicular to both
-  Vector3 perp = Vector3::cross(u0, uf);
-  Real perp_norm = perp.norm();
+  Vector3d perp = Vector3d::cross(u0, uf);
+  double perp_norm = perp.norm();
   if (perp_norm < NEAR_ZERO)
     return false;
   else
     perp /= perp_norm;
 
   // determine the two planes
-  normal1 = Vector3::normalize(Vector3::cross(u0, perp));
-  normal2 = Vector3::normalize(Vector3::cross(uf, perp));
+  normal1 = Vector3d::normalize(Vector3d::cross(u0, perp));
+  normal2 = Vector3d::normalize(Vector3d::cross(uf, perp));
 
   // make sure that both vectors are on the same side of the plane
-  Real dot1 = u0.dot(normal2);
-  Real dot2 = uf.dot(normal1);
+  double dot1 = u0.dot(normal2);
+  double dot2 = uf.dot(normal1);
   if (dot1*dot2 < 0)
     normal2 = -normal2;
  
@@ -1130,15 +1254,15 @@ bool GeneralizedCCD::bound_u(const Vector3& u, const Quat& q0, const Quat& qf, V
 }
 
 /// Function for computing the maximum deviation in a given direction
-Real GeneralizedCCD::calc_deviation(Real alpha, void* params)
+double GeneralizedCCD::calc_deviation(double alpha, void* params)
 {
   const DeviationCalc& data = *((const DeviationCalc*) params);
 
   // linearly interpolate the quaternions
-  Quat q = Quat::lerp(data.q1, data.q2, alpha);
+  Quatd q = Quatd::lerp(data.q1, data.q2, alpha);
 
   // do the arithmetic
-  return Vector3::dot(data.d, q*data.u);
+  return Vector3d::dot(data.d, Vector3d(q*Origin3d(data.u), data.d.pose));
 }
 
 /// Computes the minimum deviation over interval [0,1] using bracketing and Brent's method
@@ -1150,11 +1274,11 @@ Real GeneralizedCCD::calc_deviation(Real alpha, void* params)
  * \param t on return, contains the t at which the deviation is minimized
  * \return the minimum deviation
  */
-Real GeneralizedCCD::calc_min_dev(const Vector3& u, const Vector3& d, const Quat& q1, const Quat& q2, Real& t)
+double GeneralizedCCD::calc_min_dev(const Vector3d& u, const Vector3d& d, const Quatd& q1, const Quatd& q2, double& t)
 {
-  const Real TOL = std::sqrt(std::sqrt(std::numeric_limits<Real>::epsilon()));
+  const double TOL = std::sqrt(std::sqrt(std::numeric_limits<double>::epsilon()));
 
-  Real ft;
+  double ft;
 
   // setup data for deviation calculations
   DeviationCalc dc;
@@ -1164,19 +1288,19 @@ Real GeneralizedCCD::calc_min_dev(const Vector3& u, const Vector3& d, const Quat
   dc.d = d;
 
   // find suitable starting value for brent's method
-  Real f0 = calc_deviation(0.0, &dc);
-  Real f1 = calc_deviation(1.0, &dc);
+  double f0 = calc_deviation(0.0, &dc);
+  double f1 = calc_deviation(1.0, &dc);
   t = (f0 < f1) ? 0.0 : 1.0;
   
   // call Brent's method -- note: tolerance is a bit high
-  if (!Optimization::brent(0.0, 1.0, t, ft, &calc_deviation, TOL, &dc))
+  if (!brent(0.0, 1.0, t, ft, &calc_deviation, TOL, &dc))
     cerr << "GeneralizedCCD::calc_min_dev() - brent's method failed!" << endl;
 
   return ft;
 }
 
 /// Computes the maximum and minimum deviation in a given direction for two points
-pair<Real, Real> GeneralizedCCD::calc_deviations(const Vector3& u, const Vector3& d, const Quat& q1, const Quat& q2, Real t1, Real t2)
+pair<double, double> GeneralizedCCD::calc_deviations(const Vector3d& u, const Vector3d& d, const Quatd& q1, const Quatd& q2, double t1, double t2)
 {
   // compute the deviation in the two directions
   DeviationCalc dc;
@@ -1184,9 +1308,9 @@ pair<Real, Real> GeneralizedCCD::calc_deviations(const Vector3& u, const Vector3
   dc.d = d;
   dc.q1 = q1;
   dc.q2 = q2;
-  Real dev1 = calc_deviation(t1, &dc);
-  Real dev2 = calc_deviation(t2, &dc);
-  pair<Real, Real> dev(dev1, dev2);
+  double dev1 = calc_deviation(t1, &dc);
+  double dev2 = calc_deviation(t2, &dc);
+  pair<double, double> dev(dev1, dev2);
   if (dev1 > dev2)
     std::swap(dev.first, dev.second);
   return dev;
@@ -1201,11 +1325,11 @@ pair<Real, Real> GeneralizedCCD::calc_deviations(const Vector3& u, const Vector3
  * \param t on return, contains the t at which the deviation is maximized [0,1]
  * \return the maximum deviation
  */
-Real GeneralizedCCD::calc_max_dev(const Vector3& u, const Vector3& d, const Quat& q1, const Quat& q2, Real& t)
+double GeneralizedCCD::calc_max_dev(const Vector3d& u, const Vector3d& d, const Quatd& q1, const Quatd& q2, double& t)
 {
-  const Real TOL = 1e-2;
+  const double TOL = 1e-4;
 
-  Real ft;
+  double ft;
 
   // setup data for deviation calculations
   DeviationCalc dc;
@@ -1218,12 +1342,12 @@ Real GeneralizedCCD::calc_max_dev(const Vector3& u, const Vector3& d, const Quat
   dc.d = -d;
 
   // find suitable starting value for brent's method
-  Real f0 = calc_deviation(0.0, &dc);
-  Real f1 = calc_deviation(1.0, &dc);
+  double f0 = calc_deviation(0.0, &dc);
+  double f1 = calc_deviation(1.0, &dc);
   t = (f0 < f1) ? 0.0 : 1.0;
   
   // call Brent's method -- note: tolerance is a bit high
-  if (!Optimization::brent(0.0, 1.0, t, ft, &calc_deviation, TOL, &dc))
+  if (!brent(0.0, 1.0, t, ft, &calc_deviation, TOL, &dc))
     cerr << "GeneralizedCCD::calc_max_dev() - brent's method failed!" << endl;
 
   return -ft;
@@ -1236,7 +1360,7 @@ Real GeneralizedCCD::calc_max_dev(const Vector3& u, const Vector3& d, const Quat
 /****************************************************************************
  Methods for broad phase begin 
 ****************************************************************************/
-void GeneralizedCCD::broad_phase(const map<SingleBodyPtr, pair<Vector3, Vector3> >& vel_map, vector<pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check)
+void GeneralizedCCD::broad_phase(const map<CollisionGeometryPtr, PosePair>& poses, vector<pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check)
 {
   FILE_LOG(LOG_COLDET) << "GeneralizedCCD::broad_phase() entered" << std::endl;
 
@@ -1244,7 +1368,7 @@ void GeneralizedCCD::broad_phase(const map<SingleBodyPtr, pair<Vector3, Vector3>
   to_check.clear();
 
   // sort the AABBs
-  sort_AABBs(vel_map);
+  sort_AABBs(poses);
 
   // store how many overlaps we have for pairs
   map<sorted_pair<CollisionGeometryPtr>, unsigned> overlaps;
@@ -1345,21 +1469,21 @@ void GeneralizedCCD::broad_phase(const map<SingleBodyPtr, pair<Vector3, Vector3>
   FILE_LOG(LOG_COLDET) << "GeneralizedCCD::broad_phase() exited" << std::endl;
 }
 
-void GeneralizedCCD::sort_AABBs(const map<SingleBodyPtr, pair<Vector3, Vector3> >& vel_map)
+void GeneralizedCCD::sort_AABBs(const map<CollisionGeometryPtr, PosePair>& poses)
 {
   // if a geometry was added or removed, rebuild the vector of bounds
   // and copy it to x, y, z dimensions
   if (_rebuild_bounds_vecs)
   {
-    build_bv_vector(vel_map, _x_bounds);
+    build_bv_vector(poses, _x_bounds);
     _y_bounds = _x_bounds;
     _z_bounds = _x_bounds;
   }
 
   // update bounds vectors
-  update_bounds_vector(_x_bounds, vel_map, eXAxis);
-  update_bounds_vector(_y_bounds, vel_map, eYAxis);
-  update_bounds_vector(_z_bounds, vel_map, eZAxis);
+  update_bounds_vector(_x_bounds, poses, eXAxis);
+  update_bounds_vector(_y_bounds, poses, eYAxis);
+  update_bounds_vector(_z_bounds, poses, eZAxis);
   
   // if geometry was added or removed, do standard sorts of vectors
   if (_rebuild_bounds_vecs)
@@ -1380,9 +1504,12 @@ void GeneralizedCCD::sort_AABBs(const map<SingleBodyPtr, pair<Vector3, Vector3> 
   }
 }
 
-void GeneralizedCCD::update_bounds_vector(vector<pair<Real, BoundsStruct> >& bounds, const map<SingleBodyPtr, pair<Vector3, Vector3> >& vel_map, AxisType axis)
+void GeneralizedCCD::update_bounds_vector(vector<pair<double, BoundsStruct> >& bounds, const map<CollisionGeometryPtr, PosePair>& poses, AxisType axis)
 {
   const unsigned X = 0, Y = 1, Z = 2;
+  OBB obb;
+  BoundingSphere bsph;
+  SSL ssl;
 
   FILE_LOG(LOG_COLDET) << " -- update_bounds_vector() entered (axis=" << axis << ")" << std::endl;
 
@@ -1392,22 +1519,32 @@ void GeneralizedCCD::update_bounds_vector(vector<pair<Real, BoundsStruct> >& bou
     // get the bounding volume, collision geometry, and rigid body
     BVPtr bv = bounds[i].second.bv;
     CollisionGeometryPtr geom = bounds[i].second.geom;
-    RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(geom->get_single_body());
 
-    // update the velocities
-    const Vector3& xd = vel_map.find(rb)->second.first;
-    const Vector3& omega = vel_map.find(rb)->second.second;
-    bounds[i].second.xd = xd; 
-    bounds[i].second.omega = omega;
+    // get the poses
+    assert(poses.find(geom) != poses.end());
+    const PosePair& pp = poses.find(geom)->second; 
 
     // get the expanded bounding volume
-    BVPtr bv_exp = get_vel_exp_BV(geom, bv, xd, omega);
+    BVPtr swept_bv = get_swept_BV(geom, bv, pp);
 
-    // get the transform for the collision geometry
-    const Matrix4& T = geom->get_transform();
+    // set pose for collision geometry at time t0
+    *geom->_F = pp.t0;
+
+    // prepare transform to global frame
+    Transform3d wTbv = Pose3d::calc_relative_pose(swept_bv->get_relative_pose(), GLOBAL);
+
+    // transform swept bounding volume to global frame
+    BV* bvX;
+    if (dynamic_pointer_cast<OBB>(swept_bv))
+      bvX = &obb; 
+    else if (dynamic_pointer_cast<BoundingSphere>(swept_bv))
+      bvX = &bsph;
+    else if (dynamic_pointer_cast<SSL>(swept_bv))
+      bvX = &ssl; 
+    swept_bv->transform(wTbv, bvX);
 
     // get the bound for the bounding volume
-    Vector3 bound = (bounds[i].second.end) ? bv_exp->get_upper_bounds(T) : bv_exp->get_lower_bounds(T);
+    Point3d bound = (bounds[i].second.end) ? bvX->get_upper_bounds() : bvX->get_lower_bounds();
     FILE_LOG(LOG_COLDET) << "  updating collision geometry: " << geom << "  rigid body: " << geom->get_single_body()->id << std::endl;
 
     // update the bounds for the given axis
@@ -1438,9 +1575,9 @@ void GeneralizedCCD::update_bounds_vector(vector<pair<Real, BoundsStruct> >& bou
   FILE_LOG(LOG_COLDET) << " -- update_bounds_vector() exited" << std::endl;
 }
 
-void GeneralizedCCD::build_bv_vector(const map<SingleBodyPtr, pair<Vector3, Vector3> >& vel_map, vector<pair<Real, BoundsStruct> >& bounds)
+void GeneralizedCCD::build_bv_vector(const map<CollisionGeometryPtr, PosePair>& poses, vector<pair<double, BoundsStruct> >& bounds)
 {
-  const Real INF = std::numeric_limits<Real>::max();
+  const double INF = std::numeric_limits<double>::max();
 
   // clear the vector
   bounds.clear();
@@ -1452,24 +1589,19 @@ void GeneralizedCCD::build_bv_vector(const map<SingleBodyPtr, pair<Vector3, Vect
     if (this->disabled.find(*i) != this->disabled.end())
       continue;
 
-    // get the rigid body and primitive for the geometry
-    RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>((*i)->get_single_body());
+    // get the primitive for the geometry
     PrimitivePtr p = (*i)->get_geometry();
 
     // get the top-level BV for the geometry
-    BVPtr bv = p->get_BVH_root();
+    BVPtr bv = p->get_BVH_root(*i);
 
-    // get the velocities for the rigid body
-    assert(vel_map.find(rb) != vel_map.end());
-    const Vector3& xd = vel_map.find(rb)->second.first;
-    const Vector3& omega = vel_map.find(rb)->second.second;
+    // get the poses for the geometry 
+    assert(poses.find(*i) != poses.end());
 
     // setup the bounds structure
     BoundsStruct bs;
     bs.end = false;
     bs.geom = *i;
-    bs.xd = xd;
-    bs.omega = omega;
     bs.bv = bv;
 
     // add the lower bound
@@ -1493,7 +1625,7 @@ void GeneralizedCCD::build_bv_vector(const map<SingleBodyPtr, pair<Vector3, Vect
 /**
  * \note the epsilon parameter is ignored
  */
-bool GeneralizedCCD::is_collision(Real epsilon)
+bool GeneralizedCCD::is_collision(double epsilon)
 {
   // clear the set of colliding pairs and list of colliding triangles
   colliding_pairs.clear();
@@ -1502,36 +1634,36 @@ bool GeneralizedCCD::is_collision(Real epsilon)
   // iterate over geometries 
   for (std::set<CollisionGeometryPtr>::const_iterator i = _geoms.begin(); i != _geoms.end(); i++)
   {
-    // get the first geometry and its primitive 
+    // get the first geometry, its primitive, and its bounding volume 
     CollisionGeometryPtr g1 = *i;
     PrimitivePtr g1_primitive = g1->get_geometry();
+    BVPtr bv1 = g1_primitive->get_BVH_root(g1);
 
-    // get the transform and the inverse transform for this geometry
-    const Matrix4& wTg1 = g1->get_transform();
-    Matrix4 g1Tw = Matrix4::inverse_transform(wTg1);
+    // get the pose for the geometry
+    shared_ptr<const Pose3d> Pg1 = g1->get_pose();
 
     // loop through all other geometries
     std::set<CollisionGeometryPtr>::const_iterator j = i;
     j++;
     for (; j != _geoms.end(); j++)
     {
-      // get the second geometry and its primitive 
+      // get the second geometry, its primitive, and its bounding volume 
       CollisionGeometryPtr g2 = *j;
       PrimitivePtr g2_primitive = g2->get_geometry();
+      BVPtr bv2 = g2_primitive->get_BVH_root(g2);
 
       // see whether to check
       if (!is_checked(g1, g2))
         continue; 
 
-      // get the two BV trees
-      BVPtr bv1 = g1_primitive->get_BVH_root();
-      BVPtr bv2 = g2_primitive->get_BVH_root();
+      // get the pose for the second geometry 
+      shared_ptr<const Pose3d> Pg2 = g2->get_pose();
 
-      // get the transform for g2 and its inverse
-      const Matrix4& wTg2 = g2->get_transform(); 
+      // compute the transform from g2 to g1 
+      Transform3d g1Tg2 = Pose3d::calc_relative_pose(Pg2, Pg1); 
 
       // if intersects, add to colliding pairs
-      if (intersect_BV_trees(bv1, bv2, g1Tw * wTg2, g1, g2))
+      if (intersect_BV_trees(bv1, bv2, g1Tg2, g1, g2))
         colliding_pairs.insert(make_sorted_pair(g1, g2));
     } 
   }
@@ -1540,7 +1672,7 @@ bool GeneralizedCCD::is_collision(Real epsilon)
 }
 
 /// Intersects two BV trees; returns <b>true</b> if one (or more) pair of the underlying triangles intersects
-bool GeneralizedCCD::intersect_BV_trees(BVPtr a, BVPtr b, const Matrix4& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b) 
+bool GeneralizedCCD::intersect_BV_trees(BVPtr a, BVPtr b, const Transform3d& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b) 
 {
   std::queue<tuple<BVPtr, BVPtr, bool> > q;
 
@@ -1614,4 +1746,150 @@ bool GeneralizedCCD::intersect_BV_trees(BVPtr a, BVPtr b, const Matrix4& aTb, Co
 /****************************************************************************
  Methods for static geometry intersection testing end 
 ****************************************************************************/
+
+// Brent's method
+/// Brent's method for univariation minimization
+/**
+ * \param x_lower the left end of the interval to search
+ * \param x_supper the right end of the interval to search
+ * \param x the initial estimate (f(x) < f(x_lower) and f(x) < f(x_upper))
+ *        and the input that yields the optimal value on return
+ * \param fx the optimal value on return
+ * \param f the function to optimize
+ * \param params parameters to pass to f
+ * \param eps the tolerance
+ * \return <b>true</b> if successful, <b>false</b> if does not converge
+ */
+bool GeneralizedCCD::brent(double x_lower, double x_upper, double& x, double& fx, double (*f)(double, void*), double eps, void* params)
+{
+  const unsigned MAX_ITER = 100;
+  const double GOLDEN = 0.3819660;
+
+  double v = GOLDEN * x_upper;
+  double w = v;
+  double d = 0;
+  double e = 0;
+  double f_vw = (*f)(v, params);
+  double f_v = f_vw;
+  double f_w = f_vw;
+
+  // set the minimum
+  double f_lower = (*f)(x_lower, params);
+  double f_upper = (*f)(x_upper, params);
+  fx = (*f)(x, params);
+  if (fx > f_lower+std::numeric_limits<double>::epsilon() ||
+      fx > f_upper+std::numeric_limits<double>::epsilon())
+    return false;
+
+  for (unsigned iter=0; iter< MAX_ITER; iter++)
+  {
+    const double x_left = x_lower;
+    const double x_right = x_upper;
+    const double z = x;
+    const double f_z = fx;
+    std::swap(d, e);
+    double u, f_u;
+
+    double w_lower = (z - x_left);
+    double w_upper = (x_right - z);
+    const double tolerance =  1.4901161193847656e-08 * std::fabs (z);
+
+    double p = 0, q = 0, r = 0;
+
+    const double midpoint = 0.5 * (x_left + x_right);
+    if (std::fabs(x-midpoint) <= 2.0*(eps*std::fabs(x)+1e-10) - 0.5*(x_right-x_left))
+      return true;
+
+    if (std::fabs(e) > tolerance)
+    {
+      /* fit parabola */
+      r = (z - w) * (f_z - f_v);
+      q = (z - v) * (f_z - f_w);
+      p = (z - v) * q - (z - w) * r;
+      q = 2 * (q - r);
+
+      if (q > 0)
+        p = -p;
+      else
+        q = -q;
+
+      r = e;
+      e  = d;
+    }
+
+    if (std::fabs (p) < std::fabs (0.5 * q * r) && p < q * w_lower && p < q * w_upper)
+    {
+      double t2 = 2 * tolerance ;
+      d = p / q;
+      u = z + d;
+
+      if ((u - x_left) < t2 || (x_right - u) < t2)
+        d = (z < midpoint) ? tolerance : -tolerance ;
+    }
+    else
+    {
+      e = (z < midpoint) ? x_right - z : -(z - x_left) ;
+      d = GOLDEN * e;
+    }
+
+    if (std::fabs (d) >= tolerance)
+      u = z + d;
+    else
+      u = z + ((d > 0) ? tolerance : -tolerance) ;
+    f_u = (*f)(u, params);
+
+    if (f_u <= f_z)
+    {
+      if (u < z)
+      {
+        x_upper = z;
+        f_upper = f_z;
+      }
+      else
+      {
+        x_lower = z;
+        f_lower = f_z;
+      }
+
+      v = w;
+      f_v = f_w;
+      w = z;
+      f_w = f_z;
+      x = u;
+      fx = f_u;
+    }
+    else
+    {
+      if (u < z)
+      {
+        x_lower = u;
+        f_lower = f_u;
+        continue;
+      }
+      else
+      {
+        x_upper = u;
+        f_upper = f_u;
+        continue;
+      }
+
+      if (f_u <= f_w || w == z)
+      {
+        v = w;
+        f_v = f_w;
+        w = u;
+        f_w = f_u;
+        continue;
+      }
+      else if (f_u <= f_v || v == z || v == w)
+      {
+        v = u;
+        f_v = f_u;
+        continue;
+      }
+    }
+  }
+
+  return false;
+}
 

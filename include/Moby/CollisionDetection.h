@@ -9,11 +9,11 @@
 
 #include <map>
 #include <set>
+#include <Ravelin/VectorNd.h>
+#include <Ravelin/Pose3d.h>
 #include <Moby/sorted_pair>
 #include <Moby/Base.h>
 #include <Moby/Event.h>
-#include <Moby/VectorN.h>
-#include <Moby/Matrix4.h>
 #include <Moby/RigidBody.h>
 #include <Moby/DeformableBody.h>
 
@@ -52,8 +52,8 @@ class CollisionDetection : public virtual Base
     CollisionDetection();
     virtual ~CollisionDetection() {}
     void operator=(const CollisionDetection* source);
-    virtual void load_from_xml(XMLTreeConstPtr node, std::map<std::string, BasePtr>& id_map);
-    virtual void save_to_xml(XMLTreePtr node, std::list<BaseConstPtr>& shared_objects) const;
+    virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
+    virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     void add_dynamic_body(DynamicBodyPtr body);
     void remove_dynamic_body(DynamicBodyPtr body);
     virtual void remove_collision_geometry(CollisionGeometryPtr geom);
@@ -74,13 +74,15 @@ class CollisionDetection : public virtual Base
 
     /// Determines whether there is a contact between the given pairs of states 
     /**
+     * Generalized coordinates are set to q1 on entry; generalized coordinates
+     * should be set to q0 on return.
      * \param events the set of determined contacts, on return
      * \pre body states are set to appropriate states in q1
      * \post body states are arbitrary on return
      * \return <b>true</b> if there is contact in the time interval, 
      *           <b>false</b> otherwise
      */
-    virtual bool is_contact(Real dt, const std::vector<std::pair<DynamicBodyPtr, VectorN> >& q0, const std::vector<std::pair<DynamicBodyPtr, VectorN> >& q1, std::vector<Event>& contacts) = 0;
+    virtual bool is_contact(double dt, const std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> >& q0, const std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> >& q1, std::vector<Event>& contacts) = 0;
 
     /// Adds the specified geometry to the set of geometries checked for collision
     /**
@@ -107,14 +109,14 @@ class CollisionDetection : public virtual Base
      * \note implementing classes must store the colliding pairs in 
      *         _colliding_pairs
      */
-    virtual bool is_collision(Real epsilon = 0.0) = 0;
+    virtual bool is_collision(double epsilon = 0.0) = 0;
 
     /// Calculates the distance between each pair of geometries and returns the minimum distance
     /**
      * \note positive distances indicate separation, zero and negative 
      *       distances represent intersection
      */
-    virtual Real calc_distances();
+    virtual double calc_distances();
 
     /// Adds an articulated body to the bodies checked for collision
     void add_articulated_body(ArticulatedBodyPtr abody) { add_articulated_body(abody, disable_adjacent_default); }
@@ -155,10 +157,10 @@ class CollisionDetection : public virtual Base
     std::set<sorted_pair<CollisionGeometryPtr> > colliding_pairs;
 
     /// The map of geometries to closest points (from last call to calc_distances())
-    std::map<std::pair<CollisionGeometryPtr, CollisionGeometryPtr>, std::pair<Vector3, Vector3> > closest_points;
+    std::map<std::pair<CollisionGeometryPtr, CollisionGeometryPtr>, std::pair<Point3d, Point3d> > closest_points;
 
     /// Distances between geometries (from last call to calc_distances())
-    std::map<sorted_pair<CollisionGeometryPtr>, Real> distances;
+    std::map<sorted_pair<CollisionGeometryPtr>, double> distances;
 
   protected:
 
@@ -171,7 +173,7 @@ class CollisionDetection : public virtual Base
     template <class OutputIterator>
     OutputIterator get_dynamic_bodies(OutputIterator output_begin) const;
 
-    static Real calc_distance(CollisionGeometryPtr a, CollisionGeometryPtr b, const Matrix4& aTb, Vector3& cpa, Vector3& cpb); 
+    static double calc_distance(CollisionGeometryPtr a, CollisionGeometryPtr b, const Ravelin::Transform3d& aTb, Point3d& cpa, Point3d& cpb); 
 
     /// The set of geometries checked by the collision detector
     std::set<CollisionGeometryPtr> _geoms;

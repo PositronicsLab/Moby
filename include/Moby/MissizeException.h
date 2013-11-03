@@ -4,8 +4,8 @@
  * License (found in COPYING).
  ****************************************************************************/
 
-#ifndef _MISSIZE_EXCEPTION_H_
-#define _MISSIZE_EXCEPTION_H_
+#ifndef _MOBY_MISSIZE_EXCEPTION_H_
+#define _MOBY_MISSIZE_EXCEPTION_H_
 
 #include <stdexcept>
 
