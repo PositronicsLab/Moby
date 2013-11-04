@@ -54,13 +54,6 @@ find_package (osgDB)
 find_package (osgGA)
 find_package (OpenThreads)
 
-# look for superlu
-find_package (SuperLU)
-if (SUPERLU_FOUND)
-  add_definitions(-DUSE_SUPERLU)
-  set (EXTRA_LIBRARIES ${EXTRA_LIBRARIES} ${SUPERLU_LIBRARIES})
-endif (SUPERLU_FOUND)
-
 # setup OSG includes and additional sources
 if (USE_OSG AND OSG_FOUND)
   if (OSGDB_FOUND)
