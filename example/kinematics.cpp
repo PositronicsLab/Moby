@@ -122,7 +122,8 @@ void step(void* arg)
 
   // step the dynamics
   BOOST_FOREACH(DynamicBodyPtr db, s->get_dynamic_bodies())
-    (*db->controller)(db, current_time, db->controller_arg); 
+    if (db->controller)
+      (*db->controller)(db, current_time, db->controller_arg);
 
   // update the current "time"
   current_time += STEP_SIZE;
