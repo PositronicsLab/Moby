@@ -148,23 +148,12 @@ void Simulator::remove_dynamic_body(DynamicBodyPtr body)
   }
   else
   {
-    // try to cast it as a deformable body
-    shared_ptr<DeformableBody> db = dynamic_pointer_cast<DeformableBody>(body);
-    if (db)
-    {
-      osg::Node* db_vdata = db->get_visualization_data();
-      if (db_vdata)
-        _persistent_vdata->removeChild(db_vdata);
-    }
-    else
-    {
-      // try rigid body
-      RigidBodyPtr rigidbody = dynamic_pointer_cast<RigidBody>(body);
-      assert(rigidbody);
-      osg::Node* rb_vdata = rigidbody->get_visualization_data();
-      if (rb_vdata)
-        _persistent_vdata->removeChild(rb_vdata);
-    }
+    // try rigid body
+    RigidBodyPtr rigidbody = dynamic_pointer_cast<RigidBody>(body);
+    assert(rigidbody);
+    osg::Node* rb_vdata = rigidbody->get_visualization_data();
+    if (rb_vdata)
+      _persistent_vdata->removeChild(rb_vdata);
   }
   #endif
 }
@@ -204,25 +193,14 @@ void Simulator::add_dynamic_body(DynamicBodyPtr body)
   }
   else
   {
-    // try to cast it as a deformable body
-    shared_ptr<DeformableBody> db = dynamic_pointer_cast<DeformableBody>(body);
-    if (db)
-    {
-      osg::Node* db_vdata = db->get_visualization_data();
-      if (db_vdata)
-        _persistent_vdata->addChild(db_vdata);
-    }
-    else
-    {
-      // it must be a rigid body
-      RigidBodyPtr rigidbody = dynamic_pointer_cast<RigidBody>(body);
-      assert(rigidbody);
+    // it must be a rigid body
+    RigidBodyPtr rigidbody = dynamic_pointer_cast<RigidBody>(body);
+    assert(rigidbody);
 
-      // get the visualization data and add it to the simulator
-      osg::Node* rb_vdata = rigidbody->get_visualization_data();
-      if (rb_vdata)
-        _persistent_vdata->addChild(rb_vdata);
-    }
+    // get the visualization data and add it to the simulator
+    osg::Node* rb_vdata = rigidbody->get_visualization_data();
+    if (rb_vdata)
+      _persistent_vdata->addChild(rb_vdata);
   }
   #endif
   
