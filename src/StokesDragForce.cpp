@@ -8,7 +8,6 @@
 #include <Moby/XMLTree.h>
 #include <Moby/RigidBody.h>
 #include <Moby/ArticulatedBody.h>
-#include <Moby/DeformableBody.h>
 #include <Moby/StokesDragForce.h>
 
 using namespace Ravelin;
@@ -32,10 +31,6 @@ StokesDragForce::StokesDragForce(const StokesDragForce& source)
 /// Adds gravity to a body
 void StokesDragForce::add_force(DynamicBodyPtr body)
 {
-  // if the body is deformable, skip it
-  if (dynamic_pointer_cast<DeformableBody>(body))
-    return;
-
   // if the body is rigid, add drag
   RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(body);
   if (rb)

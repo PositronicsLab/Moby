@@ -23,7 +23,6 @@ namespace Moby {
 class Polyhedron;
 class Simulator;
 class RigidBody;
-class DeformableBody;
 class SingleBody;
 class ArticulatedBody;
 class RCArticulatedBody;
@@ -64,9 +63,6 @@ typedef boost::shared_ptr<Simulator> SimulatorPtr;
 
 /// Single body smart pointer
 typedef boost::shared_ptr<SingleBody> SingleBodyPtr;
-
-/// Deformable body smart pointer
-typedef boost::shared_ptr<DeformableBody> DeformableBodyPtr;
 
 /// Rigid body smart pointer
 typedef boost::shared_ptr<RigidBody> RigidBodyPtr;
