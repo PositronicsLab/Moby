@@ -1501,6 +1501,14 @@ std::ostream& Moby::operator<<(std::ostream& o, const Event& e)
     else
       o << "relative normal acceleration: " << e.calc_event_accel() << std::endl;
   }
+  else if (e.event_type == Event::eLimit)
+  {
+    o << "body: " << e.limit_joint->get_articulated_body()->id << std::endl;
+    o << "joint: " << e.limit_joint->id << std::endl;
+    o << "dof: : " << e.limit_dof << std::endl;
+    o << "upper limit? " << e.limit_upper << std::endl;
+    o << "joint velocity: " << e.limit_joint->qd[e.limit_dof] << std::endl;
+  }
 
   return o;
 }
