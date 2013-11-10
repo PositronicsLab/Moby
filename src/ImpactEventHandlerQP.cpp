@@ -870,7 +870,7 @@ void ImpactEventHandler::solve_qp_work_ijoints(EventProblemData& q, VectorNd& z)
 /// Solves the linear complementarity problem intelligently (using sparse matrices, if possible)
 void ImpactEventHandler::solve_lcp(const MatrixNd& M, const VectorNd& q, VectorNd& z)
 {
-  #ifdef USE_SUPERLU
+  #if 0
   const double SPARSE_PCT = 1.00;  // if 85% of matrix is sparse, triggers sparse arithmetic
 
   // get the infinity-norm of the matrix
