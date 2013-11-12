@@ -559,8 +559,6 @@ void FSABAlgorithm::calc_spatial_coriolis_vectors(RCArticulatedBodyPtr body)
   {
     // get the link
     RigidBodyPtr link = links[i];
-_c[i].set_zero(link->get_velocity().pose);
-continue;
     unsigned idx = link->get_index();
 
     // get the link's joint
@@ -616,8 +614,7 @@ void FSABAlgorithm::calc_spatial_zero_accelerations(RCArticulatedBodyPtr body)
     const SVelocityd& v = link->get_velocity();
 
     // set 6-dimensional spatial isolated zero-acceleration vector of link  
-//    _Z[i] = v.cross(link->get_inertia() * v) - link->sum_forces();
-    _Z[i] = -link->sum_forces();
+    _Z[i] = v.cross(link->get_inertia() * v) - link->sum_forces();
     
     FILE_LOG(LOG_DYNAMICS) << "  processing link " << link->id << endl;
     FILE_LOG(LOG_DYNAMICS) << "    Link spatial iso ZA: " << endl << _Z[i] << endl;
@@ -868,13 +865,14 @@ void FSABAlgorithm::calc_spatial_accelerations(RCArticulatedBodyPtr body)
   if (!body->is_floating_base())
   {
     base->set_accel(SAcceld::zero(base->get_computation_frame()));
-    FILE_LOG(LOG_DYNAMICS) << "  negated base Z: " << (-_Z.front()) << endl;
     FILE_LOG(LOG_DYNAMICS) << "  base acceleration: (zero)" << endl;
   }
   else
   {
     SAcceld a0 = _I.front().inverse_mult(-_Z.front());
     base->set_accel(a0);
+    FILE_LOG(LOG_DYNAMICS) << "  negated base Z: " << Pose3d::transform(base->get_mixed_pose(), -_Z.front()) << endl;
+    FILE_LOG(LOG_DYNAMICS) << "  base acceleration: " << Pose3d::transform(base->get_mixed_pose(), a0) << endl;
   }
   
   // *****************************************************************

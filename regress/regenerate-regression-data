@@ -21,6 +21,6 @@ $1moby-regress -mt=10 ../example/contact_simple/spinning-box2.xml spinning-box2.
 
 # test the stacked box example
 echo "Regenerating data for stacked box example"
-$1moby-regress -mt=10 ../example/contact_simple/stack.xml stack.dat 
+$1moby-regress -mt=1 ../example/contact_simple/stack.xml stack.dat 
 
 
