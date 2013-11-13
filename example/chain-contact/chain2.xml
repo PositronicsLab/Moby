@@ -7,7 +7,7 @@
   </DRIVER>
 
   <MOBY>
-    <Cylinder id="c" radius="1" height="5" num-rings="100" num-circle-points="25" density="1.0" />
+    <Cylinder id="c" radius="1" height="5" num-rings="100" num-circle-points="25" density="1.0" /> 
     <Box id="b3" xlen="1" ylen="10" zlen="1" density="10.0" />
 
     <!-- Collision detector -->
