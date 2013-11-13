@@ -86,6 +86,24 @@ X& to_matrix(const std::vector<Ravelin::SMomentumd>& w, X& m)
   return m;
 }
 
+/// Converts an STL vector of momenta to a matrix (type X)
+template <class X>
+X& spatial_transpose_to_matrix(const std::vector<Ravelin::SMomentumd>& w, X& m)
+{
+  const unsigned SPATIAL_DIM = 6;
+  m.resize(w.size(), SPATIAL_DIM);
+  Ravelin::RowIteratord data = m.row_iterator_begin();
+  for (unsigned k=0, i=0; i< w.size(); i++)
+  {
+    Ravelin::Vector3d f = w[i].get_linear();  
+    Ravelin::Vector3d t = w[i].get_angular();
+    data[k++] = t[0];  data[k++] = t[1];  data[k++] = t[2];
+    data[k++] = f[0];  data[k++] = f[1];  data[k++] = f[2];
+  }
+
+  return m;
+}
+
 /// Converts an STL vector of spatial velocities to a force matrix (type X)
 template <class X>
 X& transpose_to_matrix(const std::vector<Ravelin::SVelocityd>& t, X& m)

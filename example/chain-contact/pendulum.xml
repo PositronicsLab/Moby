@@ -18,7 +18,7 @@
     <DynamicBody dynamic-body-id="chain" />
   </EventDrivenSimulator>
 
-  <RCArticulatedBody id="chain" fdyn-algorithm="crb" fdyn-algorithm-frame="linkinertia" floating-base="true">
+  <RCArticulatedBody id="chain" fdyn-algorithm="crb" fdyn-algorithm-frame="link" floating-base="true">
 
       <RigidBody id="base" position="0 0 0">
         <InertiaFromPrimitive primitive-id="sphere" />
