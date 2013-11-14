@@ -739,41 +739,12 @@ void FSABAlgorithm::calc_spatial_inertias(RCArticulatedBodyPtr body)
     RigidBodyPtr link = links[j];
     const unsigned i = link->get_index();
 
-// doesn't work:
-// link RB inertia -> global RB inertia -> global AB inertia -> 
-// link AB inertia -> mixed AB inertia
-
-// doesn't work
-// link RB inertia -> link AB inertia -> mixed AB inertia
-
-// doesn't work
-// link AB inertia -> mixed AB inertia (using Pose3d::transform())
-
-// does work: global RB inertia -> global AB inertia -> mixed
-
-// does work: link AB inertia -> mixed AB inertia (using spatial transform)
-
-MatrixNd mXp, pXm, JJ, tmp1, tmp2;
-Pose3d::spatial_transform_to_matrix(link->get_inertia().pose, links[0]->get_mixed_pose(), mXp);
-Pose3d::spatial_transform_to_matrix(links[0]->get_mixed_pose(), link->get_inertia().pose, pXm);
-SpatialABInertiad(link->get_inertia()).to_matrix(JJ);
-mXp.mult(JJ, tmp1);
-tmp1.mult(pXm, tmp2);
-FILE_LOG(LOG_DYNAMICS) << "    Link spatial inertia (mixed from matrix): " << endl << tmp2;
-Pose3d::transform(links[0]->get_mixed_pose(), SpatialABInertiad(link->get_inertia())).to_matrix(JJ);
-FILE_LOG(LOG_DYNAMICS) << "    Link spatial inertia (mixed using transform): " << endl << JJ;
-
     // set the articulated body inertia for this link to be its isolated
     // spatial inertia (this will be updated in the phase below)
-    SpatialABInertiad II = Pose3d::transform(GLOBAL, link->get_inertia());
-    _I[i] = Pose3d::transform(link->get_inertia().pose, II);  
- 
- //   _I[i] = link->get_inertia();
+   _I[i] = link->get_inertia();
 
     FILE_LOG(LOG_DYNAMICS) << "  processing link " << link->id << endl;
     FILE_LOG(LOG_DYNAMICS) << "    Link spatial iso inertia: " << endl << _I[i];
-    FILE_LOG(LOG_DYNAMICS) << "    Link spatial inertia (mixed): " << endl << Pose3d::transform(links[0]->get_mixed_pose(), _I[i]);
-    FILE_LOG(LOG_DYNAMICS) << "    Link rigid body inertia (mixed): " << endl << Pose3d::transform(links[0]->get_mixed_pose(), link->get_inertia());
   }
  
   // indicate that no links have been processed
@@ -848,7 +819,6 @@ FILE_LOG(LOG_DYNAMICS) << "added link " << parent->id << " to queue for processi
  
     FILE_LOG(LOG_DYNAMICS) << "  *** Backward recursion processing link " << link->id << endl;
     FILE_LOG(LOG_DYNAMICS) << "    I: " << I << endl;
-    FILE_LOG(LOG_DYNAMICS) << "    I (mixed): " << Pose3d::transform(links.front()->get_mixed_pose(), I) << endl;
 
     // don't update I for direct descendants of the base if the base is 
     // not floating
@@ -867,7 +837,6 @@ FILE_LOG(LOG_DYNAMICS) << "added link " << parent->id << " to queue for processi
     // output the updates
     if (LOGGING(LOG_DYNAMICS) && _Is[i].size() > 0)
       FILE_LOG(LOG_DYNAMICS) << "  Is: " << _Is[i][0] << std::endl;
-      FILE_LOG(LOG_DYNAMICS) << "  Is (base mixed): " << Pose3d::transform(links.front()->get_mixed_pose(), _Is[i][0]) << std::endl;
     FILE_LOG(LOG_DYNAMICS) << "  s/(s'Is): " << _sIss << std::endl;
     FILE_LOG(LOG_DYNAMICS) << "  Is*s/(s'Is): " << std::endl << tmp;
     FILE_LOG(LOG_DYNAMICS) << "  Is*s/(s'Is)*I: " << std::endl << tmp3;
@@ -876,7 +845,6 @@ FILE_LOG(LOG_DYNAMICS) << "added link " << parent->id << " to queue for processi
 
     // update the parent inertia
     _I[h] += Pose3d::transform(_I[h].pose, uI);
-    FILE_LOG(LOG_DYNAMICS) << "  I update to parent (base mixed frame): " << Pose3d::transform(links.front()->get_mixed_pose(), uI) << endl;
   }
 }
 
