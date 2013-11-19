@@ -31,6 +31,7 @@ class DynamicBody : public Visualizable
     { 
       controller = NULL; 
       _enabled = true;
+      _kinematic_update = false;
     }
 
     virtual ~DynamicBody() {}
@@ -167,6 +168,12 @@ class DynamicBody : public Visualizable
     /// Gets the angular speed of this body (or maximum angular speed of the links, if this body is articulated)
     virtual double get_aspeed() = 0; 
 
+    /// Gets whether this body is kinematically updated (rather than having its dynamics integrated); default is false
+    virtual bool get_kinematic() const { return _kinematic_update; }
+
+    /// Sets whether this body is kinematically updated (rather than having its dynamics integrated); default is false
+    virtual void set_kinematic(bool flag) { _kinematic_update = flag; }
+
   protected:
 
     /// The computation frame type
@@ -177,6 +184,9 @@ class DynamicBody : public Visualizable
 
     /// Gets whether the body is enabled
     bool is_enabled() const { return _enabled; }
+
+    /// Kinematic update flag
+    bool _kinematic_update;
 
   private:
 
