@@ -16,6 +16,7 @@
 #include <Moby/CollisionDetection.h>
 #include <Moby/ThickTriangle.h>
 #include <Moby/BV.h>
+#include <Moby/CompGeom.h>
 #include <Moby/Integrator.h>
 
 namespace Moby {

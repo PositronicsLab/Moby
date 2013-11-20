@@ -201,7 +201,7 @@ void FSABAlgorithm::apply_generalized_impulse(unsigned index, const vector<vecto
 
     // generalized impulse on base will be in global frame, by Moby convention 
     SMomentumd w(vgj[0], vgj[1], vgj[2], vgj[3], vgj[4], vgj[5], GLOBAL);
-    _Y.front() += Pose3d::transform(_Y.front().pose, w);
+    _Y.front() -= Pose3d::transform(_Y.front().pose, w);
   }
 
   if (LOGGING(LOG_DYNAMICS))
@@ -435,9 +435,9 @@ void FSABAlgorithm::apply_generalized_impulse(const VectorNd& gj)
     // update base components 
     RigidBodyPtr base = links.front();
 
-    // momentum is in global frame by Moby convention 
-    SMomentumd basew(gj[0], gj[1], gj[2], gj[3], gj[4], gj[5], GLOBAL);
-    _Y.front() += Pose3d::transform(_Y.front().pose, basew);
+    // momentum is in mixed frame by Moby convention 
+    SMomentumd basew(gj[0], gj[1], gj[2], gj[3], gj[4], gj[5], base->get_gc_pose());
+    _Y.front() -= Pose3d::transform(_Y.front().pose, basew);
   }
 
   if (LOGGING(LOG_DYNAMICS))
@@ -469,14 +469,16 @@ void FSABAlgorithm::apply_generalized_impulse(const VectorNd& gj)
     // determine the change in velocity
     _dv.front() = _I.front().inverse_mult(-_Y.front());
 
-    // update the base velocity
-    base->set_velocity(base->get_velocity() + _dv.front());
-
     FILE_LOG(LOG_DYNAMICS) << "base is floating..." << endl;
     FILE_LOG(LOG_DYNAMICS) << "  base transform: " << endl << base->get_pose();
     FILE_LOG(LOG_DYNAMICS) << "  current base velocity: " << base->get_velocity() << endl;
+    FILE_LOG(LOG_DYNAMICS) << "  change in base velocity: " << _dv.front() << endl;
 
     FILE_LOG(LOG_DYNAMICS) << "  impulse on the base: " << _Y.front() << endl;
+
+    // update the base velocity
+    base->set_velocity(base->get_velocity() + _dv.front());
+
     FILE_LOG(LOG_DYNAMICS) << "  new base velocity: " << base->get_velocity() << endl;
   }
   else 
