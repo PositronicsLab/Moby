@@ -90,8 +90,8 @@ bool RCArticulatedBody::all_children_processed(RigidBodyPtr link) const
 /// Gets the number of generalized coordinates for this body
 unsigned RCArticulatedBody::num_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype) const
 {
-  // look for trivial cases
-  if (_links.empty() || _joints.empty())
+  // look for trivial case
+  if (_links.empty())
     return 0;
 
   if (!_floating_base)
@@ -346,6 +346,8 @@ void RCArticulatedBody::set_links_and_joints(const vector<RigidBodyPtr>& links, 
 
   // if there is no clearly defined base link, there are no links *and* there
   // are joints, we can't do anything
+  if (joints.empty() && links.size() == 1)
+    base = links.front();
   if (!base)
     throw std::runtime_error("Could not find base link!"); 
 
