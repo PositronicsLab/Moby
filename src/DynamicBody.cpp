@@ -14,6 +14,8 @@ void DynamicBody::integrate(double t, double h, shared_ptr<Integrator> integrato
   if (_kinematic_update)
   {
     FILE_LOG(LOG_DYNAMICS) << " -- body set to kinematic update --" << std::endl;
+    if (controller)
+      (*controller)(dynamic_pointer_cast<DynamicBody>(shared_from_this()), t, controller_arg);
     return;
   }
 
