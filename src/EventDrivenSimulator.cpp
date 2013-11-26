@@ -438,7 +438,11 @@ void EventDrivenSimulator::integrate_si_Euler(double step_size)
   {
     // if the body is kinematically updated, do not integrate it
     if (_bodies[i]->get_kinematic())
+    {
+      if (_bodies[i]->controller)
+        _bodies[i]->controller(_bodies[i], current_time, _bodies[i]->controller_arg);
       continue;
+    }
 
     // integrate the body
     if (LOGGING(LOG_SIMULATOR))
