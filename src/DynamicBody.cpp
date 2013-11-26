@@ -11,6 +11,12 @@ void DynamicBody::integrate(double t, double h, shared_ptr<Integrator> integrato
 {
   FILE_LOG(LOG_DYNAMICS) << "DynamicBody::integrate() - integrating from " << t << " by " << h << std::endl;
 
+  if (_kinematic_update)
+  {
+    FILE_LOG(LOG_DYNAMICS) << " -- body set to kinematic update --" << std::endl;
+    return;
+  }
+
   shared_ptr<DynamicBody> shared_this = dynamic_pointer_cast<DynamicBody>(shared_from_this());
 
   get_generalized_coordinates(eEuler, gc);
