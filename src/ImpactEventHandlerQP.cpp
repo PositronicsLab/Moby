@@ -859,10 +859,11 @@ void ImpactEventHandler::solve_qp_work_ijoints(EventProblemData& q, VectorNd& z)
   FILE_LOG(LOG_EVENT) << "QP solution: " << z << std::endl; 
   if (LOGGING(LOG_EVENT))
   {
+    VectorNd workv;
     SharedVectorNd zsub = z.segment(0, c.size());
-    H.mult(zsub, qq) *= 0.5;
-    qq += c;
-    FILE_LOG(LOG_EVENT) << "computed energy dissipation: " << zsub.dot(qq) << std::endl;
+    H.mult(zsub, workv) *= 0.5;
+    workv += c;
+    FILE_LOG(LOG_EVENT) << "(signed) computed energy dissipation: " << zsub.dot(workv) << std::endl;
   }    
   FILE_LOG(LOG_EVENT) << "ImpactEventHandler::solve_qp_work_ijoints() exited" << std::endl;
 }
