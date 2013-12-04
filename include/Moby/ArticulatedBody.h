@@ -109,9 +109,6 @@ class ArticulatedBody : public DynamicBody
     /// Method for resetting the force and torque accumulators on all links
     virtual void reset_accumulators() = 0;
 
-    /// Use the advanced (but relatively slow) full friction model?
-    bool use_advanced_friction_model;
-
     /// Multiplies Jc' for this body by the given vector 
     virtual Ravelin::VectorNd& transpose_Jc_mult(const Ravelin::VectorNd& v, Ravelin::VectorNd& result) = 0; 
 

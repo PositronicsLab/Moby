@@ -34,6 +34,7 @@ class XMLReader
     static boost::shared_ptr<const XMLTree> find_subtree(boost::shared_ptr<const XMLTree> root, const std::string& name);
     static void process_tag(const std::string& tag, boost::shared_ptr<const XMLTree> root, void (*fn)(boost::shared_ptr<const XMLTree>, std::map<std::string, BasePtr>&), std::map<std::string, BasePtr>& id_map);
     static void read_generalized_ccd(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
+    static void read_c2a_ccd(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     static void read_coldet_plugin(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     static void read_gaussian_mixture(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     static void read_box(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);

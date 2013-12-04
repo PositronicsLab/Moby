@@ -1679,9 +1679,6 @@ void C2ACCD::build_BV_tree(CollisionGeometryPtr geom)
 
   FILE_LOG(LOG_BV) << "C2ACCD::build_BB_tree() entered" << endl;
 
-  // determine whether the body is deformable
-  bool deformable = dynamic_pointer_cast<DeformableBody>(geom->get_single_body());
-
   // get the intersection tolerance for the primitive
   double intersection_tolerance = geom->get_geometry()->get_intersection_tolerance();
 
@@ -1697,11 +1694,7 @@ void C2ACCD::build_BV_tree(CollisionGeometryPtr geom)
     vertices[i] = Point3d(verts[i], geom->get_pose());
 
   // build an BV around all vertices 
-  BVPtr root;
-  if (!deformable)
-    root = BVPtr(new SSR(vertices.begin(), vertices.end()));
-  else
-    root = BVPtr(new AABB(vertices.begin(), vertices.end()));
+  BVPtr root = BVPtr(new SSR(vertices.begin(), vertices.end()));
 
   // set root to point to all facet indices
   list<unsigned> tris_idx;
@@ -1732,21 +1725,12 @@ void C2ACCD::build_BV_tree(CollisionGeometryPtr geom)
       Vector3d axis;
 
       // get the i'th column of R if an RSS
-      if (!deformable)
-      {
-        shared_ptr<SSR> ssr = dynamic_pointer_cast<SSR>(bv);
-        assert(ssr);
-        ssr->R.get_column(i, axis);
-      }
-      else
-      {
-        if (i == 0) axis = Vector3d(1,0,0);
-        else if (i == 1) axis = Vector3d(0,1,0);
-        else axis = Vector3d(0,0,1); 
-      }
+      shared_ptr<SSR> ssr = dynamic_pointer_cast<SSR>(bv);
+      assert(ssr);
+      ssr->R.get_column(i, axis);
 
       // split the bounding volume across the axis
-      if (split(bv, child1, child2, axis, deformable))
+      if (split(bv, child1, child2, axis))
         break;
     }
 
@@ -1816,28 +1800,12 @@ void C2ACCD::build_BV_tree(CollisionGeometryPtr geom)
     Q.pop();
 
     // fatten the bounding volume
-    if (!deformable)
-    {
-      // cast it to an SSR
-      shared_ptr<SSR> ssr = dynamic_pointer_cast<SSR>(bv);
-      assert(ssr);
+    // cast it to an SSR
+    shared_ptr<SSR> ssr = dynamic_pointer_cast<SSR>(bv);
+    assert(ssr);
 
-      // fatten the SSR
-      ssr->radius += intersection_tolerance;
-    }
-    else
-    {
-      // cast it to an AABB
-      AABBPtr aabb = dynamic_pointer_cast<AABB>(bv);
-      assert(aabb);
-
-      // fatten the AABB
-      for (unsigned i=0; i< THREE_D; i++)
-      {
-        aabb->minp[i] -= intersection_tolerance;
-        aabb->maxp[i] += intersection_tolerance;
-      }
-    }
+    // fatten the SSR
+    ssr->radius += intersection_tolerance;
 
     // add all children to the queue
     if (!bv->is_leaf())
@@ -1928,7 +1896,7 @@ void C2ACCD::split_tris(const Point3d& point, const Vector3d& normal, const Inde
 }
 
 /// Splits a bounding box  along a given axis into two new bounding boxes; returns true if split successful
-bool C2ACCD::split(shared_ptr<BV> source, shared_ptr<BV>& tgt1, shared_ptr<BV>& tgt2, const Vector3d& axis, bool deformable) 
+bool C2ACCD::split(shared_ptr<BV> source, shared_ptr<BV>& tgt1, shared_ptr<BV>& tgt2, const Vector3d& axis) 
 {
   // setup two lists of triangles
   list<unsigned> ptris, ntris;
@@ -1970,16 +1938,8 @@ bool C2ACCD::split(shared_ptr<BV> source, shared_ptr<BV>& tgt1, shared_ptr<BV>& 
     nverts[i] = Point3d(norigins[i], centroid.pose);
 
   // create two new BVs 
-  if (!deformable)
-  {
-    tgt1 = shared_ptr<SSR>(new SSR(pverts.begin(), pverts.end()));
-    tgt2 = shared_ptr<SSR>(new SSR(nverts.begin(), nverts.end()));
-  }
-  else
-  {
-    tgt1 = AABBPtr(new AABB(pverts.begin(), pverts.end()));
-    tgt2 = AABBPtr(new AABB(nverts.begin(), nverts.end()));
-  }
+  tgt1 = shared_ptr<SSR>(new SSR(pverts.begin(), pverts.end()));
+  tgt2 = shared_ptr<SSR>(new SSR(nverts.begin(), nverts.end()));
 
   // setup mesh data for the BVs
   _meshes[tgt1] = make_pair(mesh, ptris);
