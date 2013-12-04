@@ -74,7 +74,7 @@ class C2ACCD : public CollisionDetection
     void check_vertices(double dt, CollisionGeometryPtr a, CollisionGeometryPtr b, BVPtr ob, const std::vector<const Point3d*>& a_verts, const Ravelin::Transform3d bTa_t0, const Ravelin::SVelocityd& a_vel, const Ravelin::SVelocityd& b_vel, double& earliest, std::vector<Event>& local_contacts) const;
     void check_geoms(double dt, CollisionGeometryPtr a, CollisionGeometryPtr b, const std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> >& q0, const std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> >& q1, std::vector<Event>& contacts); 
     void build_BV_tree(CollisionGeometryPtr geom);
-    bool split(BVPtr source, BVPtr& tgt1, BVPtr& tgt2, const Ravelin::Vector3d& axis, bool deformable);
+    bool split(BVPtr source, BVPtr& tgt1, BVPtr& tgt2, const Ravelin::Vector3d& axis);
     void split_tris(const Point3d& point, const Ravelin::Vector3d& normal, const IndexedTriArray& orig_mesh, const std::list<unsigned>& ofacets, std::list<unsigned>& pfacets, std::list<unsigned>& nfacets);
     void get_vertices(BVPtr bv, std::vector<const Point3d*>& vertices) const;
     static bool coplanar_tris(const Triangle& ta, const Triangle& tb);
