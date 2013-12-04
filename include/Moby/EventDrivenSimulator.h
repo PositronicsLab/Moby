@@ -25,7 +25,6 @@ class CollisionGeometry;
 class EventDrivenSimulator : public Simulator
 {
   friend class CollisionDetection;
-  friend class DeformableCCD;
 
   private:
     // class for comparing two events for purposes of setting event tolerances

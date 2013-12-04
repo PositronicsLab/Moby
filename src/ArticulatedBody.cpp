@@ -29,7 +29,6 @@ using std::queue;
 
 ArticulatedBody::ArticulatedBody()
 {
-  use_advanced_friction_model = false;
 }
 
 /// Gets the time-derivative of the Jacobian
@@ -1353,11 +1352,6 @@ void ArticulatedBody::load_from_xml(shared_ptr<const XMLTree> node, std::map<str
   // don't verify the node name -- this class has derived classes
   // assert(strcasecmp(node->name().c_str(), "MCArticulatedBody") == 0);
 
-  // determine whether to use the advanced joint friction model
-  XMLAttrib* jf_attr = node->get_attrib("use-advanced-joint-friction");
-  if (jf_attr)
-    use_advanced_friction_model = jf_attr->get_bool_value();
-
   // see whether to load the model from a URDF file
   XMLAttrib* urdf_attr = node->get_attrib("urdf");
   if (urdf_attr)
@@ -1453,9 +1447,6 @@ void ArticulatedBody::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Ba
 
   // (re)set the name of this node
   node->name = "ArticulatedBody";
-
-  // save whether to use the advanced joint friction model
-  node->attribs.insert(XMLAttrib("use-advanced-joint-friction", use_advanced_friction_model));
 
   // add all links
   for (unsigned i=0; i< _links.size(); i++)
