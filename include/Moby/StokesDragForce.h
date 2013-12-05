@@ -21,7 +21,7 @@ class StokesDragForce : public RecurrentForce
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
 
     /// The drag coefficient 
-    double b;
+    double b, b_ang;
 }; // end class
 } // end namespace
 
