@@ -20,6 +20,7 @@ using std::vector;
 StokesDragForce::StokesDragForce()
 {
   this->b = (double) 0.0;
+  this->b_ang = (double) 0.0;
 }
 
 /// Copy constructor
@@ -37,6 +38,7 @@ void StokesDragForce::add_force(DynamicBodyPtr body)
   {
     SForced w;
     w.set_force(rb->get_velocity().get_linear() * -this->b);
+    w.set_torque(rb->get_velocity().get_angular() * -this->b_ang);
     w.pose = rb->get_velocity().pose;
     SForced wx = Pose3d::transform(rb->get_computation_frame(), w);
     rb->add_force(wx);
@@ -54,6 +56,7 @@ void StokesDragForce::add_force(DynamicBodyPtr body)
     {
       SForced w;
       w.set_force(rb->get_velocity().get_linear() * -this->b);
+      w.set_torque(rb->get_velocity().get_angular() * -this->b_ang);
       w.pose = rb->get_velocity().pose;
       SForced wx = Pose3d::transform(rb->get_computation_frame(), w);
       rb->add_force(wx);
@@ -71,16 +74,14 @@ void StokesDragForce::load_from_xml(shared_ptr<const XMLTree> node, std::map<std
   assert(strcasecmp(node->name.c_str(), "StokesDragForce") == 0);
 
   // read the drag coefficient, if given
-  XMLAttrib
-
-
-
-
-
-
-* b_attrib = node->get_attrib("drag-b");
+  XMLAttrib* b_attrib = node->get_attrib("drag-b");
   if (b_attrib)
     this->b = b_attrib->get_real_value();
+
+  // read the drag coefficient, if given
+  XMLAttrib* b_ang_attrib = node->get_attrib("drag-b-ang");
+  if (b_ang_attrib)
+    this->b_ang = b_ang_attrib->get_real_value();
 }
 
 /// Implements Base::save_to_xml()
@@ -92,7 +93,10 @@ void StokesDragForce::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Ba
   // (re)set the name of this node
   node->name = "StokesDragForce";
 
-  // save the acceleration due to gravity 
+  // save the linear component of the force 
   node->attribs.insert(XMLAttrib("drag-b", this->b));
+
+  // save the angular component of the force 
+  node->attribs.insert(XMLAttrib("drag-b-ang", this->b_ang));
 }
  
