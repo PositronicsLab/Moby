@@ -407,7 +407,8 @@ void EventDrivenSimulator::set_coords(double t)
 void EventDrivenSimulator::set_velocities(const vector<VectorNd>& qd) const
 {
   for (unsigned i=0; i< _bodies.size(); i++)
-    _bodies[i]->set_generalized_velocity(DynamicBody::eEuler, qd[i]);
+    if (!_bodies[i]->get_kinematic())
+      _bodies[i]->set_generalized_velocity(DynamicBody::eEuler, qd[i]);
 }
 
 /// Sets the generalized velocities of all bodies using an interpolated value
@@ -415,6 +416,10 @@ void EventDrivenSimulator::set_velocities(double t)
 {
   for (unsigned i=0; i< _bodies.size(); i++)
   {
+    // don't do this if the body is kinematically controlled
+    if (_bodies[i]->get_kinematic())
+      continue;
+
     // do linear interpolation
     _workV = _qdf[i];
     _workV -= _qd0[i];
@@ -538,6 +543,11 @@ double EventDrivenSimulator::step(double step_size)
     // update the coordinates using the new velocities
     for (unsigned i=0; i< _q0.size(); i++)
     {
+      // don't do this for kinematically updated bodies
+      if (_bodies[i]->get_kinematic())
+        continue;
+
+      // update using semi-implicit integration
       _qf[i] = _qdf[i];
       _qf[i] *= dt;
       _qf[i] += _q0[i];
@@ -1238,13 +1248,15 @@ double EventDrivenSimulator::find_and_handle_si_events(double dt)
   // setup x0, x1
   if (!collision_detectors.empty())
   {
-    _x0.resize(_q0.size());
-    _x1.resize(_q0.size());
+    _x0.clear();
+    _x1.clear();
     for (unsigned i=0; i< _bodies.size(); i++)
     {
-      _x0[i].first = _x1[i].first = _bodies[i];
-      _x0[i].second = _q0[i];
-      _x1[i].second = _qf[i];
+      if (_bodies[i]->get_kinematic())
+      {
+        _x0.push_back(std::make_pair(_bodies[i], _q0[i]));
+        _x1.push_back(std::make_pair(_bodies[i], _qf[i]));
+      }
     }
   }
 
@@ -1315,6 +1327,10 @@ void EventDrivenSimulator::find_limit_events(double dt, vector<Event>& events)
     // see whether the i'th body is articulated
     ArticulatedBodyPtr ab = dynamic_pointer_cast<ArticulatedBody>(_bodies[i]);
     if (!ab)
+      continue;
+
+    // if the body is kinematically controlled, do nothing
+    if (ab->get_kinematic())
       continue;
     
     // get limit events in [t, t+dt] (if any)
