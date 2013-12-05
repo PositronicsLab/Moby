@@ -201,7 +201,7 @@ void FSABAlgorithm::apply_generalized_impulse(unsigned index, const vector<vecto
 
     // generalized impulse on base will be in global frame, by Moby convention 
     SMomentumd w(vgj[0], vgj[1], vgj[2], vgj[3], vgj[4], vgj[5], GLOBAL);
-    _Y.front() += Pose3d::transform(_Y.front().pose, w);
+    _Y.front() -= Pose3d::transform(_Y.front().pose, w);
   }
 
   if (LOGGING(LOG_DYNAMICS))
@@ -435,9 +435,9 @@ void FSABAlgorithm::apply_generalized_impulse(const VectorNd& gj)
     // update base components 
     RigidBodyPtr base = links.front();
 
-    // momentum is in global frame by Moby convention 
-    SMomentumd basew(gj[0], gj[1], gj[2], gj[3], gj[4], gj[5], GLOBAL);
-    _Y.front() += Pose3d::transform(_Y.front().pose, basew);
+    // momentum is in mixed frame by Moby convention 
+    SMomentumd basew(gj[0], gj[1], gj[2], gj[3], gj[4], gj[5], base->get_gc_pose());
+    _Y.front() -= Pose3d::transform(_Y.front().pose, basew);
   }
 
   if (LOGGING(LOG_DYNAMICS))
@@ -469,14 +469,16 @@ void FSABAlgorithm::apply_generalized_impulse(const VectorNd& gj)
     // determine the change in velocity
     _dv.front() = _I.front().inverse_mult(-_Y.front());
 
-    // update the base velocity
-    base->set_velocity(base->get_velocity() + _dv.front());
-
     FILE_LOG(LOG_DYNAMICS) << "base is floating..." << endl;
     FILE_LOG(LOG_DYNAMICS) << "  base transform: " << endl << base->get_pose();
     FILE_LOG(LOG_DYNAMICS) << "  current base velocity: " << base->get_velocity() << endl;
+    FILE_LOG(LOG_DYNAMICS) << "  change in base velocity: " << _dv.front() << endl;
 
     FILE_LOG(LOG_DYNAMICS) << "  impulse on the base: " << _Y.front() << endl;
+
+    // update the base velocity
+    base->set_velocity(base->get_velocity() + _dv.front());
+
     FILE_LOG(LOG_DYNAMICS) << "  new base velocity: " << base->get_velocity() << endl;
   }
   else 
@@ -559,8 +561,6 @@ void FSABAlgorithm::calc_spatial_coriolis_vectors(RCArticulatedBodyPtr body)
   {
     // get the link
     RigidBodyPtr link = links[i];
-_c[i].set_zero(link->get_velocity().pose);
-continue;
     unsigned idx = link->get_index();
 
     // get the link's joint
@@ -616,8 +616,7 @@ void FSABAlgorithm::calc_spatial_zero_accelerations(RCArticulatedBodyPtr body)
     const SVelocityd& v = link->get_velocity();
 
     // set 6-dimensional spatial isolated zero-acceleration vector of link  
-//    _Z[i] = v.cross(link->get_inertia() * v) - link->sum_forces();
-    _Z[i] = -link->sum_forces();
+    _Z[i] = v.cross(link->get_inertia() * v) - link->sum_forces();
     
     FILE_LOG(LOG_DYNAMICS) << "  processing link " << link->id << endl;
     FILE_LOG(LOG_DYNAMICS) << "    Link spatial iso ZA: " << endl << _Z[i] << endl;
@@ -681,6 +680,9 @@ void FSABAlgorithm::calc_spatial_zero_accelerations(RCArticulatedBodyPtr body)
     const VectorNd& mu = _mu[i];
   
     FILE_LOG(LOG_DYNAMICS) << "  *** Backward recursion processing link " << link->id << endl;
+    FILE_LOG(LOG_DYNAMICS) << "    parent link: " << parent->id << endl;
+    if (LOGGING(LOG_DYNAMICS) && !sprime.empty()) 
+    FILE_LOG(LOG_DYNAMICS) << "    s': " << sprime.front() << endl;  
     FILE_LOG(LOG_DYNAMICS) << "    I: " << I << endl;
     FILE_LOG(LOG_DYNAMICS) << "    c: " << c << endl;
     FILE_LOG(LOG_DYNAMICS) << "    qm subexp: " << mu << endl;
@@ -741,7 +743,7 @@ void FSABAlgorithm::calc_spatial_inertias(RCArticulatedBodyPtr body)
 
     // set the articulated body inertia for this link to be its isolated
     // spatial inertia (this will be updated in the phase below)
-    _I[i] = link->get_inertia();
+   _I[i] = link->get_inertia();
 
     FILE_LOG(LOG_DYNAMICS) << "  processing link " << link->id << endl;
     FILE_LOG(LOG_DYNAMICS) << "    Link spatial iso inertia: " << endl << _I[i];
@@ -868,13 +870,15 @@ void FSABAlgorithm::calc_spatial_accelerations(RCArticulatedBodyPtr body)
   if (!body->is_floating_base())
   {
     base->set_accel(SAcceld::zero(base->get_computation_frame()));
-    FILE_LOG(LOG_DYNAMICS) << "  negated base Z: " << (-_Z.front()) << endl;
     FILE_LOG(LOG_DYNAMICS) << "  base acceleration: (zero)" << endl;
   }
   else
   {
     SAcceld a0 = _I.front().inverse_mult(-_Z.front());
     base->set_accel(a0);
+    FILE_LOG(LOG_DYNAMICS) << "  articulated base inertia: " << Pose3d::transform(base->get_mixed_pose(), _I.front()) << endl;
+    FILE_LOG(LOG_DYNAMICS) << "  negated base Z: " << Pose3d::transform(base->get_mixed_pose(), -_Z.front()) << endl;
+    FILE_LOG(LOG_DYNAMICS) << "  base acceleration: " << Pose3d::transform(base->get_mixed_pose(), a0) << endl;
   }
   
   // *****************************************************************

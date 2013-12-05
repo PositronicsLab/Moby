@@ -242,6 +242,7 @@ void Simulator::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::stri
   if (time_attr)
     this->current_time = time_attr->get_real_value();
 
+/*
   // get the integrator, if specified
   XMLAttrib* int_id_attr = node->get_attrib("integrator-id");
   if (int_id_attr)
@@ -256,7 +257,7 @@ void Simulator::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::stri
     else
       integrator = dynamic_pointer_cast<Integrator>(id_iter->second);
   }
-
+*/
   // get all dynamic bodies used in the simulator
   child_nodes = node->find_child_nodes("DynamicBody");
   if (!child_nodes.empty())
