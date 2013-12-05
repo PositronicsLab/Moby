@@ -36,6 +36,121 @@ LCP::LCP()
 {
 }
 
+/// Fast pivoting algorithm for denerate, monotone LCPs with few nonzero, nonbasic variables 
+bool LCP::lcp_fast(const MatrixNd& M, const VectorNd& q, VectorNd& z, double zero_tol)
+{
+  const unsigned N = q.rows();
+
+  // look for trivial solution
+  if (N == 0)
+  {
+    z.set_zero(0);
+    return true;
+  }
+
+  // set zero tolerance if necessary
+  if (zero_tol < 0.0)
+    zero_tol = M.rows() * M.norm_inf() * std::numeric_limits<double>::epsilon();
+
+  // get minimum element of q (really w)
+  unsigned minw = std::min_element(q.begin(), q.end()) - q.begin();
+  if (q[minw] > -zero_tol)
+  {
+    z.set_zero(N);
+    return true;
+  }
+
+  // setup basic and nonbasic variable indices
+  _nonbas.clear();
+  _nonbas.push_back(minw); 
+  _bas.clear();
+  _bas.resize(N-1);
+  for (unsigned i=0, j=0; i< N; i++)
+    if (i != minw)
+      _bas[j++] = i;
+
+  // loop for maximum number of pivots
+  const unsigned MAX_PIV = std::max(N*N, (unsigned) 1000);
+  for (unsigned piv=0; piv < MAX_PIV; piv++)
+  {
+    // select nonbasic indices
+    M.select_square(_nonbas.begin(), _nonbas.end(), _Msub);
+    M.select_columns(_nonbas.begin(), _nonbas.end(), _Mcolsub);
+    q.select(_nonbas.begin(), _nonbas.end(), _z);
+    _z.negate();
+
+    // solve for nonbasic z
+    _LA.solve_fast(_Msub, _z);
+
+    // compute w and find minimum value
+    _Mcolsub.mult(_z, _w) += q;
+    minw = rand_min(_w, zero_tol);
+
+    // if w >= 0, check whether any component of z < 0
+    if (minw > -zero_tol)
+    {
+      // find the (a) minimum of z
+      unsigned minz = rand_min(_z, zero_tol); 
+      if (_z[minz] < -zero_tol)
+      {
+        // get the original index and remove it from the nonbasic set
+        unsigned idx = _nonbas[minz];
+        _nonbas[minz] = _nonbas.back();
+        _nonbas.pop_back();
+
+        // move index to basic set and continue looping
+        _bas.push_back(idx);
+      }
+      else
+      {
+        // found the solution
+        z.set_zero(N);
+
+        // set values of z corresponding to _z
+        for (unsigned i=0, j=0; j < _bas.size(); i++, j++)
+          z[_bas[j]] = _z[i];
+
+        return true;
+      }
+    }
+    else
+    {
+      // one or more components of w violating w >= 0
+      // move component of w from basic set to nonbasic set
+      unsigned idx = _bas[minw];
+      _bas[minw] = _bas.back();
+      _bas.pop_back();
+      _nonbas.push_back(idx);
+
+      // look whether any component of z needs to move to basic set
+      unsigned minz = rand_min(_z, zero_tol); 
+      if (_z[minz] < -zero_tol)
+      {
+        // move index to basic set and continue looping
+        unsigned idx = _nonbas[minz];
+        _nonbas[minz] = _nonbas.back();
+        _nonbas.pop_back();
+        _bas.push_back(idx);
+      }
+    }
+  }
+
+  // if we're here, then the maximum number of pivots has been exceeded
+  return false;
+}
+
+/// Get the minimum index of vector v; if there are multiple minima (within zero_tol), returns one randomly 
+unsigned LCP::rand_min(const VectorNd& v, double zero_tol)
+{
+  static vector<unsigned> minima;
+  minima.clear();
+  unsigned minv = std::min_element(v.begin(), v.end()) - v.begin();
+  for (unsigned i=0; i< v.rows(); i++)
+    if (v[i] < v[minv] + zero_tol)
+      minima.push_back(i);
+  return minima[rand() % minima.size()];
+}
+
 /// Regularized wrapper around Lemke's algorithm
 bool LCP::lcp_lemke_regularized(const MatrixNd& M, const VectorNd& q, VectorNd& z, int min_exp, unsigned step_exp, int max_exp, double piv_tol, double zero_tol)
 {
