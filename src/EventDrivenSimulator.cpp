@@ -436,6 +436,14 @@ void EventDrivenSimulator::integrate_si_Euler(double step_size)
   // get the state-derivative for each dynamic body
   for (unsigned i=0; i< _bodies.size(); i++)
   {
+    // if the body is kinematically updated, do not integrate it
+    if (_bodies[i]->get_kinematic())
+    {
+      if (_bodies[i]->controller)
+        _bodies[i]->controller(_bodies[i], current_time, _bodies[i]->controller_arg);
+      continue;
+    }
+
     // integrate the body
     if (LOGGING(LOG_SIMULATOR))
     {
@@ -1347,6 +1355,8 @@ double EventDrivenSimulator::integrate_to_TOI(double dt)
       // set the coordinates
       for (unsigned i=0; i< _bodies.size(); i++)
       {
+        if (_bodies[i]->get_kinematic())
+          continue;
         _qf[i] = _qdf[i];
         _qf[i] *= dt;
         _qf[i] += _q0[i];
@@ -1364,6 +1374,8 @@ double EventDrivenSimulator::integrate_to_TOI(double dt)
     h += tmin;
     for (unsigned i=0; i< _q0.size(); i++)
     {
+      if (_bodies[i]->get_kinematic())
+        continue;
       _qf[i] = _qdf[i];
       _qf[i] *= h;
       _qf[i] += _q0[i];
@@ -1400,6 +1412,8 @@ double EventDrivenSimulator::integrate_to_TOI(double dt)
       // of _qdf) 
       for (unsigned i=0; i< _q0.size(); i++)
       {
+        if (_bodies[i]->get_kinematic())
+          continue;
         _qf[i] = _qdf[i];
         _qf[i] *= h;
         _qf[i] += _q0[i];
@@ -1425,6 +1439,8 @@ double EventDrivenSimulator::integrate_to_TOI(double dt)
   // set the coordinates (velocities are already set)
   for (unsigned i=0; i< _bodies.size(); i++)
   {
+    if (_bodies[i]->get_kinematic())
+      continue;
     _qf[i] = _qdf[i];
     _qf[i] *= dt;
     _qf[i] += _q0[i];

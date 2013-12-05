@@ -64,12 +64,12 @@ class CRBAlgorithm
     static void to_spatial7_inertia(const Ravelin::SpatialRBInertiad& I, const Ravelin::Quatd& q, Ravelin::MatrixNd& I7);
     Ravelin::VectorNd& M_solve_noprecalc(Ravelin::VectorNd& xb);
     Ravelin::MatrixNd& M_solve_noprecalc(Ravelin::MatrixNd& XB);
-    void transform_and_mult(RigidBodyPtr link, const Ravelin::SpatialRBInertiad& I, const std::vector<Ravelin::SVelocityd>& s, std::vector<Ravelin::SMomentumd>& Is);
+    void transform_and_mult(boost::shared_ptr<const Ravelin::Pose3d> P, const Ravelin::SpatialRBInertiad& I, const std::vector<Ravelin::SVelocityd>& s, std::vector<Ravelin::SMomentumd>& Is);
 
   private:
     // temporaries for transform_and_transpose_mult() functions
     std::vector<Ravelin::SForced> _tandt_fx;
-    std::vector<Ravelin::SMomentumd> _tandt_wx;
+    std::vector<Ravelin::SMomentumd> _tandt_wx, _Isprime;
     std::vector<Ravelin::SVelocityd> _tandt_tx;
 
     // temporary for calc_fwd_dyn() 

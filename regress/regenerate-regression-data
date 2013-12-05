@@ -1,6 +1,16 @@
 # !/bin/bash
 # script for regenerating regression data 
 
+# test the articulated body examples
+echo "Regenerating data for chain2 example"
+$1moby-regress -mt=10 ../example/chain-contact/chain2.xml chain2.dat 
+echo "Regenerating data for chain5 example"
+$1moby-regress -mt=10 ../example/chain-contact/chain5.xml chain5.dat 
+
+# test the driving robot example
+#echo "Regenerating data for mobile robot example"
+#$1moby-regress -mt=10 -p=../example/mrobot/libcontroller.so ../example/mrobot/pioneer2.xml pioneer.dat 
+
 # test the spinning box example(s)
 echo "Regenerating data for sitting box example"
 $1moby-regress -mt=10 ../example/contact_simple/contact.xml sitting-box.dat 
@@ -11,25 +21,6 @@ $1moby-regress -mt=10 ../example/contact_simple/spinning-box2.xml spinning-box2.
 
 # test the stacked box example
 echo "Regenerating data for stacked box example"
-$1moby-regress -mt=10 ../example/contact_simple/stack.xml stack.dat 
+$1moby-regress -mt=1 ../example/contact_simple/stack.xml stack.dat 
 
-# test the driving robot example
-echo "Regenerating data for mobile robot example"
-$1moby-regress -mt=10 -p=../example/mrobot/libcontroller.so ../example/mrobot/pioneer2.xml pioneer.dat 
-
-# test the bouncing sphere example
-echo "Regenerating data for deformable sphere example"
-$1moby-regress -mt=10 ../example/bouncing_sphere/sphere.xml bouncing-sphere.dat 
-
-# test the unilaterally constrained mechanism examples
-echo "Regenerating data for unilaterally constrained pendulum example"
-$1moby-regress -mt=10 ../example/unilaterally-constrained-mechanisms/pendulum.xml uc-pendulum.dat 
-echo "Regenerating data for unilaterally constrained slider crank example"
-$1moby-regress -mt=10 ../example/unilaterally-constrained-mechanisms/slider-crank.xml uc-slider-crank.dat 
-
-# test the articulated body examples
-echo "Regenerating data for chain2 example"
-$1moby-regress -mt=10 ../example/chain-contact/chain2.xml chain2.dat 
-echo "Regenerating data for chain5 example"
-$1moby-regress -mt=10 ../example/chain-contact/chain5.xml chain5.dat 
 
