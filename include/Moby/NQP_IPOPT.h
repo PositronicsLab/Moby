@@ -98,6 +98,9 @@ class NQP_IPOPT : public Ipopt::TNLP
     // temporaries 
     Ravelin::VectorNd _w, _workv, _workv2, _x;
     Ravelin::MatrixNd _M;
+
+    // is the problem dense or not?
+    bool _dense;
 }; // end class
 } // end namespace
 

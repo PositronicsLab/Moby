@@ -375,9 +375,13 @@ void ImpactEventHandler::solve_nqp_work(EventProblemData& q, VectorNd& x)
   FILE_LOG(LOG_EVENT) << "H matrix: " << std::endl << H;
   FILE_LOG(LOG_EVENT) << "c vector: " << c << std::endl;
 
+  // setup ipopt options
+  _app.Options()->SetIntegerValue("print_level", 0);
+//  _app.Options()->SetStringValue("derivative_test", "second-order");
+
   // solve the nonlinear QP using the interior-point algorithm 
   Ipopt::ApplicationReturnStatus status = _app.OptimizeTNLP(_ipsolver);
-  if (status != Ipopt::Solve_Succeeded)
+  if (!(status == Ipopt::Solve_Succeeded || status == Ipopt::Solved_To_Acceptable_Level))
     throw std::runtime_error("Could not solve nonlinearly constrained QP");
 
   // get the final solution out

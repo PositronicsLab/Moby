@@ -55,8 +55,11 @@ bool NQP_IPOPT::get_nlp_info(Index& n, Index& m, Index& nnz_jac_g, Index& nnz_h_
   _h_con.resize(N_CONTACTS);
   std::map<std::pair<unsigned, unsigned>, unsigned> h_obj_nz_indices;
 
+  // determine whether the problem is dense or not
+  _dense = (R.columns() > 0);
+
   // compute nonzeros for (friction) constraint part of Hessian
-  if (R.columns() == 0)
+  if (!_dense)
   {
     // compute nonzeros for objective part of Hessian
     for (unsigned i=0, k=0; i< n; i++)
@@ -64,6 +67,7 @@ bool NQP_IPOPT::get_nlp_info(Index& n, Index& m, Index& nnz_jac_g, Index& nnz_h_
         if (std::fabs(H(i,j)) > _ZERO_EPS)
         {
           h_obj_nz_indices[std::make_pair(i,j)] = k++;
+          _nnz_h_obj++;
           nnz_h_lag++;
         }
 
@@ -73,11 +77,6 @@ bool NQP_IPOPT::get_nlp_info(Index& n, Index& m, Index& nnz_jac_g, Index& nnz_h_
       const unsigned N_IDX = i;
       const unsigned S_IDX = i + N_CONTACTS;
       const unsigned T_IDX = i + N_CONTACTS*2;
-
-      // verify that there are already non-zeros at that part of the Hessian
-      assert(std::fabs(H(N_IDX,N_IDX)) > _ZERO_EPS);
-      assert(std::fabs(H(S_IDX,S_IDX)) > _ZERO_EPS);
-      assert(std::fabs(H(T_IDX,T_IDX)) > _ZERO_EPS);
 
       // setup nnz_h_con
       _nnz_h_con[i] = 3;
@@ -90,9 +89,9 @@ bool NQP_IPOPT::get_nlp_info(Index& n, Index& m, Index& nnz_jac_g, Index& nnz_h_
 
       // setup values for constraint Hessian
       _h_con[i] = shared_array<double>(new double[3]);
-      _h_con[i][0] = H(N_IDX,N_IDX)*2.0*mu_c[i];
-      _h_con[i][1] = -H(S_IDX,S_IDX)*2.0;
-      _h_con[i][2] = -H(T_IDX,T_IDX)*2.0;
+      _h_con[i][0] = 2.0*mu_c[i];
+      _h_con[i][1] = -2.0;
+      _h_con[i][2] = -2.0;
     }
 
     // setup objective component of Hessian and indices
@@ -100,12 +99,13 @@ bool NQP_IPOPT::get_nlp_info(Index& n, Index& m, Index& nnz_jac_g, Index& nnz_h_
     _h_iRow = shared_array<unsigned>(new unsigned[nnz_h_lag]);  
     _h_jCol = shared_array<unsigned>(new unsigned[nnz_h_lag]);
     for (unsigned i=0, k=0; i< n; i++)
-      for (unsigned j=i; j< n; j++, k++)
+      for (unsigned j=i; j< n; j++)
         if (std::fabs(H(i,j)) > _ZERO_EPS)
         {
           _h_obj[k] = H(i,j);
           _h_iRow[k] = i;
           _h_jCol[k] = j;
+          k++;
         }
   }
   else
@@ -121,6 +121,7 @@ bool NQP_IPOPT::get_nlp_info(Index& n, Index& m, Index& nnz_jac_g, Index& nnz_h_
 
     // setup objective component of Hessian and indices
     // NOTE we assume that the Hessian is dense
+    _nnz_h_obj = n*(n-1);
     _h_obj = shared_array<double>(new double[_nnz_h_obj]);
     _h_iRow = shared_array<unsigned>(new unsigned[nnz_h_lag]);  
     _h_jCol = shared_array<unsigned>(new unsigned[nnz_h_lag]);
@@ -163,7 +164,19 @@ bool NQP_IPOPT::get_nlp_info(Index& n, Index& m, Index& nnz_jac_g, Index& nnz_h_
   _cJac_constant = n;
 
   // count remaining non-zeros
-  if (R.columns() > 0)
+  if (!_dense)
+  {
+    // count number of non-zeros in the Cn_block 
+    for (RowIteratord_const i = Cn_block.row_iterator_begin(); i != i.end(); i++)
+      if (std::fabs(*i) > _ZERO_EPS)
+        _cJac_constant++; 
+
+    // determine number of non-zeros in L_block
+    for (RowIteratord_const i = L_block.row_iterator_begin(); i != i.end(); i++)
+      if (std::fabs(*i) > _ZERO_EPS)
+        _cJac_constant++; 
+  }
+  else
   {
     // count number of non-zeros in the Cn_block 
     Cn_block.mult(R, _M);
@@ -177,28 +190,69 @@ bool NQP_IPOPT::get_nlp_info(Index& n, Index& m, Index& nnz_jac_g, Index& nnz_h_
       if (std::fabs(*i) > _ZERO_EPS)
         _cJac_constant++; 
   }
-  else
-  {
-    // count number of non-zeros in the Cn_block 
-    for (RowIteratord_const i = Cn_block.row_iterator_begin(); i != i.end(); i++)
-      if (std::fabs(*i) > _ZERO_EPS)
-        _cJac_constant++; 
-
-    // determine number of non-zeros in L_block
-    for (RowIteratord_const i = L_block.row_iterator_begin(); i != i.end(); i++)
-      if (std::fabs(*i) > _ZERO_EPS)
-        _cJac_constant++; 
-  }
 
   // setup total number of nonzero Jacobian values
-  nnz_jac_g = _cJac_constant + ((R.columns() == 0) ? N_CONTACTS*3 : N_CONTACTS*n );
+  nnz_jac_g = _cJac_constant + ((!_dense) ? N_CONTACTS*3 : N_CONTACTS*n);
 
   // setup constant Jacobian values
   _cJac = shared_array<double>(new double[_cJac_constant]);
+  _cJac_iRow = shared_array<unsigned>(new unsigned[nnz_jac_g]);
+  _cJac_jCol = shared_array<unsigned>(new unsigned[nnz_jac_g]);
   unsigned nv = 0;
 
   // count remaining non-zeros
-  if (R.columns() > 0)
+  if (!_dense)
+  {
+    // count number of non-zeros in the Cn_block 
+    for (unsigned i = 0; i < Cn_block.rows(); i++)
+      for (unsigned j = 0; j < Cn_block.columns(); j++)
+        if (std::fabs(Cn_block(i,j)) > _ZERO_EPS)
+        {
+          _cJac[nv] = Cn_block(i,j);
+          _cJac_iRow[nv] = i; 
+          _cJac_jCol[nv] = j;
+          nv++;
+        }
+
+    // determine number of non-zeros in L_block
+    for (unsigned i = 0; i < L_block.rows(); i++)
+      for (unsigned j = 0; j < L_block.columns(); j++)
+        if (std::fabs(L_block(i,j)) > _ZERO_EPS)
+        {
+          _cJac[nv] = L_block(i,j);
+          _cJac_iRow[nv] = i + Cn_block.rows(); 
+          _cJac_jCol[nv] = j;
+          nv++;
+        }
+
+    // setup -1'*N constraint
+    for (unsigned i=0; i< Cn_block.columns(); i++)
+    {
+      RowIteratord_const ci = Cn_block.column(i).row_iterator_begin();
+      _cJac[nv] = -std::accumulate(ci, ci.end(), 0.0);
+      _cJac_iRow[nv] = Cn_block.rows() + L_block.rows();
+      _cJac_jCol[nv] = i;
+      nv++;
+    }
+
+    // setup *only indices* for Coulomb friction constraint
+    for (unsigned i=0; i< N_CONTACTS; i++)
+    {
+      const unsigned N_IDX = i;
+      const unsigned S_IDX = i + N_CONTACTS;
+      const unsigned T_IDX = i + N_CONTACTS*2;
+      _cJac_iRow[nv] = Cn_block.rows() + L_block.rows() + 1 + i;
+      _cJac_jCol[nv] = N_IDX;
+      nv++;       
+      _cJac_iRow[nv] = Cn_block.rows() + L_block.rows() + 1 + i;
+      _cJac_jCol[nv] = S_IDX;
+      nv++;       
+      _cJac_iRow[nv] = Cn_block.rows() + L_block.rows() + 1 + i;
+      _cJac_jCol[nv] = T_IDX;
+      nv++;       
+    }
+  }  
+  else
   {
     // count number of non-zeros in the Cn_block 
     Cn_block.mult(R, _M);
@@ -245,57 +299,6 @@ bool NQP_IPOPT::get_nlp_info(Index& n, Index& m, Index& nnz_jac_g, Index& nnz_h_
         nv++;
       }
   }
-  else
-  {
-    // count number of non-zeros in the Cn_block 
-    for (unsigned i = 0; i < Cn_block.rows(); i++)
-      for (unsigned j = 0; j < Cn_block.columns(); j++)
-        if (std::fabs(Cn_block(i,j)) > _ZERO_EPS)
-        {
-          _cJac[nv] = Cn_block(i,j);
-          _cJac_iRow[nv] = i; 
-          _cJac_jCol[nv] = j;
-          nv++;
-        }
-
-    // determine number of non-zeros in L_block
-    for (unsigned i = 0; i < L_block.rows(); i++)
-      for (unsigned j = 0; j < L_block.columns(); j++)
-        if (std::fabs(L_block(i,j)) > _ZERO_EPS)
-        {
-          _cJac[nv] = L_block(i,j);
-          _cJac_iRow[nv] = i + Cn_block.rows(); 
-          _cJac_jCol[nv] = j;
-          nv++;
-        }
-
-    // setup -1'*N constraint
-    for (unsigned i=0; i< N_CONTACTS; i++)
-    {
-      ColumnIteratord_const ci = Cn_block.row(i).column_iterator_begin();
-      _cJac[nv] = -std::accumulate(ci, ci.end(), 0.0);
-      _cJac_iRow[nv] = Cn_block.rows() + L_block.rows();
-      _cJac_jCol[nv] = i;
-      nv++;
-    }
-
-    // setup *only indices* for Coulomb friction constraint
-    for (unsigned i=0; i< N_CONTACTS; i++)
-    {
-      const unsigned N_IDX = i;
-      const unsigned S_IDX = i + N_CONTACTS;
-      const unsigned T_IDX = i + N_CONTACTS*2;
-      _cJac_iRow[nv] = Cn_block.rows() + L_block.rows() + 1 + i;
-      _cJac_jCol[nv] = N_IDX;
-      nv++;       
-      _cJac_iRow[nv] = Cn_block.rows() + L_block.rows() + 1 + i;
-      _cJac_jCol[nv] = S_IDX;
-      nv++;       
-      _cJac_iRow[nv] = Cn_block.rows() + L_block.rows() + 1 + i;
-      _cJac_jCol[nv] = T_IDX;
-      nv++;       
-    }
-  } 
 
   // C-indexing style
   index_style = TNLP::C_STYLE;
@@ -312,12 +315,14 @@ bool NQP_IPOPT::get_bounds_info(Index n, Number* x_l, Number* x_u, Index m, Numb
   const unsigned N_CONTACTS = epd->N_CONTACTS;
   const unsigned N_LIMITS = epd->N_LIMITS;
 
+  // TODO: fix bounds for dense problem
+
   // set variable bounds
   for (unsigned i=0; i< n; i++)
   {
     // see whether this is a normal contact force or limit force
-    if (i >= N_CONTACTS || i < N_CONTACTS*3)
-      x_l[i] = INF;
+    if (i >= N_CONTACTS && i < N_CONTACTS*3)
+      x_l[i] = -INF;
     else
       x_l[i] = 0.0;
     x_u[i] = INF;
@@ -383,25 +388,22 @@ bool NQP_IPOPT::eval_g(Index n, const Number* x, bool new_x, Index m, Number* g)
   std::copy(x, x+n, _x.begin());
 
   // compute w
-  if (R.columns() > 0)
+  if (_dense)
     R.mult(_x, _w) += z;
-  _w = z;
+  else
+    _w = _x;
 
-  // evaluate the kappa constraint and non-interpenetration constraints
+  // evaluate the kappa constraint 
   Cn_block.mult(_w, _workv);
+  _workv += epd->Cn_v;
   g[N_CONTACTS+N_LIMITS] = epd->kappa - std::accumulate(_workv.begin(), _workv.end(), 0.0);
-  _workv -= epd->Cn_v;
+
+  // evaluate the non-interpenetration constraints
   std::copy(_workv.begin(), _workv.end(), g);
 
   // evaluate the joint limit constraints
   L_block.mult(_w, _workv) -= epd->L_v;
   std::copy(_workv.begin(), _workv.end(), g+N_CONTACTS);
-
-  // account for nullspace
-  if (R.columns() > 0)
-    R.mult(_x, _w) += z;
-  else
-    _w = z;
 
   // evaluate the Coulomb friction constraint
   for (unsigned i=0, j=N_CONTACTS+N_LIMITS+1; i< N_CONTACTS; i++, j++)
@@ -421,16 +423,6 @@ bool NQP_IPOPT::eval_jac_g(Index n, const Number* x, bool new_x, Index m, Index 
 {
   const unsigned N_CONTACTS = epd->N_CONTACTS;
 
-  // verify x is valid
-  if (!x)
-    _x.set_zero(n);
-  else
-  {
-    // copy x
-    _x.resize(n);
-    std::copy(x, x+n, _x.begin());
-  }
-
   // only do these computations if 'values' is non-null
   if (values)
   {
@@ -438,7 +430,7 @@ bool NQP_IPOPT::eval_jac_g(Index n, const Number* x, bool new_x, Index m, Index 
     std::copy(_cJac.get(), _cJac.get() + _cJac_constant, values);
 
     // setup gradient of Coulomb friction constraint
-    if (R.columns() == 0)
+    if (!_dense)
     {
       for (unsigned i=0, j=_cJac_constant; i< N_CONTACTS; i++, j+= 3)
       {
@@ -454,6 +446,10 @@ bool NQP_IPOPT::eval_jac_g(Index n, const Number* x, bool new_x, Index m, Index 
     }
     else
     {
+      // copy x
+      _x.resize(n);
+      std::copy(x, x+n, _x.begin());
+
       // compute w
       R.mult(_x, _w) += z;
 
@@ -493,7 +489,7 @@ void NQP_IPOPT::finalize_solution(SolverReturn status, Index n, const Number* x,
   std::copy(x, x+n, _x.begin());
 
   // account for nullspace
-  if (R.columns() > 0)
+  if (_dense)
   {
     R.mult(_x, _w) += z;
     z = _w;
@@ -528,8 +524,9 @@ bool NQP_IPOPT::eval_h(Index n, const Number* x, bool new_x, Number obj_factor, 
     for (unsigned k=0; k< N_CONTACTS; k++)
     {
       // scale the values in the constraint Hessian
-      _workv.resize(_nnz_h_con[k]);
-      cblas_daxpy(_nnz_h_con[k], lam[lambda_start+k], _h_con[k].get(), 1, _workv.data(), 1);
+      _workv.set_zero(_nnz_h_con[k]);
+      cblas_dcopy(_nnz_h_con[k], _h_con[k].get(), 1, _workv.data(), _workv.inc());
+      cblas_dscal(_nnz_h_con[k], lam[lambda_start+k], _workv.data(), _workv.inc());
 
       // get the workv iterator
       ColumnIteratord_const workv_iter = _workv.column_iterator_begin();
