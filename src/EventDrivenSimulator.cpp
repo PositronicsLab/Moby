@@ -1252,7 +1252,7 @@ double EventDrivenSimulator::find_and_handle_si_events(double dt)
     _x1.clear();
     for (unsigned i=0; i< _bodies.size(); i++)
     {
-      if (_bodies[i]->get_kinematic())
+      if (!_bodies[i]->get_kinematic())
       {
         _x0.push_back(std::make_pair(_bodies[i], _q0[i]));
         _x1.push_back(std::make_pair(_bodies[i], _qf[i]));
