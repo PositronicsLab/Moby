@@ -75,19 +75,20 @@ bool LCP::lcp_fast(const MatrixNd& M, const VectorNd& q, VectorNd& z, double zer
   {
     // select nonbasic indices
     M.select_square(_nonbas.begin(), _nonbas.end(), _Msub);
-    M.select_columns(_nonbas.begin(), _nonbas.end(), _Mcolsub);
+    M.select(_bas.begin(), _bas.end(), _nonbas.begin(), _nonbas.end(), _Mmix);
     q.select(_nonbas.begin(), _nonbas.end(), _z);
+    q.select(_bas.begin(), _bas.end(), _qbas);
     _z.negate();
 
     // solve for nonbasic z
     _LA.solve_fast(_Msub, _z);
 
     // compute w and find minimum value
-    _Mcolsub.mult(_z, _w) += q;
+    _Mmix.mult(_z, _w) += _qbas;
     minw = rand_min(_w, zero_tol);
 
     // if w >= 0, check whether any component of z < 0
-    if (minw > -zero_tol)
+    if (_w[minw] > -zero_tol)
     {
       // find the (a) minimum of z
       unsigned minz = rand_min(_z, zero_tol); 
@@ -107,8 +108,8 @@ bool LCP::lcp_fast(const MatrixNd& M, const VectorNd& q, VectorNd& z, double zer
         z.set_zero(N);
 
         // set values of z corresponding to _z
-        for (unsigned i=0, j=0; j < _bas.size(); i++, j++)
-          z[_bas[j]] = _z[i];
+        for (unsigned i=0, j=0; j < _nonbas.size(); i++, j++)
+          z[_nonbas[j]] = _z[i];
 
         return true;
       }
