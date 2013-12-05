@@ -20,13 +20,19 @@ class LCP
     bool lcp_lemke_regularized(const Ravelin::SparseMatrixNd& M, const Ravelin::VectorNd& q, Ravelin::VectorNd& z, int min_exp = -20, unsigned step_exp = 4, int max_exp = 20, double piv_tol = -1.0, double zero_tol = -1.0);
 bool lcp_lemke(const Ravelin::MatrixNd& M, const Ravelin::VectorNd& q, Ravelin::VectorNd& z, double piv_tol = -1.0, double zero_tol = -1.0);
     bool lcp_lemke(const Ravelin::SparseMatrixNd& M, const Ravelin::VectorNd& q, Ravelin::VectorNd& z, double piv_tol = -1.0, double zero_tol = -1.0);
+    bool lcp_fast(const Ravelin::MatrixNd& M, const Ravelin::VectorNd& q, Ravelin::VectorNd& z, double zero_tol = -1.0);
 
   private:
     static void set_basis(unsigned n, unsigned count, std::vector<unsigned>& bas, std::vector<unsigned>& nbas);
+    static unsigned rand_min(const Ravelin::VectorNd& v, double zero_tol);
 
     // temporaries for regularized solver
     Ravelin::MatrixNd _MM;
     Ravelin::VectorNd _wx;
+
+    // temporaries for fast pivoting solver
+    Ravelin::VectorNd _z, _w;
+    Ravelin::MatrixNd _Msub, _Mcolsub;
 
     // temporaries for Lemke solver
     Ravelin::VectorNd _d, _Be, _u, _z0, _x, _dl, _xj, _dj, _wl, _result;

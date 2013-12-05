@@ -617,7 +617,7 @@ void ImpactEventHandler::solve_lcp(EventProblemData& q, VectorNd& z)
   FILE_LOG(LOG_EVENT) << "  LCP vector: " << qq << std::endl;
 
   // solve the LCP
-  if (!_lcp.lcp_lemke_regularized(MM, qq, v))
+  if (!_lcp.lcp_fast(MM, qq, v) && !_lcp.lcp_lemke_regularized(MM, qq, v))
     throw std::runtime_error("Unable to solve event LCP!");
 
   // compute alphax
