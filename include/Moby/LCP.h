@@ -31,8 +31,8 @@ bool lcp_lemke(const Ravelin::MatrixNd& M, const Ravelin::VectorNd& q, Ravelin::
     Ravelin::VectorNd _wx;
 
     // temporaries for fast pivoting solver
-    Ravelin::VectorNd _z, _w;
-    Ravelin::MatrixNd _Msub, _Mcolsub;
+    Ravelin::VectorNd _z, _w, _qbas;
+    Ravelin::MatrixNd _Msub, _Mmix;
 
     // temporaries for Lemke solver
     Ravelin::VectorNd _d, _Be, _u, _z0, _x, _dl, _xj, _dj, _wl, _result;
