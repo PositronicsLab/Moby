@@ -24,6 +24,7 @@
 #include <Moby/ImpactEventHandler.h>
 #ifdef HAVE_IPOPT
 #include <Moby/NQP_IPOPT.h>
+#include <Moby/LCP_IPOPT.h>
 #endif
 
 using namespace Ravelin;
@@ -57,7 +58,9 @@ ImpactEventHandler::ImpactEventHandler()
   if (status != Ipopt::Solve_Succeeded)
     throw std::runtime_error("Ipopt unable to initialize!");
 
+  // setup the nonlinear IP solver
   _ipsolver = Ipopt::SmartPtr<NQP_IPOPT>(new NQP_IPOPT);  
+  _lcpsolver = Ipopt::SmartPtr<LCP_IPOPT>(new LCP_IPOPT);
   #endif
 }
 
@@ -143,6 +146,7 @@ void ImpactEventHandler::apply_model(const vector<Event>& events)
 void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& events)
 {
   double ke_minus = 0.0, ke_plus = 0.0;
+  VectorNd z;
 
   FILE_LOG(LOG_EVENT) << "ImpactEventHandler::apply_model_to_connected_events() entered" << endl;
 
@@ -169,15 +173,13 @@ void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& eve
     }
   }
 
-  // solve the (non-frictional) linear complementarity problem to determine
-  // the kappa constant
-  VectorNd z;
-  solve_lcp(_epd, z);
-
   // determine what type of QP solver to use
   #ifdef HAVE_IPOPT
   if (use_qp_solver(_epd))
   {
+    // solve the (non-frictional) linear complementarity problem to determine
+    // the kappa constant
+    solve_lcp(_epd, z);
     _epd.set_qp_indices();
     solve_qp(_epd, poisson_eps);
   }

@@ -14,6 +14,7 @@
 #include <coin/IpTNLP.hpp>
 #include <coin/IpIpoptApplication.hpp>
 #include <Moby/NQP_IPOPT.h>
+#include <Moby/LCP_IPOPT.h>
 #endif
 #include <Ravelin/LinAlgd.h>
 #include <Moby/Base.h>
@@ -25,6 +26,7 @@
 namespace Moby {
 
 class NQP_IPOPT;
+class LCP_IPOPT;
 
 /// Defines the mechanism for handling impact events 
 class ImpactEventHandler
@@ -93,6 +95,7 @@ class ImpactEventHandler
     // temporaries for solve_nqp_work()
     #ifdef HAVE_IPOPT
     Ipopt::SmartPtr <NQP_IPOPT> _ipsolver;
+    Ipopt::SmartPtr <LCP_IPOPT> _lcpsolver;
     #endif
     Ravelin::MatrixNd _RTH;
     Ravelin::VectorNd _w, _workv, _workv2, _x;
