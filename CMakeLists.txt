@@ -1,4 +1,4 @@
-# setup some things initially
+# setp some things initially
 cmake_minimum_required (VERSION 2.6)
 project (Moby)
 include (CheckIncludeFiles)
@@ -9,7 +9,7 @@ set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/CMakeModules)
 include_directories ("include")
 
 # setup library sources
-set (SOURCES Event.cpp RestingContactHandler.cpp BoxPrimitive.cpp SpherePrimitive.cpp ConePrimitive.cpp CylinderPrimitive.cpp GaussianMixture.cpp TriangleMeshPrimitive.cpp Polyhedron.cpp IndexedTriArray.cpp GravityForce.cpp CRBAlgorithm.cpp RNEAlgorithm.cpp RCArticulatedBody.cpp RigidBody.cpp LCP.cpp OSGGroupWrapper.cpp Integrator.cpp FSABAlgorithm.cpp Simulator.cpp EventDrivenSimulator.cpp Spatial.cpp ArticulatedBody.cpp Primitive.cpp Visualizable.cpp AABB.cpp SSL.cpp SSR.cpp BoundingSphere.cpp CompGeom.cpp ContactParameters.cpp Log.cpp XMLWriter.cpp ThickTriangle.cpp Triangle.cpp Tetrahedron.cpp Base.cpp DynamicBody.cpp SingleBody.cpp XMLTree.cpp FixedJoint.cpp XMLReader.cpp DampingForce.cpp RevoluteJoint.cpp CollisionDetection.cpp CollisionGeometry.cpp PrismaticJoint.cpp SphericalJoint.cpp UniversalJoint.cpp BV.cpp OBB.cpp IndexedTetraArray.cpp Joint.cpp ImpactEventHandlerQP.cpp ImpactEventHandler.cpp StokesDragForce.cpp URDFReader.cpp GeneralizedCCD.cpp CSG.cpp)
+set (SOURCES AABB.cpp ArticulatedBody.cpp Base.cpp BoundingSphere.cpp BoxPrimitive.cpp BV.cpp CollisionDetection.cpp CollisionGeometry.cpp CompGeom.cpp ConePrimitive.cpp ContactParameters.cpp CRBAlgorithm.cpp CSG.cpp CylinderPrimitive.cpp DampingForce.cpp DynamicBody.cpp Event.cpp EventDrivenSimulator.cpp FixedJoint.cpp FSABAlgorithm.cpp GaussianMixture.cpp GeneralizedCCD.cpp GravityForce.cpp ImpactEventHandler.cpp ImpactEventHandlerQP.cpp ImpactEventHandlerNQP.cpp IndexedTetraArray.cpp IndexedTriArray.cpp Integrator.cpp Joint.cpp LCP.cpp LCP_IPOPT.cpp Log.cpp NQP_IPOPT.cpp OBB.cpp OSGGroupWrapper.cpp Polyhedron.cpp Primitive.cpp PrismaticJoint.cpp RCArticulatedBody.cpp RestingContactHandler.cpp RevoluteJoint.cpp RigidBody.cpp RNEAlgorithm.cpp Simulator.cpp SingleBody.cpp StokesDragForce.cpp Spatial.cpp SpherePrimitive.cpp SphericalJoint.cpp SSL.cpp SSR.cpp Tetrahedron.cpp ThickTriangle.cpp TriangleMeshPrimitive.cpp Triangle.cpp UniversalJoint.cpp URDFReader.cpp Visualizable.cpp XMLTree.cpp XMLWriter.cpp XMLReader.cpp)
 #set (SOURCES MCArticulatedBody.cpp)
 
 # build options 
@@ -46,6 +46,7 @@ endif (PROFILE)
 # find libraries
 find_package (LibXml2 REQUIRED)
 find_package (Boost REQUIRED)
+find_package (IPOPT)
 get_property(_LANGUAGES_ GLOBAL PROPERTY ENABLED_LANGUAGES)
 find_package (QHULL REQUIRED)
 find_package (osg)
@@ -53,6 +54,26 @@ find_package (osgViewer)
 find_package (osgDB)
 find_package (osgGA)
 find_package (OpenThreads)
+
+# see whether IPOPT was detected
+if (IPOPT_FOUND)
+  add_definitions (-DHAVE_CSTDDEF)
+  add_definitions (-DHAVE_IPOPT)
+  include_directories (IPOPT_INCLUDE_DIRS)
+  link_directories (IPOPT_LIBRARY_DIRS)
+  if (APPLE)
+    find_package (BLAS REQUIRED)
+  else (APPLE)
+    find_package (CBLAS REQUIRED)
+  endif (APPLE)
+#  set (EXTRA_LIBS "${EXTRA_LIBS} ${BLAS_LIBRARIES}")
+  find_library(IPOPT ipopt /usr/local/lib /usr/lib)
+  find_library(IPOPT_MUMPS coinmumps /usr/local/lib /usr/lib)
+  find_library(IPOPT_METIS coinmetis /usr/local/lib /usr/lib)
+#  find_library(GFORTRAN gfortran /usr/local/lib /usr/lib)
+#  set (EXTRA_LIBS ${EXTRA_LIBS} ${IPOPT_MUMPS} ${IPOPT_METIS} ${GFORTRAN})
+  set (EXTRA_LIBS ${EXTRA_LIBS} ${IPOPT} ${IPOPT_MUMPS} ${IPOPT_METIS})
+endif (IPOPT_FOUND)
 
 # setup OSG includes and additional sources
 if (USE_OSG AND OSG_FOUND)
@@ -94,8 +115,8 @@ set (REQLIBS qhull)
 
 # build against ODEPACK?
 if (HAVE_ODEPACK)
-  add_definitions (-DUSE_ODEPACK)
-  set (EXTRA_LIBS ${EXTRA_LIBS} odepack)
+#  add_definitions (-DUSE_ODEPACK)
+#  set (EXTRA_LIBS ${EXTRA_LIBS} odepack)
 endif (HAVE_ODEPACK)
 
 # prepend "src/" to each source file

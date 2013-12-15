@@ -21,6 +21,7 @@ class LCP
 bool lcp_lemke(const Ravelin::MatrixNd& M, const Ravelin::VectorNd& q, Ravelin::VectorNd& z, double piv_tol = -1.0, double zero_tol = -1.0);
     bool lcp_lemke(const Ravelin::SparseMatrixNd& M, const Ravelin::VectorNd& q, Ravelin::VectorNd& z, double piv_tol = -1.0, double zero_tol = -1.0);
     bool lcp_fast(const Ravelin::MatrixNd& M, const Ravelin::VectorNd& q, Ravelin::VectorNd& z, double zero_tol = -1.0);
+    bool fast_pivoting(const Ravelin::MatrixNd& M, const Ravelin::VectorNd& q, Ravelin::VectorNd& z, double eps = std::sqrt(std::numeric_limits<double>::epsilon()));
 
   private:
     static void set_basis(unsigned n, unsigned count, std::vector<unsigned>& bas, std::vector<unsigned>& nbas);
@@ -31,8 +32,8 @@ bool lcp_lemke(const Ravelin::MatrixNd& M, const Ravelin::VectorNd& q, Ravelin::
     Ravelin::VectorNd _wx;
 
     // temporaries for fast pivoting solver
-    Ravelin::VectorNd _z, _w, _qbas;
-    Ravelin::MatrixNd _Msub, _Mmix;
+    Ravelin::VectorNd _z, _w, _qbas, _qprime;
+    Ravelin::MatrixNd _Msub, _Mmix, _M;
 
     // temporaries for Lemke solver
     Ravelin::VectorNd _d, _Be, _u, _z0, _x, _dl, _xj, _dj, _wl, _result;

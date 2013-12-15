@@ -1918,10 +1918,19 @@ double RigidBody::calc_kinetic_energy()
   if (!_enabled)
     return (double) 0.0;
 
+/*
   const SVelocityd& xd = get_velocity();
   const SpatialRBInertiad& J = get_inertia();
+*/
+  SVelocityd xd = Pose3d::transform(get_gc_pose(), get_velocity());
+  SpatialRBInertiad J = Pose3d::transform(get_gc_pose(), get_inertia());
 
- return xd.dot(J * xd) * 0.5;
+  Vector3d v = xd.get_linear();
+  Vector3d w = xd.get_angular();
+  Vector3d wx = Vector3d(J.J*Origin3d(w), w.pose);
+  return (v.norm_sq()*J.m + w.dot(wx))*0.5; 
+
+// return xd.dot(J * xd) * 0.5;
 }
 
 /// Gets the number of generalized coordinates
