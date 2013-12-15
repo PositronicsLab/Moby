@@ -1018,4 +1018,135 @@ bool LCP::lcp_lemke(const SparseMatrixNd& M, const VectorNd& q, VectorNd& z, dou
   return false;
 }
 
+// picks (randomly) the minimum element from a vector that has potentially multiple minima 
+static RowIteratord_const rand_min2(const VectorNd& v)
+{
+  const double EPS = std::sqrt(std::numeric_limits<double>::epsilon());
+  std::vector<unsigned> idx;
+
+  double minimum = *std::min_element(v.row_iterator_begin(), v.row_iterator_end());
+  for (RowIteratord_const i = v.row_iterator_begin(); i != v.row_iterator_end(); i++) 
+    if (*i - EPS <= minimum)
+      idx.push_back(i-v.row_iterator_begin());
+
+  // pick one at random
+  assert(!idx.empty());
+  unsigned elm = idx[rand() % idx.size()];
+  return v.row_iterator_begin()+elm;
+}
+
+/// Fast pivoting algorithm for frictionless contact
+bool LCP::fast_pivoting(const MatrixNd& M, const VectorNd& q, VectorNd& z, double eps)
+{
+  const unsigned N = q.size();
+  const unsigned MAX_PIVOTS = N*3;
+  RowIteratord_const minw, minz;
+
+  // look for degenerate problem
+  if (N == 0)
+  {
+    z.resize(0);
+    return true;
+  }
+
+  // compute minimum indices
+  minw = std::min_element(q.row_iterator_begin(), q.row_iterator_end());
+
+  // look for easy solution
+  if (*minw > -eps)
+  {
+    z.set_zero(N);
+    return true;
+  }
+
+  // setup the basic variable and non-basic variable indices
+  _bas.clear();
+  _nonbas.clear();
+  for (unsigned i=0; i< N; i++)
+    if (i != minw - q.row_iterator_begin())
+      _bas.push_back(i);
+  _nonbas.push_back(minw-q.row_iterator_begin());
+
+  // start the pivoting algorithm
+  for (unsigned i=0; i< MAX_PIVOTS; i++)
+  {
+    // solve for nonbasic z
+    M.select_square(_nonbas.begin(), _nonbas.end(), _M);
+    q.select(_nonbas.begin(), _nonbas.end(), _qprime);
+    _qprime.negate();
+
+    // compute z subset
+    try
+    {
+      _LA.solve_fast(_M, _qprime);
+    }
+    catch (SingularException e)
+    {
+      M.select_square(_nonbas.begin(), _nonbas.end(), _M);
+      try
+      {
+        _LA.solve_LS_fast(_M, _qprime, LinAlgd::eSVD1, -1.0);
+      }
+      catch (NumericalException e)
+      {
+        try
+        {
+          M.select_square(_nonbas.begin(), _nonbas.end(), _M);
+          _LA.solve_LS_fast(_M, _qprime, LinAlgd::eSVD2, -1.0);
+        }
+        catch (NumericalException e)
+        {
+          return false;
+        }
+      }
+    }    
+
+    // setup proposed z
+    z.set_zero(N);
+    for (unsigned j=0; j< _nonbas.size(); j++)
+      z[_nonbas[j]] = _qprime[j];
+
+    // compute w
+    M.mult(z, _w) += q;
+
+    // recompute minimum indices
+    minw = rand_min2(_w);
+    minz = rand_min2(z);
+
+    // see whether this has solved the problem
+    if (*minw > -eps)
+    {
+      // check whether any component of z < 0
+      if (*minz < -eps)
+      {
+        // move the element to the basic set
+        unsigned idx = minz-z.row_iterator_begin();
+        _nonbas.erase(std::find(_nonbas.begin(), _nonbas.end(), idx));
+        _bas.insert(std::lower_bound(_bas.begin(), _bas.end(), idx), idx); 
+      }
+      else
+        return true;
+    }
+    else
+    {
+      // move mimimum component of w to nonbasic set
+      unsigned idx = minw-_w.row_iterator_begin();
+      _bas.erase(std::find(_bas.begin(), _bas.end(), idx));
+      _nonbas.insert(std::lower_bound(_nonbas.begin(), _nonbas.end(), idx), idx);
+
+      // look whether a component of z needs to move to basic set
+      if (*minz < -eps)
+      {
+        // move the element to the basic set
+        unsigned idx = minz-z.row_iterator_begin();
+        _nonbas.erase(std::find(_nonbas.begin(), _nonbas.end(), idx));
+        _bas.insert(std::lower_bound(_bas.begin(), _bas.end(), idx), idx); 
+      }
+    }
+  }
+
+  // if we're here, the maximum number of pivots was exceeded
+  std::cerr << "LCP::fast_pivoting() warning- maximum number of pivots exceeded (" << MAX_PIVOTS << ")" << std::endl;
+  return false;
+}
 
