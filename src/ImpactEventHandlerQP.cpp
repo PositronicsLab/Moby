@@ -4,6 +4,7 @@
  * License (found in COPYING).
  ****************************************************************************/
 
+#include <sys/times.h>
 #include <iomanip>
 #include <boost/foreach.hpp>
 #include <boost/algorithm/minmax_element.hpp>
@@ -36,12 +37,38 @@ using std::min_element;
 using boost::dynamic_pointer_cast;
 
 /// Solves the quadratic program (potentially solves two QPs, actually)
-void ImpactEventHandler::solve_qp(EventProblemData& q, double poisson_eps)
+void ImpactEventHandler::solve_qp(const VectorNd& zf, EventProblemData& q, double poisson_eps, double max_time)
 {
   const double TOL = poisson_eps;
 
-  // solve the QP
-  solve_qp_work(q, _z);
+  // set z to frictionless solution to start
+  const unsigned N_TOTAL = q.N_VARS + q.N_CONTACTS + q.N_LIMITS + q.N_K_TOTAL + 1;
+  _z.set_zero(N_TOTAL);
+  _z.set_sub_vec(0, zf);
+
+  // mark starting time
+  tms cstart;
+  times(&cstart);
+
+  // keep solving until we run out of time or all contact points are active
+  while (true)
+  {
+    FILE_LOG(LOG_EVENT) << "Running QP solve iteration with " << (q.N_ACT_CONTACTS+1) << " active contacts" << std::endl;
+
+    // solve the QP
+    solve_qp_work(q, _z);
+
+    // check whether we can mark any more contacts as active
+    tms cstop;
+    times(&cstop);
+    if ((double) (cstop.tms_stime-cstart.tms_stime)/CLOCKS_PER_SEC > max_time ||
+        q.N_ACT_CONTACTS == q.N_CONTACTS)
+      break;
+
+    // otherwise, mark next contact for solving
+    q.N_ACT_K += q.contact_events[q.N_ACT_CONTACTS]->contact_NK/2;
+    q.active_contacts[q.N_ACT_CONTACTS++] = true;
+  }
 
   // apply (Poisson) restitution to contacts
   for (unsigned i=0; i< q.N_CONTACTS; i++)

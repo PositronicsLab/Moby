@@ -4,7 +4,6 @@
  * License (found in COPYING).
  ****************************************************************************/
 
-#include <sys/times.h>
 #include <iomanip>
 #include <boost/foreach.hpp>
 #include <boost/algorithm/minmax_element.hpp>
@@ -177,14 +176,6 @@ void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& eve
     }
   }
 
-  // determine the type of solver to use
-  bool use_nqp_solver = !use_qp_solver(epd);
-
-  // loop until the maximum amount of time (we'll use system time) has been 
-  // exceeded
-  tms c_start;
-  times(&c_start);
-
   // solve the (non-frictional) linear complementarity problem to determine
   // the kappa constant
   VectorNd z;
@@ -199,29 +190,11 @@ void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& eve
     if (epd.contact_events[i]->contact_NK < UINF)
       epd.N_ACT_K += epd.contact_events[i]->contact_NK/2;
 
-  // compute the computation stop time
-  tms c_stop;
-  times(&c_stop);
-  while ((double) (c_stop.tms_stime-c_start.tms_stime)/CLOCKS_PER_SEC < max_time && epd.N_ACT_CONTACTS < epd.N_CONTACTS)
-  {
-    FILE_LOG(LOG_EVENT) << "Running iteration with " << (epd.N_ACT_CONTACTS+1) << " active contacts" << std::endl;
-
-    // update N_ACT_K
-    if (epd.contact_events[epd.N_ACT_CONTACTS]->contact_NK < UINF)
-      epd.N_ACT_K += epd.contact_events[epd.N_ACT_CONTACTS]->contact_NK/2;
-
-    // activate the next contact 
-    epd.active_contacts[epd.N_ACT_CONTACTS++] = true;
-
-    // use QP / NQP solver with warm starting to find the solution
-    if (use_nqp_solver)
-      solve_nqp(epd, poisson_eps);
-    else
-      solve_qp(epd, poisson_eps);
-
-    // recompute the amount of computation time
-    times(&c_stop);
-  }
+  // use QP / NQP solver with warm starting to find the solution
+  if (use_qp_solver(_epd))
+    solve_qp(z, epd, poisson_eps, max_time);
+  else
+    solve_nqp(epd, poisson_eps);
 
   // apply impulses 
   apply_impulses(epd);
@@ -416,7 +389,7 @@ void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& eve
     // the kappa constant
     solve_lcp(_epd, z);
     _epd.set_qp_indices();
-    solve_qp(_epd, poisson_eps);
+    solve_qp(z, _epd, poisson_eps);
   }
   else
   {
@@ -424,8 +397,9 @@ void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& eve
     solve_nqp(_epd, poisson_eps);
   }
   #else
+  solve_lcp(_epd, z);
   _epd.set_qp_indices();
-  solve_qp(_epd, poisson_eps);
+  solve_qp(z, _epd, poisson_eps);
   #endif
 
   // apply impulses 
