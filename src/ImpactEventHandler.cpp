@@ -123,7 +123,7 @@ void ImpactEventHandler::apply_model(const vector<Event>& events)
       Event::determine_minimal_set(revents);
 
       // apply model to the reduced contacts   
-      apply_model_to_connected_events(revents);
+      apply_model_to_connected_events(revents, 1000.0);
 
       FILE_LOG(LOG_EVENT) << " -- post-event velocity (all events): " << std::endl;
       for (list<Event*>::iterator j = i->begin(); j != i->end(); j++)
