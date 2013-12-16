@@ -53,7 +53,7 @@ void ImpactEventHandler::solve_qp(const VectorNd& zf, EventProblemData& q, doubl
   // keep solving until we run out of time or all contact points are active
   while (true)
   {
-    FILE_LOG(LOG_EVENT) << "Running QP solve iteration with " << (q.N_ACT_CONTACTS+1) << " active contacts" << std::endl;
+    FILE_LOG(LOG_EVENT) << "Running QP solve iteration with " << (q.N_ACT_CONTACTS) << " active contacts" << std::endl;
 
     // solve the QP
     solve_qp_work(q, _z);
@@ -65,18 +65,18 @@ void ImpactEventHandler::solve_qp(const VectorNd& zf, EventProblemData& q, doubl
         q.N_ACT_CONTACTS == q.N_CONTACTS)
       break;
 
-    // otherwise, mark next contact for solving
+    // we can; mark next contact for solving
     q.N_ACT_K += q.contact_events[q.N_ACT_CONTACTS]->contact_NK/2;
     q.active_contacts[q.N_ACT_CONTACTS++] = true;
   }
 
   // apply (Poisson) restitution to contacts
-  for (unsigned i=0; i< q.N_CONTACTS; i++)
-    _z[i] *= ((double) 1.0 + q.contact_events[i]->contact_epsilon);
+  for (unsigned i=0, j=q.CN_IDX; i< q.N_ACT_CONTACTS; i++, j++)
+    _z[j] *= ((double) 1.0 + q.contact_events[i]->contact_epsilon);
 
   // apply (Poisson) restitution to limits
-  for (unsigned i=0; i< q.N_LIMITS; i++)
-    _z[q.N_CONTACTS*5+i] *= ((double) 1.0 + q.limit_events[i]->limit_epsilon);
+  for (unsigned i=0, j=q.L_IDX; i< q.N_LIMITS; i++, j++)
+    _z[j] *= ((double) 1.0 + q.limit_events[i]->limit_epsilon);
 
   // save impulses in q
   q.update_from_stacked_qp(_z);
@@ -191,6 +191,8 @@ void ImpactEventHandler::solve_qp(const VectorNd& zf, EventProblemData& q, doubl
 }
 
 /// Updates the solution by adding a contact
+/**
+ * TODO: prepare to delete this
 void ImpactEventHandler::update_solution(const EventProblemData& q, const VectorNd& x, const vector<bool>& old_working_set, unsigned jidx, VectorNd& z)
 {
   unsigned start, end;
@@ -277,6 +279,7 @@ void ImpactEventHandler::update_solution(const EventProblemData& q, const Vector
   end = start + x.size() - OLD_MU_JIDX;
   z.segment(start, end) = x.segment(OLD_MU_JIDX, x.size());
 }
+*/
 
 /// Computes the kinetic energy of the system using the current impulse set 
 double ImpactEventHandler::calc_ke(EventProblemData& q, const VectorNd& z)
@@ -312,6 +315,8 @@ double ImpactEventHandler::calc_ke(EventProblemData& q, const VectorNd& z)
 /// Solves the quadratic program (does all of the work) 
 /**
  * \note this is the version without joint friction forces
+ * \param z the solution is returned here; zeros are returned at appropriate
+ *        places for inactive contacts
  */
 void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
 {

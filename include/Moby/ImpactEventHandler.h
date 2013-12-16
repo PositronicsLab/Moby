@@ -56,7 +56,7 @@ class ImpactEventHandler
     void compute_problem_data(EventProblemData& epd);
     void solve_lcp(EventProblemData& epd, Ravelin::VectorNd& z);
     void solve_qp(const Ravelin::VectorNd& zf, EventProblemData& epd, double eps, double max_time = std::numeric_limits<double>::max());
-    void solve_nqp(EventProblemData& epd, double eps);
+    void solve_nqp(const Ravelin::VectorNd& zf, EventProblemData& epd, double eps, double max_time = std::numeric_limits<double>::max());
     void solve_qp_work(EventProblemData& epd, Ravelin::VectorNd& z);
     double calc_ke(EventProblemData& epd, const Ravelin::VectorNd& z);
     void update_problem(const EventProblemData& qorig, EventProblemData& qnew);
