@@ -308,7 +308,15 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
 
   // determine number of active variables
   const unsigned N_ACT_CONTACTS = q.N_ACT_CONTACTS;
-  const unsigned N_ACT_VARS = N_ACT_CONTACTS*5 + q.N_LIMITS;
+
+  // setup new indices
+  const unsigned xCN_IDX = 0;
+  const unsigned xCS_IDX = xCN_IDX + N_ACT_CONTACTS;
+  const unsigned xCT_IDX = xCS_IDX + N_ACT_CONTACTS;
+  const unsigned xNCS_IDX = xCT_IDX + N_ACT_CONTACTS;
+  const unsigned xNCT_IDX = xNCS_IDX + N_ACT_CONTACTS;
+  const unsigned xL_IDX = xNCT_IDX + N_ACT_CONTACTS;
+  const unsigned N_ACT_VARS = xL_IDX + q.N_LIMITS;
 
   // init the QP matrix and vector
   const unsigned N_INEQUAL = q.N_ACT_CONTACTS + q.N_ACT_K + q.N_LIMITS + 1;
@@ -432,12 +440,12 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
   q.L_iM_LT.get_sub_mat(0, q.N_LIMITS, 0, q.N_LIMITS, L_iM_LT);
 
   // get shared vectors to components of c
-  SharedVectorNd Cn_v = c.segment(0, N_ACT_CONTACTS);
-  SharedVectorNd Cs_v = c.segment(N_ACT_CONTACTS, N_ACT_CONTACTS*2);
-  SharedVectorNd Ct_v = c.segment(N_ACT_CONTACTS*2, N_ACT_CONTACTS*3);
-  SharedVectorNd nCs_v = c.segment(N_ACT_CONTACTS*3, N_ACT_CONTACTS*4);
-  SharedVectorNd nCt_v = c.segment(N_ACT_CONTACTS*4, N_ACT_CONTACTS*5);
-  SharedVectorNd L_v = c.segment(N_ACT_CONTACTS*5, N_ACT_CONTACTS*5+q.N_LIMITS);
+  SharedVectorNd Cn_v = c.segment(xCN_IDX, xCS_IDX);
+  SharedVectorNd Cs_v = c.segment(xCS_IDX, xCT_IDX);
+  SharedVectorNd Ct_v = c.segment(xCT_IDX, xNCS_IDX);
+  SharedVectorNd nCs_v = c.segment(xNCS_IDX, xNCT_IDX);
+  SharedVectorNd nCt_v = c.segment(xNCT_IDX, xL_IDX);
+  SharedVectorNd L_v = c.segment(xL_IDX, N_ACT_VARS);
 
   // setup c 
   q.Cn_v.get_sub_vec(0, N_ACT_CONTACTS, Cn_v);
@@ -452,13 +460,13 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
   // Cn*(inv(M)*impulses + v) >= 0, Cn*inv(M)*impulses >= -Cn*v
   FILE_LOG(LOG_EVENT) << "Cn block: " << std::endl << Cn_block;
   row_start = 0; row_end = q.N_ACT_CONTACTS;
-  A.block(row_start, row_end, q.N_ACT_CONTACTS, N_ACT_VARS) = Cn_block;
+  A.block(row_start, row_end, xCN_IDX, N_ACT_VARS) = Cn_block;
   FILE_LOG(LOG_EVENT) << "A: " << std::endl << A;
   nb.set_sub_vec(row_start, Cn_v);
   row_start = row_end; row_end += q.N_LIMITS;  
 
   // setup the L*v+ >= 0 constraint
-  A.block(row_start, row_end, q.CN_IDX, N_ACT_VARS) = L_block;
+  A.block(row_start, row_end, xCN_IDX, N_ACT_VARS) = L_block;
   nb.set_sub_vec(row_start, q.L_v);
   row_start = row_end; row_end += q.N_ACT_CONTACTS;  
 
@@ -475,11 +483,11 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
       double theta = (double) j/(q.contact_events[i]->contact_NK/2-1) * M_PI_2;
       const double ct = std::cos(theta);
       const double st = std::sin(theta);
-      A(row_start, q.CN_IDX+i) = q.contact_events[i]->contact_mu_coulomb;
-      A(row_start, q.CS_IDX+i) = -ct;
-      A(row_start, q.NCS_IDX+i) = -ct;
-      A(row_start, q.CT_IDX+i) = -st;
-      A(row_start, q.NCT_IDX+i) = -st;
+      A(row_start, xCN_IDX+i) = q.contact_events[i]->contact_mu_coulomb;
+      A(row_start, xCS_IDX+i) = -ct;
+      A(row_start, xNCS_IDX+i) = -ct;
+      A(row_start, xCT_IDX+i) = -st;
+      A(row_start, xNCT_IDX+i) = -st;
 
       // setup the viscous friction component
       nb[row_start] = q.contact_events[i]->contact_mu_viscous * vel;
@@ -517,30 +525,37 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
   const unsigned N_LACT_VARS = N_LACT_CONTACTS*5 + q.N_LIMITS;
   if (_zlast.rows() == N_LACT_VARS)
   {
+    // setup last indices
+    const unsigned yCN_IDX = 0;
+    const unsigned yCS_IDX = N_LACT_CONTACTS;
+    const unsigned yCT_IDX = N_LACT_CONTACTS*2;
+    const unsigned yNCS_IDX = N_LACT_CONTACTS*3;
+    const unsigned yNCT_IDX = N_LACT_CONTACTS*4;
+    const unsigned yL_IDX = N_LACT_CONTACTS*5;
+
     // populate normal contact forces
-    SharedVectorNd cn_last = _zlast.segment(0, N_LACT_CONTACTS);
-    z.set_sub_vec(0, cn_last);
+    SharedVectorNd cn_last = _zlast.segment(yCN_IDX, yCS_IDX);
+    z.set_sub_vec(xCN_IDX, cn_last);
 
     // populate first direction positive tangent contact forces
-    SharedVectorNd cs_last = _zlast.segment(N_LACT_CONTACTS, N_LACT_CONTACTS*2);
-    z.set_sub_vec(N_ACT_CONTACTS, cs_last);
+    SharedVectorNd cs_last = _zlast.segment(yCS_IDX, yCT_IDX);
+    z.set_sub_vec(xCS_IDX, cs_last);
 
     // populate second direction positive tangent contact forces
-    SharedVectorNd ct_last = _zlast.segment(N_LACT_CONTACTS*2, N_LACT_CONTACTS*3);
-    z.set_sub_vec(N_ACT_CONTACTS*2, ct_last);
-
+    SharedVectorNd ct_last = _zlast.segment(yCT_IDX, yNCS_IDX);
+    z.set_sub_vec(xCT_IDX, ct_last);
   
     // populate first direction negative tangent contact forces
-    SharedVectorNd ncs_last = _zlast.segment(N_LACT_CONTACTS*3, N_LACT_CONTACTS*4);
-    z.set_sub_vec(N_ACT_CONTACTS*3, ncs_last);
+    SharedVectorNd ncs_last = _zlast.segment(yNCS_IDX, yNCT_IDX);
+    z.set_sub_vec(xNCS_IDX, ncs_last);
 
     // populate second direction negative tangent contact forces
-    SharedVectorNd nct_last = _zlast.segment(N_LACT_CONTACTS*4, N_LACT_CONTACTS*5);
-    z.set_sub_vec(N_ACT_CONTACTS*4, nct_last);
+    SharedVectorNd nct_last = _zlast.segment(yNCT_IDX, yL_IDX);
+    z.set_sub_vec(xNCT_IDX, nct_last);
 
     // populate limit forces
-    SharedVectorNd l_last = _zlast.segment(N_LACT_CONTACTS*5,N_LACT_CONTACTS*5+q.N_LIMITS);
-    z.set_sub_vec(N_ACT_CONTACTS*5, l_last);
+    SharedVectorNd l_last = _zlast.segment(yL_IDX,yL_IDX+q.N_LIMITS);
+    z.set_sub_vec(xL_IDX, l_last);
 
     // populate Cn*v+ >= 0 constraint multipliers
     SharedVectorNd c1_last = _zlast.segment(N_LACT_VARS, N_LACT_VARS+N_LACT_CONTACTS);
@@ -559,6 +574,9 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
   if (!_lcp.lcp_lemke_regularized(_MM, _qq, z))
     throw std::runtime_error("Unable to solve event QP!");
 
+  // output reported LCP solution
+  FILE_LOG(LOG_EVENT) << "LCP solution: " << z << std::endl;
+
   // store zlast
   _zlast = z;
 
@@ -571,7 +589,7 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
   SharedVectorNd l = _zlast.segment(N_ACT_CONTACTS*5, N_ACT_CONTACTS*5+q.N_LIMITS);
 
   // put z in the expected format (full contact forces)
-  z.set_zero(q.N_CONTACTS*5 + q.N_LIMITS);
+  z.set_zero(q.N_VARS);
   z.set_sub_vec(q.CN_IDX, cn);
   z.set_sub_vec(q.CS_IDX, cs);
   z.set_sub_vec(q.CT_IDX, ct);
