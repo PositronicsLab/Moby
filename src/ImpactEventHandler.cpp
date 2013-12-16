@@ -202,8 +202,10 @@ void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& eve
   // compute the computation stop time
   tms c_stop;
   times(&c_stop);
-  while ((double) (c_stop.tms_stime-c_start.tms_stime)/CLOCKS_PER_SEC < max_time)
+  while ((double) (c_stop.tms_stime-c_start.tms_stime)/CLOCKS_PER_SEC < max_time && epd.N_ACT_CONTACTS < epd.N_CONTACTS)
   {
+    FILE_LOG(LOG_EVENT) << "Running iteration with " << (epd.N_ACT_CONTACTS+1) << " active contacts" << std::endl;
+
     // update N_ACT_K
     if (epd.contact_events[epd.N_ACT_CONTACTS]->contact_NK < UINF)
       epd.N_ACT_K += epd.contact_events[epd.N_ACT_CONTACTS]->contact_NK/2;
@@ -267,7 +269,7 @@ void ImpactEventHandler::permute_problem(EventProblemData& epd, VectorNd& z)
 
   // permute contact events
   std::vector<Event*> new_contact_events(epd.contact_events.size());
-  permute(mapping.begin(), mapping.end(), epd.contact_events.begin(), new_contact_events);
+  permute(mapping.begin(), mapping.end(), epd.contact_events.begin(), new_contact_events.begin());
   epd.contact_events = new_contact_events;
 
   // TODO: add event computation and cross computation methods to Joint
@@ -401,6 +403,10 @@ void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& eve
       ke_minus += ke;
     }
   }
+
+  // mark all contacts as active
+  _epd.N_ACT_CONTACTS = _epd.N_CONTACTS;
+  _epd.N_ACT_K = _epd.N_K_TOTAL;
 
   // determine what type of QP solver to use
   #ifdef HAVE_IPOPT
