@@ -171,19 +171,19 @@ struct EventProblemData
   // sets cn, cs, etc. from stacked vector (NQP version)
   void update_from_stacked_nqp(const Ravelin::VectorNd& z)
   {
-    cn += z.segment(CN_IDX, CS_IDX);
-    cs += z.segment(CS_IDX, CT_IDX);
-    ct += z.segment(CT_IDX, L_IDX);
-    l += z.segment(L_IDX, ALPHA_X_IDX);
-    alpha_x += z.segment(ALPHA_X_IDX, N_VARS);
+    cn = z.segment(CN_IDX, CS_IDX);
+    cs = z.segment(CS_IDX, CT_IDX);
+    ct = z.segment(CT_IDX, L_IDX);
+    l = z.segment(L_IDX, ALPHA_X_IDX);
+    alpha_x = z.segment(ALPHA_X_IDX, N_VARS);
   }
 
   // sets cn, cs, etc. from stacked vector (QP version)
   void update_from_stacked_qp(const Ravelin::VectorNd& z)
   {
-    cn += z.segment(CN_IDX, CS_IDX);
-    l += z.segment(L_IDX, ALPHA_X_IDX);
-    alpha_x += z.segment(ALPHA_X_IDX, N_VARS);
+    cn = z.segment(CN_IDX, CS_IDX);
+    l = z.segment(L_IDX, ALPHA_X_IDX);
+    alpha_x = z.segment(ALPHA_X_IDX, N_VARS);
 
     // setup cs/ct -- first determine linearized friction cone forces
     cs.segment(0, N_LIN_CONE) = z.segment(CS_IDX, CT_IDX);

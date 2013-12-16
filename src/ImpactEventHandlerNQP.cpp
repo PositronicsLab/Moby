@@ -4,6 +4,7 @@
  * License (found in COPYING).
  ****************************************************************************/
 
+#include <sys/times.h>
 #include <iomanip>
 #include <boost/foreach.hpp>
 #include <boost/algorithm/minmax_element.hpp>
@@ -36,7 +37,7 @@ using std::min_element;
 using boost::dynamic_pointer_cast;
 
 /// Solves the nonlinearly constrained quadratic program (potentially solves two nQPs, actually)
-void ImpactEventHandler::solve_nqp(EventProblemData& q, double poisson_eps)
+void ImpactEventHandler::solve_nqp(const VectorNd& zf, EventProblemData& q, double poisson_eps, double max_time)
 {
   const double TOL = poisson_eps;
 
@@ -45,16 +46,39 @@ void ImpactEventHandler::solve_nqp(EventProblemData& q, double poisson_eps)
   const unsigned N_LIMITS = q.N_LIMITS;
   const unsigned CL_IDX = N_CONTACTS*3;
 
-  // solve the nonlinearly constrained QP
-  solve_nqp_work(q, _z);
+  // TODO: set z to frictionless solution to start
+
+  // mark starting time
+  tms cstart;
+  times(&cstart);
+
+  // keep solving until we run out of time or all contact points are active
+  while (true)
+  {
+    FILE_LOG(LOG_EVENT) << "Running NQP solve iteration with " << (q.N_ACT_CONTACTS) << " active contacts" << std::endl;
+
+    // solve the nonlinearly constrained QP
+    solve_nqp_work(q, _z);
+
+    // check whether we can mark any more contacts as active
+    tms cstop;
+    times(&cstop);
+    if ((double) (cstop.tms_stime-cstart.tms_stime)/CLOCKS_PER_SEC > max_time ||
+        q.N_ACT_CONTACTS == q.N_CONTACTS)
+      break;
+
+    // we can; mark next contact for solving
+    q.N_ACT_K += q.contact_events[q.N_ACT_CONTACTS]->contact_NK/2;
+    q.active_contacts[q.N_ACT_CONTACTS++] = true;
+  }
 
   // apply (Poisson) restitution to contacts
-  for (unsigned i=0; i< N_CONTACTS; i++)
-    _z[i] *= ((double) 1.0 + q.contact_events[i]->contact_epsilon);
+  for (unsigned i=0, j=q.CN_IDX; i< q.N_ACT_CONTACTS; i++, j++)
+    _z[j] *= ((double) 1.0 + q.contact_events[i]->contact_epsilon);
 
   // apply (Poisson) restitution to limits
-  for (unsigned i=0; i< N_LIMITS; i++)
-    _z[CL_IDX+i] *= ((double) 1.0 + q.limit_events[i]->limit_epsilon);
+  for (unsigned i=0, j=q.L_IDX; i< N_LIMITS; i++, j++)
+    _z[j] *= ((double) 1.0 + q.limit_events[i]->limit_epsilon);
 
   // save impulses in q
   q.update_from_stacked_nqp(_z);
@@ -169,6 +193,9 @@ void ImpactEventHandler::solve_nqp(EventProblemData& q, double poisson_eps)
 }
 
 /// Solves the nonlinearly constrained quadratic program (does all of the work)
+/**
+ * \param x the solution is returned here; zeros will be returned at appropriate indices for inactive contacts
+ */
 void ImpactEventHandler::solve_nqp_work(EventProblemData& q, VectorNd& x)
 {
   const double INF = std::numeric_limits<double>::max();

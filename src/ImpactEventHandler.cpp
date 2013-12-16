@@ -194,7 +194,7 @@ void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& eve
   if (use_qp_solver(_epd))
     solve_qp(z, epd, poisson_eps, max_time);
   else
-    solve_nqp(epd, poisson_eps);
+    solve_nqp(z, epd, poisson_eps, max_time);
 
   // apply impulses 
   apply_impulses(epd);
@@ -393,8 +393,9 @@ void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& eve
   }
   else
   {
+    solve_lcp(_epd, z);
     _epd.set_nqp_indices();
-    solve_nqp(_epd, poisson_eps);
+    solve_nqp(z, _epd, poisson_eps);
   }
   #else
   solve_lcp(_epd, z);
