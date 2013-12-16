@@ -33,6 +33,9 @@ struct EventProblemData
     N_CONTACTS = q.N_CONTACTS;
     N_CONSTRAINTS = q.N_CONSTRAINTS;
     N_CONSTRAINT_EQNS_IMP = q.N_CONSTRAINT_EQNS_IMP;
+    N_ACT_K = q.N_ACT_K;
+    N_ACT_CONTACTS = q.N_ACT_CONTACTS;
+    N_MIN_CONTACTS = q.N_MIN_CONTACTS;
     kappa = q.kappa;
 
     // copy indices
@@ -95,6 +98,7 @@ struct EventProblemData
   {
     N_K_TOTAL = N_LIN_CONE = N_TRUE_CONE = N_CONTACTS = 0;
     N_CONSTRAINTS = N_CONSTRAINT_EQNS_IMP = 0;
+    N_ACT_K = N_ACT_CONTACTS = N_MIN_CONTACTS = 0;
     kappa = 0.0;
 
     // clear all indices
@@ -297,6 +301,9 @@ struct EventProblemData
 
   // the number of contacts (total)
   unsigned N_CONTACTS;
+
+  // minimum number of contacts
+  unsigned N_MIN_CONTACTS;
 
   // the number of contacts (active)
   unsigned N_ACT_CONTACTS;
