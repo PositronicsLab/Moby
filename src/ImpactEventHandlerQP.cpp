@@ -190,97 +190,6 @@ void ImpactEventHandler::solve_qp(const VectorNd& zf, EventProblemData& q, doubl
   }
 }
 
-/// Updates the solution by adding a contact
-/**
- * TODO: prepare to delete this
-void ImpactEventHandler::update_solution(const EventProblemData& q, const VectorNd& x, const vector<bool>& old_working_set, unsigned jidx, VectorNd& z)
-{
-  unsigned start, end;
-
-  // setup NEW constants
-  const unsigned N_VARS = q.N_LIMITS + q.L_IDX;
-  const unsigned NP_IDX = N_VARS;
-  const unsigned MU_IDX = NP_IDX + q.N_CONTACTS + q.N_LIMITS; 
-
-  // setup old constants
-  const unsigned OLD_N_CONTACTS = q.N_CONTACTS - 1;
-  const unsigned OLD_CN_IDX = 0;
-  const unsigned OLD_CS_IDX = OLD_N_CONTACTS;
-  const unsigned OLD_CT_IDX = OLD_N_CONTACTS + OLD_CS_IDX;
-  const unsigned OLD_NCS_IDX = OLD_N_CONTACTS + OLD_CT_IDX;
-  const unsigned OLD_NCT_IDX = OLD_N_CONTACTS + OLD_NCS_IDX;
-  const unsigned OLD_L_IDX = OLD_N_CONTACTS + OLD_NCT_IDX;
-  const unsigned OLD_N_VARS = q.N_LIMITS + OLD_L_IDX;
-  const unsigned OLD_NP_IDX = OLD_N_VARS;
-  const unsigned OLD_MU_IDX = OLD_NP_IDX + OLD_N_CONTACTS + q.N_LIMITS; 
-
-  // determine NK indices 
-  unsigned OLD_MU_JIDX = OLD_MU_IDX;
-  unsigned J_NK = 0;
-  for (unsigned i=0, j=0; i< q.N_CONTACTS; i++)
-  {
-    if (!old_working_set[i])
-      continue;
-    if (j++ == jidx)
-    {
-      J_NK += q.contact_events[i]->contact_NK/2; 
-      break;
-    }
-    OLD_MU_JIDX += q.contact_events[i]->contact_NK/2;
-  }
-
-  // initialize z -- x is the old solution to the LCP
-  // NOTE: each contact adds six variables plus friction directions
-  z.set_zero(x.size() + 6 + J_NK);
-
-  // setup normal contact variables
-  z.segment(q.CN_IDX, q.CN_IDX+jidx) = x.segment(OLD_CN_IDX, OLD_CN_IDX+jidx);
-  start = q.CN_IDX + jidx + 1;
-  end = start + OLD_CS_IDX - OLD_CN_IDX - jidx;
-  z.segment(start, end) = x.segment(OLD_CN_IDX+jidx, OLD_CS_IDX); 
-
-  // setup positive first direction tangent contact variables
-  z.segment(q.CS_IDX, q.CS_IDX+jidx) = x.segment(OLD_CS_IDX, OLD_CS_IDX+jidx);
-  start = q.CS_IDX+jidx+1;
-  end = start + OLD_CT_IDX - OLD_CS_IDX - jidx;
-  z.segment(start, end) = x.segment(OLD_CS_IDX+jidx, OLD_CT_IDX);
-
-  // setup positive second direction tangent contact variables
-  z.segment(q.CT_IDX, q.CT_IDX+jidx) = x.segment(OLD_CT_IDX, OLD_CT_IDX+jidx);
-  start = q.CT_IDX+jidx+1;
-  end = start + OLD_NCS_IDX - OLD_CT_IDX - jidx;
-  z.segment(start, end) = x.segment(OLD_CT_IDX+jidx, OLD_NCS_IDX);
-
-  // setup negative first direction tangent contact variables
-  z.segment(q.NCS_IDX, q.NCS_IDX+jidx) = x.segment(OLD_NCS_IDX, OLD_NCS_IDX+jidx);
-  start = q.NCS_IDX+jidx+1;
-  end = start + OLD_NCT_IDX - OLD_NCS_IDX - jidx;
-  z.segment(start, end) = x.segment(OLD_NCS_IDX+jidx, OLD_NCT_IDX);
-
-  // setup negative second direction tangent contact variables AND
-  // all other variables
-  z.segment(q.NCT_IDX, q.NCT_IDX+jidx) = x.segment(OLD_NCT_IDX, OLD_NCT_IDX+jidx);
-  start = q.NCT_IDX+jidx+1;
-  end = start + OLD_NP_IDX - OLD_NCT_IDX - jidx;
-  z.segment(start, end) = x.segment(OLD_NCT_IDX+jidx, OLD_N_VARS);
-
-  // setup constraint equation variables
-  // constraint ordering: noninterpenetration, joint limits, 
-  // contact friction
-  // 1. noninterpenetration and joint limit constraints
-  z.segment(NP_IDX, NP_IDX+jidx) = x.segment(OLD_NP_IDX, OLD_NP_IDX+jidx);
-  start = NP_IDX+jidx+1;
-  end = start + OLD_MU_IDX - OLD_NP_IDX - jidx;
-  z.segment(start, end) = x.segment(OLD_NP_IDX+jidx, OLD_MU_IDX);
-
-  // 2. contact friction constraints
-  z.segment(MU_IDX, MU_IDX+OLD_MU_JIDX-OLD_MU_IDX) = x.segment(OLD_MU_IDX, OLD_MU_JIDX);  
-  start = MU_IDX+OLD_MU_JIDX-OLD_MU_IDX+J_NK;
-  end = start + x.size() - OLD_MU_JIDX;
-  z.segment(start, end) = x.segment(OLD_MU_JIDX, x.size());
-}
-*/
-
 /// Computes the kinetic energy of the system using the current impulse set 
 double ImpactEventHandler::calc_ke(EventProblemData& q, const VectorNd& z)
 {
@@ -338,7 +247,8 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
   FILE_LOG(LOG_EVENT) << "  Ct * v: " << q.Ct_v << std::endl;
   FILE_LOG(LOG_EVENT) << "  L * v: " << q.L_v << std::endl;
 
-  // determine number of active variables
+  // get useful constants
+  const unsigned N_MIN_CONTACTS = q.N_MIN_CONTACTS; 
   const unsigned N_ACT_CONTACTS = q.N_ACT_CONTACTS;
 
   // setup new indices
@@ -351,7 +261,7 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
   const unsigned N_ACT_VARS = xL_IDX + q.N_LIMITS;
 
   // init the QP matrix and vector
-  const unsigned N_INEQUAL = q.N_ACT_CONTACTS + q.N_ACT_K + q.N_LIMITS + 1;
+  const unsigned N_INEQUAL = q.N_MIN_CONTACTS + q.N_ACT_K + q.N_LIMITS + 1;
   _MM.set_zero(N_ACT_VARS + N_INEQUAL, N_ACT_VARS + N_INEQUAL);
   _qq.resize(_MM.rows());
 
@@ -375,7 +285,7 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
   SharedMatrixNd Cn_iM_NCtT = H.block(row_start, row_end, col_start, col_end);
   col_start = col_end; col_end += q.N_LIMITS;
   SharedMatrixNd Cn_iM_LT = H.block(row_start, row_end, col_start, col_end);
-  SharedMatrixNd Cn_block = H.block(row_start, row_end, 0, col_end);
+  SharedMatrixNd Cn_block = H.block(row_start, N_MIN_CONTACTS, 0, col_end);
 
   // setup row (block) 2 -- Cs * iM * [Cn' Cs' Ct' -Cs' -Ct' L' Jx']
   row_start = row_end; row_end += q.N_ACT_CONTACTS;
@@ -473,6 +383,7 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
 
   // get shared vectors to components of c
   SharedVectorNd Cn_v = c.segment(xCN_IDX, xCS_IDX);
+  SharedVectorNd min_Cn_v = c.segment(xCN_IDX, q.N_MIN_CONTACTS);
   SharedVectorNd Cs_v = c.segment(xCS_IDX, xCT_IDX);
   SharedVectorNd Ct_v = c.segment(xCT_IDX, xNCS_IDX);
   SharedVectorNd nCs_v = c.segment(xNCS_IDX, xNCT_IDX);
@@ -490,11 +401,11 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
   // ------- setup A/-b -------
   // setup the Cn*v+ >= 0 constraint
   // Cn*(inv(M)*impulses + v) >= 0, Cn*inv(M)*impulses >= -Cn*v
-  FILE_LOG(LOG_EVENT) << "Cn block: " << std::endl << Cn_block;
-  row_start = 0; row_end = q.N_ACT_CONTACTS;
+  FILE_LOG(LOG_EVENT) << "Cn block (minimum contacts): " << std::endl << Cn_block;
+  row_start = 0; row_end = q.N_MIN_CONTACTS;
   A.block(row_start, row_end, xCN_IDX, N_ACT_VARS) = Cn_block;
   FILE_LOG(LOG_EVENT) << "A: " << std::endl << A;
-  nb.set_sub_vec(row_start, Cn_v);
+  nb.set_sub_vec(row_start, min_Cn_v);
   row_start = row_end; row_end += q.N_LIMITS;  
 
   // setup the L*v+ >= 0 constraint
@@ -534,7 +445,7 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
     SharedConstVectorNd Cn_col = Cn_block.column(i);
     A(row_start, i) = -std::accumulate(Cn_col.begin(), Cn_col.end(), 0.0);
   }
-  nb[row_start] = -std::accumulate(q.Cn_v.row_iterator_begin(), q.Cn_v.row_iterator_end(), 0.0) + q.kappa;
+  nb[row_start] = -std::accumulate(min_Cn_v.row_iterator_begin(), min_Cn_v.row_iterator_end(), 0.0) + q.kappa;
 
   // set A = -A'
   SharedMatrixNd AT = _MM.block(0, N_ACT_VARS, N_ACT_VARS, _MM.rows());
@@ -590,16 +501,16 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
     z.set_sub_vec(xL_IDX, l_last);
 
     // populate Cn*v+ >= 0 constraint multipliers
-    SharedVectorNd c1_last = _zlast.segment(N_LACT_VARS, N_LACT_VARS+N_LACT_CONTACTS);
+    SharedVectorNd c1_last = _zlast.segment(N_LACT_VARS, N_LACT_VARS+N_MIN_CONTACTS);
     z.set_sub_vec(N_ACT_VARS, c1_last);
 
     // populate L*v+ >= 0 constraint multipliers
     SharedVectorNd c2_last = _zlast.segment(N_LACT_VARS+N_LACT_CONTACTS, N_LACT_VARS+N_LACT_CONTACTS+q.N_LIMITS);
-    z.set_sub_vec(N_ACT_VARS+N_ACT_CONTACTS, c2_last);
+    z.set_sub_vec(N_ACT_VARS+N_MIN_CONTACTS, c2_last);
 
     // populate friction coefficient constraint multipliers
     SharedVectorNd c3_last = _zlast.segment(N_LACT_VARS+N_LACT_CONTACTS+q.N_LIMITS, _zlast.rows());
-    z.set_sub_vec(N_ACT_VARS+N_ACT_CONTACTS+q.N_LIMITS, c3_last);
+    z.set_sub_vec(N_ACT_VARS+N_MIN_CONTACTS+q.N_LIMITS, c3_last);
   }
 
   // solve the LCP using Lemke's algorithm
@@ -641,80 +552,4 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
   FILE_LOG(LOG_EVENT) << "ImpactEventHandler::solve_qp_work() exited" << std::endl;
 }
 
-/// Updates problem matrices and vectors based on the working set
-/**
- * TODO: prepare to remove this function
- */
-/*
-void ImpactEventHandler::update_problem(const EventProblemData& q, EventProblemData& qworking)
-{
-  static vector<unsigned> indices;
-  const unsigned UINF = std::numeric_limits<unsigned>::max();
-
-  // determine how many contacts we have
-  const vector<bool>& working_set = qworking.contact_working_set;
-  qworking.N_CONTACTS = std::count(working_set.begin(), working_set.end(), true);
-
-  // fix vector of contact events
-  qworking.contact_events.clear();
-  for (unsigned i=0; i< q.contact_events.size(); i++)
-    if (working_set[i])
-      qworking.contact_events.push_back(q.contact_events[i]);
-  assert(qworking.contact_events.size() == qworking.N_CONTACTS);
-
-  // determine which contact constraints use a true friction cone
-  qworking.N_K_TOTAL = 0;
-  qworking.N_LIN_CONE = 0;
-  for (unsigned i=0; i< qworking.contact_events.size(); i++)
-    if (qworking.contact_events[i]->contact_NK < UINF)
-    {
-      qworking.N_K_TOTAL += qworking.contact_events[i]->contact_NK/2;
-      qworking.N_LIN_CONE++;
-    }
-
-  // setup indices set
-  indices.clear();
-  for (unsigned i=0, j=0; i< working_set.size(); i++, j+=2)
-    if (working_set[i])
-      indices.push_back(i);
-
-  // resize impulse vectors
-  qworking.cn.set_zero(qworking.N_CONTACTS);
-  qworking.cs.set_zero(qworking.N_CONTACTS);
-  qworking.ct.set_zero(qworking.N_CONTACTS);
-
-  // update indices
-  qworking.CN_IDX = 0;
-  qworking.CS_IDX = qworking.CN_IDX + qworking.N_CONTACTS;
-  qworking.CT_IDX = qworking.CS_IDX + qworking.N_CONTACTS;
-  qworking.NCS_IDX = qworking.CT_IDX + qworking.N_CONTACTS;
-  qworking.NCT_IDX = qworking.NCS_IDX + qworking.N_LIN_CONE;
-  qworking.L_IDX = qworking.NCT_IDX + qworking.N_LIN_CONE;
-  qworking.ALPHA_X_IDX = qworking.L_IDX + qworking.N_LIMITS;
-  qworking.N_VARS = qworking.ALPHA_X_IDX + qworking.N_CONSTRAINT_EQNS_IMP;
-
-  // select appropriate parts of vectors 
-  q.Cn_v.select(indices.begin(), indices.end(), qworking.Cn_v);
-  q.Cs_v.select(indices.begin(), indices.end(), qworking.Cs_v);
-  q.Ct_v.select(indices.begin(), indices.end(), qworking.Ct_v);
-
-  // select appropriate parts of Cn matrices 
-  q.Cn_iM_CnT.select_square(indices.begin(), indices.end(), qworking.Cn_iM_CnT);
-  q.Cn_iM_CsT.select_square(indices.begin(), indices.end(), qworking.Cn_iM_CsT);
-  q.Cn_iM_CtT.select_square(indices.begin(), indices.end(), qworking.Cn_iM_CtT);
-  q.Cn_iM_LT.select_rows(indices.begin(), indices.end(), qworking.Cn_iM_LT);
-  q.Cn_iM_JxT.select_rows(indices.begin(), indices.end(), qworking.Cn_iM_JxT);
-
-  // select appropriate parts of Cs matrices
-  q.Cs_iM_CsT.select_square(indices.begin(), indices.end(), qworking.Cs_iM_CsT);
-  q.Cs_iM_CtT.select_square(indices.begin(), indices.end(), qworking.Cs_iM_CtT);
-  q.Cs_iM_LT.select_rows(indices.begin(), indices.end(), qworking.Cs_iM_LT);
-  q.Cs_iM_JxT.select_rows(indices.begin(), indices.end(), qworking.Cs_iM_JxT);
-
-  // select appropriate parts of Ct matrices
-  q.Ct_iM_CtT.select_square(indices.begin(), indices.end(), qworking.Ct_iM_CtT);
-  q.Ct_iM_LT.select_rows(indices.begin(), indices.end(), qworking.Ct_iM_LT);
-  q.Ct_iM_JxT.select_rows(indices.begin(), indices.end(), qworking.Ct_iM_JxT);
-}
-*/
 

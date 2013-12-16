@@ -222,23 +222,25 @@ void ImpactEventHandler::permute_problem(EventProblemData& epd, VectorNd& z)
   // determine mapping of old contact event indices to new contact event
   // indices
   std::vector<unsigned> mapping(epd.N_CONTACTS);
+
   // 1. compute active indices
-  epd.N_ACT_CONTACTS = 0;
+  epd.N_ACT_CONTACTS = epd.N_MIN_CONTACTS = 0;
   for (unsigned i=0; i< epd.N_CONTACTS; i++)
     if (z[i] > NEAR_ZERO)
-      mapping[epd.N_ACT_CONTACTS++] = i;
+      mapping[epd.N_MIN_CONTACTS++] = i;
+
   // 2. compute inactive indices
-  for (unsigned i=0, j=epd.N_ACT_CONTACTS; i< epd.N_CONTACTS; i++)
+  for (unsigned i=0, j=epd.N_MIN_CONTACTS; i< epd.N_CONTACTS; i++)
     if (z[i] < NEAR_ZERO)
       mapping[j++] = i;
 
   // permute inactive indices
-  std::random_shuffle(mapping.begin()+epd.N_ACT_CONTACTS, mapping.end());  
+  std::random_shuffle(mapping.begin()+epd.N_MIN_CONTACTS, mapping.end());  
 
   // set solution vector to reflect indices in active set
-  for (unsigned i=0; i< epd.N_ACT_CONTACTS; i++)
+  for (unsigned i=0; i< epd.N_MIN_CONTACTS; i++)
     z[i] = z[mapping[i]];
-  std::fill(z.row_iterator_begin()+epd.N_ACT_CONTACTS, z.row_iterator_begin()+epd.N_CONTACTS, 0.0);
+  std::fill(z.row_iterator_begin()+epd.N_MIN_CONTACTS, z.row_iterator_begin()+epd.N_CONTACTS, 0.0);
 
   // permute contact events
   std::vector<Event*> new_contact_events(epd.contact_events.size());
@@ -337,10 +339,13 @@ void ImpactEventHandler::permute_problem(EventProblemData& epd, VectorNd& z)
 
   // set active contact indices
   epd.active_contacts.resize(epd.N_CONTACTS);
-  for (unsigned i=0; i< epd.N_ACT_CONTACTS; i++)
+  for (unsigned i=0; i< epd.N_MIN_CONTACTS; i++)
     epd.active_contacts[i] = true;
-  for (unsigned i=epd.N_ACT_CONTACTS; i< epd.N_CONTACTS; i++)
+  for (unsigned i=epd.N_MIN_CONTACTS; i< epd.N_CONTACTS; i++)
     epd.active_contacts[i] = false;
+
+  // setup active contacts
+  epd.N_ACT_CONTACTS = epd.N_MIN_CONTACTS;
 }
 
 /**
@@ -378,7 +383,7 @@ void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& eve
   }
 
   // mark all contacts as active
-  _epd.N_ACT_CONTACTS = _epd.N_CONTACTS;
+  _epd.N_ACT_CONTACTS = _epd.N_MIN_CONTACTS = _epd.N_CONTACTS;
   _epd.N_ACT_K = _epd.N_K_TOTAL;
 
   // determine what type of QP solver to use

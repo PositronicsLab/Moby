@@ -267,6 +267,9 @@ void ImpactEventHandler::solve_nqp_work(EventProblemData& q, VectorNd& x)
     // clear the nullspace 
     R.resize(0,0);
 
+  // get minimum number of contacts
+  const unsigned N_MIN_CONTACTS = q.N_MIN_CONTACTS;
+
   // get number of qp variables
   const unsigned N_PRIMAL = (R.columns() > 0) ? R.columns() : NVARS;
 
@@ -287,7 +290,7 @@ void ImpactEventHandler::solve_nqp_work(EventProblemData& q, VectorNd& x)
   SharedMatrixNd Cn_iM_CtT = H.block(row_start, row_end, col_start, col_end);
   col_start = col_end; col_end += N_LIMITS;
   SharedMatrixNd Cn_iM_LT = H.block(row_start, row_end, col_start, col_end);
-  SharedMatrixNd Cn_block = H.block(row_start, row_end, 0, col_end);
+  SharedMatrixNd Cn_block = H.block(row_start, N_MIN_CONTACTS, 0, col_end);
 
   // setup row (block) 2 -- Cs * iM * [Cn' Cs' Ct' L']
   row_start = row_end; row_end += N_CONTACTS;
@@ -352,6 +355,7 @@ void ImpactEventHandler::solve_nqp_work(EventProblemData& q, VectorNd& x)
   SharedVectorNd Cs_v = c.segment(N_CONTACTS, N_CONTACTS*2); 
   SharedVectorNd Ct_v = c.segment(N_CONTACTS*2, N_CONTACTS*3); 
   SharedVectorNd L_v = c.segment(N_CONTACTS*3, N_CONTACTS*3+N_LIMITS); 
+  SharedVectorNd min_Cn_v = c.segment(0, N_MIN_CONTACTS);
 
   // setup c 
   q.Cn_v.get_sub_vec(0, N_CONTACTS, Cn_v);
@@ -365,13 +369,15 @@ void ImpactEventHandler::solve_nqp_work(EventProblemData& q, VectorNd& x)
   const unsigned KAPPA = 1;
 
   // determine number of linear inequality constraints
-  const unsigned N_INEQUAL = N_CONTACTS + N_LIMITS + KAPPA;
+  const unsigned N_INEQUAL = N_MIN_CONTACTS + N_LIMITS + KAPPA;
 
   // verify that Cn_block, L_block can be reset
   _ipsolver->Cn_block.reset();
   _ipsolver->L_block.reset();
+  _ipsolver->min_Cn_v.reset();
   _ipsolver->Cn_block = Cn_block;
   _ipsolver->L_block = L_block;
+  _ipsolver->min_Cn_v = min_Cn_v;
 
   // setup optimizations in nullspace (if necessary)
   if (R.columns() > 0)
