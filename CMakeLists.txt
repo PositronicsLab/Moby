@@ -9,7 +9,7 @@ set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/CMakeModules)
 include_directories ("include")
 
 # setup library sources
-set (SOURCES AABB.cpp ArticulatedBody.cpp Base.cpp BoundingSphere.cpp BoxPrimitive.cpp BV.cpp CollisionDetection.cpp CollisionGeometry.cpp CompGeom.cpp ConePrimitive.cpp ContactParameters.cpp CRBAlgorithm.cpp CSG.cpp CylinderPrimitive.cpp DampingForce.cpp DynamicBody.cpp Event.cpp EventDrivenSimulator.cpp FixedJoint.cpp FSABAlgorithm.cpp GaussianMixture.cpp GeneralizedCCD.cpp GravityForce.cpp ImpactEventHandler.cpp ImpactEventHandlerQP.cpp ImpactEventHandlerNQP.cpp IndexedTetraArray.cpp IndexedTriArray.cpp Integrator.cpp Joint.cpp LCP.cpp LCP_IPOPT.cpp Log.cpp NQP_IPOPT.cpp OBB.cpp OSGGroupWrapper.cpp Polyhedron.cpp Primitive.cpp PrismaticJoint.cpp RCArticulatedBody.cpp RestingContactHandler.cpp RevoluteJoint.cpp RigidBody.cpp RNEAlgorithm.cpp Simulator.cpp SingleBody.cpp StokesDragForce.cpp Spatial.cpp SpherePrimitive.cpp SphericalJoint.cpp SSL.cpp SSR.cpp Tetrahedron.cpp ThickTriangle.cpp TriangleMeshPrimitive.cpp Triangle.cpp UniversalJoint.cpp URDFReader.cpp Visualizable.cpp XMLTree.cpp XMLWriter.cpp XMLReader.cpp)
+set (SOURCES AABB.cpp ArticulatedBody.cpp Base.cpp BoundingSphere.cpp BoxPrimitive.cpp BV.cpp CollisionDetection.cpp CollisionGeometry.cpp CompGeom.cpp ConePrimitive.cpp ContactParameters.cpp CRBAlgorithm.cpp CSG.cpp CylinderPrimitive.cpp DampingForce.cpp DynamicBody.cpp Event.cpp EventDrivenSimulator.cpp FixedJoint.cpp FSABAlgorithm.cpp GaussianMixture.cpp GeneralizedCCD.cpp GravityForce.cpp ImpactEventHandler.cpp ImpactEventHandlerQP.cpp ImpactEventHandlerNQP.cpp IndexedTetraArray.cpp IndexedTriArray.cpp Integrator.cpp Joint.cpp LCP.cpp Log.cpp OBB.cpp OSGGroupWrapper.cpp Polyhedron.cpp Primitive.cpp PrismaticJoint.cpp RCArticulatedBody.cpp RestingContactHandler.cpp RevoluteJoint.cpp RigidBody.cpp RNEAlgorithm.cpp Simulator.cpp SingleBody.cpp StokesDragForce.cpp Spatial.cpp SpherePrimitive.cpp SphericalJoint.cpp SSL.cpp SSR.cpp Tetrahedron.cpp ThickTriangle.cpp TriangleMeshPrimitive.cpp Triangle.cpp UniversalJoint.cpp URDFReader.cpp Visualizable.cpp XMLTree.cpp XMLWriter.cpp XMLReader.cpp)
 #set (SOURCES MCArticulatedBody.cpp)
 
 # build options 
@@ -73,6 +73,7 @@ if (IPOPT_FOUND)
 #  find_library(GFORTRAN gfortran /usr/local/lib /usr/lib)
 #  set (EXTRA_LIBS ${EXTRA_LIBS} ${IPOPT_MUMPS} ${IPOPT_METIS} ${GFORTRAN})
   set (EXTRA_LIBS ${EXTRA_LIBS} ${IPOPT} ${IPOPT_MUMPS} ${IPOPT_METIS})
+  set (SOURCES ${SOURCES} LCP_IPOPT.cpp NQP_IPOPT.cpp)
 endif (IPOPT_FOUND)
 
 # setup OSG includes and additional sources

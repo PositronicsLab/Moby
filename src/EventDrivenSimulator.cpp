@@ -79,6 +79,15 @@ shared_ptr<ContactParameters> EventDrivenSimulator::get_contact_parameters(Colli
 {
   map<sorted_pair<BasePtr>, shared_ptr<ContactParameters> >::const_iterator iter;
 
+  // first see whether a user function for contact parameters is defined,
+  // and if it is defined, attempt to get contact parameters from it
+  if (get_contact_parameters_callback_fn)
+  {
+    shared_ptr<ContactParameters> cp = get_contact_parameters_callback_fn(geom1, geom2);
+    if (cp)
+      return cp;
+  }
+
   // search for the two contact geometries first
   if ((iter = contact_params.find(make_sorted_pair(geom1, geom2))) != contact_params.end())
     return iter->second;
