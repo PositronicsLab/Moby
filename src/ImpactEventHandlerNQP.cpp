@@ -36,6 +36,17 @@ using std::pair;
 using std::min_element;
 using boost::dynamic_pointer_cast;
 
+/// Special functions that do nothing...
+#ifndef HAVE_IPOPT
+void ImpactEventHandler::solve_nqp(const VectorNd& zf, EventProblemData& q, double poisson_eps, double max_time)
+{
+}
+
+void ImpactEventHandler::solve_nqp_work(EventProblemData& q, VectorNd& x)
+{
+}
+
+#else // #ifndef HAVE_IPOPT
 /// Solves the nonlinearly constrained quadratic program (potentially solves two nQPs, actually)
 void ImpactEventHandler::solve_nqp(const VectorNd& zf, EventProblemData& q, double poisson_eps, double max_time)
 {
@@ -429,5 +440,5 @@ void ImpactEventHandler::solve_nqp_work(EventProblemData& q, VectorNd& x)
   FILE_LOG(LOG_EVENT) << "nonlinear QP solution: " << x << std::endl; 
   FILE_LOG(LOG_EVENT) << "ImpactEventHandler::solve_nqp() exited" << std::endl;
 }
-
+#endif // #ifndef HAVE_IPOPT
 

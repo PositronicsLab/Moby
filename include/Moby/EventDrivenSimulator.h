@@ -85,8 +85,11 @@ class EventDrivenSimulator : public Simulator
     /// Gets the shared pointer for this
     boost::shared_ptr<EventDrivenSimulator> get_this() { return boost::dynamic_pointer_cast<EventDrivenSimulator>(shared_from_this()); }
     
-   /// The collision detection mechanisms
+    /// The collision detection mechanisms
     std::list<boost::shared_ptr<CollisionDetection> > collision_detectors;
+
+    /// Callback function for getting contact parameters
+    boost::shared_ptr<ContactParameters> (*get_contact_parameters_callback_fn)(CollisionGeometryPtr g1, CollisionGeometryPtr g2);
 
     /// Callback function after a mini-step is completed
     void (*post_mini_step_callback_fn)(EventDrivenSimulator* s);
