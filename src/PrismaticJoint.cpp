@@ -68,7 +68,7 @@ PrismaticJoint::PrismaticJoint(boost::weak_ptr<RigidBody> inboard, boost::weak_p
 void PrismaticJoint::set_axis(const Vector3d& axis) 
 {
   // check that axis is ok 
-  if (std::fabs(axis.norm() - (double) 1.0) < NEAR_ZERO)
+  if (std::fabs(axis.norm() - (double) 1.0) > NEAR_ZERO)
     throw UndefinedAxisException(); 
  
   // normalize the axis, in case caller did not 

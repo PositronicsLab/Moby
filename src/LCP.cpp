@@ -40,6 +40,7 @@ LCP::LCP()
 bool LCP::lcp_fast(const MatrixNd& M, const VectorNd& q, VectorNd& z, double zero_tol)
 {
   const unsigned N = q.rows();
+  const unsigned UINF = std::numeric_limits<unsigned>::max();
 
   // look for trivial solution
   if (N == 0)
@@ -85,10 +86,10 @@ bool LCP::lcp_fast(const MatrixNd& M, const VectorNd& q, VectorNd& z, double zer
 
     // compute w and find minimum value
     _Mmix.mult(_z, _w) += _qbas;
-    minw = rand_min(_w, zero_tol);
+    minw = (_w.rows() > 0) ? rand_min(_w, zero_tol) : UINF;
 
     // if w >= 0, check whether any component of z < 0
-    if (_w[minw] > -zero_tol)
+    if (minw == UINF || _w[minw] > -zero_tol)
     {
       // find the (a) minimum of z
       unsigned minz = rand_min(_z, zero_tol); 
