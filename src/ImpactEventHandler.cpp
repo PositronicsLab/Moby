@@ -149,29 +149,28 @@ void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& eve
 {
   double ke_minus = 0.0, ke_plus = 0.0;
   const unsigned UINF = std::numeric_limits<unsigned>::max();
-  SAFESTATIC EventProblemData epd;
 
   FILE_LOG(LOG_EVENT) << "ImpactEventHandler::apply_model_to_connected_events() entered" << endl;
 
   // reset problem data
-  epd.reset();
+  _epd.reset();
 
   // save the events
-  epd.events = vector<Event*>(events.begin(), events.end());
+  _epd.events = vector<Event*>(events.begin(), events.end());
 
   // determine sets of contact and limit events
-  epd.partition_events();
+  _epd.partition_events();
 
   // compute all event cross-terms
-  compute_problem_data(epd);
+  compute_problem_data(_epd);
 
   // compute energy
   if (LOGGING(LOG_EVENT))
   {
-    for (unsigned i=0; i< epd.super_bodies.size(); i++)
+    for (unsigned i=0; i< _epd.super_bodies.size(); i++)
     {
-      double ke = epd.super_bodies[i]->calc_kinetic_energy();
-      FILE_LOG(LOG_EVENT) << "  body " << epd.super_bodies[i]->id << " pre-event handling KE: " << ke << endl;
+      double ke = _epd.super_bodies[i]->calc_kinetic_energy();
+      FILE_LOG(LOG_EVENT) << "  body " << _epd.super_bodies[i]->id << " pre-event handling KE: " << ke << endl;
       ke_minus += ke;
     }
   }
@@ -179,33 +178,33 @@ void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& eve
   // solve the (non-frictional) linear complementarity problem to determine
   // the kappa constant
   VectorNd z;
-  solve_lcp(epd, z);
+  solve_lcp(_epd, z);
 
   // update event problem data and z
-  permute_problem(epd, z);
+  permute_problem(_epd, z);
 
   // determine N_ACT_K
-  epd.N_ACT_K = 0;
-  for (unsigned i=0; i< epd.N_ACT_CONTACTS; i++)
-    if (epd.contact_events[i]->contact_NK < UINF)
-      epd.N_ACT_K += epd.contact_events[i]->contact_NK/2;
+  _epd.N_ACT_K = 0;
+  for (unsigned i=0; i< _epd.N_ACT_CONTACTS; i++)
+    if (_epd.contact_events[i]->contact_NK < UINF)
+      _epd.N_ACT_K += _epd.contact_events[i]->contact_NK/2;
 
   // use QP / NQP solver with warm starting to find the solution
   if (use_qp_solver(_epd))
-    solve_qp(z, epd, poisson_eps, max_time);
+    solve_qp(z, _epd, poisson_eps, max_time);
   else
-    solve_nqp(z, epd, poisson_eps, max_time);
+    solve_nqp(z, _epd, poisson_eps, max_time);
 
   // apply impulses 
-  apply_impulses(epd);
+  apply_impulses(_epd);
 
   // compute energy
   if (LOGGING(LOG_EVENT))
   {
-    for (unsigned i=0; i< epd.super_bodies.size(); i++)
+    for (unsigned i=0; i< _epd.super_bodies.size(); i++)
     {
-      double ke = epd.super_bodies[i]->calc_kinetic_energy();
-      FILE_LOG(LOG_EVENT) << "  body " << epd.super_bodies[i]->id << " post-event handling KE: " << ke << endl;
+      double ke = _epd.super_bodies[i]->calc_kinetic_energy();
+      FILE_LOG(LOG_EVENT) << "  body " << _epd.super_bodies[i]->id << " post-event handling KE: " << ke << endl;
       ke_plus += ke;
     }
     if (ke_plus > ke_minus)
@@ -213,7 +212,6 @@ void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& eve
   }
 
   FILE_LOG(LOG_EVENT) << "ImpactEventHandler::apply_model_to_connected_events() exiting" << endl;
-
 }
 
 /// Permutes the problem to reflect active contact events
@@ -224,23 +222,23 @@ void ImpactEventHandler::permute_problem(EventProblemData& epd, VectorNd& z)
   std::vector<unsigned> mapping(epd.N_CONTACTS);
 
   // 1. compute active indices
-  epd.N_ACT_CONTACTS = epd.N_MIN_CONTACTS = 0;
+  epd.N_ACT_CONTACTS = 0;
   for (unsigned i=0; i< epd.N_CONTACTS; i++)
     if (z[i] > NEAR_ZERO)
-      mapping[epd.N_MIN_CONTACTS++] = i;
+      mapping[epd.N_ACT_CONTACTS++] = i;
 
   // 2. compute inactive indices
-  for (unsigned i=0, j=epd.N_MIN_CONTACTS; i< epd.N_CONTACTS; i++)
+  for (unsigned i=0, j=epd.N_ACT_CONTACTS; i< epd.N_CONTACTS; i++)
     if (z[i] < NEAR_ZERO)
       mapping[j++] = i;
 
   // permute inactive indices
-  std::random_shuffle(mapping.begin()+epd.N_MIN_CONTACTS, mapping.end());  
+  std::random_shuffle(mapping.begin()+epd.N_ACT_CONTACTS, mapping.end());  
 
   // set solution vector to reflect indices in active set
-  for (unsigned i=0; i< epd.N_MIN_CONTACTS; i++)
+  for (unsigned i=0; i< epd.N_ACT_CONTACTS; i++)
     z[i] = z[mapping[i]];
-  std::fill(z.row_iterator_begin()+epd.N_MIN_CONTACTS, z.row_iterator_begin()+epd.N_CONTACTS, 0.0);
+  std::fill(z.row_iterator_begin()+epd.N_ACT_CONTACTS, z.row_iterator_begin()+epd.N_CONTACTS, 0.0);
 
   // permute contact events
   std::vector<Event*> new_contact_events(epd.contact_events.size());
@@ -339,13 +337,10 @@ void ImpactEventHandler::permute_problem(EventProblemData& epd, VectorNd& z)
 
   // set active contact indices
   epd.active_contacts.resize(epd.N_CONTACTS);
-  for (unsigned i=0; i< epd.N_MIN_CONTACTS; i++)
+  for (unsigned i=0; i< epd.N_ACT_CONTACTS; i++)
     epd.active_contacts[i] = true;
-  for (unsigned i=epd.N_MIN_CONTACTS; i< epd.N_CONTACTS; i++)
+  for (unsigned i=epd.N_ACT_CONTACTS; i< epd.N_CONTACTS; i++)
     epd.active_contacts[i] = false;
-
-  // setup active contacts
-  epd.N_ACT_CONTACTS = epd.N_MIN_CONTACTS;
 }
 
 /**
@@ -383,7 +378,7 @@ void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& eve
   }
 
   // mark all contacts as active
-  _epd.N_ACT_CONTACTS = _epd.N_MIN_CONTACTS = _epd.N_CONTACTS;
+  _epd.N_ACT_CONTACTS = _epd.N_CONTACTS;
   _epd.N_ACT_K = _epd.N_K_TOTAL;
 
   // determine what type of QP solver to use
