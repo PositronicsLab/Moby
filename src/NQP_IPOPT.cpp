@@ -36,11 +36,11 @@ NQP_IPOPT::NQP_IPOPT()
 /// User should not call this method (for IPOPT)
 bool NQP_IPOPT::get_nlp_info(Index& n, Index& m, Index& nnz_jac_g, Index& nnz_h_lag, IndexStyleEnum& index_style)   
 {
+  const unsigned N_CONTACTS = epd->N_CONTACTS;
   const unsigned N_ACT_CONTACTS = epd->N_ACT_CONTACTS;
-  const unsigned N_MIN_CONTACTS = epd->N_MIN_CONTACTS;
   const unsigned N_LIMITS = epd->N_LIMITS;
   n = N_ACT_CONTACTS*3 + N_LIMITS;
-  m = N_MIN_CONTACTS + N_ACT_CONTACTS + N_LIMITS + 1;
+  m = N_CONTACTS + N_ACT_CONTACTS + N_LIMITS + 1;
   MatrixNd t1, t2;
 
   // compute nonzeros for objective part of Hessian 
@@ -281,7 +281,7 @@ bool NQP_IPOPT::get_nlp_info(Index& n, Index& m, Index& nnz_jac_g, Index& nnz_h_
 
     // setup -1'*N constraint
     Cn_block.mult(R, _M);  
-    for (unsigned i=0; i< N_MIN_CONTACTS; i++)
+    for (unsigned i=0; i< N_CONTACTS; i++)
     {
       ColumnIteratord_const ci = _M.row(i).column_iterator_begin();
       _cJac[nv] = -std::accumulate(ci, ci.end(), 0.0);
@@ -295,7 +295,7 @@ bool NQP_IPOPT::get_nlp_info(Index& n, Index& m, Index& nnz_jac_g, Index& nnz_h_
     for (unsigned i=0; i< N_ACT_CONTACTS; i++)
       for (unsigned j=0; j< n; j++)
       {
-        _cJac_iRow[nv] = N_MIN_CONTACTS + N_LIMITS + 1 + i;
+        _cJac_iRow[nv] = N_CONTACTS + N_LIMITS + 1 + i;
         _cJac_jCol[nv] = j;
         nv++;
       }
@@ -310,10 +310,10 @@ bool NQP_IPOPT::get_nlp_info(Index& n, Index& m, Index& nnz_jac_g, Index& nnz_h_
 /// User should not call this method (for IPOPT)
 bool NQP_IPOPT::get_bounds_info(Index n, Number* x_l, Number* x_u, Index m, Number* g_l, Number* g_u)
 {
+  const unsigned N_CONTACTS = epd->N_CONTACTS;
   const double INF = std::numeric_limits<double>::max();
 
   // get info
-  const unsigned N_MIN_CONTACTS = epd->N_MIN_CONTACTS;
   const unsigned N_ACT_CONTACTS = epd->N_ACT_CONTACTS;
   const unsigned N_LIMITS = epd->N_LIMITS;
 
@@ -331,7 +331,7 @@ bool NQP_IPOPT::get_bounds_info(Index n, Number* x_l, Number* x_u, Index m, Numb
   }
 
   // set bounds on inequality constraints 
-  for (unsigned i=0; i< N_MIN_CONTACTS+N_ACT_CONTACTS+N_LIMITS+1; i++)
+  for (unsigned i=0; i< N_CONTACTS+N_ACT_CONTACTS+N_LIMITS+1; i++)
   {
     g_l[i] = 0.0;
     g_u[i] = INF;
@@ -382,8 +382,8 @@ bool NQP_IPOPT::eval_grad_f(Index n, const Number* x, bool new_x, Number* grad_f
 /// User should not call this method (for IPOPT)
 bool NQP_IPOPT::eval_g(Index n, const Number* x, bool new_x, Index m, Number* g)
 {
+  const unsigned N_CONTACTS = epd->N_CONTACTS;
   const unsigned N_ACT_CONTACTS = epd->N_ACT_CONTACTS;
-  const unsigned N_MIN_CONTACTS = epd->N_MIN_CONTACTS;
   const unsigned N_LIMITS = epd->N_LIMITS;
 
   // copy x
@@ -398,8 +398,8 @@ bool NQP_IPOPT::eval_g(Index n, const Number* x, bool new_x, Index m, Number* g)
 
   // evaluate the kappa constraint 
   Cn_block.mult(_w, _workv);
-  _workv += min_Cn_v;
-  g[N_MIN_CONTACTS+N_LIMITS] = epd->kappa - std::accumulate(_workv.begin(), _workv.end(), 0.0);
+  _workv += Cn_v;
+  g[N_CONTACTS+N_LIMITS] = epd->kappa - std::accumulate(_workv.begin(), _workv.end(), 0.0);
 
   // evaluate the non-interpenetration constraints
   std::copy(_workv.begin(), _workv.end(), g);
@@ -409,7 +409,7 @@ bool NQP_IPOPT::eval_g(Index n, const Number* x, bool new_x, Index m, Number* g)
   std::copy(_workv.begin(), _workv.end(), g+N_ACT_CONTACTS);
 
   // evaluate the Coulomb friction constraint
-  for (unsigned i=0, j=N_MIN_CONTACTS+N_LIMITS+1; i< N_ACT_CONTACTS; i++, j++)
+  for (unsigned i=0, j=N_CONTACTS+N_LIMITS+1; i< N_ACT_CONTACTS; i++, j++)
   {
     const unsigned N_IDX = i;
     const unsigned S_IDX = i+N_ACT_CONTACTS;
@@ -424,6 +424,7 @@ bool NQP_IPOPT::eval_g(Index n, const Number* x, bool new_x, Index m, Number* g)
 
 bool NQP_IPOPT::eval_jac_g(Index n, const Number* x, bool new_x, Index m, Index nele_jac, Index* iRow, Index* jCol, Number* values)
 {
+  const unsigned N_CONTACTS = epd->N_CONTACTS;
   const unsigned N_ACT_CONTACTS = epd->N_ACT_CONTACTS;
 
   // only do these computations if 'values' is non-null
@@ -504,11 +505,11 @@ void NQP_IPOPT::finalize_solution(SolverReturn status, Index n, const Number* x,
 /// The Hessian
 bool NQP_IPOPT::eval_h(Index n, const Number* x, bool new_x, Number obj_factor, Index m, const Number* lam, bool new_lambda, Index nele_hess, Index* iRow, Index* jCol, Number* values)
 {
+  const unsigned N_CONTACTS = epd->N_CONTACTS;
   const unsigned N_ACT_CONTACTS = epd->N_ACT_CONTACTS;
-  const unsigned N_MIN_CONTACTS = epd->N_MIN_CONTACTS;
   const unsigned N_LIMITS = epd->N_LIMITS;
 
-  // NOTE: lambda is of size N_MIN_CONTACTS + N_ACT_CONTACTS + N_LIMITS + 1
+  // NOTE: lambda is of size N_CONTACTS + N_ACT_CONTACTS + N_LIMITS + 1
 
   // get pointer values
   double* hobj = _h_obj.get();
@@ -524,7 +525,7 @@ bool NQP_IPOPT::eval_h(Index n, const Number* x, bool new_x, Number obj_factor, 
     cblas_dscal(_nnz_h_obj, obj_factor, values, 1); 
 
     // get the starting index for lambda
-    unsigned lambda_start = N_MIN_CONTACTS + N_LIMITS + 1;
+    unsigned lambda_start = N_CONTACTS + N_LIMITS + 1;
     for (unsigned k=0; k< N_ACT_CONTACTS; k++)
     {
       // scale the values in the constraint Hessian

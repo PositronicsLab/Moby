@@ -68,7 +68,6 @@ void ImpactEventHandler::solve_qp(const VectorNd& zf, EventProblemData& q, doubl
     // we can; mark next contact for solving
     q.N_ACT_K += q.contact_events[q.N_ACT_CONTACTS]->contact_NK/2;
     q.active_contacts[q.N_ACT_CONTACTS++] = true;
-    q.N_MIN_CONTACTS++;
   }
 
   // apply (Poisson) restitution to contacts
@@ -249,7 +248,6 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
   FILE_LOG(LOG_EVENT) << "  L * v: " << q.L_v << std::endl;
 
   // get useful constants
-  const unsigned N_MIN_CONTACTS = q.N_MIN_CONTACTS; 
   const unsigned N_ACT_CONTACTS = q.N_ACT_CONTACTS;
 
   // setup new indices
@@ -262,7 +260,7 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
   const unsigned N_ACT_VARS = xL_IDX + q.N_LIMITS;
 
   // init the QP matrix and vector
-  const unsigned N_INEQUAL = q.N_MIN_CONTACTS + q.N_ACT_K + q.N_LIMITS + 1;
+  const unsigned N_INEQUAL = q.N_CONTACTS + q.N_ACT_K + q.N_LIMITS + 1;
   _MM.set_zero(N_ACT_VARS + N_INEQUAL, N_ACT_VARS + N_INEQUAL);
   _qq.resize(_MM.rows());
 
@@ -286,7 +284,6 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
   SharedMatrixNd Cn_iM_NCtT = H.block(row_start, row_end, col_start, col_end);
   col_start = col_end; col_end += q.N_LIMITS;
   SharedMatrixNd Cn_iM_LT = H.block(row_start, row_end, col_start, col_end);
-  SharedMatrixNd Cn_block = H.block(row_start, N_MIN_CONTACTS, 0, col_end);
 
   // setup row (block) 2 -- Cs * iM * [Cn' Cs' Ct' -Cs' -Ct' L' Jx']
   row_start = row_end; row_end += q.N_ACT_CONTACTS;
@@ -344,6 +341,13 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
   SharedMatrixNd L_iM_LT = H.block(row_start, row_end, col_start, col_end);
   SharedMatrixNd L_block = H.block(row_start, row_end, 0, col_end);
 
+  // get full Cn blocks
+  SharedConstMatrixNd full_Cn_Cn = q.Cn_iM_CnT.block(0, q.N_CONTACTS, 0, q.N_ACT_CONTACTS);
+  SharedConstMatrixNd full_Cn_Cs = q.Cn_iM_CsT.block(0, q.N_CONTACTS, 0, q.N_ACT_CONTACTS);
+  SharedConstMatrixNd full_Cn_Ct = q.Cn_iM_CtT.block(0, q.N_CONTACTS, 0, q.N_ACT_CONTACTS);
+  SharedConstMatrixNd full_Cn_L = q.Cn_iM_LT.block(0, q.N_CONTACTS, 0, q.N_LIMITS);
+  SharedConstVectorNd full_Cn_v = q.Cn_v.segment(0, q.N_CONTACTS);
+
   // copy to row block 1 (contact normals)
   q.Cn_iM_CnT.get_sub_mat(0, N_ACT_CONTACTS, 0, N_ACT_CONTACTS, Cn_iM_CnT);
   q.Cn_iM_CsT.get_sub_mat(0, N_ACT_CONTACTS, 0, N_ACT_CONTACTS, Cn_iM_CsT);
@@ -384,7 +388,6 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
 
   // get shared vectors to components of c
   SharedVectorNd Cn_v = c.segment(xCN_IDX, xCS_IDX);
-  SharedVectorNd min_Cn_v = c.segment(xCN_IDX, q.N_MIN_CONTACTS);
   SharedVectorNd Cs_v = c.segment(xCS_IDX, xCT_IDX);
   SharedVectorNd Ct_v = c.segment(xCT_IDX, xNCS_IDX);
   SharedVectorNd nCs_v = c.segment(xNCS_IDX, xNCT_IDX);
@@ -402,11 +405,17 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
   // ------- setup A/-b -------
   // setup the Cn*v+ >= 0 constraint
   // Cn*(inv(M)*impulses + v) >= 0, Cn*inv(M)*impulses >= -Cn*v
-  FILE_LOG(LOG_EVENT) << "Cn block (minimum contacts): " << std::endl << Cn_block;
-  row_start = 0; row_end = q.N_MIN_CONTACTS;
-  A.block(row_start, row_end, xCN_IDX, N_ACT_VARS) = Cn_block;
+  row_start = 0; row_end = q.N_CONTACTS;
+  A.set_sub_mat(row_start, xCN_IDX, full_Cn_Cn);
+  A.set_sub_mat(row_start, xCS_IDX, full_Cn_Cs);
+  A.set_sub_mat(row_start, xCT_IDX, full_Cn_Ct);
+  A.set_sub_mat(row_start, xNCS_IDX, full_Cn_Cs);
+  A.set_sub_mat(row_start, xNCT_IDX, full_Cn_Ct);
+  A.set_sub_mat(row_start, xL_IDX, full_Cn_L);
+  A.block(row_start, row_end, xNCS_IDX, xL_IDX).negate();
+  SharedConstMatrixNd full_Cn_block = A.block(row_start, row_end, xCN_IDX, N_ACT_VARS);
   FILE_LOG(LOG_EVENT) << "A: " << std::endl << A;
-  nb.set_sub_vec(row_start, min_Cn_v);
+  nb.set_sub_vec(row_start, full_Cn_v);
   row_start = row_end; row_end += q.N_LIMITS;  
 
   // setup the L*v+ >= 0 constraint
@@ -441,12 +450,12 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
 
   // setup the normal velocity constraint
   // 1'N*v+ <= kappa  (in our form) -1'N*v+ >= -kappa
-  for (unsigned i=0; i< Cn_block.columns(); i++)
+  for (unsigned i=0; i< full_Cn_block.columns(); i++)
   {
-    SharedConstVectorNd Cn_col = Cn_block.column(i);
+    SharedConstVectorNd Cn_col = full_Cn_block.column(i);
     A(row_start, i) = -std::accumulate(Cn_col.begin(), Cn_col.end(), 0.0);
   }
-  nb[row_start] = -std::accumulate(min_Cn_v.row_iterator_begin(), min_Cn_v.row_iterator_end(), 0.0) + q.kappa;
+  nb[row_start] = -std::accumulate(full_Cn_v.row_iterator_begin(), full_Cn_v.row_iterator_end(), 0.0) + q.kappa;
 
   // set A = -A'
   SharedMatrixNd AT = _MM.block(0, N_ACT_VARS, N_ACT_VARS, _MM.rows());
@@ -502,16 +511,16 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
     z.set_sub_vec(xL_IDX, l_last);
 
     // populate Cn*v+ >= 0 constraint multipliers
-    SharedVectorNd c1_last = _zlast.segment(N_LACT_VARS, N_LACT_VARS+N_MIN_CONTACTS);
+    SharedVectorNd c1_last = _zlast.segment(N_LACT_VARS, N_LACT_VARS+q.N_CONTACTS);
     z.set_sub_vec(N_ACT_VARS, c1_last);
 
     // populate L*v+ >= 0 constraint multipliers
     SharedVectorNd c2_last = _zlast.segment(N_LACT_VARS+N_LACT_CONTACTS, N_LACT_VARS+N_LACT_CONTACTS+q.N_LIMITS);
-    z.set_sub_vec(N_ACT_VARS+N_MIN_CONTACTS, c2_last);
+    z.set_sub_vec(N_ACT_VARS+q.N_CONTACTS, c2_last);
 
     // populate friction coefficient constraint multipliers
     SharedVectorNd c3_last = _zlast.segment(N_LACT_VARS+N_LACT_CONTACTS+q.N_LIMITS, _zlast.rows());
-    z.set_sub_vec(N_ACT_VARS+N_MIN_CONTACTS+q.N_LIMITS, c3_last);
+    z.set_sub_vec(N_ACT_VARS+q.N_CONTACTS+q.N_LIMITS, c3_last);
   }
 
   // solve the LCP using Lemke's algorithm

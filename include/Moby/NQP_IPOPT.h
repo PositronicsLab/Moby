@@ -30,10 +30,10 @@ class NQP_IPOPT : public Ipopt::TNLP
     Ravelin::VectorNd z;
 
     /// noninterpenetration jacobian block
-    Ravelin::SharedConstMatrixNd Cn_block;
+    Ravelin::MatrixNd Cn_block;
 
     /// noninterpenetration vector
-    Ravelin::SharedConstVectorNd min_Cn_v;
+    Ravelin::SharedConstVectorNd Cn_v;
 
     /// noninterpenetration jacobian block
     Ravelin::SharedConstMatrixNd L_block;
