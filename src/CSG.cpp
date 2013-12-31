@@ -234,6 +234,7 @@ BVPtr CSG::get_BVH_root(CollisionGeometryPtr geom)
   // set the bounds
   _aabb->minp = low;
   _aabb->maxp = high;
+  _aabb->geom = geom;
 
   return _aabb;
 }
@@ -289,8 +290,8 @@ bool CSG::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect
   // transform intersection point and normal (if necessary)
   if (flag)
   {
-    isect = T.inverse_transform_point(isect);
-    normal = T.inverse_transform_vector(normal);
+    isect = Pose3d::transform_point(seg.first.pose, isect); 
+    normal = Pose3d::transform_vector(seg.first.pose, normal);
   }
 
   return flag;

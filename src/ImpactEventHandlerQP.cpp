@@ -68,6 +68,7 @@ void ImpactEventHandler::solve_qp(const VectorNd& zf, EventProblemData& q, doubl
     // we can; mark next contact for solving
     q.N_ACT_K += q.contact_events[q.N_ACT_CONTACTS]->contact_NK/2;
     q.active_contacts[q.N_ACT_CONTACTS++] = true;
+    q.N_MIN_CONTACTS++;
   }
 
   // apply (Poisson) restitution to contacts

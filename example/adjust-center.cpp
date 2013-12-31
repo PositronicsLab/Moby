@@ -8,7 +8,7 @@ int main(int argc, char* argv[])
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
-  if (argc != 4)
+  if (argc < 4)
   {
     std::cerr << "syntax: adjust-center <file1.obj> +x +y +z" << std::endl;
     return -1;
