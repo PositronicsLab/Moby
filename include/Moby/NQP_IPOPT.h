@@ -104,6 +104,9 @@ class NQP_IPOPT : public Ipopt::TNLP
 
     // is the problem dense or not?
     bool _dense;
+
+    // tolerance for the Coulomb friction and kappa constraints
+    double _tol;
 }; // end class
 } // end namespace
 

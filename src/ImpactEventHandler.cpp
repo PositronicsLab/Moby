@@ -53,7 +53,7 @@ ImpactEventHandler::ImpactEventHandler()
   _app.Options()->SetNumericValue("tol", 1e-7);
   _app.Options()->SetStringValue("mu_strategy", "adaptive");
   _app.Options()->SetStringValue("output_file", "ipopt.out");
-//  _app.RethrowNonIpoptException(true);
+  _app.RethrowNonIpoptException(true);
 
   Ipopt::ApplicationReturnStatus status = _app.Initialize();
   if (status != Ipopt::Solve_Succeeded)
@@ -335,12 +335,13 @@ void ImpactEventHandler::permute_problem(EventProblemData& epd, VectorNd& z)
   z.get_sub_vec(epd.L_IDX, epd.ALPHA_X_IDX, epd.l);
   z.get_sub_vec(epd.ALPHA_X_IDX, epd.N_VARS, epd.alpha_x);
 
-  // set active contact indices
-  epd.active_contacts.resize(epd.N_CONTACTS);
+  // mark active set as contact constraint set
+  epd.N_CONTACT_CONSTRAINTS = epd.N_ACT_CONTACTS;
+  epd.contact_constraints.resize(epd.N_CONTACTS);
   for (unsigned i=0; i< epd.N_ACT_CONTACTS; i++)
-    epd.active_contacts[i] = true;
+    epd.contact_constraints[i] = true;
   for (unsigned i=epd.N_ACT_CONTACTS; i< epd.N_CONTACTS; i++)
-    epd.active_contacts[i] = false;
+    epd.contact_constraints[i] = false;
 }
 
 /**
@@ -539,6 +540,11 @@ void ImpactEventHandler::compute_problem_data(EventProblemData& q)
   // make super bodies vector unique
   std::sort(q.super_bodies.begin(), q.super_bodies.end());
   q.super_bodies.erase(std::unique(q.super_bodies.begin(), q.super_bodies.end()), q.super_bodies.end());
+
+  // set total number of generalized coordinates
+  q.N_GC = 0;
+  for (unsigned i=0; i< q.super_bodies.size(); i++)
+    q.N_GC += q.super_bodies[i]->num_generalized_coordinates(DynamicBody::eSpatial);
 
   // initialize constants and set easy to set constants
   q.N_CONTACTS = q.contact_events.size();

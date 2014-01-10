@@ -1913,7 +1913,8 @@ void Event::determine_convex_set(list<Event*>& group)
     return;
 
   // separate into groups of contact points with identical friction coeff.
-  std::map<std::pair<double, double>, std::list<Event*>, Event::DblComp> groups;
+//  std::map<std::pair<double, double>, std::list<Event*>, Event::DblComp> groups;
+  std::map<std::pair<double, double>, std::list<Event*> > groups;
 
   // setup a group of non-contact events
   std::list<Event*> nc_events;
@@ -1953,6 +1954,10 @@ void Event::process_convex_set_group(list<Event*>& group)
 
   FILE_LOG(LOG_EVENT) << "Event::determine_convex_set() entered" << std::endl;
   FILE_LOG(LOG_EVENT) << " -- initial number of contact points: " << points.size() << std::endl;
+  FILE_LOG(LOG_EVENT) << " coefficients of friction: ";
+  BOOST_FOREACH(const Event* e, group)
+    FILE_LOG(LOG_EVENT) << e->contact_mu_coulomb << " ";
+  FILE_LOG(LOG_EVENT) << std::endl;
 
   // determine whether points are collinear
   const Point3d& pA = *points.front(); 

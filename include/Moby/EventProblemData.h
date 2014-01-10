@@ -35,6 +35,8 @@ struct EventProblemData
     N_CONSTRAINT_EQNS_IMP = q.N_CONSTRAINT_EQNS_IMP;
     N_ACT_K = q.N_ACT_K;
     N_ACT_CONTACTS = q.N_ACT_CONTACTS;
+    N_CONTACT_CONSTRAINTS = q.N_CONTACT_CONSTRAINTS;
+    N_GC = q.N_GC;
     kappa = q.kappa;
 
     // copy indices
@@ -46,6 +48,9 @@ struct EventProblemData
     L_IDX = q.L_IDX;
     ALPHA_X_IDX = q.ALPHA_X_IDX;
     N_VARS = q.N_VARS;  
+
+    // copy contact constraints
+    contact_constraints = q.contact_constraints;
 
     // copy event velocities
     Cn_v = q.Cn_v;
@@ -86,9 +91,6 @@ struct EventProblemData
     l = q.l;
     alpha_x = q.alpha_x;
 
-    // copy the active contact set
-    active_contacts = q.active_contacts; 
-
     return *this;
   }
 
@@ -97,7 +99,8 @@ struct EventProblemData
   {
     N_K_TOTAL = N_LIN_CONE = N_TRUE_CONE = N_CONTACTS = 0;
     N_CONSTRAINTS = N_CONSTRAINT_EQNS_IMP = 0;
-    N_ACT_K = N_ACT_CONTACTS = 0;
+    N_ACT_K = N_ACT_CONTACTS = N_CONTACT_CONSTRAINTS = 0;
+    N_GC = 0;
     kappa = 0.0;
 
     // clear all indices
@@ -107,6 +110,7 @@ struct EventProblemData
     ALPHA_X_IDX = 0;
 
     // clear all vectors
+    contact_constraints.clear();
     super_bodies.clear();
     events.clear();
     contact_events.clear();
@@ -140,9 +144,6 @@ struct EventProblemData
     L_iM_LT.resize(0,0);
     L_iM_JxT.resize(0,0);
     Jx_iM_JxT.resize(0,0);
-
-    // reset the active contacts 
-    active_contacts.clear();
   }
 
   // sets up indices for a QP
@@ -304,11 +305,17 @@ struct EventProblemData
   // the number of contacts (active)
   unsigned N_ACT_CONTACTS;
 
+  // the number of contact constraints in the optimization problem
+  unsigned N_CONTACT_CONSTRAINTS;
+
   // the number of limits
   unsigned N_LIMITS;
 
   // the total number of constraints
   unsigned N_CONSTRAINTS;
+
+  // the total number of generalized coordinates
+  unsigned N_GC;
 
   // the velocity in the normal direction for frictionless contacts
   double kappa;
@@ -322,8 +329,8 @@ struct EventProblemData
   // the vectors of events
   std::vector<Event*> events, contact_events, limit_events;
 
-  // the vector indicating which contact events are active
-  std::vector<bool> active_contacts;
+  // the vector indicating which contact events are in the linear constraint set 
+  std::vector<bool> contact_constraints;
 
   // cross-event terms
   Ravelin::MatrixNd Cn_iM_CnT, Cn_iM_CsT, Cn_iM_CtT, Cn_iM_LT, Cn_iM_JxT;

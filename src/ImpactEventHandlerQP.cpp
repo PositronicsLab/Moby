@@ -58,16 +58,19 @@ void ImpactEventHandler::solve_qp(const VectorNd& zf, EventProblemData& q, doubl
     // solve the QP
     solve_qp_work(q, _z);
 
-    // check whether we can mark any more contacts as active
+    // get the elapsed time
     tms cstop;
     times(&cstop);
-    if ((double) (cstop.tms_stime-cstart.tms_stime)/CLOCKS_PER_SEC > max_time ||
-        q.N_ACT_CONTACTS == q.N_CONTACTS)
+    double elapsed = (double) (cstop.tms_utime-cstart.tms_utime)/CLOCKS_PER_SEC;
+    FILE_LOG(LOG_EVENT) << "Elapsed time: " << elapsed << std::endl;
+
+    // check whether we can mark any more contacts as active
+    if (elapsed > max_time || q.N_ACT_CONTACTS == q.N_CONTACTS)
       break;
 
     // we can; mark next contact for solving
     q.N_ACT_K += q.contact_events[q.N_ACT_CONTACTS]->contact_NK/2;
-    q.active_contacts[q.N_ACT_CONTACTS++] = true;
+    q.N_ACT_CONTACTS++;
   }
 
   // apply (Poisson) restitution to contacts
@@ -260,7 +263,7 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
   const unsigned N_ACT_VARS = xL_IDX + q.N_LIMITS;
 
   // init the QP matrix and vector
-  const unsigned N_INEQUAL = q.N_CONTACTS + q.N_ACT_K + q.N_LIMITS + 1;
+  const unsigned N_INEQUAL = q.N_CONTACT_CONSTRAINTS + q.N_ACT_K + q.N_LIMITS + 1;
   _MM.set_zero(N_ACT_VARS + N_INEQUAL, N_ACT_VARS + N_INEQUAL);
   _qq.resize(_MM.rows());
 
@@ -341,12 +344,16 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
   SharedMatrixNd L_iM_LT = H.block(row_start, row_end, col_start, col_end);
   SharedMatrixNd L_block = H.block(row_start, row_end, 0, col_end);
 
-  // get full Cn blocks
-  SharedConstMatrixNd full_Cn_Cn = q.Cn_iM_CnT.block(0, q.N_CONTACTS, 0, q.N_ACT_CONTACTS);
-  SharedConstMatrixNd full_Cn_Cs = q.Cn_iM_CsT.block(0, q.N_CONTACTS, 0, q.N_ACT_CONTACTS);
-  SharedConstMatrixNd full_Cn_Ct = q.Cn_iM_CtT.block(0, q.N_CONTACTS, 0, q.N_ACT_CONTACTS);
-  SharedConstMatrixNd full_Cn_L = q.Cn_iM_LT.block(0, q.N_CONTACTS, 0, q.N_LIMITS);
-  SharedConstVectorNd full_Cn_v = q.Cn_v.segment(0, q.N_CONTACTS);
+  // get contact constrained Cn blocks
+  q.Cn_iM_CnT.select_rows(q.contact_constraints, _Cnstar_Cn);
+  q.Cn_iM_CsT.select_rows(q.contact_constraints, _Cnstar_Cs);
+  q.Cn_iM_CtT.select_rows(q.contact_constraints, _Cnstar_Ct);
+  q.Cn_iM_LT.select_rows(q.contact_constraints, _Cnstar_L);
+  q.Cn_v.select(q.contact_constraints, _Cnstar_v);
+  SharedConstMatrixNd Cnstar_Cnx = _Cnstar_Cn.block(0, _Cnstar_Cn.rows(), 0, q.N_ACT_CONTACTS);
+  SharedConstMatrixNd Cnstar_Csx = _Cnstar_Cs.block(0, _Cnstar_Cs.rows(), 0, q.N_ACT_CONTACTS);
+  SharedConstMatrixNd Cnstar_Ctx = _Cnstar_Ct.block(0, _Cnstar_Ct.rows(), 0, q.N_ACT_CONTACTS);
+  SharedConstMatrixNd Cnstar_Lx = _Cnstar_L.block(0, _Cnstar_L.rows(), 0, q.N_LIMITS);
 
   // copy to row block 1 (contact normals)
   q.Cn_iM_CnT.get_sub_mat(0, N_ACT_CONTACTS, 0, N_ACT_CONTACTS, Cn_iM_CnT);
@@ -405,17 +412,17 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
   // ------- setup A/-b -------
   // setup the Cn*v+ >= 0 constraint
   // Cn*(inv(M)*impulses + v) >= 0, Cn*inv(M)*impulses >= -Cn*v
-  row_start = 0; row_end = q.N_CONTACTS;
-  A.set_sub_mat(row_start, xCN_IDX, full_Cn_Cn);
-  A.set_sub_mat(row_start, xCS_IDX, full_Cn_Cs);
-  A.set_sub_mat(row_start, xCT_IDX, full_Cn_Ct);
-  A.set_sub_mat(row_start, xNCS_IDX, full_Cn_Cs);
-  A.set_sub_mat(row_start, xNCT_IDX, full_Cn_Ct);
-  A.set_sub_mat(row_start, xL_IDX, full_Cn_L);
+  row_start = 0; row_end = q.N_CONTACT_CONSTRAINTS;
+  A.set_sub_mat(row_start, xCN_IDX, Cnstar_Cnx);
+  A.set_sub_mat(row_start, xCS_IDX, Cnstar_Csx);
+  A.set_sub_mat(row_start, xCT_IDX, Cnstar_Ctx);
+  A.set_sub_mat(row_start, xNCS_IDX, Cnstar_Csx);
+  A.set_sub_mat(row_start, xNCT_IDX, Cnstar_Ctx);
+  A.set_sub_mat(row_start, xL_IDX, Cnstar_Lx);
   A.block(row_start, row_end, xNCS_IDX, xL_IDX).negate();
   SharedConstMatrixNd full_Cn_block = A.block(row_start, row_end, xCN_IDX, N_ACT_VARS);
   FILE_LOG(LOG_EVENT) << "A: " << std::endl << A;
-  nb.set_sub_vec(row_start, full_Cn_v);
+  nb.set_sub_vec(row_start, _Cnstar_v);
   row_start = row_end; row_end += q.N_LIMITS;  
 
   // setup the L*v+ >= 0 constraint
@@ -455,7 +462,7 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
     SharedConstVectorNd Cn_col = full_Cn_block.column(i);
     A(row_start, i) = -std::accumulate(Cn_col.begin(), Cn_col.end(), 0.0);
   }
-  nb[row_start] = -std::accumulate(full_Cn_v.row_iterator_begin(), full_Cn_v.row_iterator_end(), 0.0) + q.kappa;
+  nb[row_start] = -std::accumulate(_Cnstar_v.row_iterator_begin(), _Cnstar_v.row_iterator_end(), 0.0) + q.kappa;
 
   // set A = -A'
   SharedMatrixNd AT = _MM.block(0, N_ACT_VARS, N_ACT_VARS, _MM.rows());
@@ -551,10 +558,54 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
   z.set_sub_vec(q.L_IDX, l);
 
   FILE_LOG(LOG_EVENT) << "QP solution: " << z << std::endl; 
+
+  // compute full Cn_v solution *if necessary*
+  if (q.N_CONTACT_CONSTRAINTS < q.N_CONTACTS && 
+      q.N_CONTACT_CONSTRAINTS < q.N_GC)
+  {
+    // get all contact blocks
+    SharedConstMatrixNd full_Cn_Cn = q.Cn_iM_CnT.block(0, q.N_CONTACTS, 0, q.N_ACT_CONTACTS);  
+    SharedConstMatrixNd full_Cn_Cs = q.Cn_iM_CsT.block(0, q.N_CONTACTS, 0, q.N_ACT_CONTACTS);  
+    SharedConstMatrixNd full_Cn_Ct = q.Cn_iM_CtT.block(0, q.N_CONTACTS, 0, q.N_ACT_CONTACTS);  
+    SharedConstMatrixNd full_Cn_L = q.Cn_iM_LT.block(0, q.N_CONTACTS, 0, q.N_LIMITS);  
+    SharedConstVectorNd full_Cn_v = q.Cn_v.segment(0, q.N_CONTACTS);  
+
+    // compute new velocity in the normal direction
+    full_Cn_Cn.mult(cn, _new_Cn_v);
+    _new_Cn_v += full_Cn_Cs.mult(cs, _workv);
+    _new_Cn_v += full_Cn_Ct.mult(ct, _workv);
+    _new_Cn_v -= full_Cn_Cs.mult(ncs, _workv);
+    _new_Cn_v -= full_Cn_Ct.mult(nct, _workv);
+    _new_Cn_v += full_Cn_L.mult(l, _workv);
+    _new_Cn_v -= full_Cn_v;
+
+    // check whether new contacts need to be added to the set of contact constraints
+    bool rerun = false;
+    for (unsigned i=0; i< _new_Cn_v.rows(); i++)
+      if (_new_Cn_v[i] < -NEAR_ZERO)
+      {
+        if (!q.contact_constraints[i])
+        {
+          // make it active 
+          q.contact_constraints[i] = true;
+
+          // update the number of contact constraints
+          q.N_CONTACT_CONSTRAINTS++;
+
+          // indicate to rerun the optimization
+          rerun = true;
+        }
+      }
+
+    // rerun the contact optimization if necessary
+    if (rerun)
+      solve_qp_work(q, z);
+  }
+
   if (LOGGING(LOG_EVENT))
   {
     VectorNd workv;
-    SharedVectorNd zsub = z.segment(0, c.rows());
+    SharedVectorNd zsub = _zlast.segment(0, c.rows());
     H.mult(zsub, workv) *= 0.5;
     workv += c;
     FILE_LOG(LOG_EVENT) << "(signed) computed energy dissipation: " << zsub.dot(workv) << std::endl;

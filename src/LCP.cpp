@@ -317,7 +317,6 @@ bool LCP::lcp_lemke(const MatrixNd& M, const VectorNd& q, VectorNd& z, double pi
   _j.clear();
 
   // copy z to z0
-z.set_zero(n);
   _z0 = z;
 
   // come up with a sensible value for zero tolerance if none is given
