@@ -76,10 +76,11 @@ class ImpactEventHandler
 
     // temporaries for compute_problem_data(), solve_qp_work(), solve_lcp(), and apply_impulses()
     Ravelin::MatrixNd _MM;
-    Ravelin::VectorNd _zlast;
+    Ravelin::VectorNd _zlast, _v;
 
-    // temporaries for compute_problem_data(), solve_qp_work(), solve_lcp(), and apply_impulses()
-    Ravelin::VectorNd _v;
+    // temporaries for solve_qp_work() and solve_nqp_work() 
+    Ravelin::VectorNd _Cnstar_v, _workv, _new_Cn_v;
+    Ravelin::MatrixNd _Cnstar_Cn, _Cnstar_Cs, _Cnstar_Ct, _Cnstar_L;
 
     // temporaries shared between solve_lcp(), solve_qp(), and solve_nqp()
     Ravelin::VectorNd _a, _b;
@@ -101,7 +102,7 @@ class ImpactEventHandler
     Ipopt::SmartPtr <LCP_IPOPT> _lcpsolver;
     #endif
     Ravelin::MatrixNd _RTH;
-    Ravelin::VectorNd _w, _workv, _workv2, _x;
+    Ravelin::VectorNd _w, _workv2, _x;
 
     // temporaries for solve_lcp()
     Ravelin::MatrixNd _AU, _AV, _B, _C, _D;

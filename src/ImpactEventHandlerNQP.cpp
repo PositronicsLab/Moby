@@ -40,6 +40,7 @@ using boost::dynamic_pointer_cast;
 #ifndef HAVE_IPOPT
 void ImpactEventHandler::solve_nqp(const VectorNd& zf, EventProblemData& q, double poisson_eps, double max_time)
 {
+  throw std::runtime_error("Build without IPOPT!");
 }
 
 void ImpactEventHandler::solve_nqp_work(EventProblemData& q, VectorNd& x)
@@ -71,16 +72,19 @@ void ImpactEventHandler::solve_nqp(const VectorNd& zf, EventProblemData& q, doub
     // solve the nonlinearly constrained QP
     solve_nqp_work(q, _z);
 
-    // check whether we can mark any more contacts as active
+    // get the elapsed time
     tms cstop;
     times(&cstop);
-    if ((double) (cstop.tms_stime-cstart.tms_stime)/CLOCKS_PER_SEC > max_time ||
-        q.N_ACT_CONTACTS == q.N_CONTACTS)
+    double elapsed = (double) (cstop.tms_utime-cstart.tms_utime)/CLOCKS_PER_SEC;
+    FILE_LOG(LOG_EVENT) << "Elapsed time: " << elapsed << std::endl; 
+
+    // check whether we can mark any more contacts as active
+    if (elapsed > max_time || q.N_ACT_CONTACTS == q.N_CONTACTS)
       break;
 
     // we can; mark next contact for solving
     q.N_ACT_K += q.contact_events[q.N_ACT_CONTACTS]->contact_NK/2;
-    q.active_contacts[q.N_ACT_CONTACTS++] = true;
+    q.N_ACT_CONTACTS++;
   }
 
   // apply (Poisson) restitution to contacts
@@ -212,6 +216,7 @@ void ImpactEventHandler::solve_nqp_work(EventProblemData& q, VectorNd& x)
   const double INF = std::numeric_limits<double>::max();
 
   // setup constants
+  const unsigned N_CONTACTS = q.N_CONTACTS;
   const unsigned N_ACT_CONTACTS = q.N_ACT_CONTACTS;
   const unsigned N_LIMITS = q.N_LIMITS;
   const unsigned N_CONSTRAINT_EQNS_IMP = q.N_CONSTRAINT_EQNS_IMP; 
@@ -365,8 +370,8 @@ void ImpactEventHandler::solve_nqp_work(EventProblemData& q, VectorNd& x)
 
   // setup c 
   q.Cn_v.get_sub_vec(0, N_ACT_CONTACTS, Cn_v);
-  q.Cn_v.get_sub_vec(0, N_ACT_CONTACTS, Cs_v);
-  q.Cn_v.get_sub_vec(0, N_ACT_CONTACTS, Ct_v);
+  q.Cs_v.get_sub_vec(0, N_ACT_CONTACTS, Cs_v);
+  q.Ct_v.get_sub_vec(0, N_ACT_CONTACTS, Ct_v);
   L_v = q.L_v;
 
   // ****** now setup linear inequality constraints ******
@@ -395,7 +400,7 @@ void ImpactEventHandler::solve_nqp_work(EventProblemData& q, VectorNd& x)
   _ipsolver->L_block.reset();
   _ipsolver->Cn_v.reset();
   _ipsolver->L_block = L_block;
-  _ipsolver->Cn_v = q.Cn_v.segment(0, N_ACT_CONTACTS);
+  _ipsolver->Cn_v = q.Cn_v.segment(0, N_CONTACTS);
 
   // setup optimizations in nullspace (if necessary)
   if (R.columns() > 0)
@@ -434,17 +439,44 @@ void ImpactEventHandler::solve_nqp_work(EventProblemData& q, VectorNd& x)
 
   // setup ipopt options
   _app.Options()->SetIntegerValue("print_level", 0);
+  _app.Options()->SetNumericValue("constr_viol_tol", 0.0005);
+//  _app.Options()->SetIntegerValue("max_iter", 10000);
 //  _app.Options()->SetStringValue("derivative_test", "second-order");
 
+  // set the ipsolver tolerance on the Coulomb friction and kappa constraints
+  _ipsolver->_tol = 0.0;
+
   // solve the nonlinear QP using the interior-point algorithm 
+  _app.Initialize();
   Ipopt::ApplicationReturnStatus status = _app.OptimizeTNLP(_ipsolver);
-  if (!(status == Ipopt::Solve_Succeeded || status == Ipopt::Solved_To_Acceptable_Level))
+
+  // look for acceptable solve conditions
+  if (!(status == Ipopt::Solve_Succeeded || 
+        status == Ipopt::Solved_To_Acceptable_Level)) 
     throw std::runtime_error("Could not solve nonlinearly constrained QP");
 
   // get the final solution out
-  x = _ipsolver->z;
+  SharedVectorNd cn = _ipsolver->z.segment(0, N_ACT_CONTACTS);
+  SharedVectorNd cs = _ipsolver->z.segment(N_ACT_CONTACTS, N_ACT_CONTACTS*2);
+  SharedVectorNd ct = _ipsolver->z.segment(N_ACT_CONTACTS*2, N_ACT_CONTACTS*3);
+  SharedVectorNd l =  _ipsolver->z.segment(N_ACT_CONTACTS*3, N_ACT_CONTACTS*3+q.N_LIMITS);
+
+  // put x in the expected format
+  x.resize(q.N_VARS);
+  x.set_sub_vec(q.CN_IDX, cn);
+  x.set_sub_vec(q.CS_IDX, cs);
+  x.set_sub_vec(q.CT_IDX, ct);
+  x.set_sub_vec(q.L_IDX, l);
 
   FILE_LOG(LOG_EVENT) << "nonlinear QP solution: " << x << std::endl; 
+  if (LOGGING(LOG_EVENT))
+  {
+    VectorNd workv;
+    SharedVectorNd xsub = _ipsolver->z.segment(0, c.rows());
+    H.mult(xsub, workv) *= 0.5;
+    workv += c;
+    FILE_LOG(LOG_EVENT) << "(signed) computed energy dissipation: " << xsub.dot(workv) << std::endl;
+  }
   FILE_LOG(LOG_EVENT) << "ImpactEventHandler::solve_nqp() exited" << std::endl;
 }
 #endif // #ifndef HAVE_IPOPT

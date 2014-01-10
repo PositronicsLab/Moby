@@ -310,10 +310,10 @@ bool NQP_IPOPT::get_nlp_info(Index& n, Index& m, Index& nnz_jac_g, Index& nnz_h_
 /// User should not call this method (for IPOPT)
 bool NQP_IPOPT::get_bounds_info(Index n, Number* x_l, Number* x_u, Index m, Number* g_l, Number* g_u)
 {
-  const unsigned N_CONTACTS = epd->N_CONTACTS;
   const double INF = std::numeric_limits<double>::max();
 
   // get info
+  const unsigned N_CONTACTS = epd->N_CONTACTS;
   const unsigned N_ACT_CONTACTS = epd->N_ACT_CONTACTS;
   const unsigned N_LIMITS = epd->N_LIMITS;
 
@@ -399,7 +399,7 @@ bool NQP_IPOPT::eval_g(Index n, const Number* x, bool new_x, Index m, Number* g)
   // evaluate the kappa constraint 
   Cn_block.mult(_w, _workv);
   _workv += Cn_v;
-  g[N_CONTACTS+N_LIMITS] = epd->kappa - std::accumulate(_workv.begin(), _workv.end(), 0.0);
+  g[N_CONTACTS+N_LIMITS] = epd->kappa - std::accumulate(_workv.begin(), _workv.end(), 0.0) + _tol;
 
   // evaluate the non-interpenetration constraints
   std::copy(_workv.begin(), _workv.end(), g);
@@ -416,7 +416,7 @@ bool NQP_IPOPT::eval_g(Index n, const Number* x, bool new_x, Index m, Number* g)
     const unsigned T_IDX = i+N_ACT_CONTACTS*2;
     const double muc_sq = mu_c[N_IDX];
     const double mu_visc_sq = mu_visc[N_IDX];
-    g[j] = muc_sq * sqr(_w[N_IDX]) + mu_visc_sq - sqr(_w[S_IDX]) - sqr(_w[T_IDX]);
+    g[j] = muc_sq * sqr(_w[N_IDX]) + mu_visc_sq - sqr(_w[S_IDX]) - sqr(_w[T_IDX]) + _tol;
   }  
 
   return true;
