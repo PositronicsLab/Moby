@@ -121,16 +121,10 @@ class EventDrivenSimulator : public Simulator
     bool render_contact_points;
 
     /// User time spent by collision detection on the last step
-    double coldet_utime;
-
-    /// System time spent by collision detection on the last step
-    double coldet_stime;
+    double coldet_time;
 
     /// User time spent by event handling on the last step
-    double event_utime;
-
-    /// System time spent by event handling on the last step
-    double event_stime;
+    double event_time;
 
     /// The relative error tolerance for adaptive Euler stepping (default=1e-8)
     double rel_err_tol;
@@ -140,6 +134,9 @@ class EventDrivenSimulator : public Simulator
 
     /// The minimum step size (default=1e-5)
     double minimum_step;
+
+    /// The maximum time allowed for processing events
+    double max_event_time;
 
   private:
     void calc_fwd_dyn() const;

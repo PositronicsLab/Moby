@@ -75,10 +75,7 @@ class Simulator : public virtual Base
     void (*post_step_callback_fn)(Simulator* s);
 
     /// User time spent by dynamics on the last step
-    double dynamics_utime;
-
-    /// System time spent by dynamics on the last step
-    double dynamics_stime;
+    double dynamics_time;
 
   protected:
     osg::Group* _persistent_vdata;

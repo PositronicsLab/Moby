@@ -62,7 +62,7 @@ void ImpactEventHandler::solve_nqp(const VectorNd& zf, EventProblemData& q, doub
 
   // mark starting time
   tms cstart;
-  times(&cstart);
+  clock_t start = times(&cstart);
 
   // keep solving until we run out of time or all contact points are active
   while (true)
@@ -73,9 +73,10 @@ void ImpactEventHandler::solve_nqp(const VectorNd& zf, EventProblemData& q, doub
     solve_nqp_work(q, _z);
 
     // get the elapsed time
+    const long TPS = sysconf(_SC_CLK_TCK);
     tms cstop;
-    times(&cstop);
-    double elapsed = (double) (cstop.tms_utime-cstart.tms_utime)/CLOCKS_PER_SEC;
+    clock_t stop = times(&cstop);
+    double elapsed = (double) (stop-start)/TPS;
     FILE_LOG(LOG_EVENT) << "Elapsed time: " << elapsed << std::endl; 
 
     // check whether we can mark any more contacts as active
