@@ -214,9 +214,9 @@ void step(void* arg)
   if (OUTPUT_TIMINGS)
   {
     if (!eds)
-      std::cout << ITER << " " << s->dynamics_utime << " " << s->dynamics_stime << std::endl;
+      std::cout << ITER << " " << s->dynamics_time << " " << std::endl;
     else
-      std::cout << ITER << " " << eds->dynamics_utime << " " << eds->dynamics_stime << " " << eds->coldet_utime << " " << eds->coldet_stime << " " << eds->event_utime << " " << eds->event_stime << std::endl;
+      std::cout << ITER << " " << eds->dynamics_time << " " << eds->coldet_time << " " << eds->event_time << std::endl;
   }
 
   // update the iteration #

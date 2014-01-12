@@ -68,8 +68,7 @@ double Simulator::step(double step_size)
   #endif
 
   // clear dynamics timings
-  dynamics_utime = (double) 0.0;
-  dynamics_stime = (double) 0.0;
+  dynamics_time = (double) 0.0;
 
   // compute forward dynamics and integrate 
   current_time += integrate(step_size);

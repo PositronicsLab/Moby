@@ -66,7 +66,7 @@ ImpactEventHandler::ImpactEventHandler()
 }
 
 // Processes impacts
-void ImpactEventHandler::process_events(const vector<Event>& events)
+void ImpactEventHandler::process_events(const vector<Event>& events, double max_time)
 {
   FILE_LOG(LOG_EVENT) << "*************************************************************";
   FILE_LOG(LOG_EVENT) << endl;
@@ -77,7 +77,7 @@ void ImpactEventHandler::process_events(const vector<Event>& events)
 
   // apply the method to all contacts
   if (!events.empty())
-    apply_model(events);
+    apply_model(events, max_time);
   else
     FILE_LOG(LOG_EVENT) << " (no events?!)" << endl;
     
@@ -90,8 +90,9 @@ void ImpactEventHandler::process_events(const vector<Event>& events)
 /**
  * \param events a set of events
  */
-void ImpactEventHandler::apply_model(const vector<Event>& events)
+void ImpactEventHandler::apply_model(const vector<Event>& events, double max_time)
 {
+  const double INF = std::numeric_limits<double>::max();
   list<Event*> impacting;
 
   // **********************************************************
@@ -121,8 +122,11 @@ void ImpactEventHandler::apply_model(const vector<Event>& events)
       // determine a reduced set of events
       Event::determine_minimal_set(revents);
 
-      // apply model to the reduced contacts   
-      apply_model_to_connected_events(revents, 1000.0);
+      // apply model to the reduced contacts
+      if (max_time < INF)   
+        apply_model_to_connected_events(revents, max_time);
+      else
+        apply_model_to_connected_events(revents);
 
       FILE_LOG(LOG_EVENT) << " -- post-event velocity (all events): " << std::endl;
       for (list<Event*>::iterator j = i->begin(); j != i->end(); j++)
@@ -378,6 +382,13 @@ void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& eve
     }
   }
 
+  // solve the (non-frictional) linear complementarity problem to determine
+  // the kappa constant
+  solve_lcp(_epd, z);
+
+  // permute the problem
+  permute_problem(_epd, z);
+
   // mark all contacts as active
   _epd.N_ACT_CONTACTS = _epd.N_CONTACTS;
   _epd.N_ACT_K = _epd.N_K_TOTAL;
@@ -386,20 +397,15 @@ void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& eve
   #ifdef HAVE_IPOPT
   if (use_qp_solver(_epd))
   {
-    // solve the (non-frictional) linear complementarity problem to determine
-    // the kappa constant
-    solve_lcp(_epd, z);
     _epd.set_qp_indices();
     solve_qp(z, _epd, poisson_eps);
   }
   else
   {
-    solve_lcp(_epd, z);
     _epd.set_nqp_indices();
     solve_nqp(z, _epd, poisson_eps);
   }
   #else
-  solve_lcp(_epd, z);
   _epd.set_qp_indices();
   solve_qp(z, _epd, poisson_eps);
   #endif

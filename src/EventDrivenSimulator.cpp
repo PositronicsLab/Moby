@@ -49,6 +49,9 @@ EventDrivenSimulator::EventDrivenSimulator()
   // setup the resting contact force
   _resting_contact_forces = shared_ptr<RestingContactForce>(new RestingContactForce);
 
+  // setup the maximum event processing time
+  max_event_time = std::numeric_limits<double>::max();
+
   // setup absolute and relative error tolerances
   rel_err_tol = NEAR_ZERO;
   abs_err_tol = NEAR_ZERO;
@@ -313,13 +316,13 @@ void EventDrivenSimulator::handle_events()
   }
 
   // begin timeing for event handling 
-  tms start;  
-  times(&start);
+  tms cstart;  
+  clock_t start = times(&cstart);
 
   // compute impulses here...
   try
   {
-    _impact_event_handler.process_events(_events);
+    _impact_event_handler.process_events(_events, max_event_time);
   }
   catch (ImpactToleranceException e)
   {
@@ -332,10 +335,9 @@ void EventDrivenSimulator::handle_events()
   }
 
   // tabulate times for event handling 
-  tms stop;  
-  times(&stop);
-  event_utime += (double) (stop.tms_utime-start.tms_utime)/CLOCKS_PER_SEC;
-  event_stime += (double) (stop.tms_stime-start.tms_stime)/CLOCKS_PER_SEC;
+  tms cstop;  
+  clock_t stop = times(&cstop);
+  event_time += (double) (stop-start)/CLOCKS_PER_SEC;
 
   // call the post-impulse application callback, if any 
   if (event_post_impulse_callback_fn)
@@ -439,8 +441,8 @@ void EventDrivenSimulator::integrate_si_Euler(double step_size)
   VectorNd q, qd, x, dx;
 
   // begin timing dynamics
-  tms start;  
-  times(&start);
+  tms cstart;  
+  clock_t start = times(&cstart);
 
   // get the state-derivative for each dynamic body
   for (unsigned i=0; i< _bodies.size(); i++)
@@ -487,10 +489,9 @@ void EventDrivenSimulator::integrate_si_Euler(double step_size)
   }
 
   // tabulate dynamics computation
-  tms stop;  
-  times(&stop);
-  dynamics_utime += (double) (stop.tms_utime-start.tms_utime)/CLOCKS_PER_SEC;
-  dynamics_stime += (double) (stop.tms_stime-start.tms_stime)/CLOCKS_PER_SEC;
+  tms cstop;  
+  clock_t stop = times(&cstop);
+  dynamics_time += (double) (stop-start)/CLOCKS_PER_SEC;
 }
 
 /// Steps the simulator forward
@@ -499,12 +500,9 @@ double EventDrivenSimulator::step(double step_size)
   const double INF = std::numeric_limits<double>::max();
 
   // clear timings
-  dynamics_utime = (double) 0.0;
-  dynamics_stime = (double) 0.0;
-  event_utime = (double) 0.0;
-  event_stime = (double) 0.0;
-  coldet_utime = (double) 0.0;
-  coldet_stime = (double) 0.0;
+  dynamics_time = (double) 0.0;
+  event_time = (double) 0.0;
+  coldet_time = (double) 0.0;
 
   // setup the amount remaining to step
   double dt = step_size;
@@ -1006,8 +1004,8 @@ double EventDrivenSimulator::find_events(double dt)
   _events.clear();
 
   // begin timing for collision detection
-  tms start;
-  times(&start);
+  tms cstart;
+  clock_t start = times(&cstart);
 
   FILE_LOG(LOG_SIMULATOR) << "-- checking for event in interval [" << (this->current_time) << ", " << (this->current_time+dt) << "] (dt=" << dt << ")" << std::endl;
 
@@ -1042,10 +1040,9 @@ double EventDrivenSimulator::find_events(double dt)
   }
 
   // tabulate times for collision detection 
-  tms stop;  
-  times(&stop);
-  coldet_utime += (double) (stop.tms_utime-start.tms_utime)/CLOCKS_PER_SEC;
-  coldet_stime += (double) (stop.tms_stime-start.tms_stime)/CLOCKS_PER_SEC;
+  tms cstop;  
+  clock_t stop = times(&cstop);
+  coldet_time += (double) (stop-start)/CLOCKS_PER_SEC;
 
   // check each articulated body for a joint limit event
   limit_events.clear();
@@ -1236,8 +1233,8 @@ double EventDrivenSimulator::find_and_handle_si_events(double dt)
   _events.clear();
 
   // begin timing for collision detection
-  tms start;
-  times(&start);
+  tms cstart;
+  clock_t start = times(&cstart);
 
   FILE_LOG(LOG_SIMULATOR) << "-- checking for event in interval [" << (this->current_time) << ", " << (this->current_time+dt) << "] (dt=" << dt << ")" << std::endl;
 
@@ -1272,10 +1269,9 @@ double EventDrivenSimulator::find_and_handle_si_events(double dt)
   }
 
   // tabulate times for collision detection 
-  tms stop;  
-  times(&stop);
-  coldet_utime += (double) (stop.tms_utime-start.tms_utime)/CLOCKS_PER_SEC;
-  coldet_stime += (double) (stop.tms_stime-start.tms_stime)/CLOCKS_PER_SEC;
+  tms cstop;  
+  clock_t stop = times(&cstop);
+  coldet_time += (double) (stop-start)/CLOCKS_PER_SEC;
 
   // check each articulated body for a joint limit event
   limit_events.clear();
@@ -1525,6 +1521,11 @@ void EventDrivenSimulator::load_from_xml(shared_ptr<const XMLTree> node, map<std
   // clear list of collision detectors
   collision_detectors.clear();
 
+  // read the maximum time to process events, if any
+  XMLAttrib* max_event_time_attrib = node->get_attrib("max-event-time");
+  if (max_event_time_attrib)
+    max_event_time = max_event_time_attrib->get_real_value(); 
+
   // read the error tolerances
   XMLAttrib* rel_tol_attrib = node->get_attrib("rel-err-tol");
   XMLAttrib* abs_tol_attrib = node->get_attrib("abs-err-tol");
@@ -1611,6 +1612,9 @@ void EventDrivenSimulator::save_to_xml(XMLTreePtr node, list<shared_ptr<const Ba
 
   // reset the node's name
   node->name = "EventDrivenSimulator";
+
+  // save the maximum event time
+  node->attribs.insert(XMLAttrib("max-event-time", max_event_time));
 
   // save the error tolerances
   node->attribs.insert(XMLAttrib("rel-err-tol", rel_err_tol));

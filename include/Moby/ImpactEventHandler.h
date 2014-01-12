@@ -33,7 +33,7 @@ class ImpactEventHandler
 {
   public:
     ImpactEventHandler();
-    void process_events(const std::vector<Event>& events);
+    void process_events(const std::vector<Event>& events, double max_time);
 
     /// If set to true, uses the interior-point solver (default is false)
     bool use_ip_solver;
@@ -50,7 +50,7 @@ class ImpactEventHandler
   private:
     static DynamicBodyPtr get_super_body(SingleBodyPtr sb);
     static bool use_qp_solver(const EventProblemData& epd);
-    void apply_model(const std::vector<Event>& events);
+    void apply_model(const std::vector<Event>& events, double max_time);
     void apply_model_to_connected_events(const std::list<Event*>& events);
     void apply_model_to_connected_events(const std::list<Event*>& events, double max_time);
     void compute_problem_data(EventProblemData& epd);

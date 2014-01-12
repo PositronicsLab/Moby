@@ -12,8 +12,8 @@ template <class ForwardIterator>
 double Simulator::integrate(double step_size, ForwardIterator begin, ForwardIterator end)
 {
   // begin timing dynamics
-  tms start;  
-  times(&start);
+  tms cstart;  
+  clock_t start = times(&cstart);
 
   // get the state-derivative for each dynamic body
   for (ForwardIterator i = begin; i != end; i++)
@@ -35,10 +35,9 @@ double Simulator::integrate(double step_size, ForwardIterator begin, ForwardIter
   }
 
   // tabulate dynamics computation
-  tms stop;  
-  times(&stop);
-  dynamics_utime += (double) (stop.tms_utime-start.tms_utime)/CLOCKS_PER_SEC;
-  dynamics_stime += (double) (stop.tms_stime-start.tms_stime)/CLOCKS_PER_SEC;
+  tms cstop;  
+  clock_t stop = times(&cstop);
+  dynamics_time += (double) (stop-start)/CLOCKS_PER_SEC;
 
   return step_size;
 }
