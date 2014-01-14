@@ -20,6 +20,7 @@
 #include <Ravelin/NumericalException.h>
 #include <Moby/Log.h>
 #include <Moby/Constants.h>
+#include <Moby/insertion_sort>
 #include <Moby/LCP.h>
 
 using namespace Ravelin;
@@ -97,11 +98,11 @@ bool LCP::lcp_fast(const MatrixNd& M, const VectorNd& q, VectorNd& z, double zer
       {
         // get the original index and remove it from the nonbasic set
         unsigned idx = _nonbas[minz];
-        _nonbas[minz] = _nonbas.back();
-        _nonbas.pop_back();
-
+        _nonbas.erase(_nonbas.begin()+minz);
+        
         // move index to basic set and continue looping
         _bas.push_back(idx);
+        insertion_sort(_bas.begin(), _bas.end());
       }
       else
       {
@@ -120,9 +121,9 @@ bool LCP::lcp_fast(const MatrixNd& M, const VectorNd& q, VectorNd& z, double zer
       // one or more components of w violating w >= 0
       // move component of w from basic set to nonbasic set
       unsigned idx = _bas[minw];
-      _bas[minw] = _bas.back();
-      _bas.pop_back();
+      _bas.erase(_bas.begin()+minw);
       _nonbas.push_back(idx);
+      insertion_sort(_nonbas.begin(), _nonbas.end());
 
       // look whether any component of z needs to move to basic set
       unsigned minz = rand_min(_z, zero_tol); 
@@ -130,9 +131,9 @@ bool LCP::lcp_fast(const MatrixNd& M, const VectorNd& q, VectorNd& z, double zer
       {
         // move index to basic set and continue looping
         unsigned idx = _nonbas[minz];
-        _nonbas[minz] = _nonbas.back();
-        _nonbas.pop_back();
+        _nonbas.erase(_nonbas.begin()+minz);
         _bas.push_back(idx);
+        insertion_sort(_bas.begin(), _bas.end());
       }
     }
   }
