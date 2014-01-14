@@ -561,8 +561,7 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
   FILE_LOG(LOG_EVENT) << "QP solution: " << z << std::endl; 
 
   // compute full Cn_v solution *if necessary*
-  if (q.N_CONTACT_CONSTRAINTS < q.N_CONTACTS && 
-      q.N_CONTACT_CONSTRAINTS < q.N_GC)
+  if (q.N_CONTACT_CONSTRAINTS < q.N_CONTACTS) 
   {
     // get all contact blocks
     SharedConstMatrixNd full_Cn_Cn = q.Cn_iM_CnT.block(0, q.N_CONTACTS, 0, q.N_ACT_CONTACTS);  
@@ -578,7 +577,7 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
     _new_Cn_v -= full_Cn_Cs.mult(ncs, _workv);
     _new_Cn_v -= full_Cn_Ct.mult(nct, _workv);
     _new_Cn_v += full_Cn_L.mult(l, _workv);
-    _new_Cn_v -= full_Cn_v;
+    _new_Cn_v += full_Cn_v;
 
     // check whether new contacts need to be added to the set of contact constraints
     bool rerun = false;
