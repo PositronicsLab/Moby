@@ -483,16 +483,18 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
   // use warm starting, if possible; last solution should be for one fewer
   // contact. New variables (primal and dual) will have values of zero.
   const unsigned N_LACT_CONTACTS = N_ACT_CONTACTS - 1;
-  const unsigned N_LACT_VARS = N_LACT_CONTACTS*5 + q.N_LIMITS;
+  const unsigned N_LACT_VARS = N_LACT_CONTACTS*5 + q.N_LIMITS + 1;
   if (_zlast.rows() == N_LACT_VARS)
   {
     // setup last indices
     const unsigned yCN_IDX = 0;
     const unsigned yCS_IDX = N_LACT_CONTACTS;
-    const unsigned yCT_IDX = N_LACT_CONTACTS*2;
-    const unsigned yNCS_IDX = N_LACT_CONTACTS*3;
-    const unsigned yNCT_IDX = N_LACT_CONTACTS*4;
-    const unsigned yL_IDX = N_LACT_CONTACTS*5;
+    const unsigned yCT_IDX = yCS_IDX + N_LACT_CONTACTS;
+    const unsigned yNCS_IDX = yCT_IDX + N_LACT_CONTACTS;
+    const unsigned yNCT_IDX = yNCS_IDX + N_LACT_CONTACTS;
+    const unsigned yL_IDX = yNCT_IDX + N_LACT_CONTACTS;
+    const unsigned lNPc_IDX = yL_IDX + q.N_LIMITS;
+    const unsigned lNPl_IDX = lNPc_IDX + N_LACT_CONTACTS;
 
     // populate normal contact forces
     SharedVectorNd cn_last = _zlast.segment(yCN_IDX, yCS_IDX);
@@ -519,14 +521,14 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
     z.set_sub_vec(xL_IDX, l_last);
 
     // populate Cn*v+ >= 0 constraint multipliers
-    SharedVectorNd c1_last = _zlast.segment(N_LACT_VARS, N_LACT_VARS+q.N_CONTACTS);
+    SharedVectorNd c1_last = _zlast.segment(N_LAST_CONTACTS, N_LAST_CONTACTS+q.N_LAST_CONTACTS);
     z.set_sub_vec(N_ACT_VARS, c1_last);
 
     // populate L*v+ >= 0 constraint multipliers
     SharedVectorNd c2_last = _zlast.segment(N_LACT_VARS+N_LACT_CONTACTS, N_LACT_VARS+N_LACT_CONTACTS+q.N_LIMITS);
     z.set_sub_vec(N_ACT_VARS+q.N_CONTACTS, c2_last);
 
-    // populate friction coefficient constraint multipliers
+    // populate friction coefficient constraint multipliers and kappa constraint
     SharedVectorNd c3_last = _zlast.segment(N_LACT_VARS+N_LACT_CONTACTS+q.N_LIMITS, _zlast.rows());
     z.set_sub_vec(N_ACT_VARS+q.N_CONTACTS+q.N_LIMITS, c3_last);
   }

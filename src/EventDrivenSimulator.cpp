@@ -43,6 +43,7 @@ EventDrivenSimulator::EventDrivenSimulator()
   event_callback_fn = NULL;
   event_post_impulse_callback_fn = NULL;
   post_mini_step_callback_fn = NULL;
+  get_contact_parameters_callback_fn = NULL;
   _simulation_violated = false;
   render_contact_points = false;
 
