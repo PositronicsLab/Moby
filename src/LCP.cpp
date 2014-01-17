@@ -93,8 +93,8 @@ bool LCP::lcp_fast(const MatrixNd& M, const VectorNd& q, VectorNd& z, double zer
     if (minw == UINF || _w[minw] > -zero_tol)
     {
       // find the (a) minimum of z
-      unsigned minz = rand_min(_z, zero_tol); 
-      if (_z[minz] < -zero_tol)
+      unsigned minz = (_z.rows() > 0) ? rand_min(_z, zero_tol) : UINF; 
+      if (minz < UINF && _z[minz] < -zero_tol)
       {
         // get the original index and remove it from the nonbasic set
         unsigned idx = _nonbas[minz];
@@ -126,8 +126,8 @@ bool LCP::lcp_fast(const MatrixNd& M, const VectorNd& q, VectorNd& z, double zer
       insertion_sort(_nonbas.begin(), _nonbas.end());
 
       // look whether any component of z needs to move to basic set
-      unsigned minz = rand_min(_z, zero_tol); 
-      if (_z[minz] < -zero_tol)
+      unsigned minz = (_z.rows() > 0) ? rand_min(_z, zero_tol) : UINF; 
+      if (minz < UINF &&_z[minz] < -zero_tol)
       {
         // move index to basic set and continue looping
         unsigned idx = _nonbas[minz];
@@ -281,15 +281,21 @@ void LCP::set_basis(unsigned n, unsigned count, vector<unsigned>& bas, vector<un
   bas.clear();
   nbas.clear();
 
-  unsigned long long n2 = 1 << (n-1);
+  unsigned long long countL = count;
+//  unsigned long long n2 = 1L << ((unsigned long long) n-1);
+  unsigned long long n2 = 1;
+  for (unsigned i=0; i< n; i++)
+    n2 *= 2;
+
   for (unsigned i=0; i< n; i++)
   {
-    if (count / n2 > 0)
+    if (countL / n2 > 0)
       bas.push_back(i);
     else
       nbas.push_back(i);
-    count = count % n2;
-    n2 = n2 >> 1;
+    countL = countL % n2;
+    n2 = n2 >> 1L;
+    assert(n2 != 0);
   } 
 }
 

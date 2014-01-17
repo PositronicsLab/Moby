@@ -108,6 +108,15 @@ class ImpactEventHandler
     Ravelin::MatrixNd _AU, _AV, _B, _C, _D;
     Ravelin::VectorNd _AS, _alpha_x, _qq, _Cn_vplus;
 
+    // last number of (active) contacts handled
+    unsigned _last_contacts;
+
+    // last number of limits handled
+    unsigned _last_limits;
+
+    // last number of contact constraints handled
+    unsigned _last_contact_constraints;
+
 /*
     // temporaries for IPOPT
     boost::shared_ptr<double> _h_obj, _cJac;

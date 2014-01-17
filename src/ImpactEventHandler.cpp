@@ -48,6 +48,9 @@ ImpactEventHandler::ImpactEventHandler()
   use_ip_solver = false;
   poisson_eps = NEAR_ZERO;
 
+  // setup variables to help warmstarting
+  _last_contacts = _last_limits = _last_contact_constraints = 0;
+
   // initialize IPOPT, if present
   #ifdef HAVE_IPOPT
   _app.Options()->SetNumericValue("tol", 1e-7);
