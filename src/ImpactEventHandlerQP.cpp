@@ -55,6 +55,10 @@ void ImpactEventHandler::solve_qp(const VectorNd& zf, EventProblemData& q, doubl
   {
     FILE_LOG(LOG_EVENT) << "Running QP solve iteration with " << (q.N_ACT_CONTACTS) << " active contacts" << std::endl;
 
+    // reset zlast and related variables
+    _last_contacts = _last_contact_constraints = _last_limits = 0;
+    _zlast.set_zero(0);
+
     // solve the QP
     solve_qp_work(q, _z);
 
@@ -480,21 +484,27 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
   // init z to zero
   z.set_zero(_qq.rows());
 
-  // use warm starting, if possible; last solution should be for one fewer
-  // contact. New variables (primal and dual) will have values of zero.
-  const unsigned N_LACT_CONTACTS = N_ACT_CONTACTS - 1;
-  const unsigned N_LACT_VARS = N_LACT_CONTACTS*5 + q.N_LIMITS + 1;
-  if (_zlast.rows() == N_LACT_VARS)
+  // use warm starting if possible
+  // new variables (primal, dual) will have values of zero.
+  if (_last_contacts <= q.N_ACT_CONTACTS && 
+      _last_contact_constraints <= q.N_CONTACT_CONSTRAINTS &&
+      _last_limits <= q.N_LIMITS)
   {
+    const unsigned N_LAST_ACT_CONTACTS = _last_contacts;
+    const unsigned N_LAST_LIMITS = _last_limits;
+    const unsigned N_LAST_CC = _last_contact_constraints;
+    const unsigned N_LAST_VARS = N_LAST_ACT_CONTACTS*5 + N_LAST_LIMITS;
+
     // setup last indices
     const unsigned yCN_IDX = 0;
-    const unsigned yCS_IDX = N_LACT_CONTACTS;
-    const unsigned yCT_IDX = yCS_IDX + N_LACT_CONTACTS;
-    const unsigned yNCS_IDX = yCT_IDX + N_LACT_CONTACTS;
-    const unsigned yNCT_IDX = yNCS_IDX + N_LACT_CONTACTS;
-    const unsigned yL_IDX = yNCT_IDX + N_LACT_CONTACTS;
-    const unsigned lNPc_IDX = yL_IDX + q.N_LIMITS;
-    const unsigned lNPl_IDX = lNPc_IDX + N_LACT_CONTACTS;
+    const unsigned yCS_IDX = N_LAST_ACT_CONTACTS;
+    const unsigned yCT_IDX = yCS_IDX + N_LAST_ACT_CONTACTS;
+    const unsigned yNCS_IDX = yCT_IDX + N_LAST_ACT_CONTACTS;
+    const unsigned yNCT_IDX = yNCS_IDX + N_LAST_ACT_CONTACTS;
+    const unsigned yL_IDX = yNCT_IDX + N_LAST_ACT_CONTACTS;
+    const unsigned lNPc_IDX = yL_IDX + N_LAST_LIMITS; // np lagrange indices
+    const unsigned lNPl_IDX = lNPc_IDX + N_LAST_CC; // limit lagrange indices
+    const unsigned lRest_IDX = lNPl_IDX + N_LAST_LIMITS; // remaining lagrange indices
 
     // populate normal contact forces
     SharedVectorNd cn_last = _zlast.segment(yCN_IDX, yCS_IDX);
@@ -507,7 +517,7 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
     // populate second direction positive tangent contact forces
     SharedVectorNd ct_last = _zlast.segment(yCT_IDX, yNCS_IDX);
     z.set_sub_vec(xCT_IDX, ct_last);
-  
+
     // populate first direction negative tangent contact forces
     SharedVectorNd ncs_last = _zlast.segment(yNCS_IDX, yNCT_IDX);
     z.set_sub_vec(xNCS_IDX, ncs_last);
@@ -521,16 +531,16 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
     z.set_sub_vec(xL_IDX, l_last);
 
     // populate Cn*v+ >= 0 constraint multipliers
-    SharedVectorNd c1_last = _zlast.segment(N_LAST_CONTACTS, N_LAST_CONTACTS+q.N_LAST_CONTACTS);
+    SharedVectorNd c1_last = _zlast.segment(lNPc_IDX, lNPc_IDX+N_LAST_CC);
     z.set_sub_vec(N_ACT_VARS, c1_last);
 
     // populate L*v+ >= 0 constraint multipliers
-    SharedVectorNd c2_last = _zlast.segment(N_LACT_VARS+N_LACT_CONTACTS, N_LACT_VARS+N_LACT_CONTACTS+q.N_LIMITS);
-    z.set_sub_vec(N_ACT_VARS+q.N_CONTACTS, c2_last);
+    SharedVectorNd c2_last = _zlast.segment(lNPl_IDX, lNPl_IDX+N_LAST_LIMITS);
+    z.set_sub_vec(N_ACT_VARS+q.N_CONTACT_CONSTRAINTS, c2_last);
 
     // populate friction coefficient constraint multipliers and kappa constraint
-    SharedVectorNd c3_last = _zlast.segment(N_LACT_VARS+N_LACT_CONTACTS+q.N_LIMITS, _zlast.rows());
-    z.set_sub_vec(N_ACT_VARS+q.N_CONTACTS+q.N_LIMITS, c3_last);
+    SharedVectorNd c3_last = _zlast.segment(lRest_IDX, _zlast.rows());
+    z.set_sub_vec(N_ACT_VARS+q.N_CONTACT_CONSTRAINTS+q.N_LIMITS, c3_last);
   }
 
   // solve the LCP using Lemke's algorithm
@@ -542,6 +552,11 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
 
   // store zlast
   _zlast = z;
+
+  // save number of variables
+  _last_contacts = N_ACT_CONTACTS;
+  _last_limits = q.N_LIMITS;
+  _last_contact_constraints = q.N_CONTACT_CONSTRAINTS;
 
   // get relevant forces
   SharedVectorNd cn = _zlast.segment(0, N_ACT_CONTACTS);
