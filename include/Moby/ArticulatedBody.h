@@ -83,6 +83,9 @@ class ArticulatedBody : public DynamicBody
     /// Gets the number of degrees-of-freedom permitted by implicit constraints
     virtual unsigned num_joint_dof_implicit() const = 0;
 
+    template <class OutputIterator>
+    OutputIterator find_limit_events(double dt, OutputIterator begin) const;
+
     /// Finds (joint) limit events
     template <class OutputIterator>
     OutputIterator find_limit_events(const Ravelin::VectorNd& q0, const Ravelin::VectorNd& q1, double dt, OutputIterator begin);
