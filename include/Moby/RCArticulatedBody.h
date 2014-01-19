@@ -93,6 +93,7 @@ class RCArticulatedBody : public ArticulatedBody
     virtual Ravelin::VectorNd& solve_generalized_inertia(const Ravelin::VectorNd& v, Ravelin::VectorNd& result);
     virtual Ravelin::MatrixNd& solve_generalized_inertia(const Ravelin::MatrixNd& m, Ravelin::MatrixNd& result);
     virtual boost::shared_ptr<const Ravelin::Pose3d> get_gc_pose() const; 
+    virtual void validate_position_variables();
 
     /// Gets whether the base of this body is fixed or "floating"
     virtual bool is_floating_base() const { return _floating_base; }

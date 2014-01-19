@@ -43,6 +43,12 @@ class DynamicBody : public Visualizable
     virtual Ravelin::MatrixNd& calc_jacobian(boost::shared_ptr<const Ravelin::Pose3d> frame, DynamicBodyPtr body, Ravelin::MatrixNd& J) = 0;
     virtual Ravelin::MatrixNd& calc_jacobian_dot(boost::shared_ptr<const Ravelin::Pose3d> frame, DynamicBodyPtr body, Ravelin::MatrixNd& J) = 0;
 
+    /// Validates position-based variables (potentially dangerous for a user to call)
+    virtual void validate_position_variables() { };
+
+    /// Validates velocity-based variables (potentially dangerous for a user to call)
+    virtual void validate_velocity_variables() { };
+
     /// Sets the computation frame type for this body
     virtual void set_computation_frame_type(ReferenceFrameType rftype) = 0;
 

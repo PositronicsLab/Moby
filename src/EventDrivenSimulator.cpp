@@ -1310,7 +1310,15 @@ double EventDrivenSimulator::find_and_handle_si_events(double dt)
 
   // handle the events
   if (h < dt)
+  {
+    // if h = 0, revalidate all positions
+    if (h < NEAR_ZERO)
+      BOOST_FOREACH(DynamicBodyPtr db, _bodies)
+        db->validate_position_variables();
+
+    // handle the events
     handle_events();
+  }
 
   return h;  
 }
