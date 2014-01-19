@@ -264,6 +264,13 @@ void FSABAlgorithm::apply_generalized_impulse(unsigned index, VectorNd& vgj)
     
     FILE_LOG(LOG_DYNAMICS) << "  -- processing link: " << link->id << endl;
     FILE_LOG(LOG_DYNAMICS) << "    -- parent is link " << parent->id << endl;
+
+    // check whether we can do a simple update of link velocity
+    if (joint->num_dof() == 0)
+    {
+      _dv[i] = Pose3d::transform(_dv[i].pose, _dv[h]);
+      continue;
+    }
     
     // determine appropriate components of gj
     vgj.get_sub_vec(CSTART,CSTART+joint->num_dof(), _mu[i]);
@@ -281,7 +288,7 @@ void FSABAlgorithm::apply_generalized_impulse(unsigned index, VectorNd& vgj)
     // solve using s'Is
     solve_sIs(i, _workv2, _qd_delta);
 
-    // update the joint velocity   
+    // update the link velocity   
     _dv[i] = Pose3d::transform(_dv[i].pose, _dv[h]);
     _dv[i] += mult(sprime, _qd_delta);
 
