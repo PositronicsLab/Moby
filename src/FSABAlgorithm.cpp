@@ -154,10 +154,13 @@ void FSABAlgorithm::apply_generalized_impulse(unsigned index, VectorNd& vgj)
     if (!body->is_floating_base() && h == BASE_IDX)
       continue;
 
-    // don't update parent Y if there is no joint DOF
+    // don't update parent Y using joint DOF if there is no joint DOF
     if (joint->num_dof() == 0)
+    {
+      _Y[h] += Pose3d::transform(_Y[h].pose, _Y[i]);
       continue;
- 
+    } 
+
     // determine appropriate components of gj
     const unsigned CSTART = joint->get_coord_index(); 
     vgj.get_sub_vec(CSTART,CSTART+joint->num_dof(), _mu[i]);
@@ -168,8 +171,10 @@ void FSABAlgorithm::apply_generalized_impulse(unsigned index, VectorNd& vgj)
     _mu[i] -= transpose_mult(sprime, _Y[i], _workv2);
 
     // update parent impulsive force 
+    const vector<SMomentumd>& Is = _Is[i];
     solve_sIs(i, _mu[i], _sIsmu);
-    SMomentumd Y = _Y[i] + SMomentumd::from_vector(_sIsmu, _Y[i].pose);
+    mult(Is, _sIsmu, _workv2);
+    SMomentumd Y = _Y[i] + SMomentumd::from_vector(_workv2, _Y[i].pose);
     _Y[h] += Pose3d::transform(_Y[h].pose, Y);
 
     FILE_LOG(LOG_DYNAMICS) << "  *** Backward recursion processing link " << link->id << endl;
