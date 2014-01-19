@@ -571,13 +571,18 @@ void FSABAlgorithm::calc_spatial_coriolis_vectors(RCArticulatedBodyPtr body)
     Pose3d::transform(link->get_computation_frame(), s, sprime);
 
     // compute the coriolis vector
-    SVelocityd sqd = mult(sprime, joint->qd);
-    _c[idx] = link->get_velocity().cross(sqd);
+    if (sprime.empty())
+      _c[idx].set_zero(link->get_computation_frame());
+    else
+    {
+      SVelocityd sqd = mult(sprime, joint->qd);
+      _c[idx] = link->get_velocity().cross(sqd);
 
-    FILE_LOG(LOG_DYNAMICS) << "processing link: " << link->id << endl;
-    FILE_LOG(LOG_DYNAMICS) << "v: " << link->get_velocity() << endl;
-    FILE_LOG(LOG_DYNAMICS) << "s * qdot: " << mult(sprime, joint->qd) << endl;
-    FILE_LOG(LOG_DYNAMICS) << "c: " << _c[idx] << endl;
+      FILE_LOG(LOG_DYNAMICS) << "processing link: " << link->id << endl;
+      FILE_LOG(LOG_DYNAMICS) << "v: " << link->get_velocity() << endl;
+      FILE_LOG(LOG_DYNAMICS) << "s * qdot: " << sqd << endl;
+      FILE_LOG(LOG_DYNAMICS) << "c: " << _c[idx] << endl;
+    }
   }
 }
 
