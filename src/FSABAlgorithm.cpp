@@ -153,6 +153,10 @@ void FSABAlgorithm::apply_generalized_impulse(unsigned index, VectorNd& vgj)
     // don't update parent Y for direct descendants of non-floating bases
     if (!body->is_floating_base() && h == BASE_IDX)
       continue;
+
+    // don't update parent Y if there is no joint DOF
+    if (joint->num_dof() == 0)
+      continue;
  
     // determine appropriate components of gj
     const unsigned CSTART = joint->get_coord_index(); 
@@ -162,9 +166,6 @@ void FSABAlgorithm::apply_generalized_impulse(unsigned index, VectorNd& vgj)
     // compute the qm subexpression
     Pose3d::transform(_Y[i].pose, s, sprime);
     _mu[i] -= transpose_mult(sprime, _Y[i], _workv2);
-
-    // get Is and sIsmu
-    const vector<SMomentumd>& Is = _Is[i];
 
     // update parent impulsive force 
     solve_sIs(i, _mu[i], _sIsmu);
