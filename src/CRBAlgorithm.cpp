@@ -992,8 +992,11 @@ void CRBAlgorithm::calc_generalized_forces(SForced& f0, VectorNd& C)
       std::vector<SVelocityd> s_mixed;
       Pose3d::transform(ob->get_mixed_pose(), s, s_mixed);
 //      Pose3d::transform(_w[oidx].pose, s, s_mixed);
-      FILE_LOG(LOG_DYNAMICS) << " -- s' (mixed pose): " << s_mixed[0] << std::endl;
-      FILE_LOG(LOG_DYNAMICS) << " -- force (mixed pose): " << w_mixed << std::endl;
+      if (s.empty())
+      {
+        FILE_LOG(LOG_DYNAMICS) << " -- s' (mixed pose): " << s_mixed[0] << std::endl;
+        FILE_LOG(LOG_DYNAMICS) << " -- force (mixed pose): " << w_mixed << std::endl;
+      }
     }
     FILE_LOG(LOG_DYNAMICS) << "   -- forces: " << _w[oidx] << std::endl;
     FILE_LOG(LOG_DYNAMICS) << "   -- component of C: " << Csub << std::endl;
