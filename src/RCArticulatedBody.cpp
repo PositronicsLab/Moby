@@ -53,6 +53,12 @@ RCArticulatedBody::RCArticulatedBody()
   _position_invalidated = true;
 }
 
+/// Validates position variables
+void RCArticulatedBody::validate_position_variables()
+{
+  _position_invalidated = false;
+}
+
 /// Gets the frame used for generalized coordinate calculations
 shared_ptr<const Pose3d> RCArticulatedBody::get_gc_pose() const
 {
