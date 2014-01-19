@@ -29,6 +29,10 @@ class VisualizationData;
 class Joint : public Visualizable
 {
   public:
+    /**  
+     * The constraint type is implicit if constraint forces must be determined
+     * to hold the inner and outer links together and explicit otherwise.
+     */ 
     enum ConstraintType { eUnknown, eExplicit, eImplicit };
     enum DOFs { DOF_1=0, DOF_2=1, DOF_3=2, DOF_4=3, DOF_5=4, DOF_6=5 };
 

@@ -199,8 +199,11 @@ void FSABAlgorithm::apply_generalized_impulse(unsigned index, const vector<vecto
     // update base components 
     RigidBodyPtr base = links.front();
 
+    // get start of generalized velocities
+    const unsigned S = body->_n_joint_DOF_explicit;
+
     // generalized impulse on base will be in global frame, by Moby convention 
-    SMomentumd w(vgj[0], vgj[1], vgj[2], vgj[3], vgj[4], vgj[5], GLOBAL);
+    SMomentumd w(vgj[S+0], vgj[S+1], vgj[S+2], vgj[S+3], vgj[S+4], vgj[S+5], GLOBAL);
     _Y.front() -= Pose3d::transform(_Y.front().pose, w);
   }
 
@@ -435,8 +438,11 @@ void FSABAlgorithm::apply_generalized_impulse(const VectorNd& gj)
     // update base components 
     RigidBodyPtr base = links.front();
 
+    // get start of generalized velocities
+    const unsigned S = body->_n_joint_DOF_explicit;
+
     // momentum is in mixed frame by Moby convention 
-    SMomentumd basew(gj[0], gj[1], gj[2], gj[3], gj[4], gj[5], base->get_gc_pose());
+    SMomentumd basew(gj[S+0], gj[S+1], gj[S+2], gj[S+3], gj[S+4], gj[S+5], base->get_gc_pose());
     _Y.front() -= Pose3d::transform(_Y.front().pose, basew);
   }
 
