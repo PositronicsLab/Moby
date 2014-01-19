@@ -32,39 +32,22 @@ FSABAlgorithm::FSABAlgorithm()
 {
 }
 
-/*
 /// Calculates the inverse generalized inertia matrix
-void FSABAlgorithm::calc_inverse_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, MatrixNd& iM)
+void FSABAlgorithm::calc_inverse_generalized_inertia(MatrixNd& iM)
 {
-  vector<SVelocityd> sprime;
-
-  // we currently only handle axis-angle generalized coordinates...
-  assert(gctype == DynamicBody::eSpatial);
+  VectorNd gv;
 
   // get the body
   RCArticulatedBodyPtr body(_body);
 
-  // prepare to calculate the impulses
-  calc_impulse_dyn(body, eGlobal);
+  // store the current generalized velocity
+  body->get_generalized_velocity(DynamicBody::eSpatial, gv);
 
-  // now, compute s'I
-  const vector<RigidBodyPtr>& links = body->get_links();
-  vector<SForced> sTI(links.size());
-  for (unsigned i=1; i< links.size(); i++)
-  {
-    JointPtr joint = links[i]->get_inner_joint_explicit();
-    if (links[i]->get_computation_type() == eJoint)
-    {
-      const vector<SVelocityd>& s = joint->get_spatial_axes();
-      transform(s.front().pose, links[i]->get_computation_pose(), sprime); 
-    }
-    else
-      sprime = joint->get_spatial_axes();
-    transpose_mult(sprime, _I[i], sTI[i]);
-  }
+  // prepare to calculate the impulses
+  calc_impulse_dyn(body);
 
   // get the number of generalized coords
-  const unsigned NGC = body->num_generalized_coordinates(gctype);
+  const unsigned NGC = body->num_generalized_coordinates(DynamicBody::eSpatial);
 
   // resize inv(M)
   iM.resize(NGC, NGC);
@@ -79,7 +62,7 @@ void FSABAlgorithm::calc_inverse_generalized_inertia(DynamicBody::GeneralizedCoo
     _workv[i] = (double) 1.0;
 
     // apply the generalized impulse
-    apply_generalized_impulse(i, sTI, _workv);
+    apply_generalized_impulse(i, _workv);
 
     // set the appropriate column of inv(M)
     iM.set_column(i, _workv);
@@ -91,13 +74,15 @@ void FSABAlgorithm::calc_inverse_generalized_inertia(DynamicBody::GeneralizedCoo
   for (unsigned i=0, ii=0; i< NGC; i++, ii+= LD)
     for (unsigned j=0, jj=0; j< i; j++, jj+= LD)
       data[ii] = data[jj];
-  
+ 
+  // restore the current generalized velocity
+  body->get_generalized_velocity(DynamicBody::eSpatial, gv);
+ 
   FILE_LOG(LOG_DYNAMICS) << "inverse M: " << std::endl << iM;
 }
-*/
 
 /// Applies a generalized impulse using the algorithm of Drumwright
-void FSABAlgorithm::apply_generalized_impulse(unsigned index, const vector<vector<SForced> >& sTI, VectorNd& vgj)
+void FSABAlgorithm::apply_generalized_impulse(unsigned index, VectorNd& vgj)
 {
   queue<RigidBodyPtr> link_queue;
   const unsigned SPATIAL_DIM = 6;
@@ -199,7 +184,7 @@ void FSABAlgorithm::apply_generalized_impulse(unsigned index, const vector<vecto
     // update base components 
     RigidBodyPtr base = links.front();
 
-    // get start of generalized velocities
+    // get the start of the generalized coordinates for the base 
     const unsigned S = body->_n_joint_DOF_explicit;
 
     // generalized impulse on base will be in global frame, by Moby convention 
@@ -295,6 +280,9 @@ void FSABAlgorithm::apply_generalized_impulse(unsigned index, const vector<vecto
     _dv[i] += mult(sprime, _qd_delta);
 
 /*
+    // NOTE: this is no longer necessary b/c we recalculate velocities from
+    // scratch
+
     // compute s'Y
     transpose_mult(sprime, _Y[i], _sTY);
 
@@ -438,7 +426,7 @@ void FSABAlgorithm::apply_generalized_impulse(const VectorNd& gj)
     // update base components 
     RigidBodyPtr base = links.front();
 
-    // get start of generalized velocities
+    // get the start of the generalized coordinates for the base
     const unsigned S = body->_n_joint_DOF_explicit;
 
     // momentum is in mixed frame by Moby convention 

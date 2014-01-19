@@ -123,14 +123,25 @@ void RCArticulatedBody::update_factorized_generalized_inertia()
 /// Solves using a generalized inertia matrix
 VectorNd& RCArticulatedBody::solve_generalized_inertia(const VectorNd& v, VectorNd& result)
 {
-  // update the inverse / factorized inertia (if necessary)
-  update_factorized_generalized_inertia();
+  if (algorithm_type == eFeatherstone)
+  {
+    // TODO: these operations are all slow and could be replaced by an 
+    // in-place solve w/in FSAB
+    MatrixNd iM;
+    _fsab.calc_inverse_generalized_inertia(iM);
+    iM.mult(v, result);
+  }
+  else
+  {
+    // update the inverse / factorized inertia (if necessary)
+    update_factorized_generalized_inertia();
 
-  // make x/b one vector
-  result = v;
+    // make x/b one vector
+    result = v;
 
-  // solve once
-  _crb.M_solve_noprecalc(result);
+    // solve once
+    _crb.M_solve_noprecalc(result);
+  }
 
   return result;
 }
@@ -138,14 +149,26 @@ VectorNd& RCArticulatedBody::solve_generalized_inertia(const VectorNd& v, Vector
 /// Solves the transpose using a generalized inertia matrix
 MatrixNd& RCArticulatedBody::transpose_solve_generalized_inertia(const MatrixNd& m, MatrixNd& result)
 {
-  // update the inverse / factorized inertia (if necessary)
-  update_factorized_generalized_inertia();
+  if (algorithm_type == eFeatherstone)
+  {
+    // TODO: these operations are all slow and could be replaced by an 
+    // in-place solve w/in FSAB
+    MatrixNd iM, tmp;
+    _fsab.calc_inverse_generalized_inertia(iM);
+    MatrixNd::transpose(m, tmp);
+    iM.mult(tmp, result);
+  }
+  else
+  {
+    // update the inverse / factorized inertia (if necessary)
+    update_factorized_generalized_inertia();
 
-  // setup the result
-  MatrixNd::transpose(m, result);
+    // setup the result
+    MatrixNd::transpose(m, result);
 
-  // solve
-  _crb.M_solve_noprecalc(result);
+    // solve
+    _crb.M_solve_noprecalc(result);
+  }
 
   return result;
 }
@@ -153,14 +176,25 @@ MatrixNd& RCArticulatedBody::transpose_solve_generalized_inertia(const MatrixNd&
 /// Solves using a generalized inertia matrix
 MatrixNd& RCArticulatedBody::solve_generalized_inertia(const MatrixNd& m, MatrixNd& result)
 {
-  // update the inverse / factorized inertia (if necessary)
-  update_factorized_generalized_inertia();
+  if (algorithm_type == eFeatherstone)
+  {
+    // TODO: these operations are all slow and could be replaced by an 
+    // in-place solve w/in FSAB
+    MatrixNd iM;
+    _fsab.calc_inverse_generalized_inertia(iM);
+    iM.mult(m, result);
+  }
+  else
+  {
+    // update the inverse / factorized inertia (if necessary)
+    update_factorized_generalized_inertia();
 
-  // setup the result
-  result = m;
+    // setup the result
+    result = m;
 
-  // solve
-  _crb.M_solve_noprecalc(result);
+    // solve
+    _crb.M_solve_noprecalc(result);
+  }
   
   return result;
 }

@@ -44,6 +44,7 @@ class FSABAlgorithm
     RCArticulatedBodyPtr get_body() const { return RCArticulatedBodyPtr(_body); }
     void set_body(RCArticulatedBodyPtr body) { _body = body; }
     void calc_fwd_dyn();
+    void calc_inverse_generalized_inertia(Ravelin::MatrixNd& iM);
     void apply_generalized_impulse(const Ravelin::VectorNd& gj);
     void apply_impulse(const Ravelin::SMomentumd& j, RigidBodyPtr link);
 
@@ -97,7 +98,7 @@ class FSABAlgorithm
     static void push_children(RigidBodyPtr link, std::queue<RigidBodyPtr>& q);
     void apply_coulomb_joint_friction(RCArticulatedBodyPtr body);
     void calc_impulse_dyn(RCArticulatedBodyPtr body);
-    void apply_generalized_impulse(unsigned index, const std::vector<std::vector<Ravelin::SForced> >& sTI, Ravelin::VectorNd& vgj);
+    void apply_generalized_impulse(unsigned index, Ravelin::VectorNd& vgj);
     void set_spatial_velocities(RCArticulatedBodyPtr body);
     void calc_spatial_accelerations(RCArticulatedBodyPtr body);
     void calc_spatial_zero_accelerations(RCArticulatedBodyPtr body);
