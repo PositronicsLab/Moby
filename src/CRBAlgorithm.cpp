@@ -197,7 +197,8 @@ void CRBAlgorithm::calc_generalized_inertia(RCArticulatedBodyPtr body)
 
   // get composite inertia in desired frame
   shared_ptr<const Pose3d> P = get_computation_frame(body);
-  Pose3d::transform(P, _Ic.front()).to_matrix(Ic0);
+//  Pose3d::transform(P, _Ic.front()).to_matrix(Ic0);
+  Pose3d::transform(P, _Ic.front()).to_PD_matrix(Ic0);
 
   FILE_LOG(LOG_DYNAMICS) << "Ic0: " << std::endl << Ic0;
 
@@ -223,17 +224,19 @@ void CRBAlgorithm::calc_generalized_inertia(RCArticulatedBodyPtr body)
     // compute the requisite columns of K
     SharedMatrixNd Kb = K.block(0, SPATIAL_DIM, jidx, jidx+joint->num_dof()); 
     SharedMatrixNd KSb = KS.block(jidx, jidx+joint->num_dof(), 0, SPATIAL_DIM); 
-    spatial_transpose_to_matrix(_Is, KSb);
+//    spatial_transpose_to_matrix(_Is, KSb);
     to_matrix(_Is, Kb); 
+    MatrixNd::transpose(Kb, KSb); 
   }
 
+/*
   FILE_LOG(LOG_DYNAMICS) << "[H K^S; K Ic0] (unpermuted): " << std::endl << M;
 
   // swap last three and second-to-last three rows 
   M.get_sub_mat(BASE_START, BASE_START+3, 0, M.columns(), _workM);
   M.block(BASE_START, BASE_START+3, 0, M.columns()) = M.block(BASE_START+3, BASE_START+6, 0, M.columns());
   M.block(BASE_START+3, BASE_START+6, 0, M.columns()) = _workM;
-  
+*/  
   FILE_LOG(LOG_DYNAMICS) << "[H K'; K Ic0] (permuted): " << std::endl << M;
 }
 
@@ -519,7 +522,8 @@ void CRBAlgorithm::calc_generalized_inertia(MatrixNd& M)
   // get composite inertia in desired frame
   RigidBodyPtr base = body->get_base_link();
   shared_ptr<const Pose3d> P = base->get_gc_pose();
-  Pose3d::transform(P, _Ic[base->get_index()]).to_matrix(Ic0); 
+//  Pose3d::transform(P, _Ic[base->get_index()]).to_matrix(Ic0); 
+  Pose3d::transform(P, _Ic[base->get_index()]).to_PD_matrix(Ic0); 
 
   // compute K
   for (unsigned i=0; i< ijoints.size(); i++)
@@ -543,17 +547,19 @@ void CRBAlgorithm::calc_generalized_inertia(MatrixNd& M)
     // compute the requisite columns of K
     SharedMatrixNd Kb = K.block(0, SPATIAL_DIM, jidx, jidx+joint->num_dof()); 
     SharedMatrixNd KSb = KS.block(jidx, jidx+joint->num_dof(), 0, SPATIAL_DIM); 
-    spatial_transpose_to_matrix(_Is, KSb);
+//    spatial_transpose_to_matrix(_Is, KSb);
     to_matrix(_Is, Kb); 
+    MatrixNd::transpose(Kb, KSb);
   }
 
+/*
   FILE_LOG(LOG_DYNAMICS) << "[H K^S; K Ic0] (unpermuted): " << std::endl << M;
 
   // swap last three and second-to-last three rows 
   M.get_sub_mat(BASE_START, BASE_START+3, 0, M.columns(), _workM);
   M.block(BASE_START, BASE_START+3, 0, M.columns()) = M.block(BASE_START+3, BASE_START+6, 0, M.columns());
   M.block(BASE_START+3, BASE_START+6, 0, M.columns()) = _workM;
-  
+*/  
   FILE_LOG(LOG_DYNAMICS) << "[H K'; K Ic0] (permuted): " << std::endl << M;
 }
 
@@ -753,9 +759,11 @@ void CRBAlgorithm::calc_fwd_dyn_floating_base(RCArticulatedBodyPtr body)
   // swap last three and next to last three elements of b
   const unsigned SPATIAL_DIM = 6;
   const unsigned BASE_START = _b.size() - SPATIAL_DIM;
+/*
   std::swap(_b[BASE_START+0], _b[BASE_START+3]);
   std::swap(_b[BASE_START+1], _b[BASE_START+4]);
   std::swap(_b[BASE_START+2], _b[BASE_START+5]);
+*/
  
   // solve for accelerations
   M_solve_noprecalc(_augV = _b); 
@@ -764,6 +772,11 @@ void CRBAlgorithm::calc_fwd_dyn_floating_base(RCArticulatedBodyPtr body)
   // get pointers to a0 and qdd vectors
   SAcceld& a0 = this->_a0;
   VectorNd& qdd = this->_qdd;
+
+  // swap components of a0
+  std::swap(_augV[BASE_START+0], _augV[BASE_START+3]);
+  std::swap(_augV[BASE_START+1], _augV[BASE_START+4]);
+  std::swap(_augV[BASE_START+2], _augV[BASE_START+5]);
 
   // get out a0, qdd
   qdd = _augV.segment(0, BASE_START);
