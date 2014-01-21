@@ -44,8 +44,12 @@ class FSABAlgorithm
     RCArticulatedBodyPtr get_body() const { return RCArticulatedBodyPtr(_body); }
     void set_body(RCArticulatedBodyPtr body) { _body = body; }
     void calc_fwd_dyn();
+    void calc_inverse_generalized_inertia_noprecalc(Ravelin::MatrixNd& iM);
+    void solve_generalized_inertia_noprecalc(Ravelin::VectorNd& v);
+    void solve_generalized_inertia_noprecalc(Ravelin::MatrixNd& Y);
     void apply_generalized_impulse(const Ravelin::VectorNd& gj);
     void apply_impulse(const Ravelin::SMomentumd& j, RigidBodyPtr link);
+    void calc_spatial_inertias(RCArticulatedBodyPtr body);
 
     /// The body that this algorithm operates on
     boost::weak_ptr<RCArticulatedBody> _body;
@@ -96,12 +100,10 @@ class FSABAlgorithm
     static double sgn(double x);
     static void push_children(RigidBodyPtr link, std::queue<RigidBodyPtr>& q);
     void apply_coulomb_joint_friction(RCArticulatedBodyPtr body);
-    void calc_impulse_dyn(RCArticulatedBodyPtr body);
-    void apply_generalized_impulse(unsigned index, const std::vector<std::vector<Ravelin::SForced> >& sTI, Ravelin::VectorNd& vgj);
+    void apply_generalized_impulse(unsigned index, Ravelin::VectorNd& vgj);
     void set_spatial_velocities(RCArticulatedBodyPtr body);
     void calc_spatial_accelerations(RCArticulatedBodyPtr body);
     void calc_spatial_zero_accelerations(RCArticulatedBodyPtr body);
-    void calc_spatial_inertias(RCArticulatedBodyPtr body);
     void calc_spatial_coriolis_vectors(RCArticulatedBodyPtr body);
     Ravelin::VectorNd& solve_sIs(unsigned idx, const Ravelin::VectorNd& v, Ravelin::VectorNd& result) const;
     Ravelin::MatrixNd& solve_sIs(unsigned idx, const Ravelin::MatrixNd& v, Ravelin::MatrixNd& result) const;
