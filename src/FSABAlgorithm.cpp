@@ -32,8 +32,12 @@ FSABAlgorithm::FSABAlgorithm()
 {
 }
 
-/// Calculates the inverse generalized inertia matrix
-void FSABAlgorithm::calc_inverse_generalized_inertia(MatrixNd& iM)
+/// Solves the equation MX = B, where M is the generalized inertia matrix
+/**
+ * \param Y the matrix B on entry, the matrix X on return
+ * \pre spatial inertias already computed for the body's current configuration 
+ */
+void FSABAlgorithm::solve_generalized_inertia_noprecalc(MatrixNd& Y)
 {
   VectorNd gv;
 
@@ -43,8 +47,76 @@ void FSABAlgorithm::calc_inverse_generalized_inertia(MatrixNd& iM)
   // store the current generalized velocity
   body->get_generalized_velocity(DynamicBody::eSpatial, gv);
 
-  // prepare to calculate the impulses
-  calc_impulse_dyn(body);
+  // get the number of generalized coords
+  const unsigned NGC = body->num_generalized_coordinates(DynamicBody::eSpatial);
+  if (Y.rows() != NGC)
+    throw MissizeException();
+
+  // get the number of columns 
+  const unsigned NC = Y.columns(); 
+
+  // resize inv(M)
+  _workv.set_zero(NGC);
+
+  // solve using the matrix
+  for (unsigned i=0; i< NC; i++)
+  {
+    // setup the generalized impulse
+    Y.get_column(i, _workv);
+
+    // apply the generalized impulse
+    apply_generalized_impulse(_workv);
+
+    // get the new velocity out
+    body->get_generalized_velocity(DynamicBody::eSpatial, _workv2);
+    _workv2 -= _workv;
+
+    // set the appropriate column of Y 
+    Y.set_column(i, _workv2);
+  } 
+
+  // restore the current generalized velocity
+  body->set_generalized_velocity(DynamicBody::eSpatial, gv);
+}
+
+/// Solves the equation Mx = b, where M is the generalized inertia matrix
+/**
+ * \param v the vector b on entry, the vector x on return
+ * \pre spatial inertias already computed for the body's current configuration 
+ */
+void FSABAlgorithm::solve_generalized_inertia_noprecalc(VectorNd& v)
+{
+  VectorNd gv;
+
+  // get the body
+  RCArticulatedBodyPtr body(_body);
+
+  // store the current generalized velocity
+  body->get_generalized_velocity(DynamicBody::eSpatial, gv);
+  if (v.rows() != gv.rows())
+    throw MissizeException();
+
+  // apply the generalized impulse
+  apply_generalized_impulse(v);
+
+  // get the new velocity out
+  body->get_generalized_velocity(DynamicBody::eSpatial, v);
+  v -= gv;
+
+  // restore the current generalized velocity
+  body->set_generalized_velocity(DynamicBody::eSpatial, gv);
+}
+
+/// Calculates the inverse generalized inertia matrix
+void FSABAlgorithm::calc_inverse_generalized_inertia_noprecalc(MatrixNd& iM)
+{
+  VectorNd gv;
+
+  // get the body
+  RCArticulatedBodyPtr body(_body);
+
+  // store the current generalized velocity
+  body->get_generalized_velocity(DynamicBody::eSpatial, gv);
 
   // get the number of generalized coords
   const unsigned NGC = body->num_generalized_coordinates(DynamicBody::eSpatial);
@@ -68,13 +140,6 @@ void FSABAlgorithm::calc_inverse_generalized_inertia(MatrixNd& iM)
   } 
 
   // make inverse(M) symmetric
-  const unsigned LD = iM.leading_dim();
-  double* data = iM.data();
-
-  for (unsigned i=0, ii=0; i< NGC; i++, ii+= LD)
-    for (unsigned j=0, jj=0; j< i; j++, jj+= LD)
-      data[ii] = data[jj];
-
   for (unsigned i=0; i< NGC; i++)
   {
     RowIteratord_const source = iM.row(i).row_iterator_begin();
@@ -82,16 +147,6 @@ void FSABAlgorithm::calc_inverse_generalized_inertia(MatrixNd& iM)
     for (unsigned j=0; j< i; j++)
       *target++ = *source++;
   }
-/*
-  for (unsigned i=0; i< NGC; i++)
-    for (unsigned j=0; j< i; j++)
-      iM(i,j) = iM(j,i);
-
-MatrixNd J = iM;
-J.transpose();
-J -= iM;
-  FILE_LOG(LOG_DYNAMICS) << "norm inv(M)-inv(M)': " << std::endl << J;
-*/
 
   // restore the current generalized velocity
   body->set_generalized_velocity(DynamicBody::eSpatial, gv);
@@ -280,6 +335,9 @@ void FSABAlgorithm::apply_generalized_impulse(unsigned index, VectorNd& vgj)
     // get the inboard joint
     JointPtr joint(link->get_inner_joint_explicit());
 
+    // place all children on the link queue
+    push_children(link, link_queue);
+
     // check the starting index of this joint
     const unsigned CSTART = joint->get_coord_index();
     if (CSTART > index)
@@ -291,25 +349,24 @@ void FSABAlgorithm::apply_generalized_impulse(unsigned index, VectorNd& vgj)
     FILE_LOG(LOG_DYNAMICS) << "  -- processing link: " << link->id << endl;
     FILE_LOG(LOG_DYNAMICS) << "    -- parent is link " << parent->id << endl;
 
+    // do the first update of the link velocity`
+    _dv[i] = Pose3d::transform(_dv[i].pose, _dv[h]);
+
     // check whether we can do a simple update of link velocity
     if (joint->num_dof() == 0)
-    {
-      _dv[i] = Pose3d::transform(_dv[i].pose, _dv[h]);
       continue;
-    }
     
     // transform s to Y's frame
     Pose3d::transform(_Y[i].pose, s, sprime); 
 
     // compute dq = inv(s'*I*s) * (mu - compute s'*I*dv[h] + s'*Y)
-    SMomentumd Y = _Y[i] + _I[i]*_dv[h]; 
+    SMomentumd Y = _Y[i] + _I[i]*Pose3d::transform(_dv[i].pose, _dv[h]); 
     transpose_mult(sprime, Y, _workv2);
     _workv2.negate();
     _workv2 += _mu[i]; 
     solve_sIs(i, _workv2, _qd_delta);
 
     // update the link velocity   
-    _dv[i] = Pose3d::transform(_dv[i].pose, _dv[h]);
     _dv[i] += mult(sprime, _qd_delta);
 
     FILE_LOG(LOG_DYNAMICS) << "    -- cumulative transformed impulse on this link: " << _Y[i] << endl;
@@ -320,9 +377,6 @@ void FSABAlgorithm::apply_generalized_impulse(unsigned index, VectorNd& vgj)
     FILE_LOG(LOG_DYNAMICS) << "    -- dv[parent]: " << _dv[h] << endl;    
     FILE_LOG(LOG_DYNAMICS) << "    -- delta v: " << _dv[i] << endl;
    
-    // place all children on the link queue
-    push_children(link, link_queue);
-
     // update vgj
     for (unsigned k=0; k< joint->num_dof(); k++)
       vgj[CSTART+k] = _qd_delta[k];
@@ -347,9 +401,6 @@ void FSABAlgorithm::apply_generalized_impulse(const VectorNd& gj)
 
   FILE_LOG(LOG_DYNAMICS) << "FSABAlgorithm::apply_generalized_impulse() entered" << endl;
   FILE_LOG(LOG_DYNAMICS) << "gj: " << gj << endl;
-
-  // prepare to calculate the impulse
-  calc_impulse_dyn(body);
 
   // get the sets of links and joints
   const vector<RigidBodyPtr>& links = body->get_links();
@@ -1040,35 +1091,9 @@ void FSABAlgorithm::push_children(RigidBodyPtr link, queue<RigidBodyPtr>& q)
   }
 }
 
-/// Computes necessary vectors to apply impulses to an articulated body
-/**
- * Featherstone Algorithm taken from Mirtich's thesis (p. 113).  Note that Mirtich's numbering is a little funny;
- * I decrement his joint indices by one, while leaving his link indices intact.
- */
-void FSABAlgorithm::calc_impulse_dyn(RCArticulatedBodyPtr body)
-{
-  FILE_LOG(LOG_DYNAMICS) << "FSABAlgorith::calc_impulse_dyn() entered" << endl;
-
-  // get the links and joints for the body
-  const vector<RigidBodyPtr>& links = body->get_links();
-  const vector<JointPtr>& joints = body->get_explicit_joints();
-
-  // get the base link
-  RigidBodyPtr base = links.front();
-
-  // initialize base velocities to zero, if not a floating base
-  if (!body->is_floating_base())
-    base->set_velocity(SVelocityd::zero(base->get_computation_frame()));
-  
-  // compute everything else we need
-  calc_spatial_inertias(body);
-
-  FILE_LOG(LOG_DYNAMICS) << "FSABAlgorith::calc_impulse_dyn() exited" << endl;
-}
-
 /// Implements RCArticulatedBodyFwdDynAlgo::apply_impulse()
 /**
- * \pre forward dynamics have been computed already by calc_fwd_dyn()
+ * \pre spatial inertias already computed for the body's current configuration 
  */
 void FSABAlgorithm::apply_impulse(const SMomentumd& w, RigidBodyPtr link)
 {
@@ -1083,9 +1108,6 @@ void FSABAlgorithm::apply_impulse(const SMomentumd& w, RigidBodyPtr link)
   RCArticulatedBodyPtr body(_body);   
   if (!body->_ijoints.empty())
     throw std::runtime_error("FSABAlgorithm cannot process bodies with kinematic loops!");
-
-  // prepare to compute impulses
-  calc_impulse_dyn(body);
 
   // initialize spatial zero velocity deltas to zeros
   const vector<RigidBodyPtr>& links = body->get_links();
