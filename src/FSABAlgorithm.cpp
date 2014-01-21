@@ -54,7 +54,6 @@ void FSABAlgorithm::calc_inverse_generalized_inertia(MatrixNd& iM)
   _workv.set_zero(NGC);
 
   // compute the inverse inertia
-  #pragma omp parallel for
   for (unsigned i=0; i< NGC; i++)
   {
     // setup the generalized impulse
@@ -69,14 +68,33 @@ void FSABAlgorithm::calc_inverse_generalized_inertia(MatrixNd& iM)
   } 
 
   // make inverse(M) symmetric
-  const unsigned LD = NGC;
+  const unsigned LD = iM.leading_dim();
   double* data = iM.data();
+
   for (unsigned i=0, ii=0; i< NGC; i++, ii+= LD)
     for (unsigned j=0, jj=0; j< i; j++, jj+= LD)
       data[ii] = data[jj];
- 
+
+  for (unsigned i=0; i< NGC; i++)
+  {
+    RowIteratord_const source = iM.row(i).row_iterator_begin();
+    ColumnIteratord target = iM.column(i).column_iterator_begin();
+    for (unsigned j=0; j< i; j++)
+      *target++ = *source++;
+  }
+/*
+  for (unsigned i=0; i< NGC; i++)
+    for (unsigned j=0; j< i; j++)
+      iM(i,j) = iM(j,i);
+
+MatrixNd J = iM;
+J.transpose();
+J -= iM;
+  FILE_LOG(LOG_DYNAMICS) << "norm inv(M)-inv(M)': " << std::endl << J;
+*/
+
   // restore the current generalized velocity
-  body->get_generalized_velocity(DynamicBody::eSpatial, gv);
+  body->set_generalized_velocity(DynamicBody::eSpatial, gv);
  
   FILE_LOG(LOG_DYNAMICS) << "inverse M: " << std::endl << iM;
 }
@@ -114,18 +132,17 @@ void FSABAlgorithm::apply_generalized_impulse(unsigned index, VectorNd& vgj)
   }
 
   // doing a recursion backward from the end-effectors; add all leaf links to the link_queue
-  std::priority_queue<unsigned> link_pqueue;
   for (unsigned i=0; i< links.size(); i++)
     if (i > BASE_IDX && links[i]->num_child_links() == 0)
-      link_pqueue.push(i);
+      link_queue.push(links[i]);
 
   // backward recursion
-  while (!link_pqueue.empty())
+  while (!link_queue.empty())
   {
     // get the link off of the front of the queue 
-    unsigned i = link_pqueue.top();
-    RigidBodyPtr link = links[i];
-    link_pqueue.pop();
+    RigidBodyPtr link = link_queue.front();
+    link_queue.pop();
+    unsigned i = link->get_index();
   
     // see whether this link has already been processed (because two different children can have the same parent)
     if (_processed[i])
@@ -138,7 +155,7 @@ void FSABAlgorithm::apply_generalized_impulse(unsigned index, VectorNd& vgj)
     RigidBodyPtr parent(link->get_parent_link());
     if (!parent->get_index() == BASE_IDX)
     {
-      link_pqueue.push(parent->get_index());
+      link_queue.push(parent);
       FILE_LOG(LOG_DYNAMICS) << "added link " << parent->id << " to queue for processing" << endl;
     }
     unsigned h = parent->get_index();
@@ -193,8 +210,8 @@ void FSABAlgorithm::apply_generalized_impulse(unsigned index, VectorNd& vgj)
     // get the start of the generalized coordinates for the base 
     const unsigned S = body->_n_joint_DOF_explicit;
 
-    // generalized impulse on base will be in global frame, by Moby convention 
-    SMomentumd w(vgj[S+0], vgj[S+1], vgj[S+2], vgj[S+3], vgj[S+4], vgj[S+5], GLOBAL);
+    // generalized impulse on base will be in mixed frame, by Moby convention 
+    SMomentumd w(vgj[S+0], vgj[S+1], vgj[S+2], vgj[S+3], vgj[S+4], vgj[S+5], base->get_gc_pose());
     _Y.front() -= Pose3d::transform(_Y.front().pose, w);
   }
 
@@ -215,9 +232,6 @@ void FSABAlgorithm::apply_generalized_impulse(unsigned index, VectorNd& vgj)
   RigidBodyPtr base = links.front();
   const unsigned NUM_LINKS = links.size();
 
-  // add all children of the base to the link queue
-  push_children(base, link_queue);
-
   // setup a vector of link velocity updates
   _dv.resize(NUM_LINKS);
   
@@ -229,13 +243,25 @@ void FSABAlgorithm::apply_generalized_impulse(unsigned index, VectorNd& vgj)
 
     FILE_LOG(LOG_DYNAMICS) << "base is floating..." << endl;
     FILE_LOG(LOG_DYNAMICS) << "  base transform: " << endl << base->get_pose();
+    FILE_LOG(LOG_DYNAMICS) << "  change in velocity: " << _dv.front() << endl;
 
-    // determine change in generalized velocities
-    for (unsigned i=0; i< N_BASE_GC; i++)
-      vgj[i] = _dv.front()[i];
+    // figure out where the base starts
+    const unsigned BASE_START = body->_n_joint_DOF_explicit;
+
+    // determine change in generalized velocities -- NOTE: we have to reverse
+    // linear and angular components
+    vgj[BASE_START+0] = _dv.front()[3+0];
+    vgj[BASE_START+1] = _dv.front()[3+1];
+    vgj[BASE_START+2] = _dv.front()[3+2];
+    vgj[BASE_START+3] = _dv.front()[0+0];
+    vgj[BASE_START+4] = _dv.front()[0+1];
+    vgj[BASE_START+5] = _dv.front()[0+2];
   }
   else 
     _dv.front().set_zero();
+
+  // add all children of the base to the link queue
+  push_children(base, link_queue);
 
   // update link and joint velocities
   while (!link_queue.empty())
@@ -272,40 +298,20 @@ void FSABAlgorithm::apply_generalized_impulse(unsigned index, VectorNd& vgj)
       continue;
     }
     
-    // determine appropriate components of gj
-    vgj.get_sub_vec(CSTART,CSTART+joint->num_dof(), _mu[i]);
-
     // transform s to Y's frame
     Pose3d::transform(_Y[i].pose, s, sprime); 
 
-    // update _Yi
+    // compute dq = inv(s'*I*s) * (mu - compute s'*I*dv[h] + s'*Y)
     SMomentumd Y = _Y[i] + _I[i]*_dv[h]; 
-
-    // compute -s'Y
     transpose_mult(sprime, Y, _workv2);
     _workv2.negate();
-
-    // solve using s'Is
+    _workv2 += _mu[i]; 
     solve_sIs(i, _workv2, _qd_delta);
 
     // update the link velocity   
     _dv[i] = Pose3d::transform(_dv[i].pose, _dv[h]);
     _dv[i] += mult(sprime, _qd_delta);
 
-/*
-    // NOTE: this is no longer necessary b/c we recalculate velocities from
-    // scratch
-
-    // compute s'Y
-    transpose_mult(sprime, _Y[i], _sTY);
-
-    // determine the joint and link velocity updates
-    transpose_mult(sTI[i], _dv[h], _workv2) += _sTY;
-    _workv2.negate() += _mu[i];
-    solve_sIs(i, _workv2, _qd_delta);
-    _dv[i] = Pose3d::transform(_dv[h].pose, _dv[i].pose, _dv[h]);
-    _dv[i] += mult(sprime, _qd_delta);
-*/
     FILE_LOG(LOG_DYNAMICS) << "    -- cumulative transformed impulse on this link: " << _Y[i] << endl;
     FILE_LOG(LOG_DYNAMICS) << "    -- I: " << endl << _I[i];
     FILE_LOG(LOG_DYNAMICS) << "    -- Qi: " << _mu[i] << endl;
