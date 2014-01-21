@@ -53,6 +53,12 @@ RCArticulatedBody::RCArticulatedBody()
   _position_invalidated = true;
 }
 
+/// Validates position variables
+void RCArticulatedBody::validate_position_variables()
+{
+  _position_invalidated = false;
+}
+
 /// Gets the frame used for generalized coordinate calculations
 shared_ptr<const Pose3d> RCArticulatedBody::get_gc_pose() const
 {
@@ -107,8 +113,14 @@ void RCArticulatedBody::update_factorized_generalized_inertia()
   if (!_position_invalidated)
     return;
 
+  // get the body
+  RCArticulatedBodyPtr body = dynamic_pointer_cast<RCArticulatedBody>(shared_from_this());
+
   // do precalculation on the body 
-  _crb.precalc(dynamic_pointer_cast<RCArticulatedBody>(shared_from_this()));
+  if (algorithm_type == eFeatherstone)
+    _fsab.calc_spatial_inertias(body);
+  else 
+    _crb.precalc(body);
 
   // indicate factorized inertia is valid    
   _position_invalidated = false;
@@ -117,14 +129,28 @@ void RCArticulatedBody::update_factorized_generalized_inertia()
 /// Solves using a generalized inertia matrix
 VectorNd& RCArticulatedBody::solve_generalized_inertia(const VectorNd& v, VectorNd& result)
 {
-  // update the inverse / factorized inertia (if necessary)
-  update_factorized_generalized_inertia();
+  if (algorithm_type == eFeatherstone)
+  {
+    // update the inverse / factorized inertia (if necessary)
+    update_factorized_generalized_inertia();
 
-  // make x/b one vector
-  result = v;
+    // make x/b one vector
+    result = v;
 
-  // solve once
-  _crb.M_solve_noprecalc(result);
+    // solve
+    _fsab.solve_generalized_inertia_noprecalc(result);
+  }
+  else
+  {
+    // update the inverse / factorized inertia (if necessary)
+    update_factorized_generalized_inertia();
+
+    // make x/b one vector
+    result = v;
+
+    // solve once
+    _crb.M_solve_noprecalc(result);
+  }
 
   return result;
 }
@@ -132,14 +158,28 @@ VectorNd& RCArticulatedBody::solve_generalized_inertia(const VectorNd& v, Vector
 /// Solves the transpose using a generalized inertia matrix
 MatrixNd& RCArticulatedBody::transpose_solve_generalized_inertia(const MatrixNd& m, MatrixNd& result)
 {
-  // update the inverse / factorized inertia (if necessary)
-  update_factorized_generalized_inertia();
+  if (algorithm_type == eFeatherstone)
+  {
+    // update the inverse / factorized inertia (if necessary)
+    update_factorized_generalized_inertia();
 
-  // setup the result
-  MatrixNd::transpose(m, result);
+    // setup the result
+    MatrixNd::transpose(m, result);
 
-  // solve
-  _crb.M_solve_noprecalc(result);
+    // solve
+    _fsab.solve_generalized_inertia_noprecalc(result);
+  }
+  else
+  {
+    // update the inverse / factorized inertia (if necessary)
+    update_factorized_generalized_inertia();
+
+    // setup the result
+    MatrixNd::transpose(m, result);
+
+    // solve
+    _crb.M_solve_noprecalc(result);
+  }
 
   return result;
 }
@@ -147,14 +187,28 @@ MatrixNd& RCArticulatedBody::transpose_solve_generalized_inertia(const MatrixNd&
 /// Solves using a generalized inertia matrix
 MatrixNd& RCArticulatedBody::solve_generalized_inertia(const MatrixNd& m, MatrixNd& result)
 {
-  // update the inverse / factorized inertia (if necessary)
-  update_factorized_generalized_inertia();
+  if (algorithm_type == eFeatherstone)
+  {
+    // update the inverse / factorized inertia (if necessary)
+    update_factorized_generalized_inertia();
 
-  // setup the result
-  result = m;
+    // setup the result
+    result = m;
 
-  // solve
-  _crb.M_solve_noprecalc(result);
+    // solve
+    _fsab.solve_generalized_inertia_noprecalc(result);
+  }
+  else
+  {
+    // update the inverse / factorized inertia (if necessary)
+    update_factorized_generalized_inertia();
+
+    // setup the result
+    result = m;
+
+    // solve
+    _crb.M_solve_noprecalc(result);
+  }
   
   return result;
 }
