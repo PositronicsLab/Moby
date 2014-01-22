@@ -369,10 +369,6 @@ bool LCP::lcp_lemke(const MatrixNd& M, const VectorNd& q, VectorNd& z, double pi
       else
         _nonbas.push_back(i);
 
-  // B should ideally be a sparse matrix
-  _Bl.set_identity(n);
-  _Bl.negate();
-
   // determine initial values
   if (!_bas.empty())
   {
@@ -393,20 +389,14 @@ bool LCP::lcp_lemke(const MatrixNd& M, const VectorNd& q, VectorNd& z, double pi
   {
     _Al = _Bl;
     _x = q;
-    _LA.solve_LS_fast1(_Al, _x);
+    _LA.solve_fast(_Al, _x);
   }
-  catch (NumericalException e)
+  catch (SingularException e)
   {
-    _Al = _Bl;
+    // initial basis was no good; set B to -1 
+    _Bl.set_identity(n);
+    _Bl.negate();
     _x = q;
-    try
-    {
-      _LA.solve_LS_fast2(_Al, _x);
-    }
-    catch (NumericalException e) 
-    { 
-      return false;
-    }
   }
 /*
   unsigned basis_count = std::numeric_limits<unsigned>::max();
