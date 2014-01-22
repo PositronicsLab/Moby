@@ -389,6 +389,26 @@ bool LCP::lcp_lemke(const MatrixNd& M, const VectorNd& q, VectorNd& z, double pi
   }
 
   // solve B*x = -q
+  try
+  {
+    _Al = _Bl;
+    _x = q;
+    _LA.solve_LS_fast1(_Al, _x);
+  }
+  catch (NumericalException e)
+  {
+    _Al = _Bl;
+    _x = q;
+    try
+    {
+      _LA.solve_LS_fast2(_Al, _x);
+    }
+    catch (NumericalException e) 
+    { 
+      return false;
+    }
+  }
+/*
   unsigned basis_count = std::numeric_limits<unsigned>::max();
   while (true)
   {
@@ -421,6 +441,7 @@ bool LCP::lcp_lemke(const MatrixNd& M, const VectorNd& q, VectorNd& z, double pi
     }
   }
   _x.negate();
+*/
 
   // check whether initial basis provides a solution
   if (std::find_if(_x.begin(), _x.end(), std::bind2nd(std::less<double>(), 0.0)) == _x.end())
