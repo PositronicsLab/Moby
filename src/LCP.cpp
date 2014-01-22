@@ -372,6 +372,10 @@ bool LCP::lcp_lemke(const MatrixNd& M, const VectorNd& q, VectorNd& z, double pi
   // determine initial values
   if (!_bas.empty())
   {
+    // use a good initial basis 
+    _Bl.set_identity(n);
+    _Bl.negate();
+
     // select columns of M corresponding to z vars in the basis
     M.select(_all.begin(), _all.end(), _bas.begin(), _bas.end(), _t1);
 
@@ -382,22 +386,30 @@ bool LCP::lcp_lemke(const MatrixNd& M, const VectorNd& q, VectorNd& z, double pi
     _Bl.resize(n, _t1.columns() + _t2.columns());
     _Bl.set_sub_mat(0,0,_t1);
     _Bl.set_sub_mat(0,_t1.columns(),_t2);
-  }
 
-  // solve B*x = -q
-  try
-  {
-    _Al = _Bl;
-    _x = q;
-    _LA.solve_fast(_Al, _x);
+    // solve B*x = -q
+    try
+    {
+      _Al = _Bl;
+      _x = q;
+      _LA.solve_fast(_Al, _x);
+    }
+    catch (SingularException e)
+    {
+      // initial basis was no good; set B to -1 
+      _Bl.set_identity(n);
+      _Bl.negate();
+      _x = q;
+    }
   }
-  catch (SingularException e)
+  else
   {
-    // initial basis was no good; set B to -1 
+    // use naive initial basis
     _Bl.set_identity(n);
     _Bl.negate();
     _x = q;
   }
+
 /*
   unsigned basis_count = std::numeric_limits<unsigned>::max();
   while (true)
