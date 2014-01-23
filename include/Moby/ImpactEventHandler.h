@@ -114,6 +114,9 @@ class ImpactEventHandler
     // last number of limits handled
     unsigned _last_limits;
 
+    // last number of friction directions
+    unsigned _last_contact_nk;
+
     // last number of contact constraints handled
     unsigned _last_contact_constraints;
 
