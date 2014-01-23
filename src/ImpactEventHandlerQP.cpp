@@ -22,6 +22,7 @@
 #include <Moby/XMLTree.h>
 #include <Moby/ImpactToleranceException.h>
 #include <Moby/NumericalException.h>
+#include <Moby/LCPSolverException.h>
 #include <Moby/ImpactEventHandler.h>
 
 using namespace Ravelin;
@@ -50,17 +51,37 @@ void ImpactEventHandler::solve_qp(const VectorNd& zf, EventProblemData& q, doubl
   tms cstart;
   clock_t start = times(&cstart);
 
+  // reset warm starting variables
+  _last_contacts = _last_contact_constraints = _last_limits = 0;
+
+  // indicate there has been no successful frictional solve yet
+  bool successful_frictional_solve = false;
+
   // keep solving until we run out of time or all contact points are active
   while (true)
   {
     FILE_LOG(LOG_EVENT) << "Running QP solve iteration with " << (q.N_ACT_CONTACTS) << " active contacts" << std::endl;
 
-    // reset zlast and related variables
-    _last_contacts = _last_contact_constraints = _last_limits = 0;
-    _zlast.set_zero(0);
-
     // solve the QP
-    solve_qp_work(q, _z);
+    try
+    {
+      solve_qp_work(q, _z);
+    }
+    catch (LCPSolverException e)
+    {
+      FILE_LOG(LOG_EVENT) << "Failed to solve QP: returning best solution so far" << std::endl;
+      if (successful_frictional_solve)
+        _z = _zlast;
+      else
+      {
+        _z.set_zero(N_TOTAL);
+        _z.set_sub_vec(0, zf);
+        break;
+      }
+    }
+
+    // indicate we have a successful frictional solve
+    successful_frictional_solve = true;
 
     // get the elapsed time
     const long TPS = sysconf(_SC_CLK_TCK);
@@ -486,15 +507,18 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
 
   // use warm starting if possible
   // new variables (primal, dual) will have values of zero.
-  if (_last_contacts <= q.N_ACT_CONTACTS && 
-      _last_contact_constraints <= q.N_CONTACT_CONSTRAINTS &&
-      _last_limits <= q.N_LIMITS)
+  const unsigned N_LAST_ACT_CONTACTS = _last_contacts;
+  const unsigned N_LAST_LIMITS = _last_limits;
+  const unsigned N_LAST_CC = _last_contact_constraints;
+  const unsigned N_LAST_ACT_K = q.N_ACT_K - q.contact_events[N_LAST_ACT_CONTACTS]->contact_NK/2;
+  const unsigned N_LAST_VARS = N_LAST_ACT_CONTACTS*5 + N_LAST_LIMITS;
+  const unsigned N_LAST_INEQUAL = N_LAST_CC + N_LAST_ACT_K + N_LAST_LIMITS + 1;
+  const unsigned N_LAST_TOTAL = N_LAST_VARS + N_LAST_INEQUAL;
+  if (N_LAST_ACT_CONTACTS <= q.N_ACT_CONTACTS && 
+      N_LAST_CC <= q.N_CONTACT_CONSTRAINTS &&
+      N_LAST_LIMITS <= q.N_LIMITS &&
+      N_LAST_TOTAL == _zlast.rows())
   {
-    const unsigned N_LAST_ACT_CONTACTS = _last_contacts;
-    const unsigned N_LAST_LIMITS = _last_limits;
-    const unsigned N_LAST_CC = _last_contact_constraints;
-    const unsigned N_LAST_VARS = N_LAST_ACT_CONTACTS*5 + N_LAST_LIMITS;
-
     // setup last indices
     const unsigned yCN_IDX = 0;
     const unsigned yCS_IDX = N_LAST_ACT_CONTACTS;
@@ -545,7 +569,7 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
 
   // solve the LCP using Lemke's algorithm
   if (!_lcp.lcp_lemke_regularized(_MM, _qq, z))
-    throw std::runtime_error("Unable to solve event QP!");
+    throw LCPSolverException();
 
   // output reported LCP solution
   FILE_LOG(LOG_EVENT) << "LCP solution: " << z << std::endl;
