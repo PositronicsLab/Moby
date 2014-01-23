@@ -309,6 +309,9 @@ bool LCP::lcp_lemke(const MatrixNd& M, const VectorNd& q, VectorNd& z, double pi
   const unsigned n = q.size();
   const unsigned MAXITER = std::min((unsigned) 1000, 50*n);
 
+  // indicate whether we've restarted
+  bool restarted = false;
+
   // look for immediate exit
   if (n == 0)
   {
@@ -316,13 +319,7 @@ bool LCP::lcp_lemke(const MatrixNd& M, const VectorNd& q, VectorNd& z, double pi
     return true;
   }
 
-  // clear all vectors
-  _all.clear();
-  _tlist.clear();
-  _bas.clear();
-  _nonbas.clear();
-  _j.clear();
-
+z.set_zero();
   // copy z to z0
   _z0 = z;
 
@@ -343,6 +340,15 @@ bool LCP::lcp_lemke(const MatrixNd& M, const VectorNd& q, VectorNd& z, double pi
     return true;
   }
 
+restart: // solver restarts from here when basis becomes bad
+
+  // clear all vectors
+  _all.clear();
+  _tlist.clear();
+  _bas.clear();
+  _nonbas.clear();
+  _j.clear();
+
   // initialize variables
   z.set_zero(n*2);
   unsigned t = 2*n;
@@ -360,14 +366,36 @@ bool LCP::lcp_lemke(const MatrixNd& M, const VectorNd& q, VectorNd& z, double pi
   _bas.clear();
   _nonbas.clear();
   if (_z0.size() != n)
+  {
+    // setup the nonbasic indices
     for (unsigned i=0; i< n; i++)
       _nonbas.push_back(i);
+
+    // set the restart basis to random
+    _restart_z0.resize(n);
+    for (unsigned i=0; i< n; i++)
+      _restart_z0[i] = (rand() % 2 == 0) ? 0.0 : 1.0;
+  }
   else
+  {
+    // setup the initial basis
     for (unsigned i=0; i< n; i++)
       if (_z0[i] > 0)
         _bas.push_back(i);
       else
         _nonbas.push_back(i);
+
+    // setup the restart basis
+    if (!restarted)
+      _restart_z0.set_zero(n);
+    else
+    {
+      // we've already restarted once, set the restart basis to random
+      _restart_z0.resize(n);
+      for (unsigned i=0; i< n; i++)
+        _restart_z0[i] = (rand() % 2 == 0) ? 0.0 : 1.0;
+    }
+  }
 
   // determine initial values
   if (!_bas.empty())
@@ -396,15 +424,25 @@ bool LCP::lcp_lemke(const MatrixNd& M, const VectorNd& q, VectorNd& z, double pi
     }
     catch (SingularException e)
     {
-      // initial basis was no good; set B to -1 
+      // initial basis was no good, set it up as if we have no basis
+      _bas.clear();
+      for (unsigned i=0; i< n; i++)
+        _nonbas.push_back(i);
+
+      // set B to -1 and solve x correspondingly 
       _Bl.set_identity(n);
       _Bl.negate();
       _x = q;
+
+      // set next initial basis to random
+      _restart_z0.resize(n);
+      for (unsigned i=0; i< n; i++)
+        _restart_z0[i] = (rand() % 2 == 0) ? 0.0 : 1.0;
     }
   }
   else
   {
-    // use naive initial basis
+    // use standard initial basis
     _Bl.set_identity(n);
     _Bl.negate();
     _x = q;
@@ -550,7 +588,22 @@ bool LCP::lcp_lemke(const MatrixNd& M, const VectorNd& q, VectorNd& z, double pi
     }
     catch (SingularException e)
     {
-      FILE_LOG(LOG_OPT) << " -- warning: regular linear system solver failed; trying LS solver..." << std::endl;
+      FILE_LOG(LOG_OPT) << " -- warning: regular linear system solver failed; restarting with new basis" << std::endl;
+
+      // set the bases
+      _z0 = _restart_z0;
+
+      // setup the restart basis
+      _restart_z0.resize(n); 
+      for (unsigned i=0; i< n; i++)
+        _restart_z0[i] = (rand() % 2 == 0) ? 1.0 : 0.0;
+
+      // indicate we've restarted
+      restarted = true;
+
+      // restart
+      goto restart;
+/*
       try
       {
         // use slower SVD pseudo-inverse
@@ -563,6 +616,7 @@ bool LCP::lcp_lemke(const MatrixNd& M, const VectorNd& q, VectorNd& z, double pi
         _Al = _Bl;
         _LA.solve_LS_fast2(_Al, _dl);
       }
+*/
     }
 
     // ** find new leaving variable
