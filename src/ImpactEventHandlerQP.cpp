@@ -52,8 +52,9 @@ void ImpactEventHandler::solve_qp(const VectorNd& zf, EventProblemData& q, doubl
   clock_t start = times(&cstart);
 
   // reset warm starting variables
-  _last_contacts = _last_contact_constraints = _last_limits = 0;
-
+  _last_contacts = _last_contact_constraints = _last_contact_nk = 0;
+  _last_limits = 0;
+ 
   // indicate there has been no successful frictional solve yet
   bool successful_frictional_solve = false;
 
@@ -510,7 +511,7 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
   const unsigned N_LAST_ACT_CONTACTS = _last_contacts;
   const unsigned N_LAST_LIMITS = _last_limits;
   const unsigned N_LAST_CC = _last_contact_constraints;
-  const unsigned N_LAST_ACT_K = q.N_ACT_K - q.contact_events[N_LAST_ACT_CONTACTS]->contact_NK/2;
+  const unsigned N_LAST_ACT_K = _last_contact_nk;
   const unsigned N_LAST_VARS = N_LAST_ACT_CONTACTS*5 + N_LAST_LIMITS;
   const unsigned N_LAST_INEQUAL = N_LAST_CC + N_LAST_ACT_K + N_LAST_LIMITS + 1;
   const unsigned N_LAST_TOTAL = N_LAST_VARS + N_LAST_INEQUAL;
@@ -581,6 +582,7 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
   _last_contacts = N_ACT_CONTACTS;
   _last_limits = q.N_LIMITS;
   _last_contact_constraints = q.N_CONTACT_CONSTRAINTS;
+  _last_contact_nk = q.N_ACT_K;
 
   // get relevant forces
   SharedVectorNd cn = _zlast.segment(0, N_ACT_CONTACTS);
@@ -640,7 +642,10 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
 
     // rerun the contact optimization if necessary
     if (rerun)
+    {
+      FILE_LOG(LOG_EVENT) << "-- constraint violation detected on unincorported constraint(s)" << std::endl << "   adding linear constraint and re-running" << std::endl; 
       solve_qp_work(q, z);
+    }
   }
 
   if (LOGGING(LOG_EVENT))
