@@ -319,7 +319,9 @@ bool LCP::lcp_lemke(const MatrixNd& M, const VectorNd& q, VectorNd& z, double pi
     return true;
   }
 
-z.set_zero();
+  // Lemke's algorithm doesn't seem to like warmstarting
+//  z.set_zero();
+
   // copy z to z0
   _z0 = z;
 
@@ -390,6 +392,8 @@ restart: // solver restarts from here when basis becomes bad
       _restart_z0.set_zero(n);
     else
     {
+      FILE_LOG(LOG_EVENT) << "-- setting restart basis to random" << std::endl;
+
       // we've already restarted once, set the restart basis to random
       _restart_z0.resize(n);
       for (unsigned i=0; i< n; i++)
@@ -400,7 +404,9 @@ restart: // solver restarts from here when basis becomes bad
   // determine initial values
   if (!_bas.empty())
   {
-    // use a good initial basis 
+      FILE_LOG(LOG_EVENT) << "-- initial basis not empty (warmstarting)" << std::endl;
+
+    // start from good initial basis 
     _Bl.set_identity(n);
     _Bl.negate();
 
@@ -426,6 +432,7 @@ restart: // solver restarts from here when basis becomes bad
     {
       // initial basis was no good, set it up as if we have no basis
       _bas.clear();
+      _nonbas.clear();
       for (unsigned i=0; i< n; i++)
         _nonbas.push_back(i);
 
@@ -442,6 +449,8 @@ restart: // solver restarts from here when basis becomes bad
   }
   else
   {
+    FILE_LOG(LOG_EVENT) << "-- using basis of -1 (no warmstarting)" << std::endl;
+
     // use standard initial basis
     _Bl.set_identity(n);
     _Bl.negate();
@@ -564,6 +573,7 @@ restart: // solver restarts from here when basis becomes bad
         FILE_LOG(LOG_OPT) << "  found solution!" << std::endl;
         FILE_LOG(LOG_OPT) << "  minimum w: " << minw << std::endl;
         FILE_LOG(LOG_OPT) << "  w'z: " << w_dot_z << std::endl;
+        FILE_LOG(LOG_OPT) << "  n: " << n << " number of pivots: " << iter << std::endl;
       }
       FILE_LOG(LOG_OPT) << "LCP::lcp_lemke() exited" << endl;
 
@@ -588,7 +598,11 @@ restart: // solver restarts from here when basis becomes bad
     }
     catch (SingularException e)
     {
-      FILE_LOG(LOG_OPT) << " -- warning: regular linear system solver failed; restarting with new basis" << std::endl;
+      FILE_LOG(LOG_OPT) << " -- warning: linear system solver failed" << std::endl;
+      FILE_LOG(LOG_OPT) << " -- LCP::lcp_lemke() exiting" << std::endl;
+      return false;
+/*
+      FILE_LOG(LOG_OPT) << " -- warning: linear system solver failed; restarting with new basis" << std::endl;
 
       // set the bases
       _z0 = _restart_z0;
@@ -603,7 +617,9 @@ restart: // solver restarts from here when basis becomes bad
 
       // restart
       goto restart;
+*/
 /*
+// least squares solver
       try
       {
         // use slower SVD pseudo-inverse
@@ -624,13 +640,12 @@ restart: // solver restarts from here when basis becomes bad
     for (unsigned i=0; i< _dl.size(); i++)
       if (_dl[i] > PIV_TOL)
         _j.push_back(i);
+
     // check for no new pivots; ray termination
     if (_j.empty())
     {
       FILE_LOG(LOG_OPT) << "LCP::lcp_lemke() - no new pivots (ray termination)" << endl;
-      FILE_LOG(LOG_OPT) << "LCP::lcp_lemke() exited" << endl;
-
-      z.resize(n, true);
+      FILE_LOG(LOG_OPT) << "LCP::lcp_lemke() exiting" << endl;
       return false;
     }
 
@@ -715,7 +730,7 @@ restart: // solver restarts from here when basis becomes bad
     FILE_LOG(LOG_OPT) << " -- pivoting: leaving index=" << lvindex << "  entering index=" << entering << endl;
   }
 
-  FILE_LOG(LOG_OPT) << " -- maximum number of iterations exceeded" << endl;
+  FILE_LOG(LOG_OPT) << " -- maximum number of iterations exceeded (n=" << n << ", max=" << MAXITER << ")" << endl;
   FILE_LOG(LOG_OPT) << "LCP::lcp_lemke() exited" << std::endl;
 
   // max iterations exceeded
