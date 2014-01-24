@@ -113,8 +113,14 @@ void RCArticulatedBody::update_factorized_generalized_inertia()
   if (!_position_invalidated)
     return;
 
+  // get the body
+  RCArticulatedBodyPtr body = dynamic_pointer_cast<RCArticulatedBody>(shared_from_this());
+
   // do precalculation on the body 
-  _crb.precalc(dynamic_pointer_cast<RCArticulatedBody>(shared_from_this()));
+  if (algorithm_type == eFeatherstone)
+    _fsab.calc_spatial_inertias(body);
+  else 
+    _crb.precalc(body);
 
   // indicate factorized inertia is valid    
   _position_invalidated = false;
@@ -125,11 +131,14 @@ VectorNd& RCArticulatedBody::solve_generalized_inertia(const VectorNd& v, Vector
 {
   if (algorithm_type == eFeatherstone)
   {
-    // TODO: these operations are all slow and could be replaced by an 
-    // in-place solve w/in FSAB
-    MatrixNd iM;
-    _fsab.calc_inverse_generalized_inertia(iM);
-    iM.mult(v, result);
+    // update the inverse / factorized inertia (if necessary)
+    update_factorized_generalized_inertia();
+
+    // make x/b one vector
+    result = v;
+
+    // solve
+    _fsab.solve_generalized_inertia_noprecalc(result);
   }
   else
   {
@@ -151,12 +160,14 @@ MatrixNd& RCArticulatedBody::transpose_solve_generalized_inertia(const MatrixNd&
 {
   if (algorithm_type == eFeatherstone)
   {
-    // TODO: these operations are all slow and could be replaced by an 
-    // in-place solve w/in FSAB
-    MatrixNd iM, tmp;
-    _fsab.calc_inverse_generalized_inertia(iM);
-    MatrixNd::transpose(m, tmp);
-    iM.mult(tmp, result);
+    // update the inverse / factorized inertia (if necessary)
+    update_factorized_generalized_inertia();
+
+    // setup the result
+    MatrixNd::transpose(m, result);
+
+    // solve
+    _fsab.solve_generalized_inertia_noprecalc(result);
   }
   else
   {
@@ -178,11 +189,14 @@ MatrixNd& RCArticulatedBody::solve_generalized_inertia(const MatrixNd& m, Matrix
 {
   if (algorithm_type == eFeatherstone)
   {
-    // TODO: these operations are all slow and could be replaced by an 
-    // in-place solve w/in FSAB
-    MatrixNd iM;
-    _fsab.calc_inverse_generalized_inertia(iM);
-    iM.mult(m, result);
+    // update the inverse / factorized inertia (if necessary)
+    update_factorized_generalized_inertia();
+
+    // setup the result
+    result = m;
+
+    // solve
+    _fsab.solve_generalized_inertia_noprecalc(result);
   }
   else
   {
