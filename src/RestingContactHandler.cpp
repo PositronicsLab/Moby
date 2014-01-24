@@ -211,15 +211,6 @@ bool ImpactEventHandler::use_qp_solver(const EventProblemData& epd)
     if (epd.contact_events[i]->contact_NK == UINF)
       return false;
 
-  // now, check whether any articulated bodies use the advanced friction
-  // model
-  for (unsigned i=0; i< epd.super_bodies.size(); i++)
-  {
-    ArticulatedBodyPtr abody = dynamic_pointer_cast<ArticulatedBody>(epd.super_bodies[i]);
-    if (abody && abody->use_advanced_friction_model)
-      return false;
-  }
-
   // still here? ok to use QP solver
   return true;
 }
@@ -345,11 +336,6 @@ void ImpactEventHandler::compute_problem_data(EventProblemData& q)
     ArticulatedBodyPtr abody = dynamic_pointer_cast<ArticulatedBody>(q.super_bodies[i]);
     if (abody) {
       q.N_CONSTRAINT_EQNS_IMP += abody->num_constraint_eqns_implicit();
-      if (abody->use_advanced_friction_model)
-      {
-        q.N_CONSTRAINT_DOF_IMP += abody->num_joint_dof_implicit();
-        q.N_CONSTRAINT_DOF_EXP += abody->num_joint_dof_explicit();
-      }
     }
   }
 
