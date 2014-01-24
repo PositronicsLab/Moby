@@ -36,7 +36,7 @@
       </RigidBody>
 
     <!-- Setup the simulator -->
-    <EventDrivenSimulator id="simulator" integrator-id="rk4" collision-detector-id="ccd" max-event-time="0">
+    <EventDrivenSimulator id="simulator" integrator-id="rk4" collision-detector-id="ccd" max-event-time="inf">
       <DynamicBody dynamic-body-id="box" />
       <DynamicBody dynamic-body-id="ground" />
       <RecurrentForce recurrent-force-id="gravity"  />
