@@ -76,7 +76,7 @@ class ImpactEventHandler
 
     // temporaries for compute_problem_data(), solve_qp_work(), solve_lcp(), and apply_impulses()
     Ravelin::MatrixNd _MM;
-    Ravelin::VectorNd _zlast, _v;
+    Ravelin::VectorNd _zlast, _v, _zsuccess;
 
     // temporaries for solve_qp_work() and solve_nqp_work() 
     Ravelin::VectorNd _Cnstar_v, _workv, _new_Cn_v;
