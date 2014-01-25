@@ -11,8 +11,6 @@
 #include <Moby/sorted_pair>
 #include <Moby/Simulator.h>
 #include <Moby/ImpactEventHandler.h>
-#include <Moby/RestingContactHandler.h>
-#include <Moby/RestingContactForce.h>
 #include <Moby/Event.h>
 
 namespace Moby {
@@ -180,12 +178,6 @@ class EventDrivenSimulator : public Simulator
 
     /// Object for handling impact events
     ImpactEventHandler _impact_event_handler;
-
-    /// Object for handling resting contacts
-    RestingContactHandler _resting_contact_handler;
-
-    /// Last generalized resting contact forces computed
-    boost::shared_ptr<RestingContactForce> _resting_contact_forces;
 }; // end class
 
 } // end namespace
