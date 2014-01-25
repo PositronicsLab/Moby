@@ -47,9 +47,6 @@ EventDrivenSimulator::EventDrivenSimulator()
   _simulation_violated = false;
   render_contact_points = false;
 
-  // setup the resting contact force
-  _resting_contact_forces = shared_ptr<RestingContactForce>(new RestingContactForce);
-
   // setup the maximum event processing time
   max_event_time = std::numeric_limits<double>::max();
 
@@ -1225,7 +1222,7 @@ bool EventDrivenSimulator::solve_acceleration_events()
   assert(!_events.empty());
 
   // attempt to process the events
-  return _resting_contact_handler.process_events(_events);
+  return false; 
 }
 
 /// Finds and handles first impacting event(s) in [0,dt]; returns time t in [0,dt] of first impacting event(s) and advances bodies' dynamics to time t
