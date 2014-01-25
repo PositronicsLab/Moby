@@ -47,6 +47,9 @@ void ImpactEventHandler::solve_qp(const VectorNd& zf, EventProblemData& q, doubl
   _z.set_zero(N_TOTAL);
   _z.set_sub_vec(0, zf);
 
+  // setup last successful solution
+  _zsuccess = _z;
+
   // mark starting time
   tms cstart;
   clock_t start = times(&cstart);
@@ -55,9 +58,6 @@ void ImpactEventHandler::solve_qp(const VectorNd& zf, EventProblemData& q, doubl
   _last_contacts = _last_contact_constraints = _last_contact_nk = 0;
   _last_limits = 0;
  
-  // indicate there has been no successful frictional solve yet
-  bool successful_frictional_solve = false;
-
   // keep solving until we run out of time or all contact points are active
   while (true)
   {
@@ -71,18 +71,12 @@ void ImpactEventHandler::solve_qp(const VectorNd& zf, EventProblemData& q, doubl
     catch (LCPSolverException e)
     {
       FILE_LOG(LOG_EVENT) << "Failed to solve QP: returning best solution so far" << std::endl;
-      if (successful_frictional_solve)
-        _z = _zlast;
-      else
-      {
-        _z.set_zero(N_TOTAL);
-        _z.set_sub_vec(0, zf);
-        break;
-      }
+      _z = _zsuccess;
+      break;
     }
 
-    // indicate we have a successful frictional solve
-    successful_frictional_solve = true;
+    // save our successful solve
+    _zsuccess = _z;
 
     // get the elapsed time
     const long TPS = sysconf(_SC_CLK_TCK);
