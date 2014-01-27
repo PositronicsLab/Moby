@@ -635,6 +635,11 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
           // only do this once
           break;
         }
+        else
+        {
+          // indicate we couldn't solve the problem to the desired tolerance
+          throw LCPSolverException();
+        }
       }
 
     // rerun the contact optimization if necessary
