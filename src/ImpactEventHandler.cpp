@@ -228,11 +228,16 @@ void ImpactEventHandler::permute_problem(EventProblemData& epd, VectorNd& z)
   // indices
   std::vector<unsigned> mapping(epd.N_CONTACTS);
 
+  FILE_LOG(LOG_EVENT) << "ImpactEventHandler::permute_problem() entered" << std::endl;
+
   // 1. compute active indices
   epd.N_ACT_CONTACTS = 0;
   for (unsigned i=0; i< epd.N_CONTACTS; i++)
     if (z[i] > NEAR_ZERO)
+    {
+      FILE_LOG(LOG_EVENT) << " -- contact " << i << " is active" << std::endl;
       mapping[epd.N_ACT_CONTACTS++] = i;
+    }
 
   // 2. compute inactive indices
   for (unsigned i=0, j=epd.N_ACT_CONTACTS; i< epd.N_CONTACTS; i++)
@@ -246,6 +251,7 @@ void ImpactEventHandler::permute_problem(EventProblemData& epd, VectorNd& z)
   for (unsigned i=0; i< epd.N_ACT_CONTACTS; i++)
     z[i] = z[mapping[i]];
   std::fill(z.row_iterator_begin()+epd.N_ACT_CONTACTS, z.row_iterator_begin()+epd.N_CONTACTS, 0.0);
+  FILE_LOG(LOG_EVENT) << "-- permuted frictionless lcp solution: " << z << std::endl;
 
   // permute contact events
   std::vector<Event*> new_contact_events(epd.contact_events.size());
@@ -349,6 +355,8 @@ void ImpactEventHandler::permute_problem(EventProblemData& epd, VectorNd& z)
     epd.contact_constraints[i] = true;
   for (unsigned i=epd.N_ACT_CONTACTS; i< epd.N_CONTACTS; i++)
     epd.contact_constraints[i] = false;
+
+  FILE_LOG(LOG_EVENT) << "ImpactEventHandler::permute_problem() entered" << std::endl;
 }
 
 /**
