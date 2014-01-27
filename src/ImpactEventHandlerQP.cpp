@@ -646,7 +646,7 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& q, VectorNd& z)
     if (rerun)
     {
       FILE_LOG(LOG_EVENT) << "-- constraint violation detected on unincorported constraint(s)" << std::endl;
-      FILE_LOG(LOG_EVENT) << "   re-running with " << q.N_CONTACT_CONSTRAINTS " contact constraints << std::endl; 
+      FILE_LOG(LOG_EVENT) << "   re-running with " << q.N_CONTACT_CONSTRAINTS << " contact constraints" << std::endl; 
       solve_qp_work(q, z);
     }
   }
