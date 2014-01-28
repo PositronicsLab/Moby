@@ -630,8 +630,9 @@ restart: // solver restarts from here when basis becomes bad
       FILE_LOG(LOG_OPT) << " -- LCP::lcp_lemke() exiting" << std::endl;
 
       // log failure
-      if (LOGGING(LOG_OPT))
-        log_failure(M, q);
+      #ifndef NDEBUG 
+      log_failure(M, q);
+      #endif 
 
       return false;
 /*
@@ -681,8 +682,9 @@ restart: // solver restarts from here when basis becomes bad
       FILE_LOG(LOG_OPT) << "LCP::lcp_lemke() exiting" << endl;
 
       // log failure
-      if (LOGGING(LOG_OPT))
-        log_failure(M, q);
+      #ifndef NDEBUG 
+      log_failure(M, q);
+      #endif
 
       return false;
     }
@@ -735,8 +737,9 @@ restart: // solver restarts from here when basis becomes bad
       z.resize(n, true);
 
       // log failure
-      if (LOGGING(LOG_OPT))
-        log_failure(M, q);
+      #ifndef NDEBUG 
+      log_failure(M, q);
+      #endif
 
       return false;
     }
@@ -780,8 +783,9 @@ restart: // solver restarts from here when basis becomes bad
   z.resize(n, true);
  
   // log failure
-  if (LOGGING(LOG_OPT))
-    log_failure(M, q);
+  #ifndef NDEBUG 
+  log_failure(M, q);
+  #endif
  
   return false;
 }
