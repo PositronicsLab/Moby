@@ -197,7 +197,6 @@ void CRBAlgorithm::calc_generalized_inertia(RCArticulatedBodyPtr body)
 
   // get composite inertia in desired frame
   shared_ptr<const Pose3d> P = get_computation_frame(body);
-//  Pose3d::transform(P, _Ic.front()).to_matrix(Ic0);
   Pose3d::transform(P, _Ic.front()).to_PD_matrix(Ic0);
 
   FILE_LOG(LOG_DYNAMICS) << "Ic0: " << std::endl << Ic0;
@@ -224,19 +223,10 @@ void CRBAlgorithm::calc_generalized_inertia(RCArticulatedBodyPtr body)
     // compute the requisite columns of K
     SharedMatrixNd Kb = K.block(0, SPATIAL_DIM, jidx, jidx+joint->num_dof()); 
     SharedMatrixNd KSb = KS.block(jidx, jidx+joint->num_dof(), 0, SPATIAL_DIM); 
-//    spatial_transpose_to_matrix(_Is, KSb);
     to_matrix(_Is, Kb); 
     MatrixNd::transpose(Kb, KSb); 
   }
 
-/*
-  FILE_LOG(LOG_DYNAMICS) << "[H K^S; K Ic0] (unpermuted): " << std::endl << M;
-
-  // swap last three and second-to-last three rows 
-  M.get_sub_mat(BASE_START, BASE_START+3, 0, M.columns(), _workM);
-  M.block(BASE_START, BASE_START+3, 0, M.columns()) = M.block(BASE_START+3, BASE_START+6, 0, M.columns());
-  M.block(BASE_START+3, BASE_START+6, 0, M.columns()) = _workM;
-*/  
   FILE_LOG(LOG_DYNAMICS) << "[H K'; K Ic0] (permuted): " << std::endl << M;
 }
 
@@ -522,7 +512,6 @@ void CRBAlgorithm::calc_generalized_inertia(MatrixNd& M)
   // get composite inertia in desired frame
   RigidBodyPtr base = body->get_base_link();
   shared_ptr<const Pose3d> P = base->get_gc_pose();
-//  Pose3d::transform(P, _Ic[base->get_index()]).to_matrix(Ic0); 
   Pose3d::transform(P, _Ic[base->get_index()]).to_PD_matrix(Ic0); 
 
   // compute K
@@ -547,19 +536,10 @@ void CRBAlgorithm::calc_generalized_inertia(MatrixNd& M)
     // compute the requisite columns of K
     SharedMatrixNd Kb = K.block(0, SPATIAL_DIM, jidx, jidx+joint->num_dof()); 
     SharedMatrixNd KSb = KS.block(jidx, jidx+joint->num_dof(), 0, SPATIAL_DIM); 
-//    spatial_transpose_to_matrix(_Is, KSb);
     to_matrix(_Is, Kb); 
     MatrixNd::transpose(Kb, KSb);
   }
 
-/*
-  FILE_LOG(LOG_DYNAMICS) << "[H K^S; K Ic0] (unpermuted): " << std::endl << M;
-
-  // swap last three and second-to-last three rows 
-  M.get_sub_mat(BASE_START, BASE_START+3, 0, M.columns(), _workM);
-  M.block(BASE_START, BASE_START+3, 0, M.columns()) = M.block(BASE_START+3, BASE_START+6, 0, M.columns());
-  M.block(BASE_START+3, BASE_START+6, 0, M.columns()) = _workM;
-*/  
   FILE_LOG(LOG_DYNAMICS) << "[H K'; K Ic0] (permuted): " << std::endl << M;
 }
 
@@ -726,6 +706,9 @@ void CRBAlgorithm::calc_fwd_dyn_floating_base(RCArticulatedBodyPtr body)
   SForced f0;
   calc_generalized_forces(f0, _C);
 
+  // compute generalized forces in proper frame
+  SForced f0x = Pose3d::transform(get_computation_frame(body), f0);
+
   // get the number of degrees-of-freedom
   unsigned nDOF = _C.size();
   
@@ -744,36 +727,32 @@ void CRBAlgorithm::calc_fwd_dyn_floating_base(RCArticulatedBodyPtr body)
     _Q.set_sub_vec(j, _Qi);
   }
 
-  Pose3d base_pose = links[0]->get_pose();
-  base_pose.update_relative_pose(GLOBAL);
-  FILE_LOG(LOG_DYNAMICS) << "base pose: " << base_pose << std::endl;
+  if (LOGGING(LOG_DYNAMICS))
+  {
+    Pose3d base_pose = links[0]->get_pose();
+    base_pose.update_relative_pose(GLOBAL);
+    FILE_LOG(LOG_DYNAMICS) << "base pose: " << base_pose << std::endl;
+  }
   FILE_LOG(LOG_DYNAMICS) << "Q: " << _Q << std::endl;
   FILE_LOG(LOG_DYNAMICS) << "C: " << _C << std::endl;
   FILE_LOG(LOG_DYNAMICS) << "M: " << std::endl << this->_M;
 
   // setup the simulataneous equations to solve: [Featherstone, 1987], eq. 7.24
-  concat(_Q -= _C, -f0, _b);
+  concat(_Q -= _C, -f0x, _b);
   FILE_LOG(LOG_DYNAMICS) << "b: " << _b << std::endl;
-  FILE_LOG(LOG_DYNAMICS) << "link + external forces on base: " << f0 << std::endl;
+  FILE_LOG(LOG_DYNAMICS) << "link + external forces on base: " << f0x << std::endl;
 
-  // swap last three and next to last three elements of b
-  const unsigned SPATIAL_DIM = 6;
-  const unsigned BASE_START = _b.size() - SPATIAL_DIM;
-/*
-  std::swap(_b[BASE_START+0], _b[BASE_START+3]);
-  std::swap(_b[BASE_START+1], _b[BASE_START+4]);
-  std::swap(_b[BASE_START+2], _b[BASE_START+5]);
-*/
- 
   // solve for accelerations
   M_solve_noprecalc(_augV = _b); 
-  FILE_LOG(LOG_DYNAMICS) << "b (with swapped components): " << _b << std::endl;
+  FILE_LOG(LOG_DYNAMICS) << "b: " << _b << std::endl;
 
   // get pointers to a0 and qdd vectors
   SAcceld& a0 = this->_a0;
   VectorNd& qdd = this->_qdd;
 
   // swap components of a0
+  const unsigned SPATIAL_DIM = 6;
+  const unsigned BASE_START = _augV.size() - SPATIAL_DIM;
   std::swap(_augV[BASE_START+0], _augV[BASE_START+3]);
   std::swap(_augV[BASE_START+1], _augV[BASE_START+4]);
   std::swap(_augV[BASE_START+2], _augV[BASE_START+5]);
@@ -781,7 +760,7 @@ void CRBAlgorithm::calc_fwd_dyn_floating_base(RCArticulatedBodyPtr body)
   // get out a0, qdd
   qdd = _augV.segment(0, BASE_START);
   a0 = _augV.segment(BASE_START,_augV.size());
-  a0.pose = f0.pose;
+  a0.pose = f0x.pose;
 
   // set the base acceleration
   links.front()->set_accel(a0);
@@ -1216,21 +1195,21 @@ void CRBAlgorithm::apply_impulse(const SMomentumd& w, RigidBodyPtr link)
 
     // form vector to solve for b
     concat(workv, w0, b);
+ 
+    // compute changes in base and joint velocities
+    M_solve_noprecalc(workv = b);
 
-    // swap base linear and angular components 
+    // swap base velocity change linear and angular components 
     const unsigned BASE_A = BASE_START + 0;
     const unsigned BASE_B = BASE_START + 1;
     const unsigned BASE_G = BASE_START + 2;
     const unsigned BASE_X = BASE_START + 3;
     const unsigned BASE_Y = BASE_START + 4;
     const unsigned BASE_Z = BASE_START + 5;
-    std::swap(b[BASE_A], b[BASE_X]);
-    std::swap(b[BASE_B], b[BASE_Y]);
-    std::swap(b[BASE_G], b[BASE_Z]);
-  
-    // compute changes in base and joint velocities
-    M_solve_noprecalc(workv = b);
-
+    std::swap(workv[BASE_A], workv[BASE_X]);
+    std::swap(workv[BASE_B], workv[BASE_Y]);
+    std::swap(workv[BASE_G], workv[BASE_Z]);
+ 
     // get change in base and change in joint velocities
     Vector3d dv0_angular(workv[BASE_A], workv[BASE_B], workv[BASE_G]);
     Vector3d dv0_linear(workv[BASE_X], workv[BASE_Y], workv[BASE_Z]);
