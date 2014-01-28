@@ -9,7 +9,7 @@
 #include <cmath>
 #include <cfloat>
 #include <sstream>
-#include <iostream>
+#include <fstream>
 #include <boost/algorithm/minmax.hpp>
 #include <boost/algorithm/minmax_element.hpp>
 #include <boost/foreach.hpp>
@@ -299,6 +299,34 @@ void LCP::set_basis(unsigned n, unsigned count, vector<unsigned>& bas, vector<un
   } 
 }
 
+/// Logs LCP solver failure
+void LCP::log_failure(const MatrixNd& M, const VectorNd& q)
+{
+  // generate a unique filename
+  std::ostringstream fname;
+  fname << "lemke.Mq.";
+  for (unsigned i=0; i< 8; i++)
+    fname << rand() % 10;
+  fname << ".fail" << std::endl;
+
+  // open the file
+  std::ofstream out(fname.str().c_str());
+
+  // write the matrix
+  for (unsigned i=0; i< M.rows(); i++)
+  {
+    for (unsigned j=0; j< M.columns(); j++)
+      out << M(i,j) << " ";
+    out << std::endl;
+  }
+  for (unsigned j=0; j< M.columns(); j++)
+    out << q[j] << " ";
+  out << std::endl;
+  out.close();
+}
+
+
+
 /// Lemke's algorithm for solving linear complementarity problems
 /**
  * \param z a vector "close" to the solution on input (optional); contains
@@ -392,7 +420,7 @@ restart: // solver restarts from here when basis becomes bad
       _restart_z0.set_zero(n);
     else
     {
-      FILE_LOG(LOG_EVENT) << "-- setting restart basis to random" << std::endl;
+      FILE_LOG(LOG_OPT) << "-- setting restart basis to random" << std::endl;
 
       // we've already restarted once, set the restart basis to random
       _restart_z0.resize(n);
@@ -404,7 +432,7 @@ restart: // solver restarts from here when basis becomes bad
   // determine initial values
   if (!_bas.empty())
   {
-      FILE_LOG(LOG_EVENT) << "-- initial basis not empty (warmstarting)" << std::endl;
+      FILE_LOG(LOG_OPT) << "-- initial basis not empty (warmstarting)" << std::endl;
 
     // start from good initial basis 
     _Bl.set_identity(n);
@@ -449,7 +477,7 @@ restart: // solver restarts from here when basis becomes bad
   }
   else
   {
-    FILE_LOG(LOG_EVENT) << "-- using basis of -1 (no warmstarting)" << std::endl;
+    FILE_LOG(LOG_OPT) << "-- using basis of -1 (no warmstarting)" << std::endl;
 
     // use standard initial basis
     _Bl.set_identity(n);
@@ -598,8 +626,13 @@ restart: // solver restarts from here when basis becomes bad
     }
     catch (SingularException e)
     {
-      FILE_LOG(LOG_OPT) << " -- warning: linear system solver failed" << std::endl;
+      FILE_LOG(LOG_OPT) << " -- warning: linear system solver failed (basis became singular)" << std::endl;
       FILE_LOG(LOG_OPT) << " -- LCP::lcp_lemke() exiting" << std::endl;
+
+      // log failure
+      if (LOGGING(LOG_OPT))
+        log_failure(M, q);
+
       return false;
 /*
       FILE_LOG(LOG_OPT) << " -- warning: linear system solver failed; restarting with new basis" << std::endl;
@@ -646,6 +679,11 @@ restart: // solver restarts from here when basis becomes bad
     {
       FILE_LOG(LOG_OPT) << "LCP::lcp_lemke() - no new pivots (ray termination)" << endl;
       FILE_LOG(LOG_OPT) << "LCP::lcp_lemke() exiting" << endl;
+
+      // log failure
+      if (LOGGING(LOG_OPT))
+        log_failure(M, q);
+
       return false;
     }
 
@@ -695,6 +733,11 @@ restart: // solver restarts from here when basis becomes bad
       FILE_LOG(LOG_OPT) << "zero tolerance too low?" << std::endl;
       FILE_LOG(LOG_OPT) << "LCP::lcp_lemke() exited" << std::endl;
       z.resize(n, true);
+
+      // log failure
+      if (LOGGING(LOG_OPT))
+        log_failure(M, q);
+
       return false;
     }
 
@@ -735,7 +778,11 @@ restart: // solver restarts from here when basis becomes bad
 
   // max iterations exceeded
   z.resize(n, true);
-  
+ 
+  // log failure
+  if (LOGGING(LOG_OPT))
+    log_failure(M, q);
+ 
   return false;
 }
 
