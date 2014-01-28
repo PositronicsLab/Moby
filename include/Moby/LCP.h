@@ -24,6 +24,7 @@ bool lcp_lemke(const Ravelin::MatrixNd& M, const Ravelin::VectorNd& q, Ravelin::
     bool fast_pivoting(const Ravelin::MatrixNd& M, const Ravelin::VectorNd& q, Ravelin::VectorNd& z, double eps = std::sqrt(std::numeric_limits<double>::epsilon()));
 
   private:
+    static void log_failure(const Ravelin::MatrixNd& M, const Ravelin::VectorNd& q);
     static void set_basis(unsigned n, unsigned count, std::vector<unsigned>& bas, std::vector<unsigned>& nbas);
     static unsigned rand_min(const Ravelin::VectorNd& v, double zero_tol);
 
