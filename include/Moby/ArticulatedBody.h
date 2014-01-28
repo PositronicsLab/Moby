@@ -21,36 +21,6 @@ namespace Moby {
 
 class RigidBody;
 
-/// Convex optimization data for computing forward dynamics
-struct ABFwdDynOptData
-{
-  unsigned N_IMPLICIT_DOF; // # degrees-of-freedom for explicit joints
-  unsigned N_EXPLICIT_CONSTRAINT_EQNS;
-  unsigned N_JOINT_DOF;    // total # of joint degrees-of-freedom
-  unsigned N_LOOPS;        // # of kinematic loops
-
-  Ravelin::VectorNd z;               // the homogeneous solution
-  Ravelin::MatrixNd R;               // the nullspace
-  Ravelin::MatrixNd G;              // the quadratic objective function
-  Ravelin::MatrixNd Dx;              // the movement Jacobian for implicit joints
-  Ravelin::VectorNd c;               // the linear objective function
-  Ravelin::VectorNd fext;            // external applied force
-  std::vector<unsigned> true_indices; // maps from [explicit; implicit] indices
-                                      // to true (body) joint indices
-  std::vector<unsigned> loop_indices; // the loop that each joint belongs to
-  std::vector<Ravelin::MatrixNd> Z;   // the Z matrices (motion for joints after loops)
-  std::vector<Ravelin::MatrixNd> Zd;  // Z matrices to be multiplied by delta
-  std::vector<Ravelin::MatrixNd> Z1d; // Z matrices to be multiplied by (1-delta)
-  std::vector<double> mu_c;       // squared Coulomb joint friction coefficients
-  std::vector<double> visc;       // the viscous joint friction forces
-
-  // for speeding up computations
-  Ravelin::MatrixNd Rff;             // components of R corresponding to explicit frict
-  Ravelin::MatrixNd DxTRbetax;       // Dx' * components of R corresponding to expl. fric
-  Ravelin::VectorNd zff;             // components of z corresponding to explicit frict
-  Ravelin::VectorNd zbetax;          // components of z corresponding to implicit frict
-};
- 
 /// Abstract class for articulated bodies
 class ArticulatedBody : public DynamicBody
 {
@@ -73,7 +43,6 @@ class ArticulatedBody : public DynamicBody
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual unsigned num_joint_dof() const;
     void find_loops(std::vector<unsigned>& loop_indices, std::vector<std::vector<unsigned> >& loop_links) const;
-    void compute_Z_matrices(const std::vector<unsigned>& loop_indices, const std::vector<std::vector<unsigned> >& loop_links, std::vector<Ravelin::MatrixNd>& Zd, std::vector<Ravelin::MatrixNd>& Z1d, std::vector<Ravelin::MatrixNd>& Z) const;
     virtual Ravelin::MatrixNd& calc_jacobian(boost::shared_ptr<const Ravelin::Pose3d> frame, DynamicBodyPtr body, Ravelin::MatrixNd& J);
     virtual Ravelin::MatrixNd& calc_jacobian_dot(boost::shared_ptr<const Ravelin::Pose3d> frame, DynamicBodyPtr body, Ravelin::MatrixNd& J);
 
@@ -148,14 +117,6 @@ class ArticulatedBody : public DynamicBody
      */
     virtual void compile() = 0;
 
-    Ravelin::MatrixNd& determine_F(unsigned link_idx, boost::shared_ptr<const Ravelin::Pose3d> Tf, const std::vector<unsigned>& loop_indices, Ravelin::MatrixNd& F) const;
-    static double calc_fwd_dyn_f0(const Ravelin::VectorNd& x, void* data);
-    static void calc_fwd_dyn_fx(const Ravelin::VectorNd& x, Ravelin::VectorNd& fc, void* data);
-    static void calc_fwd_dyn_grad0(const Ravelin::VectorNd& x, Ravelin::VectorNd& grad, void* data);
-    static void calc_fwd_dyn_cJac(const Ravelin::VectorNd& x, Ravelin::MatrixNd& J, void* data);
-    static void calc_fwd_dyn_hess(const Ravelin::VectorNd& x, double objscal, const Ravelin::VectorNd& lambda, const Ravelin::VectorNd& nu, Ravelin::MatrixNd& H, void* data);
-    void calc_joint_constraint_forces(const std::vector<unsigned>& loop_indices, const Ravelin::VectorNd& delta, const std::vector<Ravelin::MatrixNd>& Zd, const std::vector<Ravelin::MatrixNd>& Z1d, const std::vector<Ravelin::MatrixNd>& Z, const Ravelin::VectorNd& ff) const;
-
     /// The set of links for this articulated body
     std::vector<RigidBodyPtr> _links;
 
@@ -167,9 +128,6 @@ class ArticulatedBody : public DynamicBody
     Ravelin::VectorNd _dq;
 
     virtual double get_aspeed();
-/*    Ravelin::SForced transform_force(RigidBodyPtr link, const Ravelin::Vector3& x) const;
-*/
-    static void objective_grad(const Ravelin::VectorNd& x, void* data, Ravelin::VectorNd& g);
 }; // end class
 
 #include "ArticulatedBody.inl"
