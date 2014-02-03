@@ -831,7 +831,7 @@ void Event::compute_cross_contact_limit_vevent_data(const Event& e, MatrixNd& M)
   if (ab == su2)
   {
     // resize Jacobian
-    J1.resize(THREE_D, NGC1);
+    J1.resize(THREE_D, NGC2);
 
     // compute the Jacobians for the two bodies
     su2->calc_jacobian(_event_frame, sb2, JJ);
