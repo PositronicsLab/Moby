@@ -35,6 +35,9 @@ Simulator::Simulator()
   this->current_time = 0;
   post_step_callback_fn = NULL;
 
+  // clear dynamics timings
+  dynamics_time = (double) 0.0;
+
   // setup the persistent and transient visualization data
   #ifdef USE_OSG
   _persistent_vdata = new osg::Group;
@@ -66,9 +69,6 @@ double Simulator::step(double step_size)
   // clear one-step visualization data
   _transient_vdata->removeChildren(0, _transient_vdata->getNumChildren());
   #endif
-
-  // clear dynamics timings
-  dynamics_time = (double) 0.0;
 
   // compute forward dynamics and integrate 
   current_time += integrate(step_size);
