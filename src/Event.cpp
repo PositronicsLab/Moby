@@ -1908,6 +1908,7 @@ void Event::compute_contact_jacobians(const Event& e, VectorN& Nc, VectorN& Dcs,
 /// Uses the convex hull of the contact manifold to reject contact points
 void Event::determine_convex_set(list<Event*>& group)
 {
+return;
   // don't do anything if there are three or fewer points
   if (group.size() <= 3)
     return;
