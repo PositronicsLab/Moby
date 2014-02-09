@@ -13,6 +13,8 @@
 
 namespace Moby {
 
+class SpherePrimitive;
+
 /// Represents a solid box centered at the origin (by default)
 class BoxPrimitive : public Primitive
 {
@@ -34,6 +36,7 @@ class BoxPrimitive : public Primitive
     virtual boost::shared_ptr<const IndexedTriArray> get_mesh();
     virtual void get_vertices(BVPtr, std::vector<const Point3d*>& vertices);
     virtual osg::Node* create_visualization();
+    double calc_dist(const SpherePrimitive* s, Point3d& pbox, Point3d& psph) const;
 
     /// Get the x-length of this box
     double get_x_len() const { return _xlen; }
