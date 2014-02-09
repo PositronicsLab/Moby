@@ -10,6 +10,7 @@
 #include <osg/Geode>
 #endif
 #include <Moby/XMLTree.h>
+#include <Moby/SpherePrimitive.h>
 #include <Moby/OBB.h>
 #include <Moby/Constants.h>
 #include <Moby/CollisionGeometry.h>
@@ -65,6 +66,65 @@ BoxPrimitive::BoxPrimitive(double xlen, double ylen, double zlen, const Pose3d& 
   _zlen = zlen;
   _edge_sample_length = std::numeric_limits<double>::max();
   calc_mass_properties();
+}
+
+/// Gets the distance of this box from a sphere
+double BoxPrimitive::calc_dist(const SpherePrimitive* s, Point3d& pbox, Point3d& psph) const
+{
+  // setup extents
+  double extents[3] = { _xlen*0.5, _ylen*0.5, _zlen*0.5 };
+
+  // get the sphere center and put it into the box's coordinate system
+  Point3d sph_c(0.0, 0.0, 0.0, s->get_pose());
+  Point3d p = Pose3d::transform_point(get_pose(), sph_c);
+
+  // compute the squared distance to the pbox point on the box
+  double sqrDist = 0.0;
+  double intDist = std::numeric_limits<double>::max();
+  double delta;
+  for (unsigned i=0; i< 3; i++)
+  {
+    // set pbox dimension to the point initially (for inside)
+    pbox[i] = p[i];
+
+    // see whether this dimension of the point lies below the negative extent
+    if (pbox[i] < -extents[i])
+    {
+      delta = pbox[i] + extents[i];
+      sqrDist += delta*delta;
+      pbox[i] = -extents[i];
+    }
+    // see whether this dimension of the point lies above the positive extent
+    else if (pbox[i] > extents[i])
+    {
+      delta = pbox[i] - extents[i];
+      sqrDist += delta*delta;
+      pbox[i] = extents[i];
+    }
+  }
+
+  // compute signed distance
+  double dist = std::sqrt(sqrDist) - s->get_radius();
+
+  // determine closest point on the sphere 
+  if (dist < 0.0)
+  {
+    // compute farthest interpenetration of box inside sphere
+    Point3d box_c(0.0, 0.0, 0.0, get_pose());
+    psph = sph_c - Pose3d::transform_point(s->get_pose(), box_c);
+    psph.normalize();
+    psph *= -dist;
+  }
+  else
+  {
+    // determine closest point on the sphere using the vector from the sphere 
+    // center to the closest point on the box
+    psph = Pose3d::transform_point(s->get_pose(), pbox) - sph_c;
+    psph.normalize();
+    psph *= s->get_radius();
+  }
+
+  return dist;
 }
 
 /// Gets a sub-mesh for the primitive

@@ -11,6 +11,7 @@
 
 namespace Moby {
 
+class BoxPrimitive;
 class BoundingSphere;
 
 /// Represents a sphere primitive for inertia properties, collision detection, and visualization
@@ -36,6 +37,7 @@ class SpherePrimitive : public Primitive
     virtual void set_intersection_tolerance(double tol);
     virtual void get_vertices(BVPtr bv, std::vector<const Point3d*>& vertices);
     virtual osg::Node* create_visualization();
+    double calc_dist(const SpherePrimitive* s, Point3d& pthis, Point3d& psph) const;
 
     /// Gets the radius for this sphere
     double get_radius() const { return _radius; }
