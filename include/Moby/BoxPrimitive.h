@@ -37,6 +37,7 @@ class BoxPrimitive : public Primitive
     virtual void get_vertices(BVPtr, std::vector<const Point3d*>& vertices);
     virtual osg::Node* create_visualization();
     double calc_dist(const SpherePrimitive* s, Point3d& pbox, Point3d& psph) const;
+    double calc_dist(const BoxPrimitive* b, Point3d& pthis, Point3d& pb) const;
 
     /// Get the x-length of this box
     double get_x_len() const { return _xlen; }

@@ -14,6 +14,7 @@
 #include <Moby/OBB.h>
 #include <Moby/Constants.h>
 #include <Moby/CollisionGeometry.h>
+#include <Moby/QP.h>
 #include <Moby/BoxPrimitive.h>
 
 using namespace Ravelin;
@@ -66,6 +67,118 @@ BoxPrimitive::BoxPrimitive(double xlen, double ylen, double zlen, const Pose3d& 
   _zlen = zlen;
   _edge_sample_length = std::numeric_limits<double>::max();
   calc_mass_properties();
+}
+
+/// Gets the distance from this box to another box
+double BoxPrimitive::calc_dist(const BoxPrimitive* box, Point3d& pthis, Point3d& pb) const
+{
+  const unsigned X = 0, Y = 1, Z = 2;
+  const unsigned UINF = std::numeric_limits<unsigned>::max();
+  static QP qp;
+
+  MatrixNd H;
+  VectorNd c, z, lb, ub;
+
+  // get the two poses
+  shared_ptr<Pose3d> Pa(new Pose3d(get_pose()));
+  shared_ptr<Pose3d> Pb(new Pose3d(box->get_pose()));
+
+  // convert them to global frame
+  Pa->update_relative_pose(GLOBAL);
+  Pb->update_relative_pose(GLOBAL);
+
+  // get the two centers
+  Origin3d ca = Pa->x;
+  Origin3d cb = Pb->x;
+  Origin3d camcb = ca - cb;
+
+  // get the axes of Pa
+  Matrix3d Ra = Pa->q;
+  Origin3d bax = Ra.get_column(X);
+  Origin3d bay = Ra.get_column(Y);
+  Origin3d baz = Ra.get_column(Z);
+
+  // setup the first QP
+  H.resize(3,3);
+  H(X,X) = bax.dot(bax);  H(Y,Y) = bay.dot(bay);  H(Z,Z) = baz.dot(baz);
+  H(X,Y) = H(Y,X) = bax.dot(bay);
+  H(X,Z) = H(Z,X) = bax.dot(baz);
+  H(Y,Z) = H(Z,Y) = bay.dot(baz);
+  c.resize(3);
+  c[X] = bax.dot(camcb);
+  c[Y] = bay.dot(camcb);
+  c[Z] = baz.dot(camcb);
+
+  // setup the lower and upper bounds
+  lb.resize(3);
+  ub.resize(3);
+  lb[X] = -_xlen*0.5; ub[X] = -lb[X];
+  lb[Y] = -_ylen*0.5; ub[Y] = -lb[Y];
+  lb[Z] = -_zlen*0.5; ub[Z] = -lb[Z];
+
+  // solve the QP
+  qp.qp_gradproj(H, c, lb, ub, UINF, z, NEAR_ZERO);
+
+  // get point closest to box's center
+  Origin3d closest_this = ca + bax*z[X] + bay*z[Y] + baz*z[Z];
+  Point3d pthis0(closest_this, GLOBAL);
+  pthis = Pose3d::transform_point(get_pose(), pthis0);
+
+  // solve another QP for point closest to a's center
+  // get the axes of Pb
+  Matrix3d Rb = Pb->q;
+  Origin3d bbx = Rb.get_column(X);
+  Origin3d bby = Rb.get_column(Y);
+  Origin3d bbz = Rb.get_column(Z);
+
+  // setup the second QP
+  H(X,X) = bbx.dot(bbx);  H(Y,Y) = bby.dot(bby);  H(Z,Z) = bbz.dot(bbz);
+  H(X,Y) = H(Y,X) = bbx.dot(bby);
+  H(X,Z) = H(Z,X) = bbx.dot(bbz);
+  H(Y,Z) = H(Z,Y) = bby.dot(bbz);
+  c[X] = bbx.dot(camcb);
+  c[Y] = bby.dot(camcb);
+  c[Z] = bbz.dot(camcb);
+
+  // setup the lower and upper bounds 
+  lb[X] = -box->_xlen*0.5; ub[X] = -lb[X];
+  lb[Y] = -box->_ylen*0.5; ub[Y] = -lb[Y];
+  lb[Z] = -box->_zlen*0.5; ub[Z] = -lb[Z];
+
+  // solve the QP
+  qp.qp_gradproj(H, c, lb, ub, UINF, z, NEAR_ZERO); 
+
+  // get point closest to this's center
+  Origin3d closest_box = cb + bbx*z[X] + bby*z[Y] + bbz*z[Z];
+  Point3d pbox0(closest_box, GLOBAL);
+  pb = Pose3d::transform_point(box->get_pose(), pbox0);
+
+  // determine distances from centers of boxes
+  double dthis = (closest_this - cb).norm();
+  double dbox = (closest_box - ca).norm();
+
+  // determine the distance from the center of each box to its corner
+  double dist_this_to_corner = std::sqrt(_xlen*_xlen + _ylen*_ylen + _zlen*_zlen);
+  double dist_box_to_corner = std::sqrt(box->_xlen*box->_xlen + box->_ylen*box->_ylen + box->_zlen*box->_zlen);
+
+  // get distance of points inside boxes
+  double dinside_box = dist_box_to_corner - dthis;
+  double dinside_this = dist_this_to_corner - dbox;
+
+  // look for case boxes are not disjoint 
+  if (dinside_box > dinside_this)
+  {
+    if (dinside_box > 0.0)
+      return -dinside_box;
+  }
+  else
+  {
+    if (dinside_this > 0.0)
+      return -dinside_this;
+  }
+
+  // boxes are disjoint
+  return (pbox0 - pthis0).norm();
 }
 
 /// Gets the distance of this box from a sphere
