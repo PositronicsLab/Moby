@@ -56,7 +56,9 @@ ImpactEventHandler::ImpactEventHandler()
   _app.Options()->SetNumericValue("tol", 1e-7);
   _app.Options()->SetStringValue("mu_strategy", "adaptive");
   _app.Options()->SetStringValue("output_file", "ipopt.out");
+  #ifndef __APPLE__
   _app.RethrowNonIpoptException(true);
+  #endif
 
   Ipopt::ApplicationReturnStatus status = _app.Initialize();
   if (status != Ipopt::Solve_Succeeded)

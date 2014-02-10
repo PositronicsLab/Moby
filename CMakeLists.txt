@@ -16,6 +16,7 @@ set (SOURCES Event.cpp BoxPrimitive.cpp SpherePrimitive.cpp ConePrimitive.cpp Cy
 option (BUILD_SHARED_LIBS "Build Moby as a shared library?" ON)
 option (BUILD_TOOLS "Build the programs in the tools subdirectory?" ON)
 option (USE_OSG "Build against OpenSceneGraph library?" ON)
+option (USE_IPOPT "Build against IPOPT library?" ON)
 option (PROFILE "Build for profiling?" OFF)
 option (OMP "Build with OpenMP support?" OFF)
 option (THREADSAFE "Build Moby to be threadsafe? (slower)" OFF)
@@ -56,7 +57,7 @@ find_package (osgGA)
 find_package (OpenThreads)
 
 # see whether IPOPT was detected
-if (IPOPT_FOUND)
+if (USE_IPOPT AND IPOPT_FOUND)
   add_definitions (-DHAVE_CSTDDEF)
   add_definitions (-DHAVE_IPOPT)
   include_directories (IPOPT_INCLUDE_DIRS)
@@ -74,7 +75,7 @@ if (IPOPT_FOUND)
 #  set (EXTRA_LIBS ${EXTRA_LIBS} ${IPOPT_MUMPS} ${IPOPT_METIS} ${GFORTRAN})
   set (EXTRA_LIBS ${EXTRA_LIBS} ${IPOPT} ${IPOPT_MUMPS} ${IPOPT_METIS})
   set (SOURCES ${SOURCES} LCP_IPOPT.cpp NQP_IPOPT.cpp)
-endif (IPOPT_FOUND)
+endif (USE_IPOPT AND IPOPT_FOUND)
 
 # setup OSG includes and additional sources
 if (USE_OSG AND OSG_FOUND)

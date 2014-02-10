@@ -117,6 +117,7 @@ double BoxPrimitive::calc_dist(const BoxPrimitive* box, Point3d& pthis, Point3d&
   lb[Z] = -_zlen*0.5; ub[Z] = -lb[Z];
 
   // solve the QP
+  z.set_zero(3);
   qp.qp_gradproj(H, c, lb, ub, UINF, z, NEAR_ZERO);
 
   // get point closest to box's center
@@ -136,9 +137,9 @@ double BoxPrimitive::calc_dist(const BoxPrimitive* box, Point3d& pthis, Point3d&
   H(X,Y) = H(Y,X) = bbx.dot(bby);
   H(X,Z) = H(Z,X) = bbx.dot(bbz);
   H(Y,Z) = H(Z,Y) = bby.dot(bbz);
-  c[X] = bbx.dot(camcb);
-  c[Y] = bby.dot(camcb);
-  c[Z] = bbz.dot(camcb);
+  c[X] = bbx.dot(-camcb);
+  c[Y] = bby.dot(-camcb);
+  c[Z] = bbz.dot(-camcb);
 
   // setup the lower and upper bounds 
   lb[X] = -box->_xlen*0.5; ub[X] = -lb[X];
@@ -146,6 +147,7 @@ double BoxPrimitive::calc_dist(const BoxPrimitive* box, Point3d& pthis, Point3d&
   lb[Z] = -box->_zlen*0.5; ub[Z] = -lb[Z];
 
   // solve the QP
+  z.set_zero();
   qp.qp_gradproj(H, c, lb, ub, UINF, z, NEAR_ZERO); 
 
   // get point closest to this's center
@@ -153,52 +155,42 @@ double BoxPrimitive::calc_dist(const BoxPrimitive* box, Point3d& pthis, Point3d&
   Point3d pbox0(closest_box, GLOBAL);
   pb = Pose3d::transform_point(box->get_pose(), pbox0);
 
+  // setup temporary variable
+  Point3d tmp;
+
   // determine distances from centers of boxes
-  double dthis = (closest_this - cb).norm();
-  double dbox = (closest_box - ca).norm();
+  double dthis = box->calc_dist(pthis, tmp1);
+  double dbox = calc_dist(pb, tmp2);
 
-  // determine the distance from the center of each box to its corner
-  double dist_this_to_corner = std::sqrt(_xlen*_xlen + _ylen*_ylen + _zlen*_zlen);
-  double dist_box_to_corner = std::sqrt(box->_xlen*box->_xlen + box->_ylen*box->_ylen + box->_zlen*box->_zlen);
-
-  // get distance of points inside boxes
-  double dinside_box = dist_box_to_corner - dthis;
-  double dinside_this = dist_this_to_corner - dbox;
-
-  // look for case boxes are not disjoint 
-  if (dinside_box > dinside_this)
-  {
-    if (dinside_box > 0.0)
-      return -dinside_box;
-  }
-  else
-  {
-    if (dinside_this > 0.0)
-      return -dinside_this;
-  }
+  // look whether point is inside a box
+  if (dthis <= 0.0 || dbox <= 0.0)
+    return std::min(dthis, dbox);
 
   // boxes are disjoint
   return (pbox0 - pthis0).norm();
 }
 
-/// Gets the distance of this box from a sphere
-double BoxPrimitive::calc_dist(const SpherePrimitive* s, Point3d& pbox, Point3d& psph) const
+/// Computes the distance from a point to the box
+double BoxPrimitive::calc_dist(const Point3d& p, Point3d& pbox) const
 {
   // setup extents
   double extents[3] = { _xlen*0.5, _ylen*0.5, _zlen*0.5 };
 
-  // get the sphere center and put it into the box's coordinate system
-  Point3d sph_c(0.0, 0.0, 0.0, s->get_pose());
-  Point3d p = Pose3d::transform_point(get_pose(), sph_c);
+  // put the point into the box's coordinate system
+  Point3d q = Pose3d::transform_point(get_pose(), p);
 
-  // compute the squared distance to the pbox point on the box
+  // setup pbox coordinate system
+  pbox.pose = get_pose();
+
+  // compute the squared distance to the point on the box
+  bool inside = true;
   double sqrDist = 0.0;
   double intDist = std::numeric_limits<double>::max();
   double delta;
   for (unsigned i=0; i< 3; i++)
   {
     // set pbox dimension to the point initially (for inside)
-    pbox[i] = p[i];
+    pbox[i] = q[i];
 
     // see whether this dimension of the point lies below the negative extent
     if (pbox[i] < -extents[i])
@@ -206,6 +198,7 @@ double BoxPrimitive::calc_dist(const SpherePrimitive* s, Point3d& pbox, Point3d&
       delta = pbox[i] + extents[i];
       sqrDist += delta*delta;
       pbox[i] = -extents[i];
+      inside = false;
     }
     // see whether this dimension of the point lies above the positive extent
     else if (pbox[i] > extents[i])
@@ -213,11 +206,30 @@ double BoxPrimitive::calc_dist(const SpherePrimitive* s, Point3d& pbox, Point3d&
       delta = pbox[i] - extents[i];
       sqrDist += delta*delta;
       pbox[i] = extents[i];
+      inside = false;
+    }
+    else if (inside)
+    {
+      double dist = std::min(pbox[i] - extents[i], pbox[i] + extents[i]);
+      intDist = std::min(intDist, dist);
     }
   }
 
-  // compute signed distance
-  double dist = std::sqrt(sqrDist) - s->get_radius();
+  // put the point back into its original coordinate system
+  pbox = Pose3d::transform_point(p.pose, pbox);
+
+  // compute distance
+  return (inside) ? intDist : std::sqrt(sqrDist);
+}
+
+/// Gets the distance of this box from a sphere
+double BoxPrimitive::calc_dist(const SpherePrimitive* s, Point3d& pbox, Point3d& psph) const
+{
+  // compute the distance from the sphere center to the box's coordinate system
+  Point3d sph_c(0.0, 0.0, 0.0, s->get_pose());
+
+  // get the closest point
+  double dist = calc_dist(sph_c, pbox) - s->get_radius();
 
   // determine closest point on the sphere 
   if (dist < 0.0)
