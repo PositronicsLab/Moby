@@ -38,6 +38,7 @@ class BoxPrimitive : public Primitive
     virtual osg::Node* create_visualization();
     double calc_dist(const SpherePrimitive* s, Point3d& pbox, Point3d& psph) const;
     double calc_dist(const BoxPrimitive* b, Point3d& pthis, Point3d& pb) const;
+    double calc_dist(const Point3d& p, Point3d& pb) const;
 
     /// Get the x-length of this box
     double get_x_len() const { return _xlen; }
