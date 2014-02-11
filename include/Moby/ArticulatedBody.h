@@ -45,6 +45,13 @@ class ArticulatedBody : public DynamicBody
     void find_loops(std::vector<unsigned>& loop_indices, std::vector<std::vector<unsigned> >& loop_links) const;
     virtual Ravelin::MatrixNd& calc_jacobian(boost::shared_ptr<const Ravelin::Pose3d> frame, DynamicBodyPtr body, Ravelin::MatrixNd& J);
     virtual Ravelin::MatrixNd& calc_jacobian_dot(boost::shared_ptr<const Ravelin::Pose3d> frame, DynamicBodyPtr body, Ravelin::MatrixNd& J);
+    void update_joint_constraint_violations();
+    bool is_joint_constraint_violated() const;
+    double calc_CA_time_for_joints() const;
+    virtual void integrate(double t, double h, boost::shared_ptr<Integrator> integrator);
+
+    /// Determines whether joint acceleration limits were exceeded on last integration
+    bool joint_accel_limit_exceeded() const { return _acc_limits_exceeded; }
 
     /// Gets the number of degrees-of-freedom permitted by explicit constraints
     virtual unsigned num_joint_dof_explicit() const = 0;
@@ -124,10 +131,24 @@ class ArticulatedBody : public DynamicBody
     std::vector<JointPtr> _joints;
 
   private:
+    // joint constraint violation
+    std::vector<double> _cvio;
+
+    // lower acceleration limits for this body
+    std::vector<double> _acc_limits_lo;
+
+    // upper acceleration limits for this body
+    std::vector<double> _acc_limits_hi;
+
     // temporary variables
     Ravelin::VectorNd _dq;
 
+    // indicates whether acceleration bounds exceeded limits since being reset
+    bool _acc_limits_exceeded;
+
+    void check_joint_accel_limit_exceeded();
     virtual double get_aspeed();
+    static Ravelin::VectorNd& ode_both(const Ravelin::VectorNd& x, double t, double dt, void* data, Ravelin::VectorNd& dx);
 }; // end class
 
 #include "ArticulatedBody.inl"

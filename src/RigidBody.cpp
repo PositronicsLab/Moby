@@ -78,6 +78,12 @@ RigidBody::RigidBody()
   viscous_coeff = VectorNd::zero(SPATIAL_DIM);
 }
 
+// TODO: implement this
+bool RigidBody::force_limit_exceeded() const
+{
+  return false;
+}
+
 /// Gets the frame in which kinematics and dynamics computations occur
 shared_ptr<const Pose3d> RigidBody::get_computation_frame() const
 {

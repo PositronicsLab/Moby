@@ -174,6 +174,26 @@ void CSG::set_pose(const Pose3d& p)
   calc_mass_properties();
 }
 
+/*
+/// Computes distance between a CSG and a primitive
+double CSG::calc_dist(Primitive* p, Point3d& pcsg, Point3d& pp)
+{
+  switch (_op)
+  {
+    case eUnion:
+      // compute distance from each operand to p
+
+      // if both distances >= 0, return minimum distance
+
+      // else return negative distance closest to zero
+
+    case eIntersection:
+
+    case eDifference:
+  }
+}
+*/
+
 /// Gets the bounding volume
 BVPtr CSG::get_BVH_root(CollisionGeometryPtr geom)
 {
