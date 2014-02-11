@@ -531,8 +531,12 @@ double EventDrivenSimulator::step(double step_size)
   // step until the requisite time has elapsed
   while (h < step_size)
   {
+    FILE_LOG(LOG_SIMULATOR) << "  determining conservative advancement time up to step of " << (step_size-h) << std::endl;
+
     // determine the maximum step according to conservative advancement
     double safe_dt = calc_CA_step(step_size-h);
+    if (safe_dt < step_size-h)
+      FILE_LOG(LOG_SIMULATOR) << "  maximum conservative step size: " << safe_dt << std::endl;
 
     // called on integration restart
     restart: 
@@ -564,6 +568,8 @@ double EventDrivenSimulator::step(double step_size)
     }
     catch (InvalidStateException e)
     {
+      FILE_LOG(LOG_SIMULATOR) << " ** attempted to evaluate derivative at invalid state; halfing step size" << std::endl;
+
       // couldn't integrate that far; restart the integration with a smaller
       // step size
       safe_dt *= 0.5;
@@ -571,6 +577,7 @@ double EventDrivenSimulator::step(double step_size)
     }
 
     // see whether there were any force or acceleration limits exceeded
+    bool reintegrate = false;
     BOOST_FOREACH(DynamicBodyPtr db, _bodies)
     {
       RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(db);
@@ -579,11 +586,14 @@ double EventDrivenSimulator::step(double step_size)
         // check whether force limits were exceeded
         if (rb->force_limit_exceeded())
         {
+          FILE_LOG(LOG_SIMULATOR) << " ** rigid body force limits exceeded; retrying with new estimates" << std::endl;
+
           // reset the state of all bodies 
           restore_state();
 
           // attempt to integrate again using new CA info
-          continue;
+          reintegrate = true;
+          break;
         }
       }
       else
@@ -591,14 +601,19 @@ double EventDrivenSimulator::step(double step_size)
         ArticulatedBodyPtr ab = dynamic_pointer_cast<ArticulatedBody>(db);
         if (ab->joint_accel_limit_exceeded())
         {
+          FILE_LOG(LOG_SIMULATOR) << " ** joint acceleration limits exceeded; retrying with new estimates" << std::endl;
+
           // reset the state of all bodies
           restore_state();
 
           // attempt to integrate again using new CA info
-          continue;
+          reintegrate = true;
+          break;
         }
       }
     }
+    if (reintegrate)
+      continue;
 
     // no issues integrating; update h and call the mini-callback
     h += safe_dt;
@@ -666,8 +681,6 @@ void EventDrivenSimulator::update_constraint_violations()
 /// Computes a conservative advancement step
 double EventDrivenSimulator::calc_CA_step(double dt) const
 {
-  const double INF = std::numeric_limits<double>::max();
-
   // do joint limit CA step first (it's faster)
   BOOST_FOREACH(DynamicBodyPtr db, _bodies)
   {
