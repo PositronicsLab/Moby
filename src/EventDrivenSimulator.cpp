@@ -58,6 +58,11 @@ EventDrivenSimulator::EventDrivenSimulator()
   rel_err_tol = NEAR_ZERO;
   abs_err_tol = NEAR_ZERO;
   minimum_step = 1e-5;
+
+  // clear timings
+  dynamics_time = (double) 0.0;
+  event_time = (double) 0.0;
+  coldet_time = (double) 0.0;
 }
 
 /// Gets the contact data between a pair of geometries (if any)
@@ -317,7 +322,7 @@ void EventDrivenSimulator::handle_events()
     }
   }
 
-  // begin timeing for event handling 
+  // begin timing for event handling 
   tms cstart;  
   clock_t start = times(&cstart);
 
@@ -687,11 +692,6 @@ double EventDrivenSimulator::calc_CA_step(double dt) const
 double EventDrivenSimulator::step(double step_size)
 {
   const double INF = std::numeric_limits<double>::max();
-
-  // clear timings
-  dynamics_time = (double) 0.0;
-  event_time = (double) 0.0;
-  coldet_time = (double) 0.0;
 
   // setup the amount remaining to step
   double dt = step_size;

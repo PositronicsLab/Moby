@@ -35,6 +35,9 @@ Simulator::Simulator()
   this->current_time = 0;
   post_step_callback_fn = NULL;
 
+  // clear dynamics timings
+  dynamics_time = (double) 0.0;
+
   // setup the persistent and transient visualization data
   #ifdef USE_OSG
   _persistent_vdata = new osg::Group;
@@ -66,9 +69,6 @@ double Simulator::step(double step_size)
   // clear one-step visualization data
   _transient_vdata->removeChildren(0, _transient_vdata->getNumChildren());
   #endif
-
-  // clear dynamics timings
-  dynamics_time = (double) 0.0;
 
   // compute forward dynamics and integrate 
   current_time += integrate(step_size);
@@ -241,7 +241,6 @@ void Simulator::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::stri
   if (time_attr)
     this->current_time = time_attr->get_real_value();
 
-/*
   // get the integrator, if specified
   XMLAttrib* int_id_attr = node->get_attrib("integrator-id");
   if (int_id_attr)
@@ -256,7 +255,7 @@ void Simulator::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::stri
     else
       integrator = dynamic_pointer_cast<Integrator>(id_iter->second);
   }
-*/
+
   // get all dynamic bodies used in the simulator
   child_nodes = node->find_child_nodes("DynamicBody");
   if (!child_nodes.empty())

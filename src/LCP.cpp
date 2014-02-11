@@ -307,7 +307,7 @@ void LCP::log_failure(const MatrixNd& M, const VectorNd& q)
   fname << "lemke.Mq.";
   for (unsigned i=0; i< 8; i++)
     fname << rand() % 10;
-  fname << ".fail" << std::endl;
+  fname << ".fail";
 
   // open the file
   std::ofstream out(fname.str().c_str());
