@@ -131,6 +131,67 @@ void CollisionGeometry::set_relative_pose(const Pose3d& P)
   *_F = P;
 }
 
+/// Calculates the closest points (and squared distance) between geometries a and b
+/**
+ * \param a the first collision geometry
+ * \param b the second collision geometry
+ * \param aTb the transform from b's frame to a's frame
+ * \param cpa the closest point to b on a (in a's frame)
+ * \param cpb the closest point to a on b (in b's frame)
+ * \return the squared distance between cpa and cpb
+ */
+double CollisionGeometry::calc_distance(CollisionGeometryPtr a, CollisionGeometryPtr b, const Transform3d& aTb, Point3d& cpa, Point3d& cpb)
+{
+  // get the poses of a and b
+  shared_ptr<const Pose3d> Pa = a->get_pose();
+  shared_ptr<const Pose3d> Pb = b->get_pose();
+
+  // setup the minimum distance
+  double min_dist = std::numeric_limits<double>::max();
+
+  // determine the transform from b's frame to a's frame
+  Transform3d bTa = Transform3d::invert(aTb);
+
+  // get the primitives 
+  PrimitivePtr a_primitive = a->get_geometry(); 
+  PrimitivePtr b_primitive = b->get_geometry();
+
+  // get the mesh data from the plugins
+  const IndexedTriArray& a_mesh = *a_primitive->get_mesh();
+  const IndexedTriArray& b_mesh = *b_primitive->get_mesh(); 
+
+  // do pairwise distance checks
+  for (unsigned i=0; i< a_mesh.num_tris(); i++)
+  {
+    // get the triangle
+    Triangle ta = a_mesh.get_triangle(i, Pa);
+
+    // loop over all triangles in b
+    for (unsigned j=0; j< b_mesh.num_tris(); j++)
+    {
+      // get the untransformed second triangle
+      Triangle utb = b_mesh.get_triangle(j, Pb);
+
+      // transform the second triangle
+      Triangle tb = Triangle::transform(utb, aTb);
+ 
+      // get distance between the two triangles
+      Point3d cpa_tmp, cpb_tmp;
+      double dist = Triangle::calc_sq_dist(ta, tb, cpa_tmp, cpb_tmp);
+
+      // if it's the minimum distance, save the closest points
+      if (dist < min_dist)
+      {
+        min_dist = dist;
+        cpa = cpa_tmp;
+        cpb = bTa.transform_point(cpb_tmp);
+      }
+    }
+  }
+
+  return min_dist;
+}
+
 /// Implements Base::load_from_xml()
 void CollisionGeometry::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {

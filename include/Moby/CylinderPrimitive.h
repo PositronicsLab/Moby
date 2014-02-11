@@ -12,6 +12,7 @@
 namespace Moby {
 
 class OBB;
+class SpherePrimitive;
 
 /// Defines a cylinder primitive
 class CylinderPrimitive : public Primitive
@@ -36,6 +37,7 @@ class CylinderPrimitive : public Primitive
     virtual boost::shared_ptr<const IndexedTriArray> get_mesh();
     virtual void set_intersection_tolerance(double tol);
     virtual osg::Node* create_visualization();
+    double calc_dist(const SpherePrimitive* s, Point3d& pcyl, Point3d& psph) const;
 
     /// Gets the radius of this cylinder
     double get_radius() const { return _radius; }
