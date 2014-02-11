@@ -322,6 +322,9 @@ void RCArticulatedBody::set_floating_base(bool flag)
 /// Compiles this body (updates the link transforms and velocities)
 void RCArticulatedBody::compile()
 {
+  // call parent method first
+  ArticulatedBody::compile();
+
   // verify all links are enabled
   if (!is_floating_base())
   {
