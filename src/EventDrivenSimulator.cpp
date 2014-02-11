@@ -516,9 +516,6 @@ double EventDrivenSimulator::step(double step_size)
   event_time = (double) 0.0;
   coldet_time = (double) 0.0;
 
-  // setup the amount remaining to step
-  double dt = step_size;
-
   // clear one-step visualization data
   #ifdef USE_OSG
   _transient_vdata->removeChildren(0, _transient_vdata->getNumChildren());
@@ -535,7 +532,7 @@ double EventDrivenSimulator::step(double step_size)
   while (h < step_size)
   {
     // determine the maximum step according to conservative advancement
-    double safe_dt = calc_CA_step(dt-h);
+    double safe_dt = calc_CA_step(step_size-h);
 
     // called on integration restart
     restart: 
@@ -644,6 +641,9 @@ void EventDrivenSimulator::restore_state()
 void EventDrivenSimulator::integrate_DAE(double dt)
 {
   // TODO: verify constraint violation will not affect semi-implicit step 
+
+  // do normal integration
+  integrate(dt);
 
   // update constraint violation after integration
   update_constraint_violations();
