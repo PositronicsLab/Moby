@@ -156,6 +156,13 @@ bool ArticulatedBody::is_joint_constraint_violated() const
   return false;
 }
 
+/// "Compiles" the articulated body
+void ArticulatedBody::compile()
+{
+  _acc_limits_lo.resize(num_joint_dof(), 0.0);
+  _acc_limits_hi.resize(num_joint_dof(), 0.0);
+}
+
 /// Computes the conservative advancement time on this articulated body for joint constraints
 double ArticulatedBody::calc_CA_time_for_joints() const
 {
@@ -167,6 +174,8 @@ double ArticulatedBody::calc_CA_time_for_joints() const
   // get the lower and upper acceleration limits
   const vector<double>& acc_lo = _acc_limits_lo;
   const vector<double>& acc_hi = _acc_limits_hi; 
+  assert(acc_lo.size() == num_joint_dof());
+  assert(acc_hi.size() == num_joint_dof());
 
   // loop over all joints
   const vector<JointPtr>& joints = get_joints();

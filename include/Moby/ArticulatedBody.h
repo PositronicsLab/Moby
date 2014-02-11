@@ -122,7 +122,7 @@ class ArticulatedBody : public DynamicBody
      * changes.  Generally, this will only be necessary once - after a call
      * to set_links() or set_joints().
      */
-    virtual void compile() = 0;
+    virtual void compile();
 
     /// The set of links for this articulated body
     std::vector<RigidBodyPtr> _links;
