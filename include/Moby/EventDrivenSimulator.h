@@ -72,10 +72,10 @@ class EventDrivenSimulator : public Simulator
     void get_velocities(std::vector<Ravelin::VectorNd>& q) const;
 
     /// The coordinates vector before and after the step
-    std::vector<Ravelin::VectorNd> _q0, _qf;
+    std::vector<Ravelin::VectorNd> _q0, _qf, _qsave;
 
     /// The velocities vector before and after the step
-    std::vector<Ravelin::VectorNd> _qd0, _qdf;
+    std::vector<Ravelin::VectorNd> _qd0, _qdf, _qdsave;
 
     /// Vectors set and passed to collision detection
     std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> > _x0, _x1;
@@ -137,8 +137,11 @@ class EventDrivenSimulator : public Simulator
     double max_event_time;
 
   private:
+    void save_state();
+    void restore_state();
     void calc_fwd_dyn() const;
     void integrate_si_Euler(double dt);
+    void integrate_DAE(double dt);
     static void determine_treated_bodies(std::list<std::list<Event*> >& groups, std::vector<DynamicBodyPtr>& bodies);
     double find_events(double dt);
     double find_next_event_time() const;
@@ -160,6 +163,8 @@ class EventDrivenSimulator : public Simulator
     void set_coords(const std::vector<Ravelin::VectorNd>& q) const;
     void set_velocities(const std::vector<Ravelin::VectorNd>& qd) const;
     void compute_directional_derivatives();
+    double calc_CA_step(double dt) const;
+    void update_constraint_violations();
 
     // Visualization functions
     void visualize_contact( Event& event );
@@ -178,6 +183,9 @@ class EventDrivenSimulator : public Simulator
 
     /// Object for handling impact events
     ImpactEventHandler _impact_event_handler;
+
+    /// The maximum Euler step size
+    double max_Euler_step;
 }; // end class
 
 } // end namespace

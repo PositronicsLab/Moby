@@ -159,8 +159,8 @@ double BoxPrimitive::calc_dist(const BoxPrimitive* box, Point3d& pthis, Point3d&
   Point3d tmp;
 
   // determine distances from centers of boxes
-  double dthis = box->calc_dist(pthis, tmp1);
-  double dbox = calc_dist(pb, tmp2);
+  double dthis = box->calc_dist(pthis, tmp);
+  double dbox = calc_dist(pb, tmp);
 
   // look whether point is inside a box
   if (dthis <= 0.0 || dbox <= 0.0)

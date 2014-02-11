@@ -14,6 +14,7 @@
 #include <Moby/ContactParameters.h>
 #include <Moby/VariableStepIntegrator.h>
 #include <Moby/ImpactToleranceException.h>
+#include <Moby/InvalidStateException.h>
 #include <Moby/EventDrivenSimulator.h>
 
 #ifdef USE_OSG
@@ -49,6 +50,9 @@ EventDrivenSimulator::EventDrivenSimulator()
 
   // setup the maximum event processing time
   max_event_time = std::numeric_limits<double>::max();
+
+  // setup the maximum Euler step
+  max_Euler_step = 1e-3;
 
   // setup absolute and relative error tolerances
   rel_err_tol = NEAR_ZERO;
@@ -497,7 +501,189 @@ void EventDrivenSimulator::integrate_si_Euler(double step_size)
   dynamics_time += (double) (stop-start)/CLOCKS_PER_SEC;
 }
 
+/// Steps the simulator forward by the given step size
+double EventDrivenSimulator::step(double step_size)
+{
+  const double INF = std::numeric_limits<double>::max();
+
+  // clear timings
+  dynamics_time = (double) 0.0;
+  event_time = (double) 0.0;
+  coldet_time = (double) 0.0;
+
+  // setup the amount remaining to step
+  double dt = step_size;
+
+  // clear one-step visualization data
+  #ifdef USE_OSG
+  _transient_vdata->removeChildren(0, _transient_vdata->getNumChildren());
+  #endif
+  FILE_LOG(LOG_SIMULATOR) << "+stepping simulation from time: " << this->current_time << std::endl;
+
+  // TODO: should we clear the limits on each step? Compute a running
+  //       mean? Compute a mean with a forgetting factor?
+
+  // setup the time stepped
+  double h = 0.0;
+
+  // step until the requisite time has elapsed
+  while (h < step_size)
+  {
+    // determine the maximum step according to conservative advancement
+    double safe_dt = calc_CA_step(dt-h);
+
+    // called on integration restart
+    restart: 
+
+    // if safe_dt is effectively zero, use a semi-implicit Euler step to
+    // solve events, etc.
+    if (safe_dt < NEAR_ZERO)
+    {
+      double dt = std::min(step_size-h, max_Euler_step);
+      step_si_Euler(dt);
+      h += dt;
+
+      // call the mini-callback
+      if (post_mini_step_callback_fn)
+        post_mini_step_callback_fn(this);
+
+      // continue integrating
+      continue;
+    }
+
+    // save the state of the system
+    save_state();
+
+    // attempt to integrate forward by safe_dt
+    try
+    {
+      // do "smart" integration (watching for state violation) 
+      integrate_DAE(safe_dt);
+    }
+    catch (InvalidStateException e)
+    {
+      // couldn't integrate that far; restart the integration with a smaller
+      // step size
+      safe_dt *= 0.5;
+      goto restart;
+    }
+
+    // see whether there were any force or acceleration limits exceeded
+    BOOST_FOREACH(DynamicBodyPtr db, _bodies)
+    {
+      RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(db);
+      if (rb)
+      {
+        // check whether force limits were exceeded
+        if (rb->force_limit_exceeded())
+        {
+          // reset the state of all bodies 
+          restore_state();
+
+          // attempt to integrate again using new CA info
+          continue;
+        }
+      }
+      else
+      {
+        ArticulatedBodyPtr ab = dynamic_pointer_cast<ArticulatedBody>(db);
+        if (ab->joint_accel_limit_exceeded())
+        {
+          // reset the state of all bodies
+          restore_state();
+
+          // attempt to integrate again using new CA info
+          continue;
+        }
+      }
+    }
+
+    // no issues integrating; update h and call the mini-callback
+    h += safe_dt;
+    if (post_mini_step_callback_fn)
+      post_mini_step_callback_fn(this);
+  }
+
+  // call the callback 
+  if (post_step_callback_fn)
+    post_step_callback_fn(this);
+  
+  return step_size;
+}
+
+/// Saves the state of the system (all dynamic bodies) at the current time
+void EventDrivenSimulator::save_state()
+{
+  // resize the vector if necessary
+  _qsave.resize(_bodies.size());
+  _qdsave.resize(_bodies.size());
+
+  for (unsigned i=0; i< _bodies.size(); i++)
+  {
+    _bodies[i]->get_generalized_coordinates(DynamicBody::eEuler, _qsave[i]);
+    _bodies[i]->get_generalized_velocity(DynamicBody::eSpatial, _qdsave[i]);
+  }
+}
+
+/// Restores the state of the 'system' (all dynamic bodies)
+void EventDrivenSimulator::restore_state()
+{
+  for (unsigned i=0; i< _bodies.size(); i++)
+  {
+    _bodies[i]->set_generalized_coordinates(DynamicBody::eEuler, _qsave[i]);
+    _bodies[i]->set_generalized_velocity(DynamicBody::eSpatial, _qdsave[i]);
+  }
+}
+
+/// Does effectively a integration of the underlying DAE's
+void EventDrivenSimulator::integrate_DAE(double dt)
+{
+  // TODO: verify constraint violation will not affect semi-implicit step 
+
+  // update constraint violation after integration
+  update_constraint_violations();
+}
+
+/// Updates constraint violation after integration
+void EventDrivenSimulator::update_constraint_violations()
+{
+  // TODO: update constraint violation due to increasing interpenetration
+
+  // update joint constraint interpenetration
+  BOOST_FOREACH(DynamicBodyPtr db, _bodies)
+  {
+    ArticulatedBodyPtr ab = dynamic_pointer_cast<ArticulatedBody>(db);
+    if (ab)
+      ab->update_joint_constraint_violations();
+  }  
+}
+
+/// Computes a conservative advancement step
+double EventDrivenSimulator::calc_CA_step(double dt) const
+{
+  const double INF = std::numeric_limits<double>::max();
+
+  // do joint limit CA step first (it's faster)
+  BOOST_FOREACH(DynamicBodyPtr db, _bodies)
+  {
+    // try to get it as an articulated body
+    ArticulatedBodyPtr ab = dynamic_pointer_cast<ArticulatedBody>(db);
+    if (!ab)
+      continue;
+
+    // compute best dt
+    dt = std::min(dt, ab->calc_CA_time_for_joints());
+    if (dt <= 0.0)
+      return dt;
+  }
+
+  // TODO: do collision detection here
+
+  return dt;
+}
+
 /// Steps the simulator forward
+/*
 double EventDrivenSimulator::step(double step_size)
 {
   const double INF = std::numeric_limits<double>::max();
@@ -565,6 +751,7 @@ double EventDrivenSimulator::step(double step_size)
   
   return step_size;
 }
+*/
 
 /// Computes forward dynamics for all bodies
 void EventDrivenSimulator::calc_fwd_dyn() const
@@ -894,8 +1081,12 @@ double EventDrivenSimulator::find_and_handle_si_events(double dt)
   {
     // if h = 0, revalidate all positions
     if (h < NEAR_ZERO)
+    {
       BOOST_FOREACH(DynamicBodyPtr db, _bodies)
+      {
         db->validate_position_variables();
+      }
+    }
 
     // handle the events
     handle_events();
@@ -1126,6 +1317,11 @@ void EventDrivenSimulator::load_from_xml(shared_ptr<const XMLTree> node, map<std
   if (max_event_time_attrib)
     max_event_time = max_event_time_attrib->get_real_value(); 
 
+  // read the maximum Euler step
+  XMLAttrib* max_Euler_step_attrib = node->get_attrib("max-Euler-step");
+  if (max_Euler_step_attrib)
+    max_Euler_step = max_Euler_step_attrib->get_real_value();
+
   // read the error tolerances
   XMLAttrib* rel_tol_attrib = node->get_attrib("rel-err-tol");
   XMLAttrib* abs_tol_attrib = node->get_attrib("abs-err-tol");
@@ -1215,6 +1411,9 @@ void EventDrivenSimulator::save_to_xml(XMLTreePtr node, list<shared_ptr<const Ba
 
   // save the maximum event time
   node->attribs.insert(XMLAttrib("max-event-time", max_event_time));
+
+  // save the maximum Euler step
+  node->attribs.insert(XMLAttrib("max-Euler-step", max_Euler_step));
 
   // save the error tolerances
   node->attribs.insert(XMLAttrib("rel-err-tol", rel_err_tol));

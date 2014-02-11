@@ -187,13 +187,13 @@ class DynamicBody : public Visualizable
     /// Kinematic update flag
     bool _kinematic_update;
 
+    /// Temporaries for use with integration
+    Ravelin::VectorNd gc, gv, gcgv, xp, xv, xa;
+
   private:
 
     /// Set of recurrent forces applied to this body
     std::list<RecurrentForcePtr> _rfs;
-
-    /// Temporaries for use with integration
-    Ravelin::VectorNd gc, gv, gcgv, xp, xv, xa;
 
     static Ravelin::VectorNd& ode_both(const Ravelin::VectorNd& x, double t, double dt, void* data, Ravelin::VectorNd& dx);
 }; // end class

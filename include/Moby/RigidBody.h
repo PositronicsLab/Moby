@@ -106,6 +106,7 @@ class RigidBody : public SingleBody
     const Ravelin::SForced& sum_forces();
     void reset_accumulators();
     Ravelin::SForced calc_pseudo_forces();
+    bool force_limit_exceeded() const;
 
     template <class OutputIterator>
     OutputIterator get_parent_links(OutputIterator begin) const;
