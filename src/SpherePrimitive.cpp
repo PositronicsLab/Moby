@@ -77,6 +77,41 @@ SpherePrimitive::SpherePrimitive(double radius, unsigned n, const Pose3d& T) : P
   calc_mass_properties();
 }
 
+/// Computes the distance from another sphere primitive
+double SpherePrimitive::calc_dist(const SpherePrimitive* s, Point3d& pthis, Point3d& ps) const
+{
+  // compute the distance
+  double d = _radius - s->_radius - (get_pose()->x - s->get_pose()->x).norm();
+
+  // setup poses
+  pthis.pose = get_pose();
+  ps.pose = s->get_pose();
+
+  // setup sphere centers in alternate frames
+  Point3d ps_c(0.0, 0.0, 0.0, s->get_pose());
+  Point3d pthis_c(0.0, 0.0, 0.0, get_pose());
+
+  // setup closest points
+  pthis = Pose3d::transform_point(get_pose(), ps_c);
+  pthis.normalize();
+  ps = Pose3d::transform_point(s->get_pose(), pthis_c);
+  ps.normalize();
+
+  // scale closest points appropriately
+  if (d > 0.0)
+  {
+    pthis *= _radius;
+    ps *= s->_radius;
+  }
+  else
+  {
+    pthis *= _radius-d;
+    ps *= s->_radius-d;
+  }
+
+  return d;
+}
+
 /// Calculates mass properties for the sphere 
 void SpherePrimitive::calc_mass_properties() 
 {

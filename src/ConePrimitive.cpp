@@ -15,6 +15,7 @@
 #include <Moby/CompGeom.h>
 #include <Moby/XMLTree.h>
 #include <Moby/OBB.h>
+#include <Moby/SpherePrimitive.h>
 #include <Moby/ConePrimitive.h>
 
 using namespace Ravelin;
@@ -82,6 +83,104 @@ ConePrimitive::ConePrimitive(double radius, double height, unsigned npoints, uns
   _npoints = npoints;
   _nrings = nrings;
   calc_mass_properties();
+}
+
+double ConePrimitive::calc_dist(const SpherePrimitive* s, Point3d& pcon, Point3d& psph) const
+{
+  const unsigned X = 0, Y = 1, Z = 2;
+
+  // get the sphere center and put it into the cone's coordinate system
+  Point3d sph_c(0.0, 0.0, 0.0, s->get_pose());
+  Point3d p = Pose3d::transform_point(get_pose(), sph_c);
+
+/*
+  // compute distance from point (projected onto plane) to circle
+  double dist = std::sqrt(p[X]*p[X] + p[Z]*p[Z]) - _radius;
+
+  // setup closest point on cone
+  pcyl.pose = get_pose();
+  pcyl[X] = p[X];
+  pcyl[Y] = p[Y];
+  pcyl[Z] = p[Z];
+*/
+
+  // setup cone pose 
+  pcon.pose = get_pose();
+
+  // setup distance
+  double dist;
+
+  // see whether the point is above the height extent
+  double ht_ext = _height*0.5;
+  if (p[Y] > ht_ext)
+  {
+    // closest point is the height extent
+    pcon[X] = pcon[Z] = 0.0;
+    pcon[Y] = ht_ext;
+  }
+  else
+  {
+    // see whether the point is below the negative height extent
+    if (p[Y] < -ht_ext)
+    {
+      // compute distance from point (projected onto plane) to circle
+      double d = std::sqrt(p[X]*p[X] + p[Z]*p[Z]) - _radius;
+
+      // setup the closest point on the cone
+      if (d > 0.0)
+      {
+        pcon[Y] = 0.0;
+        pcon[X] = p[X];
+        pcon[Z] = p[Z];
+        pcon *= _radius;
+      }
+      pcon[Y] = -ht_ext;
+
+      // compute distance
+      dist = (p - pcon).norm() - s->get_radius();
+    }
+    else
+    {
+      // compute the radius at the given height
+      double b =  _radius*0.5;
+      double m = -b/ht_ext;
+      double rad = m*p[Y] + b;
+      double d = std::sqrt(p[X]*p[X] + p[Z]*p[Z]) - rad;
+
+      // setup the closest point on the cone
+      if (d > 0.0)
+      {
+        pcon[Y] = 0.0;
+        pcon[X] = p[X];
+        pcon[Z] = p[Z];
+        pcon *= rad;
+      }
+      pcon[Y] = p[Y];
+
+      // compute distance
+      dist = (p - pcon).norm() - s->get_radius();
+    }
+  }
+
+  // determine closest point on the sphere
+  if (dist < 0.0)
+  {
+    // compute farthest interpenetration of cone inside sphere
+    Point3d con_c(0.0, 0.0, 0.0, get_pose());
+    psph = sph_c - Pose3d::transform_point(s->get_pose(), con_c);
+    psph.normalize();
+    psph *= -dist;
+  }
+  else
+  {
+    // determine the closest point on the sphere using the vector from the
+    // sphere center to the closest point on the cone 
+    psph = Pose3d::transform_point(s->get_pose(), pcon) - sph_c;
+    psph.normalize();
+    psph *= s->get_radius();
+  }
+
+  return dist;
 }
 
 /// Sets the radius for this cone

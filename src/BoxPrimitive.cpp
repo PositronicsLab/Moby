@@ -10,9 +10,11 @@
 #include <osg/Geode>
 #endif
 #include <Moby/XMLTree.h>
+#include <Moby/SpherePrimitive.h>
 #include <Moby/OBB.h>
 #include <Moby/Constants.h>
 #include <Moby/CollisionGeometry.h>
+#include <Moby/QP.h>
 #include <Moby/BoxPrimitive.h>
 
 using namespace Ravelin;
@@ -65,6 +67,189 @@ BoxPrimitive::BoxPrimitive(double xlen, double ylen, double zlen, const Pose3d& 
   _zlen = zlen;
   _edge_sample_length = std::numeric_limits<double>::max();
   calc_mass_properties();
+}
+
+/// Gets the distance from this box to another box
+double BoxPrimitive::calc_dist(const BoxPrimitive* box, Point3d& pthis, Point3d& pb) const
+{
+  const unsigned X = 0, Y = 1, Z = 2;
+  const unsigned UINF = std::numeric_limits<unsigned>::max();
+  static QP qp;
+
+  MatrixNd H;
+  VectorNd c, z, lb, ub;
+
+  // get the two poses
+  shared_ptr<Pose3d> Pa(new Pose3d(get_pose()));
+  shared_ptr<Pose3d> Pb(new Pose3d(box->get_pose()));
+
+  // convert them to global frame
+  Pa->update_relative_pose(GLOBAL);
+  Pb->update_relative_pose(GLOBAL);
+
+  // get the two centers
+  Origin3d ca = Pa->x;
+  Origin3d cb = Pb->x;
+  Origin3d camcb = ca - cb;
+
+  // get the axes of Pa
+  Matrix3d Ra = Pa->q;
+  Origin3d bax = Ra.get_column(X);
+  Origin3d bay = Ra.get_column(Y);
+  Origin3d baz = Ra.get_column(Z);
+
+  // setup the first QP
+  H.resize(3,3);
+  H(X,X) = bax.dot(bax);  H(Y,Y) = bay.dot(bay);  H(Z,Z) = baz.dot(baz);
+  H(X,Y) = H(Y,X) = bax.dot(bay);
+  H(X,Z) = H(Z,X) = bax.dot(baz);
+  H(Y,Z) = H(Z,Y) = bay.dot(baz);
+  c.resize(3);
+  c[X] = bax.dot(camcb);
+  c[Y] = bay.dot(camcb);
+  c[Z] = baz.dot(camcb);
+
+  // setup the lower and upper bounds
+  lb.resize(3);
+  ub.resize(3);
+  lb[X] = -_xlen*0.5; ub[X] = -lb[X];
+  lb[Y] = -_ylen*0.5; ub[Y] = -lb[Y];
+  lb[Z] = -_zlen*0.5; ub[Z] = -lb[Z];
+
+  // solve the QP
+  z.set_zero(3);
+  qp.qp_gradproj(H, c, lb, ub, UINF, z, NEAR_ZERO);
+
+  // get point closest to box's center
+  Origin3d closest_this = ca + bax*z[X] + bay*z[Y] + baz*z[Z];
+  Point3d pthis0(closest_this, GLOBAL);
+  pthis = Pose3d::transform_point(get_pose(), pthis0);
+
+  // solve another QP for point closest to a's center
+  // get the axes of Pb
+  Matrix3d Rb = Pb->q;
+  Origin3d bbx = Rb.get_column(X);
+  Origin3d bby = Rb.get_column(Y);
+  Origin3d bbz = Rb.get_column(Z);
+
+  // setup the second QP
+  H(X,X) = bbx.dot(bbx);  H(Y,Y) = bby.dot(bby);  H(Z,Z) = bbz.dot(bbz);
+  H(X,Y) = H(Y,X) = bbx.dot(bby);
+  H(X,Z) = H(Z,X) = bbx.dot(bbz);
+  H(Y,Z) = H(Z,Y) = bby.dot(bbz);
+  c[X] = bbx.dot(-camcb);
+  c[Y] = bby.dot(-camcb);
+  c[Z] = bbz.dot(-camcb);
+
+  // setup the lower and upper bounds 
+  lb[X] = -box->_xlen*0.5; ub[X] = -lb[X];
+  lb[Y] = -box->_ylen*0.5; ub[Y] = -lb[Y];
+  lb[Z] = -box->_zlen*0.5; ub[Z] = -lb[Z];
+
+  // solve the QP
+  z.set_zero();
+  qp.qp_gradproj(H, c, lb, ub, UINF, z, NEAR_ZERO); 
+
+  // get point closest to this's center
+  Origin3d closest_box = cb + bbx*z[X] + bby*z[Y] + bbz*z[Z];
+  Point3d pbox0(closest_box, GLOBAL);
+  pb = Pose3d::transform_point(box->get_pose(), pbox0);
+
+  // setup temporary variable
+  Point3d tmp;
+
+  // determine distances from centers of boxes
+  double dthis = box->calc_dist(pthis, tmp1);
+  double dbox = calc_dist(pb, tmp2);
+
+  // look whether point is inside a box
+  if (dthis <= 0.0 || dbox <= 0.0)
+    return std::min(dthis, dbox);
+
+  // boxes are disjoint
+  return (pbox0 - pthis0).norm();
+}
+
+/// Computes the distance from a point to the box
+double BoxPrimitive::calc_dist(const Point3d& p, Point3d& pbox) const
+{
+  // setup extents
+  double extents[3] = { _xlen*0.5, _ylen*0.5, _zlen*0.5 };
+
+  // put the point into the box's coordinate system
+  Point3d q = Pose3d::transform_point(get_pose(), p);
+
+  // setup pbox coordinate system
+  pbox.pose = get_pose();
+
+  // compute the squared distance to the point on the box
+  bool inside = true;
+  double sqrDist = 0.0;
+  double intDist = std::numeric_limits<double>::max();
+  double delta;
+  for (unsigned i=0; i< 3; i++)
+  {
+    // set pbox dimension to the point initially (for inside)
+    pbox[i] = q[i];
+
+    // see whether this dimension of the point lies below the negative extent
+    if (pbox[i] < -extents[i])
+    {
+      delta = pbox[i] + extents[i];
+      sqrDist += delta*delta;
+      pbox[i] = -extents[i];
+      inside = false;
+    }
+    // see whether this dimension of the point lies above the positive extent
+    else if (pbox[i] > extents[i])
+    {
+      delta = pbox[i] - extents[i];
+      sqrDist += delta*delta;
+      pbox[i] = extents[i];
+      inside = false;
+    }
+    else if (inside)
+    {
+      double dist = std::min(pbox[i] - extents[i], pbox[i] + extents[i]);
+      intDist = std::min(intDist, dist);
+    }
+  }
+
+  // put the point back into its original coordinate system
+  pbox = Pose3d::transform_point(p.pose, pbox);
+
+  // compute distance
+  return (inside) ? intDist : std::sqrt(sqrDist);
+}
+
+/// Gets the distance of this box from a sphere
+double BoxPrimitive::calc_dist(const SpherePrimitive* s, Point3d& pbox, Point3d& psph) const
+{
+  // compute the distance from the sphere center to the box's coordinate system
+  Point3d sph_c(0.0, 0.0, 0.0, s->get_pose());
+
+  // get the closest point
+  double dist = calc_dist(sph_c, pbox) - s->get_radius();
+
+  // determine closest point on the sphere 
+  if (dist < 0.0)
+  {
+    // compute farthest interpenetration of box inside sphere
+    Point3d box_c(0.0, 0.0, 0.0, get_pose());
+    psph = sph_c - Pose3d::transform_point(s->get_pose(), box_c);
+    psph.normalize();
+    psph *= -dist;
+  }
+  else
+  {
+    // determine closest point on the sphere using the vector from the sphere 
+    // center to the closest point on the box
+    psph = Pose3d::transform_point(s->get_pose(), pbox) - sph_c;
+    psph.normalize();
+    psph *= s->get_radius();
+  }
+
+  return dist;
 }
 
 /// Gets a sub-mesh for the primitive

@@ -13,6 +13,7 @@
 #include <Moby/Constants.h>
 #include <Moby/CompGeom.h>
 #include <Moby/XMLTree.h>
+#include <Moby/SpherePrimitive.h>
 #include <Moby/OBB.h>
 #include <Moby/CollisionGeometry.h>
 #include <Moby/CylinderPrimitive.h>
@@ -83,6 +84,96 @@ CylinderPrimitive::CylinderPrimitive(double radius, double height, unsigned n, u
   _npoints = n;
   _nrings = nrings;
   calc_mass_properties();
+}
+
+/// Gets the distance of this cylinder from a sphere
+double CylinderPrimitive::calc_dist(const SpherePrimitive* s, Point3d& pcyl, Point3d& psph) const
+{
+  const unsigned X = 0, Y = 1, Z = 2;
+
+  // get the sphere center and put it into the cylinder's coordinate system
+  Point3d sph_c(0.0, 0.0, 0.0, s->get_pose());
+  Point3d p = Pose3d::transform_point(get_pose(), sph_c);
+
+  // compute distance from point (projected onto plane) to circle
+  double dist = std::sqrt(p[X]*p[X] + p[Z]*p[Z]) - _radius;
+
+  // setup closest point on cylinder
+  pcyl.pose = get_pose();
+  pcyl[X] = p[X];
+  pcyl[Y] = p[Y];
+  pcyl[Z] = p[Z];
+
+  // see whether the point is above/below the height extent
+  double ht_ext = _height*0.5;
+  if (p[Y] > ht_ext)
+  {
+    // compute the distance from the plane
+    double pdist = p[Y] - ht_ext;
+
+    // setup the closest point on the cylinder
+    if (dist > 0.0)
+    {
+      pcyl[Y] = 0.0;
+      pcyl.normalize();  
+      pcyl *= _radius;
+    }
+    pcyl[Y] = ht_ext;
+
+    // compute the distance from the cylinder 
+    dist = std::min(pdist, dist);
+  }
+  else if (p[Y] < -ht_ext)
+  {
+    // compute the distance from the plane
+    double pdist = p[Y] + ht_ext;
+
+    // setup the closest point on the cylinder
+    if (dist > 0.0)
+    {
+      pcyl[Y] = 0.0;
+      pcyl.normalize();  
+      pcyl *= _radius;
+    }
+    pcyl[Y] = -ht_ext;
+
+    // compute the distance from the cylinder 
+    dist = std::min(pdist, dist);
+  }
+  else  // point is inside height extents
+  {
+    // setup the closest point on the cylinder
+    if (dist > 0.0)
+    {
+      pcyl[Y] = 0.0;
+      pcyl.normalize();
+      pcyl *= _radius; 
+    }
+    pcyl[Y] = p[Y];
+  }
+
+  // now compute distance from sphere
+  dist -= s->get_radius();
+
+  // determine closest point on the sphere
+  if (dist < 0.0)
+  {
+    // compute farthest interpenetration of cylinder inside sphere
+    Point3d cyl_c(0.0, 0.0, 0.0, get_pose());
+    psph = sph_c - Pose3d::transform_point(s->get_pose(), cyl_c);
+    psph.normalize();
+    psph *= -dist;
+  }
+  else
+  {
+    // determine the closest point on the sphere using the vector from the
+    // sphere center to the closest point on the cylinder
+    psph = Pose3d::transform_point(s->get_pose(), pcyl) - sph_c;
+    psph.normalize();
+    psph *= s->get_radius();
+  }
+
+  return dist;
 }
 
 /// Sets the radius for this cylinder
