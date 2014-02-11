@@ -105,8 +105,8 @@ VectorNd& ArticulatedBody::ode_both(const VectorNd& x, double t, double dt, void
   ab->calc_fwd_dyn();
   ab->get_generalized_acceleration(xa);
 
-  //  
-  
+  // update joint constraint violations
+  ab->check_joint_accel_limit_exceeded();
 
   dx.resize(x.size());
   dx.set_sub_vec(0, xv);
@@ -206,8 +206,8 @@ double ArticulatedBody::calc_CA_time_for_joints() const
         double disc = qd*qd - 4*qdd_lo*(q-l);
         if (disc >= 0.0)
         {
-          double ta = (-q + std::sqrt(disc))/(2.0*qdd_lo);
-          double tb = (-q - std::sqrt(disc))/(2.0*qdd_lo);
+          double ta = (-qd + std::sqrt(disc))/(2.0*qdd_lo);
+          double tb = (-qd - std::sqrt(disc))/(2.0*qdd_lo);
           if (ta > 0.0)
             dt = std::min(ta, dt);
           if (tb > 0.0)
@@ -226,8 +226,8 @@ double ArticulatedBody::calc_CA_time_for_joints() const
         double disc = qd*qd - 4*qdd_hi*(q-u);
         if (disc >= 0.0)
         {
-          double ta = (-q + std::sqrt(disc))/(2.0*qdd_hi);
-          double tb = (-q - std::sqrt(disc))/(2.0*qdd_hi);
+          double ta = (-qd + std::sqrt(disc))/(2.0*qdd_hi);
+          double tb = (-qd - std::sqrt(disc))/(2.0*qdd_hi);
           if (ta > 0.0)
             dt = std::min(ta, dt);
           if (tb > 0.0)
