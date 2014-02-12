@@ -478,28 +478,19 @@ void RCArticulatedBody::set_links_and_joints(const vector<RigidBodyPtr>& links, 
  */
 VectorNd& RCArticulatedBody::get_generalized_acceleration(VectorNd& ga)
 {
-  const unsigned GC_AA_DIM = 6, GC_ROD_DIM = 7;
-  SAFESTATIC VectorNd base_ga;
-
-  // resize the state-derivative vector
-  ga.resize(num_generalized_coordinates(DynamicBody::eSpatial));
-  
-  // setup the generalized acceleration for the base (if any) 
-  if (_floating_base)
-  {
-    RigidBodyPtr base = _links.front();
-    base->get_generalized_acceleration_single(base_ga);
-    ga.set_sub_vec(num_joint_dof_explicit(), base_ga);
-  }
-
-  // setup the state for the joints
-  for (unsigned i=0; i< _ejoints.size(); i++)
-  {
-    unsigned idx = _ejoints[i]->get_coord_index();
-    ga.set_sub_vec(idx, _ejoints[i]->qdd);
-  }
-
+  get_generalized_acceleration_generic(ga);
   return ga;
+}
+
+/// Gets the derivative of the velocity state vector for this articulated body
+/**
+ * The state vector consists of the joint-space velocities of the robot as 
+ * well as the base momentum; therefore, the derivative of the state vector is 
+ * composed of the joint-space accelerations and base forces (and torques).
+ */
+void RCArticulatedBody::get_generalized_acceleration(SharedVectorNd& ga)
+{
+  get_generalized_acceleration_generic(ga);
 }
 
 /// Updates the transforms of the links based on the current joint positions
@@ -1548,122 +1539,51 @@ void RCArticulatedBody::update_visualization()
 /// Gets the generalized coordinates of this body
 VectorNd& RCArticulatedBody::get_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, VectorNd& gc)
 {
-  SAFESTATIC VectorNd base_gc;
-
-  // resize gc
-  gc.resize(num_generalized_coordinates(gctype));
-
-  // get the joint positions of all explicit joints
-  for (unsigned i=0; i < _ejoints.size(); i++)
-  {
-    unsigned idx = _ejoints[i]->get_coord_index();
-    gc.set_sub_vec(idx, _ejoints[i]->q);
-  }
-
-  // see whether the body has a floating base
-  if (!_floating_base)
-    return gc;
-
-  // get the generalized coordinates for the base -- NOTE: we put the base
-  // acceleration in the base frame
-  assert(!_links.empty());
-  RigidBodyPtr base = _links.front();
-  base->get_generalized_coordinates_single(gctype, base_gc);
-  gc.set_sub_vec(num_joint_dof_explicit(), base_gc);
-    
+  get_generalized_coordinates_generic(gctype, gc);   
   return gc;
+}
+
+/// Gets the generalized coordinates of this body
+void RCArticulatedBody::get_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, SharedVectorNd& gc)
+{
+  get_generalized_coordinates_generic(gctype, gc);   
 }
 
 /// Sets the generalized position of this body
 void RCArticulatedBody::set_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, const VectorNd& gc)
 {
-  SAFESTATIC VectorNd base_gc;
-  assert(num_generalized_coordinates(gctype) == gc.size());
+  set_generalized_coordinates_generic(gctype, gc);
+}
 
-  // set the generalized coordinates for the implicit joints
-  for (unsigned i=0; i < _ejoints.size(); i++)
-  {
-    unsigned idx = _ejoints[i]->get_coord_index();
-    gc.get_sub_vec(idx, idx+_ejoints[i]->num_dof(), _ejoints[i]->q);
-  }
-
-  // update base gc, if necessary
-  if (_floating_base)
-  {
-    assert(!_links.empty());
-    RigidBodyPtr base = _links.front();
-    gc.get_sub_vec(num_joint_dof_explicit(), gc.size(), base_gc);
-    base->set_generalized_coordinates_single(gctype, base_gc);
-  }
-
-  // link transforms must now be updated
-  update_link_poses();
+/// Sets the generalized position of this body
+void RCArticulatedBody::set_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, SharedConstVectorNd& gc)
+{
+  set_generalized_coordinates_generic(gctype, gc);
 }
 
 /// Sets the generalized velocity of this body
 void RCArticulatedBody::set_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, const VectorNd& gv)
 {
-  SAFESTATIC VectorNd Dx_qd, base_gv;
-  assert(num_generalized_coordinates(gctype) == gv.size());
+  set_generalized_velocity_generic(gctype, gv);
+}
 
-  // set the generalized velocities for the explicit joints
-  for (unsigned i=0; i < _ejoints.size(); i++)
-  {
-    unsigned idx = _ejoints[i]->get_coord_index();
-    gv.get_sub_vec(idx, idx+_ejoints[i]->num_dof(), _ejoints[i]->qd);
-  }
-
-  // see whether the body has a floating base  
-  if (_floating_base)
-  {
-    assert(!_links.empty());
-    RigidBodyPtr base = _links.front();
-    gv.get_sub_vec(num_joint_dof_explicit(), gv.size(), base_gv);
-    base->set_generalized_velocity_single(gctype, base_gv);
-  }
-
-  // compute implicit constraint velocities
-  if (!_ijoints.empty()) 
-  {
-    determine_implicit_constraint_movement_jacobian(_Dx);
-    _Dx.mult(gv, Dx_qd);
-    for (unsigned i=0; i< _ijoints.size(); i++)
-    {
-      unsigned idx = _ijoints[i]->get_coord_index();
-      Dx_qd.get_sub_vec(idx, idx+_ijoints[i]->num_dof(), _ijoints[i]->qd);
-    }
-  }
-
-  // link velocities must now be updated
-  update_link_velocities();
+/// Sets the generalized velocity of this body
+void RCArticulatedBody::set_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, SharedConstVectorNd& gv)
+{
+  set_generalized_velocity_generic(gctype, gv);
 }
 
 /// Gets the generalized velocity of this body
 VectorNd& RCArticulatedBody::get_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, VectorNd& gv)
 {
-  SAFESTATIC VectorNd base_gv;
-
-  // resize gv
-  gv.resize(num_generalized_coordinates(gctype));
-
-  // get the joint velocities of all joints
-  for (unsigned i=0; i < _ejoints.size(); i++)
-  {
-    unsigned idx = _ejoints[i]->get_coord_index();
-    gv.set_sub_vec(idx, _ejoints[i]->qd);
-  }
-
-  // see whether the body has a floating base
-  if (!_floating_base)
-    return gv;
-
-  // get the generalized velocity for the base
-  assert(!_links.empty());
-  RigidBodyPtr base = _links.front();
-  base->get_generalized_velocity_single(gctype, base_gv);
-  gv.set_sub_vec(num_joint_dof_explicit(), base_gv);
-
+  get_generalized_velocity_generic(gctype, gv);
   return gv;
+}
+
+/// Gets the generalized velocity of this body
+void RCArticulatedBody::get_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, SharedVectorNd& gv)
+{
+  get_generalized_velocity_generic(gctype, gv);
 }
 
 /// Gets the generalized inertia of this body

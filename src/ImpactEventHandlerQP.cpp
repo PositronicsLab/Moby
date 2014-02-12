@@ -37,8 +37,6 @@ using std::pair;
 using std::min_element;
 using boost::dynamic_pointer_cast;
 
-double ELAPSED = 0;
-
 /// Solves the quadratic program (potentially solves two QPs, actually)
 void ImpactEventHandler::solve_qp(const VectorNd& zf, EventProblemData& q, double poisson_eps, double max_time)
 {
@@ -85,9 +83,7 @@ void ImpactEventHandler::solve_qp(const VectorNd& zf, EventProblemData& q, doubl
     tms cstop;
     clock_t stop = times(&cstop);
     double elapsed = (double) (stop - start)/TPS;
-ELAPSED += elapsed;
     FILE_LOG(LOG_EVENT) << "Elapsed time: " << elapsed << std::endl;
-std::cerr << ELAPSED << std::endl;
 
     // check whether we can mark any more contacts as active
     if (elapsed > max_time || q.N_ACT_CONTACTS == q.N_CONTACTS)

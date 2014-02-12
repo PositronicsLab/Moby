@@ -48,7 +48,8 @@ class ArticulatedBody : public DynamicBody
     void update_joint_constraint_violations();
     bool is_joint_constraint_violated() const;
     double calc_CA_time_for_joints() const;
-    virtual void integrate(double t, double h, boost::shared_ptr<Integrator> integrator);
+    virtual void ode(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data, Ravelin::SharedVectorNd& dx);
+    virtual void reset_limit_estimates();
 
     /// Determines whether joint acceleration limits were exceeded on last integration
     bool joint_accel_limit_exceeded() const { return _acc_limits_exceeded; }
@@ -148,7 +149,6 @@ class ArticulatedBody : public DynamicBody
 
     void check_joint_accel_limit_exceeded();
     virtual double get_aspeed();
-    static Ravelin::VectorNd& ode_both(const Ravelin::VectorNd& x, double t, double dt, void* data, Ravelin::VectorNd& dx);
 }; // end class
 
 #include "ArticulatedBody.inl"

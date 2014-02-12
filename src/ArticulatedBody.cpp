@@ -33,6 +33,7 @@ ArticulatedBody::ArticulatedBody()
 }
 
 /// Integrates a dynamic body
+/*
 void ArticulatedBody::integrate(double t, double h, shared_ptr<Integrator> integrator)
 {
   FILE_LOG(LOG_DYNAMICS) << "ArticulatedBody::integrate() - integrating from " << t << " by " << h << std::endl;
@@ -62,56 +63,70 @@ void ArticulatedBody::integrate(double t, double h, shared_ptr<Integrator> integ
   set_generalized_coordinates(eEuler, gc);
   set_generalized_velocity(eSpatial, gv);
 }
+*/
+
+void ArticulatedBody::reset_limit_estimates()
+{
+  // reset the acceleration events exceeded
+  _acc_limits_exceeded = false;
+
+  // clear the acceleration limits
+  const unsigned N = num_joint_dof();
+  _acc_limits_lo.resize(N);
+  _acc_limits_hi.resize(N);
+/*
+  std::fill(_acc_limits_lo.begin(), _acc_limits_lo.end(), 0.0);
+  std::fill(_acc_limits_hi.begin(), _acc_limits_hi.end(), 0.0);
+*/
+}
 
 /// Returns the ODE's for position and velocity (concatenated into x)
-VectorNd& ArticulatedBody::ode_both(const VectorNd& x, double t, double dt, void* data, VectorNd& dx)
+void ArticulatedBody::ode(SharedConstVectorNd& x, double t, double dt, void* data, SharedVectorNd& dx)
 {
-  // get the articulated body
-  shared_ptr<ArticulatedBody>& ab = *((shared_ptr<ArticulatedBody>*) data);
-  const unsigned NGC_EUL = ab->num_generalized_coordinates(eEuler);
+  // get the shared pointer to this
+  ArticulatedBodyPtr shared_this = dynamic_pointer_cast<ArticulatedBody>(shared_from_this());
 
-  // get the necessary vectors
-  VectorNd& xp = ab->xp;
-  VectorNd& xv = ab->xv;
-  VectorNd& xa = ab->xa;
+  // get the articulated body
+  const unsigned NGC_EUL = num_generalized_coordinates(eEuler);
+
+  // get the coordinates and velocity from x
+  SharedConstVectorNd gc = x.segment(0, NGC_EUL);
+  SharedConstVectorNd gv = x.segment(NGC_EUL, x.size());
 
   // set the state
-  x.get_sub_vec(0, NGC_EUL, xp);
-  ab->set_generalized_coordinates(DynamicBody::eEuler, xp);
-  if (ab->is_joint_constraint_violated())
+  set_generalized_coordinates(DynamicBody::eEuler, gc);
+  if (is_joint_constraint_violated())
     throw InvalidStateException();
 
-  // return the derivatives at state x
-  xv.resize(NGC_EUL);
-  x.get_sub_vec(NGC_EUL, x.size(), xv);
-  ab->set_generalized_velocity(DynamicBody::eSpatial, xv);
+  // set the velocity 
+  set_generalized_velocity(DynamicBody::eSpatial, gv);
+
+  // get the derivatives of coordinates and velocity from dx
+  SharedVectorNd dgc = dx.segment(0, NGC_EUL);
+  SharedVectorNd dgv = dx.segment(NGC_EUL, x.size());
 
   // we need the generalized velocity as Rodrigues coordinates
-  ab->get_generalized_velocity(DynamicBody::eEuler, xv);
+  get_generalized_velocity(DynamicBody::eEuler, dgc);
 
   // clear the force accumulators on the body
-  ab->reset_accumulators();
+  reset_accumulators();
 
   // add all recurrent forces on the body
-  const list<RecurrentForcePtr>& rfs = ab->get_recurrent_forces();
+  const list<RecurrentForcePtr>& rfs = get_recurrent_forces();
   BOOST_FOREACH(RecurrentForcePtr rf, rfs)
-    rf->add_force(ab);
+    rf->add_force(shared_this);
 
   // call the body's controller
-  if (ab->controller)
-    (*ab->controller)(ab, t, ab->controller_arg);
+  if (controller)
+    (*controller)(shared_this, t, controller_arg);
 
   // calculate forward dynamics at state x
-  ab->calc_fwd_dyn();
-  ab->get_generalized_acceleration(xa);
+  calc_fwd_dyn();
+  get_generalized_acceleration(dgv);
 
-  // update joint constraint violations
-  ab->check_joint_accel_limit_exceeded();
-
-  dx.resize(x.size());
-  dx.set_sub_vec(0, xv);
-  dx.set_sub_vec(xv.size(), xa);
-  return dx;
+  // check whether joint accelerations have been violated 
+  if (!_acc_limits_exceeded)
+    check_joint_accel_limit_exceeded();
 }
 
 /// Updates joint constraint violation (after integration)

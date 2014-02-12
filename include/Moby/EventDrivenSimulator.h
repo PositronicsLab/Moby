@@ -184,6 +184,9 @@ class EventDrivenSimulator : public Simulator
     /// Object for handling impact events
     ImpactEventHandler _impact_event_handler;
 
+    /// The step size below which to take semi-implicit steps
+    double min_special_step;
+
     /// The maximum Euler step size
     double max_Euler_step;
 }; // end class

@@ -89,6 +89,9 @@ class Simulator : public virtual Base
 
     /// Integrates all dynamic bodies
     double integrate(double step_size) { return integrate(step_size, _bodies.begin(), _bodies.end()); }
+
+  private:
+    static Ravelin::VectorNd& ode(const Ravelin::VectorNd& x, double t, double dt, void* data, Ravelin::VectorNd& dx);
 }; // end class
 
 // include inline functions
