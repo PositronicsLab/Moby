@@ -36,7 +36,6 @@ class DynamicBody : public Visualizable
     virtual ~DynamicBody() {}
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
-    virtual void integrate(double t, double h, boost::shared_ptr<Integrator> integrator);
 
     /// The Jacobian transforms from the generalized coordinate from to the given frame
     virtual Ravelin::MatrixNd& calc_jacobian(boost::shared_ptr<const Ravelin::Pose3d> frame, DynamicBodyPtr body, Ravelin::MatrixNd& J) = 0;
@@ -87,14 +86,26 @@ class DynamicBody : public Visualizable
     /// Gets the generalized coordinates of this body
     virtual Ravelin::VectorNd& get_generalized_coordinates(GeneralizedCoordinateType gctype, Ravelin::VectorNd& gc) = 0;
 
+    /// Gets the generalized coordinates of this body
+    virtual void get_generalized_coordinates(GeneralizedCoordinateType gctype, Ravelin::SharedVectorNd& gc) = 0;
+
     /// Gets the generalized velocity of this body
     virtual Ravelin::VectorNd& get_generalized_velocity(GeneralizedCoordinateType gctype, Ravelin::VectorNd& gv) = 0;
+
+    /// Gets the generalized velocity of this body
+    virtual void get_generalized_velocity(GeneralizedCoordinateType gctype, Ravelin::SharedVectorNd& gc) = 0;
 
     /// Gets the generalized acceleration of this body
     virtual Ravelin::VectorNd& get_generalized_acceleration(Ravelin::VectorNd& ga) = 0;
 
+    /// Gets the generalized velocity of this body
+    virtual void get_generalized_acceleration(Ravelin::SharedVectorNd& gc) = 0;
+
     /// Sets the generalized coordinates of this body
     virtual void set_generalized_coordinates(GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gc) = 0;
+
+    /// Sets the generalized coordinates of this body
+    virtual void set_generalized_coordinates(GeneralizedCoordinateType gctype, Ravelin::SharedConstVectorNd& gc) = 0;
 
     /// Sets the generalized velocity of this body
     /**
@@ -102,6 +113,9 @@ class DynamicBody : public Visualizable
       * \note uses the current generalized coordinates
       */
     virtual void set_generalized_velocity(GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gv) = 0;
+
+    /// Sets the generalized velocity of this body
+    virtual void set_generalized_velocity(GeneralizedCoordinateType gctype, Ravelin::SharedConstVectorNd& gv) = 0;
 
     /// Gets the generalized inertia of this body
     virtual Ravelin::MatrixNd& get_generalized_inertia(Ravelin::MatrixNd& M) = 0;
@@ -179,6 +193,12 @@ class DynamicBody : public Visualizable
     /// Sets whether this body is kinematically updated (rather than having its dynamics integrated); default is false
     virtual void set_kinematic(bool flag) { _kinematic_update = flag; }
 
+    /// Computes the derivative of the body
+    virtual void ode(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data, Ravelin::SharedVectorNd& dx) = 0;
+
+    /// Resets limit estimates for continuous constraint detection
+    virtual void reset_limit_estimates() = 0;
+
   protected:
 
     /// The computation frame type
@@ -194,8 +214,6 @@ class DynamicBody : public Visualizable
 
     /// Set of recurrent forces applied to this body
     std::list<RecurrentForcePtr> _rfs;
-
-    static Ravelin::VectorNd& ode_both(const Ravelin::VectorNd& x, double t, double dt, void* data, Ravelin::VectorNd& dx);
 }; // end class
 
 } // end namespace

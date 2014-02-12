@@ -51,8 +51,9 @@ EventDrivenSimulator::EventDrivenSimulator()
   // setup the maximum event processing time
   max_event_time = std::numeric_limits<double>::max();
 
-  // setup the maximum Euler step
+  // setup the maximum Euler step and minimum special integration step
   max_Euler_step = 1e-3;
+  min_special_step = 1e-4;
 
   // setup absolute and relative error tolerances
   rel_err_tol = NEAR_ZERO;
@@ -481,7 +482,12 @@ void EventDrivenSimulator::integrate_si_Euler(double step_size)
     x.resize(q.size()+qd.size());
     x.set_sub_vec(0, q);
     x.set_sub_vec(q.size(), qd);
-    _bodies[i]->ode_both(x, current_time, step_size, &_bodies[i], dx);
+    dx.resize(x.size());
+
+    // compute the ODE
+    SharedConstVectorNd shared_x = x.segment(0, x.size());
+    SharedVectorNd shared_dx = dx.segment(0, dx.size());
+    _bodies[i]->ode(shared_x, current_time, step_size, &_bodies[i], shared_dx);
 
     // update the velocity and position
     dx.segment(q.size(), dx.size()) *= step_size;
@@ -543,7 +549,7 @@ double EventDrivenSimulator::step(double step_size)
 
     // if safe_dt is effectively zero, use a semi-implicit Euler step to
     // solve events, etc.
-    if (safe_dt < NEAR_ZERO)
+    if (safe_dt < min_special_step)
     {
       double dt = std::min(step_size-h, max_Euler_step);
       step_si_Euler(dt);
@@ -1330,6 +1336,11 @@ void EventDrivenSimulator::load_from_xml(shared_ptr<const XMLTree> node, map<std
   if (max_event_time_attrib)
     max_event_time = max_event_time_attrib->get_real_value(); 
 
+  // read the minimum special integration step size
+  XMLAttrib* min_special_step_attrib = node->get_attrib("min-special-int-step");
+  if (min_special_step_attrib)
+    min_special_step = min_special_step_attrib->get_real_value();
+
   // read the maximum Euler step
   XMLAttrib* max_Euler_step_attrib = node->get_attrib("max-Euler-step");
   if (max_Euler_step_attrib)
@@ -1427,6 +1438,9 @@ void EventDrivenSimulator::save_to_xml(XMLTreePtr node, list<shared_ptr<const Ba
 
   // save the maximum Euler step
   node->attribs.insert(XMLAttrib("max-Euler-step", max_Euler_step));
+
+  // save the minimum special integration step
+  node->attribs.insert(XMLAttrib("min-special-int-step", min_special_step));
 
   // save the error tolerances
   node->attribs.insert(XMLAttrib("rel-err-tol", rel_err_tol));
