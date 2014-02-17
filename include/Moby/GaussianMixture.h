@@ -24,12 +24,14 @@ class GaussianMixture : public Primitive
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual void set_pose(const Ravelin::Pose3d& T);
     virtual BVPtr get_BVH_root(CollisionGeometryPtr geom);
-    virtual void get_vertices(BVPtr bv, std::vector<const Point3d*>& vertices);
     virtual bool point_inside(BVPtr bv, const Point3d& p, Ravelin::Vector3d& normal) const;
+    virtual void get_vertices(std::vector<Point3d>& vertices);
     virtual bool intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Ravelin::Vector3d& normal) const;
     virtual boost::shared_ptr<const IndexedTriArray> get_mesh() { return _mesh; }
     virtual const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >& get_sub_mesh(BVPtr bv);
     virtual osg::Node* create_visualization();
+    virtual double calc_signed_dist(boost::shared_ptr<const Primitive> b, const Ravelin::Transform3d& bTthis, Point3d& pthis, Point3d& pb) const;
+    virtual double calc_dist_and_normal(const Point3d& p, Ravelin::Vector3d& normal) const;
 
     private:
       static Ravelin::Vector3d grad(const Gauss& g, double x, double y);

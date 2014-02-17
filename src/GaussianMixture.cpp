@@ -86,6 +86,21 @@ osg::Node* GaussianMixture::create_visualization()
   #endif 
 }
 
+/// Computes the distance and normal from a point on the CSG
+double GaussianMixture::calc_dist_and_normal(const Point3d& p, Vector3d& normal) const
+{
+  // TODO: implement this
+  assert(false);
+  return 0.0;
+}
+
+/// Finds the signed distance between the sphere and another primitive
+double GaussianMixture::calc_signed_dist(shared_ptr<const Primitive> primitive, const Transform3d& primTthis, Point3d& pthis, Point3d& pprimitive) const
+{
+  assert(false);
+  return 0.0; 
+}
+
 /// Reads the Gaussian parameters
 GaussianMixture::Gauss GaussianMixture::read_gauss_node(shared_ptr<const XMLTree> node)
 {
@@ -314,6 +329,60 @@ Vector3d GaussianMixture::grad(const Gauss& g, double x, double y)
     return v/nrm;
 }
 
+void GaussianMixture::get_vertices(vector<Point3d>& vertices)
+{
+  unsigned j, k;
+  double x, y;
+
+  // setup vertex mapping
+  vertices.clear();
+
+  // number of samples per Gaussian dimension
+  const unsigned NSAMPLES = 100;
+
+  for (unsigned i=0; i< _gauss.size(); i++)
+  {
+    // get x start and y start
+    const double X_START = _gauss[i].x0 - _gauss[i].sigma_x*3.0;
+    const double X_INC = _gauss[i].sigma_x*6.0/(NSAMPLES-1);
+    const double Y_START = _gauss[i].y0 - _gauss[i].sigma_y*3.0;
+    const double Y_INC = _gauss[i].sigma_y*6.0/(NSAMPLES-1);
+
+    // iterate
+    for (x = X_START, j = 0; j< NSAMPLES; j++, x += X_INC)
+      for (y = Y_START, k = 0; k< NSAMPLES; k++, y += Y_INC)
+      {
+        // get the height for this Gaussian
+        double hi = gauss(_gauss[i], x, y);
+
+        // if the height is zero, we can use it directly
+        if (hi > NEAR_ZERO)
+        {
+          // otherwise, verify that point is not inside any (other) Gaussians
+          double maxh = (double) 0.0;
+          for (unsigned r=0; r< _gauss.size() && maxh < NEAR_ZERO; r++)
+          {
+            if (r == i)
+              continue;
+
+            // get the height
+            double h = gauss(_gauss[r], x, y);
+            if (h > maxh)
+              maxh = h;
+           }
+
+           // see whether maxh is sufficiently large
+           if (maxh > hi)
+             continue;
+         }
+
+        // add the point
+        vertices.push_back(Point3d(x, y, hi, get_pose()));
+      }
+  }
+}
+
+/*
 void GaussianMixture::get_vertices(BVPtr bv, vector<const Point3d*>& vertices)
 {
   typedef map<OBBPtr, unsigned>::const_iterator OBBMapIter;
@@ -343,6 +412,7 @@ void GaussianMixture::get_vertices(BVPtr bv, vector<const Point3d*>& vertices)
   for (unsigned i=0; i< verts.size(); i++)
     vertices[i] = &verts[i];
 }
+*/
 
 /// Rebuilds everything from scratch
 void GaussianMixture::rebuild(const vector<Gauss>& gauss)

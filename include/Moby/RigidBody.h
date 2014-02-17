@@ -42,6 +42,7 @@ class CollisionGeometry;
  */
 class RigidBody : public SingleBody
 {
+  friend class ArticulatedBody;
   friend class RCArticulatedBody;
   friend class MCArticulatedBody;
   friend class Joint;
@@ -110,9 +111,12 @@ class RigidBody : public SingleBody
     const Ravelin::SForced& sum_forces();
     void reset_accumulators();
     Ravelin::SForced calc_pseudo_forces();
-    bool force_limit_exceeded() const { return _force_limit_exceeded; }
+    virtual void ode_noexcept(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data, Ravelin::SharedVectorNd& dx) { ode(x, t, dt, data, dx); }
     virtual void ode(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data, Ravelin::SharedVectorNd& dx);
     virtual void reset_limit_estimates();
+    virtual bool limit_estimates_exceeded() const { return _accel_limit_exceeded; }
+    const Ravelin::SAcceld& get_accel_upper_bounds() const { return _accel_limit_lo; }
+    const Ravelin::SAcceld& get_accel_lower_bounds() const { return _accel_limit_hi; }
 
     template <class OutputIterator>
     OutputIterator get_parent_links(OutputIterator begin) const;
@@ -330,14 +334,17 @@ class RigidBody : public SingleBody
     /// Outer joints and associated data 
     std::set<JointPtr> _outer_joints; 
 
-    /// Force limit for this body (link frame)
-    double _force_limit;
+    /// Lower acceleration limits on the body 
+    Ravelin::SAcceld _accel_limit_lo;
 
-    /// Indicates whether the force limit has been exceeded
-    bool _force_limit_exceeded;
+    /// Upper acceleration limits on the body
+    Ravelin::SAcceld _accel_limit_hi;
+
+    /// Indicates whether the acceleration limit has been exceeded
+    bool _accel_limit_exceeded;
 
   private:
-    void check_force_limit_exceeded();
+    void check_accel_limit_exceeded();
 }; // end class
 
 std::ostream& operator<<(std::ostream&, RigidBody&);

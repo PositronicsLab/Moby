@@ -36,7 +36,6 @@ OutputIterator ArticulatedBody::find_limit_events(const Ravelin::VectorNd& q0, c
       if (q >= _joints[i]->hilimit[j])
       {
         // add event for upper limit
-        e.t = (double) 0.0;
         e.limit_upper = true;
         *output_begin++ = e;
 
@@ -46,7 +45,6 @@ OutputIterator ArticulatedBody::find_limit_events(const Ravelin::VectorNd& q0, c
           double toc = (_joints[i]->lolimit[j] - q)/qd;
           if (toc < (double) 1.0)
           {
-            e.t = toc;
             e.limit_upper = false;
             *output_begin++ = e; 
           }
@@ -54,7 +52,6 @@ OutputIterator ArticulatedBody::find_limit_events(const Ravelin::VectorNd& q0, c
       }
       else if (q <= _joints[i]->lolimit[j])
       {
-        e.t = (double) 0.0;
         e.limit_upper = false;
         *output_begin++ = e;
 
@@ -64,7 +61,6 @@ OutputIterator ArticulatedBody::find_limit_events(const Ravelin::VectorNd& q0, c
           double toc = (_joints[i]->hilimit[j] - q)/qd;
           if (toc < (double) 1.0)
           {
-            e.t = toc;
             e.limit_upper = true;
             *output_begin++ = e; 
           }
@@ -78,7 +74,6 @@ OutputIterator ArticulatedBody::find_limit_events(const Ravelin::VectorNd& q0, c
           double toc = (_joints[i]->hilimit[j] - q)/qd;
           if (toc < (double) 1.0)
           {
-            e.t = std::max((double) 0.0, toc);
             e.limit_upper = true;
             *output_begin++ = e;
           }
@@ -88,7 +83,6 @@ OutputIterator ArticulatedBody::find_limit_events(const Ravelin::VectorNd& q0, c
           double toc = (_joints[i]->lolimit[j] - q)/qd;
           if (toc < (double) 1.0)
           {
-            e.t = std::max((double) 0.0, toc);
             e.limit_upper = false;
             *output_begin++ = e;
           }

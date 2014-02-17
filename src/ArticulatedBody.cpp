@@ -70,6 +70,10 @@ void ArticulatedBody::reset_limit_estimates()
   // reset the acceleration events exceeded
   _acc_limits_exceeded = false;
 
+  // clear the force limits on the individual rigid bodies
+  BOOST_FOREACH(RigidBodyPtr link, _links)
+    link->reset_limit_estimates();
+
   // clear the acceleration limits
   const unsigned N = num_joint_dof();
   _acc_limits_lo.resize(N);
@@ -78,6 +82,59 @@ void ArticulatedBody::reset_limit_estimates()
   std::fill(_acc_limits_lo.begin(), _acc_limits_lo.end(), 0.0);
   std::fill(_acc_limits_hi.begin(), _acc_limits_hi.end(), 0.0);
 */
+}
+
+/// Returns the ODE's for position and velocity (concatenated into x) without throwing an exception
+void ArticulatedBody::ode_noexcept(SharedConstVectorNd& x, double t, double dt, void* data, SharedVectorNd& dx)
+{
+  // get the shared pointer to this
+  ArticulatedBodyPtr shared_this = dynamic_pointer_cast<ArticulatedBody>(shared_from_this());
+
+  // get the articulated body
+  const unsigned NGC_EUL = num_generalized_coordinates(eEuler);
+
+  // get the coordinates and velocity from x
+  SharedConstVectorNd gc = x.segment(0, NGC_EUL);
+  SharedConstVectorNd gv = x.segment(NGC_EUL, x.size());
+
+  // set the state
+  set_generalized_coordinates(DynamicBody::eEuler, gc);
+
+  // set the velocity 
+  set_generalized_velocity(DynamicBody::eSpatial, gv);
+
+  // get the derivatives of coordinates and velocity from dx
+  SharedVectorNd dgc = dx.segment(0, NGC_EUL);
+  SharedVectorNd dgv = dx.segment(NGC_EUL, x.size());
+
+  // we need the generalized velocity as Rodrigues coordinates
+  get_generalized_velocity(DynamicBody::eEuler, dgc);
+
+  // clear the force accumulators on the body
+  reset_accumulators();
+
+  // add all recurrent forces on the body
+  const list<RecurrentForcePtr>& rfs = get_recurrent_forces();
+  BOOST_FOREACH(RecurrentForcePtr rf, rfs)
+    rf->add_force(shared_this);
+
+  // call the body's controller
+  if (controller)
+    (*controller)(shared_this, t, controller_arg);
+
+  // calculate forward dynamics at state x
+  calc_fwd_dyn();
+  get_generalized_acceleration(dgv);
+
+  // check whether acceleration limits on the individual rigid bodies have been
+  // violated
+  BOOST_FOREACH(RigidBodyPtr rb, _links)
+    if (!rb->_accel_limit_exceeded)
+      rb->check_accel_limit_exceeded();
+
+  // check whether joint accelerations have been violated 
+  if (!_acc_limits_exceeded)
+    check_joint_accel_limit_exceeded();
 }
 
 /// Returns the ODE's for position and velocity (concatenated into x)
@@ -123,6 +180,12 @@ void ArticulatedBody::ode(SharedConstVectorNd& x, double t, double dt, void* dat
   // calculate forward dynamics at state x
   calc_fwd_dyn();
   get_generalized_acceleration(dgv);
+
+  // check whether acceleration limits on the individual rigid bodies have been
+  // violated
+  BOOST_FOREACH(RigidBodyPtr rb, _links)
+    if (!rb->_accel_limit_exceeded)
+      rb->check_accel_limit_exceeded();
 
   // check whether joint accelerations have been violated 
   if (!_acc_limits_exceeded)
@@ -253,6 +316,21 @@ double ArticulatedBody::calc_CA_time_for_joints() const
   }
 
   return dt;
+}
+
+/// Determines whether the joint acceleration or link force estimates have been exceeded
+bool ArticulatedBody::limit_estimates_exceeded() const
+{
+  // first look for the joint acceleration being exceeded
+  if (_acc_limits_exceeded)
+    return true;
+
+  // now look for the link force estimates being exceeded
+  BOOST_FOREACH(RigidBodyPtr rb, _links)
+    if (rb->limit_estimates_exceeded())
+      return true;
+
+  return false;
 }
 
 /// Checks whether a joint acceleration exceeded the given limits, and updates the limits if necessary

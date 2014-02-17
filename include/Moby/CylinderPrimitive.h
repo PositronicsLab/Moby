@@ -30,12 +30,11 @@ class CylinderPrimitive : public Primitive
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual BVPtr get_BVH_root(CollisionGeometryPtr geom);
-    virtual void get_vertices(BVPtr bv, std::vector<const Point3d*>& vertices); 
-    virtual bool point_inside(BVPtr bv, const Point3d& p, Ravelin::Vector3d& normal) const;
-    virtual bool intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Ravelin::Vector3d& normal) const;
+    virtual void get_vertices(std::vector<Point3d>& vertices);
+    virtual double calc_dist_and_normal(const Point3d& p, Ravelin::Vector3d& normal) const;
     virtual const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >& get_sub_mesh(BVPtr bv); 
+    virtual double calc_signed_dist(boost::shared_ptr<const Primitive> p, const Ravelin::Transform3d& thisTb, Point3d& pthis, Point3d& pp) const;
     virtual boost::shared_ptr<const IndexedTriArray> get_mesh();
-    virtual void set_intersection_tolerance(double tol);
     virtual osg::Node* create_visualization();
     double calc_dist(const SpherePrimitive* s, Point3d& pcyl, Point3d& psph) const;
 

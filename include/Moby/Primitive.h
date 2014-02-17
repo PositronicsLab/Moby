@@ -49,12 +49,15 @@ class Primitive : public virtual Base
     void set_mass(double mass);
     void set_density(double density);
     virtual void set_pose(const Ravelin::Pose3d& T);
-    virtual void set_intersection_tolerance(double tol);
+    static double calc_signed_dist(PrimitivePtr a, PrimitivePtr b, Ravelin::Transform3d& bTa, Point3d& pa, Point3d& pb) { return a->calc_signed_dist(boost::const_pointer_cast<const Primitive>(b), bTa, pa, pb); }
 
-    /// Gets the current intersection tolerance for this primitive
-    double get_intersection_tolerance() const { return _intersection_tolerance; }
+    /// Computes the distance between a point and this primitive
+    virtual double calc_dist_and_normal(const Point3d& p, Ravelin::Vector3d& normal) const = 0;
 
-    /// Gets the visualization for this primitive
+    /// Computes the signed distance between this and another primitive
+    virtual double calc_signed_dist(boost::shared_ptr<const Primitive> b, const Ravelin::Transform3d& bTthis, Point3d& pthis, Point3d& pb) const = 0;
+
+     /// Gets the visualization for this primitive
     virtual osg::Node* get_visualization();
     virtual osg::Node* create_visualization() = 0;
 
@@ -67,19 +70,11 @@ class Primitive : public virtual Base
     /// Returns whether this primitive is deformable
     bool is_deformable() const { return _deformable; }
 
-    /// Gets vertices corresponding to the bounding volume
-    virtual void get_vertices(BVPtr bv, std::vector<const Point3d*>& vertices) = 0; 
+    /// Get vertices corresponding to this primitive
+    virtual void get_vertices(std::vector<Point3d>& vertices) = 0;
 
-    /// Determines whether a point is inside/on the geometry
-    /**
-     * \param gs_BV the bounding volume in which the point resides
-     * \param p the query point
-     * \param normal the normal to the query point, if the point is inside/on
-     *        the geometry
-     * \return <b>true</b> if the point is inside or on the geometry, 
-     *         <b>false</b> otherwise
-     */
-    virtual bool point_inside(BVPtr bv, const Point3d& p, Ravelin::Vector3d& normal) const = 0;
+    /// Gets vertices corresponding to the bounding volume
+//    virtual void get_vertices(BVPtr bv, std::vector<const Point3d*>& vertices) = 0; 
 
     /// Determines whether a line segment and the shape intersect
     /**
@@ -92,7 +87,7 @@ class Primitive : public virtual Base
      *          on return (if any)
      * \return <b>true</b> if intersection, <b>false</b> otherwise 
      */
-    virtual bool intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Ravelin::Vector3d& normal) const = 0;
+//    virtual bool intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Ravelin::Vector3d& normal) const = 0;
 
     /// Gets mesh data for the geometry with the specified bounding volume
     /**
@@ -117,9 +112,6 @@ class Primitive : public virtual Base
 
   protected:
     virtual void calc_mass_properties() = 0;
-
-    /// The intersection tolerance for this shape (default 1e-5)
-    double _intersection_tolerance;
 
     /// The pose of this primitive
     boost::shared_ptr<Ravelin::Pose3d> _F;

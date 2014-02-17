@@ -153,7 +153,7 @@ void SpherePrimitive::set_radius(double radius)
 
   // set radius on each bounding sphere
   for (map<CollisionGeometryPtr, shared_ptr<BoundingSphere> >::iterator i = _bsphs.begin(); i != _bsphs.end(); i++)
-    i->second->radius = _radius + _intersection_tolerance;
+    i->second->radius = _radius;
 }
 
 /// Sets the number of points used in this sphere 
@@ -170,20 +170,6 @@ void SpherePrimitive::set_num_points(unsigned n)
   // vertices are no longer valid
   _vertices.clear();
   _invalidated = true;
-}
-
-/// Sets the intersection tolerance
-void SpherePrimitive::set_intersection_tolerance(double tol)
-{
-  Primitive::set_intersection_tolerance(tol);
-
-  // vertices are no longer valid
-  _vertices.clear();
-  _invalidated = true;
-
-  // set radius on each bounding sphere
-  for (map<CollisionGeometryPtr, shared_ptr<BoundingSphere> >::iterator i = _bsphs.begin(); i != _bsphs.end(); i++)
-    i->second->radius = _radius + _intersection_tolerance;
 }
 
 /// Transforms the primitive
@@ -284,10 +270,54 @@ const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >&
 }
 
 /// Gets vertices for the primitive
-void SpherePrimitive::get_vertices(BVPtr bv, std::vector<const Point3d*>& vertices)
+void SpherePrimitive::get_vertices(std::vector<Point3d>& vertices)
+{
+  // clear the vertices at first 
+  vertices.clear(); 
+
+  // look for no vertices 
+  if (_radius == 0.0 || _npoints < 6)
+    return;
+
+  // resize number of points
+  vertices.resize(_npoints);
+
+  // determine the vertices in the mesh
+  // NOTE: they will all be defined in the global frame
+  const double INC = (double) M_PI * ((double) 3.0 - std::sqrt((double) 5.0));
+  const double OFF = (double) 2.0 / _npoints;
+  for (unsigned k=0; k< _npoints; k++)
+  {
+    const double Y = k * OFF - (double) 1.0 + (OFF * (double) 0.5);
+    const double R = std::sqrt((double) 1.0 - Y*Y);
+    const double PHI = k * INC;
+    vertices[k] = Vector3d(std::cos(PHI)*R, Y, std::sin(PHI)*R, get_pose())*_radius;
+  }
+}
+
+/// Finds the signed distance between the sphere and another primitive
+double SpherePrimitive::calc_signed_dist(shared_ptr<const Primitive> primitive, const Transform3d& primTthis, Point3d& pthis, Point3d& pprimitive) const
+{
+  
+}
+
+/// Finds the signed distance betwen the sphere and a point
+double SpherePrimitive::calc_dist_and_normal(const Point3d& p, Vector3d& normal) const
+{
+  // setup the normal
+  normal = p;
+  double pnorm = p.norm();
+  normal /= pnorm;
+
+  // compute the distance
+  return pnorm - _radius;
+}
+
+/*
+void SpherePrimitive::get_vertices(CollisionGeometryPtr geom, std::vector<const Point3d*>& vertices)
 {
   // get the vertices for the geometry
-  vector<Point3d>& verts = _vertices[bv->geom];
+  vector<Point3d>& verts = _vertices[geom];
 
   // create the vector of vertices if necessary
   if (verts.empty())
@@ -299,7 +329,7 @@ void SpherePrimitive::get_vertices(BVPtr bv, std::vector<const Point3d*>& vertic
     }
 
     // get the pose for the geometry
-    shared_ptr<const Pose3d> gpose = bv->geom->get_pose();
+    shared_ptr<const Pose3d> gpose = geom->get_pose();
 
     // verify that this pose is defined w.r.t. the global frame
     shared_ptr<const Pose3d> P = get_pose();
@@ -334,6 +364,7 @@ void SpherePrimitive::get_vertices(BVPtr bv, std::vector<const Point3d*>& vertic
   for (unsigned i=0; i< verts.size(); i++)
     vertices[i] = &verts[i];
 }
+*/
 
 /// Creates the visualization for this primitive
 osg::Node* SpherePrimitive::create_visualization()
@@ -415,19 +446,18 @@ BVPtr SpherePrimitive::get_BVH_root(CollisionGeometryPtr geom)
     // setup the bounding sphere center; we're assuming that the primitive
     // pose is defined relative to the geometry frame
     bsph->center = Point3d(P->x, gpose);
-    bsph->radius = _radius + _intersection_tolerance;
+    bsph->radius = _radius;
   }
 
   return bsph;
 }
 
-/// Determines whether there is an intersection between the primitive and a line segment
 /**
+/// Determines whether there is an intersection between the primitive and a line segment
  * Determines the normal to the primitive if there is an intersection.
  * \note for line segments that are partially or fully inside the sphere, the
  *       method only returns intersection if the second endpoint of the segment
  *       is farther inside than the first
- */
 bool SpherePrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Vector3d& normal) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
@@ -523,14 +553,16 @@ bool SpherePrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Po
   t = t1;
   return true;
 }
+*/
 
 /// Determines whether a point is inside or on the sphere
-bool SpherePrimitive::point_inside(BVPtr bv, const Point3d& p, Vector3d& normal) const
+/*
+bool SpherePrimitive::point_inside(CollisionGeometryPtr geom, const Point3d& p, Vector3d& normal) const
 {
   static shared_ptr<Pose3d> P;
 
   // get the pose for the collision geometry
-  shared_ptr<const Pose3d> gpose = bv->geom->get_pose(); 
+  shared_ptr<const Pose3d> gpose = geom->get_pose(); 
 
   // get the pose for this geometry and BV
   shared_ptr<const Pose3d> bpose = get_pose(); 
@@ -558,4 +590,4 @@ bool SpherePrimitive::point_inside(BVPtr bv, const Point3d& p, Vector3d& normal)
 
   return true;
 }
-
+*/

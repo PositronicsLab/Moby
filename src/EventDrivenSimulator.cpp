@@ -487,7 +487,7 @@ void EventDrivenSimulator::integrate_si_Euler(double step_size)
     // compute the ODE
     SharedConstVectorNd shared_x = x.segment(0, x.size());
     SharedVectorNd shared_dx = dx.segment(0, dx.size());
-    _bodies[i]->ode(shared_x, current_time, step_size, &_bodies[i], shared_dx);
+    _bodies[i]->ode_noexcept(shared_x, current_time, step_size, &_bodies[i], shared_dx);
 
     // update the velocity and position
     dx.segment(q.size(), dx.size()) *= step_size;
@@ -512,6 +512,27 @@ void EventDrivenSimulator::integrate_si_Euler(double step_size)
   dynamics_time += (double) (stop-start)/CLOCKS_PER_SEC;
 }
 
+/// Sets up the list of collision geometries
+void EventDrivenSimulator::determine_geometries()
+{
+  // clear the list at first
+  _geometries.clear();
+
+  // determine all geometries
+  BOOST_FOREACH(DynamicBodyPtr db, _bodies)
+  {
+    RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(db);
+    if (rb)
+      _geometries.insert(_geometries.end(), rb->geometries.begin(), rb->geometries.end());
+    else
+    {
+      ArticulatedBodyPtr ab = dynamic_pointer_cast<ArticulatedBody>(db);
+      BOOST_FOREACH(RigidBodyPtr rb, ab->get_links())
+        _geometries.insert(_geometries.end(), rb->geometries.begin(), rb->geometries.end());
+    }
+  }
+}
+
 /// Steps the simulator forward by the given step size
 double EventDrivenSimulator::step(double step_size)
 {
@@ -521,6 +542,9 @@ double EventDrivenSimulator::step(double step_size)
   dynamics_time = (double) 0.0;
   event_time = (double) 0.0;
   coldet_time = (double) 0.0;
+
+  // determine the set of collision geometries
+  determine_geometries();
 
   // clear one-step visualization data
   #ifdef USE_OSG
@@ -586,36 +610,16 @@ double EventDrivenSimulator::step(double step_size)
     bool reintegrate = false;
     BOOST_FOREACH(DynamicBodyPtr db, _bodies)
     {
-      RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(db);
-      if (rb)
+      if (db->limit_estimates_exceeded())
       {
-        // check whether force limits were exceeded
-        if (rb->force_limit_exceeded())
-        {
-          FILE_LOG(LOG_SIMULATOR) << " ** rigid body force limits exceeded; retrying with new estimates" << std::endl;
+        FILE_LOG(LOG_SIMULATOR) << " ** limit estimates exceeded; retrying with new estimates" << std::endl;
 
-          // reset the state of all bodies 
-          restore_state();
+        // reset the state of all bodies 
+        restore_state();
 
-          // attempt to integrate again using new CA info
-          reintegrate = true;
-          break;
-        }
-      }
-      else
-      {
-        ArticulatedBodyPtr ab = dynamic_pointer_cast<ArticulatedBody>(db);
-        if (ab->joint_accel_limit_exceeded())
-        {
-          FILE_LOG(LOG_SIMULATOR) << " ** joint acceleration limits exceeded; retrying with new estimates" << std::endl;
-
-          // reset the state of all bodies
-          restore_state();
-
-          // attempt to integrate again using new CA info
-          reintegrate = true;
-          break;
-        }
+         // attempt to integrate again using new CA info
+        reintegrate = true;
+        break;
       }
     }
     if (reintegrate)
@@ -670,10 +674,46 @@ void EventDrivenSimulator::integrate_DAE(double dt)
   update_constraint_violations();
 }
 
+/// Checks whether bodies violate interpenetration constraints
+void EventDrivenSimulator::check_pairwise_constraint_violations()
+{
+  // update constraint violation due to increasing interpenetration
+  // loop over all pairs of geometries
+  BOOST_FOREACH(CollisionGeometryPtr cg1, _geometries)
+    BOOST_FOREACH(CollisionGeometryPtr cg2, _geometries)
+    {
+      // if cg1 == cg2 or bodies are disabled for checking, skip
+      if (cg1 == cg2 || unchecked_pairs.find(make_sorted_pair(cg1, cg2)) != unchecked_pairs.end())
+        continue;
+
+      // compute the distance between the two bodies
+      Point3d p1, p2;
+      double d = CollisionGeometry::calc_signed_dist(cg1, cg2, p1, p2);
+      if (d <= _ip_tolerances[make_sorted_pair(cg1, cg2)] - NEAR_ZERO)
+        throw InvalidStateException();
+    }
+}
+
 /// Updates constraint violation after integration
 void EventDrivenSimulator::update_constraint_violations()
 {
-  // TODO: update constraint violation due to increasing interpenetration
+  // update constraint violation due to increasing interpenetration
+  // loop over all pairs of geometries
+  BOOST_FOREACH(CollisionGeometryPtr cg1, _geometries)
+    BOOST_FOREACH(CollisionGeometryPtr cg2, _geometries)
+    {
+      // if cg1 == cg2 or bodies are disabled for checking, skip
+      if (cg1 == cg2 || unchecked_pairs.find(make_sorted_pair(cg1, cg2)) != unchecked_pairs.end())
+        continue;
+
+      // compute the distance between the two bodies
+      Point3d p1, p2;
+      double d = CollisionGeometry::calc_signed_dist(cg1, cg2, p1, p2);
+      if (d <= 0)
+        _ip_tolerances[make_sorted_pair(cg1, cg2)] = d;
+      else
+        _ip_tolerances[make_sorted_pair(cg1, cg2)] = 0.0;
+    }
 
   // update joint constraint interpenetration
   BOOST_FOREACH(DynamicBodyPtr db, _bodies)
@@ -701,7 +741,17 @@ double EventDrivenSimulator::calc_CA_step(double dt) const
       return dt;
   }
 
-  // TODO: do collision detection here
+  // do collision detection here
+  for (unsigned i=0; i< _bodies.size(); i++)
+  {
+    for (unsigned j=i+1; j< _bodies.size(); j++)
+    {
+      double step = _ccd.calc_CA_step(_bodies[i], _bodies[j]);
+      dt = std::min(dt, step);
+      if (dt <= 0.0)
+        return dt;
+    }
+  }
 
   return dt;
 }
@@ -838,12 +888,6 @@ double EventDrivenSimulator::find_events(double dt)
   vector<Event> cd_events, limit_events;
   typedef map<Event, double, EventCompare>::const_iterator EtolIter;
 
-  // only for debugging purposes: verify that bodies aren't already interpenetrating
-  #ifndef NDEBUG
-  if (!_simulation_violated)
-    check_violation();
-  #endif
-
   // clear events 
   _events.clear();
 
@@ -857,31 +901,16 @@ double EventDrivenSimulator::find_events(double dt)
   assert(dt >= (double) 0.0);
 
   // setup x0, x1
-  if (!collision_detectors.empty())
+  _x0.resize(_q0.size());
+  _x1.resize(_q0.size());
+  for (unsigned i=0; i< _bodies.size(); i++)
   {
-    _x0.resize(_q0.size());
-    _x1.resize(_q0.size());
-    for (unsigned i=0; i< _bodies.size(); i++)
-    {
-      _x0[i].first = _x1[i].first = _bodies[i];
-      _x0[i].second = _q0[i];
-      _x1[i].second = _qf[i];
-    }
+    _x0[i].first = _x1[i].first = _bodies[i];
+    _x0[i].second = _q0[i];
+    _x1[i].second = _qf[i];
   }
 
-  // call each collision detector
-  BOOST_FOREACH(shared_ptr<CollisionDetection> cd, collision_detectors)
-  {
-    // indicate this is event driven
-    cd->return_all_contacts = true;
-
-    // do the collision detection routine
-    cd_events.clear();
-    cd->is_contact(dt, _x0, _x1, cd_events);
-
-    // add to events
-    _events.insert(_events.end(), cd_events.begin(), cd_events.end());
-  }
+  // TODO: do collision detection / contact finding here
 
   // tabulate times for collision detection 
   tms cstop;  
@@ -893,18 +922,6 @@ double EventDrivenSimulator::find_events(double dt)
   find_limit_events(dt, limit_events);
   _events.insert(_events.end(), limit_events.begin(), limit_events.end());
 
-  // sort the set of events
-  std::sort(_events.begin(), _events.end()); 
-
-  // set the "real" time for the events
-  for (unsigned i=0; i< _events.size(); i++)
-  {
-    _events[i].t_true = current_time + _events[i].t * dt;
-    EtolIter j = _event_tolerances.find(_events[i]);
-    if (j != _event_tolerances.end())
-      _events[i].tol = j->second;
-  }
-
   // each group of events can be handled in x ways:
   // 1. one or more events is impacting; all events need to be handled with
   //    an impact method
@@ -913,61 +930,7 @@ double EventDrivenSimulator::find_events(double dt)
   // 3. all events are resting at the velocity level; these events need to
   //    be checked at the acceleration level
 
-  // step to first event time
-  if (!_events.empty())
-  {
-    while (true)
-    {
-      // set the coordinates and velocities
-      set_coords(_events.front().t);
-      set_velocities(_events.front().t);
-
-      // if all contacts at the current time are separating, remove those 
-      // contacts and step to the next set of contacts
-      bool all_separating = true;
-      for (unsigned i=0; i< _events.size(); i++)
-      {
-        // look to see whether we can stop examining events
-        if (std::fabs(_events[i].t - _events[0].t) > NEAR_ZERO)
-          break;
-        else if (!_events[i].is_separating())
-        {
-          all_separating = false;
-          break;
-        }
-      }
-
-      // if not all are separating, break out now
-      if (!all_separating)
-        break;
-
-      // otherwise remove contacts not occurring simultaneously with
-      // the first contacts
-      vector<Event>::iterator i = _events.begin();
-      while (++i != _events.end())
-        if (std::fabs(i->t - _events[0].t) > NEAR_ZERO)
-          break;
-      _events.erase(_events.begin(), i);
-
-      // if there are no events remaining, indicate no events
-      if (_events.empty())
-        return 1.0;
-    } 
-  }
-
-  // check whether any events are at current time
-  for (unsigned i=0; i< _events.size(); i++)
-  {
-    if (_events[i].t > NEAR_ZERO)
-      break;
-
-    // set event type as velocity initially
-    _events[i].deriv_type = Event::eVel;
-
-    // check whether we can encode the event as an acceleration event
-    if (_events[i].determine_event_class() == Event::eZero)
-      _events[i].deriv_type = Event::eAccel;
-  }
+  // TODO: fix this
 
   // output the events
   if (LOGGING(LOG_EVENT))
@@ -982,31 +945,7 @@ double EventDrivenSimulator::find_events(double dt)
     return 1.0;
 
   // find the first TOI 
-  return _events.front().t;
-}
-
-/// Removes events after time 0
-void EventDrivenSimulator::remove_next_events()
-{
-  for (unsigned i=0; i< _events.size(); i++)
-    if (_events[i].t > NEAR_ZERO)
-    {
-      _events.erase(_events.begin()+i, _events.end());
-      return;
-    }
-}
-
-/// Finds the next event time (after 0)
-double EventDrivenSimulator::find_next_event_time() const
-{
-  const double INF = std::numeric_limits<double>::max();
-
-  for (unsigned i=0; i< _events.size(); i++)
-    if (_events[i].t > NEAR_ZERO)
-      return _events[i].t;
-
-  // still here? no next event time
-  return INF;
+  return 0.0;
 }
 
 /// Finds and handles first impacting event(s) in [0,dt]; returns time t in [0,dt] of first impacting event(s) and advances bodies' dynamics to time t
@@ -1014,12 +953,6 @@ double EventDrivenSimulator::find_and_handle_si_events(double dt)
 {
   vector<Event> cd_events, limit_events;
   typedef map<Event, double, EventCompare>::const_iterator EtolIter;
-
-  // only for debugging purposes: verify that bodies aren't already interpenetrating
-  #ifndef NDEBUG
-  if (!_simulation_violated)
-    check_violation();
-  #endif
 
   // clear events 
   _events.clear();
@@ -1034,32 +967,15 @@ double EventDrivenSimulator::find_and_handle_si_events(double dt)
   assert(dt >= (double) 0.0);
 
   // setup x0, x1
-  if (!collision_detectors.empty())
+  _x0.clear();
+  _x1.clear();
+  for (unsigned i=0; i< _bodies.size(); i++)
   {
-    _x0.clear();
-    _x1.clear();
-    for (unsigned i=0; i< _bodies.size(); i++)
+    if (!_bodies[i]->get_kinematic())
     {
-      if (!_bodies[i]->get_kinematic())
-      {
-        _x0.push_back(std::make_pair(_bodies[i], _q0[i]));
-        _x1.push_back(std::make_pair(_bodies[i], _qf[i]));
-      }
+      _x0.push_back(std::make_pair(_bodies[i], _q0[i]));
+      _x1.push_back(std::make_pair(_bodies[i], _qf[i]));
     }
-  }
-
-  // call each collision detector
-  BOOST_FOREACH(shared_ptr<CollisionDetection> cd, collision_detectors)
-  {
-    // indicate this is event driven
-    cd->return_all_contacts = true;
-
-    // do the collision detection routine
-    cd_events.clear();
-    cd->is_contact(dt, _x0, _x1, cd_events);
-
-    // add to events
-    _events.insert(_events.end(), cd_events.begin(), cd_events.end());
   }
 
   // tabulate times for collision detection 
@@ -1067,13 +983,12 @@ double EventDrivenSimulator::find_and_handle_si_events(double dt)
   clock_t stop = times(&cstop);
   coldet_time += (double) (stop-start)/CLOCKS_PER_SEC;
 
+  // TODO: fix this
+
   // check each articulated body for a joint limit event
   limit_events.clear();
   find_limit_events(dt, limit_events);
   _events.insert(_events.end(), limit_events.begin(), limit_events.end());
-
-  // sort the set of events
-  std::sort(_events.begin(), _events.end()); 
 
   // output the events
   if (LOGGING(LOG_EVENT))
@@ -1081,15 +996,6 @@ double EventDrivenSimulator::find_and_handle_si_events(double dt)
     FILE_LOG(LOG_EVENT) << "Events to be processed:" << std::endl;
     for (unsigned i=0; i< _events.size(); i++)
       FILE_LOG(LOG_EVENT) << _events[i] << std::endl;
-  }
-
-  // set the "real" time for the events
-  for (unsigned i=0; i< _events.size(); i++)
-  {
-    _events[i].t_true = current_time + _events[i].t * dt;
-    EtolIter j = _event_tolerances.find(_events[i]);
-    if (j != _event_tolerances.end())
-      _events[i].tol = j->second;
   }
 
   // find and integrate body positions to the time-of-impact
@@ -1150,6 +1056,7 @@ double EventDrivenSimulator::integrate_to_TOI(double dt)
   // setup integration performed 
   double h = (double) 0.0;
 
+/*
   // loop while the iterator does not point to the end -- may need several
   // iterations b/c there may be no impacting events in a group 
   while (citer != _events.end())
@@ -1265,55 +1172,8 @@ double EventDrivenSimulator::integrate_to_TOI(double dt)
 
   // update current_time
   current_time += dt;
-
-  return INF;
-}
-
-/// Checks the simulator for a (contact/joint limit) violation
-void EventDrivenSimulator::check_violation()
-{
-  BOOST_FOREACH(shared_ptr<CollisionDetection> cd, collision_detectors)
-  {
-    // do the collision detection routine
-    if (cd->is_collision((double) 0.0))
-    {
-      if (!_simulation_violated)
-      {
-        std::cerr << "EventDrivenSimulator::is_contact() warning: detected interpenetrating geometries!" << endl;
-        std::cerr << "  -- current time: " << current_time << "  NOTE: fidelity of simulation is no longer assured." << endl;
-      }
-      _simulation_violated = true;
-
-/*
-      // detailed contact information
-      BOOST_FOREACH(const CollidingTriPair& ctp, cd->colliding_tris)
-      {
-        std::cerr << "    interpenetrating pair: " << endl;
-        std::cerr << "      -- " << ctp.geom1->id << " (from " << ctp.geom1->get_single_body()->id << ")" << endl;
-        std::cerr << "      -- " << ctp.geom2->id << " (from " << ctp.geom2->get_single_body()->id << ")" << endl;
-
-        // get the triangles
-        Triangle t1 = Triangle::transform(ctp.mesh1->get_triangle(ctp.tri1), ctp.geom1->get_transform());
-        Triangle t2 = Triangle::transform(ctp.mesh2->get_triangle(ctp.tri2), ctp.geom2->get_transform());
-        list<Vector3> isects;
-        CompGeom::intersect_tris(t1, t2, std::back_inserter(isects));
-        std::cerr << "      t1: " << t1 << std::endl;
-        std::cerr << "      t2: " << t2 << std::endl;
-        BOOST_FOREACH(const Vector3& point, isects)
-        {
-          std::cerr << "        isect: " << point << std::endl;
-        }
-      }
 */
-      // standard contact information
-      BOOST_FOREACH(sorted_pair<CollisionGeometryPtr> cg_pair, cd->colliding_pairs)
-      {
-        std::cerr << "    interpenetrating pair: " << endl;
-        std::cerr << "      -- " << cg_pair.first->id << " (from " << cg_pair.first->get_single_body()->id << ")" << endl;
-        std::cerr << "      -- " << cg_pair.second->id << " (from " << cg_pair.second->get_single_body()->id << ")" << endl;
-      }
-    }
-  }
+  return INF;
 }
 
 /// Implements Base::load_from_xml()
@@ -1327,9 +1187,6 @@ void EventDrivenSimulator::load_from_xml(shared_ptr<const XMLTree> node, map<std
 
   // first, load all data specified to the Simulator object
   Simulator::load_from_xml(node, id_map);
-
-  // clear list of collision detectors
-  collision_detectors.clear();
 
   // read the maximum time to process events, if any
   XMLAttrib* max_event_time_attrib = node->get_attrib("max-event-time");
@@ -1353,64 +1210,6 @@ void EventDrivenSimulator::load_from_xml(shared_ptr<const XMLTree> node, map<std
     rel_err_tol = rel_tol_attrib->get_real_value();
   if (abs_tol_attrib)
     abs_err_tol = abs_tol_attrib->get_real_value();
-
-  // get the collision detector, if specified
-  XMLAttrib* coldet_attrib = node->get_attrib("collision-detector-id");
-  if (coldet_attrib)
-  {
-    // get the ID of the collision detector
-    const std::string& id = coldet_attrib->get_string_value(); 
-
-    // find a collision detector
-    if ((id_iter = id_map.find(id)) == id_map.end())
-    {
-      std::cerr << "EventDrivenSimulator::load_from_xml() - could not find";
-      std::cerr << std::endl << "  collision detector w/ID: " << id;
-      std::cerr << " from offending node: " << std::endl << *node;
-    }
-    else
-    {
-      // make sure that it is castable to a collision detector before we
-      // save the pointer
-      shared_ptr<CollisionDetection> coldet = dynamic_pointer_cast<CollisionDetection>(id_iter->second);
-      if (coldet)
-      {
-        collision_detectors.push_back(coldet);
-        coldet->simulator = get_this();
-      }
-    }
-  }
-
-  // read in any CollisionDetection nodes
-  child_nodes = node->find_child_nodes("CollisionDetector");
-  BOOST_FOREACH(shared_ptr<const XMLTree> child_node, child_nodes)
-  {
-    XMLAttrib* id_attrib = child_node->get_attrib("id");
-    if (!id_attrib)
-      continue;
-
-    // get the ID of the collision detector
-    const std::string& id = id_attrib->get_string_value(); 
-
-    // find a collision detector
-    if ((id_iter = id_map.find(id)) == id_map.end())
-    {
-      std::cerr << "EventDrivenSimulator::load_from_xml() - could not find";
-      std::cerr << std::endl << "  collision detector w/ID: " << id;
-      std::cerr << " from offending node: " << std::endl << *child_node;
-    }
-    else
-    {
-      // make sure that it is castable to a collision detector before we
-      // save the pointer
-      shared_ptr<CollisionDetection> coldet = dynamic_pointer_cast<CollisionDetection>(id_iter->second);
-      if (coldet)
-      {
-        collision_detectors.push_back(coldet);
-        coldet->simulator = get_this();
-      }
-    }
-  }
 
   // read in any ContactParameters
   child_nodes = node->find_child_nodes("ContactParameters");
@@ -1446,15 +1245,6 @@ void EventDrivenSimulator::save_to_xml(XMLTreePtr node, list<shared_ptr<const Ba
   node->attribs.insert(XMLAttrib("rel-err-tol", rel_err_tol));
   node->attribs.insert(XMLAttrib("abs-err-tol", abs_err_tol));
 
-  // save the IDs of the collision detectors, if any 
-  BOOST_FOREACH(shared_ptr<CollisionDetection> c, collision_detectors)
-  {
-    XMLTreePtr new_node(new XMLTree("CollisionDetector"));
-    new_node->attribs.insert(XMLAttrib("id", c->id));
-    node->add_child(new_node);
-    shared_objects.push_back(c);
-  }
-
   // save all ContactParameters
   for (map<sorted_pair<BasePtr>, shared_ptr<ContactParameters> >::const_iterator i = contact_params.begin(); i != contact_params.end(); i++)
   {
@@ -1482,10 +1272,6 @@ void EventDrivenSimulator::output_object_state(std::ostream& out) const
     out << "   object1: " << i->first.first << "  object2: ";
     out << i->first.second << "  parameters: " << i->second << std::endl;
   }
-
-  // output collision detection pointers
-  BOOST_FOREACH(shared_ptr<CollisionDetection> cd, collision_detectors)
-    out << "  collision detector: " << cd << std::endl;
 
   // output event impulse callback function
    out << "  event post impulse callback fn: " << event_post_impulse_callback_fn << std::endl;

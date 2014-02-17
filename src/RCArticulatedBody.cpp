@@ -840,24 +840,23 @@ void RCArticulatedBody::calc_fwd_dyn()
 
   // if there are implicit joints, we must do the model with loops
   if (!_ijoints.empty())
-  {
     calc_fwd_dyn_loops();
-    return;
-  } 
-
-  // use the proper dynamics algorithm
-  switch (algorithm_type)
+  else
   {
-    case eFeatherstone:
-      _fsab.calc_fwd_dyn();
-      break;
+    // use the proper dynamics algorithm
+    switch (algorithm_type)
+    {
+      case eFeatherstone:
+        _fsab.calc_fwd_dyn();
+        break;
 
-    case eCRB:
-      _crb.calc_fwd_dyn();
-      break;
+      case eCRB:
+        _crb.calc_fwd_dyn();
+        break;
 
-    default:
-      assert(false);
+      default:
+        assert(false);
+    }
   }
 
   FILE_LOG(LOG_DYNAMICS) << "RCArticulatedBody::calc_fwd_dyn() exited" << std::endl;

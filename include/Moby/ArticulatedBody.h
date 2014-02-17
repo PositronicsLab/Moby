@@ -48,11 +48,10 @@ class ArticulatedBody : public DynamicBody
     void update_joint_constraint_violations();
     bool is_joint_constraint_violated() const;
     double calc_CA_time_for_joints() const;
+    virtual void ode_noexcept(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data, Ravelin::SharedVectorNd& dx);
     virtual void ode(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data, Ravelin::SharedVectorNd& dx);
     virtual void reset_limit_estimates();
-
-    /// Determines whether joint acceleration limits were exceeded on last integration
-    bool joint_accel_limit_exceeded() const { return _acc_limits_exceeded; }
+    virtual bool limit_estimates_exceeded() const;
 
     /// Gets the number of degrees-of-freedom permitted by explicit constraints
     virtual unsigned num_joint_dof_explicit() const = 0;
