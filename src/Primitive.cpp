@@ -57,7 +57,6 @@ Primitive::Primitive()
   _jF = shared_ptr<Pose3d>(new Pose3d);
   _jF->rpose = _F;
   _J.pose = _jF;
-  _intersection_tolerance = 1e-5;
   _deformable = false;
 
   // set visualization members to NULL
@@ -72,7 +71,6 @@ Primitive::Primitive(const Pose3d& F)
   _jF->rpose = _F;
   _J.pose = _jF;
   *_F = F; 
-  _intersection_tolerance = 1e-5;
   _deformable = false;
 
   // set visualization members to NULL
@@ -85,15 +83,6 @@ Primitive::~Primitive()
   if (_vtransform)
     _vtransform->unref();
   #endif
-}
-
-/// Sets the intersection tolerance for this primitive
-void Primitive::set_intersection_tolerance(double tol)
-{
-  if (tol < (double) 0.0)
-    throw std::runtime_error("Primitive::set_intersection_tolerance() - tolerance cannot be negative!");
-
-  _intersection_tolerance = tol;
 }
 
 /// Gets the visualization for this primitive, creating it if necessary
@@ -201,11 +190,6 @@ void Primitive::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::stri
       throw std::runtime_error("Attempting to set primitive density to negative value");
   }
 
-  // read the intersection tolerance
-  XMLAttrib* itol_attr = node->get_attrib("intersection-tolerance");
-  if (itol_attr)
-    set_intersection_tolerance(itol_attr->get_real_value());
-
   // read in transformation, if specified
   Pose3d F;
   XMLAttrib* xlat_attr = node->get_attrib("position");
@@ -263,9 +247,6 @@ void Primitive::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >&
   F0.update_relative_pose(GLOBAL);
   node->attribs.insert(XMLAttrib("position", F0.x));
   node->attribs.insert(XMLAttrib("quat", F0.q));
-
-  // add the intersection tolerance as an attribute
-  node->attribs.insert(XMLAttrib("intersection-tolerance", _intersection_tolerance));
 }
 
 /// Sets the transform for this primitive -- transforms mesh and inertial properties (if calculated)

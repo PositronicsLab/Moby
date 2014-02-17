@@ -63,6 +63,32 @@ PrimitivePtr CollisionGeometry::set_geometry(PrimitivePtr primitive)
   return primitive;
 }
 
+/// Gets vertices for a primitive
+void CollisionGeometry::get_vertices(std::vector<Point3d>& vertices) const
+{
+  // get the primitive from this
+  PrimitivePtr primitive = get_geometry();
+  assert(!primitive->get_pose()->rpose);
+
+  // setup a new pose 
+  shared_ptr<Pose3d> P(new Pose3d(*primitive->get_pose()));
+  P->rpose = get_pose();
+
+  // get the vertices from the primitive
+  vertices.clear();
+  primitive->get_vertices(vertices);
+  
+  // setup transforms for transforming points from P to this pose
+  Transform3d T = Pose3d::calc_relative_pose(P, get_pose());
+
+  // change the pose for all vertices
+  for (unsigned i=0; i< vertices.size(); i++)
+  {
+    vertices[i].pose = P;
+    vertices[i] = T.transform_point(vertices[i]);
+  } 
+}
+
 /// Writes the collision geometry mesh to the specified VRML file
 /**
  * \note the mesh is transformed using the current transformation
@@ -131,16 +157,63 @@ void CollisionGeometry::set_relative_pose(const Pose3d& P)
   *_F = P;
 }
 
+/// Calculates the (unsigned) distance of a point from this collision geometry
+double CollisionGeometry::calc_dist_and_normal(const Point3d& p, Vector3d& normal) const
+{
+  // get the primitive from this
+  PrimitivePtr primitive = get_geometry();
+  assert(!primitive->get_pose()->rpose);
+
+  // setup new pose for primitive that refers to the underlying geometry
+  shared_ptr<Pose3d> Pose(new Pose3d(*primitive->get_pose()));
+  Pose->rpose = get_pose();
+
+  // transform point to the primitive space
+  Point3d px = Pose3d::transform_point(Pose, p);
+
+  // call the primitive function
+  return primitive->calc_dist_and_normal(px, normal);
+}
+
+/// Calculates the signed distances between two geometries and returns closest points if geometries are not interpenetrating
+double CollisionGeometry::calc_signed_dist(CollisionGeometryPtr gA, CollisionGeometryPtr gB, Point3d& pA, Point3d& pB) 
+{
+  // get the two primitives
+  PrimitivePtr primA = gA->get_geometry();
+  PrimitivePtr primB = gB->get_geometry();
+
+  // verify that both primitives are setup with respect to the global frame
+  assert(!primA->get_pose()->rpose);
+  assert(!primB->get_pose()->rpose);
+
+  // setup new poses for primitives A and B that refer to the underlying 
+  // geometry
+  shared_ptr<Pose3d> PoseA(new Pose3d(*primA->get_pose()));
+  shared_ptr<Pose3d> PoseB(new Pose3d(*primB->get_pose()));
+  PoseA->rpose = gA->get_pose();
+  PoseB->rpose = gB->get_pose();
+
+  // setup transforms for transforming points in primitive A to primitive B's
+  // pose
+  Transform3d bTa = Pose3d::calc_relative_pose(PoseA, PoseB);
+
+  // now we have to hack T to point to the underlying poses
+  bTa.source = primA->get_pose(); 
+  bTa.target = primB->get_pose(); 
+
+  // now compute the signed distance
+  return Primitive::calc_signed_dist(primA, primB, bTa, pA, pB);
+}
+
+/*
 /// Calculates the closest points (and squared distance) between geometries a and b
-/**
  * \param a the first collision geometry
  * \param b the second collision geometry
  * \param aTb the transform from b's frame to a's frame
  * \param cpa the closest point to b on a (in a's frame)
  * \param cpb the closest point to a on b (in b's frame)
  * \return the squared distance between cpa and cpb
- */
-double CollisionGeometry::calc_distance(CollisionGeometryPtr a, CollisionGeometryPtr b, const Transform3d& aTb, Point3d& cpa, Point3d& cpb)
+double CollisionGeometry::calc_dist(CollisionGeometryPtr a, CollisionGeometryPtr b, const Transform3d& aTb, Point3d& cpa, Point3d& cpb)
 {
   // get the poses of a and b
   shared_ptr<const Pose3d> Pa = a->get_pose();
@@ -191,6 +264,7 @@ double CollisionGeometry::calc_distance(CollisionGeometryPtr a, CollisionGeometr
 
   return min_dist;
 }
+*/
 
 /// Implements Base::load_from_xml()
 void CollisionGeometry::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)

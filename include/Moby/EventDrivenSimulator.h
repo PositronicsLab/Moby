@@ -11,6 +11,7 @@
 #include <Moby/sorted_pair>
 #include <Moby/Simulator.h>
 #include <Moby/ImpactEventHandler.h>
+#include <Moby/CCD.h>
 #include <Moby/Event.h>
 
 namespace Moby {
@@ -71,6 +72,9 @@ class EventDrivenSimulator : public Simulator
     void get_coords(std::vector<Ravelin::VectorNd>& q) const;
     void get_velocities(std::vector<Ravelin::VectorNd>& q) const;
 
+    /// Determines whether two geometries are not checked
+    std::set<sorted_pair<CollisionGeometryPtr> > unchecked_pairs;
+
     /// The coordinates vector before and after the step
     std::vector<Ravelin::VectorNd> _q0, _qf, _qsave;
 
@@ -83,9 +87,6 @@ class EventDrivenSimulator : public Simulator
     /// Gets the shared pointer for this
     boost::shared_ptr<EventDrivenSimulator> get_this() { return boost::dynamic_pointer_cast<EventDrivenSimulator>(shared_from_this()); }
     
-    /// The collision detection mechanisms
-    std::list<boost::shared_ptr<CollisionDetection> > collision_detectors;
-
     /// Callback function for getting contact parameters
     boost::shared_ptr<ContactParameters> (*get_contact_parameters_callback_fn)(CollisionGeometryPtr g1, CollisionGeometryPtr g2);
 
@@ -136,6 +137,9 @@ class EventDrivenSimulator : public Simulator
     /// The maximum time allowed for processing events
     double max_event_time;
 
+  protected:
+    void check_pairwise_constraint_violations();
+
   private:
     void save_state();
     void restore_state();
@@ -148,7 +152,6 @@ class EventDrivenSimulator : public Simulator
     void remove_next_events();
     double find_and_handle_si_events(double dt);
     void preprocess_event(Event& e);
-    void check_violation();
     void find_limit_events(double dt, std::vector<Event>& limit_events);
     double integrate_to_TOI(double dt); 
     void handle_events();
@@ -165,12 +168,16 @@ class EventDrivenSimulator : public Simulator
     void compute_directional_derivatives();
     double calc_CA_step(double dt) const;
     void update_constraint_violations();
+    void determine_geometries();
 
     // Visualization functions
     void visualize_contact( Event& event );
 
     /// Determines whether the simulation constraints have been violated
     bool _simulation_violated;
+
+    /// The continuous collision detection mechanism
+    mutable CCD _ccd;
 
     /// Work vector
     Ravelin::VectorNd _workV;
@@ -181,6 +188,9 @@ class EventDrivenSimulator : public Simulator
     /// Event tolerances
     std::map<Event, double, EventCompare> _event_tolerances;
 
+    /// Interpenetration constraint violation tolerances
+    std::map<sorted_pair<CollisionGeometryPtr>, double> _ip_tolerances;
+
     /// Object for handling impact events
     ImpactEventHandler _impact_event_handler;
 
@@ -189,6 +199,9 @@ class EventDrivenSimulator : public Simulator
 
     /// The maximum Euler step size
     double max_Euler_step;
+
+    /// The geometries in the simulator
+    std::list<CollisionGeometryPtr> _geometries;
 }; // end class
 
 } // end namespace

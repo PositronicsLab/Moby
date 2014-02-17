@@ -21,11 +21,11 @@ class CSG : public Primitive
     CSG(const Ravelin::Pose3d& T);
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
-    virtual void set_intersection_tolerance(double tol);
     virtual BVPtr get_BVH_root(CollisionGeometryPtr geom);
-    virtual void get_vertices(BVPtr bv, std::vector<const Point3d*>& vertices); 
-    virtual bool point_inside(BVPtr bv, const Point3d& p, Ravelin::Vector3d& normal) const;
-    virtual bool intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Ravelin::Vector3d& normal) const;
+    virtual void get_vertices(std::vector<Point3d>& vertices);
+//    virtual void get_vertices(BVPtr bv, std::vector<const Point3d*>& vertices); 
+    virtual double calc_dist_and_normal(const Point3d& p, Ravelin::Vector3d& normal) const;
+//    virtual bool intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Ravelin::Vector3d& normal) const;
     virtual const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >& get_sub_mesh(BVPtr bv);
     virtual osg::Node* create_visualization();
     virtual boost::shared_ptr<const IndexedTriArray> get_mesh(); 
@@ -37,11 +37,12 @@ class CSG : public Primitive
     PrimitivePtr get_operand2() const { return _op2; }
     BooleanOperation get_operator() const { return _op; }
     virtual void set_pose(const Ravelin::Pose3d& T);
+    virtual double calc_signed_dist(boost::shared_ptr<const Primitive> b, const Ravelin::Transform3d& bTthis, Point3d& pthis, Point3d& pb) const;
 
   private:
-    bool intersect_seg_union(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Ravelin::Vector3d& normal) const;
-    bool intersect_seg_intersect(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Ravelin::Vector3d& normal) const;
-    bool intersect_seg_diff(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Ravelin::Vector3d& normal) const;
+//    bool intersect_seg_union(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Ravelin::Vector3d& normal) const;
+//    bool intersect_seg_intersect(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Ravelin::Vector3d& normal) const;
+//    bool intersect_seg_diff(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Ravelin::Vector3d& normal) const;
     virtual void calc_mass_properties();
     void center_mesh();
 

@@ -43,7 +43,9 @@ class CollisionGeometry : public virtual Base
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     void set_single_body(boost::shared_ptr<SingleBody> s);
-    static double calc_distance(CollisionGeometryPtr a, CollisionGeometryPtr b, const Ravelin::Transform3d& aTb, Point3d& cpa, Point3d& cpb);
+    static double calc_signed_dist(CollisionGeometryPtr a, CollisionGeometryPtr b, Point3d& cpa, Point3d& cpb);
+    double calc_dist_and_normal(const Point3d& p, Ravelin::Vector3d& n) const;
+    void get_vertices(std::vector<Point3d>& p) const;
 
     /// Gets the parent of this CollisionGeometry (or NULL if there is no parent)
     boost::shared_ptr<CollisionGeometry> get_parent() const { return (_parent.expired()) ? CollisionGeometryPtr() : CollisionGeometryPtr(_parent); }

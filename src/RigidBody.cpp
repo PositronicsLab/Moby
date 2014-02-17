@@ -78,23 +78,35 @@ RigidBody::RigidBody()
   viscous_coeff = VectorNd::zero(SPATIAL_DIM);
 }
 
-/// Resets the force limit estimates
+/// Resets the acceleration limit estimates
 void RigidBody::reset_limit_estimates()
 {
- _force_limit_exceeded = false; 
-// _force_limit = 0.0;
+ _accel_limit_exceeded = false; 
+// _accel_limit = 0.0;
 }
 
 // implement this
-void RigidBody::check_force_limit_exceeded()
+void RigidBody::check_accel_limit_exceeded()
 {
-  // checks whether the force limit has been exceeded
-  if (!_forcei_valid)
-    _forcei = Pose3d::transform(_F, _force0);  
-  _forcei_valid = true;
+  const unsigned SPATIAL_DIM = 6;
 
-  if (!_force_limit_exceeded)
-    _force_limit_exceeded = (_forcei.get_force().norm_sq() + _forcei.get_torque().norm_sq() > _force_limit);
+  if (!_accel_limit_exceeded)
+  {
+    SAcceld a = Pose3d::transform(_F, get_accel());
+    for (unsigned i=0; i< SPATIAL_DIM; i++)
+    {
+      if (a[i] < _accel_limit_lo[i])
+      {
+        _accel_limit_lo[i] = a[i];
+        _accel_limit_exceeded = true;
+      }
+      if (a[i] > _accel_limit_hi[i])
+      {
+        _accel_limit_hi[i] = a[i];
+        _accel_limit_exceeded = true;
+      }
+    }
+  }
 }
 
 /// Gets the frame in which kinematics and dynamics computations occur
@@ -1858,7 +1870,7 @@ void RigidBody::integrate(double t, double h, shared_ptr<Integrator> integrator)
   FILE_LOG(LOG_DYNAMICS) << "RigidBody::integrate() - integrating from " << t << " by " << h << std::endl;
 
   // reset the acceleration events exceeded
-  _force_limit_exceeded = false;
+  _accel_limit_exceeded = false;
 
   if (_kinematic_update)
   {
@@ -1925,9 +1937,9 @@ void RigidBody::ode(SharedConstVectorNd& x, double t, double dt, void* data, Sha
   calc_fwd_dyn();
   get_generalized_acceleration(dgv);
 
-  // check whether force limits have been exceeded 
-  if (!_force_limit_exceeded)
-    check_force_limit_exceeded();
+  // check whether acceleration limits have been exceeded 
+  if (!_accel_limit_exceeded)
+    check_accel_limit_exceeded();
 }
 
 /// Outputs the object state to the specified stream

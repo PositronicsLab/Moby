@@ -90,6 +90,9 @@ VectorNd& Simulator::ode(const VectorNd& x, double t, double dt, void* data, Vec
     idx += NGC+NGV;
   }
 
+  // check pairwise constraint violations
+  s->check_pairwise_constraint_violations();
+
   // return the ODE
   return dx;
 }

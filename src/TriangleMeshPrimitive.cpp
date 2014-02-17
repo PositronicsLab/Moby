@@ -508,7 +508,24 @@ const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >&
   return _smesh;
 }
 
+/// Computes the distance and normal from a point on the mesh 
+double TriangleMeshPrimitive::calc_dist_and_normal(const Point3d& p, Vector3d& normal) const
+{
+  // TODO: implement this
+  assert(false);
+  return 0.0;
+}
+
+/// Computes the distance and normal from a point on the mesh 
+double TriangleMeshPrimitive::calc_signed_dist(shared_ptr<const Primitive> primitive, const Transform3d& primTthis, Point3d& pthis, Point3d& ppoint) const
+{
+  // TODO: implement this
+  assert(false);
+  return 0.0;
+}
+
 /// Determines whether a point is inside / on one of the thick triangles
+/*
 bool TriangleMeshPrimitive::point_inside(BVPtr bv, const Point3d& p, Vector3d& normal) const
 {
   const double EXPANSION_CONST = 0.01;
@@ -558,8 +575,10 @@ bool TriangleMeshPrimitive::point_inside(BVPtr bv, const Point3d& p, Vector3d& n
   // still here?  not inside/on...
   return false;
 }
+*/
 
 /// Intersects a line segment against the triangle mesh and returns first point of intersection
+/*
 bool TriangleMeshPrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Vector3d& normal) const
 {
   const unsigned LEAF_TRIS_CUTOFF = 5;
@@ -707,6 +726,14 @@ void TriangleMeshPrimitive::get_vertices(BVPtr bv, vector<const Point3d*>& verti
   // get the vertex indices
   for (list<unsigned>::const_iterator i = vlist.begin(); i != vlist.end(); i++)
     vertices.push_back(&verts[*i]);
+}
+*/
+
+/// Gets vertices corresponding to the bounding volume
+void TriangleMeshPrimitive::get_vertices(vector<Point3d>& vertices) 
+{
+  // get the mesh vertices
+  vertices = _vertices; 
 }
 
 /// Transforms this primitive
@@ -880,7 +907,7 @@ void TriangleMeshPrimitive::build_BB_tree(CollisionGeometryPtr geom)
     {
       try
       {
-        ttris1.push_back(shared_ptr<AThickTri>(new AThickTri(_mesh->get_triangle(idx, get_pose()), _intersection_tolerance)));
+        ttris1.push_back(shared_ptr<AThickTri>(new AThickTri(_mesh->get_triangle(idx, get_pose()), 0.0)));
         ttris1.back()->mesh = _mesh;
         ttris1.back()->tri_idx = idx;
       }
@@ -896,7 +923,7 @@ void TriangleMeshPrimitive::build_BB_tree(CollisionGeometryPtr geom)
     {
       try
       {
-        ttris2.push_back(shared_ptr<AThickTri>(new AThickTri(_mesh->get_triangle(idx, get_pose()), _intersection_tolerance)));
+        ttris2.push_back(shared_ptr<AThickTri>(new AThickTri(_mesh->get_triangle(idx, get_pose()), 0.0)));
         ttris2.back()->mesh = _mesh;
         ttris2.back()->tri_idx = idx;
       }
@@ -963,21 +990,12 @@ void TriangleMeshPrimitive::build_BB_tree(CollisionGeometryPtr geom)
       // cast it to an OBB
       OBBPtr obb = dynamic_pointer_cast<OBB>(bb);
       assert(obb);
-
-      // fatten the OBB
-      obb->l[0] += _intersection_tolerance;    
-      obb->l[1] += _intersection_tolerance;    
-      obb->l[2] += _intersection_tolerance;    
     }
     else
     {
       // cast it to a bounding sphere
       shared_ptr<BoundingSphere> bs = dynamic_pointer_cast<BoundingSphere>(bb);
       assert(bs);
-
-      // fatten the bounding sphere
-      for (unsigned i=0; i< THREE_D; i++)
-        bs->radius += _intersection_tolerance;
     }
 
     // add all children to the queue
@@ -1026,23 +1044,12 @@ void TriangleMeshPrimitive::build_BB_tree(CollisionGeometryPtr geom)
   FILE_LOG(LOG_BV) << "Primitive::build_BB_tree() exited" << endl;
 }
 
-/// Sets the intersection tolerance
-void TriangleMeshPrimitive::set_intersection_tolerance(double tol)
-{
-  Primitive::set_intersection_tolerance(tol);
-
-  // mesh, vertices, and BVH are no longer valid
-  _mesh = shared_ptr<IndexedTriArray>();
-  _vertices.clear();
-  _mesh_vertices.clear();
-  _roots.clear();
-}
-
 /// Creates the set of mesh vertices
 void TriangleMeshPrimitive::construct_mesh_vertices(shared_ptr<const IndexedTriArray> mesh, CollisionGeometryPtr geom, shared_ptr<const Pose3d> P)
 {
   const unsigned EDGES_PER_TRI = 3;
 
+/*
   // get the sets of vertices and facets from the mesh
   const vector<Origin3d>& mesh_vertices = mesh->get_vertices();
   const vector<IndexedTri>& mesh_facets = mesh->get_facets();
@@ -1076,7 +1083,6 @@ void TriangleMeshPrimitive::construct_mesh_vertices(shared_ptr<const IndexedTriA
     // otherwise, normalize the normal and add intersection tolerance (in dir
     // of normal) to vertex i
     normal.normalize();
-    vertices[i] += normal*_intersection_tolerance;
   }
 
   // now, add additional samples based on edges in the mesh
@@ -1153,6 +1159,7 @@ void TriangleMeshPrimitive::construct_mesh_vertices(shared_ptr<const IndexedTriA
       }
     }
   }
+*/
 }
 
 /// Splits a collection of triangles along a splitting plane into 2 new meshes 

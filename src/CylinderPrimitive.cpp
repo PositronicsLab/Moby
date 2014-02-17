@@ -86,6 +86,86 @@ CylinderPrimitive::CylinderPrimitive(double radius, double height, unsigned n, u
   calc_mass_properties();
 }
 
+/// Finds the signed distance between the sphere and another primitive
+double CylinderPrimitive::calc_signed_dist(shared_ptr<const Primitive> primitive, const Transform3d& primTthis, Point3d& pthis, Point3d& pprimitive) const
+{
+  // TODO: implement this
+  assert(false);
+  return 0.0; 
+}
+
+/// Computes the signed distance between the cylinder and a point
+double CylinderPrimitive::calc_dist_and_normal(const Point3d& p, Vector3d& normal) const
+{
+  const unsigned X = 0, Y = 1, Z = 2;
+
+  // TODO: implement this properly
+
+  // compute distance from point (projected onto plane) to circle
+  double dist = std::sqrt(p[X]*p[X] + p[Z]*p[Z]) - _radius;
+
+  // see whether the point is above/below the height extent
+  double ht_ext = _height*0.5;
+  if (p[Y] > ht_ext)
+  {
+    // compute the distance from the plane
+    double pdist = p[Y] - ht_ext;
+
+    // setup the closest point on the cylinder
+    if (dist < 0.0)
+      normal = Vector3d(0,1,0,get_pose());
+/*
+else
+    {
+      pcyl[Y] = 0.0;
+      pcyl.normalize();  
+      pcyl *= _radius;
+    }
+    pcyl[Y] = ht_ext;
+*/
+
+    // compute the distance from the cylinder 
+    dist = std::min(pdist, dist);
+  }
+  else if (p[Y] < -ht_ext)
+  {
+    // compute the distance from the plane
+    double pdist = p[Y] + ht_ext;
+
+    // setup the closest point on the cylinder
+    if (dist < 0.0)
+      normal = Vector3d(0,-1,0,get_pose());
+/*
+else
+    {
+      pcyl[Y] = 0.0;
+      pcyl.normalize();  
+      pcyl *= _radius;
+    }
+    pcyl[Y] = -ht_ext;
+*/
+
+    // compute the distance from the cylinder 
+    dist = std::min(pdist, dist);
+  }
+  else  // point is inside height extents
+  {
+/*
+    // setup the closest point on the cylinder
+    if (dist > 0.0)
+    {
+      pcyl[Y] = 0.0;
+      pcyl.normalize();
+      pcyl *= _radius; 
+    }
+    pcyl[Y] = p[Y];
+  }
+*/
+  }
+
+  return dist;
+}
+
 /// Gets the distance of this cylinder from a sphere
 double CylinderPrimitive::calc_dist(const SpherePrimitive* s, Point3d& pcyl, Point3d& psph) const
 {
@@ -200,9 +280,9 @@ void CylinderPrimitive::set_radius(double radius)
   // re-set lengths on each OBB
   for (map<CollisionGeometryPtr, OBBPtr>::iterator i = _obbs.begin(); i != _obbs.end(); i++)
   {
-    i->second->l[X] = _radius + _intersection_tolerance;
-    i->second->l[Y] = _height*0.5 + _intersection_tolerance;
-    i->second->l[Z] = _radius + _intersection_tolerance;
+    i->second->l[X] = _radius;
+    i->second->l[Y] = _height*0.5;
+    i->second->l[Z] = _radius;
   }
 }
 
@@ -230,9 +310,9 @@ void CylinderPrimitive::set_height(double height)
   // re-set lengths on each OBB
   for (map<CollisionGeometryPtr, OBBPtr>::iterator i = _obbs.begin(); i != _obbs.end(); i++)
   {
-    i->second->l[X] = _radius + _intersection_tolerance;
-    i->second->l[Y] = _height*0.5 + _intersection_tolerance;
-    i->second->l[Z] = _radius + _intersection_tolerance;
+    i->second->l[X] = _radius;
+    i->second->l[Y] = _height*0.5;
+    i->second->l[Z] = _radius;
   }
 }
 
@@ -479,9 +559,9 @@ BVPtr CylinderPrimitive::get_BVH_root(CollisionGeometryPtr geom)
     obb->R = P->q;
 
     // setup OBB half-lengths
-    obb->l[X] = _radius + _intersection_tolerance;
-    obb->l[Y] = _height*0.5 + _intersection_tolerance;
-    obb->l[Z] = _radius + _intersection_tolerance;
+    obb->l[X] = _radius;
+    obb->l[Y] = _height*0.5;
+    obb->l[Z] = _radius;
   }
 
   return obb;
@@ -496,10 +576,39 @@ const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >&
 }
 
 /// Gets vertices from the primitive
-void CylinderPrimitive::get_vertices(BVPtr bv, std::vector<const Point3d*>& vertices)
+void CylinderPrimitive::get_vertices(std::vector<Point3d>& verts)
+{
+  const double R = _radius;
+  const double H = _height;
+
+  // clear the vertices
+  verts.clear();
+
+  // if radius or height <= 0, num rings < 2, or circle points < 3, return now
+  if (_radius <= 0.0 || _height <= 0.0 || _nrings < 2 || _npoints < 3)
+    return; 
+
+  // create vertices evenly spaced in 2D
+  // NOTE: we wish to create the vertices in the global frame
+  for (unsigned j=0; j< _nrings; j++)
+  {
+    const double HEIGHT = -(H * (double) 0.5) + (j*H)/(_nrings-1); 
+    for (unsigned i=0; i< _npoints; i++)
+    {
+      double THETA = i*(M_PI * (double) 2.0/_npoints);
+      const double CT = std::cos(THETA);
+      const double ST = std::sin(THETA);
+      verts.push_back(Point3d(CT*R, HEIGHT, ST*R, get_pose()));
+    }
+  }
+}
+
+/// Gets vertices from the primitive
+/*
+void CylinderPrimitive::get_vertices(CollisionGeometryPtr geom, std::vector<const Point3d*>& vertices)
 {
   // get the vertices for the geometry
-  vector<Point3d>& verts = _vertices[bv->geom];
+  vector<Point3d>& verts = _vertices[geom];
 
   // create the vector of vertices if necessary
   if (verts.empty())
@@ -515,7 +624,7 @@ void CylinderPrimitive::get_vertices(BVPtr bv, std::vector<const Point3d*>& vert
     }
 
     // get the pose for the geometry
-    shared_ptr<const Pose3d> gpose = bv->geom->get_pose();
+    shared_ptr<const Pose3d> gpose = geom->get_pose();
 
     // get the pose of this primitive
     shared_ptr<const Pose3d> P = get_pose();
@@ -547,9 +656,11 @@ void CylinderPrimitive::get_vertices(BVPtr bv, std::vector<const Point3d*>& vert
   for (unsigned i=0; i< verts.size(); i++)
     vertices[i] = &verts[i];
 }
+*/
 
 /// Determines whether a point is inside the cylinder; if so, determines the normal
-bool CylinderPrimitive::point_inside(BVPtr bv, const Point3d& p, Vector3d& normal) const
+/*
+bool CylinderPrimitive::point_inside(CollisionGeometryPtr geom, const Point3d& p, Vector3d& normal) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
   const double R = _radius;
@@ -557,7 +668,7 @@ bool CylinderPrimitive::point_inside(BVPtr bv, const Point3d& p, Vector3d& norma
   static shared_ptr<Pose3d> P;
 
   // get the pose for the collision geometry
-  shared_ptr<const Pose3d> gpose = bv->geom->get_pose(); 
+  shared_ptr<const Pose3d> gpose = geom->get_pose(); 
 
   // get the pose for this geometry and BV
   shared_ptr<const Pose3d> bpose = get_pose(); 
@@ -618,14 +729,14 @@ bool CylinderPrimitive::point_inside(BVPtr bv, const Point3d& p, Vector3d& norma
     else
       normal = Vector3d::normalize(Vector3d(query[X],(double) 0.0, query[Z],P));
   }
-/*
-  if (dcaptop >= dcapbot && dcaptop >= -NEAR_ZERO)
-    normal = Vector3d(0,1,0);
-  else if (dcapbot >= dcaptop && dcapbot >= -NEAR_ZERO)
-    normal = Vector3d(0,-1,0);
-  else
-    normal = Vector3d::normalize(Vector3d(query[X],0,query[Z]));
-*/
+
+//  if (dcaptop >= dcapbot && dcaptop >= -NEAR_ZERO)
+//    normal = Vector3d(0,1,0);
+//  else if (dcapbot >= dcaptop && dcapbot >= -NEAR_ZERO)
+//    normal = Vector3d(0,-1,0);
+//  else
+//    normal = Vector3d::normalize(Vector3d(query[X],0,query[Z]));
+
   // transform the normal
   normal = T.inverse_transform_vector(normal);
 
@@ -634,6 +745,7 @@ bool CylinderPrimitive::point_inside(BVPtr bv, const Point3d& p, Vector3d& norma
 
   return true;
 }
+*/
 
 /// Gets the distance of a point within the cylinder
 /**
@@ -901,32 +1013,12 @@ unsigned CylinderPrimitive::intersect_line(shared_ptr<const Pose3d> Px, const Po
   return quantity;  
 }
 
-/// Sets the intersection tolerance
-void CylinderPrimitive::set_intersection_tolerance(double tol)
-{
-  const unsigned X = 0, Y = 1, Z = 2;
-
-  Primitive::set_intersection_tolerance(tol);
-
-  // vertices are no longer valid
-  _vertices.clear();
-
-  // re-set lengths on each OBB
-  for (map<CollisionGeometryPtr, OBBPtr>::iterator i = _obbs.begin(); i != _obbs.end(); i++)
-  {
-    i->second->l[X] = _radius + _intersection_tolerance;
-    i->second->l[Y] = _height*0.5 + _intersection_tolerance;
-    i->second->l[Z] = _radius + _intersection_tolerance;
-  }
-}
-
-/// Computes the intersection between a cylinder and a line segment
 /**
+/// Computes the intersection between a cylinder and a line segment
  * Algorithm adapted from www.geometrictools.com 
  * \note for line segments that are partially or fully inside the cylinder, the
  *       method only returns intersection if the second endpoint of the segment
  *       is farther inside than the first
- */
 bool CylinderPrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Vector3d& normal) const
 {
   const unsigned Y = 1;
@@ -1048,4 +1140,5 @@ bool CylinderPrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, 
 
   return true;  
 }
+ */
 

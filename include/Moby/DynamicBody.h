@@ -41,6 +41,9 @@ class DynamicBody : public Visualizable
     virtual Ravelin::MatrixNd& calc_jacobian(boost::shared_ptr<const Ravelin::Pose3d> frame, DynamicBodyPtr body, Ravelin::MatrixNd& J) = 0;
     virtual Ravelin::MatrixNd& calc_jacobian_dot(boost::shared_ptr<const Ravelin::Pose3d> frame, DynamicBodyPtr body, Ravelin::MatrixNd& J) = 0;
 
+    /// Returns true if one or more of the limit estimates has been exceeded
+    virtual bool limit_estimates_exceeded() const = 0;
+
     /// Validates position-based variables (potentially dangerous for a user to call)
     virtual void validate_position_variables() { };
 
@@ -195,6 +198,9 @@ class DynamicBody : public Visualizable
 
     /// Computes the derivative of the body
     virtual void ode(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data, Ravelin::SharedVectorNd& dx) = 0;
+
+    /// Computes the derivative of the body without throwing any exceptions
+    virtual void ode_noexcept(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data, Ravelin::SharedVectorNd& dx) = 0;
 
     /// Resets limit estimates for continuous constraint detection
     virtual void reset_limit_estimates() = 0;
