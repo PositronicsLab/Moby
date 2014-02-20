@@ -52,6 +52,7 @@ class ArticulatedBody : public DynamicBody
     virtual void ode(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data, Ravelin::SharedVectorNd& dx);
     virtual void reset_limit_estimates();
     virtual bool limit_estimates_exceeded() const;
+    double find_next_joint_limit_time() const;
 
     /// Gets the number of degrees-of-freedom permitted by explicit constraints
     virtual unsigned num_joint_dof_explicit() const = 0;
@@ -59,12 +60,9 @@ class ArticulatedBody : public DynamicBody
     /// Gets the number of degrees-of-freedom permitted by implicit constraints
     virtual unsigned num_joint_dof_implicit() const = 0;
 
-    template <class OutputIterator>
-    OutputIterator find_limit_events(double dt, OutputIterator begin) const;
-
     /// Finds (joint) limit events
     template <class OutputIterator>
-    OutputIterator find_limit_events(const Ravelin::VectorNd& q0, const Ravelin::VectorNd& q1, double dt, OutputIterator begin);
+    OutputIterator find_limit_events(OutputIterator begin) const;
 
     /// Gets the set of links
     virtual const std::vector<RigidBodyPtr>& get_links() const { return _links; }

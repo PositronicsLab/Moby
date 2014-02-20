@@ -241,6 +241,62 @@ void ArticulatedBody::compile()
   _acc_limits_hi.resize(num_joint_dof(), 0.0);
 }
 
+/// Finds the next event time on this articulated body for joint constraints
+/**
+ * \note skips current events
+ */
+double ArticulatedBody::find_next_joint_limit_time() const
+{
+  const double INF = std::numeric_limits<double>::max();
+  const double VEL_TOL = NEAR_ZERO;
+
+  // setup the maximum integration time
+  double dt = std::numeric_limits<double>::max();
+
+  // loop over all joints
+  const vector<JointPtr>& joints = get_joints();
+  for (unsigned i=0; i< joints.size(); i++)
+  {
+    // get the coordinate index for the joint
+    unsigned k = joints[i]->get_coord_index();
+
+    for (unsigned j=0; j< joints[i]->num_dof(); j++, k++)
+    {
+      // get the joint data
+      const double q = joints[i]->q[j];
+      const double qd = joints[i]->qd[j];
+      const double l = joints[i]->lolimit[j];
+      const double u = joints[i]->hilimit[j];
+
+      // skip lower limit of DOF j of joint i if lower limit = -INF
+      if (l > -INF)
+      {
+        // first check whether the limit is already exceeded
+        if (q <= l)
+          continue;
+
+        // otherwise, determine when the joint limit will be met
+        if (qd < -VEL_TOL)
+          dt = std::min((l-q)/qd, dt);
+      }
+
+      // skip upper limit of DOF j of joint i if upper limit = INF
+      if (u < INF)
+      {
+        // first check whether the limit is already exceeded
+        if (q >= u)
+          continue;
+
+        // otherwise, determine when the joint limit will be met
+        if (qd > VEL_TOL)
+          dt = std::min((u-q)/qd, dt); 
+      }
+    }
+  }
+
+  return dt;
+}
+
 /// Computes the conservative advancement time on this articulated body for joint constraints
 double ArticulatedBody::calc_CA_time_for_joints() const
 {
@@ -275,9 +331,8 @@ double ArticulatedBody::calc_CA_time_for_joints() const
       // skip lower limit of DOF j of joint i if lower limit = -INF
       if (l > -INF)
       {
-        // first check whether the limit is already exceeded (and not
-        // moving in proper direction)
-        if (q <= l && qd <= 0.0)
+        // first check whether the limit is already exceeded
+        if (q <= l)
           return 0.0;
 
         // compute quadratic solutions
@@ -297,7 +352,7 @@ double ArticulatedBody::calc_CA_time_for_joints() const
       if (u < INF)
       {
         // first check whether the limit is already exceeded
-        if (q >= u && qd >= 0.0)
+        if (q >= u)
           return 0.0;
 
         // compute quadratic solutions

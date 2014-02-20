@@ -51,9 +51,8 @@ EventDrivenSimulator::EventDrivenSimulator()
   // setup the maximum event processing time
   max_event_time = std::numeric_limits<double>::max();
 
-  // setup the maximum Euler step and minimum special integration step
-  max_Euler_step = 1e-3;
-  min_special_step = 1e-4;
+  // setup the standard Euler step
+  euler_step = 1e-3;
 
   // setup absolute and relative error tolerances
   rel_err_tol = NEAR_ZERO;
@@ -334,12 +333,7 @@ void EventDrivenSimulator::handle_events()
   }
   catch (ImpactToleranceException e)
   {
-    // process events, updating tolerances
-    BOOST_FOREACH(Event* ev, e.events)
-    {
-      double event_v = ev->calc_event_vel();
-      _event_tolerances[*ev] = std::fabs(event_v) + std::numeric_limits<double>::epsilon();  
-    }
+    std::cerr << "warning: impacting event tolerances exceeded" << std::endl;
   }
 
   // tabulate times for event handling 
@@ -379,137 +373,6 @@ void EventDrivenSimulator::preprocess_event(Event& e)
     std::cerr << " (body " << sb2->id << ")" << std::endl;
     std::cerr << "  ... ignoring" << std::endl;
   }
-}
-
-/// Saves the coords of all bodies
-void EventDrivenSimulator::get_coords(vector<VectorNd>& q) const
-{
-  // resize the vector if necessary
-  q.resize(_bodies.size());
-
-  for (unsigned i=0; i< _bodies.size(); i++)
-    _bodies[i]->get_generalized_coordinates(DynamicBody::eEuler, q[i]);
-}
-
-/// Saves the velocities of all bodies
-void EventDrivenSimulator::get_velocities(vector<VectorNd>& qd) const
-{
-  // resize the vector if necessary
-  qd.resize(_bodies.size());
-
-  for (unsigned i=0; i< _bodies.size(); i++)
-    _bodies[i]->get_generalized_velocity(DynamicBody::eEuler, qd[i]);
-}
-
-/// Sets the generalized coordinates of all bodies
-void EventDrivenSimulator::set_coords(const vector<VectorNd>& q) const
-{
-  for (unsigned i=0; i< _bodies.size(); i++)
-    _bodies[i]->set_generalized_coordinates(DynamicBody::eEuler, q[i]);
-}
-
-/// Sets the generalized coordinates of all bodies using an interpolated value
-void EventDrivenSimulator::set_coords(double t) 
-{
-  for (unsigned i=0; i< _bodies.size(); i++)
-  {
-    // do linear interpolation
-    _workV = _qf[i];
-    _workV -= _q0[i];
-    _workV *= t;
-    _workV += _q0[i];
-    _bodies[i]->set_generalized_coordinates(DynamicBody::eEuler, _workV);
-  }
-}
-
-/// Sets the generalized velocities of all bodies
-void EventDrivenSimulator::set_velocities(const vector<VectorNd>& qd) const
-{
-  for (unsigned i=0; i< _bodies.size(); i++)
-    if (!_bodies[i]->get_kinematic())
-      _bodies[i]->set_generalized_velocity(DynamicBody::eEuler, qd[i]);
-}
-
-/// Sets the generalized velocities of all bodies using an interpolated value
-void EventDrivenSimulator::set_velocities(double t) 
-{
-  for (unsigned i=0; i< _bodies.size(); i++)
-  {
-    // don't do this if the body is kinematically controlled
-    if (_bodies[i]->get_kinematic())
-      continue;
-
-    // do linear interpolation
-    _workV = _qdf[i];
-    _workV -= _qd0[i];
-    _workV *= t;
-    _workV += _qd0[i];
-    _bodies[i]->set_generalized_velocity(DynamicBody::eEuler, _workV);
-  }
-}
-
-/// Does a semi-implicit Euler integration
-void EventDrivenSimulator::integrate_si_Euler(double step_size)
-{
-  VectorNd q, qd, x, dx;
-
-  // begin timing dynamics
-  tms cstart;  
-  clock_t start = times(&cstart);
-
-  // get the state-derivative for each dynamic body
-  for (unsigned i=0; i< _bodies.size(); i++)
-  {
-    // if the body is kinematically updated, do not integrate it
-    if (_bodies[i]->get_kinematic())
-    {
-      if (_bodies[i]->controller)
-        _bodies[i]->controller(_bodies[i], current_time, _bodies[i]->controller_arg);
-      continue;
-    }
-
-    // integrate the body
-    if (LOGGING(LOG_SIMULATOR))
-    {
-      Ravelin::VectorNd q;
-      FILE_LOG(LOG_SIMULATOR) << "  generalized coordinates (before): " << _bodies[i]->get_generalized_coordinates(DynamicBody::eEuler, q) << std::endl;
-      FILE_LOG(LOG_SIMULATOR) << "  generalized velocities (before): " << _bodies[i]->get_generalized_velocity(DynamicBody::eSpatial, q) << std::endl;
-    }
-
-    // compute the velocity 
-    _bodies[i]->get_generalized_coordinates(DynamicBody::eEuler, q);
-    _bodies[i]->get_generalized_velocity(DynamicBody::eSpatial, qd);
-    x.resize(q.size()+qd.size());
-    x.set_sub_vec(0, q);
-    x.set_sub_vec(q.size(), qd);
-    dx.resize(x.size());
-
-    // compute the ODE
-    SharedConstVectorNd shared_x = x.segment(0, x.size());
-    SharedVectorNd shared_dx = dx.segment(0, dx.size());
-    _bodies[i]->ode_noexcept(shared_x, current_time, step_size, &_bodies[i], shared_dx);
-
-    // update the velocity and position
-    dx.segment(q.size(), dx.size()) *= step_size;
-    qd += dx.segment(q.size(), dx.size());
-    _bodies[i]->set_generalized_velocity(DynamicBody::eSpatial, qd);
-    _bodies[i]->get_generalized_velocity(DynamicBody::eEuler, qd);
-    qd *= step_size;
-    q += qd; 
-    _bodies[i]->set_generalized_coordinates(DynamicBody::eEuler, q);
-
-    if (LOGGING(LOG_SIMULATOR))
-    {
-      Ravelin::VectorNd q;
-      FILE_LOG(LOG_SIMULATOR) << "  generalized coordinates (after): " << _bodies[i]->get_generalized_coordinates(DynamicBody::eEuler, q) << std::endl;
-      FILE_LOG(LOG_SIMULATOR) << "  generalized velocities (after): " << _bodies[i]->get_generalized_velocity(DynamicBody::eSpatial, q) << std::endl;
-    }
-  }
-
-  // tabulate dynamics computation
-  tms cstop;  
-  clock_t stop = times(&cstop);
-  dynamics_time += (double) (stop-start)/CLOCKS_PER_SEC;
 }
 
 /// Sets up the list of collision geometries
@@ -561,11 +424,14 @@ double EventDrivenSimulator::step(double step_size)
   // step until the requisite time has elapsed
   while (h < step_size)
   {
-    FILE_LOG(LOG_SIMULATOR) << "  determining conservative advancement time up to step of " << (step_size-h) << std::endl;
+    // get amount remaining to step
+    double dt = step_size - h;
+
+    FILE_LOG(LOG_SIMULATOR) << "  determining conservative advancement time up to step of " << dt << std::endl;
 
     // determine the maximum step according to conservative advancement
-    double safe_dt = calc_CA_step(step_size-h);
-    if (safe_dt < step_size-h)
+    double safe_dt = std::min(calc_CA_step(), dt);
+    if (safe_dt < dt)
       FILE_LOG(LOG_SIMULATOR) << "  maximum conservative step size: " << safe_dt << std::endl;
 
     // called on integration restart
@@ -573,11 +439,12 @@ double EventDrivenSimulator::step(double step_size)
 
     // if safe_dt is effectively zero, use a semi-implicit Euler step to
     // solve events, etc.
-    if (safe_dt < min_special_step)
+    if (safe_dt <= euler_step)
     {
-      double dt = std::min(step_size-h, max_Euler_step);
-      step_si_Euler(dt);
-      h += dt;
+      // maximize amount stepped
+      safe_dt = std::min(euler_step, dt);
+      step_si_Euler(safe_dt);
+      h += safe_dt;
 
       // call the mini-callback
       if (post_mini_step_callback_fn)
@@ -725,8 +592,11 @@ void EventDrivenSimulator::update_constraint_violations()
 }
 
 /// Computes a conservative advancement step
-double EventDrivenSimulator::calc_CA_step(double dt) const
+double EventDrivenSimulator::calc_CA_step() const
 {
+  // setup safe amount to step
+  double dt = std::numeric_limits<double>::max();
+
   // do joint limit CA step first (it's faster)
   BOOST_FOREACH(DynamicBodyPtr db, _bodies)
   {
@@ -756,72 +626,6 @@ double EventDrivenSimulator::calc_CA_step(double dt) const
   return dt;
 }
 
-/// Steps the simulator forward
-/*
-double EventDrivenSimulator::step(double step_size)
-{
-  const double INF = std::numeric_limits<double>::max();
-
-  // setup the amount remaining to step
-  double dt = step_size;
-
-  // clear one-step visualization data
-  #ifdef USE_OSG
-  _transient_vdata->removeChildren(0, _transient_vdata->getNumChildren());
-  #endif
-  FILE_LOG(LOG_SIMULATOR) << "+stepping simulation from time: " << this->current_time << std::endl;
-
-  // store the current generalized coordintes 
-  get_coords(_q0);
-
-  // integrate the systems forward by dt
-  integrate_si_Euler(dt);
-
-  // save the new phase coordinates 
-  get_coords(_qf);
-  get_velocities(_qdf);
-
-  // methods below assume that coords/velocities of the bodies may be modified,
-  // so we need to take precautions to save/restore them as necessary
-  while (dt > (double) 0.0)
-  {
-    // look for events
-    double t = find_and_handle_si_events(dt);
-    if (t > dt)
-      break; // no event.. finish up
-
-    // events have been handled already; reduce dt and keep integrating
-    dt -= t;
-
-    // call the mini-callback
-    if (post_mini_step_callback_fn)
-      post_mini_step_callback_fn(this);
-
-    // get the new velocities
-    get_velocities(_qdf);
-
-    // update the coordinates using the new velocities
-    for (unsigned i=0; i< _q0.size(); i++)
-    {
-      // don't do this for kinematically updated bodies
-      if (_bodies[i]->get_kinematic())
-        continue;
-
-      // update using semi-implicit integration
-      _qf[i] = _qdf[i];
-      _qf[i] *= dt;
-      _qf[i] += _q0[i];
-    }
-  }
-
-  // call the callback 
-  if (post_step_callback_fn)
-    post_step_callback_fn(this);
-  
-  return step_size;
-}
-*/
-
 /// Computes forward dynamics for all bodies
 void EventDrivenSimulator::calc_fwd_dyn() const
 {
@@ -844,189 +648,79 @@ void EventDrivenSimulator::calc_fwd_dyn() const
   }
 }
 
-/// Does a semi-implicit step 
-void EventDrivenSimulator::step_si_Euler(double dt)
+/// Integrates bodies' velocities forward by dt using Euler integration
+void EventDrivenSimulator::integrate_velocities_Euler(double dt)
 {
-  // store the current generalized coordintes 
-  get_coords(_q0);
+  VectorNd qd, qdd;
 
-  // integrate the systems forward by dt
-  integrate_si_Euler(dt);
+  // first compute forward dynamics for all bodies
+  calc_fwd_dyn();
 
-  // save the new phase coordinates 
-  get_coords(_qf);
-  get_velocities(_qdf);
-
-  // methods below assume that coords/velocities of the bodies may be modified,
-  // so we need to take precautions to save/restore them as necessary
-  while (dt > (double) 0.0)
+  // now update all velocities
+  BOOST_FOREACH(DynamicBodyPtr db, _bodies)
   {
-    // look for events
-    double t = find_and_handle_si_events(dt);
-    if (t > dt)
-      break; // no event.. finish up
-
-    // events have been handled already; reduce dt and keep integrating
-    dt -= t;
-
-    // get the new velocities
-    get_velocities(_qdf);
-
-    // update the coordinates using the new velocities
-    for (unsigned i=0; i< _q0.size(); i++)
-    {
-      _qf[i] = _qdf[i];
-      _qf[i] *= dt;
-      _qf[i] += _q0[i];
-    }
+    db->get_generalized_acceleration(qdd);
+    qdd *= dt;
+    db->get_generalized_velocity(DynamicBody::eSpatial, qd);
+    qd += qdd;
+    db->set_generalized_velocity(DynamicBody::eSpatial, qd);
   }
 }
 
-/// Finds and handles first impacting event(s) in [0,dt]; returns time t in [0,dt] of first impacting event(s) and advances bodies' dynamics to time t
-double EventDrivenSimulator::find_events(double dt)
+/// Integrates bodies' positions forward by dt using Euler integration
+void EventDrivenSimulator::integrate_positions_Euler(double dt)
 {
-  vector<Event> cd_events, limit_events;
-  typedef map<Event, double, EventCompare>::const_iterator EtolIter;
+  VectorNd q, qd;
 
-  // clear events 
+  // update all positions 
+  BOOST_FOREACH(DynamicBodyPtr db, _bodies)
+  {
+    db->get_generalized_velocity(DynamicBody::eEuler, qd);
+    qd *= dt;
+    db->get_generalized_coordinates(DynamicBody::eEuler, q);
+    q += qd;
+    db->set_generalized_coordinates(DynamicBody::eEuler, q);
+  }
+}
+
+/// Finds the set of events
+void EventDrivenSimulator::find_events()
+{
+  // clear the set of events
   _events.clear();
 
-  // begin timing for collision detection
-  tms cstart;
-  clock_t start = times(&cstart);
-
-  FILE_LOG(LOG_SIMULATOR) << "-- checking for event in interval [" << (this->current_time) << ", " << (this->current_time+dt) << "] (dt=" << dt << ")" << std::endl;
-
-  // make sure that dt is non-negative
-  assert(dt >= (double) 0.0);
-
-  // setup x0, x1
-  _x0.resize(_q0.size());
-  _x1.resize(_q0.size());
+  // process each articulated body, getting joint events
   for (unsigned i=0; i< _bodies.size(); i++)
   {
-    _x0[i].first = _x1[i].first = _bodies[i];
-    _x0[i].second = _q0[i];
-    _x1[i].second = _qf[i];
+    // see whether the i'th body is articulated
+    ArticulatedBodyPtr ab = dynamic_pointer_cast<ArticulatedBody>(_bodies[i]);
+    if (!ab)
+      continue;
+
+    // if the body is kinematically controlled, do nothing
+    if (ab->get_kinematic())
+      continue;
+    
+    // get limit events 
+    ab->find_limit_events(std::back_inserter(_events));
   }
 
-  // TODO: do collision detection / contact finding here
-
-  // tabulate times for collision detection 
-  tms cstop;  
-  clock_t stop = times(&cstop);
-  coldet_time += (double) (stop-start)/CLOCKS_PER_SEC;
-
-  // check each articulated body for a joint limit event
-  limit_events.clear();
-  find_limit_events(dt, limit_events);
-  _events.insert(_events.end(), limit_events.begin(), limit_events.end());
-
-  // each group of events can be handled in x ways:
-  // 1. one or more events is impacting; all events need to be handled with
-  //    an impact method
-  // 2. all events are separating at the velocity level; these events do not 
-  //    need to be handled
-  // 3. all events are resting at the velocity level; these events need to
-  //    be checked at the acceleration level
-
-  // TODO: fix this
-
-  // output the events
-  if (LOGGING(LOG_EVENT))
-  {
-    FILE_LOG(LOG_EVENT) << "Events to be processed:" << std::endl;
-    for (unsigned i=0; i< _events.size(); i++)
-      FILE_LOG(LOG_EVENT) << _events[i] << std::endl;
-  }
-
-  // if there are no events remaining, return now 
-  if (_events.empty())
-    return 1.0;
-
-  // find the first TOI 
-  return 0.0;
-}
-
-/// Finds and handles first impacting event(s) in [0,dt]; returns time t in [0,dt] of first impacting event(s) and advances bodies' dynamics to time t
-double EventDrivenSimulator::find_and_handle_si_events(double dt)
-{
-  vector<Event> cd_events, limit_events;
-  typedef map<Event, double, EventCompare>::const_iterator EtolIter;
-
-  // clear events 
-  _events.clear();
-
-  // begin timing for collision detection
-  tms cstart;
-  clock_t start = times(&cstart);
-
-  FILE_LOG(LOG_SIMULATOR) << "-- checking for event in interval [" << (this->current_time) << ", " << (this->current_time+dt) << "] (dt=" << dt << ")" << std::endl;
-
-  // make sure that dt is non-negative
-  assert(dt >= (double) 0.0);
-
-  // setup x0, x1
-  _x0.clear();
-  _x1.clear();
+  // find contact events
   for (unsigned i=0; i< _bodies.size(); i++)
-  {
-    if (!_bodies[i]->get_kinematic())
-    {
-      _x0.push_back(std::make_pair(_bodies[i], _q0[i]));
-      _x1.push_back(std::make_pair(_bodies[i], _qf[i]));
-    }
-  }
-
-  // tabulate times for collision detection 
-  tms cstop;  
-  clock_t stop = times(&cstop);
-  coldet_time += (double) (stop-start)/CLOCKS_PER_SEC;
-
-  // TODO: fix this
-
-  // check each articulated body for a joint limit event
-  limit_events.clear();
-  find_limit_events(dt, limit_events);
-  _events.insert(_events.end(), limit_events.begin(), limit_events.end());
-
-  // output the events
-  if (LOGGING(LOG_EVENT))
-  {
-    FILE_LOG(LOG_EVENT) << "Events to be processed:" << std::endl;
-    for (unsigned i=0; i< _events.size(); i++)
-      FILE_LOG(LOG_EVENT) << _events[i] << std::endl;
-  }
-
-  // find and integrate body positions to the time-of-impact
-  double h = integrate_to_TOI(dt);
-
-  // handle the events
-  if (h < dt)
-  {
-    // if h = 0, revalidate all positions
-    if (h < NEAR_ZERO)
-    {
-      BOOST_FOREACH(DynamicBodyPtr db, _bodies)
-      {
-        db->validate_position_variables();
-      }
-    }
-
-    // handle the events
-    handle_events();
-  }
-
-  return h;  
+    for (unsigned j=i+1; j < _bodies.size(); j++)
+      _ccd.find_contacts(_bodies[i], _bodies[j], std::back_inserter(_events));  
 }
 
-/// Finds joint limit events
-void EventDrivenSimulator::find_limit_events(double dt, vector<Event>& events)
+/// Computes the next event time using a linear velocity assumption
+/**
+ * \note the time may be conservative
+ */
+double EventDrivenSimulator::compute_next_event_time() const
 {
-  // clear the vector of events
-  events.clear();
+  // setup inf as the default time
+  double dt = std::numeric_limits<double>::max();
 
-  // process each articulated body, looking for joint events
+  // process each articulated body, looking for next joint events
   for (unsigned i=0; i< _bodies.size(); i++)
   {
     // see whether the i'th body is articulated
@@ -1039,141 +733,49 @@ void EventDrivenSimulator::find_limit_events(double dt, vector<Event>& events)
       continue;
     
     // get limit events in [t, t+dt] (if any)
-    ab->find_limit_events(_q0[i], _qf[i], dt, std::back_inserter(events));
-  }
-}
-
-/// Finds the next time-of-impact out of a set of events
-double EventDrivenSimulator::integrate_to_TOI(double dt)
-{
-  const double INF = std::numeric_limits<double>::max();
-
-  FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::integrate_to_TOI() entered with dt=" << dt << endl;
-
-  // get the iterator start
-  vector<Event>::iterator citer = _events.begin();
-
-  // setup integration performed 
-  double h = (double) 0.0;
-
-/*
-  // loop while the iterator does not point to the end -- may need several
-  // iterations b/c there may be no impacting events in a group 
-  while (citer != _events.end())
-  {
-    // set tmin
-    double tmin = citer->t*dt;
-    FILE_LOG(LOG_SIMULATOR) << "  -- integrate_to_TOI() while loop, current time=" << current_time << " tmin=" << tmin << endl;
-
-    // check for exit
-    if (tmin > dt)
-    {
-      FILE_LOG(LOG_SIMULATOR) << "    " << tmin << " > " << dt << " --> exiting now w/o events" << endl;
-      FILE_LOG(LOG_SIMULATOR) << "    .... but first, integrating bodies forward by " << (dt-h) << std::endl;
-
-      // events vector no longer valid; clear it
-      _events.clear();
-
-      // set the coordinates
-      for (unsigned i=0; i< _bodies.size(); i++)
-      {
-        if (_bodies[i]->get_kinematic())
-          continue;
-        _qf[i] = _qdf[i];
-        _qf[i] *= dt;
-        _qf[i] += _q0[i];
-        _bodies[i]->set_generalized_coordinates(DynamicBody::eEuler, _qf[i]);
-        _bodies[i]->set_generalized_velocity(DynamicBody::eEuler, _qdf[i]);
-      }
-
-      // update current_time
-      current_time += dt;
-
-      return INF;
-    }
-
-    // "integrate" starting coordinates to tmin
-    h += tmin;
-    for (unsigned i=0; i< _q0.size(); i++)
-    {
-      if (_bodies[i]->get_kinematic())
-        continue;
-      _qf[i] = _qdf[i];
-      _qf[i] *= h;
-      _qf[i] += _q0[i];
-      _bodies[i]->set_generalized_coordinates(DynamicBody::eEuler, _qf[i]);
-      _bodies[i]->set_generalized_velocity(DynamicBody::eEuler, _qdf[i]);
-    }
-    FILE_LOG(LOG_SIMULATOR) << "    current time is " << current_time << endl;
-    FILE_LOG(LOG_SIMULATOR) << "    tmin (time to next event): " << tmin << endl;
-    FILE_LOG(LOG_SIMULATOR) << "    moving forward by " << h << endl;
-
-    // check for impacting event
-    bool impacting = citer->determine_event_class() == Event::eNegative;
-
-    // find all events at the same time as the event we are examining
-    for (citer++; citer != _events.end(); citer++)
-    {
-      // see whether we are done
-      if (citer->t*dt > tmin + std::numeric_limits<double>::epsilon())
-        break;
-
-      // see whether this event is impacting (if we don't yet have an
-      // impacting event)
-      if (!impacting)
-        impacting = citer->determine_event_class() == Event::eNegative; 
-    }
-
-    // see whether we are done
-    if (impacting)
-    {
-      // remove remainder of events
-      _events.erase(citer, _events.end());
-
-      // step positions to h (note that we we'll no longer need current value
-      // of _qdf) 
-      for (unsigned i=0; i< _q0.size(); i++)
-      {
-        if (_bodies[i]->get_kinematic())
-          continue;
-        _qf[i] = _qdf[i];
-        _qf[i] *= h;
-        _qf[i] += _q0[i];
-        _bodies[i]->set_generalized_coordinates(DynamicBody::eEuler, _qf[i]);
-        _bodies[i]->set_generalized_velocity(DynamicBody::eEuler, _qdf[i]);
-      }
-
-      // update current time
-      current_time += h;
-
-      return h;
-    }
-    else
-      citer = _events.erase(citer, _events.end());
+    dt = std::min(dt, ab->find_next_joint_limit_time());
   }
 
-  // contact map is empty, no contacts
-  FILE_LOG(LOG_SIMULATOR) << "-- integrate_to_TOI(): no impacts detected; integrating forward by " << dt << endl;
-
-  // events vector is no longer valid; clear it
-  _events.clear();
-
-  // set the coordinates (velocities are already set)
+  // find next contact event time 
   for (unsigned i=0; i< _bodies.size(); i++)
   {
-    if (_bodies[i]->get_kinematic())
-      continue;
-    _qf[i] = _qdf[i];
-    _qf[i] *= dt;
-    _qf[i] += _q0[i];
-    _bodies[i]->set_generalized_coordinates(DynamicBody::eEuler, _qf[i]);
-    _bodies[i]->set_generalized_velocity(DynamicBody::eEuler, _qdf[i]);
+    for (unsigned j=i+1; j< _bodies.size(); j++)
+    {
+      double step = _ccd.find_next_contact_time(_bodies[i], _bodies[j]);
+      dt = std::min(dt, step);
+    }
   }
 
-  // update current_time
-  current_time += dt;
-*/
-  return INF;
+  return dt;
+}
+
+/// Does a semi-implicit step 
+void EventDrivenSimulator::step_si_Euler(double dt)
+{
+  // integrate bodies' velocities forward by dt
+  integrate_velocities_Euler(dt);
+
+  // setup target time
+  double target_time = current_time + dt;
+
+  // while the time to be stepped is not zero...
+  while (current_time < target_time)
+  {
+    // determine constraints (contacts, limits) that are currently active 
+    find_events();
+
+    // solve events to yield new velocities
+    handle_events();
+
+    // get the time of the next event(s)
+    double h = std::min(compute_next_event_time(), target_time - current_time);
+
+    // integrate bodies' positions forward by that time using new velocities  
+    integrate_positions_Euler(h);
+
+    // update s and the current time
+    current_time += h;
+  }
 }
 
 /// Implements Base::load_from_xml()
@@ -1193,15 +795,10 @@ void EventDrivenSimulator::load_from_xml(shared_ptr<const XMLTree> node, map<std
   if (max_event_time_attrib)
     max_event_time = max_event_time_attrib->get_real_value(); 
 
-  // read the minimum special integration step size
-  XMLAttrib* min_special_step_attrib = node->get_attrib("min-special-int-step");
-  if (min_special_step_attrib)
-    min_special_step = min_special_step_attrib->get_real_value();
-
   // read the maximum Euler step
-  XMLAttrib* max_Euler_step_attrib = node->get_attrib("max-Euler-step");
-  if (max_Euler_step_attrib)
-    max_Euler_step = max_Euler_step_attrib->get_real_value();
+  XMLAttrib* Euler_step_attrib = node->get_attrib("Euler-step");
+  if (Euler_step_attrib)
+    euler_step = Euler_step_attrib->get_real_value();
 
   // read the error tolerances
   XMLAttrib* rel_tol_attrib = node->get_attrib("rel-err-tol");
@@ -1236,10 +833,7 @@ void EventDrivenSimulator::save_to_xml(XMLTreePtr node, list<shared_ptr<const Ba
   node->attribs.insert(XMLAttrib("max-event-time", max_event_time));
 
   // save the maximum Euler step
-  node->attribs.insert(XMLAttrib("max-Euler-step", max_Euler_step));
-
-  // save the minimum special integration step
-  node->attribs.insert(XMLAttrib("min-special-int-step", min_special_step));
+  node->attribs.insert(XMLAttrib("Euler-step", euler_step));
 
   // save the error tolerances
   node->attribs.insert(XMLAttrib("rel-err-tol", rel_err_tol));
@@ -1254,35 +848,4 @@ void EventDrivenSimulator::save_to_xml(XMLTreePtr node, list<shared_ptr<const Ba
   }
 }
 
-/// Outputs this class data to the stream
-/**
- * This method outputs all of the low-level details to the stream; if
- * serialization is desired, use save_to_xml() instead.
- * \sa save_to_xml()
- */
-void EventDrivenSimulator::output_object_state(std::ostream& out) const
-{
-  // indicate the object type
-  out << "EventDrivenSimulator object" << std::endl; 
-
-  // output contact parameters
-  out << "  contact parameters: " << std::endl;
-  for  (map<sorted_pair<BasePtr>, shared_ptr<ContactParameters> >::const_iterator i = contact_params.begin(); i != contact_params.end(); i++)
-  {
-    out << "   object1: " << i->first.first << "  object2: ";
-    out << i->first.second << "  parameters: " << i->second << std::endl;
-  }
-
-  // output event impulse callback function
-   out << "  event post impulse callback fn: " << event_post_impulse_callback_fn << std::endl;
-
-  // output event impulse callback data
-   out << "  event post impulse callback data: " << event_post_impulse_callback_data << std::endl;
-
-  // output event callback function
-   out << "  event callback fn: " << event_callback_fn << std::endl;
-
-  // output event callback data
-   out << "  event callback data: " << event_callback_data << std::endl;
-}
 
