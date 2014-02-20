@@ -21,7 +21,6 @@
 #include <Moby/CollisionGeometry.h>  
 #include <Moby/XMLTree.h>
 #include <Moby/CCD.h>
-#include <Moby/EventDrivenSimulator.h>
 
 using boost::dynamic_pointer_cast;
 using boost::static_pointer_cast;
@@ -99,6 +98,100 @@ double CCD::calc_CA_step(DynamicBodyPtr b1, DynamicBodyPtr b2)
   }
 }
 
+/// Computes a conservative advancement step between two dynamic bodies
+double CCD::find_next_contact_time(DynamicBodyPtr b1, DynamicBodyPtr b2)
+{
+  // drill down to pairs of rigid bodies
+  ArticulatedBodyPtr ab1 = dynamic_pointer_cast<ArticulatedBody>(b1);
+  ArticulatedBodyPtr ab2 = dynamic_pointer_cast<ArticulatedBody>(b2);
+  if (ab1 && ab2)
+  {
+    double dt = std::numeric_limits<double>::max();
+    BOOST_FOREACH(RigidBodyPtr rb1, ab1->get_links())
+      BOOST_FOREACH(RigidBodyPtr rb2, ab2->get_links())
+        dt = std::min(dt, find_next_contact_time(rb1, rb2));
+
+    return dt;
+  }
+  else if (ab1)
+  {
+    double dt = std::numeric_limits<double>::max();
+    RigidBodyPtr rb2 = dynamic_pointer_cast<RigidBody>(b2);
+    BOOST_FOREACH(RigidBodyPtr rb1, ab1->get_links())
+      dt = std::min(dt, find_next_contact_time(rb1, rb2));
+
+    return dt;
+  }
+  else if (ab2)
+  {
+    double dt = std::numeric_limits<double>::max();
+    RigidBodyPtr rb1 = dynamic_pointer_cast<RigidBody>(b1);
+    BOOST_FOREACH(RigidBodyPtr rb2, ab2->get_links())
+      dt = std::min(dt, find_next_contact_time(rb1, rb2));
+
+    return dt;
+  }
+  else
+  {
+    RigidBodyPtr rb1 = dynamic_pointer_cast<RigidBody>(b1);
+    RigidBodyPtr rb2 = dynamic_pointer_cast<RigidBody>(b2);
+    return find_next_contact_time(rb1, rb2);
+  }
+}
+
+/// Finds the next event time between two rigid bodies
+double CCD::find_next_contact_time(RigidBodyPtr rbA, RigidBodyPtr rbB)
+{
+  double maxt = std::numeric_limits<double>::max();
+  Point3d pA, pB;
+
+  // don't do CA step if rA == rbB
+  if (rbA == rbB)
+    return maxt;
+
+  // get the distance and closest points between the two bodies
+  BOOST_FOREACH(CollisionGeometryPtr cgA, rbA->geometries)
+    BOOST_FOREACH(CollisionGeometryPtr cgB, rbB->geometries)
+    {
+      // compute distance and closest points
+      double dist = CollisionGeometry::calc_signed_dist(cgA, cgB, pA, pB);
+
+      // special case: distance is zero or less
+      if (dist <= 0.0)
+        continue; 
+
+      // get the direction of the vector from body B to body A
+      Vector3d d0 = Pose3d::transform_vector(GLOBAL, pA) - 
+                    Pose3d::transform_vector(GLOBAL, pB);
+  
+      // get the direction of the vector (from body B to body A)
+      Vector3d n0 = d0/dist;
+      Vector3d nA = Pose3d::transform_vector(rbA->get_pose(), n0);
+      Vector3d nB = Pose3d::transform_vector(rbB->get_pose(), n0);
+
+      // get rA and rB
+      Point3d rA = Pose3d::transform_point(rbA->get_pose(), pA);
+      Point3d rB = Pose3d::transform_point(rbB->get_pose(), pB);
+
+      // compute the distance that body A can move toward body B
+      double velA = calc_max_velocity(rbA, -nA, rA);
+
+      // compute the distance that body B can move toward body A
+      double velB = calc_max_velocity(rbB, nB, rB);
+
+      // compute the total velocity 
+      double total_vel = velA + velB;
+      if (total_vel < 0.0)
+        total_vel = 0.0;
+
+      // compute the maximum safe step
+      maxt = std::min(maxt, dist/total_vel);
+    }
+
+  // return the maximum safe step
+  return maxt;
+}
+
 /// Computes a conservative advancement step between two rigid bodies
 double CCD::calc_CA_step(RigidBodyPtr rbA, RigidBodyPtr rbB)
 {
@@ -152,6 +245,18 @@ double CCD::calc_CA_step(RigidBodyPtr rbA, RigidBodyPtr rbB)
   return maxt;
 }
 
+/// Computes the maximum velocity along a particular direction (n) 
+double CCD::calc_max_velocity(RigidBodyPtr rb, const Vector3d& n, const Vector3d& r)
+{
+  const unsigned X = 0, Y = 1, Z = 2;
+
+  // get the velocities at t0
+  const SVelocityd& v0 = Pose3d::transform(rb->get_pose(), rb->get_velocity());
+  Vector3d xd0 = v0.get_linear();
+  Vector3d w0 = v0.get_angular();
+  return n.dot(xd0 + Vector3d::cross(w0, r)); 
+}
+
 /// Solves the LP that maximizes <n, v + w x r>
 double CCD::calc_max_dist_per_t(RigidBodyPtr rb, const Vector3d& n, const Vector3d& r)
 {
@@ -192,114 +297,6 @@ double CCD::calc_max_dist_per_t(RigidBodyPtr rb, const Vector3d& n, const Vector
 
   // solve the LP
   return n.dot(xd0 + Vector3d::cross(w0, r)) + solve_lp(_c, _l, _u, _x); 
-}
-
-/// Determines contact data between two geometries that are separated
-void CCD::find_contacts_separated(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, std::list<Event>& e)
-{
-/*
- 
-  // distance functions
-  // 1) computing separating distance between bodies (for CA)
-  // 2) computing interpenetration between bodies (for constraint vio)
-  // 3) computing separating distance between bodies and normal (for contacts)
-  //    -- for interpenetrating bodies, this includes finding points
-  //       of interpenetration
- */
-  std::vector<Point3d> vA, vB;
-  Point3d pA, pB;
-  Vector3d n;
-
-  // get the distance between the closest points 
-  double min_dist = CollisionGeometry::calc_signed_dist(cgA, cgB, pA, pB);
-
-  // get the vertices from A and B
-  cgA->get_vertices(vA);
-  cgB->get_vertices(vB);
-
-  // examine all points from A against B  
-  for (unsigned i=0; i< vA.size(); i++)
-  {
-    // get the distance from the point to the primitive 
-    double dist = cgB->calc_dist_and_normal(vA[i], n);
-
-    // see whether the distance is comparable to the minimum distance
-    if (dist - NEAR_ZERO <= min_dist)
-      e.push_back(create_contact(cgA, cgB, vA[i], n)); 
-  }    
-
-  // examine all points from B against A
-  for (unsigned i=0; i< vB.size(); i++)
-  {
-    // get the distance from the point to the primitive 
-    double dist = cgA->calc_dist_and_normal(vB[i], n);
-
-    // see whether the distance is comparable to the minimum distance
-    if (dist - NEAR_ZERO <= min_dist)
-      e.push_back(create_contact(cgA, cgB, vB[i], -n)); 
-  }    
-}
-
-/// Determines contact data between two geometries that are touching or interpenetrating 
-void CCD::find_contacts_not_separated(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, std::list<Event>& e)
-{
-  std::vector<Point3d> vA, vB;
-  Vector3d n;
-
-  // indicate, as of yet, no contacts have been added
-  bool added = false;
-
-  // get the vertices from A and B
-  cgA->get_vertices(vA);
-  cgB->get_vertices(vB);
-
-  // examine all points from A against B  
-  for (unsigned i=0; i< vA.size(); i++)
-  {
-    // see whether the point is inside the primitive
-    if (cgB->calc_dist_and_normal(vA[i], n) <= 0.0)
-    {
-      e.push_back(create_contact(cgA, cgB, vA[i], n)); 
-      added = true;
-    }
-  }
-
-  // examine all points from B against A
-  for (unsigned i=0; i< vB.size(); i++)
-  {
-    // see whether the point is inside the primitive
-    if (cgA->calc_dist_and_normal(vB[i], n) <= 0.0)
-    {
-      e.push_back(create_contact(cgA, cgB, vB[i], -n)); 
-      added = true;
-    }
-  }
-
-  // if no contacts have been found, use the separated distance function
-  if (!added)
-  {
-    // examine all points from A against B  
-    for (unsigned i=0; i< vA.size(); i++)
-    {
-      // get the distance from the point to the primitive 
-      double dist = cgB->calc_dist_and_normal(vA[i], n);
-
-      // see whether the distance is comparable to the minimum distance
-      if (dist <= NEAR_ZERO)
-        e.push_back(create_contact(cgA, cgB, vA[i], n)); 
-    }    
-
-    // examine all points from B against A
-    for (unsigned i=0; i< vB.size(); i++)
-    {
-      // get the distance from the point to the primitive 
-      double dist = cgA->calc_dist_and_normal(vB[i], n);
-
-      // see whether the distance is comparable to the minimum distance
-      if (dist <= NEAR_ZERO)
-        e.push_back(create_contact(cgA, cgB, vB[i], -n)); 
-    }    
-  }
 }
 
 /// Determines the appropriate elements of the bounds vector

@@ -25,52 +25,12 @@ class EventDrivenSimulator : public Simulator
 {
   friend class CollisionDetection;
 
-  private:
-    // class for comparing two events for purposes of setting event tolerances
-    class EventCompare
-    {
-      public: bool operator()(const Event& a, const Event& b) const
-      {
-        // check for event type disparity
-        if (a.event_type != b.event_type)
-          return a.event_type < b.event_type;
-
-        // event types are the same - now each event type must be processed
-        // separately
-        if (a.event_type == Event::eContact)
-        {
-          // see whether the bodies are the same
-          return make_sorted_pair(a.contact_geom1->get_single_body(), a.contact_geom2->get_single_body()) < make_sorted_pair(b.contact_geom1->get_single_body(), b.contact_geom2->get_single_body());
-        }
-        else if (a.event_type == Event::eLimit)
-        {
-          // check whether the joints are the same
-          if (a.limit_joint != b.limit_joint)
-            return a.limit_joint < b.limit_joint;
-
-          // check whether the limits are the same
-          if (a.limit_upper != b.limit_upper)
-            return a.limit_upper < b.limit_upper;
-
-          // finally, check whether the DOFs are the same
-          return a.limit_dof < b.limit_dof;
-        }
-        else // event is a constraint event
-        {
-          return a.constraint_joint < b.constraint_joint; 
-        }  
-      }
-    };
-
   public:
     EventDrivenSimulator();
     virtual ~EventDrivenSimulator() {}
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
-    virtual void output_object_state(std::ostream& out) const;
     virtual double step(double dt);
-    void get_coords(std::vector<Ravelin::VectorNd>& q) const;
-    void get_velocities(std::vector<Ravelin::VectorNd>& q) const;
 
     /// Determines whether two geometries are not checked
     std::set<sorted_pair<CollisionGeometryPtr> > unchecked_pairs;
@@ -141,32 +101,20 @@ class EventDrivenSimulator : public Simulator
     void check_pairwise_constraint_violations();
 
   private:
+    double compute_next_event_time() const;
+    void integrate_velocities_Euler(double dt);
+    void integrate_positions_Euler(double dt);
     void save_state();
     void restore_state();
     void calc_fwd_dyn() const;
-    void integrate_si_Euler(double dt);
+    void step_si_Euler(double dt);
     void integrate_DAE(double dt);
     static void determine_treated_bodies(std::list<std::list<Event*> >& groups, std::vector<DynamicBodyPtr>& bodies);
-    double find_events(double dt);
-    double find_next_event_time() const;
-    void remove_next_events();
-    double find_and_handle_si_events(double dt);
+    void find_events();
     void preprocess_event(Event& e);
-    void find_limit_events(double dt, std::vector<Event>& limit_events);
-    double integrate_to_TOI(double dt); 
     void handle_events();
     boost::shared_ptr<ContactParameters> get_contact_parameters(CollisionGeometryPtr geom1, CollisionGeometryPtr geom2) const;
-    bool has_active_acceleration_events() const;
-    bool has_active_velocity_events() const;
-    bool solve_acceleration_events();
-    void step_adaptive_si_Euler(double dt);
-    void step_si_Euler(double dt);
-    void set_coords(double t);
-    void set_velocities(double t);
-    void set_coords(const std::vector<Ravelin::VectorNd>& q) const;
-    void set_velocities(const std::vector<Ravelin::VectorNd>& qd) const;
-    void compute_directional_derivatives();
-    double calc_CA_step(double dt) const;
+    double calc_CA_step() const;
     void update_constraint_violations();
     void determine_geometries();
 
@@ -185,20 +133,14 @@ class EventDrivenSimulator : public Simulator
     /// The vector of events
     std::vector<Event> _events;
 
-    /// Event tolerances
-    std::map<Event, double, EventCompare> _event_tolerances;
-
     /// Interpenetration constraint violation tolerances
     std::map<sorted_pair<CollisionGeometryPtr>, double> _ip_tolerances;
 
     /// Object for handling impact events
     ImpactEventHandler _impact_event_handler;
 
-    /// The step size below which to take semi-implicit steps
-    double min_special_step;
-
-    /// The maximum Euler step size
-    double max_Euler_step;
+    /// The Euler step size
+    double euler_step;
 
     /// The geometries in the simulator
     std::list<CollisionGeometryPtr> _geometries;
