@@ -41,7 +41,7 @@ class TriangleMeshPrimitive : public Primitive
     virtual void set_deformable(bool flag);
     void set_mesh(boost::shared_ptr<const IndexedTriArray> mesh);
     virtual void set_pose(const Ravelin::Pose3d& T);
-    virtual double calc_signed_dist(boost::shared_ptr<const Primitive> p, const Ravelin::Transform3d& thisTb, Point3d& pthis, Point3d& pp) const;
+    virtual double calc_signed_dist(boost::shared_ptr<const Primitive> p, boost::shared_ptr<const Ravelin::Pose3d> pose_this, boost::shared_ptr<const Ravelin::Pose3d> pose_p, Point3d& pthis, Point3d& pp) const;
 
   private:
     void center();

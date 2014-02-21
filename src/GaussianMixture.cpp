@@ -95,7 +95,8 @@ double GaussianMixture::calc_dist_and_normal(const Point3d& p, Vector3d& normal)
 }
 
 /// Finds the signed distance between the sphere and another primitive
-double GaussianMixture::calc_signed_dist(shared_ptr<const Primitive> primitive, const Transform3d& primTthis, Point3d& pthis, Point3d& pprimitive) const
+double GaussianMixture::calc_signed_dist(shared_ptr<const Primitive> primitive, shared_ptr<const Pose3d> pose_this, shared_ptr<const Pose3d> pose_primitive, Point3d& pthis, Point3d& pprimitive) const
+
 {
   assert(false);
   return 0.0; 

@@ -469,7 +469,7 @@ void ConePrimitive::calc_mass_properties()
 }
 
 /// Finds the signed distance between the cylinder and another primitive
-double ConePrimitive::calc_signed_dist(shared_ptr<const Primitive> primitive, const Transform3d& primTthis, Point3d& pthis, Point3d& pprimitive) const
+double ConePrimitive::calc_signed_dist(shared_ptr<const Primitive> primitive, shared_ptr<const Pose3d> pose_this, shared_ptr<const Pose3d> pose_p, Point3d& pthis, Point3d& pprimitive) const
 {
   // TODO: implement this
   assert(false);
