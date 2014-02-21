@@ -37,7 +37,7 @@ class ConePrimitive : public Primitive
     virtual void set_pose(const Ravelin::Pose3d& T);
     virtual double calc_dist_and_normal(const Point3d& p, Ravelin::Vector3d& normal) const;
     virtual const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >& get_sub_mesh(BVPtr bv);
-    virtual double calc_signed_dist(boost::shared_ptr<const Primitive> p, const Ravelin::Transform3d& thisTb, Point3d& pthis, Point3d& pp) const;
+    virtual double calc_signed_dist(boost::shared_ptr<const Primitive> p, boost::shared_ptr<const Ravelin::Pose3d> pose_this, boost::shared_ptr<const Ravelin::Pose3d> pose_p, Point3d& pthis, Point3d& pp) const;
     virtual boost::shared_ptr<const IndexedTriArray> get_mesh();
     virtual osg::Node* create_visualization();
     double calc_dist(const SpherePrimitive* s, Point3d& pcone, Point3d& psph) const;

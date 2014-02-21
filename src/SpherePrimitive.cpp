@@ -15,6 +15,7 @@
 #include <Moby/XMLTree.h>
 #include <Moby/BoundingSphere.h>
 #include <Moby/CollisionGeometry.h>
+#include <Moby/BoxPrimitive.h>
 #include <Moby/SpherePrimitive.h>
 
 using namespace Ravelin;
@@ -24,6 +25,7 @@ using std::map;
 using std::vector;
 using std::list;
 using std::pair;
+using boost::dynamic_pointer_cast;
 using std::make_pair;
 
 /// Creates a sphere with radius 1.0 and 100 points 
@@ -78,23 +80,26 @@ SpherePrimitive::SpherePrimitive(double radius, unsigned n, const Pose3d& T) : P
 }
 
 /// Computes the distance from another sphere primitive
-double SpherePrimitive::calc_dist(const SpherePrimitive* s, Point3d& pthis, Point3d& ps) const
+double SpherePrimitive::calc_signed_dist(shared_ptr<const SpherePrimitive> s, shared_ptr<const Pose3d> pose_this, shared_ptr<const Pose3d> pose_s, Point3d& pthis, Point3d& ps) const
 {
+  // get the transform from s to this
+  Transform3d T = Pose3d::calc_relative_pose(pose_s, pose_this);
+
   // compute the distance
-  double d = _radius - s->_radius - (get_pose()->x - s->get_pose()->x).norm();
+  double d = _radius - s->_radius - T.x.norm();
 
   // setup poses
   pthis.pose = get_pose();
   ps.pose = s->get_pose();
 
   // setup sphere centers in alternate frames
-  Point3d ps_c(0.0, 0.0, 0.0, s->get_pose());
-  Point3d pthis_c(0.0, 0.0, 0.0, get_pose());
+  Point3d ps_c(0.0, 0.0, 0.0, pose_s);
+  Point3d pthis_c(0.0, 0.0, 0.0, pose_this);
 
   // setup closest points
-  pthis = Pose3d::transform_point(get_pose(), ps_c);
+  pthis = Pose3d::transform_point(pose_this, ps_c);
   pthis.normalize();
-  ps = Pose3d::transform_point(s->get_pose(), pthis_c);
+  ps = Pose3d::transform_point(pose_s, pthis_c);
   ps.normalize();
 
   // scale closest points appropriately
@@ -105,8 +110,8 @@ double SpherePrimitive::calc_dist(const SpherePrimitive* s, Point3d& pthis, Poin
   }
   else
   {
-    pthis *= _radius-d;
-    ps *= s->_radius-d;
+    pthis *= _radius+d;
+    ps *= s->_radius+d;
   }
 
   return d;
@@ -296,9 +301,23 @@ void SpherePrimitive::get_vertices(std::vector<Point3d>& vertices)
 }
 
 /// Finds the signed distance between the sphere and another primitive
-double SpherePrimitive::calc_signed_dist(shared_ptr<const Primitive> primitive, const Transform3d& primTthis, Point3d& pthis, Point3d& pprimitive) const
+double SpherePrimitive::calc_signed_dist(shared_ptr<const Primitive> p, shared_ptr<const Pose3d> pose_this, shared_ptr<const Pose3d> pose_p, Point3d& pthis, Point3d& pp) const
 {
-  
+  // first try box/sphere
+  shared_ptr<const BoxPrimitive> boxp = dynamic_pointer_cast<const BoxPrimitive>(p);
+  if (boxp)
+  {
+    shared_ptr<const SpherePrimitive> thisp = dynamic_pointer_cast<const SpherePrimitive>(shared_from_this());
+    return boxp->calc_signed_dist(thisp, pose_p, pose_this, pp, pthis);
+  }
+
+  // now try sphere/sphere
+  shared_ptr<const SpherePrimitive> spherep = dynamic_pointer_cast<const SpherePrimitive>(p);
+  if (spherep)
+    return calc_signed_dist(spherep, pose_this, pose_p, pthis, pp);
+
+  assert(false);
+  return 0.0;
 }
 
 /// Finds the signed distance betwen the sphere and a point

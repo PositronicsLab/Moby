@@ -70,23 +70,25 @@ BoxPrimitive::BoxPrimitive(double xlen, double ylen, double zlen, const Pose3d& 
 }
 
 /// Computes the signed distance from the box to a primitive
-double BoxPrimitive::calc_signed_dist(shared_ptr<const Primitive> p, const Transform3d& thisTp, Point3d& pthis, Point3d& pp) const
+double BoxPrimitive::calc_signed_dist(shared_ptr<const Primitive> p, shared_ptr<const Pose3d> poseA, shared_ptr<const Pose3d> poseB, Point3d& pthis, Point3d& pp) const
 {
   // first try box/box
   shared_ptr<const BoxPrimitive> boxp = dynamic_pointer_cast<const BoxPrimitive>(p);
   if (boxp)
-    return calc_signed_dist(boxp, thisTp, pthis, pp);
+    return calc_signed_dist(boxp, poseA, poseB, pthis, pp);
   
   // now try box/sphere
   shared_ptr<const SpherePrimitive> spherep = dynamic_pointer_cast<const SpherePrimitive>(p);
   if (spherep)
-    return calc_signed_dist(spherep, thisTp, pthis, pp);
+    return calc_signed_dist(spherep, poseA, poseB, pthis, pp);
 
   // TODO: verify transform is set in the proper order
+  // TODO: finish implementing pairwise checks
+  assert(false);
 }
 
 /// Computes the signed distance from one box to another
-double BoxPrimitive::calc_signed_dist(shared_ptr<const BoxPrimitive> box, const Transform3d& thisTbox, Point3d& pthis, Point3d& pbox) const
+double BoxPrimitive::calc_signed_dist(shared_ptr<const BoxPrimitive> box, shared_ptr<const Pose3d> poseA, shared_ptr<const Pose3d> poseB, Point3d& pthis, Point3d& pbox) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
   const unsigned UINF = std::numeric_limits<unsigned>::max();
@@ -95,8 +97,8 @@ double BoxPrimitive::calc_signed_dist(shared_ptr<const BoxPrimitive> box, const 
   static VectorNd c, z, lb, ub;
 
   // get the two poses
-  shared_ptr<Pose3d> Pa(new Pose3d(get_pose()));
-  shared_ptr<Pose3d> Pb(new Pose3d(box->get_pose()));
+  shared_ptr<Pose3d> Pa(new Pose3d(poseA));
+  shared_ptr<Pose3d> Pb(new Pose3d(poseB));
 
   // convert them to global frame
   Pa->update_relative_pose(GLOBAL);
@@ -106,6 +108,9 @@ double BoxPrimitive::calc_signed_dist(shared_ptr<const BoxPrimitive> box, const 
   Origin3d ca = Pa->x;
   Origin3d cb = Pb->x;
   Origin3d camcb = ca - cb;
+
+  FILE_LOG(LOG_COLDET) << "This box center: " << ca << std::endl;
+  FILE_LOG(LOG_COLDET) << "Other box center: " << cb << std::endl;
 
   // get the axes of Pa
   Matrix3d Ra = Pa->q;
@@ -138,7 +143,7 @@ double BoxPrimitive::calc_signed_dist(shared_ptr<const BoxPrimitive> box, const 
   // get point closest to box's center
   Origin3d closest_this = ca + bax*z[X] + bay*z[Y] + baz*z[Z];
   Point3d pthis0(closest_this, GLOBAL);
-  pthis = Pose3d::transform_point(get_pose(), pthis0);
+  pthis = Pose3d::transform_point(poseA, pthis0);
 
   // solve another QP for point closest to a's center
   // get the axes of Pb
@@ -168,14 +173,25 @@ double BoxPrimitive::calc_signed_dist(shared_ptr<const BoxPrimitive> box, const 
   // get point closest to this's center
   Origin3d closest_box = cb + bbx*z[X] + bby*z[Y] + bbz*z[Z];
   Point3d pbox0(closest_box, GLOBAL);
-  pbox = Pose3d::transform_point(box->get_pose(), pbox0);
+  pbox = Pose3d::transform_point(poseB, pbox0);
+
+  FILE_LOG(LOG_COLDET) << "Closest point on this box (global frame): " << pthis0 << std::endl;
+  FILE_LOG(LOG_COLDET) << "Closest point on this box (this collision geometry frame): " << pthis << std::endl;
+  FILE_LOG(LOG_COLDET) << "Closest point on other box (global frame): " << pbox0 << std::endl;
+  FILE_LOG(LOG_COLDET) << "Closest point on other box (other collision geometry frame): " << pbox << std::endl;
 
   // setup temporary variable
   Vector3d dummy_normal;
 
+  // we must setup points in *primitive* frames
+  Point3d box_test = Pose3d::transform_point(poseB, pthis);
+  Point3d this_test = Pose3d::transform_point(poseA, pbox);
+  box_test.pose = box->get_pose();
+  this_test.pose = get_pose();
+
   // determine distances from centers of boxes
-  double dthis = box->calc_dist_and_normal(pthis, dummy_normal);
-  double dbox = calc_dist_and_normal(pbox, dummy_normal);
+  double dthis = box->calc_dist_and_normal(box_test, dummy_normal);
+  double dbox = calc_dist_and_normal(this_test, dummy_normal);
 
   // look whether point is inside a box
   if (dthis <= 0.0 || dbox <= 0.0)
@@ -186,34 +202,31 @@ double BoxPrimitive::calc_signed_dist(shared_ptr<const BoxPrimitive> box, const 
 }
 
 /// Gets the distance of this box from a sphere
-double BoxPrimitive::calc_signed_dist(shared_ptr<const SpherePrimitive> s, const Transform3d& boxTsph, Point3d& pbox, Point3d& psph) const
+double BoxPrimitive::calc_signed_dist(shared_ptr<const SpherePrimitive> s, shared_ptr<const Pose3d> pose_this, shared_ptr<const Pose3d> pose_s, Point3d& pbox, Point3d& psph) const
 {
-// TODO: fix this function
+  // get the transform from B to A
+  Transform3d T = Pose3d::calc_relative_pose(pose_s, pose_this);
 
-  // compute the distance from the sphere center to the box's coordinate system
-  Point3d sph_c(0.0, 0.0, 0.0, s->get_pose());
+  // get the sphere center in pose A's frame 
+  Point3d sph_c(0.0, 0.0, 0.0, pose_s);
+  Point3d sph_c_A = T.transform_point(sph_c);
 
-// TODO: fix calc_dist_and_normal(.) call
+  // update frame on sph_c_A to match this
+  sph_c_A.pose = get_pose();
+
   // get the closest point
-  double dist = calc_dist_and_normal(sph_c, pbox) - s->get_radius();
+  double dist = calc_closest_point(sph_c_A, pbox) - s->get_radius();
+
+  // transform point on box
+  pbox.pose = pose_this;
+
+  // compute farthest interpenetration of box inside sphere
+  Point3d box_c(0.0, 0.0, 0.0, pose_this);
+  psph = Pose3d::transform_point(pose_s, box_c);
+  psph.normalize();
 
   // determine closest point on the sphere 
-  if (dist < 0.0)
-  {
-    // compute farthest interpenetration of box inside sphere
-    Point3d box_c(0.0, 0.0, 0.0, get_pose());
-    psph = sph_c - Pose3d::transform_point(s->get_pose(), box_c);
-    psph.normalize();
-    psph *= -dist;
-  }
-  else
-  {
-    // determine closest point on the sphere using the vector from the sphere 
-    // center to the closest point on the box
-    psph = Pose3d::transform_point(s->get_pose(), pbox) - sph_c;
-    psph.normalize();
-    psph *= s->get_radius();
-  }
+  psph *= (s->get_radius() + std::min(dist, 0.0));
 
   return dist;
 }
@@ -433,8 +446,8 @@ void BoxPrimitive::get_vertices(CollisionGeometryPtr geom, vector<const Point3d*
   for (unsigned i=0; i< verts.size(); i++)
     vertices[i] = &verts[i];
 }
+
 /// Gets the set of vertices for the BoxPrimitive (constructing, if necessary)
-/*
 void BoxPrimitive::get_vertices(CollisionGeometryPtr geom, vector<const Point3d*>& vertices)
 {
   // get the vertices for the geometry
@@ -705,11 +718,61 @@ BVPtr BoxPrimitive::get_BVH_root(CollisionGeometryPtr geom)
   return obb;
 }
 
+/// Computes the closest point on the box to a point (and returns the distance) 
+double BoxPrimitive::calc_closest_point(const Point3d& point, Point3d& closest) const
+{
+  const unsigned X = 0, Y = 1, Z = 2;
+
+  // verify that the point is in this primitive's space
+  assert(point.pose == get_pose());
+
+  // setup extents
+  double extents[3] = { _xlen*0.5, _ylen*0.5, _zlen*0.5 };
+
+  // setup the closest point
+  closest = point;
+
+  FILE_LOG(LOG_COLDET) << "BoxPrimitive::calc_closest_point() entered" << endl; 
+  FILE_LOG(LOG_COLDET) << "  -- querying point " << point << " and box: " << extents[0] << ", " << extents[1] << ", " << extents[2] << endl;
+
+  // compute the squared distance to the point on the box
+  bool inside = true;
+  double sqrDist = 0.0;
+  double intDist = std::numeric_limits<double>::max();
+  double delta;
+  for (unsigned i=0; i< 3; i++)
+  {
+    // see whether this dimension of the point lies below the negative extent
+    if (point[i] < -extents[i])
+    {
+      delta = point[i] + extents[i];
+      closest[i] = -extents[i];
+      sqrDist += delta*delta;
+      inside = false;
+    }
+    // see whether this dimension of the point lies above the positive extent
+    else if (point[i] > extents[i])
+    {
+      delta = point[i] - extents[i];
+      closest[i] = extents[i];
+      sqrDist += delta*delta;
+      inside = false;
+    }
+    else if (inside)
+    {
+      double dist = std::min(point[i] - extents[i], point[i] + extents[i]);
+      intDist = std::min(intDist, dist);
+    }
+  }
+
+  return (inside) ? intDist : std::sqrt(sqrDist);
+}
+
+
 /// Tests whether a point is inside or on the box
 double BoxPrimitive::calc_dist_and_normal(const Point3d& point, Vector3d& normal) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
-  static shared_ptr<Pose3d> P;
 
   // verify that the point is in this primitive's space
   assert(point.pose == get_pose());
@@ -718,7 +781,7 @@ double BoxPrimitive::calc_dist_and_normal(const Point3d& point, Vector3d& normal
   double extents[3] = { _xlen*0.5, _ylen*0.5, _zlen*0.5 };
 
   FILE_LOG(LOG_COLDET) << "BoxPrimitive::calc_dist_and_normal() entered" << endl; 
-  FILE_LOG(LOG_COLDET) << "  -- querying point " << point << " and box: " << extents[0] << ", " << extents[1] << ", " << extents[3] << endl;
+  FILE_LOG(LOG_COLDET) << "  -- querying point " << point << " and box: " << extents[0] << ", " << extents[1] << ", " << extents[2] << endl;
 
   // compute the squared distance to the point on the box
   bool inside = true;
@@ -752,6 +815,8 @@ double BoxPrimitive::calc_dist_and_normal(const Point3d& point, Vector3d& normal
   // case 1: point inside the box
   if (inside)
   {
+    FILE_LOG(LOG_COLDET) << "  point is inside the box; interior dist = " << intDist << endl;
+
     // p is inside the box; determine the normal
     double absPX = extents[X] - std::fabs(point[X]);
     double absPY = extents[Y] - std::fabs(point[Y]);
@@ -786,23 +851,25 @@ double BoxPrimitive::calc_dist_and_normal(const Point3d& point, Vector3d& normal
   }
   else
   {
+    FILE_LOG(LOG_COLDET) << "  point is outside the box, sqr dist: " << sqrDist << endl;
+
     // the contact will be normal to all extents that the contact point
     // lies relatively outside of
     normal.set_zero();
     normal.pose = get_pose();
 
-    if (CompGeom::rel_equal(std::fabs(point[X]), extents[X]))
+    if (std::fabs(point[X]) > extents[X] || CompGeom::rel_equal(std::fabs(point[X]), extents[X]))
       normal[X] = (point[X] > 0.0) ? 1.0 : -1.0;
-    if (CompGeom::rel_equal(std::fabs(point[Y]), extents[Y]))
+    if (std::fabs(point[Y]) > extents[Y] || CompGeom::rel_equal(std::fabs(point[Y]), extents[Y]))
       normal[Y] = (point[Y] > 0.0) ? 1.0 : -1.0;
-    if (CompGeom::rel_equal(std::fabs(point[Z]), extents[Z]))
+    if (std::fabs(point[Z]) > extents[Z] || CompGeom::rel_equal(std::fabs(point[Z]), extents[Z]))
       normal[Z] = (point[Z] > 0.0) ? 1.0 : -1.0;
 
     // normalize the normal vector
     normal.normalize();
   }
 
-  return true;
+  return (inside) ? intDist : std::sqrt(sqrDist);
 }
 
 /**

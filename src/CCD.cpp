@@ -43,6 +43,9 @@ using namespace Moby;
 /// Constructs a collision detector with default tolerances
 CCD::CCD()
 {
+  _l.resize(6);
+  _u.resize(6);
+  _c.resize(6);
 }
 
 /// Computes a conservative advancement step between two dynamic bodies
@@ -149,20 +152,26 @@ double CCD::find_next_contact_time(RigidBodyPtr rbA, RigidBodyPtr rbB)
   if (rbA == rbB)
     return maxt;
 
+  FILE_LOG(LOG_COLDET) << "CCD::find_next_contact_time() entered" << std::endl;
+
   // get the distance and closest points between the two bodies
   BOOST_FOREACH(CollisionGeometryPtr cgA, rbA->geometries)
     BOOST_FOREACH(CollisionGeometryPtr cgB, rbB->geometries)
     {
       // compute distance and closest points
       double dist = CollisionGeometry::calc_signed_dist(cgA, cgB, pA, pB);
+      FILE_LOG(LOG_COLDET) << " -- CCD: reported distance: " << dist << std::endl;
 
       // special case: distance is zero or less
       if (dist <= 0.0)
         continue; 
 
+      // get the closest points in the global frame
+      Point3d pA0 = Pose3d::transform_point(GLOBAL, pA);
+      Point3d pB0 = Pose3d::transform_point(GLOBAL, pB);
+
       // get the direction of the vector from body B to body A
-      Vector3d d0 = Pose3d::transform_vector(GLOBAL, pA) - 
-                    Pose3d::transform_vector(GLOBAL, pB);
+      Vector3d d0 =  pA0 - pB0;
   
       // get the direction of the vector (from body B to body A)
       Vector3d n0 = d0/dist;
@@ -183,6 +192,10 @@ double CCD::find_next_contact_time(RigidBodyPtr rbA, RigidBodyPtr rbB)
       double total_vel = velA + velB;
       if (total_vel < 0.0)
         total_vel = 0.0;
+
+      FILE_LOG(LOG_COLDET) << " -- CCD: normal: " << n0 << std::endl;
+      FILE_LOG(LOG_COLDET) << " -- CCD: projected velocity from A: " << velA << std::endl;
+      FILE_LOG(LOG_COLDET) << " -- CCD: projected velocity from B: " << velB << std::endl;
 
       // compute the maximum safe step
       maxt = std::min(maxt, dist/total_vel);
@@ -214,8 +227,8 @@ double CCD::calc_CA_step(RigidBodyPtr rbA, RigidBodyPtr rbB)
         return 0.0;
 
       // get the direction of the vector from body B to body A
-      Vector3d d0 = Pose3d::transform_vector(GLOBAL, pA) - 
-                    Pose3d::transform_vector(GLOBAL, pB);
+      Vector3d d0 = Pose3d::transform_point(GLOBAL, pA) - 
+                    Pose3d::transform_point(GLOBAL, pB);
   
       // get the direction of the vector (from body B to body A)
       Vector3d n0 = d0/dist;
@@ -237,9 +250,15 @@ double CCD::calc_CA_step(RigidBodyPtr rbA, RigidBodyPtr rbB)
       if (total_dist_per_t < 0.0)
         total_dist_per_t = 0.0;
 
+      FILE_LOG(LOG_COLDET) << "  distance: " << dist << std::endl;
+      FILE_LOG(LOG_COLDET) << "  dist per tA: " << dist_per_tA << std::endl;
+      FILE_LOG(LOG_COLDET) << "  dist per tB: " << dist_per_tB << std::endl;
+
       // compute the maximum safe step
       maxt = std::min(maxt, dist/total_dist_per_t);
     }
+
+  FILE_LOG(LOG_COLDET) << "  maxt: " << maxt << std::endl;
 
   // return the maximum safe step
   return maxt;

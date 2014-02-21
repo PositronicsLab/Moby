@@ -37,7 +37,7 @@ class CSG : public Primitive
     PrimitivePtr get_operand2() const { return _op2; }
     BooleanOperation get_operator() const { return _op; }
     virtual void set_pose(const Ravelin::Pose3d& T);
-    virtual double calc_signed_dist(boost::shared_ptr<const Primitive> b, const Ravelin::Transform3d& bTthis, Point3d& pthis, Point3d& pb) const;
+    virtual double calc_signed_dist(boost::shared_ptr<const Primitive> p, boost::shared_ptr<const Ravelin::Pose3d> pose_this, boost::shared_ptr<const Ravelin::Pose3d> pose_p, Point3d& pthis, Point3d& pb) const;
 
   private:
 //    bool intersect_seg_union(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Ravelin::Vector3d& normal) const;

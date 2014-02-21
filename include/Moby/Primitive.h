@@ -49,13 +49,12 @@ class Primitive : public virtual Base
     void set_mass(double mass);
     void set_density(double density);
     virtual void set_pose(const Ravelin::Pose3d& T);
-    static double calc_signed_dist(PrimitivePtr a, PrimitivePtr b, Ravelin::Transform3d& bTa, Point3d& pa, Point3d& pb) { return a->calc_signed_dist(boost::const_pointer_cast<const Primitive>(b), bTa, pa, pb); }
 
     /// Computes the distance between a point and this primitive
     virtual double calc_dist_and_normal(const Point3d& p, Ravelin::Vector3d& normal) const = 0;
 
     /// Computes the signed distance between this and another primitive
-    virtual double calc_signed_dist(boost::shared_ptr<const Primitive> b, const Ravelin::Transform3d& bTthis, Point3d& pthis, Point3d& pb) const = 0;
+    virtual double calc_signed_dist(boost::shared_ptr<const Primitive> p, boost::shared_ptr<const Ravelin::Pose3d> pose_this, boost::shared_ptr<const Ravelin::Pose3d> pose_p, Point3d& pthis, Point3d& pp) const = 0;
 
      /// Gets the visualization for this primitive
     virtual osg::Node* get_visualization();

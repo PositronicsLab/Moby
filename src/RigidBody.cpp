@@ -55,6 +55,10 @@ RigidBody::RigidBody()
   // setup secondary link pose
   _F2 = shared_ptr<Pose3d>(new Pose3d);
 
+  // setup poses for acceleration bounds
+  _accel_limit_lo.set_zero(_F);
+  _accel_limit_hi.set_zero(_F);
+
   // invalidate everything
   _forcei_valid = false;
   _forcej_valid = false;
@@ -82,7 +86,6 @@ RigidBody::RigidBody()
 void RigidBody::reset_limit_estimates()
 {
  _accel_limit_exceeded = false; 
-// _accel_limit = 0.0;
 }
 
 // implement this

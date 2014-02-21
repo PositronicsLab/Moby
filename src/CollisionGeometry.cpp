@@ -169,7 +169,7 @@ double CollisionGeometry::calc_dist_and_normal(const Point3d& p, Vector3d& norma
   Pose->rpose = get_pose();
 
   // transform point to the primitive space
-  Point3d px = Pose3d::transform_point(Pose, p);
+  Point3d px = Pose3d::transform_point(primitive->get_pose(), Pose3d::transform_point(Pose, p));
 
   // call the primitive function
   return primitive->calc_dist_and_normal(px, normal);
@@ -186,23 +186,16 @@ double CollisionGeometry::calc_signed_dist(CollisionGeometryPtr gA, CollisionGeo
   assert(!primA->get_pose()->rpose);
   assert(!primB->get_pose()->rpose);
 
-  // setup new poses for primitives A and B that refer to the underlying 
-  // geometry
+  // setup new pose for primitive A that refers to the underlying geometry
   shared_ptr<Pose3d> PoseA(new Pose3d(*primA->get_pose()));
-  shared_ptr<Pose3d> PoseB(new Pose3d(*primB->get_pose()));
   PoseA->rpose = gA->get_pose();
+
+  // setup new pose for primitive B that refers to the underlying geometry
+  shared_ptr<Pose3d> PoseB(new Pose3d(*primB->get_pose()));
   PoseB->rpose = gB->get_pose();
 
-  // setup transforms for transforming points in primitive A to primitive B's
-  // pose
-  Transform3d bTa = Pose3d::calc_relative_pose(PoseA, PoseB);
-
-  // now we have to hack T to point to the underlying poses
-  bTa.source = primA->get_pose(); 
-  bTa.target = primB->get_pose(); 
-
   // now compute the signed distance
-  return Primitive::calc_signed_dist(primA, primB, bTa, pA, pB);
+  return primA->calc_signed_dist(primB, PoseA, PoseB, pA, pB);
 }
 
 /*

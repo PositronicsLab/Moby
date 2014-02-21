@@ -30,8 +30,8 @@ class GaussianMixture : public Primitive
     virtual boost::shared_ptr<const IndexedTriArray> get_mesh() { return _mesh; }
     virtual const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >& get_sub_mesh(BVPtr bv);
     virtual osg::Node* create_visualization();
-    virtual double calc_signed_dist(boost::shared_ptr<const Primitive> b, const Ravelin::Transform3d& bTthis, Point3d& pthis, Point3d& pb) const;
     virtual double calc_dist_and_normal(const Point3d& p, Ravelin::Vector3d& normal) const;
+    virtual double calc_signed_dist(boost::shared_ptr<const Primitive> p, boost::shared_ptr<const Ravelin::Pose3d> pose_this, boost::shared_ptr<const Ravelin::Pose3d> pose_p, Point3d& pthis, Point3d& pb) const;
 
     private:
       static Ravelin::Vector3d grad(const Gauss& g, double x, double y);

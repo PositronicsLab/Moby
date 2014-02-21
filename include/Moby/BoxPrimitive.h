@@ -28,14 +28,15 @@ class BoxPrimitive : public Primitive
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual BVPtr get_BVH_root(CollisionGeometryPtr geom);
     virtual double calc_dist_and_normal(const Point3d& point, Ravelin::Vector3d& normal) const;
+    double calc_closest_point(const Point3d& point, Point3d& closest) const;
     virtual const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >& get_sub_mesh(BVPtr bv);
     virtual void set_pose(const Ravelin::Pose3d& T);
     void set_edge_sample_length(double len);
     virtual boost::shared_ptr<const IndexedTriArray> get_mesh();
     virtual osg::Node* create_visualization();
-    double calc_signed_dist(boost::shared_ptr<const SpherePrimitive> s, const Ravelin::Transform3d& thisTsph, Point3d& pbox, Point3d& psph) const;
-    virtual double calc_signed_dist(boost::shared_ptr<const Primitive> p, const Ravelin::Transform3d& thisTb, Point3d& pthis, Point3d& pp) const;
-    double calc_signed_dist(boost::shared_ptr<const BoxPrimitive> b, const Ravelin::Transform3d& thisTb, Point3d& pthis, Point3d& pb) const;
+    double calc_signed_dist(boost::shared_ptr<const SpherePrimitive> s, boost::shared_ptr<const Ravelin::Pose3d> pose_this, boost::shared_ptr<const Ravelin::Pose3d> pose_sph, Point3d& pthis, Point3d& psph) const;
+    virtual double calc_signed_dist(boost::shared_ptr<const Primitive> p, boost::shared_ptr<const Ravelin::Pose3d> pose_this, boost::shared_ptr<const Ravelin::Pose3d> pose_p, Point3d& pthis, Point3d& pp) const;
+    double calc_signed_dist(boost::shared_ptr<const BoxPrimitive> box, boost::shared_ptr<const Ravelin::Pose3d> pose_this, boost::shared_ptr<const Ravelin::Pose3d> pose_box, Point3d& pthis, Point3d& pbox) const;
     virtual void get_vertices(std::vector<Point3d>& p);
 
     /// Get the x-length of this box

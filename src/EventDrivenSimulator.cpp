@@ -415,6 +415,16 @@ double EventDrivenSimulator::step(double step_size)
   #endif
   FILE_LOG(LOG_SIMULATOR) << "+stepping simulation from time: " << this->current_time << std::endl;
 
+  if (LOGGING(LOG_SIMULATOR))
+  {
+    VectorNd q;
+    BOOST_FOREACH(DynamicBodyPtr db, _bodies)
+    {
+      db->get_generalized_coordinates(DynamicBody::eEuler, q);
+      FILE_LOG(LOG_SIMULATOR) << " body " << db->id << " coordinates (before): " << q << std::endl;
+    }
+  }
+
   // TODO: should we clear the limits on each step? Compute a running
   //       mean? Compute a mean with a forgetting factor?
 
@@ -752,8 +762,11 @@ double EventDrivenSimulator::compute_next_event_time() const
 /// Does a semi-implicit step 
 void EventDrivenSimulator::step_si_Euler(double dt)
 {
+  FILE_LOG(LOG_SIMULATOR) << "-- doing semi-implicit Euler step" << std::endl;
+
   // integrate bodies' velocities forward by dt
   integrate_velocities_Euler(dt);
+  FILE_LOG(LOG_SIMULATOR) << "   integrating velocities forward by " << dt << std::endl;
 
   // setup target time
   double target_time = current_time + dt;
@@ -762,16 +775,37 @@ void EventDrivenSimulator::step_si_Euler(double dt)
   while (current_time < target_time)
   {
     // determine constraints (contacts, limits) that are currently active 
+    FILE_LOG(LOG_SIMULATOR) << "   finding events" << std::endl;
     find_events();
 
     // solve events to yield new velocities
+    FILE_LOG(LOG_SIMULATOR) << "   handling events" << std::endl;
     handle_events();
+    if (LOGGING(LOG_SIMULATOR))
+    {
+      VectorNd qd;
+      BOOST_FOREACH(DynamicBodyPtr db, _bodies)
+      {
+        db->get_generalized_velocity(DynamicBody::eSpatial, qd);
+        FILE_LOG(LOG_SIMULATOR) << " body " << db->id << " velocity (after event treatment): " << qd << std::endl;
+      }
+    }
 
     // get the time of the next event(s)
     double h = std::min(compute_next_event_time(), target_time - current_time);
+    FILE_LOG(LOG_SIMULATOR) << "   position integration: " << h << std::endl;
 
     // integrate bodies' positions forward by that time using new velocities  
     integrate_positions_Euler(h);
+    if (LOGGING(LOG_SIMULATOR))
+    {
+      VectorNd q;
+      BOOST_FOREACH(DynamicBodyPtr db, _bodies)
+      {
+        db->get_generalized_coordinates(DynamicBody::eEuler, q);
+        FILE_LOG(LOG_SIMULATOR) << " body " << db->id << " position (after integration): " << q << std::endl;
+      }
+    }
 
     // update s and the current time
     current_time += h;
