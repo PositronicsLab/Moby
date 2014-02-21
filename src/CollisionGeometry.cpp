@@ -169,7 +169,8 @@ double CollisionGeometry::calc_dist_and_normal(const Point3d& p, Vector3d& norma
   Pose->rpose = get_pose();
 
   // transform point to the primitive space
-  Point3d px = Pose3d::transform_point(primitive->get_pose(), Pose3d::transform_point(Pose, p));
+  Point3d px = Pose3d::transform_point(Pose, p);
+  px.pose = primitive->get_pose();
 
   // call the primitive function
   return primitive->calc_dist_and_normal(px, normal);

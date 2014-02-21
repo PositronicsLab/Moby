@@ -169,8 +169,6 @@ void SpherePrimitive::set_radius(double radius)
 void SpherePrimitive::set_num_points(unsigned n)
 {
   _npoints = n;
-  if (n < 5)
-    throw std::runtime_error("Attempting to call SpherePrimitive::set_num_points() with n < 5");
 
   // vertices are no longer valid
   _vertices.clear();
@@ -222,9 +220,8 @@ shared_ptr<const IndexedTriArray> SpherePrimitive::get_mesh()
 {
   if (!_mesh)
   {
-    // if the radius is zero or the number of points is less than six, create an
-    // empty mesh 
-    if (_radius == 0.0 || _npoints < 6)
+    // if the radius is zero, create an empty mesh 
+    if (_radius == 0.0)
     {
       _mesh = shared_ptr<IndexedTriArray>(new IndexedTriArray());
       _smesh = make_pair(_mesh, list<unsigned>());
@@ -247,6 +244,14 @@ shared_ptr<const IndexedTriArray> SpherePrimitive::get_mesh()
       Vector3d unit(std::cos(PHI)*R, Y, std::sin(PHI)*R);
       points.push_back(T->transform_point(unit*_radius));
     }
+
+    // add points at the extents
+    points.push_back(T->transform_point(Vector3d(+1*_radius,0,0)));
+    points.push_back(T->transform_point(Vector3d(-1*_radius,0,0)));
+    points.push_back(T->transform_point(Vector3d(0,+1*_radius,0)));
+    points.push_back(T->transform_point(Vector3d(0,-1*_radius,0)));
+    points.push_back(T->transform_point(Vector3d(0,0,+1*_radius)));
+    points.push_back(T->transform_point(Vector3d(0,0,-1*_radius)));
 
     // compute the convex hull
     PolyhedronPtr hull = CompGeom::calc_convex_hull(points.begin(), points.end());
@@ -281,11 +286,11 @@ void SpherePrimitive::get_vertices(std::vector<Point3d>& vertices)
   vertices.clear(); 
 
   // look for no vertices 
-  if (_radius == 0.0 || _npoints < 6)
+  if (_radius == 0.0)
     return;
 
   // resize number of points
-  vertices.resize(_npoints);
+  vertices.resize(_npoints+6);
 
   // determine the vertices in the mesh
   // NOTE: they will all be defined in the global frame
@@ -298,6 +303,14 @@ void SpherePrimitive::get_vertices(std::vector<Point3d>& vertices)
     const double PHI = k * INC;
     vertices[k] = Vector3d(std::cos(PHI)*R, Y, std::sin(PHI)*R, get_pose())*_radius;
   }
+
+  // setup vertices at extents of each axis
+  vertices[_npoints+0] = Vector3d(1.0*_radius, 0.0, 0.0, get_pose());
+  vertices[_npoints+1] = Vector3d(-1.0*_radius, 0.0, 0.0, get_pose());
+  vertices[_npoints+2] = Vector3d(0.0, 1.0*_radius, 0.0, get_pose());
+  vertices[_npoints+3] = Vector3d(0.0, -1.0*_radius, 0.0, get_pose());
+  vertices[_npoints+4] = Vector3d(0.0, 0.0, 1.0*_radius, get_pose());
+  vertices[_npoints+5] = Vector3d(0.0, 0.0, -1.0*_radius, get_pose());
 }
 
 /// Finds the signed distance between the sphere and another primitive
