@@ -43,6 +43,9 @@ Joint::Joint()
   // initialize _q_tare
   _q_tare.resize(0);
 
+  // indicate that q tare does not need to be determined
+  _determine_q_tare = false;
+
   // initialize the two frames
   _F = shared_ptr<Pose3d>(new Pose3d);
   _Fb = shared_ptr<Pose3d>(new Pose3d);
@@ -527,9 +530,15 @@ void Joint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, 
   // read the joint positions, if given
   XMLAttrib* q_init_attr = node->get_attrib("q-tare");
   if (q_init_attr)
+  {
     q_init_attr->get_vector_value(_q_tare);
+    _determine_q_tare = false;
+  }
   else
+  {
     _q_tare.set_zero(num_dof());
+    _determine_q_tare = true;
+  }
 
   // read the Coulomb friction coefficient, if given
   XMLAttrib* fc_attr = node->get_attrib("coulomb-friction-coeff");
