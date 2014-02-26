@@ -50,7 +50,7 @@ OutputIterator CCD::find_contacts(RigidBodyPtr rbA, RigidBodyPtr rbB, OutputIter
       double dist = CollisionGeometry::calc_signed_dist(cgA, cgB, pA, pB);
       if (dist <= 0.0)
         output_begin = find_contacts_not_separated(cgA, cgB, output_begin);
-      else
+      else if (dist < NEAR_ZERO)
         output_begin = find_contacts_separated(cgA, cgB, dist, output_begin);
     }
 
