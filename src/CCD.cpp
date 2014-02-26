@@ -148,8 +148,8 @@ double CCD::find_next_contact_time(RigidBodyPtr rbA, RigidBodyPtr rbB)
   double maxt = std::numeric_limits<double>::max();
   Point3d pA, pB;
 
-  // don't do CA step if rA == rbB
-  if (rbA == rbB)
+  // don't do CA step if rA == rbB or both bodies are disabled
+  if (rbA == rbB || (!rbA->is_enabled() && !rbB->is_enabled()))
     return maxt;
 
   FILE_LOG(LOG_COLDET) << "CCD::find_next_contact_time() entered" << std::endl;
@@ -215,7 +215,7 @@ double CCD::calc_CA_step(RigidBodyPtr rbA, RigidBodyPtr rbB)
   Point3d pA, pB;
 
   // don't do CA step if rA == rbB
-  if (rbA == rbB)
+  if (rbA == rbB || (!rbA->is_enabled() && !rbB->is_enabled()))
     return maxt;
 
   // get the distance and closest points between the two bodies

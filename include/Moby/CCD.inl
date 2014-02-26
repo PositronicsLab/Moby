@@ -43,6 +43,9 @@ OutputIterator CCD::find_contacts(DynamicBodyPtr dbA, DynamicBodyPtr dbB, Output
 template <class OutputIterator>
 OutputIterator CCD::find_contacts(RigidBodyPtr rbA, RigidBodyPtr rbB, OutputIterator output_begin) 
 {
+  if (rbA == rbB || (!rbA->is_enabled() && !rbB->is_enabled()))
+    return output_begin;
+
   BOOST_FOREACH(CollisionGeometryPtr cgA, rbA->geometries)
     BOOST_FOREACH(CollisionGeometryPtr cgB, rbB->geometries)
     {
