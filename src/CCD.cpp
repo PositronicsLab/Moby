@@ -172,9 +172,12 @@ double CCD::find_next_contact_time(RigidBodyPtr rbA, RigidBodyPtr rbB)
 
       // get the direction of the vector from body B to body A
       Vector3d d0 =  pA0 - pB0;
-  
+      double d0_norm = d0.norm();
+      FILE_LOG(LOG_COLDET) << "distance between closest points is: " << d0_norm << std::endl;
+      FILE_LOG(LOG_COLDET) << "reported distance is: " << dist << std::endl; 
+ 
       // get the direction of the vector (from body B to body A)
-      Vector3d n0 = d0/dist;
+      Vector3d n0 = d0/d0_norm;
       Vector3d nA = Pose3d::transform_vector(rbA->get_pose(), n0);
       Vector3d nB = Pose3d::transform_vector(rbB->get_pose(), n0);
 
@@ -229,9 +232,12 @@ double CCD::calc_CA_step(RigidBodyPtr rbA, RigidBodyPtr rbB)
       // get the direction of the vector from body B to body A
       Vector3d d0 = Pose3d::transform_point(GLOBAL, pA) - 
                     Pose3d::transform_point(GLOBAL, pB);
-  
+      double d0_norm = d0.norm();
+      FILE_LOG(LOG_COLDET) << "distance between closest points is: " << d0_norm << std::endl;
+      FILE_LOG(LOG_COLDET) << "reported distance is: " << dist << std::endl; 
+ 
       // get the direction of the vector (from body B to body A)
-      Vector3d n0 = d0/dist;
+      Vector3d n0 = d0/d0_norm;
       Vector3d nA = Pose3d::transform_vector(rbA->get_pose(), n0);
       Vector3d nB = Pose3d::transform_vector(rbB->get_pose(), n0);
 
