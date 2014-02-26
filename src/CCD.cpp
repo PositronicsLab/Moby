@@ -163,7 +163,7 @@ double CCD::find_next_contact_time(RigidBodyPtr rbA, RigidBodyPtr rbB)
       FILE_LOG(LOG_COLDET) << " -- CCD: reported distance: " << dist << std::endl;
 
       // special case: distance is zero or less
-      if (dist <= 0.0)
+      if (dist <= NEAR_ZERO)
         continue; 
 
       // get the closest points in the global frame
