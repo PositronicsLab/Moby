@@ -47,15 +47,18 @@ OutputIterator CCD::find_contacts(RigidBodyPtr rbA, RigidBodyPtr rbB, OutputIter
     BOOST_FOREACH(CollisionGeometryPtr cgB, rbB->geometries)
     {
       Point3d pA, pB;
-      if (CollisionGeometry::calc_signed_dist(cgA, cgB, pA, pB) <= 0.0)
+      double dist = CollisionGeometry::calc_signed_dist(cgA, cgB, pA, pB);
+      if (dist <= 0.0)
         output_begin = find_contacts_not_separated(cgA, cgB, output_begin);
+      else
+        output_begin = find_contacts_separated(cgA, cgB, dist, output_begin);
     }
 
   return output_begin; 
 }
 
 template <class OutputIterator>
-OutputIterator CCD::find_contacts_separated(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin)
+OutputIterator CCD::find_contacts_separated(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, double min_dist, OutputIterator output_begin)
 {
 /*
   // distance functions
@@ -71,9 +74,6 @@ OutputIterator CCD::find_contacts_separated(CollisionGeometryPtr cgA, CollisionG
 
   // get the output iterator
   OutputIterator o = output_begin; 
-
-  // get the distance between the closest points 
-  double min_dist = CollisionGeometry::calc_signed_dist(cgA, cgB, pA, pB);
 
   // get the vertices from A and B
   cgA->get_vertices(vA);
