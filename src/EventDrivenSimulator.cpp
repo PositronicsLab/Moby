@@ -305,6 +305,10 @@ void EventDrivenSimulator::visualize_contact( Event& event ) {
 /// Handles events
 void EventDrivenSimulator::handle_events()
 {
+  // if there are no events, quit now
+  if (_events.empty())
+    return;
+
   // call the callback function, if any
   if (event_callback_fn)
     (*event_callback_fn)(_events, event_callback_data);
