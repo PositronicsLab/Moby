@@ -63,17 +63,18 @@ OutputIterator CCD::find_contacts(RigidBodyPtr rbA, RigidBodyPtr rbB, OutputIter
 template <class OutputIterator>
 OutputIterator CCD::find_contacts_separated(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, double min_dist, OutputIterator output_begin)
 {
-/*
-  // distance functions
-  // 1) computing separating distance between bodies (for CA)
-  // 2) computing interpenetration between bodies (for constraint vio)
-  // 3) computing separating distance between bodies and normal (for contacts)
-  //    -- for interpenetrating bodies, this includes finding points
-  //       of interpenetration
- */
   std::vector<Point3d> vA, vB;
   Point3d pA, pB;
   Ravelin::Vector3d n;
+
+  // look for special cases
+  PrimitivePtr primA = cgA->get_geometry();
+  PrimitivePtr primB = cgB->get_geometry();
+  if (typeid(primA) == typeid(boost::shared_ptr<SpherePrimitive>))
+  {
+    if (typeid(primB) == typeid(boost::shared_ptr<SpherePrimitive>))
+      return find_contacts_sphere_sphere(cgA, cgB, output_begin);
+  }
 
   // get the output iterator
   OutputIterator o = output_begin; 
@@ -113,6 +114,15 @@ OutputIterator CCD::find_contacts_not_separated(CollisionGeometryPtr cgA, Collis
 {
   std::vector<Point3d> vA, vB;
   Ravelin::Vector3d n;
+
+  // look for special cases
+  PrimitivePtr pA = cgA->get_geometry();
+  PrimitivePtr pB = cgB->get_geometry();
+  if (typeid(pA) == typeid(boost::shared_ptr<SpherePrimitive>))
+  {
+    if (typeid(pB) == typeid(boost::shared_ptr<SpherePrimitive>))
+      return find_contacts_sphere_sphere(cgA, cgB, output_begin);
+  }
 
   // copy the output iterator
   OutputIterator o = output_begin;
@@ -175,4 +185,43 @@ OutputIterator CCD::find_contacts_not_separated(CollisionGeometryPtr cgA, Collis
   return o;
 }
 
+/// Finds contacts for two spheres (one piece of code works for both separated and non-separated spheres)
+template <class OutputIterator>
+OutputIterator CCD::find_contacts_sphere_sphere(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin)
+{
+  // get the output iterator
+  OutputIterator o = output_begin; 
+
+  // get the two spheres
+  boost::shared_ptr<SpherePrimitive> sA = boost::dynamic_pointer_cast<SpherePrimitive>(cgA->get_geometry());
+  boost::shared_ptr<SpherePrimitive> sB = boost::dynamic_pointer_cast<SpherePrimitive>(cgB->get_geometry());
+
+  // setup new pose for primitive A that refers to the underlying geometry
+  boost::shared_ptr<Ravelin::Pose3d> PoseA(new Ravelin::Pose3d(*sA->get_pose()));
+  PoseA->rpose = cgA->get_pose();
+
+  // setup new pose for primitive B that refers to the underlying geometry
+  boost::shared_ptr<Ravelin::Pose3d> PoseB(new Ravelin::Pose3d(*sB->get_pose()));
+  PoseB->rpose = cgB->get_pose();
+
+  // get the two sphere centers in the global frame
+  PoseA->update_relative_pose(GLOBAL);
+  PoseB->update_relative_pose(GLOBAL);
+  Point3d cA0(PoseA->x, GLOBAL);
+  Point3d cB0(PoseB->x, GLOBAL);
+  
+  // get the closest points on the two spheres
+  Ravelin::Vector3d d = cA0 - cB0;
+  Ravelin::Vector3d n = Ravelin::Vector3d::normalize(d);
+  Point3d closest_A = cA0 - n*sA->get_radius();
+  Point3d closest_B = cB0 + n*sB->get_radius();
+
+  // create the contact point halfway between the closest points
+  Point3d p = (closest_A + closest_B)*0.5;
+
+  // create the normal pointing from B to A
+  *o++ = create_contact(cgA, cgB, p, n); 
+
+  return o;    
+}
 
