@@ -13,6 +13,8 @@
 #include <boost/shared_ptr.hpp>
 #include <Moby/sorted_pair>
 #include <Moby/Log.h>
+#include <Moby/SpherePrimitive.h>
+#include <Moby/BoxPrimitive.h>
 #include <Moby/BV.h>
 
 namespace Moby {
@@ -53,6 +55,9 @@ class CCD
 
     template <class OutputIterator>
     OutputIterator intersect_BV_leafs(BVPtr a, BVPtr b, const Ravelin::Transform3d& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b, OutputIterator output_begin) const;
+
+    template <class OutputIterator>
+    OutputIterator find_contacts_sphere_sphere(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin);
 
     template <class OutputIterator>
     OutputIterator find_contacts_not_separated(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin);
