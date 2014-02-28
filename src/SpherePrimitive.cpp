@@ -86,7 +86,7 @@ double SpherePrimitive::calc_signed_dist(shared_ptr<const SpherePrimitive> s, sh
   Transform3d T = Pose3d::calc_relative_pose(pose_s, pose_this);
 
   // compute the distance
-  double d = _radius - s->_radius - T.x.norm();
+  double d = T.x.norm() - _radius - s->_radius;
 
   // setup poses
   pthis.pose = get_pose();
