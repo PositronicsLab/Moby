@@ -117,6 +117,7 @@ class RigidBody : public SingleBody
     virtual bool limit_estimates_exceeded() const { return _accel_limit_exceeded; }
     const Ravelin::SAcceld& get_accel_upper_bounds() const { return _accel_limit_lo; }
     const Ravelin::SAcceld& get_accel_lower_bounds() const { return _accel_limit_hi; }
+    void update_accel_limits();
 
     template <class OutputIterator>
     OutputIterator get_parent_links(OutputIterator begin) const;
@@ -225,6 +226,7 @@ class RigidBody : public SingleBody
     Ravelin::VectorNd& solve_generalized_inertia_single(const Ravelin::VectorNd& b, Ravelin::VectorNd& x);
     RigidBodyPtr get_parent_link(JointPtr j) const;
     RigidBodyPtr get_child_link(JointPtr j) const;
+    void check_accel_limit_exceeded_and_update();
 
     /// Indicates whether link frame velocity is valid (up-to-date)
     bool _xdi_valid;
@@ -342,9 +344,6 @@ class RigidBody : public SingleBody
 
     /// Indicates whether the acceleration limit has been exceeded
     bool _accel_limit_exceeded;
-
-  private:
-    void check_accel_limit_exceeded();
 }; // end class
 
 std::ostream& operator<<(std::ostream&, RigidBody&);

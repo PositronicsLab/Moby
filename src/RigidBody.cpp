@@ -88,8 +88,26 @@ void RigidBody::reset_limit_estimates()
  _accel_limit_exceeded = false; 
 }
 
-// implement this
-void RigidBody::check_accel_limit_exceeded()
+/// Updates this rigid body's acceleration limit
+void RigidBody::update_accel_limits()
+{
+  const unsigned SPATIAL_DIM = 6;
+
+  // mark limit as not exceeded
+  _accel_limit_exceeded = false;
+
+  SAcceld a = Pose3d::transform(_F, get_accel());
+  for (unsigned i=0; i< SPATIAL_DIM; i++)
+  {
+    if (a[i] < _accel_limit_lo[i])
+      _accel_limit_lo[i] = a[i];
+    if (a[i] > _accel_limit_hi[i])
+      _accel_limit_hi[i] = a[i];
+  }
+}
+
+/// Checks whether a rigid body has exceeded its acceleration limit and updates the acceleration limit 
+void RigidBody::check_accel_limit_exceeded_and_update()
 {
   const unsigned SPATIAL_DIM = 6;
 
@@ -1942,7 +1960,7 @@ void RigidBody::ode(SharedConstVectorNd& x, double t, double dt, void* data, Sha
 
   // check whether acceleration limits have been exceeded 
   if (!_accel_limit_exceeded)
-    check_accel_limit_exceeded();
+    check_accel_limit_exceeded_and_update();
 }
 
 /// Outputs the object state to the specified stream
