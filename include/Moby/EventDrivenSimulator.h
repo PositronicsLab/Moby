@@ -117,6 +117,7 @@ class EventDrivenSimulator : public Simulator
     double calc_CA_step() const;
     void update_constraint_violations();
     void determine_geometries();
+    void calculate_bounds() const;
 
     // Visualization functions
     void visualize_contact( Event& event );

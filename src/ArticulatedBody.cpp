@@ -130,11 +130,11 @@ void ArticulatedBody::ode_noexcept(SharedConstVectorNd& x, double t, double dt, 
   // violated
   BOOST_FOREACH(RigidBodyPtr rb, _links)
     if (!rb->_accel_limit_exceeded)
-      rb->check_accel_limit_exceeded();
+      rb->check_accel_limit_exceeded_and_update();
 
   // check whether joint accelerations have been violated 
   if (!_acc_limits_exceeded)
-    check_joint_accel_limit_exceeded();
+    check_joint_accel_limit_exceeded_and_update();
 }
 
 /// Returns the ODE's for position and velocity (concatenated into x)
@@ -185,11 +185,11 @@ void ArticulatedBody::ode(SharedConstVectorNd& x, double t, double dt, void* dat
   // violated
   BOOST_FOREACH(RigidBodyPtr rb, _links)
     if (!rb->_accel_limit_exceeded)
-      rb->check_accel_limit_exceeded();
+      rb->check_accel_limit_exceeded_and_update();
 
   // check whether joint accelerations have been violated 
   if (!_acc_limits_exceeded)
-    check_joint_accel_limit_exceeded();
+    check_joint_accel_limit_exceeded_and_update();
 }
 
 /// Updates joint constraint violation (after integration)
@@ -388,8 +388,30 @@ bool ArticulatedBody::limit_estimates_exceeded() const
   return false;
 }
 
+/// Updates the joint acceleration limits
+void ArticulatedBody::update_joint_accel_limits()
+{
+  _acc_limits_lo.resize(num_joint_dof());
+  _acc_limits_hi.resize(num_joint_dof());
+
+  // reset the acceleration events exceeded
+  _acc_limits_exceeded = false;
+
+  for (unsigned i=0, k=0; i< _joints.size(); i++)
+  {
+    // loop over all DOF
+    for (unsigned j=0; j< _joints[i]->num_dof(); j++, k++)
+    {
+      if (_joints[i]->qdd[j] < _acc_limits_lo[k])
+        _acc_limits_lo[k] = _joints[i]->qdd[j];
+      if (_joints[i]->qdd[j] > _acc_limits_hi[k])
+        _acc_limits_hi[k] = _joints[i]->qdd[j];
+    }
+  }
+}
+
 /// Checks whether a joint acceleration exceeded the given limits, and updates the limits if necessary
-void ArticulatedBody::check_joint_accel_limit_exceeded()
+void ArticulatedBody::check_joint_accel_limit_exceeded_and_update()
 {
   // obvious check
   if (_acc_limits_lo.size() != num_joint_dof() ||

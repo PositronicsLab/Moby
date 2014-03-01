@@ -429,15 +429,15 @@ double EventDrivenSimulator::step(double step_size)
     }
   }
 
-  // TODO: should we clear the limits on each step? Compute a running
-  //       mean? Compute a mean with a forgetting factor?
-
   // setup the time stepped
   double h = 0.0;
 
   // step until the requisite time has elapsed
   while (h < step_size)
   {
+    // compute a Euler step for acceleration
+    calculate_bounds();
+
     // get amount remaining to step
     double dt = step_size - h;
 
@@ -640,6 +640,30 @@ double EventDrivenSimulator::calc_CA_step() const
   return dt;
 }
 
+/// Calculates acceleration bounds on all bodies
+void EventDrivenSimulator::calculate_bounds() const
+{
+  // first compute forward dynamics
+  calc_fwd_dyn();
+
+  // now compute the bounds
+  BOOST_FOREACH(DynamicBodyPtr db, _bodies)
+  {
+    ArticulatedBodyPtr ab = dynamic_pointer_cast<ArticulatedBody>(db);
+    if (ab)
+    {
+      ab->update_joint_accel_limits();
+      BOOST_FOREACH(RigidBodyPtr rb, ab->get_links())
+        rb->update_accel_limits();
+    }
+    else
+    {
+      RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(db);
+      rb->update_accel_limits();
+    }
+  }
+}
+
 /// Computes forward dynamics for all bodies
 void EventDrivenSimulator::calc_fwd_dyn() const
 {
@@ -667,14 +691,20 @@ void EventDrivenSimulator::integrate_velocities_Euler(double dt)
 {
   VectorNd qd, qdd;
 
+  // NOTE: forward dynamics are already computed for calculate_bounds()
   // first compute forward dynamics for all bodies
-  calc_fwd_dyn();
+  // calc_fwd_dyn();
 
   // now update all velocities
   BOOST_FOREACH(DynamicBodyPtr db, _bodies)
   {
+    // get the generalized acceleration
     db->get_generalized_acceleration(qdd);
     qdd *= dt;
+
+    // update the acceleration bounds
+
+    // update the generalized velocity
     db->get_generalized_velocity(DynamicBody::eSpatial, qd);
     qd += qdd;
     db->set_generalized_velocity(DynamicBody::eSpatial, qd);
