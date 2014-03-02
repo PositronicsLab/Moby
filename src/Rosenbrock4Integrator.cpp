@@ -15,7 +15,7 @@ using Ravelin::MatrixNd;
 using namespace Moby;
 
 /// Method for 4th-order implicit Runge-Kutta integration
-void Rosenbrock4Integrator::integrate(VectorNd& x, VectorNd (*f)(const VectorNd&, double, double, void*), double& time, double step_size, void* data)
+void Rosenbrock4Integrator::integrate(VectorNd& x, VectorNd (*f)(const VectorNd&, double, double, void*), double time, double step_size, void* data)
 {
   // determine desired time
   double tdes = time + step_size;

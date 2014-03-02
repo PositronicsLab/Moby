@@ -507,6 +507,7 @@ double EventDrivenSimulator::step(double step_size)
       continue;
 
     // no issues integrating; update h and call the mini-callback
+    current_time += safe_dt;
     h += safe_dt;
     if (post_mini_step_callback_fn)
       post_mini_step_callback_fn(this);

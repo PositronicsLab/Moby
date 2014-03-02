@@ -10,10 +10,11 @@
     <Sphere id="sphere" radius="1.5811" mass="1" />
 
     <EulerIntegrator id="euler" />
+    <RungeKuttaFehlbergIntegrator id="rk4" abs-err-tol=".01" rel-err-tol=".01"/>
 
     <GravityForce id="gravity" accel="0 -9.81 0 " />
 
-  <EventDrivenSimulator integrator-id="euler">
+  <EventDrivenSimulator integrator-id="rk4">
     <RecurrentForce recurrent-force-id="gravity" /> 
     <DynamicBody dynamic-body-id="chain" />
   </EventDrivenSimulator>

@@ -12,7 +12,7 @@ using Ravelin::VectorNd;
 using namespace Moby;
 
 /// Method for 1st-order Euler integration
-void EulerIntegrator::integrate(VectorNd& x, VectorNd& (*f)(const VectorNd&, double, double, void*, VectorNd&), double& time, double step_size, void* data)
+void EulerIntegrator::integrate(VectorNd& x, VectorNd& (*f)(const VectorNd&, double, double, void*, VectorNd&), double time, double step_size, void* data)
 {
   // save the old time
   const double old_time = time;

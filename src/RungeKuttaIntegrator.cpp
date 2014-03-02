@@ -12,7 +12,7 @@ using Ravelin::VectorNd;
 using namespace Moby;
 
 /// Method for 4th-order Runge-Kutta integration
-void RungeKuttaIntegrator::integrate(VectorNd& x, VectorNd& (*f)(const VectorNd&, double, double, void*, VectorNd&), double& time, double step_size, void* data)
+void RungeKuttaIntegrator::integrate(VectorNd& x, VectorNd& (*f)(const VectorNd&, double, double, void*, VectorNd&), double time, double step_size, void* data)
 {
   const double ONE_SIXTH = 1.0/6.0;
   const double ONE_THIRD = 1.0/3.0;

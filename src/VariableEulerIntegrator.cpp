@@ -18,7 +18,7 @@ VariableEulerIntegrator::VariableEulerIntegrator()
 }
 
 /// Method for 1st-order VariableEuler integration
-void VariableEulerIntegrator::integrate(VectorNd& x, VectorNd& (*f)(const VectorNd&, double, double, void*, VectorNd&), double& time, double step_size, void* data)
+void VariableEulerIntegrator::integrate(VectorNd& x, VectorNd& (*f)(const VectorNd&, double, double, void*, VectorNd&), double time, double step_size, void* data)
 {
   const double desired_time = time + step_size;
 
@@ -65,7 +65,7 @@ double VariableEulerIntegrator::calc_rel_err(const VectorNd& vapprox, const Vect
 }
 
 /// Does variable step integration
-void VariableEulerIntegrator::integrate_variable(VectorNd& x, VectorNd& (*f)(const VectorNd&, double, double, void*, VectorNd&), double& time, double step_size, void* data)
+void VariableEulerIntegrator::integrate_variable(VectorNd& x, VectorNd& (*f)(const VectorNd&, double, double, void*, VectorNd&), double time, double step_size, void* data)
 {
   double H2 = step_size * (double) 0.5;
 
