@@ -22,10 +22,12 @@ class BulirschStoerIntegrator : public VariableStepIntegrator
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
 
   private:
-    static void f(const Ravelin::VectorNd&, Ravelin::VectorNd&, const double);
+    static void f(const std::vector<double>&, std::vector<double>&, const double);
     static Ravelin::VectorNd& (*_f)(const Ravelin::VectorNd&, double, double, void*, Ravelin::VectorNd&);
     static double _dt;
     static void* _data;
+    static Ravelin::VectorNd _x, _dxdt;
+    static std::vector<double> _y;
 }; // end class def
 
 } // end namespace
