@@ -36,6 +36,7 @@
 #include <Moby/RevoluteJoint.h>
 #include <Moby/SphericalJoint.h>
 #include <Moby/UniversalJoint.h>
+#include <Moby/BulirschStoerIntegrator.h>
 #include <Moby/RungeKuttaIntegrator.h>
 #include <Moby/RungeKuttaFehlbergIntegrator.h>
 #include <Moby/RungeKuttaImplicitIntegrator.h>
@@ -146,6 +147,7 @@ std::map<std::string, BasePtr> XMLReader::read(const std::string& fname)
   // read and construct all integrators
   process_tag("EulerIntegrator", moby_tree, &read_euler_integrator, id_map);
   process_tag("VariableEulerIntegrator", moby_tree, &read_variable_euler_integrator, id_map);
+  process_tag("BulirschStoerIntegrator", moby_tree, &read_bulirsch_stoer_integrator, id_map);
   process_tag("RungeKuttaIntegrator", moby_tree, &read_rk4_integrator, id_map);
   process_tag("RungeKuttaFehlbergIntegrator", moby_tree, &read_rkf4_integrator, id_map);
   process_tag("RungeKuttaImplicitIntegrator", moby_tree, &read_rk4i_integrator, id_map);
@@ -424,6 +426,22 @@ void XMLReader::read_variable_euler_integrator(shared_ptr<const XMLTree> node, s
 
   // only create VectorN type integrators
   boost::shared_ptr<Base> b(new VariableEulerIntegrator());
+
+  // populate the object
+  b->load_from_xml(node, id_map);
+}
+
+/// Reads and construct the RungaKuttaFehlbergIntegrator object
+/**
+ * \pre node name is BulirschStoerIntegrator
+ */
+void XMLReader::read_bulirsch_stoer_integrator(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
+{
+  // sanity check
+  assert(strcasecmp(node->name.c_str(), "BulirschStoerIntegrator") == 0);
+
+  // only create VectorN type integrators
+  boost::shared_ptr<Base> b(new BulirschStoerIntegrator());
 
   // populate the object
   b->load_from_xml(node, id_map);
