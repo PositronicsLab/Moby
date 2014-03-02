@@ -44,7 +44,7 @@ static void fdouble_VectorNd(int* neq, double* t, double* y, double* ydot)
 #endif // #ifdef USE_ODEPACK
 
 /// Method for integration
-void ODEPACKIntegrator::integrate(VectorNd& x, VectorNd& (*f)(const VectorNd&, double, double, void*, VectorNd&), double& time, double step_size, void* data)
+void ODEPACKIntegrator::integrate(VectorNd& x, VectorNd& (*f)(const VectorNd&, double, double, void*, VectorNd&), double time, double step_size, void* data)
 {
   #ifndef USE_ODEPACK
   std::cerr << "Moby built without ODEPACK support!  Using explicit Euler integration instead..." << std::endl;

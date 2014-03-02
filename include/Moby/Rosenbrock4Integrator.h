@@ -18,7 +18,7 @@ class Rosenbrock4Integrator : public Integrator
 {
   public:
     Rosenbrock4Integrator() { rel_err_tol = NEAR_ZERO; }
-    virtual void integrate(Ravelin::VectorNd& x, Ravelin::VectorNd (*f)(const Ravelin::VectorNd&, double, double, void*), double& time, double step_size, void* data);
+    virtual void integrate(Ravelin::VectorNd& x, Ravelin::VectorNd (*f)(const Ravelin::VectorNd&, double, double, void*), double time, double step_size, void* data);
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
 
