@@ -10,16 +10,16 @@
     <Sphere id="sphere" radius="1.5811" mass="1" />
 
     <EulerIntegrator id="euler" />
-    <RungeKuttaFehlbergIntegrator id="rk4" abs-err-tol=".01" rel-err-tol=".01"/>
+    <BulirschStoerIntegrator id="bs" abs-err-tol="0.00000001" rel-err-tol="0"/>
 
     <GravityForce id="gravity" accel="0 -9.81 0 " />
 
-  <EventDrivenSimulator integrator-id="rk4">
+  <EventDrivenSimulator integrator-id="bs">
     <RecurrentForce recurrent-force-id="gravity" /> 
     <DynamicBody dynamic-body-id="chain" />
   </EventDrivenSimulator>
 
-  <RCArticulatedBody id="chain" fdyn-algorithm="crb" fdyn-algorithm-frame="link" floating-base="true">
+  <RCArticulatedBody id="chain" fdyn-algorithm="crb" fdyn-algorithm-frame="link" floating-base="false">
 
       <RigidBody id="base" position="0 0 0">
         <InertiaFromPrimitive primitive-id="sphere" />
