@@ -1,61 +1,13 @@
-/// Finds two contact events between two dynamic bodies
-template <class OutputIterator>
-OutputIterator CCD::find_contacts(DynamicBodyPtr dbA, DynamicBodyPtr dbB, OutputIterator output_begin) 
-{
-  // drill down to pairs of rigid bodies
-  ArticulatedBodyPtr abA = boost::dynamic_pointer_cast<ArticulatedBody>(dbA);
-  ArticulatedBodyPtr abB = boost::dynamic_pointer_cast<ArticulatedBody>(dbB);
-  if (abA && abB)
-  {
-    BOOST_FOREACH(RigidBodyPtr rbA, abA->get_links())
-      BOOST_FOREACH(RigidBodyPtr rbB, abB->get_links())
-        output_begin = find_contacts(rbA, rbB, output_begin);
-
-    return output_begin;
-  }
-  else if (abA)
-  {
-    double dt = std::numeric_limits<double>::max();
-    RigidBodyPtr rbB = boost::dynamic_pointer_cast<RigidBody>(dbB);
-    BOOST_FOREACH(RigidBodyPtr rbA, abA->get_links())
-      output_begin = find_contacts(rbA, rbB, output_begin);
-
-    return output_begin;
-  }
-  else if (abB)
-  {
-    double dt = std::numeric_limits<double>::max();
-    RigidBodyPtr rbA = boost::dynamic_pointer_cast<RigidBody>(dbA);
-    BOOST_FOREACH(RigidBodyPtr rbB, abB->get_links())
-      output_begin = find_contacts(rbA, rbB, output_begin);
-
-    return output_begin;
-  }
-  else
-  {
-    RigidBodyPtr rbA = boost::dynamic_pointer_cast<RigidBody>(dbA);
-    RigidBodyPtr rbB = boost::dynamic_pointer_cast<RigidBody>(dbB);
-    return find_contacts(rbA, rbB, output_begin); 
-  }
-}
-
 /// Finds two contact events between two rigid bodies 
 template <class OutputIterator>
-OutputIterator CCD::find_contacts(RigidBodyPtr rbA, RigidBodyPtr rbB, OutputIterator output_begin) 
+OutputIterator CCD::find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin) 
 {
-  if (rbA == rbB || (!rbA->is_enabled() && !rbB->is_enabled()))
-    return output_begin;
-
-  BOOST_FOREACH(CollisionGeometryPtr cgA, rbA->geometries)
-    BOOST_FOREACH(CollisionGeometryPtr cgB, rbB->geometries)
-    {
-      Point3d pA, pB;
-      double dist = CollisionGeometry::calc_signed_dist(cgA, cgB, pA, pB);
-      if (dist <= 0.0)
-        output_begin = find_contacts_not_separated(cgA, cgB, output_begin);
-      else if (dist < NEAR_ZERO)
-        output_begin = find_contacts_separated(cgA, cgB, dist, output_begin);
-    }
+  Point3d pA, pB;
+  double dist = CollisionGeometry::calc_signed_dist(cgA, cgB, pA, pB);
+  if (dist <= 0.0)
+    output_begin = find_contacts_not_separated(cgA, cgB, output_begin);
+  else if (dist < NEAR_ZERO)
+    output_begin = find_contacts_separated(cgA, cgB, dist, output_begin);
 
   return output_begin; 
 }
@@ -223,5 +175,29 @@ OutputIterator CCD::find_contacts_sphere_sphere(CollisionGeometryPtr cgA, Collis
   *o++ = create_contact(cgA, cgB, p, n); 
 
   return o;    
+}
+
+/// Does insertion sort -- custom comparison function not supported (uses operator<)
+template <class BidirectionalIterator>
+void CCD::insertion_sort(BidirectionalIterator first, BidirectionalIterator last)
+{
+  // safety check; exit if nothing to do
+  if (first == last)
+    return;
+
+  BidirectionalIterator min = first;
+
+  // loop
+  BidirectionalIterator i = first;
+  i++;
+  for (; i != last; i++)
+    if (*i < *min)
+      min = i;
+
+  // swap the iterators
+  std::iter_swap(first, min);
+  while (++first != last)
+    for (BidirectionalIterator j = first; *j < *(j-1); --j)
+      std::iter_swap((j-1), j);
 }
 

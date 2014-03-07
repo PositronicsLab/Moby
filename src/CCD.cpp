@@ -20,6 +20,15 @@
 #include <Moby/ArticulatedBody.h>
 #include <Moby/CollisionGeometry.h>  
 #include <Moby/XMLTree.h>
+#include <Moby/SSL.h>
+#include <Moby/BoundingSphere.h>
+#include <Moby/SpherePrimitive.h>
+#include <Moby/BoxPrimitive.h>
+#include <Moby/CylinderPrimitive.h>
+#include <Moby/ConePrimitive.h>
+#include <Moby/TriangleMeshPrimitive.h>
+#include <Moby/GaussianMixture.h>
+#include <Moby/CSG.h>
 #include <Moby/CCD.h>
 
 using boost::dynamic_pointer_cast;
@@ -48,221 +57,113 @@ CCD::CCD()
   _c.resize(6);
 }
 
-/// Computes a conservative advancement step between two dynamic bodies
-double CCD::calc_CA_step(DynamicBodyPtr b1, DynamicBodyPtr b2)
-{
-  // drill down to pairs of rigid bodies
-  ArticulatedBodyPtr ab1 = dynamic_pointer_cast<ArticulatedBody>(b1);
-  ArticulatedBodyPtr ab2 = dynamic_pointer_cast<ArticulatedBody>(b2);
-  if (ab1 && ab2)
-  {
-    double dt = std::numeric_limits<double>::max();
-    BOOST_FOREACH(RigidBodyPtr rb1, ab1->get_links())
-      BOOST_FOREACH(RigidBodyPtr rb2, ab2->get_links())
-      {
-        dt = std::min(dt, calc_CA_step(rb1, rb2));
-        if (dt < NEAR_ZERO)
-          return dt;
-      }
-
-    return dt;
-  }
-  else if (ab1)
-  {
-    double dt = std::numeric_limits<double>::max();
-    RigidBodyPtr rb2 = dynamic_pointer_cast<RigidBody>(b2);
-    BOOST_FOREACH(RigidBodyPtr rb1, ab1->get_links())
-    {
-      dt = std::min(dt, calc_CA_step(rb1, rb2));
-      if (dt < NEAR_ZERO)
-        return dt;
-    }
-
-    return dt;
-  }
-  else if (ab2)
-  {
-    double dt = std::numeric_limits<double>::max();
-    RigidBodyPtr rb1 = dynamic_pointer_cast<RigidBody>(b1);
-    BOOST_FOREACH(RigidBodyPtr rb2, ab2->get_links())
-    {
-      dt = std::min(dt, calc_CA_step(rb1, rb2));
-      if (dt < NEAR_ZERO)
-        return dt;
-    }
-
-    return dt;
-  }
-  else
-  {
-    RigidBodyPtr rb1 = dynamic_pointer_cast<RigidBody>(b1);
-    RigidBodyPtr rb2 = dynamic_pointer_cast<RigidBody>(b2);
-    return calc_CA_step(rb1, rb2);
-  }
-}
-
-/// Computes a conservative advancement step between two dynamic bodies
-double CCD::find_next_contact_time(DynamicBodyPtr b1, DynamicBodyPtr b2)
-{
-  // drill down to pairs of rigid bodies
-  ArticulatedBodyPtr ab1 = dynamic_pointer_cast<ArticulatedBody>(b1);
-  ArticulatedBodyPtr ab2 = dynamic_pointer_cast<ArticulatedBody>(b2);
-  if (ab1 && ab2)
-  {
-    double dt = std::numeric_limits<double>::max();
-    BOOST_FOREACH(RigidBodyPtr rb1, ab1->get_links())
-      BOOST_FOREACH(RigidBodyPtr rb2, ab2->get_links())
-        dt = std::min(dt, find_next_contact_time(rb1, rb2));
-
-    return dt;
-  }
-  else if (ab1)
-  {
-    double dt = std::numeric_limits<double>::max();
-    RigidBodyPtr rb2 = dynamic_pointer_cast<RigidBody>(b2);
-    BOOST_FOREACH(RigidBodyPtr rb1, ab1->get_links())
-      dt = std::min(dt, find_next_contact_time(rb1, rb2));
-
-    return dt;
-  }
-  else if (ab2)
-  {
-    double dt = std::numeric_limits<double>::max();
-    RigidBodyPtr rb1 = dynamic_pointer_cast<RigidBody>(b1);
-    BOOST_FOREACH(RigidBodyPtr rb2, ab2->get_links())
-      dt = std::min(dt, find_next_contact_time(rb1, rb2));
-
-    return dt;
-  }
-  else
-  {
-    RigidBodyPtr rb1 = dynamic_pointer_cast<RigidBody>(b1);
-    RigidBodyPtr rb2 = dynamic_pointer_cast<RigidBody>(b2);
-    return find_next_contact_time(rb1, rb2);
-  }
-}
-
 /// Finds the next event time between two rigid bodies
-double CCD::find_next_contact_time(RigidBodyPtr rbA, RigidBodyPtr rbB)
+double CCD::find_next_contact_time(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB)
 {
-  double maxt = std::numeric_limits<double>::max();
   Point3d pA, pB;
-
-  // don't do CA step if rA == rbB or both bodies are disabled
-  if (rbA == rbB || (!rbA->is_enabled() && !rbB->is_enabled()))
-    return maxt;
 
   FILE_LOG(LOG_COLDET) << "CCD::find_next_contact_time() entered" << std::endl;
 
-  // get the distance and closest points between the two bodies
-  BOOST_FOREACH(CollisionGeometryPtr cgA, rbA->geometries)
-    BOOST_FOREACH(CollisionGeometryPtr cgB, rbB->geometries)
-    {
-      // compute distance and closest points
-      double dist = CollisionGeometry::calc_signed_dist(cgA, cgB, pA, pB);
-      FILE_LOG(LOG_COLDET) << " -- CCD: reported distance: " << dist << std::endl;
+  // compute distance and closest points
+  double dist = CollisionGeometry::calc_signed_dist(cgA, cgB, pA, pB);
+  FILE_LOG(LOG_COLDET) << " -- CCD: reported distance: " << dist << std::endl;
 
-      // special case: distance is zero or less
-      if (dist <= NEAR_ZERO)
-        continue; 
+  // special case: distance is zero or less
+  if (dist <= NEAR_ZERO)
+    return std::numeric_limits<double>::max(); 
 
-      // get the closest points in the global frame
-      Point3d pA0 = Pose3d::transform_point(GLOBAL, pA);
-      Point3d pB0 = Pose3d::transform_point(GLOBAL, pB);
+  // get the closest points in the global frame
+  Point3d pA0 = Pose3d::transform_point(GLOBAL, pA);
+  Point3d pB0 = Pose3d::transform_point(GLOBAL, pB);
 
-      // get the direction of the vector from body B to body A
-      Vector3d d0 =  pA0 - pB0;
-      double d0_norm = d0.norm();
-      FILE_LOG(LOG_COLDET) << "distance between closest points is: " << d0_norm << std::endl;
-      FILE_LOG(LOG_COLDET) << "reported distance is: " << dist << std::endl; 
+  // get the direction of the vector from body B to body A
+  Vector3d d0 =  pA0 - pB0;
+  double d0_norm = d0.norm();
+  FILE_LOG(LOG_COLDET) << "distance between closest points is: " << d0_norm << std::endl;
+  FILE_LOG(LOG_COLDET) << "reported distance is: " << dist << std::endl; 
  
-      // get the direction of the vector (from body B to body A)
-      Vector3d n0 = d0/d0_norm;
-      Vector3d nA = Pose3d::transform_vector(rbA->get_pose(), n0);
-      Vector3d nB = Pose3d::transform_vector(rbB->get_pose(), n0);
+  // get the two underlying bodies
+  RigidBodyPtr rbA = dynamic_pointer_cast<RigidBody>(cgA->get_single_body());
+  RigidBodyPtr rbB = dynamic_pointer_cast<RigidBody>(cgB->get_single_body());
 
-      // get rA and rB
-      Point3d rA = Pose3d::transform_point(rbA->get_pose(), pA);
-      Point3d rB = Pose3d::transform_point(rbB->get_pose(), pB);
+  // get the direction of the vector (from body B to body A)
+  Vector3d n0 = d0/d0_norm;
+  Vector3d nA = Pose3d::transform_vector(rbA->get_pose(), n0);
+  Vector3d nB = Pose3d::transform_vector(rbB->get_pose(), n0);
 
-      // compute the distance that body A can move toward body B
-      double velA = calc_max_velocity(rbA, -nA, rA);
+  // get rA and rB
+  Point3d rA = Pose3d::transform_point(rbA->get_pose(), pA);
+  Point3d rB = Pose3d::transform_point(rbB->get_pose(), pB);
 
-      // compute the distance that body B can move toward body A
-      double velB = calc_max_velocity(rbB, nB, rB);
+  // compute the distance that body A can move toward body B
+  double velA = calc_max_velocity(rbA, -nA, rA);
 
-      // compute the total velocity 
-      double total_vel = velA + velB;
-      if (total_vel < 0.0)
-        total_vel = 0.0;
+  // compute the distance that body B can move toward body A
+  double velB = calc_max_velocity(rbB, nB, rB);
 
-      FILE_LOG(LOG_COLDET) << " -- CCD: normal: " << n0 << std::endl;
-      FILE_LOG(LOG_COLDET) << " -- CCD: projected velocity from A: " << velA << std::endl;
-      FILE_LOG(LOG_COLDET) << " -- CCD: projected velocity from B: " << velB << std::endl;
+  // compute the total velocity 
+  double total_vel = velA + velB;
+  if (total_vel < 0.0)
+    total_vel = 0.0;
 
-      // compute the maximum safe step
-      maxt = std::min(maxt, dist/total_vel);
-    }
+  FILE_LOG(LOG_COLDET) << " -- CCD: normal: " << n0 << std::endl;
+  FILE_LOG(LOG_COLDET) << " -- CCD: projected velocity from A: " << velA << std::endl;
+  FILE_LOG(LOG_COLDET) << " -- CCD: projected velocity from B: " << velB << std::endl;
 
-  // return the maximum safe step
-  return maxt;
+  // compute the maximum safe step
+  return dist/total_vel;
 }
 
-/// Computes a conservative advancement step between two rigid bodies
-double CCD::calc_CA_step(RigidBodyPtr rbA, RigidBodyPtr rbB)
+/// Computes a conservative advancement step between two collision geometries 
+double CCD::calc_CA_step(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB)
 {
   double maxt = std::numeric_limits<double>::max();
   Point3d pA, pB;
 
-  // don't do CA step if rA == rbB
-  if (rbA == rbB || (!rbA->is_enabled() && !rbB->is_enabled()))
-    return maxt;
+  // compute distance and closest points
+  double dist = CollisionGeometry::calc_signed_dist(cgA, cgB, pA, pB);
 
-  // get the distance and closest points between the two bodies
-  BOOST_FOREACH(CollisionGeometryPtr cgA, rbA->geometries)
-    BOOST_FOREACH(CollisionGeometryPtr cgB, rbB->geometries)
-    {
-      // compute distance and closest points
-      double dist = CollisionGeometry::calc_signed_dist(cgA, cgB, pA, pB);
+  // if the distance is zero, quit now
+  if (dist < NEAR_ZERO)
+    return 0.0;
 
-      // if the distance is zero, quit now
-      if (dist < NEAR_ZERO)
-        return 0.0;
+  // get the direction of the vector from body B to body A
+  Vector3d d0 = Pose3d::transform_point(GLOBAL, pA) - 
+                Pose3d::transform_point(GLOBAL, pB);
+  double d0_norm = d0.norm();
+  FILE_LOG(LOG_COLDET) << "distance between closest points is: " << d0_norm << std::endl;
+  FILE_LOG(LOG_COLDET) << "reported distance is: " << dist << std::endl; 
 
-      // get the direction of the vector from body B to body A
-      Vector3d d0 = Pose3d::transform_point(GLOBAL, pA) - 
-                    Pose3d::transform_point(GLOBAL, pB);
-      double d0_norm = d0.norm();
-      FILE_LOG(LOG_COLDET) << "distance between closest points is: " << d0_norm << std::endl;
-      FILE_LOG(LOG_COLDET) << "reported distance is: " << dist << std::endl; 
- 
-      // get the direction of the vector (from body B to body A)
-      Vector3d n0 = d0/d0_norm;
-      Vector3d nA = Pose3d::transform_vector(rbA->get_pose(), n0);
-      Vector3d nB = Pose3d::transform_vector(rbB->get_pose(), n0);
+  // get the two underlying bodies
+  RigidBodyPtr rbA = dynamic_pointer_cast<RigidBody>(cgA->get_single_body());
+  RigidBodyPtr rbB = dynamic_pointer_cast<RigidBody>(cgB->get_single_body());
 
-      // get rA and rB
-      Point3d rA = Pose3d::transform_point(rbA->get_pose(), pA);
-      Point3d rB = Pose3d::transform_point(rbB->get_pose(), pB);
+  // get the direction of the vector (from body B to body A)
+  Vector3d n0 = d0/d0_norm;
+  Vector3d nA = Pose3d::transform_vector(rbA->get_pose(), n0);
+  Vector3d nB = Pose3d::transform_vector(rbB->get_pose(), n0);
 
-      // compute the distance that body A can move toward body B
-      double dist_per_tA = calc_max_dist_per_t(rbA, -nA, rA);
+  // get rA and rB
+  Point3d rA = Pose3d::transform_point(rbA->get_pose(), pA);
+  Point3d rB = Pose3d::transform_point(rbB->get_pose(), pB);
 
-      // compute the distance that body B can move toward body A
-      double dist_per_tB = calc_max_dist_per_t(rbB, nB, rB);
+  // compute the distance that body A can move toward body B
+  double dist_per_tA = calc_max_dist_per_t(rbA, -nA, rA);
 
-      // compute the total distance
-      double total_dist_per_t = dist_per_tA + dist_per_tB;
-      if (total_dist_per_t < 0.0)
-        total_dist_per_t = 0.0;
+  // compute the distance that body B can move toward body A
+  double dist_per_tB = calc_max_dist_per_t(rbB, nB, rB);
 
-      FILE_LOG(LOG_COLDET) << "  distance: " << dist << std::endl;
-      FILE_LOG(LOG_COLDET) << "  dist per tA: " << dist_per_tA << std::endl;
-      FILE_LOG(LOG_COLDET) << "  dist per tB: " << dist_per_tB << std::endl;
+  // compute the total distance
+  double total_dist_per_t = dist_per_tA + dist_per_tB;
+  if (total_dist_per_t < 0.0)
+    total_dist_per_t = 0.0;
 
-      // compute the maximum safe step
-      maxt = std::min(maxt, dist/total_dist_per_t);
-    }
+  FILE_LOG(LOG_COLDET) << "  distance: " << dist << std::endl;
+  FILE_LOG(LOG_COLDET) << "  dist per tA: " << dist_per_tA << std::endl;
+  FILE_LOG(LOG_COLDET) << "  dist per tB: " << dist_per_tB << std::endl;
+
+  // compute the maximum safe step
+  maxt = std::min(maxt, dist/total_dist_per_t);
 
   FILE_LOG(LOG_COLDET) << "  maxt: " << maxt << std::endl;
 
@@ -558,15 +459,33 @@ bool CCD::intersect_BV_trees(BVPtr a, BVPtr b, const Transform3d& aTb, Collision
 /****************************************************************************
  Methods for broad phase begin 
 ****************************************************************************/
-void CCD::broad_phase(const map<CollisionGeometryPtr, PosePair>& poses, vector<pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check)
+void CCD::broad_phase(const vector<DynamicBodyPtr>& bodies, vector<pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check)
 {
   FILE_LOG(LOG_COLDET) << "CCD::broad_phase() entered" << std::endl;
+
+  // get the set of rigid bodies
+  vector<RigidBodyPtr> rbs;
+  for (unsigned i=0; i< bodies.size(); i++)
+  {
+    ArticulatedBodyPtr ab = dynamic_pointer_cast<ArticulatedBody>(bodies[i]);
+    if (ab)
+      rbs.insert(rbs.end(), ab->get_links().begin(), ab->get_links().end());
+    else
+      rbs.push_back(dynamic_pointer_cast<RigidBody>(bodies[i]));
+  }
+
+  // look to see whether the bounds vector needs to be rebuilt
+  unsigned count = 0;
+  for (unsigned i=0; i< rbs.size(); i++)
+    count += rbs[i]->geometries.size();
+  if (count != _swept_BVs.size())
+    _rebuild_bounds_vecs = true;
 
   // clear the vector of pairs to check
   to_check.clear();
 
   // sort the AABBs
-  sort_AABBs(bodies);
+  sort_AABBs(rbs);
 
   // store how many overlaps we have for pairs
   map<sorted_pair<CollisionGeometryPtr>, unsigned> overlaps;
@@ -667,21 +586,65 @@ void CCD::broad_phase(const map<CollisionGeometryPtr, PosePair>& poses, vector<p
   FILE_LOG(LOG_COLDET) << "CCD::broad_phase() exited" << std::endl;
 }
 
-void CCD::sort_AABBs(const map<CollisionGeometryPtr, PosePair>& poses)
+/// Gets the swept BV, creating it if necessary
+BVPtr CCD::get_swept_BV(CollisionGeometryPtr cg, BVPtr bv)
+{
+  const unsigned X = 0, Y = 1, Z = 2;
+
+  // verify that the map for the geometry has already been setup
+  map<CollisionGeometryPtr, map<BVPtr, BVPtr> >::iterator vi;
+  vi = _swept_BVs.find(cg);
+  assert(vi != _swept_BVs.end());
+
+  // see whether the velocity-expanded BV has already been calculated
+  map<BVPtr, BVPtr>::const_iterator vj;
+  vj = vi->second.find(bv);
+  if (vj != vi->second.end())
+    return vj->second;
+
+  // get the rigid body
+  RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(cg->get_single_body());
+
+  // get the current velocity and the acceleration limits
+  const SVelocityd& v = rb->get_velocity();
+  Vector3d a_lo = rb->get_accel_lower_bounds().get_linear();
+  Vector3d a_hi = rb->get_accel_upper_bounds().get_linear();
+ 
+  // compute the swept BV
+  BVPtr swept_bv = bv->calc_swept_BV(cg, v);
+  FILE_LOG(LOG_BV) << "new BV: " << swept_bv << std::endl;
+
+  // attempt to get the swept BV as a SSL
+  shared_ptr<SSL> ssl = dynamic_pointer_cast<SSL>(swept_bv);
+  if (ssl)
+  {
+    // update the radius
+    ssl->radius += std::max(std::fabs(a_lo[X]), std::fabs(a_hi[X]));
+    ssl->radius += std::max(std::fabs(a_lo[Y]), std::fabs(a_hi[Y]));
+    ssl->radius += std::max(std::fabs(a_lo[Z]), std::fabs(a_hi[Z]));
+  }
+
+  // store the bounding volume
+  vi->second[bv] = swept_bv;
+
+  return swept_bv;
+}
+
+void CCD::sort_AABBs(const vector<RigidBodyPtr>& rigid_bodies)
 {
   // if a geometry was added or removed, rebuild the vector of bounds
   // and copy it to x, y, z dimensions
   if (_rebuild_bounds_vecs)
   {
-    build_bv_vector(poses, _x_bounds);
+    build_bv_vector(rigid_bodies, _x_bounds);
     _y_bounds = _x_bounds;
     _z_bounds = _x_bounds;
   }
 
   // update bounds vectors
-  update_bounds_vector(_x_bounds, poses, eXAxis);
-  update_bounds_vector(_y_bounds, poses, eYAxis);
-  update_bounds_vector(_z_bounds, poses, eZAxis);
+  update_bounds_vector(_x_bounds, eXAxis);
+  update_bounds_vector(_y_bounds, eYAxis);
+  update_bounds_vector(_z_bounds, eZAxis);
   
   // if geometry was added or removed, do standard sorts of vectors
   if (_rebuild_bounds_vecs)
@@ -702,7 +665,7 @@ void CCD::sort_AABBs(const map<CollisionGeometryPtr, PosePair>& poses)
   }
 }
 
-void CCD::update_bounds_vector(vector<pair<double, BoundsStruct> >& bounds, RigidBodyPtr body, AxisType axis)
+void CCD::update_bounds_vector(vector<pair<double, BoundsStruct> >& bounds, AxisType axis)
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
@@ -715,14 +678,12 @@ void CCD::update_bounds_vector(vector<pair<double, BoundsStruct> >& bounds, Rigi
     BVPtr bv = bounds[i].second.bv;
     CollisionGeometryPtr geom = bounds[i].second.geom;
 
-    // create an axis-aligned bounding box around the bounding volume 
-
-    // get the current pose of the geometry in the global frame 
-
-    // compute the swept BV as an axis-aligned bounding box
+    // get the swept bounding volume (should be defined in global frame)
+    BVPtr swept_bv = get_swept_BV(geom, bv);
+    assert(swept_bv->get_relative_pose() == GLOBAL);
 
     // get the bound for the bounding volume
-    Point3d bound = (bounds[i].second.end) ? swept.get_upper_bounds() : swept.get_lower_bounds();
+    Point3d bound = (bounds[i].second.end) ? swept_bv->get_upper_bounds() : swept_bv->get_lower_bounds();
     FILE_LOG(LOG_COLDET) << "  updating collision geometry: " << geom << "  rigid body: " << geom->get_single_body()->id << std::endl;
 
     // update the bounds for the given axis
@@ -753,7 +714,7 @@ void CCD::update_bounds_vector(vector<pair<double, BoundsStruct> >& bounds, Rigi
   FILE_LOG(LOG_COLDET) << " -- update_bounds_vector() exited" << std::endl;
 }
 
-void CCD::build_bv_vector(const map<CollisionGeometryPtr, PosePair>& poses, vector<pair<double, BoundsStruct> >& bounds)
+void CCD::build_bv_vector(const vector<RigidBodyPtr>& rigid_bodies, vector<pair<double, BoundsStruct> >& bounds)
 {
   const double INF = std::numeric_limits<double>::max();
 
@@ -761,30 +722,64 @@ void CCD::build_bv_vector(const map<CollisionGeometryPtr, PosePair>& poses, vect
   bounds.clear();
 
   // iterate over all collision geometries
-  for (set<CollisionGeometryPtr>::const_iterator i = _geoms.begin(); i != _geoms.end(); i++)
+  for (unsigned j=0; j< rigid_bodies.size(); j++)
+    BOOST_FOREACH(CollisionGeometryPtr i, rigid_bodies[j]->geometries)
+    {
+      // get the primitive for the geometry
+      PrimitivePtr p = i->get_geometry();
+
+      // construct a bounding sphere for the geometry
+      BVPtr bv = construct_bounding_sphere(i);
+
+      // setup the bounds structure
+      BoundsStruct bs;
+      bs.end = false;
+      bs.geom = i;
+      bs.bv = bv;
+
+      // add the lower bound
+      bounds.push_back(make_pair(-INF, bs));
+
+      // modify the bounds structure to indicate the end bound
+      bs.end = true;
+      bounds.push_back(make_pair(INF, bs));
+    }
+}
+
+/// Constructs a bounding sphere for a given primitive type
+BVPtr CCD::construct_bounding_sphere(CollisionGeometryPtr cg)
+{
+  // create the bounding sphere
+  shared_ptr<BoundingSphere> sph(new BoundingSphere);
+
+  // get the primitive type
+  PrimitivePtr p = cg->get_geometry();
+
+  // setup the relative pose
+  shared_ptr<Pose3d> pose(new Pose3d(*p->get_pose()));
+  assert(pose->rpose == GLOBAL);
+  pose->rpose = cg->get_pose();
+  sph->center.set_zero(pose);
+
+  // look for sphere primitive (easiest case) 
+  shared_ptr<SpherePrimitive> sph_p = dynamic_pointer_cast<SpherePrimitive>(p);
+  if (sph_p)
   {
-    // get the primitive for the geometry
-    PrimitivePtr p = (*i)->get_geometry();
-
-    // get the top-level BV for the geometry
-    BVPtr bv = p->get_BVH_root(*i);
-
-    // get the poses for the geometry 
-    assert(poses.find(*i) != poses.end());
-
-    // setup the bounds structure
-    BoundsStruct bs;
-    bs.end = false;
-    bs.geom = *i;
-    bs.bv = bv;
-
-    // add the lower bound
-    bounds.push_back(make_pair(-INF, bs));
-
-    // modify the bounds structure to indicate the end bound
-    bs.end = true;
-    bounds.push_back(make_pair(INF, bs));
+    sph->radius = sph_p->get_radius();
+    return sph;
   }
+
+  // look for box primitive (also an easy case)
+  shared_ptr<BoxPrimitive> box_p = dynamic_pointer_cast<BoxPrimitive>(p);
+  if (box_p)
+  {
+    sph->radius = Origin3d(box_p->get_x_len()/2.0, box_p->get_y_len()/2.0, box_p->get_z_len()/2.0).norm();
+    return sph;
+  }
+
+  // shouldn't still be here..
+  assert(false);
+  return BVPtr();
 }
 
 /****************************************************************************

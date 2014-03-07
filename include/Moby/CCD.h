@@ -31,11 +31,12 @@ class CCD
     virtual ~CCD() {}
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
-    double calc_CA_step(DynamicBodyPtr dbA, DynamicBodyPtr dbB);
-    static double find_next_contact_time(DynamicBodyPtr dbA, DynamicBodyPtr dbB);
+    static double find_next_contact_time(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB);
+    void broad_phase(const std::vector<DynamicBodyPtr>& bodies, std::vector<std::pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check);
+    double calc_CA_step(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB);
 
     template <class OutputIterator>
-    OutputIterator find_contacts(DynamicBodyPtr dbA, DynamicBodyPtr dbB, OutputIterator output_begin);
+    OutputIterator find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin);
 
     /// Pairs of collision geometries that aren't checked for contact/collision
     /**
@@ -46,14 +47,42 @@ class CCD
     std::set<sorted_pair<CollisionGeometryPtr> > disabled_pairs;
 
   private:
+    // the 3 axes
+    enum AxisType { eXAxis, eYAxis, eZAxis };
+
+    // structure for doing broad phase collision detection
+    struct BoundsStruct
+    {
+      bool end;                   // bounds is for start or end
+      CollisionGeometryPtr geom;  // the geometry
+      BVPtr bv;                   // the unexpanded bounding volume
+      bool operator<(const BoundsStruct& bs) const { return (!end && bs.end); } 
+    };
+
+    // determines whether to rebuild the bounds vectors
+    bool _rebuild_bounds_vecs;
+
     // temporary vectors
     Ravelin::VectorNd _workv, _l, _u, _c, _x;
 
-    template <class OutputIterator>
-    OutputIterator find_contacts(RigidBodyPtr rbA, RigidBodyPtr rbB, OutputIterator output_begin);
+    /// AABB bounds (x-axis)
+    std::vector<std::pair<double, BoundsStruct> > _x_bounds;
 
-    static double find_next_contact_time(RigidBodyPtr rbA, RigidBodyPtr rbB);
-    double calc_CA_step(RigidBodyPtr rbA, RigidBodyPtr dbB);
+    /// AABB bounds (y-axis)
+    std::vector<std::pair<double, BoundsStruct> > _y_bounds;
+
+    /// AABB bounds (z-axis)
+    std::vector<std::pair<double, BoundsStruct> > _z_bounds;
+
+    /// Swept BVs computed during last call to is_contact/update_contacts()
+    std::map<CollisionGeometryPtr, std::map<BVPtr, BVPtr> > _swept_BVs;
+
+    static BVPtr construct_bounding_sphere(CollisionGeometryPtr cg);
+    void sort_AABBs(const std::vector<RigidBodyPtr>& rigid_bodies);
+    void update_bounds_vector(std::vector<std::pair<double, BoundsStruct> >& bounds, AxisType axis);
+    void build_bv_vector(const std::vector<RigidBodyPtr>& rigid_bodies, std::vector<std::pair<double, BoundsStruct> >& bounds);
+    BVPtr get_swept_BV(CollisionGeometryPtr geom, BVPtr bv);
+
     double calc_max_dist_per_t(RigidBodyPtr rb, const Ravelin::Vector3d& n, const Ravelin::Vector3d& r);
     static double calc_max_velocity(RigidBodyPtr rb, const Ravelin::Vector3d& n, const Ravelin::Vector3d& r);
     double solve_lp(const Ravelin::VectorNd& c, const Ravelin::VectorNd& l, const Ravelin::VectorNd& u, Ravelin::VectorNd& x);    
@@ -72,6 +101,10 @@ class CCD
 
     template <class OutputIterator>
     OutputIterator find_contacts_separated(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, double min_dist, OutputIterator output_begin);
+
+    template <class RandomAccessIterator>
+    void insertion_sort(RandomAccessIterator begin, RandomAccessIterator end);
+
 }; // end class
 
 #include "CCD.inl"

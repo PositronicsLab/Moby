@@ -451,7 +451,7 @@ double EventDrivenSimulator::step(double step_size)
     // called on integration restart
     restart: 
 
-    // if safe_dt is effectively zero, use a semi-implicit Euler step to
+    // if safe_dt is small, use a semi-implicit Euler step to
     // solve events, etc.
     if (safe_dt <= euler_step)
     {
@@ -607,7 +607,7 @@ void EventDrivenSimulator::update_constraint_violations()
 }
 
 /// Computes a conservative advancement step
-double EventDrivenSimulator::calc_CA_step() const
+double EventDrivenSimulator::calc_CA_step()
 {
   // setup safe amount to step
   double dt = std::numeric_limits<double>::max();
@@ -626,16 +626,17 @@ double EventDrivenSimulator::calc_CA_step() const
       return dt;
   }
 
-  // do collision detection here
-  for (unsigned i=0; i< _bodies.size(); i++)
+  // do broad-phase collision detection here
+  _ccd.broad_phase(_bodies, _pairs_to_check); 
+
+  // do narrow-phase collision detection here
+  for (unsigned i=0; i< _pairs_to_check.size(); i++)
   {
-    for (unsigned j=i+1; j< _bodies.size(); j++)
-    {
-      double step = _ccd.calc_CA_step(_bodies[i], _bodies[j]);
-      dt = std::min(dt, step);
-      if (dt <= 0.0)
-        return dt;
-    }
+    const pair<CollisionGeometryPtr, CollisionGeometryPtr>& cgpair = _pairs_to_check[i];
+    double step = _ccd.calc_CA_step(cgpair.first, cgpair.second);
+    dt = std::min(dt, step);
+    if (dt <= 0.0)
+      return dt;
   }
 
   return dt;
@@ -751,9 +752,11 @@ void EventDrivenSimulator::find_events()
   }
 
   // find contact events
-  for (unsigned i=0; i< _bodies.size(); i++)
-    for (unsigned j=i+1; j < _bodies.size(); j++)
-      _ccd.find_contacts(_bodies[i], _bodies[j], std::back_inserter(_events));  
+  for (unsigned i=0; i< _pairs_to_check.size(); i++)
+  {
+    const pair<CollisionGeometryPtr, CollisionGeometryPtr>& cgpair = _pairs_to_check[i];
+    _ccd.find_contacts(cgpair.first, cgpair.second, std::back_inserter(_events));  
+  }
 }
 
 /// Computes the next event time using a linear velocity assumption
@@ -782,13 +785,11 @@ double EventDrivenSimulator::compute_next_event_time() const
   }
 
   // find next contact event time 
-  for (unsigned i=0; i< _bodies.size(); i++)
+  for (unsigned i=0; i< _pairs_to_check.size(); i++)
   {
-    for (unsigned j=i+1; j< _bodies.size(); j++)
-    {
-      double step = _ccd.find_next_contact_time(_bodies[i], _bodies[j]);
-      dt = std::min(dt, step);
-    }
+    const pair<CollisionGeometryPtr, CollisionGeometryPtr>& cgpair = _pairs_to_check[i];
+    double step = _ccd.find_next_contact_time(cgpair.first, cgpair.second);
+    dt = std::min(dt, step);
   }
 
   return dt;
