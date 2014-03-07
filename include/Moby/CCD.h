@@ -75,7 +75,7 @@ class CCD
     std::vector<std::pair<double, BoundsStruct> > _z_bounds;
 
     /// Swept BVs computed during last call to is_contact/update_contacts()
-    std::map<CollisionGeometryPtr, std::map<BVPtr, BVPtr> > _swept_BVs;
+    std::map<CollisionGeometryPtr, BVPtr> _swept_BVs;
 
     static BVPtr construct_bounding_sphere(CollisionGeometryPtr cg);
     void sort_AABBs(const std::vector<RigidBodyPtr>& rigid_bodies);
