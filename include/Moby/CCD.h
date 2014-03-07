@@ -37,6 +37,14 @@ class CCD
     template <class OutputIterator>
     OutputIterator find_contacts(DynamicBodyPtr dbA, DynamicBodyPtr dbB, OutputIterator output_begin);
 
+    /// Pairs of collision geometries that aren't checked for contact/collision
+    /**
+     * \note collisions between geometries for two disabled bodies and 
+     *       collisions between geometries for a single body are automatically
+     *       not checked and do not need to be added to this set.
+     */
+    std::set<sorted_pair<CollisionGeometryPtr> > disabled_pairs;
+
   private:
     // temporary vectors
     Ravelin::VectorNd _workv, _l, _u, _c, _x;
