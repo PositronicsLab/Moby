@@ -594,7 +594,8 @@ BVPtr CCD::get_swept_BV(CollisionGeometryPtr cg, BVPtr bv)
   // verify that the map for the geometry has already been setup
   map<CollisionGeometryPtr, map<BVPtr, BVPtr> >::iterator vi;
   vi = _swept_BVs.find(cg);
-  assert(vi != _swept_BVs.end());
+  if (vi == _swept_BVs.end())
+    _swept_BVs[cg] = map<BVPtr, BVPtr>();
 
   // see whether the velocity-expanded BV has already been calculated
   map<BVPtr, BVPtr>::const_iterator vj;
