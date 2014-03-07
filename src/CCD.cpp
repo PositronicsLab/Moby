@@ -463,6 +463,9 @@ void CCD::broad_phase(const vector<DynamicBodyPtr>& bodies, vector<pair<Collisio
 {
   FILE_LOG(LOG_COLDET) << "CCD::broad_phase() entered" << std::endl;
 
+  // clear the swept BVs
+  _swept_BVs.clear();
+
   // get the set of rigid bodies
   vector<RigidBodyPtr> rbs;
   for (unsigned i=0; i< bodies.size(); i++)
@@ -592,16 +595,10 @@ BVPtr CCD::get_swept_BV(CollisionGeometryPtr cg, BVPtr bv)
   const unsigned X = 0, Y = 1, Z = 2;
 
   // verify that the map for the geometry has already been setup
-  map<CollisionGeometryPtr, map<BVPtr, BVPtr> >::iterator vi;
+  map<CollisionGeometryPtr, BVPtr>::iterator vi;
   vi = _swept_BVs.find(cg);
-  if (vi == _swept_BVs.end())
-    _swept_BVs[cg] = map<BVPtr, BVPtr>();
-
-  // see whether the velocity-expanded BV has already been calculated
-  map<BVPtr, BVPtr>::const_iterator vj;
-  vj = vi->second.find(bv);
-  if (vj != vi->second.end())
-    return vj->second;
+  if (vi != _swept_BVs.end())
+    return vi->second;
 
   // get the rigid body
   RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(cg->get_single_body());
@@ -626,7 +623,7 @@ BVPtr CCD::get_swept_BV(CollisionGeometryPtr cg, BVPtr bv)
   }
 
   // store the bounding volume
-  vi->second[bv] = swept_bv;
+  _swept_BVs[cg] = swept_bv; 
 
   return swept_bv;
 }
@@ -761,6 +758,9 @@ BVPtr CCD::construct_bounding_sphere(CollisionGeometryPtr cg)
   assert(pose->rpose == GLOBAL);
   pose->rpose = cg->get_pose();
   sph->center.set_zero(pose);
+
+  // now convert the center to the GLOBAL frame
+  sph->center = Pose3d::transform_point(GLOBAL, sph->center);
 
   // look for sphere primitive (easiest case) 
   shared_ptr<SpherePrimitive> sph_p = dynamic_pointer_cast<SpherePrimitive>(p);
