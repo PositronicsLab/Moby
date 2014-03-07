@@ -352,6 +352,7 @@ double CCD::solve_lp(const VectorNd& c, const VectorNd& l, const VectorNd& u, Ve
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
+/*
   // setup the first possibility first
   double best = -std::numeric_limits<double>::max();
 
@@ -368,6 +369,9 @@ double CCD::solve_lp(const VectorNd& c, const VectorNd& l, const VectorNd& u, Ve
   }
 
   return best;
+*/
+  x = u;
+  return c.dot(x);
 }
 
 /// Implements Base::load_from_xml()
@@ -549,6 +553,242 @@ bool CCD::intersect_BV_trees(BVPtr a, BVPtr b, const Transform3d& aTb, Collision
 
 /****************************************************************************
  Methods for static geometry intersection testing end 
+****************************************************************************/
+
+/****************************************************************************
+ Methods for broad phase begin 
+****************************************************************************/
+void CCD::broad_phase(const map<CollisionGeometryPtr, PosePair>& poses, vector<pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check)
+{
+  FILE_LOG(LOG_COLDET) << "CCD::broad_phase() entered" << std::endl;
+
+  // clear the vector of pairs to check
+  to_check.clear();
+
+  // sort the AABBs
+  sort_AABBs(bodies);
+
+  // store how many overlaps we have for pairs
+  map<sorted_pair<CollisionGeometryPtr>, unsigned> overlaps;
+
+  // set of active bounds
+  set<CollisionGeometryPtr> active_bounds;
+
+  // scan through the x-bounds
+  for (unsigned i=0; i< _x_bounds.size(); i++)
+  {
+    // eliminate from the active bounds if at the end of a bound
+    if (_x_bounds[i].second.end)
+    {
+      assert(active_bounds.find(_x_bounds[i].second.geom) != active_bounds.end());
+      active_bounds.erase(_x_bounds[i].second.geom);
+    }
+    else
+    {
+      // at the start of a bound
+      BOOST_FOREACH(CollisionGeometryPtr cg, active_bounds)
+        overlaps[make_sorted_pair(cg, _x_bounds[i].second.geom)]++;
+
+      // add the geometry to the active set
+      active_bounds.insert(_x_bounds[i].second.geom);
+    }
+  }
+
+  // scan through the y-bounds
+  for (unsigned i=0; i< _y_bounds.size(); i++)
+  {
+    // eliminate from the active bounds if at the end of a bound
+    if (_y_bounds[i].second.end)
+    {
+      assert(active_bounds.find(_y_bounds[i].second.geom) != active_bounds.end());
+      active_bounds.erase(_y_bounds[i].second.geom);
+    }
+    else
+    {
+      // at the start of a bound
+      BOOST_FOREACH(CollisionGeometryPtr cg, active_bounds)
+        overlaps[make_sorted_pair(cg, _y_bounds[i].second.geom)]++;
+
+      // add the geometry to the active set
+      active_bounds.insert(_y_bounds[i].second.geom);
+    }
+  }
+
+  // scan through the z-bounds
+  for (unsigned i=0; i< _z_bounds.size(); i++)
+  {
+    // eliminate from the active bounds if at the end of a bound
+    if (_z_bounds[i].second.end)
+    {
+      assert(active_bounds.find(_z_bounds[i].second.geom) != active_bounds.end());
+      active_bounds.erase(_z_bounds[i].second.geom);
+    }
+    else
+    {
+      // at the start of a bound
+      BOOST_FOREACH(CollisionGeometryPtr cg, active_bounds)
+        overlaps[make_sorted_pair(cg, _z_bounds[i].second.geom)]++;
+
+      // add the geometry to the active set
+      active_bounds.insert(_z_bounds[i].second.geom);
+    }
+  }
+
+  // now setup pairs to check
+  for (map<sorted_pair<CollisionGeometryPtr>, unsigned>::const_iterator i = overlaps.begin(); i != overlaps.end(); i++)
+  {
+    FILE_LOG(LOG_COLDET) << i->second << " overlaps between " << i->first.first << " (" << i->first.first->get_single_body()->id << ") and " << i->first.second << " (" << i->first.second->get_single_body()->id << ")" << std::endl;
+
+    // only consider the pair if they overlap in all three dimensions
+    if (i->second < 3)
+      continue;
+
+    // if the pair is disabled, continue looping
+    if (this->disabled_pairs.find(i->first) != this->disabled_pairs.end())
+      continue;
+
+    // get the rigid bodies corresponding to the geometries
+    RigidBodyPtr rb1 = dynamic_pointer_cast<RigidBody>(i->first.first->get_single_body());
+    RigidBodyPtr rb2 = dynamic_pointer_cast<RigidBody>(i->first.second->get_single_body());
+
+    // don't check pairs from the same rigid body
+    if (rb1 == rb2)
+      continue;
+
+    // if both rigid bodies are disabled, don't check
+    if (!rb1->is_enabled() && !rb2->is_enabled())
+      continue;
+
+    // if we're here, we have a candidate for the narrow phase
+    to_check.push_back(make_pair(i->first.first, i->first.second));
+    FILE_LOG(LOG_COLDET) << "  ... checking pair" << std::endl;
+  }
+  
+  FILE_LOG(LOG_COLDET) << "CCD::broad_phase() exited" << std::endl;
+}
+
+void CCD::sort_AABBs(const map<CollisionGeometryPtr, PosePair>& poses)
+{
+  // if a geometry was added or removed, rebuild the vector of bounds
+  // and copy it to x, y, z dimensions
+  if (_rebuild_bounds_vecs)
+  {
+    build_bv_vector(poses, _x_bounds);
+    _y_bounds = _x_bounds;
+    _z_bounds = _x_bounds;
+  }
+
+  // update bounds vectors
+  update_bounds_vector(_x_bounds, poses, eXAxis);
+  update_bounds_vector(_y_bounds, poses, eYAxis);
+  update_bounds_vector(_z_bounds, poses, eZAxis);
+  
+  // if geometry was added or removed, do standard sorts of vectors
+  if (_rebuild_bounds_vecs)
+  {
+    std::sort(_x_bounds.begin(), _x_bounds.end());
+    std::sort(_y_bounds.begin(), _y_bounds.end());
+    std::sort(_z_bounds.begin(), _z_bounds.end());
+
+    // now indicate that bounds vectors have been (re)built
+    _rebuild_bounds_vecs = false;
+  }
+  else
+  {
+    // bounds are nearly sorted; do insertion sort
+    insertion_sort(_x_bounds.begin(), _x_bounds.end());
+    insertion_sort(_y_bounds.begin(), _y_bounds.end());
+    insertion_sort(_z_bounds.begin(), _z_bounds.end());
+  }
+}
+
+void CCD::update_bounds_vector(vector<pair<double, BoundsStruct> >& bounds, RigidBodyPtr body, AxisType axis)
+{
+  const unsigned X = 0, Y = 1, Z = 2;
+
+  FILE_LOG(LOG_COLDET) << " -- update_bounds_vector() entered (axis=" << axis << ")" << std::endl;
+
+  // iterate over bounds vector
+  for (unsigned i=0; i< bounds.size(); i++)
+  {
+    // get the bounding volume and collision geometry
+    BVPtr bv = bounds[i].second.bv;
+    CollisionGeometryPtr geom = bounds[i].second.geom;
+
+    // create an axis-aligned bounding box around the bounding volume 
+
+    // get the current pose of the geometry in the global frame 
+
+    // compute the swept BV as an axis-aligned bounding box
+
+    // get the bound for the bounding volume
+    Point3d bound = (bounds[i].second.end) ? swept.get_upper_bounds() : swept.get_lower_bounds();
+    FILE_LOG(LOG_COLDET) << "  updating collision geometry: " << geom << "  rigid body: " << geom->get_single_body()->id << std::endl;
+
+    // update the bounds for the given axis
+    switch (axis)
+    {
+      case eXAxis:
+        bounds[i].first = bound[X];
+        break;
+ 
+      case eYAxis:
+        bounds[i].first = bound[Y];
+        break;
+
+      case eZAxis:
+        bounds[i].first = bound[Z];
+        break;
+
+      default:
+        assert(false);
+    }
+
+    if (bounds[i].second.end)
+      FILE_LOG(LOG_COLDET) << "    upper bound: " << bounds[i].first << std::endl; 
+    if (!bounds[i].second.end)  
+      FILE_LOG(LOG_COLDET) << "    lower bound: " << bounds[i].first << std::endl;
+  }
+
+  FILE_LOG(LOG_COLDET) << " -- update_bounds_vector() exited" << std::endl;
+}
+
+void CCD::build_bv_vector(const map<CollisionGeometryPtr, PosePair>& poses, vector<pair<double, BoundsStruct> >& bounds)
+{
+  const double INF = std::numeric_limits<double>::max();
+
+  // clear the vector
+  bounds.clear();
+
+  // iterate over all collision geometries
+  for (set<CollisionGeometryPtr>::const_iterator i = _geoms.begin(); i != _geoms.end(); i++)
+  {
+    // get the primitive for the geometry
+    PrimitivePtr p = (*i)->get_geometry();
+
+    // get the top-level BV for the geometry
+    BVPtr bv = p->get_BVH_root(*i);
+
+    // get the poses for the geometry 
+    assert(poses.find(*i) != poses.end());
+
+    // setup the bounds structure
+    BoundsStruct bs;
+    bs.end = false;
+    bs.geom = *i;
+    bs.bv = bv;
+
+    // add the lower bound
+    bounds.push_back(make_pair(-INF, bs));
+
+    // modify the bounds structure to indicate the end bound
+    bs.end = true;
+    bounds.push_back(make_pair(INF, bs));
+  }
+}
+
+/****************************************************************************
+ Methods for broad phase end 
 ****************************************************************************/
 
 
