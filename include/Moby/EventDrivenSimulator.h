@@ -114,7 +114,7 @@ class EventDrivenSimulator : public Simulator
     void preprocess_event(Event& e);
     void handle_events();
     boost::shared_ptr<ContactParameters> get_contact_parameters(CollisionGeometryPtr geom1, CollisionGeometryPtr geom2) const;
-    double calc_CA_step() const;
+    double calc_CA_step();
     void update_constraint_violations();
     void determine_geometries();
     void calculate_bounds() const;
@@ -145,6 +145,9 @@ class EventDrivenSimulator : public Simulator
 
     /// The geometries in the simulator
     std::list<CollisionGeometryPtr> _geometries;
+
+    /// Geometric pairs that should be checked for events (according to broad phase collision detection)
+    std::vector<std::pair<CollisionGeometryPtr, CollisionGeometryPtr> > _pairs_to_check;
 }; // end class
 
 } // end namespace
