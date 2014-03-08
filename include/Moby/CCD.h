@@ -32,7 +32,7 @@ class CCD
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     static double find_next_contact_time(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB);
-    void broad_phase(const std::vector<DynamicBodyPtr>& bodies, std::vector<std::pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check);
+    void broad_phase(double dt, const std::vector<DynamicBodyPtr>& bodies, std::vector<std::pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check);
     double calc_CA_step(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB);
 
     template <class OutputIterator>
@@ -59,8 +59,11 @@ class CCD
       bool operator<(const BoundsStruct& bs) const { return (!end && bs.end); } 
     };
 
-    // determines whether to rebuild the bounds vectors
+    // see whether the bounds vectors need to be rebuilt
     bool _rebuild_bounds_vecs;
+
+    // the bounding spheres 
+    std::map<CollisionGeometryPtr, BVPtr> _bounding_spheres; 
 
     // temporary vectors
     Ravelin::VectorNd _workv, _l, _u, _c, _x;
@@ -78,10 +81,10 @@ class CCD
     std::map<CollisionGeometryPtr, BVPtr> _swept_BVs;
 
     static BVPtr construct_bounding_sphere(CollisionGeometryPtr cg);
-    void sort_AABBs(const std::vector<RigidBodyPtr>& rigid_bodies);
-    void update_bounds_vector(std::vector<std::pair<double, BoundsStruct> >& bounds, AxisType axis);
+    void sort_AABBs(const std::vector<RigidBodyPtr>& rigid_bodies, double dt);
+    void update_bounds_vector(std::vector<std::pair<double, BoundsStruct> >& bounds, AxisType axis, double dt);
     void build_bv_vector(const std::vector<RigidBodyPtr>& rigid_bodies, std::vector<std::pair<double, BoundsStruct> >& bounds);
-    BVPtr get_swept_BV(CollisionGeometryPtr geom, BVPtr bv);
+    BVPtr get_swept_BV(CollisionGeometryPtr geom, BVPtr bv, double dt);
 
     double calc_max_dist_per_t(RigidBodyPtr rb, const Ravelin::Vector3d& n, const Ravelin::Vector3d& r);
     static double calc_max_velocity(RigidBodyPtr rb, const Ravelin::Vector3d& n, const Ravelin::Vector3d& r);
@@ -104,7 +107,6 @@ class CCD
 
     template <class RandomAccessIterator>
     void insertion_sort(RandomAccessIterator begin, RandomAccessIterator end);
-
 }; // end class
 
 #include "CCD.inl"
