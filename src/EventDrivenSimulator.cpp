@@ -325,7 +325,7 @@ void EventDrivenSimulator::handle_events()
   // compute impulses here...
   try
   {
-    _impact_event_handler.process_events(_events, max_event_time);
+    _impact_event_handler.process_events(_world_joints, _events, max_event_time);
   }
   catch (ImpactToleranceException e)
   {

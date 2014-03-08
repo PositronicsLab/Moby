@@ -32,7 +32,7 @@ class Event
     enum CoulombFrictionType { eUndetermined, eSlipping, eSticking }; 
     Event();
     Event(const Event& e) { _event_frame = boost::shared_ptr<Ravelin::Pose3d>(new Ravelin::Pose3d); *this = e; }
-    static void determine_connected_events(const std::vector<Event>& events, std::list<std::list<Event*> >& groups);
+    static void determine_connected_events(const std::vector<JointPtr>& world_joints, const std::vector<Event>& events, std::list<std::list<Event*> >& groups);
     static void remove_inactive_groups(std::list<std::list<Event*> >& groups);
     Event& operator=(const Event& e);
     double calc_event_vel() const;

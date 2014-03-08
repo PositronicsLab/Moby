@@ -89,6 +89,9 @@ class Simulator : public virtual Base
 
     /// Integrates all dynamic bodies
     double integrate(double step_size) { return integrate(step_size, _bodies.begin(), _bodies.end()); }
+
+    /// Joint constraints not associated with any articulated bodies
+    std::vector<JointPtr> _world_joints;
 }; // end class
 
 // include inline functions

@@ -16,6 +16,8 @@
 #include <Moby/XMLTree.h>
 #include <Moby/Simulator.h>
 
+using std::string;
+using std::list;
 using std::vector;
 using boost::shared_ptr;
 using boost::dynamic_pointer_cast;
@@ -325,6 +327,49 @@ void Simulator::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::stri
       }
     }
   }
+
+  // clear the vector of joint constraints
+  _world_joints.clear();
+
+  // setup a list of joint nodes to find
+  list<string> joint_node_names;
+  joint_node_names.push_back("RevoluteJoint");
+  joint_node_names.push_back("PrismaticJoint");
+  joint_node_names.push_back("SphericalJoint");
+  joint_node_names.push_back("UniversalJoint");
+  joint_node_names.push_back("FixedJoint");
+  joint_node_names.push_back("JointPlugin");
+
+  // read the set of joint nodes and concatenate them into a single list
+  list<shared_ptr<const XMLTree> > joint_nodes = node->find_child_nodes(joint_node_names);
+  
+  // if there were joints read, add them to the simulator 
+  if (!joint_nodes.empty())
+  {
+    // process all joint nodes in the same manner
+    for (list<shared_ptr<const XMLTree> >::const_iterator i = joint_nodes.begin(); i != joint_nodes.end(); i++)
+    {
+      // get the id from the node
+      XMLAttrib* id = (*i)->get_attrib("id");
+      if (!id)
+        throw std::runtime_error("Joints are required to have unique IDs in XML");
+
+      // get the ID
+      const string& ID = id->get_string_value();
+
+      // verify that the joint was read already (if it wasn't, the problem is
+      // in XMLReader)
+      if ((id_iter = id_map.find(ID)) == id_map.end())
+        assert(false);
+
+      // save the joints
+      _world_joints.push_back(dynamic_pointer_cast<Joint>(id_iter->second));
+    }
+  }
+
+  // make all joints implicit
+  for (unsigned i=0; i< _world_joints.size(); i++)
+    _world_joints[i]->set_constraint_type(Joint::eImplicit);
 }
 
 /// Implements Base::save_to_xml()
@@ -355,6 +400,18 @@ void Simulator::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >&
     if (!body)
       throw std::runtime_error("dynamic-body-id does not belong to a dynamic body");
     shared_objects.push_back(body);
+  }
+
+  // add all joints
+  for (unsigned i=0; i< _world_joints.size(); i++)
+  {
+    // create the new node in the tree -- note that save_to_xml() should set
+    // the node name correctly
+    XMLTreePtr child_node(new XMLTree("Joint"));
+    node->add_child(child_node);
+
+    // write to this node
+    _world_joints[i]->save_to_xml(child_node, shared_objects);
   }
 }
 

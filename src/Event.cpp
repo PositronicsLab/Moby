@@ -1595,7 +1595,7 @@ osg::Node* Event::to_visualization_data() const
  * \param events the list of events
  * \param groups the islands of connected events on return
  */
-void Event::determine_connected_events(const vector<Event>& events, list<list<Event*> >& groups)
+void Event::determine_connected_events(const vector<JointPtr>& world_joints, const vector<Event>& events, list<list<Event*> >& groups)
 {
   FILE_LOG(LOG_EVENT) << "Event::determine_connected_contacts() entered" << std::endl;
 
@@ -1651,6 +1651,16 @@ void Event::determine_connected_events(const vector<Event>& events, list<list<Ev
       FILE_LOG(LOG_EVENT) << "    " << (*i)->id << std::endl;
   FILE_LOG(LOG_EVENT) << std::endl;
 
+  // add nodes for rigid bodies in world constraints 
+  for (unsigned i=0; i< world_joints.size(); i++)
+  {
+    RigidBodyPtr inboard = world_joints[i]->get_inboard_link();
+    RigidBodyPtr outboard = world_joints[i]->get_outboard_link();
+    nodes.insert(inboard);
+    nodes.insert(outboard);
+    edges.insert(std::make_pair(inboard, outboard));
+  }
+
   // add connections between articulated rigid bodies -- NOTE: don't process
   // articulated bodies twice!
   set<ArticulatedBodyPtr> ab_processed;
@@ -1692,7 +1702,7 @@ void Event::determine_connected_events(const vector<Event>& events, list<list<Ev
   }
 
   // Now, we'll remove nodes from the set until there are no more nodes.
-  // For each removed node, we'll get add all events that contain the single 
+  // For each removed node, we'll add all events that contain the single 
   // body to the group; all neighboring nodes will then be processed.
   while (!nodes.empty())
   {

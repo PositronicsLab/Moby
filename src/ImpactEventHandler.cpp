@@ -71,7 +71,7 @@ ImpactEventHandler::ImpactEventHandler()
 }
 
 // Processes impacts
-void ImpactEventHandler::process_events(const vector<Event>& events, double max_time)
+void ImpactEventHandler::process_events(const vector<JointPtr>& world_joints, const vector<Event>& events, double max_time)
 {
   FILE_LOG(LOG_EVENT) << "*************************************************************";
   FILE_LOG(LOG_EVENT) << endl;
@@ -82,7 +82,7 @@ void ImpactEventHandler::process_events(const vector<Event>& events, double max_
 
   // apply the method to all contacts
   if (!events.empty())
-    apply_model(events, max_time);
+    apply_model(world_joints, events, max_time);
   else
     FILE_LOG(LOG_EVENT) << " (no events?!)" << endl;
     
@@ -95,7 +95,7 @@ void ImpactEventHandler::process_events(const vector<Event>& events, double max_
 /**
  * \param events a set of events
  */
-void ImpactEventHandler::apply_model(const vector<Event>& events, double max_time)
+void ImpactEventHandler::apply_model(const vector<JointPtr>& world_joints, const vector<Event>& events, double max_time)
 {
   const double INF = std::numeric_limits<double>::max();
   list<Event*> impacting;
@@ -104,7 +104,7 @@ void ImpactEventHandler::apply_model(const vector<Event>& events, double max_tim
   // determine sets of connected events 
   // **********************************************************
   list<list<Event*> > groups;
-  Event::determine_connected_events(events, groups);
+  Event::determine_connected_events(world_joints, events, groups);
   Event::remove_inactive_groups(groups);
 
   // **********************************************************
@@ -129,9 +129,9 @@ void ImpactEventHandler::apply_model(const vector<Event>& events, double max_tim
 
       // apply model to the reduced contacts
       if (max_time < INF)   
-        apply_model_to_connected_events(revents, max_time);
+        apply_model_to_connected_events(world_joints, revents, max_time);
       else
-        apply_model_to_connected_events(revents);
+        apply_model_to_connected_events(world_joints, revents);
 
       FILE_LOG(LOG_EVENT) << " -- post-event velocity (all events): " << std::endl;
       for (list<Event*>::iterator j = i->begin(); j != i->end(); j++)
@@ -154,7 +154,7 @@ void ImpactEventHandler::apply_model(const vector<Event>& events, double max_tim
  * "Anytime" version
  * \param events a set of connected events 
  */
-void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& events, double max_time)
+void ImpactEventHandler::apply_model_to_connected_events(const vector<JointPtr>& world_joints, const list<Event*>& events, double max_time)
 {
   double ke_minus = 0.0, ke_plus = 0.0;
   const unsigned UINF = std::numeric_limits<unsigned>::max();
@@ -365,7 +365,7 @@ void ImpactEventHandler::permute_problem(EventProblemData& epd, VectorNd& z)
  * Applies method of Drumwright and Shell to a set of connected events
  * \param events a set of connected events 
  */
-void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& events)
+void ImpactEventHandler::apply_model_to_connected_events(const vector<JointPtr>& world_joints, const list<Event*>& events)
 {
   double ke_minus = 0.0, ke_plus = 0.0;
   VectorNd z;
