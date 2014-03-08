@@ -459,7 +459,7 @@ bool CCD::intersect_BV_trees(BVPtr a, BVPtr b, const Transform3d& aTb, Collision
 /****************************************************************************
  Methods for broad phase begin 
 ****************************************************************************/
-void CCD::broad_phase(const vector<DynamicBodyPtr>& bodies, vector<pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check)
+void CCD::broad_phase(double dt, const vector<DynamicBodyPtr>& bodies, vector<pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check)
 {
   FILE_LOG(LOG_COLDET) << "CCD::broad_phase() entered" << std::endl;
 
@@ -481,14 +481,33 @@ void CCD::broad_phase(const vector<DynamicBodyPtr>& bodies, vector<pair<Collisio
   unsigned count = 0;
   for (unsigned i=0; i< rbs.size(); i++)
     count += rbs[i]->geometries.size();
-  if (count != _swept_BVs.size())
+  if (count != _bounding_spheres.size())
+  {
+    // clear the map of bounding spheres
+    _bounding_spheres.clear();
+
+    // indicate the bounding vectors need to be rebuilt
     _rebuild_bounds_vecs = true;
+
+    for (unsigned j=0; j< rbs.size(); j++)
+    BOOST_FOREACH(CollisionGeometryPtr i, rbs[j]->geometries)
+    {
+      // get the primitive for the geometry
+      PrimitivePtr p = i->get_geometry();
+
+      // construct a bounding sphere for the geometry
+      BVPtr bv = construct_bounding_sphere(i);
+
+      // store the bounding sphere
+      _bounding_spheres[i] = bv;
+    }
+  }
 
   // clear the vector of pairs to check
   to_check.clear();
 
   // sort the AABBs
-  sort_AABBs(rbs);
+  sort_AABBs(rbs, dt);
 
   // store how many overlaps we have for pairs
   map<sorted_pair<CollisionGeometryPtr>, unsigned> overlaps;
@@ -590,7 +609,7 @@ void CCD::broad_phase(const vector<DynamicBodyPtr>& bodies, vector<pair<Collisio
 }
 
 /// Gets the swept BV, creating it if necessary
-BVPtr CCD::get_swept_BV(CollisionGeometryPtr cg, BVPtr bv)
+BVPtr CCD::get_swept_BV(CollisionGeometryPtr cg, BVPtr bv, double dt)
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
@@ -609,17 +628,19 @@ BVPtr CCD::get_swept_BV(CollisionGeometryPtr cg, BVPtr bv)
   Vector3d a_hi = rb->get_accel_upper_bounds().get_linear();
  
   // compute the swept BV
-  BVPtr swept_bv = bv->calc_swept_BV(cg, v);
+  BVPtr swept_bv = bv->calc_swept_BV(cg, v*dt);
   FILE_LOG(LOG_BV) << "new BV: " << swept_bv << std::endl;
 
   // attempt to get the swept BV as a SSL
   shared_ptr<SSL> ssl = dynamic_pointer_cast<SSL>(swept_bv);
   if (ssl)
   {
+    const double DTSQ = dt*dt;
+
     // update the radius
-    ssl->radius += std::max(std::fabs(a_lo[X]), std::fabs(a_hi[X]));
-    ssl->radius += std::max(std::fabs(a_lo[Y]), std::fabs(a_hi[Y]));
-    ssl->radius += std::max(std::fabs(a_lo[Z]), std::fabs(a_hi[Z]));
+    ssl->radius += DTSQ*std::max(std::fabs(a_lo[X]), std::fabs(a_hi[X]));
+    ssl->radius += DTSQ*std::max(std::fabs(a_lo[Y]), std::fabs(a_hi[Y]));
+    ssl->radius += DTSQ*std::max(std::fabs(a_lo[Z]), std::fabs(a_hi[Z]));
   }
 
   // store the bounding volume
@@ -628,10 +649,9 @@ BVPtr CCD::get_swept_BV(CollisionGeometryPtr cg, BVPtr bv)
   return swept_bv;
 }
 
-void CCD::sort_AABBs(const vector<RigidBodyPtr>& rigid_bodies)
+void CCD::sort_AABBs(const vector<RigidBodyPtr>& rigid_bodies, double dt)
 {
-  // if a geometry was added or removed, rebuild the vector of bounds
-  // and copy it to x, y, z dimensions
+  // rebuild the vector of bounds
   if (_rebuild_bounds_vecs)
   {
     build_bv_vector(rigid_bodies, _x_bounds);
@@ -640,9 +660,9 @@ void CCD::sort_AABBs(const vector<RigidBodyPtr>& rigid_bodies)
   }
 
   // update bounds vectors
-  update_bounds_vector(_x_bounds, eXAxis);
-  update_bounds_vector(_y_bounds, eYAxis);
-  update_bounds_vector(_z_bounds, eZAxis);
+  update_bounds_vector(_x_bounds, eXAxis, dt);
+  update_bounds_vector(_y_bounds, eYAxis, dt);
+  update_bounds_vector(_z_bounds, eZAxis, dt);
   
   // if geometry was added or removed, do standard sorts of vectors
   if (_rebuild_bounds_vecs)
@@ -663,7 +683,7 @@ void CCD::sort_AABBs(const vector<RigidBodyPtr>& rigid_bodies)
   }
 }
 
-void CCD::update_bounds_vector(vector<pair<double, BoundsStruct> >& bounds, AxisType axis)
+void CCD::update_bounds_vector(vector<pair<double, BoundsStruct> >& bounds, AxisType axis, double dt)
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
@@ -677,7 +697,7 @@ void CCD::update_bounds_vector(vector<pair<double, BoundsStruct> >& bounds, Axis
     CollisionGeometryPtr geom = bounds[i].second.geom;
 
     // get the swept bounding volume (should be defined in global frame)
-    BVPtr swept_bv = get_swept_BV(geom, bv);
+    BVPtr swept_bv = get_swept_BV(geom, bv, dt);
     assert(swept_bv->get_relative_pose() == GLOBAL);
 
     // get the bound for the bounding volume
@@ -726,8 +746,8 @@ void CCD::build_bv_vector(const vector<RigidBodyPtr>& rigid_bodies, vector<pair<
       // get the primitive for the geometry
       PrimitivePtr p = i->get_geometry();
 
-      // construct a bounding sphere for the geometry
-      BVPtr bv = construct_bounding_sphere(i);
+      // get the bounding sphere 
+      BVPtr bv = _bounding_spheres.find(i)->second;
 
       // setup the bounds structure
       BoundsStruct bs;

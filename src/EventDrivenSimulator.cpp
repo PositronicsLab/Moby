@@ -443,6 +443,9 @@ double EventDrivenSimulator::step(double step_size)
 
     FILE_LOG(LOG_SIMULATOR) << "  determining conservative advancement time up to step of " << dt << std::endl;
 
+    // do broad-phase collision detection here
+    _ccd.broad_phase(dt, _bodies, _pairs_to_check); 
+
     // determine the maximum step according to conservative advancement
     double safe_dt = std::min(calc_CA_step(), dt);
     if (safe_dt < dt)
@@ -625,9 +628,6 @@ double EventDrivenSimulator::calc_CA_step()
     if (dt <= 0.0)
       return dt;
   }
-
-  // do broad-phase collision detection here
-  _ccd.broad_phase(_bodies, _pairs_to_check); 
 
   // do narrow-phase collision detection here
   for (unsigned i=0; i< _pairs_to_check.size(); i++)
