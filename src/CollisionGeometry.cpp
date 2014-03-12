@@ -15,6 +15,7 @@
 #include <Moby/XMLTree.h>
 #include <Moby/CollisionGeometry.h>
 
+using std::vector;
 using boost::dynamic_pointer_cast;
 using boost::shared_ptr;
 using namespace Ravelin;
@@ -24,6 +25,31 @@ using namespace Moby;
 CollisionGeometry::CollisionGeometry()
 {
   _F = shared_ptr<Pose3d>(new Pose3d);
+}
+
+/// Gets the farthest point from this geometry
+double CollisionGeometry::get_farthest_point_distance() const
+{
+  // get the primitive from this
+  PrimitivePtr primitive = get_geometry();
+  assert(!primitive->get_pose()->rpose);
+
+  // get the vertices
+  vector<Point3d> verts;
+  get_vertices(verts);
+  if (verts.empty())
+    return 0.0;
+
+  // get the rigid body pose in P's frame
+  RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(get_single_body());
+  Point3d rbX = Pose3d::transform_point(verts.front().pose, Point3d(0,0,0,rb->get_pose()));
+ 
+  // find which point is closest
+  double max_dist = 0.0;
+  for (unsigned i=0; i< verts.size(); i++)
+    max_dist = std::max(max_dist, (verts[i] - rbX).norm()); 
+
+  return max_dist; 
 }
 
 /// Sets the single body associated with this CollisionGeometry

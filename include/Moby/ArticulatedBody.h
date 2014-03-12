@@ -53,7 +53,7 @@ class ArticulatedBody : public DynamicBody
     virtual void reset_limit_estimates();
     virtual bool limit_estimates_exceeded() const;
     double find_next_joint_limit_time() const;
-    void update_joint_accel_limits();
+    void update_joint_vel_limits();
 
     /// Gets the number of degrees-of-freedom permitted by explicit constraints
     virtual unsigned num_joint_dof_explicit() const = 0;
@@ -133,19 +133,19 @@ class ArticulatedBody : public DynamicBody
     // joint constraint violation
     std::vector<double> _cvio;
 
-    // lower acceleration limits for this body
-    std::vector<double> _acc_limits_lo;
+    // lower velocity limits for this body
+    std::vector<double> _vel_limits_lo;
 
     // upper acceleration limits for this body
-    std::vector<double> _acc_limits_hi;
+    std::vector<double> _vel_limits_hi;
 
     // temporary variables
     Ravelin::VectorNd _dq;
 
-    // indicates whether acceleration bounds exceeded limits since being reset
-    bool _acc_limits_exceeded;
+    // indicates whether velocity bounds exceeded limits since being reset
+    bool _vel_limits_exceeded;
 
-    void check_joint_accel_limit_exceeded_and_update();
+    void check_joint_vel_limit_exceeded_and_update();
     virtual double get_aspeed();
 }; // end class
 

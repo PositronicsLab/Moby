@@ -31,7 +31,7 @@ class CCD
     virtual ~CCD() {}
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
-    static double find_next_contact_time(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB);
+    double find_next_contact_time(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB);
     void broad_phase(double dt, const std::vector<DynamicBodyPtr>& bodies, std::vector<std::pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check);
     double calc_CA_step(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB);
 
@@ -59,14 +59,14 @@ class CCD
       bool operator<(const BoundsStruct& bs) const { return (!end && bs.end); } 
     };
 
+    // gets the distance on farthest points
+    std::map<CollisionGeometryPtr, double> _rmax;
+
     // see whether the bounds vectors need to be rebuilt
     bool _rebuild_bounds_vecs;
 
     // the bounding spheres 
     std::map<CollisionGeometryPtr, BVPtr> _bounding_spheres; 
-
-    // temporary vectors
-    Ravelin::VectorNd _workv, _l, _u, _c, _x;
 
     /// AABB bounds (x-axis)
     std::vector<std::pair<double, BoundsStruct> > _x_bounds;
@@ -86,10 +86,8 @@ class CCD
     void build_bv_vector(const std::vector<RigidBodyPtr>& rigid_bodies, std::vector<std::pair<double, BoundsStruct> >& bounds);
     BVPtr get_swept_BV(CollisionGeometryPtr geom, BVPtr bv, double dt);
 
-    double calc_max_dist_per_t(RigidBodyPtr rb, const Ravelin::Vector3d& n, const Ravelin::Vector3d& r);
-    static double calc_max_velocity(RigidBodyPtr rb, const Ravelin::Vector3d& n, const Ravelin::Vector3d& r);
-    double solve_lp(const Ravelin::VectorNd& c, const Ravelin::VectorNd& l, const Ravelin::VectorNd& u, Ravelin::VectorNd& x);    
-    static void to_binary(unsigned i, const Ravelin::VectorNd& l, const Ravelin::VectorNd& u, Ravelin::VectorNd& x); 
+    double calc_max_dist_per_t(RigidBodyPtr rb, const Ravelin::Vector3d& n, double rmax);
+    static double calc_max_velocity(RigidBodyPtr rb, const Ravelin::Vector3d& n, double rmax);
     bool intersect_BV_trees(boost::shared_ptr<BV> a, boost::shared_ptr<BV> b, const Ravelin::Transform3d& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b);
     static Event create_contact(CollisionGeometryPtr a, CollisionGeometryPtr b, const Point3d& point, const Ravelin::Vector3d& normal);
 

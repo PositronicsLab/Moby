@@ -56,8 +56,8 @@ RigidBody::RigidBody()
   _F2 = shared_ptr<Pose3d>(new Pose3d);
 
   // setup poses for acceleration bounds
-  _accel_limit_lo.set_zero(_F);
-  _accel_limit_hi.set_zero(_F);
+  _vel_limit_lo.set_zero(_F);
+  _vel_limit_hi.set_zero(_F);
 
   // invalidate everything
   _forcei_valid = false;
@@ -80,51 +80,54 @@ RigidBody::RigidBody()
   _enabled = true;
   _link_idx = std::numeric_limits<unsigned>::max();
   viscous_coeff = VectorNd::zero(SPATIAL_DIM);
+
+  // indicate velocity limit has been exceeded (safe initialization)
+ _vel_limit_exceeded = true; 
 }
 
 /// Resets the acceleration limit estimates
 void RigidBody::reset_limit_estimates()
 {
- _accel_limit_exceeded = false; 
+ _vel_limit_exceeded = false; 
 }
 
-/// Updates this rigid body's acceleration limit
-void RigidBody::update_accel_limits()
+/// Updates this rigid body's velocity limit
+void RigidBody::update_vel_limits()
 {
   const unsigned SPATIAL_DIM = 6;
 
   // mark limit as not exceeded
-  _accel_limit_exceeded = false;
+  _vel_limit_exceeded = false;
 
-  SAcceld a = Pose3d::transform(_F, get_accel());
+  SVelocityd v = Pose3d::transform(_F, get_velocity());
   for (unsigned i=0; i< SPATIAL_DIM; i++)
   {
-    if (a[i] < _accel_limit_lo[i])
-      _accel_limit_lo[i] = a[i];
-    if (a[i] > _accel_limit_hi[i])
-      _accel_limit_hi[i] = a[i];
+    if (v[i] < _vel_limit_lo[i])
+      _vel_limit_lo[i] = v[i];
+    if (v[i] > _vel_limit_hi[i])
+      _vel_limit_hi[i] = v[i];
   }
 }
 
-/// Checks whether a rigid body has exceeded its acceleration limit and updates the acceleration limit 
-void RigidBody::check_accel_limit_exceeded_and_update()
+/// Checks whether a rigid body has exceeded its velocity limit and updates the velocity limit 
+void RigidBody::check_vel_limit_exceeded_and_update()
 {
   const unsigned SPATIAL_DIM = 6;
 
-  if (!_accel_limit_exceeded)
+  if (!_vel_limit_exceeded)
   {
-    SAcceld a = Pose3d::transform(_F, get_accel());
+    SVelocityd v = Pose3d::transform(_F, get_velocity());
     for (unsigned i=0; i< SPATIAL_DIM; i++)
     {
-      if (a[i] < _accel_limit_lo[i])
+      if (v[i] < _vel_limit_lo[i])
       {
-        _accel_limit_lo[i] = a[i];
-        _accel_limit_exceeded = true;
+        _vel_limit_lo[i] = v[i];
+        _vel_limit_exceeded = true;
       }
-      if (a[i] > _accel_limit_hi[i])
+      if (v[i] > _vel_limit_hi[i])
       {
-        _accel_limit_hi[i] = a[i];
-        _accel_limit_exceeded = true;
+        _vel_limit_hi[i] = v[i];
+        _vel_limit_exceeded = true;
       }
     }
   }
@@ -1958,9 +1961,9 @@ void RigidBody::ode(SharedConstVectorNd& x, double t, double dt, void* data, Sha
   calc_fwd_dyn();
   get_generalized_acceleration(dgv);
 
-  // check whether acceleration limits have been exceeded 
-  if (!_accel_limit_exceeded)
-    check_accel_limit_exceeded_and_update();
+  // check whether velocity limits have been exceeded 
+  if (!_vel_limit_exceeded)
+    check_vel_limit_exceeded_and_update();
 }
 
 /// Outputs the object state to the specified stream

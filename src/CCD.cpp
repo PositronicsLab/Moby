@@ -52,9 +52,6 @@ using namespace Moby;
 /// Constructs a collision detector with default tolerances
 CCD::CCD()
 {
-  _l.resize(6);
-  _u.resize(6);
-  _c.resize(6);
 }
 
 /// Finds the next event time between two rigid bodies
@@ -91,15 +88,11 @@ double CCD::find_next_contact_time(CollisionGeometryPtr cgA, CollisionGeometryPt
   Vector3d nA = Pose3d::transform_vector(rbA->get_pose(), n0);
   Vector3d nB = Pose3d::transform_vector(rbB->get_pose(), n0);
 
-  // get rA and rB
-  Point3d rA = Pose3d::transform_point(rbA->get_pose(), pA);
-  Point3d rB = Pose3d::transform_point(rbB->get_pose(), pB);
-
   // compute the distance that body A can move toward body B
-  double velA = calc_max_velocity(rbA, -nA, rA);
+  double velA = calc_max_velocity(rbA, -nA, _rmax[cgA]);
 
   // compute the distance that body B can move toward body A
-  double velB = calc_max_velocity(rbB, nB, rB);
+  double velB = calc_max_velocity(rbB, nB, _rmax[cgB]);
 
   // compute the total velocity 
   double total_vel = velA + velB;
@@ -143,15 +136,11 @@ double CCD::calc_CA_step(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB)
   Vector3d nA = Pose3d::transform_vector(rbA->get_pose(), n0);
   Vector3d nB = Pose3d::transform_vector(rbB->get_pose(), n0);
 
-  // get rA and rB
-  Point3d rA = Pose3d::transform_point(rbA->get_pose(), pA);
-  Point3d rB = Pose3d::transform_point(rbB->get_pose(), pB);
-
   // compute the distance that body A can move toward body B
-  double dist_per_tA = calc_max_dist_per_t(rbA, -nA, rA);
+  double dist_per_tA = calc_max_dist_per_t(rbA, -nA, _rmax[cgA]);
 
   // compute the distance that body B can move toward body A
-  double dist_per_tB = calc_max_dist_per_t(rbB, nB, rB);
+  double dist_per_tB = calc_max_dist_per_t(rbB, nB, _rmax[cgB]);
 
   // compute the total distance
   double total_dist_per_t = dist_per_tA + dist_per_tB;
@@ -172,7 +161,7 @@ double CCD::calc_CA_step(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB)
 }
 
 /// Computes the maximum velocity along a particular direction (n) 
-double CCD::calc_max_velocity(RigidBodyPtr rb, const Vector3d& n, const Vector3d& r)
+double CCD::calc_max_velocity(RigidBodyPtr rb, const Vector3d& n, double rmax)
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
@@ -180,11 +169,11 @@ double CCD::calc_max_velocity(RigidBodyPtr rb, const Vector3d& n, const Vector3d
   const SVelocityd& v0 = Pose3d::transform(rb->get_pose(), rb->get_velocity());
   Vector3d xd0 = v0.get_linear();
   Vector3d w0 = v0.get_angular();
-  return n.dot(xd0 + Vector3d::cross(w0, r)); 
+  return n.dot(xd0) + w0.norm()*rmax; 
 }
 
 /// Solves the LP that maximizes <n, v + w x r>
-double CCD::calc_max_dist_per_t(RigidBodyPtr rb, const Vector3d& n, const Vector3d& r)
+double CCD::calc_max_dist_per_t(RigidBodyPtr rb, const Vector3d& n, double rlen)
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
@@ -194,85 +183,27 @@ double CCD::calc_max_dist_per_t(RigidBodyPtr rb, const Vector3d& n, const Vector
   Vector3d w0 = v0.get_angular();
 
   // get the bounds on acceleration
-  const SAcceld& a0p = rb->get_accel_upper_bounds(); 
-  const SAcceld& a0n = rb->get_accel_lower_bounds(); 
-  assert(a0p.pose == v0.pose);
-  assert(a0n.pose == v0.pose);
+  const SVelocityd& v0p = rb->get_vel_upper_bounds(); 
+  const SVelocityd& v0n = rb->get_vel_lower_bounds(); 
+  assert(v0p.pose == v0.pose);
+  assert(v0n.pose == v0.pose);
 
-  // break acceleration bounds in linear and angular components
-  Vector3d xddp = a0p.get_linear();
-  Vector3d xddn = a0n.get_linear();
-  Vector3d alphap = a0p.get_angular();
-  Vector3d alphan = a0n.get_angular();
+  // break velocity bounds into linear and angular components
+  Vector3d xdp = v0p.get_linear();
+  Vector3d xdn = v0n.get_linear();
+  Vector3d omegap = v0p.get_angular();
+  Vector3d omegan = v0n.get_angular();
 
-  // setup lower and upper bounds
-  _l[0] = xddn[X];   _u[0] = xddp[X];
-  _l[1] = xddn[Y];   _u[1] = xddp[Y];
-  _l[2] = xddn[Z];   _u[2] = xddp[Z];
-  _l[3] = alphan[X]; _u[3] = alphap[X];
-  _l[4] = alphan[Y]; _u[4] = alphap[Y];
-  _l[5] = alphan[Z]; _u[5] = alphap[Z];
-
-  // setup c
-  _c[0] = n[X];
-  _c[1] = n[Y];
-  _c[2] = n[Z]; 
-  _c[3] = n[Z]*r[Y] - n[Y]*r[Z];
-  _c[4] = -n[Z]*r[X] + n[X]*r[Z];
-  _c[5] = n[Y]*r[X] - n[X]*r[Y];
-
-  // solve the LP
-  return n.dot(xd0 + Vector3d::cross(w0, r)) + solve_lp(_c, _l, _u, _x); 
-}
-
-/// Determines the appropriate elements of the bounds vector
-void CCD::to_binary(unsigned i, const VectorNd& l, const VectorNd& u, VectorNd& x)
-{
-  const unsigned N = u.size();
-  unsigned n2 = 1 << (N-1);
-  x.resize(N);
-
-  // setup the binary number
-  for (unsigned j=0; j< N; j++)
-  {
-    x[j] = (i / n2 > 0) ? u[j] : l[j];
-    i = i % n2;
-    n2 /= 2;
-  }
-}
-
-/// Solves a linear program with only box constraints 
-/**
- * \param c the optimization vector (maximizes c'r)
- * \param l the lower variable constraints on r
- * \param u the upper variable constraints on r
- * \param x the optimal solution on return
- * \return the optimal value
- */
-double CCD::solve_lp(const VectorNd& c, const VectorNd& l, const VectorNd& u, VectorNd& x)
-{
-  const unsigned X = 0, Y = 1, Z = 2;
-
-/*
-  // setup the first possibility first
-  double best = -std::numeric_limits<double>::max();
-
-  // enumerate through all 2^6 = 64 possibilities
-  for (unsigned i=0; i< 64; i++)
-  {
-    to_binary(i, l, u, _workv);
-    double value = c.dot(_workv);
-    if (value > best)
-    {
-      best = value;
-      x = _workv;
-    }
-  }
-
-  return best;
-*/
-  x = u;
-  return c.dot(x);
+  // (from Mirtich [1996], p. 131)
+  double dist = n.dot(xd0) + w0.norm()*rlen;
+  double wmaxx = std::max(std::fabs(omegap[X]), std::fabs(omegan[X]));
+  double wmaxy = std::max(std::fabs(omegap[Y]), std::fabs(omegan[Y]));
+  double wmaxz = std::max(std::fabs(omegap[Z]), std::fabs(omegan[Z]));
+  dist += (n[X] < 0.0) ? xdn[X]*n[X] : xdp[X]*n[X];
+  dist += (n[Y] < 0.0) ? xdn[Y]*n[Y] : xdp[Y]*n[Y];
+  dist += (n[Z] < 0.0) ? xdn[Z]*n[Z] : xdp[Z]*n[Z];
+  dist += rlen*(wmaxx*std::sqrt(1-n[X]*n[X]) + wmaxy*std::sqrt(1-n[Y]*n[Y]) +
+                wmaxz*std::sqrt(1-n[Z]*n[Z]));
 }
 
 /// Implements Base::load_from_xml()
@@ -492,6 +423,9 @@ void CCD::broad_phase(double dt, const vector<DynamicBodyPtr>& bodies, vector<pa
     for (unsigned j=0; j< rbs.size(); j++)
     BOOST_FOREACH(CollisionGeometryPtr i, rbs[j]->geometries)
     {
+      // get farthest distance on each geometry while we're at it 
+      _rmax[i] = i->get_farthest_point_distance();
+
       // get the primitive for the geometry
       PrimitivePtr p = i->get_geometry();
 
@@ -622,10 +556,10 @@ BVPtr CCD::get_swept_BV(CollisionGeometryPtr cg, BVPtr bv, double dt)
   // get the rigid body
   RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(cg->get_single_body());
 
-  // get the current velocity and the acceleration limits
+  // get the current velocity and the velocity limits
   const SVelocityd& v = rb->get_velocity();
-  Vector3d a_lo = rb->get_accel_lower_bounds().get_linear();
-  Vector3d a_hi = rb->get_accel_upper_bounds().get_linear();
+  Vector3d v_lo = rb->get_vel_lower_bounds().get_linear();
+  Vector3d v_hi = rb->get_vel_upper_bounds().get_linear();
  
   // compute the swept BV
   BVPtr swept_bv = bv->calc_swept_BV(cg, v*dt);
@@ -635,12 +569,10 @@ BVPtr CCD::get_swept_BV(CollisionGeometryPtr cg, BVPtr bv, double dt)
   shared_ptr<SSL> ssl = dynamic_pointer_cast<SSL>(swept_bv);
   if (ssl)
   {
-    const double DTSQ = dt*dt;
-
     // update the radius
-    ssl->radius += DTSQ*std::max(std::fabs(a_lo[X]), std::fabs(a_hi[X]));
-    ssl->radius += DTSQ*std::max(std::fabs(a_lo[Y]), std::fabs(a_hi[Y]));
-    ssl->radius += DTSQ*std::max(std::fabs(a_lo[Z]), std::fabs(a_hi[Z]));
+    ssl->radius += dt*std::max(std::fabs(v_lo[X]), std::fabs(v_hi[X]));
+    ssl->radius += dt*std::max(std::fabs(v_lo[Y]), std::fabs(v_hi[Y]));
+    ssl->radius += dt*std::max(std::fabs(v_lo[Z]), std::fabs(v_hi[Z]));
   }
 
   // store the bounding volume

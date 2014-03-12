@@ -654,14 +654,14 @@ void EventDrivenSimulator::calculate_bounds() const
     ArticulatedBodyPtr ab = dynamic_pointer_cast<ArticulatedBody>(db);
     if (ab)
     {
-      ab->update_joint_accel_limits();
+      ab->update_joint_vel_limits();
       BOOST_FOREACH(RigidBodyPtr rb, ab->get_links())
-        rb->update_accel_limits();
+        rb->update_vel_limits();
     }
     else
     {
       RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(db);
-      rb->update_accel_limits();
+      rb->update_vel_limits();
     }
   }
 }
