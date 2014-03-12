@@ -114,10 +114,10 @@ class RigidBody : public SingleBody
     virtual void ode_noexcept(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data, Ravelin::SharedVectorNd& dx) { ode(x, t, dt, data, dx); }
     virtual void ode(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data, Ravelin::SharedVectorNd& dx);
     virtual void reset_limit_estimates();
-    virtual bool limit_estimates_exceeded() const { return _accel_limit_exceeded; }
-    const Ravelin::SAcceld& get_accel_upper_bounds() const { return _accel_limit_lo; }
-    const Ravelin::SAcceld& get_accel_lower_bounds() const { return _accel_limit_hi; }
-    void update_accel_limits();
+    virtual bool limit_estimates_exceeded() const { return _vel_limit_exceeded; }
+    const Ravelin::SVelocityd& get_vel_upper_bounds() const { return _vel_limit_lo; }
+    const Ravelin::SVelocityd& get_vel_lower_bounds() const { return _vel_limit_hi; }
+    void update_vel_limits();
 
     template <class OutputIterator>
     OutputIterator get_parent_links(OutputIterator begin) const;
@@ -226,7 +226,7 @@ class RigidBody : public SingleBody
     Ravelin::VectorNd& solve_generalized_inertia_single(const Ravelin::VectorNd& b, Ravelin::VectorNd& x);
     RigidBodyPtr get_parent_link(JointPtr j) const;
     RigidBodyPtr get_child_link(JointPtr j) const;
-    void check_accel_limit_exceeded_and_update();
+    void check_vel_limit_exceeded_and_update();
 
     /// Indicates whether link frame velocity is valid (up-to-date)
     bool _xdi_valid;
@@ -336,14 +336,14 @@ class RigidBody : public SingleBody
     /// Outer joints and associated data 
     std::set<JointPtr> _outer_joints; 
 
-    /// Lower acceleration limits on the body 
-    Ravelin::SAcceld _accel_limit_lo;
+    /// Lower velocity limits on the body 
+    Ravelin::SVelocityd _vel_limit_lo;
 
-    /// Upper acceleration limits on the body
-    Ravelin::SAcceld _accel_limit_hi;
+    /// Upper velocity limits on the body
+    Ravelin::SVelocityd _vel_limit_hi;
 
-    /// Indicates whether the acceleration limit has been exceeded
-    bool _accel_limit_exceeded;
+    /// Indicates whether the velocity limit has been exceeded
+    bool _vel_limit_exceeded;
 }; // end class
 
 std::ostream& operator<<(std::ostream&, RigidBody&);
