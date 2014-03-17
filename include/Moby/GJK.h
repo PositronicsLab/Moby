@@ -31,7 +31,8 @@ class GJK
 
       private:
         SimplexType _type;
-        SVertex _p1, _p2, _p3, _p4;
+        SVertex _v1, _v2, _v3, _v4;
+        Point3d _witness;
     }
 
   

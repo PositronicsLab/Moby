@@ -49,6 +49,7 @@ class Primitive : public virtual Base
     void set_mass(double mass);
     void set_density(double density);
     virtual void set_pose(const Ravelin::Pose3d& T);
+    virtual Point3d get_supporting_point(const Ravelin::Vector3d& d);
 
     /// Computes the distance between a point and this primitive
     virtual double calc_dist_and_normal(const Point3d& p, Ravelin::Vector3d& normal) const = 0;

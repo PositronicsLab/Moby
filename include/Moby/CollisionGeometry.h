@@ -46,6 +46,7 @@ class CollisionGeometry : public virtual Base
     static double calc_signed_dist(CollisionGeometryPtr a, CollisionGeometryPtr b, Point3d& cpa, Point3d& cpb);
     double calc_dist_and_normal(const Point3d& p, Ravelin::Vector3d& n) const;
     void get_vertices(std::vector<Point3d>& p) const;
+    Point3d get_supporting_point(const Ravelin::Vector3d& d) const;
     double get_farthest_point_distance() const;
 
     /// Gets the parent of this CollisionGeometry (or NULL if there is no parent)

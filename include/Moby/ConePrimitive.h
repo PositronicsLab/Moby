@@ -41,6 +41,7 @@ class ConePrimitive : public Primitive
     virtual boost::shared_ptr<const IndexedTriArray> get_mesh();
     virtual osg::Node* create_visualization();
     double calc_dist(const SpherePrimitive* s, Point3d& pcone, Point3d& psph) const;
+    virtual Point3d get_supporting_point(const Ravelin::Vector3d& d);
 
     /// Gets the number of rings on the cone
     unsigned get_num_rings() const { return _nrings; }
