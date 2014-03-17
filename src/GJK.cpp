@@ -1,8 +1,6 @@
-/// Finds the closest point to the origin
-Origin3d Simplex::find_closest(unsigned& region) const
+/// Finds the closest point to the origin and simplifies the simplex (if possible)
+Origin3d Simplex::find_closest_and_simplify()
 {
-  // TODO: should we return what feature?
-
   if (_type == ePoint)
     return _v1;
   else if (_type == eSegment)
@@ -13,6 +11,8 @@ Origin3d Simplex::find_closest(unsigned& region) const
     Origin3d aO = -a;
     if (ab.dot(aO) <= 0.0)
     {
+      // point is the closest
+
       region = 1;
       return a;
     }
@@ -24,6 +24,7 @@ Origin3d Simplex::find_closest(unsigned& region) const
   }
   else if (_type == eTriangle)
   {
+
   }
   else if (_type == eTetrahedron)
   {
@@ -49,7 +50,7 @@ void Simplex::add(const SVertex& v)
     _v4 = v;
   }
   else if (_type == eTetrahedron)
-    _v5 = v;
+    assert(false);
 }
 
 /// Sees whether this is the best possible simplex (if not, returns a direction)
@@ -103,7 +104,7 @@ void GJK::do_gjk(Point3d& closestA, Point3d& closestB)
   while (true)
   {
     // find the closest point in the simplex to the origin
-    Origin3d p = S.find_closest();
+    Origin3d p = S.find_closest_and_simplify();
 
     // look and see whether the origin is contained in the simplex
     double pnorm = p.norm();
