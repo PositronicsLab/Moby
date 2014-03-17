@@ -38,6 +38,7 @@ class BoxPrimitive : public Primitive
     virtual double calc_signed_dist(boost::shared_ptr<const Primitive> p, boost::shared_ptr<const Ravelin::Pose3d> pose_this, boost::shared_ptr<const Ravelin::Pose3d> pose_p, Point3d& pthis, Point3d& pp) const;
     double calc_signed_dist(boost::shared_ptr<const BoxPrimitive> box, boost::shared_ptr<const Ravelin::Pose3d> pose_this, boost::shared_ptr<const Ravelin::Pose3d> pose_box, Point3d& pthis, Point3d& pbox) const;
     virtual void get_vertices(std::vector<Point3d>& p);
+    virtual double calc_signed_dist(const Point3d& p);
 
     /// Get the x-length of this box
     double get_x_len() const { return _xlen; }
