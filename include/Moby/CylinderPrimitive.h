@@ -36,8 +36,8 @@ class CylinderPrimitive : public Primitive
     virtual double calc_signed_dist(boost::shared_ptr<const Primitive> p, boost::shared_ptr<const Ravelin::Pose3d> pose_this, boost::shared_ptr<const Ravelin::Pose3d> pose_p, Point3d& pthis, Point3d& pp) const;
     virtual boost::shared_ptr<const IndexedTriArray> get_mesh();
     virtual osg::Node* create_visualization();
-    double calc_dist(const SpherePrimitive* s, Point3d& pcyl, Point3d& psph) const;
     virtual Point3d get_supporting_point(const Ravelin::Vector3d& d);
+    virtual double calc_signed_dist(const Point3d& p);
 
     /// Gets the radius of this cylinder
     double get_radius() const { return _radius; }
@@ -49,6 +49,7 @@ class CylinderPrimitive : public Primitive
     unsigned get_circle_points() const { return _npoints; }
     
   private:
+    double calc_dist(const SpherePrimitive* s, Point3d& pcyl, Point3d& psph) const;
     double calc_penetration_depth(boost::shared_ptr<const Ravelin::Pose3d> P, const Point3d& p) const;
     unsigned intersect_line(boost::shared_ptr<const Ravelin::Pose3d> P, const Point3d& origin, const Ravelin::Vector3d& dir, double& t0, double& t1) const;
     virtual void calc_mass_properties(); 

@@ -674,6 +674,47 @@ bool ConePrimitive::point_inside(CollisionGeometryPtr geom, const Point3d& p, Ve
 }
 */
 
+/// Computes the signed distance from the cylinder
+double ConePrimitive::calc_signed_dist(const Point3d& p)
+{
+  const unsigned X = 0, Y = 1, Z = 2;
+  assert(p.pose == get_pose());
+
+  // determine the angle theta
+  double theta = std::atan(_radius/_height);
+
+  // check for point being above cylinder
+  if (p[Y] > _height*0.5)
+    return (p[Y] - _height*0.5);
+  else if (p[Y] < -_height*0.5)
+  {
+    double d1 = -_height*0.5 - p[Y];
+    double d2 = sqr(p[X]) + sqr(p[Z]) - _radius*_radius;
+    if (d2 < 0.0)
+      return -d1;
+    else
+      return -std::sqrt(sqr(d1) + d2);
+  }
+
+  // get the radius of the cone at the vertical location of the point
+  // radius at +1/2 height = 0
+  // radius at -1/2 height = R
+  const double RR = -_radius * (p[Y] / _height) + (double) 0.5 * _radius ;
+
+  // get the distance from the horizontal part of the cone
+  double dcone = RR - std::sqrt(sqr(p[X]) + sqr(p[Z]));
+
+  // check whether point is outside the cone
+  if (dcone > 0.0)
+    return std::sqrt(dcone);
+
+  // get the distance from the vertical parts of the cone
+  double dv1 = (double) 0.5 * _height - p[Y];
+  double dv2 = (double) 0.5 * _height + p[Y];
+
+  return std::min(std::min(dv1, dv2), dcone);
+}
+
 /// Computes the penetration depth of a point inside the cone
 /**
  * \return the penetration depth, or -INF if the point is outside the cone

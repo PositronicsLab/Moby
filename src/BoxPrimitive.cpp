@@ -718,6 +718,48 @@ BVPtr BoxPrimitive::get_BVH_root(CollisionGeometryPtr geom)
   return obb;
 }
 
+/// Computes the signed distance to a point
+double BoxPrimitive::calc_signed_dist(const Point3d& p)
+{
+  const unsigned X = 0, Y = 1, Z = 2;
+
+  // verify that the p is in this primitive's space
+  assert(p.pose == get_pose());
+
+  // setup extents
+  double extents[3] = { _xlen*0.5, _ylen*0.5, _zlen*0.5 };
+
+  // compute the squared distance to the p on the box
+  bool inside = true;
+  double sqrDist = 0.0;
+  double intDist = std::numeric_limits<double>::max();
+  double delta = 0.0;
+  for (unsigned i=0; i< 3; i++)
+  {
+    // see whether this dimension of the p lies below the negative extent
+    if (p[i] < -extents[i])
+    {
+      delta = p[i] + extents[i];
+      sqrDist += delta*delta;
+      inside = false;
+    }
+    // see whether this dimension of the p lies above the positive extent
+    else if (p[i] > extents[i])
+    {
+      delta = p[i] - extents[i];
+      sqrDist += delta*delta;
+      inside = false;
+    }
+    else if (inside)
+    {
+      double dist = std::min(p[i] - extents[i], p[i] + extents[i]);
+      intDist = std::min(intDist, dist);
+    }
+  }
+
+  return (inside) ? intDist : std::sqrt(sqrDist);
+}
+
 /// Computes the closest point on the box to a point (and returns the distance) 
 double BoxPrimitive::calc_closest_point(const Point3d& point, Point3d& closest) const
 {

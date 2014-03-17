@@ -38,6 +38,7 @@ class SpherePrimitive : public Primitive
     virtual osg::Node* create_visualization();
     double calc_signed_dist(boost::shared_ptr<const SpherePrimitive> s, boost::shared_ptr<const Ravelin::Pose3d> pose_this, boost::shared_ptr<const Ravelin::Pose3d> pose_s, Point3d& pthis, Point3d& psph) const;
     virtual Point3d get_supporting_point(const Ravelin::Vector3d& d);
+    virtual double calc_signed_dist(const Point3d& p);
 
     /// Gets the radius for this sphere
     double get_radius() const { return _radius; }
