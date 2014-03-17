@@ -40,8 +40,8 @@ class ConePrimitive : public Primitive
     virtual double calc_signed_dist(boost::shared_ptr<const Primitive> p, boost::shared_ptr<const Ravelin::Pose3d> pose_this, boost::shared_ptr<const Ravelin::Pose3d> pose_p, Point3d& pthis, Point3d& pp) const;
     virtual boost::shared_ptr<const IndexedTriArray> get_mesh();
     virtual osg::Node* create_visualization();
-    double calc_dist(const SpherePrimitive* s, Point3d& pcone, Point3d& psph) const;
     virtual Point3d get_supporting_point(const Ravelin::Vector3d& d);
+    virtual double calc_signed_dist(const Point3d& p);
 
     /// Gets the number of rings on the cone
     unsigned get_num_rings() const { return _nrings; }
@@ -56,6 +56,7 @@ class ConePrimitive : public Primitive
     unsigned get_circle_points() const { return _npoints; }
     
   private:
+    double calc_dist(const SpherePrimitive* s, Point3d& pcone, Point3d& psph) const;
     static double sqr(double x) { return x*x; }
     virtual void calc_mass_properties(); 
     double calc_penetration_depth(boost::shared_ptr<const Ravelin::Pose3d> P, const Point3d& p) const; 
