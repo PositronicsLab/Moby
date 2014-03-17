@@ -85,6 +85,14 @@ Point3d SpherePrimitive::get_supporting_point(const Vector3d& d)
   return Vector3d::normalize(d)*_radius;
 }
 
+/// Computes the signed distance of the given point from this primitive
+double SpherePrimitive::calc_signed_dist(const Point3d& p)
+{
+  assert(p.pose == get_pose());
+
+  return p.norm() - _radius;
+}
+
 /// Computes the distance from another sphere primitive
 double SpherePrimitive::calc_signed_dist(shared_ptr<const SpherePrimitive> s, shared_ptr<const Pose3d> pose_this, shared_ptr<const Pose3d> pose_s, Point3d& pthis, Point3d& ps) const
 {

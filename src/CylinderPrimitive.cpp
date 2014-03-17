@@ -753,6 +753,48 @@ bool CylinderPrimitive::point_inside(CollisionGeometryPtr geom, const Point3d& p
 }
 */
 
+/// Computes the signed distance of a point from the cylinder
+double CylinderPrimitive::calc_signed_dist(const Point3d& p)
+{
+  const unsigned X = 0, Y = 1, Z = 2;
+  const double INF = std::numeric_limits<double>::max();
+  const double R = _radius;
+  const double halfheight = _height*0.5;
+
+  // transform the point to cylinder space
+  assert(p.pose == get_pose());
+
+  // compute distances from top and bottom of cylinder and main axis 
+  double dcaptop = p[Y] - halfheight;
+  double dcapbot = -halfheight - p[Y];
+  double cdist_sq = p[X]*p[X] + p[Z]*p[Z] - R*R;
+
+  // check whether point is above or below endcaps
+  if (dcaptop > 0.0)
+  {
+    if (cdist_sq > 0.0)
+      return std::sqrt(dcaptop*dcaptop + cdist_sq);
+    else
+      return dcaptop;
+  }
+  else if (dcapbot > 0.0)
+  {
+    if (cdist_sq > 0.0)
+      return std::sqrt(dcapbot*dcapbot + cdist_sq);
+    else
+      return dcapbot;
+  }
+
+  // point is within endcaps; check to see whether it is outside cylinder 
+  if (cdist_sq > 0.0)
+    return std::sqrt(cdist_sq);
+
+  // point is within cylinder: find minimum point of interpenetration 
+  double dist = std::min(std::min(-dcaptop, -dcapbot), std::sqrt(-cdist_sq));
+
+  return -dist;
+}
+
 /// Gets the distance of a point within the cylinder
 /**
  * Returns -INF for points outside the cylinder.
