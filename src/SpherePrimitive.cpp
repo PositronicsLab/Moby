@@ -79,6 +79,12 @@ SpherePrimitive::SpherePrimitive(double radius, unsigned n, const Pose3d& T) : P
   calc_mass_properties();
 }
 
+/// Gets the supporting point
+Point3d SpherePrimitive::get_supporting_point(const Vector3d& d) 
+{
+  return Vector3d::normalize(d)*_radius;
+}
+
 /// Computes the distance from another sphere primitive
 double SpherePrimitive::calc_signed_dist(shared_ptr<const SpherePrimitive> s, shared_ptr<const Pose3d> pose_this, shared_ptr<const Pose3d> pose_s, Point3d& pthis, Point3d& ps) const
 {

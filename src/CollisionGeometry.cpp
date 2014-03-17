@@ -27,6 +27,29 @@ CollisionGeometry::CollisionGeometry()
   _F = shared_ptr<Pose3d>(new Pose3d);
 }
 
+/// Gets a supporting point for this geometry in a particular direction
+Point3d CollisionGeometry::get_supporting_point(const Vector3d& d) const
+{
+  // get the primitive from this
+  PrimitivePtr primitive = get_geometry();
+  assert(!primitive->get_pose()->rpose);
+
+  // setup a new pose 
+  shared_ptr<Pose3d> P(new Pose3d(*primitive->get_pose()));
+  P->rpose = get_pose();
+
+  // transform the vector
+  Vector3d dir = Pose3d::transform_vector(P, d);
+
+  // get the supporting point from the primitive
+  Point3d sp = primitive->get_supporting_point(dir);
+  
+  // setup the pose for the supporting point 
+  sp.pose = P;
+
+  return sp;  
+}
+
 /// Gets the farthest point from this geometry
 double CollisionGeometry::get_farthest_point_distance() const
 {

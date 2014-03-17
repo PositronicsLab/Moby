@@ -85,6 +85,13 @@ ConePrimitive::ConePrimitive(double radius, double height, unsigned npoints, uns
   calc_mass_properties();
 }
 
+/// Gets a supporting point in a particular direction
+Point3d ConePrimitive::get_supporting_point(const Vector3d& v)
+{
+  // TODO: do the real cone function
+  return Primitive::get_supporting_point(v);
+}
+
 /// Computes the distance and normal from a point on the CSG
 double ConePrimitive::calc_dist_and_normal(const Point3d& p, Vector3d& normal) const
 {

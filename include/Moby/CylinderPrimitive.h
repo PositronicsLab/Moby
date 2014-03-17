@@ -37,6 +37,7 @@ class CylinderPrimitive : public Primitive
     virtual boost::shared_ptr<const IndexedTriArray> get_mesh();
     virtual osg::Node* create_visualization();
     double calc_dist(const SpherePrimitive* s, Point3d& pcyl, Point3d& psph) const;
+    virtual Point3d get_supporting_point(const Ravelin::Vector3d& d);
 
     /// Gets the radius of this cylinder
     double get_radius() const { return _radius; }

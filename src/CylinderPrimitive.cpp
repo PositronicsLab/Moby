@@ -94,6 +94,12 @@ double CylinderPrimitive::calc_signed_dist(shared_ptr<const Primitive> primitive
   return 0.0; 
 }
 
+/// Gets the supporting point in a particular direction
+Point3d CylinderPrimitive::get_supporting_point(const Vector3d& d) 
+{
+  return Primitive::get_supporting_point(d);
+}
+
 /// Computes the signed distance between the cylinder and a point
 double CylinderPrimitive::calc_dist_and_normal(const Point3d& p, Vector3d& normal) const
 {

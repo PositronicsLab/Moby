@@ -85,6 +85,28 @@ Primitive::~Primitive()
   #endif
 }
 
+/// Gets a supporting point from a primitive
+Point3d Primitive::get_supporting_point(const Vector3d& dir)
+{
+  double max_dot = -std::numeric_limits<double>::max();
+  Point3d maxp;
+
+  // get all vertices
+  vector<Point3d> vertices;
+  get_vertices(vertices);
+  for (unsigned i=0; i< vertices.size(); i++)
+  {
+    double dot = vertices[i].dot(dir);
+    if (dot > max_dot)
+    {
+      max_dot = dot;
+      maxp = vertices[i];
+    }
+  }
+
+  return maxp;
+}
+
 /// Gets the visualization for this primitive, creating it if necessary
 osg::Node* Primitive::get_visualization()
 {
