@@ -47,7 +47,7 @@ Point3d CollisionGeometry::get_supporting_point(const Vector3d& d) const
   // setup the pose for the supporting point 
   sp.pose = P;
 
-  return sp;  
+  return Pose3d::transform_point(get_pose(), sp);  
 }
 
 /// Gets the farthest point from this geometry
@@ -223,6 +223,25 @@ double CollisionGeometry::calc_dist_and_normal(const Point3d& p, Vector3d& norma
 
   // call the primitive function
   return primitive->calc_dist_and_normal(px, normal);
+}
+
+/// Calculates the signed distance for a primitive
+double CollisionGeometry::calc_signed_dist(const Point3d& p)
+{
+  // get the primitive from this
+  PrimitivePtr primitive = get_geometry();
+  assert(!primitive->get_pose()->rpose);
+
+  // setup new pose for primitive that refers to the underlying geometry
+  shared_ptr<Pose3d> Pose(new Pose3d(*primitive->get_pose()));
+  Pose->rpose = get_pose();
+
+  // transform point to the primitive space
+  Point3d px = Pose3d::transform_point(Pose, p);
+  px.pose = primitive->get_pose();
+
+  // call the primitive function
+  return primitive->calc_signed_dist(px);
 }
 
 /// Calculates the signed distances between two geometries and returns closest points if geometries are not interpenetrating

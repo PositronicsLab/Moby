@@ -508,6 +508,14 @@ const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >&
   return _smesh;
 }
 
+/// Computes the signed distance to a point from the mesh 
+double TriangleMeshPrimitive::calc_signed_dist(const Point3d& p)
+{
+  // TODO: implement this
+  assert(false);
+  return 0.0;
+}
+
 /// Computes the distance and normal from a point on the mesh 
 double TriangleMeshPrimitive::calc_dist_and_normal(const Point3d& p, Vector3d& normal) const
 {

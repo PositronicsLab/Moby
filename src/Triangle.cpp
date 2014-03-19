@@ -769,7 +769,7 @@ double Triangle::calc_sq_dist(const Triangle& tri, const Point3d& point, Point3d
     else  
     {
       // region 0
-      double inv_det = 1.0/det;
+      double inv_det = (std::fabs(det) > NEAR_ZERO) ? 1.0/det : 0.0;
       s *= inv_det;
       t *= inv_det;
       sqr_dist = s*(A00*s+A01*t+(2.0*B0)) + t*(A01*s+A11*t+(2.0*B1)) + C;
