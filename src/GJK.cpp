@@ -261,7 +261,7 @@ void GJK::Simplex::add(const SVertex& v)
     assert(false);
 }
 
-double GJK::do_gjk(CollisionGeometryPtr A, CollisionGeometryPtr B, Point3d& closestA, Point3d& closestB)
+double GJK::do_gjk(CollisionGeometryPtr A, CollisionGeometryPtr B, Point3d& closestA, Point3d& closestB, unsigned max_iter)
 {
   // setup a random direction
   Point3d rdir((double) rand() / RAND_MAX * 2.0 - 1.0,(double) rand() / RAND_MAX * 2.0 - 1.0, (double) rand() / RAND_MAX * 2.0 - 1.0, GLOBAL);
@@ -272,11 +272,13 @@ double GJK::do_gjk(CollisionGeometryPtr A, CollisionGeometryPtr B, Point3d& clos
   SVertex p(pA, pB);
   Simplex S = p;
 
-unsigned iter = 0;
+  // setup the minimum dot
+  double min_dot = std::numeric_limits<double>::max();
+  double min_dist = std::numeric_limits<double>::max();
+
   // GJK loop
-  while (true)
+  for (unsigned i=0; i< max_iter; i++)
   {
-iter++;
     // find the closest point in the simplex to the origin
     Point3d p = S.find_closest_and_simplify();
 
@@ -301,13 +303,19 @@ iter++;
     Point3d pA = A->get_supporting_point(-p);
     Point3d pB = B->get_supporting_point(p); 
     SVertex V(pA, pB);
+    
+    // get the minimum distance  
+    min_dist = std::min(min_dist, std::sqrt(V.v.norm()));
 
     // look to see whether no intersection
-    if (V.v.dot(-p) < 0.0)
+    double vdotd = V.v.dot(-p);
+    if (vdotd < min_dot)
     {
+      min_dot = vdotd;
       closestA = pA;
       closestB = pB;
-      return pnorm;
+      if (vdotd < 0.0)
+        return min_dist;
     }
     else
     {
@@ -316,6 +324,6 @@ iter++;
     }
   }
 
-  assert(false);
-  return 0.0;
+  return min_dist;
 }
+

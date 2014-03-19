@@ -15,7 +15,7 @@ namespace Moby {
 class GJK
 {
   public:
-    static double do_gjk(CollisionGeometryPtr A, CollisionGeometryPtr B, Point3d& cpA, Point3d& cpB);
+    static double do_gjk(CollisionGeometryPtr A, CollisionGeometryPtr B, Point3d& cpA, Point3d& cpB, unsigned max_iter = 1000);
 
   private:
     struct SVertex
@@ -28,7 +28,8 @@ class GJK
       {
         vA = a;
         vB = b;
-        v = vA - Ravelin::Pose3d::transform_point(a.pose, b);
+        v = Ravelin::Pose3d::transform_point(GLOBAL, a) - 
+            Ravelin::Pose3d::transform_point(GLOBAL, b);
       }
     };
 
