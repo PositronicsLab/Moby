@@ -85,6 +85,14 @@ Primitive::~Primitive()
   #endif
 }
 
+/// Calculates the signed distance from this primitive
+double Primitive::calc_signed_dist(const Point3d& p)
+{
+  // call the triangle mesh method
+  assert(false);
+  return 0.0; 
+}
+
 /// Gets a supporting point from a primitive
 Point3d Primitive::get_supporting_point(const Vector3d& dir)
 {

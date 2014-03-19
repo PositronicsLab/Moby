@@ -44,6 +44,7 @@ class CollisionGeometry : public virtual Base
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     void set_single_body(boost::shared_ptr<SingleBody> s);
     static double calc_signed_dist(CollisionGeometryPtr a, CollisionGeometryPtr b, Point3d& cpa, Point3d& cpb);
+    double calc_signed_dist(const Point3d& p);
     double calc_dist_and_normal(const Point3d& p, Ravelin::Vector3d& n) const;
     void get_vertices(std::vector<Point3d>& p) const;
     Point3d get_supporting_point(const Ravelin::Vector3d& d) const;
