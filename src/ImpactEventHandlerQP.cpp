@@ -713,7 +713,6 @@ void ImpactEventHandler::setup_QP(EventProblemData& epd, SharedMatrixNd& H, Shar
 
   // negate q
   q.negate();
-
 }
 
 
