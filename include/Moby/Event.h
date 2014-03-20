@@ -60,12 +60,6 @@ class Event
     /// The derivative type of the event
     DerivType deriv_type;
 
-    /// The time that the event occurs [0,1]
-    double t;
-
-    /// The "real" time that the event occurs [0, infinity]
-    double t_true;
-
     /// The joint at which the limit is reached (for limit events)
     JointPtr limit_joint;
 
@@ -143,7 +137,6 @@ class Event
     double stick_tol;
 
     void write_vrml(const std::string& filename, double sphere_radius = 0.1, double normal_length = 1.0) const;
-    bool operator<(const Event& e) const { return t < e.t; }
 
   private:
     // structure for comparing pairs of doubles

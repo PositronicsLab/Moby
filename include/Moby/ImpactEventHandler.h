@@ -67,6 +67,7 @@ class ImpactEventHandler
     static void contact_select(const std::vector<int>& cn_indices, const std::vector<int>& beta_nbeta_c_indices, const Ravelin::MatrixNd& m, Ravelin::MatrixNd& cn_rows, Ravelin::MatrixNd& beta_c_rows);
     static double sqr(double x) { return x*x; }
     void permute_problem(EventProblemData& epd, Ravelin::VectorNd& z);
+    void setup_QP(EventProblemData& epd, Ravelin::SharedMatrixNd& H, Ravelin::SharedVectorNd& c, Ravelin::SharedMatrixNd& M, Ravelin::SharedVectorNd& q, Ravelin::SharedMatrixNd& A, Ravelin::SharedVectorNd& b);
 
     Ravelin::LinAlgd _LA;
     LCP _lcp;

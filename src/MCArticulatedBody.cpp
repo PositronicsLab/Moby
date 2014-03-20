@@ -137,6 +137,9 @@ VectorNd& MCArticulatedBody::get_generalized_acceleration( VectorNd& ga)
 /// Compiles this body; compilation must occur before the body is used
 void MCArticulatedBody::compile()
 {
+  // call parent method first
+  ArticulatedBody::compile();
+
   // verify ordering correctness on the disabled link (if any)
   for (unsigned i=1; i< _links.size(); i++)
     if (!_links[i]->is_enabled())
