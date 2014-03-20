@@ -52,7 +52,6 @@ Event::Event()
 {
   _event_frame = shared_ptr<Pose3d>(new Pose3d);
   tol = NEAR_ZERO;              // default collision tolerance
-  t_true = (double) -1.0;
   stick_tol = NEAR_ZERO;
   event_type = eNone;
   limit_dof = std::numeric_limits<unsigned>::max();
@@ -73,8 +72,6 @@ Event::Event()
 Event& Event::operator=(const Event& e)
 {
   tol = e.tol;
-  t_true = e.t_true;
-  t = e.t;
   event_type = e.event_type;
   limit_epsilon = e.limit_epsilon;
   limit_dof = e.limit_dof;
@@ -831,7 +828,7 @@ void Event::compute_cross_contact_limit_vevent_data(const Event& e, MatrixNd& M)
   if (ab == su2)
   {
     // resize Jacobian
-    J1.resize(THREE_D, NGC1);
+    J1.resize(THREE_D, NGC2);
 
     // compute the Jacobians for the two bodies
     su2->calc_jacobian(_event_frame, sb2, JJ);
@@ -1408,8 +1405,6 @@ double Event::calc_event_vel() const
 /// Sends the event to the specified stream
 std::ostream& Moby::operator<<(std::ostream& o, const Event& e)
 {
-  o << "TOI: " << e.t << std::endl;
-
   switch (e.event_type)
   {
     case Event::eNone:
@@ -1908,6 +1903,7 @@ void Event::compute_contact_jacobians(const Event& e, VectorN& Nc, VectorN& Dcs,
 /// Uses the convex hull of the contact manifold to reject contact points
 void Event::determine_convex_set(list<Event*>& group)
 {
+return;
   // don't do anything if there are three or fewer points
   if (group.size() <= 3)
     return;

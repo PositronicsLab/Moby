@@ -279,9 +279,6 @@ void CollisionDetection::remove_all_collision_geometries()
   // remove all colliding pairs
   colliding_pairs.clear();  
 
-  // remove all distances
-  closest_points.clear();
-
   // clear disabled sets
   disabled.clear();
   disabled_pairs.clear();
@@ -309,115 +306,6 @@ void CollisionDetection::remove_collision_geometry(CollisionGeometryPtr geom)
     }
     else
       i++;
-}
-
-/// Calculates distances between all pairs of geometries
-/**
- * \note does not calculate inter-geometry distances (i.e., in case a geometry
- *       is deformable)
- */  
-double CollisionDetection::calc_distances()
-{
-  Point3d cp1, cp2;
-
-  // clear the mapping of distances first
-  distances.clear();
-  closest_points.clear();
-
-  // determine distance between each pair of bodies
-  double min_dist = std::numeric_limits<double>::max();
-  for (std::set<CollisionGeometryPtr>::const_iterator i = _geoms.begin(); i != _geoms.end(); i++)
-  {
-    std::set<CollisionGeometryPtr>::const_iterator j = i; 
-    for (j++; j != _geoms.end(); j++)
-    {
-      // see whether the pair is checked
-      if (!is_checked(*i, *j))
-        continue;
-
-      // get the two geometries
-      CollisionGeometryPtr g1 = *i;
-      CollisionGeometryPtr g2 = *j;
-
-      // get the two poses
-      shared_ptr<const Pose3d> p1 = g1->get_pose();
-      shared_ptr<const Pose3d> p2 = g2->get_pose();
-      Transform3d p1Tp2 = Pose3d::calc_relative_pose(p2, p1);
-
-      // otherwise, compute the distance
-      double dist = calc_distance(g1, g2, p1Tp2, cp1, cp2);
-      min_dist = std::min(dist, min_dist);    
-
-      // save the distance
-      distances[make_sorted_pair(g1, g2)] = dist;
-
-      // set the closest points
-      closest_points[make_pair(g1, g2)] = make_pair(cp1, cp2);
-    }
-  }
-
-  return min_dist;
-}
-
-/// Calculates the closest points (and squared distance) between geometries a and b
-/**
- * \param a the first collision geometry
- * \param b the second collision geometry
- * \param aTb the transform from b's frame to a's frame
- * \param cpa the closest point to b on a (in a's frame)
- * \param cpb the closest point to a on b (in b's frame)
- * \return the squared distance between cpa and cpb
- */
-double CollisionDetection::calc_distance(CollisionGeometryPtr a, CollisionGeometryPtr b, const Transform3d& aTb, Point3d& cpa, Point3d& cpb)
-{
-  // get the poses of a and b
-  shared_ptr<const Pose3d> Pa = a->get_pose();
-  shared_ptr<const Pose3d> Pb = b->get_pose();
-
-  // setup the minimum distance
-  double min_dist = std::numeric_limits<double>::max();
-
-  // determine the transform from b's frame to a's frame
-  Transform3d bTa = Transform3d::invert(aTb);
-
-  // get the primitives 
-  PrimitivePtr a_primitive = a->get_geometry(); 
-  PrimitivePtr b_primitive = b->get_geometry();
-
-  // get the mesh data from the plugins
-  const IndexedTriArray& a_mesh = *a_primitive->get_mesh();
-  const IndexedTriArray& b_mesh = *b_primitive->get_mesh(); 
-
-  // do pairwise distance checks
-  for (unsigned i=0; i< a_mesh.num_tris(); i++)
-  {
-    // get the triangle
-    Triangle ta = a_mesh.get_triangle(i, Pa);
-
-    // loop over all triangles in b
-    for (unsigned j=0; j< b_mesh.num_tris(); j++)
-    {
-      // get the untransformed second triangle
-      Triangle utb = b_mesh.get_triangle(j, Pb);
-
-      // transform the second triangle
-      Triangle tb = Triangle::transform(utb, aTb);
- 
-      // get distance between the two triangles
-      Point3d cpa_tmp, cpb_tmp;
-      double dist = Triangle::calc_sq_dist(ta, tb, cpa_tmp, cpb_tmp);
-
-      // if it's the minimum distance, save the closest points
-      if (dist < min_dist)
-      {
-        min_dist = dist;
-        cpa = cpa_tmp;
-        cpb = bTa.transform_point(cpb_tmp);
-      }
-    }
-  }
-
-  return min_dist;
 }
 
 /// Implements Base::load_from_xml()

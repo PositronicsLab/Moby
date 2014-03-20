@@ -10,13 +10,14 @@
     <Sphere id="sphere" radius="1.5811" mass="1" />
 
     <EulerIntegrator id="euler" />
+    <RungeKuttaIntegrator id="rk4" />
 
     <GravityForce id="gravity" accel="0 -9.81 0 " />
 
-  <Simulator integrator-id="euler">
+  <EventDrivenSimulator integrator-id="rk4">
     <RecurrentForce recurrent-force-id="gravity" /> 
     <DynamicBody dynamic-body-id="chain" />
-  </Simulator>
+  </EventDrivenSimulator>
 
   <RCArticulatedBody id="chain" fdyn-algorithm="fsab" fdyn-algorithm-frame="link" floating-base="false">
 
@@ -32,8 +33,8 @@
         <Visualization visualization-id="sphere" />
       </RigidBody>
 
-      <RevoluteJoint id="q1" q="1.5708" q-tare="-1.5708" qd="0" location="0 0 0" inboard-link-id="base" outboard-link-id="l1" max-forces="10000" lower-limits="-3.14" upper-limits="3.14" coulomb-friction-coeff="0" viscous-friction-coeff="0" restitution-coeff="1" axis="0 0 1" />
-      <RevoluteJoint id="q2" q="0" q-tare="0" qd="0" location="1 0 0" inboard-link-id="l1" outboard-link-id="l2" max-forces="10000" lower-limits="-3.14" upper-limits="3.14" coulomb-friction-coeff="0" viscous-friction-coeff="0" restitution-coeff="1" axis="0 0 1" />
+      <RevoluteJoint id="q1" q="1.5708" q-tare="-1.5708" qd="0" location="0 0 0" inboard-link-id="base" outboard-link-id="l1" max-forces="10000" lower-limits="1" upper-limits="2" coulomb-friction-coeff="0" viscous-friction-coeff="0" restitution-coeff="1" axis="0 0 1" />
+      <RevoluteJoint id="q2" q="0" q-tare="0" qd="0" location="1 0 0" inboard-link-id="l1" outboard-link-id="l2" max-forces="10000" lower-limits="-1" upper-limits="1" coulomb-friction-coeff="0" viscous-friction-coeff="0" restitution-coeff="1" axis="0 0 1" />
     </RCArticulatedBody>
 
   </MOBY>

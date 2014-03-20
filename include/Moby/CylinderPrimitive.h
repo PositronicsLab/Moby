@@ -12,6 +12,7 @@
 namespace Moby {
 
 class OBB;
+class SpherePrimitive;
 
 /// Defines a cylinder primitive
 class CylinderPrimitive : public Primitive
@@ -29,13 +30,14 @@ class CylinderPrimitive : public Primitive
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual BVPtr get_BVH_root(CollisionGeometryPtr geom);
-    virtual void get_vertices(BVPtr bv, std::vector<const Point3d*>& vertices); 
-    virtual bool point_inside(BVPtr bv, const Point3d& p, Ravelin::Vector3d& normal) const;
-    virtual bool intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Ravelin::Vector3d& normal) const;
+    virtual void get_vertices(std::vector<Point3d>& vertices);
+    virtual double calc_dist_and_normal(const Point3d& p, Ravelin::Vector3d& normal) const;
     virtual const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >& get_sub_mesh(BVPtr bv); 
+    virtual double calc_signed_dist(boost::shared_ptr<const Primitive> p, boost::shared_ptr<const Ravelin::Pose3d> pose_this, boost::shared_ptr<const Ravelin::Pose3d> pose_p, Point3d& pthis, Point3d& pp) const;
     virtual boost::shared_ptr<const IndexedTriArray> get_mesh();
-    virtual void set_intersection_tolerance(double tol);
     virtual osg::Node* create_visualization();
+    virtual Point3d get_supporting_point(const Ravelin::Vector3d& d);
+    virtual double calc_signed_dist(const Point3d& p);
 
     /// Gets the radius of this cylinder
     double get_radius() const { return _radius; }
@@ -47,6 +49,7 @@ class CylinderPrimitive : public Primitive
     unsigned get_circle_points() const { return _npoints; }
     
   private:
+    double calc_dist(const SpherePrimitive* s, Point3d& pcyl, Point3d& psph) const;
     double calc_penetration_depth(boost::shared_ptr<const Ravelin::Pose3d> P, const Point3d& p) const;
     unsigned intersect_line(boost::shared_ptr<const Ravelin::Pose3d> P, const Point3d& origin, const Ravelin::Vector3d& dir, double& t0, double& t1) const;
     virtual void calc_mass_properties(); 

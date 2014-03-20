@@ -12,7 +12,7 @@ using Ravelin::VectorNd;
 using namespace Moby;
 
 /// Method for 4th-order implicit Runge-Kutta integration
-void RungeKuttaImplicitIntegrator::integrate(VectorNd& x, VectorNd& (*f)(const VectorNd&, double, double, void*, VectorNd&), double& time, double step_size, void* data)
+void RungeKuttaImplicitIntegrator::integrate(VectorNd& x, VectorNd& (*f)(const VectorNd&, double, double, void*, VectorNd&), double time, double step_size, void* data)
 {
   // create dx/dt1 and dx/dt2
   VectorNd dxdt1;

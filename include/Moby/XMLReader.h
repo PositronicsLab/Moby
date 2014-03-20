@@ -33,8 +33,6 @@ class XMLReader
     enum TupleType { eNone, eVectorN, eVector3, eQuat };
     static boost::shared_ptr<const XMLTree> find_subtree(boost::shared_ptr<const XMLTree> root, const std::string& name);
     static void process_tag(const std::string& tag, boost::shared_ptr<const XMLTree> root, void (*fn)(boost::shared_ptr<const XMLTree>, std::map<std::string, BasePtr>&), std::map<std::string, BasePtr>& id_map);
-    static void read_generalized_ccd(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
-    static void read_coldet_plugin(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     static void read_gaussian_mixture(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     static void read_box(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     static void read_sphere(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
@@ -61,6 +59,13 @@ class XMLReader
     static void read_gravity_force(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     static void read_damping_force(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     static void read_stokes_drag_force(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
+    static void read_odepack_integrator(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
+    static void read_bulirsch_stoer_integrator(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
+    static void read_rk4i_integrator(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
+    static void read_rk4_integrator(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
+    static void read_rkf4_integrator(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
+    static void read_variable_euler_integrator(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
+    static void read_euler_integrator(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     static TupleType get_tuple(boost::shared_ptr<const XMLTree> node);
 }; // end class
 } // end namespace
