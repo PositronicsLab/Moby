@@ -7,8 +7,7 @@
 #ifndef _GJK_H
 #define _GJK_H
 
-#include <map>
-#include <vector>
+#include <iostream>
 namespace Moby {
 
 /// An implementation of the GJK algorithm 
@@ -22,6 +21,7 @@ class GJK
     {
       Point3d v;      // vA - vB: the vertex in the simplex
       Point3d vA, vB; // vertices from geometry A and B
+      std::ostream& output(std::ostream& out) const;
 
       SVertex() {}
       SVertex(const Point3d& a, const Point3d& b)
@@ -41,15 +41,16 @@ class GJK
         Simplex(const SVertex& p) { _type = ePoint; _v1 = p; }
         void add(const SVertex& p);
         Point3d find_closest_and_simplify();
+        Point3d find_closest();
         const SVertex& get_vertex(unsigned i) const;
         unsigned num_vertices() const;
+        std::ostream& output(std::ostream& out) const;
 
       private:
         SimplexType _type;
         SVertex _v1, _v2, _v3, _v4;
     };
 
-  
 }; // end class
 
 } // end namespace

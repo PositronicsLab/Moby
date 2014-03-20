@@ -11,6 +11,7 @@
 #include <Ravelin/Vector2d.h>
 #include <Ravelin/Vector3d.h>
 #include <Ravelin/Pose3d.h>
+#include <Ravelin/LinAlgd.h>
 #include <Moby/Types.h>
 
 namespace Moby {
@@ -34,6 +35,7 @@ class Triangle
     void to_vrml(std::ostream& o, Point3d diffuse_color = Point3d(1,1,1), bool wireframe = false) const;
     double calc_area() const;
     static double calc_sq_dist(const Triangle& tri, const Point3d& point, Point3d& closest_point);
+    static double calc_sq_dist(const Triangle& tri, const Point3d& point, double& s, double& t);
     static double calc_sq_dist(const Triangle& tri, const Point3d& origin, const Ravelin::Vector3d& dir, Point3d& cp_seg, Point3d& cp_tri, double& t_line);
     static double calc_sq_dist(const Triangle& tri, const LineSeg3& seg, Point3d& cp_tri, Point3d& cp_seg);
     static double calc_sq_dist(const Triangle& t1, const Triangle& t2, Point3d& cp1, Point3d& cp2);
@@ -64,6 +66,7 @@ class Triangle
 
     void determine_params(const Point3d& x, double& s, double& t) const;
     static double calc_sq_dist(const Point3d& origin, const Ravelin::Vector3d& dir, const LineSeg3& seg, Point3d& cp_line, Point3d& cp_seg, double& t_line, double& t_seg);
+    static Ravelin::LinAlgd _LA;
 }; // end class
 
 

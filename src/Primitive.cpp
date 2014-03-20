@@ -102,9 +102,16 @@ Point3d Primitive::get_supporting_point(const Vector3d& dir)
   // get all vertices
   vector<Point3d> vertices;
   get_vertices(vertices);
+  if (vertices.empty())
+    return Point3d(0,0,0,get_pose());
+
+  // convert the direction
+  Vector3d d = Pose3d::transform_vector(get_pose(), dir);
+
+  // loop over vertices
   for (unsigned i=0; i< vertices.size(); i++)
   {
-    double dot = vertices[i].dot(dir);
+    double dot = vertices[i].dot(d);
     if (dot > max_dot)
     {
       max_dot = dot;
