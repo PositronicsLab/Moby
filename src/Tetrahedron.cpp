@@ -11,6 +11,52 @@
 using namespace Ravelin;
 using namespace Moby;
 
+LinAlgd Tetrahedron::_LA;
+
+/// Calculates the signed distance from a point to the tetrahedron
+double Tetrahedron::calc_signed_dist(const Point3d& p, Point3d& closest) const
+{
+  Point3d closest_abc, closest_bdc, closest_dac, closest_dba;
+
+  // form necessary triangles
+  Triangle abc(a, b, c);
+  Triangle bdc(b, d, c);
+  Triangle dac(d, a, c);
+  Triangle dba(d, b, a);
+
+  // calculate the squared distance
+  double dist_abc = Triangle::calc_sq_dist(abc, p, closest_abc);
+  double dist_bdc = Triangle::calc_sq_dist(bdc, p, closest_bdc);
+  double dist_dac = Triangle::calc_sq_dist(dac, p, closest_dac);
+  double dist_dba = Triangle::calc_sq_dist(dba, p, closest_dba);
+
+  // determine the minimum distance
+  double min_dist = dist_abc;
+  closest = closest_abc;
+  if (dist_bdc < min_dist)
+  {
+    min_dist = dist_bdc;
+    closest = closest_bdc;
+  }
+  if (dist_dac < min_dist)
+  {
+    min_dist = dist_dac;
+    closest = closest_dac;
+  }
+  if (dist_dba < min_dist)
+  {
+    min_dist = dist_dba;
+    closest = closest_dba;
+  }
+  min_dist = std::max(0.0, min_dist);
+  min_dist = std::sqrt(min_dist);
+
+  if (!outside(p))
+    min_dist = -min_dist;
+
+  return min_dist;
+}
+
 /// Calculates the signed distance from a point to the tetrahedron
 double Tetrahedron::calc_signed_dist(const Point3d& p) const
 {
@@ -79,10 +125,10 @@ Point3d Tetrahedron::calc_point(double u, double v, double w) const
 
   Origin3d bary(u, v, w);
   Matrix3d M;
-  M.set_column(X, b - a);
-  M.set_column(Y, c - a);
-  M.set_column(Z, d - a);
-  return (M * bary) + a;
+  M.set_column(X, a - d);
+  M.set_column(Y, b - d);
+  M.set_column(Z, c - d);
+  return (M * bary) + d;
 }
 
 /// Determines the barycentric coordinates of a point in space
@@ -101,23 +147,14 @@ void Tetrahedron::determine_barycentric_coords(const Point3d& px, double& u, dou
   // | ax-dx bx-dx cx-dx | * | u | = | px - dz |
   // | ay-dy by-dy cy-dy | * | v | = | py - dz |
   // | az-dz bz-dz cz-dz | * | w | = | pz - dz |
+
+  // algorithm taken from Real Time Physics course notes (Mueller, et al.)
   Matrix3d M;
   M.set_column(X, a - d);
   M.set_column(Y, b - d);
   M.set_column(Z, c - d);
-  M.invert();
-  Origin3d bary = M * Origin3d(p - d);
-
-/*
-  // algorithm taken from Real Time Physics course notes (Mueller, et al.)
-  Matrix3d M;
-  M.set_column(X, b - a);
-  M.set_column(Y, c - a);
-  M.set_column(Z, d - a);
-  M.invert();
-
-  Point3d bary(M * Origin3d(p - a), a.pose);
-*/
+  Origin3d bary(p - d);
+  _LA.solve_fast(M, bary);
 
   // compute barycentric coordinates
   u = bary[X];
@@ -139,20 +176,30 @@ Point3d Tetrahedron::calc_centroid() const
   return centroid;
 }
 
-/// Calculates the volume of a tetrahedron
+/// Calculates the signed volume of a tetrahedron
 double Tetrahedron::calc_volume() const
 {
-  // create a triangle from vertices abc
-  Triangle t(a,b,c);
+  const unsigned X = 0, Y = 1, Z = 2;
 
-  // get the normal to abc, and the offset
-  Vector3d normal = t.calc_normal();
-  double offset = t.calc_offset(normal);
+  const double AX = a[X];
+  const double AY = a[Y];
+  const double AZ = a[Z];
+  const double BX = b[X];
+  const double BY = b[Y];
+  const double BZ = b[Z];
+  const double CX = c[X];
+  const double CY = c[Y];
+  const double CZ = c[Z];
+  const double DX = d[X];
+  const double DY = d[Y];
+  const double DZ = d[Z];
 
-  // project d onto the plane of abc to get the height
-  double height = std::fabs(normal.dot(d) - offset);
-
-  // return the volume
-  return t.calc_area() * height / 3;
+  double vol6 = -AZ*BY*CX + AY*BZ*CX + AZ*BX*CY - AX*BZ*CY
+                -AY*BX*CZ + AX*BY*CZ + AZ*BY*DX - AY*BZ*DX
+                -AZ*CY*DX + BZ*CY*DX + AY*CZ*DX - BY*CZ*DX
+                -AZ*BX*DY + AX*BZ*DY + AZ*CX*DY - BZ*CX*DY
+                -AX*CZ*DY + BX*CZ*DY + AY*BX*DZ - AX*BY*DZ
+                -AY*CX*DZ + BY*CX*DZ + AX*CY*DZ - BX*DY*DZ;
+  return vol6/6.0;
 }
 

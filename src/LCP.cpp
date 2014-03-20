@@ -148,8 +148,9 @@ unsigned LCP::rand_min(const VectorNd& v, double zero_tol)
   static vector<unsigned> minima;
   minima.clear();
   unsigned minv = std::min_element(v.begin(), v.end()) - v.begin();
+  minima.push_back(minv);
   for (unsigned i=0; i< v.rows(); i++)
-    if (v[i] < v[minv] + zero_tol)
+    if (i != minv && v[i] < v[minv] + zero_tol)
       minima.push_back(i);
   return minima[rand() % minima.size()];
 }

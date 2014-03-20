@@ -57,7 +57,6 @@ Primitive::Primitive()
   _jF = shared_ptr<Pose3d>(new Pose3d);
   _jF->rpose = _F;
   _J.pose = _jF;
-  _intersection_tolerance = 1e-5;
   _deformable = false;
 
   // set visualization members to NULL
@@ -72,7 +71,6 @@ Primitive::Primitive(const Pose3d& F)
   _jF->rpose = _F;
   _J.pose = _jF;
   *_F = F; 
-  _intersection_tolerance = 1e-5;
   _deformable = false;
 
   // set visualization members to NULL
@@ -87,13 +85,41 @@ Primitive::~Primitive()
   #endif
 }
 
-/// Sets the intersection tolerance for this primitive
-void Primitive::set_intersection_tolerance(double tol)
+/// Calculates the signed distance from this primitive
+double Primitive::calc_signed_dist(const Point3d& p)
 {
-  if (tol < (double) 0.0)
-    throw std::runtime_error("Primitive::set_intersection_tolerance() - tolerance cannot be negative!");
+  // call the triangle mesh method
+  assert(false);
+  return 0.0; 
+}
 
-  _intersection_tolerance = tol;
+/// Gets a supporting point from a primitive
+Point3d Primitive::get_supporting_point(const Vector3d& dir)
+{
+  double max_dot = -std::numeric_limits<double>::max();
+  Point3d maxp;
+
+  // get all vertices
+  vector<Point3d> vertices;
+  get_vertices(vertices);
+  if (vertices.empty())
+    return Point3d(0,0,0,get_pose());
+
+  // convert the direction
+  Vector3d d = Pose3d::transform_vector(get_pose(), dir);
+
+  // loop over vertices
+  for (unsigned i=0; i< vertices.size(); i++)
+  {
+    double dot = vertices[i].dot(d);
+    if (dot > max_dot)
+    {
+      max_dot = dot;
+      maxp = vertices[i];
+    }
+  }
+
+  return maxp;
 }
 
 /// Gets the visualization for this primitive, creating it if necessary
@@ -201,11 +227,6 @@ void Primitive::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::stri
       throw std::runtime_error("Attempting to set primitive density to negative value");
   }
 
-  // read the intersection tolerance
-  XMLAttrib* itol_attr = node->get_attrib("intersection-tolerance");
-  if (itol_attr)
-    set_intersection_tolerance(itol_attr->get_real_value());
-
   // read in transformation, if specified
   Pose3d F;
   XMLAttrib* xlat_attr = node->get_attrib("position");
@@ -263,9 +284,6 @@ void Primitive::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >&
   F0.update_relative_pose(GLOBAL);
   node->attribs.insert(XMLAttrib("position", F0.x));
   node->attribs.insert(XMLAttrib("quat", F0.q));
-
-  // add the intersection tolerance as an attribute
-  node->attribs.insert(XMLAttrib("intersection-tolerance", _intersection_tolerance));
 }
 
 /// Sets the transform for this primitive -- transforms mesh and inertial properties (if calculated)
