@@ -177,7 +177,7 @@ void SpherePrimitive::set_radius(double radius)
 
 /// Sets the number of points used in this sphere 
 /**
- * \param n the number of points; must be greater than or equal to six
+ * \param n the number of points
  * \note forces redetermination of the mesh
  */
 void SpherePrimitive::set_num_points(unsigned n)

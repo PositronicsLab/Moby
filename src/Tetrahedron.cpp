@@ -125,10 +125,10 @@ Point3d Tetrahedron::calc_point(double u, double v, double w) const
 
   Origin3d bary(u, v, w);
   Matrix3d M;
-  M.set_column(X, b - a);
-  M.set_column(Y, c - a);
-  M.set_column(Z, d - a);
-  return (M * bary) + a;
+  M.set_column(X, a - d);
+  M.set_column(Y, b - d);
+  M.set_column(Z, c - d);
+  return (M * bary) + d;
 }
 
 /// Determines the barycentric coordinates of a point in space
@@ -150,10 +150,10 @@ void Tetrahedron::determine_barycentric_coords(const Point3d& px, double& u, dou
 
   // algorithm taken from Real Time Physics course notes (Mueller, et al.)
   Matrix3d M;
-  M.set_column(X, b - a);
-  M.set_column(Y, c - a);
-  M.set_column(Z, d - a);
-  Origin3d bary(p - a);
+  M.set_column(X, a - d);
+  M.set_column(Y, b - d);
+  M.set_column(Z, c - d);
+  Origin3d bary(p - d);
   _LA.solve_fast(M, bary);
 
   // compute barycentric coordinates

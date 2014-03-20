@@ -732,7 +732,7 @@ double BoxPrimitive::calc_signed_dist(const Point3d& p)
   // compute the squared distance to the p on the box
   bool inside = true;
   double sqrDist = 0.0;
-  double intDist = std::numeric_limits<double>::max();
+  double intDist = -std::numeric_limits<double>::max();
   double delta = 0.0;
   for (unsigned i=0; i< 3; i++)
   {
@@ -752,12 +752,12 @@ double BoxPrimitive::calc_signed_dist(const Point3d& p)
     }
     else if (inside)
     {
-      double dist = std::min(p[i] - extents[i], p[i] + extents[i]);
-      intDist = std::min(intDist, dist);
+      double dist = std::min(std::fabs(p[i] - extents[i]), std::fabs(p[i] + extents[i]));
+      intDist = std::max(intDist, dist);
     }
   }
 
-  return (inside) ? intDist : std::sqrt(sqrDist);
+  return (inside) ? -intDist : std::sqrt(sqrDist);
 }
 
 /// Computes the closest point on the box to a point (and returns the distance) 
