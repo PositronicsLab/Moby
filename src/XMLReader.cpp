@@ -36,10 +36,16 @@
 #include <Moby/RevoluteJoint.h>
 #include <Moby/SphericalJoint.h>
 #include <Moby/UniversalJoint.h>
+#include <Moby/BulirschStoerIntegrator.h>
+#include <Moby/RungeKuttaIntegrator.h>
+#include <Moby/RungeKuttaFehlbergIntegrator.h>
+#include <Moby/RungeKuttaImplicitIntegrator.h>
+#include <Moby/ODEPACKIntegrator.h>
+#include <Moby/EulerIntegrator.h>
+#include <Moby/VariableEulerIntegrator.h>
 #include <Moby/GravityForce.h>
 #include <Moby/StokesDragForce.h>
 #include <Moby/DampingForce.h>
-#include <Moby/GeneralizedCCD.h>
 #include <Moby/XMLTree.h>
 #include <Moby/XMLReader.h>
 
@@ -138,6 +144,15 @@ std::map<std::string, BasePtr> XMLReader::read(const std::string& fname)
   process_tag("PrimitivePlugin", moby_tree, &read_primitive_plugin, id_map);
   process_tag("CSG", moby_tree, &read_CSG, id_map);
 
+  // read and construct all integrators
+  process_tag("EulerIntegrator", moby_tree, &read_euler_integrator, id_map);
+  process_tag("VariableEulerIntegrator", moby_tree, &read_variable_euler_integrator, id_map);
+  process_tag("BulirschStoerIntegrator", moby_tree, &read_bulirsch_stoer_integrator, id_map);
+  process_tag("RungeKuttaIntegrator", moby_tree, &read_rk4_integrator, id_map);
+  process_tag("RungeKuttaFehlbergIntegrator", moby_tree, &read_rkf4_integrator, id_map);
+  process_tag("RungeKuttaImplicitIntegrator", moby_tree, &read_rk4i_integrator, id_map);
+  process_tag("ODEPACKIntegrator", moby_tree, &read_odepack_integrator, id_map);
+
   // read and construct all recurrent forces (except damping)
   process_tag("GravityForce", moby_tree, &read_gravity_force, id_map);
   process_tag("StokesDragForce", moby_tree, &read_stokes_drag_force, id_map);
@@ -165,10 +180,6 @@ std::map<std::string, BasePtr> XMLReader::read(const std::string& fname)
 
   // damping forces must be constructed after bodies
   process_tag("DampingForce", moby_tree, &read_damping_force, id_map);
-
-  // read and construct collision detector(s)
-  process_tag("GeneralizedCCD", moby_tree, &read_generalized_ccd, id_map);
-  process_tag("CollisionDetectionPlugin", moby_tree, &read_coldet_plugin, id_map);
 
   // finally, read and construct the simulator objects -- must be done last
   process_tag("Simulator", moby_tree, &read_simulator, id_map);
@@ -226,19 +237,6 @@ void XMLReader::process_tag(const std::string& tag, shared_ptr<const XMLTree> ro
   }
 }
 
-/// Reads and constructs the GeneralizedCCD object
-void XMLReader::read_generalized_ccd(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
-{
-  // sanity check
-  assert(strcasecmp(node->name.c_str(), "GeneralizedCCD") == 0);
-
-  // create a new Base object
-  boost::shared_ptr<Base> b(new GeneralizedCCD());
-  
-  // populate the object
-  b->load_from_xml(node, id_map);
-}
-
 /// Reads and constructs a geometry plugin object
 void XMLReader::read_primitive_plugin(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
@@ -280,55 +278,6 @@ void XMLReader::read_primitive_plugin(shared_ptr<const XMLTree> node, std::map<s
   
   // populate the object
   primitive_plugin->load_from_xml(node, id_map);
-}
-
-/// Reads and constructs a plugin CollisionDetection object
-/**
- * \pre node is named CollisionDetectionPlugin 
- */
-void XMLReader::read_coldet_plugin(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
-{
-  // sanity check
-  assert(strcasecmp(node->name.c_str(), "CollisionDetectionPlugin") == 0);
-
-  // get the name of the plugin to load
-  XMLAttrib* plugin_attr = node->get_attrib("plugin");
-  if (!plugin_attr)
-  {
-    std::cerr << "XMLReader::read_coldet_plugin() - no plugin attribute!" << std::endl;
-    return;
-  }
-  std::string pluginname = plugin_attr->get_string_value();
-
-  // verify that the plugin can be found
-  struct stat filestatus;
-  if (stat(pluginname.c_str(), &filestatus) != 0)
-  {
-    std::cerr << "XMLReader::read_coldet_plugin() - unable to find plugin '" << pluginname << "'" << std::endl;
-    return;
-  }
-
-  // load the plugin
-  void* plugin = dlopen(pluginname.c_str(), RTLD_LAZY);
-  if (!plugin)
-  {
-    std::cerr << "XMLReader::read_coldet_plugin()- cannot load plugin: " << dlerror() << std::endl;
-    return;
-  }
-
-  // load the factory symbol
-  boost::shared_ptr<CollisionDetection> (*factory)(void) = (boost::shared_ptr<CollisionDetection> (*) (void)) dlsym(plugin, "factory");
-  if (!factory)
-  {
-    std::cerr << "XMLReader::read_coldet_plugin()- factory() not found in " << pluginname << std::endl;
-    return;
-  }
-
-  // create a new CollisionDetection object
-  boost::shared_ptr<CollisionDetection> cd_plugin = factory();
-  
-  // populate the object
-  cd_plugin->load_from_xml(node, id_map);
 }
 
 /// Reads and constructs the OSGGroupWrapper object
@@ -446,6 +395,118 @@ void XMLReader::read_box(shared_ptr<const XMLTree> node, std::map<std::string, B
   // create a new BoxPrimitive object
   boost::shared_ptr<Base> b(new BoxPrimitive());
   
+  // populate the object
+  b->load_from_xml(node, id_map);
+}
+
+/// Reads and constructs the EulerIntegrator object
+/**
+ * \pre node name is EulerIntegrator
+ */
+void XMLReader::read_euler_integrator(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
+{
+  // sanity check
+  assert(strcasecmp(node->name.c_str(), "EulerIntegrator") == 0);
+
+  // only create VectorN integrators
+  boost::shared_ptr<Base> b(new EulerIntegrator());
+
+  // populate the object
+  b->load_from_xml(node, id_map);
+}
+
+/// Reads and constructs the VariableEulerIntegrator object
+/**
+ * \pre node name is VariableEulerIntegrator
+ */
+void XMLReader::read_variable_euler_integrator(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
+{
+  // sanity check
+  assert(strcasecmp(node->name.c_str(), "VariableEulerIntegrator") == 0);
+
+  // only create VectorN type integrators
+  boost::shared_ptr<Base> b(new VariableEulerIntegrator());
+
+  // populate the object
+  b->load_from_xml(node, id_map);
+}
+
+/// Reads and construct the RungaKuttaFehlbergIntegrator object
+/**
+ * \pre node name is BulirschStoerIntegrator
+ */
+void XMLReader::read_bulirsch_stoer_integrator(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
+{
+  // sanity check
+  assert(strcasecmp(node->name.c_str(), "BulirschStoerIntegrator") == 0);
+
+  // only create VectorN type integrators
+  boost::shared_ptr<Base> b(new BulirschStoerIntegrator());
+
+  // populate the object
+  b->load_from_xml(node, id_map);
+}
+
+/// Reads and construct the RungaKuttaFehlbergIntegrator object
+/**
+ * \pre node name is RungeKuttaFehlbergIntegrator
+ */
+void XMLReader::read_rkf4_integrator(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
+{
+  // sanity check
+  assert(strcasecmp(node->name.c_str(), "RungeKuttaFehlbergIntegrator") == 0);
+
+  // only create VectorN type integrators
+  boost::shared_ptr<Base> b(new RungeKuttaFehlbergIntegrator());
+
+  // populate the object
+  b->load_from_xml(node, id_map);
+}
+
+/// Reads and construct the RungaKuttaIntegrator object
+/**
+ * \pre node name is RungeKuttaIntegrator
+ */
+void XMLReader::read_rk4_integrator(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
+{
+  // sanity check
+  assert(strcasecmp(node->name.c_str(), "RungeKuttaIntegrator") == 0);
+
+  // only create VectorN type integrators
+  boost::shared_ptr<Base> b(new RungeKuttaIntegrator());
+
+  // populate the object
+  b->load_from_xml(node, id_map);
+}
+
+/// Reads and construct the RungaKuttaImplicitIntegrator object
+/**
+ * \pre node name is RungeKuttaImplicitIntegrator
+ */
+void XMLReader::read_rk4i_integrator(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
+{
+  // sanity check
+  assert(strcasecmp(node->name.c_str(), "RungeKuttaImplicitIntegrator") == 0);
+
+  // only create VectorN type integrators
+  boost::shared_ptr<Base> b(new RungeKuttaImplicitIntegrator());
+
+  // populate the object
+  b->load_from_xml(node, id_map);
+}
+
+/// Reads and construct the ODEPACKIntegrator object
+/**
+ * \pre node name is ODEPACKIntegrator
+ */
+void XMLReader::read_odepack_integrator(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
+{
+  // sanity check
+  assert(strcasecmp(node->name.c_str(), "ODEPACKIntegrator") == 0);
+
+  // only create VectorN type integrators
+  boost::shared_ptr<Base> b(new ODEPACKIntegrator());
+
   // populate the object
   b->load_from_xml(node, id_map);
 }

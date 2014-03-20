@@ -55,6 +55,10 @@ RigidBody::RigidBody()
   // setup secondary link pose
   _F2 = shared_ptr<Pose3d>(new Pose3d);
 
+  // setup poses for acceleration bounds
+  _vel_limit_lo.set_zero(_F);
+  _vel_limit_hi.set_zero(_F);
+
   // invalidate everything
   _forcei_valid = false;
   _forcej_valid = false;
@@ -76,6 +80,57 @@ RigidBody::RigidBody()
   _enabled = true;
   _link_idx = std::numeric_limits<unsigned>::max();
   viscous_coeff = VectorNd::zero(SPATIAL_DIM);
+
+  // indicate velocity limit has been exceeded (safe initialization)
+ _vel_limit_exceeded = true; 
+}
+
+/// Resets the acceleration limit estimates
+void RigidBody::reset_limit_estimates()
+{
+ _vel_limit_exceeded = false; 
+}
+
+/// Updates this rigid body's velocity limit
+void RigidBody::update_vel_limits()
+{
+  const unsigned SPATIAL_DIM = 6;
+
+  // mark limit as not exceeded
+  _vel_limit_exceeded = false;
+
+  SVelocityd v = Pose3d::transform(_F, get_velocity());
+  for (unsigned i=0; i< SPATIAL_DIM; i++)
+  {
+    if (v[i] < _vel_limit_lo[i])
+      _vel_limit_lo[i] = v[i];
+    if (v[i] > _vel_limit_hi[i])
+      _vel_limit_hi[i] = v[i];
+  }
+}
+
+/// Checks whether a rigid body has exceeded its velocity limit and updates the velocity limit 
+void RigidBody::check_vel_limit_exceeded_and_update()
+{
+  const unsigned SPATIAL_DIM = 6;
+
+  if (!_vel_limit_exceeded)
+  {
+    SVelocityd v = Pose3d::transform(_F, get_velocity());
+    for (unsigned i=0; i< SPATIAL_DIM; i++)
+    {
+      if (v[i] < _vel_limit_lo[i])
+      {
+        _vel_limit_lo[i] = v[i];
+        _vel_limit_exceeded = true;
+      }
+      if (v[i] > _vel_limit_hi[i])
+      {
+        _vel_limit_hi[i] = v[i];
+        _vel_limit_exceeded = true;
+      }
+    }
+  }
 }
 
 /// Gets the frame in which kinematics and dynamics computations occur
@@ -210,79 +265,6 @@ void RigidBody::set_computation_frame_type(ReferenceFrameType rftype)
 
   // store the new reference frame type
   _rftype = rftype;
-}
-
-/// Integrates the body forward in time
-void RigidBody::integrate(double t, double h, shared_ptr<Integrator> integrator)
-{
-  // don't attempt to integrate disabled bodies
-  if (!is_enabled())
-    return;
-
-  // if this body is a link in an articulated body, don't attempt to integrate;
-  // integration must occur at the articulated body
-  if (!_abody.expired())
-    return;
-
-  // call parent method if still here
-  DynamicBody::integrate(t, h, integrator);
-
-  FILE_LOG(LOG_DYNAMICS) << "RigidBody::integrate()" << endl;
-/*
-  // compute forward dynamics
-  calc_fwd_dyn(h);
-
-  // get the angular velocity
-  Quatd qd = _jF->qG_transpose_mult(_xd.get_angular());
-
-  // setup mixed frame
-  shared_ptr<Pose3d> mixed(new Pose3d);
-
-  // get inertial frame relative to Global
-  Pose3d P = *_jF;
-  P.update_relative_pose(GLOBAL);
-  mixed->x = P.x;
-  FILE_LOG(LOG_DYNAMICS) << "  pose: " << P;
-  FILE_LOG(LOG_DYNAMICS) << "  velocity: " << _xd << endl;
-  FILE_LOG(LOG_DYNAMICS) << "  old velocity (mixed frame): " << Pose3d::transform(mixed, _xd) << endl;
-  FILE_LOG(LOG_DYNAMICS) << "  transform: " << Pose3d::calc_relative_pose(_xd.pose, mixed) << endl;
-  FILE_LOG(LOG_DYNAMICS) << "  acceleration: " << _xdd << endl;
-
-  // compute updated inertial frame
-  Matrix3d Rdot = Matrix3d::skew_symmetric(_xd.get_angular()) * P.q;
-  P.x = _xd.get_linear()*h;
-  P.q += qd*h;
-  P.q.normalize();
-  P.rpose = _jF;
-  FILE_LOG(LOG_DYNAMICS) << "  qd: " << qd << std::endl;
-  FILE_LOG(LOG_DYNAMICS) << "  integrated pose: " << P;
-  FILE_LOG(LOG_DYNAMICS) << "  R(dot): " << std::endl << Rdot;
-  Rdot *= h;
-  Rdot += Matrix3d(P.q);
-  Rdot.orthonormalize();
-  FILE_LOG(LOG_DYNAMICS) << "  R+R(dot): " << std::endl << Rdot;
-
-  // convert inertial frame to link frame
-  P.update_relative_pose(_F->rpose);
-  FILE_LOG(LOG_DYNAMICS) << "  old link pose: " << *_F;
-
-  // update the new pose
-  set_pose(P);
-  _xd.set_angular(_xd.get_angular() + _xdd.get_angular()*h); 
-  _xd.set_linear(_xd.get_linear() + _xdd.get_linear()*h); 
-  P = *_jF;
-  P.update_relative_pose(GLOBAL);
-  mixed->x = P.x;
-  FILE_LOG(LOG_DYNAMICS) << "  newlink pose: " << *_F;
-  FILE_LOG(LOG_DYNAMICS) << "  new pose: " << P;
-  FILE_LOG(LOG_DYNAMICS) << "  new pose orientation: " << AAngled(P.q) << std::endl;
-  FILE_LOG(LOG_DYNAMICS) << "  new velocity (mixed frame): " << Pose3d::transform(mixed, _xd) << endl;
-  FILE_LOG(LOG_DYNAMICS) << "  new velocity: " << _xd << endl;
-
-  FILE_LOG(LOG_DYNAMICS) << "RigidBody::integrate()" << endl;
-  FILE_LOG(LOG_DYNAMICS) << "  new transform: " << endl << _F;
-  FILE_LOG(LOG_DYNAMICS) << "  new velocity: " << _xd << endl;
-*/
 }
 
 /// Computes the forward dynamics for this body
@@ -1400,11 +1382,6 @@ MatrixNd& RigidBody::transpose_solve_generalized_inertia_single(const MatrixNd& 
   MatrixNd M;
   get_generalized_inertia_inverse(M);
   M.mult_transpose(B, X);
-/*
-  get_generalized_inertia(M);
-  MatrixNd::tranpose(X, B);
-  _LA.solve_fast(M, X);
-*/
 
   return X;
 }
@@ -1416,11 +1393,6 @@ MatrixNd& RigidBody::solve_generalized_inertia_single(const MatrixNd& B, MatrixN
   MatrixNd M;
   get_generalized_inertia_inverse(M);
   M.mult(B, X);
-/*
-  get_generalized_inertia(M);
-  X = B;
-  _LA.solve_fast(M, X);
-*/
 
   return X;
 }
@@ -1445,54 +1417,21 @@ VectorNd& RigidBody::solve_generalized_inertia_single(const VectorNd& b, VectorN
   MatrixNd M;
   get_generalized_inertia_inverse(M);
   M.mult(b, x);
-/*
-  get_generalized_inertia(M);
-  x = b;
-  _LA.solve_fast(M, x);
-*/
 
   return x;
 }
 
-/// Gets the generalized position of this rigid body (does not call articulated body version)
-VectorNd& RigidBody::get_generalized_coordinates_single(GeneralizedCoordinateType gctype, VectorNd& gc) 
+/// Gets the generalized position of this rigid body
+void RigidBody::get_generalized_coordinates(GeneralizedCoordinateType gctype, SharedVectorNd& gc) 
 {
-  const unsigned N_SPATIAL = 6, N_EULER = 7;
-
-  // special case: disabled body
-  if (!_enabled)
-    return gc.resize(0);
-
-  // resize vector
-  switch (gctype)
+  // if this body part of an articulated body, call that function instead
+  if (!_abody.expired())
   {
-    case eEuler:   gc.resize(N_EULER); break;
-    case eSpatial: gc.resize(N_SPATIAL); break;
+    ArticulatedBodyPtr ab(_abody);
+    ab->get_generalized_coordinates(gctype, gc);
   }
-
-  // convert current pose to global frame
-  Pose3d P = *_F;
-  P.update_relative_pose(GLOBAL);
-
-  // get linear components
-  gc[0] = P.x[0];
-  gc[1] = P.x[1];
-  gc[2] = P.x[2];
-
-  // get angular components 
-  if (gctype == DynamicBody::eSpatial)
-    P.q.to_rpy(gc[3], gc[4], gc[5]);
   else
-  {
-    // return the generalized position using Euler parameters
-    assert(gctype == DynamicBody::eEuler);
-    gc[3] = P.q.x;
-    gc[4] = P.q.y;
-    gc[5] = P.q.z;
-    gc[6] = P.q.w;
-  }
-
-  return gc; 
+    get_generalized_coordinates_generic(gctype, gc);
 }
 
 /// Gets the generalized position of this rigid body
@@ -1505,55 +1444,9 @@ VectorNd& RigidBody::get_generalized_coordinates(GeneralizedCoordinateType gctyp
     return ab->get_generalized_coordinates(gctype, gc);
   }
   else
-    return get_generalized_coordinates_single(gctype, gc);
-}
-
-/// Sets the generalized coordinates of this rigid body (does not call articulated body)
-void RigidBody::set_generalized_coordinates_single(GeneralizedCoordinateType gctype, const VectorNd& gc)
-{
-  // special case: disabled body
-  if (!_enabled)
-    return;
-
-  // do easiest case first 
-  if (gctype == DynamicBody::eSpatial)
   {
-    // note: generalized coordinates in eSpatial are always set with regard to 
-    // the global frame
-    Origin3d x(gc[0], gc[1], gc[2]);
-    Quatd q = Quatd::rpy(gc[3], gc[4], gc[5]); 
-
-    // convert the pose to the correct relative frame
-    Pose3d P(q, x);
-    P.update_relative_pose(_F->rpose);
-
-    // set the transform
-    set_pose(P);
-  }
-  else
-  {
-    assert(gctype == DynamicBody::eEuler);
-
-    // get the position
-    Origin3d x(gc[0], gc[1], gc[2]);
-
-    // get the unit quaternion
-    Quatd q;
-    q.x = gc[3];
-    q.y = gc[4];
-    q.z = gc[5];
-    q.w = gc[6];
-
-    // normalize the unit quaternion, just in case
-    q.normalize();
-
-    // coordinates are in the global frame; must convert them to the
-    // relative frame
-    Pose3d P(q, x);
-    P.update_relative_pose(_F->rpose); 
-
-    // set the transform
-    set_pose(P);
+    get_generalized_coordinates_generic(gctype, gc);
+    return gc;
   }
 }
 
@@ -1567,7 +1460,20 @@ void RigidBody::set_generalized_coordinates(GeneralizedCoordinateType gctype, co
     ab->set_generalized_coordinates(gctype, gc);
   }
   else
-    set_generalized_coordinates_single(gctype, gc);
+    set_generalized_coordinates_generic(gctype, gc);
+}
+
+/// Sets the generalized coordinates of this rigid body
+void RigidBody::set_generalized_coordinates(GeneralizedCoordinateType gctype, SharedConstVectorNd& gc)
+{
+  // if this body part of an articulated body, call that function instead
+  if (!_abody.expired())
+  {
+    ArticulatedBodyPtr ab(_abody);
+    ab->set_generalized_coordinates(gctype, gc);
+  }
+  else
+    set_generalized_coordinates_generic(gctype, gc);
 }
 
 /// Sets the generalized velocity of this rigid body
@@ -1580,47 +1486,20 @@ void RigidBody::set_generalized_velocity(GeneralizedCoordinateType gctype, const
     ab->set_generalized_velocity(gctype, gv);
   }
   else
-    set_generalized_velocity_single(gctype, gv);
+    set_generalized_velocity_generic(gctype, gv);
 }
 
-/// Sets the generalized velocity of this rigid body (does not call articulated body version)
-void RigidBody::set_generalized_velocity_single(GeneralizedCoordinateType gctype, const VectorNd& gv)
+/// Sets the generalized velocity of this rigid body
+void RigidBody::set_generalized_velocity(GeneralizedCoordinateType gctype, SharedConstVectorNd& gv)
 {
-  // special case: disabled body
-  if (!_enabled)
-    return;
-
-  // get the velocity
-  SVelocityd xd;
-  xd.pose = _F2;
- 
-  // set the linear velocity first
-  xd.set_linear(Vector3d(gv[0], gv[1], gv[2]));
- 
-  // simplest case: spatial coordinates
-  if (gctype == DynamicBody::eSpatial)
-    xd.set_angular(Vector3d(gv[3], gv[4], gv[5]));
-  else
+  // if this body part of an articulated body, call that function instead
+  if (!_abody.expired())
   {
-    assert(gctype == DynamicBody::eEuler);
-
-    // get the quaternion derivatives
-    Quatd qd;
-    qd.x = gv[3] * 2.0;
-    qd.y = gv[4] * 2.0;
-    qd.z = gv[5] * 2.0;
-    qd.w = gv[6] * 2.0;
-
-    // setup the pose
-    Pose3d F = *_F;
-    F.update_relative_pose(GLOBAL);
-
-    // setup the angular component
-    xd.set_angular(F.q.G_mult(qd.x, qd.y, qd.z, qd.w));
+    ArticulatedBodyPtr ab(_abody);
+    ab->set_generalized_velocity(gctype, gv);
   }
-
-  // set the velocity
-  set_velocity(xd);
+  else
+    set_generalized_velocity_generic(gctype, gv);
 }
 
 /// Gets the generalized velocity of this rigid body
@@ -1633,60 +1512,23 @@ VectorNd& RigidBody::get_generalized_velocity(GeneralizedCoordinateType gctype, 
     return ab->get_generalized_velocity(gctype, gv);
   }
   else
-    return get_generalized_velocity_single(gctype, gv);
+  {
+    get_generalized_velocity_generic(gctype, gv);
+    return gv;
+  }
 }
 
-/// Gets the generalized velocity of this rigid body (does not call articulated body version)
-VectorNd& RigidBody::get_generalized_velocity_single(GeneralizedCoordinateType gctype, VectorNd& gv) 
+/// Gets the generalized velocity of this rigid body
+void RigidBody::get_generalized_velocity(GeneralizedCoordinateType gctype, SharedVectorNd& gv) 
 {
-  const unsigned N_SPATIAL = 6, N_EULER = 7;
-
-  // special case: disabled body
-  if (!_enabled)
-    return gv.resize(0);
-
-  // resize the generalized velocity vector
-  switch (gctype)
+  // if this body part of an articulated body, call that function instead
+  if (!_abody.expired())
   {
-    case eEuler:   gv.resize(N_EULER); break;
-    case eSpatial: gv.resize(N_SPATIAL); break;
-  }
-
-  // get the velocity
-  SVelocityd xd = Pose3d::transform(_F2, _xd0);
- 
-  // get/set linear components of velocity
-  Vector3d lv = xd.get_linear();
-  gv[0] = lv[0];
-  gv[1] = lv[1];
-  gv[2] = lv[2];
-
-  // determine the proper generalized coordinate type
-  if (gctype == DynamicBody::eSpatial)
-  {
-    // get/set angular components of velocity
-    Vector3d av = xd.get_angular();
-    gv[3] = av[0];
-    gv[4] = av[1];
-    gv[5] = av[2];
+    ArticulatedBodyPtr ab(_abody);
+    ab->get_generalized_velocity(gctype, gv);
   }
   else
-  {
-    assert(gctype == DynamicBody::eEuler);
-
-    // going to need Euler coordinate derivatives
-    Pose3d F = *_F;
-    F.update_relative_pose(GLOBAL);
-    Quatd qd = F.q.G_transpose_mult(xd.get_angular()) * 0.5;
-
-    // setup the angular components 
-    gv[3] = qd.x;
-    gv[4] = qd.y;
-    gv[5] = qd.z;
-    gv[6] = qd.w; 
-  }
-
-  return gv;
+    get_generalized_velocity_generic(gctype, gv);
 }
 
 /// Gets the generalized acceleration of this body
@@ -1699,37 +1541,23 @@ VectorNd& RigidBody::get_generalized_acceleration(VectorNd& ga)
     return ab->get_generalized_acceleration(ga);
   }
   else
-    return get_generalized_acceleration_single(ga);
+  {
+    get_generalized_acceleration_generic(ga);
+    return ga;
+  }
 }
 
-/// Gets the generalized acceleration of this body (does not call articulated body version)
-VectorNd& RigidBody::get_generalized_acceleration_single(VectorNd& ga)
+/// Gets the generalized acceleration of this body
+void RigidBody::get_generalized_acceleration(SharedVectorNd& ga)
 {
-  const unsigned N_SPATIAL = 6;
-
-  // special case: body is disabled
-  if (!_enabled)
-    return ga.resize(0);
-
-  // setup the linear components
-  ga.resize(N_SPATIAL);
-
-  // get the acceleration 
-  SAcceld xdd = Pose3d::transform(_F2, _xdd0);
-
-  // get linear and angular components
-  Vector3d la = xdd.get_linear();
-  Vector3d aa = xdd.get_angular();
-
-  // set linear components
-  ga[0] = la[0];
-  ga[1] = la[1];
-  ga[2] = la[2];
-  ga[3] = aa[0];
-  ga[4] = aa[1];
-  ga[5] = aa[2];
- 
-  return ga;
+  // if this body part of an articulated body, call that function instead
+  if (!_abody.expired())
+  {
+    ArticulatedBodyPtr ab(_abody);
+    ab->get_generalized_acceleration(ga);
+  }
+  else
+    get_generalized_acceleration_generic(ga);
 }
 
 /// Gets the generalized inertia of this rigid body
@@ -2048,6 +1876,94 @@ bool RigidBody::is_base() const
 
   // no explicit joints... it's the base
   return true;
+}
+
+/// Integrates a dynamic body
+/*
+void RigidBody::integrate(double t, double h, shared_ptr<Integrator> integrator)
+{
+  // don't attempt to integrate disabled bodies
+  if (!is_enabled())
+    return;
+
+  // if this body is a link in an articulated body, don't attempt to integrate;
+  // integration must occur at the articulated body
+  if (!_abody.expired())
+    return;
+
+  FILE_LOG(LOG_DYNAMICS) << "RigidBody::integrate() - integrating from " << t << " by " << h << std::endl;
+
+  // reset the acceleration events exceeded
+  _accel_limit_exceeded = false;
+
+  if (_kinematic_update)
+  {
+    FILE_LOG(LOG_DYNAMICS) << " -- body set to kinematic update --" << std::endl;
+    if (controller)
+      (*controller)(dynamic_pointer_cast<RigidBody>(shared_from_this()), t, controller_arg);
+    return;
+  }
+
+  shared_ptr<RigidBody> shared_this = dynamic_pointer_cast<RigidBody>(shared_from_this());
+
+  get_generalized_coordinates(eEuler, gc);
+  get_generalized_velocity(eSpatial, gv); // gv depends on gc
+  gcgv.resize(gc.size()+gv.size());
+  gcgv.set_sub_vec(0, gc);
+  gcgv.set_sub_vec(gc.size(), gv);
+  integrator->integrate(gcgv, &RigidBody::ode_both, t, h, (void*) &shared_this);
+  gcgv.get_sub_vec(0, gc.size(), gc);
+  gcgv.get_sub_vec(gc.size(), gcgv.size(), gv);
+
+  // NOTE: velocity must be set first (it's computed w.r.t. old frame)
+  set_generalized_coordinates(eEuler, gc);
+  set_generalized_velocity(eSpatial, gv);
+}
+*/
+
+/// Returns the ODE's for position and velocity (concatenated into x)
+void RigidBody::ode(SharedConstVectorNd& x, double t, double dt, void* data, SharedVectorNd& dx)
+{
+  // get the number of generalized coordinates 
+  const unsigned NGC_EUL = num_generalized_coordinates(eEuler);
+
+  // get the shared pointer to this
+  RigidBodyPtr shared_this = dynamic_pointer_cast<RigidBody>(shared_from_this());
+
+  // get the generalized coordinates and velocity
+  SharedConstVectorNd gc = x.segment(0, NGC_EUL);
+  SharedConstVectorNd gv = x.segment(NGC_EUL, x.size());
+
+  // get the derivative of generalized coordinates and velocity
+  SharedVectorNd dgc = dx.segment(0, NGC_EUL);
+  SharedVectorNd dgv = dx.segment(NGC_EUL, x.size());
+
+  // set the state and velocity
+  set_generalized_coordinates(DynamicBody::eEuler, gc);
+  set_generalized_velocity(DynamicBody::eSpatial, gv);
+
+  // we need the generalized velocity as Rodrigues coordinates
+  get_generalized_velocity(DynamicBody::eEuler, dgc);
+
+  // clear the force accumulators on the body
+  reset_accumulators();
+
+  // add all recurrent forces on the body
+  const list<RecurrentForcePtr>& rfs = get_recurrent_forces();
+  BOOST_FOREACH(RecurrentForcePtr rf, rfs)
+    rf->add_force(shared_this);
+
+  // call the body's controller
+  if (controller)
+    (*controller)(shared_this, t, controller_arg);
+
+  // calculate forward dynamics at state x
+  calc_fwd_dyn();
+  get_generalized_acceleration(dgv);
+
+  // check whether velocity limits have been exceeded 
+  if (!_vel_limit_exceeded)
+    check_vel_limit_exceeded_and_update();
 }
 
 /// Outputs the object state to the specified stream

@@ -9,13 +9,14 @@ set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/CMakeModules)
 include_directories ("include")
 
 # setup library sources
-set (SOURCES RestingEventHandler.cpp Event.cpp BoxPrimitive.cpp SpherePrimitive.cpp ConePrimitive.cpp CylinderPrimitive.cpp GaussianMixture.cpp TriangleMeshPrimitive.cpp Polyhedron.cpp IndexedTriArray.cpp GravityForce.cpp CRBAlgorithm.cpp RNEAlgorithm.cpp RCArticulatedBody.cpp RigidBody.cpp LCP.cpp OSGGroupWrapper.cpp Integrator.cpp FSABAlgorithm.cpp Simulator.cpp EventDrivenSimulator.cpp Spatial.cpp ArticulatedBody.cpp Primitive.cpp Visualizable.cpp AABB.cpp SSL.cpp SSR.cpp BoundingSphere.cpp CompGeom.cpp ContactParameters.cpp Log.cpp XMLWriter.cpp ThickTriangle.cpp Triangle.cpp Tetrahedron.cpp Base.cpp DynamicBody.cpp SingleBody.cpp XMLTree.cpp FixedJoint.cpp XMLReader.cpp DampingForce.cpp RevoluteJoint.cpp CollisionDetection.cpp CollisionGeometry.cpp PrismaticJoint.cpp SphericalJoint.cpp UniversalJoint.cpp BV.cpp OBB.cpp IndexedTetraArray.cpp Joint.cpp ImpactEventHandlerNQP.cpp ImpactEventHandlerQP.cpp ImpactEventHandler.cpp StokesDragForce.cpp URDFReader.cpp GeneralizedCCD.cpp CSG.cpp)
+set (SOURCES AABB.cpp ArticulatedBody.cpp Base.cpp BoundingSphere.cpp BoxPrimitive.cpp BulirschStoerIntegrator.cpp BV.cpp CCD.cpp CollisionGeometry.cpp CompGeom.cpp ConePrimitive.cpp ContactParameters.cpp CRBAlgorithm.cpp CSG.cpp CylinderPrimitive.cpp DampingForce.cpp DynamicBody.cpp EulerIntegrator.cpp Event.cpp EventDrivenSimulator.cpp FixedJoint.cpp FSABAlgorithm.cpp GaussianMixture.cpp GJK.cpp GravityForce.cpp ImpactEventHandler.cpp ImpactEventHandlerNQP.cpp ImpactEventHandlerQP.cpp IndexedTetraArray.cpp IndexedTriArray.cpp Integrator.cpp Joint.cpp LCP.cpp Log.cpp OBB.cpp ODEPACKIntegrator.cpp OSGGroupWrapper.cpp Polyhedron.cpp Primitive.cpp PrismaticJoint.cpp RCArticulatedBody.cpp RestingEventHandler.cpp RevoluteJoint.cpp RigidBody.cpp RNEAlgorithm.cpp Rosenbrock4Integrator.cpp RungeKuttaFehlbergIntegrator.cpp RungeKuttaIntegrator.cpp RungeKuttaImplicitIntegrator.cpp Simulator.cpp SingleBody.cpp Spatial.cpp SpherePrimitive.cpp SphericalJoint.cpp SSL.cpp SSR.cpp StokesDragForce.cpp Tetrahedron.cpp ThickTriangle.cpp Triangle.cpp TriangleMeshPrimitive.cpp UniversalJoint.cpp URDFReader.cpp VariableEulerIntegrator.cpp VariableStepIntegrator.cpp Visualizable.cpp XMLReader.cpp XMLTree.cpp XMLWriter.cpp)
 #set (SOURCES MCArticulatedBody.cpp)
 
 # build options 
 option (BUILD_SHARED_LIBS "Build Moby as a shared library?" ON)
 option (BUILD_TOOLS "Build the programs in the tools subdirectory?" ON)
 option (USE_OSG "Build against OpenSceneGraph library?" ON)
+option (USE_IPOPT "Build against IPOPT library?" ON)
 option (PROFILE "Build for profiling?" OFF)
 option (OMP "Build with OpenMP support?" OFF)
 option (THREADSAFE "Build Moby to be threadsafe? (slower)" OFF)
@@ -56,7 +57,7 @@ find_package (osgGA)
 find_package (OpenThreads)
 
 # see whether IPOPT was detected
-if (IPOPT_FOUND)
+if (USE_IPOPT AND IPOPT_FOUND)
   add_definitions (-DHAVE_CSTDDEF)
   add_definitions (-DHAVE_IPOPT)
   include_directories (IPOPT_INCLUDE_DIRS)
@@ -74,7 +75,7 @@ if (IPOPT_FOUND)
 #  set (EXTRA_LIBS ${EXTRA_LIBS} ${IPOPT_MUMPS} ${IPOPT_METIS} ${GFORTRAN})
   set (EXTRA_LIBS ${EXTRA_LIBS} ${IPOPT} ${IPOPT_MUMPS} ${IPOPT_METIS})
   set (SOURCES ${SOURCES} LCP_IPOPT.cpp NQP_IPOPT.cpp)
-endif (IPOPT_FOUND)
+endif (USE_IPOPT AND IPOPT_FOUND)
 
 # setup OSG includes and additional sources
 if (USE_OSG AND OSG_FOUND)
@@ -116,8 +117,8 @@ set (REQLIBS qhull)
 
 # build against ODEPACK?
 if (HAVE_ODEPACK)
-#  add_definitions (-DUSE_ODEPACK)
-#  set (EXTRA_LIBS ${EXTRA_LIBS} odepack)
+  add_definitions (-DUSE_ODEPACK)
+  set (EXTRA_LIBS ${EXTRA_LIBS} odepack)
 endif (HAVE_ODEPACK)
 
 # prepend "src/" to each source file

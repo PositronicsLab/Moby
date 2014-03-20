@@ -106,13 +106,6 @@ class CollisionDetection : public virtual Base
      */
     virtual bool is_collision(double epsilon = 0.0) = 0;
 
-    /// Calculates the distance between each pair of geometries and returns the minimum distance
-    /**
-     * \note positive distances indicate separation, zero and negative 
-     *       distances represent intersection
-     */
-    virtual double calc_distances();
-
     /// Adds an articulated body to the bodies checked for collision
     void add_articulated_body(ArticulatedBodyPtr abody) { add_articulated_body(abody, disable_adjacent_default); }
 
@@ -150,12 +143,6 @@ class CollisionDetection : public virtual Base
 
     /// The set of geometries in collision (from last call to is_collision())
     std::set<sorted_pair<CollisionGeometryPtr> > colliding_pairs;
-
-    /// The map of geometries to closest points (from last call to calc_distances())
-    std::map<std::pair<CollisionGeometryPtr, CollisionGeometryPtr>, std::pair<Point3d, Point3d> > closest_points;
-
-    /// Distances between geometries (from last call to calc_distances())
-    std::map<sorted_pair<CollisionGeometryPtr>, double> distances;
 
   protected:
 
