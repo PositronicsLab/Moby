@@ -454,6 +454,13 @@ double EventDrivenSimulator::step(double step_size)
     // called on integration restart
     restart: 
 
+    // if safe_dt is zero (contact at current time), possibly can use 
+    // acceleration-based method
+    if (safe_dt == 0.0)
+    {
+    }
+
+/*
     // if safe_dt is small, use a semi-implicit Euler step to
     // solve events, etc.
     if (safe_dt <= euler_step)
@@ -470,6 +477,7 @@ double EventDrivenSimulator::step(double step_size)
       // continue integrating
       continue;
     }
+*/
 
     // save the state of the system
     save_state();
