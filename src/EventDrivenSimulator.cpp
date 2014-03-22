@@ -645,6 +645,7 @@ double EventDrivenSimulator::step(double step_size)
       // continue integrating
       continue;
     }
+*/
 
     // save the state of the system
     save_state();
