@@ -16,6 +16,7 @@
 #include <Moby/ImpactToleranceException.h>
 #include <Moby/AccelerationEventFailException.h>
 #include <Moby/InvalidStateException.h>
+#include <Moby/InvalidVelocityException.h>
 #include <Moby/EventDrivenSimulator.h>
 
 #ifdef USE_OSG
@@ -154,6 +155,8 @@ void EventDrivenSimulator::handle_acceleration_events()
 /// Computes the ODE of the system for acceleration events
 VectorNd& EventDrivenSimulator::ode_accel_events(const VectorNd& x, double t, double dt, void* data, VectorNd& dx)
 {
+  FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::ode_accel_events() entered" << std::endl;
+
   // get the simulator
   shared_ptr<EventDrivenSimulator>& s = *((shared_ptr<EventDrivenSimulator>*) data);
 
@@ -175,6 +178,8 @@ VectorNd& EventDrivenSimulator::ode_accel_events(const VectorNd& x, double t, do
 
     // get x for the body 
     SharedConstVectorNd xsub = x.segment(idx, idx+NGC+NGV);
+
+    FILE_LOG(LOG_SIMULATOR) << "evaluating derivative for body " << db->id << " at state " << xsub << std::endl;
 
     // compute the ODE
     db->prepare_to_calc_ode_accel_events(xsub, t, dt, &db); 
@@ -208,6 +213,9 @@ VectorNd& EventDrivenSimulator::ode_accel_events(const VectorNd& x, double t, do
   // compute acceleration-based event forces
   s->handle_acceleration_events();
 
+  // reset idx
+  idx = 0;
+
   // loop through all bodies, computing the ODE
   BOOST_FOREACH(DynamicBodyPtr db, s->_bodies)
   {
@@ -224,9 +232,13 @@ VectorNd& EventDrivenSimulator::ode_accel_events(const VectorNd& x, double t, do
     // compute the ODE
     db->ode(t, dt, &db, dxsub); 
 
+    FILE_LOG(LOG_SIMULATOR) << " ODE evaluation for body " << db->id << ": " << dxsub << std::endl;
+
     // update idx
     idx += NGC+NGV;
   }
+
+  FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::ode_accel_events() exited" << std::endl;
 
   // return the ODE
   return dx;
@@ -605,6 +617,9 @@ double EventDrivenSimulator::step(double step_size)
     // compute a Euler step for acceleration
     calculate_bounds();
 
+    // save the state of the system
+    save_state();
+
     // get amount remaining to step
     double dt = step_size - h;
 
@@ -633,6 +648,9 @@ double EventDrivenSimulator::step(double step_size)
     // solve events, etc.
     if (accel_dt <= euler_step)
     {
+      // restore the state of the system (generalized coords/velocities)
+      restore_state();
+
       // maximize amount stepped
       accel_dt = std::min(euler_step, dt);
       step_si_Euler(accel_dt);
@@ -645,10 +663,6 @@ double EventDrivenSimulator::step(double step_size)
       // continue integrating
       continue;
     }
-*/
-
-    // save the state of the system
-    save_state();
 
     // attempt to integrate forward by safe_dt *unless* it's too small
     if (safe_dt > min_advance)
@@ -670,6 +684,15 @@ double EventDrivenSimulator::step(double step_size)
         safe_dt *= 0.5;
         goto restart;
       }
+      catch (InvalidVelocityException e)
+      {
+        FILE_LOG(LOG_SIMULATOR) << " ** attempted to evaluate derivative at invalid velocity; halfing acceleration step size" << std::endl;
+
+        // couldn't integrate that far; restart the integration with a smaller
+        // step size
+        accel_dt *= 0.5;
+        goto restart;
+      }
     }
     else
     {
@@ -686,7 +709,16 @@ double EventDrivenSimulator::step(double step_size)
       }
       catch (InvalidStateException e)
       {
-        FILE_LOG(LOG_SIMULATOR) << " ** attempted to evaluate derivative at invalid state; halving step size" << std::endl;
+        FILE_LOG(LOG_SIMULATOR) << " ** attempted to evaluate derivative at invalid state; halving acceleration step size to " << (accel_dt*0.5) << std::endl;
+
+        // couldn't integrate that far; restart the integration with a smaller
+        // step size
+        accel_dt *= 0.5;
+        goto restart;
+      }
+      catch (InvalidVelocityException e)
+      {
+        FILE_LOG(LOG_SIMULATOR) << " ** attempted to evaluate derivative at invalid velocity; halving acceleration step size to " << (accel_dt*0.5) << std::endl;
 
         // couldn't integrate that far; restart the integration with a smaller
         // step size
@@ -724,8 +756,16 @@ double EventDrivenSimulator::step(double step_size)
       continue;
 
     // no issues integrating; update h and call the mini-callback
-    current_time += safe_dt;
-    h += safe_dt;
+    if (safe_dt > min_advance)
+    {
+      current_time += safe_dt;
+      h += safe_dt;
+    }
+    else
+    {
+      current_time += accel_dt;
+      h += accel_dt;
+    }
     if (post_mini_step_callback_fn)
       post_mini_step_callback_fn(this);
   }
@@ -764,6 +804,8 @@ void EventDrivenSimulator::restore_state()
 /// Checks whether bodies violate contact constraint velocity tolerances
 void EventDrivenSimulator::check_constraint_velocity_violations()
 {
+  FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::check_constraint_velocity_violations() entered" << std::endl;
+
   // loop over all events
   for (unsigned i=0; i< _events.size(); i++)
   {
@@ -778,10 +820,17 @@ void EventDrivenSimulator::check_constraint_velocity_violations()
       zv_tol = _zero_velocity_tolerances.find(_events[i]);
     }
 
+    FILE_LOG(LOG_SIMULATOR) << " -- event velocity: " << ev << std::endl;
+
     // check whether it is larger than allowed
     if (ev < -zv_tol->second - NEAR_ZERO)
-      throw InvalidStateException(); 
+    {
+      FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::check_constraint_velocity_violations() about to throw exception..." << std::endl;
+      throw InvalidVelocityException(); 
+    }
   }
+
+  FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::check_constraint_velocity_violations() exiting" << std::endl;
 }
 
 /// Checks whether bodies violate interpenetration constraints
@@ -982,6 +1031,12 @@ void EventDrivenSimulator::find_events()
     const pair<CollisionGeometryPtr, CollisionGeometryPtr>& cgpair = _pairs_to_check[i];
     _ccd.find_contacts(cgpair.first, cgpair.second, std::back_inserter(_events));  
   }
+
+  FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::find_events() entered" << std::endl;
+  if (LOGGING(LOG_SIMULATOR))
+    for (unsigned i=0; i< _events.size(); i++)
+    FILE_LOG(LOG_SIMULATOR) << _events[i] << std::endl;
+  FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::find_events() exited" << std::endl;
 }
 
 /// Computes the next event time using a linear velocity assumption
