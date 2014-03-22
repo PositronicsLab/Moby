@@ -11,6 +11,7 @@
 #include <Moby/sorted_pair>
 #include <Moby/Simulator.h>
 #include <Moby/ImpactEventHandler.h>
+#include <Moby/AccelerationEventHandler.h>
 #include <Moby/CCD.h>
 #include <Moby/Event.h>
 
@@ -98,9 +99,23 @@ class EventDrivenSimulator : public Simulator
     double max_event_time;
 
   protected:
-    void check_pairwise_constraint_violations();
+    virtual void check_pairwise_constraint_violations();
 
   private:
+    struct EventCmp
+    {
+      bool operator()(const Event& e1, const Event& e2) const;
+    };
+
+    template <class ForwardIterator>
+    double integrate_with_accel_events(double step_size, ForwardIterator begin, ForwardIterator end);
+
+    /// Integrates all dynamic bodies
+    double integrate_with_accel_events(double step_size) { return integrate_with_accel_events(step_size, _bodies.begin(), _bodies.end()); }
+
+    void handle_acceleration_events();
+    void check_constraint_velocity_violations();
+    static Ravelin::VectorNd& ode_accel_events(const Ravelin::VectorNd& x, double t, double dt, void* data, Ravelin::VectorNd& dx);
     double compute_next_event_time() const;
     void integrate_velocities_Euler(double dt);
     void integrate_positions_Euler(double dt);
@@ -108,7 +123,6 @@ class EventDrivenSimulator : public Simulator
     void restore_state();
     void calc_fwd_dyn() const;
     void step_si_Euler(double dt);
-    void integrate_DAE(double dt);
     static void determine_treated_bodies(std::list<std::list<Event*> >& groups, std::vector<DynamicBodyPtr>& bodies);
     void find_events();
     void preprocess_event(Event& e);
@@ -122,9 +136,6 @@ class EventDrivenSimulator : public Simulator
     // Visualization functions
     void visualize_contact( Event& event );
 
-    /// Determines whether the simulation constraints have been violated
-    bool _simulation_violated;
-
     /// The continuous collision detection mechanism
     mutable CCD _ccd;
 
@@ -137,11 +148,20 @@ class EventDrivenSimulator : public Simulator
     /// Interpenetration constraint violation tolerances
     std::map<sorted_pair<CollisionGeometryPtr>, double> _ip_tolerances;
 
+    /// Velocity tolerances
+    std::map<Event, double, EventCmp> _zero_velocity_tolerances;
+
+    /// Object for handling acceleration events
+    AccelerationEventHandler _accel_event_handler;
+
     /// Object for handling impact events
     ImpactEventHandler _impact_event_handler;
 
     /// The Euler step size
     double euler_step;
+
+    /// The minimum step for advancement
+    double min_advance;
 
     /// The geometries in the simulator
     std::list<CollisionGeometryPtr> _geometries;
@@ -149,6 +169,8 @@ class EventDrivenSimulator : public Simulator
     /// Geometric pairs that should be checked for events (according to broad phase collision detection)
     std::vector<std::pair<CollisionGeometryPtr, CollisionGeometryPtr> > _pairs_to_check;
 }; // end class
+
+#include "EventDrivenSimulator.inl"
 
 } // end namespace
 

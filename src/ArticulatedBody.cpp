@@ -137,8 +137,8 @@ void ArticulatedBody::ode_noexcept(SharedConstVectorNd& x, double t, double dt, 
     check_joint_vel_limit_exceeded_and_update();
 }
 
-/// Returns the ODE's for position and velocity (concatenated into x)
-void ArticulatedBody::ode(SharedConstVectorNd& x, double t, double dt, void* data, SharedVectorNd& dx)
+/// Prepares to compute the ODE  
+void ArticulatedBody::prepare_to_calc_ode_accel_events(SharedConstVectorNd& x, double t, double dt, void* data)
 {
   // get the shared pointer to this
   ArticulatedBodyPtr shared_this = dynamic_pointer_cast<ArticulatedBody>(shared_from_this());
@@ -158,12 +158,15 @@ void ArticulatedBody::ode(SharedConstVectorNd& x, double t, double dt, void* dat
   // set the velocity 
   set_generalized_velocity(DynamicBody::eSpatial, gv);
 
-  // get the derivatives of coordinates and velocity from dx
-  SharedVectorNd dgc = dx.segment(0, NGC_EUL);
-  SharedVectorNd dgv = dx.segment(NGC_EUL, x.size());
+  // check whether velocity limits on the individual rigid bodies have been
+  // violated
+  BOOST_FOREACH(RigidBodyPtr rb, _links)
+    if (!rb->_vel_limit_exceeded)
+      rb->check_vel_limit_exceeded_and_update();
 
-  // we need the generalized velocity as Rodrigues coordinates
-  get_generalized_velocity(DynamicBody::eEuler, dgc);
+  // check whether joint velocities have been violated 
+  if (!_vel_limits_exceeded)
+    check_joint_vel_limit_exceeded_and_update();
 
   // clear the force accumulators on the body
   reset_accumulators();
@@ -176,10 +179,28 @@ void ArticulatedBody::ode(SharedConstVectorNd& x, double t, double dt, void* dat
   // call the body's controller
   if (controller)
     (*controller)(shared_this, t, controller_arg);
+}
 
-  // calculate forward dynamics at state x
-  calc_fwd_dyn();
-  get_generalized_acceleration(dgv);
+/// Prepares to compute the ODE  
+void ArticulatedBody::prepare_to_calc_ode(SharedConstVectorNd& x, double t, double dt, void* data)
+{
+  // get the shared pointer to this
+  ArticulatedBodyPtr shared_this = dynamic_pointer_cast<ArticulatedBody>(shared_from_this());
+
+  // get the articulated body
+  const unsigned NGC_EUL = num_generalized_coordinates(eEuler);
+
+  // get the coordinates and velocity from x
+  SharedConstVectorNd gc = x.segment(0, NGC_EUL);
+  SharedConstVectorNd gv = x.segment(NGC_EUL, x.size());
+
+  // set the state
+  set_generalized_coordinates(DynamicBody::eEuler, gc);
+  if (is_joint_constraint_violated())
+    throw InvalidStateException();
+
+  // set the velocity 
+  set_generalized_velocity(DynamicBody::eSpatial, gv);
 
   // check whether velocity limits on the individual rigid bodies have been
   // violated
@@ -190,6 +211,35 @@ void ArticulatedBody::ode(SharedConstVectorNd& x, double t, double dt, void* dat
   // check whether joint velocities have been violated 
   if (!_vel_limits_exceeded)
     check_joint_vel_limit_exceeded_and_update();
+
+  // clear the force accumulators on the body
+  reset_accumulators();
+
+  // add all recurrent forces on the body
+  const list<RecurrentForcePtr>& rfs = get_recurrent_forces();
+  BOOST_FOREACH(RecurrentForcePtr rf, rfs)
+    rf->add_force(shared_this);
+
+  // call the body's controller
+  if (controller)
+    (*controller)(shared_this, t, controller_arg);
+}
+
+/// Returns the ODE's for position and velocity (concatenated into x)
+void ArticulatedBody::ode(double t, double dt, void* data, SharedVectorNd& dx)
+{
+  // get the articulated body
+  const unsigned NGC_EUL = num_generalized_coordinates(eEuler);
+
+  // get the derivatives of coordinates and velocity from dx
+  SharedVectorNd dgc = dx.segment(0, NGC_EUL);
+  SharedVectorNd dgv = dx.segment(NGC_EUL, dx.size());
+
+  // we need the generalized velocity as Rodrigues coordinates
+  get_generalized_velocity(DynamicBody::eEuler, dgc);
+
+  // calculate forward dynamics 
+  get_generalized_acceleration(dgv);
 }
 
 /// Updates joint constraint violation (after integration)
@@ -203,7 +253,7 @@ void ArticulatedBody::update_joint_constraint_violations()
     // loop over all DOF
     for (unsigned j=0; j< _joints[i]->num_dof(); j++, k++)
     {
-      _cvio[k] = NEAR_ZERO;
+      _cvio[k] = 0.0;
       if (_joints[i]->q[j] < _joints[i]->lolimit[j])
         _cvio[k] = _joints[i]->lolimit[j] - _joints[i]->q[j];
       else if (_joints[i]->q[j] > _joints[i]->hilimit[j])
