@@ -208,7 +208,7 @@ void FSABAlgorithm::apply_generalized_impulse(unsigned index, VectorNd& vgj)
 
     // push the parent of the link onto the queue, *unless* the parent is the base
     RigidBodyPtr parent(link->get_parent_link());
-    if (!parent->get_index() == BASE_IDX)
+    if (parent->get_index() != BASE_IDX)
     {
       link_queue.push(parent);
       FILE_LOG(LOG_DYNAMICS) << "added link " << parent->id << " to queue for processing" << endl;

@@ -69,7 +69,7 @@ VectorNd& Simulator::ode(const VectorNd& x, double t, double dt, void* data, Vec
   // resize dx
   dx.resize(x.size());
 
-  // loop through all bodies
+  // loop through all bodies, preparing to compute the ODE
   BOOST_FOREACH(DynamicBodyPtr db, s->_bodies)
   {
     if (db->get_kinematic())
@@ -79,12 +79,11 @@ VectorNd& Simulator::ode(const VectorNd& x, double t, double dt, void* data, Vec
     const unsigned NGC = db->num_generalized_coordinates(DynamicBody::eEuler);
     const unsigned NGV = db->num_generalized_coordinates(DynamicBody::eSpatial);
 
-    // get x for the body and dx for the body
+    // get x for the body 
     SharedConstVectorNd xsub = x.segment(idx, idx+NGC+NGV);
-    SharedVectorNd dxsub = dx.segment(idx, idx+NGC+NGV);
 
     // compute the ODE
-    db->ode(xsub, t, dt, &db, dxsub); 
+    db->prepare_to_calc_ode(xsub, t, dt, &db); 
 
     // update idx
     idx += NGC+NGV;
@@ -92,6 +91,31 @@ VectorNd& Simulator::ode(const VectorNd& x, double t, double dt, void* data, Vec
 
   // check pairwise constraint violations
   s->check_pairwise_constraint_violations();
+
+  // loop through all bodies, computing forward dynamics 
+  BOOST_FOREACH(DynamicBodyPtr db, s->_bodies)
+    if (!db->get_kinematic())
+      db->calc_fwd_dyn();
+
+  // loop through all bodies, computing the ODE
+  BOOST_FOREACH(DynamicBodyPtr db, s->_bodies)
+  {
+    if (db->get_kinematic())
+      continue;
+
+    // get the number of generalized coordinates and velocities
+    const unsigned NGC = db->num_generalized_coordinates(DynamicBody::eEuler);
+    const unsigned NGV = db->num_generalized_coordinates(DynamicBody::eSpatial);
+
+    // get dx for the body
+    SharedVectorNd dxsub = dx.segment(idx, idx+NGC+NGV);
+
+    // compute the ODE
+    db->ode(t, dt, &db, dxsub); 
+
+    // update idx
+    idx += NGC+NGV;
+  }
 
   // return the ODE
   return dx;

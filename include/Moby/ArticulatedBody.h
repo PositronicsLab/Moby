@@ -49,7 +49,9 @@ class ArticulatedBody : public DynamicBody
     bool is_joint_constraint_violated() const;
     double calc_CA_time_for_joints() const;
     virtual void ode_noexcept(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data, Ravelin::SharedVectorNd& dx);
-    virtual void ode(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data, Ravelin::SharedVectorNd& dx);
+    virtual void prepare_to_calc_ode(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data);
+    virtual void prepare_to_calc_ode_accel_events(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data);
+    virtual void ode(double t, double dt, void* data, Ravelin::SharedVectorNd& dx);
     virtual void reset_limit_estimates();
     virtual bool limit_estimates_exceeded() const;
     double find_next_joint_limit_time() const;
@@ -132,6 +134,9 @@ class ArticulatedBody : public DynamicBody
   private:
     // joint constraint violation
     std::vector<double> _cvio;
+
+    // joint velocity tolerances (for joints at constraints)
+    std::vector<double> _cvel_vio;
 
     // lower velocity limits for this body
     std::vector<double> _vel_limits_lo;
