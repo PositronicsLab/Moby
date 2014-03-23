@@ -589,6 +589,9 @@ double EventDrivenSimulator::step(double step_size)
   event_time = (double) 0.0;
   coldet_time = (double) 0.0;
 
+  tms cstart;  
+  clock_t start = times(&cstart);
+
   // determine the set of collision geometries
   determine_geometries();
 
@@ -614,6 +617,12 @@ double EventDrivenSimulator::step(double step_size)
   // step until the requisite time has elapsed
   while (h < step_size)
   {
+    // start with initial estimates
+    reset_limit_estimates();
+
+  // called when we are restarting with new limits
+  restart_with_new_limits:
+
     // compute a Euler step for acceleration
     calculate_bounds();
 
@@ -636,8 +645,8 @@ double EventDrivenSimulator::step(double step_size)
     // initialize the acceleration-level event dt
     double accel_dt = dt;
 
-    // called on integration restart
-    restart: 
+  // called on integration restart
+  restart: 
 
     // if there are events at the current time, one or more events could be
     // impacting events, in which case the integration must occur by a 
@@ -682,7 +691,7 @@ double EventDrivenSimulator::step(double step_size)
         // couldn't integrate that far; restart the integration with a smaller
         // step size
         safe_dt *= 0.5;
-        goto restart;
+        goto restart;                                               
       }
       catch (InvalidVelocityException e)
       {
@@ -706,6 +715,8 @@ double EventDrivenSimulator::step(double step_size)
 
         // update constraint violation after integration
         update_constraint_violations();
+
+        FILE_LOG(LOG_SIMULATOR) << "Integration with acceleration events successful" << std::endl;
       }
       catch (InvalidStateException e)
       {
@@ -747,13 +758,10 @@ double EventDrivenSimulator::step(double step_size)
         // reset the state of all bodies 
         restore_state();
 
-         // attempt to integrate again using new CA info
-        reintegrate = true;
-        break;
+        // attempt to integrate again using new CA info
+        goto restart_with_new_limits; 
       }
     }
-    if (reintegrate)
-      continue;
 
     // no issues integrating; update h and call the mini-callback
     if (safe_dt > min_advance)
@@ -916,12 +924,21 @@ double EventDrivenSimulator::calc_CA_step()
   return dt;
 }
 
+void EventDrivenSimulator::reset_limit_estimates() const
+{
+  // first compute forward dynamics
+//  calc_fwd_dyn();
+  // now compute the bounds
+  BOOST_FOREACH(DynamicBodyPtr db, _bodies)
+  {
+    // first, reset the limit estimates
+    db->reset_limit_estimates(); 
+  }
+}
+
 /// Calculates acceleration bounds on all bodies
 void EventDrivenSimulator::calculate_bounds() const
 {
-  // first compute forward dynamics
-  calc_fwd_dyn();
-
   // now compute the bounds
   BOOST_FOREACH(DynamicBodyPtr db, _bodies)
   {
@@ -1097,6 +1114,7 @@ void EventDrivenSimulator::step_si_Euler(double dt)
     // solve events to yield new velocities
     FILE_LOG(LOG_SIMULATOR) << "   handling events" << std::endl;
     handle_events();
+
     if (LOGGING(LOG_SIMULATOR))
     {
       VectorNd qd;
