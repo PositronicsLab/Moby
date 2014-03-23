@@ -89,6 +89,8 @@ RigidBody::RigidBody()
 void RigidBody::reset_limit_estimates()
 {
  _vel_limit_exceeded = false; 
+ _vel_limit_lo.set_zero();
+ _vel_limit_hi.set_zero();
 }
 
 /// Updates this rigid body's velocity limit
@@ -103,9 +105,9 @@ void RigidBody::update_vel_limits()
   for (unsigned i=0; i< SPATIAL_DIM; i++)
   {
     if (v[i] < _vel_limit_lo[i])
-      _vel_limit_lo[i] = v[i];
+      _vel_limit_lo[i] = v[i]*1.3;
     if (v[i] > _vel_limit_hi[i])
-      _vel_limit_hi[i] = v[i];
+      _vel_limit_hi[i] = v[i]*1.3;
   }
 }
 
