@@ -706,7 +706,7 @@ restart: // solver restarts from here when basis becomes bad
     select(_dl.begin(), _j.begin(), _j.end(), _dj.begin());
 
     // compute minimal ratios x(j) + EPS_DOUBLE ./ d(j), d > 0
-    _result.resize(_xj.size());
+    _result.set_zero(_xj.size());
     std::transform(_xj.begin(), _xj.end(), _result.begin(), std::bind2nd(std::plus<double>(), zero_tol));
     std::transform(_result.begin(), _result.end(), _dj.begin(), _result.begin(), std::divides<double>());
     double theta = *std::min_element(_result.begin(), _result.end());

@@ -59,6 +59,9 @@ Event::Event()
   limit_upper = false;
   limit_impulse = (double) 0.0;
   contact_normal.set_zero();
+  contact_normal_dot.set_zero();
+  contact_tan1_dot.set_zero();
+  contact_tan2_dot.set_zero();
   contact_impulse.set_zero();
   contact_point.set_zero();
   contact_mu_coulomb = (double) 0.0;
@@ -79,6 +82,9 @@ Event& Event::operator=(const Event& e)
   limit_impulse = e.limit_impulse;
   limit_joint = e.limit_joint;
   contact_normal = e.contact_normal;
+  contact_normal_dot = e.contact_normal;
+  contact_tan1_dot = e.contact_tan1;
+  contact_tan2_dot = e.contact_tan2;
   contact_geom1 = e.contact_geom1;
   contact_geom2 = e.contact_geom2;
   contact_point = e.contact_point;
@@ -549,6 +555,9 @@ bool Event::is_linked(const Event& e1, const Event& e2)
     else
     {
       assert(false);
+
+      // even though we shouldn't be here, we'll return true (it's conservative)
+      return true;
     }
   }
   else if (e1.event_type == eLimit)
@@ -562,11 +571,19 @@ bool Event::is_linked(const Event& e1, const Event& e2)
       return ab1 == ab2;
     }
     else
+    {
       assert(false);
+
+      // even though we shouldn't be here, we'll return true (it's conservative)
+      return true;
+    }
   }
   else
   {
     assert(false);
+
+    // even though we shouldn't be here, we'll return true (it's conservative)
+    return true;
   }
 }
 
@@ -1300,7 +1317,10 @@ double Event::calc_event_accel() const
     return (limit_upper) ? -qdd : qdd;
   }
   else
+  {
     assert(false);
+    return 0.0;
+  }
 }  
 
 double calc_event_vel2(const Event& e)
@@ -1390,7 +1410,7 @@ double Event::calc_event_vel() const
     FILE_LOG(LOG_EVENT) << "Event::calc_event_vel() exited" << std::endl;
 
     // get the linear velocities and project against the normal
-    assert(std::fabs(normal.dot(ta.get_linear() - tb.get_linear()) - calc_event_vel2(*this)) < NEAR_ZERO);
+    assert(std::fabs(normal.dot(ta.get_linear() - tb.get_linear())) < NEAR_ZERO || (std::fabs(normal.dot(ta.get_linear() - tb.get_linear()) - calc_event_vel2(*this)))/std::fabs(normal.dot(ta.get_linear() - tb.get_linear())) < NEAR_ZERO);
     return normal.dot(ta.get_linear() - tb.get_linear());
   }
   else if (event_type == eLimit)
@@ -1399,7 +1419,10 @@ double Event::calc_event_vel() const
     return (limit_upper) ? -qd : qd;
   }
   else
+  {
     assert(false);
+    return 0.0;
+  }
 }  
 
 /// Sends the event to the specified stream
@@ -1486,7 +1509,7 @@ std::ostream& Moby::operator<<(std::ostream& o, const Event& e)
 
       // get the linear velocities and project against the normal
       Vector3d rvlin = ta.get_linear() - tb.get_linear();
-      assert(std::fabs(normal.dot(rvlin) - calc_event_vel2(e)) < NEAR_ZERO);
+      assert(std::fabs(normal.dot(rvlin)) < NEAR_ZERO || std::fabs(normal.dot(rvlin) - calc_event_vel2(e))/std::fabs(normal.dot(rvlin)) < NEAR_ZERO);
       o << "relative normal velocity: " << normal.dot(rvlin) << std::endl;
       o << "relative tangent 1 velocity: " << tan1.dot(rvlin) << std::endl;
       o << "relative tangent 2 velocity: " << tan2.dot(rvlin) << std::endl;
@@ -2464,7 +2487,10 @@ double Event::calc_vevent_tol() const
     return std::max((double) 1.0, std::fabs(qd));
   }
   else
+  {
     assert(false);
+    return 0.0;
+  }
 }
 
 /// Computes the event tolerance
@@ -2507,7 +2533,10 @@ double Event::calc_aevent_tol() const
     return std::max((double) 1.0, std::fabs(qdd));
   }
   else
+  {
     assert(false);
+    return 0.0;
+  }
 }
 
 /// Gets the super bodies for the event
@@ -2547,6 +2576,9 @@ unsigned Event::get_super_bodies(DynamicBodyPtr& db1, DynamicBodyPtr& db2) const
     return 2;
   }
   else
+  {
     assert(false);
+    return 0;
+  }
 }
 
