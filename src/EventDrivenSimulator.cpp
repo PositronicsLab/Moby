@@ -986,7 +986,7 @@ void EventDrivenSimulator::integrate_velocities_Euler(double dt)
 
   // NOTE: forward dynamics are already computed for calculate_bounds()
   // first compute forward dynamics for all bodies
-  // calc_fwd_dyn();
+  calc_fwd_dyn();
 
   // now update all velocities
   BOOST_FOREACH(DynamicBodyPtr db, _bodies)
