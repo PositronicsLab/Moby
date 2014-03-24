@@ -133,6 +133,7 @@ class EventDrivenSimulator : public Simulator
     void determine_geometries();
     void calculate_bounds() const;
     void reset_limit_estimates() const;
+    void broad_phase(double dt);
 
     // Visualization functions
     void visualize_contact( Event& event );

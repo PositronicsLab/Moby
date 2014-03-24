@@ -82,7 +82,7 @@ class CCD
 
     static BVPtr construct_bounding_sphere(CollisionGeometryPtr cg);
     void sort_AABBs(const std::vector<RigidBodyPtr>& rigid_bodies, double dt);
-    void update_bounds_vector(std::vector<std::pair<double, BoundsStruct> >& bounds, AxisType axis, double dt);
+    void update_bounds_vector(std::vector<std::pair<double, BoundsStruct> >& bounds, AxisType axis, double dt, bool recreate_bvs);
     void build_bv_vector(const std::vector<RigidBodyPtr>& rigid_bodies, std::vector<std::pair<double, BoundsStruct> >& bounds);
     BVPtr get_swept_BV(CollisionGeometryPtr geom, BVPtr bv, double dt);
 

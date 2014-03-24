@@ -638,7 +638,7 @@ double EventDrivenSimulator::step(double step_size)
     FILE_LOG(LOG_SIMULATOR) << "  determining conservative advancement time up to step of " << dt << std::endl;
 
     // do broad-phase collision detection here
-    _ccd.broad_phase(dt, _bodies, _pairs_to_check); 
+    broad_phase(dt);
 
     // determine the maximum step according to conservative advancement
     double safe_dt = std::min(calc_CA_step(), dt);
@@ -725,7 +725,7 @@ double EventDrivenSimulator::step(double step_size)
       catch (InvalidStateException e)
       {
         FILE_LOG(LOG_SIMULATOR) << " ** attempted to evaluate derivative at invalid state; halving acceleration step size to " << (accel_dt*0.5) << std::endl;
-        
+
         // couldn't integrate that far; restart the integration with a smaller
         // step size
         accel_dt *= 0.5;
@@ -734,6 +734,7 @@ double EventDrivenSimulator::step(double step_size)
       catch (InvalidVelocityException e)
       {
         FILE_LOG(LOG_SIMULATOR) << " ** attempted to evaluate derivative at invalid velocity; halving acceleration step size to " << (accel_dt*0.5) << std::endl;
+
 
         // couldn't integrate that far; restart the integration with a smaller
         // step size
@@ -813,6 +814,22 @@ void EventDrivenSimulator::restore_state()
     _bodies[i]->set_generalized_coordinates(DynamicBody::eEuler, _qsave[i]);
     _bodies[i]->set_generalized_velocity(DynamicBody::eSpatial, _qdsave[i]);
   }
+}
+
+void EventDrivenSimulator::broad_phase(double dt)
+{
+  // call the broad phase
+  _ccd.broad_phase(dt, _bodies, _pairs_to_check); 
+
+  // remove pairs that are unchecked
+  for (unsigned i=0; i< _pairs_to_check.size(); )
+    if (unchecked_pairs.find(make_sorted_pair(_pairs_to_check[i].first, _pairs_to_check[i].second)) != unchecked_pairs.end())
+    {
+      _pairs_to_check[i] = _pairs_to_check.back();
+      _pairs_to_check.pop_back();
+    }
+    else 
+      i++;
 }
 
 /// Checks whether bodies violate contact constraint velocity tolerances
@@ -1197,6 +1214,104 @@ void EventDrivenSimulator::load_from_xml(shared_ptr<const XMLTree> node, map<std
     cd->load_from_xml(*i, id_map);
     contact_params[cd->objects] = cd;
   }
+
+  // read all disabled pairs
+  child_nodes = node->find_child_nodes("DisabledPair");
+  for (std::list<shared_ptr<const XMLTree> >::const_iterator i = child_nodes.begin(); i != child_nodes.end(); i++)
+  {
+    // get the two ID attributes
+    XMLAttrib* id1_attrib = (*i)->get_attrib("object1-id");
+    XMLAttrib* id2_attrib = (*i)->get_attrib("object2-id");
+
+    // make sure that they were read
+    if (!id1_attrib || !id2_attrib)
+    {
+      std::cerr << "EventDrivenSimulator::load_from_xml() - did not find ";
+      std::cerr << "object1-id and/or object2-id" << std::endl;
+      std::cerr << "  in offending node: " << std::endl << *node;
+      continue;
+    }
+
+    // get the two IDs
+    const std::string& ID1 = id1_attrib->get_string_value();
+    const std::string& ID2 = id2_attrib->get_string_value();
+
+    // setup pairs of geometries to disable
+    std::list<CollisionGeometryPtr> disabled1, disabled2;
+
+    // find the first object
+    if ((id_iter = id_map.find(ID1)) == id_map.end())
+    {
+      std::cerr << "EventDrivenSimulator::load_from_xml() - could not find ";
+      std::cerr << "object with object1-id" << std::endl;
+      std::cerr << "  '" << ID1 << "' in offending node: " << std::endl << *node;
+      continue;
+    }
+    BasePtr o1 = id_iter->second;
+    CollisionGeometryPtr g1 = dynamic_pointer_cast<CollisionGeometry>(o1);
+    if (g1)
+      disabled1.push_back(g1);
+    else
+    {
+      RigidBodyPtr rb1 = dynamic_pointer_cast<RigidBody>(o1);
+      if (rb1)
+        disabled1 = rb1->geometries;
+      else
+      {
+        ArticulatedBodyPtr ab1 = dynamic_pointer_cast<ArticulatedBody>(o1);
+        if (ab1)
+        {
+          BOOST_FOREACH(RigidBodyPtr rb, ab1->get_links())
+            disabled1.insert(disabled1.end(), rb->geometries.begin(), rb->geometries.end());
+        }
+        else
+        {
+          std::cerr << "EventDrivenSimulator::load_from_xml() - object with object1-id is not a usable type!" << std::endl;
+          continue;
+        }
+      }
+    }
+
+    // find the second object
+    if ((id_iter = id_map.find(ID2)) == id_map.end())
+    {
+      std::cerr << "EventDrivenSimulator::load_from_xml() - could not find ";
+      std::cerr << "object with object2-id" << std::endl;
+      std::cerr << "  '" << ID2 << "' in offending node: " << std::endl << *node;
+      continue;
+    }
+    BasePtr o2 = id_iter->second;
+    CollisionGeometryPtr g2 = dynamic_pointer_cast<CollisionGeometry>(o2);
+    if (g2)
+      disabled2.push_back(g2);
+    else
+    {
+      RigidBodyPtr rb2 = dynamic_pointer_cast<RigidBody>(o2);
+      if (rb2)
+        disabled2 = rb2->geometries;
+      else
+      {
+        ArticulatedBodyPtr ab2 = dynamic_pointer_cast<ArticulatedBody>(o2);
+        if (ab2)
+        {
+          BOOST_FOREACH(RigidBodyPtr rb, ab2->get_links())
+            disabled2.insert(disabled2.end(), rb->geometries.begin(), rb->geometries.end());
+        }
+        else
+        {
+          std::cerr << "EventDrivenSimulator::load_from_xml() - object with object2-id is not a usable type!" << std::endl;
+          continue;
+        }
+      }
+    }
+
+ 
+   // add the pairs to the unchecked pairs list
+   BOOST_FOREACH(CollisionGeometryPtr cg1, disabled1)
+     BOOST_FOREACH(CollisionGeometryPtr cg2, disabled2)
+       if (cg1 != cg2 && cg1->get_single_body() != cg2->get_single_body())
+         unchecked_pairs.insert(make_sorted_pair(cg1, cg2));
+  }
 }
 
 /// Implements Base::save_to_xml()
@@ -1227,6 +1342,15 @@ void EventDrivenSimulator::save_to_xml(XMLTreePtr node, list<shared_ptr<const Ba
     XMLTreePtr new_node(new XMLTree("ContactParameters"));
     node->add_child(new_node);
     i->second->save_to_xml(new_node, shared_objects);
+  }
+
+  // save all disabled pairs
+  for (std::set<sorted_pair<CollisionGeometryPtr> >::const_iterator i = unchecked_pairs.begin(); i != unchecked_pairs.end(); i++)
+  {
+    XMLTreePtr child_node(new XMLTree("DisabledPair"));
+    child_node->attribs.insert(XMLAttrib("object1-id", i->first->id));
+    child_node->attribs.insert(XMLAttrib("object2-id", i->second->id));
+    node->add_child(child_node);
   }
 }
 

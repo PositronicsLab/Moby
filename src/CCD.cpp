@@ -1,6 +1,6 @@
 /****************************************************************************
  * Copyright 2014 Evan Drumwright
- * This library is distributed under the terms of the GNU Lesser General Public 
+ * This library is distributed under the terms of the GNU Lesser General Public
  * License (found in COPYING).
  ****************************************************************************/
 
@@ -18,7 +18,7 @@
 #include <Moby/Constants.h>
 #include <Moby/RigidBody.h>
 #include <Moby/ArticulatedBody.h>
-#include <Moby/CollisionGeometry.h>  
+#include <Moby/CollisionGeometry.h>
 #include <Moby/XMLTree.h>
 #include <Moby/SSL.h>
 #include <Moby/BoundingSphere.h>
@@ -67,7 +67,7 @@ double CCD::find_next_contact_time(CollisionGeometryPtr cgA, CollisionGeometryPt
 
   // special case: distance is zero or less
   if (dist <= NEAR_ZERO)
-    return std::numeric_limits<double>::max(); 
+    return std::numeric_limits<double>::max();
 
   // get the closest points in the global frame
   Point3d pA0 = Pose3d::transform_point(GLOBAL, pA);
@@ -77,8 +77,8 @@ double CCD::find_next_contact_time(CollisionGeometryPtr cgA, CollisionGeometryPt
   Vector3d d0 =  pA0 - pB0;
   double d0_norm = d0.norm();
   FILE_LOG(LOG_COLDET) << "distance between closest points is: " << d0_norm << std::endl;
-  FILE_LOG(LOG_COLDET) << "reported distance is: " << dist << std::endl; 
- 
+  FILE_LOG(LOG_COLDET) << "reported distance is: " << dist << std::endl;
+
   // get the two underlying bodies
   RigidBodyPtr rbA = dynamic_pointer_cast<RigidBody>(cgA->get_single_body());
   RigidBodyPtr rbB = dynamic_pointer_cast<RigidBody>(cgB->get_single_body());
@@ -94,7 +94,7 @@ double CCD::find_next_contact_time(CollisionGeometryPtr cgA, CollisionGeometryPt
   // compute the distance that body B can move toward body A
   double velB = calc_max_velocity(rbB, nB, _rmax[cgB]);
 
-  // compute the total velocity 
+  // compute the total velocity
   double total_vel = velA + velB;
   if (total_vel < 0.0)
     total_vel = 0.0;
@@ -107,7 +107,7 @@ double CCD::find_next_contact_time(CollisionGeometryPtr cgA, CollisionGeometryPt
   return dist/total_vel;
 }
 
-/// Computes a conservative advancement step between two collision geometries 
+/// Computes a conservative advancement step between two collision geometries
 double CCD::calc_CA_step(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB)
 {
   double maxt = std::numeric_limits<double>::max();
@@ -121,11 +121,11 @@ double CCD::calc_CA_step(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB)
     return 0.0;
 
   // get the direction of the vector from body B to body A
-  Vector3d d0 = Pose3d::transform_point(GLOBAL, pA) - 
+  Vector3d d0 = Pose3d::transform_point(GLOBAL, pA) -
                 Pose3d::transform_point(GLOBAL, pB);
   double d0_norm = d0.norm();
   FILE_LOG(LOG_COLDET) << "distance between closest points is: " << d0_norm << std::endl;
-  FILE_LOG(LOG_COLDET) << "reported distance is: " << dist << std::endl; 
+  FILE_LOG(LOG_COLDET) << "reported distance is: " << dist << std::endl;
 
   // get the two underlying bodies
   RigidBodyPtr rbA = dynamic_pointer_cast<RigidBody>(cgA->get_single_body());
@@ -160,7 +160,7 @@ double CCD::calc_CA_step(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB)
   return maxt;
 }
 
-/// Computes the maximum velocity along a particular direction (n) 
+/// Computes the maximum velocity along a particular direction (n)
 double CCD::calc_max_velocity(RigidBodyPtr rb, const Vector3d& n, double rmax)
 {
   const unsigned X = 0, Y = 1, Z = 2;
@@ -169,7 +169,7 @@ double CCD::calc_max_velocity(RigidBodyPtr rb, const Vector3d& n, double rmax)
   const SVelocityd& v0 = Pose3d::transform(rb->get_pose(), rb->get_velocity());
   Vector3d xd0 = v0.get_linear();
   Vector3d w0 = v0.get_angular();
-  return n.dot(xd0) + w0.norm()*rmax; 
+  return n.dot(xd0) + w0.norm()*rmax;
 }
 
 /// Solves the LP that maximizes <n, v + w x r>
@@ -183,8 +183,8 @@ double CCD::calc_max_dist_per_t(RigidBodyPtr rb, const Vector3d& n, double rlen)
   Vector3d w0 = v0.get_angular();
 
   // get the bounds on acceleration
-  const SVelocityd& v0p = rb->get_vel_upper_bounds(); 
-  const SVelocityd& v0n = rb->get_vel_lower_bounds(); 
+  const SVelocityd& v0p = rb->get_vel_upper_bounds();
+  const SVelocityd& v0n = rb->get_vel_lower_bounds();
   assert(v0p.pose == v0.pose);
   assert(v0n.pose == v0.pose);
 
@@ -219,7 +219,7 @@ void CCD::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, BasePtr
 
 /// Implements Base::save_to_xml()
 /**
- * \note neither the contact cache nor the pairs currently in collision are 
+ * \note neither the contact cache nor the pairs currently in collision are
  *       saved
  */
 void CCD::save_to_xml(XMLTreePtr node, list<shared_ptr<const Base> >& shared_objects) const
@@ -229,7 +229,7 @@ void CCD::save_to_xml(XMLTreePtr node, list<shared_ptr<const Base> >& shared_obj
 }
 
 /****************************************************************************
- Methods for Drumwright-Shell algorithm begin 
+ Methods for Drumwright-Shell algorithm begin
 ****************************************************************************/
 
 /// Creates a contact event given the bare-minimum info
@@ -239,8 +239,8 @@ Event CCD::create_contact(CollisionGeometryPtr a, CollisionGeometryPtr b, const 
   e.event_type = Event::eContact;
   e.contact_point = point;
   e.contact_normal = normal;
-  e.contact_geom1 = a;  
-  e.contact_geom2 = b;  
+  e.contact_geom1 = a;
+  e.contact_geom2 = b;
 
   // check for valid normal here
   assert(std::fabs(e.contact_normal.norm() - (double) 1.0) < NEAR_ZERO);
@@ -265,11 +265,11 @@ Event CCD::create_contact(CollisionGeometryPtr a, CollisionGeometryPtr b, const 
 }
 
 /****************************************************************************
- Methods for static geometry intersection testing end 
+ Methods for static geometry intersection testing end
 ****************************************************************************/
 
 /****************************************************************************
- Methods for broad phase begin 
+ Methods for broad phase begin
 ****************************************************************************/
 void CCD::broad_phase(double dt, const vector<DynamicBodyPtr>& bodies, vector<pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check)
 {
@@ -304,7 +304,7 @@ void CCD::broad_phase(double dt, const vector<DynamicBodyPtr>& bodies, vector<pa
     for (unsigned j=0; j< rbs.size(); j++)
     BOOST_FOREACH(CollisionGeometryPtr i, rbs[j]->geometries)
     {
-      // get farthest distance on each geometry while we're at it 
+      // get farthest distance on each geometry while we're at it
       _rmax[i] = i->get_farthest_point_distance();
 
       // get the primitive for the geometry
@@ -315,6 +315,25 @@ void CCD::broad_phase(double dt, const vector<DynamicBodyPtr>& bodies, vector<pa
 
       // store the bounding sphere
       _bounding_spheres[i] = bv;
+    }
+  }
+  else
+  {
+    // update any bounding spheres that need to be rebuild
+    for (std::map<CollisionGeometryPtr, BVPtr>::iterator i = _bounding_spheres.begin(); i != _bounding_spheres.end(); i++)
+    {
+      RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(i->first->get_single_body());
+      if (rb->is_enabled())
+      {
+        BVPtr old_bv = i->second;
+        i->second = construct_bounding_sphere(i->first);
+        for (unsigned j=0; j< _x_bounds.size(); j++)
+        {
+          if (_x_bounds[j].second.bv == old_bv) _x_bounds[j].second.bv = i->second;
+          if (_y_bounds[j].second.bv == old_bv) _y_bounds[j].second.bv = i->second;
+          if (_z_bounds[j].second.bv == old_bv) _z_bounds[j].second.bv = i->second;
+        }
+      }
     }
   }
 
@@ -419,7 +438,7 @@ void CCD::broad_phase(double dt, const vector<DynamicBodyPtr>& bodies, vector<pa
     to_check.push_back(make_pair(i->first.first, i->first.second));
     FILE_LOG(LOG_COLDET) << "  ... checking pair" << std::endl;
   }
-  
+
   FILE_LOG(LOG_COLDET) << "CCD::broad_phase() exited" << std::endl;
 }
 
@@ -441,7 +460,7 @@ BVPtr CCD::get_swept_BV(CollisionGeometryPtr cg, BVPtr bv, double dt)
   const SVelocityd& v = rb->get_velocity();
   Vector3d v_lo = rb->get_vel_lower_bounds().get_linear();
   Vector3d v_hi = rb->get_vel_upper_bounds().get_linear();
- 
+
   // compute the swept BV
   BVPtr swept_bv = bv->calc_swept_BV(cg, v*dt);
   FILE_LOG(LOG_BV) << "new BV: " << swept_bv << std::endl;
@@ -457,7 +476,7 @@ BVPtr CCD::get_swept_BV(CollisionGeometryPtr cg, BVPtr bv, double dt)
   }
 
   // store the bounding volume
-  _swept_BVs[cg] = swept_bv; 
+  _swept_BVs[cg] = swept_bv;
 
   return swept_bv;
 }
@@ -473,10 +492,10 @@ void CCD::sort_AABBs(const vector<RigidBodyPtr>& rigid_bodies, double dt)
   }
 
   // update bounds vectors
-  update_bounds_vector(_x_bounds, eXAxis, dt);
-  update_bounds_vector(_y_bounds, eYAxis, dt);
-  update_bounds_vector(_z_bounds, eZAxis, dt);
-  
+  update_bounds_vector(_x_bounds, eXAxis, dt, true);
+  update_bounds_vector(_y_bounds, eYAxis, dt, false);
+  update_bounds_vector(_z_bounds, eZAxis, dt, false);
+
   // if geometry was added or removed, do standard sorts of vectors
   if (_rebuild_bounds_vecs)
   {
@@ -496,7 +515,7 @@ void CCD::sort_AABBs(const vector<RigidBodyPtr>& rigid_bodies, double dt)
   }
 }
 
-void CCD::update_bounds_vector(vector<pair<double, BoundsStruct> >& bounds, AxisType axis, double dt)
+void CCD::update_bounds_vector(vector<pair<double, BoundsStruct> >& bounds, AxisType axis, double dt, bool recreate_bvs)
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
@@ -508,6 +527,10 @@ void CCD::update_bounds_vector(vector<pair<double, BoundsStruct> >& bounds, Axis
     // get the bounding volume and collision geometry
     BVPtr bv = bounds[i].second.bv;
     CollisionGeometryPtr geom = bounds[i].second.geom;
+
+    // recreate the BV if necessary
+    if (recreate_bvs)
+      _swept_BVs.erase(geom);
 
     // get the swept bounding volume (should be defined in global frame)
     BVPtr swept_bv = get_swept_BV(geom, bv, dt);
@@ -523,7 +546,7 @@ void CCD::update_bounds_vector(vector<pair<double, BoundsStruct> >& bounds, Axis
       case eXAxis:
         bounds[i].first = bound[X];
         break;
- 
+
       case eYAxis:
         bounds[i].first = bound[Y];
         break;
@@ -537,8 +560,8 @@ void CCD::update_bounds_vector(vector<pair<double, BoundsStruct> >& bounds, Axis
     }
 
     if (bounds[i].second.end)
-      FILE_LOG(LOG_COLDET) << "    upper bound: " << bounds[i].first << std::endl; 
-    if (!bounds[i].second.end)  
+      FILE_LOG(LOG_COLDET) << "    upper bound: " << bounds[i].first << std::endl;
+    if (!bounds[i].second.end)
       FILE_LOG(LOG_COLDET) << "    lower bound: " << bounds[i].first << std::endl;
   }
 
@@ -559,7 +582,7 @@ void CCD::build_bv_vector(const vector<RigidBodyPtr>& rigid_bodies, vector<pair<
       // get the primitive for the geometry
       PrimitivePtr p = i->get_geometry();
 
-      // get the bounding sphere 
+      // get the bounding sphere
       BVPtr bv = _bounding_spheres.find(i)->second;
 
       // setup the bounds structure
@@ -595,7 +618,7 @@ BVPtr CCD::construct_bounding_sphere(CollisionGeometryPtr cg)
   // now convert the center to the GLOBAL frame
   sph->center = Pose3d::transform_point(GLOBAL, sph->center);
 
-  // look for sphere primitive (easiest case) 
+  // look for sphere primitive (easiest case)
   shared_ptr<SpherePrimitive> sph_p = dynamic_pointer_cast<SpherePrimitive>(p);
   if (sph_p)
   {
@@ -617,7 +640,7 @@ BVPtr CCD::construct_bounding_sphere(CollisionGeometryPtr cg)
 }
 
 /****************************************************************************
- Methods for broad phase end 
+ Methods for broad phase end
 ****************************************************************************/
 
 
