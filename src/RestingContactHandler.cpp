@@ -159,17 +159,6 @@ void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& eve
   // compute all event cross-terms
   compute_problem_data(epd);
 
-  // compute energy
-  if (LOGGING(LOG_EVENT))
-  {
-    for (unsigned i=0; i< epd.super_bodies.size(); i++)
-    {
-      double ke = epd.super_bodies[i]->calc_kinetic_energy();
-      FILE_LOG(LOG_EVENT) << "  body " << epd.super_bodies[i]->id << " pre-event handling KE: " << ke << endl;
-      ke_minus += ke;
-    }
-  }
-
   // solve the (non-frictional) linear complementarity problem to determine
   // the kappa constant
   VectorNd z;
