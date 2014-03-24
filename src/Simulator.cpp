@@ -97,6 +97,9 @@ VectorNd& Simulator::ode(const VectorNd& x, double t, double dt, void* data, Vec
     if (!db->get_kinematic())
       db->calc_fwd_dyn();
 
+  // reset the index
+  idx = 0;
+
   // loop through all bodies, computing the ODE
   BOOST_FOREACH(DynamicBodyPtr db, s->_bodies)
   {
