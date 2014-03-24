@@ -623,6 +623,12 @@ double EventDrivenSimulator::step(double step_size)
     // start with initial estimates
     reset_limit_estimates();
 
+    // get amount remaining to step
+    double dt = step_size - h;
+
+    // do broad-phase collision detection here
+    broad_phase(dt);
+
   // called when we are restarting with new limits
   restart_with_new_limits:
 
@@ -632,13 +638,7 @@ double EventDrivenSimulator::step(double step_size)
     // save the state of the system
     save_state();
 
-    // get amount remaining to step
-    double dt = step_size - h;
-
     FILE_LOG(LOG_SIMULATOR) << "  determining conservative advancement time up to step of " << dt << std::endl;
-
-    // do broad-phase collision detection here
-    broad_phase(dt);
 
     // determine the maximum step according to conservative advancement
     double safe_dt = std::min(calc_CA_step(), dt);
@@ -734,7 +734,6 @@ double EventDrivenSimulator::step(double step_size)
       catch (InvalidVelocityException e)
       {
         FILE_LOG(LOG_SIMULATOR) << " ** attempted to evaluate derivative at invalid velocity; halving acceleration step size to " << (accel_dt*0.5) << std::endl;
-
 
         // couldn't integrate that far; restart the integration with a smaller
         // step size
@@ -870,18 +869,30 @@ void EventDrivenSimulator::check_pairwise_constraint_violations()
   // update constraint violation due to increasing interpenetration
   // loop over all pairs of geometries
   BOOST_FOREACH(CollisionGeometryPtr cg1, _geometries)
+  {
+    // get the first rigid body
+    RigidBodyPtr rb1 = dynamic_pointer_cast<RigidBody>(cg1->get_single_body());
+
     BOOST_FOREACH(CollisionGeometryPtr cg2, _geometries)
     {
       // if cg1 == cg2 or bodies are disabled for checking, skip
       if (cg1 == cg2 || unchecked_pairs.find(make_sorted_pair(cg1, cg2)) != unchecked_pairs.end())
         continue;
 
+      // make sure pairs of disabled rigid bodies are not checked
+      if (!rb1->is_enabled() && !dynamic_pointer_cast<RigidBody>(cg2->get_single_body())->is_enabled())
+        continue;
+
       // compute the distance between the two bodies
       Point3d p1, p2;
       double d = CollisionGeometry::calc_signed_dist(cg1, cg2, p1, p2);
       if (d <= _ip_tolerances[make_sorted_pair(cg1, cg2)] - NEAR_ZERO)
+      {
+        FILE_LOG(LOG_SIMULATOR) << "Interpenetration detected between " << cg1->get_single_body()->id << " and " << cg2->get_single_body()->id << ": " << d << std::endl;
         throw InvalidStateException();
+      }
     }
+  }
 }
 
 /// Updates constraint violation after integration
@@ -1007,6 +1018,7 @@ void EventDrivenSimulator::integrate_velocities_Euler(double dt)
 {
   VectorNd qd, qdd;
 
+  FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::integrate_velocities_Euler() entered " << std::endl;
   // NOTE: forward dynamics are already computed for calculate_bounds()
   // first compute forward dynamics for all bodies
   calc_fwd_dyn();
@@ -1016,15 +1028,18 @@ void EventDrivenSimulator::integrate_velocities_Euler(double dt)
   {
     // get the generalized acceleration
     db->get_generalized_acceleration(qdd);
+    FILE_LOG(LOG_SIMULATOR) << "body " << db->id << " acceleration: " << qdd << std::endl;
     qdd *= dt;
-
-    // update the acceleration bounds
 
     // update the generalized velocity
     db->get_generalized_velocity(DynamicBody::eSpatial, qd);
+    FILE_LOG(LOG_SIMULATOR) << "body " << db->id << " velocity: " << qd << std::endl;
     qd += qdd;
+    FILE_LOG(LOG_SIMULATOR) << "body " << db->id << " new velocity: " << qd << std::endl;
     db->set_generalized_velocity(DynamicBody::eSpatial, qd);
   }
+
+  FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::integrate_velocities_Euler() exited " << std::endl;
 }
 
 /// Integrates bodies' positions forward by dt using Euler integration
