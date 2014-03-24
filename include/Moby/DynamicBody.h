@@ -196,8 +196,14 @@ class DynamicBody : public Visualizable
     /// Sets whether this body is kinematically updated (rather than having its dynamics integrated); default is false
     virtual void set_kinematic(bool flag) { _kinematic_update = flag; }
 
+    /// Prepares to compute the derivative of the body (sustained events) 
+    virtual void prepare_to_calc_ode_accel_events(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data) = 0;
+
+    /// Prepares to compute the derivative of the body (sustained events) 
+    virtual void prepare_to_calc_ode(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data) = 0;
+
     /// Computes the derivative of the body
-    virtual void ode(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data, Ravelin::SharedVectorNd& dx) = 0;
+    virtual void ode(double t, double dt, void* data, Ravelin::SharedVectorNd& dx) = 0;
 
     /// Computes the derivative of the body without throwing any exceptions
     virtual void ode_noexcept(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data, Ravelin::SharedVectorNd& dx) = 0;

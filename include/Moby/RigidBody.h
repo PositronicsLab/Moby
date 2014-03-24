@@ -111,8 +111,10 @@ class RigidBody : public SingleBody
     const Ravelin::SForced& sum_forces();
     void reset_accumulators();
     Ravelin::SForced calc_pseudo_forces();
-    virtual void ode_noexcept(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data, Ravelin::SharedVectorNd& dx) { ode(x, t, dt, data, dx); }
-    virtual void ode(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data, Ravelin::SharedVectorNd& dx);
+    virtual void ode_noexcept(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data, Ravelin::SharedVectorNd& dx);
+    virtual void prepare_to_calc_ode(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data);
+    virtual void prepare_to_calc_ode_accel_events(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data) { prepare_to_calc_ode(x, t, dt, data); }
+    virtual void ode(double t, double dt, void* data, Ravelin::SharedVectorNd& dx);
     virtual void reset_limit_estimates();
     virtual bool limit_estimates_exceeded() const { return _vel_limit_exceeded; }
     const Ravelin::SVelocityd& get_vel_upper_bounds() const { return _vel_limit_lo; }

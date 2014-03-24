@@ -9,22 +9,22 @@
 
 namespace Moby {
 
-struct ContactProblemData
+struct AccelerationEventData
 {
   // setup reasonable defaults
-  ContactProblemData()
+  AccelerationEventData()
   {
     reset();
   }
 
   // copies contact problem data
-  ContactProblemData& operator=(const ContactProblemData& q)
+  AccelerationEventData& operator=(const AccelerationEventData& q)
   {
     return copy_from(q);
   }
 
   // copies contact problem data
-  ContactProblemData& copy_from(const ContactProblemData& q)
+  AccelerationEventData& copy_from(const AccelerationEventData& q)
   {
     N_K_TOTAL = q.N_K_TOTAL;
     N_CONTACTS = q.N_CONTACTS;
@@ -193,7 +193,7 @@ struct ContactProblemData
   Ravelin::VectorNd Cn_a, Cs_a, Ct_a;
 
   // EMD: why use this instead of cn/cs/ct?
-  // impulse magnitudes determined by solve_qp()
+  // force magnitudes determined by solve_lcp()
   Ravelin::VectorNd cn, cs, ct;
 }; // end struct
 

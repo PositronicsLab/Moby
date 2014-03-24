@@ -89,6 +89,8 @@ RigidBody::RigidBody()
 void RigidBody::reset_limit_estimates()
 {
  _vel_limit_exceeded = false; 
+ _vel_limit_lo.set_zero();
+ _vel_limit_hi.set_zero();
 }
 
 /// Updates this rigid body's velocity limit
@@ -103,9 +105,9 @@ void RigidBody::update_vel_limits()
   for (unsigned i=0; i< SPATIAL_DIM; i++)
   {
     if (v[i] < _vel_limit_lo[i])
-      _vel_limit_lo[i] = v[i];
+      _vel_limit_lo[i] = v[i]*1.3;
     if (v[i] > _vel_limit_hi[i])
-      _vel_limit_hi[i] = v[i];
+      _vel_limit_hi[i] = v[i]*1.3;
   }
 }
 
@@ -1878,51 +1880,8 @@ bool RigidBody::is_base() const
   return true;
 }
 
-/// Integrates a dynamic body
-/*
-void RigidBody::integrate(double t, double h, shared_ptr<Integrator> integrator)
-{
-  // don't attempt to integrate disabled bodies
-  if (!is_enabled())
-    return;
-
-  // if this body is a link in an articulated body, don't attempt to integrate;
-  // integration must occur at the articulated body
-  if (!_abody.expired())
-    return;
-
-  FILE_LOG(LOG_DYNAMICS) << "RigidBody::integrate() - integrating from " << t << " by " << h << std::endl;
-
-  // reset the acceleration events exceeded
-  _accel_limit_exceeded = false;
-
-  if (_kinematic_update)
-  {
-    FILE_LOG(LOG_DYNAMICS) << " -- body set to kinematic update --" << std::endl;
-    if (controller)
-      (*controller)(dynamic_pointer_cast<RigidBody>(shared_from_this()), t, controller_arg);
-    return;
-  }
-
-  shared_ptr<RigidBody> shared_this = dynamic_pointer_cast<RigidBody>(shared_from_this());
-
-  get_generalized_coordinates(eEuler, gc);
-  get_generalized_velocity(eSpatial, gv); // gv depends on gc
-  gcgv.resize(gc.size()+gv.size());
-  gcgv.set_sub_vec(0, gc);
-  gcgv.set_sub_vec(gc.size(), gv);
-  integrator->integrate(gcgv, &RigidBody::ode_both, t, h, (void*) &shared_this);
-  gcgv.get_sub_vec(0, gc.size(), gc);
-  gcgv.get_sub_vec(gc.size(), gcgv.size(), gv);
-
-  // NOTE: velocity must be set first (it's computed w.r.t. old frame)
-  set_generalized_coordinates(eEuler, gc);
-  set_generalized_velocity(eSpatial, gv);
-}
-*/
-
 /// Returns the ODE's for position and velocity (concatenated into x)
-void RigidBody::ode(SharedConstVectorNd& x, double t, double dt, void* data, SharedVectorNd& dx)
+void RigidBody::ode_noexcept(SharedConstVectorNd& x, double t, double dt, void* data, SharedVectorNd& dx)
 {
   // get the number of generalized coordinates 
   const unsigned NGC_EUL = num_generalized_coordinates(eEuler);
@@ -1942,6 +1901,10 @@ void RigidBody::ode(SharedConstVectorNd& x, double t, double dt, void* data, Sha
   set_generalized_coordinates(DynamicBody::eEuler, gc);
   set_generalized_velocity(DynamicBody::eSpatial, gv);
 
+  // check whether velocity limits have been exceeded 
+  if (!_vel_limit_exceeded)
+    check_vel_limit_exceeded_and_update();
+
   // we need the generalized velocity as Rodrigues coordinates
   get_generalized_velocity(DynamicBody::eEuler, dgc);
 
@@ -1960,10 +1923,60 @@ void RigidBody::ode(SharedConstVectorNd& x, double t, double dt, void* data, Sha
   // calculate forward dynamics at state x
   calc_fwd_dyn();
   get_generalized_acceleration(dgv);
+}
+
+/// Prepares to compute the ODE 
+void RigidBody::prepare_to_calc_ode(SharedConstVectorNd& x, double t, double dt, void* data)
+{
+  // get the number of generalized coordinates 
+  const unsigned NGC_EUL = num_generalized_coordinates(eEuler);
+
+  // get the shared pointer to this
+  RigidBodyPtr shared_this = dynamic_pointer_cast<RigidBody>(shared_from_this());
+
+  // get the generalized coordinates and velocity
+  SharedConstVectorNd gc = x.segment(0, NGC_EUL);
+  SharedConstVectorNd gv = x.segment(NGC_EUL, x.size());
+
+  // set the state and velocity
+  set_generalized_coordinates(DynamicBody::eEuler, gc);
+  set_generalized_velocity(DynamicBody::eSpatial, gv);
 
   // check whether velocity limits have been exceeded 
   if (!_vel_limit_exceeded)
     check_vel_limit_exceeded_and_update();
+
+  // clear the force accumulators on the body
+  reset_accumulators();
+
+  // add all recurrent forces on the body
+  const list<RecurrentForcePtr>& rfs = get_recurrent_forces();
+  BOOST_FOREACH(RecurrentForcePtr rf, rfs)
+    rf->add_force(shared_this);
+
+  // call the body's controller
+  if (controller)
+    (*controller)(shared_this, t, controller_arg);
+}
+
+/// Computes the ODE 
+void RigidBody::ode(double t, double dt, void* data, SharedVectorNd& dx)
+{
+  // get the number of generalized coordinates 
+  const unsigned NGC_EUL = num_generalized_coordinates(eEuler);
+
+  // get the shared pointer to this
+  RigidBodyPtr shared_this = dynamic_pointer_cast<RigidBody>(shared_from_this());
+
+  // get the derivative of generalized coordinates and velocity
+  SharedVectorNd dgc = dx.segment(0, NGC_EUL);
+  SharedVectorNd dgv = dx.segment(NGC_EUL, dx.size());
+
+  // we need the generalized velocity as Rodrigues coordinates
+  get_generalized_velocity(DynamicBody::eEuler, dgc);
+
+  // get the generalized acceleration 
+  get_generalized_acceleration(dgv);
 }
 
 /// Outputs the object state to the specified stream

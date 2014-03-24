@@ -43,7 +43,7 @@ Joint::Joint()
   // initialize _q_tare
   _q_tare.resize(0);
 
-  // init determine_q_tare()
+  // indicate that q tare does not need to be determined
   _determine_q_tare = false;
 
   // initialize the two frames
