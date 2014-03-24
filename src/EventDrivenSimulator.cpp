@@ -188,6 +188,9 @@ VectorNd& EventDrivenSimulator::ode_accel_events(const VectorNd& x, double t, do
     idx += NGC+NGV;
   }
 
+  // update the velocity bounds
+  s->update_bounds();
+
   // check pairwise constraint violations
   s->check_pairwise_constraint_violations();
 
@@ -691,6 +694,7 @@ double EventDrivenSimulator::step(double step_size)
         // couldn't integrate that far; restart the integration with a smaller
         // step size
         safe_dt *= 0.5;
+
         goto restart;                                               
       }
       catch (InvalidVelocityException e)
@@ -721,7 +725,7 @@ double EventDrivenSimulator::step(double step_size)
       catch (InvalidStateException e)
       {
         FILE_LOG(LOG_SIMULATOR) << " ** attempted to evaluate derivative at invalid state; halving acceleration step size to " << (accel_dt*0.5) << std::endl;
-
+        
         // couldn't integrate that far; restart the integration with a smaller
         // step size
         accel_dt *= 0.5;
@@ -740,7 +744,7 @@ double EventDrivenSimulator::step(double step_size)
       {
         FILE_LOG(LOG_SIMULATOR) << " ** failed to solve an LCP; halving step size" << std::endl;
 
-        // failed to solve an LCP; reduce the acceleration step size and try
+         // failed to solve an LCP; reduce the acceleration step size and try
         // again
         accel_dt *= 0.5;
         goto restart;
@@ -748,18 +752,20 @@ double EventDrivenSimulator::step(double step_size)
     }
 
     // see whether there were any force or acceleration limits exceeded
-    bool reintegrate = false;
-    BOOST_FOREACH(DynamicBodyPtr db, _bodies)
+    if (safe_dt > 0.0)
     {
-      if (db->limit_estimates_exceeded())
+      BOOST_FOREACH(DynamicBodyPtr db, _bodies)
       {
-        FILE_LOG(LOG_SIMULATOR) << " ** limit estimates exceeded; retrying with new estimates" << std::endl;
+        if (db->limit_estimates_exceeded())
+        {
+          FILE_LOG(LOG_SIMULATOR) << " ** limit estimates exceeded; retrying with new estimates" << std::endl;
 
-        // reset the state of all bodies 
-        restore_state();
+          // reset the state of all bodies 
+          restore_state();
 
-        // attempt to integrate again using new CA info
-        goto restart_with_new_limits; 
+          // attempt to integrate again using new CA info
+          goto restart_with_new_limits; 
+        }
       }
     }
 
