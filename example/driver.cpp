@@ -225,12 +225,23 @@ void step(void* arg)
   {
     if (eds)
     {
+      std::cout << ITER << " ";
+      for (unsigned i=0; i< 8; i++)
+        std::cout << eds->step_stats[i] << " (" << eds->step_times[i] << ") ";
+      std::cout << std::endl;
     }
   }
   else if (OUTPUT_TIMINGS && OUTPUT_STATS)
   {
     if (!eds)
       std::cout << ITER << " " << s->dynamics_time << " " << std::endl;
+    else
+    {
+      std::cout << ITER << " " << eds->dynamics_time << " " << eds->coldet_time << " " << eds->event_time << " ";
+      for (unsigned i=0; i< 8; i++)
+        std::cout << eds->step_stats[i] << " (" << eds->step_times[i] << ") ";
+      std::cout << std::endl;
+    }
   }
 
   // update the iteration #
@@ -501,7 +512,7 @@ int main(int argc, char** argv)
     else if (option.find("-ot") != std::string::npos)
       OUTPUT_TIMINGS = true;
     else if (option.find("-os") != std::string::npos)
-      OUTUT_STATS = true;
+      OUTPUT_STATS = true;
     else if (option.find("-oi") != std::string::npos)
       OUTPUT_ITER_NUM = true;
     else if (option.find("-or") != std::string::npos)

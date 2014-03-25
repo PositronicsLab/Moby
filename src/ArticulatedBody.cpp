@@ -78,10 +78,9 @@ void ArticulatedBody::reset_limit_estimates()
   const unsigned N = num_joint_dof();
   _vel_limits_lo.resize(N);
   _vel_limits_hi.resize(N);
-/*
+
   std::fill(_vel_limits_lo.begin(), _vel_limits_lo.end(), 0.0);
   std::fill(_vel_limits_hi.begin(), _vel_limits_hi.end(), 0.0);
-*/
 }
 
 /// Returns the ODE's for position and velocity (concatenated into x) without throwing an exception
@@ -355,11 +354,11 @@ double ArticulatedBody::calc_CA_time_for_joints() const
   // setup the maximum integration time
   double dt = std::numeric_limits<double>::max();
 
-  // get the lower and upper acceleration limits
-  const vector<double>& acc_lo = _vel_limits_lo;
-  const vector<double>& acc_hi = _vel_limits_hi; 
-  assert(acc_lo.size() == num_joint_dof());
-  assert(acc_hi.size() == num_joint_dof());
+  // get the lower and upper velocity limits
+  const vector<double>& vel_lo = _vel_limits_lo;
+  const vector<double>& vel_hi = _vel_limits_hi; 
+  assert(vel_lo.size() == num_joint_dof());
+  assert(vel_hi.size() == num_joint_dof());
 
   // loop over all joints
   const vector<JointPtr>& joints = get_joints();
@@ -372,9 +371,8 @@ double ArticulatedBody::calc_CA_time_for_joints() const
     {
       // get the joint data
       const double q = joints[i]->q[j];
-      const double qd = joints[i]->qd[j];
-      const double qdd_lo = acc_lo[k];
-      const double qdd_hi = acc_hi[k];
+      const double qd_lo = vel_lo[k];
+      const double qd_hi = vel_hi[k];
       const double l = joints[i]->lolimit[j];
       const double u = joints[i]->hilimit[j];
 
@@ -385,17 +383,10 @@ double ArticulatedBody::calc_CA_time_for_joints() const
         if (q <= l)
           return 0.0;
 
-        // compute quadratic solutions
-        double disc = qd*qd - 4*qdd_lo*(q-l);
-        if (disc >= 0.0)
-        {
-          double ta = (-qd + std::sqrt(disc))/(2.0*qdd_lo);
-          double tb = (-qd - std::sqrt(disc))/(2.0*qdd_lo);
-          if (ta > 0.0)
-            dt = std::min(ta, dt);
-          if (tb > 0.0)
-            dt = std::min(tb, dt);
-        }
+        // find when lower limit would be exceeded: q + qd*t = l
+        double t = (l-q)/qd_lo;
+        if (t > 0.0)
+          dt = std::min(t, dt);
       }
 
       // skip upper limit of DOF j of joint i if upper limit = INF
@@ -405,17 +396,10 @@ double ArticulatedBody::calc_CA_time_for_joints() const
         if (q >= u)
           return 0.0;
 
-        // compute quadratic solutions
-        double disc = qd*qd - 4*qdd_hi*(q-u);
-        if (disc >= 0.0)
-        {
-          double ta = (-qd + std::sqrt(disc))/(2.0*qdd_hi);
-          double tb = (-qd - std::sqrt(disc))/(2.0*qdd_hi);
-          if (ta > 0.0)
-            dt = std::min(ta, dt);
-          if (tb > 0.0)
-            dt = std::min(tb, dt);
-        }
+        // find when upper limit would be exceeded: q + qd*t = u
+        double t = (u - q)/qd_hi;
+        if (t > 0.0)
+          dt = std::min(t, dt);
       }
     }
   }
@@ -453,9 +437,17 @@ void ArticulatedBody::update_joint_vel_limits()
     for (unsigned j=0; j< _joints[i]->num_dof(); j++, k++)
     {
       if (_joints[i]->qd[j] < _vel_limits_lo[k])
-        _vel_limits_lo[k] = _joints[i]->qdd[j];
+        _vel_limits_lo[k] = _joints[i]->qd[j];
       if (_joints[i]->qd[j] > _vel_limits_hi[k])
-        _vel_limits_hi[k] = _joints[i]->qdd[j];
+        _vel_limits_hi[k] = _joints[i]->qd[j];
+
+      // figure out the length of the interval
+      const double IVAL = (_vel_limits_hi[k] - _vel_limits_lo[k]);
+
+      // increase the interval geometrically
+      const double IVAL_INC = IVAL*0.15;
+      _vel_limits_lo[k] -= IVAL_INC;
+      _vel_limits_hi[k] += IVAL_INC;
     }
   }
 }
@@ -476,12 +468,12 @@ void ArticulatedBody::check_joint_vel_limit_exceeded_and_update()
     // loop over all DOF
     for (unsigned j=0; j< _joints[i]->num_dof(); j++, k++)
     {
-      if (_joints[i]->qdd[j] < _vel_limits_lo[k])
+      if (_joints[i]->qd[j] < _vel_limits_lo[k])
       {
         _vel_limits_lo[k] = _joints[i]->qd[j];
         upd = true;
       }
-      if (_joints[i]->qdd[j] > _vel_limits_hi[k])
+      if (_joints[i]->qd[j] > _vel_limits_hi[k])
       {
         _vel_limits_hi[k] = _joints[i]->qd[j];
         upd = true;

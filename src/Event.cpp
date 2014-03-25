@@ -1410,7 +1410,7 @@ double Event::calc_event_vel() const
     FILE_LOG(LOG_EVENT) << "Event::calc_event_vel() exited" << std::endl;
 
     // get the linear velocities and project against the normal
-    assert(std::fabs(normal.dot(ta.get_linear() - tb.get_linear())) < NEAR_ZERO || (std::fabs(normal.dot(ta.get_linear() - tb.get_linear()) - calc_event_vel2(*this)))/std::fabs(normal.dot(ta.get_linear() - tb.get_linear())) < NEAR_ZERO);
+    //assert(std::fabs(normal.dot(ta.get_linear() - tb.get_linear())) < NEAR_ZERO || (std::fabs(normal.dot(ta.get_linear() - tb.get_linear()) - calc_event_vel2(*this)))/std::fabs(normal.dot(ta.get_linear() - tb.get_linear())) < NEAR_ZERO);
     return normal.dot(ta.get_linear() - tb.get_linear());
   }
   else if (event_type == eLimit)
@@ -1509,7 +1509,7 @@ std::ostream& Moby::operator<<(std::ostream& o, const Event& e)
 
       // get the linear velocities and project against the normal
       Vector3d rvlin = ta.get_linear() - tb.get_linear();
-      assert(std::fabs(normal.dot(rvlin)) < NEAR_ZERO || std::fabs(normal.dot(rvlin) - calc_event_vel2(e))/std::fabs(normal.dot(rvlin)) < NEAR_ZERO);
+      //assert(std::fabs(normal.dot(rvlin)) < NEAR_ZERO || std::fabs(normal.dot(rvlin) - calc_event_vel2(e))/std::fabs(normal.dot(rvlin)) < NEAR_ZERO);
       o << "relative normal velocity: " << normal.dot(rvlin) << std::endl;
       o << "relative tangent 1 velocity: " << tan1.dot(rvlin) << std::endl;
       o << "relative tangent 2 velocity: " << tan2.dot(rvlin) << std::endl;

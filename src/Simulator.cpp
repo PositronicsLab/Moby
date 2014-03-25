@@ -57,6 +57,27 @@ Simulator::~Simulator()
   #endif
 }
 
+/// Updates velocity bounds on all bodies
+void Simulator::update_bounds() const
+{
+  // now compute the bounds
+  BOOST_FOREACH(DynamicBodyPtr db, _bodies)
+  {
+    ArticulatedBodyPtr ab = dynamic_pointer_cast<ArticulatedBody>(db);
+    if (ab)
+    {
+      ab->update_joint_vel_limits();
+      BOOST_FOREACH(RigidBodyPtr rb, ab->get_links())
+        rb->update_vel_limits();
+    }
+    else
+    {
+      RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(db);
+      rb->update_vel_limits();
+    }
+  }
+}
+
 /// Computes the ODE of the system
 VectorNd& Simulator::ode(const VectorNd& x, double t, double dt, void* data, VectorNd& dx)
 {
@@ -88,6 +109,9 @@ VectorNd& Simulator::ode(const VectorNd& x, double t, double dt, void* data, Vec
     // update idx
     idx += NGC+NGV;
   }
+
+  // update the velocity bounds
+  s->update_bounds();
 
   // check pairwise constraint violations
   s->check_pairwise_constraint_violations();
