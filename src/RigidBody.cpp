@@ -97,6 +97,7 @@ void RigidBody::reset_limit_estimates()
 void RigidBody::update_vel_limits()
 {
   const unsigned SPATIAL_DIM = 6;
+  const double INC = 0.15;
 
   // mark limit as not exceeded
   _vel_limit_exceeded = false;
@@ -105,9 +106,9 @@ void RigidBody::update_vel_limits()
   for (unsigned i=0; i< SPATIAL_DIM; i++)
   {
     if (v[i] < _vel_limit_lo[i])
-      _vel_limit_lo[i] = v[i]*1.3;
+      _vel_limit_lo[i] = v[i]*(1.0-INC);
     if (v[i] > _vel_limit_hi[i])
-      _vel_limit_hi[i] = v[i]*1.3;
+      _vel_limit_hi[i] = v[i]*(1.0+INC);
   }
 }
 
