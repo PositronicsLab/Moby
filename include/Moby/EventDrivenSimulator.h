@@ -86,6 +86,12 @@ class EventDrivenSimulator : public Simulator
     /// User time spent by event handling on the last step
     double event_time;
 
+    /// stepping timings
+    double _step_times[7];
+
+    /// stepping statistics
+    unsigned _step_stats[7];
+
     /// The relative error tolerance for adaptive Euler stepping (default=1e-8)
     double rel_err_tol;
 

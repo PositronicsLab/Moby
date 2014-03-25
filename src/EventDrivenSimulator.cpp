@@ -67,6 +67,10 @@ EventDrivenSimulator::EventDrivenSimulator()
   dynamics_time = (double) 0.0;
   event_time = (double) 0.0;
   coldet_time = (double) 0.0;
+  std::fill_n(_step_times, _step_times+7, 0.0);
+
+  // clear statistics
+  std::fill_n(_step_stats, _step_stats+7, 0);
 }
 
 /// Compares two events for purposes of mapping velocity tolerances
@@ -589,6 +593,7 @@ double EventDrivenSimulator::step(double step_size)
   event_time = (double) 0.0;
   coldet_time = (double) 0.0;
 
+  // setup timer
   tms cstart;  
   clock_t start = times(&cstart);
 
@@ -665,6 +670,13 @@ double EventDrivenSimulator::step(double step_size)
       step_si_Euler(accel_dt);
       h += accel_dt;
 
+      // setup the statistics
+      _step_stats[0]++;
+      tms cstop;  
+      clock_t stop = times(&cstop);
+      _step_times[0] += (stop-start)/CLOCKS_PER_SEC;
+      start = stop;
+
       // call the mini-callback
       if (post_mini_step_callback_fn)
         post_mini_step_callback_fn(this);
@@ -688,6 +700,13 @@ double EventDrivenSimulator::step(double step_size)
       {
         FILE_LOG(LOG_SIMULATOR) << " ** attempted to evaluate derivative at invalid state; halfing step size" << std::endl;
 
+        // setup the statistics
+        _step_stats[1]++;
+        tms cstop;  
+        clock_t stop = times(&cstop);
+        _step_times[1] += (stop-start)/CLOCKS_PER_SEC;
+        start = stop;
+
         // couldn't integrate that far; restart the integration with a smaller
         // step size
         safe_dt *= 0.5;
@@ -696,6 +715,13 @@ double EventDrivenSimulator::step(double step_size)
       catch (InvalidVelocityException e)
       {
         FILE_LOG(LOG_SIMULATOR) << " ** attempted to evaluate derivative at invalid velocity; halfing acceleration step size" << std::endl;
+
+        // setup the statistics
+        _step_stats[2]++;
+        tms cstop;  
+        clock_t stop = times(&cstop);
+        _step_times[2] += (stop-start)/CLOCKS_PER_SEC;
+        start = stop;
 
         // couldn't integrate that far; restart the integration with a smaller
         // step size
@@ -722,6 +748,13 @@ double EventDrivenSimulator::step(double step_size)
       {
         FILE_LOG(LOG_SIMULATOR) << " ** attempted to evaluate derivative at invalid state; halving acceleration step size to " << (accel_dt*0.5) << std::endl;
 
+        // setup the statistics
+        _step_stats[3]++;
+        tms cstop;  
+        clock_t stop = times(&cstop);
+        _step_times[3] += (stop-start)/CLOCKS_PER_SEC;
+        start = stop;
+
         // couldn't integrate that far; restart the integration with a smaller
         // step size
         accel_dt *= 0.5;
@@ -730,6 +763,13 @@ double EventDrivenSimulator::step(double step_size)
       catch (InvalidVelocityException e)
       {
         FILE_LOG(LOG_SIMULATOR) << " ** attempted to evaluate derivative at invalid velocity; halving acceleration step size to " << (accel_dt*0.5) << std::endl;
+
+        // setup the statistics
+        _step_stats[4]++;
+        tms cstop;  
+        clock_t stop = times(&cstop);
+        _step_times[4] += (stop-start)/CLOCKS_PER_SEC;
+        start = stop;
 
         // couldn't integrate that far; restart the integration with a smaller
         // step size
@@ -740,6 +780,13 @@ double EventDrivenSimulator::step(double step_size)
       {
         FILE_LOG(LOG_SIMULATOR) << " ** failed to solve an LCP; halving step size" << std::endl;
 
+        // setup the statistics
+        _step_stats[5]++;
+        tms cstop;  
+        clock_t stop = times(&cstop);
+        _step_times[5] += (stop-start)/CLOCKS_PER_SEC;
+        start = stop;
+
         // failed to solve an LCP; reduce the acceleration step size and try
         // again
         accel_dt *= 0.5;
@@ -748,18 +795,20 @@ double EventDrivenSimulator::step(double step_size)
     }
 
     // see whether there were any force or acceleration limits exceeded
-    bool reintegrate = false;
-    BOOST_FOREACH(DynamicBodyPtr db, _bodies)
+    if (safe_dt > 0.0)
     {
-      if (db->limit_estimates_exceeded())
+      BOOST_FOREACH(DynamicBodyPtr db, _bodies)
       {
-        FILE_LOG(LOG_SIMULATOR) << " ** limit estimates exceeded; retrying with new estimates" << std::endl;
+        if (db->limit_estimates_exceeded())
+        {
+          FILE_LOG(LOG_SIMULATOR) << " ** limit estimates exceeded; retrying with new estimates" << std::endl;
 
-        // reset the state of all bodies 
-        restore_state();
+          // reset the state of all bodies 
+          restore_state();
 
-        // attempt to integrate again using new CA info
-        goto restart_with_new_limits; 
+          // attempt to integrate again using new CA info
+          goto restart_with_new_limits; 
+        }
       }
     }
 
