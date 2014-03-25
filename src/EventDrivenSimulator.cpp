@@ -67,10 +67,10 @@ EventDrivenSimulator::EventDrivenSimulator()
   dynamics_time = (double) 0.0;
   event_time = (double) 0.0;
   coldet_time = (double) 0.0;
-  std::fill_n(_step_times, _step_times+7, 0.0);
+  std::fill(step_times, step_times+8, 0.0);
 
   // clear statistics
-  std::fill_n(_step_stats, _step_stats+7, 0);
+  std::fill(step_stats, step_stats+8, 0);
 }
 
 /// Compares two events for purposes of mapping velocity tolerances
@@ -191,6 +191,9 @@ VectorNd& EventDrivenSimulator::ode_accel_events(const VectorNd& x, double t, do
     // update idx
     idx += NGC+NGV;
   }
+
+  // update the velocity bounds
+  s->update_bounds();
 
   // check pairwise constraint violations
   s->check_pairwise_constraint_violations();
@@ -625,6 +628,12 @@ double EventDrivenSimulator::step(double step_size)
     // start with initial estimates
     reset_limit_estimates();
 
+    // get amount remaining to step
+    double dt = step_size - h;
+
+    // do broad-phase collision detection here
+    broad_phase(dt);
+
   // called when we are restarting with new limits
   restart_with_new_limits:
 
@@ -634,13 +643,7 @@ double EventDrivenSimulator::step(double step_size)
     // save the state of the system
     save_state();
 
-    // get amount remaining to step
-    double dt = step_size - h;
-
     FILE_LOG(LOG_SIMULATOR) << "  determining conservative advancement time up to step of " << dt << std::endl;
-
-    // do broad-phase collision detection here
-    _ccd.broad_phase(dt, _bodies, _pairs_to_check); 
 
     // determine the maximum step according to conservative advancement
     double safe_dt = std::min(calc_CA_step(), dt);
@@ -671,10 +674,10 @@ double EventDrivenSimulator::step(double step_size)
       h += accel_dt;
 
       // setup the statistics
-      _step_stats[0]++;
+      step_stats[0]++;
       tms cstop;  
       clock_t stop = times(&cstop);
-      _step_times[0] += (stop-start)/CLOCKS_PER_SEC;
+      step_times[0] += (stop-start)/CLOCKS_PER_SEC;
       start = stop;
 
       // call the mini-callback
@@ -701,15 +704,16 @@ double EventDrivenSimulator::step(double step_size)
         FILE_LOG(LOG_SIMULATOR) << " ** attempted to evaluate derivative at invalid state; halfing step size" << std::endl;
 
         // setup the statistics
-        _step_stats[1]++;
+        step_stats[1]++;
         tms cstop;  
         clock_t stop = times(&cstop);
-        _step_times[1] += (stop-start)/CLOCKS_PER_SEC;
+        step_times[1] += (stop-start)/CLOCKS_PER_SEC;
         start = stop;
 
         // couldn't integrate that far; restart the integration with a smaller
         // step size
         safe_dt *= 0.5;
+
         goto restart;                                               
       }
       catch (InvalidVelocityException e)
@@ -717,10 +721,10 @@ double EventDrivenSimulator::step(double step_size)
         FILE_LOG(LOG_SIMULATOR) << " ** attempted to evaluate derivative at invalid velocity; halfing acceleration step size" << std::endl;
 
         // setup the statistics
-        _step_stats[2]++;
+        step_stats[2]++;
         tms cstop;  
         clock_t stop = times(&cstop);
-        _step_times[2] += (stop-start)/CLOCKS_PER_SEC;
+        step_times[2] += (stop-start)/CLOCKS_PER_SEC;
         start = stop;
 
         // couldn't integrate that far; restart the integration with a smaller
@@ -749,10 +753,10 @@ double EventDrivenSimulator::step(double step_size)
         FILE_LOG(LOG_SIMULATOR) << " ** attempted to evaluate derivative at invalid state; halving acceleration step size to " << (accel_dt*0.5) << std::endl;
 
         // setup the statistics
-        _step_stats[3]++;
+        step_stats[3]++;
         tms cstop;  
         clock_t stop = times(&cstop);
-        _step_times[3] += (stop-start)/CLOCKS_PER_SEC;
+        step_times[3] += (stop-start)/CLOCKS_PER_SEC;
         start = stop;
 
         // couldn't integrate that far; restart the integration with a smaller
@@ -765,10 +769,10 @@ double EventDrivenSimulator::step(double step_size)
         FILE_LOG(LOG_SIMULATOR) << " ** attempted to evaluate derivative at invalid velocity; halving acceleration step size to " << (accel_dt*0.5) << std::endl;
 
         // setup the statistics
-        _step_stats[4]++;
+        step_stats[4]++;
         tms cstop;  
         clock_t stop = times(&cstop);
-        _step_times[4] += (stop-start)/CLOCKS_PER_SEC;
+        step_times[4] += (stop-start)/CLOCKS_PER_SEC;
         start = stop;
 
         // couldn't integrate that far; restart the integration with a smaller
@@ -781,10 +785,10 @@ double EventDrivenSimulator::step(double step_size)
         FILE_LOG(LOG_SIMULATOR) << " ** failed to solve an LCP; halving step size" << std::endl;
 
         // setup the statistics
-        _step_stats[5]++;
+        step_stats[5]++;
         tms cstop;  
         clock_t stop = times(&cstop);
-        _step_times[5] += (stop-start)/CLOCKS_PER_SEC;
+        step_times[5] += (stop-start)/CLOCKS_PER_SEC;
         start = stop;
 
         // failed to solve an LCP; reduce the acceleration step size and try
@@ -806,11 +810,25 @@ double EventDrivenSimulator::step(double step_size)
           // reset the state of all bodies 
           restore_state();
 
+          // setup the statistics
+          step_stats[6]++;
+          tms cstop;  
+          clock_t stop = times(&cstop);
+          step_times[6] += (stop-start)/CLOCKS_PER_SEC;
+          start = stop;
+
           // attempt to integrate again using new CA info
           goto restart_with_new_limits; 
         }
       }
     }
+
+    // setup the statistics
+    step_stats[7]++;
+    tms cstop;  
+    clock_t stop = times(&cstop);
+    step_times[7] += (stop-start)/CLOCKS_PER_SEC;
+    start = stop;
 
     // no issues integrating; update h and call the mini-callback
     if (safe_dt > min_advance)
@@ -858,6 +876,22 @@ void EventDrivenSimulator::restore_state()
   }
 }
 
+void EventDrivenSimulator::broad_phase(double dt)
+{
+  // call the broad phase
+  _ccd.broad_phase(dt, _bodies, _pairs_to_check); 
+
+  // remove pairs that are unchecked
+  for (unsigned i=0; i< _pairs_to_check.size(); )
+    if (unchecked_pairs.find(make_sorted_pair(_pairs_to_check[i].first, _pairs_to_check[i].second)) != unchecked_pairs.end())
+    {
+      _pairs_to_check[i] = _pairs_to_check.back();
+      _pairs_to_check.pop_back();
+    }
+    else 
+      i++;
+}
+
 /// Checks whether bodies violate contact constraint velocity tolerances
 void EventDrivenSimulator::check_constraint_velocity_violations()
 {
@@ -896,18 +930,30 @@ void EventDrivenSimulator::check_pairwise_constraint_violations()
   // update constraint violation due to increasing interpenetration
   // loop over all pairs of geometries
   BOOST_FOREACH(CollisionGeometryPtr cg1, _geometries)
+  {
+    // get the first rigid body
+    RigidBodyPtr rb1 = dynamic_pointer_cast<RigidBody>(cg1->get_single_body());
+
     BOOST_FOREACH(CollisionGeometryPtr cg2, _geometries)
     {
       // if cg1 == cg2 or bodies are disabled for checking, skip
       if (cg1 == cg2 || unchecked_pairs.find(make_sorted_pair(cg1, cg2)) != unchecked_pairs.end())
         continue;
 
+      // make sure pairs of disabled rigid bodies are not checked
+      if (!rb1->is_enabled() && !dynamic_pointer_cast<RigidBody>(cg2->get_single_body())->is_enabled())
+        continue;
+
       // compute the distance between the two bodies
       Point3d p1, p2;
       double d = CollisionGeometry::calc_signed_dist(cg1, cg2, p1, p2);
       if (d <= _ip_tolerances[make_sorted_pair(cg1, cg2)] - NEAR_ZERO)
+      {
+        FILE_LOG(LOG_SIMULATOR) << "Interpenetration detected between " << cg1->get_single_body()->id << " and " << cg2->get_single_body()->id << ": " << d << std::endl;
         throw InvalidStateException();
+      }
     }
+  }
 }
 
 /// Updates constraint violation after integration
@@ -1033,6 +1079,7 @@ void EventDrivenSimulator::integrate_velocities_Euler(double dt)
 {
   VectorNd qd, qdd;
 
+  FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::integrate_velocities_Euler() entered " << std::endl;
   // NOTE: forward dynamics are already computed for calculate_bounds()
   // first compute forward dynamics for all bodies
   calc_fwd_dyn();
@@ -1042,15 +1089,18 @@ void EventDrivenSimulator::integrate_velocities_Euler(double dt)
   {
     // get the generalized acceleration
     db->get_generalized_acceleration(qdd);
+    FILE_LOG(LOG_SIMULATOR) << "body " << db->id << " acceleration: " << qdd << std::endl;
     qdd *= dt;
-
-    // update the acceleration bounds
 
     // update the generalized velocity
     db->get_generalized_velocity(DynamicBody::eSpatial, qd);
+    FILE_LOG(LOG_SIMULATOR) << "body " << db->id << " velocity: " << qd << std::endl;
     qd += qdd;
+    FILE_LOG(LOG_SIMULATOR) << "body " << db->id << " new velocity: " << qd << std::endl;
     db->set_generalized_velocity(DynamicBody::eSpatial, qd);
   }
+
+  FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::integrate_velocities_Euler() exited " << std::endl;
 }
 
 /// Integrates bodies' positions forward by dt using Euler integration
@@ -1240,6 +1290,104 @@ void EventDrivenSimulator::load_from_xml(shared_ptr<const XMLTree> node, map<std
     cd->load_from_xml(*i, id_map);
     contact_params[cd->objects] = cd;
   }
+
+  // read all disabled pairs
+  child_nodes = node->find_child_nodes("DisabledPair");
+  for (std::list<shared_ptr<const XMLTree> >::const_iterator i = child_nodes.begin(); i != child_nodes.end(); i++)
+  {
+    // get the two ID attributes
+    XMLAttrib* id1_attrib = (*i)->get_attrib("object1-id");
+    XMLAttrib* id2_attrib = (*i)->get_attrib("object2-id");
+
+    // make sure that they were read
+    if (!id1_attrib || !id2_attrib)
+    {
+      std::cerr << "EventDrivenSimulator::load_from_xml() - did not find ";
+      std::cerr << "object1-id and/or object2-id" << std::endl;
+      std::cerr << "  in offending node: " << std::endl << *node;
+      continue;
+    }
+
+    // get the two IDs
+    const std::string& ID1 = id1_attrib->get_string_value();
+    const std::string& ID2 = id2_attrib->get_string_value();
+
+    // setup pairs of geometries to disable
+    std::list<CollisionGeometryPtr> disabled1, disabled2;
+
+    // find the first object
+    if ((id_iter = id_map.find(ID1)) == id_map.end())
+    {
+      std::cerr << "EventDrivenSimulator::load_from_xml() - could not find ";
+      std::cerr << "object with object1-id" << std::endl;
+      std::cerr << "  '" << ID1 << "' in offending node: " << std::endl << *node;
+      continue;
+    }
+    BasePtr o1 = id_iter->second;
+    CollisionGeometryPtr g1 = dynamic_pointer_cast<CollisionGeometry>(o1);
+    if (g1)
+      disabled1.push_back(g1);
+    else
+    {
+      RigidBodyPtr rb1 = dynamic_pointer_cast<RigidBody>(o1);
+      if (rb1)
+        disabled1 = rb1->geometries;
+      else
+      {
+        ArticulatedBodyPtr ab1 = dynamic_pointer_cast<ArticulatedBody>(o1);
+        if (ab1)
+        {
+          BOOST_FOREACH(RigidBodyPtr rb, ab1->get_links())
+            disabled1.insert(disabled1.end(), rb->geometries.begin(), rb->geometries.end());
+        }
+        else
+        {
+          std::cerr << "EventDrivenSimulator::load_from_xml() - object with object1-id is not a usable type!" << std::endl;
+          continue;
+        }
+      }
+    }
+
+    // find the second object
+    if ((id_iter = id_map.find(ID2)) == id_map.end())
+    {
+      std::cerr << "EventDrivenSimulator::load_from_xml() - could not find ";
+      std::cerr << "object with object2-id" << std::endl;
+      std::cerr << "  '" << ID2 << "' in offending node: " << std::endl << *node;
+      continue;
+    }
+    BasePtr o2 = id_iter->second;
+    CollisionGeometryPtr g2 = dynamic_pointer_cast<CollisionGeometry>(o2);
+    if (g2)
+      disabled2.push_back(g2);
+    else
+    {
+      RigidBodyPtr rb2 = dynamic_pointer_cast<RigidBody>(o2);
+      if (rb2)
+        disabled2 = rb2->geometries;
+      else
+      {
+        ArticulatedBodyPtr ab2 = dynamic_pointer_cast<ArticulatedBody>(o2);
+        if (ab2)
+        {
+          BOOST_FOREACH(RigidBodyPtr rb, ab2->get_links())
+            disabled2.insert(disabled2.end(), rb->geometries.begin(), rb->geometries.end());
+        }
+        else
+        {
+          std::cerr << "EventDrivenSimulator::load_from_xml() - object with object2-id is not a usable type!" << std::endl;
+          continue;
+        }
+      }
+    }
+
+ 
+   // add the pairs to the unchecked pairs list
+   BOOST_FOREACH(CollisionGeometryPtr cg1, disabled1)
+     BOOST_FOREACH(CollisionGeometryPtr cg2, disabled2)
+       if (cg1 != cg2 && cg1->get_single_body() != cg2->get_single_body())
+         unchecked_pairs.insert(make_sorted_pair(cg1, cg2));
+  }
 }
 
 /// Implements Base::save_to_xml()
@@ -1270,6 +1418,15 @@ void EventDrivenSimulator::save_to_xml(XMLTreePtr node, list<shared_ptr<const Ba
     XMLTreePtr new_node(new XMLTree("ContactParameters"));
     node->add_child(new_node);
     i->second->save_to_xml(new_node, shared_objects);
+  }
+
+  // save all disabled pairs
+  for (std::set<sorted_pair<CollisionGeometryPtr> >::const_iterator i = unchecked_pairs.begin(); i != unchecked_pairs.end(); i++)
+  {
+    XMLTreePtr child_node(new XMLTree("DisabledPair"));
+    child_node->attribs.insert(XMLAttrib("object1-id", i->first->id));
+    child_node->attribs.insert(XMLAttrib("object2-id", i->second->id));
+    node->add_child(child_node);
   }
 }
 

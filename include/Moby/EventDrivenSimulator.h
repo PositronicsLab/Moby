@@ -87,10 +87,10 @@ class EventDrivenSimulator : public Simulator
     double event_time;
 
     /// stepping timings
-    double _step_times[7];
+    double step_times[8];
 
     /// stepping statistics
-    unsigned _step_stats[7];
+    unsigned step_stats[8];
 
     /// The relative error tolerance for adaptive Euler stepping (default=1e-8)
     double rel_err_tol;
@@ -139,6 +139,7 @@ class EventDrivenSimulator : public Simulator
     void determine_geometries();
     void calculate_bounds() const;
     void reset_limit_estimates() const;
+    void broad_phase(double dt);
 
     // Visualization functions
     void visualize_contact( Event& event );

@@ -13,6 +13,7 @@
 
     <!-- Integrator -->
     <RungeKuttaIntegrator id="rk4" />
+    <BulirschStoerIntegrator id="bsi" />
 
     <!-- Gravity force -->
     <GravityForce id="gravity" accel="0 -9.81 0"  />

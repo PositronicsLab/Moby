@@ -81,6 +81,7 @@ class Simulator : public virtual Base
     virtual void check_pairwise_constraint_violations() { }
     osg::Group* _persistent_vdata;
     osg::Group* _transient_vdata;
+    void update_bounds() const;
 
     /// The set of bodies in the simulation
     std::vector<DynamicBodyPtr> _bodies;
