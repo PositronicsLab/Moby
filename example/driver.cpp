@@ -73,6 +73,9 @@ unsigned THREED_IVAL = 0;
 /// Determines whether to do onscreen rendering (false by default)
 bool ONSCREEN_RENDER = false;
 
+/// Determines whether to output statistics
+bool OUTPUT_STATS = false;
+
 /// Determines whether to output timings
 bool OUTPUT_TIMINGS = false;
 
@@ -210,13 +213,24 @@ void step(void* arg)
   if (OUTPUT_SIM_RATE)
     std::cout << "time to compute last iteration: " << total_t << " (" << TOTAL_TIME / ITER << "s/iter, " << TOTAL_TIME / s->current_time << "s/step)" << std::endl;
 
-  // see whether to output the timings
-  if (OUTPUT_TIMINGS)
+  // see whether to output the timings and/or statistics
+  if (OUTPUT_TIMINGS && !OUTPUT_STATS)
   {
     if (!eds)
       std::cout << ITER << " " << s->dynamics_time << " " << std::endl;
     else
       std::cout << ITER << " " << eds->dynamics_time << " " << eds->coldet_time << " " << eds->event_time << std::endl;
+  }
+  else if (!OUTPUT_TIMINGS && OUTPUT_STATS)
+  {
+    if (eds)
+    {
+    }
+  }
+  else if (OUTPUT_TIMINGS && OUTPUT_STATS)
+  {
+    if (!eds)
+      std::cout << ITER << " " << s->dynamics_time << " " << std::endl;
   }
 
   // update the iteration #
@@ -486,6 +500,8 @@ int main(int argc, char** argv)
       OUTPUT_FRAME_RATE = true;
     else if (option.find("-ot") != std::string::npos)
       OUTPUT_TIMINGS = true;
+    else if (option.find("-os") != std::string::npos)
+      OUTUT_STATS = true;
     else if (option.find("-oi") != std::string::npos)
       OUTPUT_ITER_NUM = true;
     else if (option.find("-or") != std::string::npos)
