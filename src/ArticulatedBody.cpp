@@ -425,6 +425,7 @@ bool ArticulatedBody::limit_estimates_exceeded() const
 /// Updates the joint velocity limits
 void ArticulatedBody::update_joint_vel_limits()
 {
+  const double INC = 0.15;
   _vel_limits_lo.resize(num_joint_dof());
   _vel_limits_hi.resize(num_joint_dof());
 
@@ -437,17 +438,9 @@ void ArticulatedBody::update_joint_vel_limits()
     for (unsigned j=0; j< _joints[i]->num_dof(); j++, k++)
     {
       if (_joints[i]->qd[j] < _vel_limits_lo[k])
-        _vel_limits_lo[k] = _joints[i]->qd[j];
+        _vel_limits_lo[k] = _joints[i]->qd[j]*(1.0-INC);
       if (_joints[i]->qd[j] > _vel_limits_hi[k])
-        _vel_limits_hi[k] = _joints[i]->qd[j];
-
-      // figure out the length of the interval
-      const double IVAL = (_vel_limits_hi[k] - _vel_limits_lo[k]);
-
-      // increase the interval geometrically
-      const double IVAL_INC = IVAL*0.15;
-      _vel_limits_lo[k] -= IVAL_INC;
-      _vel_limits_hi[k] += IVAL_INC;
+        _vel_limits_hi[k] = _joints[i]->qd[j]*(1.0+INC);
     }
   }
 }
