@@ -62,15 +62,6 @@ EventDrivenSimulator::EventDrivenSimulator()
   rel_err_tol = NEAR_ZERO;
   abs_err_tol = NEAR_ZERO;
   minimum_step = 1e-5;
-
-  // clear timings
-  dynamics_time = (double) 0.0;
-  event_time = (double) 0.0;
-  coldet_time = (double) 0.0;
-  std::fill(step_times, step_times+8, 0.0);
-
-  // clear statistics
-  std::fill(step_stats, step_stats+8, 0);
 }
 
 /// Compares two events for purposes of mapping velocity tolerances
@@ -595,6 +586,10 @@ double EventDrivenSimulator::step(double step_size)
   dynamics_time = (double) 0.0;
   event_time = (double) 0.0;
   coldet_time = (double) 0.0;
+
+  // clear statistics and step times
+  std::fill(step_times, step_times+8, 0.0);
+  std::fill(step_stats, step_stats+8, 0);
 
   // setup timer
   tms cstart;  
