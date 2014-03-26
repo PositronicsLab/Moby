@@ -127,15 +127,13 @@ void EventDrivenSimulator::handle_acceleration_events()
     preprocess_event(_events[i]);
 
   // begin timing for event handling 
-  tms cstart;  
-  clock_t start = times(&cstart);
+  clock_t start = clock();
 
   // compute forces here...
   _accel_event_handler.process_events(_events);
 
   // tabulate times for event handling 
-  tms cstop;  
-  clock_t stop = times(&cstop);
+  clock_t stop = clock();
   event_time += (double) (stop-start)/CLOCKS_PER_SEC;
 
   // call the post-force application callback, if any 
@@ -504,8 +502,7 @@ void EventDrivenSimulator::handle_events()
   }
 
   // begin timing for event handling 
-  tms cstart;  
-  clock_t start = times(&cstart);
+  clock_t start = clock();
 
   // compute impulses here...
   try
@@ -518,8 +515,7 @@ void EventDrivenSimulator::handle_events()
   }
 
   // tabulate times for event handling 
-  tms cstop;  
-  clock_t stop = times(&cstop);
+  clock_t stop = clock();
   event_time += (double) (stop-start)/CLOCKS_PER_SEC;
 
   // call the post-impulse application callback, if any 
@@ -592,8 +588,7 @@ double EventDrivenSimulator::step(double step_size)
   std::fill(step_stats, step_stats+8, 0);
 
   // setup timer
-  tms cstart;  
-  clock_t start = times(&cstart);
+  clock_t start = clock();
 
   // determine the set of collision geometries
   determine_geometries();
@@ -670,9 +665,8 @@ double EventDrivenSimulator::step(double step_size)
 
       // setup the statistics
       step_stats[0]++;
-      tms cstop;  
-      clock_t stop = times(&cstop);
-      step_times[0] += (stop-start)/CLOCKS_PER_SEC;
+      clock_t stop = clock();
+      step_times[0] += (double) (stop-start)/CLOCKS_PER_SEC;
       start = stop;
 
       // call the mini-callback
@@ -700,9 +694,8 @@ double EventDrivenSimulator::step(double step_size)
 
         // setup the statistics
         step_stats[1]++;
-        tms cstop;  
-        clock_t stop = times(&cstop);
-        step_times[1] += (stop-start)/CLOCKS_PER_SEC;
+        clock_t stop = clock();
+        step_times[1] += (double) (stop-start)/CLOCKS_PER_SEC;
         start = stop;
 
         // couldn't integrate that far; restart the integration with a smaller
@@ -717,9 +710,8 @@ double EventDrivenSimulator::step(double step_size)
 
         // setup the statistics
         step_stats[2]++;
-        tms cstop;  
-        clock_t stop = times(&cstop);
-        step_times[2] += (stop-start)/CLOCKS_PER_SEC;
+        clock_t stop = clock();
+        step_times[2] += (double) (stop-start)/CLOCKS_PER_SEC;
         start = stop;
 
         // couldn't integrate that far; restart the integration with a smaller
@@ -749,9 +741,8 @@ double EventDrivenSimulator::step(double step_size)
 
         // setup the statistics
         step_stats[3]++;
-        tms cstop;  
-        clock_t stop = times(&cstop);
-        step_times[3] += (stop-start)/CLOCKS_PER_SEC;
+        clock_t stop = clock();
+        step_times[3] += (double) (stop-start)/CLOCKS_PER_SEC;
         start = stop;
 
         // couldn't integrate that far; restart the integration with a smaller
@@ -765,9 +756,8 @@ double EventDrivenSimulator::step(double step_size)
 
         // setup the statistics
         step_stats[4]++;
-        tms cstop;  
-        clock_t stop = times(&cstop);
-        step_times[4] += (stop-start)/CLOCKS_PER_SEC;
+        clock_t stop = clock();
+        step_times[4] += (double) (stop-start)/CLOCKS_PER_SEC;
         start = stop;
 
         // couldn't integrate that far; restart the integration with a smaller
@@ -781,9 +771,8 @@ double EventDrivenSimulator::step(double step_size)
 
         // setup the statistics
         step_stats[5]++;
-        tms cstop;  
-        clock_t stop = times(&cstop);
-        step_times[5] += (stop-start)/CLOCKS_PER_SEC;
+        clock_t stop = clock();
+        step_times[5] += (double) (stop-start)/CLOCKS_PER_SEC;
         start = stop;
 
         // failed to solve an LCP; reduce the acceleration step size and try
@@ -807,9 +796,8 @@ double EventDrivenSimulator::step(double step_size)
 
           // setup the statistics
           step_stats[6]++;
-          tms cstop;  
-          clock_t stop = times(&cstop);
-          step_times[6] += (stop-start)/CLOCKS_PER_SEC;
+          clock_t stop = clock();
+          step_times[6] += (double) (stop-start)/CLOCKS_PER_SEC;
           start = stop;
 
           // attempt to integrate again using new CA info
@@ -820,9 +808,8 @@ double EventDrivenSimulator::step(double step_size)
 
     // setup the statistics
     step_stats[7]++;
-    tms cstop;  
-    clock_t stop = times(&cstop);
-    step_times[7] += (stop-start)/CLOCKS_PER_SEC;
+    clock_t stop = clock();
+    step_times[7] += (double) (stop-start)/CLOCKS_PER_SEC;
     start = stop;
 
     // no issues integrating; update h and call the mini-callback
