@@ -189,6 +189,8 @@ VectorNd& EventDrivenSimulator::ode_accel_events(const VectorNd& x, double t, do
 
   // find events
   s->find_events();
+  if (s->_events.empty())
+    FILE_LOG(LOG_SIMULATOR) << " *** events vector is unexpectedly empty! ***" << std::endl;
 
   // check velocity violations for constraints
   s->check_constraint_velocity_violations();
