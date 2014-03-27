@@ -205,7 +205,7 @@ double CCD::calc_max_dist_per_t(RigidBodyPtr rb, const Vector3d& n, double rlen)
   dist += rlen*(wmaxx*std::sqrt(1-n[X]*n[X]) + wmaxy*std::sqrt(1-n[Y]*n[Y]) +
                 wmaxz*std::sqrt(1-n[Z]*n[Z]));
 
-  return dist;
+  return std::fabs(dist);
 }
 
 /// Implements Base::load_from_xml()
