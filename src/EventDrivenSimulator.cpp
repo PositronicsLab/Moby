@@ -28,6 +28,7 @@
 #endif // USE_OSG
 
 using std::endl;
+using std::set;
 using std::list;
 using std::vector;
 using std::map;
@@ -1165,12 +1166,24 @@ double EventDrivenSimulator::compute_next_event_time() const
     dt = std::min(dt, ab->find_next_joint_limit_time());
   }
 
+  // setup set of collision geometries currently in contact
+  set<sorted_pair<CollisionGeometryPtr> > in_contact;
+  BOOST_FOREACH(const Event& e, _events)
+    if (e.event_type == Event::eContact)
+      in_contact.insert(make_sorted_pair(e.contact_geom1, e.contact_geom2));
+
   // find next contact event time 
   for (unsigned i=0; i< _pairs_to_check.size(); i++)
   {
     const pair<CollisionGeometryPtr, CollisionGeometryPtr>& cgpair = _pairs_to_check[i];
-    double step = _ccd.find_next_contact_time(cgpair.first, cgpair.second);
-    dt = std::min(dt, step);
+
+    // if there is currently a contact even between the geometries, do not
+    // check
+    if (in_contact.find(make_sorted_pair(cgpair.first, cgpair.second)) == in_contact.end())
+    {
+      double step = _ccd.calc_CA_step(cgpair.first, cgpair.second);
+      dt = std::min(dt, step);
+    }
   }
 
   return dt;
