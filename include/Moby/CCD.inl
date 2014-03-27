@@ -138,6 +138,7 @@ OutputIterator CCD::find_contacts_box_sphere(CollisionGeometryPtr cgA, Collision
   // get the closest point
   Point3d pbox;
   double dist = bA->calc_closest_point(sph_c_A, pbox) - sB->get_radius();
+  FILE_LOG(LOG_COLDET) << "CCD::find_contacts_box_sphere(): distance is " << dist << std::endl;
   if (dist > NEAR_ZERO)
     return o;
 
