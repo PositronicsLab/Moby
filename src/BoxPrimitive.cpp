@@ -113,12 +113,9 @@ double BoxPrimitive::calc_signed_dist(shared_ptr<const SpherePrimitive> s, share
   // transform point on box
   pbox = Pose3d::transform_point(pose_this, pbox);
 
-  // compute farthest interpenetration of box inside sphere
-  Point3d box_c(0.0, 0.0, 0.0, pose_this);
-  psph = Pose3d::transform_point(pose_s, box_c);
+  // compute point on sphere 
+  psph = Pose3d::transform_point(pose_s, pbox);
   psph.normalize();
-
-  // determine closest point on the sphere 
   psph *= (s->get_radius() + std::min(dist, 0.0));
 
   return dist;
