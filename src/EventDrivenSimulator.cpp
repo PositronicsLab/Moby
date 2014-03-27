@@ -666,6 +666,9 @@ double EventDrivenSimulator::step(double step_size)
       step_si_Euler(accel_dt);
       h += accel_dt;
 
+      // update constraint violation after integration
+      update_constraint_violations();
+
       // setup the statistics
       step_stats[0]++;
       clock_t stop = clock();
