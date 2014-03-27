@@ -944,6 +944,8 @@ void EventDrivenSimulator::check_pairwise_constraint_violations()
 /// Updates constraint violation after integration
 void EventDrivenSimulator::update_constraint_violations()
 {
+  FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::update_constraint_violations() entered" << std::endl;
+
   // update constraint violation due to increasing interpenetration
   // loop over all pairs of geometries
   BOOST_FOREACH(CollisionGeometryPtr cg1, _geometries)
@@ -956,6 +958,7 @@ void EventDrivenSimulator::update_constraint_violations()
       // compute the distance between the two bodies
       Point3d p1, p2;
       double d = CollisionGeometry::calc_signed_dist(cg1, cg2, p1, p2);
+      FILE_LOG(LOG_SIMULATOR) << " -- signed distance: " << d << std::endl;
       if (d <= 0)
         _ip_tolerances[make_sorted_pair(cg1, cg2)] = d;
       else
@@ -969,6 +972,8 @@ void EventDrivenSimulator::update_constraint_violations()
     if (ab)
       ab->update_joint_constraint_violations();
   }  
+
+  FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::update_constraint_violations() exited" << std::endl;
 }
 
 /// Computes a conservative advancement step
