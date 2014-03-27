@@ -98,10 +98,7 @@ class CCD
     OutputIterator find_contacts_sphere_sphere(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin);
 
     template <class OutputIterator>
-    OutputIterator find_contacts_not_separated(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin);
-
-    template <class OutputIterator>
-    OutputIterator find_contacts_separated(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, double min_dist, OutputIterator output_begin);
+    OutputIterator find_contacts_box_sphere(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin);
 
     template <class RandomAccessIterator>
     void insertion_sort(RandomAccessIterator begin, RandomAccessIterator end);

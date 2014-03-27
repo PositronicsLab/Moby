@@ -1106,6 +1106,8 @@ void EventDrivenSimulator::integrate_positions_Euler(double dt)
 /// Finds the set of events
 void EventDrivenSimulator::find_events()
 {
+  FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::find_events() entered" << std::endl;
+
   // clear the set of events
   _events.clear();
 
@@ -1132,7 +1134,6 @@ void EventDrivenSimulator::find_events()
     _ccd.find_contacts(cgpair.first, cgpair.second, std::back_inserter(_events));  
   }
 
-  FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::find_events() entered" << std::endl;
   if (LOGGING(LOG_SIMULATOR))
     for (unsigned i=0; i< _events.size(); i++)
     FILE_LOG(LOG_SIMULATOR) << _events[i] << std::endl;
