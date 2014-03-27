@@ -1,0 +1,41 @@
+<!-- A sphere impacting --> 
+
+<XML>
+  <DRIVER>
+    <camera position="0 0 10" target="0 0 0" up="0 1 0" />
+    <window location="0 0" size="640 480" />
+  </DRIVER>
+
+  <MOBY>
+    <!-- Primitives -->
+    <Sphere id="s1" radius="1" density="1.0" />
+    <Box id="b3" xlen="10" ylen=".5" zlen="2" density="10.0" />
+
+    <!-- Integrator -->
+    <RungeKuttaIntegrator id="rk4" rel-err-tol="1e-6" abs-err-tol="1e-6" />
+
+    <!-- Gravity force -->
+    <GravityForce id="gravity" accel="0 -9.81 0"  />
+
+    <!-- Rigid bodies -->
+      <!-- the box -->
+      <RigidBody id="sphere" enabled="true" position="0 1.0001 0" angular-velocity="1 2.00 3" visualization-id="s1" linear-velocity=".1 -.1 .1">
+        <InertiaFromPrimitive primitive-id="s1" />
+        <CollisionGeometry primitive-id="s1" />
+      </RigidBody>
+
+      <!-- the ground -->
+      <RigidBody id="ground" enabled="false" vvisualization-filename="ground.wrl" position="0 -.25 0">
+        <CollisionGeometry primitive-id="b3" />  
+      </RigidBody>
+
+    <!-- Setup the simulator -->
+    <EventDrivenSimulator id="simulator" integrator-id="rk4" collision-detector-id="ccd">
+      <DynamicBody dynamic-body-id="sphere" />
+      <DynamicBody dynamic-body-id="ground" />
+      <RecurrentForce recurrent-force-id="gravity"  />
+      <ContactParameters object1-id="ground" object2-id="box" restitution="0" mu-coulomb="0" mu-viscous="0" ffriction-cone-edges="16" />
+    </EventDrivenSimulator> 
+  </MOBY>
+</XML>
+
