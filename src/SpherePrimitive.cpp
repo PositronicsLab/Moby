@@ -82,7 +82,9 @@ SpherePrimitive::SpherePrimitive(double radius, unsigned n, const Pose3d& T) : P
 /// Gets the supporting point
 Point3d SpherePrimitive::get_supporting_point(const Vector3d& d) 
 {
-  return Vector3d::normalize(d)*_radius;
+  Vector3d dx = Vector3d::normalize(d)*_radius;
+  
+  return Pose3d::transform_point(get_pose(), dx);
 }
 
 /// Computes the signed distance of the given point from this primitive
