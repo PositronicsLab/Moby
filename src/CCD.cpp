@@ -76,6 +76,8 @@ double CCD::find_next_contact_time(CollisionGeometryPtr cgA, CollisionGeometryPt
   // get the direction of the vector from body B to body A
   Vector3d d0 =  pA0 - pB0;
   double d0_norm = d0.norm();
+  FILE_LOG(LOG_COLDET) << " closest point on A: " << pA0 << std::endl;
+  FILE_LOG(LOG_COLDET) << " closest point on B: " << pB0 << std::endl;
   FILE_LOG(LOG_COLDET) << "distance between closest points is: " << d0_norm << std::endl;
   FILE_LOG(LOG_COLDET) << "reported distance is: " << dist << std::endl;
 
