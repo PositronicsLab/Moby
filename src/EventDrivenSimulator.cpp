@@ -1003,7 +1003,7 @@ double EventDrivenSimulator::calc_CA_step()
   for (unsigned i=0; i< _pairs_to_check.size(); i++)
   {
     const pair<CollisionGeometryPtr, CollisionGeometryPtr>& cgpair = _pairs_to_check[i];
-    double step = _ccd.find_next_contact_time(cgpair.first, cgpair.second);
+    double step = _ccd.calc_CA_step(cgpair.first, cgpair.second);
     dt = std::min(dt, step);
     if (dt <= 0.0)
       return dt;
@@ -1189,7 +1189,7 @@ double EventDrivenSimulator::compute_next_event_time() const
     // check
     if (in_contact.find(make_sorted_pair(cgpair.first, cgpair.second)) == in_contact.end())
     {
-      double step = _ccd.find_next_contact_time(cgpair.first, cgpair.second);
+      double step = _ccd.calc_CA_step(cgpair.first, cgpair.second);
       dt = std::min(dt, step);
     }
   }
