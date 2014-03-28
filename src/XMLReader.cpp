@@ -16,8 +16,13 @@
 #include <Moby/OSGGroupWrapper.h>
 #endif
 
+/*
 #include <Moby/CSG.h>
+#include <Moby/GaussianMixture.h>
+#include <Moby/CylinderPrimitive.h>
+#include <Moby/ConePrimitive.h>
 #include <Moby/TriangleMeshPrimitive.h>
+*/
 #include <Moby/IndexedTetraArray.h>
 #include <Moby/Constants.h>
 #include <Moby/Simulator.h>
@@ -25,10 +30,7 @@
 #include <Moby/RigidBody.h>
 #include <Moby/CollisionGeometry.h>
 #include <Moby/BoxPrimitive.h>
-#include <Moby/GaussianMixture.h>
 #include <Moby/SpherePrimitive.h>
-#include <Moby/CylinderPrimitive.h>
-#include <Moby/ConePrimitive.h>
 #include <Moby/FixedJoint.h>
 //#include <Moby/MCArticulatedBody.h>
 #include <Moby/RCArticulatedBody.h>
@@ -136,6 +138,7 @@ std::map<std::string, BasePtr> XMLReader::read(const std::string& fname)
   // read and construct all primitives
   process_tag("Box", moby_tree, &read_box, id_map);
   process_tag("Sphere", moby_tree, &read_sphere, id_map);
+/*
   process_tag("Cylinder", moby_tree, &read_cylinder, id_map);
   process_tag("Cone", moby_tree, &read_cone, id_map);
   process_tag("TriangleMesh", moby_tree, &read_trimesh, id_map);
@@ -143,6 +146,7 @@ std::map<std::string, BasePtr> XMLReader::read(const std::string& fname)
   process_tag("GaussianMixture", moby_tree, &read_gaussian_mixture, id_map);
   process_tag("PrimitivePlugin", moby_tree, &read_primitive_plugin, id_map);
   process_tag("CSG", moby_tree, &read_CSG, id_map);
+*/
 
   // read and construct all integrators
   process_tag("EulerIntegrator", moby_tree, &read_euler_integrator, id_map);
@@ -315,10 +319,10 @@ void XMLReader::read_cone(shared_ptr<const XMLTree> node, std::map<std::string, 
   assert(strcasecmp(node->name.c_str(), "Cone") == 0);
 
   // create a new ConePrimitive object
-  boost::shared_ptr<Base> b(new ConePrimitive());
+//  boost::shared_ptr<Base> b(new ConePrimitive());
   
   // populate the object
-  b->load_from_xml(node, id_map);
+//  b->load_from_xml(node, id_map);
 }
 
 /// Reads and constructs the CylinderPrimitive object
@@ -328,10 +332,10 @@ void XMLReader::read_cylinder(shared_ptr<const XMLTree> node, std::map<std::stri
   assert(strcasecmp(node->name.c_str(), "Cylinder") == 0);
 
   // create a new CylinderPrimitive object
-  boost::shared_ptr<Base> b(new CylinderPrimitive());
+//  boost::shared_ptr<Base> b(new CylinderPrimitive());
   
   // populate the object
-  b->load_from_xml(node, id_map);
+//  b->load_from_xml(node, id_map);
 }
 
 /// Reads and constructs a CSG object
@@ -341,10 +345,10 @@ void XMLReader::read_CSG(shared_ptr<const XMLTree> node, std::map<std::string, B
   assert(strcasecmp(node->name.c_str(), "CSG") == 0);
 
   // create a new CSG object
-  boost::shared_ptr<Base> b(new CSG());
+//  boost::shared_ptr<Base> b(new CSG());
 
   // populate the object
-  b->load_from_xml(node, id_map);
+//  b->load_from_xml(node, id_map);
 }
 
 /// Reads and constructs the TriangleMeshPrimitive object
@@ -354,10 +358,10 @@ void XMLReader::read_tetramesh(shared_ptr<const XMLTree> node, std::map<std::str
   assert(strcasecmp(node->name.c_str(), "TetraMesh") == 0);
 
   // create a new IndexedTetraArray object
-  boost::shared_ptr<Base> b(new IndexedTetraArray());
+//  boost::shared_ptr<Base> b(new IndexedTetraArray());
   
   // populate the object
-  b->load_from_xml(node, id_map);
+//  b->load_from_xml(node, id_map);
 }
 
 /// Reads and constructs the TriangleMeshPrimitive object
@@ -367,10 +371,10 @@ void XMLReader::read_trimesh(shared_ptr<const XMLTree> node, std::map<std::strin
   assert(strcasecmp(node->name.c_str(), "TriangleMesh") == 0);
 
   // create a new TriangleMeshPrimitive object
-  boost::shared_ptr<Base> b(new TriangleMeshPrimitive());
+//  boost::shared_ptr<Base> b(new TriangleMeshPrimitive());
   
   // populate the object
-  b->load_from_xml(node, id_map);
+//  b->load_from_xml(node, id_map);
 }
 
 /// Reads and constructs the GaussianMixture object
@@ -380,10 +384,10 @@ void XMLReader::read_gaussian_mixture(shared_ptr<const XMLTree> node, std::map<s
   assert(strcasecmp(node->name.c_str(), "GaussianMixture") == 0);
 
   // create a new GaussianMixture object
-  boost::shared_ptr<Base> b(new GaussianMixture());
+//  boost::shared_ptr<Base> b(new GaussianMixture());
   
   // populate the object
-  b->load_from_xml(node, id_map);
+//  b->load_from_xml(node, id_map);
 }
 
 /// Reads and constructs the BoxPrimitive object

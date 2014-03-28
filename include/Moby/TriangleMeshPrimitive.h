@@ -35,10 +35,9 @@ class TriangleMeshPrimitive : public Primitive
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);  
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual BVPtr get_BVH_root(CollisionGeometryPtr geom);
-    virtual void get_vertices(std::vector<Point3d>& vertices);
+    virtual void get_vertices(boost::shared_ptr<const Ravelin::Pose3d> P, std::vector<Point3d>& vertices);
     virtual double calc_dist_and_normal(const Point3d& p, Ravelin::Vector3d& normal) const;
-    virtual const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >& get_sub_mesh(BVPtr bv);
-    virtual boost::shared_ptr<const IndexedTriArray> get_mesh() { return _mesh; }
+    virtual boost::shared_ptr<const IndexedTriArray> get_mesh(boost::shared_ptr<const Ravelin::Pose3d> P) { return _mesh; }
     virtual void set_deformable(bool flag);
     void set_mesh(boost::shared_ptr<const IndexedTriArray> mesh);
     virtual void set_pose(const Ravelin::Pose3d& T);

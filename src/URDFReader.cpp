@@ -20,18 +20,20 @@
 #include <osgDB/ReadFile>
 #endif
 
-#include <Ravelin/AAngled.h>
-#include <Moby/CSG.h>
-#include <Moby/Primitive.h>
+/*
 #include <Moby/TriangleMeshPrimitive.h>
+#include <Moby/CSG.h>
+#include <Moby/CylinderPrimitive.h>
+#include <Moby/ConePrimitive.h>
+*/
+#include <Ravelin/AAngled.h>
+#include <Moby/Primitive.h>
 #include <Moby/IndexedTetraArray.h>
 #include <Moby/Constants.h>
 #include <Moby/RigidBody.h>
 #include <Moby/CollisionGeometry.h>
 #include <Moby/BoxPrimitive.h>
 #include <Moby/SpherePrimitive.h>
-#include <Moby/CylinderPrimitive.h>
-#include <Moby/ConePrimitive.h>
 #include <Moby/FixedJoint.h>
 #include <Moby/MCArticulatedBody.h>
 #include <Moby/RCArticulatedBody.h>
@@ -817,12 +819,12 @@ PrimitivePtr URDFReader::read_primitive(shared_ptr<const XMLTree> node, URDFData
       // read geometry 
       if ((primitive = read_box(*i, data)))
         return primitive;
-      else if ((primitive = read_cylinder(*i, data)))
-        return primitive;
+//      else if ((primitive = read_cylinder(*i, data)))
+//        return primitive;
       else if ((primitive = read_sphere(*i, data)))
         return primitive;
-      else if ((primitive = read_trimesh(*i, data)))
-        return primitive;
+//      else if ((primitive = read_trimesh(*i, data)))
+//        return primitive;
     }
   }
 
@@ -854,6 +856,7 @@ shared_ptr<BoxPrimitive> URDFReader::read_box(shared_ptr<const XMLTree> node, UR
   return shared_ptr<BoxPrimitive>();
 }
 
+/*
 /// Reads a trimesh primitive
 shared_ptr<TriangleMeshPrimitive> URDFReader::read_trimesh(shared_ptr<const XMLTree> node, URDFData& data)
 {
@@ -907,6 +910,7 @@ shared_ptr<CylinderPrimitive> URDFReader::read_cylinder(shared_ptr<const XMLTree
 
   return shared_ptr<CylinderPrimitive>();
 }
+*/
 
 /// Reads a sphere primitive
 shared_ptr<SpherePrimitive> URDFReader::read_sphere(shared_ptr<const XMLTree> node, URDFData& data)

@@ -955,13 +955,13 @@ void EventDrivenSimulator::update_constraint_violations()
     BOOST_FOREACH(CollisionGeometryPtr cg2, _geometries)
     {
       // if cg1 == cg2 or bodies are disabled for checking, skip
-      if (cg1 == cg2 || unchecked_pairs.find(make_sorted_pair(cg1, cg2)) != unchecked_pairs.end())
+      if (cg1.get() <= cg2.get() || unchecked_pairs.find(make_sorted_pair(cg1, cg2)) != unchecked_pairs.end())
         continue;
 
       // compute the distance between the two bodies
       Point3d p1, p2;
       double d = CollisionGeometry::calc_signed_dist(cg1, cg2, p1, p2);
-      FILE_LOG(LOG_SIMULATOR) << " -- signed distance: " << d << std::endl;
+      FILE_LOG(LOG_SIMULATOR) << " -- signed distance between " << cg1->get_single_body()->id << " and " << cg2->get_single_body()->id << ": " << d << std::endl;
       if (d <= 0)
         _ip_tolerances[make_sorted_pair(cg1, cg2)] = d;
       else
@@ -1185,13 +1185,12 @@ double EventDrivenSimulator::compute_next_event_time() const
   {
     const pair<CollisionGeometryPtr, CollisionGeometryPtr>& cgpair = _pairs_to_check[i];
 
-    // if there is currently a contact even between the geometries, do not
-    // check
-    if (in_contact.find(make_sorted_pair(cgpair.first, cgpair.second)) == in_contact.end())
-    {
-      double step = _ccd.find_next_contact_time(cgpair.first, cgpair.second);
-      dt = std::min(dt, step);
-    }
+    // if there is currently a contact event between the geometries *and* the
+    // step is zero, ignore
+    double step = _ccd.find_next_contact_time(cgpair.first, cgpair.second);
+    if (step <= 0.0 && in_contact.find(make_sorted_pair(cgpair.first, cgpair.second)) != in_contact.end())
+      continue;
+    dt = std::min(dt, step);
   }
 
   return dt;
@@ -1249,6 +1248,8 @@ void EventDrivenSimulator::step_si_Euler(double dt)
     // update s and the current time
     current_time += h;
   }
+
+  FILE_LOG(LOG_SIMULATOR) << "-- semi-implicit Euler step completed" << std::endl;
 }
 
 /// Implements Base::load_from_xml()

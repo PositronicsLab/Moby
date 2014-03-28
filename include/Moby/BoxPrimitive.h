@@ -29,15 +29,14 @@ class BoxPrimitive : public Primitive
     virtual BVPtr get_BVH_root(CollisionGeometryPtr geom);
     virtual double calc_dist_and_normal(const Point3d& point, Ravelin::Vector3d& normal) const;
     double calc_closest_point(const Point3d& point, Point3d& closest) const;
-    virtual const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >& get_sub_mesh(BVPtr bv);
     virtual void set_pose(const Ravelin::Pose3d& T);
     void set_edge_sample_length(double len);
-    virtual boost::shared_ptr<const IndexedTriArray> get_mesh();
+    virtual boost::shared_ptr<const IndexedTriArray> get_mesh(boost::shared_ptr<const Ravelin::Pose3d> P);
     virtual osg::Node* create_visualization();
-    double calc_signed_dist(boost::shared_ptr<const SpherePrimitive> s, boost::shared_ptr<const Ravelin::Pose3d> pose_this, boost::shared_ptr<const Ravelin::Pose3d> pose_sph, Point3d& pthis, Point3d& psph) const;
-    virtual double calc_signed_dist(boost::shared_ptr<const Primitive> p, boost::shared_ptr<const Ravelin::Pose3d> pose_this, boost::shared_ptr<const Ravelin::Pose3d> pose_p, Point3d& pthis, Point3d& pp) const;
-    double calc_signed_dist(boost::shared_ptr<const BoxPrimitive> box, boost::shared_ptr<const Ravelin::Pose3d> pose_this, boost::shared_ptr<const Ravelin::Pose3d> pose_box, Point3d& pthis, Point3d& pbox) const;
-    virtual void get_vertices(std::vector<Point3d>& p);
+    double calc_signed_dist(boost::shared_ptr<const SpherePrimitive> s, Point3d& pthis, Point3d& psph) const;
+    virtual double calc_signed_dist(boost::shared_ptr<const Primitive> p, Point3d& pthis, Point3d& pp) const;
+    double calc_signed_dist(boost::shared_ptr<const BoxPrimitive> box, Point3d& pthis, Point3d& pbox) const;
+    virtual void get_vertices(boost::shared_ptr<const Ravelin::Pose3d> P, std::vector<Point3d>& p);
     virtual double calc_signed_dist(const Point3d& p);
 
     /// Get the x-length of this box
@@ -51,16 +50,11 @@ class BoxPrimitive : public Primitive
 
   private:
     enum FaceID { ePOSX, eNEGX, ePOSY, eNEGY, ePOSZ, eNEGZ };
-    void determine_normal(const Ravelin::Vector3d& lengths, const Point3d& p, boost::shared_ptr<const Ravelin::Pose3d> P, Ravelin::Vector3d& normal) const;
-    bool determine_normal_abs(const Ravelin::Vector3d& lengths, const Point3d& p, boost::shared_ptr<const Ravelin::Pose3d> P, Ravelin::Vector3d& normal) const;
 
     virtual void calc_mass_properties();
 
     /// The maximum edge length for the box
     double _edge_sample_length;
-
-    /// Pointer to the determined mesh (w/transform applied), if any
-    boost::shared_ptr<IndexedTriArray> _mesh;
 
     /// Map from the geometry to the vector of vertices (w/transform and intersection tolerance applied), if any
     std::map<CollisionGeometryPtr, std::vector<Point3d> > _vertices;
@@ -70,10 +64,6 @@ class BoxPrimitive : public Primitive
 
     /// The box lengths
     double _xlen, _ylen, _zlen;
-
-    /// The "sub" mesh 
-    std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> > _smesh;
-
 }; // end class
 } // end namespace
 

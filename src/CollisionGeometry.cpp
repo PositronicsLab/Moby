@@ -17,6 +17,7 @@
 
 using std::vector;
 using boost::dynamic_pointer_cast;
+using boost::const_pointer_cast;
 using boost::shared_ptr;
 using namespace Ravelin;
 using namespace Moby;
@@ -32,22 +33,19 @@ Point3d CollisionGeometry::get_supporting_point(const Vector3d& d) const
 {
   // get the primitive from this
   PrimitivePtr primitive = get_geometry();
-  assert(!primitive->get_pose()->rpose);
 
-  // setup a new pose 
-  shared_ptr<Pose3d> P(new Pose3d(*primitive->get_pose()));
-  P->rpose = get_pose();
+  // get this
+  shared_ptr<const CollisionGeometry> cg_const = dynamic_pointer_cast<const CollisionGeometry>(shared_from_this());
+  CollisionGeometryPtr cg = const_pointer_cast<CollisionGeometry>(cg_const);
+
+  // get the pose for this
+  shared_ptr<const Pose3d> P = primitive->get_pose(cg);
 
   // transform the vector
   Vector3d dir = Pose3d::transform_vector(P, d);
 
   // get the supporting point from the primitive
-  Point3d sp = primitive->get_supporting_point(dir);
-  
-  // setup the pose for the supporting point 
-  sp.pose = P;
-
-  return Pose3d::transform_point(get_pose(), sp);  
+  return primitive->get_supporting_point(dir);
 }
 
 /// Gets the farthest point from this geometry
@@ -55,7 +53,6 @@ double CollisionGeometry::get_farthest_point_distance() const
 {
   // get the primitive from this
   PrimitivePtr primitive = get_geometry();
-  assert(!primitive->get_pose()->rpose);
 
   // get the vertices
   vector<Point3d> verts;
@@ -109,6 +106,10 @@ PrimitivePtr CollisionGeometry::set_geometry(PrimitivePtr primitive)
   // save the primitive
   _geometry = primitive;
 
+  // add this to the primitive
+  CollisionGeometryPtr cg = dynamic_pointer_cast<CollisionGeometry>(shared_from_this());
+  primitive->add_collision_geometry(cg);
+
   return primitive;
 }
 
@@ -117,25 +118,17 @@ void CollisionGeometry::get_vertices(std::vector<Point3d>& vertices) const
 {
   // get the primitive from this
   PrimitivePtr primitive = get_geometry();
-  assert(!primitive->get_pose()->rpose);
 
-  // setup a new pose 
-  shared_ptr<Pose3d> P(new Pose3d(*primitive->get_pose()));
-  P->rpose = get_pose();
+  // get a pointer to this
+  shared_ptr<const CollisionGeometry> cg_const = dynamic_pointer_cast<const CollisionGeometry>(shared_from_this());
+  CollisionGeometryPtr cg = const_pointer_cast<CollisionGeometry>(cg_const);
 
+  // get the pose for this
+  shared_ptr<const Pose3d> P = primitive->get_pose(cg);
+ 
   // get the vertices from the primitive
   vertices.clear();
-  primitive->get_vertices(vertices);
-  
-  // setup transforms for transforming points from P to this pose
-  Transform3d T = Pose3d::calc_relative_pose(P, get_pose());
-
-  // change the pose for all vertices
-  for (unsigned i=0; i< vertices.size(); i++)
-  {
-    vertices[i].pose = P;
-    vertices[i] = T.transform_point(vertices[i]);
-  } 
+  primitive->get_vertices(P, vertices);
 }
 
 /// Writes the collision geometry mesh to the specified VRML file
@@ -160,10 +153,15 @@ void CollisionGeometry::write_vrml(const std::string& filename) const
   out << "  rotation " << aa.x << " " << aa.y << " " << aa.z << " " << aa.angle << std::endl;
   out << "  translation " << P[X] << " " << P[Y] << " " << P[Z] << std::endl;
   out << "  children [" << std::endl;
-  
+ 
+  // get the vertices according to this pose
+  shared_ptr<const CollisionGeometry> cg_const = dynamic_pointer_cast<const CollisionGeometry>(shared_from_this());
+  CollisionGeometryPtr cg = const_pointer_cast<CollisionGeometry>(cg_const);
+  shared_ptr<const Pose3d> pose = _geometry->get_pose(cg);
+ 
   // get the geometry
-  const std::vector<Origin3d>& vertices = _geometry->get_mesh()->get_vertices();
-  const std::vector<IndexedTri>& facets = _geometry->get_mesh()->get_facets();
+  const std::vector<Origin3d>& vertices = _geometry->get_mesh(pose)->get_vertices();
+  const std::vector<IndexedTri>& facets = _geometry->get_mesh(pose)->get_facets();
 
   // write the mesh
   out << "   Shape {" << std::endl;
@@ -211,15 +209,13 @@ double CollisionGeometry::calc_dist_and_normal(const Point3d& p, Vector3d& norma
 {
   // get the primitive from this
   PrimitivePtr primitive = get_geometry();
-  assert(!primitive->get_pose()->rpose);
 
-  // setup new pose for primitive that refers to the underlying geometry
-  shared_ptr<Pose3d> Pose(new Pose3d(*primitive->get_pose()));
-  Pose->rpose = get_pose();
+  // get the collision geometry
+  shared_ptr<const CollisionGeometry> cg_const = dynamic_pointer_cast<const CollisionGeometry>(shared_from_this());
+  CollisionGeometryPtr cg = const_pointer_cast<CollisionGeometry>(cg_const);
 
-  // transform point to the primitive space
-  Point3d px = Pose3d::transform_point(Pose, p);
-  px.pose = primitive->get_pose();
+  // setup a new point with a new pose
+  Point3d px = Pose3d::transform_point(primitive->get_pose(cg), p);
 
   // call the primitive function
   return primitive->calc_dist_and_normal(px, normal);
@@ -230,15 +226,12 @@ double CollisionGeometry::calc_signed_dist(const Point3d& p)
 {
   // get the primitive from this
   PrimitivePtr primitive = get_geometry();
-  assert(!primitive->get_pose()->rpose);
 
-  // setup new pose for primitive that refers to the underlying geometry
-  shared_ptr<Pose3d> Pose(new Pose3d(*primitive->get_pose()));
-  Pose->rpose = get_pose();
+  // get the collision geometry
+  CollisionGeometryPtr cg = dynamic_pointer_cast<CollisionGeometry>(shared_from_this());
 
-  // transform point to the primitive space
-  Point3d px = Pose3d::transform_point(Pose, p);
-  px.pose = primitive->get_pose();
+  // setup a new point with a new pose
+  Point3d px = Pose3d::transform_point(primitive->get_pose(cg), p);
 
   // call the primitive function
   return primitive->calc_signed_dist(px);
@@ -251,20 +244,12 @@ double CollisionGeometry::calc_signed_dist(CollisionGeometryPtr gA, CollisionGeo
   PrimitivePtr primA = gA->get_geometry();
   PrimitivePtr primB = gB->get_geometry();
 
-  // verify that both primitives are setup with respect to the global frame
-  assert(!primA->get_pose()->rpose);
-  assert(!primB->get_pose()->rpose);
-
-  // setup new pose for primitive A that refers to the underlying geometry
-  shared_ptr<Pose3d> PoseA(new Pose3d(*primA->get_pose()));
-  PoseA->rpose = gA->get_pose();
-
-  // setup new pose for primitive B that refers to the underlying geometry
-  shared_ptr<Pose3d> PoseB(new Pose3d(*primB->get_pose()));
-  PoseB->rpose = gB->get_pose();
+  // setup poses for the points
+  pA.pose = primA->get_pose(gA);
+  pB.pose = primB->get_pose(gB);
 
   // now compute the signed distance
-  return primA->calc_signed_dist(primB, PoseA, PoseB, pA, pB);
+  return primA->calc_signed_dist(primB, pA, pB);
 }
 
 /*

@@ -120,38 +120,29 @@ OutputIterator CCD::find_contacts_box_sphere(CollisionGeometryPtr cgA, Collision
   boost::shared_ptr<BoxPrimitive> bA = boost::dynamic_pointer_cast<BoxPrimitive>(cgA->get_geometry());
   boost::shared_ptr<SpherePrimitive> sB = boost::dynamic_pointer_cast<SpherePrimitive>(cgB->get_geometry());
 
-  // setup new pose for primitive A that refers to the underlying geometry
-  boost::shared_ptr<Ravelin::Pose3d> PoseA(new Ravelin::Pose3d(*bA->get_pose()));
-  PoseA->rpose = cgA->get_pose();
-
-  // setup new pose for primitive B that refers to the underlying geometry
-  boost::shared_ptr<Ravelin::Pose3d> PoseB(new Ravelin::Pose3d(*sB->get_pose()));
-  PoseB->rpose = cgB->get_pose();
+  // get the relevant poses for both 
+  boost::shared_ptr<const Ravelin::Pose3d> box_pose = bA->get_pose(cgA);
+  boost::shared_ptr<const Ravelin::Pose3d> sphere_pose = sB->get_pose(cgB);
 
   // get the sphere center in a's frame 
-  Point3d sph_c(0.0, 0.0, 0.0, PoseB);
-  Point3d sph_c_A = Ravelin::Pose3d::transform_point(PoseA, sph_c);
-
-  // update frame on sph_c_A to match this
-  sph_c_A.pose = bA->get_pose();
+  Point3d sph_c(0.0, 0.0, 0.0, sphere_pose);
+  Point3d sph_c_A = Ravelin::Pose3d::transform_point(box_pose, sph_c);
 
   // get the closest point
-  Point3d pbox;
+  Point3d pbox(box_pose);
   double dist = bA->calc_closest_point(sph_c_A, pbox) - sB->get_radius();
   FILE_LOG(LOG_COLDET) << "CCD::find_contacts_box_sphere(): distance is " << dist << std::endl;
   if (dist > NEAR_ZERO)
     return o;
 
-  // transform point on box
-  pbox.pose = PoseA;
-
   // compute farthest interpenetration of box inside sphere
-  Point3d box_c(0.0, 0.0, 0.0, PoseA);
+  Point3d box_c(0.0, 0.0, 0.0, box_pose);
   Ravelin::Vector3d normal = Ravelin::Pose3d::transform_point(GLOBAL, box_c);
   normal.normalize();
 
   // determine closest point on the sphere 
-  Point3d psph = normal * (sB->get_radius() + std::min(dist, 0.0));
+  Point3d psph = Ravelin::Pose3d::transform_point(GLOBAL, sph_c);
+  psph += normal * (sB->get_radius() + std::min(dist, 0.0));
 
   // if the distance is greater than zero, return the midpoint
   Point3d p;
