@@ -29,14 +29,13 @@ class SpherePrimitive : public Primitive
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual void set_pose(const Ravelin::Pose3d& T);
-    virtual void get_vertices(std::vector<Point3d>& vertices);
+    virtual void get_vertices(boost::shared_ptr<const Ravelin::Pose3d> P, std::vector<Point3d>& vertices);
     virtual BVPtr get_BVH_root(CollisionGeometryPtr geom);
     virtual double calc_dist_and_normal(const Point3d& p, Ravelin::Vector3d& normal) const;
-    virtual const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >& get_sub_mesh(BVPtr bv);
-    virtual double calc_signed_dist(boost::shared_ptr<const Primitive> p, boost::shared_ptr<const Ravelin::Pose3d> pose_this, boost::shared_ptr<const Ravelin::Pose3d> pose_p, Point3d& pthis, Point3d& pp) const;
-    virtual boost::shared_ptr<const IndexedTriArray> get_mesh();
+    virtual double calc_signed_dist(boost::shared_ptr<const Primitive> p, Point3d& pthis, Point3d& pp) const;
+    virtual boost::shared_ptr<const IndexedTriArray> get_mesh(boost::shared_ptr<const Ravelin::Pose3d> P);
     virtual osg::Node* create_visualization();
-    double calc_signed_dist(boost::shared_ptr<const SpherePrimitive> s, boost::shared_ptr<const Ravelin::Pose3d> pose_this, boost::shared_ptr<const Ravelin::Pose3d> pose_s, Point3d& pthis, Point3d& psph) const;
+    double calc_signed_dist(boost::shared_ptr<const SpherePrimitive> s, Point3d& pthis, Point3d& psph) const;
     virtual Point3d get_supporting_point(const Ravelin::Vector3d& d);
     virtual double calc_signed_dist(const Point3d& p);
 
@@ -63,9 +62,6 @@ class SpherePrimitive : public Primitive
 
     /// Number of points used to create collision geometry
     unsigned _npoints;
-
-    /// The "sub" mesh 
-    std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> > _smesh;
 }; // end class
 
 } // end namespace

@@ -65,9 +65,14 @@ double CCD::find_next_contact_time(CollisionGeometryPtr cgA, CollisionGeometryPt
   double dist = CollisionGeometry::calc_signed_dist(cgA, cgB, pA, pB);
   FILE_LOG(LOG_COLDET) << " -- CCD: reported distance: " << dist << std::endl;
 
+  // get the two underlying bodies
+  RigidBodyPtr rbA = dynamic_pointer_cast<RigidBody>(cgA->get_single_body());
+  RigidBodyPtr rbB = dynamic_pointer_cast<RigidBody>(cgB->get_single_body());
+  FILE_LOG(LOG_COLDET) << "rigid body A: " << rbA->id << "  rigid body B: " << rbB->id << std::endl;
+
   // special case: distance is zero or less
-  if (dist <= NEAR_ZERO)
-    return std::numeric_limits<double>::max();
+  if (dist <= 0.0)
+    return 0.0;
 
   // get the closest points in the global frame
   Point3d pA0 = Pose3d::transform_point(GLOBAL, pA);
@@ -76,14 +81,11 @@ double CCD::find_next_contact_time(CollisionGeometryPtr cgA, CollisionGeometryPt
   // get the direction of the vector from body B to body A
   Vector3d d0 =  pA0 - pB0;
   double d0_norm = d0.norm();
+
   FILE_LOG(LOG_COLDET) << " closest point on A: " << pA0 << std::endl;
   FILE_LOG(LOG_COLDET) << " closest point on B: " << pB0 << std::endl;
-  FILE_LOG(LOG_COLDET) << "distance between closest points is: " << d0_norm << std::endl;
-  FILE_LOG(LOG_COLDET) << "reported distance is: " << dist << std::endl;
-
-  // get the two underlying bodies
-  RigidBodyPtr rbA = dynamic_pointer_cast<RigidBody>(cgA->get_single_body());
-  RigidBodyPtr rbB = dynamic_pointer_cast<RigidBody>(cgB->get_single_body());
+  FILE_LOG(LOG_COLDET) << " distance between closest points is: " << d0_norm << std::endl;
+  FILE_LOG(LOG_COLDET) << " reported distance is: " << dist << std::endl;
 
   // get the direction of the vector (from body B to body A)
   Vector3d n0 = d0/d0_norm;
@@ -104,6 +106,7 @@ double CCD::find_next_contact_time(CollisionGeometryPtr cgA, CollisionGeometryPt
   FILE_LOG(LOG_COLDET) << " -- CCD: normal: " << n0 << std::endl;
   FILE_LOG(LOG_COLDET) << " -- CCD: projected velocity from A: " << velA << std::endl;
   FILE_LOG(LOG_COLDET) << " -- CCD: projected velocity from B: " << velB << std::endl;
+  FILE_LOG(LOG_COLDET) << " -- computed maximum safe step: " << (dist/total_vel) << std::endl;
 
   // compute the maximum safe step
   return dist/total_vel;

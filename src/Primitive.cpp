@@ -12,6 +12,7 @@
 #include <queue>
 #include <Moby/Constants.h>
 #include <Moby/XMLTree.h>
+#include <Moby/CollisionGeometry.h>
 #include <Moby/Primitive.h>
 
 using boost::shared_ptr;
@@ -25,7 +26,9 @@ using std::make_pair;
 using std::pair;
 using std::map;
 using std::cerr;
+using boost::weak_ptr;
 using boost::dynamic_pointer_cast;
+using boost::const_pointer_cast;
 
 #ifdef USE_OSG
 /// Copies this matrix to an OpenSceneGraph Matrixd object
@@ -57,7 +60,6 @@ Primitive::Primitive()
   _jF = shared_ptr<Pose3d>(new Pose3d);
   _jF->rpose = _F;
   _J.pose = _jF;
-  _deformable = false;
 
   // set visualization members to NULL
   _vtransform = NULL;
@@ -71,7 +73,6 @@ Primitive::Primitive(const Pose3d& F)
   _jF->rpose = _F;
   _J.pose = _jF;
   *_F = F; 
-  _deformable = false;
 
   // set visualization members to NULL
   _vtransform = NULL;
@@ -83,6 +84,39 @@ Primitive::~Primitive()
   if (_vtransform)
     _vtransform->unref();
   #endif
+}
+
+/// Adds a collision geometry
+void Primitive::add_collision_geometry(CollisionGeometryPtr g)
+{
+  shared_ptr<Pose3d>& P = _cg_poses[g];
+  if (P)
+    return;
+
+  P = shared_ptr<Pose3d>(new Pose3d(*get_pose()));
+  P->rpose = g->get_pose();
+  _poses.insert(P);
+}
+
+/// Removes a collision geometry
+void Primitive::remove_collision_geometry(CollisionGeometryPtr g)
+{
+  map<weak_ptr<CollisionGeometry>, shared_ptr<Pose3d> >::iterator i = _cg_poses.find(g);
+  if (i == _cg_poses.end())
+    throw std::runtime_error("Primitive::get_pose() - collision geometry not found!");
+
+  assert(_poses.find(i->second) != _poses.end());
+  _poses.erase(i->second);
+  _cg_poses.erase(i);  
+}
+
+/// Gets the pose of this primitive relative to a particular collision geometry 
+shared_ptr<const Pose3d> Primitive::get_pose(CollisionGeometryPtr g) const
+{
+  map<weak_ptr<CollisionGeometry>, shared_ptr<Pose3d> >::const_iterator i = _cg_poses.find(g);
+  if (i == _cg_poses.end())
+    throw std::runtime_error("Primitive::get_pose() - collision geometry not found!");
+  return i->second;
 }
 
 /// Calculates the signed distance from this primitive
@@ -99,9 +133,11 @@ Point3d Primitive::get_supporting_point(const Vector3d& dir)
   double max_dot = -std::numeric_limits<double>::max();
   Point3d maxp;
 
+  assert(_poses.find(const_pointer_cast<Pose3d>(dir.pose)) != _poses.end());
+
   // get all vertices
   vector<Point3d> vertices;
-  get_vertices(vertices);
+  get_vertices(dir.pose, vertices);
   if (vertices.empty())
     return Point3d(0,0,0,get_pose());
 
@@ -289,8 +325,19 @@ void Primitive::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >&
 /// Sets the transform for this primitive -- transforms mesh and inertial properties (if calculated)
 void Primitive::set_pose(const Pose3d& F)
 {
+  // make sure that the relative pose is GLOBAL
+  if (F.rpose)
+    throw std::runtime_error("Primitive::set_pose() - attempted to set pose with non-global relative pose");
+
   // save the new transform
   *_F = F;
+
+  // copy to all underlying poses
+  BOOST_FOREACH(shared_ptr<Pose3d> p, _poses)
+  {
+    p->x = F.x;
+    p->q = F.q;
+  }
 
   #ifdef USE_OSG
   if (_vtransform)

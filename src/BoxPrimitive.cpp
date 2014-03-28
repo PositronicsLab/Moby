@@ -20,6 +20,7 @@
 using namespace Ravelin;
 using namespace Moby;
 using boost::shared_ptr;
+using boost::const_pointer_cast; 
 using boost::dynamic_pointer_cast; 
 using std::map;
 using std::list;
@@ -70,17 +71,17 @@ BoxPrimitive::BoxPrimitive(double xlen, double ylen, double zlen, const Pose3d& 
 }
 
 /// Computes the signed distance from the box to a primitive
-double BoxPrimitive::calc_signed_dist(shared_ptr<const Primitive> p, shared_ptr<const Pose3d> poseA, shared_ptr<const Pose3d> poseB, Point3d& pthis, Point3d& pp) const
+double BoxPrimitive::calc_signed_dist(shared_ptr<const Primitive> p, Point3d& pthis, Point3d& pp) const
 {
   // first try box/box
   shared_ptr<const BoxPrimitive> boxp = dynamic_pointer_cast<const BoxPrimitive>(p);
   if (boxp)
-    return calc_signed_dist(boxp, poseA, poseB, pthis, pp);
+    return calc_signed_dist(boxp, pthis, pp);
   
   // now try box/sphere
   shared_ptr<const SpherePrimitive> spherep = dynamic_pointer_cast<const SpherePrimitive>(p);
   if (spherep)
-    return calc_signed_dist(spherep, poseA, poseB, pthis, pp);
+    return calc_signed_dist(spherep, pthis, pp);
 
   // TODO: verify transform is set in the proper order
   // TODO: finish implementing pairwise checks
@@ -88,53 +89,30 @@ double BoxPrimitive::calc_signed_dist(shared_ptr<const Primitive> p, shared_ptr<
 }
 
 /// Computes the signed distance from one box to another
-double BoxPrimitive::calc_signed_dist(shared_ptr<const BoxPrimitive> box, shared_ptr<const Pose3d> poseA, shared_ptr<const Pose3d> poseB, Point3d& pthis, Point3d& pbox) const
+double BoxPrimitive::calc_signed_dist(shared_ptr<const BoxPrimitive> box, Point3d& pthis, Point3d& pbox) const
 {
   // TODO: use NewCCD version on merge with NewCCD branch
   return 0.0;
 }
 
 /// Gets the distance of this box from a sphere
-double BoxPrimitive::calc_signed_dist(shared_ptr<const SpherePrimitive> s, shared_ptr<const Pose3d> pose_this, shared_ptr<const Pose3d> pose_s, Point3d& pbox, Point3d& psph) const
+double BoxPrimitive::calc_signed_dist(shared_ptr<const SpherePrimitive> s, Point3d& pbox, Point3d& psph) const
 {
-  // get the transform from B to A
-  Transform3d T = Pose3d::calc_relative_pose(pose_s, pose_this);
-
-  // get the sphere center in pose A's frame 
-  Point3d sph_c(0.0, 0.0, 0.0, pose_s);
-  Point3d sph_c_A = T.transform_point(sph_c);
-
-  // update frame on sph_c_A to match this
-  sph_c_A.pose = get_pose();
+  // get the sphere center in this frame 
+  Point3d sph_c(0.0, 0.0, 0.0, psph.pose);
+  Point3d sph_c_A = Pose3d::transform_point(pbox.pose, sph_c);
 
   // get the closest point
   double dist = calc_closest_point(sph_c_A, pbox) - s->get_radius();
 
+  // get the vector from the center of the sphere to the box
+  Vector3d v = Vector3d::normalize(Pose3d::transform_point(psph.pose, pbox));
+
   // compute point on sphere 
-  psph = Point3d::normalize(sph_c_A - pbox)*(s->get_radius() + std::min(dist,0.0));
+  psph = sph_c + v*(s->get_radius() + std::min(dist,0.0));
 
-  // transform point on box
-  psph.pose = pose_s;
-  pbox.pose = pose_this;
-//  psph = Pose3d::transform_point(pose_s, psph);
-//  pbox = Pose3d::transform_point(pose_this, pbox);
-
-/*
-  psph = Pose3d::transform_vector(pose_s, pbox);
-  psph.normalize();
-  psph *= (s->get_radius() + std::min(dist, 0.0));
-*/
   return dist;
 }
-
-/// Gets a sub-mesh for the primitive
-const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >& BoxPrimitive::get_sub_mesh(BVPtr bv)
-{
-  if (!_smesh.first)
-    get_mesh(); 
-  return _smesh;
-}
-
 
 /// Sets the size of this box
 /**
@@ -149,12 +127,6 @@ void BoxPrimitive::set_size(double xlen, double ylen, double zlen)
   _zlen = zlen;
   if (_xlen < 0.0 && _ylen < 0.0 && _zlen < 0.0)
     throw std::runtime_error("Attempting to pass negative box dimensions to BoxPrimitive::set_size()");
-
-  // mesh, vertices are no longer valid
-  _mesh = shared_ptr<IndexedTriArray>();
-  _vertices.clear();
-  _smesh = pair<shared_ptr<IndexedTriArray>, list<unsigned> >();
-  _invalidated = true;
 
   // recalculate the mass properties
   calc_mass_properties();
@@ -176,10 +148,6 @@ void BoxPrimitive::set_size(double xlen, double ylen, double zlen)
 void BoxPrimitive::set_edge_sample_length(double len)
 {
   _edge_sample_length = len;
-
-  // vertices are no longer valid
-  _vertices.clear();
-  _invalidated = true;
 }
 
 /// Transforms the primitive
@@ -194,38 +162,12 @@ void BoxPrimitive::set_pose(const Pose3d& p)
   // go ahead and set the new transform
   Primitive::set_pose(p);
 
-  // invalidate the mesh 
-  _mesh.reset();
-  _smesh.first.reset();
-  _smesh.second.clear();
-
-  // invalidate this primitive (in case it is part of a CSG)
-  _invalidated = true;
-
-  // clear the set of vertices 
-  _vertices.clear();
-
-  // transform bounding volumes
-  for (map<CollisionGeometryPtr, OBBPtr>::iterator i = _obbs.begin(); i != _obbs.end(); i++)
-  {
-    // get the pose for the geometry
-    shared_ptr<const Pose3d> gpose = i->first->get_pose();
-
-    // verify that this pose is defined w.r.t. the global frame
-    shared_ptr<const Pose3d> P = get_pose();
-    assert(!P->rpose);
-
-    // setup the obb center and orientation
-    i->second->center = Point3d(P->x, gpose);
-    i->second->R = P->q;
-  }
-
   // recalculate the mass properties
   calc_mass_properties();
 }
 
 /// Gets the set of vertices for the BoxPrimitive
-void BoxPrimitive::get_vertices(vector<Point3d>& verts) 
+void BoxPrimitive::get_vertices(shared_ptr<const Pose3d> P, vector<Point3d>& verts) 
 {
   // clear the set of vertices
   verts.clear();
@@ -234,9 +176,8 @@ void BoxPrimitive::get_vertices(vector<Point3d>& verts)
   if (_xlen <= 0.0 || _ylen <= 0.0 || _zlen <= 0.0)
     return;
 
-  // verify that this pose is defined w.r.t. the global frame
-  shared_ptr<const Pose3d> P = get_pose();
-  assert(!P->rpose);
+  // verify that the pose is found
+  assert(_poses.find(const_pointer_cast<Pose3d>(P)) != _poses.end());
 
   // setup half-lengths
   const double XLEN = _xlen*(double) 0.5;
@@ -433,55 +374,44 @@ void BoxPrimitive::get_vertices(CollisionGeometryPtr geom, vector<const Point3d*
 */
 
 /// Recomputes the triangle mesh for the BoxPrimitive
-shared_ptr<const IndexedTriArray> BoxPrimitive::get_mesh()
+shared_ptr<const IndexedTriArray> BoxPrimitive::get_mesh(shared_ptr<const Pose3d> P)
 {
-  // create the mesh if necessary
-  if (!_mesh)
-  {
-    const unsigned BOX_VERTS = 8, BOX_FACETS = 12;
+  // create the mesh
+  const unsigned BOX_VERTS = 8, BOX_FACETS = 12;
 
-    // setup lengths
-    double XLEN = _xlen * (double) 0.5;
-    double YLEN = _ylen * (double) 0.5;
-    double ZLEN = _zlen * (double) 0.5;
+  // setup lengths
+  double XLEN = _xlen * (double) 0.5;
+  double YLEN = _ylen * (double) 0.5;
+  double ZLEN = _zlen * (double) 0.5;
 
-    // need eight vertices
-    Point3d verts[BOX_VERTS];
-    verts[0] = Point3d(XLEN,YLEN,ZLEN);
-    verts[1] = Point3d(XLEN,YLEN,-ZLEN);
-    verts[2] = Point3d(XLEN,-YLEN,ZLEN);
-    verts[3] = Point3d(XLEN,-YLEN,-ZLEN);
-    verts[4] = Point3d(-XLEN,YLEN,ZLEN);
-    verts[5] = Point3d(-XLEN,YLEN,-ZLEN);
-    verts[6] = Point3d(-XLEN,-YLEN,ZLEN);
-    verts[7] = Point3d(-XLEN,-YLEN,-ZLEN);
+  // need eight vertices
+  Point3d verts[BOX_VERTS];
+  verts[0] = Point3d(XLEN,YLEN,ZLEN,P);
+  verts[1] = Point3d(XLEN,YLEN,-ZLEN,P);
+  verts[2] = Point3d(XLEN,-YLEN,ZLEN,P);
+  verts[3] = Point3d(XLEN,-YLEN,-ZLEN,P);
+  verts[4] = Point3d(-XLEN,YLEN,ZLEN,P);
+  verts[5] = Point3d(-XLEN,YLEN,-ZLEN,P);
+  verts[6] = Point3d(-XLEN,-YLEN,ZLEN,P);
+  verts[7] = Point3d(-XLEN,-YLEN,-ZLEN,P);
 
-    // create 12 new triangles, making sure to do so ccw
-    IndexedTri facets[BOX_FACETS];
-    facets[0] = IndexedTri(3, 1, 0);
-    facets[1] = IndexedTri(0, 2, 3);
-    facets[2] = IndexedTri(0, 1, 5);
-    facets[3] = IndexedTri(5, 4, 0);
-    facets[4] = IndexedTri(6, 2, 0);
-    facets[5] = IndexedTri(0, 4, 6);
-    facets[6] = IndexedTri(7, 5, 1);
-    facets[7] = IndexedTri(1, 3, 7);
-    facets[8] = IndexedTri(6, 7, 3);
-    facets[9] = IndexedTri(3, 2, 6);
-    facets[10] = IndexedTri(7, 6, 4);
-    facets[11] = IndexedTri(4, 5, 7);
-  
-    // setup the triangle mesh
-    _mesh = shared_ptr<IndexedTriArray>(new IndexedTriArray(verts, verts+BOX_VERTS, facets, facets+BOX_FACETS));
+  // create 12 new triangles, making sure to do so ccw
+  IndexedTri facets[BOX_FACETS];
+  facets[0] = IndexedTri(3, 1, 0);
+  facets[1] = IndexedTri(0, 2, 3);
+  facets[2] = IndexedTri(0, 1, 5);
+  facets[3] = IndexedTri(5, 4, 0);
+  facets[4] = IndexedTri(6, 2, 0);
+  facets[5] = IndexedTri(0, 4, 6);
+  facets[6] = IndexedTri(7, 5, 1);
+  facets[7] = IndexedTri(1, 3, 7);
+  facets[8] = IndexedTri(6, 7, 3);
+  facets[9] = IndexedTri(3, 2, 6);
+  facets[10] = IndexedTri(7, 6, 4);
+  facets[11] = IndexedTri(4, 5, 7);
 
-    // setup sub mesh (it will be just the standard mesh)
-    list<unsigned> all_tris;
-    for (unsigned i=0; i< _mesh->num_tris(); i++)
-      all_tris.push_back(i);
-    _smesh = make_pair(_mesh, all_tris);
-  }
-
-  return _mesh;
+  // setup the triangle mesh
+  return shared_ptr<IndexedTriArray>(new IndexedTriArray(verts, verts+BOX_VERTS, facets, facets+BOX_FACETS));
 }
 
 /// Creates the visualization for this primitive
@@ -580,10 +510,6 @@ BVPtr BoxPrimitive::get_BVH_root(CollisionGeometryPtr geom)
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
-  // box not applicable for deformable bodies 
-  if (is_deformable())
-    throw std::runtime_error("BoxPrimitive::get_BVH_root(CollisionGeometryPtr geom) - primitive unusable for deformable bodies!");
-
   // get the pointer to the bounding box
   OBBPtr& obb = _obbs[geom];
 
@@ -594,16 +520,12 @@ BVPtr BoxPrimitive::get_BVH_root(CollisionGeometryPtr geom)
     obb = shared_ptr<OBB>(new OBB);
     obb->geom = geom;
 
-    // get the pose for the geometry
-    shared_ptr<const Pose3d> gpose = geom->get_pose();
-
-    // get the pose for this geometry
-    shared_ptr<const Pose3d> P = get_pose(); 
-    assert(!P->rpose);
+    // get the pose for the primitive and geometry
+    shared_ptr<const Pose3d> P = _cg_poses[geom]; 
 
     // setup the obb center and orientation
-    obb->center = Point3d(P->x, gpose);
-    obb->R = P->q;
+    obb->center = Point3d(0.0, 0.0, 0.0, P);
+    obb->R.set_identity();
 
     // setup OBB half-lengths
     obb->l[X] = _xlen * (double) 0.5;
@@ -619,8 +541,8 @@ double BoxPrimitive::calc_signed_dist(const Point3d& p)
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
-  // verify that the p is in this primitive's space
-  assert(p.pose == get_pose());
+  // verify that the primitive knows about this pose 
+  assert(_poses.find(const_pointer_cast<Pose3d>(p.pose)) != _poses.end()); 
 
   // setup extents
   double extents[3] = { _xlen*0.5, _ylen*0.5, _zlen*0.5 };
@@ -661,8 +583,8 @@ double BoxPrimitive::calc_closest_point(const Point3d& point, Point3d& closest) 
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
-  // verify that the point is in this primitive's space
-  assert(point.pose == get_pose());
+  // verify that the primitive knows about this pose 
+  assert(_poses.find(const_pointer_cast<Pose3d>(point.pose)) != _poses.end()); 
 
   // setup extents
   double extents[3] = { _xlen*0.5, _ylen*0.5, _zlen*0.5 };
@@ -712,8 +634,8 @@ double BoxPrimitive::calc_dist_and_normal(const Point3d& point, Vector3d& normal
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
-  // verify that the point is in this primitive's space
-  assert(point.pose == get_pose());
+  // verify that the primitive knows about this pose 
+  assert(_poses.find(const_pointer_cast<Pose3d>(point.pose)) != _poses.end()); 
 
   // setup extents
   double extents[3] = { _xlen*0.5, _ylen*0.5, _zlen*0.5 };
@@ -762,29 +684,29 @@ double BoxPrimitive::calc_dist_and_normal(const Point3d& point, Vector3d& normal
     if (absPZ < absPX - NEAR_ZERO && absPZ < absPY - NEAR_ZERO)
     {
       if (point[Z] < (double) 0.0)
-        normal = Vector3d(0,0,-1,get_pose());
+        normal = Vector3d(0,0,-1,point.pose);
       else
-        normal = Vector3d(0,0,1,get_pose());
+        normal = Vector3d(0,0,1,point.pose);
     }
     else if (absPY < absPZ - NEAR_ZERO && absPY < absPX - NEAR_ZERO)
     {
       if (point[Y] < (double) 0.0)
-        normal = Vector3d(0,-1,0,get_pose());
+        normal = Vector3d(0,-1,0,point.pose);
       else
-        normal = Vector3d(0,1,0,get_pose());
+        normal = Vector3d(0,1,0,point.pose);
     }
     else if (absPX < absPY - NEAR_ZERO && absPX < absPZ - NEAR_ZERO)
     {
       if (point[X] < (double) 0.0)
-        normal = Vector3d(-1,0,0,get_pose());
+        normal = Vector3d(-1,0,0,point.pose);
       else
-        normal = Vector3d(1,0,0,get_pose());
+        normal = Vector3d(1,0,0,point.pose);
     }
     else
     {
       // degenerate normal
       normal.set_zero();
-      normal.pose = get_pose();
+      normal.pose = point.pose; 
     }
   }
   else
@@ -794,7 +716,7 @@ double BoxPrimitive::calc_dist_and_normal(const Point3d& point, Vector3d& normal
     // the contact will be normal to all extents that the contact point
     // lies relatively outside of
     normal.set_zero();
-    normal.pose = get_pose();
+    normal.pose = point.pose;
 
     if (std::fabs(point[X]) > extents[X] || CompGeom::rel_equal(std::fabs(point[X]), extents[X]))
       normal[X] = (point[X] > 0.0) ? 1.0 : -1.0;
@@ -956,69 +878,4 @@ bool BoxPrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point
 }
 */
 
-/// Determines the normal to a point inside or on the box
-/**
- * \return <b>true</b> if the normal is valid, <b>false</b> if degenerate
- */
-void BoxPrimitive::determine_normal(const Vector3d& lengths, const Point3d& p, shared_ptr<const Pose3d> P, Vector3d& normal) const
-{
-  const unsigned X = 0, Y = 1, Z = 2;
-  const unsigned NFACES = 6;
-  pair<double, BoxPrimitive::FaceID> distances[NFACES];
-
-  distances[0] = make_pair(p[X] - lengths[X], ePOSX);
-  distances[1] = make_pair(p[X] + lengths[X], eNEGX);
-  distances[2] = make_pair(p[Y] - lengths[Y], ePOSY);
-  distances[3] = make_pair(p[Y] + lengths[Y], eNEGY);
-  distances[4] = make_pair(p[Z] - lengths[Z], ePOSZ);
-  distances[5] = make_pair(p[Z] + lengths[Z], eNEGZ);
-  std::sort(distances, distances+NFACES);
-
-  // if we have an equal distance from (at least) two planes, we'll just use
-  // the normal from the first plane regardless..  Hopefully, it will still
-  // work ok (normal is degenerate in this case)
-  switch (distances[0].second)
-  {
-    case ePOSX:  normal = Vector3d(1,0,0,P); break;
-    case eNEGX:  normal = Vector3d(-1,0,0,P); break;
-    case ePOSY:  normal = Vector3d(0,1,0,P); break;
-    case eNEGY:  normal = Vector3d(0,-1,0,P); break;
-    case ePOSZ:  normal = Vector3d(0,0,1,P); break;
-    case eNEGZ:  normal = Vector3d(0,0,-1,P); break;
-  }
-}
-
-/// Determines the normal to a point on the box
-/**
- * \return <b>true</b> if the normal is valid, <b>false</b> if degenerate
- */
-bool BoxPrimitive::determine_normal_abs(const Vector3d& lengths, const Point3d& p, shared_ptr<const Pose3d> P, Vector3d& normal) const
-{
-  const unsigned X = 0, Y = 1, Z = 2;
-  const unsigned NFACES = 6;
-  pair<double, BoxPrimitive::FaceID> distances[NFACES];
-
-  distances[0] = make_pair(std::fabs(p[X] - lengths[X]), ePOSX);
-  distances[1] = make_pair(std::fabs(p[X] + lengths[X]), eNEGX);
-  distances[2] = make_pair(std::fabs(p[Y] - lengths[Y]), ePOSY);
-  distances[3] = make_pair(std::fabs(p[Y] + lengths[Y]), eNEGY);
-  distances[4] = make_pair(std::fabs(p[Z] - lengths[Z]), ePOSZ);
-  distances[5] = make_pair(std::fabs(p[Z] + lengths[Z]), eNEGZ);
-  std::sort(distances, distances+NFACES);
-
-  // if we have an equal distance from (at least) two planes, we'll just use
-  // the normal from the first plane regardless..  Hopefully, it will still
-  // work ok (normal is degenerate in this case)
-  switch (distances[0].second)
-  {
-    case ePOSX:  normal = Vector3d(1,0,0,P); break;
-    case eNEGX:  normal = Vector3d(-1,0,0,P); break;
-    case ePOSY:  normal = Vector3d(0,1,0,P); break;
-    case eNEGY:  normal = Vector3d(0,-1,0,P); break;
-    case ePOSZ:  normal = Vector3d(0,0,1,P); break;
-    case eNEGZ:  normal = Vector3d(0,0,-1,P); break;
-  }
-
-  return !CompGeom::rel_equal(distances[0].second, distances[1].second, NEAR_ZERO);
-}
 

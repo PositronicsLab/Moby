@@ -33,12 +33,11 @@ class ConePrimitive : public Primitive
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual BVPtr get_BVH_root(CollisionGeometryPtr geom);
-    virtual void get_vertices(std::vector<Point3d>& vertices);
+    virtual void get_vertices(boost::shared_ptr<const Ravelin::Pose3d> P, std::vector<Point3d>& vertices);
     virtual void set_pose(const Ravelin::Pose3d& T);
     virtual double calc_dist_and_normal(const Point3d& p, Ravelin::Vector3d& normal) const;
-    virtual const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >& get_sub_mesh(BVPtr bv);
     virtual double calc_signed_dist(boost::shared_ptr<const Primitive> p, boost::shared_ptr<const Ravelin::Pose3d> pose_this, boost::shared_ptr<const Ravelin::Pose3d> pose_p, Point3d& pthis, Point3d& pp) const;
-    virtual boost::shared_ptr<const IndexedTriArray> get_mesh();
+    virtual boost::shared_ptr<const IndexedTriArray> get_mesh(boost::shared_ptr<const Ravelin::Pose3d> P);
     virtual osg::Node* create_visualization();
     virtual Point3d get_supporting_point(const Ravelin::Vector3d& d);
     virtual double calc_signed_dist(const Point3d& p);
@@ -62,12 +61,6 @@ class ConePrimitive : public Primitive
     double calc_penetration_depth(boost::shared_ptr<const Ravelin::Pose3d> P, const Point3d& p) const; 
     Ravelin::Vector3d determine_normal(boost::shared_ptr<const Ravelin::Pose3d> P, const Point3d& query) const;
 
-    /// Pointer to the determined mesh (w/transform applied), if any
-    boost::shared_ptr<IndexedTriArray> _mesh;
-
-    /// Map from the geometry to the vector of vertices (w/transform and intersection tolerance applied), if any
-    std::map<CollisionGeometryPtr, std::vector<Point3d> > _vertices;
-
     /// The bounding volumes for the primitive, indexed by geometry
     std::map<CollisionGeometryPtr, OBBPtr> _obbs; 
 
@@ -82,9 +75,6 @@ class ConePrimitive : public Primitive
 
     /// Number of rings on the cone (default=1)
     unsigned _nrings;
-
-    /// The "sub" mesh 
-    std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> > _smesh;
 };
 
 } // end namespace

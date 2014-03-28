@@ -30,11 +30,10 @@ class CylinderPrimitive : public Primitive
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual BVPtr get_BVH_root(CollisionGeometryPtr geom);
-    virtual void get_vertices(std::vector<Point3d>& vertices);
+    virtual void get_vertices(boost::shared_ptr<const Ravelin::Pose3d> P, std::vector<Point3d>& vertices);
     virtual double calc_dist_and_normal(const Point3d& p, Ravelin::Vector3d& normal) const;
-    virtual const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >& get_sub_mesh(BVPtr bv); 
     virtual double calc_signed_dist(boost::shared_ptr<const Primitive> p, boost::shared_ptr<const Ravelin::Pose3d> pose_this, boost::shared_ptr<const Ravelin::Pose3d> pose_p, Point3d& pthis, Point3d& pp) const;
-    virtual boost::shared_ptr<const IndexedTriArray> get_mesh();
+    virtual boost::shared_ptr<const IndexedTriArray> get_mesh(boost::shared_ptr<const Ravelin::Pose3d> P);
     virtual osg::Node* create_visualization();
     virtual Point3d get_supporting_point(const Ravelin::Vector3d& d);
     virtual double calc_signed_dist(const Point3d& p);
@@ -54,12 +53,6 @@ class CylinderPrimitive : public Primitive
     unsigned intersect_line(boost::shared_ptr<const Ravelin::Pose3d> P, const Point3d& origin, const Ravelin::Vector3d& dir, double& t0, double& t1) const;
     virtual void calc_mass_properties(); 
  
-    /// Pointer to the determined mesh (w/transform applied), if any
-    boost::shared_ptr<IndexedTriArray> _mesh;
-
-    /// Map from the geometry to the vector of vertices (w/transform and intersection tolerance applied), if any
-    std::map<CollisionGeometryPtr, std::vector<Point3d> > _vertices;
-
     /// Radius of the cylinder
     double _radius;
 
@@ -74,9 +67,6 @@ class CylinderPrimitive : public Primitive
 
     /// The bounding volumes around the cylinder, indexed by geometry
     std::map<CollisionGeometryPtr, OBBPtr> _obbs;
-
-    /// The "sub" mesh 
-    std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> > _smesh;
 };
 
 } // end namespace
