@@ -116,6 +116,7 @@ double BoxPrimitive::calc_signed_dist(shared_ptr<const SpherePrimitive> s, share
   // compute point on sphere 
   Point3d p2 = Pose3d::transform_point(GLOBAL, pbox);
   Point3d p1 = Pose3d::transform_point(GLOBAL, Point3d(0,0,0,pose_s));
+FILE_LOG(LOG_COLDET) << "p1: " << p1 << " p2: " << p2 << std::endl;
   psph = Point3d::normalize(p2-p1)*(s->get_radius() + std::min(dist,0.0));
 /*
   psph = Pose3d::transform_vector(pose_s, pbox);
