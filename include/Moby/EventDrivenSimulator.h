@@ -147,6 +147,9 @@ class EventDrivenSimulator : public Simulator
     /// The continuous collision detection mechanism
     mutable CCD _ccd;
 
+    /// The derivative at the current time
+    Ravelin::VectorNd _current_accel_dx;
+
     /// Work vector
     Ravelin::VectorNd _workV;
 

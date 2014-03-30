@@ -154,6 +154,13 @@ VectorNd& EventDrivenSimulator::ode_accel_events(const VectorNd& x, double t, do
   // get the simulator
   shared_ptr<EventDrivenSimulator>& s = *((shared_ptr<EventDrivenSimulator>*) data);
 
+  // see whether t=current time and the derivative has already been computed
+  if (t == s->current_time && s->_current_accel_dx.size() > 0)
+  {
+    dx = s->_current_accel_dx;
+    return dx;
+  }
+
   // initialize the ODE index
   unsigned idx = 0;
 
@@ -236,6 +243,10 @@ VectorNd& EventDrivenSimulator::ode_accel_events(const VectorNd& x, double t, do
     // update idx
     idx += NGC+NGV;
   }
+
+  // see whether to set current time derivative
+  if (t == s->current_time)
+    s->_current_accel_dx = dx;
 
   FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::ode_accel_events(t=" << t << ") exited" << std::endl;
 
@@ -611,6 +622,10 @@ double EventDrivenSimulator::step(double step_size)
   // step until the requisite time has elapsed
   while (h < step_size)
   {
+    // clear stored derivatives
+    _current_dx.resize(0);
+    _current_accel_dx.resize(0);
+
     FILE_LOG(LOG_SIMULATOR) << "+stepping simulation from time: " << this->current_time << " by " << (step_size - h) << std::endl;
     if (LOGGING(LOG_SIMULATOR))
     {
@@ -1092,24 +1107,59 @@ void EventDrivenSimulator::integrate_velocities_Euler(double dt)
   VectorNd qd, qdd;
 
   FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::integrate_velocities_Euler() entered " << std::endl;
-  // NOTE: forward dynamics are already computed for calculate_bounds()
-  // first compute forward dynamics for all bodies
-  calc_fwd_dyn();
 
-  // now update all velocities
-  BOOST_FOREACH(DynamicBodyPtr db, _bodies)
+  // if forward dynamics are already computed, get the accelerations
+  if (_current_dx.size() > 0)
   {
-    // get the generalized acceleration
-    db->get_generalized_acceleration(qdd);
-    FILE_LOG(LOG_SIMULATOR) << "body " << db->id << " acceleration: " << qdd << std::endl;
-    qdd *= dt;
+    // setup a coordinate index
+    unsigned idx = 0;
 
-    // update the generalized velocity
-    db->get_generalized_velocity(DynamicBody::eSpatial, qd);
-    FILE_LOG(LOG_SIMULATOR) << "body " << db->id << " velocity: " << qd << std::endl;
-    qd += qdd;
-    FILE_LOG(LOG_SIMULATOR) << "body " << db->id << " new velocity: " << qd << std::endl;
-    db->set_generalized_velocity(DynamicBody::eSpatial, qd);
+    // loop through all bodies, computing the ODE
+    BOOST_FOREACH(DynamicBodyPtr db, _bodies)
+    {
+      if (db->get_kinematic())
+        continue;
+
+      // get the number of generalized coordinates and velocities
+      const unsigned NGC = db->num_generalized_coordinates(DynamicBody::eEuler);
+      const unsigned NGV = db->num_generalized_coordinates(DynamicBody::eSpatial);
+
+      // get the acceleration for the body and multiply by dt
+      qdd = _current_dx.segment(idx+NGC, idx+NGC+NGV);
+      FILE_LOG(LOG_SIMULATOR) << "body " << db->id << " acceleration: " << qdd << std::endl;
+      qdd *= dt;
+
+      // update the generalized velocity
+      db->get_generalized_velocity(DynamicBody::eSpatial, qd);
+      FILE_LOG(LOG_SIMULATOR) << "body " << db->id << " velocity: " << qd << std::endl;
+      qd += qdd;
+      FILE_LOG(LOG_SIMULATOR) << "body " << db->id << " new velocity: " << qd << std::endl;
+      db->set_generalized_velocity(DynamicBody::eSpatial, qd);
+
+      // update idx
+      idx += NGC+NGV;
+    }
+  }
+  else
+  {
+    // first compute forward dynamics for all bodies
+    calc_fwd_dyn();
+
+    // now update all velocities
+    BOOST_FOREACH(DynamicBodyPtr db, _bodies)
+    {
+      // get the generalized acceleration
+      db->get_generalized_acceleration(qdd);
+      FILE_LOG(LOG_SIMULATOR) << "body " << db->id << " acceleration: " << qdd << std::endl;
+      qdd *= dt;
+
+      // update the generalized velocity
+      db->get_generalized_velocity(DynamicBody::eSpatial, qd);
+      FILE_LOG(LOG_SIMULATOR) << "body " << db->id << " velocity: " << qd << std::endl;
+      qd += qdd;
+      FILE_LOG(LOG_SIMULATOR) << "body " << db->id << " new velocity: " << qd << std::endl;
+      db->set_generalized_velocity(DynamicBody::eSpatial, qd);
+    }
   }
 
   FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::integrate_velocities_Euler() exited " << std::endl;
