@@ -172,7 +172,7 @@ class EventDrivenSimulator : public Simulator
     double min_advance;
 
     /// The geometries in the simulator
-    std::list<CollisionGeometryPtr> _geometries;
+    std::vector<CollisionGeometryPtr> _geometries;
 
     /// Geometric pairs that should be checked for events (according to broad phase collision detection)
     std::vector<std::pair<CollisionGeometryPtr, CollisionGeometryPtr> > _pairs_to_check;
