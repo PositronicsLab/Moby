@@ -86,6 +86,13 @@ VectorNd& Simulator::ode(const VectorNd& x, double t, double dt, void* data, Vec
 
   FILE_LOG(LOG_SIMULATOR) << "Simulator::ode(t=" << t << ") entered" << std::endl;
 
+  // see whether t=current time and the derivative has already been computed
+  if (t == s->current_time && s->_current_dx.size() > 0)
+  {
+    dx = s->_current_dx;
+    return dx;
+  }
+
   // initialize the ODE index
   unsigned idx = 0;
 
@@ -147,6 +154,10 @@ VectorNd& Simulator::ode(const VectorNd& x, double t, double dt, void* data, Vec
   }
 
   FILE_LOG(LOG_SIMULATOR) << "Simulator::ode(t=" << t << ") exited" << std::endl;
+
+  // see whether to set current time derivative
+  if (t == s->current_time)
+    s->_current_dx = dx;
 
   // return the ODE
   return dx;

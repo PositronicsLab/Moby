@@ -86,6 +86,9 @@ class Simulator : public virtual Base
     /// The set of bodies in the simulation
     std::vector<DynamicBodyPtr> _bodies;
   
+    /// The derivative at the current time
+    Ravelin::VectorNd _current_dx;
+
     template <class ForwardIterator>
     double integrate(double step_size, ForwardIterator begin, ForwardIterator end);
 
