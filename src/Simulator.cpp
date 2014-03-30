@@ -84,6 +84,8 @@ VectorNd& Simulator::ode(const VectorNd& x, double t, double dt, void* data, Vec
   // get the simulator
   shared_ptr<Simulator>& s = *((shared_ptr<Simulator>*) data);
 
+  FILE_LOG(LOG_SIMULATOR) << "Simulator::ode(t=" << t << ") entered" << std::endl;
+
   // initialize the ODE index
   unsigned idx = 0;
 
@@ -143,6 +145,8 @@ VectorNd& Simulator::ode(const VectorNd& x, double t, double dt, void* data, Vec
     // update idx
     idx += NGC+NGV;
   }
+
+  FILE_LOG(LOG_SIMULATOR) << "Simulator::ode(t=" << t << ") exited" << std::endl;
 
   // return the ODE
   return dx;

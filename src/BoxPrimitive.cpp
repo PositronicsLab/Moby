@@ -106,10 +106,13 @@ double BoxPrimitive::calc_signed_dist(shared_ptr<const SpherePrimitive> s, Point
   double dist = calc_closest_point(sph_c_A, pbox) - s->get_radius();
 
   // get the vector from the center of the sphere to the box
-  Vector3d v = Vector3d::normalize(Pose3d::transform_point(psph.pose, pbox));
-
-  // compute point on sphere 
-  psph = sph_c + v*(s->get_radius() + std::min(dist,0.0));
+  Vector3d v = Pose3d::transform_point(psph.pose, pbox);
+  double vnorm = v.norm();
+  if (vnorm == 0.0)
+    psph = sph_c;
+  else
+    // compute point on sphere 
+    psph = sph_c + v*((s->get_radius() + std::min(dist,0.0))/vnorm);
 
   return dist;
 }

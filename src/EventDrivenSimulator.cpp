@@ -149,7 +149,7 @@ void EventDrivenSimulator::handle_acceleration_events()
 /// Computes the ODE of the system for acceleration events
 VectorNd& EventDrivenSimulator::ode_accel_events(const VectorNd& x, double t, double dt, void* data, VectorNd& dx)
 {
-  FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::ode_accel_events() entered" << std::endl;
+  FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::ode_accel_events(t=" << t << ") entered" << std::endl;
 
   // get the simulator
   shared_ptr<EventDrivenSimulator>& s = *((shared_ptr<EventDrivenSimulator>*) data);
@@ -237,7 +237,7 @@ VectorNd& EventDrivenSimulator::ode_accel_events(const VectorNd& x, double t, do
     idx += NGC+NGV;
   }
 
-  FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::ode_accel_events() exited" << std::endl;
+  FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::ode_accel_events(t=" << t << ") exited" << std::endl;
 
   // return the ODE
   return dx;
@@ -574,6 +574,10 @@ void EventDrivenSimulator::determine_geometries()
         _geometries.insert(_geometries.end(), rb->geometries.begin(), rb->geometries.end());
     }
   }
+
+  // sort and remove duplicates
+  std::sort(_geometries.begin(), _geometries.end());
+  _geometries.erase(std::unique(_geometries.begin(), _geometries.end()), _geometries.end());
 }
 
 /// Steps the simulator forward by the given step size
@@ -600,17 +604,6 @@ double EventDrivenSimulator::step(double step_size)
   #ifdef USE_OSG
   _transient_vdata->removeChildren(0, _transient_vdata->getNumChildren());
   #endif
-  FILE_LOG(LOG_SIMULATOR) << "+stepping simulation from time: " << this->current_time << std::endl;
-
-  if (LOGGING(LOG_SIMULATOR))
-  {
-    VectorNd q;
-    BOOST_FOREACH(DynamicBodyPtr db, _bodies)
-    {
-      db->get_generalized_coordinates(DynamicBody::eEuler, q);
-      FILE_LOG(LOG_SIMULATOR) << " body " << db->id << " coordinates (before): " << q << std::endl;
-    }
-  }
 
   // setup the time stepped
   double h = 0.0;
@@ -618,6 +611,17 @@ double EventDrivenSimulator::step(double step_size)
   // step until the requisite time has elapsed
   while (h < step_size)
   {
+    FILE_LOG(LOG_SIMULATOR) << "+stepping simulation from time: " << this->current_time << " by " << (step_size - h) << std::endl;
+    if (LOGGING(LOG_SIMULATOR))
+    {
+      VectorNd q;
+      BOOST_FOREACH(DynamicBodyPtr db, _bodies)
+      {
+        db->get_generalized_coordinates(DynamicBody::eEuler, q);
+        FILE_LOG(LOG_SIMULATOR) << " body " << db->id << " coordinates (before): " << q << std::endl;
+      }
+    }
+
     // start with initial estimates
     reset_limit_estimates();
 
@@ -689,14 +693,17 @@ double EventDrivenSimulator::step(double step_size)
       try
       {
         // do "smart" integration (watching for state violation) 
-        integrate(dt);
+        integrate(safe_dt);
 
         // update constraint violation after integration
         update_constraint_violations();
       }
       catch (InvalidStateException e)
       {
-        FILE_LOG(LOG_SIMULATOR) << " ** attempted to evaluate derivative at invalid state; halfing step size" << std::endl;
+        FILE_LOG(LOG_SIMULATOR) << " ** attempted to evaluate derivative at invalid state; halfing step size to " << (safe_dt*0.5) << std::endl;
+
+        // restore the state of the system (generalized coords/velocities)
+        restore_state();
 
         // setup the statistics
         step_stats[1]++;
@@ -712,7 +719,10 @@ double EventDrivenSimulator::step(double step_size)
       }
       catch (InvalidVelocityException e)
       {
-        FILE_LOG(LOG_SIMULATOR) << " ** attempted to evaluate derivative at invalid velocity; halfing acceleration step size" << std::endl;
+        FILE_LOG(LOG_SIMULATOR) << " ** attempted to evaluate derivative at invalid velocity; halfing acceleration step size to " << (safe_dt*0.5) << std::endl;
+
+        // restore the state of the system (generalized coords/velocities)
+        restore_state();
 
         // setup the statistics
         step_stats[2]++;
@@ -745,6 +755,9 @@ double EventDrivenSimulator::step(double step_size)
       {
         FILE_LOG(LOG_SIMULATOR) << " ** attempted to evaluate derivative at invalid state; halving acceleration step size to " << (accel_dt*0.5) << std::endl;
 
+        // restore the state of the system (generalized coords/velocities)
+        restore_state();
+
         // setup the statistics
         step_stats[3]++;
         clock_t stop = clock();
@@ -760,6 +773,9 @@ double EventDrivenSimulator::step(double step_size)
       {
         FILE_LOG(LOG_SIMULATOR) << " ** attempted to evaluate derivative at invalid velocity; halving acceleration step size to " << (accel_dt*0.5) << std::endl;
 
+        // restore the state of the system (generalized coords/velocities)
+        restore_state();
+
         // setup the statistics
         step_stats[4]++;
         clock_t stop = clock();
@@ -774,6 +790,9 @@ double EventDrivenSimulator::step(double step_size)
       catch (AccelerationEventFailException e)
       {
         FILE_LOG(LOG_SIMULATOR) << " ** failed to solve an LCP; halving step size" << std::endl;
+
+        // restore the state of the system (generalized coords/velocities)
+        restore_state();
 
         // setup the statistics
         step_stats[5]++;
@@ -925,7 +944,7 @@ void EventDrivenSimulator::check_pairwise_constraint_violations()
     BOOST_FOREACH(CollisionGeometryPtr cg2, _geometries)
     {
       // if cg1 == cg2 or bodies are disabled for checking, skip
-      if (cg1 == cg2 || unchecked_pairs.find(make_sorted_pair(cg1, cg2)) != unchecked_pairs.end())
+      if (cg1.get() <= cg2.get() || unchecked_pairs.find(make_sorted_pair(cg1, cg2)) != unchecked_pairs.end())
         continue;
 
       // make sure pairs of disabled rigid bodies are not checked
