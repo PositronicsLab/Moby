@@ -103,10 +103,14 @@ Point3d GJK::Simplex::find_closest()
 /// Finds the closest point to the origin and simplifies the simplex (if possible)
 Point3d GJK::Simplex::find_closest_and_simplify()
 {
+  FILE_LOG(LOG_COLDET) << "Simplex::find_closest_and_simplify() entered" << std::endl;
+
   if (_type == ePoint)
     return _v1.v;
   else if (_type == eSegment)
   {
+    FILE_LOG(LOG_COLDET) << " -- current simplex is segment" << std::endl;
+
     double t;
     CompGeom::calc_dist(LineSeg3(_v1.v, _v2.v), Point3d(0,0,0,_v1.v.pose), t);
     if (t < NEAR_ZERO) 
@@ -115,16 +119,20 @@ Point3d GJK::Simplex::find_closest_and_simplify()
       _v1 = _v2;
       _type = ePoint;
       assert((find_closest()-_v1.v).norm() < NEAR_ZERO);
+      FILE_LOG(LOG_COLDET) << " -- closest point is v2 (removing v1)" << std::endl;
       return _v1.v;
     }
     else
     {
+      FILE_LOG(LOG_COLDET) << " -- closest point is on line segment" << std::endl;
+
       // setup the closest point
       return _v1.v*t + _v2.v*(1.0-t);
     }
   }
   else if (_type == eTriangle)
   {
+    FILE_LOG(LOG_COLDET) << " -- current simplex is on triangle" << std::endl;
     Point3d cp;
     Triangle tri(_v1.v, _v2.v, _v3.v);
     Triangle::calc_sq_dist(tri, Point3d(0,0,0,_v1.v.pose), cp);
@@ -137,6 +145,7 @@ Point3d GJK::Simplex::find_closest_and_simplify()
       _v1 = _v3;
       _type = ePoint;
       assert((find_closest()-_v1.v).norm() < NEAR_ZERO);
+      FILE_LOG(LOG_COLDET) << " -- closest point is to newest vertex (v3); reverting to point simplex" << std::endl;
       return cp;
     }
     else if (std::fabs(t-1.0) < NEAR_ZERO)
@@ -145,6 +154,7 @@ Point3d GJK::Simplex::find_closest_and_simplify()
       _v1 = _v2;
       _type = ePoint;
       assert((find_closest()-_v1.v).norm() < NEAR_ZERO);
+      FILE_LOG(LOG_COLDET) << " -- closest point is to vertex v2; reverting to point simplex" << std::endl;
       return cp;
     }
     else if (std::fabs(s-1.0) < NEAR_ZERO)
@@ -152,6 +162,7 @@ Point3d GJK::Simplex::find_closest_and_simplify()
       // simplex is first point (shouldn't be here?)
       _type = ePoint;
       assert((find_closest()-cp).norm() < NEAR_ZERO);
+      FILE_LOG(LOG_COLDET) << " -- closest point is to vertex v1 (shouldn't be here!); reverting to point simplex" << std::endl;
       return cp;
     }
     else if (std::fabs(s+t-1.0) < NEAR_ZERO)
@@ -159,6 +170,7 @@ Point3d GJK::Simplex::find_closest_and_simplify()
       // simplex is edge ab
       _type = eSegment;
       assert((find_closest()-cp).norm() < NEAR_ZERO);
+      FILE_LOG(LOG_COLDET) << " -- closest point is to edge (v1,v2); reverting to edge simplex" << std::endl;
       return cp;
     }
     else if (s < NEAR_ZERO)
@@ -168,6 +180,7 @@ Point3d GJK::Simplex::find_closest_and_simplify()
       _v1 = _v2;
       _v2 = _v3;
       assert((find_closest()-cp).norm() < NEAR_ZERO);
+      FILE_LOG(LOG_COLDET) << " -- closest point is to edge (v2,v3); reverting to edge simplex" << std::endl;
       return cp;
     }
     else if (t < NEAR_ZERO)
@@ -176,21 +189,25 @@ Point3d GJK::Simplex::find_closest_and_simplify()
       _type = eSegment;
       _v2 = _v3;
       assert((find_closest()-cp).norm() < NEAR_ZERO);
+      FILE_LOG(LOG_COLDET) << " -- closest point is to edge (v3,v1); reverting to edge simplex" << std::endl;
       return cp;
     }
     else
     {
       // simplex is entire triangle
+      FILE_LOG(LOG_COLDET) << " -- closest point is interior of triangle (not reducing simplex)" << std::endl;
       return cp;
     }
   }
   else if (_type == eTetra)
   {
+    FILE_LOG(LOG_COLDET) << " -- current simplex is tetrahedron" << std::endl;
     Point3d cp;
     Tetrahedron tetra(_v1.v, _v2.v, _v3.v, _v4.v);
     tetra.calc_signed_dist(Point3d(0,0,0,_v1.v.pose), cp);
     double u, v, w;
     tetra.determine_barycentric_coords(cp, u, v, w);
+    FILE_LOG(LOG_COLDET) << " u: " << u << " v: " << v << " w: " << w << std::endl;
     assert(u >= -NEAR_ZERO && v >= -NEAR_ZERO && w >= -NEAR_ZERO && u+v+w <= 1.0+NEAR_ZERO);
 
     // handle case of individual vertices first
@@ -200,12 +217,14 @@ Point3d GJK::Simplex::find_closest_and_simplify()
       _type = ePoint;
       _v1 = _v4;
       assert((find_closest()-cp).norm() < NEAR_ZERO);
+      FILE_LOG(LOG_COLDET) << " -- closest point is to newest vertex (v4); reverting to point simplex" << std::endl;
       return cp;
     }
     else if (std::fabs(u-1.0) < NEAR_ZERO)
     {
       _type = ePoint;
       assert((find_closest()-cp).norm() < NEAR_ZERO);
+      FILE_LOG(LOG_COLDET) << " -- closest point is to vertex (v1)- shouldn't be here? reverting to point simplex" << std::endl;
       return cp;
     }
     else if (std::fabs(v-1.0) < NEAR_ZERO)
@@ -213,6 +232,7 @@ Point3d GJK::Simplex::find_closest_and_simplify()
       _type = ePoint;
       _v1 = _v2;
       assert((find_closest()-cp).norm() < NEAR_ZERO);
+      FILE_LOG(LOG_COLDET) << " -- closest point is to vertex (v2)- shouldn't be here?; reverting to point simplex" << std::endl;
       return cp;
     }
     else if (std::fabs(w-1.0) < NEAR_ZERO)
@@ -220,6 +240,7 @@ Point3d GJK::Simplex::find_closest_and_simplify()
       _type = ePoint;
       _v1 = _v3;
       assert((find_closest()-cp).norm() < NEAR_ZERO);
+      FILE_LOG(LOG_COLDET) << " -- closest point is to vertex (v3)- shouldn't be here?; reverting to point simplex" << std::endl;
       return cp;
     }
     else if (std::fabs(u+v-1.0) < NEAR_ZERO)
@@ -227,6 +248,7 @@ Point3d GJK::Simplex::find_closest_and_simplify()
       // edge ab
       _type = eSegment;
       assert((find_closest()-cp).norm() < NEAR_ZERO);
+      FILE_LOG(LOG_COLDET) << " -- closest point is to edge (v1,v2)- shouldn't be here?; reverting to edge simplex" << std::endl;
       return cp;
     }
     else if (std::fabs(v+w-1.0) < NEAR_ZERO)
@@ -236,6 +258,7 @@ Point3d GJK::Simplex::find_closest_and_simplify()
       _v1 = _v2;
       _v2 = _v3;
       assert((find_closest()-cp).norm() < NEAR_ZERO);
+      FILE_LOG(LOG_COLDET) << " -- closest point is to edge (v2,v3)- shouldn't be here?; reverting to edge simplex" << std::endl;
       return cp;
     }
     else if (std::fabs(u+w-1.0) < NEAR_ZERO)
@@ -244,6 +267,7 @@ Point3d GJK::Simplex::find_closest_and_simplify()
       _type = eSegment;
       _v2 = _v3;
       assert((find_closest()-cp).norm() < NEAR_ZERO);
+      FILE_LOG(LOG_COLDET) << " -- closest point is to edge (v1,v3)- shouldn't be here?; reverting to edge simplex" << std::endl;
       return cp;
     }
     else if (v < NEAR_ZERO && w < NEAR_ZERO)
@@ -252,6 +276,7 @@ Point3d GJK::Simplex::find_closest_and_simplify()
       _type = eSegment;
       _v2 = _v4;
       assert((find_closest()-cp).norm() < NEAR_ZERO);
+      FILE_LOG(LOG_COLDET) << " -- closest point is to edge (v1,v4); reverting to edge simplex" << std::endl;
       return cp;
     }
     else if (u < NEAR_ZERO && w < NEAR_ZERO)
@@ -261,6 +286,7 @@ Point3d GJK::Simplex::find_closest_and_simplify()
       _v1 = _v2;
       _v2 = _v4;
       assert((find_closest()-cp).norm() < NEAR_ZERO);
+      FILE_LOG(LOG_COLDET) << " -- closest point is to edge (v2,v4); reverting to edge simplex" << std::endl;
       return cp;
     }
     else if (u < NEAR_ZERO && v < NEAR_ZERO)
@@ -270,6 +296,7 @@ Point3d GJK::Simplex::find_closest_and_simplify()
       _v1 = _v3;
       _v2 = _v4;
       assert((find_closest()-cp).norm() < NEAR_ZERO);
+      FILE_LOG(LOG_COLDET) << " -- closest point is to edge (v3,v4); reverting to edge simplex" << std::endl;
       return cp;
     }
     else if (std::fabs(u+v+w-1.0) < NEAR_ZERO)
@@ -277,6 +304,7 @@ Point3d GJK::Simplex::find_closest_and_simplify()
       // triangle abc
       _type = eTriangle;
       assert((find_closest()-cp).norm() < NEAR_ZERO);
+      FILE_LOG(LOG_COLDET) << " -- closest point is to triangle (v1,v2,v3)- shouldn't be here? reverting to triangle simplex" << std::endl;
       return cp;
     }
     else if (w < NEAR_ZERO)
@@ -285,6 +313,7 @@ Point3d GJK::Simplex::find_closest_and_simplify()
       _type = eTriangle;
       _v3 = _v4;
       assert((find_closest()-cp).norm() < NEAR_ZERO);
+      FILE_LOG(LOG_COLDET) << " -- closest point is to triangle (v1,v2,v4); reverting to triangle simplex" << std::endl;
       return cp;
     }
     else if (u < NEAR_ZERO)
@@ -295,6 +324,7 @@ Point3d GJK::Simplex::find_closest_and_simplify()
       _v2 = _v3;
       _v3 = _v4;
       assert((find_closest()-cp).norm() < NEAR_ZERO);
+      FILE_LOG(LOG_COLDET) << " -- closest point is to triangle (v2,v3,v4); reverting to triangle simplex" << std::endl;
       return cp;
     }
     else if (v < NEAR_ZERO)
@@ -305,11 +335,13 @@ Point3d GJK::Simplex::find_closest_and_simplify()
       _v1 = _v3;
       _v3 = _v4;
       assert((find_closest()-cp).norm() < NEAR_ZERO);
+      FILE_LOG(LOG_COLDET) << " -- closest point is to triangle (v1,v3,v4); reverting to triangle simplex" << std::endl;
       return cp;
     }
     else
     {
       // simplex is tetrahedron
+      FILE_LOG(LOG_COLDET) << " -- closest point is to interior of tetrahedron" << std::endl;
       return cp;
     }
   }
@@ -426,7 +458,7 @@ double GJK::do_gjk(CollisionGeometryPtr A, CollisionGeometryPtr B, Point3d& clos
     // look to see whether no intersection
     double vdotd = V.v.dot(-p);
     FILE_LOG(LOG_COLDET) << " -- <new vertex, direction> : " << vdotd << std::endl;
-    if (false && vdotd < min_dot)
+    if (vdotd < min_dot)
     {
       min_dot = vdotd;
       closestA = pA;

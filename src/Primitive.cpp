@@ -131,7 +131,7 @@ double Primitive::calc_signed_dist(const Point3d& p)
 Point3d Primitive::get_supporting_point(const Vector3d& dir)
 {
   double max_dot = -std::numeric_limits<double>::max();
-  Point3d maxp;
+  unsigned maxp;
 
   assert(_poses.find(const_pointer_cast<Pose3d>(dir.pose)) != _poses.end());
 
@@ -141,21 +141,18 @@ Point3d Primitive::get_supporting_point(const Vector3d& dir)
   if (vertices.empty())
     return Point3d(0,0,0,get_pose());
 
-  // convert the direction
-  Vector3d d = Pose3d::transform_vector(get_pose(), dir);
-
   // loop over vertices
   for (unsigned i=0; i< vertices.size(); i++)
   {
-    double dot = vertices[i].dot(d);
+    double dot = vertices[i].dot(dir);
     if (dot > max_dot)
     {
       max_dot = dot;
-      maxp = vertices[i];
+      maxp = i;
     }
   }
 
-  return maxp;
+  return vertices[maxp];
 }
 
 /// Gets the visualization for this primitive, creating it if necessary
