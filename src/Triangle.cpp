@@ -912,6 +912,7 @@ double Triangle::calc_sq_dist(const Triangle& tri, const Point3d& point, double&
   const double TPRIME = s;
   s = SPRIME;
   t = TPRIME;
+  return sqr_dist;
 }
 
 /// Determines the distance between this triangle and a given point
