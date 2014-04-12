@@ -484,3 +484,106 @@ double GJK::do_gjk(CollisionGeometryPtr A, CollisionGeometryPtr B, Point3d& clos
   return min_dist;
 }
 
+/// Does GJK using primitives and poses defined in collision geometry frames
+double GJK::do_gjk(shared_ptr<const Primitive> A, shared_ptr<const Primitive> B, shared_ptr<const Pose3d> PA, shared_ptr<const Pose3d> PB, Point3d& closestA, Point3d& closestB, unsigned max_iter)
+{
+  const double INF = std::numeric_limits<double>::max();
+
+  // setup a random direction
+  Point3d rdir((double) rand() / RAND_MAX * 2.0 - 1.0,(double) rand() / RAND_MAX * 2.0 - 1.0, (double) rand() / RAND_MAX * 2.0 - 1.0, GLOBAL);
+  Point3d pA = A->get_supporting_point(-Pose3d::transform_vector(PA, rdir));
+  Point3d pB = B->get_supporting_point(Pose3d::transform_vector(PB, rdir)); 
+
+  // setup the initial support (a point)
+  SVertex p(pA, pB);
+  Simplex S = p;
+  if (LOGGING(LOG_COLDET))
+  {
+    std::ostringstream oss;
+    S.output(oss); 
+    FILE_LOG(LOG_COLDET) << "GJK::do_gjk() entered" << std::endl;
+    FILE_LOG(LOG_COLDET) << " -- initial simplex: " << oss.str() << std::endl;
+  }
+
+  // setup the minimum dot
+  double min_dot = std::numeric_limits<double>::max();
+  double min_dist = std::numeric_limits<double>::max();
+
+  // GJK loop
+  for (unsigned i=0; i< max_iter; i++)
+  {
+    // find the closest point in the simplex to the origin
+    Point3d p = S.find_closest_and_simplify();
+    if (LOGGING(LOG_COLDET))
+    {
+      std::ostringstream oss;
+      S.output(oss); 
+      FILE_LOG(LOG_COLDET) << " -- closest point on simplex to origin: " << p << std::endl;
+      FILE_LOG(LOG_COLDET) << " -- distance to origin: " << p.norm() << std::endl;
+      FILE_LOG(LOG_COLDET) << " -- new simplex: " << oss.str() << std::endl;
+    }
+
+    // look and see whether the origin is contained in the simplex
+    double pnorm = p.norm();
+    if (pnorm < NEAR_ZERO)
+    {
+      // A and B are intersecting
+      // determine the interpenetration distance
+      double pen_dist = INF;
+      const unsigned NV = S.num_vertices();
+      for (unsigned i=0; i< NV; i++)
+      {
+        double dA = A->calc_signed_dist(Pose3d::transform_point(PA, S.get_vertex(i).vB));
+        if (dA < 0.0) 
+          pen_dist = std::min(pen_dist, -dA);
+        double dB = B->calc_signed_dist(Pose3d::transform_point(PB, S.get_vertex(i).vA));
+        if (dB < 0.0) 
+          pen_dist = std::min(pen_dist, -dB);
+      }
+
+      return -pen_dist;
+    }
+
+    // get the new supporting points and determine the new vertex
+    Point3d pA = A->get_supporting_point(-Pose3d::transform_vector(PA, p));
+    Point3d pB = B->get_supporting_point(Pose3d::transform_vector(PB, p)); 
+    SVertex V(pA, pB);
+    if (LOGGING(LOG_COLDET))
+    {
+      std::ostringstream oss;
+      V.output(oss); 
+      FILE_LOG(LOG_COLDET) << " -- new vertex: " << oss.str() << std::endl;
+    }
+
+    // get the minimum distance  
+    min_dist = std::min(min_dist, pnorm);
+
+    // look to see whether no intersection
+    double vdotd = V.v.dot(-p);
+    FILE_LOG(LOG_COLDET) << " -- <new vertex, direction> : " << vdotd << std::endl;
+    if (vdotd < min_dot)
+    {
+      min_dot = vdotd;
+      closestA = pA;
+      closestB = pB;
+      if (vdotd < 0.0)
+        return min_dist;
+    }
+    else
+    {
+      // add the new vertex to the simplex
+      S.add(V);
+      if (LOGGING(LOG_COLDET))
+      {
+        std::ostringstream oss;
+        S.output(oss); 
+        FILE_LOG(LOG_COLDET) << "GJK::do_gjk() entered" << std::endl;
+        FILE_LOG(LOG_COLDET) << "added new point to simplex, now: " << oss.str() << std::endl;
+      }
+    }
+  }
+
+  FILE_LOG(LOG_COLDET) << "GJK::do_gjk() exited" << std::endl;
+  return min_dist;
+}
+

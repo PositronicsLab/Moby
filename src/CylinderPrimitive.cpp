@@ -16,12 +16,15 @@
 #include <Moby/SpherePrimitive.h>
 #include <Moby/OBB.h>
 #include <Moby/CollisionGeometry.h>
+#include <Moby/HeightmapPrimitive.h>
+#include <Moby/GJK.h>
 #include <Moby/CylinderPrimitive.h>
 
 using namespace Ravelin;
 using namespace Moby;
 using boost::shared_ptr;
 using boost::const_pointer_cast;
+using boost::dynamic_pointer_cast;
 using std::map;
 using std::list;
 using std::vector;
@@ -88,15 +91,27 @@ CylinderPrimitive::CylinderPrimitive(double radius, double height, unsigned n, u
 }
 
 /// Finds the signed distance between the cylinder and another primitive
-double CylinderPrimitive::calc_signed_dist(shared_ptr<const Primitive> primitive, Point3d& pthis, Point3d& pprimitive) const
+double CylinderPrimitive::calc_signed_dist(shared_ptr<const Primitive> p, Point3d& pthis, Point3d& pp) const
 {
-  // TODO: implement this
+  shared_ptr<const HeightmapPrimitive> hmp = dynamic_pointer_cast<const HeightmapPrimitive>(p);
+  if (hmp)
+    return hmp->calc_signed_dist(dynamic_pointer_cast<const Primitive>(shared_from_this()), pp, pthis);
+
+  // if the primitive is convex, can use GJK
+  if (p->is_convex())
+  {
+    shared_ptr<const Pose3d> Pbox = pthis.pose;
+    shared_ptr<const Pose3d> Pgeneric = pp.pose;
+    shared_ptr<const Primitive> bthis = dynamic_pointer_cast<const Primitive>(shared_from_this());
+    return GJK::do_gjk(bthis, p, Pbox, Pgeneric, pthis, pp);
+  }
+
   assert(false);
   return 0.0; 
 }
 
 /// Gets the supporting point in a particular direction
-Point3d CylinderPrimitive::get_supporting_point(const Vector3d& d) 
+Point3d CylinderPrimitive::get_supporting_point(const Vector3d& d) const 
 {
   assert(_poses.find(const_pointer_cast<Pose3d>(d.pose)) != _poses.end());
 
@@ -526,7 +541,7 @@ BVPtr CylinderPrimitive::get_BVH_root(CollisionGeometryPtr geom)
 }
 
 /// Gets vertices from the primitive
-void CylinderPrimitive::get_vertices(boost::shared_ptr<const Ravelin::Pose3d> P, std::vector<Point3d>& verts)
+void CylinderPrimitive::get_vertices(boost::shared_ptr<const Ravelin::Pose3d> P, std::vector<Point3d>& verts) const
 {
   const double R = _radius;
   const double H = _height;
@@ -621,7 +636,7 @@ bool CylinderPrimitive::point_inside(const Point3d& p, Vector3d& normal) const
 }
 
 /// Computes the signed distance of a point from the cylinder
-double CylinderPrimitive::calc_signed_dist(const Point3d& p)
+double CylinderPrimitive::calc_signed_dist(const Point3d& p) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
   const double INF = std::numeric_limits<double>::max();

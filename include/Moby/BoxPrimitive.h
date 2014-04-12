@@ -24,6 +24,7 @@ class BoxPrimitive : public Primitive
     BoxPrimitive(double xlen, double ylen, double zlen, const Ravelin::Pose3d& T);
     BoxPrimitive(const Ravelin::Pose3d& T);
     void set_size(double xlen, double ylen, double zlen);
+    virtual bool is_convex() const { return true; }
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual BVPtr get_BVH_root(CollisionGeometryPtr geom);
@@ -35,9 +36,8 @@ class BoxPrimitive : public Primitive
     virtual osg::Node* create_visualization();
     double calc_signed_dist(boost::shared_ptr<const SpherePrimitive> s, Point3d& pthis, Point3d& psph) const;
     virtual double calc_signed_dist(boost::shared_ptr<const Primitive> p, Point3d& pthis, Point3d& pp) const;
-    double calc_signed_dist(boost::shared_ptr<const BoxPrimitive> box, Point3d& pthis, Point3d& pbox) const;
-    virtual void get_vertices(boost::shared_ptr<const Ravelin::Pose3d> P, std::vector<Point3d>& p);
-    virtual double calc_signed_dist(const Point3d& p);
+    virtual void get_vertices(boost::shared_ptr<const Ravelin::Pose3d> P, std::vector<Point3d>& p) const;
+    virtual double calc_signed_dist(const Point3d& p) const;
 
     /// Get the x-length of this box
     double get_x_len() const { return _xlen; }

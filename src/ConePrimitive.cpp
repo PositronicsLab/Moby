@@ -16,6 +16,8 @@
 #include <Moby/XMLTree.h>
 #include <Moby/OBB.h>
 #include <Moby/SpherePrimitive.h>
+#include <Moby/HeightmapPrimitive.h>
+#include <Moby/GJK.h>
 #include <Moby/ConePrimitive.h>
 
 using namespace Ravelin;
@@ -24,6 +26,7 @@ using std::map;
 using std::pair;
 using boost::shared_ptr;
 using boost::const_pointer_cast;
+using boost::dynamic_pointer_cast;
 using std::list;
 using std::vector;
 
@@ -87,7 +90,7 @@ ConePrimitive::ConePrimitive(double radius, double height, unsigned npoints, uns
 }
 
 /// Gets a supporting point in a particular direction
-Point3d ConePrimitive::get_supporting_point(const Vector3d& d)
+Point3d ConePrimitive::get_supporting_point(const Vector3d& d) const
 {
   assert(_poses.find(const_pointer_cast<Pose3d>(d.pose)) != _poses.end());
 
@@ -428,15 +431,27 @@ void ConePrimitive::calc_mass_properties()
 }
 
 /// Finds the signed distance between the cylinder and another primitive
-double ConePrimitive::calc_signed_dist(shared_ptr<const Primitive> primitive, Point3d& pthis, Point3d& pprimitive) const
+double ConePrimitive::calc_signed_dist(shared_ptr<const Primitive> p, Point3d& pthis, Point3d& pp) const
 {
-  // TODO: implement this
+  shared_ptr<const HeightmapPrimitive> hmp = dynamic_pointer_cast<const HeightmapPrimitive>(p);
+  if (hmp)
+    return hmp->calc_signed_dist(dynamic_pointer_cast<const Primitive>(shared_from_this()), pp, pthis);
+
+  // if the primitive is convex, can use GJK
+  if (p->is_convex())
+  {
+    shared_ptr<const Pose3d> Pbox = pthis.pose;
+    shared_ptr<const Pose3d> Pgeneric = pp.pose;
+    shared_ptr<const Primitive> bthis = dynamic_pointer_cast<const Primitive>(shared_from_this());
+    return GJK::do_gjk(bthis, p, Pbox, Pgeneric, pthis, pp);
+  }
+
   assert(false);
   return 0.0;
 }
 
 /// Gets vertices from the primitive
-void ConePrimitive::get_vertices(boost::shared_ptr<const Ravelin::Pose3d> P, std::vector<Point3d>& verts)
+void ConePrimitive::get_vertices(boost::shared_ptr<const Ravelin::Pose3d> P, std::vector<Point3d>& verts) const
 {
   // clear the vector of vertices
   verts.clear();
@@ -593,7 +608,7 @@ bool ConePrimitive::point_inside(const Point3d& p, Vector3d& normal) const
 }
 
 /// Computes the signed distance from the cylinder
-double ConePrimitive::calc_signed_dist(const Point3d& p)
+double ConePrimitive::calc_signed_dist(const Point3d& p) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
   assert(p.pose == get_pose());

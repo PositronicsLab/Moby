@@ -46,14 +46,14 @@ HeightmapPrimitive::HeightmapPrimitive(const Ravelin::Pose3d& T) : Primitive(T)
 }
 
 /// Gets the supporting point
-Point3d HeightmapPrimitive::get_supporting_point(const Vector3d& d) 
+Point3d HeightmapPrimitive::get_supporting_point(const Vector3d& d) const 
 {
   throw std::runtime_error("HeightmapPrimitive::get_supporting_point(.) - primitive is not convex!");
   return Point3d(0,0,0,GLOBAL);
 }
 
 /// Computes the signed distance of the given point from this primitive
-double HeightmapPrimitive::calc_signed_dist(const Point3d& p)
+double HeightmapPrimitive::calc_signed_dist(const Point3d& p) const
 {
   assert(_poses.find(const_pointer_cast<Pose3d>(p.pose)) != _poses.end());
 
@@ -109,8 +109,39 @@ shared_ptr<const IndexedTriArray> HeightmapPrimitive::get_mesh(shared_ptr<const 
   return shared_ptr<const IndexedTriArray>();
 }
 
+/// Gets the vertices of the heightmap that could intersect with a given bounding volume
+void HeightmapPrimitive::get_vertices(BVPtr bv, shared_ptr<const Pose3d> P, vector<Point3d>& vertices) const
+{
+  assert(_poses.find(const_pointer_cast<Pose3d>(P)) != _poses.end());
+  const unsigned X = 0, Z = 2;
+
+  // clear the vector of vertices
+  vertices.clear();
+
+  // get the corners of the bounding box in this frame
+  Point3d bv_lo = bv->get_lower_bounds();
+  Point3d bv_hi = bv->get_lower_bounds();
+
+  // get the lower i and j indices
+  unsigned lowi = (unsigned) (bv_lo[X]*(_heights.rows()-1)/_width + _width*0.5);
+  unsigned lowj = (unsigned) (bv_lo[Z]*(_heights.columns()-1)/_depth + _depth*0.5);
+
+  // get the upper i and j indices
+  unsigned upi = (unsigned) (bv_hi[X]*(_heights.rows()-1)/_width + _width*0.5)+1;
+  unsigned upj = (unsigned) (bv_hi[Z]*(_heights.columns()-1)/_depth + _depth*0.5)+1;
+
+  // iterate over all points
+  for (unsigned i=lowi; i<= upi; i++)
+    for (unsigned j=lowj; j< upj; j++)
+    {
+      double x = -_width*0.5+_width*i/(_heights.rows()-1);
+      double z = -_depth*0.5+_depth*j/(_heights.columns()-1);
+      vertices.push_back(Point3d(x, _heights(i,j), z, P));
+    }
+}
+
 /// Gets the vertices of the heightmap
-void HeightmapPrimitive::get_vertices(shared_ptr<const Pose3d> P, vector<Point3d>& vertices)
+void HeightmapPrimitive::get_vertices(shared_ptr<const Pose3d> P, vector<Point3d>& vertices) const
 {
   assert(_poses.find(const_pointer_cast<Pose3d>(P)) != _poses.end());
 
@@ -160,6 +191,45 @@ double HeightmapPrimitive::calc_height(const Point3d& p) const
   const double f11 = _heights(i+1,j+1);
 
   return f00*(1.0-s)*(1.0-t) + f10*s*(1.0-t) + f01*(1.0-s)*t + f11*s*t;
+}
+
+/// Computes the gradient at a particular point
+void HeightmapPrimitive::calc_gradient(const Point3d& p, double& gx, double& gz) const
+{
+  assert(_poses.find(const_pointer_cast<Pose3d>(p.pose)) != _poses.end());
+  const unsigned X = 0, Z = 2;
+
+  // get the X and Z query points
+  const unsigned qx = p[X];
+  const unsigned qz = p[Z];
+
+  // determine the indices 
+  unsigned i = (unsigned) (qx*(_heights.rows()-1)/_width + _width*0.5);
+  unsigned j = (unsigned) (qz*(_heights.columns()-1)/_depth + _depth*0.5);
+  assert(i < _heights.rows());
+  assert(j < _heights.columns());
+
+  // setup inputs
+  double x0 = -_width*0.5+_width*i/(_heights.rows()-1);
+  double z0 = -_depth*0.5+_depth*j/(_heights.columns()-1);
+  double x1 = -_width*0.5+_width*(i+1)/(_heights.rows()-1);
+  double z1 = -_depth*0.5+_depth*(j+1)/(_heights.columns()-1);
+
+  // compute s and t
+  double s = qx/(x1 - x0);
+  double t = qz/(z1 - z0); 
+
+  // get four height values
+  const double f00 = _heights(i,j);
+  const double f10 = _heights(i+1,j);
+  const double f01 = _heights(i,j+1);
+  const double f11 = _heights(i+1,j+1);
+
+  // compute the x gradient
+  gx = f10*(1.0-t) + f11*t;
+
+  // compute the z gradient
+  gz = f01*(1.0-s) + f11*s;
 }
 
 /// Computes the OSG visualization
@@ -266,17 +336,38 @@ void HeightmapPrimitive::set_pose(const Pose3d& p)
 /// Finds the signed distance between the sphere and another primitive
 double HeightmapPrimitive::calc_signed_dist(shared_ptr<const Primitive> p, Point3d& pthis, Point3d& pp) const
 {
+  const unsigned Y = 1;
+
   // first try heightmap/sphere
   shared_ptr<const SpherePrimitive> spherep = dynamic_pointer_cast<const SpherePrimitive>(p);
   if (spherep)
+    return calc_signed_dist(spherep, pthis, pp);
+
+  // get p as non-const
+  shared_ptr<Primitive> pnc = const_pointer_cast<Primitive>(p);
+
+  // still here? no specialization; get all vertices from other primitive
+  vector<Point3d> verts;
+  pnc->get_vertices(pp.pose, verts);
+  double mindist = std::numeric_limits<double>::max();
+  for (unsigned i=0; i< verts.size(); i++)
   {
-    shared_ptr<const HeightmapPrimitive> thisp = dynamic_pointer_cast<const HeightmapPrimitive>(shared_from_this());
-    return spherep->calc_signed_dist(thisp, pp, pthis);
+     Point3d pt = Pose3d::transform_point(pthis.pose, verts[i]);
+     const double HEIGHT = calc_height(pt);
+     double d = pt[Y] - HEIGHT;
+     if (d < mindist)
+     {
+       mindist = d;
+       pp = verts[i];
+       pthis = pt;
+       pthis[Y] = HEIGHT;
+     }
   }
 
-  assert(false);
-  return 0.0;
+  return mindist;
 }
+
+
 
 /// Finds the signed distance betwen the heightmap and a point
 double HeightmapPrimitive::calc_dist_and_normal(const Point3d& p, Vector3d& normal) const
@@ -285,7 +376,9 @@ double HeightmapPrimitive::calc_dist_and_normal(const Point3d& p, Vector3d& norm
   double d = calc_height(p);
 
   // setup the normal
-  assert(false);
+  double gx, gz;
+  calc_gradient(p, gx, gz);
+  normal = Vector3d::normalize(Vector3d(gx, 1, gz, p.pose));
 
   // compute the distance
   return d;
