@@ -32,7 +32,7 @@ class CylinderPrimitive : public Primitive
     virtual BVPtr get_BVH_root(CollisionGeometryPtr geom);
     virtual void get_vertices(boost::shared_ptr<const Ravelin::Pose3d> P, std::vector<Point3d>& vertices);
     virtual double calc_dist_and_normal(const Point3d& p, Ravelin::Vector3d& normal) const;
-    virtual double calc_signed_dist(boost::shared_ptr<const Primitive> p, boost::shared_ptr<const Ravelin::Pose3d> pose_this, boost::shared_ptr<const Ravelin::Pose3d> pose_p, Point3d& pthis, Point3d& pp) const;
+    virtual double calc_signed_dist(boost::shared_ptr<const Primitive> p, Point3d& pthis, Point3d& pp) const;
     virtual boost::shared_ptr<const IndexedTriArray> get_mesh(boost::shared_ptr<const Ravelin::Pose3d> P);
     virtual osg::Node* create_visualization();
     virtual Point3d get_supporting_point(const Ravelin::Vector3d& d);
@@ -48,9 +48,11 @@ class CylinderPrimitive : public Primitive
     unsigned get_circle_points() const { return _npoints; }
     
   private:
+    bool intersect_seg(const LineSeg3& seg, double& t, Point3d& isect, Ravelin::Vector3d& normal) const;
+    bool point_inside(const Point3d& p, Ravelin::Vector3d& normal) const;
     double calc_dist(const SpherePrimitive* s, Point3d& pcyl, Point3d& psph) const;
-    double calc_penetration_depth(boost::shared_ptr<const Ravelin::Pose3d> P, const Point3d& p) const;
-    unsigned intersect_line(boost::shared_ptr<const Ravelin::Pose3d> P, const Point3d& origin, const Ravelin::Vector3d& dir, double& t0, double& t1) const;
+    double calc_penetration_depth(const Point3d& p) const;
+    unsigned intersect_line(const Point3d& origin, const Ravelin::Vector3d& dir, double& t0, double& t1) const;
     virtual void calc_mass_properties(); 
  
     /// Radius of the cylinder
