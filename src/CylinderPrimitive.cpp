@@ -21,6 +21,7 @@
 using namespace Ravelin;
 using namespace Moby;
 using boost::shared_ptr;
+using boost::const_pointer_cast;
 using std::map;
 using std::list;
 using std::vector;
@@ -86,8 +87,8 @@ CylinderPrimitive::CylinderPrimitive(double radius, double height, unsigned n, u
   calc_mass_properties();
 }
 
-/// Finds the signed distance between the sphere and another primitive
-double CylinderPrimitive::calc_signed_dist(shared_ptr<const Primitive> primitive, shared_ptr<const Pose3d> pose_this, shared_ptr<const Pose3d> pose_p, Point3d& pthis, Point3d& pprimitive) const
+/// Finds the signed distance between the cylinder and another primitive
+double CylinderPrimitive::calc_signed_dist(shared_ptr<const Primitive> primitive, Point3d& pthis, Point3d& pprimitive) const
 {
   // TODO: implement this
   assert(false);
@@ -97,7 +98,23 @@ double CylinderPrimitive::calc_signed_dist(shared_ptr<const Primitive> primitive
 /// Gets the supporting point in a particular direction
 Point3d CylinderPrimitive::get_supporting_point(const Vector3d& d) 
 {
-  return Primitive::get_supporting_point(d);
+  assert(_poses.find(const_pointer_cast<Pose3d>(d.pose)) != _poses.end());
+
+  // scale the vector
+  Vector3d dscal = Vector3d::normalize(d) * (_radius * _height * 2.0);
+
+  // setup the zero vector
+  Vector3d zero(0.0, 0.0, 0.0, dscal.pose);
+
+  // setup a line segment
+  Point3d isect;
+  Vector3d normal;
+  double t;
+  bool intersects = intersect_seg(LineSeg3(zero, dscal), t, isect, normal);
+  assert(intersects);
+
+  // return the point of intersection
+  return isect;
 }
 
 /// Computes the signed distance between the cylinder and a point
@@ -271,12 +288,6 @@ void CylinderPrimitive::set_radius(double radius)
   if (_radius < 0.0)
     throw std::runtime_error("Attempting to set negative radius on call to CylinderPrimitive::set_radius()");
 
-  // mesh, vertices are no longer valid
-  _mesh = shared_ptr<IndexedTriArray>();
-  _vertices.clear();
-  _smesh = pair<shared_ptr<IndexedTriArray>, list<unsigned> >();
-  _invalidated = true;
-
   // need to recompute the mass properties of the cylinder
   calc_mass_properties();
 
@@ -301,12 +312,6 @@ void CylinderPrimitive::set_height(double height)
   if (_height < 0.0)
     throw std::runtime_error("Attempting to set negative height on call to CylinderPrimitive::set_height()");
 
-  // mesh, vertices are no longer valid
-  _mesh = shared_ptr<IndexedTriArray>();
-  _vertices.clear();
-  _smesh = pair<shared_ptr<IndexedTriArray>, list<unsigned> >();
-  _invalidated = true;
-  
   // need to recompute the mass properties of the cylinder
   calc_mass_properties();
 
@@ -328,10 +333,6 @@ void CylinderPrimitive::set_num_circle_points(unsigned n)
   _npoints = n;
   if (n < 3)
     throw std::runtime_error("Attempting to call CylinderPrimitive::set_circle_points() with n < 3");
-
-  // vertices are no longer valid
-  _vertices.clear();
-  _invalidated = true;
 }
 
 /// Sets the number of rings for determining "virtual points" (points on the tube of the cylinder)
@@ -340,60 +341,39 @@ void CylinderPrimitive::set_num_rings(unsigned n)
   _nrings = n;
   if (_nrings < 2)
     throw std::runtime_error("Attempting to call CylinderPrimitive::set_num_rings() with n < 2");
-
-  // vertices are no longer valid
-  _vertices.clear();
-  _invalidated = true;
 }
 
 /// Gets the triangle mesh for the cylinder, computing it if necessary 
-shared_ptr<const IndexedTriArray> CylinderPrimitive::get_mesh()
+shared_ptr<const IndexedTriArray> CylinderPrimitive::get_mesh(boost::shared_ptr<const Ravelin::Pose3d> P)
 {
-  // compute the mesh if necessary
-  if (!_mesh)
+  // verify that the primitive knows about this pose 
+  assert(_poses.find(const_pointer_cast<Pose3d>(P)) != _poses.end());
+
+  const double R = _radius;
+  const double HH = _height;
+
+  // if radius or height = 0, or circle points < 3, return now
+  if (_radius <= 0.0 || _height <= 0.0 || _npoints < 3)
+    return shared_ptr<IndexedTriArray>(new IndexedTriArray());
+
+  // create vertices evenly spaced in 2D
+  std::list<Point3d> points;
+  for (unsigned i=0; i< _npoints; i++)
   {
-    const double R = _radius;
-    const double HH = _height;
-
-    // if radius or height = 0, or circle points < 3, return now
-    if (_radius <= 0.0 || _height <= 0.0 || _npoints < 3)
-    {
-      _mesh = shared_ptr<IndexedTriArray>(new IndexedTriArray());
-      _smesh = make_pair(_mesh, list<unsigned>());
-      return _mesh;
-    }
-
-    // setup transform so that points are in global frame
-    shared_ptr<const Pose3d> P = get_pose();
-    Transform3d T = Pose3d::calc_relative_pose(P, GLOBAL); 
-
-    // create vertices evenly spaced in 2D
-    std::list<Point3d> points;
-    for (unsigned i=0; i< _npoints; i++)
-    {
-      const double THETA = i * (M_PI * (double) 2.0/_npoints);
-      const double CT = std::cos(THETA);
-      const double ST = std::sin(THETA);
-      points.push_back(T.transform_point(Point3d(CT*R, HH, ST*R, P)));
-      points.push_back(T.transform_point(Point3d(CT*R, -HH, ST*R, P)));
-    }
-
-    // compute the convex hull
-    PolyhedronPtr hull = CompGeom::calc_convex_hull(points.begin(), points.end());
-
-    // get the mesh
-    const std::vector<Origin3d>& v = hull->get_vertices();
-    const std::vector<IndexedTri>& f = hull->get_facets();
-    _mesh = shared_ptr<IndexedTriArray>(new IndexedTriArray(v.begin(), v.end(), f.begin(), f.end()));
-
-    // setup sub mesh (it will be just the standard mesh)
-    list<unsigned> all_tris;
-    for (unsigned i=0; i< _mesh->num_tris(); i++)
-      all_tris.push_back(i);
-    _smesh = make_pair(_mesh, all_tris);
+    const double THETA = i * (M_PI * (double) 2.0/_npoints);
+    const double CT = std::cos(THETA);
+    const double ST = std::sin(THETA);
+    points.push_back(Point3d(CT*R, HH, ST*R, P));
+    points.push_back(Point3d(CT*R, -HH, ST*R, P));
   }
 
-  return _mesh;
+  // compute the convex hull
+  PolyhedronPtr hull = CompGeom::calc_convex_hull(points.begin(), points.end());
+
+  // get the mesh
+  const std::vector<Origin3d>& v = hull->get_vertices();
+  const std::vector<IndexedTri>& f = hull->get_facets();
+  return shared_ptr<IndexedTriArray>(new IndexedTriArray(v.begin(), v.end(), f.begin(), f.end()));
 }
 
 /// Creates the visualization for this primitive
@@ -480,32 +460,8 @@ void CylinderPrimitive::set_pose(const Pose3d& p)
   // go ahead and set the new transform
   Primitive::set_pose(p);
 
-  // invalidate the vertices and mesh
-  _mesh.reset();
-  _smesh.first.reset();
-  _smesh.second.clear();
-  _vertices.clear();
-
-  // invalidate this primitive
-  _invalidated = true;
-
   // recalculate the mass properties
   calc_mass_properties();
-
- // transform bounding volumes
-  for (map<CollisionGeometryPtr, OBBPtr>::iterator i = _obbs.begin(); i != _obbs.end(); i++)
-  {
-    // get the pose for the geometry
-    shared_ptr<const Pose3d> gpose = i->first->get_pose();
-
-    // get the pose for this geometry
-    shared_ptr<const Pose3d> P = get_pose(); 
-    assert(!P->rpose);
-
-    // setup the obb center and orientation
-    i->second->center = Point3d(P->x, gpose);
-    i->second->R = P->q;
-  }
 }
 
 /// Calculates mass properties for the cylinder
@@ -539,10 +495,6 @@ BVPtr CylinderPrimitive::get_BVH_root(CollisionGeometryPtr geom)
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
-  // cylinder not applicable for deformable bodies 
-  if (is_deformable())
-    throw std::runtime_error("CylinderPrimitive::get_BVH_root(CollisionGeometryPtr geom) - primitive unusable for deformable bodies!");
-
   // get the pointer to the bounding box
   OBBPtr& obb = _obbs[geom];
 
@@ -573,16 +525,8 @@ BVPtr CylinderPrimitive::get_BVH_root(CollisionGeometryPtr geom)
   return obb;
 }
 
-/// Gets a sub-mesh for the primitive
-const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >& CylinderPrimitive::get_sub_mesh(BVPtr bv)
-{
-  if (!_smesh.first)
-    get_mesh(); 
-  return _smesh;
-}
-
 /// Gets vertices from the primitive
-void CylinderPrimitive::get_vertices(std::vector<Point3d>& verts)
+void CylinderPrimitive::get_vertices(boost::shared_ptr<const Ravelin::Pose3d> P, std::vector<Point3d>& verts)
 {
   const double R = _radius;
   const double H = _height;
@@ -604,100 +548,27 @@ void CylinderPrimitive::get_vertices(std::vector<Point3d>& verts)
       double THETA = i*(M_PI * (double) 2.0/_npoints);
       const double CT = std::cos(THETA);
       const double ST = std::sin(THETA);
-      verts.push_back(Point3d(CT*R, HEIGHT, ST*R, get_pose()));
+      verts.push_back(Point3d(CT*R, HEIGHT, ST*R, P));
     }
   }
 }
-
-/// Gets vertices from the primitive
-/*
-void CylinderPrimitive::get_vertices(CollisionGeometryPtr geom, std::vector<const Point3d*>& vertices)
-{
-  // get the vertices for the geometry
-  vector<Point3d>& verts = _vertices[geom];
-
-  // create the vector of vertices if necessary
-  if (verts.empty())
-  {
-    const double R = _radius;
-    const double H = _height;
-
-    // if radius or height <= 0, num rings < 2, or circle points < 3, return now
-    if (_radius <= 0.0 || _height <= 0.0 || _nrings < 2 || _npoints < 3)
-    {
-      vertices.clear();
-      return; 
-    }
-
-    // get the pose for the geometry
-    shared_ptr<const Pose3d> gpose = geom->get_pose();
-
-    // get the pose of this primitive
-    shared_ptr<const Pose3d> P = get_pose();
-
-    // setup transform
-    Transform3d T;
-    T.source = gpose;
-    T.target = gpose;
-    T.x = P->x;
-    T.q = P->q;
-
-    // create vertices evenly spaced in 2D
-    // NOTE: we wish to create the vertices in the global frame
-    for (unsigned j=0; j< _nrings; j++)
-    {
-      const double HEIGHT = -(H * (double) 0.5) + (j*H)/(_nrings-1); 
-      for (unsigned i=0; i< _npoints; i++)
-      {
-        double THETA = i*(M_PI * (double) 2.0/_npoints);
-        const double CT = std::cos(THETA);
-        const double ST = std::sin(THETA);
-        verts.push_back(T.transform_point(Point3d(CT*R, HEIGHT, ST*R, gpose)));
-      }
-    }
-  }
-
-  // copy the addresses of the computed vertices into 'vertices' 
-  vertices.resize(verts.size());
-  for (unsigned i=0; i< verts.size(); i++)
-    vertices[i] = &verts[i];
-}
-*/
 
 /// Determines whether a point is inside the cylinder; if so, determines the normal
-/*
-bool CylinderPrimitive::point_inside(CollisionGeometryPtr geom, const Point3d& p, Vector3d& normal) const
+bool CylinderPrimitive::point_inside(const Point3d& p, Vector3d& normal) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
   const double R = _radius;
   const double halfheight = _height*0.5;
-  static shared_ptr<Pose3d> P;
 
-  // get the pose for the collision geometry
-  shared_ptr<const Pose3d> gpose = geom->get_pose(); 
-
-  // get the pose for this geometry and BV
-  shared_ptr<const Pose3d> bpose = get_pose(); 
-  assert(!bpose->rpose);
-
-  // setup a new pose
-  if (!P)
-    P = shared_ptr<Pose3d>(new Pose3d);
-  *P = *bpose;
-  P->rpose = gpose;
-
-  // transform the point to cylinder space
-  Transform3d T = Pose3d::calc_relative_pose(p.pose, P);
-  Point3d query = T.transform_point(p);
+  assert(_poses.find(const_pointer_cast<Pose3d>(p.pose)) != _poses.end());
 
   FILE_LOG(LOG_COLDET) << "CylinderPrimitive::point_inside() entered" << std::endl;
   FILE_LOG(LOG_COLDET) << "  cylinder radius: " << R << "  half height: " << halfheight << std::endl;
-  FILE_LOG(LOG_COLDET) << "query point: " << p << std::endl;
-  FILE_LOG(LOG_COLDET) << "query point (cylinder space): " << query << std::endl;
+  FILE_LOG(LOG_COLDET) << "query point (cylinder space): " << p << std::endl;
 
   // determine whether the point is within the height of the cylinder
-  double dcaptop = query[Y] - halfheight;
-  double dcapbot = -halfheight - query[Y];
+  double dcaptop = p[Y] - halfheight;
+  double dcapbot = -halfheight - p[Y];
   if (dcaptop > 0.0 || dcapbot > 0.0)
   {
     FILE_LOG(LOG_COLDET) << "point outside of cylinder endcaps" << std::endl;
@@ -705,7 +576,7 @@ bool CylinderPrimitive::point_inside(CollisionGeometryPtr geom, const Point3d& p
   }
 
   // determine whether the point is within the circular region of the cylinder
-  double cdist_sq = query[X]*query[X] + query[Z]*query[Z] - R*R;
+  double cdist_sq = p[X]*p[X] + p[Z]*p[Z] - R*R;
   if (cdist_sq > 0.0)
   {
     FILE_LOG(LOG_COLDET) << "point outside circular region of cylinder" << std::endl;
@@ -724,16 +595,16 @@ bool CylinderPrimitive::point_inside(CollisionGeometryPtr geom, const Point3d& p
   if (-dcaptop < -dcapbot)
   {
     if (-dcaptop < std::sqrt(-cdist_sq))
-      normal = Vector3d(0,1,0,P);
+      normal = Vector3d(0,1,0,p.pose);
     else
-      normal = Vector3d::normalize(Vector3d(query[X],(double) 0.0, query[Z],P));
+      normal = Vector3d::normalize(Vector3d(p[X],(double) 0.0, p[Z],p.pose));
   }
   else
   {
     if (-dcapbot < std::sqrt(-cdist_sq))
-      normal = Vector3d(0,-1,0,P);
+      normal = Vector3d(0,-1,0,p.pose);
     else
-      normal = Vector3d::normalize(Vector3d(query[X],(double) 0.0, query[Z],P));
+      normal = Vector3d::normalize(Vector3d(p[X],(double) 0.0, p[Z],p.pose));
   }
 
 //  if (dcaptop >= dcapbot && dcaptop >= -NEAR_ZERO)
@@ -741,17 +612,13 @@ bool CylinderPrimitive::point_inside(CollisionGeometryPtr geom, const Point3d& p
 //  else if (dcapbot >= dcaptop && dcapbot >= -NEAR_ZERO)
 //    normal = Vector3d(0,-1,0);
 //  else
-//    normal = Vector3d::normalize(Vector3d(query[X],0,query[Z]));
-
-  // transform the normal
-  normal = T.inverse_transform_vector(normal);
+//    normal = Vector3d::normalize(Vector3d(p[X],0,p[Z]));
 
   FILE_LOG(LOG_COLDET) << " point is inside cylinder" << std::endl;
   FILE_LOG(LOG_COLDET) << "CylinderPrimitive::point_inside() exited" << std::endl;
 
   return true;
 }
-*/
 
 /// Computes the signed distance of a point from the cylinder
 double CylinderPrimitive::calc_signed_dist(const Point3d& p)
@@ -799,19 +666,17 @@ double CylinderPrimitive::calc_signed_dist(const Point3d& p)
 /**
  * Returns -INF for points outside the cylinder.
  */
-double CylinderPrimitive::calc_penetration_depth(shared_ptr<const Pose3d> P, const Point3d& p) const
+double CylinderPrimitive::calc_penetration_depth(const Point3d& query) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
   const double INF = std::numeric_limits<double>::max();
   const double R = _radius;
   const double halfheight = _height*0.5;
 
-  // transform the point to cylinder space
-  Point3d query = Pose3d::transform_point(P, p);
+  assert(_poses.find(const_pointer_cast<Pose3d>(query.pose)) != _poses.end());
 
   FILE_LOG(LOG_COLDET) << "CylinderPrimitive::calc_penetration_depth() entered" << std::endl;
   FILE_LOG(LOG_COLDET) << "  cylinder radius: " << R << "  half height: " << halfheight << std::endl;
-  FILE_LOG(LOG_COLDET) << "query point: " << p << std::endl;
   FILE_LOG(LOG_COLDET) << "query point (cylinder space): " << query << std::endl;
 
   // determine whether the point is within the height of the cylinder
@@ -839,7 +704,7 @@ double CylinderPrimitive::calc_penetration_depth(shared_ptr<const Pose3d> P, con
 }
 
 /// Determines the number of intersections between a line and this cylinder
-unsigned CylinderPrimitive::intersect_line(shared_ptr<const Pose3d> Px, const Point3d& origin, const Vector3d& dir, double& t0, double& t1) const
+unsigned CylinderPrimitive::intersect_line(const Point3d& origin, const Vector3d& dir, double& t0, double& t1) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
@@ -849,14 +714,14 @@ unsigned CylinderPrimitive::intersect_line(shared_ptr<const Pose3d> Px, const Po
   // If P = x*U + y*V + z*W, the cylinder is x^2 + y^2 = r^2, where r is the
   // cylinder radius.  The end caps are |z| = h/2, where h is the cylinder
   // height.
-  Vector3d U, V, W = Vector3d(0,1,0,Px);
+  Vector3d U, V, W = Vector3d(0,1,0,origin.pose);
   Vector3d::determine_orthonormal_basis(W, U, V);
   double halfheight = (double) 0.5 * _height;
   double rsqr = _radius*_radius;
 
   // convert line origin to cylinder coordinates
   Vector3d diff = origin;
-  Vector3d P(U.dot(diff), V.dot(diff), W.dot(diff), Px);
+  Vector3d P(U.dot(diff), V.dot(diff), W.dot(diff), origin.pose);
 
   // get the z-value, in cylinder coordinates, of the incoming line's unit-length direction
   double dz = W.dot(dir);
@@ -885,7 +750,7 @@ unsigned CylinderPrimitive::intersect_line(shared_ptr<const Pose3d> Px, const Po
   }
 
   // convert incoming line unit-length direction to cylinder coordinates
-  Vector3d D(U.dot(dir), V.dot(dir), dz, Px);
+  Vector3d D(U.dot(dir), V.dot(dir), dz, origin.pose);
 
   // check whether line is perpendicular to the cylinder axis
   if (std::fabs(D[Z]) <= NEAR_ZERO)
@@ -1061,44 +926,27 @@ unsigned CylinderPrimitive::intersect_line(shared_ptr<const Pose3d> Px, const Po
   return quantity;  
 }
 
-/**
 /// Computes the intersection between a cylinder and a line segment
+/*
  * Algorithm adapted from www.geometrictools.com 
  * \note for line segments that are partially or fully inside the cylinder, the
  *       method only returns intersection if the second endpoint of the segment
  *       is farther inside than the first
-bool CylinderPrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Vector3d& normal) const
+ */
+bool CylinderPrimitive::intersect_seg(const LineSeg3& seg, double& t, Point3d& isect, Vector3d& normal) const
 {
+  assert(_poses.find(const_pointer_cast<Pose3d>(seg.first.pose)) != _poses.end());
   const unsigned Y = 1;
   const double R = _radius;
   const double halfheight = _height*0.5;
-  static shared_ptr<Pose3d> P;
 
   FILE_LOG(LOG_COLDET) << "CylinderPrimitive::intersect_seg() entered" << std::endl;
   FILE_LOG(LOG_COLDET) << "  cylinder radius: " << R << "  half height: " << halfheight << std::endl;
   FILE_LOG(LOG_COLDET) << "  segment: " << seg.first << " / " << seg.second << std::endl;
 
-  // get the pose for the collision geometry
-  shared_ptr<const Pose3d> gpose = bv->geom->get_pose(); 
-
-  // get the pose for this geometry and BV
-  shared_ptr<const Pose3d> bpose = get_pose(); 
-  assert(!bpose->rpose);
-
-  // setup a new pose
-  if (!P)
-    P = shared_ptr<Pose3d>(new Pose3d);
-  *P = *bpose;
-  P->rpose = gpose;
-
-  // transform segment to primitive frame 
-  Transform3d T = Pose3d::calc_relative_pose(seg.first.pose, P);
-
-  // compute transformed segment
-  LineSeg3 nseg(T.transform_point(seg.first), T.transform_point(seg.second));
 
   // check whether the first point is already within the cylinder
-  double p_depth = calc_penetration_depth(P, nseg.first);
+  double p_depth = calc_penetration_depth(seg.first);
 
   if (p_depth >= (double) 0.0)
   {
@@ -1106,13 +954,12 @@ bool CylinderPrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, 
     FILE_LOG(LOG_COLDET) << "  -- depth of first point: " << p_depth << endl;
 
     // compute the normal
-    if (!point_inside(bv, nseg.first, normal))
+    if (!point_inside(seg.first, normal))
       return false;
 
     // set point and time of intersection
-    isect = nseg.first;
+    isect = seg.first;
     t = (double) 0.0;
-    normal = T.inverse_transform_vector(normal);
 
     FILE_LOG(LOG_COLDET) << "  -- point is inside!" << std::endl;
     FILE_LOG(LOG_COLDET) << "CylinderPrimitive::intersect_seg() exited" << std::endl;
@@ -1121,7 +968,7 @@ bool CylinderPrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, 
 
   // if line segment is a point- we know it's not within the cylinder- and 
   // we have an easy exit 
-  Vector3d dir = nseg.second - nseg.first;
+  Vector3d dir = seg.second - seg.first;
   double seg_len = dir.norm();
   if (seg_len < NEAR_ZERO)
   {
@@ -1132,7 +979,7 @@ bool CylinderPrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, 
 
   // do line / cylinder intersection
   double t0, t1;
-  unsigned nisects = intersect_line(P, nseg.first, dir/seg_len, t0, t1);
+  unsigned nisects = intersect_line(seg.first, dir/seg_len, t0, t1);
 
   // if no intersections or not a ray intersection, quit now
   if (nisects == 0 || (nisects == 1 && t0 < (double) 0.0) || 
@@ -1167,19 +1014,15 @@ bool CylinderPrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, 
   const double HALFH = _height * (double) 0.5;
 
   // determine the normal in cylinder coordinates
-  Point3d isect_cyl = T.transform_point(isect);
-  if (isect_cyl[Y] >= HALFH - NEAR_ZERO)
-    normal = Vector3d(0,1,0,P);
-  else if (isect_cyl[Y] <= -HALFH + NEAR_ZERO)
-    normal = Vector3d(0,-1,0,P);
+  if (isect[Y] >= HALFH - NEAR_ZERO)
+    normal = Vector3d(0,1,0,seg.first.pose);
+  else if (isect[Y] <= -HALFH + NEAR_ZERO)
+    normal = Vector3d(0,-1,0,seg.first.pose);
   else
   {
-    isect_cyl[Y] = (double) 0.0;
-    normal = Vector3d::normalize(isect_cyl);
+    isect[Y] = (double) 0.0;
+    normal = Vector3d::normalize(isect);
   }
-
-  // transform normal to global coords
-  normal = T.inverse_transform_vector(normal);
 
   FILE_LOG(LOG_COLDET) << " -- line segment intersects cylinder" << std::endl;
   FILE_LOG(LOG_COLDET) << "    point of intersection (transformed): " << isect << std::endl;
@@ -1188,5 +1031,4 @@ bool CylinderPrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, 
 
   return true;  
 }
- */
 

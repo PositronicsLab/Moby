@@ -48,12 +48,6 @@ class SpherePrimitive : public Primitive
   private:
     virtual void calc_mass_properties();
 
-    /// Pointer to the determined mesh (w/transform applied), if any
-    boost::shared_ptr<IndexedTriArray> _mesh;
-
-    /// Map from the geometry to the vector of vertices (w/transform and intersection tolerance applied), if any
-    std::map<CollisionGeometryPtr, std::vector<Point3d> > _vertices;
-
     /// The bounding volumes for the sphere
     std::map<CollisionGeometryPtr, boost::shared_ptr<BoundingSphere> > _bsphs; 
 
