@@ -52,11 +52,14 @@ class Primitive : public virtual Base
     void set_mass(double mass);
     void set_density(double density);
     virtual void set_pose(const Ravelin::Pose3d& T);
-    virtual Point3d get_supporting_point(const Ravelin::Vector3d& d);
-    virtual double calc_signed_dist(const Point3d& p);
+    virtual Point3d get_supporting_point(const Ravelin::Vector3d& d) const;
+    virtual double calc_signed_dist(const Point3d& p) const;
     void add_collision_geometry(CollisionGeometryPtr cg);
     void remove_collision_geometry(CollisionGeometryPtr cg);
     boost::shared_ptr<const Ravelin::Pose3d> get_pose(CollisionGeometryPtr g) const;
+
+    /// Determines whether this primitive is convex
+    virtual bool is_convex() const { return false; }
 
     /// Computes the distance between a point and this primitive
     virtual double calc_dist_and_normal(const Point3d& p, Ravelin::Vector3d& normal) const = 0;
@@ -72,7 +75,7 @@ class Primitive : public virtual Base
     virtual BVPtr get_BVH_root(CollisionGeometryPtr geom) = 0; 
 
     /// Get vertices corresponding to this primitive
-    virtual void get_vertices(boost::shared_ptr<const Ravelin::Pose3d> P, std::vector<Point3d>& vertices) = 0;
+    virtual void get_vertices(boost::shared_ptr<const Ravelin::Pose3d> P, std::vector<Point3d>& vertices) const = 0;
 
     /// Gets the inertial frame of this primitive
     boost::shared_ptr<const Ravelin::Pose3d> get_inertial_pose() const { return _jF; }

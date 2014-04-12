@@ -14,7 +14,9 @@
 #include <Moby/OBB.h>
 #include <Moby/Constants.h>
 #include <Moby/CollisionGeometry.h>
+#include <Moby/HeightmapPrimitive.h>
 #include <Moby/QP.h>
+#include <Moby/GJK.h>
 #include <Moby/BoxPrimitive.h>
 
 using namespace Ravelin;
@@ -83,16 +85,25 @@ double BoxPrimitive::calc_signed_dist(shared_ptr<const Primitive> p, Point3d& pt
   if (spherep)
     return calc_signed_dist(spherep, pthis, pp);
 
-  // TODO: verify transform is set in the proper order
+  // now try box/heightmap
+  shared_ptr<const HeightmapPrimitive> hmp = dynamic_pointer_cast<const HeightmapPrimitive>(p);
+  if (hmp)
+  {
+    shared_ptr<const Primitive> bthis = dynamic_pointer_cast<const Primitive>(shared_from_this());
+    return hmp->calc_signed_dist(bthis, pp, pthis);
+  }
+
+  // if the primitive is convex, can use GJK
+  if (p->is_convex())
+  {
+    shared_ptr<const Pose3d> Pbox = pthis.pose;
+    shared_ptr<const Pose3d> Pgeneric = pp.pose;
+    shared_ptr<const Primitive> bthis = dynamic_pointer_cast<const Primitive>(shared_from_this());
+    return GJK::do_gjk(bthis, p, Pbox, Pgeneric, pthis, pp);
+  }
+
   // TODO: finish implementing pairwise checks
   assert(false);
-}
-
-/// Computes the signed distance from one box to another
-double BoxPrimitive::calc_signed_dist(shared_ptr<const BoxPrimitive> box, Point3d& pthis, Point3d& pbox) const
-{
-  // TODO: use NewCCD version on merge with NewCCD branch
-  return 0.0;
 }
 
 /// Gets the distance of this box from a sphere
@@ -170,7 +181,7 @@ void BoxPrimitive::set_pose(const Pose3d& p)
 }
 
 /// Gets the set of vertices for the BoxPrimitive
-void BoxPrimitive::get_vertices(shared_ptr<const Pose3d> P, vector<Point3d>& verts) 
+void BoxPrimitive::get_vertices(shared_ptr<const Pose3d> P, vector<Point3d>& verts) const 
 {
   // clear the set of vertices
   verts.clear();
@@ -540,7 +551,7 @@ BVPtr BoxPrimitive::get_BVH_root(CollisionGeometryPtr geom)
 }
 
 /// Computes the signed distance to a point
-double BoxPrimitive::calc_signed_dist(const Point3d& p)
+double BoxPrimitive::calc_signed_dist(const Point3d& p) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
 

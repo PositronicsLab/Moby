@@ -31,11 +31,11 @@ class TriangleMeshPrimitive : public Primitive
     /// Gets the length of an edge in the mesh above which point sub-samples are created
     double get_edge_sample_length() const { return _edge_sample_length; }
 
-    virtual double calc_signed_dist(const Point3d& p);
+    virtual double calc_signed_dist(const Point3d& p) const;
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);  
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual BVPtr get_BVH_root(CollisionGeometryPtr geom);
-    virtual void get_vertices(boost::shared_ptr<const Ravelin::Pose3d> P, std::vector<Point3d>& vertices);
+    virtual void get_vertices(boost::shared_ptr<const Ravelin::Pose3d> P, std::vector<Point3d>& vertices) const;
     virtual double calc_dist_and_normal(const Point3d& p, Ravelin::Vector3d& normal) const;
     virtual boost::shared_ptr<const IndexedTriArray> get_mesh(boost::shared_ptr<const Ravelin::Pose3d> P) { return _mesh; }
     virtual void set_deformable(bool flag);

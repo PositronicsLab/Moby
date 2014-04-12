@@ -120,7 +120,7 @@ shared_ptr<const Pose3d> Primitive::get_pose(CollisionGeometryPtr g) const
 }
 
 /// Calculates the signed distance from this primitive
-double Primitive::calc_signed_dist(const Point3d& p)
+double Primitive::calc_signed_dist(const Point3d& p) const
 {
   // call the triangle mesh method
   assert(false);
@@ -128,7 +128,7 @@ double Primitive::calc_signed_dist(const Point3d& p)
 }
 
 /// Gets a supporting point from a primitive
-Point3d Primitive::get_supporting_point(const Vector3d& dir)
+Point3d Primitive::get_supporting_point(const Vector3d& dir) const
 {
   double max_dot = -std::numeric_limits<double>::max();
   unsigned maxp;
