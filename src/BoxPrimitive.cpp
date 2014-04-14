@@ -11,6 +11,7 @@
 #endif
 #include <Moby/XMLTree.h>
 #include <Moby/SpherePrimitive.h>
+#include <Moby/TriangleMeshPrimitive.h>
 #include <Moby/OBB.h>
 #include <Moby/Constants.h>
 #include <Moby/CollisionGeometry.h>
@@ -102,8 +103,17 @@ double BoxPrimitive::calc_signed_dist(shared_ptr<const Primitive> p, Point3d& pt
     return GJK::do_gjk(bthis, p, Pbox, Pgeneric, pthis, pp);
   }
 
-  // TODO: finish implementing pairwise checks
-  assert(false);
+  // try box/(non-convex) trimesh
+  shared_ptr<const TriangleMeshPrimitive> trip = dynamic_pointer_cast<const TriangleMeshPrimitive>(p);
+  if (trip)
+  {
+    shared_ptr<const Primitive> bthis = dynamic_pointer_cast<const Primitive>(shared_from_this());
+    return trip->calc_signed_dist(bthis, pp, pthis);
+  }
+ 
+  // should never get here...
+  assert(false); 
+  return 0.0;
 }
 
 /// Gets the distance of this box from a sphere

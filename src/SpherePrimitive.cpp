@@ -16,6 +16,7 @@
 #include <Moby/BoundingSphere.h>
 #include <Moby/CollisionGeometry.h>
 #include <Moby/BoxPrimitive.h>
+#include <Moby/TriangleMeshPrimitive.h>
 #include <Moby/HeightmapPrimitive.h>
 #include <Moby/GJK.h>
 #include <Moby/SpherePrimitive.h>
@@ -308,6 +309,11 @@ double SpherePrimitive::calc_signed_dist(shared_ptr<const Primitive> p, Point3d&
     shared_ptr<const Primitive> bthis = dynamic_pointer_cast<const Primitive>(shared_from_this());
     return GJK::do_gjk(bthis, p, Pbox, Pgeneric, pthis, pp);
   }
+
+  // try sphere/(non-convex) trimesh
+  shared_ptr<const TriangleMeshPrimitive> trip = dynamic_pointer_cast<const TriangleMeshPrimitive>(p);
+  if (trip)
+    return trip->calc_signed_dist(dynamic_pointer_cast<const Primitive>(shared_from_this()), pp, pthis);
 
   assert(false);
   return 0.0;

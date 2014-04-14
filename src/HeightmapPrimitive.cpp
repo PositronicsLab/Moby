@@ -19,7 +19,6 @@
 #include <Moby/BoundingSphere.h>
 #include <Moby/CollisionGeometry.h>
 #include <Moby/SpherePrimitive.h>
-#include <Moby/BoxPrimitive.h>
 #include <Moby/HeightmapPrimitive.h>
 
 using namespace Ravelin;
@@ -366,8 +365,6 @@ double HeightmapPrimitive::calc_signed_dist(shared_ptr<const Primitive> p, Point
 
   return mindist;
 }
-
-
 
 /// Finds the signed distance betwen the heightmap and a point
 double HeightmapPrimitive::calc_dist_and_normal(const Point3d& p, Vector3d& normal) const
