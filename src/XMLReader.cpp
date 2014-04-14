@@ -16,7 +16,7 @@
 #include <Moby/OSGGroupWrapper.h>
 #endif
 
-// #include <Moby/TriangleMeshPrimitive.h>
+#include <Moby/TriangleMeshPrimitive.h>
 #include <Moby/HeightmapPrimitive.h>
 #include <Moby/CylinderPrimitive.h>
 #include <Moby/ConePrimitive.h>

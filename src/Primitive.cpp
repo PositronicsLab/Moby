@@ -10,6 +10,7 @@
 #include <osg/Matrixd>
 #endif
 #include <queue>
+#include <stdexcept>
 #include <Moby/Constants.h>
 #include <Moby/XMLTree.h>
 #include <Moby/CollisionGeometry.h>
@@ -134,6 +135,10 @@ Point3d Primitive::get_supporting_point(const Vector3d& dir) const
   unsigned maxp;
 
   assert(_poses.find(const_pointer_cast<Pose3d>(dir.pose)) != _poses.end());
+
+  // if the primitive isn't convex, this method should not be called
+  if (!is_convex())
+    throw std::runtime_error("Primitive::get_supporting_point() should only be called on convex geometries!");
 
   // get all vertices
   vector<Point3d> vertices;
