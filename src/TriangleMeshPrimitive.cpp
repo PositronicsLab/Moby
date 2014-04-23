@@ -23,6 +23,7 @@
 #include <Moby/OBB.h>
 #include <Moby/BoundingSphere.h>
 #include <Moby/CollisionGeometry.h>
+#include <Moby/GJK.h>
 #include <Moby/TriangleMeshPrimitive.h>
 
 using namespace Ravelin;
@@ -39,6 +40,9 @@ using std::pair;
 using std::make_pair;
 using std::stack;
 using boost::dynamic_pointer_cast;
+using boost::const_pointer_cast;
+
+// TODO: determine whether the mesh makes a polyhedron
 
 /// Creates the triangle mesh primitive
 TriangleMeshPrimitive::TriangleMeshPrimitive()
@@ -93,20 +97,7 @@ TriangleMeshPrimitive::TriangleMeshPrimitive(const string& filename, const Pose3
   update_visualization();
 }
 
-/// Sets whether this primitive is used for a deformable body
-void TriangleMeshPrimitive::set_deformable(bool flag)
-{
-  Primitive::set_deformable(flag);
-
-  // vertices, mesh, and BVHs are no longer valid 
-  _mesh = shared_ptr<IndexedTriArray>();
-  _vertices.clear();
-  _mesh_vertices.clear();
-  _roots.clear();
-  _invalidated = true;
-}
-
-/// Sets the edge sample length for this box
+/// Sets the edge sample length for this triangle mesh 
 void TriangleMeshPrimitive::set_edge_sample_length(double len)
 {
   _edge_sample_length = len;
@@ -114,7 +105,6 @@ void TriangleMeshPrimitive::set_edge_sample_length(double len)
   // vertices are no longer valid
   _vertices.clear();
   _mesh_vertices.clear();
-  _invalidated = true;
 }
 
 /// Creates the visualization for this primitive
@@ -309,18 +299,19 @@ void TriangleMeshPrimitive::save_to_xml(XMLTreePtr node, list<shared_ptr<const B
 /// Sets the mesh
 void TriangleMeshPrimitive::set_mesh(boost::shared_ptr<const IndexedTriArray> mesh)
 {
+  // TODO: remove this calculation (replaces mesh with convex hull)
+  const vector<Origin3d>& verts = mesh->get_vertices();
+  PolyhedronPtr poly = CompGeom::calc_convex_hull(verts.begin(), verts.end());
+  _mesh = shared_ptr<const IndexedTriArray>(new IndexedTriArray(poly->get_mesh()));
+
+  // TODO: restore this
   // set the mesh
-  _mesh = mesh;
+//  _mesh = mesh;
 
   // vertices and bounding volumes are no longer valid
   _vertices.clear();
   _mesh_vertices.clear();
   _roots.clear();;
-  _invalidated = true;
-
-  // recalculate the mass properties
-  if (!is_deformable())
-    calc_mass_properties();
 
   // update visualization
   update_visualization();
@@ -416,120 +407,112 @@ BVPtr TriangleMeshPrimitive::get_BVH_root(CollisionGeometryPtr geom)
   return root; 
 }
 
-/// Determines whether the point on a thick triangle is degenerate
-bool TriangleMeshPrimitive::is_degen_point_on_tri(shared_ptr<AThickTri> tri, const Point3d& p)
+/// Returns whether the mesh is convex (currently mesh must be convex)
+bool TriangleMeshPrimitive::is_convex() const
 {
-  // get the barycentric coordinates for the point
-  double s, t;
-  tri->tri.determine_barycentric_coords(p, s, t);
-
-  // correct s and t, if necessary
-  if (s < (double) 0.0)
-  {
-    if (s < -NEAR_ZERO)
-      FILE_LOG(LOG_COLDET) << "Primitive::is_degen_point_on_tri() warning- s=" << s << endl;
-    s = (double) 0.0;
-  }
-  if (t < (double) 0.0)
-  {
-    if (t < -NEAR_ZERO)
-      FILE_LOG(LOG_COLDET) << "Primitive::is_degen_point_on_tri() warning- t=" << t << endl;
-    t = (double) 0.0;
-  }
-  if (s + t > (double) 1.0)
-  {
-    if (s + t > (double) 1.0 + NEAR_ZERO)
-      FILE_LOG(LOG_COLDET) << "Primitive::is_degen_point_on_tri() warning- s+t=" << (s+t) << endl;
-    double isum = (double) 1.0/(s + t);
-    s *= isum;
-    t *= isum;
-  }
-
-  // get the feature of the determined point
-  Triangle::FeatureType feat = tri->tri.determine_feature(s, t);
-
-  // if the feature is a face, we can exit now
-  if (feat == Triangle::eFace)
-    return false;
-
-  // for the other features, we'll need the indexed triangle from the original 
-  // triangle mesh 
-  const IndexedTriArray& mesh = *tri->mesh;
-  const IndexedTri& f = mesh.get_facets()[tri->tri_idx];
-
-  // now process the feature type
-  switch (feat)
-  {
-    // see whether vertex A is coincident to all coplanar facets
-    case Triangle::eVertexA:
-      return !mesh.is_coplanar(f.a);
-
-    // see whether vertex B is coincident to all coplanar facets
-    case Triangle::eVertexB:
-      return !mesh.is_coplanar(f.b);
-    
-    // see whether vertex C is coincident to all coplanar facets
-    case Triangle::eVertexC:
-      return !mesh.is_coplanar(f.c);
-
-    // see whether edge AB is coincident to all coplanar facets
-    case Triangle::eEdgeAB:
-      return !mesh.is_coplanar(f.a, f.b);
-      
-    // see whether edge BC is coincident to all coplanar facets
-    case Triangle::eEdgeBC:
-      return !mesh.is_coplanar(f.b, f.c);
-     
-    // see whether edge AC is coincident to all coplanar facets
-    case Triangle::eEdgeAC:
-      return !mesh.is_coplanar(f.a, f.c);
- 
-    // this should already be handled
-    case Triangle::eFace:
-      assert(false);
-      return true;
-
-    // this should not happen
-    case Triangle::eNone:
-      assert(false);
-      return true;
-  }
-
-  // should never get here...
-  assert(false);
   return true;
 }
 
-/// Gets mesh data for the geometry with the specified bounding volume
-const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >& TriangleMeshPrimitive::get_sub_mesh(BVPtr bv)
-{
-  assert(_mesh_tris.find(bv) != _mesh_tris.end());
-  _smesh = make_pair(_mesh, _mesh_tris.find(bv)->second);
-  return _smesh;
-}
-
 /// Computes the signed distance to a point from the mesh 
-double TriangleMeshPrimitive::calc_signed_dist(const Point3d& p)
+double TriangleMeshPrimitive::calc_signed_dist(const Point3d& p) const
 {
-  // TODO: implement this
-  assert(false);
-  return 0.0;
+  // verify that the point is defined with respect to one of the poses
+  assert(_poses.find(const_pointer_cast<Pose3d>(p.pose)) != _poses.end());
+
+  // if the primitive is convex and the point is outside, return the closest
+  // distance
+  if (is_convex())
+  {
+    // loop through all triangles of the mesh
+    bool inside = false;
+    double min_dist = std::numeric_limits<double>::max();
+    double max_dist = -min_dist;
+    for (unsigned i=0; i< _mesh->num_tris(); i++)
+    {
+      double dist = _mesh->get_triangle(i, p.pose).calc_signed_dist(p);
+      if (dist < 0.0)
+      {
+        max_dist = std::max(max_dist, dist);
+        inside = true;
+      }
+      else
+        min_dist = std::min(min_dist, dist);
+    }
+
+    // if the point is outside, return the minimum distance
+    if (!inside)
+      return min_dist;
+    else
+      return max_dist;
+  } 
+  else
+  {
+    throw std::runtime_error("TriangleMeshPrimitive::calc_signed_dist() - non-convex meshes not currently supported!");
+  }
 }
 
 /// Computes the distance and normal from a point on the mesh 
 double TriangleMeshPrimitive::calc_dist_and_normal(const Point3d& p, Vector3d& normal) const
 {
-  // TODO: implement this
-  assert(false);
-  return 0.0;
+  // verify that the point is defined with respect to one of the poses
+  assert(_poses.find(const_pointer_cast<Pose3d>(p.pose)) != _poses.end());
+
+  // if the primitive is convex and the point is outside, return the closest
+  // distance
+  if (is_convex())
+  {
+    // loop through all triangles of the mesh
+    bool inside = false;
+    double min_dist = std::numeric_limits<double>::max();
+    double max_dist = -min_dist;
+    for (unsigned i=0; i< _mesh->num_tris(); i++)
+    {
+      double dist = _mesh->get_triangle(i, p.pose).calc_signed_dist(p);
+      if (dist < 0.0)
+      {
+        if (dist > max_dist)
+        {
+          normal = _mesh->get_triangle(i, p.pose).calc_normal();
+          max_dist = dist;
+        }
+        inside = true;
+      }
+      else if (!inside)
+      {
+        if (dist < min_dist)
+        {
+          normal = _mesh->get_triangle(i, p.pose).calc_normal();
+          min_dist = dist;
+        }
+      }
+    }
+
+    // if the point is outside, return the minimum distance
+    if (!inside)
+      return min_dist;
+    else
+      return max_dist;
+  } 
+  else
+  {
+    throw std::runtime_error("TriangleMeshPrimitive::calc_signed_dist() - non-convex meshes not currently supported!");
+  }
 }
 
 /// Computes the distance and normal from a point on the mesh 
-double TriangleMeshPrimitive::calc_signed_dist(shared_ptr<const Primitive> primitive, shared_ptr<const Pose3d> pose_this, shared_ptr<const Pose3d> pose_p, Point3d& pthis, Point3d& pprimitive) const
+double TriangleMeshPrimitive::calc_signed_dist(shared_ptr<const Primitive> primitive, Point3d& pthis, Point3d& pprimitive) const
 {
-  // TODO: implement this
-  assert(false);
-  return 0.0;
+  if (is_convex() && primitive->is_convex())
+  {
+    shared_ptr<const Pose3d> Ptri = pthis.pose;
+    shared_ptr<const Pose3d> Pgeneric = pprimitive.pose;
+    shared_ptr<const Primitive> tthis = dynamic_pointer_cast<const Primitive>(shared_from_this());
+    return GJK::do_gjk(tthis, primitive, Ptri, Pgeneric, pthis, pprimitive);
+  }
+  else
+  {
+    throw std::runtime_error("TriangleMeshPrimitive::calc_signed_dist() - non-convex meshes not currently supported!");
+  }
 }
 
 /// Determines whether a point is inside / on one of the thick triangles
@@ -737,11 +720,18 @@ void TriangleMeshPrimitive::get_vertices(BVPtr bv, vector<const Point3d*>& verti
 }
 */
 
-/// Gets vertices corresponding to the bounding volume
-void TriangleMeshPrimitive::get_vertices(vector<Point3d>& vertices) 
+/// Gets vertices corresponding to a particular pose 
+void TriangleMeshPrimitive::get_vertices(shared_ptr<const Pose3d> P, vector<Point3d>& vertices) const 
 {
+  // verify that the primitive knows about this mesh
+  assert(_poses.find(const_pointer_cast<Pose3d>(P)) != _poses.end());
+
   // get the mesh vertices
   vertices = _vertices; 
+
+  // set the pose for each vertex
+  for (unsigned i=0; i< vertices.size(); i++)
+    vertices[i].pose = P;
 }
 
 /// Transforms this primitive
@@ -770,7 +760,6 @@ void TriangleMeshPrimitive::set_pose(const Pose3d& p)
   _vertices.clear();
   _mesh_vertices.clear();
   _roots.clear();
-  _invalidated = true;
 
   // recalculate the mass properties
   calc_mass_properties();
@@ -817,30 +806,13 @@ void TriangleMeshPrimitive::build_BB_tree(CollisionGeometryPtr geom)
   // get the vertices from the mesh
   const vector<Origin3d>& verts = _mesh->get_vertices();
 
-  // get the geometry pose
-  shared_ptr<const Pose3d> gpose = geom->get_pose();
-
-  // get pose of this primitive
-  shared_ptr<const Pose3d> P = get_pose();
-
-  // setup transform
-  Transform3d T;
-  T.source = gpose;
-  T.target = gpose;
-  T.x = P->x;
-  T.q = P->q;
-
   // transform the vertices into Point3d objects
   vector<Point3d> vertices(verts.size());
   for (unsigned i=0; i< verts.size(); i++)
-    vertices[i] = T.transform_point(Point3d(verts[i], gpose));
+    vertices[i] = Point3d(verts[i], GLOBAL);
 
   // build an BV around all vertices 
-  BVPtr root;
-  if (!is_deformable())
-    root = BVPtr(new OBB(vertices.begin(), vertices.end()));
-  else
-    root = BVPtr(new BoundingSphere(vertices.begin(), vertices.end()));
+  BVPtr root = BVPtr(new OBB(vertices.begin(), vertices.end()));
 
   // point the root to the geometry
   root->geom = geom;
@@ -871,21 +843,12 @@ void TriangleMeshPrimitive::build_BB_tree(CollisionGeometryPtr geom)
     // split the bounding box across each of the three axes
     for (unsigned i=0; i< 3; i++)
     {
-      Vector3d axis(gpose);
+      Vector3d axis(GLOBAL);
 
-      // get the i'th column of R if an OBB
-      if (!is_deformable())
-      {
-        OBBPtr obb = dynamic_pointer_cast<OBB>(bb);
-        assert(obb);
-        obb->R.get_column(i, axis);
-      }
-      else
-      {
-        if (i == 0) axis = Vector3d(1,0,0,gpose);
-        else if (i == 1) axis = Vector3d(0,1,0,gpose);
-        else axis = Vector3d(0,0,1,gpose); 
-      }
+      // get the i'th column of R
+      OBBPtr obb = dynamic_pointer_cast<OBB>(bb);
+      assert(obb);
+      obb->R.get_column(i, axis);
 
       // split the bounding box across the axis
       if (split(_mesh, bb, child1, child2, axis))
@@ -993,18 +956,9 @@ void TriangleMeshPrimitive::build_BB_tree(CollisionGeometryPtr geom)
     Q.pop();
 
     // fatten the bounding volume
-    if (!is_deformable())
-    {
-      // cast it to an OBB
-      OBBPtr obb = dynamic_pointer_cast<OBB>(bb);
-      assert(obb);
-    }
-    else
-    {
-      // cast it to a bounding sphere
-      shared_ptr<BoundingSphere> bs = dynamic_pointer_cast<BoundingSphere>(bb);
-      assert(bs);
-    }
+    // cast it to an OBB
+    OBBPtr obb = dynamic_pointer_cast<OBB>(bb);
+    assert(obb);
 
     // add all children to the queue
     if (!bb->is_leaf())
@@ -1047,29 +1001,22 @@ void TriangleMeshPrimitive::build_BB_tree(CollisionGeometryPtr geom)
   }
 
   // build set of mesh vertices
-  construct_mesh_vertices(_mesh, geom, gpose);
+  construct_mesh_vertices(_mesh, geom);
 
   FILE_LOG(LOG_BV) << "Primitive::build_BB_tree() exited" << endl;
 }
 
 /// Creates the set of mesh vertices
-void TriangleMeshPrimitive::construct_mesh_vertices(shared_ptr<const IndexedTriArray> mesh, CollisionGeometryPtr geom, shared_ptr<const Pose3d> P)
+void TriangleMeshPrimitive::construct_mesh_vertices(shared_ptr<const IndexedTriArray> mesh, CollisionGeometryPtr geom)
 {
   const unsigned EDGES_PER_TRI = 3;
 
-/*
   // get the sets of vertices and facets from the mesh
   const vector<Origin3d>& mesh_vertices = mesh->get_vertices();
   const vector<IndexedTri>& mesh_facets = mesh->get_facets();
 
   // also, we'll need the vertex-to-facet map
   vector<list<unsigned> > vf_map = mesh->determine_vertex_facet_map();
-
-  // create a new vector of vertices
-  vector<Point3d>& vertices = _vertices[geom];
-  vertices.resize(mesh_vertices.size());
-  for (unsigned i=0; i< mesh_vertices.size(); i++)
-    vertices[i] = Point3d(mesh_vertices[i], P);
 
   // now, modify the vertices based on the intersection tolerance
   for (unsigned i=0; i< mesh_vertices.size(); i++)
@@ -1078,11 +1025,11 @@ void TriangleMeshPrimitive::construct_mesh_vertices(shared_ptr<const IndexedTriA
     const list<unsigned>& ifacets = vf_map[i];
 
     // setup the current normal
-    Vector3d normal = Vector3d::zero(P);
+    Vector3d normal = Vector3d::zero(GLOBAL);
 
     // add all coincident normals together, then normalize
     BOOST_FOREACH(unsigned j, ifacets)
-      normal += mesh->get_triangle(j, P).calc_normal();
+      normal += mesh->get_triangle(j, GLOBAL).calc_normal();
 
     // if we can't normalize, skip this vertex 
     if (normal.norm() < NEAR_ZERO)
@@ -1091,50 +1038,6 @@ void TriangleMeshPrimitive::construct_mesh_vertices(shared_ptr<const IndexedTriA
     // otherwise, normalize the normal and add intersection tolerance (in dir
     // of normal) to vertex i
     normal.normalize();
-  }
-
-  // now, add additional samples based on edges in the mesh
-  map<sorted_pair<unsigned>, list<unsigned> > edge_subsamples;
-  for (unsigned i=0; i< mesh_facets.size(); i++)
-  {
-    // setup sorted pairs for the three edges
-    sorted_pair<unsigned> e[EDGES_PER_TRI];
-    e[0] = make_sorted_pair(mesh_facets[i].a, mesh_facets[i].b);
-    e[1] = make_sorted_pair(mesh_facets[i].b, mesh_facets[i].c);
-    e[2] = make_sorted_pair(mesh_facets[i].c, mesh_facets[i].a);
-
-    // check the three edges
-    for (unsigned j=0; j< EDGES_PER_TRI; j++)
-    {
-      if (edge_subsamples.find(e[j]) == edge_subsamples.end())
-      {
-        // edge does not already exist..  add vertices as necessary
-        list<unsigned>& ess = edge_subsamples[e[j]];
-
-        // subdivide edge to create new vertices as necessary
-        queue<sorted_pair<unsigned> > q;
-        q.push(e[j]);
-        while (!q.empty())
-        {
-          // get the two vertices of the "edge"
-          unsigned vi = q.front().first;
-          unsigned vj = q.front().second;
-          q.pop();
-          const Point3d& v1 = vertices[vi];
-          const Point3d& v2 = vertices[vj];
-
-          // subdivide, adding a vertex as necessary
-          if ((v1-v2).norm() > _edge_sample_length)
-          {
-            unsigned vk = vertices.size();
-            vertices.push_back((v1+v2) * (double) 0.5);
-            ess.push_back(vk);
-            q.push(make_sorted_pair(vi,vk));
-            q.push(make_sorted_pair(vk,vj));
-          }
-        }
-      }
-    }
   }
 
   // iterate over all mesh triangles
@@ -1159,15 +1062,8 @@ void TriangleMeshPrimitive::construct_mesh_vertices(shared_ptr<const IndexedTriA
       e[0] = make_sorted_pair(mesh_facets[j].a, mesh_facets[j].b);
       e[1] = make_sorted_pair(mesh_facets[j].b, mesh_facets[j].c);
       e[2] = make_sorted_pair(mesh_facets[j].c, mesh_facets[j].a);
-      for (unsigned k=0; k< EDGES_PER_TRI; k++)
-      {
-        assert(edge_subsamples.find(e[k]) != edge_subsamples.end());
-        const list<unsigned>& ess = edge_subsamples[e[k]];
-        vlist.insert(vlist.end(), ess.begin(), ess.end());
-      }
     }
   }
-*/
 }
 
 /// Splits a collection of triangles along a splitting plane into 2 new meshes 
@@ -1249,16 +1145,8 @@ bool TriangleMeshPrimitive::split(shared_ptr<const IndexedTriArray> mesh, shared
   get_vertices(*mesh, ntris.begin(), ntris.end(), std::back_inserter(nverts), centroid.pose);
 
   // create two new BVs 
-  if (!is_deformable())
-  {
-    tgt1 = OBBPtr(new OBB(pverts.begin(), pverts.end()));
-    tgt2 = OBBPtr(new OBB(nverts.begin(), nverts.end()));
-  }
-  else
-  {
-    tgt1 = shared_ptr<BoundingSphere>(new BoundingSphere(pverts.begin(), pverts.end()));
-    tgt2 = shared_ptr<BoundingSphere>(new BoundingSphere(nverts.begin(), nverts.end()));
-  }
+  tgt1 = OBBPtr(new OBB(pverts.begin(), pverts.end()));
+  tgt2 = OBBPtr(new OBB(nverts.begin(), nverts.end()));
 
   // setup geometry pointers
   tgt1->geom = source->geom;

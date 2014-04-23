@@ -10,6 +10,7 @@
 #include <osg/Matrixd>
 #endif
 #include <queue>
+#include <stdexcept>
 #include <Moby/Constants.h>
 #include <Moby/XMLTree.h>
 #include <Moby/CollisionGeometry.h>
@@ -120,7 +121,7 @@ shared_ptr<const Pose3d> Primitive::get_pose(CollisionGeometryPtr g) const
 }
 
 /// Calculates the signed distance from this primitive
-double Primitive::calc_signed_dist(const Point3d& p)
+double Primitive::calc_signed_dist(const Point3d& p) const
 {
   // call the triangle mesh method
   assert(false);
@@ -128,12 +129,16 @@ double Primitive::calc_signed_dist(const Point3d& p)
 }
 
 /// Gets a supporting point from a primitive
-Point3d Primitive::get_supporting_point(const Vector3d& dir)
+Point3d Primitive::get_supporting_point(const Vector3d& dir) const
 {
   double max_dot = -std::numeric_limits<double>::max();
-  Point3d maxp;
+  unsigned maxp;
 
   assert(_poses.find(const_pointer_cast<Pose3d>(dir.pose)) != _poses.end());
+
+  // if the primitive isn't convex, this method should not be called
+  if (!is_convex())
+    throw std::runtime_error("Primitive::get_supporting_point() should only be called on convex geometries!");
 
   // get all vertices
   vector<Point3d> vertices;
@@ -141,21 +146,18 @@ Point3d Primitive::get_supporting_point(const Vector3d& dir)
   if (vertices.empty())
     return Point3d(0,0,0,get_pose());
 
-  // convert the direction
-  Vector3d d = Pose3d::transform_vector(get_pose(), dir);
-
   // loop over vertices
   for (unsigned i=0; i< vertices.size(); i++)
   {
-    double dot = vertices[i].dot(d);
+    double dot = vertices[i].dot(dir);
     if (dot > max_dot)
     {
       max_dot = dot;
-      maxp = vertices[i];
+      maxp = i;
     }
   }
 
-  return maxp;
+  return vertices[maxp];
 }
 
 /// Gets the visualization for this primitive, creating it if necessary
