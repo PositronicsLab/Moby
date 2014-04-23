@@ -351,7 +351,7 @@ bool LCP::lcp_lemke(const MatrixNd& M, const VectorNd& q, VectorNd& z, double pi
   }
 
   // Lemke's algorithm doesn't seem to like warmstarting
-//  z.set_zero();
+  z.set_zero();
 
   // copy z to z0
   _z0 = z;

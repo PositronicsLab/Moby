@@ -33,7 +33,7 @@ class XMLReader
     enum TupleType { eNone, eVectorN, eVector3, eQuat };
     static boost::shared_ptr<const XMLTree> find_subtree(boost::shared_ptr<const XMLTree> root, const std::string& name);
     static void process_tag(const std::string& tag, boost::shared_ptr<const XMLTree> root, void (*fn)(boost::shared_ptr<const XMLTree>, std::map<std::string, BasePtr>&), std::map<std::string, BasePtr>& id_map);
-    static void read_gaussian_mixture(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
+    static void read_heightmap(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     static void read_box(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     static void read_sphere(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     static void read_cylinder(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);

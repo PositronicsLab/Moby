@@ -26,6 +26,7 @@ class ConePrimitive : public Primitive
     ConePrimitive(double radius, double height);
     ConePrimitive(double radius, double height, unsigned npoints, unsigned nrings, const Ravelin::Pose3d& T);
     ConePrimitive(double radius, double height, const Ravelin::Pose3d& T);
+    virtual bool is_convex() const { return true; }
     void set_radius(double radius);
     void set_height(double height);
     void set_circle_points(unsigned n);
@@ -33,14 +34,14 @@ class ConePrimitive : public Primitive
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual BVPtr get_BVH_root(CollisionGeometryPtr geom);
-    virtual void get_vertices(boost::shared_ptr<const Ravelin::Pose3d> P, std::vector<Point3d>& vertices);
+    virtual void get_vertices(boost::shared_ptr<const Ravelin::Pose3d> P, std::vector<Point3d>& vertices) const;
     virtual void set_pose(const Ravelin::Pose3d& T);
     virtual double calc_dist_and_normal(const Point3d& p, Ravelin::Vector3d& normal) const;
-    virtual double calc_signed_dist(boost::shared_ptr<const Primitive> p, boost::shared_ptr<const Ravelin::Pose3d> pose_this, boost::shared_ptr<const Ravelin::Pose3d> pose_p, Point3d& pthis, Point3d& pp) const;
+    virtual double calc_signed_dist(boost::shared_ptr<const Primitive> p, Point3d& pthis, Point3d& pp) const;
     virtual boost::shared_ptr<const IndexedTriArray> get_mesh(boost::shared_ptr<const Ravelin::Pose3d> P);
     virtual osg::Node* create_visualization();
-    virtual Point3d get_supporting_point(const Ravelin::Vector3d& d);
-    virtual double calc_signed_dist(const Point3d& p);
+    virtual Point3d get_supporting_point(const Ravelin::Vector3d& d) const;
+    virtual double calc_signed_dist(const Point3d& p) const;
 
     /// Gets the number of rings on the cone
     unsigned get_num_rings() const { return _nrings; }
@@ -55,11 +56,13 @@ class ConePrimitive : public Primitive
     unsigned get_circle_points() const { return _npoints; }
     
   private:
+    bool intersect_seg(const LineSeg3& seg, double& t, Point3d& isect, Ravelin::Vector3d& normal) const;
     double calc_dist(const SpherePrimitive* s, Point3d& pcone, Point3d& psph) const;
     static double sqr(double x) { return x*x; }
     virtual void calc_mass_properties(); 
-    double calc_penetration_depth(boost::shared_ptr<const Ravelin::Pose3d> P, const Point3d& p) const; 
-    Ravelin::Vector3d determine_normal(boost::shared_ptr<const Ravelin::Pose3d> P, const Point3d& query) const;
+    double calc_penetration_depth(const Point3d& p) const; 
+    Ravelin::Vector3d determine_normal(const Point3d& query) const;
+    bool point_inside(const Point3d& p, Ravelin::Vector3d& normal) const;
 
     /// The bounding volumes for the primitive, indexed by geometry
     std::map<CollisionGeometryPtr, OBBPtr> _obbs; 

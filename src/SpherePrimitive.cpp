@@ -16,6 +16,9 @@
 #include <Moby/BoundingSphere.h>
 #include <Moby/CollisionGeometry.h>
 #include <Moby/BoxPrimitive.h>
+#include <Moby/TriangleMeshPrimitive.h>
+#include <Moby/HeightmapPrimitive.h>
+#include <Moby/GJK.h>
 #include <Moby/SpherePrimitive.h>
 
 using namespace Ravelin;
@@ -81,7 +84,7 @@ SpherePrimitive::SpherePrimitive(double radius, unsigned n, const Pose3d& T) : P
 }
 
 /// Gets the supporting point
-Point3d SpherePrimitive::get_supporting_point(const Vector3d& d) 
+Point3d SpherePrimitive::get_supporting_point(const Vector3d& d) const 
 {
   assert(_poses.find(const_pointer_cast<Pose3d>(d.pose)) != _poses.end());
 
@@ -89,7 +92,7 @@ Point3d SpherePrimitive::get_supporting_point(const Vector3d& d)
 }
 
 /// Computes the signed distance of the given point from this primitive
-double SpherePrimitive::calc_signed_dist(const Point3d& p)
+double SpherePrimitive::calc_signed_dist(const Point3d& p) const
 {
   assert(_poses.find(const_pointer_cast<Pose3d>(p.pose)) != _poses.end());
 
@@ -238,7 +241,7 @@ shared_ptr<const IndexedTriArray> SpherePrimitive::get_mesh(shared_ptr<const Pos
 }
 
 /// Gets vertices for the primitive
-void SpherePrimitive::get_vertices(shared_ptr<const Pose3d> P, std::vector<Point3d>& vertices)
+void SpherePrimitive::get_vertices(shared_ptr<const Pose3d> P, std::vector<Point3d>& vertices) const
 {
   // verify that the primitive knows about this mesh
   assert(_poses.find(const_pointer_cast<Pose3d>(P)) != _poses.end());
@@ -289,6 +292,28 @@ double SpherePrimitive::calc_signed_dist(shared_ptr<const Primitive> p, Point3d&
   shared_ptr<const SpherePrimitive> spherep = dynamic_pointer_cast<const SpherePrimitive>(p);
   if (spherep)
     return calc_signed_dist(spherep, pthis, pp);
+
+  // now try heightmap/sphere
+  shared_ptr<const HeightmapPrimitive> hmp = dynamic_pointer_cast<const HeightmapPrimitive>(p);
+  if (hmp)
+  {
+    shared_ptr<const SpherePrimitive> thisp = dynamic_pointer_cast<const SpherePrimitive>(shared_from_this());
+    return hmp->calc_signed_dist(thisp, pp, pthis);
+  }
+
+  // if the primitive is convex, can use GJK
+  if (p->is_convex())
+  {
+    shared_ptr<const Pose3d> Pbox = pthis.pose;
+    shared_ptr<const Pose3d> Pgeneric = pp.pose;
+    shared_ptr<const Primitive> bthis = dynamic_pointer_cast<const Primitive>(shared_from_this());
+    return GJK::do_gjk(bthis, p, Pbox, Pgeneric, pthis, pp);
+  }
+
+  // try sphere/(non-convex) trimesh
+  shared_ptr<const TriangleMeshPrimitive> trip = dynamic_pointer_cast<const TriangleMeshPrimitive>(p);
+  if (trip)
+    return trip->calc_signed_dist(dynamic_pointer_cast<const Primitive>(shared_from_this()), pp, pthis);
 
   assert(false);
   return 0.0;
