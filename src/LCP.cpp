@@ -221,6 +221,8 @@ bool LCP::lcp_lemke_regularized(const MatrixNd& M, const VectorNd& q, VectorNd& 
     // setup regularization factor
     double lambda = std::pow((double) 10.0, (double) rf);
 
+    FILE_LOG(LOG_OPT) << "  trying to solve LCP with regularization factor: " << lambda << endl;
+
     // regularize M
     _MM = M;
     for (unsigned i=0; i< M.rows(); i++)
