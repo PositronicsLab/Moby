@@ -639,6 +639,22 @@ BVPtr CCD::construct_bounding_sphere(CollisionGeometryPtr cg)
     return sph;
   }
 
+  // look for cone primitive
+  shared_ptr<ConePrimitive> cone_p = dynamic_pointer_cast<ConePrimitive>(p);
+  if (cone_p)
+  {
+    sph->radius = std::max(cone_p->get_height(), cone_p->get_radius());
+    return sph;
+  }
+
+  // look for cylinder primitive
+  shared_ptr<CylinderPrimitive> cyl_p = dynamic_pointer_cast<CylinderPrimitive>(p);
+  if (cyl_p)
+  {
+    sph->radius = std::max(cyl_p->get_height(), cyl_p->get_radius());
+    return sph;
+  }
+
   // shouldn't still be here..
   assert(false);
   return BVPtr();
