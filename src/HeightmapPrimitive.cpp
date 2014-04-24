@@ -12,6 +12,7 @@
 #include <osg/Material>
 #include <osg/LightModel>
 #endif
+#include <boost/algorithm/minmax_element.hpp>
 #include <Moby/Constants.h>
 #include <Moby/CompGeom.h>
 #include <Moby/sorted_pair>
@@ -85,7 +86,7 @@ BVPtr HeightmapPrimitive::get_BVH_root(CollisionGeometryPtr geom)
     obb->center.set_zero(P);
 
     // get the maximum and minimum height
-    pair<ColumnIteratord, ColumnIteratord> mmax = std::minmax_element(_heights.column_iterator_begin(), _heights.column_iterator_end());
+    pair<ColumnIteratord, ColumnIteratord> mmax = boost::minmax_element(_heights.column_iterator_begin(), _heights.column_iterator_end());
     double maxy = *mmax.second;
     double miny = *mmax.first;
     obb->center[Y] = (maxy+miny)*0.5;
