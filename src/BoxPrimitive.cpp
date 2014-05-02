@@ -644,7 +644,8 @@ double BoxPrimitive::calc_closest_point(const Point3d& point, Point3d& closest) 
     }
     else if (inside)
     {
-      double dist = std::min(extents[i] - point[i], point[i] + extents[i]);
+      double dist = -std::min(std::fabs(extents[i] - point[i]), 
+                              std::fabs(point[i] + extents[i]));
       intDist = std::max(intDist, dist);
     }
   }
@@ -690,7 +691,7 @@ double BoxPrimitive::calc_dist_and_normal(const Point3d& point, Vector3d& normal
     }
     else if (inside)
     {
-      double dist = std::min(point[i] - extents[i], point[i] + extents[i]);
+      double dist = -std::min(std::fabs(point[i] - extents[i]), std::fabs(point[i] + extents[i]));
       intDist = std::max(intDist, dist);
     }
   }

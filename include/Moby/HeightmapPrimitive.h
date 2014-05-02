@@ -34,6 +34,11 @@ class HeightmapPrimitive : public Primitive
     virtual boost::shared_ptr<const IndexedTriArray> get_mesh(boost::shared_ptr<const Ravelin::Pose3d> P);
     virtual void calc_mass_properties() { _density.reset(); _J.set_zero(); }
     virtual BVPtr get_BVH_root(CollisionGeometryPtr geom);
+    virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
+    virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
+    const Ravelin::MatrixNd& get_heights() const { return _heights; }
+    double get_width() const { return _width; }
+    double get_depth() const { return _depth; }
 
   protected:
     double calc_height(const Point3d& p) const;

@@ -106,7 +106,7 @@ OutputIterator CCD::find_contacts_heightmap_generic(CollisionGeometryPtr cgA, Co
   double min_dist = std::numeric_limits<double>::max();
 
   // get the heightmap primitive
-  boost::shared_ptr<HeightmapPrimitive> hmA = boost::dynamic_pointer_cast<HeightmapPrimitive>(cgA);
+  boost::shared_ptr<HeightmapPrimitive> hmA = boost::dynamic_pointer_cast<HeightmapPrimitive>(cgA->get_geometry());
 
   // get the bounding volume for cgB
   PrimitivePtr pB = cgB->get_geometry();
@@ -122,6 +122,10 @@ OutputIterator CCD::find_contacts_heightmap_generic(CollisionGeometryPtr cgA, Co
     // see whether the point is inside the primitive
     if ((dist = cgB->calc_dist_and_normal(vA[i], n))-NEAR_ZERO <= min_dist)
     {
+      // verify that we don't have a degenerate normal
+      if (n.norm() < NEAR_ZERO)
+        continue;
+
       // see whether to throw out the old points
       if (dist-NEAR_ZERO < min_dist && min_dist > 0.0)
         e.clear();
@@ -140,6 +144,10 @@ OutputIterator CCD::find_contacts_heightmap_generic(CollisionGeometryPtr cgA, Co
     // see whether the point is inside the primitive
     if ((dist = cgA->calc_dist_and_normal(vB[i], n))-NEAR_ZERO <= min_dist)
     {
+      // verify that we don't have a degenerate normal
+      if (n.norm() < NEAR_ZERO)
+        continue;
+
       // see whether to throw out the old points
       if (dist-NEAR_ZERO < min_dist && min_dist > 0.0)
         e.clear();
@@ -160,10 +168,13 @@ OutputIterator CCD::find_contacts_heightmap_generic(CollisionGeometryPtr cgA, Co
 template <class OutputIterator>
 OutputIterator CCD::find_contacts_sphere_heightmap(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin)
 {
-  const unsigned Y = 1;
+  const unsigned X = 0, Z = 2;
 
   // get the output iterator
   OutputIterator o = output_begin; 
+
+  // setup a vector of contacts
+  std::vector<Event> contacts;
 
   // get the sphere and heightmap
   boost::shared_ptr<SpherePrimitive> sA = boost::dynamic_pointer_cast<SpherePrimitive>(cgA->get_geometry());
@@ -174,45 +185,73 @@ OutputIterator CCD::find_contacts_sphere_heightmap(CollisionGeometryPtr cgA, Col
   boost::shared_ptr<const Ravelin::Pose3d> pB = hmB->get_pose(cgB);
 
   // get the transform from sphere to the heightmap
-  Ravelin::Transform3d T = Ravelin::Pose3d::calc_relative_pose(pB, pA);
-
+  Ravelin::Transform3d T = Ravelin::Pose3d::calc_relative_pose(pA, pB);
+  
   // transform the sphere center to the height map space
   Point3d ps_c(0.0, 0.0, 0.0, pA);
-  Point3d ps_c_B = T.transform_point(ps_c);
+  Point3d ps_c_hm = T.transform_point(ps_c);
 
-  // compute the distance
-  double y = hmB->calc_height(ps_c_B);
-  double d = y - sA->get_radius();
+  // setup the minimum distance
+  double min_dist = std::numeric_limits<double>::max();
 
-  // see whether we can exit early
-  if (d > NEAR_ZERO)
-    return o;
+  // get the corners of the bounding box in this frame
+  Point3d bv_lo = ps_c_hm;
+  Point3d bv_hi = ps_c_hm;
+  for (unsigned i=0; i< 3; i++)
+  {
+    bv_lo[i] -= sA->get_radius();
+    bv_hi[i] += sA->get_radius();
+  }
 
-  // setup closest point on heightmap
-  Point3d pheightmap = ps_c_B;
-  pheightmap[Y] = y; 
+  // get the heightmap width, depth, and heights
+  double width = hmB->get_width();
+  double depth = hmB->get_depth();
+  const Ravelin::MatrixNd& heights = hmB->get_heights();
 
-  // setup closest point on sphere
-  Ravelin::Vector3d xlat(0.0, -1.0, 0.0, pB);
-  if (d > 0.0)
-    xlat *= sA->get_radius();
-  else
-    xlat *= sA->get_radius()+d;
-  Point3d psphere = ps_c + Ravelin::Pose3d::transform_vector(pA, xlat);
+  // get the lower i and j indices
+  unsigned lowi = (unsigned) ((bv_lo[X]+width*0.5)*(heights.rows()-1)/width);
+  unsigned lowj = (unsigned) ((bv_lo[Z]+depth*0.5)*(heights.columns()-1)/depth);
 
-  // setup the normal at the heightmap
-  double gx, gz;
-  hmB->calc_gradient(pheightmap, gx, gz);
-  Ravelin::Vector3d normal(gx, 1.0, gz, pB);
-  normal = Ravelin::Pose3d::transform_vector(GLOBAL, normal); 
+  // get the upper i and j indices
+  unsigned upi = (unsigned) ((bv_hi[X]+width*0.5)*(heights.rows()-1)/width)+1;
+  unsigned upj = (unsigned) ((bv_hi[Z]+depth*0.5)*(heights.columns()-1)/depth)+1;
 
-  // create the contact point at the heightmap 
-  Point3d p = Ravelin::Pose3d::transform_point(GLOBAL, pheightmap);
+  // iterate over all points in the bounding region
+  for (unsigned i=lowi; i<= upi; i++)
+    for (unsigned j=lowj; j< upj; j++)
+    {
+      // compute the point on the heightmap
+      double x = -width*0.5+width*i/(heights.rows()-1);
+      double z = -depth*0.5+depth*j/(heights.columns()-1);
+      Point3d p(x, heights(i,j), z, pB);
+
+      // get the distance from the sphere
+      Point3d p_A = Ravelin::Pose3d::transform_point(pA, p);
+      double dist = sA->calc_signed_dist(p_A);
+
+      // ignore distance if it isn't sufficiently close
+      if (dist > NEAR_ZERO)
+        continue;
+
+      // see how the distance compares
+      if (dist < min_dist-NEAR_ZERO && min_dist > 0.0)
+        contacts.clear();
+      if (dist < min_dist)
+        min_dist = dist;
+      if (dist-NEAR_ZERO < min_dist)
+      {
+        Point3d point = Ravelin::Pose3d::transform_point(GLOBAL, p_A);
+        double gx, gz;
+        hmB->calc_gradient(Ravelin::Pose3d::transform_point(pB, p_A), gx, gz);
+        Ravelin::Vector3d normal(-gx, 1.0, -gz, pB);
+        normal.normalize();
+        normal = Ravelin::Pose3d::transform_vector(GLOBAL, normal); 
+        contacts.push_back(create_contact(cgA, cgB, point, normal)); 
+      }
+    }
 
   // create the normal pointing from B to A
-  *o++ = create_contact(cgA, cgB, p, normal); 
-
-  return o;    
+  return std::copy(contacts.begin(), contacts.end(), o);
 }
 
 /// Finds contacts for two spheres (one piece of code works for both separated and non-separated spheres)

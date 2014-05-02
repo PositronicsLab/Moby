@@ -123,12 +123,12 @@ void HeightmapPrimitive::get_vertices(BVPtr bv, shared_ptr<const Pose3d> P, vect
   Point3d bv_hi = bv->get_lower_bounds();
 
   // get the lower i and j indices
-  unsigned lowi = (unsigned) (bv_lo[X]*(_heights.rows()-1)/_width + _width*0.5);
-  unsigned lowj = (unsigned) (bv_lo[Z]*(_heights.columns()-1)/_depth + _depth*0.5);
+  unsigned lowi = (unsigned) ((bv_lo[X]+_width*0.5)*(_heights.rows()-1)/_width);
+  unsigned lowj = (unsigned) ((bv_lo[Z]+_depth*0.5)*(_heights.columns()-1)/_depth);
 
   // get the upper i and j indices
-  unsigned upi = (unsigned) (bv_hi[X]*(_heights.rows()-1)/_width + _width*0.5)+1;
-  unsigned upj = (unsigned) (bv_hi[Z]*(_heights.columns()-1)/_depth + _depth*0.5)+1;
+  unsigned upi = (unsigned) ((bv_hi[X]+_width*0.5)*(_heights.rows()-1)/_width)+1;
+  unsigned upj = (unsigned) ((bv_hi[Z]+_depth*0.5)*(_heights.columns()-1)/_depth)+1;
 
   // iterate over all points
   for (unsigned i=lowi; i<= upi; i++)
@@ -143,7 +143,7 @@ void HeightmapPrimitive::get_vertices(BVPtr bv, shared_ptr<const Pose3d> P, vect
 /// Gets the vertices of the heightmap
 void HeightmapPrimitive::get_vertices(shared_ptr<const Pose3d> P, vector<Point3d>& vertices) const
 {
-  assert(_poses.find(const_pointer_cast<Pose3d>(P)) != _poses.end());
+  assert(_poses.find(const_pointer_cast<Pose3d>(P)) != _poses.end() || P == get_pose());
 
   // clear the vector of vertices
   vertices.clear();
@@ -162,15 +162,15 @@ void HeightmapPrimitive::get_vertices(shared_ptr<const Pose3d> P, vector<Point3d
 double HeightmapPrimitive::calc_height(const Point3d& p) const
 {
   assert(_poses.find(const_pointer_cast<Pose3d>(p.pose)) != _poses.end());
-  const unsigned X = 0, Z = 2;
+  const unsigned X = 0, Y = 1, Z = 2;
 
   // get the X and Z query points
   const unsigned qx = p[X];
   const unsigned qz = p[Z];
 
   // determine the indices 
-  unsigned i = (unsigned) (qx*(_heights.rows()-1)/_width + _width*0.5);
-  unsigned j = (unsigned) (qz*(_heights.columns()-1)/_depth + _depth*0.5);
+  unsigned i = (unsigned) ((qx+_width*0.5)*(_heights.rows()-1)/_width);
+  unsigned j = (unsigned) ((qz+_depth*0.5)*(_heights.columns()-1)/_depth);
   assert(i < _heights.rows());
   assert(j < _heights.columns());
 
@@ -190,7 +190,7 @@ double HeightmapPrimitive::calc_height(const Point3d& p) const
   const double f01 = _heights(i,j+1);
   const double f11 = _heights(i+1,j+1);
 
-  return f00*(1.0-s)*(1.0-t) + f10*s*(1.0-t) + f01*(1.0-s)*t + f11*s*t;
+  return p[Y] - f00*(1.0-s)*(1.0-t) + f10*s*(1.0-t) + f01*(1.0-s)*t + f11*s*t;
 }
 
 /// Computes the gradient at a particular point
@@ -240,7 +240,7 @@ osg::Node* HeightmapPrimitive::create_visualization()
 
   // get the pose and compute transform from the global frame to it 
   shared_ptr<const Pose3d> P = get_pose();
-  Transform3d T = Pose3d::calc_relative_pose(GLOBAL, P);
+  Transform3d T = Pose3d::calc_relative_pose(P, GLOBAL);
 
   // create necessary OSG elements for visualization
   osg::Group* group = new osg::Group;
@@ -290,34 +290,58 @@ osg::Node* HeightmapPrimitive::create_visualization()
 /// Computes the distance from a sphere primitive
 double HeightmapPrimitive::calc_signed_dist(shared_ptr<const SpherePrimitive> s, Point3d& pthis, Point3d& ps) const
 {
+  const unsigned X = 0, Z = 2;
   assert(_poses.find(const_pointer_cast<Pose3d>(pthis.pose)) != _poses.end());
-  const unsigned Y = 1;
+  Point3d ps_prime = ps;
 
-  // get the transform from s to this
+  // compute the transform from the sphere to the heightmap
   Transform3d T = Pose3d::calc_relative_pose(ps.pose, pthis.pose);
 
   // transform the sphere center to the height map space
   Point3d ps_c(0.0, 0.0, 0.0, ps.pose);
   Point3d ps_c_this = T.transform_point(ps_c);
 
-  // compute the distance
-  double y = calc_height(ps_c_this);
-  double d = y - s->get_radius();
+  // setup the minimum distance
+  double min_dist = std::numeric_limits<double>::max();
 
-  // setup this point
-  pthis = ps_c_this;
-  pthis[Y] = y; 
+  // get the corners of the bounding box in this frame
+  Point3d bv_lo = ps_c_this;
+  Point3d bv_hi = ps_c_this;
+  for (unsigned i=0; i< 3; i++)
+  {
+    bv_lo[i] -= s->get_radius();
+    bv_hi[i] += s->get_radius();
+  }
 
-  // setup sphere centers in alternate frames
-  // setup closest points
-  Vector3d xlat(0.0, -1.0, 0.0, pthis.pose);
-  if (d > 0.0)
-    xlat *= s->get_radius();
-  else
-    xlat *= s->get_radius()+d;
-  ps = ps_c + Pose3d::transform_vector(ps.pose, xlat);
+  // get the lower i and j indices
+  unsigned lowi = (unsigned) ((bv_lo[X]+_width*0.5)*(_heights.rows()-1)/_width);
+  unsigned lowj = (unsigned) ((bv_lo[Z]+_depth*0.5)*(_heights.columns()-1)/_depth);
 
-  return d;
+  // get the upper i and j indices
+  unsigned upi = (unsigned) ((bv_hi[X]+_width*0.5)*(_heights.rows()-1)/_width)+1;
+  unsigned upj = (unsigned) ((bv_hi[Z]+_depth*0.5)*(_heights.columns()-1)/_depth)+1;
+
+  // iterate over all points in the bounding region
+  for (unsigned i=lowi; i<= upi; i++)
+    for (unsigned j=lowj; j< upj; j++)
+    {
+      // compute the point on the heightmap
+      double x = -_width*0.5+_width*i/(_heights.rows()-1);
+      double z = -_depth*0.5+_depth*j/(_heights.columns()-1);
+      Point3d p(x, _heights(i,j), z, pthis.pose);
+
+      // get the distance from the sphere
+      double dist = s->calc_signed_dist(ps_prime);
+
+      // see how the distance compares
+      if (dist < min_dist)
+      {
+        min_dist = dist;
+        ps = p;
+      }
+    }
+
+  return min_dist;
 }
 
 /// Transforms the primitive
@@ -376,10 +400,92 @@ double HeightmapPrimitive::calc_dist_and_normal(const Point3d& p, Vector3d& norm
   // setup the normal
   double gx, gz;
   calc_gradient(p, gx, gz);
+//  normal = Vector3d::normalize(Vector3d(gx, 1, gz, p.pose));
   normal = Vector3d::normalize(Vector3d(gx, 1, gz, p.pose));
 
   // compute the distance
   return d;
+}
+
+/// Implements Base::load_from_xml() for serialization
+void HeightmapPrimitive::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
+{
+  // verify that the node type is heightmap
+  assert(strcasecmp(node->name.c_str(), "Heightmap") == 0);
+
+  // load the parent data
+  Primitive::load_from_xml(node, id_map);
+
+  // read in the height map
+  XMLAttrib* file_attr = node->get_attrib("filename");
+  if (file_attr)
+  {
+    std::ifstream in(file_attr->get_string_value().c_str());
+    if (!in.fail())
+    {
+      unsigned rows, cols;
+      in >> rows;
+      in >> cols;
+      _heights.resize(rows, cols);
+      for (unsigned i=0; i< rows; i++)
+        for (unsigned j=0; j< cols; j++)
+          in >> _heights(i,j);
+      in.close();
+    }
+    else
+    {
+      std::cerr << "HeightmapPrimitive::load_from_xml() - unable to read heightmap!" << std::endl;
+      _heights.set_zero(1,1);
+    }
+  }
+
+  // read in the width, if specified
+  XMLAttrib* width_attr = node->get_attrib("width");
+  if (width_attr)
+    _width = width_attr->get_unsigned_value();
+
+  // read in the depth, if specified
+  XMLAttrib* depth_attr = node->get_attrib("depth");
+  if (depth_attr)
+    _depth = depth_attr->get_unsigned_value();
+}
+
+/// Implements Base::save_to_xml() for serialization
+void HeightmapPrimitive::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& shared_objects) const
+{
+  // save the parent data
+  Primitive::save_to_xml(node, shared_objects);
+
+  // (re)set the node name
+  node->name = "Heightmap";
+
+  // save the width 
+  node->attribs.insert(XMLAttrib("width", _width));
+
+  // save the depth 
+  node->attribs.insert(XMLAttrib("depth", _depth));
+
+  // write out the height map
+  const unsigned MAX_DIGITS = 28;
+  char buffer[MAX_DIGITS+1];
+  sprintf(buffer, "%p", this);
+  std::string filename = "heightmap" + std::string(buffer) + ".dat";
+
+  // add the filename as an attribute
+  node->attribs.insert(XMLAttrib("filename", filename));
+
+  // write the heightmap
+  std::ofstream out(filename.c_str());
+  if (out.fail())
+  {
+    std::cerr << "HeightmapPrimitive::save_to_xml() - unexpectedly unable to write heightmap!" << std::endl;
+    return;
+  }
+  out << _heights.rows() << " " << _heights.columns() << std::endl;
+  for (unsigned i=0; i< _heights.rows(); i++)
+    for (unsigned j=0; j< _heights.columns(); j++)
+      out << _heights(i,j);
+  out.close();
 }
 
 
