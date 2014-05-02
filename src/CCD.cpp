@@ -22,6 +22,7 @@
 #include <Moby/XMLTree.h>
 #include <Moby/SSL.h>
 #include <Moby/BoundingSphere.h>
+#include <Moby/DummyBV.h>
 #include <Moby/SpherePrimitive.h>
 #include <Moby/BoxPrimitive.h>
 #include <Moby/CylinderPrimitive.h>
@@ -654,6 +655,11 @@ BVPtr CCD::construct_bounding_sphere(CollisionGeometryPtr cg)
     sph->radius = std::max(cyl_p->get_height(), cyl_p->get_radius());
     return sph;
   }
+
+  // look for heightmap primitive
+  shared_ptr<HeightmapPrimitive> hm_p = dynamic_pointer_cast<HeightmapPrimitive>(p);
+  if (hm_p)
+    return BVPtr(new DummyBV);
 
   // shouldn't still be here..
   assert(false);
