@@ -622,7 +622,7 @@ double BoxPrimitive::calc_closest_point(const Point3d& point, Point3d& closest) 
   // compute the squared distance to the point on the box
   bool inside = true;
   double sqrDist = 0.0;
-  double intDist = std::numeric_limits<double>::max();
+  double intDist = -std::numeric_limits<double>::max();
   double delta;
   for (unsigned i=0; i< 3; i++)
   {
@@ -645,7 +645,7 @@ double BoxPrimitive::calc_closest_point(const Point3d& point, Point3d& closest) 
     else if (inside)
     {
       double dist = std::min(extents[i] - point[i], point[i] + extents[i]);
-      intDist = std::min(intDist, dist);
+      intDist = std::max(intDist, dist);
     }
   }
 
@@ -670,7 +670,7 @@ double BoxPrimitive::calc_dist_and_normal(const Point3d& point, Vector3d& normal
   // compute the squared distance to the point on the box
   bool inside = true;
   double sqrDist = 0.0;
-  double intDist = std::numeric_limits<double>::max();
+  double intDist = -std::numeric_limits<double>::max();
   double delta;
   for (unsigned i=0; i< 3; i++)
   {
@@ -691,7 +691,7 @@ double BoxPrimitive::calc_dist_and_normal(const Point3d& point, Vector3d& normal
     else if (inside)
     {
       double dist = std::min(point[i] - extents[i], point[i] + extents[i]);
-      intDist = std::min(intDist, dist);
+      intDist = std::max(intDist, dist);
     }
   }
 

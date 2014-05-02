@@ -53,7 +53,9 @@ OutputIterator CCD::find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr
     if ((dist = cgB->calc_dist_and_normal(vA[i], n))-NEAR_ZERO <= min_dist)
     {
       // see whether to throw out the old points
-      if (dist-NEAR_ZERO < min_dist && min_dist > 0.0)
+      // (only do so if we are appreciably closer and old minimum distance
+      //  indicated no interpenetration)
+      if (dist < min_dist-NEAR_ZERO && min_dist > 0.0)
         e.clear();
 
       // setup the new minimum distance
@@ -71,7 +73,9 @@ OutputIterator CCD::find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr
     if ((dist = cgA->calc_dist_and_normal(vB[i], n))-NEAR_ZERO <= min_dist)
     {
       // see whether to throw out the old points
-      if (dist-NEAR_ZERO < min_dist && min_dist > 0.0)
+      // (only do so if we are appreciably closer and old minimum distance
+      //  indicated no interpenetration)
+      if (dist < min_dist-NEAR_ZERO && min_dist > 0.0)
         e.clear();
 
       // setup the new minimum distance
@@ -81,6 +85,8 @@ OutputIterator CCD::find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr
       e.push_back(create_contact(cgA, cgB, vB[i], -n)); 
     }
   }
+
+  FILE_LOG(LOG_COLDET) << "minimum distance for contacts: " << min_dist << std::endl;
 
   // copy points to o
   return std::copy(e.begin(), e.end(), output_begin);
