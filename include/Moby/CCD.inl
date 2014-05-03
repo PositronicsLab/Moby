@@ -195,10 +195,14 @@ OutputIterator CCD::find_contacts_sphere_heightmap(CollisionGeometryPtr cgA, Col
   Point3d psphere = ps_c + Ravelin::Pose3d::transform_vector(pA, xlat);
 
   // setup the normal at the heightmap
-  double gx, gz;
-  hmB->calc_gradient(pheightmap, gx, gz);
-  Ravelin::Vector3d normal(gx, 1.0, gz, pB);
-  normal = Ravelin::Pose3d::transform_vector(GLOBAL, normal); 
+  Ravelin::Vector3d normal = Ravelin::Vector3d(0.0, 1.0, 1.0, pB);
+  if (d >= 0.0)
+  {
+    double gx, gz;
+    hmB->calc_gradient(pheightmap, gx, gz);
+    normal = Ravelin::Vector3d(gx, 1.0, gz, pB);
+    normal = Ravelin::Pose3d::transform_vector(GLOBAL, normal); 
+  }
 
   // create the contact point at the heightmap 
   Point3d p = Ravelin::Pose3d::transform_point(GLOBAL, pheightmap);

@@ -265,20 +265,38 @@ osg::Node* HeightmapPrimitive::create_visualization()
   mat->setDiffuse(osg::Material::FRONT, osg::Vec4(RED, GREEN, BLUE, 1.0f));
   subgroup->getOrCreateStateSet()->setAttribute(mat);
 
-  // create the vertex array, backing current transform out
-  osg::Vec3Array* varray = new osg::Vec3Array(verts.size());
+  // create the vertex array
+  osg::Vec3Array* varray = new osg::Vec3Array(verts.size()); 
   for (unsigned i=0; i< verts.size(); i++)
-  {
-    Point3d v = T.transform_point(verts[i]);
-    (*varray)[i] = osg::Vec3((float) v[X], (float) v[Y], (float) v[Z]);
-  }
+    (*varray)[i] = osg::Vec3((float) verts[i][X], (float) verts[i][Y], (float) verts[i][Z]);
   geom->setVertexArray(varray);
 
-  // create a point cloud
-  osg::DrawElementsUInt* cloud = new osg::DrawElementsUInt(osg::PrimitiveSet::POINTS, 0);
-  for (unsigned i=0; i< verts.size(); i++)
-  cloud->push_back(i);
-  geom->addPrimitiveSet(cloud);
+  // create the faces - we're going to iterate over every grouping of four
+  // points
+  const unsigned COLS = _heights.columns();
+  for (unsigned i=0; i< _heights.rows()-1; i++)
+    for (unsigned j=0; j< _heights.columns()-1; j++)
+    {
+      // get the four indices
+      const unsigned V1 =  i*COLS+j; // i, j
+      const unsigned V2 =  (i+1)*COLS+j; // i+1, j
+      const unsigned V3 =  i*COLS+j+1; // i, j+1
+      const unsigned V4 =  (i+1)*COLS+j+1; // i+1, j+1 
+
+      // create the first facet 
+      osg::DrawElementsUInt* face1 = new osg::DrawElementsUInt(osg::PrimitiveSet::TRIANGLES, 0);
+      face1->push_back(V2);
+      face1->push_back(V1);
+      face1->push_back(V3);
+      geom->addPrimitiveSet(face1);
+      
+      // create the second facet 
+      osg::DrawElementsUInt* face2 = new osg::DrawElementsUInt(osg::PrimitiveSet::TRIANGLES, 0);
+      face2->push_back(V3);
+      face2->push_back(V4);
+      face2->push_back(V2);
+      geom->addPrimitiveSet(face2);
+    }
 
   return group;
   #else
@@ -373,9 +391,14 @@ double HeightmapPrimitive::calc_dist_and_normal(const Point3d& p, Vector3d& norm
   double d = calc_height(p);
 
   // setup the normal
-  double gx, gz;
-  calc_gradient(p, gx, gz);
-  normal = Vector3d::normalize(Vector3d(gx, 1, gz, p.pose));
+  if (d >= 0.0)
+  {
+    double gx, gz;
+    calc_gradient(p, gx, gz);
+    normal = Vector3d::normalize(Vector3d(gx, 1, gz, p.pose));
+  }
+  else
+    normal = Vector3d(0.0, 1.0, 0.0, p.pose);
 
   // compute the distance
   return d;

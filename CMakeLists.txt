@@ -54,6 +54,8 @@ find_package (osg)
 find_package (osgViewer)
 find_package (osgDB)
 find_package (osgGA)
+find_package (osgFX)
+find_package (osgUtil)
 find_package (OpenThreads)
 
 # see whether IPOPT was detected
@@ -143,6 +145,8 @@ if (USE_OSG AND OSG_FOUND)
   target_link_libraries (Moby ${OSGDB_LIBRARIES})
   target_link_libraries (Moby ${OSGGA_LIBRARIES})
   target_link_libraries (Moby ${OPENTHREADS_LIBRARY})
+  target_link_libraries (Moby ${OSGUTIL_LIBRARIES})
+  target_link_libraries (Moby ${OSGMANIPULATOR_LIBRARIES})
 endif (USE_OSG AND OSG_FOUND)  
 
 # build the tools?
