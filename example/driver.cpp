@@ -9,6 +9,7 @@
 #include <cmath>
 #include <fstream>
 #include <boost/foreach.hpp>
+#include <boost/algorithm/string.hpp>
 #include <Moby/XMLReader.h>
 
 #ifdef USE_OSG
@@ -30,8 +31,8 @@ using boost::shared_ptr;
 using namespace Ravelin;
 using namespace Moby;
 
-/// Handle for dynamic library loading
-void* HANDLE = NULL;
+/// Handles for dynamic library loading
+std::vector<void*> handles;
 
 /// Horizontal and vertical resolutions for offscreen-rendering
 const unsigned HORZ_RES = 1024;
@@ -248,13 +249,15 @@ void step(void* arg)
 void read_plugin(const char* filename)
 {
   // attempt to read the file
-  HANDLE = dlopen(filename, RTLD_LAZY);
+  void* HANDLE = dlopen(filename, RTLD_LAZY);
   if (!HANDLE)
   {
     std::cerr << "driver: failed to read plugin from " << filename << std::endl;
     std::cerr << "  " << dlerror() << std::endl;
     exit(-1);
   }
+
+  handles.push_back(HANDLE);
 
   // attempt to load the initializer
   dlerror();
@@ -543,7 +546,14 @@ int main(int argc, char** argv)
       scene_path = std::string(&argv[i][ONECHAR_ARG]);
     }
     else if (option.find("-p=") != std::string::npos)
-      read_plugin(&argv[i][ONECHAR_ARG]);
+    {
+      std::vector<std::string> plugins;
+      std::string arg = std::string(&argv[i][ONECHAR_ARG]);
+      boost::split(plugins, arg, boost::is_any_of(","));
+      for(size_t i = 0; i < plugins.size(); ++i){
+      	read_plugin(plugins[i].c_str());
+      }
+    }
     else if (option.find("-y=") != std::string::npos)
     {
       strcpy(THREED_EXT, &argv[i][ONECHAR_ARG]);
@@ -676,7 +686,8 @@ int main(int argc, char** argv)
   }
 
   // close the loaded library
-  if (HANDLE)
-    dlclose(HANDLE);
+  for(size_t i = 0; i < handles.size(); ++i){
+    dlclose(handles[i]);
+  }
 }
 

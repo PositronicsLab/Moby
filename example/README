@@ -62,7 +62,7 @@ Note: each option must be separated with whitespace (example:
            simulation time to stdout
 
 
-  -p=fname The control plugin filename, if any (see Section 3)
+  -p=fname[,fname...] The control plugin filenames, if any (see Section 3)
 
 
   -x=fname The path to the background, lights, and camera scenery filename  
