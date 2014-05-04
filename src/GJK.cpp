@@ -409,6 +409,8 @@ double GJK::do_gjk(CollisionGeometryPtr A, CollisionGeometryPtr B, Point3d& clos
   // GJK loop
   for (unsigned i=0; i< max_iter; i++)
   {
+    FILE_LOG(LOG_COLDET) << "GJK::do_gjk() iteration: " << i << std::endl;
+
     // find the closest point in the simplex to the origin
     Point3d p = S.find_closest_and_simplify();
     if (LOGGING(LOG_COLDET))
@@ -424,6 +426,8 @@ double GJK::do_gjk(CollisionGeometryPtr A, CollisionGeometryPtr B, Point3d& clos
     double pnorm = p.norm();
     if (pnorm < NEAR_ZERO)
     {
+      FILE_LOG(LOG_COLDET) << "GJK::do_gjk() shapes are intersecting"  << std::endl;
+
       // A and B are intersecting
       // determine the interpenetration distance
       double pen_dist = INF;
@@ -464,7 +468,10 @@ double GJK::do_gjk(CollisionGeometryPtr A, CollisionGeometryPtr B, Point3d& clos
       closestA = pA;
       closestB = pB;
       if (vdotd < 0.0)
+      {
+        FILE_LOG(LOG_COLDET) << "GJK::do_gjk() dist=" << min_dist << ", exiting" << std::endl;
         return min_dist;
+      }
     }
     else
     {
@@ -480,7 +487,8 @@ double GJK::do_gjk(CollisionGeometryPtr A, CollisionGeometryPtr B, Point3d& clos
     }
   }
 
-  FILE_LOG(LOG_COLDET) << "GJK::do_gjk() exited" << std::endl;
+  FILE_LOG(LOG_COLDET) << "GJK::do_gjk() [max iterations exceeded] dist=" << min_dist << ", exiting" << std::endl;
+
   return min_dist;
 }
 
@@ -527,6 +535,8 @@ double GJK::do_gjk(shared_ptr<const Primitive> A, shared_ptr<const Primitive> B,
     double pnorm = p.norm();
     if (pnorm < NEAR_ZERO)
     {
+      FILE_LOG(LOG_COLDET) << "GJK::do_gjk() shapes are intersecting"  << std::endl;
+
       // A and B are intersecting
       // determine the interpenetration distance
       double pen_dist = INF;
@@ -567,7 +577,10 @@ double GJK::do_gjk(shared_ptr<const Primitive> A, shared_ptr<const Primitive> B,
       closestA = pA;
       closestB = pB;
       if (vdotd < 0.0)
+      {
+        FILE_LOG(LOG_COLDET) << "GJK::do_gjk() dist=" << min_dist << ", exiting" << std::endl;
         return min_dist;
+      }
     }
     else
     {
@@ -583,7 +596,7 @@ double GJK::do_gjk(shared_ptr<const Primitive> A, shared_ptr<const Primitive> B,
     }
   }
 
-  FILE_LOG(LOG_COLDET) << "GJK::do_gjk() exited" << std::endl;
+  FILE_LOG(LOG_COLDET) << "GJK::do_gjk() [max iterations exceeded] dist=" << min_dist << ", exiting" << std::endl;
   return min_dist;
 }
 

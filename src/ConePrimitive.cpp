@@ -9,6 +9,7 @@
 #include <osg/Geode>
 #include <osg/Shape>
 #include <osg/ShapeDrawable>
+#include <osg/MatrixTransform>
 #endif
 #include <Moby/Constants.h>
 #include <Moby/CollisionGeometry.h>
@@ -96,7 +97,7 @@ Point3d ConePrimitive::get_supporting_point(const Vector3d& d) const
   assert(_poses.find(const_pointer_cast<Pose3d>(d.pose)) != _poses.end());
 
   // scale the vector
-  Vector3d dscal = Vector3d::normalize(d) * (_radius * _height * 2.0);
+  Vector3d dscal = Vector3d::normalize(d) * (_radius + _height) * 2.0;
 
   // setup the zero vector
   Vector3d zero(0.0, 0.0, 0.0, dscal.pose);
@@ -105,28 +106,17 @@ Point3d ConePrimitive::get_supporting_point(const Vector3d& d) const
   Point3d isect;
   Vector3d normal;
   double t;
-  bool intersects = intersect_seg(LineSeg3(zero, dscal), t, isect, normal);
+  bool intersects = intersect_seg(LineSeg3(dscal, zero), t, isect, normal);
   assert(intersects);
 
   // return the point of intersection
   return isect;
 }
 
-/// Computes the distance and normal from a point on the CSG
+/// Computes the distance and normal from a point on the primitive 
 double ConePrimitive::calc_dist_and_normal(const Point3d& p, Vector3d& normal) const
 {
-  // TODO: implement this
-  assert(false);
-  return 0.0;
-}
-
-double ConePrimitive::calc_dist(const SpherePrimitive* s, Point3d& pcon, Point3d& psph) const
-{
   const unsigned X = 0, Y = 1, Z = 2;
-
-  // get the sphere center and put it into the cone's coordinate system
-  Point3d sph_c(0.0, 0.0, 0.0, s->get_pose());
-  Point3d p = Pose3d::transform_point(get_pose(), sph_c);
 
 /*
   // compute distance from point (projected onto plane) to circle
@@ -139,8 +129,103 @@ double ConePrimitive::calc_dist(const SpherePrimitive* s, Point3d& pcon, Point3d
   pcyl[Z] = p[Z];
 */
 
+  // initialize the closest point on the cone
+  Point3d pcon;
+
   // setup cone pose 
-  pcon.pose = get_pose();
+  pcon.pose = p.pose;
+
+  // setup the normal
+  normal.pose = p.pose;
+
+  // setup distance
+  double dist;
+
+  // see whether the point is above the height extent
+  double ht_ext = _height*0.5;
+  if (p[Y] > ht_ext)
+  {
+    // closest point is the height extent
+    pcon[X] = pcon[Z] = 0.0;
+    pcon[Y] = ht_ext;
+
+    // setup the normal
+    normal[X] = normal[Z] = 0.0;
+    normal[Y] = 1.0;
+
+    // return the distance
+    return (pcon - p).norm();
+  }
+  else
+  {
+    // see whether the point is below the negative height extent
+    if (p[Y] < -ht_ext)
+    {
+      // compute distance from point (projected onto plane) to circle
+      double d = std::sqrt(p[X]*p[X] + p[Z]*p[Z]) - _radius;
+
+      // setup the closest point on the cone
+      if (d > 0.0)
+      {
+        pcon[Y] = 0.0;
+        pcon[X] = p[X];
+        pcon[Z] = p[Z];
+        pcon *= _radius;
+      }
+      pcon[Y] = -ht_ext;
+
+      // setup the normal
+      normal[X] = normal[Z] = 0.0;
+      normal[Y] = -1.0;
+
+      // compute distance
+      return (p - pcon).norm();
+    }
+    else
+    {
+      // compute the radius at the given height
+      double b =  _radius*0.5;
+      double m = -b/ht_ext;
+      double rad = m*p[Y] + b;
+      double d = std::sqrt(p[X]*p[X] + p[Z]*p[Z]) - rad;
+
+      // setup the closest point on the cone
+      if (d > 0.0)
+      {
+        pcon[Y] = 0.0;
+        pcon[X] = p[X];
+        pcon[Z] = p[Z];
+        pcon *= rad;
+      }
+      pcon[Y] = p[Y];
+
+      // setup the normal
+      normal = Vector3d::normalize(pcon);
+
+      // compute distance
+      return (p - pcon).norm();
+    }
+  }
+}
+
+double ConePrimitive::calc_dist(const SpherePrimitive* s, Point3d& pcon, Point3d& psph) const
+{
+  const unsigned X = 0, Y = 1, Z = 2;
+
+  // get the sphere center and put it into the cone's coordinate system
+  Point3d sph_c(0.0, 0.0, 0.0, psph.pose);
+  Point3d p = Pose3d::transform_point(pcon.pose, sph_c);
+
+/*
+  // compute distance from point (projected onto plane) to circle
+  double dist = std::sqrt(p[X]*p[X] + p[Z]*p[Z]) - _radius;
+
+  // setup closest point on cone
+  pcyl.pose = get_pose();
+  pcyl[X] = p[X];
+  pcyl[Y] = p[Y];
+  pcyl[Z] = p[Z];
+*/
 
   // setup distance
   double dist;
@@ -201,8 +286,8 @@ double ConePrimitive::calc_dist(const SpherePrimitive* s, Point3d& pcon, Point3d
   if (dist < 0.0)
   {
     // compute farthest interpenetration of cone inside sphere
-    Point3d con_c(0.0, 0.0, 0.0, get_pose());
-    psph = sph_c - Pose3d::transform_point(s->get_pose(), con_c);
+    Point3d con_c(0.0, 0.0, 0.0, pcon.pose);
+    psph = sph_c - Pose3d::transform_point(psph.pose, con_c);
     psph.normalize();
     psph *= -dist;
   }
@@ -210,7 +295,7 @@ double ConePrimitive::calc_dist(const SpherePrimitive* s, Point3d& pcon, Point3d
   {
     // determine the closest point on the sphere using the vector from the
     // sphere center to the closest point on the cone 
-    psph = Pose3d::transform_point(s->get_pose(), pcon) - sph_c;
+    psph = Pose3d::transform_point(psph.pose, pcon) - sph_c;
     psph.normalize();
     psph *= s->get_radius();
   }
@@ -339,13 +424,31 @@ shared_ptr<const IndexedTriArray> ConePrimitive::get_mesh(boost::shared_ptr<cons
 /// Creates the visualization for this primitive
 osg::Node* ConePrimitive::create_visualization()
 {
+  const unsigned X = 0, Y = 1, Z = 2, W = 3;
+
   #ifdef USE_OSG
+  // setup the cone
   osg::Cone* cone = new osg::Cone;
   cone->setRadius((float) _radius);
   cone->setHeight((float) _height);
   osg::Geode* geode = new osg::Geode;
   geode->addDrawable(new osg::ShapeDrawable(cone));
-  return geode;
+
+  // setup a transform by -90 deg around x
+  osg::Matrixd T;
+  T(X,X) = 1.0; T(Y,X) = 0.0;  T(Z,X) = 0.0;  T(X,W) = 0.0;
+  T(X,Y) = 0.0; T(Y,Y) = 0.0;  T(Z,Y) = 1.0; T(Y,W) = 0.0;
+  T(X,Z) = 0.0; T(Y,Z) = -1.0;  T(Z,Z) = 0.0;  T(Z,W) = 0.0;
+  T(W,X) = T(W,Z) = 0.0;
+  T(W,Y) = -_height*0.25;
+  T(W,W) = 1.0;
+  
+  // setup the matrix transform
+  osg::MatrixTransform* G = new osg::MatrixTransform;
+  G->setMatrix(T);
+  G->addChild(geode);
+
+  return G;
   #else
   return NULL;
   #endif
@@ -617,7 +720,7 @@ bool ConePrimitive::point_inside(const Point3d& p, Vector3d& normal) const
 double ConePrimitive::calc_signed_dist(const Point3d& p) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
-  assert(p.pose == get_pose());
+  assert(_poses.find(const_pointer_cast<Pose3d>(p.pose)) != _poses.end());
 
   // determine the angle theta
   double theta = std::atan(_radius/_height);

@@ -22,6 +22,7 @@
 #include <Moby/XMLTree.h>
 #include <Moby/SSL.h>
 #include <Moby/BoundingSphere.h>
+#include <Moby/DummyBV.h>
 #include <Moby/SpherePrimitive.h>
 #include <Moby/BoxPrimitive.h>
 #include <Moby/CylinderPrimitive.h>
@@ -638,6 +639,27 @@ BVPtr CCD::construct_bounding_sphere(CollisionGeometryPtr cg)
     sph->radius = Origin3d(box_p->get_x_len()/2.0, box_p->get_y_len()/2.0, box_p->get_z_len()/2.0).norm();
     return sph;
   }
+
+  // look for cone primitive
+  shared_ptr<ConePrimitive> cone_p = dynamic_pointer_cast<ConePrimitive>(p);
+  if (cone_p)
+  {
+    sph->radius = std::max(cone_p->get_height(), cone_p->get_radius());
+    return sph;
+  }
+
+  // look for cylinder primitive
+  shared_ptr<CylinderPrimitive> cyl_p = dynamic_pointer_cast<CylinderPrimitive>(p);
+  if (cyl_p)
+  {
+    sph->radius = std::max(cyl_p->get_height(), cyl_p->get_radius());
+    return sph;
+  }
+
+  // look for heightmap primitive
+  shared_ptr<HeightmapPrimitive> hm_p = dynamic_pointer_cast<HeightmapPrimitive>(p);
+  if (hm_p)
+    return BVPtr(new DummyBV);
 
   // shouldn't still be here..
   assert(false);

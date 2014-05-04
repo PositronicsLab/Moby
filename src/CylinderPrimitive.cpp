@@ -122,7 +122,7 @@ Point3d CylinderPrimitive::get_supporting_point(const Vector3d& d) const
   assert(_poses.find(const_pointer_cast<Pose3d>(d.pose)) != _poses.end());
 
   // scale the vector
-  Vector3d dscal = Vector3d::normalize(d) * (_radius * _height * 2.0);
+  Vector3d dscal = Vector3d::normalize(d) * (_radius + _height) * 2.0;
 
   // setup the zero vector
   Vector3d zero(0.0, 0.0, 0.0, dscal.pose);
@@ -131,7 +131,7 @@ Point3d CylinderPrimitive::get_supporting_point(const Vector3d& d) const
   Point3d isect;
   Vector3d normal;
   double t;
-  bool intersects = intersect_seg(LineSeg3(zero, dscal), t, isect, normal);
+  bool intersects = intersect_seg(LineSeg3(dscal, zero), t, isect, normal);
   assert(intersects);
 
   // return the point of intersection
@@ -157,57 +157,84 @@ double CylinderPrimitive::calc_dist_and_normal(const Point3d& p, Vector3d& norma
 
     // setup the closest point on the cylinder
     if (dist < 0.0)
-      normal = Vector3d(0,1,0,get_pose());
-/*
-else
+      normal = Vector3d(0,1,0,p.pose);
+    else
     {
-      pcyl[Y] = 0.0;
-      pcyl.normalize();  
-      pcyl *= _radius;
+      Point3d pcyl = p;
+      pcyl[Y] = ht_ext;
+      normal = (p - pcyl);
+      double dist = normal.norm();  
+      normal /= dist;
     }
-    pcyl[Y] = ht_ext;
-*/
 
     // compute the distance from the cylinder 
-    dist = std::min(pdist, dist);
+    return (dist < 0.0) ? pdist : dist;
   }
   else if (p[Y] < -ht_ext)
   {
     // compute the distance from the plane
-    double pdist = p[Y] + ht_ext;
+    double pdist = -ht_ext - p[Y];
 
     // setup the closest point on the cylinder
     if (dist < 0.0)
-      normal = Vector3d(0,-1,0,get_pose());
-/*
-else
+      normal = Vector3d(0,-1,0,p.pose);
+    else
     {
-      pcyl[Y] = 0.0;
-      pcyl.normalize();  
-      pcyl *= _radius;
+      Point3d pcyl = p;
+      pcyl[Y] = -ht_ext;
+      normal = (p - pcyl);
+      double dist = normal.norm();  
+      normal /= dist;
     }
-    pcyl[Y] = -ht_ext;
-*/
 
     // compute the distance from the cylinder 
-    dist = std::min(pdist, dist);
+    return (dist < 0.0) ? pdist : dist;
   }
   else  // point is inside height extents
   {
-/*
-    // setup the closest point on the cylinder
-    if (dist > 0.0)
-    {
-      pcyl[Y] = 0.0;
-      pcyl.normalize();
-      pcyl *= _radius; 
-    }
-    pcyl[Y] = p[Y];
-  }
-*/
-  }
+    // get distance to caps
+    double dtop = ht_ext - p[Y];
+    double dbot = p[Y] + ht_ext;
 
-  return dist;
+    // look whether point is within cylinder 
+    if (dist < 0.0)
+    {
+      // determine the normal
+      if (-dist < dtop && -dist < dbot)
+      {
+        // point is not within cylinder; find normal
+        normal = p;
+        normal[Y] = 0.0;
+        normal.normalize();
+        normal *= _radius;
+
+        // point is closest to a non-endcap
+        return dist;
+      }
+      else if (dtop < -dist && dtop < dbot)
+      {
+        // point is closest to the top endcap
+        normal = Vector3d(0,1,0,p.pose);
+        return -dtop;
+      }
+      else
+      {
+        // point is closest to the bottom endcap
+        normal = Vector3d(0,-1,0,p.pose);
+        return -dbot;
+      }
+    }
+    else
+    {
+      // point is not within cylinder; find normal
+      normal = p;
+      normal[Y] = 0.0;
+      normal.normalize();
+      normal *= _radius;
+
+      return dist;
+    }
+  }
 }
 
 /// Gets the distance of this cylinder from a sphere
@@ -618,14 +645,24 @@ bool CylinderPrimitive::point_inside(const Point3d& p, Vector3d& normal) const
     if (-dcaptop < std::sqrt(-cdist_sq))
       normal = Vector3d(0,1,0,p.pose);
     else
-      normal = Vector3d::normalize(Vector3d(p[X],(double) 0.0, p[Z],p.pose));
+    {
+      normal = Vector3d(p[X],(double) 0.0, p[Z],p.pose);
+      double norm_len = normal.norm();
+      if (norm_len > NEAR_ZERO)
+        normal.normalize();
+    }
   }
   else
   {
     if (-dcapbot < std::sqrt(-cdist_sq))
       normal = Vector3d(0,-1,0,p.pose);
     else
-      normal = Vector3d::normalize(Vector3d(p[X],(double) 0.0, p[Z],p.pose));
+    {
+      normal = Vector3d(p[X],(double) 0.0, p[Z],p.pose);
+      double norm_len = normal.norm();
+      if (norm_len > NEAR_ZERO)
+        normal.normalize();
+    }
   }
 
 //  if (dcaptop >= dcapbot && dcaptop >= -NEAR_ZERO)
