@@ -243,7 +243,7 @@ OutputIterator CCD::find_contacts_sphere_heightmap(CollisionGeometryPtr cgA, Col
         Point3d point = Ravelin::Pose3d::transform_point(GLOBAL, p_A);
 
         // setup the normal 
-        Ravelin::Vector3d normal = Ravelin::Vector3d(0.0, 1.0, 1.0, pB);
+        Ravelin::Vector3d normal = Ravelin::Vector3d(0.0, 1.0, 0.0, pB);
         if (dist >= 0.0)
         {
           double gx, gz;

@@ -325,11 +325,10 @@ double HeightmapPrimitive::calc_signed_dist(shared_ptr<const SpherePrimitive> s,
   // get the corners of the bounding box in this frame
   Point3d bv_lo = ps_c_this;
   Point3d bv_hi = ps_c_this;
-  for (unsigned i=0; i< 3; i++)
-  {
-    bv_lo[i] -= s->get_radius();
-    bv_hi[i] += s->get_radius();
-  }
+  bv_lo[X] -= s->get_radius();
+  bv_hi[X] += s->get_radius();
+  bv_lo[Z] -= s->get_radius();
+  bv_hi[Z] += s->get_radius();
 
   // get the lower i and j indices
   unsigned lowi = (unsigned) ((bv_lo[X]+_width*0.5)*(_heights.rows()-1)/_width);
@@ -347,6 +346,7 @@ double HeightmapPrimitive::calc_signed_dist(shared_ptr<const SpherePrimitive> s,
       double x = -_width*0.5+_width*i/(_heights.rows()-1);
       double z = -_depth*0.5+_depth*j/(_heights.columns()-1);
       Point3d p(x, _heights(i,j), z, pthis.pose);
+      Point3d ps_prime = Pose3d::transform_point(ps.pose, p);
 
       // get the distance from the sphere
       double dist = s->calc_signed_dist(ps_prime);
@@ -355,7 +355,7 @@ double HeightmapPrimitive::calc_signed_dist(shared_ptr<const SpherePrimitive> s,
       if (dist < min_dist)
       {
         min_dist = dist;
-        ps = p;
+        ps = ps_prime;
       }
     }
 
