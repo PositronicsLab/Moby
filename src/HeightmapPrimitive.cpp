@@ -232,6 +232,21 @@ void HeightmapPrimitive::calc_gradient(const Point3d& p, double& gx, double& gz)
   gz = f01*(1.0-s) + f11*s;
 }
 
+static void perturb_color(float color[3])
+{
+  const float EPS = 1e-2;
+
+  for (unsigned i=0; i< 3; i++)
+  {
+//    color[i] += (float) rand() / RAND_MAX * EPS - 2*EPS;
+    color[i] = (float) rand() / RAND_MAX;
+    if (color[i] < 0.0f)
+      color[i] = 0.0f;
+    else if (color[i] > 1.0f)
+      color[i] = 1.0f;
+  }
+}
+
 /// Computes the OSG visualization
 osg::Node* HeightmapPrimitive::create_visualization()
 {
@@ -263,7 +278,7 @@ osg::Node* HeightmapPrimitive::create_visualization()
   const float BLUE = (float) rand() / RAND_MAX;
   osg::Material* mat = new osg::Material;
   mat->setColorMode(osg::Material::DIFFUSE);
-  mat->setDiffuse(osg::Material::FRONT, osg::Vec4(RED, GREEN, BLUE, 1.0f));
+  mat->setDiffuse(osg::Material::FRONT, osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f));
   subgroup->getOrCreateStateSet()->setAttribute(mat);
 
   // create the vertex array
@@ -271,6 +286,25 @@ osg::Node* HeightmapPrimitive::create_visualization()
   for (unsigned i=0; i< verts.size(); i++)
     (*varray)[i] = osg::Vec3((float) verts[i][X], (float) verts[i][Y], (float) verts[i][Z]);
   geom->setVertexArray(varray);
+
+  // get the maximum and minimum intensity
+  double min_value = std::numeric_limits<double>::max();
+  double max_value = -std::numeric_limits<double>::max();
+  for (unsigned i=0; i< verts.size(); i++)
+  {
+    min_value = std::min(min_value, verts[i][Y]);
+    max_value = std::max(max_value, verts[i][Y]);
+  }
+
+  // create the color array (for vertices)
+  osg::Vec4Array* vcolors = new osg::Vec4Array(verts.size());
+  for (unsigned i=0; i< verts.size(); i++)
+  {
+    const float intensity = (verts[i][Y]-min_value)/(max_value-min_value)*0.9;
+    (*vcolors)[i] = osg::Vec4(intensity+0.1f, 0.4f, (float) rand()/RAND_MAX*0.1 + 0.2, 1.0f); 
+  }
+  geom->setColorArray(vcolors);
+  geom->setColorBinding(osg::Geometry::BIND_PER_VERTEX);
 
   // create the faces - we're going to iterate over every grouping of four
   // points
