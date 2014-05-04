@@ -206,7 +206,6 @@ double CylinderPrimitive::calc_dist_and_normal(const Point3d& p, Vector3d& norma
         normal = p;
         normal[Y] = 0.0;
         normal.normalize();
-        normal *= _radius;
 
         // point is closest to a non-endcap
         return dist;
@@ -230,7 +229,6 @@ double CylinderPrimitive::calc_dist_and_normal(const Point3d& p, Vector3d& norma
       normal = p;
       normal[Y] = 0.0;
       normal.normalize();
-      normal *= _radius;
 
       return dist;
     }
