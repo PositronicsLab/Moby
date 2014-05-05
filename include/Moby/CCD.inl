@@ -191,9 +191,6 @@ OutputIterator CCD::find_contacts_sphere_heightmap(CollisionGeometryPtr cgA, Col
   Point3d ps_c(0.0, 0.0, 0.0, pA);
   Point3d ps_c_hm = T.transform_point(ps_c);
 
-  // setup the minimum distance
-  double min_dist = std::numeric_limits<double>::max();
-
   // get the corners of the bounding box in this frame
   Point3d bv_lo = ps_c_hm;
   Point3d bv_hi = ps_c_hm;
@@ -233,27 +230,20 @@ OutputIterator CCD::find_contacts_sphere_heightmap(CollisionGeometryPtr cgA, Col
       if (dist > NEAR_ZERO)
         continue;
 
-      // see how the distance compares
-      if (dist < min_dist-NEAR_ZERO && min_dist > 0.0)
-        contacts.clear();
-      if (dist < min_dist)
-        min_dist = dist;
-      if (dist-NEAR_ZERO < min_dist)
-      {
-        Point3d point = Ravelin::Pose3d::transform_point(GLOBAL, p_A);
+      // setup the contact point
+      Point3d point = Ravelin::Pose3d::transform_point(GLOBAL, p_A);
 
-        // setup the normal 
-        Ravelin::Vector3d normal = Ravelin::Vector3d(0.0, 1.0, 0.0, pB);
-        if (false && dist >= 0.0)
-        {
-          double gx, gz;
-          hmB->calc_gradient(Ravelin::Pose3d::transform_point(pB, p_A), gx, gz);
-          Ravelin::Vector3d normal(-gx, 1.0, -gz, pB);
-          normal.normalize();
-        }
-        normal = Ravelin::Pose3d::transform_vector(GLOBAL, normal); 
-        contacts.push_back(create_contact(cgA, cgB, point, normal)); 
+      // setup the normal 
+      Ravelin::Vector3d normal = Ravelin::Vector3d(0.0, 1.0, 0.0, pB);
+      if (dist >= 0.0)
+      {
+        double gx, gz;
+        hmB->calc_gradient(Ravelin::Pose3d::transform_point(pB, p_A), gx, gz);
+        normal = Ravelin::Vector3d(-gx, 1.0, -gz, pB);
+        normal.normalize();
       }
+      normal = Ravelin::Pose3d::transform_vector(GLOBAL, normal); 
+      contacts.push_back(create_contact(cgA, cgB, point, normal)); 
     }
 
   // create the normal pointing from B to A
