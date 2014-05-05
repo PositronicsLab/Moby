@@ -430,13 +430,12 @@ double HeightmapPrimitive::calc_signed_dist(shared_ptr<const Primitive> p, Point
   {
      Point3d pt = Pose3d::transform_point(pthis.pose, verts[i]);
      const double HEIGHT = calc_height(pt);
-     double d = pt[Y] - HEIGHT;
-     if (d < mindist)
+     if (HEIGHT < mindist)
      {
-       mindist = d;
+       mindist = HEIGHT;
        pp = verts[i];
        pthis = pt;
-       pthis[Y] = HEIGHT;
+       pthis[Y] = -(HEIGHT - pt[Y]);
      }
   }
 

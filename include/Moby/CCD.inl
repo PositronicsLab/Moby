@@ -36,12 +36,6 @@ OutputIterator CCD::find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr
       return find_contacts_heightmap_generic(cgB, cgA, output_begin); 
   }
 
-  // setup list of added events
-  std::list<Event> e;
-
-  // setup the closest distance found
-  double min_dist = std::numeric_limits<double>::max();
-
   // get the vertices from A and B
   cgA->get_vertices(vA);
   cgB->get_vertices(vB);
@@ -50,19 +44,10 @@ OutputIterator CCD::find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr
   for (unsigned i=0; i< vA.size(); i++)
   {
     // see whether the point is inside the primitive
-    if ((dist = cgB->calc_dist_and_normal(vA[i], n))-NEAR_ZERO <= min_dist)
+    if ((dist = cgB->calc_dist_and_normal(vA[i], n)) <= NEAR_ZERO)
     {
-      // see whether to throw out the old points
-      // (only do so if we are appreciably closer and old minimum distance
-      //  indicated no interpenetration)
-      if (dist < min_dist-NEAR_ZERO && min_dist > 0.0)
-        e.clear();
-
-      // setup the new minimum distance
-      min_dist = std::min(min_dist, std::max(0.0, dist));
-
       // add the contact point
-      e.push_back(create_contact(cgA, cgB, vA[i], n)); 
+      *output_begin++ = create_contact(cgA, cgB, vA[i], n); 
     }
   }
 
@@ -70,40 +55,22 @@ OutputIterator CCD::find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr
   for (unsigned i=0; i< vB.size(); i++)
   {
     // see whether the point is inside the primitive
-    if ((dist = cgA->calc_dist_and_normal(vB[i], n))-NEAR_ZERO <= min_dist)
+    if ((dist = cgA->calc_dist_and_normal(vB[i], n)) <= NEAR_ZERO)
     {
-      // see whether to throw out the old points
-      // (only do so if we are appreciably closer and old minimum distance
-      //  indicated no interpenetration)
-      if (dist < min_dist-NEAR_ZERO && min_dist > 0.0)
-        e.clear();
-
-      // setup the new minimum distance
-      min_dist = std::min(min_dist, std::max(0.0, dist));
-     
       // add the contact point
-      e.push_back(create_contact(cgA, cgB, vB[i], -n)); 
+      *output_begin++ = create_contact(cgA, cgB, vB[i], -n); 
     }
   }
 
-  FILE_LOG(LOG_COLDET) << "minimum distance for contacts: " << min_dist << std::endl;
-
-  // copy points to o
-  return std::copy(e.begin(), e.end(), output_begin);
+  return output_begin; 
 }
       
 template <class OutputIterator>
-OutputIterator CCD::find_contacts_heightmap_generic(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin)
+OutputIterator CCD::find_contacts_heightmap_generic(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator o)
 {
   std::vector<Point3d> vA, vB;
   double dist;
   Ravelin::Vector3d n;
-
-  // setup list of added events
-  std::list<Event> e;
-
-  // setup the closest distance found
-  double min_dist = std::numeric_limits<double>::max();
 
   // get the heightmap primitive
   boost::shared_ptr<HeightmapPrimitive> hmA = boost::dynamic_pointer_cast<HeightmapPrimitive>(cgA->get_geometry());
@@ -120,21 +87,14 @@ OutputIterator CCD::find_contacts_heightmap_generic(CollisionGeometryPtr cgA, Co
   for (unsigned i=0; i< vA.size(); i++)
   {
     // see whether the point is inside the primitive
-    if ((dist = cgB->calc_dist_and_normal(vA[i], n))-NEAR_ZERO <= min_dist)
+    if ((dist = cgB->calc_dist_and_normal(vA[i], n)) <= NEAR_ZERO)
     {
       // verify that we don't have a degenerate normal
       if (n.norm() < NEAR_ZERO)
         continue;
 
-      // see whether to throw out the old points
-      if (dist-NEAR_ZERO < min_dist && min_dist > 0.0)
-        e.clear();
-
-      // setup the new minimum distance
-      min_dist = std::min(min_dist, std::max(0.0, dist));
-
       // add the contact point
-      e.push_back(create_contact(cgA, cgB, vA[i], n)); 
+      *o++ = create_contact(cgA, cgB, vA[i], n); 
     }
   }
 
@@ -142,26 +102,19 @@ OutputIterator CCD::find_contacts_heightmap_generic(CollisionGeometryPtr cgA, Co
   for (unsigned i=0; i< vB.size(); i++)
   {
     // see whether the point is inside the primitive
-    if ((dist = cgA->calc_dist_and_normal(vB[i], n))-NEAR_ZERO <= min_dist)
+    if ((dist = cgA->calc_dist_and_normal(vB[i], n)) <= NEAR_ZERO)
     {
       // verify that we don't have a degenerate normal
       if (n.norm() < NEAR_ZERO)
         continue;
 
-      // see whether to throw out the old points
-      if (dist-NEAR_ZERO < min_dist && min_dist > 0.0)
-        e.clear();
-
-      // setup the new minimum distance
-      min_dist = std::min(min_dist, std::max(0.0, dist));
-     
       // add the contact point
-      e.push_back(create_contact(cgA, cgB, vB[i], -n)); 
+      *o++ = create_contact(cgA, cgB, vB[i], -n); 
     }
   }
 
   // copy points to o
-  return std::copy(e.begin(), e.end(), output_begin);
+  return o; 
 }
 
 /// Finds contacts for a sphere and a heightmap 
