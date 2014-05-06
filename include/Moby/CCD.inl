@@ -16,7 +16,7 @@ OutputIterator CCD::find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr
     if (boost::dynamic_pointer_cast<BoxPrimitive>(pB))
       return find_contacts_box_sphere(cgB, cgA, output_begin);
     if (boost::dynamic_pointer_cast<HeightmapPrimitive>(pB))
-      return find_contacts_sphere_heightmap(cgA, cgB, output_begin);
+      return find_contacts_convex_heightmap(cgA, cgB, output_begin);
   }
   else if (boost::dynamic_pointer_cast<BoxPrimitive>(pA))
   {
@@ -25,15 +25,20 @@ OutputIterator CCD::find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr
   }
   else if (boost::dynamic_pointer_cast<HeightmapPrimitive>(pA))
   {
-    if (boost::dynamic_pointer_cast<SpherePrimitive>(pB))
-      return find_contacts_sphere_heightmap(cgB, cgA, output_begin);
+    if (pB->is_convex())
+      return find_contacts_convex_heightmap(cgB, cgA, output_begin);
     else
       return find_contacts_heightmap_generic(cgA, cgB, output_begin); 
   }
   else // no special case for A
   {
     if (boost::dynamic_pointer_cast<HeightmapPrimitive>(pB))
-      return find_contacts_heightmap_generic(cgB, cgA, output_begin); 
+    {
+      if (pA->is_convex())
+        return find_contacts_convex_heightmap(cgA, cgB, output_begin); 
+      else
+        return find_contacts_heightmap_generic(cgB, cgA, output_begin); 
+    }
   }
 
   // get the vertices from A and B
@@ -117,9 +122,9 @@ OutputIterator CCD::find_contacts_heightmap_generic(CollisionGeometryPtr cgA, Co
   return o; 
 }
 
-/// Finds contacts for a sphere and a heightmap 
+/// Finds contacts for a convex shape and a heightmap 
 template <class OutputIterator>
-OutputIterator CCD::find_contacts_sphere_heightmap(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin)
+OutputIterator CCD::find_contacts_convex_heightmap(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin)
 {
   const unsigned X = 0, Z = 2;
 
@@ -129,29 +134,24 @@ OutputIterator CCD::find_contacts_sphere_heightmap(CollisionGeometryPtr cgA, Col
   // setup a vector of contacts
   std::vector<Event> contacts;
 
-  // get the sphere and heightmap
-  boost::shared_ptr<SpherePrimitive> sA = boost::dynamic_pointer_cast<SpherePrimitive>(cgA->get_geometry());
+  // get the convex primitive and heightmap
+  PrimitivePtr sA = cgA->get_geometry();
   boost::shared_ptr<HeightmapPrimitive> hmB = boost::dynamic_pointer_cast<HeightmapPrimitive>(cgB->get_geometry());
 
   // get the two poses for the primitives
   boost::shared_ptr<const Ravelin::Pose3d> pA = sA->get_pose(cgA);
   boost::shared_ptr<const Ravelin::Pose3d> pB = hmB->get_pose(cgB);
 
-  // get the transform from sphere to the heightmap
+  // get the transform from the primitive pose to the heightmap
   Ravelin::Transform3d T = Ravelin::Pose3d::calc_relative_pose(pA, pB);
-  
-  // transform the sphere center to the height map space
-  Point3d ps_c(0.0, 0.0, 0.0, pA);
-  Point3d ps_c_hm = T.transform_point(ps_c);
 
-  // get the corners of the bounding box in this frame
-  Point3d bv_lo = ps_c_hm;
-  Point3d bv_hi = ps_c_hm;
-  for (unsigned i=0; i< 3; i++)
-  {
-    bv_lo[i] -= sA->get_radius();
-    bv_hi[i] += sA->get_radius();
-  }
+  // get the bounding volume for the primitive
+  BVPtr bv = sA->get_BVH_root(cgA);
+
+  // get the AABB points in heightmap space
+  // NOTE: might need to define points in pA frame
+  Point3d bv_lo = T.transform_point(bv->get_lower_bounds());
+  Point3d bv_hi = T.transform_point(bv->get_upper_bounds());
 
   // get the heightmap width, depth, and heights
   double width = hmB->get_width();
@@ -175,7 +175,7 @@ OutputIterator CCD::find_contacts_sphere_heightmap(CollisionGeometryPtr cgA, Col
       double z = -depth*0.5+depth*j/(heights.columns()-1);
       Point3d p(x, heights(i,j), z, pB);
 
-      // get the distance from the sphere
+      // get the distance from the primitive
       Point3d p_A = Ravelin::Pose3d::transform_point(pA, p);
       double dist = sA->calc_signed_dist(p_A);
 
