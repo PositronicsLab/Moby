@@ -39,10 +39,10 @@ class BoundingSphere : public BV
     virtual boost::shared_ptr<const Ravelin::Pose3d> get_relative_pose() const { return center.pose; }
 
     /// Gets the lower bounds on the bounding sphere
-    virtual Point3d get_lower_bounds() const { return Point3d(center[0]-radius, center[1]-radius, center[2] - radius); }
+    virtual Point3d get_lower_bounds() const { return Point3d(center[0]-radius, center[1]-radius, center[2] - radius, center.pose); }
 
     /// Gets the upper bounds on the bounding sphere
-    virtual Point3d get_upper_bounds() const { return Point3d(center[0]+radius, center[1]+radius, center[2] + radius); }
+    virtual Point3d get_upper_bounds() const { return Point3d(center[0]+radius, center[1]+radius, center[2] + radius, center.pose); }
 
     /// Center of the bounding box
     Point3d center;
