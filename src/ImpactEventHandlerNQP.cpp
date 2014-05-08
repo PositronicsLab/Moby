@@ -38,7 +38,7 @@ using boost::dynamic_pointer_cast;
 
 /// Special functions that do nothing...
 #ifndef HAVE_IPOPT
-void ImpactEventHandler::solve_nqp(const VectorNd& zf, EventProblemData& q, double poisson_eps, double max_time)
+void ImpactEventHandler::solve_nqp(VectorNd& z, EventProblemData& q, double max_time)
 {
   throw std::runtime_error("Build without IPOPT!");
 }
@@ -49,7 +49,7 @@ void ImpactEventHandler::solve_nqp_work(EventProblemData& q, VectorNd& x)
 
 #else // #ifndef HAVE_IPOPT
 /// Solves the nonlinearly constrained quadratic program (potentially solves two nQPs, actually)
-void ImpactEventHandler::solve_nqp(const VectorNd& zf, EventProblemData& q, double poisson_eps, double max_time)
+void ImpactEventHandler::solve_nqp(VectorNd& z, EventProblemData& q, double max_time)
 {
   const double TOL = poisson_eps;
 
@@ -70,7 +70,7 @@ void ImpactEventHandler::solve_nqp(const VectorNd& zf, EventProblemData& q, doub
     FILE_LOG(LOG_EVENT) << "Running NQP solve iteration with " << (q.N_ACT_CONTACTS) << " active contacts" << std::endl;
 
     // solve the nonlinearly constrained QP
-    solve_nqp_work(q, _z);
+    solve_nqp_work(q, z);
 
     // get the elapsed time
     const long TPS = sysconf(_SC_CLK_TCK);
@@ -86,125 +86,6 @@ void ImpactEventHandler::solve_nqp(const VectorNd& zf, EventProblemData& q, doub
     // we can; mark next contact for solving
     q.N_ACT_K += q.contact_events[q.N_ACT_CONTACTS]->contact_NK/2;
     q.N_ACT_CONTACTS++;
-  }
-
-  // apply (Poisson) restitution to contacts
-  for (unsigned i=0, j=q.CN_IDX; i< q.N_ACT_CONTACTS; i++, j++)
-    _z[j] *= ((double) 1.0 + q.contact_events[i]->contact_epsilon);
-
-  // apply (Poisson) restitution to limits
-  for (unsigned i=0, j=q.L_IDX; i< N_LIMITS; i++, j++)
-    _z[j] *= ((double) 1.0 + q.limit_events[i]->limit_epsilon);
-
-  // save impulses in q
-  q.update_from_stacked_nqp(_z);
-
-  // update Cn_v
-  q.Cn_v += q.Cn_iM_CnT.mult(q.cn, _a);
-  q.Cn_v += q.Cn_iM_CsT.mult(q.cs, _a);
-  q.Cn_v += q.Cn_iM_CtT.mult(q.ct, _a);
-  q.Cn_v += q.Cn_iM_LT.mult(q.l, _a);
-  q.Cn_v += q.Cn_iM_JxT.mult(q.alpha_x, _a);
-
-  // update Cs_v
-  q.Cs_v += q.Cn_iM_CsT.transpose_mult(q.cn, _a);
-  q.Cs_v += q.Cs_iM_CsT.mult(q.cs, _a);
-  q.Cs_v += q.Cs_iM_CtT.mult(q.ct, _a);
-  q.Cs_v += q.Cs_iM_LT.mult(q.l, _a);
-  q.Cs_v += q.Cs_iM_JxT.mult(q.alpha_x, _a);
-
-  // update Ct_v
-  q.Ct_v += q.Cn_iM_CtT.transpose_mult(q.cn, _a);
-  q.Ct_v += q.Cs_iM_CtT.transpose_mult(q.cs, _a);
-  q.Ct_v += q.Ct_iM_CtT.mult(q.ct, _a);
-  q.Ct_v += q.Ct_iM_LT.mult(q.l, _a);
-  q.Ct_v += q.Ct_iM_JxT.mult(q.alpha_x, _a);
-
-  // update L_v
-  q.L_v += q.Cn_iM_LT.transpose_mult(q.cn, _a);
-  q.L_v += q.Cs_iM_LT.transpose_mult(q.cs, _a);
-  q.L_v += q.Ct_iM_LT.transpose_mult(q.ct, _a);
-  q.L_v += q.L_iM_LT.mult(q.l, _a);
-  q.L_v += q.L_iM_JxT.mult(q.alpha_x, _a);
-
-  // update Jx_v
-  q.Jx_v += q.Cn_iM_JxT.transpose_mult(q.cn, _a);
-  q.Jx_v += q.Cs_iM_JxT.transpose_mult(q.cs, _a);
-  q.Jx_v += q.Ct_iM_JxT.transpose_mult(q.ct, _a);
-  q.Jx_v += q.L_iM_JxT.transpose_mult(q.l, _a);
-  q.Jx_v += q.Jx_iM_JxT.mult(q.alpha_x, _a);
-
-  // output results
-  FILE_LOG(LOG_EVENT) << "results: " << std::endl;
-  FILE_LOG(LOG_EVENT) << "cn: " << q.cn << std::endl;
-  FILE_LOG(LOG_EVENT) << "cs: " << q.cs << std::endl;
-  FILE_LOG(LOG_EVENT) << "ct: " << q.ct << std::endl;
-  FILE_LOG(LOG_EVENT) << "l: " << q.l << std::endl;
-  FILE_LOG(LOG_EVENT) << "alpha_x: " << q.alpha_x << std::endl;
-  FILE_LOG(LOG_EVENT) << "new Cn_v: " << q.Cn_v << std::endl;
-  FILE_LOG(LOG_EVENT) << "new Cs_v: " << q.Cs_v << std::endl;
-  FILE_LOG(LOG_EVENT) << "new Ct_v: " << q.Ct_v << std::endl;
-  FILE_LOG(LOG_EVENT) << "new L_v: " << q.L_v << std::endl;
-  FILE_LOG(LOG_EVENT) << "new Jx_v: " << q.Jx_v << std::endl;
-
-  // see whether another QP must be solved
-  if (q.Cn_v.size() > 0 && *min_element(q.Cn_v.column_iterator_begin(), q.Cn_v.column_iterator_end()) < -TOL)
-  {
-    FILE_LOG(LOG_EVENT) << "minimum Cn*v: " << *min_element(q.Cn_v.column_iterator_begin(), q.Cn_v.column_iterator_end()) << std::endl;
-    FILE_LOG(LOG_EVENT) << " -- running another interior-point iteration..." << std::endl;
-    solve_nqp_work(q, _z);
-    q.update_from_stacked_nqp(_z);
-  }
-  else if (q.L_v.size() > 0 && *min_element(q.L_v.column_iterator_begin(), q.L_v.column_iterator_end()) < -TOL)
-    {
-      FILE_LOG(LOG_EVENT) << "minimum L*v: " << *min_element(q.L_v.column_iterator_begin(), q.L_v.column_iterator_end()) << std::endl;
-      FILE_LOG(LOG_EVENT) << " -- running another interior-point iteration..." << std::endl;
-      solve_nqp_work(q, _z);
-      q.update_from_stacked_nqp(_z);
-    }
-  else
-  {
-    pair<ColumnIteratord, ColumnIteratord> mm = boost::minmax_element(q.Jx_v.column_iterator_begin(), q.Jx_v.column_iterator_end());
-    if (q.Jx_v.size() > 0 && (*mm.first < -TOL || *mm.second > TOL))
-    {
-      FILE_LOG(LOG_EVENT) << "minimum J*v: " << *mm.first << std::endl;
-      FILE_LOG(LOG_EVENT) << "maximum J*v: " << *mm.second << std::endl;
-      FILE_LOG(LOG_EVENT) << " -- running another interior-point iteration..." << std::endl;
-      solve_nqp_work(q, _z);
-      q.update_from_stacked_nqp(_z);
-    }
-  }
-
-  // setup a temporary frame
-  shared_ptr<Pose3d> P(new Pose3d);
-
-  // save contact impulses
-  for (unsigned i=0; i< q.N_CONTACTS; i++)
-  {
-    // setup the contact frame
-    P->q.set_identity();
-    P->x = q.contact_events[i]->contact_point;
-
-    // setup the impulse in the contact frame
-    Vector3d j;
-    j = q.contact_events[i]->contact_normal * q.cn[i];
-    j += q.contact_events[i]->contact_tan1 * q.cs[i];
-    j += q.contact_events[i]->contact_tan2 * q.ct[i];
-
-    // setup the spatial impulse
-    SMomentumd jx(boost::const_pointer_cast<const Pose3d>(P));
-    jx.set_linear(j);    
-
-    // transform the impulse to the global frame
-    q.contact_events[i]->contact_impulse = Pose3d::transform(GLOBAL, jx);
-  }
-
-  // save limit impulses
-  for (unsigned i=0; i< q.N_LIMITS; i++)
-  {
-    q.limit_events[i]->limit_impulse = q.l[i]; 
-    if (q.limit_events[i]->limit_upper)
-      q.limit_events[i]->limit_impulse = -q.limit_events[i]->limit_impulse;
   }
 }
 
