@@ -746,8 +746,136 @@ void ImpactEventHandler::compute_problem_data(EventProblemData& q)
   }
 }
 
+/// Solves the infinite friction LCP
+void ImpactEventHandler::solve_inf_friction_lcp(EventProblemData& q, VectorNd& z)
+{
+  const unsigned NCONTACTS = q.N_CONTACTS;
+  const unsigned NLIMITS = q.N_LIMITS;
+  const unsigned NIMP = q.N_CONSTRAINT_EQNS_IMP;
+
+  // we do this by solving the MLCP:
+  // |  A  C  | | u | + | a | = | 0 | 
+  // |  D  B  | | v |   | b |   | r |
+
+  // A is the matrix Jx*inv(M)*Jx', Jx is implicit joint constraint Jacobians
+  // NOTE: we assume that Jx is of full row rank (no dependent constraints)
+
+  // u = alphax
+  // v = [ cn; l ]
+  // r = [ Cn*v+; L*v+ ] 
+
+  // Assuming that C is of full row rank (no dependent joint constraints)
+  // A is invertible; then we just need to solve the LCP:
+
+  // | B - D*inv(A)*C | | v | + | b - D*inv(A)*a | = | w |
+  // and use the result to solve for u:
+  // u = -inv(A)*(a + Cv)
+
+  // NOTE: we can check whether joint constraints are linearly dependent
+  // (linearly dependent constraints should be discarded) if J*inv(M)*J'
+  // is singular (using a Cholesky factorization). We can use the same
+  // principle to determine whether a contact direction should be discarded
+
+  // TODO: find largest non-singular set of J indices
+  std::vector<unsigned> _J_indices, _S_indices, _T_indices;
+
+  // loop through contacts, forming matrix below and checking its condition 
+  // | J*inv(M)*J'  J*inv(M)*S'  J*inv(M)*T' |
+  // | S*inv(M)*J'  S*inv(M)*S'  S*inv(M)*T' |
+  // | T*inv(M)*J'  T*inv(M)*S'  T*inv(M)*T' |
+  for (unsigned i=0; i< NCONTACTS; i++)
+  {
+    // attempt to add S row and column to 'check' matrix (X)
+
+    // see whether check matrix can be Cholesky factorized
+
+    // attempt to add T row and column to 'check' matrix (X)
+
+    // see whether check matrix can be Cholesky factorized
+  } 
+
+  // setup the LCP matrix using the Cholesky factorization
+
+  // solve the LCP using the fast method
+
+/*
+  // compute SVD of Jx*inv(M)*Jx'
+  _A = q.Jx_iM_JxT; 
+  _LA.svd(_A, _AU, _AS, _AV);
+
+  // setup the B matrix
+  // B = [ Cn; L ]*inv(M)*[ Cn' L' ]
+  _B.resize(NCONTACTS+NLIMITS, NCONTACTS+NLIMITS);
+  _B.set_sub_mat(0, 0, q.Cn_iM_CnT);  
+  _B.set_sub_mat(0, NCONTACTS, q.Cn_iM_LT);
+  _B.set_sub_mat(NCONTACTS, 0, q.Cn_iM_LT, Ravelin::eTranspose);
+  _B.set_sub_mat(NCONTACTS, NCONTACTS, q.L_iM_LT);
+
+  // setup the C matrix and compute inv(A)*C
+  // C = Jx*inv(M)*[ Cn' L' ]; note: D = C'
+  _C.resize(NIMP, NCONTACTS+NLIMITS);
+  _C.set_sub_mat(0,0, q.Cn_iM_JxT, Ravelin::eTranspose);
+  _C.set_sub_mat(0,NCONTACTS, q.L_iM_JxT, Ravelin::eTranspose);
+  MatrixNd::transpose(_C, _D);
+  _LA.solve_LS_fast(_AU, _AS, _AV, _C);
+
+  // setup the a vector and compute inv(A)*a
+  // a = [ Jx*v ]
+  _a = q.Jx_v;
+  _LA.solve_LS_fast(_AU, _AS, _AV, _a);
+
+  // setup the b vector
+  // b = [ Cn*v; L*v ]
+  _b.resize(NLIMITS+NCONTACTS);
+  _b.set_sub_vec(0, q.Cn_v);
+  _b.set_sub_vec(NCONTACTS, q.L_v);
+
+  // setup the LCP matrix
+  _D.mult(_C, _MM);
+  _MM -= _B;
+  _MM.negate();
+
+  // setup the LCP vector
+  _D.mult(_a, _qq);
+  _qq -= _b;
+  _qq.negate();
+
+  FILE_LOG(LOG_EVENT) << "ImpulseEventHandler::solve_lcp() entered" << std::endl;
+  FILE_LOG(LOG_EVENT) << "  Cn * inv(M) * Cn': " << std::endl << q.Cn_iM_CnT;
+  FILE_LOG(LOG_EVENT) << "  Cn * v: " << q.Cn_v << std::endl;
+  FILE_LOG(LOG_EVENT) << "  L * v: " << q.L_v << std::endl;
+  FILE_LOG(LOG_EVENT) << "  LCP matrix: " << std::endl << _MM;
+  FILE_LOG(LOG_EVENT) << "  LCP vector: " << _qq << std::endl;
+
+  // solve the LCP
+  if (!_lcp.lcp_fast(_MM, _qq, _v) && !_lcp.lcp_lemke_regularized(_MM, _qq, _v))
+    throw std::runtime_error("Unable to solve event LCP!");
+
+  // compute alphax
+  // u = -inv(A)*(a + Cv)
+  _C.mult(_v, _alpha_x) += _a;
+  _alpha_x.negate();   
+*/
+
+  // determine the value of kappa
+  SharedConstVectorNd cn = _v.segment(0, q.N_CONTACTS);
+  SharedConstVectorNd l = _v.segment(q.N_CONTACTS, _v.size());
+  q.Cn_iM_CnT.mult(cn, _Cn_vplus) += q.Cn_v;
+  q.kappa = _Cn_vplus.norm1();
+
+  // setup the homogeneous solution
+  z.set_zero(q.N_VARS);
+  z.set_sub_vec(q.CN_IDX, cn);
+  z.set_sub_vec(q.L_IDX, l);
+  z.set_sub_vec(q.ALPHA_X_IDX, _alpha_x);
+
+  FILE_LOG(LOG_EVENT) << "  LCP result: " << z << std::endl;
+  FILE_LOG(LOG_EVENT) << "  kappa: " << q.kappa << std::endl;
+  FILE_LOG(LOG_EVENT) << "ImpulseEventHandler::solve_lcp() exited" << std::endl;
+}
+
 /// Solves the (frictionless) LCP
-void ImpactEventHandler::solve_lcp(EventProblemData& q, VectorNd& z)
+void ImpactEventHandler::solve_frictionless_lcp(EventProblemData& q, VectorNd& z)
 {
   const unsigned NCONTACTS = q.N_CONTACTS;
   const unsigned NLIMITS = q.N_LIMITS;
