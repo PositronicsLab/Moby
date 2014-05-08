@@ -10,6 +10,9 @@
 #include <list>
 #include <vector>
 #include <map>
+#ifdef USE_QLCPD
+#include <Moby/QLCPD.h>
+#endif
 #ifdef HAVE_IPOPT
 #include <coin/IpTNLP.hpp>
 #include <coin/IpIpoptApplication.hpp>
@@ -67,6 +70,7 @@ class ImpactEventHandler
     static void contact_select(const std::vector<int>& cn_indices, const std::vector<int>& beta_nbeta_c_indices, const Ravelin::MatrixNd& m, Ravelin::MatrixNd& cn_rows, Ravelin::MatrixNd& beta_c_rows);
     static double sqr(double x) { return x*x; }
     void permute_problem(EventProblemData& epd, Ravelin::VectorNd& z);
+    void setup_QP(EventProblemData& epd, Ravelin::SharedMatrixNd& H, Ravelin::SharedVectorNd& c, Ravelin::SharedMatrixNd& M, Ravelin::SharedVectorNd& q, Ravelin::SharedMatrixNd& A, Ravelin::SharedVectorNd& b);
 
     Ravelin::LinAlgd _LA;
     LCP _lcp;
@@ -119,6 +123,11 @@ class ImpactEventHandler
 
     // last number of contact constraints handled
     unsigned _last_contact_constraints;
+
+    // QLCPD solver
+    #ifdef USE_QLCPD
+    QLCPD _qp;
+    #endif
 
 /*
     // temporaries for IPOPT

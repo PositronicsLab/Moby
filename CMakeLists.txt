@@ -21,6 +21,14 @@ option (PROFILE "Build for profiling?" OFF)
 option (OMP "Build with OpenMP support?" OFF)
 option (THREADSAFE "Build Moby to be threadsafe? (slower)" OFF)
 
+# look for QLCPD
+find_library(QP_FOUND qlcpd-dense /usr/local/lib /usr/lib)
+if (QP_FOUND)
+  set (SOURCES ${SOURCES} QLCPD.cpp)
+  set (EXTRA_LIBS qlcpd-dense)
+  add_definitions (-DUSE_QLCPD)
+endif (QP_FOUND)
+
 # check options are valid
 if (THREADSAFE)
   if (OMP)
