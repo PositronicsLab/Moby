@@ -258,8 +258,7 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& epd, VectorNd& z)
   }
 
   // solve the LCP using Lemke's algorithm
-  #if 0
-//  #ifdef USE_QLCPD
+  #ifdef USE_QLCPD
   VectorNd lb(c.size()), ub(c.size());
   lb.set_zero();
   ub.set_one() *= 1e+29;
