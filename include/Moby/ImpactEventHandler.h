@@ -48,10 +48,12 @@ class ImpactEventHandler
     double ip_eps;
 
   private:
+    void apply_inf_friction_model_to_connected_events(const std::list<Event*>& events);
     void update_from_stacked(EventProblemData& q, const Ravelin::VectorNd& z);
     double calc_min_constraint_velocity(const EventProblemData& q) const;
     void update_event_velocities_from_impulses(EventProblemData& q);
     bool apply_restitution(const EventProblemData& q, Ravelin::VectorNd& z) const;
+    bool apply_restitution(EventProblemData& q) const;
     static DynamicBodyPtr get_super_body(SingleBodyPtr sb);
     static bool use_qp_solver(const EventProblemData& epd);
     void apply_model(const std::vector<Event>& events, double max_time);
@@ -59,7 +61,7 @@ class ImpactEventHandler
     void apply_model_to_connected_events(const std::list<Event*>& events, double max_time);
     void compute_problem_data(EventProblemData& epd);
     void solve_frictionless_lcp(EventProblemData& epd, Ravelin::VectorNd& z);
-    void solve_inf_friction_lcp(EventProblemData& epd, Ravelin::VectorNd& z);
+    void apply_inf_friction_model(EventProblemData& epd);
     void solve_qp(Ravelin::VectorNd& z, EventProblemData& epd, double max_time = std::numeric_limits<double>::max());
     void solve_nqp(Ravelin::VectorNd& z, EventProblemData& epd, double max_time = std::numeric_limits<double>::max());
     void solve_qp_work(EventProblemData& epd, Ravelin::VectorNd& z);
@@ -93,6 +95,10 @@ class ImpactEventHandler
 
     // temporaries for solve_qp() and solve_nqp()
     Ravelin::VectorNd _z;
+
+    // temporaries for solve_inf_friction_lcp()
+    Ravelin::MatrixNd _rJx_iM_JxT, _Y, _Q_iM_XT, _workM, _workM2;
+    Ravelin::VectorNd _YXv, _Xv, _cs_ct_alphax;
 
     // interior-point solver "application"
     #ifdef HAVE_IPOPT

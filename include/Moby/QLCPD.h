@@ -20,6 +20,9 @@ class QLCPD
   template <class Mat1, class Vec1, class Vec2, class Vec3, class Mat2, class Vec4, class Mat3, class Vec5, class Vec6>
   bool qp_activeset(const Mat1& H, const Vec1& c, const Vec2& lb, const Vec3& ub, const Mat2& M, const Vec4& q, const Mat3& A, const Vec5& b, Vec6& z);
 
+  template <class Vec1, class Vec2, class Vec3, class Mat1, class Vec4, class Mat2, class Vec5, class Vec6>
+  bool lp_activeset(const Vec1& c, const Vec2& lb, const Vec3& ub, const Mat1& M, const Vec4& q, const Mat2& A, const Vec5& b, Vec6& z);
+
   private:
     void qlcpd(int* n, int* m, int* k, int* kmax, int* maxg,
              double* a, int* la, double* x, double* bl, double* bu,
