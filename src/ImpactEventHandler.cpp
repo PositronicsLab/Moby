@@ -454,26 +454,20 @@ bool ImpactEventHandler::apply_restitution(const EventProblemData& q, VectorNd& 
   // apply (Poisson) restitution to contacts
   for (unsigned i=0, j=q.CN_IDX; i< q.N_ACT_CONTACTS; i++, j++)
   {
-    if (q.contact_events[i]->contact_epsilon > 0.0)
-    {
-      z[j] *= q.contact_events[i]->contact_epsilon;
-      if (!changed && z[j] > NEAR_ZERO)
-        changed = true;
-    }
+    z[j] *= q.contact_events[i]->contact_epsilon;
+    if (!changed && z[j] > NEAR_ZERO)
+      changed = true;
   }
 
   // apply (Poisson) restitution to limits
   for (unsigned i=0, j=q.L_IDX; i< q.N_LIMITS; i++, j++)
   {
-    if (q.limit_events[i]->limit_epsilon > 0.0)
-    {
-      z[j] *= q.limit_events[i]->limit_epsilon;
-      if (!changed && z[j] > NEAR_ZERO)
-        changed = true;
-    }
+    z[j] *= q.limit_events[i]->limit_epsilon;
+    if (!changed && z[j] > NEAR_ZERO)
+      changed = true;
   }
 
-  return !changed;
+  return changed;
 }
 
 /// Applies restitution to impact problem
@@ -487,26 +481,20 @@ bool ImpactEventHandler::apply_restitution(EventProblemData& q) const
   // apply (Poisson) restitution to contacts
   for (unsigned i=0; i< q.N_CONTACTS; i++)
   {
-    if (q.contact_events[i]->contact_epsilon > 0.0)
-    {
-      q.cn[i] *= q.contact_events[i]->contact_epsilon;
-      if (!changed && q.cn[i] > NEAR_ZERO)
-        changed = true;
-    }
+    q.cn[i] *= q.contact_events[i]->contact_epsilon;
+    if (!changed && q.cn[i] > NEAR_ZERO)
+      changed = true;
   }
 
   // apply (Poisson) restitution to limits
   for (unsigned i=0; i< q.N_LIMITS; i++)
   {
-    if (q.limit_events[i]->limit_epsilon > 0.0)
-    {
-      q.l[i] *= q.limit_events[i]->limit_epsilon;
-      if (!changed && q.l[i] > NEAR_ZERO)
-        changed = true;
-    }
+    q.l[i] *= q.limit_events[i]->limit_epsilon;
+    if (!changed && q.l[i] > NEAR_ZERO)
+      changed = true;
   }
 
-  return !changed;
+  return changed;
 }
 
 /// Permutes the problem to reflect active contact events
@@ -1012,7 +1000,7 @@ void ImpactEventHandler::compute_problem_data(EventProblemData& q)
         *CsCt = *data; data += 3; // advance to Ct_iM_CtT
         *CtCt = *data;
       }
-
+        
       // advance the iterators
       CnCn++;
       CnCs++;
@@ -1075,6 +1063,8 @@ void ImpactEventHandler::apply_inf_friction_model(EventProblemData& q)
   const unsigned NIMP = q.N_CONSTRAINT_EQNS_IMP;
   const unsigned N_IDX = 0;
   const unsigned L_IDX = N_IDX + NCONTACTS;
+  VectorNd lb, ub, b;
+  MatrixNd A;
 
   // we do this by solving the MLCP:
   // |  A  C  | | u | + | a | = | 0 | 
@@ -1141,6 +1131,7 @@ void ImpactEventHandler::apply_inf_friction_model(EventProblemData& q)
   // | S*inv(M)*S'  S*inv(M)*T' S*inv(M)*J' |
   // | T*inv(M)*S'  T*inv(M)*T' T*inv(M)*J' |
   // | J*inv(M)*S'  J*inv(M)*T' J*inv(M)*J' |
+  bool last_success = false;
   for (unsigned i=0; i< NCONTACTS; i++)
   {
     // update S indices
@@ -1217,45 +1208,49 @@ void ImpactEventHandler::apply_inf_friction_model(EventProblemData& q)
       _Y(j,j) -= NEAR_ZERO;
 
     // see whether check matrix can be Cholesky factorized
-    if (!_LA.factor_chol(_Y))
+    last_success = _LA.factor_chol(_Y);
+    if (!last_success)
       T_indices.pop_back();
   } 
 
   // ********************************************************
-  // reform Y 
+  // reform Y if necessary 
   // ********************************************************
 
   // setup indices
   const unsigned S_IDX = 0;
   const unsigned T_IDX = S_indices.size();
   const unsigned J_IDX = T_IDX + T_indices.size();
-  _Y.resize(J_IDX + J_indices.size(), J_IDX + J_indices.size());
+  if (!last_success)
+  {
+    _Y.resize(J_IDX + J_indices.size(), J_IDX + J_indices.size());
 
-  // add S/S, T/T, J/J components to X 
-  q.Cs_iM_CsT.select_square(S_indices.begin(), S_indices.end(), _MM);
-  _Y.set_sub_mat(S_IDX, S_IDX, _MM);
-  q.Ct_iM_CtT.select_square(T_indices.begin(), T_indices.end(), _MM);
-  _Y.set_sub_mat(T_IDX, T_IDX, _MM);
-  _Y.set_sub_mat(J_IDX, J_IDX, _rJx_iM_JxT);
+    // add S/S, T/T, J/J components to X 
+    q.Cs_iM_CsT.select_square(S_indices.begin(), S_indices.end(), _MM);
+    _Y.set_sub_mat(S_IDX, S_IDX, _MM);
+    q.Ct_iM_CtT.select_square(T_indices.begin(), T_indices.end(), _MM);
+    _Y.set_sub_mat(T_IDX, T_IDX, _MM);
+    _Y.set_sub_mat(J_IDX, J_IDX, _rJx_iM_JxT);
 
-  // add S/T components to X 
-  q.Cs_iM_CtT.select(S_indices.begin(), S_indices.end(), T_indices.begin(), T_indices.end(), _MM);
-  _Y.set_sub_mat(S_IDX, T_IDX, _MM);
-  _Y.set_sub_mat(T_IDX, S_IDX, _MM, Ravelin::eTranspose);
+    // add S/T components to X 
+    q.Cs_iM_CtT.select(S_indices.begin(), S_indices.end(), T_indices.begin(), T_indices.end(), _MM);
+    _Y.set_sub_mat(S_IDX, T_IDX, _MM);
+    _Y.set_sub_mat(T_IDX, S_IDX, _MM, Ravelin::eTranspose);
 
-  // add S/J components to X 
-  q.Cs_iM_JxT.select(S_indices.begin(), S_indices.end(), J_indices.begin(), J_indices.end(), _MM);
-  _Y.set_sub_mat(S_IDX, J_IDX, _MM);
-  _Y.set_sub_mat(J_IDX, S_IDX, _MM, Ravelin::eTranspose);
+    // add S/J components to X 
+    q.Cs_iM_JxT.select(S_indices.begin(), S_indices.end(), J_indices.begin(), J_indices.end(), _MM);
+    _Y.set_sub_mat(S_IDX, J_IDX, _MM);
+    _Y.set_sub_mat(J_IDX, S_IDX, _MM, Ravelin::eTranspose);
  
-  // add T/J components to X 
-  q.Ct_iM_JxT.select(T_indices.begin(), T_indices.end(), J_indices.begin(), J_indices.end(), _MM);
-  _Y.set_sub_mat(T_IDX, J_IDX, _MM);
-  _Y.set_sub_mat(J_IDX, T_IDX, _MM, Ravelin::eTranspose);
+    // add T/J components to X 
+    q.Ct_iM_JxT.select(T_indices.begin(), T_indices.end(), J_indices.begin(), J_indices.end(), _MM);
+    _Y.set_sub_mat(T_IDX, J_IDX, _MM);
+    _Y.set_sub_mat(J_IDX, T_IDX, _MM, Ravelin::eTranspose);
   
-  // do the Cholesky factorization (should not fail) 
-  bool success = _LA.factor_chol(_Y);
-  assert(success);
+    // do the Cholesky factorization (should not fail) 
+    bool success = _LA.factor_chol(_Y);
+    assert(success);
+  }
 
   // defining Y = inv(X*inv(M)*X') and Q = [Cn; L; 0]
   // and using the result above yields following LCP:
@@ -1319,12 +1314,23 @@ void ImpactEventHandler::apply_inf_friction_model(EventProblemData& q)
   // attempt to solve the LCP using the fast method
   if (!_lcp.lcp_fast(_MM, _qq, _v))
   {
+    #ifdef USE_QLCPD
     // solve didn't work; attempt to solve using QP solver
-
-    // QP solver didn't work; solve LP to find closest feasible solution
-
-    // LP solver didn't work! fail!
+    (_workv = _qq) *= 0.5;
+    lb.set_zero(_qq.size());
+    ub.set_one(_qq.size()) *= 1e+29;
+    A.set_zero(0, _qq.size());
+    b.resize(0);
+    if (!_qp.qp_activeset(_MM, _workv, lb, ub, _MM, _qq, A, b, _v))
+    {
+      // QP solver didn't work; solve LP to find closest feasible solution
+      if (!_qp.find_closest_feasible(lb, ub, _MM, _qq, A, b, _v))
+        throw std::runtime_error("Unable to solve event LCP!");
+    }
+    #else
+    if (!_lcp.lcp_lemke_regularized(_MM, _qq, _vv))
       throw std::runtime_error("Unable to solve event LCP!");
+    #endif
   }
 
   // compute the joint constraint forces and friction forces
