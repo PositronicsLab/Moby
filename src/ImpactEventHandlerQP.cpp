@@ -38,17 +38,12 @@ using std::min_element;
 using boost::dynamic_pointer_cast;
 
 /// Solves the quadratic program (potentially solves two QPs, actually)
-void ImpactEventHandler::solve_qp(const VectorNd& zf, EventProblemData& q, double poisson_eps, double max_time)
+void ImpactEventHandler::solve_qp(VectorNd& z, EventProblemData& q, double max_time)
 {
-  const double TOL = poisson_eps;
-
-  // set z to frictionless solution to start
   const unsigned N_TOTAL = q.N_VARS + q.N_CONTACTS + q.N_LIMITS + q.N_K_TOTAL + 1;
-  _z.set_zero(N_TOTAL);
-  _z.set_sub_vec(0, zf);
 
   // setup last successful solution
-  _zsuccess = _z;
+  _zsuccess = z;
 
   // mark starting time
   tms cstart;
@@ -66,17 +61,17 @@ void ImpactEventHandler::solve_qp(const VectorNd& zf, EventProblemData& q, doubl
     // solve the QP
     try
     {
-      solve_qp_work(q, _z);
+      solve_qp_work(q, z);
     }
     catch (LCPSolverException e)
     {
       FILE_LOG(LOG_EVENT) << "Failed to solve QP: returning best solution so far" << std::endl;
-      _z = _zsuccess;
+      z = _zsuccess;
       break;
     }
 
     // save our successful solve
-    _zsuccess = _z;
+    _zsuccess = z;
 
     // get the elapsed time
     const long TPS = sysconf(_SC_CLK_TCK);
@@ -92,125 +87,6 @@ void ImpactEventHandler::solve_qp(const VectorNd& zf, EventProblemData& q, doubl
     // we can; mark next contact for solving
     q.N_ACT_K += q.contact_events[q.N_ACT_CONTACTS]->contact_NK/2;
     q.N_ACT_CONTACTS++;
-  }
-
-  // apply (Poisson) restitution to contacts
-  for (unsigned i=0, j=q.CN_IDX; i< q.N_ACT_CONTACTS; i++, j++)
-    _z[j] *= ((double) 1.0 + q.contact_events[i]->contact_epsilon);
-
-  // apply (Poisson) restitution to limits
-  for (unsigned i=0, j=q.L_IDX; i< q.N_LIMITS; i++, j++)
-    _z[j] *= ((double) 1.0 + q.limit_events[i]->limit_epsilon);
-
-  // save impulses in q
-  q.update_from_stacked_qp(_z);
-
-  // update Cn_v
-  q.Cn_v += q.Cn_iM_CnT.mult(q.cn, _a);
-  q.Cn_v += q.Cn_iM_CsT.mult(q.cs, _a);
-  q.Cn_v += q.Cn_iM_CtT.mult(q.ct, _a);
-  q.Cn_v += q.Cn_iM_LT.mult(q.l, _a);
-  q.Cn_v += q.Cn_iM_JxT.mult(q.alpha_x, _a);
-
-  // update Cs_v
-  q.Cs_v += q.Cn_iM_CsT.transpose_mult(q.cn, _a);
-  q.Cs_v += q.Cs_iM_CsT.mult(q.cs, _a);
-  q.Cs_v += q.Cs_iM_CtT.mult(q.ct, _a);
-  q.Cs_v += q.Cs_iM_LT.mult(q.l, _a);
-  q.Cs_v += q.Cs_iM_JxT.mult(q.alpha_x, _a);
-
-  // update Ct_v
-  q.Ct_v += q.Cn_iM_CtT.transpose_mult(q.cn, _a);
-  q.Ct_v += q.Cs_iM_CtT.transpose_mult(q.cs, _a);
-  q.Ct_v += q.Ct_iM_CtT.mult(q.ct, _a);
-  q.Ct_v += q.Ct_iM_LT.mult(q.l, _a);
-  q.Ct_v += q.Ct_iM_JxT.mult(q.alpha_x, _a);
-
-  // update L_v
-  q.L_v += q.Cn_iM_LT.transpose_mult(q.cn, _a);
-  q.L_v += q.Cs_iM_LT.transpose_mult(q.cs, _a);
-  q.L_v += q.Ct_iM_LT.transpose_mult(q.ct, _a);
-  q.L_v += q.L_iM_LT.mult(q.l, _a);
-  q.L_v += q.L_iM_JxT.mult(q.alpha_x, _a);
-
-  // update Jx_v
-  q.Jx_v += q.Cn_iM_JxT.transpose_mult(q.cn, _a);
-  q.Jx_v += q.Cs_iM_JxT.transpose_mult(q.cs, _a);
-  q.Jx_v += q.Ct_iM_JxT.transpose_mult(q.ct, _a);
-  q.Jx_v += q.L_iM_JxT.transpose_mult(q.l, _a);
-  q.Jx_v += q.Jx_iM_JxT.mult(q.alpha_x, _a);
-
-  // output results
-  FILE_LOG(LOG_EVENT) << "results: " << std::endl;
-  FILE_LOG(LOG_EVENT) << "cn: " << q.cn << std::endl;
-  FILE_LOG(LOG_EVENT) << "cs: " << q.cs << std::endl;
-  FILE_LOG(LOG_EVENT) << "ct: " << q.ct << std::endl;
-  FILE_LOG(LOG_EVENT) << "l: " << q.l << std::endl;
-  FILE_LOG(LOG_EVENT) << "alpha_x: " << q.alpha_x << std::endl;
-  FILE_LOG(LOG_EVENT) << "new Cn_v: " << q.Cn_v << std::endl;
-  FILE_LOG(LOG_EVENT) << "new Cs_v: " << q.Cs_v << std::endl;
-  FILE_LOG(LOG_EVENT) << "new Ct_v: " << q.Ct_v << std::endl;
-  FILE_LOG(LOG_EVENT) << "new L_v: " << q.L_v << std::endl;
-  FILE_LOG(LOG_EVENT) << "new Jx_v: " << q.Jx_v << std::endl;
-
-  // see whether another QP must be solved
-  if (q.Cn_v.size() > 0 && *min_element(q.Cn_v.column_iterator_begin(), q.Cn_v.column_iterator_end()) < -TOL)
-  {
-    FILE_LOG(LOG_EVENT) << "minimum Cn*v: " << *min_element(q.Cn_v.column_iterator_begin(), q.Cn_v.column_iterator_end()) << std::endl;
-    FILE_LOG(LOG_EVENT) << " -- running another QP iteration..." << std::endl;
-    solve_qp_work(q, _z);
-    q.update_from_stacked_qp(_z);
-  }
-  else if (q.L_v.size() > 0 && *min_element(q.L_v.column_iterator_begin(), q.L_v.column_iterator_end()) < -TOL)
-    {
-      FILE_LOG(LOG_EVENT) << "minimum L*v: " << *min_element(q.L_v.column_iterator_begin(), q.L_v.column_iterator_end()) << std::endl;
-      FILE_LOG(LOG_EVENT) << " -- running another QP iteration..." << std::endl;
-      solve_qp_work(q, _z);
-      q.update_from_stacked_qp(_z);
-    }
-  else
-  {
-    pair<ColumnIteratord, ColumnIteratord> mm = boost::minmax_element(q.Jx_v.column_iterator_begin(), q.Jx_v.column_iterator_end());
-    if (q.Jx_v.size() > 0 && (*mm.first < -TOL || *mm.second > TOL))
-    {
-      FILE_LOG(LOG_EVENT) << "minimum J*v: " << *mm.first << std::endl;
-      FILE_LOG(LOG_EVENT) << "maximum J*v: " << *mm.second << std::endl;
-      FILE_LOG(LOG_EVENT) << " -- running another QP iteration..." << std::endl;
-      solve_qp_work(q, _z);
-      q.update_from_stacked_qp(_z);
-    }
-  }
-
-  // setup a temporary frame
-  shared_ptr<Pose3d> P(new Pose3d);
-
-  // save contact impulses
-  for (unsigned i=0; i< q.N_CONTACTS; i++)
-  {
-    // setup the contact frame
-    P->q.set_identity();
-    P->x = q.contact_events[i]->contact_point;
-
-    // setup the impulse in the contact frame
-    Vector3d j;
-    j = q.contact_events[i]->contact_normal * q.cn[i];
-    j += q.contact_events[i]->contact_tan1 * q.cs[i];
-    j += q.contact_events[i]->contact_tan2 * q.ct[i];
-
-    // setup the spatial impulse
-    SMomentumd jx(boost::const_pointer_cast<const Pose3d>(P));
-    jx.set_linear(j);    
-
-    // transform the impulse to the global frame
-    q.contact_events[i]->contact_impulse = Pose3d::transform(GLOBAL, jx);
-  }
-
-  // save limit impulses
-  for (unsigned i=0; i< q.N_LIMITS; i++)
-  {
-    q.limit_events[i]->limit_impulse = q.l[i]; 
-    if (q.limit_events[i]->limit_upper)
-      q.limit_events[i]->limit_impulse = -q.limit_events[i]->limit_impulse;
   }
 }
 
@@ -245,7 +121,7 @@ double ImpactEventHandler::calc_ke(EventProblemData& q, const VectorNd& z)
   return KE;
 }
 
-/// Solves the quadratic program (does all of the work) 
+/// Solves the quadratic program (does all of the work) as an LCP 
 /**
  * \note this is the version without joint friction forces
  * \param z the solution is returned here; zeros are returned at appropriate
@@ -295,8 +171,10 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& epd, VectorNd& z)
   SharedVectorNd q = _qq.segment(N_ACT_VARS, _qq.size()).set_zero();
 
   // setup the QP
-  SharedMatrixNd A;
-  SharedVectorNd b;
+  MatrixNd J(0, N_ACT_VARS);
+  VectorNd Jv(0);
+  SharedMatrixNd A = J.block(0, J.rows(), 0, J.columns());
+  SharedVectorNd b = Jv.segment(0, Jv.rows());
   setup_QP(epd, H, c, M, q, A, b);
 
   // negate q (it was in form Mx >= q, needs to be in Mx + q >= 0)
@@ -380,11 +258,45 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& epd, VectorNd& z)
   }
 
   // solve the LCP using Lemke's algorithm
+  #ifdef USE_QLCPD
+  VectorNd lb(c.size()), ub(c.size());
+  lb.set_zero();
+  ub.set_one() *= 1e+29;
+  if (!_qp.qp_activeset(H, c, lb, ub, M, q, A, b, z))
+  {
+    FILE_LOG(LOG_EVENT) << "QLCPD failed to solve; finding closest feasible point" << std::endl;
+
+    // QP solver not successful by default; attempt to find the closest 
+    // feasible point
+    if (!_qp.find_closest_feasible(lb, ub, M, q, A, b, z))
+      throw LCPSolverException();
+
+    FILE_LOG(LOG_EVENT) << "updating q; q=" << q << std::endl;
+
+    // found closest feasible point; compute M*z - q
+    M.mult(z, _workv) -= q;
+    for (unsigned i=0; i< _workv.size(); i++)
+      if (_workv[i] < 0.0)
+        q[i] += _workv[i] - NEAR_ZERO;
+    FILE_LOG(LOG_EVENT) << "            q'=" << q << std::endl;
+
+    // now attempt to solve the QP again
+    if (!_qp.qp_activeset(H, c, lb, ub, M, q, A, b, z))
+      throw LCPSolverException();
+  }
+
+  FILE_LOG(LOG_EVENT) << "QLCPD solution: " << z << std::endl;
+  FILE_LOG(LOG_EVENT) << "M: " << std::endl << M;
+  FILE_LOG(LOG_EVENT) << "q: " << q << std::endl;
+  FILE_LOG(LOG_EVENT) << "M*z - q: " << (M.mult(z, _workv) -= q) << std::endl;
+
+  #else
   if (!_lcp.lcp_lemke_regularized(_MM, _qq, z))
     throw LCPSolverException();
 
   // output reported LCP solution
   FILE_LOG(LOG_EVENT) << "LCP solution: " << z << std::endl;
+  #endif
 
   // store zlast
   _zlast = z;

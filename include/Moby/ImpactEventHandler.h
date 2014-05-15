@@ -10,6 +10,9 @@
 #include <list>
 #include <vector>
 #include <map>
+#ifdef USE_QLCPD
+#include <Moby/QLCPD.h>
+#endif
 #ifdef HAVE_IPOPT
 #include <coin/IpTNLP.hpp>
 #include <coin/IpIpoptApplication.hpp>
@@ -44,19 +47,23 @@ class ImpactEventHandler
     /// The tolerance for to the interior-point solver (default 1e-6)
     double ip_eps;
 
-    /// The velocity tolerance above which another iteration of the solver is run after applying Poisson restitution
-    double poisson_eps;
-
   private:
+    void apply_inf_friction_model_to_connected_events(const std::list<Event*>& events);
+    void update_from_stacked(EventProblemData& q, const Ravelin::VectorNd& z);
+    double calc_min_constraint_velocity(const EventProblemData& q) const;
+    void update_event_velocities_from_impulses(EventProblemData& q);
+    bool apply_restitution(const EventProblemData& q, Ravelin::VectorNd& z) const;
+    bool apply_restitution(EventProblemData& q) const;
     static DynamicBodyPtr get_super_body(SingleBodyPtr sb);
     static bool use_qp_solver(const EventProblemData& epd);
     void apply_model(const std::vector<Event>& events, double max_time);
     void apply_model_to_connected_events(const std::list<Event*>& events);
     void apply_model_to_connected_events(const std::list<Event*>& events, double max_time);
     void compute_problem_data(EventProblemData& epd);
-    void solve_lcp(EventProblemData& epd, Ravelin::VectorNd& z);
-    void solve_qp(const Ravelin::VectorNd& zf, EventProblemData& epd, double eps, double max_time = std::numeric_limits<double>::max());
-    void solve_nqp(const Ravelin::VectorNd& zf, EventProblemData& epd, double eps, double max_time = std::numeric_limits<double>::max());
+    void solve_frictionless_lcp(EventProblemData& epd, Ravelin::VectorNd& z);
+    void apply_inf_friction_model(EventProblemData& epd);
+    void solve_qp(Ravelin::VectorNd& z, EventProblemData& epd, double max_time = std::numeric_limits<double>::max());
+    void solve_nqp(Ravelin::VectorNd& z, EventProblemData& epd, double max_time = std::numeric_limits<double>::max());
     void solve_qp_work(EventProblemData& epd, Ravelin::VectorNd& z);
     double calc_ke(EventProblemData& epd, const Ravelin::VectorNd& z);
     void update_problem(const EventProblemData& qorig, EventProblemData& qnew);
@@ -89,6 +96,10 @@ class ImpactEventHandler
     // temporaries for solve_qp() and solve_nqp()
     Ravelin::VectorNd _z;
 
+    // temporaries for solve_inf_friction_lcp()
+    Ravelin::MatrixNd _rJx_iM_JxT, _Y, _Q_iM_XT, _workM, _workM2;
+    Ravelin::VectorNd _YXv, _Xv, _cs_ct_alphax;
+
     // interior-point solver "application"
     #ifdef HAVE_IPOPT
     Ipopt::IpoptApplication _app;
@@ -120,6 +131,11 @@ class ImpactEventHandler
 
     // last number of contact constraints handled
     unsigned _last_contact_constraints;
+
+    // QLCPD solver
+    #ifdef USE_QLCPD
+    QLCPD _qp;
+    #endif
 
 /*
     // temporaries for IPOPT
