@@ -387,7 +387,22 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& epd, VectorNd& z)
   lb.set_zero();
   ub.set_one() *= 1e+29;
   if (!_qp.qp_activeset(H, c, lb, ub, M, q, A, b, z))
-    throw LCPSolverException();
+  {
+    // QP solver not successful by default; attempt to find the closest 
+    // feasible point
+    if (!_qp.find_closest_feasible(lb, ub, M, q, z))
+      throw LCPSolverException();
+    
+    // found closest feasible point; compute M*z - q
+    M.mult(z, _workv) -= q;
+    for (unsigned i=0; i< _workv.size(); i++)
+      if (_workv[i] < 0.0)
+        q[i] += _workv[i] - NEAR_ZERO;
+
+    // now attempt to solve the QP again
+    if (!_qp.qp_activeset(H, c, lb, ub, M, q, A, b, z))
+      throw LCPSolverException();
+  }
   #else
   if (!_lcp.lcp_lemke_regularized(_MM, _qq, z))
     throw LCPSolverException();
