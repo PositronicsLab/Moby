@@ -126,12 +126,20 @@ void ImpactEventHandler::apply_model(const vector<Event>& events, double max_tim
       // determine a reduced set of events
       Event::determine_minimal_set(revents);
 
+      // look to see whether all contact events have infinite friction
+      bool all_inf = true;
+      BOOST_FOREACH(Event* e, revents)
+        if (e->event_type == Event::eContact && e->contact_mu_coulomb < 1e2)
+        {
+          all_inf = false;
+          break;
+        }
+
       // apply model to the reduced contacts
-      if (max_time < INF)   
-        apply_model_to_connected_events(revents, max_time);
+      if (all_inf)   
+        apply_inf_friction_model_to_connected_events(revents);
       else
-//        apply_model_to_connected_events(revents);
-          apply_inf_friction_model_to_connected_events(revents);
+        apply_model_to_connected_events(revents);
 
       FILE_LOG(LOG_EVENT) << " -- post-event velocity (all events): " << std::endl;
       for (list<Event*>::iterator j = i->begin(); j != i->end(); j++)
@@ -1065,6 +1073,21 @@ void ImpactEventHandler::apply_inf_friction_model(EventProblemData& q)
   const unsigned L_IDX = N_IDX + NCONTACTS;
   VectorNd lb, ub, b;
   MatrixNd A;
+
+  FILE_LOG(LOG_EVENT) << "  Cn * inv(M) * Cn': " << std::endl << q.Cn_iM_CnT;
+  FILE_LOG(LOG_EVENT) << "  Cn * inv(M) * Cs': " << std::endl << q.Cn_iM_CsT;
+  FILE_LOG(LOG_EVENT) << "  Cn * inv(M) * Ct': " << std::endl << q.Cn_iM_CtT;
+  FILE_LOG(LOG_EVENT) << "  Cn * inv(M) * L': " << std::endl << q.Cn_iM_LT;
+  FILE_LOG(LOG_EVENT) << "  Cs * inv(M) * Cs': " << std::endl << q.Cs_iM_CsT;
+  FILE_LOG(LOG_EVENT) << "  Cs * inv(M) * Ct': " << std::endl << q.Cs_iM_CtT;
+  FILE_LOG(LOG_EVENT) << "  Cs * inv(M) * L': " << std::endl << q.Cs_iM_LT;
+  FILE_LOG(LOG_EVENT) << "  Ct * inv(M) * Ct': " << std::endl << q.Ct_iM_CtT;
+  FILE_LOG(LOG_EVENT) << "  Ct * inv(M) * L': " << std::endl << q.Ct_iM_LT;
+  FILE_LOG(LOG_EVENT) << "  L * inv(M) * L': " << std::endl << q.L_iM_LT;
+  FILE_LOG(LOG_EVENT) << "  Cn * v: " << q.Cn_v << std::endl;
+  FILE_LOG(LOG_EVENT) << "  Cs * v: " << q.Cs_v << std::endl;
+  FILE_LOG(LOG_EVENT) << "  Ct * v: " << q.Ct_v << std::endl;
+  FILE_LOG(LOG_EVENT) << "  L * v: " << q.L_v << std::endl;
 
   // we do this by solving the MLCP:
   // |  A  C  | | u | + | a | = | 0 | 

@@ -266,7 +266,7 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& epd, VectorNd& z)
   {
     // QP solver not successful by default; attempt to find the closest 
     // feasible point
-    if (!_qp.find_closest_feasible(lb, ub, M, q, z))
+    if (!_qp.find_closest_feasible(lb, ub, M, q, A, b, z))
       throw LCPSolverException();
     
     // found closest feasible point; compute M*z - q
