@@ -51,8 +51,6 @@ void ImpactEventHandler::solve_nqp_work(EventProblemData& q, VectorNd& x)
 /// Solves the nonlinearly constrained quadratic program (potentially solves two nQPs, actually)
 void ImpactEventHandler::solve_nqp(VectorNd& z, EventProblemData& q, double max_time)
 {
-  const double TOL = poisson_eps;
-
   // get the number of different types of each event
   const unsigned N_CONTACTS = q.N_CONTACTS;
   const unsigned N_LIMITS = q.N_LIMITS;
