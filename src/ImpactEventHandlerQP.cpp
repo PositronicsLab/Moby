@@ -177,9 +177,6 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& epd, VectorNd& z)
   SharedVectorNd b = Jv.segment(0, Jv.rows());
   setup_QP(epd, H, c, M, q, A, b);
 
-  // negate q (it was in form Mx >= q, needs to be in Mx + q >= 0)
-  q.negate();
-
   // set M = -M'
   SharedMatrixNd MT = _MM.block(0, N_ACT_VARS, N_ACT_VARS, _MM.rows());
   MatrixNd::transpose(M, MT);
@@ -291,6 +288,9 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& epd, VectorNd& z)
   FILE_LOG(LOG_EVENT) << "M*z - q: " << (M.mult(z, _workv) -= q) << std::endl;
 
   #else
+  // negate q (it was in form Mx >= q, needs to be in Mx + q >= 0)
+  q.negate();
+
   if (!_lcp.lcp_lemke_regularized(_MM, _qq, z))
     throw LCPSolverException();
 
