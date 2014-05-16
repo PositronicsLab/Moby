@@ -1236,6 +1236,21 @@ void ImpactEventHandler::apply_inf_friction_model(EventProblemData& q)
       T_indices.pop_back();
   } 
 
+  // output indices
+  if (LOGGING(LOG_EVENT))
+  {
+    std::ostringstream oss;
+    oss << "s indices:";
+    for (unsigned i=0; i< S_indices.size(); i++)
+      oss << " " << S_indices[i];
+    oss << std::endl;
+    oss << "t indices:";
+    for (unsigned i=0; i< T_indices.size(); i++)
+      oss << " " << T_indices[i];
+    oss << std::endl;
+    FILE_LOG(LOG_EVENT) << oss.str() << std::endl;
+  }
+
   // ********************************************************
   // reform Y if necessary 
   // ********************************************************
@@ -1351,7 +1366,7 @@ void ImpactEventHandler::apply_inf_friction_model(EventProblemData& q)
         throw std::runtime_error("Unable to solve event LCP!");
     }
     #else
-    if (!_lcp.lcp_lemke_regularized(_MM, _qq, _vv))
+    if (!_lcp.lcp_lemke_regularized(_MM, _qq, _v))
       throw std::runtime_error("Unable to solve event LCP!");
     #endif
   }
