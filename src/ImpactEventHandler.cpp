@@ -1352,6 +1352,8 @@ void ImpactEventHandler::apply_inf_friction_model(EventProblemData& q)
   // attempt to solve the LCP using the fast method
   if (!_lcp.lcp_fast(_MM, _qq, _v))
   {
+    FILE_LOG(LOG_EVENT) << "Principal pivoting method LCP solver failed; falling back to slower solvers" << std::endl; 
+
     #ifdef USE_QLCPD
     // solve didn't work; attempt to solve using QP solver
     (_workv = _qq) *= 0.5;
@@ -1359,11 +1361,30 @@ void ImpactEventHandler::apply_inf_friction_model(EventProblemData& q)
     ub.set_one(_qq.size()) *= 1e+29;
     A.set_zero(0, _qq.size());
     b.resize(0);
-    if (!_qp.qp_activeset(_MM, _workv, lb, ub, _MM, _qq, A, b, _v))
+    (_workv2 = _qq).negate();
+    if (!_qp.qp_activeset(_MM, _workv, lb, ub, _MM, _workv2, A, b, _v))
     {
+      FILE_LOG(LOG_EVENT) << "QLCPD failed to find feasible point; finding closest feasible point" << std::endl; 
+      FILE_LOG(LOG_EVENT) << "  old LCP q: " << _qq << std::endl; 
+
       // QP solver didn't work; solve LP to find closest feasible solution
-      if (!_qp.find_closest_feasible(lb, ub, _MM, _qq, A, b, _v))
+      if (!_qp.find_closest_feasible(lb, ub, _MM, _workv2, A, b, _v))
         throw std::runtime_error("Unable to solve event LCP!");
+
+      // modify constraints
+      _MM.mult(_v, _workv2) += _qq;
+      for (unsigned i=0; i< _qq.size(); i++)
+        if (_workv2[i] < 0.0)
+          _qq[i] += (_workv2[i] - NEAR_ZERO);
+      FILE_LOG(LOG_EVENT) << "  new LCP q: " << _qq << std::endl; 
+
+      // now try solving again
+      (_workv2 = _qq).negate();
+      if (!_qp.qp_activeset(_MM, _workv, lb, ub, _MM, _workv2, A, b, _v))
+      {
+        FILE_LOG(LOG_EVENT) << "QLCPD failed to find feasible point *twice*" << std::endl;
+        throw std::runtime_error("Unable to solve event LCP!");
+      }
     }
     #else
     if (!_lcp.lcp_lemke_regularized(_MM, _qq, _v))
