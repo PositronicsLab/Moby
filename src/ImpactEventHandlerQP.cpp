@@ -177,9 +177,6 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& epd, VectorNd& z)
   SharedVectorNd b = Jv.segment(0, Jv.rows());
   setup_QP(epd, H, c, M, q, A, b);
 
-  // negate q (it was in form Mx >= q, needs to be in Mx + q >= 0)
-  q.negate();
-
   // set M = -M'
   SharedMatrixNd MT = _MM.block(0, N_ACT_VARS, N_ACT_VARS, _MM.rows());
   MatrixNd::transpose(M, MT);
@@ -264,28 +261,42 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& epd, VectorNd& z)
   ub.set_one() *= 1e+29;
   if (!_qp.qp_activeset(H, c, lb, ub, M, q, A, b, z))
   {
+    FILE_LOG(LOG_EVENT) << "QLCPD failed to solve; finding closest feasible point" << std::endl;
+
     // QP solver not successful by default; attempt to find the closest 
     // feasible point
     if (!_qp.find_closest_feasible(lb, ub, M, q, A, b, z))
       throw LCPSolverException();
-    
+
+    FILE_LOG(LOG_EVENT) << "updating q; q=" << q << std::endl;
+
     // found closest feasible point; compute M*z - q
     M.mult(z, _workv) -= q;
     for (unsigned i=0; i< _workv.size(); i++)
       if (_workv[i] < 0.0)
         q[i] += _workv[i] - NEAR_ZERO;
+    FILE_LOG(LOG_EVENT) << "            q'=" << q << std::endl;
 
     // now attempt to solve the QP again
     if (!_qp.qp_activeset(H, c, lb, ub, M, q, A, b, z))
       throw LCPSolverException();
   }
+
+  FILE_LOG(LOG_EVENT) << "QLCPD solution: " << z << std::endl;
+  FILE_LOG(LOG_EVENT) << "M: " << std::endl << M;
+  FILE_LOG(LOG_EVENT) << "q: " << q << std::endl;
+  FILE_LOG(LOG_EVENT) << "M*z - q: " << (M.mult(z, _workv) -= q) << std::endl;
+
   #else
+  // negate q (it was in form Mx >= q, needs to be in Mx + q >= 0)
+  q.negate();
+
   if (!_lcp.lcp_lemke_regularized(_MM, _qq, z))
     throw LCPSolverException();
-  #endif
 
   // output reported LCP solution
   FILE_LOG(LOG_EVENT) << "LCP solution: " << z << std::endl;
+  #endif
 
   // store zlast
   _zlast = z;

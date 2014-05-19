@@ -1,24 +1,33 @@
 /****************************************************************************
- * Copyright 2006 Evan Drumwright
+ * Copyright 2014 Evan Drumwright
  * This library is distributed under the terms of the GNU Lesser General Public 
  * License (found in COPYING).
  ****************************************************************************/
 
-#ifndef _RUNGE_KUTTA_IMPLICIT_INTEGRATOR_H
-#define _RUNGE_KUTTA_IMPLICIT_INTEGRATOR_H
+#ifndef _BULIRSCH_STOER_INTEGRATOR_H
+#define _BULIRSCH_STOER_INTEGRATOR_H
 
-#include <Moby/Integrator.h>
+#include <vector>
+#include <Moby/VariableStepIntegrator.h>
 
 namespace Moby {
 
-/// A class for performing 4th-order implicit Runge-Kutta integration
-class RungeKuttaImplicitIntegrator : public Integrator
+/// A class for performing adaptive Bulirsch Stoer integration 
+class BulirschStoerIntegrator : public VariableStepIntegrator
 {
   public:
+    BulirschStoerIntegrator();
     virtual void integrate(Ravelin::VectorNd& x, Ravelin::VectorNd& (*f)(const Ravelin::VectorNd&, double, double, void*, Ravelin::VectorNd&), double time, double step_size, void* data);
-    static void step(Ravelin::VectorNd& x, Ravelin::VectorNd& (*f)(const Ravelin::VectorNd&, double, double, void*, Ravelin::VectorNd&), double time, double step_size, void* data, Ravelin::VectorNd& dxdt1, Ravelin::VectorNd& dxdt2);
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
+
+  private:
+    static void f(const std::vector<double>&, std::vector<double>&, const double);
+    static Ravelin::VectorNd& (*_f)(const Ravelin::VectorNd&, double, double, void*, Ravelin::VectorNd&);
+    static double _dt;
+    static void* _data;
+    static Ravelin::VectorNd _x, _dxdt;
+    static std::vector<double> _y;
 }; // end class def
 
 } // end namespace

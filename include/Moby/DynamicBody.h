@@ -36,11 +36,13 @@ class DynamicBody : public Visualizable
     virtual ~DynamicBody() {}
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
-    virtual void integrate(double t, double h, boost::shared_ptr<Integrator> integrator);
 
     /// The Jacobian transforms from the generalized coordinate from to the given frame
     virtual Ravelin::MatrixNd& calc_jacobian(boost::shared_ptr<const Ravelin::Pose3d> frame, DynamicBodyPtr body, Ravelin::MatrixNd& J) = 0;
     virtual Ravelin::MatrixNd& calc_jacobian_dot(boost::shared_ptr<const Ravelin::Pose3d> frame, DynamicBodyPtr body, Ravelin::MatrixNd& J) = 0;
+
+    /// Returns true if one or more of the limit estimates has been exceeded
+    virtual bool limit_estimates_exceeded() const = 0;
 
     /// Validates position-based variables (potentially dangerous for a user to call)
     virtual void validate_position_variables() { };
@@ -87,14 +89,26 @@ class DynamicBody : public Visualizable
     /// Gets the generalized coordinates of this body
     virtual Ravelin::VectorNd& get_generalized_coordinates(GeneralizedCoordinateType gctype, Ravelin::VectorNd& gc) = 0;
 
+    /// Gets the generalized coordinates of this body
+    virtual void get_generalized_coordinates(GeneralizedCoordinateType gctype, Ravelin::SharedVectorNd& gc) = 0;
+
     /// Gets the generalized velocity of this body
     virtual Ravelin::VectorNd& get_generalized_velocity(GeneralizedCoordinateType gctype, Ravelin::VectorNd& gv) = 0;
+
+    /// Gets the generalized velocity of this body
+    virtual void get_generalized_velocity(GeneralizedCoordinateType gctype, Ravelin::SharedVectorNd& gc) = 0;
 
     /// Gets the generalized acceleration of this body
     virtual Ravelin::VectorNd& get_generalized_acceleration(Ravelin::VectorNd& ga) = 0;
 
+    /// Gets the generalized velocity of this body
+    virtual void get_generalized_acceleration(Ravelin::SharedVectorNd& gc) = 0;
+
     /// Sets the generalized coordinates of this body
     virtual void set_generalized_coordinates(GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gc) = 0;
+
+    /// Sets the generalized coordinates of this body
+    virtual void set_generalized_coordinates(GeneralizedCoordinateType gctype, Ravelin::SharedConstVectorNd& gc) = 0;
 
     /// Sets the generalized velocity of this body
     /**
@@ -102,6 +116,9 @@ class DynamicBody : public Visualizable
       * \note uses the current generalized coordinates
       */
     virtual void set_generalized_velocity(GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gv) = 0;
+
+    /// Sets the generalized velocity of this body
+    virtual void set_generalized_velocity(GeneralizedCoordinateType gctype, Ravelin::SharedConstVectorNd& gv) = 0;
 
     /// Gets the generalized inertia of this body
     virtual Ravelin::MatrixNd& get_generalized_inertia(Ravelin::MatrixNd& M) = 0;
@@ -179,6 +196,21 @@ class DynamicBody : public Visualizable
     /// Sets whether this body is kinematically updated (rather than having its dynamics integrated); default is false
     virtual void set_kinematic(bool flag) { _kinematic_update = flag; }
 
+    /// Prepares to compute the derivative of the body (sustained events) 
+    virtual void prepare_to_calc_ode_accel_events(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data) = 0;
+
+    /// Prepares to compute the derivative of the body (sustained events) 
+    virtual void prepare_to_calc_ode(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data) = 0;
+
+    /// Computes the derivative of the body
+    virtual void ode(double t, double dt, void* data, Ravelin::SharedVectorNd& dx) = 0;
+
+    /// Computes the derivative of the body without throwing any exceptions
+    virtual void ode_noexcept(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data, Ravelin::SharedVectorNd& dx) = 0;
+
+    /// Resets limit estimates for continuous constraint detection
+    virtual void reset_limit_estimates() = 0;
+
   protected:
 
     /// The computation frame type
@@ -187,15 +219,13 @@ class DynamicBody : public Visualizable
     /// Kinematic update flag
     bool _kinematic_update;
 
+    /// Temporaries for use with integration
+    Ravelin::VectorNd gc, gv, gcgv, xp, xv, xa;
+
   private:
 
     /// Set of recurrent forces applied to this body
     std::list<RecurrentForcePtr> _rfs;
-
-    /// Temporaries for use with integration
-    Ravelin::VectorNd gc, gv, gcgv, xp, xv, xa;
-
-    static Ravelin::VectorNd& ode_both(const Ravelin::VectorNd& x, double t, double dt, void* data, Ravelin::VectorNd& dx);
 }; // end class
 
 } // end namespace

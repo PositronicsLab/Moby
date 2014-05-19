@@ -6,6 +6,7 @@ using boost::shared_ptr;
 using boost::dynamic_pointer_cast;
 using std::list;
 
+/*
 /// Integrates a dynamic body
 void DynamicBody::integrate(double t, double h, shared_ptr<Integrator> integrator)
 {
@@ -83,6 +84,7 @@ VectorNd& DynamicBody::ode_both(const VectorNd& x, double t, double dt, void* da
   dx.set_sub_vec(xv.size(), xa);
   return dx;
 }
+*/
 
 /// Loads the body's state via XML
 void DynamicBody::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)

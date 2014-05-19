@@ -15,6 +15,7 @@
 #include <Moby/XMLTree.h>
 #include <Moby/BoundingSphere.h>
 #include <Moby/CollisionGeometry.h>
+#include <Moby/BoxPrimitive.h>
 #include <Moby/SpherePrimitive.h>
 
 using namespace Ravelin;
@@ -24,6 +25,7 @@ using std::map;
 using std::vector;
 using std::list;
 using std::pair;
+using boost::dynamic_pointer_cast;
 using std::make_pair;
 
 /// Creates a sphere with radius 1.0 and 100 points 
@@ -77,24 +79,41 @@ SpherePrimitive::SpherePrimitive(double radius, unsigned n, const Pose3d& T) : P
   calc_mass_properties();
 }
 
-/// Computes the distance from another sphere primitive
-double SpherePrimitive::calc_dist(const SpherePrimitive* s, Point3d& pthis, Point3d& ps) const
+/// Gets the supporting point
+Point3d SpherePrimitive::get_supporting_point(const Vector3d& d) 
 {
+  return Vector3d::normalize(d)*_radius;
+}
+
+/// Computes the signed distance of the given point from this primitive
+double SpherePrimitive::calc_signed_dist(const Point3d& p)
+{
+  assert(p.pose == get_pose());
+
+  return p.norm() - _radius;
+}
+
+/// Computes the distance from another sphere primitive
+double SpherePrimitive::calc_signed_dist(shared_ptr<const SpherePrimitive> s, shared_ptr<const Pose3d> pose_this, shared_ptr<const Pose3d> pose_s, Point3d& pthis, Point3d& ps) const
+{
+  // get the transform from s to this
+  Transform3d T = Pose3d::calc_relative_pose(pose_s, pose_this);
+
   // compute the distance
-  double d = _radius - s->_radius - (get_pose()->x - s->get_pose()->x).norm();
+  double d = T.x.norm() - _radius - s->_radius;
 
   // setup poses
   pthis.pose = get_pose();
   ps.pose = s->get_pose();
 
   // setup sphere centers in alternate frames
-  Point3d ps_c(0.0, 0.0, 0.0, s->get_pose());
-  Point3d pthis_c(0.0, 0.0, 0.0, get_pose());
+  Point3d ps_c(0.0, 0.0, 0.0, pose_s);
+  Point3d pthis_c(0.0, 0.0, 0.0, pose_this);
 
   // setup closest points
-  pthis = Pose3d::transform_point(get_pose(), ps_c);
+  pthis = Pose3d::transform_point(pose_this, ps_c);
   pthis.normalize();
-  ps = Pose3d::transform_point(s->get_pose(), pthis_c);
+  ps = Pose3d::transform_point(pose_s, pthis_c);
   ps.normalize();
 
   // scale closest points appropriately
@@ -105,8 +124,8 @@ double SpherePrimitive::calc_dist(const SpherePrimitive* s, Point3d& pthis, Poin
   }
   else
   {
-    pthis *= _radius-d;
-    ps *= s->_radius-d;
+    pthis *= _radius+d;
+    ps *= s->_radius+d;
   }
 
   return d;
@@ -153,37 +172,21 @@ void SpherePrimitive::set_radius(double radius)
 
   // set radius on each bounding sphere
   for (map<CollisionGeometryPtr, shared_ptr<BoundingSphere> >::iterator i = _bsphs.begin(); i != _bsphs.end(); i++)
-    i->second->radius = _radius + _intersection_tolerance;
+    i->second->radius = _radius;
 }
 
 /// Sets the number of points used in this sphere 
 /**
- * \param n the number of points; must be greater than or equal to six
+ * \param n the number of points
  * \note forces redetermination of the mesh
  */
 void SpherePrimitive::set_num_points(unsigned n)
 {
   _npoints = n;
-  if (n < 5)
-    throw std::runtime_error("Attempting to call SpherePrimitive::set_num_points() with n < 5");
 
   // vertices are no longer valid
   _vertices.clear();
   _invalidated = true;
-}
-
-/// Sets the intersection tolerance
-void SpherePrimitive::set_intersection_tolerance(double tol)
-{
-  Primitive::set_intersection_tolerance(tol);
-
-  // vertices are no longer valid
-  _vertices.clear();
-  _invalidated = true;
-
-  // set radius on each bounding sphere
-  for (map<CollisionGeometryPtr, shared_ptr<BoundingSphere> >::iterator i = _bsphs.begin(); i != _bsphs.end(); i++)
-    i->second->radius = _radius + _intersection_tolerance;
 }
 
 /// Transforms the primitive
@@ -231,9 +234,8 @@ shared_ptr<const IndexedTriArray> SpherePrimitive::get_mesh()
 {
   if (!_mesh)
   {
-    // if the radius is zero or the number of points is less than six, create an
-    // empty mesh 
-    if (_radius == 0.0 || _npoints < 6)
+    // if the radius is zero, create an empty mesh 
+    if (_radius == 0.0)
     {
       _mesh = shared_ptr<IndexedTriArray>(new IndexedTriArray());
       _smesh = make_pair(_mesh, list<unsigned>());
@@ -256,6 +258,14 @@ shared_ptr<const IndexedTriArray> SpherePrimitive::get_mesh()
       Vector3d unit(std::cos(PHI)*R, Y, std::sin(PHI)*R);
       points.push_back(T->transform_point(unit*_radius));
     }
+
+    // add points at the extents
+    points.push_back(T->transform_point(Vector3d(+1*_radius,0,0)));
+    points.push_back(T->transform_point(Vector3d(-1*_radius,0,0)));
+    points.push_back(T->transform_point(Vector3d(0,+1*_radius,0)));
+    points.push_back(T->transform_point(Vector3d(0,-1*_radius,0)));
+    points.push_back(T->transform_point(Vector3d(0,0,+1*_radius)));
+    points.push_back(T->transform_point(Vector3d(0,0,-1*_radius)));
 
     // compute the convex hull
     PolyhedronPtr hull = CompGeom::calc_convex_hull(points.begin(), points.end());
@@ -284,10 +294,76 @@ const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >&
 }
 
 /// Gets vertices for the primitive
-void SpherePrimitive::get_vertices(BVPtr bv, std::vector<const Point3d*>& vertices)
+void SpherePrimitive::get_vertices(std::vector<Point3d>& vertices)
+{
+  // clear the vertices at first 
+  vertices.clear(); 
+
+  // look for no vertices 
+  if (_radius == 0.0)
+    return;
+
+  // resize number of points
+  vertices.resize(_npoints+6);
+
+  // determine the vertices in the mesh
+  // NOTE: they will all be defined in the global frame
+  const double INC = (double) M_PI * ((double) 3.0 - std::sqrt((double) 5.0));
+  const double OFF = (double) 2.0 / _npoints;
+  for (unsigned k=0; k< _npoints; k++)
+  {
+    const double Y = k * OFF - (double) 1.0 + (OFF * (double) 0.5);
+    const double R = std::sqrt((double) 1.0 - Y*Y);
+    const double PHI = k * INC;
+    vertices[k] = Vector3d(std::cos(PHI)*R, Y, std::sin(PHI)*R, get_pose())*_radius;
+  }
+
+  // setup vertices at extents of each axis
+  vertices[_npoints+0] = Vector3d(1.0*_radius, 0.0, 0.0, get_pose());
+  vertices[_npoints+1] = Vector3d(-1.0*_radius, 0.0, 0.0, get_pose());
+  vertices[_npoints+2] = Vector3d(0.0, 1.0*_radius, 0.0, get_pose());
+  vertices[_npoints+3] = Vector3d(0.0, -1.0*_radius, 0.0, get_pose());
+  vertices[_npoints+4] = Vector3d(0.0, 0.0, 1.0*_radius, get_pose());
+  vertices[_npoints+5] = Vector3d(0.0, 0.0, -1.0*_radius, get_pose());
+}
+
+/// Finds the signed distance between the sphere and another primitive
+double SpherePrimitive::calc_signed_dist(shared_ptr<const Primitive> p, shared_ptr<const Pose3d> pose_this, shared_ptr<const Pose3d> pose_p, Point3d& pthis, Point3d& pp) const
+{
+  // first try box/sphere
+  shared_ptr<const BoxPrimitive> boxp = dynamic_pointer_cast<const BoxPrimitive>(p);
+  if (boxp)
+  {
+    shared_ptr<const SpherePrimitive> thisp = dynamic_pointer_cast<const SpherePrimitive>(shared_from_this());
+    return boxp->calc_signed_dist(thisp, pose_p, pose_this, pp, pthis);
+  }
+
+  // now try sphere/sphere
+  shared_ptr<const SpherePrimitive> spherep = dynamic_pointer_cast<const SpherePrimitive>(p);
+  if (spherep)
+    return calc_signed_dist(spherep, pose_this, pose_p, pthis, pp);
+
+  assert(false);
+  return 0.0;
+}
+
+/// Finds the signed distance betwen the sphere and a point
+double SpherePrimitive::calc_dist_and_normal(const Point3d& p, Vector3d& normal) const
+{
+  // setup the normal
+  normal = p;
+  double pnorm = p.norm();
+  normal /= pnorm;
+
+  // compute the distance
+  return pnorm - _radius;
+}
+
+/*
+void SpherePrimitive::get_vertices(CollisionGeometryPtr geom, std::vector<const Point3d*>& vertices)
 {
   // get the vertices for the geometry
-  vector<Point3d>& verts = _vertices[bv->geom];
+  vector<Point3d>& verts = _vertices[geom];
 
   // create the vector of vertices if necessary
   if (verts.empty())
@@ -299,7 +375,7 @@ void SpherePrimitive::get_vertices(BVPtr bv, std::vector<const Point3d*>& vertic
     }
 
     // get the pose for the geometry
-    shared_ptr<const Pose3d> gpose = bv->geom->get_pose();
+    shared_ptr<const Pose3d> gpose = geom->get_pose();
 
     // verify that this pose is defined w.r.t. the global frame
     shared_ptr<const Pose3d> P = get_pose();
@@ -334,6 +410,7 @@ void SpherePrimitive::get_vertices(BVPtr bv, std::vector<const Point3d*>& vertic
   for (unsigned i=0; i< verts.size(); i++)
     vertices[i] = &verts[i];
 }
+*/
 
 /// Creates the visualization for this primitive
 osg::Node* SpherePrimitive::create_visualization()
@@ -415,19 +492,18 @@ BVPtr SpherePrimitive::get_BVH_root(CollisionGeometryPtr geom)
     // setup the bounding sphere center; we're assuming that the primitive
     // pose is defined relative to the geometry frame
     bsph->center = Point3d(P->x, gpose);
-    bsph->radius = _radius + _intersection_tolerance;
+    bsph->radius = _radius;
   }
 
   return bsph;
 }
 
-/// Determines whether there is an intersection between the primitive and a line segment
 /**
+/// Determines whether there is an intersection between the primitive and a line segment
  * Determines the normal to the primitive if there is an intersection.
  * \note for line segments that are partially or fully inside the sphere, the
  *       method only returns intersection if the second endpoint of the segment
  *       is farther inside than the first
- */
 bool SpherePrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Vector3d& normal) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
@@ -523,14 +599,16 @@ bool SpherePrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Po
   t = t1;
   return true;
 }
+*/
 
 /// Determines whether a point is inside or on the sphere
-bool SpherePrimitive::point_inside(BVPtr bv, const Point3d& p, Vector3d& normal) const
+/*
+bool SpherePrimitive::point_inside(CollisionGeometryPtr geom, const Point3d& p, Vector3d& normal) const
 {
   static shared_ptr<Pose3d> P;
 
   // get the pose for the collision geometry
-  shared_ptr<const Pose3d> gpose = bv->geom->get_pose(); 
+  shared_ptr<const Pose3d> gpose = geom->get_pose(); 
 
   // get the pose for this geometry and BV
   shared_ptr<const Pose3d> bpose = get_pose(); 
@@ -558,4 +636,4 @@ bool SpherePrimitive::point_inside(BVPtr bv, const Point3d& p, Vector3d& normal)
 
   return true;
 }
-
+*/

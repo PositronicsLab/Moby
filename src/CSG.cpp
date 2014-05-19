@@ -46,9 +46,6 @@ void CSG::set_operand1(PrimitivePtr p)
 {
   _op1 = p;
 
-  // set the intersection tolerance
-  _op1->set_intersection_tolerance(_intersection_tolerance);
-
   // computed mesh and vertices are no longer valid
   _mesh = shared_ptr<IndexedTriArray>();
   _vertices.clear();
@@ -62,9 +59,6 @@ void CSG::set_operand1(PrimitivePtr p)
 void CSG::set_operand2(PrimitivePtr p)
 {
   _op2 = p;
-
-  // set the intersection tolerance
-  _op2->set_intersection_tolerance(_intersection_tolerance);
 
   // computed mesh and vertices are no longer valid
   _mesh = shared_ptr<IndexedTriArray>();
@@ -90,8 +84,25 @@ void CSG::set_operator(BooleanOperation op)
   calc_mass_properties();
 }
 
+/// Computes the distance and normal from a point on the CSG
+double CSG::calc_dist_and_normal(const Point3d& p, Vector3d& normal) const
+{
+  // TODO: implement this
+  assert(false);
+  return 0.0;
+}
+
+/// Finds the signed distance between the sphere and another primitive
+double CSG::calc_signed_dist(shared_ptr<const Primitive> primitive, shared_ptr<const Pose3d> pose_this, shared_ptr<const Pose3d> pose_primitive, Point3d& pthis, Point3d& pprimitive) const
+{
+  // TODO: implement this
+  assert(false);
+  return 0.0; 
+}
+
+/*
 /// Determines whether a point is inside or on the CSG
-bool CSG::point_inside(BVPtr bv, const Point3d& p, Vector3d& normal) const
+bool CSG::point_inside(CollisionGeometryPtr geom, const Point3d& p, Vector3d& normal) const
 {
   Vector3d normal1, normal2;
 
@@ -99,8 +110,8 @@ bool CSG::point_inside(BVPtr bv, const Point3d& p, Vector3d& normal) const
     return false;
 
   // see whether the point is inside or on one or both primitives
-  bool in1 = _op1->point_inside(bv, p, normal1);
-  bool in2 = _op2->point_inside(bv, p, normal2);
+  bool in1 = _op1->point_inside(geom, p, normal1);
+  bool in2 = _op2->point_inside(geom, p, normal2);
 
   // see what to return
   if (_op == eUnion)
@@ -135,21 +146,7 @@ bool CSG::point_inside(BVPtr bv, const Point3d& p, Vector3d& normal) const
     return true;
   }
 }
-
-/// Sets the intersection tolerance
-void CSG::set_intersection_tolerance(double tol)
-{
-  Primitive::set_intersection_tolerance(tol);
-
-  // setup the intersection tolerance for both primitives
-  if (_op1)
-    _op1->set_intersection_tolerance(_intersection_tolerance);
-  if (_op2)
-    _op2->set_intersection_tolerance(_intersection_tolerance);
-
-  // vertices are no longer valid
-  _vertices.clear();
-}
+*/
 
 /// Transforms the CSG
 void CSG::set_pose(const Pose3d& p)
@@ -173,6 +170,26 @@ void CSG::set_pose(const Pose3d& p)
   // recalculate the mass properties
   calc_mass_properties();
 }
+
+/*
+/// Computes distance between a CSG and a primitive
+double CSG::calc_dist(Primitive* p, Point3d& pcsg, Point3d& pp)
+{
+  switch (_op)
+  {
+    case eUnion:
+      // compute distance from each operand to p
+
+      // if both distances >= 0, return minimum distance
+
+      // else return negative distance closest to zero
+
+    case eIntersection:
+
+    case eDifference:
+  }
+}
+*/
 
 /// Gets the bounding volume
 BVPtr CSG::get_BVH_root(CollisionGeometryPtr geom)
@@ -239,6 +256,7 @@ BVPtr CSG::get_BVH_root(CollisionGeometryPtr geom)
   return _aabb;
 }
 
+/*
 bool CSG::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Vector3d& normal) const
 {
   static shared_ptr<Pose3d> P;
@@ -387,12 +405,10 @@ bool CSG::intersect_seg_intersect(BVPtr bv, const LineSeg3& seg, double& t, Poin
 }
 
 /// Does line segment intersection on a difference 
-/**
  * \note the approach that I am using to do line segment intersection will not
  *       work properly if one of the operands is not convex!  Proper treatment
  *       would require changing the signature for Primitive::intersect_seg()
  *       to return the exit point (if any) of the segment.
- */
 bool CSG::intersect_seg_diff(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Vector3d& normal) const
 {
   // compute the first time of intersection for each of the two primitives
@@ -571,6 +587,7 @@ bool CSG::intersect_seg_diff(BVPtr bv, const LineSeg3& seg, double& t, Point3d& 
 
   return true;
 }
+*/
 
 /// Sets the mesh for this primitive
 /**
@@ -743,10 +760,7 @@ void CSG::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, Ba
       // make sure that it is castable to a Primitive
       PrimitivePtr p = dynamic_pointer_cast<Primitive>(id_iter->second);
       if (p)
-      {
         _op1 = p;
-        _op1->set_intersection_tolerance(_intersection_tolerance);
-      }
     }
   }
 
@@ -768,10 +782,7 @@ void CSG::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, Ba
       // make sure that it is castable to a Primitive
       PrimitivePtr p = dynamic_pointer_cast<Primitive>(id_iter->second);
       if (p)
-      {
         _op2 = p;
-        _op2->set_intersection_tolerance(_intersection_tolerance);
-      }
     }
   }
 
@@ -958,7 +969,57 @@ void CSG::calc_mass_properties()
 }
 
 /// Determines the set of vertices on the surface of the CSG
-void CSG::get_vertices(BVPtr bv, vector<const Point3d*>& vertices)
+void CSG::get_vertices(vector<Point3d>& verts)
+{
+  Vector3d dummy;
+  vector<Point3d> v1, v2;
+
+  // TODO: finish implementing this
+
+/*
+  // if one of the operands is not set, quit
+  if (!_op1 || !_op2)
+    return;
+
+  // if union, add vertices from both
+  if (_op == eUnion)
+  {
+    // get the vertices from the two operands
+    _op1->get_vertices(v1);
+    _op2->get_vertices(v2);
+  }
+  // intersection: return vertices of v1 inside v2 and vice versa
+  else if (_op == eIntersection)
+  {
+    // get the vertices from the two operands
+    _op1->get_vertices(v1);
+    _op2->get_vertices(v2);
+  }
+  else
+  {
+    assert(_op == eDifference);
+
+    // get the vertices from op1 first 
+    _op1->get_vertices(v1);
+
+    // look for vertices of v1 that are not inside v2
+    for (unsigned i=0; i< v1.size(); i++)
+      if (!_op2->point_inside(v1[i], dummy))
+        verts.push_back(v1[i]);
+
+    // get the vertices from op2 
+    _op2->get_vertices(v2);
+
+    // look for vertices of v2 that are inside v1
+    for (unsigned i=0; i< v2.size(); i++)
+      if (_op1->point_inside(v2[i], dummy))
+        verts.push_back(v2[i]);
+  }
+*/
+}
+
+/*
+void CSG::get_vertices(CollisionGeometryPtr geom, vector<const Point3d*>& vertices)
 {
   Vector3d dummy;
   vector<const Point3d*> v1, v2;
@@ -969,7 +1030,7 @@ void CSG::get_vertices(BVPtr bv, vector<const Point3d*>& vertices)
     return;
 
   // get the vertices for this geometry
-  vector<Point3d>& verts = _vertices[bv->geom];
+  vector<Point3d>& verts = _vertices[geom];
 
   // if either operand is invalidated, clear the vector of vertices
   if (_op1->_invalidated || _op2->_invalidated)
@@ -979,7 +1040,7 @@ void CSG::get_vertices(BVPtr bv, vector<const Point3d*>& vertices)
   if (verts.empty())
   {
     // get the pose for the geometry
-    shared_ptr<const Pose3d> gpose = bv->geom->get_pose();
+    shared_ptr<const Pose3d> gpose = geom->get_pose();
 
     // create a new pose, which will be defined relative to the geometry's base
     shared_ptr<Pose3d> T(new Pose3d);
@@ -987,8 +1048,8 @@ void CSG::get_vertices(BVPtr bv, vector<const Point3d*>& vertices)
     T->update_relative_pose(gpose);
 
     // get the BVHs
-    BVPtr bv1 = _op1->get_BVH_root(bv->geom);
-    BVPtr bv2 = _op2->get_BVH_root(bv->geom);
+    BVPtr bv1 = _op1->get_BVH_root(geom);
+    BVPtr bv2 = _op2->get_BVH_root(geom);
 
     // if union, add vertices from both
     if (_op == eUnion)
@@ -1058,4 +1119,4 @@ void CSG::get_vertices(BVPtr bv, vector<const Point3d*>& vertices)
   for (unsigned i=0; i< verts.size(); i++)
     vertices[i] = &verts[i];
 }
-
+*/

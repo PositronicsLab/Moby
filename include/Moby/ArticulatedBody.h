@@ -45,6 +45,17 @@ class ArticulatedBody : public DynamicBody
     void find_loops(std::vector<unsigned>& loop_indices, std::vector<std::vector<unsigned> >& loop_links) const;
     virtual Ravelin::MatrixNd& calc_jacobian(boost::shared_ptr<const Ravelin::Pose3d> frame, DynamicBodyPtr body, Ravelin::MatrixNd& J);
     virtual Ravelin::MatrixNd& calc_jacobian_dot(boost::shared_ptr<const Ravelin::Pose3d> frame, DynamicBodyPtr body, Ravelin::MatrixNd& J);
+    void update_joint_constraint_violations();
+    bool is_joint_constraint_violated() const;
+    double calc_CA_time_for_joints() const;
+    virtual void ode_noexcept(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data, Ravelin::SharedVectorNd& dx);
+    virtual void prepare_to_calc_ode(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data);
+    virtual void prepare_to_calc_ode_accel_events(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data);
+    virtual void ode(double t, double dt, void* data, Ravelin::SharedVectorNd& dx);
+    virtual void reset_limit_estimates();
+    virtual bool limit_estimates_exceeded() const;
+    double find_next_joint_limit_time() const;
+    void update_joint_vel_limits();
 
     /// Gets the number of degrees-of-freedom permitted by explicit constraints
     virtual unsigned num_joint_dof_explicit() const = 0;
@@ -52,12 +63,9 @@ class ArticulatedBody : public DynamicBody
     /// Gets the number of degrees-of-freedom permitted by implicit constraints
     virtual unsigned num_joint_dof_implicit() const = 0;
 
-    template <class OutputIterator>
-    OutputIterator find_limit_events(double dt, OutputIterator begin) const;
-
     /// Finds (joint) limit events
     template <class OutputIterator>
-    OutputIterator find_limit_events(const Ravelin::VectorNd& q0, const Ravelin::VectorNd& q1, double dt, OutputIterator begin);
+    OutputIterator find_limit_events(OutputIterator begin) const;
 
     /// Gets the set of links
     virtual const std::vector<RigidBodyPtr>& get_links() const { return _links; }
@@ -115,7 +123,7 @@ class ArticulatedBody : public DynamicBody
      * changes.  Generally, this will only be necessary once - after a call
      * to set_links() or set_joints().
      */
-    virtual void compile() = 0;
+    virtual void compile();
 
     /// The set of links for this articulated body
     std::vector<RigidBodyPtr> _links;
@@ -124,9 +132,25 @@ class ArticulatedBody : public DynamicBody
     std::vector<JointPtr> _joints;
 
   private:
+    // joint constraint violation
+    std::vector<double> _cvio;
+
+    // joint velocity tolerances (for joints at constraints)
+    std::vector<double> _cvel_vio;
+
+    // lower velocity limits for this body
+    std::vector<double> _vel_limits_lo;
+
+    // upper acceleration limits for this body
+    std::vector<double> _vel_limits_hi;
+
     // temporary variables
     Ravelin::VectorNd _dq;
 
+    // indicates whether velocity bounds exceeded limits since being reset
+    bool _vel_limits_exceeded;
+
+    void check_joint_vel_limit_exceeded_and_update();
     virtual double get_aspeed();
 }; // end class
 
