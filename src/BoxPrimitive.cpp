@@ -76,11 +76,6 @@ BoxPrimitive::BoxPrimitive(double xlen, double ylen, double zlen, const Pose3d& 
 /// Computes the signed distance from the box to a primitive
 double BoxPrimitive::calc_signed_dist(shared_ptr<const Primitive> p, Point3d& pthis, Point3d& pp) const
 {
-  // first try box/box
-  shared_ptr<const BoxPrimitive> boxp = dynamic_pointer_cast<const BoxPrimitive>(p);
-  if (boxp)
-    return calc_signed_dist(boxp, pthis, pp);
-  
   // now try box/sphere
   shared_ptr<const SpherePrimitive> spherep = dynamic_pointer_cast<const SpherePrimitive>(p);
   if (spherep)
