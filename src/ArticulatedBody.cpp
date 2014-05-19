@@ -14,6 +14,7 @@
 #include <Moby/RCArticulatedBody.h>
 #include <Moby/NumericalException.h>
 #include <Moby/ArticulatedBody.h>
+#include <Moby/InvalidStateException.h>
 #include <Moby/URDFReader.h>
 
 using namespace Moby;
@@ -29,6 +30,467 @@ using std::queue;
 
 ArticulatedBody::ArticulatedBody()
 {
+}
+
+/// Integrates a dynamic body
+/*
+void ArticulatedBody::integrate(double t, double h, shared_ptr<Integrator> integrator)
+{
+  FILE_LOG(LOG_DYNAMICS) << "ArticulatedBody::integrate() - integrating from " << t << " by " << h << std::endl;
+
+  // reset the acceleration events exceeded
+  _vel_limits_exceeded = false;
+
+  if (_kinematic_update)
+  {
+    FILE_LOG(LOG_DYNAMICS) << " -- body set to kinematic update --" << std::endl;
+    if (controller)
+      (*controller)(dynamic_pointer_cast<ArticulatedBody>(shared_from_this()), t, controller_arg);
+    return;
+  }
+
+  shared_ptr<ArticulatedBody> shared_this = dynamic_pointer_cast<ArticulatedBody>(shared_from_this());
+
+  get_generalized_coordinates(eEuler, gc);
+  get_generalized_velocity(eSpatial, gv); // gv depends on gc
+  gcgv.resize(gc.size()+gv.size());
+  gcgv.set_sub_vec(0, gc);
+  gcgv.set_sub_vec(gc.size(), gv);
+  integrator->integrate(gcgv, &ArticulatedBody::ode_both, t, h, (void*) &shared_this);
+  gcgv.get_sub_vec(0, gc.size(), gc);
+  gcgv.get_sub_vec(gc.size(), gcgv.size(), gv);
+  // NOTE: velocity must be set first (it's computed w.r.t. old frame)
+  set_generalized_coordinates(eEuler, gc);
+  set_generalized_velocity(eSpatial, gv);
+}
+*/
+
+void ArticulatedBody::reset_limit_estimates()
+{
+  // reset the acceleration events exceeded
+  _vel_limits_exceeded = false;
+
+  // clear the force limits on the individual rigid bodies
+  BOOST_FOREACH(RigidBodyPtr link, _links)
+    link->reset_limit_estimates();
+
+  // clear the acceleration limits
+  const unsigned N = num_joint_dof();
+  _vel_limits_lo.resize(N);
+  _vel_limits_hi.resize(N);
+/*
+  std::fill(_vel_limits_lo.begin(), _vel_limits_lo.end(), 0.0);
+  std::fill(_vel_limits_hi.begin(), _vel_limits_hi.end(), 0.0);
+*/
+}
+
+/// Returns the ODE's for position and velocity (concatenated into x) without throwing an exception
+void ArticulatedBody::ode_noexcept(SharedConstVectorNd& x, double t, double dt, void* data, SharedVectorNd& dx)
+{
+  // get the shared pointer to this
+  ArticulatedBodyPtr shared_this = dynamic_pointer_cast<ArticulatedBody>(shared_from_this());
+
+  // get the articulated body
+  const unsigned NGC_EUL = num_generalized_coordinates(eEuler);
+
+  // get the coordinates and velocity from x
+  SharedConstVectorNd gc = x.segment(0, NGC_EUL);
+  SharedConstVectorNd gv = x.segment(NGC_EUL, x.size());
+
+  // set the state
+  set_generalized_coordinates(DynamicBody::eEuler, gc);
+
+  // set the velocity 
+  set_generalized_velocity(DynamicBody::eSpatial, gv);
+
+  // get the derivatives of coordinates and velocity from dx
+  SharedVectorNd dgc = dx.segment(0, NGC_EUL);
+  SharedVectorNd dgv = dx.segment(NGC_EUL, x.size());
+
+  // we need the generalized velocity as Rodrigues coordinates
+  get_generalized_velocity(DynamicBody::eEuler, dgc);
+
+  // clear the force accumulators on the body
+  reset_accumulators();
+
+  // add all recurrent forces on the body
+  const list<RecurrentForcePtr>& rfs = get_recurrent_forces();
+  BOOST_FOREACH(RecurrentForcePtr rf, rfs)
+    rf->add_force(shared_this);
+
+  // call the body's controller
+  if (controller)
+    (*controller)(shared_this, t, controller_arg);
+
+  // calculate forward dynamics at state x
+  calc_fwd_dyn();
+  get_generalized_acceleration(dgv);
+
+  // check whether velocity limits on the individual rigid bodies have been
+  // violated
+  BOOST_FOREACH(RigidBodyPtr rb, _links)
+    if (!rb->_vel_limit_exceeded)
+      rb->check_vel_limit_exceeded_and_update();
+
+  // check whether joint velocities have been violated 
+  if (!_vel_limits_exceeded)
+    check_joint_vel_limit_exceeded_and_update();
+}
+
+/// Prepares to compute the ODE  
+void ArticulatedBody::prepare_to_calc_ode_accel_events(SharedConstVectorNd& x, double t, double dt, void* data)
+{
+  // get the shared pointer to this
+  ArticulatedBodyPtr shared_this = dynamic_pointer_cast<ArticulatedBody>(shared_from_this());
+
+  // get the articulated body
+  const unsigned NGC_EUL = num_generalized_coordinates(eEuler);
+
+  // get the coordinates and velocity from x
+  SharedConstVectorNd gc = x.segment(0, NGC_EUL);
+  SharedConstVectorNd gv = x.segment(NGC_EUL, x.size());
+
+  // set the state
+  set_generalized_coordinates(DynamicBody::eEuler, gc);
+  if (is_joint_constraint_violated())
+    throw InvalidStateException();
+
+  // set the velocity 
+  set_generalized_velocity(DynamicBody::eSpatial, gv);
+
+  // check whether velocity limits on the individual rigid bodies have been
+  // violated
+  BOOST_FOREACH(RigidBodyPtr rb, _links)
+    if (!rb->_vel_limit_exceeded)
+      rb->check_vel_limit_exceeded_and_update();
+
+  // check whether joint velocities have been violated 
+  if (!_vel_limits_exceeded)
+    check_joint_vel_limit_exceeded_and_update();
+
+  // clear the force accumulators on the body
+  reset_accumulators();
+
+  // add all recurrent forces on the body
+  const list<RecurrentForcePtr>& rfs = get_recurrent_forces();
+  BOOST_FOREACH(RecurrentForcePtr rf, rfs)
+    rf->add_force(shared_this);
+
+  // call the body's controller
+  if (controller)
+    (*controller)(shared_this, t, controller_arg);
+}
+
+/// Prepares to compute the ODE  
+void ArticulatedBody::prepare_to_calc_ode(SharedConstVectorNd& x, double t, double dt, void* data)
+{
+  // get the shared pointer to this
+  ArticulatedBodyPtr shared_this = dynamic_pointer_cast<ArticulatedBody>(shared_from_this());
+
+  // get the articulated body
+  const unsigned NGC_EUL = num_generalized_coordinates(eEuler);
+
+  // get the coordinates and velocity from x
+  SharedConstVectorNd gc = x.segment(0, NGC_EUL);
+  SharedConstVectorNd gv = x.segment(NGC_EUL, x.size());
+
+  // set the state
+  set_generalized_coordinates(DynamicBody::eEuler, gc);
+  if (is_joint_constraint_violated())
+    throw InvalidStateException();
+
+  // set the velocity 
+  set_generalized_velocity(DynamicBody::eSpatial, gv);
+
+  // check whether velocity limits on the individual rigid bodies have been
+  // violated
+  BOOST_FOREACH(RigidBodyPtr rb, _links)
+    if (!rb->_vel_limit_exceeded)
+      rb->check_vel_limit_exceeded_and_update();
+
+  // check whether joint velocities have been violated 
+  if (!_vel_limits_exceeded)
+    check_joint_vel_limit_exceeded_and_update();
+
+  // clear the force accumulators on the body
+  reset_accumulators();
+
+  // add all recurrent forces on the body
+  const list<RecurrentForcePtr>& rfs = get_recurrent_forces();
+  BOOST_FOREACH(RecurrentForcePtr rf, rfs)
+    rf->add_force(shared_this);
+
+  // call the body's controller
+  if (controller)
+    (*controller)(shared_this, t, controller_arg);
+}
+
+/// Returns the ODE's for position and velocity (concatenated into x)
+void ArticulatedBody::ode(double t, double dt, void* data, SharedVectorNd& dx)
+{
+  // get the articulated body
+  const unsigned NGC_EUL = num_generalized_coordinates(eEuler);
+
+  // get the derivatives of coordinates and velocity from dx
+  SharedVectorNd dgc = dx.segment(0, NGC_EUL);
+  SharedVectorNd dgv = dx.segment(NGC_EUL, dx.size());
+
+  // we need the generalized velocity as Rodrigues coordinates
+  get_generalized_velocity(DynamicBody::eEuler, dgc);
+
+  // calculate forward dynamics 
+  get_generalized_acceleration(dgv);
+}
+
+/// Updates joint constraint violation (after integration)
+void ArticulatedBody::update_joint_constraint_violations()
+{
+  // update the size of the constraint violation vector
+  _cvio.resize(num_joint_dof());
+
+  for (unsigned i=0, k=0; i< _joints.size(); i++)
+  {
+    // loop over all DOF
+    for (unsigned j=0; j< _joints[i]->num_dof(); j++, k++)
+    {
+      _cvio[k] = 0.0;
+      if (_joints[i]->q[j] < _joints[i]->lolimit[j])
+        _cvio[k] = _joints[i]->lolimit[j] - _joints[i]->q[j];
+      else if (_joints[i]->q[j] > _joints[i]->hilimit[j])
+        _cvio[k] = _joints[i]->q[j] - _joints[i]->hilimit[j]; 
+    }
+  }
+}
+
+/// Checks for a joint constraint violation
+bool ArticulatedBody::is_joint_constraint_violated() const
+{
+  // obvious check
+  if (_cvio.size() != num_joint_dof())
+    return false;
+
+  for (unsigned i=0, k=0; i< _joints.size(); i++)
+  {
+    // loop over all DOF
+    for (unsigned j=0; j< _joints[i]->num_dof(); j++, k++)
+    {
+      if (_joints[i]->q[j] + _cvio[k] < _joints[i]->lolimit[j] ||
+          _joints[i]->q[j] - _cvio[k] > _joints[i]->hilimit[j])
+        return true; 
+    }
+  }
+
+  // no violation if here
+  return false;
+}
+
+/// "Compiles" the articulated body
+void ArticulatedBody::compile()
+{
+  _vel_limits_lo.resize(num_joint_dof(), 0.0);
+  _vel_limits_hi.resize(num_joint_dof(), 0.0);
+}
+
+/// Finds the next event time on this articulated body for joint constraints
+/**
+ * \note skips current events
+ */
+double ArticulatedBody::find_next_joint_limit_time() const
+{
+  const double INF = std::numeric_limits<double>::max();
+  const double VEL_TOL = NEAR_ZERO;
+
+  // setup the maximum integration time
+  double dt = std::numeric_limits<double>::max();
+
+  // loop over all joints
+  const vector<JointPtr>& joints = get_joints();
+  for (unsigned i=0; i< joints.size(); i++)
+  {
+    // get the coordinate index for the joint
+    unsigned k = joints[i]->get_coord_index();
+
+    for (unsigned j=0; j< joints[i]->num_dof(); j++, k++)
+    {
+      // get the joint data
+      const double q = joints[i]->q[j];
+      const double qd = joints[i]->qd[j];
+      const double l = joints[i]->lolimit[j];
+      const double u = joints[i]->hilimit[j];
+
+      // skip lower limit of DOF j of joint i if lower limit = -INF
+      if (l > -INF)
+      {
+        // first check whether the limit is already exceeded
+        if (q <= l)
+          continue;
+
+        // otherwise, determine when the joint limit will be met
+        if (qd < -VEL_TOL)
+          dt = std::min((l-q)/qd, dt);
+      }
+
+      // skip upper limit of DOF j of joint i if upper limit = INF
+      if (u < INF)
+      {
+        // first check whether the limit is already exceeded
+        if (q >= u)
+          continue;
+
+        // otherwise, determine when the joint limit will be met
+        if (qd > VEL_TOL)
+          dt = std::min((u-q)/qd, dt); 
+      }
+    }
+  }
+
+  return dt;
+}
+
+/// Computes the conservative advancement time on this articulated body for joint constraints
+double ArticulatedBody::calc_CA_time_for_joints() const
+{
+  const double INF = std::numeric_limits<double>::max();
+
+  // setup the maximum integration time
+  double dt = std::numeric_limits<double>::max();
+
+  // get the lower and upper acceleration limits
+  const vector<double>& acc_lo = _vel_limits_lo;
+  const vector<double>& acc_hi = _vel_limits_hi; 
+  assert(acc_lo.size() == num_joint_dof());
+  assert(acc_hi.size() == num_joint_dof());
+
+  // loop over all joints
+  const vector<JointPtr>& joints = get_joints();
+  for (unsigned i=0; i< joints.size(); i++)
+  {
+    // get the coordinate index for the joint
+    unsigned k = joints[i]->get_coord_index();
+
+    for (unsigned j=0; j< joints[i]->num_dof(); j++, k++)
+    {
+      // get the joint data
+      const double q = joints[i]->q[j];
+      const double qd = joints[i]->qd[j];
+      const double qdd_lo = acc_lo[k];
+      const double qdd_hi = acc_hi[k];
+      const double l = joints[i]->lolimit[j];
+      const double u = joints[i]->hilimit[j];
+
+      // skip lower limit of DOF j of joint i if lower limit = -INF
+      if (l > -INF)
+      {
+        // first check whether the limit is already exceeded
+        if (q <= l)
+          return 0.0;
+
+        // compute quadratic solutions
+        double disc = qd*qd - 4*qdd_lo*(q-l);
+        if (disc >= 0.0)
+        {
+          double ta = (-qd + std::sqrt(disc))/(2.0*qdd_lo);
+          double tb = (-qd - std::sqrt(disc))/(2.0*qdd_lo);
+          if (ta > 0.0)
+            dt = std::min(ta, dt);
+          if (tb > 0.0)
+            dt = std::min(tb, dt);
+        }
+      }
+
+      // skip upper limit of DOF j of joint i if upper limit = INF
+      if (u < INF)
+      {
+        // first check whether the limit is already exceeded
+        if (q >= u)
+          return 0.0;
+
+        // compute quadratic solutions
+        double disc = qd*qd - 4*qdd_hi*(q-u);
+        if (disc >= 0.0)
+        {
+          double ta = (-qd + std::sqrt(disc))/(2.0*qdd_hi);
+          double tb = (-qd - std::sqrt(disc))/(2.0*qdd_hi);
+          if (ta > 0.0)
+            dt = std::min(ta, dt);
+          if (tb > 0.0)
+            dt = std::min(tb, dt);
+        }
+      }
+    }
+  }
+
+  return dt;
+}
+
+/// Determines whether the joint acceleration or link force estimates have been exceeded
+bool ArticulatedBody::limit_estimates_exceeded() const
+{
+  // first look for the joint acceleration being exceeded
+  if (_vel_limits_exceeded)
+    return true;
+
+  // now look for the link force estimates being exceeded
+  BOOST_FOREACH(RigidBodyPtr rb, _links)
+    if (rb->limit_estimates_exceeded())
+      return true;
+
+  return false;
+}
+
+/// Updates the joint velocity limits
+void ArticulatedBody::update_joint_vel_limits()
+{
+  _vel_limits_lo.resize(num_joint_dof());
+  _vel_limits_hi.resize(num_joint_dof());
+
+  // reset the velocity limits exceeded
+  _vel_limits_exceeded = false;
+
+  for (unsigned i=0, k=0; i< _joints.size(); i++)
+  {
+    // loop over all DOF
+    for (unsigned j=0; j< _joints[i]->num_dof(); j++, k++)
+    {
+      if (_joints[i]->qd[j] < _vel_limits_lo[k])
+        _vel_limits_lo[k] = _joints[i]->qdd[j];
+      if (_joints[i]->qd[j] > _vel_limits_hi[k])
+        _vel_limits_hi[k] = _joints[i]->qdd[j];
+    }
+  }
+}
+
+/// Checks whether a joint velocity exceeded the given limits, and updates the limits if necessary
+void ArticulatedBody::check_joint_vel_limit_exceeded_and_update()
+{
+  // obvious check
+  if (_vel_limits_lo.size() != num_joint_dof() ||
+      _vel_limits_hi.size() != num_joint_dof())
+    throw std::runtime_error("Joint velocities have not been setup!");
+
+  // flag that indicated we've updated
+  bool upd = false;
+
+  for (unsigned i=0, k=0; i< _joints.size(); i++)
+  {
+    // loop over all DOF
+    for (unsigned j=0; j< _joints[i]->num_dof(); j++, k++)
+    {
+      if (_joints[i]->qdd[j] < _vel_limits_lo[k])
+      {
+        _vel_limits_lo[k] = _joints[i]->qd[j];
+        upd = true;
+      }
+      if (_joints[i]->qdd[j] > _vel_limits_hi[k])
+      {
+        _vel_limits_hi[k] = _joints[i]->qd[j];
+        upd = true;
+      } 
+    }
+  }
+
+  if (!_vel_limits_exceeded && upd)
+    _vel_limits_exceeded = true;
 }
 
 /// Gets the time-derivative of the Jacobian

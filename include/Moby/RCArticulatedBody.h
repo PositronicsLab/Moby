@@ -94,6 +94,32 @@ class RCArticulatedBody : public ArticulatedBody
     virtual Ravelin::MatrixNd& solve_generalized_inertia(const Ravelin::MatrixNd& m, Ravelin::MatrixNd& result);
     virtual boost::shared_ptr<const Ravelin::Pose3d> get_gc_pose() const; 
     virtual void validate_position_variables();
+    virtual void get_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::SharedVectorNd& gc);
+    virtual void get_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::SharedVectorNd& gv);
+    virtual void get_generalized_acceleration(Ravelin::SharedVectorNd& ga);
+    virtual void set_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::SharedConstVectorNd& gc);
+    virtual void set_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::SharedConstVectorNd& gv);
+/*
+    template <class M>
+    M& solve_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, const M& B, M& X);
+
+    template <class M>
+    M& transpose_solve_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, const M& B, M& X);
+*/
+    template <class V>
+    void get_generalized_acceleration_generic(V& ga);
+
+    template <class V>
+    void get_generalized_coordinates_generic(DynamicBody::GeneralizedCoordinateType gctype, V& gc);
+
+    template <class V>
+    void set_generalized_coordinates_generic(DynamicBody::GeneralizedCoordinateType gctype, V& gc);
+
+    template <class V>
+    void set_generalized_velocity_generic(DynamicBody::GeneralizedCoordinateType gctype, V& gv);
+
+    template <class V>
+    void get_generalized_velocity_generic(DynamicBody::GeneralizedCoordinateType gctype, V& gv);
 
     /// Gets whether the base of this body is fixed or "floating"
     virtual bool is_floating_base() const { return _floating_base; }
@@ -174,6 +200,8 @@ class RCArticulatedBody : public ArticulatedBody
     void determine_implicit_constraint_jacobian_dot(Ravelin::MatrixNd& J) const;
     void set_implicit_constraint_forces(const Ravelin::VectorNd& lambda);
 }; // end class
+
+#include "RCArticulatedBody.inl"
 
 } // end namespace
 #endif

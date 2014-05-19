@@ -9,7 +9,7 @@
  * \return the size of step taken
  */
 template <class ForwardIterator>
-double Simulator::integrate(double step_size, ForwardIterator begin, ForwardIterator end)
+double EventDrivenSimulator::integrate_with_accel_events(double step_size, ForwardIterator begin, ForwardIterator end)
 {
   // begin timing dynamics
   tms cstart;  
@@ -64,7 +64,7 @@ double Simulator::integrate(double step_size, ForwardIterator begin, ForwardIter
   }
 
   // call the integrator
-  integrator->integrate(x, &ode, current_time, step_size, (void*) &shared_this);
+  integrator->integrate(x, &ode_accel_events, current_time, step_size, (void*) &shared_this);
 
   // update the generalized coordinates and velocity
   idx = 0;

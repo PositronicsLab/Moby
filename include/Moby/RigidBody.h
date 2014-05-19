@@ -42,6 +42,7 @@ class CollisionGeometry;
  */
 class RigidBody : public SingleBody
 {
+  friend class ArticulatedBody;
   friend class RCArticulatedBody;
   friend class MCArticulatedBody;
   friend class Joint;
@@ -49,7 +50,6 @@ class RigidBody : public SingleBody
   public:
     RigidBody();
     virtual ~RigidBody() {}
-    virtual void integrate(double t, double h, boost::shared_ptr<Integrator> integrator);
     void add_force(const Ravelin::SForced& w);
     void set_pose(const Ravelin::Pose3d& pose);
     void set_inertial_pose(const Ravelin::Pose3d& pose);
@@ -75,12 +75,17 @@ class RigidBody : public SingleBody
     void set_velocity(const Ravelin::SAcceld& xdd);
     virtual void set_generalized_forces(const Ravelin::VectorNd& gf);
     virtual Ravelin::VectorNd& get_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& gc);
+    virtual void get_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::SharedVectorNd& gc);
     virtual Ravelin::VectorNd& get_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& gv);
+    virtual void get_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::SharedVectorNd& gv);
     virtual Ravelin::VectorNd& get_generalized_acceleration(Ravelin::VectorNd& ga);
+    virtual void get_generalized_acceleration(Ravelin::SharedVectorNd& ga);
     virtual void add_generalized_force(const Ravelin::VectorNd& gf);
     virtual void apply_generalized_impulse(const Ravelin::VectorNd& gf);
     virtual void set_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gc);
+    virtual void set_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::SharedConstVectorNd& gc);
     virtual void set_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gv);
+    virtual void set_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::SharedConstVectorNd& gv);
     virtual Ravelin::MatrixNd& get_generalized_inertia(Ravelin::MatrixNd& M);
     virtual Ravelin::VectorNd& get_generalized_forces(Ravelin::VectorNd& f);
     virtual Ravelin::VectorNd& convert_to_generalized_force(SingleBodyPtr body, const Ravelin::SForced& w, const Point3d& p, Ravelin::VectorNd& gf);
@@ -106,6 +111,15 @@ class RigidBody : public SingleBody
     const Ravelin::SForced& sum_forces();
     void reset_accumulators();
     Ravelin::SForced calc_pseudo_forces();
+    virtual void ode_noexcept(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data, Ravelin::SharedVectorNd& dx);
+    virtual void prepare_to_calc_ode(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data);
+    virtual void prepare_to_calc_ode_accel_events(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data) { prepare_to_calc_ode(x, t, dt, data); }
+    virtual void ode(double t, double dt, void* data, Ravelin::SharedVectorNd& dx);
+    virtual void reset_limit_estimates();
+    virtual bool limit_estimates_exceeded() const { return _vel_limit_exceeded; }
+    const Ravelin::SVelocityd& get_vel_upper_bounds() const { return _vel_limit_lo; }
+    const Ravelin::SVelocityd& get_vel_lower_bounds() const { return _vel_limit_hi; }
+    void update_vel_limits();
 
     template <class OutputIterator>
     OutputIterator get_parent_links(OutputIterator begin) const;
@@ -187,14 +201,24 @@ class RigidBody : public SingleBody
     Ravelin::VectorNd viscous_coeff;
 
   private:  
+    template <class V>
+    void get_generalized_coordinates_generic(DynamicBody::GeneralizedCoordinateType gctype, V& gc);
+
+    template <class V>
+    void get_generalized_velocity_generic(DynamicBody::GeneralizedCoordinateType gctype, V& gv);
+
+    template <class V>
+    void get_generalized_acceleration_generic(V& ga);
+
+    template <class V>
+    void set_generalized_coordinates_generic(DynamicBody::GeneralizedCoordinateType gctype, V& gc);
+
+    template <class V>
+    void set_generalized_velocity_generic(DynamicBody::GeneralizedCoordinateType gctype, V& gv);
+
     void set_force(const Ravelin::SForced& w);
-    Ravelin::VectorNd& get_generalized_coordinates_single(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& gc);
-    Ravelin::VectorNd& get_generalized_velocity_single(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& gv);
-    Ravelin::VectorNd& get_generalized_acceleration_single(Ravelin::VectorNd& ga);
     void invalidate_pose_vectors();
     void apply_generalized_impulse_single(const Ravelin::VectorNd& gf);
-    void set_generalized_coordinates_single(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gc);
-    void set_generalized_velocity_single(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gv);
     Ravelin::MatrixNd& get_generalized_inertia_single(Ravelin::MatrixNd& M);
     Ravelin::MatrixNd& get_generalized_inertia_inverse(Ravelin::MatrixNd& M) const;
     Ravelin::VectorNd& get_generalized_forces_single(Ravelin::VectorNd& f);
@@ -204,6 +228,7 @@ class RigidBody : public SingleBody
     Ravelin::VectorNd& solve_generalized_inertia_single(const Ravelin::VectorNd& b, Ravelin::VectorNd& x);
     RigidBodyPtr get_parent_link(JointPtr j) const;
     RigidBodyPtr get_child_link(JointPtr j) const;
+    void check_vel_limit_exceeded_and_update();
 
     /// Indicates whether link frame velocity is valid (up-to-date)
     bool _xdi_valid;
@@ -313,7 +338,14 @@ class RigidBody : public SingleBody
     /// Outer joints and associated data 
     std::set<JointPtr> _outer_joints; 
 
-    Ravelin::LinAlgd _LA;
+    /// Lower velocity limits on the body 
+    Ravelin::SVelocityd _vel_limit_lo;
+
+    /// Upper velocity limits on the body
+    Ravelin::SVelocityd _vel_limit_hi;
+
+    /// Indicates whether the velocity limit has been exceeded
+    bool _vel_limit_exceeded;
 }; // end class
 
 std::ostream& operator<<(std::ostream&, RigidBody&);

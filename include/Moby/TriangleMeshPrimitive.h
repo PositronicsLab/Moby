@@ -31,18 +31,18 @@ class TriangleMeshPrimitive : public Primitive
     /// Gets the length of an edge in the mesh above which point sub-samples are created
     double get_edge_sample_length() const { return _edge_sample_length; }
 
+    virtual double calc_signed_dist(const Point3d& p);
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);  
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual BVPtr get_BVH_root(CollisionGeometryPtr geom);
-    virtual void get_vertices(BVPtr bv, std::vector<const Point3d*>& vertices);
-    virtual bool point_inside(BVPtr bv, const Point3d& p, Ravelin::Vector3d& normal) const;
-    virtual bool intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Ravelin::Vector3d& normal) const;
+    virtual void get_vertices(std::vector<Point3d>& vertices);
+    virtual double calc_dist_and_normal(const Point3d& p, Ravelin::Vector3d& normal) const;
     virtual const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >& get_sub_mesh(BVPtr bv);
     virtual boost::shared_ptr<const IndexedTriArray> get_mesh() { return _mesh; }
     virtual void set_deformable(bool flag);
-    virtual void set_intersection_tolerance(double tol);
     void set_mesh(boost::shared_ptr<const IndexedTriArray> mesh);
     virtual void set_pose(const Ravelin::Pose3d& T);
+    virtual double calc_signed_dist(boost::shared_ptr<const Primitive> p, boost::shared_ptr<const Ravelin::Pose3d> pose_this, boost::shared_ptr<const Ravelin::Pose3d> pose_p, Point3d& pthis, Point3d& pp) const;
 
   private:
     void center();
@@ -85,7 +85,7 @@ class TriangleMeshPrimitive : public Primitive
     std::map<BVPtr, std::list<unsigned> > _mesh_tris;
 
     /// Map from the geometry to the vector of vertices (w/transform and intersection tolerance applied), if any
-    std::map<CollisionGeometryPtr, std::vector<Point3d> > _vertices;
+    std::vector<Point3d> _vertices;
 
     /// Mapping from BVs to vertex indices contained within (not necessary to index this per geometry)
     std::map<BVPtr, std::list<unsigned> > _mesh_vertices;

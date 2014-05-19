@@ -27,18 +27,18 @@ class BoxPrimitive : public Primitive
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual BVPtr get_BVH_root(CollisionGeometryPtr geom);
-    virtual bool point_inside(BVPtr bv, const Point3d& p, Ravelin::Vector3d& normal) const;
-    virtual bool intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Ravelin::Vector3d& normal) const;
+    virtual double calc_dist_and_normal(const Point3d& point, Ravelin::Vector3d& normal) const;
+    double calc_closest_point(const Point3d& point, Point3d& closest) const;
     virtual const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >& get_sub_mesh(BVPtr bv);
-    virtual void set_intersection_tolerance(double tol);
     virtual void set_pose(const Ravelin::Pose3d& T);
     void set_edge_sample_length(double len);
     virtual boost::shared_ptr<const IndexedTriArray> get_mesh();
-    virtual void get_vertices(BVPtr, std::vector<const Point3d*>& vertices);
     virtual osg::Node* create_visualization();
-    double calc_dist(const SpherePrimitive* s, Point3d& pbox, Point3d& psph) const;
-    double calc_dist(const BoxPrimitive* b, Point3d& pthis, Point3d& pb) const;
-    double calc_dist(const Point3d& p, Point3d& pb) const;
+    double calc_signed_dist(boost::shared_ptr<const SpherePrimitive> s, boost::shared_ptr<const Ravelin::Pose3d> pose_this, boost::shared_ptr<const Ravelin::Pose3d> pose_sph, Point3d& pthis, Point3d& psph) const;
+    virtual double calc_signed_dist(boost::shared_ptr<const Primitive> p, boost::shared_ptr<const Ravelin::Pose3d> pose_this, boost::shared_ptr<const Ravelin::Pose3d> pose_p, Point3d& pthis, Point3d& pp) const;
+    double calc_signed_dist(boost::shared_ptr<const BoxPrimitive> box, boost::shared_ptr<const Ravelin::Pose3d> pose_this, boost::shared_ptr<const Ravelin::Pose3d> pose_box, Point3d& pthis, Point3d& pbox) const;
+    virtual void get_vertices(std::vector<Point3d>& p);
+    virtual double calc_signed_dist(const Point3d& p);
 
     /// Get the x-length of this box
     double get_x_len() const { return _xlen; }

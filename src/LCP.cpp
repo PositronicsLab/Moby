@@ -148,8 +148,9 @@ unsigned LCP::rand_min(const VectorNd& v, double zero_tol)
   static vector<unsigned> minima;
   minima.clear();
   unsigned minv = std::min_element(v.begin(), v.end()) - v.begin();
+  minima.push_back(minv);
   for (unsigned i=0; i< v.rows(); i++)
-    if (v[i] < v[minv] + zero_tol)
+    if (i != minv && v[i] < v[minv] + zero_tol)
       minima.push_back(i);
   return minima[rand() % minima.size()];
 }
@@ -705,7 +706,7 @@ restart: // solver restarts from here when basis becomes bad
     select(_dl.begin(), _j.begin(), _j.end(), _dj.begin());
 
     // compute minimal ratios x(j) + EPS_DOUBLE ./ d(j), d > 0
-    _result.resize(_xj.size());
+    _result.set_zero(_xj.size());
     std::transform(_xj.begin(), _xj.end(), _result.begin(), std::bind2nd(std::plus<double>(), zero_tol));
     std::transform(_result.begin(), _result.end(), _dj.begin(), _result.begin(), std::divides<double>());
     double theta = *std::min_element(_result.begin(), _result.end());

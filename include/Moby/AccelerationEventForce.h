@@ -11,17 +11,17 @@
 #include <Moby/RecurrentForce.h>
 
 namespace Moby {
-class RestingContactForce : public RecurrentForce
+class AccelerationEventForce : public RecurrentForce
 {
   public:
-    virtual ~RestingContactForce() {}
+    virtual ~AccelerationEventForce() {}
 
     /// Adds the resting contact force, if any, to the body
     virtual void add_force(boost::shared_ptr<DynamicBody> body)
     {
       // look for the resting contact force
-      std::map<DynamicBodyPtr, Ravelin::VectorNd>::const_iterator i = resting_contact_forces.find(body);
-      if (i == resting_contact_forces.end())
+      std::map<DynamicBodyPtr, Ravelin::VectorNd>::const_iterator i = accel_event_forces.find(body);
+      if (i == accel_event_forces.end())
         return;
       else if (i->second.size() == 0)
         return;
@@ -29,8 +29,8 @@ class RestingContactForce : public RecurrentForce
         i->first->add_generalized_force(i->second);
     }
 
-    /// The mapping from bodies to (generalized) resting contact forces 
-    std::map<DynamicBodyPtr, Ravelin::VectorNd> resting_contact_forces;
+    /// The mapping from bodies to (generalized) acceleration event forces 
+    std::map<DynamicBodyPtr, Ravelin::VectorNd> accel_event_forces;
 }; // end class
 } // end namespace
 

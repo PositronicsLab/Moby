@@ -57,6 +57,70 @@ Simulator::~Simulator()
   #endif
 }
 
+/// Computes the ODE of the system
+VectorNd& Simulator::ode(const VectorNd& x, double t, double dt, void* data, VectorNd& dx)
+{
+  // get the simulator
+  shared_ptr<Simulator>& s = *((shared_ptr<Simulator>*) data);
+
+  // initialize the ODE index
+  unsigned idx = 0;
+
+  // resize dx
+  dx.resize(x.size());
+
+  // loop through all bodies, preparing to compute the ODE
+  BOOST_FOREACH(DynamicBodyPtr db, s->_bodies)
+  {
+    if (db->get_kinematic())
+      continue;
+
+    // get the number of generalized coordinates and velocities
+    const unsigned NGC = db->num_generalized_coordinates(DynamicBody::eEuler);
+    const unsigned NGV = db->num_generalized_coordinates(DynamicBody::eSpatial);
+
+    // get x for the body 
+    SharedConstVectorNd xsub = x.segment(idx, idx+NGC+NGV);
+
+    // compute the ODE
+    db->prepare_to_calc_ode(xsub, t, dt, &db); 
+
+    // update idx
+    idx += NGC+NGV;
+  }
+
+  // check pairwise constraint violations
+  s->check_pairwise_constraint_violations();
+
+  // loop through all bodies, computing forward dynamics 
+  BOOST_FOREACH(DynamicBodyPtr db, s->_bodies)
+    if (!db->get_kinematic())
+      db->calc_fwd_dyn();
+
+  // loop through all bodies, computing the ODE
+  BOOST_FOREACH(DynamicBodyPtr db, s->_bodies)
+  {
+    if (db->get_kinematic())
+      continue;
+
+    // get the number of generalized coordinates and velocities
+    const unsigned NGC = db->num_generalized_coordinates(DynamicBody::eEuler);
+    const unsigned NGV = db->num_generalized_coordinates(DynamicBody::eSpatial);
+
+    // get dx for the body
+    SharedVectorNd dxsub = dx.segment(idx, idx+NGC+NGV);
+
+    // compute the ODE
+    db->ode(t, dt, &db, dxsub); 
+
+    // update idx
+    idx += NGC+NGV;
+  }
+
+  // return the ODE
+  return dx;
+}
+
 /// Steps the Simulator forward in time without contact
 /**
  * This pseudocode was inspired from [Baraff 1997] and [Mirtich 1996].

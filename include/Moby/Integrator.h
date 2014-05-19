@@ -30,7 +30,7 @@ class Integrator : public virtual Base
      * \param time the current time, contains the new time on return
      * \param step_size the step size for integration
      */
-    virtual void integrate(Ravelin::VectorNd& x, Ravelin::VectorNd& (*f)(const Ravelin::VectorNd&, double, double, void*, Ravelin::VectorNd&), double& time, double step_size, void* data) = 0;
+    virtual void integrate(Ravelin::VectorNd& x, Ravelin::VectorNd& (*f)(const Ravelin::VectorNd&, double, double, void*, Ravelin::VectorNd&), double time, double step_size, void* data) = 0;
 }; // end class
 
 } // end namespace
