@@ -233,8 +233,7 @@ OBB OBB::calc_min_volume_OBB(ForwardIterator begin, ForwardIterator end)
 
   // compute the convex hull of the points
   PolyhedronPtr hull = CompGeom::calc_convex_hull(begin, end);
-  bool is_3D = hull;
-  if (!is_3D)
+  if (!hull)
     return OBB::calc_low_dim_OBB(begin, end);
 
   // setup the box with minimum volume
@@ -532,8 +531,7 @@ OBB::OBB(ForwardIterator begin, ForwardIterator end)
   catch (NumericalException e)
   {
   }
-  bool is_3D = hull;
-  if (!is_3D)
+  if (!hull)
   {
     *this = OBB::calc_low_dim_OBB(begin, end);
     return;
