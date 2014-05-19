@@ -17,17 +17,18 @@ option (BUILD_SHARED_LIBS "Build Moby as a shared library?" ON)
 option (BUILD_TOOLS "Build the programs in the tools subdirectory?" ON)
 option (USE_OSG "Build against OpenSceneGraph library?" ON)
 option (USE_IPOPT "Build against IPOPT library?" ON)
+option (USE_QLCPD "Build against QLCPD library?" ON)
 option (PROFILE "Build for profiling?" OFF)
 option (OMP "Build with OpenMP support?" OFF)
 option (THREADSAFE "Build Moby to be threadsafe? (slower)" OFF)
 
 # look for QLCPD
-find_library(QP_FOUND qlcpd-dense /usr/local/lib /usr/lib)
-if (QP_FOUND)
+find_library(QLCPD_FOUND qlcpd-dense /usr/local/lib /usr/lib)
+if (USE_QLCPD AND QLCPD_FOUND)
   set (SOURCES ${SOURCES} QLCPD.cpp)
   set (EXTRA_LIBS qlcpd-dense)
   add_definitions (-DUSE_QLCPD)
-endif (QP_FOUND)
+endif (USE_QLCPD AND QLCPD_FOUND)
 
 # check options are valid
 if (THREADSAFE)
