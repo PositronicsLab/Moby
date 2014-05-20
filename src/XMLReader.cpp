@@ -18,6 +18,7 @@
 
 #include <Moby/TriangleMeshPrimitive.h>
 #include <Moby/HeightmapPrimitive.h>
+#include <Moby/PlanePrimitive.h>
 #include <Moby/CylinderPrimitive.h>
 #include <Moby/ConePrimitive.h>
 #include <Moby/IndexedTetraArray.h>
@@ -138,6 +139,7 @@ std::map<std::string, BasePtr> XMLReader::read(const std::string& fname)
   process_tag("Cylinder", moby_tree, &read_cylinder, id_map);
   process_tag("Cone", moby_tree, &read_cone, id_map);
   process_tag("Heightmap", moby_tree, &read_heightmap, id_map);
+  process_tag("Plane", moby_tree, &read_plane, id_map);
 /*
   process_tag("TriangleMesh", moby_tree, &read_trimesh, id_map);
   process_tag("TetraMesh", moby_tree, &read_tetramesh, id_map);
@@ -372,6 +374,19 @@ void XMLReader::read_trimesh(shared_ptr<const XMLTree> node, std::map<std::strin
   
   // populate the object
 //  b->load_from_xml(node, id_map);
+}
+
+/// Reads and constructs a plane object
+void XMLReader::read_plane(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
+{  
+  // sanity check
+  assert(strcasecmp(node->name.c_str(), "Plane") == 0);
+
+  // create a new plane object
+  boost::shared_ptr<Base> b(new PlanePrimitive());
+  
+  // populate the object
+  b->load_from_xml(node, id_map);
 }
 
 /// Reads and constructs a heightmap object

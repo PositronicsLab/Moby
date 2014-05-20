@@ -101,10 +101,10 @@ double CylinderPrimitive::calc_signed_dist(shared_ptr<const Primitive> p, Point3
   // if the primitive is convex, can use GJK
   if (p->is_convex())
   {
-    shared_ptr<const Pose3d> Pbox = pthis.pose;
+    shared_ptr<const Pose3d> Pcyl = pthis.pose;
     shared_ptr<const Pose3d> Pgeneric = pp.pose;
-    shared_ptr<const Primitive> bthis = dynamic_pointer_cast<const Primitive>(shared_from_this());
-    return GJK::do_gjk(bthis, p, Pbox, Pgeneric, pthis, pp);
+    shared_ptr<const Primitive> cthis = dynamic_pointer_cast<const Primitive>(shared_from_this());
+    return GJK::do_gjk(cthis, p, Pcyl, Pgeneric, pthis, pp);
   }
 
   // try cylinder/(non-convex) trimesh

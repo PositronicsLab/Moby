@@ -493,6 +493,7 @@ void HeightmapPrimitive::load_from_xml(shared_ptr<const XMLTree> node, std::map<
       _heights.set_zero(1,1);
     }
   }
+_heights *= 0.0;
 
   // read in the width, if specified
   XMLAttrib* width_attr = node->get_attrib("width");
