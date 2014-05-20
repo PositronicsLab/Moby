@@ -430,6 +430,14 @@ double GJK::do_gjk(CollisionGeometryPtr A, CollisionGeometryPtr B, Point3d& clos
 
       // A and B are intersecting
       // determine the interpenetration distance
+      // THE CORRECT WAY to compute interpenetration for convex bodies
+      // using GJK is to construct the minkowski difference (NOTE: not sure
+      // if actual construction is necessary); the interpenetration distance
+      // (corresponds to minimum translation necessary to separate the bodies)
+      // will be the minimum l2-norm of a point on the boundary of the
+      // Minkowski difference. Note that there may be several such points with
+      // minimum norm (which would correspond to several points of deepest
+      // interpenetration) 
       double pen_dist = INF;
       const unsigned NV = S.num_vertices();
       for (unsigned i=0; i< NV; i++)
@@ -539,6 +547,14 @@ double GJK::do_gjk(shared_ptr<const Primitive> A, shared_ptr<const Primitive> B,
 
       // A and B are intersecting
       // determine the interpenetration distance
+      // THE CORRECT WAY to compute interpenetration for convex bodies
+      // using GJK is to construct the minkowski difference (NOTE: not sure
+      // if actual construction is necessary); the interpenetration distance
+      // (corresponds to minimum translation necessary to separate the bodies)
+      // will be the minimum l2-norm of a point on the boundary of the
+      // Minkowski difference. Note that there may be several such points with
+      // minimum norm (which would correspond to several points of deepest
+      // interpenetration) 
       double pen_dist = INF;
       const unsigned NV = S.num_vertices();
       for (unsigned i=0; i< NV; i++)
