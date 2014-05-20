@@ -664,16 +664,12 @@ BVPtr ConePrimitive::get_BVH_root(CollisionGeometryPtr geom)
     obb = shared_ptr<OBB>(new OBB);
     obb->geom = geom;
 
-    // get the pose for the geometry
-    shared_ptr<const Pose3d> gpose = geom->get_pose();
-
     // get the pose for this geometry
-    shared_ptr<const Pose3d> P = get_pose(); 
-    assert(!P->rpose);
+    shared_ptr<const Pose3d> P = get_pose(geom); 
 
     // setup the obb center and orientation
-    obb->center = Point3d(P->x, gpose);
-    obb->R = P->q;
+    obb->center = Point3d(0.0, 0.0, 0.0, P);
+    obb->R.set_identity();
 
     // setup OBB half-lengths
     obb->l[X] = _radius;
