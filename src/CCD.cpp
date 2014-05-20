@@ -28,6 +28,7 @@
 #include <Moby/CylinderPrimitive.h>
 #include <Moby/ConePrimitive.h>
 #include <Moby/TriangleMeshPrimitive.h>
+#include <Moby/PlanePrimitive.h>
 #include <Moby/GaussianMixture.h>
 #include <Moby/CSG.h>
 #include <Moby/CCD.h>
@@ -659,6 +660,11 @@ BVPtr CCD::construct_bounding_sphere(CollisionGeometryPtr cg)
   // look for heightmap primitive
   shared_ptr<HeightmapPrimitive> hm_p = dynamic_pointer_cast<HeightmapPrimitive>(p);
   if (hm_p)
+    return BVPtr(new DummyBV);
+
+  // look for heightmap primitive
+  shared_ptr<PlanePrimitive> plane_p = dynamic_pointer_cast<PlanePrimitive>(p);
+  if (plane_p)
     return BVPtr(new DummyBV);
 
   // shouldn't still be here..
