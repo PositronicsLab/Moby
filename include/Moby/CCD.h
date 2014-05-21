@@ -15,6 +15,7 @@
 #include <Moby/Log.h>
 #include <Moby/SpherePrimitive.h>
 #include <Moby/HeightmapPrimitive.h>
+#include <Moby/PlanePrimitive.h>
 #include <Moby/BoxPrimitive.h>
 #include <Moby/BV.h>
 
@@ -94,6 +95,9 @@ class CCD
 
     template <class OutputIterator>
     OutputIterator intersect_BV_leafs(BVPtr a, BVPtr b, const Ravelin::Transform3d& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b, OutputIterator output_begin) const;
+
+    template <class OutputIterator>
+    OutputIterator find_contacts_plane_generic(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin);
 
     template <class OutputIterator>
     OutputIterator find_contacts_heightmap_generic(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin);

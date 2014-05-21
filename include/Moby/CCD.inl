@@ -30,6 +30,8 @@ OutputIterator CCD::find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr
     else
       return find_contacts_heightmap_generic(cgA, cgB, output_begin); 
   }
+  else if (boost::dynamic_pointer_cast<PlanePrimitive>(pA))
+    return find_contacts_plane_generic(cgA, cgB, output_begin); 
   else // no special case for A
   {
     if (boost::dynamic_pointer_cast<HeightmapPrimitive>(pB))
@@ -38,6 +40,10 @@ OutputIterator CCD::find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr
         return find_contacts_convex_heightmap(cgA, cgB, output_begin); 
       else
         return find_contacts_heightmap_generic(cgB, cgA, output_begin); 
+    }
+    else if (boost::dynamic_pointer_cast<PlanePrimitive>(pB))
+    {
+      return find_contacts_plane_generic(cgB, cgA, output_begin); 
     }
   }
 
@@ -69,7 +75,44 @@ OutputIterator CCD::find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr
 
   return output_begin; 
 }
-      
+
+// find the contacts between a plane and a generic shape      
+template <class OutputIterator>
+OutputIterator CCD::find_contacts_plane_generic(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator o)
+{
+  std::vector<Point3d> vB;
+  double dist;
+  Ravelin::Vector3d n;
+
+  // get the plane primitive
+  boost::shared_ptr<PlanePrimitive> pA = boost::dynamic_pointer_cast<PlanePrimitive>(cgA->get_geometry());
+
+  // get the bounding volume for cgB
+  PrimitivePtr pB = cgB->get_geometry();
+  BVPtr bvB = pB->get_BVH_root(cgB);
+
+  // get the vertices from B
+  cgB->get_vertices(vB);
+
+  // examine all points from B against A
+  for (unsigned i=0; i< vB.size(); i++)
+  {
+    // see whether the point is inside the primitive
+    if ((dist = cgA->calc_dist_and_normal(vB[i], n)) <= NEAR_ZERO)
+    {
+      // verify that we don't have a degenerate normal
+      if (n.norm() < NEAR_ZERO)
+        continue;
+
+      // add the contact point
+      *o++ = create_contact(cgA, cgB, vB[i], -n); 
+    }
+  }
+
+  // copy points to o
+  return o; 
+}
+
 template <class OutputIterator>
 OutputIterator CCD::find_contacts_heightmap_generic(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator o)
 {

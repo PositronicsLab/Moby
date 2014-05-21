@@ -207,6 +207,7 @@ double PlanePrimitive::calc_signed_dist(shared_ptr<const Primitive> p, Point3d& 
 {
   const unsigned Y = 1;
 
+/*
   // if the primitive is convex, can use GJK
   if (p->is_convex())
   {
@@ -215,7 +216,7 @@ double PlanePrimitive::calc_signed_dist(shared_ptr<const Primitive> p, Point3d& 
     shared_ptr<const Primitive> prim_this = dynamic_pointer_cast<const Primitive>(shared_from_this());
     return GJK::do_gjk(prim_this, p, Pplane, Pgeneric, pthis, pp);
   }
-
+*/
   // get p as non-const
   shared_ptr<Primitive> pnc = const_pointer_cast<Primitive>(p);
 
