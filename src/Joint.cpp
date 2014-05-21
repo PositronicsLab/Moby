@@ -90,6 +90,19 @@ Joint::Joint(boost::weak_ptr<RigidBody> inboard, boost::weak_ptr<RigidBody> outb
   _vF->rpose = _F;
 }  
 
+/// Sets the pose for the joint (this generally shouldn't be set by the user)
+void Joint::set_pose(shared_ptr<const Pose3d> P)
+{
+  // verify that the relative pose is correct 
+  if (_F->rpose != P->rpose)
+    throw std::runtime_error("Joint::set_pose() - passed pose is not defined in correct frame");
+
+  // get the transform from the outboard 
+
+  // update the frame
+  *_F = *P;
+}
+
 /// Determines q tare
 void Joint::determine_q_tare()
 {

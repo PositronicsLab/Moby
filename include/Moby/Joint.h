@@ -58,6 +58,7 @@ class Joint : public Visualizable
     virtual void determine_q_dot();
     void determine_q_tare();
     boost::shared_ptr<const Ravelin::Pose3d> get_pose() const { return _F; };
+    void set_pose(boost::shared_ptr<const Ravelin::Pose3d> P);
 
     /// Gets the pose of this joint relative to the outboard link (rather than the inboard link as is standard)
     boost::shared_ptr<const Ravelin::Pose3d> get_pose_outboard() const { return _Fb; };
