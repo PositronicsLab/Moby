@@ -14,7 +14,6 @@ namespace Moby {
 class GJK
 {
   public:
-    static double do_gjk(CollisionGeometryPtr A, CollisionGeometryPtr B, Point3d& cpA, Point3d& cpB, unsigned max_iter = 1000);
     static double do_gjk(boost::shared_ptr<const Primitive> A, boost::shared_ptr<const Primitive> B, boost::shared_ptr<const Ravelin::Pose3d> pA, boost::shared_ptr<const Ravelin::Pose3d> pB, Point3d& cpA, Point3d& cpB, unsigned max_iter = 1000);
 
   private:

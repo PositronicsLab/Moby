@@ -382,6 +382,8 @@ void GJK::Simplex::add(const SVertex& v)
     assert(false);
 }
 
+// TODO: remove this
+/*
 double GJK::do_gjk(CollisionGeometryPtr A, CollisionGeometryPtr B, Point3d& closestA, Point3d& closestB, unsigned max_iter)
 {
   const double INF = std::numeric_limits<double>::max();
@@ -499,6 +501,7 @@ double GJK::do_gjk(CollisionGeometryPtr A, CollisionGeometryPtr B, Point3d& clos
 
   return min_dist;
 }
+*/
 
 /// Does GJK using primitives and poses defined in collision geometry frames
 double GJK::do_gjk(shared_ptr<const Primitive> A, shared_ptr<const Primitive> B, shared_ptr<const Pose3d> PA, shared_ptr<const Pose3d> PB, Point3d& closestA, Point3d& closestB, unsigned max_iter)
