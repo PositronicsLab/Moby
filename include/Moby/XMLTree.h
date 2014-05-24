@@ -110,6 +110,9 @@ class XMLTree : public boost::enable_shared_from_this<XMLTree>
     /// The ID of this node
     std::string id;
 
+    /// Any 'content' of this node
+    std::string content;
+
     /// The object (if any) represented by this node
     boost::shared_ptr<void> object;
 

@@ -269,7 +269,7 @@ bool XMLAttrib::get_bool_value()
     return false;
   else
   {
-    std::cerr << "XMLTree::get_bool_value() - invalid Boolean string: " << this->value << std::endl;
+    std::cerr << "XMLAttrib::get_bool_value() - invalid Boolean string: " << this->value << std::endl;
     return false;
   }
 }
@@ -312,6 +312,9 @@ shared_ptr<const XMLTree> XMLTree::construct_xml_tree(xmlNode* root)
 {
   // construct a new node
   XMLTreePtr node(new XMLTree(std::string((char*) root->name)));
+
+  // setup the content (if any)
+  node->content = std::string((char*) root->content);
 
   // read all of the attributes
   for (xmlAttr* a = root->properties; a; a = a->next)
@@ -545,7 +548,7 @@ void XMLAttrib::get_matrix_value(MatrixNd& m)
   for (std::list<std::list<std::string> >::const_iterator i = plist.begin(); i != plist.end(); i++)
     if (i->size() != len)
     {
-      std::cerr << "XMLTree::get_matrix_value() - rows are not of the same size!" << std::endl << "  offending string: " << value << std::endl;
+      std::cerr << "XMLAttrib::get_matrix_value() - rows are not of the same size!" << std::endl << "  offending string: " << value << std::endl;
       m.resize(0,0);
       return;
     }
