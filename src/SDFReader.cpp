@@ -52,6 +52,7 @@
 #include <Moby/XMLTree.h>
 #include <Moby/SDFReader.h>
 
+using std::vector;
 using std::list;
 using boost::shared_ptr;
 using namespace Moby;
@@ -61,11 +62,8 @@ using namespace Ravelin;
 /**
  * \return a map of IDs to read objects
  */
-std::map<std::string, BasePtr> SDFReader::read(const std::string& fname)
+void SDFReader::read(const std::string& fname, std::vector<std::vector<DynamicBodyPtr> >& models)
 {
-  // setup the list of IDs
-  std::map<std::string, BasePtr> id_map;
-  
   // *************************************************************
   // going to remove any path from the argument and change to that
   // path; this is done so that all files referenced from the
@@ -86,7 +84,7 @@ std::map<std::string, BasePtr> SDFReader::read(const std::string& fname)
     if (errno != ERANGE)
     {
       std::cerr << "SDFReader::read() - unable to allocate sufficient memory!" << std::endl;
-      return id_map;
+      return;
     }
     BUFSIZE *= 2;
   }
@@ -112,10 +110,9 @@ std::map<std::string, BasePtr> SDFReader::read(const std::string& fname)
     std::cerr << "SDFReader::read() - unable to open file " << fname;
     std::cerr << " for reading" << std::endl;
     chdir(cwd.get());
-    return id_map;
+    return;
   }
 
- 
   // find the SDF tree 
   shared_ptr<XMLTree> sdf_tree = boost::const_pointer_cast<XMLTree>(find_subtree(root_tree, "SDF"));
 
@@ -127,72 +124,26 @@ std::map<std::string, BasePtr> SDFReader::read(const std::string& fname)
   {
     std::cerr << "SDFReader::read() - no SDF tag found!" << std::endl;
     chdir(cwd.get());
-    return id_map;
+    return;
   }
 
-  // ********************************************************************
-  // NOTE: read_from_xml() (via process_tag()) treats all nodes at the
-  // same level; it is irrelevant to it whether a RigidBody is
-  // inside or outside of its encapsulating body.  It will construct the
-  // objects properly; nodes that rely on hierarchies in the XML file must
-  // provide this processing themselves (see RCArticulatedBody for an example)
-  // ********************************************************************
+  // read in all world tags
+  std::list<shared_ptr<const XMLTree> > world_nodes = find_tag("world", sdf_tree);
 
-  // TODO: finish this
+  // process each world tag
+  BOOST_FOREACH(shared_ptr<const XMLTree> world_node, world_nodes)
+  {
+    // create a vector of models for this world
+    models.push_back(vector<DynamicBodyPtr>());
 
-  // read and construct all rigid bodies (including articulated body links)
-  //process_tag("Link", sdf_tree, &read_rigid_body, id_map);
+    // get all model nodes
+    std::list<shared_ptr<const XMLTree> > model_nodes = find_tag("model", world_node); 
+    BOOST_FOREACH(shared_ptr<const XMLTree> model_node, model_nodes)
+      models.back().push_back(read_model(model_node));
+  }
 
   // change back to the initial working directory
   chdir(cwd.get());
-
-  // output unprocessed tags / attributes
-  std::queue<shared_ptr<const XMLTree> > q;
-  q.push(sdf_tree);
-  while (!q.empty())
-  {
-    // get the node off the front of the queue
-    shared_ptr<const XMLTree> node = q.front();
-    q.pop();
-
-    // check whether the tag was processed
-    if (!node->processed)
-    {
-      std::cerr << "SDFReader::read() warning- tag '" << node->name << "' not processed" << std::endl;
-      continue;
-    }
-
-    // verify that all attributes were processed
-    BOOST_FOREACH(const XMLAttrib& a, node->attribs)
-      if (!a.processed)
-        std::cerr << "SDFReader::read() warning- attribute '" << a.name << "' in tag '" << node->name << "' not processed" << std::endl;
-
-    // add all children to the queue
-    BOOST_FOREACH(XMLTreePtr child, node->children)
-      q.push(child);
-  }
-
-  return id_map;
-}
-
-/// Finds and processes given tags
-void SDFReader::process_tag(const std::string& tag, shared_ptr<const XMLTree> root, void (*fn)(shared_ptr<const XMLTree>, std::map<std::string, BasePtr>&), std::map<std::string, BasePtr>& id_map)
-{
-  // NOTE: if a tag is encountered, we do not process its descendants: 
-  // load_from_xml() is responsible for that
-
-  // if this node is of the given type, process it 
-  if (strcasecmp(root->name.c_str(), tag.c_str()) == 0)
-    fn(root, id_map);
-  else
-  {
-    const std::list<XMLTreePtr>& child_nodes = root->children;
-    for (std::list<XMLTreePtr>::const_iterator i = child_nodes.begin(); i != child_nodes.end(); i++)
-    {
-      (*i)->processed = true;
-      process_tag(tag, *i, fn, id_map);
-    }
-  }
 }
 
 /// Find a particular tag (top of the recursive function)
@@ -250,22 +201,6 @@ shared_ptr<const XMLTree> SDFReader::find_one_tag(const std::string& tag, shared
   }
 
   return shared_ptr<const XMLTree>();
-}
-
-
-/// Reads and constructs the OSGGroupWrapper object
-void SDFReader::read_osg_group(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
-{
-  // sanity check
-  assert(strcasecmp(node->name.c_str(), "OSGGroup") == 0);
-
-  #ifdef USE_OSG
-  // create a new OSGGroupWrapper object
-  OSGGroupWrapperPtr group(new OSGGroupWrapper());
-
-  // populate the object
-  group->load_from_xml(node, id_map);
-  #endif
 }
 
 /// Reads a double value
@@ -356,31 +291,28 @@ JointPtr SDFReader::read_joint(shared_ptr<const XMLTree> node, const std::map<st
   // read in the name of the parent link
   shared_ptr<const XMLTree> parent_tag = find_one_tag("parent", node);
   assert(parent_tag);
-  XMLAttrib* parent_link_attr = parent_tag->get_attrib("link");
-  if (parent_link_attr)
-  {
-    std::string parent_link = parent_link_attr->get_string_value();
-    assert(link_map.find(parent_link) != link_map.end());
-    parent = link_map.find(parent_link)->second;
-  }
+  std::string parent_link = parent_tag->content;
+  assert(link_map.find(parent_link) != link_map.end());
+  parent = link_map.find(parent_link)->second;
 
   // read in the name of the child link  
   shared_ptr<const XMLTree> child_tag = find_one_tag("child", node);
   assert(child_tag);
-  XMLAttrib* child_link_attr = parent_tag->get_attrib("link");
-  if (child_link_attr)
-  {
-    std::string child_link = child_link_attr->get_string_value();
-    assert(link_map.find(child_link) != link_map.end());
-    child = link_map.find(child_link)->second;
-  }
+  std::string child_link = child_tag->content; 
+  assert(link_map.find(child_link) != link_map.end());
+  child = link_map.find(child_link)->second;
+
+  // set child and parent
+  joint->set_inboard_link(parent);
+  joint->set_outboard_link(child);
 
   // read the pose (offset from child link to joint frame) in child link frame
-  *P = read_pose(node);
-  P->rpose = child->get_pose();
-  joint->set_pose(P); 
-
-  // TODO: set child and parent
+  if (find_one_tag("pose", node))
+  {
+    *P = read_pose(node);
+    P->rpose = child->get_pose();
+    joint->set_pose(P); 
+  }
 
   // read the axis tag (contains limits, joint damping/friction)
   shared_ptr<const XMLTree> axis_node = find_one_tag("axis", node);
@@ -648,11 +580,100 @@ PrimitivePtr SDFReader::read_box(shared_ptr<const XMLTree> node)
   return b;
 }
 
+/// Reads and constructs a pointer to a DynamicBody object from a Model tag
+/**
+ * \pre node is named Model 
+ */
+DynamicBodyPtr SDFReader::read_model(shared_ptr<const XMLTree> node)
+{
+  vector<RigidBodyPtr> links;
+  vector<JointPtr> joints;
+
+  // sanity check
+  assert(strcasecmp(node->name.c_str(), "Model") == 0);
+
+  // get the model name
+  XMLAttrib* name_attr = node->get_attrib("name");
+
+  // read links and joints
+  std::list<shared_ptr<const XMLTree> > link_nodes = find_tag("link", node);
+  std::list<shared_ptr<const XMLTree> > joint_nodes = find_tag("joint", node);
+
+  // get the pose for the body, if specified
+  shared_ptr<const XMLTree> pose_node = find_one_tag("pose", node);
+
+  // see whether there is an individual rigid body
+  if (link_nodes.size() == 1 && joint_nodes.empty())
+  {
+    // create the rigid body
+    RigidBodyPtr rb = read_link(link_nodes.front()); 
+
+    // set the name
+    if (name_attr)
+      rb->id = name_attr->get_string_value();
+
+    // transform the body if desired
+    if (pose_node)
+    {
+      // read the pose
+      Pose3d P = read_pose(node);
+
+      // apply the rotation first
+      rb->rotate(P.q);
+
+      // apply the translation
+      rb->translate(P.x);
+    }
+
+    return rb;
+  }
+  else
+  {
+    // create an articulated body
+    RCArticulatedBodyPtr rcab(new RCArticulatedBody);
+
+    // read all of the links
+    BOOST_FOREACH(shared_ptr<const XMLTree> link_node, link_nodes)
+      links.push_back(read_link(link_node));
+
+    // construct a mapping from link id's to links
+    std::map<std::string, RigidBodyPtr> link_map;
+    for (unsigned i=0; i< links.size(); i++)
+      link_map[links[i]->id] = links[i];
+
+    // read all of the joints
+    BOOST_FOREACH(shared_ptr<const XMLTree> joint_node, joint_nodes)
+      joints.push_back(read_joint(joint_node, link_map));
+
+    // set the links and joints
+    rcab->set_links_and_joints(links, joints);
+
+    // set the name
+    if (name_attr)
+      rcab->id = name_attr->get_string_value();
+
+    // transform the body if desired
+    if (pose_node)
+    {
+      // read the pose
+      Pose3d P = read_pose(node);
+
+      // apply the rotation first
+      rcab->rotate(P.q);
+
+      // apply the translation
+      rcab->translate(P.x);
+    }
+ 
+    return rcab;
+  }
+}
+
 /// Reads and constructs a RigidBody object from a Link tag
 /**
  * \pre node is named Link 
  */
-RigidBodyPtr SDFReader::read_rigid_body(shared_ptr<const XMLTree> node)
+RigidBodyPtr SDFReader::read_link(shared_ptr<const XMLTree> node)
 {
   // sanity check
   assert(strcasecmp(node->name.c_str(), "Link") == 0);
@@ -666,14 +687,14 @@ RigidBodyPtr SDFReader::read_rigid_body(shared_ptr<const XMLTree> node)
     rb->id = name_attr->get_string_value();
   
   // get the pose attribute for the body, if specified
-  shared_ptr<const XMLTree> pose_node = find_one_tag("origin", node);
+  shared_ptr<const XMLTree> pose_node = find_one_tag("pose", node);
   if (pose_node)
-    rb->set_pose(read_pose(pose_node));
+    rb->set_pose(read_pose(node));
 
   // get the inertial properties for the body, if specified
   shared_ptr<const XMLTree> inertia_node = find_one_tag("inertia", node);
   if (inertia_node)
-    rb->set_inertia(read_inertia(node, rb));
+    rb->set_inertia(read_inertia(inertia_node, rb));
 
   // read the Collision tag
   shared_ptr<const XMLTree> collision_node = find_one_tag("collision", node);
@@ -693,10 +714,10 @@ void SDFReader::read_collision_node(shared_ptr<const XMLTree> node, RigidBodyPtr
     cg->id = name_attr->get_string_value();
 
    // read the pose of the collision geometry
-  shared_ptr<const XMLTree> pose_node = find_one_tag("origin", node);
+  shared_ptr<const XMLTree> pose_node = find_one_tag("pose", node);
   if (pose_node)
   {
-    Pose3d P(read_pose(pose_node));
+    Pose3d P(read_pose(node));
     P.update_relative_pose(rb->get_pose());
     cg->set_relative_pose(P);
   }
@@ -750,12 +771,11 @@ PrimitivePtr SDFReader::read_geometry(shared_ptr<const XMLTree> node)
 /// Reads a pose
 Pose3d SDFReader::read_pose(shared_ptr<const XMLTree> node)
 {
-  XMLAttrib* pose_attrib = node->get_attrib("pose");
-  assert(pose_attrib);
+  // look for the pose tag
+  shared_ptr<const XMLTree> pose_node = find_one_tag("pose", node);
 
   // get the pose
-  VectorNd pose;
-  pose_attrib->get_vector_value(pose);
+  VectorNd pose = VectorNd::parse(pose_node->content);
 
   // setup the pose
   Pose3d P;
@@ -773,168 +793,51 @@ SpatialRBInertiad SDFReader::read_inertia(shared_ptr<const XMLTree> node, RigidB
   SpatialRBInertiad J;
 
   // get the mass
-  XMLAttrib* mass_attrib = node->get_attrib("mass");
-  if (mass_attrib)
-    J.m = mass_attrib->get_real_value();
+  shared_ptr<const XMLTree> mass_node = find_one_tag("mass", node);
+  if (mass_node)
+    J.m = read_double(mass_node); 
 
   // get the pose of the inertial frame and set it with respect to the link
   // reference frame
-  shared_ptr<const XMLTree> origin_tag = find_one_tag("origin", node);
-  if (origin_tag)
-    rb->set_inertial_pose(read_pose(origin_tag));
+  shared_ptr<const XMLTree> pose_node = find_one_tag("pose", node);
+  if (pose_node)
+    rb->set_inertial_pose(read_pose(node));
 
   // find the inertia
   shared_ptr<const XMLTree> inertia_node = find_one_tag("inertia", node);
   assert(inertia_node);  
 
   // get the xx inertia  
-  XMLAttrib* xx_attrib = inertia_node->get_attrib("ixx");
-  if (xx_attrib)
-    J.J(X,X) = xx_attrib->get_real_value();
+  shared_ptr<const XMLTree> ixx_node = find_one_tag("ixx", inertia_node);
+  if (ixx_node)
+    J.J(X,X) = read_double(ixx_node); 
 
   // get the xy inertia  
-  XMLAttrib* xy_attrib = inertia_node->get_attrib("ixy");
-  if (xy_attrib)
-    J.J(Y,X) = J.J(X,Y) = xy_attrib->get_real_value();
+  shared_ptr<const XMLTree> ixy_node = find_one_tag("ixy", inertia_node);
+  if (ixy_node)
+    J.J(Y,X) = J.J(X,Y) = read_double(ixy_node); 
 
   // get the xz inertia  
-  XMLAttrib* xz_attrib = inertia_node->get_attrib("ixz");
-  if (xz_attrib)
-    J.J(Z,X) = J.J(X,Z) = xz_attrib->get_real_value();
+  shared_ptr<const XMLTree> ixz_node = find_one_tag("ixz", inertia_node);
+  if (ixz_node)
+    J.J(Z,X) = J.J(X,Z) = read_double(ixz_node); 
 
   // get the yy inertia  
-  XMLAttrib* yy_attrib = inertia_node->get_attrib("iyy");
-  if (yy_attrib)
-    J.J(Y,Y) = yy_attrib->get_real_value();
+  shared_ptr<const XMLTree> iyy_node = find_one_tag("iyy", inertia_node);
+  if (iyy_node)
+    J.J(Y,Y) = read_double(iyy_node); 
 
   // get the yz inertia  
-  XMLAttrib* yz_attrib = inertia_node->get_attrib("iyz");
-  if (yz_attrib)
-    J.J(Y,Z) = J.J(Z,Y) = yz_attrib->get_real_value();
+  shared_ptr<const XMLTree> iyz_node = find_one_tag("iyz", inertia_node);
+  if (iyz_node)
+    J.J(Y,Z) = J.J(Z,Y) = read_double(iyz_node); 
 
   // get the zz inertia  
-  XMLAttrib* zz_attrib = inertia_node->get_attrib("izz");
-  if (zz_attrib)
-    J.J(Z,Z) = zz_attrib->get_real_value();
+  shared_ptr<const XMLTree> izz_node = find_one_tag("izz", inertia_node);
+  if (izz_node)
+    J.J(Z,Z) = read_double(izz_node); 
 
   return J;
-}
-
-
-
-
-
-/// Reads and constructs the MCArticulatedBody object
-/**
- * \pre node is named MCArticulatedBody
- */
-void SDFReader::read_mc_abody(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
-{
-  // sanity check
-  assert(strcasecmp(node->name.c_str(), "MCArticulatedBody") == 0);
-
-  // create a new MCArticulatedBody object
-//  boost::shared_ptr<MCArticulatedBody> link(new MCArticulatedBody());
-  
-  // populate the object
-//  link->load_from_xml(node, id_map);
-}
-
-/// Reads and constructs the RCArticulatedBody object
-/**
- * \pre node is named RCArticulatedBody
- */
-void SDFReader::read_rc_abody(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
-{
-  // sanity check
-  assert(strcasecmp(node->name.c_str(), "RCArticulatedBody") == 0);
-
-  // create a new RCArticulatedBody object
-  boost::shared_ptr<RCArticulatedBody> link(new RCArticulatedBody());
-  
-  // populate the object
-  link->load_from_xml(node, id_map);
-}
-
-/// Reads and constructs the UniversalJoint object
-void SDFReader::read_universal_joint(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
-{
-  // sanity check
-  assert(strcasecmp(node->name.c_str(), "UniversalJoint") == 0);
-
-  // create a new UniversalJoint object
-  boost::shared_ptr<UniversalJoint> uj(new UniversalJoint());
-  
-  // populate the object
-  uj->load_from_xml(node, id_map);
-}
-
-/// Reads and constructs the SphericalJoint object
-void SDFReader::read_spherical_joint(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
-{
-  // sanity check
-  assert(strcasecmp(node->name.c_str(), "SphericalJoint") == 0);
-
-  // create a new SphericalJoint object
-  boost::shared_ptr<SphericalJoint> sj(new SphericalJoint());
-  
-  // populate the object
-  sj->load_from_xml(node, id_map);
-}
-
-/// Reads and constructs the FixedJoint object
-void SDFReader::read_fixed_joint(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
-{
-  // sanity check
-  assert(strcasecmp(node->name.c_str(), "FixedJoint") == 0);
-
-  // create a new FixedJoint object
-  boost::shared_ptr<FixedJoint> fj(new FixedJoint());
-  
-  // populate the object
-  fj->load_from_xml(node, id_map);
-}
-
-/// Reads and constructs the RevoluteJoint object
-void SDFReader::read_revolute_joint(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
-{
-  // sanity check
-  assert(strcasecmp(node->name.c_str(), "RevoluteJoint") == 0);
-
-  // create a new RevoluteJoint object
-  boost::shared_ptr<RevoluteJoint> rj(new RevoluteJoint());
-  
-  // populate the object
-  rj->load_from_xml(node, id_map);
-}
-
-/// Reads and constructs the PrismaticJoint object
-void SDFReader::read_prismatic_joint(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
-{
-  // sanity check
-  assert(strcasecmp(node->name.c_str(), "PrismaticJoint") == 0);
-
-  // create a new RevoluteJoint object
-  boost::shared_ptr<Base> b(new PrismaticJoint());
-  
-  // populate the object
-  b->load_from_xml(node, id_map);
-}
-
-/// Reads and constructs the DampingForce object
-/**
- * \pre node is named DampingForce
- */
-void SDFReader::read_damping_force(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
-{
-  // sanity check
-  assert(strcasecmp(node->name.c_str(), "DampingForce") == 0);
-
-  // create a new DampingForce object
-  boost::shared_ptr<DampingForce> df(new DampingForce());
-  
-  // populate the object
-  df->load_from_xml(node, id_map);
 }
 
 /// Gets the sub-tree rooted at the specified tag
@@ -957,25 +860,4 @@ shared_ptr<const XMLTree> SDFReader::find_subtree(shared_ptr<const XMLTree> root
   return shared_ptr<const XMLTree>();
 }
 
-/// Gets the tuple type from a node
-SDFReader::TupleType SDFReader::get_tuple(shared_ptr<const XMLTree> node)
-{
-  std::string type;
-
-  // get the 'type' attribute
-  XMLAttrib* type_attr = node->get_attrib("type");
-  if (type_attr)
-    type = type_attr->get_string_value();
-
-  // look for possible tuple types
-  if (strcasecmp(type.c_str(), "VectorN") == 0)
-    return eVectorN;
-  if (strcasecmp(type.c_str(), "Vector3") == 0)
-    return eVector3;
-  if (strcasecmp(type.c_str(), "Quat") == 0)
-    return eQuat;
-
-  // still here?  not one of the above...
-  return eNone;
-}
 
