@@ -138,45 +138,10 @@ std::map<std::string, BasePtr> SDFReader::read(const std::string& fname)
   // provide this processing themselves (see RCArticulatedBody for an example)
   // ********************************************************************
 
-  // read and construct all integrators
-  process_tag("EulerIntegrator", sdf_tree, &read_euler_integrator, id_map);
-  process_tag("VariableEulerIntegrator", sdf_tree, &read_variable_euler_integrator, id_map);
-  process_tag("BulirschStoerIntegrator", sdf_tree, &read_bulirsch_stoer_integrator, id_map);
-  process_tag("RungeKuttaIntegrator", sdf_tree, &read_rk4_integrator, id_map);
-  process_tag("RungeKuttaFehlbergIntegrator", sdf_tree, &read_rkf4_integrator, id_map);
-  process_tag("RungeKuttaImplicitIntegrator", sdf_tree, &read_rk4i_integrator, id_map);
-  process_tag("ODEPACKIntegrator", sdf_tree, &read_odepack_integrator, id_map);
-
-  // read and construct all recurrent forces (except damping)
-  process_tag("GravityForce", sdf_tree, &read_gravity_force, id_map);
-  process_tag("StokesDragForce", sdf_tree, &read_stokes_drag_force, id_map);
-
-  #ifdef USE_OSG
-  // read and construct all OSGGroupWrapper objects
-  process_tag("OSGGroup", sdf_tree, &read_osg_group, id_map);
-  #endif
+  // TODO: finish this
 
   // read and construct all rigid bodies (including articulated body links)
   //process_tag("Link", sdf_tree, &read_rigid_body, id_map);
-
-  // read and construct all joints -- we do this after the links have been read
-  process_tag("RevoluteJoint", sdf_tree, &read_revolute_joint, id_map);
-  process_tag("PrismaticJoint", sdf_tree, &read_prismatic_joint, id_map);
-  process_tag("SphericalJoint", sdf_tree, &read_spherical_joint, id_map);
-  process_tag("UniversalJoint", sdf_tree, &read_universal_joint, id_map);
-  process_tag("FixedJoint", sdf_tree, &read_fixed_joint, id_map);
-
-  // read and construct all articulated bodies
-//  process_tag("MCArticulatedBody", sdf_tree, &read_mc_abody, id_map);
-  process_tag("RCArticulatedBody", sdf_tree, &read_rc_abody, id_map);
-  process_tag("RCArticulatedBodySymbolicPlugin", sdf_tree, &read_rc_abody_symbolic, id_map);
-
-  // damping forces must be constructed after bodies
-  process_tag("DampingForce", sdf_tree, &read_damping_force, id_map);
-
-  // finally, read and construct the simulator objects -- must be done last
-  process_tag("Simulator", sdf_tree, &read_simulator, id_map);
-  process_tag("EventDrivenSimulator", sdf_tree, &read_event_driven_simulator, id_map);
 
   // change back to the initial working directory
   chdir(cwd.get());
@@ -267,6 +232,27 @@ void SDFReader::find_tag(const std::string& tag, shared_ptr<const XMLTree> root,
   }
 }
 
+/// Find a particular tag (recursive function)
+shared_ptr<const XMLTree> SDFReader::find_one_tag(const std::string& tag, shared_ptr<const XMLTree> root)
+{
+  // if this node is of the given type, process it and attempt to go no further 
+  if (strcasecmp(root->name.c_str(), tag.c_str()) == 0)
+    return root;
+  else
+  {
+    const std::list<XMLTreePtr>& child_nodes = root->children;
+    for (std::list<XMLTreePtr>::const_iterator i = child_nodes.begin(); i != child_nodes.end(); i++)
+    {
+      shared_ptr<const XMLTree> node = find_one_tag(tag, *i);
+      if (node)
+        return node;
+    } 
+  }
+
+  return shared_ptr<const XMLTree>();
+}
+
+
 /// Reads and constructs the OSGGroupWrapper object
 void SDFReader::read_osg_group(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
@@ -285,22 +271,30 @@ void SDFReader::read_osg_group(shared_ptr<const XMLTree> node, std::map<std::str
 /// Reads a double value
 double SDFReader::read_double(shared_ptr<const XMLTree> node)
 {
-  // TODO: implement this
-  assert(false);
+  // convert the string to a double
+  return std::atof(node->content.c_str()); 
 }
 
 /// Reads a Boolean value
 bool SDFReader::read_bool(shared_ptr<const XMLTree> node)
 {
-  // TODO: implement this
-  assert(false);
+  std::string val = node->content;
+  std::transform(val.begin(), val.end(), val.begin(), ::tolower);
+  if (val == "false")
+    return false;
+  else if (val == "true")
+    return true;
+  else
+    throw std::runtime_error("SDFReader::read_bool() - value is not a Boolean");
 }
 
 /// Reads a Vector3 value
-Vector3 SDFReader::read_Vector3(shared_ptr<const XMLTree> node)
+Vector3d SDFReader::read_Vector3(shared_ptr<const XMLTree> node)
 {
-  // TODO: implement this
-  assert(false);
+  VectorNd w = VectorNd::parse(node->content);
+  if (w.size() != 3)
+    throw MissizeException();
+  return Vector3d(w[0], w[1], w[2]);
 }
 
 /// Reads a joint
@@ -386,7 +380,6 @@ JointPtr SDFReader::read_joint(shared_ptr<const XMLTree> node, const std::map<st
   P->rpose = child->get_pose();
   joint->set_pose(P); 
 
-  // TODO: finish fixing joint->set_pose()
   // TODO: set child and parent
 
   // read the axis tag (contains limits, joint damping/friction)

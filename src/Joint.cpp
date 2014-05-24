@@ -97,10 +97,17 @@ void Joint::set_pose(shared_ptr<const Pose3d> P)
   if (_F->rpose != P->rpose)
     throw std::runtime_error("Joint::set_pose() - passed pose is not defined in correct frame");
 
-  // get the transform from the outboard 
-
   // update the frame
   *_F = *P;
+
+  // copy the relative pose from _Fb (next operation will overwrite it)
+  shared_ptr<const Pose3d> fb_rel = _Fb->rpose;
+
+  // update _Fb
+  *_Fb = *P;
+
+  // reset _Fb's relative pose
+  _Fb->update_relative_pose(fb_rel);
 }
 
 /// Determines q tare

@@ -67,14 +67,6 @@ class SDFReader
     static void read_universal_joint(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     static void read_gravity_force(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     static void read_damping_force(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
-    static void read_stokes_drag_force(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
-    static void read_odepack_integrator(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
-    static void read_bulirsch_stoer_integrator(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
-    static void read_rk4i_integrator(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
-    static void read_rk4_integrator(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
-    static void read_rkf4_integrator(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
-    static void read_variable_euler_integrator(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
-    static void read_euler_integrator(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     static TupleType get_tuple(boost::shared_ptr<const XMLTree> node);
 }; // end class
 } // end namespace
