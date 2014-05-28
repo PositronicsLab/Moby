@@ -92,10 +92,10 @@ class EventDrivenSimulator : public Simulator
     /// stepping statistics
     unsigned step_stats[8];
 
-    /// The relative error tolerance for adaptive Euler stepping (default=1e-8)
+    /// The relative error tolerance for adaptive stepping (default=1e-8)
     double rel_err_tol;
 
-    /// The absolute error tolerance for adaptive Euler stepping (default=1e-8)
+    /// The absolute error tolerance for adaptive stepping (default=1e-8)
     double abs_err_tol;
 
     /// The minimum step size (default=1e-5)

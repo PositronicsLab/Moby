@@ -62,8 +62,10 @@ using namespace Ravelin;
 /**
  * \return a map of IDs to read objects
  */
-void SDFReader::read(const std::string& fname, std::vector<std::vector<DynamicBodyPtr> >& models)
+shared_ptr<EventDrivenSimulator> SDFReader::read(const std::string& fname)
 {
+  vector<vector<DynamicBodyPtr> > models;
+
   // *************************************************************
   // going to remove any path from the argument and change to that
   // path; this is done so that all files referenced from the
@@ -84,7 +86,7 @@ void SDFReader::read(const std::string& fname, std::vector<std::vector<DynamicBo
     if (errno != ERANGE)
     {
       std::cerr << "SDFReader::read() - unable to allocate sufficient memory!" << std::endl;
-      return;
+      return shared_ptr<EventDrivenSimulator>();
     }
     BUFSIZE *= 2;
   }
@@ -110,7 +112,7 @@ void SDFReader::read(const std::string& fname, std::vector<std::vector<DynamicBo
     std::cerr << "SDFReader::read() - unable to open file " << fname;
     std::cerr << " for reading" << std::endl;
     chdir(cwd.get());
-    return;
+    return shared_ptr<EventDrivenSimulator>();
   }
 
   // find the SDF tree 
@@ -124,26 +126,140 @@ void SDFReader::read(const std::string& fname, std::vector<std::vector<DynamicBo
   {
     std::cerr << "SDFReader::read() - no SDF tag found!" << std::endl;
     chdir(cwd.get());
-    return;
+    return shared_ptr<EventDrivenSimulator>();
   }
 
   // read in all world tags
   std::list<shared_ptr<const XMLTree> > world_nodes = find_tag("world", sdf_tree);
 
-  // process each world tag
-  BOOST_FOREACH(shared_ptr<const XMLTree> world_node, world_nodes)
-  {
-    // create a vector of models for this world
-    models.push_back(vector<DynamicBodyPtr>());
-
-    // get all model nodes
-    std::list<shared_ptr<const XMLTree> > model_nodes = find_tag("model", world_node); 
-    BOOST_FOREACH(shared_ptr<const XMLTree> model_node, model_nodes)
-      models.back().push_back(read_model(model_node));
-  }
+  // read in worlds
+  if (world_nodes.size() != 1)
+    throw std::runtime_error("SDFReader::read() - there is not exactly one world!");
+  shared_ptr<EventDrivenSimulator> sim = read_world(world_nodes.front()); 
 
   // change back to the initial working directory
   chdir(cwd.get());
+
+  return sim;
+}
+
+/// Constructs the event-driven simulator using proper settings
+shared_ptr<EventDrivenSimulator> SDFReader::read_world(shared_ptr<const XMLTree> world_tree)
+{
+  // read the models
+  vector<DynamicBodyPtr> models = read_models(world_tree);
+
+  // create the simulator
+  shared_ptr<EventDrivenSimulator> sim(new EventDrivenSimulator); 
+
+  // these defaults will be replaced with specific settings from SDF
+  sim->integrator = shared_ptr<BulirschStoerIntegrator>(new BulirschStoerIntegrator);
+  sim->rel_err_tol = 1e-3;
+  sim->abs_err_tol = 1e-3;
+  sim->minimum_step = 1e-5;
+
+  // find the physics node
+  shared_ptr<const XMLTree> physics_node = find_one_tag("physics", world_tree);
+  if (physics_node)
+  {
+/*
+    // setup and read the maximum step size, if present
+    shared_ptr<const XMLTree> max_step_sz_node = find_one_tag("max_step_size", physics_node);
+    if (max_step_sz_node)
+      STEP_SIZE = read_double(max_step_sz_node);
+*/
+    // read the gravity vector
+    shared_ptr<const XMLTree> gravity_node = find_one_tag("gravity", physics_node);
+    if (gravity_node)
+    {
+      // create and add the gravity force to all bodies
+      shared_ptr<GravityForce> grav(new GravityForce);
+      BOOST_FOREACH(DynamicBodyPtr db, models)
+        db->get_recurrent_forces().push_back(grav); 
+
+      // set the force
+      grav->gravity = read_Vector3(gravity_node);
+    } 
+
+    // read the Moby tag
+    shared_ptr<const XMLTree> moby_node = find_one_tag("moby", physics_node);
+    if (moby_node)
+    {
+      // read the integrator node
+      shared_ptr<const XMLTree> int_node = find_one_tag("integrator", moby_node);
+      if (int_node)
+      {
+        // set a pointer to a variable step integrator
+        shared_ptr<VariableStepIntegrator> vsi;
+        XMLAttrib* type_attr = int_node->get_attrib("type");
+        if (strcasecmp(type_attr->get_string_value().c_str(), "BulirschStoer") == 0)
+        {
+          shared_ptr<BulirschStoerIntegrator> bsi(new BulirschStoerIntegrator);
+          sim->integrator = bsi;
+          vsi = bsi;
+        }
+        else if (strcasecmp(type_attr->get_string_value().c_str(), "RKF") == 0)
+        {
+          shared_ptr<RungeKuttaFehlbergIntegrator> rkf(new RungeKuttaFehlbergIntegrator);
+          sim->integrator = rkf;
+          vsi = rkf;
+        }
+        else if (strcasecmp(type_attr->get_string_value().c_str(), "ODEPACK") == 0)
+        {
+          shared_ptr<ODEPACKIntegrator> ode(new ODEPACKIntegrator);
+          sim->integrator = ode;
+          vsi = ode;
+        }
+        else if (strcasecmp(type_attr->get_string_value().c_str(), "rk4") == 0)
+        {
+          shared_ptr<RungeKuttaIntegrator> rk4(new RungeKuttaIntegrator);
+          sim->integrator = rk4;
+        }
+        else if (strcasecmp(type_attr->get_string_value().c_str(), "rki") == 0)
+        {
+          shared_ptr<RungeKuttaImplicitIntegrator> rki(new RungeKuttaImplicitIntegrator);
+          sim->integrator = rki;
+        }
+
+        // read the minimum step size
+        shared_ptr<const XMLTree> min_step_node = find_one_tag("min_step_size", moby_node);
+        if (min_step_node && vsi)
+          vsi->min_step_size = read_double(min_step_node);
+
+        // read the absolute error tolerance
+        shared_ptr<const XMLTree> ae_tol_node = find_one_tag("abs_err_tol", moby_node);
+        if (ae_tol_node && vsi)
+          vsi->aerr_tolerance = read_double(ae_tol_node);
+
+        // read the relative error tolerance
+        shared_ptr<const XMLTree> re_tol_node = find_one_tag("rel_err_tol", moby_node);
+        if (re_tol_node && vsi)
+          vsi->rerr_tolerance = read_double(re_tol_node);
+      }
+    } 
+  }
+
+  // add the models to the simulator
+  BOOST_FOREACH(DynamicBodyPtr b, models)
+    sim->add_dynamic_body(b); 
+
+  return sim;
+}
+
+/// Reads an XML file and constructs all read objects
+/**
+ * \return a map of IDs to read objects
+ */
+vector<DynamicBodyPtr> SDFReader::read_models(shared_ptr<const XMLTree> world_tree)
+{
+  vector<DynamicBodyPtr> models;
+
+  // get all model nodes
+  std::list<shared_ptr<const XMLTree> > model_nodes = find_tag("model", world_tree); 
+  BOOST_FOREACH(shared_ptr<const XMLTree> model_node, model_nodes)
+    models.push_back(read_model(model_node));
+
+  return models;
 }
 
 /// Find a particular tag (top of the recursive function)
