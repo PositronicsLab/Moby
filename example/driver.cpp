@@ -10,6 +10,7 @@
 #include <fstream>
 #include <boost/foreach.hpp>
 #include <Moby/XMLReader.h>
+#include <Moby/SDFReader.h>
 
 #ifdef USE_OSG
 #include <osgViewer/Viewer>
@@ -580,7 +581,16 @@ int main(int argc, char** argv)
   }
 
   // setup the simulation 
-  READ_MAP = XMLReader::read(std::string(argv[argc-1]));
+  if (std::string(argv[argc-1]).find(".xml") != std::string::npos)
+    READ_MAP = XMLReader::read(std::string(argv[argc-1]));
+  else if (std::string(argv[argc-1]).find(".sdf") != std::string::npos)
+  {
+    // artificially create the read map
+    shared_ptr<EventDrivenSimulator> eds = SDFReader::read(std::string(argv[argc-1]));
+    READ_MAP[eds->id] = eds;
+    BOOST_FOREACH(DynamicBodyPtr db, eds->get_dynamic_bodies())
+      READ_MAP[db->id] = db;
+  }
 
   // setup the offscreen renderer if necessary
   #ifdef USE_OSG
@@ -660,8 +670,9 @@ int main(int argc, char** argv)
     add_lights();
   #endif
 
-  // process XML options
-  process_xml_options(std::string(argv[argc-1]));
+  // process XML options (if possible)
+  if (std::string(argv[argc-1]).find(".xml") != std::string::npos)
+    process_xml_options(std::string(argv[argc-1]));
 
   // get the simulator visualization
   #ifdef USE_OSG

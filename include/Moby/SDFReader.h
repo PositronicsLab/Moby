@@ -14,6 +14,7 @@
 #include <vector>
 #include <boost/shared_ptr.hpp>
 #include <Moby/Types.h>
+#include <Moby/EventDrivenSimulator.h>
 
 namespace Moby {
 
@@ -27,12 +28,13 @@ class Primitive;
 class SDFReader
 {
   public:
-    static std::map<std::string, BasePtr> read(const std::string& fname);
+    static boost::shared_ptr<EventDrivenSimulator> read(const std::string& fname);
     
   private:
     enum TupleType { eNone, eVectorN, eVector3, eQuat };
 
-    static void read(const std::string& fname, std::vector<std::vector<DynamicBodyPtr> >& models);
+    static boost::shared_ptr<EventDrivenSimulator> read_world(boost::shared_ptr<const XMLTree> node);
+    static std::vector<DynamicBodyPtr> read_models(boost::shared_ptr<const XMLTree> node);
     static double read_double(boost::shared_ptr<const XMLTree> node);
     static bool read_bool(boost::shared_ptr<const XMLTree> node);
     static Ravelin::Vector3d read_Vector3(boost::shared_ptr<const XMLTree> node);

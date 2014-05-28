@@ -314,7 +314,8 @@ shared_ptr<const XMLTree> XMLTree::construct_xml_tree(xmlNode* root)
   XMLTreePtr node(new XMLTree(std::string((char*) root->name)));
 
   // setup the content (if any)
-  node->content = std::string((char*) root->content);
+  if (root->content)
+    node->content = std::string((char*) root->content);
 
   // read all of the attributes
   for (xmlAttr* a = root->properties; a; a = a->next)
