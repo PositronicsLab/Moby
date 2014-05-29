@@ -313,10 +313,6 @@ shared_ptr<const XMLTree> XMLTree::construct_xml_tree(xmlNode* root)
   // construct a new node
   XMLTreePtr node(new XMLTree(std::string((char*) root->name)));
 
-  // setup the content (if any)
-  if (root->content)
-    node->content = std::string((char*) root->content);
-
   // read all of the attributes
   for (xmlAttr* a = root->properties; a; a = a->next)
   {
@@ -327,7 +323,13 @@ shared_ptr<const XMLTree> XMLTree::construct_xml_tree(xmlNode* root)
 
   // recursively process all children
   for (xmlNode* n = root->children; n; n=n->next)
-    node->add_child(boost::const_pointer_cast<XMLTree>(construct_xml_tree(n)));
+    if (n->type == XML_ELEMENT_NODE)
+      node->add_child(boost::const_pointer_cast<XMLTree>(construct_xml_tree(n)));
+
+  // look for content
+  for (xmlNode* n = root->children; n; n=n->next)
+    if (n->type == XML_TEXT_NODE && n->content)
+      node->content = std::string((char*) n->content); 
 
   return node;
 }
