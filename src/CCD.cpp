@@ -120,12 +120,20 @@ double CCD::calc_CA_step(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB)
   double maxt = std::numeric_limits<double>::max();
   Point3d pA, pB;
 
+  // get the two underlying bodies
+  RigidBodyPtr rbA = dynamic_pointer_cast<RigidBody>(cgA->get_single_body());
+  RigidBodyPtr rbB = dynamic_pointer_cast<RigidBody>(cgB->get_single_body());
+  FILE_LOG(LOG_COLDET) << "rigid body A: " << rbA->id << "  rigid body B: " << rbB->id << std::endl;
+
   // compute distance and closest points
   double dist = CollisionGeometry::calc_signed_dist(cgA, cgB, pA, pB);
 
   // if the distance is zero, quit now
   if (dist < NEAR_ZERO)
+  {
+    FILE_LOG(LOG_COLDET) << "reported distance is: " << dist << std::endl;
     return 0.0;
+  }
 
   // get the direction of the vector from body B to body A
   Vector3d d0 = Pose3d::transform_point(GLOBAL, pA) -
@@ -133,10 +141,6 @@ double CCD::calc_CA_step(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB)
   double d0_norm = d0.norm();
   FILE_LOG(LOG_COLDET) << "distance between closest points is: " << d0_norm << std::endl;
   FILE_LOG(LOG_COLDET) << "reported distance is: " << dist << std::endl;
-
-  // get the two underlying bodies
-  RigidBodyPtr rbA = dynamic_pointer_cast<RigidBody>(cgA->get_single_body());
-  RigidBodyPtr rbB = dynamic_pointer_cast<RigidBody>(cgB->get_single_body());
 
   // get the direction of the vector (from body B to body A)
   Vector3d n0 = d0/d0_norm;

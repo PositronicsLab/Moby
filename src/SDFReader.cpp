@@ -52,6 +52,7 @@
 #include <Moby/XMLTree.h>
 #include <Moby/SDFReader.h>
 
+using std::map;
 using std::vector;
 using std::list;
 using boost::shared_ptr;
@@ -146,11 +147,11 @@ shared_ptr<EventDrivenSimulator> SDFReader::read(const std::string& fname)
 /// Constructs the event-driven simulator using proper settings
 shared_ptr<EventDrivenSimulator> SDFReader::read_world(shared_ptr<const XMLTree> world_tree)
 {
-  // read the models
-  vector<DynamicBodyPtr> models = read_models(world_tree);
-
   // create the simulator
   shared_ptr<EventDrivenSimulator> sim(new EventDrivenSimulator); 
+
+  // read the models
+  vector<DynamicBodyPtr> models = read_models(world_tree, sim);
 
   // these defaults will be replaced with specific settings from SDF
   sim->integrator = shared_ptr<BulirschStoerIntegrator>(new BulirschStoerIntegrator);
@@ -239,10 +240,6 @@ shared_ptr<EventDrivenSimulator> SDFReader::read_world(shared_ptr<const XMLTree>
     } 
   }
 
-  // add the models to the simulator
-  BOOST_FOREACH(DynamicBodyPtr b, models)
-    sim->add_dynamic_body(b); 
-
   return sim;
 }
 
@@ -250,14 +247,43 @@ shared_ptr<EventDrivenSimulator> SDFReader::read_world(shared_ptr<const XMLTree>
 /**
  * \return a map of IDs to read objects
  */
-vector<DynamicBodyPtr> SDFReader::read_models(shared_ptr<const XMLTree> world_tree)
+vector<DynamicBodyPtr> SDFReader::read_models(shared_ptr<const XMLTree> world_tree, shared_ptr<EventDrivenSimulator> sim)
 {
   vector<DynamicBodyPtr> models;
+  map<RigidBodyPtr, shared_ptr<SurfaceData> > sdata;
 
   // get all model nodes
   std::list<shared_ptr<const XMLTree> > model_nodes = find_tag("model", world_tree); 
   BOOST_FOREACH(shared_ptr<const XMLTree> model_node, model_nodes)
-    models.push_back(read_model(model_node));
+    models.push_back(read_model(model_node, sdata));
+
+  // add the models to the simulator
+  BOOST_FOREACH(DynamicBodyPtr b, models)
+    sim->add_dynamic_body(b); 
+
+  // now attempt to add contact data
+  for (map<RigidBodyPtr, shared_ptr<SurfaceData> >::const_iterator i = sdata.begin(); i != sdata.end(); i++)
+  {
+    map<RigidBodyPtr, shared_ptr<SurfaceData> >::const_iterator j = i;
+    for (j++; j != sdata.end(); j++)
+    {
+      // create a ContactParameters object
+      shared_ptr<ContactParameters> cp(new ContactParameters);
+
+      // setup the restitution
+      cp->epsilon = (i->second->epsilon + j->second->epsilon)*0.5;
+
+      // setup the number of friction directions
+      cp->NK = std::max(i->second->NK, j->second->NK);
+
+      // setup the friction coefficients
+      cp->mu_coulomb = (i->second->mu_c + j->second->mu_c)*0.5;
+      cp->mu_viscous = (i->second->mu_v + j->second->mu_v)*0.5;
+
+      // add the contact data
+      sim->contact_params[make_sorted_pair(i->first, j->first)] = cp;  
+    }
+  }
 
   return models;
 }
@@ -317,6 +343,13 @@ shared_ptr<const XMLTree> SDFReader::find_one_tag(const std::string& tag, shared
   }
 
   return shared_ptr<const XMLTree>();
+}
+
+/// Reads an unsigned int value
+unsigned SDFReader::read_uint(shared_ptr<const XMLTree> node)
+{
+  // convert the string to a uint 
+  return (unsigned) std::atoi(node->content.c_str()); 
 }
 
 /// Reads a double value
@@ -700,7 +733,7 @@ PrimitivePtr SDFReader::read_box(shared_ptr<const XMLTree> node)
 /**
  * \pre node is named Model 
  */
-DynamicBodyPtr SDFReader::read_model(shared_ptr<const XMLTree> node)
+DynamicBodyPtr SDFReader::read_model(shared_ptr<const XMLTree> node, map<RigidBodyPtr, shared_ptr<SDFReader::SurfaceData> >& sdata)
 {
   vector<RigidBodyPtr> links;
   vector<JointPtr> joints;
@@ -722,7 +755,10 @@ DynamicBodyPtr SDFReader::read_model(shared_ptr<const XMLTree> node)
   if (link_nodes.size() == 1 && joint_nodes.empty())
   {
     // create the rigid body
-    RigidBodyPtr rb = read_link(link_nodes.front()); 
+    shared_ptr<SurfaceData> sd;
+    RigidBodyPtr rb = read_link(link_nodes.front(), sd); 
+    if (sd)
+      sdata[rb] = sd;    
 
     // set the name
     if (name_attr)
@@ -750,7 +786,12 @@ DynamicBodyPtr SDFReader::read_model(shared_ptr<const XMLTree> node)
 
     // read all of the links
     BOOST_FOREACH(shared_ptr<const XMLTree> link_node, link_nodes)
-      links.push_back(read_link(link_node));
+    {
+      shared_ptr<SurfaceData> sd;
+      links.push_back(read_link(link_node, sd));
+      if (sd)
+        sdata[links.back()] = sd;
+    }
 
     // construct a mapping from link id's to links
     std::map<std::string, RigidBodyPtr> link_map;
@@ -789,7 +830,7 @@ DynamicBodyPtr SDFReader::read_model(shared_ptr<const XMLTree> node)
 /**
  * \pre node is named Link 
  */
-RigidBodyPtr SDFReader::read_link(shared_ptr<const XMLTree> node)
+RigidBodyPtr SDFReader::read_link(shared_ptr<const XMLTree> node, shared_ptr<SDFReader::SurfaceData>& sd)
 {
   // sanity check
   assert(strcasecmp(node->name.c_str(), "Link") == 0);
@@ -815,14 +856,18 @@ RigidBodyPtr SDFReader::read_link(shared_ptr<const XMLTree> node)
   // read the Collision tag
   shared_ptr<const XMLTree> collision_node = find_one_tag("collision", node);
   if (collision_node)
-    read_collision_node(collision_node, rb);   
+    read_collision_node(collision_node, rb, sd);   
 }
 
 /// Reads a collision node
-void SDFReader::read_collision_node(shared_ptr<const XMLTree> node, RigidBodyPtr rb)
+void SDFReader::read_collision_node(shared_ptr<const XMLTree> node, RigidBodyPtr rb, shared_ptr<SDFReader::SurfaceData>& sd)
 {
   // setup a collision geometry
   CollisionGeometryPtr cg(new CollisionGeometry);
+
+  // set the rigid body and add the geometry
+  rb->geometries.push_back(cg);
+  cg->set_single_body(rb);
 
   // get the link name
   XMLAttrib* name_attr = node->get_attrib("name");
@@ -845,6 +890,54 @@ void SDFReader::read_collision_node(shared_ptr<const XMLTree> node, RigidBodyPtr
 
   // add the collision geometry to the rigid body
   rb->geometries.push_back(cg);
+
+  // read the surface data, if any
+  read_surface(find_one_tag("surface", node), sd);
+}
+
+/// Reads the surface data
+void SDFReader::read_surface(shared_ptr<const XMLTree> node, shared_ptr<SDFReader::SurfaceData>& sd)
+{
+  // setup the SurfaceData
+  sd = shared_ptr<SurfaceData>(new SurfaceData);
+
+  // setup reasonable defaults for surface data
+  sd->epsilon = 0.0;
+  sd->NK = 4;
+  sd->mu_c = 0.2;
+  sd->mu_v = 0.0;
+
+  // exit if node is null
+  if (!node)
+    return;
+
+  // read the bounce (coefficient of restitution), if specified
+  shared_ptr<const XMLTree> bounce_node = find_one_tag("bounce", node);
+  if (bounce_node)
+  {
+    shared_ptr<const XMLTree> cor_node = find_one_tag("restitution_coefficient", bounce_node);
+    if (cor_node)
+      sd->epsilon = read_double(cor_node);
+  }
+
+  // read the friction node, if specified
+  shared_ptr<const XMLTree> friction_node = find_one_tag("friction", node);
+  if (friction_node)
+  {
+    shared_ptr<const XMLTree> moby_node = find_one_tag("moby", friction_node);
+    if (moby_node)
+    {
+      // attempt to read mu_Coulomb, mu_viscous, and # of friction cone edges
+      shared_ptr<const XMLTree> muc_node = find_one_tag("mu_coulomb", moby_node);
+      shared_ptr<const XMLTree> muv_node = find_one_tag("mu_viscous", moby_node);
+      shared_ptr<const XMLTree> nk_node = find_one_tag("num_friction_edges", moby_node);
+
+      // set appropriate parts of surface data
+      if (muc_node) sd->mu_c = read_double(muc_node);
+      if (muv_node) sd->mu_v = read_double(muv_node);
+      if (nk_node) sd->NK = read_uint(nk_node);
+    }
+  }
 }
 
 /// Reads geometry

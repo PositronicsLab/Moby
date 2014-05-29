@@ -33,8 +33,18 @@ class SDFReader
   private:
     enum TupleType { eNone, eVectorN, eVector3, eQuat };
 
+    struct SurfaceData
+    {
+      double epsilon;  // coefficient of restitution
+      double mu_c;     // Coulomb friction coefficient
+      double mu_v;     // viscous friction coefficient
+      unsigned NK;     // edges in friction cone approximation
+    };
+
+    static void read_surface(boost::shared_ptr<const XMLTree> node, boost::shared_ptr<SurfaceData>& sd);
     static boost::shared_ptr<EventDrivenSimulator> read_world(boost::shared_ptr<const XMLTree> node);
-    static std::vector<DynamicBodyPtr> read_models(boost::shared_ptr<const XMLTree> node);
+    static std::vector<DynamicBodyPtr> read_models(boost::shared_ptr<const XMLTree> node, boost::shared_ptr<EventDrivenSimulator> sim);
+    static unsigned read_uint(boost::shared_ptr<const XMLTree> node);
     static double read_double(boost::shared_ptr<const XMLTree> node);
     static bool read_bool(boost::shared_ptr<const XMLTree> node);
     static Ravelin::Vector3d read_Vector3(boost::shared_ptr<const XMLTree> node);
@@ -49,9 +59,9 @@ class SDFReader
     static PrimitivePtr read_cylinder(boost::shared_ptr<const XMLTree> node);
     static PrimitivePtr read_cone(boost::shared_ptr<const XMLTree> node);
     static PrimitivePtr read_trimesh(boost::shared_ptr<const XMLTree> node);
-    static DynamicBodyPtr read_model(boost::shared_ptr<const XMLTree> node);
-    static RigidBodyPtr read_link(boost::shared_ptr<const XMLTree> node);
-    static void read_collision_node(boost::shared_ptr<const XMLTree> node, RigidBodyPtr rb);
+    static DynamicBodyPtr read_model(boost::shared_ptr<const XMLTree> node, std::map<RigidBodyPtr, boost::shared_ptr<SurfaceData> >& sdata);
+    static RigidBodyPtr read_link(boost::shared_ptr<const XMLTree> node, boost::shared_ptr<SurfaceData>& sdata);
+    static void read_collision_node(boost::shared_ptr<const XMLTree> node, RigidBodyPtr rb, boost::shared_ptr<SurfaceData>& sd);
     static PrimitivePtr read_geometry(boost::shared_ptr<const XMLTree> node);
     static Ravelin::Pose3d read_pose(boost::shared_ptr<const XMLTree> node);
     static Ravelin::SpatialRBInertiad read_inertia(boost::shared_ptr<const XMLTree> node, RigidBodyPtr rb);

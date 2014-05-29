@@ -105,7 +105,7 @@ OutputIterator CCD::find_contacts_plane_generic(CollisionGeometryPtr cgA, Collis
         continue;
 
       // add the contact point
-      *o++ = create_contact(cgA, cgB, vB[i], -n); 
+      *o++ = create_contact(cgA, cgB, vB[i], n); 
     }
   }
 
@@ -142,7 +142,7 @@ OutputIterator CCD::find_contacts_heightmap_generic(CollisionGeometryPtr cgA, Co
         continue;
 
       // add the contact point
-      *o++ = create_contact(cgA, cgB, vA[i], n); 
+      *o++ = create_contact(cgA, cgB, vA[i], -n); 
     }
   }
 
@@ -157,7 +157,7 @@ OutputIterator CCD::find_contacts_heightmap_generic(CollisionGeometryPtr cgA, Co
         continue;
 
       // add the contact point
-      *o++ = create_contact(cgA, cgB, vB[i], -n); 
+      *o++ = create_contact(cgA, cgB, vB[i], n); 
     }
   }
 
