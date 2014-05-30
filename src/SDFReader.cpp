@@ -857,6 +857,8 @@ RigidBodyPtr SDFReader::read_link(shared_ptr<const XMLTree> node, shared_ptr<SDF
   shared_ptr<const XMLTree> collision_node = find_one_tag("collision", node);
   if (collision_node)
     read_collision_node(collision_node, rb, sd);   
+
+  return rb;
 }
 
 /// Reads a collision node
@@ -887,9 +889,6 @@ void SDFReader::read_collision_node(shared_ptr<const XMLTree> node, RigidBodyPtr
   shared_ptr<const XMLTree> geom_node = find_one_tag("geometry", node);
   if (geom_node)
     cg->set_geometry(read_geometry(geom_node));
-
-  // add the collision geometry to the rigid body
-  rb->geometries.push_back(cg);
 
   // read the surface data, if any
   read_surface(find_one_tag("surface", node), sd);
