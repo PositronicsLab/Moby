@@ -16,7 +16,7 @@ OutputIterator CCD::find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr
     else if (boost::dynamic_pointer_cast<BoxPrimitive>(pB))
       return find_contacts_box_sphere(cgB, cgA, output_begin);
     else if (boost::dynamic_pointer_cast<HeightmapPrimitive>(pB))
-      return find_contacts_convex_heightmap(cgA, cgB, output_begin);
+      return find_contacts_sphere_heightmap(cgA, cgB, output_begin);
   }
   else if (boost::dynamic_pointer_cast<BoxPrimitive>(pA))
   {
@@ -25,7 +25,9 @@ OutputIterator CCD::find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr
   }
   else if (boost::dynamic_pointer_cast<HeightmapPrimitive>(pA))
   {
-    if (pB->is_convex())
+    if (boost::dynamic_pointer_cast<SpherePrimitive>(pB))
+      return find_contacts_sphere_heightmap(cgB, cgA, output_begin);
+    else if (pB->is_convex())
       return find_contacts_convex_heightmap(cgB, cgA, output_begin);
     else
       return find_contacts_heightmap_generic(cgA, cgB, output_begin); 
@@ -163,6 +165,117 @@ OutputIterator CCD::find_contacts_heightmap_generic(CollisionGeometryPtr cgA, Co
 
   // copy points to o
   return o; 
+}
+
+/// Finds contacts between a sphere and a heightmap 
+template <class OutputIterator>
+OutputIterator CCD::find_contacts_sphere_heightmap(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin)
+{
+  const unsigned X = 0, Z = 2;
+
+  // get the output iterator
+  OutputIterator o = output_begin; 
+
+  // setup a vector of contacts
+  std::vector<Event> contacts;
+
+  // get the sphere and heightmap
+  boost::shared_ptr<SpherePrimitive> sA = boost::dynamic_pointer_cast<SpherePrimitive>(cgA->get_geometry());
+  boost::shared_ptr<HeightmapPrimitive> hmB = boost::dynamic_pointer_cast<HeightmapPrimitive>(cgB->get_geometry());
+
+  // get the two poses for the primitives
+  boost::shared_ptr<const Ravelin::Pose3d> pA = sA->get_pose(cgA);
+  boost::shared_ptr<const Ravelin::Pose3d> pB = hmB->get_pose(cgB);
+
+  // get the transform from the sphere pose to the heightmap
+  Ravelin::Transform3d T = Ravelin::Pose3d::calc_relative_pose(pA, pB);
+
+  // transform the sphere center to the height map space
+  Point3d ps_c(0.0, 0.0, 0.0, pA);
+  Point3d ps_c_B = T.transform_point(ps_c);
+
+  // get the lowest point on the sphere (toward the heightmap)
+  Ravelin::Vector3d vdir(0.0, -1.0*sA->get_radius(), 0.0, pB);
+
+  // get the lowest point on the sphere
+  Point3d sphere_lowest = ps_c_B + vdir; 
+
+  // get the height of the lowest point on the sphere above the heightmap
+  double min_sphere_dist = hmB->calc_height(sphere_lowest);  
+  if (min_sphere_dist < NEAR_ZERO)
+  {
+    // setup the contact point
+    Point3d point = Ravelin::Pose3d::transform_point(GLOBAL, ps_c_B);
+
+    // setup the normal 
+    Ravelin::Vector3d normal = Ravelin::Vector3d(0.0, 1.0, 0.0, pB);
+    if (min_sphere_dist >= 0.0)
+    {
+      double gx, gz;
+      hmB->calc_gradient(Ravelin::Pose3d::transform_point(pB, ps_c_B), gx, gz);
+      normal = Ravelin::Vector3d(-gx, 1.0, -gz, pB);
+      normal.normalize();
+    }
+    normal = Ravelin::Pose3d::transform_vector(GLOBAL, normal); 
+    contacts.push_back(create_contact(cgA, cgB, point, normal)); 
+  }
+
+  // get the corners of the bounding box in pB pose 
+  Point3d bv_lo = ps_c_B;
+  Point3d bv_hi = ps_c_B;
+  bv_lo[X] -= sA->get_radius();
+  bv_hi[X] += sA->get_radius();
+  bv_lo[Z] -= sA->get_radius();
+  bv_hi[Z] += sA->get_radius();
+
+  // get the heightmap width, depth, and heights
+  double width = hmB->get_width();
+  double depth = hmB->get_depth();
+  const Ravelin::MatrixNd& heights = hmB->get_heights();
+
+  // get the lower i and j indices
+  unsigned lowi = (unsigned) ((bv_lo[X]+width*0.5)*(heights.rows()-1)/width);
+  unsigned lowj = (unsigned) ((bv_lo[Z]+depth*0.5)*(heights.columns()-1)/depth);
+
+  // get the upper i and j indices
+  unsigned upi = (unsigned) ((bv_hi[X]+width*0.5)*(heights.rows()-1)/width)+1;
+  unsigned upj = (unsigned) ((bv_hi[Z]+depth*0.5)*(heights.columns()-1)/depth)+1;
+
+  // iterate over all points in the bounding region
+  for (unsigned i=lowi; i<= upi; i++)
+    for (unsigned j=lowj; j< upj; j++)
+    {
+      // compute the point on the heightmap
+      double x = -width*0.5+width*i/(heights.rows()-1);
+      double z = -depth*0.5+depth*j/(heights.columns()-1);
+      Point3d p(x, heights(i,j), z, pB);
+
+      // get the distance from the primitive
+      Point3d p_A = Ravelin::Pose3d::transform_point(pA, p);
+      double dist = sA->calc_signed_dist(p_A);
+
+      // ignore distance if it isn't sufficiently close
+      if (dist > NEAR_ZERO)
+        continue;
+
+      // setup the contact point
+      Point3d point = Ravelin::Pose3d::transform_point(GLOBAL, p_A);
+
+      // setup the normal 
+      Ravelin::Vector3d normal = Ravelin::Vector3d(0.0, 1.0, 0.0, pB);
+      if (dist >= 0.0)
+      {
+        double gx, gz;
+        hmB->calc_gradient(Ravelin::Pose3d::transform_point(pB, p_A), gx, gz);
+        normal = Ravelin::Vector3d(-gx, 1.0, -gz, pB);
+        normal.normalize();
+      }
+      normal = Ravelin::Pose3d::transform_vector(GLOBAL, normal); 
+      contacts.push_back(create_contact(cgA, cgB, point, normal)); 
+    }
+
+  // create the normal pointing from B to A
+  return std::copy(contacts.begin(), contacts.end(), o);
 }
 
 /// Finds contacts for a convex shape and a heightmap 

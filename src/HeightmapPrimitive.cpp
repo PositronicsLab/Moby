@@ -351,14 +351,13 @@ double HeightmapPrimitive::calc_signed_dist(shared_ptr<const SpherePrimitive> s,
 
   // transform the sphere center to the height map space
   Point3d ps_c(0.0, 0.0, 0.0, ps.pose);
-Point3d ps0 = Pose3d::transform_point(GLOBAL, ps_c);
   Point3d ps_c_this = T.transform_point(ps_c);
 
+  // get the lowest point on the sphere (toward the heightmap)
+  Vector3d vdir(0.0, -1.0*s->get_radius(), 0.0, pthis.pose);
+
   // get the lowest point on the sphere
-  Point3d sphere_lowest_s(0.0, -1.0*s->get_radius(), 0.0, ps.pose);
-  Point3d sphere_lowest = T.transform_point(sphere_lowest_s);
-//  Point3d sphere_lowest = ps_c_this - Vector3d(0,1,0,pthis.pose)*s->get_radius();
-Point3d sph0 = Pose3d::transform_point(GLOBAL, sphere_lowest);
+  Point3d sphere_lowest = ps_c_this + vdir; 
 
   // get the height of the sphere center
   double min_dist = calc_height(sphere_lowest);  
