@@ -11,6 +11,7 @@
 #include <boost/foreach.hpp>
 #include <boost/algorithm/string.hpp>
 #include <Moby/XMLReader.h>
+#include <Moby/XMLWriter.h>
 
 #ifdef USE_OSG
 #include <osgViewer/Viewer>
@@ -71,11 +72,18 @@ unsigned IMAGE_IVAL = 0;
 /// Interval for 3D outputs (0=3D outputs disabled)
 unsigned THREED_IVAL = 0;
 
+/// Interval for pickling
+unsigned PICKLE_IVAL = 0;
+
 /// Determines whether to do onscreen rendering (false by default)
 bool ONSCREEN_RENDER = false;
 
 /// Determines whether to output timings
 bool OUTPUT_TIMINGS = false;
+
+/// Last pickle iteration
+unsigned LAST_PICKLE = -1;
+double LAST_PICKLE_T = -std::numeric_limits<double>::max()/2.0;
 
 /// Extension/format for 3D outputs (default=Wavefront obj)
 char THREED_EXT[5] = "obj";
@@ -195,6 +203,20 @@ void step(void* arg)
     }
   }
   #endif
+
+  // serialize the simulation, if desired
+  if (PICKLE_IVAL > 0)
+  {
+    // determine at what iteration nearest pickle would be output
+    if ((s->current_time - LAST_PICKLE_T > STEP_SIZE * PICKLE_IVAL))
+    {
+      // write the file (fails silently)
+      char buffer[128];
+      sprintf(buffer, "driver.out-%08u-%f.xml", ++LAST_PICKLE, s->current_time);
+      XMLWriter::serialize_to_xml(std::string(buffer), s); 
+      LAST_PICKLE_T = s->current_time;
+    }
+  }
 
   // only update the graphics if it is necessary; update visualization first
   // in case simulator takes some time to perform first step
@@ -494,6 +516,11 @@ int main(int argc, char** argv)
       OUTPUT_ITER_NUM = true;
     else if (option.find("-or") != std::string::npos)
       OUTPUT_SIM_RATE = true;
+    else if (option.find("-w=") != std::string::npos)
+    {
+      PICKLE_IVAL = std::atoi(&argv[i][ONECHAR_ARG]);
+      assert(PICKLE_IVAL >= 0);
+    }
     else if (option.find("-v=") != std::string::npos)
     {
       UPDATE_GRAPHICS = true;

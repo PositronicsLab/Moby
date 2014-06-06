@@ -121,6 +121,18 @@ bool QLCPD::qp_activeset(const Mat1& H, const Vec1& c, const Vec2& lb, const Vec
         _alp.data(), &_lp[0], &mlp, &peq, &_ws[0], &_lws[0], 
         _v.data(), &nv, &linear, &rgtol, &mode, &ifail, &mxgr, &iprint, &nout);
 
+  // look whether failure is indicated
+  if (ifail != 0)
+    return false;
+
+  // verify feasibility (M*z >= q)
+
+  // verify feasibility (A*z = b)
+
+  // verify z >= lb
+
+  // verify z <= ub
+
   // check result
   return (ifail == 0);
 }
