@@ -126,15 +126,24 @@ bool QLCPD::qp_activeset(const Mat1& H, const Vec1& c, const Vec2& lb, const Vec
     return false;
 
   // verify feasibility (M*z >= q)
+  M.mult(z, _r) -= q;
+  if (std::find_if(_r.begin(), _r.end(), std::bind2nd(std::less<double>(), -NEAR_ZERO)) != _r.end())
+    return false;
 
   // verify feasibility (A*z = b)
+  A.mult(z, _r) -= b;
+  for (Ravelin::RowIteratord_const i = _r.row_iterator_begin(); i != _r.row_iterator_end(); i++)
+    if (std::fabs(*i) > NEAR_ZERO)
+      return false;
 
-  // verify z >= lb
+  // verify z >= lb and z <= ub
+  for (unsigned i=0; i< n; i++)
+    if ((z[i] < lb[i] && !rel_equal(z[i], lb[i])) ||
+        (z[i] > ub[i] && !rel_equal(z[i], ub[i])))
+      return false; 
 
-  // verify z <= ub
-
-  // check result
-  return (ifail == 0);
+  // all checks passed 
+  return true; 
 }
 
 /// Active-set LP algorithm for finding closest point to feasibility 
@@ -274,11 +283,35 @@ bool QLCPD::find_closest_feasible(const Vec1& lb, const Vec2& ub, const Mat1& M,
         _alp.data(), &_lp[0], &mlp, &peq, &_ws[0], &_lws[0], 
         _v.data(), &nv, &linear, &rgtol, &mode, &ifail, &mxgr, &iprint, &nout);
 
+  // get the 's' value
+  const double S = z[n];
+
   // resize z
   z.resize(n, true);
 
-  // check result
-  return (ifail == 0);
+  // look whether failure is indicated
+  if (ifail != 0)
+    return false;
+
+  // verify feasibility (M*z >= q)
+  M.mult(z, _r) -= q;
+  if (std::find_if(_r.begin(), _r.end(), std::bind2nd(std::less<double>(), -(S+NEAR_ZERO))) != _r.end())
+    return false;
+
+  // verify feasibility (A*z = b)
+  A.mult(z, _r) -= b;
+  for (Ravelin::RowIteratord_const i = _r.row_iterator_begin(); i != _r.row_iterator_end(); i++)
+    if (std::fabs(*i) > NEAR_ZERO)
+      return false;
+
+  // verify z >= lb and z <= ub
+  for (unsigned i=0; i< n; i++)
+    if ((z[i] < lb[i] && !rel_equal(z[i], lb[i])) ||
+        (z[i] > ub[i] && !rel_equal(z[i], ub[i])))
+      return false; 
+
+  // all checks passed 
+  return true; 
 }
 
 /// Active-set QP algorithm for solving LPs 
@@ -402,8 +435,29 @@ bool QLCPD::lp_activeset(const Vec1& c, const Vec2& lb, const Vec3& ub, const Ma
         _alp.data(), &_lp[0], &mlp, &peq, &_ws[0], &_lws[0], 
         _v.data(), &nv, &linear, &rgtol, &mode, &ifail, &mxgr, &iprint, &nout);
 
-  // check result
-  return (ifail == 0);
+  // look whether failure is indicated
+  if (ifail != 0)
+    return false;
+
+  // verify feasibility (M*z >= q)
+  M.mult(z, _r) -= q;
+  if (std::find_if(_r.begin(), _r.end(), std::bind2nd(std::less<double>(), -NEAR_ZERO)) != _r.end())
+    return false;
+
+  // verify feasibility (A*z = b)
+  A.mult(z, _r) -= b;
+  for (Ravelin::RowIteratord_const i = _r.row_iterator_begin(); i != _r.row_iterator_end(); i++)
+    if (std::fabs(*i) > NEAR_ZERO)
+      return false;
+
+  // verify z >= lb and z <= ub
+  for (unsigned i=0; i< n; i++)
+    if ((z[i] < lb[i] && !rel_equal(z[i], lb[i])) ||
+        (z[i] > ub[i] && !rel_equal(z[i], ub[i])))
+      return false; 
+
+  // all checks passed 
+  return true; 
 }
 
 
