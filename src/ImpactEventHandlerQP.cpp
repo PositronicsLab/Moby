@@ -1,6 +1,6 @@
 /****************************************************************************
  * Copyright 2011 Evan Drumwright
- * This library is distributed under the terms of the GNU Lesser General Public 
+ * This library is distributed under the terms of the GNU Lesser General Public
  * License (found in COPYING).
  ****************************************************************************/
 
@@ -52,7 +52,7 @@ void ImpactEventHandler::solve_qp(VectorNd& z, EventProblemData& q, double max_t
   // reset warm starting variables
   _last_contacts = _last_contact_constraints = _last_contact_nk = 0;
   _last_limits = 0;
- 
+
   // keep solving until we run out of time or all contact points are active
   while (true)
   {
@@ -90,7 +90,7 @@ void ImpactEventHandler::solve_qp(VectorNd& z, EventProblemData& q, double max_t
   }
 }
 
-/// Computes the kinetic energy of the system using the current impulse set 
+/// Computes the kinetic energy of the system using the current impulse set
 double ImpactEventHandler::calc_ke(EventProblemData& q, const VectorNd& z)
 {
   static VectorNd cn, cs, ct, l, alpha_x;
@@ -121,7 +121,7 @@ double ImpactEventHandler::calc_ke(EventProblemData& q, const VectorNd& z)
   return KE;
 }
 
-/// Solves the quadratic program (does all of the work) as an LCP 
+/// Solves the quadratic program (does all of the work) as an LCP
 /**
  * \note this is the version without joint friction forces
  * \param z the solution is returned here; zeros are returned at appropriate
@@ -186,8 +186,8 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& epd, VectorNd& z)
   FILE_LOG(LOG_EVENT) << "c vector: " << c << std::endl;
   FILE_LOG(LOG_EVENT) << "M matrix: " << std::endl << M;
   FILE_LOG(LOG_EVENT) << "q vector: " << q << std::endl;
-  FILE_LOG(LOG_EVENT) << "LCP matrix: " << std::endl << _MM; 
-  FILE_LOG(LOG_EVENT) << "LCP vector: " << _qq << std::endl; 
+  FILE_LOG(LOG_EVENT) << "LCP matrix: " << std::endl << _MM;
+  FILE_LOG(LOG_EVENT) << "LCP vector: " << _qq << std::endl;
 
   // init z to zero
   z.set_zero(_qq.rows());
@@ -201,7 +201,7 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& epd, VectorNd& z)
   const unsigned N_LAST_VARS = N_LAST_ACT_CONTACTS*5 + N_LAST_LIMITS;
   const unsigned N_LAST_INEQUAL = N_LAST_CC + N_LAST_ACT_K + N_LAST_LIMITS + 1;
   const unsigned N_LAST_TOTAL = N_LAST_VARS + N_LAST_INEQUAL;
-  if (N_LAST_ACT_CONTACTS <= epd.N_ACT_CONTACTS && 
+  if (N_LAST_ACT_CONTACTS <= epd.N_ACT_CONTACTS &&
       N_LAST_CC <= epd.N_CONTACT_CONSTRAINTS &&
       N_LAST_LIMITS <= epd.N_LIMITS &&
       N_LAST_TOTAL == _zlast.rows())
@@ -263,7 +263,7 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& epd, VectorNd& z)
   {
     FILE_LOG(LOG_EVENT) << "QLCPD failed to solve; finding closest feasible point" << std::endl;
 
-    // QP solver not successful by default; attempt to find the closest 
+    // QP solver not successful by default; attempt to find the closest
     // feasible point
     if (!_qp.find_closest_feasible(lb, ub, M, q, A, b, z))
     {
@@ -297,7 +297,7 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& epd, VectorNd& z)
   FILE_LOG(LOG_EVENT) << "QLCPD solution: " << z << std::endl;
   FILE_LOG(LOG_EVENT) << "M: " << std::endl << M;
   FILE_LOG(LOG_EVENT) << "q: " << q << std::endl;
-  FILE_LOG(LOG_EVENT) << "M*z - q: " << (M.mult(z, _workv) -= q) << std::endl;
+  FILE_LOG(LOG_EVENT) << "M*z - q: " << (M.mult(z.get_sub_vec(0,M.columns(),_workv2), _workv) -= q) << std::endl;
 
   #else
   // negate q (it was in form Mx >= q, needs to be in Mx + q >= 0)
@@ -336,17 +336,17 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& epd, VectorNd& z)
   z.set_sub_vec(epd.NCT_IDX, nct);
   z.set_sub_vec(epd.L_IDX, l);
 
-  FILE_LOG(LOG_EVENT) << "QP solution: " << z << std::endl; 
+  FILE_LOG(LOG_EVENT) << "QP solution: " << z << std::endl;
 
   // compute full Cn_v solution *if necessary*
-  if (epd.N_CONTACT_CONSTRAINTS < epd.N_CONTACTS) 
+  if (epd.N_CONTACT_CONSTRAINTS < epd.N_CONTACTS)
   {
     // get all contact blocks
-    SharedConstMatrixNd full_Cn_Cn = epd.Cn_iM_CnT.block(0, epd.N_CONTACTS, 0, epd.N_ACT_CONTACTS);  
-    SharedConstMatrixNd full_Cn_Cs = epd.Cn_iM_CsT.block(0, epd.N_CONTACTS, 0, epd.N_ACT_CONTACTS);  
-    SharedConstMatrixNd full_Cn_Ct = epd.Cn_iM_CtT.block(0, epd.N_CONTACTS, 0, epd.N_ACT_CONTACTS);  
-    SharedConstMatrixNd full_Cn_L = epd.Cn_iM_LT.block(0, epd.N_CONTACTS, 0, epd.N_LIMITS);  
-    SharedConstVectorNd full_Cn_v = epd.Cn_v.segment(0, epd.N_CONTACTS);  
+    SharedConstMatrixNd full_Cn_Cn = epd.Cn_iM_CnT.block(0, epd.N_CONTACTS, 0, epd.N_ACT_CONTACTS);
+    SharedConstMatrixNd full_Cn_Cs = epd.Cn_iM_CsT.block(0, epd.N_CONTACTS, 0, epd.N_ACT_CONTACTS);
+    SharedConstMatrixNd full_Cn_Ct = epd.Cn_iM_CtT.block(0, epd.N_CONTACTS, 0, epd.N_ACT_CONTACTS);
+    SharedConstMatrixNd full_Cn_L = epd.Cn_iM_LT.block(0, epd.N_CONTACTS, 0, epd.N_LIMITS);
+    SharedConstVectorNd full_Cn_v = epd.Cn_v.segment(0, epd.N_CONTACTS);
 
     // compute new velocity in the normal direction
     full_Cn_Cn.mult(cn, _new_Cn_v);
@@ -364,7 +364,7 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& epd, VectorNd& z)
       {
         if (!epd.contact_constraints[i])
         {
-          // make it active 
+          // make it active
           epd.contact_constraints[i] = true;
 
           // update the number of contact constraints
@@ -387,7 +387,7 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& epd, VectorNd& z)
     if (rerun)
     {
       FILE_LOG(LOG_EVENT) << "-- constraint violation detected on unincorported constraint(s)" << std::endl;
-      FILE_LOG(LOG_EVENT) << "   re-running with " << epd.N_CONTACT_CONSTRAINTS << " contact constraints" << std::endl; 
+      FILE_LOG(LOG_EVENT) << "   re-running with " << epd.N_CONTACT_CONSTRAINTS << " contact constraints" << std::endl;
       solve_qp_work(epd, z);
     }
   }
@@ -399,11 +399,11 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& epd, VectorNd& z)
     H.mult(zsub, workv) *= 0.5;
     workv += c;
     FILE_LOG(LOG_EVENT) << "(signed) computed energy dissipation: " << zsub.dot(workv) << std::endl;
-  }    
+  }
   FILE_LOG(LOG_EVENT) << "ImpactEventHandler::solve_qp_work() exited" << std::endl;
 }
 
-/// Solves the quadratic program (does all of the work) 
+/// Solves the quadratic program (does all of the work)
 /**
  * \note this is the version without joint friction forces
  * \param z the solution is returned here; zeros are returned at appropriate
@@ -533,7 +533,7 @@ void ImpactEventHandler::setup_QP(EventProblemData& epd, SharedMatrixNd& H, Shar
   (Cn_iM_NCsT = Cn_iM_CsT).negate();
   (Cn_iM_NCtT = Cn_iM_CtT).negate();
   epd.Cn_iM_LT.get_sub_mat(0, N_ACT_CONTACTS, 0, epd.N_LIMITS, Cn_iM_LT);
-  
+
   // copy to row block 2 (first contact tangents)
   MatrixNd::transpose(Cn_iM_CsT, Cs_iM_CnT);
   epd.Cs_iM_CsT.get_sub_mat(0, N_ACT_CONTACTS, 0, N_ACT_CONTACTS, Cs_iM_CsT);
@@ -572,13 +572,13 @@ void ImpactEventHandler::setup_QP(EventProblemData& epd, SharedMatrixNd& H, Shar
   SharedVectorNd nCt_v = c.segment(xNCT_IDX, xL_IDX);
   SharedVectorNd L_v = c.segment(xL_IDX, N_ACT_VARS);
 
-  // setup c 
+  // setup c
   epd.Cn_v.get_sub_vec(0, N_ACT_CONTACTS, Cn_v);
   epd.Cs_v.get_sub_vec(0, N_ACT_CONTACTS, Cs_v);
   epd.Ct_v.get_sub_vec(0, N_ACT_CONTACTS, Ct_v);
   (nCs_v = Cs_v).negate();
   (nCt_v = Ct_v).negate();
-  L_v = epd.L_v;         
+  L_v = epd.L_v;
 
   // ------- setup M/q -------
   // setup the Cn*v+ >= 0 constraint
@@ -594,12 +594,12 @@ void ImpactEventHandler::setup_QP(EventProblemData& epd, SharedMatrixNd& H, Shar
   SharedConstMatrixNd full_Cn_block = M.block(row_start, row_end, xCN_IDX, N_ACT_VARS);
   FILE_LOG(LOG_EVENT) << "M: " << std::endl << M;
   q.set_sub_vec(row_start, _Cnstar_v);
-  row_start = row_end; row_end += epd.N_LIMITS;  
+  row_start = row_end; row_end += epd.N_LIMITS;
 
   // setup the L*v+ >= 0 constraint
   M.block(row_start, row_end, xCN_IDX, N_ACT_VARS) = L_block;
   q.set_sub_vec(row_start, epd.L_v);
-  row_start = row_end; row_end += epd.N_ACT_CONTACTS;  
+  row_start = row_end; row_end += epd.N_ACT_CONTACTS;
 
   // setup the contact friction constraints
   // mu_c*cn + mu_v*cvel >= beta
