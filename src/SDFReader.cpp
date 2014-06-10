@@ -294,53 +294,27 @@ list<shared_ptr<const XMLTree> > SDFReader::find_tag(const std::string& tag, sha
   // create the list
   list<shared_ptr<const XMLTree> > l;
 
-  // if this node is of the given type, process it 
-  if (strcasecmp(root->name.c_str(), tag.c_str()) == 0)
-  {
-    l.push_back(root);
-    return l;
-  }
-  else
-  {
-    const std::list<XMLTreePtr>& child_nodes = root->children;
-    for (std::list<XMLTreePtr>::const_iterator i = child_nodes.begin(); i != child_nodes.end(); i++)
-      find_tag(tag, *i, l);
-  }
+  find_tag(tag, root, l);
+  return l;
 }
 
-/// Find a particular tag (recursive function)
+/// Find a particular tag
 void SDFReader::find_tag(const std::string& tag, shared_ptr<const XMLTree> root, list<shared_ptr<const XMLTree> >& l)
 {
-  // if this node is of the given type, process it and attempt to go no further 
-  if (strcasecmp(root->name.c_str(), tag.c_str()) == 0)
-  {
-    l.push_back(root);
-    return;
-  }
-  else
-  {
-    const std::list<XMLTreePtr>& child_nodes = root->children;
-    for (std::list<XMLTreePtr>::const_iterator i = child_nodes.begin(); i != child_nodes.end(); i++)
-      find_tag(tag, *i, l);
-  }
+  // process all children of the root
+  const std::list<XMLTreePtr>& child_nodes = root->children;
+  for (std::list<XMLTreePtr>::const_iterator i = child_nodes.begin(); i != child_nodes.end(); i++)
+    if (strcasecmp((*i)->name.c_str(), tag.c_str()) == 0)
+      l.push_back(*i);
 }
 
-/// Find a particular tag (recursive function)
+/// Find a particular tag
 shared_ptr<const XMLTree> SDFReader::find_one_tag(const std::string& tag, shared_ptr<const XMLTree> root)
 {
-  // if this node is of the given type, process it and attempt to go no further 
-  if (strcasecmp(root->name.c_str(), tag.c_str()) == 0)
-    return root;
-  else
-  {
-    const std::list<XMLTreePtr>& child_nodes = root->children;
-    for (std::list<XMLTreePtr>::const_iterator i = child_nodes.begin(); i != child_nodes.end(); i++)
-    {
-      shared_ptr<const XMLTree> node = find_one_tag(tag, *i);
-      if (node)
-        return node;
-    } 
-  }
+  const std::list<XMLTreePtr>& child_nodes = root->children;
+  for (std::list<XMLTreePtr>::const_iterator i = child_nodes.begin(); i != child_nodes.end(); i++)
+    if (strcasecmp((*i)->name.c_str(), tag.c_str()) == 0)
+      return *i;
 
   return shared_ptr<const XMLTree>();
 }
@@ -674,7 +648,9 @@ PrimitivePtr SDFReader::read_plane(shared_ptr<const XMLTree> node)
     P.x.set_zero();
     P.q = R;
     b->set_pose(P);
-  }      
+  }
+
+  return b;      
 }
 
 /// Reads and constructs the TriangleMeshPrimitive object
@@ -764,6 +740,11 @@ DynamicBodyPtr SDFReader::read_model(shared_ptr<const XMLTree> node, map<RigidBo
     if (name_attr)
       rb->id = name_attr->get_string_value();
 
+    // see whether the model is static 
+    shared_ptr<const XMLTree> static_node = find_one_tag("static", node);
+    if (static_node && read_bool(static_node))
+      rb->set_enabled(false);
+
     // transform the body if desired
     if (pose_node)
     {
@@ -849,9 +830,9 @@ RigidBodyPtr SDFReader::read_link(shared_ptr<const XMLTree> node, shared_ptr<SDF
     rb->set_pose(read_pose(node));
 
   // get the inertial properties for the body, if specified
-  shared_ptr<const XMLTree> inertia_node = find_one_tag("inertia", node);
-  if (inertia_node)
-    rb->set_inertia(read_inertia(inertia_node, rb));
+  shared_ptr<const XMLTree> inertial_node = find_one_tag("inertial", node);
+  if (inertial_node)
+    rb->set_inertia(read_inertial(inertial_node, rb));
 
   // read the Collision tag
   shared_ptr<const XMLTree> collision_node = find_one_tag("collision", node);
@@ -973,6 +954,8 @@ PrimitivePtr SDFReader::read_geometry(shared_ptr<const XMLTree> node)
     return read_plane(plane_node);
 
   // shouldn't still be here...
+  throw std::runtime_error("Geometry tag found that we couldn't handle!"); 
+
   return PrimitivePtr();
 }
 
@@ -993,7 +976,7 @@ Pose3d SDFReader::read_pose(shared_ptr<const XMLTree> node)
 }
 
 /// Reads the inertia from the inertial node
-SpatialRBInertiad SDFReader::read_inertia(shared_ptr<const XMLTree> node, RigidBodyPtr rb)
+SpatialRBInertiad SDFReader::read_inertial(shared_ptr<const XMLTree> node, RigidBodyPtr rb)
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
