@@ -64,7 +64,7 @@ class SDFReader
     static void read_collision_node(boost::shared_ptr<const XMLTree> node, RigidBodyPtr rb, boost::shared_ptr<SurfaceData>& sd);
     static PrimitivePtr read_geometry(boost::shared_ptr<const XMLTree> node);
     static Ravelin::Pose3d read_pose(boost::shared_ptr<const XMLTree> node);
-    static Ravelin::SpatialRBInertiad read_inertia(boost::shared_ptr<const XMLTree> node, RigidBodyPtr rb);
+    static Ravelin::SpatialRBInertiad read_inertial(boost::shared_ptr<const XMLTree> node, RigidBodyPtr rb);
 
     static JointPtr read_joint(boost::shared_ptr<const XMLTree> node, const std::map<std::string, RigidBodyPtr>& link_map);
     static TupleType get_tuple(boost::shared_ptr<const XMLTree> node);
