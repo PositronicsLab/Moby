@@ -122,7 +122,7 @@ shared_ptr<EventDrivenSimulator> SDFReader::read(const std::string& fname)
   // mark the root as processed
   sdf_tree->processed = true;
 
-   // make sure that the SDF node was found
+  // make sure that the SDF node was found
   if (!sdf_tree)
   {
     std::cerr << "SDFReader::read() - no SDF tag found!" << std::endl;
@@ -356,7 +356,7 @@ Vector3d SDFReader::read_Vector3(shared_ptr<const XMLTree> node)
 }
 
 /// Reads a joint
-JointPtr SDFReader::read_joint(shared_ptr<const XMLTree> node, const std::map<std::string, RigidBodyPtr>& link_map)
+JointPtr SDFReader::read_joint(shared_ptr<const XMLTree> node, const std::map<std::string, RigidBodyPtr>& link_map, RigidBodyPtr& base_link)
 {
   std::string name, type;
   JointPtr joint;
@@ -415,14 +415,33 @@ JointPtr SDFReader::read_joint(shared_ptr<const XMLTree> node, const std::map<st
   shared_ptr<const XMLTree> parent_tag = find_one_tag("parent", node);
   assert(parent_tag);
   std::string parent_link = parent_tag->content;
-  assert(link_map.find(parent_link) != link_map.end());
-  parent = link_map.find(parent_link)->second;
+  if (strcasecmp(parent_link.c_str(), "world") == 0)
+  {
+    // joint is attached to the world; create the body, if not already done
+    if (!base_link)
+    {
+      base_link = RigidBodyPtr(new RigidBody);
+      base_link->set_enabled(false);
+    }
+    parent = base_link;
+  }
+  else if (link_map.find(parent_link) == link_map.end())
+  {
+    std::string except_string = "SDFReader::read_joint(.)- parent link '" + parent_link + "' not found";
+    throw std::runtime_error(except_string.c_str());
+  }
+  else 
+    parent = link_map.find(parent_link)->second;
 
   // read in the name of the child link  
   shared_ptr<const XMLTree> child_tag = find_one_tag("child", node);
   assert(child_tag);
   std::string child_link = child_tag->content; 
-  assert(link_map.find(child_link) != link_map.end());
+  if (link_map.find(child_link) == link_map.end())
+  {
+    std::string except_string = "SDFReader::read_joint(.)- child link '" + child_link + "' not found";
+    throw std::runtime_error(except_string.c_str());
+  }
   child = link_map.find(child_link)->second;
 
   // set child and parent
@@ -434,6 +453,7 @@ JointPtr SDFReader::read_joint(shared_ptr<const XMLTree> node, const std::map<st
   {
     *P = read_pose(node);
     P->rpose = child->get_pose();
+    P->update_relative_pose(parent->get_pose());
     joint->set_pose(P); 
   }
 
@@ -484,7 +504,7 @@ JointPtr SDFReader::read_joint(shared_ptr<const XMLTree> node, const std::map<st
     }
 
     // read joint limits
-    shared_ptr<const XMLTree> limit_node = find_one_tag("limits", axis_node);
+    shared_ptr<const XMLTree> limit_node = find_one_tag("limit", axis_node);
     if (limit_node)
     {
       // attempt to read the lower limit 
@@ -780,8 +800,17 @@ DynamicBodyPtr SDFReader::read_model(shared_ptr<const XMLTree> node, map<RigidBo
       link_map[links[i]->id] = links[i];
 
     // read all of the joints
+    RigidBodyPtr base_link;
     BOOST_FOREACH(shared_ptr<const XMLTree> joint_node, joint_nodes)
-      joints.push_back(read_joint(joint_node, link_map));
+      joints.push_back(read_joint(joint_node, link_map, base_link));
+
+    // if the base link is created, add it to the vector and make the rcab
+    // have a fixed base
+    if (base_link)
+    {
+      links.insert(links.begin(), base_link);
+      rcab->set_floating_base(false);
+    }
 
     // set the links and joints
     rcab->set_links_and_joints(links, joints);
@@ -992,7 +1021,11 @@ SpatialRBInertiad SDFReader::read_inertial(shared_ptr<const XMLTree> node, Rigid
   // reference frame
   shared_ptr<const XMLTree> pose_node = find_one_tag("pose", node);
   if (pose_node)
-    rb->set_inertial_pose(read_pose(node));
+  {
+    Pose3d P = read_pose(node);
+    P.rpose = rb->get_pose();
+    rb->set_inertial_pose(P);
+  }
 
   // find the inertia
   shared_ptr<const XMLTree> inertia_node = find_one_tag("inertia", node);
