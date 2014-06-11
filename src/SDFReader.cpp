@@ -863,12 +863,38 @@ RigidBodyPtr SDFReader::read_link(shared_ptr<const XMLTree> node, shared_ptr<SDF
   if (inertial_node)
     rb->set_inertia(read_inertial(inertial_node, rb));
 
+  // read the Visual tag
+  shared_ptr<const XMLTree> visual_node = find_one_tag("visual", node);
+  if (visual_node)
+    read_visual_node(visual_node, rb);   
+
   // read the Collision tag
   shared_ptr<const XMLTree> collision_node = find_one_tag("collision", node);
   if (collision_node)
     read_collision_node(collision_node, rb, sd);   
 
   return rb;
+}
+
+/// Reads a visual node
+void SDFReader::read_visual_node(shared_ptr<const XMLTree> node, RigidBodyPtr rb)
+{
+  // read the pose of the visualization
+  shared_ptr<const XMLTree> pose_node = find_one_tag("pose", node);
+  if (pose_node)
+  {
+    Pose3d P(read_pose(node));
+    P.rpose = rb->get_visualization_pose()->rpose;
+    rb->set_visualization_relative_pose(P);
+  }
+
+  // read the geometry type
+  shared_ptr<const XMLTree> geom_node = find_one_tag("geometry", node);
+  if (geom_node)
+  {
+    PrimitivePtr geom = read_geometry(geom_node);
+    rb->set_visualization_data(geom->get_visualization());
+  }
 }
 
 /// Reads a collision node
