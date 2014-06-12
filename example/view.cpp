@@ -49,7 +49,7 @@ int main(int argc, char ** argv)
   viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getOrCreateStateSet()));
   viewer.addEventHandler(new osgViewer::WindowSizeHandler);
   viewer.addEventHandler(new osgViewer::StatsHandler);
-  viewer.setLightingMode(osg::View::SKY_LIGHT);
+  viewer.setLightingMode(osg::View::HEADLIGHT);
 
   // setup the view window size
   viewer.setUpViewInWindow(0, 0, 640, 480);
