@@ -62,7 +62,8 @@ int main(int argc, char ** argv)
   std::ifstream in(scenery_fname.c_str());
   if (!in.fail())
   {
-    nodes.push_back(osgDB::readNodeFile(scenery_fname));
+    std::cout << "...using scenery file" << std::endl;
+    mainroot->addChild(osgDB::readNodeFile(scenery_fname));
     in.close();
   }
 
