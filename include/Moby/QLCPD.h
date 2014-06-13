@@ -7,6 +7,7 @@
 #ifndef _OPT_QPACTIVESET_H
 #define _OPT_QPACTIVESET_H
 
+#include <signal.h>
 #include <Ravelin/MatrixNd.h>
 #include <Ravelin/VectorNd.h>
 #include <Moby/Constants.h>
@@ -28,6 +29,7 @@ class QLCPD
   bool lp_activeset(const Vec1& c, const Vec2& lb, const Vec3& ub, const Mat1& M, const Vec4& q, const Mat2& A, const Vec5& b, Vec6& z);
 
   private:
+    static void catch_sigterm(int signum) { throw std::runtime_error("QLCPD failed"); } 
     static bool rel_equal(double x, double y, double tol = NEAR_ZERO) { return std::fabs(x-y) <= tol*std::max(std::fabs(x), std::max(std::fabs(y), (double) 1.0)); }
 
     void qlcpd(int* n, int* m, int* k, int* kmax, int* maxg,
