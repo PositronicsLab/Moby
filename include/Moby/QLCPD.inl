@@ -114,12 +114,19 @@ bool QLCPD::qp_activeset(const Mat1& H, const Vec1& c, const Vec2& lb, const Vec
   // the function value at the end
   double f;
 
-  // call the function
-  qlcpd(&n, &m, &k, &kmax, &maxg, 
-        _X.data(), &la, z.data(), _lb.data(), _ub.data(), 
-        &f, &fmin, _g.data(), _r.data(), _w.data(), _e.data(), &_ls[0],
-        _alp.data(), &_lp[0], &mlp, &peq, &_ws[0], &_lws[0], 
-        _v.data(), &nv, &linear, &rgtol, &mode, &ifail, &mxgr, &iprint, &nout);
+  try
+  {
+    // call the function
+    qlcpd(&n, &m, &k, &kmax, &maxg, 
+          _X.data(), &la, z.data(), _lb.data(), _ub.data(), 
+          &f, &fmin, _g.data(), _r.data(), _w.data(), _e.data(), &_ls[0],
+          _alp.data(), &_lp[0], &mlp, &peq, &_ws[0], &_lws[0], 
+          _v.data(), &nv, &linear, &rgtol, &mode, &ifail, &mxgr, &iprint, &nout);
+  }
+  catch (std::runtime_error e)
+  {
+    return false;
+  }
 
   // look whether failure is indicated
   if (ifail != 0)
@@ -277,11 +284,18 @@ bool QLCPD::find_closest_feasible(const Vec1& lb, const Vec2& ub, const Mat1& M,
 
   // call the function
   int nplus = n+1;
-  qlcpd(&nplus, &m, &k, &kmax, &maxg, 
-        _X.data(), &la, z.data(), _lb.data(), _ub.data(), 
-        &f, &fmin, _g.data(), _r.data(), _w.data(), _e.data(), &_ls[0],
-        _alp.data(), &_lp[0], &mlp, &peq, &_ws[0], &_lws[0], 
-        _v.data(), &nv, &linear, &rgtol, &mode, &ifail, &mxgr, &iprint, &nout);
+  try
+  {
+    qlcpd(&nplus, &m, &k, &kmax, &maxg, 
+          _X.data(), &la, z.data(), _lb.data(), _ub.data(), 
+          &f, &fmin, _g.data(), _r.data(), _w.data(), _e.data(), &_ls[0],
+          _alp.data(), &_lp[0], &mlp, &peq, &_ws[0], &_lws[0], 
+          _v.data(), &nv, &linear, &rgtol, &mode, &ifail, &mxgr, &iprint, &nout);
+  }
+  catch (std::runtime_error e)
+  {
+    return false;
+  }
 
   // get the 's' value
   const double S = z[n];
@@ -429,11 +443,18 @@ bool QLCPD::lp_activeset(const Vec1& c, const Vec2& lb, const Vec3& ub, const Ma
   double f;
 
   // call the function
-  qlcpd(&n, &m, &k, &kmax, &maxg, 
-        _X.data(), &la, z.data(), _lb.data(), _ub.data(), 
-        &f, &fmin, _g.data(), _r.data(), _w.data(), _e.data(), &_ls[0],
-        _alp.data(), &_lp[0], &mlp, &peq, &_ws[0], &_lws[0], 
-        _v.data(), &nv, &linear, &rgtol, &mode, &ifail, &mxgr, &iprint, &nout);
+  try 
+  {
+    qlcpd(&n, &m, &k, &kmax, &maxg, 
+          _X.data(), &la, z.data(), _lb.data(), _ub.data(), 
+          &f, &fmin, _g.data(), _r.data(), _w.data(), _e.data(), &_ls[0],
+          _alp.data(), &_lp[0], &mlp, &peq, &_ws[0], &_lws[0], 
+          _v.data(), &nv, &linear, &rgtol, &mode, &ifail, &mxgr, &iprint, &nout);
+  }
+  catch (std::runtime_error e)
+  {
+    return false;
+  }
 
   // look whether failure is indicated
   if (ifail != 0)

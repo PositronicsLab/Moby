@@ -73,6 +73,12 @@ extern "C"
              int* mlp, int* peq, double* ws, int* lws, double* v,
              int* nv, int* lin, double* rgtol, int* mode, int* ifail, int* mxgr,
              int* iprint, int* nout);
+
+  // catches fortran exit
+  void _gfortran_stop_string(const char*, int len)
+  {
+    throw std::runtime_error("Fortran exit");
+  }
 }
   
 // Sole constructor
