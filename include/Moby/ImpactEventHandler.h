@@ -48,6 +48,7 @@ class ImpactEventHandler
     double ip_eps;
 
   private:
+    void apply_visc_friction_model_to_connected_events(const std::list<Event*>& events);
     void apply_inf_friction_model_to_connected_events(const std::list<Event*>& events);
     void update_from_stacked(EventProblemData& q, const Ravelin::VectorNd& z);
     double calc_min_constraint_velocity(const EventProblemData& q) const;
@@ -61,6 +62,7 @@ class ImpactEventHandler
     void apply_model_to_connected_events(const std::list<Event*>& events, double max_time);
     void compute_problem_data(EventProblemData& epd);
     void solve_frictionless_lcp(EventProblemData& epd, Ravelin::VectorNd& z);
+    void apply_visc_friction_model(EventProblemData& epd);
     void apply_inf_friction_model(EventProblemData& epd);
     void solve_qp(Ravelin::VectorNd& z, EventProblemData& epd, double max_time = std::numeric_limits<double>::max());
     void solve_nqp(Ravelin::VectorNd& z, EventProblemData& epd, double max_time = std::numeric_limits<double>::max());
@@ -95,6 +97,9 @@ class ImpactEventHandler
 
     // temporaries for solve_qp() and solve_nqp()
     Ravelin::VectorNd _z;
+
+    // temporaries for solve_frictionless_lcp()
+    Ravelin::VectorNd _cs_visc, _ct_visc;
 
     // temporaries for solve_inf_friction_lcp()
     Ravelin::MatrixNd _rJx_iM_JxT, _Y, _Q_iM_XT, _workM, _workM2;

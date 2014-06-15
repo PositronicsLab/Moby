@@ -126,18 +126,22 @@ void ImpactEventHandler::apply_model(const vector<Event>& events, double max_tim
       // determine a reduced set of events
       Event::determine_minimal_set(revents);
 
-      // look to see whether all contact events have infinite friction
-      bool all_inf = true;
+      // look to see whether all contact events have zero or infinite friction
+      bool all_inf = true, all_frictionless = true;
       BOOST_FOREACH(Event* e, revents)
-        if (e->event_type == Event::eContact && e->contact_mu_coulomb < 1e2)
+        if (e->event_type == Event::eContact)
         {
-          all_inf = false;
-          break;
+          if (e->contact_mu_coulomb < 1e2)
+            all_inf = false;
+          if (e->contact_mu_coulomb > 0.0)
+            all_frictionless = true;
         }
 
       // apply model to the reduced contacts
       if (all_inf)   
         apply_inf_friction_model_to_connected_events(revents);
+      else if (all_frictionless)
+        apply_visc_friction_model_to_connected_events(revents);
       else
         apply_model_to_connected_events(revents);
 
@@ -283,6 +287,65 @@ void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& eve
   }
 
   FILE_LOG(LOG_EVENT) << "ImpactEventHandler::apply_model_to_connected_events() exiting" << endl;
+}
+
+/**
+ * Applies purely viscous friction model to connected events 
+ * \param events a set of connected events 
+ */
+void ImpactEventHandler::apply_visc_friction_model_to_connected_events(const list<Event*>& events)
+{
+  FILE_LOG(LOG_EVENT) << "ImpactEventHandler::apply_visc_friction_model_to_connected_events() entered" << endl;
+
+  // reset problem data
+  _epd.reset();
+
+  // save the events
+  _epd.events = vector<Event*>(events.begin(), events.end());
+
+  // determine sets of contact and limit events
+  _epd.partition_events();
+
+  // compute all event cross-terms
+  compute_problem_data(_epd);
+
+  // clear all impulses 
+  for (unsigned i=0; i< _epd.N_CONTACTS; i++)
+    _epd.contact_events[i]->contact_impulse.set_zero(GLOBAL);
+  for (unsigned i=0; i< _epd.N_LIMITS; i++)
+    _epd.limit_events[i]->limit_impulse = 0.0;
+
+  // solve the viscous friction model 
+  apply_visc_friction_model(_epd);
+
+  // determine velocities due to impulse application
+  update_event_velocities_from_impulses(_epd);
+
+  // get the constraint violation before applying impulses
+  double minv = calc_min_constraint_velocity(_epd);
+
+  // apply restitution
+  if (apply_restitution(_epd))
+  {
+    // determine velocities due to impulse application
+    update_event_velocities_from_impulses(_epd);
+
+    // check to see whether we need to solve another impact problem
+    double minv_plus = calc_min_constraint_velocity(_epd);
+    FILE_LOG(LOG_EVENT) << "Applying restitution" << std::endl;
+    FILE_LOG(LOG_EVENT) << "  compression v+ minimum: " << minv << std::endl;
+    FILE_LOG(LOG_EVENT) << "  restitution v+ minimum: " << minv_plus << std::endl;
+    if (minv_plus < 0.0 && minv_plus < minv - NEAR_ZERO)
+    {
+      // need to solve another impact problem 
+      apply_visc_friction_model(_epd);
+    }  
+  }
+
+  // apply impulses 
+  apply_impulses(_epd);
+
+  FILE_LOG(LOG_EVENT) << "ImpactEventHandler::apply_visc_friction_model_to_connected_events() exiting" << endl;
 }
 
 /**
@@ -1062,6 +1125,58 @@ void ImpactEventHandler::compute_problem_data(EventProblemData& q)
   }
 }
 
+/// Solves the viscous friction LCP
+void ImpactEventHandler::apply_visc_friction_model(EventProblemData& q)
+{
+  // compute the (Coulomb) frictionless LCP
+  VectorNd z;
+  solve_frictionless_lcp(q, z);
+
+  // setup impulses 
+  q.cn = z.segment(q.CN_IDX, q.N_CONTACTS);
+  q.l = z.segment(q.L_IDX, q.L_IDX+q.N_LIMITS);
+  q.alpha_x = z.segment(q.ALPHA_X_IDX, q.ALPHA_X_IDX + q.N_CONSTRAINT_EQNS_IMP);
+  q.cs = _cs_visc;
+  q.ct = _ct_visc;
+  q.cs.negate();
+  q.ct.negate();
+
+  // setup a temporary frame
+  shared_ptr<Pose3d> P(new Pose3d);
+
+  // save contact impulses
+  for (unsigned i=0; i< q.N_CONTACTS; i++)
+  {
+    // setup the contact frame
+    P->q.set_identity();
+    P->x = q.contact_events[i]->contact_point;
+
+    // setup the impulse in the contact frame
+    Vector3d j;
+    j = q.contact_events[i]->contact_normal * q.cn[i];
+    j += q.contact_events[i]->contact_tan1 * q.cs[i];
+    j += q.contact_events[i]->contact_tan2 * q.ct[i];
+
+    // setup the spatial impulse
+    SMomentumd jx(boost::const_pointer_cast<const Pose3d>(P));
+    jx.set_linear(j);    
+
+    // transform the impulse to the global frame
+    q.contact_events[i]->contact_impulse += Pose3d::transform(GLOBAL, jx);
+  }
+
+  // save limit impulses
+  for (unsigned i=0; i< q.N_LIMITS; i++)
+  {
+    double limit_impulse = (q.limit_events[i]->limit_upper) ? -q.l[i] : q.l[i];
+    q.limit_events[i]->limit_impulse += limit_impulse; 
+  }
+
+  // TODO: setup joint constraint impulses here
+
+  FILE_LOG(LOG_EVENT) << "ImpulseEventHandler::apply_visc_friction_model() exited" << std::endl;
+}
+
 /// Solves the infinite friction LCP
 void ImpactEventHandler::apply_inf_friction_model(EventProblemData& q)
 {
@@ -1470,6 +1585,8 @@ void ImpactEventHandler::solve_frictionless_lcp(EventProblemData& q, VectorNd& z
   // u = alphax
   // v = [ cn; l ]
   // r = [ Cn*v+; L*v+ ] 
+  // a = v - inv(M)*S'*muv*S*v - inv(M)*T'*muv*T*v
+  // b = 0
 
   // Assuming that C is of full row rank (no dependent joint constraints)
   // A is invertible; then we just need to solve the LCP:
@@ -1508,6 +1625,24 @@ void ImpactEventHandler::solve_frictionless_lcp(EventProblemData& q, VectorNd& z
   _b.resize(NLIMITS+NCONTACTS);
   _b.set_sub_vec(0, q.Cn_v);
   _b.set_sub_vec(NCONTACTS, q.L_v);
+
+  // compute viscous friction terms
+  _cs_visc = q.Cs_v;
+  _ct_visc = q.Ct_v;
+  RowIteratord cs_visc_iter = _cs_visc.row_iterator_begin();
+  RowIteratord ct_visc_iter = _ct_visc.row_iterator_begin();
+  for (unsigned i=0; i< NCONTACTS; i++, cs_visc_iter++, ct_visc_iter++)
+  {
+    (*cs_visc_iter) *= q.contact_events[i]->contact_mu_viscous; 
+    (*ct_visc_iter) *= q.contact_events[i]->contact_mu_viscous; 
+  }
+
+  // compute viscous friction terms contributions in normal directions
+  SharedVectorNd bsub = _b.segment(0, NCONTACTS);
+  q.Cn_iM_CsT.mult(_cs_visc, _workv);
+  bsub -= _workv;
+  q.Cn_iM_CtT.mult(_ct_visc, _workv);
+  bsub -= _workv;
 
   // setup the LCP matrix
   _D.mult(_C, _MM);
