@@ -111,6 +111,61 @@ double BoxPrimitive::calc_signed_dist(shared_ptr<const Primitive> p, Point3d& pt
   return 0.0;
 }
 
+/// Finds closest point between a box and a sphere; returns the closest point on/in the box to the center of the sphere
+double BoxPrimitive::calc_closest_points(shared_ptr<const SpherePrimitive> s, Point3d& pbox, Point3d& psph) const
+{
+  const unsigned X = 0, Y = 1, Z = 2;
+  Origin3d l, u, c, p;
+  Matrix3d G;
+  static QP qp;
+
+  // get the sphere center in the box frame
+  Point3d sph_c(0.0, 0.0, 0.0, psph.pose);
+  Point3d sph_c_A = Pose3d::transform_point(pbox.pose, sph_c);
+
+  // setup the quadratic cost (identity matrix)
+  G.set_identity();
+
+  // setup the linear cost (-c, where c is sphere center)
+  c[X] = -sph_c_A[X];
+  c[Y] = -sph_c_A[Y];
+  c[Z] = -sph_c_A[Z];
+
+  // setup the box constraints
+  const double HALF_X = _xlen * 0.5;
+  const double HALF_Y = _ylen * 0.5;
+  const double HALF_Z = _zlen * 0.5;
+  l[X] = -HALF_X;  u[X] = HALF_X; 
+  l[Y] = -HALF_Y;  u[Y] = HALF_Y; 
+  l[Z] = -HALF_Z;  u[Z] = HALF_Z; 
+  
+  // solve the QP for the point nearest to the sphere center
+  qp.qp_gradproj(G, c, l, u, 100, p, NEAR_ZERO);
+
+  // setup the closest point on/in the box 
+  pbox[X] = p[X];
+  pbox[Y] = p[Y];
+  pbox[Z] = p[Z];
+
+  // setup the closest point on the sphere
+  psph = Pose3d::transform_point(psph.pose, pbox);
+
+  // get the sphere radius
+  const double R = s->get_radius();
+
+  // get the squared distance
+  double sq_dist = sqr(p[X]-c[X]) + sqr(p[Y]-c[Y]) + sqr(p[Z]-c[Z]) - R*R;
+  if (sq_dist > 0.0)
+  {
+    // sphere and box are not interpenetrating; find closest point on sphere
+    psph /= psph.norm();
+    psph *= R;
+    return std::sqrt(sq_dist);
+  }
+  else
+    return -std::sqrt(-sq_dist);
+}
+
 /// Gets the distance of this box from a sphere
 double BoxPrimitive::calc_signed_dist(shared_ptr<const SpherePrimitive> s, Point3d& pbox, Point3d& psph) const
 {

@@ -441,33 +441,33 @@ OutputIterator CCD::find_contacts_box_sphere(CollisionGeometryPtr cgA, Collision
   boost::shared_ptr<const Ravelin::Pose3d> box_pose = bA->get_pose(cgA);
   boost::shared_ptr<const Ravelin::Pose3d> sphere_pose = sB->get_pose(cgB);
 
-  // get the sphere center in a's frame 
-  Point3d sph_c(0.0, 0.0, 0.0, sphere_pose);
-  Point3d sph_c_A = Ravelin::Pose3d::transform_point(box_pose, sph_c);
-
-  // get the closest point
-  Point3d pbox(box_pose);
-  double dist = bA->calc_closest_point(sph_c_A, pbox) - sB->get_radius();
-  FILE_LOG(LOG_COLDET) << "CCD::find_contacts_box_sphere(): distance is " << dist << std::endl;
-  if (dist > NEAR_ZERO)
+  // find closest points
+  Point3d psph(sphere_pose), pbox(box_pose);
+  double dist = bA->calc_closest_points(sB, pbox, psph);
+  if (dist < NEAR_ZERO)
     return o;
 
-  // compute farthest interpenetration of box inside sphere
-  Point3d box_c(0.0, 0.0, 0.0, box_pose);
-  Ravelin::Vector3d normal = Ravelin::Pose3d::transform_point(GLOBAL, box_c);
-  normal.normalize();
+  // NOTE: we aren't actually finding the deepest point of interpenetration
+  // from the sphere into the box...
 
-  // determine closest point on the sphere 
-  Point3d psph = Ravelin::Pose3d::transform_point(GLOBAL, sph_c);
-  psph += normal * (sB->get_radius() + std::min(dist, 0.0));
-
-  // if the distance is greater than zero, return the midpoint
+  // if the distance between them is greater than zero, return the midpoint
+  // of the two points as the contact point
   Point3d p;
+  Ravelin::Vector3d normal;
   if (dist > 0.0)
-    p = (psph+Ravelin::Pose3d::transform_point(GLOBAL, pbox))*0.5;
+  {
+    Point3d psph_global = Ravelin::Pose3d::transform_point(GLOBAL, psph);
+    Point3d pbox_global = Ravelin::Pose3d::transform_point(GLOBAL, pbox); 
+    p = (psph_global + pbox_global)*0.5; 
+    normal = Ravelin::Vector3d::normalize(pbox_global - psph_global);
+  }
   else
-    p = psph;
-
+  {
+    p = Ravelin::Pose3d::transform_point(GLOBAL, psph);
+    normal = Ravelin::Pose3d::transform_vector(GLOBAL, psph);
+    normal.normalize(); 
+  }
+ 
   // create the contact
   *o++ = create_contact(cgA, cgB, p, normal);
 
