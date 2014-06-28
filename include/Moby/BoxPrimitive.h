@@ -38,6 +38,7 @@ class BoxPrimitive : public Primitive
     virtual double calc_signed_dist(boost::shared_ptr<const Primitive> p, Point3d& pthis, Point3d& pp) const;
     virtual void get_vertices(boost::shared_ptr<const Ravelin::Pose3d> P, std::vector<Point3d>& p) const;
     virtual double calc_signed_dist(const Point3d& p) const;
+    double calc_closest_points(boost::shared_ptr<const SpherePrimitive> s, Point3d& pbox, Point3d& psph) const;
 
     /// Get the x-length of this box
     double get_x_len() const { return _xlen; }
@@ -50,6 +51,7 @@ class BoxPrimitive : public Primitive
 
   private:
     enum FaceID { ePOSX, eNEGX, ePOSY, eNEGY, ePOSZ, eNEGZ };
+    static double sqr(double x) { return x*x; }
 
     virtual void calc_mass_properties();
 
