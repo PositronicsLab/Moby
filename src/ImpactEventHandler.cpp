@@ -1304,7 +1304,7 @@ void ImpactEventHandler::apply_inf_friction_model(EventProblemData& q)
     _Y.set_sub_mat(J_IDX, T_IDX, _MM, Ravelin::eTranspose);
     
     // skew the matrix away from positive definiteness
-    for (unsigned j=0; j< J_indices.size(); j++)
+    for (unsigned j=0; j< _Y.rows(); j++)
       _Y(j,j) -= NEAR_ZERO;
 
     // see whether check matrix can be Cholesky factorized
@@ -1342,7 +1342,7 @@ void ImpactEventHandler::apply_inf_friction_model(EventProblemData& q)
     _Y.set_sub_mat(J_IDX, T_IDX, _MM, Ravelin::eTranspose);
  
     // skew the matrix away from positive definiteness
-    for (unsigned j=0; j< J_indices.size(); j++)
+    for (unsigned j=0; j< _Y.rows(); j++)
       _Y(j,j) -= NEAR_ZERO;
 
     // see whether check matrix can be Cholesky factorized
