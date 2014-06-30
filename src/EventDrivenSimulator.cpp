@@ -4,6 +4,7 @@
  * License (found in COPYING).
  ****************************************************************************/
 
+#include <unistd.h>
 #include <boost/tuple/tuple.hpp>
 #include <Moby/XMLTree.h>
 #include <Moby/ArticulatedBody.h>
@@ -141,7 +142,7 @@ void EventDrivenSimulator::handle_acceleration_events()
   // tabulate times for event handling 
   tms cstop;  
   clock_t stop = times(&cstop);
-  event_time += (double) (stop-start)/CLOCKS_PER_SEC;
+  event_time += (double) (stop-start)/sysconf(_SC_CLK_TCK);
 
   // call the post-force application callback, if any 
   if (event_post_impulse_callback_fn)
@@ -522,7 +523,7 @@ void EventDrivenSimulator::handle_events()
   // tabulate times for event handling 
   tms cstop;  
   clock_t stop = times(&cstop);
-  event_time += (double) (stop-start)/CLOCKS_PER_SEC;
+  event_time += (double) (stop-start)/sysconf(_SC_CLK_TCK);
 
   // call the post-impulse application callback, if any 
   if (event_post_impulse_callback_fn)
