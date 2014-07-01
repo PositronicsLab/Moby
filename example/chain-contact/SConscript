@@ -1,6 +1,0 @@
-# import variables from calling scripts
-Import('env_copy')
-
-# build the symbolic dynamics code 
-env_copy.SharedLibrary('libchain2', ['chain_fdyn.cpp', 'chain_fkin.cpp', 'chain_idyn.cpp')
-
