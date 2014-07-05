@@ -296,6 +296,15 @@ void Joint::set_outboard_link(RigidBodyPtr outboard)
     ArticulatedBodyPtr abody2(_abody);
     assert(abody1 == abody2);
   }
+
+Pose3d Pparent = *get_inboard_link()->get_pose();
+Pose3d Pchild = *outboard->get_pose();
+Pparent.update_relative_pose(GLOBAL);
+Pchild.update_relative_pose(GLOBAL);
+std::cout << "joint (2): " << id << std::endl;
+std::cout << "inboard pose: " << Pparent << std::endl;
+std::cout << "outboard pose: " << Pchild << std::endl;
+
 }
 
 /// Sets the number of degrees-of-freedom for this joint
