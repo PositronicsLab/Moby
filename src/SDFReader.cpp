@@ -338,9 +338,9 @@ bool SDFReader::read_bool(shared_ptr<const XMLTree> node)
 {
   std::string val = node->content;
   std::transform(val.begin(), val.end(), val.begin(), ::tolower);
-  if (val == "false")
+  if (val == "false" || val == "0")
     return false;
-  else if (val == "true")
+  else if (val == "true" || val == "1")
     return true;
   else
     throw std::runtime_error("SDFReader::read_bool() - value is not a Boolean");
@@ -411,6 +411,9 @@ JointPtr SDFReader::read_joint(shared_ptr<const XMLTree> node, const std::map<st
     }
   }
 
+  // setup the generic components of the joint
+  joint->id = name;
+
   // read in the name of the parent link
   shared_ptr<const XMLTree> parent_tag = find_one_tag("parent", node);
   assert(parent_tag);
@@ -444,18 +447,35 @@ JointPtr SDFReader::read_joint(shared_ptr<const XMLTree> node, const std::map<st
   }
   child = link_map.find(child_link)->second;
 
-  // set child and parent
-  joint->set_inboard_link(parent);
-  joint->set_outboard_link(child);
-
+/*
   // read the pose (offset from child link to joint frame) in child link frame
   if (find_one_tag("pose", node))
   {
     *P = read_pose(node);
     P->rpose = child->get_pose();
-    P->update_relative_pose(parent->get_pose());
+    P->update_relative_pose(joint->get_pose()->rpose);
+Pose3d Pparent = *parent->get_pose();
+Pose3d Pjoint = *P;
+Pose3d Pchild = *child->get_pose();
+Pparent.update_relative_pose(GLOBAL);
+Pjoint.update_relative_pose(GLOBAL);
+Pchild.update_relative_pose(GLOBAL);
+std::cout << "joint (1): " << name << std::endl;
+std::cout << "inboard pose: " << Pparent << std::endl;
+std::cout << "outboard pose: " << Pchild << std::endl;
     joint->set_pose(P); 
   }
+*/
+Pose3d Pparent = *parent->get_pose();
+Pose3d Pchild = *child->get_pose();
+Pparent.update_relative_pose(GLOBAL);
+Pchild.update_relative_pose(GLOBAL);
+std::cout << "joint (1): " << name << std::endl;
+std::cout << "inboard pose: " << Pparent << std::endl;
+std::cout << "outboard pose: " << Pchild << std::endl;
+  // set child and parent
+  joint->set_inboard_link(parent);
+  joint->set_outboard_link(child);
 
   // read the axis tag (contains limits, joint damping/friction)
   shared_ptr<const XMLTree> axis_node = find_one_tag("axis", node);
@@ -591,9 +611,6 @@ JointPtr SDFReader::read_joint(shared_ptr<const XMLTree> node, const std::map<st
     }
   }
 
-  // setup the generic components of the joint
-  joint->id = name;
-
   return joint;
 }
 
@@ -606,10 +623,10 @@ PrimitivePtr SDFReader::read_sphere(shared_ptr<const XMLTree> node)
   // create a new Base object
   boost::shared_ptr<SpherePrimitive> s(new SpherePrimitive());
 
-  // get the radius attribute
-  XMLAttrib* radius_attr = node->get_attrib("radius");
-  if (radius_attr)
-    s->set_radius(radius_attr->get_real_value());
+  // get the radius 
+  shared_ptr<const XMLTree> radius_node = find_one_tag("radius", node);
+  if (radius_node)
+    s->set_radius(read_double(radius_node));
 
   return s;  
 }
@@ -627,11 +644,15 @@ PrimitivePtr SDFReader::read_cylinder(shared_ptr<const XMLTree> node)
   XMLAttrib* radius_attr = node->get_attrib("radius");
   XMLAttrib* len_attr = node->get_attrib("length");
 
+  // get the length and radius 
+  shared_ptr<const XMLTree> radius_node = find_one_tag("radius", node);
+  shared_ptr<const XMLTree> length_node = find_one_tag("length", node);
+
   // set values for the object
-  if (radius_attr && len_attr)
+  if (radius_node && length_node)
   {
-    c->set_radius(radius_attr->get_real_value());
-    c->set_height(len_attr->get_real_value());
+    c->set_radius(read_double(radius_node));
+    c->set_height(read_double(length_node));
   }
 
   return c;
@@ -649,11 +670,10 @@ PrimitivePtr SDFReader::read_plane(shared_ptr<const XMLTree> node)
   boost::shared_ptr<PlanePrimitive> b(new PlanePrimitive());
 
   // get the plane normal here
-  XMLAttrib* normal_attr = node->get_attrib("normal");
-  if (normal_attr)
+  shared_ptr<const XMLTree> normal_node = find_one_tag("normal", node);
+  if (normal_node)
   {
-    Vector3d normal;
-    normal_attr->get_vector_value(normal);
+    Vector3d normal = read_Vector3(normal_node);
 
     // determine *a* rotation matrix that converts from [0 1 0] to the normal
     Vector3d tan1, tan2;
@@ -712,13 +732,12 @@ PrimitivePtr SDFReader::read_box(shared_ptr<const XMLTree> node)
   boost::shared_ptr<BoxPrimitive> b(new BoxPrimitive());
 
   // get the length attributes, if specified
-  XMLAttrib* size_attr = node->get_attrib("size");
+  shared_ptr<const XMLTree> size_node = find_one_tag("size", node);
 
   // get the lengths
-  Vector3d len;
-  if (size_attr) 
+  if (size_node) 
   {
-    size_attr->get_vector_value(len);
+    Vector3d len = read_Vector3(size_node);
     b->set_size(len[X], len[Y], len[Z]);
   }
   
