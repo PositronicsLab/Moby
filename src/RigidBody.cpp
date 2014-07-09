@@ -163,8 +163,13 @@ shared_ptr<const Pose3d> RigidBody::get_computation_frame() const
 /// Rotates the rigid body
 void RigidBody::rotate(const Quatd& q)
 {
-  // update the rotation 
+  // save the current relative pose
+  shared_ptr<const Pose3d> Frel = _F->rpose;
+
+  // update the rotation
+  _F->update_relative_pose(GLOBAL);
   _F->q *= q;
+  _F->update_relative_pose(Frel);
 
   // invalidate vector quantities
   _forcei_valid = _forcem_valid = false;
@@ -234,8 +239,19 @@ MatrixNd& RigidBody::calc_jacobian(shared_ptr<const Pose3d> frame, DynamicBodyPt
 /// Translates the rigid body
 void RigidBody::translate(const Origin3d& x)
 {
-  // update the translation
+  // save the current relative pose
+  shared_ptr<const Pose3d> Frel = _F->rpose;
+
+  // update the translation 
+  _F->update_relative_pose(GLOBAL);
   _F->x += x;
+  _F->update_relative_pose(Frel);
+
+  // update the mixed pose 
+  _F2->set_identity();
+  _F2->rpose = _F;
+  _F2->update_relative_pose(GLOBAL);
+  _F2->q.set_identity();
 
   // invalidate vector quantities
   _forcei_valid = _forcem_valid = false;
