@@ -813,6 +813,22 @@ DynamicBodyPtr SDFReader::read_model(shared_ptr<const XMLTree> node, map<RigidBo
         sdata[links.back()] = sd;
     }
 
+    // transform each rigid body if desired
+    if (pose_node)
+    {
+      // read the pose
+      Pose3d P = read_pose(node);
+
+      BOOST_FOREACH(RigidBodyPtr link, links)
+      {
+        // apply the rotation first
+        link->rotate(P.q);
+
+        // apply the translation
+        link->translate(P.x);
+      }
+    }
+
     // construct a mapping from link id's to links
     std::map<std::string, RigidBodyPtr> link_map;
     for (unsigned i=0; i< links.size(); i++)
@@ -838,18 +854,6 @@ DynamicBodyPtr SDFReader::read_model(shared_ptr<const XMLTree> node, map<RigidBo
     if (name_attr)
       rcab->id = name_attr->get_string_value();
 
-    // transform the body if desired
-    if (pose_node)
-    {
-      // read the pose
-      Pose3d P = read_pose(node);
-
-      // apply the rotation first
-      rcab->rotate(P.q);
-
-      // apply the translation
-      rcab->translate(P.x);
-    }
  
     return rcab;
   }
