@@ -60,6 +60,7 @@ Simulator::~Simulator()
 /// Updates velocity bounds on all bodies
 void Simulator::update_bounds() const
 {
+  // bounds are checked in each body's prepare_calc_ode(.) function
   // now compute the bounds
   BOOST_FOREACH(DynamicBodyPtr db, _bodies)
   {
@@ -118,9 +119,6 @@ VectorNd& Simulator::ode(const VectorNd& x, double t, double dt, void* data, Vec
     // update idx
     idx += NGC+NGV;
   }
-
-  // update the velocity bounds
-  s->update_bounds();
 
   // check pairwise constraint violations
   s->check_pairwise_constraint_violations();

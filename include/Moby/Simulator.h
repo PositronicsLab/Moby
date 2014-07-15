@@ -78,7 +78,7 @@ class Simulator : public virtual Base
     double dynamics_time;
 
   protected:
-    virtual void check_pairwise_constraint_violations() { }
+    virtual double check_pairwise_constraint_violations() { return 0.0; }
     osg::Group* _persistent_vdata;
     osg::Group* _transient_vdata;
     void update_bounds() const;

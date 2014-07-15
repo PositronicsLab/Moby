@@ -511,7 +511,21 @@ int main(int argc, char** argv)
     else if (option.find("-of") != std::string::npos)
       OUTPUT_FRAME_RATE = true;
     else if (option.find("-ot") != std::string::npos)
+    {
+      std::cout << "timings/statistics information follows:" << std::endl;
+      std::cout << "-------------------------------------------" << std::endl;
+      std::cout << "column 1: iteration" << std::endl;
+      std::cout << "column 2: semi-implicit Euler steps / processing time" << std::endl;
+      std::cout << "column 3: event-free integration steps interrupted by invalid state / processing time" << std::endl;
+      std::cout << "column 4: event-free integration steps interrupted by invalid velocity / processing time" << std::endl;
+      std::cout << "column 5: integration steps interrupted by invalid state / processing time" << std::endl;
+      std::cout << "column 6: integration steps interrupted by invalid velocity / processing time" << std::endl;
+      std::cout << "column 7: failed acceleration solving events / processing time" << std::endl;
+      std::cout << "column 8: limit estimates exceeded / processing time" << std::endl;
+      std::cout << "column 9: successful integration calls / processing time" << std::endl;
+      std::cout << "-------------------------------------------" << std::endl;
       OUTPUT_TIMINGS = true;
+    }
     else if (option.find("-os") != std::string::npos)
       OUTPUT_STATS = true;
     else if (option.find("-oi") != std::string::npos)

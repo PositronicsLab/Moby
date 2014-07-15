@@ -1,6 +1,6 @@
 /// Determines contact data between two geometries that are touching or interpenetrating 
 template <class OutputIterator>
-OutputIterator CCD::find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin)
+OutputIterator CCD::find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL)
 {
   std::vector<Point3d> vA, vB;
   double dist;
@@ -12,40 +12,47 @@ OutputIterator CCD::find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr
   if (boost::dynamic_pointer_cast<SpherePrimitive>(pA))
   {
     if (boost::dynamic_pointer_cast<SpherePrimitive>(pB))
-      return find_contacts_sphere_sphere(cgA, cgB, output_begin);
+      return find_contacts_sphere_sphere(cgA, cgB, output_begin, TOL);
+    else if (boost::dynamic_pointer_cast<PlanePrimitive>(pB))
+      return find_contacts_sphere_plane(cgA, cgB, output_begin, TOL);
     else if (boost::dynamic_pointer_cast<BoxPrimitive>(pB))
-      return find_contacts_box_sphere(cgB, cgA, output_begin);
+      return find_contacts_box_sphere(cgB, cgA, output_begin, TOL);
     else if (boost::dynamic_pointer_cast<HeightmapPrimitive>(pB))
-      return find_contacts_sphere_heightmap(cgA, cgB, output_begin);
+      return find_contacts_sphere_heightmap(cgA, cgB, output_begin, TOL);
   }
   else if (boost::dynamic_pointer_cast<BoxPrimitive>(pA))
   {
     if (boost::dynamic_pointer_cast<SpherePrimitive>(pB))
-      return find_contacts_box_sphere(cgA, cgB, output_begin);
+      return find_contacts_box_sphere(cgA, cgB, output_begin, TOL);
   }
   else if (boost::dynamic_pointer_cast<HeightmapPrimitive>(pA))
   {
     if (boost::dynamic_pointer_cast<SpherePrimitive>(pB))
-      return find_contacts_sphere_heightmap(cgB, cgA, output_begin);
+      return find_contacts_sphere_heightmap(cgB, cgA, output_begin, TOL);
     else if (pB->is_convex())
-      return find_contacts_convex_heightmap(cgB, cgA, output_begin);
+      return find_contacts_convex_heightmap(cgB, cgA, output_begin, TOL);
     else
-      return find_contacts_heightmap_generic(cgA, cgB, output_begin); 
+      return find_contacts_heightmap_generic(cgA, cgB, output_begin, TOL); 
   }
   else if (boost::dynamic_pointer_cast<PlanePrimitive>(pA))
-    return find_contacts_plane_generic(cgA, cgB, output_begin); 
+  {
+    if (boost::dynamic_pointer_cast<SpherePrimitive>(pB))
+      return find_contacts_sphere_plane(cgB, cgA, output_begin, TOL);
+    else 
+      return find_contacts_plane_generic(cgA, cgB, output_begin, TOL); 
+  }
   else // no special case for A
   {
     if (boost::dynamic_pointer_cast<HeightmapPrimitive>(pB))
     {
       if (pA->is_convex())
-        return find_contacts_convex_heightmap(cgA, cgB, output_begin); 
+        return find_contacts_convex_heightmap(cgA, cgB, output_begin, TOL); 
       else
-        return find_contacts_heightmap_generic(cgB, cgA, output_begin); 
+        return find_contacts_heightmap_generic(cgB, cgA, output_begin, TOL); 
     }
     else if (boost::dynamic_pointer_cast<PlanePrimitive>(pB))
     {
-      return find_contacts_plane_generic(cgB, cgA, output_begin); 
+      return find_contacts_plane_generic(cgB, cgA, output_begin, TOL); 
     }
   }
 
@@ -57,7 +64,7 @@ OutputIterator CCD::find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr
   for (unsigned i=0; i< vA.size(); i++)
   {
     // see whether the point is inside the primitive
-    if ((dist = cgB->calc_dist_and_normal(vA[i], n)) <= NEAR_ZERO)
+    if ((dist = cgB->calc_dist_and_normal(vA[i], n)) <= TOL)
     {
       // add the contact point
       *output_begin++ = create_contact(cgA, cgB, vA[i], n); 
@@ -68,7 +75,7 @@ OutputIterator CCD::find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr
   for (unsigned i=0; i< vB.size(); i++)
   {
     // see whether the point is inside the primitive
-    if ((dist = cgA->calc_dist_and_normal(vB[i], n)) <= NEAR_ZERO)
+    if ((dist = cgA->calc_dist_and_normal(vB[i], n)) <= TOL)
     {
       // add the contact point
       *output_begin++ = create_contact(cgA, cgB, vB[i], -n); 
@@ -80,7 +87,53 @@ OutputIterator CCD::find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr
 
 // find the contacts between a plane and a generic shape      
 template <class OutputIterator>
-OutputIterator CCD::find_contacts_plane_generic(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator o)
+OutputIterator CCD::find_contacts_sphere_plane(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator o, double TOL)
+{
+  const unsigned X = 0, Y = 1, Z = 2;
+
+  // get the two primitives
+  boost::shared_ptr<SpherePrimitive> pA = boost::dynamic_pointer_cast<SpherePrimitive>(cgA->get_geometry());
+  boost::shared_ptr<PlanePrimitive> pB = boost::dynamic_pointer_cast<PlanePrimitive>(cgB->get_geometry());
+
+  FILE_LOG(LOG_COLDET) << "CCD::find_contacts_sphere_plane() entered with tolerance " << TOL << std::endl;
+  FILE_LOG(LOG_COLDET) << " body A: " << cgA->get_single_body()->id << std::endl;
+  FILE_LOG(LOG_COLDET) << " body B: " << cgB->get_single_body()->id << std::endl;
+
+  // get the poses for the two primitives
+  boost::shared_ptr<const Ravelin::Pose3d> sph_pose = pA->get_pose(cgA);
+  boost::shared_ptr<const Ravelin::Pose3d> plane_pose = pB->get_pose(cgB);
+
+  // get the sphere in the plane pose
+  Point3d sph_c(0.0, 0.0, 0.0, sph_pose);
+  Point3d sph_c_plane = Ravelin::Pose3d::transform_point(plane_pose, sph_c);   
+
+  // get the lowest point on the sphere
+  double dist = sph_c_plane[Y] - pA->get_radius();
+
+  // check the tolerance
+  if (dist > TOL)
+    return o;
+
+  // setup the contact point
+  Point3d p(sph_c_plane[X], 0.5*(sph_c_plane[Y] - pA->get_radius()), sph_c_plane[Z], plane_pose); 
+
+  // setup the normal
+  Ravelin::Vector3d n(0.0, 1.0, 0.0, plane_pose);
+  n = Ravelin::Pose3d::transform_vector(GLOBAL, n);
+ 
+  // check tolerance
+  *o++ = create_contact(cgA, cgB, Ravelin::Pose3d::transform_point(GLOBAL, p), n); 
+    
+  FILE_LOG(LOG_COLDET) << "CCD::find_contacts_plane_generic() exited" << std::endl;
+
+  // copy points to o
+  return o; 
+}
+
+
+// find the contacts between a plane and a generic shape      
+template <class OutputIterator>
+OutputIterator CCD::find_contacts_plane_generic(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator o, double TOL)
 {
   std::vector<Point3d> vB;
   double dist;
@@ -93,14 +146,22 @@ OutputIterator CCD::find_contacts_plane_generic(CollisionGeometryPtr cgA, Collis
   PrimitivePtr pB = cgB->get_geometry();
   BVPtr bvB = pB->get_BVH_root(cgB);
 
+  FILE_LOG(LOG_COLDET) << "CCD::find_contacts_plane_generic() entered with tolerance " << TOL << std::endl;
+  FILE_LOG(LOG_COLDET) << " body A: " << cgA->get_single_body()->id << std::endl;
+  FILE_LOG(LOG_COLDET) << " body B: " << cgB->get_single_body()->id << std::endl;
+
   // get the vertices from B
   cgB->get_vertices(vB);
 
   // examine all points from B against A
   for (unsigned i=0; i< vB.size(); i++)
   {
+    // compute the distance
+    double dist = cgA->calc_dist_and_normal(vB[i], n);
+
     // see whether the point is inside the primitive
-    if ((dist = cgA->calc_dist_and_normal(vB[i], n)) <= NEAR_ZERO)
+    FILE_LOG(LOG_COLDET) << "point " << vB[i] << " distance: " << dist << std::endl;
+    if (dist <= TOL)
     {
       // verify that we don't have a degenerate normal
       if (n.norm() < NEAR_ZERO)
@@ -110,13 +171,15 @@ OutputIterator CCD::find_contacts_plane_generic(CollisionGeometryPtr cgA, Collis
       *o++ = create_contact(cgA, cgB, vB[i], -n); 
     }
   }
+  
+  FILE_LOG(LOG_COLDET) << "CCD::find_contacts_plane_generic() exited" << std::endl;
 
   // copy points to o
   return o; 
 }
 
 template <class OutputIterator>
-OutputIterator CCD::find_contacts_heightmap_generic(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator o)
+OutputIterator CCD::find_contacts_heightmap_generic(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator o, double TOL)
 {
   std::vector<Point3d> vA, vB;
   double dist;
@@ -137,7 +200,7 @@ OutputIterator CCD::find_contacts_heightmap_generic(CollisionGeometryPtr cgA, Co
   for (unsigned i=0; i< vA.size(); i++)
   {
     // see whether the point is inside the primitive
-    if ((dist = cgB->calc_dist_and_normal(vA[i], n)) <= NEAR_ZERO)
+    if ((dist = cgB->calc_dist_and_normal(vA[i], n)) <= TOL)
     {
       // verify that we don't have a degenerate normal
       if (n.norm() < NEAR_ZERO)
@@ -152,7 +215,7 @@ OutputIterator CCD::find_contacts_heightmap_generic(CollisionGeometryPtr cgA, Co
   for (unsigned i=0; i< vB.size(); i++)
   {
     // see whether the point is inside the primitive
-    if ((dist = cgA->calc_dist_and_normal(vB[i], n)) <= NEAR_ZERO)
+    if ((dist = cgA->calc_dist_and_normal(vB[i], n)) <= TOL)
     {
       // verify that we don't have a degenerate normal
       if (n.norm() < NEAR_ZERO)
@@ -169,7 +232,7 @@ OutputIterator CCD::find_contacts_heightmap_generic(CollisionGeometryPtr cgA, Co
 
 /// Finds contacts between a sphere and a heightmap 
 template <class OutputIterator>
-OutputIterator CCD::find_contacts_sphere_heightmap(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin)
+OutputIterator CCD::find_contacts_sphere_heightmap(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL)
 {
   const unsigned X = 0, Z = 2;
 
@@ -202,7 +265,7 @@ OutputIterator CCD::find_contacts_sphere_heightmap(CollisionGeometryPtr cgA, Col
 
   // get the height of the lowest point on the sphere above the heightmap
   double min_sphere_dist = hmB->calc_height(sphere_lowest);  
-  if (min_sphere_dist < NEAR_ZERO)
+  if (min_sphere_dist < TOL)
   {
     // setup the contact point
     Point3d point = Ravelin::Pose3d::transform_point(GLOBAL, ps_c_B);
@@ -255,7 +318,7 @@ OutputIterator CCD::find_contacts_sphere_heightmap(CollisionGeometryPtr cgA, Col
       double dist = sA->calc_signed_dist(p_A);
 
       // ignore distance if it isn't sufficiently close
-      if (dist > NEAR_ZERO)
+      if (dist > TOL)
         continue;
 
       // setup the contact point
@@ -280,7 +343,7 @@ OutputIterator CCD::find_contacts_sphere_heightmap(CollisionGeometryPtr cgA, Col
 
 /// Finds contacts for a convex shape and a heightmap 
 template <class OutputIterator>
-OutputIterator CCD::find_contacts_convex_heightmap(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin)
+OutputIterator CCD::find_contacts_convex_heightmap(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL)
 {
   const unsigned X = 0, Z = 2;
 
@@ -308,7 +371,7 @@ OutputIterator CCD::find_contacts_convex_heightmap(CollisionGeometryPtr cgA, Col
   {
     Point3d pt = T.transform_point(cverts[i]);
     const double HEIGHT = hmB->calc_height(pt);
-    if (HEIGHT < NEAR_ZERO)
+    if (HEIGHT < TOL)
     {
       // setup the contact point
       Point3d point = Ravelin::Pose3d::transform_point(GLOBAL, pt);
@@ -362,7 +425,7 @@ OutputIterator CCD::find_contacts_convex_heightmap(CollisionGeometryPtr cgA, Col
       double dist = sA->calc_signed_dist(p_A);
 
       // ignore distance if it isn't sufficiently close
-      if (dist > NEAR_ZERO)
+      if (dist > TOL)
         continue;
 
       // setup the contact point
@@ -387,7 +450,7 @@ OutputIterator CCD::find_contacts_convex_heightmap(CollisionGeometryPtr cgA, Col
 
 /// Finds contacts for two spheres (one piece of code works for both separated and non-separated spheres)
 template <class OutputIterator>
-OutputIterator CCD::find_contacts_sphere_sphere(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin)
+OutputIterator CCD::find_contacts_sphere_sphere(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL)
 {
   // get the output iterator
   OutputIterator o = output_begin; 
@@ -431,7 +494,7 @@ OutputIterator CCD::find_contacts_sphere_sphere(CollisionGeometryPtr cgA, Collis
 
 /// Gets the distance of this box from a sphere
 template <class OutputIterator>
-OutputIterator CCD::find_contacts_box_sphere(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator o) 
+OutputIterator CCD::find_contacts_box_sphere(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator o, double TOL) 
 {
   // get the box and the sphere 
   boost::shared_ptr<BoxPrimitive> bA = boost::dynamic_pointer_cast<BoxPrimitive>(cgA->get_geometry());
@@ -444,7 +507,7 @@ OutputIterator CCD::find_contacts_box_sphere(CollisionGeometryPtr cgA, Collision
   // find closest points
   Point3d psph(sphere_pose), pbox(box_pose);
   double dist = bA->calc_closest_points(sB, pbox, psph);
-  if (dist < NEAR_ZERO)
+  if (dist < TOL)
     return o;
 
   // NOTE: we aren't actually finding the deepest point of interpenetration

@@ -193,10 +193,10 @@ VectorNd& EventDrivenSimulator::ode_accel_events(const VectorNd& x, double t, do
   s->update_bounds();
 
   // check pairwise constraint violations
-  s->check_pairwise_constraint_violations();
+  double min_dist = s->check_pairwise_constraint_violations();
 
   // find events
-  s->find_events();
+  s->find_events(min_dist + NEAR_ZERO);
   if (s->_events.empty())
     FILE_LOG(LOG_SIMULATOR) << " *** events vector is unexpectedly empty! ***" << std::endl;
 
@@ -649,8 +649,8 @@ double EventDrivenSimulator::step(double step_size)
   // called when we are restarting with new limits
   restart_with_new_limits:
 
-    // compute a Euler step for acceleration
-    calculate_bounds();
+    // mark estimates as valid
+    validate_limit_estimates();
 
     // save the state of the system
     save_state();
@@ -707,8 +707,31 @@ double EventDrivenSimulator::step(double step_size)
     {
       try
       {
+        FILE_LOG(LOG_SIMULATOR) << "safe_dt sufficiently large; doing event-free step" << std::endl;
+
         // do "smart" integration (watching for state violation) 
         integrate(safe_dt);
+
+        // check whether velocity estimates have been exceeded
+        BOOST_FOREACH(DynamicBodyPtr db, _bodies)
+        {
+          if (db->limit_estimates_exceeded())
+          {
+            FILE_LOG(LOG_SIMULATOR) << " ** limit estimates exceeded for body " << db->id << "; retrying with new estimates" << std::endl;
+  
+            // reset the state of all bodies 
+            restore_state();
+
+            // setup the statistics
+            step_stats[6]++;
+            clock_t stop = clock();
+            step_times[6] += (double) (stop-start)/CLOCKS_PER_SEC;
+            start = stop;
+
+            // attempt to integrate again using new CA info
+            goto restart_with_new_limits; 
+          }
+        }
 
         // update constraint violation after integration
         update_constraint_violations();
@@ -759,7 +782,7 @@ double EventDrivenSimulator::step(double step_size)
       try
       {
         // do "smart" integration (watching for state violation) 
-        integrate_with_accel_events(dt);
+        integrate_with_accel_events(accel_dt);
 
         // update constraint violation after integration
         update_constraint_violations();
@@ -822,30 +845,6 @@ double EventDrivenSimulator::step(double step_size)
       }
     }
 
-    // see whether there were any force or acceleration limits exceeded
-    if (safe_dt > 0.0)
-    {
-      BOOST_FOREACH(DynamicBodyPtr db, _bodies)
-      {
-        if (db->limit_estimates_exceeded())
-        {
-          FILE_LOG(LOG_SIMULATOR) << " ** limit estimates exceeded; retrying with new estimates" << std::endl;
-
-          // reset the state of all bodies 
-          restore_state();
-
-          // setup the statistics
-          step_stats[6]++;
-          clock_t stop = clock();
-          step_times[6] += (double) (stop-start)/CLOCKS_PER_SEC;
-          start = stop;
-
-          // attempt to integrate again using new CA info
-          goto restart_with_new_limits; 
-        }
-      }
-    }
-
     // setup the statistics
     step_stats[7]++;
     clock_t stop = clock();
@@ -872,6 +871,13 @@ double EventDrivenSimulator::step(double step_size)
     post_step_callback_fn(this);
   
   return step_size;
+}
+
+/// Validates limit estimates
+void EventDrivenSimulator::validate_limit_estimates()
+{
+  BOOST_FOREACH(DynamicBodyPtr body, _bodies)
+    body->validate_limit_estimates();
 }
 
 /// Saves the state of the system (all dynamic bodies) at the current time
@@ -947,8 +953,10 @@ void EventDrivenSimulator::check_constraint_velocity_violations()
 }
 
 /// Checks whether bodies violate interpenetration constraints
-void EventDrivenSimulator::check_pairwise_constraint_violations()
+double EventDrivenSimulator::check_pairwise_constraint_violations()
 {
+  double min_dist = std::numeric_limits<double>::max();
+
   // update constraint violation due to increasing interpenetration
   // loop over all pairs of geometries
   BOOST_FOREACH(CollisionGeometryPtr cg1, _geometries)
@@ -974,8 +982,13 @@ void EventDrivenSimulator::check_pairwise_constraint_violations()
         FILE_LOG(LOG_SIMULATOR) << "Interpenetration detected between " << cg1->get_single_body()->id << " and " << cg2->get_single_body()->id << ": " << d << std::endl;
         throw InvalidStateException();
       }
+
+      // update the minimum distance
+      min_dist = std::min(d, min_dist);
     }
   }
+
+  return std::max(0.0, min_dist);
 }
 
 /// Updates constraint violation after integration
@@ -1058,7 +1071,8 @@ void EventDrivenSimulator::reset_limit_estimates() const
   }
 }
 
-/// Calculates acceleration bounds on all bodies
+// TODO: remove this function (velocity bounds should be updated during the
+//       integration process)
 void EventDrivenSimulator::calculate_bounds() const
 {
   // now compute the bounds
@@ -1182,7 +1196,7 @@ void EventDrivenSimulator::integrate_positions_Euler(double dt)
 }
 
 /// Finds the set of events
-void EventDrivenSimulator::find_events()
+void EventDrivenSimulator::find_events(double min_contact_dist)
 {
   FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::find_events() entered" << std::endl;
 
@@ -1209,7 +1223,7 @@ void EventDrivenSimulator::find_events()
   for (unsigned i=0; i< _pairs_to_check.size(); i++)
   {
     const pair<CollisionGeometryPtr, CollisionGeometryPtr>& cgpair = _pairs_to_check[i];
-    _ccd.find_contacts(cgpair.first, cgpair.second, std::back_inserter(_events));  
+    _ccd.find_contacts(cgpair.first, cgpair.second, std::back_inserter(_events), min_contact_dist);  
   }
 
   if (LOGGING(LOG_SIMULATOR))
@@ -1282,7 +1296,7 @@ void EventDrivenSimulator::step_si_Euler(double dt)
   {
     // determine constraints (contacts, limits) that are currently active 
     FILE_LOG(LOG_SIMULATOR) << "   finding events" << std::endl;
-    find_events();
+    find_events(NEAR_ZERO);
 
     // solve events to yield new velocities
     FILE_LOG(LOG_SIMULATOR) << "   handling events" << std::endl;

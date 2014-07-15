@@ -105,7 +105,8 @@ class EventDrivenSimulator : public Simulator
     double max_event_time;
 
   protected:
-    virtual void check_pairwise_constraint_violations();
+    virtual double check_pairwise_constraint_violations();
+    void validate_limit_estimates();
 
   private:
     struct EventCmp
@@ -130,7 +131,7 @@ class EventDrivenSimulator : public Simulator
     void calc_fwd_dyn() const;
     void step_si_Euler(double dt);
     static void determine_treated_bodies(std::list<std::list<Event*> >& groups, std::vector<DynamicBodyPtr>& bodies);
-    void find_events();
+    void find_events(double min_contact_dist);
     void preprocess_event(Event& e);
     void handle_events();
     boost::shared_ptr<ContactParameters> get_contact_parameters(CollisionGeometryPtr geom1, CollisionGeometryPtr geom2) const;
