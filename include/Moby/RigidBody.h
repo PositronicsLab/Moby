@@ -117,8 +117,8 @@ class RigidBody : public SingleBody
     virtual void ode(double t, double dt, void* data, Ravelin::SharedVectorNd& dx);
     virtual void reset_limit_estimates();
     virtual bool limit_estimates_exceeded() const { return _vel_limit_exceeded; }
-    const Ravelin::SVelocityd& get_vel_upper_bounds() const { return _vel_limit_lo; }
-    const Ravelin::SVelocityd& get_vel_lower_bounds() const { return _vel_limit_hi; }
+    const Ravelin::SVelocityd& get_vel_upper_bounds() const { return _vel_limit_hi; }
+    const Ravelin::SVelocityd& get_vel_lower_bounds() const { return _vel_limit_lo; }
     void update_vel_limits();
 
     template <class OutputIterator>
@@ -199,6 +199,9 @@ class RigidBody : public SingleBody
 
     /// Viscous coefficient for dampening the body motion
     Ravelin::VectorNd viscous_coeff;
+
+    /// Validates the limit estimates
+    virtual void validate_limit_estimates() { _vel_limit_exceeded = false; }
 
   private:  
     template <class V>

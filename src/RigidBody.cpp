@@ -88,9 +88,28 @@ RigidBody::RigidBody()
 /// Resets the acceleration limit estimates
 void RigidBody::reset_limit_estimates()
 {
+  const unsigned SPATIAL_DIM = 6;
+  const double INC = 0.15;
+
+  // mark velocity limits as not exceeded
  _vel_limit_exceeded = false; 
- _vel_limit_lo.set_zero();
- _vel_limit_hi.set_zero();
+
+  SVelocityd v = Pose3d::transform(_F, get_velocity());
+  for (unsigned i=0; i< SPATIAL_DIM; i++)
+  {
+    _vel_limit_lo[i] = v[i];
+    _vel_limit_hi[i] = v[i];
+    if (v[i] < 0.0)
+    {
+      _vel_limit_lo[i] *= (1.0+INC);
+      _vel_limit_hi[i] *= (1.0-INC);
+    }
+    else
+    {
+      _vel_limit_lo[i] *= (1.0-INC);
+      _vel_limit_hi[i] *= (1.0+INC);
+    }
+  }
 }
 
 /// Updates this rigid body's velocity limit
@@ -106,9 +125,23 @@ void RigidBody::update_vel_limits()
   for (unsigned i=0; i< SPATIAL_DIM; i++)
   {
     if (v[i] < _vel_limit_lo[i])
-      _vel_limit_lo[i] = v[i]*(1.0-INC);
+    {
+      _vel_limit_lo[i] = v[i];
+      if (v[i] < 0.0)
+        _vel_limit_lo[i] *= (1.0+INC);
+      else
+        _vel_limit_lo[i] *= (1.0-INC);
+    }
     if (v[i] > _vel_limit_hi[i])
-      _vel_limit_hi[i] = v[i]*(1.0+INC);
+    {
+      _vel_limit_hi[i] = v[i];
+      if (v[i] < 0.0)
+        _vel_limit_hi[i] *= (1.0-INC);
+      else
+        _vel_limit_hi[i] *= (1.0+INC);
+    }
+      
+    assert(_vel_limit_lo[i] <= _vel_limit_hi[i]);
   }
 }
 
@@ -116,23 +149,30 @@ void RigidBody::update_vel_limits()
 void RigidBody::check_vel_limit_exceeded_and_update()
 {
   const unsigned SPATIAL_DIM = 6;
+  const double INC = 0.15;
 
-  if (!_vel_limit_exceeded)
+  SVelocityd v = Pose3d::transform(_F, get_velocity());
+  for (unsigned i=0; i< SPATIAL_DIM; i++)
   {
-    SVelocityd v = Pose3d::transform(_F, get_velocity());
-    for (unsigned i=0; i< SPATIAL_DIM; i++)
+    if (v[i] < _vel_limit_lo[i])
     {
-      if (v[i] < _vel_limit_lo[i])
-      {
-        _vel_limit_lo[i] = v[i];
-        _vel_limit_exceeded = true;
-      }
-      if (v[i] > _vel_limit_hi[i])
-      {
-        _vel_limit_hi[i] = v[i];
-        _vel_limit_exceeded = true;
-      }
+      _vel_limit_lo[i] = v[i];
+       if (v[i] < 0.0)
+         _vel_limit_lo[i] *= (1.0+INC);
+       else
+         _vel_limit_lo[i] *= (1.0-INC);
+      _vel_limit_exceeded = true;
     }
+    if (v[i] > _vel_limit_hi[i])
+    {
+      _vel_limit_hi[i] = v[i];
+       if (v[i] < 0.0)
+         _vel_limit_hi[i] *= (1.0-INC);
+       else
+         _vel_limit_hi[i] *= (1.0+INC);
+      _vel_limit_exceeded = true;
+    }
+    assert(_vel_limit_lo[i] <= _vel_limit_hi[i]);
   }
 }
 
@@ -1960,7 +2000,7 @@ void RigidBody::prepare_to_calc_ode(SharedConstVectorNd& x, double t, double dt,
   set_generalized_velocity(DynamicBody::eSpatial, gv);
 
   // check whether velocity limits have been exceeded 
-  if (!_vel_limit_exceeded)
+//  if (!_vel_limit_exceeded)
     check_vel_limit_exceeded_and_update();
 
   // clear the force accumulators on the body

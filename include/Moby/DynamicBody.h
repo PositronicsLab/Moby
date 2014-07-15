@@ -44,6 +44,9 @@ class DynamicBody : public Visualizable
     /// Returns true if one or more of the limit estimates has been exceeded
     virtual bool limit_estimates_exceeded() const = 0;
 
+    /// Validates the limit estimates
+    virtual void validate_limit_estimates() = 0;
+
     /// Validates position-based variables (potentially dangerous for a user to call)
     virtual void validate_position_variables() { };
 

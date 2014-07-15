@@ -1302,8 +1302,10 @@ double Event::calc_event_accel() const
     double ddot = normal.dot(taa.get_linear() - tab.get_linear());
     ddot += 2.0*normal_dot.dot(tva.get_linear() - tvb.get_linear());
     #ifndef NDEBUG
-    if (!CompGeom::rel_equal(ddot, calc_event_accel2(*this), 1e-4))
+    static bool displayed_once = false;
+    if (!displayed_once && !CompGeom::rel_equal(ddot, calc_event_accel2(*this), 1e-4))
     {
+      displayed_once = true;
       std::cerr << "Event::calc_event_accel() warning: accelerations do not match to desired tolerance" << std::endl;
       std::cerr << " -- computed acceleration: " << ddot << std::endl;
       std::cerr << " -- checked acceleration: " << calc_event_accel2(*this) << std::endl;

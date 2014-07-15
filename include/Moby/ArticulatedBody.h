@@ -56,6 +56,7 @@ class ArticulatedBody : public DynamicBody
     virtual bool limit_estimates_exceeded() const;
     double find_next_joint_limit_time() const;
     void update_joint_vel_limits();
+    virtual void validate_limit_estimates();
 
     /// Gets the number of degrees-of-freedom permitted by explicit constraints
     virtual unsigned num_joint_dof_explicit() const = 0;
@@ -148,7 +149,7 @@ class ArticulatedBody : public DynamicBody
     Ravelin::VectorNd _dq;
 
     // indicates whether velocity bounds exceeded limits since being reset
-    bool _vel_limits_exceeded;
+    bool _vel_limit_exceeded;
 
     void check_joint_vel_limit_exceeded_and_update();
     virtual double get_aspeed();

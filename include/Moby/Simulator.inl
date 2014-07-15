@@ -33,9 +33,6 @@ double Simulator::integrate(double step_size, ForwardIterator begin, ForwardIter
       continue;
     }
 
-    // reset limit estimates
-    (*i)->reset_limit_estimates();
-
     // update the state size
     state_sz += (*i)->num_generalized_coordinates(DynamicBody::eEuler);
     state_sz += (*i)->num_generalized_coordinates(DynamicBody::eSpatial);

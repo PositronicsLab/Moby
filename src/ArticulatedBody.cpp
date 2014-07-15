@@ -39,7 +39,7 @@ void ArticulatedBody::integrate(double t, double h, shared_ptr<Integrator> integ
   FILE_LOG(LOG_DYNAMICS) << "ArticulatedBody::integrate() - integrating from " << t << " by " << h << std::endl;
 
   // reset the acceleration events exceeded
-  _vel_limits_exceeded = false;
+  _vel_limit_exceeded = false;
 
   if (_kinematic_update)
   {
@@ -67,20 +67,37 @@ void ArticulatedBody::integrate(double t, double h, shared_ptr<Integrator> integ
 
 void ArticulatedBody::reset_limit_estimates()
 {
+  const double INC = 0.15;  // set estimates w/in 15% of their current values
+
   // reset the acceleration events exceeded
-  _vel_limits_exceeded = false;
+  _vel_limit_exceeded = false;
 
   // clear the force limits on the individual rigid bodies
   BOOST_FOREACH(RigidBodyPtr link, _links)
     link->reset_limit_estimates();
 
-  // clear the acceleration limits
+  // clear the velocity limits
   const unsigned N = num_joint_dof();
   _vel_limits_lo.resize(N);
   _vel_limits_hi.resize(N);
 
-  std::fill(_vel_limits_lo.begin(), _vel_limits_lo.end(), 0.0);
-  std::fill(_vel_limits_hi.begin(), _vel_limits_hi.end(), 0.0);
+  // update estimates
+  for (unsigned i=0, j=0; i< _joints.size(); i++)
+  {
+    for (unsigned k=0; k< _joints[i]->num_dof(); k++, j++)
+    {
+      _vel_limits_lo[j] = _joints[i]->qd[k];
+      if (_vel_limits_lo[k] < 0.0)
+        _vel_limits_lo[k] *= (1.0 + INC);
+      else
+        _vel_limits_lo[k] *= (1.0 - INC);
+      _vel_limits_hi[j] = _joints[i]->qd[k];
+      if (_vel_limits_hi[k] < 0.0)
+        _vel_limits_hi[k] *= (1.0 - INC);
+      else
+        _vel_limits_hi[k] *= (1.0 + INC);
+    }
+  }
 }
 
 /// Returns the ODE's for position and velocity (concatenated into x) without throwing an exception
@@ -128,12 +145,10 @@ void ArticulatedBody::ode_noexcept(SharedConstVectorNd& x, double t, double dt, 
   // check whether velocity limits on the individual rigid bodies have been
   // violated
   BOOST_FOREACH(RigidBodyPtr rb, _links)
-    if (!rb->_vel_limit_exceeded)
-      rb->check_vel_limit_exceeded_and_update();
+    rb->check_vel_limit_exceeded_and_update();
 
   // check whether joint velocities have been violated 
-  if (!_vel_limits_exceeded)
-    check_joint_vel_limit_exceeded_and_update();
+  check_joint_vel_limit_exceeded_and_update();
 }
 
 /// Prepares to compute the ODE  
@@ -160,12 +175,10 @@ void ArticulatedBody::prepare_to_calc_ode_accel_events(SharedConstVectorNd& x, d
   // check whether velocity limits on the individual rigid bodies have been
   // violated
   BOOST_FOREACH(RigidBodyPtr rb, _links)
-    if (!rb->_vel_limit_exceeded)
-      rb->check_vel_limit_exceeded_and_update();
+    rb->check_vel_limit_exceeded_and_update();
 
   // check whether joint velocities have been violated 
-  if (!_vel_limits_exceeded)
-    check_joint_vel_limit_exceeded_and_update();
+  check_joint_vel_limit_exceeded_and_update();
 
   // clear the force accumulators on the body
   reset_accumulators();
@@ -208,7 +221,7 @@ void ArticulatedBody::prepare_to_calc_ode(SharedConstVectorNd& x, double t, doub
       rb->check_vel_limit_exceeded_and_update();
 
   // check whether joint velocities have been violated 
-  if (!_vel_limits_exceeded)
+  if (!_vel_limit_exceeded)
     check_joint_vel_limit_exceeded_and_update();
 
   // clear the force accumulators on the body
@@ -241,6 +254,7 @@ void ArticulatedBody::ode(double t, double dt, void* data, SharedVectorNd& dx)
   get_generalized_acceleration(dgv);
 }
 
+// TODO: remove this
 /// Updates joint constraint violation (after integration)
 void ArticulatedBody::update_joint_constraint_violations()
 {
@@ -407,11 +421,19 @@ double ArticulatedBody::calc_CA_time_for_joints() const
   return dt;
 }
 
+/// Validates the limit estimates
+void ArticulatedBody::validate_limit_estimates()
+{
+  _vel_limit_exceeded = false;
+  for (unsigned i=0; i< _links.size(); i++)
+    _links[i]->validate_limit_estimates();
+}
+
 /// Determines whether the joint acceleration or link force estimates have been exceeded
 bool ArticulatedBody::limit_estimates_exceeded() const
 {
   // first look for the joint acceleration being exceeded
-  if (_vel_limits_exceeded)
+  if (_vel_limit_exceeded)
     return true;
 
   // now look for the link force estimates being exceeded
@@ -430,31 +452,7 @@ void ArticulatedBody::update_joint_vel_limits()
   _vel_limits_hi.resize(num_joint_dof());
 
   // reset the velocity limits exceeded
-  _vel_limits_exceeded = false;
-
-  for (unsigned i=0, k=0; i< _joints.size(); i++)
-  {
-    // loop over all DOF
-    for (unsigned j=0; j< _joints[i]->num_dof(); j++, k++)
-    {
-      if (_joints[i]->qd[j] < _vel_limits_lo[k])
-        _vel_limits_lo[k] = _joints[i]->qd[j]*(1.0-INC);
-      if (_joints[i]->qd[j] > _vel_limits_hi[k])
-        _vel_limits_hi[k] = _joints[i]->qd[j]*(1.0+INC);
-    }
-  }
-}
-
-/// Checks whether a joint velocity exceeded the given limits, and updates the limits if necessary
-void ArticulatedBody::check_joint_vel_limit_exceeded_and_update()
-{
-  // obvious check
-  if (_vel_limits_lo.size() != num_joint_dof() ||
-      _vel_limits_hi.size() != num_joint_dof())
-    throw std::runtime_error("Joint velocities have not been setup!");
-
-  // flag that indicated we've updated
-  bool upd = false;
+  _vel_limit_exceeded = false;
 
   for (unsigned i=0, k=0; i< _joints.size(); i++)
   {
@@ -464,18 +462,58 @@ void ArticulatedBody::check_joint_vel_limit_exceeded_and_update()
       if (_joints[i]->qd[j] < _vel_limits_lo[k])
       {
         _vel_limits_lo[k] = _joints[i]->qd[j];
-        upd = true;
+        if (_vel_limits_lo[k] < 0.0)
+          _vel_limits_lo[k] *= (1.0 + INC);
+        else
+          _vel_limits_lo[k] *= (1.0 - INC);
       }
       if (_joints[i]->qd[j] > _vel_limits_hi[k])
       {
         _vel_limits_hi[k] = _joints[i]->qd[j];
-        upd = true;
+        if (_vel_limits_hi[k] < 0.0)
+          _vel_limits_hi[k] *= (1.0 - INC);
+        else
+          _vel_limits_hi[k] *= (1.0 + INC);
+      }
+    }
+  }
+}
+
+/// Checks whether a joint velocity exceeded the given limits, and updates the limits if necessary
+void ArticulatedBody::check_joint_vel_limit_exceeded_and_update()
+{
+  const double INC = 0.15;
+
+  // obvious check
+  if (_vel_limits_lo.size() != num_joint_dof() ||
+      _vel_limits_hi.size() != num_joint_dof())
+    throw std::runtime_error("Joint velocities have not been setup!");
+
+  for (unsigned i=0, k=0; i< _joints.size(); i++)
+  {
+    // loop over all DOF
+    for (unsigned j=0; j< _joints[i]->num_dof(); j++, k++)
+    {
+      if (_joints[i]->qd[j] < _vel_limits_lo[k])
+      {
+        _vel_limits_lo[k] = _joints[i]->qd[j];
+        if (_vel_limits_lo[k] < 0.0)
+          _vel_limits_lo[k] *= (1.0 + INC);
+        else
+          _vel_limits_lo[k] *= (1.0 - INC);
+        _vel_limit_exceeded = true;
+      }
+      if (_joints[i]->qd[j] > _vel_limits_hi[k])
+      {
+        _vel_limits_hi[k] = _joints[i]->qd[j];
+        if (_vel_limits_hi[k] < 0.0)
+          _vel_limits_hi[k] *= (1.0 - INC);
+        else
+          _vel_limits_hi[k] *= (1.0 + INC);
+        _vel_limit_exceeded = true;
       } 
     }
   }
-
-  if (!_vel_limits_exceeded && upd)
-    _vel_limits_exceeded = true;
 }
 
 /// Gets the time-derivative of the Jacobian
