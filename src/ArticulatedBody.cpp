@@ -30,6 +30,8 @@ using std::queue;
 
 ArticulatedBody::ArticulatedBody()
 {
+  // setup the default limit bound expansion
+  limit_bound_expansion = 0.15;
 }
 
 /// Integrates a dynamic body
@@ -67,8 +69,6 @@ void ArticulatedBody::integrate(double t, double h, shared_ptr<Integrator> integ
 
 void ArticulatedBody::reset_limit_estimates()
 {
-  const double INC = 0.15;  // set estimates w/in 15% of their current values
-
   // reset the acceleration events exceeded
   _vel_limit_exceeded = false;
 
@@ -88,14 +88,14 @@ void ArticulatedBody::reset_limit_estimates()
     {
       _vel_limits_lo[j] = _joints[i]->qd[k];
       if (_vel_limits_lo[k] < 0.0)
-        _vel_limits_lo[k] *= (1.0 + INC);
+        _vel_limits_lo[k] *= (1.0 + limit_bound_expansion);
       else
-        _vel_limits_lo[k] *= (1.0 - INC);
+        _vel_limits_lo[k] *= (1.0 - limit_bound_expansion);
       _vel_limits_hi[j] = _joints[i]->qd[k];
       if (_vel_limits_hi[k] < 0.0)
-        _vel_limits_hi[k] *= (1.0 - INC);
+        _vel_limits_hi[k] *= (1.0 - limit_bound_expansion);
       else
-        _vel_limits_hi[k] *= (1.0 + INC);
+        _vel_limits_hi[k] *= (1.0 + limit_bound_expansion);
     }
   }
 }
@@ -447,7 +447,6 @@ bool ArticulatedBody::limit_estimates_exceeded() const
 /// Updates the joint velocity limits
 void ArticulatedBody::update_joint_vel_limits()
 {
-  const double INC = 0.15;
   _vel_limits_lo.resize(num_joint_dof());
   _vel_limits_hi.resize(num_joint_dof());
 
@@ -463,17 +462,17 @@ void ArticulatedBody::update_joint_vel_limits()
       {
         _vel_limits_lo[k] = _joints[i]->qd[j];
         if (_vel_limits_lo[k] < 0.0)
-          _vel_limits_lo[k] *= (1.0 + INC);
+          _vel_limits_lo[k] *= (1.0 + limit_bound_expansion);
         else
-          _vel_limits_lo[k] *= (1.0 - INC);
+          _vel_limits_lo[k] *= (1.0 - limit_bound_expansion);
       }
       if (_joints[i]->qd[j] > _vel_limits_hi[k])
       {
         _vel_limits_hi[k] = _joints[i]->qd[j];
         if (_vel_limits_hi[k] < 0.0)
-          _vel_limits_hi[k] *= (1.0 - INC);
+          _vel_limits_hi[k] *= (1.0 - limit_bound_expansion);
         else
-          _vel_limits_hi[k] *= (1.0 + INC);
+          _vel_limits_hi[k] *= (1.0 + limit_bound_expansion);
       }
     }
   }
@@ -482,8 +481,6 @@ void ArticulatedBody::update_joint_vel_limits()
 /// Checks whether a joint velocity exceeded the given limits, and updates the limits if necessary
 void ArticulatedBody::check_joint_vel_limit_exceeded_and_update()
 {
-  const double INC = 0.15;
-
   // obvious check
   if (_vel_limits_lo.size() != num_joint_dof() ||
       _vel_limits_hi.size() != num_joint_dof())
@@ -498,18 +495,18 @@ void ArticulatedBody::check_joint_vel_limit_exceeded_and_update()
       {
         _vel_limits_lo[k] = _joints[i]->qd[j];
         if (_vel_limits_lo[k] < 0.0)
-          _vel_limits_lo[k] *= (1.0 + INC);
+          _vel_limits_lo[k] *= (1.0 + limit_bound_expansion);
         else
-          _vel_limits_lo[k] *= (1.0 - INC);
+          _vel_limits_lo[k] *= (1.0 - limit_bound_expansion);
         _vel_limit_exceeded = true;
       }
       if (_joints[i]->qd[j] > _vel_limits_hi[k])
       {
         _vel_limits_hi[k] = _joints[i]->qd[j];
         if (_vel_limits_hi[k] < 0.0)
-          _vel_limits_hi[k] *= (1.0 - INC);
+          _vel_limits_hi[k] *= (1.0 - limit_bound_expansion);
         else
-          _vel_limits_hi[k] *= (1.0 + INC);
+          _vel_limits_hi[k] *= (1.0 + limit_bound_expansion);
         _vel_limit_exceeded = true;
       } 
     }
@@ -995,6 +992,17 @@ void ArticulatedBody::load_from_xml(shared_ptr<const XMLTree> node, std::map<str
     // set the joints and links
     set_links_and_joints(vector<RigidBodyPtr>(links.begin(), links.end()), vector<JointPtr>(joints.begin(), joints.end()));
   }
+
+  // read the joint limit bound expansion, if provided
+  XMLAttrib* jlbe_attr = node->get_attrib("joint-limit-bound-expansion");
+  if (jlbe_attr)
+    limit_bound_expansion = jlbe_attr->get_real_value();
+
+  // read the link limit bound expansion, if provided
+  XMLAttrib* llbe_attr = node->get_attrib("link-limit-bound-expansion");
+  if (llbe_attr)
+    BOOST_FOREACH(RigidBodyPtr rb, _links)
+      rb->limit_bound_expansion = llbe_attr->get_real_value();
 }
 
 /// Saves this object to a XML tree
@@ -1028,5 +1036,8 @@ void ArticulatedBody::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Ba
     // write to this node
     _joints[i]->save_to_xml(child_node, shared_objects);
   }
+
+  // write the limit bound expansion
+  node->attribs.insert(XMLAttrib("limit-bound-expansion", limit_bound_expansion));
 }
 

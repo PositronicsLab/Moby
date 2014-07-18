@@ -121,7 +121,7 @@ VectorNd& Simulator::ode(const VectorNd& x, double t, double dt, void* data, Vec
   }
 
   // check pairwise constraint violations
-  s->check_pairwise_constraint_violations();
+  s->check_pairwise_constraint_violations(t);
 
   // loop through all bodies, computing forward dynamics 
   BOOST_FOREACH(DynamicBodyPtr db, s->_bodies)

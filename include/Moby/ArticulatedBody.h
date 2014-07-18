@@ -132,6 +132,9 @@ class ArticulatedBody : public DynamicBody
     /// The set of joints for this articulated body
     std::vector<JointPtr> _joints;
 
+    // the limit bound expansion for updating joint velocity limit estimates
+    double limit_bound_expansion;
+
   private:
     // joint constraint violation
     std::vector<double> _cvio;

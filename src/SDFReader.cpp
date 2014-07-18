@@ -447,32 +447,6 @@ JointPtr SDFReader::read_joint(shared_ptr<const XMLTree> node, const std::map<st
   }
   child = link_map.find(child_link)->second;
 
-/*
-  // read the pose (offset from child link to joint frame) in child link frame
-  if (find_one_tag("pose", node))
-  {
-    *P = read_pose(node);
-    P->rpose = child->get_pose();
-    P->update_relative_pose(joint->get_pose()->rpose);
-Pose3d Pparent = *parent->get_pose();
-Pose3d Pjoint = *P;
-Pose3d Pchild = *child->get_pose();
-Pparent.update_relative_pose(GLOBAL);
-Pjoint.update_relative_pose(GLOBAL);
-Pchild.update_relative_pose(GLOBAL);
-std::cout << "joint (1): " << name << std::endl;
-std::cout << "inboard pose: " << Pparent << std::endl;
-std::cout << "outboard pose: " << Pchild << std::endl;
-    joint->set_pose(P); 
-  }
-*/
-Pose3d Pparent = *parent->get_pose();
-Pose3d Pchild = *child->get_pose();
-Pparent.update_relative_pose(GLOBAL);
-Pchild.update_relative_pose(GLOBAL);
-std::cout << "joint (1): " << name << std::endl;
-std::cout << "inboard pose: " << Pparent << std::endl;
-std::cout << "outboard pose: " << Pchild << std::endl;
   // set child and parent
   joint->set_inboard_link(parent);
   joint->set_outboard_link(child);

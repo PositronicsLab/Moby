@@ -92,6 +92,15 @@ class EventDrivenSimulator : public Simulator
     /// stepping statistics
     unsigned step_stats[8];
 
+    /// the minimum integration step over a single step(.) call
+    double int_min_step_stat;
+
+    /// the maximum integration step over a single step(.) call
+    double int_max_step_stat;
+
+    /// the mean integration step over a single step(.) call
+    double int_mean_step_stat;
+
     /// The relative error tolerance for adaptive stepping (default=1e-8)
     double rel_err_tol;
 
@@ -105,7 +114,7 @@ class EventDrivenSimulator : public Simulator
     double max_event_time;
 
   protected:
-    virtual double check_pairwise_constraint_violations();
+    virtual double check_pairwise_constraint_violations(double t);
     void validate_limit_estimates();
 
   private:
@@ -121,7 +130,7 @@ class EventDrivenSimulator : public Simulator
     double integrate_with_accel_events(double step_size) { return integrate_with_accel_events(step_size, _bodies.begin(), _bodies.end()); }
 
     void handle_acceleration_events();
-    void check_constraint_velocity_violations();
+    void check_constraint_velocity_violations(double t);
     static Ravelin::VectorNd& ode_accel_events(const Ravelin::VectorNd& x, double t, double dt, void* data, Ravelin::VectorNd& dx);
     double compute_next_event_time() const;
     void integrate_velocities_Euler(double dt);
