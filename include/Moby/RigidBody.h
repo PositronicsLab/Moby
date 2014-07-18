@@ -203,6 +203,9 @@ class RigidBody : public SingleBody
     /// Validates the limit estimates
     virtual void validate_limit_estimates() { _vel_limit_exceeded = false; }
 
+    /// Limit bound expansion scalar (default = 0.15 = 15%)
+    double limit_bound_expansion;
+
   private:  
     template <class V>
     void get_generalized_coordinates_generic(DynamicBody::GeneralizedCoordinateType gctype, V& gc);

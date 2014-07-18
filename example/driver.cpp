@@ -229,6 +229,9 @@ void step(void* arg)
       std::cout << ITER << " ";
       for (unsigned i=0; i< 8; i++)
         std::cout << eds->step_stats[i] << " (" << eds->step_times[i] << ") ";
+      std::cout << eds->int_min_step_stat << "/";
+      std::cout << eds->int_mean_step_stat << "/";
+      std::cout << eds->int_max_step_stat;
       std::cout << std::endl;
     }
   }
@@ -514,15 +517,16 @@ int main(int argc, char** argv)
     {
       std::cout << "timings/statistics information follows:" << std::endl;
       std::cout << "-------------------------------------------" << std::endl;
-      std::cout << "column 1: iteration" << std::endl;
-      std::cout << "column 2: semi-implicit Euler steps / processing time" << std::endl;
-      std::cout << "column 3: event-free integration steps interrupted by invalid state / processing time" << std::endl;
-      std::cout << "column 4: event-free integration steps interrupted by invalid velocity / processing time" << std::endl;
-      std::cout << "column 5: integration steps interrupted by invalid state / processing time" << std::endl;
-      std::cout << "column 6: integration steps interrupted by invalid velocity / processing time" << std::endl;
-      std::cout << "column 7: failed acceleration solving events / processing time" << std::endl;
-      std::cout << "column 8: limit estimates exceeded / processing time" << std::endl;
-      std::cout << "column 9: successful integration calls / processing time" << std::endl;
+      std::cout << "column 1:  iteration" << std::endl;
+      std::cout << "column 2:  semi-implicit Euler steps / processing time" << std::endl;
+      std::cout << "column 3:  event-free integration steps interrupted by invalid state / processing time" << std::endl;
+      std::cout << "column 4:  event-free integration steps interrupted by invalid velocity / processing time" << std::endl;
+      std::cout << "column 5:  integration steps interrupted by invalid state / processing time" << std::endl;
+      std::cout << "column 6:  integration steps interrupted by invalid velocity / processing time" << std::endl;
+      std::cout << "column 7:  failed acceleration solving events / processing time" << std::endl;
+      std::cout << "column 8:  limit estimates exceeded / processing time" << std::endl;
+      std::cout << "column 9:  successful integration calls / processing time" << std::endl;
+      std::cout << "column 10: min/mean/max non-Euler, integration steps" << std::endl;
       std::cout << "-------------------------------------------" << std::endl;
       OUTPUT_TIMINGS = true;
     }

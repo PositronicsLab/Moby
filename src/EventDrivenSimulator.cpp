@@ -193,7 +193,7 @@ VectorNd& EventDrivenSimulator::ode_accel_events(const VectorNd& x, double t, do
   s->update_bounds();
 
   // check pairwise constraint violations
-  double min_dist = s->check_pairwise_constraint_violations();
+  double min_dist = s->check_pairwise_constraint_violations(t);
 
   // find events
   s->find_events(min_dist + NEAR_ZERO);
@@ -201,7 +201,7 @@ VectorNd& EventDrivenSimulator::ode_accel_events(const VectorNd& x, double t, do
     FILE_LOG(LOG_SIMULATOR) << " *** events vector is unexpectedly empty! ***" << std::endl;
 
   // check velocity violations for constraints
-  s->check_constraint_velocity_violations();
+  s->check_constraint_velocity_violations(t);
 
   // convert events to acceleration events
   for (unsigned i=0; i< s->_events.size(); i++)
@@ -595,6 +595,7 @@ void EventDrivenSimulator::determine_geometries()
 double EventDrivenSimulator::step(double step_size)
 {
   const double INF = std::numeric_limits<double>::max();
+  enum StatId { eEulerStat, eStateVioNoEventStat, eVelVioNoEventStat, eStateVioWithEventStat, eVelVioWithEventStat, eAccelFailStat, eLimitExceedStat, eIntStat };
 
   // clear timings
   dynamics_time = (double) 0.0;
@@ -604,6 +605,9 @@ double EventDrivenSimulator::step(double step_size)
   // clear statistics and step times
   std::fill(step_times, step_times+8, 0.0);
   std::fill(step_stats, step_stats+8, 0);
+  int_min_step_stat = INF;
+  int_max_step_stat = 0.0;
+  int_mean_step_stat = 0.0;
 
   // setup timer
   clock_t start = clock();
@@ -689,9 +693,9 @@ double EventDrivenSimulator::step(double step_size)
       update_constraint_violations();
 
       // setup the statistics
-      step_stats[0]++;
+      step_stats[eEulerStat]++;
       clock_t stop = clock();
-      step_times[0] += (double) (stop-start)/CLOCKS_PER_SEC;
+      step_times[eEulerStat] += (double) (stop-start)/CLOCKS_PER_SEC;
       start = stop;
 
       // call the mini-callback
@@ -723,15 +727,20 @@ double EventDrivenSimulator::step(double step_size)
             restore_state();
 
             // setup the statistics
-            step_stats[6]++;
+            step_stats[eLimitExceedStat]++;
             clock_t stop = clock();
-            step_times[6] += (double) (stop-start)/CLOCKS_PER_SEC;
+            step_times[eLimitExceedStat] += (double) (stop-start)/CLOCKS_PER_SEC;
             start = stop;
 
             // attempt to integrate again using new CA info
             goto restart_with_new_limits; 
           }
         }
+
+        // update integration statistics
+        int_max_step_stat = std::max(int_max_step_stat, safe_dt);
+        int_min_step_stat = std::min(int_min_step_stat, safe_dt);
+        int_mean_step_stat += safe_dt;
 
         // update constraint violation after integration
         update_constraint_violations();
@@ -744,9 +753,9 @@ double EventDrivenSimulator::step(double step_size)
         restore_state();
 
         // setup the statistics
-        step_stats[1]++;
+        step_stats[eStateVioNoEventStat]++;
         clock_t stop = clock();
-        step_times[1] += (double) (stop-start)/CLOCKS_PER_SEC;
+        step_times[eStateVioNoEventStat] += (double) (stop-start)/CLOCKS_PER_SEC;
         start = stop;
 
         // couldn't integrate that far; restart the integration with a smaller
@@ -757,20 +766,26 @@ double EventDrivenSimulator::step(double step_size)
       }
       catch (InvalidVelocityException e)
       {
-        FILE_LOG(LOG_SIMULATOR) << " ** attempted to evaluate derivative at invalid velocity; halfing acceleration step size to " << (safe_dt*0.5) << std::endl;
+        if (e.evaluation_time == current_time)
+          FILE_LOG(LOG_SIMULATOR) << " ** initial velocity infeasible" << std::endl;
+        else
+          FILE_LOG(LOG_SIMULATOR) << " ** attempted to evaluate derivative at invalid velocity; halfing acceleration step size to " << (safe_dt*0.5) << std::endl;
 
         // restore the state of the system (generalized coords/velocities)
         restore_state();
 
         // setup the statistics
-        step_stats[2]++;
+        step_stats[eVelVioNoEventStat]++;
         clock_t stop = clock();
-        step_times[2] += (double) (stop-start)/CLOCKS_PER_SEC;
+        step_times[eVelVioNoEventStat] += (double) (stop-start)/CLOCKS_PER_SEC;
         start = stop;
 
         // couldn't integrate that far; restart the integration with a smaller
         // step size
-        accel_dt *= 0.5;
+        if (e.evaluation_time == current_time)
+          accel_dt = 0.0;
+        else 
+          accel_dt *= 0.5;
         goto restart;
       }
     }
@@ -787,6 +802,11 @@ double EventDrivenSimulator::step(double step_size)
         // update constraint violation after integration
         update_constraint_violations();
 
+        // update integration statistics
+        int_max_step_stat = std::max(int_max_step_stat, accel_dt);
+        int_min_step_stat = std::min(int_min_step_stat, accel_dt);
+        int_mean_step_stat += accel_dt;
+
         FILE_LOG(LOG_SIMULATOR) << "Integration with acceleration events successful" << std::endl;
       }
       catch (InvalidStateException e)
@@ -797,9 +817,9 @@ double EventDrivenSimulator::step(double step_size)
         restore_state();
 
         // setup the statistics
-        step_stats[3]++;
+        step_stats[eStateVioWithEventStat]++;
         clock_t stop = clock();
-        step_times[3] += (double) (stop-start)/CLOCKS_PER_SEC;
+        step_times[eStateVioWithEventStat] += (double) (stop-start)/CLOCKS_PER_SEC;
         start = stop;
 
         // couldn't integrate that far; restart the integration with a smaller
@@ -809,20 +829,26 @@ double EventDrivenSimulator::step(double step_size)
       }
       catch (InvalidVelocityException e)
       {
-        FILE_LOG(LOG_SIMULATOR) << " ** attempted to evaluate derivative at invalid velocity; halving acceleration step size to " << (accel_dt*0.5) << std::endl;
+        if (e.evaluation_time == current_time)
+          FILE_LOG(LOG_SIMULATOR) << " ** initial velocity infeasible" << std::endl;
+        else
+          FILE_LOG(LOG_SIMULATOR) << " ** attempted to evaluate derivative at invalid velocity; halfing acceleration step size to " << (safe_dt*0.5) << std::endl;
 
         // restore the state of the system (generalized coords/velocities)
         restore_state();
 
         // setup the statistics
-        step_stats[4]++;
+        step_stats[eVelVioWithEventStat]++;
         clock_t stop = clock();
-        step_times[4] += (double) (stop-start)/CLOCKS_PER_SEC;
+        step_times[eVelVioWithEventStat] += (double) (stop-start)/CLOCKS_PER_SEC;
         start = stop;
 
         // couldn't integrate that far; restart the integration with a smaller
         // step size
-        accel_dt *= 0.5;
+        if (e.evaluation_time == current_time)
+          accel_dt = 0.0;
+        else
+          accel_dt *= 0.5;
         goto restart;
       }
       catch (AccelerationEventFailException e)
@@ -833,9 +859,9 @@ double EventDrivenSimulator::step(double step_size)
         restore_state();
 
         // setup the statistics
-        step_stats[5]++;
+        step_stats[eAccelFailStat]++;
         clock_t stop = clock();
-        step_times[5] += (double) (stop-start)/CLOCKS_PER_SEC;
+        step_times[eAccelFailStat] += (double) (stop-start)/CLOCKS_PER_SEC;
         start = stop;
 
         // failed to solve an LCP; reduce the acceleration step size and try
@@ -845,10 +871,10 @@ double EventDrivenSimulator::step(double step_size)
       }
     }
 
-    // setup the statistics
-    step_stats[7]++;
+    // update integration statistics
+    step_stats[eIntStat]++;
     clock_t stop = clock();
-    step_times[7] += (double) (stop-start)/CLOCKS_PER_SEC;
+    step_times[eIntStat] += (double) (stop-start)/CLOCKS_PER_SEC;
     start = stop;
 
     // no issues integrating; update h and call the mini-callback
@@ -869,6 +895,9 @@ double EventDrivenSimulator::step(double step_size)
   // call the callback 
   if (post_step_callback_fn)
     post_step_callback_fn(this);
+
+  // update mean statistic
+  int_mean_step_stat /= step_stats[eIntStat];
   
   return step_size;
 }
@@ -921,7 +950,7 @@ void EventDrivenSimulator::broad_phase(double dt)
 }
 
 /// Checks whether bodies violate contact constraint velocity tolerances
-void EventDrivenSimulator::check_constraint_velocity_violations()
+void EventDrivenSimulator::check_constraint_velocity_violations(double t)
 {
   FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::check_constraint_velocity_violations() entered" << std::endl;
 
@@ -945,7 +974,7 @@ void EventDrivenSimulator::check_constraint_velocity_violations()
     if (ev < -zv_tol->second - NEAR_ZERO)
     {
       FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::check_constraint_velocity_violations() about to throw exception..." << std::endl;
-      throw InvalidVelocityException(); 
+      throw InvalidVelocityException(t); 
     }
   }
 
@@ -953,7 +982,7 @@ void EventDrivenSimulator::check_constraint_velocity_violations()
 }
 
 /// Checks whether bodies violate interpenetration constraints
-double EventDrivenSimulator::check_pairwise_constraint_violations()
+double EventDrivenSimulator::check_pairwise_constraint_violations(double t)
 {
   double min_dist = std::numeric_limits<double>::max();
 

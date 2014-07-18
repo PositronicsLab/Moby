@@ -83,13 +83,15 @@ RigidBody::RigidBody()
 
   // indicate velocity limit has been exceeded (safe initialization)
  _vel_limit_exceeded = true; 
+
+  // setup the default limit bound expansion
+  limit_bound_expansion = 0.15;
 }
 
 /// Resets the acceleration limit estimates
 void RigidBody::reset_limit_estimates()
 {
   const unsigned SPATIAL_DIM = 6;
-  const double INC = 0.15;
 
   // mark velocity limits as not exceeded
  _vel_limit_exceeded = false; 
@@ -101,13 +103,13 @@ void RigidBody::reset_limit_estimates()
     _vel_limit_hi[i] = v[i];
     if (v[i] < 0.0)
     {
-      _vel_limit_lo[i] *= (1.0+INC);
-      _vel_limit_hi[i] *= (1.0-INC);
+      _vel_limit_lo[i] *= (1.0+limit_bound_expansion);
+      _vel_limit_hi[i] *= (1.0-limit_bound_expansion);
     }
     else
     {
-      _vel_limit_lo[i] *= (1.0-INC);
-      _vel_limit_hi[i] *= (1.0+INC);
+      _vel_limit_lo[i] *= (1.0-limit_bound_expansion);
+      _vel_limit_hi[i] *= (1.0+limit_bound_expansion);
     }
   }
 }
@@ -116,7 +118,6 @@ void RigidBody::reset_limit_estimates()
 void RigidBody::update_vel_limits()
 {
   const unsigned SPATIAL_DIM = 6;
-  const double INC = 0.15;
 
   // mark limit as not exceeded
   _vel_limit_exceeded = false;
@@ -128,17 +129,17 @@ void RigidBody::update_vel_limits()
     {
       _vel_limit_lo[i] = v[i];
       if (v[i] < 0.0)
-        _vel_limit_lo[i] *= (1.0+INC);
+        _vel_limit_lo[i] *= (1.0+limit_bound_expansion);
       else
-        _vel_limit_lo[i] *= (1.0-INC);
+        _vel_limit_lo[i] *= (1.0-limit_bound_expansion);
     }
     if (v[i] > _vel_limit_hi[i])
     {
       _vel_limit_hi[i] = v[i];
       if (v[i] < 0.0)
-        _vel_limit_hi[i] *= (1.0-INC);
+        _vel_limit_hi[i] *= (1.0-limit_bound_expansion);
       else
-        _vel_limit_hi[i] *= (1.0+INC);
+        _vel_limit_hi[i] *= (1.0+limit_bound_expansion);
     }
       
     assert(_vel_limit_lo[i] <= _vel_limit_hi[i]);
@@ -149,7 +150,6 @@ void RigidBody::update_vel_limits()
 void RigidBody::check_vel_limit_exceeded_and_update()
 {
   const unsigned SPATIAL_DIM = 6;
-  const double INC = 0.15;
 
   SVelocityd v = Pose3d::transform(_F, get_velocity());
   for (unsigned i=0; i< SPATIAL_DIM; i++)
@@ -158,18 +158,18 @@ void RigidBody::check_vel_limit_exceeded_and_update()
     {
       _vel_limit_lo[i] = v[i];
        if (v[i] < 0.0)
-         _vel_limit_lo[i] *= (1.0+INC);
+         _vel_limit_lo[i] *= (1.0+limit_bound_expansion);
        else
-         _vel_limit_lo[i] *= (1.0-INC);
+         _vel_limit_lo[i] *= (1.0-limit_bound_expansion);
       _vel_limit_exceeded = true;
     }
     if (v[i] > _vel_limit_hi[i])
     {
       _vel_limit_hi[i] = v[i];
        if (v[i] < 0.0)
-         _vel_limit_hi[i] *= (1.0-INC);
+         _vel_limit_hi[i] *= (1.0-limit_bound_expansion);
        else
-         _vel_limit_hi[i] *= (1.0+INC);
+         _vel_limit_hi[i] *= (1.0+limit_bound_expansion);
       _vel_limit_exceeded = true;
     }
     assert(_vel_limit_lo[i] <= _vel_limit_hi[i]);
@@ -848,6 +848,11 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
     set_inertia(J);
   }
 
+  // read the limit bound expansion, if provided
+  XMLAttrib* lbe_attr = node->get_attrib("limit-bound-expansion");
+  if (lbe_attr)
+    limit_bound_expansion = lbe_attr->get_real_value();
+
   // read the inertia matrix, if provided
   XMLAttrib* inertia_attr = node->get_attrib("inertia");
   if (inertia_attr)
@@ -1050,6 +1055,9 @@ void RigidBody::save_to_xml(XMLTreePtr node, list<shared_ptr<const Base> >& shar
 
   // save the mass
   node->attribs.insert(XMLAttrib("mass", _Jm.m));
+
+  // write the limit bound expansion
+  node->attribs.insert(XMLAttrib("limit-bound-expansion", limit_bound_expansion));
 
   // save the inertia
   node->attribs.insert(XMLAttrib("inertia", _Jm.J));

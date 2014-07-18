@@ -15,8 +15,8 @@ namespace Moby {
 class InvalidVelocityException : public std::runtime_error
 {
   public:
-    InvalidVelocityException() : std::runtime_error("Integrator tries to evaluate derivative at invalid velocity") {}
-    InvalidVelocityException(const char* error) : std::runtime_error(error) {}
+    InvalidVelocityException(double t) : std::runtime_error("Integrator tries to evaluate derivative at invalid velocity") { evaluation_time = t; }
+    double evaluation_time; 
 }; // end class
 
 } // end namespace
