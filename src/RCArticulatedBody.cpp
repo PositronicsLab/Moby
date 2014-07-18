@@ -1642,7 +1642,7 @@ VectorNd& RCArticulatedBody::get_generalized_forces(VectorNd& f)
 }
 
 /// Converts a force to a generalized force
-VectorNd& RCArticulatedBody::convert_to_generalized_force(SingleBodyPtr body, const SForced& w, const Point3d& p, VectorNd& gf)
+VectorNd& RCArticulatedBody::convert_to_generalized_force(SingleBodyPtr body, const SForced& w, VectorNd& gf)
 {
   const unsigned SPATIAL_DIM = 6;
   static vector<SVelocityd> J;
@@ -1651,8 +1651,6 @@ VectorNd& RCArticulatedBody::convert_to_generalized_force(SingleBodyPtr body, co
   // get the body as a rigid body
   RigidBodyPtr link = dynamic_pointer_cast<RigidBody>(body);
   assert(link);
-
-  // NOTE: we can ignore p, since we know what link the force is applied to
 
   // get the gc frame
   shared_ptr<const Pose3d> P = _links.front()->get_gc_pose();

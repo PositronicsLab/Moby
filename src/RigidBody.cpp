@@ -1699,13 +1699,13 @@ VectorNd& RigidBody::get_generalized_forces_single(VectorNd& gf)
 }
 
 /// Converts a force to a generalized force
-VectorNd& RigidBody::convert_to_generalized_force(SingleBodyPtr body, const SForced& w, const Point3d& p, VectorNd& gf) 
+VectorNd& RigidBody::convert_to_generalized_force(SingleBodyPtr body, const SForced& w, VectorNd& gf) 
 {
   // if this belongs to an articulated body, call the articulated body method
   if (!_abody.expired())
   {
     ArticulatedBodyPtr ab(_abody);
-    return ab->convert_to_generalized_force(body, w, p, gf); 
+    return ab->convert_to_generalized_force(body, w, gf); 
   }
   else
     return convert_to_generalized_force_single(body, w, gf);

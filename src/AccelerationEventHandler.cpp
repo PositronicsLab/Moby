@@ -165,7 +165,6 @@ void AccelerationEventHandler::apply_forces(const AccelerationEventData& q) cons
     // get the contact force
     const Event& c = * q.events[i];
     SForced w(c.contact_impulse);
-    const Point3d& p = c.contact_point;
 
     // get the two single bodies of the contact
     SingleBodyPtr sb1 = c.contact_geom1->get_single_body();
@@ -177,19 +176,19 @@ void AccelerationEventHandler::apply_forces(const AccelerationEventData& q) cons
 
     // convert force on first body to generalized forces
     if ((gj_iter = gj.find(b1)) == gj.end())
-      b1->convert_to_generalized_force(sb1, w, p, gj[b1]);
+      b1->convert_to_generalized_force(sb1, w, gj[b1]);
     else
     {
-      b1->convert_to_generalized_force(sb1, w, p, workv);
+      b1->convert_to_generalized_force(sb1, w, workv);
       gj_iter->second += workv;
     }
 
     // convert force on second body to generalized forces
     if ((gj_iter = gj.find(b2)) == gj.end())
-      b2->convert_to_generalized_force(sb2, -w, p, gj[b2]);
+      b2->convert_to_generalized_force(sb2, -w, gj[b2]);
     else
     {
-      b2->convert_to_generalized_force(sb2, -w, p, workv);
+      b2->convert_to_generalized_force(sb2, -w, workv);
       gj_iter->second += workv;
     }
   }

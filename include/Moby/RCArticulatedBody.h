@@ -74,7 +74,7 @@ class RCArticulatedBody : public ArticulatedBody
     virtual void set_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gv);
     virtual Ravelin::MatrixNd& get_generalized_inertia(Ravelin::MatrixNd& M);
     virtual Ravelin::VectorNd& get_generalized_forces(Ravelin::VectorNd& f);
-    virtual Ravelin::VectorNd& convert_to_generalized_force(SingleBodyPtr body, const Ravelin::SForced& w, const Point3d& p, Ravelin::VectorNd& gf);
+    virtual Ravelin::VectorNd& convert_to_generalized_force(SingleBodyPtr body, const Ravelin::SForced& w, Ravelin::VectorNd& gf);
     virtual unsigned num_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype) const;
     virtual void set_links_and_joints(const std::vector<RigidBodyPtr>& links, const std::vector<JointPtr>& joints);
     virtual unsigned num_joint_dof_implicit() const;
