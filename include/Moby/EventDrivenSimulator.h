@@ -12,6 +12,7 @@
 #include <Moby/Simulator.h>
 #include <Moby/ImpactEventHandler.h>
 #include <Moby/AccelerationEventHandler.h>
+#include <Moby/PairwiseDistInfo.h>
 #include <Moby/CCD.h>
 #include <Moby/Event.h>
 
@@ -87,10 +88,10 @@ class EventDrivenSimulator : public Simulator
     double event_time;
 
     /// stepping timings
-    double step_times[8];
+    double step_times[6];
 
     /// stepping statistics
-    unsigned step_stats[8];
+    unsigned step_stats[6];
 
     /// the minimum integration step over a single step(.) call
     double int_min_step_stat;
@@ -118,6 +119,9 @@ class EventDrivenSimulator : public Simulator
     void validate_limit_estimates();
 
   private:
+    enum IntegrationResult { eIntegrationSuccessful, eVelocityLimitExceeded, eMinStepReached };
+    IntegrationResult integrate_generic(double dt, clock_t& start);
+
     struct EventCmp
     {
       bool operator()(const Event& e1, const Event& e2) const;
@@ -132,7 +136,6 @@ class EventDrivenSimulator : public Simulator
     void handle_acceleration_events();
     void check_constraint_velocity_violations(double t);
     static Ravelin::VectorNd& ode_accel_events(const Ravelin::VectorNd& x, double t, double dt, void* data, Ravelin::VectorNd& dx);
-    double compute_next_event_time() const;
     void integrate_velocities_Euler(double dt);
     void integrate_positions_Euler(double dt);
     void save_state();
@@ -145,17 +148,21 @@ class EventDrivenSimulator : public Simulator
     void handle_events();
     boost::shared_ptr<ContactParameters> get_contact_parameters(CollisionGeometryPtr geom1, CollisionGeometryPtr geom2) const;
     double calc_CA_step();
-    void update_constraint_violations();
+    double calc_next_CA_step(double contact_dist_thresh) const;
+    void update_constraint_violations(const std::vector<PairwiseDistInfo>& pairwise_distances);
     void determine_geometries();
-    void calculate_bounds() const;
     void reset_limit_estimates() const;
     void broad_phase(double dt);
+    void calc_pairwise_distances();
 
     // Visualization functions
     void visualize_contact( Event& event );
 
     /// The continuous collision detection mechanism
     mutable CCD _ccd;
+
+    /// Pairwise distances at bodies' current configurations
+    std::vector<PairwiseDistInfo> _pairwise_distances;
 
     /// The derivative at the current time
     Ravelin::VectorNd _current_accel_dx;
@@ -183,6 +190,12 @@ class EventDrivenSimulator : public Simulator
 
     /// The minimum step for advancement
     double min_advance;
+
+    /// The distance threshold for a contact to be handled as an impact
+    double impacting_contact_dist_thresh; 
+
+    /// The distance threshold for a contact to be handled as a sustained contact 
+    double sustained_contact_dist_thresh;
 
     /// The geometries in the simulator
     std::vector<CollisionGeometryPtr> _geometries;

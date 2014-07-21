@@ -139,16 +139,6 @@ void AccelerationEventHandler::apply_model_to_connected_contacts(const list<Even
   // apply FORCES
   apply_forces(epd);
 
-  // check the normal acceleration
-  if (LOGGING(LOG_EVENT))
-  {
-    BOOST_FOREACH(const Event* e, contacts)
-    {
-      if (e->calc_event_accel() < -NEAR_ZERO)
-        FILE_LOG(LOG_EVENT) << "AccelerationEventHandler::apply_model_to_connected_contacts() warning- post-contact acceleration is unacceptably negative!" << std::endl;
-    }
-  }
-
   FILE_LOG(LOG_EVENT) << "AccelerationEventHandler::apply_model_to_connected_contacts() exiting" << endl;
 }
 

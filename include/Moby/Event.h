@@ -63,6 +63,9 @@ class Event
     /// The joint at which the limit is reached (for limit events)
     JointPtr limit_joint;
 
+    /// Signed violation for this event
+    double signed_violation;
+
     /// The coefficient of restitution for this limit
     double limit_epsilon;
 
