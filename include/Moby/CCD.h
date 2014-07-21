@@ -14,6 +14,7 @@
 #include <Moby/sorted_pair>
 #include <Moby/Log.h>
 #include <Moby/SpherePrimitive.h>
+#include <Moby/PairwiseDistInfo.h>
 #include <Moby/HeightmapPrimitive.h>
 #include <Moby/PlanePrimitive.h>
 #include <Moby/BoxPrimitive.h>
@@ -33,9 +34,8 @@ class CCD
     virtual ~CCD() {}
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
-    double find_next_contact_time(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB);
     void broad_phase(double dt, const std::vector<DynamicBodyPtr>& bodies, std::vector<std::pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check);
-    double calc_CA_step(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB);
+    double calc_CA_step(const PairwiseDistInfo& pdi);
 
     template <class OutputIterator>
     OutputIterator find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL = NEAR_ZERO);
@@ -96,7 +96,7 @@ class CCD
     double calc_max_dist_per_t(RigidBodyPtr rb, const Ravelin::Vector3d& n, double rmax);
     static double calc_max_velocity(RigidBodyPtr rb, const Ravelin::Vector3d& n, double rmax);
     bool intersect_BV_trees(boost::shared_ptr<BV> a, boost::shared_ptr<BV> b, const Ravelin::Transform3d& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b);
-    static Event create_contact(CollisionGeometryPtr a, CollisionGeometryPtr b, const Point3d& point, const Ravelin::Vector3d& normal);
+    static Event create_contact(CollisionGeometryPtr a, CollisionGeometryPtr b, const Point3d& point, const Ravelin::Vector3d& normal, double violation = 0.0);
 
     template <class OutputIterator>
     OutputIterator intersect_BV_leafs(BVPtr a, BVPtr b, const Ravelin::Transform3d& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b, OutputIterator output_begin) const;

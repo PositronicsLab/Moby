@@ -67,7 +67,7 @@ OutputIterator CCD::find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr
     if ((dist = cgB->calc_dist_and_normal(vA[i], n)) <= TOL)
     {
       // add the contact point
-      *output_begin++ = create_contact(cgA, cgB, vA[i], n); 
+      *output_begin++ = create_contact(cgA, cgB, vA[i], n, dist); 
     }
   }
 
@@ -78,7 +78,7 @@ OutputIterator CCD::find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr
     if ((dist = cgA->calc_dist_and_normal(vB[i], n)) <= TOL)
     {
       // add the contact point
-      *output_begin++ = create_contact(cgA, cgB, vB[i], -n); 
+      *output_begin++ = create_contact(cgA, cgB, vB[i], -n, dist); 
     }
   }
 
@@ -122,7 +122,7 @@ OutputIterator CCD::find_contacts_sphere_plane(CollisionGeometryPtr cgA, Collisi
   n = Ravelin::Pose3d::transform_vector(GLOBAL, n);
  
   // check tolerance
-  *o++ = create_contact(cgA, cgB, Ravelin::Pose3d::transform_point(GLOBAL, p), n); 
+  *o++ = create_contact(cgA, cgB, Ravelin::Pose3d::transform_point(GLOBAL, p), n, dist); 
     
   FILE_LOG(LOG_COLDET) << "CCD::find_contacts_plane_generic() exited" << std::endl;
 
@@ -168,7 +168,7 @@ OutputIterator CCD::find_contacts_plane_generic(CollisionGeometryPtr cgA, Collis
         continue;
 
       // add the contact point
-      *o++ = create_contact(cgA, cgB, vB[i], -n); 
+      *o++ = create_contact(cgA, cgB, vB[i], -n, dist); 
     }
   }
   
@@ -207,7 +207,7 @@ OutputIterator CCD::find_contacts_heightmap_generic(CollisionGeometryPtr cgA, Co
         continue;
 
       // add the contact point
-      *o++ = create_contact(cgA, cgB, vA[i], -n); 
+      *o++ = create_contact(cgA, cgB, vA[i], -n, dist); 
     }
   }
 
@@ -222,7 +222,7 @@ OutputIterator CCD::find_contacts_heightmap_generic(CollisionGeometryPtr cgA, Co
         continue;
 
       // add the contact point
-      *o++ = create_contact(cgA, cgB, vB[i], n); 
+      *o++ = create_contact(cgA, cgB, vB[i], n, dist); 
     }
   }
 
@@ -280,7 +280,7 @@ OutputIterator CCD::find_contacts_sphere_heightmap(CollisionGeometryPtr cgA, Col
       normal.normalize();
     }
     normal = Ravelin::Pose3d::transform_vector(GLOBAL, normal); 
-    contacts.push_back(create_contact(cgA, cgB, point, normal)); 
+    contacts.push_back(create_contact(cgA, cgB, point, normal, min_sphere_dist)); 
   }
 
   // get the corners of the bounding box in pB pose 
@@ -334,7 +334,7 @@ OutputIterator CCD::find_contacts_sphere_heightmap(CollisionGeometryPtr cgA, Col
         normal.normalize();
       }
       normal = Ravelin::Pose3d::transform_vector(GLOBAL, normal); 
-      contacts.push_back(create_contact(cgA, cgB, point, normal)); 
+      contacts.push_back(create_contact(cgA, cgB, point, normal, dist)); 
     }
 
   // create the normal pointing from B to A
@@ -386,7 +386,7 @@ OutputIterator CCD::find_contacts_convex_heightmap(CollisionGeometryPtr cgA, Col
         normal.normalize();
       }
       normal = Ravelin::Pose3d::transform_vector(GLOBAL, normal); 
-      contacts.push_back(create_contact(cgA, cgB, point, normal)); 
+      contacts.push_back(create_contact(cgA, cgB, point, normal, HEIGHT)); 
     }
   }
 
@@ -441,7 +441,7 @@ OutputIterator CCD::find_contacts_convex_heightmap(CollisionGeometryPtr cgA, Col
         normal.normalize();
       }
       normal = Ravelin::Pose3d::transform_vector(GLOBAL, normal); 
-      contacts.push_back(create_contact(cgA, cgB, point, normal)); 
+      contacts.push_back(create_contact(cgA, cgB, point, normal, dist)); 
     }
 
   // create the normal pointing from B to A
@@ -475,7 +475,8 @@ OutputIterator CCD::find_contacts_sphere_sphere(CollisionGeometryPtr cgA, Collis
 
   // determine the distance between the two spheres
   Ravelin::Vector3d d = cA0 - cB0;
-  if (d.norm() - sA->get_radius() - sB->get_radius())
+  double dist = d.norm() - sA->get_radius() - sB->get_radius();
+  if (dist < TOL)
     return o;  
 
   // get the closest points on the two spheres
@@ -487,7 +488,7 @@ OutputIterator CCD::find_contacts_sphere_sphere(CollisionGeometryPtr cgA, Collis
   Point3d p = (closest_A + closest_B)*0.5;
 
   // create the normal pointing from B to A
-  *o++ = create_contact(cgA, cgB, p, n); 
+  *o++ = create_contact(cgA, cgB, p, n, dist); 
 
   return o;    
 }
@@ -532,7 +533,7 @@ OutputIterator CCD::find_contacts_box_sphere(CollisionGeometryPtr cgA, Collision
   }
  
   // create the contact
-  *o++ = create_contact(cgA, cgB, p, normal);
+  *o++ = create_contact(cgA, cgB, p, normal, dist);
 
   return o;
 }

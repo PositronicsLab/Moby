@@ -59,6 +59,10 @@ EventDrivenSimulator::EventDrivenSimulator()
   // setup the standard Euler step
   euler_step = 1e-3;
 
+  // setup contact distance thresholds
+  impacting_contact_dist_thresh = 1e-6;
+  sustained_contact_dist_thresh = 1e-6;
+
   // setup absolute and relative error tolerances
   rel_err_tol = NEAR_ZERO;
   abs_err_tol = NEAR_ZERO;
@@ -196,7 +200,7 @@ VectorNd& EventDrivenSimulator::ode_accel_events(const VectorNd& x, double t, do
   double min_dist = s->check_pairwise_constraint_violations(t);
 
   // find events
-  s->find_events(min_dist + NEAR_ZERO);
+  s->find_events(s->sustained_contact_dist_thresh);
   if (s->_events.empty())
     FILE_LOG(LOG_SIMULATOR) << " *** events vector is unexpectedly empty! ***" << std::endl;
 
@@ -595,16 +599,15 @@ void EventDrivenSimulator::determine_geometries()
 double EventDrivenSimulator::step(double step_size)
 {
   const double INF = std::numeric_limits<double>::max();
-  enum StatId { eEulerStat, eStateVioNoEventStat, eVelVioNoEventStat, eStateVioWithEventStat, eVelVioWithEventStat, eAccelFailStat, eLimitExceedStat, eIntStat };
-
+ 
   // clear timings
   dynamics_time = (double) 0.0;
   event_time = (double) 0.0;
   coldet_time = (double) 0.0;
 
   // clear statistics and step times
-  std::fill(step_times, step_times+8, 0.0);
-  std::fill(step_stats, step_stats+8, 0);
+  std::fill(step_times, step_times+6, 0.0);
+  std::fill(step_stats, step_stats+6, 0);
   int_min_step_stat = INF;
   int_max_step_stat = 0.0;
   int_mean_step_stat = 0.0;
@@ -647,247 +650,98 @@ double EventDrivenSimulator::step(double step_size)
     // get amount remaining to step
     double dt = step_size - h;
 
-    // do broad-phase collision detection here
+    // do broad phase collision detection (must be done before any Euler steps)
     broad_phase(dt);
 
-  // called when we are restarting with new limits
-  restart_with_new_limits:
-
-    // mark estimates as valid
-    validate_limit_estimates();
-
-    // save the state of the system
-    save_state();
-
-    FILE_LOG(LOG_SIMULATOR) << "  determining conservative advancement time up to step of " << dt << std::endl;
-
-    // determine the maximum step according to conservative advancement
-    double safe_dt = std::min(calc_CA_step(), dt);
-    if (safe_dt < dt)
-      FILE_LOG(LOG_SIMULATOR) << "  maximum conservative step size: " << safe_dt << std::endl;
-
-    // initialize the acceleration-level event dt
-    double accel_dt = dt;
-
-  // called on integration restart
-  restart: 
-
-    // if there are events at the current time, one or more events could be
-    // impacting events, in which case the integration must occur by a 
-    // semi-implicit method. If no events are impacting, then we can integrate
-    // to the next impacting event (or to the end of the interval). 
-
-    // if accel_dt is small, use a semi-implicit Euler step to
-    // solve events, etc.
-    if (accel_dt <= euler_step)
+    // if dt is sufficiently small, do Euler step
+    if (dt <= euler_step)
     {
-      // restore the state of the system (generalized coords/velocities)
-      restore_state();
+      // do the Euler step
+      step_si_Euler(dt);
+      h += dt;
 
-      // maximize amount stepped
-      accel_dt = std::min(euler_step, dt);
-      step_si_Euler(accel_dt);
-      h += accel_dt;
+      // finish timing and record the stat
+      step_times[0] += (double) (clock() - start)/CLOCKS_PER_SEC;
+      step_stats[0]++;
 
-      // update constraint violation after integration
-      update_constraint_violations();
-
-      // setup the statistics
-      step_stats[eEulerStat]++;
-      clock_t stop = clock();
-      step_times[eEulerStat] += (double) (stop-start)/CLOCKS_PER_SEC;
-      start = stop;
-
-      // call the mini-callback
+       // call the mini-callback
       if (post_mini_step_callback_fn)
         post_mini_step_callback_fn(this);
 
-      // continue integrating
-      continue;
+      // break out of the while loop (could just call continue) 
+      break;
     }
 
-    // attempt to integrate forward by safe_dt *unless* it's too small
-    if (safe_dt > min_advance)
+    // compute pairwise distances at the current configuration
+    calc_pairwise_distances();
+
+    // update constraint violations
+    update_constraint_violations(_pairwise_distances);
+
+    // if there are any impacts at the current time, handle them
+    find_events(impacting_contact_dist_thresh);
+    handle_events();
+
+restart_with_new_limits:
+
+    // mark velocity estimates as valid
+    validate_limit_estimates();
+
+    // determine the maximum step according to conservative advancement
+    double safe_dt = std::min(calc_CA_step(), dt);
+    
+    // get next possible event time
+    double next_event_time = calc_next_CA_step(sustained_contact_dist_thresh); 
+
+    // we know that the current time is safe, so if the conservative
+    // advancement step is zero, set it to the next event time
+    if (safe_dt == 0.0)
+      safe_dt = std::min(dt, next_event_time);
+
+    // if (the distance between bodies is small (next_event_time will be 
+    // < INF if there is an event at the current time) and the next time of 
+    // contact is greater than an Euler step) or (safe_dt is greater than the 
+    // Euler step), we can *try* generic integration
+    if ((next_event_time < INF && next_event_time > euler_step) ||
+        safe_dt > euler_step)
     {
-      try
+      // try the integration
+      IntegrationResult istat = integrate_generic(safe_dt, start);
+
+      // if limits were exceeded during integration, compute the conservative
+      // advancement step and redo
+      if (istat == eVelocityLimitExceeded)
+        goto restart_with_new_limits;
+      else if (istat == eMinStepReached)
       {
-        FILE_LOG(LOG_SIMULATOR) << "safe_dt sufficiently large; doing event-free step" << std::endl;
+        // do Euler step; if we're here, we know euler_step < dt
+        step_si_Euler(euler_step);
+        h += euler_step;
 
-        // do "smart" integration (watching for state violation) 
-        integrate(safe_dt);
-
-        // check whether velocity estimates have been exceeded
-        BOOST_FOREACH(DynamicBodyPtr db, _bodies)
-        {
-          if (db->limit_estimates_exceeded())
-          {
-            FILE_LOG(LOG_SIMULATOR) << " ** limit estimates exceeded for body " << db->id << "; retrying with new estimates" << std::endl;
-  
-            // reset the state of all bodies 
-            restore_state();
-
-            // setup the statistics
-            step_stats[eLimitExceedStat]++;
-            clock_t stop = clock();
-            step_times[eLimitExceedStat] += (double) (stop-start)/CLOCKS_PER_SEC;
-            start = stop;
-
-            // attempt to integrate again using new CA info
-            goto restart_with_new_limits; 
-          }
-        }
-
-        // update integration statistics
-        int_max_step_stat = std::max(int_max_step_stat, safe_dt);
-        int_min_step_stat = std::min(int_min_step_stat, safe_dt);
-        int_mean_step_stat += safe_dt;
-
-        // update constraint violation after integration
-        update_constraint_violations();
+        // finish timing and record the stat
+        step_times[0] += (double) (clock() - start)/CLOCKS_PER_SEC;
+        step_stats[0]++;
+        start = clock();
       }
-      catch (InvalidStateException e)
+      else
       {
-        FILE_LOG(LOG_SIMULATOR) << " ** attempted to evaluate derivative at invalid state; halfing step size to " << (safe_dt*0.5) << std::endl;
-
-        // restore the state of the system (generalized coords/velocities)
-        restore_state();
-
-        // setup the statistics
-        step_stats[eStateVioNoEventStat]++;
-        clock_t stop = clock();
-        step_times[eStateVioNoEventStat] += (double) (stop-start)/CLOCKS_PER_SEC;
-        start = stop;
-
-        // couldn't integrate that far; restart the integration with a smaller
-        // step size
-        safe_dt *= 0.5;
-
-        goto restart;                                               
-      }
-      catch (InvalidVelocityException e)
-      {
-        if (e.evaluation_time == current_time)
-          FILE_LOG(LOG_SIMULATOR) << " ** initial velocity infeasible" << std::endl;
-        else
-          FILE_LOG(LOG_SIMULATOR) << " ** attempted to evaluate derivative at invalid velocity; halfing acceleration step size to " << (safe_dt*0.5) << std::endl;
-
-        // restore the state of the system (generalized coords/velocities)
-        restore_state();
-
-        // setup the statistics
-        step_stats[eVelVioNoEventStat]++;
-        clock_t stop = clock();
-        step_times[eVelVioNoEventStat] += (double) (stop-start)/CLOCKS_PER_SEC;
-        start = stop;
-
-        // couldn't integrate that far; restart the integration with a smaller
-        // step size
-        if (e.evaluation_time == current_time)
-          accel_dt = 0.0;
-        else 
-          accel_dt *= 0.5;
-        goto restart;
+        assert(istat == eIntegrationSuccessful);
+        h += safe_dt;
       }
     }
     else
     {
-      // safe dt is really small, which means that we have one or more events at 
-      // the current time; attempt to integrate forward by the safe acceleration
-      // step
-      try
-      {
-        // do "smart" integration (watching for state violation) 
-        integrate_with_accel_events(accel_dt);
+      // do Euler step
+      step_si_Euler(dt);
+      h += dt;
 
-        // update constraint violation after integration
-        update_constraint_violations();
-
-        // update integration statistics
-        int_max_step_stat = std::max(int_max_step_stat, accel_dt);
-        int_min_step_stat = std::min(int_min_step_stat, accel_dt);
-        int_mean_step_stat += accel_dt;
-
-        FILE_LOG(LOG_SIMULATOR) << "Integration with acceleration events successful" << std::endl;
-      }
-      catch (InvalidStateException e)
-      {
-        FILE_LOG(LOG_SIMULATOR) << " ** attempted to evaluate derivative at invalid state; halving acceleration step size to " << (accel_dt*0.5) << std::endl;
-
-        // restore the state of the system (generalized coords/velocities)
-        restore_state();
-
-        // setup the statistics
-        step_stats[eStateVioWithEventStat]++;
-        clock_t stop = clock();
-        step_times[eStateVioWithEventStat] += (double) (stop-start)/CLOCKS_PER_SEC;
-        start = stop;
-
-        // couldn't integrate that far; restart the integration with a smaller
-        // step size
-        accel_dt *= 0.5;
-        goto restart;
-      }
-      catch (InvalidVelocityException e)
-      {
-        if (e.evaluation_time == current_time)
-          FILE_LOG(LOG_SIMULATOR) << " ** initial velocity infeasible" << std::endl;
-        else
-          FILE_LOG(LOG_SIMULATOR) << " ** attempted to evaluate derivative at invalid velocity; halfing acceleration step size to " << (safe_dt*0.5) << std::endl;
-
-        // restore the state of the system (generalized coords/velocities)
-        restore_state();
-
-        // setup the statistics
-        step_stats[eVelVioWithEventStat]++;
-        clock_t stop = clock();
-        step_times[eVelVioWithEventStat] += (double) (stop-start)/CLOCKS_PER_SEC;
-        start = stop;
-
-        // couldn't integrate that far; restart the integration with a smaller
-        // step size
-        if (e.evaluation_time == current_time)
-          accel_dt = 0.0;
-        else
-          accel_dt *= 0.5;
-        goto restart;
-      }
-      catch (AccelerationEventFailException e)
-      {
-        FILE_LOG(LOG_SIMULATOR) << " ** failed to solve an LCP; halving step size" << std::endl;
-
-        // restore the state of the system (generalized coords/velocities)
-        restore_state();
-
-        // setup the statistics
-        step_stats[eAccelFailStat]++;
-        clock_t stop = clock();
-        step_times[eAccelFailStat] += (double) (stop-start)/CLOCKS_PER_SEC;
-        start = stop;
-
-        // failed to solve an LCP; reduce the acceleration step size and try
-        // again
-        accel_dt *= 0.5;
-        goto restart;
-      }
+      // finish timing, record the stat, and restart the clock
+      step_times[0] += (double) (clock() - start)/CLOCKS_PER_SEC;
+      step_stats[0]++;
+      start = clock();
     }
 
-    // update integration statistics
-    step_stats[eIntStat]++;
-    clock_t stop = clock();
-    step_times[eIntStat] += (double) (stop-start)/CLOCKS_PER_SEC;
-    start = stop;
-
-    // no issues integrating; update h and call the mini-callback
-    if (safe_dt > min_advance)
-    {
-      current_time += safe_dt;
-      h += safe_dt;
-    }
-    else
-    {
-      current_time += accel_dt;
-      h += accel_dt;
-    }
+    // call the mini-callback
     if (post_mini_step_callback_fn)
       post_mini_step_callback_fn(this);
   }
@@ -896,10 +750,150 @@ double EventDrivenSimulator::step(double step_size)
   if (post_step_callback_fn)
     post_step_callback_fn(this);
 
-  // update mean statistic
-  int_mean_step_stat /= step_stats[eIntStat];
-  
   return step_size;
+}
+
+/// Finds the next event time
+/**
+ * This method assumes an event is occurring at the current time. If an event
+ * is not occuring at the current time, this method will return INF.
+ * \note proper operation of this function is critical. If the function 
+ *       improperly designates an event as not occuring at the current time,
+ *       calc_next_CA_step(.) will return a small value and prevent large
+ *       integration steps from being taken. If the function improperly 
+ *       designates an event as occuring at the current time, constraint
+ *       violation could occur.
+ */
+double EventDrivenSimulator::calc_next_CA_step(double contact_dist_thresh) const
+{
+  const double INF = std::numeric_limits<double>::max();
+  bool found_one = false;
+  double next_event_time = INF;
+
+  // process each articulated body, looking for next joint events
+  for (unsigned i=0; i< _bodies.size(); i++)
+  {
+    // see whether the i'th body is articulated
+    ArticulatedBodyPtr ab = dynamic_pointer_cast<ArticulatedBody>(_bodies[i]);
+    if (!ab)
+      continue;
+
+    // if the body is kinematically controlled, do nothing
+    if (ab->get_kinematic())
+      continue;
+
+    // TODO: we need to modify this so we can see whether any joint limit
+    // events are active. We should be able to remove 
+    // find_next_joint_limit_time(.) and add a CA step for each joint
+
+    // get limit events in [t, t+dt] (if any)
+    next_event_time = std::min(next_event_time, ab->find_next_joint_limit_time());
+  }
+
+  // if the distance between any pair of bodies is sufficiently small
+  // get next possible event time
+  BOOST_FOREACH(const PairwiseDistInfo& pdi, _pairwise_distances)
+  {
+    // if the distance is below the threshold, we have found a current event 
+    if (pdi.dist < contact_dist_thresh)
+      found_one = true;
+    else
+      // not a current event, find when it could become active
+      next_event_time = std::min(next_event_time, _ccd.calc_CA_step(pdi));  
+  }
+
+  if (!found_one)
+    return INF;
+  else
+    return next_event_time;
+}
+
+/// Attempts to do generic integration
+EventDrivenSimulator::IntegrationResult EventDrivenSimulator::integrate_generic(double dt, clock_t& start)
+{
+  do
+  {
+    // save the state of the system
+    save_state();
+
+    try
+    {
+      // do "smart" integration (watching for state violation) 
+      integrate_with_accel_events(dt);
+
+      FILE_LOG(LOG_SIMULATOR) << "Integration with acceleration events successful" << std::endl;
+
+      // check whether velocity estimates have been exceeded
+      BOOST_FOREACH(DynamicBodyPtr db, _bodies)
+      {
+        if (db->limit_estimates_exceeded())
+        {
+          FILE_LOG(LOG_SIMULATOR) << " ** limit estimates exceeded for body " << db->id << "; retrying with new estimates" << std::endl;
+  
+          // reset the state of all bodies 
+          restore_state();
+
+          // update the stats and the clock
+          step_stats[4]++;
+          step_times[4] += (double) (clock() - start)/CLOCKS_PER_SEC;
+          start = clock();
+
+          return eVelocityLimitExceeded;
+        }
+      }
+
+      // update the time
+      current_time += dt;
+
+      // update the stats and the clock
+      step_stats[5]++;
+      step_times[5] += (double) (clock() - start)/CLOCKS_PER_SEC;
+      start = clock();
+
+      return eIntegrationSuccessful;
+    }
+    catch (InvalidStateException e)
+    {
+      FILE_LOG(LOG_SIMULATOR) << " ** attempted to evaluate derivative at invalid state; halving acceleration step size to " << (dt*0.5) << std::endl;
+
+      // update the stats and the clock
+      step_stats[1]++;
+      step_times[1] += (double) (clock() - start)/CLOCKS_PER_SEC;
+      start = clock();
+    }
+    catch (InvalidVelocityException e)
+    {
+      FILE_LOG(LOG_SIMULATOR) << " ** attempted to evaluate derivative at invalid velocity; halfing acceleration step size to " << (dt*0.5) << std::endl;
+
+      // update the stats and the clock
+      step_stats[2]++;
+      step_times[2] += (double) (clock() - start)/CLOCKS_PER_SEC;
+      start = clock();
+    }
+    catch (AccelerationEventFailException e)
+    {
+      FILE_LOG(LOG_SIMULATOR) << " ** failed to solve an LCP; halving step size" << std::endl;
+
+      // update the stats and the clock
+      step_stats[3]++;
+      step_times[3] += (double) (clock() - start)/CLOCKS_PER_SEC;
+      start = clock();
+    }
+
+    // ********************************************************
+    // if we're still here, we caught an exception
+    // ********************************************************
+
+    // restore the state of the system (generalized coords/velocities)
+    restore_state();
+
+    // half the step size 
+    dt *= 0.5;
+  }
+  while (dt > euler_step);
+
+  // if we're still here, step size has become too small
+  return eMinStepReached;
 }
 
 /// Validates limit estimates
@@ -933,6 +927,26 @@ void EventDrivenSimulator::restore_state()
   }
 }
 
+/// Computes pairwise distances of geometries at their current poses, using broad phase results to determine which pairs should be checked
+/**
+ * \param pairwise_distances on return, contains the pairwise distances
+ */
+void EventDrivenSimulator::calc_pairwise_distances() 
+{
+  // clear the vector 
+  _pairwise_distances.clear();
+
+  for (unsigned i=0; i< _pairs_to_check.size(); i++)
+  {
+    PairwiseDistInfo pdi;
+    pdi.a = _pairs_to_check[i].first;
+    pdi.b = _pairs_to_check[i].second;
+    pdi.dist = CollisionGeometry::calc_signed_dist(pdi.a, pdi.b, pdi.pa, pdi.pb);
+    _pairwise_distances.push_back(pdi);
+  }
+}
+
+/// Does broad phase collision detection, identifying which pairs of geometries may come into contact over time step of dt
 void EventDrivenSimulator::broad_phase(double dt)
 {
   // call the broad phase
@@ -1020,29 +1034,19 @@ double EventDrivenSimulator::check_pairwise_constraint_violations(double t)
   return std::max(0.0, min_dist);
 }
 
-/// Updates constraint violation after integration
-void EventDrivenSimulator::update_constraint_violations()
+/// Updates constraint violation at beginning of integration step 
+void EventDrivenSimulator::update_constraint_violations(const vector<PairwiseDistInfo>& pairwise_distances)
 {
   FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::update_constraint_violations() entered" << std::endl;
 
-  // update constraint violation due to increasing interpenetration
-  // loop over all pairs of geometries
-  BOOST_FOREACH(CollisionGeometryPtr cg1, _geometries)
-    BOOST_FOREACH(CollisionGeometryPtr cg2, _geometries)
-    {
-      // if cg1 == cg2 or bodies are disabled for checking, skip
-      if (cg1.get() <= cg2.get() || unchecked_pairs.find(make_sorted_pair(cg1, cg2)) != unchecked_pairs.end())
-        continue;
-
-      // compute the distance between the two bodies
-      Point3d p1, p2;
-      double d = CollisionGeometry::calc_signed_dist(cg1, cg2, p1, p2);
-      FILE_LOG(LOG_SIMULATOR) << " -- signed distance between " << cg1->get_single_body()->id << " and " << cg2->get_single_body()->id << ": " << d << std::endl;
-      if (d <= 0)
-        _ip_tolerances[make_sorted_pair(cg1, cg2)] = d;
-      else
-        _ip_tolerances[make_sorted_pair(cg1, cg2)] = 0.0;
-    }
+  // set possible constraint violation
+  BOOST_FOREACH(const PairwiseDistInfo& pdi, pairwise_distances)
+  {
+    if (pdi.dist <= 0)
+      _ip_tolerances[make_sorted_pair(pdi.a, pdi.b)] = pdi.dist;
+    else
+      _ip_tolerances[make_sorted_pair(pdi.a, pdi.b)] = 0.0;
+  }
 
   // update joint constraint interpenetration
   BOOST_FOREACH(DynamicBodyPtr db, _bodies)
@@ -1076,10 +1080,9 @@ double EventDrivenSimulator::calc_CA_step()
   }
 
   // do narrow-phase collision detection here
-  for (unsigned i=0; i< _pairs_to_check.size(); i++)
+  BOOST_FOREACH(const PairwiseDistInfo& pdi, _pairwise_distances)
   {
-    const pair<CollisionGeometryPtr, CollisionGeometryPtr>& cgpair = _pairs_to_check[i];
-    double step = _ccd.calc_CA_step(cgpair.first, cgpair.second);
+    double step = _ccd.calc_CA_step(pdi);
     dt = std::min(dt, step);
     if (dt <= 0.0)
       return dt;
@@ -1090,35 +1093,11 @@ double EventDrivenSimulator::calc_CA_step()
 
 void EventDrivenSimulator::reset_limit_estimates() const
 {
-  // first compute forward dynamics
-//  calc_fwd_dyn();
   // now compute the bounds
   BOOST_FOREACH(DynamicBodyPtr db, _bodies)
   {
     // first, reset the limit estimates
     db->reset_limit_estimates(); 
-  }
-}
-
-// TODO: remove this function (velocity bounds should be updated during the
-//       integration process)
-void EventDrivenSimulator::calculate_bounds() const
-{
-  // now compute the bounds
-  BOOST_FOREACH(DynamicBodyPtr db, _bodies)
-  {
-    ArticulatedBodyPtr ab = dynamic_pointer_cast<ArticulatedBody>(db);
-    if (ab)
-    {
-      ab->update_joint_vel_limits();
-      BOOST_FOREACH(RigidBodyPtr rb, ab->get_links())
-        rb->update_vel_limits();
-    }
-    else
-    {
-      RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(db);
-      rb->update_vel_limits();
-    }
   }
 }
 
@@ -1225,7 +1204,7 @@ void EventDrivenSimulator::integrate_positions_Euler(double dt)
 }
 
 /// Finds the set of events
-void EventDrivenSimulator::find_events(double min_contact_dist)
+void EventDrivenSimulator::find_events(double contact_dist_thresh)
 {
   FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::find_events() entered" << std::endl;
 
@@ -1249,63 +1228,14 @@ void EventDrivenSimulator::find_events(double min_contact_dist)
   }
 
   // find contact events
-  for (unsigned i=0; i< _pairs_to_check.size(); i++)
-  {
-    const pair<CollisionGeometryPtr, CollisionGeometryPtr>& cgpair = _pairs_to_check[i];
-    _ccd.find_contacts(cgpair.first, cgpair.second, std::back_inserter(_events), min_contact_dist);  
-  }
+  BOOST_FOREACH(const PairwiseDistInfo& pdi, _pairwise_distances)
+    if (pdi.dist < contact_dist_thresh) 
+      _ccd.find_contacts(pdi.a, pdi.b, std::back_inserter(_events));  
 
   if (LOGGING(LOG_SIMULATOR))
     for (unsigned i=0; i< _events.size(); i++)
     FILE_LOG(LOG_SIMULATOR) << _events[i] << std::endl;
   FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::find_events() exited" << std::endl;
-}
-
-/// Computes the next event time using a linear velocity assumption
-/**
- * \note the time may be conservative
- */
-double EventDrivenSimulator::compute_next_event_time() const
-{
-  // setup inf as the default time
-  double dt = std::numeric_limits<double>::max();
-
-  // process each articulated body, looking for next joint events
-  for (unsigned i=0; i< _bodies.size(); i++)
-  {
-    // see whether the i'th body is articulated
-    ArticulatedBodyPtr ab = dynamic_pointer_cast<ArticulatedBody>(_bodies[i]);
-    if (!ab)
-      continue;
-
-    // if the body is kinematically controlled, do nothing
-    if (ab->get_kinematic())
-      continue;
-    
-    // get limit events in [t, t+dt] (if any)
-    dt = std::min(dt, ab->find_next_joint_limit_time());
-  }
-
-  // setup set of collision geometries currently in contact
-  set<sorted_pair<CollisionGeometryPtr> > in_contact;
-  BOOST_FOREACH(const Event& e, _events)
-    if (e.event_type == Event::eContact)
-      in_contact.insert(make_sorted_pair(e.contact_geom1, e.contact_geom2));
-
-  // find next contact event time 
-  for (unsigned i=0; i< _pairs_to_check.size(); i++)
-  {
-    const pair<CollisionGeometryPtr, CollisionGeometryPtr>& cgpair = _pairs_to_check[i];
-
-    // if there is currently a contact event between the geometries *and* the
-    // step is zero, ignore
-    double step = _ccd.find_next_contact_time(cgpair.first, cgpair.second);
-    if (step <= 0.0 && in_contact.find(make_sorted_pair(cgpair.first, cgpair.second)) != in_contact.end())
-      continue;
-    dt = std::min(dt, step);
-  }
-
-  return dt;
 }
 
 /// Does a semi-implicit step 
@@ -1320,12 +1250,12 @@ void EventDrivenSimulator::step_si_Euler(double dt)
   // setup target time
   double target_time = current_time + dt;
 
-  // while the time to be stepped is not zero...
-  while (current_time < target_time)
+  // keep looping until we break out 
+  while (true)
   {
     // determine constraints (contacts, limits) that are currently active 
     FILE_LOG(LOG_SIMULATOR) << "   finding events" << std::endl;
-    find_events(NEAR_ZERO);
+    find_events(impacting_contact_dist_thresh);
 
     // solve events to yield new velocities
     FILE_LOG(LOG_SIMULATOR) << "   handling events" << std::endl;
@@ -1342,7 +1272,7 @@ void EventDrivenSimulator::step_si_Euler(double dt)
     }
 
     // get the time of the next event(s)
-    double h = std::min(compute_next_event_time(), target_time - current_time);
+    double h = std::min(calc_next_CA_step(impacting_contact_dist_thresh), target_time - current_time);
     FILE_LOG(LOG_SIMULATOR) << "   position integration: " << h << std::endl;
 
     // integrate bodies' positions forward by that time using new velocities  
@@ -1359,6 +1289,12 @@ void EventDrivenSimulator::step_si_Euler(double dt)
 
     // update s and the current time
     current_time += h;
+
+    // see whether to update pairwise distances
+    if (current_time < target_time)    
+      calc_pairwise_distances();
+    else
+      break;
   }
 
   FILE_LOG(LOG_SIMULATOR) << "-- semi-implicit Euler step completed" << std::endl;

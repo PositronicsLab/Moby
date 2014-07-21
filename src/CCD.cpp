@@ -56,108 +56,26 @@ CCD::CCD()
 {
 }
 
-/// Finds the next event time between two rigid bodies
-double CCD::find_next_contact_time(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB)
-{
-  Point3d pA, pB;
-
-  FILE_LOG(LOG_COLDET) << "CCD::find_next_contact_time() entered" << std::endl;
-
-  // compute distance and closest points
-  double dist = CollisionGeometry::calc_signed_dist(cgA, cgB, pA, pB);
-  FILE_LOG(LOG_COLDET) << " -- CCD: reported distance: " << dist << std::endl;
-
-  // get the two underlying bodies
-  RigidBodyPtr rbA = dynamic_pointer_cast<RigidBody>(cgA->get_single_body());
-  RigidBodyPtr rbB = dynamic_pointer_cast<RigidBody>(cgB->get_single_body());
-  FILE_LOG(LOG_COLDET) << "rigid body A: " << rbA->id << "  rigid body B: " << rbB->id << std::endl;
-
-  // special case: distance is zero or less
-  if (dist <= 0.0)
-    return 0.0;
-
-  // get the closest points in the global frame
-  Point3d pA0 = Pose3d::transform_point(GLOBAL, pA);
-  Point3d pB0 = Pose3d::transform_point(GLOBAL, pB);
-
-  // get the direction of the vector from body B to body A
-  Vector3d d0 =  pA0 - pB0;
-  double d0_norm = d0.norm();
-
-  FILE_LOG(LOG_COLDET) << " closest point on A: " << pA0 << std::endl;
-  FILE_LOG(LOG_COLDET) << " closest point on B: " << pB0 << std::endl;
-  FILE_LOG(LOG_COLDET) << " distance between closest points is: " << d0_norm << std::endl;
-  FILE_LOG(LOG_COLDET) << " reported distance is: " << dist << std::endl;
-
-  // get the direction of the vector (from body B to body A)
-  Vector3d n0 = d0/d0_norm;
-  Vector3d nA = Pose3d::transform_vector(rbA->get_pose(), n0);
-  Vector3d nB = Pose3d::transform_vector(rbB->get_pose(), n0);
-
-  // compute the distance that body A can move toward body B
-  double dist_per_tA = calc_max_dist_per_t(rbA, -nA, _rmax[cgA]);
-
-  // compute the distance that body B can move toward body A
-  double dist_per_tB = calc_max_dist_per_t(rbB, nB, _rmax[cgB]);
-
-  // compute the total distance
-  double total_dist_per_t = dist_per_tA + dist_per_tB;
-  if (total_dist_per_t < 0.0)
-    total_dist_per_t = 0.0;
-
-  FILE_LOG(LOG_COLDET) << "  distance: " << dist << std::endl;
-  FILE_LOG(LOG_COLDET) << "  dist per tA: " << dist_per_tA << std::endl;
-  FILE_LOG(LOG_COLDET) << "  dist per tB: " << dist_per_tB << std::endl;
-
-  // compute the maximum safe step
-  const double INF = std::numeric_limits<double>::max();
-  double maxt = std::min(INF, dist/total_dist_per_t);
-
-  FILE_LOG(LOG_COLDET) << "  maxt: " << maxt << std::endl;
-
-  // return the maximum safe step
-  return maxt;
-
-/*
-  // compute the distance that body A can move toward body B
-  double velA = calc_max_velocity(rbA, -nA, _rmax[cgA]);
-
-  // compute the distance that body B can move toward body A
-  double velB = calc_max_velocity(rbB, nB, _rmax[cgB]);
-
-  // compute the total velocity
-  double total_vel = velA + velB;
-  if (total_vel < 0.0)
-    total_vel = 0.0;
-
-  FILE_LOG(LOG_COLDET) << " -- CCD: normal: " << n0 << std::endl;
-  FILE_LOG(LOG_COLDET) << " -- CCD: projected velocity from A: " << velA << std::endl;
-  FILE_LOG(LOG_COLDET) << " -- CCD: projected velocity from B: " << velB << std::endl;
-  FILE_LOG(LOG_COLDET) << " -- computed maximum safe step: " << (dist/total_vel) << std::endl;
-
-  // compute the maximum safe step
-  return dist/total_vel;
-*/
-}
-
 /// Computes a conservative advancement step between two collision geometries
-double CCD::calc_CA_step(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB)
+double CCD::calc_CA_step(const PairwiseDistInfo& pdi)
 {
   double maxt = std::numeric_limits<double>::max();
-  Point3d pA, pB;
+
+  // get geometries, distance, and closest points
+  CollisionGeometryPtr cgA = pdi.a; 
+  CollisionGeometryPtr cgB = pdi.b;
+  const Point3d& pA = pdi.pa;
+  const Point3d& pB = pdi.pb;
 
   // get the two underlying bodies
   RigidBodyPtr rbA = dynamic_pointer_cast<RigidBody>(cgA->get_single_body());
   RigidBodyPtr rbB = dynamic_pointer_cast<RigidBody>(cgB->get_single_body());
   FILE_LOG(LOG_COLDET) << "rigid body A: " << rbA->id << "  rigid body B: " << rbB->id << std::endl;
 
-  // compute distance and closest points
-  double dist = CollisionGeometry::calc_signed_dist(cgA, cgB, pA, pB);
-
-  // if the distance is zero, quit now
-  if (dist < NEAR_ZERO)
+  // if the distance is (essentially) zero, quit now
+  if (pdi.dist <= 0.0)
   {
-    FILE_LOG(LOG_COLDET) << "reported distance is: " << dist << std::endl;
+    FILE_LOG(LOG_COLDET) << "reported distance is: " << pdi.dist << std::endl;
     return 0.0;
   }
 
@@ -166,7 +84,7 @@ double CCD::calc_CA_step(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB)
                 Pose3d::transform_point(GLOBAL, pB);
   double d0_norm = d0.norm();
   FILE_LOG(LOG_COLDET) << "distance between closest points is: " << d0_norm << std::endl;
-  FILE_LOG(LOG_COLDET) << "reported distance is: " << dist << std::endl;
+  FILE_LOG(LOG_COLDET) << "reported distance is: " << pdi.dist << std::endl;
 
   // get the direction of the vector (from body B to body A)
   Vector3d n0 = d0/d0_norm;
@@ -184,12 +102,12 @@ double CCD::calc_CA_step(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB)
   if (total_dist_per_t < 0.0)
     total_dist_per_t = 0.0;
 
-  FILE_LOG(LOG_COLDET) << "  distance: " << dist << std::endl;
+  FILE_LOG(LOG_COLDET) << "  distance: " << pdi.dist << std::endl;
   FILE_LOG(LOG_COLDET) << "  dist per tA: " << dist_per_tA << std::endl;
   FILE_LOG(LOG_COLDET) << "  dist per tB: " << dist_per_tB << std::endl;
 
   // compute the maximum safe step
-  maxt = std::min(maxt, dist/total_dist_per_t);
+  maxt = std::min(maxt, pdi.dist/total_dist_per_t);
 
   FILE_LOG(LOG_COLDET) << "  maxt: " << maxt << std::endl;
 
@@ -295,7 +213,7 @@ void CCD::save_to_xml(XMLTreePtr node, list<shared_ptr<const Base> >& shared_obj
 ****************************************************************************/
 
 /// Creates a contact event given the bare-minimum info
-Event CCD::create_contact(CollisionGeometryPtr a, CollisionGeometryPtr b, const Point3d& point, const Vector3d& normal)
+Event CCD::create_contact(CollisionGeometryPtr a, CollisionGeometryPtr b, const Point3d& point, const Vector3d& normal, double violation)
 {
   Event e;
   e.event_type = Event::eContact;
@@ -303,6 +221,7 @@ Event CCD::create_contact(CollisionGeometryPtr a, CollisionGeometryPtr b, const 
   e.contact_normal = normal;
   e.contact_geom1 = a;
   e.contact_geom2 = b;
+  e.signed_violation = violation;
 
   // check for valid normal here
   assert(std::fabs(e.contact_normal.norm() - (double) 1.0) < NEAR_ZERO);

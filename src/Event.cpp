@@ -54,6 +54,7 @@ Event::Event()
   tol = NEAR_ZERO;              // default collision tolerance
   stick_tol = NEAR_ZERO;
   event_type = eNone;
+  signed_violation = 0.0;
   limit_dof = std::numeric_limits<unsigned>::max();
   limit_epsilon = (double) 0.0;
   limit_upper = false;
@@ -75,6 +76,7 @@ Event::Event()
 Event& Event::operator=(const Event& e)
 {
   tol = e.tol;
+  signed_violation = e.signed_violation;
   event_type = e.event_type;
   limit_epsilon = e.limit_epsilon;
   limit_dof = e.limit_dof;
