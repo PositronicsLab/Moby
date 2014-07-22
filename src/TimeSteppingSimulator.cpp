@@ -139,7 +139,7 @@ void TimeSteppingSimulator::handle_events(double dt)
   // compute impulses here...
   try
   {
-    _impact_event_handler.process_events(_events, max_event_time, 1.0/dt);
+    _impact_event_handler.process_events(_events, max_event_time, 0.1/dt);
   }
   catch (ImpactToleranceException e)
   {
