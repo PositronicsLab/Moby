@@ -1,3 +1,50 @@
+/// Generic += function
+template <class U, class V>
+void add_to(const U& source, V& target)
+{
+  assert(source.size() == target.size());
+  Ravelin::ColumnIteratord_const sourcei = source.begin();
+  Ravelin::ColumnIteratord targeti = target.begin();
+  while (sourcei != source.end())
+  {
+    *targeti += *sourcei;
+    targeti++;
+    sourcei++; 
+  }
+}
+
+/// Generic copy function
+template <class U, class V>
+void copy_to(const U& source, V& target)
+{
+  target.resize(source.size());
+  Ravelin::ColumnIteratord_const sourcei = source.begin();
+  Ravelin::ColumnIteratord targeti = target.begin();
+  while (sourcei != source.end())
+  {
+    *targeti = *sourcei;
+    targeti++;
+    sourcei++; 
+  }
+}
+
+/// Generic dot product function
+template <class U, class V>
+double dot(const U& u, const V& v)
+{
+  assert(u.size() == v.size());
+  double sum = 0.0;
+  Ravelin::ColumnIteratord_const ui = u.begin();
+  Ravelin::ColumnIteratord_const vi = v.begin();
+  while (ui != u.end())
+  {
+    sum += *vi * *ui;
+    vi++;
+    ui++; 
+  }
+  return sum;
+}
+
 /// Finds a Cauchy point for gradient projection QP method
 template <class M, class U, class V, class W>
 V& find_cauchy_point(const M& G, const U& c, const V& l, const V& u, const Ravelin::VectorNd& gradient, W& x)
@@ -62,7 +109,7 @@ V& find_cauchy_point(const M& G, const U& c, const V& l, const V& u, const Ravel
     }
 
     // look for local minimizer
-    double fprime = c.dot(_p) + x.dot(G.mult(_p, _Gp));
+    double fprime = dot(c, _p) + dot(x, G.mult(_p, _Gp));
 
     // if f' > 0 there is a local minimizer at t[j-1]
     if (fprime > 0)
@@ -70,14 +117,14 @@ V& find_cauchy_point(const M& G, const U& c, const V& l, const V& u, const Ravel
     else
     {
       // compute dt*
-      double fpprime = _p.dot(_Gp);
+      double fpprime = dot(_p, _Gp);
       double dt_star = -fprime / fpprime;
       if (dt_star >= (double) 0.0 && dt_star < _alphas[j] - _alphas[jm1])
       {
         // there is a local minimizer at t[jm1] + dt_star
         _workv = _p;
         _workv *= dt_star;
-        x += _workv;
+        add_to(_workv, x);
 
         // manually enforce constraints
         for (unsigned i=0; i< x.size(); i++)
@@ -96,7 +143,7 @@ V& find_cauchy_point(const M& G, const U& c, const V& l, const V& u, const Ravel
         {
           _workv = _p;
           _workv *= dt;
-          x += _workv;
+          add_to(_workv, x);
         }
       }
     }
@@ -163,7 +210,7 @@ unsigned qp_gradproj(const M& G, const V& c, const V& l, const V& u, unsigned ma
     find_cauchy_point(G, c, l, u, _Gx_c, x);
 
     // evaluate Cauchy point
-    double q = x.dot(G.mult(x, _Gx)) * (double) 0.5 + x.dot(c);
+    double q = dot(x, G.mult(x, _Gx)) * (double) 0.5 + dot(x, c);
 
     // determine which constraints are in the active set
     _inactive_set.clear();
@@ -230,7 +277,7 @@ unsigned qp_gradproj(const M& G, const V& c, const V& l, const V& u, unsigned ma
       _y = _workv;
       _r1 =_workv;
       M::diag_mult(_Wzz, _workv, _y);
-      double beta1 = _workv.dot(_y);
+      double beta1 = dot(_workv, _y);
 
       // look for x = 0 solution
       if (beta1 == 0)
@@ -275,7 +322,7 @@ unsigned qp_gradproj(const M& G, const V& c, const V& l, const V& u, unsigned ma
             _workv *= (beta/oldb);
             _y -= _workv;
           }
-          double alfa = _v.dot(_y);
+          double alfa = dot(_v, _y);
           _workv = _r2;
           _workv *= (-alfa/beta);
           _y += _workv;
@@ -283,7 +330,7 @@ unsigned qp_gradproj(const M& G, const V& c, const V& l, const V& u, unsigned ma
           _r2 = _y;
           M::diag_mult(_Wzz, _r2, _y);
           oldb = beta;
-          beta = _r2.dot(_y);
+          beta = dot(_r2, _y);
           if (beta < 0)
             break;
           beta = std::sqrt(beta);
@@ -371,7 +418,7 @@ unsigned qp_gradproj(const M& G, const V& c, const V& l, const V& u, unsigned ma
     }
 
     // project xz back to x
-    _xstar = x;
+    copy_to(x,_xstar);
     for (unsigned i=0; i< _inactive_set.size(); i++)
       _xstar[_inactive_set[i]] = _xz[i];
 
@@ -383,10 +430,10 @@ unsigned qp_gradproj(const M& G, const V& c, const V& l, const V& u, unsigned ma
         _xstar[i] = u[i];
 
     // evaluate new x; if it is better than old x, keep it
-    double qstar = _xstar.dot(G.mult(_xstar, _Gx)) * (double) 0.5 + _xstar.dot(c);
+    double qstar = dot(_xstar, G.mult(_xstar, _Gx)) * (double) 0.5 + dot(_xstar, c);
     if (qstar < q)
     {
-      x = _xstar;
+      copy_to(_xstar, x);
       q = qstar;
     }
 

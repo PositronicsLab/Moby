@@ -1,7 +1,7 @@
 /****************************************************************************
  * Copyright 2011 Evan Drumwright
- * This library is distributed under the terms of the GNU Lesser General Public 
- * License (found in COPYING).
+ * This library is distributed under the terms of the Apache V2.0 
+ * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
 #include <iomanip>
@@ -70,7 +70,12 @@ ImpactEventHandler::ImpactEventHandler()
 }
 
 // Processes impacts
-void ImpactEventHandler::process_events(const vector<Event>& events, double max_time)
+/**
+ * \param events the vector of events
+ * \param max_time the maximum time to solve the events
+ * \param inv_dt 1/dt (the time step) for correcting interpenetration
+ */
+void ImpactEventHandler::process_events(const vector<Event>& events, double max_time, double inv_dt)
 {
   FILE_LOG(LOG_EVENT) << "*************************************************************";
   FILE_LOG(LOG_EVENT) << endl;
@@ -81,7 +86,7 @@ void ImpactEventHandler::process_events(const vector<Event>& events, double max_
 
   // apply the method to all contacts
   if (!events.empty())
-    apply_model(events, max_time);
+    apply_model(events, max_time, inv_dt);
   else
     FILE_LOG(LOG_EVENT) << " (no events?!)" << endl;
     
@@ -93,8 +98,10 @@ void ImpactEventHandler::process_events(const vector<Event>& events, double max_
 /// Applies the model to a set of events 
 /**
  * \param events a set of events
+ * \param max_time the maximum time to solve the events
+ * \param inv_dt 1/dt (the time step) for correcting interpenetration
  */
-void ImpactEventHandler::apply_model(const vector<Event>& events, double max_time)
+void ImpactEventHandler::apply_model(const vector<Event>& events, double max_time, double inv_dt)
 {
   const double INF = std::numeric_limits<double>::max();
   list<Event*> impacting;
@@ -139,11 +146,14 @@ void ImpactEventHandler::apply_model(const vector<Event>& events, double max_tim
 
       // apply model to the reduced contacts
       if (all_inf)   
-        apply_inf_friction_model_to_connected_events(revents);
+        apply_no_slip_model_to_connected_events(revents, inv_dt);
       else if (all_frictionless)
-        apply_visc_friction_model_to_connected_events(revents);
+        apply_visc_friction_model_to_connected_events(revents, inv_dt);
+
+      if (max_time < INF)   
+        apply_model_to_connected_events(revents, max_time, inv_dt);
       else
-        apply_model_to_connected_events(revents);
+        apply_model_to_connected_events(revents, inv_dt);
 
       FILE_LOG(LOG_EVENT) << " -- post-event velocity (all events): " << std::endl;
       for (list<Event*>::iterator j = i->begin(); j != i->end(); j++)
@@ -166,7 +176,7 @@ void ImpactEventHandler::apply_model(const vector<Event>& events, double max_tim
  * "Anytime" version
  * \param events a set of connected events 
  */
-void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& events, double max_time)
+void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& events, double max_time, double inv_dt)
 {
   double ke_minus = 0.0, ke_plus = 0.0;
   const unsigned UINF = std::numeric_limits<unsigned>::max();
@@ -183,7 +193,7 @@ void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& eve
   _epd.partition_events();
 
   // compute all event cross-terms
-  compute_problem_data(_epd);
+  compute_problem_data(_epd, inv_dt);
 
   // clear all impulses 
   for (unsigned i=0; i< _epd.N_CONTACTS; i++)
@@ -202,7 +212,7 @@ void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& eve
     }
   }
 
-  // solve the infinite friction linear complementarity problem to determine
+  // solve the no-slip linear complementarity problem to determine
   // the kappa constant
   VectorNd z;
   solve_frictionless_lcp(_epd, z);
@@ -293,7 +303,7 @@ void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& eve
  * Applies purely viscous friction model to connected events 
  * \param events a set of connected events 
  */
-void ImpactEventHandler::apply_visc_friction_model_to_connected_events(const list<Event*>& events)
+void ImpactEventHandler::apply_visc_friction_model_to_connected_events(const list<Event*>& events, double inv_dt)
 {
   FILE_LOG(LOG_EVENT) << "ImpactEventHandler::apply_visc_friction_model_to_connected_events() entered" << endl;
 
@@ -307,7 +317,7 @@ void ImpactEventHandler::apply_visc_friction_model_to_connected_events(const lis
   _epd.partition_events();
 
   // compute all event cross-terms
-  compute_problem_data(_epd);
+  compute_problem_data(_epd, inv_dt);
 
   // clear all impulses 
   for (unsigned i=0; i< _epd.N_CONTACTS; i++)
@@ -349,12 +359,12 @@ void ImpactEventHandler::apply_visc_friction_model_to_connected_events(const lis
 }
 
 /**
- * Applies infinite friction model to connected events 
+ * Applies no slip friction model to connected events 
  * \param events a set of connected events 
  */
-void ImpactEventHandler::apply_inf_friction_model_to_connected_events(const list<Event*>& events)
+void ImpactEventHandler::apply_no_slip_model_to_connected_events(const list<Event*>& events, double inv_dt)
 {
-  FILE_LOG(LOG_EVENT) << "ImpactEventHandler::apply_inf_friction_model_to_connected_events() entered" << endl;
+  FILE_LOG(LOG_EVENT) << "ImpactEventHandler::apply_no_slip_model_to_connected_events() entered" << endl;
 
   // reset problem data
   _epd.reset();
@@ -366,7 +376,7 @@ void ImpactEventHandler::apply_inf_friction_model_to_connected_events(const list
   _epd.partition_events();
 
   // compute all event cross-terms
-  compute_problem_data(_epd);
+  compute_problem_data(_epd, inv_dt);
 
   // clear all impulses 
   for (unsigned i=0; i< _epd.N_CONTACTS; i++)
@@ -374,8 +384,8 @@ void ImpactEventHandler::apply_inf_friction_model_to_connected_events(const list
   for (unsigned i=0; i< _epd.N_LIMITS; i++)
     _epd.limit_events[i]->limit_impulse = 0.0;
 
-  // solve the infinite friction model 
-  apply_inf_friction_model(_epd);
+  // solve the no slip model 
+  apply_no_slip_model(_epd);
 
   // determine velocities due to impulse application
   update_event_velocities_from_impulses(_epd);
@@ -397,14 +407,14 @@ void ImpactEventHandler::apply_inf_friction_model_to_connected_events(const list
     if (minv_plus < 0.0 && minv_plus < minv - NEAR_ZERO)
     {
       // need to solve another impact problem 
-      apply_inf_friction_model(_epd);
+      apply_no_slip_model(_epd);
     }  
   }
 
   // apply impulses 
   apply_impulses(_epd);
 
-  FILE_LOG(LOG_EVENT) << "ImpactEventHandler::apply_inf_friction_model_to_connected_events() exiting" << endl;
+  FILE_LOG(LOG_EVENT) << "ImpactEventHandler::apply_no_slip_model_to_connected_events() exiting" << endl;
 }
 
 /// Updates determined impulses in EventProblemData based on a QP/NQP solution
@@ -710,7 +720,7 @@ void ImpactEventHandler::permute_problem(EventProblemData& epd, VectorNd& z)
  * Applies method of Drumwright and Shell to a set of connected events
  * \param events a set of connected events 
  */
-void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& events)
+void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& events, double inv_dt)
 {
   double ke_minus = 0.0, ke_plus = 0.0;
 
@@ -726,7 +736,7 @@ void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& eve
   _epd.partition_events();
 
   // compute all event cross-terms
-  compute_problem_data(_epd);
+  compute_problem_data(_epd, inv_dt);
 
   // compute energy
   if (LOGGING(LOG_EVENT))
@@ -915,7 +925,7 @@ void ImpactEventHandler::apply_impulses(const EventProblemData& q)
 }
 
 /// Computes the data to the LCP / QP problems
-void ImpactEventHandler::compute_problem_data(EventProblemData& q)
+void ImpactEventHandler::compute_problem_data(EventProblemData& q, double inv_dt)
 {
   const unsigned UINF = std::numeric_limits<unsigned>::max();
 
@@ -1122,6 +1132,14 @@ void ImpactEventHandler::compute_problem_data(EventProblemData& q)
 
     // NOTE: cross data has already been computed for contact/limit events
   }
+
+  // correct constraint violations on contacts
+  for (unsigned i=0; i< q.contact_events.size(); i++)
+    q.Cn_v[i] += q.contact_events[i]->signed_violation * inv_dt;
+
+  // correct constraint violations on limits
+  for (unsigned i=0; i< q.limit_events.size(); i++)
+    q.L_v[i] += q.limit_events[i]->signed_violation * inv_dt;
 }
 
 /// Solves the viscous friction LCP
@@ -1176,8 +1194,8 @@ void ImpactEventHandler::apply_visc_friction_model(EventProblemData& q)
   FILE_LOG(LOG_EVENT) << "ImpulseEventHandler::apply_visc_friction_model() exited" << std::endl;
 }
 
-/// Solves the infinite friction LCP
-void ImpactEventHandler::apply_inf_friction_model(EventProblemData& q)
+/// Solves the no-slip model LCP
+void ImpactEventHandler::apply_no_slip_model(EventProblemData& q)
 {
   std::vector<unsigned> J_indices, S_indices, T_indices;
   const unsigned NCONTACTS = q.N_CONTACTS;
@@ -1564,7 +1582,7 @@ void ImpactEventHandler::apply_inf_friction_model(EventProblemData& q)
 
   // TODO: setup joint constraint impulses here
 
-  FILE_LOG(LOG_EVENT) << "ImpulseEventHandler::solve_inf_friction_lcp() exited" << std::endl;
+  FILE_LOG(LOG_EVENT) << "ImpulseEventHandler::solve_no_slip_lcp() exited" << std::endl;
 }
 
 /// Solves the (frictionless) LCP

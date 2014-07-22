@@ -1,7 +1,7 @@
 /****************************************************************************
  * Copyright 2008 Evan Drumwright
- * This library is distributed under the terms of the GNU Lesser General Public 
- * License (found in COPYING).
+ * This library is distributed under the terms of the Apache V2.0 
+ * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
 // For outputting description of OBB (primarily for debugging purposes)
@@ -233,8 +233,7 @@ OBB OBB::calc_min_volume_OBB(ForwardIterator begin, ForwardIterator end)
 
   // compute the convex hull of the points
   PolyhedronPtr hull = CompGeom::calc_convex_hull(begin, end);
-  bool is_3D = hull;
-  if (!is_3D)
+  if (!hull)
     return OBB::calc_low_dim_OBB(begin, end);
 
   // setup the box with minimum volume
@@ -532,8 +531,7 @@ OBB::OBB(ForwardIterator begin, ForwardIterator end)
   catch (NumericalException e)
   {
   }
-  bool is_3D = hull;
-  if (!is_3D)
+  if (!hull)
   {
     *this = OBB::calc_low_dim_OBB(begin, end);
     return;

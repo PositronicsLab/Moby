@@ -1,7 +1,7 @@
 /****************************************************************************
  * Copyright 2005 Evan Drumwright
- * This library is distributed under the terms of the GNU Lesser General Public 
- * License (found in COPYING).
+ * This library is distributed under the terms of the Apache V2.0 
+ * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
 #ifndef _JOINT_H
@@ -58,6 +58,7 @@ class Joint : public Visualizable
     virtual void determine_q_dot();
     void determine_q_tare();
     boost::shared_ptr<const Ravelin::Pose3d> get_pose() const { return _F; };
+    void set_pose(boost::shared_ptr<const Ravelin::Pose3d> P);
 
     /// Gets the pose of this joint relative to the outboard link (rather than the inboard link as is standard)
     boost::shared_ptr<const Ravelin::Pose3d> get_pose_outboard() const { return _Fb; };

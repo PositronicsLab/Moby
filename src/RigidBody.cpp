@@ -1,7 +1,7 @@
 /****************************************************************************
  * Copyright 2005 Evan Drumwright
- * This library is distributed under the terms of the GNU Lesser General Public 
- * License (found in COPYING).
+ * This library is distributed under the terms of the Apache V2.0 
+ * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
 #include <boost/foreach.hpp>
@@ -83,14 +83,35 @@ RigidBody::RigidBody()
 
   // indicate velocity limit has been exceeded (safe initialization)
  _vel_limit_exceeded = true; 
+
+  // setup the default limit bound expansion
+  limit_bound_expansion = 0.15;
 }
 
 /// Resets the acceleration limit estimates
 void RigidBody::reset_limit_estimates()
 {
+  const unsigned SPATIAL_DIM = 6;
+
+  // mark velocity limits as not exceeded
  _vel_limit_exceeded = false; 
- _vel_limit_lo.set_zero();
- _vel_limit_hi.set_zero();
+
+  SVelocityd v = Pose3d::transform(_F, get_velocity());
+  for (unsigned i=0; i< SPATIAL_DIM; i++)
+  {
+    _vel_limit_lo[i] = v[i];
+    _vel_limit_hi[i] = v[i];
+    if (v[i] < 0.0)
+    {
+      _vel_limit_lo[i] *= (1.0+limit_bound_expansion);
+      _vel_limit_hi[i] *= (1.0-limit_bound_expansion);
+    }
+    else
+    {
+      _vel_limit_lo[i] *= (1.0-limit_bound_expansion);
+      _vel_limit_hi[i] *= (1.0+limit_bound_expansion);
+    }
+  }
 }
 
 /// Updates this rigid body's velocity limit
@@ -105,9 +126,23 @@ void RigidBody::update_vel_limits()
   for (unsigned i=0; i< SPATIAL_DIM; i++)
   {
     if (v[i] < _vel_limit_lo[i])
-      _vel_limit_lo[i] = v[i]*1.3;
+    {
+      _vel_limit_lo[i] = v[i];
+      if (v[i] < 0.0)
+        _vel_limit_lo[i] *= (1.0+limit_bound_expansion);
+      else
+        _vel_limit_lo[i] *= (1.0-limit_bound_expansion);
+    }
     if (v[i] > _vel_limit_hi[i])
-      _vel_limit_hi[i] = v[i]*1.3;
+    {
+      _vel_limit_hi[i] = v[i];
+      if (v[i] < 0.0)
+        _vel_limit_hi[i] *= (1.0-limit_bound_expansion);
+      else
+        _vel_limit_hi[i] *= (1.0+limit_bound_expansion);
+    }
+      
+    assert(_vel_limit_lo[i] <= _vel_limit_hi[i]);
   }
 }
 
@@ -116,22 +151,28 @@ void RigidBody::check_vel_limit_exceeded_and_update()
 {
   const unsigned SPATIAL_DIM = 6;
 
-  if (!_vel_limit_exceeded)
+  SVelocityd v = Pose3d::transform(_F, get_velocity());
+  for (unsigned i=0; i< SPATIAL_DIM; i++)
   {
-    SVelocityd v = Pose3d::transform(_F, get_velocity());
-    for (unsigned i=0; i< SPATIAL_DIM; i++)
+    if (v[i] < _vel_limit_lo[i])
     {
-      if (v[i] < _vel_limit_lo[i])
-      {
-        _vel_limit_lo[i] = v[i];
-        _vel_limit_exceeded = true;
-      }
-      if (v[i] > _vel_limit_hi[i])
-      {
-        _vel_limit_hi[i] = v[i];
-        _vel_limit_exceeded = true;
-      }
+      _vel_limit_lo[i] = v[i];
+       if (v[i] < 0.0)
+         _vel_limit_lo[i] *= (1.0+limit_bound_expansion);
+       else
+         _vel_limit_lo[i] *= (1.0-limit_bound_expansion);
+      _vel_limit_exceeded = true;
     }
+    if (v[i] > _vel_limit_hi[i])
+    {
+      _vel_limit_hi[i] = v[i];
+       if (v[i] < 0.0)
+         _vel_limit_hi[i] *= (1.0-limit_bound_expansion);
+       else
+         _vel_limit_hi[i] *= (1.0+limit_bound_expansion);
+      _vel_limit_exceeded = true;
+    }
+    assert(_vel_limit_lo[i] <= _vel_limit_hi[i]);
   }
 }
 
@@ -162,8 +203,13 @@ shared_ptr<const Pose3d> RigidBody::get_computation_frame() const
 /// Rotates the rigid body
 void RigidBody::rotate(const Quatd& q)
 {
-  // update the rotation 
+  // save the current relative pose
+  shared_ptr<const Pose3d> Frel = _F->rpose;
+
+  // update the rotation
+  _F->update_relative_pose(GLOBAL);
   _F->q *= q;
+  _F->update_relative_pose(Frel);
 
   // invalidate vector quantities
   _forcei_valid = _forcem_valid = false;
@@ -233,8 +279,19 @@ MatrixNd& RigidBody::calc_jacobian(shared_ptr<const Pose3d> frame, DynamicBodyPt
 /// Translates the rigid body
 void RigidBody::translate(const Origin3d& x)
 {
-  // update the translation
+  // save the current relative pose
+  shared_ptr<const Pose3d> Frel = _F->rpose;
+
+  // update the translation 
+  _F->update_relative_pose(GLOBAL);
   _F->x += x;
+  _F->update_relative_pose(Frel);
+
+  // update the mixed pose 
+  _F2->set_identity();
+  _F2->rpose = _F;
+  _F2->update_relative_pose(GLOBAL);
+  _F2->q.set_identity();
 
   // invalidate vector quantities
   _forcei_valid = _forcem_valid = false;
@@ -791,6 +848,11 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
     set_inertia(J);
   }
 
+  // read the limit bound expansion, if provided
+  XMLAttrib* lbe_attr = node->get_attrib("limit-bound-expansion");
+  if (lbe_attr)
+    limit_bound_expansion = lbe_attr->get_real_value();
+
   // read the inertia matrix, if provided
   XMLAttrib* inertia_attr = node->get_attrib("inertia");
   if (inertia_attr)
@@ -993,6 +1055,9 @@ void RigidBody::save_to_xml(XMLTreePtr node, list<shared_ptr<const Base> >& shar
 
   // save the mass
   node->attribs.insert(XMLAttrib("mass", _Jm.m));
+
+  // write the limit bound expansion
+  node->attribs.insert(XMLAttrib("limit-bound-expansion", limit_bound_expansion));
 
   // save the inertia
   node->attribs.insert(XMLAttrib("inertia", _Jm.J));
@@ -1943,7 +2008,7 @@ void RigidBody::prepare_to_calc_ode(SharedConstVectorNd& x, double t, double dt,
   set_generalized_velocity(DynamicBody::eSpatial, gv);
 
   // check whether velocity limits have been exceeded 
-  if (!_vel_limit_exceeded)
+//  if (!_vel_limit_exceeded)
     check_vel_limit_exceeded_and_update();
 
   // clear the force accumulators on the body

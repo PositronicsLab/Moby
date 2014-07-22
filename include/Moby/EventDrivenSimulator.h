@@ -1,7 +1,7 @@
 /****************************************************************************
  * Copyright 2011 Evan Drumwright
- * This library is distributed under the terms of the GNU Lesser General Public 
- * License (found in COPYING).
+ * This library is distributed under the terms of the Apache V2.0 
+ * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
 #ifndef _EVENT_SIMULATOR_H
@@ -12,6 +12,7 @@
 #include <Moby/Simulator.h>
 #include <Moby/ImpactEventHandler.h>
 #include <Moby/AccelerationEventHandler.h>
+#include <Moby/PairwiseDistInfo.h>
 #include <Moby/CCD.h>
 #include <Moby/Event.h>
 
@@ -86,10 +87,25 @@ class EventDrivenSimulator : public Simulator
     /// User time spent by event handling on the last step
     double event_time;
 
-    /// The relative error tolerance for adaptive Euler stepping (default=1e-8)
+    /// stepping timings
+    double step_times[6];
+
+    /// stepping statistics
+    unsigned step_stats[6];
+
+    /// the minimum integration step over a single step(.) call
+    double int_min_step_stat;
+
+    /// the maximum integration step over a single step(.) call
+    double int_max_step_stat;
+
+    /// the mean integration step over a single step(.) call
+    double int_mean_step_stat;
+
+    /// The relative error tolerance for adaptive stepping (default=1e-8)
     double rel_err_tol;
 
-    /// The absolute error tolerance for adaptive Euler stepping (default=1e-8)
+    /// The absolute error tolerance for adaptive stepping (default=1e-8)
     double abs_err_tol;
 
     /// The minimum step size (default=1e-5)
@@ -99,9 +115,28 @@ class EventDrivenSimulator : public Simulator
     double max_event_time;
 
   protected:
-    virtual void check_pairwise_constraint_violations();
+    virtual double check_pairwise_constraint_violations(double t);
+    void validate_limit_estimates();
+    void find_events(double min_contact_dist);
+    void integrate_velocities_Euler(double dt);
+    void integrate_positions_Euler(double dt);
+    void calc_fwd_dyn() const;
+    void preprocess_event(Event& e);
+    void determine_geometries();
+    void broad_phase(double dt);
+    void calc_pairwise_distances();
+    void visualize_contact( Event& event );
+
+    /// Object for handling impact events
+    ImpactEventHandler _impact_event_handler;
+
+    /// The vector of events
+    std::vector<Event> _events;
 
   private:
+    enum IntegrationResult { eIntegrationSuccessful, eVelocityLimitExceeded, eMinStepReached };
+    IntegrationResult integrate_generic(double dt, clock_t& start);
+
     struct EventCmp
     {
       bool operator()(const Event& e1, const Event& e2) const;
@@ -114,37 +149,30 @@ class EventDrivenSimulator : public Simulator
     double integrate_with_accel_events(double step_size) { return integrate_with_accel_events(step_size, _bodies.begin(), _bodies.end()); }
 
     void handle_acceleration_events();
-    void check_constraint_velocity_violations();
+    void check_constraint_velocity_violations(double t);
     static Ravelin::VectorNd& ode_accel_events(const Ravelin::VectorNd& x, double t, double dt, void* data, Ravelin::VectorNd& dx);
-    double compute_next_event_time() const;
-    void integrate_velocities_Euler(double dt);
-    void integrate_positions_Euler(double dt);
     void save_state();
     void restore_state();
-    void calc_fwd_dyn() const;
     void step_si_Euler(double dt);
     static void determine_treated_bodies(std::list<std::list<Event*> >& groups, std::vector<DynamicBodyPtr>& bodies);
-    void find_events();
-    void preprocess_event(Event& e);
     void handle_events();
     boost::shared_ptr<ContactParameters> get_contact_parameters(CollisionGeometryPtr geom1, CollisionGeometryPtr geom2) const;
     double calc_CA_step();
-    void update_constraint_violations();
-    void determine_geometries();
-    void calculate_bounds() const;
+    double calc_next_CA_step(double contact_dist_thresh) const;
+    void update_constraint_violations(const std::vector<PairwiseDistInfo>& pairwise_distances);
     void reset_limit_estimates() const;
-
-    // Visualization functions
-    void visualize_contact( Event& event );
 
     /// The continuous collision detection mechanism
     mutable CCD _ccd;
 
+    /// Pairwise distances at bodies' current configurations
+    std::vector<PairwiseDistInfo> _pairwise_distances;
+
+    /// The derivative at the current time
+    Ravelin::VectorNd _current_accel_dx;
+
     /// Work vector
     Ravelin::VectorNd _workV;
-
-    /// The vector of events
-    std::vector<Event> _events;
 
     /// Interpenetration constraint violation tolerances
     std::map<sorted_pair<CollisionGeometryPtr>, double> _ip_tolerances;
@@ -155,17 +183,20 @@ class EventDrivenSimulator : public Simulator
     /// Object for handling acceleration events
     AccelerationEventHandler _accel_event_handler;
 
-    /// Object for handling impact events
-    ImpactEventHandler _impact_event_handler;
-
     /// The Euler step size
     double euler_step;
 
     /// The minimum step for advancement
     double min_advance;
 
+    /// The distance threshold for a contact to be handled as an impact
+    double impacting_contact_dist_thresh; 
+
+    /// The distance threshold for a contact to be handled as a sustained contact 
+    double sustained_contact_dist_thresh;
+
     /// The geometries in the simulator
-    std::list<CollisionGeometryPtr> _geometries;
+    std::vector<CollisionGeometryPtr> _geometries;
 
     /// Geometric pairs that should be checked for events (according to broad phase collision detection)
     std::vector<std::pair<CollisionGeometryPtr, CollisionGeometryPtr> > _pairs_to_check;

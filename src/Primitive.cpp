@@ -1,7 +1,7 @@
 /****************************************************************************
  * Copyright 2005 Evan Drumwright
- * This library is distributed under the terms of the GNU Lesser General Public 
- * License (found in COPYING).
+ * This library is distributed under the terms of the Apache V2.0 
+ * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
 #ifdef USE_OSG
@@ -10,8 +10,10 @@
 #include <osg/Matrixd>
 #endif
 #include <queue>
+#include <stdexcept>
 #include <Moby/Constants.h>
 #include <Moby/XMLTree.h>
+#include <Moby/CollisionGeometry.h>
 #include <Moby/Primitive.h>
 
 using boost::shared_ptr;
@@ -25,7 +27,9 @@ using std::make_pair;
 using std::pair;
 using std::map;
 using std::cerr;
+using boost::weak_ptr;
 using boost::dynamic_pointer_cast;
+using boost::const_pointer_cast;
 
 #ifdef USE_OSG
 /// Copies this matrix to an OpenSceneGraph Matrixd object
@@ -57,7 +61,6 @@ Primitive::Primitive()
   _jF = shared_ptr<Pose3d>(new Pose3d);
   _jF->rpose = _F;
   _J.pose = _jF;
-  _deformable = false;
 
   // set visualization members to NULL
   _vtransform = NULL;
@@ -71,7 +74,6 @@ Primitive::Primitive(const Pose3d& F)
   _jF->rpose = _F;
   _J.pose = _jF;
   *_F = F; 
-  _deformable = false;
 
   // set visualization members to NULL
   _vtransform = NULL;
@@ -85,8 +87,41 @@ Primitive::~Primitive()
   #endif
 }
 
+/// Adds a collision geometry
+void Primitive::add_collision_geometry(CollisionGeometryPtr g)
+{
+  shared_ptr<Pose3d>& P = _cg_poses[g];
+  if (P)
+    return;
+
+  P = shared_ptr<Pose3d>(new Pose3d(*get_pose()));
+  P->rpose = g->get_pose();
+  _poses.insert(P);
+}
+
+/// Removes a collision geometry
+void Primitive::remove_collision_geometry(CollisionGeometryPtr g)
+{
+  map<weak_ptr<CollisionGeometry>, shared_ptr<Pose3d> >::iterator i = _cg_poses.find(g);
+  if (i == _cg_poses.end())
+    throw std::runtime_error("Primitive::get_pose() - collision geometry not found!");
+
+  assert(_poses.find(i->second) != _poses.end());
+  _poses.erase(i->second);
+  _cg_poses.erase(i);  
+}
+
+/// Gets the pose of this primitive relative to a particular collision geometry 
+shared_ptr<const Pose3d> Primitive::get_pose(CollisionGeometryPtr g) const
+{
+  map<weak_ptr<CollisionGeometry>, shared_ptr<Pose3d> >::const_iterator i = _cg_poses.find(g);
+  if (i == _cg_poses.end())
+    throw std::runtime_error("Primitive::get_pose() - collision geometry not found!");
+  return i->second;
+}
+
 /// Calculates the signed distance from this primitive
-double Primitive::calc_signed_dist(const Point3d& p)
+double Primitive::calc_signed_dist(const Point3d& p) const
 {
   // call the triangle mesh method
   assert(false);
@@ -94,32 +129,35 @@ double Primitive::calc_signed_dist(const Point3d& p)
 }
 
 /// Gets a supporting point from a primitive
-Point3d Primitive::get_supporting_point(const Vector3d& dir)
+Point3d Primitive::get_supporting_point(const Vector3d& dir) const
 {
   double max_dot = -std::numeric_limits<double>::max();
-  Point3d maxp;
+  unsigned maxp;
+
+  assert(_poses.find(const_pointer_cast<Pose3d>(dir.pose)) != _poses.end());
+
+  // if the primitive isn't convex, this method should not be called
+  if (!is_convex())
+    throw std::runtime_error("Primitive::get_supporting_point() should only be called on convex geometries!");
 
   // get all vertices
   vector<Point3d> vertices;
-  get_vertices(vertices);
+  get_vertices(dir.pose, vertices);
   if (vertices.empty())
     return Point3d(0,0,0,get_pose());
-
-  // convert the direction
-  Vector3d d = Pose3d::transform_vector(get_pose(), dir);
 
   // loop over vertices
   for (unsigned i=0; i< vertices.size(); i++)
   {
-    double dot = vertices[i].dot(d);
+    double dot = vertices[i].dot(dir);
     if (dot > max_dot)
     {
       max_dot = dot;
-      maxp = vertices[i];
+      maxp = i;
     }
   }
 
-  return maxp;
+  return vertices[maxp];
 }
 
 /// Gets the visualization for this primitive, creating it if necessary
@@ -289,8 +327,19 @@ void Primitive::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >&
 /// Sets the transform for this primitive -- transforms mesh and inertial properties (if calculated)
 void Primitive::set_pose(const Pose3d& F)
 {
+  // make sure that the relative pose is GLOBAL
+  if (F.rpose)
+    throw std::runtime_error("Primitive::set_pose() - attempted to set pose with non-global relative pose");
+
   // save the new transform
   *_F = F;
+
+  // copy to all underlying poses
+  BOOST_FOREACH(shared_ptr<Pose3d> p, _poses)
+  {
+    p->x = F.x;
+    p->q = F.q;
+  }
 
   #ifdef USE_OSG
   if (_vtransform)

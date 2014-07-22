@@ -1,7 +1,7 @@
 /****************************************************************************
  * Copyright 2005 Evan Drumwright
- * This library is distributed under the terms of the GNU Lesser General Public 
- * License (found in COPYING).
+ * This library is distributed under the terms of the Apache V2.0 
+ * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
 #ifndef _SIMULATOR_H
@@ -78,13 +78,17 @@ class Simulator : public virtual Base
     double dynamics_time;
 
   protected:
-    virtual void check_pairwise_constraint_violations() { }
+    virtual double check_pairwise_constraint_violations(double t) { return 0.0; }
     osg::Group* _persistent_vdata;
     osg::Group* _transient_vdata;
+    void update_bounds() const;
 
     /// The set of bodies in the simulation
     std::vector<DynamicBodyPtr> _bodies;
   
+    /// The derivative at the current time
+    Ravelin::VectorNd _current_dx;
+
     template <class ForwardIterator>
     double integrate(double step_size, ForwardIterator begin, ForwardIterator end);
 

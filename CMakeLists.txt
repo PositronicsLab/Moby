@@ -9,7 +9,7 @@ set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/CMakeModules)
 include_directories ("include")
 
 # setup library sources
-set (SOURCES AABB.cpp AccelerationEventHandler.cpp ArticulatedBody.cpp Base.cpp BoundingSphere.cpp BoxPrimitive.cpp BulirschStoerIntegrator.cpp BV.cpp CCD.cpp CollisionGeometry.cpp CompGeom.cpp ConePrimitive.cpp ContactParameters.cpp CRBAlgorithm.cpp CSG.cpp CylinderPrimitive.cpp DampingForce.cpp DynamicBody.cpp EulerIntegrator.cpp Event.cpp EventDrivenSimulator.cpp FixedJoint.cpp FSABAlgorithm.cpp GaussianMixture.cpp GJK.cpp GravityForce.cpp ImpactEventHandler.cpp ImpactEventHandlerNQP.cpp ImpactEventHandlerQP.cpp IndexedTetraArray.cpp IndexedTriArray.cpp Integrator.cpp Joint.cpp LCP.cpp Log.cpp OBB.cpp ODEPACKIntegrator.cpp OSGGroupWrapper.cpp Polyhedron.cpp Primitive.cpp PrismaticJoint.cpp RCArticulatedBody.cpp RevoluteJoint.cpp RigidBody.cpp RNEAlgorithm.cpp Rosenbrock4Integrator.cpp RungeKuttaFehlbergIntegrator.cpp RungeKuttaIntegrator.cpp RungeKuttaImplicitIntegrator.cpp Simulator.cpp SingleBody.cpp Spatial.cpp SpherePrimitive.cpp SphericalJoint.cpp SSL.cpp SSR.cpp StokesDragForce.cpp Tetrahedron.cpp ThickTriangle.cpp Triangle.cpp TriangleMeshPrimitive.cpp UniversalJoint.cpp URDFReader.cpp VariableEulerIntegrator.cpp VariableStepIntegrator.cpp Visualizable.cpp XMLReader.cpp XMLTree.cpp XMLWriter.cpp)
+set (SOURCES AABB.cpp AccelerationEventHandler.cpp ADF.cpp ArticulatedBody.cpp Base.cpp BoundingSphere.cpp BoxPrimitive.cpp BulirschStoerIntegrator.cpp BV.cpp CCD.cpp CollisionGeometry.cpp CompGeom.cpp ConePrimitive.cpp ContactParameters.cpp CRBAlgorithm.cpp CylinderPrimitive.cpp DampingForce.cpp DynamicBody.cpp EulerIntegrator.cpp Event.cpp EventDrivenSimulator.cpp FixedJoint.cpp FSABAlgorithm.cpp GJK.cpp GravityForce.cpp HeightmapPrimitive.cpp ImpactEventHandler.cpp ImpactEventHandlerNQP.cpp ImpactEventHandlerQP.cpp IndexedTetraArray.cpp IndexedTriArray.cpp Integrator.cpp Joint.cpp LCP.cpp Log.cpp OBB.cpp ODEPACKIntegrator.cpp OSGGroupWrapper.cpp PlanePrimitive.cpp Polyhedron.cpp Primitive.cpp PrismaticJoint.cpp RCArticulatedBody.cpp RevoluteJoint.cpp RigidBody.cpp RNEAlgorithm.cpp Rosenbrock4Integrator.cpp RungeKuttaFehlbergIntegrator.cpp RungeKuttaIntegrator.cpp RungeKuttaImplicitIntegrator.cpp SDFReader.cpp Simulator.cpp SingleBody.cpp Spatial.cpp SpherePrimitive.cpp SphericalJoint.cpp SSL.cpp SSR.cpp StokesDragForce.cpp Tetrahedron.cpp ThickTriangle.cpp TimeSteppingSimulator.cpp Triangle.cpp TriangleMeshPrimitive.cpp UniversalJoint.cpp URDFReader.cpp VariableEulerIntegrator.cpp VariableStepIntegrator.cpp Visualizable.cpp XMLReader.cpp XMLTree.cpp XMLWriter.cpp)
 #set (SOURCES MCArticulatedBody.cpp)
 
 # build options 
@@ -67,6 +67,8 @@ find_package (osg)
 find_package (osgViewer)
 find_package (osgDB)
 find_package (osgGA)
+find_package (osgFX)
+find_package (osgUtil)
 find_package (OpenThreads)
 
 # see whether IPOPT was detected
@@ -156,6 +158,8 @@ if (USE_OSG AND OSG_FOUND)
   target_link_libraries (Moby ${OSGDB_LIBRARIES})
   target_link_libraries (Moby ${OSGGA_LIBRARIES})
   target_link_libraries (Moby ${OPENTHREADS_LIBRARY})
+  target_link_libraries (Moby ${OSGUTIL_LIBRARIES})
+  target_link_libraries (Moby ${OSGMANIPULATOR_LIBRARIES})
 endif (USE_OSG AND OSG_FOUND)  
 
 # build the tools?

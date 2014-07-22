@@ -1,7 +1,7 @@
 /****************************************************************************
  * Copyright 2009 Evan Drumwright
- * This library is distributed under the terms of the GNU Lesser General Public 
- * License (found in COPYING).
+ * This library is distributed under the terms of the Apache V2.0 
+ * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
 #include <iostream>
@@ -9,6 +9,7 @@
 #include <osg/Geode>
 #include <osg/Shape>
 #include <osg/ShapeDrawable>
+#include <osg/MatrixTransform>
 #endif
 #include <Moby/Constants.h>
 #include <Moby/CollisionGeometry.h>
@@ -16,6 +17,9 @@
 #include <Moby/XMLTree.h>
 #include <Moby/OBB.h>
 #include <Moby/SpherePrimitive.h>
+#include <Moby/TriangleMeshPrimitive.h>
+#include <Moby/HeightmapPrimitive.h>
+#include <Moby/GJK.h>
 #include <Moby/ConePrimitive.h>
 
 using namespace Ravelin;
@@ -23,6 +27,8 @@ using namespace Moby;
 using std::map;
 using std::pair;
 using boost::shared_ptr;
+using boost::const_pointer_cast;
+using boost::dynamic_pointer_cast;
 using std::list;
 using std::vector;
 
@@ -86,27 +92,31 @@ ConePrimitive::ConePrimitive(double radius, double height, unsigned npoints, uns
 }
 
 /// Gets a supporting point in a particular direction
-Point3d ConePrimitive::get_supporting_point(const Vector3d& v)
+Point3d ConePrimitive::get_supporting_point(const Vector3d& d) const
 {
-  // TODO: do the real cone function
-  return Primitive::get_supporting_point(v);
+  assert(_poses.find(const_pointer_cast<Pose3d>(d.pose)) != _poses.end());
+
+  // scale the vector
+  Vector3d dscal = Vector3d::normalize(d) * (_radius + _height) * 2.0;
+
+  // setup the zero vector
+  Vector3d zero(0.0, 0.0, 0.0, dscal.pose);
+
+  // setup a line segment
+  Point3d isect;
+  Vector3d normal;
+  double t;
+  bool intersects = intersect_seg(LineSeg3(dscal, zero), t, isect, normal);
+  assert(intersects);
+
+  // return the point of intersection
+  return isect;
 }
 
-/// Computes the distance and normal from a point on the CSG
+/// Computes the distance and normal from a point on the primitive 
 double ConePrimitive::calc_dist_and_normal(const Point3d& p, Vector3d& normal) const
 {
-  // TODO: implement this
-  assert(false);
-  return 0.0;
-}
-
-double ConePrimitive::calc_dist(const SpherePrimitive* s, Point3d& pcon, Point3d& psph) const
-{
   const unsigned X = 0, Y = 1, Z = 2;
-
-  // get the sphere center and put it into the cone's coordinate system
-  Point3d sph_c(0.0, 0.0, 0.0, s->get_pose());
-  Point3d p = Pose3d::transform_point(get_pose(), sph_c);
 
 /*
   // compute distance from point (projected onto plane) to circle
@@ -119,8 +129,103 @@ double ConePrimitive::calc_dist(const SpherePrimitive* s, Point3d& pcon, Point3d
   pcyl[Z] = p[Z];
 */
 
+  // initialize the closest point on the cone
+  Point3d pcon;
+
   // setup cone pose 
-  pcon.pose = get_pose();
+  pcon.pose = p.pose;
+
+  // setup the normal
+  normal.pose = p.pose;
+
+  // setup distance
+  double dist;
+
+  // see whether the point is above the height extent
+  double ht_ext = _height*0.5;
+  if (p[Y] > ht_ext)
+  {
+    // closest point is the height extent
+    pcon[X] = pcon[Z] = 0.0;
+    pcon[Y] = ht_ext;
+
+    // setup the normal
+    normal[X] = normal[Z] = 0.0;
+    normal[Y] = 1.0;
+
+    // return the distance
+    return (pcon - p).norm();
+  }
+  else
+  {
+    // see whether the point is below the negative height extent
+    if (p[Y] < -ht_ext)
+    {
+      // compute distance from point (projected onto plane) to circle
+      double d = std::sqrt(p[X]*p[X] + p[Z]*p[Z]) - _radius;
+
+      // setup the closest point on the cone
+      if (d > 0.0)
+      {
+        pcon[Y] = 0.0;
+        pcon[X] = p[X];
+        pcon[Z] = p[Z];
+        pcon *= _radius;
+      }
+      pcon[Y] = -ht_ext;
+
+      // setup the normal
+      normal[X] = normal[Z] = 0.0;
+      normal[Y] = -1.0;
+
+      // compute distance
+      return (p - pcon).norm();
+    }
+    else
+    {
+      // compute the radius at the given height
+      double b =  _radius*0.5;
+      double m = -b/ht_ext;
+      double rad = m*p[Y] + b;
+      double d = std::sqrt(p[X]*p[X] + p[Z]*p[Z]) - rad;
+
+      // setup the closest point on the cone
+      if (d > 0.0)
+      {
+        pcon[Y] = 0.0;
+        pcon[X] = p[X];
+        pcon[Z] = p[Z];
+        pcon *= rad;
+      }
+      pcon[Y] = p[Y];
+
+      // setup the normal
+      normal = Vector3d::normalize(pcon);
+
+      // compute distance
+      return (p - pcon).norm();
+    }
+  }
+}
+
+double ConePrimitive::calc_dist(const SpherePrimitive* s, Point3d& pcon, Point3d& psph) const
+{
+  const unsigned X = 0, Y = 1, Z = 2;
+
+  // get the sphere center and put it into the cone's coordinate system
+  Point3d sph_c(0.0, 0.0, 0.0, psph.pose);
+  Point3d p = Pose3d::transform_point(pcon.pose, sph_c);
+
+/*
+  // compute distance from point (projected onto plane) to circle
+  double dist = std::sqrt(p[X]*p[X] + p[Z]*p[Z]) - _radius;
+
+  // setup closest point on cone
+  pcyl.pose = get_pose();
+  pcyl[X] = p[X];
+  pcyl[Y] = p[Y];
+  pcyl[Z] = p[Z];
+*/
 
   // setup distance
   double dist;
@@ -181,8 +286,8 @@ double ConePrimitive::calc_dist(const SpherePrimitive* s, Point3d& pcon, Point3d
   if (dist < 0.0)
   {
     // compute farthest interpenetration of cone inside sphere
-    Point3d con_c(0.0, 0.0, 0.0, get_pose());
-    psph = sph_c - Pose3d::transform_point(s->get_pose(), con_c);
+    Point3d con_c(0.0, 0.0, 0.0, pcon.pose);
+    psph = sph_c - Pose3d::transform_point(psph.pose, con_c);
     psph.normalize();
     psph *= -dist;
   }
@@ -190,7 +295,7 @@ double ConePrimitive::calc_dist(const SpherePrimitive* s, Point3d& pcon, Point3d
   {
     // determine the closest point on the sphere using the vector from the
     // sphere center to the closest point on the cone 
-    psph = Pose3d::transform_point(s->get_pose(), pcon) - sph_c;
+    psph = Pose3d::transform_point(psph.pose, pcon) - sph_c;
     psph.normalize();
     psph *= s->get_radius();
   }
@@ -206,12 +311,6 @@ void ConePrimitive::set_radius(double radius)
   _radius = radius;
   if (_radius < 0.0)
     throw std::runtime_error("Attempting to pass negative radius to ConePrimitive::set_radius()");
-
-  // mesh, vertices are no longer valid
-  _mesh = shared_ptr<IndexedTriArray>();
-  _vertices.clear();
-  _smesh = pair<shared_ptr<IndexedTriArray>, list<unsigned> >();
-  _invalidated = true;
 
   // need to recalculate mass properties
   calc_mass_properties();
@@ -238,12 +337,6 @@ void ConePrimitive::set_height(double height)
   if (_height < 0.0)
     throw std::runtime_error("Attempting to pass negative height to ConePrimitive::set_height()");
 
-  // mesh, vertices are no longer valid
-  _mesh = shared_ptr<IndexedTriArray>();
-  _vertices.clear();
-  _smesh = pair<shared_ptr<IndexedTriArray>, list<unsigned> >();
-  _invalidated = true;
-
   // need to recalculate mass properties
   calc_mass_properties();
 
@@ -266,10 +359,6 @@ void ConePrimitive::set_circle_points(unsigned n)
   _npoints = n;
   if (_npoints < 4)
     throw std::runtime_error("Too few points to represent a circle in ConePrimitive::set_circle_points()");
-
-  // vertices are no longer valid
-  _vertices.clear();
-  _invalidated = true;
 }
 
 /// Sets the number of rings in the cone 
@@ -278,10 +367,6 @@ void ConePrimitive::set_num_rings(unsigned n)
   _nrings = n;
   if (_npoints < 1)
     throw std::runtime_error("Too few rings in ConePrimitive::set_num_rings()");
-
-  // vertices are no longer valid
-  _vertices.clear();
-  _invalidated = true;
 }
 
 /// Transforms the primitive
@@ -296,100 +381,74 @@ void ConePrimitive::set_pose(const Pose3d& p)
   // go ahead and set the new transform
   Primitive::set_pose(p);
 
-  // invalidate mesh and vertices 
-  _mesh.reset();
-  _smesh.first.reset();
-  _smesh.second.clear();
-
-  // transform vertices
-  _vertices.clear();
-
-  // indicate that this primitive has become invalidated
-  _invalidated = true;
-
   // recalculate the mass properties
   calc_mass_properties();
-
-  // transform bounding volumes
-  for (map<CollisionGeometryPtr, OBBPtr>::iterator i = _obbs.begin(); i != _obbs.end(); i++)
-  {
-    // get the pose for the geometry
-    shared_ptr<const Pose3d> gpose = i->first->get_pose();
-
-    // get the pose for this geometry
-    shared_ptr<const Pose3d> P = get_pose(); 
-    assert(!P->rpose);
-
-    // setup the obb center and orientation
-    i->second->center = Point3d(P->x, gpose);
-    i->second->R = P->q;
-  }
 }
 
 /// Gets the triangle mesh for the cone, computing it if necessary
-shared_ptr<const IndexedTriArray> ConePrimitive::get_mesh()
+shared_ptr<const IndexedTriArray> ConePrimitive::get_mesh(boost::shared_ptr<const Ravelin::Pose3d> P)
 {
-  // compute the mesh if necessary
-  if (!_mesh)
+  // verify that the primitive knows about this pose 
+  assert(_poses.find(const_pointer_cast<Pose3d>(P)) != _poses.end());
+
+  const double R = _radius;
+  const double HH = _height * (double) 0.5;
+
+  // if radius or height = 0, # of rings < 1 or circle points < 3, return now
+  if (_radius <= 0.0 || _height <= 0.0 || _nrings < 1 || _npoints < 3)
+    return shared_ptr<IndexedTriArray>(new IndexedTriArray());
+
+  // determine the vertices in the mesh
+  // NOTE: we wish for points to be defined in the GLOBAL frame
+  list<Point3d> points; 
+  for (unsigned i=0; i< _npoints; i++)
   {
-    const double R = _radius;
-    const double HH = _height * (double) 0.5;
-
-    // if radius or height = 0, # of rings < 1 or circle points < 3, return now
-    if (_radius <= 0.0 || _height <= 0.0 || _nrings < 1 || _npoints < 3)
-    {
-      _mesh = shared_ptr<IndexedTriArray>(new IndexedTriArray());
-      _smesh = make_pair(_mesh, list<unsigned>());
-      return _mesh;
-    }
-
-    // prepare to transform to the global frame 
-    shared_ptr<const Pose3d> GLOBAL;
-    shared_ptr<const Pose3d> P = get_pose();
-    Transform3d T = Pose3d::calc_relative_pose(P, GLOBAL);
-
-    // determine the vertices in the mesh
-    // NOTE: we wish for points to be defined in the GLOBAL frame
-    list<Point3d> points; 
-    for (unsigned i=0; i< _npoints; i++)
-    {
-      const double THETA = i * (M_PI * (double) 2.0/_npoints);
-      const double CT = std::cos(THETA);
-      const double ST = std::sin(THETA);
-      points.push_back(T.transform_point(Point3d(CT*R, -HH, ST*R, P)));
-    }
-
-    // create one more vertex for the tip of the cone
-    points.push_back(T.transform_point(Point3d(0.0, HH, 0.0)));
-
-    // compute the convex hull
-    PolyhedronPtr hull = CompGeom::calc_convex_hull(points.begin(), points.end());
-
-    // set the mesh
-    const std::vector<Origin3d>& v = hull->get_vertices();
-    const std::vector<IndexedTri>& f = hull->get_facets();
-    _mesh = boost::shared_ptr<IndexedTriArray>(new IndexedTriArray(v.begin(), v.end(), f.begin(), f.end()));
-
-    // setup sub mesh (it will be just the standard mesh)
-    list<unsigned> all_tris;
-    for (unsigned i=0; i< _mesh->num_tris(); i++)
-      all_tris.push_back(i);
-    _smesh = make_pair(_mesh, all_tris);
+    const double THETA = i * (M_PI * (double) 2.0/_npoints);
+    const double CT = std::cos(THETA);
+    const double ST = std::sin(THETA);
+    points.push_back(Point3d(CT*R, -HH, ST*R, P));
   }
 
-  return _mesh;
+  // create one more vertex for the tip of the cone
+  points.push_back(Point3d(0.0, HH, 0.0, P));
+
+  // compute the convex hull
+  PolyhedronPtr hull = CompGeom::calc_convex_hull(points.begin(), points.end());
+
+  // set the mesh
+  const std::vector<Origin3d>& v = hull->get_vertices();
+  const std::vector<IndexedTri>& f = hull->get_facets();
+  return shared_ptr<IndexedTriArray>(new IndexedTriArray(v.begin(), v.end(), f.begin(), f.end()));
 }
 
 /// Creates the visualization for this primitive
 osg::Node* ConePrimitive::create_visualization()
 {
+  const unsigned X = 0, Y = 1, Z = 2, W = 3;
+
   #ifdef USE_OSG
+  // setup the cone
   osg::Cone* cone = new osg::Cone;
   cone->setRadius((float) _radius);
   cone->setHeight((float) _height);
   osg::Geode* geode = new osg::Geode;
   geode->addDrawable(new osg::ShapeDrawable(cone));
-  return geode;
+
+  // setup a transform by -90 deg around x
+  osg::Matrixd T;
+  T(X,X) = 1.0; T(Y,X) = 0.0;  T(Z,X) = 0.0;  T(X,W) = 0.0;
+  T(X,Y) = 0.0; T(Y,Y) = 0.0;  T(Z,Y) = 1.0; T(Y,W) = 0.0;
+  T(X,Z) = 0.0; T(Y,Z) = -1.0;  T(Z,Z) = 0.0;  T(Z,W) = 0.0;
+  T(W,X) = T(W,Z) = 0.0;
+  T(W,Y) = -_height*0.25;
+  T(W,W) = 1.0;
+  
+  // setup the matrix transform
+  osg::MatrixTransform* G = new osg::MatrixTransform;
+  G->setMatrix(T);
+  G->addChild(geode);
+
+  return G;
   #else
   return NULL;
   #endif
@@ -476,15 +535,32 @@ void ConePrimitive::calc_mass_properties()
 }
 
 /// Finds the signed distance between the cylinder and another primitive
-double ConePrimitive::calc_signed_dist(shared_ptr<const Primitive> primitive, shared_ptr<const Pose3d> pose_this, shared_ptr<const Pose3d> pose_p, Point3d& pthis, Point3d& pprimitive) const
+double ConePrimitive::calc_signed_dist(shared_ptr<const Primitive> p, Point3d& pthis, Point3d& pp) const
 {
-  // TODO: implement this
+  shared_ptr<const HeightmapPrimitive> hmp = dynamic_pointer_cast<const HeightmapPrimitive>(p);
+  if (hmp)
+    return hmp->calc_signed_dist(dynamic_pointer_cast<const Primitive>(shared_from_this()), pp, pthis);
+
+  // if the primitive is convex, can use GJK
+  if (p->is_convex())
+  {
+    shared_ptr<const Pose3d> Pbox = pthis.pose;
+    shared_ptr<const Pose3d> Pgeneric = pp.pose;
+    shared_ptr<const Primitive> bthis = dynamic_pointer_cast<const Primitive>(shared_from_this());
+    return GJK::do_gjk(bthis, p, Pbox, Pgeneric, pthis, pp);
+  }
+
+  // try cone/(non-convex) trimesh
+  shared_ptr<const TriangleMeshPrimitive> trip = dynamic_pointer_cast<const TriangleMeshPrimitive>(p);
+  if (trip)
+    return trip->calc_signed_dist(dynamic_pointer_cast<const Primitive>(shared_from_this()), pp, pthis);
+
   assert(false);
   return 0.0;
 }
 
 /// Gets vertices from the primitive
-void ConePrimitive::get_vertices(std::vector<Point3d>& verts)
+void ConePrimitive::get_vertices(boost::shared_ptr<const Ravelin::Pose3d> P, std::vector<Point3d>& verts) const
 {
   // clear the vector of vertices
   verts.clear();
@@ -506,11 +582,11 @@ void ConePrimitive::get_vertices(std::vector<Point3d>& verts)
       const double THETA = i*(M_PI * (double) 2.0/_npoints);
       const double CT = std::cos(THETA);
       const double ST = std::sin(THETA);
-      verts.push_back(Point3d(CT*R, HEIGHT, ST*R, get_pose()));
+      verts.push_back(Point3d(CT*R, HEIGHT, ST*R, P));
     }
 
     // create one more vertex for the tip of the cone
-    verts.push_back(Point3d(0.0, H * (double) 0.5, 0.0, get_pose()));
+    verts.push_back(Point3d(0.0, H * (double) 0.5, 0.0, P));
   }
 }
 
@@ -573,22 +649,10 @@ void ConePrimitive::get_vertices(CollisionGeometryPtr geom, std::vector<const Po
 }
 */
 
-/// Gets a sub-mesh for the primitive
-const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >& ConePrimitive::get_sub_mesh(BVPtr bv)
-{
-  if (!_smesh.first)
-    get_mesh(); 
-  return _smesh;
-}
-
 /// Gets the OBB
 BVPtr ConePrimitive::get_BVH_root(CollisionGeometryPtr geom)
 {
   const unsigned X = 0, Y = 1, Z = 2;
-
-  // cone not applicable for deformable bodies 
-  if (is_deformable())
-    throw std::runtime_error("ConePrimitive::get_BVH_root(CollisionGeometryPtr geom) - primitive unusable for deformable bodies!");
 
   // get the pointer to the bounding box
   OBBPtr& obb = _obbs[geom];
@@ -600,16 +664,12 @@ BVPtr ConePrimitive::get_BVH_root(CollisionGeometryPtr geom)
     obb = shared_ptr<OBB>(new OBB);
     obb->geom = geom;
 
-    // get the pose for the geometry
-    shared_ptr<const Pose3d> gpose = geom->get_pose();
-
     // get the pose for this geometry
-    shared_ptr<const Pose3d> P = get_pose(); 
-    assert(!P->rpose);
+    shared_ptr<const Pose3d> P = get_pose(geom); 
 
     // setup the obb center and orientation
-    obb->center = Point3d(P->x, gpose);
-    obb->R = P->q;
+    obb->center = Point3d(0.0, 0.0, 0.0, P);
+    obb->R.set_identity();
 
     // setup OBB half-lengths
     obb->l[X] = _radius;
@@ -629,56 +689,34 @@ static double sgn(double x) { return x / std::fabs(x); }
 /**
  * Derived/adapted from Eberly. D.  "Intersection of a Line and a Cone"
  */
-/*
-bool ConePrimitive::point_inside(CollisionGeometryPtr geom, const Point3d& p, Vector3d& normal) const
+bool ConePrimitive::point_inside(const Point3d& p, Vector3d& normal) const
 {
-  static shared_ptr<Pose3d> P;
-
-  // get the pose for the collision geometry
-  shared_ptr<const Pose3d> gpose = geom->get_pose(); 
-
-  // get the pose for this geometry and BV
-  shared_ptr<const Pose3d> bpose = get_pose(); 
-  assert(!bpose->rpose);
-
-  // setup a new pose
-  if (!P)
-    P = shared_ptr<Pose3d>(new Pose3d);
-  *P = *bpose;
-  P->rpose = gpose;
-
-  // transform the point to cone frame 
-  Transform3d T = Pose3d::calc_relative_pose(p.pose, P);
-  Point3d query = T.transform_point(p);
+  assert(_poses.find(const_pointer_cast<Pose3d>(p.pose)) != _poses.end());
 
   // determine the angle theta
   double theta = std::atan(_radius/_height);
 
   // setup A
-  Vector3d A(0,-1,0, P);
+  Vector3d A(0,-1,0, p.pose);
 
   // setup v
-  Vector3d V(0,_height,0, P);
+  Vector3d V(0,_height,0, p.pose);
 
   // see whether the point is outside
-  if (A.dot(Vector3d::normalize(query - V)) < std::cos(theta))
+  if (A.dot(Vector3d::normalize(p - V)) < std::cos(theta))
     return false;
 
   // determine the normal (the gradient: derived using Mathematica)
-  normal = determine_normal(P, query);
-
-  // transform the normal back to the desired pose
-  normal = T.inverse_transform_vector(normal);
+  normal = determine_normal(p);
 
   return true;
 }
-*/
 
 /// Computes the signed distance from the cylinder
-double ConePrimitive::calc_signed_dist(const Point3d& p)
+double ConePrimitive::calc_signed_dist(const Point3d& p) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
-  assert(p.pose == get_pose());
+  assert(_poses.find(const_pointer_cast<Pose3d>(p.pose)) != _poses.end());
 
   // determine the angle theta
   double theta = std::atan(_radius/_height);
@@ -719,39 +757,35 @@ double ConePrimitive::calc_signed_dist(const Point3d& p)
 /**
  * \return the penetration depth, or -INF if the point is outside the cone
  */
-double ConePrimitive::calc_penetration_depth(shared_ptr<const Pose3d> P, const Point3d& p) const
+double ConePrimitive::calc_penetration_depth(const Point3d& p) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
   const double INF = std::numeric_limits<double>::max();
-
-  // transform the point to cone frame 
-  Transform3d T = Pose3d::calc_relative_pose(p.pose, P);
-  Point3d query = T.transform_point(p);
 
   // determine the angle theta
   double theta = std::atan(_radius/_height);
 
   // setup A
-  Vector3d A(0,-1,0,P);
+  Vector3d A(0,-1,0,p.pose);
 
   // setup v
-  Vector3d V(0,_height,0,P);
+  Vector3d V(0,_height,0,p.pose);
 
   // see whether the point is outside
-  if (A.dot(Vector3d::normalize(query - V)) < std::cos(theta))
+  if (A.dot(Vector3d::normalize(p - V)) < std::cos(theta))
     return -INF;
 
   // get the radius of the cone at the vertical location of the point
   // radius at +1/2 height = 0
   // radius at -1/2 height = R
-  const double RR = -_radius * (query[Y] / _height) + (double) 0.5 * _radius ;
+  const double RR = -_radius * (p[Y] / _height) + (double) 0.5 * _radius ;
 
   // get the distance from the horizontal part of the cone
-  double dcone = RR - std::sqrt(sqr(query[X]) + sqr(query[Z]));
+  double dcone = RR - std::sqrt(sqr(p[X]) + sqr(p[Z]));
 
   // get the distance from the vertical parts of the cone
-  double dv1 = (double) 0.5 * _height - query[Y];
-  double dv2 = (double) 0.5 * _height + query[Y];
+  double dv1 = (double) 0.5 * _height - p[Y];
+  double dv2 = (double) 0.5 * _height + p[Y];
 
   return std::min(std::min(dv1, dv2), dcone);
 }
@@ -760,8 +794,9 @@ double ConePrimitive::calc_penetration_depth(shared_ptr<const Pose3d> P, const P
 /**
  * \note the normal may be degenerate (NaN)
  */
-Vector3d ConePrimitive::determine_normal(boost::shared_ptr<const Ravelin::Pose3d> P, const Point3d& query) const
+Vector3d ConePrimitive::determine_normal(const Point3d& query) const
 {
+  assert(_poses.find(const_pointer_cast<Pose3d>(query.pose)) != _poses.end());
   const unsigned X = 0, Y = 1, Z = 2;
 
   // determine the normal (the gradient: derived using Mathematica)
@@ -772,7 +807,7 @@ Vector3d ConePrimitive::determine_normal(boost::shared_ptr<const Ravelin::Pose3d
   const double D = std::pow(usqrt, (double) 1.5);
 
   // setup the normal
-  Vector3d normal(P);
+  Vector3d normal(query.pose);
   normal[X] = (xy - _height)*std::fabs(xx)*Moby::sgn(xx)/D;
   normal[Y] = -1.0/std::sqrt(usqrt) + (xy - _height)*std::fabs(xy-_height)*Moby::sgn(xy-_height)/D;
   normal[Z] = (xy - _height)*std::fabs(xz)*Moby::sgn(xz)/D;
@@ -780,40 +815,28 @@ Vector3d ConePrimitive::determine_normal(boost::shared_ptr<const Ravelin::Pose3d
   return normal;
 }
 
-/**
 /// Intersects a cone with a line segment
+/**
  * Adapted from Geometric Tools cone/line segment intersection
  * \note for line segments that are partially or fully inside the cone, the
  *       method only returns intersection if the second endpoint of the segment
  *       is farther inside than the first
-bool ConePrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Vector3d& normal) const
+ */
+bool ConePrimitive::intersect_seg(const LineSeg3& seg, double& t, Point3d& isect, Vector3d& normal) const
 {
+  assert(_poses.find(const_pointer_cast<Pose3d>(seg.first.pose)) != _poses.end());
   const unsigned Y = 1;
-  static shared_ptr<Pose3d> P;
-
-  // get the pose for the collision geometry
-  shared_ptr<const Pose3d> gpose = bv->geom->get_pose(); 
-
-  // get the pose for this geometry and BV
-  shared_ptr<const Pose3d> bpose = get_pose(); 
-  assert(!bpose->rpose);
-
-  // setup a new pose
-  if (!P)
-    P = shared_ptr<Pose3d>(new Pose3d);
-  *P = *bpose;
-  P->rpose = gpose;
 
   // we'll need a second intersection point for temporary storage
   Point3d isects[3];
 
   // first check whether the first point is inside/on the cone
-  double dp = calc_penetration_depth(P, seg.first);
+  double dp = calc_penetration_depth(seg.first);
   if (dp >= (double) 0.0)
   {
     // first point is inside/on the cone
     // get the normal
-    if (!point_inside(bv, seg.first, normal))
+    if (!point_inside(seg.first, normal))
       return false;
 
     // indicate intersection
@@ -822,10 +845,9 @@ bool ConePrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Poin
     return true;
   }
 
-  // transform the line segment to cone frame 
-  Transform3d T = Pose3d::calc_relative_pose(seg.first.pose, P);
-  Point3d p = T.transform_point(seg.first);
-  Point3d q = T.transform_point(seg.second);
+  // alias the segments
+  const Point3d& p = seg.first;
+  const Point3d& q = seg.second;
 
   // determine the angle theta
   double theta = std::atan(_radius/_height);
@@ -835,7 +857,7 @@ bool ConePrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Poin
   double fAdD = -dir[Y];
   double fCosSqr = std::cos(theta);
   fCosSqr *= fCosSqr;
-  Vector3d kE = p - Vector3d(0,_height,0,P);
+  Vector3d kE = p - Vector3d(0,_height,0,p.pose);
   double fAdE = -kE[Y];
   double fDdE = dir.dot(kE);
   double fEdE = kE.dot(kE);
@@ -866,14 +888,14 @@ bool ConePrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Poin
 
       double fT = (-fC1 - fRoot)*fInvC2;
       isects[nisect] = p + dir*fT;
-      kE = isects[nisect] - Vector3d(0,_height,0,P);          
+      kE = isects[nisect] - Vector3d(0,_height,0,p.pose);          
       double fDot = -kE[Y];
       if (fDot > (double) 0.0)
         nisect++;
 
       fT = (-fC1 + fRoot)*fInvC2;
       isects[nisect] = p + dir*fT;
-      kE = isects[nisect] - Vector3d(0,_height,0,P);
+      kE = isects[nisect] - Vector3d(0,_height,0,p.pose);
       fDot = -kE[Y];
       if (fDot > (double) 0.0)
         nisect++;
@@ -889,10 +911,10 @@ bool ConePrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Poin
         t = std::sqrt((isects[0] - p).norm_sq()/dir.norm_sq());
 
         // transform that point from the cone frame
-        isect = T.inverse_transform_point(isects[0]);
+        isect = isects[0];
 
         // determine the normal to the point
-        normal = T.inverse_transform_vector(determine_normal(P, isects[0]));
+        normal = determine_normal(isects[0]);
 
         return true;
       }
@@ -906,10 +928,10 @@ bool ConePrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Poin
         t = std::sqrt((isects[0] - p).norm_sq()/dir.norm_sq());
 
         // transform the intersection point from the cone frame
-        isect = T.inverse_transform_point(isects[0]);
+        isect = isects[0];
 
         // determine the normal to the point
-        normal = T.inverse_transform_vector(determine_normal(P, isects[0]));
+        normal = determine_normal(isects[0]);
 
         return true;
       }
@@ -923,7 +945,7 @@ bool ConePrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Poin
     {
       // one repeated real root (line is tangent to the cone)
       isects[0] = p - dir*(fC1/fC2);
-      kE = isects[0] - Vector3d(0,_height,0,P);
+      kE = isects[0] - Vector3d(0,_height,0,p.pose);
       if (-kE[Y] > (double) 0.0)
       {
         // have a single point intersection
@@ -931,10 +953,10 @@ bool ConePrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Poin
         t = std::sqrt((isects[0] - p).norm_sq()/dir.norm_sq());
 
         // transform the intersection point from the cone frame
-        isect = T.inverse_transform_point(isects[0]);
+        isect = isects[0];
 
         // determine the normal to the point
-        normal = T.inverse_transform_vector(determine_normal(P, isects[0]));
+        normal = determine_normal(isects[0]);
 
         return true;
       }
@@ -949,19 +971,19 @@ bool ConePrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Poin
   {
     // c2 = 0, c1 != 0 (D is a direction vector on the cone boundary)
     isects[0] = p - (((double) 0.5) * fC0/fC1)*dir;
-    kE = isects[0] - Vector3d(0,_height,0,P);
+    kE = isects[0] - Vector3d(0,_height,0,p.pose);
     double fDot = -kE[Y];
     if (fDot > (double) 0.0)
     {
       // ray intersection
       // transform point from cone frame
-      isect = T.inverse_transform_point(isects[0]);
+      isect = isects[0];
 
       // determine the intersection parameter
       t = std::sqrt((isects[0] - p).norm_sq()/dir.norm_sq());
       
       // determine the normal to the point
-      normal = T.inverse_transform_vector(determine_normal(P, isects[0]));
+      normal = determine_normal(isects[0]);
 
       return true;
     }
@@ -982,5 +1004,4 @@ bool ConePrimitive::intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Poin
   // shouldn't still be here
   return false;
 }
- */
 

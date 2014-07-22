@@ -1,7 +1,7 @@
 /****************************************************************************
  * Copyright 2005 Evan Drumwright
- * This library is distributed under the terms of the GNU Lesser General Public 
- * License (found in COPYING).
+ * This library is distributed under the terms of the Apache V2.0 
+ * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
 #ifndef _BOX_PRIMITIVE_H
@@ -24,21 +24,21 @@ class BoxPrimitive : public Primitive
     BoxPrimitive(double xlen, double ylen, double zlen, const Ravelin::Pose3d& T);
     BoxPrimitive(const Ravelin::Pose3d& T);
     void set_size(double xlen, double ylen, double zlen);
+    virtual bool is_convex() const { return true; }
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual BVPtr get_BVH_root(CollisionGeometryPtr geom);
     virtual double calc_dist_and_normal(const Point3d& point, Ravelin::Vector3d& normal) const;
     double calc_closest_point(const Point3d& point, Point3d& closest) const;
-    virtual const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >& get_sub_mesh(BVPtr bv);
     virtual void set_pose(const Ravelin::Pose3d& T);
     void set_edge_sample_length(double len);
-    virtual boost::shared_ptr<const IndexedTriArray> get_mesh();
+    virtual boost::shared_ptr<const IndexedTriArray> get_mesh(boost::shared_ptr<const Ravelin::Pose3d> P);
     virtual osg::Node* create_visualization();
-    double calc_signed_dist(boost::shared_ptr<const SpherePrimitive> s, boost::shared_ptr<const Ravelin::Pose3d> pose_this, boost::shared_ptr<const Ravelin::Pose3d> pose_sph, Point3d& pthis, Point3d& psph) const;
-    virtual double calc_signed_dist(boost::shared_ptr<const Primitive> p, boost::shared_ptr<const Ravelin::Pose3d> pose_this, boost::shared_ptr<const Ravelin::Pose3d> pose_p, Point3d& pthis, Point3d& pp) const;
-    double calc_signed_dist(boost::shared_ptr<const BoxPrimitive> box, boost::shared_ptr<const Ravelin::Pose3d> pose_this, boost::shared_ptr<const Ravelin::Pose3d> pose_box, Point3d& pthis, Point3d& pbox) const;
-    virtual void get_vertices(std::vector<Point3d>& p);
-    virtual double calc_signed_dist(const Point3d& p);
+    double calc_signed_dist(boost::shared_ptr<const SpherePrimitive> s, Point3d& pthis, Point3d& psph) const;
+    virtual double calc_signed_dist(boost::shared_ptr<const Primitive> p, Point3d& pthis, Point3d& pp) const;
+    virtual void get_vertices(boost::shared_ptr<const Ravelin::Pose3d> P, std::vector<Point3d>& p) const;
+    virtual double calc_signed_dist(const Point3d& p) const;
+    double calc_closest_points(boost::shared_ptr<const SpherePrimitive> s, Point3d& pbox, Point3d& psph) const;
 
     /// Get the x-length of this box
     double get_x_len() const { return _xlen; }
@@ -51,16 +51,12 @@ class BoxPrimitive : public Primitive
 
   private:
     enum FaceID { ePOSX, eNEGX, ePOSY, eNEGY, ePOSZ, eNEGZ };
-    void determine_normal(const Ravelin::Vector3d& lengths, const Point3d& p, boost::shared_ptr<const Ravelin::Pose3d> P, Ravelin::Vector3d& normal) const;
-    bool determine_normal_abs(const Ravelin::Vector3d& lengths, const Point3d& p, boost::shared_ptr<const Ravelin::Pose3d> P, Ravelin::Vector3d& normal) const;
+    static double sqr(double x) { return x*x; }
 
     virtual void calc_mass_properties();
 
     /// The maximum edge length for the box
     double _edge_sample_length;
-
-    /// Pointer to the determined mesh (w/transform applied), if any
-    boost::shared_ptr<IndexedTriArray> _mesh;
 
     /// Map from the geometry to the vector of vertices (w/transform and intersection tolerance applied), if any
     std::map<CollisionGeometryPtr, std::vector<Point3d> > _vertices;
@@ -70,10 +66,6 @@ class BoxPrimitive : public Primitive
 
     /// The box lengths
     double _xlen, _ylen, _zlen;
-
-    /// The "sub" mesh 
-    std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> > _smesh;
-
 }; // end class
 } // end namespace
 

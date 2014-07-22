@@ -1,7 +1,7 @@
 /****************************************************************************
  * Copyright 2005 Evan Drumwright
- * This library is distributed under the terms of the GNU Lesser General Public 
- * License (found in COPYING).
+ * This library is distributed under the terms of the Apache V2.0 
+ * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
 #include <iostream>
@@ -89,6 +89,26 @@ Joint::Joint(boost::weak_ptr<RigidBody> inboard, boost::weak_ptr<RigidBody> outb
   // setup the visualization pose
   _vF->rpose = _F;
 }  
+
+/// Sets the pose for the joint (this generally shouldn't be set by the user)
+void Joint::set_pose(shared_ptr<const Pose3d> P)
+{
+  // verify that the relative pose is correct 
+  if (_F->rpose != P->rpose)
+    throw std::runtime_error("Joint::set_pose() - passed pose is not defined in correct frame");
+
+  // update the frame
+  *_F = *P;
+
+  // copy the relative pose from _Fb (next operation will overwrite it)
+  shared_ptr<const Pose3d> fb_rel = _Fb->rpose;
+
+  // update _Fb
+  *_Fb = *P;
+
+  // reset _Fb's relative pose
+  _Fb->update_relative_pose(fb_rel);
+}
 
 /// Determines q tare
 void Joint::determine_q_tare()

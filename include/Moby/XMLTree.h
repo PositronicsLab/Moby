@@ -1,7 +1,7 @@
 /****************************************************************************
  * Copyright 2007 Evan Drumwright
- * This library is distributed under the terms of the GNU Lesser General Public 
- * License (found in COPYING).
+ * This library is distributed under the terms of the Apache V2.0 
+ * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
 #ifndef _MOBY_XML_TREE_H
@@ -109,6 +109,9 @@ class XMLTree : public boost::enable_shared_from_this<XMLTree>
 
     /// The ID of this node
     std::string id;
+
+    /// Any 'content' of this node
+    std::string content;
 
     /// The object (if any) represented by this node
     boost::shared_ptr<void> object;

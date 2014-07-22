@@ -1,7 +1,7 @@
 /****************************************************************************
  * Copyright 2005 Evan Drumwright
- * This library is distributed under the terms of the GNU Lesser General Public 
- * License (found in COPYING).
+ * This library is distributed under the terms of the Apache V2.0 
+ * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
 #include <iostream>
@@ -57,11 +57,42 @@ Simulator::~Simulator()
   #endif
 }
 
+/// Updates velocity bounds on all bodies
+void Simulator::update_bounds() const
+{
+  // bounds are checked in each body's prepare_calc_ode(.) function
+  // now compute the bounds
+  BOOST_FOREACH(DynamicBodyPtr db, _bodies)
+  {
+    ArticulatedBodyPtr ab = dynamic_pointer_cast<ArticulatedBody>(db);
+    if (ab)
+    {
+      ab->update_joint_vel_limits();
+      BOOST_FOREACH(RigidBodyPtr rb, ab->get_links())
+        rb->update_vel_limits();
+    }
+    else
+    {
+      RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(db);
+      rb->update_vel_limits();
+    }
+  }
+}
+
 /// Computes the ODE of the system
 VectorNd& Simulator::ode(const VectorNd& x, double t, double dt, void* data, VectorNd& dx)
 {
   // get the simulator
   shared_ptr<Simulator>& s = *((shared_ptr<Simulator>*) data);
+
+  FILE_LOG(LOG_SIMULATOR) << "Simulator::ode(t=" << t << ") entered" << std::endl;
+
+  // see whether t=current time and the derivative has already been computed
+  if (t == s->current_time && s->_current_dx.size() > 0)
+  {
+    dx = s->_current_dx;
+    return dx;
+  }
 
   // initialize the ODE index
   unsigned idx = 0;
@@ -90,12 +121,15 @@ VectorNd& Simulator::ode(const VectorNd& x, double t, double dt, void* data, Vec
   }
 
   // check pairwise constraint violations
-  s->check_pairwise_constraint_violations();
+  s->check_pairwise_constraint_violations(t);
 
   // loop through all bodies, computing forward dynamics 
   BOOST_FOREACH(DynamicBodyPtr db, s->_bodies)
     if (!db->get_kinematic())
       db->calc_fwd_dyn();
+
+  // reset the index
+  idx = 0;
 
   // loop through all bodies, computing the ODE
   BOOST_FOREACH(DynamicBodyPtr db, s->_bodies)
@@ -116,6 +150,12 @@ VectorNd& Simulator::ode(const VectorNd& x, double t, double dt, void* data, Vec
     // update idx
     idx += NGC+NGV;
   }
+
+  FILE_LOG(LOG_SIMULATOR) << "Simulator::ode(t=" << t << ") exited" << std::endl;
+
+  // see whether to set current time derivative
+  if (t == s->current_time)
+    s->_current_dx = dx;
 
   // return the ODE
   return dx;
