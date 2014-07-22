@@ -345,7 +345,7 @@ OutputIterator CCD::find_contacts_sphere_heightmap(CollisionGeometryPtr cgA, Col
 template <class OutputIterator>
 OutputIterator CCD::find_contacts_convex_heightmap(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL)
 {
-  const unsigned X = 0, Z = 2;
+  const unsigned X = 0, Y = 1, Z = 2;
 
   // get the output iterator
   OutputIterator o = output_begin; 
@@ -393,10 +393,21 @@ OutputIterator CCD::find_contacts_convex_heightmap(CollisionGeometryPtr cgA, Col
   // get the bounding volume for the primitive
   BVPtr bv = sA->get_BVH_root(cgA);
 
+  // get the lower and upper bounds of the BV
+  Point3d bv_lo = bv->get_lower_bounds();
+  Point3d bv_hi = bv->get_upper_bounds();
+
+  // create an OBB
+  OBB obb;
+  obb.l[X] = (bv_hi[X] - bv_lo[X])*0.5;
+  obb.l[Y] = (bv_hi[Y] - bv_lo[Y])*0.5;
+  obb.l[Z] = (bv_hi[Z] - bv_lo[Z])*0.5;
+  obb.R = T.q;
+  obb.center = Point3d(T.x, T.target);
+
   // get the AABB points in heightmap space
-  // NOTE: might need to define points in pA frame
-  Point3d bv_lo = T.transform_point(bv->get_lower_bounds());
-  Point3d bv_hi = T.transform_point(bv->get_upper_bounds());
+  bv_lo = obb.get_lower_bounds();
+  bv_hi = obb.get_upper_bounds();
 
   // get the heightmap width, depth, and heights
   double width = hmB->get_width();
