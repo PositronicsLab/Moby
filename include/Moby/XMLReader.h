@@ -44,6 +44,7 @@ class XMLReader
     static void read_CSG(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     static void read_primitive_plugin(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     static void read_event_driven_simulator(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
+    static void read_time_stepping_simulator(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     static void read_simulator(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     static void read_rigid_body(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     static void read_mc_abody(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);

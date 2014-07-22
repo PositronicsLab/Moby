@@ -71,7 +71,12 @@ ImpactEventHandler::ImpactEventHandler()
 }
 
 // Processes impacts
-void ImpactEventHandler::process_events(const vector<Event>& events, double max_time)
+/**
+ * \param events the vector of events
+ * \param max_time the maximum time to solve the events
+ * \param inv_dt 1/dt (the time step) for correcting interpenetration
+ */
+void ImpactEventHandler::process_events(const vector<Event>& events, double max_time, double inv_dt)
 {
   FILE_LOG(LOG_EVENT) << "*************************************************************";
   FILE_LOG(LOG_EVENT) << endl;
@@ -82,7 +87,7 @@ void ImpactEventHandler::process_events(const vector<Event>& events, double max_
 
   // apply the method to all contacts
   if (!events.empty())
-    apply_model(events, max_time);
+    apply_model(events, max_time, inv_dt);
   else
     FILE_LOG(LOG_EVENT) << " (no events?!)" << endl;
     
@@ -94,8 +99,10 @@ void ImpactEventHandler::process_events(const vector<Event>& events, double max_
 /// Applies the model to a set of events 
 /**
  * \param events a set of events
+ * \param max_time the maximum time to solve the events
+ * \param inv_dt 1/dt (the time step) for correcting interpenetration
  */
-void ImpactEventHandler::apply_model(const vector<Event>& events, double max_time)
+void ImpactEventHandler::apply_model(const vector<Event>& events, double max_time, double inv_dt)
 {
   const double INF = std::numeric_limits<double>::max();
   list<Event*> impacting;
@@ -129,9 +136,9 @@ void ImpactEventHandler::apply_model(const vector<Event>& events, double max_tim
 
       // apply model to the reduced contacts
       if (max_time < INF)   
-        apply_model_to_connected_events(revents, max_time);
+        apply_model_to_connected_events(revents, max_time, inv_dt);
       else
-        apply_model_to_connected_events(revents);
+        apply_model_to_connected_events(revents, inv_dt);
 
       FILE_LOG(LOG_EVENT) << " -- post-event velocity (all events): " << std::endl;
       for (list<Event*>::iterator j = i->begin(); j != i->end(); j++)
@@ -154,7 +161,7 @@ void ImpactEventHandler::apply_model(const vector<Event>& events, double max_tim
  * "Anytime" version
  * \param events a set of connected events 
  */
-void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& events, double max_time)
+void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& events, double max_time, double inv_dt)
 {
   double ke_minus = 0.0, ke_plus = 0.0;
   const unsigned UINF = std::numeric_limits<unsigned>::max();
@@ -171,7 +178,7 @@ void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& eve
   _epd.partition_events();
 
   // compute all event cross-terms
-  compute_problem_data(_epd);
+  compute_problem_data(_epd, inv_dt);
 
   // compute energy
   if (LOGGING(LOG_EVENT))
@@ -365,7 +372,7 @@ void ImpactEventHandler::permute_problem(EventProblemData& epd, VectorNd& z)
  * Applies method of Drumwright and Shell to a set of connected events
  * \param events a set of connected events 
  */
-void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& events)
+void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& events, double inv_dt)
 {
   double ke_minus = 0.0, ke_plus = 0.0;
   VectorNd z;
@@ -382,7 +389,7 @@ void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& eve
   _epd.partition_events();
 
   // compute all event cross-terms
-  compute_problem_data(_epd);
+  compute_problem_data(_epd, inv_dt);
 
   // compute energy
   if (LOGGING(LOG_EVENT))
@@ -537,7 +544,7 @@ void ImpactEventHandler::apply_impulses(const EventProblemData& q)
 }
 
 /// Computes the data to the LCP / QP problems
-void ImpactEventHandler::compute_problem_data(EventProblemData& q)
+void ImpactEventHandler::compute_problem_data(EventProblemData& q, double inv_dt)
 {
   const unsigned UINF = std::numeric_limits<unsigned>::max();
 
@@ -744,6 +751,14 @@ void ImpactEventHandler::compute_problem_data(EventProblemData& q)
 
     // NOTE: cross data has already been computed for contact/limit events
   }
+
+  // correct constraint violations on contacts
+  for (unsigned i=0; i< q.contact_events.size(); i++)
+    q.Cn_v[i] += q.contact_events[i]->signed_violation * inv_dt;
+
+  // correct constraint violations on limits
+  for (unsigned i=0; i< q.limit_events.size(); i++)
+    q.L_v[i] += q.limit_events[i]->signed_violation * inv_dt;
 }
 
 /// Solves the (frictionless) LCP
