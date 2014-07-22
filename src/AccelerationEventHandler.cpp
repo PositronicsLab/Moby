@@ -18,7 +18,6 @@
 #include <Moby/Log.h>
 #include <Moby/XMLTree.h>
 #include <Moby/NumericalException.h>
-#include <Moby/AccelerationEventForce.h>
 #include <Moby/AccelerationEventFailException.h>
 #include <Moby/CompGeom.h>
 
@@ -100,10 +99,6 @@ void AccelerationEventHandler::apply_model(const vector<Event>& contacts)
 
       // apply model to the reduced contacts
       apply_model_to_connected_contacts(rcontacts);
-
-      FILE_LOG(LOG_EVENT) << " -- post-contact acceleration (all contacts): " << std::endl;
-      for (list<Event*>::iterator j = i->begin(); j != i->end(); j++)
-        FILE_LOG(LOG_EVENT) << "    contact: " << std::endl << **j;
   }
 }
 
@@ -189,21 +184,6 @@ void AccelerationEventHandler::apply_forces(const AccelerationEventData& q) cons
   {
     // apply the force     
     i->first->add_generalized_force(i->second);
-
-    // add it to the resting contact recurrent force, so it can be added
-    // upon integration
-    BOOST_FOREACH(RecurrentForcePtr rf, i->first->get_recurrent_forces())
-    {
-      shared_ptr<AccelerationEventForce> rcf = dynamic_pointer_cast<AccelerationEventForce>(rf);
-      if (rcf)
-      {
-        VectorNd& f = rcf->accel_event_forces[i->first]; 
-        if (f.size() == i->second.size())
-          f += i->second;
-        else
-          f = i->second;
-      }
-    }
   }
 }
 
