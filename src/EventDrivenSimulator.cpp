@@ -145,9 +145,24 @@ void EventDrivenSimulator::handle_acceleration_events()
   if (event_post_impulse_callback_fn)
     (*event_post_impulse_callback_fn)(_events, event_post_impulse_callback_data);
 
-  // recompute forward dynamics
-  BOOST_FOREACH(DynamicBodyPtr body, _bodies)
+  // get super bodies for events 
+  vector<DynamicBodyPtr> bodies;
+  BOOST_FOREACH(const Event& e, _events)
+    e.get_super_bodies(std::back_inserter(bodies));
+  std::sort(bodies.begin(), bodies.end());
+  bodies.erase(std::unique(bodies.begin(), bodies.end()), bodies.end());
+
+  // recompute forward dynamics for bodies in events
+  BOOST_FOREACH(DynamicBodyPtr body, bodies)
     body->calc_fwd_dyn();
+
+  // output accelerations
+  if (LOGGING(LOG_EVENT))
+  {
+    FILE_LOG(LOG_EVENT) << " -- post-contact acceleration (all contacts): " << std::endl;
+    BOOST_FOREACH(const Event& e, _events)
+      FILE_LOG(LOG_EVENT) << e;
+  }
 }
 
 /// Computes the ODE of the system for acceleration events
@@ -653,9 +668,14 @@ double EventDrivenSimulator::step(double step_size)
     // do broad phase collision detection (must be done before any Euler steps)
     broad_phase(dt);
 
+    // compute pairwise distances at the current configuration
+    calc_pairwise_distances();
+
     // if dt is sufficiently small, do Euler step
     if (dt <= euler_step)
     {
+      FILE_LOG(LOG_SIMULATOR) << "  - step size really small; doing semi-implicit step" << std::endl;
+
       // do the Euler step
       step_si_Euler(dt);
       h += dt;
@@ -672,13 +692,11 @@ double EventDrivenSimulator::step(double step_size)
       break;
     }
 
-    // compute pairwise distances at the current configuration
-    calc_pairwise_distances();
-
     // update constraint violations
     update_constraint_violations(_pairwise_distances);
 
     // if there are any impacts at the current time, handle them
+    FILE_LOG(LOG_SIMULATOR) << "  - preparing to handle any impacts at the current time" << std::endl;
     find_events(impacting_contact_dist_thresh);
     handle_events();
 
@@ -689,9 +707,11 @@ restart_with_new_limits:
 
     // determine the maximum step according to conservative advancement
     double safe_dt = std::min(calc_CA_step(), dt);
+    FILE_LOG(LOG_SIMULATOR) << "  - conservative advancement step: " << safe_dt << std::endl;
     
     // get next possible event time
     double next_event_time = calc_next_CA_step(sustained_contact_dist_thresh); 
+    FILE_LOG(LOG_SIMULATOR) << "  - *next* conservative advancement step: " << next_event_time << std::endl;
 
     // we know that the current time is safe, so if the conservative
     // advancement step is zero, set it to the next event time
@@ -988,7 +1008,7 @@ void EventDrivenSimulator::check_constraint_velocity_violations(double t)
     if (ev < -zv_tol->second - NEAR_ZERO)
     {
       FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::check_constraint_velocity_violations() about to throw exception..." << std::endl;
-      throw InvalidVelocityException(t); 
+//      throw InvalidVelocityException(t); 
     }
   }
 

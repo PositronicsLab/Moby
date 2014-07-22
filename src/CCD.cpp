@@ -180,7 +180,7 @@ double CCD::calc_max_dist_per_t(RigidBodyPtr rb, const Vector3d& n, double rlen)
     double dist2 = c.dot(x);
     if (std::fabs(dist2 - dist) > std::sqrt(NEAR_ZERO))
       FILE_LOG(LOG_COLDET) << "Difference detected: " << dist << " vs. " << dist2 << std::endl;
-    dist = dist2;
+    dist = std::max(dist,dist2);
   }
 
   #endif
