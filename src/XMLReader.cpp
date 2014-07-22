@@ -25,6 +25,7 @@
 #include <Moby/Constants.h>
 #include <Moby/Simulator.h>
 #include <Moby/EventDrivenSimulator.h>
+#include <Moby/TimeSteppingSimulator.h>
 #include <Moby/RigidBody.h>
 #include <Moby/CollisionGeometry.h>
 #include <Moby/BoxPrimitive.h>
@@ -187,6 +188,7 @@ std::map<std::string, BasePtr> XMLReader::read(const std::string& fname)
   // finally, read and construct the simulator objects -- must be done last
   process_tag("Simulator", moby_tree, &read_simulator, id_map);
   process_tag("EventDrivenSimulator", moby_tree, &read_event_driven_simulator, id_map);
+  process_tag("TimeSteppingSimulator", moby_tree, &read_time_stepping_simulator, id_map);
 
   // change back to the initial working directory
   chdir(cwd.get());
@@ -523,6 +525,22 @@ void XMLReader::read_odepack_integrator(shared_ptr<const XMLTree> node, std::map
   // only create VectorN type integrators
   boost::shared_ptr<Base> b(new ODEPACKIntegrator());
 
+  // populate the object
+  b->load_from_xml(node, id_map);
+}
+
+/// Reads and constructs the TimeSteppingSimulator object
+/**
+ * \pre node is named TimeSteppingSimulator
+ */
+void XMLReader::read_time_stepping_simulator(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
+{
+  // sanity check
+  assert(strcasecmp(node->name.c_str(), "TimeSteppingSimulator") == 0);
+
+  // create a new TimeSteppingSimulator object
+  boost::shared_ptr<Base> b(new TimeSteppingSimulator());
+  
   // populate the object
   b->load_from_xml(node, id_map);
 }
