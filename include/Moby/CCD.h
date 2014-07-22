@@ -1,7 +1,7 @@
 /****************************************************************************
  * Copyright 2009 Evan Drumwright
- * This library is distributed under the terms of the GNU Lesser General Public 
- * License (found in COPYING).
+ * This library is distributed under the terms of the Apache V2.0 
+ * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
 #ifndef _CCD_H
@@ -14,6 +14,9 @@
 #include <Moby/sorted_pair>
 #include <Moby/Log.h>
 #include <Moby/SpherePrimitive.h>
+#include <Moby/PairwiseDistInfo.h>
+#include <Moby/HeightmapPrimitive.h>
+#include <Moby/PlanePrimitive.h>
 #include <Moby/BoxPrimitive.h>
 #include <Moby/BV.h>
 
@@ -31,12 +34,11 @@ class CCD
     virtual ~CCD() {}
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
-    double find_next_contact_time(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB);
     void broad_phase(double dt, const std::vector<DynamicBodyPtr>& bodies, std::vector<std::pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check);
-    double calc_CA_step(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB);
+    double calc_CA_step(const PairwiseDistInfo& pdi);
 
     template <class OutputIterator>
-    OutputIterator find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin);
+    OutputIterator find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL = NEAR_ZERO);
 
     /// Pairs of collision geometries that aren't checked for contact/collision
     /**
@@ -49,6 +51,11 @@ class CCD
   private:
     // the 3 axes
     enum AxisType { eXAxis, eYAxis, eZAxis };
+
+    bool lp_seidel(const Ravelin::MatrixNd& A, const Ravelin::VectorNd& b, const Ravelin::VectorNd& c, const Ravelin::VectorNd& l, const Ravelin::VectorNd& u, Ravelin::VectorNd& x);
+    Ravelin::VectorNd& insert_component(const Ravelin::VectorNd& x, unsigned k, Ravelin::VectorNd& xn);
+    Ravelin::VectorNd& remove_component(const Ravelin::VectorNd& x, unsigned k, Ravelin::VectorNd& xn);
+    double finitize(double x);
 
     // structure for doing broad phase collision detection
     struct BoundsStruct
@@ -82,26 +89,38 @@ class CCD
 
     static BVPtr construct_bounding_sphere(CollisionGeometryPtr cg);
     void sort_AABBs(const std::vector<RigidBodyPtr>& rigid_bodies, double dt);
-    void update_bounds_vector(std::vector<std::pair<double, BoundsStruct> >& bounds, AxisType axis, double dt);
+    void update_bounds_vector(std::vector<std::pair<double, BoundsStruct> >& bounds, AxisType axis, double dt, bool recreate_bvs);
     void build_bv_vector(const std::vector<RigidBodyPtr>& rigid_bodies, std::vector<std::pair<double, BoundsStruct> >& bounds);
     BVPtr get_swept_BV(CollisionGeometryPtr geom, BVPtr bv, double dt);
 
     double calc_max_dist_per_t(RigidBodyPtr rb, const Ravelin::Vector3d& n, double rmax);
     static double calc_max_velocity(RigidBodyPtr rb, const Ravelin::Vector3d& n, double rmax);
     bool intersect_BV_trees(boost::shared_ptr<BV> a, boost::shared_ptr<BV> b, const Ravelin::Transform3d& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b);
-    static Event create_contact(CollisionGeometryPtr a, CollisionGeometryPtr b, const Point3d& point, const Ravelin::Vector3d& normal);
+    static Event create_contact(CollisionGeometryPtr a, CollisionGeometryPtr b, const Point3d& point, const Ravelin::Vector3d& normal, double violation = 0.0);
 
     template <class OutputIterator>
     OutputIterator intersect_BV_leafs(BVPtr a, BVPtr b, const Ravelin::Transform3d& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b, OutputIterator output_begin) const;
 
     template <class OutputIterator>
-    OutputIterator find_contacts_sphere_sphere(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin);
+    OutputIterator find_contacts_plane_generic(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL);
 
     template <class OutputIterator>
-    OutputIterator find_contacts_not_separated(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin);
+    OutputIterator find_contacts_sphere_plane(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL);
 
     template <class OutputIterator>
-    OutputIterator find_contacts_separated(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, double min_dist, OutputIterator output_begin);
+    OutputIterator find_contacts_heightmap_generic(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL);
+
+    template <class OutputIterator>
+    OutputIterator find_contacts_sphere_sphere(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL);
+
+    template <class OutputIterator>
+    OutputIterator find_contacts_sphere_heightmap(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL);
+
+    template <class OutputIterator>
+    OutputIterator find_contacts_convex_heightmap(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL);
+
+    template <class OutputIterator>
+    OutputIterator find_contacts_box_sphere(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL);
 
     template <class RandomAccessIterator>
     void insertion_sort(RandomAccessIterator begin, RandomAccessIterator end);

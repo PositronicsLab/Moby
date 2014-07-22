@@ -1,7 +1,7 @@
 /***************************************************************************
  * Copyright 2011 Evan Drumwright
- * This library is distributed under the terms of the GNU Lesser General Public 
- * License (found in COPYING).
+ * This library is distributed under the terms of the Apache V2.0 
+ * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
 #include <cmath>
@@ -54,6 +54,7 @@ Event::Event()
   tol = NEAR_ZERO;              // default collision tolerance
   stick_tol = NEAR_ZERO;
   event_type = eNone;
+  signed_violation = 0.0;
   limit_dof = std::numeric_limits<unsigned>::max();
   limit_epsilon = (double) 0.0;
   limit_upper = false;
@@ -75,6 +76,7 @@ Event::Event()
 Event& Event::operator=(const Event& e)
 {
   tol = e.tol;
+  signed_violation = e.signed_violation;
   event_type = e.event_type;
   limit_epsilon = e.limit_epsilon;
   limit_dof = e.limit_dof;
@@ -1302,8 +1304,10 @@ double Event::calc_event_accel() const
     double ddot = normal.dot(taa.get_linear() - tab.get_linear());
     ddot += 2.0*normal_dot.dot(tva.get_linear() - tvb.get_linear());
     #ifndef NDEBUG
-    if (!CompGeom::rel_equal(ddot, calc_event_accel2(*this), 1e-4))
+    static bool displayed_once = false;
+    if (!displayed_once && !CompGeom::rel_equal(ddot, calc_event_accel2(*this), 1e-4))
     {
+      displayed_once = true;
       std::cerr << "Event::calc_event_accel() warning: accelerations do not match to desired tolerance" << std::endl;
       std::cerr << " -- computed acceleration: " << ddot << std::endl;
       std::cerr << " -- checked acceleration: " << calc_event_accel2(*this) << std::endl;
@@ -1410,7 +1414,7 @@ double Event::calc_event_vel() const
     FILE_LOG(LOG_EVENT) << "Event::calc_event_vel() exited" << std::endl;
 
     // get the linear velocities and project against the normal
-    assert(std::fabs(normal.dot(ta.get_linear() - tb.get_linear())) < NEAR_ZERO || (std::fabs(normal.dot(ta.get_linear() - tb.get_linear()) - calc_event_vel2(*this)))/std::fabs(normal.dot(ta.get_linear() - tb.get_linear())) < NEAR_ZERO);
+    //assert(std::fabs(normal.dot(ta.get_linear() - tb.get_linear())) < NEAR_ZERO || (std::fabs(normal.dot(ta.get_linear() - tb.get_linear()) - calc_event_vel2(*this)))/std::fabs(normal.dot(ta.get_linear() - tb.get_linear())) < NEAR_ZERO);
     return normal.dot(ta.get_linear() - tb.get_linear());
   }
   else if (event_type == eLimit)
@@ -1509,7 +1513,7 @@ std::ostream& Moby::operator<<(std::ostream& o, const Event& e)
 
       // get the linear velocities and project against the normal
       Vector3d rvlin = ta.get_linear() - tb.get_linear();
-      assert(std::fabs(normal.dot(rvlin)) < NEAR_ZERO || std::fabs(normal.dot(rvlin) - calc_event_vel2(e))/std::fabs(normal.dot(rvlin)) < NEAR_ZERO);
+      //assert(std::fabs(normal.dot(rvlin)) < NEAR_ZERO || std::fabs(normal.dot(rvlin) - calc_event_vel2(e))/std::fabs(normal.dot(rvlin)) < NEAR_ZERO);
       o << "relative normal velocity: " << normal.dot(rvlin) << std::endl;
       o << "relative tangent 1 velocity: " << tan1.dot(rvlin) << std::endl;
       o << "relative tangent 2 velocity: " << tan2.dot(rvlin) << std::endl;
@@ -1927,36 +1931,6 @@ void Event::compute_contact_jacobians(const Event& e, VectorN& Nc, VectorN& Dcs,
 void Event::determine_convex_set(list<Event*>& group)
 {
 return;
-  // don't do anything if there are three or fewer points
-  if (group.size() <= 3)
-    return;
-
-  // separate into groups of contact points with identical friction coeff.
-//  std::map<std::pair<double, double>, std::list<Event*>, Event::DblComp> groups;
-  std::map<std::pair<double, double>, std::list<Event*> > groups;
-
-  // setup a group of non-contact events
-  std::list<Event*> nc_events;
-
-  // verify that all points have same coefficient of friction
-  BOOST_FOREACH(Event* e, group)
-  {
-    if (e->event_type != Event::eContact)
-      nc_events.push_back(e);
-    else
-      // add to the proper group
-      groups[std::make_pair(e->contact_mu_coulomb, e->contact_mu_viscous)].push_back(e);
-  }
-
-  // reset the group
-  group.clear();
-
-  // process each group
-  for (std::map<std::pair<double, double>, std::list<Event*>, Event::DblComp>::iterator i = groups.begin(); i != groups.end(); i++)
-  {  
-    process_convex_set_group(i->second);
-    group.insert(group.end(), i->second.begin(), i->second.end());
-  }
 }
 
 void Event::process_convex_set_group(list<Event*>& group)

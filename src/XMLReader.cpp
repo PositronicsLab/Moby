@@ -1,7 +1,7 @@
 /****************************************************************************
  * Copyright 2005 Evan Drumwright
- * This library is distributed under the terms of the GNU Lesser General Public 
- * License (found in COPYING).
+ * This library is distributed under the terms of the Apache V2.0 
+ * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
 #include <dlfcn.h>
@@ -16,19 +16,20 @@
 #include <Moby/OSGGroupWrapper.h>
 #endif
 
-#include <Moby/CSG.h>
 #include <Moby/TriangleMeshPrimitive.h>
+#include <Moby/HeightmapPrimitive.h>
+#include <Moby/PlanePrimitive.h>
+#include <Moby/CylinderPrimitive.h>
+#include <Moby/ConePrimitive.h>
 #include <Moby/IndexedTetraArray.h>
 #include <Moby/Constants.h>
 #include <Moby/Simulator.h>
 #include <Moby/EventDrivenSimulator.h>
+#include <Moby/TimeSteppingSimulator.h>
 #include <Moby/RigidBody.h>
 #include <Moby/CollisionGeometry.h>
 #include <Moby/BoxPrimitive.h>
-#include <Moby/GaussianMixture.h>
 #include <Moby/SpherePrimitive.h>
-#include <Moby/CylinderPrimitive.h>
-#include <Moby/ConePrimitive.h>
 #include <Moby/FixedJoint.h>
 //#include <Moby/MCArticulatedBody.h>
 #include <Moby/RCArticulatedBody.h>
@@ -138,11 +139,14 @@ std::map<std::string, BasePtr> XMLReader::read(const std::string& fname)
   process_tag("Sphere", moby_tree, &read_sphere, id_map);
   process_tag("Cylinder", moby_tree, &read_cylinder, id_map);
   process_tag("Cone", moby_tree, &read_cone, id_map);
+  process_tag("Heightmap", moby_tree, &read_heightmap, id_map);
+  process_tag("Plane", moby_tree, &read_plane, id_map);
+/*
   process_tag("TriangleMesh", moby_tree, &read_trimesh, id_map);
   process_tag("TetraMesh", moby_tree, &read_tetramesh, id_map);
-  process_tag("GaussianMixture", moby_tree, &read_gaussian_mixture, id_map);
   process_tag("PrimitivePlugin", moby_tree, &read_primitive_plugin, id_map);
   process_tag("CSG", moby_tree, &read_CSG, id_map);
+*/
 
   // read and construct all integrators
   process_tag("EulerIntegrator", moby_tree, &read_euler_integrator, id_map);
@@ -184,6 +188,7 @@ std::map<std::string, BasePtr> XMLReader::read(const std::string& fname)
   // finally, read and construct the simulator objects -- must be done last
   process_tag("Simulator", moby_tree, &read_simulator, id_map);
   process_tag("EventDrivenSimulator", moby_tree, &read_event_driven_simulator, id_map);
+  process_tag("TimeSteppingSimulator", moby_tree, &read_time_stepping_simulator, id_map);
 
   // change back to the initial working directory
   chdir(cwd.get());
@@ -341,10 +346,10 @@ void XMLReader::read_CSG(shared_ptr<const XMLTree> node, std::map<std::string, B
   assert(strcasecmp(node->name.c_str(), "CSG") == 0);
 
   // create a new CSG object
-  boost::shared_ptr<Base> b(new CSG());
+//  boost::shared_ptr<Base> b(new CSG());
 
   // populate the object
-  b->load_from_xml(node, id_map);
+//  b->load_from_xml(node, id_map);
 }
 
 /// Reads and constructs the TriangleMeshPrimitive object
@@ -354,10 +359,10 @@ void XMLReader::read_tetramesh(shared_ptr<const XMLTree> node, std::map<std::str
   assert(strcasecmp(node->name.c_str(), "TetraMesh") == 0);
 
   // create a new IndexedTetraArray object
-  boost::shared_ptr<Base> b(new IndexedTetraArray());
+//  boost::shared_ptr<Base> b(new IndexedTetraArray());
   
   // populate the object
-  b->load_from_xml(node, id_map);
+//  b->load_from_xml(node, id_map);
 }
 
 /// Reads and constructs the TriangleMeshPrimitive object
@@ -367,20 +372,33 @@ void XMLReader::read_trimesh(shared_ptr<const XMLTree> node, std::map<std::strin
   assert(strcasecmp(node->name.c_str(), "TriangleMesh") == 0);
 
   // create a new TriangleMeshPrimitive object
-  boost::shared_ptr<Base> b(new TriangleMeshPrimitive());
+//  boost::shared_ptr<Base> b(new TriangleMeshPrimitive());
+  
+  // populate the object
+//  b->load_from_xml(node, id_map);
+}
+
+/// Reads and constructs a plane object
+void XMLReader::read_plane(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
+{  
+  // sanity check
+  assert(strcasecmp(node->name.c_str(), "Plane") == 0);
+
+  // create a new plane object
+  boost::shared_ptr<Base> b(new PlanePrimitive());
   
   // populate the object
   b->load_from_xml(node, id_map);
 }
 
-/// Reads and constructs the GaussianMixture object
-void XMLReader::read_gaussian_mixture(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
+/// Reads and constructs a heightmap object
+void XMLReader::read_heightmap(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {  
   // sanity check
-  assert(strcasecmp(node->name.c_str(), "GaussianMixture") == 0);
+  assert(strcasecmp(node->name.c_str(), "Heightmap") == 0);
 
-  // create a new GaussianMixture object
-  boost::shared_ptr<Base> b(new GaussianMixture());
+  // create a new Heightmap object
+  boost::shared_ptr<Base> b(new HeightmapPrimitive());
   
   // populate the object
   b->load_from_xml(node, id_map);
@@ -507,6 +525,22 @@ void XMLReader::read_odepack_integrator(shared_ptr<const XMLTree> node, std::map
   // only create VectorN type integrators
   boost::shared_ptr<Base> b(new ODEPACKIntegrator());
 
+  // populate the object
+  b->load_from_xml(node, id_map);
+}
+
+/// Reads and constructs the TimeSteppingSimulator object
+/**
+ * \pre node is named TimeSteppingSimulator
+ */
+void XMLReader::read_time_stepping_simulator(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
+{
+  // sanity check
+  assert(strcasecmp(node->name.c_str(), "TimeSteppingSimulator") == 0);
+
+  // create a new TimeSteppingSimulator object
+  boost::shared_ptr<Base> b(new TimeSteppingSimulator());
+  
   // populate the object
   b->load_from_xml(node, id_map);
 }

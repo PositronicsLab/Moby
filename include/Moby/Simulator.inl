@@ -1,7 +1,7 @@
 /****************************************************************************
  * Copyright 2005 Evan Drumwright
- * This library is distributed under the terms of the GNU Lesser General Public 
- * License (found in COPYING).
+ * This library is distributed under the terms of the Apache V2.0 
+ * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
 /// Integrates both position and velocity of rigid _bodies
@@ -32,9 +32,6 @@ double Simulator::integrate(double step_size, ForwardIterator begin, ForwardIter
       // ignore body otherwise
       continue;
     }
-
-    // reset limit estimates
-    (*i)->reset_limit_estimates();
 
     // update the state size
     state_sz += (*i)->num_generalized_coordinates(DynamicBody::eEuler);

@@ -1,7 +1,7 @@
 /****************************************************************************
  * Copyright 2007 Evan Drumwright
- * This library is distributed under the terms of the GNU Lesser General Public 
- * License (found in COPYING).
+ * This library is distributed under the terms of the Apache V2.0 
+ * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
 #include <string.h>
@@ -269,7 +269,7 @@ bool XMLAttrib::get_bool_value()
     return false;
   else
   {
-    std::cerr << "XMLTree::get_bool_value() - invalid Boolean string: " << this->value << std::endl;
+    std::cerr << "XMLAttrib::get_bool_value() - invalid Boolean string: " << this->value << std::endl;
     return false;
   }
 }
@@ -323,7 +323,13 @@ shared_ptr<const XMLTree> XMLTree::construct_xml_tree(xmlNode* root)
 
   // recursively process all children
   for (xmlNode* n = root->children; n; n=n->next)
-    node->add_child(boost::const_pointer_cast<XMLTree>(construct_xml_tree(n)));
+    if (n->type == XML_ELEMENT_NODE)
+      node->add_child(boost::const_pointer_cast<XMLTree>(construct_xml_tree(n)));
+
+  // look for content
+  for (xmlNode* n = root->children; n; n=n->next)
+    if (n->type == XML_TEXT_NODE && n->content)
+      node->content = std::string((char*) n->content); 
 
   return node;
 }
@@ -545,7 +551,7 @@ void XMLAttrib::get_matrix_value(MatrixNd& m)
   for (std::list<std::list<std::string> >::const_iterator i = plist.begin(); i != plist.end(); i++)
     if (i->size() != len)
     {
-      std::cerr << "XMLTree::get_matrix_value() - rows are not of the same size!" << std::endl << "  offending string: " << value << std::endl;
+      std::cerr << "XMLAttrib::get_matrix_value() - rows are not of the same size!" << std::endl << "  offending string: " << value << std::endl;
       m.resize(0,0);
       return;
     }

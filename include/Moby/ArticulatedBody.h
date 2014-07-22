@@ -1,7 +1,7 @@
 /****************************************************************************
  * Copyright 2005 Evan Drumwright
- * This library is distributed under the terms of the GNU Lesser General Public 
- * License (found in COPYING).
+ * This library is distributed under the terms of the Apache V2.0 
+ * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
 #ifndef _ARTICULATED_BODY_H
@@ -56,6 +56,7 @@ class ArticulatedBody : public DynamicBody
     virtual bool limit_estimates_exceeded() const;
     double find_next_joint_limit_time() const;
     void update_joint_vel_limits();
+    virtual void validate_limit_estimates();
 
     /// Gets the number of degrees-of-freedom permitted by explicit constraints
     virtual unsigned num_joint_dof_explicit() const = 0;
@@ -131,6 +132,9 @@ class ArticulatedBody : public DynamicBody
     /// The set of joints for this articulated body
     std::vector<JointPtr> _joints;
 
+    // the limit bound expansion for updating joint velocity limit estimates
+    double limit_bound_expansion;
+
   private:
     // joint constraint violation
     std::vector<double> _cvio;
@@ -148,7 +152,7 @@ class ArticulatedBody : public DynamicBody
     Ravelin::VectorNd _dq;
 
     // indicates whether velocity bounds exceeded limits since being reset
-    bool _vel_limits_exceeded;
+    bool _vel_limit_exceeded;
 
     void check_joint_vel_limit_exceeded_and_update();
     virtual double get_aspeed();

@@ -1,7 +1,7 @@
 /****************************************************************************
  * Copyright 2005 Evan Drumwright
- * This library is distributed under the terms of the GNU Lesser General Public 
- * License (found in COPYING).
+ * This library is distributed under the terms of the Apache V2.0 
+ * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
 #ifndef _RIGID_BODY_H
@@ -117,8 +117,8 @@ class RigidBody : public SingleBody
     virtual void ode(double t, double dt, void* data, Ravelin::SharedVectorNd& dx);
     virtual void reset_limit_estimates();
     virtual bool limit_estimates_exceeded() const { return _vel_limit_exceeded; }
-    const Ravelin::SVelocityd& get_vel_upper_bounds() const { return _vel_limit_lo; }
-    const Ravelin::SVelocityd& get_vel_lower_bounds() const { return _vel_limit_hi; }
+    const Ravelin::SVelocityd& get_vel_upper_bounds() const { return _vel_limit_hi; }
+    const Ravelin::SVelocityd& get_vel_lower_bounds() const { return _vel_limit_lo; }
     void update_vel_limits();
 
     template <class OutputIterator>
@@ -199,6 +199,12 @@ class RigidBody : public SingleBody
 
     /// Viscous coefficient for dampening the body motion
     Ravelin::VectorNd viscous_coeff;
+
+    /// Validates the limit estimates
+    virtual void validate_limit_estimates() { _vel_limit_exceeded = false; }
+
+    /// Limit bound expansion scalar (default = 0.15 = 15%)
+    double limit_bound_expansion;
 
   private:  
     template <class V>

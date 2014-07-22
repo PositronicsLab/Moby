@@ -1,7 +1,7 @@
 /****************************************************************************
  * Copyright 2010 Evan Drumwright
- * This library is distributed under the terms of the GNU Lesser General Public 
- * License (found in COPYING).
+ * This library is distributed under the terms of the Apache V2.0 
+ * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
 #ifndef _CSG_H
@@ -22,13 +22,12 @@ class CSG : public Primitive
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual BVPtr get_BVH_root(CollisionGeometryPtr geom);
-    virtual void get_vertices(std::vector<Point3d>& vertices);
+    virtual void get_vertices(boost::shared_ptr<const Ravelin::Pose3d> P, std::vector<Point3d>& vertices);
 //    virtual void get_vertices(BVPtr bv, std::vector<const Point3d*>& vertices); 
     virtual double calc_dist_and_normal(const Point3d& p, Ravelin::Vector3d& normal) const;
 //    virtual bool intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Ravelin::Vector3d& normal) const;
-    virtual const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >& get_sub_mesh(BVPtr bv);
     virtual osg::Node* create_visualization();
-    virtual boost::shared_ptr<const IndexedTriArray> get_mesh(); 
+    virtual boost::shared_ptr<const IndexedTriArray> get_mesh(boost::shared_ptr<const Ravelin::Pose3d> P); 
     void set_operator(BooleanOperation op);
     void set_operand1(PrimitivePtr op1);
     void set_operand2(PrimitivePtr op2);
@@ -54,9 +53,6 @@ class CSG : public Primitive
 
     /// The two operands
     PrimitivePtr _op1, _op2;
-
-    /// The "sub" mesh 
-    std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> > _smesh;
 
     /// Map from the geometry to the vector of vertices (w/transform and intersection tolerance applied), if any
     std::map<CollisionGeometryPtr, std::vector<Point3d> > _vertices;

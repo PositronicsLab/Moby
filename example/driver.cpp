@@ -12,6 +12,7 @@
 #include <boost/algorithm/string.hpp>
 #include <Moby/XMLReader.h>
 #include <Moby/XMLWriter.h>
+#include <Moby/SDFReader.h>
 
 #ifdef USE_OSG
 #include <osgViewer/Viewer>
@@ -77,6 +78,9 @@ unsigned PICKLE_IVAL = 0;
 
 /// Determines whether to do onscreen rendering (false by default)
 bool ONSCREEN_RENDER = false;
+
+/// Determines whether to output statistics
+bool OUTPUT_STATS = false;
 
 /// Determines whether to output timings
 bool OUTPUT_TIMINGS = false;
@@ -234,13 +238,38 @@ void step(void* arg)
   if (OUTPUT_SIM_RATE)
     std::cout << "time to compute last iteration: " << total_t << " (" << TOTAL_TIME / ITER << "s/iter, " << TOTAL_TIME / s->current_time << "s/step)" << std::endl;
 
-  // see whether to output the timings
-  if (OUTPUT_TIMINGS)
+  // see whether to output the timings and/or statistics
+  if (OUTPUT_TIMINGS && !OUTPUT_STATS)
   {
     if (!eds)
       std::cout << ITER << " " << s->dynamics_time << " " << std::endl;
     else
       std::cout << ITER << " " << eds->dynamics_time << " " << eds->coldet_time << " " << eds->event_time << std::endl;
+  }
+  else if (!OUTPUT_TIMINGS && OUTPUT_STATS)
+  {
+    if (eds)
+    {
+      std::cout << ITER << " ";
+      for (unsigned i=0; i< 8; i++)
+        std::cout << eds->step_stats[i] << " (" << eds->step_times[i] << ") ";
+      std::cout << eds->int_min_step_stat << "/";
+      std::cout << eds->int_mean_step_stat << "/";
+      std::cout << eds->int_max_step_stat;
+      std::cout << std::endl;
+    }
+  }
+  else if (OUTPUT_TIMINGS && OUTPUT_STATS)
+  {
+    if (!eds)
+      std::cout << ITER << " " << s->dynamics_time << " " << std::endl;
+    else
+    {
+      std::cout << ITER << " " << eds->dynamics_time << " " << eds->coldet_time << " " << eds->event_time << " ";
+      for (unsigned i=0; i< 6; i++)
+        std::cout << eds->step_stats[i] << " (" << eds->step_times[i] << ") ";
+      std::cout << std::endl;
+    }
   }
 
   // update the iteration #
@@ -511,7 +540,22 @@ int main(int argc, char** argv)
     else if (option.find("-of") != std::string::npos)
       OUTPUT_FRAME_RATE = true;
     else if (option.find("-ot") != std::string::npos)
+    {
+      std::cout << "timings/statistics information follows:" << std::endl;
+      std::cout << "-------------------------------------------" << std::endl;
+      std::cout << "column 1:  iteration" << std::endl;
+      std::cout << "column 2:  semi-implicit Euler steps / processing time" << std::endl;
+      std::cout << "column 3:  general integration steps interrupted by invalid state / processing time" << std::endl;
+      std::cout << "column 4:  general integration steps interrupted by invalid velocity / processing time" << std::endl;
+      std::cout << "column 5:  failed acceleration solving events / processing time" << std::endl;
+      std::cout << "column 6:  limit estimates exceeded / processing time" << std::endl;
+      std::cout << "column 7:  successful integration calls / processing time" << std::endl;
+      std::cout << "column 8: min/mean/max non-Euler, integration steps" << std::endl;
+      std::cout << "-------------------------------------------" << std::endl;
       OUTPUT_TIMINGS = true;
+    }
+    else if (option.find("-os") != std::string::npos)
+      OUTPUT_STATS = true;
     else if (option.find("-oi") != std::string::npos)
       OUTPUT_ITER_NUM = true;
     else if (option.find("-or") != std::string::npos)
@@ -591,7 +635,16 @@ int main(int argc, char** argv)
   }
 
   // setup the simulation 
-  READ_MAP = XMLReader::read(std::string(argv[argc-1]));
+  if (std::string(argv[argc-1]).find(".xml") != std::string::npos)
+    READ_MAP = XMLReader::read(std::string(argv[argc-1]));
+  else if (std::string(argv[argc-1]).find(".sdf") != std::string::npos)
+  {
+    // artificially create the read map
+    shared_ptr<EventDrivenSimulator> eds = SDFReader::read(std::string(argv[argc-1]));
+    READ_MAP[eds->id] = eds;
+    BOOST_FOREACH(DynamicBodyPtr db, eds->get_dynamic_bodies())
+      READ_MAP[db->id] = db;
+  }
 
   // setup the offscreen renderer if necessary
   #ifdef USE_OSG
@@ -671,8 +724,9 @@ int main(int argc, char** argv)
     add_lights();
   #endif
 
-  // process XML options
-  process_xml_options(std::string(argv[argc-1]));
+  // process XML options (if possible)
+  if (std::string(argv[argc-1]).find(".xml") != std::string::npos)
+    process_xml_options(std::string(argv[argc-1]));
 
   // get the simulator visualization
   #ifdef USE_OSG

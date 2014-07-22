@@ -1,7 +1,7 @@
 /****************************************************************************
  * Copyright 2011 Evan Drumwright
- * This library is distributed under the terms of the GNU Lesser General Public 
- * License (found in COPYING).
+ * This library is distributed under the terms of the Apache V2.0 
+ * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
 #ifndef _MOBY_EVENT_H
@@ -62,6 +62,9 @@ class Event
 
     /// The joint at which the limit is reached (for limit events)
     JointPtr limit_joint;
+
+    /// Signed violation for this event
+    double signed_violation;
 
     /// The coefficient of restitution for this limit
     double limit_epsilon;

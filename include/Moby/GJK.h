@@ -1,7 +1,7 @@
 /****************************************************************************
  * Copyright 2014 Evan Drumwright
- * This library is distributed under the terms of the GNU Lesser General Public 
- * License (found in COPYING).
+ * This library is distributed under the terms of the Apache V2.0 
+ * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
 #ifndef _GJK_H
@@ -14,7 +14,7 @@ namespace Moby {
 class GJK
 {
   public:
-    static double do_gjk(CollisionGeometryPtr A, CollisionGeometryPtr B, Point3d& cpA, Point3d& cpB, unsigned max_iter = 1000);
+    static double do_gjk(boost::shared_ptr<const Primitive> A, boost::shared_ptr<const Primitive> B, boost::shared_ptr<const Ravelin::Pose3d> pA, boost::shared_ptr<const Ravelin::Pose3d> pB, Point3d& cpA, Point3d& cpB, unsigned max_iter = 1000);
 
   private:
     struct SVertex
