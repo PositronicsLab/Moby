@@ -56,7 +56,8 @@ TimeSteppingSimulator::TimeSteppingSimulator()
 double TimeSteppingSimulator::step(double step_size)
 {
   const double INF = std::numeric_limits<double>::max();
- 
+  current_time += step_size;
+
   // clear timings
   dynamics_time = (double) 0.0;
   event_time = (double) 0.0;
