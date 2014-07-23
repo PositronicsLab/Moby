@@ -49,6 +49,9 @@ class UniversalJoint : public Joint
 
     /// The second joint axis in outer link frame (only used for maximal coordinate articulated bodies)
     Ravelin::Vector3d _h2;
+
+    /// Matrix for transforming Tait-Bryan angles (X-Z-Y) to desired axes
+    Ravelin::Matrix3d _X;
 }; // end class
 } // end namespace
 
