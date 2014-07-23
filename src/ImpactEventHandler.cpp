@@ -141,7 +141,7 @@ void ImpactEventHandler::apply_model(const vector<Event>& events, double max_tim
           if (e->contact_mu_coulomb < 1e2)
             all_inf = false;
           if (e->contact_mu_coulomb > 0.0)
-            all_frictionless = true;
+            all_frictionless = false;
         }
 
       // apply model to the reduced contacts

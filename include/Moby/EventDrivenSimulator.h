@@ -159,6 +159,7 @@ class EventDrivenSimulator : public Simulator
     boost::shared_ptr<ContactParameters> get_contact_parameters(CollisionGeometryPtr geom1, CollisionGeometryPtr geom2) const;
     double calc_CA_step();
     double calc_next_CA_step(double contact_dist_thresh) const;
+    double calc_next_CA_Euler_step(double contact_dist_thresh) const;
     void update_constraint_violations(const std::vector<PairwiseDistInfo>& pairwise_distances);
     void reset_limit_estimates() const;
 

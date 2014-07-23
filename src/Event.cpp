@@ -1521,7 +1521,7 @@ std::ostream& Moby::operator<<(std::ostream& o, const Event& e)
       e.calc_event_vel();
     }
     else
-      o << "relative normal acceleration: " << e.calc_event_accel() << std::endl;
+      o << "relative normal acceleration: " << e.calc_event_accel() << " (1)   " << calc_event_accel2(e) << " (2)" << std::endl;
   }
 
   return o;

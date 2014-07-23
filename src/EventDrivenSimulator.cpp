@@ -776,6 +776,72 @@ restart_with_new_limits:
   return step_size;
 }
 
+/// Finds the next event time assuming constant velocity
+/**
+ * This method assumes an event is occurring at the current time. If an event
+ * is not occuring at the current time, this method will return INF.
+ * \note proper operation of this function is critical. If the function 
+ *       improperly designates an event as not occuring at the current time,
+ *       calc_next_CA_Euler_step(.) will return a small value and prevent large
+ *       integration steps from being taken. If the function improperly 
+ *       designates an event as occuring at the current time, constraint
+ *       violation could occur.
+ */
+double EventDrivenSimulator::calc_next_CA_Euler_step(double contact_dist_thresh) const
+{
+  const double INF = std::numeric_limits<double>::max();
+  bool found_one = false;
+  double next_event_time = INF;
+
+  // process each articulated body, looking for next joint events
+  for (unsigned i=0; i< _bodies.size(); i++)
+  {
+    // see whether the i'th body is articulated
+    ArticulatedBodyPtr ab = dynamic_pointer_cast<ArticulatedBody>(_bodies[i]);
+    if (!ab)
+      continue;
+
+    // if the body is kinematically controlled, do nothing
+    if (ab->get_kinematic())
+      continue;
+
+    // get limit events in [t, t+dt] (if any)
+    const vector<JointPtr>& joints = ab->get_joints();
+    for (unsigned i=0; i< joints.size(); i++)
+      for (unsigned j=0; j< joints[i]->num_dof(); j++)
+      {
+        if (joints[i]->q[j] < joints[i]->hilimit[j] && joints[i]->qd[j] > 0.0)
+        {
+          double t = (joints[i]->hilimit[j] - joints[i]->q[j])/joints[i]->qd[j];
+          next_event_time = std::min(next_event_time, t);
+        }
+        if (joints[i]->q[j] > joints[i]->lolimit[j] && joints[i]->qd[j] < 0.0)
+        {
+          double t = (joints[i]->lolimit[j] - joints[i]->q[j])/joints[i]->qd[j];
+          next_event_time = std::min(next_event_time, t);
+        }
+      }
+  }
+
+  // if the distance between any pair of bodies is sufficiently small
+  // get next possible event time
+  BOOST_FOREACH(const PairwiseDistInfo& pdi, _pairwise_distances)
+  {
+    // if the distance is below the threshold, we have found a current event 
+    if (pdi.dist < contact_dist_thresh)
+      found_one = true;
+    else
+      // not a current event, find when it could become active
+      next_event_time = std::min(next_event_time, _ccd.calc_CA_Euler_step(pdi));  
+  }
+
+  if (!found_one)
+    return INF;
+  else
+    return next_event_time;
+}
+
+
 /// Finds the next event time
 /**
  * This method assumes an event is occurring at the current time. If an event
@@ -1295,7 +1361,7 @@ void EventDrivenSimulator::step_si_Euler(double dt)
     }
 
     // get the time of the next event(s)
-    double h = std::min(calc_next_CA_step(impacting_contact_dist_thresh), target_time - current_time);
+    double h = std::min(calc_next_CA_Euler_step(impacting_contact_dist_thresh), target_time - current_time);
     FILE_LOG(LOG_SIMULATOR) << "   position integration: " << h << std::endl;
 
     // integrate bodies' positions forward by that time using new velocities  
