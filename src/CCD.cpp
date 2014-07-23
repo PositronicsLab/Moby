@@ -115,6 +115,65 @@ double CCD::calc_CA_step(const PairwiseDistInfo& pdi)
   return maxt;
 }
 
+/// Computes a conservative advancement step between two collision geometries assuming that velocity is constant over the interval
+double CCD::calc_CA_Euler_step(const PairwiseDistInfo& pdi)
+{
+  double maxt = std::numeric_limits<double>::max();
+
+  // get geometries, distance, and closest points
+  CollisionGeometryPtr cgA = pdi.a; 
+  CollisionGeometryPtr cgB = pdi.b;
+  const Point3d& pA = pdi.pa;
+  const Point3d& pB = pdi.pb;
+
+  // get the two underlying bodies
+  RigidBodyPtr rbA = dynamic_pointer_cast<RigidBody>(cgA->get_single_body());
+  RigidBodyPtr rbB = dynamic_pointer_cast<RigidBody>(cgB->get_single_body());
+  FILE_LOG(LOG_COLDET) << "rigid body A: " << rbA->id << "  rigid body B: " << rbB->id << std::endl;
+
+  // if the distance is (essentially) zero, quit now
+  if (pdi.dist <= 0.0)
+  {
+    FILE_LOG(LOG_COLDET) << "reported distance is: " << pdi.dist << std::endl;
+    return 0.0;
+  }
+
+  // get the direction of the vector from body B to body A
+  Vector3d d0 = Pose3d::transform_point(GLOBAL, pA) -
+                Pose3d::transform_point(GLOBAL, pB);
+  double d0_norm = d0.norm();
+  FILE_LOG(LOG_COLDET) << "distance between closest points is: " << d0_norm << std::endl;
+  FILE_LOG(LOG_COLDET) << "reported distance is: " << pdi.dist << std::endl;
+
+  // get the direction of the vector (from body B to body A)
+  Vector3d n0 = d0/d0_norm;
+  Vector3d nA = Pose3d::transform_vector(rbA->get_pose(), n0);
+  Vector3d nB = Pose3d::transform_vector(rbB->get_pose(), n0);
+
+  // compute the distance that body A can move toward body B
+  double dist_per_tA = calc_max_velocity(rbA, -nA, _rmax[cgA]);
+
+  // compute the distance that body B can move toward body A
+  double dist_per_tB = calc_max_velocity(rbB, nB, _rmax[cgB]);
+
+  // compute the total distance
+  double total_dist_per_t = dist_per_tA + dist_per_tB;
+  if (total_dist_per_t < 0.0)
+    total_dist_per_t = 0.0;
+
+  FILE_LOG(LOG_COLDET) << "  distance: " << pdi.dist << std::endl;
+  FILE_LOG(LOG_COLDET) << "  dist per tA: " << dist_per_tA << std::endl;
+  FILE_LOG(LOG_COLDET) << "  dist per tB: " << dist_per_tB << std::endl;
+
+  // compute the maximum safe step
+  maxt = std::min(maxt, pdi.dist/total_dist_per_t);
+
+  FILE_LOG(LOG_COLDET) << "  maxt: " << maxt << std::endl;
+
+  // return the maximum safe step
+  return maxt;
+}
+
 /// Computes the maximum velocity along a particular direction (n)
 double CCD::calc_max_velocity(RigidBodyPtr rb, const Vector3d& n, double rmax)
 {
