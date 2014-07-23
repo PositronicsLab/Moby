@@ -40,6 +40,9 @@ UniversalJoint::UniversalJoint() : Joint()
   _s_dot.resize(num_dof());
   for (unsigned i=0; i< num_dof(); i++)
     _s_dot[i].pose = _F;
+
+  // initialize X
+  _X.set_identity();
 }
 
 /// Initializes the joint with the specified inboard and outboard links
@@ -102,7 +105,9 @@ Vector3d UniversalJoint::get_axis(Axis a) const
  * \sa set_axis_global()
  */
 void UniversalJoint::set_axis(const Vector3d& axis, Axis a) 
-{ 
+{
+  const unsigned X = 0, Y = 1, Z = 2;
+ 
   // normalize the axis in case the user did not
   Vector3d naxis = Vector3d::normalize(axis); 
 
@@ -122,6 +127,17 @@ void UniversalJoint::set_axis(const Vector3d& axis, Axis a)
     Vector3d h2_g = inboard->get_transform_vector().mult_vector(naxis);
     _h2 = outboard->get_transform_vector().transpose_mult_vector(h2_g);
 */
+  }
+
+  // setup matrix for transforming axis 1 to X and axis 2 to Z
+  Origin3d c1(_u[eAxis1]), c2(_u[eAxis2]);
+  Origin3d c3 = Origin3d::cross(c1, c2);
+  if (c3.norm() > NEAR_ZERO)
+  {
+    c3.normalize();
+    _X.set_column(X, c1);
+    _X.set_column(Y, c2);
+    _X.set_column(Z, c3);
   }
 }        
 
@@ -177,9 +193,6 @@ const vector<SVelocityd>& UniversalJoint::get_spatial_axes()
   _s[0].set_linear(ZEROS_3);
   _s[1].set_angular(u2);
   _s[1].set_linear(ZEROS_3);
-
-  // setup s_bar 
-  calc_s_bar_from_s();
 
   // use the Joint function to do the rest
   return Joint::get_spatial_axes();
@@ -247,7 +260,10 @@ void UniversalJoint::determine_q(VectorNd& q)
   Transform3d jTo = jTw * wTo;
 
   // determine the joint transformation
-  Matrix3d R = jTo.q;
+  Matrix3d XRXT = jTo.q;
+
+  // compute R
+  Matrix3d R = Matrix3d::transpose(_X) * XRXT * _X;
 
   // determine q1 and q2 -- they are uniquely determined by examining the rotation matrix
   // (see get_rotation())
@@ -272,13 +288,14 @@ Matrix3d UniversalJoint::get_rotation() const
   const double s2 = std::sin(q[DOF_2]+q_tare[DOF_2]);
 
   // determine untransformed rotation; this rotation matrix is obtained by
-  // using Tait-Bryan angles without a final rotation
+  // using Tait-Bryan angles (X-Z-Y) without the final rotation (Y)
   Matrix3d R;
   R(X,X) = c2;      R(X,Y) = 0;    R(X,Z) = s2;
   R(Y,X) = s1*s2;  R(Y,Y) = c1;    R(Y,Z) = -c2*s1;
   R(Z,X) = -c1*s2;  R(Z,Y) = s1;   R(Z,Z) = c1*c2;
 
-  return R;
+  // compute X * R * X'
+  return _X * R * Matrix3d::transpose(_X);
 }
 
 /// Gets the transform induced by this joint
