@@ -153,8 +153,21 @@ void Tetrahedron::determine_barycentric_coords(const Point3d& px, double& u, dou
   M.set_column(X, a - d);
   M.set_column(Y, b - d);
   M.set_column(Z, c - d);
-  Origin3d bary(p - d);
+  Origin3d rhs(p - d);
+  Origin3d bary = rhs;
   _LA.solve_fast(M, bary);
+  if ((M * bary - rhs).norm() > NEAR_ZERO)
+  {
+    bary = rhs;
+    M.set_column(X, a - d);
+    M.set_column(Y, b - d);
+    M.set_column(Z, c - d);
+    Matrix3d Q, R;
+    Q = M;
+    _LA.factor_QR(Q, R);
+    bary = Matrix3d::transpose(Q)*bary;
+    _LA.solve_tri_fast(R, true, false, bary);
+  }
 
   // compute barycentric coordinates
   u = bary[X];
