@@ -67,6 +67,8 @@ Event::Event()
   contact_point.set_zero();
   contact_mu_coulomb = (double) 0.0;
   contact_mu_viscous = (double) 0.0;
+  contact_penalty_Kp = (double) 1e4;
+  contact_penalty_Kv = (double) 1e2;
   contact_epsilon = (double) 0.0;
   contact_NK = 4;
   _ftype = eUndetermined;
@@ -93,6 +95,8 @@ Event& Event::operator=(const Event& e)
   contact_impulse = e.contact_impulse;
   contact_mu_coulomb = e.contact_mu_coulomb;
   contact_mu_viscous = e.contact_mu_viscous;
+  contact_penalty_Kp = e.contact_penalty_Kp;
+  contact_penalty_Kv = e.contact_penalty_Kv;
   contact_epsilon = e.contact_epsilon;
   contact_NK = e.contact_NK;
   contact_tan1 = e.contact_tan1;
@@ -1199,6 +1203,8 @@ void Event::set_contact_parameters(const ContactParameters& cparams)
 {
   contact_mu_coulomb = cparams.mu_coulomb;
   contact_mu_viscous = cparams.mu_viscous;
+  contact_penalty_Kp = cparams.penalty_Kp;
+  contact_penalty_Kv = cparams.penalty_Kv;
   contact_epsilon = cparams.epsilon;
   contact_NK = cparams.NK;
   assert(contact_NK >= 4);
