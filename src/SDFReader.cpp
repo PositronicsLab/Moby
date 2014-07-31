@@ -863,12 +863,22 @@ RigidBodyPtr SDFReader::read_link(shared_ptr<const XMLTree> node, shared_ptr<SDF
   // read the Visual tag
   shared_ptr<const XMLTree> visual_node = find_one_tag("visual", node);
   if (visual_node)
-    read_visual_node(visual_node, rb);   
-
-  // read the Collision tag
-  shared_ptr<const XMLTree> collision_node = find_one_tag("collision", node);
-  if (collision_node)
-    read_collision_node(collision_node, rb, sd);   
+    read_visual_node(visual_node, rb); 
+    
+  std::list<shared_ptr<const XMLTree> > collision_nodes = find_tag("collision", node);
+  
+  // read the Collision tag/tags
+  if (!collision_nodes.empty())
+  {    
+     if (collision_nodes.size() == 1){
+       read_collision_node(collision_nodes.front(), rb, sd);
+     }
+     else{
+       BOOST_FOREACH( shared_ptr<const XMLTree> collision_node, collision_nodes){
+         read_collision_node(collision_node, rb, sd);
+       }
+     }
+  } 
 
   return rb;
 }
