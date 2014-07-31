@@ -28,8 +28,8 @@ class Event
   public:
     enum EventType { eNone, eContact, eLimit };
     enum EventClass { ePositive, eZero, eNegative };
-    enum DerivType { eVel, eAccel };
-    enum CoulombFrictionType { eUndetermined, eSlipping, eSticking }; 
+    enum DerivType { eVel, eAccel};
+    enum CoulombFrictionType { eUndetermined, eSlipping, eSticking };
     Event();
     Event(const Event& e) { _event_frame = boost::shared_ptr<Ravelin::Pose3d>(new Ravelin::Pose3d); *this = e; }
     static void determine_connected_events(const std::vector<Event>& events, std::list<std::list<Event*> >& groups);
@@ -125,6 +125,15 @@ class Event
     /// The coefficient of viscous friction (for contact events)
     double contact_mu_viscous;
 
+    /// If Penalty Conatct 
+    bool contact_compliant;
+
+    /// Penalty Method Depth Penalty
+    double contact_penalty_Kp;
+    
+    /// Penalty Method Interpenetration Speed
+    double contact_penalty_Kv;
+    
     /// The coefficient of restitution (for contact events)
     double contact_epsilon;
 

@@ -11,6 +11,7 @@
 #include <Moby/sorted_pair>
 #include <Moby/Simulator.h>
 #include <Moby/ImpactEventHandler.h>
+#include <Moby/PenaltyEventHandler.h>
 #include <Moby/AccelerationEventHandler.h>
 #include <Moby/PairwiseDistInfo.h>
 #include <Moby/CCD.h>
@@ -184,6 +185,9 @@ class EventDrivenSimulator : public Simulator
     /// Object for handling acceleration events
     AccelerationEventHandler _accel_event_handler;
 
+    /// Object for handling penalty contact events
+    PenaltyEventHandler _penalty_event_handler;
+    
     /// The Euler step size
     double euler_step;
 
