@@ -47,6 +47,8 @@ class RigidBody : public SingleBody
   friend class MCArticulatedBody;
   friend class Joint;
 
+  enum Compliance { eRigid, eCompliant};
+  
   public:
     RigidBody();
     virtual ~RigidBody() {}
@@ -352,6 +354,8 @@ class RigidBody : public SingleBody
 
     /// Indicates whether the velocity limit has been exceeded
     bool _vel_limit_exceeded;
+
+    Compliance compliance;
 }; // end class
 
 std::ostream& operator<<(std::ostream&, RigidBody&);

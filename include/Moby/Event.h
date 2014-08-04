@@ -29,6 +29,7 @@ class Event
     enum EventType { eNone, eContact, eLimit };
     enum EventClass { ePositive, eZero, eNegative };
     enum DerivType { eVel, eAccel};
+    enum Compliance { eRigid, eCompliant};
     enum CoulombFrictionType { eUndetermined, eSlipping, eSticking };
     Event();
     Event(const Event& e) { _event_frame = boost::shared_ptr<Ravelin::Pose3d>(new Ravelin::Pose3d); *this = e; }
@@ -59,6 +60,9 @@ class Event
 
     /// The derivative type of the event
     DerivType deriv_type;
+
+    /// Compliance of the event
+    Compliance compliance;
 
     /// The joint at which the limit is reached (for limit events)
     JointPtr limit_joint;
@@ -124,9 +128,6 @@ class Event
 
     /// The coefficient of viscous friction (for contact events)
     double contact_mu_viscous;
-
-    /// If Penalty Conatct 
-    bool contact_compliant;
 
     /// Penalty Method Depth Penalty
     double contact_penalty_Kp;
