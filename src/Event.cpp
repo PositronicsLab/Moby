@@ -1455,7 +1455,7 @@ std::ostream& Moby::operator<<(std::ostream& o, const Event& e)
       break;
   }
  
-  o << "compliance: "
+  o << "compliance: ";
   switch (e.compliance)
   {
     case Event::eRigid:

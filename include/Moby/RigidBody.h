@@ -47,7 +47,6 @@ class RigidBody : public SingleBody
   friend class MCArticulatedBody;
   friend class Joint;
 
-  enum Compliance { eRigid, eCompliant};
   
   public:
     RigidBody();
@@ -207,6 +206,10 @@ class RigidBody : public SingleBody
 
     /// Limit bound expansion scalar (default = 0.15 = 15%)
     double limit_bound_expansion;
+    
+    /// Compliance value, determines event type
+    enum Compliance { eRigid, eCompliant};
+    Compliance compliance;
 
   private:  
     template <class V>
@@ -355,7 +358,6 @@ class RigidBody : public SingleBody
     /// Indicates whether the velocity limit has been exceeded
     bool _vel_limit_exceeded;
 
-    Compliance compliance;
 }; // end class
 
 std::ostream& operator<<(std::ostream&, RigidBody&);
