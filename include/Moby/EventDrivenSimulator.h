@@ -131,6 +131,9 @@ class EventDrivenSimulator : public Simulator
     /// Object for handling impact events
     ImpactEventHandler _impact_event_handler;
 
+    /// Object for handling penalty events
+    PenaltyEventHandler _penalty_event_handler;
+    
     /// The vector of events
     std::vector<Event> _events;
 

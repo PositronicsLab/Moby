@@ -137,6 +137,15 @@ void TimeSteppingSimulator::handle_events(double dt)
   // begin timing for event handling 
   clock_t start = clock();
 
+  // compute contact constraint penalty forces here...
+  try
+  {
+    _penalty_event_handler.process_events(_events);
+  }
+  catch (std::exception e)
+  {
+  }
+
   // compute impulses here...
   try
   {
