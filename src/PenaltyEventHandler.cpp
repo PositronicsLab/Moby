@@ -77,7 +77,7 @@ void PenaltyEventHandler::apply_model(const vector<Event>& events) const
   for (int i=0;i<events.size();i++)
   {
     const Event& e = events[i];
-    if(!e.contact_compliant)
+    if(e.compliance != Event::eCompliant)
       continue;
     // setup the event frame
     shared_ptr<Pose3d> event_frame(new Pose3d);

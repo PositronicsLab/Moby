@@ -53,6 +53,7 @@ Event::Event()
   _event_frame = shared_ptr<Pose3d>(new Pose3d);
   tol = NEAR_ZERO;              // default collision tolerance
   stick_tol = NEAR_ZERO;
+  compliance = eRigid;
   event_type = eNone;
   signed_violation = 0.0;
   limit_dof = std::numeric_limits<unsigned>::max();
@@ -80,6 +81,7 @@ Event& Event::operator=(const Event& e)
   tol = e.tol;
   signed_violation = e.signed_violation;
   event_type = e.event_type;
+  compliance = e.compliance;
   limit_epsilon = e.limit_epsilon;
   limit_dof = e.limit_dof;
   limit_upper = e.limit_upper;
@@ -1450,6 +1452,19 @@ std::ostream& Moby::operator<<(std::ostream& o, const Event& e)
 
     case Event::eContact:
       o << "(event type: contact)" << std::endl;
+      break;
+  }
+ 
+  o << "compliance: "
+  switch (e.compliance)
+  {
+    case Event::eRigid:
+      o << "rigid" << std::endl;
+      break;
+    case Event::eCompliant:
+      o << "compliant" << std::endl;
+      o << "  Kp: " << e.contact_penalty_Kp << std::endl;
+      o << "  Kv: " << e.contact_penalty_Kv << std::endl;
       break;
   }
 

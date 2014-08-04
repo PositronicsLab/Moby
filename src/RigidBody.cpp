@@ -86,6 +86,7 @@ RigidBody::RigidBody()
 
   // setup the default limit bound expansion
   limit_bound_expansion = 0.15;
+  compliant = eRigid;
 }
 
 /// Resets the acceleration limit estimates
@@ -2064,6 +2065,15 @@ std::ostream& Moby::operator<<(std::ostream& out, Moby::RigidBody& rb)
     case eLink:          out << "link inertia" << endl; break;
     case eLinkInertia:   out << "link" << endl; break;
     case eJoint:         out << "joint" << endl; break;
+    default:
+      assert(false);
+  }
+  
+  out << "  Compliance type: "; 
+  switch (rb.compliance)
+  {
+    case eRigid:        out << "rigid" << endl; break;
+    case eCompliant:    out << "compliant" << endl; break;
     default:
       assert(false);
   }
