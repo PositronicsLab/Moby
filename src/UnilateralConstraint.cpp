@@ -28,7 +28,7 @@
 #include <Moby/RCArticulatedBody.h>
 #include <Moby/CollisionGeometry.h>
 #include <Moby/Log.h>
-#include <Moby/Event.h>
+#include <Moby/UnilateralConstraint.h>
 
 using namespace Ravelin;
 using namespace Moby;
@@ -43,17 +43,18 @@ using boost::shared_ptr;
 using boost::dynamic_pointer_cast;
 
 // static declarations
-MatrixNd Event::J1, Event::J2, Event::workM1, Event::workM2;
-MatrixNd Event::JJ, Event::J, Event::Jx, Event::Jy, Event::dJ1, Event::dJ2;
-VectorNd Event::v, Event::workv, Event::workv2; 
+MatrixNd UnilateralConstraint::J1, UnilateralConstraint::J2, UnilateralConstraint::workM1, UnilateralConstraint::workM2;
+MatrixNd UnilateralConstraint::JJ, UnilateralConstraint::J, UnilateralConstraint::Jx, UnilateralConstraint::Jy, UnilateralConstraint::dJ1, UnilateralConstraint::dJ2;
+VectorNd UnilateralConstraint::v, UnilateralConstraint::workv, UnilateralConstraint::workv2; 
 
-/// Creates an empty event 
-Event::Event()
+/// Creates an empty constraint 
+UnilateralConstraint::UnilateralConstraint()
 {
-  _event_frame = shared_ptr<Pose3d>(new Pose3d);
+  _contact_frame = shared_ptr<Pose3d>(new Pose3d);
   tol = NEAR_ZERO;              // default collision tolerance
   stick_tol = NEAR_ZERO;
-  event_type = eNone;
+  compliance = eRigid;
+  constraint_type = eNone;
   signed_violation = 0.0;
   limit_dof = std::numeric_limits<unsigned>::max();
   limit_epsilon = (double) 0.0;
@@ -67,17 +68,21 @@ Event::Event()
   contact_point.set_zero();
   contact_mu_coulomb = (double) 0.0;
   contact_mu_viscous = (double) 0.0;
+  contact_penalty_Kp = (double) 0.0;
+  contact_penalty_Kv = (double) 0.0;
   contact_epsilon = (double) 0.0;
   contact_NK = 4;
   _ftype = eUndetermined;
   deriv_type = eVel;
+  compliance = eCompliant;
 }
 
-Event& Event::operator=(const Event& e)
+UnilateralConstraint& UnilateralConstraint::operator=(const UnilateralConstraint& e)
 {
   tol = e.tol;
   signed_violation = e.signed_violation;
-  event_type = e.event_type;
+  constraint_type = e.constraint_type;
+  compliance = e.compliance;
   limit_epsilon = e.limit_epsilon;
   limit_dof = e.limit_dof;
   limit_upper = e.limit_upper;
@@ -93,13 +98,12 @@ Event& Event::operator=(const Event& e)
   contact_impulse = e.contact_impulse;
   contact_mu_coulomb = e.contact_mu_coulomb;
   contact_mu_viscous = e.contact_mu_viscous;
+  contact_penalty_Kp = e.contact_penalty_Kp;
+  contact_penalty_Kv = e.contact_penalty_Kv;
   contact_epsilon = e.contact_epsilon;
   contact_NK = e.contact_NK;
   contact_tan1 = e.contact_tan1;
   contact_tan2 = e.contact_tan2;
-  constraint_nimpulse = e.constraint_nimpulse;
-  constraint_fimpulse = e.constraint_fimpulse;
-  constraint_joint = e.constraint_joint;
   stick_tol = e.stick_tol;
   _ftype = e._ftype;
   deriv_type = e.deriv_type;
@@ -107,30 +111,30 @@ Event& Event::operator=(const Event& e)
   return *this;
 }
 
-/// Computes the event data
-void Event::compute_event_data(MatrixNd& M, VectorNd& q) const
+/// Computes the constraint data
+void UnilateralConstraint::compute_constraint_data(MatrixNd& M, VectorNd& q) const
 {
   if (deriv_type == eVel)
-    compute_vevent_data(M, q);
+    compute_vconstraint_data(M, q);
   else
-    compute_aevent_data(M, q);
+    compute_aconstraint_data(M, q);
 }
 
-/// Computes the cross event data
-void Event::compute_cross_event_data(const Event& e, MatrixNd& M) const
+/// Computes the cross constraint data
+void UnilateralConstraint::compute_cross_constraint_data(const UnilateralConstraint& e, MatrixNd& M) const
 {
   assert(deriv_type == e.deriv_type);
 
   if (deriv_type == eVel)
-    compute_cross_vevent_data(e, M);
+    compute_cross_vconstraint_data(e, M);
   else
-    compute_cross_aevent_data(e, M);
+    compute_cross_aconstraint_data(e, M);
 }
 
-/// Computes the acceleration event data
-void Event::compute_aevent_data(MatrixNd& M, VectorNd& q) const
+/// Computes the acceleration constraint data
+void UnilateralConstraint::compute_aconstraint_data(MatrixNd& M, VectorNd& q) const
 {
-  assert(event_type == eContact);
+  assert(constraint_type == eContact);
 
   // setup useful indices
   const unsigned N = 0, S = 1, T = 2, THREE_D = 3;
@@ -157,16 +161,16 @@ void Event::compute_aevent_data(MatrixNd& M, VectorNd& q) const
   assert(_ftype != eUndetermined);
 
   // setup the contact frame
-  _event_frame->q.set_identity();
-  _event_frame->x = contact_point;
+  _contact_frame->q.set_identity();
+  _contact_frame->x = contact_point;
 
   // case 1: sticking friction
   if (_ftype == eSticking)
   {
-    // get the directions in the event frame
-    Vector3d normal = Pose3d::transform_vector(_event_frame, contact_normal);
-    Vector3d tan1 = Pose3d::transform_vector(_event_frame, contact_tan1);
-    Vector3d tan2 = Pose3d::transform_vector(_event_frame, contact_tan2);
+    // get the directions in the constraint frame
+    Vector3d normal = Pose3d::transform_vector(_contact_frame, contact_normal);
+    Vector3d tan1 = Pose3d::transform_vector(_contact_frame, contact_tan1);
+    Vector3d tan2 = Pose3d::transform_vector(_contact_frame, contact_tan2);
 
     // setup a matrix of contact directions
     Matrix3d R;
@@ -179,10 +183,10 @@ void Event::compute_aevent_data(MatrixNd& M, VectorNd& q) const
     J2.resize(THREE_D, NGC2);
 
     // compute the Jacobians for the two bodies
-    su1->calc_jacobian(_event_frame, sb1, JJ);
+    su1->calc_jacobian(_contact_frame, sb1, JJ);
     SharedConstMatrixNd Jlin1 = JJ.block(0, THREE_D, 0, JJ.columns());
     R.transpose_mult(Jlin1, J1);
-    su2->calc_jacobian(_event_frame, sb2, JJ);
+    su2->calc_jacobian(_contact_frame, sb2, JJ);
     SharedConstMatrixNd Jlin2 = JJ.block(0, THREE_D, 0, JJ.columns());
     (-R).transpose_mult(Jlin2, J2);
 
@@ -206,9 +210,9 @@ void Event::compute_aevent_data(MatrixNd& M, VectorNd& q) const
   }
   else
   {
-    // get the normal and sliding directions in the event frame
-    Vector3d normal = Pose3d::transform_vector(_event_frame, contact_normal);
-    Vector3d tan1 = Pose3d::transform_vector(_event_frame, contact_tan1);
+    // get the normal and sliding directions in the constraint frame
+    Vector3d normal = Pose3d::transform_vector(_contact_frame, contact_normal);
+    Vector3d tan1 = Pose3d::transform_vector(_contact_frame, contact_tan1);
 
     // resize the Jacobians 
     J1.resize(1,NGC1);
@@ -223,11 +227,11 @@ void Event::compute_aevent_data(MatrixNd& M, VectorNd& q) const
     SharedVectorNd J2s = dJ2.row(0);
 
     // compute the Jacobians for the two bodies
-    su1->calc_jacobian(_event_frame, sb1, JJ);
+    su1->calc_jacobian(_contact_frame, sb1, JJ);
     SharedConstMatrixNd Jlin1 = JJ.block(0, THREE_D, 0, JJ.columns());
     Jlin1.transpose_mult(normal, J1n);
     Jlin1.transpose_mult(tan1, J1s);
-    su2->calc_jacobian(_event_frame, sb2, JJ);
+    su2->calc_jacobian(_contact_frame, sb2, JJ);
     SharedConstMatrixNd Jlin2 = JJ.block(0, THREE_D, 0, JJ.columns());
     Jlin2.transpose_mult(-normal, J2n);
     Jlin2.transpose_mult(-tan1, J2s);
@@ -260,9 +264,9 @@ void Event::compute_aevent_data(MatrixNd& M, VectorNd& q) const
 } 
 
 /// Computes the contact vector data (\dot{N}v and Na)
-void Event::compute_dotv_data(VectorNd& q) const
+void UnilateralConstraint::compute_dotv_data(VectorNd& q) const
 {
-  assert(event_type == eContact);
+  assert(constraint_type == eContact);
 
   // setup useful indices
   const unsigned N = 0, S = 1, T = 2, THREE_D = 3;
@@ -285,21 +289,21 @@ void Event::compute_dotv_data(VectorNd& q) const
   assert(contact_tan2_dot.pose == GLOBAL);
 
   // setup the contact frame
-  _event_frame->q.set_identity();
-  _event_frame->x = contact_point;
+  _contact_frame->q.set_identity();
+  _contact_frame->x = contact_point;
 
   // case 1: sticking friction
   if (_ftype == eSticking)
   {
-    // get the directions in the event frame
-    Vector3d normal = Pose3d::transform_vector(_event_frame, contact_normal);
-    Vector3d tan1 = Pose3d::transform_vector(_event_frame, contact_tan1);
-    Vector3d tan2 = Pose3d::transform_vector(_event_frame, contact_tan2);
+    // get the directions in the constraint frame
+    Vector3d normal = Pose3d::transform_vector(_contact_frame, contact_normal);
+    Vector3d tan1 = Pose3d::transform_vector(_contact_frame, contact_tan1);
+    Vector3d tan2 = Pose3d::transform_vector(_contact_frame, contact_tan2);
 
-    // get the directional derivatives in the event frame 
-    Vector3d dnormal = Pose3d::transform_vector(_event_frame, contact_normal_dot);
-    Vector3d dtan1 = Pose3d::transform_vector(_event_frame, contact_tan1_dot);
-    Vector3d dtan2 = Pose3d::transform_vector(_event_frame, contact_tan2_dot);
+    // get the directional derivatives in the constraint frame 
+    Vector3d dnormal = Pose3d::transform_vector(_contact_frame, contact_normal_dot);
+    Vector3d dtan1 = Pose3d::transform_vector(_contact_frame, contact_tan1_dot);
+    Vector3d dtan2 = Pose3d::transform_vector(_contact_frame, contact_tan2_dot);
 
     // setup a matrices of contact directions and directional derivatives
     Matrix3d R, dR;
@@ -317,18 +321,18 @@ void Event::compute_dotv_data(VectorNd& q) const
     dJ2.resize(THREE_D, NGC2);
 
     // compute the Jacobians for the two bodies
-    su1->calc_jacobian(_event_frame, sb1, JJ);
+    su1->calc_jacobian(_contact_frame, sb1, JJ);
     SharedConstMatrixNd Jlin1 = JJ.block(0, THREE_D, 0, JJ.columns());
     dR.transpose_mult(Jlin1, J1);
-    su2->calc_jacobian(_event_frame, sb2, JJ);
+    su2->calc_jacobian(_contact_frame, sb2, JJ);
     SharedConstMatrixNd Jlin2 = JJ.block(0, THREE_D, 0, JJ.columns());
     (-dR).transpose_mult(Jlin2, J2);
 
     // compute the time-derivatives of the Jacobians for the two bodies
-    su1->calc_jacobian_dot(_event_frame, sb1, JJ);
+    su1->calc_jacobian_dot(_contact_frame, sb1, JJ);
     SharedConstMatrixNd dJlin1 = JJ.block(0, THREE_D, 0, JJ.columns());
     R.transpose_mult(dJlin1, dJ1); 
-    su2->calc_jacobian_dot(_event_frame, sb2, JJ);
+    su2->calc_jacobian_dot(_contact_frame, sb2, JJ);
     SharedConstMatrixNd dJlin2 = JJ.block(0, THREE_D, 0, JJ.columns());
     (-R).transpose_mult(dJlin2, dJ2);
 
@@ -348,13 +352,13 @@ void Event::compute_dotv_data(VectorNd& q) const
     FILE_LOG(LOG_EVENT) << "Body 2 generalized velocity: " << v << std::endl;
     q += J2.mult(v, workv);
 
-    FILE_LOG(LOG_EVENT) << "Event::compute_dotv_data() exited" << std::endl;
+    FILE_LOG(LOG_EVENT) << "UnilateralConstraint::compute_dotv_data() exited" << std::endl;
   }
   else
   {
-    // get the normal and its time derivative in the event frame
-    Vector3d normal = Pose3d::transform_vector(_event_frame, contact_normal);
-    Vector3d dnormal = Pose3d::transform_vector(_event_frame, contact_normal_dot);
+    // get the normal and its time derivative in the constraint frame
+    Vector3d normal = Pose3d::transform_vector(_contact_frame, contact_normal);
+    Vector3d dnormal = Pose3d::transform_vector(_contact_frame, contact_normal_dot);
 
     // resize the Jacobians 
     J1.resize(1, NGC1);
@@ -369,18 +373,18 @@ void Event::compute_dotv_data(VectorNd& q) const
     SharedVectorNd dJ2n = dJ2.row(N); 
 
     // compute the Jacobians for the two bodies
-    su1->calc_jacobian(_event_frame, sb1, JJ);
+    su1->calc_jacobian(_contact_frame, sb1, JJ);
     SharedConstMatrixNd Jlin1 = JJ.block(0, THREE_D, 0, JJ.columns());
     Jlin1.transpose_mult(dnormal, J1n);
-    su2->calc_jacobian(_event_frame, sb2, JJ);
+    su2->calc_jacobian(_contact_frame, sb2, JJ);
     SharedConstMatrixNd Jlin2 = JJ.block(0, THREE_D, 0, JJ.columns());
     Jlin2.transpose_mult(-dnormal, J2n);
 
     // compute the time-derivatives of the Jacobians for the two bodies
-    su1->calc_jacobian_dot(_event_frame, sb1, JJ);
+    su1->calc_jacobian_dot(_contact_frame, sb1, JJ);
     SharedConstMatrixNd dJlin1 = JJ.block(0, THREE_D, 0, JJ.columns());
     dJlin1.transpose_mult(normal, dJ1n);
-    su2->calc_jacobian_dot(_event_frame, sb2, JJ);
+    su2->calc_jacobian_dot(_contact_frame, sb2, JJ);
     SharedConstMatrixNd dJlin2 = JJ.block(0, THREE_D, 0, JJ.columns());
     dJlin2.transpose_mult(-normal, dJ2n);
 
@@ -400,14 +404,14 @@ void Event::compute_dotv_data(VectorNd& q) const
     FILE_LOG(LOG_EVENT) << "Body 2 generalized velocity: " << v << std::endl;
     q += J2.mult(v, workv);
 
-    FILE_LOG(LOG_EVENT) << "Event::compute_dotv_data() exited" << std::endl;
+    FILE_LOG(LOG_EVENT) << "UnilateralConstraint::compute_dotv_data() exited" << std::endl;
   }
 }
 
-/// Computes the event data
-void Event::compute_vevent_data(MatrixNd& M, VectorNd& q) const
+/// Computes the constraint data
+void UnilateralConstraint::compute_vconstraint_data(MatrixNd& M, VectorNd& q) const
 {
-  if (event_type == eContact)
+  if (constraint_type == eContact)
   {
     // setup useful indices
     const unsigned N = 0, S = 1, T = 2, THREE_D = 3;
@@ -427,8 +431,8 @@ void Event::compute_vevent_data(MatrixNd& M, VectorNd& q) const
     assert(contact_tan2.pose == GLOBAL);
 
     // setup the contact frame
-    _event_frame->q.set_identity();
-    _event_frame->x = contact_point;
+    _contact_frame->q.set_identity();
+    _contact_frame->x = contact_point;
 
     // get the numbers of generalized coordinates for the two super bodies
     const unsigned NGC1 = su1->num_generalized_coordinates(DynamicBody::eSpatial);
@@ -438,10 +442,10 @@ void Event::compute_vevent_data(MatrixNd& M, VectorNd& q) const
     J1.set_zero(THREE_D, NGC1);
     J2.set_zero(THREE_D, NGC2);
 
-    // get the directions in the event frame
-    Vector3d normal = Pose3d::transform_vector(_event_frame, contact_normal);
-    Vector3d tan1 = Pose3d::transform_vector(_event_frame, contact_tan1);
-    Vector3d tan2 = Pose3d::transform_vector(_event_frame, contact_tan2);
+    // get the directions in the constraint frame
+    Vector3d normal = Pose3d::transform_vector(_contact_frame, contact_normal);
+    Vector3d tan1 = Pose3d::transform_vector(_contact_frame, contact_tan1);
+    Vector3d tan2 = Pose3d::transform_vector(_contact_frame, contact_tan2);
 
     // setup a matrix of contact directions
     Matrix3d R;
@@ -450,23 +454,23 @@ void Event::compute_vevent_data(MatrixNd& M, VectorNd& q) const
     R.set_column(T, tan2);
 
     // compute the Jacobians for the two bodies
-    su1->calc_jacobian(_event_frame, sb1, JJ);
+    su1->calc_jacobian(_contact_frame, sb1, JJ);
     SharedConstMatrixNd Jlin1 = JJ.block(0, THREE_D, 0, JJ.columns());
     R.transpose_mult(Jlin1, J1);
-    su2->calc_jacobian(_event_frame, sb2, JJ);
+    su2->calc_jacobian(_contact_frame, sb2, JJ);
     SharedConstMatrixNd Jlin2 = JJ.block(0, THREE_D, 0, JJ.columns());
     (-R).transpose_mult(Jlin2, J2);
 
-    // compute the event inertia matrix for the first body
+    // compute the constraint inertia matrix for the first body
     su1->transpose_solve_generalized_inertia(J1, workM1);
     J1.mult(workM1, M);
 
-    // compute the event inertia matrix for the second body
+    // compute the constraint inertia matrix for the second body
     su2->transpose_solve_generalized_inertia(J2, workM1);
     J2.mult(workM1, workM2);
     M += workM2;
 
-    // compute the event velocity
+    // compute the constraint velocity
     su1->get_generalized_velocity(DynamicBody::eSpatial, v);
     J1.mult(v, q);
 
@@ -474,7 +478,7 @@ void Event::compute_vevent_data(MatrixNd& M, VectorNd& q) const
     su2->get_generalized_velocity(DynamicBody::eSpatial, v);
     q += J2.mult(v, workv);
   }
-  else if (event_type == eLimit)
+  else if (constraint_type == eLimit)
   {
     // get the super body
     ArticulatedBodyPtr ab = limit_joint->get_articulated_body();
@@ -498,7 +502,7 @@ void Event::compute_vevent_data(MatrixNd& M, VectorNd& q) const
     else
     {
       // TODO: handle absolute coordinate articulated bodies here
-      // note: to do this event handler also needs to setup constraint Jac
+      // note: to do this constraint handler also needs to setup constraint Jac
       //       as an equality constraint
 
       // setup joint velocity Jacobian here (Dx)
@@ -522,10 +526,10 @@ void Event::compute_vevent_data(MatrixNd& M, VectorNd& q) const
   }
 } 
 
-/// Determines whether two events are linked
-bool Event::is_linked(const Event& e1, const Event& e2)
+/// Determines whether two constraints are linked
+bool UnilateralConstraint::is_linked(const UnilateralConstraint& e1, const UnilateralConstraint& e2)
 {
-  if (e1.event_type == eContact)
+  if (e1.constraint_type == eContact)
   {
     // get the two single bodies
     SingleBodyPtr e1sb1 = e1.contact_geom1->get_single_body();
@@ -535,8 +539,8 @@ bool Event::is_linked(const Event& e1, const Event& e2)
     DynamicBodyPtr e1s1 = e1sb1->get_super_body();
     DynamicBodyPtr e1s2 = e1sb2->get_super_body();
 
-    // examine against other event type
-    if (e2.event_type == eContact)
+    // examine against other constraint type
+    if (e2.constraint_type == eContact)
     {
       // get the two single bodies
       SingleBodyPtr e2sb1 = e2.contact_geom1->get_single_body();
@@ -549,7 +553,7 @@ bool Event::is_linked(const Event& e1, const Event& e2)
       // see whether there are any bodies in common
       return e1s1 == e2s1 || e1s1 == e2s2 || e1s2 == e2s1 || e1s2 == e2s2;
     }
-    else if (e2.event_type == eLimit)
+    else if (e2.constraint_type == eLimit)
     {
       ArticulatedBodyPtr ab = e2.limit_joint->get_articulated_body();
       return e1s1 == ab || e1s2 == ab; 
@@ -562,11 +566,11 @@ bool Event::is_linked(const Event& e1, const Event& e2)
       return true;
     }
   }
-  else if (e1.event_type == eLimit)
+  else if (e1.constraint_type == eLimit)
   {
-    if (e2.event_type == eContact)
+    if (e2.constraint_type == eContact)
       return is_linked(e2, e1);
-    else if (e2.event_type == eLimit)
+    else if (e2.constraint_type == eLimit)
     {
       ArticulatedBodyPtr ab1 = e1.limit_joint->get_articulated_body();
       ArticulatedBodyPtr ab2 = e2.limit_joint->get_articulated_body();
@@ -589,29 +593,29 @@ bool Event::is_linked(const Event& e1, const Event& e2)
   }
 }
 
-/// Updates the event data
-void Event::compute_cross_vevent_data(const Event& e, MatrixNd& M) const
+/// Updates the constraint data
+void UnilateralConstraint::compute_cross_vconstraint_data(const UnilateralConstraint& e, MatrixNd& M) const
 {
-  // verify that the events are linked
+  // verify that the constraints are linked
   if (!is_linked(*this, e))
     return;
     
-  switch (event_type)
+  switch (constraint_type)
   {
     case eContact:
-      switch (e.event_type)
+      switch (e.constraint_type)
       {
-        case eContact: compute_cross_contact_contact_vevent_data(e, M); break;
-        case eLimit:   compute_cross_contact_limit_vevent_data(e, M); break;
+        case eContact: compute_cross_contact_contact_vconstraint_data(e, M); break;
+        case eLimit:   compute_cross_contact_limit_vconstraint_data(e, M); break;
         case eNone:    M.resize(0,0); break;
       }
       break;
 
     case eLimit:
-      switch (e.event_type)
+      switch (e.constraint_type)
       {
-        case eContact: compute_cross_limit_contact_vevent_data(e, M); break;
-        case eLimit:   compute_cross_limit_limit_vevent_data(e, M); break;
+        case eContact: compute_cross_limit_contact_vconstraint_data(e, M); break;
+        case eLimit:   compute_cross_limit_limit_vconstraint_data(e, M); break;
         case eNone:    M.resize(0,0); break;
       }
       break;
@@ -622,11 +626,11 @@ void Event::compute_cross_vevent_data(const Event& e, MatrixNd& M) const
   }
 }
 
-/// Updates contact/contact cross event data
+/// Updates contact/contact cross constraint data
 /**
  * From two contact points, we can have up to three separate super bodies. 
  */
-void Event::compute_cross_contact_contact_vevent_data(const Event& e, MatrixNd& M) const
+void UnilateralConstraint::compute_cross_contact_contact_vconstraint_data(const UnilateralConstraint& e, MatrixNd& M) const
 {
   // get the unique super bodies
   DynamicBodyPtr bodies[4];
@@ -643,11 +647,11 @@ void Event::compute_cross_contact_contact_vevent_data(const Event& e, MatrixNd& 
 
   // if we have exactly two super bodies, process them individually
   if (NSUPER == 1)
-    compute_cross_contact_contact_vevent_data(e, M, bodies[0]);
+    compute_cross_contact_contact_vconstraint_data(e, M, bodies[0]);
   if (NSUPER == 2)
   {
-    compute_cross_contact_contact_vevent_data(e, M, bodies[0]);
-    compute_cross_contact_contact_vevent_data(e, M, bodies[1]);
+    compute_cross_contact_contact_vconstraint_data(e, M, bodies[0]);
+    compute_cross_contact_contact_vconstraint_data(e, M, bodies[1]);
   }
   else if (NSUPER == 3)
   {
@@ -659,14 +663,14 @@ void Event::compute_cross_contact_contact_vevent_data(const Event& e, MatrixNd& 
     std::sort(bodies2, end2);
     DynamicBodyPtr* isect_end = std::set_intersection(bodies1, end1, bodies2, end2, isect);
     assert(isect_end - isect == 1);
-    compute_cross_contact_contact_vevent_data(e, M, isect[0]);
+    compute_cross_contact_contact_vconstraint_data(e, M, isect[0]);
   }
   else if (NSUPER == 4)
     assert(false);
 }
 
 /// Computes cross contact data for one super body
-void Event::compute_cross_contact_contact_vevent_data(const Event& e, MatrixNd& M, DynamicBodyPtr su) const
+void UnilateralConstraint::compute_cross_contact_contact_vconstraint_data(const UnilateralConstraint& e, MatrixNd& M, DynamicBodyPtr su) const
 {
   // setup useful indices
   const unsigned N = 0, S = 1, T = 2, THREE_D = 3;
@@ -686,13 +690,13 @@ void Event::compute_cross_contact_contact_vevent_data(const Event& e, MatrixNd& 
   J.resize(THREE_D, NGC);
 
   // setup the contact frame
-  _event_frame->q.set_identity();
-  _event_frame->x = contact_point;
+  _contact_frame->q.set_identity();
+  _contact_frame->x = contact_point;
 
-  // get the directions in the event frame
-  Vector3d normal = Pose3d::transform_vector(_event_frame, contact_normal);
-  Vector3d tan1 = Pose3d::transform_vector(_event_frame, contact_tan1);
-  Vector3d tan2 = Pose3d::transform_vector(_event_frame, contact_tan2);
+  // get the directions in the constraint frame
+  Vector3d normal = Pose3d::transform_vector(_contact_frame, contact_normal);
+  Vector3d tan1 = Pose3d::transform_vector(_contact_frame, contact_tan1);
+  Vector3d tan2 = Pose3d::transform_vector(_contact_frame, contact_tan2);
 
   // setup a matrix of contact directions
   Matrix3d R;
@@ -703,22 +707,22 @@ void Event::compute_cross_contact_contact_vevent_data(const Event& e, MatrixNd& 
   // compute the Jacobians, checking to see whether necessary
   if (sua1 == su)
   {
-    su->calc_jacobian(_event_frame, sba1, JJ);
+    su->calc_jacobian(_contact_frame, sba1, JJ);
     SharedConstMatrixNd Jlin = JJ.block(0, THREE_D, 0, JJ.columns());
     R.transpose_mult(Jlin, J);
-    compute_cross_contact_contact_vevent_data(e, M, su, J);
+    compute_cross_contact_contact_vconstraint_data(e, M, su, J);
   }
   if (sua2 == su)
   {
-    su->calc_jacobian(_event_frame, sba2, JJ);
+    su->calc_jacobian(_contact_frame, sba2, JJ);
     SharedConstMatrixNd Jlin = JJ.block(0, THREE_D, 0, JJ.columns());
     (-R).transpose_mult(Jlin, J);
-    compute_cross_contact_contact_vevent_data(e, M, su, J);
+    compute_cross_contact_contact_vconstraint_data(e, M, su, J);
   }
 } 
 
 /// Computes cross contact data for one super body
-void Event::compute_cross_contact_contact_vevent_data(const Event& e, MatrixNd& M, DynamicBodyPtr su, const MatrixNd& J) const
+void UnilateralConstraint::compute_cross_contact_contact_vconstraint_data(const UnilateralConstraint& e, MatrixNd& M, DynamicBodyPtr su, const MatrixNd& J) const
 {
   // setup useful indices
   const unsigned N = 0, S = 1, T = 2, THREE_D = 3;
@@ -738,13 +742,13 @@ void Event::compute_cross_contact_contact_vevent_data(const Event& e, MatrixNd& 
   Jx.resize(THREE_D, NGC);
 
   // setup the contact frame
-  _event_frame->q.set_identity();
-  _event_frame->x = e.contact_point;
+  _contact_frame->q.set_identity();
+  _contact_frame->x = e.contact_point;
 
-  // get the directions in the event frame
-  Vector3d normal = Pose3d::transform_vector(_event_frame, e.contact_normal);
-  Vector3d tan1 = Pose3d::transform_vector(_event_frame, e.contact_tan1);
-  Vector3d tan2 = Pose3d::transform_vector(_event_frame, e.contact_tan2);
+  // get the directions in the constraint frame
+  Vector3d normal = Pose3d::transform_vector(_contact_frame, e.contact_normal);
+  Vector3d tan1 = Pose3d::transform_vector(_contact_frame, e.contact_tan1);
+  Vector3d tan2 = Pose3d::transform_vector(_contact_frame, e.contact_tan2);
 
   // setup a matrix of contact directions
   Matrix3d R;
@@ -756,7 +760,7 @@ void Event::compute_cross_contact_contact_vevent_data(const Event& e, MatrixNd& 
   if (sub1 == su)
   {
     // first compute the Jacobian
-    su->calc_jacobian(_event_frame, sbb1, JJ);
+    su->calc_jacobian(_contact_frame, sbb1, JJ);
     SharedConstMatrixNd Jlin = JJ.block(0, THREE_D, 0, JJ.columns());
     R.transpose_mult(Jlin, Jx);
 
@@ -766,7 +770,7 @@ void Event::compute_cross_contact_contact_vevent_data(const Event& e, MatrixNd& 
   }
   if (sub2 == su)
   {
-    su->calc_jacobian(_event_frame, sbb2, JJ);
+    su->calc_jacobian(_contact_frame, sbb2, JJ);
     SharedConstMatrixNd Jlin = JJ.block(0, THREE_D, 0, JJ.columns());
     (-R).transpose_mult(Jlin, Jx);
 
@@ -776,13 +780,13 @@ void Event::compute_cross_contact_contact_vevent_data(const Event& e, MatrixNd& 
   }
 }
 
-/// Updates contact/limit cross event data
-void Event::compute_cross_contact_limit_vevent_data(const Event& e, MatrixNd& M) const
+/// Updates contact/limit cross constraint data
+void UnilateralConstraint::compute_cross_contact_limit_vconstraint_data(const UnilateralConstraint& e, MatrixNd& M) const
 {
   // setup useful indices
   const unsigned N = 0, S = 1, T = 2, THREE_D = 3;
 
-  // get the articulated body of the event
+  // get the articulated body of the constraint
   ArticulatedBodyPtr ab = e.limit_joint->get_articulated_body();
   RCArticulatedBodyPtr su = dynamic_pointer_cast<RCArticulatedBody>(ab);
   assert(su);
@@ -799,14 +803,14 @@ void Event::compute_cross_contact_limit_vevent_data(const Event& e, MatrixNd& M)
   DynamicBodyPtr su2 = sb2->get_super_body();
 
   // setup the contact frame
-  _event_frame->q.set_identity();
-  _event_frame->x = contact_point;
-  _event_frame->rpose = GLOBAL;
+  _contact_frame->q.set_identity();
+  _contact_frame->x = contact_point;
+  _contact_frame->rpose = GLOBAL;
 
-  // get the directions in the event frame
-  Vector3d normal = Pose3d::transform_vector(_event_frame, contact_normal);
-  Vector3d tan1 = Pose3d::transform_vector(_event_frame, contact_tan1);
-  Vector3d tan2 = Pose3d::transform_vector(_event_frame, contact_tan2);
+  // get the directions in the constraint frame
+  Vector3d normal = Pose3d::transform_vector(_contact_frame, contact_normal);
+  Vector3d tan1 = Pose3d::transform_vector(_contact_frame, contact_tan1);
+  Vector3d tan2 = Pose3d::transform_vector(_contact_frame, contact_tan2);
 
   // setup a matrix of contact directions
   Matrix3d R;
@@ -825,11 +829,11 @@ void Event::compute_cross_contact_limit_vevent_data(const Event& e, MatrixNd& M)
     J1.resize(THREE_D, NGC1);
 
     // compute the Jacobians for the two bodies
-    su1->calc_jacobian(_event_frame, sb1, JJ);
+    su1->calc_jacobian(_contact_frame, sb1, JJ);
     SharedConstMatrixNd Jlin = JJ.block(0, THREE_D, 0, JJ.columns());
     R.transpose_mult(Jlin, J1);
 
-    // compute the event inertia matrix for the first body
+    // compute the constraint inertia matrix for the first body
     su1->transpose_solve_generalized_inertia(J1, workM1);
 
     // get the appropriate row of workM
@@ -850,11 +854,11 @@ void Event::compute_cross_contact_limit_vevent_data(const Event& e, MatrixNd& M)
     J1.resize(THREE_D, NGC2);
 
     // compute the Jacobians for the two bodies
-    su2->calc_jacobian(_event_frame, sb2, JJ);
+    su2->calc_jacobian(_contact_frame, sb2, JJ);
     SharedConstMatrixNd Jlin = JJ.block(0, THREE_D, 0, JJ.columns());
     (-R).transpose_mult(Jlin, J1);
 
-    // compute the event inertia matrix for the first body
+    // compute the constraint inertia matrix for the first body
     su2->transpose_solve_generalized_inertia(J1, workM1);
 
     // get the appropriate row of workM
@@ -866,18 +870,18 @@ void Event::compute_cross_contact_limit_vevent_data(const Event& e, MatrixNd& M)
   }
 } 
 
-/// Updates limit/contact cross event data
-void Event::compute_cross_limit_contact_vevent_data(const Event& e, MatrixNd& M) const
+/// Updates limit/contact cross constraint data
+void UnilateralConstraint::compute_cross_limit_contact_vconstraint_data(const UnilateralConstraint& e, MatrixNd& M) const
 {
-  // compute the cross event data
-  e.compute_cross_contact_limit_vevent_data(*this, workM2);
+  // compute the cross constraint data
+  e.compute_cross_contact_limit_vconstraint_data(*this, workM2);
 
   // transpose the matrix
   MatrixNd::transpose(workM2, M);
 } 
 
-/// Updates limit/limit cross event data
-void Event::compute_cross_limit_limit_vevent_data(const Event& e, MatrixNd& M) const
+/// Updates limit/limit cross constraint data
+void UnilateralConstraint::compute_cross_limit_limit_vconstraint_data(const UnilateralConstraint& e, MatrixNd& M) const
 {
   // get the super body
   ArticulatedBodyPtr ab = limit_joint->get_articulated_body();
@@ -911,7 +915,7 @@ void Event::compute_cross_limit_limit_vevent_data(const Event& e, MatrixNd& M) c
   else
   {
       // TODO: handle absolute coordinate articulated bodies here
-      // note: to do this event handler also needs to setup constraint Jac
+      // note: to do this constraint handler also needs to setup constraint Jac
       //       as an equality constraint
 
       // setup joint velocity Jacobian here (Dx)
@@ -927,14 +931,14 @@ void Event::compute_cross_limit_limit_vevent_data(const Event& e, MatrixNd& M) c
 } 
 
 /// Updates the contact data
-void Event::compute_cross_aevent_data(const Event& c, MatrixNd& M) const
+void UnilateralConstraint::compute_cross_aconstraint_data(const UnilateralConstraint& c, MatrixNd& M) const
 {
   // verify that the contacts are linked
   if (!is_linked(*this, c))
     return;
    
-  if (event_type == eContact && c.event_type == eContact)
-    compute_cross_contact_contact_aevent_data(c, M);
+  if (constraint_type == eContact && c.constraint_type == eContact)
+    compute_cross_contact_contact_aconstraint_data(c, M);
   else
     M.resize(0,0); 
 }
@@ -943,7 +947,7 @@ void Event::compute_cross_aevent_data(const Event& c, MatrixNd& M) const
 /**
  * From two contact points, we can have up to three separate super bodies. 
  */
-void Event::compute_cross_contact_contact_aevent_data(const Event& c, MatrixNd& M) const
+void UnilateralConstraint::compute_cross_contact_contact_aconstraint_data(const UnilateralConstraint& c, MatrixNd& M) const
 {
   // get the unique super bodies
   DynamicBodyPtr bodies[4];
@@ -964,11 +968,11 @@ void Event::compute_cross_contact_contact_aevent_data(const Event& c, MatrixNd& 
 
   // if we have exactly two super bodies, process them individually
   if (NSUPER == 1)
-    compute_cross_contact_contact_aevent_data(c, M, bodies[0]);
+    compute_cross_contact_contact_aconstraint_data(c, M, bodies[0]);
   if (NSUPER == 2)
   {
-    compute_cross_contact_contact_aevent_data(c, M, bodies[0]);
-    compute_cross_contact_contact_aevent_data(c, M, bodies[1]);
+    compute_cross_contact_contact_aconstraint_data(c, M, bodies[0]);
+    compute_cross_contact_contact_aconstraint_data(c, M, bodies[1]);
   }
   else if (NSUPER == 3)
   {
@@ -980,14 +984,14 @@ void Event::compute_cross_contact_contact_aevent_data(const Event& c, MatrixNd& 
     std::sort(bodies2, end2);
     DynamicBodyPtr* isect_end = std::set_intersection(bodies1, end1, bodies2, end2, isect);
     assert(isect_end - isect == 1);
-    compute_cross_contact_contact_aevent_data(c, M, isect[0]);
+    compute_cross_contact_contact_aconstraint_data(c, M, isect[0]);
   }
   else if (NSUPER == 4)
     assert(false);
 }
 
 /// Computes cross contact data for one super body
-void Event::compute_cross_contact_contact_aevent_data(const Event& c, MatrixNd& M, DynamicBodyPtr su) const
+void UnilateralConstraint::compute_cross_contact_contact_aconstraint_data(const UnilateralConstraint& c, MatrixNd& M, DynamicBodyPtr su) const
 {
   static MatrixNd J;
 
@@ -1015,13 +1019,13 @@ void Event::compute_cross_contact_contact_aevent_data(const Event& c, MatrixNd& 
     J.resize(THREE_D, NGC);
 
     // setup the contact frame
-    _event_frame->q.set_identity();
-    _event_frame->x = contact_point;
+    _contact_frame->q.set_identity();
+    _contact_frame->x = contact_point;
 
-    // get the directions in the event frame
-    Vector3d normal = Pose3d::transform_vector(_event_frame, contact_normal);
-    Vector3d tan1 = Pose3d::transform_vector(_event_frame, contact_tan1);
-    Vector3d tan2 = Pose3d::transform_vector(_event_frame, contact_tan2);
+    // get the directions in the constraint frame
+    Vector3d normal = Pose3d::transform_vector(_contact_frame, contact_normal);
+    Vector3d tan1 = Pose3d::transform_vector(_contact_frame, contact_tan1);
+    Vector3d tan2 = Pose3d::transform_vector(_contact_frame, contact_tan2);
 
     // setup a matrix of contact directions
     Matrix3d R;
@@ -1032,17 +1036,17 @@ void Event::compute_cross_contact_contact_aevent_data(const Event& c, MatrixNd& 
     // compute the Jacobians, checking to see whether necessary
     if (sua1 == su)
     {
-      su->calc_jacobian(_event_frame, sba1, JJ);
+      su->calc_jacobian(_contact_frame, sba1, JJ);
       SharedConstMatrixNd Jlin = JJ.block(0, THREE_D, 0, JJ.columns());
       R.transpose_mult(Jlin, J);
-      compute_cross_contact_contact_aevent_data(c, M, su, J);
+      compute_cross_contact_contact_aconstraint_data(c, M, su, J);
     }
     if (sua2 == su)
     {
-      su->calc_jacobian(_event_frame, sba2, JJ);
+      su->calc_jacobian(_contact_frame, sba2, JJ);
       SharedConstMatrixNd Jlin = JJ.block(0, THREE_D, 0, JJ.columns());
       (-R).transpose_mult(Jlin, J);
-      compute_cross_contact_contact_aevent_data(c, M, su, J);
+      compute_cross_contact_contact_aconstraint_data(c, M, su, J);
     }
   }
   else // sliding contact
@@ -1054,32 +1058,32 @@ void Event::compute_cross_contact_contact_aevent_data(const Event& c, MatrixNd& 
     SharedVectorNd Jn = J.row(N); 
 
     // setup the contact frame
-    _event_frame->q.set_identity();
-    _event_frame->x = contact_point;
+    _contact_frame->q.set_identity();
+    _contact_frame->x = contact_point;
 
-    // get the normal in the event frame
-    Vector3d normal = Pose3d::transform_vector(_event_frame, contact_normal);
+    // get the normal in the constraint frame
+    Vector3d normal = Pose3d::transform_vector(_contact_frame, contact_normal);
 
     // compute the Jacobians, checking to see whether necessary
     if (sua1 == su)
     {
-      su->calc_jacobian(_event_frame, sba1, JJ);
+      su->calc_jacobian(_contact_frame, sba1, JJ);
       SharedConstMatrixNd Jlin = JJ.block(0, THREE_D, 0, JJ.columns());
       Jlin.transpose_mult(normal, Jn);
-      compute_cross_contact_contact_aevent_data(c, M, su, J);
+      compute_cross_contact_contact_aconstraint_data(c, M, su, J);
     }
     if (sua2 == su)
     {
-      su->calc_jacobian(_event_frame, sba2, JJ);
+      su->calc_jacobian(_contact_frame, sba2, JJ);
       SharedConstMatrixNd Jlin = JJ.block(0, THREE_D, 0, JJ.columns());
       Jlin.transpose_mult(-normal, Jn);
-      compute_cross_contact_contact_aevent_data(c, M, su, J);
+      compute_cross_contact_contact_aconstraint_data(c, M, su, J);
     }
   }
 } 
 
 /// Computes cross contact data for one super body
-void Event::compute_cross_contact_contact_aevent_data(const Event& c, MatrixNd& M, DynamicBodyPtr su, const MatrixNd& J) const
+void UnilateralConstraint::compute_cross_contact_contact_aconstraint_data(const UnilateralConstraint& c, MatrixNd& M, DynamicBodyPtr su, const MatrixNd& J) const
 {
   // setup useful indices
   const unsigned N = 0, S = 1, T = 2, THREE_D = 3;
@@ -1102,18 +1106,18 @@ void Event::compute_cross_contact_contact_aevent_data(const Event& c, MatrixNd& 
   assert(_ftype != eUndetermined);
 
   // setup the contact frame
-  _event_frame->q.set_identity();
-  _event_frame->x = c.contact_point;
+  _contact_frame->q.set_identity();
+  _contact_frame->x = c.contact_point;
 
   if (c._ftype == eSticking)
   {
     // resize Jacobian 
     Jx.resize(THREE_D, NGC);
 
-    // get the directions in the event frame
-    Vector3d normal = Pose3d::transform_vector(_event_frame, c.contact_normal);
-    Vector3d tan1 = Pose3d::transform_vector(_event_frame, c.contact_tan1);
-    Vector3d tan2 = Pose3d::transform_vector(_event_frame, c.contact_tan2);
+    // get the directions in the constraint frame
+    Vector3d normal = Pose3d::transform_vector(_contact_frame, c.contact_normal);
+    Vector3d tan1 = Pose3d::transform_vector(_contact_frame, c.contact_tan1);
+    Vector3d tan2 = Pose3d::transform_vector(_contact_frame, c.contact_tan2);
 
     // setup a matrix of contact directions
     Matrix3d R;
@@ -1125,7 +1129,7 @@ void Event::compute_cross_contact_contact_aevent_data(const Event& c, MatrixNd& 
     if (sub1 == su)
     {
       // first compute the Jacobian
-      su->calc_jacobian(_event_frame, sbb1, JJ);
+      su->calc_jacobian(_contact_frame, sbb1, JJ);
       SharedConstMatrixNd Jlin = JJ.block(0, THREE_D, 0, JJ.columns());
       R.transpose_mult(Jlin, Jx);
 
@@ -1136,7 +1140,7 @@ void Event::compute_cross_contact_contact_aevent_data(const Event& c, MatrixNd& 
     if (sub2 == su)
     {
       // first compute the Jacobian
-      su->calc_jacobian(_event_frame, sbb2, JJ);
+      su->calc_jacobian(_contact_frame, sbb2, JJ);
       SharedConstMatrixNd Jlin = JJ.block(0, THREE_D, 0, JJ.columns());
       (-R).transpose_mult(Jlin, Jx);
 
@@ -1155,15 +1159,15 @@ void Event::compute_cross_contact_contact_aevent_data(const Event& c, MatrixNd& 
     SharedVectorNd Jxn = Jx.row(N);
     SharedVectorNd Jyn = Jy.row(N);
 
-    // get the normal and sliding directions in the event frame
-    Vector3d normal = Pose3d::transform_vector(_event_frame, c.contact_normal);
-    Vector3d tan1 = Pose3d::transform_vector(_event_frame, c.contact_tan1);
+    // get the normal and sliding directions in the constraint frame
+    Vector3d normal = Pose3d::transform_vector(_contact_frame, c.contact_normal);
+    Vector3d tan1 = Pose3d::transform_vector(_contact_frame, c.contact_tan1);
 
     // compute the Jacobians, checking to see whether necessary
     if (sub1 == su)
     {
       // first compute the Jacobian
-      su->calc_jacobian(_event_frame, sbb1, JJ);
+      su->calc_jacobian(_contact_frame, sbb1, JJ);
       SharedConstMatrixNd Jlin = JJ.block(0, THREE_D, 0, JJ.columns());
       Jlin.transpose_mult(normal, Jxn);
       Jlin.transpose_mult(tan1, Jyn);
@@ -1178,7 +1182,7 @@ void Event::compute_cross_contact_contact_aevent_data(const Event& c, MatrixNd& 
     }
     if (sub2 == su)
     {
-      su->calc_jacobian(_event_frame, sbb2, JJ);
+      su->calc_jacobian(_contact_frame, sbb2, JJ);
       SharedConstMatrixNd Jlin = JJ.block(0, THREE_D, 0, JJ.columns());
       Jlin.transpose_mult(-normal, Jxn);
       Jlin.transpose_mult(-tan1, Jyn);
@@ -1194,19 +1198,21 @@ void Event::compute_cross_contact_contact_aevent_data(const Event& c, MatrixNd& 
   }
 }
 
-/// Sets the contact parameters for this event
-void Event::set_contact_parameters(const ContactParameters& cparams)
+/// Sets the contact parameters for this constraint
+void UnilateralConstraint::set_contact_parameters(const ContactParameters& cparams)
 {
   contact_mu_coulomb = cparams.mu_coulomb;
   contact_mu_viscous = cparams.mu_viscous;
+  contact_penalty_Kp = cparams.penalty_Kp;
+  contact_penalty_Kv = cparams.penalty_Kv;
   contact_epsilon = cparams.epsilon;
   contact_NK = cparams.NK;
   assert(contact_NK >= 4);
 }
 
-double calc_event_accel2(const Event& e)
+double calc_constraint_accel2(const UnilateralConstraint& e)
 {
-  assert (e.event_type == Event::eContact);
+  assert (e.constraint_type == UnilateralConstraint::eContact);
   SingleBodyPtr sba = e.contact_geom1->get_single_body();
   SingleBodyPtr sbb = e.contact_geom2->get_single_body();
 
@@ -1270,9 +1276,9 @@ double calc_event_accel2(const Event& e)
  * Positive acceleration indicates acceleration away, negative acceleration
  * indicates acceleration that will lead to impact/interpenetration.
  */
-double Event::calc_event_accel() const
+double UnilateralConstraint::calc_constraint_accel() const
 {
-  if (event_type == eContact)
+  if (constraint_type == eContact)
   {
     assert(contact_geom1 && contact_geom2);
     SingleBodyPtr sba = contact_geom1->get_single_body();
@@ -1285,37 +1291,37 @@ double Event::calc_event_accel() const
     const SAcceld& aa = sba->get_accel(); 
     const SAcceld& ab = sbb->get_accel(); 
 
-    // setup the event frame
-    _event_frame->x = contact_point;
-    _event_frame->q.set_identity();
-    _event_frame->rpose = GLOBAL;
+    // setup the constraint frame
+    _contact_frame->x = contact_point;
+    _contact_frame->q.set_identity();
+    _contact_frame->rpose = GLOBAL;
 
     // compute the velocities and accelerations at the contact point
-    SVelocityd tva = Pose3d::transform(_event_frame, va); 
-    SVelocityd tvb = Pose3d::transform(_event_frame, vb); 
-    SAcceld taa = Pose3d::transform(_event_frame, aa); 
-    SAcceld tab = Pose3d::transform(_event_frame, ab); 
+    SVelocityd tva = Pose3d::transform(_contact_frame, va); 
+    SVelocityd tvb = Pose3d::transform(_contact_frame, vb); 
+    SAcceld taa = Pose3d::transform(_contact_frame, aa); 
+    SAcceld tab = Pose3d::transform(_contact_frame, ab); 
 
     // get the contact normal and derivative in the correct pose
-    Vector3d normal = Pose3d::transform_vector(_event_frame, contact_normal);
-    Vector3d normal_dot = Pose3d::transform_vector(_event_frame, contact_normal_dot);
+    Vector3d normal = Pose3d::transform_vector(_contact_frame, contact_normal);
+    Vector3d normal_dot = Pose3d::transform_vector(_contact_frame, contact_normal_dot);
 
     // compute 
     double ddot = normal.dot(taa.get_linear() - tab.get_linear());
     ddot += 2.0*normal_dot.dot(tva.get_linear() - tvb.get_linear());
     #ifndef NDEBUG
     static bool displayed_once = false;
-    if (!displayed_once && !CompGeom::rel_equal(ddot, calc_event_accel2(*this), 1e-4))
+    if (!displayed_once && !CompGeom::rel_equal(ddot, calc_constraint_accel2(*this), 1e-4))
     {
       displayed_once = true;
-      std::cerr << "Event::calc_event_accel() warning: accelerations do not match to desired tolerance" << std::endl;
+      std::cerr << "UnilateralConstraint::calc_constraint_accel() warning: accelerations do not match to desired tolerance" << std::endl;
       std::cerr << " -- computed acceleration: " << ddot << std::endl;
-      std::cerr << " -- checked acceleration: " << calc_event_accel2(*this) << std::endl;
+      std::cerr << " -- checked acceleration: " << calc_constraint_accel2(*this) << std::endl;
     }
     #endif
     return ddot;
   }
-  else if (event_type == eLimit)
+  else if (constraint_type == eLimit)
   {
     double qdd = limit_joint->qdd[limit_dof];
     return (limit_upper) ? -qdd : qdd;
@@ -1327,9 +1333,9 @@ double Event::calc_event_accel() const
   }
 }  
 
-double calc_event_vel2(const Event& e)
+double calc_constraint_vel2(const UnilateralConstraint& e)
 {
-  assert (e.event_type == Event::eContact);
+  assert (e.constraint_type == UnilateralConstraint::eContact);
   SingleBodyPtr sba = e.contact_geom1->get_single_body();
   SingleBodyPtr sbb = e.contact_geom2->get_single_body();
 
@@ -1371,14 +1377,14 @@ double calc_event_vel2(const Event& e)
   return v.dot(normal);
 }
 
-/// Computes the velocity of this event
+/// Computes the velocity of this constraint
 /**
  * Positive velocity indicates separation, negative velocity indicates
  * impact, zero velocity indicates rest.
  */
-double Event::calc_event_vel() const
+double UnilateralConstraint::calc_constraint_vel() const
 {
-  if (event_type == eContact)
+  if (constraint_type == eContact)
   {
     assert(contact_geom1 && contact_geom2);
     SingleBodyPtr sba = contact_geom1->get_single_body();
@@ -1389,35 +1395,35 @@ double Event::calc_event_vel() const
     const SVelocityd& va = sba->get_velocity(); 
     const SVelocityd& vb = sbb->get_velocity(); 
 
-    // setup the event frame
-    _event_frame->x = contact_point;
-    _event_frame->q.set_identity();
-    _event_frame->rpose = GLOBAL;
+    // setup the constraint frame
+    _contact_frame->x = contact_point;
+    _contact_frame->q.set_identity();
+    _contact_frame->rpose = GLOBAL;
 
     // compute the velocities at the contact point
-    SVelocityd ta = Pose3d::transform(_event_frame, va); 
-    SVelocityd tb = Pose3d::transform(_event_frame, vb); 
+    SVelocityd ta = Pose3d::transform(_contact_frame, va); 
+    SVelocityd tb = Pose3d::transform(_contact_frame, vb); 
 
     // get the contact normal in the correct pose
-    Vector3d normal = Pose3d::transform_vector(_event_frame, contact_normal);
+    Vector3d normal = Pose3d::transform_vector(_contact_frame, contact_normal);
 
-    FILE_LOG(LOG_EVENT) << "Event::calc_event_vel() entered" << std::endl;
-    FILE_LOG(LOG_EVENT) << "normal (event frame): " << normal << std::endl;
-    FILE_LOG(LOG_EVENT) << "tangent 1 (event frame): " << Pose3d::transform_vector(_event_frame, contact_tan1) << std::endl;
-    FILE_LOG(LOG_EVENT) << "tangent 2 (event frame): " << Pose3d::transform_vector(_event_frame, contact_tan2) << std::endl;
+    FILE_LOG(LOG_EVENT) << "UnilateralConstraint::calc_constraint_vel() entered" << std::endl;
+    FILE_LOG(LOG_EVENT) << "normal (constraint frame): " << normal << std::endl;
+    FILE_LOG(LOG_EVENT) << "tangent 1 (constraint frame): " << Pose3d::transform_vector(_contact_frame, contact_tan1) << std::endl;
+    FILE_LOG(LOG_EVENT) << "tangent 2 (constraint frame): " << Pose3d::transform_vector(_contact_frame, contact_tan2) << std::endl;
 /*
     FILE_LOG(LOG_EVENT) << "spatial velocity (mixed frame) for body A: " << Pose3d::transform(dynamic_pointer_cast<RigidBody>(sba)->get_mixed_pose(), ta) << std::endl;
-    FILE_LOG(LOG_EVENT) << "spatial velocity (event frame) for body A: " << ta << std::endl;
+    FILE_LOG(LOG_EVENT) << "spatial velocity (constraint frame) for body A: " << ta << std::endl;
     FILE_LOG(LOG_EVENT) << "spatial velocity (mixed frame) for body B: " << Pose3d::transform(dynamic_pointer_cast<RigidBody>(sbb)->get_mixed_pose(), tb) << std::endl;
-    FILE_LOG(LOG_EVENT) << "spatial velocity (event frame) for body B: " << tb << std::endl;
+    FILE_LOG(LOG_EVENT) << "spatial velocity (constraint frame) for body B: " << tb << std::endl;
 */
-    FILE_LOG(LOG_EVENT) << "Event::calc_event_vel() exited" << std::endl;
+    FILE_LOG(LOG_EVENT) << "UnilateralConstraint::calc_constraint_vel() exited" << std::endl;
 
     // get the linear velocities and project against the normal
-    //assert(std::fabs(normal.dot(ta.get_linear() - tb.get_linear())) < NEAR_ZERO || (std::fabs(normal.dot(ta.get_linear() - tb.get_linear()) - calc_event_vel2(*this)))/std::fabs(normal.dot(ta.get_linear() - tb.get_linear())) < NEAR_ZERO);
+    //assert(std::fabs(normal.dot(ta.get_linear() - tb.get_linear())) < NEAR_ZERO || (std::fabs(normal.dot(ta.get_linear() - tb.get_linear()) - calc_constraint_vel2(*this)))/std::fabs(normal.dot(ta.get_linear() - tb.get_linear())) < NEAR_ZERO);
     return normal.dot(ta.get_linear() - tb.get_linear());
   }
-  else if (event_type == eLimit)
+  else if (constraint_type == eLimit)
   {
     double qd = limit_joint->qd[limit_dof];
     return (limit_upper) ? -qd : qd;
@@ -1429,33 +1435,38 @@ double Event::calc_event_vel() const
   }
 }  
 
-/// Sends the event to the specified stream
-std::ostream& Moby::operator<<(std::ostream& o, const Event& e)
+/// Sends the constraint to the specified stream
+std::ostream& Moby::operator<<(std::ostream& o, const UnilateralConstraint& e)
 {
-  switch (e.event_type)
+  switch (e.constraint_type)
   {
-    case Event::eNone:
-      o << "(event type: none)" << std::endl;
+    case UnilateralConstraint::eNone:
+      o << "(constraint type: none)" << std::endl;
       return o;
 
-    case Event::eLimit:
-      o << "(event type: joint limit)" << std::endl;
+    case UnilateralConstraint::eLimit:
+      o << "(constraint type: joint limit)" << std::endl;
       break;
 
-    case Event::eContact:
-      o << "(event type: contact)" << std::endl;
+    case UnilateralConstraint::eContact:
+      o << "(constraint type: contact)" << std::endl;
       break;
   }
+ 
+  if (e.compliance == UnilateralConstraint::eRigid) 
+    o << "compliance: rigid" << std::endl;
+  else
+    o << "compliance: compliant, kp = " << e.contact_penalty_Kp << ", kv = " << e.contact_penalty_Kv << std::endl;
 
-  if (e.event_type == Event::eLimit)
+  if (e.constraint_type == UnilateralConstraint::eLimit)
   {
     o << "limit joint ID: " << e.limit_joint->id << std::endl;
     o << "limit joint coordinate index: " << e.limit_joint->get_coord_index() << std::endl;
     o << "limit joint DOF: " << e.limit_dof << std::endl;
     o << "upper limit? " << e.limit_upper << std::endl;
-    o << "limit velocity: " << e.calc_event_vel() << std::endl;
+    o << "limit velocity: " << e.calc_constraint_vel() << std::endl;
   }
-  else if (e.event_type == Event::eContact)
+  else if (e.constraint_type == UnilateralConstraint::eContact)
   {
     if (e.contact_geom1)
     {
@@ -1486,7 +1497,7 @@ std::ostream& Moby::operator<<(std::ostream& o, const Event& e)
     o << "contact point / normal pose: " << ((e.contact_point.pose) ? Pose3d(*e.contact_point.pose).update_relative_pose(GLOBAL) : GLOBAL) << std::endl;
     o << "contact point: " << e.contact_point << " frame: " << std::endl;
     o << "normal: " << e.contact_normal << " frame: " << std::endl;
-    if (e.deriv_type == Event::eVel)
+    if (e.deriv_type == UnilateralConstraint::eVel)
     {
       SingleBodyPtr sba = e.contact_geom1->get_single_body();
       SingleBodyPtr sbb = e.contact_geom2->get_single_body();
@@ -1496,32 +1507,32 @@ std::ostream& Moby::operator<<(std::ostream& o, const Event& e)
       const SVelocityd& va = sba->get_velocity(); 
       const SVelocityd& vb = sbb->get_velocity(); 
 
-      // setup the event frame
-      shared_ptr<Pose3d> event_frame(new Pose3d);
-      event_frame->x = e.contact_point;
-      event_frame->q.set_identity();
-      event_frame->rpose = GLOBAL;
+      // setup the constraint frame
+      shared_ptr<Pose3d> constraint_frame(new Pose3d);
+      constraint_frame->x = e.contact_point;
+      constraint_frame->q.set_identity();
+      constraint_frame->rpose = GLOBAL;
 
       // compute the velocities at the contact point
-      SVelocityd ta = Pose3d::transform(event_frame, va); 
-      SVelocityd tb = Pose3d::transform(event_frame, vb); 
+      SVelocityd ta = Pose3d::transform(constraint_frame, va); 
+      SVelocityd tb = Pose3d::transform(constraint_frame, vb); 
 
       // get the contact normal in the correct pose
-      Vector3d normal = Pose3d::transform_vector(event_frame, e.contact_normal);
-      Vector3d tan1 = Pose3d::transform_vector(event_frame, e.contact_tan1);
-      Vector3d tan2 = Pose3d::transform_vector(event_frame, e.contact_tan2);
+      Vector3d normal = Pose3d::transform_vector(constraint_frame, e.contact_normal);
+      Vector3d tan1 = Pose3d::transform_vector(constraint_frame, e.contact_tan1);
+      Vector3d tan2 = Pose3d::transform_vector(constraint_frame, e.contact_tan2);
 
       // get the linear velocities and project against the normal
       Vector3d rvlin = ta.get_linear() - tb.get_linear();
-      //assert(std::fabs(normal.dot(rvlin)) < NEAR_ZERO || std::fabs(normal.dot(rvlin) - calc_event_vel2(e))/std::fabs(normal.dot(rvlin)) < NEAR_ZERO);
+      //assert(std::fabs(normal.dot(rvlin)) < NEAR_ZERO || std::fabs(normal.dot(rvlin) - calc_constraint_vel2(e))/std::fabs(normal.dot(rvlin)) < NEAR_ZERO);
       o << "relative normal velocity: " << normal.dot(rvlin) << std::endl;
       o << "relative tangent 1 velocity: " << tan1.dot(rvlin) << std::endl;
       o << "relative tangent 2 velocity: " << tan2.dot(rvlin) << std::endl;
-      o << "calc_event_vel() reports: " << std::endl;
-      e.calc_event_vel();
+      o << "calc_constraint_vel() reports: " << std::endl;
+      e.calc_constraint_vel();
     }
     else
-      o << "relative normal acceleration: " << e.calc_event_accel() << " (1)   " << calc_event_accel2(e) << " (2)" << std::endl;
+      o << "relative normal acceleration: " << e.calc_constraint_accel() << " (1)   " << calc_constraint_accel2(e) << " (2)" << std::endl;
   }
 
   return o;
@@ -1551,7 +1562,7 @@ static void to_osg_matrix(const Pose3d& src, osg::Matrixd& tgt)
 #endif
 
 /// Makes a contact visualizable
-osg::Node* Event::to_visualization_data() const
+osg::Node* UnilateralConstraint::to_visualization_data() const
 {
   #ifdef USE_OSG
   const float CONE_HEIGHT = .2f;
@@ -1609,40 +1620,40 @@ osg::Node* Event::to_visualization_data() const
   #endif
 }
 
-/// Given a vector of events, determines all of the sets of connected events
+/// Given a vector of constraints, determines all of the sets of connected constraints
 /**
- * A set of connected events is the set of all events such that, for a
- * given event A in the set, there exists another event B for which A
+ * A set of connected constraints is the set of all constraints such that, for a
+ * given constraint A in the set, there exists another constraint B for which A
  * and B share at least one rigid body.  
- * \param events the list of events
- * \param groups the islands of connected events on return
+ * \param constraints the list of constraints
+ * \param groups the islands of connected constraints on return
  */
-void Event::determine_connected_events(const vector<Event>& events, list<list<Event*> >& groups)
+void UnilateralConstraint::determine_connected_constraints(const vector<UnilateralConstraint>& constraints, list<list<UnilateralConstraint*> >& groups)
 {
-  FILE_LOG(LOG_EVENT) << "Event::determine_connected_contacts() entered" << std::endl;
+  FILE_LOG(LOG_EVENT) << "UnilateralConstraint::determine_connected_contacts() entered" << std::endl;
 
   // clear the groups
   groups.clear();
 
-  // copy the list of events -- only ones with geometry
-  list<Event*> events_copy;
-  BOOST_FOREACH(const Event& e, events)
-    if (e.event_type != Event::eNone)
-      events_copy.push_back((Event*) &e);
+  // copy the list of constraints -- only ones with geometry
+  list<UnilateralConstraint*> constraints_copy;
+  BOOST_FOREACH(const UnilateralConstraint& e, constraints)
+    if (e.constraint_type != UnilateralConstraint::eNone)
+      constraints_copy.push_back((UnilateralConstraint*) &e);
   
-  // The way that we'll determine the event islands is to treat each rigid
-  // body present in the events as a node in a graph; nodes will be connected
-  // to other nodes if (a) they are both present in event or (b) they are
+  // The way that we'll determine the constraint islands is to treat each rigid
+  // body present in the constraints as a node in a graph; nodes will be connected
+  // to other nodes if (a) they are both present in constraint or (b) they are
   // part of the same articulated body.  Nodes will not be created for disabled
   // bodies.
   set<SingleBodyPtr> nodes;
   multimap<SingleBodyPtr, SingleBodyPtr> edges;
   typedef multimap<SingleBodyPtr, SingleBodyPtr>::const_iterator EdgeIter;
 
-  // get all single bodies present in the events
-  for (list<Event*>::const_iterator i = events_copy.begin(); i != events_copy.end(); i++)
+  // get all single bodies present in the constraints
+  for (list<UnilateralConstraint*>::const_iterator i = constraints_copy.begin(); i != constraints_copy.end(); i++)
   {
-    if ((*i)->event_type == Event::eContact)
+    if ((*i)->constraint_type == UnilateralConstraint::eContact)
     {
       SingleBodyPtr sb1((*i)->contact_geom1->get_single_body());
       SingleBodyPtr sb2((*i)->contact_geom2->get_single_body());
@@ -1656,7 +1667,7 @@ void Event::determine_connected_events(const vector<Event>& events, list<list<Ev
         edges.insert(std::make_pair(sb2, sb1));
       }
     }
-    else if ((*i)->event_type == Event::eLimit)
+    else if ((*i)->constraint_type == UnilateralConstraint::eLimit)
     {
       RigidBodyPtr inboard = (*i)->limit_joint->get_inboard_link();
       RigidBodyPtr outboard = (*i)->limit_joint->get_outboard_link();
@@ -1667,7 +1678,7 @@ void Event::determine_connected_events(const vector<Event>& events, list<list<Ev
       assert(false);
   }
 
-  FILE_LOG(LOG_EVENT) << " -- single bodies in events:" << std::endl;
+  FILE_LOG(LOG_EVENT) << " -- single bodies in constraints:" << std::endl;
   if (LOGGING(LOG_EVENT))
     for (set<SingleBodyPtr>::const_iterator i = nodes.begin(); i != nodes.end(); i++)
       FILE_LOG(LOG_EVENT) << "    " << (*i)->id << std::endl;
@@ -1714,7 +1725,7 @@ void Event::determine_connected_events(const vector<Event>& events, list<list<Ev
   }
 
   // Now, we'll remove nodes from the set until there are no more nodes.
-  // For each removed node, we'll get add all events that contain the single 
+  // For each removed node, we'll get add all constraints that contain the single 
   // body to the group; all neighboring nodes will then be processed.
   while (!nodes.empty())
   {
@@ -1722,8 +1733,8 @@ void Event::determine_connected_events(const vector<Event>& events, list<list<Ev
     SingleBodyPtr node = *nodes.begin();
 
     // add a list to the contact groups
-    groups.push_back(list<Event*>());
-    FILE_LOG(LOG_EVENT) << " -- events in group: " << std::endl;
+    groups.push_back(list<UnilateralConstraint*>());
+    FILE_LOG(LOG_EVENT) << " -- constraints in group: " << std::endl;
 
     // create a node queue, with this node added
     std::queue<SingleBodyPtr> node_q;
@@ -1746,10 +1757,10 @@ void Event::determine_connected_events(const vector<Event>& events, list<list<Ev
         if (nodes.find(i->second) != nodes.end())
           node_q.push(i->second);
 
-      // loop through all remaining events
-      for (list<Event*>::iterator i = events_copy.begin(); i != events_copy.end(); )
+      // loop through all remaining constraints
+      for (list<UnilateralConstraint*>::iterator i = constraints_copy.begin(); i != constraints_copy.end(); )
       {
-        if ((*i)->event_type == Event::eContact)
+        if ((*i)->constraint_type == UnilateralConstraint::eContact)
         {
           SingleBodyPtr sb1((*i)->contact_geom1->get_single_body());
           SingleBodyPtr sb2((*i)->contact_geom2->get_single_body());
@@ -1758,20 +1769,20 @@ void Event::determine_connected_events(const vector<Event>& events, list<list<Ev
           if (sb1 == node || sb2 == node)
           {
             groups.back().push_back(*i);
-            i = events_copy.erase(i);
+            i = constraints_copy.erase(i);
             continue;
           }
           else
             i++;
         }
-        else if ((*i)->event_type == Event::eLimit)
+        else if ((*i)->constraint_type == UnilateralConstraint::eLimit)
         {
           RigidBodyPtr inboard = (*i)->limit_joint->get_inboard_link();
           RigidBodyPtr outboard = (*i)->limit_joint->get_outboard_link();
           if (inboard == node || outboard == node)
           {
             groups.back().push_back(*i);
-            i = events_copy.erase(i);
+            i = constraints_copy.erase(i);
             continue;
           }
           else
@@ -1783,12 +1794,12 @@ void Event::determine_connected_events(const vector<Event>& events, list<list<Ev
     }
   }
 
-  FILE_LOG(LOG_EVENT) << "Event::determine_connected_events() exited" << std::endl;
+  FILE_LOG(LOG_EVENT) << "UnilateralConstraint::determine_connected_constraints() exited" << std::endl;
 }
 
 /*
 /// Computes normal and contact Jacobians for a body
-void Event::compute_contact_jacobian(const Event& e, MatrixN& Jc, MatrixN& iM_JcT, MatrixN& iM_DcT, unsigned ci, const map<DynamicBodyPtr, unsigned>& gc_indices)
+void UnilateralConstraint::compute_contact_jacobian(const UnilateralConstraint& e, MatrixN& Jc, MatrixN& iM_JcT, MatrixN& iM_DcT, unsigned ci, const map<DynamicBodyPtr, unsigned>& gc_indices)
 {
   map<DynamicBodyPtr, unsigned>::const_iterator miter;
   SAFESTATIC FastThreadable<VectorN> tmpv, tmpv2, workv, workv2;
@@ -1855,7 +1866,7 @@ void Event::compute_contact_jacobian(const Event& e, MatrixN& Jc, MatrixN& iM_Jc
 }
 
 /// Computes normal and contact Jacobians for a body
-void Event::compute_contact_jacobians(const Event& e, VectorN& Nc, VectorN& Dcs, VectorN& Dct)
+void UnilateralConstraint::compute_contact_jacobians(const UnilateralConstraint& e, VectorN& Nc, VectorN& Dcs, VectorN& Dct)
 {
   SAFESTATIC FastThreadable<VectorN> Nc1, Nc2, Dcs1, Dcs2, Dct1, Dct2;
 
@@ -1928,27 +1939,27 @@ void Event::compute_contact_jacobians(const Event& e, VectorN& Nc, VectorN& Dcs,
 */
 
 /// Uses the convex hull of the contact manifold to reject contact points
-void Event::determine_convex_set(list<Event*>& group)
+void UnilateralConstraint::determine_convex_set(list<UnilateralConstraint*>& group)
 {
 return;
 }
 
-void Event::process_convex_set_group(list<Event*>& group)
+void UnilateralConstraint::process_convex_set_group(list<UnilateralConstraint*>& group)
 {
   vector<Point3d*> hull;
 
   // get all points
   vector<Point3d*> points;
-  BOOST_FOREACH(Event* e, group)
+  BOOST_FOREACH(UnilateralConstraint* e, group)
   {
-    assert(e->event_type == Event::eContact);
+    assert(e->constraint_type == UnilateralConstraint::eContact);
     points.push_back(&e->contact_point);
   }
 
-  FILE_LOG(LOG_EVENT) << "Event::determine_convex_set() entered" << std::endl;
+  FILE_LOG(LOG_EVENT) << "UnilateralConstraint::determine_convex_set() entered" << std::endl;
   FILE_LOG(LOG_EVENT) << " -- initial number of contact points: " << points.size() << std::endl;
   FILE_LOG(LOG_EVENT) << " coefficients of friction: ";
-  BOOST_FOREACH(const Event* e, group)
+  BOOST_FOREACH(const UnilateralConstraint* e, group)
     FILE_LOG(LOG_EVENT) << e->contact_mu_coulomb << " ";
   FILE_LOG(LOG_EVENT) << std::endl;
 
@@ -1973,7 +1984,7 @@ void Event::process_convex_set_group(list<Event*>& group)
     CompGeom::determine_seg_endpoints(points.begin(), points.end(), ep);
 
     // iterate through, looking for the contact points
-    for (list<Event*>::iterator i = group.begin(); i != group.end(); )
+    for (list<UnilateralConstraint*>::iterator i = group.begin(); i != group.end(); )
     {
       if (&(*i)->contact_point == ep.first || &(*i)->contact_point == ep.second)
         i++;
@@ -1985,7 +1996,7 @@ void Event::process_convex_set_group(list<Event*>& group)
     FILE_LOG(LOG_EVENT) << " -- remaining contact points after removal: " << std::endl;
     if (LOGGING(LOG_EVENT))
     {
-      BOOST_FOREACH(const Event* e, group)
+      BOOST_FOREACH(const UnilateralConstraint* e, group)
         FILE_LOG(LOG_EVENT) << *e << std::endl;
     }
 
@@ -2017,7 +2028,7 @@ void Event::process_convex_set_group(list<Event*>& group)
       CompGeom::determine_seg_endpoints(points.begin(), points.end(), ep);
 
       // iterate through, looking for the contact points
-      for (list<Event*>::iterator i = group.begin(); i != group.end(); )
+      for (list<UnilateralConstraint*>::iterator i = group.begin(); i != group.end(); )
       {
         if (&(*i)->contact_point == ep.first || &(*i)->contact_point == ep.second)
           i++;
@@ -2028,7 +2039,7 @@ void Event::process_convex_set_group(list<Event*>& group)
       FILE_LOG(LOG_EVENT) << " -- remaining contact points after removal: " << std::endl;
       if (LOGGING(LOG_EVENT))
       {
-        BOOST_FOREACH(const Event* e, group)
+        BOOST_FOREACH(const UnilateralConstraint* e, group)
           FILE_LOG(LOG_EVENT) << *e << std::endl;
       }
 
@@ -2064,7 +2075,7 @@ void Event::process_convex_set_group(list<Event*>& group)
 
 /*
         // hull was successful, fix normals as necessary
-        BOOST_FOREACH(Event* e, group)
+        BOOST_FOREACH(UnilateralConstraint* e, group)
         {
           double dot = e->contact_normal.dot(normal);
           if (std::fabs(dot - 1.0) > NEAR_ZERO && std::fabs(dot + 1.0) > NEAR_ZERO)
@@ -2081,7 +2092,7 @@ void Event::process_convex_set_group(list<Event*>& group)
         CompGeom::determine_seg_endpoints(points.begin(), points.end(), ep);
 
         // iterate through, looking for the contact points
-        for (list<Event*>::iterator i = group.begin(); i != group.end(); )
+        for (list<UnilateralConstraint*>::iterator i = group.begin(); i != group.end(); )
         {
           if (&(*i)->contact_point == ep.first || &(*i)->contact_point == ep.second)
             i++;
@@ -2093,7 +2104,7 @@ void Event::process_convex_set_group(list<Event*>& group)
         FILE_LOG(LOG_EVENT) << " -- remaining contact points after removal: " << std::endl;
         if (LOGGING(LOG_EVENT))
         {
-          BOOST_FOREACH(const Event* e, group)
+          BOOST_FOREACH(const UnilateralConstraint* e, group)
             FILE_LOG(LOG_EVENT) << *e << std::endl;
         }
 
@@ -2106,7 +2117,7 @@ void Event::process_convex_set_group(list<Event*>& group)
   std::sort(hull.begin(), hull.end());
 
   // remove points
-  for (list<Event*>::iterator i = group.begin(); i != group.end(); )
+  for (list<UnilateralConstraint*>::iterator i = group.begin(); i != group.end(); )
   {
     if (std::binary_search(hull.begin(), hull.end(), &((*i)->contact_point)))
       i++;
@@ -2117,17 +2128,17 @@ void Event::process_convex_set_group(list<Event*>& group)
   FILE_LOG(LOG_EVENT) << " -- remaining contact points after removal using convex hull: " << group.size() << std::endl;
 }
 
-/// Determines whether all events in a set are 2D or 3D
-bool Event::is_contact_manifold_2D(const list<Event*>& events)
+/// Determines whether all constraints in a set are 2D or 3D
+bool UnilateralConstraint::is_contact_manifold_2D(const list<UnilateralConstraint*>& constraints)
 {
   // get the first contact as a plane
-  assert(events.front()->event_type == Event::eContact);
-  Plane plane(events.front()->contact_normal, events.front()->contact_point);
+  assert(constraints.front()->constraint_type == UnilateralConstraint::eContact);
+  Plane plane(constraints.front()->contact_normal, constraints.front()->contact_point);
 
   // iterate over the remaining contacts
-  for (list<Event*>::const_iterator i = ++(events.begin()); i != events.end(); i++)
+  for (list<UnilateralConstraint*>::const_iterator i = ++(constraints.begin()); i != constraints.end(); i++)
   {
-    assert((*i)->event_type == Event::eContact);
+    assert((*i)->constraint_type == UnilateralConstraint::eContact);
     if (!plane.on_plane((*i)->contact_point))
       return false;
   }
@@ -2149,23 +2160,23 @@ bool Event::is_contact_manifold_2D(const list<Event*>& events)
                             present) + NGC^3
  * therefore generalized coordinates are the limiting factor...
  */
-/// Computes a minimal set of contact events
-void Event::determine_minimal_set(list<Event*>& group)
+/// Computes a minimal set of contact constraints
+void UnilateralConstraint::determine_minimal_set(list<UnilateralConstraint*>& group)
 {
-  // if there are very few events, quit now
+  // if there are very few constraints, quit now
   if (group.size() <= 4)
     return;
 
-  FILE_LOG(LOG_EVENT) << "Event::determine_minimal_set() entered" << std::endl;
-  FILE_LOG(LOG_EVENT) << " -- initial number of events: " << group.size() << std::endl;
+  FILE_LOG(LOG_EVENT) << "UnilateralConstraint::determine_minimal_set() entered" << std::endl;
+  FILE_LOG(LOG_EVENT) << " -- initial number of constraints: " << group.size() << std::endl;
 
-  // setup a mapping from pairs of single bodies to groups of events
-  map<sorted_pair<SingleBodyPtr>, list<Event*> > contact_groups;
+  // setup a mapping from pairs of single bodies to groups of constraints
+  map<sorted_pair<SingleBodyPtr>, list<UnilateralConstraint*> > contact_groups;
 
-  // move all contact events into separate groups
-  for (list<Event*>::iterator i = group.begin(); i != group.end(); )
+  // move all contact constraints into separate groups
+  for (list<UnilateralConstraint*>::iterator i = group.begin(); i != group.end(); )
   {
-    if ((*i)->event_type == Event::eContact)
+    if ((*i)->constraint_type == UnilateralConstraint::eContact)
     {
       // get the two bodies
       SingleBodyPtr sb1 = (*i)->contact_geom1->get_single_body();
@@ -2180,7 +2191,7 @@ void Event::determine_minimal_set(list<Event*>& group)
   }
 
   // process each group independently, then recombine
-  for (map<sorted_pair<SingleBodyPtr>, list<Event*> >::iterator i = contact_groups.begin(); i != contact_groups.end(); i++)
+  for (map<sorted_pair<SingleBodyPtr>, list<UnilateralConstraint*> >::iterator i = contact_groups.begin(); i != contact_groups.end(); i++)
   {
     determine_convex_set(i->second);
     group.insert(group.end(), i->second.begin(), i->second.end()); 
@@ -2188,24 +2199,24 @@ void Event::determine_minimal_set(list<Event*>& group)
 }
 
 /// Removes groups of contacts that contain no active contacts 
-void Event::remove_inactive_groups(list<list<Event*> >& groups)
+void UnilateralConstraint::remove_inactive_groups(list<list<UnilateralConstraint*> >& groups)
 {
-  typedef list<list<Event*> >::iterator ListIter;
+  typedef list<list<UnilateralConstraint*> >::iterator ListIter;
 
   for (ListIter i = groups.begin(); i != groups.end(); )
   {
     // look for impact in list i
     bool active_detected = false;
-    BOOST_FOREACH(Event* e, *i)
+    BOOST_FOREACH(UnilateralConstraint* e, *i)
     {
-      if (e->determine_event_class() == Event::eNegative)
+      if (e->determine_constraint_class() == UnilateralConstraint::eNegative)
       {
         active_detected = true;
         break;
       }
     }
 
-    // if no active event in the list, remove the list
+    // if no active constraint in the list, remove the list
     if (!active_detected)
     {
       ListIter j = i;
@@ -2218,11 +2229,11 @@ void Event::remove_inactive_groups(list<list<Event*> >& groups)
   }
 }
 
-/// Writes an event to the specified filename in VRML format for visualization
+/// Writes an constraint to the specified filename in VRML format for visualization
 /**
  * \todo add a cone onto the arrows
  */
-void Event::write_vrml(const std::string& fname, double sphere_radius, double normal_length) const
+void UnilateralConstraint::write_vrml(const std::string& fname, double sphere_radius, double normal_length) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
   std::ofstream out;
@@ -2230,7 +2241,7 @@ void Event::write_vrml(const std::string& fname, double sphere_radius, double no
   // open the file for writing
   out.open(fname.c_str());
   if (out.fail())
-    throw std::runtime_error("Unable to open file for writing in Event::write_vrml()");
+    throw std::runtime_error("Unable to open file for writing in UnilateralConstraint::write_vrml()");
 
   // write the VRML header
   out << "#VRML V2.0 utf8" << std::endl << std::endl;
@@ -2348,10 +2359,10 @@ void Event::write_vrml(const std::string& fname, double sphere_radius, double no
 }
 
 /// Determines the set of contact tangents
-void Event::determine_contact_tangents()
+void UnilateralConstraint::determine_contact_tangents()
 {
   // get the two bodies of the contact
-  assert(event_type == Event::eContact);
+  assert(constraint_type == UnilateralConstraint::eContact);
   assert(contact_geom1 && contact_geom2);
   SingleBodyPtr sba = contact_geom1->get_single_body();
   SingleBodyPtr sbb = contact_geom2->get_single_body();
@@ -2392,15 +2403,15 @@ void Event::determine_contact_tangents()
   }
 }
 
-/// Determines the type of event 
-Event::EventClass Event::determine_event_class() const
+/// Determines the type of constraint 
+UnilateralConstraint::UnilateralConstraintClass UnilateralConstraint::determine_constraint_class() const
 {
   if (deriv_type == eVel)
   {
-    // get the event velocity
-    double vel = calc_event_vel();
+    // get the constraint velocity
+    double vel = calc_constraint_vel();
 
-    FILE_LOG(LOG_SIMULATOR) << "-- event type: " << event_type << " velocity: " << vel << std::endl;
+    FILE_LOG(LOG_SIMULATOR) << "-- constraint type: " << constraint_type << " velocity: " << vel << std::endl;
 
     if (vel > tol)
       return ePositive;
@@ -2411,10 +2422,10 @@ Event::EventClass Event::determine_event_class() const
   }
   else
   {
-    // get the event acceleration
-    double acc = calc_event_accel();
+    // get the constraint acceleration
+    double acc = calc_constraint_accel();
 
-    FILE_LOG(LOG_SIMULATOR) << "-- event type: " << event_type << " acceleration: " << acc << std::endl;
+    FILE_LOG(LOG_SIMULATOR) << "-- constraint type: " << constraint_type << " acceleration: " << acc << std::endl;
 
     if (acc > tol)
       return ePositive;
@@ -2425,14 +2436,14 @@ Event::EventClass Event::determine_event_class() const
   }
 }
 
-/// Computes the event tolerance
+/// Computes the constraint tolerance
 /**
  * Positive velocity indicates separation, negative velocity indicates
  * impact, zero velocity indicates rest.
  */
-double Event::calc_vevent_tol() const
+double UnilateralConstraint::calc_vconstraint_tol() const
 {
-  if (event_type == eContact)
+  if (constraint_type == eContact)
   {
     assert(contact_geom1 && contact_geom2);
     SingleBodyPtr sba = contact_geom1->get_single_body();
@@ -2443,19 +2454,19 @@ double Event::calc_vevent_tol() const
     const SVelocityd& va = sba->get_velocity(); 
     const SVelocityd& vb = sbb->get_velocity(); 
 
-    // setup the event frame
-    _event_frame->x = contact_point;
-    _event_frame->q.set_identity();
-    _event_frame->rpose = GLOBAL;
+    // setup the constraint frame
+    _contact_frame->x = contact_point;
+    _contact_frame->q.set_identity();
+    _contact_frame->rpose = GLOBAL;
 
     // compute the velocities at the contact point
-    SVelocityd ta = Pose3d::transform(_event_frame, va); 
-    SVelocityd tb = Pose3d::transform(_event_frame, vb); 
+    SVelocityd ta = Pose3d::transform(_contact_frame, va); 
+    SVelocityd tb = Pose3d::transform(_contact_frame, vb); 
 
     // compute the difference in linear velocities
     return std::max((ta.get_linear() - tb.get_linear()).norm(), (double) 1.0);
   }
-  else if (event_type == eLimit)
+  else if (constraint_type == eLimit)
   {
     double qd = limit_joint->qd[limit_dof];
     return std::max((double) 1.0, std::fabs(qd));
@@ -2467,15 +2478,15 @@ double Event::calc_vevent_tol() const
   }
 }
 
-/// Computes the event tolerance
+/// Computes the constraint tolerance
 /**
  * Positive velocity indicates separation, negative acceleration indicates
  * contact must be treated, zero acceleration indicates rest, positive
  * acceleration indicates contact is separating.
  */
-double Event::calc_aevent_tol() const
+double UnilateralConstraint::calc_aconstraint_tol() const
 {
-  if (event_type == eContact)
+  if (constraint_type == eContact)
   {
     assert(contact_geom1 && contact_geom2);
     SingleBodyPtr sba = contact_geom1->get_single_body();
@@ -2501,7 +2512,7 @@ double Event::calc_aevent_tol() const
     // compute the tolerance
     return std::max(std::max(rv_norm, ra_norm*contact_normal_dot.norm()*2.0), 1.0);
   }
-  else if (event_type == eLimit)
+  else if (constraint_type == eLimit)
   {
     double qdd = limit_joint->qdd[limit_dof];
     return std::max((double) 1.0, std::fabs(qdd));
@@ -2513,21 +2524,21 @@ double Event::calc_aevent_tol() const
   }
 }
 
-/// Gets the super bodies for the event
-unsigned Event::get_super_bodies(DynamicBodyPtr& db1, DynamicBodyPtr& db2) const
+/// Gets the super bodies for the constraint
+unsigned UnilateralConstraint::get_super_bodies(DynamicBodyPtr& db1, DynamicBodyPtr& db2) const
 {
-  // look for empty event
-  if (event_type == Event::eNone)
+  // look for empty constraint
+  if (constraint_type == UnilateralConstraint::eNone)
     return 0;
 
-  // look for limit event
-  if (event_type == Event::eLimit)
+  // look for limit constraint
+  if (constraint_type == UnilateralConstraint::eLimit)
   {
     RigidBodyPtr outboard = limit_joint->get_outboard_link();
     db1 = outboard->get_articulated_body();
     return 1;
   }
-  else if (event_type == Event::eContact)
+  else if (constraint_type == UnilateralConstraint::eContact)
   {
     SingleBodyPtr sb1 = contact_geom1->get_single_body();
     SingleBodyPtr sb2 = contact_geom2->get_single_body();

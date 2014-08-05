@@ -14,7 +14,7 @@
 #include <stack>
 #include <queue>
 #include <boost/tuple/tuple.hpp>
-#include <Moby/Event.h>
+#include <Moby/UnilateralConstraint.h>
 #include <Moby/Constants.h>
 #include <Moby/RigidBody.h>
 #include <Moby/ArticulatedBody.h>
@@ -271,11 +271,11 @@ void CCD::save_to_xml(XMLTreePtr node, list<shared_ptr<const Base> >& shared_obj
  Methods for Drumwright-Shell algorithm begin
 ****************************************************************************/
 
-/// Creates a contact event given the bare-minimum info
-Event CCD::create_contact(CollisionGeometryPtr a, CollisionGeometryPtr b, const Point3d& point, const Vector3d& normal, double violation)
+/// Creates a contact constraint given the bare-minimum info
+UnilateralConstraint CCD::create_contact(CollisionGeometryPtr a, CollisionGeometryPtr b, const Point3d& point, const Vector3d& normal, double violation)
 {
-  Event e;
-  e.event_type = Event::eContact;
+  UnilateralConstraint e;
+  e.constraint_type = UnilateralConstraint::eContact;
   e.contact_point = point;
   e.contact_normal = normal;
   e.contact_geom1 = a;

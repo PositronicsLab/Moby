@@ -1,30 +1,36 @@
+/****************************************************************************
+ * Copyright 2013 Samuel Zapolsky
+ * This library is distributed under the terms of the Apache V2.0
+ * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
+ ***************************************************************************/
+
 #ifndef CONTACTPROBLEMDATA_H
 #define CONTACTPROBLEMDATA_H
 
 #include <vector>
 #include <Ravelin/MatrixNd.h>
 #include <Ravelin/VectorNd.h>
-#include <Moby/Event.h>
+#include <Moby/UnilateralConstraint.h>
 #include <Moby/Types.h>
 
 namespace Moby {
 
-struct AccelerationEventData
+struct SustainedUnilateralConstraintProblemData
 {
   // setup reasonable defaults
-  AccelerationEventData()
+  SustainedUnilateralConstraintProblemData()
   {
     reset();
   }
 
   // copies contact problem data
-  AccelerationEventData& operator=(const AccelerationEventData& q)
+  SustainedUnilateralConstraintProblemData& operator=(const SustainedUnilateralConstraintProblemData& q)
   {
     return copy_from(q);
   }
 
   // copies contact problem data
-  AccelerationEventData& copy_from(const AccelerationEventData& q)
+  SustainedUnilateralConstraintProblemData& copy_from(const SustainedUnilateralConstraintProblemData& q)
   {
     N_K_TOTAL = q.N_K_TOTAL;
     N_CONTACTS = q.N_CONTACTS;
@@ -47,7 +53,7 @@ struct AccelerationEventData
     super_bodies = q.super_bodies;
 
     // the vectors of contacts 
-    events = q.events;
+    constraints = q.constraints;
 
     // cross-contact terms
     Cn_iM_CnT = q.Cn_iM_CnT;
@@ -81,7 +87,7 @@ struct AccelerationEventData
 
     // clear all vectors
     super_bodies.clear();
-    events.clear();
+    constraints.clear();
 
     // reset all Ravelin::VectorNd sizes
     cn.resize(0);
@@ -181,8 +187,8 @@ struct AccelerationEventData
   // the vector of "super" bodies
   std::vector<DynamicBodyPtr> super_bodies;
 
-  // the vectors of acceleration-level events 
-  std::vector<Event*> events;
+  // the vectors of acceleration-level constraints 
+  std::vector<UnilateralConstraint*> constraints;
 
   // cross-contact terms
   Ravelin::MatrixNd Cn_iM_CnT, Cn_iM_CsT, Cn_iM_CtT, Cn_iM_muS_CqT;

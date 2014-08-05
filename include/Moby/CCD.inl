@@ -240,7 +240,7 @@ OutputIterator CCD::find_contacts_sphere_heightmap(CollisionGeometryPtr cgA, Col
   OutputIterator o = output_begin; 
 
   // setup a vector of contacts
-  std::vector<Event> contacts;
+  std::vector<UnilateralConstraint> contacts;
 
   // get the sphere and heightmap
   boost::shared_ptr<SpherePrimitive> sA = boost::dynamic_pointer_cast<SpherePrimitive>(cgA->get_geometry());
@@ -351,7 +351,7 @@ OutputIterator CCD::find_contacts_convex_heightmap(CollisionGeometryPtr cgA, Col
   OutputIterator o = output_begin; 
 
   // setup a vector of contacts
-  std::vector<Event> contacts;
+  std::vector<UnilateralConstraint> contacts;
 
   // get the convex primitive and heightmap
   PrimitivePtr sA = cgA->get_geometry();

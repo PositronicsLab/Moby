@@ -21,6 +21,7 @@ ContactParameters::ContactParameters()
   epsilon = 0.0;
   mu_coulomb = mu_viscous = 0.0;
   NK = 4;
+  penalty_Kp = penalty_Kv = 0.0;
 }
 
 /// Constructs a ContactParameters object with the given object IDs
@@ -33,6 +34,7 @@ ContactParameters::ContactParameters(BasePtr o1, BasePtr o2)
   epsilon = 0.0;
   mu_coulomb = mu_viscous = 0.0;
   NK = 4;
+  penalty_Kp = penalty_Kv = 0.0;
 }
 
 /// Implements Base::load_from_xml()
@@ -104,6 +106,16 @@ void ContactParameters::load_from_xml(shared_ptr<const XMLTree> node, std::map<s
   if (fv_attr)
     mu_viscous = fv_attr->get_real_value();
 
+  // get the penalty Kp gain, if any
+  XMLAttrib* kp_attr = node->get_attrib("penalty-kp");
+  if (kp_attr)
+    penalty_Kp = kp_attr->get_real_value();
+
+  // get the coefficient of viscous friction
+  XMLAttrib* kv_attr = node->get_attrib("penalty-kv");
+  if (kv_attr)
+    penalty_Kv = kv_attr->get_real_value();
+
   // get the number of friction directions, if specified
   XMLAttrib* nk_attr = node->get_attrib("friction-cone-edges");
   if (nk_attr)
@@ -143,5 +155,9 @@ void ContactParameters::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const 
 
   // write the number of friction cone edges
   node->attribs.insert(XMLAttrib("friction-cone-edges", NK));
+
+  // save penalty gains 
+  node->attribs.insert(XMLAttrib("penalty-kp", penalty_Kp));
+  node->attribs.insert(XMLAttrib("penalty-kv", penalty_Kv));
 }
 

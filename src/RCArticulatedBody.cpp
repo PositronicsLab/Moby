@@ -938,7 +938,7 @@ void RCArticulatedBody::calc_fwd_dyn_loops()
 
 /// Determines the ndof x ngc Jacobian for implicit constraint movement (ndof is the number of degrees of freedom of the implicit constraints)
 // TODO: fix this
-void RCArticulatedBody::determine_implicit_constraint_jacobians(const EventProblemData& q, MatrixNd& Jx, MatrixNd& Dx) const
+void RCArticulatedBody::determine_implicit_constraint_jacobians(const UnilateralConstraintProblemData& q, MatrixNd& Jx, MatrixNd& Dx) const
 {
 /*
   SAFESTATIC vector<SVelocityd> so;
