@@ -14,7 +14,6 @@
 #include <Moby/ContactParameters.h>
 #include <Moby/VariableStepIntegrator.h>
 #include <Moby/ImpactToleranceException.h>
-#include <Moby/AccelerationEventFailException.h>
 #include <Moby/InvalidStateException.h>
 #include <Moby/InvalidVelocityException.h>
 #include <Moby/TimeSteppingSimulator.h>
@@ -44,8 +43,8 @@ using namespace Moby;
 /// Default constructor
 TimeSteppingSimulator::TimeSteppingSimulator()
 {
-  event_callback_fn = NULL;
-  event_post_impulse_callback_fn = NULL;
+  constraint_callback_fn = NULL;
+  constraint_post_callback_fn = NULL;
   post_mini_step_callback_fn = NULL;
   get_contact_parameters_callback_fn = NULL;
   render_contact_points = false;
@@ -60,7 +59,7 @@ double TimeSteppingSimulator::step(double step_size)
 
   // clear timings
   dynamics_time = (double) 0.0;
-  event_time = (double) 0.0;
+  constraint_time = (double) 0.0;
   coldet_time = (double) 0.0;
 
   // setup timer
@@ -91,14 +90,14 @@ double TimeSteppingSimulator::step(double step_size)
   // compute pairwise distances at the current configuration
   calc_pairwise_distances();
 
+  // find unilateral constraints 
+  find_unilateral_constraints(contact_dist_thresh);
+
   // integrate accelerations forward by dt to get new velocities
   integrate_velocities_Euler(step_size);
 
-  // setup events
-  find_events(contact_dist_thresh);
-
-  // do the impact event handler to compute new velocities
-  handle_events(step_size);
+  // do the impact constraint handler to compute new velocities
+  calc_impacting_unilateral_constraint_forces(step_size);
 
   // integrate positions forward using new velocities
   integrate_positions_Euler(step_size);
@@ -108,51 +107,6 @@ double TimeSteppingSimulator::step(double step_size)
     post_step_callback_fn(this);
 
   return step_size;
-}
-
-/// Handles events
-void TimeSteppingSimulator::handle_events(double dt)
-{
-  // if there are no events, quit now
-  if (_events.empty())
-    return;
-
-  // call the callback function, if any
-  if (event_callback_fn)
-    (*event_callback_fn)(_events, event_callback_data);
-
-  // preprocess events
-  for (unsigned i=0; i< _events.size(); i++)
-    preprocess_event(_events[i]);
-
-  // if the setting is enabled, draw all contact events
-  if( render_contact_points ) {
-    for ( std::vector<Event>::iterator it = _events.begin(); it < _events.end(); it++ ) {
-      Event event = *it;
-      if( event.event_type != Event::eContact ) continue;
-      visualize_contact( event );
-    }
-  }
-
-  // begin timing for event handling 
-  clock_t start = clock();
-
-  // compute impulses here...
-  try
-  {
-    _impact_event_handler.process_events(_events, max_event_time, 0.1/dt);
-  }
-  catch (ImpactToleranceException e)
-  {
-  }
-
-  // tabulate times for event handling 
-  clock_t stop = clock();
-  event_time += (double) (stop-start)/CLOCKS_PER_SEC;
-
-  // call the post-impulse application callback, if any 
-  if (event_post_impulse_callback_fn)
-    (*event_post_impulse_callback_fn)(_events, event_post_impulse_callback_data);
 }
 
 /// Implements Base::load_from_xml()

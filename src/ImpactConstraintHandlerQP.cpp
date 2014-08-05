@@ -14,7 +14,7 @@
 #include <numeric>
 #include <Moby/ArticulatedBody.h>
 #include <Moby/Constants.h>
-#include <Moby/Event.h>
+#include <Moby/UnilateralConstraint.h>
 #include <Moby/CollisionGeometry.h>
 #include <Moby/SingleBody.h>
 #include <Moby/RigidBody.h>
@@ -23,7 +23,7 @@
 #include <Moby/ImpactToleranceException.h>
 #include <Moby/NumericalException.h>
 #include <Moby/LCPSolverException.h>
-#include <Moby/ImpactEventHandler.h>
+#include <Moby/ImpactConstraintHandler.h>
 
 using namespace Ravelin;
 using namespace Moby;
@@ -38,7 +38,7 @@ using std::min_element;
 using boost::dynamic_pointer_cast;
 
 /// Solves the quadratic program (potentially solves two QPs, actually)
-void ImpactEventHandler::solve_qp(VectorNd& z, EventProblemData& q, double max_time)
+void ImpactConstraintHandler::solve_qp(VectorNd& z, UnilateralConstraintProblemData& q, double max_time)
 {
   const unsigned N_TOTAL = q.N_VARS + q.N_CONTACTS + q.N_LIMITS + q.N_K_TOTAL + 1;
 
@@ -85,13 +85,13 @@ void ImpactEventHandler::solve_qp(VectorNd& z, EventProblemData& q, double max_t
       break;
 
     // we can; mark next contact for solving
-    q.N_ACT_K += q.contact_events[q.N_ACT_CONTACTS]->contact_NK/2;
+    q.N_ACT_K += q.contact_constraints[q.N_ACT_CONTACTS]->contact_NK/2;
     q.N_ACT_CONTACTS++;
   }
 }
 
 /// Computes the kinetic energy of the system using the current impulse set
-double ImpactEventHandler::calc_ke(EventProblemData& q, const VectorNd& z)
+double ImpactConstraintHandler::calc_ke(UnilateralConstraintProblemData& q, const VectorNd& z)
 {
   static VectorNd cn, cs, ct, l, alpha_x;
 
@@ -127,7 +127,7 @@ double ImpactEventHandler::calc_ke(EventProblemData& q, const VectorNd& z)
  * \param z the solution is returned here; zeros are returned at appropriate
  *        places for inactive contacts
  */
-void ImpactEventHandler::solve_qp_work(EventProblemData& epd, VectorNd& z)
+void ImpactConstraintHandler::solve_qp_work(UnilateralConstraintProblemData& epd, VectorNd& z)
 {
   // implicit constraints not handled at the moment
   assert(epd.N_CONSTRAINT_EQNS_IMP == 0);
@@ -365,7 +365,7 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& epd, VectorNd& z)
         if (!epd.contact_constraints[i])
         {
           // make it active
-          epd.contact_constraints[i] = true;
+          epd.contact_constraint_set[i] = true;
 
           // update the number of contact constraints
           epd.N_CONTACT_CONSTRAINTS++;
@@ -400,7 +400,7 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& epd, VectorNd& z)
     workv += c;
     FILE_LOG(LOG_EVENT) << "(signed) computed energy dissipation: " << zsub.dot(workv) << std::endl;
   }
-  FILE_LOG(LOG_EVENT) << "ImpactEventHandler::solve_qp_work() exited" << std::endl;
+  FILE_LOG(LOG_EVENT) << "ImpactConstraintHandler::solve_qp_work() exited" << std::endl;
 }
 
 /// Solves the quadratic program (does all of the work)
@@ -409,7 +409,7 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& epd, VectorNd& z)
  * \param z the solution is returned here; zeros are returned at appropriate
  *        places for inactive contacts
  */
-void ImpactEventHandler::setup_QP(EventProblemData& epd, SharedMatrixNd& H, SharedVectorNd& c, SharedMatrixNd& M, SharedVectorNd& q, SharedMatrixNd& A, SharedVectorNd& b)
+void ImpactConstraintHandler::setup_QP(UnilateralConstraintProblemData& epd, SharedMatrixNd& H, SharedVectorNd& c, SharedMatrixNd& M, SharedVectorNd& q, SharedMatrixNd& A, SharedVectorNd& b)
 {
   // implicit constraints not handled at the moment
   assert(epd.N_CONSTRAINT_EQNS_IMP == 0);
@@ -516,11 +516,11 @@ void ImpactEventHandler::setup_QP(EventProblemData& epd, SharedMatrixNd& H, Shar
   SharedMatrixNd L_block = H.block(row_start, row_end, 0, col_end);
 
   // get contact constrained Cn blocks
-  epd.Cn_iM_CnT.select_rows(epd.contact_constraints, _Cnstar_Cn);
-  epd.Cn_iM_CsT.select_rows(epd.contact_constraints, _Cnstar_Cs);
-  epd.Cn_iM_CtT.select_rows(epd.contact_constraints, _Cnstar_Ct);
-  epd.Cn_iM_LT.select_rows(epd.contact_constraints, _Cnstar_L);
-  epd.Cn_v.select(epd.contact_constraints, _Cnstar_v);
+  epd.Cn_iM_CnT.select_rows(epd.contact_constraint_set, _Cnstar_Cn);
+  epd.Cn_iM_CsT.select_rows(epd.contact_constraint_set, _Cnstar_Cs);
+  epd.Cn_iM_CtT.select_rows(epd.contact_constraint_set, _Cnstar_Ct);
+  epd.Cn_iM_LT.select_rows(epd.contact_constraint_set, _Cnstar_L);
+  epd.Cn_v.select(epd.contact_constraint_set, _Cnstar_v);
   SharedConstMatrixNd Cnstar_Cnx = _Cnstar_Cn.block(0, _Cnstar_Cn.rows(), 0, epd.N_ACT_CONTACTS);
   SharedConstMatrixNd Cnstar_Csx = _Cnstar_Cs.block(0, _Cnstar_Cs.rows(), 0, epd.N_ACT_CONTACTS);
   SharedConstMatrixNd Cnstar_Ctx = _Cnstar_Ct.block(0, _Cnstar_Ct.rows(), 0, epd.N_ACT_CONTACTS);
@@ -609,19 +609,19 @@ void ImpactEventHandler::setup_QP(EventProblemData& epd, SharedMatrixNd& H, Shar
     double vel = std::sqrt(sqr(epd.Cs_v[i]) + sqr(epd.Ct_v[i]));
 
     // setup the Coulomb friction inequality constraints for this contact
-    for (unsigned j=0; j< epd.contact_events[i]->contact_NK/2; j++)
+    for (unsigned j=0; j< epd.contact_constraints[i]->contact_NK/2; j++)
     {
-      double theta = (double) j/(epd.contact_events[i]->contact_NK/2-1) * M_PI_2;
+      double theta = (double) j/(epd.contact_constraints[i]->contact_NK/2-1) * M_PI_2;
       const double ct = std::cos(theta);
       const double st = std::sin(theta);
-      M(row_start, xCN_IDX+i) = epd.contact_events[i]->contact_mu_coulomb;
+      M(row_start, xCN_IDX+i) = epd.contact_constraints[i]->contact_mu_coulomb;
       M(row_start, xCS_IDX+i) = -ct;
       M(row_start, xNCS_IDX+i) = -ct;
       M(row_start, xCT_IDX+i) = -st;
       M(row_start, xNCT_IDX+i) = -st;
 
       // setup the viscous friction component
-      q[row_start] = epd.contact_events[i]->contact_mu_viscous * vel;
+      q[row_start] = epd.contact_constraints[i]->contact_mu_viscous * vel;
       row_start++;
     }
   }

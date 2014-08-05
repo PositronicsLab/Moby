@@ -46,8 +46,9 @@ class RigidBody : public SingleBody
   friend class RCArticulatedBody;
   friend class MCArticulatedBody;
   friend class Joint;
-
+  
   public:
+    enum Compliance { eRigid, eCompliant};
     RigidBody();
     virtual ~RigidBody() {}
     void add_force(const Ravelin::SForced& w);
@@ -113,10 +114,10 @@ class RigidBody : public SingleBody
     Ravelin::SForced calc_pseudo_forces();
     virtual void ode_noexcept(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data, Ravelin::SharedVectorNd& dx);
     virtual void prepare_to_calc_ode(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data);
-    virtual void prepare_to_calc_ode_accel_events(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data) { prepare_to_calc_ode(x, t, dt, data); }
+    virtual void prepare_to_calc_ode_sustained_constraints(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data) { prepare_to_calc_ode(x, t, dt, data); }
     virtual void ode(double t, double dt, void* data, Ravelin::SharedVectorNd& dx);
     virtual void reset_limit_estimates();
-    virtual bool limit_estimates_exceeded() const { return _vel_limit_exceeded; }
+    virtual bool limit_estimates_exceeded() const { return compliance == eRigid && _vel_limit_exceeded; }
     const Ravelin::SVelocityd& get_vel_upper_bounds() const { return _vel_limit_hi; }
     const Ravelin::SVelocityd& get_vel_lower_bounds() const { return _vel_limit_lo; }
     void update_vel_limits();
@@ -205,6 +206,9 @@ class RigidBody : public SingleBody
 
     /// Limit bound expansion scalar (default = 0.15 = 15%)
     double limit_bound_expansion;
+    
+    /// Compliance value, determines event type
+    Compliance compliance;
 
   private:  
     template <class V>
@@ -352,6 +356,7 @@ class RigidBody : public SingleBody
 
     /// Indicates whether the velocity limit has been exceeded
     bool _vel_limit_exceeded;
+
 }; // end class
 
 std::ostream& operator<<(std::ostream&, RigidBody&);

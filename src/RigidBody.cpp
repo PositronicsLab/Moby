@@ -86,6 +86,7 @@ RigidBody::RigidBody()
 
   // setup the default limit bound expansion
   limit_bound_expansion = 0.15;
+  compliance = eRigid;
 }
 
 /// Resets the acceleration limit estimates
@@ -839,6 +840,11 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
   if (enabled_attr)
     _enabled = enabled_attr->get_bool_value();
 
+  // read whether the body is compliant, if provided
+  XMLAttrib* compliant_attr = node->get_attrib("compliant");
+  if (compliant_attr)
+    compliance = (compliant_attr->get_bool_value()) ? eCompliant : eRigid;
+
   // read the mass, if provided
   XMLAttrib* mass_attr = node->get_attrib("mass");
   if (mass_attr)
@@ -1052,6 +1058,9 @@ void RigidBody::save_to_xml(XMLTreePtr node, list<shared_ptr<const Base> >& shar
 
   // save whether the body is enabled
   node->attribs.insert(XMLAttrib("enabled", _enabled));
+
+  // save whether the body is compliant 
+  node->attribs.insert(XMLAttrib("compliant", compliance == eCompliant));
 
   // save the mass
   node->attribs.insert(XMLAttrib("mass", _Jm.m));
@@ -2008,8 +2017,7 @@ void RigidBody::prepare_to_calc_ode(SharedConstVectorNd& x, double t, double dt,
   set_generalized_velocity(DynamicBody::eSpatial, gv);
 
   // check whether velocity limits have been exceeded 
-//  if (!_vel_limit_exceeded)
-    check_vel_limit_exceeded_and_update();
+  check_vel_limit_exceeded_and_update();
 
   // clear the force accumulators on the body
   reset_accumulators();
@@ -2064,6 +2072,15 @@ std::ostream& Moby::operator<<(std::ostream& out, Moby::RigidBody& rb)
     case eLink:          out << "link inertia" << endl; break;
     case eLinkInertia:   out << "link" << endl; break;
     case eJoint:         out << "joint" << endl; break;
+    default:
+      assert(false);
+  }
+  
+  out << "  Compliance type: "; 
+  switch (rb.compliance)
+  {
+    case RigidBody::eRigid:        out << "rigid" << endl; break;
+    case RigidBody::eCompliant:    out << "compliant" << endl; break;
     default:
       assert(false);
   }

@@ -13,7 +13,7 @@
 #include <Ravelin/Matrix3d.h>
 #include <Ravelin/SMomentumd.h>
 #include <Moby/sorted_pair>
-#include <Moby/Event.h>
+#include <Moby/UnilateralConstraint.h>
 #include <Moby/DynamicBody.h>
 #include <Moby/Joint.h>
 
@@ -50,7 +50,7 @@ class ArticulatedBody : public DynamicBody
     double calc_CA_time_for_joints() const;
     virtual void ode_noexcept(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data, Ravelin::SharedVectorNd& dx);
     virtual void prepare_to_calc_ode(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data);
-    virtual void prepare_to_calc_ode_accel_events(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data);
+    virtual void prepare_to_calc_ode_sustained_constraints(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data);
     virtual void ode(double t, double dt, void* data, Ravelin::SharedVectorNd& dx);
     virtual void reset_limit_estimates();
     virtual bool limit_estimates_exceeded() const;
@@ -64,9 +64,9 @@ class ArticulatedBody : public DynamicBody
     /// Gets the number of degrees-of-freedom permitted by implicit constraints
     virtual unsigned num_joint_dof_implicit() const = 0;
 
-    /// Finds (joint) limit events
+    /// Finds (joint) limit constraints 
     template <class OutputIterator>
-    OutputIterator find_limit_events(OutputIterator begin) const;
+    OutputIterator find_limit_constraints(OutputIterator begin) const;
 
     /// Gets the set of links
     virtual const std::vector<RigidBodyPtr>& get_links() const { return _links; }

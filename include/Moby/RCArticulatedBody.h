@@ -23,7 +23,7 @@
 namespace Moby {
 
 class Joint;
-class EventProblemData;
+class UnilateralConstraintProblemData;
 
 /// Defines an articulated body for use with reduced-coordinate dynamics algorithms
 /**
@@ -133,9 +133,6 @@ class RCArticulatedBody : public ArticulatedBody
     /// The forward dynamics algorithm
     ForwardDynamicsAlgorithmType algorithm_type;
 
-    /// Gets constraint events (currently not any)
-    virtual void get_constraint_events(std::vector<Event>& events) const { }
-
     /// Baumgarte alpha parameter >= 0
     double b_alpha;
 
@@ -188,14 +185,14 @@ class RCArticulatedBody : public ArticulatedBody
     static double sgn(double x);
     bool treat_link_as_leaf(RigidBodyPtr link) const;
     void update_factorized_generalized_inertia();
-    void determine_contact_jacobians(const EventProblemData& q, const Ravelin::VectorNd& v, const Ravelin::MatrixNd& M, Ravelin::MatrixNd& Jc, Ravelin::MatrixNd& Dc);
+    void determine_contact_jacobians(const UnilateralConstraintProblemData& q, const Ravelin::VectorNd& v, const Ravelin::MatrixNd& M, Ravelin::MatrixNd& Jc, Ravelin::MatrixNd& Dc);
     static bool supports(JointPtr joint, RigidBodyPtr link);
     void determine_generalized_forces(Ravelin::VectorNd& gf) const;
     void determine_generalized_accelerations(Ravelin::VectorNd& xdd) const;
     void determine_constraint_force_transform(Ravelin::MatrixNd& K) const;
     void set_generalized_acceleration(const Ravelin::VectorNd& a);
     void determine_implicit_constraint_movement_jacobian(Ravelin::MatrixNd& D);
-    void determine_implicit_constraint_jacobians(const EventProblemData& q, Ravelin::MatrixNd& Jx, Ravelin::MatrixNd& Dx) const;
+    void determine_implicit_constraint_jacobians(const UnilateralConstraintProblemData& q, Ravelin::MatrixNd& Jx, Ravelin::MatrixNd& Dx) const;
     void determine_implicit_constraint_jacobian(Ravelin::MatrixNd& J);
     void determine_implicit_constraint_jacobian_dot(Ravelin::MatrixNd& J) const;
     void set_implicit_constraint_forces(const Ravelin::VectorNd& lambda);

@@ -33,6 +33,12 @@ class ContactParameters : public Base
     /// Coefficient of viscous friction for contact (default is 0.0)
     double mu_viscous;
 
+    /// Penalty Method Depth Penalty
+    double penalty_Kp;
+    
+    /// Penalty Method Interpenetration Speed
+    double penalty_Kv;
+
     /// Number of edges in the polygon friction cone, minimum of 4 (default 4)
     unsigned NK;
 }; // end class

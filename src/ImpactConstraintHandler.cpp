@@ -14,7 +14,7 @@
 #include <Moby/permute.h>
 #include <Moby/RCArticulatedBody.h>
 #include <Moby/Constants.h>
-#include <Moby/Event.h>
+#include <Moby/UnilateralConstraint.h>
 #include <Moby/CollisionGeometry.h>
 #include <Moby/SingleBody.h>
 #include <Moby/RigidBody.h>
@@ -22,7 +22,7 @@
 #include <Moby/XMLTree.h>
 #include <Moby/ImpactToleranceException.h>
 #include <Moby/NumericalException.h>
-#include <Moby/ImpactEventHandler.h>
+#include <Moby/ImpactConstraintHandler.h>
 #ifdef HAVE_IPOPT
 #include <Moby/NQP_IPOPT.h>
 #include <Moby/LCP_IPOPT.h>
@@ -41,7 +41,7 @@ using std::min_element;
 using boost::dynamic_pointer_cast;
 
 /// Sets up the default parameters for the impact event handler 
-ImpactEventHandler::ImpactEventHandler()
+ImpactConstraintHandler::ImpactConstraintHandler()
 {
   ip_max_iterations = 100;
   ip_eps = 1e-6;
@@ -71,72 +71,72 @@ ImpactEventHandler::ImpactEventHandler()
 
 // Processes impacts
 /**
- * \param events the vector of events
- * \param max_time the maximum time to solve the events
+ * \param constraints the vector of constraints
+ * \param max_time the maximum time to solve the constraints
  * \param inv_dt 1/dt (the time step) for correcting interpenetration
  */
-void ImpactEventHandler::process_events(const vector<Event>& events, double max_time, double inv_dt)
+void ImpactConstraintHandler::process_constraints(const vector<UnilateralConstraint>& constraints, double max_time, double inv_dt)
 {
   FILE_LOG(LOG_EVENT) << "*************************************************************";
   FILE_LOG(LOG_EVENT) << endl;
-  FILE_LOG(LOG_EVENT) << "ImpactEventHandler::process_events() entered";
+  FILE_LOG(LOG_EVENT) << "ImpactConstraintHandler::process_constraints() entered";
   FILE_LOG(LOG_EVENT) << endl;
   FILE_LOG(LOG_EVENT) << "*************************************************************";
   FILE_LOG(LOG_EVENT) << endl;
 
   // apply the method to all contacts
-  if (!events.empty())
-    apply_model(events, max_time, inv_dt);
+  if (!constraints.empty())
+    apply_model(constraints, max_time, inv_dt);
   else
-    FILE_LOG(LOG_EVENT) << " (no events?!)" << endl;
+    FILE_LOG(LOG_EVENT) << " (no constraints?!)" << endl;
     
   FILE_LOG(LOG_EVENT) << "*************************************************************" << endl;
-  FILE_LOG(LOG_EVENT) << "ImpactEventHandler::process_events() exited" << endl;
+  FILE_LOG(LOG_EVENT) << "ImpactConstraintHandler::process_constraints() exited" << endl;
   FILE_LOG(LOG_EVENT) << "*************************************************************" << endl;
 }
 
-/// Applies the model to a set of events 
+/// Applies the model to a set of constraints 
 /**
- * \param events a set of events
- * \param max_time the maximum time to solve the events
+ * \param constraints a set of constraints
+ * \param max_time the maximum time to solve the constraints
  * \param inv_dt 1/dt (the time step) for correcting interpenetration
  */
-void ImpactEventHandler::apply_model(const vector<Event>& events, double max_time, double inv_dt)
+void ImpactConstraintHandler::apply_model(const vector<UnilateralConstraint>& constraints, double max_time, double inv_dt)
 {
   const double INF = std::numeric_limits<double>::max();
-  list<Event*> impacting;
+  list<UnilateralConstraint*> impacting;
 
   // **********************************************************
-  // determine sets of connected events 
+  // determine sets of connected constraints 
   // **********************************************************
-  list<list<Event*> > groups;
-  Event::determine_connected_events(events, groups);
-  Event::remove_inactive_groups(groups);
+  list<list<UnilateralConstraint*> > groups;
+  UnilateralConstraint::determine_connected_constraints(constraints, groups);
+  UnilateralConstraint::remove_inactive_groups(groups);
 
   // **********************************************************
   // do method for each connected set 
   // **********************************************************
-  for (list<list<Event*> >::iterator i = groups.begin(); i != groups.end(); i++)
+  for (list<list<UnilateralConstraint*> >::iterator i = groups.begin(); i != groups.end(); i++)
   {
     // determine contact tangents
-    for (list<Event*>::iterator j = i->begin(); j != i->end(); j++)
-      if ((*j)->event_type == Event::eContact)
+    for (list<UnilateralConstraint*>::iterator j = i->begin(); j != i->end(); j++)
+      if ((*j)->constraint_type == UnilateralConstraint::eContact)
         (*j)->determine_contact_tangents();
 
-      // copy the list of events
-      list<Event*> revents = *i;
+      // copy the list of constraints
+      list<UnilateralConstraint*> rconstraints = *i;
 
-      FILE_LOG(LOG_EVENT) << " -- pre-event velocity (all events): " << std::endl;
-      for (list<Event*>::iterator j = i->begin(); j != i->end(); j++)
-        FILE_LOG(LOG_EVENT) << "    event: " << std::endl << **j;
+      FILE_LOG(LOG_EVENT) << " -- pre-constraint velocity (all constraints): " << std::endl;
+      for (list<UnilateralConstraint*>::iterator j = i->begin(); j != i->end(); j++)
+        FILE_LOG(LOG_EVENT) << "    constraint: " << std::endl << **j;
 
-      // determine a reduced set of events
-      Event::determine_minimal_set(revents);
+      // determine a reduced set of constraints
+      UnilateralConstraint::determine_minimal_set(rconstraints);
 
-      // look to see whether all contact events have zero or infinite friction
+      // look to see whether all contact constraints have zero or infinite friction
       bool all_inf = true, all_frictionless = true;
-      BOOST_FOREACH(Event* e, revents)
-        if (e->event_type == Event::eContact)
+      BOOST_FOREACH(UnilateralConstraint* e, rconstraints)
+        if (e->constraint_type == UnilateralConstraint::eContact)
         {
           if (e->contact_mu_coulomb < 1e2)
             all_inf = false;
@@ -146,60 +146,61 @@ void ImpactEventHandler::apply_model(const vector<Event>& events, double max_tim
 
       // apply model to the reduced contacts
       if (all_inf)   
-        apply_no_slip_model_to_connected_events(revents, inv_dt);
-      else if (all_frictionless)
-        apply_visc_friction_model_to_connected_events(revents, inv_dt);
+        apply_no_slip_model_to_connected_constraints(rconstraints, inv_dt);
+// TODO: fix viscous model- seems to be a bug in it
+//      else if (all_frictionless)
+//        apply_visc_friction_model_to_connected_constraints(rconstraints, inv_dt);
 
       if (max_time < INF)   
-        apply_model_to_connected_events(revents, max_time, inv_dt);
+        apply_model_to_connected_constraints(rconstraints, max_time, inv_dt);
       else
-        apply_model_to_connected_events(revents, inv_dt);
+        apply_model_to_connected_constraints(rconstraints, inv_dt);
 
-      FILE_LOG(LOG_EVENT) << " -- post-event velocity (all events): " << std::endl;
-      for (list<Event*>::iterator j = i->begin(); j != i->end(); j++)
-        FILE_LOG(LOG_EVENT) << "    event: " << std::endl << **j;
+      FILE_LOG(LOG_EVENT) << " -- post-constraint velocity (all constraints): " << std::endl;
+      for (list<UnilateralConstraint*>::iterator j = i->begin(); j != i->end(); j++)
+        FILE_LOG(LOG_EVENT) << "    constraint: " << std::endl << **j;
   }
 
-  // determine whether there are any impacting events remaining
-  for (list<list<Event*> >::const_iterator i = groups.begin(); i != groups.end(); i++)
-    for (list<Event*>::const_iterator j = i->begin(); j != i->end(); j++)
-      if ((*j)->determine_event_class() == Event::eNegative)
+  // determine whether there are any impacting constraints remaining
+  for (list<list<UnilateralConstraint*> >::const_iterator i = groups.begin(); i != groups.end(); i++)
+    for (list<UnilateralConstraint*>::const_iterator j = i->begin(); j != i->end(); j++)
+      if ((*j)->determine_constraint_class() == UnilateralConstraint::eNegative)
         impacting.push_back(*j);
 
-  // if there are any events still impacting, throw an exception 
+  // if there are any constraints still impacting, throw an exception 
   if (!impacting.empty())
     throw ImpactToleranceException(impacting);
 }
 
 /**
- * Applies method of Drumwright and Shell to a set of connected events.
+ * Applies method of Drumwright and Shell to a set of connected constraints.
  * "Anytime" version
- * \param events a set of connected events 
+ * \param constraints a set of connected constraints 
  */
-void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& events, double max_time, double inv_dt)
+void ImpactConstraintHandler::apply_model_to_connected_constraints(const list<UnilateralConstraint*>& constraints, double max_time, double inv_dt)
 {
   double ke_minus = 0.0, ke_plus = 0.0;
   const unsigned UINF = std::numeric_limits<unsigned>::max();
 
-  FILE_LOG(LOG_EVENT) << "ImpactEventHandler::apply_model_to_connected_events() entered" << endl;
+  FILE_LOG(LOG_EVENT) << "ImpactConstraintHandler::apply_model_to_connected_constraints() entered" << endl;
 
   // reset problem data
   _epd.reset();
 
-  // save the events
-  _epd.events = vector<Event*>(events.begin(), events.end());
+  // save the constraints
+  _epd.constraints = vector<UnilateralConstraint*>(constraints.begin(), constraints.end());
 
-  // determine sets of contact and limit events
-  _epd.partition_events();
+  // determine sets of contact and limit constraints
+  _epd.partition_constraints();
 
-  // compute all event cross-terms
+  // compute all constraint cross-terms
   compute_problem_data(_epd, inv_dt);
 
   // clear all impulses 
   for (unsigned i=0; i< _epd.N_CONTACTS; i++)
-    _epd.contact_events[i]->contact_impulse.set_zero(GLOBAL);
+    _epd.contact_constraints[i]->contact_impulse.set_zero(GLOBAL);
   for (unsigned i=0; i< _epd.N_LIMITS; i++)
-    _epd.limit_events[i]->limit_impulse = 0.0;
+    _epd.limit_constraints[i]->limit_impulse = 0.0;
 
   // compute energy
   if (LOGGING(LOG_EVENT))
@@ -207,7 +208,7 @@ void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& eve
     for (unsigned i=0; i< _epd.super_bodies.size(); i++)
     {
       double ke = _epd.super_bodies[i]->calc_kinetic_energy();
-      FILE_LOG(LOG_EVENT) << "  body " << _epd.super_bodies[i]->id << " pre-event handling KE: " << ke << endl;
+      FILE_LOG(LOG_EVENT) << "  body " << _epd.super_bodies[i]->id << " pre-constraint handling KE: " << ke << endl;
       ke_minus += ke;
     }
   }
@@ -217,14 +218,14 @@ void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& eve
   VectorNd z;
   solve_frictionless_lcp(_epd, z);
 
-  // update event problem data and z
+  // update constraint problem data and z
   permute_problem(_epd, z);
 
   // determine N_ACT_K
   _epd.N_ACT_K = 0;
   for (unsigned i=0; i< _epd.N_ACT_CONTACTS; i++)
-    if (_epd.contact_events[i]->contact_NK < UINF)
-      _epd.N_ACT_K += _epd.contact_events[i]->contact_NK/2;
+    if (_epd.contact_constraints[i]->contact_NK < UINF)
+      _epd.N_ACT_K += _epd.contact_constraints[i]->contact_NK/2;
 
   // use QP / NQP solver with warm starting to find the solution
   if (use_qp_solver(_epd))
@@ -236,7 +237,7 @@ void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& eve
   update_from_stacked(_epd, z);
 
   // determine velocities due to impulse application
-  update_event_velocities_from_impulses(_epd);
+  update_constraint_velocities_from_impulses(_epd);
 
   // get the constraint violation before applying impulses
   double minv = calc_min_constraint_velocity(_epd);
@@ -248,7 +249,7 @@ void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& eve
     update_from_stacked(_epd, z);
 
     // determine velocities due to impulse application
-    update_event_velocities_from_impulses(_epd);
+    update_constraint_velocities_from_impulses(_epd);
 
     // check to see whether we need to solve another impact problem
     double minv_plus = calc_min_constraint_velocity(_epd);
@@ -260,14 +261,14 @@ void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& eve
       // need to solve another impact problem 
       solve_frictionless_lcp(_epd, z);
 
-      // update event problem data and z
+      // update constraint problem data and z
       permute_problem(_epd, z);
 
       // determine N_ACT_K
       _epd.N_ACT_K = 0;
       for (unsigned i=0; i< _epd.N_ACT_CONTACTS; i++)
-        if (_epd.contact_events[i]->contact_NK < UINF)
-          _epd.N_ACT_K += _epd.contact_events[i]->contact_NK/2;
+        if (_epd.contact_constraints[i]->contact_NK < UINF)
+          _epd.N_ACT_K += _epd.contact_constraints[i]->contact_NK/2;
 
       // use QP / NQP solver with warm starting to find the solution
       if (use_qp_solver(_epd))
@@ -289,47 +290,47 @@ void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& eve
     for (unsigned i=0; i< _epd.super_bodies.size(); i++)
     {
       double ke = _epd.super_bodies[i]->calc_kinetic_energy();
-      FILE_LOG(LOG_EVENT) << "  body " << _epd.super_bodies[i]->id << " post-event handling KE: " << ke << endl;
+      FILE_LOG(LOG_EVENT) << "  body " << _epd.super_bodies[i]->id << " post-constraint handling KE: " << ke << endl;
       ke_plus += ke;
     }
     if (ke_plus > ke_minus)
       FILE_LOG(LOG_EVENT) << "warning! KE gain detected! energy before=" << ke_minus << " energy after=" << ke_plus << endl;
   }
 
-  FILE_LOG(LOG_EVENT) << "ImpactEventHandler::apply_model_to_connected_events() exiting" << endl;
+  FILE_LOG(LOG_EVENT) << "ImpactConstraintHandler::apply_model_to_connected_constraints() exiting" << endl;
 }
 
 /**
- * Applies purely viscous friction model to connected events 
- * \param events a set of connected events 
+ * Applies purely viscous friction model to connected constraints 
+ * \param constraints a set of connected constraints 
  */
-void ImpactEventHandler::apply_visc_friction_model_to_connected_events(const list<Event*>& events, double inv_dt)
+void ImpactConstraintHandler::apply_visc_friction_model_to_connected_constraints(const list<UnilateralConstraint*>& constraints, double inv_dt)
 {
-  FILE_LOG(LOG_EVENT) << "ImpactEventHandler::apply_visc_friction_model_to_connected_events() entered" << endl;
+  FILE_LOG(LOG_EVENT) << "ImpactConstraintHandler::apply_visc_friction_model_to_connected_constraints() entered" << endl;
 
   // reset problem data
   _epd.reset();
 
-  // save the events
-  _epd.events = vector<Event*>(events.begin(), events.end());
+  // save the constraints
+  _epd.constraints = vector<UnilateralConstraint*>(constraints.begin(), constraints.end());
 
-  // determine sets of contact and limit events
-  _epd.partition_events();
+  // determine sets of contact and limit constraints
+  _epd.partition_constraints();
 
-  // compute all event cross-terms
+  // compute all constraint cross-terms
   compute_problem_data(_epd, inv_dt);
 
   // clear all impulses 
   for (unsigned i=0; i< _epd.N_CONTACTS; i++)
-    _epd.contact_events[i]->contact_impulse.set_zero(GLOBAL);
+    _epd.contact_constraints[i]->contact_impulse.set_zero(GLOBAL);
   for (unsigned i=0; i< _epd.N_LIMITS; i++)
-    _epd.limit_events[i]->limit_impulse = 0.0;
+    _epd.limit_constraints[i]->limit_impulse = 0.0;
 
   // solve the viscous friction model 
   apply_visc_friction_model(_epd);
 
   // determine velocities due to impulse application
-  update_event_velocities_from_impulses(_epd);
+  update_constraint_velocities_from_impulses(_epd);
 
   // get the constraint violation before applying impulses
   double minv = calc_min_constraint_velocity(_epd);
@@ -338,7 +339,7 @@ void ImpactEventHandler::apply_visc_friction_model_to_connected_events(const lis
   if (apply_restitution(_epd))
   {
     // determine velocities due to impulse application
-    update_event_velocities_from_impulses(_epd);
+    update_constraint_velocities_from_impulses(_epd);
 
     // check to see whether we need to solve another impact problem
     double minv_plus = calc_min_constraint_velocity(_epd);
@@ -355,40 +356,40 @@ void ImpactEventHandler::apply_visc_friction_model_to_connected_events(const lis
   // apply impulses 
   apply_impulses(_epd);
 
-  FILE_LOG(LOG_EVENT) << "ImpactEventHandler::apply_visc_friction_model_to_connected_events() exiting" << endl;
+  FILE_LOG(LOG_EVENT) << "ImpactConstraintHandler::apply_visc_friction_model_to_connected_constraints() exiting" << endl;
 }
 
 /**
- * Applies no slip friction model to connected events 
- * \param events a set of connected events 
+ * Applies no slip friction model to connected constraints 
+ * \param constraints a set of connected constraints 
  */
-void ImpactEventHandler::apply_no_slip_model_to_connected_events(const list<Event*>& events, double inv_dt)
+void ImpactConstraintHandler::apply_no_slip_model_to_connected_constraints(const list<UnilateralConstraint*>& constraints, double inv_dt)
 {
-  FILE_LOG(LOG_EVENT) << "ImpactEventHandler::apply_no_slip_model_to_connected_events() entered" << endl;
+  FILE_LOG(LOG_EVENT) << "ImpactConstraintHandler::apply_no_slip_model_to_connected_constraints() entered" << endl;
 
   // reset problem data
   _epd.reset();
 
-  // save the events
-  _epd.events = vector<Event*>(events.begin(), events.end());
+  // save the constraints
+  _epd.constraints = vector<UnilateralConstraint*>(constraints.begin(), constraints.end());
 
-  // determine sets of contact and limit events
-  _epd.partition_events();
+  // determine sets of contact and limit constraints
+  _epd.partition_constraints();
 
-  // compute all event cross-terms
+  // compute all constraint cross-terms
   compute_problem_data(_epd, inv_dt);
 
   // clear all impulses 
   for (unsigned i=0; i< _epd.N_CONTACTS; i++)
-    _epd.contact_events[i]->contact_impulse.set_zero(GLOBAL);
+    _epd.contact_constraints[i]->contact_impulse.set_zero(GLOBAL);
   for (unsigned i=0; i< _epd.N_LIMITS; i++)
-    _epd.limit_events[i]->limit_impulse = 0.0;
+    _epd.limit_constraints[i]->limit_impulse = 0.0;
 
   // solve the no slip model 
   apply_no_slip_model(_epd);
 
   // determine velocities due to impulse application
-  update_event_velocities_from_impulses(_epd);
+  update_constraint_velocities_from_impulses(_epd);
 
   // get the constraint violation before applying impulses
   double minv = calc_min_constraint_velocity(_epd);
@@ -397,7 +398,7 @@ void ImpactEventHandler::apply_no_slip_model_to_connected_events(const list<Even
   if (apply_restitution(_epd))
   {
     // determine velocities due to impulse application
-    update_event_velocities_from_impulses(_epd);
+    update_constraint_velocities_from_impulses(_epd);
 
     // check to see whether we need to solve another impact problem
     double minv_plus = calc_min_constraint_velocity(_epd);
@@ -414,11 +415,11 @@ void ImpactEventHandler::apply_no_slip_model_to_connected_events(const list<Even
   // apply impulses 
   apply_impulses(_epd);
 
-  FILE_LOG(LOG_EVENT) << "ImpactEventHandler::apply_no_slip_model_to_connected_events() exiting" << endl;
+  FILE_LOG(LOG_EVENT) << "ImpactConstraintHandler::apply_no_slip_model_to_connected_constraints() exiting" << endl;
 }
 
-/// Updates determined impulses in EventProblemData based on a QP/NQP solution
-void ImpactEventHandler::update_from_stacked(EventProblemData& q, const VectorNd& z)
+/// Updates determined impulses in UnilateralConstraintProblemData based on a QP/NQP solution
+void ImpactConstraintHandler::update_from_stacked(UnilateralConstraintProblemData& q, const VectorNd& z)
 {
   // save impulses in q
   if (use_qp_solver(q))
@@ -434,32 +435,32 @@ void ImpactEventHandler::update_from_stacked(EventProblemData& q, const VectorNd
   {
     // setup the contact frame
     P->q.set_identity();
-    P->x = q.contact_events[i]->contact_point;
+    P->x = q.contact_constraints[i]->contact_point;
 
     // setup the impulse in the contact frame
     Vector3d j;
-    j = q.contact_events[i]->contact_normal * q.cn[i];
-    j += q.contact_events[i]->contact_tan1 * q.cs[i];
-    j += q.contact_events[i]->contact_tan2 * q.ct[i];
+    j = q.contact_constraints[i]->contact_normal * q.cn[i];
+    j += q.contact_constraints[i]->contact_tan1 * q.cs[i];
+    j += q.contact_constraints[i]->contact_tan2 * q.ct[i];
 
     // setup the spatial impulse
     SMomentumd jx(boost::const_pointer_cast<const Pose3d>(P));
     jx.set_linear(j);    
 
     // transform the impulse to the global frame
-    q.contact_events[i]->contact_impulse += Pose3d::transform(GLOBAL, jx);
+    q.contact_constraints[i]->contact_impulse += Pose3d::transform(GLOBAL, jx);
   }
 
   // save limit impulses
   for (unsigned i=0; i< q.N_LIMITS; i++)
   {
-    double limit_impulse = (q.limit_events[i]->limit_upper) ? -q.l[i] : q.l[i];
-    q.limit_events[i]->limit_impulse += limit_impulse; 
+    double limit_impulse = (q.limit_constraints[i]->limit_upper) ? -q.l[i] : q.l[i];
+    q.limit_constraints[i]->limit_impulse += limit_impulse; 
   }
 }
 
 /// Gets the minimum constraint velocity
-double ImpactEventHandler::calc_min_constraint_velocity(const EventProblemData& q) const
+double ImpactConstraintHandler::calc_min_constraint_velocity(const UnilateralConstraintProblemData& q) const
 {
   double minv = std::numeric_limits<double>::max();
 
@@ -473,7 +474,7 @@ double ImpactEventHandler::calc_min_constraint_velocity(const EventProblemData& 
 }
 
 /// Updates post-impact velocities
-void ImpactEventHandler::update_event_velocities_from_impulses(EventProblemData& q)
+void ImpactConstraintHandler::update_constraint_velocities_from_impulses(UnilateralConstraintProblemData& q)
 {
   // update Cn_v
   q.Cn_v += q.Cn_iM_CnT.mult(q.cn, _a);
@@ -528,14 +529,14 @@ void ImpactEventHandler::update_event_velocities_from_impulses(EventProblemData&
 /**
  * \return false if no restitution was applied; true otherwise
  */
-bool ImpactEventHandler::apply_restitution(const EventProblemData& q, VectorNd& z) const
+bool ImpactConstraintHandler::apply_restitution(const UnilateralConstraintProblemData& q, VectorNd& z) const
 {
   bool changed = false;
 
   // apply (Poisson) restitution to contacts
   for (unsigned i=0, j=q.CN_IDX; i< q.N_ACT_CONTACTS; i++, j++)
   {
-    z[j] *= q.contact_events[i]->contact_epsilon;
+    z[j] *= q.contact_constraints[i]->contact_epsilon;
     if (!changed && z[j] > NEAR_ZERO)
       changed = true;
   }
@@ -543,7 +544,7 @@ bool ImpactEventHandler::apply_restitution(const EventProblemData& q, VectorNd& 
   // apply (Poisson) restitution to limits
   for (unsigned i=0, j=q.L_IDX; i< q.N_LIMITS; i++, j++)
   {
-    z[j] *= q.limit_events[i]->limit_epsilon;
+    z[j] *= q.limit_constraints[i]->limit_epsilon;
     if (!changed && z[j] > NEAR_ZERO)
       changed = true;
   }
@@ -555,14 +556,14 @@ bool ImpactEventHandler::apply_restitution(const EventProblemData& q, VectorNd& 
 /**
  * \return false if no restitution was applied; true otherwise
  */
-bool ImpactEventHandler::apply_restitution(EventProblemData& q) const
+bool ImpactConstraintHandler::apply_restitution(UnilateralConstraintProblemData& q) const
 {
   bool changed = false;
 
   // apply (Poisson) restitution to contacts
   for (unsigned i=0; i< q.N_CONTACTS; i++)
   {
-    q.cn[i] *= q.contact_events[i]->contact_epsilon;
+    q.cn[i] *= q.contact_constraints[i]->contact_epsilon;
     if (!changed && q.cn[i] > NEAR_ZERO)
       changed = true;
   }
@@ -570,7 +571,7 @@ bool ImpactEventHandler::apply_restitution(EventProblemData& q) const
   // apply (Poisson) restitution to limits
   for (unsigned i=0; i< q.N_LIMITS; i++)
   {
-    q.l[i] *= q.limit_events[i]->limit_epsilon;
+    q.l[i] *= q.limit_constraints[i]->limit_epsilon;
     if (!changed && q.l[i] > NEAR_ZERO)
       changed = true;
   }
@@ -578,14 +579,14 @@ bool ImpactEventHandler::apply_restitution(EventProblemData& q) const
   return changed;
 }
 
-/// Permutes the problem to reflect active contact events
-void ImpactEventHandler::permute_problem(EventProblemData& epd, VectorNd& z)
+/// Permutes the problem to reflect active contact constraints
+void ImpactConstraintHandler::permute_problem(UnilateralConstraintProblemData& epd, VectorNd& z)
 {
-  // determine mapping of old contact event indices to new contact event
+  // determine mapping of old contact constraint indices to new contact constraint
   // indices
   std::vector<unsigned> mapping(epd.N_CONTACTS);
 
-  FILE_LOG(LOG_EVENT) << "ImpactEventHandler::permute_problem() entered" << std::endl;
+  FILE_LOG(LOG_EVENT) << "ImpactConstraintHandler::permute_problem() entered" << std::endl;
 
   // 1. compute active indices
   epd.N_ACT_CONTACTS = 0;
@@ -610,12 +611,12 @@ void ImpactEventHandler::permute_problem(EventProblemData& epd, VectorNd& z)
   std::fill(z.row_iterator_begin()+epd.N_ACT_CONTACTS, z.row_iterator_begin()+epd.N_CONTACTS, 0.0);
   FILE_LOG(LOG_EVENT) << "-- permuted frictionless lcp solution: " << z << std::endl;
 
-  // permute contact events
-  std::vector<Event*> new_contact_events(epd.contact_events.size());
-  permute(mapping.begin(), mapping.end(), epd.contact_events.begin(), new_contact_events.begin());
-  epd.contact_events = new_contact_events;
+  // permute contact constraints
+  std::vector<UnilateralConstraint*> new_contact_constraints(epd.contact_constraints.size());
+  permute(mapping.begin(), mapping.end(), epd.contact_constraints.begin(), new_contact_constraints.begin());
+  epd.contact_constraints = new_contact_constraints;
 
-  // TODO: add event computation and cross computation methods to Joint
+  // TODO: add constraint computation and cross computation methods to Joint
 
   // get iterators to the proper matrices
   RowIteratord CnCn = epd.Cn_iM_CnT.row_iterator_begin();
@@ -625,21 +626,21 @@ void ImpactEventHandler::permute_problem(EventProblemData& epd, VectorNd& z)
   RowIteratord CsCt = epd.Cs_iM_CtT.row_iterator_begin();
   RowIteratord CtCt = epd.Ct_iM_CtT.row_iterator_begin();
 
-  // process contact events, setting up matrices
-  for (unsigned i=0; i< epd.contact_events.size(); i++) 
+  // process contact constraints, setting up matrices
+  for (unsigned i=0; i< epd.contact_constraints.size(); i++) 
   {
-    // compute cross event data for contact events
-    for (unsigned j=0; j< epd.contact_events.size(); j++)
+    // compute cross constraint data for contact constraints
+    for (unsigned j=0; j< epd.contact_constraints.size(); j++)
     {
       // reset _MM
       _MM.set_zero(3, 3);
 
-      // check whether i==j (single contact event)
+      // check whether i==j (single contact constraint)
       if (i == j)
       {
-        // compute matrix / vector for contact event i
+        // compute matrix / vector for contact constraint i
         _v.set_zero(3);
-        epd.contact_events[i]->compute_event_data(_MM, _v);
+        epd.contact_constraints[i]->compute_constraint_data(_MM, _v);
 
         // setup appropriate parts of contact inertia matrices
         RowIteratord_const data = _MM.row_iterator_begin();
@@ -658,8 +659,8 @@ void ImpactEventHandler::permute_problem(EventProblemData& epd, VectorNd& z)
       }
       else
       {
-        // compute matrix for cross event
-        epd.contact_events[i]->compute_cross_event_data(*epd.contact_events[j], _MM);
+        // compute matrix for cross constraint
+        epd.contact_constraints[i]->compute_cross_constraint_data(*epd.contact_constraints[j], _MM);
 
         // setup appropriate parts of contact inertia matrices
         RowIteratord_const data = _MM.row_iterator_begin();
@@ -680,14 +681,14 @@ void ImpactEventHandler::permute_problem(EventProblemData& epd, VectorNd& z)
       CtCt++;
     }
 
-    // compute cross event data for contact/limit events 
-    for (unsigned j=0; j< epd.limit_events.size(); j++)
+    // compute cross constraint data for contact/limit constraints 
+    for (unsigned j=0; j< epd.limit_constraints.size(); j++)
     {
       // reset _MM
       _MM.set_zero(3, 1);
 
-      // compute matrix for cross event
-      epd.contact_events[i]->compute_cross_event_data(*epd.limit_events[j], _MM);
+      // compute matrix for cross constraint
+      epd.contact_constraints[i]->compute_cross_constraint_data(*epd.limit_constraints[j], _MM);
 
       // setup appropriate parts of contact / limit inertia matrices
       ColumnIteratord_const data = _MM.column_iterator_begin();
@@ -697,8 +698,8 @@ void ImpactEventHandler::permute_problem(EventProblemData& epd, VectorNd& z)
     }
   }
 
-  // NOTE: no need to update limit events of form L_iM_X 
-  //       (cross data has already been computed for contact/limit events)
+  // NOTE: no need to update limit constraints of form L_iM_X 
+  //       (cross data has already been computed for contact/limit constraints)
   
   // update cn, l, alpha and kappa 
   z.get_sub_vec(epd.CN_IDX, epd.CS_IDX, epd.cn);
@@ -707,35 +708,35 @@ void ImpactEventHandler::permute_problem(EventProblemData& epd, VectorNd& z)
 
   // mark active set as contact constraint set
   epd.N_CONTACT_CONSTRAINTS = epd.N_ACT_CONTACTS;
-  epd.contact_constraints.resize(epd.N_CONTACTS);
+  epd.contact_constraint_set.resize(epd.N_CONTACTS);
   for (unsigned i=0; i< epd.N_ACT_CONTACTS; i++)
-    epd.contact_constraints[i] = true;
+    epd.contact_constraint_set[i] = true;
   for (unsigned i=epd.N_ACT_CONTACTS; i< epd.N_CONTACTS; i++)
-    epd.contact_constraints[i] = false;
+    epd.contact_constraint_set[i] = false;
 
-  FILE_LOG(LOG_EVENT) << "ImpactEventHandler::permute_problem() entered" << std::endl;
+  FILE_LOG(LOG_EVENT) << "ImpactConstraintHandler::permute_problem() entered" << std::endl;
 }
 
 /**
- * Applies method of Drumwright and Shell to a set of connected events
- * \param events a set of connected events 
+ * Applies method of Drumwright and Shell to a set of connected constraints
+ * \param constraints a set of connected constraints 
  */
-void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& events, double inv_dt)
+void ImpactConstraintHandler::apply_model_to_connected_constraints(const list<UnilateralConstraint*>& constraints, double inv_dt)
 {
   double ke_minus = 0.0, ke_plus = 0.0;
 
-  FILE_LOG(LOG_EVENT) << "ImpactEventHandler::apply_model_to_connected_events() entered" << endl;
+  FILE_LOG(LOG_EVENT) << "ImpactConstraintHandler::apply_model_to_connected_constraints() entered" << endl;
 
   // reset problem data
   _epd.reset();
 
-  // save the events
-  _epd.events = vector<Event*>(events.begin(), events.end());
+  // save the constraints
+  _epd.constraints = vector<UnilateralConstraint*>(constraints.begin(), constraints.end());
 
-  // determine sets of contact and limit events
-  _epd.partition_events();
+  // determine sets of contact and limit constraints
+  _epd.partition_constraints();
 
-  // compute all event cross-terms
+  // compute all constraint cross-terms
   compute_problem_data(_epd, inv_dt);
 
   // compute energy
@@ -744,7 +745,7 @@ void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& eve
     for (unsigned i=0; i< _epd.super_bodies.size(); i++)
     {
       double ke = _epd.super_bodies[i]->calc_kinetic_energy();
-      FILE_LOG(LOG_EVENT) << "  body " << _epd.super_bodies[i]->id << " pre-event handling KE: " << ke << endl;
+      FILE_LOG(LOG_EVENT) << "  body " << _epd.super_bodies[i]->id << " pre-constraint handling KE: " << ke << endl;
       ke_minus += ke;
     }
   }
@@ -770,7 +771,7 @@ void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& eve
   update_from_stacked(_epd, _z);
 
   // determine velocities due to impulse application
-  update_event_velocities_from_impulses(_epd);
+  update_constraint_velocities_from_impulses(_epd);
 
   // get the constraint violation before applying impulses
   double minv = calc_min_constraint_velocity(_epd);
@@ -782,7 +783,7 @@ void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& eve
     update_from_stacked(_epd, _z);
 
     // determine velocities due to impulse application
-    update_event_velocities_from_impulses(_epd);
+    update_constraint_velocities_from_impulses(_epd);
 
     // check to see whether we need to solve another impact problem
     double minv_plus = calc_min_constraint_velocity(_epd);
@@ -794,7 +795,7 @@ void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& eve
       // need to solve another impact problem 
       solve_frictionless_lcp(_epd, _z);
 
-      // update event problem data and z
+      // update constraint problem data and z
       permute_problem(_epd, _z);
 
       // determine N_ACT_K
@@ -821,24 +822,24 @@ void ImpactEventHandler::apply_model_to_connected_events(const list<Event*>& eve
     for (unsigned i=0; i< _epd.super_bodies.size(); i++)
     {
       double ke = _epd.super_bodies[i]->calc_kinetic_energy();
-      FILE_LOG(LOG_EVENT) << "  body " << _epd.super_bodies[i]->id << " post-event handling KE: " << ke << endl;
+      FILE_LOG(LOG_EVENT) << "  body " << _epd.super_bodies[i]->id << " post-constraint handling KE: " << ke << endl;
       ke_plus += ke;
     }
     if (ke_plus > ke_minus)
       FILE_LOG(LOG_EVENT) << "warning! KE gain detected! energy before=" << ke_minus << " energy after=" << ke_plus << endl;
   }
 
-  FILE_LOG(LOG_EVENT) << "ImpactEventHandler::apply_model_to_connected_events() exiting" << endl;
+  FILE_LOG(LOG_EVENT) << "ImpactConstraintHandler::apply_model_to_connected_constraints() exiting" << endl;
 }
 
 /// Determines whether we can use the QP solver
-bool ImpactEventHandler::use_qp_solver(const EventProblemData& epd)
+bool ImpactConstraintHandler::use_qp_solver(const UnilateralConstraintProblemData& epd)
 {
   const unsigned UINF = std::numeric_limits<unsigned>::max();
 
-  // first, check whether any contact events use a true friction cone
+  // first, check whether any contact constraints use a true friction cone
   for (unsigned i=0; i< epd.N_CONTACTS; i++)
-    if (epd.contact_events[i]->contact_NK == UINF)
+    if (epd.contact_constraints[i]->contact_NK == UINF)
       return false;
 
   // still here? ok to use QP solver
@@ -846,16 +847,16 @@ bool ImpactEventHandler::use_qp_solver(const EventProblemData& epd)
 }
 
 /// Applies impulses to bodies
-void ImpactEventHandler::apply_impulses(const EventProblemData& q)
+void ImpactConstraintHandler::apply_impulses(const UnilateralConstraintProblemData& q)
 {
   map<DynamicBodyPtr, VectorNd> gj;
   map<DynamicBodyPtr, VectorNd>::iterator gj_iter;
 
-  // loop over all contact events first
-  for (unsigned i=0; i< q.contact_events.size(); i++)
+  // loop over all contact constraints first
+  for (unsigned i=0; i< q.contact_constraints.size(); i++)
   {
     // get the contact force
-    const Event& e = *q.contact_events[i];
+    const UnilateralConstraint& e = *q.contact_constraints[i];
     SForced w(e.contact_impulse);
 
     // get the two single bodies of the contact
@@ -885,10 +886,10 @@ void ImpactEventHandler::apply_impulses(const EventProblemData& q)
     }
   }
 
-  // loop over all limit events next
-  for (unsigned i=0; i< q.limit_events.size(); i++)
+  // loop over all limit constraints next
+  for (unsigned i=0; i< q.limit_constraints.size(); i++)
   {
-    const Event& e = *q.limit_events[i];
+    const UnilateralConstraint& e = *q.limit_constraints[i];
     ArticulatedBodyPtr ab = e.limit_joint->get_articulated_body();
 
     // get the iterator for the articulated body
@@ -925,22 +926,22 @@ void ImpactEventHandler::apply_impulses(const EventProblemData& q)
 }
 
 /// Computes the data to the LCP / QP problems
-void ImpactEventHandler::compute_problem_data(EventProblemData& q, double inv_dt)
+void ImpactConstraintHandler::compute_problem_data(UnilateralConstraintProblemData& q, double inv_dt)
 {
   const unsigned UINF = std::numeric_limits<unsigned>::max();
 
-  // determine set of "super" bodies from contact events
+  // determine set of "super" bodies from contact constraints
   q.super_bodies.clear();
-  for (unsigned i=0; i< q.contact_events.size(); i++)
+  for (unsigned i=0; i< q.contact_constraints.size(); i++)
   {
-    q.super_bodies.push_back(get_super_body(q.contact_events[i]->contact_geom1->get_single_body()));
-    q.super_bodies.push_back(get_super_body(q.contact_events[i]->contact_geom2->get_single_body()));
+    q.super_bodies.push_back(get_super_body(q.contact_constraints[i]->contact_geom1->get_single_body()));
+    q.super_bodies.push_back(get_super_body(q.contact_constraints[i]->contact_geom2->get_single_body()));
   }
 
-  // determine set of "super" bodies from limit events
-  for (unsigned i=0; i< q.limit_events.size(); i++)
+  // determine set of "super" bodies from limit constraints
+  for (unsigned i=0; i< q.limit_constraints.size(); i++)
   {
-    RigidBodyPtr outboard = q.limit_events[i]->limit_joint->get_outboard_link();
+    RigidBodyPtr outboard = q.limit_constraints[i]->limit_joint->get_outboard_link();
     q.super_bodies.push_back(get_super_body(outboard));
   }
 
@@ -954,8 +955,8 @@ void ImpactEventHandler::compute_problem_data(EventProblemData& q, double inv_dt
     q.N_GC += q.super_bodies[i]->num_generalized_coordinates(DynamicBody::eSpatial);
 
   // initialize constants and set easy to set constants
-  q.N_CONTACTS = q.contact_events.size();
-  q.N_LIMITS = q.limit_events.size();
+  q.N_CONTACTS = q.contact_constraints.size();
+  q.N_LIMITS = q.limit_constraints.size();
 
   // setup constants related to articulated bodies
   for (unsigned i=0; i< q.super_bodies.size(); i++)
@@ -967,25 +968,25 @@ void ImpactEventHandler::compute_problem_data(EventProblemData& q, double inv_dt
   }
 
   // compute number of friction polygon edges
-  for (unsigned i=0; i< q.contact_events.size(); i++)
+  for (unsigned i=0; i< q.contact_constraints.size(); i++)
   {
-    if (q.contact_events[i]->contact_NK < UINF)
+    if (q.contact_constraints[i]->contact_NK < UINF)
     {
-      q.N_K_TOTAL += q.contact_events[i]->contact_NK/2;
+      q.N_K_TOTAL += q.contact_constraints[i]->contact_NK/2;
       q.N_LIN_CONE++;
     }
-    else if (q.contact_events[i]->contact_NK == UINF)
+    else if (q.contact_constraints[i]->contact_NK == UINF)
       break;
   }
 
   // setup number of true cones
-  q.N_TRUE_CONE = q.contact_events.size() - q.N_LIN_CONE; 
+  q.N_TRUE_CONE = q.contact_constraints.size() - q.N_LIN_CONE; 
 
   // verify contact constraints that use a true friction cone are at the end 
   // of the contact vector
   #ifndef NDEBUG
-  for (unsigned i=q.N_LIN_CONE; i< q.contact_events.size(); i++)
-    assert(q.contact_events[i]->contact_NK == UINF);
+  for (unsigned i=q.N_LIN_CONE; i< q.contact_constraints.size(); i++)
+    assert(q.contact_constraints[i]->contact_NK == UINF);
   #endif
    
   // initialize the problem matrices / vectors
@@ -1025,7 +1026,7 @@ void ImpactEventHandler::compute_problem_data(EventProblemData& q, double inv_dt
   q.ALPHA_X_IDX = q.L_IDX + q.N_LIMITS;
   q.N_VARS = q.ALPHA_X_IDX + q.N_CONSTRAINT_EQNS_IMP;
 
-  // TODO: add event computation and cross computation methods to Joint
+  // TODO: add constraint computation and cross computation methods to Joint
 
   // get iterators to the proper matrices
   RowIteratord CnCn = q.Cn_iM_CnT.row_iterator_begin();
@@ -1035,21 +1036,21 @@ void ImpactEventHandler::compute_problem_data(EventProblemData& q, double inv_dt
   RowIteratord CsCt = q.Cs_iM_CtT.row_iterator_begin();
   RowIteratord CtCt = q.Ct_iM_CtT.row_iterator_begin();
 
-  // process contact events, setting up matrices
-  for (unsigned i=0; i< q.contact_events.size(); i++) 
+  // process contact constraints, setting up matrices
+  for (unsigned i=0; i< q.contact_constraints.size(); i++) 
   {
-    // compute cross event data for contact events
-    for (unsigned j=0; j< q.contact_events.size(); j++)
+    // compute cross constraint data for contact constraints
+    for (unsigned j=0; j< q.contact_constraints.size(); j++)
     {
       // reset _MM
       _MM.set_zero(3, 3);
 
-      // check whether i==j (single contact event)
+      // check whether i==j (single contact constraint)
       if (i == j)
       {
-        // compute matrix / vector for contact event i
+        // compute matrix / vector for contact constraint i
         _v.set_zero(3);
-        q.contact_events[i]->compute_event_data(_MM, _v);
+        q.contact_constraints[i]->compute_constraint_data(_MM, _v);
 
         // setup appropriate parts of contact inertia matrices
         RowIteratord_const data = _MM.row_iterator_begin();
@@ -1068,8 +1069,8 @@ void ImpactEventHandler::compute_problem_data(EventProblemData& q, double inv_dt
       }
       else
       {
-        // compute matrix for cross event
-        q.contact_events[i]->compute_cross_event_data(*q.contact_events[j], _MM);
+        // compute matrix for cross constraint
+        q.contact_constraints[i]->compute_cross_constraint_data(*q.contact_constraints[j], _MM);
 
         // setup appropriate parts of contact inertia matrices
         RowIteratord_const data = _MM.row_iterator_begin();
@@ -1090,14 +1091,14 @@ void ImpactEventHandler::compute_problem_data(EventProblemData& q, double inv_dt
       CtCt++;
     }
 
-    // compute cross event data for contact/limit events 
-    for (unsigned j=0; j< q.limit_events.size(); j++)
+    // compute cross constraint data for contact/limit constraints 
+    for (unsigned j=0; j< q.limit_constraints.size(); j++)
     {
       // reset _MM
       _MM.set_zero(3, 1);
 
-      // compute matrix for cross event
-      q.contact_events[i]->compute_cross_event_data(*q.limit_events[j], _MM);
+      // compute matrix for cross constraint
+      q.contact_constraints[i]->compute_cross_constraint_data(*q.limit_constraints[j], _MM);
 
       // setup appropriate parts of contact / limit inertia matrices
       ColumnIteratord_const data = _MM.column_iterator_begin();
@@ -1107,43 +1108,43 @@ void ImpactEventHandler::compute_problem_data(EventProblemData& q, double inv_dt
     }
   }
 
-  // process limit events, setting up matrices
-  for (unsigned i=0; i< q.limit_events.size(); i++)
+  // process limit constraints, setting up matrices
+  for (unsigned i=0; i< q.limit_constraints.size(); i++)
   {
-    // compute matrix / vector for contact event i
-    q.limit_events[i]->compute_event_data(_MM, _v);
+    // compute matrix / vector for contact constraint i
+    q.limit_constraints[i]->compute_constraint_data(_MM, _v);
 
     // setup appropriate entry of limit inertia matrix and limit velocity
     q.L_iM_LT(i,i) = _MM.data()[0];
     q.L_v[i] = _v.data()[0];
 
-    // compute cross/cross limit event data
-    for (unsigned j=i+1; j< q.limit_events.size(); j++)
+    // compute cross/cross limit constraint data
+    for (unsigned j=i+1; j< q.limit_constraints.size(); j++)
     {
       // reset _MM
       _MM.resize(1,1);
 
-      // compute matrix for cross event
-      q.limit_events[i]->compute_cross_event_data(*q.limit_events[j], _MM);
+      // compute matrix for cross constraint
+      q.limit_constraints[i]->compute_cross_constraint_data(*q.limit_constraints[j], _MM);
 
       // setup appropriate part of limit / limit inertia matrix
       q.L_iM_LT(i,j) = q.L_iM_LT(j,i) = _MM.data()[0];
     }
 
-    // NOTE: cross data has already been computed for contact/limit events
+    // NOTE: cross data has already been computed for contact/limit constraints
   }
 
   // correct constraint violations on contacts
-  for (unsigned i=0; i< q.contact_events.size(); i++)
-    q.Cn_v[i] += q.contact_events[i]->signed_violation * inv_dt;
+  for (unsigned i=0; i< q.contact_constraints.size(); i++)
+    q.Cn_v[i] += q.contact_constraints[i]->signed_violation * inv_dt;
 
   // correct constraint violations on limits
-  for (unsigned i=0; i< q.limit_events.size(); i++)
-    q.L_v[i] += q.limit_events[i]->signed_violation * inv_dt;
+  for (unsigned i=0; i< q.limit_constraints.size(); i++)
+    q.L_v[i] += q.limit_constraints[i]->signed_violation * inv_dt;
 }
 
 /// Solves the viscous friction LCP
-void ImpactEventHandler::apply_visc_friction_model(EventProblemData& q)
+void ImpactConstraintHandler::apply_visc_friction_model(UnilateralConstraintProblemData& q)
 {
   // compute the (Coulomb) frictionless LCP
   VectorNd z;
@@ -1166,36 +1167,36 @@ void ImpactEventHandler::apply_visc_friction_model(EventProblemData& q)
   {
     // setup the contact frame
     P->q.set_identity();
-    P->x = q.contact_events[i]->contact_point;
+    P->x = q.contact_constraints[i]->contact_point;
 
     // setup the impulse in the contact frame
     Vector3d j;
-    j = q.contact_events[i]->contact_normal * q.cn[i];
-    j += q.contact_events[i]->contact_tan1 * q.cs[i];
-    j += q.contact_events[i]->contact_tan2 * q.ct[i];
+    j = q.contact_constraints[i]->contact_normal * q.cn[i];
+    j += q.contact_constraints[i]->contact_tan1 * q.cs[i];
+    j += q.contact_constraints[i]->contact_tan2 * q.ct[i];
 
     // setup the spatial impulse
     SMomentumd jx(boost::const_pointer_cast<const Pose3d>(P));
     jx.set_linear(j);    
 
     // transform the impulse to the global frame
-    q.contact_events[i]->contact_impulse += Pose3d::transform(GLOBAL, jx);
+    q.contact_constraints[i]->contact_impulse += Pose3d::transform(GLOBAL, jx);
   }
 
   // save limit impulses
   for (unsigned i=0; i< q.N_LIMITS; i++)
   {
-    double limit_impulse = (q.limit_events[i]->limit_upper) ? -q.l[i] : q.l[i];
-    q.limit_events[i]->limit_impulse += limit_impulse; 
+    double limit_impulse = (q.limit_constraints[i]->limit_upper) ? -q.l[i] : q.l[i];
+    q.limit_constraints[i]->limit_impulse += limit_impulse; 
   }
 
   // TODO: setup joint constraint impulses here
 
-  FILE_LOG(LOG_EVENT) << "ImpulseEventHandler::apply_visc_friction_model() exited" << std::endl;
+  FILE_LOG(LOG_EVENT) << "ImpactConstraintHandler::apply_visc_friction_model() exited" << std::endl;
 }
 
 /// Solves the no-slip model LCP
-void ImpactEventHandler::apply_no_slip_model(EventProblemData& q)
+void ImpactConstraintHandler::apply_no_slip_model(UnilateralConstraintProblemData& q)
 {
   std::vector<unsigned> J_indices, S_indices, T_indices;
   const unsigned NCONTACTS = q.N_CONTACTS;
@@ -1499,7 +1500,7 @@ void ImpactEventHandler::apply_no_slip_model(EventProblemData& q)
    
       // QP solver didn't work; solve LP to find closest feasible solution
       if (!_qp.find_closest_feasible(lb, ub, _MM, _workv2, A, b, _v))
-        throw std::runtime_error("Unable to solve event LCP!");
+        throw std::runtime_error("Unable to solve constraint LCP!");
 
       // modify constraints
       _MM.mult(_v, _workv2) += _qq;
@@ -1513,12 +1514,12 @@ void ImpactEventHandler::apply_no_slip_model(EventProblemData& q)
       if (!_qp.qp_activeset(_MM, _workv, lb, ub, _MM, _workv2, A, b, _v))
       {
         FILE_LOG(LOG_EVENT) << "QLCPD failed to find feasible point *twice*" << std::endl;
-        throw std::runtime_error("Unable to solve event LCP!");
+        throw std::runtime_error("Unable to solve constraint LCP!");
       }
     }
     #else
     if (!_lcp.lcp_lemke_regularized(_MM, _qq, _v))
-      throw std::runtime_error("Unable to solve event LCP!");
+      throw std::runtime_error("Unable to solve constraint LCP!");
     #endif
   }
 
@@ -1557,36 +1558,36 @@ void ImpactEventHandler::apply_no_slip_model(EventProblemData& q)
   {
     // setup the contact frame
     P->q.set_identity();
-    P->x = q.contact_events[i]->contact_point;
+    P->x = q.contact_constraints[i]->contact_point;
 
     // setup the impulse in the contact frame
     Vector3d j;
-    j = q.contact_events[i]->contact_normal * q.cn[i];
-    j += q.contact_events[i]->contact_tan1 * q.cs[i];
-    j += q.contact_events[i]->contact_tan2 * q.ct[i];
+    j = q.contact_constraints[i]->contact_normal * q.cn[i];
+    j += q.contact_constraints[i]->contact_tan1 * q.cs[i];
+    j += q.contact_constraints[i]->contact_tan2 * q.ct[i];
 
     // setup the spatial impulse
     SMomentumd jx(boost::const_pointer_cast<const Pose3d>(P));
     jx.set_linear(j);    
 
     // transform the impulse to the global frame
-    q.contact_events[i]->contact_impulse += Pose3d::transform(GLOBAL, jx);
+    q.contact_constraints[i]->contact_impulse += Pose3d::transform(GLOBAL, jx);
   }
 
   // save limit impulses
   for (unsigned i=0; i< q.N_LIMITS; i++)
   {
-    double limit_impulse = (q.limit_events[i]->limit_upper) ? -q.l[i] : q.l[i];
-    q.limit_events[i]->limit_impulse += limit_impulse; 
+    double limit_impulse = (q.limit_constraints[i]->limit_upper) ? -q.l[i] : q.l[i];
+    q.limit_constraints[i]->limit_impulse += limit_impulse; 
   }
 
   // TODO: setup joint constraint impulses here
 
-  FILE_LOG(LOG_EVENT) << "ImpulseEventHandler::solve_no_slip_lcp() exited" << std::endl;
+  FILE_LOG(LOG_EVENT) << "ImpactConstraintHandler::solve_no_slip_lcp() exited" << std::endl;
 }
 
 /// Solves the (frictionless) LCP
-void ImpactEventHandler::solve_frictionless_lcp(EventProblemData& q, VectorNd& z)
+void ImpactConstraintHandler::solve_frictionless_lcp(UnilateralConstraintProblemData& q, VectorNd& z)
 {
   const unsigned NCONTACTS = q.N_CONTACTS;
   const unsigned NLIMITS = q.N_LIMITS;
@@ -1650,8 +1651,8 @@ void ImpactEventHandler::solve_frictionless_lcp(EventProblemData& q, VectorNd& z
   RowIteratord ct_visc_iter = _ct_visc.row_iterator_begin();
   for (unsigned i=0; i< NCONTACTS; i++, cs_visc_iter++, ct_visc_iter++)
   {
-    (*cs_visc_iter) *= q.contact_events[i]->contact_mu_viscous; 
-    (*ct_visc_iter) *= q.contact_events[i]->contact_mu_viscous; 
+    (*cs_visc_iter) *= q.contact_constraints[i]->contact_mu_viscous; 
+    (*ct_visc_iter) *= q.contact_constraints[i]->contact_mu_viscous; 
   }
 
   // compute viscous friction terms contributions in normal directions
@@ -1671,7 +1672,7 @@ void ImpactEventHandler::solve_frictionless_lcp(EventProblemData& q, VectorNd& z
   _qq -= _b;
   _qq.negate();
 
-  FILE_LOG(LOG_EVENT) << "ImpulseEventHandler::solve_lcp() entered" << std::endl;
+  FILE_LOG(LOG_EVENT) << "ImpactConstraintHandler::solve_lcp() entered" << std::endl;
   FILE_LOG(LOG_EVENT) << "  Cn * inv(M) * Cn': " << std::endl << q.Cn_iM_CnT;
   FILE_LOG(LOG_EVENT) << "  Cn * v: " << q.Cn_v << std::endl;
   FILE_LOG(LOG_EVENT) << "  L * v: " << q.L_v << std::endl;
@@ -1680,7 +1681,7 @@ void ImpactEventHandler::solve_frictionless_lcp(EventProblemData& q, VectorNd& z
 
   // solve the LCP
   if (!_lcp.lcp_fast(_MM, _qq, _v) && !_lcp.lcp_lemke_regularized(_MM, _qq, _v))
-    throw std::runtime_error("Unable to solve event LCP!");
+    throw std::runtime_error("Unable to solve constraint LCP!");
 
   // compute alphax
   // u = -inv(A)*(a + Cv)
@@ -1701,11 +1702,11 @@ void ImpactEventHandler::solve_frictionless_lcp(EventProblemData& q, VectorNd& z
 
   FILE_LOG(LOG_EVENT) << "  LCP result: " << z << std::endl;
   FILE_LOG(LOG_EVENT) << "  kappa: " << q.kappa << std::endl;
-  FILE_LOG(LOG_EVENT) << "ImpulseEventHandler::solve_lcp() exited" << std::endl;
+  FILE_LOG(LOG_EVENT) << "ImpactConstraintHandler::solve_lcp() exited" << std::endl;
 }
 
 /// Gets the super body (articulated if any)
-DynamicBodyPtr ImpactEventHandler::get_super_body(SingleBodyPtr sb)
+DynamicBodyPtr ImpactConstraintHandler::get_super_body(SingleBodyPtr sb)
 {
   ArticulatedBodyPtr ab = sb->get_articulated_body();
   if (ab)

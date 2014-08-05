@@ -18,12 +18,12 @@
 #include <Moby/Log.h>
 #include <Moby/XMLTree.h>
 #include <Moby/NumericalException.h>
-#include <Moby/AccelerationEventFailException.h>
+#include <Moby/SustainedUnilateralConstraintSolveFailException.h>
 #include <Moby/CompGeom.h>
 
-#include <Moby/Event.h>
-#include <Moby/AccelerationEventHandler.h>
-#include <Moby/AccelerationEventData.h>
+#include <Moby/UnilateralConstraint.h>
+#include <Moby/SustainedUnilateralConstraintHandler.h>
+#include <Moby/SustainedUnilateralConstraintProblemData.h>
 
 using namespace Ravelin;
 using namespace Moby;
@@ -37,29 +37,29 @@ using std::endl;
 using boost::shared_ptr;
 using boost::dynamic_pointer_cast;
 
-/// Sets up the default parameters for the impact event handler
-AccelerationEventHandler::AccelerationEventHandler(){}
+/// Sets up the default parameters for the sustained unilateral handler
+SustainedUnilateralConstraintHandler::SustainedUnilateralConstraintHandler(){}
 
 // Processes impacts
-void AccelerationEventHandler::process_events(const vector<Event>& contacts)
+void SustainedUnilateralConstraintHandler::process_constraints(const vector<UnilateralConstraint>& contacts)
 {
   FILE_LOG(LOG_EVENT) << "*************************************************************";
   FILE_LOG(LOG_EVENT) << endl;
-  FILE_LOG(LOG_EVENT) << "AccelerationEventHandler::process_events() entered";
+  FILE_LOG(LOG_EVENT) << "SustainedUnilateralConstraintHandler::process_constraints() entered";
   FILE_LOG(LOG_EVENT) << endl;
   FILE_LOG(LOG_EVENT) << "*************************************************************";
   FILE_LOG(LOG_EVENT) << endl;
 
-  // verify that every event is a contact event
+  // verify that every constraint is a contact constraint
   for (unsigned i=0; i< contacts.size(); i++)
-    assert (contacts[i].event_type == Event::eContact);
+    assert (contacts[i].constraint_type == UnilateralConstraint::eContact);
 
   // apply the method to all contacts
   if (!contacts.empty())
     apply_model(contacts);
 
   FILE_LOG(LOG_EVENT) << "*************************************************************" << endl;
-  FILE_LOG(LOG_EVENT) << "AccelerationEventHandler::process_events() exited" << endl;
+  FILE_LOG(LOG_EVENT) << "SustainedUnilateralConstraintHandler::process_constraints() exited" << endl;
   FILE_LOG(LOG_EVENT) << "*************************************************************" << endl;
 }
 
@@ -67,35 +67,35 @@ void AccelerationEventHandler::process_events(const vector<Event>& contacts)
 /**
  * \param contacts a set of contacts
  */
-void AccelerationEventHandler::apply_model(const vector<Event>& contacts)
+void SustainedUnilateralConstraintHandler::apply_model(const vector<UnilateralConstraint>& contacts)
 {
-  list<Event*> contacting;
+  list<UnilateralConstraint*> contacting;
 
   // **********************************************************
   // determine sets of connected contacts
   // **********************************************************
-  list<list<Event*> > groups;
-  Event::determine_connected_events(contacts, groups);
-  Event::remove_inactive_groups(groups);
+  list<list<UnilateralConstraint*> > groups;
+  UnilateralConstraint::determine_connected_constraints(contacts, groups);
+  UnilateralConstraint::remove_inactive_groups(groups);
 
   // **********************************************************
   // do method for each connected set
   // **********************************************************
-  for (list<list<Event*> >::iterator i = groups.begin(); i != groups.end(); i++)
+  for (list<list<UnilateralConstraint*> >::iterator i = groups.begin(); i != groups.end(); i++)
   {
     // determine contact tangents
-    for (list<Event*>::iterator j = i->begin(); j != i->end(); j++)
-      if ((*j)->event_type == Event::eContact)
+    for (list<UnilateralConstraint*>::iterator j = i->begin(); j != i->end(); j++)
+      if ((*j)->constraint_type == UnilateralConstraint::eContact)
         (*j)->determine_contact_tangents();
       // copy the list of contacts
-      list<Event*> rcontacts = *i;
+      list<UnilateralConstraint*> rcontacts = *i;
 
       FILE_LOG(LOG_EVENT) << " -- pre-contact acceleration (all contacts: " << std::endl;
-      for (list<Event*>::iterator j = i->begin(); j != i->end(); j++)
+      for (list<UnilateralConstraint*>::iterator j = i->begin(); j != i->end(); j++)
         FILE_LOG(LOG_EVENT) << "    contact: " << std::endl << **j;
 
       // determine a reduced set of contacts
-      Event::determine_minimal_set(rcontacts);
+      UnilateralConstraint::determine_minimal_set(rcontacts);
 
       // apply model to the reduced contacts
       apply_model_to_connected_contacts(rcontacts);
@@ -105,20 +105,20 @@ void AccelerationEventHandler::apply_model(const vector<Event>& contacts)
 /**
  * \param contacts a set of connected contacts
  */
-void AccelerationEventHandler::apply_model_to_connected_contacts(const list<Event*>& contacts)
+void SustainedUnilateralConstraintHandler::apply_model_to_connected_contacts(const list<UnilateralConstraint*>& contacts)
 {
-  SAFESTATIC AccelerationEventData epd;
+  SAFESTATIC SustainedUnilateralConstraintProblemData epd;
   SAFESTATIC VectorNd v,a, ke_minus, ke_plus;
   SAFESTATIC vector<VectorNd> gf;
   SAFESTATIC MatrixNd M;
 
-  FILE_LOG(LOG_EVENT) << "AccelerationEventHandler::apply_model_to_connected_contacts() entered" << endl;
+  FILE_LOG(LOG_EVENT) << "SustainedUnilateralConstraintHandler::apply_model_to_connected_contacts() entered" << endl;
 
   // reset problem data
   epd.reset();
 
   // save the contacts
-  epd.events = vector<Event*>(contacts.begin(), contacts.end());
+  epd.constraints = vector<UnilateralConstraint*>(contacts.begin(), contacts.end());
 
   // compute all contact cross-terms
   compute_problem_data(epd);
@@ -127,28 +127,28 @@ void AccelerationEventHandler::apply_model_to_connected_contacts(const list<Even
   // the kappa constant
   VectorNd z;
   if (!solve_lcp(epd, z))
-    throw AccelerationEventFailException();
+    throw SustainedUnilateralConstraintSolveFailException();
 
-  FILE_LOG(LOG_EVENT) << "Resting Event forces : " << z << std::endl;
+  FILE_LOG(LOG_EVENT) << "Resting constraint forces : " << z << std::endl;
 
   // apply FORCES
   apply_forces(epd);
 
-  FILE_LOG(LOG_EVENT) << "AccelerationEventHandler::apply_model_to_connected_contacts() exiting" << endl;
+  FILE_LOG(LOG_EVENT) << "SustainedUnilateralConstraintHandler::apply_model_to_connected_contacts() exiting" << endl;
 }
 
 /// Applies resting contact forces to bodies and saves the generalized forces
-void AccelerationEventHandler::apply_forces(const AccelerationEventData& q) const
+void SustainedUnilateralConstraintHandler::apply_forces(const SustainedUnilateralConstraintProblemData& q) const
 {
   map<DynamicBodyPtr, VectorNd> gj;
   map<DynamicBodyPtr, VectorNd>::iterator gj_iter;
   VectorNd workv;
 
   // loop over all contact contacts first
-  for (unsigned i=0; i<  q.events.size(); i++)
+  for (unsigned i=0; i<  q.constraints.size(); i++)
   {
     // get the contact force
-    const Event& c = * q.events[i];
+    const UnilateralConstraint& c = * q.constraints[i];
     SForced w(c.contact_impulse);
 
     // get the two single bodies of the contact
@@ -187,18 +187,18 @@ void AccelerationEventHandler::apply_forces(const AccelerationEventData& q) cons
 }
 
 /// Computes the data to the LCP / QP problems
-void AccelerationEventHandler::compute_problem_data(AccelerationEventData& q)
+void SustainedUnilateralConstraintHandler::compute_problem_data(SustainedUnilateralConstraintProblemData& q)
 {
   const unsigned UINF = std::numeric_limits<unsigned>::max();
   SAFESTATIC MatrixNd workM;
   SAFESTATIC VectorNd workv;
 
-  // determine set of "super" bodies from contact events
+  // determine set of "super" bodies from contact constraints
   q.super_bodies.clear();
-  for (unsigned i=0; i< q.events.size(); i++)
+  for (unsigned i=0; i< q.constraints.size(); i++)
   {
-    q.super_bodies.push_back(get_super_body(q.events[i]->contact_geom1->get_single_body()));
-    q.super_bodies.push_back(get_super_body(q.events[i]->contact_geom2->get_single_body()));
+    q.super_bodies.push_back(get_super_body(q.constraints[i]->contact_geom1->get_single_body()));
+    q.super_bodies.push_back(get_super_body(q.constraints[i]->contact_geom2->get_single_body()));
   }
 
   // make super bodies vector unique
@@ -206,7 +206,7 @@ void AccelerationEventHandler::compute_problem_data(AccelerationEventData& q)
   q.super_bodies.erase(std::unique(q.super_bodies.begin(), q.super_bodies.end()), q.super_bodies.end());
 
   // initialize constants and set easy to set constants
-  q.N_CONTACTS =  q.events.size();
+  q.N_CONTACTS =  q.constraints.size();
 
   // setup contact working set
   q.contact_working_set.clear();
@@ -214,14 +214,14 @@ void AccelerationEventHandler::compute_problem_data(AccelerationEventData& q)
 
   // compute number of friction polygon edges
   q.N_STICKING = 0;
-  for (unsigned i=0; i<  q.events.size(); i++)
+  for (unsigned i=0; i<  q.constraints.size(); i++)
   {
-    q.N_STICKING += (q.events[i]->get_friction_type() == Event::eSticking) ? 1 : 0;
-    if ( q.events[i]->contact_NK < UINF)
+    q.N_STICKING += (q.constraints[i]->get_friction_type() == UnilateralConstraint::eSticking) ? 1 : 0;
+    if ( q.constraints[i]->contact_NK < UINF)
     {
-        q.N_K_TOTAL +=  q.events[i]->contact_NK/2;
+        q.N_K_TOTAL +=  q.constraints[i]->contact_NK/2;
     }
-    else if ( q.events[i]->contact_NK == UINF)
+    else if ( q.constraints[i]->contact_NK == UINF)
       break;
   }
 
@@ -249,7 +249,7 @@ void AccelerationEventHandler::compute_problem_data(AccelerationEventData& q)
   q.CT_IDX = q.CS_IDX + q.N_CONTACTS;
   q.NCS_IDX = q.CT_IDX + q.N_CONTACTS;
   q.NCT_IDX = q.NCS_IDX + q.N_CONTACTS;
-  // TODO: add event computation and cross computation methods to Joint
+  // TODO: add constraint computation and cross computation methods to Joint
 
   // get iterators to the proper matrices
   RowIteratord CnCn = q.Cn_iM_CnT.row_iterator_begin();
@@ -262,27 +262,27 @@ void AccelerationEventHandler::compute_problem_data(AccelerationEventData& q)
   RowIteratord CtCs = q.Ct_iM_CsT.row_iterator_begin();
   RowIteratord CtCt = q.Ct_iM_CtT.row_iterator_begin();
 
-  // process contact events, setting up matrices
-  for (unsigned i=0, k=0; i<  q.events.size(); i++)
+  // process contact constraints, setting up matrices
+  for (unsigned i=0, k=0; i<  q.constraints.size(); i++)
   {
-    const Event* ci =  q.events[i];
-    const unsigned ROWS = (ci->get_friction_type() == Event::eSticking) ? 3 : 1;
+    const UnilateralConstraint* ci =  q.constraints[i];
+    const unsigned ROWS = (ci->get_friction_type() == UnilateralConstraint::eSticking) ? 3 : 1;
 
-    // compute cross event data for contact events
-    for (unsigned j=0; j<  q.events.size(); j++)
+    // compute cross constraint data for contact constraints
+    for (unsigned j=0; j<  q.constraints.size(); j++)
     {
-      const Event* cj =  q.events[j];
-      const unsigned COLS = (cj->get_friction_type() == Event::eSticking) ? 3 : 1;
+      const UnilateralConstraint* cj =  q.constraints[j];
+      const unsigned COLS = (cj->get_friction_type() == UnilateralConstraint::eSticking) ? 3 : 1;
 
       // reset workM
       workM.set_zero(ROWS, COLS);
 
-      // check whether i==j (single contact event)
+      // check whether i==j (single contact constraint)
       if (i == j)
       {
-        // compute matrix / vector for contact event i
+        // compute matrix / vector for contact constraint i
         workv.set_zero(ROWS);
-         q.events[i]->compute_event_data(workM, workv);
+         q.constraints[i]->compute_constraint_data(workM, workv);
 
         if (ROWS == 3)
         {
@@ -312,8 +312,8 @@ void AccelerationEventHandler::compute_problem_data(AccelerationEventData& q)
       }
       else
       {
-        // compute matrix for cross event
-         q.events[i]->compute_cross_event_data(* q.events[j], workM);
+        // compute matrix for cross constraint
+         q.constraints[i]->compute_cross_constraint_data(* q.constraints[j], workM);
 
         if (ROWS == 3)
         {
@@ -383,17 +383,17 @@ void AccelerationEventHandler::compute_problem_data(AccelerationEventData& q)
   }
 }
 
- /// Solves the Resting Event LCP
-bool AccelerationEventHandler::solve_lcp(AccelerationEventData& q, VectorNd& z)
+ /// Solves the Resting constraint LCP
+bool SustainedUnilateralConstraintHandler::solve_lcp(SustainedUnilateralConstraintProblemData& q, VectorNd& z)
 {
   SAFESTATIC MatrixNd UL, LL, MM,UR,workM;
   SAFESTATIC VectorNd qq,workv;
-  FILE_LOG(LOG_EVENT) << "AccelerationEventHandler::solve_lcp() entered" << std::endl;
+  FILE_LOG(LOG_EVENT) << "SustainedUnilateralConstraintHandler::solve_lcp() entered" << std::endl;
 
   unsigned NK_DIRS = 0;
   for(unsigned i=0,j=0,r=0;i<q.N_CONTACTS;i++)
-    if(q.events[i]->get_friction_type() == Event::eSticking)
-      NK_DIRS+=(q.events[i]->contact_NK+4)/4;
+    if(q.constraints[i]->get_friction_type() == UnilateralConstraint::eSticking)
+      NK_DIRS+=(q.constraints[i]->contact_NK+4)/4;
 
   // setup sizes
   UL.set_zero(q.N_CONTACTS+q.N_STICKING*4, q.N_CONTACTS+q.N_STICKING*4);
@@ -476,8 +476,8 @@ bool AccelerationEventHandler::solve_lcp(AccelerationEventData& q, VectorNd& z)
     // lower left & upper right block of matrix
     for(unsigned i=0,j=0,r=0;i<q.N_CONTACTS;i++)
     {
-      const Event* ci =  q.events[i];
-      if(ci->get_friction_type() == Event::eSticking)
+      const UnilateralConstraint* ci =  q.constraints[i];
+      if(ci->get_friction_type() == UnilateralConstraint::eSticking)
       {
         int nk4 = ( ci->contact_NK+4)/4;
         for(unsigned k=0;k<nk4;k++)
@@ -527,9 +527,9 @@ bool AccelerationEventHandler::solve_lcp(AccelerationEventData& q, VectorNd& z)
 
   for(unsigned i=0,j=0;i<q.N_CONTACTS;i++)
   {
-    const Event* ci =  q.events[i];
+    const UnilateralConstraint* ci =  q.constraints[i];
     q.cn[i] = z[i];
-    if(ci->get_friction_type() == Event::eSticking)
+    if(ci->get_friction_type() == UnilateralConstraint::eSticking)
     {
       q.cs[i] = z[q.N_CONTACTS+j] - z[q.N_CONTACTS+q.N_STICKING+j];
       q.ct[i] = z[q.N_CONTACTS+q.N_STICKING*2+j] - z[q.N_CONTACTS+q.N_STICKING*3+j];
@@ -547,27 +547,27 @@ bool AccelerationEventHandler::solve_lcp(AccelerationEventData& q, VectorNd& z)
   shared_ptr<Pose3d> P(new Pose3d);
 
   // save normal contact impulses
-  for (unsigned i=0; i< q.events.size(); i++)
+  for (unsigned i=0; i< q.constraints.size(); i++)
   {
-    // verify that the event type is a contact
-    assert(q.events[i]->event_type == Event::eContact);
+    // verify that the constraint type is a contact
+    assert(q.constraints[i]->constraint_type == UnilateralConstraint::eContact);
 
     // setup the contact frame
     P->q.set_identity();
-    P->x = q.events[i]->contact_point;
+    P->x = q.constraints[i]->contact_point;
 
     // setup the impulse in the contact frame
     Vector3d f;
-    f = q.events[i]->contact_normal * q.cn[i];
-    f += q.events[i]->contact_tan1 * q.cs[i];
-    f += q.events[i]->contact_tan2 * q.ct[i];
+    f = q.constraints[i]->contact_normal * q.cn[i];
+    f += q.constraints[i]->contact_tan1 * q.cs[i];
+    f += q.constraints[i]->contact_tan2 * q.ct[i];
 
     // setup the spatial force
     SForced fx(boost::const_pointer_cast<const Pose3d>(P));
     fx.set_force(f);    
 
     // transform the impulse to the global frame
-    q.events[i]->contact_impulse = Pose3d::transform(GLOBAL, fx);
+    q.constraints[i]->contact_impulse = Pose3d::transform(GLOBAL, fx);
   }
 
   if (LOGGING(LOG_EVENT))
@@ -577,7 +577,7 @@ bool AccelerationEventHandler::solve_lcp(AccelerationEventData& q, VectorNd& z)
     MM.mult(z, w) += qq;
 
     // output new acceleration
-    FILE_LOG(LOG_EVENT) << "new normal acceleration: " << w.segment(0, q.events.size()) << std::endl;
+    FILE_LOG(LOG_EVENT) << "new normal acceleration: " << w.segment(0, q.constraints.size()) << std::endl;
   } 
 
   FILE_LOG(LOG_EVENT) << "cn " << q.cn << std::endl;
@@ -585,13 +585,13 @@ bool AccelerationEventHandler::solve_lcp(AccelerationEventData& q, VectorNd& z)
   FILE_LOG(LOG_EVENT) << "ct " << q.ct << std::endl;
 
   FILE_LOG(LOG_EVENT) << " LCP result : " << z << std::endl;
-  FILE_LOG(LOG_EVENT) << "AccelerationEventHandler::solve_lcp() exited" << std::endl;
+  FILE_LOG(LOG_EVENT) << "SustainedUnilateralConstraintHandler::solve_lcp() exited" << std::endl;
 
   return true;
 }
 
 /// Gets the super body (articulated if any)
-DynamicBodyPtr AccelerationEventHandler::get_super_body(SingleBodyPtr sb)
+DynamicBodyPtr SustainedUnilateralConstraintHandler::get_super_body(SingleBodyPtr sb)
 {
   ArticulatedBodyPtr ab = sb->get_articulated_body();
   if (ab)
@@ -600,7 +600,7 @@ DynamicBodyPtr AccelerationEventHandler::get_super_body(SingleBodyPtr sb)
     return sb;
 }
 
-bool AccelerationEventHandler::solve_lcp(const MatrixNd& M, const VectorNd& q, VectorNd& z)
+bool SustainedUnilateralConstraintHandler::solve_lcp(const MatrixNd& M, const VectorNd& q, VectorNd& z)
 {
   if (!_lcp.lcp_lemke(M, q, z))
     return false; 
