@@ -174,11 +174,11 @@ void PenaltyConstraintHandler::apply_model(const vector<UnilateralConstraint>& c
       penalty_force -= depth * normal * e.contact_penalty_Kp;
 
       // Velocity
-//      penalty_force += -rvlin.dot(normal) * normal * e.contact_penalty_Kv;
+      penalty_force += -rvlin.dot(normal) * normal * e.contact_penalty_Kv;
 
       // Friction
-//      penalty_force += -tan1.dot(rvlin) * tan1 * e.contact_mu_viscous;
-//      penalty_force += -tan2.dot(rvlin) * tan2 * e.contact_mu_viscous;
+      penalty_force += -tan1.dot(rvlin) * tan1 * e.contact_mu_viscous;
+      penalty_force += -tan2.dot(rvlin) * tan2 * e.contact_mu_viscous;
 
       FILE_LOG(LOG_EVENT) << "Penalty Force: " << penalty_force << endl;
 
