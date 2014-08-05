@@ -12,11 +12,11 @@
 namespace Moby {
 
 /// Exception thrown when general numerical error occurs 
-class AccelerationEventFailException : public std::runtime_error
+class SustainedUnilateralConstraintSolveFailException : public std::runtime_error
 {
   public:
-    AccelerationEventFailException() : std::runtime_error("AccelerationEventFailException error") {}
-    AccelerationEventFailException(const char* error) : std::runtime_error(error) {}
+    SustainedUnilateralConstraintSolveFailException() : std::runtime_error("SustainedUnilateralConstraintSolveFailException error") {}
+    SustainedUnilateralConstraintSolveFailException(const char* error) : std::runtime_error(error) {}
 }; // end class
 
 

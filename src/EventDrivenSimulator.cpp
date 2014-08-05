@@ -15,7 +15,7 @@
 #include <Moby/ContactParameters.h>
 #include <Moby/VariableStepIntegrator.h>
 #include <Moby/ImpactToleranceException.h>
-#include <Moby/AccelerationEventFailException.h>
+#include <Moby/SustainedUnilateralConstraintSolveFailException.h>
 #include <Moby/InvalidStateException.h>
 #include <Moby/InvalidVelocityException.h>
 #include <Moby/EventDrivenSimulator.h>
@@ -45,14 +45,14 @@ using namespace Moby;
 /// Default constructor
 EventDrivenSimulator::EventDrivenSimulator()
 {
-  event_callback_fn = NULL;
-  event_post_impulse_callback_fn = NULL;
+  constraint_callback_fn = NULL;
+  constraint_post_callback_fn = NULL;
   post_mini_step_callback_fn = NULL;
   get_contact_parameters_callback_fn = NULL;
   render_contact_points = false;
 
-  // setup the maximum event processing time
-  max_event_time = std::numeric_limits<double>::max();
+  // setup the maximum constraint processing time
+  max_constraint_time = std::numeric_limits<double>::max();
 
   // setup the minimum advancement
   min_advance = 1e-6;
@@ -70,17 +70,17 @@ EventDrivenSimulator::EventDrivenSimulator()
   minimum_step = 1e-5;
 }
 
-/// Compares two events for purposes of mapping velocity tolerances
-bool EventDrivenSimulator::EventCmp::operator()(const Event& e1, const Event& e2)
+/// Compares two unilateral constraints for purposes of mapping velocity tolerances
+bool EventDrivenSimulator::UnilateralConstraintCmp::operator()(const UnilateralConstraint& e1, const UnilateralConstraint& e2)
  const
 {
-  if (e1.event_type == Event::eLimit)
+  if (e1.constraint_type == UnilateralConstraint::eLimit)
   {
-    // we'll place limit events before contact events
-    if (e2.event_type == Event::eContact)
+    // we'll place limit constraints before contact constraints
+    if (e2.constraint_type == UnilateralConstraint::eContact)
       return true;
 
-    // if here, both are limit events
+    // if here, both are limit constraints
     unsigned lj1 = e1.limit_joint->get_coord_index() + e1.limit_dof;
     unsigned lj2 = e2.limit_joint->get_coord_index() + e2.limit_dof;
     if (lj1 < lj2)
@@ -93,8 +93,8 @@ bool EventDrivenSimulator::EventCmp::operator()(const Event& e1, const Event& e2
   }
   else
   {
-    // first event is contact; check to see whether the second event is a contact
-    if (e2.event_type == Event::eContact)
+    // first constraint is contact; check to see whether the second constraint is a contact
+    if (e2.constraint_type == UnilateralConstraint::eContact)
     {
       long cg11 = (long) e1.contact_geom1.get();
       long cg12 = (long) e1.contact_geom2.get();
@@ -117,60 +117,49 @@ bool EventDrivenSimulator::EventCmp::operator()(const Event& e1, const Event& e2
   }
 }
 
-/// Handles acceleration events
-void EventDrivenSimulator::handle_acceleration_events()
+/// Handles sustained rigid unilateral constraints 
+void EventDrivenSimulator::calc_rigid_sustained_unilateral_constraint_forces()
 {
-  // if there are no events, quit now
-  if (_events.empty())
+  // if there are no constraints, quit now
+  if (_rigid_constraints.empty())
     return;
 
   // call the callback function, if any
-  if (event_callback_fn)
-    (*event_callback_fn)(_events, event_callback_data);
+  if (constraint_callback_fn)
+    (*constraint_callback_fn)(_rigid_constraints, constraint_callback_data);
 
-  // preprocess events
-  for (unsigned i=0; i< _events.size(); i++)
-    preprocess_event(_events[i]);
+  // preprocess constraints
+  for (unsigned i=0; i< _rigid_constraints.size(); i++)
+    preprocess_constraint(_rigid_constraints[i]);
 
-  // begin timing for event handling
+  // begin timing for constraint handling
   clock_t start = clock();
 
   // compute forces here...
-  _accel_event_handler.process_events(_events);
+  _rigid_unilateral_constraint_handler.process_constraints(_rigid_constraints);
 
-  // tabulate times for event handling
+  // tabulate times for constraint handling
   tms cstop;
   clock_t stop = times(&cstop);
-  event_time += (double) (stop-start)/sysconf(_SC_CLK_TCK);
+  constraint_time += (double) (stop-start)/sysconf(_SC_CLK_TCK);
 
   // call the post-force application callback, if any
-  if (event_post_impulse_callback_fn)
-    (*event_post_impulse_callback_fn)(_events, event_post_impulse_callback_data);
-
-  // get super bodies for events
-  vector<DynamicBodyPtr> bodies;
-  BOOST_FOREACH(const Event& e, _events)
-    e.get_super_bodies(std::back_inserter(bodies));
-  std::sort(bodies.begin(), bodies.end());
-  bodies.erase(std::unique(bodies.begin(), bodies.end()), bodies.end());
-
-  // recompute forward dynamics for bodies in events
-  BOOST_FOREACH(DynamicBodyPtr body, bodies)
-    body->calc_fwd_dyn();
+  if (constraint_post_callback_fn)
+    (*constraint_post_callback_fn)(_rigid_constraints, constraint_post_callback_data);
 
   // output accelerations
   if (LOGGING(LOG_EVENT))
   {
     FILE_LOG(LOG_EVENT) << " -- post-contact acceleration (all contacts): " << std::endl;
-    BOOST_FOREACH(const Event& e, _events)
+    BOOST_FOREACH(const UnilateralConstraint& e, _rigid_constraints)
       FILE_LOG(LOG_EVENT) << e;
   }
 }
 
-/// Computes the ODE of the system for acceleration events
-VectorNd& EventDrivenSimulator::ode_accel_events(const VectorNd& x, double t, double dt, void* data, VectorNd& dx)
+/// Computes the ODE for systems with sustained unilateral constraints
+VectorNd& EventDrivenSimulator::ode_sustained_constraints(const VectorNd& x, double t, double dt, void* data, VectorNd& dx)
 {
-  FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::ode_accel_events(t=" << t << ") entered" << std::endl;
+  FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::ode_sustained_constraints(t=" << t << ") entered" << std::endl;
 
   // get the simulator
   shared_ptr<EventDrivenSimulator>& s = *((shared_ptr<EventDrivenSimulator>*) data);
@@ -204,7 +193,7 @@ VectorNd& EventDrivenSimulator::ode_accel_events(const VectorNd& x, double t, do
     FILE_LOG(LOG_SIMULATOR) << "evaluating derivative for body " << db->id << " at state " << xsub << std::endl;
 
     // compute the ODE
-    db->prepare_to_calc_ode_accel_events(xsub, t, dt, &db);
+    db->prepare_to_calc_ode_sustained_constraints(xsub, t, dt, &db);
 
     // update idx
     idx += NGC+NGV;
@@ -216,17 +205,17 @@ VectorNd& EventDrivenSimulator::ode_accel_events(const VectorNd& x, double t, do
   // check pairwise constraint violations
   double min_dist = s->check_pairwise_constraint_violations(t);
 
-  // find events
-  s->find_events(s->sustained_contact_dist_thresh);
-  if (s->_events.empty())
-    FILE_LOG(LOG_SIMULATOR) << " *** events vector is unexpectedly empty! ***" << std::endl;
+  // find unilateral constraints
+  s->find_unilateral_constraints(s->sustained_contact_dist_thresh);
+  if (s->_rigid_constraints.empty())
+    FILE_LOG(LOG_SIMULATOR) << " *** constraints vector is unexpectedly empty! ***" << std::endl;
 
   // check velocity violations for constraints
   s->check_constraint_velocity_violations(t);
 
-  // convert events to acceleration events
-  for (unsigned i=0; i< s->_events.size(); i++)
-    s->_events[i].deriv_type = Event::eAccel;
+  // convert rigid constraints to acceleration constraints
+  for (unsigned i=0; i< s->_rigid_constraints.size(); i++)
+    s->_rigid_constraints[i].deriv_type = UnilateralConstraint::eAccel;
 
   // loop through all bodies, computing forward dynamics
   BOOST_FOREACH(DynamicBodyPtr db, s->_bodies)
@@ -237,8 +226,24 @@ VectorNd& EventDrivenSimulator::ode_accel_events(const VectorNd& x, double t, do
     db->calc_fwd_dyn();
   }
 
-  // compute acceleration-based event forces
-  s->handle_acceleration_events();
+  // compute compliant contact forces
+  s->calc_compliant_unilateral_constraint_forces();
+
+  // compute rigid unilateral constraint forces
+  s->calc_rigid_sustained_unilateral_constraint_forces();
+
+  // get super bodies for constraints
+  vector<DynamicBodyPtr> bodies;
+  BOOST_FOREACH(const UnilateralConstraint& e, s->_rigid_constraints)
+    e.get_super_bodies(std::back_inserter(bodies));
+  BOOST_FOREACH(const UnilateralConstraint& e, s->_compliant_constraints)
+    e.get_super_bodies(std::back_inserter(bodies));
+  std::sort(bodies.begin(), bodies.end());
+  bodies.erase(std::unique(bodies.begin(), bodies.end()), bodies.end());
+
+  // recompute forward dynamics for bodies in constraints
+  BOOST_FOREACH(DynamicBodyPtr body, bodies)
+    body->calc_fwd_dyn();
 
   // reset idx
   idx = 0;
@@ -269,7 +274,7 @@ VectorNd& EventDrivenSimulator::ode_accel_events(const VectorNd& x, double t, do
   if (t == s->current_time)
     s->_current_accel_dx = dx;
 
-  FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::ode_accel_events(t=" << t << ") exited" << std::endl;
+  FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::ode_sustained_constraints(t=" << t << ") exited" << std::endl;
 
   // return the ODE
   return dx;
@@ -373,8 +378,8 @@ shared_ptr<ContactParameters> EventDrivenSimulator::get_contact_parameters(Colli
 }
 
 /// Draws a ray directed from a contact point along the contact normal
-void EventDrivenSimulator::visualize_contact( Event& event ) {
-
+void EventDrivenSimulator::visualize_contact( UnilateralConstraint& constraint ) 
+{
   #ifdef USE_OSG
 
   // random color for this contact visualization
@@ -391,7 +396,7 @@ void EventDrivenSimulator::visualize_contact( Event& event ) {
   const double head_radius = 0.5;
   const double head_height = 2.0;
 
-  // the osg node this event visualization will attach to
+  // the osg node this constraint visualization will attach to
   osg::Group* contact_root = new osg::Group();
 
   // turn off lighting for this node
@@ -429,10 +434,10 @@ void EventDrivenSimulator::visualize_contact( Event& event ) {
   // Note: the default orientation of the osg model is along the z-axis
   double theta;
   Vector3d z = Vector3d( 0.0, 0.0, 1.0 );
-  Vector3d axis = Vector3d::cross( event.contact_normal, z );
+  Vector3d axis = Vector3d::cross( constraint.contact_normal, z );
   if( axis.norm_inf() < NEAR_ZERO) {
     // z and normal are parallel, axis ill defined
-    if( event.contact_normal[2] > 0 ) {
+    if( constraint.contact_normal[2] > 0 ) {
       // normal is z
       axis = Vector3d( 0.0, 1.0, 0.0 );
       theta = 0.0;
@@ -444,14 +449,14 @@ void EventDrivenSimulator::visualize_contact( Event& event ) {
   } else {
     // axis is well defined
     axis = Vector3d::normalize(axis);
-    theta = -std::acos( Vector3d::dot( event.contact_normal, z ) );
+    theta = -std::acos( Vector3d::dot( constraint.contact_normal, z ) );
     // Note: theta calculation works but is not robust, could be rotated in opposite direction
   }
   osg::Quat q = osg::Quat( axis[0]*std::sin(theta/2), axis[1]*std::sin(theta/2), axis[2]*std::sin(theta/2), std::cos(theta/2) );
 
   // create the visualization transform
   osg::PositionAttitudeTransform* contact_transform = new osg::PositionAttitudeTransform();
-  contact_transform->setPosition( osg::Vec3( event.contact_point[0], event.contact_point[1], event.contact_point[2] ) );
+  contact_transform->setPosition( osg::Vec3( constraint.contact_point[0], constraint.contact_point[1], constraint.contact_point[2] ) );
   contact_transform->setScale( osg::Vec3( point_scale, point_scale, point_scale ) );
   contact_transform->setAttitude( q );
 
@@ -487,7 +492,7 @@ void EventDrivenSimulator::visualize_contact( Event& event ) {
 
   // colocate the validator position to the contact point
   osg::PositionAttitudeTransform* validator_transform = new osg::PositionAttitudeTransform();
-  validator_transform->setPosition( osg::Vec3( event.contact_point[0], event.contact_point[1], event.contact_point[2] ) );
+  validator_transform->setPosition( osg::Vec3( constraint.contact_point[0], constraint.contact_point[1], constraint.contact_point[2] ) );
   validator_transform->setScale( osg::Vec3( validator_scale, validator_scale, validator_scale ) );
   validator_root->addChild( validator_transform );
 
@@ -499,7 +504,7 @@ void EventDrivenSimulator::visualize_contact( Event& event ) {
   // validator transform follows the normal out to a distance of validator_ray_length
   // Note: the validator is not rotated at all.  It is translated from the point along the normal
   osg::PositionAttitudeTransform* validator_end_transform = new osg::PositionAttitudeTransform();
-  validator_end_transform->setPosition( osg::Vec3( event.contact_normal[0] * validator_ray_length, event.contact_normal[1] * validator_ray_length, event.contact_normal[2] * validator_ray_length ) );
+  validator_end_transform->setPosition( osg::Vec3( constraint.contact_normal[0] * validator_ray_length, constraint.contact_normal[1] * validator_ray_length, constraint.contact_normal[2] * validator_ray_length ) );
   validator_transform->addChild( validator_end_transform );
 
   // add all validator constituents to the group
@@ -512,66 +517,101 @@ void EventDrivenSimulator::visualize_contact( Event& event ) {
   #endif // USE_OSG
 }
 
-/// Handles events
-void EventDrivenSimulator::handle_events()
+/// Handles constraints
+void EventDrivenSimulator::calc_impacting_unilateral_constraint_forces(double dt)
 {
-  // if there are no events, quit now
-  if (_events.empty())
+  // if there are no constraints, quit now
+  if (_rigid_constraints.empty())
     return;
 
   // call the callback function, if any
-  if (event_callback_fn)
-    (*event_callback_fn)(_events, event_callback_data);
+  if (constraint_callback_fn)
+    (*constraint_callback_fn)(_rigid_constraints, constraint_callback_data);
 
-  // preprocess events
-  for (unsigned i=0; i< _events.size(); i++)
-    preprocess_event(_events[i]);
+  // preprocess constraints
+  for (unsigned i=0; i< _rigid_constraints.size(); i++)
+    preprocess_constraint(_rigid_constraints[i]);
 
-  // if the setting is enabled, draw all contact events
+  // if the setting is enabled, draw all contact constraints
   if( render_contact_points ) {
-    for ( std::vector<Event>::iterator it = _events.begin(); it < _events.end(); it++ ) {
-      Event event = *it;
-      if( event.event_type != Event::eContact ) continue;
-      visualize_contact( event );
+    for ( std::vector<UnilateralConstraint>::iterator it = _rigid_constraints.begin(); it < _rigid_constraints.end(); it++ ) {
+      UnilateralConstraint& constraint = *it;
+      if( constraint.constraint_type != UnilateralConstraint::eContact ) continue;
+      visualize_contact( constraint );
     }
   }
 
-  // begin timing for event handling
+  // begin timing for constraint handling
   clock_t start = clock();
 
   // compute impulses here...
   try
   {
-    _impact_event_handler.process_events(_events, max_event_time);
+    if (dt <= 0.0)
+      _impact_constraint_handler.process_constraints(_rigid_constraints, max_constraint_time);
+    else
+      _impact_constraint_handler.process_constraints(_rigid_constraints, max_constraint_time, 0.1/dt);
   }
   catch (ImpactToleranceException e)
   {
-    std::cerr << "warning: impacting event tolerances exceeded" << std::endl;
+    std::cerr << "warning: impacting constraint tolerances exceeded" << std::endl;
   }
 
-  // tabulate times for event handling
+  // tabulate times for constraint handling
   tms cstop;
   clock_t stop = times(&cstop);
-  event_time += (double) (stop-start)/sysconf(_SC_CLK_TCK);
+  constraint_time += (double) (stop-start)/sysconf(_SC_CLK_TCK);
 
-  // call the post-impulse application callback, if any
-  if (event_post_impulse_callback_fn)
-    (*event_post_impulse_callback_fn)(_events, event_post_impulse_callback_data);
+  // call the post application callback, if any
+  if (constraint_post_callback_fn)
+    (*constraint_post_callback_fn)(_rigid_constraints, constraint_post_callback_data);
 }
 
-/// Performs necessary preprocessing on an event
-void EventDrivenSimulator::preprocess_event(Event& e)
+/// Computes compliant contact forces 
+void EventDrivenSimulator::calc_compliant_unilateral_constraint_forces()
 {
-  // no pre-processing for limit events currently...
-  if (e.event_type == Event::eLimit)
+  // if there are no compliant constraints, quit now
+  if (_compliant_constraints.empty())
     return;
 
-  // no pre-processing for (none) events
-  if (e.event_type == Event::eNone)
+  // call the callback function, if any
+  if (constraint_callback_fn)
+    (*constraint_callback_fn)(_compliant_constraints, constraint_callback_data);
+
+  // preprocess constraints
+  for (unsigned i=0; i< _compliant_constraints.size(); i++)
+    preprocess_constraint(_compliant_constraints[i]);
+
+  // if the setting is enabled, draw all contact constraints
+  if( render_contact_points ) {
+    for ( std::vector<UnilateralConstraint>::iterator it = _compliant_constraints.begin(); it < _compliant_constraints.end(); it++ ) {
+      UnilateralConstraint& constraint = *it;
+      if( constraint.constraint_type != UnilateralConstraint::eContact ) continue;
+      visualize_contact( constraint );
+    }
+  }
+
+  // compute contact constraint penalty forces here...
+  _penalty_constraint_handler.process_constraints(_compliant_constraints);
+
+  // call the post application callback, if any 
+  if (constraint_post_callback_fn)
+    (*constraint_post_callback_fn)(_compliant_constraints, constraint_post_callback_data);
+}
+
+/// Performs necessary preprocessing on an constraint
+void EventDrivenSimulator::preprocess_constraint(UnilateralConstraint& e)
+{
+  // no pre-processing for limit constraints currently...
+  if (e.constraint_type == UnilateralConstraint::eLimit)
+    return;
+
+  // no pre-processing for (none) constraints
+  if (e.constraint_type == UnilateralConstraint::eNone)
     return;
 
   // get the contact parameters
-  assert(e.event_type == Event::eContact);
+  assert(e.constraint_type == UnilateralConstraint::eContact);
   shared_ptr<ContactParameters> cparams = get_contact_parameters(e.contact_geom1, e.contact_geom2);
   if (cparams)
     e.set_contact_parameters(*cparams);
@@ -579,7 +619,7 @@ void EventDrivenSimulator::preprocess_event(Event& e)
   {
     SingleBodyPtr sb1(e.contact_geom1->get_single_body());
     SingleBodyPtr sb2(e.contact_geom2->get_single_body());
-    std::cerr << "EventDrivenSimulator::preprocess_event() warning- no contact ";
+    std::cerr << "EventDrivenSimulator::preprocess_constraint() warning- no contact ";
     std::cerr << "data for contact" << std::endl;
     std::cerr << "  between " << e.contact_geom1->id << " (body ";
     std::cerr << sb1->id << ") and " << e.contact_geom2->id;
@@ -620,7 +660,7 @@ double EventDrivenSimulator::step(double step_size)
 
   // clear timings
   dynamics_time = (double) 0.0;
-  event_time = (double) 0.0;
+  constraint_time = (double) 0.0;
   coldet_time = (double) 0.0;
 
   // clear statistics and step times
@@ -700,8 +740,8 @@ double EventDrivenSimulator::step(double step_size)
 
     // if there are any impacts at the current time, handle them
     FILE_LOG(LOG_SIMULATOR) << "  - preparing to handle any impacts at the current time" << std::endl;
-    find_events(impacting_contact_dist_thresh);
-    handle_events();
+    find_unilateral_constraints(impacting_contact_dist_thresh);
+    calc_impacting_unilateral_constraint_forces(-1.0);
 
 restart_with_new_limits:
 
@@ -712,7 +752,7 @@ restart_with_new_limits:
     double safe_dt = std::min(calc_CA_step(), dt);
     FILE_LOG(LOG_SIMULATOR) << "  - conservative advancement step: " << safe_dt << std::endl;
 
-    // get next possible event time
+    // get next possible constraint time
     double next_event_time = calc_next_CA_step(sustained_contact_dist_thresh);
     FILE_LOG(LOG_SIMULATOR) << "  - *next* conservative advancement step: " << next_event_time << std::endl;
 
@@ -827,6 +867,13 @@ double EventDrivenSimulator::calc_next_CA_Euler_step(double contact_dist_thresh)
   // get next possible event time
   BOOST_FOREACH(const PairwiseDistInfo& pdi, _pairwise_distances)
   {
+    // only process if neither of the bodies is compliant
+    RigidBodyPtr rba = dynamic_pointer_cast<RigidBody>(pdi.a->get_single_body());
+    RigidBodyPtr rbb = dynamic_pointer_cast<RigidBody>(pdi.b->get_single_body());
+    if (rba->compliance == RigidBody::eCompliant || 
+        rbb->compliance == RigidBody::eCompliant)
+      continue; 
+
     // if the distance is below the threshold, we have found a current event
     if (pdi.dist < contact_dist_thresh)
       found_one = true;
@@ -883,6 +930,13 @@ double EventDrivenSimulator::calc_next_CA_step(double contact_dist_thresh) const
   // get next possible event time
   BOOST_FOREACH(const PairwiseDistInfo& pdi, _pairwise_distances)
   {
+    // only process if neither of the bodies is compliant
+    RigidBodyPtr rba = dynamic_pointer_cast<RigidBody>(pdi.a->get_single_body());
+    RigidBodyPtr rbb = dynamic_pointer_cast<RigidBody>(pdi.b->get_single_body());
+    if (rba->compliance == RigidBody::eCompliant || 
+        rbb->compliance == RigidBody::eCompliant)
+      continue; 
+
     // if the distance is below the threshold, we have found a current event
     if (pdi.dist < contact_dist_thresh)
       found_one = true;
@@ -908,9 +962,9 @@ EventDrivenSimulator::IntegrationResult EventDrivenSimulator::integrate_generic(
     try
     {
       // do "smart" integration (watching for state violation)
-      integrate_with_accel_events(dt);
+      integrate_with_sustained_constraints(dt);
 
-      FILE_LOG(LOG_SIMULATOR) << "Integration with acceleration events successful" << std::endl;
+      FILE_LOG(LOG_SIMULATOR) << "Integration with sustained constraints successful" << std::endl;
 
       // check whether velocity estimates have been exceeded
       BOOST_FOREACH(DynamicBodyPtr db, _bodies)
@@ -959,7 +1013,7 @@ EventDrivenSimulator::IntegrationResult EventDrivenSimulator::integrate_generic(
       step_times[2] += (double) (clock() - start)/sysconf(_SC_CLK_TCK);
       start = clock();
     }
-    catch (AccelerationEventFailException e)
+    catch (SustainedUnilateralConstraintSolveFailException e)
     {
       FILE_LOG(LOG_SIMULATOR) << " ** failed to solve an LCP; halving step size" << std::endl;
 
@@ -1057,21 +1111,21 @@ void EventDrivenSimulator::check_constraint_velocity_violations(double t)
 {
   FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::check_constraint_velocity_violations() entered" << std::endl;
 
-  // loop over all events
-  for (unsigned i=0; i< _events.size(); i++)
+  // loop over all constraints
+  for (unsigned i=0; i< _rigid_constraints.size(); i++)
   {
-    // get the event velocity
-    double ev = _events[i].calc_event_vel();
+    // get the constraint velocity
+    double ev = _rigid_constraints[i].calc_constraint_vel();
 
-    // look for the event in the mapping
-    std::map<Event, double, EventCmp>::const_iterator zv_tol = _zero_velocity_tolerances.find(_events[i]);
+    // look for the constraint in the mapping
+    std::map<UnilateralConstraint, double, UnilateralConstraintCmp>::const_iterator zv_tol = _zero_velocity_tolerances.find(_rigid_constraints[i]);
     if (zv_tol == _zero_velocity_tolerances.end())
     {
-      _zero_velocity_tolerances[_events[i]] = NEAR_ZERO;
-      zv_tol = _zero_velocity_tolerances.find(_events[i]);
+      _zero_velocity_tolerances[_rigid_constraints[i]] = NEAR_ZERO;
+      zv_tol = _zero_velocity_tolerances.find(_rigid_constraints[i]);
     }
 
-    FILE_LOG(LOG_SIMULATOR) << " -- event velocity: " << ev << std::endl;
+    FILE_LOG(LOG_SIMULATOR) << " -- constraint velocity: " << ev << std::endl;
 
     // check whether it is larger than allowed
     if (ev < -zv_tol->second - NEAR_ZERO)
@@ -1103,8 +1157,14 @@ double EventDrivenSimulator::check_pairwise_constraint_violations(double t)
         continue;
 
       // make sure pairs of disabled rigid bodies are not checked
-      if (!rb1->is_enabled() && !dynamic_pointer_cast<RigidBody>(cg2->get_single_body())->is_enabled())
+      RigidBodyPtr rb2 = dynamic_pointer_cast<RigidBody>(cg2->get_single_body());
+      if (!rb1->is_enabled() && !rb2->is_enabled())
         continue;
+
+      // only process if neither of the bodies is compliant
+      if (rb1->compliance == RigidBody::eCompliant || 
+          rb2->compliance == RigidBody::eCompliant)
+        continue; 
 
       // compute the distance between the two bodies
       Point3d p1, p2;
@@ -1131,6 +1191,13 @@ void EventDrivenSimulator::update_constraint_violations(const vector<PairwiseDis
   // set possible constraint violation
   BOOST_FOREACH(const PairwiseDistInfo& pdi, pairwise_distances)
   {
+    // only process if neither of the bodies is compliant
+    RigidBodyPtr rba = dynamic_pointer_cast<RigidBody>(pdi.a->get_single_body());
+    RigidBodyPtr rbb = dynamic_pointer_cast<RigidBody>(pdi.b->get_single_body());
+    if (rba->compliance == RigidBody::eCompliant || 
+        rbb->compliance == RigidBody::eCompliant)
+      continue; 
+
     if (pdi.dist <= 0)
       _ip_tolerances[make_sorted_pair(pdi.a, pdi.b)] = pdi.dist;
     else
@@ -1171,6 +1238,14 @@ double EventDrivenSimulator::calc_CA_step()
   // do narrow-phase collision detection here
   BOOST_FOREACH(const PairwiseDistInfo& pdi, _pairwise_distances)
   {
+    // only process if neither of the bodies is compliant
+    RigidBodyPtr rba = dynamic_pointer_cast<RigidBody>(pdi.a->get_single_body());
+    RigidBodyPtr rbb = dynamic_pointer_cast<RigidBody>(pdi.b->get_single_body());
+    if (rba->compliance == RigidBody::eCompliant || 
+        rbb->compliance == RigidBody::eCompliant)
+      continue; 
+
+    // call conservative advancement method
     double step = _ccd.calc_CA_step(pdi);
     dt = std::min(dt, step);
     if (dt <= 0.0)
@@ -1191,8 +1266,10 @@ void EventDrivenSimulator::reset_limit_estimates() const
 }
 
 /// Computes forward dynamics for all bodies
-void EventDrivenSimulator::calc_fwd_dyn() const
+void EventDrivenSimulator::calc_fwd_dyn()
 {
+  // clear force accumulators, then add all recurrent and compliant
+  // constraint forces
   BOOST_FOREACH(DynamicBodyPtr db, _bodies)
   {
     // clear the force accumulators on the body
@@ -1202,7 +1279,14 @@ void EventDrivenSimulator::calc_fwd_dyn() const
     const list<RecurrentForcePtr>& rfs = db->get_recurrent_forces();
     BOOST_FOREACH(RecurrentForcePtr rf, rfs)
       rf->add_force(db);
+  }
 
+  // calculate compliant constraint forces
+  calc_compliant_unilateral_constraint_forces();
+
+  // compute controller forces and call forward dynamics
+  BOOST_FOREACH(DynamicBodyPtr db, _bodies)
+  {
     // call the body's controller
     if (db->controller)
       (*db->controller)(db, current_time, db->controller_arg);
@@ -1292,15 +1376,16 @@ void EventDrivenSimulator::integrate_positions_Euler(double dt)
   }
 }
 
-/// Finds the set of events
-void EventDrivenSimulator::find_events(double contact_dist_thresh)
+/// Finds the set of unilateral constraints
+void EventDrivenSimulator::find_unilateral_constraints(double contact_dist_thresh)
 {
-  FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::find_events() entered" << std::endl;
+  FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::find_unilateral_constraints() entered" << std::endl;
 
-  // clear the set of events
-  _events.clear();
+  // clear the vectors of constraints
+  _rigid_constraints.clear();
+  _compliant_constraints.clear();
 
-  // process each articulated body, getting joint events
+  // process each articulated body, getting joint constraints
   for (unsigned i=0; i< _bodies.size(); i++)
   {
     // see whether the i'th body is articulated
@@ -1312,19 +1397,39 @@ void EventDrivenSimulator::find_events(double contact_dist_thresh)
     if (ab->get_kinematic())
       continue;
 
-    // get limit events
-    ab->find_limit_events(std::back_inserter(_events));
+    // get limit constraints
+    ab->find_limit_constraints(std::back_inserter(_rigid_constraints));
   }
 
-  // find contact events
+  // find contact constraints
   BOOST_FOREACH(const PairwiseDistInfo& pdi, _pairwise_distances)
     if (pdi.dist < contact_dist_thresh)
-      _ccd.find_contacts(pdi.a, pdi.b, std::back_inserter(_events));
+    {
+      // see whether one of the bodies is compliant
+      RigidBodyPtr rba = dynamic_pointer_cast<RigidBody>(pdi.a->get_single_body());
+      RigidBodyPtr rbb = dynamic_pointer_cast<RigidBody>(pdi.b->get_single_body());
+      if (rba->compliance == RigidBody::eCompliant || 
+          rbb->compliance == RigidBody::eCompliant)
+        _ccd.find_contacts(pdi.a, pdi.b, std::back_inserter(_compliant_constraints));
+      else        
+        _ccd.find_contacts(pdi.a, pdi.b, std::back_inserter(_rigid_constraints));
+    }
+
+  // set constraints to proper type
+  for (unsigned i=0; i< _compliant_constraints.size(); i++)
+    _compliant_constraints[i].compliance = UnilateralConstraint::eCompliant;
+  for (unsigned i=0; i< _rigid_constraints.size(); i++)
+    _rigid_constraints[i].compliance = UnilateralConstraint::eRigid;
 
   if (LOGGING(LOG_SIMULATOR))
-    for (unsigned i=0; i< _events.size(); i++)
-    FILE_LOG(LOG_SIMULATOR) << _events[i] << std::endl;
-  FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::find_events() exited" << std::endl;
+  {
+    for (unsigned i=0; i< _rigid_constraints.size(); i++)
+    FILE_LOG(LOG_SIMULATOR) << _rigid_constraints[i] << std::endl;
+    for (unsigned i=0; i< _compliant_constraints.size(); i++)
+    FILE_LOG(LOG_SIMULATOR) << _compliant_constraints[i] << std::endl;
+  }
+
+  FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::find_unilateral_constraints() exited" << std::endl;
 }
 
 /// Does a semi-implicit step
@@ -1343,12 +1448,12 @@ void EventDrivenSimulator::step_si_Euler(double dt)
   while (true)
   {
     // determine constraints (contacts, limits) that are currently active
-    FILE_LOG(LOG_SIMULATOR) << "   finding events" << std::endl;
-    find_events(impacting_contact_dist_thresh);
+    FILE_LOG(LOG_SIMULATOR) << "   finding constraints" << std::endl;
+    find_unilateral_constraints(impacting_contact_dist_thresh);
 
-    // solve events to yield new velocities
-    FILE_LOG(LOG_SIMULATOR) << "   handling events" << std::endl;
-    handle_events();
+    // solve constraints to yield new velocities
+    FILE_LOG(LOG_SIMULATOR) << "   handling constraints" << std::endl;
+    calc_impacting_unilateral_constraint_forces(-1.0);
 
     if (LOGGING(LOG_SIMULATOR))
     {
@@ -1356,7 +1461,7 @@ void EventDrivenSimulator::step_si_Euler(double dt)
       BOOST_FOREACH(DynamicBodyPtr db, _bodies)
       {
         db->get_generalized_velocity(DynamicBody::eSpatial, qd);
-        FILE_LOG(LOG_SIMULATOR) << " body " << db->id << " velocity (after event treatment): " << qd << std::endl;
+        FILE_LOG(LOG_SIMULATOR) << " body " << db->id << " velocity (after constraint treatment): " << qd << std::endl;
       }
     }
 
@@ -1401,10 +1506,10 @@ void EventDrivenSimulator::load_from_xml(shared_ptr<const XMLTree> node, map<std
   // first, load all data specified to the Simulator object
   Simulator::load_from_xml(node, id_map);
 
-  // read the maximum time to process events, if any
-  XMLAttrib* max_event_time_attrib = node->get_attrib("max-event-time");
-  if (max_event_time_attrib)
-    max_event_time = max_event_time_attrib->get_real_value();
+  // read the maximum time to process constraints, if any
+  XMLAttrib* max_constraint_time_attrib = node->get_attrib("max-constraint-time");
+  if (max_constraint_time_attrib)
+    max_constraint_time = max_constraint_time_attrib->get_real_value();
 
   // read the maximum Euler step
   XMLAttrib* Euler_step_attrib = node->get_attrib("Euler-step");
@@ -1543,8 +1648,8 @@ void EventDrivenSimulator::save_to_xml(XMLTreePtr node, list<shared_ptr<const Ba
   // reset the node's name
   node->name = "EventDrivenSimulator";
 
-  // save the maximum event time
-  node->attribs.insert(XMLAttrib("max-event-time", max_event_time));
+  // save the maximum constraint time
+  node->attribs.insert(XMLAttrib("max-constraint-time", max_constraint_time));
 
   // save the maximum Euler step
   node->attribs.insert(XMLAttrib("Euler-step", euler_step));

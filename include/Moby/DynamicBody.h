@@ -14,7 +14,6 @@
 #include <Moby/Integrator.h>
 #include <Moby/Log.h>
 #include <Moby/Visualizable.h>
-#include <Moby/Event.h>
 #include <Moby/RecurrentForce.h>
 
 namespace Moby {
@@ -199,10 +198,10 @@ class DynamicBody : public Visualizable
     /// Sets whether this body is kinematically updated (rather than having its dynamics integrated); default is false
     virtual void set_kinematic(bool flag) { _kinematic_update = flag; }
 
-    /// Prepares to compute the derivative of the body (sustained events) 
-    virtual void prepare_to_calc_ode_accel_events(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data) = 0;
+    /// Prepares to compute the derivative of the body (sustained constraints) 
+    virtual void prepare_to_calc_ode_sustained_constraints(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data) = 0;
 
-    /// Prepares to compute the derivative of the body (sustained events) 
+    /// Prepares to compute the derivative of the body
     virtual void prepare_to_calc_ode(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data) = 0;
 
     /// Computes the derivative of the body

@@ -1,5 +1,5 @@
 template <class BidirectionalIterator>
-void Event::insertion_sort(BidirectionalIterator first, BidirectionalIterator last)
+void UnilateralConstraint::insertion_sort(BidirectionalIterator first, BidirectionalIterator last)
 {
   // exit if nothing to do
   if (first == last)
@@ -22,7 +22,7 @@ void Event::insertion_sort(BidirectionalIterator first, BidirectionalIterator la
 }
 
 template <class OutputIterator>
-OutputIterator Event::get_super_bodies(OutputIterator begin) const
+OutputIterator UnilateralConstraint::get_super_bodies(OutputIterator begin) const
 {
   DynamicBodyPtr db1, db2;
   unsigned nb = get_super_bodies(db1, db2);

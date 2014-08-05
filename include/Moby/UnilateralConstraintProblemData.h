@@ -5,27 +5,27 @@
 #include <vector>
 #include <Ravelin/MatrixNd.h>
 #include <Ravelin/VectorNd.h>
-#include <Moby/Event.h>
+#include <Moby/UnilateralConstraint.h>
 #include <Moby/Types.h>
 
 namespace Moby {
 
-struct EventProblemData
+struct UnilateralConstraintProblemData
 {
   // setup reasonable defaults
-  EventProblemData()
+  UnilateralConstraintProblemData()
   {
     reset();
   }
 
-  // copies event problem data
-  EventProblemData& operator=(const EventProblemData& q)
+  // copies constraint problem data
+  UnilateralConstraintProblemData& operator=(const UnilateralConstraintProblemData& q)
   {
     return copy_from(q);
   }
 
-  // copies event problem data
-  EventProblemData& copy_from(const EventProblemData& q)
+  // copies constraint problem data
+  UnilateralConstraintProblemData& copy_from(const UnilateralConstraintProblemData& q)
   {
     N_K_TOTAL = q.N_K_TOTAL;
     N_LIN_CONE = q.N_LIN_CONE;
@@ -50,9 +50,9 @@ struct EventProblemData
     N_VARS = q.N_VARS;  
 
     // copy contact constraints
-    contact_constraints = q.contact_constraints;
+    contact_constraint_set = q.contact_constraint_set;
 
-    // copy event velocities
+    // copy constraint velocities
     Cn_v = q.Cn_v;
     Cs_v = q.Cs_v;
     Ct_v = q.Ct_v;
@@ -62,12 +62,12 @@ struct EventProblemData
     // the vector of "super" bodies
     super_bodies = q.super_bodies; 
 
-    // the vectors of events
-    events = q.events;
-    contact_events = q.contact_events;
-    limit_events = q.limit_events;
+    // the vectors of constraints
+    constraints = q.constraints;
+    contact_constraints = q.contact_constraints;
+    limit_constraints = q.limit_constraints;
 
-    // cross-event terms
+    // cross-constraint terms
     Cn_iM_CnT = q.Cn_iM_CnT;
     Cn_iM_CsT = q.Cn_iM_CsT;
     Cn_iM_CtT = q.Cn_iM_CtT;
@@ -94,7 +94,7 @@ struct EventProblemData
     return *this;
   }
 
-  // resets all event problem data
+  // resets all constraint problem data
   void reset()
   {
     N_K_TOTAL = N_LIN_CONE = N_TRUE_CONE = N_CONTACTS = 0;
@@ -110,11 +110,11 @@ struct EventProblemData
     ALPHA_X_IDX = 0;
 
     // clear all vectors
-    contact_constraints.clear();
+    contact_constraint_set.clear();
     super_bodies.clear();
-    events.clear();
-    contact_events.clear();
-    limit_events.clear();
+    constraints.clear();
+    contact_constraints.clear();
+    limit_constraints.clear();
 
     // reset all Ravelin::VectorNd sizes
     Cn_v.resize(0);
@@ -196,32 +196,32 @@ struct EventProblemData
     ct.segment(0, N_LIN_CONE) -= z.segment(NCT_IDX, L_IDX);
   }
 
-  // partitions event vectors into contact and limit events
-  void partition_events()
+  // partitions constraint vectors into contact and limit constraints
+  void partition_constraints()
   {
     const unsigned UINF = std::numeric_limits<unsigned>::max();
-    contact_events.clear();
-    limit_events.clear();
+    contact_constraints.clear();
+    limit_constraints.clear();
 
-    BOOST_FOREACH(Event* e, events)
+    BOOST_FOREACH(UnilateralConstraint* e, constraints)
     {
-      if (e->event_type == Event::eContact)
-        contact_events.push_back(e);
+      if (e->constraint_type == UnilateralConstraint::eContact)
+        contact_constraints.push_back(e);
       else
       {
-        assert(e->event_type == Event::eLimit);
-        limit_events.push_back(e);
+        assert(e->constraint_type == UnilateralConstraint::eLimit);
+        limit_constraints.push_back(e);
       }
     }
     
-    // now, sort the contact events such that events that use a true friction
+    // now, sort the contact constraints such that constraints that use a true friction
     // cone are at the end
-    if(!contact_events.empty()){
-      for (unsigned i=0, j=contact_events.size()-1; i< j; )
+    if(!contact_constraints.empty()){
+      for (unsigned i=0, j=contact_constraints.size()-1; i< j; )
       {
-        if (contact_events[i]->contact_NK == UINF)
+        if (contact_constraints[i]->contact_NK == UINF)
         {
-          std::swap(contact_events[i], contact_events[j]);
+          std::swap(contact_constraints[i], contact_constraints[j]);
           j--;
         } 
         else
@@ -290,7 +290,7 @@ struct EventProblemData
   // the total number of linearized friction tangents for *active* contacts
   unsigned N_ACT_K;
 
-  // the total number of linearized friction tangents for contact events
+  // the total number of linearized friction tangents for contact constraints
   unsigned N_K_TOTAL;
 
   // the number of contacts with linearized friction cones
@@ -326,13 +326,13 @@ struct EventProblemData
   // the vector of "super" bodies
   std::vector<DynamicBodyPtr> super_bodies; 
 
-  // the vectors of events
-  std::vector<Event*> events, contact_events, limit_events;
+  // the vectors of constraints
+  std::vector<UnilateralConstraint*> constraints, contact_constraints, limit_constraints;
 
-  // the vector indicating which contact events are in the linear constraint set 
-  std::vector<bool> contact_constraints;
+  // the vector indicating which contact constraints are in the linear constraint set 
+  std::vector<bool> contact_constraint_set;
 
-  // cross-event terms
+  // cross-constraint terms
   Ravelin::MatrixNd Cn_iM_CnT, Cn_iM_CsT, Cn_iM_CtT, Cn_iM_LT, Cn_iM_JxT;
   Ravelin::MatrixNd            Cs_iM_CsT, Cs_iM_CtT, Cs_iM_LT, Cs_iM_JxT;
   Ravelin::MatrixNd                       Ct_iM_CtT, Ct_iM_LT, Ct_iM_JxT;
