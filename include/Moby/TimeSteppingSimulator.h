@@ -7,12 +7,7 @@
 #ifndef _TIME_STEPPING_SIMULATOR_H
 #define _TIME_STEPPING_SIMULATOR_H
 
-#include <map>
-#include <Moby/sorted_pair>
 #include <Moby/EventDrivenSimulator.h>
-#include <Moby/PairwiseDistInfo.h>
-#include <Moby/CCD.h>
-#include <Moby/Event.h>
 
 namespace Moby {
 
@@ -37,9 +32,6 @@ class TimeSteppingSimulator : public EventDrivenSimulator
 
     /// Gets the shared pointer for this
     boost::shared_ptr<TimeSteppingSimulator> get_this() { return boost::dynamic_pointer_cast<TimeSteppingSimulator>(shared_from_this()); }
-    
-  private:
-    void handle_events(double dt);
 }; // end class
 
 } // end namespace

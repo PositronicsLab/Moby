@@ -244,7 +244,7 @@ void step(void* arg)
     if (!eds)
       std::cout << ITER << " " << s->dynamics_time << " " << std::endl;
     else
-      std::cout << ITER << " " << eds->dynamics_time << " " << eds->coldet_time << " " << eds->event_time << std::endl;
+      std::cout << ITER << " " << eds->dynamics_time << " " << eds->coldet_time << " " << eds->constraint_time << std::endl;
   }
   else if (!OUTPUT_TIMINGS && OUTPUT_STATS)
   {
@@ -265,7 +265,7 @@ void step(void* arg)
       std::cout << ITER << " " << s->dynamics_time << " " << std::endl;
     else
     {
-      std::cout << ITER << " " << eds->dynamics_time << " " << eds->coldet_time << " " << eds->event_time << " ";
+      std::cout << ITER << " " << eds->dynamics_time << " " << eds->coldet_time << " " << eds->constraint_time << " ";
       for (unsigned i=0; i< 6; i++)
         std::cout << eds->step_stats[i] << " (" << eds->step_times[i] << ") ";
       std::cout << std::endl;

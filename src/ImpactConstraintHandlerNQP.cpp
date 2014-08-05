@@ -14,7 +14,7 @@
 #include <numeric>
 #include <Moby/ArticulatedBody.h>
 #include <Moby/Constants.h>
-#include <Moby/Event.h>
+#include <Moby/UnilateralConstraint.h>
 #include <Moby/CollisionGeometry.h>
 #include <Moby/SingleBody.h>
 #include <Moby/RigidBody.h>
@@ -22,7 +22,7 @@
 #include <Moby/XMLTree.h>
 #include <Moby/ImpactToleranceException.h>
 #include <Moby/NumericalException.h>
-#include <Moby/ImpactEventHandler.h>
+#include <Moby/ImpactConstraintHandler.h>
 
 using namespace Ravelin;
 using namespace Moby;
@@ -38,20 +38,20 @@ using boost::dynamic_pointer_cast;
 
 /// Special functions that do nothing...
 #ifndef HAVE_IPOPT
-void ImpactEventHandler::solve_nqp(VectorNd& z, EventProblemData& q, double max_time)
+void ImpactConstraintHandler::solve_nqp(VectorNd& z, UnilateralConstraintProblemData& q, double max_time)
 {
   throw std::runtime_error("Build without IPOPT!");
 }
 
-void ImpactEventHandler::solve_nqp_work(EventProblemData& q, VectorNd& x)
+void ImpactConstraintHandler::solve_nqp_work(UnilateralConstraintProblemData& q, VectorNd& x)
 {
 }
 
 #else // #ifndef HAVE_IPOPT
 /// Solves the nonlinearly constrained quadratic program (potentially solves two nQPs, actually)
-void ImpactEventHandler::solve_nqp(VectorNd& z, EventProblemData& q, double max_time)
+void ImpactConstraintHandler::solve_nqp(VectorNd& z, UnilateralConstraintProblemData& q, double max_time)
 {
-  // get the number of different types of each event
+  // get the number of different types of each constraint
   const unsigned N_CONTACTS = q.N_CONTACTS;
   const unsigned N_LIMITS = q.N_LIMITS;
   const unsigned CL_IDX = N_CONTACTS*3;
@@ -82,7 +82,7 @@ void ImpactEventHandler::solve_nqp(VectorNd& z, EventProblemData& q, double max_
       break;
 
     // we can; mark next contact for solving
-    q.N_ACT_K += q.contact_events[q.N_ACT_CONTACTS]->contact_NK/2;
+    q.N_ACT_K += q.contact_constraints[q.N_ACT_CONTACTS]->contact_NK/2;
     q.N_ACT_CONTACTS++;
   }
 }
@@ -91,7 +91,7 @@ void ImpactEventHandler::solve_nqp(VectorNd& z, EventProblemData& q, double max_
 /**
  * \param x the solution is returned here; zeros will be returned at appropriate indices for inactive contacts
  */
-void ImpactEventHandler::solve_nqp_work(EventProblemData& q, VectorNd& x)
+void ImpactConstraintHandler::solve_nqp_work(UnilateralConstraintProblemData& q, VectorNd& x)
 {
   const double INF = std::numeric_limits<double>::max();
 
@@ -114,9 +114,9 @@ void ImpactEventHandler::solve_nqp_work(EventProblemData& q, VectorNd& x)
   // setup true friction cone for every contact
   for (unsigned i=0; i< N_ACT_CONTACTS; i++)
   {
-    _ipsolver->mu_c[i] = sqr(q.contact_events[i]->contact_mu_coulomb);
+    _ipsolver->mu_c[i] = sqr(q.contact_constraints[i]->contact_mu_coulomb);
     _ipsolver->mu_visc[i] = (sqr(q.Cs_v[i]) + sqr(q.Ct_v[i])) *
-                       sqr(q.contact_events[i]->contact_mu_viscous);
+                       sqr(q.contact_constraints[i]->contact_mu_viscous);
   }
 
   // setup matrices
@@ -293,7 +293,7 @@ void ImpactEventHandler::solve_nqp_work(EventProblemData& q, VectorNd& x)
     c += _workv;
   }
 
-   FILE_LOG(LOG_EVENT) << "ImpactEventHandler::solve_nqp_work() entered" << std::endl;
+   FILE_LOG(LOG_EVENT) << "ImpactConstraintHandler::solve_nqp_work() entered" << std::endl;
   FILE_LOG(LOG_EVENT) << "  Cn * inv(M) * Cn': " << std::endl << q.Cn_iM_CnT;
   FILE_LOG(LOG_EVENT) << "  Cn * inv(M) * Cs': " << std::endl << q.Cn_iM_CsT;
   FILE_LOG(LOG_EVENT) << "  Cn * inv(M) * Ct': " << std::endl << q.Cn_iM_CtT;
@@ -357,7 +357,7 @@ void ImpactEventHandler::solve_nqp_work(EventProblemData& q, VectorNd& x)
     workv += c;
     FILE_LOG(LOG_EVENT) << "(signed) computed energy dissipation: " << xsub.dot(workv) << std::endl;
   }
-  FILE_LOG(LOG_EVENT) << "ImpactEventHandler::solve_nqp() exited" << std::endl;
+  FILE_LOG(LOG_EVENT) << "ImpactConstraintHandler::solve_nqp() exited" << std::endl;
 }
 #endif // #ifndef HAVE_IPOPT
 

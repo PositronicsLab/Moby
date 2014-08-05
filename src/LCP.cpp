@@ -83,7 +83,14 @@ bool LCP::lcp_fast(const MatrixNd& M, const VectorNd& q, VectorNd& z, double zer
     _z.negate();
 
     // solve for nonbasic z
-    _LA.solve_fast(_Msub, _z);
+    try
+    {
+      _LA.solve_fast(_Msub, _z);
+    }
+    catch (SingularException e)
+    {
+      return false;
+    }
 
     // compute w and find minimum value
     _Mmix.mult(_z, _w) += _qbas;

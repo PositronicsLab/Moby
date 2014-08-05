@@ -152,7 +152,7 @@ void ArticulatedBody::ode_noexcept(SharedConstVectorNd& x, double t, double dt, 
 }
 
 /// Prepares to compute the ODE  
-void ArticulatedBody::prepare_to_calc_ode_accel_events(SharedConstVectorNd& x, double t, double dt, void* data)
+void ArticulatedBody::prepare_to_calc_ode_sustained_constraints(SharedConstVectorNd& x, double t, double dt, void* data)
 {
   // get the shared pointer to this
   ArticulatedBodyPtr shared_this = dynamic_pointer_cast<ArticulatedBody>(shared_from_this());
