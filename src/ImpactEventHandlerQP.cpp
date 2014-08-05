@@ -238,7 +238,7 @@ void ImpactEventHandler::solve_qp_work(EventProblemData& epd, VectorNd& z)
     z.set_sub_vec(xNCT_IDX, nct_last);
 
     // populate limit forces
-    SharedVectorNd l_last = _zlast.segment(yL_IDX,yL_IDX+epd.N_LIMITS);
+    SharedVectorNd l_last = _zlast.segment(yL_IDX,yL_IDX+lNPc_IDX);
     z.set_sub_vec(xL_IDX, l_last);
 
     // populate Cn*v+ >= 0 constraint multipliers
