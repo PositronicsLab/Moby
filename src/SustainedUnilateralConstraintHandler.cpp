@@ -178,6 +178,8 @@ void SustainedUnilateralConstraintHandler::apply_forces(const SustainedUnilatera
     }
   }
 
+  // TODO: this needs to be done in a different way so that it can override
+  // any actuator force limits for robots
   // apply all generalized forces 
   for (map<DynamicBodyPtr, VectorNd>::const_iterator i = gj.begin(); i != gj.end(); i++)
   {

@@ -242,8 +242,29 @@ VectorNd& EventDrivenSimulator::ode_sustained_constraints(const VectorNd& x, dou
   bodies.erase(std::unique(bodies.begin(), bodies.end()), bodies.end());
 
   // recompute forward dynamics for bodies in constraints
-  BOOST_FOREACH(DynamicBodyPtr body, bodies)
-    body->calc_fwd_dyn();
+Log<OutputToFile>::reporting_level += LOG_DYNAMICS;
+   BOOST_FOREACH(DynamicBodyPtr body, bodies)
+     body->calc_fwd_dyn();
+Log<OutputToFile>::reporting_level -= LOG_DYNAMICS;
+
+// TODO: remove this
+static double last_t = -1.0;
+static std::vector<double> last_vels; 
+std::vector<double> this_vels(s->_rigid_constraints.size());
+for (unsigned i=0; i< s->_rigid_constraints.size(); i++)
+  this_vels[i] = s->_rigid_constraints[i].calc_constraint_vel();
+if (last_vels.size() == this_vels.size())
+{
+  double h = t - last_t;
+  for (unsigned i=0; i< this_vels.size(); i++)
+  {
+    FILE_LOG(LOG_EVENT) << "Velocity at " << last_t << ": " << last_vels[i] << std::endl;
+    FILE_LOG(LOG_EVENT) << "Velocity at " << t << ": " << this_vels[i] << std::endl;
+    FILE_LOG(LOG_EVENT) << "Numerically computed acceleration: " << (this_vels[i] - last_vels[i])/h << std::endl;
+  }
+}
+last_t = t;
+last_vels = this_vels;
 
   // reset idx
   idx = 0;
@@ -1145,39 +1166,32 @@ double EventDrivenSimulator::check_pairwise_constraint_violations(double t)
 
   // update constraint violation due to increasing interpenetration
   // loop over all pairs of geometries
-  BOOST_FOREACH(CollisionGeometryPtr cg1, _geometries)
+  for (unsigned i=0; i< _pairwise_distances.size(); i++)
   {
-    // get the first rigid body
+    // get the two collision geometries
+    CollisionGeometryPtr cg1 = _pairwise_distances[i].a;
+    CollisionGeometryPtr cg2 = _pairwise_distances[i].b;
+
+    // get the two rigid bodies
     RigidBodyPtr rb1 = dynamic_pointer_cast<RigidBody>(cg1->get_single_body());
+    RigidBodyPtr rb2 = dynamic_pointer_cast<RigidBody>(cg2->get_single_body());
 
-    BOOST_FOREACH(CollisionGeometryPtr cg2, _geometries)
+    // only process if neither of the bodies is compliant
+    if (rb1->compliance == RigidBody::eCompliant || 
+        rb2->compliance == RigidBody::eCompliant)
+      continue; 
+
+    // compute the distance between the two bodies
+    Point3d p1, p2;
+    double d = CollisionGeometry::calc_signed_dist(cg1, cg2, p1, p2);
+    if (d <= _ip_tolerances[make_sorted_pair(cg1, cg2)] - NEAR_ZERO)
     {
-      // if cg1 == cg2 or bodies are disabled for checking, skip
-      if (cg1.get() <= cg2.get() || unchecked_pairs.find(make_sorted_pair(cg1, cg2)) != unchecked_pairs.end())
-        continue;
-
-      // make sure pairs of disabled rigid bodies are not checked
-      RigidBodyPtr rb2 = dynamic_pointer_cast<RigidBody>(cg2->get_single_body());
-      if (!rb1->is_enabled() && !rb2->is_enabled())
-        continue;
-
-      // only process if neither of the bodies is compliant
-      if (rb1->compliance == RigidBody::eCompliant || 
-          rb2->compliance == RigidBody::eCompliant)
-        continue; 
-
-      // compute the distance between the two bodies
-      Point3d p1, p2;
-      double d = CollisionGeometry::calc_signed_dist(cg1, cg2, p1, p2);
-      if (d <= _ip_tolerances[make_sorted_pair(cg1, cg2)] - NEAR_ZERO)
-      {
-        FILE_LOG(LOG_SIMULATOR) << "Interpenetration detected between " << cg1->get_single_body()->id << " and " << cg2->get_single_body()->id << ": " << d << std::endl;
-        throw InvalidStateException();
-      }
-
-      // update the minimum distance
-      min_dist = std::min(d, min_dist);
+      FILE_LOG(LOG_SIMULATOR) << "Interpenetration detected between " << cg1->get_single_body()->id << " and " << cg2->get_single_body()->id << ": " << d << std::endl;
+      throw InvalidStateException();
     }
+
+    // update the minimum distance
+    min_dist = std::min(d, min_dist);
   }
 
   return std::max(0.0, min_dist);
@@ -1486,7 +1500,10 @@ void EventDrivenSimulator::step_si_Euler(double dt)
 
     // see whether to update pairwise distances
     if (current_time < target_time)
+    {
+      broad_phase(target_time - current_time);
       calc_pairwise_distances();
+    }
     else
       break;
   }
