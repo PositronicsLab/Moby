@@ -20,6 +20,7 @@
 #include <Moby/BoundingSphere.h>
 #include <Moby/CollisionGeometry.h>
 #include <Moby/SpherePrimitive.h>
+#include <Moby/BoxPrimitive.h>
 #include <Moby/GJK.h>
 #include <Moby/PlanePrimitive.h>
 
@@ -154,6 +155,28 @@ double PlanePrimitive::calc_height(const Point3d& p) const
   return p[Y];
 }
 
+/// Gets the supporting point for the plane (for GJK)
+Point3d PlanePrimitive::get_supporting_point(const Vector3d& dir) const
+{
+  const unsigned X = 0, Y = 1, Z = 2;
+
+  assert(_poses.find(const_pointer_cast<Pose3d>(dir.pose)) != _poses.end());
+
+  // direction is in this primitive's frame
+  // case study:
+  // if dir is [0 1 0] then supporting point is [0 0 0]
+  // if dir is [0 -1 0] then supporting point is [0 -inf 0]
+  // if dir is [x y z], where y >= 0 then supporting point is [x 0 z] 
+  // "               ", where y < 0 then supporting point is [x -inf z]
+  Point3d p(dir[X], 0.0, dir[Z], dir.pose);
+  if (dir[Y] >= 0.0)
+    p[Y] = 0.0;
+  else
+    p[Y] = -1.0;  // note: we have to do this b/c INF messes with GJK
+
+  return p;
+}
+
 /// Computes the OSG visualization
 osg::Node* PlanePrimitive::create_visualization()
 {
@@ -202,10 +225,89 @@ double PlanePrimitive::calc_signed_dist(const Point3d& p) const
   return calc_height(p);
 }
 
+/// Gets the distance from a box primitive
+double PlanePrimitive::calc_signed_dist(shared_ptr<const BoxPrimitive> b, Point3d& pthis, Point3d& pb) const
+{
+  const unsigned Y = 1;
+
+  assert(_poses.find(const_pointer_cast<Pose3d>(pthis.pose)) != _poses.end());
+
+  // compute the transform from the box to the plane
+  Transform3d T = Pose3d::calc_relative_pose(pb.pose, pthis.pose);
+
+  // setup initial minimum distance
+  double min_dist = std::numeric_limits<double>::max();
+
+  // get the box vertices 
+  shared_ptr<BoxPrimitive> bnc = const_pointer_cast<BoxPrimitive>(b);
+  vector<Point3d> verts;
+  bnc->get_vertices(pb.pose, verts);
+
+  // find which box vertex is closest in the plane space
+  for (unsigned i=0; i< verts.size(); i++)
+  {
+    // get the box vertex in the plane space
+    Point3d box_vert = T.transform_point(verts[i]); 
+
+    // get the vertex height
+    if (box_vert[Y] < min_dist)
+    {
+      min_dist = box_vert[Y];
+      pb = verts[i];
+      pthis = box_vert;
+    }
+  }
+
+  // closest point on plane is just the closest point on the box, projected
+  // to the plane
+  pthis[Y] = 0.0;
+
+  return min_dist;
+}
+
+/// Gets the distance from a sphere primitive
+double PlanePrimitive::calc_signed_dist(shared_ptr<const SpherePrimitive> s, Point3d& pthis, Point3d& ps) const
+{
+  const unsigned Y = 1;
+
+  assert(_poses.find(const_pointer_cast<Pose3d>(pthis.pose)) != _poses.end());
+
+  // compute the transform from the sphere to the plane
+  Transform3d T = Pose3d::calc_relative_pose(ps.pose, pthis.pose);
+
+  // transform the sphere center to the plane space
+  Point3d ps_c(0.0, 0.0, 0.0, ps.pose);
+  Point3d ps_c_this = T.transform_point(ps_c);
+
+  // get the lowest point on the sphere (toward the heightmap)
+  Vector3d vdir(0.0, -1.0*s->get_radius(), 0.0, pthis.pose);
+
+  // get the lowest point on the sphere
+  Point3d sphere_lowest = ps_c_this + vdir;
+
+  // setup the point on the plane
+  pthis = ps_c_this;
+  pthis[Y] = 0.0;
+
+  // get the height of the sphere center
+  ps = T.inverse_transform_point(sphere_lowest);
+  return sphere_lowest[Y];
+}
+
 /// Finds the signed distance between the heightmap and another primitive
 double PlanePrimitive::calc_signed_dist(shared_ptr<const Primitive> p, Point3d& pthis, Point3d& pp) const
 {
   const unsigned Y = 1;
+
+  // look for sphere
+  shared_ptr<const SpherePrimitive> sph = dynamic_pointer_cast<const SpherePrimitive>(p);
+  if (sph)
+    return calc_signed_dist(sph, pthis, pp);
+
+  // look for box
+  shared_ptr<const BoxPrimitive> box = dynamic_pointer_cast<const BoxPrimitive>(p);
+  if (box)
+    return calc_signed_dist(box, pthis, pp);
 
 /*
   // if the primitive is convex, can use GJK

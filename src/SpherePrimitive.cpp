@@ -16,6 +16,7 @@
 #include <Moby/BoundingSphere.h>
 #include <Moby/CollisionGeometry.h>
 #include <Moby/BoxPrimitive.h>
+#include <Moby/PlanePrimitive.h>
 #include <Moby/TriangleMeshPrimitive.h>
 #include <Moby/HeightmapPrimitive.h>
 #include <Moby/GJK.h>
@@ -293,6 +294,14 @@ double SpherePrimitive::calc_signed_dist(shared_ptr<const Primitive> p, Point3d&
   if (spherep)
     return calc_signed_dist(spherep, pthis, pp);
 
+  // now try plane/sphere
+  shared_ptr<const PlanePrimitive> planep = dynamic_pointer_cast<const PlanePrimitive>(p);
+  if (planep)
+  {
+    shared_ptr<const SpherePrimitive> thisp = dynamic_pointer_cast<const SpherePrimitive>(shared_from_this());
+    return planep->calc_signed_dist(thisp, pp, pthis);
+  }
+
   // now try heightmap/sphere
   shared_ptr<const HeightmapPrimitive> hmp = dynamic_pointer_cast<const HeightmapPrimitive>(p);
   if (hmp)
@@ -304,10 +313,10 @@ double SpherePrimitive::calc_signed_dist(shared_ptr<const Primitive> p, Point3d&
   // if the primitive is convex, can use GJK
   if (p->is_convex())
   {
-    shared_ptr<const Pose3d> Pbox = pthis.pose;
+    shared_ptr<const Pose3d> Psph = pthis.pose;
     shared_ptr<const Pose3d> Pgeneric = pp.pose;
     shared_ptr<const Primitive> bthis = dynamic_pointer_cast<const Primitive>(shared_from_this());
-    return GJK::do_gjk(bthis, p, Pbox, Pgeneric, pthis, pp);
+    return GJK::do_gjk(bthis, p, Psph, Pgeneric, pthis, pp);
   }
 
   // try sphere/(non-convex) trimesh

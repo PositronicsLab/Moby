@@ -89,7 +89,7 @@ UnilateralConstraint& UnilateralConstraint::operator=(const UnilateralConstraint
   limit_impulse = e.limit_impulse;
   limit_joint = e.limit_joint;
   contact_normal = e.contact_normal;
-  contact_normal_dot = e.contact_normal;
+  contact_normal_dot = e.contact_normal_dot;
   contact_tan1_dot = e.contact_tan1;
   contact_tan2_dot = e.contact_tan2;
   contact_geom1 = e.contact_geom1;
@@ -245,7 +245,7 @@ void UnilateralConstraint::compute_aconstraint_data(MatrixNd& M, VectorNd& q) co
     J1.mult(workM1, M);
 
     // setup the second solution vector (N - u_s*Q)
-    dJ1 *= -contact_mu_coulomb; 
+    dJ2 *= -contact_mu_coulomb; 
     dJ2 += J2;
 
     // compute the contact inertia matrix for the second body
@@ -1252,24 +1252,29 @@ double calc_constraint_accel2(const UnilateralConstraint& e)
   Vector3d wb = tvb.get_angular();
   Vector3d ala = taa.get_angular();
   Vector3d alb = tab.get_angular();
-  ra.pose = GLOBAL;
-  rb.pose = GLOBAL;
-  xda.pose = GLOBAL;
-  xdb.pose = GLOBAL;
-  wa.pose = GLOBAL;
-  wb.pose = GLOBAL;
-  xdda.pose = GLOBAL;
-  xddb.pose = GLOBAL;
-  ala.pose = GLOBAL;
-  alb.pose = GLOBAL;
-  Vector3d v1(xdda - xddb + Vector3d::cross(ala, ra) - Vector3d::cross(alb, rb) + Vector3d::cross(wa, -xda) - Vector3d::cross(wb, -xdb));
+  ra.pose = normal.pose;
+  rb.pose = normal.pose;
+  xda.pose = normal.pose;
+  xdb.pose = normal.pose;
+  wa.pose = normal.pose;
+  wb.pose = normal.pose;
+  xdda.pose = normal.pose;
+  xddb.pose = normal.pose;
+  ala.pose = normal.pose;
+  alb.pose = normal.pose;
+  Vector3d v1(xdda - xddb + Vector3d::cross(ala, ra) - Vector3d::cross(alb, rb) + Vector3d::cross(wa, Vector3d::cross(wa, ra)) - Vector3d::cross(wb, Vector3d::cross(wb, rb)));
   Vector3d v2(xda - xdb + Vector3d::cross(wa, ra) - Vector3d::cross(wb, rb));
   v1.pose = normal.pose;
   v2.pose = normal.pose;
+// TODO: erase three lines below 
+double t1 = normal.dot(xdda) - normal.dot(xddb);
+double t2 = normal.dot(Vector3d::cross(ala, ra)) - normal.dot(Vector3d::cross(alb, rb));;
+double t3 = normal.dot(Vector3d::cross(wa, Vector3d::cross(wa, ra))) - normal.dot(Vector3d::cross(wb, Vector3d::cross(wb, rb)));
 
   // get the linear velocities and project against the normal
   return normal.dot(v1) + 2.0*normal_dot.dot(v2);
 }
+
 
 /// Computes the acceleration of this contact
 /**
@@ -1306,7 +1311,8 @@ double UnilateralConstraint::calc_constraint_accel() const
     Vector3d normal = Pose3d::transform_vector(_contact_frame, contact_normal);
     Vector3d normal_dot = Pose3d::transform_vector(_contact_frame, contact_normal_dot);
 
-    // compute 
+    // compute: d<n, dx/dt + w x r>/dt =  
+    // compute: <n,  d^2x/dt^2 + dw/dt x r> + <dn/dt, dx/dt + w x r>  
     double ddot = normal.dot(taa.get_linear() - tab.get_linear());
     ddot += 2.0*normal_dot.dot(tva.get_linear() - tvb.get_linear());
     #ifndef NDEBUG

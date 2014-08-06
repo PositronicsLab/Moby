@@ -273,7 +273,6 @@ void RCArticulatedBody::set_generalized_forces(const VectorNd& gf)
 void RCArticulatedBody::add_generalized_force(const VectorNd& gf)
 {
   unsigned index = 0;
-  SForced f0;
 
   if (_floating_base)
   {
@@ -281,11 +280,12 @@ void RCArticulatedBody::add_generalized_force(const VectorNd& gf)
     RigidBodyPtr base = _links.front();
 
     // first, get the force on the base link
+    SForced f0;
     gf.get_sub_vec(num_joint_dof_explicit(), gf.size(), f0);
 
     // add the force to the base
-    SForced fx = Pose3d::transform(base->get_gc_pose(), f0);
-    base->add_force(fx);
+    f0.pose = base->get_gc_pose();
+    base->add_force(f0);
   }
 
   // add to joint forces
