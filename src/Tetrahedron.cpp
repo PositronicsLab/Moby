@@ -7,6 +7,7 @@
 #include <Ravelin/Matrix3d.h>
 #include <Moby/Triangle.h>
 #include <Moby/Tetrahedron.h>
+#include <Moby/Log.h>
 
 using namespace Ravelin;
 using namespace Moby;
@@ -53,6 +54,14 @@ double Tetrahedron::calc_signed_dist(const Point3d& p, Point3d& closest) const
 
   if (!outside(p))
     min_dist = -min_dist;
+
+  FILE_LOG(LOG_COLDET) << "Tetrahedron::calc_signed_dist() entered " << std::endl;
+  FILE_LOG(LOG_COLDET) << "  squared distance from triangle abc: " << dist_abc << std::endl;
+  FILE_LOG(LOG_COLDET) << "  squared distance from triangle bdc: " << dist_bdc << std::endl;
+  FILE_LOG(LOG_COLDET) << "  squared distance from triangle dac: " << dist_dac << std::endl;
+  FILE_LOG(LOG_COLDET) << "  squared distance from triangle dba: " << dist_dba << std::endl;
+  FILE_LOG(LOG_COLDET) << "  *signed* distance: " << min_dist << std::endl;
+  FILE_LOG(LOG_COLDET) << "Tetrahedron::calc_signed_dist() exited" << std::endl;
 
   return min_dist;
 }
@@ -162,11 +171,10 @@ void Tetrahedron::determine_barycentric_coords(const Point3d& px, double& u, dou
     M.set_column(X, a - d);
     M.set_column(Y, b - d);
     M.set_column(Z, c - d);
-    Matrix3d Q, R;
-    Q = M;
-    _LA.factor_QR(Q, R);
-    bary = Matrix3d::transpose(Q)*bary;
-    _LA.solve_tri_fast(R, true, false, bary);
+    Matrix3d U, V;
+    Origin3d S;
+    _LA.svd(M, U, S, V);
+    _LA.solve_LS_fast(U, S, V, bary);
   }
 
   // compute barycentric coordinates

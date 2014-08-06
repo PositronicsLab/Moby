@@ -572,6 +572,12 @@ double GJK::do_gjk(shared_ptr<const Primitive> A, shared_ptr<const Primitive> B,
 
       return -pen_dist;
     }
+    // look for no progress
+    else if (pnorm > min_dist-NEAR_ZERO)
+    {
+      FILE_LOG(LOG_COLDET) << "GJK::do_gjk() unable to progress!"  << std::endl;
+      return pnorm;
+    }
 
     // get the new supporting points and determine the new vertex
     Point3d pA = A->get_supporting_point(-Pose3d::transform_vector(PA, p));
@@ -609,13 +615,12 @@ double GJK::do_gjk(shared_ptr<const Primitive> A, shared_ptr<const Primitive> B,
       {
         std::ostringstream oss;
         S.output(oss); 
-        FILE_LOG(LOG_COLDET) << "GJK::do_gjk() entered" << std::endl;
-        FILE_LOG(LOG_COLDET) << "added new point to simplex, now: " << oss.str() << std::endl;
+        FILE_LOG(LOG_COLDET) << "GJK::do_gjk() added new point to simplex, now: " << oss.str() << std::endl;
       }
     }
   }
 
-  FILE_LOG(LOG_COLDET) << "GJK::do_gjk() [max iterations exceeded] dist=" << min_dist << ", exiting" << std::endl;
+  throw std::runtime_error("maximum GJK iterations exceeded");
   return min_dist;
 }
 

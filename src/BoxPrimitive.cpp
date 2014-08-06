@@ -11,6 +11,7 @@
 #endif
 #include <Moby/XMLTree.h>
 #include <Moby/SpherePrimitive.h>
+#include <Moby/PlanePrimitive.h>
 #include <Moby/TriangleMeshPrimitive.h>
 #include <Moby/OBB.h>
 #include <Moby/Constants.h>
@@ -80,6 +81,14 @@ double BoxPrimitive::calc_signed_dist(shared_ptr<const Primitive> p, Point3d& pt
   shared_ptr<const SpherePrimitive> spherep = dynamic_pointer_cast<const SpherePrimitive>(p);
   if (spherep)
     return calc_signed_dist(spherep, pthis, pp);
+
+  // now try box/plane
+  shared_ptr<const PlanePrimitive> planep = dynamic_pointer_cast<const PlanePrimitive>(p);
+  if (planep)
+  {
+    shared_ptr<const Primitive> bthis = dynamic_pointer_cast<const Primitive>(shared_from_this());
+    return planep->calc_signed_dist(bthis, pp, pthis);
+  }
 
   // now try box/heightmap
   shared_ptr<const HeightmapPrimitive> hmp = dynamic_pointer_cast<const HeightmapPrimitive>(p);
