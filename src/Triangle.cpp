@@ -915,6 +915,32 @@ double Triangle::calc_sq_dist(const Triangle& tri, const Point3d& point, double&
   return sqr_dist;
 }
 
+/// Determines the signed distance between this triangle and a given point
+/**
+ * \param point the query point
+ * \param closest_point the closest point on the triangle is returned here
+ * \return the Euclidean distance between this triangle and the point
+ */
+double Triangle::calc_signed_dist(const Point3d& point, Point3d& cp) const
+{
+  return Triangle::calc_signed_dist(*this, point, cp);
+}
+
+/// Determines the signed distance between this triangle and a given point
+/**
+ * \param point the query point
+ * \param closest_point the closest point on the triangle is returned here
+ * \return the Euclidean distance between this triangle and the point
+ */
+double Triangle::calc_signed_dist(const Triangle& tri, const Point3d& point, Point3d& cp) 
+{
+  double sq_dist = calc_sq_dist(tri, point, cp);
+  if (tri.calc_signed_dist(point) >= 0.0)
+    return std::sqrt(sq_dist);
+  else
+    return -std::sqrt(sq_dist);
+}
+
 /// Determines the distance between this triangle and a given point
 /**
  * \param point the query point

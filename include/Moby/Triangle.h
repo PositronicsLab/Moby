@@ -34,6 +34,8 @@ class Triangle
     Ravelin::Vector3d calc_normal() const;
     void to_vrml(std::ostream& o, Point3d diffuse_color = Point3d(1,1,1), bool wireframe = false) const;
     double calc_area() const;
+    static double calc_signed_dist(const Triangle& tri, const Point3d& point, Point3d& closest_point);
+    double calc_signed_dist(const Point3d& point, Point3d& closest_point) const;
     static double calc_sq_dist(const Triangle& tri, const Point3d& point, Point3d& closest_point);
     static double calc_sq_dist(const Triangle& tri, const Point3d& point, double& s, double& t);
     static double calc_sq_dist(const Triangle& tri, const Point3d& origin, const Ravelin::Vector3d& dir, Point3d& cp_seg, Point3d& cp_tri, double& t_line);
