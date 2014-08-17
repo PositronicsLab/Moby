@@ -25,42 +25,38 @@ double Tetrahedron::calc_signed_dist(const Point3d& p, Point3d& closest) const
   Triangle dac(d, a, c);
   Triangle dba(d, b, a);
 
-  // calculate the squared distance
-  double dist_abc = Triangle::calc_sq_dist(abc, p, closest_abc);
-  double dist_bdc = Triangle::calc_sq_dist(bdc, p, closest_bdc);
-  double dist_dac = Triangle::calc_sq_dist(dac, p, closest_dac);
-  double dist_dba = Triangle::calc_sq_dist(dba, p, closest_dba);
+  // calculate the signed distances
+  double dist_abc = abc.calc_signed_dist(p, closest_abc);
+  double dist_bdc = bdc.calc_signed_dist(p, closest_bdc);
+  double dist_dac = dac.calc_signed_dist(p, closest_dac);
+  double dist_dba = dba.calc_signed_dist(p, closest_dba);
 
   // determine the minimum distance
   double min_dist = dist_abc;
   closest = closest_abc;
-  if (dist_bdc < min_dist)
+  if (std::fabs(dist_bdc) < std::fabs(min_dist))
   {
     min_dist = dist_bdc;
     closest = closest_bdc;
   }
-  if (dist_dac < min_dist)
+  if (std::fabs(dist_dac) < std::fabs(min_dist))
   {
     min_dist = dist_dac;
     closest = closest_dac;
   }
-  if (dist_dba < min_dist)
+  if (std::fabs(dist_dba) < std::fabs(min_dist))
   {
     min_dist = dist_dba;
     closest = closest_dba;
   }
-  min_dist = std::max(0.0, min_dist);
-  min_dist = std::sqrt(min_dist);
-
-  if (!outside(p))
-    min_dist = -min_dist;
 
   FILE_LOG(LOG_COLDET) << "Tetrahedron::calc_signed_dist() entered " << std::endl;
-  FILE_LOG(LOG_COLDET) << "  squared distance from triangle abc: " << dist_abc << std::endl;
-  FILE_LOG(LOG_COLDET) << "  squared distance from triangle bdc: " << dist_bdc << std::endl;
-  FILE_LOG(LOG_COLDET) << "  squared distance from triangle dac: " << dist_dac << std::endl;
-  FILE_LOG(LOG_COLDET) << "  squared distance from triangle dba: " << dist_dba << std::endl;
-  FILE_LOG(LOG_COLDET) << "  *signed* distance: " << min_dist << std::endl;
+  FILE_LOG(LOG_COLDET) << "  query point is " << p << std::endl;
+  FILE_LOG(LOG_COLDET) << "  signed distance from triangle abc: " << dist_abc << std::endl;
+  FILE_LOG(LOG_COLDET) << "  signed distance from triangle bdc: " << dist_bdc << std::endl;
+  FILE_LOG(LOG_COLDET) << "  signed distance from triangle dac: " << dist_dac << std::endl;
+  FILE_LOG(LOG_COLDET) << "  signed distance from triangle dba: " << dist_dba << std::endl;
+  FILE_LOG(LOG_COLDET) << "  signed distance: " << min_dist << std::endl;
   FILE_LOG(LOG_COLDET) << "Tetrahedron::calc_signed_dist() exited" << std::endl;
 
   return min_dist;

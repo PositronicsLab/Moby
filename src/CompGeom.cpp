@@ -219,22 +219,27 @@ double CompGeom::calc_closest_points(const LineSeg3& s1, const LineSeg3& s2, Poi
 /**
  * \param line_seg the two endpoints of the line segment
  * \param point the query point
- * \param t gives the parametric form (line_seg.first * t + line_seg.second * (1-t)) 
- *        of the closest point on the line
- * Algorithm taken from http://geometryalgorithms.com
+ * \param t gives the parametric form line_seg.first + (line_seg.second - line_seg.first) * t 
+ * \param closest point on the line segment to point 
  */
-double CompGeom::calc_dist(const LineSeg3& line_seg, const Point3d& point, double& t)
+double CompGeom::calc_dist(const LineSeg3& line_seg, const Point3d& point, double& t, Point3d& closest)
 {
   Vector3d v = line_seg.second - line_seg.first;
   Vector3d w = point - line_seg.first;
   double c1 = Vector3d::dot(w, v);
   if (c1 <= 0)
+  {
+    closest = line_seg.first;
     return w.norm();
+  }
   double c2 = Vector3d::dot(v, v);
   if (c2 <= c1)
+  {
+    closest = line_seg.second;
     return (point - line_seg.second).norm();
-  t = 1.0 - c1 / c2;
-  Point3d closest = line_seg.first*t + line_seg.second*(1-t);
+  }
+  t = c1 / c2;
+  closest = line_seg.first + (line_seg.second - line_seg.first)*t;
   return (closest - point).norm();
 }
 

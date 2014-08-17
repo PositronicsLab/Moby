@@ -76,11 +76,12 @@ Point3d GJK::Simplex::find_closest()
   else if (_type == eSegment)
   {
     double t;
-    CompGeom::calc_dist(LineSeg3(_v1.v, _v2.v), Point3d(0,0,0,_v1.v.pose), t);
+    Point3d closest;
+    CompGeom::calc_dist(LineSeg3(_v1.v, _v2.v), Point3d(0,0,0,_v1.v.pose), t, closest);
     if (t < NEAR_ZERO) 
       return _v1.v;
     else
-      return _v1.v*t + _v2.v*(1.0-t);
+      return closest; 
   }
   else if (_type == eTriangle)
   {
@@ -112,8 +113,9 @@ Point3d GJK::Simplex::find_closest_and_simplify()
     FILE_LOG(LOG_COLDET) << " -- current simplex is segment" << std::endl;
 
     double t;
-    CompGeom::calc_dist(LineSeg3(_v1.v, _v2.v), Point3d(0,0,0,_v1.v.pose), t);
-    if (t < NEAR_ZERO) 
+    Point3d closest;
+    CompGeom::calc_dist(LineSeg3(_v1.v, _v2.v), Point3d(0,0,0,_v1.v.pose), t, closest);
+    if (t >= 1.0-NEAR_ZERO) 
     {
       // new point is the closest; remove the old point
       _v1 = _v2;
@@ -127,7 +129,7 @@ Point3d GJK::Simplex::find_closest_and_simplify()
       FILE_LOG(LOG_COLDET) << " -- closest point is on line segment" << std::endl;
 
       // setup the closest point
-      return _v1.v*t + _v2.v*(1.0-t);
+      return closest; 
     }
   }
   else if (_type == eTriangle)
@@ -525,7 +527,6 @@ double GJK::do_gjk(shared_ptr<const Primitive> A, shared_ptr<const Primitive> B,
   }
 
   // setup the minimum dot
-  double min_dot = std::numeric_limits<double>::max();
   double min_dist = std::numeric_limits<double>::max();
 
   // GJK loop
@@ -596,16 +597,10 @@ double GJK::do_gjk(shared_ptr<const Primitive> A, shared_ptr<const Primitive> B,
     // look to see whether no intersection
     double vdotd = V.v.dot(-p);
     FILE_LOG(LOG_COLDET) << " -- <new vertex, direction> : " << vdotd << std::endl;
-    if (vdotd < min_dot)
+    if (vdotd < 0.0)
     {
-      min_dot = vdotd;
-      closestA = pA;
-      closestB = pB;
-      if (vdotd < 0.0)
-      {
-        FILE_LOG(LOG_COLDET) << "GJK::do_gjk() dist=" << min_dist << ", exiting" << std::endl;
-        return min_dist;
-      }
+      FILE_LOG(LOG_COLDET) << "GJK::do_gjk() dist=" << min_dist << ", exiting" << std::endl;
+      return min_dist;
     }
     else
     {
