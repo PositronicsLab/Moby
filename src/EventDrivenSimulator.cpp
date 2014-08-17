@@ -1293,6 +1293,10 @@ void EventDrivenSimulator::calc_fwd_dyn()
     const list<RecurrentForcePtr>& rfs = db->get_recurrent_forces();
     BOOST_FOREACH(RecurrentForcePtr rf, rfs)
       rf->add_force(db);
+    
+    // call the body's controller
+    if (db->controller)
+      (*db->controller)(db, current_time, db->controller_arg);
   }
 
   // calculate compliant constraint forces
@@ -1301,10 +1305,6 @@ void EventDrivenSimulator::calc_fwd_dyn()
   // compute controller forces and call forward dynamics
   BOOST_FOREACH(DynamicBodyPtr db, _bodies)
   {
-    // call the body's controller
-    if (db->controller)
-      (*db->controller)(db, current_time, db->controller_arg);
-
     // calculate forward dynamics at state x
     db->calc_fwd_dyn();
   }
