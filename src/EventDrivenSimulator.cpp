@@ -839,8 +839,8 @@ restart_with_new_limits:
 
 /// Finds the next event time assuming constant velocity
 /**
- * This method assumes an event is occurring at the current time. If an event
- * is not occuring at the current time, this method will return INF.
+ * This method returns the next possible time of contact, discarding current
+ * contacts from consideration. 
  * \note proper operation of this function is critical. If the function
  *       improperly designates an event as not occuring at the current time,
  *       calc_next_CA_Euler_step(.) will return a small value and prevent large
@@ -851,7 +851,6 @@ restart_with_new_limits:
 double EventDrivenSimulator::calc_next_CA_Euler_step(double contact_dist_thresh) const
 {
   const double INF = std::numeric_limits<double>::max();
-  bool found_one = false;
   double next_event_time = INF;
 
   // process each articulated body, looking for next joint events
@@ -895,18 +894,21 @@ double EventDrivenSimulator::calc_next_CA_Euler_step(double contact_dist_thresh)
         rbb->compliance == RigidBody::eCompliant)
       continue; 
 
+    // TODO: this code needs to be extended such that all points on a rigid
+    //       body that are within a single topological "hop" from the contact 
+    //       point are evaluated for their next TOC with the other body
+    //       We do not presently consider further contacts between a pair if
+    //       there exists a contact at the current configuration (which means
+    //       that contacts between polyhedral shapes will not be handled
+    //       correctly.) 
+
     // if the distance is below the threshold, we have found a current event
-    if (pdi.dist < contact_dist_thresh)
-      found_one = true;
-    else
+    if (pdi.dist > contact_dist_thresh)
       // not a current event, find when it could become active
       next_event_time = std::min(next_event_time, _ccd.calc_CA_Euler_step(pdi));
   }
 
-  if (!found_one)
-    return INF;
-  else
-    return next_event_time;
+  return next_event_time;
 }
 
 

@@ -378,7 +378,10 @@ void GJK::Simplex::add(const SVertex& v)
     if (std::fabs(vol) < NEAR_ZERO)
       _type = eTriangle;
     else if (vol < 0)
+    {
       std::swap(_v2.v, _v3.v);
+      assert(Tetrahedron(_v1.v, _v2.v, _v3.v, _v4.v).calc_volume() > 0.0);
+    }
   }
   else if (_type == eTetra)
     assert(false);
