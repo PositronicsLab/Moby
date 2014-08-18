@@ -36,18 +36,27 @@ double Tetrahedron::calc_signed_dist(const Point3d& p, Point3d& closest) const
   closest = closest_abc;
   if (std::fabs(dist_bdc) < std::fabs(min_dist))
   {
-    min_dist = dist_bdc;
-    closest = closest_bdc;
+    if (min_dist > 0.0 || (min_dist < 0.0 && dist_bdc < 0.0))
+    {
+      min_dist = dist_bdc;
+      closest = closest_bdc;
+    }
   }
   if (std::fabs(dist_dac) < std::fabs(min_dist))
   {
-    min_dist = dist_dac;
-    closest = closest_dac;
+    if (min_dist > 0.0 || (min_dist < 0.0 && dist_dac < 0.0))
+    {
+      min_dist = dist_dac;
+      closest = closest_dac;
+    }
   }
   if (std::fabs(dist_dba) < std::fabs(min_dist))
   {
-    min_dist = dist_dba;
-    closest = closest_dba;
+    if (min_dist > 0.0 || (min_dist < 0.0 && dist_dba < 0.0))
+    {
+      min_dist = dist_dba;
+      closest = closest_dba;
+    }
   }
 
   FILE_LOG(LOG_COLDET) << "Tetrahedron::calc_signed_dist() entered " << std::endl;
@@ -198,25 +207,15 @@ double Tetrahedron::calc_volume() const
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
-  const double AX = a[X];
-  const double AY = a[Y];
-  const double AZ = a[Z];
-  const double BX = b[X];
-  const double BY = b[Y];
-  const double BZ = b[Z];
-  const double CX = c[X];
-  const double CY = c[Y];
-  const double CZ = c[Z];
-  const double DX = d[X];
-  const double DY = d[Y];
-  const double DZ = d[Z];
+  // setup a matrix
+  Matrix3d M;
+  M.set_column(X, a - d);
+  M.set_column(Y, b - d);
+  M.set_column(Z, c - d);
 
-  double vol6 = -AZ*BY*CX + AY*BZ*CX + AZ*BX*CY - AX*BZ*CY
-                -AY*BX*CZ + AX*BY*CZ + AZ*BY*DX - AY*BZ*DX
-                -AZ*CY*DX + BZ*CY*DX + AY*CZ*DX - BY*CZ*DX
-                -AZ*BX*DY + AX*BZ*DY + AZ*CX*DY - BZ*CX*DY
-                -AX*CZ*DY + BX*CZ*DY + AY*BX*DZ - AX*BY*DZ
-                -AY*CX*DZ + BY*CX*DZ + AX*CY*DZ - BX*DY*DZ;
+  // compute the determinant
+  double vol6 = M.det();
+
   return vol6/6.0;
 }
 
