@@ -448,8 +448,8 @@ JointPtr SDFReader::read_joint(shared_ptr<const XMLTree> node, const std::map<st
   child = link_map.find(child_link)->second;
 
   // set child and parent
-  joint->set_inboard_link(parent);
-  joint->set_outboard_link(child);
+  joint->set_inboard_link(parent, false);
+  joint->set_outboard_link(child, false);
 
   // read the axis tag (contains limits, joint damping/friction)
   shared_ptr<const XMLTree> axis_node = find_one_tag("axis", node);
