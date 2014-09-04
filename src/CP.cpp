@@ -118,7 +118,7 @@ double CP::find_cpoint(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<cons
     FILE_LOG(LOG_COLDET) << "M: " << std::endl << M;
     FILE_LOG(LOG_COLDET) << "q: " << q << std::endl;
 
-    // TODO: replace this with strict convex solver
+    // can re-enable this in case the strictly convex solver breaks... 
 /*
     static LCP lcp;
     MatrixNd MM(H.rows()+M.rows(), H.rows()+M.rows());
