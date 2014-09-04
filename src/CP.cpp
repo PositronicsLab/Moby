@@ -113,7 +113,13 @@ double CP::find_cpoint(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<cons
     // y is the variable we are solving for
     VectorNd y(6);
 
+    // output information about the QP solve
+    FILE_LOG(LOG_COLDET) << "geometries are separated; solving with QP" << std::endl;
+    FILE_LOG(LOG_COLDET) << "M: " << std::endl << M;
+    FILE_LOG(LOG_COLDET) << "q: " << q << std::endl;
+
     // TODO: replace this with strict convex solver
+/*
     static LCP lcp;
     MatrixNd MM(H.rows()+M.rows(), H.rows()+M.rows());
     VectorNd qq(H.rows()+M.rows());
@@ -128,11 +134,10 @@ double CP::find_cpoint(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<cons
     qq.segment(H.rows(), qq.rows()).negate();
     y.resize(12);
     lcp.lcp_lemke_regularized(MM, qq, y);
-
-/**
+    FILE_LOG(LOG_COLDET) << "QP solution: " << y << std::endl;
+*/
     if (!qp_strict_convex(H, c, A, b, M, q, y, true))
       throw std::runtime_error("Strictly convex solver failed!");
-*/
 
     // setup closest points in global frame
     Vector3d cpA_global(y[0], y[1], y[2], GLOBAL);
@@ -144,6 +149,8 @@ double CP::find_cpoint(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<cons
 
     // compute distance between closest points 
     d = (cpA_global - cpB_global).norm(); 
+    FILE_LOG(LOG_COLDET) << " -- closest point on A (via QP): " << cpA_global << std::endl;
+    FILE_LOG(LOG_COLDET) << " -- closest point on B (via QP): " << cpB_global << std::endl;
     FILE_LOG(LOG_COLDET) << " -- signed distance (via QP): " << d << std::endl;
   }
   else
@@ -570,6 +577,7 @@ bool CP::qp_strict_convex(MatrixNd& G, const VectorNd& c,
   /* compute the inverse of the factorized matrix G^-1, this is the initial value for _J */
   _J = G;
   LinAlgd::inverse_chol(_J);
+  _z = _J.column(_J.columns()-1);
 
   // compute the trace of _J
   double c2 = 0.0;

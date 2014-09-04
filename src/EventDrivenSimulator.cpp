@@ -61,7 +61,7 @@ EventDrivenSimulator::EventDrivenSimulator()
   euler_step = 1e-3;
 
   // setup contact distance thresholds
-  impacting_contact_dist_thresh = 1e-1;
+  impacting_contact_dist_thresh = 1e-6;
   sustained_contact_dist_thresh = 1e-6;
 
   // setup absolute and relative error tolerances
@@ -853,6 +853,8 @@ double EventDrivenSimulator::calc_next_CA_Euler_step(double contact_dist_thresh)
   const double INF = std::numeric_limits<double>::max();
   double next_event_time = INF;
 
+  FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::calc_next_CA_Euler_step entered" << std::endl; 
+
   // process each articulated body, looking for next joint events
   for (unsigned i=0; i< _bodies.size(); i++)
   {
@@ -903,10 +905,20 @@ double EventDrivenSimulator::calc_next_CA_Euler_step(double contact_dist_thresh)
     //       correctly.) 
 
     // if the distance is below the threshold, we have found a current event
+    // (we want to skip current events)
     if (pdi.dist > contact_dist_thresh)
+    {
+      // compute an upper bound on the event time
+      double event_time = _ccd.calc_CA_Euler_step(pdi);
+
+      FILE_LOG(LOG_SIMULATOR) << "Next contact time between " << pdi.a->get_single_body()->id << " and " << pdi.b->get_single_body()->id << ": " << event_time << std::endl;
+
       // not a current event, find when it could become active
-      next_event_time = std::min(next_event_time, _ccd.calc_CA_Euler_step(pdi));
+      next_event_time = std::min(next_event_time, event_time);
+    }
   }
+
+  FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::calc_next_CA_Euler_step exited" << std::endl; 
 
   return next_event_time;
 }
