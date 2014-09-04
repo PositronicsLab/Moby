@@ -343,8 +343,12 @@ double PlanePrimitive::calc_signed_dist(shared_ptr<const Primitive> p, Point3d& 
 }
 
 /// Finds the signed distance betwen the plane and a point
-double PlanePrimitive::calc_dist_and_normal(const Point3d& p, Vector3d& normal) const
+double PlanePrimitive::calc_dist_and_normal(const Point3d& p, std::vector<Vector3d>& normals) const
 {
+  // setup the normal
+  normals.push_back(Vector3d());
+  Vector3d& normal = normals.back();
+
   // compute the distance
   double d = calc_height(p);
 

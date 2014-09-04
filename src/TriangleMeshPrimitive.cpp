@@ -452,8 +452,12 @@ double TriangleMeshPrimitive::calc_signed_dist(const Point3d& p) const
 }
 
 /// Computes the distance and normal from a point on the mesh 
-double TriangleMeshPrimitive::calc_dist_and_normal(const Point3d& p, Vector3d& normal) const
+double TriangleMeshPrimitive::calc_dist_and_normal(const Point3d& p, std::vector<Vector3d>& normals) const
 {
+  // setup the normal
+  normals.push_back(Vector3d());
+  Vector3d& normal = normals.back();
+
   // verify that the point is defined with respect to one of the poses
   assert(_poses.find(const_pointer_cast<Pose3d>(p.pose)) != _poses.end());
 

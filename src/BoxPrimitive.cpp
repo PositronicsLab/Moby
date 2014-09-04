@@ -17,8 +17,9 @@
 #include <Moby/Constants.h>
 #include <Moby/CollisionGeometry.h>
 #include <Moby/HeightmapPrimitive.h>
-#include <Moby/QP.h>
+#include <Moby/CP.h>
 #include <Moby/GJK.h>
+#include <Moby/QP.h>
 #include <Moby/BoxPrimitive.h>
 
 using namespace Ravelin;
@@ -55,7 +56,7 @@ BoxPrimitive::BoxPrimitive(double xlen, double ylen, double zlen)
 }
 
 /// Constructs a unit cube transformed by the given matrix
-BoxPrimitive::BoxPrimitive(const Pose3d& T) : Primitive(T)
+BoxPrimitive::BoxPrimitive(const Pose3d& T) : PolyhedralPrimitive(T)
 {
   _xlen = 1;
   _ylen = 1;
@@ -65,13 +66,60 @@ BoxPrimitive::BoxPrimitive(const Pose3d& T) : Primitive(T)
 }  
 
 /// Constructs a cube of the specified size transformed by the given matrix
-BoxPrimitive::BoxPrimitive(double xlen, double ylen, double zlen, const Pose3d& T) : Primitive(T)
+BoxPrimitive::BoxPrimitive(double xlen, double ylen, double zlen, const Pose3d& T) : PolyhedralPrimitive(T)
 {
   _xlen = xlen;
   _ylen = ylen;
   _zlen = zlen;
   _edge_sample_length = std::numeric_limits<double>::max();
   calc_mass_properties();
+}
+
+/// Sets up the facets for the box primitive
+void BoxPrimitive::get_facets(shared_ptr<const Pose3d> P, MatrixNd& M, VectorNd& q) const
+{
+  const unsigned N_FACETS = 6;
+
+  // verify that the primitive knows about this pose 
+  assert(_poses.find(const_pointer_cast<Pose3d>(P)) != _poses.end());
+
+  // setup the normals to the pose
+  Vector3d normals[N_FACETS];
+  normals[0] = Vector3d(+0,+1,+0,P);
+  normals[1] = Vector3d(+0,-1,+0,P);
+  normals[2] = Vector3d(+0,+0,+1,P);
+  normals[3] = Vector3d(+0,+0,-1,P);
+  normals[4] = Vector3d(+1,+0,+0,P);
+  normals[5] = Vector3d(-1,+0,+0,P);
+
+  // setup the points on each plane
+  Point3d points[N_FACETS];
+  points[0] = Point3d(0.0,+_ylen*0.5,0.0,P);
+  points[1] = Point3d(0.0,-_ylen*0.5,0.0,P);
+  points[2] = Point3d(0.0,0.0,+_zlen*0.5,P);
+  points[3] = Point3d(0.0,0.0,-_zlen*0.5,P);
+  points[4] = Point3d(+_xlen*0.5,0.0,0.0,P);
+  points[5] = Point3d(-_xlen*0.5,0.0,0.0,P);
+
+  // get the transform to the global frame
+  Transform3d T = Pose3d::calc_relative_pose(P, GLOBAL);
+
+  // transform all points and normals
+  for (unsigned i=0; i< N_FACETS; i++)
+  {
+    normals[i] = T.transform_vector(normals[i]);
+    points[i] = T.transform_point(points[i]);
+  }
+
+  // setup M
+  M.resize(N_FACETS,3);
+  for (unsigned i=0; i< N_FACETS; i++)
+    M.set_row(i, normals[i]);
+
+  // setup q
+  q.resize(N_FACETS);
+  for (unsigned i=0; i< N_FACETS; i++)
+    q[i] = normals[i].dot(points[i]);
 }
 
 /// Computes the signed distance from the box to a primitive
@@ -96,6 +144,14 @@ double BoxPrimitive::calc_signed_dist(shared_ptr<const Primitive> p, Point3d& pt
   {
     shared_ptr<const Primitive> bthis = dynamic_pointer_cast<const Primitive>(shared_from_this());
     return hmp->calc_signed_dist(bthis, pp, pthis);
+  }
+
+  // try box/box
+  shared_ptr<const BoxPrimitive> bp = dynamic_pointer_cast<const BoxPrimitive>(p);
+  if (bp)
+  {
+    shared_ptr<const BoxPrimitive> bthis = dynamic_pointer_cast<const BoxPrimitive>(shared_from_this());
+    return CP::find_cpoint(bthis, bp, pthis.pose, pp.pose, pthis, pp); 
   }
 
   // if the primitive is convex, can use GJK
@@ -141,7 +197,6 @@ double BoxPrimitive::calc_closest_points(shared_ptr<const SpherePrimitive> s, Po
   // get the sphere center in the box frame
   Point3d sph_c(0.0, 0.0, 0.0, psph.pose);
   Point3d sph_c_A = Pose3d::transform_point(pbox.pose, sph_c);
-Point3d sph_c_global = Pose3d::transform_point(GLOBAL, sph_c);
 
   // setup the quadratic cost (identity matrix)
   G.set_identity();
@@ -161,7 +216,6 @@ Point3d sph_c_global = Pose3d::transform_point(GLOBAL, sph_c);
   
   // solve the QP for the point nearest to the sphere center
   qp.qp_gradproj(G, c, l, u, 100, p, NEAR_ZERO);
-double fval = (p + c).norm();
 
   // setup the closest point on/in the box 
   pbox[X] = p[X];
@@ -170,7 +224,6 @@ double fval = (p + c).norm();
 
   // setup the closest point on the sphere
   psph = Pose3d::transform_point(psph.pose, pbox);
-Point3d pbox_global = Pose3d::transform_point(GLOBAL, pbox);
 
   // get the sphere radius
   const double R = s->get_radius();
@@ -729,7 +782,7 @@ double BoxPrimitive::calc_closest_point(const Point3d& point, Point3d& closest) 
 
 
 /// Tests whether a point is inside or on the box
-double BoxPrimitive::calc_dist_and_normal(const Point3d& point, Vector3d& normal) const
+double BoxPrimitive::calc_dist_and_normal(const Point3d& point, std::vector<Vector3d>& normals) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
@@ -776,6 +829,9 @@ double BoxPrimitive::calc_dist_and_normal(const Point3d& point, Vector3d& normal
   {
     FILE_LOG(LOG_COLDET) << "  point is inside the box; interior dist = " << intDist << endl;
 
+    // clear the normals
+    normals.clear();
+
     // p is inside the box; determine the normal
     double absPX = extents[X] - std::fabs(point[X]);
     double absPY = extents[Y] - std::fabs(point[Y]);
@@ -783,29 +839,75 @@ double BoxPrimitive::calc_dist_and_normal(const Point3d& point, Vector3d& normal
     if (absPZ < absPX - NEAR_ZERO && absPZ < absPY - NEAR_ZERO)
     {
       if (point[Z] < (double) 0.0)
-        normal = Vector3d(0,0,-1,point.pose);
+        normals.push_back(Vector3d(0,0,-1,point.pose));
       else
-        normal = Vector3d(0,0,1,point.pose);
+        normals.push_back(Vector3d(0,0,1,point.pose));
     }
     else if (absPY < absPZ - NEAR_ZERO && absPY < absPX - NEAR_ZERO)
     {
       if (point[Y] < (double) 0.0)
-        normal = Vector3d(0,-1,0,point.pose);
+        normals.push_back(Vector3d(0,-1,0,point.pose));
       else
-        normal = Vector3d(0,1,0,point.pose);
+        normals.push_back(Vector3d(0,1,0,point.pose));
     }
     else if (absPX < absPY - NEAR_ZERO && absPX < absPZ - NEAR_ZERO)
     {
       if (point[X] < (double) 0.0)
-        normal = Vector3d(-1,0,0,point.pose);
+        normals.push_back(Vector3d(-1,0,0,point.pose));
       else
-        normal = Vector3d(1,0,0,point.pose);
+        normals.push_back(Vector3d(1,0,0,point.pose));
     }
     else
     {
-      // degenerate normal
-      normal.set_zero();
-      normal.pose = point.pose; 
+      // degenerate normal; check for relative equality 
+      if (CompGeom::rel_equal(absPX, absPY) && CompGeom::rel_equal(absPX, absPZ))
+      {
+        if (point[Z] < (double) 0.0)
+          normals.push_back(Vector3d(0,0,-1,point.pose));
+        else
+          normals.push_back(Vector3d(0,0,1,point.pose));
+        if (point[Y] < (double) 0.0)
+          normals.push_back(Vector3d(0,-1,0,point.pose));
+        else
+          normals.push_back(Vector3d(0,1,0,point.pose));
+        if (point[X] < (double) 0.0)
+          normals.push_back(Vector3d(-1,0,0,point.pose));
+        else
+          normals.push_back(Vector3d(1,0,0,point.pose));
+      }
+      else if (CompGeom::rel_equal(absPX, absPY))
+      {
+        if (point[Y] < (double) 0.0)
+          normals.push_back(Vector3d(0,-1,0,point.pose));
+        else
+          normals.push_back(Vector3d(0,1,0,point.pose));
+        if (point[X] < (double) 0.0)
+          normals.push_back(Vector3d(-1,0,0,point.pose));
+        else
+          normals.push_back(Vector3d(1,0,0,point.pose));
+      }
+      else if (CompGeom::rel_equal(absPX, absPZ))
+      {
+        if (point[Z] < (double) 0.0)
+          normals.push_back(Vector3d(0,0,-1,point.pose));
+        else
+          normals.push_back(Vector3d(0,0,1,point.pose));
+        if (point[X] < (double) 0.0)
+          normals.push_back(Vector3d(-1,0,0,point.pose));
+        else
+          normals.push_back(Vector3d(1,0,0,point.pose));
+      }
+      else
+      {
+        if (point[Z] < (double) 0.0)
+          normals.push_back(Vector3d(0,0,-1,point.pose));
+        else
+          normals.push_back(Vector3d(0,0,1,point.pose));
+        if (point[Y] < (double) 0.0)
+          normals.push_back(Vector3d(0,-1,0,point.pose));
+        else
+          normals.push_back(Vector3d(0,1,0,point.pose));
+      }
     }
   }
   else
@@ -814,6 +916,7 @@ double BoxPrimitive::calc_dist_and_normal(const Point3d& point, Vector3d& normal
 
     // the contact will be normal to all extents that the contact point
     // lies relatively outside of
+    Vector3d normal;
     normal.set_zero();
     normal.pose = point.pose;
 

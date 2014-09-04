@@ -2,10 +2,6 @@
 template <class OutputIterator>
 OutputIterator CCD::find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL)
 {
-  std::vector<Point3d> vA, vB;
-  double dist;
-  Ravelin::Vector3d n;
-
   // look for special cases
   PrimitivePtr pA = cgA->get_geometry();
   PrimitivePtr pB = cgB->get_geometry();
@@ -22,7 +18,9 @@ OutputIterator CCD::find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr
   }
   else if (boost::dynamic_pointer_cast<BoxPrimitive>(pA))
   {
-    if (boost::dynamic_pointer_cast<SpherePrimitive>(pB))
+    if (boost::dynamic_pointer_cast<BoxPrimitive>(pB))
+      return find_contacts_box_box(cgA, cgB, output_begin, TOL);
+    else if (boost::dynamic_pointer_cast<SpherePrimitive>(pB))
       return find_contacts_box_sphere(cgA, cgB, output_begin, TOL);
   }
   else if (boost::dynamic_pointer_cast<HeightmapPrimitive>(pA))
@@ -56,6 +54,17 @@ OutputIterator CCD::find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr
     }
   }
 
+  // still here? just use the generic contact finder
+  return find_contacts_generic(cgA, cgB, output_begin, TOL);
+}
+
+template <class OutputIterator>
+OutputIterator CCD::find_contacts_generic(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL)
+{
+  std::vector<Point3d> vA, vB;
+  double dist;
+  std::vector<Ravelin::Vector3d> n;
+
   // get the vertices from A and B
   cgA->get_vertices(vA);
   cgB->get_vertices(vB);
@@ -66,8 +75,9 @@ OutputIterator CCD::find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr
     // see whether the point is inside the primitive
     if ((dist = cgB->calc_dist_and_normal(vA[i], n)) <= TOL)
     {
-      // add the contact point
-      *output_begin++ = create_contact(cgA, cgB, vA[i], n, dist); 
+      // add the contact points
+      for (unsigned j=0; j< n.size(); j++)
+        *output_begin++ = create_contact(cgA, cgB, vA[i], n[j], dist); 
     }
   }
 
@@ -77,8 +87,9 @@ OutputIterator CCD::find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr
     // see whether the point is inside the primitive
     if ((dist = cgA->calc_dist_and_normal(vB[i], n)) <= TOL)
     {
-      // add the contact point
-      *output_begin++ = create_contact(cgA, cgB, vB[i], -n, dist); 
+      // add the contact points
+      for (unsigned j=0; j< n.size(); j++)
+        *output_begin++ = create_contact(cgA, cgB, vB[i], -n[j], dist); 
     }
   }
 
@@ -137,7 +148,7 @@ OutputIterator CCD::find_contacts_plane_generic(CollisionGeometryPtr cgA, Collis
 {
   std::vector<Point3d> vB;
   double dist;
-  Ravelin::Vector3d n;
+  std::vector<Ravelin::Vector3d> n;
 
   // get the plane primitive
   boost::shared_ptr<PlanePrimitive> pA = boost::dynamic_pointer_cast<PlanePrimitive>(cgA->get_geometry());
@@ -163,12 +174,9 @@ OutputIterator CCD::find_contacts_plane_generic(CollisionGeometryPtr cgA, Collis
     FILE_LOG(LOG_COLDET) << "point " << vB[i] << " distance: " << dist << std::endl;
     if (dist <= TOL)
     {
-      // verify that we don't have a degenerate normal
-      if (n.norm() < NEAR_ZERO)
-        continue;
-
       // add the contact point
-      *o++ = create_contact(cgA, cgB, vB[i], -n, dist); 
+      for (unsigned j=0; j< n.size(); j++)
+        *o++ = create_contact(cgA, cgB, vB[i], -n[j], dist); 
     }
   }
   
@@ -183,7 +191,7 @@ OutputIterator CCD::find_contacts_heightmap_generic(CollisionGeometryPtr cgA, Co
 {
   std::vector<Point3d> vA, vB;
   double dist;
-  Ravelin::Vector3d n;
+  std::vector<Ravelin::Vector3d> n;
 
   // get the heightmap primitive
   boost::shared_ptr<HeightmapPrimitive> hmA = boost::dynamic_pointer_cast<HeightmapPrimitive>(cgA->get_geometry());
@@ -202,12 +210,9 @@ OutputIterator CCD::find_contacts_heightmap_generic(CollisionGeometryPtr cgA, Co
     // see whether the point is inside the primitive
     if ((dist = cgB->calc_dist_and_normal(vA[i], n)) <= TOL)
     {
-      // verify that we don't have a degenerate normal
-      if (n.norm() < NEAR_ZERO)
-        continue;
-
-      // add the contact point
-      *o++ = create_contact(cgA, cgB, vA[i], -n, dist); 
+      // add the contact points
+      for (unsigned j=0; j< n.size(); j++)
+        *o++ = create_contact(cgA, cgB, vA[i], -n[j], dist); 
     }
   }
 
@@ -217,12 +222,9 @@ OutputIterator CCD::find_contacts_heightmap_generic(CollisionGeometryPtr cgA, Co
     // see whether the point is inside the primitive
     if ((dist = cgA->calc_dist_and_normal(vB[i], n)) <= TOL)
     {
-      // verify that we don't have a degenerate normal
-      if (n.norm() < NEAR_ZERO)
-        continue;
-
       // add the contact point
-      *o++ = create_contact(cgA, cgB, vB[i], n, dist); 
+      for (unsigned j=0; j< n.size(); j++)
+        *o++ = create_contact(cgA, cgB, vB[i], n[j], dist); 
     }
   }
 
@@ -506,6 +508,53 @@ OutputIterator CCD::find_contacts_sphere_sphere(CollisionGeometryPtr cgA, Collis
 
 /// Gets the distance of this box from a sphere
 template <class OutputIterator>
+OutputIterator CCD::find_contacts_box_box(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator o, double TOL) 
+{
+  // get the two boxes 
+  boost::shared_ptr<BoxPrimitive> bA = boost::dynamic_pointer_cast<BoxPrimitive>(cgA->get_geometry());
+  boost::shared_ptr<BoxPrimitive> bB = boost::dynamic_pointer_cast<BoxPrimitive>(cgB->get_geometry());
+
+  // get the relevant poses for both 
+  boost::shared_ptr<const Ravelin::Pose3d> bA_pose = bA->get_pose(cgA);
+  boost::shared_ptr<const Ravelin::Pose3d> bB_pose = bB->get_pose(cgB);
+
+  // find closest points
+  Point3d pboxA(bA_pose), pboxB(bB_pose);
+  double dist = CP::find_cpoint(bA, bB, bA_pose, bB_pose, pboxA, pboxB);
+  if (dist > TOL)
+    return o;
+
+  // if the distance between them is greater than zero, return the midpoint
+  // of the two points as the contact point
+  Point3d p;
+  if (dist > 0.0)
+  {
+    Ravelin::Vector3d normal;
+    Point3d pboxA_global = Ravelin::Pose3d::transform_point(GLOBAL, pboxA);
+    Point3d pboxB_global = Ravelin::Pose3d::transform_point(GLOBAL, pboxB); 
+    p = (pboxA_global + pboxB_global)*0.5; 
+    normal = Ravelin::Vector3d::normalize(pboxB_global - pboxA_global);
+
+    // create the contact
+    *o++ = create_contact(cgA, cgB, p, normal, dist);
+  }
+  else
+  {
+    std::vector<Ravelin::Vector3d> normals;
+    p = Ravelin::Pose3d::transform_point(GLOBAL, pboxA);
+    bA->calc_dist_and_normal(pboxA, normals);
+
+    // create the contacts
+    for (unsigned i=0; i< normals.size(); i++)
+      *o++ = create_contact(cgA, cgB, p, normals[i], dist);
+  }
+ 
+  // call generic find contacts find
+  return find_contacts_generic(cgA, cgB, o, TOL);
+}
+
+/// Gets contact points between a box and a sphere 
+template <class OutputIterator>
 OutputIterator CCD::find_contacts_box_sphere(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator o, double TOL) 
 {
   // get the box and the sphere 
@@ -519,7 +568,7 @@ OutputIterator CCD::find_contacts_box_sphere(CollisionGeometryPtr cgA, Collision
   // find closest points
   Point3d psph(sphere_pose), pbox(box_pose);
   double dist = bA->calc_closest_points(sB, pbox, psph);
-  if (dist < TOL)
+  if (dist > TOL)
     return o;
 
   // NOTE: we aren't actually finding the deepest point of interpenetration

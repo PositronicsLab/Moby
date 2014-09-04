@@ -61,7 +61,7 @@ EventDrivenSimulator::EventDrivenSimulator()
   euler_step = 1e-3;
 
   // setup contact distance thresholds
-  impacting_contact_dist_thresh = 1e-6;
+  impacting_contact_dist_thresh = 1e-1;
   sustained_contact_dist_thresh = 1e-6;
 
   // setup absolute and relative error tolerances
