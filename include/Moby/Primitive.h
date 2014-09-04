@@ -62,7 +62,7 @@ class Primitive : public virtual Base
     virtual bool is_convex() const { return false; }
 
     /// Computes the distance between a point and this primitive
-    virtual double calc_dist_and_normal(const Point3d& p, Ravelin::Vector3d& normal) const = 0;
+    virtual double calc_dist_and_normal(const Point3d& p, std::vector<Ravelin::Vector3d>& normals) const = 0;
 
     /// Computes the signed distance between this and another primitive
     virtual double calc_signed_dist(boost::shared_ptr<const Primitive> p, Point3d& pthis, Point3d& pp) const = 0;

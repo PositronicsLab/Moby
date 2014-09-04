@@ -114,7 +114,7 @@ Point3d ConePrimitive::get_supporting_point(const Vector3d& d) const
 }
 
 /// Computes the distance and normal from a point on the primitive 
-double ConePrimitive::calc_dist_and_normal(const Point3d& p, Vector3d& normal) const
+double ConePrimitive::calc_dist_and_normal(const Point3d& p, std::vector<Vector3d>& normals) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
@@ -136,6 +136,8 @@ double ConePrimitive::calc_dist_and_normal(const Point3d& p, Vector3d& normal) c
   pcon.pose = p.pose;
 
   // setup the normal
+  normals.push_back(Vector3d());
+  Vector3d& normal = normals.back();
   normal.pose = p.pose;
 
   // setup distance

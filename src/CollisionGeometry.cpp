@@ -205,7 +205,7 @@ void CollisionGeometry::set_relative_pose(const Pose3d& P)
 }
 
 /// Calculates the (unsigned) distance of a point from this collision geometry
-double CollisionGeometry::calc_dist_and_normal(const Point3d& p, Vector3d& normal) const
+double CollisionGeometry::calc_dist_and_normal(const Point3d& p, std::vector<Vector3d>& normals) const
 {
   // get the primitive from this
   PrimitivePtr primitive = get_geometry();
@@ -218,7 +218,7 @@ double CollisionGeometry::calc_dist_and_normal(const Point3d& p, Vector3d& norma
   Point3d px = Pose3d::transform_point(primitive->get_pose(cg), p);
 
   // call the primitive function
-  return primitive->calc_dist_and_normal(px, normal);
+  return primitive->calc_dist_and_normal(px, normals);
 }
 
 /// Calculates the signed distance for a primitive
@@ -247,6 +247,8 @@ double CollisionGeometry::calc_signed_dist(CollisionGeometryPtr gA, CollisionGeo
   // setup poses for the points
   pA.pose = primA->get_pose(gA);
   pB.pose = primB->get_pose(gB);
+
+  FILE_LOG(LOG_COLDET) << "CollisionGeometry::calc_signed_dist() - computing signed distance between " << gA->get_single_body()->id << " and " << gB->get_single_body()->id << std::endl;
 
   // now compute the signed distance
   return primA->calc_signed_dist(primB, pA, pB);
