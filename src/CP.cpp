@@ -118,26 +118,25 @@ double CP::find_cpoint(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<cons
     FILE_LOG(LOG_COLDET) << "M: " << std::endl << M;
     FILE_LOG(LOG_COLDET) << "q: " << q << std::endl;
 
-    // can re-enable this in case the strictly convex solver breaks... 
-/*
-    static LCP lcp;
-    MatrixNd MM(H.rows()+M.rows(), H.rows()+M.rows());
-    VectorNd qq(H.rows()+M.rows());
-    MM.block(0, H.rows(), 0, H.rows()) = H;
-    SharedMatrixNd MT_block = MM.block(0, H.rows(), H.rows(), MM.columns());
-    MatrixNd::transpose(M, MT_block);
-    MM.block(0, H.rows(), H.rows(), MM.columns()).negate();
-    MM.block(H.rows(), MM.rows(), 0, H.columns()) = M;
-    MM.block(H.rows(), MM.rows(), H.columns(), MM.columns()).set_zero();
-    qq.segment(0, H.rows()) = c;
-    qq.segment(H.rows(), qq.rows()) = q;
-    qq.segment(H.rows(), qq.rows()).negate();
-    y.resize(12);
-    lcp.lcp_lemke_regularized(MM, qq, y);
-    FILE_LOG(LOG_COLDET) << "QP solution: " << y << std::endl;
-*/
     if (!qp_strict_convex(H, c, A, b, M, q, y, true))
-      throw std::runtime_error("Strictly convex solver failed!");
+    {
+      // can re-enable this in case the strictly convex solver breaks... 
+      static LCP lcp;
+      MatrixNd MM(H.rows()+M.rows(), H.rows()+M.rows());
+      VectorNd qq(H.rows()+M.rows());
+      MM.block(0, H.rows(), 0, H.rows()) = H;
+      SharedMatrixNd MT_block = MM.block(0, H.rows(), H.rows(), MM.columns());
+      MatrixNd::transpose(M, MT_block);
+      MM.block(0, H.rows(), H.rows(), MM.columns()).negate();
+      MM.block(H.rows(), MM.rows(), 0, H.columns()) = M;
+      MM.block(H.rows(), MM.rows(), H.columns(), MM.columns()).set_zero();
+      qq.segment(0, H.rows()) = c;
+      qq.segment(H.rows(), qq.rows()) = q;
+      qq.segment(H.rows(), qq.rows()).negate();
+      y.resize(12);
+      lcp.lcp_lemke_regularized(MM, qq, y);
+    }
+    FILE_LOG(LOG_COLDET) << "QP solution: " << y << std::endl;
 
     // setup closest points in global frame
     Vector3d cpA_global(y[0], y[1], y[2], GLOBAL);
