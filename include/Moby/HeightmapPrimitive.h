@@ -25,7 +25,7 @@ class HeightmapPrimitive : public Primitive
     virtual void set_pose(const Ravelin::Pose3d& T);
     virtual void get_vertices(boost::shared_ptr<const Ravelin::Pose3d> P, std::vector<Point3d>& vertices) const;
     void get_vertices(BVPtr bv, boost::shared_ptr<const Ravelin::Pose3d> P, std::vector<Point3d>& vertices) const;
-    virtual double calc_dist_and_normal(const Point3d& p, Ravelin::Vector3d& normal) const;
+    virtual double calc_dist_and_normal(const Point3d& point, std::vector<Ravelin::Vector3d>& normals) const;
     virtual double calc_signed_dist(boost::shared_ptr<const Primitive> p, Point3d& pthis, Point3d& pp) const;
     double calc_signed_dist(boost::shared_ptr<const SpherePrimitive> s, Point3d& pthis, Point3d& psph) const;
     virtual Point3d get_supporting_point(const Ravelin::Vector3d& d) const;

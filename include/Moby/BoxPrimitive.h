@@ -8,7 +8,7 @@
 #define _BOX_PRIMITIVE_H
 
 #include <Moby/Triangle.h>
-#include <Moby/Primitive.h>
+#include <Moby/PolyhedralPrimitive.h>
 #include <Moby/DummyBV.h>
 
 namespace Moby {
@@ -16,7 +16,7 @@ namespace Moby {
 class SpherePrimitive;
 
 /// Represents a solid box centered at the origin (by default)
-class BoxPrimitive : public Primitive
+class BoxPrimitive : public PolyhedralPrimitive
 {
   public:
     BoxPrimitive();
@@ -24,11 +24,13 @@ class BoxPrimitive : public Primitive
     BoxPrimitive(double xlen, double ylen, double zlen, const Ravelin::Pose3d& T);
     BoxPrimitive(const Ravelin::Pose3d& T);
     void set_size(double xlen, double ylen, double zlen);
+    virtual unsigned num_facets() const { return 6; }
+    virtual void get_facets(boost::shared_ptr<const Ravelin::Pose3d> P, Ravelin::MatrixNd& M, Ravelin::VectorNd& q) const;
     virtual bool is_convex() const { return true; }
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual BVPtr get_BVH_root(CollisionGeometryPtr geom);
-    virtual double calc_dist_and_normal(const Point3d& point, Ravelin::Vector3d& normal) const;
+    virtual double calc_dist_and_normal(const Point3d& point, std::vector<Ravelin::Vector3d>& normals) const;
     double calc_closest_point(const Point3d& point, Point3d& closest) const;
     virtual void set_pose(const Ravelin::Pose3d& T);
     void set_edge_sample_length(double len);

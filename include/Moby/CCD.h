@@ -13,6 +13,7 @@
 #include <boost/shared_ptr.hpp>
 #include <Moby/sorted_pair>
 #include <Moby/Log.h>
+#include <Moby/CP.h>
 #include <Moby/SpherePrimitive.h>
 #include <Moby/PairwiseDistInfo.h>
 #include <Moby/HeightmapPrimitive.h>
@@ -103,6 +104,9 @@ class CCD
     OutputIterator intersect_BV_leafs(BVPtr a, BVPtr b, const Ravelin::Transform3d& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b, OutputIterator output_begin) const;
 
     template <class OutputIterator>
+    OutputIterator find_contacts_generic(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL);
+
+    template <class OutputIterator>
     OutputIterator find_contacts_plane_generic(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL);
 
     template <class OutputIterator>
@@ -122,6 +126,9 @@ class CCD
 
     template <class OutputIterator>
     OutputIterator find_contacts_box_sphere(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL);
+
+    template <class OutputIterator>
+    OutputIterator find_contacts_box_box(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL);
 
     template <class RandomAccessIterator>
     void insertion_sort(RandomAccessIterator begin, RandomAccessIterator end);

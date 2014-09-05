@@ -329,10 +329,11 @@ double SpherePrimitive::calc_signed_dist(shared_ptr<const Primitive> p, Point3d&
 }
 
 /// Finds the signed distance betwen the sphere and a point
-double SpherePrimitive::calc_dist_and_normal(const Point3d& p, Vector3d& normal) const
+double SpherePrimitive::calc_dist_and_normal(const Point3d& p, std::vector<Vector3d>& normals) const
 {
   // setup the normal
-  normal = p;
+  normals.push_back(p);
+  Vector3d& normal = normals.back();
   double pnorm = p.norm();
   normal /= pnorm;
 

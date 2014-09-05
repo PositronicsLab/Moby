@@ -450,10 +450,14 @@ double HeightmapPrimitive::calc_signed_dist(shared_ptr<const Primitive> p, Point
 }
 
 /// Finds the signed distance betwen the heightmap and a point
-double HeightmapPrimitive::calc_dist_and_normal(const Point3d& p, Vector3d& normal) const
+double HeightmapPrimitive::calc_dist_and_normal(const Point3d& p, std::vector<Vector3d>& normals) const
 {
   // compute the distance
   double d = calc_height(p);
+
+  // setup the normal
+  normals.push_back(Vector3d());
+  Vector3d& normal = normals.back();
 
   // setup the normal
   if (d >= 0.0)
