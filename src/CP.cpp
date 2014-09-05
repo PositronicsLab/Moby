@@ -91,8 +91,10 @@ double CP::find_cpoint(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<cons
     q.segment(pA->num_facets(), q.rows()) = s; 
 
     // setup s and t components of M
-    M.column(6).set_one();
-    M.column(7).set_one();
+    M.column(6).segment(0, pA->num_facets()).set_one();
+    M.column(6).segment(pA->num_facets(), M.rows()).set_zero();
+    M.column(7).segment(0, pA->num_facets()).set_zero();
+    M.column(7).segment(pA->num_facets(), M.rows()).set_one();
 
     // setup l and u again
     l.resize(8);
