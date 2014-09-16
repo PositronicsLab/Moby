@@ -234,10 +234,8 @@ VectorNd& EventDrivenSimulator::ode_sustained_constraints(const VectorNd& x, dou
   bodies.erase(std::unique(bodies.begin(), bodies.end()), bodies.end());
 
   // recompute forward dynamics for bodies in constraints
-Log<OutputToFile>::reporting_level += LOG_DYNAMICS;
    BOOST_FOREACH(DynamicBodyPtr body, bodies)
      body->calc_fwd_dyn();
-Log<OutputToFile>::reporting_level -= LOG_DYNAMICS;
 
   // report accelerations
   if (LOGGING(LOG_CONSTRAINT))
