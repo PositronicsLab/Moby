@@ -44,12 +44,12 @@ using boost::dynamic_pointer_cast;
   bool RestingContactHandler::process_events(const vector<Event>& contacts)
   {
     bool RETURN_FLAG = false;
-    FILE_LOG(LOG_EVENT) << "*************************************************************";
-    FILE_LOG(LOG_EVENT) << endl;
-    FILE_LOG(LOG_EVENT) << "RestingContactHandler::process_contacts() entered";
-    FILE_LOG(LOG_EVENT) << endl;
-    FILE_LOG(LOG_EVENT) << "*************************************************************";
-    FILE_LOG(LOG_EVENT) << endl;
+    FILE_LOG(LOG_CONSTRAINT) << "*************************************************************";
+    FILE_LOG(LOG_CONSTRAINT) << endl;
+    FILE_LOG(LOG_CONSTRAINT) << "RestingContactHandler::process_contacts() entered";
+    FILE_LOG(LOG_CONSTRAINT) << endl;
+    FILE_LOG(LOG_CONSTRAINT) << "*************************************************************";
+    FILE_LOG(LOG_CONSTRAINT) << endl;
 
     // apply the method to all contacts
     if (!contacts.empty()){
@@ -61,15 +61,15 @@ using boost::dynamic_pointer_cast;
       catch(RestingContactFailException e)
       {
 
-        FILE_LOG(LOG_EVENT) << "Resting Contacting formulation failed: try using Impact model instead" << endl;
+        FILE_LOG(LOG_CONSTRAINT) << "Resting Contacting formulation failed: try using Impact model instead" << endl;
       }
     }
     else
-      FILE_LOG(LOG_EVENT) << " (no contacts?!)" << endl;
+      FILE_LOG(LOG_CONSTRAINT) << " (no contacts?!)" << endl;
 
-    FILE_LOG(LOG_EVENT) << "*************************************************************" << endl;
-    FILE_LOG(LOG_EVENT) << "RestingContactHandler::process_contacts() exited" << endl;
-    FILE_LOG(LOG_EVENT) << "*************************************************************" << endl;
+    FILE_LOG(LOG_CONSTRAINT) << "*************************************************************" << endl;
+    FILE_LOG(LOG_CONSTRAINT) << "RestingContactHandler::process_contacts() exited" << endl;
+    FILE_LOG(LOG_CONSTRAINT) << "*************************************************************" << endl;
 
     // TODO: fix this to check for K.E. gain
     return RETURN_FLAG;
@@ -102,9 +102,9 @@ using boost::dynamic_pointer_cast;
         // copy the list of contacts
         list<Event*> rcontacts = *i;
 
-        FILE_LOG(LOG_EVENT) << " -- pre-contact acceleration (all contacts: " << std::endl;
+        FILE_LOG(LOG_CONSTRAINT) << " -- pre-contact acceleration (all contacts: " << std::endl;
         for (list<Event*>::iterator j = i->begin(); j != i->end(); j++)
-          FILE_LOG(LOG_EVENT) << "    contact: " << std::endl << **j;
+          FILE_LOG(LOG_CONSTRAINT) << "    contact: " << std::endl << **j;
 
         // determine a reduced set of contacts
         Event::determine_minimal_set(rcontacts);
@@ -112,9 +112,9 @@ using boost::dynamic_pointer_cast;
         // apply model to the reduced contacts
         apply_model_to_connected_contacts(rcontacts);
 
-        FILE_LOG(LOG_EVENT) << " -- post-contact acceleration (all contacts): " << std::endl;
+        FILE_LOG(LOG_CONSTRAINT) << " -- post-contact acceleration (all contacts): " << std::endl;
         for (list<Event*>::iterator j = i->begin(); j != i->end(); j++)
-          FILE_LOG(LOG_EVENT) << "    contact: " << std::endl << **j;
+          FILE_LOG(LOG_CONSTRAINT) << "    contact: " << std::endl << **j;
     }
   }
 
@@ -131,7 +131,7 @@ using boost::dynamic_pointer_cast;
 
     const double h = 0.1;
 
-    FILE_LOG(LOG_EVENT) << "RestingContactHandler::apply_model_to_connected_contacts() entered" << endl;
+    FILE_LOG(LOG_CONSTRAINT) << "RestingContactHandler::apply_model_to_connected_contacts() entered" << endl;
 
     // reset problem data
     epd.reset();
@@ -165,7 +165,7 @@ using boost::dynamic_pointer_cast;
     // the kappa constant
     VectorNd z;
     solve_lcp(epd, z);
-    FILE_LOG(LOG_EVENT) << "Resting Event forces : " << z << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << "Resting Event forces : " << z << std::endl;
 
     // apply FORCES
     apply_forces(epd);
@@ -187,10 +187,10 @@ using boost::dynamic_pointer_cast;
       ENERGY_GAINED |= !CompGeom::rel_equal(ke_plus[i],ke_minus[i]) && ((ke_plus[i]-ke_minus[i]) > 0);
     }
 
-    FILE_LOG(LOG_EVENT) << "energy before = " << ke_minus << ", energy after = " << ke_plus << endl;
+    FILE_LOG(LOG_CONSTRAINT) << "energy before = " << ke_minus << ", energy after = " << ke_plus << endl;
 
     if (ENERGY_GAINED){
-      FILE_LOG(LOG_EVENT) << "warning! KE gain detected! energy before=" << ke_minus << " energy after=" << ke_plus << endl;
+      FILE_LOG(LOG_CONSTRAINT) << "warning! KE gain detected! energy before=" << ke_minus << " energy after=" << ke_plus << endl;
       // restore old forces
       for (unsigned i=0; i< epd.super_bodies.size(); i++){
         epd.super_bodies[i]->set_generalized_forces(gf[i]);
@@ -201,16 +201,16 @@ using boost::dynamic_pointer_cast;
     }
 
     // check the normal acceleration
-    if (LOGGING(LOG_EVENT))
+    if (LOGGING(LOG_CONSTRAINT))
     {
       BOOST_FOREACH(const Event* e, contacts)
       {
         if (e->calc_event_accel() < -NEAR_ZERO)
-          FILE_LOG(LOG_EVENT) << "RestingContactHandler::apply_model_to_connected_contacts() warning- post-contact acceleration is unacceptably negative!" << std::endl;
+          FILE_LOG(LOG_CONSTRAINT) << "RestingContactHandler::apply_model_to_connected_contacts() warning- post-contact acceleration is unacceptably negative!" << std::endl;
       }
     }
 
-    FILE_LOG(LOG_EVENT) << "RestingContactHandler::apply_model_to_connected_contacts() exiting" << endl;
+    FILE_LOG(LOG_CONSTRAINT) << "RestingContactHandler::apply_model_to_connected_contacts() exiting" << endl;
   }
 
   /// Applies resting contact forces to bodies and saves the generalized forces
@@ -480,7 +480,7 @@ using boost::dynamic_pointer_cast;
  {
   SAFESTATIC MatrixNd UL, LL, MM,UR,workM;
   SAFESTATIC VectorNd qq,workv;
-  FILE_LOG(LOG_EVENT) << "RestingContactHandler::solve_lcp() entered" << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "RestingContactHandler::solve_lcp() entered" << std::endl;
 
   unsigned NK_DIRS = 0;
   for(unsigned i=0,j=0,r=0;i<q.N_CONTACTS;i++)
@@ -608,8 +608,8 @@ using boost::dynamic_pointer_cast;
 
   MM.set_sub_mat(0, 0, UL);
 
-  FILE_LOG(LOG_EVENT) << " LCP matrix: " << std::endl << MM;
-  FILE_LOG(LOG_EVENT) << " LCP vector: " << qq << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << " LCP matrix: " << std::endl << MM;
+  FILE_LOG(LOG_CONSTRAINT) << " LCP vector: " << qq << std::endl;
 
   // solve the LCP
   //if (!_lcp.lcp_lemke_regularized(MM, qq, z))
@@ -661,22 +661,22 @@ using boost::dynamic_pointer_cast;
     q.events[i]->contact_impulse = Pose3d::transform(GLOBAL, fx);
   }
 
-  if (LOGGING(LOG_EVENT))
+  if (LOGGING(LOG_CONSTRAINT))
   {
     // compute LCP 'w' vector
     VectorNd w;
     MM.mult(z, w) += qq;
 
     // output new acceleration
-    FILE_LOG(LOG_EVENT) << "new normal acceleration: " << w.segment(0, q.events.size()) << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << "new normal acceleration: " << w.segment(0, q.events.size()) << std::endl;
   } 
 
-  FILE_LOG(LOG_EVENT) << "cn " << q.cn << std::endl;
-  FILE_LOG(LOG_EVENT) << "cs " << q.cs << std::endl;
-  FILE_LOG(LOG_EVENT) << "ct " << q.ct << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "cn " << q.cn << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "cs " << q.cs << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "ct " << q.ct << std::endl;
 
-  FILE_LOG(LOG_EVENT) << " LCP result : " << z << std::endl;
-  FILE_LOG(LOG_EVENT) << "RestingContactHandler::solve_lcp() exited" << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << " LCP result : " << z << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "RestingContactHandler::solve_lcp() exited" << std::endl;
  }
 
   /// Gets the super body (articulated if any)

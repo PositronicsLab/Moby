@@ -346,13 +346,13 @@ void UnilateralConstraint::compute_dotv_data(VectorNd& q) const
 
     // update v using 2*\dot{J}*[n t1 t2]
     su1->get_generalized_velocity(DynamicBody::eSpatial, v);
-    FILE_LOG(LOG_EVENT) << "Body 1 generalized velocity: " << v << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << "Body 1 generalized velocity: " << v << std::endl;
     q += J1.mult(v, workv);
     su2->get_generalized_velocity(DynamicBody::eSpatial, v);
-    FILE_LOG(LOG_EVENT) << "Body 2 generalized velocity: " << v << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << "Body 2 generalized velocity: " << v << std::endl;
     q += J2.mult(v, workv);
 
-    FILE_LOG(LOG_EVENT) << "UnilateralConstraint::compute_dotv_data() exited" << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << "UnilateralConstraint::compute_dotv_data() exited" << std::endl;
   }
   else
   {
@@ -398,13 +398,13 @@ void UnilateralConstraint::compute_dotv_data(VectorNd& q) const
 
     // update v using 2*\dot{J}*[n t1 t2]
     su1->get_generalized_velocity(DynamicBody::eSpatial, v);
-    FILE_LOG(LOG_EVENT) << "Body 1 generalized velocity: " << v << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << "Body 1 generalized velocity: " << v << std::endl;
     q += J1.mult(v, workv);
     su2->get_generalized_velocity(DynamicBody::eSpatial, v);
-    FILE_LOG(LOG_EVENT) << "Body 2 generalized velocity: " << v << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << "Body 2 generalized velocity: " << v << std::endl;
     q += J2.mult(v, workv);
 
-    FILE_LOG(LOG_EVENT) << "UnilateralConstraint::compute_dotv_data() exited" << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << "UnilateralConstraint::compute_dotv_data() exited" << std::endl;
   }
 }
 
@@ -1266,10 +1266,6 @@ double calc_constraint_accel2(const UnilateralConstraint& e)
   Vector3d v2(xda - xdb + Vector3d::cross(wa, ra) - Vector3d::cross(wb, rb));
   v1.pose = normal.pose;
   v2.pose = normal.pose;
-// TODO: erase three lines below 
-double t1 = normal.dot(xdda) - normal.dot(xddb);
-double t2 = normal.dot(Vector3d::cross(ala, ra)) - normal.dot(Vector3d::cross(alb, rb));;
-double t3 = normal.dot(Vector3d::cross(wa, Vector3d::cross(wa, ra))) - normal.dot(Vector3d::cross(wb, Vector3d::cross(wb, rb)));
 
   // get the linear velocities and project against the normal
   return normal.dot(v1) + 2.0*normal_dot.dot(v2);
@@ -1315,6 +1311,7 @@ double UnilateralConstraint::calc_constraint_accel() const
     // compute: <n,  d^2x/dt^2 + dw/dt x r> + <dn/dt, dx/dt + w x r>  
     double ddot = normal.dot(taa.get_linear() - tab.get_linear());
     ddot += 2.0*normal_dot.dot(tva.get_linear() - tvb.get_linear());
+
     #ifndef NDEBUG
     static bool displayed_once = false;
     if (!displayed_once && !CompGeom::rel_equal(ddot, calc_constraint_accel2(*this), 1e-4))
@@ -1413,17 +1410,17 @@ double UnilateralConstraint::calc_constraint_vel() const
     // get the contact normal in the correct pose
     Vector3d normal = Pose3d::transform_vector(_contact_frame, contact_normal);
 
-    FILE_LOG(LOG_EVENT) << "UnilateralConstraint::calc_constraint_vel() entered" << std::endl;
-    FILE_LOG(LOG_EVENT) << "normal (constraint frame): " << normal << std::endl;
-    FILE_LOG(LOG_EVENT) << "tangent 1 (constraint frame): " << Pose3d::transform_vector(_contact_frame, contact_tan1) << std::endl;
-    FILE_LOG(LOG_EVENT) << "tangent 2 (constraint frame): " << Pose3d::transform_vector(_contact_frame, contact_tan2) << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << "UnilateralConstraint::calc_constraint_vel() entered" << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << "normal (constraint frame): " << normal << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << "tangent 1 (constraint frame): " << Pose3d::transform_vector(_contact_frame, contact_tan1) << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << "tangent 2 (constraint frame): " << Pose3d::transform_vector(_contact_frame, contact_tan2) << std::endl;
 /*
-    FILE_LOG(LOG_EVENT) << "spatial velocity (mixed frame) for body A: " << Pose3d::transform(dynamic_pointer_cast<RigidBody>(sba)->get_mixed_pose(), ta) << std::endl;
-    FILE_LOG(LOG_EVENT) << "spatial velocity (constraint frame) for body A: " << ta << std::endl;
-    FILE_LOG(LOG_EVENT) << "spatial velocity (mixed frame) for body B: " << Pose3d::transform(dynamic_pointer_cast<RigidBody>(sbb)->get_mixed_pose(), tb) << std::endl;
-    FILE_LOG(LOG_EVENT) << "spatial velocity (constraint frame) for body B: " << tb << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << "spatial velocity (mixed frame) for body A: " << Pose3d::transform(dynamic_pointer_cast<RigidBody>(sba)->get_mixed_pose(), ta) << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << "spatial velocity (constraint frame) for body A: " << ta << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << "spatial velocity (mixed frame) for body B: " << Pose3d::transform(dynamic_pointer_cast<RigidBody>(sbb)->get_mixed_pose(), tb) << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << "spatial velocity (constraint frame) for body B: " << tb << std::endl;
 */
-    FILE_LOG(LOG_EVENT) << "UnilateralConstraint::calc_constraint_vel() exited" << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << "UnilateralConstraint::calc_constraint_vel() exited" << std::endl;
 
     // get the linear velocities and project against the normal
     //assert(std::fabs(normal.dot(ta.get_linear() - tb.get_linear())) < NEAR_ZERO || (std::fabs(normal.dot(ta.get_linear() - tb.get_linear()) - calc_constraint_vel2(*this)))/std::fabs(normal.dot(ta.get_linear() - tb.get_linear())) < NEAR_ZERO);
@@ -1636,7 +1633,7 @@ osg::Node* UnilateralConstraint::to_visualization_data() const
  */
 void UnilateralConstraint::determine_connected_constraints(const vector<UnilateralConstraint>& constraints, list<list<UnilateralConstraint*> >& groups)
 {
-  FILE_LOG(LOG_EVENT) << "UnilateralConstraint::determine_connected_contacts() entered" << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "UnilateralConstraint::determine_connected_contacts() entered" << std::endl;
 
   // clear the groups
   groups.clear();
@@ -1684,11 +1681,11 @@ void UnilateralConstraint::determine_connected_constraints(const vector<Unilater
       assert(false);
   }
 
-  FILE_LOG(LOG_EVENT) << " -- single bodies in constraints:" << std::endl;
-  if (LOGGING(LOG_EVENT))
+  FILE_LOG(LOG_CONSTRAINT) << " -- single bodies in constraints:" << std::endl;
+  if (LOGGING(LOG_CONSTRAINT))
     for (set<SingleBodyPtr>::const_iterator i = nodes.begin(); i != nodes.end(); i++)
-      FILE_LOG(LOG_EVENT) << "    " << (*i)->id << std::endl;
-  FILE_LOG(LOG_EVENT) << std::endl;
+      FILE_LOG(LOG_CONSTRAINT) << "    " << (*i)->id << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << std::endl;
 
   // add connections between articulated rigid bodies -- NOTE: don't process
   // articulated bodies twice!
@@ -1740,7 +1737,7 @@ void UnilateralConstraint::determine_connected_constraints(const vector<Unilater
 
     // add a list to the contact groups
     groups.push_back(list<UnilateralConstraint*>());
-    FILE_LOG(LOG_EVENT) << " -- constraints in group: " << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << " -- constraints in group: " << std::endl;
 
     // create a node queue, with this node added
     std::queue<SingleBodyPtr> node_q;
@@ -1800,7 +1797,7 @@ void UnilateralConstraint::determine_connected_constraints(const vector<Unilater
     }
   }
 
-  FILE_LOG(LOG_EVENT) << "UnilateralConstraint::determine_connected_constraints() exited" << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "UnilateralConstraint::determine_connected_constraints() exited" << std::endl;
 }
 
 /*
@@ -1962,12 +1959,12 @@ void UnilateralConstraint::process_convex_set_group(list<UnilateralConstraint*>&
     points.push_back(&e->contact_point);
   }
 
-  FILE_LOG(LOG_EVENT) << "UnilateralConstraint::determine_convex_set() entered" << std::endl;
-  FILE_LOG(LOG_EVENT) << " -- initial number of contact points: " << points.size() << std::endl;
-  FILE_LOG(LOG_EVENT) << " coefficients of friction: ";
+  FILE_LOG(LOG_CONSTRAINT) << "UnilateralConstraint::determine_convex_set() entered" << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << " -- initial number of contact points: " << points.size() << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << " coefficients of friction: ";
   BOOST_FOREACH(const UnilateralConstraint* e, group)
-    FILE_LOG(LOG_EVENT) << e->contact_mu_coulomb << " ";
-  FILE_LOG(LOG_EVENT) << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << e->contact_mu_coulomb << " ";
+  FILE_LOG(LOG_CONSTRAINT) << std::endl;
 
   // determine whether points are collinear
   const Point3d& pA = *points.front(); 
@@ -1983,7 +1980,7 @@ void UnilateralConstraint::process_convex_set_group(list<UnilateralConstraint*>&
   // easiest case: collinear
   if (collinear)
   {
-    FILE_LOG(LOG_EVENT) << " -- contact points are all collinear" << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << " -- contact points are all collinear" << std::endl;
 
     // just get endpoints
     pair<Point3d*, Point3d*> ep;
@@ -1999,11 +1996,11 @@ void UnilateralConstraint::process_convex_set_group(list<UnilateralConstraint*>&
     }
     assert(!group.empty());
 
-    FILE_LOG(LOG_EVENT) << " -- remaining contact points after removal: " << std::endl;
-    if (LOGGING(LOG_EVENT))
+    FILE_LOG(LOG_CONSTRAINT) << " -- remaining contact points after removal: " << std::endl;
+    if (LOGGING(LOG_CONSTRAINT))
     {
       BOOST_FOREACH(const UnilateralConstraint* e, group)
-        FILE_LOG(LOG_EVENT) << *e << std::endl;
+        FILE_LOG(LOG_CONSTRAINT) << *e << std::endl;
     }
 
     return;
@@ -2011,7 +2008,7 @@ void UnilateralConstraint::process_convex_set_group(list<UnilateralConstraint*>&
   // determine whether the contact manifold is 2D or 3D
   else if (is_contact_manifold_2D(group))
   { 
-    FILE_LOG(LOG_EVENT) << " -- contact points appear to be on a 2D contact manifold" << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << " -- contact points appear to be on a 2D contact manifold" << std::endl;
 
     try
     {
@@ -2027,7 +2024,7 @@ void UnilateralConstraint::process_convex_set_group(list<UnilateralConstraint*>&
     }
     catch (NumericalException e)
     {
-      FILE_LOG(LOG_EVENT) << " -- unable to compute 2D convex hull; falling back to computing line endpoints" << std::endl;
+      FILE_LOG(LOG_CONSTRAINT) << " -- unable to compute 2D convex hull; falling back to computing line endpoints" << std::endl;
 
       // compute the segment endpoints
       pair<Point3d*, Point3d*> ep;
@@ -2042,11 +2039,11 @@ void UnilateralConstraint::process_convex_set_group(list<UnilateralConstraint*>&
           i = group.erase(i);
       }
 
-      FILE_LOG(LOG_EVENT) << " -- remaining contact points after removal: " << std::endl;
-      if (LOGGING(LOG_EVENT))
+      FILE_LOG(LOG_CONSTRAINT) << " -- remaining contact points after removal: " << std::endl;
+      if (LOGGING(LOG_CONSTRAINT))
       {
         BOOST_FOREACH(const UnilateralConstraint* e, group)
-          FILE_LOG(LOG_EVENT) << *e << std::endl;
+          FILE_LOG(LOG_CONSTRAINT) << *e << std::endl;
       }
 
       return;
@@ -2056,7 +2053,7 @@ void UnilateralConstraint::process_convex_set_group(list<UnilateralConstraint*>&
   {
     try
     {
-      FILE_LOG(LOG_EVENT) << " -- contact points appear to be on a 3D contact manifold" << std::endl;
+      FILE_LOG(LOG_CONSTRAINT) << " -- contact points appear to be on a 3D contact manifold" << std::endl;
 
       // compute the 3D convex hull
       CompGeom::calc_convex_hull(points.begin(), points.end(), std::back_inserter(hull));
@@ -2067,7 +2064,7 @@ void UnilateralConstraint::process_convex_set_group(list<UnilateralConstraint*>&
     {
       try
       {
-        FILE_LOG(LOG_EVENT) << " -- 3D convex hull failed; trying 2D convex hull" << std::endl;
+        FILE_LOG(LOG_CONSTRAINT) << " -- 3D convex hull failed; trying 2D convex hull" << std::endl;
 
         // attempt to fit a plane to the points
         Vector3d normal;
@@ -2106,12 +2103,12 @@ void UnilateralConstraint::process_convex_set_group(list<UnilateralConstraint*>&
             i = group.erase(i);
         }
 
-        FILE_LOG(LOG_EVENT) << " -- unable to compute 2D convex hull; falling back to computing line endpoints" << std::endl;
-        FILE_LOG(LOG_EVENT) << " -- remaining contact points after removal: " << std::endl;
-        if (LOGGING(LOG_EVENT))
+        FILE_LOG(LOG_CONSTRAINT) << " -- unable to compute 2D convex hull; falling back to computing line endpoints" << std::endl;
+        FILE_LOG(LOG_CONSTRAINT) << " -- remaining contact points after removal: " << std::endl;
+        if (LOGGING(LOG_CONSTRAINT))
         {
           BOOST_FOREACH(const UnilateralConstraint* e, group)
-            FILE_LOG(LOG_EVENT) << *e << std::endl;
+            FILE_LOG(LOG_CONSTRAINT) << *e << std::endl;
         }
 
         return;
@@ -2131,7 +2128,7 @@ void UnilateralConstraint::process_convex_set_group(list<UnilateralConstraint*>&
       i = group.erase(i);
   }
 
-  FILE_LOG(LOG_EVENT) << " -- remaining contact points after removal using convex hull: " << group.size() << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << " -- remaining contact points after removal using convex hull: " << group.size() << std::endl;
 }
 
 /// Determines whether all constraints in a set are 2D or 3D
@@ -2173,8 +2170,8 @@ void UnilateralConstraint::determine_minimal_set(list<UnilateralConstraint*>& gr
   if (group.size() <= 4)
     return;
 
-  FILE_LOG(LOG_EVENT) << "UnilateralConstraint::determine_minimal_set() entered" << std::endl;
-  FILE_LOG(LOG_EVENT) << " -- initial number of constraints: " << group.size() << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "UnilateralConstraint::determine_minimal_set() entered" << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << " -- initial number of constraints: " << group.size() << std::endl;
 
   // setup a mapping from pairs of single bodies to groups of constraints
   map<sorted_pair<SingleBodyPtr>, list<UnilateralConstraint*> > contact_groups;
