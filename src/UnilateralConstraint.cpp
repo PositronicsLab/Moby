@@ -1536,6 +1536,8 @@ std::ostream& Moby::operator<<(std::ostream& o, const UnilateralConstraint& e)
     }
     else
       o << "relative normal acceleration: " << e.calc_constraint_accel() << " (1)   " << calc_constraint_accel2(e) << " (2)" << std::endl;
+//      o << "relative tangent acceleration: " << (e.tan1.dot(ralin) +  << " (1)   " << calc_constraint_accel2(e) << " (2)" << std::endl;
+//      o << "relative tangent acceleration: " << e.calc_constraint_accel() << " (1)   " << calc_constraint_accel2(e) << " (2)" << std::endl;
   }
 
   return o;
