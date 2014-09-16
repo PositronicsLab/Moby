@@ -22,6 +22,8 @@ using boost::shared_ptr;
  */
 FixedJoint::FixedJoint() : Joint(), FixedJointd()
 {
+  init_data();  // FixedJointd()'s constructor should call our virtual...
+                // ... method but this is not happening. 
 }
 
 /// Initializes the joint with the specified inboard and outboard links

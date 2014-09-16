@@ -25,6 +25,8 @@ using namespace Moby;
  */
 SphericalJoint::SphericalJoint() : Joint(), SphericalJointd()
 {
+  init_data();  // SphericalJointd()'s constructor should call our virtual...
+                // ... method but this is not happening. 
 }
 
 /// Initializes the joint with the specified inboard and outboard links

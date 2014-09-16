@@ -23,6 +23,8 @@ using namespace Moby;
  */
 RevoluteJoint::RevoluteJoint() : Joint(), RevoluteJointd()
 {
+  init_data();  // RevoluteJointd()'s constructor should call our virtual...
+                // ... method but this is not happening. 
 }
 
 /// Initializes the joint with the specified inboard and outboard links

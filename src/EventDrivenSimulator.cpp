@@ -146,14 +146,6 @@ void EventDrivenSimulator::calc_rigid_sustained_unilateral_constraint_forces()
   // call the post-force application callback, if any
   if (constraint_post_callback_fn)
     (*constraint_post_callback_fn)(_rigid_constraints, constraint_post_callback_data);
-
-  // output accelerations
-  if (LOGGING(LOG_EVENT))
-  {
-    FILE_LOG(LOG_EVENT) << " -- post-contact acceleration (all contacts): " << std::endl;
-    BOOST_FOREACH(const UnilateralConstraint& e, _rigid_constraints)
-      FILE_LOG(LOG_EVENT) << e;
-  }
 }
 
 /// Computes the ODE for systems with sustained unilateral constraints
@@ -247,6 +239,14 @@ Log<OutputToFile>::reporting_level += LOG_DYNAMICS;
      body->calc_fwd_dyn();
 Log<OutputToFile>::reporting_level -= LOG_DYNAMICS;
 
+  // report accelerations
+  if (LOGGING(LOG_CONSTRAINT))
+  {
+    FILE_LOG(LOG_CONSTRAINT) << " -- post-contact acceleration (all contacts): " << std::endl;
+    BOOST_FOREACH(const UnilateralConstraint& e, s->_rigid_constraints)
+      FILE_LOG(LOG_CONSTRAINT) << e;
+  }
+
 // TODO: remove this
 static double last_t = -1.0;
 static std::vector<double> last_vels; 
@@ -258,9 +258,9 @@ if (last_vels.size() == this_vels.size())
   double h = t - last_t;
   for (unsigned i=0; i< this_vels.size(); i++)
   {
-    FILE_LOG(LOG_EVENT) << "Velocity at " << last_t << ": " << last_vels[i] << std::endl;
-    FILE_LOG(LOG_EVENT) << "Velocity at " << t << ": " << this_vels[i] << std::endl;
-    FILE_LOG(LOG_EVENT) << "Numerically computed acceleration: " << (this_vels[i] - last_vels[i])/h << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << "Velocity at " << last_t << ": " << last_vels[i] << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << "Velocity at " << t << ": " << this_vels[i] << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << "Numerically computed acceleration: " << (this_vels[i] - last_vels[i])/h << std::endl;
   }
 }
 last_t = t;
