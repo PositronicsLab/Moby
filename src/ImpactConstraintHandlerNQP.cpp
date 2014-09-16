@@ -65,7 +65,7 @@ void ImpactConstraintHandler::solve_nqp(VectorNd& z, UnilateralConstraintProblem
   // keep solving until we run out of time or all contact points are active
   while (true)
   {
-    FILE_LOG(LOG_EVENT) << "Running NQP solve iteration with " << (q.N_ACT_CONTACTS) << " active contacts" << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << "Running NQP solve iteration with " << (q.N_ACT_CONTACTS) << " active contacts" << std::endl;
 
     // solve the nonlinearly constrained QP
     solve_nqp_work(q, z);
@@ -75,7 +75,7 @@ void ImpactConstraintHandler::solve_nqp(VectorNd& z, UnilateralConstraintProblem
     tms cstop;
     clock_t stop = times(&cstop);
     double elapsed = (double) (stop-start)/TPS;
-    FILE_LOG(LOG_EVENT) << "Elapsed time: " << elapsed << std::endl; 
+    FILE_LOG(LOG_CONSTRAINT) << "Elapsed time: " << elapsed << std::endl; 
 
     // check whether we can mark any more contacts as active
     if (elapsed > max_time || q.N_ACT_CONTACTS == q.N_CONTACTS)
@@ -293,29 +293,29 @@ void ImpactConstraintHandler::solve_nqp_work(UnilateralConstraintProblemData& q,
     c += _workv;
   }
 
-   FILE_LOG(LOG_EVENT) << "ImpactConstraintHandler::solve_nqp_work() entered" << std::endl;
-  FILE_LOG(LOG_EVENT) << "  Cn * inv(M) * Cn': " << std::endl << q.Cn_iM_CnT;
-  FILE_LOG(LOG_EVENT) << "  Cn * inv(M) * Cs': " << std::endl << q.Cn_iM_CsT;
-  FILE_LOG(LOG_EVENT) << "  Cn * inv(M) * Ct': " << std::endl << q.Cn_iM_CtT;
-  FILE_LOG(LOG_EVENT) << "  Cn * inv(M) * L': " << std::endl << q.Cn_iM_LT;
-  FILE_LOG(LOG_EVENT) << "  Cn * inv(M) * Jx': " << std::endl << q.Cn_iM_JxT;
-  FILE_LOG(LOG_EVENT) << "  Cs * inv(M) * Cs': " << std::endl << q.Cs_iM_CsT;
-  FILE_LOG(LOG_EVENT) << "  Cs * inv(M) * Ct': " << std::endl << q.Cs_iM_CtT;
-  FILE_LOG(LOG_EVENT) << "  Cs * inv(M) * L': " << std::endl << q.Cs_iM_LT;
-  FILE_LOG(LOG_EVENT) << "  Cs * inv(M) * Jx': " << std::endl << q.Cs_iM_JxT;
-  FILE_LOG(LOG_EVENT) << "  Ct * inv(M) * Ct': " << std::endl << q.Ct_iM_CtT;
-  FILE_LOG(LOG_EVENT) << "  Ct * inv(M) * L': " << std::endl << q.Ct_iM_LT;
-  FILE_LOG(LOG_EVENT) << "  Ct * inv(M) * Jx': " << std::endl << q.Ct_iM_JxT;
-  FILE_LOG(LOG_EVENT) << "  L * inv(M) * L': " << std::endl << q.L_iM_LT;
-  FILE_LOG(LOG_EVENT) << "  L * inv(M) * Jx': " << std::endl << q.L_iM_JxT;
-  FILE_LOG(LOG_EVENT) << "  Jx * inv(M) * Jx': " << std::endl << q.Jx_iM_JxT;
-  FILE_LOG(LOG_EVENT) << "  Cn * v: " << q.Cn_v << std::endl;
-  FILE_LOG(LOG_EVENT) << "  Cs * v: " << q.Cs_v << std::endl;
-  FILE_LOG(LOG_EVENT) << "  Ct * v: " << q.Ct_v << std::endl;
-  FILE_LOG(LOG_EVENT) << "  L * v: " << q.L_v << std::endl;
-  FILE_LOG(LOG_EVENT) << "  Jx * v: " << q.Jx_v << std::endl;
-  FILE_LOG(LOG_EVENT) << "H matrix: " << std::endl << H;
-  FILE_LOG(LOG_EVENT) << "c vector: " << c << std::endl;
+   FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::solve_nqp_work() entered" << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "  Cn * inv(M) * Cn': " << std::endl << q.Cn_iM_CnT;
+  FILE_LOG(LOG_CONSTRAINT) << "  Cn * inv(M) * Cs': " << std::endl << q.Cn_iM_CsT;
+  FILE_LOG(LOG_CONSTRAINT) << "  Cn * inv(M) * Ct': " << std::endl << q.Cn_iM_CtT;
+  FILE_LOG(LOG_CONSTRAINT) << "  Cn * inv(M) * L': " << std::endl << q.Cn_iM_LT;
+  FILE_LOG(LOG_CONSTRAINT) << "  Cn * inv(M) * Jx': " << std::endl << q.Cn_iM_JxT;
+  FILE_LOG(LOG_CONSTRAINT) << "  Cs * inv(M) * Cs': " << std::endl << q.Cs_iM_CsT;
+  FILE_LOG(LOG_CONSTRAINT) << "  Cs * inv(M) * Ct': " << std::endl << q.Cs_iM_CtT;
+  FILE_LOG(LOG_CONSTRAINT) << "  Cs * inv(M) * L': " << std::endl << q.Cs_iM_LT;
+  FILE_LOG(LOG_CONSTRAINT) << "  Cs * inv(M) * Jx': " << std::endl << q.Cs_iM_JxT;
+  FILE_LOG(LOG_CONSTRAINT) << "  Ct * inv(M) * Ct': " << std::endl << q.Ct_iM_CtT;
+  FILE_LOG(LOG_CONSTRAINT) << "  Ct * inv(M) * L': " << std::endl << q.Ct_iM_LT;
+  FILE_LOG(LOG_CONSTRAINT) << "  Ct * inv(M) * Jx': " << std::endl << q.Ct_iM_JxT;
+  FILE_LOG(LOG_CONSTRAINT) << "  L * inv(M) * L': " << std::endl << q.L_iM_LT;
+  FILE_LOG(LOG_CONSTRAINT) << "  L * inv(M) * Jx': " << std::endl << q.L_iM_JxT;
+  FILE_LOG(LOG_CONSTRAINT) << "  Jx * inv(M) * Jx': " << std::endl << q.Jx_iM_JxT;
+  FILE_LOG(LOG_CONSTRAINT) << "  Cn * v: " << q.Cn_v << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "  Cs * v: " << q.Cs_v << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "  Ct * v: " << q.Ct_v << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "  L * v: " << q.L_v << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "  Jx * v: " << q.Jx_v << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "H matrix: " << std::endl << H;
+  FILE_LOG(LOG_CONSTRAINT) << "c vector: " << c << std::endl;
 
   // setup ipopt options
   _app.Options()->SetIntegerValue("print_level", 0);
@@ -348,16 +348,16 @@ void ImpactConstraintHandler::solve_nqp_work(UnilateralConstraintProblemData& q,
   x.set_sub_vec(q.CT_IDX, ct);
   x.set_sub_vec(q.L_IDX, l);
 
-  FILE_LOG(LOG_EVENT) << "nonlinear QP solution: " << x << std::endl; 
-  if (LOGGING(LOG_EVENT))
+  FILE_LOG(LOG_CONSTRAINT) << "nonlinear QP solution: " << x << std::endl; 
+  if (LOGGING(LOG_CONSTRAINT))
   {
     VectorNd workv;
     SharedVectorNd xsub = _ipsolver->z.segment(0, c.rows());
     H.mult(xsub, workv) *= 0.5;
     workv += c;
-    FILE_LOG(LOG_EVENT) << "(signed) computed energy dissipation: " << xsub.dot(workv) << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << "(signed) computed energy dissipation: " << xsub.dot(workv) << std::endl;
   }
-  FILE_LOG(LOG_EVENT) << "ImpactConstraintHandler::solve_nqp() exited" << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::solve_nqp() exited" << std::endl;
 }
 #endif // #ifndef HAVE_IPOPT
 

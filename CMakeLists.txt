@@ -16,7 +16,7 @@ set (SOURCES AABB.cpp SustainedUnilateralConstraintHandler.cpp ADF.cpp Articulat
 option (BUILD_SHARED_LIBS "Build Moby as a shared library?" ON)
 option (BUILD_TOOLS "Build the programs in the tools subdirectory?" ON)
 option (USE_OSG "Build against OpenSceneGraph library?" ON)
-option (USE_IPOPT "Build against IPOPT library?" ON)
+option (USE_IPOPT "Build against IPOPT library?" OFF)
 if(APPLE)
   option (USE_QLCPD "Build against QLCPD library?" OFF)
 else()

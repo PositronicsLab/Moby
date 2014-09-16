@@ -43,12 +43,12 @@ SustainedUnilateralConstraintHandler::SustainedUnilateralConstraintHandler(){}
 // Processes impacts
 void SustainedUnilateralConstraintHandler::process_constraints(const vector<UnilateralConstraint>& contacts)
 {
-  FILE_LOG(LOG_EVENT) << "*************************************************************";
-  FILE_LOG(LOG_EVENT) << endl;
-  FILE_LOG(LOG_EVENT) << "SustainedUnilateralConstraintHandler::process_constraints() entered";
-  FILE_LOG(LOG_EVENT) << endl;
-  FILE_LOG(LOG_EVENT) << "*************************************************************";
-  FILE_LOG(LOG_EVENT) << endl;
+  FILE_LOG(LOG_CONSTRAINT) << "*************************************************************";
+  FILE_LOG(LOG_CONSTRAINT) << endl;
+  FILE_LOG(LOG_CONSTRAINT) << "SustainedUnilateralConstraintHandler::process_constraints() entered";
+  FILE_LOG(LOG_CONSTRAINT) << endl;
+  FILE_LOG(LOG_CONSTRAINT) << "*************************************************************";
+  FILE_LOG(LOG_CONSTRAINT) << endl;
 
   // verify that every constraint is a contact constraint
   for (unsigned i=0; i< contacts.size(); i++)
@@ -58,9 +58,9 @@ void SustainedUnilateralConstraintHandler::process_constraints(const vector<Unil
   if (!contacts.empty())
     apply_model(contacts);
 
-  FILE_LOG(LOG_EVENT) << "*************************************************************" << endl;
-  FILE_LOG(LOG_EVENT) << "SustainedUnilateralConstraintHandler::process_constraints() exited" << endl;
-  FILE_LOG(LOG_EVENT) << "*************************************************************" << endl;
+  FILE_LOG(LOG_CONSTRAINT) << "*************************************************************" << endl;
+  FILE_LOG(LOG_CONSTRAINT) << "SustainedUnilateralConstraintHandler::process_constraints() exited" << endl;
+  FILE_LOG(LOG_CONSTRAINT) << "*************************************************************" << endl;
 }
 
 /// Applies the model to a set of contacts
@@ -90,9 +90,9 @@ void SustainedUnilateralConstraintHandler::apply_model(const vector<UnilateralCo
       // copy the list of contacts
       list<UnilateralConstraint*> rcontacts = *i;
 
-      FILE_LOG(LOG_EVENT) << " -- pre-contact acceleration (all contacts: " << std::endl;
+      FILE_LOG(LOG_CONSTRAINT) << " -- pre-contact acceleration (all contacts: " << std::endl;
       for (list<UnilateralConstraint*>::iterator j = i->begin(); j != i->end(); j++)
-        FILE_LOG(LOG_EVENT) << "    contact: " << std::endl << **j;
+        FILE_LOG(LOG_CONSTRAINT) << "    contact: " << std::endl << **j;
 
       // determine a reduced set of contacts
       UnilateralConstraint::determine_minimal_set(rcontacts);
@@ -112,7 +112,7 @@ void SustainedUnilateralConstraintHandler::apply_model_to_connected_contacts(con
   SAFESTATIC vector<VectorNd> gf;
   SAFESTATIC MatrixNd M;
 
-  FILE_LOG(LOG_EVENT) << "SustainedUnilateralConstraintHandler::apply_model_to_connected_contacts() entered" << endl;
+  FILE_LOG(LOG_CONSTRAINT) << "SustainedUnilateralConstraintHandler::apply_model_to_connected_contacts() entered" << endl;
 
   // reset problem data
   epd.reset();
@@ -129,12 +129,12 @@ void SustainedUnilateralConstraintHandler::apply_model_to_connected_contacts(con
   if (!solve_lcp(epd, z))
     throw SustainedUnilateralConstraintSolveFailException();
 
-  FILE_LOG(LOG_EVENT) << "Resting constraint forces : " << z << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "Resting constraint forces : " << z << std::endl;
 
   // apply FORCES
   apply_forces(epd);
 
-  FILE_LOG(LOG_EVENT) << "SustainedUnilateralConstraintHandler::apply_model_to_connected_contacts() exiting" << endl;
+  FILE_LOG(LOG_CONSTRAINT) << "SustainedUnilateralConstraintHandler::apply_model_to_connected_contacts() exiting" << endl;
 }
 
 /// Applies resting contact forces to bodies and saves the generalized forces
@@ -390,7 +390,7 @@ bool SustainedUnilateralConstraintHandler::solve_lcp(SustainedUnilateralConstrai
 {
   SAFESTATIC MatrixNd UL, LL, MM,UR,workM;
   SAFESTATIC VectorNd qq,workv;
-  FILE_LOG(LOG_EVENT) << "SustainedUnilateralConstraintHandler::solve_lcp() entered" << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "SustainedUnilateralConstraintHandler::solve_lcp() entered" << std::endl;
 
   unsigned NK_DIRS = 0;
   for(unsigned i=0,j=0,r=0;i<q.N_CONTACTS;i++)
@@ -519,8 +519,8 @@ bool SustainedUnilateralConstraintHandler::solve_lcp(SustainedUnilateralConstrai
 
   MM.set_sub_mat(0, 0, UL);
 
-  FILE_LOG(LOG_EVENT) << " LCP matrix: " << std::endl << MM;
-  FILE_LOG(LOG_EVENT) << " LCP vector: " << qq << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << " LCP matrix: " << std::endl << MM;
+  FILE_LOG(LOG_CONSTRAINT) << " LCP vector: " << qq << std::endl;
 
   // solve the LCP
   //if (!_lcp.lcp_lemke_regularized(MM, qq, z))
@@ -572,22 +572,22 @@ bool SustainedUnilateralConstraintHandler::solve_lcp(SustainedUnilateralConstrai
     q.constraints[i]->contact_impulse = Pose3d::transform(GLOBAL, fx);
   }
 
-  if (LOGGING(LOG_EVENT))
+  if (LOGGING(LOG_CONSTRAINT))
   {
     // compute LCP 'w' vector
     VectorNd w;
     MM.mult(z, w) += qq;
 
     // output new acceleration
-    FILE_LOG(LOG_EVENT) << "new normal acceleration: " << w.segment(0, q.constraints.size()) << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << "new normal acceleration: " << w.segment(0, q.constraints.size()) << std::endl;
   } 
 
-  FILE_LOG(LOG_EVENT) << "cn " << q.cn << std::endl;
-  FILE_LOG(LOG_EVENT) << "cs " << q.cs << std::endl;
-  FILE_LOG(LOG_EVENT) << "ct " << q.ct << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "cn " << q.cn << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "cs " << q.cs << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "ct " << q.ct << std::endl;
 
-  FILE_LOG(LOG_EVENT) << " LCP result : " << z << std::endl;
-  FILE_LOG(LOG_EVENT) << "SustainedUnilateralConstraintHandler::solve_lcp() exited" << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << " LCP result : " << z << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "SustainedUnilateralConstraintHandler::solve_lcp() exited" << std::endl;
 
   return true;
 }

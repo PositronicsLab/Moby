@@ -56,7 +56,7 @@ void ImpactConstraintHandler::solve_qp(VectorNd& z, UnilateralConstraintProblemD
   // keep solving until we run out of time or all contact points are active
   while (true)
   {
-    FILE_LOG(LOG_EVENT) << "Running QP solve iteration with " << (q.N_ACT_CONTACTS) << " active contacts" << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << "Running QP solve iteration with " << (q.N_ACT_CONTACTS) << " active contacts" << std::endl;
 
     // solve the QP
     try
@@ -65,7 +65,7 @@ void ImpactConstraintHandler::solve_qp(VectorNd& z, UnilateralConstraintProblemD
     }
     catch (LCPSolverException e)
     {
-      FILE_LOG(LOG_EVENT) << "Failed to solve QP: returning best solution so far" << std::endl;
+      FILE_LOG(LOG_CONSTRAINT) << "Failed to solve QP: returning best solution so far" << std::endl;
       z = _zsuccess;
       break;
     }
@@ -78,7 +78,7 @@ void ImpactConstraintHandler::solve_qp(VectorNd& z, UnilateralConstraintProblemD
     tms cstop;
     clock_t stop = times(&cstop);
     double elapsed = (double) (stop - start)/TPS;
-    FILE_LOG(LOG_EVENT) << "Elapsed time: " << elapsed << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << "Elapsed time: " << elapsed << std::endl;
 
     // check whether we can mark any more contacts as active
     if (elapsed > max_time || q.N_ACT_CONTACTS == q.N_CONTACTS)
@@ -132,20 +132,20 @@ void ImpactConstraintHandler::solve_qp_work(UnilateralConstraintProblemData& epd
   // implicit constraints not handled at the moment
   assert(epd.N_CONSTRAINT_EQNS_IMP == 0);
 
-  FILE_LOG(LOG_EVENT) << "  Cn * inv(M) * Cn': " << std::endl << epd.Cn_iM_CnT;
-  FILE_LOG(LOG_EVENT) << "  Cn * inv(M) * Cs': " << std::endl << epd.Cn_iM_CsT;
-  FILE_LOG(LOG_EVENT) << "  Cn * inv(M) * Ct': " << std::endl << epd.Cn_iM_CtT;
-  FILE_LOG(LOG_EVENT) << "  Cn * inv(M) * L': " << std::endl << epd.Cn_iM_LT;
-  FILE_LOG(LOG_EVENT) << "  Cs * inv(M) * Cs': " << std::endl << epd.Cs_iM_CsT;
-  FILE_LOG(LOG_EVENT) << "  Cs * inv(M) * Ct': " << std::endl << epd.Cs_iM_CtT;
-  FILE_LOG(LOG_EVENT) << "  Cs * inv(M) * L': " << std::endl << epd.Cs_iM_LT;
-  FILE_LOG(LOG_EVENT) << "  Ct * inv(M) * Ct': " << std::endl << epd.Ct_iM_CtT;
-  FILE_LOG(LOG_EVENT) << "  Ct * inv(M) * L': " << std::endl << epd.Ct_iM_LT;
-  FILE_LOG(LOG_EVENT) << "  L * inv(M) * L': " << std::endl << epd.L_iM_LT;
-  FILE_LOG(LOG_EVENT) << "  Cn * v: " << epd.Cn_v << std::endl;
-  FILE_LOG(LOG_EVENT) << "  Cs * v: " << epd.Cs_v << std::endl;
-  FILE_LOG(LOG_EVENT) << "  Ct * v: " << epd.Ct_v << std::endl;
-  FILE_LOG(LOG_EVENT) << "  L * v: " << epd.L_v << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "  Cn * inv(M) * Cn': " << std::endl << epd.Cn_iM_CnT;
+  FILE_LOG(LOG_CONSTRAINT) << "  Cn * inv(M) * Cs': " << std::endl << epd.Cn_iM_CsT;
+  FILE_LOG(LOG_CONSTRAINT) << "  Cn * inv(M) * Ct': " << std::endl << epd.Cn_iM_CtT;
+  FILE_LOG(LOG_CONSTRAINT) << "  Cn * inv(M) * L': " << std::endl << epd.Cn_iM_LT;
+  FILE_LOG(LOG_CONSTRAINT) << "  Cs * inv(M) * Cs': " << std::endl << epd.Cs_iM_CsT;
+  FILE_LOG(LOG_CONSTRAINT) << "  Cs * inv(M) * Ct': " << std::endl << epd.Cs_iM_CtT;
+  FILE_LOG(LOG_CONSTRAINT) << "  Cs * inv(M) * L': " << std::endl << epd.Cs_iM_LT;
+  FILE_LOG(LOG_CONSTRAINT) << "  Ct * inv(M) * Ct': " << std::endl << epd.Ct_iM_CtT;
+  FILE_LOG(LOG_CONSTRAINT) << "  Ct * inv(M) * L': " << std::endl << epd.Ct_iM_LT;
+  FILE_LOG(LOG_CONSTRAINT) << "  L * inv(M) * L': " << std::endl << epd.L_iM_LT;
+  FILE_LOG(LOG_CONSTRAINT) << "  Cn * v: " << epd.Cn_v << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "  Cs * v: " << epd.Cs_v << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "  Ct * v: " << epd.Ct_v << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "  L * v: " << epd.L_v << std::endl;
 
   // get useful constants
   const unsigned N_ACT_CONTACTS = epd.N_ACT_CONTACTS;
@@ -182,12 +182,12 @@ void ImpactConstraintHandler::solve_qp_work(UnilateralConstraintProblemData& epd
   MatrixNd::transpose(M, MT);
   MT.negate();
 
-  FILE_LOG(LOG_EVENT) << "H matrix: " << std::endl << H;
-  FILE_LOG(LOG_EVENT) << "c vector: " << c << std::endl;
-  FILE_LOG(LOG_EVENT) << "M matrix: " << std::endl << M;
-  FILE_LOG(LOG_EVENT) << "q vector: " << q << std::endl;
-  FILE_LOG(LOG_EVENT) << "LCP matrix: " << std::endl << _MM;
-  FILE_LOG(LOG_EVENT) << "LCP vector: " << _qq << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "H matrix: " << std::endl << H;
+  FILE_LOG(LOG_CONSTRAINT) << "c vector: " << c << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "M matrix: " << std::endl << M;
+  FILE_LOG(LOG_CONSTRAINT) << "q vector: " << q << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "LCP matrix: " << std::endl << _MM;
+  FILE_LOG(LOG_CONSTRAINT) << "LCP vector: " << _qq << std::endl;
 
   // init z to zero
   z.set_zero(_qq.rows());
@@ -261,7 +261,7 @@ void ImpactConstraintHandler::solve_qp_work(UnilateralConstraintProblemData& epd
   ub.set_one() *= 1e+29;
   if (!_qp.qp_activeset(H, c, lb, ub, M, q, A, b, z))
   {
-    FILE_LOG(LOG_EVENT) << "QLCPD failed to solve; finding closest feasible point" << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << "QLCPD failed to solve; finding closest feasible point" << std::endl;
 
     // QP solver not successful by default; attempt to find the closest
     // feasible point
@@ -274,14 +274,14 @@ void ImpactConstraintHandler::solve_qp_work(UnilateralConstraintProblemData& epd
     }
     else
     {
-      FILE_LOG(LOG_EVENT) << "updating q; q=" << q << std::endl;
+      FILE_LOG(LOG_CONSTRAINT) << "updating q; q=" << q << std::endl;
 
       // found closest feasible point; compute M*z - q
       M.mult(z, _workv) -= q;
       for (unsigned i=0; i< _workv.size(); i++)
         if (_workv[i] < 0.0)
           q[i] += _workv[i] - NEAR_ZERO;
-      FILE_LOG(LOG_EVENT) << "            q'=" << q << std::endl;
+      FILE_LOG(LOG_CONSTRAINT) << "            q'=" << q << std::endl;
 
       // now attempt to solve the QP again
       if (!_qp.qp_activeset(H, c, lb, ub, M, q, A, b, z))
@@ -294,10 +294,10 @@ void ImpactConstraintHandler::solve_qp_work(UnilateralConstraintProblemData& epd
     }
   }
 
-  FILE_LOG(LOG_EVENT) << "QLCPD solution: " << z << std::endl;
-  FILE_LOG(LOG_EVENT) << "M: " << std::endl << M;
-  FILE_LOG(LOG_EVENT) << "q: " << q << std::endl;
-  FILE_LOG(LOG_EVENT) << "M*z - q: " << (M.mult(z.get_sub_vec(0,M.columns(),_workv2), _workv) -= q) << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "QLCPD solution: " << z << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "M: " << std::endl << M;
+  FILE_LOG(LOG_CONSTRAINT) << "q: " << q << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "M*z - q: " << (M.mult(z.get_sub_vec(0,M.columns(),_workv2), _workv) -= q) << std::endl;
 
   #else
   // negate q (it was in form Mx >= q, needs to be in Mx + q >= 0)
@@ -307,7 +307,7 @@ void ImpactConstraintHandler::solve_qp_work(UnilateralConstraintProblemData& epd
     throw LCPSolverException();
 
   // output reported LCP solution
-  FILE_LOG(LOG_EVENT) << "LCP solution: " << z << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "LCP solution: " << z << std::endl;
   #endif
 
   // store zlast
@@ -336,7 +336,7 @@ void ImpactConstraintHandler::solve_qp_work(UnilateralConstraintProblemData& epd
   z.set_sub_vec(epd.NCT_IDX, nct);
   z.set_sub_vec(epd.L_IDX, l);
 
-  FILE_LOG(LOG_EVENT) << "QP solution: " << z << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "QP solution: " << z << std::endl;
 
   // compute full Cn_v solution *if necessary*
   if (epd.N_CONTACT_CONSTRAINTS < epd.N_CONTACTS)
@@ -386,21 +386,21 @@ void ImpactConstraintHandler::solve_qp_work(UnilateralConstraintProblemData& epd
     // rerun the contact optimization if necessary
     if (rerun)
     {
-      FILE_LOG(LOG_EVENT) << "-- constraint violation detected on unincorported constraint(s)" << std::endl;
-      FILE_LOG(LOG_EVENT) << "   re-running with " << epd.N_CONTACT_CONSTRAINTS << " contact constraints" << std::endl;
+      FILE_LOG(LOG_CONSTRAINT) << "-- constraint violation detected on unincorported constraint(s)" << std::endl;
+      FILE_LOG(LOG_CONSTRAINT) << "   re-running with " << epd.N_CONTACT_CONSTRAINTS << " contact constraints" << std::endl;
       solve_qp_work(epd, z);
     }
   }
 
-  if (LOGGING(LOG_EVENT))
+  if (LOGGING(LOG_CONSTRAINT))
   {
     VectorNd workv;
     SharedVectorNd zsub = _zlast.segment(0, c.rows());
     H.mult(zsub, workv) *= 0.5;
     workv += c;
-    FILE_LOG(LOG_EVENT) << "(signed) computed energy dissipation: " << zsub.dot(workv) << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << "(signed) computed energy dissipation: " << zsub.dot(workv) << std::endl;
   }
-  FILE_LOG(LOG_EVENT) << "ImpactConstraintHandler::solve_qp_work() exited" << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::solve_qp_work() exited" << std::endl;
 }
 
 /// Solves the quadratic program (does all of the work)
@@ -414,20 +414,20 @@ void ImpactConstraintHandler::setup_QP(UnilateralConstraintProblemData& epd, Sha
   // implicit constraints not handled at the moment
   assert(epd.N_CONSTRAINT_EQNS_IMP == 0);
 
-  FILE_LOG(LOG_EVENT) << "  Cn * inv(M) * Cn': " << std::endl << epd.Cn_iM_CnT;
-  FILE_LOG(LOG_EVENT) << "  Cn * inv(M) * Cs': " << std::endl << epd.Cn_iM_CsT;
-  FILE_LOG(LOG_EVENT) << "  Cn * inv(M) * Ct': " << std::endl << epd.Cn_iM_CtT;
-  FILE_LOG(LOG_EVENT) << "  Cn * inv(M) * L': " << std::endl << epd.Cn_iM_LT;
-  FILE_LOG(LOG_EVENT) << "  Cs * inv(M) * Cs': " << std::endl << epd.Cs_iM_CsT;
-  FILE_LOG(LOG_EVENT) << "  Cs * inv(M) * Ct': " << std::endl << epd.Cs_iM_CtT;
-  FILE_LOG(LOG_EVENT) << "  Cs * inv(M) * L': " << std::endl << epd.Cs_iM_LT;
-  FILE_LOG(LOG_EVENT) << "  Ct * inv(M) * Ct': " << std::endl << epd.Ct_iM_CtT;
-  FILE_LOG(LOG_EVENT) << "  Ct * inv(M) * L': " << std::endl << epd.Ct_iM_LT;
-  FILE_LOG(LOG_EVENT) << "  L * inv(M) * L': " << std::endl << epd.L_iM_LT;
-  FILE_LOG(LOG_EVENT) << "  Cn * v: " << epd.Cn_v << std::endl;
-  FILE_LOG(LOG_EVENT) << "  Cs * v: " << epd.Cs_v << std::endl;
-  FILE_LOG(LOG_EVENT) << "  Ct * v: " << epd.Ct_v << std::endl;
-  FILE_LOG(LOG_EVENT) << "  L * v: " << epd.L_v << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "  Cn * inv(M) * Cn': " << std::endl << epd.Cn_iM_CnT;
+  FILE_LOG(LOG_CONSTRAINT) << "  Cn * inv(M) * Cs': " << std::endl << epd.Cn_iM_CsT;
+  FILE_LOG(LOG_CONSTRAINT) << "  Cn * inv(M) * Ct': " << std::endl << epd.Cn_iM_CtT;
+  FILE_LOG(LOG_CONSTRAINT) << "  Cn * inv(M) * L': " << std::endl << epd.Cn_iM_LT;
+  FILE_LOG(LOG_CONSTRAINT) << "  Cs * inv(M) * Cs': " << std::endl << epd.Cs_iM_CsT;
+  FILE_LOG(LOG_CONSTRAINT) << "  Cs * inv(M) * Ct': " << std::endl << epd.Cs_iM_CtT;
+  FILE_LOG(LOG_CONSTRAINT) << "  Cs * inv(M) * L': " << std::endl << epd.Cs_iM_LT;
+  FILE_LOG(LOG_CONSTRAINT) << "  Ct * inv(M) * Ct': " << std::endl << epd.Ct_iM_CtT;
+  FILE_LOG(LOG_CONSTRAINT) << "  Ct * inv(M) * L': " << std::endl << epd.Ct_iM_LT;
+  FILE_LOG(LOG_CONSTRAINT) << "  L * inv(M) * L': " << std::endl << epd.L_iM_LT;
+  FILE_LOG(LOG_CONSTRAINT) << "  Cn * v: " << epd.Cn_v << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "  Cs * v: " << epd.Cs_v << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "  Ct * v: " << epd.Ct_v << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "  L * v: " << epd.L_v << std::endl;
 
   // get useful constants
   const unsigned N_ACT_CONTACTS = epd.N_ACT_CONTACTS;
@@ -592,7 +592,7 @@ void ImpactConstraintHandler::setup_QP(UnilateralConstraintProblemData& epd, Sha
   M.set_sub_mat(row_start, xL_IDX, Cnstar_Lx);
   M.block(row_start, row_end, xNCS_IDX, xL_IDX).negate();
   SharedConstMatrixNd full_Cn_block = M.block(row_start, row_end, xCN_IDX, N_ACT_VARS);
-  FILE_LOG(LOG_EVENT) << "M: " << std::endl << M;
+  FILE_LOG(LOG_CONSTRAINT) << "M: " << std::endl << M;
   q.set_sub_vec(row_start, _Cnstar_v);
   row_start = row_end; row_end += epd.N_LIMITS;
 
