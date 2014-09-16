@@ -72,7 +72,7 @@ Joint::Joint(boost::weak_ptr<RigidBody> inboard, boost::weak_ptr<RigidBody> outb
   RigidBodyPtr ib(inboard);
   RigidBodyPtr ob(outboard);
   set_inboard_pose(ib->get_pose(), false);
-  set_outboard_pose(ob->get_pose(), false);
+  set_outboard_pose(ob->_F, false);
 
   // mark the indices as invalid initially
   _coord_idx = _joint_idx = _constraint_idx = std::numeric_limits<unsigned>::max();
@@ -159,8 +159,7 @@ void Joint::set_outboard_link(RigidBodyPtr outboard, bool update_pose)
     throw std::runtime_error("Joint::set_inboard_link() - relative pose on inboard link already set");
 
   // setup Fb's pose relative to the outboard 
-  set_outboard_pose(outboard->get_pose(), update_pose);
-  outboard->_F->update_relative_pose(_Fprime);
+  set_outboard_pose(outboard->_F, update_pose);
 
   // setup the frame
   outboard->_xdj.pose = get_pose();

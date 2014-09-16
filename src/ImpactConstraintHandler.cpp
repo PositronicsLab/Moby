@@ -77,22 +77,22 @@ ImpactConstraintHandler::ImpactConstraintHandler()
  */
 void ImpactConstraintHandler::process_constraints(const vector<UnilateralConstraint>& constraints, double max_time, double inv_dt)
 {
-  FILE_LOG(LOG_EVENT) << "*************************************************************";
-  FILE_LOG(LOG_EVENT) << endl;
-  FILE_LOG(LOG_EVENT) << "ImpactConstraintHandler::process_constraints() entered";
-  FILE_LOG(LOG_EVENT) << endl;
-  FILE_LOG(LOG_EVENT) << "*************************************************************";
-  FILE_LOG(LOG_EVENT) << endl;
+  FILE_LOG(LOG_CONSTRAINT) << "*************************************************************";
+  FILE_LOG(LOG_CONSTRAINT) << endl;
+  FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::process_constraints() entered";
+  FILE_LOG(LOG_CONSTRAINT) << endl;
+  FILE_LOG(LOG_CONSTRAINT) << "*************************************************************";
+  FILE_LOG(LOG_CONSTRAINT) << endl;
 
   // apply the method to all contacts
   if (!constraints.empty())
     apply_model(constraints, max_time, inv_dt);
   else
-    FILE_LOG(LOG_EVENT) << " (no constraints?!)" << endl;
+    FILE_LOG(LOG_CONSTRAINT) << " (no constraints?!)" << endl;
     
-  FILE_LOG(LOG_EVENT) << "*************************************************************" << endl;
-  FILE_LOG(LOG_EVENT) << "ImpactConstraintHandler::process_constraints() exited" << endl;
-  FILE_LOG(LOG_EVENT) << "*************************************************************" << endl;
+  FILE_LOG(LOG_CONSTRAINT) << "*************************************************************" << endl;
+  FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::process_constraints() exited" << endl;
+  FILE_LOG(LOG_CONSTRAINT) << "*************************************************************" << endl;
 }
 
 /// Applies the model to a set of constraints 
@@ -126,9 +126,9 @@ void ImpactConstraintHandler::apply_model(const vector<UnilateralConstraint>& co
       // copy the list of constraints
       list<UnilateralConstraint*> rconstraints = *i;
 
-      FILE_LOG(LOG_EVENT) << " -- pre-constraint velocity (all constraints): " << std::endl;
+      FILE_LOG(LOG_CONSTRAINT) << " -- pre-constraint velocity (all constraints): " << std::endl;
       for (list<UnilateralConstraint*>::iterator j = i->begin(); j != i->end(); j++)
-        FILE_LOG(LOG_EVENT) << "    constraint: " << std::endl << **j;
+        FILE_LOG(LOG_CONSTRAINT) << "    constraint: " << std::endl << **j;
 
       // determine a reduced set of constraints
       UnilateralConstraint::determine_minimal_set(rconstraints);
@@ -156,9 +156,9 @@ void ImpactConstraintHandler::apply_model(const vector<UnilateralConstraint>& co
       else
         apply_model_to_connected_constraints(rconstraints, inv_dt);
 
-      FILE_LOG(LOG_EVENT) << " -- post-constraint velocity (all constraints): " << std::endl;
+      FILE_LOG(LOG_CONSTRAINT) << " -- post-constraint velocity (all constraints): " << std::endl;
       for (list<UnilateralConstraint*>::iterator j = i->begin(); j != i->end(); j++)
-        FILE_LOG(LOG_EVENT) << "    constraint: " << std::endl << **j;
+        FILE_LOG(LOG_CONSTRAINT) << "    constraint: " << std::endl << **j;
   }
 
   // determine whether there are any impacting constraints remaining
@@ -182,7 +182,7 @@ void ImpactConstraintHandler::apply_model_to_connected_constraints(const list<Un
   double ke_minus = 0.0, ke_plus = 0.0;
   const unsigned UINF = std::numeric_limits<unsigned>::max();
 
-  FILE_LOG(LOG_EVENT) << "ImpactConstraintHandler::apply_model_to_connected_constraints() entered" << endl;
+  FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::apply_model_to_connected_constraints() entered" << endl;
 
   // reset problem data
   _epd.reset();
@@ -203,12 +203,12 @@ void ImpactConstraintHandler::apply_model_to_connected_constraints(const list<Un
     _epd.limit_constraints[i]->limit_impulse = 0.0;
 
   // compute energy
-  if (LOGGING(LOG_EVENT))
+  if (LOGGING(LOG_CONSTRAINT))
   {
     for (unsigned i=0; i< _epd.super_bodies.size(); i++)
     {
       double ke = _epd.super_bodies[i]->calc_kinetic_energy();
-      FILE_LOG(LOG_EVENT) << "  body " << _epd.super_bodies[i]->id << " pre-constraint handling KE: " << ke << endl;
+      FILE_LOG(LOG_CONSTRAINT) << "  body " << _epd.super_bodies[i]->id << " pre-constraint handling KE: " << ke << endl;
       ke_minus += ke;
     }
   }
@@ -253,9 +253,9 @@ void ImpactConstraintHandler::apply_model_to_connected_constraints(const list<Un
 
     // check to see whether we need to solve another impact problem
     double minv_plus = calc_min_constraint_velocity(_epd);
-    FILE_LOG(LOG_EVENT) << "Applying restitution" << std::endl;
-    FILE_LOG(LOG_EVENT) << "  compression v+ minimum: " << minv << std::endl;
-    FILE_LOG(LOG_EVENT) << "  restitution v+ minimum: " << minv_plus << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << "Applying restitution" << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << "  compression v+ minimum: " << minv << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << "  restitution v+ minimum: " << minv_plus << std::endl;
     if (minv_plus < 0.0 && minv_plus < minv - NEAR_ZERO)
     {
       // need to solve another impact problem 
@@ -285,19 +285,19 @@ void ImpactConstraintHandler::apply_model_to_connected_constraints(const list<Un
   apply_impulses(_epd);
 
   // compute energy
-  if (LOGGING(LOG_EVENT))
+  if (LOGGING(LOG_CONSTRAINT))
   {
     for (unsigned i=0; i< _epd.super_bodies.size(); i++)
     {
       double ke = _epd.super_bodies[i]->calc_kinetic_energy();
-      FILE_LOG(LOG_EVENT) << "  body " << _epd.super_bodies[i]->id << " post-constraint handling KE: " << ke << endl;
+      FILE_LOG(LOG_CONSTRAINT) << "  body " << _epd.super_bodies[i]->id << " post-constraint handling KE: " << ke << endl;
       ke_plus += ke;
     }
     if (ke_plus > ke_minus)
-      FILE_LOG(LOG_EVENT) << "warning! KE gain detected! energy before=" << ke_minus << " energy after=" << ke_plus << endl;
+      FILE_LOG(LOG_CONSTRAINT) << "warning! KE gain detected! energy before=" << ke_minus << " energy after=" << ke_plus << endl;
   }
 
-  FILE_LOG(LOG_EVENT) << "ImpactConstraintHandler::apply_model_to_connected_constraints() exiting" << endl;
+  FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::apply_model_to_connected_constraints() exiting" << endl;
 }
 
 /**
@@ -306,7 +306,7 @@ void ImpactConstraintHandler::apply_model_to_connected_constraints(const list<Un
  */
 void ImpactConstraintHandler::apply_visc_friction_model_to_connected_constraints(const list<UnilateralConstraint*>& constraints, double inv_dt)
 {
-  FILE_LOG(LOG_EVENT) << "ImpactConstraintHandler::apply_visc_friction_model_to_connected_constraints() entered" << endl;
+  FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::apply_visc_friction_model_to_connected_constraints() entered" << endl;
 
   // reset problem data
   _epd.reset();
@@ -343,9 +343,9 @@ void ImpactConstraintHandler::apply_visc_friction_model_to_connected_constraints
 
     // check to see whether we need to solve another impact problem
     double minv_plus = calc_min_constraint_velocity(_epd);
-    FILE_LOG(LOG_EVENT) << "Applying restitution" << std::endl;
-    FILE_LOG(LOG_EVENT) << "  compression v+ minimum: " << minv << std::endl;
-    FILE_LOG(LOG_EVENT) << "  restitution v+ minimum: " << minv_plus << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << "Applying restitution" << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << "  compression v+ minimum: " << minv << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << "  restitution v+ minimum: " << minv_plus << std::endl;
     if (minv_plus < 0.0 && minv_plus < minv - NEAR_ZERO)
     {
       // need to solve another impact problem 
@@ -356,7 +356,7 @@ void ImpactConstraintHandler::apply_visc_friction_model_to_connected_constraints
   // apply impulses 
   apply_impulses(_epd);
 
-  FILE_LOG(LOG_EVENT) << "ImpactConstraintHandler::apply_visc_friction_model_to_connected_constraints() exiting" << endl;
+  FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::apply_visc_friction_model_to_connected_constraints() exiting" << endl;
 }
 
 /**
@@ -365,7 +365,7 @@ void ImpactConstraintHandler::apply_visc_friction_model_to_connected_constraints
  */
 void ImpactConstraintHandler::apply_no_slip_model_to_connected_constraints(const list<UnilateralConstraint*>& constraints, double inv_dt)
 {
-  FILE_LOG(LOG_EVENT) << "ImpactConstraintHandler::apply_no_slip_model_to_connected_constraints() entered" << endl;
+  FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::apply_no_slip_model_to_connected_constraints() entered" << endl;
 
   // reset problem data
   _epd.reset();
@@ -402,9 +402,9 @@ void ImpactConstraintHandler::apply_no_slip_model_to_connected_constraints(const
 
     // check to see whether we need to solve another impact problem
     double minv_plus = calc_min_constraint_velocity(_epd);
-    FILE_LOG(LOG_EVENT) << "Applying restitution" << std::endl;
-    FILE_LOG(LOG_EVENT) << "  compression v+ minimum: " << minv << std::endl;
-    FILE_LOG(LOG_EVENT) << "  restitution v+ minimum: " << minv_plus << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << "Applying restitution" << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << "  compression v+ minimum: " << minv << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << "  restitution v+ minimum: " << minv_plus << std::endl;
     if (minv_plus < 0.0 && minv_plus < minv - NEAR_ZERO)
     {
       // need to solve another impact problem 
@@ -415,7 +415,7 @@ void ImpactConstraintHandler::apply_no_slip_model_to_connected_constraints(const
   // apply impulses 
   apply_impulses(_epd);
 
-  FILE_LOG(LOG_EVENT) << "ImpactConstraintHandler::apply_no_slip_model_to_connected_constraints() exiting" << endl;
+  FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::apply_no_slip_model_to_connected_constraints() exiting" << endl;
 }
 
 /// Updates determined impulses in UnilateralConstraintProblemData based on a QP/NQP solution
@@ -512,17 +512,17 @@ void ImpactConstraintHandler::update_constraint_velocities_from_impulses(Unilate
   q.Jx_v += q.Jx_iM_JxT.mult(q.alpha_x, _a);
 
   // output results
-  FILE_LOG(LOG_EVENT) << "results: " << std::endl;
-  FILE_LOG(LOG_EVENT) << "cn: " << q.cn << std::endl;
-  FILE_LOG(LOG_EVENT) << "cs: " << q.cs << std::endl;
-  FILE_LOG(LOG_EVENT) << "ct: " << q.ct << std::endl;
-  FILE_LOG(LOG_EVENT) << "l: " << q.l << std::endl;
-  FILE_LOG(LOG_EVENT) << "alpha_x: " << q.alpha_x << std::endl;
-  FILE_LOG(LOG_EVENT) << "new Cn_v: " << q.Cn_v << std::endl;
-  FILE_LOG(LOG_EVENT) << "new Cs_v: " << q.Cs_v << std::endl;
-  FILE_LOG(LOG_EVENT) << "new Ct_v: " << q.Ct_v << std::endl;
-  FILE_LOG(LOG_EVENT) << "new L_v: " << q.L_v << std::endl;
-  FILE_LOG(LOG_EVENT) << "new Jx_v: " << q.Jx_v << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "results: " << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "cn: " << q.cn << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "cs: " << q.cs << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "ct: " << q.ct << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "l: " << q.l << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "alpha_x: " << q.alpha_x << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "new Cn_v: " << q.Cn_v << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "new Cs_v: " << q.Cs_v << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "new Ct_v: " << q.Ct_v << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "new L_v: " << q.L_v << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "new Jx_v: " << q.Jx_v << std::endl;
 }
 
 /// Applies restitution to impact problem
@@ -586,14 +586,14 @@ void ImpactConstraintHandler::permute_problem(UnilateralConstraintProblemData& e
   // indices
   std::vector<unsigned> mapping(epd.N_CONTACTS);
 
-  FILE_LOG(LOG_EVENT) << "ImpactConstraintHandler::permute_problem() entered" << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::permute_problem() entered" << std::endl;
 
   // 1. compute active indices
   epd.N_ACT_CONTACTS = 0;
   for (unsigned i=0; i< epd.N_CONTACTS; i++)
     if (z[i] > NEAR_ZERO)
     {
-      FILE_LOG(LOG_EVENT) << " -- contact " << i << " is active" << std::endl;
+      FILE_LOG(LOG_CONSTRAINT) << " -- contact " << i << " is active" << std::endl;
       mapping[epd.N_ACT_CONTACTS++] = i;
     }
 
@@ -609,7 +609,7 @@ void ImpactConstraintHandler::permute_problem(UnilateralConstraintProblemData& e
   for (unsigned i=0; i< epd.N_ACT_CONTACTS; i++)
     z[i] = z[mapping[i]];
   std::fill(z.row_iterator_begin()+epd.N_ACT_CONTACTS, z.row_iterator_begin()+epd.N_CONTACTS, 0.0);
-  FILE_LOG(LOG_EVENT) << "-- permuted frictionless lcp solution: " << z << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "-- permuted frictionless lcp solution: " << z << std::endl;
 
   // permute contact constraints
   std::vector<UnilateralConstraint*> new_contact_constraints(epd.contact_constraints.size());
@@ -714,7 +714,7 @@ void ImpactConstraintHandler::permute_problem(UnilateralConstraintProblemData& e
   for (unsigned i=epd.N_ACT_CONTACTS; i< epd.N_CONTACTS; i++)
     epd.contact_constraint_set[i] = false;
 
-  FILE_LOG(LOG_EVENT) << "ImpactConstraintHandler::permute_problem() entered" << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::permute_problem() entered" << std::endl;
 }
 
 /**
@@ -725,7 +725,7 @@ void ImpactConstraintHandler::apply_model_to_connected_constraints(const list<Un
 {
   double ke_minus = 0.0, ke_plus = 0.0;
 
-  FILE_LOG(LOG_EVENT) << "ImpactConstraintHandler::apply_model_to_connected_constraints() entered" << endl;
+  FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::apply_model_to_connected_constraints() entered" << endl;
 
   // reset problem data
   _epd.reset();
@@ -740,12 +740,12 @@ void ImpactConstraintHandler::apply_model_to_connected_constraints(const list<Un
   compute_problem_data(_epd, inv_dt);
 
   // compute energy
-  if (LOGGING(LOG_EVENT))
+  if (LOGGING(LOG_CONSTRAINT))
   {
     for (unsigned i=0; i< _epd.super_bodies.size(); i++)
     {
       double ke = _epd.super_bodies[i]->calc_kinetic_energy();
-      FILE_LOG(LOG_EVENT) << "  body " << _epd.super_bodies[i]->id << " pre-constraint handling KE: " << ke << endl;
+      FILE_LOG(LOG_CONSTRAINT) << "  body " << _epd.super_bodies[i]->id << " pre-constraint handling KE: " << ke << endl;
       ke_minus += ke;
     }
   }
@@ -787,9 +787,9 @@ void ImpactConstraintHandler::apply_model_to_connected_constraints(const list<Un
 
     // check to see whether we need to solve another impact problem
     double minv_plus = calc_min_constraint_velocity(_epd);
-    FILE_LOG(LOG_EVENT) << "Applying restitution" << std::endl;
-    FILE_LOG(LOG_EVENT) << "  compression v+ minimum: " << minv << std::endl;
-    FILE_LOG(LOG_EVENT) << "  restitution v+ minimum: " << minv_plus << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << "Applying restitution" << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << "  compression v+ minimum: " << minv << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << "  restitution v+ minimum: " << minv_plus << std::endl;
     if (minv_plus < 0.0 && minv_plus < minv - NEAR_ZERO)
     {
       // need to solve another impact problem 
@@ -817,19 +817,19 @@ void ImpactConstraintHandler::apply_model_to_connected_constraints(const list<Un
   apply_impulses(_epd);
 
   // compute energy
-  if (LOGGING(LOG_EVENT))
+  if (LOGGING(LOG_CONSTRAINT))
   {
     for (unsigned i=0; i< _epd.super_bodies.size(); i++)
     {
       double ke = _epd.super_bodies[i]->calc_kinetic_energy();
-      FILE_LOG(LOG_EVENT) << "  body " << _epd.super_bodies[i]->id << " post-constraint handling KE: " << ke << endl;
+      FILE_LOG(LOG_CONSTRAINT) << "  body " << _epd.super_bodies[i]->id << " post-constraint handling KE: " << ke << endl;
       ke_plus += ke;
     }
     if (ke_plus > ke_minus)
-      FILE_LOG(LOG_EVENT) << "warning! KE gain detected! energy before=" << ke_minus << " energy after=" << ke_plus << endl;
+      FILE_LOG(LOG_CONSTRAINT) << "warning! KE gain detected! energy before=" << ke_minus << " energy after=" << ke_plus << endl;
   }
 
-  FILE_LOG(LOG_EVENT) << "ImpactConstraintHandler::apply_model_to_connected_constraints() exiting" << endl;
+  FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::apply_model_to_connected_constraints() exiting" << endl;
 }
 
 /// Determines whether we can use the QP solver
@@ -1192,7 +1192,7 @@ void ImpactConstraintHandler::apply_visc_friction_model(UnilateralConstraintProb
 
   // TODO: setup joint constraint impulses here
 
-  FILE_LOG(LOG_EVENT) << "ImpactConstraintHandler::apply_visc_friction_model() exited" << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::apply_visc_friction_model() exited" << std::endl;
 }
 
 /// Solves the no-slip model LCP
@@ -1207,20 +1207,20 @@ void ImpactConstraintHandler::apply_no_slip_model(UnilateralConstraintProblemDat
   VectorNd lb, ub, b;
   MatrixNd A;
 
-  FILE_LOG(LOG_EVENT) << "  Cn * inv(M) * Cn': " << std::endl << q.Cn_iM_CnT;
-  FILE_LOG(LOG_EVENT) << "  Cn * inv(M) * Cs': " << std::endl << q.Cn_iM_CsT;
-  FILE_LOG(LOG_EVENT) << "  Cn * inv(M) * Ct': " << std::endl << q.Cn_iM_CtT;
-  FILE_LOG(LOG_EVENT) << "  Cn * inv(M) * L': " << std::endl << q.Cn_iM_LT;
-  FILE_LOG(LOG_EVENT) << "  Cs * inv(M) * Cs': " << std::endl << q.Cs_iM_CsT;
-  FILE_LOG(LOG_EVENT) << "  Cs * inv(M) * Ct': " << std::endl << q.Cs_iM_CtT;
-  FILE_LOG(LOG_EVENT) << "  Cs * inv(M) * L': " << std::endl << q.Cs_iM_LT;
-  FILE_LOG(LOG_EVENT) << "  Ct * inv(M) * Ct': " << std::endl << q.Ct_iM_CtT;
-  FILE_LOG(LOG_EVENT) << "  Ct * inv(M) * L': " << std::endl << q.Ct_iM_LT;
-  FILE_LOG(LOG_EVENT) << "  L * inv(M) * L': " << std::endl << q.L_iM_LT;
-  FILE_LOG(LOG_EVENT) << "  Cn * v: " << q.Cn_v << std::endl;
-  FILE_LOG(LOG_EVENT) << "  Cs * v: " << q.Cs_v << std::endl;
-  FILE_LOG(LOG_EVENT) << "  Ct * v: " << q.Ct_v << std::endl;
-  FILE_LOG(LOG_EVENT) << "  L * v: " << q.L_v << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "  Cn * inv(M) * Cn': " << std::endl << q.Cn_iM_CnT;
+  FILE_LOG(LOG_CONSTRAINT) << "  Cn * inv(M) * Cs': " << std::endl << q.Cn_iM_CsT;
+  FILE_LOG(LOG_CONSTRAINT) << "  Cn * inv(M) * Ct': " << std::endl << q.Cn_iM_CtT;
+  FILE_LOG(LOG_CONSTRAINT) << "  Cn * inv(M) * L': " << std::endl << q.Cn_iM_LT;
+  FILE_LOG(LOG_CONSTRAINT) << "  Cs * inv(M) * Cs': " << std::endl << q.Cs_iM_CsT;
+  FILE_LOG(LOG_CONSTRAINT) << "  Cs * inv(M) * Ct': " << std::endl << q.Cs_iM_CtT;
+  FILE_LOG(LOG_CONSTRAINT) << "  Cs * inv(M) * L': " << std::endl << q.Cs_iM_LT;
+  FILE_LOG(LOG_CONSTRAINT) << "  Ct * inv(M) * Ct': " << std::endl << q.Ct_iM_CtT;
+  FILE_LOG(LOG_CONSTRAINT) << "  Ct * inv(M) * L': " << std::endl << q.Ct_iM_LT;
+  FILE_LOG(LOG_CONSTRAINT) << "  L * inv(M) * L': " << std::endl << q.L_iM_LT;
+  FILE_LOG(LOG_CONSTRAINT) << "  Cn * v: " << q.Cn_v << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "  Cs * v: " << q.Cs_v << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "  Ct * v: " << q.Ct_v << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "  L * v: " << q.L_v << std::endl;
 
   // we do this by solving the MLCP:
   // |  A  C  | | u | + | a | = | 0 | 
@@ -1370,7 +1370,7 @@ void ImpactConstraintHandler::apply_no_slip_model(UnilateralConstraintProblemDat
   } 
 
   // output indices
-  if (LOGGING(LOG_EVENT))
+  if (LOGGING(LOG_CONSTRAINT))
   {
     std::ostringstream oss;
     oss << "s indices:";
@@ -1379,7 +1379,7 @@ void ImpactConstraintHandler::apply_no_slip_model(UnilateralConstraintProblemDat
     oss << "  t indices:";
     for (unsigned i=0; i< T_indices.size(); i++)
       oss << " " << T_indices[i];
-    FILE_LOG(LOG_EVENT) << oss.str() << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << oss.str() << std::endl;
   }
 
   // ********************************************************
@@ -1483,7 +1483,7 @@ void ImpactConstraintHandler::apply_no_slip_model(UnilateralConstraintProblemDat
   // attempt to solve the LCP using the fast method
   if (!_lcp.lcp_fast(_MM, _qq, _v))
   {
-    FILE_LOG(LOG_EVENT) << "Principal pivoting method LCP solver failed; falling back to slower solvers" << std::endl; 
+    FILE_LOG(LOG_CONSTRAINT) << "Principal pivoting method LCP solver failed; falling back to slower solvers" << std::endl; 
 
     #ifdef USE_QLCPD
     // solve didn't work; attempt to solve using QP solver
@@ -1495,8 +1495,8 @@ void ImpactConstraintHandler::apply_no_slip_model(UnilateralConstraintProblemDat
     (_workv2 = _qq).negate();
     if (!_qp.qp_activeset(_MM, _workv, lb, ub, _MM, _workv2, A, b, _v))
     {
-      FILE_LOG(LOG_EVENT) << "QLCPD failed to find feasible point; finding closest feasible point" << std::endl; 
-      FILE_LOG(LOG_EVENT) << "  old LCP q: " << _qq << std::endl; 
+      FILE_LOG(LOG_CONSTRAINT) << "QLCPD failed to find feasible point; finding closest feasible point" << std::endl; 
+      FILE_LOG(LOG_CONSTRAINT) << "  old LCP q: " << _qq << std::endl; 
    
       // QP solver didn't work; solve LP to find closest feasible solution
       if (!_qp.find_closest_feasible(lb, ub, _MM, _workv2, A, b, _v))
@@ -1507,13 +1507,13 @@ void ImpactConstraintHandler::apply_no_slip_model(UnilateralConstraintProblemDat
       for (unsigned i=0; i< _qq.size(); i++)
         if (_workv2[i] < 0.0)
           _qq[i] += (_workv2[i] - NEAR_ZERO);
-      FILE_LOG(LOG_EVENT) << "  new LCP q: " << _qq << std::endl; 
+      FILE_LOG(LOG_CONSTRAINT) << "  new LCP q: " << _qq << std::endl; 
 
       // now try solving again
       (_workv2 = _qq).negate();
       if (!_qp.qp_activeset(_MM, _workv, lb, ub, _MM, _workv2, A, b, _v))
       {
-        FILE_LOG(LOG_EVENT) << "QLCPD failed to find feasible point *twice*" << std::endl;
+        FILE_LOG(LOG_CONSTRAINT) << "QLCPD failed to find feasible point *twice*" << std::endl;
         throw std::runtime_error("Unable to solve constraint LCP!");
       }
     }
@@ -1583,7 +1583,7 @@ void ImpactConstraintHandler::apply_no_slip_model(UnilateralConstraintProblemDat
 
   // TODO: setup joint constraint impulses here
 
-  FILE_LOG(LOG_EVENT) << "ImpactConstraintHandler::solve_no_slip_lcp() exited" << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::solve_no_slip_lcp() exited" << std::endl;
 }
 
 /// Solves the (frictionless) LCP
@@ -1672,12 +1672,12 @@ void ImpactConstraintHandler::solve_frictionless_lcp(UnilateralConstraintProblem
   _qq -= _b;
   _qq.negate();
 
-  FILE_LOG(LOG_EVENT) << "ImpactConstraintHandler::solve_lcp() entered" << std::endl;
-  FILE_LOG(LOG_EVENT) << "  Cn * inv(M) * Cn': " << std::endl << q.Cn_iM_CnT;
-  FILE_LOG(LOG_EVENT) << "  Cn * v: " << q.Cn_v << std::endl;
-  FILE_LOG(LOG_EVENT) << "  L * v: " << q.L_v << std::endl;
-  FILE_LOG(LOG_EVENT) << "  LCP matrix: " << std::endl << _MM;
-  FILE_LOG(LOG_EVENT) << "  LCP vector: " << _qq << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::solve_lcp() entered" << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "  Cn * inv(M) * Cn': " << std::endl << q.Cn_iM_CnT;
+  FILE_LOG(LOG_CONSTRAINT) << "  Cn * v: " << q.Cn_v << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "  L * v: " << q.L_v << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "  LCP matrix: " << std::endl << _MM;
+  FILE_LOG(LOG_CONSTRAINT) << "  LCP vector: " << _qq << std::endl;
 
   // solve the LCP
   if (!_lcp.lcp_fast(_MM, _qq, _v) && !_lcp.lcp_lemke_regularized(_MM, _qq, _v))
@@ -1700,9 +1700,9 @@ void ImpactConstraintHandler::solve_frictionless_lcp(UnilateralConstraintProblem
   z.set_sub_vec(q.L_IDX, l);
   z.set_sub_vec(q.ALPHA_X_IDX, _alpha_x);
 
-  FILE_LOG(LOG_EVENT) << "  LCP result: " << z << std::endl;
-  FILE_LOG(LOG_EVENT) << "  kappa: " << q.kappa << std::endl;
-  FILE_LOG(LOG_EVENT) << "ImpactConstraintHandler::solve_lcp() exited" << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "  LCP result: " << z << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "  kappa: " << q.kappa << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::solve_lcp() exited" << std::endl;
 }
 
 /// Gets the super body (articulated if any)

@@ -44,22 +44,22 @@ PenaltyConstraintHandler::PenaltyConstraintHandler(){}
 // Processes Penaltys
 void PenaltyConstraintHandler::process_constraints(const vector<UnilateralConstraint>& constraints) const
 {
-  FILE_LOG(LOG_EVENT) << "*************************************************************";
-  FILE_LOG(LOG_EVENT) << endl;
-  FILE_LOG(LOG_EVENT) << "PenaltyConstraintHandler::process_constraints() entered";
-  FILE_LOG(LOG_EVENT) << endl;
-  FILE_LOG(LOG_EVENT) << "*************************************************************";
-  FILE_LOG(LOG_EVENT) << endl;
+  FILE_LOG(LOG_CONSTRAINT) << "*************************************************************";
+  FILE_LOG(LOG_CONSTRAINT) << endl;
+  FILE_LOG(LOG_CONSTRAINT) << "PenaltyConstraintHandler::process_constraints() entered";
+  FILE_LOG(LOG_CONSTRAINT) << endl;
+  FILE_LOG(LOG_CONSTRAINT) << "*************************************************************";
+  FILE_LOG(LOG_CONSTRAINT) << endl;
 
   // apply the method to all contacts
   if (!constraints.empty())
     apply_model(constraints);
   else
-    FILE_LOG(LOG_EVENT) << " (no constraints?!)" << endl;
+    FILE_LOG(LOG_CONSTRAINT) << " (no constraints?!)" << endl;
 
-  FILE_LOG(LOG_EVENT) << "*************************************************************" << endl;
-  FILE_LOG(LOG_EVENT) << "PenaltyConstraintHandler::process_constraints() exited" << endl;
-  FILE_LOG(LOG_EVENT) << "*************************************************************" << endl;
+  FILE_LOG(LOG_CONSTRAINT) << "*************************************************************" << endl;
+  FILE_LOG(LOG_CONSTRAINT) << "PenaltyConstraintHandler::process_constraints() exited" << endl;
+  FILE_LOG(LOG_CONSTRAINT) << "*************************************************************" << endl;
 }
 
 /// Applies the model to a set of constraints
@@ -123,9 +123,9 @@ void PenaltyConstraintHandler::apply_model(const vector<UnilateralConstraint>& c
     Vector3d tan2;// = Pose3d::transform_vector(contact_frame, e.contact_tan2);
     Ravelin::Vector3d::determine_orthonormal_basis(normal,tan1,tan2);
 
-    FILE_LOG(LOG_EVENT) << "relative normal: " << normal << std::endl;
-    FILE_LOG(LOG_EVENT) << "relative tangent 1: " << tan1 << std::endl;
-    FILE_LOG(LOG_EVENT) << "relative tangent 2: " << tan2<< std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << "relative normal: " << normal << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << "relative tangent 1: " << tan1 << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << "relative tangent 2: " << tan2<< std::endl;
 
     Vector3d penalty_force(0,0,0,contact_frame);
 
@@ -145,9 +145,9 @@ void PenaltyConstraintHandler::apply_model(const vector<UnilateralConstraint>& c
     // get the linear velocities and project against the normal
     Vector3d rvlin = ta.get_linear() - tb.get_linear();
 //    assert(std::fabs(normal.dot(rvlin)) < NEAR_ZERO || std::fabs(normal.dot(rvlin) - calc_event_vel2(e))/std::fabs(normal.dot(rvlin)) < NEAR_ZERO);
-      FILE_LOG(LOG_EVENT) << "relative normal velocity: " << normal.dot(rvlin) << std::endl;
-      FILE_LOG(LOG_EVENT) << "relative tangent 1 velocity: " << tan1.dot(rvlin) << std::endl;
-      FILE_LOG(LOG_EVENT) << "relative tangent 2 velocity: " << tan2.dot(rvlin) << std::endl;
+      FILE_LOG(LOG_CONSTRAINT) << "relative normal velocity: " << normal.dot(rvlin) << std::endl;
+      FILE_LOG(LOG_CONSTRAINT) << "relative tangent 1 velocity: " << tan1.dot(rvlin) << std::endl;
+      FILE_LOG(LOG_CONSTRAINT) << "relative tangent 2 velocity: " << tan2.dot(rvlin) << std::endl;
 
     /// Position -----------------------------------------------------------------
 
@@ -156,18 +156,18 @@ void PenaltyConstraintHandler::apply_model(const vector<UnilateralConstraint>& c
             cpb = Pose3d::transform_point(sbb->get_pose(),e.contact_point);
     Point3d cp = e.contact_point;
 
-    FILE_LOG(LOG_EVENT) << "cpa: " << cpa << endl;
-    FILE_LOG(LOG_EVENT) << "cpb: " << cpb << endl;
+    FILE_LOG(LOG_CONSTRAINT) << "cpa: " << cpa << endl;
+    FILE_LOG(LOG_CONSTRAINT) << "cpb: " << cpb << endl;
 
     double depth = e.signed_violation;
 
-    FILE_LOG(LOG_EVENT) << "Contact Point: " << e.contact_point << endl;
-    FILE_LOG(LOG_EVENT) << "I.P. Depth: " << depth << endl;
-    FILE_LOG(LOG_EVENT) << "Contact Velocity [x y z]: " << rvlin << endl;
-    FILE_LOG(LOG_EVENT) << "Contact Velocity [N S T]: " << Vector3d(normal.dot(rvlin), tan1.dot(rvlin), tan2.dot(rvlin)) << endl;
-    FILE_LOG(LOG_EVENT) << "contact_depth_penalty (Kp): " << e.contact_penalty_Kp << endl;
-    FILE_LOG(LOG_EVENT) << "contact_velocity_penalty (Kv): " << e.contact_penalty_Kv << endl;
-    FILE_LOG(LOG_EVENT) << "contact_mu_viscous: " << e.contact_mu_viscous << endl;
+    FILE_LOG(LOG_CONSTRAINT) << "Contact Point: " << e.contact_point << endl;
+    FILE_LOG(LOG_CONSTRAINT) << "I.P. Depth: " << depth << endl;
+    FILE_LOG(LOG_CONSTRAINT) << "Contact Velocity [x y z]: " << rvlin << endl;
+    FILE_LOG(LOG_CONSTRAINT) << "Contact Velocity [N S T]: " << Vector3d(normal.dot(rvlin), tan1.dot(rvlin), tan2.dot(rvlin)) << endl;
+    FILE_LOG(LOG_CONSTRAINT) << "contact_depth_penalty (Kp): " << e.contact_penalty_Kp << endl;
+    FILE_LOG(LOG_CONSTRAINT) << "contact_velocity_penalty (Kv): " << e.contact_penalty_Kv << endl;
+    FILE_LOG(LOG_CONSTRAINT) << "contact_mu_viscous: " << e.contact_mu_viscous << endl;
 
     if(depth < 0){
       // Depth
@@ -180,7 +180,7 @@ void PenaltyConstraintHandler::apply_model(const vector<UnilateralConstraint>& c
       penalty_force += -tan1.dot(rvlin) * tan1 * e.contact_mu_viscous;
       penalty_force += -tan2.dot(rvlin) * tan2 * e.contact_mu_viscous;
 
-      FILE_LOG(LOG_EVENT) << "Penalty Force: " << penalty_force << endl;
+      FILE_LOG(LOG_CONSTRAINT) << "Penalty Force: " << penalty_force << endl;
 
       Ravelin::VectorNd gf;
       if(sba->is_enabled()){

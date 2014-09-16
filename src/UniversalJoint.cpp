@@ -24,6 +24,8 @@ using namespace Moby;
  */
 UniversalJoint::UniversalJoint() : Joint(), UniversalJointd()
 {
+  init_data();  // UniversalJointd()'s constructor should call our virtual...
+                // ... method but this is not happening. 
 }
 
 /// Initializes the joint with the specified inboard and outboard links

@@ -27,7 +27,7 @@ class VisualizationData;
 /**
  * \todo implement a rest position for q?
  */
-class Joint : public Visualizable, public Ravelin::Jointd
+class Joint : public Visualizable, public virtual Ravelin::Jointd
 {
   public:
     /**  
