@@ -20,6 +20,8 @@ OutputIterator CCD::find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr
   {
     if (boost::dynamic_pointer_cast<BoxPrimitive>(pB))
       return find_contacts_box_box(cgA, cgB, output_begin, TOL);
+    else if (boost::dynamic_pointer_cast<PlanePrimitive>(pB))
+      return find_contacts_plane_generic(cgB, cgA, output_begin, TOL); 
     else if (boost::dynamic_pointer_cast<SpherePrimitive>(pB))
       return find_contacts_box_sphere(cgA, cgB, output_begin, TOL);
   }
@@ -135,12 +137,11 @@ OutputIterator CCD::find_contacts_sphere_plane(CollisionGeometryPtr cgA, Collisi
   // check tolerance
   *o++ = create_contact(cgA, cgB, Ravelin::Pose3d::transform_point(GLOBAL, p), n, dist); 
     
-  FILE_LOG(LOG_COLDET) << "CCD::find_contacts_plane_generic() exited" << std::endl;
+  FILE_LOG(LOG_COLDET) << "CCD::find_contacts_sphere_plane() exited" << std::endl;
 
   // copy points to o
   return o; 
 }
-
 
 // find the contacts between a plane and a generic shape      
 template <class OutputIterator>

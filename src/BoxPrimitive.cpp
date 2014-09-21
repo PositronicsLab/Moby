@@ -789,6 +789,9 @@ double BoxPrimitive::calc_dist_and_normal(const Point3d& point, std::vector<Vect
   // verify that the primitive knows about this pose 
   assert(_poses.find(const_pointer_cast<Pose3d>(point.pose)) != _poses.end()); 
 
+  // clear the normals
+  normals.clear();
+
   // setup extents
   double extents[3] = { _xlen*0.5, _ylen*0.5, _zlen*0.5 };
 
@@ -828,9 +831,6 @@ double BoxPrimitive::calc_dist_and_normal(const Point3d& point, std::vector<Vect
   if (inside)
   {
     FILE_LOG(LOG_COLDET) << "  point is inside the box; interior dist = " << intDist << endl;
-
-    // clear the normals
-    normals.clear();
 
     // p is inside the box; determine the normal
     double absPX = extents[X] - std::fabs(point[X]);

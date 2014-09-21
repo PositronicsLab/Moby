@@ -346,6 +346,7 @@ double PlanePrimitive::calc_signed_dist(shared_ptr<const Primitive> p, Point3d& 
 double PlanePrimitive::calc_dist_and_normal(const Point3d& p, std::vector<Vector3d>& normals) const
 {
   // setup the normal
+  normals.clear();
   normals.push_back(Vector3d());
   Vector3d& normal = normals.back();
 
