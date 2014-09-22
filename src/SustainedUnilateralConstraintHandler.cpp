@@ -218,7 +218,8 @@ void SustainedUnilateralConstraintHandler::compute_problem_data(SustainedUnilate
   q.N_STICKING = 0;
   for (unsigned i=0; i<  q.constraints.size(); i++)
   {
-    q.N_STICKING += (q.constraints[i]->get_friction_type() == UnilateralConstraint::eSticking) ? 1 : 0;
+    if (q.constraints[i]->get_friction_type() == UnilateralConstraint::eSticking)
+      q.N_STICKING++;
     if ( q.constraints[i]->contact_NK < UINF)
     {
         q.N_K_TOTAL +=  q.constraints[i]->contact_NK/2;
@@ -226,6 +227,10 @@ void SustainedUnilateralConstraintHandler::compute_problem_data(SustainedUnilate
     else if ( q.constraints[i]->contact_NK == UINF)
       break;
   }
+
+  FILE_LOG(LOG_CONSTRAINT) << "SustainedUnilateralConstraintHandler::compute_problem_data(.)" << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "  " << q.N_STICKING << " sticking contacts" << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "  " << (q.N_CONTACTS - q.N_STICKING) << " sliding contacts" << std::endl;
 
   // initialize the problem matrices / vectors
   q.Cn_iM_CnT.set_zero(q.N_CONTACTS, q.N_CONTACTS);
