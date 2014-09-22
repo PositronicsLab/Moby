@@ -215,10 +215,10 @@ void UnilateralConstraint::compute_aconstraint_data(MatrixNd& M, VectorNd& q) co
     Vector3d tan1 = Pose3d::transform_vector(_contact_frame, contact_tan1);
 
     // resize the Jacobians 
-    J1.resize(1,NGC1);
-    J2.resize(1,NGC2);
-    dJ1.resize(1,NGC1);
-    dJ2.resize(1,NGC2);
+    J1.resize(1,NGC1);   // normal Jacobian for body 1
+    J2.resize(1,NGC2);   // normal Jacobian for body 2
+    dJ1.resize(1,NGC1);  // sliding Jacobian for body 1
+    dJ2.resize(1,NGC2);  // sliding Jacobian for body 2
 
     // get shared vectors
     SharedVectorNd J1n = J1.row(0);
@@ -240,7 +240,7 @@ void UnilateralConstraint::compute_aconstraint_data(MatrixNd& M, VectorNd& q) co
     dJ1 *= -contact_mu_coulomb; 
     dJ1 += J1; 
 
-    // compute the contact inertia matrix for the first body
+    // compute N*inv(M)*(N - u_s*Q)' for the first body
     su1->transpose_solve_generalized_inertia(dJ1, workM1);
     J1.mult(workM1, M);
 
@@ -248,7 +248,7 @@ void UnilateralConstraint::compute_aconstraint_data(MatrixNd& M, VectorNd& q) co
     dJ2 *= -contact_mu_coulomb; 
     dJ2 += J2;
 
-    // compute the contact inertia matrix for the second body
+    // compute N*inv(M)*(N - u_s*Q)' for the second body
     su2->transpose_solve_generalized_inertia(dJ2, workM1);
     M += J2.mult(workM1, workM2);
 
@@ -2373,15 +2373,25 @@ void UnilateralConstraint::determine_contact_tangents()
   SingleBodyPtr sbb = contact_geom2->get_single_body();
   assert(sba && sbb);
 
+  // verify the contact point, normal, and tangents are in the global frame
+  assert(contact_point.pose == GLOBAL);
+  assert(contact_normal.pose == GLOBAL);
+  assert(contact_tan1.pose == GLOBAL);
+  assert(contact_tan2.pose == GLOBAL);
+
+  // setup the contact frame
+  _contact_frame->q.set_identity();
+  _contact_frame->x = contact_point;
+
   // get the velocities at the point of contat
   const SVelocityd& va = sba->get_velocity(); 
   const SVelocityd& vb = sbb->get_velocity();
-  SVelocityd ta = Pose3d::transform(contact_point.pose, va);
-  SVelocityd tb = Pose3d::transform(contact_point.pose, vb);
+  SVelocityd ta = Pose3d::transform(_contact_frame, va);
+  SVelocityd tb = Pose3d::transform(_contact_frame, vb);
   Vector3d rvel = ta.get_linear() - tb.get_linear();
 
   // get the normal in the same frame
-  Vector3d normal_cp = Pose3d::transform_vector(contact_point.pose, contact_normal);
+  Vector3d normal_cp = Pose3d::transform_vector(_contact_frame, contact_normal);
 
   // now remove the normal components from this relative velocity
   double dot = normal_cp.dot(rvel);
@@ -2403,6 +2413,7 @@ void UnilateralConstraint::determine_contact_tangents()
     _ftype = eSlipping;
 
     contact_tan1 = rvel / tan_norm;
+    contact_tan1.pose = GLOBAL;
     contact_tan2 = Vector3d::cross(contact_normal, contact_tan1);
     contact_tan2.normalize();
   }
