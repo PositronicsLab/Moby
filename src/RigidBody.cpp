@@ -52,8 +52,9 @@ RigidBody::RigidBody()
   // setup visualization pose
   _vF->rpose = _F;
 
-  // setup secondary link pose
+  // setup c.o.m. frame link pose
   _F2 = shared_ptr<Pose3d>(new Pose3d);
+  _Jcom.pose = _xdcom.pose = _xddcom.pose = _forcecom.pose = _F2;
 
   // setup poses for acceleration bounds
   _vel_limit_lo.set_zero(_F);
@@ -63,18 +64,22 @@ RigidBody::RigidBody()
   _forcei_valid = false;
   _forcej_valid = false;
   _forcem_valid = false;
+  _force0_valid = false;
   _xdi_valid = false;
   _xdj_valid = false;
   _xdm_valid = false;
+  _xd0_valid = false;
   _xddi_valid = false;
   _xddj_valid = false;
   _xddm_valid = false;
+  _xdd0_valid = false;
   _Ji_valid = false;
   _Jj_valid = false;
   _J0_valid = false;
+  _Jcom_valid = false;
 
-  // use link inertia frame by default
-  _rftype = eLinkInertia;
+  // use link c.o.m. frame by default
+  _rftype = eLinkCOM;
 
   // set everything else
   _enabled = true;
@@ -188,6 +193,9 @@ shared_ptr<const Pose3d> RigidBody::get_computation_frame() const
     case eLinkInertia:
       return _jF;
 
+    case eLinkCOM:
+      return _F2;
+
     case eGlobal:
       return shared_ptr<const Pose3d>();
     
@@ -213,14 +221,15 @@ void RigidBody::rotate(const Quatd& q)
   _F->update_relative_pose(Frel);
 
   // invalidate vector quantities
-  _forcei_valid = _forcem_valid = false;
-  _xdi_valid = _xdm_valid = false;
-  _xddi_valid = _xddm_valid = false;
+  _forcei_valid = _forcem_valid = _force0_valid = false;
+  _xdi_valid = _xdm_valid = _xd0_valid = false;
+  _xddi_valid = _xddm_valid = _xdd0_valid = false;
 
   // invalidate inertias
   _Ji_valid = false;
   _Jj_valid = false;
   _J0_valid = false;
+  _Jcom_valid = false;
 
   // invalidate every outer rigid body
   vector<RigidBodyPtr> outer;
@@ -295,14 +304,15 @@ void RigidBody::translate(const Origin3d& x)
   _F2->q.set_identity();
 
   // invalidate vector quantities
-  _forcei_valid = _forcem_valid = false;
-  _xdi_valid = _xdm_valid = false;
-  _xddi_valid = _xddm_valid = false;
+  _forcei_valid = _forcem_valid = _force0_valid = false;
+  _xdi_valid = _xdm_valid = _xd0_valid = false;
+  _xddi_valid = _xddm_valid = _xdd0_valid = false;
 
   // invalidate inertias
   _Ji_valid = false;
   _Jj_valid = false;
   _J0_valid = false;
+  _Jcom_valid = false;
 
   // invalidate every outer rigid body
   vector<RigidBodyPtr> outer;
@@ -340,7 +350,7 @@ void RigidBody::calc_fwd_dyn()
 
     // otherwise, calculate forward dynamics
     const SpatialRBInertiad& J = get_inertia();
-    SForced f = sum_forces() - calc_pseudo_forces(); 
+    SForced f = sum_forces() - calc_euler_torques(); 
     SAcceld xdd = J.inverse_mult(f);
 
     // set the acceleration
@@ -348,28 +358,34 @@ void RigidBody::calc_fwd_dyn()
     {
       case eGlobal:
         _xdd0 = xdd;
+        _xddcom = Pose3d::transform(_F2, xdd);
         _xddi_valid = _xddj_valid = _xddm_valid = false;
+        break;
+
+      case eLinkCOM:
+        _xddcom = xdd;
+        _xddi_valid = _xddj_valid = _xddm_valid = _xdd0_valid = false;
         break;
 
       case eLink:
         _xddi = xdd;
-        _xdd0 = Pose3d::transform(GLOBAL, xdd);
+        _xddcom = Pose3d::transform(_F2, xdd);
         _xddi_valid = true;
-        _xddj_valid = _xddm_valid = false;
+        _xddj_valid = _xddm_valid = _xdd0_valid = false;
         break;
 
       case eLinkInertia:
         _xddm = xdd;
-        _xdd0 = Pose3d::transform(GLOBAL, xdd);
+        _xddcom = Pose3d::transform(_F2, xdd);
         _xddm_valid = true;
-        _xddi_valid = _xddj_valid = false;
+        _xddi_valid = _xddj_valid = _xdd0_valid = false;
         break;
 
       case eJoint:
         _xddj = xdd;
-        _xdd0 = Pose3d::transform(GLOBAL, xdd);
+        _xddcom = Pose3d::transform(_F2, xdd);
         _xddj_valid = true;
-        _xddi_valid = _xddm_valid = false;
+        _xddi_valid = _xddm_valid = _xdd0_valid = false;
         break;
 
       default:
@@ -400,6 +416,8 @@ void RigidBody::set_enabled(bool flag)
   // if disabled, then zero the velocities and accelerations
   if (!_enabled)
   {
+    _xdcom.set_zero();
+    _xddcom.set_zero();
     _xd0.set_zero();
     _xdd0.set_zero();
     _xdi.set_zero();
@@ -408,8 +426,8 @@ void RigidBody::set_enabled(bool flag)
     _xddj.set_zero();
     _xdm.set_zero();
     _xddm.set_zero();
-    _xdi_valid = _xdj_valid = _xdm_valid = true;
-    _xddi_valid = _xddj_valid = _xddm_valid = true;
+    _xdi_valid = _xdj_valid = _xdm_valid = _xd0_valid = true;
+    _xddi_valid = _xddj_valid = _xddm_valid = _xdd0_valid = true;
   }
 }
 
@@ -417,10 +435,10 @@ void RigidBody::set_enabled(bool flag)
 void RigidBody::set_velocity(const SVelocityd& xd) 
 { 
   // set the velocity  
-  _xd0 = Pose3d::transform(GLOBAL, xd);
+  _xdcom = Pose3d::transform(_F2, xd);
 
   // invalidate the remaining velocities
-  _xdi_valid = _xdj_valid = _xdm_valid = false; 
+  _xdi_valid = _xdj_valid = _xdm_valid = _xd0_valid = false; 
 
   // see whether we can re-validate a velocity
   if (xd.pose == _F)
@@ -438,16 +456,21 @@ void RigidBody::set_velocity(const SVelocityd& xd)
     _xdj_valid = true;
     _xdj = xd;
   }
+  else if (xd.pose == GLOBAL)
+  {
+    _xd0_valid = true;
+    _xd0 = xd;
+  } 
 }
 
 /// Sets the acceleration of this body
 void RigidBody::set_accel(const SAcceld& xdd) 
 { 
   // set the acceleration 
-  _xdd0 = Pose3d::transform(GLOBAL, xdd);
+  _xddcom = Pose3d::transform(_F2, xdd);
 
   // invalidate the remaining accelerations 
-  _xddi_valid = _xddj_valid = _xddm_valid = false; 
+  _xddi_valid = _xddj_valid = _xddm_valid = _xdd0_valid = false; 
 
   // see whether we can re-validate an acceleration
   if (xdd.pose == _F)
@@ -465,6 +488,11 @@ void RigidBody::set_accel(const SAcceld& xdd)
     _xddj_valid = true;
     _xddj = xdd;
   }
+  else if (xdd.pose == GLOBAL)
+  {
+    _xdd0_valid = true;
+    _xdd0 = xdd;
+  } 
 }
 
 /// Sets the rigid body inertia for this body
@@ -474,7 +502,7 @@ void RigidBody::set_inertia(const SpatialRBInertiad& inertia)
   _Jm = Pose3d::transform(_jF, inertia);
 
   // invalidate the remaining inertias
-  _Ji_valid = _Jj_valid = _J0_valid = false;
+  _Ji_valid = _Jj_valid = _J0_valid = _Jcom_valid = false;
 
   // see whether we can re-validate an acceleration
   if (inertia.pose == _F)
@@ -482,15 +510,20 @@ void RigidBody::set_inertia(const SpatialRBInertiad& inertia)
     _Ji_valid = true;
     _Ji = inertia;
   }
-  else if (inertia.pose == GLOBAL)
+  else if (inertia.pose == _F2)
   {
-    _J0_valid = true;
-    _J0 = inertia;
+    _Jcom_valid = true;
+    _Jcom = inertia;
   }
   else if (!is_base() && inertia.pose == get_inner_joint_explicit()->get_pose())
   {
     _Jj_valid = true;
     _Jj = inertia;
+  }
+  else if (inertia.pose == GLOBAL)
+  {
+    _J0_valid = true;
+    _J0 = inertia;
   }
 }
 
@@ -517,23 +550,29 @@ const SForced& RigidBody::sum_forces()
   switch (_rftype)
   {
     case eGlobal:
+      if (!_force0_valid)
+        _force0 = Pose3d::transform(GLOBAL, _forcecom);  
+      _force0_valid = true;
       return _force0;
 
     case eLink:
       if (!_forcei_valid)
-        _forcei = Pose3d::transform(_F, _force0);  
+        _forcei = Pose3d::transform(_F, _forcecom);  
       _forcei_valid = true;
       return _forcei;
 
     case eLinkInertia: 
       if (!_forcem_valid)
-        _forcem = Pose3d::transform(_jF, _force0);  
+        _forcem = Pose3d::transform(_jF, _forcecom);  
       _forcem_valid = true;
       return _forcem;
 
+    case eLinkCOM:
+      return _forcecom;
+
     case eJoint:
       if (!_forcej_valid)
-        _forcej = Pose3d::transform((is_base()) ? _F : get_inner_joint_explicit()->get_pose(), _force0);
+        _forcej = Pose3d::transform((is_base()) ? _F : get_inner_joint_explicit()->get_pose(), _forcecom);
       _forcej_valid = true;
       return _forcej;    
 
@@ -547,26 +586,32 @@ const SVelocityd& RigidBody::get_velocity()
 {
   switch (_rftype)
   {
-    case eGlobal:
-      return _xd0;
+    case eLinkCOM:
+      return _xdcom;
 
     case eLink:
       if (!_xdi_valid)
-        _xdi = Pose3d::transform(_F, _xd0);  
+        _xdi = Pose3d::transform(_F, _xdcom);  
       _xdi_valid = true;
       return _xdi;
 
     case eLinkInertia: 
       if (!_xdm_valid)
-        _xdm = Pose3d::transform(_jF, _xd0);  
+        _xdm = Pose3d::transform(_jF, _xdcom);  
       _xdm_valid = true;
       return _xdm;
 
     case eJoint:
       if (!_xdj_valid)
-        _xdj = Pose3d::transform((is_base()) ? _F : get_inner_joint_explicit()->get_pose(), _xd0);
+        _xdj = Pose3d::transform((is_base()) ? _F : get_inner_joint_explicit()->get_pose(), _xdcom);
       _xdj_valid = true;
       return _xdj;    
+
+    case eGlobal:
+      if (!_xd0_valid)
+        _xd0 = Pose3d::transform(GLOBAL, _xdcom);
+      _xd0_valid = true;
+      return _xd0;
 
     default:
       assert(false);
@@ -590,6 +635,12 @@ const SpatialRBInertiad& RigidBody::get_inertia()
       _Ji_valid = true;
       return _Ji;
 
+    case eLinkCOM:
+      if (!_Jcom_valid)
+        _Jcom = Pose3d::transform(_F2, _Jm);
+      _Jcom_valid = true;
+      return _Jcom;
+
     case eLinkInertia: 
       return _Jm;
 
@@ -610,31 +661,37 @@ const SAcceld& RigidBody::get_accel()
   // do simplified case where body is disabled
   if (!is_enabled())
   {
-    _xddi_valid = _xddm_valid = _xddj_valid = true;
+    _xddi_valid = _xddm_valid = _xddj_valid = _xdd0_valid = true;
   }
 
   switch (_rftype)
   {
-    case eGlobal:
-      return _xdd0;
+    case eLinkCOM:
+      return _xddcom;
 
     case eLink:
       if (!_xddi_valid)
-        _xddi = Pose3d::transform(_F, _xdd0);  
+        _xddi = Pose3d::transform(_F, _xddcom);  
       _xddi_valid = true;
       return _xddi;
 
     case eLinkInertia: 
       if (!_xddm_valid)
-        _xddm = Pose3d::transform(_jF, _xdd0);  
+        _xddm = Pose3d::transform(_jF, _xddcom);  
       _xddm_valid = true;
       return _xddm;
 
     case eJoint:
       if (!_xddj_valid)
-        _xddj = Pose3d::transform((is_base()) ? _F : get_inner_joint_explicit()->get_pose(), _xdd0);
+        _xddj = Pose3d::transform((is_base()) ? _F : get_inner_joint_explicit()->get_pose(), _xddcom);
       _xddj_valid = true;
       return _xddj;    
+
+    case eGlobal:
+      if (!_xdd0_valid)
+        _xdd0 = Pose3d::transform(GLOBAL, _xddcom);
+      _xdd0_valid = true;
+      return _xdd0;    
 
     default:
       assert(false);
@@ -649,16 +706,19 @@ void RigidBody::reset_accumulators()
   _forcei.set_zero();
   _forcem.set_zero();
   _forcej.set_zero();
+  _forcecom.set_zero();
 
   // validate all forces
   _forcei_valid = true;
   _forcem_valid = true;
   _forcej_valid = true;
+  _force0_valid = true;
 }
 
-/// Computes the pseudo forces
-SForced RigidBody::calc_pseudo_forces()
+/// Computes the torques (w x Jw) that come from the Euler component of the Newton-Euler equations
+SForced RigidBody::calc_euler_torques()
 {
+  FILE_LOG(LOG_DYNAMICS) << "Calculating Euler torques for " << id << std::endl;
   const SVelocityd& xd = get_velocity();
   return xd.cross(get_inertia() * xd);
 }
@@ -690,14 +750,15 @@ void RigidBody::set_pose(const Pose3d& p)
 void RigidBody::invalidate_pose_vectors()
 {
   // invalidate vector quantities
-  _forcei_valid = _forcem_valid = false;
-  _xdi_valid = _xdm_valid = false;
-  _xddi_valid = _xddm_valid = false;
+  _forcei_valid = _forcem_valid = _force0_valid = false;
+  _xdi_valid = _xdm_valid = _xd0_valid = false;
+  _xddi_valid = _xddm_valid = _xdd0_valid = false;
 
   // invalidate inertias
   _Ji_valid = false;
   _Jj_valid = false;
   _J0_valid = false;
+  _Jcom_valid = false;
 
   // invalidate every outer rigid body
   vector<RigidBodyPtr> outer;
@@ -726,7 +787,7 @@ void RigidBody::set_force(const SForced& w)
     return;
   
   // update the force 
-  _force0 = Pose3d::transform(GLOBAL, w);
+  _forcecom = Pose3d::transform(_F2, w);
 
   // see whether we update a force 
   if (w.pose == _F)
@@ -735,7 +796,7 @@ void RigidBody::set_force(const SForced& w)
     _forcei = w;
 
     // invalidate the remaining forces 
-    _forcej_valid = _forcem_valid = false; 
+    _forcej_valid = _forcem_valid = _force0_valid = false; 
   }
   else if (w.pose == _jF)
   {
@@ -743,7 +804,7 @@ void RigidBody::set_force(const SForced& w)
     _forcem = w;
 
     // invalidate the remaining forces 
-    _forcei_valid = _forcej_valid = false; 
+    _forcei_valid = _forcej_valid = _force0_valid = false; 
   }
   else if (!is_base() && w.pose == get_inner_joint_explicit()->get_pose())
   {
@@ -751,11 +812,19 @@ void RigidBody::set_force(const SForced& w)
     _forcej = w;
 
     // invalidate the remaining forces 
-    _forcei_valid = _forcem_valid = false; 
+    _forcei_valid = _forcem_valid = _force0_valid = false; 
+  }
+  else if (w.pose == GLOBAL)
+  {
+    _force0_valid = true;
+    _force0 = w;
+
+    // invalidate the remaining forces 
+    _forcei_valid = _forcem_valid = _forcej_valid = false; 
   }
   else
     // invalidate the remaining forces 
-    _forcei_valid = _forcej_valid = _forcem_valid = false; 
+    _forcei_valid = _forcej_valid = _forcem_valid = _force0_valid = false; 
 }
 
 /// Adds a force to the body
@@ -766,7 +835,7 @@ void RigidBody::add_force(const SForced& w)
     return;
   
   // update the force 
-  _force0 += Pose3d::transform(GLOBAL, w);
+  _forcecom += Pose3d::transform(_F2, w);
 
   // see whether we update a force 
   if (w.pose == _F)
@@ -775,7 +844,7 @@ void RigidBody::add_force(const SForced& w)
       _forcei += w;
 
     // invalidate the remaining forces 
-    _forcej_valid = _forcem_valid = false; 
+    _forcej_valid = _forcem_valid = _force0_valid = false; 
   }
   else if (w.pose == _jF)
   {
@@ -783,7 +852,7 @@ void RigidBody::add_force(const SForced& w)
       _forcem += w;
 
     // invalidate the remaining forces 
-    _forcei_valid = _forcej_valid = false; 
+    _forcei_valid = _forcej_valid = _force0_valid = false; 
   }
   else if (!is_base() && w.pose == get_inner_joint_explicit()->get_pose())
   {
@@ -791,11 +860,19 @@ void RigidBody::add_force(const SForced& w)
       _forcej += w;
 
     // invalidate the remaining forces 
-    _forcei_valid = _forcem_valid = false; 
+    _forcei_valid = _forcem_valid = _force0_valid  = false; 
+  }
+  else if (w.pose == GLOBAL)
+  {
+    if (_force0_valid)
+      _force0 += w;
+
+    // invalidate the remaining forces 
+    _forcei_valid = _forcem_valid = _forcej_valid  = false; 
   }
   else
     // invalidate the remaining forces 
-    _forcei_valid = _forcej_valid = _forcem_valid = false; 
+    _forcei_valid = _forcej_valid = _forcem_valid = _force0_valid  = false; 
 }
 
 /// Calculates the velocity of a point on this rigid body in the body frame
@@ -1257,27 +1334,36 @@ void RigidBody::apply_impulse(const SMomentumd& w)
     SVelocityd dxd = get_inertia().inverse_mult(wx);
 
     // update linear and angular velocities 
-    _xd0 += Pose3d::transform(GLOBAL, dxd); 
+    _xdcom += Pose3d::transform(_F2, dxd); 
 
     // see whether we can update any velocities 
     if (dxd.pose == _F)
     {
       if (_xdi_valid)
         _xdi += dxd;
-      _xdj_valid = _xdm_valid = false;
+      _xdj_valid = _xdm_valid = _xd0_valid = false;
     }
     else if (dxd.pose == _jF)
     {
       if (_xdm_valid)
         _xdm += dxd;
-      _xdj_valid = _xdi_valid = false;
+      _xdj_valid = _xdi_valid = _xd0_valid = false;
     } 
     else if (!is_base() && dxd.pose == get_inner_joint_explicit()->get_pose())
     {
       if (_xdj_valid)
         _xdj += dxd;
-      _xdm_valid = _xdi_valid = false;
-    } 
+      _xdm_valid = _xdi_valid = _xd0_valid = false;
+    }
+    else if (dxd.pose == GLOBAL)
+    {
+      if (_xd0_valid)
+        _xd0 += dxd;
+      _xdm_valid = _xdi_valid = _xdj_valid = false;
+    }
+    else
+      _xdm_valid = _xdi_valid = _xdj_valid = _xd0_valid = false;
+    
 
     // reset the force and torque accumulators for this body
     reset_accumulators();
@@ -1397,36 +1483,24 @@ void RigidBody::apply_generalized_impulse_single(const VectorNd& gj)
   w.set_angular(Vector3d(gj[3], gj[4], gj[5]));
   w.pose = _F2;
 
-  // convert the impulse tho the inertial frame
-  SMomentumd wm = Pose3d::transform(_jF, w);
- 
+  // get the inertia in the link COM frame
+  if (!_Jcom_valid)
+  {
+    _Jcom = Pose3d::transform(_F2, _Jm);
+    _Jcom_valid = true;
+  }
+
   // get the current velocity in the inertial frame
-  SVelocityd v = Pose3d::transform(_jF, get_velocity());
+  SVelocityd v = _xdcom; 
 
   // update the velocity
-  v += _Jm.inverse_mult(wm);
+  v += _Jcom.inverse_mult(w);
 
   set_velocity(v);
-
-/*
-  // convert the impulse to the global frame
-  SMomentumd w0 = Pose3d::transform(GLOBAL, w);
-
-  // get the inertia
-  if (!_J0_valid)
-    _J0 = Pose3d::transform(GLOBAL, _Jm);
-  _J0_valid = true;
-
-  // determine the change in velocity
-  _xd0 += _J0.inverse_mult(w0);
-
-  // invalidate velocities
-  _xdi_valid = _xdj_valid = _xdm_valid = false;
-*/
 }
 
 /// Solves using the generalized inertia matrix
-MatrixNd& RigidBody::transpose_solve_generalized_inertia(const MatrixNd& B, MatrixNd& X)
+SharedMatrixNd& RigidBody::transpose_solve_generalized_inertia(const SharedMatrixNd& B, SharedMatrixNd& X)
 {
   // if this body part of an articulated body, call that function instead
   if (!_abody.expired())
@@ -1435,11 +1509,20 @@ MatrixNd& RigidBody::transpose_solve_generalized_inertia(const MatrixNd& B, Matr
     return ab->transpose_solve_generalized_inertia(B, X);
   }
   else
-    return transpose_solve_generalized_inertia_single(B, X);
+  {
+    // get proper generalized inertia matrix
+    const unsigned NGC = num_generalized_coordinates(DynamicBody::eSpatial);
+    MatrixNd M;
+    M.resize(NGC, NGC);
+    SharedMatrixNd Mshared = M.block(0, NGC, 0, NGC);
+    get_generalized_inertia_inverse(Mshared);
+    M.mult_transpose(B, X);
+    return X;
+  }
 }
 
 /// Solves using the generalized inertia matrix
-MatrixNd& RigidBody::solve_generalized_inertia(const MatrixNd& B, MatrixNd& X)
+SharedMatrixNd& RigidBody::solve_generalized_inertia(const SharedMatrixNd& B, SharedMatrixNd& X)
 {
   // if this body part of an articulated body, call that function instead
   if (!_abody.expired())
@@ -1452,29 +1535,35 @@ MatrixNd& RigidBody::solve_generalized_inertia(const MatrixNd& B, MatrixNd& X)
 }
 
 /// Solves using the generalized inertia matrix (does not call articulated body version)
-MatrixNd& RigidBody::transpose_solve_generalized_inertia_single(const MatrixNd& B, MatrixNd& X)
+SharedMatrixNd& RigidBody::transpose_solve_generalized_inertia_single(const SharedMatrixNd& B, SharedMatrixNd& X)
 {
   // get proper generalized inertia matrix
+  const unsigned NGC = num_generalized_coordinates(DynamicBody::eSpatial);
   MatrixNd M;
-  get_generalized_inertia_inverse(M);
+  M.resize(NGC, NGC);
+  SharedMatrixNd Mshared = M.block(0, NGC, 0, NGC);
+  get_generalized_inertia_inverse(Mshared);
   M.mult_transpose(B, X);
 
   return X;
 }
 
 /// Solves using the generalized inertia matrix (does not call articulated body version)
-MatrixNd& RigidBody::solve_generalized_inertia_single(const MatrixNd& B, MatrixNd& X)
+SharedMatrixNd& RigidBody::solve_generalized_inertia_single(const SharedMatrixNd& B, SharedMatrixNd& X)
 {
   // get proper generalized inertia matrix
+  const unsigned NGC = num_generalized_coordinates(DynamicBody::eSpatial);
   MatrixNd M;
-  get_generalized_inertia_inverse(M);
+  M.resize(NGC, NGC);
+  SharedMatrixNd Mshared = M.block(0, NGC, 0, NGC);
+  get_generalized_inertia_inverse(Mshared);
   M.mult(B, X);
 
   return X;
 }
 
 /// Solves using the generalized inertia matrix
-VectorNd& RigidBody::solve_generalized_inertia(const VectorNd& b, VectorNd& x)
+SharedVectorNd& RigidBody::solve_generalized_inertia(const SharedVectorNd& b, SharedVectorNd& x)
 {
   // if this body part of an articulated body, call that function instead
   if (!_abody.expired())
@@ -1487,11 +1576,14 @@ VectorNd& RigidBody::solve_generalized_inertia(const VectorNd& b, VectorNd& x)
 }
 
 /// Solves using the generalized inertia matrix
-VectorNd& RigidBody::solve_generalized_inertia_single(const VectorNd& b, VectorNd& x)
+SharedVectorNd& RigidBody::solve_generalized_inertia_single(const SharedVectorNd& b, SharedVectorNd& x)
 {
   // get proper generalized inertia matrix
+  const unsigned NGC = num_generalized_coordinates(DynamicBody::eSpatial);
   MatrixNd M;
-  get_generalized_inertia_inverse(M);
+  M.resize(NGC, NGC);
+  SharedMatrixNd Mshared = M.block(0, NGC, 0, NGC);
+  get_generalized_inertia_inverse(Mshared);
   M.mult(b, x);
 
   return x;
@@ -1637,7 +1729,7 @@ void RigidBody::get_generalized_acceleration(SharedVectorNd& ga)
 }
 
 /// Gets the generalized inertia of this rigid body
-MatrixNd& RigidBody::get_generalized_inertia(MatrixNd& M)
+SharedMatrixNd& RigidBody::get_generalized_inertia(SharedMatrixNd& M)
 {
   // if this body part of an articulated body, call that function instead
   if (!_abody.expired())
@@ -1650,7 +1742,7 @@ MatrixNd& RigidBody::get_generalized_inertia(MatrixNd& M)
 }
 
 /// Gets the generalized inertia of this rigid body (does not call articulated body version)
-MatrixNd& RigidBody::get_generalized_inertia_single(MatrixNd& M) 
+SharedMatrixNd& RigidBody::get_generalized_inertia_single(SharedMatrixNd& M) 
 {
   const unsigned X = 0, Y = 1, Z = 2, SPATIAL_DIM = 6;
 
@@ -1676,56 +1768,32 @@ MatrixNd& RigidBody::get_generalized_inertia_single(MatrixNd& M)
 }
 
 /// Gets the generalized inertia of this rigid body (does not call articulated body version)
-MatrixNd& RigidBody::get_generalized_inertia_inverse(MatrixNd& M) const 
+SharedMatrixNd& RigidBody::get_generalized_inertia_inverse(SharedMatrixNd& M) const 
 {
   const unsigned X = 0, Y = 1, Z = 2, SPATIAL_DIM = 6;
+  static LinAlgd _LA;
 
-  // special case: disabled body
+  // don't invert inertia for disabled bodies
   if (!_enabled)
-    return M.resize(0,0);
+  {
+    M.resize(0,0);
+    return M;
+  }
 
   // get the inertia 
   SpatialRBInertiad J = Pose3d::transform(_F2, _Jm);
 
-// NOTE: these will all be zero
-/*
-  // get center-of-mass vector and the skew symmetric tensor
-  Origin3d c = J.h/J.m;
-  Matrix3d cx = Matrix3d::skew_symmetric(c);
-*/
-  // compute the inverse of the c.o.m. inertia matrix
-  Matrix3d iJ = Matrix3d::invert(J.J);
+  // setup the matrix
+  Matrix3d hx = Matrix3d::skew_symmetric(J.h);
+  Matrix3d hxm = Matrix3d::skew_symmetric(J.h*J.m);
+  M.resize(6,6);
+  M.set_sub_mat(0,3, hxm, eTranspose);
+  M.set_sub_mat(3,3, J.J - hx*hxm);
+  M.set_sub_mat(0,0, Matrix3d(J.m, 0, 0, 0, J.m, 0, 0, 0, J.m));
+  M.set_sub_mat(3,0, hxm); 
 
-// NOTE: these will all be zero
-/*
-  // compute cx * inv(J)
-  Matrix3d cxiJ = cx * iJ;
-*/
-
-  // compute the inverse mass
-  double inv_m = 1.0/J.m;
-
-// NOTE: these will all be zero
-/*
-  // compute upper left hand block: cx * inv(J) * cx' + 1/m I
-  Matrix3d UL = cxiJ * -cx;
-  UL.xx() += inv_m;
-  UL.yy() += inv_m;
-  UL.zz() += inv_m;
-*/
-  Matrix3d UL = Matrix3d::zero();
-  UL.xx() += inv_m;
-  UL.yy() += inv_m;
-  UL.zz() += inv_m;
-
-  // arrange the matrix the way we want it
-  M.resize(SPATIAL_DIM, SPATIAL_DIM);
-  M.set_sub_mat(0, 0, UL);
-//  M.set_sub_mat(3, 0, cxiJ, Ravelin::eTranspose);
-  M.set_sub_mat(3, 0, Matrix3d::zero());
-  M.set_sub_mat(0, 3, Matrix3d::zero());
-//  M.set_sub_mat(0, 3, cxiJ);
-  M.set_sub_mat(3, 3, iJ);
+  // invert the matrix
+  _LA.invert(M);
 
   return M;
 }
@@ -1992,7 +2060,10 @@ void RigidBody::ode_noexcept(SharedConstVectorNd& x, double t, double dt, void* 
 
   // call the body's controller
   if (controller)
+  {
+    FILE_LOG(LOG_DYNAMICS) << "Computing controller forces for " << id << std::endl;
     (*controller)(shared_this, t, controller_arg);
+  }
 
   // calculate forward dynamics at state x
   calc_fwd_dyn();
@@ -2029,7 +2100,10 @@ void RigidBody::prepare_to_calc_ode(SharedConstVectorNd& x, double t, double dt,
 
   // call the body's controller
   if (controller)
+  {
+    FILE_LOG(LOG_DYNAMICS) << "Computing controller forces for " << id << std::endl;
     (*controller)(shared_this, t, controller_arg);
+  }
 }
 
 /// Computes the ODE 
@@ -2071,6 +2145,7 @@ std::ostream& Moby::operator<<(std::ostream& out, Moby::RigidBody& rb)
     case eGlobal:        out << "global" << endl; break;
     case eLink:          out << "link inertia" << endl; break;
     case eLinkInertia:   out << "link" << endl; break;
+    case eLinkCOM:       out << "link c.o.m." << endl; break;
     case eJoint:         out << "joint" << endl; break;
     default:
       assert(false);

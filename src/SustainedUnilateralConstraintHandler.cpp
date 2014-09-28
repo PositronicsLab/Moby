@@ -544,7 +544,6 @@ bool SustainedUnilateralConstraintHandler::solve_lcp(SustainedUnilateralConstrai
     }
     else
     {
-      // Negated (against dir of sliding Q?)
       q.cs[i] = -ci->contact_mu_coulomb*q.cn[i];
       q.ct[i] = 0.0;
     }

@@ -72,7 +72,8 @@ class RCArticulatedBody : public ArticulatedBody
     virtual Ravelin::VectorNd& get_generalized_acceleration(Ravelin::VectorNd& gv);
     virtual void set_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gc);
     virtual void set_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gv);
-    virtual Ravelin::MatrixNd& get_generalized_inertia(Ravelin::MatrixNd& M);
+    virtual Ravelin::SharedMatrixNd& get_generalized_inertia(Ravelin::SharedMatrixNd& M);
+    virtual Ravelin::MatrixNd& get_generalized_inertia(Ravelin::MatrixNd& M) { return DynamicBody::get_generalized_inertia(M); }
     virtual Ravelin::VectorNd& get_generalized_forces(Ravelin::VectorNd& f);
     virtual Ravelin::VectorNd& convert_to_generalized_force(SingleBodyPtr body, const Ravelin::SForced& w, Ravelin::VectorNd& gf);
     virtual unsigned num_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype) const;
@@ -89,9 +90,10 @@ class RCArticulatedBody : public ArticulatedBody
     virtual Ravelin::VectorNd& transpose_Dx_mult(const Ravelin::VectorNd& v, Ravelin::VectorNd& result) { return _Dx.transpose_mult(v, result); }
     virtual Ravelin::MatrixNd& transpose_Dx_mult(const Ravelin::MatrixNd& m, Ravelin::MatrixNd& result) { return _Dx.transpose_mult(m, result); }
     virtual void set_computation_frame_type(ReferenceFrameType rftype);
-    virtual Ravelin::MatrixNd& transpose_solve_generalized_inertia(const Ravelin::MatrixNd& B, Ravelin::MatrixNd& X);
-    virtual Ravelin::VectorNd& solve_generalized_inertia(const Ravelin::VectorNd& v, Ravelin::VectorNd& result);
-    virtual Ravelin::MatrixNd& solve_generalized_inertia(const Ravelin::MatrixNd& m, Ravelin::MatrixNd& result);
+    virtual Ravelin::VectorNd& solve_generalized_inertia(const Ravelin::VectorNd& b, Ravelin::VectorNd& x) { return DynamicBody::solve_generalized_inertia(b, x); }
+    virtual Ravelin::SharedMatrixNd& transpose_solve_generalized_inertia(const Ravelin::SharedMatrixNd& B, Ravelin::SharedMatrixNd& X);
+    virtual Ravelin::SharedVectorNd& solve_generalized_inertia(const Ravelin::SharedVectorNd& v, Ravelin::SharedVectorNd& result);
+    virtual Ravelin::SharedMatrixNd& solve_generalized_inertia(const Ravelin::SharedMatrixNd& m, Ravelin::SharedMatrixNd& result);
     virtual boost::shared_ptr<const Ravelin::Pose3d> get_gc_pose() const; 
     virtual void validate_position_variables();
     virtual void get_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::SharedVectorNd& gc);
@@ -99,13 +101,7 @@ class RCArticulatedBody : public ArticulatedBody
     virtual void get_generalized_acceleration(Ravelin::SharedVectorNd& ga);
     virtual void set_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::SharedConstVectorNd& gc);
     virtual void set_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::SharedConstVectorNd& gv);
-/*
-    template <class M>
-    M& solve_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, const M& B, M& X);
 
-    template <class M>
-    M& transpose_solve_generalized_inertia(DynamicBody::GeneralizedCoordinateType gctype, const M& B, M& X);
-*/
     template <class V>
     void get_generalized_acceleration_generic(V& ga);
 

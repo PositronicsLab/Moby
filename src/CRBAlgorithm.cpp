@@ -140,6 +140,9 @@ shared_ptr<const Pose3d> CRBAlgorithm::get_computation_frame(RCArticulatedBodyPt
     case eLinkInertia:
       return base->get_inertial_pose();
 
+    case eLinkCOM:
+      return base->get_gc_pose();
+
     case eGlobal:
       return shared_ptr<const Pose3d>();
 
@@ -468,7 +471,7 @@ void CRBAlgorithm::calc_joint_space_inertia(RCArticulatedBodyPtr body, MatrixNd&
 /**
  * Generic method provided for use with generalized coordinates.
  */
-void CRBAlgorithm::calc_generalized_inertia(MatrixNd& M)
+void CRBAlgorithm::calc_generalized_inertia(SharedMatrixNd& M)
 {
   // do the precalculation
   RCArticulatedBodyPtr body(_body);
@@ -479,8 +482,10 @@ void CRBAlgorithm::calc_generalized_inertia(MatrixNd& M)
   const vector<RigidBodyPtr>& links = body->get_links();
   const vector<JointPtr>& ijoints = body->get_explicit_joints();
 
+// TODO: this should be able to be removed; this function should already be
+//       computed using precalc(.)
   // get the joint space inertia and composite inertias
-  calc_joint_space_inertia(body, _H, _Ic);
+//  calc_joint_space_inertia(body, _H, _Ic);
 
   // get the number of base degrees-of-freedom
   const unsigned N_BASE_DOF = (body->is_floating_base()) ? 6 : 0;
@@ -592,7 +597,22 @@ VectorNd& CRBAlgorithm::M_solve(VectorNd& xb)
   RCArticulatedBodyPtr body(_body);
   precalc(body);
 
-  return M_solve_noprecalc(xb); 
+  // setup xb
+  SharedVectorNd xb_shared = xb.segment(0, xb.rows());
+
+  M_solve_noprecalc(xb_shared); 
+  return xb;
+}
+
+/// Solves for acceleration using the body inertia matrix
+SharedVectorNd& CRBAlgorithm::M_solve(SharedVectorNd& xb) 
+{
+  // do necessary pre-calculations
+  RCArticulatedBodyPtr body(_body);
+  precalc(body);
+
+  M_solve_noprecalc(xb); 
+  return xb;
 }
 
 /// Solves for acceleration using the body inertia matrix
@@ -602,11 +622,38 @@ MatrixNd& CRBAlgorithm::M_solve(MatrixNd& XB)
   RCArticulatedBodyPtr body(_body);
   precalc(body);
 
-  return M_solve_noprecalc(XB); 
+  // setup XB
+  SharedMatrixNd XB_shared = XB.block(0, XB.rows(), 0, XB.columns());
+
+  M_solve_noprecalc(XB_shared); 
+  return XB;
+}
+
+/// Solves for acceleration using the body inertia matrix
+SharedMatrixNd& CRBAlgorithm::M_solve(SharedMatrixNd& XB)
+{
+  // do necessary pre-calculations
+  RCArticulatedBodyPtr body(_body);
+  precalc(body);
+
+  M_solve_noprecalc(XB); 
+  return XB;
 }
 
 /// Solves for acceleration using the body inertia matrix
 VectorNd& CRBAlgorithm::M_solve_noprecalc(VectorNd& xb)
+{
+  // setup xb
+  SharedVectorNd xb_shared = xb.segment(0, xb.rows());
+
+  // solve
+  M_solve_noprecalc(xb_shared);
+
+  return xb;
+}
+
+/// Solves for acceleration using the body inertia matrix
+SharedVectorNd& CRBAlgorithm::M_solve_noprecalc(SharedVectorNd& xb)
 {
   // determine whether the matrix is rank-deficient
   if (this->_rank_deficient)
@@ -619,6 +666,18 @@ VectorNd& CRBAlgorithm::M_solve_noprecalc(VectorNd& xb)
 
 /// Solves for acceleration using the body inertia matrix
 MatrixNd& CRBAlgorithm::M_solve_noprecalc(MatrixNd& XB)
+{
+  // get a shared matrix
+  SharedMatrixNd XB_shared = XB.block(0, XB.rows(), 0, XB.columns());
+
+  // solve
+  M_solve_noprecalc(XB_shared);
+
+  return XB;
+}
+
+/// Solves for acceleration using the body inertia matrix
+SharedMatrixNd& CRBAlgorithm::M_solve_noprecalc(SharedMatrixNd& XB)
 {
   // determine whether the matrix is rank-deficient
   if (this->_rank_deficient)
@@ -928,7 +987,7 @@ void CRBAlgorithm::calc_generalized_forces(SForced& f0, VectorNd& C)
     if (LOGGING(LOG_DYNAMICS) && link != body->get_base_link())
       FILE_LOG(LOG_DYNAMICS) << "  I * a = " << (link->get_inertia() * _a[i]) << std::endl;
 
-    // add I*a to the link force and fictitious forces
+    // add I*a to the link force and Euler torque components 
     const SVelocityd& vx = link->get_velocity(); 
     _w[i] += link->get_inertia() * _a[i];
     _w[i] += vx.cross(link->get_inertia() * vx);

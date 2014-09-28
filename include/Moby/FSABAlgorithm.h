@@ -45,8 +45,8 @@ class FSABAlgorithm
     void set_body(RCArticulatedBodyPtr body) { _body = body; }
     void calc_fwd_dyn();
     void calc_inverse_generalized_inertia_noprecalc(Ravelin::MatrixNd& iM);
-    void solve_generalized_inertia_noprecalc(Ravelin::VectorNd& v);
-    void solve_generalized_inertia_noprecalc(Ravelin::MatrixNd& Y);
+    void solve_generalized_inertia_noprecalc(Ravelin::SharedVectorNd& v);
+    void solve_generalized_inertia_noprecalc(Ravelin::SharedMatrixNd& Y);
     void apply_generalized_impulse(const Ravelin::VectorNd& gj);
     void apply_impulse(const Ravelin::SMomentumd& j, RigidBodyPtr link);
     void calc_spatial_inertias(RCArticulatedBodyPtr body);

@@ -24,12 +24,14 @@ class CRBAlgorithm
     void set_body(RCArticulatedBodyPtr body) { _body = body; setup_parent_array(); }
     void calc_fwd_dyn();
     void apply_impulse(const Ravelin::SMomentumd& w, RigidBodyPtr link);
-    void calc_generalized_inertia(Ravelin::MatrixNd& M);
-    void calc_generalized_inertia(Ravelin::MatrixNd& M, boost::shared_ptr<const Ravelin::Pose3d> P);
+    void calc_generalized_inertia(Ravelin::SharedMatrixNd& M);
+    void calc_generalized_inertia(Ravelin::SharedMatrixNd& M, boost::shared_ptr<const Ravelin::Pose3d> P);
     void calc_generalized_forces(Ravelin::SForced& f0, Ravelin::VectorNd& C);
     bool factorize_cholesky(Ravelin::MatrixNd& M);
     Ravelin::VectorNd& M_solve(Ravelin::VectorNd& xb);
+    Ravelin::SharedVectorNd& M_solve(Ravelin::SharedVectorNd& xb);
     Ravelin::MatrixNd& M_solve(Ravelin::MatrixNd& XB);
+    Ravelin::SharedMatrixNd& M_solve(Ravelin::SharedMatrixNd& XB);
 
   private:
     static boost::shared_ptr<const Ravelin::Pose3d> get_computation_frame(RCArticulatedBodyPtr body);
@@ -64,6 +66,8 @@ class CRBAlgorithm
     static void to_spatial7_inertia(const Ravelin::SpatialRBInertiad& I, const Ravelin::Quatd& q, Ravelin::MatrixNd& I7);
     Ravelin::VectorNd& M_solve_noprecalc(Ravelin::VectorNd& xb);
     Ravelin::MatrixNd& M_solve_noprecalc(Ravelin::MatrixNd& XB);
+    Ravelin::SharedVectorNd& M_solve_noprecalc(Ravelin::SharedVectorNd& xb);
+    Ravelin::SharedMatrixNd& M_solve_noprecalc(Ravelin::SharedMatrixNd& XB);
     void transform_and_mult(boost::shared_ptr<const Ravelin::Pose3d> P, const Ravelin::SpatialRBInertiad& I, const std::vector<Ravelin::SVelocityd>& s, std::vector<Ravelin::SMomentumd>& Is);
 
   private:

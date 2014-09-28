@@ -33,6 +33,8 @@ GravityForce::GravityForce(const GravityForce& source)
 /// Adds gravity to a body
 void GravityForce::add_force(DynamicBodyPtr body)
 {
+  FILE_LOG(LOG_DYNAMICS) << "Adding gravitational force to " << body->id << std::endl;
+
   // check to see whether body is a rigid body first 
   shared_ptr<RigidBody> rb = dynamic_pointer_cast<RigidBody>(body);
   if (rb)

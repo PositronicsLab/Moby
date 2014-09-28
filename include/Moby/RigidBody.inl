@@ -176,11 +176,8 @@ void RigidBody::get_generalized_velocity_generic(DynamicBody::GeneralizedCoordin
     case DynamicBody::eSpatial: gv.resize(N_SPATIAL); break;
   }
 
-  // get the velocity
-  Ravelin::SVelocityd xd = Ravelin::Pose3d::transform(_F2, _xd0);
- 
   // get/set linear components of velocity
-  Ravelin::Vector3d lv = xd.get_linear();
+  Ravelin::Vector3d lv = _xdcom.get_linear();
   gv[0] = lv[0];
   gv[1] = lv[1];
   gv[2] = lv[2];
@@ -189,7 +186,7 @@ void RigidBody::get_generalized_velocity_generic(DynamicBody::GeneralizedCoordin
   if (gctype == DynamicBody::eSpatial)
   {
     // get/set angular components of velocity
-    Ravelin::Vector3d av = xd.get_angular();
+    Ravelin::Vector3d av = _xdcom.get_angular();
     gv[3] = av[0];
     gv[4] = av[1];
     gv[5] = av[2];
@@ -201,7 +198,7 @@ void RigidBody::get_generalized_velocity_generic(DynamicBody::GeneralizedCoordin
     // going to need Euler coordinate derivatives
     Ravelin::Pose3d F = *_F;
     F.update_relative_pose(GLOBAL);
-    Ravelin::Quatd qd = F.q.G_transpose_mult(xd.get_angular()) * 0.5;
+    Ravelin::Quatd qd = F.q.G_transpose_mult(_xdcom.get_angular()) * 0.5;
 
     // setup the angular components 
     gv[3] = qd.x;
@@ -227,12 +224,9 @@ void RigidBody::get_generalized_acceleration_generic(V& ga)
   // setup the linear components
   ga.resize(N_SPATIAL);
 
-  // get the acceleration 
-  Ravelin::SAcceld xdd = Ravelin::Pose3d::transform(_F2, _xdd0);
-
   // get linear and angular components
-  Ravelin::Vector3d la = xdd.get_linear();
-  Ravelin::Vector3d aa = xdd.get_angular();
+  Ravelin::Vector3d la = _xddcom.get_linear();
+  Ravelin::Vector3d aa = _xddcom.get_angular();
 
   // set linear components
   ga[0] = la[0];
