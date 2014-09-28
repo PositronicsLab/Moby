@@ -40,6 +40,35 @@ using boost::dynamic_pointer_cast;
 /// Sets up the default parameters for the sustained unilateral handler
 SustainedUnilateralConstraintHandler::SustainedUnilateralConstraintHandler(){}
 
+// temporary function
+double calc_contact_vel(const UnilateralConstraint& c, Vector3d& v)
+{
+  SingleBodyPtr sba = c.contact_geom1->get_single_body();
+  SingleBodyPtr sbb = c.contact_geom2->get_single_body();
+  assert(sba && sbb);
+
+  // get the vels 
+  const SVelocityd& va = sba->get_velocity();
+  const SVelocityd& vb = sbb->get_velocity();
+
+  // setup a temporary contact frame
+  shared_ptr<Pose3d> contact_frame(new Pose3d);
+
+  // setup the constraint frame
+  contact_frame->x = c.contact_point;
+  contact_frame->q.set_identity();
+  contact_frame->rpose = GLOBAL;
+
+  // compute the velocities at the contact point
+  SVelocityd ta = Pose3d::transform(contact_frame, va);
+  SVelocityd tb = Pose3d::transform(contact_frame, vb);
+
+  // transform the vector
+  Vector3d vx = Pose3d::transform_vector(contact_frame, v);
+
+  return vx.dot(ta.get_linear() - tb.get_linear());
+}
+
 // Processes impacts
 void SustainedUnilateralConstraintHandler::process_constraints(const vector<UnilateralConstraint>& contacts)
 {
@@ -188,6 +217,7 @@ void SustainedUnilateralConstraintHandler::apply_forces(const SustainedUnilatera
   }
 }
 
+/*
 /// Computes the data to the LCP / QP problems
 void SustainedUnilateralConstraintHandler::compute_problem_data(SustainedUnilateralConstraintProblemData& q)
 {
@@ -388,6 +418,335 @@ void SustainedUnilateralConstraintHandler::compute_problem_data(SustainedUnilate
       }
     }
   }
+}
+*/
+
+/// Computes the data to the LCP / QP problems
+void SustainedUnilateralConstraintHandler::compute_problem_data(SustainedUnilateralConstraintProblemData& q)
+{
+  const unsigned UINF = std::numeric_limits<unsigned>::max();
+  SAFESTATIC MatrixNd workM;
+  SAFESTATIC VectorNd workv;
+
+  // determine set of "super" bodies from contact constraints
+  q.super_bodies.clear();
+  for (unsigned i=0; i< q.constraints.size(); i++)
+  {
+    q.super_bodies.push_back(get_super_body(q.constraints[i]->contact_geom1->get_single_body()));
+    q.super_bodies.push_back(get_super_body(q.constraints[i]->contact_geom2->get_single_body()));
+  }
+
+  // make super bodies vector unique
+  std::sort(q.super_bodies.begin(), q.super_bodies.end());
+  q.super_bodies.erase(std::unique(q.super_bodies.begin(), q.super_bodies.end()), q.super_bodies.end());
+
+  // initialize constants and set easy to set constants
+  q.N_CONTACTS =  q.constraints.size();
+
+  // setup contact working set
+  q.contact_working_set.clear();
+  q.contact_working_set.resize(q.N_CONTACTS, true);
+
+  // compute number of friction polygon edges
+  q.N_STICKING = 0;
+  for (unsigned i=0; i<  q.constraints.size(); i++)
+  {
+    if (q.constraints[i]->get_friction_type() == UnilateralConstraint::eSticking)
+      q.N_STICKING++;
+    if ( q.constraints[i]->contact_NK < UINF)
+    {
+        q.N_K_TOTAL +=  q.constraints[i]->contact_NK/2;
+    }
+    else if ( q.constraints[i]->contact_NK == UINF)
+      break;
+  }
+
+  FILE_LOG(LOG_CONSTRAINT) << "SustainedUnilateralConstraintHandler::compute_problem_data(.)" << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "  " << q.N_STICKING << " sticking contacts" << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "  " << (q.N_CONTACTS - q.N_STICKING) << " sliding contacts" << std::endl;
+
+  // initialize the problem matrices / vectors
+  q.Cn_iM_CnT.set_zero(q.N_CONTACTS, q.N_CONTACTS);
+  q.Cn_iM_CsT.set_zero(q.N_CONTACTS, q.N_STICKING);
+  q.Cn_iM_CtT.set_zero(q.N_CONTACTS, q.N_STICKING);
+  q.Cs_iM_CnT.set_zero(q.N_STICKING, q.N_CONTACTS);
+  q.Cs_iM_CsT.set_zero(q.N_STICKING, q.N_STICKING);
+  q.Cs_iM_CtT.set_zero(q.N_STICKING, q.N_STICKING);
+  q.Ct_iM_CnT.set_zero(q.N_STICKING, q.N_CONTACTS);
+  q.Ct_iM_CsT.set_zero(q.N_STICKING, q.N_STICKING);
+  q.Ct_iM_CtT.set_zero(q.N_STICKING, q.N_STICKING);
+  q.Cn_a.set_zero(q.N_CONTACTS);
+  q.Cs_a.set_zero(q.N_STICKING);
+  q.Ct_a.set_zero(q.N_STICKING);
+  q.cn.set_zero(q.N_CONTACTS);
+  q.cs.set_zero(q.N_CONTACTS);
+  q.ct.set_zero(q.N_CONTACTS);
+
+  // setup indices
+  q.CN_IDX = 0;
+  q.CS_IDX = q.CN_IDX + q.N_CONTACTS;
+  q.CT_IDX = q.CS_IDX + q.N_CONTACTS;
+  q.NCS_IDX = q.CT_IDX + q.N_CONTACTS;
+  q.NCT_IDX = q.NCS_IDX + q.N_CONTACTS;
+
+  // save the velocities and forces of all bodies in contacts
+  std::map<DynamicBodyPtr, VectorNd> saved_velocities, saved_forces;
+  for (unsigned i=0; i< q.constraints.size(); i++)
+  {
+    DynamicBodyPtr db1 = q.constraints[i]->contact_geom1->get_single_body()->get_super_body();
+    DynamicBodyPtr db2 = q.constraints[i]->contact_geom2->get_single_body()->get_super_body();
+    if (saved_velocities.find(db1) == saved_velocities.end())
+    {
+      db1->get_generalized_velocity(DynamicBody::eSpatial, saved_velocities[db1]);
+      db1->get_generalized_forces(saved_forces[db1]);
+    }
+    if (saved_velocities.find(db2) == saved_velocities.end())
+    {
+      db2->get_generalized_velocity(DynamicBody::eSpatial, saved_velocities[db2]);
+      db2->get_generalized_forces(saved_forces[db2]);
+    }
+  }
+
+  // process contact constraints, setting up vectors 
+  for (unsigned i=0, k=0; i<  q.constraints.size(); i++)
+  {
+    const UnilateralConstraint* ci =  q.constraints[i];
+    const unsigned ROWS = (ci->get_friction_type() == UnilateralConstraint::eSticking) ? 3 : 1;
+
+    // compute vector for contact constraint i
+    workv.set_zero(ROWS);
+    q.constraints[i]->compute_constraint_data(workM, workv);
+  
+    if (ROWS == 3)
+    {
+      // setup appropriate parts of contact velocities
+      q.Cn_a[i] = workv[0];
+      q.Cs_a[k] = workv[1];
+      q.Ct_a[k] = workv[2];
+
+      // update k (NOTE: we need k b/c some contacts may be slipping)
+      k++;
+    }
+    else
+    {
+      // setup appropriate part of contact velocities
+      q.Cn_a[i] = workv[0];
+    }
+  }
+
+  // setup a temporary frame
+  shared_ptr<Pose3d> P(new Pose3d);
+
+  // compute contribution in normal direction
+  // NOTE: i is contact index, k is sticking friction index
+  for (unsigned i=0; i<  q.constraints.size(); i++)
+  {
+    // get the i'th contact
+    const UnilateralConstraint* ci =  q.constraints[i];
+
+    // measure the velocities for which we measure an applied impulse 
+    for (unsigned j=0, r=0; j< q.constraints.size(); j++)
+    {
+      q.Cn_iM_CnT(j,i) = calc_contact_vel(*q.constraints[j], q.constraints[j]->contact_normal);
+      if (q.constraints[j]->get_friction_type() == UnilateralConstraint::eSticking)
+      {
+        q.Cs_iM_CnT(r,i) = calc_contact_vel(*q.constraints[j], q.constraints[j]->contact_normal);
+        q.Ct_iM_CnT(r,i) = calc_contact_vel(*q.constraints[j], q.constraints[j]->contact_normal);
+        r++;
+      }
+    }
+
+    // setup the contact frame
+    P->q.set_identity();
+    P->x = ci->contact_point;
+
+    // get the two single bodies of the contact
+    SingleBodyPtr sb1 = ci->contact_geom1->get_single_body();
+    SingleBodyPtr sb2 = ci->contact_geom2->get_single_body();
+
+    // get the two super bodies
+    DynamicBodyPtr b1 = sb1->get_super_body();
+    DynamicBodyPtr b2 = sb2->get_super_body();
+
+    // apply impulse(s) in the normal direction
+    Vector3d f = q.constraints[i]->contact_normal;
+    if (ci->get_friction_type() != UnilateralConstraint::eSticking)
+      f -= q.constraints[i]->contact_tan1 * ci->contact_mu_coulomb;
+
+    // setup the spatial force
+    SForced fx(boost::const_pointer_cast<const Pose3d>(P));
+    fx.set_force(f);    
+
+    // convert force on bodies to generalized forces
+    VectorNd f1, f2;
+    b1->convert_to_generalized_force(sb1, fx, f1);
+    b2->convert_to_generalized_force(sb2, -fx, f2);
+
+    // apply the impulse
+    b1->apply_generalized_impulse(f1);
+    b2->apply_generalized_impulse(f2);
+
+    // measure the velocities for which we measure an applied impulse 
+    for (unsigned j=0, r=0; j< q.constraints.size(); j++)
+    {
+      q.Cn_iM_CnT(j,i) -= calc_contact_vel(*q.constraints[j], q.constraints[j]->contact_normal);
+      q.Cn_iM_CnT(j,i) *= -1.0;
+      if (q.constraints[j]->get_friction_type() == UnilateralConstraint::eSticking)
+      {
+        q.Cs_iM_CnT(r,i) -= calc_contact_vel(*q.constraints[j], q.constraints[j]->contact_normal);
+        q.Cs_iM_CnT(r,i) *= -1.0;
+        q.Ct_iM_CnT(r,i) -= calc_contact_vel(*q.constraints[j], q.constraints[j]->contact_normal);
+        q.Ct_iM_CnT(r,i) *= -1.0;
+        r++;
+      }
+    }
+  }
+
+  // compute contribution in first sticking friction direction
+  // NOTE: i is contact index, k is sticking friction index
+  for (unsigned i=0, k=0; i<  q.constraints.size(); i++)
+  {
+    // get the i'th contact
+    const UnilateralConstraint* ci =  q.constraints[i];
+
+    // if this is not a sticking friction constraint, skip it
+    if (q.constraints[i]->get_friction_type() != UnilateralConstraint::eSticking)
+      continue;
+
+    // measure the velocities for which we measure an applied impulse 
+    for (unsigned j=0, r=0; j< q.constraints.size(); j++)
+    {
+      q.Cn_iM_CsT(j,k) = calc_contact_vel(*q.constraints[j], q.constraints[j]->contact_normal);
+      if (q.constraints[j]->get_friction_type() == UnilateralConstraint::eSticking)
+      {
+        q.Cs_iM_CsT(r,k) = calc_contact_vel(*q.constraints[j], q.constraints[j]->contact_normal);
+        q.Ct_iM_CsT(r,k) = calc_contact_vel(*q.constraints[j], q.constraints[j]->contact_normal);
+        r++;
+      }
+    }
+
+    // setup the contact frame
+    P->q.set_identity();
+    P->x = ci->contact_point;
+
+    // get the two single bodies of the contact
+    SingleBodyPtr sb1 = ci->contact_geom1->get_single_body();
+    SingleBodyPtr sb2 = ci->contact_geom2->get_single_body();
+
+    // get the two super bodies
+    DynamicBodyPtr b1 = sb1->get_super_body();
+    DynamicBodyPtr b2 = sb2->get_super_body();
+
+    // apply impulse(s) in the tangent direction
+    Vector3d f = q.constraints[i]->contact_tan1;
+
+    // setup the spatial force
+    SForced fx(boost::const_pointer_cast<const Pose3d>(P));
+    fx.set_force(f);    
+
+    // convert force on bodies to generalized forces
+    VectorNd f1, f2;
+    b1->convert_to_generalized_force(sb1, fx, f1);
+    b2->convert_to_generalized_force(sb2, -fx, f2);
+
+    // apply the impulse
+    b1->apply_generalized_impulse(f1);
+    b2->apply_generalized_impulse(f2);
+
+    // measure the velocities for which we measure an applied impulse 
+    for (unsigned j=0, r=0; j< q.constraints.size(); j++)
+    {
+      q.Cn_iM_CsT(j,k) -= calc_contact_vel(*q.constraints[j], q.constraints[j]->contact_normal);
+      q.Cn_iM_CsT(j,k) *= -1.0;
+      if (q.constraints[j]->get_friction_type() == UnilateralConstraint::eSticking)
+      {
+        q.Cs_iM_CsT(r,k) -= calc_contact_vel(*q.constraints[j], q.constraints[j]->contact_normal);
+        q.Cs_iM_CsT(r,k) *= -1.0;
+        q.Ct_iM_CsT(r,k) -= calc_contact_vel(*q.constraints[j], q.constraints[j]->contact_normal);
+        q.Ct_iM_CsT(r,k) *= -1.0;
+        r++;
+      }
+    }
+
+    // update k - the sticking friction index
+    k++;
+  }
+
+  // compute contribution in second sticking friction direction
+  // NOTE: i is contact index, k is sticking friction index
+  for (unsigned i=0, k=0; i<  q.constraints.size(); i++)
+  {
+    // get the i'th contact
+    const UnilateralConstraint* ci =  q.constraints[i];
+
+    // if this is not a sticking friction constraint, skip it
+    if (q.constraints[i]->get_friction_type() != UnilateralConstraint::eSticking)
+      continue;
+
+    // measure the velocities for which we measure an applied impulse 
+    for (unsigned j=0, r=0; j< q.constraints.size(); j++)
+    {
+      q.Cn_iM_CtT(j,k) = calc_contact_vel(*q.constraints[j], q.constraints[j]->contact_normal);
+      if (q.constraints[j]->get_friction_type() == UnilateralConstraint::eSticking)
+      {
+        q.Cs_iM_CtT(r,k) = calc_contact_vel(*q.constraints[j], q.constraints[j]->contact_normal);
+        q.Ct_iM_CtT(r,k) = calc_contact_vel(*q.constraints[j], q.constraints[j]->contact_normal);
+        r++;
+      }
+    }
+
+    // setup the contact frame
+    P->q.set_identity();
+    P->x = ci->contact_point;
+
+    // get the two single bodies of the contact
+    SingleBodyPtr sb1 = ci->contact_geom1->get_single_body();
+    SingleBodyPtr sb2 = ci->contact_geom2->get_single_body();
+
+    // get the two super bodies
+    DynamicBodyPtr b1 = sb1->get_super_body();
+    DynamicBodyPtr b2 = sb2->get_super_body();
+
+    // apply impulse(s) in the tangent direction
+    Vector3d f = q.constraints[i]->contact_tan2;
+
+    // setup the spatial force
+    SForced fx(boost::const_pointer_cast<const Pose3d>(P));
+    fx.set_force(f);    
+
+    // convert force on bodies to generalized forces
+    VectorNd f1, f2;
+    b1->convert_to_generalized_force(sb1, fx, f1);
+    b2->convert_to_generalized_force(sb2, -fx, f2);
+
+    // apply the impulse
+    b1->apply_generalized_impulse(f1);
+    b2->apply_generalized_impulse(f2);
+
+    // measure the velocities for which we measure an applied impulse 
+    for (unsigned j=0, r=0; j< q.constraints.size(); j++)
+    {
+      q.Cn_iM_CtT(j,k) -= calc_contact_vel(*q.constraints[j], q.constraints[j]->contact_normal);
+      q.Cn_iM_CtT(j,k) *= -1.0;
+      if (q.constraints[j]->get_friction_type() == UnilateralConstraint::eSticking)
+      {
+        q.Cs_iM_CtT(r,k) -= calc_contact_vel(*q.constraints[j], q.constraints[j]->contact_normal);
+        q.Cs_iM_CtT(r,k) *= -1.0;
+        q.Ct_iM_CtT(r,k) -= calc_contact_vel(*q.constraints[j], q.constraints[j]->contact_normal);
+        q.Ct_iM_CtT(r,k) *= -1.0;
+        r++;
+      }
+    }
+
+    // update k - the sticking friction index
+    k++;
+  }
+
+  // restore the velocities and apply forces to all bodies in contacts
+  for (std::map<DynamicBodyPtr, VectorNd>::const_iterator i = saved_velocities.begin(); i != saved_velocities.end(); i++)
+    i->first->set_generalized_velocity(DynamicBody::eSpatial, i->second);
+  for (std::map<DynamicBodyPtr, VectorNd>::const_iterator i = saved_forces.begin(); i != saved_forces.end(); i++)
+    i->first->add_generalized_force(i->second);
 }
 
  /// Solves the Resting constraint LCP
