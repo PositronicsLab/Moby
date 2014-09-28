@@ -17,6 +17,7 @@
 #include <Moby/Joint.h>
 #include <Moby/NumericalException.h>
 #include <Moby/Spatial.h>
+#include <Ravelin/LinAlgd.h>
 #include <Moby/FSABAlgorithm.h>
 
 using namespace Ravelin;
@@ -37,7 +38,7 @@ FSABAlgorithm::FSABAlgorithm()
  * \param Y the matrix B on entry, the matrix X on return
  * \pre spatial inertias already computed for the body's current configuration 
  */
-void FSABAlgorithm::solve_generalized_inertia_noprecalc(MatrixNd& Y)
+void FSABAlgorithm::solve_generalized_inertia_noprecalc(SharedMatrixNd& Y)
 {
   VectorNd gv;
 
@@ -84,9 +85,9 @@ void FSABAlgorithm::solve_generalized_inertia_noprecalc(MatrixNd& Y)
  * \param v the vector b on entry, the vector x on return
  * \pre spatial inertias already computed for the body's current configuration 
  */
-void FSABAlgorithm::solve_generalized_inertia_noprecalc(VectorNd& v)
+void FSABAlgorithm::solve_generalized_inertia_noprecalc(SharedVectorNd& v)
 {
-  VectorNd gv;
+  VectorNd gv, gv2;
 
   // get the body
   RCArticulatedBodyPtr body(_body);
@@ -97,14 +98,18 @@ void FSABAlgorithm::solve_generalized_inertia_noprecalc(VectorNd& v)
     throw MissizeException();
 
   // apply the generalized impulse
-  apply_generalized_impulse(v);
+  gv2 = v;
+  apply_generalized_impulse(gv2);
 
   // get the new velocity out
-  body->get_generalized_velocity(DynamicBody::eSpatial, v);
-  v -= gv;
+  body->get_generalized_velocity(DynamicBody::eSpatial, gv2);
+  gv2 -= gv;
 
   // restore the current generalized velocity
   body->set_generalized_velocity(DynamicBody::eSpatial, gv);
+
+  // store the change in velocity
+  v = gv2;
 }
 
 /// Calculates the inverse generalized inertia matrix

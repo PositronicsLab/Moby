@@ -41,9 +41,9 @@ RCArticulatedBody::RCArticulatedBody()
   _fsab._LA = _LA;
   _crb._LA = _LA;
 
-  // set default algorithm to FSAB and computation frame to global
+  // set default algorithm to FSAB and computation frame to link c.o.m. 
   algorithm_type = eFeatherstone;
-  set_computation_frame_type(eGlobal);
+  set_computation_frame_type(eLinkCOM);
 
   // setup baumgarte parameters
   b_alpha = (double) 0.0;
@@ -73,6 +73,9 @@ void RCArticulatedBody::set_computation_frame_type(ReferenceFrameType rftype)
 {
   // set the reference frame
   _rftype = rftype;
+
+  // invalidate
+  _position_invalidated = true;
 
   // set the reference frame type for all links
   for (unsigned i=0; i< _links.size(); i++)
@@ -127,7 +130,7 @@ void RCArticulatedBody::update_factorized_generalized_inertia()
 }
 
 /// Solves using a generalized inertia matrix
-VectorNd& RCArticulatedBody::solve_generalized_inertia(const VectorNd& v, VectorNd& result)
+SharedVectorNd& RCArticulatedBody::solve_generalized_inertia(const SharedVectorNd& v, SharedVectorNd& result)
 {
   if (algorithm_type == eFeatherstone)
   {
@@ -142,6 +145,13 @@ VectorNd& RCArticulatedBody::solve_generalized_inertia(const VectorNd& v, Vector
   }
   else
   {
+    // store the body's computation reference frame type
+    ReferenceFrameType rftype = get_computation_frame_type();
+
+    // set the reference frame type
+    if (rftype != eLinkCOM)
+      set_computation_frame_type(eLinkCOM);
+
     // update the inverse / factorized inertia (if necessary)
     update_factorized_generalized_inertia();
 
@@ -150,13 +160,17 @@ VectorNd& RCArticulatedBody::solve_generalized_inertia(const VectorNd& v, Vector
 
     // solve once
     _crb.M_solve_noprecalc(result);
+
+    // revert the link reference frame type
+    if (rftype != eLinkCOM)
+      set_computation_frame_type(rftype); 
   }
 
   return result;
 }
 
 /// Solves the transpose using a generalized inertia matrix
-MatrixNd& RCArticulatedBody::transpose_solve_generalized_inertia(const MatrixNd& m, MatrixNd& result)
+SharedMatrixNd& RCArticulatedBody::transpose_solve_generalized_inertia(const SharedMatrixNd& m, SharedMatrixNd& result)
 {
   if (algorithm_type == eFeatherstone)
   {
@@ -171,6 +185,13 @@ MatrixNd& RCArticulatedBody::transpose_solve_generalized_inertia(const MatrixNd&
   }
   else
   {
+    // store the body's computation reference frame type
+    ReferenceFrameType rftype = get_computation_frame_type();
+
+    // set the reference frame type
+    if (rftype != eLinkCOM)
+      set_computation_frame_type(eLinkCOM);
+
     // update the inverse / factorized inertia (if necessary)
     update_factorized_generalized_inertia();
 
@@ -179,13 +200,17 @@ MatrixNd& RCArticulatedBody::transpose_solve_generalized_inertia(const MatrixNd&
 
     // solve
     _crb.M_solve_noprecalc(result);
+
+    // revert the link reference frame type
+    if (rftype != eLinkCOM)
+      set_computation_frame_type(rftype); 
   }
 
   return result;
 }
 
 /// Solves using a generalized inertia matrix
-MatrixNd& RCArticulatedBody::solve_generalized_inertia(const MatrixNd& m, MatrixNd& result)
+SharedMatrixNd& RCArticulatedBody::solve_generalized_inertia(const SharedMatrixNd& m, SharedMatrixNd& result)
 {
   if (algorithm_type == eFeatherstone)
   {
@@ -200,6 +225,13 @@ MatrixNd& RCArticulatedBody::solve_generalized_inertia(const MatrixNd& m, Matrix
   }
   else
   {
+    // store the body's computation reference frame type
+    ReferenceFrameType rftype = get_computation_frame_type();
+
+    // set the reference frame type
+    if (rftype != eLinkCOM)
+      set_computation_frame_type(eLinkCOM);
+
     // update the inverse / factorized inertia (if necessary)
     update_factorized_generalized_inertia();
 
@@ -208,6 +240,10 @@ MatrixNd& RCArticulatedBody::solve_generalized_inertia(const MatrixNd& m, Matrix
 
     // solve
     _crb.M_solve_noprecalc(result);
+
+    // revert the link reference frame type
+    if (rftype != eLinkCOM)
+      set_computation_frame_type(rftype); 
   }
 
   return result;
@@ -229,7 +265,7 @@ void RCArticulatedBody::apply_generalized_impulse(const VectorNd& gj)
     get_generalized_velocity(DynamicBody::eSpatial, gv);
 
     // we'll solve for the change in generalized velocity
-    solve_generalized_inertia(gj, gv_delta);
+    DynamicBody::solve_generalized_inertia(gj, gv_delta);
 
     // apply the change in generalized velocity
     gv += gv_delta;
@@ -267,7 +303,6 @@ void RCArticulatedBody::set_generalized_forces(const VectorNd& gf)
     _ejoints[i]->force = f;
   }
 }
-
 
 /// Adds a generalized force to the articulated body
 void RCArticulatedBody::add_generalized_force(const VectorNd& gf)
@@ -819,6 +854,8 @@ void RCArticulatedBody::calc_fwd_dyn()
     FILE_LOG(LOG_DYNAMICS) << "global ";
   else if (get_computation_frame_type() == eLink)
     FILE_LOG(LOG_DYNAMICS) << "link ";
+  else if (get_computation_frame_type() == eLinkCOM)
+    FILE_LOG(LOG_DYNAMICS) << "link c.o.m. ";
   else
     FILE_LOG(LOG_DYNAMICS) << "joint ";
   FILE_LOG(LOG_DYNAMICS) << "coordinate system" << std::endl;
@@ -919,20 +956,20 @@ void RCArticulatedBody::calc_fwd_dyn_loops()
   fext += workv;
 
   // compute the constraint forces
-  solve_generalized_inertia(fext, iM_fext);
+  DynamicBody::solve_generalized_inertia(fext, iM_fext);
   _Jx.mult(iM_fext, alpha_x) += Jx_dot_v;
   _Jx.mult(v, workv) *= ((double) 2.0 * b_alpha);
   alpha_x += workv;
   C *= (b_beta*b_beta);
   alpha_x += C;
-  transpose_solve_generalized_inertia(_Jx, iM_JxT);
+  DynamicBody::transpose_solve_generalized_inertia(_Jx, iM_JxT);
   _Jx.mult(iM_JxT, Jx_iM_JxT);
   _LA->svd(Jx_iM_JxT, U, S, V);
   _LA->solve_LS_fast(U, S, V, alpha_x);
 
   // compute generalized acceleration
   fext -= _Jx.transpose_mult(alpha_x, workv);
-  solve_generalized_inertia(fext, a);
+  DynamicBody::solve_generalized_inertia(fext, a);
   set_generalized_acceleration(a);
 }
 
@@ -1586,7 +1623,7 @@ void RCArticulatedBody::get_generalized_velocity(DynamicBody::GeneralizedCoordin
 }
 
 /// Gets the generalized inertia of this body
-MatrixNd& RCArticulatedBody::get_generalized_inertia(MatrixNd& M)
+SharedMatrixNd& RCArticulatedBody::get_generalized_inertia(SharedMatrixNd& M)
 {
   // calculate the generalized inertia matrix
   _crb.calc_generalized_inertia(M);
@@ -1786,8 +1823,10 @@ void RCArticulatedBody::load_from_xml(shared_ptr<const XMLTree> node, map<string
       set_computation_frame_type(eGlobal);
     else if (strcasecmp(frame.c_str(), "link") == 0)
       set_computation_frame_type(eLink);
-    else if (strcasecmp(frame.c_str(), "linkinertia") == 0)
+    else if (strcasecmp(frame.c_str(), "linkinertia") == 0 || strcasecmp(frame.c_str(), "link-inertia") == 0)
       set_computation_frame_type(eLinkInertia);
+    else if (strcasecmp(frame.c_str(), "linkcom") == 0 || strcasecmp(frame.c_str(), "link-com") == 0)
+      set_computation_frame_type(eLinkCOM);
     else if (strcasecmp(frame.c_str(), "joint") == 0)
       set_computation_frame_type(eJoint);
     else
@@ -1857,6 +1896,8 @@ void RCArticulatedBody::save_to_xml(XMLTreePtr node, list<shared_ptr<const Base>
     node->attribs.insert(XMLAttrib("fdyn-algorithm-frame", string("global")));
   else if (get_computation_frame_type() == eLink)
     node->attribs.insert(XMLAttrib("fdyn-algorithm-frame", string("link")));
+  else if (get_computation_frame_type() == eLinkCOM)
+    node->attribs.insert(XMLAttrib("fdyn-algorithm-frame", string("linkcom")));
   else if (get_computation_frame_type() == eLinkInertia)
     node->attribs.insert(XMLAttrib("fdyn-algorithm-frame", string("linkinertia")));
   else

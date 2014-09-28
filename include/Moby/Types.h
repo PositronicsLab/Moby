@@ -53,7 +53,7 @@ typedef std::pair<Point3d, Point3d> LineSeg3;
 typedef std::pair<Point2d, Point2d> LineSeg2;
 
 /// reference frame type for reduced-coordinate dynamics computations
-enum ReferenceFrameType { eGlobal, eLink, eLinkInertia, eJoint };
+enum ReferenceFrameType { eGlobal, eLink, eLinkInertia, eLinkCOM, eJoint };
 
 /// Polyhedron smart pointer
 typedef boost::shared_ptr<Polyhedron> PolyhedronPtr;

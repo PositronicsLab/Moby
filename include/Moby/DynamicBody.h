@@ -123,43 +123,116 @@ class DynamicBody : public Visualizable
     virtual void set_generalized_velocity(GeneralizedCoordinateType gctype, Ravelin::SharedConstVectorNd& gv) = 0;
 
     /// Gets the generalized inertia of this body
-    virtual Ravelin::MatrixNd& get_generalized_inertia(Ravelin::MatrixNd& M) = 0;
+    Ravelin::MatrixNd& get_generalized_inertia(Ravelin::MatrixNd& M)
+    {
+      const unsigned NGC = num_generalized_coordinates(DynamicBody::eSpatial);
+      M.resize(NGC, NGC);
+      Ravelin::SharedMatrixNd X = M.block(0, NGC, 0, NGC);
+      get_generalized_inertia(X);
+      return M;
+    }
+
+    /// Gets the generalized inertia of this body
+    virtual Ravelin::SharedMatrixNd& get_generalized_inertia(Ravelin::SharedMatrixNd& M) = 0;
 
     /// Solves using the inverse generalized inertia
-    virtual Ravelin::MatrixNd& solve_generalized_inertia(const Ravelin::MatrixNd& B, Ravelin::MatrixNd& X) = 0;
+    virtual Ravelin::SharedMatrixNd& solve_generalized_inertia(const Ravelin::SharedMatrixNd& B, Ravelin::SharedMatrixNd& X) = 0;
 
     /// Solves using the inverse generalized inertia
-    Ravelin::SharedMatrixNd& solve_generalized_inertia(const Ravelin::SharedMatrixNd& B, Ravelin::SharedMatrixNd& X);
+    virtual Ravelin::MatrixNd& solve_generalized_inertia(const Ravelin::MatrixNd& B, Ravelin::MatrixNd& X)
+    {
+      const unsigned NGC = num_generalized_coordinates(DynamicBody::eSpatial);
+      const Ravelin::SharedMatrixNd Bx = B.block(0, B.rows(), 0, B.columns()).get();
+      X.resize(NGC, B.columns());
+      Ravelin::SharedMatrixNd Xx = X.block(0, X.rows(), 0, X.columns());
+      solve_generalized_inertia(Bx, Xx);
+      return X;
+    }
 
     /// Solves using the inverse generalized inertia
-    Ravelin::MatrixNd& solve_generalized_inertia(const Ravelin::SharedMatrixNd& B, Ravelin::MatrixNd& X);
+    virtual Ravelin::MatrixNd& solve_generalized_inertia(const Ravelin::SharedMatrixNd& B, Ravelin::MatrixNd& X)
+    {
+      const unsigned NGC = num_generalized_coordinates(DynamicBody::eSpatial);
+      X.resize(NGC, B.columns());
+      Ravelin::SharedMatrixNd Xx = X.block(0, X.rows(), 0, X.columns());
+      solve_generalized_inertia(B, Xx);
+      return X;
+    }
 
     /// Solves using the inverse generalized inertia
-    Ravelin::SharedMatrixNd& solve_generalized_inertia(const Ravelin::MatrixNd& B, Ravelin::SharedMatrixNd& X);
+    virtual Ravelin::SharedMatrixNd& solve_generalized_inertia(const Ravelin::MatrixNd& B, Ravelin::SharedMatrixNd& X)
+    {
+      const unsigned NGC = num_generalized_coordinates(DynamicBody::eSpatial);
+      const Ravelin::SharedMatrixNd Bx = B.block(0, B.rows(), 0, B.columns()).get();
+      solve_generalized_inertia(Bx, X);
+      return X;
+    }
 
     /// Solves using the inverse generalized inertia
-    virtual Ravelin::VectorNd& solve_generalized_inertia(const Ravelin::VectorNd& b, Ravelin::VectorNd& x) = 0;
+    virtual Ravelin::VectorNd& solve_generalized_inertia(const Ravelin::VectorNd& b, Ravelin::VectorNd& x)
+    {
+      const unsigned NGC = num_generalized_coordinates(DynamicBody::eSpatial);
+      const Ravelin::SharedVectorNd bx = b.segment(0, b.rows()).get();
+      x.resize(NGC);
+      Ravelin::SharedVectorNd xx = x.segment(0, x.rows());
+      solve_generalized_inertia(bx, xx);
+      return x;
+    }
 
     /// Solves using the inverse generalized inertia
-    Ravelin::VectorNd& solve_generalized_inertia(const Ravelin::SharedVectorNd& b, Ravelin::VectorNd& x);
+    virtual Ravelin::VectorNd& solve_generalized_inertia(const Ravelin::SharedVectorNd& b, Ravelin::VectorNd& x)
+    {
+      const unsigned NGC = num_generalized_coordinates(DynamicBody::eSpatial);
+      x.resize(NGC);
+      Ravelin::SharedVectorNd xx = x.segment(0, x.rows());
+      solve_generalized_inertia(b, xx);
+      return x;
+    }
 
     /// Solves using the inverse generalized inertia
-    Ravelin::SharedVectorNd& solve_generalized_inertia(const Ravelin::VectorNd& b, Ravelin::SharedVectorNd& x);
+    virtual Ravelin::SharedVectorNd& solve_generalized_inertia(const Ravelin::VectorNd& b, Ravelin::SharedVectorNd& x)
+    {
+      const unsigned NGC = num_generalized_coordinates(DynamicBody::eSpatial);
+      const Ravelin::SharedVectorNd bx = b.segment(0, b.rows()).get();
+      solve_generalized_inertia(bx, x);
+      return x;
+    }
 
     /// Solves using the inverse generalized inertia
-    Ravelin::SharedVectorNd& solve_generalized_inertia(const Ravelin::SharedVectorNd& b, Ravelin::SharedVectorNd& x);
+    virtual Ravelin::SharedVectorNd& solve_generalized_inertia(const Ravelin::SharedVectorNd& b, Ravelin::SharedVectorNd& x) = 0;
 
     /// Solves the transpose matrix using the inverse generalized inertia
-    virtual Ravelin::MatrixNd& transpose_solve_generalized_inertia(const Ravelin::MatrixNd& B, Ravelin::MatrixNd& X) = 0;
+    virtual Ravelin::MatrixNd& transpose_solve_generalized_inertia(const Ravelin::MatrixNd& B, Ravelin::MatrixNd& X)
+    {
+      const unsigned NGC = num_generalized_coordinates(DynamicBody::eSpatial);
+      const Ravelin::SharedMatrixNd Bx = B.block(0, B.rows(), 0, B.columns()).get();
+      X.resize(NGC, B.rows());
+      Ravelin::SharedMatrixNd Xx = X.block(0, X.rows(), 0, X.columns());
+      transpose_solve_generalized_inertia(Bx, Xx);
+      return X;
+    }
 
     /// Solves the transpose matrix using the inverse generalized inertia
-    Ravelin::MatrixNd& transpose_solve_generalized_inertia(const Ravelin::SharedMatrixNd& B, Ravelin::MatrixNd& X);
+    virtual Ravelin::MatrixNd& transpose_solve_generalized_inertia(const Ravelin::SharedMatrixNd& B, Ravelin::MatrixNd& X)
+    {
+      const unsigned NGC = num_generalized_coordinates(DynamicBody::eSpatial);
+      X.resize(NGC, B.rows());
+      Ravelin::SharedMatrixNd Xx = X.block(0, X.rows(), 0, X.columns());
+      transpose_solve_generalized_inertia(B, Xx);
+      return X;
+    }
 
     /// Solves the transpose matrix using the inverse generalized inertia
-    Ravelin::SharedMatrixNd& transpose_solve_generalized_inertia(const Ravelin::MatrixNd& B, Ravelin::SharedMatrixNd& X);
+    virtual Ravelin::SharedMatrixNd& transpose_solve_generalized_inertia(const Ravelin::MatrixNd& B, Ravelin::SharedMatrixNd& X)
+    {
+      const unsigned NGC = num_generalized_coordinates(DynamicBody::eSpatial);
+      const Ravelin::SharedMatrixNd Bx = B.block(0, B.rows(), 0, B.columns()).get();
+      transpose_solve_generalized_inertia(Bx, X);
+      return X;
+    }
 
     /// Solves the transpose matrix using the inverse generalized inertia
-    Ravelin::SharedMatrixNd& transpose_solve_generalized_inertia(const Ravelin::SharedMatrixNd& B, Ravelin::SharedMatrixNd& X);
+    virtual Ravelin::SharedMatrixNd& transpose_solve_generalized_inertia(const Ravelin::SharedMatrixNd& B, Ravelin::SharedMatrixNd& X) = 0;
 
     /// Gets the external forces on this body
     /**

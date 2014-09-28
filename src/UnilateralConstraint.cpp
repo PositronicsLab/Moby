@@ -221,10 +221,10 @@ void UnilateralConstraint::compute_aconstraint_data(MatrixNd& M, VectorNd& q) co
     dJ2.resize(1,NGC2);  // sliding Jacobian for body 2
 
     // get shared vectors
-    SharedVectorNd J1n = J1.row(0);
-    SharedVectorNd J1s = dJ1.row(0);
-    SharedVectorNd J2n = J2.row(0);
-    SharedVectorNd J2s = dJ2.row(0);
+    SharedVectorNd J1n = J1.row(0);  // normal direction Jacobian for body 1 
+    SharedVectorNd J1s = dJ1.row(0); // sliding direction Jacobian for body 1
+    SharedVectorNd J2n = J2.row(0);  // normal direction Jacobian for body 2
+    SharedVectorNd J2s = dJ2.row(0); // sliding direction Jacobian for body 2
 
     // compute the Jacobians for the two bodies
     su1->calc_jacobian(_contact_frame, sb1, JJ);
@@ -237,26 +237,27 @@ void UnilateralConstraint::compute_aconstraint_data(MatrixNd& M, VectorNd& q) co
     Jlin2.transpose_mult(-tan1, J2s);
 
     // setup the first solution vector (N - u_s*Q)
-    dJ1 *= -contact_mu_coulomb; 
-    dJ1 += J1; 
+    J1s *= -contact_mu_coulomb; 
+    J1s += J1n; 
 
     // compute N*inv(M)*(N - u_s*Q)' for the first body
-    su1->transpose_solve_generalized_inertia(dJ1, workM1);
-    J1.mult(workM1, M);
+    su1->solve_generalized_inertia(J1s, workv);
+    M.resize(1,1);
+    M(0,0) = J1n.dot(workv);
 
     // setup the second solution vector (N - u_s*Q)
-    dJ2 *= -contact_mu_coulomb; 
-    dJ2 += J2;
+    J2s *= -contact_mu_coulomb; 
+    J2s += J2n;
 
     // compute N*inv(M)*(N - u_s*Q)' for the second body
-    su2->transpose_solve_generalized_inertia(dJ2, workM1);
-    M += J2.mult(workM1, workM2);
+    su2->solve_generalized_inertia(J2s, workv);
+    M(0,0) += J2n.dot(workv);
 
     // compute the normal acceleration
     su1->get_generalized_acceleration(v);
-    J1.mult(v, q);
+    q[0] = J1n.dot(v);
     su2->get_generalized_acceleration(v);
-    q += J2.mult(v, workv);
+    q[0] += J2n.dot(v);
 
     // update the contact vector data
     compute_dotv_data(q);
