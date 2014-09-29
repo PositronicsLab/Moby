@@ -31,6 +31,7 @@ class SustainedUnilateralConstraintHandler
     void apply_model(const std::vector<UnilateralConstraint>& contacts);
     void apply_model_to_connected_contacts(const std::list<UnilateralConstraint*>& contacts);
     static void compute_problem_data(SustainedUnilateralConstraintProblemData& epd);
+    static void compute_problem_data2(SustainedUnilateralConstraintProblemData& epd);
     bool solve_lcp(SustainedUnilateralConstraintProblemData& epd, Ravelin::VectorNd& z);
     double calc_ke(SustainedUnilateralConstraintProblemData& epd, const Ravelin::VectorNd& z);
     void apply_forces(const SustainedUnilateralConstraintProblemData& epd) const;

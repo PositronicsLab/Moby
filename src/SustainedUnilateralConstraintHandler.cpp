@@ -217,13 +217,16 @@ void SustainedUnilateralConstraintHandler::apply_forces(const SustainedUnilatera
   }
 }
 
-/*
 /// Computes the data to the LCP / QP problems
 void SustainedUnilateralConstraintHandler::compute_problem_data(SustainedUnilateralConstraintProblemData& q)
 {
   const unsigned UINF = std::numeric_limits<unsigned>::max();
   SAFESTATIC MatrixNd workM;
   SAFESTATIC VectorNd workv;
+
+// use the newer method - it works for sliding friction
+compute_problem_data2(q);
+return;
 
   // determine set of "super" bodies from contact constraints
   q.super_bodies.clear();
@@ -419,10 +422,9 @@ void SustainedUnilateralConstraintHandler::compute_problem_data(SustainedUnilate
     }
   }
 }
-*/
 
-/// Computes the data to the LCP / QP problems
-void SustainedUnilateralConstraintHandler::compute_problem_data(SustainedUnilateralConstraintProblemData& q)
+/// Computes the data to the LCP / QP problems -- second approach
+void SustainedUnilateralConstraintHandler::compute_problem_data2(SustainedUnilateralConstraintProblemData& q)
 {
   const unsigned UINF = std::numeric_limits<unsigned>::max();
   SAFESTATIC MatrixNd workM;
@@ -491,20 +493,11 @@ void SustainedUnilateralConstraintHandler::compute_problem_data(SustainedUnilate
 
   // save the velocities and forces of all bodies in contacts
   std::map<DynamicBodyPtr, VectorNd> saved_velocities, saved_forces;
-  for (unsigned i=0; i< q.constraints.size(); i++)
+  for (unsigned i=0; i< q.super_bodies.size(); i++)
   {
-    DynamicBodyPtr db1 = q.constraints[i]->contact_geom1->get_single_body()->get_super_body();
-    DynamicBodyPtr db2 = q.constraints[i]->contact_geom2->get_single_body()->get_super_body();
-    if (saved_velocities.find(db1) == saved_velocities.end())
-    {
-      db1->get_generalized_velocity(DynamicBody::eSpatial, saved_velocities[db1]);
-      db1->get_generalized_forces(saved_forces[db1]);
-    }
-    if (saved_velocities.find(db2) == saved_velocities.end())
-    {
-      db2->get_generalized_velocity(DynamicBody::eSpatial, saved_velocities[db2]);
-      db2->get_generalized_forces(saved_forces[db2]);
-    }
+    DynamicBodyPtr db = q.super_bodies[i];
+    db->get_generalized_velocity(DynamicBody::eSpatial, saved_velocities[db]);
+    db->get_generalized_forces(saved_forces[db]);
   }
 
   // process contact constraints, setting up vectors 
@@ -747,6 +740,9 @@ void SustainedUnilateralConstraintHandler::compute_problem_data(SustainedUnilate
     i->first->set_generalized_velocity(DynamicBody::eSpatial, i->second);
   for (std::map<DynamicBodyPtr, VectorNd>::const_iterator i = saved_forces.begin(); i != saved_forces.end(); i++)
     i->first->add_generalized_force(i->second);
+
+for (unsigned i=0; i< q.super_bodies.size(); i++)
+  FILE_LOG(LOG_CONSTRAINT) << "generalized force on: " << q.super_bodies[i]->id << " " << saved_forces[q.super_bodies[i]] << std::endl;
 }
 
  /// Solves the Resting constraint LCP
