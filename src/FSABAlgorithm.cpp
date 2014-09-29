@@ -808,7 +808,7 @@ void FSABAlgorithm::calc_spatial_inertias(RCArticulatedBodyPtr body)
   // process all links (including the base, if it's floating)
   unsigned start_idx = (body->is_floating_base()) ? 0 : 1;
 
-  // process all links except the base
+  // process all links
   for (unsigned j=start_idx; j< links.size(); j++)
   {
     // get the link
@@ -818,6 +818,13 @@ void FSABAlgorithm::calc_spatial_inertias(RCArticulatedBodyPtr body)
     // set the articulated body inertia for this link to be its isolated
     // spatial inertia (this will be updated in the phase below)
    _I[i] = link->get_inertia();
+
+    // check for degenerate inertia
+    #ifndef NDEBUG
+    if (link->is_base() && !body->is_floating_base() && 
+        (link->get_inertia().m <= 0.0 || link->get_inertia().J.norm_inf() <= 0.0))
+      throw std::runtime_error("Attempted to compute dynamics given degenerate inertia for a floating base body");
+    #endif
 
     FILE_LOG(LOG_DYNAMICS) << "  processing link " << link->id << endl;
     FILE_LOG(LOG_DYNAMICS) << "    Link spatial iso inertia: " << endl << _I[i];
