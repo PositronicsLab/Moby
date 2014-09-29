@@ -348,8 +348,14 @@ void RigidBody::calc_fwd_dyn()
     if (!is_enabled())
       return;
 
-    // otherwise, calculate forward dynamics
+    // make sure that the inertia is reasonable 
     const SpatialRBInertiad& J = get_inertia();
+    #ifndef NDEBUG
+    if (J.m <= 0.0 || J.J.norm_inf() <= 0.0)
+      throw std::runtime_error("Tried to calculate forward dynamics on body with zero mass/inertia");
+    #endif
+
+    // otherwise, calculate forward dynamics
     SForced f = sum_forces() - calc_euler_torques(); 
     SAcceld xdd = J.inverse_mult(f);
 
