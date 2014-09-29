@@ -256,7 +256,7 @@ void CRBAlgorithm::calc_joint_space_inertia(RCArticulatedBodyPtr body, MatrixNd&
     // check for degenerate inertia
     #ifndef NDEBUG
     SpatialRBInertiad& J = Ic[links[i]->get_index()];
-    if (links[i]->is_base() && !body->is_floating_base() && 
+    if (links[i]->is_base() && body->is_floating_base() && 
         (J.m <= 0.0 || J.J.norm_inf() <= 0.0))
       throw std::runtime_error("Attempted to compute dynamics given degenerate inertia for a floating base body");
     #endif

@@ -821,7 +821,7 @@ void FSABAlgorithm::calc_spatial_inertias(RCArticulatedBodyPtr body)
 
     // check for degenerate inertia
     #ifndef NDEBUG
-    if (link->is_base() && !body->is_floating_base() && 
+    if (link->is_base() && body->is_floating_base() && 
         (link->get_inertia().m <= 0.0 || link->get_inertia().J.norm_inf() <= 0.0))
       throw std::runtime_error("Attempted to compute dynamics given degenerate inertia for a floating base body");
     #endif
