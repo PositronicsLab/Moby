@@ -1828,12 +1828,9 @@ VectorNd& RigidBody::get_generalized_forces_single(VectorNd& gf)
   const unsigned NGC = num_generalized_coordinates(DynamicBody::eSpatial); 
   gf.resize(NGC);
 
-  // compute external forces in global frame
-  SForced w = Pose3d::transform(_F2, _force0);
-
   // get force and torque
-  Vector3d f = w.get_force();
-  Vector3d t = w.get_torque();
+  Vector3d f = _forcecom.get_force();
+  Vector3d t = _forcecom.get_torque();
 
   // setup the linear components of f
   gf[0] = f[0];
