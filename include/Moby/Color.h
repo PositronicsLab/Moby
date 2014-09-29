@@ -1,11 +1,9 @@
- /*
-  *  Node Visitor to set the color for all the Geometry and Shapes a Node
-  *  Code used from: http://www.vis-sim.com/osg/code/osgcode_color1.htm
-  *  usage example:
-  *    CcolorVisitor  newColor;
-  *    newColor.setColor( 1.0f, 0.0f, 0.0f );
-  *    node->accept( newColor );
-  */
+/****************************************************************************
+ * Copyright 2008 Evan Drumwright
+ * This library is distributed under the terms of the Apache V2.0
+ * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
+ ****************************************************************************/
+
 
 #include <osg/array>
 #include <osg/geode>
@@ -16,6 +14,13 @@
 #include <osg/Texture2D>
 
 namespace Moby {
+/// This OSG NodeVisitor colors all Geometry & ShapeDrawable of a single node
+ /**
+  *  usage example:
+  *    CcolorVisitor  newColor;
+  *    newColor.setColor( r , g , b , a=1.0 );
+  *    node->accept( newColor );
+  **/
 class  CcolorVisitor : public osg::NodeVisitor {
 
 public :
