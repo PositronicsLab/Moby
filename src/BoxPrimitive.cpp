@@ -120,6 +120,7 @@ void BoxPrimitive::get_facets(shared_ptr<const Pose3d> P, MatrixNd& M, VectorNd&
   q.resize(N_FACETS);
   for (unsigned i=0; i< N_FACETS; i++)
     q[i] = normals[i].dot(points[i]);
+assert(q.norm_inf() < 1e5);
 }
 
 /// Computes the signed distance from the box to a primitive
@@ -344,6 +345,39 @@ void BoxPrimitive::get_vertices(shared_ptr<const Pose3d> P, vector<Point3d>& ver
   verts.push_back(Point3d(-XLEN,YLEN,-ZLEN,P));
   verts.push_back(Point3d(-XLEN,-YLEN,ZLEN,P));
   verts.push_back(Point3d(-XLEN,-YLEN,-ZLEN,P));
+
+  // *************************************************************************
+  // NOTE: following code will not be necessary when edge sample length goes
+  // away
+  // *************************************************************************
+
+  // don't go any further if the edge sample length is infinity
+  if (_edge_sample_length == std::numeric_limits<double>::max())
+    return;
+
+  const double ESL_SQ = _edge_sample_length*_edge_sample_length;
+  vector<LineSeg3> edges;
+  edges.push_back(LineSeg3(verts[0], verts[1]));
+  edges.push_back(LineSeg3(verts[0], verts[2]));
+  edges.push_back(LineSeg3(verts[0], verts[4]));
+  edges.push_back(LineSeg3(verts[1], verts[3]));
+  edges.push_back(LineSeg3(verts[1], verts[5]));
+  edges.push_back(LineSeg3(verts[2], verts[3]));
+  edges.push_back(LineSeg3(verts[2], verts[6]));
+  edges.push_back(LineSeg3(verts[3], verts[7]));
+  edges.push_back(LineSeg3(verts[4], verts[5]));
+  edges.push_back(LineSeg3(verts[4], verts[6]));
+  edges.push_back(LineSeg3(verts[5], verts[7]));
+  edges.push_back(LineSeg3(verts[6], verts[7]));
+  for (unsigned i=0; i< edges.size(); i++)
+  {
+    if ((edges[i].first - edges[i].second).norm_sq() >= ESL_SQ)
+    {
+      Point3d midpoint = edges[i].first*0.5 + edges[i].second*0.5;
+      edges.push_back(LineSeg3(midpoint, edges[i].second));
+      edges[i].second = midpoint;
+    }
+  } 
 }
 
 /// Gets the set of vertices for the BoxPrimitive (constructing, if necessary)
@@ -859,6 +893,9 @@ double BoxPrimitive::calc_dist_and_normal(const Point3d& point, std::vector<Vect
     }
     else
     {
+      // degenerate normal; do nothing now
+      return (inside) ? intDist : std::sqrt(sqrDist);
+
       // degenerate normal; check for relative equality 
       if (CompGeom::rel_equal(absPX, absPY) && CompGeom::rel_equal(absPX, absPZ))
       {

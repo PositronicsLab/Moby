@@ -7,8 +7,8 @@
   *    node->accept( newColor );
   */
 
-#include <osg/array>
-#include <osg/geode>
+#include <osg/Array>
+#include <osg/Geode>
 #include <osg/Geometry>
 #include <osg/NodeVisitor>
 #include <osg/Vec4>
