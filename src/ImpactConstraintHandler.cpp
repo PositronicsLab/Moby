@@ -133,7 +133,7 @@ void ImpactConstraintHandler::apply_model(const vector<UnilateralConstraint>& co
       // determine a reduced set of constraints
       UnilateralConstraint::determine_minimal_set(rconstraints);
 
-      // look to see whether all contact constraints have zero or infinite friction
+      // look to see whether all contact constraints have zero or infinite Coulomb friction
       bool all_inf = true, all_frictionless = true;
       BOOST_FOREACH(UnilateralConstraint* e, rconstraints)
         if (e->constraint_type == UnilateralConstraint::eContact)

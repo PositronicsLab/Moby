@@ -19,26 +19,24 @@
 
 namespace Moby {
 
-/// Defines the mechanism for handling impact contacts
+/// Defines the mechanism for handling impact constraints
 class SustainedUnilateralConstraintHandler
 {
   public:
     SustainedUnilateralConstraintHandler();
-    void process_constraints(const std::vector<UnilateralConstraint>& contacts);
+    void process_constraints(const std::vector<UnilateralConstraint>& constraints);
 
   private:
     static DynamicBodyPtr get_super_body(SingleBodyPtr sb);
-    void apply_model(const std::vector<UnilateralConstraint>& contacts);
-    void apply_model_to_connected_contacts(const std::list<UnilateralConstraint*>& contacts);
-    void apply_purely_viscous_model_to_connected_contacts(const std::list<UnilateralConstraint*>& contacts);
+    void apply_model(const std::vector<UnilateralConstraint>& constraints);
+    void apply_model_to_connected_constraints(const std::list<UnilateralConstraint*>& constraints);
+    void apply_purely_viscous_model_to_connected_constraints(const std::list<UnilateralConstraint*>& constraints);
     static void compute_problem_data(SustainedUnilateralConstraintProblemData& epd);
     static void compute_problem_data2(SustainedUnilateralConstraintProblemData& epd);
     bool solve_coulomb_lcp(SustainedUnilateralConstraintProblemData& epd, Ravelin::VectorNd& z);
     bool solve_purely_viscous_lcp(SustainedUnilateralConstraintProblemData& epd, Ravelin::VectorNd& z);
     double calc_ke(SustainedUnilateralConstraintProblemData& epd, const Ravelin::VectorNd& z);
     void apply_forces(const SustainedUnilateralConstraintProblemData& epd);
-    static void contact_select(const std::vector<int>& alpha_c_indices, const std::vector<int>& beta_nbeta_c_indices, const Ravelin::VectorNd& x, Ravelin::VectorNd& alpha_c, Ravelin::VectorNd& beta_c);
-    static void contact_select(const std::vector<int>& alpha_c_indices, const std::vector<int>& beta_nbeta_c_indices, const Ravelin::MatrixNd& m, Ravelin::MatrixNd& alpha_c_rows, Ravelin::MatrixNd& beta_c_rows);
     static double sqr(double x) { return x*x; }
 
     /// the linear algebra object
