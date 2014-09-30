@@ -528,7 +528,7 @@ OutputIterator CCD::find_contacts_box_box(CollisionGeometryPtr cgA, CollisionGeo
   // if the distance between them is greater than zero, return the midpoint
   // of the two points as the contact point
   Point3d p;
-  if (dist > 0.0)
+  if (dist > NEAR_ZERO)
   {
     Ravelin::Vector3d normal;
     Point3d pboxA_global = Ravelin::Pose3d::transform_point(GLOBAL, pboxA);
