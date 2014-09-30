@@ -17,7 +17,9 @@
 #include <Moby/Log.h>
 #include <Moby/Spatial.h>
 #include <Moby/RigidBody.h>
-#include <Moby/Color.h>
+#ifdef USE_OSG
+#include "Color.h"
+#endif
 
 using namespace Ravelin;
 using namespace Moby;
