@@ -36,6 +36,7 @@ class UnilateralConstraint
     static void determine_connected_constraints(const std::vector<UnilateralConstraint>& constraints, std::list<std::list<UnilateralConstraint*> >& groups);
     static void remove_inactive_groups(std::list<std::list<UnilateralConstraint*> >& groups);
     UnilateralConstraint& operator=(const UnilateralConstraint& e);
+    double calc_contact_vel(const Ravelin::Vector3d& v) const;
     double calc_constraint_vel() const;
     double calc_constraint_accel() const;
     double calc_vconstraint_tol() const;

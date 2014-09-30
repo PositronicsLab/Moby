@@ -374,10 +374,11 @@ void BoxPrimitive::get_vertices(shared_ptr<const Pose3d> P, vector<Point3d>& ver
     if ((edges[i].first - edges[i].second).norm_sq() >= ESL_SQ)
     {
       Point3d midpoint = edges[i].first*0.5 + edges[i].second*0.5;
+      verts.push_back(midpoint);
       edges.push_back(LineSeg3(midpoint, edges[i].second));
       edges[i].second = midpoint;
     }
-  } 
+  }
 }
 
 /// Gets the set of vertices for the BoxPrimitive (constructing, if necessary)
