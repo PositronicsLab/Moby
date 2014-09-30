@@ -179,6 +179,11 @@ void step(void* arg)
   if (Log<OutputToFile>::reporting_level > 0)
     FILE_LOG(Log<OutputToFile>::reporting_level) << "iteration: " << ITER << "  simulation time: " << s->current_time << std::endl;
 
+  // only update the graphics if it is necessary; update visualization first
+  // in case simulator takes some time to perform first step
+  if (UPDATE_GRAPHICS)
+    s->update_visualization();
+
   // output the image, if desired
   #ifdef USE_OSG
   if (IMAGE_IVAL > 0)
@@ -221,11 +226,6 @@ void step(void* arg)
       LAST_PICKLE_T = s->current_time;
     }
   }
-
-  // only update the graphics if it is necessary; update visualization first
-  // in case simulator takes some time to perform first step
-  if (UPDATE_GRAPHICS)
-    s->update_visualization();
 
   // step the simulator 
   clock_t pre_sim_t = clock();
