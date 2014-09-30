@@ -18,8 +18,9 @@
 #include <Moby/Spatial.h>
 #include <Moby/RigidBody.h>
 #ifdef USE_OSG
-# include <Moby/Color.h>
+#include "Color.h"
 #endif
+
 using namespace Ravelin;
 using namespace Moby;
 using boost::shared_ptr;

@@ -2364,6 +2364,35 @@ void UnilateralConstraint::write_vrml(const std::string& fname, double sphere_ra
   out.close();
 }
 
+// computes the velocity of a contact constraint in a particular direction 
+double UnilateralConstraint::calc_contact_vel(const Vector3d& v) const
+{
+  // verify that this is a contact
+  assert(constraint_type == eContact);
+
+  SingleBodyPtr sba = contact_geom1->get_single_body();
+  SingleBodyPtr sbb = contact_geom2->get_single_body();
+  assert(sba && sbb);
+
+  // get the vels 
+  const SVelocityd& va = sba->get_velocity();
+  const SVelocityd& vb = sbb->get_velocity();
+
+  // setup the constraint frame
+  _contact_frame->x = contact_point;
+  _contact_frame->q.set_identity();
+  _contact_frame->rpose = GLOBAL;
+
+  // compute the velocities at the contact point
+  SVelocityd ta = Pose3d::transform(_contact_frame, va);
+  SVelocityd tb = Pose3d::transform(_contact_frame, vb);
+
+  // transform the vector
+  Vector3d vx = Pose3d::transform_vector(_contact_frame, v);
+
+  return vx.dot(ta.get_linear() - tb.get_linear());
+}
+
 /// Determines the set of contact tangents
 void UnilateralConstraint::determine_contact_tangents()
 {

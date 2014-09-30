@@ -40,35 +40,6 @@ using boost::dynamic_pointer_cast;
 /// Sets up the default parameters for the sustained unilateral handler
 SustainedUnilateralConstraintHandler::SustainedUnilateralConstraintHandler(){}
 
-// temporary function
-double calc_contact_vel(const UnilateralConstraint& c, Vector3d& v)
-{
-  SingleBodyPtr sba = c.contact_geom1->get_single_body();
-  SingleBodyPtr sbb = c.contact_geom2->get_single_body();
-  assert(sba && sbb);
-
-  // get the vels 
-  const SVelocityd& va = sba->get_velocity();
-  const SVelocityd& vb = sbb->get_velocity();
-
-  // setup a temporary contact frame
-  shared_ptr<Pose3d> contact_frame(new Pose3d);
-
-  // setup the constraint frame
-  contact_frame->x = c.contact_point;
-  contact_frame->q.set_identity();
-  contact_frame->rpose = GLOBAL;
-
-  // compute the velocities at the contact point
-  SVelocityd ta = Pose3d::transform(contact_frame, va);
-  SVelocityd tb = Pose3d::transform(contact_frame, vb);
-
-  // transform the vector
-  Vector3d vx = Pose3d::transform_vector(contact_frame, v);
-
-  return vx.dot(ta.get_linear() - tb.get_linear());
-}
-
 // Processes impacts
 void SustainedUnilateralConstraintHandler::process_constraints(const vector<UnilateralConstraint>& contacts)
 {
@@ -131,47 +102,73 @@ void SustainedUnilateralConstraintHandler::apply_model(const vector<UnilateralCo
   }
 }
 
+/// Applies the Coulomb / viscous model to a set of connected contacts
 /**
  * \param contacts a set of connected contacts
  */
 void SustainedUnilateralConstraintHandler::apply_model_to_connected_contacts(const list<UnilateralConstraint*>& contacts)
 {
-  SAFESTATIC SustainedUnilateralConstraintProblemData epd;
-  SAFESTATIC VectorNd v,a, ke_minus, ke_plus;
-  SAFESTATIC vector<VectorNd> gf;
-  SAFESTATIC MatrixNd M;
-
   FILE_LOG(LOG_CONSTRAINT) << "SustainedUnilateralConstraintHandler::apply_model_to_connected_contacts() entered" << endl;
 
   // reset problem data
-  epd.reset();
+  _epd.reset();
 
   // save the contacts
-  epd.constraints = vector<UnilateralConstraint*>(contacts.begin(), contacts.end());
+  _epd.constraints = vector<UnilateralConstraint*>(contacts.begin(), contacts.end());
 
   // compute all contact cross-terms
-  compute_problem_data(epd);
+  compute_problem_data(_epd);
 
   // solve the (non-frictional) linear complementarity problem to determine
   // the kappa constant
   VectorNd z;
-  if (!solve_lcp(epd, z))
+  if (!solve_coulomb_lcp(_epd, z))
     throw SustainedUnilateralConstraintSolveFailException();
 
   FILE_LOG(LOG_CONSTRAINT) << "Resting constraint forces : " << z << std::endl;
 
   // apply FORCES
-  apply_forces(epd);
+  apply_forces(_epd);
+
+  FILE_LOG(LOG_CONSTRAINT) << "SustainedUnilateralConstraintHandler::apply_model_to_connected_contacts() exiting" << endl;
+}
+
+/// Applies the purely viscous model to a set of connected contacts
+/**
+ * \param contacts a set of connected contacts
+ */
+void SustainedUnilateralConstraintHandler::apply_purely_viscous_model_to_connected_contacts(const list<UnilateralConstraint*>& contacts)
+{
+  FILE_LOG(LOG_CONSTRAINT) << "SustainedUnilateralConstraintHandler::apply_model_to_connected_contacts() entered" << endl;
+
+  // reset problem data
+  _epd.reset();
+
+  // save the contacts
+  _epd.constraints = vector<UnilateralConstraint*>(contacts.begin(), contacts.end());
+
+  // compute all contact cross-terms
+  compute_problem_data(_epd);
+
+  // solve the (non-frictional) linear complementarity problem to determine
+  // the kappa constant
+  VectorNd z;
+  if (!solve_purely_viscous_lcp(_epd, z))
+    throw SustainedUnilateralConstraintSolveFailException();
+
+  FILE_LOG(LOG_CONSTRAINT) << "Resting constraint forces : " << z << std::endl;
+
+  // apply FORCES
+  apply_forces(_epd);
 
   FILE_LOG(LOG_CONSTRAINT) << "SustainedUnilateralConstraintHandler::apply_model_to_connected_contacts() exiting" << endl;
 }
 
 /// Applies resting contact forces to bodies and saves the generalized forces
-void SustainedUnilateralConstraintHandler::apply_forces(const SustainedUnilateralConstraintProblemData& q) const
+void SustainedUnilateralConstraintHandler::apply_forces(const SustainedUnilateralConstraintProblemData& q)
 {
   map<DynamicBodyPtr, VectorNd> gj;
   map<DynamicBodyPtr, VectorNd>::iterator gj_iter;
-  VectorNd workv;
 
   // loop over all contact contacts first
   for (unsigned i=0; i<  q.constraints.size(); i++)
@@ -193,8 +190,8 @@ void SustainedUnilateralConstraintHandler::apply_forces(const SustainedUnilatera
       b1->convert_to_generalized_force(sb1, w, gj[b1]);
     else
     {
-      b1->convert_to_generalized_force(sb1, w, workv);
-      gj_iter->second += workv;
+      b1->convert_to_generalized_force(sb1, w, _workv);
+      gj_iter->second += _workv;
     }
 
     // convert force on second body to generalized forces
@@ -202,8 +199,8 @@ void SustainedUnilateralConstraintHandler::apply_forces(const SustainedUnilatera
       b2->convert_to_generalized_force(sb2, -w, gj[b2]);
     else
     {
-      b2->convert_to_generalized_force(sb2, -w, workv);
-      gj_iter->second += workv;
+      b2->convert_to_generalized_force(sb2, -w, _workv);
+      gj_iter->second += _workv;
     }
   }
 
@@ -540,11 +537,11 @@ void SustainedUnilateralConstraintHandler::compute_problem_data2(SustainedUnilat
     // measure the velocities for which we measure an applied impulse 
     for (unsigned j=0, r=0; j< q.constraints.size(); j++)
     {
-      q.Cn_iM_CnT(j,i) = calc_contact_vel(*q.constraints[j], q.constraints[j]->contact_normal);
+      q.Cn_iM_CnT(j,i) = q.constraints[j]->calc_contact_vel(q.constraints[j]->contact_normal);
       if (q.constraints[j]->get_friction_type() == UnilateralConstraint::eSticking)
       {
-        q.Cs_iM_CnT(r,i) = calc_contact_vel(*q.constraints[j], q.constraints[j]->contact_normal);
-        q.Ct_iM_CnT(r,i) = calc_contact_vel(*q.constraints[j], q.constraints[j]->contact_normal);
+        q.Cs_iM_CnT(r,i) = q.constraints[j]->calc_contact_vel(q.constraints[j]->contact_normal);
+        q.Ct_iM_CnT(r,i) = q.constraints[j]->calc_contact_vel(q.constraints[j]->contact_normal);
         r++;
       }
     }
@@ -582,13 +579,13 @@ void SustainedUnilateralConstraintHandler::compute_problem_data2(SustainedUnilat
     // measure the velocities for which we measure an applied impulse 
     for (unsigned j=0, r=0; j< q.constraints.size(); j++)
     {
-      q.Cn_iM_CnT(j,i) -= calc_contact_vel(*q.constraints[j], q.constraints[j]->contact_normal);
+      q.Cn_iM_CnT(j,i) -= q.constraints[j]->calc_contact_vel(q.constraints[j]->contact_normal);
       q.Cn_iM_CnT(j,i) *= -1.0;
       if (q.constraints[j]->get_friction_type() == UnilateralConstraint::eSticking)
       {
-        q.Cs_iM_CnT(r,i) -= calc_contact_vel(*q.constraints[j], q.constraints[j]->contact_normal);
+        q.Cs_iM_CnT(r,i) -= q.constraints[j]->calc_contact_vel(q.constraints[j]->contact_normal);
         q.Cs_iM_CnT(r,i) *= -1.0;
-        q.Ct_iM_CnT(r,i) -= calc_contact_vel(*q.constraints[j], q.constraints[j]->contact_normal);
+        q.Ct_iM_CnT(r,i) -= q.constraints[j]->calc_contact_vel(q.constraints[j]->contact_normal);
         q.Ct_iM_CnT(r,i) *= -1.0;
         r++;
       }
@@ -609,11 +606,11 @@ void SustainedUnilateralConstraintHandler::compute_problem_data2(SustainedUnilat
     // measure the velocities for which we measure an applied impulse 
     for (unsigned j=0, r=0; j< q.constraints.size(); j++)
     {
-      q.Cn_iM_CsT(j,k) = calc_contact_vel(*q.constraints[j], q.constraints[j]->contact_normal);
+      q.Cn_iM_CsT(j,k) = q.constraints[j]->calc_contact_vel(q.constraints[j]->contact_normal);
       if (q.constraints[j]->get_friction_type() == UnilateralConstraint::eSticking)
       {
-        q.Cs_iM_CsT(r,k) = calc_contact_vel(*q.constraints[j], q.constraints[j]->contact_normal);
-        q.Ct_iM_CsT(r,k) = calc_contact_vel(*q.constraints[j], q.constraints[j]->contact_normal);
+        q.Cs_iM_CsT(r,k) = q.constraints[j]->calc_contact_vel(q.constraints[j]->contact_normal);
+        q.Ct_iM_CsT(r,k) = q.constraints[j]->calc_contact_vel(q.constraints[j]->contact_normal);
         r++;
       }
     }
@@ -649,13 +646,13 @@ void SustainedUnilateralConstraintHandler::compute_problem_data2(SustainedUnilat
     // measure the velocities for which we measure an applied impulse 
     for (unsigned j=0, r=0; j< q.constraints.size(); j++)
     {
-      q.Cn_iM_CsT(j,k) -= calc_contact_vel(*q.constraints[j], q.constraints[j]->contact_normal);
+      q.Cn_iM_CsT(j,k) -= q.constraints[j]->calc_contact_vel(q.constraints[j]->contact_normal);
       q.Cn_iM_CsT(j,k) *= -1.0;
       if (q.constraints[j]->get_friction_type() == UnilateralConstraint::eSticking)
       {
-        q.Cs_iM_CsT(r,k) -= calc_contact_vel(*q.constraints[j], q.constraints[j]->contact_normal);
-        q.Cs_iM_CsT(r,k) *= -1.0;
-        q.Ct_iM_CsT(r,k) -= calc_contact_vel(*q.constraints[j], q.constraints[j]->contact_normal);
+        q.Cs_iM_CsT(r,k) -= q.constraints[j]->calc_contact_vel(q.constraints[j]->contact_normal);
+        q.Cs_iM_CsT(r,k) *=                 -1.0;
+        q.Ct_iM_CsT(r,k) -= q.constraints[j]->calc_contact_vel(q.constraints[j]->contact_normal);
         q.Ct_iM_CsT(r,k) *= -1.0;
         r++;
       }
@@ -679,11 +676,11 @@ void SustainedUnilateralConstraintHandler::compute_problem_data2(SustainedUnilat
     // measure the velocities for which we measure an applied impulse 
     for (unsigned j=0, r=0; j< q.constraints.size(); j++)
     {
-      q.Cn_iM_CtT(j,k) = calc_contact_vel(*q.constraints[j], q.constraints[j]->contact_normal);
+      q.Cn_iM_CtT(j,k) = q.constraints[j]->calc_contact_vel(q.constraints[j]->contact_normal);
       if (q.constraints[j]->get_friction_type() == UnilateralConstraint::eSticking)
       {
-        q.Cs_iM_CtT(r,k) = calc_contact_vel(*q.constraints[j], q.constraints[j]->contact_normal);
-        q.Ct_iM_CtT(r,k) = calc_contact_vel(*q.constraints[j], q.constraints[j]->contact_normal);
+        q.Cs_iM_CtT(r,k) = q.constraints[j]->calc_contact_vel(q.constraints[j]->contact_normal);
+        q.Ct_iM_CtT(r,k) = q.constraints[j]->calc_contact_vel(q.constraints[j]->contact_normal);
         r++;
       }
     }
@@ -719,13 +716,13 @@ void SustainedUnilateralConstraintHandler::compute_problem_data2(SustainedUnilat
     // measure the velocities for which we measure an applied impulse 
     for (unsigned j=0, r=0; j< q.constraints.size(); j++)
     {
-      q.Cn_iM_CtT(j,k) -= calc_contact_vel(*q.constraints[j], q.constraints[j]->contact_normal);
+      q.Cn_iM_CtT(j,k) -= q.constraints[j]->calc_contact_vel(q.constraints[j]->contact_normal);
       q.Cn_iM_CtT(j,k) *= -1.0;
       if (q.constraints[j]->get_friction_type() == UnilateralConstraint::eSticking)
       {
-        q.Cs_iM_CtT(r,k) -= calc_contact_vel(*q.constraints[j], q.constraints[j]->contact_normal);
-        q.Cs_iM_CtT(r,k) *= -1.0;
-        q.Ct_iM_CtT(r,k) -= calc_contact_vel(*q.constraints[j], q.constraints[j]->contact_normal);
+        q.Cs_iM_CtT(r,k) -= q.constraints[j]->calc_contact_vel(q.constraints[j]->contact_normal);
+        q.Cs_iM_CtT(r,k) *=                 -1.0;
+        q.Ct_iM_CtT(r,k) -= q.constraints[j]->calc_contact_vel(q.constraints[j]->contact_normal);
         q.Ct_iM_CtT(r,k) *= -1.0;
         r++;
       }
@@ -745,12 +742,10 @@ for (unsigned i=0; i< q.super_bodies.size(); i++)
   FILE_LOG(LOG_CONSTRAINT) << "generalized force on: " << q.super_bodies[i]->id << " " << saved_forces[q.super_bodies[i]] << std::endl;
 }
 
- /// Solves the Resting constraint LCP
-bool SustainedUnilateralConstraintHandler::solve_lcp(SustainedUnilateralConstraintProblemData& q, VectorNd& z)
+// Solves the sustained constraint LCP w/Coulomb and viscous friction
+bool SustainedUnilateralConstraintHandler::solve_coulomb_lcp(SustainedUnilateralConstraintProblemData& q, VectorNd& z)
 {
-  SAFESTATIC MatrixNd UL, LL, MM,UR,workM;
-  SAFESTATIC VectorNd qq,workv;
-  FILE_LOG(LOG_CONSTRAINT) << "SustainedUnilateralConstraintHandler::solve_lcp() entered" << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "SustainedUnilateralConstraintHandler::solve_coulomb_lcp() entered" << std::endl;
 
   unsigned NK_DIRS = 0;
   for(unsigned i=0,j=0,r=0;i<q.N_CONTACTS;i++)
@@ -758,10 +753,10 @@ bool SustainedUnilateralConstraintHandler::solve_lcp(SustainedUnilateralConstrai
       NK_DIRS+=(q.constraints[i]->contact_NK+4)/4;
 
   // setup sizes
-  UL.set_zero(q.N_CONTACTS+q.N_STICKING*4, q.N_CONTACTS+q.N_STICKING*4);
-  UR.set_zero(q.N_CONTACTS+q.N_STICKING*4, NK_DIRS);
-  LL.set_zero(NK_DIRS, q.N_CONTACTS+q.N_STICKING*4);
-  MM.set_zero(UL.rows() + LL.rows(), UL.columns() + UR.columns());
+  _UL.set_zero(q.N_CONTACTS+q.N_STICKING*4, q.N_CONTACTS+q.N_STICKING*4);
+  _UR.set_zero(q.N_CONTACTS+q.N_STICKING*4, NK_DIRS);
+  _LL.set_zero(NK_DIRS, q.N_CONTACTS+q.N_STICKING*4);
+  _MM.set_zero(_UL.rows() + _LL.rows(), _UL.columns() + _UR.columns());
 
   // now do upper right hand block of LCP matrix
   /*     n          r          r           r           r
@@ -778,27 +773,27 @@ bool SustainedUnilateralConstraintHandler::solve_lcp(SustainedUnilateralConstrai
   r  Ct_iM_CnT  Ct_iM_CsT               Ct_iM_CtT
   r                         Ct_iM_CsT               Ct_iM_CtT
   */
-  UL.set_sub_mat(0,0,q.Cn_iM_CnT);
+  _UL.set_sub_mat(0,0,q.Cn_iM_CnT);
   // setup the LCP matrix
 
   // setup the LCP vector
-  qq.set_zero(MM.rows());
-  qq.set_sub_vec(0,q.Cn_a);
+  _qq.set_zero(_MM.rows());
+  _qq.set_sub_vec(0,q.Cn_a);
 
   if(q.N_STICKING > 0){
 
-    UL.set_sub_mat(q.N_CONTACTS,q.N_CONTACTS,q.Cs_iM_CsT);
-    UL.set_sub_mat(q.N_CONTACTS,0,q.Cs_iM_CnT);
-    UL.set_sub_mat(0,q.N_CONTACTS,q.Cn_iM_CsT);
-    UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING,q.N_CONTACTS+q.N_STICKING,q.Cs_iM_CsT);
-    UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING*2,0,q.Ct_iM_CnT);
-    UL.set_sub_mat(0,q.N_CONTACTS+q.N_STICKING*2,q.Cn_iM_CtT);
-    UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING*2,q.N_CONTACTS,q.Ct_iM_CsT);
-    UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING*3,q.N_CONTACTS+q.N_STICKING,q.Ct_iM_CsT);
-    UL.set_sub_mat(q.N_CONTACTS,q.N_CONTACTS+q.N_STICKING*2,q.Cs_iM_CtT);
-    UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING,q.N_CONTACTS+q.N_STICKING*3,q.Cs_iM_CtT);
-    UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING*2,q.N_CONTACTS+q.N_STICKING*2,q.Ct_iM_CtT);
-    UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING*3,q.N_CONTACTS+q.N_STICKING*3,q.Ct_iM_CtT);
+    _UL.set_sub_mat(q.N_CONTACTS,q.N_CONTACTS,q.Cs_iM_CsT);
+    _UL.set_sub_mat(q.N_CONTACTS,0,q.Cs_iM_CnT);
+    _UL.set_sub_mat(0,q.N_CONTACTS,q.Cn_iM_CsT);
+    _UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING,q.N_CONTACTS+q.N_STICKING,q.Cs_iM_CsT);
+    _UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING*2,0,q.Ct_iM_CnT);
+    _UL.set_sub_mat(0,q.N_CONTACTS+q.N_STICKING*2,q.Cn_iM_CtT);
+    _UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING*2,q.N_CONTACTS,q.Ct_iM_CsT);
+    _UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING*3,q.N_CONTACTS+q.N_STICKING,q.Ct_iM_CsT);
+    _UL.set_sub_mat(q.N_CONTACTS,q.N_CONTACTS+q.N_STICKING*2,q.Cs_iM_CtT);
+    _UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING,q.N_CONTACTS+q.N_STICKING*3,q.Cs_iM_CtT);
+    _UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING*2,q.N_CONTACTS+q.N_STICKING*2,q.Ct_iM_CtT);
+    _UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING*3,q.N_CONTACTS+q.N_STICKING*3,q.Ct_iM_CtT);
 
     // Set neagtive submatrices
     /*     n          r          r           r           r
@@ -818,22 +813,22 @@ bool SustainedUnilateralConstraintHandler::solve_lcp(SustainedUnilateralConstrai
     q.Ct_iM_CsT.negate();
     q.Ct_iM_CtT.negate();
 
-    UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING,0,q.Cs_iM_CnT);
-    UL.set_sub_mat(0,q.N_CONTACTS+q.N_STICKING,q.Cn_iM_CsT);
+    _UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING,0,q.Cs_iM_CnT);
+    _UL.set_sub_mat(0,q.N_CONTACTS+q.N_STICKING,q.Cn_iM_CsT);
 
-    UL.set_sub_mat(q.N_CONTACTS,q.N_CONTACTS+q.N_STICKING,q.Cs_iM_CsT);
-    UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING,q.N_CONTACTS,q.Cs_iM_CsT);
+    _UL.set_sub_mat(q.N_CONTACTS,q.N_CONTACTS+q.N_STICKING,q.Cs_iM_CsT);
+    _UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING,q.N_CONTACTS,q.Cs_iM_CsT);
 
-    UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING*3,0,q.Ct_iM_CnT);
-    UL.set_sub_mat(0,q.N_CONTACTS+q.N_STICKING*3,q.Cn_iM_CtT);
+    _UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING*3,0,q.Ct_iM_CnT);
+    _UL.set_sub_mat(0,q.N_CONTACTS+q.N_STICKING*3,q.Cn_iM_CtT);
 
-    UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING*3,q.N_CONTACTS,q.Ct_iM_CsT);
-    UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING*2,q.N_CONTACTS+q.N_STICKING,q.Ct_iM_CsT);
-    UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING,q.N_CONTACTS+q.N_STICKING*2,q.Cs_iM_CtT);
-    UL.set_sub_mat(q.N_CONTACTS,q.N_CONTACTS+q.N_STICKING*3,q.Cs_iM_CtT);
+    _UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING*3,q.N_CONTACTS,q.Ct_iM_CsT);
+    _UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING*2,q.N_CONTACTS+q.N_STICKING,q.Ct_iM_CsT);
+    _UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING,q.N_CONTACTS+q.N_STICKING*2,q.Cs_iM_CtT);
+    _UL.set_sub_mat(q.N_CONTACTS,q.N_CONTACTS+q.N_STICKING*3,q.Cs_iM_CtT);
 
-    UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING*2,q.N_CONTACTS+q.N_STICKING*3,q.Ct_iM_CtT);
-    UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING*3,q.N_CONTACTS+q.N_STICKING*2,q.Ct_iM_CtT);
+    _UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING*2,q.N_CONTACTS+q.N_STICKING*3,q.Ct_iM_CtT);
+    _UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING*3,q.N_CONTACTS+q.N_STICKING*2,q.Ct_iM_CtT);
 
     // lower left & upper right block of matrix
     for(unsigned i=0,j=0,r=0;i<q.N_CONTACTS;i++)
@@ -845,19 +840,19 @@ bool SustainedUnilateralConstraintHandler::solve_lcp(SustainedUnilateralConstrai
         for(unsigned k=0;k<nk4;k++)
         {
           // muK
-          LL(r+k,i) = ci->contact_mu_coulomb;
+          _LL(r+k,i) = ci->contact_mu_coulomb;
           // Xs
-          LL(r+k,q.N_CONTACTS+j)                = -cos((M_PI*k)/(2.0*nk4));
-          LL(r+k,q.N_CONTACTS+q.N_STICKING+j)   = -cos((M_PI*k)/(2.0*nk4));
+          _LL(r+k,q.N_CONTACTS+j)                = -cos((M_PI*k)/(2.0*nk4));
+          _LL(r+k,q.N_CONTACTS+q.N_STICKING+j)   = -cos((M_PI*k)/(2.0*nk4));
           // Xt
-          LL(r+k,q.N_CONTACTS+q.N_STICKING*2+j) = -sin((M_PI*k)/(2.0*nk4));
-          LL(r+k,q.N_CONTACTS+q.N_STICKING*3+j) = -sin((M_PI*k)/(2.0*nk4));
+          _LL(r+k,q.N_CONTACTS+q.N_STICKING*2+j) = -sin((M_PI*k)/(2.0*nk4));
+          _LL(r+k,q.N_CONTACTS+q.N_STICKING*3+j) = -sin((M_PI*k)/(2.0*nk4));
           // XsT
-          UR(q.N_CONTACTS+j,r+k)                =  cos((M_PI*k)/(2.0*nk4));
-          UR(q.N_CONTACTS+q.N_STICKING+j,r+k)   =  cos((M_PI*k)/(2.0*nk4));
+          _UR(q.N_CONTACTS+j,r+k)                =  cos((M_PI*k)/(2.0*nk4));
+          _UR(q.N_CONTACTS+q.N_STICKING+j,r+k)   =  cos((M_PI*k)/(2.0*nk4));
           // XtT
-          UR(q.N_CONTACTS+q.N_STICKING*2+j,r+k) =  sin((M_PI*k)/(2.0*nk4));
-          UR(q.N_CONTACTS+q.N_STICKING*3+j,r+k) =  sin((M_PI*k)/(2.0*nk4));
+          _UR(q.N_CONTACTS+q.N_STICKING*2+j,r+k) =  sin((M_PI*k)/(2.0*nk4));
+          _UR(q.N_CONTACTS+q.N_STICKING*3+j,r+k) =  sin((M_PI*k)/(2.0*nk4));
         }
         r+=nk4;
         j++;
@@ -865,26 +860,25 @@ bool SustainedUnilateralConstraintHandler::solve_lcp(SustainedUnilateralConstrai
     }
 
     // setup the LCP matrix
-    MM.set_sub_mat(0, UL.columns(), UR);
-    MM.set_sub_mat(UL.rows(), 0, LL);
+    _MM.set_sub_mat(0, _UL.columns(), _UR);
+    _MM.set_sub_mat(_UL.rows(), 0, _LL);
 
     // setup the LCP vector
-    qq.set_sub_vec(q.N_CONTACTS,q.Cs_a);
-    qq.set_sub_vec(q.N_CONTACTS+q.N_STICKING*2,q.Ct_a);
+    _qq.set_sub_vec(q.N_CONTACTS,q.Cs_a);
+    _qq.set_sub_vec(q.N_CONTACTS+q.N_STICKING*2,q.Ct_a);
     q.Cs_a.negate();
     q.Ct_a.negate();
-    qq.set_sub_vec(q.N_CONTACTS+q.N_STICKING,q.Cs_a);
-    qq.set_sub_vec(q.N_CONTACTS+q.N_STICKING*3,q.Ct_a);
+    _qq.set_sub_vec(q.N_CONTACTS+q.N_STICKING,q.Cs_a);
+    _qq.set_sub_vec(q.N_CONTACTS+q.N_STICKING*3,q.Ct_a);
   }
 
-  MM.set_sub_mat(0, 0, UL);
+  _MM.set_sub_mat(0, 0, _UL);
 
-  FILE_LOG(LOG_CONSTRAINT) << " LCP matrix: " << std::endl << MM;
-  FILE_LOG(LOG_CONSTRAINT) << " LCP vector: " << qq << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << " LCP matrix: " << std::endl << _MM;
+  FILE_LOG(LOG_CONSTRAINT) << " LCP vector: " << _qq << std::endl;
 
   // solve the LCP
-  //if (!_lcp.lcp_lemke_regularized(MM, qq, z))
-  if (!solve_lcp(MM, qq, z))
+  if (!_lcp.lcp_lemke_regularized(_MM, _qq, z, -20, 1, -8))
     return false; 
 
   for(unsigned i=0,j=0;i<q.N_CONTACTS;i++)
@@ -935,7 +929,7 @@ bool SustainedUnilateralConstraintHandler::solve_lcp(SustainedUnilateralConstrai
   {
     // compute LCP 'w' vector
     VectorNd w;
-    MM.mult(z, w) += qq;
+    _MM.mult(z, w) += _qq;
 
     // output new acceleration
     FILE_LOG(LOG_CONSTRAINT) << "new normal acceleration: " << w.segment(0, q.constraints.size()) << std::endl;
@@ -946,7 +940,180 @@ bool SustainedUnilateralConstraintHandler::solve_lcp(SustainedUnilateralConstrai
   FILE_LOG(LOG_CONSTRAINT) << "ct " << q.ct << std::endl;
 
   FILE_LOG(LOG_CONSTRAINT) << " LCP result : " << z << std::endl;
-  FILE_LOG(LOG_CONSTRAINT) << "SustainedUnilateralConstraintHandler::solve_lcp() exited" << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "SustainedUnilateralConstraintHandler::solve_coulomb_lcp() exited" << std::endl;
+
+  return true;
+}
+
+// Solves the sustained constraint LCP w/purely viscous friction
+bool SustainedUnilateralConstraintHandler::solve_purely_viscous_lcp(SustainedUnilateralConstraintProblemData& q, VectorNd& z)
+{
+  FILE_LOG(LOG_CONSTRAINT) << "SustainedUnilateralConstraintHandler::solve_purely_viscous_lcp() entered" << std::endl;
+
+  FILE_LOG(LOG_CONSTRAINT) << " LCP matrix: " << std::endl << _MM;
+  FILE_LOG(LOG_CONSTRAINT) << " LCP vector: " << _qq << std::endl;
+
+  // TODO: make sure viscous terms are added into Unilateral constraint
+
+  const unsigned NCONTACTS = q.N_CONTACTS;
+  const unsigned NLIMITS = q.N_LIMITS;
+  const unsigned NIMP = q.N_CONSTRAINT_EQNS_IMP;
+
+  // we do this by solving the MLCP:
+  // |  A  C  | | u | + | a | = | 0 | 
+  // |  D  B  | | v |   | b |   | r |
+
+  // A is the matrix Jx*inv(M)*Jx', Jx is implicit joint constraint Jacobians
+  // NOTE: we assume that Jx is of full row rank (no dependent constraints)
+
+  // u = alphax
+  // v = [ cn; l ]
+  // r = [ Cn*v+; L*v+ ] 
+  // a = v - inv(M)*S'*muv*S*v - inv(M)*T'*muv*T*v
+  // b = 0
+
+  // Assuming that C is of full row rank (no dependent joint constraints)
+  // A is invertible; then we just need to solve the LCP:
+
+  // | B - D*inv(A)*C | | v | + | b - D*inv(A)*a | = | w |
+  // and use the result to solve for u:
+  // u = -inv(A)*(a + Cv)
+
+  // compute SVD of Jx*inv(M)*Jx'
+  _A = q.Jx_iM_JxT; 
+  _LA.svd(_A, _AU, _AS, _AV);
+
+  // setup the B matrix
+  // B = [ Cn; L ]*inv(M)*[ Cn' L' ]
+  _B.resize(NCONTACTS+NLIMITS, NCONTACTS+NLIMITS);
+  _B.set_sub_mat(0, 0, q.Cn_iM_CnT);  
+  _B.set_sub_mat(0, NCONTACTS, q.Cn_iM_LT);
+  _B.set_sub_mat(NCONTACTS, 0, q.Cn_iM_LT, Ravelin::eTranspose);
+  _B.set_sub_mat(NCONTACTS, NCONTACTS, q.L_iM_LT);
+
+  // setup the C matrix and compute inv(A)*C
+  // C = Jx*inv(M)*[ Cn' L' ]; note: D = C'
+  _C.resize(NIMP, NCONTACTS+NLIMITS);
+  _C.set_sub_mat(0,0, q.Cn_iM_JxT, Ravelin::eTranspose);
+  _C.set_sub_mat(0,NCONTACTS, q.L_iM_JxT, Ravelin::eTranspose);
+  MatrixNd::transpose(_C, _D);
+  _LA.solve_LS_fast(_AU, _AS, _AV, _C);
+
+  // setup the a vector and compute inv(A)*a
+  // a = [ Jx*v ]
+  _a = q.Jx_a;
+  _LA.solve_LS_fast(_AU, _AS, _AV, _a);
+
+  // setup the b vector
+  // b = [ Cn*v; L*v ]
+  _b.resize(NLIMITS+NCONTACTS);
+  _b.set_sub_vec(0, q.Cn_a);
+  _b.set_sub_vec(NCONTACTS, q.L_a);
+
+  // compute velocities in direction of sliding
+  _cs_visc.resize(NCONTACTS);
+  RowIteratord cs_visc_iter = _cs_visc.row_iterator_begin();
+  for (unsigned i=0; i< NCONTACTS; i++) 
+    _cs_visc = q.contact_constraints[i]->calc_contact_vel(q.contact_constraints[i]->contact_tan1);
+
+  // compute viscous friction terms
+  cs_visc_iter = _cs_visc.row_iterator_begin();
+  for (unsigned i=0; i< NCONTACTS; i++, cs_visc_iter++)
+    (*cs_visc_iter) *= q.contact_constraints[i]->contact_mu_viscous; 
+
+  // compute viscous friction terms contributions in normal directions
+  SharedVectorNd bsub = _b.segment(0, NCONTACTS);
+  q.Cn_iM_CsT.mult(_cs_visc, _workv);
+  bsub -= _workv;
+
+  // setup the LCP matrix
+  _D.mult(_C, _MM);
+  _MM -= _B;
+  _MM.negate();
+
+  // setup the LCP vector
+  _D.mult(_a, _qq);
+  _qq -= _b;
+  _qq.negate();
+
+  FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::solve_lcp() entered" << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "  Cn * inv(M) * Cn': " << std::endl << q.Cn_iM_CnT;
+  FILE_LOG(LOG_CONSTRAINT) << "  Cn * a: " << q.Cn_a << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "  L * a: " << q.L_a << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "  LCP matrix: " << std::endl << _MM;
+  FILE_LOG(LOG_CONSTRAINT) << "  LCP vector: " << _qq << std::endl;
+
+  // solve the LCP
+  if (!_lcp.lcp_fast(_MM, _qq, _v) && !_lcp.lcp_lemke_regularized(_MM, _qq, _v))
+    throw std::runtime_error("Unable to solve constraint LCP!");
+
+  // compute alphax
+  // u = -inv(A)*(a + Cv)
+  _C.mult(_v, _alpha_x) += _a;
+  _alpha_x.negate();   
+
+/*
+  // setup the homogeneous solution
+  z.set_zero(q.N_VARS);
+  z.set_sub_vec(q.CN_IDX, _cn);
+  z.set_sub_vec(q.L_IDX, _l);
+  z.set_sub_vec(q.ALPHA_X_IDX, _alpha_x);
+*/
+
+  FILE_LOG(LOG_CONSTRAINT) << "  LCP result: " << z << std::endl;
+
+  // get contact, joint limit, and joint constraint forces 
+  q.cn = z.segment(q.CN_IDX, q.N_CONTACTS);
+  q.l = z.segment(q.L_IDX, q.L_IDX+q.N_LIMITS);
+  q.alpha_x = z.segment(q.ALPHA_X_IDX, q.ALPHA_X_IDX + q.N_CONSTRAINT_EQNS_IMP);
+  q.cs = _cs_visc;
+  q.ct.set_zero(q.cs.size());
+  q.cs.negate();
+  q.ct.negate();
+
+  // setup a temporary frame
+  shared_ptr<Pose3d> P(new Pose3d);
+
+  // save normal contact impulses
+  for (unsigned i=0; i< q.constraints.size(); i++)
+  {
+    // verify that the constraint type is a contact
+    assert(q.constraints[i]->constraint_type == UnilateralConstraint::eContact);
+
+    // setup the contact frame
+    P->q.set_identity();
+    P->x = q.constraints[i]->contact_point;
+
+    // setup the impulse in the contact frame
+    Vector3d f;
+    f = q.constraints[i]->contact_normal * q.cn[i];
+    f += q.constraints[i]->contact_tan1 * q.cs[i];
+    f += q.constraints[i]->contact_tan2 * q.ct[i];
+
+    // setup the spatial force
+    SForced fx(boost::const_pointer_cast<const Pose3d>(P));
+    fx.set_force(f);    
+
+    // transform the impulse to the global frame
+    q.constraints[i]->contact_impulse = Pose3d::transform(GLOBAL, fx);
+  }
+
+  if (LOGGING(LOG_CONSTRAINT))
+  {
+    // compute LCP 'w' vector
+    VectorNd w;
+    _MM.mult(z, w) += _qq;
+
+    // output new acceleration
+    FILE_LOG(LOG_CONSTRAINT) << "new normal acceleration: " << w.segment(0, q.constraints.size()) << std::endl;
+  } 
+
+  FILE_LOG(LOG_CONSTRAINT) << "cn " << q.cn << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "cs " << q.cs << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "ct " << q.ct << std::endl;
+
+  FILE_LOG(LOG_CONSTRAINT) << " LCP result : " << z << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "SustainedUnilateralConstraintHandler::solve_purely_viscous_lcp() exited" << std::endl;
 
   return true;
 }
@@ -961,11 +1128,4 @@ DynamicBodyPtr SustainedUnilateralConstraintHandler::get_super_body(SingleBodyPt
     return sb;
 }
 
-bool SustainedUnilateralConstraintHandler::solve_lcp(const MatrixNd& M, const VectorNd& q, VectorNd& z)
-{
-  if (!_lcp.lcp_lemke(M, q, z))
-    return false; 
-  else
-    return true;
-}
 
