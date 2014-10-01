@@ -560,6 +560,10 @@ void CRBAlgorithm::calc_generalized_inertia(SharedMatrixNd& M)
 /// Performs necessary pre-computations for computing accelerations or applying impulses
 void CRBAlgorithm::precalc(RCArticulatedBodyPtr body)
 {
+  // skip this step if the body's position is not invalidated
+  if (!body->_position_invalidated)
+    return;
+
   // get the links and joints for the body
   const vector<JointPtr>& joints = body->get_explicit_joints();
 
