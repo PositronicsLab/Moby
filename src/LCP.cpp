@@ -641,7 +641,7 @@ restart: // solver restarts from here when basis becomes bad
 
       // log failure
       #ifndef NDEBUG 
-      log_failure(M, q);
+//      log_failure(M, q);
       #endif 
 
       return false;
@@ -693,7 +693,7 @@ restart: // solver restarts from here when basis becomes bad
 
       // log failure
       #ifndef NDEBUG 
-      log_failure(M, q);
+//      log_failure(M, q);
       #endif
 
       return false;
@@ -748,7 +748,7 @@ restart: // solver restarts from here when basis becomes bad
 
       // log failure
       #ifndef NDEBUG 
-      log_failure(M, q);
+//      log_failure(M, q);
       #endif
 
       return false;
@@ -791,10 +791,9 @@ restart: // solver restarts from here when basis becomes bad
 
   // max iterations exceeded
   z.resize(n, true);
- 
   // log failure
   #ifndef NDEBUG 
-  log_failure(M, q);
+//  log_failure(M, q);
   #endif
  
   return false;
