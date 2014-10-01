@@ -1420,7 +1420,7 @@ unsigned RigidBody::num_generalized_coordinates(GeneralizedCoordinateType gctype
 }
 
 /// Sets the generalized forces on the rigid body
-void RigidBody::set_generalized_forces(const Ravelin::VectorNd& gf)
+void RigidBody::set_generalized_forces(const Ravelin::SharedVectorNd& gf)
 {
   if (!_abody.expired())
   {
@@ -1449,7 +1449,7 @@ void RigidBody::set_generalized_forces(const Ravelin::VectorNd& gf)
 }
 
 /// Adds a generalized force to this rigid body
-void RigidBody::add_generalized_force(const VectorNd& gf)
+void RigidBody::add_generalized_force(const SharedVectorNd& gf)
 {
   if (!_abody.expired())
   {
@@ -1478,7 +1478,7 @@ void RigidBody::add_generalized_force(const VectorNd& gf)
 }
 
 /// Applies a generalized impulse to this rigid body
-void RigidBody::apply_generalized_impulse(const VectorNd& gj)
+void RigidBody::apply_generalized_impulse(const SharedVectorNd& gj)
 {
   // if this body part of an articulated body, call that function instead
   if (!_abody.expired())
@@ -1492,7 +1492,7 @@ void RigidBody::apply_generalized_impulse(const VectorNd& gj)
 }
 
 /// Applies a generalized impulse to this rigid body
-void RigidBody::apply_generalized_impulse_single(const VectorNd& gj)
+void RigidBody::apply_generalized_impulse_single(const SharedVectorNd& gj)
 {
   SMomentumd w;
 
@@ -1618,7 +1618,7 @@ SharedVectorNd& RigidBody::solve_generalized_inertia_single(const SharedVectorNd
 }
 
 /// Gets the generalized position of this rigid body
-void RigidBody::get_generalized_coordinates(GeneralizedCoordinateType gctype, SharedVectorNd& gc)
+SharedVectorNd& RigidBody::get_generalized_coordinates(GeneralizedCoordinateType gctype, SharedVectorNd& gc)
 {
   // if this body part of an articulated body, call that function instead
   if (!_abody.expired())
@@ -1628,39 +1628,12 @@ void RigidBody::get_generalized_coordinates(GeneralizedCoordinateType gctype, Sh
   }
   else
     get_generalized_coordinates_generic(gctype, gc);
-}
 
-/// Gets the generalized position of this rigid body
-VectorNd& RigidBody::get_generalized_coordinates(GeneralizedCoordinateType gctype, VectorNd& gc)
-{
-  // if this body part of an articulated body, call that function instead
-  if (!_abody.expired())
-  {
-    ArticulatedBodyPtr ab(_abody);
-    return ab->get_generalized_coordinates(gctype, gc);
-  }
-  else
-  {
-    get_generalized_coordinates_generic(gctype, gc);
-    return gc;
-  }
+  return gc;
 }
 
 /// Sets the generalized coordinates of this rigid body
-void RigidBody::set_generalized_coordinates(GeneralizedCoordinateType gctype, const VectorNd& gc)
-{
-  // if this body part of an articulated body, call that function instead
-  if (!_abody.expired())
-  {
-    ArticulatedBodyPtr ab(_abody);
-    ab->set_generalized_coordinates(gctype, gc);
-  }
-  else
-    set_generalized_coordinates_generic(gctype, gc);
-}
-
-/// Sets the generalized coordinates of this rigid body
-void RigidBody::set_generalized_coordinates(GeneralizedCoordinateType gctype, SharedConstVectorNd& gc)
+void RigidBody::set_generalized_coordinates(GeneralizedCoordinateType gctype, const SharedVectorNd& gc)
 {
   // if this body part of an articulated body, call that function instead
   if (!_abody.expired())
@@ -1673,20 +1646,7 @@ void RigidBody::set_generalized_coordinates(GeneralizedCoordinateType gctype, Sh
 }
 
 /// Sets the generalized velocity of this rigid body
-void RigidBody::set_generalized_velocity(GeneralizedCoordinateType gctype, const VectorNd& gv)
-{
-  // if this body part of an articulated body, call that function instead
-  if (!_abody.expired())
-  {
-    ArticulatedBodyPtr ab(_abody);
-    ab->set_generalized_velocity(gctype, gv);
-  }
-  else
-    set_generalized_velocity_generic(gctype, gv);
-}
-
-/// Sets the generalized velocity of this rigid body
-void RigidBody::set_generalized_velocity(GeneralizedCoordinateType gctype, SharedConstVectorNd& gv)
+void RigidBody::set_generalized_velocity(GeneralizedCoordinateType gctype, const SharedVectorNd& gv)
 {
   // if this body part of an articulated body, call that function instead
   if (!_abody.expired())
@@ -1699,23 +1659,7 @@ void RigidBody::set_generalized_velocity(GeneralizedCoordinateType gctype, Share
 }
 
 /// Gets the generalized velocity of this rigid body
-VectorNd& RigidBody::get_generalized_velocity(GeneralizedCoordinateType gctype, VectorNd& gv)
-{
-  // if this body part of an articulated body, call that function instead
-  if (!_abody.expired())
-  {
-    ArticulatedBodyPtr ab(_abody);
-    return ab->get_generalized_velocity(gctype, gv);
-  }
-  else
-  {
-    get_generalized_velocity_generic(gctype, gv);
-    return gv;
-  }
-}
-
-/// Gets the generalized velocity of this rigid body
-void RigidBody::get_generalized_velocity(GeneralizedCoordinateType gctype, SharedVectorNd& gv)
+SharedVectorNd& RigidBody::get_generalized_velocity(GeneralizedCoordinateType gctype, SharedVectorNd& gv)
 {
   // if this body part of an articulated body, call that function instead
   if (!_abody.expired())
@@ -1725,26 +1669,12 @@ void RigidBody::get_generalized_velocity(GeneralizedCoordinateType gctype, Share
   }
   else
     get_generalized_velocity_generic(gctype, gv);
+
+  return gv;
 }
 
 /// Gets the generalized acceleration of this body
-VectorNd& RigidBody::get_generalized_acceleration(VectorNd& ga)
-{
-  // if this body part of an articulated body, call that function instead
-  if (!_abody.expired())
-  {
-    ArticulatedBodyPtr ab(_abody);
-    return ab->get_generalized_acceleration(ga);
-  }
-  else
-  {
-    get_generalized_acceleration_generic(ga);
-    return ga;
-  }
-}
-
-/// Gets the generalized acceleration of this body
-void RigidBody::get_generalized_acceleration(SharedVectorNd& ga)
+SharedVectorNd& RigidBody::get_generalized_acceleration(SharedVectorNd& ga)
 {
   // if this body part of an articulated body, call that function instead
   if (!_abody.expired())
@@ -1754,6 +1684,8 @@ void RigidBody::get_generalized_acceleration(SharedVectorNd& ga)
   }
   else
     get_generalized_acceleration_generic(ga);
+
+  return ga;
 }
 
 /// Gets the generalized inertia of this rigid body
@@ -1827,7 +1759,7 @@ SharedMatrixNd& RigidBody::get_generalized_inertia_inverse(SharedMatrixNd& M) co
 }
 
 /// Gets the generalized inertia of this rigid body
-VectorNd& RigidBody::get_generalized_forces(VectorNd& gf)
+SharedVectorNd& RigidBody::get_generalized_forces(SharedVectorNd& gf)
 {
   // if this body part of an articulated body, call that function instead
   if (!_abody.expired())
@@ -1840,7 +1772,7 @@ VectorNd& RigidBody::get_generalized_forces(VectorNd& gf)
 }
 
 /// Gets the generalized external forces (does not call articulated body version)
-VectorNd& RigidBody::get_generalized_forces_single(VectorNd& gf)
+SharedVectorNd& RigidBody::get_generalized_forces_single(SharedVectorNd& gf)
 {
   // special case: disabled body
   if (!_enabled)
@@ -1866,7 +1798,7 @@ VectorNd& RigidBody::get_generalized_forces_single(VectorNd& gf)
 }
 
 /// Converts a force to a generalized force
-VectorNd& RigidBody::convert_to_generalized_force(SingleBodyPtr body, const SForced& w, VectorNd& gf)
+SharedVectorNd& RigidBody::convert_to_generalized_force(SingleBodyPtr body, const SForced& w, SharedVectorNd& gf)
 {
   // if this belongs to an articulated body, call the articulated body method
   if (!_abody.expired())
@@ -1879,7 +1811,7 @@ VectorNd& RigidBody::convert_to_generalized_force(SingleBodyPtr body, const SFor
 }
 
 /// Converts a force to a generalized force (does not call articulated body version)
-VectorNd& RigidBody::convert_to_generalized_force_single(SingleBodyPtr body, const SForced& w, VectorNd& gf)
+SharedVectorNd& RigidBody::convert_to_generalized_force_single(SingleBodyPtr body, const SForced& w, SharedVectorNd& gf)
 {
   // verify that body == this
   assert(body.get() == this);
@@ -2057,8 +1989,8 @@ void RigidBody::ode_noexcept(SharedConstVectorNd& x, double t, double dt, void* 
   RigidBodyPtr shared_this = dynamic_pointer_cast<RigidBody>(shared_from_this());
 
   // get the generalized coordinates and velocity
-  SharedConstVectorNd gc = x.segment(0, NGC_EUL);
-  SharedConstVectorNd gv = x.segment(NGC_EUL, x.size());
+  const SharedVectorNd gc = x.segment(0, NGC_EUL).get();
+  const SharedVectorNd gv = x.segment(NGC_EUL, x.size()).get();
 
   // get the derivative of generalized coordinates and velocity
   SharedVectorNd dgc = dx.segment(0, NGC_EUL);
@@ -2105,8 +2037,8 @@ void RigidBody::prepare_to_calc_ode(SharedConstVectorNd& x, double t, double dt,
   RigidBodyPtr shared_this = dynamic_pointer_cast<RigidBody>(shared_from_this());
 
   // get the generalized coordinates and velocity
-  SharedConstVectorNd gc = x.segment(0, NGC_EUL);
-  SharedConstVectorNd gv = x.segment(NGC_EUL, x.size());
+  const SharedVectorNd gc = x.segment(0, NGC_EUL).get();
+  const SharedVectorNd gv = x.segment(NGC_EUL, x.size()).get();
 
   // set the state and velocity
   set_generalized_coordinates(DynamicBody::eEuler, gc);

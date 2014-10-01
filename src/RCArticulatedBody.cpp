@@ -250,7 +250,7 @@ SharedMatrixNd& RCArticulatedBody::solve_generalized_inertia(const SharedMatrixN
 }
 
 /// Applies a generalized impulse to the articulated body
-void RCArticulatedBody::apply_generalized_impulse(const VectorNd& gj)
+void RCArticulatedBody::apply_generalized_impulse(const SharedVectorNd& gj)
 {
   if (algorithm_type == eFeatherstone)
     _fsab.apply_generalized_impulse(gj);
@@ -277,7 +277,7 @@ void RCArticulatedBody::apply_generalized_impulse(const VectorNd& gj)
 }
 
 /// Sets the generalized forces for the articulated body
-void RCArticulatedBody::set_generalized_forces(const VectorNd& gf)
+void RCArticulatedBody::set_generalized_forces(const SharedVectorNd& gf)
 {
   unsigned index = 0;
   SForced f0;
@@ -305,7 +305,7 @@ void RCArticulatedBody::set_generalized_forces(const VectorNd& gf)
 }
 
 /// Adds a generalized force to the articulated body
-void RCArticulatedBody::add_generalized_force(const VectorNd& gf)
+void RCArticulatedBody::add_generalized_force(const SharedVectorNd& gf)
 {
   unsigned index = 0;
 
@@ -511,21 +511,16 @@ void RCArticulatedBody::set_links_and_joints(const vector<RigidBodyPtr>& links, 
  * well as the base momentum; therefore, the derivative of the state vector is
  * composed of the joint-space accelerations and base forces (and torques).
  */
-VectorNd& RCArticulatedBody::get_generalized_acceleration(VectorNd& ga)
-{
-  get_generalized_acceleration_generic(ga);
-  return ga;
-}
-
 /// Gets the derivative of the velocity state vector for this articulated body
 /**
  * The state vector consists of the joint-space velocities of the robot as
  * well as the base momentum; therefore, the derivative of the state vector is
  * composed of the joint-space accelerations and base forces (and torques).
  */
-void RCArticulatedBody::get_generalized_acceleration(SharedVectorNd& ga)
+SharedVectorNd& RCArticulatedBody::get_generalized_acceleration(SharedVectorNd& ga)
 {
   get_generalized_acceleration_generic(ga);
+  return ga;
 }
 
 /// Updates the transforms of the links based on the current joint positions
@@ -1573,53 +1568,29 @@ void RCArticulatedBody::update_visualization()
 }
 
 /// Gets the generalized coordinates of this body
-VectorNd& RCArticulatedBody::get_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, VectorNd& gc)
+SharedVectorNd& RCArticulatedBody::get_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, SharedVectorNd& gc)
 {
   get_generalized_coordinates_generic(gctype, gc);
   return gc;
 }
 
-/// Gets the generalized coordinates of this body
-void RCArticulatedBody::get_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, SharedVectorNd& gc)
-{
-  get_generalized_coordinates_generic(gctype, gc);
-}
-
 /// Sets the generalized position of this body
-void RCArticulatedBody::set_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, const VectorNd& gc)
-{
-  set_generalized_coordinates_generic(gctype, gc);
-}
-
-/// Sets the generalized position of this body
-void RCArticulatedBody::set_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, SharedConstVectorNd& gc)
+void RCArticulatedBody::set_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, const SharedVectorNd& gc)
 {
   set_generalized_coordinates_generic(gctype, gc);
 }
 
 /// Sets the generalized velocity of this body
-void RCArticulatedBody::set_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, const VectorNd& gv)
-{
-  set_generalized_velocity_generic(gctype, gv);
-}
-
-/// Sets the generalized velocity of this body
-void RCArticulatedBody::set_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, SharedConstVectorNd& gv)
+void RCArticulatedBody::set_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, const SharedVectorNd& gv)
 {
   set_generalized_velocity_generic(gctype, gv);
 }
 
 /// Gets the generalized velocity of this body
-VectorNd& RCArticulatedBody::get_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, VectorNd& gv)
+SharedVectorNd& RCArticulatedBody::get_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, SharedVectorNd& gv)
 {
   get_generalized_velocity_generic(gctype, gv);
   return gv;
-}
-
-/// Gets the generalized velocity of this body
-void RCArticulatedBody::get_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, SharedVectorNd& gv)
-{
-  get_generalized_velocity_generic(gctype, gv);
 }
 
 /// Gets the generalized inertia of this body
@@ -1644,12 +1615,9 @@ unsigned RCArticulatedBody::num_joint_dof_implicit() const
 /**
  * \note does not add forces from implicit joint constraints!
  */
-VectorNd& RCArticulatedBody::get_generalized_forces(VectorNd& f)
+SharedVectorNd& RCArticulatedBody::get_generalized_forces(SharedVectorNd& f)
 {
   const unsigned SPATIAL_DIM = 6, X = 0, Y = 1, Z = 2, A = 3, B = 4, C = 5;
-
-  // resize f
-  f.resize(num_generalized_coordinates(DynamicBody::eSpatial));
 
   // compute the generalized forces
   SForced f0;
@@ -1679,7 +1647,7 @@ VectorNd& RCArticulatedBody::get_generalized_forces(VectorNd& f)
 }
 
 /// Converts a force to a generalized force
-VectorNd& RCArticulatedBody::convert_to_generalized_force(SingleBodyPtr body, const SForced& w, VectorNd& gf)
+SharedVectorNd& RCArticulatedBody::convert_to_generalized_force(SingleBodyPtr body, const SForced& w, SharedVectorNd& gf)
 {
   const unsigned SPATIAL_DIM = 6;
   static vector<SVelocityd> J;
