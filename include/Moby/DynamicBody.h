@@ -80,47 +80,97 @@ class DynamicBody : public Visualizable
     virtual unsigned num_generalized_coordinates(GeneralizedCoordinateType gctype) const = 0;
 
     /// Sets the generalized forces on the body
-    virtual void set_generalized_forces(const Ravelin::VectorNd& gf) = 0;
+    virtual void set_generalized_forces(const Ravelin::SharedVectorNd& gf) = 0;
+
+    /// Sets the generalized forces on the body
+    virtual void set_generalized_forces(const Ravelin::VectorNd& gf)
+    {
+      const Ravelin::SharedVectorNd gf_shared = gf.segment(0, gf.size()).get();
+      set_generalized_forces(gf_shared);
+    }
 
     /// Adds a generalized force to the body
-    virtual void add_generalized_force(const Ravelin::VectorNd& gf) = 0;
+    virtual void add_generalized_force(const Ravelin::SharedVectorNd& gf) = 0;
+
+    /// Adds a generalized force to the body
+    virtual void add_generalized_force(const Ravelin::VectorNd& gf)
+    {
+      const Ravelin::SharedVectorNd gf_shared = gf.segment(0, gf.size()).get();
+      add_generalized_force(gf_shared);
+    }
 
     /// Applies a generalized impulse to the body
-    virtual void apply_generalized_impulse(const Ravelin::VectorNd& gj) = 0;
+    virtual void apply_generalized_impulse(const Ravelin::SharedVectorNd& gj) = 0;
+
+    /// Applies a generalized impulse to the body
+    virtual void apply_generalized_impulse(const Ravelin::VectorNd& gj)
+    {
+      const Ravelin::SharedVectorNd gj_shared = gj.segment(0, gj.size()).get();
+      apply_generalized_impulse(gj_shared);
+    }
 
     /// Gets the generalized coordinates of this body
-    virtual Ravelin::VectorNd& get_generalized_coordinates(GeneralizedCoordinateType gctype, Ravelin::VectorNd& gc) = 0;
+    virtual Ravelin::SharedVectorNd& get_generalized_coordinates(GeneralizedCoordinateType gctype, Ravelin::SharedVectorNd& gc) = 0;
 
     /// Gets the generalized coordinates of this body
-    virtual void get_generalized_coordinates(GeneralizedCoordinateType gctype, Ravelin::SharedVectorNd& gc) = 0;
+    virtual Ravelin::VectorNd& get_generalized_coordinates(GeneralizedCoordinateType gctype, Ravelin::VectorNd& gc)
+    {
+      const unsigned NGC = num_generalized_coordinates(gctype);
+      gc.resize(NGC);
+      Ravelin::SharedVectorNd gc_shared = gc.segment(0, gc.size());
+      get_generalized_coordinates(gctype, gc_shared);
+      return gc;
+    }
 
     /// Gets the generalized velocity of this body
-    virtual Ravelin::VectorNd& get_generalized_velocity(GeneralizedCoordinateType gctype, Ravelin::VectorNd& gv) = 0;
+    virtual Ravelin::SharedVectorNd& get_generalized_velocity(GeneralizedCoordinateType gctype, Ravelin::SharedVectorNd& gv) = 0;
 
     /// Gets the generalized velocity of this body
-    virtual void get_generalized_velocity(GeneralizedCoordinateType gctype, Ravelin::SharedVectorNd& gc) = 0;
+    virtual Ravelin::VectorNd& get_generalized_velocity(GeneralizedCoordinateType gctype, Ravelin::VectorNd& gv)
+    {
+      const unsigned NGC = num_generalized_coordinates(gctype);
+      gv.resize(NGC);
+      Ravelin::SharedVectorNd gv_shared = gv.segment(0, gv.size());
+      get_generalized_velocity(gctype, gv_shared);
+      return gv;
+    }
+
+    /// Gets the generalized velocity of this body
+    virtual Ravelin::SharedVectorNd& get_generalized_acceleration(Ravelin::SharedVectorNd& ga) = 0;
 
     /// Gets the generalized acceleration of this body
-    virtual Ravelin::VectorNd& get_generalized_acceleration(Ravelin::VectorNd& ga) = 0;
-
-    /// Gets the generalized velocity of this body
-    virtual void get_generalized_acceleration(Ravelin::SharedVectorNd& gc) = 0;
+    virtual Ravelin::VectorNd& get_generalized_acceleration(Ravelin::VectorNd& ga) 
+    {
+      const unsigned NGC = num_generalized_coordinates(DynamicBody::eSpatial);
+      ga.resize(NGC);
+      Ravelin::SharedVectorNd ga_shared = ga.segment(0, ga.size());
+      get_generalized_acceleration(ga_shared);
+      return ga; 
+    }
 
     /// Sets the generalized coordinates of this body
-    virtual void set_generalized_coordinates(GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gc) = 0;
+    virtual void set_generalized_coordinates(GeneralizedCoordinateType gctype, const Ravelin::SharedVectorNd& gc) = 0;
 
     /// Sets the generalized coordinates of this body
-    virtual void set_generalized_coordinates(GeneralizedCoordinateType gctype, Ravelin::SharedConstVectorNd& gc) = 0;
+    virtual void set_generalized_coordinates(GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gc) 
+    {
+      const Ravelin::SharedVectorNd gc_shared = gc.segment(0, gc.size()).get();
+      set_generalized_coordinates(gctype, gc_shared);
+    }
 
     /// Sets the generalized velocity of this body
     /**
       * \param gv the generalized velocity
       * \note uses the current generalized coordinates
       */
-    virtual void set_generalized_velocity(GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gv) = 0;
+    virtual void set_generalized_velocity(GeneralizedCoordinateType gctype, const Ravelin::SharedVectorNd& gv) = 0;
 
     /// Sets the generalized velocity of this body
-    virtual void set_generalized_velocity(GeneralizedCoordinateType gctype, Ravelin::SharedConstVectorNd& gv) = 0;
+    virtual void set_generalized_velocity(GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gv) 
+    {
+      const Ravelin::SharedVectorNd gv_shared = gv.segment(0, gv.size()).get();
+      set_generalized_velocity(gctype, gv_shared);
+    }
 
     /// Gets the generalized inertia of this body
     Ravelin::MatrixNd& get_generalized_inertia(Ravelin::MatrixNd& M)
@@ -238,7 +288,19 @@ class DynamicBody : public Visualizable
     /**
      * \note uses the current generalized coordinates
      */
-    virtual Ravelin::VectorNd& get_generalized_forces(Ravelin::VectorNd& f) = 0;
+    virtual Ravelin::SharedVectorNd& get_generalized_forces(Ravelin::SharedVectorNd& f) = 0;
+
+    /// Gets the external forces on this body
+    /**
+     * \note uses the current generalized coordinates
+     */
+    virtual Ravelin::VectorNd& get_generalized_forces(Ravelin::VectorNd& f)
+    {
+      f.resize(num_generalized_coordinates(DynamicBody::eSpatial));
+      Ravelin::SharedVectorNd f_shared = f.segment(0, f.size());
+      get_generalized_forces(f_shared);
+      return f;
+    }
 
     /// Converts a force to a generalized force
     /**
@@ -248,7 +310,24 @@ class DynamicBody : public Visualizable
      * \param gf the generalized force, on return
      * \note uses the current generalized coordinates
      */
-    virtual Ravelin::VectorNd& convert_to_generalized_force(SingleBodyPtr body, const Ravelin::SForced& w, Ravelin::VectorNd& gf) = 0;
+    virtual Ravelin::SharedVectorNd& convert_to_generalized_force(SingleBodyPtr body, const Ravelin::SForced& w, Ravelin::SharedVectorNd& gf) = 0;
+
+    /// Converts a force to a generalized force
+    /**
+     * \param body the actual rigid body to which the force/torque is applied 
+     *               (at the center-of-mass)
+     * \param w the force 
+     * \param gf the generalized force, on return
+     * \note uses the current generalized coordinates
+     */
+    virtual Ravelin::VectorNd& convert_to_generalized_force(SingleBodyPtr body, const Ravelin::SForced& w, Ravelin::VectorNd& gf)
+    {
+      const unsigned NGC = num_generalized_coordinates(DynamicBody::eSpatial);
+      gf.resize(NGC);
+      Ravelin::SharedVectorNd gf_shared = gf.segment(0, gf.size());
+      convert_to_generalized_force(body, w, gf_shared);
+      return gf;
+    }
 
     /// The controller callback, if any, for this body
     void (*controller)(boost::shared_ptr<DynamicBody>, double, void*);
