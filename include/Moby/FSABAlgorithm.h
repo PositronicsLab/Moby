@@ -97,6 +97,7 @@ class FSABAlgorithm
     /// processed vector
     std::vector<bool> _processed;
 
+    void calc_fwd_dyn_special();
     static double sgn(double x);
     static void push_children(RigidBodyPtr link, std::queue<RigidBodyPtr>& q);
     void apply_coulomb_joint_friction(RCArticulatedBodyPtr body);

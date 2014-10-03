@@ -279,35 +279,57 @@ void Joint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, 
   // read the lower limits, if given
   XMLAttrib* lolimit_attr = node->get_attrib("lower-limits");
   if (lolimit_attr)
+  {
     lolimit_attr->get_vector_value(lolimit);
+    if (lolimit.size() != num_dof())
+      throw std::runtime_error("lower-limits read from XML does not match joint DOF");
+  }
 
   // read the upper limits, if given
   XMLAttrib* hilimit_attr = node->get_attrib("upper-limits");
   if (hilimit_attr)
+  {
     hilimit_attr->get_vector_value(hilimit);
+    if (hilimit.size() != num_dof())
+      throw std::runtime_error("upper-limits read from XML does not match joint DOF");
+  }
 
   // read the maximum actuator force, if given
   XMLAttrib* maxforce_attr = node->get_attrib("max-forces");
   if (maxforce_attr)
+  {
     maxforce_attr->get_vector_value(maxforce);
+    if (maxforce.size() != num_dof())
+      throw std::runtime_error("max-forces read from XML does not match joint DOF");
+  }
 
   // read the joint positions, if given
   XMLAttrib* q_attr = node->get_attrib("q");
   if (q_attr)
+  {
     q_attr->get_vector_value(q);
+    if (q.size() != num_dof())
+      throw std::runtime_error("q read from XML does not match joint DOF");
+  }
   else
     q.set_zero(num_dof());
 
   // read the joint velocities, if given
   XMLAttrib* qd_attr = node->get_attrib("qd");
   if (qd_attr)
+  {
     qd_attr->get_vector_value(qd);
+    if (qd.size() != num_dof())
+      throw std::runtime_error("qd read from XML does not match joint DOF");
+  }
 
   // read the joint positions, if given
   XMLAttrib* q_init_attr = node->get_attrib("q-tare");
   if (q_init_attr)
   {
     q_init_attr->get_vector_value(_q_tare);
+    if (_q_tare.size() != num_dof())
+      throw std::runtime_error("q-tare read from XML does not match joint DOF");
     _determine_q_tare = false;
   }
   else

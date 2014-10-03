@@ -34,6 +34,7 @@ class CRBAlgorithm
     Ravelin::SharedMatrixNd& M_solve(Ravelin::SharedMatrixNd& XB);
 
   private:
+    void calc_fwd_dyn_special();
     static boost::shared_ptr<const Ravelin::Pose3d> get_computation_frame(RCArticulatedBodyPtr body);
     std::vector<unsigned> _lambda;
     void setup_parent_array();

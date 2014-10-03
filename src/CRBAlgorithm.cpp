@@ -560,10 +560,6 @@ void CRBAlgorithm::calc_generalized_inertia(SharedMatrixNd& M)
 /// Performs necessary pre-computations for computing accelerations or applying impulses
 void CRBAlgorithm::precalc(RCArticulatedBodyPtr body)
 {
-  // skip this step if the body's position is not invalidated
-  if (!body->_position_invalidated)
-    return;
-
   // get the links and joints for the body
   const vector<JointPtr>& joints = body->get_explicit_joints();
 
@@ -584,14 +580,31 @@ void CRBAlgorithm::precalc(RCArticulatedBodyPtr body)
 /// Executes the composite rigid-body method
 void CRBAlgorithm::calc_fwd_dyn()
 {
-  // get the body and the reference frame
+  // get the body
   RCArticulatedBodyPtr body(_body);
-
-  // get the set of links
-  const vector<RigidBodyPtr>& links = body->get_links();
 
   // do necessary pre-calculations
   precalc(body);
+
+  // execute the appropriate algorithm
+  if (body->is_floating_base())
+    calc_fwd_dyn_floating_base(body);
+  else
+    calc_fwd_dyn_fixed_base(body);
+   
+  // update the link accelerations
+  update_link_accelerations(body);
+}
+
+/// Executes the composite rigid-body method without computing and factorizing inertia matrix
+/**
+ * This method is useful when the inertia matrix has already been computed-
+ * considerable computation will then be avoided.
+ */
+void CRBAlgorithm::calc_fwd_dyn_special()
+{
+  // get the body and the reference frame
+  RCArticulatedBodyPtr body(_body);
 
   // execute the appropriate algorithm
   if (body->is_floating_base())
