@@ -126,7 +126,7 @@ void RCArticulatedBody::update_factorized_generalized_inertia()
     _crb.precalc(body);
 
   // indicate factorized inertia is valid
-  _position_invalidated = false;
+  validate_position_variables(); 
 }
 
 /// Solves using a generalized inertia matrix
@@ -879,11 +879,17 @@ void RCArticulatedBody::calc_fwd_dyn()
     switch (algorithm_type)
     {
       case eFeatherstone:
-        _fsab.calc_fwd_dyn();
+        if (!_position_invalidated)
+          _fsab.calc_fwd_dyn_special();
+        else
+          _fsab.calc_fwd_dyn();
         break;
 
       case eCRB:
-        _crb.calc_fwd_dyn();
+        if (!_position_invalidated)
+          _crb.calc_fwd_dyn_special();
+        else
+          _crb.calc_fwd_dyn();
         break;
 
       default:
