@@ -65,9 +65,13 @@ class RCArticulatedBody : public ArticulatedBody
     RCArticulatedBodyPtr get_this() { return boost::dynamic_pointer_cast<RCArticulatedBody>(shared_from_this()); }
     boost::shared_ptr<const RCArticulatedBody> get_this() const { return boost::dynamic_pointer_cast<const RCArticulatedBody>(shared_from_this()); }
     virtual void set_generalized_forces(const Ravelin::SharedVectorNd& gf);
+    virtual void set_generalized_forces(const Ravelin::VectorNd& gf) { DynamicBody::set_generalized_forces(gf); }
     virtual void add_generalized_force(const Ravelin::SharedVectorNd& gf);
+    virtual void add_generalized_force(const Ravelin::VectorNd& gf) { DynamicBody::add_generalized_force(gf); }
     virtual void apply_generalized_impulse(const Ravelin::SharedVectorNd& gj);
+    virtual void apply_generalized_impulse(const Ravelin::VectorNd& gj) { DynamicBody::apply_generalized_impulse(gj); }
     virtual void set_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::SharedVectorNd& gc);
+    virtual void set_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gc) { DynamicBody::set_generalized_coordinates(gctype, gc); }
     virtual void set_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::SharedVectorNd& gv);
     virtual void set_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gv) { DynamicBody::set_generalized_velocity(gctype, gv); }
     virtual Ravelin::SharedMatrixNd& get_generalized_inertia(Ravelin::SharedMatrixNd& M);
@@ -97,9 +101,11 @@ class RCArticulatedBody : public ArticulatedBody
     virtual boost::shared_ptr<const Ravelin::Pose3d> get_gc_pose() const; 
     virtual void validate_position_variables();
     virtual Ravelin::SharedVectorNd& get_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::SharedVectorNd& gc);
+    virtual Ravelin::VectorNd& get_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& gc) { return DynamicBody::get_generalized_coordinates(gctype, gc); }
     virtual Ravelin::SharedVectorNd& get_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::SharedVectorNd& gv);
     virtual Ravelin::VectorNd& get_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& gv) { return DynamicBody::get_generalized_velocity(gctype, gv); }
     virtual Ravelin::SharedVectorNd& get_generalized_acceleration(Ravelin::SharedVectorNd& ga);
+    virtual Ravelin::VectorNd& get_generalized_acceleration(Ravelin::VectorNd& ga) { return DynamicBody::get_generalized_acceleration(ga); }
 
     template <class V>
     void get_generalized_acceleration_generic(V& ga);
