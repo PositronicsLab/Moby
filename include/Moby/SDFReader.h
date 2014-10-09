@@ -29,6 +29,7 @@ class SDFReader
 {
   public:
     static boost::shared_ptr<EventDrivenSimulator> read(const std::string& fname);
+    static std::map<std::string, DynamicBodyPtr> read_models(const std::string& fname);
     
   private:
     enum TupleType { eNone, eVectorN, eVector3, eQuat };
