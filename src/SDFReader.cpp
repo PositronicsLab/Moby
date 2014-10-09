@@ -11,6 +11,7 @@
 #include <fstream>
 #include <stack>
 #include <queue>
+#include <boost/foreach.hpp>
 
 #ifdef USE_OSG
 #include <Moby/OSGGroupWrapper.h>
@@ -142,6 +143,104 @@ shared_ptr<EventDrivenSimulator> SDFReader::read(const std::string& fname)
   chdir(cwd.get());
 
   return sim;
+}
+
+/// Reads models only from SDF file 
+/**
+ * \return a map of IDs to read objects
+ */
+std::map<std::string, DynamicBodyPtr> SDFReader::read_models(const std::string& fname)
+{
+  std::map<std::string, DynamicBodyPtr> model_map;
+
+  // *************************************************************
+  // going to remove any path from the argument and change to that
+  // path; this is done so that all files referenced from the
+  // local path of the XML file are found
+  // *************************************************************
+
+  // set the filename to use as the argument, by default
+  std::string filename = fname;
+
+  // get the current pathname
+  size_t BUFSIZE = 8192;
+  boost::shared_array<char> cwd;
+  while (true)
+  {
+    cwd = boost::shared_array<char>((new char[BUFSIZE]));
+    if (getcwd(cwd.get(), BUFSIZE) == cwd.get())
+      break;
+    if (errno != ERANGE)
+    {
+      std::cerr << "SDFReader::read_model() - unable to allocate sufficient memory!" << std::endl;
+      return model_map; 
+    }
+    BUFSIZE *= 2;
+  }
+
+  // separate the path from the filename
+  size_t last_path_sep = fname.find_last_of('/');
+  if (last_path_sep != std::string::npos)
+  {
+    // get the new working path
+    std::string pathname = fname.substr(0,last_path_sep+1);
+
+    // change to the new working path
+    chdir(pathname.c_str());
+
+    // get the new filename
+    filename = fname.substr(last_path_sep+1,std::string::npos);
+  }
+
+  // read the XML Tree 
+  shared_ptr<const XMLTree> root_tree = XMLTree::read_from_xml(filename);
+  if (!root_tree)
+  {
+    std::cerr << "SDFReader::read_model() - unable to open file " << fname;
+    std::cerr << " for reading" << std::endl;
+    chdir(cwd.get());
+    return model_map; 
+  }
+
+  // find the SDF tree 
+  shared_ptr<XMLTree> sdf_tree = boost::const_pointer_cast<XMLTree>(find_subtree(root_tree, "SDF"));
+
+  // mark the root as processed
+  sdf_tree->processed = true;
+
+  // make sure that the SDF node was found
+  if (!sdf_tree)
+  {
+    std::cerr << "SDFReader::read_model() - no SDF tag found!" << std::endl;
+    chdir(cwd.get());
+    return model_map; 
+  }
+
+  // read in all world tags
+  std::list<shared_ptr<const XMLTree> > world_nodes = find_tag("world", sdf_tree);
+
+  // read in worlds
+  if (world_nodes.size() != 1)
+    throw std::runtime_error("SDFReader::read() - there is not exactly one world!");
+
+  // create the simulator
+  shared_ptr<EventDrivenSimulator> sim(new EventDrivenSimulator); 
+
+  // read the models
+  vector<DynamicBodyPtr> models = read_models(world_nodes.front(), sim);
+
+  // clear all models from the simulator and convert to a map
+  const vector<DynamicBodyPtr>& bodies = sim->get_dynamic_bodies();
+  BOOST_FOREACH(DynamicBodyPtr db, models)
+  {
+    sim->remove_dynamic_body(db);
+    model_map[db->id] = db;
+  }
+
+  // change back to the initial working directory
+  chdir(cwd.get());
+
+  return model_map;
 }
 
 /// Constructs the event-driven simulator using proper settings

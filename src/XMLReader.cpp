@@ -48,6 +48,7 @@
 #include <Moby/StokesDragForce.h>
 #include <Moby/DampingForce.h>
 #include <Moby/XMLTree.h>
+#include <Moby/SDFReader.h>
 #include <Moby/XMLReader.h>
 
 using boost::shared_ptr;
@@ -111,7 +112,6 @@ std::map<std::string, BasePtr> XMLReader::read(const std::string& fname)
     return id_map;
   }
 
- 
   // find the moby tree 
   shared_ptr<XMLTree> moby_tree = boost::const_pointer_cast<XMLTree>(find_subtree(root_tree, "moby"));
 
@@ -165,6 +165,9 @@ std::map<std::string, BasePtr> XMLReader::read(const std::string& fname)
   // read and construct all OSGGroupWrapper objects
   process_tag("OSGGroup", moby_tree, &read_osg_group, id_map);
   #endif
+
+  // read SDF models
+  process_tag("SDF", moby_tree, &read_sdf, id_map);
 
   // read and construct all rigid bodies (including articulated body links)
   process_tag("RigidBody", moby_tree, &read_rigid_body, id_map);
@@ -575,6 +578,28 @@ void XMLReader::read_simulator(shared_ptr<const XMLTree> node, std::map<std::str
   
   // populate the object
   b->load_from_xml(node, id_map);
+}
+
+/// Reads and constructs models from an SDF file 
+void XMLReader::read_sdf(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
+{
+  // sanity check
+  assert(strcasecmp(node->name.c_str(), "SDF") == 0);
+
+  // get the filename
+  XMLAttrib* fname_attr = node->get_attrib("filename");
+  if (!fname_attr)
+  {
+    std::cerr << "XMLReader::read_sdf() - no 'filename' attrib!" << std::endl;
+    return;
+  }
+
+  // read the models
+  std::map<std::string, DynamicBodyPtr> model_map = SDFReader::read_models(fname_attr->get_string_value());
+
+  // populate our ID map with the models
+  for (std::map<std::string, DynamicBodyPtr>::const_iterator i = model_map.begin(); i != model_map.end(); i++)
+    id_map[i->first] = i->second;
 }
 
 /// Reads and constructs the RigidBody object
