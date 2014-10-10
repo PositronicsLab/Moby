@@ -75,16 +75,24 @@ class RigidBody : public SingleBody
     virtual const Ravelin::SAcceld& get_accel();
     void set_velocity(const Ravelin::SAcceld& xdd);
     virtual void set_generalized_forces(const Ravelin::SharedVectorNd& gf);
+    virtual void set_generalized_forces(const Ravelin::VectorNd& gf) { DynamicBody::set_generalized_forces(gf); }
     virtual Ravelin::SharedMatrixNd& get_generalized_inertia(Ravelin::SharedMatrixNd& M);
+    virtual Ravelin::MatrixNd& get_generalized_inertia(Ravelin::MatrixNd& M) { return DynamicBody::get_generalized_inertia(M); }
     virtual Ravelin::SharedVectorNd& get_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::SharedVectorNd& gc);
     virtual Ravelin::SharedVectorNd& get_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::SharedVectorNd& gv);
     virtual Ravelin::SharedVectorNd& get_generalized_acceleration(Ravelin::SharedVectorNd& ga);
     virtual void add_generalized_force(const Ravelin::SharedVectorNd& gf);
+    virtual void add_generalized_force(const Ravelin::VectorNd& gf) { DynamicBody::add_generalized_force(gf); }
     virtual void apply_generalized_impulse(const Ravelin::SharedVectorNd& gf);
+    virtual void apply_generalized_impulse(const Ravelin::VectorNd& gj) { DynamicBody::apply_generalized_impulse(gj); }
     virtual void set_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::SharedVectorNd& gc);
+    virtual void set_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gc) { DynamicBody::set_generalized_coordinates(gctype, gc); }
     virtual void set_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::SharedVectorNd& gv);
+    virtual void set_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gv) { DynamicBody::set_generalized_velocity(gctype, gv); }
     virtual Ravelin::SharedVectorNd& get_generalized_forces(Ravelin::SharedVectorNd& f);
+    virtual Ravelin::VectorNd& get_generalized_forces(Ravelin::VectorNd& f) { return DynamicBody::get_generalized_forces(f); }
     virtual Ravelin::SharedVectorNd& convert_to_generalized_force(SingleBodyPtr body, const Ravelin::SForced& w, Ravelin::SharedVectorNd& gf);
+    virtual Ravelin::VectorNd& convert_to_generalized_force(SingleBodyPtr body, const Ravelin::SForced& w, Ravelin::VectorNd& gf) { return DynamicBody::convert_to_generalized_force(body, w, gf); }
     virtual unsigned num_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype) const;
     virtual Ravelin::SharedMatrixNd& transpose_solve_generalized_inertia(const Ravelin::SharedMatrixNd& B, Ravelin::SharedMatrixNd& X);
     Ravelin::SharedMatrixNd& transpose_solve_generalized_inertia_single(const Ravelin::SharedMatrixNd& B, Ravelin::SharedMatrixNd& X);

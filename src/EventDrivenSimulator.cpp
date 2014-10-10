@@ -573,7 +573,9 @@ void EventDrivenSimulator::calc_impacting_unilateral_constraint_forces(double dt
   }
   catch (ImpactToleranceException e)
   {
+    #ifndef NDEBUG
     std::cerr << "warning: impacting constraint tolerances exceeded" << std::endl;
+    #endif
   }
 
   // tabulate times for constraint handling
