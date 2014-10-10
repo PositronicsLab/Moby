@@ -1,0 +1,42 @@
+<!-- A sphere undergoing sustained contact with the ground.  -->
+
+<XML>
+  <DRIVER>
+    <camera position="0 0 10" target="0 0 0" up="0 1 0" />
+    <window location="0 0" size="640 480" />
+  </DRIVER>
+
+  <MOBY>
+    <!-- Primitives -->
+    <Sphere id="s1" radius=".5" density="1.0"  />
+    <Plane id="b3" />
+
+    <!-- Integrator -->
+    <RungeKuttaIntegrator id="rk4" />
+    <EulerIntegrator id="euler" />
+
+    <!-- Gravity force -->
+    <GravityForce id="gravity" accel="0 -9.81 0"  />
+
+    <!-- Rigid bodies -->
+      <!-- the sphere -->
+      <RigidBody id="sphere" enabled="true" position="0 .5000 0" visualization-id="s1" linear-velocity="1 0 0" angular-velocity="1 2 3">
+        <InertiaFromPrimitive primitive-id="s1" />
+        <CollisionGeometry primitive-id="s1" />
+      </RigidBody>
+
+      <!-- the ground -->
+      <RigidBody id="ground" enabled="false" visualization-id="b3" position="0 0 0" > 
+        <CollisionGeometry primitive-id="b3" />  
+      </RigidBody>
+
+    <!-- Setup the simulator -->
+    <EventDrivenSimulator id="simulator" integrator-id="rk4" Euler-step="0">
+      <DynamicBody dynamic-body-id="sphere" />
+      <DynamicBody dynamic-body-id="ground" />
+      <RecurrentForce recurrent-force-id="gravity"  />
+      <ContactParameters object1-id="ground" object2-id="sphere" epsilon="0" mu-coulomb="10" mu-viscous="0" friction-cone-edges="8" />
+    </EventDrivenSimulator> 
+  </MOBY>
+</XML>
+

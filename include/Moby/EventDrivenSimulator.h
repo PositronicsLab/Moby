@@ -1,7 +1,7 @@
 /****************************************************************************
  * Copyright 2011 Evan Drumwright
- * This library is distributed under the terms of the GNU Lesser General Public 
- * License (found in COPYING).
+ * This library is distributed under the terms of the Apache V2.0 
+ * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
 #ifndef _EVENT_SIMULATOR_H
@@ -10,8 +10,12 @@
 #include <map>
 #include <Moby/sorted_pair>
 #include <Moby/Simulator.h>
-#include <Moby/ImpactEventHandler.h>
-#include <Moby/Event.h>
+#include <Moby/ImpactConstraintHandler.h>
+#include <Moby/PenaltyConstraintHandler.h>
+#include <Moby/SustainedUnilateralConstraintHandler.h>
+#include <Moby/PairwiseDistInfo.h>
+#include <Moby/CCD.h>
+#include <Moby/UnilateralConstraint.h>
 
 namespace Moby {
 
@@ -24,58 +28,21 @@ class EventDrivenSimulator : public Simulator
 {
   friend class CollisionDetection;
 
-  private:
-    // class for comparing two events for purposes of setting event tolerances
-    class EventCompare
-    {
-      public: bool operator()(const Event& a, const Event& b) const
-      {
-        // check for event type disparity
-        if (a.event_type != b.event_type)
-          return a.event_type < b.event_type;
-
-        // event types are the same - now each event type must be processed
-        // separately
-        if (a.event_type == Event::eContact)
-        {
-          // see whether the bodies are the same
-          return make_sorted_pair(a.contact_geom1->get_single_body(), a.contact_geom2->get_single_body()) < make_sorted_pair(b.contact_geom1->get_single_body(), b.contact_geom2->get_single_body());
-        }
-        else if (a.event_type == Event::eLimit)
-        {
-          // check whether the joints are the same
-          if (a.limit_joint != b.limit_joint)
-            return a.limit_joint < b.limit_joint;
-
-          // check whether the limits are the same
-          if (a.limit_upper != b.limit_upper)
-            return a.limit_upper < b.limit_upper;
-
-          // finally, check whether the DOFs are the same
-          return a.limit_dof < b.limit_dof;
-        }
-        else // event is a constraint event
-        {
-          return a.constraint_joint < b.constraint_joint; 
-        }  
-      }
-    };
-
   public:
     EventDrivenSimulator();
     virtual ~EventDrivenSimulator() {}
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
-    virtual void output_object_state(std::ostream& out) const;
     virtual double step(double dt);
-    void get_coords(std::vector<Ravelin::VectorNd>& q) const;
-    void get_velocities(std::vector<Ravelin::VectorNd>& q) const;
+
+    /// Determines whether two geometries are not checked
+    std::set<sorted_pair<CollisionGeometryPtr> > unchecked_pairs;
 
     /// The coordinates vector before and after the step
-    std::vector<Ravelin::VectorNd> _q0, _qf;
+    std::vector<Ravelin::VectorNd> _q0, _qf, _qsave;
 
     /// The velocities vector before and after the step
-    std::vector<Ravelin::VectorNd> _qd0, _qdf;
+    std::vector<Ravelin::VectorNd> _qd0, _qdf, _qdsave;
 
     /// Vectors set and passed to collision detection
     std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> > _x0, _x1;
@@ -83,34 +50,34 @@ class EventDrivenSimulator : public Simulator
     /// Gets the shared pointer for this
     boost::shared_ptr<EventDrivenSimulator> get_this() { return boost::dynamic_pointer_cast<EventDrivenSimulator>(shared_from_this()); }
     
-    /// The collision detection mechanisms
-    std::list<boost::shared_ptr<CollisionDetection> > collision_detectors;
-
     /// Callback function for getting contact parameters
     boost::shared_ptr<ContactParameters> (*get_contact_parameters_callback_fn)(CollisionGeometryPtr g1, CollisionGeometryPtr g2);
 
     /// Callback function after a mini-step is completed
     void (*post_mini_step_callback_fn)(EventDrivenSimulator* s);
 
-    /// The callback function (called when events have been determined)
+    /// The callback function (called when constraints have been determined)
     /**
-     * The callback function can remove events from the list, which will disable
+     * The callback function can remove constraints from the list, which will disable
      * their processing (however, doing so may prevent the simulation from
      * making progress, as the simulator attempts to disallow violations.
      */
-    void (*event_callback_fn)(std::vector<Event>&, boost::shared_ptr<void>);
+    void (*constraint_callback_fn)(std::vector<UnilateralConstraint>&, boost::shared_ptr<void>);
 
-    /// The callback function (called after event impulses are applied)
-    void (*event_post_impulse_callback_fn)(const std::vector<Event>&, boost::shared_ptr<void>);
+    /// The callback function (called after forces/impulses are applied)
+    void (*constraint_post_callback_fn)(const std::vector<UnilateralConstraint>&, boost::shared_ptr<void>);
 
-    /// Data passed to event callback
-    boost::shared_ptr<void> event_callback_data;
+    /// Data passed to unilateral constraint callback
+    boost::shared_ptr<void> constraint_callback_data;
     
-    /// Data passed to event impulse callback
-    boost::shared_ptr<void> event_post_impulse_callback_data;
+    /// Data passed to post-constraint callback
+    boost::shared_ptr<void> constraint_post_callback_data;
  
-    /// Gets the (sorted) event data
-    std::vector<Event>& get_events() { return _events; }
+    /// Gets the (sorted) compliant constraint data
+    std::vector<UnilateralConstraint>& get_compliant_constraints() { return _compliant_constraints; }
+
+    /// Gets the (sorted) rigid constraint data
+    std::vector<UnilateralConstraint>& get_rigid_constraints() { return _rigid_constraints; }
 
     /// Mapping from objects to contact parameters
     std::map<sorted_pair<BasePtr>, boost::shared_ptr<ContactParameters> > contact_params;
@@ -121,64 +88,132 @@ class EventDrivenSimulator : public Simulator
     /// User time spent by collision detection on the last step
     double coldet_time;
 
-    /// User time spent by event handling on the last step
-    double event_time;
+    /// User time spent by constraint handling on the last step
+    double constraint_time;
 
-    /// The relative error tolerance for adaptive Euler stepping (default=1e-8)
+    /// stepping timings
+    double step_times[6];
+
+    /// stepping statistics
+    unsigned step_stats[6];
+
+    /// the minimum integration step over a single step(.) call
+    double int_min_step_stat;
+
+    /// the maximum integration step over a single step(.) call
+    double int_max_step_stat;
+
+    /// the mean integration step over a single step(.) call
+    double int_mean_step_stat;
+
+    /// The relative error tolerance for adaptive stepping (default=1e-8)
     double rel_err_tol;
 
-    /// The absolute error tolerance for adaptive Euler stepping (default=1e-8)
+    /// The absolute error tolerance for adaptive stepping (default=1e-8)
     double abs_err_tol;
 
     /// The minimum step size (default=1e-5)
     double minimum_step;
 
-    /// The maximum time allowed for processing events
-    double max_event_time;
+    /// The maximum time allowed for processing constraints
+    double max_constraint_time;
+
+  protected:
+    void calc_impacting_unilateral_constraint_forces(double dt);
+    virtual double check_pairwise_constraint_violations(double t);
+    void validate_limit_estimates();
+    void find_unilateral_constraints(double min_contact_dist);
+    void integrate_velocities_Euler(double dt);
+    void integrate_positions_Euler(double dt);
+    void calc_fwd_dyn();
+    void calc_compliant_unilateral_constraint_forces();
+    void preprocess_constraint(UnilateralConstraint& e);
+    void determine_geometries();
+    void broad_phase(double dt);
+    void calc_pairwise_distances();
+    void visualize_contact( UnilateralConstraint& constraint );
+
+    /// Object for handling impact constraints
+    ImpactConstraintHandler _impact_constraint_handler;
+
+    /// Object for handling penalty constraints
+    PenaltyConstraintHandler _penalty_constraint_handler;
+    
+    /// The vector of rigid constraints
+    std::vector<UnilateralConstraint> _rigid_constraints;
+
+    /// The vector of compliant constraints
+    std::vector<UnilateralConstraint> _compliant_constraints;
 
   private:
-    void calc_fwd_dyn() const;
-    void integrate_si_Euler(double dt);
-    static void determine_treated_bodies(std::list<std::list<Event*> >& groups, std::vector<DynamicBodyPtr>& bodies);
-    double find_events(double dt);
-    double find_next_event_time() const;
-    void remove_next_events();
-    double find_and_handle_si_events(double dt);
-    void preprocess_event(Event& e);
-    void check_violation();
-    void find_limit_events(double dt, std::vector<Event>& limit_events);
-    double integrate_to_TOI(double dt); 
-    void handle_events();
-    boost::shared_ptr<ContactParameters> get_contact_parameters(CollisionGeometryPtr geom1, CollisionGeometryPtr geom2) const;
-    bool has_active_acceleration_events() const;
-    bool has_active_velocity_events() const;
-    bool solve_acceleration_events();
-    void step_adaptive_si_Euler(double dt);
+    enum IntegrationResult { eIntegrationSuccessful, eVelocityLimitExceeded, eMinStepReached };
+    IntegrationResult integrate_generic(double dt, clock_t& start);
+
+    struct UnilateralConstraintCmp
+    {
+      bool operator()(const UnilateralConstraint& e1, const UnilateralConstraint& e2) const;
+    };
+
+    template <class ForwardIterator>
+    double integrate_with_sustained_constraints(double step_size, ForwardIterator begin, ForwardIterator end);
+
+    /// Integrates all dynamic bodies
+    double integrate_with_sustained_constraints(double step_size) { return integrate_with_sustained_constraints(step_size, _bodies.begin(), _bodies.end()); }
+
+    void calc_rigid_sustained_unilateral_constraint_forces();
+    void check_constraint_velocity_violations(double t);
+    static Ravelin::VectorNd& ode_sustained_constraints(const Ravelin::VectorNd& x, double t, double dt, void* data, Ravelin::VectorNd& dx);
+    void save_state();
+    void restore_state();
     void step_si_Euler(double dt);
-    void set_coords(double t);
-    void set_velocities(double t);
-    void set_coords(const std::vector<Ravelin::VectorNd>& q) const;
-    void set_velocities(const std::vector<Ravelin::VectorNd>& qd) const;
-    void compute_directional_derivatives();
+    boost::shared_ptr<ContactParameters> get_contact_parameters(CollisionGeometryPtr geom1, CollisionGeometryPtr geom2) const;
+    double calc_CA_step();
+    double calc_next_CA_step(double contact_dist_thresh) const;
+    double calc_next_CA_Euler_step(double contact_dist_thresh) const;
+    void update_constraint_violations(const std::vector<PairwiseDistInfo>& pairwise_distances);
+    void reset_limit_estimates() const;
 
-    // Visualization functions
-    void visualize_contact( Event& event );
+    /// The continuous collision detection mechanism
+    mutable CCD _ccd;
 
-    /// Determines whether the simulation constraints have been violated
-    bool _simulation_violated;
+    /// Pairwise distances at bodies' current configurations
+    std::vector<PairwiseDistInfo> _pairwise_distances;
+
+    /// The derivative at the current time
+    Ravelin::VectorNd _current_accel_dx;
 
     /// Work vector
     Ravelin::VectorNd _workV;
 
-    /// The vector of events
-    std::vector<Event> _events;
+    /// Interpenetration constraint violation tolerances
+    std::map<sorted_pair<CollisionGeometryPtr>, double> _ip_tolerances;
 
-    /// Event tolerances
-    std::map<Event, double, EventCompare> _event_tolerances;
+    /// Velocity tolerances
+    std::map<UnilateralConstraint, double, UnilateralConstraintCmp> _zero_velocity_tolerances;
 
-    /// Object for handling impact events
-    ImpactEventHandler _impact_event_handler;
+    /// Object for handling sustained rigid unilateral constraints 
+    SustainedUnilateralConstraintHandler _rigid_unilateral_constraint_handler;
+
+    /// The Euler step size
+    double euler_step;
+
+    /// The minimum step for advancement
+    double min_advance;
+
+    /// The distance threshold for a contact to be handled as an impact
+    double impacting_contact_dist_thresh; 
+
+    /// The distance threshold for a contact to be handled as a sustained contact 
+    double sustained_contact_dist_thresh;
+
+    /// The geometries in the simulator
+    std::vector<CollisionGeometryPtr> _geometries;
+
+    /// Geometric pairs that should be checked for unilateral constraints (according to broad phase collision detection)
+    std::vector<std::pair<CollisionGeometryPtr, CollisionGeometryPtr> > _pairs_to_check;
 }; // end class
+
+#include "EventDrivenSimulator.inl"
 
 } // end namespace
 

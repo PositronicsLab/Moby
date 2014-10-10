@@ -1,7 +1,7 @@
 /****************************************************************************
  * Copyright 2006 Evan Drumwright
- * This library is distributed under the terms of the GNU Lesser General Public 
- * License (found in COPYING).
+ * This library is distributed under the terms of the Apache V2.0 
+ * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
 /**
@@ -53,7 +53,7 @@ typedef std::pair<Point3d, Point3d> LineSeg3;
 typedef std::pair<Point2d, Point2d> LineSeg2;
 
 /// reference frame type for reduced-coordinate dynamics computations
-enum ReferenceFrameType { eGlobal, eLink, eLinkInertia, eJoint };
+enum ReferenceFrameType { eGlobal, eLink, eLinkInertia, eLinkCOM, eJoint };
 
 /// Polyhedron smart pointer
 typedef boost::shared_ptr<Polyhedron> PolyhedronPtr;

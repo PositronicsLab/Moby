@@ -1,7 +1,7 @@
 /****************************************************************************
  * Copyright 2006 Evan Drumwright
- * This library is distributed under the terms of the GNU Lesser General Public 
- * License (found in COPYING).
+ * This library is distributed under the terms of the Apache V2.0 
+ * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
 #ifndef _COMPGEOM_H
@@ -90,7 +90,7 @@ class CompGeom
     static Ravelin::Origin2d to_2D(const Point3d& p, const Ravelin::Matrix3d& R);
     static bool point_in_tri(const Point3d& p, const Triangle& t, double tol = NEAR_ZERO);
     static bool coplanar(const Point3d& a, const Point3d& b, const Point3d& c, const Point3d& d, double tol = NEAR_ZERO);
-    static double calc_dist(const LineSeg3& line_seg, const Point3d& point, double& t);
+    static double calc_dist(const LineSeg3& line_seg, const Point3d& point, double& t, Point3d& closest);
     static double calc_closest_points(const LineSeg3& s1, const LineSeg3& s2, Point3d& p1, Point3d& p2); 
     static bool query_intersect_tri_tri(const Triangle& t1, const Triangle& t2);
     static PolygonLocationType in_tri(const Triangle& t, const Point3d& p, double tol = NEAR_ZERO);

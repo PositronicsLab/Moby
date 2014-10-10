@@ -1,7 +1,7 @@
 /****************************************************************************
  * Copyright 2006 Evan Drumwright
- * This library is distributed under the terms of the GNU Lesser General Public 
- * License (found in COPYING).
+ * This library is distributed under the terms of the Apache V2.0 
+ * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
 #include <fstream>
@@ -27,6 +27,7 @@
 #include <Moby/ADF.h>
 
 using namespace boost;
+using namespace Ravelin;
 using namespace Moby;
 
 /// Constructs an adaptively-sampled distance field (ADF) with a recursion level of 0
@@ -37,7 +38,7 @@ using namespace Moby;
 ADF::ADF()
 {
   // set the bounds to +/- infinity
-  set_bounds(ONES_3 * -std::numeric_limits<double>::max(), ONES_3 * std::numeric_limits<double>::max());
+  set_bounds(Vector3d(1.0, 1.0, 1.0, GLOBAL) * -std::numeric_limits<double>::max(), Vector3d(1.0, 1.0, 1.0, GLOBAL) * std::numeric_limits<double>::max());
   _distances = std::vector<double>(BOX_VERTICES, std::numeric_limits<double>::max());
 }
 
@@ -46,7 +47,7 @@ ADF::ADF()
  * The bounds of the ADF are set to -/+ infinity and the distances are set to 
  * positive infinity.
  */
-ADF::ADF(shared_ptr<ADF> parent, const Vector3& lo_bounds, const Vector3& hi_bounds)
+ADF::ADF(shared_ptr<ADF> parent, const Vector3d& lo_bounds, const Vector3d& hi_bounds)
 {
   set_bounds(lo_bounds, hi_bounds);
   _distances = std::vector<double>(BOX_VERTICES, std::numeric_limits<double>::max());
@@ -63,11 +64,11 @@ ADF::ADF(shared_ptr<ADF> parent, const Vector3& lo_bounds, const Vector3& hi_bou
  *      |/  |/
  *      0---1
  */
-ADF::ADF(shared_ptr<ADF> parent, const std::vector<Vector3ConstPtr>& vertices)
+ADF::ADF(shared_ptr<ADF> parent, const std::vector<Vector3d>& vertices)
 {
   _parent = parent;
-  _lo_bounds = *vertices.front();
-  _hi_bounds = *vertices.back();
+  _lo_bounds = vertices.front();
+  _hi_bounds = vertices.back();
   _vertices = vertices;
 }
 
@@ -76,12 +77,12 @@ ADF::ADF(shared_ptr<ADF> parent, const std::vector<Vector3ConstPtr>& vertices)
  * \return an index in the range [0,7]; assertion fails if the point is outside
  *         of the volume
  */
-unsigned ADF::get_sub_volume_idx(const Vector3& point) const
+unsigned ADF::get_sub_volume_idx(const Vector3d& point) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
   // get the bounds of the ADF
-  Vector3 half = 0.5*(_lo_bounds + _hi_bounds);
+  Vector3d half = 0.5*(_lo_bounds + _hi_bounds);
 
   // Subdivision order
   //      6---7
@@ -131,7 +132,7 @@ unsigned ADF::get_sub_volume_idx(const Vector3& point) const
 }
 
 /// Returns NULL if empty, ADF of leaf if occupied
-shared_ptr<ADF> ADF::is_cell_occupied(const Vector3& point) const
+shared_ptr<ADF> ADF::is_cell_occupied(const Vector3d& point) const
 {
   const unsigned THREE_D = 3;
 
@@ -161,20 +162,22 @@ shared_ptr<ADF> ADF::is_cell_occupied(const Vector3& point) const
 }
 
 /// Gets the bounds for this ADF cell
-void ADF::get_bounds(Vector3& lo, Vector3& hi) const
+void ADF::get_bounds(Vector3d& lo, Vector3d& hi) const
 {
   lo = _lo_bounds;
   hi = _hi_bounds;
 }
 
 /// (Re)sets the bounds for this ADF cell
-void ADF::set_bounds(const Vector3& lo_bound, const Vector3& hi_bound)
+void ADF::set_bounds(const Vector3d& lo_bound, const Vector3d& hi_bound)
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
   // set the bounds
   _lo_bounds = lo_bound;
   _hi_bounds = hi_bound;
+  shared_ptr<const Pose3d> P = _lo_bounds.pose;
+  assert(P == _hi_bounds.pose);
   
   // set the corner vertices of this ADF cell
   // The corner vertices are set as follows, where '0' and '7' are the vertices
@@ -188,14 +191,14 @@ void ADF::set_bounds(const Vector3& lo_bound, const Vector3& hi_bound)
 
   // reset the vertices 
   _vertices.clear();
-  _vertices.push_back(Vector3Ptr(new Vector3(_lo_bounds[X], _lo_bounds[Y], _lo_bounds[Z])));
-  _vertices.push_back(Vector3Ptr(new Vector3(_hi_bounds[X], _lo_bounds[Y], _lo_bounds[Z])));
-  _vertices.push_back(Vector3Ptr(new Vector3(_lo_bounds[X], _lo_bounds[Y], _hi_bounds[Z])));
-  _vertices.push_back(Vector3Ptr(new Vector3(_lo_bounds[X], _hi_bounds[Y], _lo_bounds[Z])));
-  _vertices.push_back(Vector3Ptr(new Vector3(_hi_bounds[X], _lo_bounds[Y], _hi_bounds[Z])));
-  _vertices.push_back(Vector3Ptr(new Vector3(_hi_bounds[X], _hi_bounds[Y], _lo_bounds[Z])));
-  _vertices.push_back(Vector3Ptr(new Vector3(_lo_bounds[X], _hi_bounds[Y], _hi_bounds[Z])));
-  _vertices.push_back(Vector3Ptr(new Vector3(_hi_bounds[X], _hi_bounds[Y], _hi_bounds[Z])));
+  _vertices.push_back(Vector3d(_lo_bounds[X], _lo_bounds[Y], _lo_bounds[Z], P));
+  _vertices.push_back(Vector3d(_hi_bounds[X], _lo_bounds[Y], _lo_bounds[Z], P));
+  _vertices.push_back(Vector3d(_lo_bounds[X], _lo_bounds[Y], _hi_bounds[Z], P));
+  _vertices.push_back(Vector3d(_lo_bounds[X], _hi_bounds[Y], _lo_bounds[Z], P));
+  _vertices.push_back(Vector3d(_hi_bounds[X], _lo_bounds[Y], _hi_bounds[Z], P));
+  _vertices.push_back(Vector3d(_hi_bounds[X], _hi_bounds[Y], _lo_bounds[Z], P));
+  _vertices.push_back(Vector3d(_lo_bounds[X], _hi_bounds[Y], _hi_bounds[Z], P));
+  _vertices.push_back(Vector3d(_hi_bounds[X], _hi_bounds[Y], _hi_bounds[Z], P));
 
   // reset the ADF
   reset();
@@ -232,23 +235,30 @@ void ADF::set_distances(const std::vector<double>& distances)
 }
 
 /// Distance function for a triangle mesh
-double ADF::trimesh_distance_function(const Vector3& pt, void* data)
+double ADF::trimesh_distance_function(const Vector3d& pt, void* data)
 {
   // get the Polyhedron 
   Polyhedron& poly = *(Polyhedron*) data;
 
+  // polyhedron is defined the global frame 
+  Point3d p = Pose3d::transform_point(GLOBAL, pt);
+
   // compute the distance
-  return poly.calc_signed_distance(pt);
+  return poly.calc_signed_distance(Origin3d(p));
 }
 
 /// Builds an ADF from a polyhedron
 shared_ptr<ADF> ADF::build_ADF(Polyhedron& poly, unsigned max_recursion, double epsilon, double max_pos_dist, double max_neg_dist)
 {
   // determine the bounding box for the triangle mesh
-  std::pair<Vector3, Vector3> bb = poly.get_bounding_box_corners();
+  std::pair<Origin3d, Origin3d> bb = poly.get_bounding_box_corners();
+
+  // get the bounding box in global coordinates
+  Point3d bb0_lo(bb.first, GLOBAL);
+  Point3d bb0_hi(bb.second, GLOBAL);
 
   // build the ADF
-  return build_ADF(bb.first, bb.second, &trimesh_distance_function, max_recursion, epsilon, max_pos_dist, max_neg_dist, (void*) &poly);
+  return build_ADF(bb0_lo, bb0_hi, &trimesh_distance_function, max_recursion, epsilon, max_pos_dist, max_neg_dist, (void*) &poly);
 }
 
 /// Builds an ADF using a bounding box and distance function
@@ -265,7 +275,7 @@ shared_ptr<ADF> ADF::build_ADF(Polyhedron& poly, unsigned max_recursion, double 
  *         ADF; default value is infinity
  * \return a shared pointer to the constructed ADF octree
  */
-shared_ptr<ADF> ADF::build_ADF(const Vector3& lo, const Vector3& hi, double (*dfn)(const Vector3&, void*), unsigned max_recursion, double epsilon, double max_pos_dist, double max_neg_dist, void* data)
+shared_ptr<ADF> ADF::build_ADF(const Vector3d& lo, const Vector3d& hi, double (*dfn)(const Vector3d&, void*), unsigned max_recursion, double epsilon, double max_pos_dist, double max_neg_dist, void* data)
 {
   const unsigned X = 0, Y = 1, Z = 2;
   const double COMPUTED_EXTRA = 0.01;
@@ -277,16 +287,16 @@ shared_ptr<ADF> ADF::build_ADF(const Vector3& lo, const Vector3& hi, double (*df
   // distance
   if (max_pos_dist < 0.0)
   {
-    Vector3 diag(hi[X] - lo[X], hi[Y] - lo[Y], hi[Z] - lo[Z]);
+    Vector3d diag(hi[X] - lo[X], hi[Y] - lo[Y], hi[Z] - lo[Z]);
     max_pos_dist = diag.norm() * COMPUTED_EXTRA;
   }
 
   // we'll make each dimension of the box slightly bigger to better represent 
   // the iso-surface
   const double INV_SQRT_3 = 1.0/std::sqrt(3.0);
-  Vector3 enlarge = Vector3(1.0, 1.0, 1.0)*INV_SQRT_3*max_pos_dist;
-  Vector3 new_lo = lo - enlarge;
-  Vector3 new_hi = hi + enlarge;
+  Vector3d enlarge = Vector3d(1.0, 1.0, 1.0)*INV_SQRT_3*max_pos_dist;
+  Vector3d new_lo = lo - enlarge;
+  Vector3d new_hi = hi + enlarge;
 
   FILE_LOG(LOG_ADF) << "  root ADF bounds: " << lo << " / " << hi << std::endl;
 
@@ -321,7 +331,7 @@ shared_ptr<ADF> ADF::build_ADF(const Vector3& lo, const Vector3& hi, double (*df
       continue;
 
     // get samples over this cell
-    std::vector<Vector3> samples;
+    std::vector<Vector3d> samples;
     cell->get_samples(samples);
 
     // otherwise, check whether the cell's distances within desired tolerance
@@ -370,7 +380,7 @@ shared_ptr<ADF> ADF::build_ADF(const Vector3& lo, const Vector3& hi, double (*df
 }
 
 /// Determines whether the given point is within this ADF's bounding box
-bool ADF::contains(const Vector3& point) const
+bool ADF::contains(const Vector3d& point) const
 {
   const unsigned THREE_D = 3;
 
@@ -381,129 +391,11 @@ bool ADF::contains(const Vector3& point) const
   return true;
 }
 
-/// Intersects two ADFs and returns the new ADF
-/**
- * \param adf1 the first ADF
- * \param adf2 the second ADF
- * \param epsilon the tolerance to the true distance below which further recursion
- *        is terminated
- * \param recursion_limit the maximum number of levels of the ADF octree
- * \return a smart pointer to the new ADF
- * \note closest triangles to samples in ADF cells are not preserved
- */
-shared_ptr<ADF> ADF::intersect(shared_ptr<ADF> adf1, shared_ptr<ADF> adf2, double epsilon, unsigned recursion_limit)
-{
-  const unsigned THREE_D = 3;
-
-  // setup a map of processed vertices
-  std::map<Vector3ConstPtr, double> processed;
-
-  // determine the intersection of the bounding box for the two ADFs
-  Vector3 lo, hi, lo1, hi1, lo2, hi2;
-  adf1->get_bounds(lo1, hi1);
-  adf2->get_bounds(lo2, hi2);
-  for (unsigned i=0; i< THREE_D; i++)
-  {
-    lo[i] = std::max(lo1[i], lo2[i]);
-    hi[i] = std::min(hi1[i], hi2[i]);
-  }
-
-  FILE_LOG(LOG_ADF) << "ADF::intersect() called" << std::endl;
-  FILE_LOG(LOG_ADF) << "  bounds for ADF 1: " << lo1 << " / " << hi1 << std::endl;
-  FILE_LOG(LOG_ADF) << "  bounds for ADF 2: " << lo2 << " / " << hi2 << std::endl;
-  FILE_LOG(LOG_ADF) << "  bounds for new ADF: " << lo << " / " << hi << std::endl;
-
-  // create the root of the new ADF
-  shared_ptr<ADF> root(new ADF);
-  root->set_bounds(lo, hi);
-
-  // set the distances on the root node
-  std::vector<double> distances(BOX_VERTICES);
-  const std::vector<Vector3ConstPtr>& root_vertices = root->get_vertices();
-  for (unsigned i=0; i< BOX_VERTICES; i++)
-  {
-    // compute the distance
-    distances[i] = calc_max_distance(adf1, adf2, *root_vertices[i]);
-
-    // save the distance
-    processed[root_vertices[i]] = distances[i];
-  }
-  root->set_distances(distances);
-
-  // setup a queue for processing
-  std::queue<shared_ptr<ADF> > q;
-  q.push(root);
-
-  // process until no more processing necessary
-  while (!q.empty())
-  {
-    // get the ADF cell off of the front of the queue
-    shared_ptr<ADF> cell = q.front();
-    q.pop();
-
-    // if it's not possible to subdivide the current cell any more, continue
-    if (cell->get_recursion_level() == recursion_limit)
-      continue;
-
-    // get the bounds on this cell
-    Vector3 lo, hi;
-    cell->get_bounds(lo, hi);
-
-    // get samples over this cell
-    std::vector<Vector3> samples;
-    cell->get_samples(samples);
-
-    // otherwise, check whether the cell's distances are within tolerance
-    bool within_tol = true;
-    for (unsigned i=0; within_tol && i< samples.size(); i++)
-      if (std::fabs(cell->calc_signed_distance(samples[i]) - calc_max_distance(adf1, adf2, samples[i])) > epsilon)
-        within_tol = false;
-
-    // if the cell is within tolerance, don't need to subdivide
-    if (within_tol)
-      continue;
-
-    // otherwise, subdivide the cell
-    cell->subdivide();
-
-    // compute distances for all of the cell's children and add the cell's
-    // children to the queue for processing
-    const std::vector<shared_ptr<ADF> >& children = cell->get_children();
-    for (unsigned i=0; i< OCT_CHILDREN; i++)
-    {
-      // get the vertices for the i'th child
-      const std::vector<Vector3ConstPtr>& vertices = children[i]->get_vertices();
-
-      // process all vertices
-      for (unsigned j=0; j< BOX_VERTICES; j++)
-      {
-        // if the j'th vertex has been processed already, save the distance
-        std::map<Vector3ConstPtr, double>::iterator k = processed.find(vertices[j]);
-        if (k != processed.end())
-          distances[j] = k->second;
-        else
-          distances[j] = calc_max_distance(adf1, adf2, *vertices[j]);
-
-        // save the computed distances
-        processed[vertices[j]] = distances[j];
-      }
-
-      // set the distances for the i'th child
-      children[i]->set_distances(distances);
-
-      // add the i'th child to the queue for processing
-      q.push(children[i]);
-    }
-  }
-
-  return root;
-}
-
 /// Determines the normal to the surface at a point
 /**
  * \note this uses the method defined by Frisken et al. [2000]
  */
-Vector3 ADF::determine_normal(const Vector3& point) const
+Vector3d ADF::determine_normal(const Vector3d& point) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
@@ -512,20 +404,20 @@ Vector3 ADF::determine_normal(const Vector3& point) const
   assert(cell);
 
   // get the bounds of the cell
-  Vector3 lo, hi;
+  Vector3d lo, hi;
   cell->get_bounds(lo, hi);
 
   // calculate the signed distance at the point projected to all six facets
   // of the cell
-  double left = cell->calc_signed_distance(Vector3(lo[X], point[Y], point[Z]));
-  double right = cell->calc_signed_distance(Vector3(hi[X], point[Y], point[Z]));
-  double up = cell->calc_signed_distance(Vector3(point[X], hi[Y], point[Z]));
-  double down = cell->calc_signed_distance(Vector3(point[X], lo[Y], point[Z]));
-  double front = cell->calc_signed_distance(Vector3(point[X], point[Y], hi[Z]));
-  double back = cell->calc_signed_distance(Vector3(point[X], point[Y], lo[Z]));
+  double left = cell->calc_signed_distance(Vector3d(lo[X], point[Y], point[Z]));
+  double right = cell->calc_signed_distance(Vector3d(hi[X], point[Y], point[Z]));
+  double up = cell->calc_signed_distance(Vector3d(point[X], hi[Y], point[Z]));
+  double down = cell->calc_signed_distance(Vector3d(point[X], lo[Y], point[Z]));
+  double front = cell->calc_signed_distance(Vector3d(point[X], point[Y], hi[Z]));
+  double back = cell->calc_signed_distance(Vector3d(point[X], point[Y], lo[Z]));
 
   // compute the gradient at this point
-  return Vector3::normalize(Vector3(right - left, up - down, front - back));
+  return Vector3d::normalize(Vector3d(right - left, up - down, front - back));
 }
 
 /// Gets all leaf nodes in the sub-tree rooted at this cell
@@ -560,7 +452,7 @@ void ADF::get_all_cells(std::list<shared_ptr<ADF> >& cells) const
 }
 
 /// Determines a sample on the iso-surface of the ADF
-bool ADF::generate_iso_sample(Vector3& sample, double epsilon) const
+bool ADF::generate_iso_sample(Vector3d& sample, double epsilon) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
@@ -581,7 +473,7 @@ bool ADF::generate_iso_sample(Vector3& sample, double epsilon) const
   }
 
   // get the distances and vertices, and shuffle them
-  std::vector<Vector3ConstPtr> vertices = _vertices;
+  std::vector<Vector3d> vertices = _vertices;
   std::vector<double> distances = _distances;
   std::random_shuffle(vertices.begin(), vertices.end());
   std::random_shuffle(distances.begin(), distances.end());
@@ -597,7 +489,7 @@ bool ADF::generate_iso_sample(Vector3& sample, double epsilon) const
     else
     {
       // if we're here, the distance is zero, and we've found the iso-surface!
-      sample = *vertices[i];
+      sample = vertices[i];
       return true;
     }
   }
@@ -643,7 +535,7 @@ bool ADF::generate_iso_sample(Vector3& sample, double epsilon) const
        q3*x1y*x8z + q5*x1y*x8z + q7*x8y*x8z - q8*x8y*x8z;
 
   // if the denominator is not zero, finish solving for px
-  if (std::fabs(denom) > 1e-12)
+  if (std::fabs(denom) > NEAR_ZERO)
   {
     // we've found valid values for py and pz; determine the numerator
     double num = py*pz*q1*x1x - py*pz*q3*x1x - 
@@ -673,7 +565,7 @@ bool ADF::generate_iso_sample(Vector3& sample, double epsilon) const
         px*q3*x8z - px*q5*x8z - px*q7*x8z + px*q8*x8z - 
         q3*x1x*x8z + q7*x1x*x8z + q5*x8x*x8z - q8*x8x*x8z;
 
-    if (std::fabs(denom) > 1e-12)
+    if (std::fabs(denom) > NEAR_ZERO)
     {
       // we've found valid values for px and pz; determine the numerator
       double num = px*pz*q1*x1y - px*pz*q2*x1y - 
@@ -704,7 +596,7 @@ bool ADF::generate_iso_sample(Vector3& sample, double epsilon) const
         q4*x1x*x8y + q7*x1x*x8y + q6*x8x*x8y - q8*x8x*x8y;
 
       // the denominator must not be equal to zero
-      assert(std::fabs(denom) > 1e-12);
+      assert(std::fabs(denom) > NEAR_ZERO);
 
       // determine the numerator
       double num = px*py*q1*x1z - px*py*q2*x1z - 
@@ -725,7 +617,7 @@ bool ADF::generate_iso_sample(Vector3& sample, double epsilon) const
   }
 
   // set the sample
-  sample = Vector3(px, py, pz);
+  sample = Vector3d(px, py, pz, _lo_bounds.pose);
 
   // check the distance
   if (std::fabs(calc_signed_distance(sample)) > epsilon)
@@ -743,7 +635,7 @@ bool ADF::generate_iso_sample(Vector3& sample, double epsilon) const
  * only inside one ADF, that distance is returned.  If it is inside neither
  * ADF, +infinity is returned.
  */
-double ADF::calc_max_distance(shared_ptr<ADF> adf1, shared_ptr<ADF> adf2, const Vector3& point)
+double ADF::calc_max_distance(shared_ptr<ADF> adf1, shared_ptr<ADF> adf2, const Vector3d& point)
 {
   // check to see whether the point is inside the ADFs
   bool inside1 = adf1->contains(point);
@@ -762,6 +654,7 @@ double ADF::calc_max_distance(shared_ptr<ADF> adf1, shared_ptr<ADF> adf2, const 
     return std::max(adf1->calc_signed_distance(point), adf2->calc_signed_distance(point));
 }
 
+// TODO: check this function (not sure it works after changing vertices from pointers)
 /// Simplifies an ADF by coalescing cells
 void ADF::simplify(double epsilon)
 {
@@ -780,27 +673,27 @@ void ADF::simplify(double epsilon)
       return;
 
   // we can possibly coalesce the children; check distances at 19 points
-  std::map<Vector3ConstPtr, double> check;
+  std::map<Vector3d, double> check;
   for (unsigned i=0; i< OCT_CHILDREN; i++)
   {
-    const std::vector<Vector3ConstPtr>& vertices = _children[i]->get_vertices();
+    const std::vector<Vector3d>& vertices = _children[i]->get_vertices();
     const std::vector<double>& distances = _children[i]->get_distances();
     for (unsigned j=0; j< BOX_VERTICES; j++)
       check[vertices[j]] = distances[j];
   }
 
   // get the set of vertices of this cell (sorted)
-  std::set<Vector3ConstPtr> vertex_set(_vertices.begin(), _vertices.end());
+  std::set<Vector3d> vertex_set(_vertices.begin(), _vertices.end());
   
   // check distances at all points that don't already exist in this cell
-  for (std::map<Vector3ConstPtr, double>::iterator i = check.begin(); i != check.end(); i++)
+  for (std::map<Vector3d, double>::iterator i = check.begin(); i != check.end(); i++)
   {
     // if the vertex exists in this cell, don't check it
     if (vertex_set.find(i->first) != vertex_set.end())
       continue;
 
     // if the distance is above the tolerance, we aren't able to coalesce 
-    if (std::fabs(tri_linear_interp(_vertices, _distances, *i->first) - i->second) > epsilon)
+    if (std::fabs(tri_linear_interp(_vertices, _distances, i->first) - i->second) > epsilon)
       return; 
   }
 
@@ -809,7 +702,7 @@ void ADF::simplify(double epsilon)
 }
 
 /// Computes the signed distance using this ADF cell using trilinear interpolation
-double ADF::calc_signed_distance(const Vector3& point) const
+double ADF::calc_signed_distance(const Vector3d& point) const
 {
   // get the leaf cell that contains this point
   shared_ptr<ADF> leaf = is_cell_occupied(point);
@@ -818,7 +711,7 @@ double ADF::calc_signed_distance(const Vector3& point) const
   assert(leaf);
 
   // get the vector of vertices
-  const std::vector<Vector3ConstPtr>& vertices = leaf->get_vertices();  
+  const std::vector<Vector3d>& vertices = leaf->get_vertices();  
 
   // get the vector of distances
   const std::vector<double>& distances = leaf->get_distances();
@@ -833,12 +726,12 @@ double ADF::calc_signed_distance(const Vector3& point) const
  * the center of each edge (12).
  * \note the passed vector is not cleared
  */
-void ADF::get_samples(std::vector<Vector3>& samples) const
+void ADF::get_samples(std::vector<Vector3d>& samples) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
   // add the center to the samples
-  samples.push_back(Vector3(_lo_bounds + _hi_bounds)/2);
+  samples.push_back(Vector3d(_lo_bounds + _hi_bounds)/2);
 
   // compute midpoints of the bounds
   double mid_x = (_lo_bounds[X] + _hi_bounds[X])/2;
@@ -846,44 +739,42 @@ void ADF::get_samples(std::vector<Vector3>& samples) const
   double mid_z = (_lo_bounds[Z] + _hi_bounds[Z])/2;
 
   // add the center of each face
-  samples.push_back(Vector3(mid_x, mid_y, _lo_bounds[Z]));
-  samples.push_back(Vector3(mid_x, mid_y, _hi_bounds[Z]));
-  samples.push_back(Vector3(_lo_bounds[X], mid_y, mid_z));
-  samples.push_back(Vector3(_hi_bounds[X], mid_y, mid_z));
-  samples.push_back(Vector3(mid_x, _lo_bounds[Y], mid_z));
-  samples.push_back(Vector3(mid_x, _hi_bounds[Y], mid_z));
+  samples.push_back(Vector3d(mid_x, mid_y, _lo_bounds[Z]));
+  samples.push_back(Vector3d(mid_x, mid_y, _hi_bounds[Z]));
+  samples.push_back(Vector3d(_lo_bounds[X], mid_y, mid_z));
+  samples.push_back(Vector3d(_hi_bounds[X], mid_y, mid_z));
+  samples.push_back(Vector3d(mid_x, _lo_bounds[Y], mid_z));
+  samples.push_back(Vector3d(mid_x, _hi_bounds[Y], mid_z));
 
   // add the center of each edge
-  samples.push_back(Vector3(mid_x,_lo_bounds[Y],_lo_bounds[Z]));  
-  samples.push_back(Vector3(mid_x,_lo_bounds[Y],_hi_bounds[Z]));  
-  samples.push_back(Vector3(mid_x,_hi_bounds[Y],_lo_bounds[Z]));  
-  samples.push_back(Vector3(mid_x,_hi_bounds[Y],_hi_bounds[Z]));  
-  samples.push_back(Vector3(_lo_bounds[X],mid_y,_lo_bounds[Z]));  
-  samples.push_back(Vector3(_lo_bounds[X],mid_y,_hi_bounds[Z]));  
-  samples.push_back(Vector3(_hi_bounds[X],mid_y,_lo_bounds[Z]));  
-  samples.push_back(Vector3(_hi_bounds[X],mid_y,_hi_bounds[Z]));  
-  samples.push_back(Vector3(_lo_bounds[X],_lo_bounds[Y],mid_z));  
-  samples.push_back(Vector3(_lo_bounds[X],_hi_bounds[Y],mid_z));  
-  samples.push_back(Vector3(_hi_bounds[X],_lo_bounds[Y],mid_z));  
-  samples.push_back(Vector3(_hi_bounds[X],_hi_bounds[Y],mid_z));  
+  samples.push_back(Vector3d(mid_x,_lo_bounds[Y],_lo_bounds[Z]));  
+  samples.push_back(Vector3d(mid_x,_lo_bounds[Y],_hi_bounds[Z]));  
+  samples.push_back(Vector3d(mid_x,_hi_bounds[Y],_lo_bounds[Z]));  
+  samples.push_back(Vector3d(mid_x,_hi_bounds[Y],_hi_bounds[Z]));  
+  samples.push_back(Vector3d(_lo_bounds[X],mid_y,_lo_bounds[Z]));  
+  samples.push_back(Vector3d(_lo_bounds[X],mid_y,_hi_bounds[Z]));  
+  samples.push_back(Vector3d(_hi_bounds[X],mid_y,_lo_bounds[Z]));  
+  samples.push_back(Vector3d(_hi_bounds[X],mid_y,_hi_bounds[Z]));  
+  samples.push_back(Vector3d(_lo_bounds[X],_lo_bounds[Y],mid_z));  
+  samples.push_back(Vector3d(_lo_bounds[X],_hi_bounds[Y],mid_z));  
+  samples.push_back(Vector3d(_hi_bounds[X],_lo_bounds[Y],mid_z));  
+  samples.push_back(Vector3d(_hi_bounds[X],_hi_bounds[Y],mid_z));  
 }
 
 /// Gets the OpenInventor scenegraph representation of the ADF as a point set
+#ifdef USE_INVENTOR
 SoSeparator* ADF::render() const
 {
-  #ifdef USE_INVENTOR
   SoSeparator* separator = new SoSeparator;
   render(separator);
   return separator;
-  #else
-  return NULL;
-  #endif
 }
+#endif
 
+#ifdef USE_INVENTOR
 /// Gets the OpenInventor scenegraph representation of the ADF as a point set
 void ADF::render(SoSeparator* separator) const
 {
-  #ifdef USE_INVENTOR
   const unsigned POINTS_PER_DIM = 10;
   const unsigned X = 0, Y = 1, Z = 2;
 
@@ -929,7 +820,7 @@ void ADF::render(SoSeparator* separator) const
           px = (double) rand() / RAND_MAX * (_hi_bounds[X] - _lo_bounds[X]) + _lo_bounds[X];
           py = (double) rand() / RAND_MAX * (_hi_bounds[Y] - _lo_bounds[Y]) + _lo_bounds[Y];
           pz = (double) rand() / RAND_MAX * (_hi_bounds[Z] - _lo_bounds[Z]) + _lo_bounds[Z];
-          if (std::fabs(calc_signed_distance(Vector3(px, py, pz))) < 1e-2)
+          if (std::fabs(calc_signed_distance(Vector3d(px, py, pz))) < 1e-2)
             coords->point.set1Value(idx++, px, py, pz);
         }
       }
@@ -981,8 +872,8 @@ void ADF::render(SoSeparator* separator) const
     sep->addChild(ls);
     separator->addChild(sep);
   }
-  #endif
 }
+#endif
 
 /// Performs trilinear interpolation at point p, given a vector of 8 three-dimensional points and their associated functional values
 /**
@@ -994,7 +885,7 @@ void ADF::render(SoSeparator* separator) const
  *    |/  |/
  *    0---1
  */
-double ADF::tri_linear_interp(const std::vector<Vector3ConstPtr>& x, const std::vector<double>& q, const Vector3& p)
+double ADF::tri_linear_interp(const std::vector<Vector3d>& x, const std::vector<double>& q, const Vector3d& p)
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
@@ -1003,17 +894,17 @@ double ADF::tri_linear_interp(const std::vector<Vector3ConstPtr>& x, const std::
   assert(q.size() == BOX_VERTICES);
 
   // get the lengths in the x, y, and z directions
-  double xlen = (*x[1])[X] - (*x[0])[X];
-  double ylen = (*x[3])[Y] - (*x[0])[Y];
-  double zlen = (*x[2])[Z] - (*x[0])[Z];
+  double xlen = (x[1])[X] - (x[0])[X];
+  double ylen = (x[3])[Y] - (x[0])[Y];
+  double zlen = (x[2])[Z] - (x[0])[Z];
 
   // get distance from the bounds of the cube in each direction 
-  double dHIx = (*x[1])[X] - p[X];
-  double dLOx = p[X] - (*x[0])[X];
-  double dHIy = (*x[3])[Y] - p[Y];
-  double dLOy = p[Y] - (*x[0])[Y];
-  double dHIz = (*x[2])[Z] - p[Z];
-  double dLOz = p[Z] - (*x[0])[Z];
+  double dHIx = (x[1])[X] - p[X];
+  double dLOx = p[X] - (x[0])[X];
+  double dHIy = (x[3])[Y] - p[Y];
+  double dLOy = p[Y] - (x[0])[Y];
+  double dHIz = (x[2])[Z] - p[Z];
+  double dLOz = p[Z] - (x[0])[Z];
 
   // compute the interpolated value
   double value = 0;
@@ -1033,7 +924,7 @@ double ADF::tri_linear_interp(const std::vector<Vector3ConstPtr>& x, const std::
   FILE_LOG(LOG_ADF) << "  evaluating point: " << p << std::endl;
   FILE_LOG(LOG_ADF) << "  vertices and q values: " << std::endl;
   for (unsigned i=0; i< BOX_VERTICES; i++)
-    FILE_LOG(LOG_ADF) << "    " << *x[i] << " --> " << q[i] << std::endl;
+    FILE_LOG(LOG_ADF) << "    " << x[i] << " --> " << q[i] << std::endl;
   FILE_LOG(LOG_ADF) << "ADF::tri_linear_interp() exited" << std::endl;
 
   return value;
@@ -1061,7 +952,7 @@ void ADF::subdivide()
     return;
 
   // compute the side length
-  Vector3 slen = (_hi_bounds - _lo_bounds)/2;
+  Vector3d slen = (_hi_bounds - _lo_bounds)/2;
 
   // allocate the vector for the children 
   _children = std::vector<shared_ptr<ADF> >(OCT_CHILDREN);
@@ -1101,31 +992,31 @@ void ADF::subdivide()
   double midz = _lo_bounds[Z] + slen[Z];
 
   // setup vectors for sub bounds
-  Vector3 sub_lo_bounds, sub_hi_bounds;
+  Vector3d sub_lo_bounds, sub_hi_bounds;
 
   // setup the new vertices (a..u)
-  Vector3ConstPtr a(new Vector3(midx, _lo_bounds[Y], _lo_bounds[Z]));
-  Vector3ConstPtr b(new Vector3(_lo_bounds[X], _lo_bounds[Y], midz));
-  Vector3ConstPtr c(new Vector3(midx, _lo_bounds[Y], midz));
-  Vector3ConstPtr d(new Vector3(_hi_bounds[X], _lo_bounds[Y], midz));
-  Vector3ConstPtr e(new Vector3(midx, _lo_bounds[Y], _hi_bounds[Z]));
-  Vector3ConstPtr f(new Vector3(_lo_bounds[X], midy, _hi_bounds[Z]));
-  Vector3ConstPtr g(new Vector3(midx, midy, _hi_bounds[Z]));
-  Vector3ConstPtr i(new Vector3(_hi_bounds[X], midy, _hi_bounds[Z]));
-  Vector3ConstPtr j(new Vector3(_lo_bounds[X], midy, midz));
-  Vector3ConstPtr k(new Vector3(midx, midy, midz));
-  Vector3ConstPtr m(new Vector3(_hi_bounds[X], midy, midz));
-  Vector3ConstPtr n(new Vector3(_lo_bounds[X], midy, _lo_bounds[Z]));
-  Vector3ConstPtr o(new Vector3(midx, midy, _lo_bounds[Z]));
-  Vector3ConstPtr p(new Vector3(_hi_bounds[X], midy, _lo_bounds[Z]));
-  Vector3ConstPtr q(new Vector3(midx, _hi_bounds[Y], _hi_bounds[Z]));
-  Vector3ConstPtr r(new Vector3(_lo_bounds[X], _hi_bounds[Y], midz));
-  Vector3ConstPtr s(new Vector3(midx, _hi_bounds[Y], midz));
-  Vector3ConstPtr t(new Vector3(_hi_bounds[X], _hi_bounds[Y], midz));
-  Vector3ConstPtr u(new Vector3(midx, _hi_bounds[Y], _lo_bounds[Z]));
+  Vector3d a(midx, _lo_bounds[Y], _lo_bounds[Z]);
+  Vector3d b(_lo_bounds[X], _lo_bounds[Y], midz);
+  Vector3d c(midx, _lo_bounds[Y], midz);
+  Vector3d d(_hi_bounds[X], _lo_bounds[Y], midz);
+  Vector3d e(midx, _lo_bounds[Y], _hi_bounds[Z]);
+  Vector3d f(_lo_bounds[X], midy, _hi_bounds[Z]);
+  Vector3d g(midx, midy, _hi_bounds[Z]);
+  Vector3d i(_hi_bounds[X], midy, _hi_bounds[Z]);
+  Vector3d j(_lo_bounds[X], midy, midz);
+  Vector3d k(midx, midy, midz);
+  Vector3d m(_hi_bounds[X], midy, midz);
+  Vector3d n(_lo_bounds[X], midy, _lo_bounds[Z]);
+  Vector3d o(midx, midy, _lo_bounds[Z]);
+  Vector3d p(_hi_bounds[X], midy, _lo_bounds[Z]);
+  Vector3d q(midx, _hi_bounds[Y], _hi_bounds[Z]);
+  Vector3d r(_lo_bounds[X], _hi_bounds[Y], midz);
+  Vector3d s(midx, _hi_bounds[Y], midz);
+  Vector3d t(_hi_bounds[X], _hi_bounds[Y], midz);
+  Vector3d u(midx, _hi_bounds[Y], _lo_bounds[Z]);
   
   // box 0
-  std::vector<Vector3ConstPtr> box_0_verts;
+  std::vector<Vector3d> box_0_verts;
   box_0_verts.push_back(_vertices[0]);
   box_0_verts.push_back(a);
   box_0_verts.push_back(b);
@@ -1137,7 +1028,7 @@ void ADF::subdivide()
   _children[0] = shared_ptr<ADF>(new ADF(shared_from_this(), box_0_verts));
   
   // box 1
-  std::vector<Vector3ConstPtr> box_1_verts;
+  std::vector<Vector3d> box_1_verts;
   box_1_verts.push_back(a);
   box_1_verts.push_back(_vertices[1]);
   box_1_verts.push_back(c);
@@ -1149,7 +1040,7 @@ void ADF::subdivide()
   _children[1] = shared_ptr<ADF>(new ADF(shared_from_this(),  box_1_verts));
   
   // box 2
-  std::vector<Vector3ConstPtr> box_2_verts;
+  std::vector<Vector3d> box_2_verts;
   box_2_verts.push_back(b);
   box_2_verts.push_back(c);
   box_2_verts.push_back(_vertices[2]);
@@ -1161,7 +1052,7 @@ void ADF::subdivide()
 _children[2] = shared_ptr<ADF>(new ADF(shared_from_this(),  box_2_verts));
   
   // box 4
-  std::vector<Vector3ConstPtr> box_4_verts;
+  std::vector<Vector3d> box_4_verts;
   box_4_verts.push_back(c);
   box_4_verts.push_back(d);
   box_4_verts.push_back(e);
@@ -1173,7 +1064,7 @@ _children[2] = shared_ptr<ADF>(new ADF(shared_from_this(),  box_2_verts));
   _children[4] = shared_ptr<ADF>(new ADF(shared_from_this(),  box_4_verts));
 
   // box 3
-  std::vector<Vector3ConstPtr> box_3_verts;
+  std::vector<Vector3d> box_3_verts;
   box_3_verts.push_back(n);
   box_3_verts.push_back(o);
   box_3_verts.push_back(j);
@@ -1185,7 +1076,7 @@ _children[2] = shared_ptr<ADF>(new ADF(shared_from_this(),  box_2_verts));
   _children[3] = shared_ptr<ADF>(new ADF(shared_from_this(),  box_3_verts));
   
   // box 5
-  std::vector<Vector3ConstPtr> box_5_verts;
+  std::vector<Vector3d> box_5_verts;
   box_5_verts.push_back(o);
   box_5_verts.push_back(p);
   box_5_verts.push_back(k);
@@ -1197,7 +1088,7 @@ _children[2] = shared_ptr<ADF>(new ADF(shared_from_this(),  box_2_verts));
   _children[5] = shared_ptr<ADF>(new ADF(shared_from_this(),  box_5_verts));
   
   // box 6
-  std::vector<Vector3ConstPtr> box_6_verts;
+  std::vector<Vector3d> box_6_verts;
   box_6_verts.push_back(j);
   box_6_verts.push_back(k);
   box_6_verts.push_back(f);
@@ -1209,7 +1100,7 @@ _children[2] = shared_ptr<ADF>(new ADF(shared_from_this(),  box_2_verts));
   _children[6] = shared_ptr<ADF>(new ADF(shared_from_this(),  box_6_verts));
   
   // box 7
-  std::vector<Vector3ConstPtr> box_7_verts;
+  std::vector<Vector3d> box_7_verts;
   box_7_verts.push_back(k);
   box_7_verts.push_back(m);
   box_7_verts.push_back(g);
@@ -1226,7 +1117,7 @@ _children[2] = shared_ptr<ADF>(new ADF(shared_from_this(),  box_2_verts));
 
 
 /// Subdivides this ADF cell and computes distance quickly for children using mesh
-void ADF::subdivide(double (*dfn)(const Vector3&, void*), void* data)
+void ADF::subdivide(double (*dfn)(const Vector3d&, void*), void* data)
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
@@ -1234,7 +1125,7 @@ void ADF::subdivide(double (*dfn)(const Vector3&, void*), void* data)
     return;
 
   // compute the side length
-  Vector3 slen = (_hi_bounds - _lo_bounds)/2;
+  Vector3d slen = (_hi_bounds - _lo_bounds)/2;
 
   // allocate the vector for the children 
   _children = std::vector<shared_ptr<ADF> >(OCT_CHILDREN);
@@ -1274,52 +1165,52 @@ void ADF::subdivide(double (*dfn)(const Vector3&, void*), void* data)
   double midz = _lo_bounds[Z] + slen[Z];
 
   // setup vectors for sub bounds
-  Vector3 sub_lo_bounds, sub_hi_bounds;
+  Vector3d sub_lo_bounds, sub_hi_bounds;
 
   // setup the new vertices (a..u)
-  Vector3ConstPtr a(new Vector3(midx, _lo_bounds[Y], _lo_bounds[Z]));
-  Vector3ConstPtr b(new Vector3(_lo_bounds[X], _lo_bounds[Y], midz));
-  Vector3ConstPtr c(new Vector3(midx, _lo_bounds[Y], midz));
-  Vector3ConstPtr d(new Vector3(_hi_bounds[X], _lo_bounds[Y], midz));
-  Vector3ConstPtr e(new Vector3(midx, _lo_bounds[Y], _hi_bounds[Z]));
-  Vector3ConstPtr f(new Vector3(_lo_bounds[X], midy, _hi_bounds[Z]));
-  Vector3ConstPtr g(new Vector3(midx, midy, _hi_bounds[Z]));
-  Vector3ConstPtr i(new Vector3(_hi_bounds[X], midy, _hi_bounds[Z]));
-  Vector3ConstPtr j(new Vector3(_lo_bounds[X], midy, midz));
-  Vector3ConstPtr k(new Vector3(midx, midy, midz));
-  Vector3ConstPtr m(new Vector3(_hi_bounds[X], midy, midz));
-  Vector3ConstPtr n(new Vector3(_lo_bounds[X], midy, _lo_bounds[Z]));
-  Vector3ConstPtr o(new Vector3(midx, midy, _lo_bounds[Z]));
-  Vector3ConstPtr p(new Vector3(_hi_bounds[X], midy, _lo_bounds[Z]));
-  Vector3ConstPtr q(new Vector3(midx, _hi_bounds[Y], _hi_bounds[Z]));
-  Vector3ConstPtr r(new Vector3(_lo_bounds[X], _hi_bounds[Y], midz));
-  Vector3ConstPtr s(new Vector3(midx, _hi_bounds[Y], midz));
-  Vector3ConstPtr t(new Vector3(_hi_bounds[X], _hi_bounds[Y], midz));
-  Vector3ConstPtr u(new Vector3(midx, _hi_bounds[Y], _lo_bounds[Z]));
+  Vector3d a(midx, _lo_bounds[Y], _lo_bounds[Z]);
+  Vector3d b(_lo_bounds[X], _lo_bounds[Y], midz);
+  Vector3d c(midx, _lo_bounds[Y], midz);
+  Vector3d d(_hi_bounds[X], _lo_bounds[Y], midz);
+  Vector3d e(midx, _lo_bounds[Y], _hi_bounds[Z]);
+  Vector3d f(_lo_bounds[X], midy, _hi_bounds[Z]);
+  Vector3d g(midx, midy, _hi_bounds[Z]);
+  Vector3d i(_hi_bounds[X], midy, _hi_bounds[Z]);
+  Vector3d j(_lo_bounds[X], midy, midz);
+  Vector3d k(midx, midy, midz);
+  Vector3d m(_hi_bounds[X], midy, midz);
+  Vector3d n(_lo_bounds[X], midy, _lo_bounds[Z]);
+  Vector3d o(midx, midy, _lo_bounds[Z]);
+  Vector3d p(_hi_bounds[X], midy, _lo_bounds[Z]);
+  Vector3d q(midx, _hi_bounds[Y], _hi_bounds[Z]);
+  Vector3d r(_lo_bounds[X], _hi_bounds[Y], midz);
+  Vector3d s(midx, _hi_bounds[Y], midz);
+  Vector3d t(_hi_bounds[X], _hi_bounds[Y], midz);
+  Vector3d u(midx, _hi_bounds[Y], _lo_bounds[Z]);
   
   // compute necessary distances
-  double a_d = dfn(*a, data);
-  double b_d = dfn(*b, data);
-  double c_d = dfn(*c, data);
-  double d_d = dfn(*d, data);
-  double e_d = dfn(*e, data);
-  double f_d = dfn(*f, data);
-  double g_d = dfn(*g, data);
-  double i_d = dfn(*i, data);
-  double j_d = dfn(*j, data);
-  double k_d = dfn(*k, data);
-  double m_d = dfn(*m, data);
-  double n_d = dfn(*n, data);
-  double o_d = dfn(*o, data);
-  double p_d = dfn(*p, data);
-  double q_d = dfn(*q, data);
-  double r_d = dfn(*r, data);
-  double s_d = dfn(*s, data);
-  double t_d = dfn(*t, data);
-  double u_d = dfn(*u, data);
+  double a_d = dfn(a, data);
+  double b_d = dfn(b, data);
+  double c_d = dfn(c, data);
+  double d_d = dfn(d, data);
+  double e_d = dfn(e, data);
+  double f_d = dfn(f, data);
+  double g_d = dfn(g, data);
+  double i_d = dfn(i, data);
+  double j_d = dfn(j, data);
+  double k_d = dfn(k, data);
+  double m_d = dfn(m, data);
+  double n_d = dfn(n, data);
+  double o_d = dfn(o, data);
+  double p_d = dfn(p, data);
+  double q_d = dfn(q, data);
+  double r_d = dfn(r, data);
+  double s_d = dfn(s, data);
+  double t_d = dfn(t, data);
+  double u_d = dfn(u, data);
 
   // box 0
-  std::vector<Vector3ConstPtr> box_0_verts;
+  std::vector<Vector3d> box_0_verts;
   box_0_verts.push_back(_vertices[0]);
   box_0_verts.push_back(a);
   box_0_verts.push_back(b);
@@ -1341,7 +1232,7 @@ void ADF::subdivide(double (*dfn)(const Vector3&, void*), void* data)
   _children[0]->_distances = box_0_distances;
   
   // box 1
-  std::vector<Vector3ConstPtr> box_1_verts;
+  std::vector<Vector3d> box_1_verts;
   box_1_verts.push_back(a);
   box_1_verts.push_back(_vertices[1]);
   box_1_verts.push_back(c);
@@ -1363,7 +1254,7 @@ void ADF::subdivide(double (*dfn)(const Vector3&, void*), void* data)
   _children[1]->_distances = box_1_distances;
   
   // box 2
-  std::vector<Vector3ConstPtr> box_2_verts;
+  std::vector<Vector3d> box_2_verts;
   box_2_verts.push_back(b);
   box_2_verts.push_back(c);
   box_2_verts.push_back(_vertices[2]);
@@ -1385,7 +1276,7 @@ _children[2] = shared_ptr<ADF>(new ADF(shared_from_this(),  box_2_verts));
   _children[2]->_distances = box_2_distances;
   
   // box 4
-  std::vector<Vector3ConstPtr> box_4_verts;
+  std::vector<Vector3d> box_4_verts;
   box_4_verts.push_back(c);
   box_4_verts.push_back(d);
   box_4_verts.push_back(e);
@@ -1407,7 +1298,7 @@ _children[2] = shared_ptr<ADF>(new ADF(shared_from_this(),  box_2_verts));
   _children[4]->_distances = box_4_distances;
 
   // box 3
-  std::vector<Vector3ConstPtr> box_3_verts;
+  std::vector<Vector3d> box_3_verts;
   box_3_verts.push_back(n);
   box_3_verts.push_back(o);
   box_3_verts.push_back(j);
@@ -1429,7 +1320,7 @@ _children[2] = shared_ptr<ADF>(new ADF(shared_from_this(),  box_2_verts));
   _children[3]->_distances = box_3_distances;
   
   // box 5
-  std::vector<Vector3ConstPtr> box_5_verts;
+  std::vector<Vector3d> box_5_verts;
   box_5_verts.push_back(o);
   box_5_verts.push_back(p);
   box_5_verts.push_back(k);
@@ -1451,7 +1342,7 @@ _children[2] = shared_ptr<ADF>(new ADF(shared_from_this(),  box_2_verts));
   _children[5]->_distances = box_5_distances;
   
   // box 6
-  std::vector<Vector3ConstPtr> box_6_verts;
+  std::vector<Vector3d> box_6_verts;
   box_6_verts.push_back(j);
   box_6_verts.push_back(k);
   box_6_verts.push_back(f);
@@ -1473,7 +1364,7 @@ _children[2] = shared_ptr<ADF>(new ADF(shared_from_this(),  box_2_verts));
   _children[6]->_distances = box_6_distances;
   
   // box 7
-  std::vector<Vector3ConstPtr> box_7_verts;
+  std::vector<Vector3d> box_7_verts;
   box_7_verts.push_back(k);
   box_7_verts.push_back(m);
   box_7_verts.push_back(g);
@@ -1501,8 +1392,8 @@ void ADF::save_to_file(const std::string& filename) const
   const unsigned X = 0, Y = 1, Z = 2;
 
   // compose the map of vertices
-  std::map<Vector3ConstPtr, unsigned> vertices;
-  std::list<Vector3ConstPtr> verts;
+  std::map<Vector3d, unsigned> vertices;
+  std::list<Vector3d> verts;
   std::stack<shared_ptr<const ADF> > s;
   s.push(shared_from_this());
   while (!s.empty())
@@ -1531,8 +1422,8 @@ void ADF::save_to_file(const std::string& filename) const
   out << verts.size() << std::endl;
 
   // write the vertices
-  for (std::list<Vector3ConstPtr>::const_iterator i = verts.begin(); i != verts.end(); i++)
-    out << (**i)[X] << " " << (**i)[Y] << " " << (**i)[Z] << std::endl;
+  for (std::list<Vector3d>::const_iterator i = verts.begin(); i != verts.end(); i++)
+    out << (*i)[X] << " " << (*i)[Y] << " " << (*i)[Z] << std::endl;
 
   // write each cell
   unsigned written = 0;
@@ -1588,15 +1479,14 @@ shared_ptr<ADF> ADF::load_from_file(const std::string& filename)
   in >> verts;
 
   // read the vertices
-  std::map<unsigned, Vector3ConstPtr> vertices;
+  std::map<unsigned, Vector3d> vertices;
   for (unsigned i=0; i< verts; i++)
   {
-    Vector3 vec;
+    Vector3d vec;
     in >> vec[X];
     in >> vec[Y];
     in >> vec[Z];
-    Vector3ConstPtr vc(new Vector3(vec));
-    vertices[i] = vc;
+    vertices[i] = vec;
   }
 
   // create the root cell and add it to the stack
@@ -1664,11 +1554,11 @@ shared_ptr<ADF> ADF::load_from_file(const std::string& filename)
 }
 
 /// Sets the distances of all vertices of this cell
-void ADF::set_distances(double (*dfn)(const Vector3&, void*), void* data)
+void ADF::set_distances(double (*dfn)(const Vector3d&, void*), void* data)
 {
   _distances = std::vector<double>(BOX_VERTICES);
   for (unsigned i=0; i< BOX_VERTICES; i++)
-    _distances[i] = dfn(*_vertices[i], data);
+    _distances[i] = dfn(_vertices[i], data);
 }
 
 /// Gets the recursion level of this ADF
@@ -1686,9 +1576,9 @@ unsigned ADF::get_recursion_level() const
 /// Prints out the stats on this ADF cell
 std::ostream& Moby::operator<<(std::ostream& out, const ADF& adf)
 {
-  const std::vector<Vector3ConstPtr>& vertices = adf.get_vertices();
+  const std::vector<Vector3d>& vertices = adf.get_vertices();
   const std::vector<double>& distances = adf.get_distances();
-  Vector3 lo, hi;
+  Vector3d lo, hi;
   adf.get_bounds(lo, hi);
 
   out << "cell level: " << adf.get_recursion_level() << std::endl;
@@ -1696,7 +1586,7 @@ std::ostream& Moby::operator<<(std::ostream& out, const ADF& adf)
   out << "bounds: " << lo << " / " << hi << std::endl;
   out << "cell vertices and distances: " << std::endl;
   for (unsigned i=0; i< vertices.size(); i++)
-    out << "  " << *vertices[i] << " --> " << distances[i] << std::endl;
+    out << "  " << vertices[i] << " --> " << distances[i] << std::endl;
 
   return out;
 }

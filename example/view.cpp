@@ -49,7 +49,7 @@ int main(int argc, char ** argv)
   viewer.addEventHandler(new osgGA::StateSetManipulator(viewer.getCamera()->getOrCreateStateSet()));
   viewer.addEventHandler(new osgViewer::WindowSizeHandler);
   viewer.addEventHandler(new osgViewer::StatsHandler);
-  viewer.setLightingMode(osg::View::SKY_LIGHT);
+  viewer.setLightingMode(osg::View::HEADLIGHT);
 
   // setup the view window size
   viewer.setUpViewInWindow(0, 0, 640, 480);
@@ -57,9 +57,21 @@ int main(int argc, char ** argv)
   // setup the camera
   viewer.getCamera()->setViewMatrixAsLookAt(osg::Vec3d(0,0,10), osg::Vec3d(0,0,0), osg::Vec3d(0,1,0));
 
-  // Open the argument file(s)..
+  // create the group
   mainroot = new osg::Group;
   mainroot->ref();
+
+  // attempt to open the scenery file
+  std::string scenery_fname("scene.osg");
+  std::ifstream in(scenery_fname.c_str());
+  if (!in.fail())
+  {
+    std::cout << "...using scenery file" << std::endl;
+    mainroot->addChild(osgDB::readNodeFile(scenery_fname));
+    in.close();
+  }
+
+  // Open the argument file(s)..
   for (int i=2; i< argc; i++)
   {
     // do different things based on the file extension

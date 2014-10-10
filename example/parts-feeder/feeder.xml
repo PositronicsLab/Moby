@@ -1,0 +1,73 @@
+<XML>
+  <DRIVER>
+    <camera position="0.35 -0.55 0.5" target="0 0 0" up="0 0 1" />
+    <window location="0 0" size="640 480" />
+  </DRIVER>
+
+  <MOBY>
+    <!-- multiple servo rigid bodies -->
+    <ODEPACKIntegrator id="odepack" abs-err-tol="1e-3" rel-err-tol="1e-3" />
+    <EulerIntegrator id="euler" />
+    <RungeKuttaIntegrator id="rk4" />
+    <RungeKuttaFehlbergIntegrator id="rkf" abs-err-tol="1e-1" rel-err-tol="1e-1" />
+    <BulirschStoerIntegrator id="bs" abs-err-tol="1e-1" rel-err-tol="1e-1" />
+
+    <GravityForce id="gravity" accel="0 0 -9.81" />
+
+    <EventDrivenSimulator integrator-id="rk4" max-event-time="inf" Euler-step="0.001">
+      <RecurrentForce recurrent-force-id="gravity" />
+      <DisabledPair object1-id="FEEDER" object2-id="FEEDER"/>
+      <DynamicBody dynamic-body-id="FEEDER" />
+      <DynamicBody dynamic-body-id="PART" />
+      <ContactParameters object1-id="PART" object2-id="FEEDER" mu-coulomb="0.01" mu-viscous="0" epsilon="0.0"/>
+    </EventDrivenSimulator>
+
+    <!-- the ROBOT [R. LINKS] "LYNX" -->
+    <Box id="slide1-viz" rpy="1.5708 0 0" xlen="1.0" ylen="0.0001" zlen="0.11"  mass="1.0" />
+    <Box id="slide2-viz" xlen="1.0" ylen="0.0001" zlen="0.02"  mass="1.0" />
+    <Box id="slide3-viz" xlen="1.0" ylen="0.0001" zlen="0.02"  mass="1.0" />
+    <Plane id="slide1" rpy="1.5708 0 0" mass="1.0" />
+    <Plane id="slide2" rpy="3.1416 0 0" mass="1.0" />
+    <Plane id="slide3" rpy="0 0 0" mass="1.0" />
+    <Box id="base" xlen="1.0" ylen="0.03" zlen="0.03"  mass="1.0" />
+
+    <Box id="o1" xlen="0.3" ylen="0.01" zlen="0.01" rpy="0 -0.1 0" mass="0.01" edge-sample-length=".001" />
+
+
+    <RCArticulatedBody id="FEEDER" floating-base="false" fdyn-algorithm="crb"
+      fdyn-algorithm-frame="link" rotate="0.0 0.05 0.0" translate="0.45,0,0" >
+      <RigidBody id="BASE" color="0 0 0 0" position="0 0 -0.02" angular-velocity="0 0 0" linear-velocity="0 0 0" visualization-id="base" compliant="false">
+<!--        <CollisionGeometry primitive-id="base" />-->
+      </RigidBody>
+
+      <PrismaticJoint id="shaker" location="0 0 0" inboard-link-id="BASE" outboard-link-id="SLIDE1" axis="1 0 0"/>
+
+      <!-- the body -->
+      <RigidBody id="SLIDE1" color="0 0 0 0" position="0 0 0" angular-velocity="0 0 0" linear-velocity="0 0 0" visualization-id="slide1-viz" compliant="false">
+        <CollisionGeometry primitive-id="slide1" />
+        <InertiaFromPrimitive primitive-id="slide1-viz" />
+      </RigidBody>
+      <FixedJoint id="fj1" location="0 0 0" inboard-link-id="SLIDE1" outboard-link-id="SLIDE2" />
+      <RigidBody id="SLIDE2" color="0 0.5 0 1" position="0 0.055 0.01" angular-velocity="0 0 0" linear-velocity="0 0 0" visualization-id="slide2-viz" compliant="false">
+        <CollisionGeometry primitive-id="slide2" />
+        <InertiaFromPrimitive primitive-id="slide2-viz" />
+      </RigidBody>
+      <FixedJoint id="fj2" location="0 0 0" inboard-link-id="SLIDE1" outboard-link-id="SLIDE3" />
+      <RigidBody id="SLIDE3" color="0.5 0 0 1" position="0 -0.055 0.01" angular-velocity="0 0 0" linear-velocity="0 0 0" visualization-id="slide3-viz" compliant="false">
+        <CollisionGeometry primitive-id="slide3" />
+        <InertiaFromPrimitive primitive-id="slide3-viz" />
+      </RigidBody>
+      <FixedJoint id="fjo1" location="0 0 0" inboard-link-id="BASE" outboard-link-id="OBJ1" />
+      <RigidBody id="OBJ1" color="0.5 0 0.5 0" position="-0.3 -0.01 -0.005" angular-velocity="0 0 0" linear-velocity="0 0 0" visualization-id="o1" compliant="false">
+        <CollisionGeometry primitive-id="o1" />
+        <InertiaFromPrimitive primitive-id="o1" />
+      </RigidBody>
+    </RCArticulatedBody>
+
+  <Box id="part" xlen="0.05" ylen="0.025" zlen="0.01" mass="0.1" rpy="0 0.05 0" edge-sample-length=".01" />
+  <RigidBody id="PART" enabled="true" color="1 0 0 1" position="0 0 0.04" linear-velocity="0 0 0" visualization-id="part" compliant="false">
+    <CollisionGeometry primitive-id="part" />
+    <InertiaFromPrimitive primitive-id="part" />
+  </RigidBody>
+  </MOBY>
+</XML>

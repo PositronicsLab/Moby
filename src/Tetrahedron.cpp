@@ -1,15 +1,75 @@
 /****************************************************************************
  * Copyright 2010 Evan Drumwright
- * This library is distributed under the terms of the GNU Lesser General Public 
- * License (found in COPYING).
+ * This library is distributed under the terms of the Apache V2.0 
+ * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
 #include <Ravelin/Matrix3d.h>
 #include <Moby/Triangle.h>
 #include <Moby/Tetrahedron.h>
+#include <Moby/Log.h>
 
 using namespace Ravelin;
 using namespace Moby;
+
+LinAlgd Tetrahedron::_LA;
+
+/// Calculates the signed distance from a point to the tetrahedron
+double Tetrahedron::calc_signed_dist(const Point3d& p, Point3d& closest) const
+{
+  Point3d closest_abc, closest_bdc, closest_dac, closest_dba;
+
+  // form necessary triangles
+  Triangle abc(a, b, c);
+  Triangle bdc(b, d, c);
+  Triangle dac(d, a, c);
+  Triangle dba(d, b, a);
+
+  // calculate the signed distances
+  double dist_abc = abc.calc_signed_dist(p, closest_abc);
+  double dist_bdc = bdc.calc_signed_dist(p, closest_bdc);
+  double dist_dac = dac.calc_signed_dist(p, closest_dac);
+  double dist_dba = dba.calc_signed_dist(p, closest_dba);
+
+  // determine the minimum distance
+  double min_dist = dist_abc;
+  closest = closest_abc;
+  if (std::fabs(dist_bdc) < std::fabs(min_dist))
+  {
+    if (min_dist > 0.0 || (min_dist < 0.0 && dist_bdc < 0.0))
+    {
+      min_dist = dist_bdc;
+      closest = closest_bdc;
+    }
+  }
+  if (std::fabs(dist_dac) < std::fabs(min_dist))
+  {
+    if (min_dist > 0.0 || (min_dist < 0.0 && dist_dac < 0.0))
+    {
+      min_dist = dist_dac;
+      closest = closest_dac;
+    }
+  }
+  if (std::fabs(dist_dba) < std::fabs(min_dist))
+  {
+    if (min_dist > 0.0 || (min_dist < 0.0 && dist_dba < 0.0))
+    {
+      min_dist = dist_dba;
+      closest = closest_dba;
+    }
+  }
+
+  FILE_LOG(LOG_COLDET) << "Tetrahedron::calc_signed_dist() entered " << std::endl;
+  FILE_LOG(LOG_COLDET) << "  query point is " << p << std::endl;
+  FILE_LOG(LOG_COLDET) << "  signed distance from triangle abc: " << dist_abc << std::endl;
+  FILE_LOG(LOG_COLDET) << "  signed distance from triangle bdc: " << dist_bdc << std::endl;
+  FILE_LOG(LOG_COLDET) << "  signed distance from triangle dac: " << dist_dac << std::endl;
+  FILE_LOG(LOG_COLDET) << "  signed distance from triangle dba: " << dist_dba << std::endl;
+  FILE_LOG(LOG_COLDET) << "  signed distance: " << min_dist << std::endl;
+  FILE_LOG(LOG_COLDET) << "Tetrahedron::calc_signed_dist() exited" << std::endl;
+
+  return min_dist;
+}
 
 /// Calculates the signed distance from a point to the tetrahedron
 double Tetrahedron::calc_signed_dist(const Point3d& p) const
@@ -79,10 +139,10 @@ Point3d Tetrahedron::calc_point(double u, double v, double w) const
 
   Origin3d bary(u, v, w);
   Matrix3d M;
-  M.set_column(X, b - a);
-  M.set_column(Y, c - a);
-  M.set_column(Z, d - a);
-  return (M * bary) + a;
+  M.set_column(X, a - d);
+  M.set_column(Y, b - d);
+  M.set_column(Z, c - d);
+  return (M * bary) + d;
 }
 
 /// Determines the barycentric coordinates of a point in space
@@ -101,23 +161,26 @@ void Tetrahedron::determine_barycentric_coords(const Point3d& px, double& u, dou
   // | ax-dx bx-dx cx-dx | * | u | = | px - dz |
   // | ay-dy by-dy cy-dy | * | v | = | py - dz |
   // | az-dz bz-dz cz-dz | * | w | = | pz - dz |
+
+  // algorithm taken from Real Time Physics course notes (Mueller, et al.)
   Matrix3d M;
   M.set_column(X, a - d);
   M.set_column(Y, b - d);
   M.set_column(Z, c - d);
-  M.invert();
-  Origin3d bary = M * Origin3d(p - d);
-
-/*
-  // algorithm taken from Real Time Physics course notes (Mueller, et al.)
-  Matrix3d M;
-  M.set_column(X, b - a);
-  M.set_column(Y, c - a);
-  M.set_column(Z, d - a);
-  M.invert();
-
-  Point3d bary(M * Origin3d(p - a), a.pose);
-*/
+  Origin3d rhs(p - d);
+  Origin3d bary = rhs;
+  _LA.solve_fast(M, bary);
+  if ((M * bary - rhs).norm() > NEAR_ZERO)
+  {
+    bary = rhs;
+    M.set_column(X, a - d);
+    M.set_column(Y, b - d);
+    M.set_column(Z, c - d);
+    Matrix3d U, V;
+    Origin3d S;
+    _LA.svd(M, U, S, V);
+    _LA.solve_LS_fast(U, S, V, bary);
+  }
 
   // compute barycentric coordinates
   u = bary[X];
@@ -139,20 +202,20 @@ Point3d Tetrahedron::calc_centroid() const
   return centroid;
 }
 
-/// Calculates the volume of a tetrahedron
+/// Calculates the signed volume of a tetrahedron
 double Tetrahedron::calc_volume() const
 {
-  // create a triangle from vertices abc
-  Triangle t(a,b,c);
+  const unsigned X = 0, Y = 1, Z = 2;
 
-  // get the normal to abc, and the offset
-  Vector3d normal = t.calc_normal();
-  double offset = t.calc_offset(normal);
+  // setup a matrix
+  Matrix3d M;
+  M.set_column(X, a - d);
+  M.set_column(Y, b - d);
+  M.set_column(Z, c - d);
 
-  // project d onto the plane of abc to get the height
-  double height = std::fabs(normal.dot(d) - offset);
+  // compute the determinant
+  double vol6 = M.det();
 
-  // return the volume
-  return t.calc_area() * height / 3;
+  return vol6/6.0;
 }
 

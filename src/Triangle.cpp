@@ -1,7 +1,7 @@
 /****************************************************************************
  * Copyright 2XX5 Evan Drumwright
- * This library is distributed under the terms of the GNU Lesser General Public 
- * License (found in COPYING).
+ * This library is distributed under the terms of the Apache V2.0 
+ * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
 #include <cmath>
@@ -309,10 +309,25 @@ void Triangle::determine_barycentric_coords(const Point2d tri[3], const Point2d&
 }
 
 /// Determines the barycentric coordinates corresponding to a point for this triangle
-void Triangle::determine_barycentric_coords(const Point3d& v, double& s, double& t) const
+void Triangle::determine_barycentric_coords(const Point3d& p, double& s, double& t) const
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
+  const Vector3d v0 = b - a, v1 = c - a, v2 = p - a;
+  double d00 = v0.dot(v0);
+  double d01 = v0.dot(v1);
+  double d11 = v1.dot(v1);
+  double d20 = v2.dot(v0);
+  double d21 = v2.dot(v1);
+  double denom = d00 * d11 - d01 * d01;
+  double v = (d11 * d20 - d01 * d21)/denom;
+  double w = (d00 * d21 - d01 * d20)/denom;
+  double u = 1.0 - v - w;
+  s = u;
+  t = v;
+  assert((a*s + b*t + c*(1.0-s-t) - p).norm() < NEAR_ZERO);
+
+/*
   // determine which coordinate has the minimum variance
   std::pair<Point3d, Point3d> aabb = calc_AABB();
   const double varx = aabb.second[X] - aabb.first[X];
@@ -350,6 +365,7 @@ void Triangle::determine_barycentric_coords(const Point3d& v, double& s, double&
   
   // now determine barycentric coordinates for 2D triangle
   determine_barycentric_coords(tri_2D, v_2D, s, t);
+/*
 /*  
   // minimum variance is in x direction
   if (varx < vary && varx < varz)
@@ -662,12 +678,11 @@ double Triangle::calc_sq_dist(const Triangle& t1, const Triangle& t2, Point3d& c
 /// Determines the distance between this triangle and a given point
 /**
  * \param point the query point
- * \param closest_point the closest point on the triangle is returned here
+ * \param s the Barycentric coordinate s s.t. a*s + b*t + c*(1-s-t) = p
+ * \param t the Barycentric coordinate t 
  * \return the Euclidean distance between this triangle and the point
- * \note I took this code almost verbatim from Dave Eberly; need to ask his
- *       permission to use it!
  */
-double Triangle::calc_sq_dist(const Triangle& tri, const Point3d& point, Point3d& cp)
+double Triangle::calc_sq_dist(const Triangle& tri, const Point3d& point, double& s, double& t)
 {
   // compute needed quantities
   Vector3d k_diff = tri.a - point;
@@ -680,8 +695,8 @@ double Triangle::calc_sq_dist(const Triangle& tri, const Point3d& point, Point3d
   double B1 = Vector3d::dot(k_diff, E1);
   double C = k_diff.norm_sq();
   double det = std::fabs(A00*A11-A01*A01);
-  double s = A01*B1-A11*B0;
-  double t = A01*B0-A00*B1;
+  s = A01*B1-A11*B0;
+  t = A01*B0-A00*B1;
   double sqr_dist;
 
   if (s + t <= det)
@@ -892,8 +907,54 @@ double Triangle::calc_sq_dist(const Triangle& tri, const Point3d& point, Point3d
     }
   }
 
-  // setup the closest point
-  cp = tri.a + (s*E0) + (t*E1);
+  // convert to standard notation 
+  const double SPRIME = 1-s-t;
+  const double TPRIME = s;
+  s = SPRIME;
+  t = TPRIME;
+  return sqr_dist;
+}
+
+/// Determines the signed distance between this triangle and a given point
+/**
+ * \param point the query point
+ * \param closest_point the closest point on the triangle is returned here
+ * \return the Euclidean distance between this triangle and the point
+ */
+double Triangle::calc_signed_dist(const Point3d& point, Point3d& cp) const
+{
+  return Triangle::calc_signed_dist(*this, point, cp);
+}
+
+/// Determines the signed distance between this triangle and a given point
+/**
+ * \param point the query point
+ * \param closest_point the closest point on the triangle is returned here
+ * \return the Euclidean distance between this triangle and the point
+ */
+double Triangle::calc_signed_dist(const Triangle& tri, const Point3d& point, Point3d& cp) 
+{
+  double sq_dist = calc_sq_dist(tri, point, cp);
+  if (tri.calc_signed_dist(point) >= 0.0)
+    return std::sqrt(sq_dist);
+  else
+    return -std::sqrt(sq_dist);
+}
+
+/// Determines the distance between this triangle and a given point
+/**
+ * \param point the query point
+ * \param closest_point the closest point on the triangle is returned here
+ * \return the Euclidean distance between this triangle and the point
+ */
+double Triangle::calc_sq_dist(const Triangle& tri, const Point3d& point, Point3d& cp)
+{
+  // get the closest point in barycentric coordinates
+  double s, t;
+  double sqr_dist = calc_sq_dist(tri, point, s, t);
+
+  // compute the closest point
+  cp = tri.a*s + tri.b*t + tri.c*(1-s-t);
 
   // return the distance
   return sqr_dist;

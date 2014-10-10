@@ -1,7 +1,7 @@
 /****************************************************************************
  * Copyright 2005 Evan Drumwright
- * This library is distributed under the terms of the GNU Lesser General Public 
- * License (found in COPYING).
+ * This library is distributed under the terms of the Apache V2.0 
+ * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
 #include <dlfcn.h>
@@ -16,19 +16,20 @@
 #include <Moby/OSGGroupWrapper.h>
 #endif
 
-#include <Moby/CSG.h>
 #include <Moby/TriangleMeshPrimitive.h>
+#include <Moby/HeightmapPrimitive.h>
+#include <Moby/PlanePrimitive.h>
+#include <Moby/CylinderPrimitive.h>
+#include <Moby/ConePrimitive.h>
 #include <Moby/IndexedTetraArray.h>
 #include <Moby/Constants.h>
 #include <Moby/Simulator.h>
 #include <Moby/EventDrivenSimulator.h>
+#include <Moby/TimeSteppingSimulator.h>
 #include <Moby/RigidBody.h>
 #include <Moby/CollisionGeometry.h>
 #include <Moby/BoxPrimitive.h>
-#include <Moby/GaussianMixture.h>
 #include <Moby/SpherePrimitive.h>
-#include <Moby/CylinderPrimitive.h>
-#include <Moby/ConePrimitive.h>
 #include <Moby/FixedJoint.h>
 //#include <Moby/MCArticulatedBody.h>
 #include <Moby/RCArticulatedBody.h>
@@ -36,6 +37,7 @@
 #include <Moby/RevoluteJoint.h>
 #include <Moby/SphericalJoint.h>
 #include <Moby/UniversalJoint.h>
+#include <Moby/BulirschStoerIntegrator.h>
 #include <Moby/RungeKuttaIntegrator.h>
 #include <Moby/RungeKuttaFehlbergIntegrator.h>
 #include <Moby/RungeKuttaImplicitIntegrator.h>
@@ -45,8 +47,8 @@
 #include <Moby/GravityForce.h>
 #include <Moby/StokesDragForce.h>
 #include <Moby/DampingForce.h>
-#include <Moby/GeneralizedCCD.h>
 #include <Moby/XMLTree.h>
+#include <Moby/SDFReader.h>
 #include <Moby/XMLReader.h>
 
 using boost::shared_ptr;
@@ -110,7 +112,6 @@ std::map<std::string, BasePtr> XMLReader::read(const std::string& fname)
     return id_map;
   }
 
- 
   // find the moby tree 
   shared_ptr<XMLTree> moby_tree = boost::const_pointer_cast<XMLTree>(find_subtree(root_tree, "moby"));
 
@@ -138,15 +139,19 @@ std::map<std::string, BasePtr> XMLReader::read(const std::string& fname)
   process_tag("Sphere", moby_tree, &read_sphere, id_map);
   process_tag("Cylinder", moby_tree, &read_cylinder, id_map);
   process_tag("Cone", moby_tree, &read_cone, id_map);
+  process_tag("Heightmap", moby_tree, &read_heightmap, id_map);
+  process_tag("Plane", moby_tree, &read_plane, id_map);
+/*
   process_tag("TriangleMesh", moby_tree, &read_trimesh, id_map);
   process_tag("TetraMesh", moby_tree, &read_tetramesh, id_map);
-  process_tag("GaussianMixture", moby_tree, &read_gaussian_mixture, id_map);
   process_tag("PrimitivePlugin", moby_tree, &read_primitive_plugin, id_map);
   process_tag("CSG", moby_tree, &read_CSG, id_map);
+*/
 
   // read and construct all integrators
   process_tag("EulerIntegrator", moby_tree, &read_euler_integrator, id_map);
   process_tag("VariableEulerIntegrator", moby_tree, &read_variable_euler_integrator, id_map);
+  process_tag("BulirschStoerIntegrator", moby_tree, &read_bulirsch_stoer_integrator, id_map);
   process_tag("RungeKuttaIntegrator", moby_tree, &read_rk4_integrator, id_map);
   process_tag("RungeKuttaFehlbergIntegrator", moby_tree, &read_rkf4_integrator, id_map);
   process_tag("RungeKuttaImplicitIntegrator", moby_tree, &read_rk4i_integrator, id_map);
@@ -160,6 +165,9 @@ std::map<std::string, BasePtr> XMLReader::read(const std::string& fname)
   // read and construct all OSGGroupWrapper objects
   process_tag("OSGGroup", moby_tree, &read_osg_group, id_map);
   #endif
+
+  // read SDF models
+  process_tag("SDF", moby_tree, &read_sdf, id_map);
 
   // read and construct all rigid bodies (including articulated body links)
   process_tag("RigidBody", moby_tree, &read_rigid_body, id_map);
@@ -180,13 +188,10 @@ std::map<std::string, BasePtr> XMLReader::read(const std::string& fname)
   // damping forces must be constructed after bodies
   process_tag("DampingForce", moby_tree, &read_damping_force, id_map);
 
-  // read and construct collision detector(s)
-  process_tag("GeneralizedCCD", moby_tree, &read_generalized_ccd, id_map);
-  process_tag("CollisionDetectionPlugin", moby_tree, &read_coldet_plugin, id_map);
-
   // finally, read and construct the simulator objects -- must be done last
   process_tag("Simulator", moby_tree, &read_simulator, id_map);
   process_tag("EventDrivenSimulator", moby_tree, &read_event_driven_simulator, id_map);
+  process_tag("TimeSteppingSimulator", moby_tree, &read_time_stepping_simulator, id_map);
 
   // change back to the initial working directory
   chdir(cwd.get());
@@ -240,19 +245,6 @@ void XMLReader::process_tag(const std::string& tag, shared_ptr<const XMLTree> ro
   }
 }
 
-/// Reads and constructs the GeneralizedCCD object
-void XMLReader::read_generalized_ccd(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
-{
-  // sanity check
-  assert(strcasecmp(node->name.c_str(), "GeneralizedCCD") == 0);
-
-  // create a new Base object
-  boost::shared_ptr<Base> b(new GeneralizedCCD());
-  
-  // populate the object
-  b->load_from_xml(node, id_map);
-}
-
 /// Reads and constructs a geometry plugin object
 void XMLReader::read_primitive_plugin(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
@@ -294,55 +286,6 @@ void XMLReader::read_primitive_plugin(shared_ptr<const XMLTree> node, std::map<s
   
   // populate the object
   primitive_plugin->load_from_xml(node, id_map);
-}
-
-/// Reads and constructs a plugin CollisionDetection object
-/**
- * \pre node is named CollisionDetectionPlugin 
- */
-void XMLReader::read_coldet_plugin(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
-{
-  // sanity check
-  assert(strcasecmp(node->name.c_str(), "CollisionDetectionPlugin") == 0);
-
-  // get the name of the plugin to load
-  XMLAttrib* plugin_attr = node->get_attrib("plugin");
-  if (!plugin_attr)
-  {
-    std::cerr << "XMLReader::read_coldet_plugin() - no plugin attribute!" << std::endl;
-    return;
-  }
-  std::string pluginname = plugin_attr->get_string_value();
-
-  // verify that the plugin can be found
-  struct stat filestatus;
-  if (stat(pluginname.c_str(), &filestatus) != 0)
-  {
-    std::cerr << "XMLReader::read_coldet_plugin() - unable to find plugin '" << pluginname << "'" << std::endl;
-    return;
-  }
-
-  // load the plugin
-  void* plugin = dlopen(pluginname.c_str(), RTLD_LAZY);
-  if (!plugin)
-  {
-    std::cerr << "XMLReader::read_coldet_plugin()- cannot load plugin: " << dlerror() << std::endl;
-    return;
-  }
-
-  // load the factory symbol
-  boost::shared_ptr<CollisionDetection> (*factory)(void) = (boost::shared_ptr<CollisionDetection> (*) (void)) dlsym(plugin, "factory");
-  if (!factory)
-  {
-    std::cerr << "XMLReader::read_coldet_plugin()- factory() not found in " << pluginname << std::endl;
-    return;
-  }
-
-  // create a new CollisionDetection object
-  boost::shared_ptr<CollisionDetection> cd_plugin = factory();
-  
-  // populate the object
-  cd_plugin->load_from_xml(node, id_map);
 }
 
 /// Reads and constructs the OSGGroupWrapper object
@@ -406,10 +349,10 @@ void XMLReader::read_CSG(shared_ptr<const XMLTree> node, std::map<std::string, B
   assert(strcasecmp(node->name.c_str(), "CSG") == 0);
 
   // create a new CSG object
-  boost::shared_ptr<Base> b(new CSG());
+//  boost::shared_ptr<Base> b(new CSG());
 
   // populate the object
-  b->load_from_xml(node, id_map);
+//  b->load_from_xml(node, id_map);
 }
 
 /// Reads and constructs the TriangleMeshPrimitive object
@@ -419,10 +362,10 @@ void XMLReader::read_tetramesh(shared_ptr<const XMLTree> node, std::map<std::str
   assert(strcasecmp(node->name.c_str(), "TetraMesh") == 0);
 
   // create a new IndexedTetraArray object
-  boost::shared_ptr<Base> b(new IndexedTetraArray());
+//  boost::shared_ptr<Base> b(new IndexedTetraArray());
   
   // populate the object
-  b->load_from_xml(node, id_map);
+//  b->load_from_xml(node, id_map);
 }
 
 /// Reads and constructs the TriangleMeshPrimitive object
@@ -432,20 +375,33 @@ void XMLReader::read_trimesh(shared_ptr<const XMLTree> node, std::map<std::strin
   assert(strcasecmp(node->name.c_str(), "TriangleMesh") == 0);
 
   // create a new TriangleMeshPrimitive object
-  boost::shared_ptr<Base> b(new TriangleMeshPrimitive());
+//  boost::shared_ptr<Base> b(new TriangleMeshPrimitive());
+  
+  // populate the object
+//  b->load_from_xml(node, id_map);
+}
+
+/// Reads and constructs a plane object
+void XMLReader::read_plane(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
+{  
+  // sanity check
+  assert(strcasecmp(node->name.c_str(), "Plane") == 0);
+
+  // create a new plane object
+  boost::shared_ptr<Base> b(new PlanePrimitive());
   
   // populate the object
   b->load_from_xml(node, id_map);
 }
 
-/// Reads and constructs the GaussianMixture object
-void XMLReader::read_gaussian_mixture(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
+/// Reads and constructs a heightmap object
+void XMLReader::read_heightmap(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {  
   // sanity check
-  assert(strcasecmp(node->name.c_str(), "GaussianMixture") == 0);
+  assert(strcasecmp(node->name.c_str(), "Heightmap") == 0);
 
-  // create a new GaussianMixture object
-  boost::shared_ptr<Base> b(new GaussianMixture());
+  // create a new Heightmap object
+  boost::shared_ptr<Base> b(new HeightmapPrimitive());
   
   // populate the object
   b->load_from_xml(node, id_map);
@@ -491,6 +447,22 @@ void XMLReader::read_variable_euler_integrator(shared_ptr<const XMLTree> node, s
 
   // only create VectorN type integrators
   boost::shared_ptr<Base> b(new VariableEulerIntegrator());
+
+  // populate the object
+  b->load_from_xml(node, id_map);
+}
+
+/// Reads and construct the RungaKuttaFehlbergIntegrator object
+/**
+ * \pre node name is BulirschStoerIntegrator
+ */
+void XMLReader::read_bulirsch_stoer_integrator(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
+{
+  // sanity check
+  assert(strcasecmp(node->name.c_str(), "BulirschStoerIntegrator") == 0);
+
+  // only create VectorN type integrators
+  boost::shared_ptr<Base> b(new BulirschStoerIntegrator());
 
   // populate the object
   b->load_from_xml(node, id_map);
@@ -560,6 +532,22 @@ void XMLReader::read_odepack_integrator(shared_ptr<const XMLTree> node, std::map
   b->load_from_xml(node, id_map);
 }
 
+/// Reads and constructs the TimeSteppingSimulator object
+/**
+ * \pre node is named TimeSteppingSimulator
+ */
+void XMLReader::read_time_stepping_simulator(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
+{
+  // sanity check
+  assert(strcasecmp(node->name.c_str(), "TimeSteppingSimulator") == 0);
+
+  // create a new TimeSteppingSimulator object
+  boost::shared_ptr<Base> b(new TimeSteppingSimulator());
+  
+  // populate the object
+  b->load_from_xml(node, id_map);
+}
+
 /// Reads and constructs the EventDrivenSimulator object
 /**
  * \pre node is named EventDrivenSimulator
@@ -590,6 +578,28 @@ void XMLReader::read_simulator(shared_ptr<const XMLTree> node, std::map<std::str
   
   // populate the object
   b->load_from_xml(node, id_map);
+}
+
+/// Reads and constructs models from an SDF file 
+void XMLReader::read_sdf(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
+{
+  // sanity check
+  assert(strcasecmp(node->name.c_str(), "SDF") == 0);
+
+  // get the filename
+  XMLAttrib* fname_attr = node->get_attrib("filename");
+  if (!fname_attr)
+  {
+    std::cerr << "XMLReader::read_sdf() - no 'filename' attrib!" << std::endl;
+    return;
+  }
+
+  // read the models
+  std::map<std::string, DynamicBodyPtr> model_map = SDFReader::read_models(fname_attr->get_string_value());
+
+  // populate our ID map with the models
+  for (std::map<std::string, DynamicBodyPtr>::const_iterator i = model_map.begin(); i != model_map.end(); i++)
+    id_map[i->first] = i->second;
 }
 
 /// Reads and constructs the RigidBody object

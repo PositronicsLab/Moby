@@ -1,7 +1,7 @@
 /****************************************************************************
  * Copyright 2005 Evan Drumwright
- * This library is distributed under the terms of the GNU Lesser General Public 
- * License (found in COPYING).
+ * This library is distributed under the terms of the Apache V2.0 
+ * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
 #ifndef _RC_ARTICULATED_BODY_H
@@ -23,7 +23,7 @@
 namespace Moby {
 
 class Joint;
-class EventProblemData;
+class UnilateralConstraintProblemData;
 
 /// Defines an articulated body for use with reduced-coordinate dynamics algorithms
 /**
@@ -64,17 +64,22 @@ class RCArticulatedBody : public ArticulatedBody
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     RCArticulatedBodyPtr get_this() { return boost::dynamic_pointer_cast<RCArticulatedBody>(shared_from_this()); }
     boost::shared_ptr<const RCArticulatedBody> get_this() const { return boost::dynamic_pointer_cast<const RCArticulatedBody>(shared_from_this()); }
-    virtual void set_generalized_forces(const Ravelin::VectorNd& gf);
-    virtual void add_generalized_force(const Ravelin::VectorNd& gf);
-    virtual void apply_generalized_impulse(const Ravelin::VectorNd& gj);
-    virtual Ravelin::VectorNd& get_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& gc);
-    virtual Ravelin::VectorNd& get_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& gv);
-    virtual Ravelin::VectorNd& get_generalized_acceleration(Ravelin::VectorNd& gv);
-    virtual void set_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gc);
-    virtual void set_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gv);
-    virtual Ravelin::MatrixNd& get_generalized_inertia(Ravelin::MatrixNd& M);
-    virtual Ravelin::VectorNd& get_generalized_forces(Ravelin::VectorNd& f);
-    virtual Ravelin::VectorNd& convert_to_generalized_force(SingleBodyPtr body, const Ravelin::SForced& w, const Point3d& p, Ravelin::VectorNd& gf);
+    virtual void set_generalized_forces(const Ravelin::SharedVectorNd& gf);
+    virtual void set_generalized_forces(const Ravelin::VectorNd& gf) { DynamicBody::set_generalized_forces(gf); }
+    virtual void add_generalized_force(const Ravelin::SharedVectorNd& gf);
+    virtual void add_generalized_force(const Ravelin::VectorNd& gf) { DynamicBody::add_generalized_force(gf); }
+    virtual void apply_generalized_impulse(const Ravelin::SharedVectorNd& gj);
+    virtual void apply_generalized_impulse(const Ravelin::VectorNd& gj) { DynamicBody::apply_generalized_impulse(gj); }
+    virtual void set_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::SharedVectorNd& gc);
+    virtual void set_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gc) { DynamicBody::set_generalized_coordinates(gctype, gc); }
+    virtual void set_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::SharedVectorNd& gv);
+    virtual void set_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gv) { DynamicBody::set_generalized_velocity(gctype, gv); }
+    virtual Ravelin::SharedMatrixNd& get_generalized_inertia(Ravelin::SharedMatrixNd& M);
+    virtual Ravelin::MatrixNd& get_generalized_inertia(Ravelin::MatrixNd& M) { return DynamicBody::get_generalized_inertia(M); }
+    virtual Ravelin::SharedVectorNd& get_generalized_forces(Ravelin::SharedVectorNd& f);
+    virtual Ravelin::VectorNd& get_generalized_forces(Ravelin::VectorNd& f) { return DynamicBody::get_generalized_forces(f); }
+    virtual Ravelin::SharedVectorNd& convert_to_generalized_force(SingleBodyPtr body, const Ravelin::SForced& w, Ravelin::SharedVectorNd& gf);
+    virtual Ravelin::VectorNd& convert_to_generalized_force(SingleBodyPtr body, const Ravelin::SForced& w, Ravelin::VectorNd& gf) { return DynamicBody::convert_to_generalized_force(body, w, gf); }
     virtual unsigned num_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype) const;
     virtual void set_links_and_joints(const std::vector<RigidBodyPtr>& links, const std::vector<JointPtr>& joints);
     virtual unsigned num_joint_dof_implicit() const;
@@ -89,11 +94,33 @@ class RCArticulatedBody : public ArticulatedBody
     virtual Ravelin::VectorNd& transpose_Dx_mult(const Ravelin::VectorNd& v, Ravelin::VectorNd& result) { return _Dx.transpose_mult(v, result); }
     virtual Ravelin::MatrixNd& transpose_Dx_mult(const Ravelin::MatrixNd& m, Ravelin::MatrixNd& result) { return _Dx.transpose_mult(m, result); }
     virtual void set_computation_frame_type(ReferenceFrameType rftype);
-    virtual Ravelin::MatrixNd& transpose_solve_generalized_inertia(const Ravelin::MatrixNd& B, Ravelin::MatrixNd& X);
-    virtual Ravelin::VectorNd& solve_generalized_inertia(const Ravelin::VectorNd& v, Ravelin::VectorNd& result);
-    virtual Ravelin::MatrixNd& solve_generalized_inertia(const Ravelin::MatrixNd& m, Ravelin::MatrixNd& result);
+    virtual Ravelin::VectorNd& solve_generalized_inertia(const Ravelin::VectorNd& b, Ravelin::VectorNd& x) { return DynamicBody::solve_generalized_inertia(b, x); }
+    virtual Ravelin::SharedMatrixNd& transpose_solve_generalized_inertia(const Ravelin::SharedMatrixNd& B, Ravelin::SharedMatrixNd& X);
+    virtual Ravelin::SharedVectorNd& solve_generalized_inertia(const Ravelin::SharedVectorNd& v, Ravelin::SharedVectorNd& result);
+    virtual Ravelin::SharedMatrixNd& solve_generalized_inertia(const Ravelin::SharedMatrixNd& m, Ravelin::SharedMatrixNd& result);
     virtual boost::shared_ptr<const Ravelin::Pose3d> get_gc_pose() const; 
     virtual void validate_position_variables();
+    virtual Ravelin::SharedVectorNd& get_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::SharedVectorNd& gc);
+    virtual Ravelin::VectorNd& get_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& gc) { return DynamicBody::get_generalized_coordinates(gctype, gc); }
+    virtual Ravelin::SharedVectorNd& get_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::SharedVectorNd& gv);
+    virtual Ravelin::VectorNd& get_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& gv) { return DynamicBody::get_generalized_velocity(gctype, gv); }
+    virtual Ravelin::SharedVectorNd& get_generalized_acceleration(Ravelin::SharedVectorNd& ga);
+    virtual Ravelin::VectorNd& get_generalized_acceleration(Ravelin::VectorNd& ga) { return DynamicBody::get_generalized_acceleration(ga); }
+
+    template <class V>
+    void get_generalized_acceleration_generic(V& ga);
+
+    template <class V>
+    void get_generalized_coordinates_generic(DynamicBody::GeneralizedCoordinateType gctype, V& gc);
+
+    template <class V>
+    void set_generalized_coordinates_generic(DynamicBody::GeneralizedCoordinateType gctype, V& gc);
+
+    template <class V>
+    void set_generalized_velocity_generic(DynamicBody::GeneralizedCoordinateType gctype, V& gv);
+
+    template <class V>
+    void get_generalized_velocity_generic(DynamicBody::GeneralizedCoordinateType gctype, V& gv);
 
     /// Gets whether the base of this body is fixed or "floating"
     virtual bool is_floating_base() const { return _floating_base; }
@@ -106,9 +133,6 @@ class RCArticulatedBody : public ArticulatedBody
 
     /// The forward dynamics algorithm
     ForwardDynamicsAlgorithmType algorithm_type;
-
-    /// Gets constraint events (currently not any)
-    virtual void get_constraint_events(std::vector<Event>& events) const { }
 
     /// Baumgarte alpha parameter >= 0
     double b_alpha;
@@ -162,18 +186,20 @@ class RCArticulatedBody : public ArticulatedBody
     static double sgn(double x);
     bool treat_link_as_leaf(RigidBodyPtr link) const;
     void update_factorized_generalized_inertia();
-    void determine_contact_jacobians(const EventProblemData& q, const Ravelin::VectorNd& v, const Ravelin::MatrixNd& M, Ravelin::MatrixNd& Jc, Ravelin::MatrixNd& Dc);
+    void determine_contact_jacobians(const UnilateralConstraintProblemData& q, const Ravelin::VectorNd& v, const Ravelin::MatrixNd& M, Ravelin::MatrixNd& Jc, Ravelin::MatrixNd& Dc);
     static bool supports(JointPtr joint, RigidBodyPtr link);
     void determine_generalized_forces(Ravelin::VectorNd& gf) const;
     void determine_generalized_accelerations(Ravelin::VectorNd& xdd) const;
     void determine_constraint_force_transform(Ravelin::MatrixNd& K) const;
     void set_generalized_acceleration(const Ravelin::VectorNd& a);
     void determine_implicit_constraint_movement_jacobian(Ravelin::MatrixNd& D);
-    void determine_implicit_constraint_jacobians(const EventProblemData& q, Ravelin::MatrixNd& Jx, Ravelin::MatrixNd& Dx) const;
+    void determine_implicit_constraint_jacobians(const UnilateralConstraintProblemData& q, Ravelin::MatrixNd& Jx, Ravelin::MatrixNd& Dx) const;
     void determine_implicit_constraint_jacobian(Ravelin::MatrixNd& J);
     void determine_implicit_constraint_jacobian_dot(Ravelin::MatrixNd& J) const;
     void set_implicit_constraint_forces(const Ravelin::VectorNd& lambda);
 }; // end class
+
+#include "RCArticulatedBody.inl"
 
 } // end namespace
 #endif

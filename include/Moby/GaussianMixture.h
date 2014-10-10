@@ -24,12 +24,13 @@ class GaussianMixture : public Primitive
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual void set_pose(const Ravelin::Pose3d& T);
     virtual BVPtr get_BVH_root(CollisionGeometryPtr geom);
-    virtual void get_vertices(BVPtr bv, std::vector<const Point3d*>& vertices);
     virtual bool point_inside(BVPtr bv, const Point3d& p, Ravelin::Vector3d& normal) const;
+    virtual void get_vertices(boost::shared_ptr<const Ravelin::Pose3d> P, std::vector<Point3d>& vertices);
     virtual bool intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Ravelin::Vector3d& normal) const;
-    virtual boost::shared_ptr<const IndexedTriArray> get_mesh() { return _mesh; }
-    virtual const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >& get_sub_mesh(BVPtr bv);
+    virtual boost::shared_ptr<const IndexedTriArray> get_mesh(boost::shared_ptr<const Ravelin::Pose3d> P) { return _mesh; }
     virtual osg::Node* create_visualization();
+    virtual double calc_dist_and_normal(const Point3d& p, Ravelin::Vector3d& normal) const;
+    virtual double calc_signed_dist(boost::shared_ptr<const Primitive> p, boost::shared_ptr<const Ravelin::Pose3d> pose_this, boost::shared_ptr<const Ravelin::Pose3d> pose_p, Point3d& pthis, Point3d& pb) const;
 
     private:
       static Ravelin::Vector3d grad(const Gauss& g, double x, double y);
@@ -65,9 +66,6 @@ class GaussianMixture : public Primitive
 
       /// Set of vertices sampled at regular intervals
       std::vector<std::vector<Point3d> > _vertices;
-
-      /// Set of submeshes
-      std::vector<std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> > > _submesh; 
 }; // end class
 
 } // end namespace Moby

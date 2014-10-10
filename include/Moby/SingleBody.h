@@ -1,7 +1,7 @@
 /****************************************************************************
  * Copyright 2010 Evan Drumwright
- * This library is distributed under the terms of the GNU Lesser General Public 
- * License (found in COPYING).
+ * This library is distributed under the terms of the Apache V2.0 
+ * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
 #ifndef _SINGLE_BODY_H
@@ -17,15 +17,6 @@ class SingleBody : public DynamicBody
   public:
     virtual ~SingleBody() {}
     virtual DynamicBodyPtr get_super_body() const;
-
-    /// Integrates this body
-    virtual void integrate(double t, double h, boost::shared_ptr<Integrator> integrator)
-    {
-      if (!is_enabled())
-        return;
-      else
-        DynamicBody::integrate(t, h, integrator);
-    }
 
     /// Gets the computation frame for the body
     virtual boost::shared_ptr<const Ravelin::Pose3d> get_computation_frame() const = 0;

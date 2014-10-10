@@ -1,7 +1,7 @@
 /****************************************************************************
  * Copyright 2005 Evan Drumwright
- * This library is distributed under the terms of the GNU Lesser General Public 
- * License (found in COPYING).
+ * This library is distributed under the terms of the Apache V2.0 
+ * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
 #include <boost/foreach.hpp>
@@ -33,6 +33,8 @@ GravityForce::GravityForce(const GravityForce& source)
 /// Adds gravity to a body
 void GravityForce::add_force(DynamicBodyPtr body)
 {
+  FILE_LOG(LOG_DYNAMICS) << "Adding gravitational force to " << body->id << std::endl;
+
   // check to see whether body is a rigid body first 
   shared_ptr<RigidBody> rb = dynamic_pointer_cast<RigidBody>(body);
   if (rb)

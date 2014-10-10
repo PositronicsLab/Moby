@@ -1,7 +1,7 @@
 /****************************************************************************
  * Copyright 2005 Evan Drumwright
- * This library is distributed under the terms of the GNU Lesser General Public 
- * License (found in COPYING).
+ * This library is distributed under the terms of the Apache V2.0 
+ * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
 #include <stdexcept>
@@ -15,7 +15,9 @@
 #include <Moby/XMLTree.h>
 #include <Moby/CollisionGeometry.h>
 
+using std::vector;
 using boost::dynamic_pointer_cast;
+using boost::const_pointer_cast;
 using boost::shared_ptr;
 using namespace Ravelin;
 using namespace Moby;
@@ -24,6 +26,50 @@ using namespace Moby;
 CollisionGeometry::CollisionGeometry()
 {
   _F = shared_ptr<Pose3d>(new Pose3d);
+}
+
+/// Gets a supporting point for this geometry in a particular direction
+Point3d CollisionGeometry::get_supporting_point(const Vector3d& d) const
+{
+  // get the primitive from this
+  PrimitivePtr primitive = get_geometry();
+
+  // get this
+  shared_ptr<const CollisionGeometry> cg_const = dynamic_pointer_cast<const CollisionGeometry>(shared_from_this());
+  CollisionGeometryPtr cg = const_pointer_cast<CollisionGeometry>(cg_const);
+
+  // get the pose for this
+  shared_ptr<const Pose3d> P = primitive->get_pose(cg);
+
+  // transform the vector
+  Vector3d dir = Pose3d::transform_vector(P, d);
+
+  // get the supporting point from the primitive
+  return primitive->get_supporting_point(dir);
+}
+
+/// Gets the farthest point from this geometry
+double CollisionGeometry::get_farthest_point_distance() const
+{
+  // get the primitive from this
+  PrimitivePtr primitive = get_geometry();
+
+  // get the vertices
+  vector<Point3d> verts;
+  get_vertices(verts);
+  if (verts.empty())
+    return 0.0;
+
+  // get the rigid body pose in P's frame
+  RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(get_single_body());
+  Point3d rbX = Pose3d::transform_point(verts.front().pose, Point3d(0,0,0,rb->get_pose()));
+ 
+  // find which point is closest
+  double max_dist = 0.0;
+  for (unsigned i=0; i< verts.size(); i++)
+    max_dist = std::max(max_dist, (verts[i] - rbX).norm()); 
+
+  return max_dist; 
 }
 
 /// Sets the single body associated with this CollisionGeometry
@@ -60,7 +106,29 @@ PrimitivePtr CollisionGeometry::set_geometry(PrimitivePtr primitive)
   // save the primitive
   _geometry = primitive;
 
+  // add this to the primitive
+  CollisionGeometryPtr cg = dynamic_pointer_cast<CollisionGeometry>(shared_from_this());
+  primitive->add_collision_geometry(cg);
+
   return primitive;
+}
+
+/// Gets vertices for a primitive
+void CollisionGeometry::get_vertices(std::vector<Point3d>& vertices) const
+{
+  // get the primitive from this
+  PrimitivePtr primitive = get_geometry();
+
+  // get a pointer to this
+  shared_ptr<const CollisionGeometry> cg_const = dynamic_pointer_cast<const CollisionGeometry>(shared_from_this());
+  CollisionGeometryPtr cg = const_pointer_cast<CollisionGeometry>(cg_const);
+
+  // get the pose for this
+  shared_ptr<const Pose3d> P = primitive->get_pose(cg);
+ 
+  // get the vertices from the primitive
+  vertices.clear();
+  primitive->get_vertices(P, vertices);
 }
 
 /// Writes the collision geometry mesh to the specified VRML file
@@ -85,10 +153,15 @@ void CollisionGeometry::write_vrml(const std::string& filename) const
   out << "  rotation " << aa.x << " " << aa.y << " " << aa.z << " " << aa.angle << std::endl;
   out << "  translation " << P[X] << " " << P[Y] << " " << P[Z] << std::endl;
   out << "  children [" << std::endl;
-  
+ 
+  // get the vertices according to this pose
+  shared_ptr<const CollisionGeometry> cg_const = dynamic_pointer_cast<const CollisionGeometry>(shared_from_this());
+  CollisionGeometryPtr cg = const_pointer_cast<CollisionGeometry>(cg_const);
+  shared_ptr<const Pose3d> pose = _geometry->get_pose(cg);
+ 
   // get the geometry
-  const std::vector<Origin3d>& vertices = _geometry->get_mesh()->get_vertices();
-  const std::vector<IndexedTri>& facets = _geometry->get_mesh()->get_facets();
+  const std::vector<Origin3d>& vertices = _geometry->get_mesh(pose)->get_vertices();
+  const std::vector<IndexedTri>& facets = _geometry->get_mesh(pose)->get_facets();
 
   // write the mesh
   out << "   Shape {" << std::endl;
@@ -131,16 +204,65 @@ void CollisionGeometry::set_relative_pose(const Pose3d& P)
   *_F = P;
 }
 
+/// Calculates the (unsigned) distance of a point from this collision geometry
+double CollisionGeometry::calc_dist_and_normal(const Point3d& p, std::vector<Vector3d>& normals) const
+{
+  // get the primitive from this
+  PrimitivePtr primitive = get_geometry();
+
+  // get the collision geometry
+  shared_ptr<const CollisionGeometry> cg_const = dynamic_pointer_cast<const CollisionGeometry>(shared_from_this());
+  CollisionGeometryPtr cg = const_pointer_cast<CollisionGeometry>(cg_const);
+
+  // setup a new point with a new pose
+  Point3d px = Pose3d::transform_point(primitive->get_pose(cg), p);
+
+  // call the primitive function
+  return primitive->calc_dist_and_normal(px, normals);
+}
+
+/// Calculates the signed distance for a primitive
+double CollisionGeometry::calc_signed_dist(const Point3d& p)
+{
+  // get the primitive from this
+  PrimitivePtr primitive = get_geometry();
+
+  // get the collision geometry
+  CollisionGeometryPtr cg = dynamic_pointer_cast<CollisionGeometry>(shared_from_this());
+
+  // setup a new point with a new pose
+  Point3d px = Pose3d::transform_point(primitive->get_pose(cg), p);
+
+  // call the primitive function
+  return primitive->calc_signed_dist(px);
+}
+
+/// Calculates the signed distances between two geometries and returns closest points if geometries are not interpenetrating
+double CollisionGeometry::calc_signed_dist(CollisionGeometryPtr gA, CollisionGeometryPtr gB, Point3d& pA, Point3d& pB) 
+{
+  // get the two primitives
+  PrimitivePtr primA = gA->get_geometry();
+  PrimitivePtr primB = gB->get_geometry();
+
+  // setup poses for the points
+  pA.pose = primA->get_pose(gA);
+  pB.pose = primB->get_pose(gB);
+
+  FILE_LOG(LOG_COLDET) << "CollisionGeometry::calc_signed_dist() - computing signed distance between " << gA->get_single_body()->id << " and " << gB->get_single_body()->id << std::endl;
+
+  // now compute the signed distance
+  return primA->calc_signed_dist(primB, pA, pB);
+}
+
+/*
 /// Calculates the closest points (and squared distance) between geometries a and b
-/**
  * \param a the first collision geometry
  * \param b the second collision geometry
  * \param aTb the transform from b's frame to a's frame
  * \param cpa the closest point to b on a (in a's frame)
  * \param cpb the closest point to a on b (in b's frame)
  * \return the squared distance between cpa and cpb
- */
-double CollisionGeometry::calc_distance(CollisionGeometryPtr a, CollisionGeometryPtr b, const Transform3d& aTb, Point3d& cpa, Point3d& cpb)
+double CollisionGeometry::calc_dist(CollisionGeometryPtr a, CollisionGeometryPtr b, const Transform3d& aTb, Point3d& cpa, Point3d& cpb)
 {
   // get the poses of a and b
   shared_ptr<const Pose3d> Pa = a->get_pose();
@@ -191,6 +313,7 @@ double CollisionGeometry::calc_distance(CollisionGeometryPtr a, CollisionGeometr
 
   return min_dist;
 }
+*/
 
 /// Implements Base::load_from_xml()
 void CollisionGeometry::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)

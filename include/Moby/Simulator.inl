@@ -1,7 +1,7 @@
 /****************************************************************************
  * Copyright 2005 Evan Drumwright
- * This library is distributed under the terms of the GNU Lesser General Public 
- * License (found in COPYING).
+ * This library is distributed under the terms of the Apache V2.0 
+ * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
 /// Integrates both position and velocity of rigid _bodies
@@ -15,23 +15,73 @@ double Simulator::integrate(double step_size, ForwardIterator begin, ForwardIter
   tms cstart;  
   clock_t start = times(&cstart);
 
-  // get the state-derivative for each dynamic body
+  // get the simulator pointer
+  boost::shared_ptr<Simulator> shared_this = boost::dynamic_pointer_cast<Simulator>(shared_from_this());
+
+  // get the state size
+  unsigned state_sz = 0;
   for (ForwardIterator i = begin; i != end; i++)
   {
-    // integrate the body
-    if (LOGGING(LOG_SIMULATOR))
+    // if the body is kinematically updated, call its controller and otherwise
+    // ignore it
+    if ((*i)->get_kinematic())
     {
-      Ravelin::VectorNd q;
-      FILE_LOG(LOG_SIMULATOR) << "  generalized coordinates (before): " << (*i)->get_generalized_coordinates(DynamicBody::eEuler, q) << std::endl;
-      FILE_LOG(LOG_SIMULATOR) << "  generalized velocities (before): " << (*i)->get_generalized_velocity(DynamicBody::eSpatial, q) << std::endl;
+      if ((*i)->controller)
+        (*(*i)->controller)(*i, current_time, (*i)->controller_arg);
+
+      // ignore body otherwise
+      continue;
     }
-    (*i)->integrate(current_time, step_size, integrator);
-    if (LOGGING(LOG_SIMULATOR))
-    {
-      Ravelin::VectorNd q;
-      FILE_LOG(LOG_SIMULATOR) << "  generalized coordinates (after): " << (*i)->get_generalized_coordinates(DynamicBody::eEuler, q) << std::endl;
-      FILE_LOG(LOG_SIMULATOR) << "  generalized velocities (after): " << (*i)->get_generalized_velocity(DynamicBody::eSpatial, q) << std::endl;
-    }
+
+    // update the state size
+    state_sz += (*i)->num_generalized_coordinates(DynamicBody::eEuler);
+    state_sz += (*i)->num_generalized_coordinates(DynamicBody::eSpatial);
+  }
+
+  // init x and work vectors
+  Ravelin::VectorNd x(state_sz);
+
+  // get the current generalized coordinates and velocity for each body
+  unsigned idx = 0;
+  for (ForwardIterator i = begin; i != end; i++)
+  {
+    // see whether to skip the body
+    if ((*i)->get_kinematic())
+      continue;
+
+    // get number of generalized coordinates and velocities
+    const unsigned NGC = (*i)->num_generalized_coordinates(DynamicBody::eEuler);
+    const unsigned NGV = (*i)->num_generalized_coordinates(DynamicBody::eSpatial);
+
+    // get the shared vectors
+    Ravelin::SharedVectorNd xgc = x.segment(idx, idx+NGC); idx += NGC;
+    Ravelin::SharedVectorNd xgv = x.segment(idx, idx+NGV); idx += NGV;
+    (*i)->get_generalized_coordinates(DynamicBody::eEuler, xgc);
+    (*i)->get_generalized_velocity(DynamicBody::eSpatial, xgv);
+  }
+
+  // call the integrator
+  integrator->integrate(x, &ode, current_time, step_size, (void*) &shared_this);
+
+  // update the generalized coordinates and velocity
+  idx = 0;
+  for (ForwardIterator i = begin; i != end; i++)
+  {
+    // see whether to skip the body
+    if ((*i)->get_kinematic())
+      continue;
+
+    // get number of generalized coordinates and velocities
+    const unsigned NGC = (*i)->num_generalized_coordinates(DynamicBody::eEuler);
+    const unsigned NGV = (*i)->num_generalized_coordinates(DynamicBody::eSpatial);
+
+    // get the shared vectors
+    Ravelin::SharedConstVectorNd xgc = x.segment(idx, idx+NGC); idx += NGC;
+    Ravelin::SharedConstVectorNd xgv = x.segment(idx, idx+NGV); idx += NGV;
+
+    // set the generalized coordinates and velocity
+    (*i)->set_generalized_coordinates(DynamicBody::eEuler, xgc);
+    (*i)->set_generalized_velocity(DynamicBody::eSpatial, xgv);
   }
 
   // tabulate dynamics computation

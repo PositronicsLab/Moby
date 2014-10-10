@@ -1,33 +1,22 @@
 /****************************************************************************
  * Copyright 2011 Evan Drumwright
- * This library is distributed under the terms of the GNU Lesser General Public 
- * License (found in COPYING).
+ * This library is distributed under the terms of the Apache V2.0 
+ * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
-/// Gets the time for the first contact with a joint limit (assuming Euler integration, so this is only first-order accurate)
+/// Gets joint limit constraints 
 template <class OutputIterator>
-OutputIterator ArticulatedBody::find_limit_events(const Ravelin::VectorNd& q0, const Ravelin::VectorNd& q1, double dt, OutputIterator output_begin) 
+OutputIterator ArticulatedBody::find_limit_constraints(OutputIterator output_begin) const 
 {
-  static Ravelin::VectorNd _dq_current;
-
-  // store the current generalized velocity
-  get_generalized_velocity(eSpatial, _dq_current);
-
-  // compute the generalized velocity that takes us from q0 to q1
-  (_dq = q1) -= q0;
-  set_generalized_coordinates(eEuler, q0);
-  set_generalized_velocity(eEuler, _dq);
-
   for (unsigned i=0; i< _joints.size(); i++)
     for (unsigned j=0; j< _joints[i]->num_dof(); j++)
     {
       // get the current joint position and velocity
       double q = _joints[i]->q[j];
-      double qd = _joints[i]->qd[j];
 
-      // setup an event for this joint/dof in case we need it
-      Event e;
-      e.event_type = Event::eLimit;
+      // setup an constraint for this joint/dof in case we need it
+      UnilateralConstraint e;
+      e.constraint_type = UnilateralConstraint::eLimit;
       e.limit_joint = _joints[i];
       e.limit_dof = j;
       e.limit_epsilon = _joints[i]->limit_restitution;
@@ -35,69 +24,16 @@ OutputIterator ArticulatedBody::find_limit_events(const Ravelin::VectorNd& q0, c
       // check whether we are already at a limit
       if (q >= _joints[i]->hilimit[j])
       {
-        // add event for upper limit
-        e.t = (double) 0.0;
+        // add constraint for upper limit
         e.limit_upper = true;
         *output_begin++ = e;
-
-        // check whether lower limit is also an event
-        if (_joints[i]->qd[j] < (double) 0.0)
-        {
-          double toc = (_joints[i]->lolimit[j] - q)/qd;
-          if (toc < (double) 1.0)
-          {
-            e.t = toc;
-            e.limit_upper = false;
-            *output_begin++ = e; 
-          }
-        }
       }
-      else if (q <= _joints[i]->lolimit[j])
+      if (q <= _joints[i]->lolimit[j])
       {
-        e.t = (double) 0.0;
         e.limit_upper = false;
         *output_begin++ = e;
-
-        // check whether upper limit is also an event
-        if (qd > (double) 0.0)
-        {
-          double toc = (_joints[i]->hilimit[j] - q)/qd;
-          if (toc < (double) 1.0)
-          {
-            e.t = toc;
-            e.limit_upper = true;
-            *output_begin++ = e; 
-          }
-        }
-      }
-      else
-      {
-        // only check appropriate limit
-        if (qd > (double) 0.0)
-        {
-          double toc = (_joints[i]->hilimit[j] - q)/qd;
-          if (toc < (double) 1.0)
-          {
-            e.t = std::max((double) 0.0, toc);
-            e.limit_upper = true;
-            *output_begin++ = e;
-          }
-        }
-        else if (qd < (double) 0.0)
-        {
-          double toc = (_joints[i]->lolimit[j] - q)/qd;
-          if (toc < (double) 1.0)
-          {
-            e.t = std::max((double) 0.0, toc);
-            e.limit_upper = false;
-            *output_begin++ = e;
-          }
-        }
       }
     }
-
-  // restore the generalized velocity
-  set_generalized_velocity(eSpatial, _dq_current);
 
   return output_begin;
 }

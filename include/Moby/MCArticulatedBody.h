@@ -1,7 +1,7 @@
 /****************************************************************************
  * Copyright 2007 Evan Drumwright
- * This library is distributed under the terms of the GNU Lesser General Public 
- * License (found in COPYING).
+ * This library is distributed under the terms of the Apache V2.0 
+ * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
 #ifndef _MC_ARTICULATED_BODY_H
@@ -19,7 +19,7 @@
 
 namespace Moby {
 
-class EventProblemData;
+class UnilateralConstraintProblemData;
 class RigidBody;
 
 /// Defines an articulated body simulated using maximal coordinate methods
@@ -58,8 +58,8 @@ class MCArticulatedBody : public ArticulatedBody
     MCArticulatedBodyPtr get_this() { return boost::dynamic_pointer_cast<MCArticulatedBody>(shared_from_this()); }
     boost::shared_ptr<const MCArticulatedBody> get_this() const { return boost::dynamic_pointer_cast<const MCArticulatedBody>(shared_from_this()); }
     virtual Ravelin::VectorNd& convert_to_generalized_force(SingleBodyPtr link, const Ravelin::SForced& f, const Point3d& p, Ravelin::VectorNd& gf);
-    virtual void update_event_data(EventProblemData& epd);
-    virtual void update_velocity(const EventProblemData& epd);
+    virtual void update_constraint_data(UnilateralConstraintProblemData& epd);
+    virtual void update_velocity(const UnilateralConstraintProblemData& epd);
     virtual void integrate(double t, double h, boost::shared_ptr<Integrator> integrator);
     virtual unsigned num_joint_dof_implicit() const { return num_joint_dof(); }
     virtual unsigned num_joint_dof_explicit() const { return 0; }
@@ -100,12 +100,12 @@ class MCArticulatedBody : public ArticulatedBody
       Ravelin::Matrix3d inv_inertia;  // The inverse of the rigid body inertia 
     };
 
-    static bool affects(RigidBodyPtr rb, Event* e);
-    static unsigned num_sub_events(JacobianType jt, Event* e);
-    static void get_event_data(JacobianType jt, Event* e, RigidBodyPtr rb, unsigned subidx, Ravelin::Vector3d& tx, Ravelin::Vector3d& rx);
-    static const std::vector<Event*>& get_events_vector(const EventProblemData& q, JacobianType jt);
-    void update_Jx_iM_JyT(EventProblemData& q, Ravelin::MatrixNd& Jx_iM_JyT, JacobianType j1t, JacobianType j2t);
-    void update_Jx_iM_JyT(RigidBodyPtr rb, EventProblemData& q, Ravelin::MatrixNd& Jx_iM_JyT, JacobianType j1t, JacobianType j2t);
+    static bool affects(RigidBodyPtr rb, UnilateralConstraint* e);
+    static unsigned num_sub_constraints(JacobianType jt, UnilateralConstraint* e);
+    static void get_constraint_data(JacobianType jt, UnilateralConstraint* e, RigidBodyPtr rb, unsigned subidx, Ravelin::Vector3d& tx, Ravelin::Vector3d& rx);
+    static const std::vector<UnilateralConstraint*>& get_constraints_vector(const UnilateralConstraintProblemData& q, JacobianType jt);
+    void update_Jx_iM_JyT(UnilateralConstraintProblemData& q, Ravelin::MatrixNd& Jx_iM_JyT, JacobianType j1t, JacobianType j2t);
+    void update_Jx_iM_JyT(RigidBodyPtr rb, UnilateralConstraintProblemData& q, Ravelin::MatrixNd& Jx_iM_JyT, JacobianType j1t, JacobianType j2t);
     void calc_joint_accelerations();
     static double sgn(double x); 
     Ravelin::MatrixNd dense_J(const SparseJacobian& J) const;
@@ -121,9 +121,9 @@ class MCArticulatedBody : public ArticulatedBody
     void form_Jm_iM_Km(const std::vector<unsigned>& Jm_indices, const std::vector<unsigned>& Km_indices, Ravelin::MatrixNd& M);
     Ravelin::VectorNd& scale_inverse_inertia(unsigned i, Ravelin::VectorNd& v) const;
     void apply_joint_limit_impulses();
-    void update_Jx_v(EventProblemData& q);
-    void update_Jl_v(EventProblemData& q);
-    void update_Dx_v(EventProblemData& q);
+    void update_Jx_v(UnilateralConstraintProblemData& q);
+    void update_Jl_v(UnilateralConstraintProblemData& q);
+    void update_Dx_v(UnilateralConstraintProblemData& q);
     void determine_inertias();
     void update_link_accelerations() const;
     void update_link_velocities() const;
@@ -138,7 +138,7 @@ class MCArticulatedBody : public ArticulatedBody
     virtual Ravelin::MatrixNd& transpose_solve_generalized_inertia(const Ravelin::MatrixNd& B, Ravelin::MatrixNd& X);
     virtual Ravelin::VectorNd& solve_generalized_inertia(const Ravelin::VectorNd& b, Ravelin::VectorNd& x) { return iM_mult(b, x); }
     virtual Ravelin::MatrixNd& solve_generalized_inertia(const Ravelin::MatrixNd& B, Ravelin::MatrixNd& X);
-    void select_sub_contact_Jacobians(const EventProblemData& q, SparseJacobian& Jc_sub, SparseJacobian& Dc_sub) const;
+    void select_sub_contact_Jacobians(const UnilateralConstraintProblemData& q, SparseJacobian& Jc_sub, SparseJacobian& Dc_sub) const;
     Ravelin::VectorNd& solve_Jx_iM_JxT(const Ravelin::VectorNd& rhs, Ravelin::VectorNd& x) const;
 
     /// The last-computed generalized velocity (in axis-angle representation)

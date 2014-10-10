@@ -25,7 +25,7 @@
 
     <!-- Rigid bodies -->
       <!-- the box -->
-      <RigidBody id="box" enabled="true" position="0 .50001 0" angular-velocity="0 10.00 0" visualization-id="b1" linear-velocity="0 0 0">
+      <RigidBody id="box" enabled="true" position="0 .5000 0" angular-velocity="0 10.00 0" visualization-id="b1" linear-velocity="0 0 0">
         <InertiaFromPrimitive primitive-id="b1" />
         <CollisionGeometry primitive-id="b1" />
       </RigidBody>
@@ -40,7 +40,7 @@
       <DynamicBody dynamic-body-id="box" />
       <DynamicBody dynamic-body-id="ground" />
       <RecurrentForce recurrent-force-id="gravity"  />
-      <ContactParameters object1-id="ground" object2-id="box" epsilon="0" mu-coulomb="0.1" mu-viscous="0" friction-cone-edges="16" />
+      <ContactParameters object1-id="ground" object2-id="box" epsilon=".1" mu-coulomb=".1" mu-viscous="0" friction-cone-edges="16" />
     </EventDrivenSimulator> 
   </MOBY>
 </XML>

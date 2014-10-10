@@ -1,7 +1,7 @@
 /****************************************************************************
  * Copyright 2005 Evan Drumwright
- * This library is distributed under the terms of the GNU Lesser General Public 
- * License (found in COPYING).
+ * This library is distributed under the terms of the Apache V2.0 
+ * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
 #ifndef _COLLISION_DETECTION_H
@@ -13,7 +13,7 @@
 #include <Ravelin/Pose3d.h>
 #include <Moby/sorted_pair>
 #include <Moby/Base.h>
-#include <Moby/Event.h>
+#include <Moby/UnilateralConstraint.h>
 #include <Moby/RigidBody.h>
 
 namespace Moby {
@@ -77,7 +77,7 @@ class CollisionDetection : public virtual Base
      * \return <b>true</b> if there is contact in the time interval, 
      *           <b>false</b> otherwise
      */
-    virtual bool is_contact(double dt, const std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> >& q0, const std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> >& q1, std::vector<Event>& contacts) = 0;
+    virtual bool is_contact(double dt, const std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> >& q0, const std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> >& q1, std::vector<UnilateralConstraint>& contacts) = 0;
 
     /// Adds the specified geometry to the set of geometries checked for collision
     /**

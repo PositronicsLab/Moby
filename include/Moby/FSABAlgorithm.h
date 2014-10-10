@@ -1,7 +1,7 @@
 /****************************************************************************
  * Copyright 2005 Evan Drumwright
- * This library is distributed under the terms of the GNU Lesser General Public 
- * License (found in COPYING).
+ * This library is distributed under the terms of the Apache V2.0 
+ * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
 #ifndef _FS_AB_ALGORITHM_H
@@ -45,8 +45,8 @@ class FSABAlgorithm
     void set_body(RCArticulatedBodyPtr body) { _body = body; }
     void calc_fwd_dyn();
     void calc_inverse_generalized_inertia_noprecalc(Ravelin::MatrixNd& iM);
-    void solve_generalized_inertia_noprecalc(Ravelin::VectorNd& v);
-    void solve_generalized_inertia_noprecalc(Ravelin::MatrixNd& Y);
+    void solve_generalized_inertia_noprecalc(Ravelin::SharedVectorNd& v);
+    void solve_generalized_inertia_noprecalc(Ravelin::SharedMatrixNd& Y);
     void apply_generalized_impulse(const Ravelin::VectorNd& gj);
     void apply_impulse(const Ravelin::SMomentumd& j, RigidBodyPtr link);
     void calc_spatial_inertias(RCArticulatedBodyPtr body);
@@ -97,6 +97,7 @@ class FSABAlgorithm
     /// processed vector
     std::vector<bool> _processed;
 
+    void calc_fwd_dyn_special();
     static double sgn(double x);
     static void push_children(RigidBodyPtr link, std::queue<RigidBodyPtr>& q);
     void apply_coulomb_joint_friction(RCArticulatedBodyPtr body);

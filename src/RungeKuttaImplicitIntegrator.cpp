@@ -1,7 +1,7 @@
 /****************************************************************************
  * Copyright 2006 Evan Drumwright
- * This library is distributed under the terms of the GNU Lesser General Public 
- * License (found in COPYING).
+ * This library is distributed under the terms of the Apache V2.0 
+ * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
 #include <strings.h>
@@ -12,7 +12,7 @@ using Ravelin::VectorNd;
 using namespace Moby;
 
 /// Method for 4th-order implicit Runge-Kutta integration
-void RungeKuttaImplicitIntegrator::integrate(VectorNd& x, VectorNd& (*f)(const VectorNd&, double, double, void*, VectorNd&), double& time, double step_size, void* data)
+void RungeKuttaImplicitIntegrator::integrate(VectorNd& x, VectorNd& (*f)(const VectorNd&, double, double, void*, VectorNd&), double time, double step_size, void* data)
 {
   // create dx/dt1 and dx/dt2
   VectorNd dxdt1;

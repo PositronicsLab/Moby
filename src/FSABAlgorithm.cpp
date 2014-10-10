@@ -1,7 +1,7 @@
 /****************************************************************************
  * Copyright 2005 Evan Drumwright
- * This library is distributed under the terms of the GNU Lesser General Public 
- * License (found in COPYING).
+ * This library is distributed under the terms of the Apache V2.0 
+ * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
 #ifdef _OPENMP
@@ -17,6 +17,7 @@
 #include <Moby/Joint.h>
 #include <Moby/NumericalException.h>
 #include <Moby/Spatial.h>
+#include <Ravelin/LinAlgd.h>
 #include <Moby/FSABAlgorithm.h>
 
 using namespace Ravelin;
@@ -37,7 +38,7 @@ FSABAlgorithm::FSABAlgorithm()
  * \param Y the matrix B on entry, the matrix X on return
  * \pre spatial inertias already computed for the body's current configuration 
  */
-void FSABAlgorithm::solve_generalized_inertia_noprecalc(MatrixNd& Y)
+void FSABAlgorithm::solve_generalized_inertia_noprecalc(SharedMatrixNd& Y)
 {
   VectorNd gv;
 
@@ -84,9 +85,9 @@ void FSABAlgorithm::solve_generalized_inertia_noprecalc(MatrixNd& Y)
  * \param v the vector b on entry, the vector x on return
  * \pre spatial inertias already computed for the body's current configuration 
  */
-void FSABAlgorithm::solve_generalized_inertia_noprecalc(VectorNd& v)
+void FSABAlgorithm::solve_generalized_inertia_noprecalc(SharedVectorNd& v)
 {
-  VectorNd gv;
+  VectorNd gv, gv2;
 
   // get the body
   RCArticulatedBodyPtr body(_body);
@@ -97,14 +98,18 @@ void FSABAlgorithm::solve_generalized_inertia_noprecalc(VectorNd& v)
     throw MissizeException();
 
   // apply the generalized impulse
-  apply_generalized_impulse(v);
+  gv2 = v;
+  apply_generalized_impulse(gv2);
 
   // get the new velocity out
-  body->get_generalized_velocity(DynamicBody::eSpatial, v);
-  v -= gv;
+  body->get_generalized_velocity(DynamicBody::eSpatial, gv2);
+  gv2 -= gv;
 
   // restore the current generalized velocity
   body->set_generalized_velocity(DynamicBody::eSpatial, gv);
+
+  // store the change in velocity
+  v = gv2;
 }
 
 /// Calculates the inverse generalized inertia matrix
@@ -208,7 +213,7 @@ void FSABAlgorithm::apply_generalized_impulse(unsigned index, VectorNd& vgj)
 
     // push the parent of the link onto the queue, *unless* the parent is the base
     RigidBodyPtr parent(link->get_parent_link());
-    if (!parent->get_index() == BASE_IDX)
+    if (parent->get_index() != BASE_IDX)
     {
       link_queue.push(parent);
       FILE_LOG(LOG_DYNAMICS) << "added link " << parent->id << " to queue for processing" << endl;
@@ -803,7 +808,7 @@ void FSABAlgorithm::calc_spatial_inertias(RCArticulatedBodyPtr body)
   // process all links (including the base, if it's floating)
   unsigned start_idx = (body->is_floating_base()) ? 0 : 1;
 
-  // process all links except the base
+  // process all links
   for (unsigned j=start_idx; j< links.size(); j++)
   {
     // get the link
@@ -813,6 +818,13 @@ void FSABAlgorithm::calc_spatial_inertias(RCArticulatedBodyPtr body)
     // set the articulated body inertia for this link to be its isolated
     // spatial inertia (this will be updated in the phase below)
    _I[i] = link->get_inertia();
+
+    // check for degenerate inertia
+    #ifndef NDEBUG
+    if (link->is_base() && body->is_floating_base() && 
+        (link->get_inertia().m <= 0.0 || link->get_inertia().J.norm_inf() <= 0.0))
+      throw std::runtime_error("Attempted to compute dynamics given degenerate inertia for a floating base body");
+    #endif
 
     FILE_LOG(LOG_DYNAMICS) << "  processing link " << link->id << endl;
     FILE_LOG(LOG_DYNAMICS) << "    Link spatial iso inertia: " << endl << _I[i];
@@ -896,8 +908,6 @@ FILE_LOG(LOG_DYNAMICS) << "added link " << parent->id << " to queue for processi
     if (!body->is_floating_base() && parent->is_base())
       continue;
  
-// NOTE: if we allow a spatial inertia to be formed from a general matrix, we
-// need to check structure
     // compute a couple of necessary matrices
     transpose_solve_sIs(i, sprime, _sIss);
     mult(Is, _sIss, tmp);
@@ -1033,10 +1043,11 @@ void FSABAlgorithm::calc_spatial_accelerations(RCArticulatedBodyPtr body)
   }
 }
 
-/// Computes the joint accelerations (forward dynamics) for a  manipulator
+/// Computes the joint accelerations (forward dynamics) for an articulated body
 /**
- * Featherstone Algorithm taken from Mirtich's thesis (p. 113).  Note that Mirtich's numbering is a little funny;
- * I decrement his joint indices by one, while leaving his link indices intact.
+ * Featherstone Algorithm taken from Mirtich's thesis (p. 113).  Mirtich's 
+ * numbering is a little funny, so I decrement his joint indices by one, while 
+ * leaving his link indices intact.
  */
 void FSABAlgorithm::calc_fwd_dyn()
 {
@@ -1057,8 +1068,42 @@ void FSABAlgorithm::calc_fwd_dyn()
   // compute spatial coriolis vectors
   calc_spatial_coriolis_vectors(body);
 
-  // compute spatial articulated body inertias, if necessary
+  // compute spatial articulated body inertias
   calc_spatial_inertias(body);
+
+  // compute spatial ZAs
+  calc_spatial_zero_accelerations(body);
+    
+  // compute spatial accelerations
+  calc_spatial_accelerations(body);
+
+  FILE_LOG(LOG_DYNAMICS) << "FSABAlgorith::calc_fwd_dyn() exited" << endl;
+}
+
+/// Computes the joint accelerations (forward dynamics) when position variables have not been changed 
+/**
+ * Featherstone Algorithm taken from Mirtich's thesis (p. 113).  Mirtich's 
+ * numbering is a little funny, so I decrement his joint indices by one, while 
+ * leaving his link indices intact.
+ */
+void FSABAlgorithm::calc_fwd_dyn_special()
+{
+  FILE_LOG(LOG_DYNAMICS) << "FSABAlgorith::calc_fwd_dyn() entered" << endl;
+
+  // get the body and the reference frame
+  RCArticulatedBodyPtr body(_body);
+  if (!body->_ijoints.empty())
+    throw std::runtime_error("FSABAlgorithm cannot process bodies with kinematic loops!");
+
+  // get the links and joints for the body
+  const vector<RigidBodyPtr>& links = body->get_links();
+  const vector<JointPtr>& joints = body->get_explicit_joints();
+
+  // get the base link
+  RigidBodyPtr base = links.front();
+ 
+  // compute spatial coriolis vectors
+  calc_spatial_coriolis_vectors(body);
 
   // compute spatial ZAs
   calc_spatial_zero_accelerations(body);

@@ -1,7 +1,7 @@
 /****************************************************************************
  * Copyright 2005 Evan Drumwright
- * This library is distributed under the terms of the GNU Lesser General Public 
- * License (found in COPYING).
+ * This library is distributed under the terms of the Apache V2.0 
+ * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
 #ifndef _ARTICULATED_BODY_H
@@ -13,7 +13,7 @@
 #include <Ravelin/Matrix3d.h>
 #include <Ravelin/SMomentumd.h>
 #include <Moby/sorted_pair>
-#include <Moby/Event.h>
+#include <Moby/UnilateralConstraint.h>
 #include <Moby/DynamicBody.h>
 #include <Moby/Joint.h>
 
@@ -45,6 +45,18 @@ class ArticulatedBody : public DynamicBody
     void find_loops(std::vector<unsigned>& loop_indices, std::vector<std::vector<unsigned> >& loop_links) const;
     virtual Ravelin::MatrixNd& calc_jacobian(boost::shared_ptr<const Ravelin::Pose3d> frame, DynamicBodyPtr body, Ravelin::MatrixNd& J);
     virtual Ravelin::MatrixNd& calc_jacobian_dot(boost::shared_ptr<const Ravelin::Pose3d> frame, DynamicBodyPtr body, Ravelin::MatrixNd& J);
+    void update_joint_constraint_violations();
+    bool is_joint_constraint_violated() const;
+    double calc_CA_time_for_joints() const;
+    virtual void ode_noexcept(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data, Ravelin::SharedVectorNd& dx);
+    virtual void prepare_to_calc_ode(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data);
+    virtual void prepare_to_calc_ode_sustained_constraints(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data);
+    virtual void ode(double t, double dt, void* data, Ravelin::SharedVectorNd& dx);
+    virtual void reset_limit_estimates();
+    virtual bool limit_estimates_exceeded() const;
+    double find_next_joint_limit_time() const;
+    void update_joint_vel_limits();
+    virtual void validate_limit_estimates();
 
     /// Gets the number of degrees-of-freedom permitted by explicit constraints
     virtual unsigned num_joint_dof_explicit() const = 0;
@@ -52,12 +64,9 @@ class ArticulatedBody : public DynamicBody
     /// Gets the number of degrees-of-freedom permitted by implicit constraints
     virtual unsigned num_joint_dof_implicit() const = 0;
 
+    /// Finds (joint) limit constraints 
     template <class OutputIterator>
-    OutputIterator find_limit_events(double dt, OutputIterator begin) const;
-
-    /// Finds (joint) limit events
-    template <class OutputIterator>
-    OutputIterator find_limit_events(const Ravelin::VectorNd& q0, const Ravelin::VectorNd& q1, double dt, OutputIterator begin);
+    OutputIterator find_limit_constraints(OutputIterator begin) const;
 
     /// Gets the set of links
     virtual const std::vector<RigidBodyPtr>& get_links() const { return _links; }
@@ -115,7 +124,7 @@ class ArticulatedBody : public DynamicBody
      * changes.  Generally, this will only be necessary once - after a call
      * to set_links() or set_joints().
      */
-    virtual void compile() = 0;
+    virtual void compile();
 
     /// The set of links for this articulated body
     std::vector<RigidBodyPtr> _links;
@@ -123,10 +132,29 @@ class ArticulatedBody : public DynamicBody
     /// The set of joints for this articulated body
     std::vector<JointPtr> _joints;
 
+    // the limit bound expansion for updating joint velocity limit estimates
+    double limit_bound_expansion;
+
   private:
+    // joint constraint violation
+    std::vector<double> _cvio;
+
+    // joint velocity tolerances (for joints at constraints)
+    std::vector<double> _cvel_vio;
+
+    // lower velocity limits for this body
+    std::vector<double> _vel_limits_lo;
+
+    // upper acceleration limits for this body
+    std::vector<double> _vel_limits_hi;
+
     // temporary variables
     Ravelin::VectorNd _dq;
 
+    // indicates whether velocity bounds exceeded limits since being reset
+    bool _vel_limit_exceeded;
+
+    void check_joint_vel_limit_exceeded_and_update();
     virtual double get_aspeed();
 }; // end class
 

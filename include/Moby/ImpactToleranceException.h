@@ -1,7 +1,7 @@
 /****************************************************************************
  * Copyright 2012 Evan Drumwright
- * This library is distributed under the terms of the GNU Lesser General Public 
- * License (found in COPYING).
+ * This library is distributed under the terms of the Apache V2.0 
+ * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
 #ifndef _IMPACT_TOLERANCE_EXCEPTION_H_
@@ -9,7 +9,7 @@
 
 #include <list>
 #include <stdexcept>
-#include <Moby/Event.h>
+#include <Moby/UnilateralConstraint.h>
 
 namespace Moby {
 
@@ -17,11 +17,11 @@ namespace Moby {
 class ImpactToleranceException : public std::runtime_error
 {
   public:
-    ImpactToleranceException(const std::list<Event*>& impacting_events) : std::runtime_error("Event velocity is below tolerance after treatment!") { events = impacting_events; }
+    ImpactToleranceException(const std::list<UnilateralConstraint*>& impacting_constraints) : std::runtime_error("Constraint velocity is below tolerance after treatment!") { constraints = impacting_constraints; }
 
     virtual ~ImpactToleranceException() throw() { }
 
-  std::list<Event*> events;
+  std::list<UnilateralConstraint*> constraints;
 }; // end class
 
 

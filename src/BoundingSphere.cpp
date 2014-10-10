@@ -1,7 +1,7 @@
 /****************************************************************************
  * Copyright 2009 Evan Drumwright
- * This library is distributed under the terms of the GNU Lesser General Public 
- * License (found in COPYING).
+ * This library is distributed under the terms of the Apache V2.0 
+ * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
 #include <Moby/OBB.h>
@@ -73,8 +73,8 @@ BVPtr BoundingSphere::calc_swept_BV(CollisionGeometryPtr g, const SVelocityd& v)
   // get the corresponding body
   SingleBodyPtr b = g->get_single_body();
 
-  // if the body does not move, just return the OBB
-  if (!b->is_enabled() || v.get_linear().norm() < NEAR_ZERO)
+  // if the body does not move, just return the bounding sphere 
+  if (!b->is_enabled())
   {
     FILE_LOG(LOG_BV) << "BoundingSphere::calc_swept_BV() entered" << endl;
     FILE_LOG(LOG_BV) << "  -- using original bounding sphere" << endl;

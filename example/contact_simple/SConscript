@@ -1,6 +1,0 @@
-# import variables from calling scripts
-Import('env_copy')
-
-# build the robot controller plugin
-env_copy.SharedLibrary('coldet-plugin.cpp')
-

@@ -1,7 +1,7 @@
 /****************************************************************************
  * Copyright 2005 Evan Drumwright
- * This library is distributed under the terms of the GNU Lesser General Public 
- * License (found in COPYING).
+ * This library is distributed under the terms of the Apache V2.0 
+ * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
 #ifndef _RIGID_BODY_H
@@ -42,14 +42,15 @@ class CollisionGeometry;
  */
 class RigidBody : public SingleBody
 {
+  friend class ArticulatedBody;
   friend class RCArticulatedBody;
   friend class MCArticulatedBody;
   friend class Joint;
-
+  
   public:
+    enum Compliance { eRigid, eCompliant};
     RigidBody();
     virtual ~RigidBody() {}
-    virtual void integrate(double t, double h, boost::shared_ptr<Integrator> integrator);
     void add_force(const Ravelin::SForced& w);
     void set_pose(const Ravelin::Pose3d& pose);
     void set_inertial_pose(const Ravelin::Pose3d& pose);
@@ -73,22 +74,22 @@ class RigidBody : public SingleBody
     void set_accel(const Ravelin::SAcceld& xdd);
     virtual const Ravelin::SAcceld& get_accel();
     void set_velocity(const Ravelin::SAcceld& xdd);
-    virtual void set_generalized_forces(const Ravelin::VectorNd& gf);
-    virtual Ravelin::VectorNd& get_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& gc);
-    virtual Ravelin::VectorNd& get_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& gv);
-    virtual Ravelin::VectorNd& get_generalized_acceleration(Ravelin::VectorNd& ga);
-    virtual void add_generalized_force(const Ravelin::VectorNd& gf);
-    virtual void apply_generalized_impulse(const Ravelin::VectorNd& gf);
-    virtual void set_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gc);
-    virtual void set_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gv);
-    virtual Ravelin::MatrixNd& get_generalized_inertia(Ravelin::MatrixNd& M);
-    virtual Ravelin::VectorNd& get_generalized_forces(Ravelin::VectorNd& f);
-    virtual Ravelin::VectorNd& convert_to_generalized_force(SingleBodyPtr body, const Ravelin::SForced& w, const Point3d& p, Ravelin::VectorNd& gf);
+    virtual void set_generalized_forces(const Ravelin::SharedVectorNd& gf);
+    virtual Ravelin::SharedMatrixNd& get_generalized_inertia(Ravelin::SharedMatrixNd& M);
+    virtual Ravelin::SharedVectorNd& get_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::SharedVectorNd& gc);
+    virtual Ravelin::SharedVectorNd& get_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::SharedVectorNd& gv);
+    virtual Ravelin::SharedVectorNd& get_generalized_acceleration(Ravelin::SharedVectorNd& ga);
+    virtual void add_generalized_force(const Ravelin::SharedVectorNd& gf);
+    virtual void apply_generalized_impulse(const Ravelin::SharedVectorNd& gf);
+    virtual void set_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::SharedVectorNd& gc);
+    virtual void set_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::SharedVectorNd& gv);
+    virtual Ravelin::SharedVectorNd& get_generalized_forces(Ravelin::SharedVectorNd& f);
+    virtual Ravelin::SharedVectorNd& convert_to_generalized_force(SingleBodyPtr body, const Ravelin::SForced& w, Ravelin::SharedVectorNd& gf);
     virtual unsigned num_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype) const;
-    virtual Ravelin::MatrixNd& transpose_solve_generalized_inertia(const Ravelin::MatrixNd& B, Ravelin::MatrixNd& X);
-    Ravelin::MatrixNd& transpose_solve_generalized_inertia_single(const Ravelin::MatrixNd& B, Ravelin::MatrixNd& X);
-    virtual Ravelin::MatrixNd& solve_generalized_inertia(const Ravelin::MatrixNd& B, Ravelin::MatrixNd& X);
-    virtual Ravelin::VectorNd& solve_generalized_inertia(const Ravelin::VectorNd& b, Ravelin::VectorNd& x);
+    virtual Ravelin::SharedMatrixNd& transpose_solve_generalized_inertia(const Ravelin::SharedMatrixNd& B, Ravelin::SharedMatrixNd& X);
+    Ravelin::SharedMatrixNd& transpose_solve_generalized_inertia_single(const Ravelin::SharedMatrixNd& B, Ravelin::SharedMatrixNd& X);
+    virtual Ravelin::SharedMatrixNd& solve_generalized_inertia(const Ravelin::SharedMatrixNd& B, Ravelin::SharedMatrixNd& X);
+    virtual Ravelin::SharedVectorNd& solve_generalized_inertia(const Ravelin::SharedVectorNd& b, Ravelin::SharedVectorNd& x);
     RigidBodyPtr get_parent_link() const;
     JointPtr get_inner_joint_explicit() const;
     void add_inner_joint(JointPtr j);
@@ -105,7 +106,16 @@ class RigidBody : public SingleBody
     virtual Ravelin::MatrixNd& calc_jacobian_dot(boost::shared_ptr<const Ravelin::Pose3d> frame, DynamicBodyPtr body, Ravelin::MatrixNd& J);
     const Ravelin::SForced& sum_forces();
     void reset_accumulators();
-    Ravelin::SForced calc_pseudo_forces();
+    Ravelin::SForced calc_euler_torques();
+    virtual void ode_noexcept(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data, Ravelin::SharedVectorNd& dx);
+    virtual void prepare_to_calc_ode(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data);
+    virtual void prepare_to_calc_ode_sustained_constraints(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data) { prepare_to_calc_ode(x, t, dt, data); }
+    virtual void ode(double t, double dt, void* data, Ravelin::SharedVectorNd& dx);
+    virtual void reset_limit_estimates();
+    virtual bool limit_estimates_exceeded() const { return compliance == eRigid && _vel_limit_exceeded; }
+    const Ravelin::SVelocityd& get_vel_upper_bounds() const { return _vel_limit_hi; }
+    const Ravelin::SVelocityd& get_vel_lower_bounds() const { return _vel_limit_lo; }
+    void update_vel_limits();
 
     template <class OutputIterator>
     OutputIterator get_parent_links(OutputIterator begin) const;
@@ -186,24 +196,44 @@ class RigidBody : public SingleBody
     /// Viscous coefficient for dampening the body motion
     Ravelin::VectorNd viscous_coeff;
 
+    /// Validates the limit estimates
+    virtual void validate_limit_estimates() { _vel_limit_exceeded = false; }
+
+    /// Limit bound expansion scalar (default = 0.15 = 15%)
+    double limit_bound_expansion;
+    
+    /// Compliance value, determines event type
+    Compliance compliance;
+
   private:  
+    template <class V>
+    void get_generalized_coordinates_generic(DynamicBody::GeneralizedCoordinateType gctype, V& gc);
+
+    template <class V>
+    void get_generalized_velocity_generic(DynamicBody::GeneralizedCoordinateType gctype, V& gv);
+
+    template <class V>
+    void get_generalized_acceleration_generic(V& ga);
+
+    template <class V>
+    void set_generalized_coordinates_generic(DynamicBody::GeneralizedCoordinateType gctype, V& gc);
+
+    template <class V>
+    void set_generalized_velocity_generic(DynamicBody::GeneralizedCoordinateType gctype, V& gv);
+
     void set_force(const Ravelin::SForced& w);
-    Ravelin::VectorNd& get_generalized_coordinates_single(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& gc);
-    Ravelin::VectorNd& get_generalized_velocity_single(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& gv);
-    Ravelin::VectorNd& get_generalized_acceleration_single(Ravelin::VectorNd& ga);
     void invalidate_pose_vectors();
-    void apply_generalized_impulse_single(const Ravelin::VectorNd& gf);
-    void set_generalized_coordinates_single(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gc);
-    void set_generalized_velocity_single(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gv);
-    Ravelin::MatrixNd& get_generalized_inertia_single(Ravelin::MatrixNd& M);
-    Ravelin::MatrixNd& get_generalized_inertia_inverse(Ravelin::MatrixNd& M) const;
-    Ravelin::VectorNd& get_generalized_forces_single(Ravelin::VectorNd& f);
-    Ravelin::VectorNd& convert_to_generalized_force_single(SingleBodyPtr body, const Ravelin::SForced& w, Ravelin::VectorNd& gf);
+    void apply_generalized_impulse_single(const Ravelin::SharedVectorNd& gf);
+    Ravelin::SharedMatrixNd& get_generalized_inertia_single(Ravelin::SharedMatrixNd& M);
+    virtual Ravelin::SharedMatrixNd& get_generalized_inertia_inverse(Ravelin::SharedMatrixNd& M) const;
+    Ravelin::SharedVectorNd& get_generalized_forces_single(Ravelin::SharedVectorNd& f);
+    Ravelin::SharedVectorNd& convert_to_generalized_force_single(SingleBodyPtr body, const Ravelin::SForced& w, Ravelin::SharedVectorNd& gf);
     unsigned num_generalized_coordinates_single(DynamicBody::GeneralizedCoordinateType gctype) const;
-    Ravelin::MatrixNd& solve_generalized_inertia_single(const Ravelin::MatrixNd& B, Ravelin::MatrixNd& X);
-    Ravelin::VectorNd& solve_generalized_inertia_single(const Ravelin::VectorNd& b, Ravelin::VectorNd& x);
+    Ravelin::SharedMatrixNd& solve_generalized_inertia_single(const Ravelin::SharedMatrixNd& B, Ravelin::SharedMatrixNd& X);
+    Ravelin::SharedVectorNd& solve_generalized_inertia_single(const Ravelin::SharedVectorNd& b, Ravelin::SharedVectorNd& x);
     RigidBodyPtr get_parent_link(JointPtr j) const;
     RigidBodyPtr get_child_link(JointPtr j) const;
+    void check_vel_limit_exceeded_and_update();
 
     /// Indicates whether link frame velocity is valid (up-to-date)
     bool _xdi_valid;
@@ -214,8 +244,14 @@ class RigidBody : public SingleBody
     /// Indicates whether inertial frame velocity is valid (up-to-date)
     bool _xdm_valid;
 
+    /// Indicates whether global frame velocity is valid (up-to-date)
+    bool _xd0_valid;
+
     /// Indicates whether link frame acceleration is valid (up-to-date)
     bool _xddi_valid;
+
+    /// Indicates whether global frame acceleration is valid (up-to-date)
+    bool _xdd0_valid;
 
     /// Indicates whether inner joint frame acceleration is valid (up-to-date)
     bool _xddj_valid;
@@ -232,11 +268,17 @@ class RigidBody : public SingleBody
     /// Indicates whether inertial frame force is valid (up-to-date)
     bool _forcem_valid;
 
+    /// Indicates whether global frame force is valid (up-to-date)
+    bool _force0_valid;
+
     /// Indicates whether the global frame inertia matrix is valid
     bool _J0_valid;
 
     /// Indicates whether the link frame inertia matrix is valid
     bool _Ji_valid;
+
+    /// Indicates whether the link com frame inertia matrix is valid
+    bool _Jcom_valid;
 
     /// Indicates whether the inner joint frame inertia matix is valid 
     bool _Jj_valid;
@@ -289,6 +331,18 @@ class RigidBody : public SingleBody
     /// Cumulative force on the body (inner joint frame)
     Ravelin::SForced _forcej;
 
+    /// Spatial rigid body inertia matrix (link COM frame) 
+    Ravelin::SpatialRBInertiad _Jcom;
+
+    /// Velocity (link com frame)
+    Ravelin::SVelocityd _xdcom;
+
+    /// Acceleration (link com frame)
+    Ravelin::SAcceld _xddcom;
+
+    /// Cumulative force on the body (com frame)
+    Ravelin::SForced _forcecom;
+
     /// reference pose for this body
     boost::shared_ptr<Ravelin::Pose3d> _F;
 
@@ -313,7 +367,15 @@ class RigidBody : public SingleBody
     /// Outer joints and associated data 
     std::set<JointPtr> _outer_joints; 
 
-    Ravelin::LinAlgd _LA;
+    /// Lower velocity limits on the body 
+    Ravelin::SVelocityd _vel_limit_lo;
+
+    /// Upper velocity limits on the body
+    Ravelin::SVelocityd _vel_limit_hi;
+
+    /// Indicates whether the velocity limit has been exceeded
+    bool _vel_limit_exceeded;
+
 }; // end class
 
 std::ostream& operator<<(std::ostream&, RigidBody&);

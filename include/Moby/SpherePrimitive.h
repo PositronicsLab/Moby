@@ -1,7 +1,7 @@
 /****************************************************************************
  * Copyright 2005 Evan Drumwright
- * This library is distributed under the terms of the GNU Lesser General Public 
- * License (found in COPYING).
+ * This library is distributed under the terms of the Apache V2.0 
+ * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
 #ifndef _SPHERE_PRIMITIVE_H
@@ -26,18 +26,19 @@ class SpherePrimitive : public Primitive
     SpherePrimitive(double radius, unsigned n, const Ravelin::Pose3d& T);
     void set_radius(double radius);
     void set_num_points(unsigned n);
+    virtual bool is_convex() const { return true; }
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual void set_pose(const Ravelin::Pose3d& T);
+    virtual void get_vertices(boost::shared_ptr<const Ravelin::Pose3d> P, std::vector<Point3d>& vertices) const;
     virtual BVPtr get_BVH_root(CollisionGeometryPtr geom);
-    virtual bool point_inside(BVPtr bv, const Point3d& p, Ravelin::Vector3d& normal) const;
-    virtual bool intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Ravelin::Vector3d& normal) const;
-    virtual const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >& get_sub_mesh(BVPtr bv);
-    virtual boost::shared_ptr<const IndexedTriArray> get_mesh();
-    virtual void set_intersection_tolerance(double tol);
-    virtual void get_vertices(BVPtr bv, std::vector<const Point3d*>& vertices);
+    virtual double calc_dist_and_normal(const Point3d& point, std::vector<Ravelin::Vector3d>& normals) const;
+    virtual double calc_signed_dist(boost::shared_ptr<const Primitive> p, Point3d& pthis, Point3d& pp) const;
+    virtual boost::shared_ptr<const IndexedTriArray> get_mesh(boost::shared_ptr<const Ravelin::Pose3d> P);
     virtual osg::Node* create_visualization();
-    double calc_dist(const SpherePrimitive* s, Point3d& pthis, Point3d& psph) const;
+    double calc_signed_dist(boost::shared_ptr<const SpherePrimitive> s, Point3d& pthis, Point3d& psph) const;
+    virtual Point3d get_supporting_point(const Ravelin::Vector3d& d) const;
+    virtual double calc_signed_dist(const Point3d& p) const;
 
     /// Gets the radius for this sphere
     double get_radius() const { return _radius; }
@@ -48,12 +49,6 @@ class SpherePrimitive : public Primitive
   private:
     virtual void calc_mass_properties();
 
-    /// Pointer to the determined mesh (w/transform applied), if any
-    boost::shared_ptr<IndexedTriArray> _mesh;
-
-    /// Map from the geometry to the vector of vertices (w/transform and intersection tolerance applied), if any
-    std::map<CollisionGeometryPtr, std::vector<Point3d> > _vertices;
-
     /// The bounding volumes for the sphere
     std::map<CollisionGeometryPtr, boost::shared_ptr<BoundingSphere> > _bsphs; 
 
@@ -62,9 +57,6 @@ class SpherePrimitive : public Primitive
 
     /// Number of points used to create collision geometry
     unsigned _npoints;
-
-    /// The "sub" mesh 
-    std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> > _smesh;
 }; // end class
 
 } // end namespace

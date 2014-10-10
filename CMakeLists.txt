@@ -9,17 +9,30 @@ set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/CMakeModules)
 include_directories ("include")
 
 # setup library sources
-set (SOURCES AABB.cpp ArticulatedBody.cpp Base.cpp BoundingSphere.cpp BoxPrimitive.cpp BV.cpp CollisionDetection.cpp CollisionGeometry.cpp CompGeom.cpp ConePrimitive.cpp ContactParameters.cpp CRBAlgorithm.cpp CSG.cpp CylinderPrimitive.cpp DampingForce.cpp DynamicBody.cpp EulerIntegrator.cpp Event.cpp EventDrivenSimulator.cpp FixedJoint.cpp FSABAlgorithm.cpp GaussianMixture.cpp GeneralizedCCD.cpp GravityForce.cpp ImpactEventHandler.cpp ImpactEventHandlerNQP.cpp ImpactEventHandlerQP.cpp IndexedTetraArray.cpp IndexedTriArray.cpp Integrator.cpp Joint.cpp LCP.cpp Log.cpp OBB.cpp ODEPACKIntegrator.cpp OSGGroupWrapper.cpp Polyhedron.cpp Primitive.cpp PrismaticJoint.cpp RCArticulatedBody.cpp RevoluteJoint.cpp RigidBody.cpp RNEAlgorithm.cpp Rosenbrock4Integrator.cpp RungeKuttaFehlbergIntegrator.cpp RungeKuttaIntegrator.cpp RungeKuttaImplicitIntegrator.cpp Simulator.cpp SingleBody.cpp Spatial.cpp SpherePrimitive.cpp SphericalJoint.cpp SSL.cpp SSR.cpp StokesDragForce.cpp Tetrahedron.cpp ThickTriangle.cpp Triangle.cpp TriangleMeshPrimitive.cpp UniversalJoint.cpp URDFReader.cpp VariableEulerIntegrator.cpp VariableStepIntegrator.cpp Visualizable.cpp XMLReader.cpp XMLTree.cpp XMLWriter.cpp)
+set (SOURCES AABB.cpp SustainedUnilateralConstraintHandler.cpp ADF.cpp ArticulatedBody.cpp Base.cpp BoundingSphere.cpp BoxPrimitive.cpp BulirschStoerIntegrator.cpp BV.cpp CCD.cpp CollisionGeometry.cpp CompGeom.cpp ConePrimitive.cpp ContactParameters.cpp CP.cpp CRBAlgorithm.cpp CylinderPrimitive.cpp DampingForce.cpp DynamicBody.cpp EulerIntegrator.cpp EventDrivenSimulator.cpp FixedJoint.cpp FSABAlgorithm.cpp GJK.cpp GravityForce.cpp HeightmapPrimitive.cpp ImpactConstraintHandler.cpp ImpactConstraintHandlerNQP.cpp ImpactConstraintHandlerQP.cpp IndexedTetraArray.cpp IndexedTriArray.cpp Integrator.cpp Joint.cpp LCP.cpp Log.cpp OBB.cpp ODEPACKIntegrator.cpp OSGGroupWrapper.cpp PenaltyConstraintHandler.cpp PlanePrimitive.cpp Polyhedron.cpp Primitive.cpp PrismaticJoint.cpp RCArticulatedBody.cpp RevoluteJoint.cpp RigidBody.cpp RNEAlgorithm.cpp Rosenbrock4Integrator.cpp RungeKuttaFehlbergIntegrator.cpp RungeKuttaIntegrator.cpp RungeKuttaImplicitIntegrator.cpp SDFReader.cpp Simulator.cpp SingleBody.cpp Spatial.cpp SpherePrimitive.cpp SphericalJoint.cpp SSL.cpp SSR.cpp StokesDragForce.cpp Tetrahedron.cpp ThickTriangle.cpp TimeSteppingSimulator.cpp Triangle.cpp TriangleMeshPrimitive.cpp UnilateralConstraint.cpp UniversalJoint.cpp URDFReader.cpp VariableEulerIntegrator.cpp VariableStepIntegrator.cpp Visualizable.cpp XMLReader.cpp XMLTree.cpp XMLWriter.cpp)
 #set (SOURCES MCArticulatedBody.cpp)
 
 # build options 
 option (BUILD_SHARED_LIBS "Build Moby as a shared library?" ON)
 option (BUILD_TOOLS "Build the programs in the tools subdirectory?" ON)
 option (USE_OSG "Build against OpenSceneGraph library?" ON)
-option (USE_IPOPT "Build against IPOPT library?" ON)
+option (USE_IPOPT "Build against IPOPT library?" OFF)
+if(APPLE)
+  option (USE_QLCPD "Build against QLCPD library?" OFF)
+else()
+  option (USE_QLCPD "Build against QLCPD library?" ON)
+endif()
 option (PROFILE "Build for profiling?" OFF)
 option (OMP "Build with OpenMP support?" OFF)
 option (THREADSAFE "Build Moby to be threadsafe? (slower)" OFF)
+
+# look for QLCPD
+find_library(QLCPD_FOUND qlcpd-dense /usr/local/lib /usr/lib)
+if (USE_QLCPD AND QLCPD_FOUND)
+  set (SOURCES ${SOURCES} QLCPD.cpp)
+  set (EXTRA_LIBS qlcpd-dense)
+  add_definitions (-DUSE_QLCPD)
+endif (USE_QLCPD AND QLCPD_FOUND)
 
 # check options are valid
 if (THREADSAFE)
@@ -54,6 +67,8 @@ find_package (osg)
 find_package (osgViewer)
 find_package (osgDB)
 find_package (osgGA)
+find_package (osgFX)
+find_package (osgUtil)
 find_package (OpenThreads)
 
 # see whether IPOPT was detected
@@ -143,6 +158,8 @@ if (USE_OSG AND OSG_FOUND)
   target_link_libraries (Moby ${OSGDB_LIBRARIES})
   target_link_libraries (Moby ${OSGGA_LIBRARIES})
   target_link_libraries (Moby ${OPENTHREADS_LIBRARY})
+  target_link_libraries (Moby ${OSGUTIL_LIBRARIES})
+  target_link_libraries (Moby ${OSGMANIPULATOR_LIBRARIES})
 endif (USE_OSG AND OSG_FOUND)  
 
 # build the tools?

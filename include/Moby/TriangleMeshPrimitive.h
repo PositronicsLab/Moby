@@ -1,7 +1,7 @@
 /****************************************************************************
  * Copyright 2005 Evan Drumwright
- * This library is distributed under the terms of the GNU Lesser General Public 
- * License (found in COPYING).
+ * This library is distributed under the terms of the Apache V2.0 
+ * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
 #ifndef _TRIANGLE_MESH_PRIMITIVE_H
@@ -31,18 +31,18 @@ class TriangleMeshPrimitive : public Primitive
     /// Gets the length of an edge in the mesh above which point sub-samples are created
     double get_edge_sample_length() const { return _edge_sample_length; }
 
+    virtual double calc_signed_dist(const Point3d& p) const;
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);  
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual BVPtr get_BVH_root(CollisionGeometryPtr geom);
-    virtual void get_vertices(BVPtr bv, std::vector<const Point3d*>& vertices);
-    virtual bool point_inside(BVPtr bv, const Point3d& p, Ravelin::Vector3d& normal) const;
-    virtual bool intersect_seg(BVPtr bv, const LineSeg3& seg, double& t, Point3d& isect, Ravelin::Vector3d& normal) const;
-    virtual const std::pair<boost::shared_ptr<const IndexedTriArray>, std::list<unsigned> >& get_sub_mesh(BVPtr bv);
-    virtual boost::shared_ptr<const IndexedTriArray> get_mesh() { return _mesh; }
-    virtual void set_deformable(bool flag);
-    virtual void set_intersection_tolerance(double tol);
+    virtual void get_vertices(boost::shared_ptr<const Ravelin::Pose3d> P, std::vector<Point3d>& vertices) const;
+    virtual double calc_dist_and_normal(const Point3d& point, std::vector<Ravelin::Vector3d>& normals) const;
+    virtual boost::shared_ptr<const IndexedTriArray> get_mesh(boost::shared_ptr<const Ravelin::Pose3d> P) { return _mesh; }
     void set_mesh(boost::shared_ptr<const IndexedTriArray> mesh);
     virtual void set_pose(const Ravelin::Pose3d& T);
+    virtual double calc_signed_dist(boost::shared_ptr<const Primitive> p, Point3d& pthis, Point3d& pp) const;
+    virtual bool is_convex() const;
+    
 
   private:
     void center();
@@ -72,11 +72,10 @@ class TriangleMeshPrimitive : public Primitive
         unsigned tri_idx;             // the index of this triangle
     };
 
-    void construct_mesh_vertices(boost::shared_ptr<const IndexedTriArray> mesh, CollisionGeometryPtr geom, boost::shared_ptr<const Ravelin::Pose3d> P);
+    void construct_mesh_vertices(boost::shared_ptr<const IndexedTriArray> mesh, CollisionGeometryPtr geom);
     void build_BB_tree(CollisionGeometryPtr geom);
     void split_tris(const Point3d& point, const Ravelin::Vector3d& normal, const IndexedTriArray& orig_mesh, const std::list<unsigned>& ofacets, std::list<unsigned>& pfacets, std::list<unsigned>& nfacets);
     bool split(boost::shared_ptr<const IndexedTriArray> mesh, BVPtr source, BVPtr& tgt1, BVPtr& tgt2, const Ravelin::Vector3d& axis);
-    static bool is_degen_point_on_tri(boost::shared_ptr<AThickTri> tri, const Point3d& p);
 
     template <class InputIterator, class OutputIterator>
     static OutputIterator get_vertices(const IndexedTriArray& tris, InputIterator fselect_begin, InputIterator fselect_end, OutputIterator output, boost::shared_ptr<const Ravelin::Pose3d> P);
@@ -85,7 +84,7 @@ class TriangleMeshPrimitive : public Primitive
     std::map<BVPtr, std::list<unsigned> > _mesh_tris;
 
     /// Map from the geometry to the vector of vertices (w/transform and intersection tolerance applied), if any
-    std::map<CollisionGeometryPtr, std::vector<Point3d> > _vertices;
+    std::vector<Point3d> _vertices;
 
     /// Mapping from BVs to vertex indices contained within (not necessary to index this per geometry)
     std::map<BVPtr, std::list<unsigned> > _mesh_vertices;
