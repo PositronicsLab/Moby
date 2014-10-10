@@ -63,7 +63,7 @@ VectorNd& DynamicBody::ode_both(const VectorNd& x, double t, double dt, void* da
   #endif
 
   // clear the force accumulators on the body
-  db->reset_accumulators();
+  //db->reset_accumulators();
 
   // add all recurrent forces on the body
   const list<RecurrentForcePtr>& rfs = db->get_recurrent_forces();
