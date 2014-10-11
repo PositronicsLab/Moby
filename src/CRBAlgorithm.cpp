@@ -417,8 +417,11 @@ void CRBAlgorithm::calc_joint_space_inertia(RCArticulatedBodyPtr body, MatrixNd&
     mult(Ic[oidx], _sprime, _momenta[oidx]);
     if (_sprime.size() > 0)
     {
-      FILE_LOG(LOG_DYNAMICS) << "s: " << _sprime[0] << std::endl;
-      FILE_LOG(LOG_DYNAMICS) << "Is[" << i << "]: " << _momenta[oidx][0] << std::endl;
+      for (unsigned j=0; j< ijoints[i]->num_dof(); j++)
+      {
+        FILE_LOG(LOG_DYNAMICS) << "s[ " << j << "]: " << _sprime[j] << std::endl;
+        FILE_LOG(LOG_DYNAMICS) << "Is[" << j << "]: " << _momenta[oidx][j] << std::endl;
+      }
     }
   } 
 
@@ -572,6 +575,7 @@ void CRBAlgorithm::precalc(RCArticulatedBodyPtr body)
   MatrixNd& M = this->_M;
   if ((_rank_deficient = !_LA->factor_chol(fM = M)))
   {
+    std::cerr << "CRBAlgorithm::precalc() warning- Cholesky factorization of generalized inertia matrix failed" << std::endl;
     fM = M;
     _LA->svd(fM, _uM, _sM, _vM);
   }
