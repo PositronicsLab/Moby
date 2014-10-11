@@ -15,6 +15,8 @@
 
 #ifdef USE_OSG
 #include <Moby/OSGGroupWrapper.h>
+#include <osg/MatrixTransform>
+#include <osg/Matrixd>
 #endif
 
 // TODO:
@@ -59,6 +61,29 @@ using std::list;
 using boost::shared_ptr;
 using namespace Moby;
 using namespace Ravelin;
+
+#ifdef USE_OSG
+/// Copies this matrix to an OpenSceneGraph Matrixd object
+static void to_osg_matrix(const Pose3d& src, osg::Matrixd& tgt)
+{
+  // get the rotation matrix
+  Matrix3d M = src.q;
+
+  // setup the rotation components of tgt
+  const unsigned X = 0, Y = 1, Z = 2, W = 3;
+  for (unsigned i=X; i<= Z; i++)
+    for (unsigned j=X; j<= Z; j++)
+      tgt(j,i) = M(i,j);
+
+  // setup the translation components of tgt
+  for (unsigned i=X; i<= Z; i++)
+    tgt(W,i) = src.x[i];
+
+  // set constant values of the matrix
+  tgt(X,W) = tgt(Y,W) = tgt(Z,W) = (double) 0.0;
+  tgt(W,W) = (double) 1.0;
+}
+#endif
 
 /// Reads an XML file and constructs all read objects
 /**
@@ -152,7 +177,8 @@ shared_ptr<EventDrivenSimulator> SDFReader::read(const std::string& fname)
 std::map<std::string, DynamicBodyPtr> SDFReader::read_models(const std::string& fname)
 {
   std::map<std::string, DynamicBodyPtr> model_map;
-
+  vector<DynamicBodyPtr> models;
+ 
   // *************************************************************
   // going to remove any path from the argument and change to that
   // path; this is done so that all files referenced from the
@@ -220,14 +246,17 @@ std::map<std::string, DynamicBodyPtr> SDFReader::read_models(const std::string& 
   std::list<shared_ptr<const XMLTree> > world_nodes = find_tag("world", sdf_tree);
 
   // read in worlds
-  if (world_nodes.size() != 1)
-    throw std::runtime_error("SDFReader::read() - there is not exactly one world!");
+  if (world_nodes.size() > 1)
+    throw std::runtime_error("SDFReader::read() - more than one world found!");
 
   // create the simulator
   shared_ptr<EventDrivenSimulator> sim(new EventDrivenSimulator); 
 
   // read the models
-  vector<DynamicBodyPtr> models = read_models(world_nodes.front(), sim);
+  if (world_nodes.empty())
+    models = read_models(sdf_tree, sim);
+  else
+    models = read_models(world_nodes.front(), sim);
 
   // clear all models from the simulator and convert to a map
   const vector<DynamicBodyPtr>& bodies = sim->get_dynamic_bodies();
@@ -546,9 +575,26 @@ JointPtr SDFReader::read_joint(shared_ptr<const XMLTree> node, const std::map<st
   }
   child = link_map.find(child_link)->second;
 
-  // set child and parent
-  joint->set_inboard_link(parent, false);
-  joint->set_outboard_link(child, false);
+  // get the pose of the joint 
+  shared_ptr<const XMLTree> pose_node = find_one_tag("pose", node);
+  if (pose_node)
+  {
+    Pose3d Px = read_pose(node);
+    Px.rpose = child->get_pose();
+    Px.update_relative_pose(GLOBAL);
+    Vector3d loc(Px.x[0], Px.x[1], Px.x[2], GLOBAL);
+    joint->set_location(loc, parent, child); 
+std::cout << "Joint " << joint->id << " location: " << loc << std::endl;
+  }
+  else
+  {
+    Pose3d Px;
+    Px.rpose = child->get_pose();
+    Px.update_relative_pose(GLOBAL);
+    Vector3d loc(Px.x[0], Px.x[1], Px.x[2], GLOBAL);
+    joint->set_location(loc, parent, child); 
+std::cout << "Joint " << joint->id << " location: " << loc << std::endl;
+  }
 
   // read the axis tag (contains limits, joint damping/friction)
   shared_ptr<const XMLTree> axis_node = find_one_tag("axis", node);
@@ -712,6 +758,9 @@ PrimitivePtr SDFReader::read_cylinder(shared_ptr<const XMLTree> node)
 
   // create a new CylinderPrimitive object
   boost::shared_ptr<CylinderPrimitive> c(new CylinderPrimitive());
+
+  // set the pose for the cylinder
+  c->set_pose(Pose3d(Matrix3d::rot_X(M_PI_2)));
   
   // get the length and radius attributes
   XMLAttrib* radius_attr = node->get_attrib("radius");
@@ -948,36 +997,33 @@ RigidBodyPtr SDFReader::read_link(shared_ptr<const XMLTree> node, shared_ptr<SDF
   XMLAttrib* name_attr = node->get_attrib("name");
   if (name_attr)
     rb->id = name_attr->get_string_value();
-  
-  // get the pose attribute for the body, if specified
-  shared_ptr<const XMLTree> pose_node = find_one_tag("pose", node);
-  if (pose_node)
-    rb->set_pose(read_pose(node));
+
+  // set default inertial properties (according to SDF 1.5)
+  SpatialRBInertiad J;
+  J.m = 1.0;
+  J.J.set_identity();
+  rb->set_inertia(J);  
 
   // get the inertial properties for the body, if specified
   shared_ptr<const XMLTree> inertial_node = find_one_tag("inertial", node);
   if (inertial_node)
     rb->set_inertia(read_inertial(inertial_node, rb));
 
-  // read the Visual tag
-  shared_ptr<const XMLTree> visual_node = find_one_tag("visual", node);
-  if (visual_node)
+  // read Visual tags
+  std::list<shared_ptr<const XMLTree> > visual_nodes = find_tag("visual", node);
+  BOOST_FOREACH(shared_ptr<const XMLTree> visual_node, visual_nodes)
     read_visual_node(visual_node, rb); 
-    
+
+  // read collision tags
   std::list<shared_ptr<const XMLTree> > collision_nodes = find_tag("collision", node);
-  
-  // read the Collision tag/tags
-  if (!collision_nodes.empty())
-  {    
-     if (collision_nodes.size() == 1){
-       read_collision_node(collision_nodes.front(), rb, sd);
-     }
-     else{
-       BOOST_FOREACH( shared_ptr<const XMLTree> collision_node, collision_nodes){
-         read_collision_node(collision_node, rb, sd);
-       }
-     }
-  } 
+  BOOST_FOREACH( shared_ptr<const XMLTree> collision_node, collision_nodes)
+    read_collision_node(collision_node, rb, sd);
+
+  // get the pose attribute for the body, if specified
+  // NOTE: we do this last to avoid warnings from Moby
+  shared_ptr<const XMLTree> pose_node = find_one_tag("pose", node);
+  if (pose_node)
+    rb->set_pose(read_pose(node));
 
   return rb;
 }
@@ -985,21 +1031,30 @@ RigidBodyPtr SDFReader::read_link(shared_ptr<const XMLTree> node, shared_ptr<SDF
 /// Reads a visual node
 void SDFReader::read_visual_node(shared_ptr<const XMLTree> node, RigidBodyPtr rb)
 {
+  Pose3d P;
+
   // read the pose of the visualization
   shared_ptr<const XMLTree> pose_node = find_one_tag("pose", node);
   if (pose_node)
-  {
-    Pose3d P(read_pose(node));
-    P.rpose = rb->get_visualization_pose()->rpose;
-    rb->set_visualization_relative_pose(P);
-  }
+    P = read_pose(node);
 
   // read the geometry type
   shared_ptr<const XMLTree> geom_node = find_one_tag("geometry", node);
   if (geom_node)
   {
+    // create a new transform
+    osg::MatrixTransform* tg = new osg::MatrixTransform;
+    osg::Group* group = rb->get_visualization_data();
+    group->addChild(tg); 
+
+    // add the primitive to the transform
     PrimitivePtr geom = read_geometry(geom_node);
-    rb->set_visualization_data(geom->get_visualization());
+    tg->addChild(geom->get_visualization());
+
+    // set the transform
+    osg::Matrix m;
+    to_osg_matrix(P, m);
+    tg->setMatrix(m);
   }
 }
 
@@ -1142,7 +1197,7 @@ SpatialRBInertiad SDFReader::read_inertial(shared_ptr<const XMLTree> node, Rigid
   const unsigned X = 0, Y = 1, Z = 2;
 
   // setup the spatial rigid body inertia
-  SpatialRBInertiad J;
+  SpatialRBInertiad J = rb->get_inertia();
 
   // get the mass
   shared_ptr<const XMLTree> mass_node = find_one_tag("mass", node);
@@ -1161,37 +1216,38 @@ SpatialRBInertiad SDFReader::read_inertial(shared_ptr<const XMLTree> node, Rigid
 
   // find the inertia
   shared_ptr<const XMLTree> inertia_node = find_one_tag("inertia", node);
-  assert(inertia_node);  
+  if (inertia_node)
+  {
+    // get the xx inertia  
+    shared_ptr<const XMLTree> ixx_node = find_one_tag("ixx", inertia_node);
+    if (ixx_node)
+      J.J(X,X) = read_double(ixx_node); 
 
-  // get the xx inertia  
-  shared_ptr<const XMLTree> ixx_node = find_one_tag("ixx", inertia_node);
-  if (ixx_node)
-    J.J(X,X) = read_double(ixx_node); 
+    // get the xy inertia  
+    shared_ptr<const XMLTree> ixy_node = find_one_tag("ixy", inertia_node);
+    if (ixy_node)
+      J.J(Y,X) = J.J(X,Y) = read_double(ixy_node); 
 
-  // get the xy inertia  
-  shared_ptr<const XMLTree> ixy_node = find_one_tag("ixy", inertia_node);
-  if (ixy_node)
-    J.J(Y,X) = J.J(X,Y) = read_double(ixy_node); 
+    // get the xz inertia  
+    shared_ptr<const XMLTree> ixz_node = find_one_tag("ixz", inertia_node);
+    if (ixz_node)
+      J.J(Z,X) = J.J(X,Z) = read_double(ixz_node); 
 
-  // get the xz inertia  
-  shared_ptr<const XMLTree> ixz_node = find_one_tag("ixz", inertia_node);
-  if (ixz_node)
-    J.J(Z,X) = J.J(X,Z) = read_double(ixz_node); 
+    // get the yy inertia  
+    shared_ptr<const XMLTree> iyy_node = find_one_tag("iyy", inertia_node);
+    if (iyy_node)
+      J.J(Y,Y) = read_double(iyy_node); 
 
-  // get the yy inertia  
-  shared_ptr<const XMLTree> iyy_node = find_one_tag("iyy", inertia_node);
-  if (iyy_node)
-    J.J(Y,Y) = read_double(iyy_node); 
+    // get the yz inertia  
+    shared_ptr<const XMLTree> iyz_node = find_one_tag("iyz", inertia_node);
+    if (iyz_node)
+      J.J(Y,Z) = J.J(Z,Y) = read_double(iyz_node); 
 
-  // get the yz inertia  
-  shared_ptr<const XMLTree> iyz_node = find_one_tag("iyz", inertia_node);
-  if (iyz_node)
-    J.J(Y,Z) = J.J(Z,Y) = read_double(iyz_node); 
-
-  // get the zz inertia  
-  shared_ptr<const XMLTree> izz_node = find_one_tag("izz", inertia_node);
-  if (izz_node)
-    J.J(Z,Z) = read_double(izz_node); 
+    // get the zz inertia  
+    shared_ptr<const XMLTree> izz_node = find_one_tag("izz", inertia_node);
+    if (izz_node)
+      J.J(Z,Z) = read_double(izz_node); 
+  }
 
   return J;
 }
