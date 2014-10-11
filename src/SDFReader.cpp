@@ -926,6 +926,10 @@ DynamicBodyPtr SDFReader::read_model(shared_ptr<const XMLTree> node, map<RigidBo
     // create an articulated body
     RCArticulatedBodyPtr rcab(new RCArticulatedBody);
 
+    // set algorithm and frame
+    rcab->algorithm_type = RCArticulatedBody::eCRB;
+    rcab->set_computation_frame_type(eLinkCOM);
+
     // read all of the links
     BOOST_FOREACH(shared_ptr<const XMLTree> link_node, link_nodes)
     {
@@ -975,7 +979,6 @@ DynamicBodyPtr SDFReader::read_model(shared_ptr<const XMLTree> node, map<RigidBo
     // set the name
     if (name_attr)
       rcab->id = name_attr->get_string_value();
-
  
     return rcab;
   }
