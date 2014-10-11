@@ -601,6 +601,9 @@ void URDFReader::read_safety_controller(shared_ptr<const XMLTree> node, URDFData
 /// Attempts to read and set link inertial properties 
 void URDFReader::read_inertial(shared_ptr<const XMLTree> node, URDFData& data, RigidBodyPtr link)
 {
+  // setup linear algebra object
+  LinAlgd LA;
+
   // look for the inertial tag
   const list<XMLTreePtr>& child_nodes = node->children;
   for (list<XMLTreePtr>::const_iterator i = child_nodes.begin(); i != child_nodes.end(); i++)
@@ -609,6 +612,11 @@ void URDFReader::read_inertial(shared_ptr<const XMLTree> node, URDFData& data, R
     {
       double mass = read_mass(*i, data);
       Matrix3d inertia = read_inertia(*i, data);
+
+      // verify that inertial properties are good
+      Matrix3d inertia_copy = inertia;
+      if (mass <= 0.0 || !LA.is_SPD(inertia_copy, -1.0))
+        throw std::runtime_error("Read bad inertial properties"); 
 
       // read the inertial frame
       shared_ptr<Pose3d> origin(new Pose3d(read_origin(*i, data)));
