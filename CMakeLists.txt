@@ -113,6 +113,9 @@ if (USE_OSG AND OSG_FOUND)
     unset (OSG_FOUND)
   endif (OSGDB_FOUND)
 endif (USE_OSG AND OSG_FOUND)  
+if (NOT OSG_FOUND)
+  set (USE_OSG FALSE)
+endif (NOT OSG_FOUND)
 
 # setup include directories, compiler flags, and libraries for optional pkgs
 if (LIBXML2_FOUND)
