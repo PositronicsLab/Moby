@@ -25,7 +25,6 @@ class BoxPrimitive : public PolyhedralPrimitive
     BoxPrimitive(const Ravelin::Pose3d& T);
     void set_size(double xlen, double ylen, double zlen);
     virtual unsigned num_facets() const { return 6; }
-    virtual void get_facets(boost::shared_ptr<const Ravelin::Pose3d> P, Ravelin::MatrixNd& M, Ravelin::VectorNd& q) const;
     virtual bool is_convex() const { return true; }
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;

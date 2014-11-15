@@ -233,7 +233,7 @@ shared_ptr<const IndexedTriArray> SpherePrimitive::get_mesh(shared_ptr<const Pos
   points.push_back(T->transform_point(Vector3d(0,0,-1*_radius)));
 
   // compute the convex hull
-  PolyhedronPtr hull = CompGeom::calc_convex_hull(points.begin(), points.end());
+  TessellatedPolyhedronPtr hull = CompGeom::calc_convex_hull(points.begin(), points.end());
 
   // set the mesh
   const vector<Origin3d>& v = hull->get_vertices();

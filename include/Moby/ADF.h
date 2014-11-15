@@ -13,7 +13,7 @@
 #include <vector>
 #include <Ravelin/Vector3d.h>
 #include <Moby/Types.h>
-#include <Moby/Polyhedron.h>
+#include <Moby/TessellatedPolyhedron.h>
 
 class SoSeparator;
 
@@ -36,7 +36,7 @@ class ADF : public boost::enable_shared_from_this<ADF>
     void simplify(double epsilon);
     void get_bounds(Ravelin::Vector3d& lo, Ravelin::Vector3d& hi) const;
     void set_bounds(const Ravelin::Vector3d& lo_bound, const Ravelin::Vector3d& hi_bound);
-    static boost::shared_ptr<ADF> build_ADF(Polyhedron& poly, unsigned max_recursion, double epsilon, double max_pos_dist = -1.0, double max_neg_dist = std::numeric_limits<double>::max());
+    static boost::shared_ptr<ADF> build_ADF(TessellatedPolyhedron& poly, unsigned max_recursion, double epsilon, double max_pos_dist = -1.0, double max_neg_dist = std::numeric_limits<double>::max());
     static boost::shared_ptr<ADF> build_ADF(const Ravelin::Vector3d& lo, const Ravelin::Vector3d& hi, double (*dfn)(const Ravelin::Vector3d&, void*), unsigned max_recursion, double epsilon, double max_pos_dist = -1.0, double max_neg_dist = std::numeric_limits<double>::max(), void* data = NULL);
     const std::vector<double>& get_distances() const { return _distances; }
     bool contains(const Ravelin::Vector3d& point) const;

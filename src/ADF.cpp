@@ -23,7 +23,7 @@
 #include <Moby/Constants.h>
 #include <Moby/Log.h>
 #include <Moby/CompGeom.h>
-#include <Moby/Polyhedron.h>
+#include <Moby/TessellatedPolyhedron.h>
 #include <Moby/ADF.h>
 
 using namespace boost;
@@ -237,8 +237,8 @@ void ADF::set_distances(const std::vector<double>& distances)
 /// Distance function for a triangle mesh
 double ADF::trimesh_distance_function(const Vector3d& pt, void* data)
 {
-  // get the Polyhedron 
-  Polyhedron& poly = *(Polyhedron*) data;
+  // get the TessellatedPolyhedron 
+  TessellatedPolyhedron& poly = *(TessellatedPolyhedron*) data;
 
   // polyhedron is defined the global frame 
   Point3d p = Pose3d::transform_point(GLOBAL, pt);
@@ -248,7 +248,7 @@ double ADF::trimesh_distance_function(const Vector3d& pt, void* data)
 }
 
 /// Builds an ADF from a polyhedron
-shared_ptr<ADF> ADF::build_ADF(Polyhedron& poly, unsigned max_recursion, double epsilon, double max_pos_dist, double max_neg_dist)
+shared_ptr<ADF> ADF::build_ADF(TessellatedPolyhedron& poly, unsigned max_recursion, double epsilon, double max_pos_dist, double max_neg_dist)
 {
   // determine the bounding box for the triangle mesh
   std::pair<Origin3d, Origin3d> bb = poly.get_bounding_box_corners();

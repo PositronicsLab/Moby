@@ -4,8 +4,8 @@
  * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
-#ifndef _POLYHEDRON_H
-#define _POLYHEDRON_H
+#ifndef _TESSELLATED_POLYHEDRON_H
+#define _TESSELLATED_POLYHEDRON_H
 
 #include <ostream>
 #include <vector>
@@ -24,16 +24,16 @@ class Triangle;
  * Though this class is used for representing polyhedron, it is possible to represent
  * arbitrary (i.e., non-closed) triangle meshes as well.
  */
-class Polyhedron
+class TessellatedPolyhedron
 {
   public:
     enum LocationType { eInside, eOutside, eOnVertex, eOnEdge, eOnFace };  
 
-    Polyhedron() { _convexity_computed = false; }  
-    Polyhedron(const IndexedTriArray& mesh);
-    Polyhedron(const Polyhedron& p) { _convexity_computed = false; operator=(p); }
-    static PolyhedronPtr minkowski(Polyhedron& p1, boost::shared_ptr<const Ravelin::Pose3d> T1, Polyhedron& p2, boost::shared_ptr<const Ravelin::Pose3d> T2, bool reflect_p2 = true);
-    void operator=(const Polyhedron& p);
+    TessellatedPolyhedron() { _convexity_computed = false; }  
+    TessellatedPolyhedron(const IndexedTriArray& mesh);
+    TessellatedPolyhedron(const TessellatedPolyhedron& p) { _convexity_computed = false; operator=(p); }
+    static TessellatedPolyhedronPtr minkowski(TessellatedPolyhedron& p1, boost::shared_ptr<const Ravelin::Pose3d> T1, TessellatedPolyhedron& p2, boost::shared_ptr<const Ravelin::Pose3d> T2, bool reflect_p2 = true);
+    void operator=(const TessellatedPolyhedron& p);
     const IndexedTriArray& get_mesh() const { return _mesh; }
     void transform(const Ravelin::Transform3d& T);
     const std::vector<Ravelin::Origin3d>& get_vertices() const { return _mesh.get_vertices(); }
@@ -41,16 +41,16 @@ class Polyhedron
     bool inside(const Ravelin::Origin3d& point, double tol = NEAR_ZERO);
     bool inside_or_on(const Ravelin::Origin3d& point, double tol = NEAR_ZERO);
     LocationType location(const Ravelin::Origin3d& point, double tol = NEAR_ZERO) const;
-    static void to_vrml(std::ostream& out, const Polyhedron& p, Ravelin::Origin3d diffuse_color = Ravelin::Origin3d(1,1,1), bool wireframe = false);
+    static void to_vrml(std::ostream& out, const TessellatedPolyhedron& p, Ravelin::Origin3d diffuse_color = Ravelin::Origin3d(1,1,1), bool wireframe = false);
     double calc_volume() const;
     bool consistent() const;
     bool degenerate() const;
-    static IndexedTriArray construct_intersection(Polyhedron& p1, Polyhedron& p2);
-    static IndexedTriArray construct_union(Polyhedron& p1, Polyhedron& p2);
-    static IndexedTriArray construct_difference(Polyhedron& p1, Polyhedron& p2);
+    static IndexedTriArray construct_intersection(TessellatedPolyhedron& p1, TessellatedPolyhedron& p2);
+    static IndexedTriArray construct_union(TessellatedPolyhedron& p1, TessellatedPolyhedron& p2);
+    static IndexedTriArray construct_difference(TessellatedPolyhedron& p1, TessellatedPolyhedron& p2);
 
     template <class InputIterator1, class InputIterator2>
-    Polyhedron(InputIterator1 verts_begin, InputIterator1 verts_end, InputIterator2 facets_begin, InputIterator2 facets_end);
+    TessellatedPolyhedron(InputIterator1 verts_begin, InputIterator1 verts_end, InputIterator2 facets_begin, InputIterator2 facets_end);
 
     /// Gets the list of facets coincident to the i'th facet
     const std::list<unsigned>& get_incident_facets(unsigned i) const { return _mesh.get_incident_facets(i); } 
@@ -82,9 +82,9 @@ class Polyhedron
     static void calc_subexpressions(double w0, double w1, double w2, double& f1, double& f2, double& f3, double& g0, double& g1, double& g2);
     void determine_convexity();  
     static Ravelin::Origin3d intersect_plane(const Ravelin::Vector3d& normal, double d, const Ravelin::Origin3d& p1, const Ravelin::Origin3d& p2);  
-    static void slice(const Polyhedron& p1, const Polyhedron& p2, IndexedTriArray& mesh1, IndexedTriArray& mesh2);
-    static void remove_outside(IndexedTriArray& mesh, Polyhedron& p, bool remove_shared);
-    static void remove_inside(IndexedTriArray& mesh, Polyhedron& p, bool remove_shared);
+    static void slice(const TessellatedPolyhedron& p1, const TessellatedPolyhedron& p2, IndexedTriArray& mesh1, IndexedTriArray& mesh2);
+    static void remove_outside(IndexedTriArray& mesh, TessellatedPolyhedron& p, bool remove_shared);
+    static void remove_inside(IndexedTriArray& mesh, TessellatedPolyhedron& p, bool remove_shared);
     static bool bisects(const Triangle& a, const Triangle& b);
     static bool bisect(const Triangle& tbi, std::vector<Ravelin::Origin3d>& v, std::vector<IndexedTri>& f, unsigned i);
     static unsigned add_vertex(std::vector<Ravelin::Origin3d>& vertices, const Ravelin::Origin3d& v);
@@ -95,10 +95,10 @@ class Polyhedron
     bool _convexity_computed;
 };
 
-std::ostream& operator<<(std::ostream& out, const Polyhedron& p);
+std::ostream& operator<<(std::ostream& out, const TessellatedPolyhedron& p);
 
 // include inline functions
-#include "Polyhedron.inl"
+#include "TessellatedPolyhedron.inl"
 
 } // end namespace
 

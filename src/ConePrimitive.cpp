@@ -415,7 +415,7 @@ shared_ptr<const IndexedTriArray> ConePrimitive::get_mesh(boost::shared_ptr<cons
   points.push_back(Point3d(0.0, HH, 0.0, P));
 
   // compute the convex hull
-  PolyhedronPtr hull = CompGeom::calc_convex_hull(points.begin(), points.end());
+  TessellatedPolyhedronPtr hull = CompGeom::calc_convex_hull(points.begin(), points.end());
 
   // set the mesh
   const std::vector<Origin3d>& v = hull->get_vertices();

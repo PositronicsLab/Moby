@@ -20,7 +20,7 @@
 
 namespace Moby {
 
-class Polyhedron;
+class TessellatedPolyhedron;
 class Simulator;
 class RigidBody;
 class SingleBody;
@@ -55,8 +55,8 @@ typedef std::pair<Point2d, Point2d> LineSeg2;
 /// reference frame type for reduced-coordinate dynamics computations
 enum ReferenceFrameType { eGlobal, eLink, eLinkInertia, eLinkCOM, eJoint };
 
-/// Polyhedron smart pointer
-typedef boost::shared_ptr<Polyhedron> PolyhedronPtr;
+/// TessellatedPolyhedron smart pointer
+typedef boost::shared_ptr<TessellatedPolyhedron> TessellatedPolyhedronPtr;
 
 /// Simulator smart pointer
 typedef boost::shared_ptr<Simulator> SimulatorPtr;

@@ -916,7 +916,7 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
   // don't verify that the node is correct, b/c RigidBody can be subclassed
   // ***********************************************************************
 
-#ifdef USE_OSG
+  #ifdef USE_OSG
   /// Color to add to the rigid body when rendered
   Ravelin::VectorNd color_rgba;
 
@@ -934,7 +934,8 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
       n->accept( newColor );
     }
   }
-#endif
+  #endif
+
   // read the viscous dampening coefficient, if provided
   XMLAttrib* viscous_coeff_attr = node->get_attrib("viscous-dampening-coeff");
   if (viscous_coeff_attr)

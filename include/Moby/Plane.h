@@ -30,6 +30,8 @@ class Plane
     bool operator==(const Plane& p) const { double dot = _normal.dot(p.get_normal()); return (std::fabs(dot - 1.0) < NEAR_ZERO && std::fabs(offset - p.offset) < NEAR_ZERO); }
     bool operator<(const Plane& p) const;
     boost::shared_ptr<const Ravelin::Pose3d> get_pose() const { return _normal.pose; }
+    Point3d project(const Point3d& p) const;
+    Ravelin::Origin2d to_2D(const Point3d& p) const;
 
     /// Gets the outward pointing normal to the plane
     const Ravelin::Vector3d& get_normal() const { return _normal; }
@@ -43,6 +45,32 @@ class Plane
   private:
     Ravelin::Vector3d _normal;
 }; // end class
+
+/// Transforms a point to 2D
+inline Ravelin::Origin2d Plane::to_2D(const Point3d& p) const
+{
+  const unsigned X = 0, Y = 1, Z = 2;
+
+  // setup the projection matrix
+  Ravelin::Vector3d v1, v2;
+  Ravelin::Vector3d::determine_orthonormal_basis(_normal, v1, v2);
+  Ravelin::Matrix3d R;
+  R.set_row(X, Ravelin::Origin3d(v1));
+  R.set_row(Y, Ravelin::Origin3d(v2));
+  R.set_row(Z, Ravelin::Origin3d(_normal));
+
+  // multiply
+  Ravelin::Origin3d result = R * Ravelin::Origin3d(p);
+
+  return Ravelin::Origin2d(result[X], result[Y]);
+}
+
+/// Projects a point onto the plane
+inline Point3d Plane::project(const Point3d& p) const
+{
+  double d = _normal.dot(p);
+  return p - _normal*d;
+}
 
 inline bool Plane::operator<(const Plane& p) const
 {

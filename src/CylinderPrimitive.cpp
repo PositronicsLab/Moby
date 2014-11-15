@@ -418,7 +418,7 @@ shared_ptr<const IndexedTriArray> CylinderPrimitive::get_mesh(boost::shared_ptr<
   }
 
   // compute the convex hull
-  PolyhedronPtr hull = CompGeom::calc_convex_hull(points.begin(), points.end());
+  TessellatedPolyhedronPtr hull = CompGeom::calc_convex_hull(points.begin(), points.end());
 
   // get the mesh
   const std::vector<Origin3d>& v = hull->get_vertices();

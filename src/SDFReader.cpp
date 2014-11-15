@@ -1041,7 +1041,8 @@ void SDFReader::read_visual_node(shared_ptr<const XMLTree> node, RigidBodyPtr rb
   if (pose_node)
     P = read_pose(node);
 
-  // read the geometry type
+  // read the geometry type if OSG is used
+  #ifdef USE_OSG
   shared_ptr<const XMLTree> geom_node = find_one_tag("geometry", node);
   if (geom_node)
   {
@@ -1059,6 +1060,7 @@ void SDFReader::read_visual_node(shared_ptr<const XMLTree> node, RigidBodyPtr rb
     to_osg_matrix(P, m);
     tg->setMatrix(m);
   }
+  #endif
 }
 
 /// Reads a collision node

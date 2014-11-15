@@ -733,7 +733,7 @@ double CompGeomSpecOne<ForwardIterator, Point3d>::fit_plane(ForwardIterator begi
  * \return a pointer to the newly created polyhedron
  */
 template <class ForwardIterator>
-PolyhedronPtr CompGeomSpecOne<ForwardIterator, Point3d>::calc_convex_hull(ForwardIterator first, ForwardIterator last)
+TessellatedPolyhedronPtr CompGeomSpecOne<ForwardIterator, Point3d>::calc_convex_hull(ForwardIterator first, ForwardIterator last)
 {
   const unsigned X = 0, Y = 1, Z = 2;
   int exit_code;
@@ -770,7 +770,7 @@ PolyhedronPtr CompGeomSpecOne<ForwardIterator, Point3d>::calc_convex_hull(Forwar
     if (!LOGGING(LOG_COMPGEOM))
       fclose(errfile);
 
-    return PolyhedronPtr();
+    return TessellatedPolyhedronPtr();
   }
   
   // setup the points
@@ -812,7 +812,7 @@ PolyhedronPtr CompGeomSpecOne<ForwardIterator, Point3d>::calc_convex_hull(Forwar
       fclose(errfile);
 
     throw NumericalException(); 
-    return PolyhedronPtr();
+    return TessellatedPolyhedronPtr();
   }
 
   // construct a new vector of vertices
@@ -878,7 +878,7 @@ PolyhedronPtr CompGeomSpecOne<ForwardIterator, Point3d>::calc_convex_hull(Forwar
   assert(facets.size() >= 4);
 
   // create the polyhedron and verify that it is consistent
-  PolyhedronPtr polyhedron(new Polyhedron(vertices.begin(), vertices.end(), facets.begin(), facets.end()));
+  TessellatedPolyhedronPtr polyhedron(new TessellatedPolyhedron(vertices.begin(), vertices.end(), facets.begin(), facets.end()));
   assert(polyhedron->consistent());
 
   FILE_LOG(LOG_COMPGEOM) << "3D convex hull is:" << std::endl << *polyhedron;
@@ -2547,7 +2547,7 @@ OutputIterator CompGeom::intersect_seg_polygon(ForwardIterator begin, ForwardIte
  * \return a pointer to the newly created polyhedron
  */
 template <class ForwardIterator>
-PolyhedronPtr CompGeom::calc_convex_hull(ForwardIterator first, ForwardIterator last)
+TessellatedPolyhedronPtr CompGeom::calc_convex_hull(ForwardIterator first, ForwardIterator last)
 {
   return CompGeomSpecOne<ForwardIterator, Point3d>::calc_convex_hull(first, last);
 }
@@ -2623,7 +2623,7 @@ double CompGeom::find_hs_interior_point(ForwardIterator start, ForwardIterator e
  * \return a pointer to the created polyhedron or a NULL pointer if unsuccessful
  */
 template <class ForwardIterator>
-PolyhedronPtr CompGeom::calc_hs_intersection(ForwardIterator start, ForwardIterator end, const Ravelin::VectorNd& interior_point)
+TessellatedPolyhedronPtr CompGeom::calc_hs_intersection(ForwardIterator start, ForwardIterator end, const Ravelin::VectorNd& interior_point)
 {
   const int DIM = 4;
   const boolT IS_MALLOC = false;
@@ -2691,7 +2691,7 @@ PolyhedronPtr CompGeom::calc_hs_intersection(ForwardIterator start, ForwardItera
       fclose(errfile);
 
     throw NumericalException(); 
-    return PolyhedronPtr();
+    return TessellatedPolyhedronPtr();
   }
 
   // verify that the qhull dimension is correct
@@ -2705,7 +2705,7 @@ PolyhedronPtr CompGeom::calc_hs_intersection(ForwardIterator start, ForwardItera
     if (facet->offset > 0)
     {
       // facet has infinite offset
-      return PolyhedronPtr();
+      return TessellatedPolyhedronPtr();
     }
     coordT* point = (coordT*) qh_memalloc(qh normal_size);
     coordT* coordp = point;
@@ -2726,7 +2726,7 @@ PolyhedronPtr CompGeom::calc_hs_intersection(ForwardIterator start, ForwardItera
         {
           // facet has infinite offset
           qh_memfree(point, qh normal_size);
-          return PolyhedronPtr();
+          return TessellatedPolyhedronPtr();
         }
       }
 
@@ -2748,7 +2748,7 @@ PolyhedronPtr CompGeom::calc_hs_intersection(ForwardIterator start, ForwardItera
   #endif
 
   // now, calculate the convex hull of the intersection points  
-  PolyhedronPtr p = calc_convex_hull(points.begin(), points.end());
+  TessellatedPolyhedronPtr p = calc_convex_hull(points.begin(), points.end());
 
   // close the error stream, if necessary
   if (!LOGGING(LOG_COMPGEOM))

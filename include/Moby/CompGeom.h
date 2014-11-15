@@ -26,7 +26,7 @@
 #include <Moby/Constants.h>
 #include <Moby/Triangle.h>
 #include <Moby/FastThreadable.h>
-#include <Moby/Polyhedron.h>
+#include <Moby/TessellatedPolyhedron.h>
 #include <Moby/Log.h>
 #include <Moby/NumericalException.h>
 #include <Moby/Types.h>
@@ -43,11 +43,12 @@ extern "C"
 
 namespace Moby {
 
-class Polyhedron;  
+class TessellatedPolyhedron;  
 
 /// Class for performing assorted computational geometry functions
 class CompGeom
 {
+  friend class Polyhedron;
   template <class T, class V> friend class CompGeomSpecOne;
   template <class T, class U, class V> friend class CompGeomSpecTwo;
 
@@ -194,13 +195,13 @@ class CompGeom
     static void determine_seg_endpoints(ForwardIterator begin, ForwardIterator end, std::pair<Point2d*, Point2d*>& endpoints);
 
     template <class ForwardIterator>
-    static PolyhedronPtr calc_convex_hull(ForwardIterator first, ForwardIterator last);
+    static TessellatedPolyhedronPtr calc_convex_hull(ForwardIterator first, ForwardIterator last);
 
     template <class ForwardIterator>
     static Point3d calc_centroid_3D(ForwardIterator first, ForwardIterator last);
     
     template <class ForwardIterator>
-    static PolyhedronPtr calc_hs_intersection(ForwardIterator start, ForwardIterator end, const Ravelin::VectorNd& interior_point);
+    static TessellatedPolyhedronPtr calc_hs_intersection(ForwardIterator start, ForwardIterator end, const Ravelin::VectorNd& interior_point);
 
     template <class ForwardIterator>
     static double find_hs_interior_point(ForwardIterator start, ForwardIterator end, Point3d& point);
@@ -281,7 +282,7 @@ class CompGeomSpecOne<T, Point3d>
 
   private:
     static unsigned calc_dimensionality(T begin, T end, double tol);
-    static PolyhedronPtr calc_convex_hull(T begin, T end); 
+    static TessellatedPolyhedronPtr calc_convex_hull(T begin, T end); 
     static bool is_convex_polygon(T begin, T end, const Ravelin::Vector3d& normal, double tol);
     static bool ccw(T begin, T end, const Ravelin::Vector3d& normal, double tol = NEAR_ZERO);
     static double fit_plane(T begin, T end, Ravelin::Vector3d& normal, double& offset);
@@ -294,7 +295,7 @@ class CompGeomSpecOne<T, Point3d*>
 
   private:
     static unsigned calc_dimensionality(T begin, T end, double tol); 
-    static PolyhedronPtr calc_convex_hull(T begin, T end);
+    static TessellatedPolyhedronPtr calc_convex_hull(T begin, T end);
     static bool is_convex_polygon(T begin, T end, const Ravelin::Vector3d& normal, double tol);
     static bool ccw(T begin, T end, const Ravelin::Vector3d& normal, double tol = NEAR_ZERO);
     static double fit_plane(T begin, T end, Ravelin::Vector3d& normal, double& offset);

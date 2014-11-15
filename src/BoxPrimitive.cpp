@@ -75,54 +75,6 @@ BoxPrimitive::BoxPrimitive(double xlen, double ylen, double zlen, const Pose3d& 
   calc_mass_properties();
 }
 
-/// Sets up the facets for the box primitive
-void BoxPrimitive::get_facets(shared_ptr<const Pose3d> P, MatrixNd& M, VectorNd& q) const
-{
-  const unsigned N_FACETS = 6;
-
-  // verify that the primitive knows about this pose 
-  assert(_poses.find(const_pointer_cast<Pose3d>(P)) != _poses.end());
-
-  // setup the normals to the pose
-  Vector3d normals[N_FACETS];
-  normals[0] = Vector3d(+0,+1,+0,P);
-  normals[1] = Vector3d(+0,-1,+0,P);
-  normals[2] = Vector3d(+0,+0,+1,P);
-  normals[3] = Vector3d(+0,+0,-1,P);
-  normals[4] = Vector3d(+1,+0,+0,P);
-  normals[5] = Vector3d(-1,+0,+0,P);
-
-  // setup the points on each plane
-  Point3d points[N_FACETS];
-  points[0] = Point3d(0.0,+_ylen*0.5,0.0,P);
-  points[1] = Point3d(0.0,-_ylen*0.5,0.0,P);
-  points[2] = Point3d(0.0,0.0,+_zlen*0.5,P);
-  points[3] = Point3d(0.0,0.0,-_zlen*0.5,P);
-  points[4] = Point3d(+_xlen*0.5,0.0,0.0,P);
-  points[5] = Point3d(-_xlen*0.5,0.0,0.0,P);
-
-  // get the transform to the global frame
-  Transform3d T = Pose3d::calc_relative_pose(P, GLOBAL);
-
-  // transform all points and normals
-  for (unsigned i=0; i< N_FACETS; i++)
-  {
-    normals[i] = T.transform_vector(normals[i]);
-    points[i] = T.transform_point(points[i]);
-  }
-
-  // setup M
-  M.resize(N_FACETS,3);
-  for (unsigned i=0; i< N_FACETS; i++)
-    M.set_row(i, normals[i]);
-
-  // setup q
-  q.resize(N_FACETS);
-  for (unsigned i=0; i< N_FACETS; i++)
-    q[i] = normals[i].dot(points[i]);
-assert(q.norm_inf() < 1e5);
-}
-
 /// Computes the signed distance from the box to a primitive
 double BoxPrimitive::calc_signed_dist(shared_ptr<const Primitive> p, Point3d& pthis, Point3d& pp) const
 {
