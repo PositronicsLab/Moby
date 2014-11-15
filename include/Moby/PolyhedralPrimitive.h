@@ -27,9 +27,6 @@ class PolyhedralPrimitive : public Primitive
 
     // Gets the number of facets in this primitive
     virtual unsigned num_facets() const = 0;
-
-    // Gets the facets in this primitive *in the global frame* such that a point x within the primitive obeys A*x <= b
-    virtual void get_facets(boost::shared_ptr<const Ravelin::Pose3d> source_pose, Ravelin::MatrixNd& A, Ravelin::VectorNd& b) const = 0; 
 }; // end class
 
 } // end namespace

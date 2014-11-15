@@ -232,7 +232,7 @@ OBB OBB::calc_min_volume_OBB(ForwardIterator begin, ForwardIterator end)
   boost::shared_ptr<const Ravelin::Pose3d> P = begin->pose;
 
   // compute the convex hull of the points
-  PolyhedronPtr hull = CompGeom::calc_convex_hull(begin, end);
+  TessellatedPolyhedronPtr hull = CompGeom::calc_convex_hull(begin, end);
   if (!hull)
     return OBB::calc_low_dim_OBB(begin, end);
 
@@ -523,7 +523,7 @@ OBB::OBB(ForwardIterator begin, ForwardIterator end)
   this->center.pose = P;
 
   // compute the convex hull of the points
-  PolyhedronPtr hull;
+  TessellatedPolyhedronPtr hull;
   try
   {
     hull = CompGeom::calc_convex_hull(begin, end);

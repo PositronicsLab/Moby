@@ -687,16 +687,16 @@ shared_ptr<const IndexedTriArray> CSG::get_mesh()
     shared_ptr<const IndexedTriArray> m2 = _op2->get_mesh();
 
     // construct Polyhedra from the meshes
-    Polyhedron p1(*m1);
-    Polyhedron p2(*m2);
+    TessellatedPolyhedron p1(*m1);
+    TessellatedPolyhedron p2(*m2);
 
     IndexedTriArray result;
     if (_op == eIntersection)
-      result = Polyhedron::construct_intersection(p1, p2);
+      result = TessellatedPolyhedron::construct_intersection(p1, p2);
     else if (_op == eUnion)
-      result = Polyhedron::construct_union(p1, p2);
+      result = TessellatedPolyhedron::construct_union(p1, p2);
     else if (_op == eDifference)
-      result = Polyhedron::construct_difference(p1, p2);
+      result = TessellatedPolyhedron::construct_difference(p1, p2);
     else
       assert(false);
 

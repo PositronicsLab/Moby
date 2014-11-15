@@ -10,7 +10,6 @@ void OutputToFile::output(const std::string& msg)
   {
     std::ofstream stderr_stream("/dev/stderr", std::ofstream::app);
     stderr_stream << msg << std::flush;
-    stderr_stream.close();
   }
   else
     stream << msg << std::flush;

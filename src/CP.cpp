@@ -18,60 +18,31 @@ using boost::shared_ptr;
 using namespace Ravelin;
 using namespace Moby;
 
-
-/// Finds closest point/common point for two shapes 
+/// Finds closest point/common point for two convex (closed) shapes 
 double CP::find_cpoint(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<const PolyhedralPrimitive> pB, shared_ptr<const Pose3d> poseA, shared_ptr<const Pose3d> poseB, Point3d& closestA, Point3d& closestB)
 {
-  MatrixNd A, M, R, S; 
-  VectorNd b, q, r, s;
-  const double INF = 1e8;
-  static VectorNd l, u, x;
+
+return 0.0;
+/*
+  const Origin3d ZEROS_3 = Origin3d::zero();
 
   FILE_LOG(LOG_COLDET) << "CP::find_cpoint() entered" << std::endl;
 
-  // the idea behind this is to solve the linear program:
-  // minimize t (with variables x and t)
-  // s.t. Mx <= q + t is satisfied
-  // this will try to put a point furthest into the interior of one of the
-  // polyhedra, where R*x <= r defines one polyhedron and S*x <= s defines
-  // the other and:
-  // M = | R | and q = | r |
-  //     | S |         | s |
-  // if t is positive, then polyhedra are separated
+  // compute the Minkowski difference
+  MinkowskiPtr mdiff = calc_minkowski_diff(pA, pB, poseA, poseB);
 
-  // first, setup the facets
-  pA->get_facets(poseA, R, r);
-  pB->get_facets(poseB, S, s);
-  M.resize(pA->num_facets() + pB->num_facets(), 4);
-  q.resize(pA->num_facets() + pB->num_facets());
-  M.block(0, pA->num_facets(), 0, 3) = R;
-  M.block(pA->num_facets(), M.rows(), 0, 3) = S;
-  q.segment(0, pA->num_facets()) = r;
-  q.segment(pA->num_facets(), M.rows()) = s;
+  // see whether the origin is contained within the Minkowski difference
+  bool inside_on = mdiff->inside(ZEROS_3); 
 
-  // now setup t
-  SharedVectorNd one_block = M.column(3);
-  one_block.set_one();
-  one_block.negate();
+  // determine the closest features
 
-  // setup the objective function
-  VectorNd c(4);
-  c[0] = 0.0;  c[1] = 0.0;  c[2] = 0.0;
-  c[3] = -1.0;
+  // shapes are intersecting if origin is within the polyhedron 
+  if (inside_on)
+  {
+  }
 
-  // setup lower and upper bounds
-  const double Q_NORM = q.norm_inf();
-  l.resize(4);
-  u.resize(4);
-  l.set_one() *= -Q_NORM * 10.0;
-  u.set_one() *= Q_NORM * 10.0;
+  // compute the distance
 
-  // now solve the LP
-  lp_seidel(M, q, c, l, u, x);
-
-  // determine the distance
-  double d = x[3];
-  FILE_LOG(LOG_COLDET) << " -- signed distance (via LP): " << d << std::endl;
 
   // if distance is positive, then the polyhedra are separated
   if (d > 0.0)
@@ -139,6 +110,7 @@ double CP::find_cpoint(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<cons
   FILE_LOG(LOG_COLDET) << "CP::find_cpoint() exited" << std::endl;
 
   return d;
+*/
 }
 
 /// Solves a linear program using the method of Seidel

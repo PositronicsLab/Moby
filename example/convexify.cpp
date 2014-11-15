@@ -23,7 +23,7 @@ int main(int argc, char* argv[])
   const std::vector<Origin3d>& vertices = mesh.get_vertices();
 
   // compute the convex hull
-  PolyhedronPtr p = CompGeom::calc_convex_hull(vertices.begin(), vertices.end());    
+  TessellatedPolyhedronPtr p = CompGeom::calc_convex_hull(vertices.begin(), vertices.end());    
 
   // write the resulting mesh to the output file
   if (!p)

@@ -301,7 +301,7 @@ void TriangleMeshPrimitive::set_mesh(boost::shared_ptr<const IndexedTriArray> me
 {
   // TODO: remove this calculation (replaces mesh with convex hull)
   const vector<Origin3d>& verts = mesh->get_vertices();
-  PolyhedronPtr poly = CompGeom::calc_convex_hull(verts.begin(), verts.end());
+  TessellatedPolyhedronPtr poly = CompGeom::calc_convex_hull(verts.begin(), verts.end());
   _mesh = shared_ptr<const IndexedTriArray>(new IndexedTriArray(poly->get_mesh()));
 
   // TODO: restore this
@@ -336,7 +336,7 @@ void TriangleMeshPrimitive::calc_mass_properties()
   }
 
   // determine which mesh to use
-  PolyhedronPtr poly;
+  TessellatedPolyhedronPtr poly;
   const IndexedTriArray* mesh = NULL;
   if (_convexify_inertia)
   {

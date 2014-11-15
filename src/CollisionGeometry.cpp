@@ -8,7 +8,7 @@
 #include <iostream>
 #include <stack>
 #include <fstream>
-#include <Moby/Polyhedron.h>
+#include <Moby/TessellatedPolyhedron.h>
 #include <Moby/CompGeom.h>
 #include <Moby/RigidBody.h>
 #include <Moby/Constants.h>

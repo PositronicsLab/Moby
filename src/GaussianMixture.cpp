@@ -4,7 +4,7 @@
 #include <cmath>
 #include <Moby/Types.h>
 #include <Moby/CompGeom.h>
-#include <Moby/Polyhedron.h>
+#include <Moby/TessellatedPolyhedron.h>
 #include <Moby/XMLTree.h>
 #include <Moby/GaussianMixture.h>
 #include <Moby/CollisionGeometry.h>
@@ -255,7 +255,7 @@ void GaussianMixture::create_mesh()
         vertices.push_back(Point3d(x, y, gauss(_gauss[i], x, y)));
 
     // compute the 3D convex hull
-    PolyhedronPtr poly = CompGeom::calc_convex_hull(vertices.begin(), vertices.end());
+    TessellatedPolyhedronPtr poly = CompGeom::calc_convex_hull(vertices.begin(), vertices.end());
 
     // get the number of facets beforehand
     unsigned nbefore = _mesh->num_tris();

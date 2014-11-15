@@ -23,7 +23,7 @@ SSR::SSR(ForwardIterator begin, ForwardIterator end)
     P = begin->pose;
 
   // compute the convex hull of the points
-  PolyhedronPtr hull = CompGeom::calc_convex_hull(begin, end);
+  TessellatedPolyhedronPtr hull = CompGeom::calc_convex_hull(begin, end);
   bool is_2D = !hull;
   if (is_2D)
   {

@@ -12,7 +12,7 @@
 #include <Moby/Log.h>
 #include <Moby/CompGeom.h>
 #include <Moby/Plane.h>
-#include <Moby/Polyhedron.h>
+#include <Moby/TessellatedPolyhedron.h>
 
 using namespace Ravelin;
 using boost::shared_ptr;
@@ -25,7 +25,7 @@ using namespace Moby;
 // functions for debugging
 // ******************************************************************
 
-static void write_poly(const Polyhedron& p, std::ostream& out)
+static void write_poly(const TessellatedPolyhedron& p, std::ostream& out)
 {
   for (unsigned i=0; i< p.get_mesh().num_tris(); i++)
   {
@@ -58,7 +58,7 @@ static bool consistent(const vector<IndexedTri>& f, unsigned a, unsigned b)
   return (count == 2);
 }
 
-static void write_poly2(const Polyhedron& p, std::ostream& out)
+static void write_poly2(const TessellatedPolyhedron& p, std::ostream& out)
 {
   const unsigned X = 0, Y = 1, Z = 2;
  
@@ -137,7 +137,7 @@ std::cout << "edge: " << facets[i].a << " " << facets[i].c << std::endl;
   out << " ] } }" << std::endl;
 }
 
-static void write_poly(const Polyhedron& p, const char* fname)
+static void write_poly(const TessellatedPolyhedron& p, const char* fname)
 {
   std::ofstream out(fname);
   out << "#VRML V2.0 utf8" << std::endl;
@@ -177,7 +177,7 @@ bool find_edge(const vector<IndexedTri>& f, unsigned a, unsigned b)
 // ******************************************************************
 
 /// Constructs a polyhedron from an indexed triangle array
-Polyhedron::Polyhedron(const IndexedTriArray& mesh)
+TessellatedPolyhedron::TessellatedPolyhedron(const IndexedTriArray& mesh)
 {
   // indicate that convexity has not been computed
   _convexity_computed = false;
@@ -190,7 +190,7 @@ Polyhedron::Polyhedron(const IndexedTriArray& mesh)
 }
 
 /// Copies a polyhedron
-void Polyhedron::operator=(const Polyhedron& p)
+void TessellatedPolyhedron::operator=(const TessellatedPolyhedron& p)
 {
   _mesh = p._mesh;
   _bb_min = p._bb_min;
@@ -200,15 +200,15 @@ void Polyhedron::operator=(const Polyhedron& p)
 }
 
 /// Computes the Minkowski sum of two convex polyhedra
-PolyhedronPtr Polyhedron::minkowski(Polyhedron& p1, shared_ptr<const Pose3d> T1, Polyhedron& p2, shared_ptr<const Pose3d> T2, bool reflect_p2)
+TessellatedPolyhedronPtr TessellatedPolyhedron::minkowski(TessellatedPolyhedron& p1, shared_ptr<const Pose3d> T1, TessellatedPolyhedron& p2, shared_ptr<const Pose3d> T2, bool reflect_p2)
 {
   // verify that both polyhedra are convex
   if (!p1.is_convex() || !p2.is_convex())
-    throw std::runtime_error("Polyhedron::minkowski() only operates on convex polyhedra");
+    throw std::runtime_error("TessellatedPolyhedron::minkowski() only operates on convex polyhedra");
 
   // we'll transform p2 to p1's frame
   Transform3d T2_to_T1 = Pose3d::calc_relative_pose(T2, T1);
-  Polyhedron p2_copy = p2;
+  TessellatedPolyhedron p2_copy = p2;
   p2_copy.transform(T2_to_T1);
 
   // compute the minkowski sum
@@ -230,7 +230,7 @@ PolyhedronPtr Polyhedron::minkowski(Polyhedron& p1, shared_ptr<const Pose3d> T1,
 }
 
 /// Checks whether this polyhedron is degenerate
-bool Polyhedron::degenerate() const
+bool TessellatedPolyhedron::degenerate() const
 {
   const std::vector<Origin3d>& vertices = get_vertices();
   const std::vector<IndexedTri>& facets = get_facets();
@@ -249,7 +249,7 @@ bool Polyhedron::degenerate() const
 }
 
 /// Checks whether this polyhedron is consistent
-bool Polyhedron::consistent() const
+bool TessellatedPolyhedron::consistent() const
 {
   // determine the set of edges for this polyhedron
   std::map<sorted_pair<unsigned>, std::list<unsigned> > edges;
@@ -276,7 +276,7 @@ bool Polyhedron::consistent() const
 /**
  * \note utility function for split should return a single point
  */
-Origin3d Polyhedron::intersect_plane(const Vector3d& normal, double d, const Origin3d& p1, const Origin3d& p2)
+Origin3d TessellatedPolyhedron::intersect_plane(const Vector3d& normal, double d, const Origin3d& p1, const Origin3d& p2)
 {
   // verify that the normal is in the global frame
   assert(normal.pose == GLOBAL);
@@ -301,7 +301,7 @@ Origin3d Polyhedron::intersect_plane(const Vector3d& normal, double d, const Ori
 } 
 
 /// Determines whether the specified point is strictly inside this polyhedron
-bool Polyhedron::inside(const Origin3d& point, double tol)
+bool TessellatedPolyhedron::inside(const Origin3d& point, double tol)
 {
   const unsigned THREE_D = 3;
   
@@ -325,7 +325,7 @@ bool Polyhedron::inside(const Origin3d& point, double tol)
 }
 
 /// Determines whether the specified point is in or on this polyhedron
-bool Polyhedron::inside_or_on(const Origin3d& point, double tol) 
+bool TessellatedPolyhedron::inside_or_on(const Origin3d& point, double tol) 
 {
   const unsigned THREE_D = 3;
  
@@ -354,7 +354,7 @@ bool Polyhedron::inside_or_on(const Origin3d& point, double tol)
  * Adapted from O'Rourke, p. 247-250.  Runs in worst-case time O(f), where
  * f is the number of facets of the polyhedron.
  */
-Polyhedron::LocationType Polyhedron::location(const Origin3d& point, double tol) const
+TessellatedPolyhedron::LocationType TessellatedPolyhedron::location(const Origin3d& point, double tol) const
 {
   const unsigned THREE_D = 3;
   unsigned isects;
@@ -455,7 +455,7 @@ Polyhedron::LocationType Polyhedron::location(const Origin3d& point, double tol)
  * \note none of the vertex or triangle pointers change; rather the data
  *       that they point to changes
  */
-void Polyhedron::transform(const Transform3d& T)
+void TessellatedPolyhedron::transform(const Transform3d& T)
 {
   // transform underlying mesh
   _mesh = _mesh.transform(T); 
@@ -465,7 +465,7 @@ void Polyhedron::transform(const Transform3d& T)
 }
 
 /// Calculates the bounding box
-void Polyhedron::calc_bounding_box()
+void TessellatedPolyhedron::calc_bounding_box()
 {
   const unsigned THREE_D = 3;
   
@@ -492,7 +492,7 @@ void Polyhedron::calc_bounding_box()
 }
 
 /// Determine whether the given polyhedron is convex
-void Polyhedron::determine_convexity()
+void TessellatedPolyhedron::determine_convexity()
 {
   // set convexity to -inf to begin
   _convexity = -std::numeric_limits<double>::max();
@@ -554,7 +554,7 @@ void Polyhedron::determine_convexity()
 }
 
 /// Sends this polyhedron to the specified stream using VRML
-void Polyhedron::to_vrml(std::ostream& out, const Polyhedron& p, Origin3d diffuse_color, bool wireframe)
+void TessellatedPolyhedron::to_vrml(std::ostream& out, const TessellatedPolyhedron& p, Origin3d diffuse_color, bool wireframe)
 {
   const unsigned X = 0, Y = 1, Z = 2;
   
@@ -584,7 +584,7 @@ void Polyhedron::to_vrml(std::ostream& out, const Polyhedron& p, Origin3d diffus
 }
 
 /// Utility method for calc_volume()
-void Polyhedron::calc_subexpressions(double w0, double w1, double w2, double& f1, double& f2, double& f3, double& g0, double& g1, double& g2)
+void TessellatedPolyhedron::calc_subexpressions(double w0, double w1, double w2, double& f1, double& f2, double& f3, double& g0, double& g1, double& g2)
 {
   double temp0 = w0 + w1;
   f1 = temp0 + w2;
@@ -598,7 +598,7 @@ void Polyhedron::calc_subexpressions(double w0, double w1, double w2, double& f1
 }
 
 /// Calculates the volume of this polyhedron
-double Polyhedron::calc_volume() const
+double TessellatedPolyhedron::calc_volume() const
 {
   double f1x, f2x, f3x, g0x, g1x, g2x, f1y, f2y, f3y, g0y, g1y, g2y;
   double f1z, f2z, f3z, g0z, g1z, g2z;
@@ -658,7 +658,7 @@ double Polyhedron::calc_volume() const
 }
 
 /// Computes the signed distance from the polyhedron to a point
-double Polyhedron::calc_signed_distance(const Origin3d& point, unsigned& closest_facet) 
+double TessellatedPolyhedron::calc_signed_distance(const Origin3d& point, unsigned& closest_facet) 
 {
   // initialize minimum distance
   double min_dist = std::numeric_limits<double>::max();
@@ -689,7 +689,7 @@ double Polyhedron::calc_signed_distance(const Origin3d& point, unsigned& closest
 }
 
 /// Removes triangles from mesh that are inside p (helper function for Boolean operations on polyhedra)
-void Polyhedron::remove_inside(IndexedTriArray& mesh, Polyhedron& p, bool remove_shared)
+void TessellatedPolyhedron::remove_inside(IndexedTriArray& mesh, TessellatedPolyhedron& p, bool remove_shared)
 {
   // get the vertices and facets
   const vector<Origin3d>& verts = mesh.get_vertices();
@@ -732,7 +732,7 @@ void Polyhedron::remove_inside(IndexedTriArray& mesh, Polyhedron& p, bool remove
 }
 
 /// Removes triangles from mesh that are outside p (helper function for Boolean operations on polyhedra)
-void Polyhedron::remove_outside(IndexedTriArray& mesh, Polyhedron& p, bool remove_shared)
+void TessellatedPolyhedron::remove_outside(IndexedTriArray& mesh, TessellatedPolyhedron& p, bool remove_shared)
 {
   // get the vertices and facets
   const vector<Origin3d>& verts = mesh.get_vertices();
@@ -774,7 +774,7 @@ void Polyhedron::remove_outside(IndexedTriArray& mesh, Polyhedron& p, bool remov
 }
 
 /// Determines whether triangle a bisects triangle b (helper function for slice)
-bool Polyhedron::bisects(const Triangle& a, const Triangle& b)
+bool TessellatedPolyhedron::bisects(const Triangle& a, const Triangle& b)
 {
   // get signed distance of vertices from a
   Plane p(a);
@@ -792,7 +792,7 @@ bool Polyhedron::bisects(const Triangle& a, const Triangle& b)
 }
 
 /// Determines whether a vertex is present in the mesh already
-bool Polyhedron::find_vertex(const vector<Origin3d>& vertices, const Origin3d& v)
+bool TessellatedPolyhedron::find_vertex(const vector<Origin3d>& vertices, const Origin3d& v)
 {
   unsigned n = vertices.size();
 
@@ -807,7 +807,7 @@ bool Polyhedron::find_vertex(const vector<Origin3d>& vertices, const Origin3d& v
 /**
  * Returns the index of the mesh vertex.
  */
-unsigned Polyhedron::add_vertex(vector<Origin3d>& vertices, const Origin3d& v)
+unsigned TessellatedPolyhedron::add_vertex(vector<Origin3d>& vertices, const Origin3d& v)
 {
   unsigned n = vertices.size();
 
@@ -823,7 +823,7 @@ unsigned Polyhedron::add_vertex(vector<Origin3d>& vertices, const Origin3d& v)
 /**
  * \pre ab is part of the winding convention (ccw or cw)
  */
-void Polyhedron::replace_edge(const vector<Origin3d>& v, vector<IndexedTri>& f, unsigned a, unsigned b, unsigned c, vector<unsigned>& del_list)
+void TessellatedPolyhedron::replace_edge(const vector<Origin3d>& v, vector<IndexedTri>& f, unsigned a, unsigned b, unsigned c, vector<unsigned>& del_list)
 {
   // clear the deletion list
   del_list.clear();
@@ -873,7 +873,7 @@ void Polyhedron::replace_edge(const vector<Origin3d>& v, vector<IndexedTri>& f, 
   }
 }
 
-bool Polyhedron::bisect(const Triangle& tbi, vector<Origin3d>& v, vector<IndexedTri>& f, unsigned i)
+bool TessellatedPolyhedron::bisect(const Triangle& tbi, vector<Origin3d>& v, vector<IndexedTri>& f, unsigned i)
 {
   vector<unsigned> del_list;
 
@@ -1014,7 +1014,7 @@ bool Polyhedron::bisect(const Triangle& tbi, vector<Origin3d>& v, vector<Indexed
   return true;
 }
 
-void Polyhedron::slice(const Polyhedron& p1, const Polyhedron& p2, IndexedTriArray& mesh1, IndexedTriArray& mesh2)
+void TessellatedPolyhedron::slice(const TessellatedPolyhedron& p1, const TessellatedPolyhedron& p2, IndexedTriArray& mesh1, IndexedTriArray& mesh2)
 {
   // get the vertices of the two meshes -- we will modify these vectors
   vector<Origin3d> v1 = p1._mesh.get_vertices();
@@ -1060,7 +1060,7 @@ void Polyhedron::slice(const Polyhedron& p1, const Polyhedron& p2, IndexedTriArr
  * of triangles of p1 and p2, respectively.  A faster algorithm can be
  * obtained if p1 and p2 are both convex, but it is not implemented here.
  */
-IndexedTriArray Polyhedron::construct_intersection(Polyhedron& p1, Polyhedron& p2)
+IndexedTriArray TessellatedPolyhedron::construct_intersection(TessellatedPolyhedron& p1, TessellatedPolyhedron& p2)
 {
   // slice the two polyhedra to get two new meshes
   IndexedTriArray m1, m2;
@@ -1075,7 +1075,7 @@ IndexedTriArray Polyhedron::construct_intersection(Polyhedron& p1, Polyhedron& p
 std::cout << "This routine needs to be validated" << std::endl;
 assert(false);
 IndexedTriArray i = IndexedTriArray::merge(m1, m2, NEAR_ZERO).compress_vertices();
-Polyhedron p(i);
+TessellatedPolyhedron p(i);
 if (!p.consistent())
   write_poly(p, "isect-fail.wrl");
 
@@ -1084,7 +1084,7 @@ if (!p.consistent())
 }
 
 /// Unions two non-convex polyhedra
-IndexedTriArray Polyhedron::construct_union(Polyhedron& p1, Polyhedron& p2)
+IndexedTriArray TessellatedPolyhedron::construct_union(TessellatedPolyhedron& p1, TessellatedPolyhedron& p2)
 {
   // slice the two polyhedra to get two new meshes
   IndexedTriArray m1, m2;
@@ -1101,7 +1101,7 @@ IndexedTriArray Polyhedron::construct_union(Polyhedron& p1, Polyhedron& p2)
 }
 
 /// Constructs the Boolean difference p1 - p2 
-IndexedTriArray Polyhedron::construct_difference(Polyhedron& p1, Polyhedron& p2)
+IndexedTriArray TessellatedPolyhedron::construct_difference(TessellatedPolyhedron& p1, TessellatedPolyhedron& p2)
 {
   // slice the two polyhedra to get two new meshes
   IndexedTriArray m1, m2;
@@ -1125,7 +1125,7 @@ IndexedTriArray Polyhedron::construct_difference(Polyhedron& p1, Polyhedron& p2)
 }
 
 /// Sends the specified polyhedron to the desired output stream
-std::ostream& Moby::operator<<(std::ostream& out, const Polyhedron& p)
+std::ostream& Moby::operator<<(std::ostream& out, const TessellatedPolyhedron& p)
 {
   // get the vectors of vertices and facets
   const std::vector<Origin3d>& vertices = p.get_vertices();

@@ -13,7 +13,7 @@
 #include <stack>
 #include <fstream>
 #include <Ravelin/Origin2d.h>
-#include <Moby/Polyhedron.h>
+#include <Moby/TessellatedPolyhedron.h>
 #include <Moby/CompGeom.h>
 
 /// Needed for qhull

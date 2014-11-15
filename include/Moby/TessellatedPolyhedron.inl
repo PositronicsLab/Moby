@@ -4,9 +4,9 @@
  * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
-/// Constructs a Polyhedron from iterators to a container holding Point3d objects and iterators to a container holding IndexedTri types
+/// Constructs a TessellatedPolyhedron from iterators to a container holding Point3d objects and iterators to a container holding IndexedTri types
 template <class InputIterator1, class InputIterator2>
-Polyhedron::Polyhedron(InputIterator1 verts_begin, InputIterator1 verts_end, InputIterator2 facets_begin, InputIterator2 facets_end)
+TessellatedPolyhedron::TessellatedPolyhedron(InputIterator1 verts_begin, InputIterator1 verts_end, InputIterator2 facets_begin, InputIterator2 facets_end)
 {
   // indicate that convexity has not been computed
   _convexity_computed = false;
