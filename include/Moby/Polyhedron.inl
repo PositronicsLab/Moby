@@ -251,10 +251,12 @@ Polyhedron Polyhedron::calc_convex_hull(ForwardIterator begin, ForwardIterator e
     poly._faces.push_back(f);
   }
 
-// setup edge and vertex map for each face
-std::map<boost::shared_ptr<Polyhedron::Edge>, unsigned> emap;
-for (unsigned i=0; i< poly._edges.size(); i++)
-  emap[poly._edges[i]] = i;
+  // setup edge and vertex map for each face
+  #ifndef NDEBUG
+  std::map<boost::shared_ptr<Polyhedron::Edge>, unsigned> emap;
+  for (unsigned i=0; i< poly._edges.size(); i++)
+    emap[poly._edges[i]] = i;
+  #endif
 
   // setup edge walk in each face
   for (unsigned i=0; i< poly._faces.size(); i++)
