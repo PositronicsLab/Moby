@@ -360,7 +360,12 @@ Polyhedron Polyhedron::calc_convex_hull(ForwardIterator begin, ForwardIterator e
   if (!LOGGING(LOG_COMPGEOM))
     fclose(errfile);
 
-  // ******************* compute convex hull ends *******************
+  // make convexity on the polyhedron
+  poly._convexity_computed = true;
+  poly._convexity = -1.0;
+
+  // compute the bounding box
+  poly.calc_bounding_box();
 
   return poly; 
 }
