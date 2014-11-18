@@ -471,13 +471,42 @@ Polyhedron Polyhedron::calc_minkowski_diff(shared_ptr<const PolyhedralPrimitive>
   if (!LOGGING(LOG_COMPGEOM))
     fclose(errfile);
 
-  // TODO: mark the polyhedron as convex (here and in calc_convex_hull())
+  // mark the polyhedron as convex (here and in calc_convex_hull())
+  poly._convexity_computed = true;
+  poly._convexity = -1.0;
 
-  // TODO: calculate the axis-aligned bounding box  
+  // calculate the axis-aligned bounding box  
+  poly.calc_bounding_box();
 
   // ******************* compute convex hull ends *******************
 
   return poly;
+}
+
+/// Calculates the bounding box
+void Polyhedron::calc_bounding_box()
+{
+  const unsigned THREE_D = 3;
+  
+  if (_vertices.empty())
+  {
+    _bb_min.set_zero();
+    _bb_max.set_zero();
+  }
+  else
+  {
+    // setup the bounding box
+    _bb_min = _vertices.front()->o;
+    _bb_max = _vertices.front()->o;
+    for (unsigned i=1; i< _vertices.size(); i++)
+      for (unsigned j=0; j< THREE_D; j++)
+      {
+        if (_vertices[i]->o[j] < _bb_min[j])
+          _bb_min[j] = _vertices[i]->o[j];
+        else if (_vertices[i]->o[j] > _bb_max[j])
+          _bb_max[j] = _vertices[i]->o[j];
+      }
+  }
 }
 
 /// Finds the feature(s) of this polyhedron closest to the point
