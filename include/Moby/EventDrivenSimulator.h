@@ -173,9 +173,6 @@ class EventDrivenSimulator : public Simulator
     void update_constraint_violations(const std::vector<PairwiseDistInfo>& pairwise_distances);
     void reset_limit_estimates() const;
 
-    /// The continuous collision detection mechanism
-    mutable CCD _ccd;
-
     /// Pairwise distances at bodies' current configurations
     std::vector<PairwiseDistInfo> _pairwise_distances;
 
@@ -205,6 +202,9 @@ class EventDrivenSimulator : public Simulator
 
     /// The distance threshold for a contact to be handled as a sustained contact 
     double sustained_contact_dist_thresh;
+
+    /// The collision detection mechanism
+    boost::shared_ptr<CollisionDetection> _coldet;
 
     /// The geometries in the simulator
     std::vector<CollisionGeometryPtr> _geometries;

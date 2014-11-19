@@ -68,6 +68,9 @@ EventDrivenSimulator::EventDrivenSimulator()
   rel_err_tol = NEAR_ZERO;
   abs_err_tol = NEAR_ZERO;
   minimum_step = 1e-5;
+
+  // setup the collision detector
+  _coldet = shared_ptr<CollisionDetection>(new CCD);
 }
 
 /// Compares two unilateral constraints for purposes of mapping velocity tolerances
@@ -909,7 +912,7 @@ double EventDrivenSimulator::calc_next_CA_Euler_step(double contact_dist_thresh)
     if (pdi.dist > contact_dist_thresh)
     {
       // compute an upper bound on the event time
-      double event_time = _ccd.calc_CA_Euler_step(pdi);
+      double event_time = _coldet->calc_CA_Euler_step(pdi);
 
       FILE_LOG(LOG_SIMULATOR) << "Next contact time between " << pdi.a->get_single_body()->id << " and " << pdi.b->get_single_body()->id << ": " << event_time << std::endl;
 
@@ -977,7 +980,7 @@ double EventDrivenSimulator::calc_next_CA_step(double contact_dist_thresh) const
       found_one = true;
     else
       // not a current event, find when it could become active
-      next_event_time = std::min(next_event_time, _ccd.calc_CA_step(pdi));
+      next_event_time = std::min(next_event_time, _coldet->calc_CA_step(pdi));
   }
 
   if (!found_one)
@@ -1129,7 +1132,7 @@ void EventDrivenSimulator::calc_pairwise_distances()
 void EventDrivenSimulator::broad_phase(double dt)
 {
   // call the broad phase
-  _ccd.broad_phase(dt, _bodies, _pairs_to_check);
+  _coldet->broad_phase(dt, _bodies, _pairs_to_check);
 
   // remove pairs that are unchecked
   for (unsigned i=0; i< _pairs_to_check.size(); )
@@ -1275,7 +1278,7 @@ double EventDrivenSimulator::calc_CA_step()
       continue; 
 
     // call conservative advancement method
-    double step = _ccd.calc_CA_step(pdi);
+    double step = _coldet->calc_CA_step(pdi);
     dt = std::min(dt, step);
     if (dt <= 0.0)
       return dt;
@@ -1442,9 +1445,9 @@ void EventDrivenSimulator::find_unilateral_constraints(double contact_dist_thres
       RigidBodyPtr rbb = dynamic_pointer_cast<RigidBody>(pdi.b->get_single_body());
       if (rba->compliance == RigidBody::eCompliant || 
           rbb->compliance == RigidBody::eCompliant)
-        _ccd.find_contacts(pdi.a, pdi.b, std::back_inserter(_compliant_constraints));
+        _coldet->find_contacts(pdi.a, pdi.b, _compliant_constraints);
       else        
-        _ccd.find_contacts(pdi.a, pdi.b, std::back_inserter(_rigid_constraints));
+        _coldet->find_contacts(pdi.a, pdi.b, _rigid_constraints);
     }
 
   // set constraints to proper type
@@ -1540,6 +1543,17 @@ void EventDrivenSimulator::load_from_xml(shared_ptr<const XMLTree> node, map<std
 
   // first, load all data specified to the Simulator object
   Simulator::load_from_xml(node, id_map);
+
+  // read the collision detection plugin, if any
+  XMLAttrib* coldet_plugin_attrib = node->get_attrib("collision-detection-plugin");
+  if (coldet_plugin_attrib)
+  {
+    const std::string coldet_plugin_id = coldet_plugin_attrib->get_string_value();
+    shared_ptr<CollisionDetection> coldet = dynamic_pointer_cast<CollisionDetection>(id_map[coldet_plugin_id]);
+    if (!coldet)
+      throw std::runtime_error("Unable to load collision detection plugin");
+    _coldet = coldet;
+  }
 
   // read the maximum time to process constraints, if any
   XMLAttrib* max_constraint_time_attrib = node->get_attrib("max-constraint-time");
@@ -1682,6 +1696,13 @@ void EventDrivenSimulator::save_to_xml(XMLTreePtr node, list<shared_ptr<const Ba
 
   // reset the node's name
   node->name = "EventDrivenSimulator";
+
+  // save any collision detection plugins
+  if (!dynamic_pointer_cast<CCD>(_coldet))
+  {
+    node->attribs.insert(XMLAttrib("collision-detection-plugin", _coldet->id));
+    shared_objects.push_back(_coldet);
+  }
 
   // save the maximum constraint time
   node->attribs.insert(XMLAttrib("max-constraint-time", max_constraint_time));
