@@ -268,47 +268,6 @@ void CCD::save_to_xml(XMLTreePtr node, list<shared_ptr<const Base> >& shared_obj
 }
 
 /****************************************************************************
- Methods for Drumwright-Shell algorithm begin
-****************************************************************************/
-
-/// Creates a contact constraint given the bare-minimum info
-UnilateralConstraint CCD::create_contact(CollisionGeometryPtr a, CollisionGeometryPtr b, const Point3d& point, const Vector3d& normal, double violation)
-{
-  UnilateralConstraint e;
-  e.constraint_type = UnilateralConstraint::eContact;
-  e.contact_point = point;
-  e.contact_normal = normal;
-  e.contact_geom1 = a;
-  e.contact_geom2 = b;
-  e.signed_violation = violation;
-
-  // check for valid normal here
-  assert(std::fabs(e.contact_normal.norm() - (double) 1.0) < NEAR_ZERO);
-
-  // make the body first that comes first alphabetically
-  if (LOGGING(LOG_COLDET))
-  {
-    SingleBodyPtr sb1 = e.contact_geom1->get_single_body();
-    SingleBodyPtr sb2 = e.contact_geom2->get_single_body();
-    if (sb2->id < sb1->id)
-    {
-      std::swap(e.contact_geom1, e.contact_geom2);
-      e.contact_normal = -e.contact_normal;
-    }
-  }
-
-  // transform contact point and normal to global frame
-  e.contact_point = Pose3d::transform_point(GLOBAL, e.contact_point);
-  e.contact_normal = Pose3d::transform_vector(GLOBAL, e.contact_normal);
-
-  return e;
-}
-
-/****************************************************************************
- Methods for static geometry intersection testing end
-****************************************************************************/
-
-/****************************************************************************
  Methods for broad phase begin
 ****************************************************************************/
 void CCD::broad_phase(double dt, const vector<DynamicBodyPtr>& bodies, vector<pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check)

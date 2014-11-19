@@ -19,6 +19,7 @@
 #include <Moby/HeightmapPrimitive.h>
 #include <Moby/PlanePrimitive.h>
 #include <Moby/BoxPrimitive.h>
+#include <Moby/CollisionDetection.h>
 #include <Moby/BV.h>
 
 namespace Moby {
@@ -28,16 +29,20 @@ class ArticulatedBody;
 class CollisionGeometry;  
 
 /// Implements the CollisionDetection abstract class to perform exact contact finding using abstract shapes 
-class CCD
+class CCD : public CollisionDetection
 {
   public:
     CCD();
     virtual ~CCD() {}
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
-    void broad_phase(double dt, const std::vector<DynamicBodyPtr>& bodies, std::vector<std::pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check);
-    double calc_CA_step(const PairwiseDistInfo& pdi);
-    double calc_CA_Euler_step(const PairwiseDistInfo& pdi);
+    virtual void broad_phase(double dt, const std::vector<DynamicBodyPtr>& bodies, std::vector<std::pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check);
+    virtual double calc_CA_step(const PairwiseDistInfo& pdi);
+    virtual double calc_CA_Euler_step(const PairwiseDistInfo& pdi);
+    virtual void find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, std::vector<UnilateralConstraint>& contacts, double TOL = NEAR_ZERO)
+    {
+      find_contacts(cgA, cgB, std::back_inserter(contacts), TOL);
+    }
 
     template <class OutputIterator>
     OutputIterator find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL = NEAR_ZERO);
@@ -98,7 +103,6 @@ class CCD
     double calc_max_dist_per_t(RigidBodyPtr rb, const Ravelin::Vector3d& n, double rmax);
     static double calc_max_velocity(RigidBodyPtr rb, const Ravelin::Vector3d& n, double rmax);
     bool intersect_BV_trees(boost::shared_ptr<BV> a, boost::shared_ptr<BV> b, const Ravelin::Transform3d& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b);
-    static UnilateralConstraint create_contact(CollisionGeometryPtr a, CollisionGeometryPtr b, const Point3d& point, const Ravelin::Vector3d& normal, double violation = 0.0);
 
     template <class OutputIterator>
     OutputIterator intersect_BV_leafs(BVPtr a, BVPtr b, const Ravelin::Transform3d& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b, OutputIterator output_begin) const;
