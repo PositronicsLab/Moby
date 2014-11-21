@@ -14,6 +14,8 @@
 #include <Moby/sorted_pair>
 #include <Moby/Base.h>
 #include <Moby/PairwiseDistInfo.h>
+#include <Moby/CollisionGeometry.h>
+#include <Moby/UnilateralConstraint.h>
 #include <Moby/RigidBody.h>
 
 namespace Moby {
@@ -38,10 +40,20 @@ class CollisionDetection : public virtual Base
   public:
     CollisionDetection() {}
     virtual ~CollisionDetection() {}
+    virtual void set_simulator(boost::shared_ptr<EventDrivenSimulator> sim) {}
     virtual void broad_phase(double dt, const std::vector<DynamicBodyPtr>& bodies, std::vector<std::pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check);
     virtual double calc_CA_step(const PairwiseDistInfo& pdi) = 0;
     virtual double calc_CA_Euler_step(const PairwiseDistInfo& pdi) = 0;
     virtual void find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, std::vector<UnilateralConstraint>& contacts, double TOL = NEAR_ZERO) = 0;
+
+    /// Calculates the signed distance between two geometries
+    virtual double calc_signed_dist(CollisionGeometryPtr cg1, CollisionGeometryPtr cg2)
+    {
+      // make up two points to use
+      Point3d p1, p2;
+
+      return CollisionGeometry::calc_signed_dist(cg1, cg2, p1, p2);
+    }
 
     /// Get the shared pointer for this
     boost::shared_ptr<CollisionDetection> get_this() { return boost::dynamic_pointer_cast<CollisionDetection>(shared_from_this()); }

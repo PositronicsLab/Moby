@@ -1200,8 +1200,7 @@ double EventDrivenSimulator::check_pairwise_constraint_violations(double t)
       continue; 
 
     // compute the distance between the two bodies
-    Point3d p1, p2;
-    double d = CollisionGeometry::calc_signed_dist(cg1, cg2, p1, p2);
+    double d = _coldet->calc_signed_dist(cg1, cg2);
     if (d <= _ip_tolerances[make_sorted_pair(cg1, cg2)] - NEAR_ZERO)
     {
       FILE_LOG(LOG_SIMULATOR) << "Interpenetration detected between " << cg1->get_single_body()->id << " and " << cg2->get_single_body()->id << ": " << d << std::endl;
@@ -1553,6 +1552,8 @@ void EventDrivenSimulator::load_from_xml(shared_ptr<const XMLTree> node, map<std
     if (!coldet)
       throw std::runtime_error("Unable to load collision detection plugin");
     _coldet = coldet;
+    shared_ptr<EventDrivenSimulator> shared_this = dynamic_pointer_cast<EventDrivenSimulator>(shared_from_this());
+    _coldet->set_simulator(shared_this);
   }
 
   // read the maximum time to process constraints, if any
