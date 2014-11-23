@@ -218,7 +218,15 @@ if (BUILD_TOOLS)
   target_link_libraries(moby-center Moby)
 endif (BUILD_TOOLS)
 
+  # plugins
+  add_library(passive-walker-init example/passive-walker/init.cpp)
+  add_library(passive-walker-coldet-plugin example/passive-walker/coldet-plugin.cpp)
+  target_link_libraries(passive-walker-init Moby Ravelin)
+  target_link_libraries(passive-walker-coldet-plugin Moby Ravelin)
+
 # setup install locations
+install (TARGETS passive-walker-init DESTINATION ${CMAKE_SOURCE_DIR}/example/passive-walker)
+install (TARGETS passive-walker-coldet-plugin DESTINATION ${CMAKE_SOURCE_DIR}/example/passive-walker)
 install (TARGETS Moby DESTINATION lib)
 install (TARGETS moby-driver DESTINATION bin)
 if (USE_OSG AND OSG_FOUND)
@@ -229,4 +237,3 @@ install (TARGETS moby-convexify DESTINATION bin)
 install (TARGETS moby-adjust-center DESTINATION bin)
 install (TARGETS moby-center DESTINATION bin)
 install (DIRECTORY ${CMAKE_SOURCE_DIR}/include/Moby DESTINATION include)
-
