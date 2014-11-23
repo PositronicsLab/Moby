@@ -1200,7 +1200,8 @@ double EventDrivenSimulator::check_pairwise_constraint_violations(double t)
       continue; 
 
     // compute the distance between the two bodies
-    double d = _coldet->calc_signed_dist(cg1, cg2);
+    Point3d p1, p2;
+    double d = _coldet->calc_signed_dist(cg1, cg2, p1, p2);
     if (d <= _ip_tolerances[make_sorted_pair(cg1, cg2)] - NEAR_ZERO)
     {
       FILE_LOG(LOG_SIMULATOR) << "Interpenetration detected between " << cg1->get_single_body()->id << " and " << cg2->get_single_body()->id << ": " << d << std::endl;

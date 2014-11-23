@@ -80,6 +80,7 @@ class TorusPlanePlugin : public CollisionDetection
         if (remainder[i] == walker)
         {
           remainder[i] = remainder.back();
+          remainder.pop_back();
           break;
         }
 
@@ -253,25 +254,27 @@ class TorusPlanePlugin : public CollisionDetection
     }
 
     /// Computes signed distance between geometries
-    virtual double calc_signed_dist(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB)
+    virtual double calc_signed_dist(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, Point3d& pA, Point3d& pB)
     {
       // only handle specific case
       if (cgA == left_foot_cg && cgB == ground_cg)
-        calc_signed_dist_torus_plane(cgA, cgB);
+        return calc_signed_dist_torus_plane(cgA, cgB, pA, pB);
       else if (cgA == ground_cg && cgB == left_foot_cg)
-        calc_signed_dist_torus_plane(cgB, cgA);
+        return calc_signed_dist_torus_plane(cgB, cgA, pA, pB);
       else if (cgA == right_foot_cg && cgB == ground_cg)
-        calc_signed_dist_torus_plane(cgA, cgB);
+        return calc_signed_dist_torus_plane(cgA, cgB, pA, pB);
       else if (cgA == ground_cg && cgB == right_foot_cg)
-        calc_signed_dist_torus_plane(cgB, cgA);
+        return calc_signed_dist_torus_plane(cgB, cgA, pA, pB);
       else
-        ccd->calc_signed_dist(cgA, cgB);
+        return ccd->calc_signed_dist(cgA, cgB, pA, pB);
     }
 
 };
 
-extern "C" boost::shared_ptr<TorusPlanePlugin> factory()
+extern "C"
 {
-  return boost::shared_ptr<TorusPlanePlugin>(new TorusPlanePlugin);
+  boost::shared_ptr<CollisionDetection> factory()
+  {
+    return boost::shared_ptr<CollisionDetection>(new TorusPlanePlugin);
+  }
 }
-

@@ -47,11 +47,8 @@ class CollisionDetection : public virtual Base
     virtual void find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, std::vector<UnilateralConstraint>& contacts, double TOL = NEAR_ZERO) = 0;
 
     /// Calculates the signed distance between two geometries
-    virtual double calc_signed_dist(CollisionGeometryPtr cg1, CollisionGeometryPtr cg2)
+    virtual double calc_signed_dist(CollisionGeometryPtr cg1, CollisionGeometryPtr cg2, Point3d& p1, Point3d& p2)
     {
-      // make up two points to use
-      Point3d p1, p2;
-
       return CollisionGeometry::calc_signed_dist(cg1, cg2, p1, p2);
     }
 
