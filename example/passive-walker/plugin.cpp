@@ -129,10 +129,16 @@ class TorusPlanePlugin : public CollisionDetection
 
       // get the pose for the plane primitive
       shared_ptr<const Pose3d> Pplane = plane_geom->get_pose(ground_cg);
-
       // get the pose for the torus
       shared_ptr<const Pose3d> Ptorus = torus_cg->get_pose();
 
+      Ptorus = shared_ptr<const Pose3d>(
+                 new Pose3d(
+                   Quatd::identity(),
+                   Origin3d(0,0,-1),
+                   Ptorus
+                   )
+                 );
       // get the transformation from the torus's space to the plane's space
       // (with y-axis up)
       Transform3d tPp = Pose3d::calc_relative_pose(Pplane, Ptorus);
