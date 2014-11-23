@@ -1123,7 +1123,7 @@ void EventDrivenSimulator::calc_pairwise_distances()
     pdi.a = _pairs_to_check[i].first;
     pdi.b = _pairs_to_check[i].second;
     FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::calc_pairwise_distances() - computing signed distance between " << pdi.a->get_single_body()->id << " and " << pdi.b->get_single_body()->id << std::endl;
-    pdi.dist = CollisionGeometry::calc_signed_dist(pdi.a, pdi.b, pdi.pa, pdi.pb);
+    pdi.dist = _coldet->calc_signed_dist(pdi.a, pdi.b, pdi.pa, pdi.pb);
     _pairwise_distances.push_back(pdi);
   }
 }
