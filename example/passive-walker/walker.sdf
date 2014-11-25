@@ -21,13 +21,15 @@
 
       <visual name='l_foot_visual'>
         <!-- 0 0 -l -->
-        <pose>0 0 -1 0 -0 0</pose>
+        <pose>0 0 -1 1.5708 0 0</pose>
         <geometry>
-          <sphere>
+          <cylinder>
             <radius>0.1236</radius>
-          </sphere>
+            <length>0.001</length>
+          </cylinder>
         </geometry>
       </visual>
+
       <visual name='l_leg_visual'>
         <!-- 0 0 -l/2 -->
         <pose>0 0 -0.5 0 -0 0</pose>
@@ -93,13 +95,15 @@
 
       <visual name='r_foot_visual'>
         <!-- 0 0 -l -->
-        <pose>0 0 -1 0 -0 0</pose>
+        <pose>0 0 -1 1.5708 0 0</pose>
         <geometry>
-          <sphere>
+          <cylinder>
             <radius>0.1236</radius>
-          </sphere>
+            <length>0.001</length>
+          </cylinder>
         </geometry>
       </visual>
+
       <visual name='r_leg_visual'>
         <!-- 0 0 -l/2 -->
         <pose>0 0 -0.5 0 -0 0</pose>

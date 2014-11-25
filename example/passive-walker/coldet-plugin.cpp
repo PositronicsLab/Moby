@@ -187,15 +187,13 @@ class TorusPlanePlugin : public CollisionDetection
         // distance torus origin to closest point on plane
         // - distance torus edge to torus origin
         d = (p0 - l0).dot(n)/(l.dot(n)) - r;
-        if(d <= 0){
-          // Contact point is a random point on the
-          // circular manifold of contact
-          double t = fRand(-M_PI_2,M_PI_2);
-          Point3d p_torus(R*cos(t),R*sin(t),r,Ptorus);
-          point = Pose3d::transform_point(Moby::GLOBAL,p_torus);
-          std::cout << "Point: "<<  point << std::endl;
-          std::cout << "Normal: "<<  normal << std::endl;
-        }
+        // Contact point is a random point on the
+        // circular manifold of contact
+        double t = fRand(-M_PI_2,M_PI_2);
+        Point3d p_torus(R*cos(t),R*sin(t),r,Ptorus);
+        point = Pose3d::transform_point(Moby::GLOBAL,p_torus);
+        std::cout << "Point: "<<  point << std::endl;
+        std::cout << "Normal: "<<  normal << std::endl;
         std::cout << "distance: "<<  d << std::endl;
         std::cout << "<< end calc_signed_dist_torus_plane(.)" << std::endl;
         return d;
@@ -225,12 +223,10 @@ class TorusPlanePlugin : public CollisionDetection
         //   parallel to plane normal in torus frame
         Vector3d n = n_plane,l = d_ring;
         d = (p0 - l0).dot(n)/(l.dot(n)) - (r+R);
-        if(d <= 0){
-          Point3d p_torus = d*l + l0;
-          point = Pose3d::transform_point(Moby::GLOBAL,p_torus);
-          std::cout << "Point: "<<  point << std::endl;
-          std::cout << "Normal: "<<  normal << std::endl;
-        }
+        Point3d p_torus = d*l + l0;
+        point = Pose3d::transform_point(Moby::GLOBAL,p_torus);
+        std::cout << "Point: "<<  point << std::endl;
+        std::cout << "Normal: "<<  normal << std::endl;
         std::cout << "distance: "<<  d << std::endl;
         std::cout << "<< end calc_signed_dist_torus_plane(.)" << std::endl;
         return d;
@@ -261,17 +257,15 @@ class TorusPlanePlugin : public CollisionDetection
       Vector3d n = n_plane,l = d_pipe;
       d = (p0 - l0).dot(n)/(l.dot(n)) - r;
 
-      if(d <= 0){
-        //point on torus closest to plane;
-        Point3d p_torus = R * d_ring + r * d_pipe;
-        p_torus.pose = Ptorus;
-        // TODO: find the point in the torus's space such that
-        //       tPp.transform_point(.) results in the value of y closest to
-        //       negative infinity
-        point = Pose3d::transform_point(Moby::GLOBAL,p_torus);
-        std::cout << "Point: "<<  point << std::endl;
-        std::cout << "Normal: "<<  normal << std::endl;
-      }
+      //point on torus closest to plane;
+      Point3d p_torus = R * d_ring + r * d_pipe;
+      p_torus.pose = Ptorus;
+      // TODO: find the point in the torus's space such that
+      //       tPp.transform_point(.) results in the value of y closest to
+      //       negative infinity
+      point = Pose3d::transform_point(Moby::GLOBAL,p_torus);
+      std::cout << "Point: "<<  point << std::endl;
+      std::cout << "Normal: "<<  normal << std::endl;
       std::cout << "distance: "<<  d << std::endl;
       std::cout << "<< end calc_signed_dist_torus_plane(.)" << std::endl;
       return d;

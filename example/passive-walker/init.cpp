@@ -88,7 +88,7 @@ void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map,
 
   x[1] =  0; // x
   x[2] = 0; // y
-  x[3] = 1.1249; // z
+  x[3] = 1.122987; // z
 //  x[3] = 1.4; // z
 
   x[6] =  0.09866765986740; // Phi
