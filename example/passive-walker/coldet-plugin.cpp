@@ -111,19 +111,19 @@ class TorusPlanePlugin : public CollisionDetection
     }
 
     /// Calculates signed distance between a torus and a plane
-    double calc_signed_dist_torus_plane(CollisionGeometryPtr torus_cg, CollisionGeometryPtr ground_cg,Vector3d point = Vector3d(),Vector3d normal = Vector3d())
+    double calc_signed_dist_torus_plane(CollisionGeometryPtr torus_cg, CollisionGeometryPtr ground_cg)
     {
+      Vector3d point, normal;
+      return calc_signed_dist_torus_plane(torus_cg,ground_cg,point,normal);
+    }
+    /// Calculates signed distance between a torus and a plane
+    double calc_signed_dist_torus_plane(CollisionGeometryPtr torus_cg, CollisionGeometryPtr ground_cg,Vector3d& point,Vector3d& normal)
+    {
+      std::cout << ">> start calc_signed_dist_torus_plane(.)" << std::endl;
       const double R = 0.1236;  // radius from center of tube to center of torus
       const double r = 0.0   ;  // radius of the tube
 
-      shared_ptr<const Pose3d>
-          Ptorus2 = shared_ptr<const Pose3d>(
-                     new Pose3d(
-                       Quatd::identity(),
-                       Origin3d(0,0,-1),
-                       torus_cg->get_single_body()->get_pose()
-                       )
-                     );
+      std::cout << "Body: "<<  torus_cg->get_single_body()->id << std::endl;
 
       // get the plane primitive
       PrimitivePtr plane_geom = dynamic_pointer_cast<Primitive>(ground_cg->get_geometry());
@@ -133,44 +133,72 @@ class TorusPlanePlugin : public CollisionDetection
       // get the pose for the torus
       shared_ptr<const Pose3d> Ptorus = torus_cg->get_pose();
 
+      // translate foot into position on leg link
+      //   and make z-axis torus orient along y axis
+      //   with 90deg x-axis rotation
       Ptorus = shared_ptr<const Pose3d>(
                  new Pose3d(
-                   Quatd::identity(),
+                   Quatd(Matrix3d(1,0,0,0,0,-1,0,1,0)),
                    Origin3d(0,0,-1),
                    Ptorus
                    )
                  );
+
       // get the transformation from the torus's space to the plane's space
       // (with y-axis up)
       Transform3d tPp = Pose3d::calc_relative_pose(Pplane, Ptorus);
-      Transform3d pPt = Pose3d::calc_relative_pose(Ptorus, Pplane);
-
-      // equation of a z-axis torus
-      // f(x,y,z) = (R - sqrt(x^2 + y^2))^2 + z^2 - r^2
-
-      // Equation for an arbitrary plane
-      // g(x,y,z) = a (x - x0) + b (y - y0) + c (z - z0)
-      // interpenetration:
 
       // Normal of plane (in torus frame)
       // plane rotation matrix
       Matrix3d tRp(tPp.q);
-
-      // Y column of rotaton matrix is plane normal in torus frame
+      // Y column of rotaton matrix (plane to torus)
+      // is plane normal in torus frame
       Point3d n_plane(tRp.get_column(1),Ptorus);
+      n_plane.normalize();
+
+      // Convert to global coords for output
       normal = Pose3d::transform_vector(Moby::GLOBAL,n_plane);
 
-      // Torus axis is k_hat
-      Vector3d k(0,0,1);
+      // Torus axis is z-axis in torus frame
+      Vector3d k(0,0,1,Ptorus);
+
+      // Set intitial value of distance to contact
+      double d = std::numeric_limits<double>::infinity();
 
       // if Torus is aligned with plane:
-      // Return distance torus to plane less pipe r
-      double n_dot_t = n_plane.dot(k);
-      if(fabs(n_dot_t) > 1.0-Moby::NEAR_ZERO){
-        double t = fRand(-M_PI_2,M_PI_2);
-        Point3d p_torus(R*cos(t),R*sin(t),r,Ptorus);
-        point = Pose3d::transform_point(Moby::GLOBAL,p_torus);
-        return (tPp.x.norm() - r);
+      // Return distance torus origin to
+      // closest point on plane less pipe r
+      double n_dot_k = n_plane.dot(k);
+      if(fabs(n_dot_k) > 1.0-Moby::NEAR_ZERO){
+        std::cout << " -- Torus is parallel to plane"<< std::endl;
+        // d = depth
+        // p0 = plane origin, p = plane normal
+        // l0 = line origin, l = line direction
+
+        // plane origin: plane origin in torus frame
+        // line origin: torus origin in torus frame
+        Point3d p0(tPp.x,Ptorus), l0(0,0,0,Ptorus);
+
+        // plane normal: plane normal in torus frame
+        // line direction: torus k axis
+        Vector3d n = n_plane,l = k;
+
+        // distance torus to closest point on plane is:
+        // distance torus origin to closest point on plane
+        // - distance torus edge to torus origin
+        d = (p0 - l0).dot(n)/(l.dot(n)) - r;
+        if(d <= 0){
+          // Contact point is a random point on the
+          // circular manifold of contact
+          double t = fRand(-M_PI_2,M_PI_2);
+          Point3d p_torus(R*cos(t),R*sin(t),r,Ptorus);
+          point = Pose3d::transform_point(Moby::GLOBAL,p_torus);
+          std::cout << "Point: "<<  point << std::endl;
+          std::cout << "Normal: "<<  normal << std::endl;
+        }
+        std::cout << "distance: "<<  d << std::endl;
+        std::cout << "<< end calc_signed_dist_torus_plane(.)" << std::endl;
+        return d;
       }
 
       //((n_plane x axis_torus) x axis_torus)
@@ -182,13 +210,31 @@ class TorusPlanePlugin : public CollisionDetection
 
       // if Torus is _|_ with plane:
       // Return distance torus to plane less pipe r and ring R
-      if(fabs(n_dot_t) < Moby::NEAR_ZERO){
-        Point3d p_torus = (R+r) * d_ring;
-        p_torus.pose = Ptorus;
-        point = Pose3d::transform_point(Moby::GLOBAL,p_torus);
-        return (tPp.x.norm() - r - R);
-      }
+      if(fabs(n_dot_k) < Moby::NEAR_ZERO){
+        std::cout << " -- Torus is perpendicular to plane"<< std::endl;
+        // d = depth
+        // p0 = plane origin, p = plane normal
+        // l0 = line origin, l = line direction
 
+        // plane origin: plane origin in torus frame
+        // line origin: torus origin in torus frame
+        Point3d p0(tPp.x,Ptorus), l0(0,0,0,Ptorus);
+
+        // plane normal: plane normal in torus frame
+        // line direction: on xy-plane of torus
+        //   parallel to plane normal in torus frame
+        Vector3d n = n_plane,l = d_ring;
+        d = (p0 - l0).dot(n)/(l.dot(n)) - (r+R);
+        if(d <= 0){
+          Point3d p_torus = d*l + l0;
+          point = Pose3d::transform_point(Moby::GLOBAL,p_torus);
+          std::cout << "Point: "<<  point << std::endl;
+          std::cout << "Normal: "<<  normal << std::endl;
+        }
+        std::cout << "distance: "<<  d << std::endl;
+        std::cout << "<< end calc_signed_dist_torus_plane(.)" << std::endl;
+        return d;
+      }
 
       //   ((d_ring x axis_torus) x n_plane ) x (d_ring x axis_torus)
       //    ^ tangent to pipe   ^
@@ -196,27 +242,45 @@ class TorusPlanePlugin : public CollisionDetection
       //   ^ toward plane on torus pipe                             ^
       Vector3d d_pipe = Vector3d::cross(
                           Vector3d::cross(Vector3d::cross(d_ring,k),n_plane),
-                          Vector3d::cross(d_ring,k)
+                          Vector3d::cross(-d_ring,k)
                           );
       d_pipe.normalize();
 
-      //point on torus closest to plane;
-      Point3d p_torus = R * d_ring + r * d_pipe;
-      p_torus.pose = Ptorus;
-      // TODO: find the point in the torus's space such that
-      //       tPp.transform_point(.) results in the value of y closest to
-      //       negative infinity
-      std::cout << p_torus << std::endl;
-      point = Pose3d::transform_point(Moby::GLOBAL,p_torus);
 
-      // y element of penetration
-      return pPt.transform_point(p_torus)[1];
+      // d = depth
+      // p0 = plane origin, p = plane normal
+      // l0 = line origin, l = line direction
+
+      // plane origin: plane origin in torus frame
+      // line origin: torus origin in torus frame
+      Point3d p0(tPp.x,Ptorus), l0 = R * d_ring;
+
+      // plane normal: plane normal in torus frame
+      // line direction: on xy-plane of torus
+      //   parallel to plane normal in torus frame
+      Vector3d n = n_plane,l = d_pipe;
+      d = (p0 - l0).dot(n)/(l.dot(n)) - r;
+
+      if(d <= 0){
+        //point on torus closest to plane;
+        Point3d p_torus = R * d_ring + r * d_pipe;
+        p_torus.pose = Ptorus;
+        // TODO: find the point in the torus's space such that
+        //       tPp.transform_point(.) results in the value of y closest to
+        //       negative infinity
+        point = Pose3d::transform_point(Moby::GLOBAL,p_torus);
+        std::cout << "Point: "<<  point << std::endl;
+        std::cout << "Normal: "<<  normal << std::endl;
+      }
+      std::cout << "distance: "<<  d << std::endl;
+      std::cout << "<< end calc_signed_dist_torus_plane(.)" << std::endl;
+      return d;
     }
 
     /// Finds contacts between a torus and a plane
     virtual void find_contacts_torus_plane(CollisionGeometryPtr torus_cg, CollisionGeometryPtr ground_cg, std::vector<UnilateralConstraint>& contacts)
     {
-      contacts.clear();
+//      contacts.clear();
       // get the plane primitive
       PrimitivePtr plane_geom = dynamic_pointer_cast<Primitive>(ground_cg->get_geometry());
 
