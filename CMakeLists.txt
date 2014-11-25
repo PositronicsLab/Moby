@@ -219,8 +219,8 @@ if (BUILD_TOOLS)
 endif (BUILD_TOOLS)
 
   # plugins
-  add_library(passive-walker-init example/passive-walker/init.cpp)
-  add_library(passive-walker-coldet-plugin example/passive-walker/coldet-plugin.cpp)
+  add_library(passive-walker-init MODULE example/passive-walker/init.cpp)
+  add_library(passive-walker-coldet-plugin MODULE example/passive-walker/coldet-plugin.cpp)
   target_link_libraries(passive-walker-init Moby Ravelin)
   target_link_libraries(passive-walker-coldet-plugin Moby Ravelin)
 
