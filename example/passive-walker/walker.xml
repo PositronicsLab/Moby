@@ -15,7 +15,7 @@
 
   <GravityForce id="gravity" accel="0 0 -9.81" />
 
-  <EventDrivenSimulator integrator-id="rk4" Euler-step="0.001" collision-detection-plugin="toroid" >
+  <EventDrivenSimulator integrator-id="rk4" Euler-step="0.00001" collision-detection-plugin="toroid" >
     <RecurrentForce recurrent-force-id="gravity" />
     <DynamicBody dynamic-body-id="GROUND" />
     <DynamicBody dynamic-body-id="WALKER" />

@@ -2430,6 +2430,7 @@ void UnilateralConstraint::determine_contact_tangents()
   // see whether we can use this vector as a contact tangent and set the
   // friction type 
   double tan_norm = rvel.norm();
+  FILE_LOG(LOG_CONSTRAINT) << "UnilateralConstraint::determine_contact_tangents() - tangent velocity magnitude: " << tan_norm << std::endl;
 
   if (tan_norm < stick_tol)
   {
