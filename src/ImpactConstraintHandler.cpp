@@ -150,8 +150,7 @@ void ImpactConstraintHandler::apply_model(const vector<UnilateralConstraint>& co
 // TODO: fix viscous model- seems to be a bug in it
 //      else if (all_frictionless)
 //        apply_visc_friction_model_to_connected_constraints(rconstraints, inv_dt);
-
-      if (max_time < INF)   
+      else if (max_time < INF)   
         apply_model_to_connected_constraints(rconstraints, max_time, inv_dt);
       else
         apply_model_to_connected_constraints(rconstraints, inv_dt);
