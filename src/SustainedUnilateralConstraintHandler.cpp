@@ -150,10 +150,10 @@ void SustainedUnilateralConstraintHandler::apply_model_to_connected_constraints(
 
   // add in viscous friction forces and recompute dynamics
   _epd.cs = _cs_visc;
-  bool nonzero_force = (_epd.cs.norm_inf() > NEAR_ZERO);
+  bool zero_visc_force = (_epd.cs.norm_inf() < NEAR_ZERO);
   
   // recompute system dynamics, if necessary
-  if (!nonzero_force)
+  if (!zero_visc_force)
   {
     // setup a temporary frame
     shared_ptr<Pose3d> P(new Pose3d);
@@ -240,10 +240,10 @@ void SustainedUnilateralConstraintHandler::apply_purely_viscous_model_to_connect
 
   // add in viscous friction forces and recompute dynamics
   _epd.cs = _cs_visc;
-  bool nonzero_force = (_epd.cs.norm_inf() > NEAR_ZERO);
+  bool zero_visc_force = (_epd.cs.norm_inf() < NEAR_ZERO);
  
   // recompute system dynamics, if necessary
-  if (!nonzero_force)
+  if (!zero_visc_force)
   {
     // setup a temporary frame
     shared_ptr<Pose3d> P(new Pose3d);
@@ -580,9 +580,6 @@ void SustainedUnilateralConstraintHandler::compute_problem_data2(SustainedUnilat
   {
     if (q.constraints[i]->constraint_type == UnilateralConstraint::eContact)
     {
-      // update the contact constraint set
-      q.contact_constraints.push_back(q.constraints[i]);
-
       // update the number of sticking contacts and number of friction edges
       if (q.constraints[i]->get_friction_type() == UnilateralConstraint::eSticking)
         q.N_STICKING++;
