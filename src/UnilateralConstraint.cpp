@@ -1272,7 +1272,6 @@ double calc_constraint_accel2(const UnilateralConstraint& e)
   return normal.dot(v1) + 2.0*normal_dot.dot(v2);
 }
 
-
 /// Computes the acceleration of this contact
 /**
  * Positive acceleration indicates acceleration away, negative acceleration
@@ -1335,6 +1334,46 @@ double UnilateralConstraint::calc_constraint_accel() const
     assert(false);
     return 0.0;
   }
+}  
+
+/// Computes the acceleration of this contact along the contact tangents
+void UnilateralConstraint::calc_contact_tan_accel(double& tan1A, double& tan2A) const
+{
+  assert(constraint_type == eContact);
+  assert(contact_geom1 && contact_geom2);
+  SingleBodyPtr sba = contact_geom1->get_single_body();
+  SingleBodyPtr sbb = contact_geom2->get_single_body();
+  assert(sba && sbb);
+
+  // get the velocities and accelerations 
+  const SVelocityd& va = sba->get_velocity(); 
+  const SVelocityd& vb = sbb->get_velocity(); 
+  const SAcceld& aa = sba->get_accel(); 
+  const SAcceld& ab = sbb->get_accel(); 
+
+  // setup the constraint frame
+  _contact_frame->x = contact_point;
+  _contact_frame->q.set_identity();
+  _contact_frame->rpose = GLOBAL;
+
+  // compute the velocities and accelerations at the contact point
+  SVelocityd tva = Pose3d::transform(_contact_frame, va); 
+  SVelocityd tvb = Pose3d::transform(_contact_frame, vb); 
+  SAcceld taa = Pose3d::transform(_contact_frame, aa); 
+  SAcceld tab = Pose3d::transform(_contact_frame, ab); 
+
+  // get the contact tangents and derivative in the correct pose
+  Vector3d tan1 = Pose3d::transform_vector(_contact_frame, contact_tan1);
+  Vector3d tan1_dot = Pose3d::transform_vector(_contact_frame, contact_tan1_dot);
+  Vector3d tan2 = Pose3d::transform_vector(_contact_frame, contact_tan2);
+  Vector3d tan2_dot = Pose3d::transform_vector(_contact_frame, contact_tan2_dot);
+
+  // compute: d<n, dx/dt + w x r>/dt =  
+  // compute: <n,  d^2x/dt^2 + dw/dt x r> + <dn/dt, dx/dt + w x r>  
+  tan1A = tan1.dot(taa.get_linear() - tab.get_linear());
+  tan1A += 2.0*tan1_dot.dot(tva.get_linear() - tvb.get_linear());
+  tan2A = tan2.dot(taa.get_linear() - tab.get_linear());
+  tan2A += 2.0*tan2_dot.dot(tva.get_linear() - tvb.get_linear());
 }  
 
 double calc_constraint_vel2(const UnilateralConstraint& e)
@@ -1536,9 +1575,12 @@ std::ostream& Moby::operator<<(std::ostream& o, const UnilateralConstraint& e)
       e.calc_constraint_vel();
     }
     else
+    {
       o << "relative normal acceleration: " << e.calc_constraint_accel() << " (1)   " << calc_constraint_accel2(e) << " (2)" << std::endl;
-//      o << "relative tangent acceleration: " << (e.tan1.dot(ralin) +  << " (1)   " << calc_constraint_accel2(e) << " (2)" << std::endl;
-//      o << "relative tangent acceleration: " << e.calc_constraint_accel() << " (1)   " << calc_constraint_accel2(e) << " (2)" << std::endl;
+      double tan1A, tan2A;
+      e.calc_contact_tan_accel(tan1A, tan2A);
+      o << "relative tangent accelerations: " << tan1A << " / " << tan2A << std::endl;
+    } 
   }
 
   return o;

@@ -375,10 +375,10 @@ return;
   for (unsigned i=0; i<  q.constraints.size(); i++)
   {
     if (q.constraints[i]->get_friction_type() == UnilateralConstraint::eSticking)
-      q.N_STICKING++;
-    if ( q.constraints[i]->contact_NK < UINF)
     {
-        q.N_K_TOTAL +=  q.constraints[i]->contact_NK/2;
+      q.N_STICKING++;
+      if ( q.constraints[i]->contact_NK < UINF)
+        q.N_K_TOTAL +=  q.constraints[i]->contact_NK;
     }
     else if ( q.constraints[i]->contact_NK == UINF)
       break;
@@ -582,8 +582,10 @@ void SustainedUnilateralConstraintHandler::compute_problem_data2(SustainedUnilat
     {
       // update the number of sticking contacts and number of friction edges
       if (q.constraints[i]->get_friction_type() == UnilateralConstraint::eSticking)
+      {
         q.N_STICKING++;
-      q.N_K_TOTAL +=  q.constraints[i]->contact_NK/2;
+        q.N_K_TOTAL +=  q.constraints[i]->contact_NK;
+      }
     }
     else if ( q.constraints[i]->contact_NK == UINF)
       throw std::runtime_error("Infinite friction cone encountered for sustained unilateral contact!");
@@ -883,7 +885,12 @@ bool SustainedUnilateralConstraintHandler::solve_coulomb_lcp(SustainedUnilateral
   unsigned NK_DIRS = 0;
   for(unsigned i=0,j=0,r=0;i<q.N_CONTACTS;i++)
     if(q.constraints[i]->get_friction_type() == UnilateralConstraint::eSticking)
-      NK_DIRS+=(q.constraints[i]->contact_NK+4)/4;
+    {
+      if (q.constraints[i]->contact_NK > 4)
+        NK_DIRS+=(q.constraints[i]->contact_NK+4)/4;
+      else
+        NK_DIRS+=1;
+    }
 
   // setup sizes
   _UL.set_zero(q.N_CONTACTS+q.N_STICKING*4, q.N_CONTACTS+q.N_STICKING*4);
@@ -928,7 +935,7 @@ bool SustainedUnilateralConstraintHandler::solve_coulomb_lcp(SustainedUnilateral
     _UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING*2,q.N_CONTACTS+q.N_STICKING*2,q.Ct_iM_CtT);
     _UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING*3,q.N_CONTACTS+q.N_STICKING*3,q.Ct_iM_CtT);
 
-    // Set neagtive submatrices
+    // Set negative submatrices
     /*     n          r          r           r           r
     n                        -Cn_iM_CsT              -Cn_iM_CtT
     r                        -Cs_iM_CsT              -Cs_iM_CtT
@@ -969,26 +976,48 @@ bool SustainedUnilateralConstraintHandler::solve_coulomb_lcp(SustainedUnilateral
       const UnilateralConstraint* ci =  q.constraints[i];
       if(ci->get_friction_type() == UnilateralConstraint::eSticking)
       {
-        int nk4 = ( ci->contact_NK+4)/4;
-        for(unsigned k=0;k<nk4;k++)
+        if (ci->contact_NK > 4)
+        {
+          int nk4 = ( ci->contact_NK+4)/4;
+          for(unsigned k=0;k<nk4;k++)
+          {
+            // muK
+            _LL(r+k,i) = ci->contact_mu_coulomb;
+            // Xe
+            _LL(r+k,q.N_CONTACTS+j)                = -cos((M_PI*k)/(2.0*nk4));
+            _LL(r+k,q.N_CONTACTS+q.N_STICKING+j)   = -cos((M_PI*k)/(2.0*nk4));
+            // Xf
+            _LL(r+k,q.N_CONTACTS+q.N_STICKING*2+j) = -sin((M_PI*k)/(2.0*nk4));
+            _LL(r+k,q.N_CONTACTS+q.N_STICKING*3+j) = -sin((M_PI*k)/(2.0*nk4));
+            // XeT
+            _UR(q.N_CONTACTS+j,r+k)                =  cos((M_PI*k)/(2.0*nk4));
+            _UR(q.N_CONTACTS+q.N_STICKING+j,r+k)   =  cos((M_PI*k)/(2.0*nk4));
+            // XfT
+            _UR(q.N_CONTACTS+q.N_STICKING*2+j,r+k) =  sin((M_PI*k)/(2.0*nk4));
+            _UR(q.N_CONTACTS+q.N_STICKING*3+j,r+k) =  sin((M_PI*k)/(2.0*nk4));
+          }
+          r+=nk4;
+          j++;
+        }
+        else
         {
           // muK
-          _LL(r+k,i) = ci->contact_mu_coulomb;
-          // Xs
-          _LL(r+k,q.N_CONTACTS+j)                = -cos((M_PI*k)/(2.0*nk4));
-          _LL(r+k,q.N_CONTACTS+q.N_STICKING+j)   = -cos((M_PI*k)/(2.0*nk4));
-          // Xt
-          _LL(r+k,q.N_CONTACTS+q.N_STICKING*2+j) = -sin((M_PI*k)/(2.0*nk4));
-          _LL(r+k,q.N_CONTACTS+q.N_STICKING*3+j) = -sin((M_PI*k)/(2.0*nk4));
-          // XsT
-          _UR(q.N_CONTACTS+j,r+k)                =  cos((M_PI*k)/(2.0*nk4));
-          _UR(q.N_CONTACTS+q.N_STICKING+j,r+k)   =  cos((M_PI*k)/(2.0*nk4));
-          // XtT
-          _UR(q.N_CONTACTS+q.N_STICKING*2+j,r+k) =  sin((M_PI*k)/(2.0*nk4));
-          _UR(q.N_CONTACTS+q.N_STICKING*3+j,r+k) =  sin((M_PI*k)/(2.0*nk4));
+          _LL(r,i) = ci->contact_mu_coulomb;
+          // Xe
+          _LL(r,q.N_CONTACTS+j)                = -1.0;
+          _LL(r,q.N_CONTACTS+q.N_STICKING+j)   = -1.0;
+          // Xf
+          _LL(r,q.N_CONTACTS+q.N_STICKING*2+j) = -1.0;
+          _LL(r,q.N_CONTACTS+q.N_STICKING*3+j) = -1.0;
+          // XeT
+          _UR(q.N_CONTACTS+j,r)                =  1.0;
+          _UR(q.N_CONTACTS+q.N_STICKING+j,r)   =  1.0;
+          // XfT
+          _UR(q.N_CONTACTS+q.N_STICKING*2+j,r) =  1.0;
+          _UR(q.N_CONTACTS+q.N_STICKING*3+j,r) =  1.0;
+          r += 1;
+          j++;
         }
-        r+=nk4;
-        j++;
       }
     }
 
