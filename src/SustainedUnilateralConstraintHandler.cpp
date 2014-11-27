@@ -675,8 +675,8 @@ void SustainedUnilateralConstraintHandler::compute_problem_data2(SustainedUnilat
       q.Cn_iM_CnT(j,i) = q.constraints[j]->calc_contact_vel(q.constraints[j]->contact_normal);
       if (q.constraints[j]->get_friction_type() == UnilateralConstraint::eSticking)
       {
-        q.Cs_iM_CnT(r,i) = q.constraints[j]->calc_contact_vel(q.constraints[j]->contact_normal);
-        q.Ct_iM_CnT(r,i) = q.constraints[j]->calc_contact_vel(q.constraints[j]->contact_normal);
+        q.Cs_iM_CnT(r,i) = q.constraints[j]->calc_contact_vel(q.constraints[j]->contact_tan1);
+        q.Ct_iM_CnT(r,i) = q.constraints[j]->calc_contact_vel(q.constraints[j]->contact_tan2);
         r++;
       }
     }
@@ -718,9 +718,9 @@ void SustainedUnilateralConstraintHandler::compute_problem_data2(SustainedUnilat
       q.Cn_iM_CnT(j,i) *= -1.0;
       if (q.constraints[j]->get_friction_type() == UnilateralConstraint::eSticking)
       {
-        q.Cs_iM_CnT(r,i) -= q.constraints[j]->calc_contact_vel(q.constraints[j]->contact_normal);
+        q.Cs_iM_CnT(r,i) -= q.constraints[j]->calc_contact_vel(q.constraints[j]->contact_tan1);
         q.Cs_iM_CnT(r,i) *= -1.0;
-        q.Ct_iM_CnT(r,i) -= q.constraints[j]->calc_contact_vel(q.constraints[j]->contact_normal);
+        q.Ct_iM_CnT(r,i) -= q.constraints[j]->calc_contact_vel(q.constraints[j]->contact_tan2);
         q.Ct_iM_CnT(r,i) *= -1.0;
         r++;
       }
@@ -744,8 +744,8 @@ void SustainedUnilateralConstraintHandler::compute_problem_data2(SustainedUnilat
       q.Cn_iM_CsT(j,k) = q.constraints[j]->calc_contact_vel(q.constraints[j]->contact_normal);
       if (q.constraints[j]->get_friction_type() == UnilateralConstraint::eSticking)
       {
-        q.Cs_iM_CsT(r,k) = q.constraints[j]->calc_contact_vel(q.constraints[j]->contact_normal);
-        q.Ct_iM_CsT(r,k) = q.constraints[j]->calc_contact_vel(q.constraints[j]->contact_normal);
+        q.Cs_iM_CsT(r,k) = q.constraints[j]->calc_contact_vel(q.constraints[j]->contact_tan1);
+        q.Ct_iM_CsT(r,k) = q.constraints[j]->calc_contact_vel(q.constraints[j]->contact_tan2);
         r++;
       }
     }
@@ -785,9 +785,9 @@ void SustainedUnilateralConstraintHandler::compute_problem_data2(SustainedUnilat
       q.Cn_iM_CsT(j,k) *= -1.0;
       if (q.constraints[j]->get_friction_type() == UnilateralConstraint::eSticking)
       {
-        q.Cs_iM_CsT(r,k) -= q.constraints[j]->calc_contact_vel(q.constraints[j]->contact_normal);
+        q.Cs_iM_CsT(r,k) -= q.constraints[j]->calc_contact_vel(q.constraints[j]->contact_tan1);
         q.Cs_iM_CsT(r,k) *=                 -1.0;
-        q.Ct_iM_CsT(r,k) -= q.constraints[j]->calc_contact_vel(q.constraints[j]->contact_normal);
+        q.Ct_iM_CsT(r,k) -= q.constraints[j]->calc_contact_vel(q.constraints[j]->contact_tan2);
         q.Ct_iM_CsT(r,k) *= -1.0;
         r++;
       }
@@ -814,8 +814,8 @@ void SustainedUnilateralConstraintHandler::compute_problem_data2(SustainedUnilat
       q.Cn_iM_CtT(j,k) = q.constraints[j]->calc_contact_vel(q.constraints[j]->contact_normal);
       if (q.constraints[j]->get_friction_type() == UnilateralConstraint::eSticking)
       {
-        q.Cs_iM_CtT(r,k) = q.constraints[j]->calc_contact_vel(q.constraints[j]->contact_normal);
-        q.Ct_iM_CtT(r,k) = q.constraints[j]->calc_contact_vel(q.constraints[j]->contact_normal);
+        q.Cs_iM_CtT(r,k) = q.constraints[j]->calc_contact_vel(q.constraints[j]->contact_tan1);
+        q.Ct_iM_CtT(r,k) = q.constraints[j]->calc_contact_vel(q.constraints[j]->contact_tan2);
         r++;
       }
     }
@@ -855,9 +855,9 @@ void SustainedUnilateralConstraintHandler::compute_problem_data2(SustainedUnilat
       q.Cn_iM_CtT(j,k) *= -1.0;
       if (q.constraints[j]->get_friction_type() == UnilateralConstraint::eSticking)
       {
-        q.Cs_iM_CtT(r,k) -= q.constraints[j]->calc_contact_vel(q.constraints[j]->contact_normal);
+        q.Cs_iM_CtT(r,k) -= q.constraints[j]->calc_contact_vel(q.constraints[j]->contact_tan1);
         q.Cs_iM_CtT(r,k) *=                 -1.0;
-        q.Ct_iM_CtT(r,k) -= q.constraints[j]->calc_contact_vel(q.constraints[j]->contact_normal);
+        q.Ct_iM_CtT(r,k) -= q.constraints[j]->calc_contact_vel(q.constraints[j]->contact_tan2);
         q.Ct_iM_CtT(r,k) *= -1.0;
         r++;
       }
@@ -952,6 +952,16 @@ bool SustainedUnilateralConstraintHandler::solve_coulomb_lcp(SustainedUnilateral
     q.Ct_iM_CnT.negate();
     q.Ct_iM_CsT.negate();
     q.Ct_iM_CtT.negate();
+
+    FILE_LOG(LOG_CONSTRAINT) << "Cn*inv(M)*Cn': " << std::endl << q.Cn_iM_CnT;
+    FILE_LOG(LOG_CONSTRAINT) << "-Cn*inv(M)*Cs': " << std::endl << q.Cn_iM_CsT;
+    FILE_LOG(LOG_CONSTRAINT) << "-Cn*inv(M)*Ct': " << std::endl << q.Cn_iM_CtT;
+    FILE_LOG(LOG_CONSTRAINT) << "-Cs*inv(M)*Cn': " << std::endl << q.Cs_iM_CnT;
+    FILE_LOG(LOG_CONSTRAINT) << "-Cs*inv(M)*Cs': " << std::endl << q.Cs_iM_CsT;
+    FILE_LOG(LOG_CONSTRAINT) << "-Cs*inv(M)*Ct': " << std::endl << q.Cs_iM_CsT;
+    FILE_LOG(LOG_CONSTRAINT) << "-Ct*inv(M)*Cn': " << std::endl << q.Ct_iM_CnT;
+    FILE_LOG(LOG_CONSTRAINT) << "-Ct*inv(M)*Cs': " << std::endl << q.Ct_iM_CsT;
+    FILE_LOG(LOG_CONSTRAINT) << "-Ct*inv(M)*Ct': " << std::endl << q.Ct_iM_CsT;
 
     _UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING,0,q.Cs_iM_CnT);
     _UL.set_sub_mat(0,q.N_CONTACTS+q.N_STICKING,q.Cn_iM_CsT);

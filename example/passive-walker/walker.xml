@@ -20,7 +20,7 @@
     <DynamicBody dynamic-body-id="GROUND" />
     <DynamicBody dynamic-body-id="WALKER" />
     <DisabledPair object1-id="WALKER" object2-id="WALKER"/>
-    <ContactParameters object1-id="GROUND" object2-id="WALKER" epsilon="0" mu-coulomb="1000" />
+    <ContactParameters object1-id="GROUND" object2-id="WALKER" epsilon="0" mu-coulomb="1" />
   </EventDrivenSimulator>
   <SDF filename="walker.sdf"/>
 
