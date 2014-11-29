@@ -96,10 +96,10 @@ void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map,
   x[5] = -0.16016583495522; // Theta_st
   x[0] =  3.43583389038583; // Theta_sw
 
-  x[6] = -0.13220965510356; // Phi
-  x[4] = -0.01990961987794; // Psi
-  x[5] =  0.47124237466979; // Theta_st
-  x[0] = -0.39255916866486; // Theta_sw
+  xd[6] = -0.13220965510356; // Phi
+  xd[4] = -0.01990961987794; // Psi
+  xd[5] =  0.47124237466979; // Theta_st
+  xd[0] = -0.39255916866486; // Theta_sw
 
   part->set_generalized_coordinates( Moby::DynamicBody::eSpatial,x);
   part->set_generalized_velocity( Moby::DynamicBody::eSpatial,xd);
