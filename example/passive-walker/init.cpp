@@ -48,6 +48,7 @@ void controller_callback(Moby::DynamicBodyPtr dbp, double t, void*)
   part->get_generalized_coordinates( Moby::DynamicBody::eSpatial,x);
   part->get_generalized_velocity( Moby::DynamicBody::eSpatial,xd);
 
+  std::cout << "Time = " << t << std::endl;
   std::cout << "x = " << x << std::endl;
   std::cout << "v = " << xd << std::endl;
   std::cout << "<< end controller_callback(.)" << std::endl;
@@ -88,8 +89,7 @@ void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map,
 
   x[1] =  0; // x
   x[2] = 0; // y
-  x[3] = 1.122987; // z
-//  x[3] = 1.4; // z
+  x[3] = 1.11046; // z
 
   x[6] =  0.09866765986740; // Phi
   x[4] = -0.00924861067616; // Psi
