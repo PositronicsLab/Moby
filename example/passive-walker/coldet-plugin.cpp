@@ -1,7 +1,7 @@
 #include <Moby/CollisionDetection.h>
 #include <Moby/CCD.h>
 #include <Moby/EventDrivenSimulator.h>
-
+#define NDEBUG
 using boost::shared_ptr;
 using boost::dynamic_pointer_cast;
 using namespace Ravelin;
@@ -119,11 +119,13 @@ class TorusPlanePlugin : public CollisionDetection
     /// Calculates signed distance between a torus and a plane
     double calc_signed_dist_torus_plane(CollisionGeometryPtr torus_cg, CollisionGeometryPtr ground_cg,Vector3d& point,Vector3d& normal)
     {
+#ifndef NDEBUG
       std::cout << ">> start calc_signed_dist_torus_plane(.)" << std::endl;
+      std::cout << "Body: "<<  torus_cg->get_single_body()->id << std::endl;
+#endif
       const double R = 0.1236;  // radius from center of tube to center of torus
       const double r = 0.0   ;  // radius of the tube
 
-      std::cout << "Body: "<<  torus_cg->get_single_body()->id << std::endl;
 
       // get the plane primitive
       PrimitivePtr plane_geom = dynamic_pointer_cast<Primitive>(ground_cg->get_geometry());
@@ -170,7 +172,6 @@ class TorusPlanePlugin : public CollisionDetection
       // closest point on plane less pipe r
       double n_dot_k = n_plane.dot(k);
       if(fabs(n_dot_k) > 1.0-Moby::NEAR_ZERO){
-        std::cout << " -- Torus is parallel to plane"<< std::endl;
         // d = depth
         // p0 = plane origin, p = plane normal
         // l0 = line origin, l = line direction
@@ -192,10 +193,13 @@ class TorusPlanePlugin : public CollisionDetection
         double t = fRand(-M_PI_2,M_PI_2);
         Point3d p_torus(R*cos(t),R*sin(t),r,Ptorus);
         point = Pose3d::transform_point(Moby::GLOBAL,p_torus);
+#ifndef NDEBUG
+        std::cout << " -- Torus is parallel to plane"<< std::endl;
         std::cout << "Point: "<<  point << std::endl;
         std::cout << "Normal: "<<  normal << std::endl;
         std::cout << "distance: "<<  d << std::endl;
         std::cout << "<< end calc_signed_dist_torus_plane(.)" << std::endl;
+#endif
         return d;
       }
 
@@ -209,7 +213,6 @@ class TorusPlanePlugin : public CollisionDetection
       // if Torus is _|_ with plane:
       // Return distance torus to plane less pipe r and ring R
       if(fabs(n_dot_k) < Moby::NEAR_ZERO){
-        std::cout << " -- Torus is perpendicular to plane"<< std::endl;
         // d = depth
         // p0 = plane origin, p = plane normal
         // l0 = line origin, l = line direction
@@ -225,10 +228,13 @@ class TorusPlanePlugin : public CollisionDetection
         d = (p0 - l0).dot(n)/(l.dot(n)) - (r+R);
         Point3d p_torus = d*l + l0;
         point = Pose3d::transform_point(Moby::GLOBAL,p_torus);
+#ifndef NDEBUG
+        std::cout << " -- Torus is perpendicular to plane"<< std::endl;
         std::cout << "Point: "<<  point << std::endl;
         std::cout << "Normal: "<<  normal << std::endl;
         std::cout << "distance: "<<  d << std::endl;
         std::cout << "<< end calc_signed_dist_torus_plane(.)" << std::endl;
+#endif
         return d;
       }
 
@@ -264,11 +270,17 @@ class TorusPlanePlugin : public CollisionDetection
       //       tPp.transform_point(.) results in the value of y closest to
       //       negative infinity
       point = Pose3d::transform_point(Moby::GLOBAL,p_torus);
+#ifndef NDEBUG
       std::cout << "Point: "<<  point << std::endl;
       std::cout << "Normal: "<<  normal << std::endl;
       std::cout << "distance: "<<  d << std::endl;
       std::cout << "<< end calc_signed_dist_torus_plane(.)" << std::endl;
+#endif
       return d;
+#ifndef NDEBUG
+      std::cout << "<< end calc_signed_dist_torus_plane(.)" << std::endl;
+#endif
+
     }
 
     /// Finds contacts between a torus and a plane
@@ -336,3 +348,4 @@ extern "C"
     return boost::shared_ptr<CollisionDetection>(new TorusPlanePlugin);
   }
 }
+#undef NDEBUG
