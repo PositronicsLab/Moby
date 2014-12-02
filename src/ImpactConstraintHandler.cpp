@@ -582,6 +582,12 @@ bool ImpactConstraintHandler::apply_restitution(UnilateralConstraintProblemData&
       changed = true;
   }
 
+  if (changed)
+  {
+    q.cs.set_zero();
+    q.ct.set_zero();
+  }
+
   return changed;
 }
 

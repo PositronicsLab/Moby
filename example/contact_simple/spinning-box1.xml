@@ -28,7 +28,7 @@
 
       <!-- the ground -->
       <RigidBody id="ground" enabled="false" visualization-id="b3" position="0 -0 0">
-        <CollisionGeometry primitive-id="b3" />  
+        <CollisionGeometry primitive-id="b3" />
       </RigidBody>
 
     <!-- Setup the simulator -->
@@ -37,7 +37,7 @@
       <DynamicBody dynamic-body-id="ground" />
       <RecurrentForce recurrent-force-id="gravity"  />
       <ContactParameters object1-id="ground" object2-id="box" epsilon="0" mu-coulomb="0" mu-viscous="0.1" friction-cone-edges="4" />
-    </EventDrivenSimulator> 
+    </EventDrivenSimulator>
   </MOBY>
 </XML>
 
