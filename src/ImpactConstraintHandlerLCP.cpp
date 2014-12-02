@@ -56,7 +56,7 @@ void ImpactConstraintHandler::apply_ap_model_to_connected_constraints(const std:
   for (unsigned i=0; i< _epd.N_LIMITS; i++)
     _epd.limit_constraints[i]->limit_impulse = 0.0;
 
-  // solve the no slip model
+  // solve the A-P model
   apply_ap_model(_epd);
 
   // determine velocities due to impulse application
@@ -68,7 +68,7 @@ void ImpactConstraintHandler::apply_ap_model_to_connected_constraints(const std:
   // apply restitution
   if (apply_restitution(_epd))
   {
-    // determine velocities due to impulse application
+//     determine velocities due to impulse application
     update_constraint_velocities_from_impulses(_epd);
 
     // check to see whether we need to solve another impact problem
@@ -268,9 +268,20 @@ void ImpactConstraintHandler::apply_ap_model(UnilateralConstraintProblemData& q)
   FILE_LOG(LOG_CONSTRAINT) << " LCP matrix: " << std::endl << _MM;
   FILE_LOG(LOG_CONSTRAINT) << " LCP vector: " << _qq << std::endl;
 
+  q.Cn_iM_CsT.negate();
+  q.Cn_iM_CtT.negate();
+//  Cs_iM_CnT.negate();
+  q.Cs_iM_CsT.negate();
+  q.Cs_iM_CtT.negate();
+//  Ct_iM_CnT.negate();
+//  Ct_iM_CsT.negate();
+  q.Ct_iM_CtT.negate();
+  q.Cs_v.negate();
+  q.Ct_v.negate();
+
   // solve the LCP
   VectorNd z;
-  if (!_lcp.lcp_lemke_regularized(_MM, _qq, z, -20, 1, -8))
+  if (!_lcp.lcp_lemke_regularized(_MM, _qq, z, -20, 1, -6))
     throw std::exception();
 
   for(unsigned i=0,j=0;i<NC;i++)
