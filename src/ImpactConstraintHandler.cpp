@@ -1,6 +1,6 @@
 /****************************************************************************
  * Copyright 2011 Evan Drumwright
- * This library is distributed under the terms of the Apache V2.0 
+ * This library is distributed under the terms of the Apache V2.0
  * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
@@ -40,7 +40,7 @@ using std::pair;
 using std::min_element;
 using boost::dynamic_pointer_cast;
 
-/// Sets up the default parameters for the impact event handler 
+/// Sets up the default parameters for the impact event handler
 ImpactConstraintHandler::ImpactConstraintHandler()
 {
   ip_max_iterations = 100;
@@ -64,7 +64,7 @@ ImpactConstraintHandler::ImpactConstraintHandler()
     throw std::runtime_error("Ipopt unable to initialize!");
 
   // setup the nonlinear IP solver
-  _ipsolver = Ipopt::SmartPtr<NQP_IPOPT>(new NQP_IPOPT);  
+  _ipsolver = Ipopt::SmartPtr<NQP_IPOPT>(new NQP_IPOPT);
   _lcpsolver = Ipopt::SmartPtr<LCP_IPOPT>(new LCP_IPOPT);
   #endif
 }
@@ -89,13 +89,13 @@ void ImpactConstraintHandler::process_constraints(const vector<UnilateralConstra
     apply_model(constraints, max_time, inv_dt);
   else
     FILE_LOG(LOG_CONSTRAINT) << " (no constraints?!)" << endl;
-    
+
   FILE_LOG(LOG_CONSTRAINT) << "*************************************************************" << endl;
   FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::process_constraints() exited" << endl;
   FILE_LOG(LOG_CONSTRAINT) << "*************************************************************" << endl;
 }
 
-/// Applies the model to a set of constraints 
+/// Applies the model to a set of constraints
 /**
  * \param constraints a set of constraints
  * \param max_time the maximum time to solve the constraints
@@ -107,14 +107,14 @@ void ImpactConstraintHandler::apply_model(const vector<UnilateralConstraint>& co
   list<UnilateralConstraint*> impacting;
 
   // **********************************************************
-  // determine sets of connected constraints 
+  // determine sets of connected constraints
   // **********************************************************
   list<list<UnilateralConstraint*> > groups;
   UnilateralConstraint::determine_connected_constraints(constraints, groups);
   UnilateralConstraint::remove_inactive_groups(groups);
 
   // **********************************************************
-  // do method for each connected set 
+  // do method for each connected set
   // **********************************************************
   for (list<list<UnilateralConstraint*> >::iterator i = groups.begin(); i != groups.end(); i++)
   {
@@ -145,15 +145,22 @@ void ImpactConstraintHandler::apply_model(const vector<UnilateralConstraint>& co
         }
 
       // apply model to the reduced contacts
-      if (all_inf)   
+      if (all_inf)
         apply_no_slip_model_to_connected_constraints(rconstraints, inv_dt);
 // TODO: fix viscous model- seems to be a bug in it
 //      else if (all_frictionless)
 //        apply_visc_friction_model_to_connected_constraints(rconstraints, inv_dt);
-      else if (max_time < INF)   
+#ifdef _USE_AP_MODEL
+// TODO: Validate stability and accuracy of this model
+      else {
+        apply_ap_model_to_connected_constraints(rconstraints, inv_dt);
+      }
+#else
+      else if (max_time < INF)
         apply_model_to_connected_constraints(rconstraints, max_time, inv_dt);
       else
         apply_model_to_connected_constraints(rconstraints, inv_dt);
+#endif
 
       FILE_LOG(LOG_CONSTRAINT) << " -- post-constraint velocity (all constraints): " << std::endl;
       for (list<UnilateralConstraint*>::iterator j = i->begin(); j != i->end(); j++)
@@ -166,7 +173,7 @@ void ImpactConstraintHandler::apply_model(const vector<UnilateralConstraint>& co
       if ((*j)->determine_constraint_class() == UnilateralConstraint::eNegative)
         impacting.push_back(*j);
 
-  // if there are any constraints still impacting, throw an exception 
+  // if there are any constraints still impacting, throw an exception
   if (!impacting.empty())
     throw ImpactToleranceException(impacting);
 }
@@ -174,7 +181,7 @@ void ImpactConstraintHandler::apply_model(const vector<UnilateralConstraint>& co
 /**
  * Applies method of Drumwright and Shell to a set of connected constraints.
  * "Anytime" version
- * \param constraints a set of connected constraints 
+ * \param constraints a set of connected constraints
  */
 void ImpactConstraintHandler::apply_model_to_connected_constraints(const list<UnilateralConstraint*>& constraints, double max_time, double inv_dt)
 {
@@ -195,7 +202,7 @@ void ImpactConstraintHandler::apply_model_to_connected_constraints(const list<Un
   // compute all constraint cross-terms
   compute_problem_data(_epd, inv_dt);
 
-  // clear all impulses 
+  // clear all impulses
   for (unsigned i=0; i< _epd.N_CONTACTS; i++)
     _epd.contact_constraints[i]->contact_impulse.set_zero(GLOBAL);
   for (unsigned i=0; i< _epd.N_LIMITS; i++)
@@ -232,7 +239,7 @@ void ImpactConstraintHandler::apply_model_to_connected_constraints(const list<Un
   else
     solve_nqp(z, _epd, max_time);
 
-  // update the impulses from z 
+  // update the impulses from z
   update_from_stacked(_epd, z);
 
   // determine velocities due to impulse application
@@ -244,7 +251,7 @@ void ImpactConstraintHandler::apply_model_to_connected_constraints(const list<Un
   // apply restitution
   if (apply_restitution(_epd, z))
   {
-    // update the impulses from z 
+    // update the impulses from z
     update_from_stacked(_epd, z);
 
     // determine velocities due to impulse application
@@ -257,7 +264,7 @@ void ImpactConstraintHandler::apply_model_to_connected_constraints(const list<Un
     FILE_LOG(LOG_CONSTRAINT) << "  restitution v+ minimum: " << minv_plus << std::endl;
     if (minv_plus < 0.0 && minv_plus < minv - NEAR_ZERO)
     {
-      // need to solve another impact problem 
+      // need to solve another impact problem
       solve_frictionless_lcp(_epd, z);
 
       // update constraint problem data and z
@@ -275,12 +282,12 @@ void ImpactConstraintHandler::apply_model_to_connected_constraints(const list<Un
       else
         solve_nqp(z, _epd, max_time);
 
-      // update the impulses from z 
+      // update the impulses from z
       update_from_stacked(_epd, z);
-    }  
+    }
   }
 
-  // apply impulses 
+  // apply impulses
   apply_impulses(_epd);
 
   // compute energy
@@ -300,8 +307,8 @@ void ImpactConstraintHandler::apply_model_to_connected_constraints(const list<Un
 }
 
 /**
- * Applies purely viscous friction model to connected constraints 
- * \param constraints a set of connected constraints 
+ * Applies purely viscous friction model to connected constraints
+ * \param constraints a set of connected constraints
  */
 void ImpactConstraintHandler::apply_visc_friction_model_to_connected_constraints(const list<UnilateralConstraint*>& constraints, double inv_dt)
 {
@@ -319,13 +326,13 @@ void ImpactConstraintHandler::apply_visc_friction_model_to_connected_constraints
   // compute all constraint cross-terms
   compute_problem_data(_epd, inv_dt);
 
-  // clear all impulses 
+  // clear all impulses
   for (unsigned i=0; i< _epd.N_CONTACTS; i++)
     _epd.contact_constraints[i]->contact_impulse.set_zero(GLOBAL);
   for (unsigned i=0; i< _epd.N_LIMITS; i++)
     _epd.limit_constraints[i]->limit_impulse = 0.0;
 
-  // solve the viscous friction model 
+  // solve the viscous friction model
   apply_visc_friction_model(_epd);
 
   // determine velocities due to impulse application
@@ -347,20 +354,20 @@ void ImpactConstraintHandler::apply_visc_friction_model_to_connected_constraints
     FILE_LOG(LOG_CONSTRAINT) << "  restitution v+ minimum: " << minv_plus << std::endl;
     if (minv_plus < 0.0 && minv_plus < minv - NEAR_ZERO)
     {
-      // need to solve another impact problem 
+      // need to solve another impact problem
       apply_visc_friction_model(_epd);
-    }  
+    }
   }
 
-  // apply impulses 
+  // apply impulses
   apply_impulses(_epd);
 
   FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::apply_visc_friction_model_to_connected_constraints() exiting" << endl;
 }
 
 /**
- * Applies no slip friction model to connected constraints 
- * \param constraints a set of connected constraints 
+ * Applies no slip friction model to connected constraints
+ * \param constraints a set of connected constraints
  */
 void ImpactConstraintHandler::apply_no_slip_model_to_connected_constraints(const list<UnilateralConstraint*>& constraints, double inv_dt)
 {
@@ -378,13 +385,13 @@ void ImpactConstraintHandler::apply_no_slip_model_to_connected_constraints(const
   // compute all constraint cross-terms
   compute_problem_data(_epd, inv_dt);
 
-  // clear all impulses 
+  // clear all impulses
   for (unsigned i=0; i< _epd.N_CONTACTS; i++)
     _epd.contact_constraints[i]->contact_impulse.set_zero(GLOBAL);
   for (unsigned i=0; i< _epd.N_LIMITS; i++)
     _epd.limit_constraints[i]->limit_impulse = 0.0;
 
-  // solve the no slip model 
+  // solve the no slip model
   apply_no_slip_model(_epd);
 
   // determine velocities due to impulse application
@@ -406,12 +413,12 @@ void ImpactConstraintHandler::apply_no_slip_model_to_connected_constraints(const
     FILE_LOG(LOG_CONSTRAINT) << "  restitution v+ minimum: " << minv_plus << std::endl;
     if (minv_plus < 0.0 && minv_plus < minv - NEAR_ZERO)
     {
-      // need to solve another impact problem 
+      // need to solve another impact problem
       apply_no_slip_model(_epd);
-    }  
+    }
   }
 
-  // apply impulses 
+  // apply impulses
   apply_impulses(_epd);
 
   FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::apply_no_slip_model_to_connected_constraints() exiting" << endl;
@@ -444,7 +451,7 @@ void ImpactConstraintHandler::update_from_stacked(UnilateralConstraintProblemDat
 
     // setup the spatial impulse
     SMomentumd jx(boost::const_pointer_cast<const Pose3d>(P));
-    jx.set_linear(j);    
+    jx.set_linear(j);
 
     // transform the impulse to the global frame
     q.contact_constraints[i]->contact_impulse += Pose3d::transform(GLOBAL, jx);
@@ -454,7 +461,7 @@ void ImpactConstraintHandler::update_from_stacked(UnilateralConstraintProblemDat
   for (unsigned i=0; i< q.N_LIMITS; i++)
   {
     double limit_impulse = (q.limit_constraints[i]->limit_upper) ? -q.l[i] : q.l[i];
-    q.limit_constraints[i]->limit_impulse += limit_impulse; 
+    q.limit_constraints[i]->limit_impulse += limit_impulse;
   }
 }
 
@@ -602,7 +609,7 @@ void ImpactConstraintHandler::permute_problem(UnilateralConstraintProblemData& e
       mapping[j++] = i;
 
   // permute inactive indices
-  std::random_shuffle(mapping.begin()+epd.N_ACT_CONTACTS, mapping.end());  
+  std::random_shuffle(mapping.begin()+epd.N_ACT_CONTACTS, mapping.end());
 
   // set solution vector to reflect indices in active set
   for (unsigned i=0; i< epd.N_ACT_CONTACTS; i++)
@@ -626,7 +633,7 @@ void ImpactConstraintHandler::permute_problem(UnilateralConstraintProblemData& e
   RowIteratord CtCt = epd.Ct_iM_CtT.row_iterator_begin();
 
   // process contact constraints, setting up matrices
-  for (unsigned i=0; i< epd.contact_constraints.size(); i++) 
+  for (unsigned i=0; i< epd.contact_constraints.size(); i++)
   {
     // compute cross constraint data for contact constraints
     for (unsigned j=0; j< epd.contact_constraints.size(); j++)
@@ -680,7 +687,7 @@ void ImpactConstraintHandler::permute_problem(UnilateralConstraintProblemData& e
       CtCt++;
     }
 
-    // compute cross constraint data for contact/limit constraints 
+    // compute cross constraint data for contact/limit constraints
     for (unsigned j=0; j< epd.limit_constraints.size(); j++)
     {
       // reset _MM
@@ -693,14 +700,14 @@ void ImpactConstraintHandler::permute_problem(UnilateralConstraintProblemData& e
       ColumnIteratord_const data = _MM.column_iterator_begin();
       epd.Cn_iM_LT(i,j) = *data++;
       epd.Cs_iM_LT(i,j) = *data++;
-      epd.Ct_iM_LT(i,j) = *data; 
+      epd.Ct_iM_LT(i,j) = *data;
     }
   }
 
-  // NOTE: no need to update limit constraints of form L_iM_X 
+  // NOTE: no need to update limit constraints of form L_iM_X
   //       (cross data has already been computed for contact/limit constraints)
-  
-  // update cn, l, alpha and kappa 
+
+  // update cn, l, alpha and kappa
   z.get_sub_vec(epd.CN_IDX, epd.CS_IDX, epd.cn);
   z.get_sub_vec(epd.L_IDX, epd.ALPHA_X_IDX, epd.l);
   z.get_sub_vec(epd.ALPHA_X_IDX, epd.N_VARS, epd.alpha_x);
@@ -718,7 +725,7 @@ void ImpactConstraintHandler::permute_problem(UnilateralConstraintProblemData& e
 
 /**
  * Applies method of Drumwright and Shell to a set of connected constraints
- * \param constraints a set of connected constraints 
+ * \param constraints a set of connected constraints
  */
 void ImpactConstraintHandler::apply_model_to_connected_constraints(const list<UnilateralConstraint*>& constraints, double inv_dt)
 {
@@ -766,7 +773,7 @@ void ImpactConstraintHandler::apply_model_to_connected_constraints(const list<Un
   else
     solve_nqp(_z, _epd);
 
-  // update the impulses from z 
+  // update the impulses from z
   update_from_stacked(_epd, _z);
 
   // determine velocities due to impulse application
@@ -778,7 +785,7 @@ void ImpactConstraintHandler::apply_model_to_connected_constraints(const list<Un
   // apply restitution
   if (apply_restitution(_epd, _z))
   {
-    // update the impulses from z 
+    // update the impulses from z
     update_from_stacked(_epd, _z);
 
     // determine velocities due to impulse application
@@ -791,7 +798,7 @@ void ImpactConstraintHandler::apply_model_to_connected_constraints(const list<Un
     FILE_LOG(LOG_CONSTRAINT) << "  restitution v+ minimum: " << minv_plus << std::endl;
     if (minv_plus < 0.0 && minv_plus < minv - NEAR_ZERO)
     {
-      // need to solve another impact problem 
+      // need to solve another impact problem
       solve_frictionless_lcp(_epd, _z);
 
       // update constraint problem data and z
@@ -807,12 +814,12 @@ void ImpactConstraintHandler::apply_model_to_connected_constraints(const list<Un
       else
         solve_nqp(_z, _epd);
 
-      // update the impulses from z 
+      // update the impulses from z
       update_from_stacked(_epd, _z);
-    }  
+    }
   }
 
-  // apply impulses 
+  // apply impulses
   apply_impulses(_epd);
 
   // compute energy
@@ -872,7 +879,7 @@ void ImpactConstraintHandler::apply_impulses(const UnilateralConstraintProblemDa
     else
     {
       b1->convert_to_generalized_force(sb1, w, _v);
-      gj_iter->second += _v; 
+      gj_iter->second += _v;
     }
 
     // convert force on second body to generalized forces
@@ -881,7 +888,7 @@ void ImpactConstraintHandler::apply_impulses(const UnilateralConstraintProblemDa
     else
     {
       b2->convert_to_generalized_force(sb2, -w, _v);
-      gj_iter->second += _v; 
+      gj_iter->second += _v;
     }
   }
 
@@ -979,15 +986,15 @@ void ImpactConstraintHandler::compute_problem_data(UnilateralConstraintProblemDa
   }
 
   // setup number of true cones
-  q.N_TRUE_CONE = q.contact_constraints.size() - q.N_LIN_CONE; 
+  q.N_TRUE_CONE = q.contact_constraints.size() - q.N_LIN_CONE;
 
-  // verify contact constraints that use a true friction cone are at the end 
+  // verify contact constraints that use a true friction cone are at the end
   // of the contact vector
   #ifndef NDEBUG
   for (unsigned i=q.N_LIN_CONE; i< q.contact_constraints.size(); i++)
     assert(q.contact_constraints[i]->contact_NK == UINF);
   #endif
-   
+
   // initialize the problem matrices / vectors
   q.Cn_iM_CnT.set_zero(q.N_CONTACTS, q.N_CONTACTS);
   q.Cn_iM_CsT.set_zero(q.N_CONTACTS, q.N_CONTACTS);
@@ -1036,7 +1043,7 @@ void ImpactConstraintHandler::compute_problem_data(UnilateralConstraintProblemDa
   RowIteratord CtCt = q.Ct_iM_CtT.row_iterator_begin();
 
   // process contact constraints, setting up matrices
-  for (unsigned i=0; i< q.contact_constraints.size(); i++) 
+  for (unsigned i=0; i< q.contact_constraints.size(); i++)
   {
     // compute cross constraint data for contact constraints
     for (unsigned j=0; j< q.contact_constraints.size(); j++)
@@ -1080,7 +1087,7 @@ void ImpactConstraintHandler::compute_problem_data(UnilateralConstraintProblemDa
         *CsCt = *data; data += 3; // advance to Ct_iM_CtT
         *CtCt = *data;
       }
-        
+
       // advance the iterators
       CnCn++;
       CnCs++;
@@ -1090,7 +1097,7 @@ void ImpactConstraintHandler::compute_problem_data(UnilateralConstraintProblemDa
       CtCt++;
     }
 
-    // compute cross constraint data for contact/limit constraints 
+    // compute cross constraint data for contact/limit constraints
     for (unsigned j=0; j< q.limit_constraints.size(); j++)
     {
       // reset _MM
@@ -1103,7 +1110,7 @@ void ImpactConstraintHandler::compute_problem_data(UnilateralConstraintProblemDa
       ColumnIteratord_const data = _MM.column_iterator_begin();
       q.Cn_iM_LT(i,j) = *data++;
       q.Cs_iM_LT(i,j) = *data++;
-      q.Ct_iM_LT(i,j) = *data; 
+      q.Ct_iM_LT(i,j) = *data;
     }
   }
 
@@ -1149,7 +1156,7 @@ void ImpactConstraintHandler::apply_visc_friction_model(UnilateralConstraintProb
   VectorNd z;
   solve_frictionless_lcp(q, z);
 
-  // setup impulses 
+  // setup impulses
   q.cn = z.segment(q.CN_IDX, q.N_CONTACTS);
   q.l = z.segment(q.L_IDX, q.L_IDX+q.N_LIMITS);
   q.alpha_x = z.segment(q.ALPHA_X_IDX, q.ALPHA_X_IDX + q.N_CONSTRAINT_EQNS_IMP);
@@ -1176,7 +1183,7 @@ void ImpactConstraintHandler::apply_visc_friction_model(UnilateralConstraintProb
 
     // setup the spatial impulse
     SMomentumd jx(boost::const_pointer_cast<const Pose3d>(P));
-    jx.set_linear(j);    
+    jx.set_linear(j);
 
     // transform the impulse to the global frame
     q.contact_constraints[i]->contact_impulse += Pose3d::transform(GLOBAL, jx);
@@ -1186,7 +1193,7 @@ void ImpactConstraintHandler::apply_visc_friction_model(UnilateralConstraintProb
   for (unsigned i=0; i< q.N_LIMITS; i++)
   {
     double limit_impulse = (q.limit_constraints[i]->limit_upper) ? -q.l[i] : q.l[i];
-    q.limit_constraints[i]->limit_impulse += limit_impulse; 
+    q.limit_constraints[i]->limit_impulse += limit_impulse;
   }
 
   // TODO: setup joint constraint impulses here
@@ -1222,17 +1229,17 @@ void ImpactConstraintHandler::apply_no_slip_model(UnilateralConstraintProblemDat
   FILE_LOG(LOG_CONSTRAINT) << "  L * v: " << q.L_v << std::endl;
 
   // we do this by solving the MLCP:
-  // |  A  C  | | u | + | a | = | 0 | 
+  // |  A  C  | | u | + | a | = | 0 |
   // |  D  B  | | v |   | b |   | r |
 
   // a = [-M*v'; 0]
-  // b = 0 
+  // b = 0
   // B = 0
   // C = [ -N' -L' ]
   // D = -C'
   // u = [ v^+; cs; ct; alphax ]
   // v = [ cn; l ]
-  // r = [ Cn*v+; L*v+ ] 
+  // r = [ Cn*v+; L*v+ ]
 
   // Assuming that C is of full row rank (no dependent joint constraints)
   // A is invertible; then we just need to solve the LCP:
@@ -1242,11 +1249,11 @@ void ImpactConstraintHandler::apply_no_slip_model(UnilateralConstraintProblemDat
   // u = -inv(A)*(a + Cv)
 
   // A is the matrix | M X'|
-  //                 | X 0 |  where X is [ S; T; J ] 
+  //                 | X 0 |  where X is [ S; T; J ]
   // blockwise inversion yields inv(A) =
   // inv(M)-inv(M)*X'*Y*X*inv(M)   inv(M)*X'*Y
   // Y*X*inv(M)                    -Y
-  // where Y = inv(X*inv(M)*X') 
+  // where Y = inv(X*inv(M)*X')
 
   // defining Q = [Cn; L; 0] and using the result above yields following LCP:
   // matrix: Q*inv(A)*Q' = Q*inv(M)*Q' - Q*inv(M)*X'*Y*X*inv(M)*Q'
@@ -1258,7 +1265,7 @@ void ImpactConstraintHandler::apply_no_slip_model(UnilateralConstraintProblemDat
   // principle to determine whether a contact direction should be discarded
 
   // ********************************************************
-  // find largest non-singular set of J, S, and T indices 
+  // find largest non-singular set of J, S, and T indices
   // ********************************************************
 
   // loop through joint constraints, forming J*inv(M)*J' and checking condition
@@ -1273,16 +1280,16 @@ void ImpactConstraintHandler::apply_no_slip_model(UnilateralConstraintProblemDat
     // skew the matrix away from positive definiteness
     for (unsigned j=0; j< J_indices.size(); j++)
       _Y(j,j) -= NEAR_ZERO;
-    
+
     // attempt Cholesky factorization
     if (!_LA.factor_chol(_Y))
       J_indices.pop_back();
   }
-  
-  // get the reduced Jx*iM*Jx' matrix  
+
+  // get the reduced Jx*iM*Jx' matrix
   q.Jx_iM_JxT.select_square(J_indices.begin(), J_indices.end(), _rJx_iM_JxT);
 
-  // loop through contacts, forming matrix below and checking its condition 
+  // loop through contacts, forming matrix below and checking its condition
   // | S*inv(M)*S'  S*inv(M)*T' S*inv(M)*J' |
   // | T*inv(M)*S'  T*inv(M)*T' T*inv(M)*J' |
   // | J*inv(M)*S'  J*inv(M)*T' J*inv(M)*J' |
@@ -1291,7 +1298,7 @@ void ImpactConstraintHandler::apply_no_slip_model(UnilateralConstraintProblemDat
   {
     // update S indices
     S_indices.push_back(i);
-    
+
     // setup indices
     unsigned S_IDX = 0;
     unsigned T_IDX = S_indices.size();
@@ -1314,12 +1321,12 @@ void ImpactConstraintHandler::apply_no_slip_model(UnilateralConstraintProblemDat
     q.Cs_iM_JxT.select(S_indices.begin(), S_indices.end(), J_indices.begin(), J_indices.end(), _MM);
     _Y.set_sub_mat(S_IDX, J_IDX, _MM);
     _Y.set_sub_mat(J_IDX, S_IDX, _MM, Ravelin::eTranspose);
- 
+
     // add T/J components to check matrix
     q.Ct_iM_JxT.select(T_indices.begin(), T_indices.end(), J_indices.begin(), J_indices.end(), _MM);
     _Y.set_sub_mat(T_IDX, J_IDX, _MM);
     _Y.set_sub_mat(J_IDX, T_IDX, _MM, Ravelin::eTranspose);
-    
+
     // skew the matrix away from positive definiteness
     for (unsigned j=0; j< _Y.rows(); j++)
       _Y(j,j) -= NEAR_ZERO;
@@ -1352,12 +1359,12 @@ void ImpactConstraintHandler::apply_no_slip_model(UnilateralConstraintProblemDat
     q.Cs_iM_JxT.select(S_indices.begin(), S_indices.end(), J_indices.begin(), J_indices.end(), _MM);
     _Y.set_sub_mat(S_IDX, J_IDX, _MM);
     _Y.set_sub_mat(J_IDX, S_IDX, _MM, Ravelin::eTranspose);
- 
+
     // add T/J components to check matrix
     q.Ct_iM_JxT.select(T_indices.begin(), T_indices.end(), J_indices.begin(), J_indices.end(), _MM);
     _Y.set_sub_mat(T_IDX, J_IDX, _MM);
     _Y.set_sub_mat(J_IDX, T_IDX, _MM, Ravelin::eTranspose);
- 
+
     // skew the matrix away from positive definiteness
     for (unsigned j=0; j< _Y.rows(); j++)
       _Y(j,j) -= NEAR_ZERO;
@@ -1366,7 +1373,7 @@ void ImpactConstraintHandler::apply_no_slip_model(UnilateralConstraintProblemDat
     last_success = _LA.factor_chol(_Y);
     if (!last_success)
       T_indices.pop_back();
-  } 
+  }
 
   // output indices
   if (LOGGING(LOG_CONSTRAINT))
@@ -1382,7 +1389,7 @@ void ImpactConstraintHandler::apply_no_slip_model(UnilateralConstraintProblemDat
   }
 
   // ********************************************************
-  // reform Y if necessary 
+  // reform Y if necessary
   // ********************************************************
 
   // setup indices
@@ -1393,29 +1400,29 @@ void ImpactConstraintHandler::apply_no_slip_model(UnilateralConstraintProblemDat
   {
     _Y.resize(J_IDX + J_indices.size(), J_IDX + J_indices.size());
 
-    // add S/S, T/T, J/J components to X 
+    // add S/S, T/T, J/J components to X
     q.Cs_iM_CsT.select_square(S_indices.begin(), S_indices.end(), _MM);
     _Y.set_sub_mat(S_IDX, S_IDX, _MM);
     q.Ct_iM_CtT.select_square(T_indices.begin(), T_indices.end(), _MM);
     _Y.set_sub_mat(T_IDX, T_IDX, _MM);
     _Y.set_sub_mat(J_IDX, J_IDX, _rJx_iM_JxT);
 
-    // add S/T components to X 
+    // add S/T components to X
     q.Cs_iM_CtT.select(S_indices.begin(), S_indices.end(), T_indices.begin(), T_indices.end(), _MM);
     _Y.set_sub_mat(S_IDX, T_IDX, _MM);
     _Y.set_sub_mat(T_IDX, S_IDX, _MM, Ravelin::eTranspose);
 
-    // add S/J components to X 
+    // add S/J components to X
     q.Cs_iM_JxT.select(S_indices.begin(), S_indices.end(), J_indices.begin(), J_indices.end(), _MM);
     _Y.set_sub_mat(S_IDX, J_IDX, _MM);
     _Y.set_sub_mat(J_IDX, S_IDX, _MM, Ravelin::eTranspose);
- 
-    // add T/J components to X 
+
+    // add T/J components to X
     q.Ct_iM_JxT.select(T_indices.begin(), T_indices.end(), J_indices.begin(), J_indices.end(), _MM);
     _Y.set_sub_mat(T_IDX, J_IDX, _MM);
     _Y.set_sub_mat(J_IDX, T_IDX, _MM, Ravelin::eTranspose);
-  
-    // do the Cholesky factorization (should not fail) 
+
+    // do the Cholesky factorization (should not fail)
     bool success = _LA.factor_chol(_Y);
     assert(success);
   }
@@ -1425,7 +1432,7 @@ void ImpactConstraintHandler::apply_no_slip_model(UnilateralConstraintProblemDat
   // matrix: Q*inv(A)*Q' = Q*inv(M)*Q' - Q*inv(M)*X'*Y*X*inv(M)*Q'
   // vector: Q*inv(A)*a  = Q*v - Q*inv(M)*X'*Y*X*v
 
-  // setup Q*inv(M)*Q' 
+  // setup Q*inv(M)*Q'
   _MM.set_zero(q.N_CONTACTS + q.N_LIMITS, q.N_CONTACTS + q.N_LIMITS);
   _MM.set_sub_mat(N_IDX, N_IDX, q.Cn_iM_CnT);
   _MM.set_sub_mat(N_IDX, L_IDX, q.Cn_iM_LT);
@@ -1482,7 +1489,7 @@ void ImpactConstraintHandler::apply_no_slip_model(UnilateralConstraintProblemDat
   // attempt to solve the LCP using the fast method
   if (!_lcp.lcp_fast(_MM, _qq, _v))
   {
-    FILE_LOG(LOG_CONSTRAINT) << "Principal pivoting method LCP solver failed; falling back to slower solvers" << std::endl; 
+    FILE_LOG(LOG_CONSTRAINT) << "Principal pivoting method LCP solver failed; falling back to slower solvers" << std::endl;
 
     #ifdef USE_QLCPD
     // solve didn't work; attempt to solve using QP solver
@@ -1494,9 +1501,9 @@ void ImpactConstraintHandler::apply_no_slip_model(UnilateralConstraintProblemDat
     (_workv2 = _qq).negate();
     if (!_qp.qp_activeset(_MM, _workv, lb, ub, _MM, _workv2, A, b, _v))
     {
-      FILE_LOG(LOG_CONSTRAINT) << "QLCPD failed to find feasible point; finding closest feasible point" << std::endl; 
-      FILE_LOG(LOG_CONSTRAINT) << "  old LCP q: " << _qq << std::endl; 
-   
+      FILE_LOG(LOG_CONSTRAINT) << "QLCPD failed to find feasible point; finding closest feasible point" << std::endl;
+      FILE_LOG(LOG_CONSTRAINT) << "  old LCP q: " << _qq << std::endl;
+
       // QP solver didn't work; solve LP to find closest feasible solution
       if (!_qp.find_closest_feasible(lb, ub, _MM, _workv2, A, b, _v))
         throw std::runtime_error("Unable to solve constraint LCP!");
@@ -1506,7 +1513,7 @@ void ImpactConstraintHandler::apply_no_slip_model(UnilateralConstraintProblemDat
       for (unsigned i=0; i< _qq.size(); i++)
         if (_workv2[i] < 0.0)
           _qq[i] += (_workv2[i] - NEAR_ZERO);
-      FILE_LOG(LOG_CONSTRAINT) << "  new LCP q: " << _qq << std::endl; 
+      FILE_LOG(LOG_CONSTRAINT) << "  new LCP q: " << _qq << std::endl;
 
       // now try solving again
       (_workv2 = _qq).negate();
@@ -1525,7 +1532,7 @@ void ImpactConstraintHandler::apply_no_slip_model(UnilateralConstraintProblemDat
   // compute the joint constraint forces and friction forces
   // u = -inv(A)*(a + Cv)
   // u = inv(A)*(Q'*[cn; l; 0])  [b/c we don't care about new velocity]
-  // recalling that inv(A) = 
+  // recalling that inv(A) =
   // | inv(M)-inv(M)*X'*Y*X*inv(M)   inv(M)*X'*Y | ngc x ngc,    ngc x sz(x)
   // | Y*X*inv(M)                    -Y          | sz(x) x ngc,  sz(x) x sz(x)
   // Q is nlcp x (ngc + sz(x))
@@ -1536,7 +1543,7 @@ void ImpactConstraintHandler::apply_no_slip_model(UnilateralConstraintProblemDat
   _cs_ct_alphax += _workv;
   _cs_ct_alphax.negate();
 
-  // setup impulses 
+  // setup impulses
   q.cn = _v.segment(0, q.N_CONTACTS);
   q.l = _v.segment(q.N_CONTACTS, _v.size());
   q.cs.set_zero(q.N_CONTACTS);
@@ -1544,7 +1551,7 @@ void ImpactConstraintHandler::apply_no_slip_model(UnilateralConstraintProblemDat
   q.alpha_x.set_zero(NIMP);
   SharedConstVectorNd cs_vec = _cs_ct_alphax.segment(S_IDX, T_IDX);
   SharedConstVectorNd ct_vec = _cs_ct_alphax.segment(T_IDX, J_IDX);
-  SharedConstVectorNd alphax_vec = _cs_ct_alphax.segment(J_IDX, _cs_ct_alphax.size()); 
+  SharedConstVectorNd alphax_vec = _cs_ct_alphax.segment(J_IDX, _cs_ct_alphax.size());
   q.cs.set(S_indices.begin(), S_indices.end(), cs_vec);
   q.ct.set(T_indices.begin(), T_indices.end(), ct_vec);
   q.alpha_x.set(J_indices.begin(), J_indices.end(), alphax_vec);
@@ -1567,7 +1574,7 @@ void ImpactConstraintHandler::apply_no_slip_model(UnilateralConstraintProblemDat
 
     // setup the spatial impulse
     SMomentumd jx(boost::const_pointer_cast<const Pose3d>(P));
-    jx.set_linear(j);    
+    jx.set_linear(j);
 
     // transform the impulse to the global frame
     q.contact_constraints[i]->contact_impulse += Pose3d::transform(GLOBAL, jx);
@@ -1577,7 +1584,7 @@ void ImpactConstraintHandler::apply_no_slip_model(UnilateralConstraintProblemDat
   for (unsigned i=0; i< q.N_LIMITS; i++)
   {
     double limit_impulse = (q.limit_constraints[i]->limit_upper) ? -q.l[i] : q.l[i];
-    q.limit_constraints[i]->limit_impulse += limit_impulse; 
+    q.limit_constraints[i]->limit_impulse += limit_impulse;
   }
 
   // TODO: setup joint constraint impulses here
@@ -1593,7 +1600,7 @@ void ImpactConstraintHandler::solve_frictionless_lcp(UnilateralConstraintProblem
   const unsigned NIMP = q.N_CONSTRAINT_EQNS_IMP;
 
   // we do this by solving the MLCP:
-  // |  A  C  | | u | + | a | = | 0 | 
+  // |  A  C  | | u | + | a | = | 0 |
   // |  D  B  | | v |   | b |   | r |
 
   // A is the matrix Jx*inv(M)*Jx', Jx is implicit joint constraint Jacobians
@@ -1601,7 +1608,7 @@ void ImpactConstraintHandler::solve_frictionless_lcp(UnilateralConstraintProblem
 
   // u = alphax
   // v = [ cn; l ]
-  // r = [ Cn*v+; L*v+ ] 
+  // r = [ Cn*v+; L*v+ ]
   // a = v - inv(M)*S'*muv*S*v - inv(M)*T'*muv*T*v
   // b = 0
 
@@ -1613,13 +1620,13 @@ void ImpactConstraintHandler::solve_frictionless_lcp(UnilateralConstraintProblem
   // u = -inv(A)*(a + Cv)
 
   // compute SVD of Jx*inv(M)*Jx'
-  _A = q.Jx_iM_JxT; 
+  _A = q.Jx_iM_JxT;
   _LA.svd(_A, _AU, _AS, _AV);
 
   // setup the B matrix
   // B = [ Cn; L ]*inv(M)*[ Cn' L' ]
   _B.resize(NCONTACTS+NLIMITS, NCONTACTS+NLIMITS);
-  _B.set_sub_mat(0, 0, q.Cn_iM_CnT);  
+  _B.set_sub_mat(0, 0, q.Cn_iM_CnT);
   _B.set_sub_mat(0, NCONTACTS, q.Cn_iM_LT);
   _B.set_sub_mat(NCONTACTS, 0, q.Cn_iM_LT, Ravelin::eTranspose);
   _B.set_sub_mat(NCONTACTS, NCONTACTS, q.L_iM_LT);
@@ -1650,8 +1657,8 @@ void ImpactConstraintHandler::solve_frictionless_lcp(UnilateralConstraintProblem
   RowIteratord ct_visc_iter = _ct_visc.row_iterator_begin();
   for (unsigned i=0; i< NCONTACTS; i++, cs_visc_iter++, ct_visc_iter++)
   {
-    (*cs_visc_iter) *= q.contact_constraints[i]->contact_mu_viscous; 
-    (*ct_visc_iter) *= q.contact_constraints[i]->contact_mu_viscous; 
+    (*cs_visc_iter) *= q.contact_constraints[i]->contact_mu_viscous;
+    (*ct_visc_iter) *= q.contact_constraints[i]->contact_mu_viscous;
   }
 
   // compute viscous friction terms contributions in normal directions
@@ -1685,7 +1692,7 @@ void ImpactConstraintHandler::solve_frictionless_lcp(UnilateralConstraintProblem
   // compute alphax
   // u = -inv(A)*(a + Cv)
   _C.mult(_v, _alpha_x) += _a;
-  _alpha_x.negate();   
+  _alpha_x.negate();
 
   // determine the value of kappa
   SharedConstVectorNd cn = _v.segment(0, q.N_CONTACTS);

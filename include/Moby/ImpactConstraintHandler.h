@@ -1,6 +1,6 @@
 /****************************************************************************
  * Copyright 2011 Evan Drumwright
- * This library is distributed under the terms of the Apache V2.0 
+ * This library is distributed under the terms of the Apache V2.0
  * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
@@ -31,7 +31,7 @@ namespace Moby {
 class NQP_IPOPT;
 class LCP_IPOPT;
 
-/// Defines the mechanism for handling impact constraints 
+/// Defines the mechanism for handling impact constraints
 class ImpactConstraintHandler
 {
   public:
@@ -41,7 +41,7 @@ class ImpactConstraintHandler
     /// If set to true, uses the interior-point solver (default is false)
     bool use_ip_solver;
 
-    /// The maximum number of iterations to use for the interior-point solver 
+    /// The maximum number of iterations to use for the interior-point solver
     unsigned ip_max_iterations;
 
     /// The tolerance for to the interior-point solver (default 1e-6)
@@ -51,6 +51,7 @@ class ImpactConstraintHandler
     void solve_frictionless_lcp(UnilateralConstraintProblemData& q, Ravelin::VectorNd& z);
     void apply_visc_friction_model_to_connected_constraints(const std::list<UnilateralConstraint*>& constraints, double inv_dt);
     void apply_no_slip_model_to_connected_constraints(const std::list<UnilateralConstraint*>& constraints, double inv_dt);
+    void apply_ap_model_to_connected_constraints(const std::list<UnilateralConstraint*>& constraints, double inv_dt);
     void update_from_stacked(UnilateralConstraintProblemData& q, const Ravelin::VectorNd& z);
     double calc_min_constraint_velocity(const UnilateralConstraintProblemData& q) const;
     void update_constraint_velocities_from_impulses(UnilateralConstraintProblemData& q);
@@ -60,6 +61,7 @@ class ImpactConstraintHandler
     static bool use_qp_solver(const UnilateralConstraintProblemData& epd);
     void apply_visc_friction_model(UnilateralConstraintProblemData& epd);
     void apply_no_slip_model(UnilateralConstraintProblemData& epd);
+    void apply_ap_model(UnilateralConstraintProblemData& epd);
     void solve_qp(Ravelin::VectorNd& z, UnilateralConstraintProblemData& epd, double max_time = std::numeric_limits<double>::max());
     void solve_nqp(Ravelin::VectorNd& z, UnilateralConstraintProblemData& epd, double max_time = std::numeric_limits<double>::max());
     void apply_model(const std::vector<UnilateralConstraint>& constraints, double max_time, double inv_dt);
@@ -89,7 +91,7 @@ class ImpactConstraintHandler
     Ravelin::MatrixNd _MM;
     Ravelin::VectorNd _zlast, _v, _zsuccess;
 
-    // temporaries for solve_qp_work() and solve_nqp_work() 
+    // temporaries for solve_qp_work() and solve_nqp_work()
     Ravelin::VectorNd _Cnstar_v, _workv, _new_Cn_v;
     Ravelin::MatrixNd _Cnstar_Cn, _Cnstar_Cs, _Cnstar_Ct, _Cnstar_L;
 
