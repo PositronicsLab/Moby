@@ -298,7 +298,6 @@ class TorusPlanePlugin : public CollisionDetection
 
       // contact normal is always going to be [0, 0, 1] in the plane's frame,
       // assuming that z is up
-//      Vector3d normal(0.0, 0.0, 1.0, plane_geom->get_pose(ground_cg));
       Vector3d point,normal;
       double violation = calc_signed_dist_torus_plane(torus_cg,ground_cg,point,normal);
 
