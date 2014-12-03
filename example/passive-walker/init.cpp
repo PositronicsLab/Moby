@@ -142,10 +142,10 @@ void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map,
   Vector3d a(PSI,THE,PHI);
   Quatd q = rpy2quat(a);
 
-  xd[4] = q[0];
-  xd[5] = q[1];
-  xd[6] = q[2];
-  xd[7] = q[3];
+  x[4] = q[0];
+  x[5] = q[1];
+  x[6] = q[2];
+  x[7] = q[3];
   x[0] =  3.43583389038583; // Theta_sw
 
   // Convert Time derivative of RPY to angular velocity (w)
