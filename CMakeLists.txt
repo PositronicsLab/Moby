@@ -17,6 +17,7 @@ option (BUILD_SHARED_LIBS "Build Moby as a shared library?" ON)
 option (BUILD_TOOLS "Build the programs in the tools subdirectory?" ON)
 option (USE_OSG "Build against OpenSceneGraph library?" ON)
 option (USE_IPOPT "Build against IPOPT library?" OFF)
+option (USE_AP "Use the Anitescu-Potra contact model?" OFF)
 if(APPLE)
   option (USE_QLCPD "Build against QLCPD library?" OFF)
 else()
@@ -71,6 +72,10 @@ find_package (osgFX)
 find_package (osgUtil)
 find_package (OpenThreads)
 
+# see whether the Anitescu-Potra model should be activated
+if (USE_AP)
+  add_definitions (-DUSE_AP_MODEL)
+endif (USE_AP)
 # see whether IPOPT was detected
 if (USE_IPOPT AND IPOPT_FOUND)
   add_definitions (-DHAVE_CSTDDEF)
