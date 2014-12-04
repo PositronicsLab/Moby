@@ -140,7 +140,7 @@ void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map,
           THE = -0.16016583495522, // pitch
           PSI = -0.00924861067616; // roll
   Vector3d a(PSI,THE,PHI);
-  Quatd q = rpy2quat(a);
+  Quatd q = Quatd::rpy(a.data());
 
   x[4] = q[0];
   x[5] = q[1];
@@ -159,8 +159,8 @@ void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map,
   // angular velocity tensor matrix W
   double h = 1e-4;
   Matrix3d
-      R1(rpy2quat(a)),
-      R2(rpy2quat(a+h*a_dot)),
+      R1(Quatd::rpy(a.data())),
+      R2(Quatd::rpy((a+h*a_dot).data())),
       W = ((R2-R1)/h).mult_transpose(R1);
 
   // w is angular velocity
