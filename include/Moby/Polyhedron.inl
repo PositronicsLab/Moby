@@ -270,7 +270,9 @@ Polyhedron Polyhedron::calc_convex_hull(ForwardIterator begin, ForwardIterator e
     {
       // get the edge
       boost::shared_ptr<Polyhedron::Edge> e(we);
+      #ifndef NDEBUG
       FILE_LOG(LOG_COMPGEOM) << "examining edge " << emap[e] << std::endl;
+      #endif
 
       // loop over all other edges in the face
       BOOST_FOREACH(boost::weak_ptr<Polyhedron::Edge> we2, f->e)
@@ -282,7 +284,9 @@ Polyhedron Polyhedron::calc_convex_hull(ForwardIterator begin, ForwardIterator e
         if (e == e2)
           continue;
 
+        #ifndef NDEBUG
         FILE_LOG(LOG_COMPGEOM) << "  against edge " << emap[e2] << std::endl;
+        #endif
 
         // look for edges matching up
         if (e->faceL == f)

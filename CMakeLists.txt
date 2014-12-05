@@ -9,14 +9,15 @@ set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/CMakeModules)
 include_directories ("include")
 
 # setup library sources
-set (SOURCES AABB.cpp SustainedUnilateralConstraintHandler.cpp ADF.cpp ArticulatedBody.cpp Base.cpp BoundingSphere.cpp BoxPrimitive.cpp BulirschStoerIntegrator.cpp BV.cpp CCD.cpp CollisionDetection.cpp CollisionGeometry.cpp CompGeom.cpp ConePrimitive.cpp ContactParameters.cpp CP.cpp CRBAlgorithm.cpp CylinderPrimitive.cpp DampingForce.cpp DynamicBody.cpp EulerIntegrator.cpp EventDrivenSimulator.cpp FixedJoint.cpp FSABAlgorithm.cpp GJK.cpp GravityForce.cpp HeightmapPrimitive.cpp ImpactConstraintHandler.cpp ImpactConstraintHandlerNQP.cpp ImpactConstraintHandlerQP.cpp IndexedTetraArray.cpp IndexedTriArray.cpp Integrator.cpp Joint.cpp LCP.cpp Log.cpp OBB.cpp ODEPACKIntegrator.cpp OSGGroupWrapper.cpp PenaltyConstraintHandler.cpp PlanePrimitive.cpp Polyhedron.cpp Primitive.cpp PrismaticJoint.cpp RCArticulatedBody.cpp RevoluteJoint.cpp RigidBody.cpp RNEAlgorithm.cpp Rosenbrock4Integrator.cpp RungeKuttaFehlbergIntegrator.cpp RungeKuttaIntegrator.cpp RungeKuttaImplicitIntegrator.cpp SDFReader.cpp Simulator.cpp SingleBody.cpp Spatial.cpp SpherePrimitive.cpp SphericalJoint.cpp SSL.cpp SSR.cpp StokesDragForce.cpp TessellatedPolyhedron.cpp Tetrahedron.cpp ThickTriangle.cpp TimeSteppingSimulator.cpp Triangle.cpp TriangleMeshPrimitive.cpp UnilateralConstraint.cpp UniversalJoint.cpp URDFReader.cpp VariableEulerIntegrator.cpp VariableStepIntegrator.cpp Visualizable.cpp XMLReader.cpp XMLTree.cpp XMLWriter.cpp)
+set (SOURCES AABB.cpp SustainedUnilateralConstraintHandler.cpp ADF.cpp ArticulatedBody.cpp Base.cpp BoundingSphere.cpp BoxPrimitive.cpp BulirschStoerIntegrator.cpp BV.cpp CCD.cpp CollisionDetection.cpp CollisionGeometry.cpp CompGeom.cpp ConePrimitive.cpp ContactParameters.cpp CP.cpp CRBAlgorithm.cpp CylinderPrimitive.cpp DampingForce.cpp DynamicBody.cpp EulerIntegrator.cpp EventDrivenSimulator.cpp FixedJoint.cpp FSABAlgorithm.cpp GJK.cpp GravityForce.cpp HeightmapPrimitive.cpp ImpactConstraintHandler.cpp ImpactConstraintHandlerNQP.cpp ImpactConstraintHandlerLCP.cpp ImpactConstraintHandlerQP.cpp IndexedTetraArray.cpp IndexedTriArray.cpp Integrator.cpp Joint.cpp LCP.cpp Log.cpp OBB.cpp ODEPACKIntegrator.cpp OSGGroupWrapper.cpp PenaltyConstraintHandler.cpp PlanePrimitive.cpp Polyhedron.cpp Primitive.cpp PrismaticJoint.cpp RCArticulatedBody.cpp RevoluteJoint.cpp RigidBody.cpp RNEAlgorithm.cpp Rosenbrock4Integrator.cpp RungeKuttaFehlbergIntegrator.cpp RungeKuttaIntegrator.cpp RungeKuttaImplicitIntegrator.cpp SDFReader.cpp Simulator.cpp SingleBody.cpp Spatial.cpp SpherePrimitive.cpp SphericalJoint.cpp SSL.cpp SSR.cpp StokesDragForce.cpp TessellatedPolyhedron.cpp Tetrahedron.cpp ThickTriangle.cpp TimeSteppingSimulator.cpp Triangle.cpp TriangleMeshPrimitive.cpp UnilateralConstraint.cpp UniversalJoint.cpp URDFReader.cpp VariableEulerIntegrator.cpp VariableStepIntegrator.cpp Visualizable.cpp XMLReader.cpp XMLTree.cpp XMLWriter.cpp)
 #set (SOURCES MCArticulatedBody.cpp)
 
-# build options 
+# build options
 option (BUILD_SHARED_LIBS "Build Moby as a shared library?" ON)
 option (BUILD_TOOLS "Build the programs in the tools subdirectory?" ON)
 option (USE_OSG "Build against OpenSceneGraph library?" ON)
 option (USE_IPOPT "Build against IPOPT library?" OFF)
+option (USE_AP "Use the Anitescu-Potra contact model?" OFF)
 if(APPLE)
   option (USE_QLCPD "Build against QLCPD library?" OFF)
 else()
@@ -74,6 +75,10 @@ find_package (osgFX)
 find_package (osgUtil)
 find_package (OpenThreads)
 
+# see whether the Anitescu-Potra model should be activated
+if (USE_AP)
+  add_definitions (-DUSE_AP_MODEL)
+endif (USE_AP)
 # see whether IPOPT was detected
 if (USE_IPOPT AND IPOPT_FOUND)
   add_definitions (-DHAVE_CSTDDEF)
@@ -115,7 +120,7 @@ if (USE_OSG AND OSG_FOUND)
   else (OSGDB_FOUND)
     unset (OSG_FOUND)
   endif (OSGDB_FOUND)
-endif (USE_OSG AND OSG_FOUND)  
+endif (USE_OSG AND OSG_FOUND)
 if (NOT OSG_FOUND)
   set (USE_OSG FALSE)
 endif (NOT OSG_FOUND)
@@ -166,7 +171,7 @@ if (USE_OSG AND OSG_FOUND)
   target_link_libraries (Moby ${OPENTHREADS_LIBRARY})
   target_link_libraries (Moby ${OSGUTIL_LIBRARIES})
   target_link_libraries (Moby ${OSGMANIPULATOR_LIBRARIES})
-endif (USE_OSG AND OSG_FOUND)  
+endif (USE_OSG AND OSG_FOUND)
 
 # build the tools?
 if (BUILD_TOOLS)
