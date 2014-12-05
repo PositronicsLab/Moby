@@ -78,7 +78,7 @@
 
     <link name='RLEG'>
       <!-- 0 -w 0 -->
-      <pose>0 -0.3624 0 0 -0 0</pose>
+      <pose>0 -0.3624 0 0 3.1416 0</pose>
       <inertial>
         <!-- xcm ycm -(l-zcm) -->
         <pose>0 -0.6969 -0.6863 0 -0 0</pose>
