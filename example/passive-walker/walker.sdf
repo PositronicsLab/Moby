@@ -1,13 +1,12 @@
 <?xml version="1.0" ?>
 <sdf version='1.5'>
   <model name='WALKER'>
-  <pose>0 0 1.13 0 -0 0</pose>
     <link name='LLEG'>
-      <pose>0 0 0 0 -0 0</pose>
+      <pose>0 0 0 0 0 0</pose>
 
       <inertial>
-        <!-- xcm ycm -(l-zcm) -->
-        <pose>0 0.6969 -0.6863 0 -0 0</pose>
+        <!-- xcm ycm zcm -->
+        <pose>0 0.6969 0.3137 0 -0 0</pose>
         <mass>1</mass>
         <inertia>
           <ixx>0.1982</ixx>
@@ -19,9 +18,19 @@
         </inertia>
       </inertial>
 
+      <visual name='l_foot_inertial'>
+        <!-- 0 0 0 -->
+        <pose>0 0.6969 0.3137 0 -0 0</pose>
+        <geometry>
+          <box>
+            <size>0.1982 .0186 0.1802</size>
+          </box>
+        </geometry>
+      </visual>
+
       <visual name='l_foot_visual'>
-        <!-- 0 0 -l -->
-        <pose>0 0 -1 1.5708 0 0</pose>
+        <!-- base link 0 0 0 -->
+        <pose>0 0 0 1.5708 0 0</pose>
         <geometry>
           <cylinder>
             <radius>0.1236</radius>
@@ -31,8 +40,8 @@
       </visual>
 
       <visual name='l_leg_visual'>
-        <!-- 0 0 -l/2 -->
-        <pose>0 0 -0.5 0 -0 0</pose>
+        <!-- 0 0 l/2 -->
+        <pose>0 0 0.5 0 -0 0</pose>
         <geometry>
           <cylinder>
             <radius>.03</radius>
@@ -42,8 +51,8 @@
       </visual>
 
       <visual name='hip_visual'>
-        <!-- 0 -w/2 0 -->
-        <pose>0 -0.1812 0 0 -0 0</pose>
+        <!-- 0 -w/2 l -->
+        <pose>0 -0.1812 1 0 -0 0</pose>
         <geometry>
           <box>
             <size>0.1 0.3624 0.1</size>
@@ -52,17 +61,12 @@
       </visual>
 
       <collision name='l_foot_collision'>
-        <!-- 0 0 -l -->
-        <!--<pose>0 0 -1 0 -0 0</pose>
-        <geometry>
-          <sphere>
-            <radius>0.1236</radius>
-          </sphere>
-        </geometry>-->
       </collision>
     </link>
 
     <joint name='hip' type='revolute'>
+      <!-- 0 -w/2 l -->
+      <pose>0 0.1812 1 0 -0 0</pose>
       <parent>LLEG</parent>
       <child>RLEG</child>
       <axis>
@@ -71,17 +75,15 @@
           <lower>-1e+16</lower>
           <upper>1e+16</upper>
         </limit>
-        <dynamics/>
-        <use_parent_model_frame>1</use_parent_model_frame>
       </axis>
     </joint>
 
     <link name='RLEG'>
       <!-- 0 -w 0 -->
-      <pose>0 -0.3624 0 0 3.1416 0</pose>
+      <pose>0 -0.3624 0 0 0 0</pose>
       <inertial>
-        <!-- xcm ycm -(l-zcm) -->
-        <pose>0 -0.6969 -0.6863 0 -0 0</pose>
+        <!-- xcm -ycm zcm -->
+        <pose>0 -0.6969 0.3137 0 -0 0</pose>
         <mass>1</mass>
         <inertia>
           <ixx>0.1982</ixx>
@@ -93,9 +95,19 @@
         </inertia>
       </inertial>
 
+      <visual name='r_foot_inertial'>
+        <!-- 0 0 0 -->
+        <pose>0 -0.6969 0.3137 0 -0 0</pose>
+        <geometry>
+          <box>
+            <size>0.1982 .0186 0.1802</size>
+          </box>
+        </geometry>
+      </visual>
+
       <visual name='r_foot_visual'>
-        <!-- 0 0 -l -->
-        <pose>0 0 -1 1.5708 0 0</pose>
+        <!-- 0 0 0 -->
+        <pose>0 0 0 1.5708 0 0</pose>
         <geometry>
           <cylinder>
             <radius>0.1236</radius>
@@ -105,8 +117,8 @@
       </visual>
 
       <visual name='r_leg_visual'>
-        <!-- 0 0 -l/2 -->
-        <pose>0 0 -0.5 0 -0 0</pose>
+        <!-- 0 0 l/2 -->
+        <pose>0 0 0.5 0 -0 0</pose>
         <geometry>
           <cylinder>
             <radius>.03</radius>
@@ -116,13 +128,6 @@
       </visual>
 
       <collision name='r_foot_collision'>
-        <!-- 0 0 -l -->
-        <!--<pose>0 0 -1 0 -0 0</pose>
-        <geometry>
-          <sphere>
-            <radius>0.1236</radius>
-          </sphere>
-        </geometry>-->
       </collision>
     </link>
 
