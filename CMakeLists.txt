@@ -58,6 +58,9 @@ if (PROFILE)
   set (CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "-pg -g")
 endif (PROFILE)
 
+# fix the C++ linking error on 64-bit Linux
+set (CMAKE_CXX_LINK_EXECUTABLE "${CMAKE_CXX_LINK_EXECUTABLE} -ldl")
+
 # find libraries
 find_package (LibXml2 REQUIRED)
 find_package (Boost REQUIRED)
