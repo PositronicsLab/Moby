@@ -33,6 +33,8 @@ using std::map;
 using std::list;
 using std::queue;
 
+Ravelin::LinAlgd LA_;
+
 /// Default constructor
 /**
  * Constructs a rigid body with zero mass, zero inertia tensor, and center
@@ -504,6 +506,11 @@ void RigidBody::set_accel(const SAcceld& xdd)
   }
 }
 
+#ifdef USE_OSG
+#include <osg/PositionAttitudeTransform>
+#include <osg/PolygonMode>
+#endif
+
 /// Sets the rigid body inertia for this body
 void RigidBody::set_inertia(const SpatialRBInertiad& inertia)
 {
@@ -523,6 +530,55 @@ void RigidBody::set_inertia(const SpatialRBInertiad& inertia)
   {
     _Jcom_valid = true;
     _Jcom = inertia;
+
+#ifdef USE_OSG
+#define VIZ_INERTIA
+# ifdef VIZ_INERTIA
+
+    /// rigid body moment of inertia matrix (inertia aligned link COM frame)
+    Ravelin::Origin3d _Jdiag;
+
+    /// orientation of the inertia ellipsoid relative to inertial frame
+    Ravelin::Matrix3d r_Jdiag;
+
+    LA_.eig_symm_plus( r_Jdiag = _Jcom.J, _Jdiag);
+    _Jdiag*= _Jcom.m;
+    osg::Group* this_group = _vizdata->get_group();
+    osg::Sphere* J_sphere = new osg::Sphere( osg::Vec3(0,0,0), 1.0f);
+
+    osg::ShapeDrawable* J_Drawable = new osg::ShapeDrawable(J_sphere);
+
+    osg::Geode* basicShapesGeode = new osg::Geode();
+    basicShapesGeode->addDrawable(J_Drawable);
+
+    osg::Node* n = basicShapesGeode;
+    CcolorVisitor  newColor;
+    newColor.setColor( 1,0,0,0.25 );
+    n->accept( newColor );
+
+    // Set to always wireframe
+    osg::StateSet* stateset = new osg::StateSet;
+    osg::PolygonMode* polymode = new osg::PolygonMode;
+    polymode->setMode(osg::PolygonMode::FRONT_AND_BACK,osg::PolygonMode::LINE);
+    stateset->setAttributeAndModes(polymode,osg::StateAttribute::OVERRIDE|osg::StateAttribute::ON);
+    n->setStateSet(stateset);
+
+    osg::PositionAttitudeTransform *Transf = new osg::PositionAttitudeTransform();
+    Transf->setScale(osg::Vec3(_Jdiag[0],_Jdiag[1],_Jdiag[2]));
+
+    Ravelin::Quatd q_Jdiag(r_Jdiag);
+    Ravelin::Transform3d iPose
+        = Ravelin::Pose3d::calc_relative_pose(get_inertial_pose(),get_pose());
+    q_Jdiag += iPose.q;
+    Transf->setAttitude(osg::Quat(q_Jdiag.x,q_Jdiag.y,q_Jdiag.z,q_Jdiag.w));
+    Transf->setPosition(osg::Vec3(iPose.x[0],iPose.x[1],iPose.x[2]));
+    Transf->addChild(basicShapesGeode);
+
+    this_group->addChild(Transf);
+
+# endif
+#endif
+
   }
   else if (!is_base() && inertia.pose == get_inner_joint_explicit()->get_pose())
   {
@@ -920,7 +976,7 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
   /// Color to add to the rigid body when rendered
   Ravelin::VectorNd color_rgba;
 
-  // read the viscous dampening coefficient, if provided
+  // Chnage the RGBA color of the link if provided
   XMLAttrib* color_attr = node->get_attrib("color");
   if (color_attr){
     color_attr->get_vector_value(color_rgba);

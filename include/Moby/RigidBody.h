@@ -1,6 +1,6 @@
 /****************************************************************************
  * Copyright 2005 Evan Drumwright
- * This library is distributed under the terms of the Apache V2.0 
+ * This library is distributed under the terms of the Apache V2.0
  * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
@@ -46,7 +46,7 @@ class RigidBody : public SingleBody
   friend class RCArticulatedBody;
   friend class MCArticulatedBody;
   friend class Joint;
-  
+
   public:
     enum Compliance { eRigid, eCompliant};
     RigidBody();
@@ -136,7 +136,7 @@ class RigidBody : public SingleBody
 
     /// Gets the shared pointer for <b>this</b>
     RigidBodyPtr get_this() { return boost::dynamic_pointer_cast<RigidBody>(shared_from_this()); }
-  
+
     /// Gets the shared const pointer for <b>this</b>
     boost::shared_ptr<const RigidBody> get_this() const { return boost::dynamic_pointer_cast<const RigidBody>(shared_from_this()); }
 
@@ -155,13 +155,13 @@ class RigidBody : public SingleBody
 
     /// Gets the mass of this body
     virtual double get_mass() const { return _Jm.m; }
-    
+
     /// Gets whether this body is enabled
     bool is_enabled() const { return _enabled; }
 
     /// Gets the articulated body corresponding to this body
     /**
-     * \return a pointer to the articulated body, or NULL if this body is not 
+     * \return a pointer to the articulated body, or NULL if this body is not
      *         a link an articulated body
      */
     boost::shared_ptr<ArticulatedBody> get_articulated_body() const { return (_abody.expired()) ? boost::shared_ptr<ArticulatedBody>() : boost::shared_ptr<ArticulatedBody>(_abody); }
@@ -178,7 +178,7 @@ class RigidBody : public SingleBody
 
     /// Gets whether this body is an end-effector (i.e., the number of child links is zero) in an articulated body
     bool is_end_effector() const { assert (!_abody.expired()); return !is_base() && _outer_joints.empty(); }
- 
+
     /// Removes all inner joints from this link
     void clear_inner_joints() { _inner_joints.clear(); }
 
@@ -197,7 +197,7 @@ class RigidBody : public SingleBody
 
     /// Gets the set of inner joints for this link
     const std::set<JointPtr>& get_inner_joints() const { return _inner_joints; }
-   
+
     /// Gets the list of outer joints for this link
     const std::set<JointPtr>& get_outer_joints() const { return _outer_joints; }
 
@@ -209,11 +209,11 @@ class RigidBody : public SingleBody
 
     /// Limit bound expansion scalar (default = 0.15 = 15%)
     double limit_bound_expansion;
-    
+
     /// Compliance value, determines event type
     Compliance compliance;
 
-  private:  
+  private:
     template <class V>
     void get_generalized_coordinates_generic(DynamicBody::GeneralizedCoordinateType gctype, V& gc);
 
@@ -288,10 +288,10 @@ class RigidBody : public SingleBody
     /// Indicates whether the link com frame inertia matrix is valid
     bool _Jcom_valid;
 
-    /// Indicates whether the inner joint frame inertia matix is valid 
+    /// Indicates whether the inner joint frame inertia matix is valid
     bool _Jj_valid;
 
-    /// Spatial rigid body inertia matrix (global frame) 
+    /// Spatial rigid body inertia matrix (global frame)
     Ravelin::SpatialRBInertiad _J0;
 
     /// Velocity (global frame)
@@ -303,7 +303,7 @@ class RigidBody : public SingleBody
     /// Cumulative force on the body (global frame)
     Ravelin::SForced _force0;
 
-    /// Spatial rigid body inertia matrix (inertial frame) 
+    /// Spatial rigid body inertia matrix (inertial frame)
     Ravelin::SpatialRBInertiad _Jm;
 
     /// Velocity (inertial frame)
@@ -315,7 +315,7 @@ class RigidBody : public SingleBody
     /// Cumulative force on the body (inertial frame)
     Ravelin::SForced _forcem;
 
-    /// Spatial rigid body inertia matrix (link frame) 
+    /// Spatial rigid body inertia matrix (link frame)
     Ravelin::SpatialRBInertiad _Ji;
 
     /// Velocity (link frame)
@@ -327,7 +327,7 @@ class RigidBody : public SingleBody
     /// Cumulative force on the body (link frame)
     Ravelin::SForced _forcei;
 
-    /// Spatial rigid body inertia matrix (inner joint frame) 
+    /// Spatial rigid body inertia matrix (inner joint frame)
     Ravelin::SpatialRBInertiad _Jj;
 
     /// Velocity (inner joint frame)
@@ -339,7 +339,7 @@ class RigidBody : public SingleBody
     /// Cumulative force on the body (inner joint frame)
     Ravelin::SForced _forcej;
 
-    /// Spatial rigid body inertia matrix (link COM frame) 
+    /// Spatial rigid body inertia matrix (link COM frame)
     Ravelin::SpatialRBInertiad _Jcom;
 
     /// Velocity (link com frame)
@@ -369,13 +369,13 @@ class RigidBody : public SingleBody
     /// Pointer to articulated body (if this body is a link)
     boost::weak_ptr<ArticulatedBody> _abody;
 
-    /// Inner joints and associated data 
+    /// Inner joints and associated data
     std::set<JointPtr> _inner_joints;
 
-    /// Outer joints and associated data 
-    std::set<JointPtr> _outer_joints; 
+    /// Outer joints and associated data
+    std::set<JointPtr> _outer_joints;
 
-    /// Lower velocity limits on the body 
+    /// Lower velocity limits on the body
     Ravelin::SVelocityd _vel_limit_lo;
 
     /// Upper velocity limits on the body
