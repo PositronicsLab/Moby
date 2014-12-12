@@ -530,6 +530,17 @@ void RigidBody::set_inertia(const SpatialRBInertiad& inertia)
   {
     _Jcom_valid = true;
     _Jcom = inertia;
+  }
+  else if (!is_base() && inertia.pose == get_inner_joint_explicit()->get_pose())
+  {
+    _Jj_valid = true;
+    _Jj = inertia;
+  }
+  else if (inertia.pose == GLOBAL)
+  {
+    _J0_valid = true;
+    _J0 = inertia;
+  }
 
 #ifdef USE_OSG
 #define VIZ_INERTIA
@@ -541,30 +552,29 @@ void RigidBody::set_inertia(const SpatialRBInertiad& inertia)
     /// orientation of the inertia ellipsoid relative to inertial frame
     Ravelin::Matrix3d r_Jdiag;
 
-    LA_.eig_symm_plus( r_Jdiag = _Jcom.J, _Jdiag);
-//    _Jdiag *= _Jcom.m;
+    LA_.eig_symm_plus( r_Jdiag = inertia.J, _Jdiag);
     osg::Group* this_group = _vizdata->get_group();
 
     osg::Sphere* ellipse = new osg::Sphere( osg::Vec3(0,0,0), 1.0f);
-    osg::Box
-        *x_axis = new osg::Box( osg::Vec3(0.5,0,0), 1.0,0.1,0.1),
-        *y_axis = new osg::Box( osg::Vec3(0,0.5,0), 0.1,1.0,0.1),
-        *z_axis = new osg::Box( osg::Vec3(0,0,0.5), 0.1,0.1,1.0);
+//    osg::Box
+//        *x_axis = new osg::Box( osg::Vec3(0.5,0,0), 1.0,0.1,0.1),
+//        *y_axis = new osg::Box( osg::Vec3(0,0.5,0), 0.1,1.0,0.1),
+//        *z_axis = new osg::Box( osg::Vec3(0,0,0.5), 0.1,0.1,1.0);
 
     osg::ShapeDrawable
-        *x_axis_draw = new osg::ShapeDrawable(x_axis),
-        *y_axis_draw = new osg::ShapeDrawable(y_axis),
-        *z_axis_draw = new osg::ShapeDrawable(z_axis),
+//        *x_axis_draw = new osg::ShapeDrawable(x_axis),
+//        *y_axis_draw = new osg::ShapeDrawable(y_axis),
+//        *z_axis_draw = new osg::ShapeDrawable(z_axis),
         *ellipse_draw = new osg::ShapeDrawable(ellipse);
 
     osg::Geode
-        *x_axis_geode = new osg::Geode(),
-        *y_axis_geode = new osg::Geode(),
-        *z_axis_geode = new osg::Geode(),
+//        *x_axis_geode = new osg::Geode(),
+//        *y_axis_geode = new osg::Geode(),
+//        *z_axis_geode = new osg::Geode(),
         *ellipse_geode = new osg::Geode();
-    x_axis_geode->addDrawable(x_axis_draw);
-    y_axis_geode->addDrawable(y_axis_draw);
-    z_axis_geode->addDrawable(z_axis_draw);
+//    x_axis_geode->addDrawable(x_axis_draw);
+//    y_axis_geode->addDrawable(y_axis_draw);
+//    z_axis_geode->addDrawable(z_axis_draw);
     ellipse_geode->addDrawable(ellipse_draw);
 
     osg::Node* n = ellipse_geode;
@@ -572,17 +582,17 @@ void RigidBody::set_inertia(const SpatialRBInertiad& inertia)
     newColor.setColor( 1,0,1,0.1 );
     n->accept( newColor );
 
-    n = x_axis_geode;
-    newColor.setColor( 1,0,0,0.25 );
-    n->accept( newColor );
+//    n = x_axis_geode;
+//    newColor.setColor( 1,0,0,0.25 );
+//    n->accept( newColor );
 
-    n = y_axis_geode;
-    newColor.setColor( 0,1,0,0.25 );
-    n->accept( newColor );
+//    n = y_axis_geode;
+//    newColor.setColor( 0,1,0,0.25 );
+//    n->accept( newColor );
 
-    n = z_axis_geode;
-    newColor.setColor( 0,0,1,0.25 );
-    n->accept( newColor );
+//    n = z_axis_geode;
+//    newColor.setColor( 0,0,1,0.25 );
+//    n->accept( newColor );
 
     // Set to always wireframe
     osg::StateSet* stateset = new osg::StateSet;
@@ -601,25 +611,16 @@ void RigidBody::set_inertia(const SpatialRBInertiad& inertia)
     Transf->setAttitude(osg::Quat(q_Jdiag.x,q_Jdiag.y,q_Jdiag.z,q_Jdiag.w));
     Transf->setPosition(osg::Vec3(iPose.x[0],iPose.x[1],iPose.x[2]));
     Transf->addChild(ellipse_geode);
-    Transf->addChild(x_axis_geode);
-    Transf->addChild(y_axis_geode);
-    Transf->addChild(z_axis_geode);
+//    Transf->addChild(x_axis_geode);
+//    Transf->addChild(y_axis_geode);
+//    Transf->addChild(z_axis_geode);
 
-    this_group->addChild(Transf);
+    this_group->removeChild(inertia_viz);
+    inertia_viz = Transf;
+    this_group->addChild(inertia_viz);
 # endif
 #endif
 
-  }
-  else if (!is_base() && inertia.pose == get_inner_joint_explicit()->get_pose())
-  {
-    _Jj_valid = true;
-    _Jj = inertia;
-  }
-  else if (inertia.pose == GLOBAL)
-  {
-    _J0_valid = true;
-    _J0 = inertia;
-  }
 }
 
 /// Sets the inertial pose for this rigid body
