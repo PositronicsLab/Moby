@@ -384,6 +384,9 @@ class RigidBody : public SingleBody
     /// Indicates whether the velocity limit has been exceeded
     bool _vel_limit_exceeded;
 
+#ifdef USE_OSG
+    osg::Node * inertia_viz;
+#endif
 }; // end class
 
 std::ostream& operator<<(std::ostream&, RigidBody&);
