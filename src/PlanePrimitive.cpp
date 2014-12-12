@@ -1,6 +1,6 @@
 /****************************************************************************
  * Copyright 2014 Evan Drumwright
- * This library is distributed under the terms of the Apache V2.0 
+ * This library is distributed under the terms of the Apache V2.0
  * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
@@ -27,7 +27,7 @@
 
 using namespace Ravelin;
 using namespace Moby;
-using boost::shared_ptr; 
+using boost::shared_ptr;
 using std::map;
 using std::vector;
 using std::list;
@@ -49,7 +49,7 @@ PlanePrimitive::PlanePrimitive(const Ravelin::Pose3d& T) : Primitive(T)
 /// Gets the mesh of the heightmap
 shared_ptr<const IndexedTriArray> PlanePrimitive::get_mesh(shared_ptr<const Pose3d> P)
 {
-  // TODO: not sure whether implementation is necesary 
+  // TODO: not sure whether implementation is necesary
   assert(false);
   return shared_ptr<const IndexedTriArray>();
 }
@@ -60,7 +60,7 @@ void PlanePrimitive::set_pose(const Pose3d& p)
   // convert p to a shared pointer
   shared_ptr<Pose3d> x(new Pose3d(p));
 
-  // determine the transformation from the old pose to the new one 
+  // determine the transformation from the old pose to the new one
   Transform3d T = Pose3d::calc_relative_pose(_F, x);
 
   // go ahead and set the new transform
@@ -79,7 +79,7 @@ BVPtr PlanePrimitive::get_BVH_root(CollisionGeometryPtr geom)
   // if the OBB hasn't been created, create it and initialize it
   if (!obb)
   {
-    // create the OBB 
+    // create the OBB
     obb = shared_ptr<OBB>(new OBB);
     obb->geom = geom;
 
@@ -167,7 +167,7 @@ Point3d PlanePrimitive::get_supporting_point(const Vector3d& dir) const
   // case study:
   // if dir is [0 1 0] then supporting point is [0 0 0]
   // if dir is [0 -1 0] then supporting point is [0 -inf 0]
-  // if dir is [x y z], where y >= 0 then supporting point is [x 0 z] 
+  // if dir is [x y z], where y >= 0 then supporting point is [x 0 z]
   // "               ", where y < 0 then supporting point is [x -inf z]
   Point3d p(dir[X], 0.0, dir[Z], dir.pose);
   if (dir[Y] >= 0.0)
@@ -184,7 +184,7 @@ osg::Node* PlanePrimitive::create_visualization()
   #ifdef USE_OSG
   const unsigned X = 0, Y = 1, Z = 2;
 
-  // get the pose and compute transform from the global frame to it 
+  // get the pose and compute transform from the global frame to it
   shared_ptr<const Pose3d> P = get_pose();
   Transform3d T = Pose3d::calc_relative_pose(P, GLOBAL);
 
@@ -195,7 +195,7 @@ osg::Node* PlanePrimitive::create_visualization()
   osg::Group* subgroup = new osg::Group;
   osg::Geode* geode = new osg::Geode;
   subgroup->addChild(geode);
-  group->addChild(subgroup); 
+  group->addChild(subgroup);
 
   // create a new material with random color
   const float RED = (float) rand() / RAND_MAX;
@@ -214,7 +214,7 @@ osg::Node* PlanePrimitive::create_visualization()
   return group;
   #else
   return NULL;
-  #endif 
+  #endif
 }
 
 /// Computes the signed distance of the given point from this primitive
@@ -226,10 +226,104 @@ double PlanePrimitive::calc_signed_dist(const Point3d& p) const
   return calc_height(p);
 }
 
-/// Gets the distance from a box primitive
-double PlanePrimitive::calc_signed_dist(shared_ptr<const CylinderPrimitive> b, Point3d& pthis, Point3d& pcyl) const
+/// Gets the distance from a cylinder primitive
+double PlanePrimitive::calc_signed_dist(shared_ptr<const CylinderPrimitive> pA, Point3d& pthis, Point3d& pcyl) const
 {
-  // Sam TODO:
+
+  // Output Params
+  // Set intitial value of distance to contact
+  double d = std::numeric_limits<double>::infinity();
+
+  // get the pose for the plane primitive
+  boost::shared_ptr<const Ravelin::Pose3d> Pplane = pthis.pose;
+  // get the pose for the cylinder
+  boost::shared_ptr<const Ravelin::Pose3d> Pcyl = pcyl.pose;
+
+  const double R = pA->get_radius();
+  const double H = pA->get_height();
+
+  // Cylinder to Plane frame Tranformation
+  Ravelin::Transform3d pPc = Ravelin::Pose3d::calc_relative_pose(Pcyl,Pplane);
+
+  // Cylinder axis (in plane frame) cN
+  // Take Y column from Cylinder to Plane frame Tranformation
+  Ravelin::Vector3d cN = Ravelin::Vector3d(
+                           Ravelin::Matrix3d(pPc.q).get_column(1),
+                           Pplane);
+  cN.normalize();
+
+  // Plane Normal is Y axis in local frame
+  Ravelin::Vector3d n(0,1,0,Pplane);
+
+  // cylinder origin w.r.t. plane
+  Point3d c0(pPc.x.data(),Pplane);
+
+  // if Cylinder is aligned with plane:
+  // Return distance cylinder origin to
+  // closest point on plane less pipe r
+  double n_dot_cN = n.dot(cN);
+
+  // Axial direction points toward plane parallel to axis of cylinder
+  Ravelin::Vector3d axial_dir = cN;
+  if(n_dot_cN > 0)
+    axial_dir = -axial_dir;
+  axial_dir.normalize();
+
+  if(fabs(n_dot_cN) > 1.0-Moby::NEAR_ZERO){
+    FILE_LOG(LOG_COLDET) << " -- Cylinder face is parallel to plane" << std::endl;
+
+    // Measure from center of closest face to the plane
+    Point3d x = (H/2.0)*axial_dir + c0;
+
+    // Distance above plane
+    d = x.dot(n);
+
+    // Find point on plane that x is closest to
+    pcyl =  Ravelin::Pose3d::transform_point(Moby::GLOBAL,x);
+    Point3d pP = x + d*n;
+    pthis =  Ravelin::Pose3d::transform_point(Moby::GLOBAL,pP);
+  } else if(fabs(n_dot_cN) < Moby::NEAR_ZERO){
+    FILE_LOG(LOG_COLDET) << " -- Cylinder face is perpendicular to plane"<< std::endl;
+
+    // Measure from center of closest edge (on curved face) to the plane
+    // Radial direction and Plane normal coincide in this case
+    Point3d x = c0 - R*n;
+
+    // Distance above plane
+    d = x.dot(n);
+
+    pcyl =  Ravelin::Pose3d::transform_point(Moby::GLOBAL,x);
+    Point3d pP = x + d*n;
+    pthis =  Ravelin::Pose3d::transform_point(Moby::GLOBAL,pP);
+  } else {
+
+    //(axis_cylinder x (n_plane x axis_cylinder))
+    // Radial direction points toward plane perpendicular to axis of cylinder
+    Ravelin::Vector3d radial_dir =
+        Ravelin::Vector3d::cross(
+          cN,
+          Ravelin::Vector3d::cross(n,cN)
+        );
+    if(radial_dir.dot(n) > 0)
+      radial_dir = -radial_dir;
+    radial_dir.normalize();
+
+    // Measure from point to the plane
+    Point3d x = (H/2.0)*axial_dir + R*radial_dir + c0;
+
+    // Distance above plane
+    d = x.dot(n);
+
+    pcyl =  Ravelin::Pose3d::transform_point(Moby::GLOBAL,x);
+    Point3d pP = x + d*n;
+    pthis =  Ravelin::Pose3d::transform_point(Moby::GLOBAL,pP);
+  }
+
+  FILE_LOG(LOG_COLDET) << "Point cylinder (global frame): "<<  pcyl << std::endl;
+  FILE_LOG(LOG_COLDET) << "Point plane (global frame): "<<  pthis << std::endl;
+  FILE_LOG(LOG_COLDET) << "distance: "<<  d << std::endl;
+
+  return d;
 }
 
 /// Gets the distance from a box primitive
@@ -245,7 +339,7 @@ double PlanePrimitive::calc_signed_dist(shared_ptr<const BoxPrimitive> b, Point3
   // setup initial minimum distance
   double min_dist = std::numeric_limits<double>::max();
 
-  // get the box vertices 
+  // get the box vertices
   shared_ptr<BoxPrimitive> bnc = const_pointer_cast<BoxPrimitive>(b);
   vector<Point3d> verts;
   bnc->get_vertices(pb.pose, verts);
@@ -254,7 +348,7 @@ double PlanePrimitive::calc_signed_dist(shared_ptr<const BoxPrimitive> b, Point3
   for (unsigned i=0; i< verts.size(); i++)
   {
     // get the box vertex in the plane space
-    Point3d box_vert = T.transform_point(verts[i]); 
+    Point3d box_vert = T.transform_point(verts[i]);
 
     // get the vertex height
     if (box_vert[Y] < min_dist)
@@ -305,8 +399,8 @@ double PlanePrimitive::calc_signed_dist(shared_ptr<const SpherePrimitive> s, Poi
 double PlanePrimitive::calc_signed_dist(shared_ptr<const Primitive> p, Point3d& pthis, Point3d& pp) const
 {
   const unsigned Y = 1;
-  
-  // look for cylinder 
+
+  // look for cylinder
   shared_ptr<const CylinderPrimitive> cyl = dynamic_pointer_cast<const CylinderPrimitive>(p);
   if (cyl)
     return calc_signed_dist(cyl, pthis, pp);

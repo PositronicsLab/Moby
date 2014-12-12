@@ -106,11 +106,10 @@ OutputIterator CCD::find_contacts_generic(CollisionGeometryPtr cgA, CollisionGeo
 template <class OutputIterator>
 OutputIterator CCD::find_contacts_cylinder_plane(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator o, double TOL)
 {
-  const unsigned X = 0, Y = 1, Z = 2;
 
-  // Output Params
-  Point3d p;
   Ravelin::Vector3d normal;
+  Point3d p; // this is plane
+
   // Set intitial value of distance to contact
   double d = std::numeric_limits<double>::infinity();
 
@@ -122,185 +121,98 @@ OutputIterator CCD::find_contacts_cylinder_plane(CollisionGeometryPtr cgA, Colli
   FILE_LOG(LOG_COLDET) << " body A: " << cgA->get_single_body()->id << std::endl;
   FILE_LOG(LOG_COLDET) << " body B: " << cgB->get_single_body()->id << std::endl;
 
+  // get the pose for the plane primitive
+  boost::shared_ptr<const Ravelin::Pose3d> Pplane = pB->get_pose(cgB);
+  // get the pose for the cylinder
+  boost::shared_ptr<const Ravelin::Pose3d> Pcyl = pA->get_pose(cgA);
+
   ///////////////
   const double R = pA->get_radius();
   const double H = pA->get_height();
 
-  // get the pose for the plane primitive
-  boost::shared_ptr<const Ravelin::Pose3d> Pplane = pB->get_pose(cgB);
-  // get the pose for the torus
-  boost::shared_ptr<const Ravelin::Pose3d> Pcyl = pA->get_pose();
-  Pcyl = boost::shared_ptr<const Ravelin::Pose3d>(
-           new Ravelin::Pose3d(
-             Ravelin::Quatd(Ravelin::Matrix3d::rot_X(-M_PI_2)*Ravelin::Matrix3d(Pcyl->q)),
-             Pcyl->x + Ravelin::Origin3d(0,H/2.0,0),
-             Pcyl->rpose)
-           );
+  Ravelin::Transform3d pPc = Ravelin::Pose3d::calc_relative_pose(Pcyl,Pplane);
 
-  // get the transformation from the torus's space to the plane's space
-  // (with y-axis up)
-  Ravelin::Transform3d cPp = Ravelin::Pose3d::calc_relative_pose(Pplane, Pcyl);
+  // Cylinder axis cN
+  Ravelin::Vector3d cN = Ravelin::Vector3d(
+                           Ravelin::Matrix3d(pPc.q).get_column(1),
+                           Pplane);
+  cN.normalize();
 
-  // Normal of plane (in cylinder frame)
-  // plane rotation matrix
-  Ravelin::Matrix3d cRp(cPp.q);
-  // Y column of rotaton matrix (plane to torus)
-  // is plane normal in torus frame
-  Ravelin::Vector3d n_plane(cRp.get_column(1),Pcyl);
-  n_plane.normalize();
+  // Plane Normal
+  Ravelin::Vector3d n(0,1,0,Pplane);
 
-  // Convert to global coords for output
-  normal = Ravelin::Pose3d::transform_vector(Moby::GLOBAL,n_plane);
+  // Contact normal is always plane normal
+  normal = Ravelin::Pose3d::transform_vector(Moby::GLOBAL,n);
 
-  // Torus axis is z-axis in CYLINDER frame
-  Ravelin::Vector3d k(0,0,1,Pcyl);
+  // cylinder origin w.r.t. plane
+  Point3d c0(pPc.x.data(),Pplane);
 
-  std::cout << "k_GLOBAL " << Ravelin::Pose3d::transform_vector(Moby::GLOBAL,k) << std::endl;
-  std::cout << "n_GLOBAL " << Ravelin::Pose3d::transform_vector(Moby::GLOBAL,n_plane) << std::endl;
+  double n_dot_cN = n.dot(cN);
 
+  Ravelin::Vector3d axial_dir = cN;
+  if(n_dot_cN > 0)
+    axial_dir = -axial_dir;
+  axial_dir.normalize();
 
-  // if Cylinder is aligned with plane:
-  // Return distance torus origin to
-  // closest point on plane less pipe r
-  double n_dot_k = n_plane.dot(k);
-  std::cout << "n_dot_k " << n_dot_k << std::endl;
-  if(fabs(n_dot_k) > 1.0-Moby::NEAR_ZERO){
-    // d = depth
-    // p0 = plane origin, p = plane normal
-    // l0 = line origin, l = line direction
+  if(fabs(n_dot_cN) > 1.0-Moby::NEAR_ZERO){
+    FILE_LOG(LOG_COLDET) << " -- Cylinder face is parallel to plane" << std::endl;
 
-    // plane origin: plane origin in cylinder frame
-    // line origin: cylinder origin in cylinder frame
-    Point3d p0(cPp.x,Pcyl),
-        l0 = Ravelin::Vector3d(0,0,(std::fabs(k.dot(-n_plane)) < std::fabs(-k.dot(-n_plane)))? H/2.0 : -H/2.0,Pcyl);
+    Point3d x = (H/2.0)*axial_dir + c0;
 
-    // plane normal: plane normal in cylinder frame
-    // line direction: cylinder k axis
-    Ravelin::Vector3d n = n_plane,l = k;
+    d = x.dot(n);
 
-    // distance torus to closest point on plane is:
-    // distance torus origin to closest point on plane
-    // - distance torus edge to torus origin
-    d = (p0 - l0).dot(n)/(l.dot(n));
-    // Contact point is a random point on the
-    // circular manifold of contact
-
-    // check the tolerance
     if (d > TOL)
       return o;
 
-#ifndef NDEBUG
-    std::cout << " -- Cylinder face is parallel to plane" << std::endl;
-    std::cout << "distance: "<<  d << std::endl;
-    std::cout << "Normal: "<<  normal << std::endl;
-#endif
-
-    for(int i=0;i<4;i++){
-      double t = M_PI_2 * (double)i;
-      Point3d p_cylinder(R*cos(t),R*sin(t),0,Pcyl);
-      p_cylinder += l0;
+    double res = 4;
+    for(int i=0;i<res;i++){
+      Ravelin::Vector3d tan1,tan2;
+      Ravelin::Vector3d::determine_orthonormal_basis(n,tan1,tan2);
+      double t = (M_PI*2.0)/res * (double)i;
+      Point3d p_cylinder = x + R*cos(t)*tan1 + R*sin(t)*tan2;
       p = Ravelin::Pose3d::transform_point(Moby::GLOBAL,p_cylinder);
-  #ifndef NDEBUG
-      std::cout << "Point (cylinder frame): "<<  p_cylinder << std::endl;
-      std::cout << "Point: "<<  p << std::endl;
-  #endif
-      // check tolerance
+
       *o++ = create_contact(cgA, cgB, Ravelin::Pose3d::transform_point(GLOBAL, p), normal, d);
     }
-#ifndef NDEBUG
-    std::cout << "<< end calc_signed_dist_cylinder_plane(.)" << std::endl;
-#endif
-    return o;
-  }
 
-  //((n_plane x axis_cylinder) x axis_torus)
-  Ravelin::Vector3d d_ring
-      = Ravelin::Vector3d::cross(
-                      Ravelin::Vector3d::cross(n_plane,k),
-                      k
-                      );
-  d_ring.normalize();
+  } else if(fabs(n_dot_cN) < Moby::NEAR_ZERO){
+    FILE_LOG(LOG_COLDET) << " -- Cylinder face is perpendicular to plane"<< std::endl;
 
-  std::cout << "d_ring " << Ravelin::Pose3d::transform_vector(Moby::GLOBAL,d_ring) << std::endl;
+    Point3d x = c0 - R*n;
 
-  // if cylinder is "side on" with plane:
-  // Return distance cylinder to plane less pipe r and ring R
-  if(fabs(n_dot_k) < Moby::NEAR_ZERO){
-    // d = depth
-    // p0 = plane origin, p = plane normal
-    // l0 = line origin, l = line direction
+    d = x.dot(n);
 
-    // plane origin: plane origin in cylinder frame
-    // line origin: cylinder origin in cylinder frame
-    Point3d p0(cPp.x,Pcyl), l0(0,0,0,Pcyl);
-
-    // plane normal: plane normal in cylinder frame
-    // line direction: on xy-plane of cylinder
-    //   parallel to plane normal in cylinder frame
-    Ravelin::Vector3d n = n_plane,l = d_ring;
-    d = (p0 - l0).dot(n)/(l.dot(n)) - R;
-
-    // check the tolerance
-    if (d > TOL)
-      return o;
-
-#ifndef NDEBUG
-    std::cout << " -- Cylinder face is perpendicular to plane"<< std::endl;
-    std::cout << "distance: "<<  d << std::endl;
-    std::cout << "Normal: "<<  normal << std::endl;
-#endif
-
-    for(int i=0;i<2;i++){
-      double t = -H/2.0 + (double) i * H;
-
-      Point3d p_cylinder((R*d_ring).data(),Pcyl);
-      p_cylinder += Point3d(0,0,t,Pcyl);
+    double res = 2.0;
+    for(int i=0;i<res;i++){
+      double t = -H/2.0 + (double)i * H/(res-1);
+      Point3d p_cylinder = x + axial_dir*t;
       p = Ravelin::Pose3d::transform_point(Moby::GLOBAL,p_cylinder);
-#ifndef NDEBUG
-      std::cout << "Point (cylinder frame): "<<  p_cylinder << std::endl;
-      std::cout << "Point: "<<  p << std::endl;
-#endif
+
       *o++ = create_contact(cgA, cgB, Ravelin::Pose3d::transform_point(GLOBAL, p), normal, d);
     }
-#ifndef NDEBUG
-    std::cout << "<< end calc_signed_dist_cylinder_plane(.)" << std::endl;
-#endif
-    return o;
+  } else {
+
+    //(axis_cylinder x (n_plane x axis_cylinder))
+    Ravelin::Vector3d radial_dir =
+        Ravelin::Vector3d::cross(
+          cN,
+          Ravelin::Vector3d::cross(n,cN)
+        );
+    if(radial_dir.dot(n) > 0)
+      radial_dir = -radial_dir;
+    radial_dir.normalize();
+
+
+    Point3d x = (H/2.0)*axial_dir + R*radial_dir + c0;
+
+    d = x.dot(n);
+
+    p =  Ravelin::Pose3d::transform_point(Moby::GLOBAL,x);
+//    Point3d pP = x + d*n;
+//    pthis =  Ravelin::Pose3d::transform_point(Moby::GLOBAL,pP);
+    *o++ = create_contact(cgA, cgB, Ravelin::Pose3d::transform_point(GLOBAL, p), normal, d);
+
   }
-
-  Point3d
-      p0(cPp.x,Pcyl),
-      l0 = Ravelin::Vector3d(0,0,(std::fabs(k.dot(-n_plane)) < std::fabs(-k.dot(-n_plane)))? H/2.0 : -H/2.0,Pcyl);
-  l0 += d_ring * R;
-  // plane normal: plane normal in cylinder frame
-  // line direction: plane normal in cylinder frame
-  //   parallel to plane normal in cylinder frame
-  Ravelin::Vector3d n = n_plane,l = n_plane;
-  d = (p0 - l0).dot(n)/(l.dot(n));
-
-  //point on cylinder closest to plane;
-  Point3d p_cylinder(l0.data(),Pcyl);
-
-  // TODO: find the point in the cylinder's space such that
-  //       cPp.transform_point(.) results in the value of y closest to
-  //       negative infinity
-  p = Ravelin::Pose3d::transform_point(Moby::GLOBAL,p_cylinder);
-#ifndef NDEBUG
-  std::cout << "Point (cylinder frame): "<<  p_cylinder << std::endl;
-  std::cout << "Point: "<<  p << std::endl;
-  std::cout << "Normal: "<<  normal << std::endl;
-  std::cout << "distance: "<<  d << std::endl;
-  std::cout << "<< end calc_signed_dist_cylinder_plane(.)" << std::endl;
-#endif
-  //////////////
-
-  // check the tolerance
-  if (d > TOL)
-    return o;
-
-  // check tolerance
-  *o++ = create_contact(cgA, cgB, Ravelin::Pose3d::transform_point(GLOBAL, p), normal, d);
-
   return o;
 }
 // find the contacts between a plane and a generic shape
