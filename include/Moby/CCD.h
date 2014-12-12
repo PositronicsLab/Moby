@@ -1,6 +1,6 @@
 /****************************************************************************
  * Copyright 2009 Evan Drumwright
- * This library is distributed under the terms of the Apache V2.0 
+ * This library is distributed under the terms of the Apache V2.0
  * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
@@ -19,6 +19,7 @@
 #include <Moby/HeightmapPrimitive.h>
 #include <Moby/PlanePrimitive.h>
 #include <Moby/BoxPrimitive.h>
+#include <Moby/CylinderPrimitive.h>
 #include <Moby/CollisionDetection.h>
 #include <Moby/BV.h>
 
@@ -26,9 +27,9 @@ namespace Moby {
 
 class RigidBody;
 class ArticulatedBody;
-class CollisionGeometry;  
+class CollisionGeometry;
 
-/// Implements the CollisionDetection abstract class to perform exact contact finding using abstract shapes 
+/// Implements the CollisionDetection abstract class to perform exact contact finding using abstract shapes
 class CCD : public CollisionDetection
 {
   public:
@@ -49,7 +50,7 @@ class CCD : public CollisionDetection
 
     /// Pairs of collision geometries that aren't checked for contact/collision
     /**
-     * \note collisions between geometries for two disabled bodies and 
+     * \note collisions between geometries for two disabled bodies and
      *       collisions between geometries for a single body are automatically
      *       not checked and do not need to be added to this set.
      */
@@ -70,7 +71,7 @@ class CCD : public CollisionDetection
       bool end;                   // bounds is for start or end
       CollisionGeometryPtr geom;  // the geometry
       BVPtr bv;                   // the unexpanded bounding volume
-      bool operator<(const BoundsStruct& bs) const { return (!end && bs.end); } 
+      bool operator<(const BoundsStruct& bs) const { return (!end && bs.end); }
     };
 
     // gets the distance on farthest points
@@ -79,8 +80,8 @@ class CCD : public CollisionDetection
     // see whether the bounds vectors need to be rebuilt
     bool _rebuild_bounds_vecs;
 
-    // the bounding spheres 
-    std::map<CollisionGeometryPtr, BVPtr> _bounding_spheres; 
+    // the bounding spheres
+    std::map<CollisionGeometryPtr, BVPtr> _bounding_spheres;
 
     /// AABB bounds (x-axis)
     std::vector<std::pair<double, BoundsStruct> > _x_bounds;
@@ -115,6 +116,9 @@ class CCD : public CollisionDetection
 
     template <class OutputIterator>
     OutputIterator find_contacts_sphere_plane(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL);
+
+    template <class OutputIterator>
+    OutputIterator find_contacts_cylinder_plane(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL);
 
     template <class OutputIterator>
     OutputIterator find_contacts_heightmap_generic(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL);

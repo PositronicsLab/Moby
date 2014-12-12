@@ -18,16 +18,6 @@
         </inertia>
       </inertial>
 
-      <visual name='l_foot_inertial'>
-        <!-- 0 0 0 -->
-        <pose>0 0.6969 0.3137 0 -0 0</pose>
-        <geometry>
-          <box>
-            <size>0.1982 .0186 0.1802</size>
-          </box>
-        </geometry>
-      </visual>
-
       <visual name='l_foot_visual'>
         <!-- base link 0 0 0 -->
         <pose>0 0 0 1.5708 0 0</pose>
@@ -87,23 +77,13 @@
         <mass>1</mass>
         <inertia>
           <ixx>0.1982</ixx>
-          <ixy>0.0071</ixy>
+          <ixy>-0.0071</ixy>
           <ixz>-0.0023</ixz>
           <iyy>0.0186</iyy>
-          <iyz>0.0573</iyz>
+          <iyz>-0.0573</iyz>
           <izz>0.1802</izz>
         </inertia>
       </inertial>
-
-      <visual name='r_foot_inertial'>
-        <!-- 0 0 0 -->
-        <pose>0 -0.6969 0.3137 0 -0 0</pose>
-        <geometry>
-          <box>
-            <size>0.1982 .0186 0.1802</size>
-          </box>
-        </geometry>
-      </visual>
 
       <visual name='r_foot_visual'>
         <!-- 0 0 0 -->

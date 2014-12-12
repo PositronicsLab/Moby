@@ -141,7 +141,7 @@ class TorusPlanePlugin : public CollisionDetection
       Ptorus = shared_ptr<const Pose3d>(
                  new Pose3d(
                    Quatd(Matrix3d(1,0,0,0,0,-1,0,1,0)),
-                   Origin3d(0,0,-1),
+                   Origin3d(0,0,0),
                    Ptorus
                    )
                  );
@@ -286,7 +286,6 @@ class TorusPlanePlugin : public CollisionDetection
     /// Finds contacts between a torus and a plane
     virtual void find_contacts_torus_plane(CollisionGeometryPtr torus_cg, CollisionGeometryPtr ground_cg, std::vector<UnilateralConstraint>& contacts)
     {
-//      contacts.clear();
       // get the plane primitive
       PrimitivePtr plane_geom = dynamic_pointer_cast<Primitive>(ground_cg->get_geometry());
 
@@ -301,10 +300,25 @@ class TorusPlanePlugin : public CollisionDetection
       Vector3d point,normal;
       double violation = calc_signed_dist_torus_plane(torus_cg,ground_cg,point,normal);
 
+      if(violation <= 0.0)
+        contacts.push_back(
+              CollisionDetection::create_contact(torus_cg,ground_cg,point,normal,violation)
+              );
+
       // TODO: call CollisionDetection::create_contact(.) to create the actual contact
-      contacts.push_back(
-            CollisionDetection::create_contact(torus_cg,ground_cg,point,normal,violation)
-            );
+//      if(contacts.size() == 0)
+//        contacts.push_back(
+//              CollisionDetection::create_contact(torus_cg,ground_cg,point,normal,violation)
+//              );
+//      else if(contacts.size() >= 2)
+//        return;
+//      else if( (contacts[0].contact_geom1->get_single_body()->id.compare("LLEG") == 0
+//            && torus_cg->get_single_body()->id.compare("RLEG") == 0)
+//          || (contacts[0].contact_geom1->get_single_body()->id.compare("RLEG") == 0
+//              && torus_cg->get_single_body()->id.compare("LLEG") == 0))
+//        contacts.push_back(
+//              CollisionDetection::create_contact(torus_cg,ground_cg,point,normal,violation)
+//              );
     }
 
     /// Finds contacts between two collision geometries
