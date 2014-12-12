@@ -20,6 +20,7 @@
 #include <Moby/BoundingSphere.h>
 #include <Moby/CollisionGeometry.h>
 #include <Moby/SpherePrimitive.h>
+#include <Moby/CylinderPrimitive.h>
 #include <Moby/BoxPrimitive.h>
 #include <Moby/GJK.h>
 #include <Moby/PlanePrimitive.h>
@@ -226,6 +227,12 @@ double PlanePrimitive::calc_signed_dist(const Point3d& p) const
 }
 
 /// Gets the distance from a box primitive
+double PlanePrimitive::calc_signed_dist(shared_ptr<const CylinderPrimitive> b, Point3d& pthis, Point3d& pcyl) const
+{
+  // Sam TODO:
+}
+
+/// Gets the distance from a box primitive
 double PlanePrimitive::calc_signed_dist(shared_ptr<const BoxPrimitive> b, Point3d& pthis, Point3d& pb) const
 {
   const unsigned Y = 1;
@@ -298,6 +305,11 @@ double PlanePrimitive::calc_signed_dist(shared_ptr<const SpherePrimitive> s, Poi
 double PlanePrimitive::calc_signed_dist(shared_ptr<const Primitive> p, Point3d& pthis, Point3d& pp) const
 {
   const unsigned Y = 1;
+  
+  // look for cylinder 
+  shared_ptr<const CylinderPrimitive> cyl = dynamic_pointer_cast<const CylinderPrimitive>(p);
+  if (cyl)
+    return calc_signed_dist(cyl, pthis, pp);
 
   // look for sphere
   shared_ptr<const SpherePrimitive> sph = dynamic_pointer_cast<const SpherePrimitive>(p);

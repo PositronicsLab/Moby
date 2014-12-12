@@ -12,6 +12,7 @@
 
 namespace Moby {
 
+class CylinderPrimitive;
 class SpherePrimitive;
 class BoxPrimitive;
 
@@ -30,6 +31,7 @@ class PlanePrimitive : public Primitive
     virtual double calc_dist_and_normal(const Point3d& point, std::vector<Ravelin::Vector3d>& normals) const;
     virtual double calc_signed_dist(boost::shared_ptr<const Primitive> p, Point3d& pthis, Point3d& pp) const;
     double calc_signed_dist(boost::shared_ptr<const BoxPrimitive> b, Point3d& pthis, Point3d& pb) const;
+    double calc_signed_dist(boost::shared_ptr<const CylinderPrimitive> s, Point3d& pthis, Point3d& psph) const;
     double calc_signed_dist(boost::shared_ptr<const SpherePrimitive> s, Point3d& pthis, Point3d& psph) const;
     virtual double calc_signed_dist(const Point3d& p) const;
     virtual osg::Node* create_visualization();
