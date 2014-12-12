@@ -8,11 +8,14 @@
 #include <Ravelin/VectorNd.h>
 boost::shared_ptr<Moby::EventDrivenSimulator> sim;
 
+const double ALPHA = 0.0702,
+             THETA_SW_OFFSET = -M_PI;
+
 using namespace Ravelin;
 
-Ravelin::Vector3d quat2rpy(const Ravelin::Quatd& q_){
+Ravelin::Origin3d quat2rpy(const Ravelin::Quatd& q_){
 
-  Ravelin::Vector3d rpy;
+  Ravelin::Origin3d rpy;
   Ravelin::VectorNd q(4);
   q[0] = q_.w;
   q[1] = q_.x;
@@ -29,7 +32,7 @@ Ravelin::Vector3d quat2rpy(const Ravelin::Quatd& q_){
   return rpy;
 }
 
-Ravelin::Quatd rpy2quat(const Ravelin::Vector3d& rpy){
+Ravelin::Quatd rpy2quat(const Ravelin::Origin3d& rpy){
 
   const double PHI = rpy[0] * (double) 0.5;
   const double THE = rpy[1] * (double) 0.5;
@@ -49,8 +52,6 @@ Ravelin::Quatd rpy2quat(const Ravelin::Vector3d& rpy){
   q.x = (SPHI * CTHE * CPSI - CPHI * STHE * SPSI);
   q.y = (CPHI * STHE * CPSI + SPHI * CTHE * SPSI);
   q.z = (CPHI * CTHE * SPSI - SPHI * STHE * CPSI);
-  return q;
-
   return q;
 }
 
@@ -84,12 +85,41 @@ void controller_callback(Moby::DynamicBodyPtr dbp, double t, void*)
   Moby::RCArticulatedBodyPtr
       part = boost::dynamic_pointer_cast<Moby::RCArticulatedBody>(dbp);
   Ravelin::VectorNd x,xd;
-  part->get_generalized_coordinates( Moby::DynamicBody::eSpatial,x);
-  part->get_generalized_velocity( Moby::DynamicBody::eSpatial,xd);
+  static double last_t;
+  double h = t-last_t;
+  last_t = t;
+  part->get_generalized_coordinates( Moby::DynamicBody::eEuler,x);
+  part->get_generalized_velocity( Moby::DynamicBody::eEuler,xd);
 
+  const std::vector<Moby::RigidBodyPtr>& links = part->get_links();
   std::cout << "Time = " << t << std::endl;
+
+  for(int i=0;i<links.size();i++){
+    boost::shared_ptr<const Ravelin::Pose3d> Ipose = links[i]->get_inertial_pose();
+    boost::shared_ptr<const Ravelin::Pose3d> Lpose = links[i]->get_pose();
+
+    std::cout << links[i]->id << std::endl;
+    std::cout << "Ipose x = " << Ravelin::Pose3d::calc_relative_pose(Ipose,Moby::GLOBAL).x << std::endl;
+    std::cout << "Lpose x = " << Ravelin::Pose3d::calc_relative_pose(Lpose,Moby::GLOBAL).x << std::endl;
+    if(i != 0){
+      boost::shared_ptr<const Ravelin::Pose3d> Jpose = links[i]->get_inner_joint_explicit()->get_pose();
+      std::cout << "Jpose x = " << Ravelin::Pose3d::calc_relative_pose(Jpose,Moby::GLOBAL).x << std::endl;
+    }
+  }
   std::cout << "x = " << x << std::endl;
   std::cout << "v = " << xd << std::endl;
+
+
+
+//  std::cout << "x =\n\t"
+//            << RPY[0] << "\n\t"
+//            << RPY[1] << "\n\t"
+//            << RPY[2] << "\n\t"
+//            << x[0] - THETA_SW_OFFSET << "\n\nxd =\n\t"
+//            << dRPY[0] << "\n\t"
+//            << dRPY[1] << "\n\t"
+//            << dRPY[2] << "\n\t"
+//            << xd[0] << "\n\t";
   std::cout << "<< end controller_callback(.)" << std::endl;
 }
 
@@ -123,56 +153,69 @@ void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map,
       part = boost::dynamic_pointer_cast<Moby::RCArticulatedBody>(i->second);
   }
 
-  part->controller                  = &controller_callback;
-  sim->constraint_post_callback_fn  = &post_event_callback_fn;
+//  part->controller                  = &controller_callback;
+//  sim->constraint_post_callback_fn  = &post_event_callback_fn;
 
   // Set initial conditions from ruina paper
-
   Ravelin::VectorNd x,xd;
-  part->get_generalized_coordinates( Moby::DynamicBody::eEuler,x);
+  part->get_generalized_coordinates( Moby::DynamicBody::eSpatial,x);
   part->get_generalized_velocity( Moby::DynamicBody::eSpatial,xd);
 
-  x[1] =  0; // x
+  x[1] = 0; // x
   x[2] = 0; // y
-  x[3] = 1.1232; // z
+  x[3] = 0.1236; // z
 
-  double  PHI = 0.09866765986740,  // yaw
-          THE = -0.16016583495522, // pitch
-          PSI = -0.00924861067616; // roll
-  Vector3d a(PSI,THE,PHI);
-  Quatd q = Quatd::rpy(a.data());
+//     9.866765986740000e-002
+//    -9.248610676160000e-003
+//    -1.601658349552200e-001
+//     3.435833890385830e+000
+//    -1.322096551035500e-001
+//    -1.990961987794000e-002
+//     4.712423746697700e-001
+//    -3.925591686648300e-001
+
+  double  PHI = 9.866765986740000e-002,  // yaw
+          THE = -1.601658349552200e-001, // pitch + alpha
+          PSI = -9.248610676160000e-003; // roll
+  Ravelin::Matrix3d Rz = Ravelin::Matrix3d::rot_Z(PHI),
+                    Ry = Ravelin::Matrix3d::rot_Y(THE),
+                    Rx = Ravelin::Matrix3d::rot_X(PSI),
+                    Rzxy = Ry.mult(Rx).mult(Rz);
+  Quatd q = Quatd(Rzxy);
 
   x[4] = q[0];
   x[5] = q[1];
   x[6] = q[2];
   x[7] = q[3];
-  x[0] =  3.43583389038583; // Theta_sw
+  x[0] =  3.435833890385830e+000 + THETA_SW_OFFSET; // Theta_sw
 
   // Convert Time derivative of RPY to angular velocity (w)
-  double  dPHI = -0.13220965510356, // d yaw / dt
-          dTHE =  0.47124237466979, // d pitch / dt
-          dPSI = -0.01990961987794; // d roll / dt
+  double  dPHI = -1.322096551035500e-001, // d yaw / dt
+          dTHE =  4.712423746697700e-001, // d pitch / dt
+          dPSI = -1.990961987794000e-002; // d roll / dt
   //  a_dot is time derivative of RPY
-  Vector3d a_dot(dPSI,dTHE,dPHI);
-
   // Numerically derive skew symmetric
   // angular velocity tensor matrix W
-  double h = 1e-4;
+  double h = 1e-6;
   Matrix3d
-      R1(Quatd::rpy(a.data())),
-      R2(Quatd::rpy((a+h*a_dot).data())),
-      W = ((R2-R1)/h).mult_transpose(R1);
+      Rz2 = Ravelin::Matrix3d::rot_Z(PHI + h*dPHI),
+      Rx2 = Ravelin::Matrix3d::rot_X(PSI + h*dPSI),
+      Ry2 = Ravelin::Matrix3d::rot_Y(THE + h*dTHE);
+   Matrix3d
+      Rzxy2 = Ry2.mult(Rx2).mult(Rz2);
+   Matrix3d
+      W = ((Rzxy2-Rzxy)/h).mult_transpose(Rzxy);
 
   // w is angular velocity
-  Vector3d w(W(2,1),W(0,2),W(1,0));
+  Vector3d w((W(2,1)-W(1,2))/2,(W(0,2)-W(2,0))/2,(W(1,0)-W(0,1))/2);
+  xd.set_zero();
+  xd.set_sub_vec(4,w);
+  xd[0] = -3.925591686648300e-001; // Theta_sw
 
-  xd[4] = w[0]; // phi = roll
-  xd[5] = w[1]; // Theta_st = pitch
-  xd[6] = w[2]; // psi = yaw
-  xd[0] = -0.39255916866486; // Theta_sw
-
-  part->set_generalized_coordinates( Moby::DynamicBody::eEuler,x);
+  part->set_generalized_coordinates( Moby::DynamicBody::eSpatial,x);
   part->set_generalized_velocity( Moby::DynamicBody::eSpatial,xd);
+
+//  part->get_base_link()->set_enabled(false);
 
 }
 } // end extern C

@@ -167,6 +167,12 @@ public :
             osg::StateSet* pStateSet = geode.getOrCreateStateSet();
             pStateSet->setTextureAttributeAndModes( 0, pTex, osg::StateAttribute::ON );
           } else {
+            osg::StateSet* ss = sd->getStateSet();
+            if( ss == NULL ) {
+              ss = new osg::StateSet();
+              sd->setStateSet( ss );
+              ss->setMode( GL_BLEND, osg::StateAttribute::ON );
+            }
             sd->setColor(osg::Vec4(m_color._v[0], m_color._v[1], m_color._v[2], m_color._v[3]));
           }
         }

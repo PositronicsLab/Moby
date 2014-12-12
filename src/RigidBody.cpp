@@ -542,18 +542,46 @@ void RigidBody::set_inertia(const SpatialRBInertiad& inertia)
     Ravelin::Matrix3d r_Jdiag;
 
     LA_.eig_symm_plus( r_Jdiag = _Jcom.J, _Jdiag);
-    _Jdiag*= _Jcom.m;
+//    _Jdiag *= _Jcom.m;
     osg::Group* this_group = _vizdata->get_group();
-    osg::Sphere* J_sphere = new osg::Sphere( osg::Vec3(0,0,0), 1.0f);
 
-    osg::ShapeDrawable* J_Drawable = new osg::ShapeDrawable(J_sphere);
+    osg::Sphere* ellipse = new osg::Sphere( osg::Vec3(0,0,0), 1.0f);
+    osg::Box
+        *x_axis = new osg::Box( osg::Vec3(0.5,0,0), 1.0,0.1,0.1),
+        *y_axis = new osg::Box( osg::Vec3(0,0.5,0), 0.1,1.0,0.1),
+        *z_axis = new osg::Box( osg::Vec3(0,0,0.5), 0.1,0.1,1.0);
 
-    osg::Geode* basicShapesGeode = new osg::Geode();
-    basicShapesGeode->addDrawable(J_Drawable);
+    osg::ShapeDrawable
+        *x_axis_draw = new osg::ShapeDrawable(x_axis),
+        *y_axis_draw = new osg::ShapeDrawable(y_axis),
+        *z_axis_draw = new osg::ShapeDrawable(z_axis),
+        *ellipse_draw = new osg::ShapeDrawable(ellipse);
 
-    osg::Node* n = basicShapesGeode;
+    osg::Geode
+        *x_axis_geode = new osg::Geode(),
+        *y_axis_geode = new osg::Geode(),
+        *z_axis_geode = new osg::Geode(),
+        *ellipse_geode = new osg::Geode();
+    x_axis_geode->addDrawable(x_axis_draw);
+    y_axis_geode->addDrawable(y_axis_draw);
+    z_axis_geode->addDrawable(z_axis_draw);
+    ellipse_geode->addDrawable(ellipse_draw);
+
+    osg::Node* n = ellipse_geode;
     CcolorVisitor  newColor;
+    newColor.setColor( 1,0,1,0.1 );
+    n->accept( newColor );
+
+    n = x_axis_geode;
     newColor.setColor( 1,0,0,0.25 );
+    n->accept( newColor );
+
+    n = y_axis_geode;
+    newColor.setColor( 0,1,0,0.25 );
+    n->accept( newColor );
+
+    n = z_axis_geode;
+    newColor.setColor( 0,0,1,0.25 );
     n->accept( newColor );
 
     // Set to always wireframe
@@ -561,7 +589,7 @@ void RigidBody::set_inertia(const SpatialRBInertiad& inertia)
     osg::PolygonMode* polymode = new osg::PolygonMode;
     polymode->setMode(osg::PolygonMode::FRONT_AND_BACK,osg::PolygonMode::LINE);
     stateset->setAttributeAndModes(polymode,osg::StateAttribute::OVERRIDE|osg::StateAttribute::ON);
-    n->setStateSet(stateset);
+    ellipse_geode->setStateSet(stateset);
 
     osg::PositionAttitudeTransform *Transf = new osg::PositionAttitudeTransform();
     Transf->setScale(osg::Vec3(_Jdiag[0],_Jdiag[1],_Jdiag[2]));
@@ -572,10 +600,12 @@ void RigidBody::set_inertia(const SpatialRBInertiad& inertia)
     q_Jdiag += iPose.q;
     Transf->setAttitude(osg::Quat(q_Jdiag.x,q_Jdiag.y,q_Jdiag.z,q_Jdiag.w));
     Transf->setPosition(osg::Vec3(iPose.x[0],iPose.x[1],iPose.x[2]));
-    Transf->addChild(basicShapesGeode);
+    Transf->addChild(ellipse_geode);
+    Transf->addChild(x_axis_geode);
+    Transf->addChild(y_axis_geode);
+    Transf->addChild(z_axis_geode);
 
     this_group->addChild(Transf);
-
 # endif
 #endif
 
