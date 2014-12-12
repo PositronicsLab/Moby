@@ -542,7 +542,6 @@ void RigidBody::set_inertia(const SpatialRBInertiad& inertia)
     Ravelin::Matrix3d r_Jdiag;
 
     LA_.eig_symm_plus( r_Jdiag = _Jcom.J, _Jdiag);
-//    _Jdiag *= _Jcom.m;
     osg::Group* this_group = _vizdata->get_group();
 
     osg::Sphere* ellipse = new osg::Sphere( osg::Vec3(0,0,0), 1.0f);
