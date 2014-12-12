@@ -14,6 +14,7 @@
 #include <Moby/CompGeom.h>
 #include <Moby/XMLTree.h>
 #include <Moby/SpherePrimitive.h>
+#include <Moby/PlanePrimitive.h>
 #include <Moby/OBB.h>
 #include <Moby/CollisionGeometry.h>
 #include <Moby/HeightmapPrimitive.h>
@@ -94,6 +95,11 @@ CylinderPrimitive::CylinderPrimitive(double radius, double height, unsigned n, u
 /// Finds the signed distance between the cylinder and another primitive
 double CylinderPrimitive::calc_signed_dist(shared_ptr<const Primitive> p, Point3d& pthis, Point3d& pp) const
 {
+  // first look for plane primitive
+  shared_ptr<const PlanePrimitive> planep = dynamic_pointer_cast<const PlanePrimitive>(p);
+  if (planep)
+    return planep->calc_signed_dist(dynamic_pointer_cast<const Primitive>(shared_from_this()), pp, pthis);
+
   shared_ptr<const HeightmapPrimitive> hmp = dynamic_pointer_cast<const HeightmapPrimitive>(p);
   if (hmp)
     return hmp->calc_signed_dist(dynamic_pointer_cast<const Primitive>(shared_from_this()), pp, pthis);
