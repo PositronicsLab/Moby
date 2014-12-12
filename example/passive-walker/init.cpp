@@ -1,5 +1,5 @@
 /*****************************************************************************
- * Controller for LINKS robot
+ * Initializer for passive dynamic walker 
  ****************************************************************************/
 #include <Moby/EventDrivenSimulator.h>
 #include <Moby/RCArticulatedBody.h>

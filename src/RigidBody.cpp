@@ -552,29 +552,14 @@ void RigidBody::set_inertia(const SpatialRBInertiad& inertia)
     /// orientation of the inertia ellipsoid relative to inertial frame
     Ravelin::Matrix3d r_Jdiag;
 
+    // determine the eigenvectors (principal inertial axes) and eigenvalues
+    // ellipsoidal radii
     LA_.eig_symm_plus( r_Jdiag = inertia.J, _Jdiag);
     osg::Group* this_group = _vizdata->get_group();
 
     osg::Sphere* ellipse = new osg::Sphere( osg::Vec3(0,0,0), 1.0f);
-//    osg::Box
-//        *x_axis = new osg::Box( osg::Vec3(0.5,0,0), 1.0,0.1,0.1),
-//        *y_axis = new osg::Box( osg::Vec3(0,0.5,0), 0.1,1.0,0.1),
-//        *z_axis = new osg::Box( osg::Vec3(0,0,0.5), 0.1,0.1,1.0);
-
-    osg::ShapeDrawable
-//        *x_axis_draw = new osg::ShapeDrawable(x_axis),
-//        *y_axis_draw = new osg::ShapeDrawable(y_axis),
-//        *z_axis_draw = new osg::ShapeDrawable(z_axis),
-        *ellipse_draw = new osg::ShapeDrawable(ellipse);
-
-    osg::Geode
-//        *x_axis_geode = new osg::Geode(),
-//        *y_axis_geode = new osg::Geode(),
-//        *z_axis_geode = new osg::Geode(),
-        *ellipse_geode = new osg::Geode();
-//    x_axis_geode->addDrawable(x_axis_draw);
-//    y_axis_geode->addDrawable(y_axis_draw);
-//    z_axis_geode->addDrawable(z_axis_draw);
+    osg::ShapeDrawable* ellipse_draw = new osg::ShapeDrawable(ellipse);
+    osg::Geode* ellipse_geode = new osg::Geode();
     ellipse_geode->addDrawable(ellipse_draw);
 
     osg::Node* n = ellipse_geode;
@@ -582,6 +567,7 @@ void RigidBody::set_inertia(const SpatialRBInertiad& inertia)
     newColor.setColor( 1,0,1,0.1 );
     n->accept( newColor );
 
+    // this code will show axes
 //    n = x_axis_geode;
 //    newColor.setColor( 1,0,0,0.25 );
 //    n->accept( newColor );
@@ -601,20 +587,24 @@ void RigidBody::set_inertia(const SpatialRBInertiad& inertia)
     stateset->setAttributeAndModes(polymode,osg::StateAttribute::OVERRIDE|osg::StateAttribute::ON);
     ellipse_geode->setStateSet(stateset);
 
+    // setup the scaling, orientation, and translation
     osg::PositionAttitudeTransform *Transf = new osg::PositionAttitudeTransform();
     Transf->setScale(osg::Vec3(_Jdiag[0],_Jdiag[1],_Jdiag[2]));
 
     Ravelin::Quatd q_Jdiag(r_Jdiag);
     Ravelin::Transform3d iPose
         = Ravelin::Pose3d::calc_relative_pose(get_inertial_pose(),get_pose());
-    q_Jdiag += iPose.q;
+    q_Jdiag *= iPose.q;
     Transf->setAttitude(osg::Quat(q_Jdiag.x,q_Jdiag.y,q_Jdiag.z,q_Jdiag.w));
     Transf->setPosition(osg::Vec3(iPose.x[0],iPose.x[1],iPose.x[2]));
     Transf->addChild(ellipse_geode);
+
+    // this code will show axes
 //    Transf->addChild(x_axis_geode);
 //    Transf->addChild(y_axis_geode);
 //    Transf->addChild(z_axis_geode);
 
+    // add to the groups
     this_group->removeChild(inertia_viz);
     inertia_viz = Transf;
     this_group->addChild(inertia_viz);
