@@ -51,23 +51,12 @@ EventDrivenSimulator::EventDrivenSimulator()
   get_contact_parameters_callback_fn = NULL;
   render_contact_points = false;
 
-  // setup the maximum constraint processing time
-  max_constraint_time = std::numeric_limits<double>::max();
-
-  // setup the minimum advancement
-  min_advance = 1e-6;
-
   // setup the standard Euler step
   euler_step = 1e-3;
 
   // setup contact distance thresholds
   impacting_contact_dist_thresh = 1e-6;
   sustained_contact_dist_thresh = 1e-6;
-
-  // setup absolute and relative error tolerances
-  rel_err_tol = NEAR_ZERO;
-  abs_err_tol = NEAR_ZERO;
-  minimum_step = 1e-5;
 
   // setup the collision detector
   _coldet = shared_ptr<CollisionDetection>(new CCD);
@@ -570,9 +559,9 @@ void EventDrivenSimulator::calc_impacting_unilateral_constraint_forces(double dt
   try
   {
     if (dt <= 0.0)
-      _impact_constraint_handler.process_constraints(_rigid_constraints, max_constraint_time);
+      _impact_constraint_handler.process_constraints(_rigid_constraints, std::numeric_limits<double>::max());
     else
-      _impact_constraint_handler.process_constraints(_rigid_constraints, max_constraint_time, 0.1/dt);
+      _impact_constraint_handler.process_constraints(_rigid_constraints, std::numeric_limits<double>::max(), 0.1/dt);
   }
   catch (ImpactToleranceException e)
   {
@@ -1122,8 +1111,8 @@ void EventDrivenSimulator::calc_pairwise_distances()
     PairwiseDistInfo pdi;
     pdi.a = _pairs_to_check[i].first;
     pdi.b = _pairs_to_check[i].second;
-    FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::calc_pairwise_distances() - computing signed distance between " << pdi.a->get_single_body()->id << " and " << pdi.b->get_single_body()->id << std::endl;
     pdi.dist = _coldet->calc_signed_dist(pdi.a, pdi.b, pdi.pa, pdi.pb);
+    FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::calc_pairwise_distances() - signed distance between " << pdi.a->get_single_body()->id << " and " << pdi.b->get_single_body()->id << ": " << pdi.dist << std::endl;
     _pairwise_distances.push_back(pdi);
   }
 }
@@ -1557,28 +1546,20 @@ void EventDrivenSimulator::load_from_xml(shared_ptr<const XMLTree> node, map<std
     _coldet->set_simulator(shared_this);
   }
 
-  // read the maximum time to process constraints, if any
-  XMLAttrib* max_constraint_time_attrib = node->get_attrib("max-constraint-time");
-  if (max_constraint_time_attrib)
-    max_constraint_time = max_constraint_time_attrib->get_real_value();
-
+  // read the impacting contact distance threshold, if any
+  XMLAttrib* impacting_contact_dist_thresh_attrib = node->get_attrib("impacting-contact-dist-thresh");
+  if (impacting_contact_dist_thresh_attrib)
+    impacting_contact_dist_thresh = impacting_contact_dist_thresh_attrib->get_real_value();
+  
+  // read the sustained contact distance threshold, if any
+  XMLAttrib* sustained_contact_dist_thresh_attrib = node->get_attrib("sustained-contact-dist-thresh");
+  if (sustained_contact_dist_thresh_attrib)
+    sustained_contact_dist_thresh = sustained_contact_dist_thresh_attrib->get_real_value();
+  
   // read the maximum Euler step
   XMLAttrib* Euler_step_attrib = node->get_attrib("Euler-step");
   if (Euler_step_attrib)
     euler_step = Euler_step_attrib->get_real_value();
-
-  // read the minimum advancement
-  XMLAttrib* min_advance_attrib = node->get_attrib("min-advance");
-  if (min_advance_attrib)
-    min_advance = min_advance_attrib->get_real_value();
-
-  // read the error tolerances
-  XMLAttrib* rel_tol_attrib = node->get_attrib("rel-err-tol");
-  XMLAttrib* abs_tol_attrib = node->get_attrib("abs-err-tol");
-  if (rel_tol_attrib)
-    rel_err_tol = rel_tol_attrib->get_real_value();
-  if (abs_tol_attrib)
-    abs_err_tol = abs_tol_attrib->get_real_value();
 
   // read in any ContactParameters
   child_nodes = node->find_child_nodes("ContactParameters");
@@ -1706,18 +1687,12 @@ void EventDrivenSimulator::save_to_xml(XMLTreePtr node, list<shared_ptr<const Ba
     shared_objects.push_back(_coldet);
   }
 
-  // save the maximum constraint time
-  node->attribs.insert(XMLAttrib("max-constraint-time", max_constraint_time));
-
   // save the maximum Euler step
   node->attribs.insert(XMLAttrib("Euler-step", euler_step));
 
-  // save the minimum advancement step
-  node->attribs.insert(XMLAttrib("min-advance", min_advance));
-
-  // save the error tolerances
-  node->attribs.insert(XMLAttrib("rel-err-tol", rel_err_tol));
-  node->attribs.insert(XMLAttrib("abs-err-tol", abs_err_tol));
+  // save the distance thresholds
+  node->attribs.insert(XMLAttrib("impacting-contact-dist-thesh", impacting_contact_dist_thresh));
+  node->attribs.insert(XMLAttrib("sustained-contact-dist-thesh", sustained_contact_dist_thresh));
 
   // save all ContactParameters
   for (map<sorted_pair<BasePtr>, shared_ptr<ContactParameters> >::const_iterator i = contact_params.begin(); i != contact_params.end(); i++)

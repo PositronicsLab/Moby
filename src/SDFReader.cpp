@@ -282,10 +282,7 @@ shared_ptr<EventDrivenSimulator> SDFReader::read_world(shared_ptr<const XMLTree>
   vector<DynamicBodyPtr> models = read_models(world_tree, sim);
 
   // these defaults will be replaced with specific settings from SDF
-  sim->integrator = shared_ptr<BulirschStoerIntegrator>(new BulirschStoerIntegrator);
-  sim->rel_err_tol = 1e-3;
-  sim->abs_err_tol = 1e-3;
-  sim->minimum_step = 1e-5;
+  sim->integrator = shared_ptr<RungeKuttaIntegrator>(new RungeKuttaIntegrator);
 
   // find the physics node
   shared_ptr<const XMLTree> physics_node = find_one_tag("physics", world_tree);
