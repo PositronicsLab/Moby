@@ -15,6 +15,8 @@ using namespace Moby;
 void controller(DynamicBodyPtr body, double t, void*)
 {
   const unsigned LEFT = 0, RIGHT = 1;
+  static bool first_time = true;
+  static Origin3d x0;
 
   // get the robot
   RCArticulatedBodyPtr robot = boost::dynamic_pointer_cast<RCArticulatedBody>(body);
@@ -24,17 +26,38 @@ void controller(DynamicBodyPtr body, double t, void*)
   robot->get_generalized_coordinates(DynamicBody::eEuler, q);
   robot->get_generalized_velocity(DynamicBody::eSpatial, dq);
 
-  // setup the PD controller
-  const double KP = , KV = ;
+  // see whether this is the first time this function is run
+  if (first_time)
+  {
+    first_time = false;
 
-  // set q_des, dq_des, ddq_des;
+    // init x(t_0), y(t_0), theta(t_0)
+    x0[0] = q[2];
+    x0[1] = q[3];
+    Quatd quat(q[5], q[6], q[7], q[8]);
+    Matrix3d R = quat;
+    x0[2] = std::atan2(R(2,0), R(0,0));
+  }
+
+  // setup the PD controller
+  const double KV = ;
+
+  // set the desired wheel speeds
+  const double UL = 1.0;
+  const double UR = 0.5;
+
+  // set dq_des, ddq_des;
+  double dq_des[2], ddq_des[2];
+  dq_des[LEFT] = UL;
+  dq_des[RIGHT] = UR;
+  ddq_des[LEFT] = ddq_des[RIGHT] = 0.0;
 
   // compute inverse dynamics torques
 
   // setup the feedback torques
   VectorNd fleft(1), fright(1);
-  fleft[0] = KP*(q_des[LEFT] - q[LEFT]) + KV*(dq_des[LEFT] - dq[LEFT]);
-  fright[0] = KP*(q_des[RIGHT] - q[RIGHT]) + KV*(dq_des[RIGHT] - dq[RIGHT]);
+  fleft[0] = KV*(dq_des[LEFT] - dq[LEFT]);
+  fright[0] = KV*(dq_des[RIGHT] - dq[RIGHT]);
 
   // apply the torques
   JointPtr left = robot->get_joints()[0];
