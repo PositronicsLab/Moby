@@ -229,15 +229,15 @@ endif (BUILD_TOOLS)
   # plugins
   add_library(passive-walker-init MODULE example/passive-walker/init.cpp)
   add_library(passive-walker-coldet-plugin MODULE example/passive-walker/coldet-plugin.cpp)
-#  add_library(mrobot-controller MODULE example/mrobot/controller.cpp)
+  add_library(mrobot-controller MODULE example/mrobot/controller.cpp)
   target_link_libraries(passive-walker-init Moby Ravelin)
   target_link_libraries(passive-walker-coldet-plugin Moby Ravelin)
-#  target_link_libraries(mrobot-controller Moby Ravelin)
+  target_link_libraries(mrobot-controller Moby Ravelin)
 
 # setup install locations
 install (TARGETS passive-walker-init DESTINATION ${CMAKE_SOURCE_DIR}/example/passive-walker)
 install (TARGETS passive-walker-coldet-plugin DESTINATION ${CMAKE_SOURCE_DIR}/example/passive-walker)
-# install (TARGETS mrobot-controller DESTINATION ${CMAKE_SOURCE_DIR}/example/mrobot)
+install (TARGETS mrobot-controller DESTINATION ${CMAKE_SOURCE_DIR}/example/mrobot)
 install (TARGETS Moby DESTINATION lib)
 install (TARGETS moby-driver DESTINATION bin)
 if (USE_OSG AND OSG_FOUND)
