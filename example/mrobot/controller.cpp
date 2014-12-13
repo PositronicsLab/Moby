@@ -11,6 +11,10 @@ boost::shared_ptr<Moby::EventDrivenSimulator> sim;
 using namespace Ravelin;
 using namespace Moby;
 
+// set the desired wheel speeds
+const double UL = 1.0;
+const double UR = 0.5;
+
 // setup the controller callback
 void controller(DynamicBodyPtr body, double t, void*)
 {
@@ -40,11 +44,7 @@ void controller(DynamicBodyPtr body, double t, void*)
   }
 
   // setup the PD controller
-  const double KV = ;
-
-  // set the desired wheel speeds
-  const double UL = 1.0;
-  const double UR = 0.5;
+  const double KV = 1000.0;
 
   // set dq_des, ddq_des;
   double dq_des[2], ddq_des[2];
@@ -54,6 +54,7 @@ void controller(DynamicBodyPtr body, double t, void*)
 
   // compute inverse dynamics torques
 
+std::cout << "L: " << dq[0] << " R: " << dq[1] << std::endl;
   // setup the feedback torques
   VectorNd fleft(1), fright(1);
   fleft[0] = KV*(dq_des[LEFT] - dq[LEFT]);
@@ -166,6 +167,38 @@ void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map,
 
   // set the controller
   robot->controller = &controller;
+
+  // determine the velocity of the robot's base using initial conditions
+  const double WHEEL_RAD = 0.11;
+  const double AXLE_LEN = 0.34;
+  const double THETA0 = 0.0;
+  double xd0 = WHEEL_RAD * 0.5 * (UL + UR) * std::cos(THETA0);
+  double yd0 = WHEEL_RAD * 0.5 * (UL + UR) * std::sin(THETA0);
+  double thetad0 = WHEEL_RAD/AXLE_LEN * (UR - UL);
+
+  // set the velocity of the robot's base
+  const unsigned X = 0, Y = 1, THETA = 2;
+  SVelocityd base_xd(GLOBAL);
+  Vector3d lv(GLOBAL), av(GLOBAL);
+  lv.set_zero();
+  av.set_zero();
+  lv[X] = xd0;
+  lv[Y] = yd0;
+  av[THETA] = thetad0;
+  base_xd.set_angular(av);
+  base_xd.set_linear(lv);
+  robot->get_base_link()->set_velocity(base_xd);
+
+  // set the velocities at the robot's wheels
+  JointPtr left = robot->get_joints()[0];
+  JointPtr right = robot->get_joints()[1];
+  assert(left->id == "left_wheel_hinge");
+  assert(right->id == "right_wheel_hinge");
+  left->qd[0] = UL;
+  right->qd[0] = UR;
+
+  // update the robot's link velocities
+  robot->update_link_velocities();
 }
 } // end extern C
 

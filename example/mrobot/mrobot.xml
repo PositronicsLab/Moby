@@ -2,7 +2,7 @@
 
 <XML>
   <DRIVER>
-    <camera position="3 3 3" target="0 0 0" up="0 0 1" />
+    <camera position="1 1 1" target="0 0 0" up="0 0 1" />
     <window location="0 0" size="640 480" />
   </DRIVER>
 
@@ -13,7 +13,7 @@
   <GravityForce id="gravity" accel="0 0 -9.81" />
 <!--<GravityForce id="gravity" accel="0.687395090074 0 -9.775862518954" />-->
 
-  <EventDrivenSimulator integrator-id="bs" Euler-step="0.00001" >
+  <EventDrivenSimulator integrator-id="bs" Euler-step="0.0001" impacting-contact-dist-thresh="1e-8">
     <RecurrentForce recurrent-force-id="gravity" />
     <DynamicBody dynamic-body-id="GROUND" />
     <DynamicBody dynamic-body-id="mrobot" />
@@ -25,7 +25,7 @@
 
   <!-- setup the platform rigid body; it is not active -->
    <Box id="ground-primitive-viz" rpy="1.5708 0 0"  xlen="10" ylen="0.001" zlen="10" />
-   <Plane id="ground-primitive" rpy="1.5708 0 0" />
+   <Plane id="ground-primitive" rpy="1.57079632679490 0 0" />
    <Box id="box" rpy="0 0 0"  xlen="0.1" ylen="0.1" zlen="0.1" mass="1"/>
 
   <RigidBody id="GROUND" color="0.6 0.6 0.6 0" enabled="false" position="0 0 -0.0"

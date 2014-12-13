@@ -106,18 +106,6 @@ class EventDrivenSimulator : public Simulator
     /// the mean integration step over a single step(.) call
     double int_mean_step_stat;
 
-    /// The relative error tolerance for adaptive stepping (default=1e-8)
-    double rel_err_tol;
-
-    /// The absolute error tolerance for adaptive stepping (default=1e-8)
-    double abs_err_tol;
-
-    /// The minimum step size (default=1e-5)
-    double minimum_step;
-
-    /// The maximum time allowed for processing constraints
-    double max_constraint_time;
-
   protected:
     void calc_impacting_unilateral_constraint_forces(double dt);
     virtual double check_pairwise_constraint_violations(double t);
@@ -193,9 +181,6 @@ class EventDrivenSimulator : public Simulator
 
     /// The Euler step size
     double euler_step;
-
-    /// The minimum step for advancement
-    double min_advance;
 
     /// The distance threshold for a contact to be handled as an impact
     double impacting_contact_dist_thresh; 
