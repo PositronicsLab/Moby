@@ -280,7 +280,7 @@ double PlanePrimitive::calc_signed_dist(shared_ptr<const CylinderPrimitive> pA, 
 
     // Find point on plane that x is closest to
     pcyl =  Ravelin::Pose3d::transform_point(Moby::GLOBAL,x);
-    Point3d pP = x + d*n;
+    Point3d pP = x - d*n;
     pthis =  Ravelin::Pose3d::transform_point(Moby::GLOBAL,pP);
   } else if(fabs(n_dot_cN) < Moby::NEAR_ZERO){
     FILE_LOG(LOG_COLDET) << " -- Cylinder face is perpendicular to plane"<< std::endl;
@@ -293,7 +293,7 @@ double PlanePrimitive::calc_signed_dist(shared_ptr<const CylinderPrimitive> pA, 
     d = x.dot(n);
 
     pcyl =  Ravelin::Pose3d::transform_point(Moby::GLOBAL,x);
-    Point3d pP = x + d*n;
+    Point3d pP = x - d*n;
     pthis =  Ravelin::Pose3d::transform_point(Moby::GLOBAL,pP);
   } else {
 
@@ -315,7 +315,7 @@ double PlanePrimitive::calc_signed_dist(shared_ptr<const CylinderPrimitive> pA, 
     d = x.dot(n);
 
     pcyl =  Ravelin::Pose3d::transform_point(Moby::GLOBAL,x);
-    Point3d pP = x + d*n;
+    Point3d pP = x - d*n;
     pthis =  Ravelin::Pose3d::transform_point(Moby::GLOBAL,pP);
   }
 
