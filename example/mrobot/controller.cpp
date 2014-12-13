@@ -13,7 +13,7 @@ using namespace Moby;
 
 // set the desired wheel speeds
 const double UL = 1.0;
-const double UR = 1.0;
+const double UR = 0.5;
 
 // setup the controller callback
 void controller(DynamicBodyPtr body, double t, void*)

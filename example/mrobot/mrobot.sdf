@@ -49,7 +49,7 @@
         <geometry>
           <cylinder>
             <radius>0.11</radius>
-            <length>0.05</length>
+            <length>0.0000001</length>
           </cylinder>
         </geometry>
         <surface>
@@ -67,7 +67,7 @@
         <geometry>
           <cylinder>
             <radius>0.11</radius>
-            <length>0.05</length>
+            <length>0.0000001</length>
           </cylinder>
         </geometry>
         <material>
@@ -95,7 +95,7 @@
         <geometry>
           <cylinder>
             <radius>0.11</radius>
-            <length>0.05</length>
+            <length>0.0000001</length>
           </cylinder>
         </geometry>
         <surface>
@@ -113,7 +113,7 @@
         <geometry>
           <cylinder>
             <radius>0.11</radius>
-            <length>0.05</length>
+            <length>0.0000001</length>
           </cylinder>
         </geometry>
         <material>
