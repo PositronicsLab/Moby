@@ -6,14 +6,76 @@
 #include <Ravelin/Pose3d.h>
 #include <Ravelin/Vector3d.h>
 #include <Ravelin/VectorNd.h>
-boost::shared_ptr<Moby::EventDrivenSimulator> sim;
+#define INV_DYN
+#ifdef INV_DYN
+#include <Pacer/controller.h>
+#include <Pacer/robot.h>
+#endif
 
+#ifdef INV_DYN
+boost::shared_ptr<Pacer::Robot> pacer_robot;
+#endif
+
+using boost::shared_ptr;
 using namespace Ravelin;
 using namespace Moby;
+
+// global vars
+boost::shared_ptr<Moby::EventDrivenSimulator> sim;
+RigidBodyPtr left_wheel_link, right_wheel_link;
 
 // set the desired wheel speeds
 const double UL = 1.0;
 const double UR = 0.5;
+
+// get the step size
+extern double STEP_SIZE;
+
+// calculates inverse dynamics torques under the no slip model
+void calc_inverse_dynamics(RCArticulatedBodyPtr robot, const VectorNd& qdd, VectorNd& tau)
+{
+  #ifdef INV_DYN
+  const unsigned LEFT = 0, RIGHT = 1;
+
+  // get the state and velocity
+  VectorNd robot_q, robot_dq;
+  robot->get_generalized_coordinates(DynamicBody::eEuler, robot_q);
+  robot->get_generalized_velocity(DynamicBody::eSpatial, robot_dq);
+
+  // setup the base pose
+  shared_ptr<Pose3d> base_pose(new Pose3d);
+  base_pose->x = Origin3d(robot_q[2], robot_q[3], robot_q[4]);
+  base_pose->q = Quatd(robot_q[5], robot_q[6], robot_q[7], robot_q[8]);
+
+  // setup the base velocity
+  SVelocityd base_xd(robot_dq[5], robot_dq[6], robot_dq[7], robot_dq[2], robot_dq[3], robot_dq[4]);
+
+  // setup q and qd
+  std::map<std::string, double> q, qd;
+  q["0left_wheel_joint"] = robot_q[LEFT];
+  q["0right_wheel_joint"] = robot_q[RIGHT];
+  qd["0left_wheel_joint"] = robot_dq[LEFT];
+  qd["0right_wheel_joint"] = robot_dq[RIGHT];
+
+  // get v, M, N, S/T, f
+  boost::shared_ptr<const Pacer::RobotData> data = Pacer::Robot::gen_vars_from_model(q, qd, base_pose, base_xd, pacer_robot); 
+  const VectorNd& v = data->generalized_qd;
+  const MatrixNd& N = data->N;
+  const MatrixNd& M = data->M;
+  const MatrixNd& ST = data->D;
+  const VectorNd& f = data->generalized_fext;
+
+  // define DT
+  const double DT = STEP_SIZE*5.0;
+
+  // call the method
+  VectorNd cf;
+  if (!Pacer::Controller::inverse_dynamics_no_slip(v, qdd, M, N, ST, f, DT, tau, cf))
+    throw std::runtime_error("Could not solve inverse dynamics!");
+  #else
+  tau.set_zero(2);
+  #endif
+}
 
 // setup the controller callback
 void controller(DynamicBodyPtr body, double t, void*)
@@ -47,12 +109,15 @@ void controller(DynamicBodyPtr body, double t, void*)
   const double KV = 1000.0;
 
   // set dq_des, ddq_des;
-  double dq_des[2], ddq_des[2];
+  double dq_des[2];
+  VectorNd ddq_des(2);
   dq_des[LEFT] = UL;
   dq_des[RIGHT] = UR;
   ddq_des[LEFT] = ddq_des[RIGHT] = 0.0;
 
   // compute inverse dynamics torques
+  VectorNd tau(2);
+  calc_inverse_dynamics(robot, ddq_des, tau); 
 
 std::cout << "L: " << dq[0] << " R: " << dq[1] << std::endl;
   // setup the feedback torques
@@ -69,74 +134,49 @@ std::cout << "L: " << dq[0] << " R: " << dq[1] << std::endl;
   right->add_force(fright);
 }
 
-void post_event_callback_fn(const std::vector<Moby::UnilateralConstraint>& e,
+void contact_callback_fn(std::vector<Moby::UnilateralConstraint>& e,
                             boost::shared_ptr<void> empty)
 {
-  std::cout << ">> start post_event_callback_fn(.)" << std::endl;
+  const unsigned LEFT = 0, RIGHT = 1;
 
-  // PROCESS CONTACTS
+  // clear all existing contact data 
+  std::vector<Pacer::EndEffector>& eefs = pacer_robot->get_end_effectors();
+  for (unsigned i=0; i< eefs.size(); i++)
+  {
+    eefs[i].normal.clear();
+    eefs[i].tan1.clear();
+    eefs[i].tan2.clear();
+    eefs[i].point.clear();
+  }
+
+  // process contacts
   for(unsigned i=0;i<e.size();i++){
     if (e[i].constraint_type == Moby::UnilateralConstraint::eContact)
     {
       Moby::SingleBodyPtr sb1 = e[i].contact_geom1->get_single_body();
       Moby::SingleBodyPtr sb2 = e[i].contact_geom2->get_single_body();
 
-      std::cout << "contact: " << sb1->id << " and " << sb2->id << std::endl;
-      std::cout << "i = " << e[i].contact_impulse.get_linear() << std::endl;
-      std::cout << "p = " << e[i].contact_point << std::endl;
-      std::cout << "n = " << e[i].contact_normal << std::endl;
-//      std::cout << "s = " << e[i].contact_tan1 << std::endl;
-//      std::cout << "t = " << e[i].contact_tan2 << std::endl;
-//      std::cout << "muC = " << e[i].contact_mu_coulomb << std::endl;
-//      std::cout << "muV = " << e[i].contact_mu_viscous << std::endl;
+      if (sb1 == left_wheel_link || sb2 == left_wheel_link)
+      {
+        eefs[LEFT].point.push_back(e[i].contact_point);
+        eefs[LEFT].normal.push_back(e[i].contact_normal);
+        eefs[LEFT].tan1.push_back(e[i].contact_tan1);
+        eefs[LEFT].tan2.push_back(e[i].contact_tan2);
+        if (sb2 == left_wheel_link)
+          eefs[LEFT].normal.back() = eefs[LEFT].normal.back();
+      }
+      else if (sb1 == right_wheel_link || sb2 == right_wheel_link)
+      {
+        eefs[RIGHT].point.push_back(e[i].contact_point);
+        eefs[RIGHT].normal.push_back(e[i].contact_normal);
+        eefs[RIGHT].tan1.push_back(e[i].contact_tan1);
+        eefs[RIGHT].tan2.push_back(e[i].contact_tan2);
+        if (sb2 == right_wheel_link)
+          eefs[RIGHT].normal.back() = eefs[RIGHT].normal.back();
+      }
     }
   }
   std::cout << "<< end post_event_callback_fn(.)" << std::endl;
-}
-void controller_callback(Moby::DynamicBodyPtr dbp, double t, void*)
-{
-/*
-  std::cout << ">> start controller_callback(.)" << std::endl;
-  Moby::RCArticulatedBodyPtr
-      part = boost::dynamic_pointer_cast<Moby::RCArticulatedBody>(dbp);
-  Ravelin::VectorNd x,xd;
-  static double last_t;
-  double h = t-last_t;
-  last_t = t;
-  part->get_generalized_coordinates( Moby::DynamicBody::eEuler,x);
-  part->get_generalized_velocity( Moby::DynamicBody::eEuler,xd);
-
-  const std::vector<Moby::RigidBodyPtr>& links = part->get_links();
-  std::cout << "Time = " << t << std::endl;
-
-  for(int i=0;i<links.size();i++){
-    boost::shared_ptr<const Ravelin::Pose3d> Ipose = links[i]->get_inertial_pose();
-    boost::shared_ptr<const Ravelin::Pose3d> Lpose = links[i]->get_pose();
-
-    std::cout << links[i]->id << std::endl;
-    std::cout << "Ipose x = " << Ravelin::Pose3d::calc_relative_pose(Ipose,Moby::GLOBAL).x << std::endl;
-    std::cout << "Lpose x = " << Ravelin::Pose3d::calc_relative_pose(Lpose,Moby::GLOBAL).x << std::endl;
-    if(i != 0){
-      boost::shared_ptr<const Ravelin::Pose3d> Jpose = links[i]->get_inner_joint_explicit()->get_pose();
-      std::cout << "Jpose x = " << Ravelin::Pose3d::calc_relative_pose(Jpose,Moby::GLOBAL).x << std::endl;
-    }
-  }
-  std::cout << "x = " << x << std::endl;
-  std::cout << "v = " << xd << std::endl;
-
-
-
-//  std::cout << "x =\n\t"
-//            << RPY[0] << "\n\t"
-//            << RPY[1] << "\n\t"
-//            << RPY[2] << "\n\t"
-//            << x[0] - THETA_SW_OFFSET << "\n\nxd =\n\t"
-//            << dRPY[0] << "\n\t"
-//            << dRPY[1] << "\n\t"
-//            << dRPY[2] << "\n\t"
-//            << xd[0] << "\n\t";
-  std::cout << "<< end controller_callback(.)" << std::endl;
-*/
 }
 
 // ============================================================================
@@ -162,11 +202,27 @@ void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map,
       robot = boost::dynamic_pointer_cast<Moby::RCArticulatedBody>(i->second);
   }
 
+  // setup the pre-event callback
+  sim->constraint_callback_fn = &contact_callback_fn;
+
   // make sure the robot was found
   assert(robot);
 
   // set the controller
   robot->controller = &controller;
+
+  // get the left and right wheels
+  const std::string LEFT_WHEEL_LINK_ID = "left_wheel_link";
+  const std::string RIGHT_WHEEL_LINK_ID = "right_wheel_link";
+  left_wheel_link = robot->find_link(LEFT_WHEEL_LINK_ID);
+  right_wheel_link = robot->find_link(RIGHT_WHEEL_LINK_ID);
+
+  // init Pacer
+  #ifdef INV_DYN
+  const std::string model_file = "mrobot.sdf";
+  const std::string pacer_file = "mrobot.pacer";
+  pacer_robot = boost::shared_ptr<Pacer::Robot>(new Pacer::Robot(model_file, pacer_file));
+  #endif
 
   // determine the velocity of the robot's base using initial conditions
   const double WHEEL_RAD = 0.11;
