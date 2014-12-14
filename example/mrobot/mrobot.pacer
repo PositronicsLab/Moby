@@ -1,0 +1,22 @@
+<XML>
+  <logging type="string">ERROR</logging>
+
+  <init>
+    <base>
+      <active type="bool">true</active>
+      <x type="double">0 0 0.0 0 0 0</x>
+    </base>
+
+    <joint>
+      <id type="string">0left_wheel_hinge 0right_wheel_hinge</id>
+      <q type="double">  0 0</q>
+      <active type="bool">true true</active>
+      <max-torque type="double">1000000 1000000</max-torque>
+    </joint>
+
+    <end-effector>
+     <id type="string">left_wheel right_wheel</id>
+     <x type="double">0 0 0 0 0 0</x>
+    </end-effector>
+  </init>
+</XML>
