@@ -6,6 +6,8 @@
 #include <Ravelin/Pose3d.h>
 #include <Ravelin/Vector3d.h>
 #include <Ravelin/VectorNd.h>
+#include <fstream>
+
 boost::shared_ptr<Moby::EventDrivenSimulator> sim;
 
 using namespace Ravelin;
@@ -60,6 +62,16 @@ std::cout << "L: " << dq[0] << " R: " << dq[1] << std::endl;
   fleft[0] = KV*(dq_des[LEFT] - dq[LEFT]);
   fright[0] = KV*(dq_des[RIGHT] - dq[RIGHT]);
 
+  // collect state data
+  std::ofstream out("state.data", std::ostream::app);
+  out << t;
+  for (unsigned i=0; i< q.size(); i++)
+    out << " " << q[i];
+  for (unsigned i=0; i< dq.size(); i++)
+    out << " " << dq[i];
+  out << std::endl;
+  out.close();
+
   // apply the torques
   JointPtr left = robot->get_joints()[0];
   JointPtr right = robot->get_joints()[1];
@@ -92,51 +104,6 @@ void post_event_callback_fn(const std::vector<Moby::UnilateralConstraint>& e,
     }
   }
   std::cout << "<< end post_event_callback_fn(.)" << std::endl;
-}
-void controller_callback(Moby::DynamicBodyPtr dbp, double t, void*)
-{
-/*
-  std::cout << ">> start controller_callback(.)" << std::endl;
-  Moby::RCArticulatedBodyPtr
-      part = boost::dynamic_pointer_cast<Moby::RCArticulatedBody>(dbp);
-  Ravelin::VectorNd x,xd;
-  static double last_t;
-  double h = t-last_t;
-  last_t = t;
-  part->get_generalized_coordinates( Moby::DynamicBody::eEuler,x);
-  part->get_generalized_velocity( Moby::DynamicBody::eEuler,xd);
-
-  const std::vector<Moby::RigidBodyPtr>& links = part->get_links();
-  std::cout << "Time = " << t << std::endl;
-
-  for(int i=0;i<links.size();i++){
-    boost::shared_ptr<const Ravelin::Pose3d> Ipose = links[i]->get_inertial_pose();
-    boost::shared_ptr<const Ravelin::Pose3d> Lpose = links[i]->get_pose();
-
-    std::cout << links[i]->id << std::endl;
-    std::cout << "Ipose x = " << Ravelin::Pose3d::calc_relative_pose(Ipose,Moby::GLOBAL).x << std::endl;
-    std::cout << "Lpose x = " << Ravelin::Pose3d::calc_relative_pose(Lpose,Moby::GLOBAL).x << std::endl;
-    if(i != 0){
-      boost::shared_ptr<const Ravelin::Pose3d> Jpose = links[i]->get_inner_joint_explicit()->get_pose();
-      std::cout << "Jpose x = " << Ravelin::Pose3d::calc_relative_pose(Jpose,Moby::GLOBAL).x << std::endl;
-    }
-  }
-  std::cout << "x = " << x << std::endl;
-  std::cout << "v = " << xd << std::endl;
-
-
-
-//  std::cout << "x =\n\t"
-//            << RPY[0] << "\n\t"
-//            << RPY[1] << "\n\t"
-//            << RPY[2] << "\n\t"
-//            << x[0] - THETA_SW_OFFSET << "\n\nxd =\n\t"
-//            << dRPY[0] << "\n\t"
-//            << dRPY[1] << "\n\t"
-//            << dRPY[2] << "\n\t"
-//            << xd[0] << "\n\t";
-  std::cout << "<< end controller_callback(.)" << std::endl;
-*/
 }
 
 // ============================================================================
@@ -199,6 +166,10 @@ void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map,
 
   // update the robot's link velocities
   robot->update_link_velocities();
+
+  // clear state data
+  std::ofstream out("state.data");
+  out.close();
 }
 } // end extern C
 
