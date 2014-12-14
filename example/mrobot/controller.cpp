@@ -6,13 +6,12 @@
 #include <Ravelin/Pose3d.h>
 #include <Ravelin/Vector3d.h>
 #include <Ravelin/VectorNd.h>
-#define INV_DYN
-#ifdef INV_DYN
+#ifdef USE_INV_DYN
 #include <Pacer/controller.h>
 #include <Pacer/robot.h>
 #endif
 
-#ifdef INV_DYN
+#ifdef USE_INV_DYN
 boost::shared_ptr<Pacer::Robot> pacer_robot;
 #endif
 
@@ -33,7 +32,7 @@ double STEP_SIZE = 1e-5;
 // calculates inverse dynamics torques under the no slip model
 void calc_inverse_dynamics(RCArticulatedBodyPtr robot, const VectorNd& qdd, VectorNd& tau)
 {
-  #ifdef INV_DYN
+  #ifdef USE_INV_DYN
   const unsigned LEFT = 0, RIGHT = 1;
 
   // get the state and velocity
@@ -138,6 +137,7 @@ void contact_callback_fn(std::vector<Moby::UnilateralConstraint>& e,
 {
   const unsigned LEFT = 0, RIGHT = 1;
 
+  #ifdef USE_INV_DYN
   // clear all existing contact data
   std::vector<Pacer::EndEffector>& eefs = pacer_robot->get_end_effectors();
   for (unsigned i=0; i< eefs.size(); i++)
@@ -175,7 +175,7 @@ void contact_callback_fn(std::vector<Moby::UnilateralConstraint>& e,
       }
     }
   }
-  std::cout << "<< end post_event_callback_fn(.)" << std::endl;
+  #endif
 }
 
 // ============================================================================
@@ -216,7 +216,7 @@ void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map,
   right_wheel_link = robot->find_link(RIGHT_WHEEL_LINK_ID);
 
   // init Pacer
-  #ifdef INV_DYN
+  #ifdef USE_INV_DYN
   const std::string model_file = "mrobot.sdf";
   const std::string pacer_file = "mrobot.pacer";
   pacer_robot = boost::shared_ptr<Pacer::Robot>(new Pacer::Robot(model_file, pacer_file));
