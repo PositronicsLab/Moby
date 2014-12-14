@@ -1,5 +1,5 @@
 /*****************************************************************************
- * Controller for mobile robot 
+ * Controller for mobile robot
  ****************************************************************************/
 #include <Moby/EventDrivenSimulator.h>
 #include <Moby/RCArticulatedBody.h>
@@ -29,8 +29,7 @@ const double UL = 1.0;
 const double UR = 0.5;
 
 // get the step size
-extern double STEP_SIZE;
-
+double STEP_SIZE = 1e-5;
 // calculates inverse dynamics torques under the no slip model
 void calc_inverse_dynamics(RCArticulatedBodyPtr robot, const VectorNd& qdd, VectorNd& tau)
 {
@@ -58,7 +57,7 @@ void calc_inverse_dynamics(RCArticulatedBodyPtr robot, const VectorNd& qdd, Vect
   qd["0right_wheel_joint"] = robot_dq[RIGHT];
 
   // get v, M, N, S/T, f
-  boost::shared_ptr<const Pacer::RobotData> data = Pacer::Robot::gen_vars_from_model(q, qd, base_pose, base_xd, pacer_robot); 
+  boost::shared_ptr<const Pacer::RobotData> data = Pacer::Robot::gen_vars_from_model(q, qd, base_pose, base_xd, pacer_robot);
   const VectorNd& v = data->generalized_qd;
   const MatrixNd& N = data->N;
   const MatrixNd& M = data->M;
@@ -117,7 +116,7 @@ void controller(DynamicBodyPtr body, double t, void*)
 
   // compute inverse dynamics torques
   VectorNd tau(2);
-  calc_inverse_dynamics(robot, ddq_des, tau); 
+  calc_inverse_dynamics(robot, ddq_des, tau);
 
 std::cout << "L: " << dq[0] << " R: " << dq[1] << std::endl;
   // setup the feedback torques
@@ -139,7 +138,7 @@ void contact_callback_fn(std::vector<Moby::UnilateralConstraint>& e,
 {
   const unsigned LEFT = 0, RIGHT = 1;
 
-  // clear all existing contact data 
+  // clear all existing contact data
   std::vector<Pacer::EndEffector>& eefs = pacer_robot->get_end_effectors();
   for (unsigned i=0; i< eefs.size(); i++)
   {
@@ -188,7 +187,6 @@ extern "C" {
 void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map, double time)
 {
   Moby::RCArticulatedBodyPtr robot;
-
   // get a reference to the EventDrivenSimulator instance and the robot
   for (std::map<std::string, Moby::BasePtr>::const_iterator i = read_map.begin();
        i !=read_map.end(); i++)
