@@ -20,7 +20,7 @@
 
       <visual name='l_foot_visual'>
         <!-- base link 0 0 0 -->
-        <pose>0 0 0 1.5708 0 0</pose>
+        <pose>0 0 0 1.5707963267949 0 0</pose>
         <geometry>
           <cylinder>
             <radius>0.1236</radius>
@@ -87,7 +87,7 @@
 
       <visual name='r_foot_visual'>
         <!-- 0 0 0 -->
-        <pose>0 0 0 1.5708 0 0</pose>
+        <pose>0 0 0 1.5707963267949 0 0</pose>
         <geometry>
           <cylinder>
             <radius>0.1236</radius>
