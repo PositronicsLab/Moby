@@ -158,7 +158,7 @@ void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map,
 
   // Set initial conditions from ruina paper
   Ravelin::VectorNd x,xd;
-  part->get_generalized_coordinates( Moby::DynamicBody::eSpatial,x);
+  part->get_generalized_coordinates( Moby::DynamicBody::eEuler,x);
   part->get_generalized_velocity( Moby::DynamicBody::eSpatial,xd);
 
   x[1] = 0; // x
@@ -212,9 +212,10 @@ void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map,
   xd.set_sub_vec(4,w);
   xd[0] = -3.925591686648300e-001; // Theta_sw
 
-  part->set_generalized_coordinates( Moby::DynamicBody::eSpatial,x);
+  part->set_generalized_coordinates( Moby::DynamicBody::eEuler,x);
   part->set_generalized_velocity( Moby::DynamicBody::eSpatial,xd);
 
+  part->set_floating_base(false);
 //  part->get_base_link()->set_enabled(false);
 
 }

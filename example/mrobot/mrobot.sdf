@@ -6,7 +6,7 @@
       <inertial>
         <mass>5.67</mass>
         <inertia>
-          <ixx>1000.07</ixx>
+          <ixx>0.07</ixx>
           <iyy>0.08</iyy>
           <izz>0.10</izz>
           <ixy>0</ixy>
@@ -19,6 +19,14 @@
           <box>
             <size>0.445 0.277 0.17</size>
           </box>
+        </geometry>
+      </collision>
+      <collision name="castor_collision">
+        <pose>-.2 0 -.12 0 0 0</pose>
+        <geometry>
+          <sphere>
+            <radius>0.04</radius>
+          </sphere>
         </geometry>
       </collision>
 <!--
@@ -67,7 +75,7 @@
         <geometry>
           <cylinder>
             <radius>0.11</radius>
-            <length>0.0000001</length>
+            <length>0.000001</length>
           </cylinder>
         </geometry>
         <material>
@@ -113,7 +121,7 @@
         <geometry>
           <cylinder>
             <radius>0.11</radius>
-            <length>0.0000001</length>
+            <length>0.000001</length>
           </cylinder>
         </geometry>
         <material>

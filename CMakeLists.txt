@@ -227,12 +227,23 @@ if (BUILD_TOOLS)
 endif (BUILD_TOOLS)
 
   # plugins
+  add_library(rimless-wheel-coldet-plugin MODULE example/rimless-wheel/coldet-plugin.cpp)
+  add_library(rimless-wheel-init MODULE example/rimless-wheel/init.cpp)
   add_library(passive-walker-init MODULE example/passive-walker/init.cpp)
   add_library(passive-walker-coldet-plugin MODULE example/passive-walker/coldet-plugin.cpp)
-  add_library(mrobot-controller MODULE example/mrobot/controller.cpp)
   target_link_libraries(passive-walker-init Moby Ravelin)
   target_link_libraries(passive-walker-coldet-plugin Moby Ravelin)
-  target_link_libraries(mrobot-controller Moby Ravelin)
+
+  # look for Pacer
+  find_library(PACER_FOUND Pacer /usr/local/lib /usr/lib)
+  if (PACER_FOUND)
+    add_definitions (-DUSE_INV_DYN)
+    add_library(mrobot-controller MODULE example/mrobot/controller.cpp)
+    target_link_libraries(mrobot-controller Moby Ravelin Pacer)
+  else (PACER_FOUND)
+    add_library(mrobot-controller MODULE example/mrobot/controller.cpp)
+    target_link_libraries(mrobot-controller Moby Ravelin)
+  endif (PACER_FOUND)
 
 # setup install locations
 install (TARGETS passive-walker-init DESTINATION ${CMAKE_SOURCE_DIR}/example/passive-walker)

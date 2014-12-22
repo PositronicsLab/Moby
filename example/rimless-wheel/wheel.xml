@@ -12,24 +12,26 @@
   <BulirschStoerIntegrator id="bs" abs-err-tol="1e-4" rel-err-tol="1e-4" />
   <RungeKuttaFehlbergIntegrator id="rkf" abs-err-tol="1e-14" rel-err-tol="1e+14" />
 
-  <CollisionDetectionPlugin id="toroid" plugin="libpassive-walker-coldet-plugin.so" />
+  <CollisionDetectionPlugin id="wheel-coldet" plugin="librimless-wheel-coldet-plugin.so" />
 
 <!--  downhill at alpha = 0.0702 -->
 <!--<GravityForce id="gravity" accel="0 0 -1" />-->
 <GravityForce id="gravity" accel="0.07014235613 0 -0.99753699173" />
 <!--<GravityForce id="gravity" accel="0.687395090074 0 -9.775862518954" />-->
 
-  <EventDrivenSimulator integrator-id="rkf" Euler-step="5e-6" collision-detection-plugin="toroid" >
+  <EventDrivenSimulator integrator-id="rkf" Euler-step="5e-6" collision-detection-plugin="wheel-coldet" impacting-contact-dist-thresh="1e-8" sustained-contact-dist-thresh="1e-8">
     <RecurrentForce recurrent-force-id="gravity" />
     <DynamicBody dynamic-body-id="GROUND" />
-    <DynamicBody dynamic-body-id="WALKER" />
+    <DynamicBody dynamic-body-id="WHEEL" />
 <!--    <DynamicBody dynamic-body-id="BOX" />-->
-    <DisabledPair object1-id="WALKER" object2-id="WALKER"/>
-    <ContactParameters object1-id="GROUND" object2-id="WALKER" epsilon="0" mu-coulomb="100" />
+    <DisabledPair object1-id="WHEEL" object2-id="WHEEL"/>
+    <ContactParameters object1-id="GROUND" object2-id="WHEEL" epsilon="0" mu-coulomb="100" />
 <!--    <ContactParameters object1-id="GROUND" object2-id="BOX" epsilon="0" mu-coulomb="100" />-->
   </EventDrivenSimulator>
 
-  <SDF filename="walker.sdf"/>
+  <RigidBody id="WHEEL" enabled="true" position="0 0 1.0" mass="1.0" inertia="0.0002 0 0; 0 0.0002 0; 0 0 .01">
+    <CollisionGeometry />
+  </RigidBody>
 
   <!-- setup the platform rigid body; it is not active -->
    <Box id="ground-primitive-viz" rpy="1.5708 0 0"  xlen="10" ylen="0.001" zlen="10" />
