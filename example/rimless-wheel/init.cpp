@@ -8,7 +8,9 @@
 #include <Ravelin/Vector3d.h>
 #include <Ravelin/VectorNd.h>
 #include <fstream>
+#include "params.h"
 
+using boost::shared_ptr;
 using namespace Ravelin;
 using namespace Moby;
 
@@ -16,7 +18,7 @@ Moby::RigidBodyPtr wheel;
 boost::shared_ptr<EventDrivenSimulator> sim;
 boost::shared_ptr<GravityForce> grav;
 
-// setup controller callback
+// setup simulator callback
 void post_step_callback(Simulator* sim)
 {
   const unsigned Z = 2;
@@ -26,6 +28,39 @@ void post_step_callback(Simulator* sim)
   double PE = wheel->get_inertia().m*gTw.x[Z]*-grav->gravity[Z];
   out << KE << " " << PE << " " << (KE+PE) << std::endl;
   out.close();
+  if (gTw.x[Z] > 1.000001)
+  {
+    std::cout << "Wheel is in ballistic flight!" << std::endl;
+    exit(0);
+  }
+}
+
+// setup simulator mini-callback
+void post_ministep_callback(EventDrivenSimulator* sim)
+{
+  const unsigned Y = 1;
+
+  // see whether there is significant undesired rotation
+  AAngled aa = Pose3d::calc_relative_pose(wheel->get_pose(), GLOBAL).q;
+  if (std::fabs(aa.x) > 1e-4 || std::fabs(aa.z) > 1e-4)
+    exit(0);
+
+  // if we're finding the return map, see whether the next step has been
+  // encountered 
+  if (FIND_MAP)
+  {
+    // look to see whether the last processed contact was a new spoke
+    std::ifstream in("IPC.token");
+    if (in.fail())
+      return;
+    in.close();
+
+    // it was, output the state of the system
+    std::ofstream out("state.system");
+    out << aa.y << " "; 
+    out << wheel->get_velocity().get_linear()[Y] << std::endl;
+    out.close();
+  }
 }
 
 /// plugin must be "extern C"
@@ -33,6 +68,7 @@ extern "C" {
 
 void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map, double time)
 {
+  const unsigned Z = 2;
 
   // overwrite the energy file
   std::ofstream out("energy.dat");
@@ -53,7 +89,35 @@ void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map,
   }
 
   sim->post_step_callback_fn = &post_step_callback;
+  sim->post_mini_step_callback_fn = &post_ministep_callback;
 
+  // initialize the system to the fixed point
+//  double theta = M_PI/N_SPOKES;
+  double theta = 0.0;
+  const double ALPHA = 0.2;
+  const double LAMBDA_SQ = 2.0/3;
+  const double MU = 1.0 + LAMBDA_SQ * (std::cos(2*M_PI/N_SPOKES) - 1.0);
+  assert(MU > 0.0 && MU < 1.0);
+  double theta_dot = std::sqrt((4.0*MU*MU*LAMBDA_SQ*std::sin(M_PI/N_SPOKES)*std::sin(ALPHA))/(1.0 - MU*MU));
+
+  // get the distance per revolution
+  const double DIST_PER_REV = 2*M_PI*R;
+  const double REV_PER_SEC = theta_dot / (M_PI*2.0);
+  const double DIST_PER_SEC = DIST_PER_REV * REV_PER_SEC;
+
+  // set the rotation about y
+  Quatd q_wheel = Matrix3d::rot_Y(theta);
+  Vector3d lvel(DIST_PER_SEC, 0.0, 0.0, wheel->get_velocity().pose); 
+  Vector3d avel(0, theta_dot, 0, wheel->get_velocity().pose);
+  Pose3d P;
+  P.x.set_zero();
+  P.x[Z] = 0.866025403784439; 
+  P.q = q_wheel;
+  wheel->set_pose(P);
+  SVelocityd v;
+  v.set_angular(avel);
+  v.set_linear(lvel);
+  wheel->set_velocity(v);
 /*
   // Set initial conditions from ruina paper
   Ravelin::VectorNd x,xd;
