@@ -1,15 +1,13 @@
 #include <Moby/CollisionDetection.h>
 #include <Moby/CCD.h>
 #include <Moby/EventDrivenSimulator.h>
+#include "params.h"
+#include <cstdio>
 #define NDEBUG
 using boost::shared_ptr;
 using boost::dynamic_pointer_cast;
 using namespace Ravelin;
 using namespace Moby;
-
-const double R = 1.0;  // radius from center of mass to center of blade
-const double W = 0.1;     // width of a blade
-const unsigned N_SPOKES = 16;
 
 class BladePlanePlugin : public CollisionDetection
 {
@@ -152,8 +150,12 @@ class BladePlanePlugin : public CollisionDetection
     {
       const unsigned Y = 1;
 
-      // setup the minimum dist
-      double min_dist = std::numeric_limits<double>::max();
+      // delete the IPC token
+      if (FIND_MAP)
+        std::remove("IPC.token");
+
+      // setup the minimum dist for a contact
+      double min_dist = NEAR_ZERO;
 
       // get the plane primitive
       PrimitivePtr plane_geom = dynamic_pointer_cast<Primitive>(ground_cg->get_geometry());
@@ -181,20 +183,37 @@ class BladePlanePlugin : public CollisionDetection
         Point3d p1_plane = pTb.transform_point(p1);
         Point3d p2_plane = pTb.transform_point(p2);
 
+        #ifndef NDEBUG
+        std::cout << "distance between blade " << i << " and ground: " << std::min(p1_plane[Y], p2_plane[Y]) << std::endl;
+        #endif
+
+        // create the IPC token if a blade other than 4 or 5 is in contact
+        if (FIND_MAP && i < 4 && (p1_plane[Y] < NEAR_ZERO || p2_plane[Y] < NEAR_ZERO))
+        {
+          std::ofstream out("IPC.token");
+          out.close();
+        }
+
         // create contact for the first point on the blade (if appropriate) 
-        if (p1_plane[Y] < min_dist)
+        if (p1_plane[Y] < min_dist - NEAR_ZERO)
         {
           min_dist = p1_plane[Y];
           Point3d p1_global = Pose3d::transform_point(GLOBAL, p1); 
           Vector3d normal(0,1,0,Pplane);
           Vector3d normal_global = Pose3d::transform_vector(GLOBAL, normal);
+          #ifndef NDEBUG
+          std::cout << "found contact between blade " << i << " and ground" << std::endl;
+          #endif
           contacts.clear();
           contacts.push_back(
             CollisionDetection::create_contact(blade_cg,ground_cg,p1_global,normal_global,min_dist)
               );
         }
-        else if (p1_plane[Y] == min_dist)
+        else if (std::fabs(p1_plane[Y] - min_dist) < NEAR_ZERO)
         {
+          #ifndef NDEBUG
+          std::cout << "found contact between blade " << i << " and ground" << std::endl;
+          #endif
           Point3d p1_global = Pose3d::transform_point(GLOBAL, p1); 
           Vector3d normal(0,1,0,Pplane);
           Vector3d normal_global = Pose3d::transform_vector(GLOBAL, normal);
@@ -204,8 +223,11 @@ class BladePlanePlugin : public CollisionDetection
         }
 
         // create contact for the second point on the blade (if appropriate) 
-        if (p2_plane[Y] < min_dist)
+        if (p2_plane[Y] < min_dist - NEAR_ZERO)
         {
+          #ifndef NDEBUG
+          std::cout << "found contact between blade " << i << " and ground" << std::endl;
+          #endif
           min_dist = p2_plane[Y];
           Point3d p2_global = Pose3d::transform_point(GLOBAL, p2); 
           Vector3d normal(0,1,0,Pplane);
@@ -215,8 +237,11 @@ class BladePlanePlugin : public CollisionDetection
             CollisionDetection::create_contact(blade_cg,ground_cg,p2_global,normal_global,min_dist)
               );
         }
-        else if (p2_plane[Y] == min_dist)
+        else if (std::fabs(p2_plane[Y] - min_dist) < NEAR_ZERO)
         {
+          #ifndef NDEBUG
+          std::cout << "found contact between blade " << i << " and ground" << std::endl;
+          #endif
           Point3d p2_global = Pose3d::transform_point(GLOBAL, p2); 
           Vector3d normal(0,1,0,Pplane);
           Vector3d normal_global = Pose3d::transform_vector(GLOBAL, normal);
