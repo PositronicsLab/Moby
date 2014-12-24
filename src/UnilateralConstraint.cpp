@@ -90,8 +90,8 @@ UnilateralConstraint& UnilateralConstraint::operator=(const UnilateralConstraint
   limit_joint = e.limit_joint;
   contact_normal = e.contact_normal;
   contact_normal_dot = e.contact_normal_dot;
-  contact_tan1_dot = e.contact_tan1;
-  contact_tan2_dot = e.contact_tan2;
+  contact_tan1_dot = e.contact_tan1_dot;
+  contact_tan2_dot = e.contact_tan2_dot;
   contact_geom1 = e.contact_geom1;
   contact_geom2 = e.contact_geom2;
   contact_point = e.contact_point;
@@ -1579,6 +1579,8 @@ std::ostream& Moby::operator<<(std::ostream& o, const UnilateralConstraint& e)
       o << "relative normal acceleration: " << e.calc_constraint_accel() << " (1)   " << calc_constraint_accel2(e) << " (2)" << std::endl;
       double tan1A, tan2A;
       e.calc_contact_tan_accel(tan1A, tan2A);
+      assert(!std::isnan(tan1A));
+      assert(!std::isnan(tan2A));
       o << "relative tangent accelerations: " << tan1A << " / " << tan2A << std::endl;
     } 
   }
@@ -2480,6 +2482,8 @@ void UnilateralConstraint::determine_contact_tangents()
 
     // determine an orthonormal basis using the two contact tangents
     Vector3d::determine_orthonormal_basis(contact_normal, contact_tan1, contact_tan2);
+    assert(!std::isnan(contact_tan1.norm()));
+    assert(!std::isnan(contact_tan2.norm()));
   }
   else
   {
@@ -2489,6 +2493,8 @@ void UnilateralConstraint::determine_contact_tangents()
     contact_tan1.pose = GLOBAL;
     contact_tan2 = Vector3d::cross(contact_normal, contact_tan1);
     contact_tan2.normalize();
+    assert(!std::isnan(contact_tan1.norm()));
+    assert(!std::isnan(contact_tan2.norm()));
   }
 }
 
