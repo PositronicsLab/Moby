@@ -644,7 +644,7 @@ void SustainedUnilateralConstraintHandler::compute_problem_data2(SustainedUnilat
 
     if (ROWS == 3)
     {
-      // setup appropriate parts of contact velocities
+      // setup appropriate parts of contact accelerations 
       q.Cn_a[i] = workv[0];
       q.Cs_a[k] = workv[1];
       q.Ct_a[k] = workv[2];
@@ -654,7 +654,7 @@ void SustainedUnilateralConstraintHandler::compute_problem_data2(SustainedUnilat
     }
     else
     {
-      // setup appropriate part of contact velocities
+      // setup appropriate part of contact accelerations 
       q.Cn_a[i] = workv[0];
     }
   }

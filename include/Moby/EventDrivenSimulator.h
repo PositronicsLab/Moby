@@ -135,7 +135,7 @@ class EventDrivenSimulator : public Simulator
 
   private:
     enum IntegrationResult { eIntegrationSuccessful, eVelocityLimitExceeded, eMinStepReached };
-    IntegrationResult integrate_generic(double dt, clock_t& start);
+    IntegrationResult integrate_generic(double& dt, clock_t& start);
 
     struct UnilateralConstraintCmp
     {

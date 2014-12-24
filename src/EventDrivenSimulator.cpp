@@ -187,12 +187,22 @@ VectorNd& EventDrivenSimulator::ode_sustained_constraints(const VectorNd& x, dou
   s->update_bounds();
 
   // check pairwise constraint violations
+  s->calc_pairwise_distances();
   double min_dist = s->check_pairwise_constraint_violations(t);
 
   // find unilateral constraints
   s->find_unilateral_constraints(s->sustained_contact_dist_thresh);
   if (s->_rigid_constraints.empty())
-    FILE_LOG(LOG_SIMULATOR) << " *** constraints vector is unexpectedly empty! ***" << std::endl;
+  {
+    if (LOGGING(LOG_SIMULATOR))
+    {
+      FILE_LOG(LOG_SIMULATOR) << " *** constraints vector is unexpectedly empty! ***" << std::endl;
+
+      // find contact constraints
+      BOOST_FOREACH(const PairwiseDistInfo& pdi, s->_pairwise_distances)
+        FILE_LOG(LOG_SIMULATOR) << " -- signed distance between " << pdi.a->get_single_body()->id << " and " << pdi.b->get_single_body()->id << ": " << pdi.dist << std::endl;
+    }
+  }
 
   // check velocity violations for constraints
   s->check_constraint_velocity_violations(t);
@@ -978,8 +988,12 @@ double EventDrivenSimulator::calc_next_CA_step(double contact_dist_thresh) const
     return next_event_time;
 }
 
-/// Attempts to do generic integration
-EventDrivenSimulator::IntegrationResult EventDrivenSimulator::integrate_generic(double dt, clock_t& start)
+/// Attempts to do "generic" integration (i.e., trying not to pay attention to state violations)
+/**
+ * \param dt the time step to attempt to integrate, on output the step taken
+ * \param start the clock start on entry and the updated clock step on exit
+ */
+EventDrivenSimulator::IntegrationResult EventDrivenSimulator::integrate_generic(double& dt, clock_t& start)
 {
   do
   {
