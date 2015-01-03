@@ -27,6 +27,9 @@ class ContactParameters : public Base
     /// Coefficient of restitution for contact (default is 0.0)
     double epsilon;
 
+    /// The tolerance for sticking friction vs. sliding friction (default is 1e-8)
+    double stick_tol;
+
     /// Coefficient of Coulomb friction for contact (default is 0.0)
     double mu_coulomb;
 

@@ -55,8 +55,7 @@ EventDrivenSimulator::EventDrivenSimulator()
   euler_step = 1e-3;
 
   // setup contact distance thresholds
-  impacting_contact_dist_thresh = 1e-6;
-  sustained_contact_dist_thresh = 1e-6;
+  contact_dist_thresh = 1e-6;
 
   // setup the collision detector
   _coldet = shared_ptr<CollisionDetection>(new CCD);
@@ -191,12 +190,12 @@ VectorNd& EventDrivenSimulator::ode_sustained_constraints(const VectorNd& x, dou
   double min_dist = s->check_pairwise_constraint_violations(t);
 
   // find unilateral constraints
-  s->find_unilateral_constraints(s->sustained_contact_dist_thresh);
+  s->find_unilateral_constraints(s->contact_dist_thresh);
   if (s->_rigid_constraints.empty())
   {
     if (LOGGING(LOG_SIMULATOR))
     {
-      FILE_LOG(LOG_SIMULATOR) << " *** constraints vector is unexpectedly empty! ***" << std::endl;
+      FILE_LOG(LOG_SIMULATOR) << " *** constraints vector is empty " << std::endl;
 
       // find contact constraints
       BOOST_FOREACH(const PairwiseDistInfo& pdi, s->_pairwise_distances)
@@ -209,7 +208,8 @@ VectorNd& EventDrivenSimulator::ode_sustained_constraints(const VectorNd& x, dou
 
   // convert rigid constraints to acceleration constraints
   for (unsigned i=0; i< s->_rigid_constraints.size(); i++)
-    s->_rigid_constraints[i].deriv_type = UnilateralConstraint::eAccel;
+    if (s->_rigid_constraints[i].calc_constraint_vel() < NEAR_ZERO)
+      s->_rigid_constraints[i].deriv_type = UnilateralConstraint::eAccel;
 
   // loop through all bodies, computing forward dynamics
   BOOST_FOREACH(DynamicBodyPtr db, s->_bodies)
@@ -717,11 +717,13 @@ double EventDrivenSimulator::step(double step_size)
     FILE_LOG(LOG_SIMULATOR) << "+stepping simulation from time: " << this->current_time << " by " << (step_size - h) << std::endl;
     if (LOGGING(LOG_SIMULATOR))
     {
-      VectorNd q;
+      VectorNd q, qd;
       BOOST_FOREACH(DynamicBodyPtr db, _bodies)
       {
         db->get_generalized_coordinates(DynamicBody::eEuler, q);
-        FILE_LOG(LOG_SIMULATOR) << " body " << db->id << " coordinates (before): " << q << std::endl;
+        db->get_generalized_velocity(DynamicBody::eSpatial, qd);
+        FILE_LOG(LOG_SIMULATOR) << " body " << db->id << " Euler coordinates (before): " << q << std::endl;
+        FILE_LOG(LOG_SIMULATOR) << " body " << db->id << " spatial velocity (before): " << qd << std::endl;
       }
     }
 
@@ -763,7 +765,7 @@ double EventDrivenSimulator::step(double step_size)
 
     // if there are any impacts at the current time, handle them
     FILE_LOG(LOG_SIMULATOR) << "  - preparing to handle any impacts at the current time" << std::endl;
-    find_unilateral_constraints(impacting_contact_dist_thresh);
+    find_unilateral_constraints(contact_dist_thresh);
     calc_impacting_unilateral_constraint_forces(-1.0);
 
 restart_with_new_limits:
@@ -776,7 +778,7 @@ restart_with_new_limits:
     FILE_LOG(LOG_SIMULATOR) << "  - conservative advancement step: " << safe_dt << std::endl;
 
     // get next possible constraint time
-    double next_event_time = calc_next_CA_step(sustained_contact_dist_thresh);
+    double next_event_time = calc_next_CA_step(contact_dist_thresh);
     FILE_LOG(LOG_SIMULATOR) << "  - *next* conservative advancement step: " << next_event_time << std::endl;
 
     // we know that the current time is safe, so if the conservative
@@ -784,8 +786,8 @@ restart_with_new_limits:
     if (safe_dt == 0.0)
       safe_dt = std::min(dt, next_event_time);
 
-    // if (the distance between bodies is small (next_event_time will be
-    // < INF if there is an event at the current time) and the next time of
+    // if (the distance between bodies is small [next_event_time will be
+    // < INF if there is an event at the current time] and the next time of
     // contact is greater than an Euler step) or (safe_dt is greater than the
     // Euler step), we can *try* generic integration
     if ((next_event_time < INF && next_event_time > euler_step) ||
@@ -1173,7 +1175,7 @@ void EventDrivenSimulator::check_constraint_velocity_violations(double t)
     if (ev < -zv_tol->second - NEAR_ZERO)
     {
       FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::check_constraint_velocity_violations() about to throw exception..." << std::endl;
-//      throw InvalidVelocityException(t);
+      throw InvalidVelocityException(t);
     }
   }
 
@@ -1474,6 +1476,7 @@ void EventDrivenSimulator::find_unilateral_constraints(double contact_dist_thres
 void EventDrivenSimulator::step_si_Euler(double dt)
 {
   FILE_LOG(LOG_SIMULATOR) << "-- doing semi-implicit Euler step" << std::endl;
+  const double INF = std::numeric_limits<double>::max();
 
   // integrate bodies' velocities forward by dt
   integrate_velocities_Euler(dt);
@@ -1487,7 +1490,7 @@ void EventDrivenSimulator::step_si_Euler(double dt)
   {
     // determine constraints (contacts, limits) that are currently active
     FILE_LOG(LOG_SIMULATOR) << "   finding constraints" << std::endl;
-    find_unilateral_constraints(impacting_contact_dist_thresh);
+    find_unilateral_constraints(INF);
 
     // solve constraints to yield new velocities
     FILE_LOG(LOG_SIMULATOR) << "   handling constraints" << std::endl;
@@ -1503,8 +1506,8 @@ void EventDrivenSimulator::step_si_Euler(double dt)
       }
     }
 
-    // get the time of the next event(s)
-    double h = std::min(calc_next_CA_Euler_step(impacting_contact_dist_thresh), target_time - current_time);
+    // get the time of the next event(s), skipping events at current step
+    double h = std::min(calc_next_CA_Euler_step(contact_dist_thresh), target_time - current_time);
     FILE_LOG(LOG_SIMULATOR) << "   position integration: " << h << std::endl;
 
     // integrate bodies' positions forward by that time using new velocities
@@ -1560,15 +1563,10 @@ void EventDrivenSimulator::load_from_xml(shared_ptr<const XMLTree> node, map<std
     _coldet->set_simulator(shared_this);
   }
 
-  // read the impacting contact distance threshold, if any
-  XMLAttrib* impacting_contact_dist_thresh_attrib = node->get_attrib("impacting-contact-dist-thresh");
-  if (impacting_contact_dist_thresh_attrib)
-    impacting_contact_dist_thresh = impacting_contact_dist_thresh_attrib->get_real_value();
-  
-  // read the sustained contact distance threshold, if any
-  XMLAttrib* sustained_contact_dist_thresh_attrib = node->get_attrib("sustained-contact-dist-thresh");
-  if (sustained_contact_dist_thresh_attrib)
-    sustained_contact_dist_thresh = sustained_contact_dist_thresh_attrib->get_real_value();
+  // read the contact distance threshold, if any
+  XMLAttrib* contact_dist_thresh_attrib = node->get_attrib("contact-dist-thresh");
+  if (contact_dist_thresh_attrib)
+    contact_dist_thresh = contact_dist_thresh_attrib->get_real_value();
   
   // read the maximum Euler step
   XMLAttrib* Euler_step_attrib = node->get_attrib("Euler-step");
@@ -1705,8 +1703,7 @@ void EventDrivenSimulator::save_to_xml(XMLTreePtr node, list<shared_ptr<const Ba
   node->attribs.insert(XMLAttrib("Euler-step", euler_step));
 
   // save the distance thresholds
-  node->attribs.insert(XMLAttrib("impacting-contact-dist-thesh", impacting_contact_dist_thresh));
-  node->attribs.insert(XMLAttrib("sustained-contact-dist-thesh", sustained_contact_dist_thresh));
+  node->attribs.insert(XMLAttrib("sustained-contact-dist-thesh", contact_dist_thresh));
 
   // save all ContactParameters
   for (map<sorted_pair<BasePtr>, shared_ptr<ContactParameters> >::const_iterator i = contact_params.begin(); i != contact_params.end(); i++)

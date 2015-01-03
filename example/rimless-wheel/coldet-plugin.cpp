@@ -86,15 +86,15 @@ class BladePlanePlugin : public CollisionDetection
       return ccd->calc_CA_Euler_step(pdi);
     }
 
-    /// Calculates signed distance between a blade and a plane
-    double calc_signed_dist_blade_plane(CollisionGeometryPtr blade_cg, CollisionGeometryPtr ground_cg)
+    /// Calculates signed distance between a wheel and a plane
+    double calc_signed_dist_wheel_plane(CollisionGeometryPtr wheel_cg, CollisionGeometryPtr ground_cg)
     {
       Vector3d point, normal;
-      return calc_signed_dist_blade_plane(blade_cg,ground_cg,point,normal);
+      return calc_signed_dist_wheel_plane(wheel_cg,ground_cg,point,normal);
     }
 
-    /// Calculates signed distance between a blade and a plane
-    double calc_signed_dist_blade_plane(CollisionGeometryPtr blade_cg, CollisionGeometryPtr ground_cg,Vector3d& point,Vector3d& normal)
+    /// Calculates signed distance between a wheel and a plane
+    double calc_signed_dist_wheel_plane(CollisionGeometryPtr wheel_cg, CollisionGeometryPtr ground_cg,Vector3d& pwheel,Vector3d& pground)
     {
       const unsigned Y = 1;
 
@@ -107,11 +107,11 @@ class BladePlanePlugin : public CollisionDetection
       // get the pose for the plane primitive
       shared_ptr<const Pose3d> Pplane = plane_geom->get_pose(ground_cg);
 
-      // get the pose for the blade
-      shared_ptr<const Pose3d> Pblade = blade_cg->get_pose();
+      // get the pose for the wheel 
+      shared_ptr<const Pose3d> Pwheel = wheel_cg->get_pose();
 
       // get the pose of the center-of-mass of the wheel
-      Transform3d pTb = Pose3d::calc_relative_pose(Pblade, Pplane);
+      Transform3d pTb = Pose3d::calc_relative_pose(Pwheel, Pplane);
 
       // loop over each spoke
       for (unsigned i=0; i< N_SPOKES; i++)
@@ -120,8 +120,8 @@ class BladePlanePlugin : public CollisionDetection
         double theta = M_PI * i * 2.0 / N_SPOKES;
 
         // setup the two points of each spoke
-        Point3d p1(std::cos(theta)*R, W*.5, std::sin(theta)*R, Pblade);
-        Point3d p2(std::cos(theta)*R, -W*.5, std::sin(theta)*R, Pblade);
+        Point3d p1(std::cos(theta)*R, W*.5, std::sin(theta)*R, Pwheel);
+        Point3d p2(std::cos(theta)*R, -W*.5, std::sin(theta)*R, Pwheel);
 
         // transform the two points
         Point3d p1_plane = pTb.transform_point(p1);
@@ -131,43 +131,39 @@ class BladePlanePlugin : public CollisionDetection
         if (p1_plane[Y] < min_dist)
         {
           min_dist = p1_plane[Y];
-          point = p1_plane;
-          normal = Vector3d(0,1,0,Pplane);
+          pground = p1_plane;
+          pground[Y] = 0.0;
+          pwheel = p1;
         }
         if (p2_plane[Y] < min_dist)
         {
           min_dist = p2_plane[Y];
-          point = p2_plane;
-          normal = Vector3d(0,1,0,Pplane);
+          pground = p2_plane;
+          pground[Y] = 0.0;
+          pwheel = p2;
         }
       }
 
       return min_dist;
     }
 
-    /// Finds contacts between a blade and a plane
-    virtual void find_contacts_blade_plane(CollisionGeometryPtr blade_cg, CollisionGeometryPtr ground_cg, std::vector<UnilateralConstraint>& contacts)
+    /// Calculates signed distance between the wheel and a curved ground
+/*
+    double calc_signed_dist_wheel_cos(CollisionGeometryPtr wheel_cg, CollisionGeometryPtr ground_cg,Vector3d& point,Vector3d& normal)
     {
-      const unsigned Y = 1;
+      const unsigned X = 0, Y = 1;
 
-      // delete the IPC token
-      if (FIND_MAP)
-        std::remove("IPC.token");
+      // setup the minimum dist
+      double min_dist = std::numeric_limits<double>::max();
 
-      // setup the minimum dist for a contact
-      double min_dist = NEAR_ZERO;
+      // get the pose for the ground 
+      shared_ptr<const Pose3d> Pground = ground_cg->get_pose();
 
-      // get the plane primitive
-      PrimitivePtr plane_geom = dynamic_pointer_cast<Primitive>(ground_cg->get_geometry());
-
-      // get the pose for the plane primitive
-      shared_ptr<const Pose3d> Pplane = plane_geom->get_pose(ground_cg);
-
-      // get the pose for the blade
-      shared_ptr<const Pose3d> Pblade = blade_cg->get_pose();
+      // get the pose for the wheel 
+      shared_ptr<const Pose3d> Pwheel = wheel_cg->get_pose();
 
       // get the pose of the center-of-mass of the wheel
-      Transform3d pTb = Pose3d::calc_relative_pose(Pblade, Pplane);
+      Transform3d gTw = Pose3d::calc_relative_pose(Pwheel, Pground);
 
       // loop over each spoke
       for (unsigned i=0; i< N_SPOKES; i++)
@@ -176,12 +172,84 @@ class BladePlanePlugin : public CollisionDetection
         double theta = M_PI * i * 2.0 / N_SPOKES;
 
         // setup the two points of each spoke
-        Point3d p1(std::cos(theta)*R, W*.5, std::sin(theta)*R, Pblade);
-        Point3d p2(std::cos(theta)*R, -W*.5, std::sin(theta)*R, Pblade);
+        Point3d p1(std::cos(theta)*R, W*.5, std::sin(theta)*R, Pwheel);
+        Point3d p2(std::cos(theta)*R, -W*.5, std::sin(theta)*R, Pwheel);
+
+        // transform the two points
+        Point3d p1_ground = gTw.transform_point(p1);
+        Point3d p2_ground = gTw.transform_point(p2);
+
+        // get the signed distances
+        double d1 = p1_ground[Y] - std::cos(p1_ground[X]*0.5);
+        double d2 = p1_ground[Y] - std::cos(p2_ground[X]*0.5);
+
+        // get the signed distance
+        if (d1 < min_dist)
+        {
+          min_dist = d1;
+          point = p1_ground;
+
+          // the derivative at theta gives the tangent vector to the curve
+          // we need a normal to this tangent, which we'll get by rotating
+          // 0 1 0 by a rotation matrix around z by theta1. If the vertical
+          // (y) component is negative, we rotate around z by theta1+pi 
+          normal = Vector3d(std::cos(theta1),-std::sin(theta1),0,Pground);
+        }
+        if (W > 0.0 && d2 < min_dist)
+        {
+          min_dist = d2;
+          point = p2_ground;
+          normal = Vector3d(0,1,0,Pground);
+        }
+      }
+
+      return min_dist;
+    }
+*/
+
+    /// Finds contacts between the wheel and a plane
+    virtual void find_contacts_wheel_plane(CollisionGeometryPtr wheel_cg, CollisionGeometryPtr ground_cg, std::vector<UnilateralConstraint>& contacts)
+    {
+      const unsigned Y = 1;
+
+      // delete the IPC token
+      if (FIND_MAP)
+        std::remove("IPC.token");
+
+      // setup the minimum dist for a contact
+      double min_dist = std::numeric_limits<double>::max();
+
+      // get the plane primitive
+      PrimitivePtr plane_geom = dynamic_pointer_cast<Primitive>(ground_cg->get_geometry());
+
+      // get the pose for the plane primitive
+      shared_ptr<const Pose3d> Pplane = plane_geom->get_pose(ground_cg);
+
+      // get the pose for the wheel 
+      shared_ptr<const Pose3d> Pwheel = wheel_cg->get_pose();
+
+      // get the pose of the center-of-mass of the wheel
+      Transform3d pTb = Pose3d::calc_relative_pose(Pwheel, Pplane);
+
+      // loop over each spoke
+      for (unsigned i=0; i< N_SPOKES; i++)
+      {
+        // get the value of theta
+        double theta = M_PI * i * 2.0 / N_SPOKES;
+
+        // setup the two points of each spoke
+        Point3d p1(std::cos(theta)*R, W*.5, std::sin(theta)*R, Pwheel);
+        Point3d p2(std::cos(theta)*R, -W*.5, std::sin(theta)*R, Pwheel);
 
         // transform the two points
         Point3d p1_plane = pTb.transform_point(p1);
         Point3d p2_plane = pTb.transform_point(p2);
+
+        // setup the versions right on the plane
+        Point3d p1_plane_prime = p1_plane;
+        Point3d p2_plane_prime = p2_plane;
+        p1_plane_prime[Y] = 0.0;
+        p2_plane_prime[Y] = 0.0;
 
         #ifndef NDEBUG
         std::cout << "distance between blade " << i << " and ground: " << std::min(p1_plane[Y], p2_plane[Y]) << std::endl;
@@ -198,7 +266,8 @@ class BladePlanePlugin : public CollisionDetection
         if (p1_plane[Y] < min_dist - NEAR_ZERO)
         {
           min_dist = p1_plane[Y];
-          Point3d p1_global = Pose3d::transform_point(GLOBAL, p1); 
+          Point3d p1x_global = Pose3d::transform_point(GLOBAL, p1);
+          Point3d p1y_global = Pose3d::transform_point(GLOBAL, p1_plane_prime);
           Vector3d normal(0,1,0,Pplane);
           Vector3d normal_global = Pose3d::transform_vector(GLOBAL, normal);
           #ifndef NDEBUG
@@ -206,7 +275,7 @@ class BladePlanePlugin : public CollisionDetection
           #endif
           contacts.clear();
           contacts.push_back(
-            CollisionDetection::create_contact(blade_cg,ground_cg,p1_global,normal_global,min_dist)
+            CollisionDetection::create_contact(wheel_cg,ground_cg,(p1x_global+p1y_global)*0.5,normal_global,min_dist)
               );
         }
         else if (std::fabs(p1_plane[Y] - min_dist) < NEAR_ZERO)
@@ -214,39 +283,42 @@ class BladePlanePlugin : public CollisionDetection
           #ifndef NDEBUG
           std::cout << "found contact between blade " << i << " and ground" << std::endl;
           #endif
-          Point3d p1_global = Pose3d::transform_point(GLOBAL, p1); 
+          Point3d p1x_global = Pose3d::transform_point(GLOBAL, p1);
+          Point3d p1y_global = Pose3d::transform_point(GLOBAL, p1_plane_prime);
           Vector3d normal(0,1,0,Pplane);
           Vector3d normal_global = Pose3d::transform_vector(GLOBAL, normal);
           contacts.push_back(
-            CollisionDetection::create_contact(blade_cg,ground_cg,p1_global,normal_global,min_dist)
+            CollisionDetection::create_contact(wheel_cg,ground_cg,(p1x_global+p1y_global)*0.5,normal_global,min_dist)
               );
         }
 
         // create contact for the second point on the blade (if appropriate) 
-        if (p2_plane[Y] < min_dist - NEAR_ZERO)
+        if (W > 0.0 && p2_plane[Y] < min_dist - NEAR_ZERO)
         {
           #ifndef NDEBUG
           std::cout << "found contact between blade " << i << " and ground" << std::endl;
           #endif
           min_dist = p2_plane[Y];
-          Point3d p2_global = Pose3d::transform_point(GLOBAL, p2); 
+          Point3d p2x_global = Pose3d::transform_point(GLOBAL, p2);
+          Point3d p2y_global = Pose3d::transform_point(GLOBAL, p2_plane_prime);
           Vector3d normal(0,1,0,Pplane);
           Vector3d normal_global = Pose3d::transform_vector(GLOBAL, normal);
           contacts.clear();
           contacts.push_back(
-            CollisionDetection::create_contact(blade_cg,ground_cg,p2_global,normal_global,min_dist)
+            CollisionDetection::create_contact(wheel_cg,ground_cg,(p2x_global+p2y_global)*0.5,normal_global,min_dist)
               );
         }
-        else if (std::fabs(p2_plane[Y] - min_dist) < NEAR_ZERO)
+        else if (W > 0.0 && std::fabs(p2_plane[Y] - min_dist) < NEAR_ZERO)
         {
           #ifndef NDEBUG
           std::cout << "found contact between blade " << i << " and ground" << std::endl;
           #endif
-          Point3d p2_global = Pose3d::transform_point(GLOBAL, p2); 
+          Point3d p2x_global = Pose3d::transform_point(GLOBAL, p2);
+          Point3d p2y_global = Pose3d::transform_point(GLOBAL, p2_plane_prime);
           Vector3d normal(0,1,0,Pplane);
           Vector3d normal_global = Pose3d::transform_vector(GLOBAL, normal);
           contacts.push_back(
-            CollisionDetection::create_contact(blade_cg,ground_cg,p2_global,normal_global,min_dist)
+            CollisionDetection::create_contact(wheel_cg,ground_cg,(p2x_global+p2y_global)*0.5,normal_global,min_dist)
               );
         }      
       }
@@ -256,9 +328,9 @@ class BladePlanePlugin : public CollisionDetection
     virtual void  find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, std::vector<UnilateralConstraint>& contacts, double TOL = NEAR_ZERO)
     {
       if (cgA == wheel_cg && cgB == ground_cg)
-        find_contacts_blade_plane(cgA, cgB, contacts);
+        find_contacts_wheel_plane(cgA, cgB, contacts);
       else if (cgA == ground_cg && cgB == wheel_cg)
-        find_contacts_blade_plane(cgB, cgA, contacts);
+        find_contacts_wheel_plane(cgB, cgA, contacts);
       else
         ccd->find_contacts(cgA, cgB, contacts, TOL);
     }
@@ -268,9 +340,9 @@ class BladePlanePlugin : public CollisionDetection
     {
       // only handle specific case
       if (cgA == wheel_cg && cgB == ground_cg)
-        return calc_signed_dist_blade_plane(cgA, cgB, pA, pB);
+        return calc_signed_dist_wheel_plane(cgA, cgB, pA, pB);
       else if (cgA == ground_cg && cgB == wheel_cg)
-        return calc_signed_dist_blade_plane(cgB, cgA, pA, pB);
+        return calc_signed_dist_wheel_plane(cgB, cgA, pA, pB);
       else
         return ccd->calc_signed_dist(cgA, cgB, pA, pB);
     }

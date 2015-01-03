@@ -106,6 +106,9 @@ class EventDrivenSimulator : public Simulator
     /// the mean integration step over a single step(.) call
     double int_mean_step_stat;
 
+    /// Gets the collision detection mechanism
+    boost::shared_ptr<CollisionDetection> get_collision_detection() const { return _coldet; }
+
   protected:
     void calc_impacting_unilateral_constraint_forces(double dt);
     virtual double check_pairwise_constraint_violations(double t);
@@ -174,19 +177,32 @@ class EventDrivenSimulator : public Simulator
     std::map<sorted_pair<CollisionGeometryPtr>, double> _ip_tolerances;
 
     /// Velocity tolerances
+    /**
+     * The constraint solver can only guarantee constraints are satisfied
+     * to some tolerance near zero. This map allows the zero velocity tolerance
+     * to be specified for any constraint. 
+     */
     std::map<UnilateralConstraint, double, UnilateralConstraintCmp> _zero_velocity_tolerances;
 
     /// Object for handling sustained rigid unilateral constraints 
     SustainedUnilateralConstraintHandler _rigid_unilateral_constraint_handler;
 
     /// The Euler step size
+    /**
+     * Below this step size, a time-stepping method is triggered. The
+     * stepping method might be necessary if inconsistent contact 
+     * configurations (Painleve' Paradox type configurations) are encountered.
+     * The time-stepping method is first order.
+     */ 
     double euler_step;
 
-    /// The distance threshold for a contact to be handled as an impact
-    double impacting_contact_dist_thresh; 
-
-    /// The distance threshold for a contact to be handled as a sustained contact 
-    double sustained_contact_dist_thresh;
+    /// The distance threshold for a contact to be handled
+    /**
+     * Bodies are only considered to be in contact 
+     * if their distance is less than this
+     * threshold.
+     */
+    double contact_dist_thresh;
 
     /// The collision detection mechanism
     boost::shared_ptr<CollisionDetection> _coldet;

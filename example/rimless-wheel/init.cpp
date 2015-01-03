@@ -8,12 +8,14 @@
 #include <Ravelin/Vector3d.h>
 #include <Ravelin/VectorNd.h>
 #include <fstream>
+#include <stdlib.h>
 #include "params.h"
 
 using boost::shared_ptr;
 using namespace Ravelin;
 using namespace Moby;
 
+Moby::RigidBodyPtr ground;
 Moby::RigidBodyPtr wheel;
 boost::shared_ptr<EventDrivenSimulator> sim;
 boost::shared_ptr<GravityForce> grav;
@@ -28,10 +30,34 @@ void post_step_callback(Simulator* sim)
   double PE = wheel->get_inertia().m*gTw.x[Z]*-grav->gravity[Z];
   out << KE << " " << PE << " " << (KE+PE) << std::endl;
   out.close();
-  if (gTw.x[Z] > 1.000001)
+
+  // see whether we are in a ballistic flight phase
+  EventDrivenSimulator* esim = (EventDrivenSimulator*) sim;
+  boost::shared_ptr<CollisionDetection> coldet = esim->get_collision_detection(); 
+  CollisionGeometryPtr cgw = wheel->geometries.front();
+  CollisionGeometryPtr cgg = ground->geometries.front();
+  Point3d cpw, cpg;
+  double dist = coldet->calc_signed_dist(cgw, cgg, cpw, cpg);
+  if (dist > 1e-4)
+    std::cerr << "-- in a ballistic flight phase at time " << sim->current_time << std::endl;
+
+  // fast exit conditions
+  if (FIND_MAP)
   {
-    std::cout << "Wheel is in ballistic flight!" << std::endl;
-    exit(0);
+    if (KE < NEAR_ZERO)
+    {
+      std::cerr << "kinetic energy too small!" << std::endl;
+      out.open("system.state", std::ostream::app);
+      out << "0.0" << std::endl;
+      exit(0);
+    }
+    if (sim->current_time > 100.0)
+    {
+      std::cerr << "simulation ran too long!" << std::endl;
+      out.open("system.state", std::ostream::app);
+      out << "DnF" << std::endl;
+      exit(0);
+    }
   }
 }
 
@@ -42,8 +68,16 @@ void post_ministep_callback(EventDrivenSimulator* sim)
 
   // see whether there is significant undesired rotation
   AAngled aa = Pose3d::calc_relative_pose(wheel->get_pose(), GLOBAL).q;
-  if (std::fabs(aa.x) > 1e-4 || std::fabs(aa.z) > 1e-4)
+  if ((std::fabs(aa.x) > 1e-4 || std::fabs(aa.z) > 1e-4) && std::fabs(aa.angle) > 1e-6)
+  {
+    std::cerr << "too much angular rotation out of the plane!" << std::endl;
+    if (FIND_MAP)
+    {
+      std::ofstream out("system.state", std::ostream::app);
+      out << "DnF" << std::endl;
+    }
     exit(0);
+  }
 
   // if we're finding the return map, see whether the next step has been
   // encountered 
@@ -56,10 +90,10 @@ void post_ministep_callback(EventDrivenSimulator* sim)
     in.close();
 
     // it was, output the state of the system
-    std::ofstream out("state.system");
-    out << aa.y << " "; 
-    out << wheel->get_velocity().get_linear()[Y] << std::endl;
+    std::ofstream out("system.state", std::ostream::app);
+    out << " " << wheel->get_velocity().get_angular()[Y] << std::endl;
     out.close();
+    exit(0);
   }
 }
 
@@ -84,6 +118,8 @@ void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map,
       sim = boost::dynamic_pointer_cast<EventDrivenSimulator>(i->second);
     if (i->first == "WHEEL")
       wheel = boost::dynamic_pointer_cast<RigidBody>(i->second);
+    if (i->first == "GROUND")
+      ground = boost::dynamic_pointer_cast<RigidBody>(i->second);
     if (!grav)
       grav = boost::dynamic_pointer_cast<GravityForce>(i->second);
   }
@@ -98,7 +134,19 @@ void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map,
   const double LAMBDA_SQ = 2.0/3;
   const double MU = 1.0 + LAMBDA_SQ * (std::cos(2*M_PI/N_SPOKES) - 1.0);
   assert(MU > 0.0 && MU < 1.0);
-  double theta_dot = std::sqrt((4.0*MU*MU*LAMBDA_SQ*std::sin(M_PI/N_SPOKES)*std::sin(ALPHA))/(1.0 - MU*MU));
+//  double theta_dot = std::sqrt((4.0*MU*MU*LAMBDA_SQ*std::sin(M_PI/N_SPOKES)*std::sin(ALPHA))/(1.0 - MU*MU));
+
+  // get theta dot
+  char* theta_dot_str = getenv("RIMLESS_WHEEL_THETAD");
+  if (!theta_dot_str) 
+  {
+    std::cerr << "RIMLESS_WHEEL_THETAD not defined!" << std::endl;
+    exit(-1);
+  }
+  double theta_dot = std::atof(theta_dot_str);
+  out.open("system.state", std::ostream::app);
+  out << theta_dot << " ";
+  out.close();
 
   // get the distance per revolution
   const double DIST_PER_REV = 2*M_PI*R;
