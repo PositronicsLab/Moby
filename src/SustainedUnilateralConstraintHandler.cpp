@@ -638,16 +638,12 @@ void SustainedUnilateralConstraintHandler::compute_problem_data2(SustainedUnilat
     const UnilateralConstraint* ci =  q.constraints[i];
     const unsigned ROWS = (ci->get_friction_type() == UnilateralConstraint::eSticking) ? 3 : 1;
 
-    // compute vector for contact constraint i
-    workv.set_zero(ROWS);
-    q.constraints[i]->compute_constraint_data(workM, workv);
-
     if (ROWS == 3)
     {
       // setup appropriate parts of contact accelerations 
-      q.Cn_a[i] = workv[0];
-      q.Cs_a[k] = workv[1];
-      q.Ct_a[k] = workv[2];
+      q.Cn_a[i] = q.constraints[i]->calc_contact_accel(q.constraints[i]->contact_normal, q.constraints[i]->contact_normal_dot);
+      q.Cs_a[k] = q.constraints[i]->calc_contact_accel(q.constraints[i]->contact_tan1, q.constraints[i]->contact_tan1_dot);
+      q.Ct_a[k] = q.constraints[i]->calc_contact_accel(q.constraints[i]->contact_tan2, q.constraints[i]->contact_tan2_dot);
 
       // update k (NOTE: we need k b/c some contacts may be slipping)
       k++;
@@ -655,7 +651,7 @@ void SustainedUnilateralConstraintHandler::compute_problem_data2(SustainedUnilat
     else
     {
       // setup appropriate part of contact accelerations 
-      q.Cn_a[i] = workv[0];
+      q.Cn_a[i] = q.constraints[i]->calc_contact_accel(q.constraints[i]->contact_normal, q.constraints[i]->contact_normal_dot);
     }
   }
 

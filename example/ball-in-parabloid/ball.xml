@@ -1,0 +1,46 @@
+<!-- ball in parabloid -->
+
+<XML>
+  <DRIVER>
+    <camera position="3 3 3" target="0 0 0" up="0 0 1" />
+    <window location="0 0" size="640 480" />
+  </DRIVER>
+
+  <MOBY>
+
+  <EulerIntegrator id="euler" />
+  <RungeKuttaIntegrator id="rk4" />
+  <BulirschStoerIntegrator id="bs" abs-err-tol="1e-14" rel-err-tol="1e0" />
+  <RungeKuttaFehlbergIntegrator id="rkf" abs-err-tol="1e-14" rel-err-tol="1e0" />
+
+  <CollisionDetectionPlugin id="ball-parabloid-coldet" plugin="libball-parabloid-coldet-plugin.so" />
+
+  <GravityForce id="gravity" accel="0 0 -1" />
+
+  <EventDrivenSimulator integrator-id="rkf" Euler-step="1e-10" collision-detection-plugin="ball-parabloid-coldet" contact-dist-thresh="1e-13">
+    <RecurrentForce recurrent-force-id="gravity" />
+    <DynamicBody dynamic-body-id="parabloid" />
+    <DynamicBody dynamic-body-id="ball" />
+    <DisabledPair object1-id="ball" object2-id="ball"/>
+    <ContactParameters object1-id="parabloid" object2-id="ball" epsilon="0" mu-coulomb="0.0" stick-tol="1e-8" />
+<!--    <ContactParameters object1-id="parabloid" object2-id="BOX" epsilon="0" mu-coulomb="100" />-->
+  </EventDrivenSimulator>
+
+  <!-- setup the ball primitive -->
+  <Sphere id="sphere" radius="1.0" mass="1.0"/>
+
+  <RigidBody id="ball" enabled="true" position="-10 0 2" linear-velocity="0 0 0" angular-velocity="0 -.1 0" >
+    <CollisionGeometry primitive-id="sphere" />
+    <InertiaFromPrimitive primitive-id="sphere" />
+  </RigidBody>
+
+  <!-- setup the platform rigid body; it is not active -->
+   <Box id="ground-primitive-viz" rpy="1.5708 0 0"  xlen="10" ylen="0.001" zlen="10" />
+
+  <RigidBody id="parabloid" color="0.6 0.6 0.6 0" enabled="false" position="0 0 -0.0"
+  visualization-id="ground-primitive-viz" compliant="false">
+    <CollisionGeometry />
+  </RigidBody>
+
+  </MOBY>
+</XML>

@@ -1,4 +1,4 @@
-<!-- SDF-defined Passive Walker -->
+<!-- Rimless wheel -->
 
 <XML>
   <DRIVER>
@@ -16,21 +16,21 @@
 
   <CollisionDetectionPlugin id="wheel-coldet" plugin="librimless-wheel-coldet-plugin.so" />
 
-<!--  downhill at alpha = 0.0702 -->
-<!--<GravityForce id="gravity" accel="0 0 -1" />-->
+<!--  downhill at alpha = 0.2 -->
 <GravityForce id="gravity" accel="0.198669330795061 0 -0.980066577841242" />
-<!--<GravityForce id="gravity" accel="0.687395090074 0 -9.775862518954" />-->
+<!--  downhill at alpha = 0.4 -->
+<!--<GravityForce id="gravity" accel="0.389418342308651 0 -0.921060994002885" />-->
 
-  <EventDrivenSimulator integrator-id="rkf" Euler-step="5e-6" collision-detection-plugin="wheel-coldet" impacting-contact-dist-thresh="1e-8" sustained-contact-dist-thresh="1e-8">
+  <EventDrivenSimulator integrator-id="rkf" Euler-step="1e-10" collision-detection-plugin="wheel-coldet" contact-dist-thresh="1e-13">
     <RecurrentForce recurrent-force-id="gravity" />
     <DynamicBody dynamic-body-id="GROUND" />
     <DynamicBody dynamic-body-id="WHEEL" />
     <DisabledPair object1-id="WHEEL" object2-id="WHEEL"/>
-    <ContactParameters object1-id="GROUND" object2-id="WHEEL" epsilon="0" mu-coulomb="100" />
+    <ContactParameters object1-id="GROUND" object2-id="WHEEL" epsilon="0" mu-coulomb="100.0" stick-tol="2.5e-5" />
 <!--    <ContactParameters object1-id="GROUND" object2-id="BOX" epsilon="0" mu-coulomb="100" />-->
   </EventDrivenSimulator>
 
-  <RigidBody id="WHEEL" enabled="true" position="0 0 1.0" mass="1.0" inertia="0.0002 0 0; 0 0.0002 0; 0 0 .01">
+  <RigidBody id="WHEEL" enabled="true" position="0 0 1.0" mass="1.0" inertia="2 0 0; 0 2 0; 0 0 1">
     <CollisionGeometry />
     <Visualization visualization-id="spoke" visualization-rel-rpy="0 0 0"/>
     <Visualization visualization-id="spoke" visualization-rel-rpy="0 1.0472 0"/>

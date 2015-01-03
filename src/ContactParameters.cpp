@@ -106,6 +106,11 @@ void ContactParameters::load_from_xml(shared_ptr<const XMLTree> node, std::map<s
   if (fv_attr)
     mu_viscous = fv_attr->get_real_value();
 
+  // get the sticking tolerance, if any
+  XMLAttrib* stick_tol_attr = node->get_attrib("stick-tol");
+  if (stick_tol_attr)
+    stick_tol = stick_tol_attr->get_real_value();
+
   // get the penalty Kp gain, if any
   XMLAttrib* kp_attr = node->get_attrib("penalty-kp");
   if (kp_attr)
@@ -155,6 +160,9 @@ void ContactParameters::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const 
 
   // write the number of friction cone edges
   node->attribs.insert(XMLAttrib("friction-cone-edges", NK));
+
+  // write the sticking tolerance
+  node->attribs.insert(XMLAttrib("stick-tol", stick_tol));
 
   // save penalty gains 
   node->attribs.insert(XMLAttrib("penalty-kp", penalty_Kp));

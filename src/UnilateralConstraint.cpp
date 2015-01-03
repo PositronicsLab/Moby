@@ -1208,8 +1208,43 @@ void UnilateralConstraint::set_contact_parameters(const ContactParameters& cpara
   contact_penalty_Kv = cparams.penalty_Kv;
   contact_epsilon = cparams.epsilon;
   contact_NK = cparams.NK;
+  stick_tol = cparams.stick_tol;
   assert(contact_NK >= 4);
 }
+
+/// Transforms an acceleration in a moving frame
+SAcceld UnilateralConstraint::transform(shared_ptr<const Pose3d> pose, const SAcceld& a, const SVelocityd& v)
+{
+  // get the transform
+  Transform3d T = Pose3d::calc_relative_pose(a.pose, pose);
+
+  #ifndef NEXCEPT
+  if (v.pose != T.source)
+    throw FrameException();
+  #endif
+
+  // setup r and E
+  Matrix3d E = T.q;
+  Origin3d r = E.transpose_mult(-T.x);
+  Vector3d rv(r, T.source);
+
+  // get the components of a
+  Vector3d alpha = a.get_angular();
+  Vector3d xdd = a.get_linear();
+
+  // only need omega from v
+  Vector3d omega = v.get_angular(); 
+
+  // do the calculations
+  Vector3d Etop(E * Origin3d(alpha), T.target);
+  Vector3d cross1 = Vector3d::cross(rv, alpha);
+  Vector3d cross2 = Vector3d::cross(Vector3d::cross(rv, omega), omega);
+  SAcceld result;
+  result.set_angular(Etop);
+  result.set_linear(Vector3d(E * Origin3d(xdd - cross1 + cross2), T.target));
+  result.pose = T.target;
+  return result;
+} 
 
 double calc_constraint_accel2(const UnilateralConstraint& e)
 {
@@ -1277,6 +1312,48 @@ double calc_constraint_accel2(const UnilateralConstraint& e)
  * Positive acceleration indicates acceleration away, negative acceleration
  * indicates acceleration that will lead to impact/interpenetration.
  */
+double UnilateralConstraint::calc_contact_accel(const Vector3d& v, const Vector3d& vdot) const
+{
+  assert(constraint_type == eContact);
+  assert(contact_geom1 && contact_geom2);
+  SingleBodyPtr sba = contact_geom1->get_single_body();
+  SingleBodyPtr sbb = contact_geom2->get_single_body();
+  assert(sba && sbb);
+
+  // get the velocities and accelerations 
+  const SVelocityd& va = sba->get_velocity(); 
+  const SVelocityd& vb = sbb->get_velocity(); 
+  const SAcceld& aa = sba->get_accel(); 
+  const SAcceld& ab = sbb->get_accel(); 
+
+  // setup the constraint frame
+  _contact_frame->x = contact_point;
+  _contact_frame->q.set_identity();
+  _contact_frame->rpose = GLOBAL;
+
+  // compute the velocities and accelerations at the contact point
+  SVelocityd tva = Pose3d::transform(_contact_frame, va); 
+  SVelocityd tvb = Pose3d::transform(_contact_frame, vb); 
+  SAcceld taa = transform(_contact_frame, aa, va); 
+  SAcceld tab = transform(_contact_frame, ab, vb); 
+
+  // get the contact direction and derivative in the correct pose
+  Vector3d dir = Pose3d::transform_vector(_contact_frame, v);
+  Vector3d dir_dot = Pose3d::transform_vector(_contact_frame, vdot);
+
+  // compute: d<v, dx/dt + w x r>/dt =  
+  // compute: <v,  d^2x/dt^2 + dw/dt x r> + <dv/dt, dx/dt + w x r>  
+  double ddot = dir.dot(taa.get_linear() - tab.get_linear());
+  ddot += 2.0*dir_dot.dot(tva.get_linear() - tvb.get_linear());
+
+  return ddot;
+}  
+
+/// Computes the acceleration of this constraint 
+/**
+ * Positive acceleration indicates acceleration away, negative acceleration
+ * indicates acceleration that will lead to impact/interpenetration.
+ */
 double UnilateralConstraint::calc_constraint_accel() const
 {
   if (constraint_type == eContact)
@@ -1300,8 +1377,8 @@ double UnilateralConstraint::calc_constraint_accel() const
     // compute the velocities and accelerations at the contact point
     SVelocityd tva = Pose3d::transform(_contact_frame, va); 
     SVelocityd tvb = Pose3d::transform(_contact_frame, vb); 
-    SAcceld taa = Pose3d::transform(_contact_frame, aa); 
-    SAcceld tab = Pose3d::transform(_contact_frame, ab); 
+    SAcceld taa = transform(_contact_frame, aa, va); 
+    SAcceld tab = transform(_contact_frame, ab, vb); 
 
     // get the contact normal and derivative in the correct pose
     Vector3d normal = Pose3d::transform_vector(_contact_frame, contact_normal);
@@ -1359,8 +1436,8 @@ void UnilateralConstraint::calc_contact_tan_accel(double& tan1A, double& tan2A) 
   // compute the velocities and accelerations at the contact point
   SVelocityd tva = Pose3d::transform(_contact_frame, va); 
   SVelocityd tvb = Pose3d::transform(_contact_frame, vb); 
-  SAcceld taa = Pose3d::transform(_contact_frame, aa); 
-  SAcceld tab = Pose3d::transform(_contact_frame, ab); 
+  SAcceld taa = transform(_contact_frame, aa, va); 
+  SAcceld tab = transform(_contact_frame, ab, vb); 
 
   // get the contact tangents and derivative in the correct pose
   Vector3d tan1 = Pose3d::transform_vector(_contact_frame, contact_tan1);

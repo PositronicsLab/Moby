@@ -229,10 +229,16 @@ endif (BUILD_TOOLS)
   # plugins
   add_library(rimless-wheel-coldet-plugin MODULE example/rimless-wheel/coldet-plugin.cpp)
   add_library(rimless-wheel-init MODULE example/rimless-wheel/init.cpp)
+  add_library(ball-parabloid-coldet-plugin MODULE example/ball-in-parabloid/coldet-plugin.cpp)
+  add_library(ball-parabloid-init MODULE example/ball-in-parabloid/init.cpp)
   add_library(passive-walker-init MODULE example/passive-walker/init.cpp)
   add_library(passive-walker-coldet-plugin MODULE example/passive-walker/coldet-plugin.cpp)
   target_link_libraries(passive-walker-init Moby Ravelin)
+  target_link_libraries(rimless-wheel-init Moby Ravelin)
+  target_link_libraries(ball-parabloid-init Moby Ravelin)
   target_link_libraries(passive-walker-coldet-plugin Moby Ravelin)
+  target_link_libraries(rimless-wheel-coldet-plugin Moby Ravelin)
+  target_link_libraries(ball-parabloid-coldet-plugin Moby Ravelin)
 
   # look for Pacer
   find_library(PACER_FOUND Pacer /usr/local/lib /usr/lib)
