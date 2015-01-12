@@ -10,14 +10,14 @@
 
   <EulerIntegrator id="euler" />
   <RungeKuttaIntegrator id="rk4" />
-  <BulirschStoerIntegrator id="bs" abs-err-tol="1e-14" rel-err-tol="1e0" />
+  <BulirschStoerIntegrator id="bs" abs-err-tol="1e-14" rel-err-tol="1e-14" />
   <RungeKuttaFehlbergIntegrator id="rkf" abs-err-tol="1e-14" rel-err-tol="1e0" />
 
   <CollisionDetectionPlugin id="ball-parabloid-coldet" plugin="libball-parabloid-coldet-plugin.so" />
 
   <GravityForce id="gravity" accel="0 0 -1" />
 
-  <EventDrivenSimulator integrator-id="rkf" Euler-step="1e-10" collision-detection-plugin="ball-parabloid-coldet" contact-dist-thresh="1e-13">
+  <EventDrivenSimulator integrator-id="bs" Euler-step="1e-10" collision-detection-plugin="ball-parabloid-coldet" contact-dist-thresh="1e-13">
     <RecurrentForce recurrent-force-id="gravity" />
     <DynamicBody dynamic-body-id="parabloid" />
     <DynamicBody dynamic-body-id="ball" />
@@ -29,7 +29,7 @@
   <!-- setup the ball primitive -->
   <Sphere id="sphere" radius="1.0" mass="1.0"/>
 
-  <RigidBody id="ball" enabled="true" position="-10 0 2" linear-velocity="0 0 0" angular-velocity="0 -.1 0" >
+  <RigidBody id="ball" enabled="true" position="-10 0 2" linear-velocity="0 0 0" angular-velocity="0 0 0" >
     <CollisionGeometry primitive-id="sphere" />
     <InertiaFromPrimitive primitive-id="sphere" />
   </RigidBody>

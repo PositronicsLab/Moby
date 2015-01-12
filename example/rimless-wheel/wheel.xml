@@ -11,17 +11,29 @@
   <Box id="spoke" xlen="1" ylen=".1" zlen=".001" position=".5 0 0"/>
   <EulerIntegrator id="euler" />
   <RungeKuttaIntegrator id="rk4" />
-  <BulirschStoerIntegrator id="bs" abs-err-tol="1e-14" rel-err-tol="1e0" />
+  <BulirschStoerIntegrator id="bs" abs-err-tol="1e-14" rel-err-tol="1e-10" />
   <RungeKuttaFehlbergIntegrator id="rkf" abs-err-tol="1e-14" rel-err-tol="1e0" />
 
   <CollisionDetectionPlugin id="wheel-coldet" plugin="librimless-wheel-coldet-plugin.so" />
 
-<!--  downhill at alpha = 0.2 -->
-<GravityForce id="gravity" accel="0.198669330795061 0 -0.980066577841242" />
-<!--  downhill at alpha = 0.4 -->
-<!--<GravityForce id="gravity" accel="0.389418342308651 0 -0.921060994002885" />-->
+<!--  downhill at alpha = 0.05 -->
+<GravityForce id="gravity" accel="0.049979 0 -0.99875" /> 
 
-  <EventDrivenSimulator integrator-id="rkf" Euler-step="1e-10" collision-detection-plugin="wheel-coldet" contact-dist-thresh="1e-13">
+<!--  downhill at alpha = 0.1 -->
+<!-- <GravityForce id="gravity" accel="0.099833 0 -0.995" /> -->
+
+<!--  downhill at alpha = 0.2 -->
+<!--<GravityForce id="gravity" accel="0.198669330795061 0 -0.980066577841242" />-->
+<!--  downhill at alpha = 0.4 -->
+<!--
+<GravityForce id="gravity" accel="0.389418342308651 0 -0.921060994002885" />
+-->
+<!--  downhill at alpha = 0.5 -->
+<!--
+<GravityForce id="gravity" accel="0.47943 0 -0.87758" />
+-->
+
+  <EventDrivenSimulator integrator-id="bs" Euler-step="1e-10" collision-detection-plugin="wheel-coldet" contact-dist-thresh="1e-13">
     <RecurrentForce recurrent-force-id="gravity" />
     <DynamicBody dynamic-body-id="GROUND" />
     <DynamicBody dynamic-body-id="WHEEL" />

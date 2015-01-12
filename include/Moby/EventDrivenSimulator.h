@@ -109,6 +109,23 @@ class EventDrivenSimulator : public Simulator
     /// Gets the collision detection mechanism
     boost::shared_ptr<CollisionDetection> get_collision_detection() const { return _coldet; }
 
+    /// The Euler step size
+    /**
+     * Below this step size, a time-stepping method is triggered. The
+     * stepping method might be necessary if inconsistent contact 
+     * configurations (Painleve' Paradox type configurations) are encountered.
+     * The time-stepping method is first order.
+     */ 
+    double euler_step;
+
+    /// The distance threshold for a contact to be handled
+    /**
+     * Bodies are only considered to be in contact 
+     * if their distance is less than this
+     * threshold.
+     */
+    double contact_dist_thresh;
+
   protected:
     void calc_impacting_unilateral_constraint_forces(double dt);
     virtual double check_pairwise_constraint_violations(double t);
@@ -186,23 +203,6 @@ class EventDrivenSimulator : public Simulator
 
     /// Object for handling sustained rigid unilateral constraints 
     SustainedUnilateralConstraintHandler _rigid_unilateral_constraint_handler;
-
-    /// The Euler step size
-    /**
-     * Below this step size, a time-stepping method is triggered. The
-     * stepping method might be necessary if inconsistent contact 
-     * configurations (Painleve' Paradox type configurations) are encountered.
-     * The time-stepping method is first order.
-     */ 
-    double euler_step;
-
-    /// The distance threshold for a contact to be handled
-    /**
-     * Bodies are only considered to be in contact 
-     * if their distance is less than this
-     * threshold.
-     */
-    double contact_dist_thresh;
 
     /// The collision detection mechanism
     boost::shared_ptr<CollisionDetection> _coldet;

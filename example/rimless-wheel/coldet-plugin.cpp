@@ -1,6 +1,7 @@
 #include <Moby/CollisionDetection.h>
 #include <Moby/CCD.h>
 #include <Moby/EventDrivenSimulator.h>
+#include <Moby/Log.h>
 #include "params.h"
 #include <cstdio>
 #define NDEBUG
@@ -211,13 +212,11 @@ class BladePlanePlugin : public CollisionDetection
     virtual void find_contacts_wheel_plane(CollisionGeometryPtr wheel_cg, CollisionGeometryPtr ground_cg, std::vector<UnilateralConstraint>& contacts)
     {
       const unsigned Y = 1;
+      const double TOL = sim->contact_dist_thresh;
 
       // delete the IPC token
       if (FIND_MAP)
         std::remove("IPC.token");
-
-      // setup the minimum dist for a contact
-      double min_dist = std::numeric_limits<double>::max();
 
       // get the plane primitive
       PrimitivePtr plane_geom = dynamic_pointer_cast<Primitive>(ground_cg->get_geometry());
@@ -230,6 +229,13 @@ class BladePlanePlugin : public CollisionDetection
 
       // get the pose of the center-of-mass of the wheel
       Transform3d pTb = Pose3d::calc_relative_pose(Pwheel, Pplane);
+
+      // say whether spoke = 5 or spoke = 0 found
+      bool zero_spoke = false;
+      bool five_spoke = false;
+
+      // clear the set of contacts
+      contacts.clear();
 
       // loop over each spoke
       for (unsigned i=0; i< N_SPOKES; i++)
@@ -251,76 +257,52 @@ class BladePlanePlugin : public CollisionDetection
         p1_plane_prime[Y] = 0.0;
         p2_plane_prime[Y] = 0.0;
 
-        #ifndef NDEBUG
-        std::cout << "distance between blade " << i << " and ground: " << std::min(p1_plane[Y], p2_plane[Y]) << std::endl;
-        #endif
+        FILE_LOG(LOG_COLDET) << "distance between blade " << i << " and ground: " << std::min(p1_plane[Y], p2_plane[Y]) << std::endl;
 
-        // create the IPC token if a blade other than 4 or 5 is in contact
-        if (FIND_MAP && i < 4 && (p1_plane[Y] < NEAR_ZERO || p2_plane[Y] < NEAR_ZERO))
+        // check to see whether sub-4 or four-plus spokes were created 
+        if (p1_plane[Y] < TOL || p2_plane[Y] < TOL)
         {
-          std::ofstream out("IPC.token");
-          out.close();
+          if (i == 0)
+            zero_spoke = true;
+          else if (i == 5)
+            five_spoke = true;
         }
 
         // create contact for the first point on the blade (if appropriate) 
-        if (p1_plane[Y] < min_dist - NEAR_ZERO)
+        if (p1_plane[Y] < TOL)
         {
-          min_dist = p1_plane[Y];
           Point3d p1x_global = Pose3d::transform_point(GLOBAL, p1);
           Point3d p1y_global = Pose3d::transform_point(GLOBAL, p1_plane_prime);
           Vector3d normal(0,1,0,Pplane);
           Vector3d normal_global = Pose3d::transform_vector(GLOBAL, normal);
-          #ifndef NDEBUG
-          std::cout << "found contact between blade " << i << " and ground" << std::endl;
-          #endif
-          contacts.clear();
+          FILE_LOG(LOG_COLDET) << "found contact between blade " << i << " and ground" << std::endl;
           contacts.push_back(
-            CollisionDetection::create_contact(wheel_cg,ground_cg,(p1x_global+p1y_global)*0.5,normal_global,min_dist)
-              );
-        }
-        else if (std::fabs(p1_plane[Y] - min_dist) < NEAR_ZERO)
-        {
-          #ifndef NDEBUG
-          std::cout << "found contact between blade " << i << " and ground" << std::endl;
-          #endif
-          Point3d p1x_global = Pose3d::transform_point(GLOBAL, p1);
-          Point3d p1y_global = Pose3d::transform_point(GLOBAL, p1_plane_prime);
-          Vector3d normal(0,1,0,Pplane);
-          Vector3d normal_global = Pose3d::transform_vector(GLOBAL, normal);
-          contacts.push_back(
-            CollisionDetection::create_contact(wheel_cg,ground_cg,(p1x_global+p1y_global)*0.5,normal_global,min_dist)
+            CollisionDetection::create_contact(wheel_cg,ground_cg,(p1x_global+p1y_global)*0.5,normal_global,p1_plane[Y])
               );
         }
 
         // create contact for the second point on the blade (if appropriate) 
-        if (W > 0.0 && p2_plane[Y] < min_dist - NEAR_ZERO)
+        if (W > 0.0 && p2_plane[Y] < TOL)
         {
-          #ifndef NDEBUG
-          std::cout << "found contact between blade " << i << " and ground" << std::endl;
-          #endif
-          min_dist = p2_plane[Y];
+          FILE_LOG(LOG_COLDET) << "found contact between blade " << i << " and ground" << std::endl;
           Point3d p2x_global = Pose3d::transform_point(GLOBAL, p2);
           Point3d p2y_global = Pose3d::transform_point(GLOBAL, p2_plane_prime);
           Vector3d normal(0,1,0,Pplane);
           Vector3d normal_global = Pose3d::transform_vector(GLOBAL, normal);
-          contacts.clear();
           contacts.push_back(
-            CollisionDetection::create_contact(wheel_cg,ground_cg,(p2x_global+p2y_global)*0.5,normal_global,min_dist)
+            CollisionDetection::create_contact(wheel_cg,ground_cg,(p2x_global+p2y_global)*0.5,normal_global,p2_plane[Y])
               );
         }
-        else if (W > 0.0 && std::fabs(p2_plane[Y] - min_dist) < NEAR_ZERO)
-        {
-          #ifndef NDEBUG
-          std::cout << "found contact between blade " << i << " and ground" << std::endl;
-          #endif
-          Point3d p2x_global = Pose3d::transform_point(GLOBAL, p2);
-          Point3d p2y_global = Pose3d::transform_point(GLOBAL, p2_plane_prime);
-          Vector3d normal(0,1,0,Pplane);
-          Vector3d normal_global = Pose3d::transform_vector(GLOBAL, normal);
-          contacts.push_back(
-            CollisionDetection::create_contact(wheel_cg,ground_cg,(p2x_global+p2y_global)*0.5,normal_global,min_dist)
-              );
-        }      
+      }
+
+      if (FIND_MAP && zero_spoke)
+      {
+        if (!five_spoke)
+          std::cerr << "zero spoke encountered but not five spoke!" << std::endl;
+        else
+          std::cerr << "zero spoke encountered with five spoke! (Good)" << std::endl;
+        std::ofstream out("IPC.token");
+        out.close();
       }
     }
 
