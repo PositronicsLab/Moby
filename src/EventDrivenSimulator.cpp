@@ -1282,6 +1282,10 @@ double EventDrivenSimulator::calc_CA_step()
         rbb->compliance == RigidBody::eCompliant)
       continue; 
 
+    // if the distance between the two is zero, two are in contact already
+    if (pdi.dist < contact_dist_thresh)
+      return 0.0;
+
     // call conservative advancement method
     double step = _coldet->calc_CA_step(pdi);
     dt = std::min(dt, step);

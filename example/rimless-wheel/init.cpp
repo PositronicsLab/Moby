@@ -59,25 +59,6 @@ void post_step_callback(Simulator* sim)
       exit(0);
     }
   }
-}
-
-// setup simulator mini-callback
-void post_ministep_callback(EventDrivenSimulator* sim)
-{
-  const unsigned Y = 1;
-
-  // see whether there is significant undesired rotation
-  AAngled aa = Pose3d::calc_relative_pose(wheel->get_pose(), GLOBAL).q;
-  if ((std::fabs(aa.x) > 1e-4 || std::fabs(aa.z) > 1e-4) && std::fabs(aa.angle) > 1e-6)
-  {
-    std::cerr << "too much angular rotation out of the plane!" << std::endl;
-    if (FIND_MAP)
-    {
-      std::ofstream out("system.state", std::ostream::app);
-      out << "DnF" << std::endl;
-    }
-    exit(0);
-  }
 
   // if we're finding the return map, see whether the next step has been
   // encountered 
@@ -91,10 +72,29 @@ void post_ministep_callback(EventDrivenSimulator* sim)
 
     // it was, output the state of the system
     std::ofstream out("system.state", std::ostream::app);
-    out << " " << wheel->get_velocity().get_angular()[Y] << std::endl;
+    out << " " << wheel->get_velocity().get_angular()[1] << std::endl;
     out.close();
     exit(0);
   }
+}
+
+// setup simulator mini-callback
+void post_ministep_callback(EventDrivenSimulator* sim)
+{
+  const unsigned Y = 1;
+
+  // see whether there is significant undesired rotation
+  AAngled aa = Pose3d::calc_relative_pose(wheel->get_pose(), GLOBAL).q;
+  if ((std::fabs(aa.x) > 1e-4 || std::fabs(aa.z) > 1e-4) && std::fabs(aa.angle) > 1e-6)
+  {
+    std::cerr << "excessive angular rotation out of the plane: " << std::max(std::fabs(aa.x), std::fabs(aa.z)) << std::endl;
+  }
+
+  // output the velocity
+  std::ofstream out("velocity.dat", std::ostream::app);
+  out << sim->current_time << " " << wheel->get_velocity().get_angular()[Y] << std::endl;
+  out.close();
+
 }
 
 /// plugin must be "extern C"
@@ -104,8 +104,10 @@ void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map,
 {
   const unsigned Z = 2;
 
-  // overwrite the energy file
+  // overwrite the energy and velocity files
   std::ofstream out("energy.dat");
+  out.close();
+  out.open("velocity.dat");
   out.close();
 
   // If use robot is active also init dynamixel controllers
