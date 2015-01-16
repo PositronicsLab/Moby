@@ -1298,7 +1298,6 @@ void ImpactConstraintHandler::apply_no_slip_model(UnilateralConstraintProblemDat
   // | S*inv(M)*S'  S*inv(M)*T' S*inv(M)*J' |
   // | T*inv(M)*S'  T*inv(M)*T' T*inv(M)*J' |
   // | J*inv(M)*S'  J*inv(M)*T' J*inv(M)*J' |
-  bool last_success = false;
   for (unsigned i=0; i< NCONTACTS; i++)
   {
     // update S indices
@@ -1375,8 +1374,7 @@ void ImpactConstraintHandler::apply_no_slip_model(UnilateralConstraintProblemDat
       _Y(j,j) -= NEAR_ZERO;
 
     // see whether check matrix can be Cholesky factorized
-    last_success = _LA.factor_chol(_Y);
-    if (!last_success)
+    if (!_LA.factor_chol(_Y))
       T_indices.pop_back();
   }
 
@@ -1394,43 +1392,40 @@ void ImpactConstraintHandler::apply_no_slip_model(UnilateralConstraintProblemDat
   }
 
   // ********************************************************
-  // reform Y if necessary
+  // reform Y (last matrix was de-regularized) 
   // ********************************************************
 
   // setup indices
   const unsigned S_IDX = 0;
   const unsigned T_IDX = S_indices.size();
   const unsigned J_IDX = T_IDX + T_indices.size();
-  if (!last_success)
-  {
-    _Y.resize(J_IDX + J_indices.size(), J_IDX + J_indices.size());
+  _Y.resize(J_IDX + J_indices.size(), J_IDX + J_indices.size());
 
-    // add S/S, T/T, J/J components to X
-    q.Cs_iM_CsT.select_square(S_indices.begin(), S_indices.end(), _MM);
-    _Y.set_sub_mat(S_IDX, S_IDX, _MM);
-    q.Ct_iM_CtT.select_square(T_indices.begin(), T_indices.end(), _MM);
-    _Y.set_sub_mat(T_IDX, T_IDX, _MM);
-    _Y.set_sub_mat(J_IDX, J_IDX, _rJx_iM_JxT);
+  // add S/S, T/T, J/J components to X
+  q.Cs_iM_CsT.select_square(S_indices.begin(), S_indices.end(), _MM);
+  _Y.set_sub_mat(S_IDX, S_IDX, _MM);
+  q.Ct_iM_CtT.select_square(T_indices.begin(), T_indices.end(), _MM);
+  _Y.set_sub_mat(T_IDX, T_IDX, _MM);
+  _Y.set_sub_mat(J_IDX, J_IDX, _rJx_iM_JxT);
 
-    // add S/T components to X
-    q.Cs_iM_CtT.select(S_indices.begin(), S_indices.end(), T_indices.begin(), T_indices.end(), _MM);
-    _Y.set_sub_mat(S_IDX, T_IDX, _MM);
-    _Y.set_sub_mat(T_IDX, S_IDX, _MM, Ravelin::eTranspose);
+  // add S/T components to X
+  q.Cs_iM_CtT.select(S_indices.begin(), S_indices.end(), T_indices.begin(), T_indices.end(), _MM);
+  _Y.set_sub_mat(S_IDX, T_IDX, _MM);
+  _Y.set_sub_mat(T_IDX, S_IDX, _MM, Ravelin::eTranspose);
 
-    // add S/J components to X
-    q.Cs_iM_JxT.select(S_indices.begin(), S_indices.end(), J_indices.begin(), J_indices.end(), _MM);
-    _Y.set_sub_mat(S_IDX, J_IDX, _MM);
-    _Y.set_sub_mat(J_IDX, S_IDX, _MM, Ravelin::eTranspose);
+  // add S/J components to X
+  q.Cs_iM_JxT.select(S_indices.begin(), S_indices.end(), J_indices.begin(), J_indices.end(), _MM);
+  _Y.set_sub_mat(S_IDX, J_IDX, _MM);
+  _Y.set_sub_mat(J_IDX, S_IDX, _MM, Ravelin::eTranspose);
 
-    // add T/J components to X
-    q.Ct_iM_JxT.select(T_indices.begin(), T_indices.end(), J_indices.begin(), J_indices.end(), _MM);
-    _Y.set_sub_mat(T_IDX, J_IDX, _MM);
-    _Y.set_sub_mat(J_IDX, T_IDX, _MM, Ravelin::eTranspose);
+  // add T/J components to X
+  q.Ct_iM_JxT.select(T_indices.begin(), T_indices.end(), J_indices.begin(), J_indices.end(), _MM);
+  _Y.set_sub_mat(T_IDX, J_IDX, _MM);
+  _Y.set_sub_mat(J_IDX, T_IDX, _MM, Ravelin::eTranspose);
 
-    // do the Cholesky factorization (should not fail)
-    bool success = _LA.factor_chol(_Y);
-    assert(success);
-  }
+  // do the Cholesky factorization (should not fail)
+  bool success = _LA.factor_chol(_Y);
+  assert(success);
 
   // defining Y = inv(X*inv(M)*X') and Q = [Cn; L; 0]
   // and using the result above yields following LCP:
