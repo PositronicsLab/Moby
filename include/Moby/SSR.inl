@@ -117,7 +117,7 @@ SSR::SSR(ForwardIterator begin, ForwardIterator end)
 
     // determine the eigenvalues and eigenvectors of the covariance matrix
     Ravelin::Vector3d evals;
-    SAFESTATIC FastThreadable<Ravelin::LinAlgd> LA;
+    FastThreadable<Ravelin::LinAlgd> LA;
     LA().eig_symm_plus(C, evals);
     
     // first eigenvector will be direction of minimum variance; that's the
