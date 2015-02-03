@@ -117,6 +117,8 @@ void ImpactConstraintHandler::apply_ap_model(UnilateralConstraintProblemData& q)
 
   // setup sizes
   _UL.set_zero(N_CONST, N_CONST);
+  _UR.set_zero(N_CONST, NK_DIRS);
+  _LL.set_zero(NK_DIRS, N_CONST);
   _MM.set_zero(_UL.rows() + _LL.rows(), _UL.columns() + _UR.columns());
 
   MatrixNd Cs_iM_CnT,Ct_iM_CnT,Ct_iM_CsT,L_iM_CnT,L_iM_CsT,L_iM_CtT;
@@ -226,8 +228,6 @@ void ImpactConstraintHandler::apply_ap_model(UnilateralConstraintProblemData& q)
   _UL.set_sub_mat(N_FRICT,NC+NC*3,L_iM_CtT);
 
   // lower left & upper right block of matrix
-  _UR.set_zero(N_CONST, NK_DIRS);
-  _LL.set_zero(NK_DIRS, N_CONST);
   for(unsigned i=0,j=0,r=0;i<NC;i++)
   {
     const UnilateralConstraint* ci =  q.constraints[i];

@@ -878,6 +878,7 @@ bool SustainedUnilateralConstraintHandler::solve_coulomb_lcp(SustainedUnilateral
 {
   FILE_LOG(LOG_CONSTRAINT) << "SustainedUnilateralConstraintHandler::solve_coulomb_lcp() entered" << std::endl;
 
+  unsigned N_LIMIT = q.N_LIMITS;
   unsigned NK_DIRS = 0;
   for(unsigned i=0,j=0,r=0;i<q.N_CONTACTS;i++)
     if(q.constraints[i]->get_friction_type() == UnilateralConstraint::eSticking)
@@ -887,11 +888,13 @@ bool SustainedUnilateralConstraintHandler::solve_coulomb_lcp(SustainedUnilateral
       else
         NK_DIRS+=1;
     }
+  unsigned N_FRICT = q.N_CONTACTS+q.N_STICKING*4;
+  unsigned N_CONST = N_FRICT + N_LIMIT;
 
   // setup sizes
-  _UL.set_zero(q.N_CONTACTS+q.N_STICKING*4, q.N_CONTACTS+q.N_STICKING*4);
-  _UR.set_zero(q.N_CONTACTS+q.N_STICKING*4, NK_DIRS);
-  _LL.set_zero(NK_DIRS, q.N_CONTACTS+q.N_STICKING*4);
+  _UL.set_zero(N_CONST, N_CONST);
+  _UR.set_zero(N_CONST, NK_DIRS);
+  _LL.set_zero(NK_DIRS, N_CONST);
   _MM.set_zero(_UL.rows() + _LL.rows(), _UL.columns() + _UR.columns());
 
   // now do upper right hand block of LCP matrix
@@ -910,11 +913,16 @@ bool SustainedUnilateralConstraintHandler::solve_coulomb_lcp(SustainedUnilateral
   r                         Ct_iM_CsT               Ct_iM_CtT
   */
   _UL.set_sub_mat(0,0,q.Cn_iM_CnT);
+  _UL.set_sub_mat(N_FRICT,N_FRICT,q.L_iM_LT);
+  _UL.set_sub_mat(N_FRICT,0,q.L_iM_CnT);
+  _UL.set_sub_mat(0,N_FRICT,q.Cn_iM_LT);
   // setup the LCP matrix
 
   // setup the LCP vector
   _qq.set_zero(_MM.rows());
   _qq.set_sub_vec(0,q.Cn_a);
+  _qq.set_sub_vec(N_FRICT,q.L_a);
+
 
   if(q.N_STICKING > 0){
 
@@ -931,6 +939,11 @@ bool SustainedUnilateralConstraintHandler::solve_coulomb_lcp(SustainedUnilateral
     _UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING*2,q.N_CONTACTS+q.N_STICKING*2,q.Ct_iM_CtT);
     _UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING*3,q.N_CONTACTS+q.N_STICKING*3,q.Ct_iM_CtT);
 
+  // Joint Limits
+  _UL.set_sub_mat(q.N_CONTACTS,N_FRICT,q.Cs_iM_LT);
+  _UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING*2,N_FRICT,q.Ct_iM_LT);
+  _UL.set_sub_mat(N_FRICT,q.N_CONTACTS,q.L_iM_CsT);
+  _UL.set_sub_mat(N_FRICT,q.N_CONTACTS+q.N_STICKING*2,q.L_iM_CtT);
     // Set negative submatrices
     /*     n          r          r           r           r
     n                        -Cn_iM_CsT              -Cn_iM_CtT
@@ -948,6 +961,10 @@ bool SustainedUnilateralConstraintHandler::solve_coulomb_lcp(SustainedUnilateral
     q.Ct_iM_CnT.negate();
     q.Ct_iM_CsT.negate();
     q.Ct_iM_CtT.negate();
+    q.L_iM_CsT.negate();
+    q.L_iM_CtT.negate();
+    q.Cs_iM_LT.negate();
+    q.Ct_iM_LT.negate();
 
     FILE_LOG(LOG_CONSTRAINT) << "Cn*inv(M)*Cn': " << std::endl << q.Cn_iM_CnT;
     FILE_LOG(LOG_CONSTRAINT) << "-Cn*inv(M)*Cs': " << std::endl << q.Cn_iM_CsT;
@@ -975,6 +992,11 @@ bool SustainedUnilateralConstraintHandler::solve_coulomb_lcp(SustainedUnilateral
 
     _UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING*2,q.N_CONTACTS+q.N_STICKING*3,q.Ct_iM_CtT);
     _UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING*3,q.N_CONTACTS+q.N_STICKING*2,q.Ct_iM_CtT);
+  // Joint Limits
+  _UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING,N_FRICT,q.Cs_iM_LT);
+  _UL.set_sub_mat(q.N_CONTACTS+q.N_STICKING*3,N_FRICT,q.Ct_iM_LT);
+  _UL.set_sub_mat(N_FRICT,q.N_CONTACTS+q.N_STICKING,q.L_iM_CsT);
+  _UL.set_sub_mat(N_FRICT,q.N_CONTACTS+q.N_STICKING*3,q.L_iM_CtT);
 
     // lower left & upper right block of matrix
     for(unsigned i=0,j=0,r=0;i<q.N_CONTACTS;i++)
@@ -1204,6 +1226,10 @@ bool SustainedUnilateralConstraintHandler::solve_purely_viscous_lcp(SustainedUni
   q.Ct_iM_CnT.negate();
   q.Ct_iM_CsT.negate();
   q.Ct_iM_CtT.negate();
+    q.L_iM_CsT.negate();
+    q.L_iM_CtT.negate();
+    q.Cs_iM_LT.negate();
+    q.Ct_iM_LT.negate();
   q.Cs_a.negate();
   q.Ct_a.negate();
 
