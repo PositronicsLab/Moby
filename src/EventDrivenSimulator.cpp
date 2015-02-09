@@ -74,13 +74,7 @@ bool EventDrivenSimulator::UnilateralConstraintCmp::operator()(const UnilateralC
     // if here, both are limit constraints
     unsigned lj1 = e1.limit_joint->get_coord_index() + e1.limit_dof;
     unsigned lj2 = e2.limit_joint->get_coord_index() + e2.limit_dof;
-    if (lj1 < lj2)
-      return true;
-    else
-    {
-      assert(lj1 != lj2 || e1.limit_upper == e2.limit_upper);
-      return false;
-    }
+    return (lj1 < lj2);
   }
   else
   {
@@ -91,17 +85,7 @@ bool EventDrivenSimulator::UnilateralConstraintCmp::operator()(const UnilateralC
       long cg12 = (long) e1.contact_geom2.get();
       long cg21 = (long) e2.contact_geom1.get();
       long cg22 = (long) e2.contact_geom2.get();
-      if (cg11+cg12 < cg21+cg22)
-        return true;
-      else
-      {
-        assert(cg11+cg12 != cg21+cg22 ||
-               ((e1.contact_geom1 == e2.contact_geom1 &&
-                 e1.contact_geom2 == e2.contact_geom2) ||
-                (e1.contact_geom1 == e2.contact_geom2 &&
-                 e1.contact_geom2 == e2.contact_geom1)));
-        return false;
-      }
+      return (cg11+cg12 < cg21+cg22);
     }
     else
       return false; // limits returned before contacts

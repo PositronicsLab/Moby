@@ -731,6 +731,9 @@ void SustainedUnilateralConstraintHandler::compute_problem_data2(SustainedUnilat
   q.Ct_iM_CsT.set_zero(q.N_STICKING, q.N_STICKING);
   q.Ct_iM_CtT.set_zero(q.N_STICKING, q.N_STICKING);
   q.Ct_iM_LT.set_zero(q.N_STICKING, q.N_LIMITS);
+  q.L_iM_CnT.set_zero(q.N_LIMITS, q.N_CONTACTS);
+  q.L_iM_CsT.set_zero(q.N_LIMITS, q.N_STICKING);
+  q.L_iM_CtT.set_zero(q.N_LIMITS, q.N_STICKING);
   q.L_iM_LT.set_zero(q.N_LIMITS, q.N_LIMITS);
   q.Cn_a.set_zero(q.N_CONTACTS);
   q.Cs_a.set_zero(q.N_STICKING);
@@ -852,7 +855,7 @@ void SustainedUnilateralConstraintHandler::compute_problem_data2(SustainedUnilat
 
   // compute contribution in normal direction
   // NOTE: i is contact index, k is sticking friction index
-  for (unsigned i=0; i<  q.contact_constraints.size(); i++)
+  for (unsigned i=0, k=0; i<  q.contact_constraints.size(); i++)
   {
     // get the i'th contact
     const UnilateralConstraint* ci =  q.contact_constraints[i];
