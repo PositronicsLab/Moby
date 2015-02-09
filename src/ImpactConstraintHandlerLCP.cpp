@@ -174,7 +174,6 @@ void ImpactConstraintHandler::apply_ap_model(UnilateralConstraintProblemData& q)
   _UL.set_sub_mat(N_FRICT,NC,L_iM_CsT);
   _UL.set_sub_mat(N_FRICT,NC+NC*2,L_iM_CtT);
 
-
   FILE_LOG(LOG_CONSTRAINT) << "Cn*inv(M)*Cn': " << std::endl << q.Cn_iM_CnT;
   FILE_LOG(LOG_CONSTRAINT) << "Cn*inv(M)*Cs': " << std::endl << q.Cn_iM_CsT;
   FILE_LOG(LOG_CONSTRAINT) << "Cn*inv(M)*Ct': " << std::endl << q.Cn_iM_CtT;
@@ -183,6 +182,9 @@ void ImpactConstraintHandler::apply_ap_model(UnilateralConstraintProblemData& q)
   FILE_LOG(LOG_CONSTRAINT) << "Cs*inv(M)*Ct': " << std::endl << q.Cs_iM_CsT;
   FILE_LOG(LOG_CONSTRAINT) << "Ct*inv(M)*Cn': " << std::endl << Ct_iM_CnT;
   FILE_LOG(LOG_CONSTRAINT) << "Ct*inv(M)*Cs': " << std::endl << Ct_iM_CsT;
+
+  FILE_LOG(LOG_CONSTRAINT) << "Cn*inv(M)*L': " << std::endl << q.Cn_iM_LT;
+  FILE_LOG(LOG_CONSTRAINT) << "L*inv(M)*Cn': " << std::endl << L_iM_CnT;
 
   FILE_LOG(LOG_CONSTRAINT) << "Cs*inv(M)*L': " << std::endl << q.Cs_iM_LT;
   FILE_LOG(LOG_CONSTRAINT) << "Ct*inv(M)*L': " << std::endl << q.Ct_iM_LT;
@@ -244,7 +246,7 @@ void ImpactConstraintHandler::apply_ap_model(UnilateralConstraintProblemData& q)
       int nk4 = ( ci->contact_NK+4)/4;
       for(unsigned k=0;k<nk4;k++)
       {
-        FILE_LOG(LOG_CONSTRAINT) << "mu: " << ci->contact_mu_coulomb << std::endl;
+        FILE_LOG(LOG_CONSTRAINT) << "mu_{"<< k<< ","<< i <<"}: " << ci->contact_mu_coulomb << std::endl;
 
         // muK
         _LL(r+k,i)         = ci->contact_mu_coulomb;
@@ -266,7 +268,7 @@ void ImpactConstraintHandler::apply_ap_model(UnilateralConstraintProblemData& q)
     }
     else
     {
-      FILE_LOG(LOG_CONSTRAINT) << "mu: " << ci->contact_mu_coulomb << std::endl;
+      FILE_LOG(LOG_CONSTRAINT) << "mu_{"<< i <<"}: " << ci->contact_mu_coulomb << std::endl;
       // muK
       _LL(r,i) = ci->contact_mu_coulomb;
       // Xe
@@ -362,7 +364,7 @@ void ImpactConstraintHandler::apply_ap_model(UnilateralConstraintProblemData& q)
   // save normal contact impulses
   for (unsigned i=0; i< q.limit_constraints.size(); i++)
   {
-    q.limit_constraints[i]->limit_impulse = q.l[i];
+    q.limit_constraints[i]->limit_impulse += q.l[i];
   }
 
   if (LOGGING(LOG_CONSTRAINT))
