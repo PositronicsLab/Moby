@@ -31,8 +31,8 @@ class SustainedUnilateralConstraintHandler
     void apply_model(const std::vector<UnilateralConstraint>& constraints);
     void apply_model_to_connected_constraints(const std::list<UnilateralConstraint*>& constraints);
     void apply_purely_viscous_model_to_connected_constraints(const std::list<UnilateralConstraint*>& constraints);
-    static void compute_problem_data(SustainedUnilateralConstraintProblemData& epd);
-    static void compute_problem_data2(SustainedUnilateralConstraintProblemData& epd);
+    void compute_problem_data(SustainedUnilateralConstraintProblemData& epd);
+    void compute_problem_data2(SustainedUnilateralConstraintProblemData& epd);
     bool solve_coulomb_lcp(SustainedUnilateralConstraintProblemData& epd, Ravelin::VectorNd& z);
     bool solve_purely_viscous_lcp(SustainedUnilateralConstraintProblemData& epd, Ravelin::VectorNd& z);
     double calc_ke(SustainedUnilateralConstraintProblemData& epd, const Ravelin::VectorNd& z);
