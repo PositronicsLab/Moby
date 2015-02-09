@@ -842,8 +842,8 @@ void SustainedUnilateralConstraintHandler::compute_problem_data2(SustainedUnilat
       // measure velocity in the tangent direction(s)
       if (q.contact_constraints[j]->get_friction_type() == UnilateralConstraint::eSticking)
       {
-        q.Cs_iM_CnT(r,i) += q.contact_constraints[j]->calc_contact_vel(q.contact_constraints[j]->contact_tan1);
-        q.Ct_iM_CnT(r,i) += q.contact_constraints[j]->calc_contact_vel(q.contact_constraints[j]->contact_tan2);
+        q.Cs_iM_LT(r,i) += q.contact_constraints[j]->calc_contact_vel(q.contact_constraints[j]->contact_tan1);
+        q.Ct_iM_LT(r,i) += q.contact_constraints[j]->calc_contact_vel(q.contact_constraints[j]->contact_tan2);
         r++;
       }
     }

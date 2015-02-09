@@ -7,6 +7,7 @@
 #include <string.h>
 #include <iostream>
 #include <Moby/XMLTree.h>
+#include <Moby/Constants.h>
 #include <Moby/ContactParameters.h>
 
 using boost::shared_ptr;
@@ -22,6 +23,7 @@ ContactParameters::ContactParameters()
   mu_coulomb = mu_viscous = 0.0;
   NK = 4;
   penalty_Kp = penalty_Kv = 0.0;
+  stick_tol = NEAR_ZERO;  
 }
 
 /// Constructs a ContactParameters object with the given object IDs
@@ -35,6 +37,7 @@ ContactParameters::ContactParameters(BasePtr o1, BasePtr o2)
   mu_coulomb = mu_viscous = 0.0;
   NK = 4;
   penalty_Kp = penalty_Kv = 0.0;
+  stick_tol = NEAR_ZERO;  
 }
 
 /// Implements Base::load_from_xml()
