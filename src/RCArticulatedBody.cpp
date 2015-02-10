@@ -1628,7 +1628,7 @@ SharedVectorNd& RCArticulatedBody::get_generalized_forces(SharedVectorNd& f)
   // compute the generalized forces
   SForced f0;
   VectorNd CmQ;
-  _crb.calc_generalized_forces(f0, CmQ);
+  _crb.calc_generalized_forces_noinertial(f0, CmQ);
 
   // determine the vector of joint forces
   for (unsigned i=0; i< _ejoints.size(); i++)

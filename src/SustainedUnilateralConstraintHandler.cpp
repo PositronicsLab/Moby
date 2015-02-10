@@ -390,8 +390,6 @@ void SustainedUnilateralConstraintHandler::apply_forces(const SustainedUnilatera
     }
   }
 
-  // TODO: this needs to be done in a different way so that it can override
-  // any actuator force limits for robots
   // apply all generalized forces
   for (map<DynamicBodyPtr, VectorNd>::const_iterator i = gj.begin(); i != gj.end(); i++)
   {
@@ -612,8 +610,6 @@ return;
 void SustainedUnilateralConstraintHandler::compute_problem_data2(SustainedUnilateralConstraintProblemData& q)
 {
   const unsigned UINF = std::numeric_limits<unsigned>::max();
-  map<DynamicBodyPtr, VectorNd> gj;
-  map<DynamicBodyPtr, VectorNd>::iterator gj_iter;
 
   // determine set of "super" bodies from constraints
   q.super_bodies.clear();
@@ -621,9 +617,7 @@ void SustainedUnilateralConstraintHandler::compute_problem_data2(SustainedUnilat
   // loop over all contact constraints first
   for (unsigned i=0; i< q.contact_constraints.size(); i++)
   {
-    // get the contact force
     const UnilateralConstraint& e = *q.contact_constraints[i];
-    SForced w(e.contact_impulse);
 
     // get the two single bodies of the contact
     SingleBodyPtr sb1 = e.contact_geom1->get_single_body();
@@ -636,24 +630,6 @@ void SustainedUnilateralConstraintHandler::compute_problem_data2(SustainedUnilat
     // add the super bodies
     q.super_bodies.push_back(b1);
     q.super_bodies.push_back(b2);
-
-    // convert force on first body to generalized forces
-    if ((gj_iter = gj.find(b1)) == gj.end())
-      b1->convert_to_generalized_force(sb1, w, gj[b1]);
-    else
-    {
-      b1->convert_to_generalized_force(sb1, w, _v);
-      gj_iter->second += _v;
-    }
-
-    // convert force on second body to generalized forces
-    if ((gj_iter = gj.find(b2)) == gj.end())
-      b2->convert_to_generalized_force(sb2, -w, gj[b2]);
-    else
-    {
-      b2->convert_to_generalized_force(sb2, -w, _v);
-      gj_iter->second += _v;
-    }
   }
 
   // loop over all limit constraints next
@@ -662,31 +638,6 @@ void SustainedUnilateralConstraintHandler::compute_problem_data2(SustainedUnilat
     const UnilateralConstraint& e = *q.limit_constraints[i];
     ArticulatedBodyPtr ab = e.limit_joint->get_articulated_body();
     q.super_bodies.push_back(ab);
-
-    // get the iterator for the articulated body
-    gj_iter = gj.find(ab);
-
-    // apply limit impulses to bodies in independent coordinates
-    if (dynamic_pointer_cast<RCArticulatedBody>(ab))
-    {
-      // get the index of the joint
-      unsigned idx = e.limit_joint->get_coord_index() + e.limit_dof;
-
-      // initialize the vector if necessary
-      if (gj_iter == gj.end())
-      {
-        gj[ab].set_zero(ab->num_generalized_coordinates(DynamicBody::eSpatial));
-        gj_iter = gj.find(ab);
-      }
-
-      // set the limit force
-      gj_iter->second[idx] += e.limit_impulse;
-    }
-    else
-    {
-      // TODO: handle bodies in absolute coordinates here
-      assert(false);
-    }
   }
 
   // make super bodies vector unique
@@ -1083,7 +1034,10 @@ void SustainedUnilateralConstraintHandler::compute_problem_data2(SustainedUnilat
   for (std::map<DynamicBodyPtr, VectorNd>::const_iterator i = saved_velocities.begin(); i != saved_velocities.end(); i++)
     i->first->set_generalized_velocity(DynamicBody::eSpatial, i->second);
   for (std::map<DynamicBodyPtr, VectorNd>::const_iterator i = saved_forces.begin(); i != saved_forces.end(); i++)
+  {
+    i->first->reset_accumulators();
     i->first->add_generalized_force(i->second);
+  }
 
 for (unsigned i=0; i< q.super_bodies.size(); i++)
   FILE_LOG(LOG_CONSTRAINT) << "generalized force on: " << q.super_bodies[i]->id << " " << saved_forces[q.super_bodies[i]] << std::endl;
