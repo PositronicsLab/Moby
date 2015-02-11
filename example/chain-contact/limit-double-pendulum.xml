@@ -18,7 +18,7 @@
     <RecurrentForce recurrent-force-id="gravity" /> 
     <DynamicBody dynamic-body-id="chain" />
     <DynamicBody dynamic-body-id="ground" />
-    <ContactParameters object1-id="ground" object2-id="chain" mu-coulomb="0.5" mu-viscous="0" epsilon="0.0"/>
+    <ContactParameters object1-id="ground" object2-id="chain" mu-coulomb="0" mu-viscous="0" epsilon="0.0"/>
   </EventDrivenSimulator>
 
   <RCArticulatedBody id="chain" fdyn-algorithm="crb" fdyn-algorithm-frame="link" floating-base="false">
