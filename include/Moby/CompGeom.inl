@@ -250,7 +250,7 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Point3d*>::calc_
 
   // setup the points
   std::map<coordT*, Point3d*> vertex_map;
-  SAFESTATIC std::vector<coordT> qhull_points;
+  std::vector<coordT> qhull_points;
   qhull_points.resize(N_POINTS*DIM);
   coordT* points_begin = &qhull_points.front();
   unsigned j=0;
@@ -633,9 +633,9 @@ double CompGeomSpecOne<ForwardIterator, Point3d*>::fit_plane(ForwardIterator beg
   mu /= n;
 
   // create a matrix subtracting each point from the mean
-  SAFESTATIC Ravelin::LinAlgd _LA;
-  SAFESTATIC Ravelin::MatrixNd M, U, V;
-  SAFESTATIC Ravelin::VectorNd S;
+  Ravelin::LinAlgd _LA;
+  Ravelin::MatrixNd M, U, V;
+  Ravelin::VectorNd S;
   M.resize(n, THREE_D);
   unsigned idx = 0;
   for (ForwardIterator i = begin; i != end; i++)
@@ -694,9 +694,9 @@ double CompGeomSpecOne<ForwardIterator, Point3d>::fit_plane(ForwardIterator begi
   mu /= n;
 
   // create a matrix subtracting each point from the mean
-  SAFESTATIC Ravelin::LinAlgd _LA;
-  SAFESTATIC Ravelin::MatrixNd M, U, V;
-  SAFESTATIC Ravelin::VectorNd S;
+  Ravelin::LinAlgd _LA;
+  Ravelin::MatrixNd M, U, V;
+  Ravelin::VectorNd S;
   M.resize(n, THREE_D);
   unsigned idx = 0;
   for (ForwardIterator i = begin; i != end; i++)
@@ -774,7 +774,7 @@ TessellatedPolyhedronPtr CompGeomSpecOne<ForwardIterator, Point3d>::calc_convex_
   }
   
   // setup the points
-  SAFESTATIC std::vector<coordT> qhull_points;
+  std::vector<coordT> qhull_points;
   qhull_points.resize(N_POINTS*DIM);
   coordT* points_begin = &qhull_points.front(); 
   unsigned j=0;
@@ -1696,7 +1696,7 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Point2d>::calc_c
 
  
   // setup the points
-  SAFESTATIC std::vector<coordT> qhull_points;
+  std::vector<coordT> qhull_points;
   qhull_points.resize(N_POINTS*DIM);
   coordT* points_begin = &qhull_points.front();
   std::map<coordT*, Point2d*> vertex_map;
@@ -2406,7 +2406,7 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Point2d*>::calc_
   
   // setup the points
   std::map<coordT*, Point2d*> vertex_map;
-  SAFESTATIC std::vector<coordT> qhull_points;
+  std::vector<coordT> qhull_points;
   qhull_points.resize(N_POINTS*DIM);
   coordT* points_begin = &qhull_points.front();
   unsigned j=0;

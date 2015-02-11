@@ -27,6 +27,7 @@ class CRBAlgorithm
     void calc_generalized_inertia(Ravelin::SharedMatrixNd& M);
     void calc_generalized_inertia(Ravelin::SharedMatrixNd& M, boost::shared_ptr<const Ravelin::Pose3d> P);
     void calc_generalized_forces(Ravelin::SForced& f0, Ravelin::VectorNd& C);
+    void calc_generalized_forces_noinertial(Ravelin::SForced& f0, Ravelin::VectorNd& C);
     bool factorize_cholesky(Ravelin::MatrixNd& M);
     Ravelin::VectorNd& M_solve(Ravelin::VectorNd& xb);
     Ravelin::SharedVectorNd& M_solve(Ravelin::SharedVectorNd& xb);
