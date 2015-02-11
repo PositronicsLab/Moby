@@ -27,12 +27,13 @@ class SustainedUnilateralConstraintHandler
     void process_constraints(const std::vector<UnilateralConstraint>& constraints);
 
   private:
+    static void calc_constraint_velocities(SustainedUnilateralConstraintProblemData& q, Ravelin::VectorNd& cn_v, Ravelin::VectorNd& cs_v, Ravelin::VectorNd& ct_v, Ravelin::VectorNd& l_v); 
     static DynamicBodyPtr get_super_body(SingleBodyPtr sb);
     void apply_model(const std::vector<UnilateralConstraint>& constraints);
     void apply_model_to_connected_constraints(const std::list<UnilateralConstraint*>& constraints);
     void apply_purely_viscous_model_to_connected_constraints(const std::list<UnilateralConstraint*>& constraints);
-    static void compute_problem_data(SustainedUnilateralConstraintProblemData& epd);
-    static void compute_problem_data2(SustainedUnilateralConstraintProblemData& epd);
+    void compute_problem_data(SustainedUnilateralConstraintProblemData& epd);
+    void compute_problem_data2(SustainedUnilateralConstraintProblemData& epd);
     bool solve_coulomb_lcp(SustainedUnilateralConstraintProblemData& epd, Ravelin::VectorNd& z);
     bool solve_purely_viscous_lcp(SustainedUnilateralConstraintProblemData& epd, Ravelin::VectorNd& z);
     double calc_ke(SustainedUnilateralConstraintProblemData& epd, const Ravelin::VectorNd& z);

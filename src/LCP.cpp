@@ -335,8 +335,6 @@ void LCP::log_failure(const MatrixNd& M, const VectorNd& q)
   out.close();
 }
 
-
-
 /// Lemke's algorithm for solving linear complementarity problems
 /**
  * \param z a vector "close" to the solution on input (optional); contains

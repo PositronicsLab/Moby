@@ -100,37 +100,66 @@ void ImpactConstraintHandler::apply_ap_model(UnilateralConstraintProblemData& q)
 
   unsigned NC = q.N_CONTACTS;
 
+  // Num joint limit constraints
+  unsigned N_LIMIT = q.N_LIMITS;
+
+  // Num friction directions + num normal directions
+  unsigned N_FRICT = NC*4 + NC;
+
+  // Total constraints
+  unsigned N_CONST = N_FRICT + N_LIMIT;
+
+  // Num friction constraints
   unsigned NK_DIRS = 0;
   for(unsigned i=0,j=0,r=0;i<NC;i++){
-    if (q.constraints[i]->contact_NK > 4)
-      NK_DIRS+=(q.constraints[i]->contact_NK+4)/4;
+    if (q.contact_constraints[i]->contact_NK > 4)
+      NK_DIRS+=(q.contact_constraints[i]->contact_NK+4)/4;
     else
       NK_DIRS+=1;
   }
 
   // setup sizes
-  _UL.set_zero(NC+NC*4, NC+NC*4);
-  _UR.set_zero(NC+NC*4, NK_DIRS);
-  _LL.set_zero(NK_DIRS, NC+NC*4);
+  _UL.set_zero(N_CONST, N_CONST);
+  _UR.set_zero(N_CONST, NK_DIRS);
+  _LL.set_zero(NK_DIRS, N_CONST);
   _MM.set_zero(_UL.rows() + _LL.rows(), _UL.columns() + _UR.columns());
 
-  MatrixNd
-      Cs_iM_CnT = q.Cn_iM_CsT,
-      Ct_iM_CnT = q.Cn_iM_CtT,
-      Ct_iM_CsT = q.Cs_iM_CtT;
-  Cs_iM_CnT.transpose();
-  Ct_iM_CnT.transpose();
-  Ct_iM_CsT.transpose();
-
-  // now do upper right hand block of LCP matrix
+  MatrixNd Cs_iM_CnT,Ct_iM_CnT,Ct_iM_CsT,L_iM_CnT,L_iM_CsT,L_iM_CtT;
+  Ravelin::MatrixNd::transpose(q.Cn_iM_LT,L_iM_CnT);
+  Ravelin::MatrixNd::transpose(q.Cs_iM_LT,L_iM_CsT);
+  Ravelin::MatrixNd::transpose(q.Ct_iM_LT,L_iM_CtT);
+  Ravelin::MatrixNd::transpose(q.Cn_iM_CsT,Cs_iM_CnT);
+  Ravelin::MatrixNd::transpose(q.Cn_iM_CtT,Ct_iM_CnT);
+  Ravelin::MatrixNd::transpose(q.Cs_iM_CtT,Ct_iM_CsT);
   /*     n          r          r           r           r
   n  Cn_iM_CnT  Cn_iM_CsT  -Cn_iM_CsT   Cn_iM_CtT  -Cn_iM_CtT
   r  Cs_iM_CnT  Cs_iM_CsT  -Cs_iM_CsT   Cs_iM_CtT  -Cs_iM_CtT
   r -Cs_iM_CnT -Cs_iM_CsT   Cs_iM_CsT  -Cs_iM_CtT   Cs_iM_CtT
   r  Ct_iM_CnT  Ct_iM_CsT  -Ct_iM_CsT   Ct_iM_CtT  -Ct_iM_CtT
   r -Ct_iM_CnT -Ct_iM_CsT   Ct_iM_CsT  -Ct_iM_CtT   Ct_iM_CtT
+  */
+  FILE_LOG(LOG_CONSTRAINT) << "Cn*inv(M)*Cn': " << std::endl << q.Cn_iM_CnT;
+  FILE_LOG(LOG_CONSTRAINT) << "Cn*inv(M)*Cs': " << std::endl << q.Cn_iM_CsT;
+  FILE_LOG(LOG_CONSTRAINT) << "Cn*inv(M)*Ct': " << std::endl << q.Cn_iM_CtT;
+  
+  FILE_LOG(LOG_CONSTRAINT) << "Cs*inv(M)*Cn': " << std::endl << Cs_iM_CnT;
+  FILE_LOG(LOG_CONSTRAINT) << "Cs*inv(M)*Cs': " << std::endl << q.Cs_iM_CsT;
+  FILE_LOG(LOG_CONSTRAINT) << "Cs*inv(M)*Ct': " << std::endl << q.Cs_iM_CsT;
+  
+  FILE_LOG(LOG_CONSTRAINT) << "Ct*inv(M)*Cn': " << std::endl << Ct_iM_CnT;
+  FILE_LOG(LOG_CONSTRAINT) << "Ct*inv(M)*Cs': " << std::endl << Ct_iM_CsT;
+
+  FILE_LOG(LOG_CONSTRAINT) << "L*inv(M)*L': " << std::endl << q.L_iM_LT;
+  FILE_LOG(LOG_CONSTRAINT) << "Cn*inv(M)*L': " << std::endl << q.Cn_iM_LT;
+  FILE_LOG(LOG_CONSTRAINT) << "L*inv(M)*Cn': " << std::endl << L_iM_CnT;
+
+  FILE_LOG(LOG_CONSTRAINT) << "Cs*inv(M)*L': " << std::endl << q.Cs_iM_LT;
+  FILE_LOG(LOG_CONSTRAINT) << "Ct*inv(M)*L': " << std::endl << q.Ct_iM_LT;
+  FILE_LOG(LOG_CONSTRAINT) << "L*inv(M)*Cs': " << std::endl << L_iM_CsT;
+  FILE_LOG(LOG_CONSTRAINT) << "L*inv(M)*Ct': " << std::endl << L_iM_CtT;
   // Set positive submatrices
-         n          r          r           r           r
+  /*
+          n          r          r           r           r
   n  Cn_iM_CnT  Cn_iM_CsT               Cn_iM_CtT
   r  Cs_iM_CnT  Cs_iM_CsT               Cs_iM_CtT
   r                         Cs_iM_CsT               Cs_iM_CtT
@@ -157,6 +186,16 @@ void ImpactConstraintHandler::apply_ap_model(UnilateralConstraintProblemData& q)
   _UL.set_sub_mat(NC+NC*2,NC+NC*2,q.Ct_iM_CtT);
   _UL.set_sub_mat(NC+NC*3,NC+NC*3,q.Ct_iM_CtT);
 
+  // Joint Limits
+  _UL.set_sub_mat(N_FRICT,N_FRICT,q.L_iM_LT);
+  _UL.set_sub_mat(N_FRICT,0,L_iM_CnT);
+  _UL.set_sub_mat(0,N_FRICT,q.Cn_iM_LT);
+  _UL.set_sub_mat(NC,N_FRICT,q.Cs_iM_LT);
+  _UL.set_sub_mat(NC+NC*2,N_FRICT,q.Ct_iM_LT);
+  _UL.set_sub_mat(N_FRICT,NC,L_iM_CsT);
+  _UL.set_sub_mat(N_FRICT,NC+NC*2,L_iM_CtT);
+
+
   // Set negative submatrices
   /*     n          r          r           r           r
   n                        -Cn_iM_CsT              -Cn_iM_CtT
@@ -175,15 +214,10 @@ void ImpactConstraintHandler::apply_ap_model(UnilateralConstraintProblemData& q)
   Ct_iM_CsT.negate();
   q.Ct_iM_CtT.negate();
 
-  FILE_LOG(LOG_CONSTRAINT) << "Cn*inv(M)*Cn': " << std::endl << q.Cn_iM_CnT;
-  FILE_LOG(LOG_CONSTRAINT) << "-Cn*inv(M)*Cs': " << std::endl << q.Cn_iM_CsT;
-  FILE_LOG(LOG_CONSTRAINT) << "-Cn*inv(M)*Ct': " << std::endl << q.Cn_iM_CtT;
-  FILE_LOG(LOG_CONSTRAINT) << "-Cs*inv(M)*Cn': " << std::endl << Cs_iM_CnT;
-  FILE_LOG(LOG_CONSTRAINT) << "-Cs*inv(M)*Cs': " << std::endl << q.Cs_iM_CsT;
-  FILE_LOG(LOG_CONSTRAINT) << "-Cs*inv(M)*Ct': " << std::endl << q.Cs_iM_CsT;
-  FILE_LOG(LOG_CONSTRAINT) << "-Ct*inv(M)*Cn': " << std::endl << Ct_iM_CnT;
-  FILE_LOG(LOG_CONSTRAINT) << "-Ct*inv(M)*Cs': " << std::endl << Ct_iM_CsT;
-  FILE_LOG(LOG_CONSTRAINT) << "-Ct*inv(M)*Ct': " << std::endl << Ct_iM_CsT;
+  q.Cs_iM_LT.negate();
+  q.Ct_iM_LT.negate();
+  L_iM_CsT.negate();
+  L_iM_CtT.negate();
 
   _UL.set_sub_mat(NC+NC,0,Cs_iM_CnT);
   _UL.set_sub_mat(0,NC+NC,q.Cn_iM_CsT);
@@ -202,15 +236,23 @@ void ImpactConstraintHandler::apply_ap_model(UnilateralConstraintProblemData& q)
   _UL.set_sub_mat(NC+NC*2,NC+NC*3,q.Ct_iM_CtT);
   _UL.set_sub_mat(NC+NC*3,NC+NC*2,q.Ct_iM_CtT);
 
+  // Joint limits
+  _UL.set_sub_mat(NC+NC,N_FRICT,q.Cs_iM_LT);
+  _UL.set_sub_mat(NC+NC*3,N_FRICT,q.Ct_iM_LT);
+  _UL.set_sub_mat(N_FRICT,NC+NC,L_iM_CsT);
+  _UL.set_sub_mat(N_FRICT,NC+NC*3,L_iM_CtT);
+
   // lower left & upper right block of matrix
   for(unsigned i=0,j=0,r=0;i<NC;i++)
   {
-    const UnilateralConstraint* ci =  q.constraints[i];
+    const UnilateralConstraint* ci =  q.contact_constraints[i];
     if (ci->contact_NK > 4)
     {
       int nk4 = ( ci->contact_NK+4)/4;
       for(unsigned k=0;k<nk4;k++)
       {
+        FILE_LOG(LOG_CONSTRAINT) << "mu_{"<< k<< ","<< i <<"}: " << ci->contact_mu_coulomb << std::endl;
+
         // muK
         _LL(r+k,i)         = ci->contact_mu_coulomb;
         // Xe
@@ -231,6 +273,7 @@ void ImpactConstraintHandler::apply_ap_model(UnilateralConstraintProblemData& q)
     }
     else
     {
+      FILE_LOG(LOG_CONSTRAINT) << "mu_{"<< i <<"}: " << ci->contact_mu_coulomb << std::endl;
       // muK
       _LL(r,i) = ci->contact_mu_coulomb;
       // Xe
@@ -250,7 +293,6 @@ void ImpactConstraintHandler::apply_ap_model(UnilateralConstraintProblemData& q)
     }
   }
 
-
   // setup the LCP matrix
   _MM.set_sub_mat(0, _UL.columns(), _UR);
   _MM.set_sub_mat(_UL.rows(), 0, _LL);
@@ -262,12 +304,14 @@ void ImpactConstraintHandler::apply_ap_model(UnilateralConstraintProblemData& q)
   q.Ct_v.negate();
   _qq.set_sub_vec(NC+NC,q.Cs_v);
   _qq.set_sub_vec(NC+NC*3,q.Ct_v);
+  _qq.set_sub_vec(N_FRICT,q.L_v);
 
   _MM.set_sub_mat(0, 0, _UL);
 
   FILE_LOG(LOG_CONSTRAINT) << " LCP matrix: " << std::endl << _MM;
   FILE_LOG(LOG_CONSTRAINT) << " LCP vector: " << _qq << std::endl;
 
+  // Fix Negations
   q.Cn_iM_CsT.negate();
   q.Cn_iM_CtT.negate();
 //  Cs_iM_CnT.negate();
@@ -276,6 +320,10 @@ void ImpactConstraintHandler::apply_ap_model(UnilateralConstraintProblemData& q)
 //  Ct_iM_CnT.negate();
 //  Ct_iM_CsT.negate();
   q.Ct_iM_CtT.negate();
+  q.Cs_iM_LT.negate();
+  q.Ct_iM_LT.negate();
+  //L_iM_CsT.negate();
+  //L_iM_CtT.negate();
   q.Cs_v.negate();
   q.Ct_v.negate();
 
@@ -292,28 +340,36 @@ void ImpactConstraintHandler::apply_ap_model(UnilateralConstraintProblemData& q)
     j++;
   }
 
+  q.l = z.segment(N_FRICT,N_FRICT+N_LIMIT);
+
   // setup a temporary frame
   shared_ptr<Pose3d> P(new Pose3d);
 
   // save normal contact impulses
-  for (unsigned i=0; i< q.constraints.size(); i++)
+  for (unsigned i=0; i< q.contact_constraints.size(); i++)
   {
     // setup the contact frame
     P->q.set_identity();
-    P->x = q.constraints[i]->contact_point;
+    P->x = q.contact_constraints[i]->contact_point;
 
     // setup the impulse in the contact frame
     Vector3d j;
-    j = q.constraints[i]->contact_normal * q.cn[i];
-    j += q.constraints[i]->contact_tan1 * q.cs[i];
-    j += q.constraints[i]->contact_tan2 * q.ct[i];
+    j = q.contact_constraints[i]->contact_normal * q.cn[i];
+    j += q.contact_constraints[i]->contact_tan1 * q.cs[i];
+    j += q.contact_constraints[i]->contact_tan2 * q.ct[i];
 
     // setup the spatial impulse
     SMomentumd jx(boost::const_pointer_cast<const Pose3d>(P));
     jx.set_linear(j);
 
     // transform the impulse to the global frame
-    q.contact_constraints[i]->contact_impulse += Pose3d::transform(GLOBAL, jx);
+    q.contact_constraints[i]->contact_impulse = Pose3d::transform(GLOBAL, jx);
+  }
+
+  // save normal contact impulses
+  for (unsigned i=0; i< q.limit_constraints.size(); i++)
+  {
+    q.limit_constraints[i]->limit_impulse = q.l[i];
   }
 
   if (LOGGING(LOG_CONSTRAINT))
@@ -323,12 +379,14 @@ void ImpactConstraintHandler::apply_ap_model(UnilateralConstraintProblemData& q)
     _MM.mult(z, w) += _qq;
 
     // output new acceleration
-    FILE_LOG(LOG_CONSTRAINT) << "new normal v: " << w.segment(0, q.constraints.size()) << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << "new normal v: " << w.segment(0, q.contact_constraints.size()) << std::endl;
   }
 
   FILE_LOG(LOG_CONSTRAINT) << "cn " << q.cn << std::endl;
   FILE_LOG(LOG_CONSTRAINT) << "cs " << q.cs << std::endl;
   FILE_LOG(LOG_CONSTRAINT) << "ct " << q.ct << std::endl;
+
+  FILE_LOG(LOG_CONSTRAINT) << "l " << q.l << std::endl;
 
   FILE_LOG(LOG_CONSTRAINT) << " LCP result : " << z << std::endl;
   FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::apply_ap_model() exited" << std::endl;
