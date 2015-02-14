@@ -192,7 +192,7 @@ VectorNd& EventDrivenSimulator::ode_sustained_constraints(const VectorNd& x, dou
 
   // convert rigid constraints to acceleration constraints
   for (unsigned i=0; i< s->_rigid_constraints.size(); i++)
-    if (s->_rigid_constraints[i].calc_constraint_vel() < NEAR_ZERO)
+    if (std::fabs(s->_rigid_constraints[i].calc_constraint_vel()) < NEAR_ZERO)
       s->_rigid_constraints[i].deriv_type = UnilateralConstraint::eAccel;
 
   // loop through all bodies, computing forward dynamics
@@ -231,7 +231,8 @@ VectorNd& EventDrivenSimulator::ode_sustained_constraints(const VectorNd& x, dou
       FILE_LOG(LOG_CONSTRAINT) << e;
   }
 
-// TODO: remove this
+// debugging code for checking numerical acceleration 
+/*
 static double last_t = -1.0;
 static std::vector<double> last_vels; 
 std::vector<double> this_vels(s->_rigid_constraints.size());
@@ -249,6 +250,7 @@ if (last_vels.size() == this_vels.size())
 }
 last_t = t;
 last_vels = this_vels;
+*/
 
   // reset idx
   idx = 0;

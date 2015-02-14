@@ -210,6 +210,15 @@ void SustainedUnilateralConstraintHandler::apply_model_to_connected_constraints(
   // apply FORCES
   apply_forces(_epd);
 
+  // calculate problem data again (for debugging)
+  BOOST_FOREACH(DynamicBodyPtr db, _epd.super_bodies)
+    db->calc_fwd_dyn();
+  compute_problem_data(_epd);
+  FILE_LOG(LOG_CONSTRAINT) << "Cn * a: " << _epd.Cn_a << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "Cs * a: " << _epd.Cs_a << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "Ct * a: " << _epd.Ct_a << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "L * a: "  << _epd.L_a << std::endl; 
+
   FILE_LOG(LOG_CONSTRAINT) << "SustainedUnilateralConstraintHandler::apply_model_to_connected_constraints() exiting" << endl;
 }
 
@@ -761,13 +770,13 @@ void SustainedUnilateralConstraintHandler::compute_problem_data2(SustainedUnilat
     calc_constraint_velocities(q, m_cn_v, m_cs_v, m_ct_v, m_l_v);
 
     // get the super body for the constraint
-    ArticulatedBodyPtr super = q.limit_constraints[i]->limit_joint->get_articulated_body();
+    ArticulatedBodyPtr super = ci->limit_joint->get_articulated_body();
 
     // apply the impulse along the joint limit
-    unsigned index = q.limit_constraints[i]->limit_joint->get_coord_index() + q.limit_constraints[i]->limit_dof;
+    unsigned index = ci->limit_joint->get_coord_index() + ci->limit_dof;
     _workv.resize(super->num_generalized_coordinates(DynamicBody::eSpatial));
     _workv.set_zero();
-    _workv[index] = (q.limit_constraints[i]->limit_upper) ? -1.0 : 1.0; 
+    _workv[index] = (ci->limit_upper) ? -1.0 : 1.0; 
     super->apply_generalized_impulse(_workv);
 
     // measure the constraint velocities again
@@ -787,8 +796,8 @@ void SustainedUnilateralConstraintHandler::compute_problem_data2(SustainedUnilat
   }  
 
   // compute contribution in normal direction
-  // NOTE: i is contact index, k is sticking friction index
-  for (unsigned i=0, k=0; i<  q.contact_constraints.size(); i++)
+  // NOTE: i is contact index
+  for (unsigned i=0; i<  q.contact_constraints.size(); i++)
   {
     // get the i'th contact
     const UnilateralConstraint* ci =  q.contact_constraints[i];
@@ -1088,7 +1097,6 @@ bool SustainedUnilateralConstraintHandler::solve_coulomb_lcp(SustainedUnilateral
     r -Ct_iM_CnT -Ct_iM_CsT              -Ct_iM_CtT
       */
 
-  FILE_LOG(LOG_CONSTRAINT) << "Cn*inv(M)*Cn': " << std::endl << q.Cn_iM_CnT;
   FILE_LOG(LOG_CONSTRAINT) << "Cn*inv(M)*Cs': " << std::endl << q.Cn_iM_CsT;
   FILE_LOG(LOG_CONSTRAINT) << "Cn*inv(M)*Ct': " << std::endl << q.Cn_iM_CtT;
   FILE_LOG(LOG_CONSTRAINT) << "Cs*inv(M)*Cn': " << std::endl << q.Cs_iM_CnT;
@@ -1100,6 +1108,7 @@ bool SustainedUnilateralConstraintHandler::solve_coulomb_lcp(SustainedUnilateral
   FILE_LOG(LOG_CONSTRAINT) << "Ct*inv(M)*L': " << std::endl << q.Ct_iM_LT;
   FILE_LOG(LOG_CONSTRAINT) << "L*inv(M)*Cs': " << std::endl << q.L_iM_CsT;
   FILE_LOG(LOG_CONSTRAINT) << "L*inv(M)*Ct': " << std::endl << q.L_iM_CtT;
+  FILE_LOG(LOG_CONSTRAINT) << "L*inv(M)*L': " << std::endl << q.L_iM_LT;
 
     q.Cn_iM_CsT.negate();
     q.Cn_iM_CtT.negate();
@@ -1257,10 +1266,11 @@ bool SustainedUnilateralConstraintHandler::solve_coulomb_lcp(SustainedUnilateral
     q.contact_constraints[i]->contact_impulse += SMomentumd(Pose3d::transform(GLOBAL, fx));
   }
 
-  // save normal contact impulses
+  // save limit impulses
   for (unsigned i=0; i< q.limit_constraints.size(); i++)
   {
-    q.limit_constraints[i]->limit_impulse += q.l[i];
+    double limit_force = (q.limit_constraints[i]->limit_upper) ? -q.l[i] : q.l[i];
+    q.limit_constraints[i]->limit_impulse += limit_force;
   }
 
   if (LOGGING(LOG_CONSTRAINT))
@@ -1397,7 +1407,7 @@ bool SustainedUnilateralConstraintHandler::solve_purely_viscous_lcp(SustainedUni
   z.set_sub_vec(q.CN_IDX, _v);
   z.set_sub_vec(q.ALPHA_X_IDX, _alpha_x);
 
-  FILE_LOG(LOG_CONSTRAINT) << "  LCP result: " << z << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << " LCP solution (z): " << z << std::endl;
 
   // get contact, joint limit, and joint constraint forces
   q.cn = z.segment(q.CN_IDX, q.N_CONTACTS);
@@ -1447,13 +1457,13 @@ bool SustainedUnilateralConstraintHandler::solve_purely_viscous_lcp(SustainedUni
 
     // output new acceleration
     FILE_LOG(LOG_CONSTRAINT) << "new normal acceleration: " << w.segment(0, q.contact_constraints.size()) << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << " LCP solution (w): " << w << std::endl;
   }
 
   FILE_LOG(LOG_CONSTRAINT) << "cn " << q.cn << std::endl;
   FILE_LOG(LOG_CONSTRAINT) << "cs " << q.cs << std::endl;
   FILE_LOG(LOG_CONSTRAINT) << "ct " << q.ct << std::endl;
 
-  FILE_LOG(LOG_CONSTRAINT) << " LCP result : " << z << std::endl;
   FILE_LOG(LOG_CONSTRAINT) << "SustainedUnilateralConstraintHandler::solve_purely_viscous_lcp() exited" << std::endl;
 
   return true;
