@@ -809,6 +809,20 @@ SForced RigidBody::calc_euler_torques()
   return xd.cross(get_inertia() * xd);
 }
 
+/// Updates the center-of-mass center / global aligned frame
+/**
+ * \note this function is called by set_pose() and 
+ *       RCArticulatedBody::update_link_poses(.)
+ */
+void RigidBody::update_mixed_pose()
+{
+  // update the mixed pose
+  _F2->set_identity();
+  _F2->rpose = _F;
+  _F2->update_relative_pose(GLOBAL);
+  _F2->q.set_identity();
+}
+
 /// Sets the current 3D pose for this rigid body
 /**
  * Also updates the transforms for associated visualization and collision data.
@@ -821,12 +835,6 @@ void RigidBody::set_pose(const Pose3d& p)
 
   // update the pose
   *_F = p;
-
-  // update the mixed pose
-  _F2->set_identity();
-  _F2->rpose = _F;
-  _F2->update_relative_pose(GLOBAL);
-  _F2->q.set_identity();
 
   // invalidate pose vectors
   invalidate_pose_vectors();
