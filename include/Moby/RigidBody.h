@@ -229,6 +229,7 @@ class RigidBody : public SingleBody
     template <class V>
     void set_generalized_velocity_generic(DynamicBody::GeneralizedCoordinateType gctype, V& gv);
 
+    void update_mixed_pose();
     void set_force(const Ravelin::SForced& w);
     void invalidate_pose_vectors();
     void apply_generalized_impulse_single(const Ravelin::SharedVectorNd& gf);

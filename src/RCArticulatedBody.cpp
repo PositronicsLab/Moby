@@ -542,12 +542,7 @@ void RCArticulatedBody::update_link_poses()
 
   // update the center-of-mass centered / global aligned frame in all links
   for (unsigned i=0; i< _links.size(); i++)
-  {
-    _links[i]->_F2->set_identity();
-    _links[i]->_F2->rpose = _links[i]->_F;
-    _links[i]->_F2->update_relative_pose(GLOBAL);
-    _links[i]->_F2->q.set_identity();
-  }  
+    _links[i]->update_mixed_pose();
 
   // print all link poses and joint poses
   if (LOGGING(LOG_DYNAMICS))
