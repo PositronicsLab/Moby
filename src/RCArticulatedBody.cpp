@@ -132,6 +132,13 @@ void RCArticulatedBody::update_factorized_generalized_inertia()
 /// Solves using a generalized inertia matrix
 SharedVectorNd& RCArticulatedBody::solve_generalized_inertia(const SharedVectorNd& v, SharedVectorNd& result)
 {
+  // store the body's computation reference frame type
+  ReferenceFrameType rftype = get_computation_frame_type();
+
+  // set the reference frame type
+  if (rftype != eLinkCOM && is_floating_base())
+    set_computation_frame_type(eLinkCOM);
+
   if (algorithm_type == eFeatherstone)
   {
     // update the inverse / factorized inertia (if necessary)
@@ -145,13 +152,6 @@ SharedVectorNd& RCArticulatedBody::solve_generalized_inertia(const SharedVectorN
   }
   else
   {
-    // store the body's computation reference frame type
-    ReferenceFrameType rftype = get_computation_frame_type();
-
-    // set the reference frame type
-    if (rftype != eLinkCOM)
-      set_computation_frame_type(eLinkCOM);
-
     // update the inverse / factorized inertia (if necessary)
     update_factorized_generalized_inertia();
 
@@ -160,11 +160,11 @@ SharedVectorNd& RCArticulatedBody::solve_generalized_inertia(const SharedVectorN
 
     // solve once
     _crb.M_solve_noprecalc(result);
-
-    // revert the link reference frame type
-    if (rftype != eLinkCOM)
-      set_computation_frame_type(rftype); 
   }
+
+  // revert the link reference frame type
+  if (rftype != eLinkCOM && is_floating_base())
+    set_computation_frame_type(rftype); 
 
   return result;
 }
@@ -172,6 +172,13 @@ SharedVectorNd& RCArticulatedBody::solve_generalized_inertia(const SharedVectorN
 /// Solves the transpose using a generalized inertia matrix
 SharedMatrixNd& RCArticulatedBody::transpose_solve_generalized_inertia(const SharedMatrixNd& m, SharedMatrixNd& result)
 {
+  // store the body's computation reference frame type
+  ReferenceFrameType rftype = get_computation_frame_type();
+
+  // set the reference frame type
+  if (rftype != eLinkCOM && is_floating_base())
+    set_computation_frame_type(eLinkCOM);
+
   if (algorithm_type == eFeatherstone)
   {
     // update the inverse / factorized inertia (if necessary)
@@ -185,13 +192,6 @@ SharedMatrixNd& RCArticulatedBody::transpose_solve_generalized_inertia(const Sha
   }
   else
   {
-    // store the body's computation reference frame type
-    ReferenceFrameType rftype = get_computation_frame_type();
-
-    // set the reference frame type
-    if (rftype != eLinkCOM)
-      set_computation_frame_type(eLinkCOM);
-
     // update the inverse / factorized inertia (if necessary)
     update_factorized_generalized_inertia();
 
@@ -200,11 +200,11 @@ SharedMatrixNd& RCArticulatedBody::transpose_solve_generalized_inertia(const Sha
 
     // solve
     _crb.M_solve_noprecalc(result);
-
-    // revert the link reference frame type
-    if (rftype != eLinkCOM)
-      set_computation_frame_type(rftype); 
   }
+
+  // revert the link reference frame type
+  if (rftype != eLinkCOM && is_floating_base())
+    set_computation_frame_type(rftype); 
 
   return result;
 }
@@ -212,6 +212,13 @@ SharedMatrixNd& RCArticulatedBody::transpose_solve_generalized_inertia(const Sha
 /// Solves using a generalized inertia matrix
 SharedMatrixNd& RCArticulatedBody::solve_generalized_inertia(const SharedMatrixNd& m, SharedMatrixNd& result)
 {
+  // store the body's computation reference frame type
+  ReferenceFrameType rftype = get_computation_frame_type();
+
+  // set the reference frame type
+  if (rftype != eLinkCOM && is_floating_base())
+    set_computation_frame_type(eLinkCOM);
+
   if (algorithm_type == eFeatherstone)
   {
     // update the inverse / factorized inertia (if necessary)
@@ -225,13 +232,6 @@ SharedMatrixNd& RCArticulatedBody::solve_generalized_inertia(const SharedMatrixN
   }
   else
   {
-    // store the body's computation reference frame type
-    ReferenceFrameType rftype = get_computation_frame_type();
-
-    // set the reference frame type
-    if (rftype != eLinkCOM)
-      set_computation_frame_type(eLinkCOM);
-
     // update the inverse / factorized inertia (if necessary)
     update_factorized_generalized_inertia();
 
@@ -240,11 +240,11 @@ SharedMatrixNd& RCArticulatedBody::solve_generalized_inertia(const SharedMatrixN
 
     // solve
     _crb.M_solve_noprecalc(result);
-
-    // revert the link reference frame type
-    if (rftype != eLinkCOM)
-      set_computation_frame_type(rftype); 
   }
+
+  // revert the link reference frame type
+  if (rftype != eLinkCOM && is_floating_base())
+    set_computation_frame_type(rftype); 
 
   return result;
 }
