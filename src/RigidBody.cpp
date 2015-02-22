@@ -1187,7 +1187,7 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
   {
     Vector3d lv = Vector3d::zero(), av = Vector3d::zero();
     shared_ptr<Pose3d> TARGET(new Pose3d);
-    TARGET->rpose = _F;
+    TARGET->rpose = _F2;
     TARGET->q = Quatd::invert(_F->q);
     SVelocityd v;
     v.pose = TARGET;
