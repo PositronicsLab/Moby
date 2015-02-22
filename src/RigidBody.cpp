@@ -19,6 +19,8 @@
 #include <Moby/RigidBody.h>
 #ifdef USE_OSG
 #include "Color.h"
+#include <osg/PositionAttitudeTransform>
+#include <osg/PolygonMode>
 #endif
 
 using namespace Ravelin;
@@ -506,11 +508,6 @@ void RigidBody::set_accel(const SAcceld& xdd)
   }
 }
 
-#ifdef USE_OSG
-#include <osg/PositionAttitudeTransform>
-#include <osg/PolygonMode>
-#endif
-
 /// Sets the rigid body inertia for this body
 void RigidBody::set_inertia(const SpatialRBInertiad& inertia)
 {
@@ -542,10 +539,7 @@ void RigidBody::set_inertia(const SpatialRBInertiad& inertia)
     _J0 = inertia;
   }
 
-#ifdef USE_OSG
-#define VIZ_INERTIA
-# ifdef VIZ_INERTIA
-
+  #ifdef VISUALIZE_INERTIA
     /// rigid body moment of inertia matrix (inertia aligned link COM frame)
     Ravelin::Origin3d _Jdiag;
 
@@ -608,9 +602,7 @@ void RigidBody::set_inertia(const SpatialRBInertiad& inertia)
     this_group->removeChild(inertia_viz);
     inertia_viz = Transf;
     this_group->addChild(inertia_viz);
-# endif
-#endif
-
+    #endif
 }
 
 /// Sets the inertial pose for this rigid body

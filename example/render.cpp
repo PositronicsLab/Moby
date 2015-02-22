@@ -282,6 +282,17 @@ int main(int argc, char** argv)
   ::osg::Node* pRoot;
   std::string sFileName;
 
+  if (argc < 3)
+  {
+    std::cerr << "syntax: moby-render <nodefile> [options] <output file>" << std::endl;
+    std::cerr << "  option -p x y z (position of camera)" << std::endl;
+    std::cerr << "  option -t x y z (target position)" << std::endl;
+    std::cerr << "  option -u x y z (up vector)" << std::endl;
+    std::cerr << "  option -s filename (scene file)" << std::endl;
+    std::cerr << "  option -w width height (rendering width and height)" << std::endl;
+    return -1;
+  }
+
   // get all options
   pRoot = osgDB::readNodeFile(argv[1]);
   sFileName = std::string(argv[argc-1]);
@@ -302,6 +313,10 @@ int main(int argc, char** argv)
       target[0] = std::atof(&argv[i+1][0]);
       target[1] = std::atof(&argv[i+2][0]);
       target[2] = std::atof(&argv[i+3][0]);
+    } else if (option.find("-u") != std::string::npos){
+      up[0] = std::atof(&argv[i+1][0]);
+      up[1] = std::atof(&argv[i+2][0]);
+      up[2] = std::atof(&argv[i+3][0]);
     } else if (option.find("-s=") != std::string::npos){
       sceneFile = std::string(&argv[i][3]);
     } else if (option.find("-w") != std::string::npos){
