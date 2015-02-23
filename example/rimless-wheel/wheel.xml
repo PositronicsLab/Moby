@@ -33,7 +33,7 @@
 <GravityForce id="gravity" accel="0.47943 0 -0.87758" />
 -->
 
-  <EventDrivenSimulator integrator-id="bs" Euler-step="1e-10" collision-detection-plugin="wheel-coldet" contact-dist-thresh="1e-13">
+  <EventDrivenSimulator integrator-id="bs" Euler-step="1e-3" collision-detection-plugin="wheel-coldet" contact-dist-thresh="1e-13">
     <RecurrentForce recurrent-force-id="gravity" />
     <DynamicBody dynamic-body-id="GROUND" />
     <DynamicBody dynamic-body-id="WHEEL" />

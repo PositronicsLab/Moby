@@ -9,13 +9,13 @@
   <MOBY>
     <!-- Primitives -->
     <Sphere id="s1" radius="1.0" mass="1.0"  />
-    <Box id="b3" xlen="10" ylen=".001" zlen="10" rpy="1.5708 0 0" density="10.0" />
-    <Plane id="p3" rpy="1.5708 0 0" />
+    <Box id="b3" xlen="10" ylen=".001" zlen="10" rpy="1.5707963267949 0 0" density="10.0" />
+    <Plane id="p3" rpy="1.5707963267949 0 0" />
 
     <!-- Integrator -->
     <RungeKuttaIntegrator id="rk4" />
     <EulerIntegrator id="euler" />
-    <BulirschStoerIntegrator id="bsi" />
+    <BulirschStoerIntegrator id="bsi" abs-err-tol="1e-6" rel-err-tol="1e-3" />
 
     <!-- Gravity force -->
     <GravityForce id="gravity" accel="0 0 -9.81"  />
@@ -37,7 +37,7 @@
       <DynamicBody dynamic-body-id="sphere" />
       <DynamicBody dynamic-body-id="ground" />
       <RecurrentForce recurrent-force-id="gravity"  />
-      <ContactParameters object1-id="ground" object2-id="sphere" epsilon="0" mu-coulomb=".1" mu-viscous="0" friction-cone-edges="8" />
+      <ContactParameters object1-id="ground" object2-id="sphere" epsilon="0" mu-coulomb=".1" mu-viscous="0" friction-cone-edges="64" />
     </EventDrivenSimulator>
   </MOBY>
 </XML>
