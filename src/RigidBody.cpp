@@ -227,6 +227,9 @@ void RigidBody::rotate(const Quatd& q)
   _F->q *= q;
   _F->update_relative_pose(Frel);
 
+  // update the mixed pose
+  update_mixed_pose();
+
   // invalidate vector quantities
   _forcei_valid = _forcem_valid = _force0_valid = false;
   _xdi_valid = _xdm_valid = _xd0_valid = false;
@@ -305,10 +308,7 @@ void RigidBody::translate(const Origin3d& x)
   _F->update_relative_pose(Frel);
 
   // update the mixed pose
-  _F2->set_identity();
-  _F2->rpose = _F;
-  _F2->update_relative_pose(GLOBAL);
-  _F2->q.set_identity();
+  update_mixed_pose();
 
   // invalidate vector quantities
   _forcei_valid = _forcem_valid = _force0_valid = false;
@@ -827,6 +827,9 @@ void RigidBody::set_pose(const Pose3d& p)
 
   // update the pose
   *_F = p;
+
+  // update the mixed pose
+  update_mixed_pose();
 
   // invalidate pose vectors
   invalidate_pose_vectors();
