@@ -1241,7 +1241,8 @@ SAcceld UnilateralConstraint::transform(shared_ptr<const Pose3d> pose, const SAc
   Vector3d cross2 = Vector3d::cross(Vector3d::cross(rv, omega), omega);
   SAcceld result;
   result.set_angular(Etop);
-  result.set_linear(Vector3d(E * Origin3d(xdd - cross1 + cross2), T.target));
+//  result.set_linear(Vector3d(E * Origin3d(xdd - cross1 + cross2), T.target));
+  result.set_linear(Vector3d(E * Origin3d(xdd), T.target));
   result.pose = T.target;
   return result;
 } 
@@ -1298,7 +1299,7 @@ double calc_constraint_accel2(const UnilateralConstraint& e)
   xddb.pose = normal.pose;
   ala.pose = normal.pose;
   alb.pose = normal.pose;
-  Vector3d v1(xdda - xddb + Vector3d::cross(ala, ra) - Vector3d::cross(alb, rb) + Vector3d::cross(wa, Vector3d::cross(wa, ra)) - Vector3d::cross(wb, Vector3d::cross(wb, rb)));
+  Vector3d v1(xdda - xddb + Vector3d::cross(ala, ra) - Vector3d::cross(alb, rb));// + Vector3d::cross(wa, Vector3d::cross(wa, ra)) - Vector3d::cross(wb, Vector3d::cross(wb, rb)));
   Vector3d v2(xda - xdb + Vector3d::cross(wa, ra) - Vector3d::cross(wb, rb));
   v1.pose = normal.pose;
   v2.pose = normal.pose;
@@ -1617,6 +1618,8 @@ std::ostream& Moby::operator<<(std::ostream& o, const UnilateralConstraint& e)
     o << "contact point / normal pose: " << ((e.contact_point.pose) ? Pose3d(*e.contact_point.pose).update_relative_pose(GLOBAL) : GLOBAL) << std::endl;
     o << "contact point: " << e.contact_point << " frame: " << std::endl;
     o << "normal: " << e.contact_normal << " frame: " << std::endl;
+    o << "tangent 1: " << e.contact_tan1 << " frame: " << std::endl;
+    o << "tangent 2: " << e.contact_tan2 << " frame: " << std::endl;
     if (e.deriv_type == UnilateralConstraint::eVel)
     {
       SingleBodyPtr sba = e.contact_geom1->get_single_body();

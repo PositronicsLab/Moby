@@ -797,8 +797,19 @@ void RigidBody::reset_accumulators()
 SForced RigidBody::calc_euler_torques()
 {
   FILE_LOG(LOG_DYNAMICS) << "Calculating Euler torques for " << id << std::endl;
-  const SVelocityd& xd = get_velocity();
+  Vector3d omega = get_velocity().get_angular();
+  Matrix3d J = get_inertia().J;
+  Origin3d w(omega);
+
+  SForced f(omega.pose);
+  f.set_zero();
+  f.set_torque(Vector3d(Origin3d::cross(w, J * w), omega.pose));
+  return f;
+
+/*
+  Vector3d xd = get_velocity();
   return xd.cross(get_inertia() * xd);
+*/
 }
 
 /// Updates the center-of-mass center / global aligned frame
