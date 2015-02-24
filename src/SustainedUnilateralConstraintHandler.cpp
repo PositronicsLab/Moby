@@ -170,17 +170,17 @@ void SustainedUnilateralConstraintHandler::apply_model_to_connected_constraints(
     shared_ptr<Pose3d> P(new Pose3d);
 
     // save normal contact impulses
-    for (unsigned i=0; i< _epd.constraints.size(); i++)
+    for (unsigned i=0; i< _epd.contact_constraints.size(); i++)
     {
       // verify that the constraint type is a contact
-      assert(_epd.constraints[i]->constraint_type == UnilateralConstraint::eContact);
+      assert(_epd.contact_constraints[i]->constraint_type == UnilateralConstraint::eContact);
 
       // setup the contact frame
       P->q.set_identity();
-      P->x = _epd.constraints[i]->contact_point;
+      P->x = _epd.contact_constraints[i]->contact_point;
 
       // setup the impulse in the contact frame
-      Vector3d f = _epd.constraints[i]->contact_tan1 * _epd.cs[i];
+      Vector3d f = _epd.contact_constraints[i]->contact_tan1 * _epd.cs[i];
 
       // setup the spatial force
       SForced fx(boost::const_pointer_cast<const Pose3d>(P));

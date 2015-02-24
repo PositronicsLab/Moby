@@ -28,6 +28,7 @@ void post_step_callback(Simulator* sim)
 
   // get the bottom of the sphere
   Transform3d wTs = Pose3d::calc_relative_pose(sphere->get_inertial_pose(), GLOBAL);
+
   shared_ptr<Pose3d> Pbot(new Pose3d);  
   Pbot->rpose = GLOBAL;
   Pbot->x = wTs.x;
@@ -35,12 +36,29 @@ void post_step_callback(Simulator* sim)
 
   // get the velocity of the sphere at the contact point
   SVelocityd v = sphere->get_velocity();
-  SVelocityd xd = Pose3d::calc_relative_pose(v.pose, Pbot).transform(v);
+  Transform3d botTv = Pose3d::calc_relative_pose(v.pose, Pbot);
+  SVelocityd xd = botTv.transform(v);
   Vector3d linear = xd.get_linear();
+
+/*
+  SVelocityd v = sphere->get_velocity();
+  Origin3d xd(v.get_linear());
+  Origin3d omega(v.get_angular());
+  Origin3d s(1.0, 0.0, 0.0);
+  Origin3d t(0.0, 1.0, 0.0);
+  Origin3d crosss = Origin3d::cross(-wTs.x, s);
+  Origin3d crosst = Origin3d::cross(-wTs.x, t);
+*/
 
   // output the sliding velocity at the contact 
   std::ofstream out("contactv.dat", std::ostream::app);
-  out << sim->current_time << " " << linear[X] << " " << linear[Y] << std::endl; 
+  out << sim->current_time << " " << linear[X] << " " << linear[Y] << std::endl;
+//  out << sim->current_time << " " << (s.dot(xd) + crosss.dot(omega)) << " " << (t.dot(xd) + crosst.dot(omega)) << std::endl; 
+//  out << sim->current_time << " " << v[3] << " " << v[4] << " " << v[5] << " " << v[0] << " " << v[1] << " " << v[2] << std::endl;
+  out.close();
+
+  out.open("ke.dat", std::ostream::app);
+  out << sim->current_time << " " << sphere->calc_kinetic_energy() << std::endl;
   out.close();
 }
 
@@ -50,6 +68,12 @@ extern "C" {
 void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map, double time)
 {
   const unsigned Z = 2;
+
+  // wipe out contactv
+  std::ofstream out("contactv.dat");
+  out.close();
+  out.open("ke.dat");
+  out.close();
 
   // get a reference to the EventDrivenSimulator instance
   for (std::map<std::string, Moby::BasePtr>::const_iterator i = read_map.begin();
