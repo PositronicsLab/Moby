@@ -64,9 +64,15 @@ class SnapImageDrawCallback : public ::osg::CameraNode::DrawCallback
 
 };
 
+#include "../src/Color.h"
+#include <osg/PositionAttitudeTransform>
+#include <osg/PolygonMode>
+
 void
 renderSceneToImage(::osg::Node* node, const ::std::string& sFileName_,double position[3],double target[3],double up[3])
 {
+  
+
   osg::Group* root = new osg::Group();
 
   // Declare transform, initialize with defaults.
@@ -79,8 +85,15 @@ renderSceneToImage(::osg::Node* node, const ::std::string& sFileName_,double pos
   // node node as a child of the transform.
 
   root->addChild(nodeXform);
+    
+  {
+  Moby::CcolorVisitor  newColor;
+    newColor.setColor(0,0,0,0);
+    node->accept( newColor );
+  } 
+    nodeXform->addChild(node);
 
-  nodeXform->addChild(node);
+  
 
   if(!sceneFile.empty()){
     ::osg::Node* sceneNode = osgDB::readNodeFile(sceneFile);
