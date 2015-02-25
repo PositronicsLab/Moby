@@ -10,7 +10,7 @@
     <Box id="b5" xlen=".8" ylen="1" zlen=".8" density="10.0"/>
     <Box id="b6" xlen=".75" ylen="1" zlen=".75" density="10.0"/>
     <Box id="b7" xlen=".7" ylen="1" zlen=".7" density="10.0"/>
-    <Box id="ground-primitive" xlen="100" ylen=".5" zlen="100" density="10.0" />
+    <Box id="ground-primitive" xlen="10" ylen=".5" zlen="10" density="10.0" />
 
     <!-- Integrator -->
     <RungeKuttaIntegrator id="rk4"  />
