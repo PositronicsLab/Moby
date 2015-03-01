@@ -645,13 +645,23 @@ void XMLReader::read_sdf(shared_ptr<const XMLTree> node, std::map<std::string, B
     std::cerr << "XMLReader::read_sdf() - no 'filename' attrib!" << std::endl;
     return;
   }
-
+ 
   // read the models
   std::map<std::string, DynamicBodyPtr> model_map = SDFReader::read_models(fname_attr->get_string_value());
-
-  // populate our ID map with the models
-  for (std::map<std::string, DynamicBodyPtr>::const_iterator i = model_map.begin(); i != model_map.end(); i++)
-    id_map[i->first] = i->second;
+ 
+  XMLAttrib* id_attr = node->get_attrib("id");
+  if (!id_attr)
+  {
+    // populate our ID map with the models
+    for (std::map<std::string, DynamicBodyPtr>::const_iterator i = model_map.begin(); i != model_map.end(); i++)
+      id_map[i->first] = i->second;
+  } 
+  else 
+  {
+    // populate our ID map with the models
+    for (std::map<std::string, DynamicBodyPtr>::const_iterator i = model_map.begin(); i != model_map.end(); i++)
+      id_map[id_attr->get_string_value() + "::" + i->first] = i->second;
+  }
 }
 
 /// Reads and constructs the RigidBody object
