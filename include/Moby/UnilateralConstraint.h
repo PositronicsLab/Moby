@@ -37,7 +37,7 @@ class UnilateralConstraint
     static void remove_inactive_groups(std::list<std::list<UnilateralConstraint*> >& groups);
     UnilateralConstraint& operator=(const UnilateralConstraint& e);
     double calc_contact_vel(const Ravelin::Vector3d& v) const;
-    double calc_contact_accel(const Ravelin::Vector3d& v, const Ravelin::Vector3d& vdot) const;
+    double calc_contact_accel(const Ravelin::Vector3d& v) const;
     double calc_constraint_vel() const;
     double calc_constraint_accel() const;
     double calc_vconstraint_tol() const;
