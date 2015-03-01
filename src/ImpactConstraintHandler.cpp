@@ -118,11 +118,6 @@ void ImpactConstraintHandler::apply_model(const vector<UnilateralConstraint>& co
   // **********************************************************
   for (list<list<UnilateralConstraint*> >::iterator i = groups.begin(); i != groups.end(); i++)
   {
-    // determine contact tangents
-    for (list<UnilateralConstraint*>::iterator j = i->begin(); j != i->end(); j++)
-      if ((*j)->constraint_type == UnilateralConstraint::eContact)
-        (*j)->determine_contact_tangents();
-
       // copy the list of constraints
       list<UnilateralConstraint*> rconstraints = *i;
 

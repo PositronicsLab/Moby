@@ -821,7 +821,7 @@ void RigidBody::update_mixed_pose()
 {
   // update the mixed pose
   _F2->set_identity();
-  _F2->rpose = _F;
+  _F2->rpose = _jF;
   _F2->update_relative_pose(GLOBAL);
   _F2->q.set_identity();
 }
@@ -1097,6 +1097,9 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
       _jF->q = J_quat_attr->get_quat_value();
     else if (J_rpy_attr)
       _jF->q = J_rpy_attr->get_rpy_value();
+
+    // update the mixed pose
+    update_mixed_pose();
   }
 
   // set the collision geometries, if provided
@@ -1200,11 +1203,8 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
   if (lvel_attr || avel_attr)
   {
     Vector3d lv = Vector3d::zero(), av = Vector3d::zero();
-    shared_ptr<Pose3d> TARGET(new Pose3d);
-    TARGET->rpose = _F2;
-    TARGET->q = Quatd::invert(_F->q);
     SVelocityd v;
-    v.pose = TARGET;
+    v.pose = _F2;
     if (lvel_attr) lvel_attr->get_vector_value(lv);
     if (avel_attr) avel_attr->get_vector_value(av);
     v.set_linear(lv);

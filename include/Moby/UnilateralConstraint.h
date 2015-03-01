@@ -54,6 +54,7 @@ class UnilateralConstraint
     void compute_constraint_data(Ravelin::MatrixNd& M, Ravelin::VectorNd& q) const;
     void compute_cross_constraint_data(const UnilateralConstraint& e, Ravelin::MatrixNd& M) const;
     void calc_contact_tan_accel(double& tan1A, double& tan2A) const;
+    void compute_contact_dots();
 
     template <class OutputIterator>
     OutputIterator get_super_bodies(OutputIterator begin) const;

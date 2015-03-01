@@ -8,6 +8,7 @@
 #include <Ravelin/VectorNd.h>
 #include <fstream>
 
+#undef USE_INV_DYN
 #ifdef USE_INV_DYN
 #include <Pacer/controller.h>
 #include <Pacer/robot.h>
@@ -26,8 +27,8 @@ boost::shared_ptr<Moby::EventDrivenSimulator> sim;
 RigidBodyPtr left_wheel_link, right_wheel_link, chassis_link;
 
 // set the desired wheel speeds
-const double UL = 1.0;
-const double UR = 0.5;
+const double UL = .10;
+const double UR = 0.05;
 
 // get the step size
 double STEP_SIZE = 1e-5 * 5.0;
@@ -106,7 +107,7 @@ void controller(DynamicBodyPtr body, double t, void*)
   }
 
   // setup the PD controller
-  const double KV = 100.0;
+  const double KV = .1;
 
   // set dq_des, ddq_des;
   double dq_des[2];
@@ -123,7 +124,7 @@ void controller(DynamicBodyPtr body, double t, void*)
   VectorNd tau(2);
   calc_inverse_dynamics(robot, ddq_des, tau);
 
-std::cout << "L: " << dq[0] << " R: " << dq[1] << std::endl;
+//std::cout << "L: " << dq[0] << " R: " << dq[1] << std::endl;
   // setup the joint torques
   VectorNd fleft(1), fright(1);
   fleft[0] = tau[LEFT] + KV*(dq_des[LEFT] - dq[LEFT]);
