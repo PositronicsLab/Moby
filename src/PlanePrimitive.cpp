@@ -242,6 +242,7 @@ double PlanePrimitive::calc_signed_dist(shared_ptr<const CylinderPrimitive> pA, 
 
   const double R = pA->get_radius();
   const double H = pA->get_height();
+  const unsigned Y = 1;
 
   // Cylinder to Plane frame Tranformation
   Ravelin::Transform3d pPc = Ravelin::Pose3d::calc_relative_pose(Pcyl,Pplane);
@@ -249,7 +250,7 @@ double PlanePrimitive::calc_signed_dist(shared_ptr<const CylinderPrimitive> pA, 
   // Cylinder axis (in plane frame) cN
   // Take Y column from Cylinder to Plane frame Tranformation
   Ravelin::Vector3d cN = Ravelin::Vector3d(
-                           Ravelin::Matrix3d(pPc.q).get_column(1),
+                           Ravelin::Matrix3d(pPc.q).get_column(Y),
                            Pplane);
   cN.normalize();
 
