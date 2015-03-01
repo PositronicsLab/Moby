@@ -27,7 +27,7 @@ void post_step_callback(Simulator* sim)
   const double R = 1.0;
 
   // get the bottom of the sphere
-  Transform3d wTs = Pose3d::calc_relative_pose(sphere->get_inertial_pose(), GLOBAL);
+  Transform3d wTs = Pose3d::calc_relative_pose(sphere->get_pose(), GLOBAL);
 
   shared_ptr<Pose3d> Pbot(new Pose3d);  
   Pbot->rpose = GLOBAL;
@@ -52,7 +52,7 @@ void post_step_callback(Simulator* sim)
 
   // output the sliding velocity at the contact 
   std::ofstream out("contactv.dat", std::ostream::app);
-  out << sim->current_time << " " << linear[X] << " " << linear[Y] << std::endl;
+  out << sim->current_time << " " << linear[X] << " " << linear[Y] << " " << linear[Z] << std::endl;
 //  out << sim->current_time << " " << (s.dot(xd) + crosss.dot(omega)) << " " << (t.dot(xd) + crosst.dot(omega)) << std::endl; 
 //  out << sim->current_time << " " << v[3] << " " << v[4] << " " << v[5] << " " << v[0] << " " << v[1] << " " << v[2] << std::endl;
   out.close();

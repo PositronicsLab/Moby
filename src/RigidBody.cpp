@@ -366,6 +366,7 @@ void RigidBody::calc_fwd_dyn()
     SForced f = sum_forces() - calc_euler_torques();
     SAcceld xdd = J.inverse_mult(f);
 
+FILE_LOG(LOG_SIMULATOR) << "Dynamics: " << Pose3d::transform(_F, xdd) << std::endl;
     // set the acceleration
     switch (_rftype)
     {
@@ -1087,16 +1088,20 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
   XMLAttrib* J_quat_attr = node->get_attrib("inertial-relative-quat");
   if (com_attr || J_rpy_attr || J_quat_attr)
   {
-    // reset the inertial frame
-    _jF->set_identity();
-
+    shared_ptr<Pose3d> newjF(new Pose3d);
+    newjF->rpose = _jF;
+    
     // read the com
     if (com_attr)
-      _jF->x = com_attr->get_origin_value();
+      newjF->x = com_attr->get_origin_value();
     if (J_quat_attr)
-      _jF->q = J_quat_attr->get_quat_value();
+      newjF->q = J_quat_attr->get_quat_value();
     else if (J_rpy_attr)
-      _jF->q = J_rpy_attr->get_rpy_value();
+      newjF->q = J_rpy_attr->get_rpy_value();
+
+    // update newjF to refer to _jF's pose
+    newjF->update_relative_pose(_jF->rpose);
+    *_jF = *newjF;
 
     // update the mixed pose
     update_mixed_pose();
@@ -1193,8 +1198,21 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
       J += Pose3d::transform(_jF, Jx);
     }
 
+    // get the offset of J and subtract it from _jF
+    shared_ptr<Pose3d> newjF(new Pose3d);
+    newjF->x = J.h;
+    newjF->rpose = _jF;
+    SpatialRBInertiad Jnew = Pose3d::transform(newjF, J);
+
+    // set _jF to be newJF;
+    newjF->update_relative_pose(_jF->rpose);
+    *_jF = *newjF;
+
+    // update the mixed pose
+    update_mixed_pose();
+
     // set the mass and inertia of the RigidBody additively
-    set_inertia(J);
+    set_inertia(Jnew);
   }
 
   // read the linear and/or velocity of the body, if provided
@@ -1242,6 +1260,11 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
     else
       set_articulated_body(dynamic_pointer_cast<ArticulatedBody>(id_iter->second));
   }
+
+  std::cout << "inertia: " << _Jm << std::endl;
+  std::cout << "pose: " << Pose3d::calc_relative_pose(_F, GLOBAL) << std::endl;
+  std::cout << "mixed pose: " << Pose3d::calc_relative_pose(_F2, GLOBAL) << std::endl;
+  std::cout << "inertial pose: " << Pose3d::calc_relative_pose(_jF, GLOBAL) << std::endl;
 }
 
 /// Implements Base::save_to_xml()

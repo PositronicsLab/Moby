@@ -198,9 +198,6 @@ OutputIterator CCD::find_contacts_cylinder_plane(CollisionGeometryPtr cgA, Colli
       *o++ = create_contact(cgA, cgB, Ravelin::Pose3d::transform_point(GLOBAL, p), normal, d);
     }
 
-    // create a contact at the center of the cylinder
-    Point3d cyl_c(0.0, 0.0, 0.0, Pcyl);
-    *o++ = create_contact(cgA, cgB, Ravelin::Pose3d::transform_point(GLOBAL, cyl_c), normal, d);
   } else {
 
     //(axis_cylinder x (n_plane x axis_cylinder))
@@ -265,8 +262,9 @@ OutputIterator CCD::find_contacts_sphere_plane(CollisionGeometryPtr cgA, Collisi
   // create the contact 
   *o++ = create_contact(cgA, cgB, Ravelin::Pose3d::transform_point(GLOBAL, p), n, dist);
 
-  // create another contact at the center of the sphere
-  *o++ = create_contact(cgA, cgB, Ravelin::Pose3d::transform_point(GLOBAL, sph_c), n, dist);
+  // create another contact at the center of the sphere; this is necessary
+  // to represent the distance function between the sphere and the cylinder
+//  *o++ = create_contact(cgA, cgB, Ravelin::Pose3d::transform_point(GLOBAL, sph_c), n, dist);
 
   FILE_LOG(LOG_COLDET) << "CCD::find_contacts_sphere_plane() exited" << std::endl;
 

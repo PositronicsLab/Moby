@@ -1303,7 +1303,6 @@ double UnilateralConstraint::calc_contact_accel(const Vector3d& v) const
 
   // get the contact direction and derivative in the correct pose
   Vector3d dir = Pose3d::transform_vector(_contact_frame, v);
-  Vector3d dir_dot = Pose3d::transform_vector(_contact_frame, vdot);
 
   // compute: d<v, dx/dt + w x r>/dt =  
   // compute: <v,  d^2x/dt^2 + dw/dt x r> + <dv/dt, dx/dt + w x r>  
