@@ -133,12 +133,13 @@ OutputIterator CCD::find_contacts_cylinder_plane(CollisionGeometryPtr cgA, Colli
   ///////////////
   const double R = pA->get_radius();
   const double H = pA->get_height();
+  const unsigned Y = 1;
 
   Ravelin::Transform3d pPc = Ravelin::Pose3d::calc_relative_pose(Pcyl,Pplane);
 
-  // Cylinder axis cN
+  // cN is the cylinder axis with respect to the plane
   Ravelin::Vector3d cN = Ravelin::Vector3d(
-                           Ravelin::Matrix3d(pPc.q).get_column(1),
+                           Ravelin::Matrix3d(pPc.q).get_column(Y),
                            Pplane);
   cN.normalize();
 
@@ -168,7 +169,7 @@ OutputIterator CCD::find_contacts_cylinder_plane(CollisionGeometryPtr cgA, Colli
     if (d > TOL)
       return o;
 
-    double res = 4;
+    int res = 4;
     for(int i=0;i<res;i++){
       Ravelin::Vector3d tan1,tan2;
       Ravelin::Vector3d::determine_orthonormal_basis(n,tan1,tan2);
@@ -188,7 +189,7 @@ OutputIterator CCD::find_contacts_cylinder_plane(CollisionGeometryPtr cgA, Colli
     if (d > 0.0)
       return o;
 
-    double res = 2.0;
+    int res = 2;
     for(int i=0;i<res;i++){
       double t = -H/2.0 + (double)i * H/(res-1);
       Point3d p_cylinder = x + axial_dir*t;
