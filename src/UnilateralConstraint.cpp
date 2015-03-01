@@ -264,6 +264,36 @@ void UnilateralConstraint::compute_aconstraint_data(MatrixNd& M, VectorNd& q) co
   }
 } 
 
+/// Computes ndot, sdot, vdot
+/**
+ * Note that this is not what we want (so it's not called)- this computes the
+ * instantaneous change of the contact normal with respect to the motion of
+ * the bodies, when we need to know how the normal would change with respect
+ * to the surfaces (for a contact where the feature on one of the geometries
+ * is a face, the normal should be zero.
+ */ 
+void UnilateralConstraint::compute_contact_dots()
+{
+  assert(constraint_type == eContact);
+
+  // get the two rigid bodies
+  RigidBodyPtr rb1 = dynamic_pointer_cast<RigidBody>(contact_geom1->get_single_body());
+  RigidBodyPtr rb2 = dynamic_pointer_cast<RigidBody>(contact_geom2->get_single_body());
+
+  // get the angular velocities
+  Vector3d w1x = rb1->get_velocity().get_angular();
+  Vector3d w2x = rb2->get_velocity().get_angular(); 
+
+  // get the angular velocity of the both bodies in the global frame
+  Vector3d w1 = Pose3d::transform_vector(GLOBAL, w1x);
+  Vector3d w2 = Pose3d::transform_vector(GLOBAL, w2x);
+
+  // compute the sum of the dots 
+  contact_normal_dot = Vector3d::cross(w1 - w2, contact_normal); 
+  contact_tan1_dot = Vector3d::cross(w1 - w2, contact_tan1); 
+  contact_tan2_dot = Vector3d::cross(w1 - w2, contact_tan2); 
+}
+
 /// Computes the contact vector data (\dot{N}v and Na)
 void UnilateralConstraint::compute_dotv_data(VectorNd& q) const
 {
@@ -341,10 +371,11 @@ void UnilateralConstraint::compute_dotv_data(VectorNd& q) const
     if (dJ1.columns() > 0) J1 += dJ1;
     if (dJ2.columns() > 0) J2 += dJ2;
 
+/*
     // scale J
     J1 *= 2.0;
     J2 *= 2.0;
-
+*/
     // update v using 2*\dot{J}*[n t1 t2]
     su1->get_generalized_velocity(DynamicBody::eSpatial, v);
     FILE_LOG(LOG_CONSTRAINT) << "Body 1 generalized velocity: " << v << std::endl;
@@ -393,10 +424,11 @@ void UnilateralConstraint::compute_dotv_data(VectorNd& q) const
     J1 += dJ1;
     J2 += dJ2;
 
+/*
     // scale J
     J1 *= 2.0;
     J2 *= 2.0;
-
+*/
     // update v using 2*\dot{J}*[n t1 t2]
     su1->get_generalized_velocity(DynamicBody::eSpatial, v);
     FILE_LOG(LOG_CONSTRAINT) << "Body 1 generalized velocity: " << v << std::endl;
@@ -1241,8 +1273,7 @@ SAcceld UnilateralConstraint::transform(shared_ptr<const Pose3d> pose, const SAc
   Vector3d cross2 = Vector3d::cross(Vector3d::cross(rv, omega), omega);
   SAcceld result;
   result.set_angular(Etop);
-//  result.set_linear(Vector3d(E * Origin3d(xdd - cross1 + cross2), T.target));
-  result.set_linear(Vector3d(E * Origin3d(xdd), T.target));
+  result.set_linear(Vector3d(E * Origin3d(xdd - cross1 + cross2), T.target));
   result.pose = T.target;
   return result;
 } 
@@ -1268,8 +1299,6 @@ double calc_constraint_accel2(const UnilateralConstraint& e)
   shared_ptr<const Pose3d> Pb = rbb->get_mixed_pose(); 
   SVelocityd tva = Pose3d::transform(Pa, va);
   SVelocityd tvb = Pose3d::transform(Pb, vb);
-  SAcceld taa = Pose3d::transform(Pa, aa);
-  SAcceld tab = Pose3d::transform(Pb, ab);
 
   // transform normal and derivative to mixed frame
   shared_ptr<Pose3d> P(new Pose3d);
@@ -1277,6 +1306,8 @@ double calc_constraint_accel2(const UnilateralConstraint& e)
   P->rpose = GLOBAL;
   Vector3d normal = Pose3d::transform_vector(P, e.contact_normal);
   Vector3d normal_dot = Pose3d::transform_vector(P, e.contact_normal_dot);
+  SAcceld taa = Pose3d::transform(P, aa);
+  SAcceld tab = Pose3d::transform(P, ab);
 
   // setup terms
   Vector3d ra(e.contact_point - Pa->x);
@@ -1299,13 +1330,13 @@ double calc_constraint_accel2(const UnilateralConstraint& e)
   xddb.pose = normal.pose;
   ala.pose = normal.pose;
   alb.pose = normal.pose;
-  Vector3d v1(xdda - xddb + Vector3d::cross(ala, ra) - Vector3d::cross(alb, rb));// + Vector3d::cross(wa, Vector3d::cross(wa, ra)) - Vector3d::cross(wb, Vector3d::cross(wb, rb)));
+  Vector3d v1(xdda - xddb + Vector3d::cross(ala, ra) - Vector3d::cross(alb, rb) + Vector3d::cross(wa, Vector3d::cross(wa, ra)) - Vector3d::cross(wb, Vector3d::cross(wb, rb)));
   Vector3d v2(xda - xdb + Vector3d::cross(wa, ra) - Vector3d::cross(wb, rb));
   v1.pose = normal.pose;
   v2.pose = normal.pose;
 
   // get the linear velocities and project against the normal
-  return normal.dot(v1) + 2.0*normal_dot.dot(v2);
+  return normal.dot(v1) + normal_dot.dot(v2);
 }
 
 /// Computes the acceleration of this contact
@@ -1345,7 +1376,7 @@ double UnilateralConstraint::calc_contact_accel(const Vector3d& v, const Vector3
   // compute: d<v, dx/dt + w x r>/dt =  
   // compute: <v,  d^2x/dt^2 + dw/dt x r> + <dv/dt, dx/dt + w x r>  
   double ddot = dir.dot(taa.get_linear() - tab.get_linear());
-  ddot += 2.0*dir_dot.dot(tva.get_linear() - tvb.get_linear());
+  ddot += dir_dot.dot(tva.get_linear() - tvb.get_linear());
 
   return ddot;
 }  
@@ -1388,7 +1419,7 @@ double UnilateralConstraint::calc_constraint_accel() const
     // compute: d<n, dx/dt + w x r>/dt =  
     // compute: <n,  d^2x/dt^2 + dw/dt x r> + <dn/dt, dx/dt + w x r>  
     double ddot = normal.dot(taa.get_linear() - tab.get_linear());
-    ddot += 2.0*normal_dot.dot(tva.get_linear() - tvb.get_linear());
+    ddot += normal_dot.dot(tva.get_linear() - tvb.get_linear());
 
     #ifndef NDEBUG
     static bool displayed_once = false;
@@ -1449,9 +1480,9 @@ void UnilateralConstraint::calc_contact_tan_accel(double& tan1A, double& tan2A) 
   // compute: d<n, dx/dt + w x r>/dt =  
   // compute: <n,  d^2x/dt^2 + dw/dt x r> + <dn/dt, dx/dt + w x r>  
   tan1A = tan1.dot(taa.get_linear() - tab.get_linear());
-  tan1A += 2.0*tan1_dot.dot(tva.get_linear() - tvb.get_linear());
+  tan1A += tan1_dot.dot(tva.get_linear() - tvb.get_linear());
   tan2A = tan2.dot(taa.get_linear() - tab.get_linear());
-  tan2A += 2.0*tan2_dot.dot(tva.get_linear() - tvb.get_linear());
+  tan2A += tan2_dot.dot(tva.get_linear() - tvb.get_linear());
 }  
 
 double calc_constraint_vel2(const UnilateralConstraint& e)
@@ -1616,10 +1647,10 @@ std::ostream& Moby::operator<<(std::ostream& o, const UnilateralConstraint& e)
       o << "geom2: (undefined)" << std::endl;
 
     o << "contact point / normal pose: " << ((e.contact_point.pose) ? Pose3d(*e.contact_point.pose).update_relative_pose(GLOBAL) : GLOBAL) << std::endl;
-    o << "contact point: " << e.contact_point << " frame: " << std::endl;
-    o << "normal: " << e.contact_normal << " frame: " << std::endl;
-    o << "tangent 1: " << e.contact_tan1 << " frame: " << std::endl;
-    o << "tangent 2: " << e.contact_tan2 << " frame: " << std::endl;
+    o << "contact point: " << e.contact_point << std::endl;
+    o << "normal: " << e.contact_normal << "  normal dot: " << e.contact_normal_dot << std::endl;
+    o << "tangent 1: " << e.contact_tan1 << "  tan1 dot: " << e.contact_tan1_dot << std::endl;
+    o << "tangent 2: " << e.contact_tan2 << "  tan2 dot: " << e.contact_tan2_dot << std::endl;
     if (e.deriv_type == UnilateralConstraint::eVel)
     {
       SingleBodyPtr sba = e.contact_geom1->get_single_body();

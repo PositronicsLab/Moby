@@ -77,11 +77,6 @@ void SustainedUnilateralConstraintHandler::apply_model(const vector<UnilateralCo
   // **********************************************************
   for (list<list<UnilateralConstraint*> >::iterator i = groups.begin(); i != groups.end(); i++)
   {
-    // determine contact tangents
-    for (list<UnilateralConstraint*>::iterator j = i->begin(); j != i->end(); j++)
-      if ((*j)->constraint_type == UnilateralConstraint::eContact)
-        (*j)->determine_contact_tangents();
-
       // copy the list of constraints
       list<UnilateralConstraint*> rconstraints = *i;
 
@@ -214,6 +209,7 @@ void SustainedUnilateralConstraintHandler::apply_model_to_connected_constraints(
   BOOST_FOREACH(DynamicBodyPtr db, _epd.super_bodies)
     db->calc_fwd_dyn();
   compute_problem_data(_epd);
+  FILE_LOG(LOG_CONSTRAINT) << "(problem data double-check for debugging) " << _epd.Cn_a << std::endl;
   FILE_LOG(LOG_CONSTRAINT) << "Cn * a: " << _epd.Cn_a << std::endl;
   FILE_LOG(LOG_CONSTRAINT) << "Cs * a: " << _epd.Cs_a << std::endl;
   FILE_LOG(LOG_CONSTRAINT) << "Ct * a: " << _epd.Ct_a << std::endl;

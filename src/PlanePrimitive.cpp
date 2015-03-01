@@ -229,6 +229,7 @@ double PlanePrimitive::calc_signed_dist(const Point3d& p) const
 /// Gets the distance from a cylinder primitive
 double PlanePrimitive::calc_signed_dist(shared_ptr<const CylinderPrimitive> pA, Point3d& pthis, Point3d& pcyl) const
 {
+  FILE_LOG(LOG_COLDET) << "PlanePrimitive::calc_signed_dist(.) entered" << std::endl;
 
   // Output Params
   // Set intitial value of distance to contact
@@ -297,6 +298,7 @@ double PlanePrimitive::calc_signed_dist(shared_ptr<const CylinderPrimitive> pA, 
     pthis =  Ravelin::Pose3d::transform_point(Moby::GLOBAL,pP);
   } else {
 
+    FILE_LOG(LOG_COLDET) << "radial direction points toward plane" << std::endl;
     //(axis_cylinder x (n_plane x axis_cylinder))
     // Radial direction points toward plane perpendicular to axis of cylinder
     Ravelin::Vector3d radial_dir =

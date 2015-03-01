@@ -9,10 +9,10 @@
   <MOBY>
     <!-- Primitives -->
 <!--    <Cylinder id="s1" height="1" radius=".5" density="1.0" rpy="0 0 0" />-->
-    <Cylinder id="s1" height="1" radius=".5" density="1.0" rpy="1.4 0 0" />
-<!--    <Cylinder id="s1" height="1" radius=".5" density="1.0" rpy="1.57079632679 0 0" />-->
+<!--    <Cylinder id="s1" height="1" radius=".5" density="1.0" rpy="0 0 0" />-->
+    <Cylinder id="s1" height="1" radius=".5" density="1.0" rpy="1.57079632679 0 0" />
 
-    <Box id="b3" xlen="2" ylen="0.001" zlen="2" density="10.0" />
+    <Box id="b3" xlen="20" ylen="0.001" zlen="20" density="10.0" />
     <Plane id="p3" />
 
     <!-- Integrator -->
@@ -23,8 +23,8 @@
     <GravityForce id="gravity" accel="0 -9.81 0"  />
 
     <!-- Rigid bodies -->
-      <!-- the sphere -->
-      <RigidBody id="cylinder" enabled="true" position="0 1.000 0" visualization-id="s1" linear-velocity="0 0 0" angular-velocity="0 0 0">
+      <!-- the cylinder -->
+      <RigidBody id="cylinder" enabled="true" position="0 0.5 0" visualization-id="s1" linear-velocity="0 0 0" angular-velocity="10 0 0">
         <InertiaFromPrimitive primitive-id="s1" />
         <CollisionGeometry primitive-id="s1" />
       </RigidBody>
@@ -39,7 +39,7 @@
       <DynamicBody dynamic-body-id="cylinder" />
       <DynamicBody dynamic-body-id="ground" />
       <RecurrentForce recurrent-force-id="gravity"  />
-      <ContactParameters object1-id="ground" object2-id="cylinder" epsilon="0" mu-coulomb="100" mu-viscous="0" friction-cone-edges="4" />
+      <ContactParameters object1-id="ground" object2-id="cylinder" epsilon="0" mu-coulomb="0" mu-viscous="0" friction-cone-edges="4" />
     </EventDrivenSimulator>
   </MOBY>
 </XML>

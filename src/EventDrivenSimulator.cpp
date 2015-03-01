@@ -232,7 +232,6 @@ VectorNd& EventDrivenSimulator::ode_sustained_constraints(const VectorNd& x, dou
   }
 
 // debugging code for checking numerical acceleration 
-/*
 static double last_t = -1.0;
 static std::vector<double> last_vels; 
 std::vector<double> this_vels(s->_rigid_constraints.size());
@@ -250,7 +249,6 @@ if (last_vels.size() == this_vels.size())
 }
 last_t = t;
 last_vels = this_vels;
-*/
 
   // reset idx
   idx = 0;
@@ -1161,7 +1159,7 @@ void EventDrivenSimulator::check_constraint_velocity_violations(double t)
     if (ev < -zv_tol->second - NEAR_ZERO)
     {
       FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::check_constraint_velocity_violations() about to throw exception..." << std::endl;
-      throw InvalidVelocityException(t);
+//      throw InvalidVelocityException(t);
     }
   }
 
