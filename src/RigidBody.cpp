@@ -616,8 +616,13 @@ void RigidBody::set_inertial_pose(const Pose3d& P)
   if (P.rpose != _F)
     throw std::runtime_error("RigidBody::set_inertial_pose() - inertial pose not defined relative to body pose");
 
-  // set the inertial pose
-  *_jF = P;
+  // update P to refer to _jF's pose
+  Pose3d Q = P;
+  Q.update_relative_pose(_jF->rpose);
+  *_jF = Q;
+
+  // update the mixed pose
+  update_mixed_pose();
 
   // invalidate vectors using inertial frame
   _xdm_valid = _xddm_valid = _forcem_valid = false;
@@ -1260,11 +1265,6 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
     else
       set_articulated_body(dynamic_pointer_cast<ArticulatedBody>(id_iter->second));
   }
-
-  std::cout << "inertia: " << _Jm << std::endl;
-  std::cout << "pose: " << Pose3d::calc_relative_pose(_F, GLOBAL) << std::endl;
-  std::cout << "mixed pose: " << Pose3d::calc_relative_pose(_F2, GLOBAL) << std::endl;
-  std::cout << "inertial pose: " << Pose3d::calc_relative_pose(_jF, GLOBAL) << std::endl;
 }
 
 /// Implements Base::save_to_xml()
