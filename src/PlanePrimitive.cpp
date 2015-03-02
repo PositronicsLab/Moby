@@ -242,7 +242,7 @@ double PlanePrimitive::calc_signed_dist(shared_ptr<const CylinderPrimitive> pA, 
 
   const double R = pA->get_radius();
   const double H = pA->get_height();
-  const unsigned Y = 1;
+  const unsigned X = 0, Y = 1,Z = 2;
 
   // Cylinder to Plane frame Tranformation
   Ravelin::Transform3d pPc = Ravelin::Pose3d::calc_relative_pose(Pcyl,Pplane);
@@ -260,9 +260,6 @@ double PlanePrimitive::calc_signed_dist(shared_ptr<const CylinderPrimitive> pA, 
   // cylinder origin w.r.t. plane
   Point3d c0(pPc.x.data(),Pplane);
 
-  // if Cylinder is aligned with plane:
-  // Return distance cylinder origin to
-  // closest point on plane less pipe r
   double n_dot_cN = n.dot(cN);
 
   // Axial direction points toward plane parallel to axis of cylinder
@@ -271,8 +268,11 @@ double PlanePrimitive::calc_signed_dist(shared_ptr<const CylinderPrimitive> pA, 
     axial_dir = -axial_dir;
   axial_dir.normalize();
 
-  if(fabs(n_dot_cN) > 1.0-Moby::NEAR_ZERO){
-    FILE_LOG(LOG_COLDET) << " -- Cylinder face is parallel to plane" << std::endl;
+  // if Cylinder is aligned with plane:
+  // Return distance cylinder origin to
+  // closest point on plane minus height
+  if(fabs(n_dot_cN) > 1.0-1e-8){
+    FILE_LOG(LOG_COLDET) << " -- Cylinder axis is perpendicular to Plane" << std::endl;
 
     // Measure from center of closest face to the plane
     Point3d x = (H/2.0)*axial_dir + c0;
@@ -284,12 +284,12 @@ double PlanePrimitive::calc_signed_dist(shared_ptr<const CylinderPrimitive> pA, 
     pcyl =  Ravelin::Pose3d::transform_point(Moby::GLOBAL,x);
     Point3d pP = x - d*n;
     pthis =  Ravelin::Pose3d::transform_point(Moby::GLOBAL,pP);
-  } else if(fabs(n_dot_cN) < Moby::NEAR_ZERO){
-    FILE_LOG(LOG_COLDET) << " -- Cylinder face is perpendicular to plane"<< std::endl;
+  } else if(fabs(n_dot_cN) < 1e-8){
+    FILE_LOG(LOG_COLDET) << " -- Cylinder axis is parallel to Plane"<< std::endl;
 
     // Measure from center of closest edge (on curved face) to the plane
     // Radial direction and Plane normal coincide in this case
-    Point3d x = c0 - R*n;
+    Point3d x = c0 - R*n + (H/2.0)*axial_dir;
 
     // Distance above plane
     d = x.dot(n);
@@ -297,28 +297,36 @@ double PlanePrimitive::calc_signed_dist(shared_ptr<const CylinderPrimitive> pA, 
     pcyl =  Ravelin::Pose3d::transform_point(Moby::GLOBAL,x);
     Point3d pP = x - d*n;
     pthis =  Ravelin::Pose3d::transform_point(Moby::GLOBAL,pP);
-  } else {
+  } 
+  else {
+    FILE_LOG(LOG_COLDET) << " -- Cylinder edge is closest to plane"<< std::endl;
 
-    FILE_LOG(LOG_COLDET) << "radial direction points toward plane" << std::endl;
     //(axis_cylinder x (n_plane x axis_cylinder))
     // Radial direction points toward plane perpendicular to axis of cylinder
     Ravelin::Vector3d radial_dir =
         Ravelin::Vector3d::cross(
-          cN,
-          Ravelin::Vector3d::cross(n,cN)
+          axial_dir,
+          Ravelin::Vector3d::cross(axial_dir,n)
         );
-    if(radial_dir.dot(n) > 0)
-      radial_dir = -radial_dir;
     radial_dir.normalize();
+     
+    //                                            (--(|)  
+    // Through axis, toward plane "axial direction"^, ^on face, toward plane "radial direction"
+    FILE_LOG(LOG_COLDET) << "axial_dir = " << axial_dir << std::endl;
+    FILE_LOG(LOG_COLDET) << "p_axis = " << n << std::endl;
+    FILE_LOG(LOG_COLDET) << "radial_dir = " << radial_dir << std::endl;
 
     // Measure from point to the plane
-    Point3d x = (H/2.0)*axial_dir + R*radial_dir + c0;
-
+    Point3d x = c0 + (H/2.0)*axial_dir + R*radial_dir;
+    FILE_LOG(LOG_COLDET) << "x_cyl (plane frame) = " << x << std::endl;
+    
     // Distance above plane
     d = x.dot(n);
 
-    pcyl =  Ravelin::Pose3d::transform_point(Moby::GLOBAL,x);
     Point3d pP = x - d*n;
+    FILE_LOG(LOG_COLDET) << "x_plane (plane frame) = " << x << std::endl;
+
+    pcyl =  Ravelin::Pose3d::transform_point(Moby::GLOBAL,x);
     pthis =  Ravelin::Pose3d::transform_point(Moby::GLOBAL,pP);
   }
 
