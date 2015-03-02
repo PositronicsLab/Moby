@@ -265,13 +265,6 @@ void UnilateralConstraint::compute_aconstraint_data(MatrixNd& M, VectorNd& q) co
 } 
 
 /// Computes ndot, sdot, vdot
-/**
- * Note that this is not what we want (so it's not called)- this computes the
- * instantaneous change of the contact normal with respect to the motion of
- * the bodies, when we need to know how the normal would change with respect
- * to the surfaces (for a contact where the feature on one of the geometries
- * is a face, the normal should be zero.
- */ 
 void UnilateralConstraint::compute_contact_dots()
 {
   assert(constraint_type == eContact);
@@ -1278,73 +1271,12 @@ SAcceld UnilateralConstraint::transform(shared_ptr<const Pose3d> pose, const SAc
   return result;
 } 
 
-double calc_constraint_accel2(const UnilateralConstraint& e)
-{
-  assert (e.constraint_type == UnilateralConstraint::eContact);
-  SingleBodyPtr sba = e.contact_geom1->get_single_body();
-  SingleBodyPtr sbb = e.contact_geom2->get_single_body();
-
-  // get the vels and accelerations
-  const SVelocityd& va = sba->get_velocity(); 
-  const SVelocityd& vb = sbb->get_velocity(); 
-  const SAcceld& aa = sba->get_accel(); 
-  const SAcceld& ab = sbb->get_accel(); 
-
-  // get the bodies as rigid bodies
-  RigidBodyPtr rba = dynamic_pointer_cast<RigidBody>(sba);
-  RigidBodyPtr rbb = dynamic_pointer_cast<RigidBody>(sbb);
-
-  // transform velocity and acceleration to mixed frames
-  shared_ptr<const Pose3d> Pa = rba->get_mixed_pose(); 
-  shared_ptr<const Pose3d> Pb = rbb->get_mixed_pose(); 
-  SVelocityd tva = Pose3d::transform(Pa, va);
-  SVelocityd tvb = Pose3d::transform(Pb, vb);
-
-  // transform normal and derivative to mixed frame
-  shared_ptr<Pose3d> P(new Pose3d);
-  P->x = e.contact_point;
-  P->rpose = GLOBAL;
-  Vector3d normal = Pose3d::transform_vector(P, e.contact_normal);
-  Vector3d normal_dot = Pose3d::transform_vector(P, e.contact_normal_dot);
-  SAcceld taa = Pose3d::transform(P, aa);
-  SAcceld tab = Pose3d::transform(P, ab);
-
-  // setup terms
-  Vector3d ra(e.contact_point - Pa->x);
-  Vector3d rb(e.contact_point - Pb->x);
-  Vector3d xda = tva.get_linear(); 
-  Vector3d xdb = tvb.get_linear(); 
-  Vector3d xdda = taa.get_linear(); 
-  Vector3d xddb = tab.get_linear(); 
-  Vector3d wa = tva.get_angular();
-  Vector3d wb = tvb.get_angular();
-  Vector3d ala = taa.get_angular();
-  Vector3d alb = tab.get_angular();
-  ra.pose = normal.pose;
-  rb.pose = normal.pose;
-  xda.pose = normal.pose;
-  xdb.pose = normal.pose;
-  wa.pose = normal.pose;
-  wb.pose = normal.pose;
-  xdda.pose = normal.pose;
-  xddb.pose = normal.pose;
-  ala.pose = normal.pose;
-  alb.pose = normal.pose;
-  Vector3d v1(xdda - xddb + Vector3d::cross(ala, ra) - Vector3d::cross(alb, rb) + Vector3d::cross(wa, Vector3d::cross(wa, ra)) - Vector3d::cross(wb, Vector3d::cross(wb, rb)));
-  Vector3d v2(xda - xdb + Vector3d::cross(wa, ra) - Vector3d::cross(wb, rb));
-  v1.pose = normal.pose;
-  v2.pose = normal.pose;
-
-  // get the linear velocities and project against the normal
-  return normal.dot(v1) + normal_dot.dot(v2);
-}
-
 /// Computes the acceleration of this contact
 /**
  * Positive acceleration indicates acceleration away, negative acceleration
  * indicates acceleration that will lead to impact/interpenetration.
  */
-double UnilateralConstraint::calc_contact_accel(const Vector3d& v, const Vector3d& vdot) const
+double UnilateralConstraint::calc_contact_accel(const Vector3d& v) const
 {
   assert(constraint_type == eContact);
   assert(contact_geom1 && contact_geom2);
@@ -1366,19 +1298,15 @@ double UnilateralConstraint::calc_contact_accel(const Vector3d& v, const Vector3
   // compute the velocities and accelerations at the contact point
   SVelocityd tva = Pose3d::transform(_contact_frame, va); 
   SVelocityd tvb = Pose3d::transform(_contact_frame, vb); 
-  SAcceld taa = transform(_contact_frame, aa, va); 
-  SAcceld tab = transform(_contact_frame, ab, vb); 
+  SAcceld taa = Pose3d::transform(_contact_frame, aa); 
+  SAcceld tab = Pose3d::transform(_contact_frame, ab); 
 
   // get the contact direction and derivative in the correct pose
   Vector3d dir = Pose3d::transform_vector(_contact_frame, v);
-  Vector3d dir_dot = Pose3d::transform_vector(_contact_frame, vdot);
 
   // compute: d<v, dx/dt + w x r>/dt =  
   // compute: <v,  d^2x/dt^2 + dw/dt x r> + <dv/dt, dx/dt + w x r>  
-  double ddot = dir.dot(taa.get_linear() - tab.get_linear());
-  ddot += dir_dot.dot(tva.get_linear() - tvb.get_linear());
-
-  return ddot;
+  return dir.dot(taa.get_linear() - tab.get_linear());
 }  
 
 /// Computes the acceleration of this constraint 
@@ -1409,29 +1337,15 @@ double UnilateralConstraint::calc_constraint_accel() const
     // compute the velocities and accelerations at the contact point
     SVelocityd tva = Pose3d::transform(_contact_frame, va); 
     SVelocityd tvb = Pose3d::transform(_contact_frame, vb); 
-    SAcceld taa = transform(_contact_frame, aa, va); 
-    SAcceld tab = transform(_contact_frame, ab, vb); 
+    SAcceld taa = Pose3d::transform(_contact_frame, aa); 
+    SAcceld tab = Pose3d::transform(_contact_frame, ab); 
 
     // get the contact normal and derivative in the correct pose
     Vector3d normal = Pose3d::transform_vector(_contact_frame, contact_normal);
-    Vector3d normal_dot = Pose3d::transform_vector(_contact_frame, contact_normal_dot);
 
     // compute: d<n, dx/dt + w x r>/dt =  
     // compute: <n,  d^2x/dt^2 + dw/dt x r> + <dn/dt, dx/dt + w x r>  
-    double ddot = normal.dot(taa.get_linear() - tab.get_linear());
-    ddot += normal_dot.dot(tva.get_linear() - tvb.get_linear());
-
-    #ifndef NDEBUG
-    static bool displayed_once = false;
-    if (!displayed_once && !CompGeom::rel_equal(ddot, calc_constraint_accel2(*this), 1e-4))
-    {
-      displayed_once = true;
-      std::cerr << "UnilateralConstraint::calc_constraint_accel() warning: accelerations do not match to desired tolerance" << std::endl;
-      std::cerr << " -- computed acceleration: " << ddot << std::endl;
-      std::cerr << " -- checked acceleration: " << calc_constraint_accel2(*this) << std::endl;
-    }
-    #endif
-    return ddot;
+    return normal.dot(taa.get_linear() - tab.get_linear());
   }
   else if (constraint_type == eLimit)
   {
@@ -1687,7 +1601,7 @@ std::ostream& Moby::operator<<(std::ostream& o, const UnilateralConstraint& e)
     }
     else
     {
-      o << "relative normal acceleration: " << e.calc_constraint_accel() << " (1)   " << calc_constraint_accel2(e) << " (2)" << std::endl;
+      o << "relative normal acceleration: " << e.calc_constraint_accel() << std::endl;
       double tan1A, tan2A;
       e.calc_contact_tan_accel(tan1A, tan2A);
       assert(!std::isnan(tan1A));

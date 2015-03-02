@@ -133,12 +133,13 @@ OutputIterator CCD::find_contacts_cylinder_plane(CollisionGeometryPtr cgA, Colli
   ///////////////
   const double R = pA->get_radius();
   const double H = pA->get_height();
+  const unsigned Y = 1;
 
   Ravelin::Transform3d pPc = Ravelin::Pose3d::calc_relative_pose(Pcyl,Pplane);
 
-  // Cylinder axis cN
+  // cN is the cylinder axis with respect to the plane
   Ravelin::Vector3d cN = Ravelin::Vector3d(
-                           Ravelin::Matrix3d(pPc.q).get_column(1),
+                           Ravelin::Matrix3d(pPc.q).get_column(Y),
                            Pplane);
   cN.normalize();
 
@@ -168,7 +169,7 @@ OutputIterator CCD::find_contacts_cylinder_plane(CollisionGeometryPtr cgA, Colli
     if (d > TOL)
       return o;
 
-    double res = 4;
+    int res = 4;
     for(int i=0;i<res;i++){
       Ravelin::Vector3d tan1,tan2;
       Ravelin::Vector3d::determine_orthonormal_basis(n,tan1,tan2);
@@ -197,9 +198,6 @@ OutputIterator CCD::find_contacts_cylinder_plane(CollisionGeometryPtr cgA, Colli
       *o++ = create_contact(cgA, cgB, Ravelin::Pose3d::transform_point(GLOBAL, p), normal, d);
     }
 
-    // create a contact at the center of the cylinder
-    Point3d cyl_c(0.0, 0.0, 0.0, Pcyl);
-    *o++ = create_contact(cgA, cgB, Ravelin::Pose3d::transform_point(GLOBAL, cyl_c), normal, d);
   } else {
     FILE_LOG(LOG_COLDET) << " -- Cylinder edge is closest to plane"<< std::endl;
     //(axis_cylinder x (n_plane x axis_cylinder))
@@ -264,8 +262,9 @@ OutputIterator CCD::find_contacts_sphere_plane(CollisionGeometryPtr cgA, Collisi
   // create the contact 
   *o++ = create_contact(cgA, cgB, Ravelin::Pose3d::transform_point(GLOBAL, p), n, dist);
 
-  // create another contact at the center of the sphere
-  *o++ = create_contact(cgA, cgB, Ravelin::Pose3d::transform_point(GLOBAL, sph_c), n, dist);
+  // create another contact at the center of the sphere; this is necessary
+  // to represent the distance function between the sphere and the cylinder
+//  *o++ = create_contact(cgA, cgB, Ravelin::Pose3d::transform_point(GLOBAL, sph_c), n, dist);
 
   FILE_LOG(LOG_COLDET) << "CCD::find_contacts_sphere_plane() exited" << std::endl;
 

@@ -22,8 +22,8 @@
 
     <!-- Rigid bodies -->
       <!-- the sphere -->
-      <RigidBody id="sphere" enabled="true" position="0 0 1" visualization-id="s1" linear-velocity="1 1 0" angular-velocity="1 1 1" color="0 0 1 0" iinertial-relative-com=".1 .1 .1">
-        <InertiaFromPrimitive primitive-id="s1" relative-origin="0 0 0" />
+      <RigidBody id="sphere" enabled="true" position="0 0 1" visualization-id="s1" linear-velocity="1 1 0" angular-velocity="1 1 1" color="0 0 1 0" inertial-relative-com=".1 .1 .1">
+        <InertiaFromPrimitive primitive-id="s1" rrelative-origin=".1 .1 .1" />
         <CollisionGeometry primitive-id="s1" />
       </RigidBody>
 
@@ -33,7 +33,7 @@
       </RigidBody>
 
     <!-- Setup the simulator -->
-    <EventDrivenSimulator id="simulator" integrator-id="bsi" Euler-step="1e-10" contact-dist-thresh="1e-13">
+    <EventDrivenSimulator id="simulator" integrator-id="bsi" Euler-step="1e-3" contact-dist-thresh="1e-13">
       <DynamicBody dynamic-body-id="sphere" />
       <DynamicBody dynamic-body-id="ground" />
       <RecurrentForce recurrent-force-id="gravity"  />
