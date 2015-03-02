@@ -23,6 +23,9 @@ void post_step_callback(Simulator* sim)
 {
   const unsigned Z = 2;
 
+  // determine the closest configuration for l1
+  
+
   // output the energy of the link
   std::ofstream out("energy.dat", std::ostream::app);
   Transform3d gTw = Pose3d::calc_relative_pose(l1->get_inertial_pose(), GLOBAL);

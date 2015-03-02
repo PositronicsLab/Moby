@@ -33,11 +33,11 @@
       </RigidBody>
 
     <!-- Setup the simulator -->
-    <EventDrivenSimulator id="simulator" integrator-id="bsi" Euler-step="1e-3" contact-dist-thresh="1e-13">
+    <EventDrivenSimulator id="simulator" integrator-id="bsi" Euler-step="5e-3" contact-dist-thresh="1e-13">
       <DynamicBody dynamic-body-id="sphere" />
       <DynamicBody dynamic-body-id="ground" />
       <RecurrentForce recurrent-force-id="gravity"  />
-      <ContactParameters object1-id="ground" object2-id="sphere" epsilon="0" mu-coulomb=".1" mu-viscous="0" friction-cone-edges="16" />
+      <ContactParameters object1-id="ground" object2-id="sphere" epsilon="0" mu-coulomb="0" mu-viscous="0" friction-cone-edges="16" />
     </EventDrivenSimulator>
   </MOBY>
 </XML>

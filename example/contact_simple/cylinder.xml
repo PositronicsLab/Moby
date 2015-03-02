@@ -24,7 +24,7 @@
 
     <!-- Rigid bodies -->
       <!-- the cylinder -->
-      <RigidBody id="cylinder" enabled="true" position="0 0.5 0" visualization-id="s1" linear-velocity="10 0 0" angular-velocity="0 0 -10">
+      <RigidBody id="cylinder" enabled="true" position="0 0.5 0" visualization-id="s1" linear-velocity="10 0 0" angular-velocity="10 0 0">
         <InertiaFromPrimitive primitive-id="s1" />
         <CollisionGeometry primitive-id="s1" />
       </RigidBody>
