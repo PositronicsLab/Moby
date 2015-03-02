@@ -2,13 +2,13 @@
 
 <XML>
   <DRIVER>
-    <camera position="1 1 1" target="0 0 0" up="0 0 1" />
+    <camera position="0 10 .5" target="0 0 0" up="0 0 1" />
     <window location="0 0" size="640 480" />
   </DRIVER>
 
   <MOBY>
 
-  <BulirschStoerIntegrator id="bs" abs-err-tol="1e-3" rel-err-tol="1e-3" />
+  <BulirschStoerIntegrator id="bs" abs-err-tol="1e-2" rel-err-tol="1e-2" />
 
   <GravityForce id="gravity" accel="0 0 -9.81" />
 <!--<GravityForce id="gravity" accel="0.687395090074 0 -9.775862518954" />-->

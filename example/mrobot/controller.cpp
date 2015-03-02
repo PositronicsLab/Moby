@@ -27,8 +27,8 @@ boost::shared_ptr<Moby::EventDrivenSimulator> sim;
 RigidBodyPtr left_wheel_link, right_wheel_link, chassis_link;
 
 // set the desired wheel speeds
-const double UL = .10;
-const double UR = 0.05;
+const double UL = 1.0;
+const double UR = 1.0;
 
 // get the step size
 double STEP_SIZE = 1e-5 * 5.0;
@@ -78,7 +78,28 @@ void calc_inverse_dynamics(RCArticulatedBodyPtr robot, const VectorNd& qdd, Vect
   #endif
 }
 
-// setup the controller callback
+// the controller (applies a force)
+void controller(DynamicBodyPtr body, double t, void*)
+{
+  // get the robot
+  RCArticulatedBodyPtr robot = boost::dynamic_pointer_cast<RCArticulatedBody>(body);
+
+  // get the base link
+  RigidBodyPtr base = robot->get_links().front();
+
+  // apply a force to the robot at the center of the base in the x direction
+  SForced f(10.0, 0.0, 0.0, 0.0, 0.0, 0.0, base->get_inertial_pose());
+
+  // get the generalized force
+  VectorNd gf;
+  robot->convert_to_generalized_force(base, f, gf);
+
+  // add the generalized force
+  robot->add_generalized_force(gf);
+}
+
+// the controller (feedback + possibly inverse dynamics) 
+/*
 void controller(DynamicBodyPtr body, double t, void*)
 {
   const unsigned LEFT = 0, RIGHT = 1;
@@ -148,6 +169,7 @@ void controller(DynamicBodyPtr body, double t, void*)
   left->add_force(fleft);
   right->add_force(fright);
 }
+*/
 
 void contact_callback_fn(std::vector<Moby::UnilateralConstraint>& e,
                             boost::shared_ptr<void> empty)
@@ -236,7 +258,7 @@ void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map,
   assert(robot);
 
   // set the controller
-  robot->controller = &controller;
+//  robot->controller = &controller;
 
   // get the chassis, left, and right wheels
   const std::string CHASSIS_LINK_ID = "chassis";
@@ -279,6 +301,7 @@ void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map,
   JointPtr right = robot->get_joints()[1];
   assert(left->id == "left_wheel_hinge");
   assert(right->id == "right_wheel_hinge");
+
   left->qd[0] = UL;
   right->qd[0] = UR;
 
