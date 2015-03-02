@@ -582,7 +582,6 @@ int main(int argc, char** argv)
     else if (option.find("-s=") != std::string::npos)
     {
       STEP_SIZE = std::atof(&argv[i][ONECHAR_ARG]);
-      assert(STEP_SIZE >= 0.0 && STEP_SIZE < 1);
     }
     else if (option.find("-lf=") != std::string::npos)
     {

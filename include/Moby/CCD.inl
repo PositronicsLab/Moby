@@ -159,8 +159,8 @@ OutputIterator CCD::find_contacts_cylinder_plane(CollisionGeometryPtr cgA, Colli
     axial_dir = -axial_dir;
   axial_dir.normalize();
 
-  if(fabs(n_dot_cN) > 1.0-Moby::NEAR_ZERO){
-    FILE_LOG(LOG_COLDET) << " -- Cylinder face is parallel to plane" << std::endl;
+  if(fabs(n_dot_cN) > 1.0-1e-8){
+    FILE_LOG(LOG_COLDET) << " -- Cylinder axis is perpendicular to Plane" << std::endl;
 
     Point3d x = (H/2.0)*axial_dir + c0;
 
@@ -180,18 +180,18 @@ OutputIterator CCD::find_contacts_cylinder_plane(CollisionGeometryPtr cgA, Colli
       *o++ = create_contact(cgA, cgB, Ravelin::Pose3d::transform_point(GLOBAL, p), normal, d);
     }
 
-  } else if(fabs(n_dot_cN) < Moby::NEAR_ZERO){
-    FILE_LOG(LOG_COLDET) << " -- Cylinder face is perpendicular to plane"<< std::endl;
+  } else if(fabs(n_dot_cN) < 1e-8){
+    FILE_LOG(LOG_COLDET) << " -- Cylinder axis is parallel to Plane"<< std::endl;
 
     Point3d x = c0 - R*n;
 
     d = x.dot(n);
-    if (d > 0.0)
+    if (d > TOL)
       return o;
 
-    int res = 2;
-    for(int i=0;i<res;i++){
-      double t = -H/2.0 + (double)i * H/(res-1);
+    double res[2] = {-1.0,1.0};
+    for(int i=0;i<2;i++){
+      double t = res[i]*H/2.0;
       Point3d p_cylinder = x + axial_dir*t;
       p = Ravelin::Pose3d::transform_point(Moby::GLOBAL,p_cylinder);
 
@@ -199,21 +199,21 @@ OutputIterator CCD::find_contacts_cylinder_plane(CollisionGeometryPtr cgA, Colli
     }
 
   } else {
-
+    FILE_LOG(LOG_COLDET) << " -- Cylinder edge is closest to plane"<< std::endl;
     //(axis_cylinder x (n_plane x axis_cylinder))
     Ravelin::Vector3d radial_dir =
         Ravelin::Vector3d::cross(
-          cN,
-          Ravelin::Vector3d::cross(n,cN)
+          axial_dir,
+          Ravelin::Vector3d::cross(axial_dir,n)
         );
-    if(radial_dir.dot(n) > 0)
-      radial_dir = -radial_dir;
     radial_dir.normalize();
-
 
     Point3d x = (H/2.0)*axial_dir + R*radial_dir + c0;
 
     d = x.dot(n);
+
+    if (d > TOL)
+      return o;
 
     p =  Ravelin::Pose3d::transform_point(Moby::GLOBAL,x);
 //    Point3d pP = x + d*n;
