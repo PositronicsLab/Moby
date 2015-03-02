@@ -1499,6 +1499,13 @@ void EventDrivenSimulator::step_si_Euler(double dt)
     double h = std::min(calc_next_CA_Euler_step(contact_dist_thresh), target_time - current_time);
     FILE_LOG(LOG_SIMULATOR) << "   position integration: " << h << std::endl;
 
+    // look for small position integration events
+    if (h < dt*dt)
+    {
+      std::cerr << "EventDrivenSimulator::step_si_Euler() warning: small position integration" << std::endl;
+      std::cerr << "  timestep (" << h << ") taken, relative to nominal step (" << dt << ") " << std::endl;
+    } 
+
     // integrate bodies' positions forward by that time using new velocities
     integrate_positions_Euler(h);
     if (LOGGING(LOG_SIMULATOR))
