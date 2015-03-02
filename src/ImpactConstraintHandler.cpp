@@ -822,18 +822,16 @@ void ImpactConstraintHandler::apply_model_to_connected_constraints(const list<Un
   // apply impulses
   apply_impulses(_epd);
 
-  // for debugging 
-/*
-  compute_problem_data(_epd, inv_dt);
-  FILE_LOG(LOG_CONSTRAINT) << "new Cn_v (double check): " << _epd.Cn_v << std::endl;
-  FILE_LOG(LOG_CONSTRAINT) << "new Cs_v (double check): " << _epd.Cs_v << std::endl;
-  FILE_LOG(LOG_CONSTRAINT) << "new Ct_v (double check): " << _epd.Ct_v << std::endl;
-  FILE_LOG(LOG_CONSTRAINT) << "new L_v (double check): " << _epd.L_v << std::endl;
-*/
-
-  // compute energy
+  // for debugging
   if (LOGGING(LOG_CONSTRAINT))
-  {
+  { 
+    FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler debugging check (slow) " << std::endl;
+    compute_problem_data(_epd, inv_dt);
+    FILE_LOG(LOG_CONSTRAINT) << "new Cn_v (double check): " << _epd.Cn_v << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << "new Cs_v (double check): " << _epd.Cs_v << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << "new Ct_v (double check): " << _epd.Ct_v << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << "new L_v (double check): " << _epd.L_v << std::endl;
+
     for (unsigned i=0; i< _epd.super_bodies.size(); i++)
     {
       double ke = _epd.super_bodies[i]->calc_kinetic_energy();

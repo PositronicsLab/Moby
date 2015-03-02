@@ -1159,7 +1159,7 @@ void EventDrivenSimulator::check_constraint_velocity_violations(double t)
     if (ev < -zv_tol->second - NEAR_ZERO)
     {
       FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::check_constraint_velocity_violations() about to throw exception..." << std::endl;
-//      throw InvalidVelocityException(t);
+      throw InvalidVelocityException(t);
     }
   }
 

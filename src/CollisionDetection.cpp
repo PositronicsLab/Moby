@@ -83,6 +83,9 @@ UnilateralConstraint CollisionDetection::create_contact(CollisionGeometryPtr a, 
   // compute contact tangents
   e.determine_contact_tangents();
 
+  // compute normal and tangent time derivatives
+//  e.compute_contact_dots();
+
   return e;
 }
 
