@@ -474,18 +474,23 @@ void UnilateralConstraint::compute_vconstraint_data(MatrixNd& M, VectorNd& q) co
     Vector3d tan2 = Pose3d::transform_vector(_contact_frame, contact_tan2);
 
     // setup a matrix of contact directions
+    // R' transforms contact orientation to global orientation
     Matrix3d R;
-    R.set_column(N, normal);
-    R.set_column(S, tan1);
-    R.set_column(T, tan2);
+    R.set_row(N, normal);
+    R.set_row(S, tan1);
+    R.set_row(T, tan2);
 
-    // compute the Jacobians for the two bodies
+    // compute the Jacobians for the two bodies; Jacobian transforms velocities
+    // in mixed frame to velocities in contact frame
     su1->calc_jacobian(_contact_frame, sb1, JJ);
     SharedConstMatrixNd Jlin1 = JJ.block(0, THREE_D, 0, JJ.columns());
+std::cout << "Jacobian (1): " << std::endl << Jlin1;
     R.transpose_mult(Jlin1, J1);
+std::cout << "Jacobian: " << std::endl << J1;
     su2->calc_jacobian(_contact_frame, sb2, JJ);
     SharedConstMatrixNd Jlin2 = JJ.block(0, THREE_D, 0, JJ.columns());
     (-R).transpose_mult(Jlin2, J2);
+std::cout << "Jacobian: " << std::endl << J2;
 
     // compute the constraint inertia matrix for the first body
     su1->transpose_solve_generalized_inertia(J1, workM1);
