@@ -68,7 +68,7 @@ void ImpactConstraintHandler::apply_ap_model_to_connected_constraints(const std:
   // apply restitution
   if (apply_restitution(_epd))
   {
-//     determine velocities due to impulse application
+    // determine velocities due to impulse application
     update_constraint_velocities_from_impulses(_epd);
 
     // check to see whether we need to solve another impact problem
@@ -81,6 +81,8 @@ void ImpactConstraintHandler::apply_ap_model_to_connected_constraints(const std:
       // need to solve another impact problem
       apply_ap_model(_epd);
     }
+    else
+      propagate_impulse_data(_epd);
   }
 
   // apply impulses
@@ -345,32 +347,8 @@ void ImpactConstraintHandler::apply_ap_model(UnilateralConstraintProblemData& q)
   // setup a temporary frame
   shared_ptr<Pose3d> P(new Pose3d);
 
-  // save normal contact impulses
-  for (unsigned i=0; i< q.contact_constraints.size(); i++)
-  {
-    // setup the contact frame
-    P->q.set_identity();
-    P->x = q.contact_constraints[i]->contact_point;
-
-    // setup the impulse in the contact frame
-    Vector3d j;
-    j = q.contact_constraints[i]->contact_normal * q.cn[i];
-    j += q.contact_constraints[i]->contact_tan1 * q.cs[i];
-    j += q.contact_constraints[i]->contact_tan2 * q.ct[i];
-
-    // setup the spatial impulse
-    SMomentumd jx(boost::const_pointer_cast<const Pose3d>(P));
-    jx.set_linear(j);
-
-    // transform the impulse to the global frame
-    q.contact_constraints[i]->contact_impulse = Pose3d::transform(GLOBAL, jx);
-  }
-
-  // save normal contact impulses
-  for (unsigned i=0; i< q.limit_constraints.size(); i++)
-  {
-    q.limit_constraints[i]->limit_impulse = q.l[i];
-  }
+  // propagate the impulse data
+  propagate_impulse_data(q); 
 
   if (LOGGING(LOG_CONSTRAINT))
   {

@@ -619,7 +619,7 @@ OutputIterator CCD::find_contacts_sphere_sphere(CollisionGeometryPtr cgA, Collis
   // determine the distance between the two spheres
   Ravelin::Vector3d d = cA0 - cB0;
   double dist = d.norm() - sA->get_radius() - sB->get_radius();
-  if (dist < TOL)
+  if (dist > TOL)
     return o;
 
   // get the closest points on the two spheres

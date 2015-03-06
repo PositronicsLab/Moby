@@ -279,6 +279,8 @@ void ImpactConstraintHandler::apply_model_to_connected_constraints(const list<Un
       // update the impulses from z
       update_from_stacked(_epd, z);
     }
+    else
+      propagate_impulse_data(_epd);
   }
 
   // apply impulses
@@ -857,6 +859,39 @@ bool ImpactConstraintHandler::use_qp_solver(const UnilateralConstraintProblemDat
 
   // still here? ok to use QP solver
   return true;
+}
+
+/// Propagates impulse data from ConstraintProblemData to the underlying unilateral constraints
+void ImpactConstraintHandler::propagate_impulse_data(const UnilateralConstraintProblemData& q)
+{
+  shared_ptr<Pose3d> P(new Pose3d);
+
+  // save normal contact impulses
+  for (unsigned i=0; i< q.contact_constraints.size(); i++)
+  {
+    // setup the contact frame
+    P->q.set_identity();
+    P->x = q.contact_constraints[i]->contact_point;
+
+    // setup the impulse in the contact frame
+    Vector3d j;
+    j = q.contact_constraints[i]->contact_normal * q.cn[i];
+    j += q.contact_constraints[i]->contact_tan1 * q.cs[i];
+    j += q.contact_constraints[i]->contact_tan2 * q.ct[i];
+
+    // setup the spatial impulse
+    SMomentumd jx(boost::const_pointer_cast<const Pose3d>(P));
+    jx.set_linear(j);
+
+    // transform the impulse to the global frame
+    q.contact_constraints[i]->contact_impulse += Pose3d::transform(GLOBAL, jx);
+  }
+
+  // save normal contact impulses
+  for (unsigned i=0; i< q.limit_constraints.size(); i++)
+  {
+    q.limit_constraints[i]->limit_impulse += q.l[i];
+  }
 }
 
 /// Applies impulses to bodies
