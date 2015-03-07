@@ -1500,7 +1500,7 @@ void EventDrivenSimulator::step_si_Euler(double dt)
     FILE_LOG(LOG_SIMULATOR) << "   position integration: " << h << std::endl;
 
     // look for small position integration events
-    if (h < dt*dt)
+    if (h < dt*dt*dt)
     {
       std::cerr << "EventDrivenSimulator::step_si_Euler() warning: small position integration" << std::endl;
       std::cerr << "  timestep (" << h << ") taken, relative to nominal step (" << dt << ") " << std::endl;
