@@ -519,11 +519,8 @@ void ArticulatedBody::check_joint_vel_limit_exceeded_and_update()
   }
 }
 
-/// Gets the time-derivative of the Jacobian
-/**
- * Columns correspond to joint coordinate indices.
- */
-MatrixNd& ArticulatedBody::calc_jacobian_dot(boost::shared_ptr<const Pose3d> frame, DynamicBodyPtr body, MatrixNd& J)
+/// Gets the time derivative of the Jacobian that converts velocities from this body in the source pose to velocities of the particular link in the target pose 
+MatrixNd& ArticulatedBody::calc_jacobian_dot(shared_ptr<const Pose3d> source_pose, shared_ptr<const Pose3d> target_pose, DynamicBodyPtr body, MatrixNd& J)
 {
   const unsigned SPATIAL_DIM = 6;
 
@@ -562,7 +559,7 @@ MatrixNd& ArticulatedBody::calc_jacobian_dot(boost::shared_ptr<const Pose3d> fra
     for (unsigned i=0; i< s.size(); i++)
     {
       SharedVectorNd v = J.column(CIDX+i);
-      Pose3d::transform(frame, s[i]).transpose_to_vector(v);
+      Pose3d::transform(target_pose, s[i]).transpose_to_vector(v);
     }
 
     // set the link to the parent link
@@ -575,11 +572,8 @@ MatrixNd& ArticulatedBody::calc_jacobian_dot(boost::shared_ptr<const Pose3d> fra
   return J;
 }
 
-/// Gets the Jacobian
-/**
- * Columns correspond to joint coordinate indices.
- */
-MatrixNd& ArticulatedBody::calc_jacobian(boost::shared_ptr<const Pose3d> frame, DynamicBodyPtr body, MatrixNd& J)
+/// Gets the Jacobian that converts velocities from this body in the source pose to velocities of the particular link in the target pose 
+MatrixNd& ArticulatedBody::calc_jacobian(boost::shared_ptr<const Pose3d> source_pose, boost::shared_ptr<const Pose3d> target_pose, DynamicBodyPtr body, MatrixNd& J)
 {
   const unsigned SPATIAL_DIM = 6;
 
@@ -618,7 +612,7 @@ MatrixNd& ArticulatedBody::calc_jacobian(boost::shared_ptr<const Pose3d> frame, 
     for (unsigned i=0; i< s.size(); i++)
     {
       SharedVectorNd v = J.column(CIDX+i);
-      Pose3d::transform(frame, s[i]).transpose_to_vector(v);
+      Pose3d::transform(target_pose, s[i]).transpose_to_vector(v);
     }
 
     // set the link to the parent link
@@ -628,9 +622,8 @@ MatrixNd& ArticulatedBody::calc_jacobian(boost::shared_ptr<const Pose3d> frame, 
   // if base is floating, setup Jacobian columns at the end
   if (is_floating_base())
   {
-    shared_ptr<const Pose3d> bpose = base->get_gc_pose();
     SharedMatrixNd Jbase = J.block(0, SPATIAL_DIM, NEXP_DOF, NEXP_DOF+SPATIAL_DIM);
-    Pose3d::spatial_transform_to_matrix2(bpose, frame, Jbase);
+    Pose3d::spatial_transform_to_matrix2(source_pose, target_pose, Jbase);
   }
 
   return J;

@@ -253,8 +253,8 @@ void RigidBody::rotate(const Quatd& q)
     (*i)->invalidate_pose_vectors();
 }
 
-/// Computes the Jacobian
-MatrixNd& RigidBody::calc_jacobian_dot(shared_ptr<const Pose3d> frame, DynamicBodyPtr body, MatrixNd& J)
+/// Gets the time derivative of the Jacobian that converts velocities from this body in the source pose to velocities of the particular link in the target pose
+MatrixNd& RigidBody::calc_jacobian_dot(shared_ptr<const Pose3d> source_pose, shared_ptr<const Pose3d> target_pose, DynamicBodyPtr body, MatrixNd& J)
 {
   const unsigned SPATIAL_DIM = 6;
 
@@ -272,8 +272,8 @@ MatrixNd& RigidBody::calc_jacobian_dot(shared_ptr<const Pose3d> frame, DynamicBo
   return J;
 }
 
-/// Computes the Jacobian
-MatrixNd& RigidBody::calc_jacobian(shared_ptr<const Pose3d> frame, DynamicBodyPtr body, MatrixNd& J)
+/// Gets the time derivative of the Jacobian that converts velocities from this body in the source pose to velocities of the particular link in the target pose
+MatrixNd& RigidBody::calc_jacobian(shared_ptr<const Pose3d> source_pose, shared_ptr<const Pose3d> target_pose, DynamicBodyPtr body, MatrixNd& J)
 {
   const unsigned SPATIAL_DIM = 6;
 
@@ -288,10 +288,10 @@ MatrixNd& RigidBody::calc_jacobian(shared_ptr<const Pose3d> frame, DynamicBodyPt
   }
 
   // construct the spatial transform
-  Pose3d::spatial_transform_to_matrix2(_F2, frame, J);
+  Pose3d::spatial_transform_to_matrix2(source_pose, target_pose, J);
 
   FILE_LOG(LOG_DYNAMICS) << "RigidBody::calc_jacobian() entered" << std::endl;
-  FILE_LOG(LOG_DYNAMICS) << "  pose: " << ((frame) ? Pose3d(*frame).update_relative_pose(GLOBAL) : GLOBAL) << std::endl;
+  FILE_LOG(LOG_DYNAMICS) << "  pose: " << ((target_pose) ? Pose3d(*target_pose).update_relative_pose(GLOBAL) : GLOBAL) << std::endl;
 
   return J;
 }

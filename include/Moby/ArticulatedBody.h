@@ -43,8 +43,8 @@ class ArticulatedBody : public DynamicBody
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual unsigned num_joint_dof() const;
     void find_loops(std::vector<unsigned>& loop_indices, std::vector<std::vector<unsigned> >& loop_links) const;
-    virtual Ravelin::MatrixNd& calc_jacobian(boost::shared_ptr<const Ravelin::Pose3d> frame, DynamicBodyPtr body, Ravelin::MatrixNd& J);
-    virtual Ravelin::MatrixNd& calc_jacobian_dot(boost::shared_ptr<const Ravelin::Pose3d> frame, DynamicBodyPtr body, Ravelin::MatrixNd& J);
+    virtual Ravelin::MatrixNd& calc_jacobian(boost::shared_ptr<const Ravelin::Pose3d> source_pose, boost::shared_ptr<const Ravelin::Pose3d> target_pose, DynamicBodyPtr body, Ravelin::MatrixNd& J);
+    virtual Ravelin::MatrixNd& calc_jacobian_dot(boost::shared_ptr<const Ravelin::Pose3d> source_pose, boost::shared_ptr<const Ravelin::Pose3d> target_pose, DynamicBodyPtr body, Ravelin::MatrixNd& J);
     void update_joint_constraint_violations();
     bool is_joint_constraint_violated() const;
     double calc_CA_time_for_joints() const;
