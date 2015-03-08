@@ -183,10 +183,10 @@ void UnilateralConstraint::compute_aconstraint_data(MatrixNd& M, VectorNd& q) co
     J2.resize(THREE_D, NGC2);
 
     // compute the Jacobians for the two bodies
-    su1->calc_jacobian(_contact_frame, su1->get_gc_pose(), sb1, JJ);
+    su1->calc_jacobian(su1->get_gc_pose(), _contact_frame, sb1, JJ);
     SharedConstMatrixNd Jlin1 = JJ.block(0, THREE_D, 0, JJ.columns());
     R.transpose_mult(Jlin1, J1);
-    su2->calc_jacobian(_contact_frame, su2->get_gc_pose(), sb2, JJ);
+    su2->calc_jacobian(su2->get_gc_pose(), _contact_frame, sb2, JJ);
     SharedConstMatrixNd Jlin2 = JJ.block(0, THREE_D, 0, JJ.columns());
     (-R).transpose_mult(Jlin2, J2);
 
@@ -227,11 +227,11 @@ void UnilateralConstraint::compute_aconstraint_data(MatrixNd& M, VectorNd& q) co
     SharedVectorNd J2s = dJ2.row(0); // sliding direction Jacobian for body 2
 
     // compute the Jacobians for the two bodies
-    su1->calc_jacobian(_contact_frame, su1->get_gc_pose(), sb1, JJ);
+    su1->calc_jacobian(su1->get_gc_pose(), _contact_frame, sb1, JJ);
     SharedConstMatrixNd Jlin1 = JJ.block(0, THREE_D, 0, JJ.columns());
     Jlin1.transpose_mult(normal, J1n);
     Jlin1.transpose_mult(tan1, J1s);
-    su2->calc_jacobian(_contact_frame, su2->get_gc_pose(), sb2, JJ);
+    su2->calc_jacobian(su2->get_gc_pose(), _contact_frame, sb2, JJ);
     SharedConstMatrixNd Jlin2 = JJ.block(0, THREE_D, 0, JJ.columns());
     Jlin2.transpose_mult(-normal, J2n);
     Jlin2.transpose_mult(-tan1, J2s);
@@ -345,10 +345,10 @@ void UnilateralConstraint::compute_dotv_data(VectorNd& q) const
     dJ2.resize(THREE_D, NGC2);
 
     // compute the Jacobians for the two bodies
-    su1->calc_jacobian(_contact_frame, su1->get_gc_pose(), sb1, JJ);
+    su1->calc_jacobian(su1->get_gc_pose(), _contact_frame, sb1, JJ);
     SharedConstMatrixNd Jlin1 = JJ.block(0, THREE_D, 0, JJ.columns());
     dR.transpose_mult(Jlin1, J1);
-    su2->calc_jacobian(_contact_frame, su2->get_gc_pose(), sb2, JJ);
+    su2->calc_jacobian(su2->get_gc_pose(), _contact_frame, sb2, JJ);
     SharedConstMatrixNd Jlin2 = JJ.block(0, THREE_D, 0, JJ.columns());
     (-dR).transpose_mult(Jlin2, J2);
 
@@ -393,10 +393,10 @@ void UnilateralConstraint::compute_dotv_data(VectorNd& q) const
     SharedVectorNd dJ2n = dJ2.row(N); 
 
     // compute the Jacobians for the two bodies
-    su1->calc_jacobian(_contact_frame, su1->get_gc_pose(), sb1, JJ);
+    su1->calc_jacobian(su1->get_gc_pose(), _contact_frame, sb1, JJ);
     SharedConstMatrixNd Jlin1 = JJ.block(0, THREE_D, 0, JJ.columns());
     Jlin1.transpose_mult(dnormal, J1n);
-    su2->calc_jacobian(_contact_frame, su2->get_gc_pose(), sb2, JJ);
+    su2->calc_jacobian(su2->get_gc_pose(), _contact_frame, sb2, JJ);
     SharedConstMatrixNd Jlin2 = JJ.block(0, THREE_D, 0, JJ.columns());
     Jlin2.transpose_mult(-dnormal, J2n);
 
@@ -472,10 +472,10 @@ void UnilateralConstraint::compute_vconstraint_data(MatrixNd& M, VectorNd& q) co
 
     // compute the Jacobians for the two bodies; Jacobian transforms velocities
     // in mixed frame to velocities in contact frame
-    su1->calc_jacobian(_contact_frame, su1->get_gc_pose(), sb1, JJ);
+    su1->calc_jacobian(su1->get_gc_pose(), _contact_frame, sb1, JJ);
     SharedConstMatrixNd Jlin1 = JJ.block(0, THREE_D, 0, JJ.columns());
     R.transpose_mult(Jlin1, J1);
-    su2->calc_jacobian(_contact_frame, su2->get_gc_pose(), sb2, JJ);
+    su2->calc_jacobian(su2->get_gc_pose(), _contact_frame, sb2, JJ);
     SharedConstMatrixNd Jlin2 = JJ.block(0, THREE_D, 0, JJ.columns());
     (-R).transpose_mult(Jlin2, J2);
 
@@ -725,14 +725,14 @@ void UnilateralConstraint::compute_cross_contact_contact_vconstraint_data(const 
   // compute the Jacobians, checking to see whether necessary
   if (sua1 == su)
   {
-    su->calc_jacobian(_contact_frame, su->get_gc_pose(), sba1, JJ);
+    su->calc_jacobian(su->get_gc_pose(), _contact_frame, sba1, JJ);
     SharedConstMatrixNd Jlin = JJ.block(0, THREE_D, 0, JJ.columns());
     R.transpose_mult(Jlin, J);
     compute_cross_contact_contact_vconstraint_data(e, M, su, J);
   }
   if (sua2 == su)
   {
-    su->calc_jacobian(_contact_frame, su->get_gc_pose(), sba2, JJ);
+    su->calc_jacobian(su->get_gc_pose(), _contact_frame, sba2, JJ);
     SharedConstMatrixNd Jlin = JJ.block(0, THREE_D, 0, JJ.columns());
     (-R).transpose_mult(Jlin, J);
     compute_cross_contact_contact_vconstraint_data(e, M, su, J);
@@ -778,7 +778,7 @@ void UnilateralConstraint::compute_cross_contact_contact_vconstraint_data(const 
   if (sub1 == su)
   {
     // first compute the Jacobian
-    su->calc_jacobian(_contact_frame, su->get_gc_pose(), sbb1, JJ);
+    su->calc_jacobian(su->get_gc_pose(), _contact_frame, sbb1, JJ);
     SharedConstMatrixNd Jlin = JJ.block(0, THREE_D, 0, JJ.columns());
     R.transpose_mult(Jlin, Jx);
 
@@ -788,7 +788,7 @@ void UnilateralConstraint::compute_cross_contact_contact_vconstraint_data(const 
   }
   if (sub2 == su)
   {
-    su->calc_jacobian(_contact_frame, su->get_gc_pose(), sbb2, JJ);
+    su->calc_jacobian(su->get_gc_pose(), _contact_frame, sbb2, JJ);
     SharedConstMatrixNd Jlin = JJ.block(0, THREE_D, 0, JJ.columns());
     (-R).transpose_mult(Jlin, Jx);
 
@@ -847,7 +847,7 @@ void UnilateralConstraint::compute_cross_contact_limit_vconstraint_data(const Un
     J1.resize(THREE_D, NGC1);
 
     // compute the Jacobians for the two bodies
-    su1->calc_jacobian(_contact_frame, su1->get_gc_pose(), sb1, JJ);
+    su1->calc_jacobian(su1->get_gc_pose(), _contact_frame, sb1, JJ);
     SharedConstMatrixNd Jlin = JJ.block(0, THREE_D, 0, JJ.columns());
     R.transpose_mult(Jlin, J1);
 
@@ -872,7 +872,7 @@ void UnilateralConstraint::compute_cross_contact_limit_vconstraint_data(const Un
     J1.resize(THREE_D, NGC2);
 
     // compute the Jacobians for the two bodies
-    su2->calc_jacobian(_contact_frame, su2->get_gc_pose(), sb2, JJ);
+    su2->calc_jacobian(su2->get_gc_pose(), _contact_frame, sb2, JJ);
     SharedConstMatrixNd Jlin = JJ.block(0, THREE_D, 0, JJ.columns());
     (-R).transpose_mult(Jlin, J1);
 
@@ -1054,14 +1054,14 @@ void UnilateralConstraint::compute_cross_contact_contact_aconstraint_data(const 
     // compute the Jacobians, checking to see whether necessary
     if (sua1 == su)
     {
-      su->calc_jacobian(_contact_frame, su->get_gc_pose(), sba1, JJ);
+      su->calc_jacobian(su->get_gc_pose(), _contact_frame, sba1, JJ);
       SharedConstMatrixNd Jlin = JJ.block(0, THREE_D, 0, JJ.columns());
       R.transpose_mult(Jlin, J);
       compute_cross_contact_contact_aconstraint_data(c, M, su, J);
     }
     if (sua2 == su)
     {
-      su->calc_jacobian(_contact_frame, su->get_gc_pose(), sba2, JJ);
+      su->calc_jacobian(su->get_gc_pose(), _contact_frame, sba2, JJ);
       SharedConstMatrixNd Jlin = JJ.block(0, THREE_D, 0, JJ.columns());
       (-R).transpose_mult(Jlin, J);
       compute_cross_contact_contact_aconstraint_data(c, M, su, J);
@@ -1085,14 +1085,14 @@ void UnilateralConstraint::compute_cross_contact_contact_aconstraint_data(const 
     // compute the Jacobians, checking to see whether necessary
     if (sua1 == su)
     {
-      su->calc_jacobian(_contact_frame, su->get_gc_pose(), sba1, JJ);
+      su->calc_jacobian(su->get_gc_pose(), _contact_frame, sba1, JJ);
       SharedConstMatrixNd Jlin = JJ.block(0, THREE_D, 0, JJ.columns());
       Jlin.transpose_mult(normal, Jn);
       compute_cross_contact_contact_aconstraint_data(c, M, su, J);
     }
     if (sua2 == su)
     {
-      su->calc_jacobian(_contact_frame, su->get_gc_pose(), sba2, JJ);
+      su->calc_jacobian(su->get_gc_pose(), _contact_frame, sba2, JJ);
       SharedConstMatrixNd Jlin = JJ.block(0, THREE_D, 0, JJ.columns());
       Jlin.transpose_mult(-normal, Jn);
       compute_cross_contact_contact_aconstraint_data(c, M, su, J);
@@ -1147,7 +1147,7 @@ void UnilateralConstraint::compute_cross_contact_contact_aconstraint_data(const 
     if (sub1 == su)
     {
       // first compute the Jacobian
-      su->calc_jacobian(_contact_frame, su->get_gc_pose(), sbb1, JJ);
+      su->calc_jacobian(su->get_gc_pose(), _contact_frame, sbb1, JJ);
       SharedConstMatrixNd Jlin = JJ.block(0, THREE_D, 0, JJ.columns());
       R.transpose_mult(Jlin, Jx);
 
@@ -1158,7 +1158,7 @@ void UnilateralConstraint::compute_cross_contact_contact_aconstraint_data(const 
     if (sub2 == su)
     {
       // first compute the Jacobian
-      su->calc_jacobian(_contact_frame, su->get_gc_pose(), sbb2, JJ);
+      su->calc_jacobian(su->get_gc_pose(), _contact_frame, sbb2, JJ);
       SharedConstMatrixNd Jlin = JJ.block(0, THREE_D, 0, JJ.columns());
       (-R).transpose_mult(Jlin, Jx);
 
@@ -1185,7 +1185,7 @@ void UnilateralConstraint::compute_cross_contact_contact_aconstraint_data(const 
     if (sub1 == su)
     {
       // first compute the Jacobian
-      su->calc_jacobian(_contact_frame, su->get_gc_pose(), sbb1, JJ);
+      su->calc_jacobian(su->get_gc_pose(), _contact_frame, sbb1, JJ);
       SharedConstMatrixNd Jlin = JJ.block(0, THREE_D, 0, JJ.columns());
       Jlin.transpose_mult(normal, Jxn);
       Jlin.transpose_mult(tan1, Jyn);
@@ -1200,7 +1200,7 @@ void UnilateralConstraint::compute_cross_contact_contact_aconstraint_data(const 
     }
     if (sub2 == su)
     {
-      su->calc_jacobian(_contact_frame, su->get_gc_pose(), sbb2, JJ);
+      su->calc_jacobian(su->get_gc_pose(), _contact_frame, sbb2, JJ);
       SharedConstMatrixNd Jlin = JJ.block(0, THREE_D, 0, JJ.columns());
       Jlin.transpose_mult(-normal, Jxn);
       Jlin.transpose_mult(-tan1, Jyn);
