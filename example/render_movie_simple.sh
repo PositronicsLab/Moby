@@ -5,7 +5,7 @@
 
 usage()
 {
-  echo "rendering_movie_simple.sh <path to Moby render> <path to osg files/output> <camera position> <camera target>"
+  echo "render_movie_simple.sh <path to Moby render> <path to osg files/output> <camera position> <camera target> <movie file>"
   echo " -- sample camera position: '0 5 10'"
   echo " -- sample camera target: '0 0 0'"
   echo "Quotes are necessary" 
@@ -24,11 +24,11 @@ main ()
 done
 
 # number all images img0001.png, etc...
-ffmpeg -r 25 -i $1/img%04d.png -f mp4 -q:v 0 -vcodec mpeg4 $1/movie.mp4
+ffmpeg -r 25 -i $1/img%04d.png -f mp4 -q:v 0 -vcodec mpeg4 $5
 }
 
 
 # check for proper number of arguments
-[ "$#" -ne 1 ] && ( usage && exit) || main
+[ "$#" -ne 5 ] && ( usage && exit) || main
 
 
