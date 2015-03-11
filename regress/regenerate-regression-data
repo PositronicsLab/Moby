@@ -4,8 +4,8 @@
 # test the articulated body examples
 echo "Regenerating data for chain2 example"
 $1moby-regress -mt=10 ../example/chain-contact/chain2.xml chain2.dat 
-echo "Regenerating data for chain5 example"
-$1moby-regress -mt=10 ../example/chain-contact/chain5.xml chain5.dat 
+#echo "Regenerating data for chain5 example"
+#$1moby-regress -mt=10 ../example/chain-contact/chain5.xml chain5.dat 
 
 # test the driving robot example
 #echo "Regenerating data for mobile robot example"
