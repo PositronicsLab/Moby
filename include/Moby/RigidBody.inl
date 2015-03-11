@@ -42,9 +42,8 @@ void RigidBody::get_generalized_coordinates_generic(DynamicBody::GeneralizedCoor
     case DynamicBody::eSpatial: gc.resize(N_SPATIAL); break;
   }
 
-  // convert current pose to global frame
-  Ravelin::Pose3d P = *_F;
-  P.update_relative_pose(GLOBAL);
+  // get current mixed pose 
+  Ravelin::Pose3d P = *_F2;
 
   // get linear components
   gc[0] = P.x[0];
@@ -76,6 +75,9 @@ void RigidBody::set_generalized_coordinates_generic(DynamicBody::GeneralizedCoor
   // do easiest case first 
   if (gctype == DynamicBody::eSpatial)
   {
+    // this isn't correct
+    assert(false);
+/*
     // note: generalized coordinates in eSpatial are always set with regard to 
     // the global frame
     Ravelin::Origin3d x(gc[0], gc[1], gc[2]);
@@ -83,10 +85,13 @@ void RigidBody::set_generalized_coordinates_generic(DynamicBody::GeneralizedCoor
 
     // convert the pose to the correct relative frame
     Ravelin::Pose3d P(q, x);
+
+
     P.update_relative_pose(_F->rpose);
 
     // set the transform
     set_pose(P);
+*/
   }
   else
   {
@@ -105,13 +110,16 @@ void RigidBody::set_generalized_coordinates_generic(DynamicBody::GeneralizedCoor
     // normalize the unit quaternion, just in case
     q.normalize();
 
-    // coordinates are in the global frame; must convert them to the relative
-    // frame 
-    Ravelin::Pose3d P(q, x);
-    P.update_relative_pose(_F->rpose);
+    // get the transform from the link pose to the mixed pose
+    Ravelin::Transform3d lTm = Ravelin::Pose3d::calc_relative_pose(_F2, _F);
 
-    // update the pose 
-    set_pose(P); 
+    // coordinates are for the new mixed pose
+    Ravelin::Pose3d P(q, x);
+    *_F2 = P;
+    *_F = lTm.apply_transform();
+
+    // invalidate the pose vectors 
+    invalidate_pose_vectors();    
   }
 }
 

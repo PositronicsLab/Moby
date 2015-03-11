@@ -262,10 +262,6 @@ OutputIterator CCD::find_contacts_sphere_plane(CollisionGeometryPtr cgA, Collisi
   // create the contact 
   *o++ = create_contact(cgA, cgB, Ravelin::Pose3d::transform_point(GLOBAL, p), n, dist);
 
-  // create another contact at the center of the sphere; this is necessary
-  // to represent the distance function between the sphere and the cylinder
-//  *o++ = create_contact(cgA, cgB, Ravelin::Pose3d::transform_point(GLOBAL, sph_c), n, dist);
-
   FILE_LOG(LOG_COLDET) << "CCD::find_contacts_sphere_plane() exited" << std::endl;
 
   // copy points to o

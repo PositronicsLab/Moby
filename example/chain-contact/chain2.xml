@@ -10,21 +10,16 @@
     <Cylinder id="c" radius="1" height="5" num-rings="100" num-circle-points="25" density="1.0" /> 
     <Box id="b3" xlen="1" ylen="10" zlen="1" density="10.0" />
 
-    <!-- Collision detector -->
-    <GeneralizedCCD id="ccd" eps-tolerance="1e-3">
-      <Body body-id="chain"/>
-      <Body body-id="platform" />
-    </GeneralizedCCD>
-
     <!-- integrators, collision and contact methods, forces, fdyn algos -->
     <RungeKuttaIntegrator id="rk4" />
     <GravityForce id="gravity" accel="0 -9.81 0 " />
 
     <!-- the simulator -->
-    <EventDrivenSimulator integrator-id="rk4" collision-detector-id="ccd">
+    <EventDrivenSimulator integrator-id="rk4">
       <RecurrentForce recurrent-force-id="gravity" /> 
       <DynamicBody dynamic-body-id="chain" />
       <DynamicBody dynamic-body-id="platform" />
+      <DisabledPair object1-id="l1" object2-id="l2" />
       <ContactParameters object1-id="platform" object2-id="chain" mu-coulomb="1" mu-viscous=".1" />
     </EventDrivenSimulator>
     

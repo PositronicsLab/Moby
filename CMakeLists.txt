@@ -26,7 +26,6 @@ endif()
 option (VISUALIZE_INERTIA "Visualize moments of inertia?" OFF)
 option (PROFILE "Build for profiling?" OFF)
 option (OMP "Build with OpenMP support?" OFF)
-option (THREADSAFE "Build Moby to be threadsafe? (slower)" OFF)
 
 # look for QLCPD
 find_library(QLCPD_FOUND qlcpd-dense /usr/local/lib /usr/lib)
@@ -36,20 +35,8 @@ if (USE_QLCPD AND QLCPD_FOUND)
   add_definitions (-DUSE_QLCPD)
 endif (USE_QLCPD AND QLCPD_FOUND)
 
-# check options are valid
-if (THREADSAFE)
-  if (OMP)
-    unset (OMP)
-  endif (OMP)
-endif (THREADSAFE)
-
 # modify C++ flags
-if (THREADSAFE)
-  add_definitions (-DSAFESTATIC=)
-  add_definitions (-DTHREADSAFE)
-else (THREADSAFE)
-  add_definitions (-DSAFESTATIC=static)
-endif (THREADSAFE)
+add_definitions (-DSAFESTATIC=static)
 if (OMP)
   find_package (OpenMP REQUIRED)
   include_directories (${OPENMP_INCLUDE_DIRS})

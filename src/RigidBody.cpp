@@ -267,7 +267,8 @@ MatrixNd& RigidBody::calc_jacobian_dot(shared_ptr<const Pose3d> source_pose, sha
     return J;
   }
 
-  J.set_zero(SPATIAL_DIM, SPATIAL_DIM);
+  // construct the spatial transform
+  Pose3d::dot_spatial_transform_to_matrix2(source_pose, target_pose, J);
 
   return J;
 }
@@ -366,7 +367,7 @@ void RigidBody::calc_fwd_dyn()
     SForced f = sum_forces() - calc_euler_torques();
     SAcceld xdd = J.inverse_mult(f);
 
-FILE_LOG(LOG_SIMULATOR) << "Dynamics: " << Pose3d::transform(_F, xdd) << std::endl;
+FILE_LOG(LOG_SIMULATOR) << "Dynamics: " << Pose3d::transform(_F2, xdd) << std::endl;
     // set the acceleration
     switch (_rftype)
     {
