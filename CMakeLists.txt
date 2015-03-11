@@ -260,6 +260,12 @@ endif (BUILD_TOOLS)
     target_link_libraries(mrobot-controller Moby Ravelin)
   endif (PACER_FOUND)
 
+# setup plugin install locations
+install (TARGETS sphere-plugin DESTINATION ${CMAKE_SOURCE_DIR}/example/contact_simple) 
+install (TARGETS box-plugin DESTINATION ${CMAKE_SOURCE_DIR}/example/contact_simple) 
+install (TARGETS pendulum-coldet-plugin DESTINATION ${CMAKE_SOURCE_DIR}/example/contact_simple) 
+install (TARGETS pendulum-init DESTINATION ${CMAKE_SOURCE_DIR}/example/contact_simple) 
+
 # setup install locations
 install (TARGETS passive-walker-init DESTINATION ${CMAKE_SOURCE_DIR}/example/passive-walker)
 install (TARGETS passive-walker-coldet-plugin DESTINATION ${CMAKE_SOURCE_DIR}/example/passive-walker)
@@ -274,3 +280,6 @@ install (TARGETS moby-convexify DESTINATION bin)
 install (TARGETS moby-adjust-center DESTINATION bin)
 install (TARGETS moby-center DESTINATION bin)
 install (DIRECTORY ${CMAKE_SOURCE_DIR}/include/Moby DESTINATION include)
+install (DIRECTORY ${CMAKE_SOURCE_DIR}/example/contact_simple DESTINATION share)
+install (DIRECTORY ${CMAKE_SOURCE_DIR}/example/chain-contact DESTINATION share)
+
