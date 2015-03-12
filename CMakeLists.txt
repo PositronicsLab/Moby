@@ -280,6 +280,6 @@ install (TARGETS moby-convexify DESTINATION bin)
 install (TARGETS moby-adjust-center DESTINATION bin)
 install (TARGETS moby-center DESTINATION bin)
 install (DIRECTORY ${CMAKE_SOURCE_DIR}/include/Moby DESTINATION include)
-install (DIRECTORY ${CMAKE_SOURCE_DIR}/example/contact_simple DESTINATION share)
-install (DIRECTORY ${CMAKE_SOURCE_DIR}/example/chain-contact DESTINATION share)
+install (DIRECTORY ${CMAKE_SOURCE_DIR}/example/contact_simple DESTINATION share/Moby)
+install (DIRECTORY ${CMAKE_SOURCE_DIR}/example/chain-contact DESTINATION share/Moby)
 
