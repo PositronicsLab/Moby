@@ -307,6 +307,7 @@ void BoxPrimitive::get_vertices(shared_ptr<const Pose3d> P, vector<Point3d>& ver
   if (_edge_sample_length == std::numeric_limits<double>::max())
     return;
 
+/*
   const double ESL_SQ = _edge_sample_length*_edge_sample_length;
   vector<LineSeg3> edges;
   edges.push_back(LineSeg3(verts[0], verts[1]));
@@ -331,6 +332,7 @@ void BoxPrimitive::get_vertices(shared_ptr<const Pose3d> P, vector<Point3d>& ver
       edges[i].second = midpoint;
     }
   }
+*/
 }
 
 /// Gets the set of vertices for the BoxPrimitive (constructing, if necessary)

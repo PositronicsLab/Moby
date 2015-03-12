@@ -26,7 +26,6 @@ endif()
 option (VISUALIZE_INERTIA "Visualize moments of inertia?" OFF)
 option (PROFILE "Build for profiling?" OFF)
 option (OMP "Build with OpenMP support?" OFF)
-option (THREADSAFE "Build Moby to be threadsafe? (slower)" OFF)
 
 # look for QLCPD
 find_library(QLCPD_FOUND qlcpd-dense /usr/local/lib /usr/lib)
@@ -36,20 +35,8 @@ if (USE_QLCPD AND QLCPD_FOUND)
   add_definitions (-DUSE_QLCPD)
 endif (USE_QLCPD AND QLCPD_FOUND)
 
-# check options are valid
-if (THREADSAFE)
-  if (OMP)
-    unset (OMP)
-  endif (OMP)
-endif (THREADSAFE)
-
 # modify C++ flags
-if (THREADSAFE)
-  add_definitions (-DSAFESTATIC=)
-  add_definitions (-DTHREADSAFE)
-else (THREADSAFE)
-  add_definitions (-DSAFESTATIC=static)
-endif (THREADSAFE)
+add_definitions (-DSAFESTATIC=static)
 if (OMP)
   find_package (OpenMP REQUIRED)
   include_directories (${OPENMP_INCLUDE_DIRS})
@@ -273,6 +260,12 @@ endif (BUILD_TOOLS)
     target_link_libraries(mrobot-controller Moby Ravelin)
   endif (PACER_FOUND)
 
+# setup plugin install locations
+install (TARGETS sphere-plugin DESTINATION ${CMAKE_SOURCE_DIR}/example/contact_simple) 
+install (TARGETS box-plugin DESTINATION ${CMAKE_SOURCE_DIR}/example/contact_simple) 
+install (TARGETS pendulum-coldet-plugin DESTINATION ${CMAKE_SOURCE_DIR}/example/contact_simple) 
+install (TARGETS pendulum-init DESTINATION ${CMAKE_SOURCE_DIR}/example/contact_simple) 
+
 # setup install locations
 install (TARGETS passive-walker-init DESTINATION ${CMAKE_SOURCE_DIR}/example/passive-walker)
 install (TARGETS passive-walker-coldet-plugin DESTINATION ${CMAKE_SOURCE_DIR}/example/passive-walker)
@@ -287,3 +280,6 @@ install (TARGETS moby-convexify DESTINATION bin)
 install (TARGETS moby-adjust-center DESTINATION bin)
 install (TARGETS moby-center DESTINATION bin)
 install (DIRECTORY ${CMAKE_SOURCE_DIR}/include/Moby DESTINATION include)
+install (DIRECTORY ${CMAKE_SOURCE_DIR}/example/contact_simple DESTINATION share/Moby)
+install (DIRECTORY ${CMAKE_SOURCE_DIR}/example/chain-contact DESTINATION share/Moby)
+

@@ -1,27 +1,38 @@
 <XML>
+
+  <DRIVER>
+    <camera position="0 0 10" target="0 0 0" up="0 1 0" />
+    <window location="0 0" size="640 480" />
+  </DRIVER>
+
   <MOBY>
-    <Cylinder id="c" radius="1" height="5" num-circle-points="100" density="1.0" />
+    <Cylinder id="c" radius="1" height="5" num-circle-points="30" num-rings="20" density="1.0" />
     <Box id="b3" xlen="10" ylen="1" zlen="10" density="10.0" />
 
-    <!-- Collision detector -->
-    <GeneralizedCCD id="coldet" eps-tolerance="1e-3" >
-      <Body body-id="chain" />
-      <Body body-id="platform" />
-    </GeneralizedCCD>
-
     <RungeKuttaIntegrator id="rk4" />
+    <BulirschStoerIntegrator id="bsi" rel-err-tol="1e-8" abs-err-tol="1e-8" />
 
     <GravityForce id="gravity" accel="0 -9.81 0 " />
 
-  <EventDrivenSimulator integrator-id="rk4" collision-detector-id="coldet">
+  <EventDrivenSimulator integrator-id="bsi" Euler-step="1e-4">
     <RecurrentForce recurrent-force-id="gravity" /> 
     <DynamicBody dynamic-body-id="chain" />
     <DynamicBody dynamic-body-id="platform" />
-    <ContactParameters object1-id="platform" object2-id="l1" epsilon="1" mu-coulomb="0" />
-    <ContactParameters object1-id="platform" object2-id="l2" epsilon="1" mu-coulomb="0" />
-    <ContactParameters object1-id="platform" object2-id="l3" epsilon="1" mu-coulomb="0" />
-    <ContactParameters object1-id="platform" object2-id="l4" epsilon="1" mu-coulomb="0" />
-    <ContactParameters object1-id="platform" object2-id="l5" epsilon="1" mu-coulomb="0" />
+    <DisabledPair object1-id="l1" object2-id="l2" />
+    <DisabledPair object1-id="l1" object2-id="l3" />
+    <DisabledPair object1-id="l1" object2-id="l4" />
+    <DisabledPair object1-id="l1" object2-id="l5" />
+    <DisabledPair object1-id="l2" object2-id="l3" />
+    <DisabledPair object1-id="l2" object2-id="l4" />
+    <DisabledPair object1-id="l2" object2-id="l5" />
+    <DisabledPair object1-id="l3" object2-id="l4" />
+    <DisabledPair object1-id="l3" object2-id="l5" />
+    <DisabledPair object1-id="l4" object2-id="l5" />
+    <ContactParameters object1-id="platform" object2-id="l1" epsilon="0" mu-coulomb="0" />
+    <ContactParameters object1-id="platform" object2-id="l2" epsilon="0" mu-coulomb="0" />
+    <ContactParameters object1-id="platform" object2-id="l3" epsilon="0" mu-coulomb="0" />
+    <ContactParameters object1-id="platform" object2-id="l4" epsilon="0" mu-coulomb="0" />
+    <ContactParameters object1-id="platform" object2-id="l5" epsilon="0" mu-coulomb="0" />
   </EventDrivenSimulator>
 
   <RCArticulatedBody id="chain" fdyn-algorithm="fsab" fdyn-algorithm-frame="link" floating-base="false">
