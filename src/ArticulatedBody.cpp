@@ -336,6 +336,8 @@ double ArticulatedBody::find_next_joint_limit_time() const
       const double qd = joints[i]->qd[j];
       const double l = joints[i]->lolimit[j];
       const double u = joints[i]->hilimit[j];
+      const double qd_lo = _vel_limits_lo[j];
+      const double qd_hi = _vel_limits_hi[j];
 
       // skip lower limit of DOF j of joint i if lower limit = -INF
       if (l > -INF)
@@ -345,8 +347,8 @@ double ArticulatedBody::find_next_joint_limit_time() const
           continue;
 
         // otherwise, determine when the joint limit will be met
-        if (qd < -VEL_TOL)
-          dt = std::min((l-q)/qd, dt);
+        if (qd_lo < -VEL_TOL)
+          dt = std::min((l-q)/qd_lo, dt);
       }
 
       // skip upper limit of DOF j of joint i if upper limit = INF
@@ -357,8 +359,8 @@ double ArticulatedBody::find_next_joint_limit_time() const
           continue;
 
         // otherwise, determine when the joint limit will be met
-        if (qd > VEL_TOL)
-          dt = std::min((u-q)/qd, dt); 
+        if (qd_hi > VEL_TOL)
+          dt = std::min((u-q)/qd_hi, dt); 
       }
     }
   }

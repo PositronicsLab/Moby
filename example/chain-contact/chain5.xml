@@ -6,7 +6,7 @@
   </DRIVER>
 
   <MOBY>
-    <Cylinder id="c" radius="1" height="5" num-circle-points="30" num-rings="20" density="1.0" />
+    <Cylinder id="c" radius="1" height="5" num-circle-points="100" num-rings="100" density="1.0" />
     <Box id="b3" xlen="10" ylen="1" zlen="10" density="10.0" />
 
     <RungeKuttaIntegrator id="rk4" />
@@ -14,7 +14,7 @@
 
     <GravityForce id="gravity" accel="0 -9.81 0 " />
 
-  <EventDrivenSimulator integrator-id="bsi" Euler-step="1e-4">
+  <EventDrivenSimulator integrator-id="rk4" Euler-step="1e-3">
     <RecurrentForce recurrent-force-id="gravity" /> 
     <DynamicBody dynamic-body-id="chain" />
     <DynamicBody dynamic-body-id="platform" />
@@ -35,7 +35,7 @@
     <ContactParameters object1-id="platform" object2-id="l5" epsilon="0" mu-coulomb="0" />
   </EventDrivenSimulator>
 
-  <RCArticulatedBody id="chain" fdyn-algorithm="fsab" fdyn-algorithm-frame="link" floating-base="false">
+  <RCArticulatedBody id="chain" fdyn-algorithm="crb" fdyn-algorithm-frame="link" floating-base="false">
 
       <RigidBody id="base" position="0 0 0"/>
 
@@ -64,16 +64,16 @@
         <CollisionGeometry primitive-id="c" />
       </RigidBody>
 
-      <RevoluteJoint id="q" q="1.57079632679" qd="0" location="0 0 0" inboard-link-id="base" outboard-link-id="l1" lower-limits="-1" upper-limits="3.14" axis="0 0 1" />
-      <RevoluteJoint id="q2" q="0" qd="0" location="0 -5 0" inboard-link-id="l1" outboard-link-id="l2" lower-limits="-.1" upper-limits=".1" axis="0 0 1" />
-      <RevoluteJoint id="q3" q="0" qd="0" location="0 -10 0" inboard-link-id="l2" outboard-link-id="l3" lower-limits="-.5" upper-limits=".5" axis="0 0 1" />
-      <RevoluteJoint id="q4" q="0" qd="0" location="0 -15 0" inboard-link-id="l3" outboard-link-id="l4" lower-limits="-.5" upper-limits=".5" axis="0 0 1" />
-      <RevoluteJoint id="q5" q="0" qd="0" location="0 -20 0" inboard-link-id="l4" outboard-link-id="l5" lower-limits="-.5" upper-limits=".5" axis="0 0 1" />
+      <RevoluteJoint id="q" q="1.57079632679" qd="0" location="0 0 0" inboard-link-id="base" outboard-link-id="l1" lower-limits="-1" upper-limits="3.14" axis="0 0 1" viscous-friction-coeff="0" />
+      <RevoluteJoint id="q2" q="0" qd="0" location="0 -5 0" inboard-link-id="l1" outboard-link-id="l2" lower-limits="-.1" upper-limits=".1" axis="0 0 1" viscous-friction-coeff="0" />
+      <RevoluteJoint id="q3" q="0" qd="0" location="0 -10 0" inboard-link-id="l2" outboard-link-id="l3" lower-limits="-.5" upper-limits=".5" axis="0 0 1"  viscous-friction-coeff="0" />
+      <RevoluteJoint id="q4" q="0" qd="0" location="0 -15 0" inboard-link-id="l3" outboard-link-id="l4" lower-limits="-.5" upper-limits=".5" axis="0 0 1"  viscous-friction-coeff="0" />
+      <RevoluteJoint id="q5" q="0" qd="0" location="0 -20 0" inboard-link-id="l4" outboard-link-id="l5" lower-limits="-.5" upper-limits=".5" axis="0 0 1"  viscous-friction-coeff="0" />
     </RCArticulatedBody>
 
     <!-- setup the platform rigid body; it is not active -->
     <RigidBody id="platform" enabled="false"
-      position="-5 -24 0" visualization-id="b3">
+      position="-5 -20 0" visualization-id="b3">
       <CollisionGeometry primitive-id="b3"  />
     </RigidBody>
 
