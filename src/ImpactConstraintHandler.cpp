@@ -1254,6 +1254,18 @@ void ImpactConstraintHandler::apply_no_slip_model(UnilateralConstraintProblemDat
   const unsigned L_IDX = N_IDX + NCONTACTS;
   VectorNd lb, ub, b;
   MatrixNd A;
+  double ke_plus = 0.0, ke_minus = 0.0;
+
+  // compute energy
+  if (LOGGING(LOG_CONSTRAINT))
+  {
+    for (unsigned i=0; i< _epd.super_bodies.size(); i++)
+    {
+      double ke = _epd.super_bodies[i]->calc_kinetic_energy();
+      FILE_LOG(LOG_CONSTRAINT) << "  body " << _epd.super_bodies[i]->id << " pre-constraint handling KE: " << ke << endl;
+      ke_minus += ke;
+    }
+  }
 
   FILE_LOG(LOG_CONSTRAINT) << "  Cn * inv(M) * Cn': " << std::endl << q.Cn_iM_CnT;
   FILE_LOG(LOG_CONSTRAINT) << "  Cn * inv(M) * Cs': " << std::endl << q.Cn_iM_CsT;
@@ -1625,6 +1637,20 @@ void ImpactConstraintHandler::apply_no_slip_model(UnilateralConstraintProblemDat
   }
 
   // TODO: setup joint constraint impulses here
+
+  // compute energy
+  if (LOGGING(LOG_CONSTRAINT))
+  {
+    for (unsigned i=0; i< _epd.super_bodies.size(); i++)
+    {
+      double ke = _epd.super_bodies[i]->calc_kinetic_energy();
+      FILE_LOG(LOG_CONSTRAINT) << "  body " << _epd.super_bodies[i]->id << " post-constraint handling KE: " << ke << endl;
+      ke_plus += ke;
+    }
+    if (ke_plus > ke_minus)
+      FILE_LOG(LOG_CONSTRAINT) << "warning! KE gain detected! energy before=" << ke_minus << " energy after=" << ke_plus << endl;
+  }
+
 
   FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::solve_no_slip_lcp() exited" << std::endl;
 }
