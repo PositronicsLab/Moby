@@ -34,28 +34,28 @@
       </RigidBody>
 
       <!-- leg 1 -->
-      <FixedJoint id="J1"  location="0.5 0.5 0" inboard-link-id="top" outboard-link-id="L1" axis="0 0 1" />
+      <FixedJoint id="J1"  location="0.5 0.5 0" inboard-link-id="top" outboard-link-id="L1"  />
       <RigidBody id="L1" color="1.0 0.4 0.0 0" position="0.5 0.5 -0.5" angular-velocity="0 0 0" linear-velocity="0 0 0" visualization-id="b2">
         <CollisionGeometry primitive-id="b2" />
         <InertiaFromPrimitive primitive-id="b2" />
       </RigidBody>
 
       <!-- leg 2 -->
-      <FixedJoint id="J2"  location="-0.5 0.5 0" inboard-link-id="top" outboard-link-id="L2" axis="0 0 1" />
+      <FixedJoint id="J2"  location="-0.5 0.5 0" inboard-link-id="top" outboard-link-id="L2"  />
       <RigidBody id="L2" color="1.0 0.4 0.0 0" position="-0.5 0.5 -0.5" angular-velocity="0 0 0" linear-velocity="0 0 0" visualization-id="b2">
         <CollisionGeometry primitive-id="b2" />
         <InertiaFromPrimitive primitive-id="b2" />
       </RigidBody>
 
       <!-- leg 3 -->
-      <FixedJoint id="J3"  location="0.5 -0.5 0" inboard-link-id="top" outboard-link-id="L3" axis="0 0 1" />
+      <FixedJoint id="J3"  location="0.5 -0.5 0" inboard-link-id="top" outboard-link-id="L3"  />
       <RigidBody id="L3" color="1.0 0.4 0.0 0" position="0.5 -0.5 -0.5" angular-velocity="0 0 0" linear-velocity="0 0 0" visualization-id="b2">
         <CollisionGeometry primitive-id="b2" />
         <InertiaFromPrimitive primitive-id="b2" />
       </RigidBody>
 
       <!-- leg 4 -->
-      <FixedJoint id="J4"  location="-0.5 -0.5 0" inboard-link-id="top" outboard-link-id="L4" axis="0 0 1" />
+      <FixedJoint id="J4"  location="-0.5 -0.5 0" inboard-link-id="top" outboard-link-id="L4"  />
       <RigidBody id="L4" color="1.0 0.4 0.0 0" position="-0.5 -0.5 -0.5" angular-velocity="0 0 0" linear-velocity="0 0 0" visualization-id="b2">
         <CollisionGeometry primitive-id="b2" />
         <InertiaFromPrimitive primitive-id="b2" />

@@ -4,8 +4,8 @@
 # test the articulated body examples
 echo "Regenerating data for chain2"
 $1moby-regress -mt=10 ../example/chain-contact/chain2.xml chain2.dat 
-#echo "Regenerating data for chain5"
-#$1moby-regress -mt=10 ../example/chain-contact/chain5.xml chain5.dat 
+echo "Regenerating data for chain5"
+$1moby-regress -mt=10 ../example/chain-contact/chain5.xml chain5.dat 
 
 # test the driving robot example
 #echo "Regenerating data for mobile robot example"
@@ -29,17 +29,18 @@ $1moby-regress -mt=10 ../example/contact_simple/Zeno.xml Zeno.dat
 echo "Regenerating data for the fixed, articulated table"
 $1moby-regress -mt=10 ../example/contact_simple/fixed-articulated-table.xml fixed-articulated-table.dat 
 echo "Regenerating data for the articulated table"
-$1moby-regress -mt=10 ../example/contact_simple/articulated-table.xml articulated-table.dat 
+$1moby-regress -s=.01 -mt=10 ../example/contact_simple/articulated-table.xml articulated-table.dat 
 
+# test the stack problems 
+echo "Regenerating data for sphere stack"
+$1moby-regress -mt=1 ../example/contact_simple/sphere-stack.xml sphere-stack.dat 
+# test the rimless wheel example
+#export RIMLESS_WHEEL_THETAD=0.24
+#echo "Regenerating data for rimless wheel example"
+#$1moby-regress -mt=8 -p=$1/rimless-wheel-init.so ../example/rimless-wheel/rimless-wheel.xml rimless-wheel.dat 
 
 # test the contact constrained pendulum
 echo "Regenerating data for contact constrained pendulum"
-$1moby-regress -mt=6.5 -p=$1/contact-constrained-pendulum-init.so ../example/contact_simple/contact-constrained-pendulum.xml contact-constrained-pendulum.dat 
-
-# test the stack problems 
-echo "Regenerating data for stacked box"
-$1moby-regress -mt=1 ../example/contact_simple/stack.xml stack.dat 
-echo "Regenerating data for sphere stack"
-$1moby-regress -mt=1 ../example/contact_simple/sphere-stack.xml sphere-stack.dat 
+$1moby-regress -mt=6.5 -p=$1/libcontact-constrained-pendulum-init.so ../example/contact_simple/contact-constrained-pendulum.xml contact-constrained-pendulum.dat 
 
 

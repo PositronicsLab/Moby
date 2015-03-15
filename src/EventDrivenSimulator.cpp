@@ -219,7 +219,7 @@ VectorNd& EventDrivenSimulator::ode_sustained_constraints(const VectorNd& x, dou
   std::sort(bodies.begin(), bodies.end());
   bodies.erase(std::unique(bodies.begin(), bodies.end()), bodies.end());
 
-  // recompute forward dynamics for bodies in constraints
+   // recompute forward dynamics for bodies in constraints
    BOOST_FOREACH(DynamicBodyPtr body, bodies)
      body->calc_fwd_dyn();
 
@@ -231,24 +231,26 @@ VectorNd& EventDrivenSimulator::ode_sustained_constraints(const VectorNd& x, dou
       FILE_LOG(LOG_CONSTRAINT) << e;
   }
 
-// debugging code for checking numerical acceleration 
-static double last_t = -1.0;
-static std::vector<double> last_vels; 
-std::vector<double> this_vels(s->_rigid_constraints.size());
-for (unsigned i=0; i< s->_rigid_constraints.size(); i++)
-  this_vels[i] = s->_rigid_constraints[i].calc_constraint_vel();
-if (last_vels.size() == this_vels.size())
-{
-  double h = t - last_t;
-  for (unsigned i=0; i< this_vels.size(); i++)
+  // debugging code for checking numerical acceleration 
+  #ifndef NDEBUG
+  static double last_t = -1.0;
+  static std::vector<double> last_vels; 
+  std::vector<double> this_vels(s->_rigid_constraints.size());
+  for (unsigned i=0; i< s->_rigid_constraints.size(); i++)
+    this_vels[i] = s->_rigid_constraints[i].calc_constraint_vel();
+  if (last_vels.size() == this_vels.size())
   {
-    FILE_LOG(LOG_CONSTRAINT) << "Velocity at " << last_t << ": " << last_vels[i] << std::endl;
-    FILE_LOG(LOG_CONSTRAINT) << "Velocity at " << t << ": " << this_vels[i] << std::endl;
-    FILE_LOG(LOG_CONSTRAINT) << "Numerically computed acceleration: " << (this_vels[i] - last_vels[i])/h << std::endl;
+    double h = t - last_t;
+    for (unsigned i=0; i< this_vels.size(); i++)
+    {
+      FILE_LOG(LOG_CONSTRAINT) << "Velocity at " << last_t << ": " << last_vels[i] << std::endl;
+      FILE_LOG(LOG_CONSTRAINT) << "Velocity at " << t << ": " << this_vels[i] << std::endl;
+      FILE_LOG(LOG_CONSTRAINT) << "Numerically computed acceleration: " << (this_vels[i] - last_vels[i])/h << std::endl;
+    }
   }
-}
-last_t = t;
-last_vels = this_vels;
+  last_t = t;
+  last_vels = this_vels;
+  #endif
 
   // reset idx
   idx = 0;
