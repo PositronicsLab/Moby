@@ -15,7 +15,7 @@
     <!-- Integrator -->
     <RungeKuttaIntegrator id="rk4" />
     <EulerIntegrator id="euler" />
-    <BulirschStoerIntegrator id="bsi" abs-err-tol="1e-16" rel-err-tol="1e-16" />
+    <BulirschStoerIntegrator id="bsi" abs-err-tol="1e-14" rel-err-tol="1e-14" />
 
     <!-- Gravity force -->
     <GravityForce id="gravity" accel="0 0 -9.81"  />

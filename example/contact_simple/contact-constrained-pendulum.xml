@@ -10,13 +10,13 @@
     <Sphere id="sphere" radius="1.5811" mass="1" />
 
     <EulerIntegrator id="euler" />
-    <BulirschStoerIntegrator id="bs" abs-err-tol="0.00000001" rel-err-tol="1e-3"/>
+    <BulirschStoerIntegrator id="bs" abs-err-tol="1e-10" rel-err-tol="1e-10"/>
 
     <GravityForce id="gravity" accel="0 -9.81 0 " />
 
-  <CollisionDetectionPlugin id="pendulum-coldet" plugin="libpendulum-coldet-plugin.so" />
+  <CollisionDetectionPlugin id="pendulum-coldet" plugin="libcontact-constrained-pendulum-coldet-plugin.so" />
 
-  <EventDrivenSimulator integrator-id="bs" Euler-step="1e-0" collision-detection-plugin="pendulum-coldet">
+  <EventDrivenSimulator integrator-id="bs" Euler-step="1e-3" collision-detection-plugin="pendulum-coldet">
     <RecurrentForce recurrent-force-id="gravity" /> 
     <DynamicBody dynamic-body-id="l1" />
     <DynamicBody dynamic-body-id="world" />
@@ -27,7 +27,7 @@
     <CollisionGeometry />
   </RigidBody>
 
-  <RigidBody id="l1" position="1 0 0" rpy="0 0 1.5708">
+  <RigidBody id="l1" position="1 0 0" rpy="0 0 1.57079632679490">
     <InertiaFromPrimitive primitive-id="sphere" />
     <CollisionGeometry />
     <Visualization visualization-id="sphere" />

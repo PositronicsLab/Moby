@@ -48,7 +48,7 @@
 
     <!-- setup the platform rigid body; it is not active -->
     <RigidBody id="platform" enabled="false"
-      position="0 -12 0" visualization-id="b3" >
+      position="0 -20 0" visualization-id="b3" >
         <CollisionGeometry primitive-id="b3" />
     </RigidBody>
 

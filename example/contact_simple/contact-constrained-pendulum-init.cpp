@@ -21,7 +21,7 @@ boost::shared_ptr<GravityForce> grav;
 // setup simulator callback
 void post_step_callback(Simulator* sim)
 {
-  const unsigned Z = 2;
+  const unsigned Y = 1, Z = 2;
 
   // determine the closest configuration for l1
   
@@ -30,14 +30,12 @@ void post_step_callback(Simulator* sim)
   std::ofstream out("energy.dat", std::ostream::app);
   Transform3d gTw = Pose3d::calc_relative_pose(l1->get_inertial_pose(), GLOBAL);
   double KE = l1->calc_kinetic_energy();
-  double PE = l1->get_inertia().m*gTw.x[Z]*-grav->gravity[Z];
+  double PE = l1->get_inertia().m*(gTw.x[Y]+1.0)*-grav->gravity[Y];
   out << KE << " " << PE << " " << (KE+PE) << std::endl;
   out.close();
 
   // output the position of l1
   std::cout << sim->current_time << " " << gTw.x[0] << " " << gTw.x[1] << " " << gTw.x[2] << std::endl;
-
-  // 
 }
 
 /// plugin must be "extern C"
@@ -46,6 +44,10 @@ extern "C" {
 void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map, double time)
 {
   const unsigned Z = 2;
+
+  // kill the existing files
+  std::ofstream out("energy.dat");
+  out.close();
 
   // get a reference to the EventDrivenSimulator instance
   for (std::map<std::string, Moby::BasePtr>::const_iterator i = read_map.begin();

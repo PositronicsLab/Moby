@@ -26,7 +26,7 @@
     <!-- Rigid bodies -->
       <!-- the table -->
     <RCArticulatedBody id="table" floating-base="true" fdyn-algorithm="crb"
-      fdyn-algorithm-frame="link" rotate="0.0 0.0 0.0" translate="0,0,.9999999999999" >
+      fdyn-algorithm-frame="link" rotate="0.0 0.0 0.0" translate="0,0,1" >
       <!-- the body -->
       <RigidBody id="top" color="0.25 0.25 0.25 0" position="0 0 0.05" angular-velocity="0 0 1" linear-velocity="0 0 0" visualization-id="b1" compliant="false">
         <CollisionGeometry primitive-id="b1" />
@@ -68,7 +68,7 @@
       </RigidBody>
 
     <!-- Setup the simulator -->
-    <EventDrivenSimulator id="simulator" integrator-id="rk4" Euler-step="1e-4" contact-dist-thresh="0">
+    <EventDrivenSimulator id="simulator" integrator-id="rk4" Euler-step="1e-4" contact-dist-thresh="1e-5">
       <DisabledPair object1-id="table" object2-id="table"/>
       <DynamicBody dynamic-body-id="table" />
       <DynamicBody dynamic-body-id="ground" />
