@@ -16,7 +16,7 @@
 
     <GravityForce id="gravity" accel="0 -9.81 0 " />
 
-  <EventDrivenSimulator integrator-id="bs">
+  <EventDrivenSimulator integrator-id="bs" Euler-step="1e-0">
     <RecurrentForce recurrent-force-id="gravity" /> 
     <DynamicBody dynamic-body-id="chain" />
   </EventDrivenSimulator>
@@ -27,13 +27,13 @@
         <InertiaFromPrimitive primitive-id="sphere" />
       </RigidBody>
 
-      <RigidBody id="l1" position="1 0 0" rpy="0 0 1.5708" color="1 0 0 0">
+      <RigidBody id="l1" position="1 0 0" rpy="0 0 1.57079632679490" color="1 0 0 0">
         <InertiaFromPrimitive primitive-id="sphere" />
         <Visualization visualization-id="cyl" />
         <Visualization visualization-id="sph2" />
       </RigidBody>
 
-      <RevoluteJoint id="q" q="1.5708" q-tare="-1.5708" qd="0" location="0 0 0" inboard-link-id="base" outboard-link-id="l1" max-forces="10000" lower-limits="-10" upper-limits="3.14" coulomb-friction-coeff="0" viscous-friction-coeff="0" restitution-coeff="1" axis="0 0 1" />
+      <RevoluteJoint id="q" q="1.57079632679490" q-tare="-1.57079632679490" qd="0" location="0 0 0" inboard-link-id="base" outboard-link-id="l1" max-forces="10000" lower-limits="-10" upper-limits="3.14" coulomb-friction-coeff="0" viscous-friction-coeff="0" restitution-coeff="1" axis="0 0 1" />
     </RCArticulatedBody>
 
   </MOBY>

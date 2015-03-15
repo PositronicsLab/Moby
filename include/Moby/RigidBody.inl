@@ -118,6 +118,9 @@ void RigidBody::set_generalized_coordinates_generic(DynamicBody::GeneralizedCoor
     *_F2 = P;
     *_F = lTm.apply_transform();
 
+    // make F2 identity orientation again
+    _F2->q.set_identity();
+
     // invalidate the pose vectors 
     invalidate_pose_vectors();    
   }
