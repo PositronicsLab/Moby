@@ -87,7 +87,6 @@ bool OUTPUT_TIMINGS = false;
 
 /// Last pickle iteration
 unsigned LAST_PICKLE = -1;
-double LAST_PICKLE_T = -std::numeric_limits<double>::max()/2.0;
 
 /// Extension/format for 3D outputs (default=Wavefront obj)
 char THREED_EXT[5] = "obj";
@@ -107,11 +106,9 @@ double TOTAL_TIME = 0.0;
 
 /// Last 3D output iteration and time output
 unsigned LAST_3D_WRITTEN = -1;
-double LAST_3D_WRITTEN_T = -std::numeric_limits<double>::max()/2.0;
 
 /// Last image iteration output
 unsigned LAST_IMG_WRITTEN = -1;
-double LAST_IMG_WRITTEN_T = -std::numeric_limits<double>::max()/2.0;
       
 /// Outputs to stdout
 bool OUTPUT_FRAME_RATE = false;
@@ -189,12 +186,11 @@ void step(void* arg)
   if (IMAGE_IVAL > 0)
   {
     // determine at what iteration nearest frame would be output
-    if ((s->current_time - LAST_IMG_WRITTEN_T > STEP_SIZE * IMAGE_IVAL))
+    if (ITER % IMAGE_IVAL == 0)
     {
       char buffer[128];
       sprintf(buffer, "driver.out.%08u.png", ++LAST_IMG_WRITTEN);
       // TODO: call offscreen renderer
-      LAST_IMG_WRITTEN_T = s->current_time;
     }
   }
 
@@ -202,13 +198,12 @@ void step(void* arg)
   if (THREED_IVAL > 0)
   {
     // determine at what iteration nearest frame would be output
-    if ((s->current_time - LAST_3D_WRITTEN_T > STEP_SIZE * THREED_IVAL))
+    if (ITER % THREED_IVAL == 0)
     {
       // write the file (fails silently)
       char buffer[128];
       sprintf(buffer, "driver.out-%08u-%f.%s", ++LAST_3D_WRITTEN, s->current_time, THREED_EXT);
       osgDB::writeNodeFile(*MAIN_GROUP, std::string(buffer));
-      LAST_3D_WRITTEN_T = s->current_time;
     }
   }
   #endif
@@ -217,13 +212,12 @@ void step(void* arg)
   if (PICKLE_IVAL > 0)
   {
     // determine at what iteration nearest pickle would be output
-    if ((s->current_time - LAST_PICKLE_T > STEP_SIZE * PICKLE_IVAL))
+    if (ITER % PICKLE_IVAL == 0)
     {
       // write the file (fails silently)
       char buffer[128];
       sprintf(buffer, "driver.out-%08u-%f.xml", ++LAST_PICKLE, s->current_time);
       XMLWriter::serialize_to_xml(std::string(buffer), s); 
-      LAST_PICKLE_T = s->current_time;
     }
   }
 
