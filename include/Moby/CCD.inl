@@ -18,9 +18,7 @@ OutputIterator CCD::find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr
   }
   else if (boost::dynamic_pointer_cast<BoxPrimitive>(pA))
   {
-    if (boost::dynamic_pointer_cast<BoxPrimitive>(pB))
-      return find_contacts_box_box(cgA, cgB, output_begin, TOL);
-    else if (boost::dynamic_pointer_cast<PlanePrimitive>(pB))
+    if (boost::dynamic_pointer_cast<PlanePrimitive>(pB))
       return find_contacts_plane_generic(cgB, cgA, output_begin, TOL);
     else if (boost::dynamic_pointer_cast<SpherePrimitive>(pB))
       return find_contacts_box_sphere(cgA, cgB, output_begin, TOL);
@@ -48,6 +46,11 @@ OutputIterator CCD::find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr
     if (boost::dynamic_pointer_cast<PlanePrimitive>(pB))
       return find_contacts_cylinder_plane(cgA, cgB, output_begin, TOL);
   }
+  else if (boost::dynamic_pointer_cast<PolyhedralPrimmitive>(pA))
+  {
+    if (boost::dynamic_pointer_cast<PolyhedralPrimitive>(pB))
+      return find_contacts_polyhedron_polyhedron(cgA, cgB, output_begin, TOL);
+  }
   else // no special case for A
   {
     if (boost::dynamic_pointer_cast<HeightmapPrimitive>(pB))
@@ -67,6 +70,12 @@ OutputIterator CCD::find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr
   return find_contacts_generic(cgA, cgB, output_begin, TOL);
 }
 
+/// Finds contacts between two polyhedra
+template <class OutputIterator>
+OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL)
+{
+  // TODO: Bjoern, fill this in
+}
 
 template <class OutputIterator>
 OutputIterator CCD::find_contacts_generic(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL)

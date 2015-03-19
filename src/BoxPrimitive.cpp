@@ -12,6 +12,7 @@
 #include <Moby/XMLTree.h>
 #include <Moby/SpherePrimitive.h>
 #include <Moby/PlanePrimitive.h>
+#include <Moby/Polyhedron.h>
 #include <Moby/TriangleMeshPrimitive.h>
 #include <Moby/OBB.h>
 #include <Moby/Constants.h>
@@ -99,21 +100,19 @@ double BoxPrimitive::calc_signed_dist(shared_ptr<const Primitive> p, Point3d& pt
     return hmp->calc_signed_dist(bthis, pp, pthis);
   }
 
-  // try box/box
-  shared_ptr<const BoxPrimitive> bp = dynamic_pointer_cast<const BoxPrimitive>(p);
-  if (bp)
-  {
-    shared_ptr<const BoxPrimitive> bthis = dynamic_pointer_cast<const BoxPrimitive>(shared_from_this());
-    return CP::find_cpoint(bthis, bp, pthis.pose, pp.pose, pthis, pp); 
-  }
-
-  // if the primitive is convex, can use GJK
+  // if the primitive is convex, can use Minkowski difference 
   if (p->is_convex())
   {
     shared_ptr<const Pose3d> Pbox = pthis.pose;
     shared_ptr<const Pose3d> Pgeneric = pp.pose;
-    shared_ptr<const Primitive> bthis = dynamic_pointer_cast<const Primitive>(shared_from_this());
-    return GJK::do_gjk(bthis, p, Pbox, Pgeneric, pthis, pp);
+    shared_ptr<const PolyhedralPrimitive> bthis = dynamic_pointer_cast<const PolyhedralPrimitive>(shared_from_this());
+    shared_ptr<const PolyhedralPrimitive> pp = dynamic_pointer_cast<const PolyhedralPrimitive>(p);
+    Polyhedron mink = Polyhedron::calc_minkowski_diff(bthis, pp, Pbox, Pgeneric);
+    std::list<shared_ptr<Polyhedron::Feature> > closest_features;
+    Origin3d ORIGIN(0.0, 0.0, 0.0);
+    bool inside;
+    double dist = mink.find_closest_features(ORIGIN, closest_features, inside);
+    return (inside) ? -dist : dist;
   }
 
   // try box/(non-convex) trimesh

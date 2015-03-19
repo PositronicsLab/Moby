@@ -15,6 +15,7 @@
 #include <Moby/Log.h>
 #include <Moby/CP.h>
 #include <Moby/SpherePrimitive.h>
+#include <Moby/PolyhedralPrimitive.h>
 #include <Moby/PairwiseDistInfo.h>
 #include <Moby/HeightmapPrimitive.h>
 #include <Moby/PlanePrimitive.h>
