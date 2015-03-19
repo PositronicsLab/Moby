@@ -11,12 +11,13 @@
 
     <EulerIntegrator id="euler" />
     <BulirschStoerIntegrator id="bs" abs-err-tol="1e-12" rel-err-tol="1e-12"/>
+    <RungeKuttaIntegrator id="rk4" />
 
     <GravityForce id="gravity" accel="0 -9.81 0 " />
 
   <CollisionDetectionPlugin id="pendulum-coldet" plugin="libcontact-constrained-pendulum-coldet-plugin.so" />
 
-  <EventDrivenSimulator integrator-id="bs" Euler-step="1e-3" collision-detection-plugin="pendulum-coldet">
+  <EventDrivenSimulator integrator-id="bs" Euler-step="1e-5" collision-detection-plugin="pendulum-coldet">
     <RecurrentForce recurrent-force-id="gravity" /> 
     <DynamicBody dynamic-body-id="l1" />
     <DynamicBody dynamic-body-id="world" />

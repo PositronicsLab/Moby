@@ -46,7 +46,7 @@ OutputIterator CCD::find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr
     if (boost::dynamic_pointer_cast<PlanePrimitive>(pB))
       return find_contacts_cylinder_plane(cgA, cgB, output_begin, TOL);
   }
-  else if (boost::dynamic_pointer_cast<PolyhedralPrimmitive>(pA))
+  else if (boost::dynamic_pointer_cast<PolyhedralPrimitive>(pA))
   {
     if (boost::dynamic_pointer_cast<PolyhedralPrimitive>(pB))
       return find_contacts_polyhedron_polyhedron(cgA, cgB, output_begin, TOL);

@@ -168,7 +168,7 @@ Polyhedron Polyhedron::calc_minkowski_diff(shared_ptr<const PolyhedralPrimitive>
   const unsigned NVERTS = vA.size() * vB.size();
   vector<shared_ptr<Polyhedron::Vertex> > vnew(NVERTS);
   for (unsigned i=0, k=0; i< vA.size(); i++)
-    for (unsigned j=0; j< vB.size(); j++)
+    for (unsigned j=0; j< vB.size(); j++, k++)
     {
       vnew[k] = shared_ptr<Polyhedron::Vertex>(new Polyhedron::Vertex);
       vnew[k]->o = Origin3d(vA[i]) - Origin3d(vB[j]); 
