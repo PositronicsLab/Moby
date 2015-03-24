@@ -42,8 +42,9 @@ void RigidBody::get_generalized_coordinates_generic(DynamicBody::GeneralizedCoor
     case DynamicBody::eSpatial: gc.resize(N_SPATIAL); break;
   }
 
-  // get current mixed pose 
-  Ravelin::Pose3d P = *_F2;
+  // get current inertial pose 
+  Ravelin::Pose3d P = *_F;
+  P.update_relative_pose(GLOBAL);
 
   // get linear components
   gc[0] = P.x[0];
@@ -110,16 +111,18 @@ void RigidBody::set_generalized_coordinates_generic(DynamicBody::GeneralizedCoor
     // normalize the unit quaternion, just in case
     q.normalize();
 
-    // get the transform from the link pose to the mixed pose
-    Ravelin::Transform3d lTm = Ravelin::Pose3d::calc_relative_pose(_F2, _F);
-
-    // coordinates are for the new mixed pose
     Ravelin::Pose3d P(q, x);
-    *_F2 = P;
-    *_F = lTm.apply_transform();
+    set_pose(P);
+/*
+    // get the transform from the link pose to the inertial pose
+    Ravelin::Transform3d lTm = Ravelin::Pose3d::calc_relative_pose(_jF, _F);
 
-    // make F2 identity orientation again
-    _F2->q.set_identity();
+    // set the pose 
+    *_jF = P;
+    *_F = lTm.apply_transform();
+    _jF->update_relative_pose(_F);
+*/
+    
 
     // invalidate the pose vectors 
     invalidate_pose_vectors();    

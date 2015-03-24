@@ -99,6 +99,20 @@ void EventDrivenSimulator::calc_rigid_sustained_unilateral_constraint_forces()
   if (_rigid_constraints.empty())
     return;
 
+  // remove velocity-level constraints
+  std::vector<UnilateralConstraint> velocity_constraints;
+  for (unsigned i=0; i< _rigid_constraints.size(); )
+  {
+    if (_rigid_constraints[i].deriv_type == UnilateralConstraint::eVel)
+    {
+      velocity_constraints.push_back(_rigid_constraints[i]);
+      _rigid_constraints[i] = _rigid_constraints.back();
+      _rigid_constraints.pop_back();
+    }
+    else
+      i++;  
+  }
+
   // call the callback function, if any
   if (constraint_callback_fn)
     (*constraint_callback_fn)(_rigid_constraints, constraint_callback_data);
@@ -121,6 +135,9 @@ void EventDrivenSimulator::calc_rigid_sustained_unilateral_constraint_forces()
   // call the post-force application callback, if any
   if (constraint_post_callback_fn)
     (*constraint_post_callback_fn)(_rigid_constraints, constraint_post_callback_data);
+
+  // add velocity level constraints back in
+  _rigid_constraints.insert(_rigid_constraints.end(), velocity_constraints.begin(), velocity_constraints.end());
 }
 
 /// Computes the ODE for systems with sustained unilateral constraints
@@ -130,13 +147,6 @@ VectorNd& EventDrivenSimulator::ode_sustained_constraints(const VectorNd& x, dou
 
   // get the simulator
   shared_ptr<EventDrivenSimulator>& s = *((shared_ptr<EventDrivenSimulator>*) data);
-
-  // see whether t=current time and the derivative has already been computed
-  if (t == s->current_time && s->_current_accel_dx.size() > 0)
-  {
-    dx = s->_current_accel_dx;
-    return dx;
-  }
 
   // initialize the ODE index
   unsigned idx = 0;
@@ -276,10 +286,6 @@ VectorNd& EventDrivenSimulator::ode_sustained_constraints(const VectorNd& x, dou
     // update idx
     idx += NGC+NGV;
   }
-
-  // see whether to set current time derivative
-  if (t == s->current_time)
-    s->_current_accel_dx = dx;
 
   FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::ode_sustained_constraints(t=" << t << ") exited" << std::endl;
 
@@ -698,7 +704,6 @@ double EventDrivenSimulator::step(double step_size)
   {
     // clear stored derivatives
     _current_dx.resize(0);
-    _current_accel_dx.resize(0);
 
     FILE_LOG(LOG_SIMULATOR) << "+stepping simulation from time: " << this->current_time << " by " << (step_size - h) << std::endl;
     if (LOGGING(LOG_SIMULATOR))
