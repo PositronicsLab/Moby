@@ -110,6 +110,7 @@ class BladePlanePlugin : public CollisionDetection
 
       // get the pose for the wheel 
       shared_ptr<const Pose3d> Pwheel = wheel_cg->get_pose();
+      FILE_LOG(LOG_COLDET) << "Pose of the wheel: " << Pose3d::calc_relative_pose(Pwheel, GLOBAL) << std::endl;
 
       // get the pose of the center-of-mass of the wheel
       Transform3d pTb = Pose3d::calc_relative_pose(Pwheel, Pplane);
@@ -127,6 +128,8 @@ class BladePlanePlugin : public CollisionDetection
         // transform the two points
         Point3d p1_plane = pTb.transform_point(p1);
         Point3d p2_plane = pTb.transform_point(p2);
+
+        FILE_LOG(LOG_COLDET) << "distance between blade " << i << " and ground: " << std::min(p1_plane[Y], p2_plane[Y]) << std::endl;
 
         // get the signed distance
         if (p1_plane[Y] < min_dist)

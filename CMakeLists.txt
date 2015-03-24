@@ -249,17 +249,6 @@ endif (BUILD_TOOLS)
   target_link_libraries(contact-constrained-pendulum-coldet-plugin Moby Ravelin)
   target_link_libraries(contact-constrained-pendulum-init Moby Ravelin)
 
-  # look for Pacer
-  find_library(PACER_FOUND Pacer /usr/local/lib /usr/lib)
-  if (PACER_FOUND)
-    add_definitions (-DUSE_INV_DYN)
-    add_library(mrobot-controller MODULE example/mrobot/controller.cpp)
-    target_link_libraries(mrobot-controller Moby Ravelin Pacer)
-  else (PACER_FOUND)
-    add_library(mrobot-controller MODULE example/mrobot/controller.cpp)
-    target_link_libraries(mrobot-controller Moby Ravelin)
-  endif (PACER_FOUND)
-
 # setup plugin install locations
 install (TARGETS sphere-plugin DESTINATION ${CMAKE_SOURCE_DIR}/example/contact_simple) 
 install (TARGETS box-plugin DESTINATION ${CMAKE_SOURCE_DIR}/example/contact_simple) 
@@ -269,7 +258,6 @@ install (TARGETS contact-constrained-pendulum-init DESTINATION ${CMAKE_SOURCE_DI
 # setup install locations
 install (TARGETS passive-walker-init DESTINATION ${CMAKE_SOURCE_DIR}/example/passive-walker)
 install (TARGETS passive-walker-coldet-plugin DESTINATION ${CMAKE_SOURCE_DIR}/example/passive-walker)
-install (TARGETS mrobot-controller DESTINATION ${CMAKE_SOURCE_DIR}/example/mrobot)
 install (TARGETS Moby DESTINATION lib)
 install (TARGETS moby-driver DESTINATION bin)
 if (USE_OSG AND OSG_FOUND)
