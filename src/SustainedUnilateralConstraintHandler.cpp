@@ -731,9 +731,9 @@ void SustainedUnilateralConstraintHandler::compute_problem_data2(SustainedUnilat
     if (ROWS == 3)
     {
       // setup appropriate parts of contact accelerations 
-      q.Cn_a[i] = q.contact_constraints[i]->calc_contact_accel(q.contact_constraints[i]->contact_normal) + q.contact_constraints[i]->calc_contact_vel(q.contact_constraints[i]->contact_normal_dot);
-      q.Cs_a[k] = q.contact_constraints[i]->calc_contact_accel(q.contact_constraints[i]->contact_tan1) + q.contact_constraints[i]->calc_contact_vel(q.contact_constraints[i]->contact_tan1_dot);
-      q.Ct_a[k] = q.contact_constraints[i]->calc_contact_accel(q.contact_constraints[i]->contact_tan2) + q.contact_constraints[i]->calc_contact_vel(q.contact_constraints[i]->contact_tan2_dot);
+      q.Cn_a[i] = q.contact_constraints[i]->calc_contact_accel(q.contact_constraints[i]->contact_normal, q.contact_constraints[i]->contact_normal_dot);
+      q.Cs_a[k] = q.contact_constraints[i]->calc_contact_accel(q.contact_constraints[i]->contact_tan1, q.contact_constraints[i]->contact_tan1_dot);
+      q.Ct_a[k] = q.contact_constraints[i]->calc_contact_accel(q.contact_constraints[i]->contact_tan2, q.contact_constraints[i]->contact_tan2_dot);
 
       // update k (NOTE: we need k b/c some contacts may be slipping)
       k++;
@@ -741,7 +741,7 @@ void SustainedUnilateralConstraintHandler::compute_problem_data2(SustainedUnilat
     else
     {
       // setup appropriate part of contact accelerations 
-      q.Cn_a[i] = q.contact_constraints[i]->calc_contact_accel(q.contact_constraints[i]->contact_normal) + q.contact_constraints[i]->calc_contact_vel(q.contact_constraints[i]->contact_normal_dot);
+      q.Cn_a[i] = q.contact_constraints[i]->calc_contact_accel(q.contact_constraints[i]->contact_normal, q.contact_constraints[i]->contact_normal_dot);
     }
   }
 
