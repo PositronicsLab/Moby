@@ -521,6 +521,19 @@ void ArticulatedBody::check_joint_vel_limit_exceeded_and_update()
   }
 }
 
+/// Gets the Jacobian that converts velocities from this body in the source pose to velocities of the particular link in the target pose 
+MatrixNd& ArticulatedBody::calc_jacobian_dot(boost::shared_ptr<const Pose3d> target_pose, DynamicBodyPtr body, MatrixNd& J)
+{
+  // get the generalized coordinate pose
+  if (is_floating_base())
+  {
+    boost::shared_ptr<const Pose3d> gc_pose = get_base_link()->get_pose();
+    return calc_jacobian_dot(gc_pose, target_pose, body, J);
+  }
+  else
+    return calc_jacobian_dot(GLOBAL, target_pose, body, J);
+}
+
 /// Gets the time derivative of the Jacobian that converts velocities from this body in the source pose to velocities of the particular link in the target pose 
 MatrixNd& ArticulatedBody::calc_jacobian_dot(shared_ptr<const Pose3d> source_pose, shared_ptr<const Pose3d> target_pose, DynamicBodyPtr body, MatrixNd& J)
 {
@@ -572,6 +585,19 @@ MatrixNd& ArticulatedBody::calc_jacobian_dot(shared_ptr<const Pose3d> source_pos
   // time-derivative of its Jacobian will always be zero
 
   return J;
+}
+
+/// Gets the Jacobian that converts velocities from this body in the source pose to velocities of the particular link in the target pose 
+MatrixNd& ArticulatedBody::calc_jacobian(boost::shared_ptr<const Pose3d> target_pose, DynamicBodyPtr body, MatrixNd& J)
+{
+  // get the generalized coordinate pose
+  if (is_floating_base())
+  {
+    boost::shared_ptr<const Pose3d> gc_pose = get_base_link()->get_pose();
+    return calc_jacobian(gc_pose, target_pose, body, J);
+  }
+  else
+    return calc_jacobian(GLOBAL, target_pose, body, J);
 }
 
 /// Gets the Jacobian that converts velocities from this body in the source pose to velocities of the particular link in the target pose 
