@@ -23,7 +23,7 @@ ContactParameters::ContactParameters()
   mu_coulomb = mu_viscous = 0.0;
   NK = 4;
   penalty_Kp = penalty_Kv = 0.0;
-  stick_tol = NEAR_ZERO;  
+  stick_tol = sustained_tol = NEAR_ZERO;  
 }
 
 /// Constructs a ContactParameters object with the given object IDs
@@ -37,7 +37,8 @@ ContactParameters::ContactParameters(BasePtr o1, BasePtr o2)
   mu_coulomb = mu_viscous = 0.0;
   NK = 4;
   penalty_Kp = penalty_Kv = 0.0;
-  stick_tol = NEAR_ZERO;  
+  stick_tol = NEAR_ZERO; 
+  sustained_tol = NEAR_ZERO; 
 }
 
 /// Implements Base::load_from_xml()
@@ -114,6 +115,11 @@ void ContactParameters::load_from_xml(shared_ptr<const XMLTree> node, std::map<s
   if (stick_tol_attr)
     stick_tol = stick_tol_attr->get_real_value();
 
+  // get the sustained tolerance, if any
+  XMLAttrib* sustained_tol_attr = node->get_attrib("sustained-tol");
+  if (sustained_tol_attr)
+    sustained_tol = sustained_tol_attr->get_real_value();
+
   // get the penalty Kp gain, if any
   XMLAttrib* kp_attr = node->get_attrib("penalty-kp");
   if (kp_attr)
@@ -166,6 +172,9 @@ void ContactParameters::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const 
 
   // write the sticking tolerance
   node->attribs.insert(XMLAttrib("stick-tol", stick_tol));
+
+  // write the sustained tolerance
+  node->attribs.insert(XMLAttrib("sustained-tol", sustained_tol));
 
   // save penalty gains 
   node->attribs.insert(XMLAttrib("penalty-kp", penalty_Kp));

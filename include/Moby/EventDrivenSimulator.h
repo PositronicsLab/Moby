@@ -184,9 +184,6 @@ class EventDrivenSimulator : public Simulator
     /// Pairwise distances at bodies' current configurations
     std::vector<PairwiseDistInfo> _pairwise_distances;
 
-    /// The derivative at the current time
-    Ravelin::VectorNd _current_accel_dx;
-
     /// Work vector
     Ravelin::VectorNd _workV;
 

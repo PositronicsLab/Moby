@@ -38,6 +38,7 @@ class UnilateralConstraint
     UnilateralConstraint& operator=(const UnilateralConstraint& e);
     double calc_contact_vel(const Ravelin::Vector3d& v) const;
     double calc_contact_accel(const Ravelin::Vector3d& v) const;
+    double calc_contact_accel(const Ravelin::Vector3d& v, const Ravelin::Vector3d& vdot) const;
     double calc_constraint_vel() const;
     double calc_constraint_accel() const;
     double calc_vconstraint_tol() const;
@@ -143,6 +144,9 @@ class UnilateralConstraint
 
     /// Sticking tolerance for acceleration-level constraints (users never need to modify this)
     double stick_tol;
+
+    /// Sustained tolerance for acceleration-level constraints (users never need to modify this)
+    double sustained_tol;
 
     void write_vrml(const std::string& filename, double sphere_radius = 0.1, double normal_length = 1.0) const;
 

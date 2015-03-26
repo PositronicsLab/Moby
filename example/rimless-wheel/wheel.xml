@@ -33,12 +33,12 @@
 <GravityForce id="gravity" accel="0.47943 0 -0.87758" />
 -->
 
-  <EventDrivenSimulator integrator-id="bs" Euler-step="1e-10" collision-detection-plugin="wheel-coldet" contact-dist-thresh="1e-13">
+  <EventDrivenSimulator integrator-id="bs" Euler-step=".0001" collision-detection-plugin="wheel-coldet" contact-dist-thresh="1e-6">
     <RecurrentForce recurrent-force-id="gravity" />
     <DynamicBody dynamic-body-id="GROUND" />
     <DynamicBody dynamic-body-id="WHEEL" />
     <DisabledPair object1-id="WHEEL" object2-id="WHEEL"/>
-    <ContactParameters object1-id="GROUND" object2-id="WHEEL" epsilon="0" mu-coulomb="100.0" stick-tol="2.5e-5" />
+    <ContactParameters object1-id="GROUND" object2-id="WHEEL" epsilon="0" mu-coulomb="100.0" stick-tol="1e-3" sustained-tol="1e-3" />
 <!--    <ContactParameters object1-id="GROUND" object2-id="BOX" epsilon="0" mu-coulomb="100" />-->
   </EventDrivenSimulator>
 
