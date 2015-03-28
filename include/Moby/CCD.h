@@ -23,6 +23,7 @@
 #include <Moby/CylinderPrimitive.h>
 #include <Moby/CollisionDetection.h>
 #include <Moby/BV.h>
+#include <Moby/Polyhedron.h>
 
 namespace Moby {
 
@@ -144,6 +145,25 @@ class CCD : public CollisionDetection
 
     template <class RandomAccessIterator>
     void insertion_sort(RandomAccessIterator begin, RandomAccessIterator end);
+
+    template <class OutputIterator>
+    OutputIterator find_contacts_vertex_vertex(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, boost::shared_ptr<Polyhedron::Vertex> v1, boost::shared_ptr<Polyhedron::Vertex> v2, double signed_dist, OutputIterator output_begin);
+
+    template <class OutputIterator>
+    OutputIterator find_contacts_vertex_edge(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, boost::shared_ptr<Polyhedron::Vertex> v, boost::shared_ptr<Polyhedron::Edge> e, double signed_dist, OutputIterator output_begin);
+
+    template <class OutputIterator>
+    OutputIterator find_contacts_vertex_face(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, boost::shared_ptr<Polyhedron::Vertex> vA, boost::shared_ptr<Polyhedron::Face> fB, double signed_dist, OutputIterator output_begin);
+
+    template <class OutputIterator>
+    OutputIterator find_contacts_edge_edge(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, boost::shared_ptr<Polyhedron::Edge> e1, boost::shared_ptr<Polyhedron::Edge> e2, double signed_dist, OutputIterator output_begin);
+
+    template <class OutputIterator>
+    OutputIterator find_contacts_edge_face(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, boost::shared_ptr<Polyhedron::Edge> eA, boost::shared_ptr<Polyhedron::Face> fB, double signed_dist, OutputIterator output_begin);
+
+    template <class OutputIterator>
+    OutputIterator find_contacts_face_face(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, boost::shared_ptr<Polyhedron::Face> fA, boost::shared_ptr<Polyhedron::Face> fB, double signed_dist, OutputIterator output_begin);
+
 }; // end class
 
 #include "CCD.inl"
