@@ -43,37 +43,107 @@ BoxPrimitive::BoxPrimitive()
   _ylen = 1;
   _zlen = 1;
   _edge_sample_length = std::numeric_limits<double>::max();
+
+  // construct the polyhedron
+  construct_polyhedron();
+
+  // calculate the mass properties
   calc_mass_properties();
 }
 
-/// Constructs a cube of the specified size
+/// Constructs a box of the specified size
 BoxPrimitive::BoxPrimitive(double xlen, double ylen, double zlen)
 {
   _xlen = xlen;
   _ylen = ylen;
   _zlen = zlen;
   _edge_sample_length = std::numeric_limits<double>::max();
+
+  // construct the polyhedron
+  construct_polyhedron();
+
+  // calculate the mass properties
   calc_mass_properties();
 }
 
 /// Constructs a unit cube transformed by the given matrix
-BoxPrimitive::BoxPrimitive(const Pose3d& T) : PolyhedralPrimitive(T)
+BoxPrimitive::BoxPrimitive(const Pose3d& P) : PolyhedralPrimitive(P)
 {
   _xlen = 1;
   _ylen = 1;
   _zlen = 1;
   _edge_sample_length = std::numeric_limits<double>::max();
+
+  // construct the polyhedron
+  construct_polyhedron();
+
+  // calculate the mass properties
   calc_mass_properties();
+
+  // get the pose as a pointer
+  shared_ptr<Pose3d> Pp(new Pose3d(P));
+
+  // get the vertices from the polyhedron
+  std::vector<boost::shared_ptr<Polyhedron::Vertex> >& vertices = _poly.get_vertices();
+
+  // transform the points - we want to assume that they were in P's frame
+  // and are now converting them to the global frame
+  Ravelin::Transform3d T = Ravelin::Pose3d::calc_relative_pose(Pp, GLOBAL); 
+  for (unsigned i=0; i< vertices.size(); i++)
+  {
+    Point3d p(vertices[i]->o, Pp);
+    vertices[i]->o = T.transform_point(p);
+  }
 }  
 
-/// Constructs a cube of the specified size transformed by the given matrix
-BoxPrimitive::BoxPrimitive(double xlen, double ylen, double zlen, const Pose3d& T) : PolyhedralPrimitive(T)
+/// Constructs a box of the specified size transformed by the given matrix
+BoxPrimitive::BoxPrimitive(double xlen, double ylen, double zlen, const Pose3d& P) : PolyhedralPrimitive(P)
 {
   _xlen = xlen;
   _ylen = ylen;
   _zlen = zlen;
   _edge_sample_length = std::numeric_limits<double>::max();
+
+  // construct the polyhedron
+  construct_polyhedron();
+
+  // calculate the mass properties
   calc_mass_properties();
+
+  // get the pose as a pointer
+  shared_ptr<Pose3d> Pp(new Pose3d(P));
+
+  // get the vertices from the polyhedron
+  std::vector<boost::shared_ptr<Polyhedron::Vertex> >& vertices = _poly.get_vertices();
+
+  // transform the points - we want to assume that they were in P's frame
+  // and are now converting them to the global frame
+  Ravelin::Transform3d T = Ravelin::Pose3d::calc_relative_pose(Pp, GLOBAL); 
+  for (unsigned i=0; i< vertices.size(); i++)
+  {
+    Point3d p(vertices[i]->o, Pp);
+    vertices[i]->o = T.transform_point(p);
+  }
+}
+
+/// Constructs a polyhedron from the box
+void BoxPrimitive::construct_polyhedron()
+{
+  const unsigned N_BOX_VERTS = 8, X = 0, Y = 1, Z = 2;
+  Origin3d v[N_BOX_VERTS];
+
+  // setup the box vertices
+  v[0][X] = -_xlen*0.5;  v[0][Y] = -_ylen*0.5;  v[0][Z] = -_zlen*0.5; 
+  v[1][X] = -_xlen*0.5;  v[1][Y] = -_ylen*0.5;  v[1][Z] = +_zlen*0.5; 
+  v[2][X] = -_xlen*0.5;  v[2][Y] = +_ylen*0.5;  v[2][Z] = -_zlen*0.5; 
+  v[3][X] = -_xlen*0.5;  v[3][Y] = +_ylen*0.5;  v[3][Z] = +_zlen*0.5; 
+  v[4][X] = +_xlen*0.5;  v[4][Y] = -_ylen*0.5;  v[4][Z] = -_zlen*0.5; 
+  v[5][X] = +_xlen*0.5;  v[5][Y] = -_ylen*0.5;  v[5][Z] = +_zlen*0.5; 
+  v[6][X] = +_xlen*0.5;  v[6][Y] = +_ylen*0.5;  v[6][Z] = -_zlen*0.5; 
+  v[7][X] = +_xlen*0.5;  v[7][Y] = +_ylen*0.5;  v[7][Z] = +_zlen*0.5; 
+
+  // compute the convex hull
+  _poly = Polyhedron::calc_convex_hull(v, v+N_BOX_VERTS); 
 }
 
 /// Computes the signed distance from the box to a primitive

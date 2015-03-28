@@ -8,6 +8,7 @@
 #include <Moby/Types.h>
 #include <Moby/Log.h>
 #include <Moby/CompGeom.h>
+#include <Moby/PolyhedralPrimitive.h>
 #include <Moby/Polyhedron.h>
 
 using namespace Ravelin;

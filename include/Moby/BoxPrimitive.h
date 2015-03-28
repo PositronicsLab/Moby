@@ -55,6 +55,7 @@ class BoxPrimitive : public PolyhedralPrimitive
     static double sqr(double x) { return x*x; }
 
     virtual void calc_mass_properties();
+    void construct_polyhedron();
 
     /// The maximum edge length for the box
     double _edge_sample_length;
