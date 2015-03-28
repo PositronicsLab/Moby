@@ -295,25 +295,47 @@ void step(void* arg)
 void read_plugin(const char* filename)
 {
   // attempt to read the file
-  void* HANDLE = dlopen(filename, RTLD_LAZY);
-  if (!HANDLE)
+  void* plugin = dlopen(filename, RTLD_LAZY);
+  if (!plugin)
   {
-    std::cerr << "driver: failed to read plugin from " << filename << std::endl;
-    std::cerr << "  " << dlerror() << std::endl;
-    exit(-1);
-  }
+    // get the error string, in case we need it
+    char* dlerror_str = dlerror();
 
-  handles.push_back(HANDLE);
+    // attempt to use the plugin path
+    char* plugin_path = getenv("MOBY_PLUGIN_PATH");
+    if (plugin_path)
+    {
+      // get the plugin path and make sure it has a path string at the end
+      std::string plugin_path_str(plugin_path);
+      if (plugin_path_str.at(plugin_path_str.size()-1) != '/')
+        plugin_path_str += '/';
+
+      // concatenate
+      plugin_path_str += filename;
+
+      // attempt to re-open the plugin
+      plugin = dlopen(plugin_path_str.c_str(), RTLD_LAZY);
+    }
+
+    // check whether the plugin was successfully loaded
+    if (!plugin)
+    { 
+      std::cerr << "driver: failed to read plugin from " << filename << std::endl;
+      std::cerr << "  " << dlerror_str << std::endl;
+      exit(-1);
+    }
+  }
+  handles.push_back(plugin);
 
   // attempt to load the initializer
   dlerror();
-  INIT.push_back((init_t) dlsym(HANDLE, "init"));
+  INIT.push_back((init_t) dlsym(plugin, "init"));
   const char* dlsym_error = dlerror();
   if (dlsym_error)
   {
     std::cerr << "driver warning: cannot load symbol 'init' from " << filename << std::endl;
     std::cerr << "        error follows: " << std::endl << dlsym_error << std::endl;
-    INIT.pop_back();
+    exit(-1);
   }
 }
 
