@@ -11,6 +11,7 @@
 #include <fstream>
 #include <stack>
 #include <queue>
+#include <cstdlib>
 
 #ifdef USE_OSG
 #include <Moby/OSGGroupWrapper.h>
@@ -272,8 +273,27 @@ void XMLReader::read_primitive_plugin(shared_ptr<const XMLTree> node, std::map<s
   void* plugin = dlopen(pluginname.c_str(), RTLD_LAZY);
   if (!plugin)
   {
-    std::cerr << "XMLReader::read_primitive_plugin()- cannot load plugin: " << dlerror() << std::endl;
-    return;
+    // get the error string, in case we need it
+    char* dlerror_str = dlerror();
+
+    // attempt to use the plugin path
+    char* plugin_path = getenv("MOBY_PLUGIN_PATH");
+    if (plugin_path)
+    {
+      // get the plugin path and make sure it has a path string at the end
+      std::string plugin_path_str(plugin_path);
+      if (plugin_path_str.at(plugin_path_str.size()-1) != '/')
+        plugin_path_str += '/';
+
+      // concatenate
+      plugin_path_str += pluginname;
+
+      if (!(plugin = dlopen(plugin_path_str.c_str(), RTLD_LAZY)))
+      { 
+        std::cerr << "XMLReader::read_primitive_plugin()- cannot load plugin: " << dlerror_str << std::endl;
+        return;
+      }
+    }
   }
 
   // load the factory symbol
@@ -321,8 +341,27 @@ void XMLReader::read_coldet_plugin(shared_ptr<const XMLTree> node, std::map<std:
   void* plugin = dlopen(pluginname.c_str(), RTLD_LAZY);
   if (!plugin)
   {
-    std::cerr << "XMLReader::read_coldet_plugin()- cannot load plugin: " << dlerror() << std::endl;
-    return;
+    // get the error string, in case we need it
+    char* dlerror_str = dlerror();
+
+    // attempt to use the plugin path
+    char* plugin_path = getenv("MOBY_PLUGIN_PATH");
+    if (plugin_path)
+    {
+      // get the plugin path and make sure it has a path string at the end
+      std::string plugin_path_str(plugin_path);
+      if (plugin_path_str.at(plugin_path_str.size()-1) != '/')
+        plugin_path_str += '/';
+
+      // concatenate
+      plugin_path_str += pluginname;
+
+      if (!(plugin = dlopen(plugin_path_str.c_str(), RTLD_LAZY)))
+      { 
+        std::cerr << "XMLReader::read_primitive_plugin()- cannot load plugin: " << dlerror_str << std::endl;
+        return;
+      }
+    }
   }
 
   // load the factory symbol
@@ -742,8 +781,27 @@ void XMLReader::read_rc_abody_symbolic(shared_ptr<const XMLTree> node, std::map<
   void* plugin = dlopen(pluginname.c_str(), RTLD_NOW);
   if (!plugin)
   {
-    std::cerr << "XMLReader::read_rc_abody_symbolic()- cannot load plugin: " << dlerror() << std::endl;
-    return;
+    // get the error string, in case we need it
+    char* dlerror_str = dlerror();
+
+    // attempt to use the plugin path
+    char* plugin_path = getenv("MOBY_PLUGIN_PATH");
+    if (plugin_path)
+    {
+      // get the plugin path and make sure it has a path string at the end
+      std::string plugin_path_str(plugin_path);
+      if (plugin_path_str.at(plugin_path_str.size()-1) != '/')
+        plugin_path_str += '/';
+
+      // concatenate
+      plugin_path_str += pluginname;
+
+      if (!(plugin = dlopen(plugin_path_str.c_str(), RTLD_LAZY)))
+      { 
+        std::cerr << "XMLReader::read_primitive_plugin()- cannot load plugin: " << dlerror_str << std::endl;
+        return;
+      }
+    }
   }
 
   // load the factory symbol
@@ -791,8 +849,27 @@ void XMLReader::read_joint_plugin(shared_ptr<const XMLTree> node, std::map<std::
   void* plugin = dlopen(pluginname.c_str(), RTLD_LAZY);
   if (!plugin)
   {
-    std::cerr << "XMLReader::read_joint_plugin()- cannot load plugin: " << dlerror() << std::endl;
-    return;
+    // get the error string, in case we need it
+    char* dlerror_str = dlerror();
+
+    // attempt to use the plugin path
+    char* plugin_path = getenv("MOBY_PLUGIN_PATH");
+    if (plugin_path)
+    {
+      // get the plugin path and make sure it has a path string at the end
+      std::string plugin_path_str(plugin_path);
+      if (plugin_path_str.at(plugin_path_str.size()-1) != '/')
+        plugin_path_str += '/';
+
+      // concatenate
+      plugin_path_str += pluginname;
+
+      if (!(plugin = dlopen(plugin_path_str.c_str(), RTLD_LAZY)))
+      { 
+        std::cerr << "XMLReader::read_primitive_plugin()- cannot load plugin: " << dlerror_str << std::endl;
+        return;
+      }
+    }
   }
 
   // load the factory symbol
