@@ -100,7 +100,7 @@ PrimitivePtr CollisionGeometry::set_geometry(PrimitivePtr primitive)
   {
     std::cerr << "CollisionGeometry::set_primitive() warning - rigid body's orientation is not identity." << std::endl;
     std::cerr << "  At the rigid body's current orientation (" << AAngled(rb->get_pose()->q) << ")" << std::endl;
-    std::cerr << "  the primitive wll have the orientation (" << AAngled(primitive->get_pose()->q) << ")" << std::endl;
+    std::cerr << "  the primitive will have the orientation (" << AAngled(primitive->get_pose()->q) << ")" << std::endl;
   }
 
   // save the primitive

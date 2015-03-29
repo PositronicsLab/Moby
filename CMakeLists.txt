@@ -1,4 +1,4 @@
-# setp some things initially
+# setup some things initially
 cmake_minimum_required (VERSION 2.6)
 project (Moby)
 include (CheckIncludeFiles)
