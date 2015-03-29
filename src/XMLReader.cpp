@@ -329,14 +329,6 @@ void XMLReader::read_coldet_plugin(shared_ptr<const XMLTree> node, std::map<std:
   }
   std::string pluginname = plugin_attr->get_string_value();
 
-  // verify that the plugin can be found
-  struct stat filestatus;
-  if (stat(pluginname.c_str(), &filestatus) != 0)
-  {
-    std::cerr << "XMLReader::read_coldet_plugin() - unable to find plugin '" << pluginname << "'" << std::endl;
-    return;
-  }
-
   // load the plugin
   void* plugin = dlopen(pluginname.c_str(), RTLD_LAZY);
   if (!plugin)
@@ -769,14 +761,6 @@ void XMLReader::read_rc_abody_symbolic(shared_ptr<const XMLTree> node, std::map<
   }
   std::string pluginname = plugin_attr->get_string_value();
 
-  // verify that the plugin can be found
-  struct stat filestatus;
-  if (stat(pluginname.c_str(), &filestatus) != 0)
-  {
-    std::cerr << "XMLReader::read_rc_abody_symbolic() - unable to find plugin '" << pluginname << "'" << std::endl;
-    return;
-  }
-
   // load the plugin
   void* plugin = dlopen(pluginname.c_str(), RTLD_NOW);
   if (!plugin)
@@ -836,14 +820,6 @@ void XMLReader::read_joint_plugin(shared_ptr<const XMLTree> node, std::map<std::
     return;
   }
   std::string pluginname = plugin_attr->get_string_value();
-
-  // verify that the plugin can be found
-  struct stat filestatus;
-  if (stat(pluginname.c_str(), &filestatus) != 0)
-  {
-    std::cerr << "XMLReader::read_joint_plugin() - unable to find plugin '" << pluginname << "'" << std::endl;
-    return;
-  }
 
   // load the plugin
   void* plugin = dlopen(pluginname.c_str(), RTLD_LAZY);

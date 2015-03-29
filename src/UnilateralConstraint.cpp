@@ -295,10 +295,33 @@ void UnilateralConstraint::compute_contact_dots()
   Vector3d wxr1 = Vector3d::cross(w1, r1);
   Vector3d wxr2 = Vector3d::cross(w2, r2);
 
+  // compute r squared
+  double r1sq = r1.norm_sq();
+  double r2sq = r2.norm_sq();
+
+  // compute c1 and c2 (if possible)
+  Vector3d c1(0.0, 0.0, 0.0, wxr1.pose);
+  Vector3d c2(0.0, 0.0, 0.0, wxr2.pose);
+  if (r1sq > 0.0)
+  {
+    double dn1 = std::pow(r1sq, -1.5) * 2.0 * r1.dot(wxr1);
+    c1 = wxr1/std::sqrt(r1sq) + r1*dn1;
+  }
+  if (r2sq > 0.0)
+  {
+    double dn2 = std::pow(r2sq, -1.5) * 2.0 * r2.dot(wxr2);
+    c2 = wxr2/std::sqrt(r2sq) + r2*dn2;
+  }
+
   // compute the sum of the dots 
-  contact_normal_dot = Vector3d::cross(wxr1 - wxr2, -contact_normal); 
-  contact_tan1_dot = Vector3d::cross(wxr1 - wxr2, -contact_tan1); 
-  contact_tan2_dot = Vector3d::cross(wxr1 - wxr2, -contact_tan2); 
+  contact_normal_dot = Vector3d::cross(c1 - c2, contact_normal); 
+  contact_tan1_dot = Vector3d::cross(c1 - c2, contact_tan1); 
+  contact_tan2_dot = Vector3d::cross(c1 - c2, contact_tan2); 
+/*
+  contact_normal_dot = Vector3d::cross(wxr1 - wxr2, contact_normal); 
+  contact_tan1_dot = Vector3d::cross(wxr1 - wxr2, contact_tan1); 
+  contact_tan2_dot = Vector3d::cross(wxr1 - wxr2, contact_tan2); 
+*/
 }
 
 /// Computes the contact vector data (\dot{N}v and Na)
