@@ -27,6 +27,9 @@ echo "Testing deformable sphere example"
 moby-regress/regress -mt=10 ../example/bouncing_sphere/sphere.xml regress.out.tmp
 moby-regress/compare-trajs bouncing-sphere.dat regress.out.tmp
 
+# test the rimless wheel example
+export RIMLESS_WHEEL_THETAD=0.24
+
 # test the unilaterally constrained mechanism examples
 echo "Testing unilaterally constrained pendulum example"
 moby-regress/regress -mt=10 ../example/unilaterally-constrained-mechanisms/pendulum.xml regress.out.tmp

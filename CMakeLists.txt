@@ -16,16 +16,10 @@ set (SOURCES AABB.cpp SustainedUnilateralConstraintHandler.cpp ADF.cpp Articulat
 option (BUILD_SHARED_LIBS "Build Moby as a shared library?" ON)
 option (BUILD_TOOLS "Build the programs in the tools subdirectory?" ON)
 option (USE_OSG "Build against OpenSceneGraph library?" ON)
-option (USE_IPOPT "Build against IPOPT library?" OFF)
 option (USE_AP "Use the Anitescu-Potra contact model?" OFF)
-if(APPLE)
-  option (USE_QLCPD "Build against QLCPD library?" OFF)
-else()
-  option (USE_QLCPD "Build against QLCPD library?" ON)
-endif()
+option (USE_QLCPD "Build against QLCPD library?" OFF)
 option (VISUALIZE_INERTIA "Visualize moments of inertia?" OFF)
 option (PROFILE "Build for profiling?" OFF)
-option (OMP "Build with OpenMP support?" OFF)
 
 # look for QLCPD
 find_library(QLCPD_FOUND qlcpd-dense /usr/local/lib /usr/lib)
@@ -174,22 +168,12 @@ if (BUILD_TOOLS)
     add_executable(moby-view example/view.cpp)
   endif (USE_OSG AND OSG_FOUND)
 
-  # plugins
-  #add_library(grasp-controller "MODULE" example/banditII/grasp-controller.cpp)
-  #add_library(bandit-controller "MODULE" example/banditII/bandit-controller.cpp)
-  #add_library(pinch-controller "MODULE" example/banditII/pinch-controller.cpp)
-  #add_library(push-controller "MODULE" example/banditII/push-controller.cpp)
-  #add_library(noball-controller "MODULE" example/banditII/noball-controller.cpp)
-  #add_library(pinch-release-controller "MODULE" example/banditII/pinch-release-controller.cpp)
-  #add_library(block-collider-controller "MODULE" example/banditII/block-collider-controller.cpp)
-
   # tools
   add_executable(moby-render example/render.cpp)
   add_executable(moby-regress example/regress.cpp)
   add_executable(moby-compare-trajs example/compare-trajs.cpp)
 #  add_executable(moby-conv-decomp example/conv-decomp.cpp)
   add_executable(moby-convexify example/convexify.cpp)
-#  add_executable(moby-output-symbolic example/output-symbolic.cpp)
   add_executable(moby-adjust-center example/adjust-center.cpp)
   add_executable(moby-center example/center.cpp)
   target_link_libraries(moby-driver Moby)
@@ -206,16 +190,6 @@ if (BUILD_TOOLS)
     target_link_libraries(moby-view ${OPENTHREADS_LIBRARIES})
   endif (USE_OSG AND OSG_FOUND)
 
-  # uncomment to build example plugins
-#  target_link_libraries(controller Moby)
-  #target_link_libraries(grasp-controller Moby)
-  #target_link_libraries(bandit-controller Moby)
-  #target_link_libraries(pinch-controller Moby)
-  #target_link_libraries(push-controller Moby)
-  #target_link_libraries(noball-controller Moby)
-  #target_link_libraries(pinch-release-controller Moby)
-  #target_link_libraries(block-collider-controller Moby)
-
   # tools
   target_link_libraries(moby-render Moby)
   target_link_libraries(moby-regress Moby)
@@ -227,38 +201,64 @@ if (BUILD_TOOLS)
   target_link_libraries(moby-center Moby)
 endif (BUILD_TOOLS)
 
-  # plugins
-  add_library(sphere-plugin MODULE example/contact_simple/sphere-plugin.cpp)
-  add_library(box-plugin MODULE example/contact_simple/box-plugin.cpp)
-  add_library(rimless-wheel-coldet-plugin MODULE example/rimless-wheel/coldet-plugin.cpp)
-  add_library(rimless-wheel-init MODULE example/rimless-wheel/init.cpp)
-  add_library(ball-parabloid-coldet-plugin MODULE example/ball-in-parabloid/coldet-plugin.cpp)
-  add_library(ball-parabloid-init MODULE example/ball-in-parabloid/init.cpp)
-  add_library(passive-walker-init MODULE example/passive-walker/init.cpp)
-  add_library(passive-walker-coldet-plugin MODULE example/passive-walker/coldet-plugin.cpp)
-  add_library(contact-constrained-pendulum-coldet-plugin MODULE example/contact_simple/contact-constrained-pendulum-coldet-plugin.cpp)
-  add_library(contact-constrained-pendulum-init MODULE example/contact_simple/contact-constrained-pendulum-init.cpp)
-  target_link_libraries(sphere-plugin Moby Ravelin)
-  target_link_libraries(box-plugin Moby Ravelin)
-  target_link_libraries(passive-walker-init Moby Ravelin)
-  target_link_libraries(rimless-wheel-init Moby Ravelin)
-  target_link_libraries(ball-parabloid-init Moby Ravelin)
-  target_link_libraries(passive-walker-coldet-plugin Moby Ravelin)
-  target_link_libraries(rimless-wheel-coldet-plugin Moby Ravelin)
-  target_link_libraries(ball-parabloid-coldet-plugin Moby Ravelin)
-  target_link_libraries(contact-constrained-pendulum-coldet-plugin Moby Ravelin)
-  target_link_libraries(contact-constrained-pendulum-init Moby Ravelin)
+# create environment variables file
+file (WRITE setup.sh "MOBY_PLUGIN_PATH=${CMAKE_BINARY_DIR}\n\n")
 
-# setup plugin install locations
-install (TARGETS sphere-plugin DESTINATION ${CMAKE_SOURCE_DIR}/example/contact_simple) 
-install (TARGETS box-plugin DESTINATION ${CMAKE_SOURCE_DIR}/example/contact_simple) 
-install (TARGETS contact-constrained-pendulum-coldet-plugin DESTINATION ${CMAKE_SOURCE_DIR}/example/contact_simple) 
-install (TARGETS contact-constrained-pendulum-init DESTINATION ${CMAKE_SOURCE_DIR}/example/contact_simple) 
+# plugins
+# sphere plugin
+add_library(sphere-plugin MODULE example/contact_simple/sphere-plugin.cpp)
+target_link_libraries(sphere-plugin Moby Ravelin)
 
-# setup install locations
-install (TARGETS passive-walker-init DESTINATION ${CMAKE_SOURCE_DIR}/example/passive-walker)
-install (TARGETS passive-walker-coldet-plugin DESTINATION ${CMAKE_SOURCE_DIR}/example/passive-walker)
+# box plugin
+add_library(box-plugin MODULE example/contact_simple/box-plugin.cpp)
+target_link_libraries(box-plugin Moby Ravelin)
+
+# rimless wheel plugins
+add_library(rimless-wheel-coldet-plugin MODULE example/rimless-wheel/coldet-plugin.cpp)
+add_library(rimless-wheel-init MODULE example/rimless-wheel/init.cpp)
+target_link_libraries(rimless-wheel-init Moby Ravelin)
+target_link_libraries(rimless-wheel-coldet-plugin Moby Ravelin)
+
+# ball in parabloid plugins
+add_library(ball-parabloid-coldet-plugin MODULE example/ball-in-parabloid/coldet-plugin.cpp)
+add_library(ball-parabloid-init MODULE example/ball-in-parabloid/init.cpp)
+target_link_libraries(ball-parabloid-init Moby Ravelin)
+target_link_libraries(ball-parabloid-coldet-plugin Moby Ravelin)
+
+# passive dynamic walker plugins
+add_library(passive-walker-init MODULE example/passive-walker/init.cpp)
+add_library(passive-walker-coldet-plugin MODULE example/passive-walker/coldet-plugin.cpp)
+target_link_libraries(passive-walker-init Moby Ravelin)
+target_link_libraries(passive-walker-coldet-plugin Moby Ravelin)
+
+# contact constrained pendulum plugins
+add_library(contact-constrained-pendulum-coldet-plugin MODULE example/contact_simple/contact-constrained-pendulum-coldet-plugin.cpp)
+add_library(contact-constrained-pendulum-init MODULE example/contact_simple/contact-constrained-pendulum-init.cpp)
+target_link_libraries(contact-constrained-pendulum-coldet-plugin Moby Ravelin)
+target_link_libraries(contact-constrained-pendulum-init Moby Ravelin)
+
+# setup source file
+install (CODE "file(WRITE setup.sh \"MOBY_PLUGIN_PATH=${CMAKE_INSTALL_PREFIX}/lib/Moby/plugins\n\n\")")
+install (FILES ${CMAKE_BINARY_DIR}/setup.sh DESTINATION share/Moby)
+
+# setup install locations for plugins
+install (TARGETS passive-walker-init DESTINATION lib/Moby/plugins)
+install (TARGETS passive-walker-coldet-plugin DESTINATION lib/Moby/plugins)
+install (TARGETS contact-constrained-pendulum-coldet-plugin DESTINATION lib/Moby/plugins)
+install (TARGETS contact-constrained-pendulum-init DESTINATION lib/Moby/plugins)
+install (TARGETS passive-walker-init DESTINATION lib/Moby/plugins)
+install (TARGETS passive-walker-coldet-plugin DESTINATION lib/Moby/plugins)
+install (TARGETS ball-parabloid-init DESTINATION lib/Moby/plugins)
+install (TARGETS ball-parabloid-coldet-plugin DESTINATION lib/Moby/plugins)
+install (TARGETS rimless-wheel-init DESTINATION lib/Moby/plugins)
+install (TARGETS rimless-wheel-coldet-plugin DESTINATION lib/Moby/plugins)
+install (TARGETS box-plugin DESTINATION lib/Moby/plugins)
+install (TARGETS sphere-plugin DESTINATION lib/Moby/plugins)
+
+# setup install locations for library
 install (TARGETS Moby DESTINATION lib)
+
+# setup install locations for binaries
 install (TARGETS moby-driver DESTINATION bin)
 if (USE_OSG AND OSG_FOUND)
   install (TARGETS moby-view DESTINATION bin)
@@ -267,7 +267,19 @@ endif (USE_OSG AND OSG_FOUND)
 install (TARGETS moby-convexify DESTINATION bin)
 install (TARGETS moby-adjust-center DESTINATION bin)
 install (TARGETS moby-center DESTINATION bin)
+
+# setup install locations for headers
 install (DIRECTORY ${CMAKE_SOURCE_DIR}/include/Moby DESTINATION include)
+
+# setup install locations for examples
 install (DIRECTORY ${CMAKE_SOURCE_DIR}/example/contact_simple DESTINATION share/Moby)
 install (DIRECTORY ${CMAKE_SOURCE_DIR}/example/chain-contact DESTINATION share/Moby)
+
+# uninstall target
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake_uninstall.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake"
+    IMMEDIATE @ONLY)
+add_custom_target(uninstall
+    COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake)
 
