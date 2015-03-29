@@ -892,7 +892,7 @@ void UnilateralConstraint::compute_cross_contact_limit_vconstraint_data(const Un
     su1->transpose_solve_generalized_inertia(J1, workM1);
 
     // get the appropriate row of workM
-    M = workM1.row(idx);
+    M.row(0) = workM1.row(idx);
 
     // determine whether to negate the row
     if (e.limit_upper)
@@ -917,7 +917,7 @@ void UnilateralConstraint::compute_cross_contact_limit_vconstraint_data(const Un
     su2->transpose_solve_generalized_inertia(J1, workM1);
 
     // get the appropriate row of workM
-    M += workM1.row(idx); 
+    M.row(0) += workM1.row(idx); 
 
     // determine whether to negate the row
     if (e.limit_upper)
