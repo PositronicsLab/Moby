@@ -270,6 +270,7 @@ void Primitive::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::stri
   XMLAttrib* xlat_attr = node->get_attrib("position");
   XMLAttrib* rpy_attr = node->get_attrib("rpy");
   XMLAttrib* quat_attr = node->get_attrib("quat");
+  XMLAttrib* aangle_attr = node->get_attrib("aangle");
   if (xlat_attr && rpy_attr)
   {
     F.x = xlat_attr->get_origin_value();
@@ -282,9 +283,24 @@ void Primitive::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::stri
     F.q = quat_attr->get_quat_value();
     set_pose(F);
   }
+  else if (xlat_attr && aangle_attr)
+  {
+    F.x = xlat_attr->get_origin_value();
+    VectorNd aa_vec;
+    aangle_attr->get_vector_value(aa_vec);
+    F.q = AAngled(aa_vec[0], aa_vec[1], aa_vec[2], aa_vec[3]);
+    set_pose(F);
+  }
   else if (xlat_attr)
   {
     F.x = xlat_attr->get_origin_value();
+    set_pose(F);
+  }
+  else if (aangle_attr)
+  {
+    VectorNd aa_vec;
+    aangle_attr->get_vector_value(aa_vec);
+    F.q = AAngled(aa_vec[0], aa_vec[1], aa_vec[2], aa_vec[3]);
     set_pose(F);
   }
   else if (rpy_attr)
