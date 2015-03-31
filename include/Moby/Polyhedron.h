@@ -61,7 +61,7 @@ class Polyhedron
     struct Face : public boost::enable_shared_from_this<Face>, public Feature
     {
       virtual ~Face() {}
-      std::list<boost::weak_ptr<Edge> > e; // edges coincident to this face 
+      std::list<boost::weak_ptr<Edge> > e; // edges coincident to this face (ccw ordering) 
       void find_closest_feature(const Ravelin::Origin3d& p, std::map<boost::shared_ptr<Feature>, double>& distances, double& closest_dist, std::list<boost::shared_ptr<Polyhedron::Feature> >& closest_features);
       Plane get_plane() const;
       boost::shared_ptr<void> data;                // arbitrary user data
@@ -72,26 +72,9 @@ class Polyhedron
     {
       virtual ~Edge() {}
       boost::shared_ptr<Vertex> v1, v2; // vertices of this edge 
-      boost::shared_ptr<Face> faceR, faceL;   // faces coincident to this edge 
-      boost::weak_ptr<Edge> prevR, nextR, prevL, nextL;   // faces coincident to edges 
+      boost::shared_ptr<Face> face1, face2;   // faces coincident to this edge 
       void find_closest_feature(const Ravelin::Origin3d& p, std::map<boost::shared_ptr<Feature>, double>& distances, double& closest_dist, std::list<boost::shared_ptr<Polyhedron::Feature> >& closest_features);
       boost::shared_ptr<void> data;                // arbitrary user data
-    };
-
-    // iterates over the edges in a face
-    class EdgeFaceIterator
-    {
-      public:
-        EdgeFaceIterator(boost::shared_ptr<Face> f);
-        boost::shared_ptr<Edge> operator*();
-        void advance_cw();
-        void advance_ccw();
-        bool has_cw();
-        bool has_ccw();
-
-      private:
-        boost::shared_ptr<Face> f;
-        boost::shared_ptr<Edge> e, term;
     };
 
     // iterates over the vertices in a face
@@ -105,9 +88,11 @@ class Polyhedron
 
       private:
         boost::shared_ptr<Face> f;
-        boost::shared_ptr<Edge> e, term;
         boost::shared_ptr<Vertex> v;
-        bool ccw;        
+        std::list<boost::weak_ptr<Edge> >::const_reverse_iterator cw_iter;
+        std::list<boost::weak_ptr<Edge> >::const_iterator ccw_iter;
+        bool ccw;
+        bool even;        
     };
 
     enum LocationType { eInside, eOutside, eOnVertex, eOnEdge, eOnFace };  

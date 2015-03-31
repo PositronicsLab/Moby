@@ -21,52 +21,7 @@ using std::map;
 using std::vector;
 using std::make_pair;
 using std::endl;
-
-// macro for creating an edge or finding a previously created edge
-#define CREATE_LOOKUP(vA, vB, eAB) { \
-if ((vei = v_edges.find(std::make_pair(vA, vB))) != v_edges.end()) \
-{ \
-  eAB = vei->second; \
-  if (cw) \
-  { \
-    assert(!eAB->faceR); \
-    eAB->faceR = f; \
-  } \
-  else \
-  { \
-    assert(!eAB->faceL); \
-    eAB->faceL = f; \
-  } \
-} \
-else if ((vei = v_edges.find(std::make_pair(vB, vA))) != v_edges.end()) \
-{ \
-  eAB = vei->second; \
-  if (cw) \
-  { \
-    assert(!eAB->faceL); \
-    eAB->faceL = f; \
-  } \
-  else \
-  { \
-    assert(!eAB->faceR); \
-    eAB->faceR = f; \
-  } \
-} \
-else \
-{ \
-  eAB = boost::shared_ptr<Polyhedron::Edge>(new Polyhedron::Edge); \
-  v_edges[std::make_pair(vA, vB)] = eAB; \
-  if (cw) \
-    eAB->faceR = f; \
-  else \
-    eAB->faceL = f; \
-  eAB->v1 = vertex_map[vA->point]; \
-  eAB->v2 = vertex_map[vB->point]; \
-  poly._edges.push_back(eAB); \
-  eAB->v1->e.push_back(eAB); \
-  eAB->v2->e.push_back(eAB); \
-} \
-}
+using std::list;
 
 /// Gets the plane containing a face
 Plane Polyhedron::Face::get_plane() const
@@ -144,6 +99,7 @@ Polyhedron& Polyhedron::operator=(const Polyhedron& p)
  *         is the index of a vertex from the first polyhedron and the second
  *         integer is the index of a vertex from the second polyhedron.
  */
+/*
 Polyhedron Polyhedron::calc_minkowski_diff(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<const PolyhedralPrimitive> pB, shared_ptr<const Pose3d> poseA, shared_ptr<const Pose3d> poseB)
 {
   // get the vertices of A
@@ -346,12 +302,12 @@ Polyhedron Polyhedron::calc_minkowski_diff(shared_ptr<const PolyhedralPrimitive>
         else
           e = new_edge_iter->second;
 
-        // setup face- we'll use the convention that faceR is qhull's top
-        // and faceL is qhull's bottom
+        // setup face- we'll use the convention that face1 is qhull's top
+        // and face2 is qhull's bottom
         if (ridge->top == facet)
-          e->faceR = f;
+          e->face1 = f;
         else
-          e->faceL = f;
+          e->face2 = f;
 
         // add the edge to the face
         f->e.push_back(e);
@@ -400,9 +356,9 @@ Polyhedron Polyhedron::calc_minkowski_diff(shared_ptr<const PolyhedralPrimitive>
         #endif
 
         // look for edges matching up
-        if (e->faceL == f)
+        if (e->face2 == f)
         {
-          if (e2->faceL == f)
+          if (e2->face2 == f)
           {
             if (e->v2 == e2->v1)
             {
@@ -429,9 +385,9 @@ Polyhedron Polyhedron::calc_minkowski_diff(shared_ptr<const PolyhedralPrimitive>
             }
           }
         }
-        else if (e->faceR == f)
+        else if (e->face1 == f)
         {
-          if (e2->faceR == f)
+          if (e2->face1 == f)
           {
             if (e->v2 == e2->v1)
             {
@@ -444,7 +400,7 @@ Polyhedron Polyhedron::calc_minkowski_diff(shared_ptr<const PolyhedralPrimitive>
               e2->nextR = e;
             }
           }
-          else if (e2->faceL == f)
+          else if (e2->face2 == f)
           {
             if (e->v2 == e2->v2)
             {
@@ -486,6 +442,7 @@ Polyhedron Polyhedron::calc_minkowski_diff(shared_ptr<const PolyhedralPrimitive>
 
   return poly;
 }
+*/
 
 /// Calculates the bounding box
 void Polyhedron::calc_bounding_box()
@@ -520,6 +477,7 @@ void Polyhedron::calc_bounding_box()
  * \param inside whether the point is inside or outside the polyhedron on return
  * \return the distance
  */
+/*
 double Polyhedron::find_closest_features(const Origin3d& p, std::list<shared_ptr<Polyhedron::Feature> >& closest_features, bool& inside) const 
 {
   boost::shared_ptr<const Pose2d> GLOBAL2D;
@@ -675,7 +633,7 @@ double Polyhedron::find_closest_features(const Origin3d& p, std::list<shared_ptr
   closest_features.erase(std::unique(closest_features.begin(), closest_features.end()), closest_features.end());
   return closest_dist;
 }
-
+*/
 /*
 /// Finds the feature adjacent to this edge (including the edge itself) that is closest to the query point
 void Polyhedron::Edge::find_closest_feature(const Origin3d& p, std::map<shared_ptr<Polyhedron::Feature>, double>& distances, double& closest_dist, std::list<shared_ptr<Polyhedron::Feature> >& closest_features)
@@ -686,12 +644,12 @@ void Polyhedron::Edge::find_closest_feature(const Origin3d& p, std::map<shared_p
   }
 
   // check left face
-  if (distances.find(faceR) == distances.end())
-    faceR->find_closest_feature(p, distances, closest_dist, closest_features);  
+  if (distances.find(face1) == distances.end())
+    face1->find_closest_feature(p, distances, closest_dist, closest_features);  
 
   // check right face 
-  if (distances.find(faceL) == distances.end())
-    faceL->find_closest_feature(p, distances, closest_dist, closest_features);
+  if (distances.find(face2) == distances.end())
+    face2->find_closest_feature(p, distances, closest_dist, closest_features);
 
   
 }
@@ -730,7 +688,7 @@ void Polyhedron::Face::find_closest_feature(const Origin3d& p, std::map<shared_p
     }
 
     // get the next edge
-    e = shared_ptr<Polyhedron::Edge>((e->faceR == shared_from_this()) ? e->prevR : e->prevL);
+    e = shared_ptr<Polyhedron::Edge>((e->face1 == shared_from_this()) ? e->prevR : e->prevL);
   }
   while (e != shared_ptr<Polyhedron::Edge>(shared_from_this()->e.front()));
 
@@ -759,7 +717,7 @@ void Polyhedron::Face::find_closest_feature(const Origin3d& p, std::map<shared_p
       // don't check the edge twice
       if (distances.find(e) != distances.end())
       {
-        e = shared_ptr<Polyhedron::Edge>((e->faceR == shared_from_this()) ? e->prevR : e->prevL);  
+        e = shared_ptr<Polyhedron::Edge>((e->face1 == shared_from_this()) ? e->prevR : e->prevL);  
         continue;
       }
 
@@ -767,7 +725,7 @@ void Polyhedron::Face::find_closest_feature(const Origin3d& p, std::map<shared_p
       e->find_closest_feature(p, distances, closest_dist, closest_features);   
 
       // get the next edge
-      e = shared_ptr<Polyhedron::Edge>((e->faceR == shared_from_this()) ? e->prevR : e->prevL);  
+      e = shared_ptr<Polyhedron::Edge>((e->face1 == shared_from_this()) ? e->prevR : e->prevL);  
     }
     while (e != shared_ptr<Polyhedron::Edge>(shared_from_this()->e.front()));
 
@@ -784,7 +742,7 @@ void Polyhedron::Face::find_closest_feature(const Origin3d& p, std::map<shared_p
     // don't process edge twice
     if (distances.find(e) != distances.end())
     {
-      e = shared_ptr<Polyhedron::Edge>((e->faceR == shared_from_this()) ? e->prevR : e->prevL);  
+      e = shared_ptr<Polyhedron::Edge>((e->face1 == shared_from_this()) ? e->prevR : e->prevL);  
       continue;
     }
 
@@ -803,7 +761,7 @@ void Polyhedron::Face::find_closest_feature(const Origin3d& p, std::map<shared_p
     }
 
     // get the next edge
-    e = shared_ptr<Polyhedron::Edge>((e->faceR == shared_from_this()) ? e->prevR : e->prevL);  
+    e = shared_ptr<Polyhedron::Edge>((e->face1 == shared_from_this()) ? e->prevR : e->prevL);  
   }
   while (e != shared_ptr<Polyhedron::Edge>(shared_from_this()->e.front()));
 
@@ -900,8 +858,6 @@ std::ostream& Moby::operator<<(std::ostream& out, const Polyhedron& m)
   std::map<shared_ptr<Polyhedron::Edge>, unsigned> emap;
   for (unsigned i=0; i< edges.size(); i++)
     emap[edges[i]] = i;
-  for (unsigned i=0; i< edges.size(); i++)
-    out << "edge " << i << ":  prevL: " << emap[shared_ptr<Polyhedron::Edge>(edges[i]->prevL)] << " nextL: " << emap[shared_ptr<Polyhedron::Edge>(edges[i]->nextL)] << "  prevR: " << emap[shared_ptr<Polyhedron::Edge>(edges[i]->prevR)] << "  nextR: " << emap[shared_ptr<Polyhedron::Edge>(edges[i]->nextR)] << std::endl;
 
   // process all faces
   for (unsigned i=0; i< faces.size(); i++)
@@ -918,91 +874,16 @@ std::ostream& Moby::operator<<(std::ostream& out, const Polyhedron& m)
       shared_ptr<Polyhedron::Edge> e(we);
  
       // see whether the edge is to the left or right
-      bool leftT = (e->faceR == f) ? false : true;
+      bool leftT = (e->face1 == f) ? false : true;
 
       if (leftT)
         out << "edge " << emap[e] << " (L): " << vmap[e->v1] << ", " << vmap[e->v2] << std::endl;
       else
         out << "edge  " << emap[e] << " (R): " << vmap[e->v1] << ", " << vmap[e->v2] << std::endl;
     }
-
-    // now do a counter-clockwise visit around the face
-    out << "ccw visit:";
-    shared_ptr<Polyhedron::Edge> e(f->e.front());
-    do
-    {
-      out << " " << emap[e];
-      if (e->faceR == f)
-        e = shared_ptr<Polyhedron::Edge>(e->prevR);
-      else
-        e = shared_ptr<Polyhedron::Edge>(e->nextL);
-    }
-    while (e != shared_ptr<Polyhedron::Edge>(f->e.front()));
-    out << std::endl;
-
-    // now do a clockwise visit around the face
-    out << "cw visit:";
-    e = shared_ptr<Polyhedron::Edge>(f->e.front());
-    do
-    {
-      out << " " << emap[e];
-      if (e->faceR == f)
-        e = shared_ptr<Polyhedron::Edge>(e->nextR);
-      else
-        e = shared_ptr<Polyhedron::Edge>(e->prevL);
-    }
-    while (e != shared_ptr<Polyhedron::Edge>(f->e.front()));
-    out << std::endl;
   }
 
   return out;
-}
-
-Polyhedron::EdgeFaceIterator::EdgeFaceIterator(shared_ptr<Polyhedron::Face> f)
-{
-  // save this face
-  this->f = f;
-
-  // pick the first edge of the face to start from
-  term = e = shared_ptr<Polyhedron::Edge>(f->e.front());
-}
-
-/// Dereferences the iterator
-shared_ptr<Polyhedron::Edge> Polyhedron::EdgeFaceIterator::operator*()
-{
-  return e;
-}
-
-/// Advances the iterator clockwise
-void Polyhedron::EdgeFaceIterator::advance_cw()
-{
-  if (e->faceR == f)
-    e = shared_ptr<Polyhedron::Edge>(e->nextR);
-  else
-    e = shared_ptr<Polyhedron::Edge>(e->prevL);
-}
-
-/// Advances the iterator counter-clockwise
-void Polyhedron::EdgeFaceIterator::advance_ccw()
-{
-  if (e->faceL == f)
-    e = shared_ptr<Polyhedron::Edge>(e->nextL);
-  else
-    e = shared_ptr<Polyhedron::Edge>(e->prevR);
-}
-
-/// Checks to see whether the iterator can be advanced clockwise
-bool Polyhedron::EdgeFaceIterator::has_cw()
-{
-  return ((e->faceL == f && shared_ptr<Polyhedron::Edge>(e->prevL) != term) || 
-          (e->faceR == f && shared_ptr<Polyhedron::Edge>(e->nextR) != term));
-}
-
-/// Checks to see whether the iterator can be advanced counter-clockwise
-bool Polyhedron::EdgeFaceIterator::has_ccw()
-{
-  return ((e->faceL == f && shared_ptr<Polyhedron::Edge>(e->nextL) != term) || 
-          (e->faceR == f && shared_ptr<Polyhedron::Edge>(e->prevR) != term));
 }
 
 /// Constructs a vertex-face iterator
@@ -1014,24 +895,48 @@ Polyhedron::VertexFaceIterator::VertexFaceIterator(shared_ptr<Polyhedron::Face> 
   // save whether it is counter-clockwise iteration
   this->ccw = ccw;
 
-  // pick the edge of the face to start from
-  e = term = shared_ptr<Polyhedron::Edge>(f->e.front());
+  // setup the iterator
+  if (ccw)
+    ccw_iter = f->e.begin();
+  else
+    cw_iter = f->e.rbegin(); 
 
-  // determine the vertex from cw / ccw
+  // pick a vertex from the edge
   if (ccw)
   {
-    if (e->faceL == f)
-      v = e->v1;
-    else
+    // get the next edge
+    list<weak_ptr<Edge> >::const_iterator ccw_iter2 = ccw_iter;
+    ccw_iter2++;
+
+    // get the vertices
+    shared_ptr<Edge> e(*ccw_iter);
+    shared_ptr<Edge> e2(*ccw_iter2);
+
+    // see whether v1 or v2 is in the next edge
+    if (e->v1 == e2->v1 || e->v1 == e2->v2)
       v = e->v2;
+    else
+      v = e->v1;
   }
   else
   {
-    if (e->faceR == f)
+    // get the next edge
+    list<weak_ptr<Edge> >::const_reverse_iterator cw_iter2 = cw_iter;
+    cw_iter2++;
+
+    // get the vertices
+    shared_ptr<Edge> e(*cw_iter);
+    shared_ptr<Edge> e2(*cw_iter2);
+
+    // see whether v1 or v2 is in the next edge
+    if (e->v1 == e2->v1 || e->v1 == e2->v2)
       v = e->v2;
     else
       v = e->v1;
   }
+
+  // set even
+  even = true;
 }
 
 /// Dereferences the iterator
@@ -1043,65 +948,91 @@ shared_ptr<Polyhedron::Vertex> Polyhedron::VertexFaceIterator::operator*()
 /// Advances the iterator clockwise
 void Polyhedron::VertexFaceIterator::advance()
 {
-  if (ccw)
+  // for "even" cases, we just need to advance the vertex
+  if (even)
   {
-    if (e->faceL == f)
+    if (ccw)
     {
-      e = shared_ptr<Polyhedron::Edge>(e->nextL);
-      v = (e->faceL == f) ? e->v1 : e->v2;
+      shared_ptr<Edge> e(*ccw_iter);
+      if (v == e->v1)
+        v = e->v2;
+      else
+      {
+        assert(v == e->v2);
+        v = e->v1; 
+      }
     }
     else
     {
-      assert(e->faceR == f);
-      e = shared_ptr<Polyhedron::Edge>(e->prevR);
-      v = (e->faceL == f) ? e->v1 : e->v2;
+      shared_ptr<Edge> e(*cw_iter);
+      if (v == e->v1)
+        v = e->v2;
+      else
+      {
+        assert(v == e->v2);
+        v = e->v1; 
+      }
     }
   }
   else
   {
-    if (e->faceR == f)
+    // for "odd" cases, we need to update the edge
+    // pick a vertex from the edge
+    if (ccw)
     {
-      e = shared_ptr<Polyhedron::Edge>(e->nextR);
-      v = (e->faceL == f) ? e->v1 : e->v2;
+      // get the next edge
+      list<weak_ptr<Edge> >::const_iterator ccw_iter2 = ccw_iter;
+      ccw_iter2++;
+
+      // get the vertices
+      shared_ptr<Edge> e(*ccw_iter);
+      shared_ptr<Edge> e2(*ccw_iter2);
+
+      // see whether v1 or v2 is in the next edge
+      if (e->v1 == e2->v1 || e->v1 == e2->v2)
+        v = e->v2;
+      else
+        v = e->v1;
+
+      // advance the edge iterator
+      ccw_iter++;
     }
     else
     {
-      e = shared_ptr<Polyhedron::Edge>(e->prevL);
-      v = (e->faceL == f) ? e->v1 : e->v2;
+      // get the next edge
+      list<weak_ptr<Edge> >::const_reverse_iterator cw_iter2 = cw_iter;
+      cw_iter2++;
+
+      // get the vertices
+      shared_ptr<Edge> e(*cw_iter);
+      shared_ptr<Edge> e2(*cw_iter2);
+
+      // see whether v1 or v2 is in the next edge
+      if (e->v1 == e2->v1 || e->v1 == e2->v2)
+        v = e->v2;
+      else
+        v = e->v1;
+
+      // advance the edge iterator
+      cw_iter++;
     }
   }
+
+  // alter the even flag
+  even = !even;
 }
 
 /// Checks to see whether the iterator can be advanced clockwise
 bool Polyhedron::VertexFaceIterator::has_next()
 {
-  if (ccw)
-  {
-    if (e->faceL == f)
-    {
-      if (shared_ptr<Polyhedron::Edge>(e->nextL) == term)
-        return false;
-    }
-    else
-    {
-      if (shared_ptr<Polyhedron::Edge>(e->prevR) == term)
-        return false;
-    }
-  }
-  else
-  {
-    if (e->faceR == f)
-    {
-      if (shared_ptr<Polyhedron::Edge>(e->nextR) == term)
-        return false;
-    }
-    else
-    {
-      if (shared_ptr<Polyhedron::Edge>(e->prevL) == term)
-        return false;
-    }
-  }
+  // if the case is even, we always have another
+  if (even)
+    return true;
 
-  return true;
+  // if not, see whether we are at the end of the list
+  if (ccw)
+    return (ccw_iter != f->e.end()); 
+  else
+    return (cw_iter != f->e.rend());
 }
 
