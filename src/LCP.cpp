@@ -183,6 +183,9 @@ bool LCP::lcp_lemke_regularized(const MatrixNd& M, const VectorNd& q, VectorNd& 
 
   FILE_LOG(LOG_OPT) << " zero tolerance: " << ZERO_TOL << endl;
 
+  // store the total pivots
+  unsigned total_piv = 0;
+
   // try non-regularized version first
   bool result = lcp_lemke(_MM, q, z, piv_tol, zero_tol);
   if (result)
@@ -201,6 +204,7 @@ bool LCP::lcp_lemke_regularized(const MatrixNd& M, const VectorNd& q, VectorNd& 
         {
           FILE_LOG(LOG_OPT) << "  solved with no regularization necessary!" << endl;
           FILE_LOG(LOG_OPT) << "LCP::lcp_lemke_regularized() exited" << endl;
+
           return true;
         }
         else
@@ -221,6 +225,9 @@ bool LCP::lcp_lemke_regularized(const MatrixNd& M, const VectorNd& q, VectorNd& 
     }
   }
 
+  // update the pivots
+  total_piv += pivots;
+
   // start the regularization process
   int rf = min_exp;
   while (rf < max_exp)
@@ -236,7 +243,12 @@ bool LCP::lcp_lemke_regularized(const MatrixNd& M, const VectorNd& q, VectorNd& 
       _MM(i,i) += lambda;
 
     // try to solve the LCP
-    if ((result = lcp_lemke(_MM, q, z, piv_tol, zero_tol)))
+    result = lcp_lemke(_MM, q, z, piv_tol, zero_tol);
+
+    // update total pivots
+    total_piv += pivots;
+
+    if (result)
     {
       // verify that solution truly is a solution -- check z
       if (*std::min_element(z.begin(), z.end()) > -ZERO_TOL)
@@ -252,7 +264,7 @@ bool LCP::lcp_lemke_regularized(const MatrixNd& M, const VectorNd& q, VectorNd& 
           {
             FILE_LOG(LOG_OPT) << "  solved with regularization factor: " << lambda << endl;
             FILE_LOG(LOG_OPT) << "LCP::lcp_lemke_regularized() exited" << endl;
-
+            pivots = total_piv;
             return true;
           }
           else
@@ -279,6 +291,9 @@ bool LCP::lcp_lemke_regularized(const MatrixNd& M, const VectorNd& q, VectorNd& 
 
   FILE_LOG(LOG_OPT) << "  unable to solve given any regularization!" << endl;
   FILE_LOG(LOG_OPT) << "LCP::lcp_lemke_regularized() exited" << endl;
+
+  // store total pivots
+  pivots = total_piv;
 
   // still here?  failure...
   return false;
@@ -335,8 +350,6 @@ void LCP::log_failure(const MatrixNd& M, const VectorNd& q)
   out.close();
 }
 
-
-
 /// Lemke's algorithm for solving linear complementarity problems
 /**
  * \param z a vector "close" to the solution on input (optional); contains
@@ -349,6 +362,9 @@ bool LCP::lcp_lemke(const MatrixNd& M, const VectorNd& q, VectorNd& z, double pi
 
   // indicate whether we've restarted
   bool restarted = false;
+
+  // update the pivots
+  pivots = 0;
 
   // look for immediate exit
   if (n == 0)
@@ -583,7 +599,7 @@ restart: // solver restarts from here when basis becomes bad
   FILE_LOG(LOG_OPT) << "  new q: " << _x << endl;
 
   // main iterations begin here
-  for (unsigned iter=0; iter < MAXITER; iter++)
+  for (pivots=0; pivots< MAXITER; pivots++)
   {
     if (LOGGING(LOG_OPT))
     {
@@ -611,7 +627,7 @@ restart: // solver restarts from here when basis becomes bad
         FILE_LOG(LOG_OPT) << "  found solution!" << std::endl;
         FILE_LOG(LOG_OPT) << "  minimum w: " << minw << std::endl;
         FILE_LOG(LOG_OPT) << "  w'z: " << w_dot_z << std::endl;
-        FILE_LOG(LOG_OPT) << "  n: " << n << " number of pivots: " << iter << std::endl;
+        FILE_LOG(LOG_OPT) << "  n: " << n << " number of pivots: " << pivots << std::endl;
       }
       FILE_LOG(LOG_OPT) << "LCP::lcp_lemke() exited" << endl;
 

@@ -110,8 +110,8 @@ class RigidBody : public SingleBody
     bool is_ground() const;
     virtual boost::shared_ptr<const Ravelin::Pose3d> get_computation_frame() const;
     virtual void set_computation_frame_type(ReferenceFrameType rftype);
-    virtual Ravelin::MatrixNd& calc_jacobian(boost::shared_ptr<const Ravelin::Pose3d> frame, DynamicBodyPtr body, Ravelin::MatrixNd& J);
-    virtual Ravelin::MatrixNd& calc_jacobian_dot(boost::shared_ptr<const Ravelin::Pose3d> frame, DynamicBodyPtr body, Ravelin::MatrixNd& J);
+    virtual Ravelin::MatrixNd& calc_jacobian(boost::shared_ptr<const Ravelin::Pose3d> source_pose, boost::shared_ptr<const Ravelin::Pose3d> target_pose, DynamicBodyPtr body, Ravelin::MatrixNd& J);
+    virtual Ravelin::MatrixNd& calc_jacobian_dot(boost::shared_ptr<const Ravelin::Pose3d> source_pose, boost::shared_ptr<const Ravelin::Pose3d> target_pose, DynamicBodyPtr body, Ravelin::MatrixNd& J);
     const Ravelin::SForced& sum_forces();
     void reset_accumulators();
     Ravelin::SForced calc_euler_torques();
@@ -229,6 +229,7 @@ class RigidBody : public SingleBody
     template <class V>
     void set_generalized_velocity_generic(DynamicBody::GeneralizedCoordinateType gctype, V& gv);
 
+    void update_mixed_pose();
     void set_force(const Ravelin::SForced& w);
     void invalidate_pose_vectors();
     void apply_generalized_impulse_single(const Ravelin::SharedVectorNd& gf);

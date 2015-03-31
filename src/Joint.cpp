@@ -245,19 +245,14 @@ void Joint::set_location(const Point3d& point, RigidBodyPtr inboard, RigidBodyPt
   if (outboard) outboard->add_inner_joint(get_this());
 }
 
-/// Gets the scaled and limited actuator forces
+/// Gets the scaled actuator forces
 /**
  * \note relevant only to reduced-coordinate articulated bodies
  */
 VectorNd& Joint::get_scaled_force(VectorNd& f)
 {
-  // get the (limited) applied force
+  // get the applied force
   f = force;
-  for (unsigned i=0; i< f.size(); i++)
-    if (f[i] > maxforce[i])
-      f[i] = maxforce[i];
-    else if (f[i] < -maxforce[i])
-      f[i] = -maxforce[i];
 
   return f;
 }

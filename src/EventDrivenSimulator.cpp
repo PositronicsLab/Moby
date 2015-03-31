@@ -74,13 +74,7 @@ bool EventDrivenSimulator::UnilateralConstraintCmp::operator()(const UnilateralC
     // if here, both are limit constraints
     unsigned lj1 = e1.limit_joint->get_coord_index() + e1.limit_dof;
     unsigned lj2 = e2.limit_joint->get_coord_index() + e2.limit_dof;
-    if (lj1 < lj2)
-      return true;
-    else
-    {
-      assert(lj1 != lj2 || e1.limit_upper == e2.limit_upper);
-      return false;
-    }
+    return (lj1 < lj2);
   }
   else
   {
@@ -91,17 +85,7 @@ bool EventDrivenSimulator::UnilateralConstraintCmp::operator()(const UnilateralC
       long cg12 = (long) e1.contact_geom2.get();
       long cg21 = (long) e2.contact_geom1.get();
       long cg22 = (long) e2.contact_geom2.get();
-      if (cg11+cg12 < cg21+cg22)
-        return true;
-      else
-      {
-        assert(cg11+cg12 != cg21+cg22 ||
-               ((e1.contact_geom1 == e2.contact_geom1 &&
-                 e1.contact_geom2 == e2.contact_geom2) ||
-                (e1.contact_geom1 == e2.contact_geom2 &&
-                 e1.contact_geom2 == e2.contact_geom1)));
-        return false;
-      }
+      return (cg11+cg12 < cg21+cg22);
     }
     else
       return false; // limits returned before contacts
@@ -208,7 +192,7 @@ VectorNd& EventDrivenSimulator::ode_sustained_constraints(const VectorNd& x, dou
 
   // convert rigid constraints to acceleration constraints
   for (unsigned i=0; i< s->_rigid_constraints.size(); i++)
-    if (s->_rigid_constraints[i].calc_constraint_vel() < NEAR_ZERO)
+    if (std::fabs(s->_rigid_constraints[i].calc_constraint_vel()) < NEAR_ZERO)
       s->_rigid_constraints[i].deriv_type = UnilateralConstraint::eAccel;
 
   // loop through all bodies, computing forward dynamics
@@ -235,7 +219,7 @@ VectorNd& EventDrivenSimulator::ode_sustained_constraints(const VectorNd& x, dou
   std::sort(bodies.begin(), bodies.end());
   bodies.erase(std::unique(bodies.begin(), bodies.end()), bodies.end());
 
-  // recompute forward dynamics for bodies in constraints
+   // recompute forward dynamics for bodies in constraints
    BOOST_FOREACH(DynamicBodyPtr body, bodies)
      body->calc_fwd_dyn();
 
@@ -247,24 +231,26 @@ VectorNd& EventDrivenSimulator::ode_sustained_constraints(const VectorNd& x, dou
       FILE_LOG(LOG_CONSTRAINT) << e;
   }
 
-// TODO: remove this
-static double last_t = -1.0;
-static std::vector<double> last_vels; 
-std::vector<double> this_vels(s->_rigid_constraints.size());
-for (unsigned i=0; i< s->_rigid_constraints.size(); i++)
-  this_vels[i] = s->_rigid_constraints[i].calc_constraint_vel();
-if (last_vels.size() == this_vels.size())
-{
-  double h = t - last_t;
-  for (unsigned i=0; i< this_vels.size(); i++)
+  // debugging code for checking numerical acceleration 
+  #ifndef NDEBUG
+  static double last_t = -1.0;
+  static std::vector<double> last_vels; 
+  std::vector<double> this_vels(s->_rigid_constraints.size());
+  for (unsigned i=0; i< s->_rigid_constraints.size(); i++)
+    this_vels[i] = s->_rigid_constraints[i].calc_constraint_vel();
+  if (last_vels.size() == this_vels.size())
   {
-    FILE_LOG(LOG_CONSTRAINT) << "Velocity at " << last_t << ": " << last_vels[i] << std::endl;
-    FILE_LOG(LOG_CONSTRAINT) << "Velocity at " << t << ": " << this_vels[i] << std::endl;
-    FILE_LOG(LOG_CONSTRAINT) << "Numerically computed acceleration: " << (this_vels[i] - last_vels[i])/h << std::endl;
+    double h = t - last_t;
+    for (unsigned i=0; i< this_vels.size(); i++)
+    {
+      FILE_LOG(LOG_CONSTRAINT) << "Velocity at " << last_t << ": " << last_vels[i] << std::endl;
+      FILE_LOG(LOG_CONSTRAINT) << "Velocity at " << t << ": " << this_vels[i] << std::endl;
+      FILE_LOG(LOG_CONSTRAINT) << "Numerically computed acceleration: " << (this_vels[i] - last_vels[i])/h << std::endl;
+    }
   }
-}
-last_t = t;
-last_vels = this_vels;
+  last_t = t;
+  last_vels = this_vels;
+  #endif
 
   // reset idx
   idx = 0;
@@ -1207,6 +1193,7 @@ double EventDrivenSimulator::check_pairwise_constraint_violations(double t)
     // compute the distance between the two bodies
     Point3d p1, p2;
     double d = _coldet->calc_signed_dist(cg1, cg2, p1, p2);
+
     if (d <= _ip_tolerances[make_sorted_pair(cg1, cg2)] - NEAR_ZERO)
     {
       FILE_LOG(LOG_SIMULATOR) << "Interpenetration detected between " << cg1->get_single_body()->id << " and " << cg2->get_single_body()->id << ": " << d << std::endl;
@@ -1513,6 +1500,13 @@ void EventDrivenSimulator::step_si_Euler(double dt)
     // get the time of the next event(s), skipping events at current step
     double h = std::min(calc_next_CA_Euler_step(contact_dist_thresh), target_time - current_time);
     FILE_LOG(LOG_SIMULATOR) << "   position integration: " << h << std::endl;
+
+    // look for small position integration events
+    if (h < dt*dt*dt)
+    {
+      std::cerr << "EventDrivenSimulator::step_si_Euler() warning: small position integration" << std::endl;
+      std::cerr << "  timestep (" << h << ") taken, relative to nominal step (" << dt << ") " << std::endl;
+    } 
 
     // integrate bodies' positions forward by that time using new velocities
     integrate_positions_Euler(h);

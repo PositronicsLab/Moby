@@ -118,11 +118,6 @@ void ImpactConstraintHandler::apply_model(const vector<UnilateralConstraint>& co
   // **********************************************************
   for (list<list<UnilateralConstraint*> >::iterator i = groups.begin(); i != groups.end(); i++)
   {
-    // determine contact tangents
-    for (list<UnilateralConstraint*>::iterator j = i->begin(); j != i->end(); j++)
-      if ((*j)->constraint_type == UnilateralConstraint::eContact)
-        (*j)->determine_contact_tangents();
-
       // copy the list of constraints
       list<UnilateralConstraint*> rconstraints = *i;
 
@@ -284,6 +279,8 @@ void ImpactConstraintHandler::apply_model_to_connected_constraints(const list<Un
       // update the impulses from z
       update_from_stacked(_epd, z);
     }
+    else
+      propagate_impulse_data(_epd);
   }
 
   // apply impulses
@@ -827,9 +824,16 @@ void ImpactConstraintHandler::apply_model_to_connected_constraints(const list<Un
   // apply impulses
   apply_impulses(_epd);
 
-  // compute energy
+  // for debugging
   if (LOGGING(LOG_CONSTRAINT))
-  {
+  { 
+    FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler debugging check (slow) " << std::endl;
+    compute_problem_data(_epd, inv_dt);
+    FILE_LOG(LOG_CONSTRAINT) << "new Cn_v (double check): " << _epd.Cn_v << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << "new Cs_v (double check): " << _epd.Cs_v << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << "new Ct_v (double check): " << _epd.Ct_v << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << "new L_v (double check): " << _epd.L_v << std::endl;
+
     for (unsigned i=0; i< _epd.super_bodies.size(); i++)
     {
       double ke = _epd.super_bodies[i]->calc_kinetic_energy();
@@ -855,6 +859,39 @@ bool ImpactConstraintHandler::use_qp_solver(const UnilateralConstraintProblemDat
 
   // still here? ok to use QP solver
   return true;
+}
+
+/// Propagates impulse data from ConstraintProblemData to the underlying unilateral constraints
+void ImpactConstraintHandler::propagate_impulse_data(const UnilateralConstraintProblemData& q)
+{
+  shared_ptr<Pose3d> P(new Pose3d);
+
+  // save normal contact impulses
+  for (unsigned i=0; i< q.contact_constraints.size(); i++)
+  {
+    // setup the contact frame
+    P->q.set_identity();
+    P->x = q.contact_constraints[i]->contact_point;
+
+    // setup the impulse in the contact frame
+    Vector3d j;
+    j = q.contact_constraints[i]->contact_normal * q.cn[i];
+    j += q.contact_constraints[i]->contact_tan1 * q.cs[i];
+    j += q.contact_constraints[i]->contact_tan2 * q.ct[i];
+
+    // setup the spatial impulse
+    SMomentumd jx(boost::const_pointer_cast<const Pose3d>(P));
+    jx.set_linear(j);
+
+    // transform the impulse to the global frame
+    q.contact_constraints[i]->contact_impulse += Pose3d::transform(GLOBAL, jx);
+  }
+
+  // save normal contact impulses
+  for (unsigned i=0; i< q.limit_constraints.size(); i++)
+  {
+    q.limit_constraints[i]->limit_impulse += q.l[i];
+  }
 }
 
 /// Applies impulses to bodies
@@ -1217,6 +1254,18 @@ void ImpactConstraintHandler::apply_no_slip_model(UnilateralConstraintProblemDat
   const unsigned L_IDX = N_IDX + NCONTACTS;
   VectorNd lb, ub, b;
   MatrixNd A;
+  double ke_plus = 0.0, ke_minus = 0.0;
+
+  // compute energy
+  if (LOGGING(LOG_CONSTRAINT))
+  {
+    for (unsigned i=0; i< _epd.super_bodies.size(); i++)
+    {
+      double ke = _epd.super_bodies[i]->calc_kinetic_energy();
+      FILE_LOG(LOG_CONSTRAINT) << "  body " << _epd.super_bodies[i]->id << " pre-constraint handling KE: " << ke << endl;
+      ke_minus += ke;
+    }
+  }
 
   FILE_LOG(LOG_CONSTRAINT) << "  Cn * inv(M) * Cn': " << std::endl << q.Cn_iM_CnT;
   FILE_LOG(LOG_CONSTRAINT) << "  Cn * inv(M) * Cs': " << std::endl << q.Cn_iM_CsT;
@@ -1588,6 +1637,20 @@ void ImpactConstraintHandler::apply_no_slip_model(UnilateralConstraintProblemDat
   }
 
   // TODO: setup joint constraint impulses here
+
+  // compute energy
+  if (LOGGING(LOG_CONSTRAINT))
+  {
+    for (unsigned i=0; i< _epd.super_bodies.size(); i++)
+    {
+      double ke = _epd.super_bodies[i]->calc_kinetic_energy();
+      FILE_LOG(LOG_CONSTRAINT) << "  body " << _epd.super_bodies[i]->id << " post-constraint handling KE: " << ke << endl;
+      ke_plus += ke;
+    }
+    if (ke_plus > ke_minus)
+      FILE_LOG(LOG_CONSTRAINT) << "warning! KE gain detected! energy before=" << ke_minus << " energy after=" << ke_plus << endl;
+  }
+
 
   FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::solve_no_slip_lcp() exited" << std::endl;
 }

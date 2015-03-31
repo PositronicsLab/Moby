@@ -1043,12 +1043,12 @@ void CRBAlgorithm::calc_generalized_forces(SForced& f0, VectorNd& C)
     body->_processed[i] = true;
   }
   
-  // ** STEP 3: compute actuator forces (C)
+  // ** STEP 3: compute centrifugal/Coriolis/gravity forces (C)
 
   // determine the length of the C vector
   const unsigned nDOF = body->num_joint_dof_explicit();
 
-  // compute actuator forces (C)
+  // compute C
   C.resize(nDOF);
   for (unsigned i=0; i< ijoints.size(); i++)
   {
@@ -1073,6 +1073,151 @@ void CRBAlgorithm::calc_generalized_forces(SForced& f0, VectorNd& C)
       std::vector<SVelocityd> s_mixed;
       Pose3d::transform(ob->get_mixed_pose(), s, s_mixed);
 //      Pose3d::transform(_w[oidx].pose, s, s_mixed);
+      if (!s.empty())
+      {
+        FILE_LOG(LOG_DYNAMICS) << " -- s' (mixed pose): " << s_mixed[0] << std::endl;
+        FILE_LOG(LOG_DYNAMICS) << " -- force (mixed pose): " << w_mixed << std::endl;
+      }
+    }
+    FILE_LOG(LOG_DYNAMICS) << "   -- forces: " << _w[oidx] << std::endl;
+    FILE_LOG(LOG_DYNAMICS) << "   -- component of C: " << Csub << std::endl;
+  }  
+
+  FILE_LOG(LOG_DYNAMICS) << "------------------------------------------------" << std::endl;
+  FILE_LOG(LOG_DYNAMICS) << "forces on base: " << _w[0] << std::endl;
+  FILE_LOG(LOG_DYNAMICS) << "CRBAlgorithm::calc_generalized_forces() exited" << std::endl;
+
+  // store forces on base
+  f0 = _w[0]; 
+}
+
+/// Computes the vector "C", w/o inertial forces, using the recursive Newton-Euler algorithm
+/**
+ * \return the spatial vector of forces on the base, which can be ignored for forward dynamics for fixed bases
+ */
+void CRBAlgorithm::calc_generalized_forces_noinertial(SForced& f0, VectorNd& C)
+{
+  const unsigned SPATIAL_DIM = 6;
+  queue<RigidBodyPtr> link_queue;
+  SForced w;
+
+  // get the body and the reference frame
+  RCArticulatedBodyPtr body(_body);
+
+  // get the set of links and joints
+  const vector<RigidBodyPtr>& links = body->get_links();
+  const vector<JointPtr>& ijoints = body->get_explicit_joints();
+  if (links.empty())
+  {
+    C.resize(0);
+    f0.set_zero();
+    return;
+  }
+
+  // **************************************************************************
+  // first, compute forward dynamics using RNE algorithm; we copy the algorithm
+  // here, because we need some data out of it
+  // **************************************************************************
+
+  FILE_LOG(LOG_DYNAMICS) << "CRBAlgorithm::calc_generalized_forces() entered" << std::endl;
+
+  // ** STEP 1: compute accelerations
+
+  // get the base link
+  RigidBodyPtr base = links.front();
+
+  // mark all links as not processed
+  for (unsigned i=0; i< links.size(); i++)
+    body->_processed[i] = false;
+  body->_processed[base->get_index()] = true;
+
+
+  // ** STEP 1: compute link forces -- backward recursion
+  // use a map to determine which links have been processed
+  for (unsigned i=0; i< links.size(); i++)
+    body->_processed[i] = false;
+
+  // setup a map of link forces, all set to zero initially
+  _w.resize(links.size());
+  for (unsigned i=0; i< links.size(); i++)
+  {
+    _w[i].set_zero();
+    _w[i].pose = links[i]->get_computation_frame();
+  }
+
+  // add all leaf links to the queue
+  for (unsigned i=0; i< links.size(); i++)
+    if (body->treat_link_as_leaf(links[i]))
+      link_queue.push(links[i]);
+      
+  // process all links up to, but not including, the base
+  while (!link_queue.empty())
+  {
+    // get the link off of the front of the queue
+    RigidBodyPtr link = link_queue.front();
+    link_queue.pop();    
+    unsigned i = link->get_index();
+
+    // if this link has already been processed, do not process it again
+    if (body->_processed[i])
+      continue;
+
+    // verify all children have been processed
+    if (!body->all_children_processed(link))
+      continue;
+   
+    FILE_LOG(LOG_DYNAMICS) << " computing necessary force; processing link " << link->id << std::endl;
+    FILE_LOG(LOG_DYNAMICS) << "  currently determined link force: " << _w[i] << std::endl;    
+    if (LOGGING(LOG_DYNAMICS) && link != body->get_base_link())
+      FILE_LOG(LOG_DYNAMICS) << "  I * a = " << (link->get_inertia() * _a[i]) << std::endl;
+
+    // subtract external forces
+    SForced wext = link->sum_forces(); 
+    _w[i] -= wext;
+    FILE_LOG(LOG_DYNAMICS) << "  external forces: " << wext << std::endl;
+    FILE_LOG(LOG_DYNAMICS) << "  force on link after subtracting external force: " << _w[i] << std::endl;
+
+    // update the parent force and add parent for processing (if parent)
+    RigidBodyPtr parent = link->get_parent_link();
+    if (parent)
+    {
+      unsigned h = parent->get_index();
+      _w[h] += Pose3d::transform(_w[h].pose, _w[i]);
+      link_queue.push(parent);
+    }
+
+    // indicate that this link has been processed
+    body->_processed[i] = true;
+  }
+  
+  // ** STEP 2: compute C
+
+  // determine the length of the C vector
+  const unsigned nDOF = body->num_joint_dof_explicit();
+
+  // compute C
+  C.resize(nDOF);
+  for (unsigned i=0; i< ijoints.size(); i++)
+  {
+    // get links, joints, etc.
+    JointPtr joint = ijoints[i];
+    RigidBodyPtr ob = joint->get_outboard_link();
+
+    // get indices
+    unsigned jidx = joint->get_coord_index();
+    unsigned oidx = ob->get_index();
+
+    // compute appropriate components of C
+    SharedVectorNd Csub = C.segment(jidx, jidx+joint->num_dof()); 
+    const std::vector<SVelocityd>& s = joint->get_spatial_axes();
+    transform_and_transpose_mult(s, _w[oidx], Csub);
+
+    FILE_LOG(LOG_DYNAMICS) << " -- computing C for link " << ob->id << std::endl;
+    if (LOGGING(LOG_DYNAMICS))
+    {
+      SForced w_mixed = Pose3d::transform(ob->get_mixed_pose(), _w[oidx]);
+      std::vector<SVelocityd> s_mixed;
+      Pose3d::transform(ob->get_mixed_pose(), s, s_mixed);
       if (!s.empty())
       {
         FILE_LOG(LOG_DYNAMICS) << " -- s' (mixed pose): " << s_mixed[0] << std::endl;

@@ -1,3 +1,4 @@
+#include <boost/foreach.hpp>
 #include <Moby/Polyhedron.h>
 #include <Moby/CompGeom.h>
 #include <fstream>

@@ -12,6 +12,7 @@
 #include <Moby/XMLTree.h>
 #include <Moby/SpherePrimitive.h>
 #include <Moby/PlanePrimitive.h>
+#include <Moby/Polyhedron.h>
 #include <Moby/TriangleMeshPrimitive.h>
 #include <Moby/OBB.h>
 #include <Moby/Constants.h>
@@ -42,37 +43,107 @@ BoxPrimitive::BoxPrimitive()
   _ylen = 1;
   _zlen = 1;
   _edge_sample_length = std::numeric_limits<double>::max();
+
+  // construct the polyhedron
+  construct_polyhedron();
+
+  // calculate the mass properties
   calc_mass_properties();
 }
 
-/// Constructs a cube of the specified size
+/// Constructs a box of the specified size
 BoxPrimitive::BoxPrimitive(double xlen, double ylen, double zlen)
 {
   _xlen = xlen;
   _ylen = ylen;
   _zlen = zlen;
   _edge_sample_length = std::numeric_limits<double>::max();
+
+  // construct the polyhedron
+  construct_polyhedron();
+
+  // calculate the mass properties
   calc_mass_properties();
 }
 
 /// Constructs a unit cube transformed by the given matrix
-BoxPrimitive::BoxPrimitive(const Pose3d& T) : PolyhedralPrimitive(T)
+BoxPrimitive::BoxPrimitive(const Pose3d& P) : PolyhedralPrimitive(P)
 {
   _xlen = 1;
   _ylen = 1;
   _zlen = 1;
   _edge_sample_length = std::numeric_limits<double>::max();
+
+  // construct the polyhedron
+  construct_polyhedron();
+
+  // calculate the mass properties
   calc_mass_properties();
+
+  // get the pose as a pointer
+  shared_ptr<Pose3d> Pp(new Pose3d(P));
+
+  // get the vertices from the polyhedron
+  std::vector<boost::shared_ptr<Polyhedron::Vertex> >& vertices = _poly.get_vertices();
+
+  // transform the points - we want to assume that they were in P's frame
+  // and are now converting them to the global frame
+  Ravelin::Transform3d T = Ravelin::Pose3d::calc_relative_pose(Pp, GLOBAL); 
+  for (unsigned i=0; i< vertices.size(); i++)
+  {
+    Point3d p(vertices[i]->o, Pp);
+    vertices[i]->o = T.transform_point(p);
+  }
 }  
 
-/// Constructs a cube of the specified size transformed by the given matrix
-BoxPrimitive::BoxPrimitive(double xlen, double ylen, double zlen, const Pose3d& T) : PolyhedralPrimitive(T)
+/// Constructs a box of the specified size transformed by the given matrix
+BoxPrimitive::BoxPrimitive(double xlen, double ylen, double zlen, const Pose3d& P) : PolyhedralPrimitive(P)
 {
   _xlen = xlen;
   _ylen = ylen;
   _zlen = zlen;
   _edge_sample_length = std::numeric_limits<double>::max();
+
+  // construct the polyhedron
+  construct_polyhedron();
+
+  // calculate the mass properties
   calc_mass_properties();
+
+  // get the pose as a pointer
+  shared_ptr<Pose3d> Pp(new Pose3d(P));
+
+  // get the vertices from the polyhedron
+  std::vector<boost::shared_ptr<Polyhedron::Vertex> >& vertices = _poly.get_vertices();
+
+  // transform the points - we want to assume that they were in P's frame
+  // and are now converting them to the global frame
+  Ravelin::Transform3d T = Ravelin::Pose3d::calc_relative_pose(Pp, GLOBAL); 
+  for (unsigned i=0; i< vertices.size(); i++)
+  {
+    Point3d p(vertices[i]->o, Pp);
+    vertices[i]->o = T.transform_point(p);
+  }
+}
+
+/// Constructs a polyhedron from the box
+void BoxPrimitive::construct_polyhedron()
+{
+  const unsigned N_BOX_VERTS = 8, X = 0, Y = 1, Z = 2;
+  Origin3d v[N_BOX_VERTS];
+
+  // setup the box vertices
+  v[0][X] = -_xlen*0.5;  v[0][Y] = -_ylen*0.5;  v[0][Z] = -_zlen*0.5; 
+  v[1][X] = -_xlen*0.5;  v[1][Y] = -_ylen*0.5;  v[1][Z] = +_zlen*0.5; 
+  v[2][X] = -_xlen*0.5;  v[2][Y] = +_ylen*0.5;  v[2][Z] = -_zlen*0.5; 
+  v[3][X] = -_xlen*0.5;  v[3][Y] = +_ylen*0.5;  v[3][Z] = +_zlen*0.5; 
+  v[4][X] = +_xlen*0.5;  v[4][Y] = -_ylen*0.5;  v[4][Z] = -_zlen*0.5; 
+  v[5][X] = +_xlen*0.5;  v[5][Y] = -_ylen*0.5;  v[5][Z] = +_zlen*0.5; 
+  v[6][X] = +_xlen*0.5;  v[6][Y] = +_ylen*0.5;  v[6][Z] = -_zlen*0.5; 
+  v[7][X] = +_xlen*0.5;  v[7][Y] = +_ylen*0.5;  v[7][Z] = +_zlen*0.5; 
+
+  // compute the convex hull
+  _poly = Polyhedron::calc_convex_hull(v, v+N_BOX_VERTS); 
 }
 
 /// Computes the signed distance from the box to a primitive
@@ -99,21 +170,19 @@ double BoxPrimitive::calc_signed_dist(shared_ptr<const Primitive> p, Point3d& pt
     return hmp->calc_signed_dist(bthis, pp, pthis);
   }
 
-  // try box/box
-  shared_ptr<const BoxPrimitive> bp = dynamic_pointer_cast<const BoxPrimitive>(p);
-  if (bp)
-  {
-    shared_ptr<const BoxPrimitive> bthis = dynamic_pointer_cast<const BoxPrimitive>(shared_from_this());
-    return CP::find_cpoint(bthis, bp, pthis.pose, pp.pose, pthis, pp); 
-  }
-
-  // if the primitive is convex, can use GJK
+  // if the primitive is convex, can use Minkowski difference 
   if (p->is_convex())
   {
     shared_ptr<const Pose3d> Pbox = pthis.pose;
     shared_ptr<const Pose3d> Pgeneric = pp.pose;
-    shared_ptr<const Primitive> bthis = dynamic_pointer_cast<const Primitive>(shared_from_this());
-    return GJK::do_gjk(bthis, p, Pbox, Pgeneric, pthis, pp);
+    shared_ptr<const PolyhedralPrimitive> bthis = dynamic_pointer_cast<const PolyhedralPrimitive>(shared_from_this());
+    shared_ptr<const PolyhedralPrimitive> pp = dynamic_pointer_cast<const PolyhedralPrimitive>(p);
+    Polyhedron mink = Polyhedron::calc_minkowski_diff(bthis, pp, Pbox, Pgeneric);
+    std::list<shared_ptr<Polyhedron::Feature> > closest_features;
+    Origin3d ORIGIN(0.0, 0.0, 0.0);
+    bool inside;
+    double dist = mink.find_closest_features(ORIGIN, closest_features, inside);
+    return (inside) ? -dist : dist;
   }
 
   // try box/(non-convex) trimesh
@@ -307,6 +376,7 @@ void BoxPrimitive::get_vertices(shared_ptr<const Pose3d> P, vector<Point3d>& ver
   if (_edge_sample_length == std::numeric_limits<double>::max())
     return;
 
+/*
   const double ESL_SQ = _edge_sample_length*_edge_sample_length;
   vector<LineSeg3> edges;
   edges.push_back(LineSeg3(verts[0], verts[1]));
@@ -331,6 +401,7 @@ void BoxPrimitive::get_vertices(shared_ptr<const Pose3d> P, vector<Point3d>& ver
       edges[i].second = midpoint;
     }
   }
+*/
 }
 
 /// Gets the set of vertices for the BoxPrimitive (constructing, if necessary)

@@ -80,6 +80,12 @@ UnilateralConstraint CollisionDetection::create_contact(CollisionGeometryPtr a, 
   e.contact_point = Pose3d::transform_point(GLOBAL, e.contact_point);
   e.contact_normal = Pose3d::transform_vector(GLOBAL, e.contact_normal);
 
+  // compute contact tangents
+  e.determine_contact_tangents();
+
+  // compute normal and tangent time derivatives
+//  e.compute_contact_dots();
+
   return e;
 }
 

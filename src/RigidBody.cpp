@@ -19,6 +19,8 @@
 #include <Moby/RigidBody.h>
 #ifdef USE_OSG
 #include "Color.h"
+#include <osg/PositionAttitudeTransform>
+#include <osg/PolygonMode>
 #endif
 
 using namespace Ravelin;
@@ -225,6 +227,9 @@ void RigidBody::rotate(const Quatd& q)
   _F->q *= q;
   _F->update_relative_pose(Frel);
 
+  // update the mixed pose
+  update_mixed_pose();
+
   // invalidate vector quantities
   _forcei_valid = _forcem_valid = _force0_valid = false;
   _xdi_valid = _xdm_valid = _xd0_valid = false;
@@ -248,8 +253,8 @@ void RigidBody::rotate(const Quatd& q)
     (*i)->invalidate_pose_vectors();
 }
 
-/// Computes the Jacobian
-MatrixNd& RigidBody::calc_jacobian_dot(shared_ptr<const Pose3d> frame, DynamicBodyPtr body, MatrixNd& J)
+/// Gets the time derivative of the Jacobian that converts velocities from this body in the source pose to velocities of the particular link in the target pose
+MatrixNd& RigidBody::calc_jacobian_dot(shared_ptr<const Pose3d> source_pose, shared_ptr<const Pose3d> target_pose, DynamicBodyPtr body, MatrixNd& J)
 {
   const unsigned SPATIAL_DIM = 6;
 
@@ -262,13 +267,14 @@ MatrixNd& RigidBody::calc_jacobian_dot(shared_ptr<const Pose3d> frame, DynamicBo
     return J;
   }
 
-  J.set_zero(SPATIAL_DIM, SPATIAL_DIM);
+  // construct the spatial transform
+  Pose3d::dot_spatial_transform_to_matrix2(source_pose, target_pose, J);
 
   return J;
 }
 
-/// Computes the Jacobian
-MatrixNd& RigidBody::calc_jacobian(shared_ptr<const Pose3d> frame, DynamicBodyPtr body, MatrixNd& J)
+/// Gets the time derivative of the Jacobian that converts velocities from this body in the source pose to velocities of the particular link in the target pose
+MatrixNd& RigidBody::calc_jacobian(shared_ptr<const Pose3d> source_pose, shared_ptr<const Pose3d> target_pose, DynamicBodyPtr body, MatrixNd& J)
 {
   const unsigned SPATIAL_DIM = 6;
 
@@ -283,10 +289,10 @@ MatrixNd& RigidBody::calc_jacobian(shared_ptr<const Pose3d> frame, DynamicBodyPt
   }
 
   // construct the spatial transform
-  Pose3d::spatial_transform_to_matrix2(_F2, frame, J);
+  Pose3d::spatial_transform_to_matrix2(source_pose, target_pose, J);
 
   FILE_LOG(LOG_DYNAMICS) << "RigidBody::calc_jacobian() entered" << std::endl;
-  FILE_LOG(LOG_DYNAMICS) << "  pose: " << ((frame) ? Pose3d(*frame).update_relative_pose(GLOBAL) : GLOBAL) << std::endl;
+  FILE_LOG(LOG_DYNAMICS) << "  pose: " << ((target_pose) ? Pose3d(*target_pose).update_relative_pose(GLOBAL) : GLOBAL) << std::endl;
 
   return J;
 }
@@ -303,10 +309,7 @@ void RigidBody::translate(const Origin3d& x)
   _F->update_relative_pose(Frel);
 
   // update the mixed pose
-  _F2->set_identity();
-  _F2->rpose = _F;
-  _F2->update_relative_pose(GLOBAL);
-  _F2->q.set_identity();
+  update_mixed_pose();
 
   // invalidate vector quantities
   _forcei_valid = _forcem_valid = _force0_valid = false;
@@ -364,6 +367,7 @@ void RigidBody::calc_fwd_dyn()
     SForced f = sum_forces() - calc_euler_torques();
     SAcceld xdd = J.inverse_mult(f);
 
+FILE_LOG(LOG_SIMULATOR) << "Dynamics: " << Pose3d::transform(_F2, xdd) << std::endl;
     // set the acceleration
     switch (_rftype)
     {
@@ -506,11 +510,6 @@ void RigidBody::set_accel(const SAcceld& xdd)
   }
 }
 
-#ifdef USE_OSG
-#include <osg/PositionAttitudeTransform>
-#include <osg/PolygonMode>
-#endif
-
 /// Sets the rigid body inertia for this body
 void RigidBody::set_inertia(const SpatialRBInertiad& inertia)
 {
@@ -542,10 +541,7 @@ void RigidBody::set_inertia(const SpatialRBInertiad& inertia)
     _J0 = inertia;
   }
 
-#ifdef USE_OSG
-#define VIZ_INERTIA
-# ifdef VIZ_INERTIA
-
+  #ifdef VISUALIZE_INERTIA
     /// rigid body moment of inertia matrix (inertia aligned link COM frame)
     Ravelin::Origin3d _Jdiag;
 
@@ -608,9 +604,7 @@ void RigidBody::set_inertia(const SpatialRBInertiad& inertia)
     this_group->removeChild(inertia_viz);
     inertia_viz = Transf;
     this_group->addChild(inertia_viz);
-# endif
-#endif
-
+    #endif
 }
 
 /// Sets the inertial pose for this rigid body
@@ -623,8 +617,13 @@ void RigidBody::set_inertial_pose(const Pose3d& P)
   if (P.rpose != _F)
     throw std::runtime_error("RigidBody::set_inertial_pose() - inertial pose not defined relative to body pose");
 
-  // set the inertial pose
-  *_jF = P;
+  // update P to refer to _jF's pose
+  Pose3d Q = P;
+  Q.update_relative_pose(_jF->rpose);
+  *_jF = Q;
+
+  // update the mixed pose
+  update_mixed_pose();
 
   // invalidate vectors using inertial frame
   _xdm_valid = _xddm_valid = _forcem_valid = false;
@@ -805,8 +804,33 @@ void RigidBody::reset_accumulators()
 SForced RigidBody::calc_euler_torques()
 {
   FILE_LOG(LOG_DYNAMICS) << "Calculating Euler torques for " << id << std::endl;
-  const SVelocityd& xd = get_velocity();
+  Vector3d omega = get_velocity().get_angular();
+  Matrix3d J = get_inertia().J;
+  Origin3d w(omega);
+
+  SForced f(omega.pose);
+  f.set_zero();
+  f.set_torque(Vector3d(Origin3d::cross(w, J * w), omega.pose));
+  return f;
+
+/*
+  Vector3d xd = get_velocity();
   return xd.cross(get_inertia() * xd);
+*/
+}
+
+/// Updates the center-of-mass center / global aligned frame
+/**
+ * \note this function is called by set_pose() and 
+ *       RCArticulatedBody::update_link_poses(.)
+ */
+void RigidBody::update_mixed_pose()
+{
+  // update the mixed pose
+  _F2->set_identity();
+  _F2->rpose = _jF;
+  _F2->update_relative_pose(GLOBAL);
+  _F2->q.set_identity();
 }
 
 /// Sets the current 3D pose for this rigid body
@@ -823,10 +847,7 @@ void RigidBody::set_pose(const Pose3d& p)
   *_F = p;
 
   // update the mixed pose
-  _F2->set_identity();
-  _F2->rpose = _F;
-  _F2->update_relative_pose(GLOBAL);
-  _F2->q.set_identity();
+  update_mixed_pose();
 
   // invalidate pose vectors
   invalidate_pose_vectors();
@@ -1073,16 +1094,23 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
   XMLAttrib* J_quat_attr = node->get_attrib("inertial-relative-quat");
   if (com_attr || J_rpy_attr || J_quat_attr)
   {
-    // reset the inertial frame
-    _jF->set_identity();
-
+    shared_ptr<Pose3d> newjF(new Pose3d);
+    newjF->rpose = _jF;
+    
     // read the com
     if (com_attr)
-      _jF->x = com_attr->get_origin_value();
+      newjF->x = com_attr->get_origin_value();
     if (J_quat_attr)
-      _jF->q = J_quat_attr->get_quat_value();
+      newjF->q = J_quat_attr->get_quat_value();
     else if (J_rpy_attr)
-      _jF->q = J_rpy_attr->get_rpy_value();
+      newjF->q = J_rpy_attr->get_rpy_value();
+
+    // update newjF to refer to _jF's pose
+    newjF->update_relative_pose(_jF->rpose);
+    *_jF = *newjF;
+
+    // update the mixed pose
+    update_mixed_pose();
   }
 
   // set the collision geometries, if provided
@@ -1176,8 +1204,21 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
       J += Pose3d::transform(_jF, Jx);
     }
 
+    // get the offset of J and subtract it from _jF
+    shared_ptr<Pose3d> newjF(new Pose3d);
+    newjF->x = J.h;
+    newjF->rpose = _jF;
+    SpatialRBInertiad Jnew = Pose3d::transform(newjF, J);
+
+    // set _jF to be newJF;
+    newjF->update_relative_pose(_jF->rpose);
+    *_jF = *newjF;
+
+    // update the mixed pose
+    update_mixed_pose();
+
     // set the mass and inertia of the RigidBody additively
-    set_inertia(J);
+    set_inertia(Jnew);
   }
 
   // read the linear and/or velocity of the body, if provided
@@ -1186,11 +1227,8 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
   if (lvel_attr || avel_attr)
   {
     Vector3d lv = Vector3d::zero(), av = Vector3d::zero();
-    shared_ptr<Pose3d> TARGET(new Pose3d);
-    TARGET->rpose = _F;
-    TARGET->q = Quatd::invert(_F->q);
     SVelocityd v;
-    v.pose = TARGET;
+    v.pose = _F2;
     if (lvel_attr) lvel_attr->get_vector_value(lv);
     if (avel_attr) avel_attr->get_vector_value(av);
     v.set_linear(lv);

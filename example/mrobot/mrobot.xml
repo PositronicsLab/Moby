@@ -2,22 +2,22 @@
 
 <XML>
   <DRIVER>
-    <camera position="1 1 1" target="0 0 0" up="0 0 1" />
+    <camera position="0 10 .5" target="0 0 0" up="0 0 1" />
     <window location="0 0" size="640 480" />
   </DRIVER>
 
   <MOBY>
 
-  <BulirschStoerIntegrator id="bs" abs-err-tol="1e-8" rel-err-tol="1e-8" />
+  <BulirschStoerIntegrator id="bs" abs-err-tol="1e-2" rel-err-tol="1e-2" />
 
   <GravityForce id="gravity" accel="0 0 -9.81" />
 <!--<GravityForce id="gravity" accel="0.687395090074 0 -9.775862518954" />-->
 
-  <EventDrivenSimulator integrator-id="bs" Euler-step="0.0001" impacting-contact-dist-thresh="1e-8">
+  <EventDrivenSimulator integrator-id="bs" Euler-step="0.0000000001" impacting-contact-dist-thresh="1e-8">
     <RecurrentForce recurrent-force-id="gravity" />
     <DynamicBody dynamic-body-id="GROUND" />
     <DynamicBody dynamic-body-id="mrobot" />
-    <ContactParameters object1-id="GROUND" object2-id="mrobot" epsilon="0" mu-coulomb="100" />
+    <ContactParameters object1-id="GROUND" object2-id="mrobot" epsilon="0" mu-coulomb="0.1" />
 <!--    <ContactParameters object1-id="GROUND" object2-id="BOX" epsilon="0" mu-coulomb="100" />-->
   </EventDrivenSimulator>
 

@@ -121,7 +121,7 @@ void RCArticulatedBody::set_generalized_coordinates_generic(DynamicBody::General
 template <class V>
 void RCArticulatedBody::set_generalized_velocity_generic(DynamicBody::GeneralizedCoordinateType gctype, V& gv)
 {
-  SAFESTATIC Ravelin::VectorNd Dx_qd;
+  Ravelin::VectorNd Dx_qd;
   assert(num_generalized_coordinates(gctype) == gv.size());
 
   // set the generalized velocities for the explicit joints

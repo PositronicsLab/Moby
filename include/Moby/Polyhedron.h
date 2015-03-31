@@ -12,7 +12,6 @@
 #include <Moby/Plane.h>
 #include <Moby/Log.h>
 #include <Moby/NumericalException.h>
-#include <Moby/PolyhedralPrimitive.h>
 
 // needed for qhull
 extern "C"
@@ -22,6 +21,8 @@ extern "C"
 
 
 namespace Moby {
+
+class PolyhedralPrimitive;
 
 /// Represents a polyhedron using a winged-edge (type) data structure
 /**
@@ -102,7 +103,7 @@ class Polyhedron
     double find_closest_features(const Ravelin::Origin3d& p, std::list<boost::shared_ptr<Feature> >& closest_features, bool& inside) const;
     static Polyhedron calc_minkowski_diff(boost::shared_ptr<const PolyhedralPrimitive> pA, boost::shared_ptr<const PolyhedralPrimitive> pB, boost::shared_ptr<const Ravelin::Pose3d> poseA, boost::shared_ptr<const Ravelin::Pose3d> poseB);
     Polyhedron& operator=(const Polyhedron& p);
-    void transform(const Ravelin::Transform3d& T);
+    std::vector<boost::shared_ptr<Vertex> >& get_vertices() { return _vertices; }
     const std::vector<boost::shared_ptr<Vertex> >& get_vertices() const { return _vertices; }
     const std::vector<boost::shared_ptr<Edge> >& get_edges() const { return _edges; }
     const std::vector<boost::shared_ptr<Face> >& get_faces() const { return _faces; }

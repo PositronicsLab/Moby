@@ -8,6 +8,7 @@
 #include <Ravelin/VectorNd.h>
 #include <fstream>
 
+#undef USE_INV_DYN
 #ifdef USE_INV_DYN
 #include <Pacer/controller.h>
 #include <Pacer/robot.h>
@@ -27,7 +28,7 @@ RigidBodyPtr left_wheel_link, right_wheel_link, chassis_link;
 
 // set the desired wheel speeds
 const double UL = 1.0;
-const double UR = 0.5;
+const double UR = 1.0;
 
 // get the step size
 double STEP_SIZE = 1e-5 * 5.0;
@@ -77,7 +78,28 @@ void calc_inverse_dynamics(RCArticulatedBodyPtr robot, const VectorNd& qdd, Vect
   #endif
 }
 
-// setup the controller callback
+// the controller (applies a force)
+void controller(DynamicBodyPtr body, double t, void*)
+{
+  // get the robot
+  RCArticulatedBodyPtr robot = boost::dynamic_pointer_cast<RCArticulatedBody>(body);
+
+  // get the base link
+  RigidBodyPtr base = robot->get_links().front();
+
+  // apply a force to the robot at the center of the base in the x direction
+  SForced f(10.0, 0.0, 0.0, 0.0, 0.0, 0.0, base->get_inertial_pose());
+
+  // get the generalized force
+  VectorNd gf;
+  robot->convert_to_generalized_force(base, f, gf);
+
+  // add the generalized force
+  robot->add_generalized_force(gf);
+}
+
+// the controller (feedback + possibly inverse dynamics) 
+/*
 void controller(DynamicBodyPtr body, double t, void*)
 {
   const unsigned LEFT = 0, RIGHT = 1;
@@ -106,7 +128,7 @@ void controller(DynamicBodyPtr body, double t, void*)
   }
 
   // setup the PD controller
-  const double KV = 100.0;
+  const double KV = .1;
 
   // set dq_des, ddq_des;
   double dq_des[2];
@@ -123,7 +145,7 @@ void controller(DynamicBodyPtr body, double t, void*)
   VectorNd tau(2);
   calc_inverse_dynamics(robot, ddq_des, tau);
 
-std::cout << "L: " << dq[0] << " R: " << dq[1] << std::endl;
+//std::cout << "L: " << dq[0] << " R: " << dq[1] << std::endl;
   // setup the joint torques
   VectorNd fleft(1), fright(1);
   fleft[0] = tau[LEFT] + KV*(dq_des[LEFT] - dq[LEFT]);
@@ -147,6 +169,7 @@ std::cout << "L: " << dq[0] << " R: " << dq[1] << std::endl;
   left->add_force(fleft);
   right->add_force(fright);
 }
+*/
 
 void contact_callback_fn(std::vector<Moby::UnilateralConstraint>& e,
                             boost::shared_ptr<void> empty)
@@ -235,7 +258,7 @@ void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map,
   assert(robot);
 
   // set the controller
-  robot->controller = &controller;
+//  robot->controller = &controller;
 
   // get the chassis, left, and right wheels
   const std::string CHASSIS_LINK_ID = "chassis";
@@ -278,6 +301,7 @@ void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map,
   JointPtr right = robot->get_joints()[1];
   assert(left->id == "left_wheel_hinge");
   assert(right->id == "right_wheel_hinge");
+
   left->qd[0] = UL;
   right->qd[0] = UR;
 

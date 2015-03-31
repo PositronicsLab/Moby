@@ -74,6 +74,7 @@ class ImpactConstraintHandler
     void update_problem(const UnilateralConstraintProblemData& qorig, UnilateralConstraintProblemData& qnew);
     void update_solution(const UnilateralConstraintProblemData& q, const Ravelin::VectorNd& x, const std::vector<bool>& working_set, unsigned jidx, Ravelin::VectorNd& z);
     void solve_nqp_work(UnilateralConstraintProblemData& epd, Ravelin::VectorNd& z);
+    void propagate_impulse_data(const UnilateralConstraintProblemData& epd);
     void apply_impulses(const UnilateralConstraintProblemData& epd);
     static void contact_select(const std::vector<int>& cn_indices, const std::vector<int>& beta_nbeta_c_indices, const Ravelin::VectorNd& x, Ravelin::VectorNd& cn, Ravelin::VectorNd& beta_c);
     static void contact_select(const std::vector<int>& cn_indices, const std::vector<int>& beta_nbeta_c_indices, const Ravelin::MatrixNd& m, Ravelin::MatrixNd& cn_rows, Ravelin::MatrixNd& beta_c_rows);

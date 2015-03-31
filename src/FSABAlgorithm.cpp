@@ -65,15 +65,18 @@ void FSABAlgorithm::solve_generalized_inertia_noprecalc(SharedMatrixNd& Y)
     // setup the generalized impulse
     Y.get_column(i, _workv);
 
+    // get the current generalized velocity
+    body->get_generalized_velocity(DynamicBody::eSpatial, _workv2);
+
     // apply the generalized impulse
     apply_generalized_impulse(_workv);
 
     // get the new velocity out
-    body->get_generalized_velocity(DynamicBody::eSpatial, _workv2);
-    _workv2 -= _workv;
+    body->get_generalized_velocity(DynamicBody::eSpatial, _workv);
+    _workv -= _workv2;
 
     // set the appropriate column of Y 
-    Y.set_column(i, _workv2);
+    Y.set_column(i, _workv);
   } 
 
   // restore the current generalized velocity
@@ -87,41 +90,37 @@ void FSABAlgorithm::solve_generalized_inertia_noprecalc(SharedMatrixNd& Y)
  */
 void FSABAlgorithm::solve_generalized_inertia_noprecalc(SharedVectorNd& v)
 {
-  VectorNd gv, gv2;
-
   // get the body
   RCArticulatedBodyPtr body(_body);
 
   // store the current generalized velocity
-  body->get_generalized_velocity(DynamicBody::eSpatial, gv);
-  if (v.rows() != gv.rows())
+  body->get_generalized_velocity(DynamicBody::eSpatial, _workv);
+  if (v.rows() != _workv.rows())
     throw MissizeException();
 
   // apply the generalized impulse
-  gv2 = v;
-  apply_generalized_impulse(gv2);
+  _workv2 = v;
+  apply_generalized_impulse(_workv2);
 
   // get the new velocity out
-  body->get_generalized_velocity(DynamicBody::eSpatial, gv2);
-  gv2 -= gv;
+  body->get_generalized_velocity(DynamicBody::eSpatial, _workv2);
+  _workv2 -= _workv;
 
   // restore the current generalized velocity
-  body->set_generalized_velocity(DynamicBody::eSpatial, gv);
+  body->set_generalized_velocity(DynamicBody::eSpatial, _workv);
 
   // store the change in velocity
-  v = gv2;
+  v = _workv2;
 }
 
 /// Calculates the inverse generalized inertia matrix
 void FSABAlgorithm::calc_inverse_generalized_inertia_noprecalc(MatrixNd& iM)
 {
-  VectorNd gv;
-
   // get the body
   RCArticulatedBodyPtr body(_body);
 
   // store the current generalized velocity
-  body->get_generalized_velocity(DynamicBody::eSpatial, gv);
+  body->get_generalized_velocity(DynamicBody::eSpatial, _workv2);
 
   // get the number of generalized coords
   const unsigned NGC = body->num_generalized_coordinates(DynamicBody::eSpatial);
@@ -154,7 +153,7 @@ void FSABAlgorithm::calc_inverse_generalized_inertia_noprecalc(MatrixNd& iM)
   }
 
   // restore the current generalized velocity
-  body->set_generalized_velocity(DynamicBody::eSpatial, gv);
+  body->set_generalized_velocity(DynamicBody::eSpatial, _workv2);
  
   FILE_LOG(LOG_DYNAMICS) << "inverse M: " << std::endl << iM;
 }
