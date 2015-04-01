@@ -49,9 +49,6 @@ unsigned LOG_STOP = std::numeric_limits<unsigned>::max();
 /// The logging reporting level
 unsigned LOG_REPORTING_LEVEL = 0;
 
-/// Used for timing 
-clock_t start_time;
-
 /// The default simulation step size
 const double DEFAULT_STEP_SIZE = .001;
 
@@ -279,12 +276,7 @@ void step(void* arg)
 
   // check that maximum number of iterations or maximum time not exceeded
   if (ITER >= MAX_ITER || s->current_time > MAX_TIME)
-  {
-    clock_t end_time = clock();
-    double elapsed = (end_time - start_time) / (double) CLOCKS_PER_SEC;
-    std::cout << elapsed << " seconds elapsed" << std::endl;
     exit(0);
-  }
 
   // if render contact points enabled, notify the Simulator
   if( RENDER_CONTACT_POINTS && eds)
@@ -753,9 +745,6 @@ int main(int argc, char** argv)
   FIRST_STEP_TIME = get_current_time();
   LAST_STEP_TIME = FIRST_STEP_TIME;
   
-  // begin timing
-  start_time = clock();
-
   // prepare to render
   #ifdef USE_OSG
   if (ONSCREEN_RENDER)
