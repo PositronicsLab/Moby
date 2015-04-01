@@ -10,13 +10,13 @@ if ((vei = v_edges.find(std::make_pair(vA, vB))) != v_edges.end()) \
   eAB = vei->second; \
   if (cw) \
   { \
-    assert(!eAB->faceR); \
-    eAB->faceR = f; \
+    assert(!eAB->face1); \
+    eAB->face1 = f; \
   } \
   else \
   { \
-    assert(!eAB->faceL); \
-    eAB->faceL = f; \
+    assert(!eAB->face2); \
+    eAB->face2 = f; \
   } \
 } \
 else if ((vei = v_edges.find(std::make_pair(vB, vA))) != v_edges.end()) \
@@ -24,13 +24,13 @@ else if ((vei = v_edges.find(std::make_pair(vB, vA))) != v_edges.end()) \
   eAB = vei->second; \
   if (cw) \
   { \
-    assert(!eAB->faceL); \
-    eAB->faceL = f; \
+    assert(!eAB->face2); \
+    eAB->face2 = f; \
   } \
   else \
   { \
-    assert(!eAB->faceR); \
-    eAB->faceR = f; \
+    assert(!eAB->face1); \
+    eAB->face1 = f; \
   } \
 } \
 else \
@@ -38,9 +38,9 @@ else \
   eAB = boost::shared_ptr<Polyhedron::Edge>(new Polyhedron::Edge); \
   v_edges[std::make_pair(vA, vB)] = eAB; \
   if (cw) \
-    eAB->faceR = f; \
+    eAB->face1 = f; \
   else \
-    eAB->faceL = f; \
+    eAB->face2 = f; \
   eAB->v1 = vertex_map[vA->point]; \
   eAB->v2 = vertex_map[vB->point]; \
   poly._edges.push_back(eAB); \
@@ -235,12 +235,18 @@ Polyhedron Polyhedron::calc_convex_hull(ForwardIterator begin, ForwardIterator e
         else
           e = new_edge_iter->second;
 
-        // setup face- we'll use the convention that faceR is qhull's top
-        // and faceL is qhull's bottom
-        if (ridge->top == facet)
-          e->faceR = f;
+        // add the edge to the proper traversal of the face 
+        if (cw)
+          f->e.insert(f->e.begin(), e);
         else
-          e->faceL = f;
+          f->e.push_back(e);
+
+        // setup face- we'll use the convention that face1 is qhull's top
+        // and face2 is qhull's bottom
+        if (ridge->top == facet)
+          e->face1 = f;
+        else
+          e->face2 = f;
 
         // add the edge to the face
         f->e.push_back(e);
@@ -287,66 +293,6 @@ Polyhedron Polyhedron::calc_convex_hull(ForwardIterator begin, ForwardIterator e
         #ifndef NDEBUG
         FILE_LOG(LOG_COMPGEOM) << "  against edge " << emap[e2] << std::endl;
         #endif
-
-        // look for edges matching up
-        if (e->faceL == f)
-        {
-          if (e2->faceL == f)
-          {
-            if (e->v2 == e2->v1)
-            {
-              e->nextL = e2;
-              e2->prevL = e;
-            }
-            else if (e->v1 == e2->v2)
-            {
-              e->prevL = e2;
-              e2->nextL = e;
-            }
-          }
-          else
-          {
-            if (e->v2 == e2->v2)
-            {
-              e->nextL = e2;
-              e2->nextR = e;
-            }
-            else if (e->v1 == e2->v1)
-            {
-              e->prevL = e2;
-              e2->prevR = e;
-            }
-          }
-        }
-        else if (e->faceR == f)
-        {
-          if (e2->faceR == f)
-          {
-            if (e->v2 == e2->v1)
-            {
-              e->nextR = e2;
-              e2->prevR = e;
-            }
-            else if (e->v1 == e2->v1)
-            {
-              e->prevR = e2;
-              e2->nextR = e;
-            }
-          }
-          else if (e2->faceL == f)
-          {
-            if (e->v2 == e2->v2)
-            {
-              e->nextR = e2;
-              e2->nextL = e;
-            }
-            else if (e->v1 == e2->v1)
-            {
-              e->prevR = e2;
-              e2->prevL = e;
-            }
-          }
-        } 
       }
     }      
   }

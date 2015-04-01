@@ -21,17 +21,12 @@ boost::shared_ptr<GravityForce> grav;
 // does constraint stabilization
 void stabilize(RigidBodyPtr l1)
 {
-  Transform3d gTw = Pose3d::calc_relative_pose(l1->get_inertial_pose(), GLOBAL);
-/*
-  // get the signed constraint violation for each contact
-  VectorNd signed_vio(6);
-  vio[0] = gTw.x[1];
-  vio[1] = gTw.
-*/
+  // get the pose of the link
+  Pose3d P = *l1->get_inertial_pose();
 
-  std::ofstream out("cvio.dat", std::ostream::app);
-  out << (gTw.x.norm() - 1.0) << std::endl;
-  out.close();
+  // project the position of l1 back to the unit sphere
+  P.x.normalize();
+  l1->set_pose(P);
 }
 
 // setup simulator callback
@@ -39,8 +34,9 @@ void post_step_callback(Simulator* sim)
 {
   const unsigned Y = 1, Z = 2;
 
-  // determine the closest configuration for l1
-  stabilize(l1); 
+  // determine the closest configuration for l1 (if necessary)
+  if (!l1->get_articulated_body())
+    stabilize(l1); 
    
   // output the energy of the link
   std::ofstream out("energy.dat", std::ostream::app);

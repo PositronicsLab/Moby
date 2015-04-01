@@ -10,6 +10,8 @@
   <MOBY>
     <!-- Primitives -->
     <Sphere id="s1" radius="1.0" mass="1.0"  />
+    <Sphere id="s1a" radius="1.0" mass="1.0"  />
+    <Sphere id="s1b" radius="1.0" mass="1.0"  />
     <Sphere id="s2" radius=".1" mass="1.0"  />
     <Box id="b3" xlen="10" ylen=".001" zlen="10" rpy="1.5707963267949 0 0" density="10.0" />
     <Plane id="p3" rpy="1.5707963267949 0 0" />
@@ -24,25 +26,25 @@
 
     <!-- Rigid bodies -->
       <!-- the sphere -->
-      <RigidBody id="sph1" enabled="true" position="0 0 3" visualization-id="s1" linear-velocity="0 0 0" angular-velocity="0 0 0" color="0 0 1 0" >
+      <RigidBody id="sph1" enabled="true" position="0 0 3" visualization-id="s1a" linear-velocity="0 0 0" angular-velocity="0 0 0" color="0 0 1 1" >
         <InertiaFromPrimitive primitive-id="s1" />
         <CollisionGeometry primitive-id="s1" />
       </RigidBody>
 
       <!-- the sph -->
-      <RigidBody id="sph2" enabled="true" position="2.5 0 4" visualization-id="s1" linear-velocity="0 0 0" angular-velocity="0 0 0" color="1 0 0 0" >
+      <RigidBody id="sph2" enabled="true" position="2.5 0 4" visualization-id="s1b" linear-velocity="0 0 0" angular-velocity="0 0 0" color="1 0 0 1" >
         <InertiaFromPrimitive primitive-id="s1" />
         <CollisionGeometry primitive-id="s1" />
       </RigidBody>
 
       <!-- the sph -->
-      <RigidBody id="bullet" enabled="true" position="-1.5 0 4" visualization-id="s2" linear-velocity="0 0 -1000" angular-velocity="0 0 0" color="1 1 1 .2" >
+      <RigidBody id="bullet" enabled="true" position="-1.5 0 4" visualization-id="s2" linear-velocity="0 0 -1000" angular-velocity="0 0 0" color="1 1 1 0" >
         <InertiaFromPrimitive primitive-id="s2" />
         <CollisionGeometry primitive-id="s2" />
       </RigidBody>
 
       <!-- the sph -->
-      <RigidBody id="sph3" enabled="true" position="-4 0 5" visualization-id="s1" linear-velocity="0 0 0" angular-velocity="0 0 0" color="1 0 0 0" >
+      <RigidBody id="sph3" enabled="true" position="-4 0 5" visualization-id="s1" linear-velocity="0 0 0" angular-velocity="0 0 0" color="0 1 0 1" >
         <InertiaFromPrimitive primitive-id="s1" />
         <CollisionGeometry primitive-id="s1" />
       </RigidBody>

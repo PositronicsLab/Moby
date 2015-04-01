@@ -307,6 +307,14 @@ class BladePlanePlugin : public CollisionDetection
         std::ofstream out("IPC.token");
         out.close();
       }
+
+      // output constraint violation
+      double cvio = std::numeric_limits<double>::max();
+      for (unsigned i=0; i< contacts.size(); i++)
+        cvio = std::min(cvio, contacts[i].signed_violation);
+      std::ofstream out("cvio.dat", std::ostream::app);
+      out << cvio << std::endl;
+      out.close();
     }
 
     /// Finds contacts between two collision geometries
