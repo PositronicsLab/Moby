@@ -1486,7 +1486,7 @@ void EventDrivenSimulator::step_si_Euler(double dt)
   {
     // determine constraints (contacts, limits) that are currently active
     FILE_LOG(LOG_SIMULATOR) << "   finding constraints" << std::endl;
-    find_unilateral_constraints(INF);
+    find_unilateral_constraints(contact_dist_thresh);
 
     // solve constraints to yield new velocities
     FILE_LOG(LOG_SIMULATOR) << "   handling constraints" << std::endl;
@@ -1706,7 +1706,7 @@ void EventDrivenSimulator::save_to_xml(XMLTreePtr node, list<shared_ptr<const Ba
   node->attribs.insert(XMLAttrib("Euler-step", euler_step));
 
   // save the distance thresholds
-  node->attribs.insert(XMLAttrib("sustained-contact-dist-thesh", contact_dist_thresh));
+  node->attribs.insert(XMLAttrib("contact-dist-thesh", contact_dist_thresh));
 
   // save all ContactParameters
   for (map<sorted_pair<BasePtr>, shared_ptr<ContactParameters> >::const_iterator i = contact_params.begin(); i != contact_params.end(); i++)
