@@ -1448,7 +1448,7 @@ void EventDrivenSimulator::find_unilateral_constraints(double contact_dist_thres
           rbb->compliance == RigidBody::eCompliant)
         _coldet->find_contacts(pdi.a, pdi.b, _compliant_constraints);
       else        
-        _coldet->find_contacts(pdi.a, pdi.b, _rigid_constraints);
+        _coldet->find_contacts(pdi.a, pdi.b, _rigid_constraints, contact_dist_thresh);
     }
 
   // set constraints to proper type
