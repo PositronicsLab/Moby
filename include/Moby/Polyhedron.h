@@ -63,7 +63,6 @@ class Polyhedron
     {
       virtual ~Face() {}
       std::list<boost::weak_ptr<Edge> > e; // edges coincident to this face (ccw ordering) 
-      void find_closest_feature(const Ravelin::Origin3d& p, std::map<boost::shared_ptr<Feature>, double>& distances, double& closest_dist, std::list<boost::shared_ptr<Polyhedron::Feature> >& closest_features);
       Plane get_plane() const;
       boost::shared_ptr<void> data;                // arbitrary user data
     };
@@ -74,7 +73,6 @@ class Polyhedron
       virtual ~Edge() {}
       boost::shared_ptr<Vertex> v1, v2; // vertices of this edge 
       boost::shared_ptr<Face> face1, face2;   // faces coincident to this edge 
-      void find_closest_feature(const Ravelin::Origin3d& p, std::map<boost::shared_ptr<Feature>, double>& distances, double& closest_dist, std::list<boost::shared_ptr<Polyhedron::Feature> >& closest_features);
       boost::shared_ptr<void> data;                // arbitrary user data
     };
 
@@ -100,8 +98,10 @@ class Polyhedron
 
     Polyhedron();
     Polyhedron(const Polyhedron& p) { _convexity_computed = false; operator=(p); }
+    double vclip(boost::shared_ptr<const PolyhedralPrimitive> pA, boost::shared_ptr<const PolyhedralPrimitive> pB, boost::shared_ptr<const Ravelin::Pose3d> poseA, boost::shared_ptr<const Ravelin::Pose3d> poseB, boost::shared_ptr<const Polyhedron::Feature>& closestA, boost::shared_ptr<const Polyhedron::Feature>& closestB);
+/*
     double find_closest_features(const Ravelin::Origin3d& p, std::list<boost::shared_ptr<Feature> >& closest_features, bool& inside) const;
-    static Polyhedron calc_minkowski_diff(boost::shared_ptr<const PolyhedralPrimitive> pA, boost::shared_ptr<const PolyhedralPrimitive> pB, boost::shared_ptr<const Ravelin::Pose3d> poseA, boost::shared_ptr<const Ravelin::Pose3d> poseB);
+    static Polyhedron calc_minkowski_diff(boost::shared_ptr<const PolyhedralPrimitive> pA, boost::shared_ptr<const PolyhedralPrimitive> pB, boost::shared_ptr<const Ravelin::Pose3d> poseA, boost::shared_ptr<const Ravelin::Pose3d> poseB); */
     Polyhedron& operator=(const Polyhedron& p);
     std::vector<boost::shared_ptr<Vertex> >& get_vertices() { return _vertices; }
     const std::vector<boost::shared_ptr<Vertex> >& get_vertices() const { return _vertices; }
@@ -139,6 +139,16 @@ class Polyhedron
 
   private:
 
+    enum FeatureType { eVertex, eEdge, eFace };
+    enum UpdateRule { eDone, eContinue, eInterpenetrating };
+
+    double calc_dist(FeatureType fA, FeatureType fB, boost::shared_ptr<const Polyhedron::Feature> closestA, boost::shared_ptr<const Polyhedron::Feature> closestB, Ravelin::Transform3d& aTb);
+    UpdateRule update_vertex_vertex(FeatureType& fA, FeatureType& fB, Ravelin::Transform3d& aTb, boost::shared_ptr<const Polyhedron::Feature>& closestA, boost::shared_ptr<const Polyhedron::Feature>& closestB);
+    UpdateRule update_vertex_edge(FeatureType& fA, FeatureType& fB, Ravelin::Transform3d& aTb, boost::shared_ptr<const Polyhedron::Feature>& closestA, boost::shared_ptr<const Polyhedron::Feature>& closestB);
+    UpdateRule update_vertex_face(FeatureType& fA, FeatureType& fB, Ravelin::Transform3d& aTb, boost::shared_ptr<const Polyhedron::Feature>& closestA, boost::shared_ptr<const Polyhedron::Feature>& closestB);
+    UpdateRule update_edge_edge(FeatureType& fA, FeatureType& fB, Ravelin::Transform3d& aTb, boost::shared_ptr<const Polyhedron::Feature>& closestA, boost::shared_ptr<const Polyhedron::Feature>& closestB);
+    UpdateRule update_edge_face(FeatureType& fA, FeatureType& fB, Ravelin::Transform3d& aTb, boost::shared_ptr<const Polyhedron::Feature>& closestA, boost::shared_ptr<const Polyhedron::Feature>& closestB);
+    UpdateRule update_face_face(FeatureType& fA, FeatureType& fB, Ravelin::Transform3d& aTb, boost::shared_ptr<const Polyhedron::Feature>& closestA, boost::shared_ptr<const Polyhedron::Feature>& closestB);
     static double sqr(double x) { return x*x; }
     void calc_bounding_box();
     static void calc_subexpressions(double w0, double w1, double w2, double& f1, double& f2, double& f3, double& g0, double& g1, double& g2);

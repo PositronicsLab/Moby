@@ -170,19 +170,11 @@ double BoxPrimitive::calc_signed_dist(shared_ptr<const Primitive> p, Point3d& pt
     return hmp->calc_signed_dist(bthis, pp, pthis);
   }
 
-  // if the primitive is convex, can use Minkowski difference 
+  // if the primitive is convex, can use vclip 
   if (p->is_convex())
   {
-    shared_ptr<const Pose3d> Pbox = pthis.pose;
-    shared_ptr<const Pose3d> Pgeneric = pp.pose;
-    shared_ptr<const PolyhedralPrimitive> bthis = dynamic_pointer_cast<const PolyhedralPrimitive>(shared_from_this());
-    shared_ptr<const PolyhedralPrimitive> pp = dynamic_pointer_cast<const PolyhedralPrimitive>(p);
-    Polyhedron mink = Polyhedron::calc_minkowski_diff(bthis, pp, Pbox, Pgeneric);
-    std::list<shared_ptr<Polyhedron::Feature> > closest_features;
-    Origin3d ORIGIN(0.0, 0.0, 0.0);
-    bool inside;
-    double dist = mink.find_closest_features(ORIGIN, closest_features, inside);
-    return (inside) ? -dist : dist;
+    // TODO: implement me!
+    assert(false);
   }
 
   // try box/(non-convex) trimesh

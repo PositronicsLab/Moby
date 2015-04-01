@@ -1037,3 +1037,214 @@ bool Polyhedron::VertexFaceIterator::has_next()
     return (cw_iter != f->e.rend());
 }
 
+/// Executes the V-Clip algorithm on two polyhedra, determining closest features and signed distance
+double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<const PolyhedralPrimitive> pB, shared_ptr<const Pose3d> poseA, shared_ptr<const Pose3d> poseB, shared_ptr<const Polyhedron::Feature>& closestA, shared_ptr<const Polyhedron::Feature>& closestB)
+{
+  FeatureType fA, fB;
+
+  // get the transformation between A and B, and vice versa
+  Transform3d aTb = Pose3d::calc_relative_pose(poseB, poseA);
+  Transform3d bTa = aTb.inverse(); 
+
+  // TODO: if closest feature of A is null, pick features for A and B arbitrarily
+
+  // determine feature type for A
+  if (dynamic_pointer_cast<const Polyhedron::Vertex>(closestA))
+    fA = eVertex;
+  else if (dynamic_pointer_cast<const Polyhedron::Edge>(closestA))
+    fA = eEdge;
+  else
+    fA = eFace;
+
+  // determine feature type for B 
+  if (dynamic_pointer_cast<const Polyhedron::Vertex>(closestB))
+    fB = eVertex;
+  else if (dynamic_pointer_cast<const Polyhedron::Edge>(closestB))
+    fB = eEdge;
+  else
+    fB = eFace;
+
+  // iterate through the algorithm
+  while (true)
+  {
+    // handle vertex/vertex case
+    if (fA == eVertex && fB == eVertex)
+    {
+      Polyhedron::UpdateRule r = update_vertex_vertex(fA, fB, aTb, closestA, closestB);
+
+      // look for continuing to run algorithm
+      if (r == eContinue)
+        continue;
+
+      // otherwise, we have converged
+      double dist = calc_dist(fA, fB, closestA, closestB, aTb);
+
+      if (r == eInterpenetrating)
+        return -dist;
+      else
+        return dist; 
+    }
+    // handle vertex/edge cases
+    else if (fA == eVertex && fB == eEdge)
+    {
+      Polyhedron::UpdateRule r = update_vertex_edge(fA, fB, aTb, closestA, closestB);
+      
+      // look for continuing to run algorithm
+      if (r == eContinue)
+        continue;
+
+      // otherwise, we have converged
+      double dist = calc_dist(fA, fB, closestA, closestB, aTb);
+
+      if (r == eInterpenetrating)
+        return -dist;
+      else
+        return dist; 
+    }
+    else if (fB == eVertex && fA == eEdge)
+    {
+      Polyhedron::UpdateRule r = update_vertex_edge(fB, fA, bTa, closestB, closestA);
+      
+      // look for continuing to run algorithm
+      if (r == eContinue)
+        continue;
+
+      // otherwise, we have converged
+      double dist = calc_dist(fB, fA, closestB, closestA, bTa);
+
+      if (r == eInterpenetrating)
+        return -dist;
+      else
+        return dist; 
+    }
+    // handle edge/edge case
+    else if (fA == eEdge && fB == eEdge)
+    {
+      Polyhedron::UpdateRule r = update_edge_edge(fA, fB, aTb, closestA, closestB);
+      
+      // look for continuing to run algorithm
+      if (r == eContinue)
+        continue;
+
+      // otherwise, we have converged
+      double dist = calc_dist(fA, fB, closestA, closestB, aTb);
+
+      if (r == eInterpenetrating)
+        return -dist;
+      else
+        return dist; 
+    }
+    // handle edge/face cases
+    else if (fA == eEdge && fB == eFace)
+    {
+      Polyhedron::UpdateRule r = update_edge_face(fA, fB, aTb, closestA, closestB);
+      
+      // look for continuing to run algorithm
+      if (r == eContinue)
+        continue;
+
+      // otherwise, we have converged
+      double dist = calc_dist(fA, fB, closestA, closestB, aTb);
+
+      if (r == eInterpenetrating)
+        return -dist;
+      else
+        return dist; 
+    }
+    else if (fB == eEdge && fA == eFace)
+    {
+      Polyhedron::UpdateRule r = update_edge_face(fB, fA, bTa, closestB, closestA);
+      
+      // look for continuing to run algorithm
+      if (r == eContinue)
+        continue;
+
+      // otherwise, we have converged
+      double dist = calc_dist(fB, fA, closestB, closestA, bTa);
+
+      if (r == eInterpenetrating)
+        return -dist;
+      else
+        return dist; 
+    }
+    // handle face/face case
+    else if (fA == eFace && fB == eFace)
+    {
+      Polyhedron::UpdateRule r = update_face_face(fA, fB, aTb, closestA, closestB);
+      
+      // look for continuing to run algorithm
+      if (r == eContinue)
+        continue;
+
+      // otherwise, we have converged
+      double dist = calc_dist(fA, fB, closestA, closestB, aTb);
+
+      if (r == eInterpenetrating)
+        return -dist;
+      else
+        return dist; 
+    }
+  }
+}
+
+/// Computes the distance between two features
+double Polyhedron::calc_dist(FeatureType fA, FeatureType fB, boost::shared_ptr<const Polyhedron::Feature> closestA, boost::shared_ptr<const Polyhedron::Feature> closestB, Ravelin::Transform3d& aTb)
+{
+}
+
+/// Does the case of update vertex/vertex
+Polyhedron::UpdateRule Polyhedron::update_vertex_vertex(FeatureType& fA, FeatureType& fB, Transform3d& aTb, shared_ptr<const Polyhedron::Feature>& closestA, shared_ptr<const Polyhedron::Feature>& closestB)
+{
+  // search for Voronoi plane from three coincident edges to vertex A,
+  // which vertex B violates
+
+    // vertex B violates plane from this edge; update vA to eA
+
+    return eContinue;
+
+  // search for Voronoi plane from three coincident edges to vertex B,
+  // which vertex A violates
+
+    // vertex A violates plane from this edge; update vB to eB
+
+    return eContinue;
+
+  
+  // still here = no violations
+  return eDone;
+}
+
+/// Does the case of update vertex/edge
+Polyhedron::UpdateRule Polyhedron::update_vertex_edge(FeatureType& fA, FeatureType& fB, Transform3d& aTb, shared_ptr<const Polyhedron::Feature>& closestA, shared_ptr<const Polyhedron::Feature>& closestB)
+{
+  // search for Voronoi plane from those coincident to eB that vA violates
+
+    // vA violates plane; update edge to coincident plane
+
+    return eContinue;
+
+  // clip eB against the Voronoi region of vA
+
+  // ... to be continued... 
+}
+
+/// Does the case of update vertex/face
+Polyhedron::UpdateRule Polyhedron::update_vertex_face(FeatureType& fA, FeatureType& fB, Transform3d& aTb, shared_ptr<const Polyhedron::Feature>& closestA, shared_ptr<const Polyhedron::Feature>& closestB)
+{
+}
+
+/// Does the case of update edge/edge
+Polyhedron::UpdateRule Polyhedron::update_edge_edge(FeatureType& fA, FeatureType& fB, Transform3d& aTb, shared_ptr<const Polyhedron::Feature>& closestA, shared_ptr<const Polyhedron::Feature>& closestB)
+{
+}
+
+/// Does the case of update edge/face
+Polyhedron::UpdateRule Polyhedron::update_edge_face(FeatureType& fA, FeatureType& fB, Transform3d& aTb, shared_ptr<const Polyhedron::Feature>& closestA, shared_ptr<const Polyhedron::Feature>& closestB)
+{
+}
+
+/// Does the case of update face/face
+Polyhedron::UpdateRule Polyhedron::update_face_face(FeatureType& fA, FeatureType& fB, Transform3d& aTb, shared_ptr<const Polyhedron::Feature>& closestA, shared_ptr<const Polyhedron::Feature>& closestB)
+{
+}
+
