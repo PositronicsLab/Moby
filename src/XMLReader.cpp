@@ -116,9 +116,6 @@ std::map<std::string, BasePtr> XMLReader::read(const std::string& fname)
   // find the moby tree 
   shared_ptr<XMLTree> moby_tree = boost::const_pointer_cast<XMLTree>(find_subtree(root_tree, "moby"));
 
-  // mark the moby root as processed
-  moby_tree->processed = true;
-
    // make sure that the Moby node was found
   if (!moby_tree)
   {
@@ -126,6 +123,23 @@ std::map<std::string, BasePtr> XMLReader::read(const std::string& fname)
     chdir(cwd.get());
     return id_map;
   }
+
+  // construct the ID map
+  id_map = construct_ID_map(moby_tree);
+
+  // change back to the initial working directory
+  chdir(cwd.get());
+
+  return id_map;
+}
+
+/// Constructs an ID map from a tree
+std::map<std::string, BasePtr> XMLReader::construct_ID_map(shared_ptr<XMLTree> moby_tree)
+{
+  std::map<std::string, BasePtr> id_map;
+
+  // mark moby tree as processed
+  moby_tree->processed = true;
 
   // ********************************************************************
   // NOTE: read_from_xml() (via process_tag()) treats all nodes at the
@@ -197,9 +211,6 @@ std::map<std::string, BasePtr> XMLReader::read(const std::string& fname)
   process_tag("EventDrivenSimulator", moby_tree, &read_event_driven_simulator, id_map);
   process_tag("TimeSteppingSimulator", moby_tree, &read_time_stepping_simulator, id_map);
 
-  // change back to the initial working directory
-  chdir(cwd.get());
-
   // output unprocessed tags / attributes
   std::queue<shared_ptr<const XMLTree> > q;
   q.push(moby_tree);
@@ -212,14 +223,14 @@ std::map<std::string, BasePtr> XMLReader::read(const std::string& fname)
     // check whether the tag was processed
     if (!node->processed)
     {
-      std::cerr << "XMLReader::read() warning- tag '" << node->name << "' not processed" << std::endl;
+      std::cerr << "XMLReader::construct_ID_map() warning- tag '" << node->name << "' not processed" << std::endl;
       continue;
     }
 
     // verify that all attributes were processed
     BOOST_FOREACH(const XMLAttrib& a, node->attribs)
       if (!a.processed)
-        std::cerr << "XMLReader::read() warning- attribute '" << a.name << "' in tag '" << node->name << "' not processed" << std::endl;
+        std::cerr << "XMLReader::construct_ID_map() warning- attribute '" << a.name << "' in tag '" << node->name << "' not processed" << std::endl;
 
     // add all children to the queue
     BOOST_FOREACH(XMLTreePtr child, node->children)

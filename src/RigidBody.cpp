@@ -91,7 +91,6 @@ RigidBody::RigidBody()
   // set everything else
   _enabled = true;
   _link_idx = std::numeric_limits<unsigned>::max();
-  viscous_coeff = VectorNd::zero(SPATIAL_DIM);
 
   // indicate velocity limit has been exceeded (safe initialization)
  _vel_limit_exceeded = true;
@@ -1034,11 +1033,6 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
   }
   #endif
 
-  // read the viscous dampening coefficient, if provided
-  XMLAttrib* viscous_coeff_attr = node->get_attrib("viscous-dampening-coeff");
-  if (viscous_coeff_attr)
-    viscous_coeff_attr->get_vector_value(viscous_coeff);
-
   // read whether the body is enabled, if provided
   XMLAttrib* enabled_attr = node->get_attrib("enabled");
   if (enabled_attr)
@@ -1330,9 +1324,6 @@ void RigidBody::save_to_xml(XMLTreePtr node, list<shared_ptr<const Base> >& shar
   SVelocityd v = Pose3d::transform(TARGET, _xd0);
   node->attribs.insert(XMLAttrib("linear-velocity", v.get_linear()));
   node->attribs.insert(XMLAttrib("angular-velocity", v.get_angular()));
-
-  // save the dampening coefficients
-  node->attribs.insert(XMLAttrib("viscous-coeff", viscous_coeff));
 
   // save all collision geometries
   BOOST_FOREACH(CollisionGeometryPtr g, geometries)

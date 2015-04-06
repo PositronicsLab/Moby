@@ -15,6 +15,11 @@
 #include <Moby/NumericalException.h>
 #include <Moby/ArticulatedBody.h>
 #include <Moby/InvalidStateException.h>
+#include <Moby/RevoluteJoint.h>
+#include <Moby/SphericalJoint.h>
+#include <Moby/FixedJoint.h>
+#include <Moby/UniversalJoint.h>
+#include <Moby/PrismaticJoint.h>
 #include <Moby/URDFReader.h>
 
 using namespace Moby;
@@ -22,6 +27,7 @@ using namespace Ravelin;
 using std::set;
 using boost::shared_ptr;
 using boost::dynamic_pointer_cast;
+using boost::static_pointer_cast;
 using std::list;
 using std::vector;
 using std::map;
@@ -1065,6 +1071,6 @@ void ArticulatedBody::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Ba
   }
 
   // write the limit bound expansion
-  node->attribs.insert(XMLAttrib("limit-bound-expansion", limit_bound_expansion));
+  node->attribs.insert(XMLAttrib("joint-limit-bound-expansion", limit_bound_expansion));
 }
 
