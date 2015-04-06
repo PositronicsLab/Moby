@@ -28,6 +28,7 @@ class XMLReader
 {
   public:
     static std::map<std::string, BasePtr> read(const std::string& fname);
+    static std::map<std::string, BasePtr> construct_ID_map(boost::shared_ptr<XMLTree> node);
     
   private:
     enum TupleType { eNone, eVectorN, eVector3, eQuat };

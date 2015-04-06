@@ -121,7 +121,6 @@ void RCArticulatedBody::set_generalized_coordinates_generic(DynamicBody::General
 template <class V>
 void RCArticulatedBody::set_generalized_velocity_generic(DynamicBody::GeneralizedCoordinateType gctype, V& gv)
 {
-  Ravelin::VectorNd Dx_qd;
   assert(num_generalized_coordinates(gctype) == gv.size());
 
   // set the generalized velocities for the explicit joints
@@ -138,18 +137,6 @@ void RCArticulatedBody::set_generalized_velocity_generic(DynamicBody::Generalize
     RigidBodyPtr base = _links.front();
     Ravelin::SharedConstVectorNd base_gv = gv.segment(num_joint_dof_explicit(), gv.size());
     base->set_generalized_velocity_generic(gctype, base_gv);
-  }
-
-  // compute implicit constraint velocities
-  if (!_ijoints.empty()) 
-  {
-    determine_implicit_constraint_movement_jacobian(_Dx);
-    _Dx.mult(gv, Dx_qd);
-    for (unsigned i=0; i< _ijoints.size(); i++)
-    {
-      unsigned idx = _ijoints[i]->get_coord_index();
-      Dx_qd.get_sub_vec(idx, idx+_ijoints[i]->num_dof(), _ijoints[i]->qd);
-    }
   }
 
   // link velocities must now be updated

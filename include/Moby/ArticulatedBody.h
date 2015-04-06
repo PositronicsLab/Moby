@@ -92,30 +92,6 @@ class ArticulatedBody : public DynamicBody
     /// Method for resetting the force and torque accumulators on all links
     virtual void reset_accumulators() = 0;
 
-    /// Multiplies Jc' for this body by the given vector 
-    virtual Ravelin::VectorNd& transpose_Jc_mult(const Ravelin::VectorNd& v, Ravelin::VectorNd& result) = 0; 
-
-    /// Multiplies Jc' for this body by the given matrix
-    virtual Ravelin::MatrixNd& transpose_Jc_mult(const Ravelin::MatrixNd& m, Ravelin::MatrixNd& result) = 0;
-
-    /// Multiplies Dc' for this body by the given vector 
-    virtual Ravelin::VectorNd& transpose_Dc_mult(const Ravelin::VectorNd& v, Ravelin::VectorNd& result) = 0;
-
-    /// Multiplies Dc' for this body by the given matrix 
-    virtual Ravelin::MatrixNd& transpose_Dc_mult(const Ravelin::MatrixNd& m, Ravelin::MatrixNd& result) = 0;
-
-    /// Multiplies Jl' for this body by the given vector 
-    virtual Ravelin::VectorNd& transpose_Jl_mult(const Ravelin::VectorNd& v, Ravelin::VectorNd& result) = 0;
-
-    /// Multiplies Jl' for this body by the given matrix
-    virtual Ravelin::MatrixNd& transpose_Jl_mult(const Ravelin::MatrixNd& m, Ravelin::MatrixNd& result) = 0;
-
-    /// Multiplies Dx' for this body by the given vector 
-    virtual Ravelin::VectorNd& transpose_Dx_mult(const Ravelin::VectorNd& v, Ravelin::VectorNd& result) = 0;
-
-    /// Multiplies Dx' for this body by the given matrix 
-    virtual Ravelin::MatrixNd& transpose_Dx_mult(const Ravelin::MatrixNd& m, Ravelin::MatrixNd& result) = 0; 
-
   protected:
     /// Vector for processing links
     std::vector<unsigned> _processed;
@@ -138,6 +114,8 @@ class ArticulatedBody : public DynamicBody
     double limit_bound_expansion;
 
   private:
+    ArticulatedBody(const ArticulatedBody& ab) {}
+
     // joint constraint violation
     std::vector<double> _cvio;
 
