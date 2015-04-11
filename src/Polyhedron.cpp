@@ -887,6 +887,34 @@ std::ostream& Moby::operator<<(std::ostream& out, const Polyhedron& m)
   return out;
 }
 
+// prints out a vertex 
+std::ostream& Moby::operator<<(std::ostream& out, const Polyhedron::Vertex& m)
+{
+  out << m.o;
+  return out;
+}
+
+// prints out an edge
+std::ostream& Moby::operator<<(std::ostream& out, const Polyhedron::Edge& m)
+{
+  out << m.v1->o << " " << m.v2->o;
+  return out;
+}
+
+// prints out a face 
+std::ostream& Moby::operator<<(std::ostream& out, const Polyhedron::Face& m)
+{
+  std::list<boost::weak_ptr<Polyhedron::Edge> >::const_iterator ccw_iter = m.e.begin();
+  while (ccw_iter != m.e.end())
+  {
+    shared_ptr<Polyhedron::Edge> e(*ccw_iter++);
+    out << *e << " ";
+    if (ccw_iter != m.e.end())
+      out << " / ";
+  }
+  return out;
+}
+
 /// Constructs a vertex-face iterator
 Polyhedron::VertexFaceIterator::VertexFaceIterator(shared_ptr<Polyhedron::Face> f, bool ccw)
 {
@@ -991,9 +1019,9 @@ void Polyhedron::VertexFaceIterator::advance()
 
       // see whether v1 or v2 is in the next edge
       if (e->v1 == e2->v1 || e->v1 == e2->v2)
-        v = e->v2;
+        v = e2->v2;
       else
-        v = e->v1;
+        v = e2->v1;
 
       // advance the edge iterator
       ccw_iter++;
@@ -1010,9 +1038,9 @@ void Polyhedron::VertexFaceIterator::advance()
 
       // see whether v1 or v2 is in the next edge
       if (e->v1 == e2->v1 || e->v1 == e2->v2)
-        v = e->v2;
+        v = e2->v2;
       else
-        v = e->v1;
+        v = e2->v1;
 
       // advance the edge iterator
       cw_iter++;
@@ -1187,111 +1215,109 @@ double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<co
   }
 }
 
-//double Polyhedron::calc_dist();
-
 /// Computes the distance between two features
 double Polyhedron::calc_dist(FeatureType fA, FeatureType fB, boost::shared_ptr<const Polyhedron::Feature> closestA, boost::shared_ptr<const Polyhedron::Feature> closestB, Ravelin::Transform3d& aTb)
 {
-	//case1: Vertex vs. Vertex
-	if(fA == eVertex && fB == eVertex){
-		
-		//casting pointers
-		boost::shared_ptr<const Polyhedron::Vertex> vA = boost::static_pointer_cast<const Polyhedron::Vertex>(closestA);
-		boost::shared_ptr<const Polyhedron::Vertex> vB = boost::static_pointer_cast<const Polyhedron::Vertex>(closestB);
-		
-		//Creating vectors
-		Ravelin::Vector3d vAa(vA->o , aTb.target);
-		Ravelin::Vector3d vBb(vB->o , aTb.source);
-		
-		//Transforming B into frame A
-		Ravelin::Vector3d vBa = aTb.transform_point(vBb);
-		Ravelin::Vector3d diff = vAa-vBa;
-		return diff.norm();
+  //case1: Vertex vs. Vertex
+  if(fA == eVertex && fB == eVertex){
+    
+    //casting pointers
+    boost::shared_ptr<const Polyhedron::Vertex> vA = boost::static_pointer_cast<const Polyhedron::Vertex>(closestA);
+    boost::shared_ptr<const Polyhedron::Vertex> vB = boost::static_pointer_cast<const Polyhedron::Vertex>(closestB);
+    
+    //Creating vectors
+    Ravelin::Vector3d vAa(vA->o , aTb.target);
+    Ravelin::Vector3d vBb(vB->o , aTb.source);
+    
+    //Transforming B into frame A
+    Ravelin::Vector3d vBa = aTb.transform_point(vBb);
+    Ravelin::Vector3d diff = vAa-vBa;
+    return diff.norm();
 
-	}else if(fA == eVertex && fB == eEdge){
+  }else if(fA == eVertex && fB == eEdge){
 
-		//casting pinters
-		boost::shared_ptr<const Polyhedron::Vertex> vA = boost::static_pointer_cast<const Polyhedron::Vertex>(closestA);
-		boost::shared_ptr<const Polyhedron::Edge> eB = boost::static_pointer_cast<const Polyhedron::Edge>(closestB);
+    //casting pointers
+    boost::shared_ptr<const Polyhedron::Vertex> vA = boost::static_pointer_cast<const Polyhedron::Vertex>(closestA);
+    boost::shared_ptr<const Polyhedron::Edge> eB = boost::static_pointer_cast<const Polyhedron::Edge>(closestB);
 
-		//Better if the following process is put into a function (maybe?)
-		//Creating vectors for the vertex
-		Ravelin::Vector3d vAa(vA->o , aTb.target);
-		Ravelin::Vector3d vB1b(Ravelin::Origin3d(eB->v1->o), aTb.source);
-		Ravelin::Vector3d vB2b(Ravelin::Origin3d(eB->v2->o), aTb.source);
-		
-		//transforming fB into frame A
-		Ravelin::Vector3d vB1a = aTb.transform_point(vB1b);
-		Ravelin::Vector3d vB2a = aTb.transform_point(vB2b);
+    //Better if the following process is put into a function (maybe?)
+    //Creating vectors for the vertex
+    Ravelin::Vector3d vAa(vA->o , aTb.target);
+    Ravelin::Vector3d vB1b(Ravelin::Origin3d(eB->v1->o), aTb.source);
+    Ravelin::Vector3d vB2b(Ravelin::Origin3d(eB->v2->o), aTb.source);
+    
+    //transforming fB into frame A
+    Ravelin::Vector3d vB1a = aTb.transform_point(vB1b);
+    Ravelin::Vector3d vB2a = aTb.transform_point(vB2b);
 
-  		//creating segment
- 		LineSeg3 line(vB1a,vB2a);
- 		
- 		//place holders
- 		Point3d p;
- 		double t;
+      //creating segment
+     LineSeg3 line(vB1a,vB2a);
+     
+     //place holders
+     Point3d p;
+     double t;
 
- 		//computing distance
- 		double dist = CompGeom::calc_dist(line,vAa,t,p);
- 		return dist;
-	}else if(fA == eEdge && fB == eVertex){
-		//casting pinters
-		boost::shared_ptr<const Polyhedron::Vertex> vB = boost::static_pointer_cast<const Polyhedron::Vertex>(closestB);
-		boost::shared_ptr<const Polyhedron::Edge> eA = boost::static_pointer_cast<const Polyhedron::Edge>(closestA);
+     //computing distance
+     double dist = CompGeom::calc_dist(line,vAa,t,p);
+     return dist;
+  }else if(fA == eEdge && fB == eVertex){
+    //casting pinters
+    boost::shared_ptr<const Polyhedron::Vertex> vB = boost::static_pointer_cast<const Polyhedron::Vertex>(closestB);
+    boost::shared_ptr<const Polyhedron::Edge> eA = boost::static_pointer_cast<const Polyhedron::Edge>(closestA);
 
-		//Better if the following process is put into a function (maybe?)
-		//Creating vectors for the vertex
-		Ravelin::Vector3d vBb(vB->o , aTb.source);
-		Ravelin::Vector3d vA1a(Ravelin::Origin3d(eA->v1->o), aTb.target);
-		Ravelin::Vector3d vA2a(Ravelin::Origin3d(eA->v2->o), aTb.target);
-		
-		//transforming fB into frame A
-		Ravelin::Vector3d vBa = aTb.transform_point(vBb);
+    //Better if the following process is put into a function (maybe?)
+    //Creating vectors for the vertex
+    Ravelin::Vector3d vBb(vB->o, aTb.source);
+    Ravelin::Vector3d vA1a(Ravelin::Origin3d(eA->v1->o), aTb.target);
+    Ravelin::Vector3d vA2a(Ravelin::Origin3d(eA->v2->o), aTb.target);
+    
+    //transforming fB into frame A
+    Ravelin::Vector3d vBa = aTb.transform_point(vBb);
 
-  		//creating segment
- 		LineSeg3 line(vA1a,vA2a);
- 		
- 		//place holders
- 		Point3d p;
- 		double t;
+      //creating segment
+     LineSeg3 line(vA1a,vA2a);
+     
+     //place holders
+     Point3d p;
+     double t;
 
- 		//computing distance
- 		double dist = CompGeom::calc_dist(line,vBa,t,p);
- 		return dist;
-	}else if(fA == eEdge && fB == eEdge){
+     //computing distance
+     double dist = CompGeom::calc_dist(line,vBa,t,p);
+     return dist;
+  }else if(fA == eEdge && fB == eEdge){
 
-		//casting pointers
-		boost::shared_ptr<const Polyhedron::Edge> eA = boost::static_pointer_cast<const Polyhedron::Edge>(closestA);
-		boost::shared_ptr<const Polyhedron::Edge> eB = boost::static_pointer_cast<const Polyhedron::Edge>(closestB);
-		
-		//creating vectors
-		Ravelin::Vector3d vA1a(Ravelin::Origin3d(eA->v1->o), aTb.target);
-		Ravelin::Vector3d vA2a(Ravelin::Origin3d(eA->v2->o), aTb.target);
+    //casting pointers
+    boost::shared_ptr<const Polyhedron::Edge> eA = boost::static_pointer_cast<const Polyhedron::Edge>(closestA);
+    boost::shared_ptr<const Polyhedron::Edge> eB = boost::static_pointer_cast<const Polyhedron::Edge>(closestB);
+    
+    //creating vectors
+    Ravelin::Vector3d vA1a(Ravelin::Origin3d(eA->v1->o), aTb.target);
+    Ravelin::Vector3d vA2a(Ravelin::Origin3d(eA->v2->o), aTb.target);
 
-		Ravelin::Vector3d vB1b(Ravelin::Origin3d(eB->v1->o), aTb.source);
-		Ravelin::Vector3d vB2b(Ravelin::Origin3d(eB->v2->o), aTb.source);
-		
-		//transforming fB into frame A
-		Ravelin::Vector3d vB1a = aTb.transform_point(vB1b);
-		Ravelin::Vector3d vB2a = aTb.transform_point(vB2b);
+    Ravelin::Vector3d vB1b(Ravelin::Origin3d(eB->v1->o), aTb.source);
+    Ravelin::Vector3d vB2b(Ravelin::Origin3d(eB->v2->o), aTb.source);
+    
+    //transforming fB into frame A
+    Ravelin::Vector3d vB1a = aTb.transform_point(vB1b);
+    Ravelin::Vector3d vB2a = aTb.transform_point(vB2b);
 
-  		//creating segment
- 		LineSeg3 lineA(vA1a,vA2a);
- 		LineSeg3 lineB(vB1a,vB2a);
+      //creating segment
+     LineSeg3 lineA(vA1a,vA2a);
+     LineSeg3 lineB(vB1a,vB2a);
 
- 		//place holder
- 		Point3d p1;
- 		Point3d p2;
- 		double dist = CompGeom::calc_closest_points(lineA,lineB,p1,p2);
- 		return dist;
-	}else if(fA == eVertex && fB == eFace){
+     //place holder
+     Point3d p1;
+     Point3d p2;
+     double dist = CompGeom::calc_closest_points(lineA,lineB,p1,p2);
+     return dist;
+  }else if(fA == eVertex && fB == eFace){
 
-		//casting
-		boost::shared_ptr<const Polyhedron::Vertex> vA = boost::static_pointer_cast<const Polyhedron::Vertex>(closestA);
-		boost::shared_ptr<const Polyhedron::Face> faceB = boost::static_pointer_cast<const Polyhedron::Face>(closestB);
+    //casting
+    boost::shared_ptr<const Polyhedron::Vertex> vA = boost::static_pointer_cast<const Polyhedron::Vertex>(closestA);
+    boost::shared_ptr<const Polyhedron::Face> faceB = boost::static_pointer_cast<const Polyhedron::Face>(closestB);
 
-			//creating vector for A
-		Ravelin::Vector3d vAa(vA->o , aTb.target);
+      //creating vector for A
+    Ravelin::Vector3d vAa(vA->o , aTb.target);
 
     //creating vector for B
     std::list<boost::weak_ptr<Edge> > eBs=faceB->e;
@@ -1299,7 +1325,7 @@ double Polyhedron::calc_dist(FeatureType fA, FeatureType fB, boost::shared_ptr<c
     //minimum finding
     Plane planeB=faceB->get_plane();
     double min=planeB.calc_signed_distance(vAa);
-		for(std::list<boost::weak_ptr<Edge> >::iterator eBsi = eBs.begin(); eBsi!=eBs.end();++eBsi){
+    for(std::list<boost::weak_ptr<Edge> >::iterator eBsi = eBs.begin(); eBsi!=eBs.end();++eBsi){
 
       boost::shared_ptr<Edge> eB(*eBsi);
       Ravelin::Vector3d vB1b(Ravelin::Origin3d(eB->v1->o), aTb.source);
@@ -1325,7 +1351,7 @@ double Polyhedron::calc_dist(FeatureType fA, FeatureType fB, boost::shared_ptr<c
   return min;
 
 
-	}else if(fA == eFace && fB == eVertex){
+  }else if(fA == eFace && fB == eVertex){
 
     //Casting pointers
     boost::shared_ptr<const Polyhedron::Face> faceA = boost::static_pointer_cast<const Polyhedron::Face>(closestA);
@@ -1347,11 +1373,11 @@ double Polyhedron::calc_dist(FeatureType fA, FeatureType fB, boost::shared_ptr<c
       //creating segment
       LineSeg3 line(vA1a,vA2a);
     
-    //place holders
+      //place holders
       Point3d p;
       double t;
 
-    //computing distance and comparing to minimum
+      //computing distance and comparing to minimum
       double dist = CompGeom::calc_dist(line,vBa,t,p);
       if(min>dist){
         min=dist;
@@ -1360,132 +1386,132 @@ double Polyhedron::calc_dist(FeatureType fA, FeatureType fB, boost::shared_ptr<c
   return min;
 }else if(fA == eEdge && fB == eFace){
 
-		//Casting pointers
-		boost::shared_ptr<const Polyhedron::Edge> eA = boost::static_pointer_cast<const Polyhedron::Edge>(closestA);
-		boost::shared_ptr<const Polyhedron::Face> _faceB = boost::static_pointer_cast<const Polyhedron::Face>(closestB);
+    //Casting pointers
+    boost::shared_ptr<const Polyhedron::Edge> eA = boost::static_pointer_cast<const Polyhedron::Edge>(closestA);
+    boost::shared_ptr<const Polyhedron::Face> _faceB = boost::static_pointer_cast<const Polyhedron::Face>(closestB);
     boost::shared_ptr<Polyhedron::Face> faceB = boost::const_pointer_cast<Polyhedron::Face>(_faceB);
   
-		//creating lineseg for A
-		Ravelin::Vector3d vA1a(Ravelin::Origin3d(eA->v1->o), aTb.target);
-		Ravelin::Vector3d vA2a(Ravelin::Origin3d(eA->v2->o), aTb.target);
-		LineSeg3 lineA(vA1a,vA2a);
+    //creating lineseg for A
+    Ravelin::Vector3d vA1a(Ravelin::Origin3d(eA->v1->o), aTb.target);
+    Ravelin::Vector3d vA2a(Ravelin::Origin3d(eA->v2->o), aTb.target);
+    LineSeg3 lineA(vA1a,vA2a);
 
-		//Transforming B
-		Polyhedron::VertexFaceIterator vfiBb(faceB,true);
- 		std::vector<Ravelin::Vector3d> vBa;
-		while(vfiBb.has_next()){
-    		boost::shared_ptr<Polyhedron::Vertex> v=*vfiBb;
-    		vfiBb.advance();
-    		Ravelin::Vector3d p(v->o, aTb.source);
-    		Ravelin::Vector3d pa=aTb.transform_point(p);
-    		vBa.push_back(pa);
-  		}
+    //Transforming B
+    Polyhedron::VertexFaceIterator vfiBb(faceB,true);
+    std::vector<Ravelin::Vector3d> vBa;
+    while(vfiBb.has_next()){
+        boost::shared_ptr<Polyhedron::Vertex> v=*vfiBb;
+        vfiBb.advance();
+        Ravelin::Vector3d p(v->o, aTb.source);
+        Ravelin::Vector3d pa=aTb.transform_point(p);
+        vBa.push_back(pa);
+      }
 
-		//Triangulate
-  		std::vector<Triangle> triB;
-  		CompGeom::triangulate_convex_polygon(vBa.begin(),vBa.end(),triB.begin());
-  		
-  		//finding minimum distance between line and all triangles
-  		Point3d p1,p2;
-  		double min = DBL_MAX;
-  		for(std::vector<Triangle>::iterator t = triB.begin(); t!=triB.end();++t){
-  			double tmp=Triangle::calc_sq_dist(*t,lineA,p1,p2);
-  			if(tmp<min){
-  				min=tmp;
-  			}
-  		}
-    	return min;
-	}else if(fA == eFace && fB == eEdge){
+      //Triangulate
+      std::vector<Triangle> triB;
+      CompGeom::triangulate_convex_polygon(vBa.begin(),vBa.end(),triB.begin());
+      
+      //finding minimum distance between line and all triangles
+      Point3d p1,p2;
+      double min = std::numeric_limits<double>::max();
+      for(std::vector<Triangle>::iterator t = triB.begin(); t!=triB.end();++t){
+        double tmp=Triangle::calc_sq_dist(*t,lineA,p1,p2);
+        if(tmp<min){
+          min=tmp;
+        }
+      }
+      return min;
+  }else if(fA == eFace && fB == eEdge){
 
-		//Casting pointers
-		boost::shared_ptr<const Polyhedron::Face> _faceA = boost::static_pointer_cast<const Polyhedron::Face>(closestA);
+    //Casting pointers
+    boost::shared_ptr<const Polyhedron::Face> _faceA = boost::static_pointer_cast<const Polyhedron::Face>(closestA);
     boost::shared_ptr<Polyhedron::Face> faceA = boost::const_pointer_cast<Polyhedron::Face>(_faceA);
-		boost::shared_ptr<const Polyhedron::Edge> eB = boost::static_pointer_cast<const Polyhedron::Edge>(closestB);
+    boost::shared_ptr<const Polyhedron::Edge> eB = boost::static_pointer_cast<const Polyhedron::Edge>(closestB);
 
-		//creating Iterator for A
-		Polyhedron::VertexFaceIterator vfiAa(faceA,true);
- 		std::vector<Ravelin::Vector3d> vAa;
-		while(vfiAa.has_next()){
-    		boost::shared_ptr<Polyhedron::Vertex> v=*vfiAa;
-    		vfiAa.advance();
-    		Ravelin::Vector3d pa(v->o, aTb.target);
-    		vAa.push_back(pa);
-  		}
+    //creating Iterator for A
+    Polyhedron::VertexFaceIterator vfiAa(faceA,true);
+     std::vector<Ravelin::Vector3d> vAa;
+    while(vfiAa.has_next()){
+        boost::shared_ptr<Polyhedron::Vertex> v=*vfiAa;
+        vfiAa.advance();
+        Ravelin::Vector3d pa(v->o, aTb.target);
+        vAa.push_back(pa);
+      }
 
-  		//Triangulating
-		std::vector<Triangle> triA;
-  		CompGeom::triangulate_convex_polygon(vAa.begin(),vAa.end(),triA.begin());
-  		
-		//Transforming and creating lineSegB
-		Ravelin::Vector3d vB1b(Ravelin::Origin3d(eB->v1->o), aTb.source);
-		Ravelin::Vector3d vB2b(Ravelin::Origin3d(eB->v2->o), aTb.source);
-		
-		//transforming fB into frame A
-		Ravelin::Vector3d vB1a = aTb.transform_point(vB1b);
-		Ravelin::Vector3d vB2a = aTb.transform_point(vB2b);
+      //Triangulating
+    std::vector<Triangle> triA;
+      CompGeom::triangulate_convex_polygon(vAa.begin(),vAa.end(),triA.begin());
+      
+    //Transforming and creating lineSegB
+    Ravelin::Vector3d vB1b(Ravelin::Origin3d(eB->v1->o), aTb.source);
+    Ravelin::Vector3d vB2b(Ravelin::Origin3d(eB->v2->o), aTb.source);
+    
+    //transforming fB into frame A
+    Ravelin::Vector3d vB1a = aTb.transform_point(vB1b);
+    Ravelin::Vector3d vB2a = aTb.transform_point(vB2b);
 
-  		//creating segment
- 		LineSeg3 lineB(vB1a,vB2a);
+      //creating segment
+     LineSeg3 lineB(vB1a,vB2a);
 
-  		//finding minimum distance between line and all triangles
-  		Point3d p1,p2;
-  		double min = DBL_MAX;
-		for(std::vector<Triangle>::iterator t = triA.begin(); t!=triA.end();++t){
-  			double tmp=Triangle::calc_sq_dist(*t,lineB,p1,p2);
-  			if(tmp<min){
-  				min=tmp;
-  			}
-  		}
-    	return min;
-	}else if(fA == eFace && fB == eFace){
-		//Casting pointers
-		boost::shared_ptr<const Polyhedron::Face> _faceA = boost::static_pointer_cast<const Polyhedron::Face>(closestA);
+      //finding minimum distance between line and all triangles
+      Point3d p1,p2;
+      double min = std::numeric_limits<double>::max();
+    for(std::vector<Triangle>::iterator t = triA.begin(); t!=triA.end();++t){
+        double tmp=Triangle::calc_sq_dist(*t,lineB,p1,p2);
+        if(tmp<min){
+          min=tmp;
+        }
+      }
+      return min;
+  }else if(fA == eFace && fB == eFace){
+    //Casting pointers
+    boost::shared_ptr<const Polyhedron::Face> _faceA = boost::static_pointer_cast<const Polyhedron::Face>(closestA);
     boost::shared_ptr<Polyhedron::Face> faceA = boost::const_pointer_cast<Polyhedron::Face>(_faceA);
-		boost::shared_ptr<const Polyhedron::Face> _faceB = boost::static_pointer_cast<const Polyhedron::Face>(closestB);
+    boost::shared_ptr<const Polyhedron::Face> _faceB = boost::static_pointer_cast<const Polyhedron::Face>(closestB);
     boost::shared_ptr<Polyhedron::Face> faceB = boost::const_pointer_cast<Polyhedron::Face>(_faceB);
 
-		//creating Iterator for A
-		Polyhedron::VertexFaceIterator vfiAa(faceA,true);
- 		std::vector<Ravelin::Vector3d> vAa;
-		while(vfiAa.has_next()){
-    		boost::shared_ptr<Polyhedron::Vertex> v=*vfiAa;
-    		vfiAa.advance();
-    		Ravelin::Vector3d pa(v->o, aTb.target);
-    		vAa.push_back(pa);
-  		}
+    //creating Iterator for A
+    Polyhedron::VertexFaceIterator vfiAa(faceA,true);
+     std::vector<Ravelin::Vector3d> vAa;
+    while(vfiAa.has_next()){
+        boost::shared_ptr<Polyhedron::Vertex> v=*vfiAa;
+        vfiAa.advance();
+        Ravelin::Vector3d pa(v->o, aTb.target);
+        vAa.push_back(pa);
+      }
 
-  		//Triangulating
-		std::vector<Triangle> triA;
-  		CompGeom::triangulate_convex_polygon(vAa.begin(),vAa.end(),triA.begin());
-	
-		//creating iterator for B
-  		Polyhedron::VertexFaceIterator vfiBb(faceB,true);
- 		std::vector<Ravelin::Vector3d> vBa;
-		while(vfiBb.has_next()){
-    		boost::shared_ptr<Polyhedron::Vertex> v=*vfiBb;
-    		vfiBb.advance();
-    		Ravelin::Vector3d p(v->o, aTb.source);
-    		Ravelin::Vector3d pa=aTb.transform_point(p);
-    		vBa.push_back(pa);
-  		}
+      //Triangulating
+    std::vector<Triangle> triA;
+      CompGeom::triangulate_convex_polygon(vAa.begin(),vAa.end(),triA.begin());
+  
+    //creating iterator for B
+      Polyhedron::VertexFaceIterator vfiBb(faceB,true);
+     std::vector<Ravelin::Vector3d> vBa;
+    while(vfiBb.has_next()){
+        boost::shared_ptr<Polyhedron::Vertex> v=*vfiBb;
+        vfiBb.advance();
+        Ravelin::Vector3d p(v->o, aTb.source);
+        Ravelin::Vector3d pa=aTb.transform_point(p);
+        vBa.push_back(pa);
+      }
 
-		//Triangulate
-  		std::vector<Triangle> triB;
-  		CompGeom::triangulate_convex_polygon(vBa.begin(),vBa.end(),triB.begin());
-  		
-  		//finding minimum distance between all pairs of triangles
-  		Point3d p1,p2;
-  		double min = DBL_MAX;
-		for(std::vector<Triangle>::iterator tA = triA.begin(); tA!=triA.end();++tA){
-  			for(std::vector<Triangle>::iterator tB = triB.begin(); tB!=triB.end();++tB){
-  				double tmp=Triangle::calc_sq_dist(*tA,*tB,p1,p2);
-  				if(tmp<min){
-  					min=tmp;
-  				}
-  			}
-  		}
-  		return min;
-	}
+    //Triangulate
+      std::vector<Triangle> triB;
+      CompGeom::triangulate_convex_polygon(vBa.begin(),vBa.end(),triB.begin());
+      
+      //finding minimum distance between all pairs of triangles
+      Point3d p1,p2;
+      double min = std::numeric_limits<double>::max();
+    for(std::vector<Triangle>::iterator tA = triA.begin(); tA!=triA.end();++tA){
+        for(std::vector<Triangle>::iterator tB = triB.begin(); tB!=triB.end();++tB){
+          double tmp=Triangle::calc_sq_dist(*tA,*tB,p1,p2);
+          if(tmp<min){
+            min=tmp;
+          }
+        }
+      }
+      return min;
+  }
 }
 
 /// Does the case of update vertex/vertex

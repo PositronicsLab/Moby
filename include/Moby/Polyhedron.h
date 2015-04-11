@@ -24,21 +24,6 @@ namespace Moby {
 
 class PolyhedralPrimitive;
 
-/// Represents a polyhedron using a winged-edge (type) data structure
-/**
- * Assume the polygons below:
- *      A
- *    /  \
- *   B---C
- *   \  /
- *    D
- * with edge orientations given as (CA), (AB), (CB), (BD), (DC).
- * An original winged edge data structure use a clockwise traversal.
- * In my modified data structure, one looks at the edge orientation and the
- * face to determine the next edge in a traversal. For example, if one wants
- * to traverse the top polygon in clockwise from edge (CB), one would look at
- * the next edge on the right (nextR).
- */
 class Polyhedron 
 {
   public:
@@ -137,12 +122,12 @@ class Polyhedron
      */ 
     double convexity() { if (!_convexity_computed) determine_convexity(); return _convexity; } 
 
+    enum FeatureType { eVertex, eEdge, eFace };
+    static double calc_dist(FeatureType fA, FeatureType fB, boost::shared_ptr<const Polyhedron::Feature> closestA, boost::shared_ptr<const Polyhedron::Feature> closestB, Ravelin::Transform3d& aTb);
   private:
 
-    enum FeatureType { eVertex, eEdge, eFace };
     enum UpdateRule { eDone, eContinue, eInterpenetrating };
 
-    double calc_dist(FeatureType fA, FeatureType fB, boost::shared_ptr<const Polyhedron::Feature> closestA, boost::shared_ptr<const Polyhedron::Feature> closestB, Ravelin::Transform3d& aTb);
     UpdateRule update_vertex_vertex(FeatureType& fA, FeatureType& fB, Ravelin::Transform3d& aTb, boost::shared_ptr<const Polyhedron::Feature>& closestA, boost::shared_ptr<const Polyhedron::Feature>& closestB);
     UpdateRule update_vertex_edge(FeatureType& fA, FeatureType& fB, Ravelin::Transform3d& aTb, boost::shared_ptr<const Polyhedron::Feature>& closestA, boost::shared_ptr<const Polyhedron::Feature>& closestB);
     UpdateRule update_vertex_face(FeatureType& fA, FeatureType& fB, Ravelin::Transform3d& aTb, boost::shared_ptr<const Polyhedron::Feature>& closestA, boost::shared_ptr<const Polyhedron::Feature>& closestB);
@@ -164,6 +149,9 @@ class Polyhedron
 };
 
 std::ostream& operator<<(std::ostream& out, const Polyhedron& m);
+std::ostream& operator<<(std::ostream& out, const Polyhedron::Vertex& m);
+std::ostream& operator<<(std::ostream& out, const Polyhedron::Edge& m);
+std::ostream& operator<<(std::ostream& out, const Polyhedron::Face& m);
 
 #include "Polyhedron.inl"
 
