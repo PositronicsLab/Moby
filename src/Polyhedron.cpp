@@ -904,14 +904,33 @@ std::ostream& Moby::operator<<(std::ostream& out, const Polyhedron::Edge& m)
 // prints out a face 
 std::ostream& Moby::operator<<(std::ostream& out, const Polyhedron::Face& m)
 {
+  // get an iterator to the edges in the face
   std::list<boost::weak_ptr<Polyhedron::Edge> >::const_iterator ccw_iter = m.e.begin();
-  while (ccw_iter != m.e.end())
+  shared_ptr<Polyhedron::Edge> e1(*ccw_iter++);
+  shared_ptr<Polyhedron::Edge> e2(*ccw_iter++);
+
+  // get the common face
+  shared_ptr<Polyhedron::Face> e1_faces[2];
+  shared_ptr<Polyhedron::Face> e2_faces[2];
+  shared_ptr<Polyhedron::Face> common_face;
+  e1_faces[0] = e1->face1;  e1_faces[1] = e1->face2;
+  e2_faces[0] = e2->face1;  e2_faces[1] = e2->face2;
+  std::sort(e1_faces, e1_faces+2);
+  std::sort(e2_faces, e2_faces+2);
+  std::vector<shared_ptr<Polyhedron::Face> > result;
+  std::set_intersection(e1_faces, e1_faces+2, e2_faces, e2_faces+2, std::back_inserter(result));
+  assert(result.size() == 1);
+  common_face = result.front();
+
+  // setup the face iterator
+  Polyhedron::VertexFaceIterator vfi(common_face, true); 
+  out << (*vfi)->o;
+  while (vfi.has_next())
   {
-    shared_ptr<Polyhedron::Edge> e(*ccw_iter++);
-    out << *e << " ";
-    if (ccw_iter != m.e.end())
-      out << " / ";
+    vfi.advance();
+    out << " " << (*vfi)->o;
   }
+
   return out;
 }
 
@@ -943,9 +962,9 @@ Polyhedron::VertexFaceIterator::VertexFaceIterator(shared_ptr<Polyhedron::Face> 
 
     // see whether v1 or v2 is in the next edge
     if (e->v1 == e2->v1 || e->v1 == e2->v2)
-      v = e->v2;
-    else
       v = e->v1;
+    else
+      v = e->v2;
   }
   else
   {
@@ -959,13 +978,10 @@ Polyhedron::VertexFaceIterator::VertexFaceIterator(shared_ptr<Polyhedron::Face> 
 
     // see whether v1 or v2 is in the next edge
     if (e->v1 == e2->v1 || e->v1 == e2->v2)
-      v = e->v2;
-    else
       v = e->v1;
+    else
+      v = e->v2;
   }
-
-  // set even
-  even = true;
 }
 
 /// Dereferences the iterator
@@ -977,92 +993,81 @@ shared_ptr<Polyhedron::Vertex> Polyhedron::VertexFaceIterator::operator*()
 /// Advances the iterator clockwise
 void Polyhedron::VertexFaceIterator::advance()
 {
-  // for "even" cases, we just need to advance the vertex
-  if (even)
+  // pick a vertex from the edge
+  if (ccw)
   {
-    if (ccw)
+    // get the next edge
+    list<weak_ptr<Edge> >::const_iterator ccw_iter2 = ccw_iter;
+    ccw_iter2++;
+    if (ccw_iter2 == f->e.end())
     {
+      // we've come to the end, return the last vertex
       shared_ptr<Edge> e(*ccw_iter);
       if (v == e->v1)
         v = e->v2;
       else
-      {
-        assert(v == e->v2);
-        v = e->v1; 
-      }
+        v = e->v1;
     }
+
+    // get the vertices
+    shared_ptr<Edge> e(*ccw_iter);
+    shared_ptr<Edge> e2(*ccw_iter2);
+
+    // see whether v1 or v2 is in the next edge
+    if (e->v1 == e2->v1 || e->v1 == e2->v2)
+      v = e2->v2;
     else
-    {
-      shared_ptr<Edge> e(*cw_iter);
-      if (v == e->v1)
-        v = e->v2;
-      else
-      {
-        assert(v == e->v2);
-        v = e->v1; 
-      }
-    }
+      v = e2->v1;
+
+    // advance the edge iterator
+    ccw_iter++;
   }
   else
   {
-    // for "odd" cases, we need to update the edge
-    // pick a vertex from the edge
-    if (ccw)
+    // get the next edge
+    list<weak_ptr<Edge> >::const_reverse_iterator cw_iter2 = cw_iter;
+    cw_iter2++;
+    if (cw_iter2 == f->e.rend())
     {
-      // get the next edge
-      list<weak_ptr<Edge> >::const_iterator ccw_iter2 = ccw_iter;
-      ccw_iter2++;
-
-      // get the vertices
-      shared_ptr<Edge> e(*ccw_iter);
-      shared_ptr<Edge> e2(*ccw_iter2);
-
-      // see whether v1 or v2 is in the next edge
-      if (e->v1 == e2->v1 || e->v1 == e2->v2)
-        v = e2->v2;
-      else
-        v = e2->v1;
-
-      // advance the edge iterator
-      ccw_iter++;
-    }
-    else
-    {
-      // get the next edge
-      list<weak_ptr<Edge> >::const_reverse_iterator cw_iter2 = cw_iter;
-      cw_iter2++;
-
-      // get the vertices
+      // we've come to the end, return the last vertex
       shared_ptr<Edge> e(*cw_iter);
-      shared_ptr<Edge> e2(*cw_iter2);
-
-      // see whether v1 or v2 is in the next edge
-      if (e->v1 == e2->v1 || e->v1 == e2->v2)
-        v = e2->v2;
+      if (v == e->v1)
+        v = e->v2;
       else
-        v = e2->v1;
-
-      // advance the edge iterator
-      cw_iter++;
+        v = e->v1;
     }
-  }
 
-  // alter the even flag
-  even = !even;
+    // get the vertices
+    shared_ptr<Edge> e(*cw_iter);
+    shared_ptr<Edge> e2(*cw_iter2);
+
+    // see whether v1 or v2 is in the next edge
+    if (e->v1 == e2->v1 || e->v1 == e2->v2)
+      v = e2->v2;
+    else
+      v = e2->v1;
+
+    // advance the edge iterator
+    cw_iter++;
+  }
 }
 
 /// Checks to see whether the iterator can be advanced clockwise
 bool Polyhedron::VertexFaceIterator::has_next()
 {
-  // if the case is even, we always have another
-  if (even)
-    return true;
-
-  // if not, see whether we are at the end of the list
+  // see whether we are at the end of the list
   if (ccw)
-    return (ccw_iter != f->e.end()); 
+  {
+    list<weak_ptr<Edge> >::const_iterator ccw_iter2 = ccw_iter;    
+    ccw_iter2++;
+    return (ccw_iter2 != f->e.end()); 
+  }
   else
-    return (cw_iter != f->e.rend());
+  {
+    list<weak_ptr<Edge> >::const_reverse_iterator cw_iter2 = cw_iter;    
+    cw_iter2++;
+    return (cw_iter2 != f->e.rend());
+  }
 }
 
 /// Executes the V-Clip algorithm on two polyhedra, determining closest features and signed distance

@@ -247,9 +247,6 @@ Polyhedron Polyhedron::calc_convex_hull(ForwardIterator begin, ForwardIterator e
           e->face1 = f;
         else
           e->face2 = f;
-
-        // add the edge to the face
-        f->e.push_back(e);
       }
     }
 

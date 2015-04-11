@@ -76,7 +76,6 @@ class Polyhedron
         std::list<boost::weak_ptr<Edge> >::const_reverse_iterator cw_iter;
         std::list<boost::weak_ptr<Edge> >::const_iterator ccw_iter;
         bool ccw;
-        bool even;        
     };
 
     enum LocationType { eInside, eOutside, eOnVertex, eOnEdge, eOnFace };  
