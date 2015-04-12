@@ -15,10 +15,10 @@ source $1setup.sh
 # test the articulated body examples
 echo "Regenerating data for chain2"
 $1moby-regress -mt=10 ../example/chain-contact/chain2.xml regress.out.tmp 
-test $1moby-compare-trajs chain2.dat regress.out.tmp
+test $1moby-compare-trajs chain2.dat regress.out.tmp $2
 echo "Regenerating data for chain5"
 $1moby-regress -mt=10 ../example/chain-contact/chain5.xml regress.out.tmp 
-test $1moby-compare-trajs chain5.dat regress.out.tmp
+test $1moby-compare-trajs chain5.dat regress.out.tmp $2
 
 # test the driving robot example
 #echo "Regenerating data for mobile robot example"
@@ -27,43 +27,43 @@ test $1moby-compare-trajs chain5.dat regress.out.tmp
 # test the box example(s)
 echo "Regenerating data for sitting box"
 $1moby-regress -mt=10 ../example/contact_simple/contact.xml regress.out.tmp 
-test $1moby-compare-trajs sitting-box.dat regress.out.tmp
+test $1moby-compare-trajs sitting-box.dat regress.out.tmp $2
 echo "Regenerating data for spinning box #1"
 $1moby-regress -mt=10 ../example/contact_simple/spinning-box1.xml regress.out.tmp 
-test $1moby-compare-trajs spinning-box1.dat regress.out.tmp
+test $1moby-compare-trajs spinning-box1.dat regress.out.tmp $2
 echo "Regenerating data for spinning box #2"
 $1moby-regress -mt=10 ../example/contact_simple/spinning-box2.xml regress.out.tmp 
-test $1moby-compare-trajs spinning-box2.dat regress.out.tmp
+test $1moby-compare-trajs spinning-box2.dat regress.out.tmp $2
 
 # test the sphere and cylinder examples
 echo "Regenerating data for the sliding to rolling sphere"
 $1moby-regress -mt=10 ../example/contact_simple/sphere.xml regress.out.tmp 
-test $1moby-compare-trajs sphere.dat regress.out.tmp
+test $1moby-compare-trajs sphere.dat regress.out.tmp $2
 echo "Regenerating data for the bouncing spheres"
 $1moby-regress -mt=10 ../example/contact_simple/Zeno.xml regress.out.tmp 
-test $1moby-compare-trajs Zeno.dat regress.out.tmp
+test $1moby-compare-trajs Zeno.dat regress.out.tmp $2
 
 # test the simple floating base examples
 echo "Regenerating data for the fixed, articulated table"
 $1moby-regress -mt=10 ../example/contact_simple/fixed-articulated-table.xml regress.out.tmp 
-test $1moby-compare-trajs fixed-articulated-table.dat regress.out.tmp
+test $1moby-compare-trajs fixed-articulated-table.dat regress.out.tmp $2
 echo "Regenerating data for the articulated table"
 $1moby-regress -s=.01 -mt=10 ../example/contact_simple/articulated-table.xml regress.out.tmp 
-test $1moby-compare-trajs articulated-table.dat regress.out.tmp
+test $1moby-compare-trajs articulated-table.dat regress.out.tmp $2
 
 # test the stack problems 
 echo "Regenerating data for sphere stack"
 $1moby-regress -mt=1 ../example/contact_simple/sphere-stack.xml regress.out.tmp 
-test $1moby-compare-trajs sphere-stack.dat regress.out.tmp
+test $1moby-compare-trajs sphere-stack.dat regress.out.tmp $2
 
 # test the rimless wheel example
 export RIMLESS_WHEEL_THETAD=0.24
 echo "Regenerating data for rimless wheel example"
 $1moby-regress -mt=8 -p=librimless-wheel-init.so ../example/rimless-wheel/wheel.xml regress.out.tmp 
-test $1moby-compare-trajs rimless-wheel.dat regress.out.tmp
+test $1moby-compare-trajs rimless-wheel.dat regress.out.tmp $2
 
 # test the contact constrained pendulum
 echo "Regenerating data for contact constrained pendulum"
 $1moby-regress -mt=6.5 -p=$1/libcontact-constrained-pendulum-init.so ../example/contact_simple/contact-constrained-pendulum.xml regress.out.tmp 
-test $1moby-compare-trajs contact-constrained-pendulum.dat regress.out.tmp
+test $1moby-compare-trajs contact-constrained-pendulum.dat regress.out.tmp $2
 

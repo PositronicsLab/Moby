@@ -96,7 +96,7 @@ double comp(const std::vector<double>& v1, const std::vector<double>& v2)
 
 int main(int argc, char* argv[])
 {
-  if (argc < 3)
+  if (argc < 4)
     return -1;
 
   // read the two files
@@ -147,7 +147,7 @@ int main(int argc, char* argv[])
 
   std::cout << "maximum difference: " << max_diff << std::endl;
   std::cout << "reference timing: " << v1.front() << "  new timing: " << v2.front() << std::endl;
-  if (max_diff > 1e-6)
+  if (max_diff > std::atof(argv[3]))
     return -1;
 
   return 0;
