@@ -46,10 +46,10 @@ test $1moby-compare-trajs Zeno.dat regress.out.tmp $2
 # test the simple floating base examples
 echo "Regenerating data for the fixed, articulated table"
 $1moby-regress -mt=10 ../example/contact_simple/fixed-articulated-table.xml regress.out.tmp 
-test $1moby-compare-trajs fixed-articulated-table.dat regress.out.tmp $2
+test $1moby-compare-trajs fixed-articulated-table.dat regress.out.tmp 1e-2
 echo "Regenerating data for the articulated table"
 $1moby-regress -s=.01 -mt=10 ../example/contact_simple/articulated-table.xml regress.out.tmp 
-test $1moby-compare-trajs articulated-table.dat regress.out.tmp $2
+test $1moby-compare-trajs articulated-table.dat regress.out.tmp 1e-2
 
 # test the stack problems 
 echo "Regenerating data for sphere stack"
