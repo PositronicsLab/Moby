@@ -202,7 +202,7 @@ if (BUILD_TOOLS)
 endif (BUILD_TOOLS)
 
 # create environment variables file
-file (WRITE setup.sh "MOBY_PLUGIN_PATH=${CMAKE_BINARY_DIR}\n\n")
+file (WRITE ${CMAKE_BINARY_DIR}/setup.sh "#!/bin/bash\nexport MOBY_PLUGIN_PATH=${CMAKE_BINARY_DIR}\n\n")
 
 # plugins
 # sphere plugin
@@ -238,7 +238,7 @@ target_link_libraries(contact-constrained-pendulum-coldet-plugin Moby Ravelin)
 target_link_libraries(contact-constrained-pendulum-init Moby Ravelin)
 
 # setup source file
-install (CODE "file(WRITE setup.sh \"MOBY_PLUGIN_PATH=${CMAKE_INSTALL_PREFIX}/lib/Moby/plugins\n\n\")")
+install (CODE "file(WRITE setup.sh \"#!/bin/bash\nexport MOBY_PLUGIN_PATH=${CMAKE_INSTALL_PREFIX}/lib/Moby/plugins\n\n\")")
 install (FILES ${CMAKE_BINARY_DIR}/setup.sh DESTINATION share/Moby)
 
 # setup install locations for plugins

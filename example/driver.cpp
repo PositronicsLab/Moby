@@ -312,7 +312,7 @@ void read_plugin(const char* filename)
     // check whether the plugin was successfully loaded
     if (!plugin)
     { 
-      std::cerr << "driver: failed to read plugin from " << filename << std::endl;
+      std::cerr << "driver: failed to read plugin from " << filename << " (or using " << plugin_path << ")" << std::endl;
       std::cerr << "  " << dlerror_str << std::endl;
       exit(-1);
     }
