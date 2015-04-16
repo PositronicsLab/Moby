@@ -72,6 +72,10 @@ void CRBAlgorithm::setup_parent_array()
 /// Factorizes (Cholesky) the generalized inertia matrix, exploiting sparsity
 bool CRBAlgorithm::factorize_cholesky(MatrixNd& M)
 {
+  // check whether the parent array has been setup
+  if (_lambda.size() == 0)
+    setup_parent_array(); 
+
   // get the number of degrees of freedom
   const unsigned n = M.rows();
 
@@ -79,25 +83,37 @@ bool CRBAlgorithm::factorize_cholesky(MatrixNd& M)
   for (unsigned kk=n; kk> 0; kk--)
   {
     unsigned k = kk - 1;
-    if (M(k,k) < (double) 0.0)
+
+    // get a column iterator
+    ColumnIteratord kiter = M.column_iterator_begin();
+
+    // set it to row k
+    kiter += n*k;
+
+    if (kiter[k] < (double) 0.0)
     {
       assert(false);
       return false;
     }
-    M(k,k) = std::sqrt(M(k,k));
+    kiter[k] = std::sqrt(kiter[k]);
     unsigned i = _lambda[k];
     while (i != std::numeric_limits<unsigned>::max())
     {
-      M(k,i) /= M(k,k);
+      kiter[i] /= kiter[k];
       i = _lambda[i];
     }
     i = _lambda[k];
     while (i != std::numeric_limits<unsigned>::max())
     {
       unsigned j=i;
+
+      // get a column iterator
+      ColumnIteratord iiter = M.column_iterator_begin()+(i*n);
+
+      // iterate
       while (j != std::numeric_limits<unsigned>::max())
       {
-        M(i,j) -= M(k,i)*M(k,j);
+        iiter[j] -= kiter[i]*kiter[j];
         j = _lambda[j];
       }
       i = _lambda[i];
@@ -563,21 +579,33 @@ void CRBAlgorithm::calc_generalized_inertia(SharedMatrixNd& M)
 /// Performs necessary pre-computations for computing accelerations or applying impulses
 void CRBAlgorithm::precalc(RCArticulatedBodyPtr body)
 {
+  // tolerance for not recomputing/refactorizing inertia matrix
+  const double REFACTOR_TOL = 1e-4;
+
   // get the links and joints for the body
   const vector<JointPtr>& joints = body->get_explicit_joints();
 
-  // compute spatial isolated inertias and generalized inertia matrix
-  // do the calculations
-  calc_generalized_inertia(body);
-
-  // attempt to do a Cholesky factorization of M
-  MatrixNd& fM = this->_fM;
-  MatrixNd& M = this->_M;
-  if ((_rank_deficient = !_LA->factor_chol(fM = M)))
+  // get the generalized coordinates
+  static VectorNd gc_last, gc, tmpv;
+  body->get_generalized_coordinates(DynamicBody::eEuler, gc);
+  if (gc_last.size() == 0 || ((tmpv = gc) -= gc_last).norm_inf() > REFACTOR_TOL)
   {
-    std::cerr << "CRBAlgorithm::precalc() warning- Cholesky factorization of generalized inertia matrix failed" << std::endl;
-    fM = M;
-    _LA->svd(fM, _uM, _sM, _vM);
+    // compute spatial isolated inertias and generalized inertia matrix
+    // do the calculations
+    calc_generalized_inertia(body);
+
+    // attempt to do a Cholesky factorization of M
+    MatrixNd& fM = this->_fM;
+    MatrixNd& M = this->_M;
+    if (_rank_deficient = !_LA->factor_chol(fM = M))
+//  if ((_rank_deficient = !factorize_cholesky(fM = M)))
+    {
+      std::cerr << "CRBAlgorithm::precalc() warning- Cholesky factorization of generalized inertia matrix failed" << std::endl;
+      fM = M;
+      _LA->svd(fM, _uM, _sM, _vM);
+    }
+
+    gc_last = gc;
   }
 }
 
