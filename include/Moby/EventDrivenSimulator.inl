@@ -11,10 +11,6 @@
 template <class ForwardIterator>
 double EventDrivenSimulator::integrate_with_sustained_constraints(double step_size, ForwardIterator begin, ForwardIterator end)
 {
-  // begin timing dynamics
-  tms cstart;  
-  clock_t start = times(&cstart);
-
   // get the simulator pointer
   boost::shared_ptr<Simulator> shared_this = boost::dynamic_pointer_cast<Simulator>(shared_from_this());
 
@@ -83,11 +79,6 @@ double EventDrivenSimulator::integrate_with_sustained_constraints(double step_si
     (*i)->set_generalized_coordinates(DynamicBody::eEuler, xgc);
     (*i)->set_generalized_velocity(DynamicBody::eSpatial, xgv);
   }
-
-  // tabulate dynamics computation
-  tms cstop;  
-  clock_t stop = times(&cstop);
-  dynamics_time += (double) (stop-start)/CLOCKS_PER_SEC;
 
   return step_size;
 }

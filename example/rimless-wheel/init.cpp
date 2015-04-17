@@ -85,7 +85,7 @@ void post_step_callback(Simulator* sim)
 }
 
 // setup simulator mini-callback
-void post_ministep_callback(EventDrivenSimulator* sim)
+void post_ministep_callback(ConstraintSimulator* sim)
 {
   const unsigned Y = 1;
 

@@ -20,7 +20,7 @@
 
 namespace Moby {
 
-class EventDrivenSimulator;
+class ConstraintSimulator;
 class ArticulatedBody;
 class CollisionGeometry;
 class Triangle;
@@ -40,7 +40,7 @@ class CollisionDetection : public virtual Base
   public:
     CollisionDetection() {}
     virtual ~CollisionDetection() {}
-    virtual void set_simulator(boost::shared_ptr<EventDrivenSimulator> sim) {}
+    virtual void set_simulator(boost::shared_ptr<ConstraintSimulator> sim) {}
     virtual void broad_phase(double dt, const std::vector<DynamicBodyPtr>& bodies, std::vector<std::pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check);
     virtual double calc_CA_step(const PairwiseDistInfo& pdi) = 0;
     virtual double calc_CA_Euler_step(const PairwiseDistInfo& pdi) = 0;

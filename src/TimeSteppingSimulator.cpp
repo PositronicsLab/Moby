@@ -1,9 +1,10 @@
 /****************************************************************************
- * Copyright 2014 Evan Drumwright
- * This library is distributed under the terms of the Apache V2.0 
+ * Copyright 2015 Evan Drumwright
+ * This library is distributed under the terms of the Apache V2.0
  * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
+#include <unistd.h>
 #include <boost/tuple/tuple.hpp>
 #include <Moby/XMLTree.h>
 #include <Moby/ArticulatedBody.h>
@@ -14,6 +15,7 @@
 #include <Moby/ContactParameters.h>
 #include <Moby/VariableStepIntegrator.h>
 #include <Moby/ImpactToleranceException.h>
+#include <Moby/SustainedUnilateralConstraintSolveFailException.h>
 #include <Moby/InvalidStateException.h>
 #include <Moby/InvalidVelocityException.h>
 #include <Moby/TimeSteppingSimulator.h>
@@ -43,27 +45,12 @@ using namespace Moby;
 /// Default constructor
 TimeSteppingSimulator::TimeSteppingSimulator()
 {
-  constraint_callback_fn = NULL;
-  constraint_post_callback_fn = NULL;
-  post_mini_step_callback_fn = NULL;
-  get_contact_parameters_callback_fn = NULL;
-  render_contact_points = false;
-  contact_dist_thresh = 1e-4;
 }
 
 /// Steps the simulator forward by the given step size
 double TimeSteppingSimulator::step(double step_size)
 {
   const double INF = std::numeric_limits<double>::max();
-  current_time += step_size;
-
-  // clear timings
-  dynamics_time = (double) 0.0;
-  constraint_time = (double) 0.0;
-  coldet_time = (double) 0.0;
-
-  // setup timer
-  clock_t start = clock();
 
   // determine the set of collision geometries
   determine_geometries();
@@ -73,40 +60,282 @@ double TimeSteppingSimulator::step(double step_size)
   _transient_vdata->removeChildren(0, _transient_vdata->getNumChildren());
   #endif
 
+  // clear stored derivatives
+  _current_dx.resize(0);
+
   FILE_LOG(LOG_SIMULATOR) << "+stepping simulation from time: " << this->current_time << " by " << step_size << std::endl;
   if (LOGGING(LOG_SIMULATOR))
   {
-    VectorNd q;
+    VectorNd q, qd;
     BOOST_FOREACH(DynamicBodyPtr db, _bodies)
     {
       db->get_generalized_coordinates(DynamicBody::eEuler, q);
-      FILE_LOG(LOG_SIMULATOR) << " body " << db->id << " coordinates (before): " << q << std::endl;
+      db->get_generalized_velocity(DynamicBody::eSpatial, qd);
+      FILE_LOG(LOG_SIMULATOR) << " body " << db->id << " Euler coordinates (before): " << q << std::endl;
+      FILE_LOG(LOG_SIMULATOR) << " body " << db->id << " spatial velocity (before): " << qd << std::endl;
     }
   }
 
-  // do broad phase collision detection
+  // do broad phase collision detection (must be done before any Euler steps)
   broad_phase(step_size);
 
   // compute pairwise distances at the current configuration
   calc_pairwise_distances();
 
-  // find unilateral constraints 
-  find_unilateral_constraints(contact_dist_thresh);
+  // do the Euler step
+  step_si_Euler(step_size);
 
-  // integrate accelerations forward by dt to get new velocities
-  integrate_velocities_Euler(step_size);
+  // update constraint violations
+  update_constraint_violations(_pairwise_distances);
 
-  // do the impact constraint handler to compute new velocities
-  calc_impacting_unilateral_constraint_forces(step_size);
+  // call the mini-callback
+  if (post_mini_step_callback_fn)
+    post_mini_step_callback_fn(this);
 
-  // integrate positions forward using new velocities
-  integrate_positions_Euler(step_size);
-
-  // call the callback 
+  // call the callback
   if (post_step_callback_fn)
     post_step_callback_fn(this);
 
   return step_size;
+}
+
+/// Finds the next event time assuming constant velocity
+/**
+ * This method returns the next possible time of contact, discarding current
+ * contacts from consideration. 
+ * \note proper operation of this function is critical. If the function
+ *       improperly designates an event as not occuring at the current time,
+ *       calc_next_CA_Euler_step(.) will return a small value and prevent large
+ *       integration steps from being taken. If the function improperly
+ *       designates an event as occuring at the current time, constraint
+ *       violation could occur.
+ */
+double TimeSteppingSimulator::calc_next_CA_Euler_step(double contact_dist_thresh) const
+{
+  const double INF = std::numeric_limits<double>::max();
+  double next_event_time = INF;
+
+  FILE_LOG(LOG_SIMULATOR) << "TimeSteppingSimulator::calc_next_CA_Euler_step entered" << std::endl; 
+
+  // process each articulated body, looking for next joint events
+  for (unsigned i=0; i< _bodies.size(); i++)
+  {
+    // see whether the i'th body is articulated
+    ArticulatedBodyPtr ab = dynamic_pointer_cast<ArticulatedBody>(_bodies[i]);
+    if (!ab)
+      continue;
+
+    // if the body is kinematically controlled, do nothing
+    if (ab->get_kinematic())
+      continue;
+
+    // get limit events in [t, t+dt] (if any)
+    const vector<JointPtr>& joints = ab->get_joints();
+    for (unsigned i=0; i< joints.size(); i++)
+      for (unsigned j=0; j< joints[i]->num_dof(); j++)
+      {
+        if (joints[i]->q[j] < joints[i]->hilimit[j] && joints[i]->qd[j] > 0.0)
+        {
+          double t = (joints[i]->hilimit[j] - joints[i]->q[j])/joints[i]->qd[j];
+          next_event_time = std::min(next_event_time, t);
+        }
+        if (joints[i]->q[j] > joints[i]->lolimit[j] && joints[i]->qd[j] < 0.0)
+        {
+          double t = (joints[i]->lolimit[j] - joints[i]->q[j])/joints[i]->qd[j];
+          next_event_time = std::min(next_event_time, t);
+        }
+      }
+  }
+
+  // if the distance between any pair of bodies is sufficiently small
+  // get next possible event time
+  BOOST_FOREACH(const PairwiseDistInfo& pdi, _pairwise_distances)
+  {
+    // only process if neither of the bodies is compliant
+    RigidBodyPtr rba = dynamic_pointer_cast<RigidBody>(pdi.a->get_single_body());
+    RigidBodyPtr rbb = dynamic_pointer_cast<RigidBody>(pdi.b->get_single_body());
+    if (rba->compliance == RigidBody::eCompliant || 
+        rbb->compliance == RigidBody::eCompliant)
+      continue; 
+
+    // TODO: this code needs to be extended such that all points on a rigid
+    //       body that are within a single topological "hop" from the contact 
+    //       point are evaluated for their next TOC with the other body
+    //       We do not presently consider further contacts between a pair if
+    //       there exists a contact at the current configuration (which means
+    //       that contacts between polyhedral shapes will not be handled
+    //       correctly.) 
+
+    // if the distance is below the threshold, we have found a current event
+    // (we want to skip current events)
+    if (pdi.dist > contact_dist_thresh)
+    {
+      // compute an upper bound on the event time
+      double event_time = _coldet->calc_CA_Euler_step(pdi);
+
+      FILE_LOG(LOG_SIMULATOR) << "Next contact time between " << pdi.a->get_single_body()->id << " and " << pdi.b->get_single_body()->id << ": " << event_time << std::endl;
+
+      // not a current event, find when it could become active
+      next_event_time = std::min(next_event_time, event_time);
+    }
+  }
+
+  FILE_LOG(LOG_SIMULATOR) << "TimeSteppingSimulator::calc_next_CA_Euler_step exited" << std::endl; 
+
+  return next_event_time;
+}
+
+/// Integrates bodies' velocities forward by dt using Euler integration
+void TimeSteppingSimulator::integrate_velocities_Euler(double dt)
+{
+  VectorNd qd, qdd;
+
+  FILE_LOG(LOG_SIMULATOR) << "TimeSteppingSimulator::integrate_velocities_Euler() entered " << std::endl;
+
+  // if forward dynamics are already computed, get the accelerations
+  if (_current_dx.size() > 0)
+  {
+    // setup a coordinate index
+    unsigned idx = 0;
+
+    // loop through all bodies, computing the ODE
+    BOOST_FOREACH(DynamicBodyPtr db, _bodies)
+    {
+      if (db->get_kinematic())
+        continue;
+
+      // get the number of generalized coordinates and velocities
+      const unsigned NGC = db->num_generalized_coordinates(DynamicBody::eEuler);
+      const unsigned NGV = db->num_generalized_coordinates(DynamicBody::eSpatial);
+
+      // get the acceleration for the body and multiply by dt
+      qdd = _current_dx.segment(idx+NGC, idx+NGC+NGV);
+      FILE_LOG(LOG_SIMULATOR) << "body " << db->id << " acceleration: " << qdd << std::endl;
+      qdd *= dt;
+
+      // update the generalized velocity
+      db->get_generalized_velocity(DynamicBody::eSpatial, qd);
+      FILE_LOG(LOG_SIMULATOR) << "body " << db->id << " velocity: " << qd << std::endl;
+      qd += qdd;
+      FILE_LOG(LOG_SIMULATOR) << "body " << db->id << " new velocity: " << qd << std::endl;
+      db->set_generalized_velocity(DynamicBody::eSpatial, qd);
+
+      // update idx
+      idx += NGC+NGV;
+    }
+  }
+  else
+  {
+    // first compute forward dynamics for all bodies
+    calc_fwd_dyn();
+
+    // now update all velocities
+    BOOST_FOREACH(DynamicBodyPtr db, _bodies)
+    {
+      // get the generalized acceleration
+      db->get_generalized_acceleration(qdd);
+      FILE_LOG(LOG_SIMULATOR) << "body " << db->id << " acceleration: " << qdd << std::endl;
+      qdd *= dt;
+
+      // update the generalized velocity
+      db->get_generalized_velocity(DynamicBody::eSpatial, qd);
+      FILE_LOG(LOG_SIMULATOR) << "body " << db->id << " velocity: " << qd << std::endl;
+      qd += qdd;
+      FILE_LOG(LOG_SIMULATOR) << "body " << db->id << " new velocity: " << qd << std::endl;
+      db->set_generalized_velocity(DynamicBody::eSpatial, qd);
+    }
+  }
+
+  FILE_LOG(LOG_SIMULATOR) << "TimeSteppingSimulator::integrate_velocities_Euler() exited " << std::endl;
+}
+
+/// Integrates bodies' positions forward by dt using Euler integration
+void TimeSteppingSimulator::integrate_positions_Euler(double dt)
+{
+  VectorNd q, qd;
+
+  // update all positions
+  BOOST_FOREACH(DynamicBodyPtr db, _bodies)
+  {
+    db->get_generalized_velocity(DynamicBody::eEuler, qd);
+    qd *= dt;
+    db->get_generalized_coordinates(DynamicBody::eEuler, q);
+    q += qd;
+    db->set_generalized_coordinates(DynamicBody::eEuler, q);
+  }
+}
+
+/// Does a semi-implicit step
+void TimeSteppingSimulator::step_si_Euler(double dt)
+{
+  FILE_LOG(LOG_SIMULATOR) << "-- doing semi-implicit Euler step" << std::endl;
+  const double INF = std::numeric_limits<double>::max();
+
+  // integrate bodies' velocities forward by dt
+  integrate_velocities_Euler(dt);
+  FILE_LOG(LOG_SIMULATOR) << "   integrating velocities forward by " << dt << std::endl;
+
+  // setup target time
+  double target_time = current_time + dt;
+
+  // keep looping until we break out
+  while (true)
+  {
+    // determine constraints (contacts, limits) that are currently active
+    FILE_LOG(LOG_SIMULATOR) << "   finding constraints" << std::endl;
+    find_unilateral_constraints(contact_dist_thresh);
+
+    // solve constraints to yield new velocities
+    FILE_LOG(LOG_SIMULATOR) << "   handling constraints" << std::endl;
+    calc_impacting_unilateral_constraint_forces(-1.0);
+
+    if (LOGGING(LOG_SIMULATOR))
+    {
+      VectorNd qd;
+      BOOST_FOREACH(DynamicBodyPtr db, _bodies)
+      {
+        db->get_generalized_velocity(DynamicBody::eSpatial, qd);
+        FILE_LOG(LOG_SIMULATOR) << " body " << db->id << " velocity (after constraint treatment): " << qd << std::endl;
+      }
+    }
+
+    // get the time of the next event(s), skipping events at current step
+    double h = std::min(calc_next_CA_Euler_step(contact_dist_thresh), target_time - current_time);
+    FILE_LOG(LOG_SIMULATOR) << "   position integration: " << h << std::endl;
+
+    // look for small position integration events
+    if (h < dt*dt*dt)
+    {
+      std::cerr << "TimeSteppingSimulator::step_si_Euler() warning: small position integration" << std::endl;
+      std::cerr << "  timestep (" << h << ") taken, relative to nominal step (" << dt << ") " << std::endl;
+    } 
+
+    // integrate bodies' positions forward by that time using new velocities
+    integrate_positions_Euler(h);
+    if (LOGGING(LOG_SIMULATOR))
+    {
+      VectorNd q;
+      BOOST_FOREACH(DynamicBodyPtr db, _bodies)
+      {
+        db->get_generalized_coordinates(DynamicBody::eEuler, q);
+        FILE_LOG(LOG_SIMULATOR) << " body " << db->id << " position (after integration): " << q << std::endl;
+      }
+    }
+
+    // update s and the current time
+    current_time += h;
+
+    // see whether to update pairwise distances
+    if (current_time < target_time)
+    {
+      broad_phase(target_time - current_time);
+      calc_pairwise_distances();
+    }
+    else
+      break;
+  }
+
+  FILE_LOG(LOG_SIMULATOR) << "-- semi-implicit Euler step completed" << std::endl;
 }
 
 /// Implements Base::load_from_xml()
@@ -115,155 +344,21 @@ void TimeSteppingSimulator::load_from_xml(shared_ptr<const XMLTree> node, map<st
   list<shared_ptr<const XMLTree> > child_nodes;
   map<std::string, BasePtr>::const_iterator id_iter;
 
-  // verify node name b/c this is abstract class
-  assert(strcasecmp(node->name.c_str(), "TimeSteppingSimulator") == 0);
+  // do not verify node name b/c this may be a parent class
+  // assert(strcasecmp(node->name.c_str(), "TimeSteppingSimulator") == 0);
 
-  // first, load all data specified to the Simulator object
-  Simulator::load_from_xml(node, id_map);
-
-  // get the contact distance threshold
-  XMLAttrib* contact_dist_thresh_attr = node->get_attrib("contact-dist-thresh");
-  if (contact_dist_thresh_attr)
-    contact_dist_thresh = contact_dist_thresh_attr->get_real_value(); 
-
-  // read in any ContactParameters
-  child_nodes = node->find_child_nodes("ContactParameters");
-  if (!child_nodes.empty())
-    contact_params.clear();
-  for (list<shared_ptr<const XMLTree> >::const_iterator i = child_nodes.begin(); i != child_nodes.end(); i++)
-  {
-    boost::shared_ptr<ContactParameters> cd(new ContactParameters);
-    cd->load_from_xml(*i, id_map);
-    contact_params[cd->objects] = cd;
-  }
-
-  // read all disabled pairs
-  child_nodes = node->find_child_nodes("DisabledPair");
-  for (std::list<shared_ptr<const XMLTree> >::const_iterator i = child_nodes.begin(); i != child_nodes.end(); i++)
-  {
-    // get the two ID attributes
-    XMLAttrib* id1_attrib = (*i)->get_attrib("object1-id");
-    XMLAttrib* id2_attrib = (*i)->get_attrib("object2-id");
-
-    // make sure that they were read
-    if (!id1_attrib || !id2_attrib)
-    {
-      std::cerr << "TimeSteppingSimulator::load_from_xml() - did not find ";
-      std::cerr << "object1-id and/or object2-id" << std::endl;
-      std::cerr << "  in offending node: " << std::endl << *node;
-      continue;
-    }
-
-    // get the two IDs
-    const std::string& ID1 = id1_attrib->get_string_value();
-    const std::string& ID2 = id2_attrib->get_string_value();
-
-    // setup pairs of geometries to disable
-    std::list<CollisionGeometryPtr> disabled1, disabled2;
-
-    // find the first object
-    if ((id_iter = id_map.find(ID1)) == id_map.end())
-    {
-      std::cerr << "TimeSteppingSimulator::load_from_xml() - could not find ";
-      std::cerr << "object with object1-id" << std::endl;
-      std::cerr << "  '" << ID1 << "' in offending node: " << std::endl << *node;
-      continue;
-    }
-    BasePtr o1 = id_iter->second;
-    CollisionGeometryPtr g1 = dynamic_pointer_cast<CollisionGeometry>(o1);
-    if (g1)
-      disabled1.push_back(g1);
-    else
-    {
-      RigidBodyPtr rb1 = dynamic_pointer_cast<RigidBody>(o1);
-      if (rb1)
-        disabled1 = rb1->geometries;
-      else
-      {
-        ArticulatedBodyPtr ab1 = dynamic_pointer_cast<ArticulatedBody>(o1);
-        if (ab1)
-        {
-          BOOST_FOREACH(RigidBodyPtr rb, ab1->get_links())
-            disabled1.insert(disabled1.end(), rb->geometries.begin(), rb->geometries.end());
-        }
-        else
-        {
-          std::cerr << "TimeSteppingSimulator::load_from_xml() - object with object1-id is not a usable type!" << std::endl;
-          continue;
-        }
-      }
-    }
-
-    // find the second object
-    if ((id_iter = id_map.find(ID2)) == id_map.end())
-    {
-      std::cerr << "TimeSteppingSimulator::load_from_xml() - could not find ";
-      std::cerr << "object with object2-id" << std::endl;
-      std::cerr << "  '" << ID2 << "' in offending node: " << std::endl << *node;
-      continue;
-    }
-    BasePtr o2 = id_iter->second;
-    CollisionGeometryPtr g2 = dynamic_pointer_cast<CollisionGeometry>(o2);
-    if (g2)
-      disabled2.push_back(g2);
-    else
-    {
-      RigidBodyPtr rb2 = dynamic_pointer_cast<RigidBody>(o2);
-      if (rb2)
-        disabled2 = rb2->geometries;
-      else
-      {
-        ArticulatedBodyPtr ab2 = dynamic_pointer_cast<ArticulatedBody>(o2);
-        if (ab2)
-        {
-          BOOST_FOREACH(RigidBodyPtr rb, ab2->get_links())
-            disabled2.insert(disabled2.end(), rb->geometries.begin(), rb->geometries.end());
-        }
-        else
-        {
-          std::cerr << "TimeSteppingSimulator::load_from_xml() - object with object2-id is not a usable type!" << std::endl;
-          continue;
-        }
-      }
-    }
-
- 
-   // add the pairs to the unchecked pairs list
-   BOOST_FOREACH(CollisionGeometryPtr cg1, disabled1)
-     BOOST_FOREACH(CollisionGeometryPtr cg2, disabled2)
-       if (cg1 != cg2 && cg1->get_single_body() != cg2->get_single_body())
-         unchecked_pairs.insert(make_sorted_pair(cg1, cg2));
-  }
+  // first, load all data specified to the ConstraintSimulator object
+  ConstraintSimulator::load_from_xml(node, id_map);
 }
 
 /// Implements Base::save_to_xml()
 void TimeSteppingSimulator::save_to_xml(XMLTreePtr node, list<shared_ptr<const Base> >& shared_objects) const
 {
-  // call Simulator's save method first
-  Simulator::save_to_xml(node, shared_objects);
+  // call ConstraintSimulator's save method 
+  ConstraintSimulator::save_to_xml(node, shared_objects);
 
   // reset the node's name
   node->name = "TimeSteppingSimulator";
-
-  // save the contact distance threshold
-  node->attribs.insert(XMLAttrib("contact-dist-thresh", contact_dist_thresh));
-
-  // save all ContactParameters
-  for (map<sorted_pair<BasePtr>, shared_ptr<ContactParameters> >::const_iterator i = contact_params.begin(); i != contact_params.end(); i++)
-  {
-    XMLTreePtr new_node(new XMLTree("ContactParameters"));
-    node->add_child(new_node);
-    i->second->save_to_xml(new_node, shared_objects);
-  }
-
-  // save all disabled pairs
-  for (std::set<sorted_pair<CollisionGeometryPtr> >::const_iterator i = unchecked_pairs.begin(); i != unchecked_pairs.end(); i++)
-  {
-    XMLTreePtr child_node(new XMLTree("DisabledPair"));
-    child_node->attribs.insert(XMLAttrib("object1-id", i->first->id));
-    child_node->attribs.insert(XMLAttrib("object2-id", i->second->id));
-    node->add_child(child_node);
-  }
 }
 
 

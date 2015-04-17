@@ -12,7 +12,7 @@
 #include <Moby/CollisionGeometry.h>
 #include <Moby/RigidBody.h>
 #include <Moby/ArticulatedBody.h>
-#include <Moby/EventDrivenSimulator.h>
+#include <Moby/ConstraintSimulator.h>
 #include <Moby/CollisionDetection.h>
 
 using namespace Ravelin;
