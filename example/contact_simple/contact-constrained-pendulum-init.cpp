@@ -1,7 +1,7 @@
 /*****************************************************************************
  * "Controller" for constrained pendulum example 
  ****************************************************************************/
-#include <Moby/EventDrivenSimulator.h>
+#include <Moby/ConstraintSimulator.h>
 #include <Moby/RCArticulatedBody.h>
 #include <Moby/GravityForce.h>
 #include <Ravelin/Pose3d.h>
@@ -15,7 +15,7 @@ using namespace Ravelin;
 using namespace Moby;
 
 Moby::RigidBodyPtr l1;
-boost::shared_ptr<EventDrivenSimulator> sim;
+boost::shared_ptr<ConstraintSimulator> sim;
 boost::shared_ptr<GravityForce> grav;
 
 // does constraint stabilization
@@ -73,13 +73,13 @@ void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map,
   out.open("cvio.dat");
   out.close();
 
-  // get a reference to the EventDrivenSimulator instance
+  // get a reference to the ConstraintSimulator instance
   for (std::map<std::string, Moby::BasePtr>::const_iterator i = read_map.begin();
        i !=read_map.end(); i++)
   {
     // Find the simulator reference
     if (!sim)
-      sim = boost::dynamic_pointer_cast<EventDrivenSimulator>(i->second);
+      sim = boost::dynamic_pointer_cast<ConstraintSimulator>(i->second);
     if (i->first == "l1")
       l1 = boost::dynamic_pointer_cast<RigidBody>(i->second);
     if (!grav)

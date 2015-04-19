@@ -310,6 +310,19 @@ void ConstraintSimulator::calc_impacting_unilateral_constraint_forces(double dt)
   for (unsigned i=0; i< _rigid_constraints.size(); i++)
     preprocess_constraint(_rigid_constraints[i]);
 
+  // look for the case where there are no impacting constraints
+  bool none_impacting = true;
+  for (unsigned i=0; i< _rigid_constraints.size(); i++)
+    if (_rigid_constraints[i].determine_constraint_class() == UnilateralConstraint::eNegative)
+    {
+      none_impacting = false;
+      break;
+    }
+
+  // if there are no impacts, return
+  if (none_impacting)
+    return;
+
   // if the setting is enabled, draw all contact constraints
   if( render_contact_points ) {
     for ( std::vector<UnilateralConstraint>::iterator it = _rigid_constraints.begin(); it < _rigid_constraints.end(); it++ ) {
@@ -319,16 +332,10 @@ void ConstraintSimulator::calc_impacting_unilateral_constraint_forces(double dt)
     }
   }
 
-  // begin timing for constraint handling
-  clock_t start = clock();
-
   // compute impulses here...
   try
   {
-    if (dt <= 0.0)
-      _impact_constraint_handler.process_constraints(_rigid_constraints, std::numeric_limits<double>::max());
-    else
-      _impact_constraint_handler.process_constraints(_rigid_constraints, std::numeric_limits<double>::max(), 0.1/dt);
+    _impact_constraint_handler.process_constraints(_rigid_constraints, std::numeric_limits<double>::max());
   }
   catch (ImpactToleranceException e)
   {
@@ -480,10 +487,7 @@ void ConstraintSimulator::update_constraint_violations(const vector<PairwiseDist
         rbb->compliance == RigidBody::eCompliant)
       continue; 
 
-    if (pdi.dist <= 0)
-      _ip_tolerances[make_sorted_pair(pdi.a, pdi.b)] = pdi.dist;
-    else
-      _ip_tolerances[make_sorted_pair(pdi.a, pdi.b)] = 0.0;
+    _ip_tolerances[make_sorted_pair(pdi.a, pdi.b)] = std::min(pdi.dist, -NEAR_ZERO);
   }
 
   // update joint constraint interpenetration

@@ -1,5 +1,5 @@
 #include <Moby/CollisionDetection.h>
-#include <Moby/EventDrivenSimulator.h>
+#include <Moby/TimeSteppingSimulator.h>
 #include <Moby/CCD.h>
 #include <cstdio>
 #define NDEBUG
@@ -11,7 +11,7 @@ using namespace Moby;
 class PendulumColdetPlugin : public CollisionDetection
 {
   private:
-    boost::shared_ptr<EventDrivenSimulator> sim;
+    boost::shared_ptr<ConstraintSimulator> sim;
     boost::shared_ptr<CCD> ccd;
     RigidBodyPtr l1;
     RigidBodyPtr world;
@@ -21,7 +21,7 @@ class PendulumColdetPlugin : public CollisionDetection
   public:
     PendulumColdetPlugin() { ccd = boost::shared_ptr<CCD>(new CCD); }
 
-    virtual void set_simulator(boost::shared_ptr<EventDrivenSimulator> sim)
+    virtual void set_simulator(boost::shared_ptr<ConstraintSimulator> sim)
     {
       this->sim = sim;
 

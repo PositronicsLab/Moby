@@ -22,9 +22,9 @@ class BladePlanePlugin : public CollisionDetection
   public:
     BladePlanePlugin() {}
 
-    virtual void set_simulator(boost::shared_ptr<EventDrivenSimulator> sim)
+    virtual void set_simulator(boost::shared_ptr<ConstraintSimulator> sim)
     {
-      this->sim = sim;
+      this->sim = boost::dynamic_pointer_cast<EventDrivenSimulator>(sim);
 
       // find the necessary objects
       for (unsigned i=0; i< sim->get_dynamic_bodies().size(); i++)
