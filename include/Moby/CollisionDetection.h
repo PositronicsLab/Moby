@@ -43,7 +43,8 @@ class CollisionDetection : public virtual Base
     virtual void set_simulator(boost::shared_ptr<ConstraintSimulator> sim) {}
     virtual void broad_phase(double dt, const std::vector<DynamicBodyPtr>& bodies, std::vector<std::pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check);
     virtual double calc_CA_step(const PairwiseDistInfo& pdi) = 0;
-    virtual double calc_CA_Euler_step(const PairwiseDistInfo& pdi) = 0;
+    virtual double calc_CA_Euler_step_cv(const PairwiseDistInfo& pdi) = 0;
+    virtual double calc_CA_Euler_step_ca(const PairwiseDistInfo& pdi) = 0;
     virtual void find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, std::vector<UnilateralConstraint>& contacts, double TOL = NEAR_ZERO) = 0;
 
     /// Calculates the signed distance between two geometries

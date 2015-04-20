@@ -116,7 +116,7 @@ double CCD::calc_CA_step(const PairwiseDistInfo& pdi)
 }
 
 /// Computes a conservative advancement step between two collision geometries assuming that velocity is constant over the interval
-double CCD::calc_CA_Euler_step(const PairwiseDistInfo& pdi)
+double CCD::calc_CA_Euler_step_cv(const PairwiseDistInfo& pdi)
 {
   double maxt = std::numeric_limits<double>::max();
 
@@ -185,6 +185,160 @@ double CCD::calc_max_velocity(RigidBodyPtr rb, const Vector3d& n, double rmax)
   Vector3d w0 = v0.get_angular();
   return n.dot(xd0) + w0.norm()*rmax;
 }
+
+/// Computes a conservative advancement step between two collision geometries assuming that acceleration is constant over the interval
+double CCD::calc_CA_Euler_step_ca(const PairwiseDistInfo& pdi)
+{
+  double maxt = std::numeric_limits<double>::max();
+
+  // get geometries, distance, and closest points
+  CollisionGeometryPtr cgA = pdi.a; 
+  CollisionGeometryPtr cgB = pdi.b;
+  const Point3d& pA = pdi.pa;
+  const Point3d& pB = pdi.pb;
+
+  // get the two underlying bodies
+  RigidBodyPtr rbA = dynamic_pointer_cast<RigidBody>(cgA->get_single_body());
+  RigidBodyPtr rbB = dynamic_pointer_cast<RigidBody>(cgB->get_single_body());
+  FILE_LOG(LOG_COLDET) << "rigid body A: " << rbA->id << "  rigid body B: " << rbB->id << std::endl;
+
+  // if the distance is (essentially) zero, quit now
+  if (pdi.dist <= 0.0)
+  {
+    FILE_LOG(LOG_COLDET) << "reported distance is: " << pdi.dist << std::endl;
+    return 0.0;
+  }
+
+  // get the direction of the vector from body B to body A
+  Point3d pA0 = Pose3d::transform_point(GLOBAL, pA);
+  Point3d pB0 = Pose3d::transform_point(GLOBAL, pB);
+  Vector3d d0 = pA0 - pB0;
+  double d0_norm = d0.norm();
+  FILE_LOG(LOG_COLDET) << "distance between closest points is: " << d0_norm << std::endl;
+  FILE_LOG(LOG_COLDET) << "reported distance is: " << pdi.dist << std::endl;
+
+  // get the direction of the vector (from body B to body A)
+  Vector3d n0 = d0/d0_norm;
+
+  // compute the distance that the two bodies can move together 
+  double max_step = calc_max_step(rbA, rbB, -n0, _rmax[cgA], _rmax[cgB], d0_norm);
+
+  FILE_LOG(LOG_COLDET) << "  distance: " << pdi.dist << std::endl;
+  FILE_LOG(LOG_COLDET) << "  max step: " << max_step << std::endl;
+
+  // return the maximum safe step
+  return max_step;
+}
+
+/// Computes the minimum positive root t of at^2 + bt + c = 0
+/**
+ * If there is no minimum positive root, returns INF
+ */
+static double minposroot(double a, double b, double c)
+{
+  const double INF = std::numeric_limits<double>::max();
+
+  double disc = b*b - 4*a*c;
+  if (disc < 0.0)
+  {
+    FILE_LOG(LOG_SIMULATOR) << "minimum positive root: negative discriminant" << std::endl;
+    return INF;
+  }
+  else
+    disc = std::sqrt(disc);
+
+  // see whether roots are equal
+  if (std::fabs(b) < NEAR_ZERO)
+    return 0.5*disc/a;
+    
+  // compute the first root
+  double r1 = 0.5*(-b - ((b < 0.0) ? -disc : disc))/a;
+  double r2 = c/(a*r1);
+
+  FILE_LOG(LOG_SIMULATOR) << "minimum positive root, roots: " << r1 << " " << r2 << std::endl;
+  if (r1 < 0.0)
+    r1 = INF;
+  if (r2 < 0.0)
+    r2 = INF;
+  return std::min(r1, r2);
+}
+
+/// Computes the maximum distance along a particular direction (n) that a body can move in a particular step
+double CCD::calc_max_step(RigidBodyPtr rbA, RigidBodyPtr rbB, const Vector3d& n0, double rmaxA, double rmaxB, double dist)
+{
+  const unsigned X = 0, Y = 1, Z = 2;
+
+  // compute t s.t.
+  // n'*(xdA - xdB) + t*n'*(xddA - xddB) + omegaA.norm_inf()*r*t + 
+  //   omegaB.norm_inf()*t*r + t^2*alphaA.norm_inf()) + t^2*alphaB.norm_inf()
+
+  // get the velocities
+  const SVelocityd& vA = Pose3d::transform(GLOBAL, rbA->get_velocity());
+  const SVelocityd& vB = Pose3d::transform(GLOBAL, rbB->get_velocity());
+  const SAcceld& aA = Pose3d::transform(GLOBAL, rbA->get_accel());
+  const SAcceld& aB = Pose3d::transform(GLOBAL, rbB->get_accel());
+  Vector3d xdA = vA.get_linear();
+  Vector3d xdB = vB.get_linear();
+  Vector3d xddA = aA.get_linear();
+  Vector3d xddB = aB.get_linear();
+  Vector3d wA = vA.get_angular();
+  Vector3d wB = vB.get_angular();
+  Vector3d alphaA = aA.get_angular();
+  Vector3d alphaB = aB.get_angular();
+  FILE_LOG(LOG_COLDET) << "body " << rbA->id << " velocity: " << vA << " and " << " accel: " << aA << std::endl;
+  FILE_LOG(LOG_COLDET) << "body " << rbB->id << " velocity: " << vB << " and " << " accel: " << aB << std::endl;
+
+  // get the minimum positive roots for all three components of w/alpha
+  double a = n0.dot(xddA - xddB);
+  double b = n0.dot(xdA - xdB);
+  double r = std::numeric_limits<double>::max();
+  for (unsigned i=0; i< 3; i++)
+    for (unsigned j=0; j< 3; j++)
+    {
+      double aij = std::fabs(alphaA[i])*rmaxA + std::fabs(alphaB[j])*rmaxB;
+      double bij = std::fabs(wA[i])*rmaxA + std::fabs(wB[j])*rmaxB;
+      r = std::min(r, minposroot(aij + a, bij + b, -dist));
+    }
+  return r; 
+}
+
+/// Computes the maximum velocity along a particular direction (n)
+// n' * (xd0*t + xdd0*t^2 + (w + alpha*t) x (p - x)*t = d
+// n'*(xdd + alpha x (p-x))*t^2 + n'*(xd0 + w x (p-x))*t - d = 0
+/*
+double CCD::calc_max_step(RigidBodyPtr rbA, RigidBodyPtr rbB, const Vector3d& n, double rmaxA, double rmaxB, double dist)
+{
+  const unsigned X = 0, Y = 1, Z = 2;
+
+  // get the centers of mass
+  Pose3d PA(*rbA->get_inertial_pose());
+  Pose3d PB(*rbB->get_inertial_pose());
+  PA.update_relative_pose(GLOBAL);
+  PB.update_relative_pose(GLOBAL);
+  Vector3d xA(PA.x, GLOBAL);
+  Vector3d xB(PB.x, GLOBAL);
+
+  // get the velocities
+  const SVelocityd& vA = Pose3d::transform(GLOBAL, rbA->get_velocity());
+  const SVelocityd& vB = Pose3d::transform(GLOBAL, rbB->get_velocity());
+  const SAcceld& aA = Pose3d::transform(GLOBAL, rbA->get_accel());
+  const SAcceld& aB = Pose3d::transform(GLOBAL, rbB->get_accel());
+  Vector3d xdA = vA.get_linear();
+  Vector3d xdB = vB.get_linear();
+  Vector3d xddA = aA.get_linear();
+  Vector3d xddB = aB.get_linear();
+  Vector3d wA = vA.get_angular();
+  Vector3d wB = vB.get_angular();
+  Vector3d alphaA = aA.get_angular();
+  Vector3d alphaB = aB.get_angular();
+
+  // get the acceleration term
+  double aterm = n.dot(xddA + Vector3d::cross(alphaA, pA0 - xA) - xddB - Vector3d::cross(alphaB, pB0 - xB)); 
+  double bterm = n.dot(xdA + Vector3d::cross(wA, pA0 - xA) - xdB - Vector3d::cross(wB, pB0 - xB)); 
+
+  return minposroot(aterm, bterm, -dist); 
+}
+*/
 
 /// Solves the LP that maximizes <n, v + w x r>
 double CCD::calc_max_dist_per_t(RigidBodyPtr rb, const Vector3d& n, double rlen)

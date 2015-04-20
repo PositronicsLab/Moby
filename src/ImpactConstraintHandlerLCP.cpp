@@ -34,7 +34,7 @@ using boost::dynamic_pointer_cast;
  * Applies Anitescu-Potra model to connected constraints
  * \param constraints a set of connected constraints
  */
-void ImpactConstraintHandler::apply_ap_model_to_connected_constraints(const std::list<UnilateralConstraint*>& constraints, double inv_dt)
+void ImpactConstraintHandler::apply_ap_model_to_connected_constraints(const std::list<UnilateralConstraint*>& constraints)
 {
   FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::apply_ap_model_to_connected_constraints() entered" << endl;
 
@@ -48,7 +48,7 @@ void ImpactConstraintHandler::apply_ap_model_to_connected_constraints(const std:
   _epd.partition_constraints();
 
   // compute all constraint cross-terms
-  compute_problem_data(_epd, inv_dt);
+  compute_problem_data(_epd);
 
   // clear all impulses
   for (unsigned i=0; i< _epd.N_CONTACTS; i++)

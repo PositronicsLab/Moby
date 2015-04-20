@@ -360,6 +360,7 @@ double PlanePrimitive::calc_signed_dist(shared_ptr<const BoxPrimitive> b, Point3
   {
     // get the box vertex in the plane space
     Point3d box_vert = T.transform_point(verts[i]);
+    FILE_LOG(LOG_COLDET) << "Box vertex: " << box_vert << std::endl;
 
     // get the vertex height
     if (box_vert[Y] < min_dist)

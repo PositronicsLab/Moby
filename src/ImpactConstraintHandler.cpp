@@ -73,9 +73,8 @@ ImpactConstraintHandler::ImpactConstraintHandler()
 /**
  * \param constraints the vector of constraints
  * \param max_time the maximum time to solve the constraints
- * \param inv_dt 1/dt (the time step) for correcting interpenetration
  */
-void ImpactConstraintHandler::process_constraints(const vector<UnilateralConstraint>& constraints, double max_time, double inv_dt)
+void ImpactConstraintHandler::process_constraints(const vector<UnilateralConstraint>& constraints, double max_time)
 {
   FILE_LOG(LOG_CONSTRAINT) << "*************************************************************";
   FILE_LOG(LOG_CONSTRAINT) << endl;
@@ -86,7 +85,7 @@ void ImpactConstraintHandler::process_constraints(const vector<UnilateralConstra
 
   // apply the method to all contacts
   if (!constraints.empty())
-    apply_model(constraints, max_time, inv_dt);
+    apply_model(constraints, max_time);
   else
     FILE_LOG(LOG_CONSTRAINT) << " (no constraints?!)" << endl;
 
@@ -99,9 +98,8 @@ void ImpactConstraintHandler::process_constraints(const vector<UnilateralConstra
 /**
  * \param constraints a set of constraints
  * \param max_time the maximum time to solve the constraints
- * \param inv_dt 1/dt (the time step) for correcting interpenetration
  */
-void ImpactConstraintHandler::apply_model(const vector<UnilateralConstraint>& constraints, double max_time, double inv_dt)
+void ImpactConstraintHandler::apply_model(const vector<UnilateralConstraint>& constraints, double max_time)
 {
   const double INF = std::numeric_limits<double>::max();
   list<UnilateralConstraint*> impacting;
@@ -141,19 +139,19 @@ void ImpactConstraintHandler::apply_model(const vector<UnilateralConstraint>& co
 
       // apply model to the reduced contacts
       if (all_inf)
-        apply_no_slip_model_to_connected_constraints(rconstraints, inv_dt);
+        apply_no_slip_model_to_connected_constraints(rconstraints);
 // TODO: fix viscous model- seems to be a bug in it
 //      else if (all_frictionless)
-//        apply_visc_friction_model_to_connected_constraints(rconstraints, inv_dt);
+//        apply_visc_friction_model_to_connected_constraints(rconstraints);
   #ifdef USE_AP_MODEL
       else {
-        apply_ap_model_to_connected_constraints(rconstraints, inv_dt);
+        apply_ap_model_to_connected_constraints(rconstraints);
       }
   #else
       else if (max_time < INF)
-        apply_model_to_connected_constraints(rconstraints, max_time, inv_dt);
+        apply_model_to_connected_constraints(rconstraints, max_time);
       else
-        apply_model_to_connected_constraints(rconstraints, inv_dt);
+        apply_model_to_connected_constraints(rconstraints);
   #endif
 
       FILE_LOG(LOG_CONSTRAINT) << " -- post-constraint velocity (all constraints): " << std::endl;
@@ -177,7 +175,7 @@ void ImpactConstraintHandler::apply_model(const vector<UnilateralConstraint>& co
  * "Anytime" version
  * \param constraints a set of connected constraints
  */
-void ImpactConstraintHandler::apply_model_to_connected_constraints(const list<UnilateralConstraint*>& constraints, double max_time, double inv_dt)
+void ImpactConstraintHandler::apply_model_to_connected_constraints(const list<UnilateralConstraint*>& constraints, double max_time)
 {
   double ke_minus = 0.0, ke_plus = 0.0;
   const unsigned UINF = std::numeric_limits<unsigned>::max();
@@ -194,7 +192,7 @@ void ImpactConstraintHandler::apply_model_to_connected_constraints(const list<Un
   _epd.partition_constraints();
 
   // compute all constraint cross-terms
-  compute_problem_data(_epd, inv_dt);
+  compute_problem_data(_epd);
 
   // clear all impulses
   for (unsigned i=0; i< _epd.N_CONTACTS; i++)
@@ -306,7 +304,7 @@ void ImpactConstraintHandler::apply_model_to_connected_constraints(const list<Un
  * Applies purely viscous friction model to connected constraints
  * \param constraints a set of connected constraints
  */
-void ImpactConstraintHandler::apply_visc_friction_model_to_connected_constraints(const list<UnilateralConstraint*>& constraints, double inv_dt)
+void ImpactConstraintHandler::apply_visc_friction_model_to_connected_constraints(const list<UnilateralConstraint*>& constraints)
 {
   FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::apply_visc_friction_model_to_connected_constraints() entered" << endl;
 
@@ -320,7 +318,7 @@ void ImpactConstraintHandler::apply_visc_friction_model_to_connected_constraints
   _epd.partition_constraints();
 
   // compute all constraint cross-terms
-  compute_problem_data(_epd, inv_dt);
+  compute_problem_data(_epd);
 
   // clear all impulses
   for (unsigned i=0; i< _epd.N_CONTACTS; i++)
@@ -365,7 +363,7 @@ void ImpactConstraintHandler::apply_visc_friction_model_to_connected_constraints
  * Applies no slip friction model to connected constraints
  * \param constraints a set of connected constraints
  */
-void ImpactConstraintHandler::apply_no_slip_model_to_connected_constraints(const list<UnilateralConstraint*>& constraints, double inv_dt)
+void ImpactConstraintHandler::apply_no_slip_model_to_connected_constraints(const list<UnilateralConstraint*>& constraints)
 {
   FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::apply_no_slip_model_to_connected_constraints() entered" << endl;
 
@@ -379,7 +377,7 @@ void ImpactConstraintHandler::apply_no_slip_model_to_connected_constraints(const
   _epd.partition_constraints();
 
   // compute all constraint cross-terms
-  compute_problem_data(_epd, inv_dt);
+  compute_problem_data(_epd);
 
   // clear all impulses
   for (unsigned i=0; i< _epd.N_CONTACTS; i++)
@@ -729,7 +727,7 @@ void ImpactConstraintHandler::permute_problem(UnilateralConstraintProblemData& e
  * Applies method of Drumwright and Shell to a set of connected constraints
  * \param constraints a set of connected constraints
  */
-void ImpactConstraintHandler::apply_model_to_connected_constraints(const list<UnilateralConstraint*>& constraints, double inv_dt)
+void ImpactConstraintHandler::apply_model_to_connected_constraints(const list<UnilateralConstraint*>& constraints)
 {
   double ke_minus = 0.0, ke_plus = 0.0;
 
@@ -745,7 +743,7 @@ void ImpactConstraintHandler::apply_model_to_connected_constraints(const list<Un
   _epd.partition_constraints();
 
   // compute all constraint cross-terms
-  compute_problem_data(_epd, inv_dt);
+  compute_problem_data(_epd);
 
   // compute energy
   if (LOGGING(LOG_CONSTRAINT))
@@ -828,7 +826,7 @@ void ImpactConstraintHandler::apply_model_to_connected_constraints(const list<Un
   if (LOGGING(LOG_CONSTRAINT))
   { 
     FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler debugging check (slow) " << std::endl;
-    compute_problem_data(_epd, inv_dt);
+    compute_problem_data(_epd);
     FILE_LOG(LOG_CONSTRAINT) << "new Cn_v (double check): " << _epd.Cn_v << std::endl;
     FILE_LOG(LOG_CONSTRAINT) << "new Cs_v (double check): " << _epd.Cs_v << std::endl;
     FILE_LOG(LOG_CONSTRAINT) << "new Ct_v (double check): " << _epd.Ct_v << std::endl;
@@ -974,7 +972,7 @@ void ImpactConstraintHandler::apply_impulses(const UnilateralConstraintProblemDa
 }
 
 /// Computes the data to the LCP / QP problems
-void ImpactConstraintHandler::compute_problem_data(UnilateralConstraintProblemData& q, double inv_dt)
+void ImpactConstraintHandler::compute_problem_data(UnilateralConstraintProblemData& q)
 {
   const unsigned UINF = std::numeric_limits<unsigned>::max();
 
@@ -1181,14 +1179,6 @@ void ImpactConstraintHandler::compute_problem_data(UnilateralConstraintProblemDa
 
     // NOTE: cross data has already been computed for contact/limit constraints
   }
-
-  // correct constraint violations on contacts
-  for (unsigned i=0; i< q.contact_constraints.size(); i++)
-    q.Cn_v[i] += q.contact_constraints[i]->signed_violation * inv_dt;
-
-  // correct constraint violations on limits
-  for (unsigned i=0; i< q.limit_constraints.size(); i++)
-    q.L_v[i] += q.limit_constraints[i]->signed_violation * inv_dt;
 }
 
 /// Solves the viscous friction LCP

@@ -1801,6 +1801,19 @@ SharedVectorNd& RigidBody::get_generalized_velocity(GeneralizedCoordinateType gc
   return gv;
 }
 
+/// Sets the generalized acceleration of this rigid body
+void RigidBody::set_generalized_acceleration(const SharedVectorNd& ga)
+{
+  // if this body part of an articulated body, call that function instead
+  if (!_abody.expired())
+  {
+    ArticulatedBodyPtr ab(_abody);
+    ab->set_generalized_acceleration(ga);
+  }
+  else
+    set_generalized_acceleration_generic(ga);
+}
+
 /// Gets the generalized acceleration of this body
 SharedVectorNd& RigidBody::get_generalized_acceleration(SharedVectorNd& ga)
 {

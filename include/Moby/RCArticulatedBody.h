@@ -98,6 +98,7 @@ class RCArticulatedBody : public ArticulatedBody
     virtual Ravelin::SharedVectorNd& get_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::SharedVectorNd& gv);
     virtual Ravelin::VectorNd& get_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, Ravelin::VectorNd& gv) { return DynamicBody::get_generalized_velocity(gctype, gv); }
     virtual Ravelin::SharedVectorNd& get_generalized_acceleration(Ravelin::SharedVectorNd& ga);
+    void set_generalized_acceleration(const Ravelin::SharedVectorNd& a);
     virtual Ravelin::VectorNd& get_generalized_acceleration(Ravelin::VectorNd& ga) { return DynamicBody::get_generalized_acceleration(ga); }
 
     template <class V>
@@ -173,7 +174,6 @@ class RCArticulatedBody : public ArticulatedBody
     void determine_generalized_forces(Ravelin::VectorNd& gf) const;
     void determine_generalized_accelerations(Ravelin::VectorNd& xdd) const;
     void determine_constraint_force_transform(Ravelin::MatrixNd& K) const;
-    void set_generalized_acceleration(const Ravelin::VectorNd& a);
     void determine_implicit_constraint_movement_jacobian(Ravelin::MatrixNd& D);
     void determine_implicit_constraint_jacobians(const UnilateralConstraintProblemData& q, Ravelin::MatrixNd& Jx, Ravelin::MatrixNd& Dx) const;
     void determine_implicit_constraint_jacobian(Ravelin::MatrixNd& J);

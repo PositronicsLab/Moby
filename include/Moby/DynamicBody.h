@@ -135,6 +135,16 @@ class DynamicBody : public Visualizable
       return gv;
     }
 
+    /// Sets the generalized velocity of this body
+    virtual void set_generalized_acceleration(const Ravelin::SharedVectorNd& ga) = 0;
+
+    /// Sets the generalized acceleration of this body
+    virtual void set_generalized_acceleration(const Ravelin::VectorNd& ga)
+    {
+      const Ravelin::SharedVectorNd ga_shared = ga.segment(0, ga.size()).get();
+      set_generalized_acceleration(ga_shared);
+    }
+
     /// Gets the generalized velocity of this body
     virtual Ravelin::SharedVectorNd& get_generalized_acceleration(Ravelin::SharedVectorNd& ga) = 0;
 

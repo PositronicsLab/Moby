@@ -251,3 +251,24 @@ void RigidBody::get_generalized_acceleration_generic(V& ga)
   ga[5] = aa[2];
 }
 
+/// Sets the generalized acceleration of this rigid body (does not call articulated body version)
+template <class V>
+void RigidBody::set_generalized_acceleration_generic(V& ga)
+{
+  // special case: disabled body
+  if (!_enabled)
+    return;
+
+  // get the acceleration
+  Ravelin::SAcceld xdd;
+  xdd.pose = _F2;
+ 
+  // set the linear acceleration first
+  xdd.set_linear(Ravelin::Vector3d(ga[0], ga[1], ga[2]));
+  xdd.set_angular(Ravelin::Vector3d(ga[3], ga[4], ga[5]));
+
+  // set the acceleration
+  set_accel(xdd);
+}
+
+

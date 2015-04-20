@@ -1566,7 +1566,7 @@ void RCArticulatedBody::determine_implicit_constraint_jacobian_dot(MatrixNd& J) 
 }
 
 /// Sets the generalized acceleration for this body
-void RCArticulatedBody::set_generalized_acceleration(const VectorNd& a)
+void RCArticulatedBody::set_generalized_acceleration(const SharedVectorNd& a)
 {
   SAFESTATIC VectorNd base_a;
 

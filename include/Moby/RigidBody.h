@@ -45,6 +45,7 @@ class RigidBody : public SingleBody
   friend class ArticulatedBody;
   friend class RCArticulatedBody;
   friend class MCArticulatedBody;
+  friend class TimeSteppingSimulator;
   friend class Joint;
 
   public:
@@ -87,6 +88,7 @@ class RigidBody : public SingleBody
     virtual void apply_generalized_impulse(const Ravelin::VectorNd& gj) { DynamicBody::apply_generalized_impulse(gj); }
     virtual void set_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::SharedVectorNd& gc);
     virtual void set_generalized_coordinates(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gc) { DynamicBody::set_generalized_coordinates(gctype, gc); }
+    virtual void set_generalized_acceleration(const Ravelin::SharedVectorNd& ga);
     virtual void set_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::SharedVectorNd& gv);
     virtual void set_generalized_velocity(DynamicBody::GeneralizedCoordinateType gctype, const Ravelin::VectorNd& gv) { DynamicBody::set_generalized_velocity(gctype, gv); }
     virtual Ravelin::SharedVectorNd& get_generalized_forces(Ravelin::SharedVectorNd& f);
@@ -225,6 +227,9 @@ class RigidBody : public SingleBody
 
     template <class V>
     void set_generalized_velocity_generic(DynamicBody::GeneralizedCoordinateType gctype, V& gv);
+
+    template <class V>
+    void set_generalized_acceleration_generic(V& ga);
 
     void update_mixed_pose();
     void set_force(const Ravelin::SForced& w);

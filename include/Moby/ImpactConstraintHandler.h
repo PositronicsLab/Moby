@@ -36,7 +36,7 @@ class ImpactConstraintHandler
 {
   public:
     ImpactConstraintHandler();
-    void process_constraints(const std::vector<UnilateralConstraint>& constraints, double max_time, double inv_dt = 0.0);
+    void process_constraints(const std::vector<UnilateralConstraint>& constraints, double max_time);
 
     /// If set to true, uses the interior-point solver (default is false)
     bool use_ip_solver;
@@ -49,9 +49,9 @@ class ImpactConstraintHandler
 
   private:
     void solve_frictionless_lcp(UnilateralConstraintProblemData& q, Ravelin::VectorNd& z);
-    void apply_visc_friction_model_to_connected_constraints(const std::list<UnilateralConstraint*>& constraints, double inv_dt);
-    void apply_no_slip_model_to_connected_constraints(const std::list<UnilateralConstraint*>& constraints, double inv_dt);
-    void apply_ap_model_to_connected_constraints(const std::list<UnilateralConstraint*>& constraints, double inv_dt);
+    void apply_visc_friction_model_to_connected_constraints(const std::list<UnilateralConstraint*>& constraints);
+    void apply_no_slip_model_to_connected_constraints(const std::list<UnilateralConstraint*>& constraints);
+    void apply_ap_model_to_connected_constraints(const std::list<UnilateralConstraint*>& constraints);
     void update_from_stacked(UnilateralConstraintProblemData& q, const Ravelin::VectorNd& z);
     double calc_min_constraint_velocity(const UnilateralConstraintProblemData& q) const;
     void update_constraint_velocities_from_impulses(UnilateralConstraintProblemData& q);
@@ -64,10 +64,10 @@ class ImpactConstraintHandler
     void apply_ap_model(UnilateralConstraintProblemData& epd);
     void solve_qp(Ravelin::VectorNd& z, UnilateralConstraintProblemData& epd, double max_time = std::numeric_limits<double>::max());
     void solve_nqp(Ravelin::VectorNd& z, UnilateralConstraintProblemData& epd, double max_time = std::numeric_limits<double>::max());
-    void apply_model(const std::vector<UnilateralConstraint>& constraints, double max_time, double inv_dt);
-    void apply_model_to_connected_constraints(const std::list<UnilateralConstraint*>& constraints, double inv_dt);
-    void apply_model_to_connected_constraints(const std::list<UnilateralConstraint*>& constraints, double max_time, double inv_dt);
-    void compute_problem_data(UnilateralConstraintProblemData& epd, double inv_dt);
+    void apply_model(const std::vector<UnilateralConstraint>& constraints, double max_time);
+    void apply_model_to_connected_constraints(const std::list<UnilateralConstraint*>& constraints);
+    void apply_model_to_connected_constraints(const std::list<UnilateralConstraint*>& constraints, double max_time);
+    void compute_problem_data(UnilateralConstraintProblemData& epd);
     void solve_lcp(UnilateralConstraintProblemData& epd, Ravelin::VectorNd& z);
     void solve_qp_work(UnilateralConstraintProblemData& epd, Ravelin::VectorNd& z);
     double calc_ke(UnilateralConstraintProblemData& epd, const Ravelin::VectorNd& z);
