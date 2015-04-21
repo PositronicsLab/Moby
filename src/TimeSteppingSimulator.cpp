@@ -318,12 +318,14 @@ double TimeSteppingSimulator::integrate_forward(double dt)
       if (current_pairwise_distances[i].dist < 0.0 &&
           pdi.dist < current_pairwise_distances[i].dist - NEAR_ZERO)
       {
-        if (LOGGING(LOG_SIMULATOR))
-        {
-          RigidBodyPtr rba = dynamic_pointer_cast<RigidBody>(pdi.a->get_single_body());
-          RigidBodyPtr rbb = dynamic_pointer_cast<RigidBody>(pdi.b->get_single_body());
-          FILE_LOG(LOG_SIMULATOR) << "signed distance between " << rba->id << " and " << rbb->id << "(" << pdi.dist << ") below tolerance: " << (pdi.dist - current_pairwise_distances[i].dist) << std::endl;
-        }
+        // check whether one of the bodies is compliant
+        RigidBodyPtr rba = dynamic_pointer_cast<RigidBody>(pdi.a->get_single_body());
+        RigidBodyPtr rbb = dynamic_pointer_cast<RigidBody>(pdi.b->get_single_body());
+        if (rba->compliance == RigidBody::eCompliant || 
+            rbb->compliance == RigidBody::eCompliant)
+          continue;
+
+        FILE_LOG(LOG_SIMULATOR) << "signed distance between " << rba->id << " and " << rbb->id << "(" << pdi.dist << ") below tolerance: " << (pdi.dist - current_pairwise_distances[i].dist) << std::endl;
         all_met = false;
         break;
       }
