@@ -586,9 +586,9 @@ void CRBAlgorithm::precalc(RCArticulatedBodyPtr body)
   const vector<JointPtr>& joints = body->get_explicit_joints();
 
   // get the generalized coordinates
-  static VectorNd gc_last, gc, tmpv;
+  static VectorNd gc, tmpv;
   body->get_generalized_coordinates(DynamicBody::eEuler, gc);
-  if (gc_last.size() == 0 || ((tmpv = gc) -= gc_last).norm_inf() > REFACTOR_TOL)
+  if (_gc_last.size() == 0 || ((tmpv = gc) -= _gc_last).norm_inf() > REFACTOR_TOL)
   {
     // compute spatial isolated inertias and generalized inertia matrix
     // do the calculations
@@ -605,7 +605,7 @@ void CRBAlgorithm::precalc(RCArticulatedBodyPtr body)
       _LA->svd(fM, _uM, _sM, _vM);
     }
 
-    gc_last = gc;
+    _gc_last = gc;
   }
 }
 

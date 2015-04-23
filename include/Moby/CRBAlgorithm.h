@@ -110,6 +110,9 @@ class CRBAlgorithm
     Ravelin::VectorNd _workv;
     std::vector<Ravelin::SVelocityd> _J;
 
+    // precalc
+    Ravelin::VectorNd _gc_last;
+
     #include "CRBAlgorithm.inl"
 };
 }
