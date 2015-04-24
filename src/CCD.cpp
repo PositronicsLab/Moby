@@ -255,7 +255,7 @@ static double minposroot(double a, double b, double c)
   double r1 = 0.5*(-b - ((b < 0.0) ? -disc : disc))/a;
   double r2 = c/(a*r1);
 
-  FILE_LOG(LOG_SIMULATOR) << "minimum positive root, roots: " << r1 << " " << r2 << std::endl;
+  FILE_LOG(LOG_SIMULATOR) << "minimum positive root, a: " << a << " b: " << b << "c: " << c << " roots: " << r1 << " " << r2 << std::endl;
   if (r1 < 0.0)
     r1 = INF;
   if (r2 < 0.0)
@@ -273,10 +273,10 @@ double CCD::calc_max_step(RigidBodyPtr rbA, RigidBodyPtr rbB, const Vector3d& n0
   //   omegaB.norm_inf()*t*r + t^2*alphaA.norm_inf()) + t^2*alphaB.norm_inf()
 
   // get the velocities
-  const SVelocityd& vA = Pose3d::transform(GLOBAL, rbA->get_velocity());
-  const SVelocityd& vB = Pose3d::transform(GLOBAL, rbB->get_velocity());
-  const SAcceld& aA = Pose3d::transform(GLOBAL, rbA->get_accel());
-  const SAcceld& aB = Pose3d::transform(GLOBAL, rbB->get_accel());
+  const SVelocityd& vA = Pose3d::transform(rbA->get_pose(), rbA->get_velocity());
+  const SVelocityd& vB = Pose3d::transform(rbA->get_pose(), rbB->get_velocity());
+  const SAcceld& aA = Pose3d::transform(rbA->get_pose(), rbA->get_accel());
+  const SAcceld& aB = Pose3d::transform(rbA->get_pose(), rbB->get_accel());
   Vector3d xdA = vA.get_linear();
   Vector3d xdB = vB.get_linear();
   Vector3d xddA = aA.get_linear();
@@ -289,9 +289,13 @@ double CCD::calc_max_step(RigidBodyPtr rbA, RigidBodyPtr rbB, const Vector3d& n0
   FILE_LOG(LOG_COLDET) << "body " << rbB->id << " velocity: " << vB << " and " << " accel: " << aB << std::endl;
 
   // get the minimum positive roots for all three components of w/alpha
-  double a = n0.dot(xddA - xddB);
-  double b = n0.dot(xdA - xdB);
+  Vector3d nA = Pose3d::transform_vector(rbA->get_pose(), n0);
+  double a = nA.dot(xddA - xddB);
+  double b = nA.dot(xdA - xdB);
+  double ax = nA.dot(alphaA)*rmaxA + nA.dot(alphaB)*rmaxB;
+  double bx = nA.dot(wA)*rmaxA + nA.dot(wB)*rmaxB;
   double r = std::numeric_limits<double>::max();
+/*
   for (unsigned i=0; i< 3; i++)
     for (unsigned j=0; j< 3; j++)
     {
@@ -299,6 +303,11 @@ double CCD::calc_max_step(RigidBodyPtr rbA, RigidBodyPtr rbB, const Vector3d& n0
       double bij = std::fabs(wA[i])*rmaxA + std::fabs(wB[j])*rmaxB;
       r = std::min(r, minposroot(aij + a, bij + b, -dist));
     }
+*/
+
+//  r = minposroot(a + alphaA.norm()*rmaxA + alphaB.norm()*rmaxB, b + wA.norm()*rmaxA + wB.norm()*rmaxB, -dist);
+  r = minposroot(a + ax, b + bx, -dist);
+
   return r; 
 }
 

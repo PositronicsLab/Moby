@@ -25,7 +25,7 @@
     <DynamicBody dynamic-body-id="WALKER" />
 <!--    <DynamicBody dynamic-body-id="BOX" />-->
     <DisabledPair object1-id="WALKER" object2-id="WALKER"/>
-    <ContactParameters object1-id="GROUND" object2-id="WALKER" epsilon="0" mu-coulomb="100" />
+    <ContactParameters object1-id="GROUND" object2-id="WALKER" epsilon="0" mu-coulomb="99.9" />
 <!--    <ContactParameters object1-id="GROUND" object2-id="BOX" epsilon="0" mu-coulomb="100" />-->
   </EventDrivenSimulator>
 

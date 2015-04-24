@@ -326,6 +326,7 @@ double TimeSteppingSimulator::integrate_forward(double dt)
 
   // setup backtracking constant
   const double BETA = 0.9;
+  FILE_LOG(LOG_SIMULATOR) << "About to check whether backtracking necessary using dt=" << dt_remaining << std::endl;
 
   // determine maximum step
   step_forward(dt_remaining, qsave, qdsave, deltaqd);
@@ -341,13 +342,15 @@ double TimeSteppingSimulator::integrate_forward(double dt)
         break; 
     }
   }
+  
+  FILE_LOG(LOG_SIMULATOR) << "Found maximum dt=" << dt_remaining << std::endl;
 
   // setup accumulator for h
   double h_accum = 0.0;
 
   // get contacts between geometries
-  find_unilateral_constraints(contact_dist_thresh);
-  std::set<sorted_pair<CollisionGeometryPtr> > new_contact_geoms = get_current_contact_geoms(); 
+  step_forward(0.0, qsave, qdsave, deltaqd);
+  calc_pairwise_distances();
 
   // loop until we have a new contact made
   while (h_accum < dt_remaining)
@@ -355,6 +358,8 @@ double TimeSteppingSimulator::integrate_forward(double dt)
     // get the time of the next event(s), skipping events at current step
     double h = std::min(calc_next_CA_Euler_step(contact_dist_thresh), dt_remaining);
     FILE_LOG(LOG_SIMULATOR) << "stepping bodies tentatively forward by " << h << std::endl;
+    if (h < MIN_STEP_SIZE)
+      h = std::min(MIN_STEP_SIZE, dt_remaining);
 
     // step forward by h 
     step_forward(h_accum+h, qsave, qdsave, deltaqd);
@@ -364,15 +369,26 @@ double TimeSteppingSimulator::integrate_forward(double dt)
 
     // see whether any new contacts were made
     geom_diff.clear();
+    find_unilateral_constraints(contact_dist_thresh);
+    std::set<sorted_pair<CollisionGeometryPtr> > new_contact_geoms = get_current_contact_geoms(); 
     std::set_difference(new_contact_geoms.begin(), new_contact_geoms.end(), contact_geoms.begin(), contact_geoms.end(), std::back_inserter(geom_diff));
     if (!geom_diff.empty())
     {
+      step_forward(h_accum+h, qsave, qdsave, deltaqd);
+      calc_pairwise_distances();
+      if (LOGGING(LOG_SIMULATOR))
+      {
+        for (unsigned i=0; i< _pairwise_distances.size(); i++)
+          if (_pairwise_distances[i].dist < 0.0)
+            FILE_LOG(LOG_SIMULATOR) << "minimum distance: " << _pairwise_distances[i].dist << std::endl;
+      }
       FILE_LOG(LOG_SIMULATOR) << "new contact reported: quitting" << std::endl;
       break;
     }
 
     // update h_accum
     h_accum += h;
+    dt_remaining -= h;
   }
 
   // update rigid constraints
@@ -385,6 +401,13 @@ double TimeSteppingSimulator::integrate_forward(double dt)
   // call the post application callback, if any
   if (constraint_post_callback_fn)
     (*constraint_post_callback_fn)(_rigid_constraints, constraint_post_callback_data);
+
+  if (LOGGING(LOG_SIMULATOR))
+  {
+    for (unsigned i=0; i< _pairwise_distances.size(); i++)
+      if (_pairwise_distances[i].dist < 0.0)
+        FILE_LOG(LOG_SIMULATOR) << "minimum distance: " << _pairwise_distances[i].dist << std::endl;
+  }
 
   return h_accum; 
 /*
