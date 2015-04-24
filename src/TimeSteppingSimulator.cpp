@@ -208,6 +208,56 @@ double TimeSteppingSimulator::calc_next_CA_Euler_step(double contact_dist_thresh
   return next_event_time;
 }
 
+/// Computes impacting unilateral constraint forces, but does *not* do post-processing 
+void TimeSteppingSimulator::calc_impacting_unilateral_constraint_forces2(double dt)
+{
+  // if there are no constraints, quit now
+  if (_rigid_constraints.empty())
+    return;
+
+  // call the callback function, if any
+  if (constraint_callback_fn)
+    (*constraint_callback_fn)(_rigid_constraints, constraint_callback_data);
+
+  // preprocess constraints
+  for (unsigned i=0; i< _rigid_constraints.size(); i++)
+    preprocess_constraint(_rigid_constraints[i]);
+
+  // look for the case where there are no impacting constraints
+  bool none_impacting = true;
+  for (unsigned i=0; i< _rigid_constraints.size(); i++)
+    if (_rigid_constraints[i].determine_constraint_class() == UnilateralConstraint::eNegative)
+    {
+      none_impacting = false;
+      break;
+    }
+
+  // if there are no impacts, return
+  if (none_impacting)
+    return;
+
+  // if the setting is enabled, draw all contact constraints
+  if( render_contact_points ) {
+    for ( std::vector<UnilateralConstraint>::iterator it = _rigid_constraints.begin(); it < _rigid_constraints.end(); it++ ) {
+      UnilateralConstraint& constraint = *it;
+      if( constraint.constraint_type != UnilateralConstraint::eContact ) continue;
+      visualize_contact( constraint );
+    }
+  }
+
+  // compute impulses here...
+  try
+  {
+    _impact_constraint_handler.process_constraints(_rigid_constraints, std::numeric_limits<double>::max());
+  }
+  catch (ImpactToleranceException e)
+  {
+    #ifndef NDEBUG
+    std::cerr << "warning: impacting constraint tolerances exceeded" << std::endl;
+    #endif
+  }
+}
+
 /// Integrates bodies' forward by *up to* dt using Euler integration
 double TimeSteppingSimulator::integrate_forward(double dt)
 {
@@ -244,7 +294,7 @@ double TimeSteppingSimulator::integrate_forward(double dt)
   }
 
   // compute impacts (if any), getting the new velocity
-  calc_impacting_unilateral_constraint_forces(-1.0);
+  calc_impacting_unilateral_constraint_forces2(-1.0);
 
   // get the change in velocity 
   for (unsigned i=0; i< _bodies.size(); i++)
@@ -277,101 +327,66 @@ double TimeSteppingSimulator::integrate_forward(double dt)
   // setup backtracking constant
   const double BETA = 0.9;
 
+  // determine maximum step
+  step_forward(dt_remaining, qsave, qdsave, deltaqd);
+  calc_pairwise_distances();
+  if (!constraints_met(current_pairwise_distances))
+  {
+    while (dt_remaining > MIN_STEP_SIZE)
+    {
+      dt_remaining *= BETA;
+      step_forward(dt_remaining, qsave, qdsave, deltaqd);
+      calc_pairwise_distances();
+      if (constraints_met(current_pairwise_distances))
+        break; 
+    }
+  }
+
   // setup accumulator for h
   double h_accum = 0.0;
 
+  // get contacts between geometries
+  find_unilateral_constraints(contact_dist_thresh);
+  std::set<sorted_pair<CollisionGeometryPtr> > new_contact_geoms = get_current_contact_geoms(); 
+
   // loop until we have a new contact made
-  do
+  while (h_accum < dt_remaining)
   {
     // get the time of the next event(s), skipping events at current step
     double h = std::min(calc_next_CA_Euler_step(contact_dist_thresh), dt_remaining);
     FILE_LOG(LOG_SIMULATOR) << "stepping bodies tentatively forward by " << h << std::endl;
 
     // step forward by h 
-    for (unsigned i=0; i< _bodies.size(); i++)
-    {
-      // get the i'th body
-      DynamicBodyPtr db = _bodies[i];
+    step_forward(h_accum+h, qsave, qdsave, deltaqd);
 
-      // update the generalized velocity 
-      (qd = deltaqd[i]) *= (h_accum + h);
-      qd += qdsave[i];
-      db->set_generalized_velocity(DynamicBody::eEuler, qd);
-
-      // update the position
-      q = qsave[i]; 
-      qd *= (h_accum + h);
-      q += qd;
-      db->set_generalized_coordinates(DynamicBody::eEuler, q);
-    }
-
-    // check the pairwise distances
+    // recompute pairwise distance
     calc_pairwise_distances();
 
-    FILE_LOG(LOG_SIMULATOR) << "checking constraints met to desired tolerance" << std::endl;
-
-    // see whether constraints are met to specified tolerance
-    bool all_met = true;
-    for (unsigned i=0; i< _pairwise_distances.size(); i++)
+    // see whether any new contacts were made
+    geom_diff.clear();
+    std::set_difference(new_contact_geoms.begin(), new_contact_geoms.end(), contact_geoms.begin(), contact_geoms.end(), std::back_inserter(geom_diff));
+    if (!geom_diff.empty())
     {
-      const PairwiseDistInfo& pdi = _pairwise_distances[i];
-      if (current_pairwise_distances[i].dist < 0.0 &&
-          pdi.dist < current_pairwise_distances[i].dist - NEAR_ZERO)
-      {
-        // check whether one of the bodies is compliant
-        RigidBodyPtr rba = dynamic_pointer_cast<RigidBody>(pdi.a->get_single_body());
-        RigidBodyPtr rbb = dynamic_pointer_cast<RigidBody>(pdi.b->get_single_body());
-        if (rba->compliance == RigidBody::eCompliant || 
-            rbb->compliance == RigidBody::eCompliant)
-          continue;
-
-        FILE_LOG(LOG_SIMULATOR) << "signed distance between " << rba->id << " and " << rbb->id << "(" << pdi.dist << ") below tolerance: " << (pdi.dist - current_pairwise_distances[i].dist) << std::endl;
-        all_met = false;
-        break;
-      }
+      FILE_LOG(LOG_SIMULATOR) << "new contact reported: quitting" << std::endl;
+      break;
     }
 
-    // see whether to update dt_remaining 
-    if (!all_met)
-    {
-      FILE_LOG(LOG_SIMULATOR) << "-- substep exhibited constraint violation" << std::endl;
-      dt_remaining = std::min(dt_remaining, h)*BETA;
-      FILE_LOG(LOG_SIMULATOR) << "  reducing substep size to: " << dt_remaining << std::endl;
-    }
-    else
-    {
-      // update dt_remaining and the h accumulator
-      dt_remaining -= h;
-      h_accum += h;
-          
-      FILE_LOG(LOG_SIMULATOR) << "remaining dt: " << dt_remaining << std::endl;
-
-      // TODO: fix below to incorporate detecting new limits
-      if (dt_remaining > 0.0)
-      {
-        // get contacts between geometries
-        find_unilateral_constraints(contact_dist_thresh);
-        std::set<sorted_pair<CollisionGeometryPtr> > new_contact_geoms = get_current_contact_geoms(); 
-
-        // see whether any new contacts were made
-        geom_diff.clear();
-        std::set_difference(new_contact_geoms.begin(), new_contact_geoms.end(), contact_geoms.begin(), contact_geoms.end(), std::back_inserter(geom_diff));
-        if (!geom_diff.empty())
-        {
-          FILE_LOG(LOG_SIMULATOR) << "new contact reported: quitting" << std::endl;
-          break;
-        }
-        else
-          new_contact_geoms = contact_geoms;
-      }
-
-      // recompute pairwise distance
-      calc_pairwise_distances();
-    }
+    // update h_accum
+    h_accum += h;
   }
-  while (dt_remaining > 0.0);
 
-  return (dt - dt_remaining); 
+  // update rigid constraints
+  for (unsigned i=0; i< _rigid_constraints.size(); i++)
+  {
+    _rigid_constraints[i].contact_impulse *= h_accum;
+    _rigid_constraints[i].limit_impulse *= h_accum;
+  }
+
+  // call the post application callback, if any
+  if (constraint_post_callback_fn)
+    (*constraint_post_callback_fn)(_rigid_constraints, constraint_post_callback_data);
+
+  return h_accum; 
 /*
   // copy pairwise distance vector
   vector<PairwiseDistInfo> current_pairwise_distances = _pairwise_distances;
@@ -431,8 +446,55 @@ double TimeSteppingSimulator::integrate_forward(double dt)
     dt *= BETA;
   }
 */
+}
 
-  return dt;
+/// Checks to see whether all constraints are met
+bool TimeSteppingSimulator::constraints_met(const std::vector<PairwiseDistInfo>& current_pairwise_distances)
+{
+  // see whether constraints are met to specified tolerance
+  for (unsigned i=0; i< _pairwise_distances.size(); i++)
+  {
+    const PairwiseDistInfo& pdi = _pairwise_distances[i];
+    if (current_pairwise_distances[i].dist < 0.0 &&
+        pdi.dist < current_pairwise_distances[i].dist - NEAR_ZERO)
+    {
+      // check whether one of the bodies is compliant
+      RigidBodyPtr rba = dynamic_pointer_cast<RigidBody>(pdi.a->get_single_body());
+      RigidBodyPtr rbb = dynamic_pointer_cast<RigidBody>(pdi.b->get_single_body());
+      if (rba->compliance == RigidBody::eCompliant || 
+          rbb->compliance == RigidBody::eCompliant)
+        continue;
+
+      FILE_LOG(LOG_SIMULATOR) << "signed distance between " << rba->id << " and " << rbb->id << "(" << pdi.dist << ") below tolerance: " << (pdi.dist - current_pairwise_distances[i].dist) << std::endl;
+
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/// Integrates all bodies forward using symplectic Euler integration
+void TimeSteppingSimulator::step_forward(double h, const vector<VectorNd>& qsave, const vector<VectorNd>& qdsave, const vector<VectorNd>& deltaqd)
+{
+  VectorNd q, qd; 
+
+  for (unsigned i=0; i< _bodies.size(); i++)
+  {
+    // get the i'th body
+    DynamicBodyPtr db = _bodies[i];
+
+    // update the generalized velocity 
+    (qd = deltaqd[i]) *= h;
+    qd += qdsave[i];
+    db->set_generalized_velocity(DynamicBody::eEuler, qd);
+
+    // update the position
+    q = qsave[i]; 
+    qd *= h;
+    q += qd;
+    db->set_generalized_coordinates(DynamicBody::eEuler, q);
+  }
 }
 
 /// Gets the current set of contact geometries
