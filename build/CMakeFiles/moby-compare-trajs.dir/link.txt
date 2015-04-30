@@ -1,0 +1,1 @@
+/usr/bin/c++   -O2 -g -DNDEBUG    CMakeFiles/moby-compare-trajs.dir/example/compare-trajs.cpp.o  -o moby-compare-trajs -rdynamic libMoby.so -lqhull -lRavelin -lxml2 -losg -losgViewer -losgDB -losgGA -lOpenThreads -losgUtil -Wl,-rpath,/home/shankar/CSCI6525/project/Moby/build  -ldl

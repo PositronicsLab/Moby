@@ -1,0 +1,1 @@
+/usr/bin/c++  -fPIC -O2 -g -DNDEBUG   -shared -Wl,-soname,libpassive-walker-coldet-plugin.so -o libpassive-walker-coldet-plugin.so CMakeFiles/passive-walker-coldet-plugin.dir/example/passive-walker/coldet-plugin.cpp.o libMoby.so -lRavelin -lqhull -lRavelin -lxml2 -losg -losgViewer -losgDB -losgGA -lOpenThreads -losgUtil -Wl,-rpath,/home/shankar/CSCI6525/project/Moby/build: 

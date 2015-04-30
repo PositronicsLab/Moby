@@ -10,7 +10,7 @@
 
   <RungeKuttaIntegrator id="rk4" />
   <BulirschStoerIntegrator id="bs" abs-err-tol="1e-4" rel-err-tol="1e-4" />
-  <RungeKuttaFehlbergIntegrator id="rkf" abs-err-tol="1e-14" rel-err-tol="1e+14" />
+  <RungeKuttaFehlbergIntegrator id="rkf" abs-err-tol="1e-6" rel-err-tol="1e+6" />
 
   <CollisionDetectionPlugin id="toroid" plugin="libpassive-walker-coldet-plugin.so" />
 
@@ -25,8 +25,8 @@
     <DynamicBody dynamic-body-id="WALKER" />
 <!--    <DynamicBody dynamic-body-id="BOX" />-->
     <DisabledPair object1-id="WALKER" object2-id="WALKER"/>
-    <ContactParameters object1-id="GROUND" object2-id="WALKER" epsilon="0" mu-coulomb="100" />
-<!--    <ContactParameters object1-id="GROUND" object2-id="BOX" epsilon="0" mu-coulomb="100" />-->
+    <ContactParameters object1-id="GROUND" object2-id="WALKER" epsilon="0" mu-coulomb="99.9" />
+<!--    <ContactParameters object1-id="GROUND" object2-id="BOX" epsilon="0" mu-coulomb="99.9" />-->
   </EventDrivenSimulator>
 
   <SDF filename="walker.sdf"/>
