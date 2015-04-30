@@ -597,7 +597,7 @@ void CRBAlgorithm::precalc(RCArticulatedBodyPtr body)
     // attempt to do a Cholesky factorization of M
     MatrixNd& fM = this->_fM;
     MatrixNd& M = this->_M;
-    if (_rank_deficient = !_LA->factor_chol(fM = M))
+    if ((_rank_deficient = !_LA->factor_chol(fM = M)))
 //  if ((_rank_deficient = !factorize_cholesky(fM = M)))
     {
       std::cerr << "CRBAlgorithm::precalc() warning- Cholesky factorization of generalized inertia matrix failed" << std::endl;
