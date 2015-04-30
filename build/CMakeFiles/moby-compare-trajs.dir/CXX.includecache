@@ -1,0 +1,28 @@
+#IncludeRegexLine: ^[ 	]*#[ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/shankar/CSCI6525/project/Moby/example/compare-trajs.cpp
+assert.h
+-
+iostream
+-
+fstream
+-
+cstring
+-
+vector
+-
+list
+-
+cmath
+-
+limits
+-
+cstdlib
+-
+

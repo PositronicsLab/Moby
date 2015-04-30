@@ -180,7 +180,7 @@ void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map,
   // setup the callback
   sim->post_step_callback_fn = &post_step_callback;
 
-//  part->controller                  = &controller_callback;
+  walker->controller                  = &controller_callback;
 //  sim->constraint_post_callback_fn  = &post_event_callback_fn;
 
   // Set initial conditions from ruina paper
