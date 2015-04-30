@@ -44,6 +44,7 @@ endif (PROFILE)
 set (CMAKE_CXX_LINK_EXECUTABLE "${CMAKE_CXX_LINK_EXECUTABLE} -ldl")
 
 # find libraries
+find_package (Ravelin REQUIRED)
 find_package (LibXml2 REQUIRED)
 find_package (Boost REQUIRED)
 find_package (IPOPT)
@@ -122,6 +123,7 @@ endif (LIBXML2_FOUND)
 # setup include directories, compiler flags, and libraries for required pkgs
 include_directories (${BOOST_INCLUDE_DIR})
 include_directories (${QHULL_INCLUDE_DIR})
+include_directories (${RAVELIN_INCLUDE_DIR})
 
 # configure checks: optional libraries
 CHECK_LIBRARY_EXISTS(odepack dlsode_ "" HAVE_ODEPACK)
@@ -142,7 +144,7 @@ endforeach (i)
 
 # create the library
 add_library(Moby "" "" ${LIBSOURCES})
-target_link_libraries (Moby ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${QHULL_LIBRARIES} Ravelin ${EXTRA_LIBS})
+target_link_libraries (Moby ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${QHULL_LIBRARIES} ${RAVELIN_LIBRARIES} ${EXTRA_LIBS})
 
 # link optional libraries
 if (OMP)
