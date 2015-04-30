@@ -9,9 +9,12 @@
 #include <Ravelin/VectorNd.h>
 using namespace Ravelin;
 using namespace Moby;
+using boost::shared_ptr;
 
 boost::shared_ptr<Moby::EventDrivenSimulator> sim;
 Moby::RCArticulatedBodyPtr walker;
+Moby::RigidBodyPtr ground;
+Moby::CollisionGeometryPtr lfoot_geom, rfoot_geom;
 boost::shared_ptr<GravityForce> grav;
 
 const double ALPHA = 0.0702;
@@ -36,7 +39,7 @@ Ravelin::Origin3d quat2rpy(const Ravelin::Quatd& q_){
 }
 
 // setup simulator callback
-void post_step_callback(Simulator* sim)
+void post_step_callback(Simulator* s)
 {
   const unsigned Z = 2;
   std::ofstream out("energy.dat", std::ostream::app);
@@ -49,6 +52,23 @@ void post_step_callback(Simulator* sim)
   double PEl1 = l1->get_inertia().m*gTl1.x[Z]*-grav->gravity[Z];
   out << KE << " " << (PEb+PEl1) << " " << (KE+PEb+PEl1) << std::endl;
   out.close();
+
+  // get the signed distance between the walker feet and the ground
+  CollisionGeometryPtr ground_geom = ground->geometries.front();
+  Point3d dummy1, dummy2;
+  shared_ptr<CollisionDetection> coldet = sim->get_collision_detection();
+  double dL = coldet->calc_signed_dist(lfoot_geom, ground_geom, dummy1, dummy2);
+  double dR = coldet->calc_signed_dist(rfoot_geom, ground_geom, dummy1, dummy2);
+
+  // if the signed distance is negative, project the walker upward by the
+  // minimum distance
+  if (std::min(dL, dR) < 0.0)
+  {
+    Pose3d P(*base->get_pose());
+    P.x[2] -= std::min(dL, dR);
+    base->set_pose(P);
+    walker->update_link_poses();
+  }
 }
 
 Ravelin::Quatd rpy2quat(const Ravelin::Origin3d& rpy){
@@ -175,12 +195,20 @@ void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map,
     // find the gravity vector
     if (!grav)
       grav = boost::dynamic_pointer_cast<GravityForce>(i->second);
+
+    // find the ground
+    if (!ground && i->first == "GROUND")
+      ground = boost::dynamic_pointer_cast<RigidBody>(i->second);
   }
 
   // setup the callback
   sim->post_step_callback_fn = &post_step_callback;
 
-//  part->controller                  = &controller_callback;
+<<<<<<< HEAD
+  walker->controller                  = &controller_callback;
+=======
+//  walker->controller                  = &controller_callback;
+>>>>>>> 519d1f641a28fdea0dee77ba33e7e1446d3ff9c0
 //  sim->constraint_post_callback_fn  = &post_event_callback_fn;
 
   // Set initial conditions from ruina paper
@@ -264,6 +292,10 @@ void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map,
   xd.set_zero();
   xd.set_sub_vec(4,w);
   xd[0] = 3.925591686648300e-001; // -Theta_sw
+
+  // get the collision geometries for the feet
+  lfoot_geom = walker->find_link("LLEG")->geometries.front();
+  rfoot_geom = walker->find_link("RLEG")->geometries.front();
 
   walker->set_generalized_coordinates( Moby::DynamicBody::eEuler,x);
   walker->set_generalized_velocity( Moby::DynamicBody::eSpatial,xd);
