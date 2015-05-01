@@ -4,6 +4,7 @@
 #include <Moby/EventDrivenSimulator.h>
 #include <Moby/RCArticulatedBody.h>
 #include <Moby/GravityForce.h>
+#include <Moby/ContactParameters.h>
 #include <Ravelin/Pose3d.h>
 #include <Ravelin/Vector3d.h>
 #include <Ravelin/VectorNd.h>
@@ -15,11 +16,12 @@ using namespace Ravelin;
 using namespace Moby;
 
 Moby::RigidBodyPtr sphere;
+Moby::RigidBodyPtr ground;
 boost::shared_ptr<EventDrivenSimulator> sim;
 boost::shared_ptr<GravityForce> grav;
 
 // setup simulator callback
-void post_step_callback(Simulator* sim)
+void post_step_callback(Simulator* s)
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
@@ -27,7 +29,7 @@ void post_step_callback(Simulator* sim)
   const double R = 1.0;
 
   // get the bottom of the sphere
-  Transform3d wTs = Pose3d::calc_relative_pose(sphere->get_inertial_pose(), GLOBAL);
+  Transform3d wTs = Pose3d::calc_relative_pose(sphere->get_pose(), GLOBAL);
 
   shared_ptr<Pose3d> Pbot(new Pose3d);  
   Pbot->rpose = GLOBAL;
@@ -52,9 +54,13 @@ void post_step_callback(Simulator* sim)
 
   // output the sliding velocity at the contact 
   std::ofstream out("contactv.dat", std::ostream::app);
-  out << sim->current_time << " " << linear[X] << " " << linear[Y] << std::endl;
+  out << sim->current_time << " " << linear[X] << " " << linear[Y] << " " << linear[Z] << std::endl;
 //  out << sim->current_time << " " << (s.dot(xd) + crosss.dot(omega)) << " " << (t.dot(xd) + crosst.dot(omega)) << std::endl; 
 //  out << sim->current_time << " " << v[3] << " " << v[4] << " " << v[5] << " " << v[0] << " " << v[1] << " " << v[2] << std::endl;
+  out.close();
+
+  out.open("velocity.dat", std::ostream::app);
+  out << sim->current_time << " " << v[3] << " " << v[4] << " " << v[5] << " " << v[0] << " " << v[1] << " " << v[2] << std::endl; 
   out.close();
 
   out.open("ke.dat", std::ostream::app);
@@ -84,6 +90,8 @@ void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map,
       sim = boost::dynamic_pointer_cast<EventDrivenSimulator>(i->second);
     if (i->first == "sphere")
       sphere = boost::dynamic_pointer_cast<RigidBody>(i->second);
+    if (i->first == "ground")
+      ground = boost::dynamic_pointer_cast<RigidBody>(i->second);
     if (!grav)
       grav = boost::dynamic_pointer_cast<GravityForce>(i->second);
   }

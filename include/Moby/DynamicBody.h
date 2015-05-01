@@ -37,8 +37,8 @@ class DynamicBody : public Visualizable
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
 
     /// The Jacobian transforms from the generalized coordinate from to the given frame
-    virtual Ravelin::MatrixNd& calc_jacobian(boost::shared_ptr<const Ravelin::Pose3d> frame, DynamicBodyPtr body, Ravelin::MatrixNd& J) = 0;
-    virtual Ravelin::MatrixNd& calc_jacobian_dot(boost::shared_ptr<const Ravelin::Pose3d> frame, DynamicBodyPtr body, Ravelin::MatrixNd& J) = 0;
+    virtual Ravelin::MatrixNd& calc_jacobian(boost::shared_ptr<const Ravelin::Pose3d> source_pose, boost::shared_ptr<const Ravelin::Pose3d> target_pose, DynamicBodyPtr body, Ravelin::MatrixNd& J) = 0;
+    virtual Ravelin::MatrixNd& calc_jacobian_dot(boost::shared_ptr<const Ravelin::Pose3d> source_pose, boost::shared_ptr<const Ravelin::Pose3d> target_pose, DynamicBodyPtr body, Ravelin::MatrixNd& J) = 0;
 
     /// Returns true if one or more of the limit estimates has been exceeded
     virtual bool limit_estimates_exceeded() const = 0;

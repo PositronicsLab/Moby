@@ -75,7 +75,7 @@
         <geometry>
           <cylinder>
             <radius>0.11</radius>
-            <length>0.000001</length>
+            <length>0.01</length>
           </cylinder>
         </geometry>
         <material>
@@ -121,7 +121,7 @@
         <geometry>
           <cylinder>
             <radius>0.11</radius>
-            <length>0.000001</length>
+            <length>0.01</length>
           </cylinder>
         </geometry>
         <material>

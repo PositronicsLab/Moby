@@ -29,6 +29,8 @@ class VisualizationData;
  */
 class Joint : public Visualizable, public virtual Ravelin::Jointd
 {
+  friend class ArticulatedBody;
+
   public:
     /**  
      * The constraint type is implicit if constraint forces must be determined

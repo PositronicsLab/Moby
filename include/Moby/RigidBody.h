@@ -110,8 +110,8 @@ class RigidBody : public SingleBody
     bool is_ground() const;
     virtual boost::shared_ptr<const Ravelin::Pose3d> get_computation_frame() const;
     virtual void set_computation_frame_type(ReferenceFrameType rftype);
-    virtual Ravelin::MatrixNd& calc_jacobian(boost::shared_ptr<const Ravelin::Pose3d> frame, DynamicBodyPtr body, Ravelin::MatrixNd& J);
-    virtual Ravelin::MatrixNd& calc_jacobian_dot(boost::shared_ptr<const Ravelin::Pose3d> frame, DynamicBodyPtr body, Ravelin::MatrixNd& J);
+    virtual Ravelin::MatrixNd& calc_jacobian(boost::shared_ptr<const Ravelin::Pose3d> source_pose, boost::shared_ptr<const Ravelin::Pose3d> target_pose, DynamicBodyPtr body, Ravelin::MatrixNd& J);
+    virtual Ravelin::MatrixNd& calc_jacobian_dot(boost::shared_ptr<const Ravelin::Pose3d> source_pose, boost::shared_ptr<const Ravelin::Pose3d> target_pose, DynamicBodyPtr body, Ravelin::MatrixNd& J);
     const Ravelin::SForced& sum_forces();
     void reset_accumulators();
     Ravelin::SForced calc_euler_torques();
@@ -200,9 +200,6 @@ class RigidBody : public SingleBody
 
     /// Gets the list of outer joints for this link
     const std::set<JointPtr>& get_outer_joints() const { return _outer_joints; }
-
-    /// Viscous coefficient for dampening the body motion
-    Ravelin::VectorNd viscous_coeff;
 
     /// Validates the limit estimates
     virtual void validate_limit_estimates() { _vel_limit_exceeded = false; }

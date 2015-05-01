@@ -34,6 +34,7 @@ class EventDrivenSimulator : public Simulator
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual double step(double dt);
+    boost::shared_ptr<ContactParameters> get_contact_parameters(CollisionGeometryPtr geom1, CollisionGeometryPtr geom2) const;
 
     /// Determines whether two geometries are not checked
     std::set<sorted_pair<CollisionGeometryPtr> > unchecked_pairs;
@@ -174,7 +175,6 @@ class EventDrivenSimulator : public Simulator
     void save_state();
     void restore_state();
     void step_si_Euler(double dt);
-    boost::shared_ptr<ContactParameters> get_contact_parameters(CollisionGeometryPtr geom1, CollisionGeometryPtr geom2) const;
     double calc_CA_step();
     double calc_next_CA_step(double contact_dist_thresh) const;
     double calc_next_CA_Euler_step(double contact_dist_thresh) const;
@@ -183,9 +183,6 @@ class EventDrivenSimulator : public Simulator
 
     /// Pairwise distances at bodies' current configurations
     std::vector<PairwiseDistInfo> _pairwise_distances;
-
-    /// The derivative at the current time
-    Ravelin::VectorNd _current_accel_dx;
 
     /// Work vector
     Ravelin::VectorNd _workV;

@@ -111,7 +111,6 @@ OutputIterator CCD::find_contacts_generic(CollisionGeometryPtr cgA, CollisionGeo
 template <class OutputIterator>
 OutputIterator CCD::find_contacts_cylinder_plane(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator o, double TOL)
 {
-
   Ravelin::Vector3d normal;
   Point3d p; // this is plane
 
@@ -134,12 +133,13 @@ OutputIterator CCD::find_contacts_cylinder_plane(CollisionGeometryPtr cgA, Colli
   ///////////////
   const double R = pA->get_radius();
   const double H = pA->get_height();
+  const unsigned Y = 1;
 
   Ravelin::Transform3d pPc = Ravelin::Pose3d::calc_relative_pose(Pcyl,Pplane);
 
-  // Cylinder axis cN
+  // cN is the cylinder axis with respect to the plane
   Ravelin::Vector3d cN = Ravelin::Vector3d(
-                           Ravelin::Matrix3d(pPc.q).get_column(1),
+                           Ravelin::Matrix3d(pPc.q).get_column(Y),
                            Pplane);
   cN.normalize();
 
@@ -159,8 +159,8 @@ OutputIterator CCD::find_contacts_cylinder_plane(CollisionGeometryPtr cgA, Colli
     axial_dir = -axial_dir;
   axial_dir.normalize();
 
-  if(fabs(n_dot_cN) > 1.0-Moby::NEAR_ZERO){
-    FILE_LOG(LOG_COLDET) << " -- Cylinder face is parallel to plane" << std::endl;
+  if(fabs(n_dot_cN) > 1.0-1e-8){
+    FILE_LOG(LOG_COLDET) << " -- Cylinder axis is perpendicular to Plane" << std::endl;
 
     Point3d x = (H/2.0)*axial_dir + c0;
 
@@ -169,7 +169,7 @@ OutputIterator CCD::find_contacts_cylinder_plane(CollisionGeometryPtr cgA, Colli
     if (d > TOL)
       return o;
 
-    double res = 4;
+    int res = 4;
     for(int i=0;i<res;i++){
       Ravelin::Vector3d tan1,tan2;
       Ravelin::Vector3d::determine_orthonormal_basis(n,tan1,tan2);
@@ -180,37 +180,40 @@ OutputIterator CCD::find_contacts_cylinder_plane(CollisionGeometryPtr cgA, Colli
       *o++ = create_contact(cgA, cgB, Ravelin::Pose3d::transform_point(GLOBAL, p), normal, d);
     }
 
-  } else if(fabs(n_dot_cN) < Moby::NEAR_ZERO){
-    FILE_LOG(LOG_COLDET) << " -- Cylinder face is perpendicular to plane"<< std::endl;
+  } else if(fabs(n_dot_cN) < 1e-8){
+    FILE_LOG(LOG_COLDET) << " -- Cylinder axis is parallel to Plane"<< std::endl;
 
     Point3d x = c0 - R*n;
 
     d = x.dot(n);
+    if (d > TOL)
+      return o;
 
-    double res = 2.0;
-    for(int i=0;i<res;i++){
-      double t = -H/2.0 + (double)i * H/(res-1);
+    double res[2] = {-1.0,1.0};
+    for(int i=0;i<2;i++){
+      double t = res[i]*H/2.0;
       Point3d p_cylinder = x + axial_dir*t;
       p = Ravelin::Pose3d::transform_point(Moby::GLOBAL,p_cylinder);
 
       *o++ = create_contact(cgA, cgB, Ravelin::Pose3d::transform_point(GLOBAL, p), normal, d);
     }
-  } else {
 
+  } else {
+    FILE_LOG(LOG_COLDET) << " -- Cylinder edge is closest to plane"<< std::endl;
     //(axis_cylinder x (n_plane x axis_cylinder))
     Ravelin::Vector3d radial_dir =
         Ravelin::Vector3d::cross(
-          cN,
-          Ravelin::Vector3d::cross(n,cN)
+          axial_dir,
+          Ravelin::Vector3d::cross(axial_dir,n)
         );
-    if(radial_dir.dot(n) > 0)
-      radial_dir = -radial_dir;
     radial_dir.normalize();
-
 
     Point3d x = (H/2.0)*axial_dir + R*radial_dir + c0;
 
     d = x.dot(n);
+
+    if (d > TOL)
+      return o;
 
     p =  Ravelin::Pose3d::transform_point(Moby::GLOBAL,x);
 //    Point3d pP = x + d*n;
@@ -256,7 +259,7 @@ OutputIterator CCD::find_contacts_sphere_plane(CollisionGeometryPtr cgA, Collisi
   Ravelin::Vector3d n(0.0, 1.0, 0.0, plane_pose);
   n = Ravelin::Pose3d::transform_vector(GLOBAL, n);
 
-  // check tolerance
+  // create the contact 
   *o++ = create_contact(cgA, cgB, Ravelin::Pose3d::transform_point(GLOBAL, p), n, dist);
 
   FILE_LOG(LOG_COLDET) << "CCD::find_contacts_sphere_plane() exited" << std::endl;
@@ -612,7 +615,7 @@ OutputIterator CCD::find_contacts_sphere_sphere(CollisionGeometryPtr cgA, Collis
   // determine the distance between the two spheres
   Ravelin::Vector3d d = cA0 - cB0;
   double dist = d.norm() - sA->get_radius() - sB->get_radius();
-  if (dist < TOL)
+  if (dist > TOL)
     return o;
 
   // get the closest points on the two spheres

@@ -11,6 +11,7 @@
 #include <fstream>
 #include <stack>
 #include <queue>
+#include <cstdlib>
 
 #ifdef USE_OSG
 #include <Moby/OSGGroupWrapper.h>
@@ -115,9 +116,6 @@ std::map<std::string, BasePtr> XMLReader::read(const std::string& fname)
   // find the moby tree 
   shared_ptr<XMLTree> moby_tree = boost::const_pointer_cast<XMLTree>(find_subtree(root_tree, "moby"));
 
-  // mark the moby root as processed
-  moby_tree->processed = true;
-
    // make sure that the Moby node was found
   if (!moby_tree)
   {
@@ -125,6 +123,23 @@ std::map<std::string, BasePtr> XMLReader::read(const std::string& fname)
     chdir(cwd.get());
     return id_map;
   }
+
+  // construct the ID map
+  id_map = construct_ID_map(moby_tree);
+
+  // change back to the initial working directory
+  chdir(cwd.get());
+
+  return id_map;
+}
+
+/// Constructs an ID map from a tree
+std::map<std::string, BasePtr> XMLReader::construct_ID_map(shared_ptr<XMLTree> moby_tree)
+{
+  std::map<std::string, BasePtr> id_map;
+
+  // mark moby tree as processed
+  moby_tree->processed = true;
 
   // ********************************************************************
   // NOTE: read_from_xml() (via process_tag()) treats all nodes at the
@@ -196,9 +211,6 @@ std::map<std::string, BasePtr> XMLReader::read(const std::string& fname)
   process_tag("EventDrivenSimulator", moby_tree, &read_event_driven_simulator, id_map);
   process_tag("TimeSteppingSimulator", moby_tree, &read_time_stepping_simulator, id_map);
 
-  // change back to the initial working directory
-  chdir(cwd.get());
-
   // output unprocessed tags / attributes
   std::queue<shared_ptr<const XMLTree> > q;
   q.push(moby_tree);
@@ -211,14 +223,14 @@ std::map<std::string, BasePtr> XMLReader::read(const std::string& fname)
     // check whether the tag was processed
     if (!node->processed)
     {
-      std::cerr << "XMLReader::read() warning- tag '" << node->name << "' not processed" << std::endl;
+      std::cerr << "XMLReader::construct_ID_map() warning- tag '" << node->name << "' not processed" << std::endl;
       continue;
     }
 
     // verify that all attributes were processed
     BOOST_FOREACH(const XMLAttrib& a, node->attribs)
       if (!a.processed)
-        std::cerr << "XMLReader::read() warning- attribute '" << a.name << "' in tag '" << node->name << "' not processed" << std::endl;
+        std::cerr << "XMLReader::construct_ID_map() warning- attribute '" << a.name << "' in tag '" << node->name << "' not processed" << std::endl;
 
     // add all children to the queue
     BOOST_FOREACH(XMLTreePtr child, node->children)
@@ -272,8 +284,27 @@ void XMLReader::read_primitive_plugin(shared_ptr<const XMLTree> node, std::map<s
   void* plugin = dlopen(pluginname.c_str(), RTLD_LAZY);
   if (!plugin)
   {
-    std::cerr << "XMLReader::read_primitive_plugin()- cannot load plugin: " << dlerror() << std::endl;
-    return;
+    // get the error string, in case we need it
+    char* dlerror_str = dlerror();
+
+    // attempt to use the plugin path
+    char* plugin_path = getenv("MOBY_PLUGIN_PATH");
+    if (plugin_path)
+    {
+      // get the plugin path and make sure it has a path string at the end
+      std::string plugin_path_str(plugin_path);
+      if (plugin_path_str.at(plugin_path_str.size()-1) != '/')
+        plugin_path_str += '/';
+
+      // concatenate
+      plugin_path_str += pluginname;
+
+      if (!(plugin = dlopen(plugin_path_str.c_str(), RTLD_LAZY)))
+      { 
+        std::cerr << "XMLReader::read_primitive_plugin()- cannot load plugin: " << dlerror_str << std::endl;
+        return;
+      }
+    }
   }
 
   // load the factory symbol
@@ -309,20 +340,31 @@ void XMLReader::read_coldet_plugin(shared_ptr<const XMLTree> node, std::map<std:
   }
   std::string pluginname = plugin_attr->get_string_value();
 
-  // verify that the plugin can be found
-  struct stat filestatus;
-  if (stat(pluginname.c_str(), &filestatus) != 0)
-  {
-    std::cerr << "XMLReader::read_coldet_plugin() - unable to find plugin '" << pluginname << "'" << std::endl;
-    return;
-  }
-
   // load the plugin
   void* plugin = dlopen(pluginname.c_str(), RTLD_LAZY);
   if (!plugin)
   {
-    std::cerr << "XMLReader::read_coldet_plugin()- cannot load plugin: " << dlerror() << std::endl;
-    return;
+    // get the error string, in case we need it
+    char* dlerror_str = dlerror();
+
+    // attempt to use the plugin path
+    char* plugin_path = getenv("MOBY_PLUGIN_PATH");
+    if (plugin_path)
+    {
+      // get the plugin path and make sure it has a path string at the end
+      std::string plugin_path_str(plugin_path);
+      if (plugin_path_str.at(plugin_path_str.size()-1) != '/')
+        plugin_path_str += '/';
+
+      // concatenate
+      plugin_path_str += pluginname;
+
+      if (!(plugin = dlopen(plugin_path_str.c_str(), RTLD_LAZY)))
+      { 
+        std::cerr << "XMLReader::read_primitive_plugin()- cannot load plugin: " << dlerror_str << std::endl;
+        return;
+      }
+    }
   }
 
   // load the factory symbol
@@ -645,13 +687,23 @@ void XMLReader::read_sdf(shared_ptr<const XMLTree> node, std::map<std::string, B
     std::cerr << "XMLReader::read_sdf() - no 'filename' attrib!" << std::endl;
     return;
   }
-
+ 
   // read the models
   std::map<std::string, DynamicBodyPtr> model_map = SDFReader::read_models(fname_attr->get_string_value());
-
-  // populate our ID map with the models
-  for (std::map<std::string, DynamicBodyPtr>::const_iterator i = model_map.begin(); i != model_map.end(); i++)
-    id_map[i->first] = i->second;
+ 
+  XMLAttrib* id_attr = node->get_attrib("id");
+  if (!id_attr)
+  {
+    // populate our ID map with the models
+    for (std::map<std::string, DynamicBodyPtr>::const_iterator i = model_map.begin(); i != model_map.end(); i++)
+      id_map[i->first] = i->second;
+  } 
+  else 
+  {
+    // populate our ID map with the models
+    for (std::map<std::string, DynamicBodyPtr>::const_iterator i = model_map.begin(); i != model_map.end(); i++)
+      id_map[id_attr->get_string_value() + "::" + i->first] = i->second;
+  }
 }
 
 /// Reads and constructs the RigidBody object
@@ -720,20 +772,31 @@ void XMLReader::read_rc_abody_symbolic(shared_ptr<const XMLTree> node, std::map<
   }
   std::string pluginname = plugin_attr->get_string_value();
 
-  // verify that the plugin can be found
-  struct stat filestatus;
-  if (stat(pluginname.c_str(), &filestatus) != 0)
-  {
-    std::cerr << "XMLReader::read_rc_abody_symbolic() - unable to find plugin '" << pluginname << "'" << std::endl;
-    return;
-  }
-
   // load the plugin
   void* plugin = dlopen(pluginname.c_str(), RTLD_NOW);
   if (!plugin)
   {
-    std::cerr << "XMLReader::read_rc_abody_symbolic()- cannot load plugin: " << dlerror() << std::endl;
-    return;
+    // get the error string, in case we need it
+    char* dlerror_str = dlerror();
+
+    // attempt to use the plugin path
+    char* plugin_path = getenv("MOBY_PLUGIN_PATH");
+    if (plugin_path)
+    {
+      // get the plugin path and make sure it has a path string at the end
+      std::string plugin_path_str(plugin_path);
+      if (plugin_path_str.at(plugin_path_str.size()-1) != '/')
+        plugin_path_str += '/';
+
+      // concatenate
+      plugin_path_str += pluginname;
+
+      if (!(plugin = dlopen(plugin_path_str.c_str(), RTLD_LAZY)))
+      { 
+        std::cerr << "XMLReader::read_primitive_plugin()- cannot load plugin: " << dlerror_str << std::endl;
+        return;
+      }
+    }
   }
 
   // load the factory symbol
@@ -769,20 +832,31 @@ void XMLReader::read_joint_plugin(shared_ptr<const XMLTree> node, std::map<std::
   }
   std::string pluginname = plugin_attr->get_string_value();
 
-  // verify that the plugin can be found
-  struct stat filestatus;
-  if (stat(pluginname.c_str(), &filestatus) != 0)
-  {
-    std::cerr << "XMLReader::read_joint_plugin() - unable to find plugin '" << pluginname << "'" << std::endl;
-    return;
-  }
-
   // load the plugin
   void* plugin = dlopen(pluginname.c_str(), RTLD_LAZY);
   if (!plugin)
   {
-    std::cerr << "XMLReader::read_joint_plugin()- cannot load plugin: " << dlerror() << std::endl;
-    return;
+    // get the error string, in case we need it
+    char* dlerror_str = dlerror();
+
+    // attempt to use the plugin path
+    char* plugin_path = getenv("MOBY_PLUGIN_PATH");
+    if (plugin_path)
+    {
+      // get the plugin path and make sure it has a path string at the end
+      std::string plugin_path_str(plugin_path);
+      if (plugin_path_str.at(plugin_path_str.size()-1) != '/')
+        plugin_path_str += '/';
+
+      // concatenate
+      plugin_path_str += pluginname;
+
+      if (!(plugin = dlopen(plugin_path_str.c_str(), RTLD_LAZY)))
+      { 
+        std::cerr << "XMLReader::read_primitive_plugin()- cannot load plugin: " << dlerror_str << std::endl;
+        return;
+      }
+    }
   }
 
   // load the factory symbol

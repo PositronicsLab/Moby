@@ -105,6 +105,11 @@ class PendulumColdetPlugin : public CollisionDetection
 
       contacts.clear();
 
+      // get the point on l1
+      shared_ptr<const Pose3d> Pl1 = l1_cg->get_pose();
+      Point3d pl1 = Vector3d(0,1,0, Pl1);
+      Point3d p = Pl1->transform_point(GLOBAL, pl1);
+
       // setup contact point
       Point3d point(0,0,0,GLOBAL);
 
@@ -117,12 +122,12 @@ class PendulumColdetPlugin : public CollisionDetection
       Vector3d n6(-1,0,0,GLOBAL);
 
       // setup four contacts
-      contacts.push_back(CollisionDetection::create_contact(l1_cg,world_cg,point, n1,0.0));
-      contacts.push_back(CollisionDetection::create_contact(l1_cg,world_cg,point, n2,0.0));
-      contacts.push_back(CollisionDetection::create_contact(l1_cg,world_cg,point, n3,0.0));
-      contacts.push_back(CollisionDetection::create_contact(l1_cg,world_cg,point, n4,0.0));
-      contacts.push_back(CollisionDetection::create_contact(l1_cg,world_cg,point, n5,0.0));
-      contacts.push_back(CollisionDetection::create_contact(l1_cg,world_cg,point, n6,0.0));
+      contacts.push_back(CollisionDetection::create_contact(l1_cg,world_cg,point, n1,std::min(0.0, -p[1])));
+      contacts.push_back(CollisionDetection::create_contact(l1_cg,world_cg,point, n2,std::min(0.0, -p[1])));
+      contacts.push_back(CollisionDetection::create_contact(l1_cg,world_cg,point, n3,std::min(0.0, -p[2])));
+      contacts.push_back(CollisionDetection::create_contact(l1_cg,world_cg,point, n4,std::min(0.0, -p[2])));
+      contacts.push_back(CollisionDetection::create_contact(l1_cg,world_cg,point, n5,std::min(0.0, -p[0])));
+      contacts.push_back(CollisionDetection::create_contact(l1_cg,world_cg,point, n6,std::min(0.0, -p[0])));
     }
 
     /// Finds contacts between two collision geometries
