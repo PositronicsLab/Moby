@@ -19,13 +19,13 @@
 <GravityForce id="gravity" accel="0.07014235613 0 -0.99753699173" />
 <!--<GravityForce id="gravity" accel="0.687395090074 0 -9.775862518954" />-->
 
-  <EventDrivenSimulator id="sim" integrator-id="rkf" Euler-step="5e-6" collision-detection-plugin="toroid" >
+  <EventDrivenSimulator id="sim" integrator-id="rkf" Euler-step="1e-2" collision-detection-plugin="toroid" >
     <RecurrentForce recurrent-force-id="gravity" />
     <DynamicBody dynamic-body-id="GROUND" />
     <DynamicBody dynamic-body-id="WALKER" />
 <!--    <DynamicBody dynamic-body-id="BOX" />-->
     <DisabledPair object1-id="WALKER" object2-id="WALKER"/>
-    <ContactParameters object1-id="GROUND" object2-id="WALKER" epsilon="0" mu-coulomb="100" />
+    <ContactParameters object1-id="GROUND" object2-id="WALKER" epsilon="0" mu-coulomb="99.9" />
 <!--    <ContactParameters object1-id="GROUND" object2-id="BOX" epsilon="0" mu-coulomb="100" />-->
   </EventDrivenSimulator>
 

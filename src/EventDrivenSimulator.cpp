@@ -99,6 +99,20 @@ void EventDrivenSimulator::calc_rigid_sustained_unilateral_constraint_forces()
   if (_rigid_constraints.empty())
     return;
 
+  // remove velocity-level constraints
+  std::vector<UnilateralConstraint> velocity_constraints;
+  for (unsigned i=0; i< _rigid_constraints.size(); )
+  {
+    if (_rigid_constraints[i].deriv_type == UnilateralConstraint::eVel)
+    {
+      velocity_constraints.push_back(_rigid_constraints[i]);
+      _rigid_constraints[i] = _rigid_constraints.back();
+      _rigid_constraints.pop_back();
+    }
+    else
+      i++;  
+  }
+
   // call the callback function, if any
   if (constraint_callback_fn)
     (*constraint_callback_fn)(_rigid_constraints, constraint_callback_data);
@@ -121,6 +135,9 @@ void EventDrivenSimulator::calc_rigid_sustained_unilateral_constraint_forces()
   // call the post-force application callback, if any
   if (constraint_post_callback_fn)
     (*constraint_post_callback_fn)(_rigid_constraints, constraint_post_callback_data);
+
+  // add velocity level constraints back in
+  _rigid_constraints.insert(_rigid_constraints.end(), velocity_constraints.begin(), velocity_constraints.end());
 }
 
 /// Computes the ODE for systems with sustained unilateral constraints
@@ -130,13 +147,6 @@ VectorNd& EventDrivenSimulator::ode_sustained_constraints(const VectorNd& x, dou
 
   // get the simulator
   shared_ptr<EventDrivenSimulator>& s = *((shared_ptr<EventDrivenSimulator>*) data);
-
-  // see whether t=current time and the derivative has already been computed
-  if (t == s->current_time && s->_current_accel_dx.size() > 0)
-  {
-    dx = s->_current_accel_dx;
-    return dx;
-  }
 
   // initialize the ODE index
   unsigned idx = 0;
@@ -192,7 +202,7 @@ VectorNd& EventDrivenSimulator::ode_sustained_constraints(const VectorNd& x, dou
 
   // convert rigid constraints to acceleration constraints
   for (unsigned i=0; i< s->_rigid_constraints.size(); i++)
-    if (std::fabs(s->_rigid_constraints[i].calc_constraint_vel()) < NEAR_ZERO)
+    if (std::fabs(s->_rigid_constraints[i].calc_constraint_vel()) < s->_rigid_constraints[i].sustained_tol)
       s->_rigid_constraints[i].deriv_type = UnilateralConstraint::eAccel;
 
   // loop through all bodies, computing forward dynamics
@@ -219,7 +229,7 @@ VectorNd& EventDrivenSimulator::ode_sustained_constraints(const VectorNd& x, dou
   std::sort(bodies.begin(), bodies.end());
   bodies.erase(std::unique(bodies.begin(), bodies.end()), bodies.end());
 
-  // recompute forward dynamics for bodies in constraints
+   // recompute forward dynamics for bodies in constraints
    BOOST_FOREACH(DynamicBodyPtr body, bodies)
      body->calc_fwd_dyn();
 
@@ -231,26 +241,26 @@ VectorNd& EventDrivenSimulator::ode_sustained_constraints(const VectorNd& x, dou
       FILE_LOG(LOG_CONSTRAINT) << e;
   }
 
-// debugging code for checking numerical acceleration 
-/*
-static double last_t = -1.0;
-static std::vector<double> last_vels; 
-std::vector<double> this_vels(s->_rigid_constraints.size());
-for (unsigned i=0; i< s->_rigid_constraints.size(); i++)
-  this_vels[i] = s->_rigid_constraints[i].calc_constraint_vel();
-if (last_vels.size() == this_vels.size())
-{
-  double h = t - last_t;
-  for (unsigned i=0; i< this_vels.size(); i++)
+  // debugging code for checking numerical acceleration 
+  #ifndef NDEBUG
+  static double last_t = -1.0;
+  static std::vector<double> last_vels; 
+  std::vector<double> this_vels(s->_rigid_constraints.size());
+  for (unsigned i=0; i< s->_rigid_constraints.size(); i++)
+    this_vels[i] = s->_rigid_constraints[i].calc_constraint_vel();
+  if (last_vels.size() == this_vels.size())
   {
-    FILE_LOG(LOG_CONSTRAINT) << "Velocity at " << last_t << ": " << last_vels[i] << std::endl;
-    FILE_LOG(LOG_CONSTRAINT) << "Velocity at " << t << ": " << this_vels[i] << std::endl;
-    FILE_LOG(LOG_CONSTRAINT) << "Numerically computed acceleration: " << (this_vels[i] - last_vels[i])/h << std::endl;
+    double h = t - last_t;
+    for (unsigned i=0; i< this_vels.size(); i++)
+    {
+      FILE_LOG(LOG_CONSTRAINT) << "Velocity at " << last_t << ": " << last_vels[i] << std::endl;
+      FILE_LOG(LOG_CONSTRAINT) << "Velocity at " << t << ": " << this_vels[i] << std::endl;
+      FILE_LOG(LOG_CONSTRAINT) << "Numerically computed acceleration: " << (this_vels[i] - last_vels[i])/h << std::endl;
+    }
   }
-}
-last_t = t;
-last_vels = this_vels;
-*/
+  last_t = t;
+  last_vels = this_vels;
+  #endif
 
   // reset idx
   idx = 0;
@@ -276,10 +286,6 @@ last_vels = this_vels;
     // update idx
     idx += NGC+NGV;
   }
-
-  // see whether to set current time derivative
-  if (t == s->current_time)
-    s->_current_accel_dx = dx;
 
   FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::ode_sustained_constraints(t=" << t << ") exited" << std::endl;
 
@@ -698,7 +704,6 @@ double EventDrivenSimulator::step(double step_size)
   {
     // clear stored derivatives
     _current_dx.resize(0);
-    _current_accel_dx.resize(0);
 
     FILE_LOG(LOG_SIMULATOR) << "+stepping simulation from time: " << this->current_time << " by " << (step_size - h) << std::endl;
     if (LOGGING(LOG_SIMULATOR))
@@ -1193,6 +1198,7 @@ double EventDrivenSimulator::check_pairwise_constraint_violations(double t)
     // compute the distance between the two bodies
     Point3d p1, p2;
     double d = _coldet->calc_signed_dist(cg1, cg2, p1, p2);
+
     if (d <= _ip_tolerances[make_sorted_pair(cg1, cg2)] - NEAR_ZERO)
     {
       FILE_LOG(LOG_SIMULATOR) << "Interpenetration detected between " << cg1->get_single_body()->id << " and " << cg2->get_single_body()->id << ": " << d << std::endl;
@@ -1442,7 +1448,7 @@ void EventDrivenSimulator::find_unilateral_constraints(double contact_dist_thres
           rbb->compliance == RigidBody::eCompliant)
         _coldet->find_contacts(pdi.a, pdi.b, _compliant_constraints);
       else        
-        _coldet->find_contacts(pdi.a, pdi.b, _rigid_constraints);
+        _coldet->find_contacts(pdi.a, pdi.b, _rigid_constraints, contact_dist_thresh);
     }
 
   // set constraints to proper type
@@ -1480,7 +1486,7 @@ void EventDrivenSimulator::step_si_Euler(double dt)
   {
     // determine constraints (contacts, limits) that are currently active
     FILE_LOG(LOG_SIMULATOR) << "   finding constraints" << std::endl;
-    find_unilateral_constraints(INF);
+    find_unilateral_constraints(contact_dist_thresh);
 
     // solve constraints to yield new velocities
     FILE_LOG(LOG_SIMULATOR) << "   handling constraints" << std::endl;
@@ -1499,6 +1505,13 @@ void EventDrivenSimulator::step_si_Euler(double dt)
     // get the time of the next event(s), skipping events at current step
     double h = std::min(calc_next_CA_Euler_step(contact_dist_thresh), target_time - current_time);
     FILE_LOG(LOG_SIMULATOR) << "   position integration: " << h << std::endl;
+
+    // look for small position integration events
+    if (h < dt*dt*dt)
+    {
+      std::cerr << "EventDrivenSimulator::step_si_Euler() warning: small position integration" << std::endl;
+      std::cerr << "  timestep (" << h << ") taken, relative to nominal step (" << dt << ") " << std::endl;
+    } 
 
     // integrate bodies' positions forward by that time using new velocities
     integrate_positions_Euler(h);
@@ -1693,7 +1706,7 @@ void EventDrivenSimulator::save_to_xml(XMLTreePtr node, list<shared_ptr<const Ba
   node->attribs.insert(XMLAttrib("Euler-step", euler_step));
 
   // save the distance thresholds
-  node->attribs.insert(XMLAttrib("sustained-contact-dist-thesh", contact_dist_thresh));
+  node->attribs.insert(XMLAttrib("contact-dist-thesh", contact_dist_thresh));
 
   // save all ContactParameters
   for (map<sorted_pair<BasePtr>, shared_ptr<ContactParameters> >::const_iterator i = contact_params.begin(); i != contact_params.end(); i++)

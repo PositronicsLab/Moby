@@ -1,0 +1,70 @@
+<!-- Multiple spheres impacting with restitution: illustrates Zeno point
+     process -->
+
+<XML>
+  <DRIVER>
+    <camera position="5 20 10" target="0 0 0" up="0 0 1" />
+    <window location="0 0" size="640 480" />
+  </DRIVER>
+
+  <MOBY>
+    <!-- Primitives -->
+    <Sphere id="s1" radius="1.0" mass="1.0"  />
+    <Sphere id="s2" radius=".1" mass="1.0"  />
+    <Box id="b3" xlen="10" ylen=".001" zlen="10" rpy="1.5707963267949 0 0" density="10.0" />
+    <Plane id="p3" rpy="1.5707963267949 0 0" />
+
+    <!-- Integrator -->
+    <RungeKuttaIntegrator id="rk4" />
+    <BulirschStoerIntegrator id="bsi" abs-err-tol="1e-6" rel-err-tol="1e-3" />
+
+    <!-- Gravity force -->
+    <GravityForce id="gravity" accel="0 0 -9.81"  />
+
+    <!-- Rigid bodies -->
+      <!-- the sphere -->
+      <RigidBody id="sph1" enabled="true" position="0 0 3" visualization-id="s1" linear-velocity="0 0 0" angular-velocity="0 0 0" color="0 0 1 0" >
+        <InertiaFromPrimitive primitive-id="s1" />
+        <CollisionGeometry primitive-id="s1" />
+      </RigidBody>
+
+      <!-- the sph -->
+      <RigidBody id="sph2" enabled="true" position="2.5 0 4" visualization-id="s1" linear-velocity="0 0 0" angular-velocity="0 0 0" color="1 0 0 0" >
+        <InertiaFromPrimitive primitive-id="s1" />
+        <CollisionGeometry primitive-id="s1" />
+      </RigidBody>
+
+      <!-- the sph -->
+      <RigidBody id="bullet" enabled="true" position="-1.5 0 4" visualization-id="s2" linear-velocity="0 0 -1000" angular-velocity="0 0 0" color="1 1 1 .2" >
+        <InertiaFromPrimitive primitive-id="s2" />
+        <CollisionGeometry primitive-id="s2" />
+      </RigidBody>
+
+      <!-- the sph -->
+      <RigidBody id="sph3" enabled="true" position="-4 0 5" visualization-id="s1" linear-velocity="0 0 0" angular-velocity="0 0 0" color="1 0 0 0" >
+        <InertiaFromPrimitive primitive-id="s1" />
+        <CollisionGeometry primitive-id="s1" />
+      </RigidBody>
+
+
+      <!-- the ground -->
+      <RigidBody id="ground" enabled="false" visualization-id="b3" position="0 0 0" color="0 0 0 0">
+        <CollisionGeometry primitive-id="p3" />
+      </RigidBody>
+
+    <!-- Setup the simulator -->
+    <EventDrivenSimulator id="simulator" integrator-id="bsi" Euler-step="1e-3" contact-dist-thresh="1e-13">
+      <DynamicBody dynamic-body-id="sph1" />
+      <DynamicBody dynamic-body-id="sph2" />
+      <DynamicBody dynamic-body-id="sph3" />
+      <DynamicBody dynamic-body-id="bullet" />
+      <DynamicBody dynamic-body-id="ground" />
+      <RecurrentForce recurrent-force-id="gravity"  />
+      <ContactParameters object1-id="ground" object2-id="sph1" epsilon=".4" mu-coulomb="0.1" mu-viscous="0" friction-cone-edges="16" />
+      <ContactParameters object1-id="ground" object2-id="sph2" epsilon=".4" mu-coulomb="0.1" mu-viscous="0" friction-cone-edges="16" />
+      <ContactParameters object1-id="ground" object2-id="sph3" epsilon=".4" mu-coulomb="0.1" mu-viscous="0" friction-cone-edges="16" />
+      <ContactParameters object1-id="ground" object2-id="bullet" epsilon=".05" mu-coulomb="0.1" mu-viscous="0" friction-cone-edges="16" />
+    </EventDrivenSimulator>
+  </MOBY>
+</XML>
+

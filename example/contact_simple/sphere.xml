@@ -15,15 +15,15 @@
     <!-- Integrator -->
     <RungeKuttaIntegrator id="rk4" />
     <EulerIntegrator id="euler" />
-    <BulirschStoerIntegrator id="bsi" abs-err-tol="1e-6" rel-err-tol="1e-3" />
+    <BulirschStoerIntegrator id="bsi" abs-err-tol="1e-14" rel-err-tol="1e-14" />
 
     <!-- Gravity force -->
     <GravityForce id="gravity" accel="0 0 -9.81"  />
 
     <!-- Rigid bodies -->
       <!-- the sphere -->
-      <RigidBody id="sphere" enabled="true" position="0 0 1" visualization-id="s1" linear-velocity="1 1 0" angular-velocity="1 1 1" color="0 0 1 0">
-        <InertiaFromPrimitive primitive-id="s1" relative-origin=".1 .1 .1" />
+      <RigidBody id="sphere" enabled="true" position="0 0 1" visualization-id="s1" linear-velocity="10 10 0" angular-velocity="0 0 0" color="0 0 1 0" inertial-relative-com="0 0 0">
+        <InertiaFromPrimitive primitive-id="s1"  />
         <CollisionGeometry primitive-id="s1" />
       </RigidBody>
 
@@ -33,11 +33,11 @@
       </RigidBody>
 
     <!-- Setup the simulator -->
-    <EventDrivenSimulator id="simulator" integrator-id="bsi" Euler-step="1e-10" contact-dist-thresh="1e-13">
+    <EventDrivenSimulator id="simulator" integrator-id="bsi" Euler-step="1e-3" ccontact-dist-thresh="1e-6">
       <DynamicBody dynamic-body-id="sphere" />
       <DynamicBody dynamic-body-id="ground" />
       <RecurrentForce recurrent-force-id="gravity"  />
-      <ContactParameters object1-id="ground" object2-id="sphere" epsilon="0" mu-coulomb=".1" mu-viscous="0" friction-cone-edges="16" />
+      <ContactParameters object1-id="ground" object2-id="sphere" epsilon="0" mu-coulomb="1.0" mu-viscous="0" friction-cone-edges="16" />
     </EventDrivenSimulator>
   </MOBY>
 </XML>

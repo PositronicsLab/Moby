@@ -49,9 +49,6 @@ unsigned LOG_STOP = std::numeric_limits<unsigned>::max();
 /// The logging reporting level
 unsigned LOG_REPORTING_LEVEL = 0;
 
-/// Used for timing 
-clock_t start_time;
-
 /// The default simulation step size
 const double DEFAULT_STEP_SIZE = .001;
 
@@ -87,7 +84,6 @@ bool OUTPUT_TIMINGS = false;
 
 /// Last pickle iteration
 unsigned LAST_PICKLE = -1;
-double LAST_PICKLE_T = -std::numeric_limits<double>::max()/2.0;
 
 /// Extension/format for 3D outputs (default=Wavefront obj)
 char THREED_EXT[5] = "obj";
@@ -107,11 +103,9 @@ double TOTAL_TIME = 0.0;
 
 /// Last 3D output iteration and time output
 unsigned LAST_3D_WRITTEN = -1;
-double LAST_3D_WRITTEN_T = -std::numeric_limits<double>::max()/2.0;
 
 /// Last image iteration output
 unsigned LAST_IMG_WRITTEN = -1;
-double LAST_IMG_WRITTEN_T = -std::numeric_limits<double>::max()/2.0;
       
 /// Outputs to stdout
 bool OUTPUT_FRAME_RATE = false;
@@ -189,12 +183,11 @@ void step(void* arg)
   if (IMAGE_IVAL > 0)
   {
     // determine at what iteration nearest frame would be output
-    if ((s->current_time - LAST_IMG_WRITTEN_T > STEP_SIZE * IMAGE_IVAL))
+    if (ITER % IMAGE_IVAL == 0)
     {
       char buffer[128];
       sprintf(buffer, "driver.out.%08u.png", ++LAST_IMG_WRITTEN);
       // TODO: call offscreen renderer
-      LAST_IMG_WRITTEN_T = s->current_time;
     }
   }
 
@@ -202,13 +195,12 @@ void step(void* arg)
   if (THREED_IVAL > 0)
   {
     // determine at what iteration nearest frame would be output
-    if ((s->current_time - LAST_3D_WRITTEN_T > STEP_SIZE * THREED_IVAL))
+    if (ITER % THREED_IVAL == 0)
     {
       // write the file (fails silently)
       char buffer[128];
       sprintf(buffer, "driver.out-%08u-%f.%s", ++LAST_3D_WRITTEN, s->current_time, THREED_EXT);
       osgDB::writeNodeFile(*MAIN_GROUP, std::string(buffer));
-      LAST_3D_WRITTEN_T = s->current_time;
     }
   }
   #endif
@@ -217,13 +209,12 @@ void step(void* arg)
   if (PICKLE_IVAL > 0)
   {
     // determine at what iteration nearest pickle would be output
-    if ((s->current_time - LAST_PICKLE_T > STEP_SIZE * PICKLE_IVAL))
+    if (ITER % PICKLE_IVAL == 0)
     {
       // write the file (fails silently)
       char buffer[128];
       sprintf(buffer, "driver.out-%08u-%f.xml", ++LAST_PICKLE, s->current_time);
       XMLWriter::serialize_to_xml(std::string(buffer), s); 
-      LAST_PICKLE_T = s->current_time;
     }
   }
 
@@ -285,12 +276,7 @@ void step(void* arg)
 
   // check that maximum number of iterations or maximum time not exceeded
   if (ITER >= MAX_ITER || s->current_time > MAX_TIME)
-  {
-    clock_t end_time = clock();
-    double elapsed = (end_time - start_time) / (double) CLOCKS_PER_SEC;
-    std::cout << elapsed << " seconds elapsed" << std::endl;
     exit(0);
-  }
 
   // if render contact points enabled, notify the Simulator
   if( RENDER_CONTACT_POINTS && eds)
@@ -301,25 +287,47 @@ void step(void* arg)
 void read_plugin(const char* filename)
 {
   // attempt to read the file
-  void* HANDLE = dlopen(filename, RTLD_LAZY);
-  if (!HANDLE)
+  void* plugin = dlopen(filename, RTLD_LAZY);
+  if (!plugin)
   {
-    std::cerr << "driver: failed to read plugin from " << filename << std::endl;
-    std::cerr << "  " << dlerror() << std::endl;
-    exit(-1);
-  }
+    // get the error string, in case we need it
+    char* dlerror_str = dlerror();
 
-  handles.push_back(HANDLE);
+    // attempt to use the plugin path
+    char* plugin_path = getenv("MOBY_PLUGIN_PATH");
+    if (plugin_path)
+    {
+      // get the plugin path and make sure it has a path string at the end
+      std::string plugin_path_str(plugin_path);
+      if (plugin_path_str.at(plugin_path_str.size()-1) != '/')
+        plugin_path_str += '/';
+
+      // concatenate
+      plugin_path_str += filename;
+
+      // attempt to re-open the plugin
+      plugin = dlopen(plugin_path_str.c_str(), RTLD_LAZY);
+    }
+
+    // check whether the plugin was successfully loaded
+    if (!plugin)
+    { 
+      std::cerr << "driver: failed to read plugin from " << filename << " (or using " << plugin_path << ")" << std::endl;
+      std::cerr << "  " << dlerror_str << std::endl;
+      exit(-1);
+    }
+  }
+  handles.push_back(plugin);
 
   // attempt to load the initializer
   dlerror();
-  INIT.push_back((init_t) dlsym(HANDLE, "init"));
+  INIT.push_back((init_t) dlsym(plugin, "init"));
   const char* dlsym_error = dlerror();
   if (dlsym_error)
   {
     std::cerr << "driver warning: cannot load symbol 'init' from " << filename << std::endl;
     std::cerr << "        error follows: " << std::endl << dlsym_error << std::endl;
-    INIT.pop_back();
+    exit(-1);
   }
 }
 
@@ -582,7 +590,6 @@ int main(int argc, char** argv)
     else if (option.find("-s=") != std::string::npos)
     {
       STEP_SIZE = std::atof(&argv[i][ONECHAR_ARG]);
-      assert(STEP_SIZE >= 0.0 && STEP_SIZE < 1);
     }
     else if (option.find("-lf=") != std::string::npos)
     {
@@ -738,9 +745,6 @@ int main(int argc, char** argv)
   FIRST_STEP_TIME = get_current_time();
   LAST_STEP_TIME = FIRST_STEP_TIME;
   
-  // begin timing
-  start_time = clock();
-
   // prepare to render
   #ifdef USE_OSG
   if (ONSCREEN_RENDER)

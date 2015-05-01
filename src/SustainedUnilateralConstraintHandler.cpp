@@ -77,11 +77,6 @@ void SustainedUnilateralConstraintHandler::apply_model(const vector<UnilateralCo
   // **********************************************************
   for (list<list<UnilateralConstraint*> >::iterator i = groups.begin(); i != groups.end(); i++)
   {
-    // determine contact tangents
-    for (list<UnilateralConstraint*>::iterator j = i->begin(); j != i->end(); j++)
-      if ((*j)->constraint_type == UnilateralConstraint::eContact)
-        (*j)->determine_contact_tangents();
-
       // copy the list of constraints
       list<UnilateralConstraint*> rconstraints = *i;
 
@@ -214,6 +209,7 @@ void SustainedUnilateralConstraintHandler::apply_model_to_connected_constraints(
   BOOST_FOREACH(DynamicBodyPtr db, _epd.super_bodies)
     db->calc_fwd_dyn();
   compute_problem_data(_epd);
+  FILE_LOG(LOG_CONSTRAINT) << "(problem data double-check for debugging) " << _epd.Cn_a << std::endl;
   FILE_LOG(LOG_CONSTRAINT) << "Cn * a: " << _epd.Cn_a << std::endl;
   FILE_LOG(LOG_CONSTRAINT) << "Cs * a: " << _epd.Cs_a << std::endl;
   FILE_LOG(LOG_CONSTRAINT) << "Ct * a: " << _epd.Ct_a << std::endl;
@@ -735,8 +731,8 @@ void SustainedUnilateralConstraintHandler::compute_problem_data2(SustainedUnilat
     if (ROWS == 3)
     {
       // setup appropriate parts of contact accelerations 
-      q.Cn_a[i] = q.contact_constraints[i]->calc_contact_accel(q.contact_constraints[i]->contact_normal, q.constraints[i]->contact_normal_dot);
-      q.Cs_a[k] = q.contact_constraints[i]->calc_contact_accel(q.contact_constraints[i]->contact_tan1, q.constraints[i]->contact_tan1_dot);
+      q.Cn_a[i] = q.contact_constraints[i]->calc_contact_accel(q.contact_constraints[i]->contact_normal, q.contact_constraints[i]->contact_normal_dot);
+      q.Cs_a[k] = q.contact_constraints[i]->calc_contact_accel(q.contact_constraints[i]->contact_tan1, q.contact_constraints[i]->contact_tan1_dot);
       q.Ct_a[k] = q.contact_constraints[i]->calc_contact_accel(q.contact_constraints[i]->contact_tan2, q.contact_constraints[i]->contact_tan2_dot);
 
       // update k (NOTE: we need k b/c some contacts may be slipping)

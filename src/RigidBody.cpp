@@ -91,7 +91,6 @@ RigidBody::RigidBody()
   // set everything else
   _enabled = true;
   _link_idx = std::numeric_limits<unsigned>::max();
-  viscous_coeff = VectorNd::zero(SPATIAL_DIM);
 
   // indicate velocity limit has been exceeded (safe initialization)
  _vel_limit_exceeded = true;
@@ -253,8 +252,8 @@ void RigidBody::rotate(const Quatd& q)
     (*i)->invalidate_pose_vectors();
 }
 
-/// Computes the Jacobian
-MatrixNd& RigidBody::calc_jacobian_dot(shared_ptr<const Pose3d> frame, DynamicBodyPtr body, MatrixNd& J)
+/// Gets the time derivative of the Jacobian that converts velocities from this body in the source pose to velocities of the particular link in the target pose
+MatrixNd& RigidBody::calc_jacobian_dot(shared_ptr<const Pose3d> source_pose, shared_ptr<const Pose3d> target_pose, DynamicBodyPtr body, MatrixNd& J)
 {
   const unsigned SPATIAL_DIM = 6;
 
@@ -267,13 +266,14 @@ MatrixNd& RigidBody::calc_jacobian_dot(shared_ptr<const Pose3d> frame, DynamicBo
     return J;
   }
 
-  J.set_zero(SPATIAL_DIM, SPATIAL_DIM);
+  // construct the spatial transform
+  Pose3d::dot_spatial_transform_to_matrix2(source_pose, target_pose, J);
 
   return J;
 }
 
-/// Computes the Jacobian
-MatrixNd& RigidBody::calc_jacobian(shared_ptr<const Pose3d> frame, DynamicBodyPtr body, MatrixNd& J)
+/// Gets the time derivative of the Jacobian that converts velocities from this body in the source pose to velocities of the particular link in the target pose
+MatrixNd& RigidBody::calc_jacobian(shared_ptr<const Pose3d> source_pose, shared_ptr<const Pose3d> target_pose, DynamicBodyPtr body, MatrixNd& J)
 {
   const unsigned SPATIAL_DIM = 6;
 
@@ -288,10 +288,10 @@ MatrixNd& RigidBody::calc_jacobian(shared_ptr<const Pose3d> frame, DynamicBodyPt
   }
 
   // construct the spatial transform
-  Pose3d::spatial_transform_to_matrix2(_F2, frame, J);
+  Pose3d::spatial_transform_to_matrix2(source_pose, target_pose, J);
 
   FILE_LOG(LOG_DYNAMICS) << "RigidBody::calc_jacobian() entered" << std::endl;
-  FILE_LOG(LOG_DYNAMICS) << "  pose: " << ((frame) ? Pose3d(*frame).update_relative_pose(GLOBAL) : GLOBAL) << std::endl;
+  FILE_LOG(LOG_DYNAMICS) << "  pose: " << ((target_pose) ? Pose3d(*target_pose).update_relative_pose(GLOBAL) : GLOBAL) << std::endl;
 
   return J;
 }
@@ -366,6 +366,7 @@ void RigidBody::calc_fwd_dyn()
     SForced f = sum_forces() - calc_euler_torques();
     SAcceld xdd = J.inverse_mult(f);
 
+FILE_LOG(LOG_SIMULATOR) << "Dynamics: " << Pose3d::transform(_F2, xdd) << std::endl;
     // set the acceleration
     switch (_rftype)
     {
@@ -615,8 +616,13 @@ void RigidBody::set_inertial_pose(const Pose3d& P)
   if (P.rpose != _F)
     throw std::runtime_error("RigidBody::set_inertial_pose() - inertial pose not defined relative to body pose");
 
-  // set the inertial pose
-  *_jF = P;
+  // update P to refer to _jF's pose
+  Pose3d Q = P;
+  Q.update_relative_pose(_jF->rpose);
+  *_jF = Q;
+
+  // update the mixed pose
+  update_mixed_pose();
 
   // invalidate vectors using inertial frame
   _xdm_valid = _xddm_valid = _forcem_valid = false;
@@ -821,7 +827,7 @@ void RigidBody::update_mixed_pose()
 {
   // update the mixed pose
   _F2->set_identity();
-  _F2->rpose = _F;
+  _F2->rpose = _jF;
   _F2->update_relative_pose(GLOBAL);
   _F2->q.set_identity();
 }
@@ -1027,11 +1033,6 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
   }
   #endif
 
-  // read the viscous dampening coefficient, if provided
-  XMLAttrib* viscous_coeff_attr = node->get_attrib("viscous-dampening-coeff");
-  if (viscous_coeff_attr)
-    viscous_coeff_attr->get_vector_value(viscous_coeff);
-
   // read whether the body is enabled, if provided
   XMLAttrib* enabled_attr = node->get_attrib("enabled");
   if (enabled_attr)
@@ -1069,7 +1070,8 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
   XMLAttrib* position_attr = node->get_attrib("position");
   XMLAttrib* rpy_attr = node->get_attrib("rpy");
   XMLAttrib* quat_attr = node->get_attrib("quat");
-  if (position_attr || rpy_attr || quat_attr)
+  XMLAttrib* aangle_attr = node->get_attrib("aangle");
+  if (position_attr || rpy_attr || quat_attr || aangle_attr)
   {
     Pose3d T;
     if (position_attr)
@@ -1078,25 +1080,45 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
       T.q = quat_attr->get_quat_value();
     else if (rpy_attr)
       T.q = rpy_attr->get_rpy_value();
+    else if (aangle_attr)
+    {
+      VectorNd aa_vec;
+      aangle_attr->get_vector_value(aa_vec);
+      T.q = AAngled(aa_vec[0], aa_vec[1], aa_vec[2], aa_vec[3]);
+    }
     set_pose(T);
   }
 
   // read the inertial frame here...
   XMLAttrib* com_attr = node->get_attrib("inertial-relative-com");
   XMLAttrib* J_rpy_attr = node->get_attrib("inertial-relative-rpy");
+  XMLAttrib* J_aangle_attr = node->get_attrib("inertial-relative-aangle");
   XMLAttrib* J_quat_attr = node->get_attrib("inertial-relative-quat");
-  if (com_attr || J_rpy_attr || J_quat_attr)
+  if (com_attr || J_rpy_attr || J_aangle_attr || J_quat_attr)
   {
-    // reset the inertial frame
-    _jF->set_identity();
-
+    shared_ptr<Pose3d> newjF(new Pose3d);
+    newjF->rpose = _jF;
+    
     // read the com
     if (com_attr)
-      _jF->x = com_attr->get_origin_value();
+      newjF->x = com_attr->get_origin_value();
     if (J_quat_attr)
-      _jF->q = J_quat_attr->get_quat_value();
+      newjF->q = J_quat_attr->get_quat_value();
     else if (J_rpy_attr)
-      _jF->q = J_rpy_attr->get_rpy_value();
+      newjF->q = J_rpy_attr->get_rpy_value();
+    else if (J_aangle_attr)
+    {
+      VectorNd aa_vec;
+      aangle_attr->get_vector_value(aa_vec);
+      newjF->q = AAngled(aa_vec[0], aa_vec[1], aa_vec[2], aa_vec[3]);
+    }
+
+    // update newjF to refer to _jF's pose
+    newjF->update_relative_pose(_jF->rpose);
+    *_jF = *newjF;
+
+    // update the mixed pose
+    update_mixed_pose();
   }
 
   // set the collision geometries, if provided
@@ -1178,11 +1200,18 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
 
       // read the relative transformation, if specified
       XMLAttrib* rel_origin_attr = (*i)->get_attrib("relative-origin");
+      XMLAttrib* rel_aangle_attr = (*i)->get_attrib("relative-aangle");
       XMLAttrib* rel_rpy_attr = (*i)->get_attrib("relative-rpy");
       if (rel_origin_attr)
         rTR->x = rel_origin_attr->get_origin_value();
       if (rel_rpy_attr)
         rTR->q = rel_rpy_attr->get_rpy_value();
+      else if (rel_aangle_attr)
+      {
+        VectorNd aa_vec;
+        aangle_attr->get_vector_value(aa_vec);
+        rTR->q = AAngled(aa_vec[0], aa_vec[1], aa_vec[2], aa_vec[3]);
+      }
       rTR->rpose = Fxx;
       Jx.pose = rTR;
 
@@ -1190,8 +1219,21 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
       J += Pose3d::transform(_jF, Jx);
     }
 
+    // get the offset of J and subtract it from _jF
+    shared_ptr<Pose3d> newjF(new Pose3d);
+    newjF->x = J.h;
+    newjF->rpose = _jF;
+    SpatialRBInertiad Jnew = Pose3d::transform(newjF, J);
+
+    // set _jF to be newJF;
+    newjF->update_relative_pose(_jF->rpose);
+    *_jF = *newjF;
+
+    // update the mixed pose
+    update_mixed_pose();
+
     // set the mass and inertia of the RigidBody additively
-    set_inertia(J);
+    set_inertia(Jnew);
   }
 
   // read the linear and/or velocity of the body, if provided
@@ -1200,11 +1242,8 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
   if (lvel_attr || avel_attr)
   {
     Vector3d lv = Vector3d::zero(), av = Vector3d::zero();
-    shared_ptr<Pose3d> TARGET(new Pose3d);
-    TARGET->rpose = _F2;
-    TARGET->q = Quatd::invert(_F->q);
     SVelocityd v;
-    v.pose = TARGET;
+    v.pose = _F2;
     if (lvel_attr) lvel_attr->get_vector_value(lv);
     if (avel_attr) avel_attr->get_vector_value(av);
     v.set_linear(lv);
@@ -1285,9 +1324,6 @@ void RigidBody::save_to_xml(XMLTreePtr node, list<shared_ptr<const Base> >& shar
   SVelocityd v = Pose3d::transform(TARGET, _xd0);
   node->attribs.insert(XMLAttrib("linear-velocity", v.get_linear()));
   node->attribs.insert(XMLAttrib("angular-velocity", v.get_angular()));
-
-  // save the dampening coefficients
-  node->attribs.insert(XMLAttrib("viscous-coeff", viscous_coeff));
 
   // save all collision geometries
   BOOST_FOREACH(CollisionGeometryPtr g, geometries)
