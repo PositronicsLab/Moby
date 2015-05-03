@@ -1317,60 +1317,128 @@ double Polyhedron::calc_dist(FeatureType fA, FeatureType fB, boost::shared_ptr<c
      return dist;
   }else if(fA == eVertex && fB == eFace){
 
+    //creating null pointer for later use as place holder
+    boost::shared_ptr<const Pose2d> GLOBAL2D;
+
     //casting
     boost::shared_ptr<const Polyhedron::Vertex> vA = boost::static_pointer_cast<const Polyhedron::Vertex>(closestA);
-    boost::shared_ptr<const Polyhedron::Face> faceB = boost::static_pointer_cast<const Polyhedron::Face>(closestB);
+    boost::shared_ptr<const Polyhedron::Face> _faceB = boost::static_pointer_cast<const Polyhedron::Face>(closestB);
+    boost::shared_ptr<Polyhedron::Face> faceB = boost::const_pointer_cast<Polyhedron::Face>(_faceB);     
 
-      //creating vector for A
+    //creating vector for A
     Ravelin::Vector3d vAa(vA->o , aTb.target);
-
-    //creating vector for B
-    std::list<boost::weak_ptr<Edge> > eBs=faceB->e;
+  
+    //transforming A base on the inverse of aTb
+    Ravelin::Transform3d bTa=aTb.inverse();
+    Ravelin::Vector3d vAb=bTa.transform_point(vAa);
 
     //minimum finding
     Plane planeB=faceB->get_plane();
-    double min=planeB.calc_signed_distance(vAa);
-    for(std::list<boost::weak_ptr<Edge> >::iterator eBsi = eBs.begin(); eBsi!=eBs.end();++eBsi){
+    double dist=planeB.calc_signed_distance(vAb);
+    //std::cout << "Distance between plane and " << vAb<< " is "<< dist << std::endl;
 
-      boost::shared_ptr<Edge> eB(*eBsi);
-      Ravelin::Vector3d vB1b(Ravelin::Origin3d(eB->v1->o), aTb.source);
-      Ravelin::Vector3d vB2b(Ravelin::Origin3d(eB->v2->o), aTb.source);
+    //projecting the point to the plane
+    Ravelin::Vector3d vAb_on_planeB=vAb-planeB.get_normal()*dist;
+
+    //creating projection matrix to project shapes on to 2D
+    Ravelin::Matrix3d R2D = CompGeom::calc_3D_to_2D_matrix(planeB.get_normal());
+    Ravelin::Vector2d vAb_on_planeB_2d(CompGeom::to_2D(vAb_on_planeB,R2D),GLOBAL2D);
+
+    Polyhedron::VertexFaceIterator vfiB(faceB,true);    
+    std::vector<Ravelin::Vector2d> vB2d;
     
-      //transforming fB into frame A
-      Ravelin::Vector3d vB1a = aTb.transform_point(vB1b);
-      Ravelin::Vector3d vB2a = aTb.transform_point(vB2b);
-
-      //creating segment
-      LineSeg3 line(vB1a,vB2a);
-    
-      //place holders
-      Point3d p;
-      double t;
-
-      //computing distance and comparing to minimum
-      double dist = CompGeom::calc_dist(line,vAa,t,p);
-      if(min>dist){
-        min=dist;
-      }
+    //create the vertex vector
+    while (vfiB.has_next()){
+      boost::shared_ptr<Polyhedron::Vertex> v=*vfiB;
+      vfiB.advance();
+      Ravelin::Vector3d p(v->o, aTb.source);
+      Ravelin::Origin2d o=CompGeom::to_2D(p,R2D);
+      Ravelin::Vector2d v2d(o,GLOBAL2D);
+      vB2d.push_back(v2d);
     }
-  return min;
 
+    CompGeom::PolygonLocationType relation= CompGeom::polygon_location(vB2d.begin(), vB2d.end(), vAb_on_planeB_2d);
+
+    if(relation==CompGeom::ePolygonOutside){
+    
+    //creating vector for B
+    std::list<boost::weak_ptr<Edge> > eBs=faceB->e;
+    double min=std::numeric_limits<double>::max();
+      for(std::list<boost::weak_ptr<Edge> >::iterator eBsi = eBs.begin(); eBsi!=eBs.end();++eBsi){
+
+        boost::shared_ptr<Edge> eB(*eBsi);
+        Ravelin::Vector3d vB1b(Ravelin::Origin3d(eB->v1->o), aTb.source);
+        Ravelin::Vector3d vB2b(Ravelin::Origin3d(eB->v2->o), aTb.source);
+    
+        //transforming fB into frame A
+        Ravelin::Vector3d vB1a = aTb.transform_point(vB1b);
+        Ravelin::Vector3d vB2a = aTb.transform_point(vB2b);
+
+        //creating segment
+        LineSeg3 line(vB1a,vB2a);
+        //place holders
+        Point3d p;
+        double t;
+
+        //computing distance and comparing to minimum
+        double dist = CompGeom::calc_dist(line,vAa,t,p);
+        //std::cout << "Distance between edges and " << vAa<< " is "<< dist << std::endl;
+        if(min>dist){
+          min=dist;
+        }
+      }
+    return min;
+  }else{
+    return fabs(dist);
+  }
 
   }else if(fA == eFace && fB == eVertex){
 
+    //creating null pointer for later use as place holder
+    boost::shared_ptr<const Pose2d> GLOBAL2D;
+
     //Casting pointers
-    boost::shared_ptr<const Polyhedron::Face> faceA = boost::static_pointer_cast<const Polyhedron::Face>(closestA);
+    boost::shared_ptr<const Polyhedron::Face> _faceA = boost::static_pointer_cast<const Polyhedron::Face>(closestA);
+    boost::shared_ptr<Polyhedron::Face> faceA = boost::const_pointer_cast<Polyhedron::Face>(_faceA); 
     boost::shared_ptr<const Polyhedron::Vertex> vB = boost::static_pointer_cast<const Polyhedron::Vertex>(closestB);
-  
+    
     //transforming B
     Ravelin::Vector3d vBb(vB->o , aTb.source);
     Ravelin::Vector3d vBa = aTb.transform_point(vBb);
-
-    std::list<boost::weak_ptr<Edge> > eAs=faceA->e;
-    //minimum finding
+    //finding distance between point and the plane the face is on
     Plane planeA=faceA->get_plane();
-    double min=planeA.calc_signed_distance(vBa);
-    for(std::list<boost::weak_ptr<Edge> >::iterator eAsi = eAs.begin(); eAsi!=eAs.end();++eAsi){
+    double dist=planeA.calc_signed_distance(vBa);
+    //std::cout << "Distance between plane and " << vBa<< " is "<< dist << std::endl;
+    
+    //projecting the point to the plane
+    Ravelin::Vector3d vBa_on_planeA=vBa-planeA.get_normal()*dist;
+
+    //creating projection matrix to project shapes on to 2D
+    Ravelin::Matrix3d R2D = CompGeom::calc_3D_to_2D_matrix(planeA.get_normal());
+    Ravelin::Vector2d vBa_on_planeA_2d(CompGeom::to_2D(vBa_on_planeA,R2D),GLOBAL2D);
+
+    Polyhedron::VertexFaceIterator vfiA(faceA,true);    
+    std::vector<Ravelin::Vector2d> vA2d;
+    
+    //create the vertex vector
+    while (vfiA.has_next()){
+      boost::shared_ptr<Polyhedron::Vertex> v=*vfiA;
+      vfiA.advance();
+      Ravelin::Vector3d p(v->o, aTb.target);
+      Ravelin::Origin2d o=CompGeom::to_2D(p,R2D);
+      Ravelin::Vector2d v2d(o,GLOBAL2D);
+      vA2d.push_back(v2d);
+    }
+
+    CompGeom::PolygonLocationType relation= CompGeom::polygon_location(vA2d.begin(), vA2d.end(), vBa_on_planeA_2d);
+    if(relation==CompGeom::ePolygonOutside){
+
+      //if outside plane, the minimum distance needs to be found by comparing edges
+      double min=std::numeric_limits<double>::max();
+      std::list<boost::weak_ptr<Edge> > eAs=faceA->e;
+      
+
+      for(std::list<boost::weak_ptr<Edge> >::iterator eAsi = eAs.begin(); eAsi!=eAs.end();++eAsi){
 
       boost::shared_ptr<Edge> eA(*eAsi);
       Ravelin::Vector3d vA1a(Ravelin::Origin3d(eA->v1->o), aTb.target);
@@ -1384,11 +1452,15 @@ double Polyhedron::calc_dist(FeatureType fA, FeatureType fB, boost::shared_ptr<c
 
       //computing distance and comparing to minimum
       double dist = CompGeom::calc_dist(line,vBa,t,p);
-      if(min>dist){
-        min=dist;
-      }
+      //std::cout << "Distance between edges and" << vBa<< " is "<< dist << std::endl;
+        if(min>dist){
+          min=dist;
+          }
+        }
+      return min;
+    }else{
+      return fabs(dist);
     }
-  return min;
 }else if(fA == eEdge && fB == eFace){
 
     //Casting pointers
