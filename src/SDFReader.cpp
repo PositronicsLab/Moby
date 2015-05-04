@@ -574,9 +574,10 @@ JointPtr SDFReader::read_joint(shared_ptr<const XMLTree> node, const std::map<st
 
   // get the pose of the joint
   shared_ptr<const XMLTree> pose_node = find_one_tag("pose", node);
+  Pose3d Px;
   if (pose_node)
   {
-    Pose3d Px = read_pose(node);
+    Px = read_pose(node);
     Px.rpose = child->get_pose();
     Px.update_relative_pose(GLOBAL);
     Vector3d loc(Px.x[0], Px.x[1], Px.x[2], GLOBAL);
@@ -584,12 +585,12 @@ JointPtr SDFReader::read_joint(shared_ptr<const XMLTree> node, const std::map<st
   }
   else
   {
-    Pose3d Px;
     Px.rpose = child->get_pose();
     Px.update_relative_pose(GLOBAL);
     Vector3d loc(Px.x[0], Px.x[1], Px.x[2], GLOBAL);
     joint->set_location(loc, parent, child);
   }
+  *(P.get()) = Px;
 
   // read the axis tag (contains limits, joint damping/friction)
   shared_ptr<const XMLTree> axis_node = find_one_tag("axis", node);
