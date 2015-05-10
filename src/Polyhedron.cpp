@@ -1307,14 +1307,14 @@ double Polyhedron::calc_dist(FeatureType fA, FeatureType fB, boost::shared_ptr<c
     Ravelin::Vector3d vB2a = aTb.transform_point(vB2b);
 
       //creating segment
-     LineSeg3 lineA(vA1a,vA2a);
-     LineSeg3 lineB(vB1a,vB2a);
+    LineSeg3 lineA(vA1a,vA2a);
+    LineSeg3 lineB(vB1a,vB2a);
 
-     //place holder
-     Point3d p1;
-     Point3d p2;
-     double dist = CompGeom::calc_closest_points(lineA,lineB,p1,p2);
-     return dist;
+    //place holder
+    Point3d p1;
+    Point3d p2;
+    double dist = CompGeom::calc_closest_points(lineA,lineB,p1,p2);
+    return dist;
   }else if(fA == eVertex && fB == eFace){
 
     //creating null pointer for later use as place holder
@@ -1356,16 +1356,27 @@ double Polyhedron::calc_dist(FeatureType fA, FeatureType fB, boost::shared_ptr<c
       Ravelin::Vector2d v2d(o,GLOBAL2D);
       vB2d.push_back(v2d);
     }
+    boost::shared_ptr<Polyhedron::Vertex> v=*vfiB;
+    Ravelin::Vector3d p(v->o, aTb.source);
+    Ravelin::Origin2d o=CompGeom::to_2D(p,R2D);
+    Ravelin::Vector2d v2d(o,GLOBAL2D);
+    vB2d.push_back(v2d);
 
+    //finding the relation of the point and the face
     CompGeom::PolygonLocationType relation= CompGeom::polygon_location(vB2d.begin(), vB2d.end(), vAb_on_planeB_2d);
 
+    //if outside we need to find distance between edges
     if(relation==CompGeom::ePolygonOutside){
     
-    //creating vector for B
-    std::list<boost::weak_ptr<Edge> > eBs=faceB->e;
-    double min=std::numeric_limits<double>::max();
-      for(std::list<boost::weak_ptr<Edge> >::iterator eBsi = eBs.begin(); eBsi!=eBs.end();++eBsi){
+      //creating vector for B
+      std::list<boost::weak_ptr<Edge> > eBs=faceB->e;
+  
+      //setting minimum
+      double min=std::numeric_limits<double>::max();
 
+      //finding distance between edges
+      for(std::list<boost::weak_ptr<Edge> >::iterator eBsi = eBs.begin(); eBsi!=eBs.end();++eBsi){
+  
         boost::shared_ptr<Edge> eB(*eBsi);
         Ravelin::Vector3d vB1b(Ravelin::Origin3d(eB->v1->o), aTb.source);
         Ravelin::Vector3d vB2b(Ravelin::Origin3d(eB->v2->o), aTb.source);
@@ -1379,7 +1390,7 @@ double Polyhedron::calc_dist(FeatureType fA, FeatureType fB, boost::shared_ptr<c
         //place holders
         Point3d p;
         double t;
-
+  
         //computing distance and comparing to minimum
         double dist = CompGeom::calc_dist(line,vAa,t,p);
         //std::cout << "Distance between edges and " << vAa<< " is "<< dist << std::endl;
@@ -1387,6 +1398,7 @@ double Polyhedron::calc_dist(FeatureType fA, FeatureType fB, boost::shared_ptr<c
           min=dist;
         }
       }
+
     return min;
   }else{
     return fabs(dist);
@@ -1408,7 +1420,6 @@ double Polyhedron::calc_dist(FeatureType fA, FeatureType fB, boost::shared_ptr<c
     //finding distance between point and the plane the face is on
     Plane planeA=faceA->get_plane();
     double dist=planeA.calc_signed_distance(vBa);
-    //std::cout << "Distance between plane and " << vBa<< " is "<< dist << std::endl;
     
     //projecting the point to the plane
     Ravelin::Vector3d vBa_on_planeA=vBa-planeA.get_normal()*dist;
@@ -1429,34 +1440,43 @@ double Polyhedron::calc_dist(FeatureType fA, FeatureType fB, boost::shared_ptr<c
       Ravelin::Vector2d v2d(o,GLOBAL2D);
       vA2d.push_back(v2d);
     }
+    boost::shared_ptr<Polyhedron::Vertex> v=*vfiA;
+    Ravelin::Vector3d p(v->o, aTb.target);
+    Ravelin::Origin2d o=CompGeom::to_2D(p,R2D);
+    Ravelin::Vector2d v2d(o,GLOBAL2D);
+    vA2d.push_back(v2d);
 
+    //finding relations
     CompGeom::PolygonLocationType relation= CompGeom::polygon_location(vA2d.begin(), vA2d.end(), vBa_on_planeA_2d);
+    //if outside, distance between vertex and edges needs to be calculated
+
     if(relation==CompGeom::ePolygonOutside){
 
       //if outside plane, the minimum distance needs to be found by comparing edges
+
+      //setting minimum
       double min=std::numeric_limits<double>::max();
+
+      //creating vertexes for edges of a
       std::list<boost::weak_ptr<Edge> > eAs=faceA->e;
-      
-
       for(std::list<boost::weak_ptr<Edge> >::iterator eAsi = eAs.begin(); eAsi!=eAs.end();++eAsi){
-
-      boost::shared_ptr<Edge> eA(*eAsi);
-      Ravelin::Vector3d vA1a(Ravelin::Origin3d(eA->v1->o), aTb.target);
-      Ravelin::Vector3d vA2a(Ravelin::Origin3d(eA->v2->o), aTb.target);
-      //creating segment
-      LineSeg3 line(vA1a,vA2a);
+        boost::shared_ptr<Edge> eA(*eAsi);
+        Ravelin::Vector3d vA1a(Ravelin::Origin3d(eA->v1->o), aTb.target);
+        Ravelin::Vector3d vA2a(Ravelin::Origin3d(eA->v2->o), aTb.target);
+        //creating segment
+        LineSeg3 line(vA1a,vA2a);
     
-      //place holders
-      Point3d p;
-      double t;
+        //place holders
+        Point3d p;
+        double t;
 
-      //computing distance and comparing to minimum
-      double dist = CompGeom::calc_dist(line,vBa,t,p);
-      //std::cout << "Distance between edges and" << vBa<< " is "<< dist << std::endl;
+        //computing distance and comparing to minimum
+        double dist = CompGeom::calc_dist(line,vBa,t,p);
+        //std::cout << "Distance between edges and" << vBa<< " is "<< dist << std::endl;
         if(min>dist){
           min=dist;
           }
-        }
+      }
       return min;
     }else{
       return fabs(dist);
@@ -1472,32 +1492,41 @@ double Polyhedron::calc_dist(FeatureType fA, FeatureType fB, boost::shared_ptr<c
     Ravelin::Vector3d vA1a(Ravelin::Origin3d(eA->v1->o), aTb.target);
     Ravelin::Vector3d vA2a(Ravelin::Origin3d(eA->v2->o), aTb.target);
     LineSeg3 lineA(vA1a,vA2a);
+    std::cout<< *faceB <<std::endl;
 
     //Transforming B
     Polyhedron::VertexFaceIterator vfiBb(faceB,true);
     std::vector<Ravelin::Vector3d> vBa;
     while(vfiBb.has_next()){
-        boost::shared_ptr<Polyhedron::Vertex> v=*vfiBb;
-        vfiBb.advance();
-        Ravelin::Vector3d p(v->o, aTb.source);
-        Ravelin::Vector3d pa=aTb.transform_point(p);
-        vBa.push_back(pa);
-      }
+      boost::shared_ptr<Polyhedron::Vertex> v=*vfiBb;
+      vfiBb.advance();
+      Ravelin::Vector3d p(v->o, aTb.source);
+      Ravelin::Vector3d pa=aTb.transform_point(p);
+      vBa.push_back(pa);
+    }
 
-      //Triangulate
-      std::vector<Triangle> triB;
-      CompGeom::triangulate_convex_polygon(vBa.begin(),vBa.end(),triB.begin());
+    boost::shared_ptr<Polyhedron::Vertex> v=*vfiBb;
+    Ravelin::Vector3d p(v->o, aTb.source);
+    Ravelin::Vector3d pa=aTb.transform_point(p);
+    vBa.push_back(pa);
+
+
+    //Triangulate
+    std::vector<Triangle> triB;
+    CompGeom::triangulate_convex_polygon(vBa.begin(),vBa.end(),std::back_inserter(triB));
       
-      //finding minimum distance between line and all triangles
-      Point3d p1,p2;
-      double min = std::numeric_limits<double>::max();
-      for(std::vector<Triangle>::iterator t = triB.begin(); t!=triB.end();++t){
-        double tmp=Triangle::calc_sq_dist(*t,lineA,p1,p2);
-        if(tmp<min){
-          min=tmp;
-        }
+    //finding minimum distance between line and all triangles
+    Point3d p1,p2;
+    double min = std::numeric_limits<double>::max();
+    for(std::vector<Triangle>::iterator t = triB.begin(); t!=triB.end();++t){
+      //std::cout<< *t <<std::endl;
+      double tmp=Triangle::calc_sq_dist(*t,lineA,p1,p2);
+      //  double tmp=0;
+      if(tmp<min){
+        min=tmp;
       }
-      return min;
+    }
+    return sqrt(min);
   }else if(fA == eFace && fB == eEdge){
 
     //Casting pointers
@@ -1507,17 +1536,20 @@ double Polyhedron::calc_dist(FeatureType fA, FeatureType fB, boost::shared_ptr<c
 
     //creating Iterator for A
     Polyhedron::VertexFaceIterator vfiAa(faceA,true);
-     std::vector<Ravelin::Vector3d> vAa;
+    std::vector<Ravelin::Vector3d> vAa;
     while(vfiAa.has_next()){
-        boost::shared_ptr<Polyhedron::Vertex> v=*vfiAa;
-        vfiAa.advance();
-        Ravelin::Vector3d pa(v->o, aTb.target);
-        vAa.push_back(pa);
-      }
+      boost::shared_ptr<Polyhedron::Vertex> v=*vfiAa;
+      vfiAa.advance();
+      Ravelin::Vector3d pa(v->o, aTb.target);
+      vAa.push_back(pa);
+    }
+    boost::shared_ptr<Polyhedron::Vertex> v=*vfiAa;
+    Ravelin::Vector3d pa(v->o, aTb.target);
+    vAa.push_back(pa);    
 
-      //Triangulating
+    //Triangulating
     std::vector<Triangle> triA;
-      CompGeom::triangulate_convex_polygon(vAa.begin(),vAa.end(),triA.begin());
+    CompGeom::triangulate_convex_polygon(vAa.begin(),vAa.end(),std::back_inserter(triA));
       
     //Transforming and creating lineSegB
     Ravelin::Vector3d vB1b(Ravelin::Origin3d(eB->v1->o), aTb.source);
@@ -1528,18 +1560,18 @@ double Polyhedron::calc_dist(FeatureType fA, FeatureType fB, boost::shared_ptr<c
     Ravelin::Vector3d vB2a = aTb.transform_point(vB2b);
 
       //creating segment
-     LineSeg3 lineB(vB1a,vB2a);
+    LineSeg3 lineB(vB1a,vB2a);
 
       //finding minimum distance between line and all triangles
-      Point3d p1,p2;
-      double min = std::numeric_limits<double>::max();
+    Point3d p1,p2;
+    double min = std::numeric_limits<double>::max();
     for(std::vector<Triangle>::iterator t = triA.begin(); t!=triA.end();++t){
-        double tmp=Triangle::calc_sq_dist(*t,lineB,p1,p2);
-        if(tmp<min){
-          min=tmp;
-        }
+      double tmp=Triangle::calc_sq_dist(*t,lineB,p1,p2);
+      if(tmp<min){
+        min=tmp;
       }
-      return min;
+    }
+    return sqrt(min);
   }else if(fA == eFace && fB == eFace){
     //Casting pointers
     boost::shared_ptr<const Polyhedron::Face> _faceA = boost::static_pointer_cast<const Polyhedron::Face>(closestA);
@@ -1549,45 +1581,52 @@ double Polyhedron::calc_dist(FeatureType fA, FeatureType fB, boost::shared_ptr<c
 
     //creating Iterator for A
     Polyhedron::VertexFaceIterator vfiAa(faceA,true);
-     std::vector<Ravelin::Vector3d> vAa;
+    std::vector<Ravelin::Vector3d> vAa;
     while(vfiAa.has_next()){
-        boost::shared_ptr<Polyhedron::Vertex> v=*vfiAa;
-        vfiAa.advance();
-        Ravelin::Vector3d pa(v->o, aTb.target);
-        vAa.push_back(pa);
-      }
+      boost::shared_ptr<Polyhedron::Vertex> v=*vfiAa;
+      vfiAa.advance();
+      Ravelin::Vector3d pa(v->o, aTb.target);
+      vAa.push_back(pa);
+    }
+    boost::shared_ptr<Polyhedron::Vertex> v=*vfiAa;
+    Ravelin::Vector3d pa(v->o, aTb.target);
+    vAa.push_back(pa);
 
-      //Triangulating
+    //Triangulating
     std::vector<Triangle> triA;
-      CompGeom::triangulate_convex_polygon(vAa.begin(),vAa.end(),triA.begin());
+    CompGeom::triangulate_convex_polygon(vAa.begin(),vAa.end(),std::back_inserter(triA));
   
     //creating iterator for B
-      Polyhedron::VertexFaceIterator vfiBb(faceB,true);
-     std::vector<Ravelin::Vector3d> vBa;
+    Polyhedron::VertexFaceIterator vfiBb(faceB,true);
+    std::vector<Ravelin::Vector3d> vBa;
     while(vfiBb.has_next()){
-        boost::shared_ptr<Polyhedron::Vertex> v=*vfiBb;
-        vfiBb.advance();
-        Ravelin::Vector3d p(v->o, aTb.source);
-        Ravelin::Vector3d pa=aTb.transform_point(p);
-        vBa.push_back(pa);
-      }
-
+      boost::shared_ptr<Polyhedron::Vertex> v=*vfiBb;
+      vfiBb.advance();
+      Ravelin::Vector3d p(v->o, aTb.source);
+      Ravelin::Vector3d pa=aTb.transform_point(p);
+      vBa.push_back(pa);
+    }
+    v=*vfiBb;
+    Ravelin::Vector3d p(v->o, aTb.source);
+    pa=aTb.transform_point(p);
+    vBa.push_back(pa);    
+    
     //Triangulate
-      std::vector<Triangle> triB;
-      CompGeom::triangulate_convex_polygon(vBa.begin(),vBa.end(),triB.begin());
+    std::vector<Triangle> triB;
+    CompGeom::triangulate_convex_polygon(vBa.begin(),vBa.end(),std::back_inserter(triB));
       
-      //finding minimum distance between all pairs of triangles
-      Point3d p1,p2;
-      double min = std::numeric_limits<double>::max();
+    //finding minimum distance between all pairs of triangles
+    Point3d p1,p2;
+    double min = std::numeric_limits<double>::max();
     for(std::vector<Triangle>::iterator tA = triA.begin(); tA!=triA.end();++tA){
-        for(std::vector<Triangle>::iterator tB = triB.begin(); tB!=triB.end();++tB){
-          double tmp=Triangle::calc_sq_dist(*tA,*tB,p1,p2);
-          if(tmp<min){
-            min=tmp;
-          }
+      for(std::vector<Triangle>::iterator tB = triB.begin(); tB!=triB.end();++tB){
+        double tmp=Triangle::calc_sq_dist(*tA,*tB,p1,p2);
+        if(tmp<min){
+          min=tmp;
         }
       }
-      return min;
+    }
+    return sqrt(min);
   }
 }
 
