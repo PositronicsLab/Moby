@@ -204,11 +204,8 @@ void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map,
   // setup the callback
   sim->post_step_callback_fn = &post_step_callback;
 
-<<<<<<< HEAD
-  walker->controller                  = &controller_callback;
-=======
+
 //  walker->controller                  = &controller_callback;
->>>>>>> 519d1f641a28fdea0dee77ba33e7e1446d3ff9c0
 //  sim->constraint_post_callback_fn  = &post_event_callback_fn;
 
   // Set initial conditions from ruina paper
@@ -258,18 +255,23 @@ void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map,
                     Rx = Ravelin::Matrix3d::rot_X(-PSI),
                     Rzxy = Ry.mult(Rx).mult(Rz);
   Quatd q = Quatd(Rzxy);
-
+   
   // output the rotation
   Matrix3d R = q;
   std::cout << "initial rotation: " << std::endl << R;
   const double THETA_OFFSET = M_PI;
+  printf ("q0:%5.5f q1:%5.5f q2:%5.5f q3:%5.5f\n",q[0],q[1],q[2],q[3]);
 
-  x[4] = q[0];
-  x[5] = q[1];
-  x[6] = q[2];
-  x[7] = q[3];
-  x[0] =  -3.435833890385830e+000 + THETA_OFFSET; // Theta_sw
-
+  //x[4] = q[0];
+  //x[5] = q[1];
+  //x[6] = q[2];
+  //x[7] = q[3];
+  x[4] = 0.00658927582704;
+  x[5] = 0.080126472078048;
+  x[6] = -0.049524728858028;
+  x[7] = 0.9955534217997;
+  x[0] =  3.435833890385830e+000 + THETA_OFFSET; // Theta_sw
+  //x[0] = 0;
   // Convert Time derivative of RPY to angular velocity (w)
   double  dPHI = -1.322096551035500e-001, // d yaw / dt
           dPSI = -1.990961987794000e-002, // d roll / dt
@@ -288,7 +290,11 @@ void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map,
       W = ((Rzxy2-Rzxy)/h).mult_transpose(Rzxy);
 
   // w is angular velocity
-  Vector3d w((W(2,1)-W(1,2))/2,(W(0,2)-W(2,0))/2,(W(1,0)-W(0,1))/2);
+  //Vector3d w((W(2,1)-W(1,2))/2,(W(0,2)-W(2,0))/2,(W(1,0)-W(0,1))/2);
+  Vector3d w(0,0,0);
+  w[0] = -0.040738941683897;
+  w[1] = 0.472465112865759;
+  w[2] = -0.127336677387404;
   xd.set_zero();
   xd.set_sub_vec(4,w);
   xd[0] = 3.925591686648300e-001; // -Theta_sw
