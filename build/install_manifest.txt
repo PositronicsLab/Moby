@@ -14,6 +14,7 @@
 /usr/local/lib/libMoby.so
 /usr/local/bin/moby-driver
 /usr/local/bin/moby-view
+/usr/local/bin/moby-render
 /usr/local/bin/moby-convexify
 /usr/local/bin/moby-adjust-center
 /usr/local/bin/moby-center
