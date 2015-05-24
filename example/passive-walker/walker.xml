@@ -10,7 +10,7 @@
 
   <RungeKuttaIntegrator id="rk4" />
   <BulirschStoerIntegrator id="bs" abs-err-tol="1e-4" rel-err-tol="1e-4" />
-  <RungeKuttaFehlbergIntegrator id="rkf" abs-err-tol="1e-14" rel-err-tol="1e+14" />
+  <RungeKuttaFehlbergIntegrator id="rkf" abs-err-tol="1e-6" rel-err-tol="1e+6" />
 
   <CollisionDetectionPlugin id="toroid" plugin="libpassive-walker-coldet-plugin.so" />
 
