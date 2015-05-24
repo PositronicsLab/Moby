@@ -1,0 +1,40 @@
+#IncludeRegexLine: ^[ 	]*#[ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/shankar/CSCI6525/project/Moby/example/view.cpp
+cstring
+-
+vector
+-
+iostream
+-
+fstream
+-
+unistd.h
+-
+osgViewer/Viewer
+-
+osgViewer/ViewerEventHandlers
+-
+osg/Group
+-
+osg/Geode
+-
+osg/ShapeDrawable
+-
+osg/Material
+-
+osgDB/ReadFile
+-
+osgDB/WriteFile
+-
+osgGA/TrackballManipulator
+-
+osgGA/StateSetManipulator
+-
+

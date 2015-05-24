@@ -1,0 +1,1 @@
+/usr/bin/c++   -O2 -g -DNDEBUG    CMakeFiles/moby-render.dir/example/render.cpp.o  -o moby-render -rdynamic -losg -losgViewer -losgDB -losgGA -lOpenThreads libMoby.so -lqhull -lRavelin -lxml2 -losg -losgViewer -losgDB -losgGA -lOpenThreads -losgUtil -Wl,-rpath,/home/shankar/CSCI6525/project/Moby/build:  -ldl
