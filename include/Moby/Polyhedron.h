@@ -121,15 +121,28 @@ class Polyhedron
      */ 
     double convexity() { if (!_convexity_computed) determine_convexity(); return _convexity; } 
 
+    /// Gets the Voronoi plane from two input features
+    /**
+     * The function takes the tyoes and the pointers of the two features and returns a plane
+     * If a point is a positive distance away from the plane, then the point is closer to the first feature
+     * If a point is a negative distance away from the plane, then the point is closer to the second feature
+     */
+   
     enum FeatureType { eVertex, eEdge, eFace };
     static double calc_dist(FeatureType fA, FeatureType fB, boost::shared_ptr<const Polyhedron::Feature> closestA, boost::shared_ptr<const Polyhedron::Feature> closestB, Ravelin::Transform3d& aTb);
   private:
+    static boost::shared_ptr<Plane> voronoi_plane (FeatureType& fA, FeatureType& fB, boost::shared_ptr<const Ravelin::Pose3d> pose, boost::shared_ptr<const Polyhedron::Feature>& featureA, boost::shared_ptr<const Polyhedron::Feature>& featureB);
+    static bool clip_edge(boost::shared_ptr<const Polyhedron::Edge> edge, boost::shared_ptr<const Ravelin::Pose3d> pose, double& min_lambda, double& max_lambda, boost::shared_ptr<const Polyhedron::Feature >& min_N, boost::shared_ptr<const Polyhedron::Feature >& max_N, std::list< std::pair< boost::shared_ptr<const Polyhedron::Feature> , boost::shared_ptr<Plane> > > planes_neighbors);
+    bool post_clip_deriv_check(FeatureType& fX, boost::shared_ptr<const Polyhedron::Feature >& X , boost::shared_ptr<const Polyhedron::Edge> edge, Ravelin::Transform3d& xTe, double& min_lambda, double& max_lambda, boost::shared_ptr<const Polyhedron::Feature >& min_N, boost::shared_ptr<const Polyhedron::Feature >& max_N);
+    
 
     enum UpdateRule { eDone, eContinue, eInterpenetrating };
 
+    UpdateRule handle_local_minimum(boost::shared_ptr<const Polyhedron::Vertex>& V, FeatureType& fF, boost::shared_ptr<const Polyhedron::Feature> face,  Polyhedron face_poly, Ravelin::Transform3d vTf);
+
     UpdateRule update_vertex_vertex(FeatureType& fA, FeatureType& fB, Ravelin::Transform3d& aTb, boost::shared_ptr<const Polyhedron::Feature>& closestA, boost::shared_ptr<const Polyhedron::Feature>& closestB);
     UpdateRule update_vertex_edge(FeatureType& fA, FeatureType& fB, Ravelin::Transform3d& aTb, boost::shared_ptr<const Polyhedron::Feature>& closestA, boost::shared_ptr<const Polyhedron::Feature>& closestB);
-    UpdateRule update_vertex_face(FeatureType& fA, FeatureType& fB, Ravelin::Transform3d& aTb, boost::shared_ptr<const Polyhedron::Feature>& closestA, boost::shared_ptr<const Polyhedron::Feature>& closestB);
+    UpdateRule update_vertex_face(FeatureType& fA, FeatureType& fB, Ravelin::Transform3d& aTb, boost::shared_ptr<const Polyhedron::Feature>& closestA, boost::shared_ptr<const Polyhedron::Feature>& closestB, Polyhedron face_poly);
     UpdateRule update_edge_edge(FeatureType& fA, FeatureType& fB, Ravelin::Transform3d& aTb, boost::shared_ptr<const Polyhedron::Feature>& closestA, boost::shared_ptr<const Polyhedron::Feature>& closestB);
     UpdateRule update_edge_face(FeatureType& fA, FeatureType& fB, Ravelin::Transform3d& aTb, boost::shared_ptr<const Polyhedron::Feature>& closestA, boost::shared_ptr<const Polyhedron::Feature>& closestB);
     UpdateRule update_face_face(FeatureType& fA, FeatureType& fB, Ravelin::Transform3d& aTb, boost::shared_ptr<const Polyhedron::Feature>& closestA, boost::shared_ptr<const Polyhedron::Feature>& closestB);
