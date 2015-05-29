@@ -181,6 +181,10 @@ extern "C" {
 
 void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map, double time)
 {
+  // overwrite files
+  std::ofstream out("energy.dat");
+  out.close();
+
   // If use robot is active also init dynamixel controllers
   // get a reference to the EventDrivenSimulator instance
   for (std::map<std::string, Moby::BasePtr>::const_iterator i = read_map.begin();
@@ -217,6 +221,7 @@ void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map,
 
   x[1] = 0; // x
   x[2] = 0; // y
+//  x[2] = 0.6969; // y
   x[3] = 0.1236; // z
 
 //     9.866765986740000e-002
