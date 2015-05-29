@@ -150,8 +150,9 @@ void PenaltyConstraintHandler::apply_model(const vector<UnilateralConstraint>& c
     const SVelocityd& vb = sbb->get_velocity();
 
     // compute the velocities at the contact point
-    SVelocityd ta = Pose3d::transform(contact_frame, va);
-    SVelocityd tb = Pose3d::transform(contact_frame, vb);
+    shared_ptr<const Pose3d> contact_frame_const = boost::const_pointer_cast<const Pose3d>(contact_frame);
+    SVelocityd ta = Pose3d::transform(contact_frame_const, va);
+    SVelocityd tb = Pose3d::transform(contact_frame_const, vb);
 
     // get the linear velocities and project against the normal
     Vector3d rvlin = ta.get_linear() - tb.get_linear();

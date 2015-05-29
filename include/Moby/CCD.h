@@ -39,8 +39,7 @@ class CCD : public CollisionDetection
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual void broad_phase(double dt, const std::vector<DynamicBodyPtr>& bodies, std::vector<std::pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check);
     virtual double calc_CA_step(const PairwiseDistInfo& pdi);
-    virtual double calc_CA_Euler_step_ca(const PairwiseDistInfo& pdi);
-    virtual double calc_CA_Euler_step_cv(const PairwiseDistInfo& pdi);
+    virtual double calc_CA_Euler_step(const PairwiseDistInfo& pdi);
     virtual void find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, std::vector<UnilateralConstraint>& contacts, double TOL = NEAR_ZERO)
     {
       find_contacts(cgA, cgB, std::back_inserter(contacts), TOL);

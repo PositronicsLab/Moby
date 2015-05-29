@@ -825,7 +825,8 @@ BVPtr OBB::calc_swept_BV(CollisionGeometryPtr g, const SVelocityd& v) const
   FILE_LOG(LOG_BV) << "  linear velocity expanded bounding box: " << endl << *o;
 
   // transform the velocity to the desired frame
-  SVelocityd vo = Pose3d::transform(obb_frame, v);
+  shared_ptr<const Pose3d> obb_frame_const = boost::const_pointer_cast<const Pose3d>(obb_frame);
+  SVelocityd vo = Pose3d::transform(obb_frame_const, v);
   Vector3d av = vo.get_angular();
 
   // if there is no angular velocity, nothing more needs to be done

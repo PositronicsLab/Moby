@@ -1335,10 +1335,11 @@ double UnilateralConstraint::calc_contact_accel(const Vector3d& v, const Vector3
   _contact_frame->rpose = GLOBAL;
 
   // compute the velocities and accelerations at the contact point
-  SVelocityd tva = Pose3d::transform(_contact_frame, va); 
-  SVelocityd tvb = Pose3d::transform(_contact_frame, vb); 
-  SAcceld taa = Pose3d::transform(_contact_frame, aa); 
-  SAcceld tab = Pose3d::transform(_contact_frame, ab); 
+  shared_ptr<const Pose3d> const_contact_frame = boost::const_pointer_cast<const Pose3d>(_contact_frame);
+  SVelocityd tva = Pose3d::transform(const_contact_frame, va); 
+  SVelocityd tvb = Pose3d::transform(const_contact_frame, vb); 
+  SAcceld taa = Pose3d::transform(const_contact_frame, aa, va); 
+  SAcceld tab = Pose3d::transform(const_contact_frame, ab, vb); 
 
   // get the contact direction and derivative in the correct pose
   Vector3d dir = Pose3d::transform_vector(_contact_frame, v);
@@ -1376,10 +1377,11 @@ double UnilateralConstraint::calc_contact_accel(const Vector3d& v) const
   _contact_frame->rpose = GLOBAL;
 
   // compute the velocities and accelerations at the contact point
-  SVelocityd tva = Pose3d::transform(_contact_frame, va); 
-  SVelocityd tvb = Pose3d::transform(_contact_frame, vb); 
-  SAcceld taa = Pose3d::transform(_contact_frame, aa); 
-  SAcceld tab = Pose3d::transform(_contact_frame, ab); 
+    shared_ptr<const Pose3d> const_contact_frame = boost::const_pointer_cast<const Pose3d>(_contact_frame);
+  SVelocityd tva = Pose3d::transform(const_contact_frame, va); 
+  SVelocityd tvb = Pose3d::transform(const_contact_frame, vb); 
+  SAcceld taa = Pose3d::transform(_contact_frame, aa, va); 
+  SAcceld tab = Pose3d::transform(_contact_frame, ab, vb); 
 
   // get the contact direction and derivative in the correct pose
   Vector3d dir = Pose3d::transform_vector(_contact_frame, v);
@@ -1415,10 +1417,11 @@ double UnilateralConstraint::calc_constraint_accel() const
     _contact_frame->rpose = GLOBAL;
 
     // compute the velocities and accelerations at the contact point
-    SVelocityd tva = Pose3d::transform(_contact_frame, va); 
-    SVelocityd tvb = Pose3d::transform(_contact_frame, vb); 
-    SAcceld taa = Pose3d::transform(_contact_frame, aa); 
-    SAcceld tab = Pose3d::transform(_contact_frame, ab); 
+    shared_ptr<const Pose3d> const_contact_frame = boost::const_pointer_cast<const Pose3d>(_contact_frame);
+    SVelocityd tva = Pose3d::transform(const_contact_frame, va); 
+    SVelocityd tvb = Pose3d::transform(const_contact_frame, vb); 
+    SAcceld taa = Pose3d::transform(_contact_frame, aa, va); 
+    SAcceld tab = Pose3d::transform(_contact_frame, ab, vb); 
 
     // get the contact normal and derivative in the correct pose
     Vector3d normal = Pose3d::transform_vector(_contact_frame, contact_normal);
@@ -1462,8 +1465,8 @@ void UnilateralConstraint::calc_contact_tan_accel(double& tan1A, double& tan2A) 
   _contact_frame->rpose = GLOBAL;
 
   // compute the velocities and accelerations at the contact point
-  SAcceld taa = Pose3d::transform(_contact_frame, aa); 
-  SAcceld tab = Pose3d::transform(_contact_frame, ab); 
+  SAcceld taa = Pose3d::transform(_contact_frame, aa, va); 
+  SAcceld tab = Pose3d::transform(_contact_frame, ab, vb); 
 
   // get the contact tangents and derivative in the correct pose
   Vector3d tan1 = Pose3d::transform_vector(_contact_frame, contact_tan1);
@@ -1542,8 +1545,9 @@ double UnilateralConstraint::calc_constraint_vel() const
     _contact_frame->rpose = GLOBAL;
 
     // compute the velocities at the contact point
-    SVelocityd ta = Pose3d::transform(_contact_frame, va); 
-    SVelocityd tb = Pose3d::transform(_contact_frame, vb); 
+  shared_ptr<const Pose3d> const_contact_frame = boost::const_pointer_cast<const Pose3d>(_contact_frame);
+    SVelocityd ta = Pose3d::transform(const_contact_frame, va); 
+    SVelocityd tb = Pose3d::transform(const_contact_frame, vb); 
 
     // get the contact normal in the correct pose
     Vector3d normal = Pose3d::transform_vector(_contact_frame, contact_normal);
@@ -1593,7 +1597,7 @@ std::ostream& Moby::operator<<(std::ostream& o, const UnilateralConstraint& e)
       o << "(constraint type: contact)" << std::endl;
       break;
   }
- 
+	 
   if (e.compliance == UnilateralConstraint::eRigid) 
     o << "compliance: rigid" << std::endl;
   else
@@ -1614,10 +1618,10 @@ std::ostream& Moby::operator<<(std::ostream& o, const UnilateralConstraint& e)
       SingleBodyPtr sb1(e.contact_geom1->get_single_body());
       if (sb1)
       {
-        o << "body1: " << sb1->id << std::endl;
+	o << "body1: " << sb1->id << std::endl;
       }
       else
-        o << "body1: (undefined)" << std::endl;
+	o << "body1: (undefined)" << std::endl;
     }
     else
       o << "geom1: (undefined)" << std::endl;
@@ -1627,10 +1631,10 @@ std::ostream& Moby::operator<<(std::ostream& o, const UnilateralConstraint& e)
       SingleBodyPtr sb2(e.contact_geom2->get_single_body());
       if (sb2)
       {
-        o << "body2: " << sb2->id << std::endl;
+	o << "body2: " << sb2->id << std::endl;
       }    
       else
-        o << "body2: (undefined)" << std::endl;
+	o << "body2: (undefined)" << std::endl;
     }
     else
       o << "geom2: (undefined)" << std::endl;
@@ -1655,10 +1659,11 @@ std::ostream& Moby::operator<<(std::ostream& o, const UnilateralConstraint& e)
       constraint_frame->x = e.contact_point;
       constraint_frame->q.set_identity();
       constraint_frame->rpose = GLOBAL;
+      shared_ptr<const Pose3d> const_constraint_frame = boost::const_pointer_cast<const Pose3d>(constraint_frame);
 
       // compute the velocities at the contact point
-      SVelocityd ta = Pose3d::transform(constraint_frame, va); 
-      SVelocityd tb = Pose3d::transform(constraint_frame, vb); 
+      SVelocityd ta = Pose3d::transform(const_constraint_frame, va); 
+      SVelocityd tb = Pose3d::transform(const_constraint_frame, vb); 
 
       // get the contact normal in the correct pose
       Vector3d normal = Pose3d::transform_vector(constraint_frame, e.contact_normal);
@@ -2528,8 +2533,9 @@ double UnilateralConstraint::calc_contact_vel(const Vector3d& v) const
   _contact_frame->rpose = GLOBAL;
 
   // compute the velocities at the contact point
-  SVelocityd ta = Pose3d::transform(_contact_frame, va);
-  SVelocityd tb = Pose3d::transform(_contact_frame, vb);
+  shared_ptr<const Pose3d> const_contact_frame = boost::const_pointer_cast<const Pose3d>(_contact_frame);
+  SVelocityd ta = Pose3d::transform(const_contact_frame, va);
+  SVelocityd tb = Pose3d::transform(const_contact_frame, vb);
 
   // transform the vector
   Vector3d vx = Pose3d::transform_vector(_contact_frame, v);
@@ -2560,8 +2566,9 @@ void UnilateralConstraint::determine_contact_tangents()
   // get the velocities at the point of contat
   const SVelocityd& va = sba->get_velocity(); 
   const SVelocityd& vb = sbb->get_velocity();
-  SVelocityd ta = Pose3d::transform(_contact_frame, va);
-  SVelocityd tb = Pose3d::transform(_contact_frame, vb);
+  shared_ptr<const Pose3d> const_contact_frame = boost::const_pointer_cast<const Pose3d>(_contact_frame);
+  SVelocityd ta = Pose3d::transform(const_contact_frame, va);
+  SVelocityd tb = Pose3d::transform(const_contact_frame, vb);
   Vector3d rvel = ta.get_linear() - tb.get_linear();
 
   // get the normal in the same frame
@@ -2655,8 +2662,9 @@ double UnilateralConstraint::calc_vconstraint_tol() const
     _contact_frame->rpose = GLOBAL;
 
     // compute the velocities at the contact point
-    SVelocityd ta = Pose3d::transform(_contact_frame, va); 
-    SVelocityd tb = Pose3d::transform(_contact_frame, vb); 
+    shared_ptr<const Pose3d> const_contact_frame = boost::const_pointer_cast<const Pose3d>(_contact_frame);
+    SVelocityd ta = Pose3d::transform(const_contact_frame, va); 
+    SVelocityd tb = Pose3d::transform(const_contact_frame, vb); 
 
     // compute the difference in linear velocities
     return std::max((ta.get_linear() - tb.get_linear()).norm(), (double) 1.0);
@@ -2697,8 +2705,8 @@ double UnilateralConstraint::calc_aconstraint_tol() const
     // compute the velocities and accelerations at the contact point
     SVelocityd tva = Pose3d::transform(contact_point.pose, va); 
     SVelocityd tvb = Pose3d::transform(contact_point.pose, vb); 
-    SAcceld taa = Pose3d::transform(contact_point.pose, aa); 
-    SAcceld tab = Pose3d::transform(contact_point.pose, ab); 
+    SAcceld taa = Pose3d::transform(contact_point.pose, aa, va); 
+    SAcceld tab = Pose3d::transform(contact_point.pose, ab, vb); 
 
     // get the relative velocity and acceleration norms
     double rv_norm = (tva.get_linear() - tvb.get_linear()).norm();

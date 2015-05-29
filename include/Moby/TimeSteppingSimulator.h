@@ -46,16 +46,11 @@ class TimeSteppingSimulator : public ConstraintSimulator
     boost::shared_ptr<TimeSteppingSimulator> get_this() { return boost::dynamic_pointer_cast<TimeSteppingSimulator>(shared_from_this()); }
     
   protected:
-    void step_forward(double h, const std::vector<Ravelin::VectorNd>& qsave, const std::vector<Ravelin::VectorNd>& qdsave, const std::vector<Ravelin::VectorNd>& deltaqd);
     bool constraints_met(const std::vector<PairwiseDistInfo>& current_pairwise_distances);
     std::set<sorted_pair<CollisionGeometryPtr> > get_current_contact_geoms() const;
-    double integrate_forward(double dt);
+    double do_mini_step(double dt);
     void step_si_Euler(double dt);
     double calc_next_CA_Euler_step(double contact_dist_thresh) const;
-    void step_si_Euler0(double dt);
-    void integrate_velocities_Euler0(double dt);
-    void integrate_positions_Euler0(double dt);
-    double calc_next_CA_Euler_step0(double contact_dist_thresh) const;
     void calc_impacting_unilateral_constraint_forces2(double dt);
 }; // end class
 

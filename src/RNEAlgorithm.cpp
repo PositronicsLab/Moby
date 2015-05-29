@@ -130,7 +130,7 @@ map<JointPtr, VectorNd> RNEAlgorithm::calc_inv_dyn_fixed_base(RCArticulatedBodyP
     a[i] += SAcceld(mult(sprime, qd));
 
     // now add parent's contribution
-    a[i] += Pose3d::transform(a[i].pose, a[h]);
+    a[i] += transform_accel(a[i].pose, a[h]);
 
     FILE_LOG(LOG_DYNAMICS) << " computing link velocity / acceleration; processing link " << link->id << endl;
 //    FILE_LOG(LOG_DYNAMICS) << "  spatial axes: " << s << endl;

@@ -956,7 +956,7 @@ void FSABAlgorithm::calc_spatial_accelerations(RCArticulatedBodyPtr body)
     base->set_accel(a0);
     FILE_LOG(LOG_DYNAMICS) << "  articulated base inertia: " << Pose3d::transform(base->get_mixed_pose(), _I.front()) << endl;
     FILE_LOG(LOG_DYNAMICS) << "  negated base Z: " << Pose3d::transform(base->get_mixed_pose(), -_Z.front()) << endl;
-    FILE_LOG(LOG_DYNAMICS) << "  base acceleration: " << Pose3d::transform(base->get_mixed_pose(), a0) << endl;
+    FILE_LOG(LOG_DYNAMICS) << "  base acceleration: " << transform_accel(base->get_mixed_pose(), a0) << endl;
   }
   
   // *****************************************************************
@@ -985,7 +985,7 @@ void FSABAlgorithm::calc_spatial_accelerations(RCArticulatedBodyPtr body)
     const unsigned h = parent->get_index();
     
     // compute transformed parent link acceleration
-    SAcceld ah = Pose3d::transform(link->get_computation_frame(), parent->get_accel()); 
+    SAcceld ah = transform_accel(link->get_computation_frame(), parent->get_accel()); 
 
     // get the spatial axis and its derivative
     const vector<SVelocityd>& s = joint->get_spatial_axes();

@@ -87,15 +87,9 @@ class BallParabloidPlanePlugin : public CollisionDetection
     }
 
     /// Computes a conservative advancement step for Euler integration
-    virtual double calc_CA_Euler_step_cv(const PairwiseDistInfo& pdi)
+    virtual double calc_CA_Euler_step(const PairwiseDistInfo& pdi)
     {
-      return ccd->calc_CA_Euler_step_cv(pdi);
-    }
-
-    /// Computes a conservative advancement step for Euler integration
-    virtual double calc_CA_Euler_step_ca(const PairwiseDistInfo& pdi)
-    {
-      return ccd->calc_CA_Euler_step_ca(pdi);
+      return ccd->calc_CA_Euler_step(pdi);
     }
 
     /// Calculates signed distance between a ball and a plane

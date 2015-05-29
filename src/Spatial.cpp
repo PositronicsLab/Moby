@@ -5,12 +5,131 @@
  ****************************************************************************/
 
 #include <Ravelin/cblas.h>
+#include <Ravelin/Transform3d.h>
+#include <Ravelin/Pose3d.h>
 #include <Moby/Spatial.h>
 
 using namespace Ravelin;
 using std::vector;
 
 namespace Moby {
+
+/// Duplication of Pose3d::get_r_E(.)
+/// Gets r and E from a transform 
+/**
+ * \param T a transformation from frame A to frame B
+ * \param r on return, the vector from A's origin to B's origin in A frame 
+ * \param E rotates vectors in A's orientation to vectors in B's orientation 
+ */ 
+static void get_r_E(const Transform3d& T, Vector3d& r, Matrix3d& E)
+{
+  // x is the translation from frame A to frame B
+
+  // p_a
+  // bTa * p_a = bQa * p_a + bXa
+
+  // note that x is translation from relative pose to this pose
+  // q is rotation from vectors in this pose to relative pose 
+  E = T.q;
+  r = Vector3d(E.transpose_mult(-T.x), T.source);
+}
+
+/// transforms a spatial acceleration using precomputation *without accounting for moving frames*
+static void transform_accel(boost::shared_ptr<const Pose3d> target, const SAcceld& w, const Vector3d& r, const Matrix3d& E, SAcceld& result)
+{
+  // get the components of w[i] 
+  Vector3d top = w.get_upper();
+  Vector3d bottom = w.get_lower();
+
+  // do the calculations
+  Vector3d Etop(E * Origin3d(top), target);
+  Vector3d cross = Vector3d::cross(r, top);
+  result.set_upper(Etop);
+  result.set_lower(Vector3d(E * Origin3d(bottom - cross), target));
+  result.pose = target;
+} 
+
+/// Special transformation of acceleration when moving aspect of pose accounted for elsewhere
+SAcceld transform_accel(boost::shared_ptr<const Pose3d> target, const SAcceld& a)
+{
+  SAcceld s;
+
+  // NOTE: this is a duplication of the transform_spatial(.) function in
+  // Ravelin::Pose3x
+  // setup the source pose 
+  boost::shared_ptr<const Pose3d> source = a.pose;
+
+  // quick check
+  if (source == target)
+  {
+    s=a;
+    return s;
+  }
+
+  // compute the relative transform
+  Transform3d Tx = Pose3d::calc_relative_pose(source, target);
+
+  // setup r and E
+  Vector3d r;
+  Matrix3d E;
+  get_r_E(Tx, r, E);
+
+  // get the components of a
+  Vector3d top = a.get_upper();
+  Vector3d bottom = a.get_lower();
+
+  // do the calculations
+  Vector3d Etop(E * Origin3d(top), target);
+  Vector3d cross = Vector3d::cross(r, top);
+  s.set_upper(Etop);
+  s.set_lower(Vector3d(E * Origin3d(bottom - cross), target));
+  s.pose = target;
+  return s;
+}
+
+/// Special transformation of acceleration when moving aspect of pose accounted for elsewhere
+std::vector<SAcceld>& transform_accel(boost::shared_ptr<const Pose3d> target, const std::vector<SAcceld>& t, std::vector<SAcceld>& result)
+{
+  // NOTE: this is a duplication of the transform_spatial(.) function in
+  // Ravelin::Pose3x
+
+  // look for empty vector (easy case)
+  if (t.empty())
+  {
+    result.clear();
+    return result;
+  }
+
+  // setup the source pose
+  boost::shared_ptr<const Pose3d> source = t[0].pose; 
+
+  #ifndef NEXCEPT
+  for (unsigned i=1; i< t.size(); i++)
+    if (source != t[i].pose)
+      throw FrameException();
+  #endif
+
+  // quick check
+  if (source == target)
+    return (result = t);
+
+  // compute the relative transform
+  Transform3d Tx = Pose3d::calc_relative_pose(source, target);
+
+  // setup r and E
+  Vector3d r;
+  Matrix3d E;
+  get_r_E(Tx, r, E);
+
+  // resize the result vector
+  result.resize(t.size());
+
+  // transform the individual vectors 
+  for (unsigned i=0; i< t.size(); i++)
+    transform_accel(target, t[i], r, E, result[i]);
+
+  return result;
+}
 
 /// Concates a vector with a force to make a new vector
 VectorNd& concat(const VectorNd& v, const SForced& w, VectorNd& result)

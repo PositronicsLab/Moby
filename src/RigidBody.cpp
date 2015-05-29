@@ -108,7 +108,8 @@ void RigidBody::reset_limit_estimates()
   // mark velocity limits as not exceeded
  _vel_limit_exceeded = false;
 
-  SVelocityd v = Pose3d::transform(_F, get_velocity());
+  shared_ptr<const Pose3d> F_const = boost::const_pointer_cast<const Pose3d>(_F);
+  SVelocityd v = Pose3d::transform(F_const, get_velocity());
   for (unsigned i=0; i< SPATIAL_DIM; i++)
   {
     _vel_limit_lo[i] = v[i];
@@ -134,7 +135,8 @@ void RigidBody::update_vel_limits()
   // mark limit as not exceeded
   _vel_limit_exceeded = false;
 
-  SVelocityd v = Pose3d::transform(_F, get_velocity());
+  shared_ptr<const Pose3d> F_const = boost::const_pointer_cast<const Pose3d>(_F);
+  SVelocityd v = Pose3d::transform(F_const, get_velocity());
   for (unsigned i=0; i< SPATIAL_DIM; i++)
   {
     if (v[i] < _vel_limit_lo[i])
@@ -163,7 +165,8 @@ void RigidBody::check_vel_limit_exceeded_and_update()
 {
   const unsigned SPATIAL_DIM = 6;
 
-  SVelocityd v = Pose3d::transform(_F, get_velocity());
+  shared_ptr<const Pose3d> F_const = boost::const_pointer_cast<const Pose3d>(_F);
+  SVelocityd v = Pose3d::transform(F_const, get_velocity());
   for (unsigned i=0; i< SPATIAL_DIM; i++)
   {
     if (v[i] < _vel_limit_lo[i])
@@ -366,13 +369,12 @@ void RigidBody::calc_fwd_dyn()
     SForced f = sum_forces() - calc_euler_torques();
     SAcceld xdd = J.inverse_mult(f);
 
-FILE_LOG(LOG_SIMULATOR) << "Dynamics: " << Pose3d::transform(_F2, xdd) << std::endl;
     // set the acceleration
     switch (_rftype)
     {
       case eGlobal:
         _xdd0 = xdd;
-        _xddcom = Pose3d::transform(_F2, xdd);
+        _xddcom = Pose3d::transform(_F2, xdd, _xdcom);
         _xddi_valid = _xddj_valid = _xddm_valid = false;
         break;
 
@@ -383,21 +385,21 @@ FILE_LOG(LOG_SIMULATOR) << "Dynamics: " << Pose3d::transform(_F2, xdd) << std::e
 
       case eLink:
         _xddi = xdd;
-        _xddcom = Pose3d::transform(_F2, xdd);
+        _xddcom = Pose3d::transform(_F2, xdd, _xdcom);
         _xddi_valid = true;
         _xddj_valid = _xddm_valid = _xdd0_valid = false;
         break;
 
       case eLinkInertia:
         _xddm = xdd;
-        _xddcom = Pose3d::transform(_F2, xdd);
+        _xddcom = Pose3d::transform(_F2, xdd, _xdcom);
         _xddm_valid = true;
         _xddi_valid = _xddj_valid = _xdd0_valid = false;
         break;
 
       case eJoint:
         _xddj = xdd;
-        _xddcom = Pose3d::transform(_F2, xdd);
+        _xddcom = Pose3d::transform(_F2, xdd, _xdcom);
         _xddj_valid = true;
         _xddi_valid = _xddm_valid = _xdd0_valid = false;
         break;
@@ -449,7 +451,8 @@ void RigidBody::set_enabled(bool flag)
 void RigidBody::set_velocity(const SVelocityd& xd)
 {
   // set the velocity
-  _xdcom = Pose3d::transform(_F2, xd);
+  shared_ptr<const Pose3d> F2_const = boost::const_pointer_cast<const Pose3d>(_F2);
+  _xdcom = Pose3d::transform(F2_const, xd);
 
   // invalidate the remaining velocities
   _xdi_valid = _xdj_valid = _xdm_valid = _xd0_valid = false;
@@ -480,8 +483,11 @@ void RigidBody::set_velocity(const SVelocityd& xd)
 /// Sets the acceleration of this body
 void RigidBody::set_accel(const SAcceld& xdd)
 {
+  // get the velocity
+  SVelocityd xd = Pose3d::transform(xdd.pose, _xdcom);
+
   // set the acceleration
-  _xddcom = Pose3d::transform(_F2, xdd);
+  _xddcom = Pose3d::transform(_F2, xdd, xd);
 
   // invalidate the remaining accelerations
   _xddi_valid = _xddj_valid = _xddm_valid = _xdd0_valid = false;
@@ -675,19 +681,28 @@ const SVelocityd& RigidBody::get_velocity()
 
     case eLink:
       if (!_xdi_valid)
-        _xdi = Pose3d::transform(_F, _xdcom);
+      {
+        shared_ptr<const Pose3d> F_const = boost::const_pointer_cast<const Pose3d>(_F);
+        _xdi = Pose3d::transform(F_const, _xdcom);
+      }
       _xdi_valid = true;
       return _xdi;
 
     case eLinkInertia:
       if (!_xdm_valid)
-        _xdm = Pose3d::transform(_jF, _xdcom);
+      {
+        shared_ptr<const Pose3d> jF_const = boost::const_pointer_cast<const Pose3d>(_jF);
+        _xdm = Pose3d::transform(jF_const, _xdcom);
+      }
       _xdm_valid = true;
       return _xdm;
 
     case eJoint:
       if (!_xdj_valid)
-        _xdj = Pose3d::transform((is_base()) ? _F : get_inner_joint_explicit()->get_pose(), _xdcom);
+      {
+        shared_ptr<const Pose3d> F_const = boost::const_pointer_cast<const Pose3d>((is_base()) ? _F : get_inner_joint_explicit()->get_pose());
+        _xdj = Pose3d::transform(F_const,  _xdcom);
+      }
       _xdj_valid = true;
       return _xdj;
 
@@ -755,25 +770,25 @@ const SAcceld& RigidBody::get_accel()
 
     case eLink:
       if (!_xddi_valid)
-        _xddi = Pose3d::transform(_F, _xddcom);
+        _xddi = Pose3d::transform(_F, _xddcom, _xdcom);
       _xddi_valid = true;
       return _xddi;
 
     case eLinkInertia:
       if (!_xddm_valid)
-        _xddm = Pose3d::transform(_jF, _xddcom);
+        _xddm = Pose3d::transform(_jF, _xddcom, _xdcom);
       _xddm_valid = true;
       return _xddm;
 
     case eJoint:
       if (!_xddj_valid)
-        _xddj = Pose3d::transform((is_base()) ? _F : get_inner_joint_explicit()->get_pose(), _xddcom);
+        _xddj = Pose3d::transform((is_base()) ? _F : get_inner_joint_explicit()->get_pose(), _xddcom, _xdcom);
       _xddj_valid = true;
       return _xddj;
 
     case eGlobal:
       if (!_xdd0_valid)
-        _xdd0 = Pose3d::transform(GLOBAL, _xddcom);
+        _xdd0 = Pose3d::transform(GLOBAL, _xddcom, _xdcom);
       _xdd0_valid = true;
       return _xdd0;
 
@@ -992,7 +1007,8 @@ Vector3d RigidBody::calc_point_vel(const Point3d& point) const
   Vector3d r = Pose3d::transform_point(_F, point);
 
   // get the velocity in the body frame
-  SVelocityd xd = Pose3d::transform(_F, _xd0);
+  shared_ptr<const Pose3d> F_const = boost::const_pointer_cast<const Pose3d>(_F);
+  SVelocityd xd = Pose3d::transform(F_const, _xd0);
 
   // compute the point velocity - in the body frame
   Vector3d pv = xd.get_linear() + Vector3d::cross(xd.get_angular(), r);
@@ -1321,7 +1337,8 @@ void RigidBody::save_to_xml(XMLTreePtr node, list<shared_ptr<const Base> >& shar
   shared_ptr<Pose3d> TARGET(new Pose3d);
   TARGET->rpose = _F;
   TARGET->q = Quatd::invert(_F->q);
-  SVelocityd v = Pose3d::transform(TARGET, _xd0);
+    shared_ptr<const Pose3d> TARGET_const = boost::const_pointer_cast<const Pose3d>(TARGET);
+  SVelocityd v = Pose3d::transform(TARGET_const, _xd0);
   node->attribs.insert(XMLAttrib("linear-velocity", v.get_linear()));
   node->attribs.insert(XMLAttrib("angular-velocity", v.get_angular()));
 
@@ -1490,7 +1507,8 @@ void RigidBody::apply_impulse(const SMomentumd& w)
     SVelocityd dxd = get_inertia().inverse_mult(wx);
 
     // update linear and angular velocities
-    _xdcom += Pose3d::transform(_F2, dxd);
+    shared_ptr<const Pose3d> F2_const = boost::const_pointer_cast<const Pose3d>(_F2);
+    _xdcom += Pose3d::transform(F2_const, dxd);
 
     // see whether we can update any velocities
     if (dxd.pose == _F)

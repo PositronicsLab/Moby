@@ -202,15 +202,17 @@ X& transpose_mult(const std::vector<Ravelin::SMomentumd>& w, const Ravelin::SVel
   return result;
 }
 
-Ravelin::MatrixNd& mult(const std::vector<Ravelin::SMomentumd>& Is, const Ravelin::MatrixNd& m, Ravelin::MatrixNd& result);
-Ravelin::VectorNd& mult(const std::vector<Ravelin::SMomentumd>& Is, const Ravelin::VectorNd& v, Ravelin::VectorNd& result);
-std::vector<Ravelin::SMomentumd>& mult(const Ravelin::SpatialABInertiad& I, const std::vector<Ravelin::SVelocityd>& s, std::vector<Ravelin::SMomentumd>& result);
-Ravelin::MatrixNd& mult(const Ravelin::SpatialABInertiad& I, const std::vector<Ravelin::SVelocityd>& s, Ravelin::MatrixNd& result);
-std::vector<Ravelin::SMomentumd>& mult(const Ravelin::SpatialRBInertiad& I, const std::vector<Ravelin::SVelocityd>& s, std::vector<Ravelin::SMomentumd>& result);
-Ravelin::MatrixNd& mult(const Ravelin::SpatialRBInertiad& I, const std::vector<Ravelin::SVelocityd>& s, Ravelin::MatrixNd& result);
-Ravelin::VectorNd& concat(const Ravelin::VectorNd& v, const Ravelin::SForced& w, Ravelin::VectorNd& result);
-Ravelin::VectorNd& concat(const Ravelin::VectorNd& v, const Ravelin::SMomentumd& w, Ravelin::VectorNd& result);
-Ravelin::SVelocityd mult(const std::vector<Ravelin::SVelocityd>& a, const Ravelin::VectorNd& v);
+  Ravelin::MatrixNd& mult(const std::vector<Ravelin::SMomentumd>& Is, const Ravelin::MatrixNd& m, Ravelin::MatrixNd& result);
+  Ravelin::VectorNd& mult(const std::vector<Ravelin::SMomentumd>& Is, const Ravelin::VectorNd& v, Ravelin::VectorNd& result);
+  std::vector<Ravelin::SMomentumd>& mult(const Ravelin::SpatialABInertiad& I, const std::vector<Ravelin::SVelocityd>& s, std::vector<Ravelin::SMomentumd>& result);
+  Ravelin::MatrixNd& mult(const Ravelin::SpatialABInertiad& I, const std::vector<Ravelin::SVelocityd>& s, Ravelin::MatrixNd& result);
+  std::vector<Ravelin::SMomentumd>& mult(const Ravelin::SpatialRBInertiad& I, const std::vector<Ravelin::SVelocityd>& s, std::vector<Ravelin::SMomentumd>& result);
+  Ravelin::MatrixNd& mult(const Ravelin::SpatialRBInertiad& I, const std::vector<Ravelin::SVelocityd>& s, Ravelin::MatrixNd& result);
+  Ravelin::VectorNd& concat(const Ravelin::VectorNd& v, const Ravelin::SForced& w, Ravelin::VectorNd& result);
+  Ravelin::VectorNd& concat(const Ravelin::VectorNd& v, const Ravelin::SMomentumd& w, Ravelin::VectorNd& result);
+  Ravelin::SVelocityd mult(const std::vector<Ravelin::SVelocityd>& a, const Ravelin::VectorNd& v);
+  Ravelin::SAcceld transform_accel(boost::shared_ptr<const Ravelin::Pose3d> target, const Ravelin::SAcceld& a);
+  std::vector<Ravelin::SAcceld>& transform_accel(boost::shared_ptr<const Ravelin::Pose3d> target, const std::vector<Ravelin::SAcceld>& asrc, std::vector<Ravelin::SAcceld>& atgt);
 
 } // end namespace Moby
 

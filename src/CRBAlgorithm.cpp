@@ -998,7 +998,7 @@ void CRBAlgorithm::calc_generalized_forces(SForced& f0, VectorNd& C)
       _a[i] += SAcceld(mult(Pose3d::transform(_a[i].pose, sdot, _sprime), qd)); 
 
     // now add parent's contribution
-    _a[i] += Pose3d::transform(_a[i].pose, _a[h]);
+    _a[i] += transform_accel(_a[i].pose, _a[h]);
     FILE_LOG(LOG_DYNAMICS) << " computing link velocity / acceleration; processing link " << link->id << std::endl;
     if (s.size() > 0)
       FILE_LOG(LOG_DYNAMICS) << "  spatial joint velocity: " << (mult(s,qd)) << std::endl;
@@ -1319,7 +1319,7 @@ void CRBAlgorithm::update_link_accelerations(RCArticulatedBodyPtr body)
  
     // set link acceleration
     const SAcceld& ah = parent->get_accel();
-    SAcceld ai = Pose3d::transform(link->get_accel().pose, ah);
+    SAcceld ai = transform_accel(link->get_accel().pose, ah);
 
     // get the link spatial axis
     const std::vector<SVelocityd>& s = joint->get_spatial_axes(); 
