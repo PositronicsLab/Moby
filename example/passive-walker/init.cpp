@@ -220,10 +220,9 @@ void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map,
   walker->get_generalized_velocity( Moby::DynamicBody::eSpatial,xd);
 
   x[1] = 0; // x
-//  x[2] = 0; // y
-  x[2] = 0.6969; // y
-//  x[3] = 0.1236; // z
-  x[3] = 0.13425; // z
+  x[2] = 0; // y
+//  x[2] = 0.6969; // y
+  x[3] = 0.1236; // z
 
 //     9.866765986740000e-002
 //    -9.248610676160000e-003
