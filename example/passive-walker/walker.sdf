@@ -6,7 +6,7 @@
 
       <inertial>
         <!-- xcm ycm zcm -->
-        <pose>0 0.6969 0.3137 0 -0 0</pose>
+        <pose>0 0.6969 0.1901 0 -0 0</pose>
         <mass>1</mass>
         <inertia>
           <ixx>0.1982</ixx>
@@ -73,7 +73,7 @@
       <pose>0 -0.3624 0 0 0 0</pose>
       <inertial>
         <!-- xcm -ycm zcm -->
-        <pose>0 -0.6969 0.3137 0 -0 0</pose>
+        <pose>0 -0.6969 0.1901 0 -0 0</pose>
         <mass>1</mass>
         <inertia>
           <ixx>0.1982</ixx>
