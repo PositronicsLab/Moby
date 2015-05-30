@@ -221,7 +221,7 @@ void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map,
 
   x[1] = 0; // x
   x[2] = 0; // y
-//  x[2] = 0.6969; // y
+// x[2] = 0.6969; // y
   x[3] = 0.1236; // z
 
 //     9.866765986740000e-002
@@ -267,18 +267,23 @@ void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map,
   Matrix3d R = q;
   std::cout << "initial rotation: " << std::endl << R;
   const double THETA_OFFSET = M_PI;
-  printf ("q0:%5.5f q1:%5.5f q2:%5.5f q3:%5.5f\n",q[0],q[1],q[2],q[3]);
+  //printf ("q0:%5.5f q1:%5.5f q2:%5.5f q3:%5.5f\n",q[0],q[1],q[2],q[3]);
 
   //x[4] = q[0];
   //x[5] = q[1];
   //x[6] = q[2];
   //x[7] = q[3];
-  x[4] = 0.000658927582704;
-  x[5] = 0.080126472078048;
-  x[6] = -0.049524728858028;
-  x[7] = 0.9955534217997;
-  x[0] =  3.435833890385830e+000 + THETA_OFFSET; // Theta_sw
-  //x[0] = 0;
+  x[4] = 0;
+  x[5] = 0;
+  x[6] = 0.0871557427476582;
+  x[7] = 0.9961946980917456;
+  x[0] =  M_PI + THETA_OFFSET; // Theta_sw
+  //x[4]=0;
+  //x[5]=0;
+  //x[6]=0;
+  //x[7]=1;
+  //x[0]=0;    
+
   // Convert Time derivative of RPY to angular velocity (w)
   double  dPHI = -1.322096551035500e-001, // d yaw / dt
           dPSI = -1.990961987794000e-002, // d roll / dt
@@ -301,13 +306,16 @@ void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map,
   //Vector3d w((W(2,1)-W(1,2))/2,(W(0,2)-W(2,0))/2,(W(1,0)-W(0,1))/2);
   printf ("w1:%5.5f w2:%5.5f w3:%5.5f\n",(W(2,1)-W(1,2))/2,(W(0,2)-W(2,0))/2,(W(1,0)-W(0,1))/2);
   Vector3d w(0,0,0);
-  w[0] = 0.040738941683897;
-  w[1] = -0.472465112865759;
-  w[2] = 0.127336677387404;
+  w[0] = 0;
+  w[1] = 0;
+  w[2] = 0;
+  //w[0]=0;
+  //w[1]=0;
+  //w[2]=0;
   xd.set_zero();
   xd.set_sub_vec(4,w);
-  xd[0] = -0.3925591686648300; // -Theta_sw
-
+  xd[0] = 0; // -Theta_sw
+  //xd[0]=0;
   // get the collision geometries for the feet
   lfoot_geom = walker->find_link("LLEG")->geometries.front();
   rfoot_geom = walker->find_link("RLEG")->geometries.front();
