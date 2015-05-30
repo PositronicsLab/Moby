@@ -1079,7 +1079,15 @@ double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<co
   Transform3d aTb = Pose3d::calc_relative_pose(poseB, poseA);
   Transform3d bTa = aTb.inverse(); 
 
-  // TODO: if closest feature of A is null, pick features for A and B arbitrarily
+  // if closest feature of A is null, pick features for A and B arbitrarily
+  if(!closestA){
+    std::vector<boost::shared_ptr<Vertex> >::iterator vi = pA->get_polyhedron().get_vertices().begin();
+    closestA = boost::shared_ptr<Feature>(*vi);
+
+    vi = pB->get_polyhedron().get_vertices().begin();
+    closestB = boost::shared_ptr<Feature>(*vi);
+  
+  }
 
   // determine feature type for A
   if (dynamic_pointer_cast<const Polyhedron::Vertex>(closestA))
@@ -1203,20 +1211,13 @@ double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<co
     // handle face/face case
     else if (fA == eFace && fB == eFace)
     {
-// TODO: demote a face to an edge
-      Polyhedron::UpdateRule r = update_face_face(fA, fB, aTb, closestA, closestB);
-      
-      // look for continuing to run algorithm
-      if (r == eContinue)
-        continue;
-
-      // otherwise, we have converged
-      double dist = calc_dist(fA, fB, closestA, closestB, aTb);
-
-      if (r == eInterpenetrating)
-        return -dist;
-      else
-        return dist; 
+      // demote face b to an edge
+      // cast pointer
+      boost::shared_ptr<const Polyhedron::Face> faceB = boost::static_pointer_cast<const Polyhedron::Face>(closestB);
+      std::list<boost::weak_ptr<Edge> >::const_iterator ei = (faceB->e).begin();
+      closestB = boost::shared_ptr<const Polyhedron::Feature>(*ei);
+      fB = eEdge;
+      continue;
     }
     // handle vertex/face case
     else if (fA == eVertex && fB == eFace)
@@ -1533,7 +1534,7 @@ double Polyhedron::calc_dist(FeatureType fA, FeatureType fB, boost::shared_ptr<c
     Polyhedron::VertexFaceIterator vfiBb(faceB,true);
     std::vector<Ravelin::Vector3d> vBa;
     while(vfiBb.has_next())
-{
+    {
       boost::shared_ptr<Polyhedron::Vertex> v=*vfiBb;
       vfiBb.advance();
       Ravelin::Vector3d p(v->o, aTb.source);
@@ -1541,7 +1542,7 @@ double Polyhedron::calc_dist(FeatureType fA, FeatureType fB, boost::shared_ptr<c
       vBa.push_back(pa);
     }
 
-    // TODO: Bjoern, comment this block of code pls
+    // add the last point in the VertexFaceIterator into the vector
     boost::shared_ptr<Polyhedron::Vertex> v = *vfiBb;
     Ravelin::Vector3d p(v->o, aTb.source);
     Ravelin::Vector3d pa = aTb.transform_point(p);
@@ -2021,7 +2022,8 @@ bool Polyhedron::post_clip_deriv_check(FeatureType& fX, boost::shared_ptr<const 
   return false;
 }
 
-// TODO: Bjoern, pls add a comment as to this function's purpose
+// test if the vertex is inside the polygon
+// if not, update the face to the face that is the most distant from vertex
 Polyhedron::UpdateRule Polyhedron::handle_local_minimum(boost::shared_ptr<const Polyhedron::Vertex>& V, FeatureType& fF, boost::shared_ptr<const Polyhedron::Feature> face,  const Polyhedron& face_poly, const Ravelin::Transform3d& vTf)
 {
   //check whether the vertex has a negative distance with all faces in face_poly
@@ -2248,11 +2250,22 @@ Polyhedron::UpdateRule Polyhedron::update_vertex_face(FeatureType& fA, FeatureTy
   // check whether there are edges from V pointing toward F
   // here we convert the frame of the vertices which may not be the fastest solution
   // may be better if the plane is converted
-  // TODO: Bjoern, you're right- it's faster to transform the plane
-  Transform3d bTa = aTb.inverse();
-  Ravelin::Vector3d vectorA_b = bTa.transform_point(vectorA);
-  Plane p = faceB->get_plane();
-  double D_va = p.calc_signed_distance(vectorA_b);
+  // Transforming plane A to B 
+  Plane p_b = faceB->get_plane();
+  Ravelin::Vector3d normal_b = p_b.get_normal();
+  Ravelin::Vector3d normal_a = aTb.transform_vector(normal_b);
+
+  // find a random vertex from face b
+  boost::shared_ptr<Polyhedron::Face> faceB_non_const = boost::const_pointer_cast<Polyhedron::Face>(faceB);
+  Polyhedron::VertexFaceIterator vfi(faceB_non_const, true);
+  shared_ptr<Polyhedron::Vertex> v1 = *vfi;
+  Ravelin::Vector3d v1_b (v1->o, aTb.source);
+  Ravelin::Vector3d v1_a = aTb.transform_point(v1_b);
+
+  normal_a.normalize();
+  Plane p_a(normal_a, v1_a);
+
+  double D_va = p_a.calc_signed_distance(vectorA);
 
   es = vertA->e;
 
@@ -2266,9 +2279,8 @@ Polyhedron::UpdateRule Polyhedron::update_vertex_face(FeatureType& fA, FeatureTy
       v_prime = e->v2;
 
     // calculate D(V')
-    Ravelin::Vector3d vectorA_prime(v_prime->o, bTa.source);
-    Ravelin::Vector3d vectorA_prime_b = bTa.transform_point(vectorA_prime);
-    double D_v_prime = p.calc_signed_distance(vectorA_prime_b);
+    Ravelin::Vector3d vectorA_prime(v_prime->o, aTb.target);
+    double D_v_prime = p_a.calc_signed_distance(vectorA_prime);
 
     if(std::fabs(D_va) > std::fabs(D_v_prime))
     {
@@ -2276,16 +2288,17 @@ Polyhedron::UpdateRule Polyhedron::update_vertex_face(FeatureType& fA, FeatureTy
       closestA = e;
       fA=eEdge;
       return eContinue;
-    }
-
-    if (D_va > 0)
-      return eDone;
-    
-    return handle_local_minimum(vertA, fB, closestB, face_poly, aTb);
+    }    
   }
 
-  // TODO: Bjoern, function *must* return something (sensible) when it gets
-  // here 
+  // if there are no edge pointing to the face and the
+  // vertex is absolutely out of the polyhedron. We are done 
+    if (D_va > 0)
+      return eDone;
+
+  // if the point has negative distance, it might be inside the polyhedron
+  // handle_local_minimum will be used to test this and update.
+  return handle_local_minimum(vertA, fB, closestB, face_poly, aTb);
 }
 
 /// Does the case of update edge/edge

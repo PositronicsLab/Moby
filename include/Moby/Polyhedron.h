@@ -145,7 +145,6 @@ class Polyhedron
     UpdateRule update_vertex_face(FeatureType& fA, FeatureType& fB, Ravelin::Transform3d& aTb, boost::shared_ptr<const Polyhedron::Feature>& closestA, boost::shared_ptr<const Polyhedron::Feature>& closestB, const Polyhedron& face_poly);
     UpdateRule update_edge_edge(FeatureType& fA, FeatureType& fB, Ravelin::Transform3d& aTb, boost::shared_ptr<const Polyhedron::Feature>& closestA, boost::shared_ptr<const Polyhedron::Feature>& closestB);
     UpdateRule update_edge_face(FeatureType& fA, FeatureType& fB, Ravelin::Transform3d& aTb, boost::shared_ptr<const Polyhedron::Feature>& closestA, boost::shared_ptr<const Polyhedron::Feature>& closestB);
-    UpdateRule update_face_face(FeatureType& fA, FeatureType& fB, Ravelin::Transform3d& aTb, boost::shared_ptr<const Polyhedron::Feature>& closestA, boost::shared_ptr<const Polyhedron::Feature>& closestB);
     static double sqr(double x) { return x*x; }
     void calc_bounding_box();
     static void calc_subexpressions(double w0, double w1, double w2, double& f1, double& f2, double& f3, double& g0, double& g1, double& g2);
