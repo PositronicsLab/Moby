@@ -49,6 +49,10 @@ class CollisionGeometry : public virtual Base
     void get_vertices(std::vector<Point3d>& p) const;
     Point3d get_supporting_point(const Ravelin::Vector3d& d) const;
     double get_farthest_point_distance() const;
+    double calc_max_dist(double lin_cont, double ang_cont, double dist);
+
+    /// Gets the shared pointer for this
+    CollisionGeometryPtr get_this() { return boost::dynamic_pointer_cast<CollisionGeometry>(shared_from_this()); }
 
     /// Gets the parent of this CollisionGeometry (or NULL if there is no parent)
     boost::shared_ptr<CollisionGeometry> get_parent() const { return (_parent.expired()) ? CollisionGeometryPtr() : CollisionGeometryPtr(_parent); }

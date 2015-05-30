@@ -142,19 +142,19 @@ double CCD::calc_CA_Euler_step(const PairwiseDistInfo& pdi)
   Vector3d d0 = Pose3d::transform_point(GLOBAL, pA) -
                 Pose3d::transform_point(GLOBAL, pB);
   double d0_norm = d0.norm();
+  FILE_LOG(LOG_COLDET) << "closest point on " << rbA->id << ": " << Pose3d::transform_point(GLOBAL, pA) << std::endl;
+  FILE_LOG(LOG_COLDET) << "closest point on " << rbB->id << ": " << Pose3d::transform_point(GLOBAL, pB) << std::endl;
   FILE_LOG(LOG_COLDET) << "distance between closest points is: " << d0_norm << std::endl;
   FILE_LOG(LOG_COLDET) << "reported distance is: " << pdi.dist << std::endl;
 
   // get the direction of the vector (from body B to body A)
   Vector3d n0 = d0/d0_norm;
-  Vector3d nA = Pose3d::transform_vector(rbA->get_pose(), n0);
-  Vector3d nB = Pose3d::transform_vector(rbB->get_pose(), n0);
 
   // compute the distance that body A can move toward body B
-  double dist_per_tA = calc_max_velocity(rbA, -nA, _rmax[cgA]);
+  double dist_per_tA = rbA->calc_max_dist(-n0, pdi.dist);
 
   // compute the distance that body B can move toward body A
-  double dist_per_tB = calc_max_velocity(rbB, nB, _rmax[cgB]);
+  double dist_per_tB = rbB->calc_max_dist(n0, pdi.dist); 
 
   // compute the total distance
   double total_dist_per_t = dist_per_tA + dist_per_tB;
@@ -179,11 +179,19 @@ double CCD::calc_max_velocity(RigidBodyPtr rb, const Vector3d& n, double rmax)
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
+  if (!rb->is_enabled())
+    return 0.0;
+
   // get the velocities at t0
-  const SVelocityd& v0 = Pose3d::transform(rb->get_pose(), rb->get_velocity());
+  const SVelocityd& v0 = Pose3d::transform(GLOBAL, rb->get_velocity());
   Vector3d xd0 = v0.get_linear();
   Vector3d w0 = v0.get_angular();
-  return n.dot(xd0) + w0.norm()*rmax;
+  FILE_LOG(LOG_COLDET) << "CCD::calc_max_velocity() called on " << rb->id << std::endl;
+  FILE_LOG(LOG_COLDET) << "  n = " << n << std::endl;
+  FILE_LOG(LOG_COLDET) << "  xd0 = " << xd0 << std::endl;
+  FILE_LOG(LOG_COLDET) << "  <n, xd0> = " << n.dot(xd0) << std::endl;
+  FILE_LOG(LOG_COLDET) << "  ||w0 x n|| * r = " << Vector3d::cross(w0, n).norm()*rmax << std::endl;
+  return n.dot(xd0) + Vector3d::cross(w0, n).norm()*rmax;
 }
 
 /// Solves the LP that maximizes <n, v + w x r>

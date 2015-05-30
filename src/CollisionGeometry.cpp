@@ -48,28 +48,29 @@ Point3d CollisionGeometry::get_supporting_point(const Vector3d& d) const
   return primitive->get_supporting_point(dir);
 }
 
+/// Computes the maximum distance that a point on the geometry can travel
+double CollisionGeometry::calc_max_dist(double lin_cont, double ang_cont, double dist)
+{
+  return lin_cont + ang_cont*get_farthest_point_distance();
+}
+
 /// Gets the farthest point from this geometry
 double CollisionGeometry::get_farthest_point_distance() const
 {
   // get the primitive from this
   PrimitivePtr primitive = get_geometry();
 
-  // get the vertices
-  vector<Point3d> verts;
-  get_vertices(verts);
-  if (verts.empty())
-    return 0.0;
+  // get the bounding radius of the primitive
+  double r = primitive->get_bounding_radius();
 
-  // get the rigid body pose in P's frame
+  // get the pose of the primitive compared to the rigid body
   RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(get_single_body());
-  Point3d rbX = Pose3d::transform_point(verts.front().pose, Point3d(0,0,0,rb->get_pose()));
- 
-  // find which point is closest
-  double max_dist = 0.0;
-  for (unsigned i=0; i< verts.size(); i++)
-    max_dist = std::max(max_dist, (verts[i] - rbX).norm()); 
+  shared_ptr<const CollisionGeometry> cg_const = dynamic_pointer_cast<const CollisionGeometry>(shared_from_this());
+  CollisionGeometryPtr cg = const_pointer_cast<CollisionGeometry>(cg_const);
+  shared_ptr<const Pose3d> P = primitive->get_pose(cg);
+  Transform3d rbTp = Pose3d::calc_relative_pose(P, rb->get_inertial_pose());
 
-  return max_dist; 
+  return r + rbTp.x.norm();
 }
 
 /// Sets the single body associated with this CollisionGeometry

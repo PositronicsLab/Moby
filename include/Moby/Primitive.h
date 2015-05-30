@@ -57,6 +57,7 @@ class Primitive : public virtual Base
     void add_collision_geometry(CollisionGeometryPtr cg);
     void remove_collision_geometry(CollisionGeometryPtr cg);
     boost::shared_ptr<const Ravelin::Pose3d> get_pose(CollisionGeometryPtr g) const;
+    virtual double get_bounding_radius() const = 0; 
 
     /// Determines whether this primitive is convex
     virtual bool is_convex() const { return false; }

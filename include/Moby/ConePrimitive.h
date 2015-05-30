@@ -42,6 +42,7 @@ class ConePrimitive : public Primitive
     virtual osg::Node* create_visualization();
     virtual Point3d get_supporting_point(const Ravelin::Vector3d& d) const;
     virtual double calc_signed_dist(const Point3d& p) const;
+    virtual double get_bounding_radius() const { return std::max(_radius, _height); } 
 
     /// Gets the number of rings on the cone
     unsigned get_num_rings() const { return _nrings; }

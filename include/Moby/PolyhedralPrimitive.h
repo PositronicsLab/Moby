@@ -27,6 +27,25 @@ class PolyhedralPrimitive : public Primitive
 
     // Gets the number of facets in this primitive
     virtual unsigned num_facets() const = 0;
+
+/*
+    // Gets the bounding radius of this primitive
+    virtual double get_bounding_radius() const
+    {
+      // get the vertices
+      std::vector<Point3d> verts;
+      get_vertices(verts);
+      if (verts.empty())
+        return 0.0;
+
+      // find which point is closest
+      double max_dist = 0.0;
+      for (unsigned i=0; i< verts.size(); i++)
+        max_dist = std::max(max_dist, verts[i].norm()); 
+
+      return max_dist;      
+    }
+*/
 }; // end class
 
 } // end namespace

@@ -39,6 +39,7 @@ class SpherePrimitive : public Primitive
     double calc_signed_dist(boost::shared_ptr<const SpherePrimitive> s, Point3d& pthis, Point3d& psph) const;
     virtual Point3d get_supporting_point(const Ravelin::Vector3d& d) const;
     virtual double calc_signed_dist(const Point3d& p) const;
+    virtual double get_bounding_radius() const { return _radius; }
 
     /// Gets the radius for this sphere
     double get_radius() const { return _radius; }

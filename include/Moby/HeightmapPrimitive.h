@@ -39,6 +39,7 @@ class HeightmapPrimitive : public Primitive
     const Ravelin::MatrixNd& get_heights() const { return _heights; }
     double get_width() const { return _width; }
     double get_depth() const { return _depth; }
+    virtual double get_bounding_radius() const { return 0.0; }
 
   protected:
     virtual double calc_height(const Point3d& p) const;

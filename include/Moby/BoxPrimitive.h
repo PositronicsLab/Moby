@@ -40,6 +40,7 @@ class BoxPrimitive : public PolyhedralPrimitive
     virtual void get_vertices(boost::shared_ptr<const Ravelin::Pose3d> P, std::vector<Point3d>& p) const;
     virtual double calc_signed_dist(const Point3d& p) const;
     double calc_closest_points(boost::shared_ptr<const SpherePrimitive> s, Point3d& pbox, Point3d& psph) const;
+    virtual double get_bounding_radius() const { return std::sqrt(_xlen*_xlen + _ylen*_ylen + _zlen*_zlen); }
 
     /// Get the x-length of this box
     double get_x_len() const { return _xlen; }

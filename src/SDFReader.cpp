@@ -24,7 +24,6 @@
 
 #include <Moby/CylinderPrimitive.h>
 #include <Moby/ConePrimitive.h>
-#include <Moby/TriangleMeshPrimitive.h>
 #include <Moby/IndexedTetraArray.h>
 #include <Moby/Constants.h>
 #include <Moby/Simulator.h>
@@ -815,13 +814,6 @@ PrimitivePtr SDFReader::read_trimesh(shared_ptr<const XMLTree> node)
 {
   // sanity check
   assert(strcasecmp(node->name.c_str(), "TriangleMesh") == 0);
-
-  // TODO: finish implementing this
-  // create a new TriangleMeshPrimitive object
-  boost::shared_ptr<TriangleMeshPrimitive> b(new TriangleMeshPrimitive());
-
-  // populate the object
-//  b->load_from_xml(node, id_map);
 }
 
 /// Reads and constructs the heightmap object

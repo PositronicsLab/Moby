@@ -41,6 +41,7 @@ class PlanePrimitive : public Primitive
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual bool is_convex() const { return true; }
+    virtual double get_bounding_radius() const { return 0.0; }
 
   protected:
     virtual double calc_height(const Point3d& p) const;

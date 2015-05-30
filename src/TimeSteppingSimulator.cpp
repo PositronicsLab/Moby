@@ -152,7 +152,7 @@ void TimeSteppingSimulator::calc_impacting_unilateral_constraint_forces2(double 
 /// Does a full integration cycle (but not necessarily a full step)
 double TimeSteppingSimulator::do_mini_step(double dt)
 {
-  const double MIN_STEP_SIZE = 1e-10;
+  const double MIN_STEP_SIZE = 1e-8;
   VectorNd q, qd, qdd;
   std::vector<VectorNd> qsave;
 
@@ -177,6 +177,7 @@ double TimeSteppingSimulator::do_mini_step(double dt)
 
     // get the conservative advancement step
     double tc = std::min(dt-h, calc_next_CA_Euler_step(contact_dist_thresh));
+    FILE_LOG(LOG_SIMULATOR) << "Conservative advancement step: " << tc << std::endl;
 
     // if the conservative advancement step is very small, stop trying to
     // advance 
@@ -197,6 +198,8 @@ double TimeSteppingSimulator::do_mini_step(double dt)
     h += tc;
   }
 
+  FILE_LOG(LOG_SIMULATOR) << "Position integration ended w/h = " << h << std::endl;
+
   // compute forward dynamics
   calc_fwd_dyn();
 
@@ -209,6 +212,8 @@ double TimeSteppingSimulator::do_mini_step(double dt)
     qd += qdd;
     _bodies[i]->set_generalized_velocity(DynamicBody::eSpatial, qd);
   }
+
+  FILE_LOG(LOG_SIMULATOR) << "Integrated velocity by " << h << std::endl;
 
   // recompute pairwise distances
   calc_pairwise_distances();

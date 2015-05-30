@@ -38,6 +38,7 @@ class CylinderPrimitive : public Primitive
     virtual osg::Node* create_visualization();
     virtual Point3d get_supporting_point(const Ravelin::Vector3d& d) const;
     virtual double calc_signed_dist(const Point3d& p) const;
+    virtual double get_bounding_radius() const { return std::max(_radius, _height); } 
 
     /// Gets the radius of this cylinder
     double get_radius() const { return _radius; }
