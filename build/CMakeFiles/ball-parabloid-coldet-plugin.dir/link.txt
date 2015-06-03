@@ -1,1 +1,0 @@
-/usr/bin/c++  -fPIC -O2 -g -DNDEBUG   -shared -Wl,-soname,libball-parabloid-coldet-plugin.so -o libball-parabloid-coldet-plugin.so CMakeFiles/ball-parabloid-coldet-plugin.dir/example/ball-in-parabloid/coldet-plugin.cpp.o libMoby.so -lRavelin -lqhull -lRavelin -lxml2 -losg -losgViewer -losgDB -losgGA -lOpenThreads -losgUtil -Wl,-rpath,/home/shankar/CSCI6525/project/Moby/build: 

@@ -1,1 +1,0 @@
-/usr/bin/c++   -O2 -g -DNDEBUG    CMakeFiles/moby-view.dir/example/view.cpp.o  -o moby-view -rdynamic -losg -losgViewer -losgDB -losgGA -lOpenThreads  -ldl
