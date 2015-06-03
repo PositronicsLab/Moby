@@ -1,1 +1,0 @@
-/usr/bin/c++  -fPIC -O2 -g -DNDEBUG   -shared -Wl,-soname,libbox-plugin.so -o libbox-plugin.so CMakeFiles/box-plugin.dir/example/contact_simple/box-plugin.cpp.o libMoby.so -lRavelin -lqhull -lRavelin -lxml2 -losg -losgViewer -losgDB -losgGA -lOpenThreads -losgUtil -Wl,-rpath,/home/shankar/CSCI6525/project/Moby/build: 

@@ -1,1 +1,0 @@
-/usr/bin/c++  -fPIC -O2 -g -DNDEBUG   -shared -Wl,-soname,librimless-wheel-coldet-plugin.so -o librimless-wheel-coldet-plugin.so CMakeFiles/rimless-wheel-coldet-plugin.dir/example/rimless-wheel/coldet-plugin.cpp.o libMoby.so -lRavelin -lqhull -lRavelin -lxml2 -losg -losgViewer -losgDB -losgGA -lOpenThreads -losgUtil -Wl,-rpath,/home/shankar/CSCI6525/project/Moby/build: 
