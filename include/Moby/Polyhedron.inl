@@ -156,6 +156,9 @@ Polyhedron Polyhedron::calc_convex_hull(ForwardIterator begin, ForwardIterator e
       FILE_LOG(LOG_COMPGEOM) << "vertex " << i << ": " << poly._vertices[i]->o << std::endl;
   }
 
+  // TODO: remove this when we can handle non-simplicial facets
+  qh_triangulate();
+
   // need maps for new edges created for simplicial and non-simplicial facets
   std::map<std::pair<vertexT*, vertexT*>, boost::shared_ptr<Polyhedron::Edge> > v_edges;
   std::map<ridgeT*, boost::shared_ptr<Polyhedron::Edge> > r_edges;
