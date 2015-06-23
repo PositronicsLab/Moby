@@ -1594,6 +1594,7 @@ double Polyhedron::calc_dist(FeatureType fA, FeatureType fB, boost::shared_ptr<c
     //transform B
     Ravelin::Vector3d vBb(vB->o, aTb.source);
     Ravelin::Vector3d vBa = aTb.transform_point(vBb);
+    vBa.pose = GLOBAL3D;
 
     //find distance between point and the plane the face is on
     Plane planeA = faceA->get_plane();
@@ -1703,6 +1704,7 @@ double Polyhedron::calc_dist(FeatureType fA, FeatureType fB, boost::shared_ptr<c
       //std::cout<< *t <<std::endl;
       double tmp=Triangle::calc_sq_dist(*t,lineA,p1,p2);
       //  double tmp=0;
+      std::cout<<"distance between triangle " << *t << " and the line "<< vA1a <<", "<< vA2a << " is " << tmp <<std::endl;
       if (tmp < min_dist)
         min_dist=tmp;
     }
@@ -2058,8 +2060,7 @@ bool Polyhedron::clip_edge(boost::shared_ptr<const Polyhedron::Edge> edge, Trans
 }
 
 // Does a post-clipping derivative check
-// TODO: Rewrite the case so that it deal with degenerate cases.
-bool Polyhedron::post_clip_deriv_check(FeatureType& fX, boost::shared_ptr<const Polyhedron::Feature >& X , boost::shared_ptr<const Polyhedron::Edge> edge, Transform3d& xTe, double& min_lambda, double& max_lambda, boost::shared_ptr<const Polyhedron::Feature >& min_N, boost::shared_ptr<const Polyhedron::Feature >& max_N)
+Polyhedron::UpdateRule Polyhedron::post_clip_deriv_check(FeatureType& fX, boost::shared_ptr<const Polyhedron::Feature >& X , boost::shared_ptr<const Polyhedron::Edge> edge, Transform3d& xTe, double& min_lambda, double& max_lambda, boost::shared_ptr<const Polyhedron::Feature >& min_N, boost::shared_ptr<const Polyhedron::Feature >& max_N)
 {
 
   boost::shared_ptr<Ravelin::Pose3d> GLOBAL3D;
@@ -2079,6 +2080,13 @@ bool Polyhedron::post_clip_deriv_check(FeatureType& fX, boost::shared_ptr<const 
   {
     boost::shared_ptr<const Polyhedron::Vertex > vX = boost::static_pointer_cast<const Polyhedron::Vertex>(X);
     Ravelin::Vector3d v(vX->o, xTe.target);
+
+    //This degenerate situation indicates interpenetration
+    if((t+min_lambda*u-v).norm() < NEAR_ZERO)
+    {
+      return eInterpenetrating;
+    }
+
     Ddot_min = Ravelin::Vector3d::dot(u,(t+min_lambda*u-v));
     Ddot_max = Ravelin::Vector3d::dot(u,(t+max_lambda*u-v));
   }
@@ -2093,6 +2101,13 @@ bool Polyhedron::post_clip_deriv_check(FeatureType& fX, boost::shared_ptr<const 
       {
         boost::shared_ptr<const Polyhedron::Vertex > vX = boost::static_pointer_cast<const Polyhedron::Vertex>(min_N);
         Ravelin::Vector3d v(vX->o, xTe.target);
+        
+        // degenerate situation that indicates interpenetration
+        if((t+min_lambda*u-v).norm() < NEAR_ZERO)
+        {
+          return eInterpenetrating;
+        }
+
         Ddot_min = Ravelin::Vector3d::dot(u,(t+min_lambda*u-v));
       }
       // if the neighbor is not a vertex, it must be a face
@@ -2108,6 +2123,11 @@ bool Polyhedron::post_clip_deriv_check(FeatureType& fX, boost::shared_ptr<const 
         Ravelin::Vector3d v = t+u*min_lambda;
         v.pose = GLOBAL3D;
         // if the signed distance is negative, we need to reverse the sign
+
+        // degenerate situation that indicates interpenetration
+        if(fabs(p.calc_signed_distance(v))<NEAR_ZERO)
+          return eInterpenetrating;
+
         if(p.calc_signed_distance(v)<0)
         {
           Ddot_min = -Ddot_min;
@@ -2122,6 +2142,13 @@ bool Polyhedron::post_clip_deriv_check(FeatureType& fX, boost::shared_ptr<const 
       {
         boost::shared_ptr<const Polyhedron::Vertex > vX = boost::static_pointer_cast<const Polyhedron::Vertex>(max_N);
         Ravelin::Vector3d v(vX->o, xTe.target);
+
+        //This degenerate situation indicates interpenetration
+        if((t+min_lambda*u-v).norm() < NEAR_ZERO)
+        {
+          return eInterpenetrating;
+        }
+        
         Ddot_max = Ravelin::Vector3d::dot(u,(t+max_lambda*u-v));
       }
       // if the neighbor is not a vertex, it must be a face
@@ -2138,6 +2165,11 @@ bool Polyhedron::post_clip_deriv_check(FeatureType& fX, boost::shared_ptr<const 
         Ravelin::Vector3d v = t+u*max_lambda;
 
         v.pose = GLOBAL3D;
+
+        // degenerate situation that indicates interpenetration
+        if(fabs(p.calc_signed_distance(v))<NEAR_ZERO)
+          return eInterpenetrating;
+
         // if the signed distance is negatve, we need to reverse the sign
         if(p.calc_signed_distance(v)<0)
           Ddot_max = -Ddot_max;
@@ -2160,6 +2192,11 @@ bool Polyhedron::post_clip_deriv_check(FeatureType& fX, boost::shared_ptr<const 
 
     Ravelin::Vector3d vx = t+u*min_lambda;
     vx.pose = GLOBAL3D;
+
+    // degenerate situation that indicates interpenetration
+    if(fabs(p.calc_signed_distance(vx))<NEAR_ZERO)
+      return eInterpenetrating;
+
     // if the signed distance is negatve, we need to reverse the sign
     if(p.calc_signed_distance(vx)<0)
       Ddot_min = -Ddot_min;
@@ -2169,6 +2206,10 @@ bool Polyhedron::post_clip_deriv_check(FeatureType& fX, boost::shared_ptr<const 
 
     vx = t+u*max_lambda;
     vx.pose = GLOBAL3D;
+
+    if(fabs(p.calc_signed_distance(vx))<NEAR_ZERO)
+      return eInterpenetrating;
+
     // if the signed distance is negatve, we need to reverse the sign
     if(p.calc_signed_distance(vx)<0)
       Ddot_max = -Ddot_max;
@@ -2182,7 +2223,7 @@ bool Polyhedron::post_clip_deriv_check(FeatureType& fX, boost::shared_ptr<const 
       fX = eVertex;  
     else if (boost::dynamic_pointer_cast<const Polyhedron::Face>(min_N))
       fX = eFace;
-    return true; 
+    return eContinue; 
   }
   else if(max_N && Ddot_max<0)
   {
@@ -2191,10 +2232,10 @@ bool Polyhedron::post_clip_deriv_check(FeatureType& fX, boost::shared_ptr<const 
       fX = eVertex;  
     else if (boost::dynamic_pointer_cast<const Polyhedron::Face>(max_N))
       fX = eFace;
-    return true; 
+    return eContinue; 
   }
 
-  return false;
+  return eDone;
 }
 
 // test if the vertex is inside the polygon
@@ -2407,11 +2448,8 @@ Polyhedron::UpdateRule Polyhedron::update_vertex_edge(FeatureType& fA, FeatureTy
   else
   {
     // check derivative and update the feature
-    if(post_clip_deriv_check(fA, closestA, edgeB, aTb, min_lambda, max_lambda, min_N, max_N))
-      return eContinue;
-    // if V is not updated after all of porcess
-    else
-      return eDone;
+    return post_clip_deriv_check(fA, closestA, edgeB, aTb, min_lambda, max_lambda, min_N, max_N);
+
   }
 }
 
@@ -2561,8 +2599,11 @@ Polyhedron::UpdateRule Polyhedron::update_edge_edge(FeatureType& fA, FeatureType
     else
     {
       // check derivative and update the feature
-      if (post_clip_deriv_check(fA, closestA, edgeB, aTb, min_lambda, max_lambda, min_N, max_N))
-        return eContinue;
+      UpdateRule result = post_clip_deriv_check(fA, closestA, edgeB, aTb, min_lambda, max_lambda, min_N, max_N);
+      if(result != eDone)
+      {
+        return result;
+      }
     }
   
     //emptying the list
@@ -2592,8 +2633,11 @@ Polyhedron::UpdateRule Polyhedron::update_edge_edge(FeatureType& fA, FeatureType
     else
     {
       // check derivative and update the feature
-      if (post_clip_deriv_check(fA, closestA, edgeB, aTb, min_lambda, max_lambda, min_N, max_N))
-        return eContinue;
+      UpdateRule result = post_clip_deriv_check(fA, closestA, edgeB, aTb, min_lambda, max_lambda, min_N, max_N);
+      if(result != eDone)
+      {
+        return result;
+      }
     }
   }  
 
@@ -2632,8 +2676,11 @@ Polyhedron::UpdateRule Polyhedron::update_edge_edge(FeatureType& fA, FeatureType
     else
     {
       //Check derivative and update the feature
-      if(post_clip_deriv_check(fB, closestB, edgeA, bTa, min_lambda, max_lambda, min_N, max_N))
-        return eContinue;
+      UpdateRule result = post_clip_deriv_check(fB, closestB, edgeA, bTa, min_lambda, max_lambda, min_N, max_N);
+      if(result != eDone)
+      {
+        return result;
+      }
     }
 
     // clip eB against the Edge-Face Voronoi plane of EA
@@ -2664,8 +2711,11 @@ Polyhedron::UpdateRule Polyhedron::update_edge_edge(FeatureType& fA, FeatureType
     else
     {
       //Check derivative and update the feature
-      if(post_clip_deriv_check(fB, closestB, edgeA, bTa, min_lambda, max_lambda, min_N, max_N))
-        return eContinue;
+      UpdateRule result = post_clip_deriv_check(fB, closestB, edgeA, bTa, min_lambda, max_lambda, min_N, max_N);
+      if(result != eDone)
+      {
+        return result;
+      }
     }
   } 
  
