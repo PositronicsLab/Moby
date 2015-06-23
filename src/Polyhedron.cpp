@@ -928,7 +928,11 @@ std::ostream& Moby::operator<<(std::ostream& out, const Polyhedron::Face& m)
 {
   // get an iterator to the edges in the face
   std::list<boost::weak_ptr<Polyhedron::Edge> >::const_iterator ccw_iter = m.e.begin();
+  assert(ccw_iter != m.e.end());
+  assert(!ccw_iter->expired());
   shared_ptr<Polyhedron::Edge> e1(*ccw_iter++);
+  assert(ccw_iter != m.e.end());
+  assert(!ccw_iter->expired());
   shared_ptr<Polyhedron::Edge> e2(*ccw_iter++);
 
   // get the common face
@@ -1105,7 +1109,7 @@ double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<co
 
   // if closest feature of A is null, pick features for A and B arbitrarily
   if(!closestA){
-    std::vector<boost::shared_ptr<Vertex> >::iterator vi = pA->get_polyhedron().get_vertices().begin();
+    std::vector<boost::shared_ptr<Vertex> >::const_iterator vi = pA->get_polyhedron().get_vertices().begin();
     closestA = boost::shared_ptr<Feature>(*vi);
 
     vi = pB->get_polyhedron().get_vertices().begin();
@@ -1497,7 +1501,6 @@ double Polyhedron::calc_dist(FeatureType fA, FeatureType fB, boost::shared_ptr<c
   {
     //creating null pointer for later use as place holder
     boost::shared_ptr<const Pose2d> GLOBAL2D;
-    boost::shared_ptr<const Pose3d> GLOBAL3D;
     //cast features to non-constant
     boost::shared_ptr<const Polyhedron::Vertex> vA = boost::static_pointer_cast<const Polyhedron::Vertex>(closestA);
     boost::shared_ptr<const Polyhedron::Face> faceB_const = boost::static_pointer_cast<const Polyhedron::Face>(closestB);
@@ -1509,7 +1512,7 @@ double Polyhedron::calc_dist(FeatureType fA, FeatureType fB, boost::shared_ptr<c
     // transform A using the inverse of aTb
     Ravelin::Transform3d bTa = aTb.inverse();
     Ravelin::Vector3d vAb = bTa.transform_point(vAa);
-    vAb.pose = GLOBAL3D;
+    vAb.pose = GLOBAL;
     // find the minimum
     Plane planeB = faceB->get_plane();
     double dist = planeB.calc_signed_distance(vAb);
@@ -1594,7 +1597,7 @@ double Polyhedron::calc_dist(FeatureType fA, FeatureType fB, boost::shared_ptr<c
     //transform B
     Ravelin::Vector3d vBb(vB->o, aTb.source);
     Ravelin::Vector3d vBa = aTb.transform_point(vBb);
-    vBa.pose = GLOBAL3D;
+    vBa.pose = GLOBAL; 
 
     //find distance between point and the plane the face is on
     Plane planeA = faceA->get_plane();
@@ -2063,8 +2066,6 @@ bool Polyhedron::clip_edge(boost::shared_ptr<const Polyhedron::Edge> edge, Trans
 Polyhedron::UpdateRule Polyhedron::post_clip_deriv_check(FeatureType& fX, boost::shared_ptr<const Polyhedron::Feature >& X , boost::shared_ptr<const Polyhedron::Edge> edge, Transform3d& xTe, double& min_lambda, double& max_lambda, boost::shared_ptr<const Polyhedron::Feature >& min_N, boost::shared_ptr<const Polyhedron::Feature >& max_N)
 {
 
-  boost::shared_ptr<Ravelin::Pose3d> GLOBAL3D;
-
   // create a vector pointing of the edge from tail to head(v1 to v2)
   Ravelin::Vector3d t_e(edge->v1->o, xTe.source);
   Ravelin::Vector3d h_e(edge->v2->o, xTe.source);
@@ -2121,7 +2122,8 @@ Polyhedron::UpdateRule Polyhedron::post_clip_deriv_check(FeatureType& fX, boost:
         // calculate dDot_min
         Ddot_min = Ravelin::Vector3d::dot(u,n);
         Ravelin::Vector3d v = t+u*min_lambda;
-        v.pose = GLOBAL3D;
+        v.pose = GLOBAL;
+ 
         // if the signed distance is negative, we need to reverse the sign
 
         // degenerate situation that indicates interpenetration
@@ -2164,7 +2166,7 @@ Polyhedron::UpdateRule Polyhedron::post_clip_deriv_check(FeatureType& fX, boost:
 
         Ravelin::Vector3d v = t+u*max_lambda;
 
-        v.pose = GLOBAL3D;
+        v.pose = GLOBAL;
 
         // degenerate situation that indicates interpenetration
         if(fabs(p.calc_signed_distance(v))<NEAR_ZERO)
@@ -2191,7 +2193,7 @@ Polyhedron::UpdateRule Polyhedron::post_clip_deriv_check(FeatureType& fX, boost:
     Ddot_min = Ravelin::Vector3d::dot(u,n);
 
     Ravelin::Vector3d vx = t+u*min_lambda;
-    vx.pose = GLOBAL3D;
+    vx.pose = GLOBAL;
 
     // degenerate situation that indicates interpenetration
     if(fabs(p.calc_signed_distance(vx))<NEAR_ZERO)
@@ -2205,7 +2207,7 @@ Polyhedron::UpdateRule Polyhedron::post_clip_deriv_check(FeatureType& fX, boost:
     Ddot_max = Ravelin::Vector3d::dot(u,n);
 
     vx = t+u*max_lambda;
-    vx.pose = GLOBAL3D;
+    vx.pose = GLOBAL;
 
     if(fabs(p.calc_signed_distance(vx))<NEAR_ZERO)
       return eInterpenetrating;
@@ -2242,9 +2244,6 @@ Polyhedron::UpdateRule Polyhedron::post_clip_deriv_check(FeatureType& fX, boost:
 // if not, update the face to the face that is the most distant from vertex
 Polyhedron::UpdateRule Polyhedron::handle_local_minimum(boost::shared_ptr<const Polyhedron::Vertex>& V, FeatureType& fF, boost::shared_ptr<const Polyhedron::Feature>& face,  const Polyhedron& face_poly, const Ravelin::Transform3d& fTv)
 {
-  //global pose
-  boost::shared_ptr<Ravelin::Pose3d> GLOBAL3D; 
-
   //check whether the vertex has a negative distance with all faces in face_poly
   double d_max = std::numeric_limits<double>::min();
   const std::vector<boost::shared_ptr<Face> >& faces = face_poly.get_faces();
@@ -2254,7 +2253,7 @@ Polyhedron::UpdateRule Polyhedron::handle_local_minimum(boost::shared_ptr<const 
   boost::shared_ptr<const Polyhedron::Feature> f0;
 
   //set the frame of vf to global for calculation
-  vf.pose = GLOBAL3D;
+  vf.pose = GLOBAL;
 
   for(fi = faces.begin(); fi != faces.end() ; ++fi)
   {
@@ -2731,7 +2730,6 @@ Polyhedron::UpdateRule Polyhedron::update_edge_face(FeatureType& fA, FeatureType
   const FeatureType F_FACE=eFace;
   const FeatureType F_VERTEX=eVertex;
   const FeatureType F_EDGE=eEdge; 
-  boost::shared_ptr<Ravelin::Pose3d> GLOBAL3D; 
 
   Ravelin::Transform3d bTa = aTb.inverse(); 
 
@@ -2808,7 +2806,7 @@ Polyhedron::UpdateRule Polyhedron::update_edge_face(FeatureType& fA, FeatureType
 
       // if the signed distance is negatve, we need to reverse the sign
       Ravelin::Vector3d vx = t+u*min_lambda;
-      vx.pose = GLOBAL3D;
+      vx.pose = GLOBAL;
       if (p.calc_signed_distance(vx) < 0)
         Ddot_min = -Ddot_min;
 
@@ -2817,7 +2815,7 @@ Polyhedron::UpdateRule Polyhedron::update_edge_face(FeatureType& fA, FeatureType
       vx = t+u*max_lambda;
 
       // if the signed distance is negatve, we need to reverse the sign
-      vx.pose = GLOBAL3D;
+      vx.pose = GLOBAL;
       if(p.calc_signed_distance(vx) < 0)
         Ddot_max = -Ddot_max;
 
@@ -2914,8 +2912,8 @@ Polyhedron::UpdateRule Polyhedron::update_edge_face(FeatureType& fA, FeatureType
 
   Ravelin::Vector3d min_vx = t+u*min_lambda;
   Ravelin::Vector3d max_vx = t+u*max_lambda;
-  min_vx.pose = GLOBAL3D;
-  max_vx.pose = GLOBAL3D;
+  min_vx.pose = GLOBAL;
+  max_vx.pose = GLOBAL;
 
 
   double min_d = p.calc_signed_distance(min_vx);

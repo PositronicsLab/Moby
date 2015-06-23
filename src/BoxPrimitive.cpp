@@ -173,8 +173,12 @@ double BoxPrimitive::calc_signed_dist(shared_ptr<const Primitive> p, Point3d& pt
   // if the primitive is convex, can use vclip 
   if (p->is_convex())
   {
-    // TODO: implement me!
-    assert(false);
+    shared_ptr<const PolyhedralPrimitive> bthis = dynamic_pointer_cast<const PolyhedralPrimitive>(shared_from_this());
+    shared_ptr<const PolyhedralPrimitive> polyp = dynamic_pointer_cast<const PolyhedralPrimitive>(p);
+    shared_ptr<const Pose3d> poseA = pthis.pose;
+    shared_ptr<const Pose3d> poseB = pp.pose;
+    shared_ptr<const Polyhedron::Feature> closestA, closestB;
+    return Polyhedron::vclip(bthis, polyp, poseA, poseB, closestA, closestB); 
   }
 
   // try box/(non-convex) trimesh

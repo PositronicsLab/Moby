@@ -23,7 +23,7 @@ void stabilize(RigidBodyPtr l1)
 {
   // get the pose of the link
   Pose3d P = *l1->get_inertial_pose();
-
+  double err = P.x.norm() - 1.0;
 
   // project the position of l1 back to the unit sphere
   P.x.normalize();
@@ -34,7 +34,7 @@ void stabilize(RigidBodyPtr l1)
 //  l1_pose->x.normalize(); 
 
   std::ofstream out("cvio.dat", std::ostream::app);
-  out << (gTw.x.norm() - 1.0) << std::endl;
+  out << err << std::endl;
   out.close();
 }
 

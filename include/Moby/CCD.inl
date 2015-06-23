@@ -74,7 +74,97 @@ OutputIterator CCD::find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr
 template <class OutputIterator>
 OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL)
 {
-  // TODO: Bjoern, fill this in
+  enum FeatureType { eNone, eVertex, eEdge, eFace };
+  FeatureType featA = eNone, featB = eNone;
+  boost::shared_ptr<Polyhedron::Vertex> vA, vB;
+  boost::shared_ptr<Polyhedron::Edge> eA, eB;
+  boost::shared_ptr<Polyhedron::Face> fA, fB;
+
+  // get the two primitives
+  boost::shared_ptr<const PolyhedralPrimitive> pA = boost::dynamic_pointer_cast<const PolyhedralPrimitive>(cgA->get_geometry());
+  boost::shared_ptr<const PolyhedralPrimitive> pB = boost::dynamic_pointer_cast<const PolyhedralPrimitive>(cgB->get_geometry());
+
+  // get the two poses
+  boost::shared_ptr<const Ravelin::Pose3d> poseA = pA->get_pose(cgA);
+  boost::shared_ptr<const Ravelin::Pose3d> poseB = pB->get_pose(cgB);
+
+  // call v-clip
+  boost::shared_ptr<const Polyhedron::Feature> closestA;
+  boost::shared_ptr<const Polyhedron::Feature> closestB;
+  double dist = Polyhedron::vclip(pA, pB, poseA, poseB, closestA, closestB);
+
+  // see whether to generate contacts
+  if (dist > TOL)
+    return output_begin; 
+
+  // get the type of the first feature
+  if (boost::dynamic_pointer_cast<const Polyhedron::Vertex>(closestA))
+  {
+    featA = eVertex;
+    boost::shared_ptr<const Polyhedron::Vertex> vA_const = boost::static_pointer_cast<const Polyhedron::Vertex>(closestA);
+    vA = boost::const_pointer_cast<Polyhedron::Vertex>(vA_const);
+  }
+  else if (boost::dynamic_pointer_cast<const Polyhedron::Edge>(closestA))
+  {
+    featA = eEdge;
+    boost::shared_ptr<const Polyhedron::Edge> eA_const = boost::static_pointer_cast<const Polyhedron::Edge>(closestA);
+    eA = boost::const_pointer_cast<Polyhedron::Edge>(eA_const);
+  }
+  else 
+  {
+    featA = eFace;
+    boost::shared_ptr<const Polyhedron::Face> fA_const = boost::static_pointer_cast<const Polyhedron::Face>(closestA);
+    fA = boost::const_pointer_cast<Polyhedron::Face>(fA_const);
+  }
+
+  // get the type of the second feature
+  if (boost::dynamic_pointer_cast<const Polyhedron::Vertex>(closestB))
+  {
+    featB = eVertex;
+    boost::shared_ptr<const Polyhedron::Vertex> vB_const = boost::static_pointer_cast<const Polyhedron::Vertex>(closestB);
+    vB = boost::const_pointer_cast<Polyhedron::Vertex>(vB_const);
+  }
+  else if (boost::dynamic_pointer_cast<const Polyhedron::Edge>(closestB))
+  {
+    featB = eEdge;
+    boost::shared_ptr<const Polyhedron::Edge> eB_const = boost::static_pointer_cast<const Polyhedron::Edge>(closestB);
+    eB = boost::const_pointer_cast<Polyhedron::Edge>(eB_const);
+  }
+  else 
+  {
+    featB = eFace;
+    boost::shared_ptr<const Polyhedron::Face> fB_const = boost::static_pointer_cast<const Polyhedron::Face>(closestB);
+    fB = boost::const_pointer_cast<Polyhedron::Face>(fB_const);
+  }
+
+  // now handle on a case by case basis
+  if (featA == eVertex)
+  {
+    if (featB == eVertex)
+      return find_contacts_vertex_vertex(cgA, cgB, vA, vB, dist, output_begin);
+    else if (featB == eEdge)
+      return find_contacts_vertex_edge(cgA, cgB, vA, eB, dist, output_begin);
+    else
+      return find_contacts_vertex_face(cgA, cgB, vA, fB, dist, output_begin);
+  }
+  else if (featA == eEdge)
+  {
+    if (featB == eVertex)
+      return find_contacts_vertex_edge(cgB, cgA, vB, eA, dist, output_begin);
+    else if (featB == eEdge)
+      return find_contacts_edge_edge(cgA, cgB, eA, eB, dist, output_begin);
+    else
+      return find_contacts_edge_face(cgA, cgB, eA, fB, dist, output_begin);
+  }
+  else
+  {
+    if (featB == eVertex)
+      return find_contacts_vertex_face(cgB, cgA, vB, fA, dist, output_begin);
+    else if (featB == eEdge)
+      return find_contacts_edge_face(cgB, cgA, eB, fA, dist, output_begin);
+    else
+      return find_contacts_face_face(cgA, cgB, fA, fB, dist, output_begin);
+  }
 }
 
 template <class OutputIterator>
@@ -126,18 +216,18 @@ OutputIterator CCD::find_contacts_edge_face(CollisionGeometryPtr cgA, CollisionG
   
   //2. get all vertex from face
   Polyhedron::VertexFaceIterator vfi(fB,true);
-  std::vector<Ravelin::Origin2d> v2d;
+  std::vector<Point2d> v2d;
   while(vfi.has_next()){
     boost::shared_ptr<Polyhedron::Vertex> v=*vfi;
     vfi.advance();
     Ravelin::Vector3d p(v->o, cgB->get_pose());
     Ravelin::Vector3d p0=wTB.transform_point(p);
-    v2d.push_back(CompGeom::to_2D(p0,R2D));
+    v2d.push_back(Point2d(CompGeom::to_2D(p0,R2D), GLOBAL_2D));
 
   }
   
   //checking if the points are CCW. If not reverse it
-  if(!CompGeom::ccw(v2d.begin(),v2d.end(),normal0)){
+  if(!CompGeom::ccw(v2d.begin(),v2d.end())){
     std::reverse(v2d.begin(),v2d.end());
   }
 
