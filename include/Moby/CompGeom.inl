@@ -3223,7 +3223,7 @@ OutputIterator CompGeom::triangulate_convex_polygon(ForwardIterator source_begin
   // compute the center of the points, and create new points
   std::list<Point3d> new_points;
   unsigned sz = 0;
-  Point3d center = Point3d::zero();
+  Point3d center = Point3d::zero(source_begin->pose);
   for (ForwardIterator i = source_begin; i != source_end; i++, sz++)
   {
     center += *i;
