@@ -331,7 +331,7 @@ void ImpactConstraintHandler::apply_ap_model(UnilateralConstraintProblemData& q)
 
   // solve the LCP
   VectorNd z;
-  if (!_lcp.lcp_lemke_regularized(_MM, _qq, z, -20, 1, -6))
+  if (!_lcp.lcp_lemke_regularized(_MM, _qq, z, -20, 1, -2))
     throw std::exception();
 
   for(unsigned i=0,j=0;i<NC;i++)

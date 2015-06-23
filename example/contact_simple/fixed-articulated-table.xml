@@ -17,7 +17,6 @@
 
     <!-- Integrator -->
     <RungeKuttaIntegrator id="rk4" />
-    <EulerIntegrator id="euler" />
     <BulirschStoerIntegrator id="bsi" abs-err-tol="1e-3" rel-err-tol="1e-1" />
 
     <!-- Gravity force -->
@@ -68,7 +67,7 @@
       </RigidBody>
 
     <!-- Setup the simulator -->
-    <EventDrivenSimulator id="simulator" integrator-id="bsi" Euler-step="1e-4" contact-dist-thresh="1e-10">
+    <EventDrivenSimulator id="simulator" integrator-id="bsi" Euler-step="1e-3" ccontact-dist-thresh="1e-10">
       <DisabledPair object1-id="table" object2-id="table"/>
       <DynamicBody dynamic-body-id="table" />
       <DynamicBody dynamic-body-id="ground" />

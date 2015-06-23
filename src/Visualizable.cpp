@@ -6,6 +6,7 @@
 
 #ifdef USE_OSG
 #include <osg/MatrixTransform>
+#include <osgDB/WriteFile>
 #include <Moby/OSGGroupWrapper.h>
 #endif
 

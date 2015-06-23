@@ -14,6 +14,7 @@
 #include <Moby/FSABAlgorithm.h>
 #include <Moby/Spatial.h>
 #include <Moby/NumericalException.h>
+#include <Moby/XMLReader.h>
 #include <Moby/RCArticulatedBody.h>
 
 using boost::shared_ptr;
@@ -45,12 +46,61 @@ RCArticulatedBody::RCArticulatedBody()
   algorithm_type = eFeatherstone;
   set_computation_frame_type(eLinkCOM);
 
-  // setup baumgarte parameters
-  b_alpha = (double) 0.0;
-  b_beta = (double) 0.0;
-
   // invalidate position quanitites
   _position_invalidated = true;
+}
+
+/// Clones this
+RCArticulatedBodyPtr RCArticulatedBody::clone() const 
+{
+  // create a node for Moby
+  XMLTreePtr node(new XMLTree("Moby"));
+
+  // setup a list of shared objects 
+  std::list<shared_ptr<const Base> > shared_objects;
+  shared_objects.push_back(shared_from_this());
+
+  // init a set of serialized objects
+  std::set<shared_ptr<const Base> > serialized;
+
+  // develop the XML tree until there is nothing more to serialize
+  while (!shared_objects.empty())
+  {
+    // get the object off of the front of the queue
+    shared_ptr<const Base> obj = shared_objects.front();
+    assert(obj);
+    shared_objects.pop_front();
+
+    // if this object has already been serialized, skip it
+    if (serialized.find(obj) != serialized.end())
+      continue;
+
+    // create a new node for this object under the parent
+    XMLTreePtr new_node(new XMLTree(""));
+    node->add_child(new_node);
+
+    // serialize to this new node
+    obj->save_to_xml(new_node, shared_objects);
+
+    // indicate that the node has been serialized
+    serialized.insert(obj);
+  }
+
+  // now read in all of the objects
+  map<string, BasePtr> objects = XMLReader::construct_ID_map(node);
+
+  // find the RCArticulatedBody object - verify that there is only one
+  for (map<string, BasePtr>::const_iterator i = objects.begin(); i != objects.end(); i++)
+  {
+    RCArticulatedBodyPtr rcab = dynamic_pointer_cast<RCArticulatedBody>(i->second);
+
+    if (rcab)
+      return rcab;
+  }
+
+  // should not still be here
+  assert(false);
+  return RCArticulatedBodyPtr(); 
 }
 
 /// Validates position variables
@@ -874,37 +924,32 @@ void RCArticulatedBody::calc_fwd_dyn()
     _joints[i]->add_force(ff);
   }
 
-  // if there are implicit joints, we must do the model with loops
-  if (!_ijoints.empty())
-    calc_fwd_dyn_loops();
-  else
+  // use the proper dynamics algorithm
+  switch (algorithm_type)
   {
-    // use the proper dynamics algorithm
-    switch (algorithm_type)
-    {
-      case eFeatherstone:
-        if (!_position_invalidated)
-          _fsab.calc_fwd_dyn_special();
-        else
-          _fsab.calc_fwd_dyn();
-        break;
+    case eFeatherstone:
+      if (!_position_invalidated)
+        _fsab.calc_fwd_dyn_special();
+      else
+        _fsab.calc_fwd_dyn();
+      break;
 
-      case eCRB:
-        if (!_position_invalidated)
-          _crb.calc_fwd_dyn_special();
-        else
-          _crb.calc_fwd_dyn();
-        break;
+    case eCRB:
+      if (!_position_invalidated)
+        _crb.calc_fwd_dyn_special();
+      else
+        _crb.calc_fwd_dyn();
+      break;
 
-      default:
-        assert(false);
-    }
+    default:
+      assert(false);
   }
 
   FILE_LOG(LOG_DYNAMICS) << "RCArticulatedBody::calc_fwd_dyn() exited" << std::endl;
 }
 
 /// Computes the forward dynamics with loops
+/*
 void RCArticulatedBody::calc_fwd_dyn_loops()
 {
   double Cx[6];
@@ -977,6 +1022,7 @@ void RCArticulatedBody::calc_fwd_dyn_loops()
   DynamicBody::solve_generalized_inertia(fext, a);
   set_generalized_acceleration(a);
 }
+*/
 
 /// Determines the ndof x ngc Jacobian for implicit constraint movement (ndof is the number of degrees of freedom of the implicit constraints)
 // TODO: fix this
@@ -1816,14 +1862,6 @@ void RCArticulatedBody::load_from_xml(shared_ptr<const XMLTree> node, map<string
     }
   }
 
-  // get baumgarte paramters
-  XMLAttrib* balpha_attr = node->get_attrib("baumgarte-alpha");
-  if (balpha_attr)
-    b_alpha = balpha_attr->get_real_value();
-  XMLAttrib* bbeta_attr = node->get_attrib("baumgarte-beta");
-  if (bbeta_attr)
-    b_beta = bbeta_attr->get_real_value();
-
   // compile everything once again, for safe measure
   compile();
 
@@ -1883,9 +1921,5 @@ void RCArticulatedBody::save_to_xml(XMLTreePtr node, list<shared_ptr<const Base>
     assert(get_computation_frame_type() == eJoint);
     node->attribs.insert(XMLAttrib("fdyn-algorithm-frame", string("joint")));
   }
-
-  // save baumgarte parameters
-  node->attribs.insert(XMLAttrib("baumgarte-alpha", b_alpha));
-  node->attribs.insert(XMLAttrib("baumgarte-beta", b_beta));
 }
 

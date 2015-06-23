@@ -1,6 +1,8 @@
 /*****************************************************************************
  * Initializer for passive dynamic walker 
  ****************************************************************************/
+
+// to run moby-driver -r -p=libpassive-walker-init.so -oi -s=0.001 walker.xml
 #include <Moby/EventDrivenSimulator.h>
 #include <Moby/RCArticulatedBody.h>
 #include <Moby/GravityForce.h>
@@ -9,9 +11,12 @@
 #include <Ravelin/VectorNd.h>
 using namespace Ravelin;
 using namespace Moby;
+using boost::shared_ptr;
 
 boost::shared_ptr<Moby::EventDrivenSimulator> sim;
 Moby::RCArticulatedBodyPtr walker;
+Moby::RigidBodyPtr ground;
+Moby::CollisionGeometryPtr lfoot_geom, rfoot_geom;
 boost::shared_ptr<GravityForce> grav;
 
 const double ALPHA = 0.0702;
@@ -36,7 +41,7 @@ Ravelin::Origin3d quat2rpy(const Ravelin::Quatd& q_){
 }
 
 // setup simulator callback
-void post_step_callback(Simulator* sim)
+void post_step_callback(Simulator* s)
 {
   const unsigned Z = 2;
   std::ofstream out("energy.dat", std::ostream::app);
@@ -49,6 +54,23 @@ void post_step_callback(Simulator* sim)
   double PEl1 = l1->get_inertia().m*gTl1.x[Z]*-grav->gravity[Z];
   out << KE << " " << (PEb+PEl1) << " " << (KE+PEb+PEl1) << std::endl;
   out.close();
+
+  // get the signed distance between the walker feet and the ground
+  CollisionGeometryPtr ground_geom = ground->geometries.front();
+  Point3d dummy1, dummy2;
+  shared_ptr<CollisionDetection> coldet = sim->get_collision_detection();
+  double dL = coldet->calc_signed_dist(lfoot_geom, ground_geom, dummy1, dummy2);
+  double dR = coldet->calc_signed_dist(rfoot_geom, ground_geom, dummy1, dummy2);
+
+  // if the signed distance is negative, project the walker upward by the
+  // minimum distance
+  if (std::min(dL, dR) < 0.0)
+  {
+    Pose3d P(*base->get_pose());
+    P.x[2] -= std::min(dL, dR);
+    base->set_pose(P);
+    walker->update_link_poses();
+  }
 }
 
 Ravelin::Quatd rpy2quat(const Ravelin::Origin3d& rpy){
@@ -159,6 +181,10 @@ extern "C" {
 
 void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map, double time)
 {
+  // overwrite files
+  std::ofstream out("energy.dat");
+  out.close();
+
   // If use robot is active also init dynamixel controllers
   // get a reference to the EventDrivenSimulator instance
   for (std::map<std::string, Moby::BasePtr>::const_iterator i = read_map.begin();
@@ -175,12 +201,17 @@ void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map,
     // find the gravity vector
     if (!grav)
       grav = boost::dynamic_pointer_cast<GravityForce>(i->second);
+
+    // find the ground
+    if (!ground && i->first == "GROUND")
+      ground = boost::dynamic_pointer_cast<RigidBody>(i->second);
   }
 
   // setup the callback
   sim->post_step_callback_fn = &post_step_callback;
 
-//  part->controller                  = &controller_callback;
+
+//  walker->controller                  = &controller_callback;
 //  sim->constraint_post_callback_fn  = &post_event_callback_fn;
 
   // Set initial conditions from ruina paper
@@ -190,6 +221,7 @@ void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map,
 
   x[1] = 0; // x
   x[2] = 0; // y
+// x[2] = 0.6969; // y
   x[3] = 0.1236; // z
 
 //     9.866765986740000e-002
@@ -230,17 +262,27 @@ void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map,
                     Rx = Ravelin::Matrix3d::rot_X(-PSI),
                     Rzxy = Ry.mult(Rx).mult(Rz);
   Quatd q = Quatd(Rzxy);
-
+   
   // output the rotation
   Matrix3d R = q;
   std::cout << "initial rotation: " << std::endl << R;
   const double THETA_OFFSET = M_PI;
+  //printf ("q0:%5.5f q1:%5.5f q2:%5.5f q3:%5.5f\n",q[0],q[1],q[2],q[3]);
 
-  x[4] = q[0];
-  x[5] = q[1];
-  x[6] = q[2];
-  x[7] = q[3];
-  x[0] =  -3.435833890385830e+000 + THETA_OFFSET; // Theta_sw
+  //x[4] = q[0];
+  //x[5] = q[1];
+  //x[6] = q[2];
+  //x[7] = q[3];
+  x[4] = 0;
+  x[5] = 0;
+  x[6] = 0.0871557427476582;
+  x[7] = 0.9961946980917456;
+  x[0] =  M_PI + THETA_OFFSET; // Theta_sw
+  //x[4]=0;
+  //x[5]=0;
+  //x[6]=0;
+  //x[7]=1;
+  //x[0]=0;    
 
   // Convert Time derivative of RPY to angular velocity (w)
   double  dPHI = -1.322096551035500e-001, // d yaw / dt
@@ -249,6 +291,7 @@ void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map,
   //  a_dot is time derivative of RPY
   // Numerically derive skew symmetric
   // angular velocity tensor matrix W
+  // can do this analytically also
   double h = 1e-6;
   Matrix3d
       Rz2 = Ravelin::Matrix3d::rot_Z(-PHI - h*dPHI),
@@ -260,10 +303,22 @@ void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map,
       W = ((Rzxy2-Rzxy)/h).mult_transpose(Rzxy);
 
   // w is angular velocity
-  Vector3d w((W(2,1)-W(1,2))/2,(W(0,2)-W(2,0))/2,(W(1,0)-W(0,1))/2);
+  //Vector3d w((W(2,1)-W(1,2))/2,(W(0,2)-W(2,0))/2,(W(1,0)-W(0,1))/2);
+  printf ("w1:%5.5f w2:%5.5f w3:%5.5f\n",(W(2,1)-W(1,2))/2,(W(0,2)-W(2,0))/2,(W(1,0)-W(0,1))/2);
+  Vector3d w(0,0,0);
+  w[0] = 0;
+  w[1] = 0;
+  w[2] = 0;
+  //w[0]=0;
+  //w[1]=0;
+  //w[2]=0;
   xd.set_zero();
   xd.set_sub_vec(4,w);
-  xd[0] = 3.925591686648300e-001; // -Theta_sw
+  xd[0] = 0; // -Theta_sw
+  //xd[0]=0;
+  // get the collision geometries for the feet
+  lfoot_geom = walker->find_link("LLEG")->geometries.front();
+  rfoot_geom = walker->find_link("RLEG")->geometries.front();
 
   walker->set_generalized_coordinates( Moby::DynamicBody::eEuler,x);
   walker->set_generalized_velocity( Moby::DynamicBody::eSpatial,xd);

@@ -33,7 +33,7 @@
       </RigidBody>
 
     <!-- Setup the simulator -->
-    <EventDrivenSimulator id="simulator" integrator-id="bsi" Euler-step="1e-5" contact-dist-thresh="1e-13">
+    <EventDrivenSimulator id="simulator" integrator-id="bsi" Euler-step="1e-3" ccontact-dist-thresh="1e-6">
       <DynamicBody dynamic-body-id="sphere" />
       <DynamicBody dynamic-body-id="ground" />
       <RecurrentForce recurrent-force-id="gravity"  />

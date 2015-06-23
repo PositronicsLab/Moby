@@ -28,8 +28,14 @@ void post_step_callback(Simulator* sim)
   double KE = wheel->calc_kinetic_energy();
   Transform3d gTw = Pose3d::calc_relative_pose(wheel->get_inertial_pose(), GLOBAL);
   double PE = wheel->get_inertia().m*gTw.x[Z]*-grav->gravity[Z];
-  out << KE << " " << PE << " " << (KE+PE) << std::endl;
+  out << sim->current_time << " " << KE << " " << PE << " " << (KE+PE) << std::endl;
   out.close();
+
+  // see whether there is significant undesired rotation
+  AAngled aa = Pose3d::calc_relative_pose(wheel->get_pose(), GLOBAL).q;
+  out.open("angular.dat", std::ostream::app);
+  out << sim->current_time << " " << std::fabs(aa.x) << " " << std::fabs(aa.z) << " " << " " << std::fabs(aa.angle) << std::endl; 
+  out.close(); 
 
   // see whether we are in a ballistic flight phase
   EventDrivenSimulator* esim = (EventDrivenSimulator*) sim;

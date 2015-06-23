@@ -51,6 +51,7 @@ void PrismaticJoint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std:
   {
     Vector3d axis;
     axis_attrib->get_vector_value(axis);
+    axis.normalize();
     set_axis(axis);
   }
 

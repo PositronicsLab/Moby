@@ -201,9 +201,6 @@ class RigidBody : public SingleBody
     /// Gets the list of outer joints for this link
     const std::set<JointPtr>& get_outer_joints() const { return _outer_joints; }
 
-    /// Viscous coefficient for dampening the body motion
-    Ravelin::VectorNd viscous_coeff;
-
     /// Validates the limit estimates
     virtual void validate_limit_estimates() { _vel_limit_exceeded = false; }
 

@@ -91,7 +91,6 @@ RigidBody::RigidBody()
   // set everything else
   _enabled = true;
   _link_idx = std::numeric_limits<unsigned>::max();
-  viscous_coeff = VectorNd::zero(SPATIAL_DIM);
 
   // indicate velocity limit has been exceeded (safe initialization)
  _vel_limit_exceeded = true;
@@ -1034,11 +1033,6 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
   }
   #endif
 
-  // read the viscous dampening coefficient, if provided
-  XMLAttrib* viscous_coeff_attr = node->get_attrib("viscous-dampening-coeff");
-  if (viscous_coeff_attr)
-    viscous_coeff_attr->get_vector_value(viscous_coeff);
-
   // read whether the body is enabled, if provided
   XMLAttrib* enabled_attr = node->get_attrib("enabled");
   if (enabled_attr)
@@ -1076,7 +1070,8 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
   XMLAttrib* position_attr = node->get_attrib("position");
   XMLAttrib* rpy_attr = node->get_attrib("rpy");
   XMLAttrib* quat_attr = node->get_attrib("quat");
-  if (position_attr || rpy_attr || quat_attr)
+  XMLAttrib* aangle_attr = node->get_attrib("aangle");
+  if (position_attr || rpy_attr || quat_attr || aangle_attr)
   {
     Pose3d T;
     if (position_attr)
@@ -1085,14 +1080,21 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
       T.q = quat_attr->get_quat_value();
     else if (rpy_attr)
       T.q = rpy_attr->get_rpy_value();
+    else if (aangle_attr)
+    {
+      VectorNd aa_vec;
+      aangle_attr->get_vector_value(aa_vec);
+      T.q = AAngled(aa_vec[0], aa_vec[1], aa_vec[2], aa_vec[3]);
+    }
     set_pose(T);
   }
 
   // read the inertial frame here...
   XMLAttrib* com_attr = node->get_attrib("inertial-relative-com");
   XMLAttrib* J_rpy_attr = node->get_attrib("inertial-relative-rpy");
+  XMLAttrib* J_aangle_attr = node->get_attrib("inertial-relative-aangle");
   XMLAttrib* J_quat_attr = node->get_attrib("inertial-relative-quat");
-  if (com_attr || J_rpy_attr || J_quat_attr)
+  if (com_attr || J_rpy_attr || J_aangle_attr || J_quat_attr)
   {
     shared_ptr<Pose3d> newjF(new Pose3d);
     newjF->rpose = _jF;
@@ -1104,6 +1106,12 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
       newjF->q = J_quat_attr->get_quat_value();
     else if (J_rpy_attr)
       newjF->q = J_rpy_attr->get_rpy_value();
+    else if (J_aangle_attr)
+    {
+      VectorNd aa_vec;
+      aangle_attr->get_vector_value(aa_vec);
+      newjF->q = AAngled(aa_vec[0], aa_vec[1], aa_vec[2], aa_vec[3]);
+    }
 
     // update newjF to refer to _jF's pose
     newjF->update_relative_pose(_jF->rpose);
@@ -1192,11 +1200,18 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
 
       // read the relative transformation, if specified
       XMLAttrib* rel_origin_attr = (*i)->get_attrib("relative-origin");
+      XMLAttrib* rel_aangle_attr = (*i)->get_attrib("relative-aangle");
       XMLAttrib* rel_rpy_attr = (*i)->get_attrib("relative-rpy");
       if (rel_origin_attr)
         rTR->x = rel_origin_attr->get_origin_value();
       if (rel_rpy_attr)
         rTR->q = rel_rpy_attr->get_rpy_value();
+      else if (rel_aangle_attr)
+      {
+        VectorNd aa_vec;
+        aangle_attr->get_vector_value(aa_vec);
+        rTR->q = AAngled(aa_vec[0], aa_vec[1], aa_vec[2], aa_vec[3]);
+      }
       rTR->rpose = Fxx;
       Jx.pose = rTR;
 
@@ -1309,9 +1324,6 @@ void RigidBody::save_to_xml(XMLTreePtr node, list<shared_ptr<const Base> >& shar
   SVelocityd v = Pose3d::transform(TARGET, _xd0);
   node->attribs.insert(XMLAttrib("linear-velocity", v.get_linear()));
   node->attribs.insert(XMLAttrib("angular-velocity", v.get_angular()));
-
-  // save the dampening coefficients
-  node->attribs.insert(XMLAttrib("viscous-coeff", viscous_coeff));
 
   // save all collision geometries
   BOOST_FOREACH(CollisionGeometryPtr g, geometries)

@@ -54,6 +54,7 @@ class RCArticulatedBody : public ArticulatedBody
     virtual Ravelin::MatrixNd& calc_jacobian(const Point3d& point, RigidBodyPtr link, Ravelin::MatrixNd& J);
     virtual Ravelin::MatrixNd& calc_jacobian(const Point3d& point, const Ravelin::Pose3d& base_pose, const std::map<JointPtr, Ravelin::VectorNd>& q, RigidBodyPtr link, Ravelin::MatrixNd& J);
 */
+    RCArticulatedBodyPtr clone() const;
     virtual void reset_accumulators();
     virtual void update_link_poses();    
     virtual void update_link_velocities();
@@ -85,14 +86,6 @@ class RCArticulatedBody : public ArticulatedBody
     virtual unsigned num_joint_dof_implicit() const;
     virtual unsigned num_joint_dof_explicit() const { return _n_joint_DOF_explicit; }
     void set_floating_base(bool flag);
-    virtual Ravelin::VectorNd& transpose_Jc_mult(const Ravelin::VectorNd& v, Ravelin::VectorNd& result) { return _Jc.transpose_mult(v, result); } 
-    virtual Ravelin::MatrixNd& transpose_Jc_mult(const Ravelin::MatrixNd& m, Ravelin::MatrixNd& result) { return _Jc.transpose_mult(m, result); }
-    virtual Ravelin::VectorNd& transpose_Dc_mult(const Ravelin::VectorNd& v, Ravelin::VectorNd& result) { return _Dc.transpose_mult(v, result); }
-    virtual Ravelin::MatrixNd& transpose_Dc_mult(const Ravelin::MatrixNd& m, Ravelin::MatrixNd& result) { return _Dc.transpose_mult(m, result); }
-    virtual Ravelin::VectorNd& transpose_Jl_mult(const Ravelin::VectorNd& v, Ravelin::VectorNd& result) { return _Jl.transpose_mult(v, result); }
-    virtual Ravelin::MatrixNd& transpose_Jl_mult(const Ravelin::MatrixNd& m, Ravelin::MatrixNd& result) { return _Jl.transpose_mult(m, result); }
-    virtual Ravelin::VectorNd& transpose_Dx_mult(const Ravelin::VectorNd& v, Ravelin::VectorNd& result) { return _Dx.transpose_mult(v, result); }
-    virtual Ravelin::MatrixNd& transpose_Dx_mult(const Ravelin::MatrixNd& m, Ravelin::MatrixNd& result) { return _Dx.transpose_mult(m, result); }
     virtual void set_computation_frame_type(ReferenceFrameType rftype);
     virtual Ravelin::VectorNd& solve_generalized_inertia(const Ravelin::VectorNd& b, Ravelin::VectorNd& x) { return DynamicBody::solve_generalized_inertia(b, x); }
     virtual Ravelin::SharedMatrixNd& transpose_solve_generalized_inertia(const Ravelin::SharedMatrixNd& B, Ravelin::SharedMatrixNd& X);
@@ -134,12 +127,6 @@ class RCArticulatedBody : public ArticulatedBody
     /// The forward dynamics algorithm
     ForwardDynamicsAlgorithmType algorithm_type;
 
-    /// Baumgarte alpha parameter >= 0
-    double b_alpha;
-
-    /// Baumgarte beta parameter >= 0
-    double b_beta;
-
   protected:
     /// Whether this body uses a floating base
     bool _floating_base;
@@ -153,23 +140,18 @@ class RCArticulatedBody : public ArticulatedBody
     const std::vector<JointPtr>& get_explicit_joints() const { return _ejoints; }
 
   private:
+    RCArticulatedBody(const RCArticulatedBody& rcab) {}
     virtual Ravelin::MatrixNd& calc_jacobian_column(JointPtr joint, const Point3d& point, Ravelin::MatrixNd& Jc);
 /*
     virtual Ravelin::MatrixNd& calc_jacobian_floating_base(const Point3d& point, Ravelin::MatrixNd& J);
 */
     bool all_children_processed(RigidBodyPtr link) const;
-    void calc_fwd_dyn_loops();
-    void calc_fwd_dyn_advanced_friction(double dt);
 
     /// The vector of explicit joint constraints
     std::vector<JointPtr> _ejoints;
 
     /// The vector of implicit joint constraints
     std::vector<JointPtr> _ijoints;
-
-    /// Variables used for events
-    Ravelin::MatrixNd _Jc, _Dc, _Jl, _Jx, _Dx, _Dt;
-    Ravelin::MatrixNd _iM_JcT, _iM_DcT, _iM_JlT, _iM_JxT, _iM_DxT, _iM_DtT;
 
     /// Indicates when position data has been invalidated
     bool _position_invalidated;

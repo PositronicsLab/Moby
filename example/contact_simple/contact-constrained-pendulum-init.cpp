@@ -24,9 +24,18 @@ void stabilize(RigidBodyPtr l1)
   // get the pose of the link
   Pose3d P = *l1->get_inertial_pose();
 
+
   // project the position of l1 back to the unit sphere
   P.x.normalize();
   l1->set_pose(P);
+
+  // project back to the constraint manifold
+  shared_ptr<Pose3d> l1_pose = boost::const_pointer_cast<Pose3d>(l1->get_pose());
+//  l1_pose->x.normalize(); 
+
+  std::ofstream out("cvio.dat", std::ostream::app);
+  out << (gTw.x.norm() - 1.0) << std::endl;
+  out.close();
 }
 
 // setup simulator callback

@@ -479,9 +479,6 @@ void Joint::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& sha
   // save the restitution coefficient
   node->attribs.insert(XMLAttrib("restitution-coeff", limit_restitution));
 
-  // save the force currently applied to this joint
-  node->attribs.insert(XMLAttrib("force", force));
-
   // save the inboard link, if any
   if (!_inboard_link.expired())
   {
