@@ -18,6 +18,7 @@
 #include <Moby/SustainedUnilateralConstraintSolveFailException.h>
 #include <Moby/InvalidStateException.h>
 #include <Moby/InvalidVelocityException.h>
+#include <Moby/Dissipation.h>
 #include <Moby/EventDrivenSimulator.h>
 
 #ifdef USE_OSG
@@ -1392,6 +1393,10 @@ void EventDrivenSimulator::integrate_velocities_Euler(double dt)
       db->set_generalized_velocity(DynamicBody::eSpatial, qd);
     }
   }
+
+  // call the dissipation mechanism, if any
+  if (dissipator)
+    dissipator->apply(_bodies);
 
   FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::integrate_velocities_Euler() exited " << std::endl;
 }

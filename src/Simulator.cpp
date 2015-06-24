@@ -9,6 +9,7 @@
 #include <osg/Group>
 #endif
 #include <Moby/RecurrentForce.h>
+#include <Moby/Dissipation.h>
 #include <Moby/ArticulatedBody.h>
 #include <Moby/RCArticulatedBody.h>
 #include <Moby/RigidBody.h>
@@ -345,6 +346,21 @@ void Simulator::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::stri
   if (time_attr)
     this->current_time = time_attr->get_real_value();
 
+  // get the dissipator, if any
+  XMLAttrib* diss_attr = node->get_attrib("dissipator-id");
+  if (diss_attr)
+  {
+    const std::string& id = diss_attr->get_string_value(); 
+    if ((id_iter = id_map.find(id)) == id_map.end())
+    {
+      std::cerr << "Simulator::load_from_xml() - could not find" << std::endl;
+      std::cerr << "  dissipator w/ID: " << id << " from offending node: ";
+      std::cerr << std::endl << *node;
+    }
+    else
+      dissipator = dynamic_pointer_cast<Dissipation>(id_iter->second);
+  }
+
   // get the integrator, if specified
   XMLAttrib* int_id_attr = node->get_attrib("integrator-id");
   if (int_id_attr)
@@ -442,6 +458,13 @@ void Simulator::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >&
 
   // save the current time 
   node->attribs.insert(XMLAttrib("current-time", this->current_time));
+
+  // save the ID of the dissipator
+  if (dissipator)
+  {
+    node->attribs.insert(XMLAttrib("dissipator-id", dissipator->id));
+    shared_objects.push_back(dissipator);
+  }
 
   // save the ID of the integrator
   if (integrator)

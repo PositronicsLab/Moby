@@ -26,6 +26,7 @@ namespace osg {
 
 namespace Moby {
 
+class Dissipation;
 class RigidBody;
 class ArticulatedBody;
 class VisualizationData;
@@ -52,6 +53,9 @@ class Simulator : public virtual Base
 
     /// The current simulation time
     double current_time;
+
+    /// The dissipation mechanism for larger time steps
+    boost::shared_ptr<Dissipation> dissipator;
 
     /// The integrator used to step the simulation
     boost::shared_ptr<Integrator> integrator;
