@@ -1894,8 +1894,8 @@ boost::shared_ptr<Plane> Polyhedron::voronoi_plane (FeatureType fA, FeatureType 
     face_normal.pose = pose;
     // find the cross product between them to find the Voronoi plane normal
     Ravelin::Vector3d voronoi_normal = Ravelin::Vector3d::cross(edge_vector, face_normal);
+    std::cout << "v1: "<< v1 <<", v2: " << v2 << std::endl <<"face normal:" << face_normal <<std::endl << *faceB << std::endl << voronoi_normal << std::endl;
     voronoi_normal.normalize();
-    std::cout << "v1: "<< v1 << std::endl << *faceB << std::endl << voronoi_normal << std::endl;
     // create the Voronoi plane    
     result = boost::shared_ptr<Plane>( new Plane(voronoi_normal,v1));
 
@@ -2225,6 +2225,8 @@ Polyhedron::UpdateRule Polyhedron::post_clip_deriv_check(FeatureType& fX, boost:
       fX = eVertex;  
     else if (boost::dynamic_pointer_cast<const Polyhedron::Face>(min_N))
       fX = eFace;
+    else if (boost::dynamic_pointer_cast<const Polyhedron::Edge>(min_N))
+      fX = eEdge;
     return eContinue; 
   }
   else if(max_N && Ddot_max<0)
@@ -2234,6 +2236,8 @@ Polyhedron::UpdateRule Polyhedron::post_clip_deriv_check(FeatureType& fX, boost:
       fX = eVertex;  
     else if (boost::dynamic_pointer_cast<const Polyhedron::Face>(max_N))
       fX = eFace;
+    if (boost::dynamic_pointer_cast<const Polyhedron::Edge>(min_N))
+      fX = eEdge;
     return eContinue; 
   }
 
@@ -2610,13 +2614,13 @@ Polyhedron::UpdateRule Polyhedron::update_edge_edge(FeatureType& fA, FeatureType
 
     // create edge vs. face1 vp and add it to the list
     boost::shared_ptr<const Polyhedron::Feature> F = edgeA->face1;
-    vp = voronoi_plane(F_EDGE,F_VERTEX,aTb.target,closestA,F);
+    vp = voronoi_plane(F_EDGE,F_FACE,aTb.target,closestA,F);
     pn = std::pair<boost::shared_ptr<const Polyhedron::Feature>, boost::shared_ptr<Plane> >(F,vp);
     planes_neighbors.push_back(pn);
 
     // create edge vs. face2 vp and add it to the list
     F = edgeA->face2;
-    vp = voronoi_plane(F_EDGE,F_VERTEX,aTb.target,closestA,F);
+    vp = voronoi_plane(F_EDGE,F_FACE,aTb.target,closestA,F);
     pn = std::pair<boost::shared_ptr<const  Polyhedron::Feature>, boost::shared_ptr<Plane> >(F,vp);
     planes_neighbors.push_back(pn);
 
@@ -2688,13 +2692,13 @@ Polyhedron::UpdateRule Polyhedron::update_edge_edge(FeatureType& fA, FeatureType
 
     // create edge vs. vertex1 and add it to the list
     boost::shared_ptr<const Polyhedron::Feature> F = edgeB->face1;
-    vp = voronoi_plane(F_EDGE,F_VERTEX,aTb.source,closestB,F);
+    vp = voronoi_plane(F_EDGE,F_FACE,aTb.source,closestB,F);
     pn = std::pair<boost::shared_ptr<const Polyhedron::Feature>, boost::shared_ptr<Plane> >(F,vp);
     planes_neighbors.push_back(pn);
 
     // create edge vs. vertex2 and add it to the list
-    F = edgeA->face2;
-    vp = voronoi_plane(F_EDGE,F_VERTEX,aTb.source,closestB,F);
+    F = edgeB->face2;
+    vp = voronoi_plane(F_EDGE,F_FACE,aTb.source,closestB,F);
     pn = std::pair<boost::shared_ptr<const Polyhedron::Feature>, boost::shared_ptr<Plane> >(F,vp);
     planes_neighbors.push_back(pn);
 
