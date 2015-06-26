@@ -8,6 +8,8 @@
 #define _MOBY_LCP_H
 
 #include <Ravelin/MatrixNd.h>
+#include <Ravelin/SparseMatrixNd.h>
+#include <Ravelin/LinAlgd.h>
 #include <Ravelin/VectorNd.h>
 
 namespace Moby {

@@ -22,11 +22,13 @@ namespace Moby {
 class ContactParameters;
 class CollisionDetection;
 class CollisionGeometry;
+class ConstraintStabilization;
 
 /// An event-driven simulator
 class EventDrivenSimulator : public Simulator
 {
   friend class CollisionDetection;
+  friend class ConstraintStabilization;
 
   public:
     EventDrivenSimulator();
