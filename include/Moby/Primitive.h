@@ -59,6 +59,12 @@ class Primitive : public virtual Base
     boost::shared_ptr<const Ravelin::Pose3d> get_pose(CollisionGeometryPtr g) const;
     virtual double get_bounding_radius() const = 0; 
 
+    /// Computes the maximum distance by a point on the geometry
+    virtual double calc_max_dist(double lin_cont, double ang_cont, double dist, const Ravelin::Vector3d& d0, const Ravelin::Vector3d& w0, boost::shared_ptr<const Ravelin::Pose3d> P)
+    {
+      return lin_cont + ang_cont;
+    }
+
     /// Determines whether this primitive is convex
     virtual bool is_convex() const { return false; }
 

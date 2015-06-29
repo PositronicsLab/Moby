@@ -181,8 +181,8 @@ double TimeSteppingSimulator::do_mini_step(double dt)
 
     // if the conservative advancement step is very small, stop trying to
     // advance 
-    if (tc < MIN_STEP_SIZE)
-      break;
+//    if (tc < MIN_STEP_SIZE)
+//      break;
 
     // integrate the bodies' positions by h + conservative advancement step
     for (unsigned i=0; i< _bodies.size(); i++)
@@ -482,15 +482,6 @@ double TimeSteppingSimulator::calc_next_CA_Euler_step(double contact_dist_thresh
         rbb->compliance == RigidBody::eCompliant)
       continue; 
 
-    // if the distance is below the threshold, we have found a current event
-    // (we want to skip current events)
-//    if (pdi.dist > contact_dist_thresh)
-//    {
-
-      // if the distance is zero or less, make it small and positive
-      if (pdi.dist < NEAR_ZERO)
-        pdi.dist = NEAR_ZERO;
-
       // compute an upper bound on the event time
       double event_time = _coldet->calc_CA_Euler_step(pdi);
 
@@ -499,7 +490,6 @@ double TimeSteppingSimulator::calc_next_CA_Euler_step(double contact_dist_thresh
       // not a current event, find when it could become active
       next_event_time = std::min(next_event_time, event_time);
     }
-//  }
 
   FILE_LOG(LOG_SIMULATOR) << "TimeSteppingSimulator::calc_next_CA_Euler_step exited" << std::endl; 
 

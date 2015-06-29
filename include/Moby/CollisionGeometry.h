@@ -49,7 +49,7 @@ class CollisionGeometry : public virtual Base
     void get_vertices(std::vector<Point3d>& p) const;
     Point3d get_supporting_point(const Ravelin::Vector3d& d) const;
     double get_farthest_point_distance() const;
-    double calc_max_dist(double lin_cont, double ang_cont, double dist);
+    double calc_max_dist(double lin_cont, double ang_cont, double dist, const Ravelin::Vector3d& d0, const Ravelin::Vector3d& w0);
 
     /// Gets the shared pointer for this
     CollisionGeometryPtr get_this() { return boost::dynamic_pointer_cast<CollisionGeometry>(shared_from_this()); }

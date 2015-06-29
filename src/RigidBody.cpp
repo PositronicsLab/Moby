@@ -2305,26 +2305,4 @@ std::ostream& Moby::operator<<(std::ostream& out, Moby::RigidBody& rb)
   return out;
 }
 
-/// Calculates the maximum distance that the body can move in a given direction, assuming that the velocity remains constant
-double RigidBody::calc_max_dist(const Vector3d& d, double dist) const
-{
-  // if the body is disabled, it can't move any distance in that direction
-  if (!is_enabled())
-    return 0.0;
 
-  // get the direction in the global frame
-  Vector3d d0 = Pose3d::transform_vector(GLOBAL, d);
-
-  // get the velocities in the global frame
-  SVelocityd v0 = Pose3d::transform(GLOBAL, _xdcom);
-  Vector3d xd0 = v0.get_linear();
-  Vector3d w0 = v0.get_angular();
-
-  // get the maximum distance for each geometry
-  double max_dist = -std::numeric_limits<double>::max(); 
-  BOOST_FOREACH(CollisionGeometryPtr cg, geometries)
-    max_dist = std::max(max_dist, cg->calc_max_dist(d0.dot(xd0), Vector3d::cross(w0, d0).norm(), dist));
-
-  return max_dist;
-}
- 

@@ -20,6 +20,7 @@
 #include <Moby/TriangleMeshPrimitive.h>
 #include <Moby/HeightmapPrimitive.h>
 #include <Moby/GJK.h>
+#include <Moby/Newton.h>
 #include <Moby/SpherePrimitive.h>
 
 using namespace Ravelin;
@@ -419,4 +420,155 @@ BVPtr SpherePrimitive::get_BVH_root(CollisionGeometryPtr geom)
   return bsph;
 }
 
+/// Computes the maximum distance per unit time in a given direction
+double SpherePrimitive::calc_max_dist(double lin_cont, double ang_cont, double dist, const Vector3d& d0, const Vector3d& w0, shared_ptr<const Pose3d> P)
+{
+  // if the distance? maximum step? is large, do the standard conservative 
+  // advancement step
+
+  // otherwise, maximize_r 1/2 (<d x w, r>)^2
+  // where r = | radius * cos theta * sin phi |
+  //           | radius * sin theta * sin phi |
+  //           | radius * cos phi             |
+
+  // setup the pair
+  std::pair<double, VectorNd> data;
+  data.first = _radius;
+  VectorNd& y = data.second;
+
+  // compute y = d x w
+  Vector3d d0xw = Vector3d::cross(d0, w0);
+  y.resize(3);
+  y[0] = d0xw[0];
+  y[1] = d0xw[1];
+  y[2] = d0xw[2];
+
+  // setup x for Newton optimization
+  VectorNd x(2);
+  x.set_zero();
+
+  // do Newton optimization
+  const double F_TOL = 1e-6;
+  Newton::newton(x, 100, F_TOL, &data, &calc_f, &calc_gradient, &calc_hessian);
+
+  // get the optimal theta and phi
+  double theta = x[0];
+  double phi = x[1];
+  const double SPHI = std::sin(phi);
+
+  // setup r 
+  VectorNd r(3);
+  double sphi = std::sin(phi);
+  r[0] = std::cos(theta) * SPHI * _radius;
+  r[1] = std::sin(theta) * SPHI * _radius;
+  r[2] = std::cos(phi) * _radius;
+
+  // compute | <d x w, r> |
+  return lin_cont + std::fabs(y.dot(r)); 
+}
+
+/// Evaluates the objective function for conservative advancement
+double SpherePrimitive::calc_f(const VectorNd& x, void* data)
+{
+  // get the pair
+  std::pair<double, VectorNd>& data_pair = *((std::pair<double, VectorNd>*) data);
+
+  // get radius and y
+  double radius = data_pair.first;
+  VectorNd& y = data_pair.second;
+
+  // get theta and phi
+  double theta = x[0];
+  double phi = x[1];
+
+  // setup r
+  VectorNd r(3);
+  double sphi = std::sin(phi);
+  r[0] = std::cos(theta) * sphi * radius;
+  r[1] = std::sin(theta) * sphi * radius;
+  r[2] = std::cos(phi) * radius;
+
+  // evaluate the function
+  double dot = y.dot(r);
+  return -0.5 * dot * dot;
+}
+
+// Computes the gradient for conservative advancement 
+// gradient: | (radius * -sin theta * sin phi) * y(1) + ...
+//             (radius * cos theta * sin phi) * y(2)         |
+//           | (radius * cos theta * cos phi) * y(1) + ...
+//             (radius * sin theta * cos phi) * y(2) + ...
+//             (radius * -sin phi) * y(3)                    |
+void SpherePrimitive::calc_gradient(const VectorNd& x, void* data, VectorNd& g)
+{
+  // get the pair
+  std::pair<double, VectorNd>& data_pair = *((std::pair<double, VectorNd>*) data);
+
+  // get radius and y
+  double r = data_pair.first;
+  VectorNd& y = data_pair.second;
+
+  // get components of y
+  const double Y1 = y[0];
+  const double Y2 = y[1];
+  const double Y3 = y[2];
+
+  // get theta and phi
+  double THETA = x[0];
+  double PHI = x[1];
+
+  // compute trig functions 
+  double CTHETA = std::cos(THETA);
+  double STHETA = std::sin(THETA);
+  double CPHI = std::cos(PHI);
+  double SPHI = std::sin(PHI);
+
+  // setup gradient 
+  g.resize(2);
+  g[0] = (-STHETA * SPHI) * Y1 + (CTHETA * SPHI) * Y2;
+  g[1] = (CTHETA * CPHI) * Y1 + (STHETA * CPHI) * Y2 - SPHI * Y3; 
+  g *= -r;
+}
+
+// Computes the Hessian for conservative advancement 
+// H(1,1) =  (-cos theta * sin phi) * y(1) +
+//           (-sin theta * sin phi) * y(2)
+// H(1,2) =  (-sin theta * cos phi) * y(1) +
+//           (cos theta * cos phi)  * y(2)
+// H(2,2) =  (cos theta * -sin phi) * y(1) + 
+//           (sin theta * -sin phi) * y(2) +
+//           (-cos phi) * y(3)
+// * (-radius)
+void SpherePrimitive::calc_hessian(const VectorNd& x, void* data, MatrixNd& H)
+{
+  // get the pair
+  std::pair<double, VectorNd>& data_pair = *((std::pair<double, VectorNd>*) data);
+
+  // get radius and y
+  double r = data_pair.first;
+  VectorNd& y = data_pair.second;
+
+  // get components of y
+  const double Y1 = y[0];
+  const double Y2 = y[1];
+  const double Y3 = y[2];
+
+  // get theta and phi
+  double THETA = x[0];
+  double PHI = x[1];
+
+  // compute trig functions 
+  double CTHETA = std::cos(THETA);
+  double STHETA = std::sin(THETA);
+  double CPHI = std::cos(PHI);
+  double SPHI = std::sin(PHI);
+
+  // setup Hessian
+  H.resize(2,2);
+  H(0,0) = (-CTHETA * SPHI) * Y1 + (-STHETA * SPHI) * Y2;
+  H(0,1) = (-STHETA * CPHI) * Y1 + (CTHETA * CPHI) * Y2;
+  H(1,0) = H(0,1);
+  H(1,1) = (CTHETA * -SPHI) * Y1 + (STHETA * -SPHI) * Y2 - CPHI * Y3; 
+  H *= -r;
+}
 

@@ -126,7 +126,6 @@ class RigidBody : public SingleBody
     const Ravelin::SVelocityd& get_vel_upper_bounds() const { return _vel_limit_hi; }
     const Ravelin::SVelocityd& get_vel_lower_bounds() const { return _vel_limit_lo; }
     void update_vel_limits();
-    double calc_max_dist(const Ravelin::Vector3d& d, double dist) const;
 
     template <class OutputIterator>
     OutputIterator get_parent_links(OutputIterator begin) const;

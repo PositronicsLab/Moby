@@ -118,6 +118,44 @@ double CCD::calc_CA_step(const PairwiseDistInfo& pdi)
 /// Computes a conservative advancement step between two collision geometries assuming that velocity is constant over the interval
 double CCD::calc_CA_Euler_step(const PairwiseDistInfo& pdi)
 {
+  // get primitives 
+  PrimitivePtr pA = pdi.a->get_geometry(); 
+  PrimitivePtr pB = pdi.b->get_geometry();
+
+  // look for case of sphere
+  if (dynamic_pointer_cast<SpherePrimitive>(pA) || 
+      dynamic_pointer_cast<SpherePrimitive>(pB))
+    return calc_CA_Euler_step_sphere(pdi);  
+
+  // no special cases apply: call generic
+  return calc_CA_Euler_step_generic(pdi);
+}
+
+/// Computes the conservative advancement time for a sphere
+double CCD::calc_CA_Euler_step_sphere(const PairwiseDistInfo& pdi)
+{
+  // if the distance is greater than zero, use standard conservative
+  // advancement
+  if (pdi.dist > NEAR_ZERO)
+    return calc_CA_Euler_step_generic(pdi);
+
+  // if the relative velocity at the point of contact is zero, return infinity
+  std::vector<UnilateralConstraint> contacts;
+  find_contacts(pdi.a, pdi.b, std::back_inserter(contacts), NEAR_ZERO);
+  if (contacts.size() == 1 && 
+      std::fabs(contacts.front().calc_constraint_vel()) < 1e-8)
+  {
+    FILE_LOG(LOG_SIMULATOR) << "-- sphere/primitive contact with relative velocity of " << contacts.front().calc_constraint_vel() << "; reporting infinite conservative advancement time" << std::endl;
+    return std::numeric_limits<double>::max();
+  }
+ 
+  // otherwise, use standard conservative advancement 
+  return calc_CA_Euler_step_generic(pdi);
+}
+
+/// Generic method for conservative step calculation
+double CCD::calc_CA_Euler_step_generic(const PairwiseDistInfo& pdi)
+{
   double maxt = std::numeric_limits<double>::max();
 
   // get geometries, distance, and closest points
@@ -131,13 +169,14 @@ double CCD::calc_CA_Euler_step(const PairwiseDistInfo& pdi)
   RigidBodyPtr rbB = dynamic_pointer_cast<RigidBody>(cgB->get_single_body());
   FILE_LOG(LOG_COLDET) << "rigid body A: " << rbA->id << "  rigid body B: " << rbB->id << std::endl;
 
+/*
   // if the distance is (essentially) zero, quit now
   if (pdi.dist <= 0.0)
   {
     FILE_LOG(LOG_COLDET) << "reported distance is: " << pdi.dist << std::endl;
     return 0.0;
   }
-
+*/
   // get the direction of the vector from body B to body A
   Vector3d d0 = Pose3d::transform_point(GLOBAL, pA) -
                 Pose3d::transform_point(GLOBAL, pB);
@@ -150,11 +189,16 @@ double CCD::calc_CA_Euler_step(const PairwiseDistInfo& pdi)
   // get the direction of the vector (from body B to body A)
   Vector3d n0 = d0/d0_norm;
 
+  // if bodies are interpenetrating, reverse n0
+  double dist = pdi.dist;
+  if (pdi.dist < 0.0)
+    dist = NEAR_ZERO;
+
   // compute the distance that body A can move toward body B
-  double dist_per_tA = rbA->calc_max_dist(-n0, pdi.dist);
+  double dist_per_tA = calc_max_dist(rbA, -n0, dist);
 
   // compute the distance that body B can move toward body A
-  double dist_per_tB = rbB->calc_max_dist(n0, pdi.dist); 
+  double dist_per_tB = calc_max_dist(rbB, n0, dist); 
 
   // compute the total distance
   double total_dist_per_t = dist_per_tA + dist_per_tB;
@@ -166,7 +210,7 @@ double CCD::calc_CA_Euler_step(const PairwiseDistInfo& pdi)
   FILE_LOG(LOG_COLDET) << "  dist per tB: " << dist_per_tB << std::endl;
 
   // compute the maximum safe step
-  maxt = std::min(maxt, pdi.dist/total_dist_per_t);
+  maxt = std::min(maxt, dist/total_dist_per_t);
 
   FILE_LOG(LOG_COLDET) << "  maxt: " << maxt << std::endl;
 
@@ -175,12 +219,56 @@ double CCD::calc_CA_Euler_step(const PairwiseDistInfo& pdi)
 }
 
 /// Computes the maximum velocity along a particular direction (n)
-double CCD::calc_max_velocity(RigidBodyPtr rb, const Vector3d& n, double rmax)
+double CCD::calc_max_dist(ArticulatedBodyPtr ab, RigidBodyPtr rb, const Vector3d& n, double rmax)
+{
+  // get the base link
+  RigidBodyPtr base = ab->get_base_link();
+
+  // get the base link's velocity
+  const SVelocityd& base_v0 = Pose3d::transform(GLOBAL, base->get_velocity());
+  Vector3d base_xd0 = base_v0.get_linear();
+
+  // setup the initial movement
+  double mvmt = n.dot(base_xd0);
+
+  // get the inner joint
+  JointPtr inner = rb->get_inner_joint_explicit();
+
+  // add the movement in for the rigid body
+  mvmt += 2.0 * rmax * inner->qd.norm();
+
+  // get the joint pose
+  Pose3d joint_pose = *inner->get_pose();
+  joint_pose.update_relative_pose(GLOBAL);
+
+  // keep looping until we arrive at the base link
+  while (true)
+  {
+    rb = inner->get_inboard_link();
+    if (rb == base)
+      break;
+    JointPtr next_inner = rb->get_inner_joint_explicit();
+    Pose3d next_joint_pose = *next_inner->get_pose();
+    next_joint_pose.update_relative_pose(GLOBAL);
+    mvmt += next_inner->qd.norm() * (next_joint_pose.x - joint_pose.x).norm(); 
+    joint_pose = next_joint_pose;
+    inner = next_inner;
+  }
+
+  return mvmt; 
+}
+
+/// Computes the maximum velocity along a particular direction (n)
+double CCD::calc_max_dist(RigidBodyPtr rb, const Vector3d& n, double rmax)
 {
   const unsigned X = 0, Y = 1, Z = 2;
 
   if (!rb->is_enabled())
     return 0.0;
+
+  // if the body is part of an articulated body, do that calculation instead
+  if (rb->get_articulated_body() && rb->get_articulated_body()->get_base_link() != rb)
+    return calc_max_dist(rb->get_articulated_body(), rb, n, rmax);
 
   // get the velocities at t0
   const SVelocityd& v0 = Pose3d::transform(GLOBAL, rb->get_velocity());
@@ -189,6 +277,7 @@ double CCD::calc_max_velocity(RigidBodyPtr rb, const Vector3d& n, double rmax)
   FILE_LOG(LOG_COLDET) << "CCD::calc_max_velocity() called on " << rb->id << std::endl;
   FILE_LOG(LOG_COLDET) << "  n = " << n << std::endl;
   FILE_LOG(LOG_COLDET) << "  xd0 = " << xd0 << std::endl;
+  FILE_LOG(LOG_COLDET) << "  w0 = " << w0 << std::endl;
   FILE_LOG(LOG_COLDET) << "  <n, xd0> = " << n.dot(xd0) << std::endl;
   FILE_LOG(LOG_COLDET) << "  ||w0 x n|| * r = " << Vector3d::cross(w0, n).norm()*rmax << std::endl;
   return n.dot(xd0) + Vector3d::cross(w0, n).norm()*rmax;
