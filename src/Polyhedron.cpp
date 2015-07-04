@@ -1101,20 +1101,47 @@ bool Polyhedron::VertexFaceIterator::has_next()
 /// Executes the V-Clip algorithm on two polyhedra, determining closest features and signed distance
 double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<const PolyhedralPrimitive> pB, shared_ptr<const Pose3d> poseA, shared_ptr<const Pose3d> poseB, shared_ptr<const Polyhedron::Feature>& closestA, shared_ptr<const Polyhedron::Feature>& closestB)
 {
+  typedef std::map<std::pair<shared_ptr<const PolyhedralPrimitive>, shared_ptr<const PolyhedralPrimitive> >, std::pair<shared_ptr<const Polyhedron::Feature>, shared_ptr<const Polyhedron::Feature> > > ClosestFeatureMap;
+  static ClosestFeatureMap closest_feature_map;
   FeatureType fA, fB;
+  bool closest_feature_map_reversed = false;
 
   // get the transformation between A and B, and vice versa
   Transform3d aTb = Pose3d::calc_relative_pose(poseB, poseA);
   Transform3d bTa = aTb.inverse(); 
 
-  // if closest feature of A is null, pick features for A and B arbitrarily
-  if(!closestA){
+  // TODO: save closest features
+
+  // if closest feature of A is null
+  if(!closestA)
+  {
+    // see whether closest features exist in a map
+    ClosestFeatureMap::const_iterator cf_iter = closest_feature_map.find(std::make_pair(pA, pB));
+    if (cf_iter != closest_feature_map.end())
+    {
+      closestA = cf_iter->second.first;
+      closestB = cf_iter->second.second;
+      closest_feature_map_reversed = false;
+    }
+    else if ((cf_iter = closest_feature_map.find(std::make_pair(pB, pA))) != closest_feature_map.end())
+    {
+      closestA = cf_iter->second.second;
+      closestB = cf_iter->second.first;
+      closest_feature_map_reversed = true;
+    }
+
+    // no map exists; pick features for A and B arbitrarily   
     std::vector<boost::shared_ptr<Vertex> >::const_iterator vi = pA->get_polyhedron().get_vertices().begin();
     closestA = boost::shared_ptr<Feature>(*vi);
-
     vi = pB->get_polyhedron().get_vertices().begin();
-    closestB = boost::shared_ptr<Feature>(*vi);
-  
+    closestB = boost::shared_ptr<Feature>(*vi);  
+  }
+  else
+  {
+    // erase closest features from map
+    closest_feature_map.erase(std::make_pair(pA, pB));
+    closest_feature_map.erase(std::make_pair(pB, pA));
+    closest_feature_map_reversed = false;
   }
 
   // determine feature type for A
@@ -1153,6 +1180,12 @@ double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<co
       // otherwise, we have converged
       double dist = calc_dist(fA, fB, closestA, closestB, aTb);
 
+      // setup closest features in map
+      if (!closest_feature_map_reversed)
+        closest_feature_map[std::make_pair(pA, pB)] = std::make_pair(closestA, closestB);
+      else
+        closest_feature_map[std::make_pair(pB, pA)] = std::make_pair(closestB, closestA);
+
       if (r == eInterpenetrating)
         return -dist;
       else
@@ -1173,6 +1206,12 @@ double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<co
       // otherwise, we have converged
       double dist = calc_dist(fA, fB, closestA, closestB, aTb);
 
+      // setup closest features in map
+      if (!closest_feature_map_reversed)
+        closest_feature_map[std::make_pair(pA, pB)] = std::make_pair(closestA, closestB);
+      else
+        closest_feature_map[std::make_pair(pB, pA)] = std::make_pair(closestB, closestA);
+
       if (r == eInterpenetrating)
         return -dist;
       else
@@ -1191,6 +1230,12 @@ double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<co
 
       // otherwise, we have converged
       double dist = calc_dist(fB, fA, closestB, closestA, bTa);
+
+      // setup closest features in map
+      if (!closest_feature_map_reversed)
+        closest_feature_map[std::make_pair(pA, pB)] = std::make_pair(closestA, closestB);
+      else
+        closest_feature_map[std::make_pair(pB, pA)] = std::make_pair(closestB, closestA);
 
       if (r == eInterpenetrating)
         return -dist;
@@ -1213,6 +1258,12 @@ double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<co
       // otherwise, we have converged
       double dist = calc_dist(fA, fB, closestA, closestB, aTb);
 
+      // setup closest features in map
+      if (!closest_feature_map_reversed)
+        closest_feature_map[std::make_pair(pA, pB)] = std::make_pair(closestA, closestB);
+      else
+        closest_feature_map[std::make_pair(pB, pA)] = std::make_pair(closestB, closestA);
+
       if (r == eInterpenetrating)
         return -dist;
       else
@@ -1233,6 +1284,12 @@ double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<co
       // otherwise, we have converged
       double dist = calc_dist(fA, fB, closestA, closestB, aTb);
 
+      // setup closest features in map
+      if (!closest_feature_map_reversed)
+        closest_feature_map[std::make_pair(pA, pB)] = std::make_pair(closestA, closestB);
+      else
+        closest_feature_map[std::make_pair(pB, pA)] = std::make_pair(closestB, closestA);
+
       if (r == eInterpenetrating)
         return -dist;
       else
@@ -1252,6 +1309,12 @@ double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<co
 
       // otherwise, we have converged
       double dist = calc_dist(fB, fA, closestB, closestA, bTa);
+
+      // setup closest features in map
+      if (!closest_feature_map_reversed)
+        closest_feature_map[std::make_pair(pA, pB)] = std::make_pair(closestA, closestB);
+      else
+        closest_feature_map[std::make_pair(pB, pA)] = std::make_pair(closestB, closestA);
 
       if (r == eInterpenetrating)
         return -dist;
@@ -1285,6 +1348,12 @@ double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<co
       // otherwise, we have converged
       double dist = calc_dist(fA, fB, closestA, closestB, aTb);
 
+      // setup closest features in map
+      if (!closest_feature_map_reversed)
+        closest_feature_map[std::make_pair(pA, pB)] = std::make_pair(closestA, closestB);
+      else
+        closest_feature_map[std::make_pair(pB, pA)] = std::make_pair(closestB, closestA);
+
       if (r == eInterpenetrating)
         return -dist;
       else
@@ -1305,6 +1374,12 @@ double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<co
 
       // otherwise, we have converged
       double dist = calc_dist(fB, fA, closestB, closestA, bTa);
+
+      // setup closest features in map
+      if (!closest_feature_map_reversed)
+        closest_feature_map[std::make_pair(pA, pB)] = std::make_pair(closestA, closestB);
+      else
+        closest_feature_map[std::make_pair(pB, pA)] = std::make_pair(closestB, closestA);
 
       if (r == eInterpenetrating)
         return -dist;
