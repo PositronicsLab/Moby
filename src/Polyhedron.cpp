@@ -8,6 +8,7 @@
 #include <Moby/Types.h>
 #include <Moby/Log.h>
 #include <Moby/CompGeom.h>
+#include <Moby/PolyhedralPrimitive.h>
 #include <Moby/Polyhedron.h>
 
 using namespace Ravelin;
@@ -21,52 +22,7 @@ using std::map;
 using std::vector;
 using std::make_pair;
 using std::endl;
-
-// macro for creating an edge or finding a previously created edge
-#define CREATE_LOOKUP(vA, vB, eAB) { \
-if ((vei = v_edges.find(std::make_pair(vA, vB))) != v_edges.end()) \
-{ \
-  eAB = vei->second; \
-  if (cw) \
-  { \
-    assert(!eAB->faceR); \
-    eAB->faceR = f; \
-  } \
-  else \
-  { \
-    assert(!eAB->faceL); \
-    eAB->faceL = f; \
-  } \
-} \
-else if ((vei = v_edges.find(std::make_pair(vB, vA))) != v_edges.end()) \
-{ \
-  eAB = vei->second; \
-  if (cw) \
-  { \
-    assert(!eAB->faceL); \
-    eAB->faceL = f; \
-  } \
-  else \
-  { \
-    assert(!eAB->faceR); \
-    eAB->faceR = f; \
-  } \
-} \
-else \
-{ \
-  eAB = boost::shared_ptr<Polyhedron::Edge>(new Polyhedron::Edge); \
-  v_edges[std::make_pair(vA, vB)] = eAB; \
-  if (cw) \
-    eAB->faceR = f; \
-  else \
-    eAB->faceL = f; \
-  eAB->v1 = vertex_map[vA->point]; \
-  eAB->v2 = vertex_map[vB->point]; \
-  poly._edges.push_back(eAB); \
-  eAB->v1->e.push_back(eAB); \
-  eAB->v2->e.push_back(eAB); \
-} \
-}
+using std::list;
 
 /// Gets the plane containing a face
 Plane Polyhedron::Face::get_plane() const
@@ -144,6 +100,7 @@ Polyhedron& Polyhedron::operator=(const Polyhedron& p)
  *         is the index of a vertex from the first polyhedron and the second
  *         integer is the index of a vertex from the second polyhedron.
  */
+/*
 Polyhedron Polyhedron::calc_minkowski_diff(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<const PolyhedralPrimitive> pB, shared_ptr<const Pose3d> poseA, shared_ptr<const Pose3d> poseB)
 {
   // get the vertices of A
@@ -168,7 +125,7 @@ Polyhedron Polyhedron::calc_minkowski_diff(shared_ptr<const PolyhedralPrimitive>
   const unsigned NVERTS = vA.size() * vB.size();
   vector<shared_ptr<Polyhedron::Vertex> > vnew(NVERTS);
   for (unsigned i=0, k=0; i< vA.size(); i++)
-    for (unsigned j=0; j< vB.size(); j++)
+    for (unsigned j=0; j< vB.size(); j++, k++)
     {
       vnew[k] = shared_ptr<Polyhedron::Vertex>(new Polyhedron::Vertex);
       vnew[k]->o = Origin3d(vA[i]) - Origin3d(vB[j]); 
@@ -346,12 +303,12 @@ Polyhedron Polyhedron::calc_minkowski_diff(shared_ptr<const PolyhedralPrimitive>
         else
           e = new_edge_iter->second;
 
-        // setup face- we'll use the convention that faceR is qhull's top
-        // and faceL is qhull's bottom
+        // setup face- we'll use the convention that face1 is qhull's top
+        // and face2 is qhull's bottom
         if (ridge->top == facet)
-          e->faceR = f;
+          e->face1 = f;
         else
-          e->faceL = f;
+          e->face2 = f;
 
         // add the edge to the face
         f->e.push_back(e);
@@ -400,9 +357,9 @@ Polyhedron Polyhedron::calc_minkowski_diff(shared_ptr<const PolyhedralPrimitive>
         #endif
 
         // look for edges matching up
-        if (e->faceL == f)
+        if (e->face2 == f)
         {
-          if (e2->faceL == f)
+          if (e2->face2 == f)
           {
             if (e->v2 == e2->v1)
             {
@@ -429,9 +386,9 @@ Polyhedron Polyhedron::calc_minkowski_diff(shared_ptr<const PolyhedralPrimitive>
             }
           }
         }
-        else if (e->faceR == f)
+        else if (e->face1 == f)
         {
-          if (e2->faceR == f)
+          if (e2->face1 == f)
           {
             if (e->v2 == e2->v1)
             {
@@ -444,7 +401,7 @@ Polyhedron Polyhedron::calc_minkowski_diff(shared_ptr<const PolyhedralPrimitive>
               e2->nextR = e;
             }
           }
-          else if (e2->faceL == f)
+          else if (e2->face2 == f)
           {
             if (e->v2 == e2->v2)
             {
@@ -486,6 +443,7 @@ Polyhedron Polyhedron::calc_minkowski_diff(shared_ptr<const PolyhedralPrimitive>
 
   return poly;
 }
+*/
 
 /// Calculates the bounding box
 void Polyhedron::calc_bounding_box()
@@ -520,6 +478,7 @@ void Polyhedron::calc_bounding_box()
  * \param inside whether the point is inside or outside the polyhedron on return
  * \return the distance
  */
+/*
 double Polyhedron::find_closest_features(const Origin3d& p, std::list<shared_ptr<Polyhedron::Feature> >& closest_features, bool& inside) const 
 {
   boost::shared_ptr<const Pose2d> GLOBAL2D;
@@ -675,7 +634,7 @@ double Polyhedron::find_closest_features(const Origin3d& p, std::list<shared_ptr
   closest_features.erase(std::unique(closest_features.begin(), closest_features.end()), closest_features.end());
   return closest_dist;
 }
-
+*/
 /*
 /// Finds the feature adjacent to this edge (including the edge itself) that is closest to the query point
 void Polyhedron::Edge::find_closest_feature(const Origin3d& p, std::map<shared_ptr<Polyhedron::Feature>, double>& distances, double& closest_dist, std::list<shared_ptr<Polyhedron::Feature> >& closest_features)
@@ -686,12 +645,12 @@ void Polyhedron::Edge::find_closest_feature(const Origin3d& p, std::map<shared_p
   }
 
   // check left face
-  if (distances.find(faceR) == distances.end())
-    faceR->find_closest_feature(p, distances, closest_dist, closest_features);  
+  if (distances.find(face1) == distances.end())
+    face1->find_closest_feature(p, distances, closest_dist, closest_features);  
 
   // check right face 
-  if (distances.find(faceL) == distances.end())
-    faceL->find_closest_feature(p, distances, closest_dist, closest_features);
+  if (distances.find(face2) == distances.end())
+    face2->find_closest_feature(p, distances, closest_dist, closest_features);
 
   
 }
@@ -730,7 +689,7 @@ void Polyhedron::Face::find_closest_feature(const Origin3d& p, std::map<shared_p
     }
 
     // get the next edge
-    e = shared_ptr<Polyhedron::Edge>((e->faceR == shared_from_this()) ? e->prevR : e->prevL);
+    e = shared_ptr<Polyhedron::Edge>((e->face1 == shared_from_this()) ? e->prevR : e->prevL);
   }
   while (e != shared_ptr<Polyhedron::Edge>(shared_from_this()->e.front()));
 
@@ -759,7 +718,7 @@ void Polyhedron::Face::find_closest_feature(const Origin3d& p, std::map<shared_p
       // don't check the edge twice
       if (distances.find(e) != distances.end())
       {
-        e = shared_ptr<Polyhedron::Edge>((e->faceR == shared_from_this()) ? e->prevR : e->prevL);  
+        e = shared_ptr<Polyhedron::Edge>((e->face1 == shared_from_this()) ? e->prevR : e->prevL);  
         continue;
       }
 
@@ -767,7 +726,7 @@ void Polyhedron::Face::find_closest_feature(const Origin3d& p, std::map<shared_p
       e->find_closest_feature(p, distances, closest_dist, closest_features);   
 
       // get the next edge
-      e = shared_ptr<Polyhedron::Edge>((e->faceR == shared_from_this()) ? e->prevR : e->prevL);  
+      e = shared_ptr<Polyhedron::Edge>((e->face1 == shared_from_this()) ? e->prevR : e->prevL);  
     }
     while (e != shared_ptr<Polyhedron::Edge>(shared_from_this()->e.front()));
 
@@ -784,7 +743,7 @@ void Polyhedron::Face::find_closest_feature(const Origin3d& p, std::map<shared_p
     // don't process edge twice
     if (distances.find(e) != distances.end())
     {
-      e = shared_ptr<Polyhedron::Edge>((e->faceR == shared_from_this()) ? e->prevR : e->prevL);  
+      e = shared_ptr<Polyhedron::Edge>((e->face1 == shared_from_this()) ? e->prevR : e->prevL);  
       continue;
     }
 
@@ -803,7 +762,7 @@ void Polyhedron::Face::find_closest_feature(const Origin3d& p, std::map<shared_p
     }
 
     // get the next edge
-    e = shared_ptr<Polyhedron::Edge>((e->faceR == shared_from_this()) ? e->prevR : e->prevL);  
+    e = shared_ptr<Polyhedron::Edge>((e->face1 == shared_from_this()) ? e->prevR : e->prevL);  
   }
   while (e != shared_ptr<Polyhedron::Edge>(shared_from_this()->e.front()));
 
@@ -900,8 +859,6 @@ std::ostream& Moby::operator<<(std::ostream& out, const Polyhedron& m)
   std::map<shared_ptr<Polyhedron::Edge>, unsigned> emap;
   for (unsigned i=0; i< edges.size(); i++)
     emap[edges[i]] = i;
-  for (unsigned i=0; i< edges.size(); i++)
-    out << "edge " << i << ":  prevL: " << emap[shared_ptr<Polyhedron::Edge>(edges[i]->prevL)] << " nextL: " << emap[shared_ptr<Polyhedron::Edge>(edges[i]->nextL)] << "  prevR: " << emap[shared_ptr<Polyhedron::Edge>(edges[i]->prevR)] << "  nextR: " << emap[shared_ptr<Polyhedron::Edge>(edges[i]->nextR)] << std::endl;
 
   // process all faces
   for (unsigned i=0; i< faces.size(); i++)
@@ -918,7 +875,7 @@ std::ostream& Moby::operator<<(std::ostream& out, const Polyhedron& m)
       shared_ptr<Polyhedron::Edge> e(we);
  
       // see whether the edge is to the left or right
-      bool leftT = (e->faceR == f) ? false : true;
+      bool leftT = (e->face1 == f) ? false : true;
 
       if (leftT)
         out << "edge " << emap[e] << " (L): " << vmap[e->v1] << ", " << vmap[e->v2] << std::endl;
@@ -926,83 +883,77 @@ std::ostream& Moby::operator<<(std::ostream& out, const Polyhedron& m)
         out << "edge  " << emap[e] << " (R): " << vmap[e->v1] << ", " << vmap[e->v2] << std::endl;
     }
 
-    // now do a counter-clockwise visit around the face
-    out << "ccw visit:";
-    shared_ptr<Polyhedron::Edge> e(f->e.front());
-    do
+    // output all vertices in counter clockwise order
+    out << "vertices (ccw):";
+    Polyhedron::VertexFaceIterator ccw_iter(f, true);
+    out << " " << (*ccw_iter)->o << "; ";
+    while (ccw_iter.has_next())
     {
-      out << " " << emap[e];
-      if (e->faceR == f)
-        e = shared_ptr<Polyhedron::Edge>(e->prevR);
-      else
-        e = shared_ptr<Polyhedron::Edge>(e->nextL);
+      ccw_iter.advance();
+      out << " " << (*ccw_iter)->o << "; ";
     }
-    while (e != shared_ptr<Polyhedron::Edge>(f->e.front()));
     out << std::endl;
 
-    // now do a clockwise visit around the face
-    out << "cw visit:";
-    e = shared_ptr<Polyhedron::Edge>(f->e.front());
-    do
+    // output all vertices in clockwise order
+    out << "vertices (cw):";
+    Polyhedron::VertexFaceIterator cw_iter(f, false);
+    out << " " << (*cw_iter)->o << "; ";
+    while (cw_iter.has_next())
     {
-      out << " " << emap[e];
-      if (e->faceR == f)
-        e = shared_ptr<Polyhedron::Edge>(e->nextR);
-      else
-        e = shared_ptr<Polyhedron::Edge>(e->prevL);
+      cw_iter.advance();
+      out << " " << (*cw_iter)->o << "; ";
     }
-    while (e != shared_ptr<Polyhedron::Edge>(f->e.front()));
     out << std::endl;
   }
 
   return out;
 }
 
-Polyhedron::EdgeFaceIterator::EdgeFaceIterator(shared_ptr<Polyhedron::Face> f)
+// prints out a vertex 
+std::ostream& Moby::operator<<(std::ostream& out, const Polyhedron::Vertex& m)
 {
-  // save this face
-  this->f = f;
-
-  // pick the first edge of the face to start from
-  term = e = shared_ptr<Polyhedron::Edge>(f->e.front());
+  out << m.o;
+  return out;
 }
 
-/// Dereferences the iterator
-shared_ptr<Polyhedron::Edge> Polyhedron::EdgeFaceIterator::operator*()
+// prints out an edge
+std::ostream& Moby::operator<<(std::ostream& out, const Polyhedron::Edge& m)
 {
-  return e;
+  out << m.v1->o << " " << m.v2->o;
+  return out;
 }
 
-/// Advances the iterator clockwise
-void Polyhedron::EdgeFaceIterator::advance_cw()
+// prints out a face 
+std::ostream& Moby::operator<<(std::ostream& out, const Polyhedron::Face& m)
 {
-  if (e->faceR == f)
-    e = shared_ptr<Polyhedron::Edge>(e->nextR);
-  else
-    e = shared_ptr<Polyhedron::Edge>(e->prevL);
-}
+  // get an iterator to the edges in the face
+  std::list<boost::weak_ptr<Polyhedron::Edge> >::const_iterator ccw_iter = m.e.begin();
+  shared_ptr<Polyhedron::Edge> e1(*ccw_iter++);
+  shared_ptr<Polyhedron::Edge> e2(*ccw_iter++);
 
-/// Advances the iterator counter-clockwise
-void Polyhedron::EdgeFaceIterator::advance_ccw()
-{
-  if (e->faceL == f)
-    e = shared_ptr<Polyhedron::Edge>(e->nextL);
-  else
-    e = shared_ptr<Polyhedron::Edge>(e->prevR);
-}
+  // get the common face
+  shared_ptr<Polyhedron::Face> e1_faces[2];
+  shared_ptr<Polyhedron::Face> e2_faces[2];
+  shared_ptr<Polyhedron::Face> common_face;
+  e1_faces[0] = e1->face1;  e1_faces[1] = e1->face2;
+  e2_faces[0] = e2->face1;  e2_faces[1] = e2->face2;
+  std::sort(e1_faces, e1_faces+2);
+  std::sort(e2_faces, e2_faces+2);
+  std::vector<shared_ptr<Polyhedron::Face> > result;
+  std::set_intersection(e1_faces, e1_faces+2, e2_faces, e2_faces+2, std::back_inserter(result));
+  assert(result.size() == 1);
+  common_face = result.front();
 
-/// Checks to see whether the iterator can be advanced clockwise
-bool Polyhedron::EdgeFaceIterator::has_cw()
-{
-  return ((e->faceL == f && shared_ptr<Polyhedron::Edge>(e->prevL) != term) || 
-          (e->faceR == f && shared_ptr<Polyhedron::Edge>(e->nextR) != term));
-}
+  // setup the face iterator
+  Polyhedron::VertexFaceIterator vfi(common_face, true); 
+  out << (*vfi)->o;
+  while (vfi.has_next())
+  {
+    vfi.advance();
+    out << " " << (*vfi)->o;
+  }
 
-/// Checks to see whether the iterator can be advanced counter-clockwise
-bool Polyhedron::EdgeFaceIterator::has_ccw()
-{
-  return ((e->faceL == f && shared_ptr<Polyhedron::Edge>(e->nextL) != term) || 
-          (e->faceR == f && shared_ptr<Polyhedron::Edge>(e->prevR) != term));
+  return out;
 }
 
 /// Constructs a vertex-face iterator
@@ -1014,23 +965,44 @@ Polyhedron::VertexFaceIterator::VertexFaceIterator(shared_ptr<Polyhedron::Face> 
   // save whether it is counter-clockwise iteration
   this->ccw = ccw;
 
-  // pick the edge of the face to start from
-  e = term = shared_ptr<Polyhedron::Edge>(f->e.front());
+  // setup the iterator
+  if (ccw)
+    ccw_iter = f->e.begin();
+  else
+    cw_iter = f->e.rbegin(); 
 
-  // determine the vertex from cw / ccw
+  // pick a vertex from the edge
   if (ccw)
   {
-    if (e->faceL == f)
+    // get the next edge
+    list<weak_ptr<Edge> >::const_iterator ccw_iter2 = ccw_iter;
+    ccw_iter2++;
+
+    // get the vertices
+    shared_ptr<Edge> e(*ccw_iter);
+    shared_ptr<Edge> e2(*ccw_iter2);
+
+    // the starting vertex should be the vertex of e that is shared with e2 
+    if (e->v1 == e2->v1 || e->v1 == e2->v2)
       v = e->v1;
     else
       v = e->v2;
   }
   else
   {
-    if (e->faceR == f)
-      v = e->v2;
-    else
+    // get the next edge
+    list<weak_ptr<Edge> >::const_reverse_iterator cw_iter2 = cw_iter;
+    cw_iter2++;
+
+    // get the vertices
+    shared_ptr<Edge> e(*cw_iter);
+    shared_ptr<Edge> e2(*cw_iter2);
+
+    // the starting vertex should be the vertex of e that is shared with e2 
+    if (e->v1 == e2->v1 || e->v1 == e2->v2)
       v = e->v1;
+    else
+      v = e->v2;
   }
 }
 
@@ -1043,65 +1015,1902 @@ shared_ptr<Polyhedron::Vertex> Polyhedron::VertexFaceIterator::operator*()
 /// Advances the iterator clockwise
 void Polyhedron::VertexFaceIterator::advance()
 {
+  // pick a vertex from the edge
   if (ccw)
   {
-    if (e->faceL == f)
+    // advance the edge iterator
+    ccw_iter++;
+
+    // get the next edge
+    list<weak_ptr<Edge> >::const_iterator ccw_iter2 = ccw_iter;
+    ccw_iter2++;
+    if (ccw_iter2 == f->e.end())
     {
-      e = shared_ptr<Polyhedron::Edge>(e->nextL);
-      v = (e->faceL == f) ? e->v1 : e->v2;
+      // we've come to the end, return the last vertex
+      shared_ptr<Edge> e(*ccw_iter);
+      if (v == e->v1)
+        v = e->v2;
+      else
+        v = e->v1;
+      return;
     }
+
+    // get the vertices
+    shared_ptr<Edge> e(*ccw_iter);
+    shared_ptr<Edge> e2(*ccw_iter2);
+
+    // we want to set v equal to the vertex that is shared with e2 
+    if (e->v1 == e2->v1 || e->v1 == e2->v2)
+      v = e->v1;
     else
-    {
-      assert(e->faceR == f);
-      e = shared_ptr<Polyhedron::Edge>(e->prevR);
-      v = (e->faceL == f) ? e->v1 : e->v2;
-    }
+      v = e->v2;
   }
   else
   {
-    if (e->faceR == f)
+    // advance the edge iterator
+    cw_iter++;
+
+    // get the next edge
+    list<weak_ptr<Edge> >::const_reverse_iterator cw_iter2 = cw_iter;
+    cw_iter2++;
+    if (cw_iter2 == f->e.rend())
     {
-      e = shared_ptr<Polyhedron::Edge>(e->nextR);
-      v = (e->faceL == f) ? e->v1 : e->v2;
+      // we've come to the end, return the last vertex
+      shared_ptr<Edge> e(*cw_iter);
+      if (v == e->v1)
+        v = e->v2;
+      else
+        v = e->v1;
+      return;
     }
+
+    // get the vertices
+    shared_ptr<Edge> e(*cw_iter);
+    shared_ptr<Edge> e2(*cw_iter2);
+
+    // we want to set v equal to the vertex that is shared with e2 
+    if (e->v1 == e2->v1 || e->v1 == e2->v2)
+      v = e->v1;
     else
-    {
-      e = shared_ptr<Polyhedron::Edge>(e->prevL);
-      v = (e->faceL == f) ? e->v1 : e->v2;
-    }
+      v = e->v2;
   }
 }
 
 /// Checks to see whether the iterator can be advanced clockwise
 bool Polyhedron::VertexFaceIterator::has_next()
 {
+  // see whether we are at the end of the list
   if (ccw)
   {
-    if (e->faceL == f)
+    list<weak_ptr<Edge> >::const_iterator ccw_iter2 = ccw_iter;    
+    ccw_iter2++;
+    return (ccw_iter2 != f->e.end()); 
+  }
+  else
+  {
+    list<weak_ptr<Edge> >::const_reverse_iterator cw_iter2 = cw_iter;    
+    cw_iter2++;
+    return (cw_iter2 != f->e.rend());
+  }
+}
+
+/// Executes the V-Clip algorithm on two polyhedra, determining closest features and signed distance
+double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<const PolyhedralPrimitive> pB, shared_ptr<const Pose3d> poseA, shared_ptr<const Pose3d> poseB, shared_ptr<const Polyhedron::Feature>& closestA, shared_ptr<const Polyhedron::Feature>& closestB)
+{
+  FeatureType fA, fB;
+
+  // get the transformation between A and B, and vice versa
+  Transform3d aTb = Pose3d::calc_relative_pose(poseB, poseA);
+  Transform3d bTa = aTb.inverse(); 
+
+  // if closest feature of A is null, pick features for A and B arbitrarily
+  if(!closestA){
+    std::vector<boost::shared_ptr<Vertex> >::iterator vi = pA->get_polyhedron().get_vertices().begin();
+    closestA = boost::shared_ptr<Feature>(*vi);
+
+    vi = pB->get_polyhedron().get_vertices().begin();
+    closestB = boost::shared_ptr<Feature>(*vi);
+  
+  }
+
+  // determine feature type for A
+  if (dynamic_pointer_cast<const Polyhedron::Vertex>(closestA))
+    fA = eVertex;
+  else if (dynamic_pointer_cast<const Polyhedron::Edge>(closestA))
+    fA = eEdge;
+  else
+    fA = eFace;
+
+  // determine feature type for B 
+  if (dynamic_pointer_cast<const Polyhedron::Vertex>(closestB))
+    fB = eVertex;
+  else if (dynamic_pointer_cast<const Polyhedron::Edge>(closestB))
+    fB = eEdge;
+  else
+    fB = eFace;
+
+  // iterate through the algorithm
+  while (true)
+  {
+
+    // handle vertex/vertex case
+    if (fA == eVertex && fB == eVertex)
     {
-      if (shared_ptr<Polyhedron::Edge>(e->nextL) == term)
-        return false;
+      boost::shared_ptr<const Polyhedron::Vertex> a = boost::static_pointer_cast<const Polyhedron::Vertex>(closestA);
+      boost::shared_ptr<const Polyhedron::Vertex> b = boost::static_pointer_cast<const Polyhedron::Vertex>(closestB);
+      std::cout << "=====Entering Vertex Vertex Case=====" << std::endl <<*a << std::endl << *b <<std::endl;
+
+      Polyhedron::UpdateRule r = update_vertex_vertex(fA, fB, aTb, closestA, closestB);
+
+      // look for continuing to run algorithm
+      if (r == eContinue)
+        continue;
+
+      // otherwise, we have converged
+      double dist = calc_dist(fA, fB, closestA, closestB, aTb);
+
+      if (r == eInterpenetrating)
+        return -dist;
+      else
+        return dist; 
+    }
+    // handle vertex/edge cases
+    else if (fA == eVertex && fB == eEdge)
+    {
+      boost::shared_ptr<const Polyhedron::Vertex> a = boost::static_pointer_cast<const Polyhedron::Vertex>(closestA);
+      boost::shared_ptr<const Polyhedron::Edge> b = boost::static_pointer_cast<const Polyhedron::Edge>(closestB);
+      std::cout << "=====Entering Vertex Edge Case=====" << std::endl <<*a << std::endl << *b <<std::endl;
+      Polyhedron::UpdateRule r = update_vertex_edge(fA, fB, aTb, closestA, closestB);
+      
+      // look for continuing to run algorithm
+      if (r == eContinue)
+        continue;
+
+      // otherwise, we have converged
+      double dist = calc_dist(fA, fB, closestA, closestB, aTb);
+
+      if (r == eInterpenetrating)
+        return -dist;
+      else
+        return dist; 
+    }
+    else if (fB == eVertex && fA == eEdge)
+    {
+      boost::shared_ptr<const Polyhedron::Edge> a = boost::static_pointer_cast<const Polyhedron::Edge>(closestA);
+      boost::shared_ptr<const Polyhedron::Vertex> b = boost::static_pointer_cast<const Polyhedron::Vertex>(closestB);
+      std::cout << "=====Entering Edge Vertex Case=====" << std::endl <<*a << std::endl << *b <<std::endl;
+      Polyhedron::UpdateRule r = update_vertex_edge(fB, fA, bTa, closestB, closestA);
+      
+      // look for continuing to run algorithm
+      if (r == eContinue)
+        continue;
+
+      // otherwise, we have converged
+      double dist = calc_dist(fB, fA, closestB, closestA, bTa);
+
+      if (r == eInterpenetrating)
+        return -dist;
+      else
+        return dist; 
+    }
+    // handle edge/edge case
+    else if (fA == eEdge && fB == eEdge)
+    {
+      boost::shared_ptr<const Polyhedron::Edge> a = boost::static_pointer_cast<const Polyhedron::Edge>(closestA);
+      boost::shared_ptr<const Polyhedron::Edge> b = boost::static_pointer_cast<const Polyhedron::Edge>(closestB);
+      std::cout << "=====Entering Edge Edge Case=====" << std::endl <<*a << std::endl << *b <<std::endl;
+
+      Polyhedron::UpdateRule r = update_edge_edge(fA, fB, aTb, closestA, closestB);
+      
+      // look for continuing to run algorithm
+      if (r == eContinue)
+        continue;
+
+      // otherwise, we have converged
+      double dist = calc_dist(fA, fB, closestA, closestB, aTb);
+
+      if (r == eInterpenetrating)
+        return -dist;
+      else
+        return dist; 
+    }
+    // handle edge/face cases
+    else if (fA == eEdge && fB == eFace)
+    {
+      boost::shared_ptr<const Polyhedron::Edge> a = boost::static_pointer_cast<const Polyhedron::Edge>(closestA);
+      boost::shared_ptr<const Polyhedron::Face> b = boost::static_pointer_cast<const Polyhedron::Face>(closestB);
+      std::cout << "=====Entering Edge Face Case=====" << std::endl <<*a << std::endl << *b <<std::endl;
+      Polyhedron::UpdateRule r = update_edge_face(fA, fB, aTb, closestA, closestB);
+      
+      // look for continuing to run algorithm
+      if (r == eContinue)
+        continue;
+
+      // otherwise, we have converged
+      double dist = calc_dist(fA, fB, closestA, closestB, aTb);
+
+      if (r == eInterpenetrating)
+        return -dist;
+      else
+        return dist; 
+    }
+    else if (fB == eEdge && fA == eFace)
+    {
+      boost::shared_ptr<const Polyhedron::Face> a = boost::static_pointer_cast<const Polyhedron::Face>(closestA);
+      boost::shared_ptr<const Polyhedron::Edge> b = boost::static_pointer_cast<const Polyhedron::Edge>(closestB);
+      std::cout << "=====Entering Face Edge Case=====" << std::endl <<*a << std::endl << *b <<std::endl;
+     
+      Polyhedron::UpdateRule r = update_edge_face(fB, fA, bTa, closestB, closestA);
+
+      // look for continuing to run algorithm
+      if (r == eContinue)
+        continue;
+
+      // otherwise, we have converged
+      double dist = calc_dist(fB, fA, closestB, closestA, bTa);
+
+      if (r == eInterpenetrating)
+        return -dist;
+      else
+        return dist; 
+    }
+    // handle face/face case
+    else if (fA == eFace && fB == eFace)
+    {
+      // demote face b to an edge
+      // cast pointer
+      boost::shared_ptr<const Polyhedron::Face> faceB = boost::static_pointer_cast<const Polyhedron::Face>(closestB);
+      std::list<boost::weak_ptr<Edge> >::const_iterator ei = (faceB->e).begin();
+      closestB = boost::shared_ptr<const Polyhedron::Feature>(*ei);
+      fB = eEdge;
+      continue;
+    }
+    // handle vertex/face case
+    else if (fA == eVertex && fB == eFace)
+    {
+      boost::shared_ptr<const Polyhedron::Vertex> a = boost::static_pointer_cast<const Polyhedron::Vertex>(closestA);
+      boost::shared_ptr<const Polyhedron::Face> b = boost::static_pointer_cast<const Polyhedron::Face>(closestB);
+      std::cout << "=====Entering Vertex Face Case=====" << std::endl <<*a << std::endl << *b <<std::endl;
+     
+      Polyhedron::UpdateRule r = update_vertex_face(fA, fB, aTb, closestA, closestB, pB->get_polyhedron());
+      
+      // look for continuing to run algorithm
+      if (r == eContinue)
+        continue;
+
+      // otherwise, we have converged
+      double dist = calc_dist(fA, fB, closestA, closestB, aTb);
+
+      if (r == eInterpenetrating)
+        return -dist;
+      else
+        return dist; 
+    }
+    //handle face/vertex case
+    else if (fB == eVertex && fA == eFace)
+    {
+      boost::shared_ptr<const Polyhedron::Face> a = boost::static_pointer_cast<const Polyhedron::Face>(closestA);
+      boost::shared_ptr<const Polyhedron::Vertex> b = boost::static_pointer_cast<const Polyhedron::Vertex>(closestB);
+      std::cout << "=====Entering Face Vertex Case=====" << std::endl <<*a << std::endl << *b <<std::endl;
+     
+      Polyhedron::UpdateRule r = update_vertex_face(fB, fA, bTa, closestB, closestA, pA->get_polyhedron());
+      
+      // look for continuing to run algorithm
+      if (r == eContinue)
+        continue;
+
+      // otherwise, we have converged
+      double dist = calc_dist(fB, fA, closestB, closestA, bTa);
+
+      if (r == eInterpenetrating)
+        return -dist;
+      else
+        return dist; 
+    }
+  }
+}
+
+/*// promotes the result features to the highest possible dimension
+void promote_featrues(FeatureType& fA, FeatureType& fB, boost::shared_ptr<const Polyhedron::Feature>& closestA, boost::shared_ptr<const Polyhedron::Feature>& closestB, Ravelin::Transform3d& aTb)
+{
+  dist = calc_dist(fA, fB, closestA, closestB, aTb);
+  if(fA == eVertex && fB == eVertex)
+  {
+    // Cast pointers
+    boost::shared_ptr<const Polyhedron::Vertex> vertA = boost::static_pointer_cast<const Polyhedron::Vertex>(closestA);
+    boost::shared_ptr<const Polyhedron::Vertex> vertB = boost::static_pointer_cast<const Polyhedron::Vertex>(closestB);
+
+    std::list<boost::weak_ptr<Edge> > edgesA = vertA->e;
+    std::list<boost::weak_ptr<Edge> > edgesB = vertB->e;
+
+    // look at the edges coincide to B, check if any of them are as much distant as B from A 
+    for(std::list<boost::weak_ptr<Edge> >::const_iterator eiA = edgesA.begin(); eiA != edgesA.end(); ++eiA)
+    {
+      boost::shared_ptr<const Polyhedron::Edge> edgeA(*eiA);
+      for(std::list<boost::weak_ptr<Edge> >::const_iterator eiB = edgesB.begin(); eiB != edgesB.end(); ++eiB)
+      {
+        boost::shared_ptr<const Polyhedron::Edge> edgeB(*eiB);
+        boost::shared_ptr<const Polyhedron::Feature> vertB_2 = edgeB->v1;
+        if(vertB_2 == vertB)
+        {
+          vertB_2 == edgeB->v2;
+        }
+        dist_edge = calc_dist(eEdge, eVertex, edgeA, vertB_2, aTb);
+
+        if(dist_edge == dist){
+          fA = eEdge;
+          fB = eEdge;
+          closestB = edgeB;
+          closestA = edgeA;
+          return promote_featrues(fA, fB, closestA, closestB, aTb);
+        }
+      }
+    }
+
+    // swap the role of A and B and repeat
+    for(std::list<boost::weak_ptr<Edge> >::const_iterator eiB = edgesB.begin(); eiB != edgesB.end(); ++eiB)
+    {
+      boost::shared_ptr<const Polyhedron::Edge> edgeB(*eiB);
+      for(std::list<boost::weak_ptr<Edge> >::const_iterator eiA = edgesA.begin(); eiA != edgesA.end(); ++eiA)
+      {
+        boost::shared_ptr<const Polyhedron::Edge> edgeA(*eiA);
+        boost::shared_ptr<const Polyhedron::Feature> vertA_2 = edgeA->v1;
+        if(vertA_2 == vertA)
+        {
+          vertA_2 == edgeA->v2;
+        }
+        dist_edge = calc_dist(eEdge, eVertex, edgeA, vertA_2, aTb);
+
+        if(dist_edge == dist){
+          fA = eEdge;
+          fB = eEdge;
+          closestB = edgeB;
+          closestA = edgeA;
+          return promote_featrues(fA, fB, closestA, closestB, aTb);
+        }
+      }
+    }
+
+    
+  }
+  else if(fA == eVertex && fB == eEdge)
+  {
+
+  }
+  else if (fA == eVertex && fB == eFace)
+  {
+
+  }
+  else if (fA == eEdge && fB == eEdge)
+  {
+
+  }
+  else if (fA == eEdge && fB == eFace)
+  {
+
+  }
+  // if A is in a higher dimension than B, swap A and B and call function again
+  else
+  {
+   Ravelin::Transform3d bTa = aTb.inverse();
+    promote_featrues(fB, fA, closestB, closestA, bTa);
+  }
+
+}
+*/
+
+/// Computes the distance between two features
+double Polyhedron::calc_dist(FeatureType fA, FeatureType fB, boost::shared_ptr<const Polyhedron::Feature> closestA, boost::shared_ptr<const Polyhedron::Feature> closestB, Ravelin::Transform3d& aTb)
+{
+  // case1: vertex vs. vertex
+  if (fA == eVertex && fB == eVertex)
+  {
+    // cast pointers
+    boost::shared_ptr<const Polyhedron::Vertex> vA = boost::static_pointer_cast<const Polyhedron::Vertex>(closestA);
+    boost::shared_ptr<const Polyhedron::Vertex> vB = boost::static_pointer_cast<const Polyhedron::Vertex>(closestB);
+    
+    // create vectors
+    Ravelin::Vector3d vAa(vA->o, aTb.target);
+    Ravelin::Vector3d vBb(vB->o, aTb.source);
+    
+    //Transforming B into frame A
+    Ravelin::Vector3d vBa = aTb.transform_point(vBb);
+    Ravelin::Vector3d diff = vAa-vBa;
+    return diff.norm();
+
+  } 
+  else if (fA == eVertex && fB == eEdge)
+  {
+    // cast pointers
+    boost::shared_ptr<const Polyhedron::Vertex> vA = boost::static_pointer_cast<const Polyhedron::Vertex>(closestA);
+    boost::shared_ptr<const Polyhedron::Edge> eB = boost::static_pointer_cast<const Polyhedron::Edge>(closestB);
+
+    // create vectors for the vertex
+    Ravelin::Vector3d vAa(vA->o, aTb.target);
+    Ravelin::Vector3d vB1b(Ravelin::Origin3d(eB->v1->o), aTb.source);
+    Ravelin::Vector3d vB2b(Ravelin::Origin3d(eB->v2->o), aTb.source);
+    
+    // transform fB into frame A
+    Ravelin::Vector3d vB1a = aTb.transform_point(vB1b);
+    Ravelin::Vector3d vB2a = aTb.transform_point(vB2b);
+
+    //create line segment
+    LineSeg3 line(vB1a,vB2a);
+     
+    //compute distance
+    Point3d p;
+    double t;
+    double dist = CompGeom::calc_dist(line,vAa,t,p);
+    return dist;
+  } 
+  else if (fA == eEdge && fB == eVertex)
+  {
+    // casting pinters
+    boost::shared_ptr<const Polyhedron::Vertex> vB = boost::static_pointer_cast<const Polyhedron::Vertex>(closestB);
+    boost::shared_ptr<const Polyhedron::Edge> eA = boost::static_pointer_cast<const Polyhedron::Edge>(closestA);
+
+    // create vectors for the vertex
+    Ravelin::Vector3d vBb(vB->o, aTb.source);
+    Ravelin::Vector3d vA1a(Ravelin::Origin3d(eA->v1->o), aTb.target);
+    Ravelin::Vector3d vA2a(Ravelin::Origin3d(eA->v2->o), aTb.target);
+    
+    //transform fB into frame A
+    Ravelin::Vector3d vBa = aTb.transform_point(vBb);
+
+    //create line segment
+    LineSeg3 line(vA1a,vA2a);
+     
+    //computing distance
+    Point3d p;
+    double t;
+    double dist = CompGeom::calc_dist(line,vBa,t,p);
+    return dist;
+  }
+  else if(fA == eEdge && fB == eEdge)
+  {
+    //casting pointers
+    boost::shared_ptr<const Polyhedron::Edge> eA = boost::static_pointer_cast<const Polyhedron::Edge>(closestA);
+    boost::shared_ptr<const Polyhedron::Edge> eB = boost::static_pointer_cast<const Polyhedron::Edge>(closestB);
+    
+    //create vectors
+    Ravelin::Vector3d vA1a(Ravelin::Origin3d(eA->v1->o), aTb.target);
+    Ravelin::Vector3d vA2a(Ravelin::Origin3d(eA->v2->o), aTb.target);
+
+    Ravelin::Vector3d vB1b(Ravelin::Origin3d(eB->v1->o), aTb.source);
+    Ravelin::Vector3d vB2b(Ravelin::Origin3d(eB->v2->o), aTb.source);
+    
+    //transform fB into frame A
+    Ravelin::Vector3d vB1a = aTb.transform_point(vB1b);
+    Ravelin::Vector3d vB2a = aTb.transform_point(vB2b);
+
+    //create line segment
+    LineSeg3 lineA(vA1a,vA2a);
+    LineSeg3 lineB(vB1a,vB2a);
+
+    // compute distance
+    Point3d p1;
+    Point3d p2;
+    double dist = CompGeom::calc_closest_points(lineA,lineB,p1,p2);
+    return dist;
+  }
+  else if (fA == eVertex && fB == eFace)
+  {
+    //creating null pointer for later use as place holder
+    boost::shared_ptr<const Pose2d> GLOBAL2D;
+    boost::shared_ptr<const Pose3d> GLOBAL3D;
+    //cast features to non-constant
+    boost::shared_ptr<const Polyhedron::Vertex> vA = boost::static_pointer_cast<const Polyhedron::Vertex>(closestA);
+    boost::shared_ptr<const Polyhedron::Face> faceB_const = boost::static_pointer_cast<const Polyhedron::Face>(closestB);
+    boost::shared_ptr<Polyhedron::Face> faceB = boost::const_pointer_cast<Polyhedron::Face>(faceB_const);     
+
+    // create vector for A
+    Ravelin::Vector3d vAa(vA->o, aTb.target);
+  
+    // transform A using the inverse of aTb
+    Ravelin::Transform3d bTa = aTb.inverse();
+    Ravelin::Vector3d vAb = bTa.transform_point(vAa);
+    vAb.pose = GLOBAL3D;
+    // find the minimum
+    Plane planeB = faceB->get_plane();
+    double dist = planeB.calc_signed_distance(vAb);
+    //std::cout << "Distance between plane and " << vAb<< " is "<< dist << std::endl;
+
+    // project the point onto the plane
+    Ravelin::Vector3d vAb_on_planeB = vAb - planeB.get_normal()*dist;
+
+    // create the projection matrix to project to 2D
+    Ravelin::Matrix3d R2D = CompGeom::calc_3D_to_2D_matrix(planeB.get_normal());
+    Ravelin::Vector2d vAb_on_planeB_2d(CompGeom::to_2D(vAb_on_planeB,R2D),GLOBAL2D);
+
+    Polyhedron::VertexFaceIterator vfiB(faceB,true);    
+    std::vector<Ravelin::Vector2d> vB2d;
+    
+    //create the vertex vector
+    while (vfiB.has_next())
+    {
+      boost::shared_ptr<Polyhedron::Vertex> v = *vfiB;
+      vfiB.advance();
+      Ravelin::Vector3d p(v->o, aTb.source);
+      Ravelin::Origin2d o=CompGeom::to_2D(p,R2D);
+      Ravelin::Vector2d v2d(o,GLOBAL2D);
+      vB2d.push_back(v2d);
+    }
+    boost::shared_ptr<Polyhedron::Vertex> v=*vfiB;
+    Ravelin::Vector3d p(v->o, aTb.source);
+    Ravelin::Origin2d o=CompGeom::to_2D(p,R2D);
+    Ravelin::Vector2d v2d(o,GLOBAL2D);
+    vB2d.push_back(v2d);
+
+    // find the relationship between the point and the face
+    CompGeom::PolygonLocationType relation = CompGeom::polygon_location(vB2d.begin(), vB2d.end(), vAb_on_planeB_2d);
+
+    // if the point is outside we need to find distance between edges
+    if (relation==CompGeom::ePolygonOutside)
+    {
+      //create the vector for B
+      std::list<boost::weak_ptr<Edge> > eBs = faceB->e;
+  
+      // initialize the minimum
+      double min_dist = std::numeric_limits<double>::max();
+
+      // finding the distance between edges
+      for(std::list<boost::weak_ptr<Edge> >::iterator eBsi = eBs.begin(); eBsi!=eBs.end();++eBsi)
+      {
+        boost::shared_ptr<Edge> eB(*eBsi);
+        Ravelin::Vector3d vB1b(Ravelin::Origin3d(eB->v1->o), aTb.source);
+        Ravelin::Vector3d vB2b(Ravelin::Origin3d(eB->v2->o), aTb.source);
+    
+        //transform fB into frame A
+        Ravelin::Vector3d vB1a = aTb.transform_point(vB1b);
+        Ravelin::Vector3d vB2a = aTb.transform_point(vB2b);
+
+        //create a line segment
+        LineSeg3 line(vB1a,vB2a);
+
+        //compute the distance and compare to minimum
+        Point3d p;
+        double t;
+        double dist = CompGeom::calc_dist(line,vAa,t,p);
+        //std::cout << "Distance between edges and " << vAa<< " is "<< dist << std::endl;
+        if(min_dist > dist)
+          min_dist = dist;
+      }
+
+      return min_dist;
+    }
+    else
+      return std::fabs(dist);
+  }
+  else if (fA == eFace && fB == eVertex)
+  {
+    // creating null pointer for later use as place holder
+    boost::shared_ptr<const Pose2d> GLOBAL2D;
+
+    // cast pointers
+    boost::shared_ptr<const Polyhedron::Face> _faceA = boost::static_pointer_cast<const Polyhedron::Face>(closestA);
+    boost::shared_ptr<Polyhedron::Face> faceA = boost::const_pointer_cast<Polyhedron::Face>(_faceA); 
+    boost::shared_ptr<const Polyhedron::Vertex> vB = boost::static_pointer_cast<const Polyhedron::Vertex>(closestB);
+    
+    //transform B
+    Ravelin::Vector3d vBb(vB->o, aTb.source);
+    Ravelin::Vector3d vBa = aTb.transform_point(vBb);
+
+    //find distance between point and the plane the face is on
+    Plane planeA = faceA->get_plane();
+    double dist = planeA.calc_signed_distance(vBa);
+    
+    // project the point to the plane
+    Ravelin::Vector3d vBa_on_planeA = vBa - planeA.get_normal()*dist;
+
+    // create the projection matrix to project shapes on to 2D
+    Ravelin::Matrix3d R2D = CompGeom::calc_3D_to_2D_matrix(planeA.get_normal());
+    Ravelin::Vector2d vBa_on_planeA_2d(CompGeom::to_2D(vBa_on_planeA,R2D),GLOBAL2D);
+
+    Polyhedron::VertexFaceIterator vfiA(faceA,true);    
+    std::vector<Ravelin::Vector2d> vA2d;
+    
+    // create the vertex vector
+    while (vfiA.has_next())
+    {
+      boost::shared_ptr<Polyhedron::Vertex> v = *vfiA;
+      vfiA.advance();
+      Ravelin::Vector3d p(v->o, aTb.target);
+      Ravelin::Origin2d o=CompGeom::to_2D(p,R2D);
+      Ravelin::Vector2d v2d(o,GLOBAL2D);
+      vA2d.push_back(v2d);
+    }
+    boost::shared_ptr<Polyhedron::Vertex> v = *vfiA;
+    Ravelin::Vector3d p(v->o, aTb.target);
+    Ravelin::Origin2d o=CompGeom::to_2D(p,R2D);
+    Ravelin::Vector2d v2d(o,GLOBAL2D);
+    vA2d.push_back(v2d);
+
+    //find location of point w.r.t. polygon
+    CompGeom::PolygonLocationType relation = CompGeom::polygon_location(vA2d.begin(), vA2d.end(), vBa_on_planeA_2d);
+
+    //if the point is outside, vertex / edge distance needs to be calculated
+    if (relation == CompGeom::ePolygonOutside)
+    {
+      // if outside plane, minimum distance is computed by comparing edges
+      // set the minimum
+      double min_dist=std::numeric_limits<double>::max();
+
+      //creating vertexes for edges of a
+      std::list<boost::weak_ptr<Edge> > eAs=faceA->e;
+      for (std::list<boost::weak_ptr<Edge> >::iterator eAsi = eAs.begin(); eAsi!=eAs.end();++eAsi)
+      {
+        boost::shared_ptr<Edge> eA(*eAsi);
+        Ravelin::Vector3d vA1a(Ravelin::Origin3d(eA->v1->o), aTb.target);
+        Ravelin::Vector3d vA2a(Ravelin::Origin3d(eA->v2->o), aTb.target);
+
+        // create line segment
+        LineSeg3 line(vA1a,vA2a);
+
+        // compute distance and comparing to minimum
+        Point3d p;
+        double t;
+        double dist = CompGeom::calc_dist(line,vBa,t,p);
+        //std::cout << "Distance between edges and" << vBa<< " is "<< dist << std::endl;
+        if(min_dist>dist)
+          min_dist=dist;
+      }
+
+      return min_dist;
+    }
+    else
+      return std::fabs(dist);
+  }
+  else if (fA == eEdge && fB == eFace)
+  {
+    // cast pointers
+    boost::shared_ptr<const Polyhedron::Edge> eA = boost::static_pointer_cast<const Polyhedron::Edge>(closestA);
+    boost::shared_ptr<const Polyhedron::Face> faceB_const = boost::static_pointer_cast<const Polyhedron::Face>(closestB);
+    boost::shared_ptr<Polyhedron::Face> faceB = boost::const_pointer_cast<Polyhedron::Face>(faceB_const);
+  
+    // create lineseg for A
+    Ravelin::Vector3d vA1a(Ravelin::Origin3d(eA->v1->o), aTb.target);
+    Ravelin::Vector3d vA2a(Ravelin::Origin3d(eA->v2->o), aTb.target);
+    LineSeg3 lineA(vA1a,vA2a);
+    FILE_LOG(LOG_COLDET) << *faceB <<std::endl;
+
+    // transform B
+    Polyhedron::VertexFaceIterator vfiBb(faceB,true);
+    std::vector<Ravelin::Vector3d> vBa;
+    while(vfiBb.has_next())
+    {
+      boost::shared_ptr<Polyhedron::Vertex> v=*vfiBb;
+      vfiBb.advance();
+      Ravelin::Vector3d p(v->o, aTb.source);
+      Ravelin::Vector3d pa = aTb.transform_point(p);
+      vBa.push_back(pa);
+    }
+
+    // add the last point in the VertexFaceIterator into the vector
+    boost::shared_ptr<Polyhedron::Vertex> v = *vfiBb;
+    Ravelin::Vector3d p(v->o, aTb.source);
+    Ravelin::Vector3d pa = aTb.transform_point(p);
+    vBa.push_back(pa);
+
+    // triangulate the polygon
+    std::vector<Triangle> triB;
+    CompGeom::triangulate_convex_polygon(vBa.begin(),vBa.end(),std::back_inserter(triB));
+      
+    // find the minimum distance between line and all triangles
+    Point3d p1,p2;
+    double min_dist = std::numeric_limits<double>::max();
+    for(std::vector<Triangle>::iterator t = triB.begin(); t!=triB.end();++t)
+    {
+      //std::cout<< *t <<std::endl;
+      double tmp=Triangle::calc_sq_dist(*t,lineA,p1,p2);
+      //  double tmp=0;
+      if (tmp < min_dist)
+        min_dist=tmp;
+    }
+
+    return std::sqrt(min_dist);
+  }
+  else if (fA == eFace && fB == eEdge)
+  {
+    // cast pointers
+    boost::shared_ptr<const Polyhedron::Face> faceA_const = boost::static_pointer_cast<const Polyhedron::Face>(closestA);
+    boost::shared_ptr<Polyhedron::Face> faceA = boost::const_pointer_cast<Polyhedron::Face>(faceA_const);
+    boost::shared_ptr<const Polyhedron::Edge> eB = boost::static_pointer_cast<const Polyhedron::Edge>(closestB);
+
+    // creating iterator for A
+    Polyhedron::VertexFaceIterator vfiAa(faceA,true);
+    std::vector<Ravelin::Vector3d> vAa;
+    while(vfiAa.has_next())
+    {
+      boost::shared_ptr<Polyhedron::Vertex> v=*vfiAa;
+      vfiAa.advance();
+      Ravelin::Vector3d pa(v->o, aTb.target);
+      vAa.push_back(pa);
+    }
+    boost::shared_ptr<Polyhedron::Vertex> v=*vfiAa;
+    Ravelin::Vector3d pa(v->o, aTb.target);
+    vAa.push_back(pa);    
+
+    // triangulate the polygon
+    std::vector<Triangle> triA;
+    CompGeom::triangulate_convex_polygon(vAa.begin(),vAa.end(),std::back_inserter(triA));
+      
+    // transform and create lineSegB
+    Ravelin::Vector3d vB1b(Ravelin::Origin3d(eB->v1->o), aTb.source);
+    Ravelin::Vector3d vB2b(Ravelin::Origin3d(eB->v2->o), aTb.source);
+    
+    // transform fB into frame A
+    Ravelin::Vector3d vB1a = aTb.transform_point(vB1b);
+    Ravelin::Vector3d vB2a = aTb.transform_point(vB2b);
+
+    // create segment
+    LineSeg3 lineB(vB1a,vB2a);
+
+    // find minimum distance between line and all triangles
+    Point3d p1,p2;
+    double min_dist = std::numeric_limits<double>::max();
+    for (std::vector<Triangle>::iterator t = triA.begin(); t!=triA.end();++t)
+    {
+      double tmp=Triangle::calc_sq_dist(*t,lineB,p1,p2);
+      if(tmp < min_dist)
+        min_dist=tmp;
+    }
+
+    return std::sqrt(min_dist);
+  }
+  else 
+  {
+    assert(fA == eFace && fB == eFace);
+
+    // cast pointers
+    boost::shared_ptr<const Polyhedron::Face> faceA_const = boost::static_pointer_cast<const Polyhedron::Face>(closestA);
+    boost::shared_ptr<Polyhedron::Face> faceA = boost::const_pointer_cast<Polyhedron::Face>(faceA_const);
+    boost::shared_ptr<const Polyhedron::Face> faceB_const = boost::static_pointer_cast<const Polyhedron::Face>(closestB);
+    boost::shared_ptr<Polyhedron::Face> faceB = boost::const_pointer_cast<Polyhedron::Face>(faceB_const);
+
+    // create iterator for A
+    Polyhedron::VertexFaceIterator vfiAa(faceA,true);
+    std::vector<Ravelin::Vector3d> vAa;
+    while (vfiAa.has_next())
+    {
+      boost::shared_ptr<Polyhedron::Vertex> v = *vfiAa;
+      vfiAa.advance();
+      Ravelin::Vector3d pa(v->o, aTb.target);
+      vAa.push_back(pa);
+    }
+    boost::shared_ptr<Polyhedron::Vertex> v = *vfiAa;
+    Ravelin::Vector3d pa(v->o, aTb.target);
+    vAa.push_back(pa);
+
+    // triangulate
+    std::vector<Triangle> triA;
+    CompGeom::triangulate_convex_polygon(vAa.begin(),vAa.end(),std::back_inserter(triA));
+  
+    // create iterator for B
+    Polyhedron::VertexFaceIterator vfiBb(faceB,true);
+    std::vector<Ravelin::Vector3d> vBa;
+    while(vfiBb.has_next())
+    {
+      boost::shared_ptr<Polyhedron::Vertex> v = *vfiBb;
+      vfiBb.advance();
+      Ravelin::Vector3d p(v->o, aTb.source);
+      Ravelin::Vector3d pa = aTb.transform_point(p);
+      vBa.push_back(pa);
+    }
+    v = *vfiBb;
+    Ravelin::Vector3d p(v->o, aTb.source);
+    pa = aTb.transform_point(p);
+    vBa.push_back(pa);    
+    
+    // triangulate
+    std::vector<Triangle> triB;
+    CompGeom::triangulate_convex_polygon(vBa.begin(),vBa.end(),std::back_inserter(triB));
+      
+    // find minimum distance between all pairs of triangles
+    Point3d p1,p2;
+    double min_dist = std::numeric_limits<double>::max();
+    for(std::vector<Triangle>::iterator tA = triA.begin(); tA!=triA.end();++tA)
+      for(std::vector<Triangle>::iterator tB = triB.begin(); tB!=triB.end();++tB)
+      {
+        double tmp = Triangle::calc_sq_dist(*tA,*tB,p1,p2);
+        if (tmp < min_dist)
+          min_dist = tmp;
+      }
+
+    return std::sqrt(min_dist);
+  }
+}
+
+// Return a Voronoi plane such that if a point has a positive signed distance to the plane, it is absoultely closer to featureA than to featureB
+boost::shared_ptr<Plane> Polyhedron::voronoi_plane (FeatureType fA, FeatureType fB, boost::shared_ptr<const Ravelin::Pose3d> pose, boost::shared_ptr<const Polyhedron::Feature>& featureA, boost::shared_ptr<const Polyhedron::Feature>& featureB)
+{
+  boost::shared_ptr<Plane> result;
+
+  // handle VP(V,E) case
+  if (fA==eVertex && fB==eEdge)
+  {
+    // cast pointers
+    boost::shared_ptr<const Polyhedron::Vertex> vertexA = boost::static_pointer_cast<const Polyhedron::Vertex>(featureA);
+    boost::shared_ptr<const Polyhedron::Edge> edgeB = boost::static_pointer_cast<const Polyhedron::Edge>(featureB);
+
+
+
+    //creating the vector for the vertex and a random end of the second edge
+    Ravelin::Vector3d pA(vertexA->o,pose);
+    Ravelin::Vector3d pB(edgeB->v1->o,pose);
+    
+    // if the points are the same, create a new point to address normalization
+    if((pA-pB).norm() < NEAR_ZERO)
+      pB=Ravelin::Vector3d(edgeB->v2->o,pose);
+
+    // calculate the normal
+    Ravelin::Vector3d normal = pA - pB;
+    normal.normalize();
+
+    // setup the plane
+    result = boost::shared_ptr<Plane>( new Plane(normal,pA));
+  }
+  // handle VP(E,V) case
+  else if (fA==eEdge && fB==eVertex)
+  {
+    // cast pointers
+    boost::shared_ptr<const Polyhedron::Edge> edgeA = boost::static_pointer_cast<const Polyhedron::Edge>(featureA);
+    boost::shared_ptr<const Polyhedron::Vertex> vertexB = boost::static_pointer_cast<const Polyhedron::Vertex>(featureB);
+
+    // create the place holder for the second point
+    Ravelin::Vector3d pA(edgeA->v1->o,pose);
+    Ravelin::Vector3d pB(vertexB->o,pose);
+
+    //get the other point on the edge and calculate the normal
+    if ((pA-pB).norm()<NEAR_ZERO)
+      pA = Ravelin::Vector3d(edgeA->v2->o,pose);
+
+    // compute the normal
+    Ravelin::Vector3d normal = pA - pB;
+    normal.normalize();
+
+    // return the plane
+    result = boost::shared_ptr<Plane>( new Plane(normal,pB));
+  }
+  // handle VP(E,F) case
+  else if (fA==eEdge && fB==eFace)
+  {
+    // cast pointers
+    boost::shared_ptr<const Polyhedron::Edge> edgeA = boost::static_pointer_cast<const Polyhedron::Edge>(featureA);
+    boost::shared_ptr<const Polyhedron::Face> faceB_const = boost::static_pointer_cast<const Polyhedron::Face>(featureB);
+    boost::shared_ptr<Polyhedron::Face> faceB = boost::const_pointer_cast<Polyhedron::Face>(faceB_const);
+
+    // find the normal vector in the global frame of the plane the face is on 
+    Ravelin::Vector3d face_normal = faceB->get_plane().get_normal();
+
+    // find the vector representing the edge
+    Ravelin::Vector3d v1(edgeA->v1->o, pose);
+    Ravelin::Vector3d v2(edgeA->v2->o, pose);
+    Ravelin::Vector3d edge_vector = v2 - v1;
+    face_normal.pose = pose;
+    // find the cross product between them to find the Voronoi plane normal
+    Ravelin::Vector3d voronoi_normal = Ravelin::Vector3d::cross(edge_vector, face_normal);
+    voronoi_normal.normalize();
+    std::cout << "v1: "<< v1 << std::endl << *faceB << std::endl << voronoi_normal << std::endl;
+    // create the Voronoi plane    
+    result = boost::shared_ptr<Plane>( new Plane(voronoi_normal,v1));
+
+    // Since we don't know whether the normal is in the correct orientation,
+    // we have to test it by plugging in one vertex of the face that is not the two vertices of the edge to test it out
+    
+    // create the VertexFaceIterator
+    VertexFaceIterator vfi(faceB, true);
+
+    // find a point that is not v1 or v2 
+    boost::shared_ptr<Polyhedron::Vertex> test_vert = *vfi;
+    Ravelin::Vector3d test_vect(test_vert->o, pose);
+
+    if ((test_vect - v1).norm() < NEAR_ZERO ||
+        (test_vect - v2).norm() < NEAR_ZERO)
+    {
+      while(vfi.has_next())
+      {
+        vfi.advance();
+        test_vect= Ravelin::Vector3d((*vfi)->o, pose);
+        if ((test_vect - v1).norm() > NEAR_ZERO &&
+            (test_vect - v2).norm() > NEAR_ZERO)
+        {
+          test_vert = *vfi;
+          break;
+        }
+      }
+    }
+    
+    // the signed distance should be negative, so if the signed distance is positive, we have to reverse the vector
+    if (result->calc_signed_distance(Ravelin::Vector3d(test_vert->o, pose)) > 0)
+    {
+      result->set_normal(-(result->get_normal()));
+      result->offset = -(result->offset);
+    }
+  }
+  else if (fA==eFace && fB==eEdge)
+  {
+    // cast pointers
+    boost::shared_ptr<const Polyhedron::Face> faceA_const = boost::static_pointer_cast<const Polyhedron::Face>(featureA);
+    boost::shared_ptr<Polyhedron::Face> faceA = boost::const_pointer_cast<Polyhedron::Face>(faceA_const);
+    boost::shared_ptr<const Polyhedron::Edge> edgeB = boost::static_pointer_cast<const Polyhedron::Edge>(featureB);
+
+    //find the normal vector in the global frame of the plane the face is on 
+    Ravelin::Vector3d face_normal = faceA->get_plane().get_normal();
+    face_normal.pose = pose;
+
+    //find the vector representing the edge
+    Ravelin::Vector3d v1(edgeB->v1->o, pose);
+    Ravelin::Vector3d v2(edgeB->v2->o, pose);
+    Ravelin::Vector3d edge_vector = v2-v1;
+
+    //find the cross product between them to find the Voronoi plane normal
+    Ravelin::Vector3d voronoi_normal = Ravelin::Vector3d::cross(edge_vector, face_normal);
+    voronoi_normal.normalize();
+    FILE_LOG(LOG_COLDET) << face_normal << std::endl << edge_vector << std::endl << voronoi_normal << std::endl;
+
+    // create the Voronoi plane    
+    result = boost::shared_ptr<Plane>( new Plane(voronoi_normal,v1));
+
+    // since we don't know if the normal is in the correct orientation,
+    // we have to test it by plugging in one vertex of the face that is not the two vertices of the edge to test it out
+    
+    // create the VertexFaceIterator
+    VertexFaceIterator vfi(faceA , true);
+
+    //find a point that is not v1 or v2 
+    boost::shared_ptr<Polyhedron::Vertex> test_vert = *vfi;
+    Ravelin::Vector3d test_vect(test_vert->o, pose);
+
+    if ((test_vect - v1).norm() < NEAR_ZERO ||
+        (test_vect - v2).norm() < NEAR_ZERO)
+    {
+      while(vfi.has_next())
+      {
+        vfi.advance();
+        test_vect= Ravelin::Vector3d((*vfi)->o, pose);
+        if ((test_vect - v1).norm() > NEAR_ZERO &&
+            (test_vect - v2).norm() > NEAR_ZERO)
+        {
+          test_vert = *vfi;
+          break;
+        }
+      }
+    }
+    
+    std::cout << "edgeB: " << *edgeB << "filp test vertex: "<< *test_vert << std::endl << "filp test distance:" << result->calc_signed_distance(Ravelin::Vector3d(test_vert->o, pose)) <<std::endl;
+    // the signed distance should be positive, so if the signed distance is negative, we have to reverse the vector
+    if (result->calc_signed_distance(Ravelin::Vector3d(test_vert->o, pose)) < 0)
+    {
+      result->set_normal(-(result->get_normal()));
+      result->offset = -(result->offset);
+    }
+  }
+  FILE_LOG(LOG_COLDET) << *result << std::endl;
+
+  return result;
+}
+
+
+/// Implements Mirtich's clipEdge algorithm
+bool Polyhedron::clip_edge(boost::shared_ptr<const Polyhedron::Edge> edge, Transform3d fTe, double& min_lambda, double& max_lambda, boost::shared_ptr<const Polyhedron::Feature >& min_N, boost::shared_ptr<const Polyhedron::Feature >& max_N, const std::list<std::pair< boost::shared_ptr<const Polyhedron::Feature>, boost::shared_ptr<Plane> > >& planes_neighbors) 
+{  
+  Ravelin::Vector3d t_e(edge->v1->o, fTe.source);
+  Ravelin::Vector3d h_e(edge->v2->o, fTe.source);
+  Ravelin::Vector3d t = fTe.transform_point(t_e);
+  Ravelin::Vector3d h = fTe.transform_point(h_e);
+  //iterating through the pair list
+  std::list< std::pair< boost::shared_ptr<const Polyhedron::Feature >, boost::shared_ptr<Plane> > >::const_iterator pni;
+  for (pni=planes_neighbors.begin();pni!=planes_neighbors.end();++pni)
+  {
+    //getting the neighbor feature and the v-plane
+    boost::shared_ptr<const Polyhedron::Feature> N=(*pni).first;
+    boost::shared_ptr<Plane> P=(*pni).second;
+    double lambda;
+    std::cout<< *P <<std::endl;
+    //calculate the distance from the two end of the edge to the plane
+    double dt = P->calc_signed_distance(t);
+    double dh = P->calc_signed_distance(h);
+    std::cout<< dt <<std::endl;
+    std::cout<< dh <<std::endl;
+
+    //if the edge is completely clipped
+    if (dt<0 && dh<0)
+    {
+      min_N=max_N=N;
+      return false;
+    }
+    //if only one side is clipped
+    else if(dt<0)
+    {  
+      //Find lambda
+      lambda = dt/(dt-dh);
+
+      //if the current lambda is larger than the minimum possible lambda
+      //We have to update the minimum lambda
+      if (lambda>min_lambda)
+      {
+        min_lambda = lambda;
+        min_N = N;
+        //if the edge is completely clipped
+        if (min_lambda>max_lambda)
+          return false;
+      }
+    }
+    else if (dh<0)
+    {
+      // find lambda
+      lambda = dt/(dt-dh);
+
+      // if the current lambda is smaller than the maximum possible lambda
+      // we have to update the minimum lambda
+      if(lambda<max_lambda)
+      {
+        max_lambda = lambda;
+        max_N = N;
+
+        //if the edge is completely clipped
+        if(max_lambda < min_lambda)
+          return false;
+      }
+    }
+  }
+  return true;
+}
+
+// Does a post-clipping derivative check
+// TODO: Rewrite the case so that it deal with degenerate cases.
+bool Polyhedron::post_clip_deriv_check(FeatureType& fX, boost::shared_ptr<const Polyhedron::Feature >& X , boost::shared_ptr<const Polyhedron::Edge> edge, Transform3d& xTe, double& min_lambda, double& max_lambda, boost::shared_ptr<const Polyhedron::Feature >& min_N, boost::shared_ptr<const Polyhedron::Feature >& max_N)
+{
+
+  boost::shared_ptr<Ravelin::Pose3d> GLOBAL3D;
+
+  // create a vector pointing of the edge from tail to head(v1 to v2)
+  Ravelin::Vector3d t_e(edge->v1->o, xTe.source);
+  Ravelin::Vector3d h_e(edge->v2->o, xTe.source);
+  Ravelin::Vector3d t = xTe.transform_point(t_e);
+  Ravelin::Vector3d h = xTe.transform_point(h_e);
+  Ravelin::Vector3d u = h - t;
+
+  // placeholders for the sign of the derivative at min_lambda and max_lambda 
+  double Ddot_min,Ddot_max;
+
+  //Vertex case
+  if (fX == eVertex)
+  {
+    boost::shared_ptr<const Polyhedron::Vertex > vX = boost::static_pointer_cast<const Polyhedron::Vertex>(X);
+    Ravelin::Vector3d v(vX->o, xTe.target);
+    Ddot_min = Ravelin::Vector3d::dot(u,(t+min_lambda*u-v));
+    Ddot_max = Ravelin::Vector3d::dot(u,(t+max_lambda*u-v));
+  }
+  //Edge case
+  else if (fX == eEdge)
+  {
+    // in Edge case, we evaluate the dervative wrt the neighbor feature instead of X
+
+    if(min_N)
+    {// calculate dDot_min
+      if(boost::dynamic_pointer_cast<const Polyhedron::Vertex>(min_N))
+      {
+        boost::shared_ptr<const Polyhedron::Vertex > vX = boost::static_pointer_cast<const Polyhedron::Vertex>(min_N);
+        Ravelin::Vector3d v(vX->o, xTe.target);
+        Ddot_min = Ravelin::Vector3d::dot(u,(t+min_lambda*u-v));
+      }
+      // if the neighbor is not a vertex, it must be a face
+      else
+      {
+        boost::shared_ptr<const Polyhedron::Face> fX =  boost::static_pointer_cast<const Polyhedron::Face>(min_N);
+        Plane p = fX->get_plane();
+        Ravelin::Vector3d n = p.get_normal();
+        n.pose = xTe.target;
+
+        // calculate dDot_min
+        Ddot_min = Ravelin::Vector3d::dot(u,n);
+        Ravelin::Vector3d v = t+u*min_lambda;
+        v.pose = GLOBAL3D;
+        // if the signed distance is negative, we need to reverse the sign
+        if(p.calc_signed_distance(v)<0)
+        {
+          Ddot_min = -Ddot_min;
+        }
+      }
+    }
+
+    // calculate dDot_max
+    if(max_N)
+    {
+      if(boost::dynamic_pointer_cast<const Polyhedron::Vertex>(max_N))
+      {
+        boost::shared_ptr<const Polyhedron::Vertex > vX = boost::static_pointer_cast<const Polyhedron::Vertex>(max_N);
+        Ravelin::Vector3d v(vX->o, xTe.target);
+        Ddot_max = Ravelin::Vector3d::dot(u,(t+max_lambda*u-v));
+      }
+      // if the neighbor is not a vertex, it must be a face
+      else
+      {
+        boost::shared_ptr<const Polyhedron::Face> fX =  boost::static_pointer_cast<const Polyhedron::Face>(max_N);
+        Plane p = fX->get_plane();
+        Ravelin::Vector3d n = p.get_normal();
+        n.pose = xTe.target;
+
+        // calculate dDot_min
+        Ddot_max = Ravelin::Vector3d::dot(u,n);
+
+        Ravelin::Vector3d v = t+u*max_lambda;
+
+        v.pose = GLOBAL3D;
+        // if the signed distance is negatve, we need to reverse the sign
+        if(p.calc_signed_distance(v)<0)
+          Ddot_max = -Ddot_max;
+      }
+    }
+  }
+  // face case
+  else if (fX == eFace)
+  {
+    boost::shared_ptr<const Polyhedron::Face> fX =  boost::static_pointer_cast<const Polyhedron::Face>(X);
+    Plane p = fX->get_plane();
+
+    // calculate dDot_min
+    Ravelin::Vector3d n = p.get_normal();
+
+    n.pose = xTe.target;
+
+    // calculate dDot_min
+    Ddot_min = Ravelin::Vector3d::dot(u,n);
+
+    Ravelin::Vector3d vx = t+u*min_lambda;
+    vx.pose = GLOBAL3D;
+    // if the signed distance is negatve, we need to reverse the sign
+    if(p.calc_signed_distance(vx)<0)
+      Ddot_min = -Ddot_min;
+
+    // calculate dDot_max
+    Ddot_max = Ravelin::Vector3d::dot(u,n);
+
+    vx = t+u*max_lambda;
+    vx.pose = GLOBAL3D;
+    // if the signed distance is negatve, we need to reverse the sign
+    if(p.calc_signed_distance(vx)<0)
+      Ddot_max = -Ddot_max;
+  }
+
+  // check whether it is posible to update X
+  if(min_N && Ddot_min>0)
+  {
+    X = min_N;
+    if (boost::dynamic_pointer_cast<const Polyhedron::Vertex>(min_N))
+      fX = eVertex;  
+    else if (boost::dynamic_pointer_cast<const Polyhedron::Face>(min_N))
+      fX = eFace;
+    return true; 
+  }
+  else if(max_N && Ddot_max<0)
+  {
+    X = max_N;
+    if (boost::dynamic_pointer_cast<const Polyhedron::Vertex>(max_N))
+      fX = eVertex;  
+    else if (boost::dynamic_pointer_cast<const Polyhedron::Face>(max_N))
+      fX = eFace;
+    return true; 
+  }
+
+  return false;
+}
+
+// test if the vertex is inside the polygon
+// if not, update the face to the face that is the most distant from vertex
+Polyhedron::UpdateRule Polyhedron::handle_local_minimum(boost::shared_ptr<const Polyhedron::Vertex>& V, FeatureType& fF, boost::shared_ptr<const Polyhedron::Feature>& face,  const Polyhedron& face_poly, const Ravelin::Transform3d& fTv)
+{
+  //global pose
+  boost::shared_ptr<Ravelin::Pose3d> GLOBAL3D; 
+
+  //check whether the vertex has a negative distance with all faces in face_poly
+  double d_max = std::numeric_limits<double>::min();
+  const std::vector<boost::shared_ptr<Face> >& faces = face_poly.get_faces();
+  std::vector<boost::shared_ptr<Face> >::const_iterator fi;
+  Ravelin::Vector3d v(V->o, fTv.source);
+  Ravelin::Vector3d vf = fTv.transform_point(v);
+  boost::shared_ptr<const Polyhedron::Feature> f0;
+
+  //set the frame of vf to global for calculation
+  vf.pose = GLOBAL3D;
+
+  for(fi = faces.begin(); fi != faces.end() ; ++fi)
+  {
+    boost::shared_ptr<const Face> f = *fi;
+    Plane p = f->get_plane();
+    double d = p.calc_signed_distance(vf);
+    std::cout << "The distance between the vertex "<< vf << " and face " << *f << " is " << d << std::endl;
+    if (d > d_max)
+    {
+      d_max = d;
+      f0 = f;
+    }
+  }
+
+  if (d_max <= 0)
+    return eInterpenetrating;
+
+  face = f0;
+  fF = eFace;
+  return eContinue;
+}
+
+/// Does the case of update vertex/vertex
+Polyhedron::UpdateRule Polyhedron::update_vertex_vertex(FeatureType& fA, FeatureType& fB, Transform3d& aTb, shared_ptr<const Polyhedron::Feature>& closestA, shared_ptr<const Polyhedron::Feature>& closestB)
+{
+
+  // search for Voronoi plane from three coincident edges to vertex A,
+  // which vertex B violates
+  boost::shared_ptr<const Polyhedron::Vertex> vertA = boost::static_pointer_cast<const Polyhedron::Vertex>(closestA);
+  boost::shared_ptr<const Polyhedron::Vertex> vertB = boost::static_pointer_cast<const Polyhedron::Vertex>(closestB);
+
+  std::list<boost::weak_ptr<Edge> > es = vertA->e;
+  std::list<boost::weak_ptr<Edge> >::const_iterator ei;
+  Ravelin::Vector3d vectorB_B(vertB->o,aTb.source);
+  Ravelin::Vector3d vectorB = aTb.transform_point(vectorB_B);
+
+  FeatureType fEdge=eEdge;
+  FeatureType fVertex=eVertex;
+
+  std::cout<< vectorB <<std::endl;
+
+  for(ei=es.begin(); ei!=es.end(); ++ei)
+  {
+    boost::shared_ptr<const Feature> e(*ei);
+    boost::shared_ptr<Plane> vp = voronoi_plane(fVertex,fEdge,aTb.target,closestA,e);
+
+    std::cout<< *vp <<std::endl<<vp->calc_signed_distance(vectorB)<<std::endl;
+
+    if (vp->calc_signed_distance(vectorB) < 0.0)
+    {
+      // vertex B violates plane from this edge; update vA to eA
+      closestA = e;
+      fA=eEdge;
+      return eContinue;
+    }
+  }
+
+  // search for Voronoi plane from three coincident edges to vertex B,
+  // which vertex A violates
+  es = vertB->e;
+  Ravelin::Vector3d vectorA_A(vertA->o,aTb.target);
+  Transform3d bTa = aTb.inverse();
+  Ravelin::Vector3d vectorA = bTa.transform_point(vectorA_A);
+
+  std::cout<< vectorA <<std::endl;
+
+  for(ei=es.begin(); ei!=es.end(); ++ei)
+  {
+    boost::shared_ptr<const Feature> e(*ei);
+    boost::shared_ptr<Plane> vp = voronoi_plane(fVertex,fEdge,aTb.source,closestB,e);
+
+    std::cout<< *vp <<std::endl<<vp->calc_signed_distance(vectorA)<<std::endl;
+
+    if(vp->calc_signed_distance(vectorA) < 0)
+    {
+      // vertex A violates plane from this edge; update vB to eA
+      closestB = e;
+      fB=eEdge;
+      return eContinue;
+    }
+  }
+
+  // still here = no violations
+  return eDone;
+}
+
+/// Does the case of update vertex/edge
+Polyhedron::UpdateRule Polyhedron::update_vertex_edge(FeatureType& fA, FeatureType& fB, Transform3d& aTb, shared_ptr<const Polyhedron::Feature>& closestA, shared_ptr<const Polyhedron::Feature>& closestB)
+{
+  boost::shared_ptr<const Polyhedron::Vertex> vertA = boost::static_pointer_cast<const Polyhedron::Vertex>(closestA);
+  boost::shared_ptr<const Polyhedron::Edge> edgeB = boost::static_pointer_cast<const Polyhedron::Edge>(closestB);
+  const FeatureType F_FACE=eFace;
+  const FeatureType F_EDGE=eEdge;
+  const FeatureType F_VERTEX=eVertex;  
+
+
+  // search for Voronoi plane from those coincident to eB that vA violates
+  Ravelin::Vector3d vectA_A(vertA->o,aTb.target);
+  Ravelin::Vector3d vectA = aTb.inverse().transform_point(vectA_A);
+  std::cout << vectA << std::endl;
+  //V(E,V1)
+  boost::shared_ptr<const Feature>  N = edgeB->v1;
+  boost::shared_ptr<Plane> vp = voronoi_plane(F_EDGE, F_VERTEX,aTb.source,closestB,N);
+
+  std::cout<< *(edgeB->v1) << std::endl << *vp<< std::endl << vp->calc_signed_distance(vectA) << std::endl;
+  double dist = vp->calc_signed_distance(vectA);
+  if( dist< 0 || fabs(dist) < NEAR_ZERO )
+  {
+    // vA violates plane; update edge to coincident plane
+    closestB = N;
+    fB = eVertex;
+    return eContinue;
+  }
+
+
+  //V(E,V2)
+  N = edgeB->v2;
+  vp = voronoi_plane(F_EDGE,F_VERTEX,aTb.source,closestB,N);
+
+  std::cout<< *vp<< std::endl << vp->calc_signed_distance(vectA) << std::endl;
+  dist = vp->calc_signed_distance(vectA);
+  if( dist< 0 || fabs(dist) < NEAR_ZERO )
+  {
+    // vA violates plane; update edge to coincident plane
+    closestB = N;
+    fB = eVertex;
+    return eContinue;
+  }
+
+  // V(E,F1)
+  N = edgeB->face1;
+  vp = voronoi_plane(F_EDGE,F_FACE,aTb.source,closestB,N);
+
+  std::cout<< *vp<< std::endl << vp->calc_signed_distance(vectA) << std::endl;
+
+  if(vp->calc_signed_distance(vectA) < 0)
+  {
+    // vA violates plane; update edge to coincident plane
+    closestB = N;
+    fB = eFace;
+    return eContinue;
+  }  
+
+  // V(E,F1)
+  N = edgeB->face2;
+  vp = voronoi_plane(F_EDGE,F_FACE,aTb.source,closestB,N);
+
+  std::cout<< *vp<< std::endl << vp->calc_signed_distance(vectA) << std::endl;
+
+  if (vp->calc_signed_distance(vectA) < 0)
+  {
+    // vA violates plane; update edge to coincident plane
+    closestB = N;
+    fB = eFace;
+    return eContinue;
+  }  
+
+  std::cout<< "Start clipping the edge"<< std::endl;
+  // clip eB against the Voronoi region of vA
+  double min_lambda=0;
+  double max_lambda=1;
+  boost::shared_ptr<const Polyhedron::Feature > min_N, max_N;
+  
+  // create vp-feature pair list
+  std::list<std::pair<boost::shared_ptr<const Polyhedron::Feature> , boost::shared_ptr<Plane> > > planes_neighbors;
+  std::list<boost::weak_ptr<Edge> > es = vertA->e;
+  std::list<boost::weak_ptr<Edge> >::iterator ei;
+
+  FeatureType fEdge=eEdge;
+  FeatureType fVertex=eVertex;
+
+  for(ei=es.begin(); ei!=es.end(); ++ei)
+  {
+    boost::shared_ptr<const Feature> e(*ei);
+    boost::shared_ptr<Plane> const vp = voronoi_plane(fVertex,fEdge,aTb.target,closestA,e);
+    std::pair<boost::shared_ptr<const Polyhedron::Feature>, boost::shared_ptr<Plane> > pn(e,vp);
+    planes_neighbors.push_back(pn);
+  }
+
+  bool clip_result=clip_edge(edgeB, aTb, min_lambda, max_lambda, min_N, max_N, planes_neighbors);
+
+  std::cout << min_lambda << std::endl << max_lambda << std::endl;
+  // check whether the edge is completely clipped by one feature
+  if(min_N==max_N && min_N)
+  {
+    std::cout<< "Completely Clipped"<< std::endl;
+    closestA=min_N;
+    fA=eEdge;
+    return eContinue;
+  }
+  else
+  {
+    // check derivative and update the feature
+    if(post_clip_deriv_check(fA, closestA, edgeB, aTb, min_lambda, max_lambda, min_N, max_N))
+      return eContinue;
+    // if V is not updated after all of porcess
+    else
+      return eDone;
+  }
+}
+
+/// Does the case of update vertex/face
+Polyhedron::UpdateRule Polyhedron::update_vertex_face(FeatureType& fA, FeatureType& fB, Transform3d& aTb, shared_ptr<const Polyhedron::Feature>& closestA, shared_ptr<const Polyhedron::Feature>& closestB, const Polyhedron& face_poly)
+{
+  // search for Voronoi plane from VP(F,E) that vertex A violate
+  boost::shared_ptr<const Polyhedron::Vertex> vertA = boost::static_pointer_cast<const Polyhedron::Vertex>(closestA);
+  boost::shared_ptr<const Polyhedron::Face> faceB = boost::static_pointer_cast<const Polyhedron::Face>(closestB);
+  const FeatureType F_EDGE=eEdge;
+  const FeatureType F_VERTEX=eVertex;
+  const FeatureType F_FACE=eFace;
+
+  std::list<boost::weak_ptr<Edge> > es = faceB->e;
+  std::list<boost::weak_ptr<Edge> >::iterator ei;
+  Ravelin::Vector3d vectorA(vertA->o,aTb.target);
+  Ravelin::Vector3d vectorA_b = aTb.inverse().transform_point(vectorA);
+  // since we are looking for violate distance, it will always be negative.
+  double max_violate_distance = 0;
+  boost::shared_ptr<const Polyhedron::Feature> max_violate_feature;
+
+  // iterate through edge list
+  for (ei=es.begin(); ei!=es.end(); ++ei)
+  {
+    boost::shared_ptr<const Feature> e(*ei);
+    boost::shared_ptr<Plane> vp = voronoi_plane(F_FACE,F_EDGE,aTb.source,closestB,e);
+    double dist = vp->calc_signed_distance(vectorA_b);
+    boost::shared_ptr<const Edge> e_temp = boost :: static_pointer_cast<const Edge>(e);
+    std::cout << *e_temp << std::endl << *vp << std::endl<< "Vector: " << vectorA_b << std::endl << "dist: " << dist << std::endl;
+    if ( dist < max_violate_distance || fabs(max_violate_distance-dist)<NEAR_ZERO)
+    {
+      // vertex B violates plane from this edge; update vA to eA
+      max_violate_distance = dist;
+      max_violate_feature = e;
+    }
+  }
+
+  // if violated plane exists
+  if (max_violate_feature)
+  {
+    closestB = max_violate_feature;
+    fB = eEdge;
+    return eContinue;
+  }
+
+  // check whether there are edges from V pointing toward F
+  // here we convert the frame of the vertices which may not be the fastest solution
+  // may be better if the plane is converted
+  // Transforming plane B to A
+  Plane p_b = faceB->get_plane();
+  Ravelin::Vector3d normal_b = p_b.get_normal();
+  normal_b.pose = aTb.source;
+  Ravelin::Vector3d normal_a = aTb.transform_vector(normal_b);
+  std::cout<< "The Face is " << *faceB <<std::endl << "Normal before transformation is " <<normal_b <<endl << "normal after transformation is " << normal_a << std::endl;
+
+  // find a random vertex from face b
+  boost::shared_ptr<Polyhedron::Face> faceB_non_const = boost::const_pointer_cast<Polyhedron::Face>(faceB);
+  Polyhedron::VertexFaceIterator vfi(faceB_non_const, true);
+  shared_ptr<Polyhedron::Vertex> v1 = *vfi;
+  Ravelin::Vector3d v1_b (v1->o, aTb.source);
+  Ravelin::Vector3d v1_a = aTb.transform_point(v1_b);
+  normal_a.normalize();
+  Plane p_a(normal_a, v1_a);
+
+  double D_va = p_a.calc_signed_distance(vectorA);
+
+  FILE_LOG(LOG_COLDET)<< v1_b << " , " << v1_a <<std::endl << vectorA << std::endl << p_a << std::endl << D_va << std::endl;
+
+
+
+  es = vertA->e;
+
+  for(ei=es.begin(); ei!=es.end(); ++ei)
+  {
+    //find the vertex V' of e that is not vertA
+    boost::shared_ptr<const Edge> e(*ei);
+    boost::shared_ptr<Polyhedron::Vertex> v_prime = e->v1;
+
+    if(vertA == v_prime)
+      v_prime = e->v2;
+
+    // calculate D(V')
+    Ravelin::Vector3d vectorA_prime(v_prime->o, aTb.target);
+    double D_v_prime = p_a.calc_signed_distance(vectorA_prime);
+    std::cout << "v_prime: " << *v_prime << std::endl;
+    if(std::fabs(D_va) > std::fabs(D_v_prime))
+    {
+      // vertex B violates plane from this edge; update vA to eA
+      closestA = e;
+      fA=eEdge;
+      return eContinue;
+    }    
+  }
+
+  // if there are no edge pointing to the face and the
+  // vertex is absolutely out of the polyhedron. We are done 
+    if (D_va > 0)
+      return eDone;
+  // if the point has negative distance, it might be inside the polyhedron
+  // handle_local_minimum will be used to test this and update.
+  Transform3d bTa = aTb.inverse();
+  return handle_local_minimum(vertA, fB, closestB, face_poly, bTa);
+}
+
+/// Does the case of update edge/edge
+Polyhedron::UpdateRule Polyhedron::update_edge_edge(FeatureType& fA, FeatureType& fB, Transform3d& aTb, shared_ptr<const Polyhedron::Feature>& closestA, shared_ptr<const Polyhedron::Feature>& closestB)
+{
+  
+  //Casting
+  boost::shared_ptr<const Polyhedron::Edge> edgeA = boost::static_pointer_cast<const Polyhedron::Edge>(closestA);
+  boost::shared_ptr<const Polyhedron::Edge> edgeB = boost::static_pointer_cast<const Polyhedron::Edge>(closestB);
+  const FeatureType F_FACE=eFace;
+  const FeatureType F_VERTEX=eVertex;
+  const FeatureType F_EDGE=eEdge;  
+
+  {
+    // clip eB against the Edge-Vertex Voronoi plane of EA
+    double min_lambda=0;
+    double max_lambda=1;
+    boost::shared_ptr<const Polyhedron::Feature > min_N , max_N;
+  
+    //creating vp-feature pair list
+    std::list<std::pair<boost::shared_ptr<const Polyhedron::Feature> , boost::shared_ptr<Plane> > > planes_neighbors;
+
+    //Creating Edge vs. Vertex1 vp and adding to the list
+    boost::shared_ptr<const Polyhedron::Feature> V = edgeA->v1;
+    boost::shared_ptr<Plane> vp = voronoi_plane(F_EDGE, F_VERTEX, aTb.target, closestA, V);
+    std::pair<boost::shared_ptr<const Polyhedron::Feature>, boost::shared_ptr<Plane> > pn(V , vp);
+    planes_neighbors.push_back(pn);
+
+    // create edge vs. vertex2 vp and add to the list
+    V = edgeA->v2;
+    vp = voronoi_plane(F_EDGE, F_VERTEX, aTb.target, closestA, V);
+    pn = std::pair<boost::shared_ptr<const Polyhedron::Feature>, boost::shared_ptr<Plane> >(V , vp);
+    planes_neighbors.push_back(pn);
+
+    // clip edge
+    bool clip_result = clip_edge(edgeB, aTb, min_lambda, max_lambda, min_N, max_N, planes_neighbors);
+
+    //check if the edge is completely clipped by one features
+    if(min_N==max_N && min_N)
+    {
+      closestA = min_N;
+      fA = eVertex;
+      return eContinue;
     }
     else
     {
-      if (shared_ptr<Polyhedron::Edge>(e->prevR) == term)
-        return false;
+      // check derivative and update the feature
+      if (post_clip_deriv_check(fA, closestA, edgeB, aTb, min_lambda, max_lambda, min_N, max_N))
+        return eContinue;
+    }
+  
+    //emptying the list
+    planes_neighbors.clear();
+
+    // create edge vs. face1 vp and add it to the list
+    boost::shared_ptr<const Polyhedron::Feature> F = edgeA->face1;
+    vp = voronoi_plane(F_EDGE,F_VERTEX,aTb.target,closestA,F);
+    pn = std::pair<boost::shared_ptr<const Polyhedron::Feature>, boost::shared_ptr<Plane> >(F,vp);
+    planes_neighbors.push_back(pn);
+
+    // create edge vs. face2 vp and add it to the list
+    F = edgeA->face2;
+    vp = voronoi_plane(F_EDGE,F_VERTEX,aTb.target,closestA,F);
+    pn = std::pair<boost::shared_ptr<const  Polyhedron::Feature>, boost::shared_ptr<Plane> >(F,vp);
+    planes_neighbors.push_back(pn);
+
+    clip_result=clip_edge(edgeB, aTb, min_lambda, max_lambda, min_N, max_N, planes_neighbors);
+
+    // check whether the edge is completely clipped by one feature
+    if(min_N==max_N && min_N)
+    {
+      closestA = min_N;
+      fA=eFace;
+      return eContinue;
+    }
+    else
+    {
+      // check derivative and update the feature
+      if (post_clip_deriv_check(fA, closestA, edgeB, aTb, min_lambda, max_lambda, min_N, max_N))
+        return eContinue;
+    }
+  }  
+
+  // swap role of A and B
+  Transform3d bTa = aTb.inverse();
+  {
+    // clip eA against the Edge-Vertex Voronoi plane of EB
+    double min_lambda = 0;
+    double max_lambda = 1;
+    boost::shared_ptr<const Polyhedron::Feature > min_N, max_N;
+  
+    //creating vp-feature pair list
+    std::list<std::pair<boost::shared_ptr<const Polyhedron::Feature> , boost::shared_ptr<Plane> > > planes_neighbors;
+
+    // create edge vs. vertex1 and add it to the list
+    boost::shared_ptr<const Polyhedron::Feature> V = edgeB->v1;
+    boost::shared_ptr<Plane> vp = voronoi_plane(F_EDGE, F_VERTEX, aTb.source, closestB, V);
+    std::pair<boost::shared_ptr<const Polyhedron::Feature>, boost::shared_ptr<Plane> > pn(V , vp);
+    planes_neighbors.push_back(pn);
+
+    // create edge vs. vertex2 and add it to the list
+    V = edgeB->v2;
+    vp = voronoi_plane(F_EDGE, F_VERTEX, aTb.source, closestB, V);
+    pn = std::pair<boost::shared_ptr<const Polyhedron::Feature>, boost::shared_ptr<Plane> > (V , vp);
+    planes_neighbors.push_back(pn);
+
+    bool clip_result = clip_edge(edgeA, bTa, min_lambda, max_lambda, min_N, max_N, planes_neighbors);
+
+    // check whether the edge is completely clipped by one feature
+    if (min_N==max_N && min_N)
+    {
+      closestB = min_N;
+      fB = eVertex;
+      return eContinue;
+    }
+    else
+    {
+      //Check derivative and update the feature
+      if(post_clip_deriv_check(fB, closestB, edgeA, bTa, min_lambda, max_lambda, min_N, max_N))
+        return eContinue;
+    }
+
+    // clip eB against the Edge-Face Voronoi plane of EA
+    // create vp-feature pair list
+    planes_neighbors.clear();
+
+    // create edge vs. vertex1 and add it to the list
+    boost::shared_ptr<const Polyhedron::Feature> F = edgeB->face1;
+    vp = voronoi_plane(F_EDGE,F_VERTEX,aTb.source,closestB,F);
+    pn = std::pair<boost::shared_ptr<const Polyhedron::Feature>, boost::shared_ptr<Plane> >(F,vp);
+    planes_neighbors.push_back(pn);
+
+    // create edge vs. vertex2 and add it to the list
+    F = edgeA->face2;
+    vp = voronoi_plane(F_EDGE,F_VERTEX,aTb.source,closestB,F);
+    pn = std::pair<boost::shared_ptr<const Polyhedron::Feature>, boost::shared_ptr<Plane> >(F,vp);
+    planes_neighbors.push_back(pn);
+
+    clip_result=clip_edge(edgeA, bTa, min_lambda, max_lambda, min_N, max_N, planes_neighbors);
+
+    // check whether the edge is completely clipped by one feature
+    if(min_N==max_N && min_N)
+    {
+      closestB=min_N;
+      fA=eFace;
+      return eContinue;
+    }
+    else
+    {
+      //Check derivative and update the feature
+      if(post_clip_deriv_check(fB, closestB, edgeA, bTa, min_lambda, max_lambda, min_N, max_N))
+        return eContinue;
+    }
+  } 
+ 
+  return eDone;
+}
+
+/// Does the case of update edge/face
+Polyhedron::UpdateRule Polyhedron::update_edge_face(FeatureType& fA, FeatureType& fB, Transform3d& aTb, shared_ptr<const Polyhedron::Feature>& closestA, shared_ptr<const Polyhedron::Feature>& closestB)
+{
+  // cast pointers
+  boost::shared_ptr<const Polyhedron::Edge> edgeA = boost::static_pointer_cast<const Polyhedron::Edge>(closestA);
+  boost::shared_ptr<const Polyhedron::Face> faceB = boost::static_pointer_cast<const Polyhedron::Face>(closestB);
+  const FeatureType F_FACE=eFace;
+  const FeatureType F_VERTEX=eVertex;
+  const FeatureType F_EDGE=eEdge; 
+  boost::shared_ptr<Ravelin::Pose3d> GLOBAL3D; 
+
+  Ravelin::Transform3d bTa = aTb.inverse(); 
+
+  std::list<std::pair<boost::shared_ptr<const Polyhedron::Feature> , boost::shared_ptr<Plane> > > planes_neighbors;
+  std::list<boost::weak_ptr<Edge> > es = faceB->e;
+  std::list<boost::weak_ptr<Edge> >::const_iterator ei;
+
+  for (ei=es.begin(); ei!=es.end(); ++ei)
+  {
+    boost::shared_ptr<const Feature> e(*ei);
+    boost::shared_ptr<Plane> const vp = voronoi_plane(F_FACE,F_EDGE,aTb.source,closestB,e);
+    std::pair<boost::shared_ptr<const Polyhedron::Feature>, boost::shared_ptr<Plane> > pn(e,vp);
+    planes_neighbors.push_back(pn);
+  }
+
+  // clipp edge
+  double min_lambda = 0;
+  double max_lambda = 1;
+  boost::shared_ptr<const Polyhedron::Feature > min_N, max_N;
+  bool clip_result = clip_edge(edgeA, bTa, min_lambda, max_lambda, min_N, max_N, planes_neighbors);
+
+  // check whether the edge is completely clipped
+  if(!clip_result)
+  {
+
+    //Initializing the start edge and the iterator
+    boost::shared_ptr<const Polyhedron::Feature > cur_feature;
+    if(min_N)
+      cur_feature = min_N;
+    else
+      cur_feature = max_N;
+
+    for (ei = es.begin(); ei != es.end(); ++ei)
+    {
+      boost::shared_ptr<const Polyhedron::Edge > e(*ei);
+      if(e == cur_feature)
+        break;
+    }
+    
+    // update feature B to the closest edge or vertex on F to E
+    while (true)
+    {
+      //clip feature A with the two Edge-Vertex voronoi-plane of cur_edge
+      boost::shared_ptr<const Polyhedron::Edge> cur_edge = boost::static_pointer_cast<const Polyhedron::Edge>(cur_feature);
+      planes_neighbors.clear();
+      boost::shared_ptr<const Polyhedron::Feature> tail = cur_edge->v1;
+      boost::shared_ptr<const Polyhedron::Feature> head = cur_edge->v2;
+      boost::shared_ptr<Plane> const vp_t = voronoi_plane(F_EDGE, F_VERTEX, aTb.source, cur_feature, tail);
+      boost::shared_ptr<Plane> const vp_h = voronoi_plane(F_EDGE, F_VERTEX, aTb.source, cur_feature, head);
+      std::pair<boost::shared_ptr<const Polyhedron::Feature>, boost::shared_ptr<Plane> > np_t(tail,vp_t);
+      std::pair<boost::shared_ptr<const Polyhedron::Feature>, boost::shared_ptr<Plane> > np_h(head,vp_h);
+      planes_neighbors.push_back(np_t);
+      planes_neighbors.push_back(np_h);
+      double min_lambda = 0;
+      double max_lambda = 1;
+      boost::shared_ptr<const Polyhedron::Feature > min_N, max_N;
+      bool clip_result = clip_edge(edgeA, bTa, min_lambda, max_lambda, min_N, max_N, planes_neighbors);
+
+      // check derivative 
+      Ravelin::Vector3d t_A(edgeA->v1->o, bTa.source);
+      Ravelin::Vector3d t = bTa.transform_point(t_A);
+      Ravelin::Vector3d h_A(edgeA->v2->o, bTa.source);
+      Ravelin::Vector3d h = bTa.transform_point(h_A);
+      Ravelin::Vector3d u = h - t;
+
+      // placeholders for the derivative minimum/maximum
+      double Ddot_min,Ddot_max;
+
+      // calculate dDot_min
+      Plane p = faceB->get_plane();
+      Ravelin::Vector3d n = p.get_normal();
+      n.pose = bTa.target;
+      Ddot_min = Ravelin::Vector3d::dot(u,n);
+
+      // if the signed distance is negatve, we need to reverse the sign
+      Ravelin::Vector3d vx = t+u*min_lambda;
+      vx.pose = GLOBAL3D;
+      if (p.calc_signed_distance(vx) < 0)
+        Ddot_min = -Ddot_min;
+
+      // calculate dDot_max
+      Ddot_max = Ravelin::Vector3d::dot(u,n);
+      vx = t+u*max_lambda;
+
+      // if the signed distance is negatve, we need to reverse the sign
+      vx.pose = GLOBAL3D;
+      if(p.calc_signed_distance(vx) < 0)
+        Ddot_max = -Ddot_max;
+
+      // check which Edge to update to
+      if(min_N && Ddot_min > 0)
+      {
+        // find the neighbor edge that has tail as its vertex
+        // get the one of the two neighbor edges
+        std::list<boost::weak_ptr<Edge> >::const_iterator ei2 = ei;
+        ei2++;
+        if(ei2 == es.end())
+          ei2 = es.begin();
+        boost::shared_ptr<const Edge> neighbor_e1(*ei2);
+
+        // if tail is in neighbor_e1
+        if (neighbor_e1->v1 == tail || neighbor_e1->v2 == tail)
+        {
+          cur_feature = neighbor_e1;
+          ei = ei2;
+        }
+        else
+        {
+          // pointing ei2 to the other neighbor edge;
+          if (ei != es.begin())
+          {
+            ei2 = ei;
+            ei2--;
+          }
+          else
+          {
+            ei2 = es.end();
+            ei2--;
+          }
+          cur_feature = boost::shared_ptr<const Edge>(*ei2);
+          ei = ei2;
+        }
+
+        // the current edge is not the shortest distance one, do everything again with the updated edge
+        continue; 
+      }
+      else if (max_N && Ddot_max < 0)
+      {
+        // find the neighboring edge that has head as its vertex
+        // get the two neighboring edges
+        std::list<boost::weak_ptr<Edge> >::const_iterator ei2 = ei;
+        ei2++;
+        if (ei2 == es.end())
+          ei2 = es.begin();
+        boost::shared_ptr<Edge> neighbor_e1(*ei2);
+
+        // if tail is in neighbor_e1
+        if((neighbor_e1->v1 == head)||(neighbor_e1->v2 == head))
+        {
+          cur_feature = neighbor_e1;
+          ei = ei2;
+        }
+        else
+        {
+          //pointing ei2 to the other neighbor edge;
+          if(ei != es.begin())
+          {
+            ei2 = ei;
+            ei2--;
+          }
+          else
+          {
+            ei2 = es.end();
+            ei2--;
+          }
+          cur_feature = boost::shared_ptr<Edge>(*ei2);
+          ei = ei2;
+        }
+
+        // the current edge is not the shortest distance one, do everything again with the updated edge
+        continue; 
+      }
+
+      //if we are here, we are at the shortest distance edge
+      closestB = cur_feature;
+      fB = eEdge;
+      break;
+    }
+
+    return eContinue;
+  }
+
+
+  Ravelin::Vector3d t_a(edgeA->v1->o, aTb.target);
+  Ravelin::Vector3d h_a(edgeA->v2->o, aTb.target);
+  Ravelin::Vector3d t = bTa.transform_point(t_a);
+  Ravelin::Vector3d h = bTa.transform_point(h_a);
+  Ravelin::Vector3d u = h - t;
+  Plane p = faceB->get_plane();
+
+  Ravelin::Vector3d min_vx = t+u*min_lambda;
+  Ravelin::Vector3d max_vx = t+u*max_lambda;
+  min_vx.pose = GLOBAL3D;
+  max_vx.pose = GLOBAL3D;
+
+
+  double min_d = p.calc_signed_distance(min_vx);
+  double max_d = p.calc_signed_distance(max_vx);
+
+  if (min_d*max_d <= 0)
+    return eInterpenetrating;
+  
+  Ravelin::Vector3d n = p.get_normal();
+
+  n.pose = aTb.source;
+  // calculate dDot_min
+  double dDot_min = Ravelin::Vector3d::dot(u,n);
+
+  // if the signed distance is negatve, we need to reverse the sign
+  if (min_d < 0)
+    dDot_min=-dDot_min;
+
+  if (dDot_min >= 0)
+  {
+    if (min_N)
+    {
+      closestB = min_N;
+      fB = eEdge;
+    }
+    else
+    {
+      closestA = edgeA->v1;
+      fA = eVertex;
     }
   }
   else
   {
-    if (e->faceR == f)
+    if (max_N)
     {
-      if (shared_ptr<Polyhedron::Edge>(e->nextR) == term)
-        return false;
+      closestB = max_N;
+      fB = eEdge;
     }
     else
     {
-      if (shared_ptr<Polyhedron::Edge>(e->prevL) == term)
-        return false;
+      closestA = edgeA->v2;
+      fA = eVertex;
     }
   }
-
-  return true;
+  return eContinue;
 }
+
 

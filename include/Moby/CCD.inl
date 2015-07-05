@@ -18,9 +18,7 @@ OutputIterator CCD::find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr
   }
   else if (boost::dynamic_pointer_cast<BoxPrimitive>(pA))
   {
-    if (boost::dynamic_pointer_cast<BoxPrimitive>(pB))
-      return find_contacts_box_box(cgA, cgB, output_begin, TOL);
-    else if (boost::dynamic_pointer_cast<PlanePrimitive>(pB))
+    if (boost::dynamic_pointer_cast<PlanePrimitive>(pB))
       return find_contacts_plane_generic(cgB, cgA, output_begin, TOL);
     else if (boost::dynamic_pointer_cast<SpherePrimitive>(pB))
       return find_contacts_box_sphere(cgA, cgB, output_begin, TOL);
@@ -48,6 +46,11 @@ OutputIterator CCD::find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr
     if (boost::dynamic_pointer_cast<PlanePrimitive>(pB))
       return find_contacts_cylinder_plane(cgA, cgB, output_begin, TOL);
   }
+  else if (boost::dynamic_pointer_cast<PolyhedralPrimitive>(pA))
+  {
+    if (boost::dynamic_pointer_cast<PolyhedralPrimitive>(pB))
+      return find_contacts_polyhedron_polyhedron(cgA, cgB, output_begin, TOL);
+  }
   else // no special case for A
   {
     if (boost::dynamic_pointer_cast<HeightmapPrimitive>(pB))
@@ -65,6 +68,159 @@ OutputIterator CCD::find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr
 
   // still here? just use the generic contact finder
   return find_contacts_generic(cgA, cgB, output_begin, TOL);
+}
+
+/// Finds contacts between two polyhedra
+template <class OutputIterator>
+OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL)
+{
+  // TODO: Bjoern, fill this in
+}
+
+template <class OutputIterator>
+OutputIterator CCD::find_contacts_vertex_vertex(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, boost::shared_ptr<Polyhedron::Vertex> v1, boost::shared_ptr<Polyhedron::Vertex> v2, double signed_dist, OutputIterator output_begin){
+
+  //TODO: Implement this(maybe)
+}
+
+template <class OutputIterator>
+OutputIterator CCD::find_contacts_vertex_edge(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, boost::shared_ptr<Polyhedron::Vertex> v, boost::shared_ptr<Polyhedron::Edge> e, double signed_dist, OutputIterator output_begin){
+
+  //TODO: Implement this(maybe)
+}
+
+template <class OutputIterator>
+OutputIterator CCD::find_contacts_vertex_face(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, boost::shared_ptr<Polyhedron::Vertex> vA, boost::shared_ptr<Polyhedron::Face> fB, double signed_dist, OutputIterator output_begin){
+  //convert the vertex point to a Vector3d
+  Ravelin::Vector3d p(vA->o, cgA->get_pose());
+  //converted 
+  //normal will point away from B
+  Ravelin::Vector3d normal(Ravelin::Origin3d(fB->get_plane().get_normal()), cgB->get_pose());
+
+  *output_begin++ = create_contact(cgA, cgB, p, normal, signed_dist);
+
+}
+
+template <class OutputIterator>
+OutputIterator CCD::find_contacts_edge_edge(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, boost::shared_ptr<Polyhedron::Edge> e1, boost::shared_ptr<Polyhedron::Edge> e2, double signed_dist, OutputIterator output_begin){
+
+  //TODO: Implement this(maybe)
+}
+
+template <class OutputIterator>
+OutputIterator CCD::find_contacts_edge_face(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, boost::shared_ptr<Polyhedron::Edge> eA, boost::shared_ptr<Polyhedron::Face> fB, double signed_dist, OutputIterator output_begin){
+
+  // set global frame (in 2D)
+  const boost::shared_ptr<const Ravelin::Pose2d> GLOBAL_2D;
+
+  //1. calc normal of face
+  Ravelin::Vector3d normal(Ravelin::Origin3d(fB->get_plane().get_normal()), cgB->get_pose());
+  
+  //We calculate the transform from cgB to GLOBAL for later use
+  Ravelin::Transform3d wTB = Ravelin::Pose3d::calc_relative_pose(cgB->get_pose(),GLOBAL);
+  
+  //transform the normal to the global frame
+  Ravelin::Vector3d normal0=wTB.transform_vector(normal);
+
+  Ravelin::Matrix3d R2D = CompGeom::calc_3D_to_2D_matrix(normal0);
+  
+  //2. get all vertex from face
+  Polyhedron::VertexFaceIterator vfi(fB,true);
+  std::vector<Ravelin::Origin2d> v2d;
+  while(vfi.has_next()){
+    boost::shared_ptr<Polyhedron::Vertex> v=*vfi;
+    vfi.advance();
+    Ravelin::Vector3d p(v->o, cgB->get_pose());
+    Ravelin::Vector3d p0=wTB.transform_point(p);
+    v2d.push_back(CompGeom::to_2D(p0,R2D));
+
+  }
+  
+  //checking if the points are CCW. If not reverse it
+  if(!CompGeom::ccw(v2d.begin(),v2d.end(),normal0)){
+    std::reverse(v2d.begin(),v2d.end());
+  }
+
+  //Finding transform matrix for the edge
+  Ravelin::Transform3d wTA = Ravelin::Pose3d::calc_relative_pose(cgA->get_pose(),GLOBAL);
+
+  //Transforming v1
+  Ravelin::Vector3d v1(Ravelin::Origin3d(eA->v1->o), cgA->get_pose());
+  Ravelin::Vector3d v10=wTA.transform_point(v1);
+  Ravelin::Origin2d o1_2d=CompGeom::to_2D(v10,R2D);
+  
+  //Transforming v2
+  Ravelin::Vector3d v2(Ravelin::Origin3d(eA->v2->o), cgA->get_pose());
+  Ravelin::Vector3d v20=wTA.transform_point(v1);
+  Ravelin::Origin2d o2_2d=CompGeom::to_2D(v20,R2D);
+
+  //creating segment
+  Ravelin::Vector2d v1_2d(o1_2d, GLOBAL_2D);
+  Ravelin::Vector2d v2_2d(o2_2d, GLOBAL_2D);  
+  LineSeg2 line(v1_2d,v2_2d);
+
+  //creacting result holders
+  double te,tl;
+
+  //intersecting line to face
+  CompGeom::intersect_seg_convex_polygon(v2d.begin(),v2d.end(),line,te,tl);
+  
+  //5. calc 2 contact points
+  Ravelin::Vector3d c1=v10*(1-te)+v20*te;
+  Ravelin::Vector3d c2=v10*(1-tl)+v20*tl;
+
+  //adding output
+  *output_begin++ = create_contact(cgA, cgB, c1, normal0, signed_dist);
+  *output_begin++ = create_contact(cgA, cgB, c2, normal0, signed_dist);
+}
+
+
+template <class OutputIterator>
+OutputIterator CCD::find_contacts_face_face(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, boost::shared_ptr<Polyhedron::Face> fA, boost::shared_ptr<Polyhedron::Face> fB, double signed_dist, OutputIterator output_begin){
+  
+  //Face A:
+  //calc normal of face
+  Ravelin::Vector3d normal(Ravelin::Origin3d(fA->get_plane().get_normal()), cgA->get_pose());
+  
+  //We calculate the transform from cgB to GLOBAL for later use
+  Ravelin::Transform3d wTA = Ravelin::Pose3d::calc_relative_pose(cgA->get_pose(),GLOBAL);
+  
+  //transform the normal to the global frame
+  Ravelin::Vector3d normal_0=wTA.transform_vector(normal);
+
+  //get all vertex from face
+  Polyhedron::VertexFaceIterator vfiA(fA,true);
+  std::vector<Ravelin::Vector3d> v3dA;
+  while(vfiA.has_next()){
+    boost::shared_ptr<Polyhedron::Vertex> v=*vfiA;
+    vfiA.advance();
+    Ravelin::Vector3d p(v->o, cgA->get_pose());
+    Ravelin::Vector3d p0=wTA.transform_point(p);
+    v3dA.push_back(p0);
+  }
+
+  //Face B:
+  //We calculate the transform from cgB to GLOBAL for later use
+  Ravelin::Transform3d wTB = Ravelin::Pose3d::calc_relative_pose(cgB->get_pose(),GLOBAL);
+  
+  //2. get all vertex from face
+  Polyhedron::VertexFaceIterator vfiB(fB,true);
+  std::vector<Ravelin::Vector3d> v3dB;
+  while(vfiB.has_next()){
+    boost::shared_ptr<Polyhedron::Vertex> v=*vfiB;
+    vfiB.advance();
+    Ravelin::Vector3d p(v->o, cgB->get_pose());
+    Ravelin::Vector3d p0=wTB.transform_point(p);
+    v3dB.push_back(p0);
+  }
+  
+  //intersectiong 2 faces
+  std::vector<Point3d> isect;
+  CompGeom::intersect_polygons(v3dA.begin(),v3dA.end(),v3dB.begin(),v3dB.end(),normal_0,std::back_inserter(isect));
+  //adding output
+  for(unsigned i=0;i<isect.size();i++){
+    *output_begin++ = create_contact(cgA, cgB, isect[i], -normal_0, signed_dist);  
+  }
 }
 
 
@@ -149,7 +305,7 @@ OutputIterator CCD::find_contacts_cylinder_plane(CollisionGeometryPtr cgA, Colli
   // Contact normal is always plane normal
   normal = Ravelin::Pose3d::transform_vector(Moby::GLOBAL,n);
 
-  // cylinder origin w.r.t. plane
+  // cylinder o w.r.t. plane
   Point3d c0(pPc.x.data(),Pplane);
 
   double n_dot_cN = n.dot(cN);

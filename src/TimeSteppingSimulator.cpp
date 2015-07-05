@@ -9,6 +9,7 @@
 #include <Moby/XMLTree.h>
 #include <Moby/ArticulatedBody.h>
 #include <Moby/RigidBody.h>
+#include <Moby/Dissipation.h>
 #include <Moby/DynamicBody.h>
 #include <Moby/CollisionGeometry.h>
 #include <Moby/CollisionDetection.h>
@@ -210,6 +211,10 @@ double TimeSteppingSimulator::do_mini_step(double dt)
     qd += qdd;
     _bodies[i]->set_generalized_velocity(DynamicBody::eSpatial, qd);
   }
+
+  // dissipate some energy
+  if (_dissipator)
+    _dissipator->apply(_bodies);
 
   FILE_LOG(LOG_SIMULATOR) << "Integrated velocity by " << h << std::endl;
 

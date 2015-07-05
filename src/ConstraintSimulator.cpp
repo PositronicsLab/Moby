@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <boost/tuple/tuple.hpp>
 #include <Moby/XMLTree.h>
+#include <Moby/Dissipation.h>
 #include <Moby/ArticulatedBody.h>
 #include <Moby/RigidBody.h>
 #include <Moby/DynamicBody.h>
@@ -603,6 +604,16 @@ void ConstraintSimulator::load_from_xml(shared_ptr<const XMLTree> node, map<std:
   // first, load all data specified to the Simulator object
   Simulator::load_from_xml(node, id_map);
 
+  // read the dissipator, if any
+  XMLAttrib* dissipator_attrib = node->get_attrib("dissipator-id");
+  if (dissipator_attrib)
+  {
+    const std::string dissipator_id = dissipator_attrib->get_string_value();
+    _dissipator = dynamic_pointer_cast<Dissipation>(id_map[dissipator_id]);
+    if (!_dissipator)
+      throw std::runtime_error("Unable to load dissipator");
+  }
+
   // read the collision detection plugin, if any
   XMLAttrib* coldet_plugin_attrib = node->get_attrib("collision-detection-plugin");
   if (coldet_plugin_attrib)
@@ -739,6 +750,13 @@ void ConstraintSimulator::save_to_xml(XMLTreePtr node, list<shared_ptr<const Bas
 
   // reset the node's name
   node->name = "ConstraintSimulator";
+
+  // save the dissipation mechanism
+  if (_dissipator)
+  {
+    node->attribs.insert(XMLAttrib("dissipator-id", _dissipator->id));
+    shared_objects.push_back(_dissipator);
+  }
 
   // save any collision detection plugins
   if (!dynamic_pointer_cast<CCD>(_coldet))

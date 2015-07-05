@@ -10,6 +10,7 @@
     <Sphere id="sphere" radius="1.5811" mass="1" />
 
     <BulirschStoerIntegrator id="bs" abs-err-tol="1e-12" rel-err-tol="1e-12"/>
+    <RungeKuttaIntegrator id="rk4" />
 
     <GravityForce id="gravity" accel="0 -9.81 0 " />
 

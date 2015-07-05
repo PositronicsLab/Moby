@@ -17,10 +17,10 @@
   <CollisionDetectionPlugin id="wheel-coldet" plugin="librimless-wheel-coldet-plugin.so" />
 
 <!--  downhill at alpha = 0.05 -->
-<GravityForce id="gravity" accel="0.049979 0 -0.99875" /> 
+<!-- GravityForce id="gravity" accel="0.049979 0 -0.99875" /> --> 
 
 <!--  downhill at alpha = 0.1 -->
-<!-- <GravityForce id="gravity" accel="0.099833 0 -0.995" /> -->
+<GravityForce id="gravity" accel="0.099833 0 -0.995" />
 
 <!--  downhill at alpha = 0.2 -->
 <!--<GravityForce id="gravity" accel="0.198669330795061 0 -0.980066577841242" />-->
@@ -42,7 +42,7 @@
 <!--    <ContactParameters object1-id="GROUND" object2-id="BOX" epsilon="0" mu-coulomb="100" />-->
   </EventDrivenSimulator>
 
-  <RigidBody id="WHEEL" enabled="true" position="0 0 1.0" mass="1.0" inertia="2 0 0; 0 2 0; 0 0 1">
+  <RigidBody id="WHEEL" enabled="true" position="0 0 1.0" mass="1.0" inertia="2 0 0; 0 1 0; 0 0 2">
     <CollisionGeometry />
     <Visualization visualization-id="spoke" visualization-rel-rpy="0 0 0"/>
     <Visualization visualization-id="spoke" visualization-rel-rpy="0 1.0472 0"/>
