@@ -79,7 +79,6 @@ class ImpactConstraintHandler
     static void contact_select(const std::vector<int>& cn_indices, const std::vector<int>& beta_nbeta_c_indices, const Ravelin::VectorNd& x, Ravelin::VectorNd& cn, Ravelin::VectorNd& beta_c);
     static void contact_select(const std::vector<int>& cn_indices, const std::vector<int>& beta_nbeta_c_indices, const Ravelin::MatrixNd& m, Ravelin::MatrixNd& cn_rows, Ravelin::MatrixNd& beta_c_rows);
     static double sqr(double x) { return x*x; }
-    void permute_problem(UnilateralConstraintProblemData& epd, Ravelin::VectorNd& z);
     void setup_QP(UnilateralConstraintProblemData& epd, Ravelin::SharedMatrixNd& H, Ravelin::SharedVectorNd& c, Ravelin::SharedMatrixNd& M, Ravelin::SharedVectorNd& q, Ravelin::SharedMatrixNd& A, Ravelin::SharedVectorNd& b);
 
     Ravelin::LinAlgd _LA;
@@ -93,8 +92,7 @@ class ImpactConstraintHandler
     Ravelin::VectorNd _zlast, _v, _zsuccess;
 
     // temporaries for solve_qp_work() and solve_nqp_work()
-    Ravelin::VectorNd _Cnstar_v, _workv, _new_Cn_v;
-    Ravelin::MatrixNd _Cnstar_Cn, _Cnstar_Cs, _Cnstar_Ct, _Cnstar_L;
+    Ravelin::VectorNd _workv, _new_Cn_v;
 
     // temporaries shared between solve_lcp(), solve_qp(), and solve_nqp()
     Ravelin::VectorNd _a, _b;
@@ -128,18 +126,6 @@ class ImpactConstraintHandler
     // temporaries for solve_lcp()
     Ravelin::MatrixNd _AU, _AV, _B, _C, _D;
     Ravelin::VectorNd _AS, _alpha_x, _qq, _Cn_vplus;
-
-    // last number of (active) contacts handled
-    unsigned _last_contacts;
-
-    // last number of limits handled
-    unsigned _last_limits;
-
-    // last number of friction directions
-    unsigned _last_contact_nk;
-
-    // last number of contact constraints handled
-    unsigned _last_contact_constraints;
 
     // QLCPD solver
     #ifdef USE_QLCPD

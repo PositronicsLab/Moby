@@ -48,16 +48,6 @@ Point3d CollisionGeometry::get_supporting_point(const Vector3d& d) const
   return primitive->get_supporting_point(dir);
 }
 
-/// Computes the maximum distance that a point on the geometry can travel
-double CollisionGeometry::calc_max_dist(double lin_cont, double ang_cont, double dist, const Vector3d& d0, const Vector3d& w0)
-{
-  // get the primitive from this
-  PrimitivePtr primitive = get_geometry();
-
-  shared_ptr<Pose3d> P;
-  return primitive->calc_max_dist(lin_cont, ang_cont*get_farthest_point_distance(), dist, d0, w0, P);
-}
-
 /// Gets the farthest point from this geometry
 double CollisionGeometry::get_farthest_point_distance() const
 {

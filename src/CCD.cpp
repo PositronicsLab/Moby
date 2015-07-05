@@ -134,6 +134,10 @@ double CCD::calc_CA_Euler_step(const PairwiseDistInfo& pdi)
 /// Computes the conservative advancement time for a sphere
 double CCD::calc_CA_Euler_step_sphere(const PairwiseDistInfo& pdi)
 {
+  // reset the minimum observed distance, if possible
+  if (pdi.dist >= 0.0)
+    _min_dist_observed[make_sorted_pair(pdi.a, pdi.b)] = 0.0;
+
   // if the distance is greater than zero, use standard conservative
   // advancement
   if (pdi.dist > NEAR_ZERO)
@@ -142,11 +146,16 @@ double CCD::calc_CA_Euler_step_sphere(const PairwiseDistInfo& pdi)
   // if the relative velocity at the point of contact is zero, return infinity
   std::vector<UnilateralConstraint> contacts;
   find_contacts(pdi.a, pdi.b, std::back_inserter(contacts), NEAR_ZERO);
-  if (contacts.size() == 1 && 
-      std::fabs(contacts.front().calc_constraint_vel()) < 1e-8)
+  if ((contacts.size() == 1 && 
+      std::fabs(contacts.front().calc_constraint_vel()) < 5e-6))
   {
     FILE_LOG(LOG_SIMULATOR) << "-- sphere/primitive contact with relative velocity of " << contacts.front().calc_constraint_vel() << "; reporting infinite conservative advancement time" << std::endl;
     return std::numeric_limits<double>::max();
+  }
+  else
+  {
+    if (contacts.size() >= 1)
+      FILE_LOG(LOG_SIMULATOR) << "-- sphere/primitive contact with relative velocity of " << contacts.front().calc_constraint_vel() << std::endl;
   }
  
   // otherwise, use standard conservative advancement 
@@ -157,6 +166,10 @@ double CCD::calc_CA_Euler_step_sphere(const PairwiseDistInfo& pdi)
 double CCD::calc_CA_Euler_step_generic(const PairwiseDistInfo& pdi)
 {
   double maxt = std::numeric_limits<double>::max();
+
+  // reset the minimum observed distance, if possible
+  if (pdi.dist >= 0.0)
+    _min_dist_observed[make_sorted_pair(pdi.a, pdi.b)] = 0.0;
 
   // get geometries, distance, and closest points
   CollisionGeometryPtr cgA = pdi.a; 
@@ -192,7 +205,11 @@ double CCD::calc_CA_Euler_step_generic(const PairwiseDistInfo& pdi)
   // if bodies are interpenetrating, reverse n0
   double dist = pdi.dist;
   if (pdi.dist < 0.0)
-    dist = NEAR_ZERO;
+  {
+    double& min_dist = _min_dist_observed[make_sorted_pair(pdi.a, pdi.b)];
+    min_dist = std::min(min_dist, pdi.dist);
+    dist = NEAR_ZERO + (pdi.dist - min_dist);
+  }
 
   // compute the distance that body A can move toward body B
   double dist_per_tA = calc_max_dist(rbA, -n0, dist);

@@ -2,6 +2,9 @@
  * The "driver" program described in the README file.
  *****************************************************************************/
 
+#ifdef GOOGLE_PROFILER
+#include <gperftools/profiler.h>
+#endif
 #include <errno.h>
 #include <sys/time.h>
 #include <dlfcn.h>
@@ -233,10 +236,6 @@ void step(void* arg)
     std::cout << "instantaneous frame rate: " << (1.0/(tm - LAST_STEP_TIME)) << "fps  avg. frame rate: " << (ITER / (tm - FIRST_STEP_TIME)) << "fps" << std::endl;
     LAST_STEP_TIME = tm;
   }
-
-  // check that maximum number of iterations or maximum time not exceeded
-  if (ITER >= MAX_ITER || s->current_time > MAX_TIME)
-    exit(0);
 
   // if render contact points enabled, notify the Simulator
   if( RENDER_CONTACT_POINTS && eds)
@@ -471,6 +470,10 @@ void process_xml_options(const std::string& xml_fname)
 int main(int argc, char** argv)
 {
   const unsigned ONECHAR_ARG = 3, TWOCHAR_ARG = 4;
+
+  #ifdef GOOGLE_PROFILER
+  ProfilerStart("/tmp/profile");
+  #endif
 
   #ifdef USE_OSG
   const double DYNAMICS_FREQ = 0.001;
@@ -709,14 +712,19 @@ int main(int argc, char** argv)
     }
     #endif
     step((void*) &s);
-    #ifdef USE_OSG
-    usleep(DYNAMICS_FREQ);
-    #endif
+
+    // check that maximum number of iterations or maximum time not exceeded
+    if (ITER >= MAX_ITER || s->current_time > MAX_TIME)
+      break; 
   }
 
   // close the loaded library
   for(size_t i = 0; i < handles.size(); ++i){
     dlclose(handles[i]);
   }
+
+  #ifdef GOOGLE_PROFILER
+  ProfilerStop();
+  #endif
 }
 

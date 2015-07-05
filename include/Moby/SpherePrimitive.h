@@ -47,8 +47,6 @@ class SpherePrimitive : public Primitive
     /// Gets the number of points used to create the sphere for visualization / collision checking
     unsigned get_num_points() const { return _npoints; }
 
-    virtual double calc_max_dist(double lin_cont, double ang_cont, double dist, const Ravelin::Vector3d& d0, const Ravelin::Vector3d& w, boost::shared_ptr<const Ravelin::Pose3d> P);
- 
   private:
     virtual void calc_mass_properties();
     static double calc_f(const Ravelin::VectorNd&, void*);

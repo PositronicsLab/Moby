@@ -20,7 +20,6 @@
 #include <Moby/TriangleMeshPrimitive.h>
 #include <Moby/HeightmapPrimitive.h>
 #include <Moby/GJK.h>
-#include <Moby/Newton.h>
 #include <Moby/SpherePrimitive.h>
 
 using namespace Ravelin;
@@ -418,53 +417,6 @@ BVPtr SpherePrimitive::get_BVH_root(CollisionGeometryPtr geom)
   }
 
   return bsph;
-}
-
-/// Computes the maximum distance per unit time in a given direction
-double SpherePrimitive::calc_max_dist(double lin_cont, double ang_cont, double dist, const Vector3d& d0, const Vector3d& w0, shared_ptr<const Pose3d> P)
-{
-  // if the distance? maximum step? is large, do the standard conservative 
-  // advancement step
-
-  // otherwise, maximize_r 1/2 (<d x w, r>)^2
-  // where r = | radius * cos theta * sin phi |
-  //           | radius * sin theta * sin phi |
-  //           | radius * cos phi             |
-
-  // setup the pair
-  std::pair<double, VectorNd> data;
-  data.first = _radius;
-  VectorNd& y = data.second;
-
-  // compute y = d x w
-  Vector3d d0xw = Vector3d::cross(d0, w0);
-  y.resize(3);
-  y[0] = d0xw[0];
-  y[1] = d0xw[1];
-  y[2] = d0xw[2];
-
-  // setup x for Newton optimization
-  VectorNd x(2);
-  x.set_zero();
-
-  // do Newton optimization
-  const double F_TOL = 1e-6;
-  Newton::newton(x, 100, F_TOL, &data, &calc_f, &calc_gradient, &calc_hessian);
-
-  // get the optimal theta and phi
-  double theta = x[0];
-  double phi = x[1];
-  const double SPHI = std::sin(phi);
-
-  // setup r 
-  VectorNd r(3);
-  double sphi = std::sin(phi);
-  r[0] = std::cos(theta) * SPHI * _radius;
-  r[1] = std::sin(theta) * SPHI * _radius;
-  r[2] = std::cos(phi) * _radius;
-
-  // compute | <d x w, r> |
-  return lin_cont + std::fabs(y.dot(r)); 
 }
 
 /// Evaluates the objective function for conservative advancement

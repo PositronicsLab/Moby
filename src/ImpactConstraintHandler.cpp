@@ -47,9 +47,6 @@ ImpactConstraintHandler::ImpactConstraintHandler()
   ip_eps = 1e-6;
   use_ip_solver = false;
 
-  // setup variables to help warmstarting
-  _last_contacts = _last_limits = _last_contact_constraints = 0;
-
   // initialize IPOPT, if present
   #ifdef HAVE_IPOPT
   _app.Options()->SetNumericValue("tol", 1e-7);
@@ -216,15 +213,6 @@ void ImpactConstraintHandler::apply_model_to_connected_constraints(const list<Un
   VectorNd z;
   solve_frictionless_lcp(_epd, z);
 
-  // update constraint problem data and z
-  permute_problem(_epd, z);
-
-  // determine N_ACT_K
-  _epd.N_ACT_K = 0;
-  for (unsigned i=0; i< _epd.N_ACT_CONTACTS; i++)
-    if (_epd.contact_constraints[i]->contact_NK < UINF)
-      _epd.N_ACT_K += _epd.contact_constraints[i]->contact_NK/2;
-
   // use QP / NQP solver with warm starting to find the solution
   if (use_qp_solver(_epd))
     solve_qp(z, _epd, max_time);
@@ -256,18 +244,6 @@ void ImpactConstraintHandler::apply_model_to_connected_constraints(const list<Un
     FILE_LOG(LOG_CONSTRAINT) << "  restitution v+ minimum: " << minv_plus << std::endl;
     if (minv_plus < 0.0 && minv_plus < minv - NEAR_ZERO)
     {
-      // need to solve another impact problem
-      solve_frictionless_lcp(_epd, z);
-
-      // update constraint problem data and z
-      permute_problem(_epd, z);
-
-      // determine N_ACT_K
-      _epd.N_ACT_K = 0;
-      for (unsigned i=0; i< _epd.N_ACT_CONTACTS; i++)
-        if (_epd.contact_constraints[i]->contact_NK < UINF)
-          _epd.N_ACT_K += _epd.contact_constraints[i]->contact_NK/2;
-
       // use QP / NQP solver with warm starting to find the solution
       if (use_qp_solver(_epd))
         solve_qp(z, _epd, max_time);
@@ -534,7 +510,7 @@ bool ImpactConstraintHandler::apply_restitution(const UnilateralConstraintProble
   bool changed = false;
 
   // apply (Poisson) restitution to contacts
-  for (unsigned i=0, j=q.CN_IDX; i< q.N_ACT_CONTACTS; i++, j++)
+  for (unsigned i=0, j=q.CN_IDX; i< q.N_CONTACTS; i++, j++)
   {
     z[j] *= q.contact_constraints[i]->contact_epsilon;
     if (!changed && z[j] > NEAR_ZERO)
@@ -585,144 +561,6 @@ bool ImpactConstraintHandler::apply_restitution(UnilateralConstraintProblemData&
   return changed;
 }
 
-/// Permutes the problem to reflect active contact constraints
-void ImpactConstraintHandler::permute_problem(UnilateralConstraintProblemData& epd, VectorNd& z)
-{
-  // determine mapping of old contact constraint indices to new contact constraint
-  // indices
-  std::vector<unsigned> mapping(epd.N_CONTACTS);
-
-  FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::permute_problem() entered" << std::endl;
-
-  // 1. compute active indices
-  epd.N_ACT_CONTACTS = 0;
-  for (unsigned i=0; i< epd.N_CONTACTS; i++)
-    if (z[i] > NEAR_ZERO)
-    {
-      FILE_LOG(LOG_CONSTRAINT) << " -- contact " << i << " is active" << std::endl;
-      mapping[epd.N_ACT_CONTACTS++] = i;
-    }
-
-  // 2. compute inactive indices
-  for (unsigned i=0, j=epd.N_ACT_CONTACTS; i< epd.N_CONTACTS; i++)
-    if (z[i] < NEAR_ZERO)
-      mapping[j++] = i;
-
-  // permute inactive indices
-  std::random_shuffle(mapping.begin()+epd.N_ACT_CONTACTS, mapping.end());
-
-  // set solution vector to reflect indices in active set
-  for (unsigned i=0; i< epd.N_ACT_CONTACTS; i++)
-    z[i] = z[mapping[i]];
-  std::fill(z.row_iterator_begin()+epd.N_ACT_CONTACTS, z.row_iterator_begin()+epd.N_CONTACTS, 0.0);
-  FILE_LOG(LOG_CONSTRAINT) << "-- permuted frictionless lcp solution: " << z << std::endl;
-
-  // permute contact constraints
-  std::vector<UnilateralConstraint*> new_contact_constraints(epd.contact_constraints.size());
-  permute(mapping.begin(), mapping.end(), epd.contact_constraints.begin(), new_contact_constraints.begin());
-  epd.contact_constraints = new_contact_constraints;
-
-  // TODO: add constraint computation and cross computation methods to Joint
-
-  // get iterators to the proper matrices
-  RowIteratord CnCn = epd.Cn_iM_CnT.row_iterator_begin();
-  RowIteratord CnCs = epd.Cn_iM_CsT.row_iterator_begin();
-  RowIteratord CnCt = epd.Cn_iM_CtT.row_iterator_begin();
-  RowIteratord CsCs = epd.Cs_iM_CsT.row_iterator_begin();
-  RowIteratord CsCt = epd.Cs_iM_CtT.row_iterator_begin();
-  RowIteratord CtCt = epd.Ct_iM_CtT.row_iterator_begin();
-
-  // process contact constraints, setting up matrices
-  for (unsigned i=0; i< epd.contact_constraints.size(); i++)
-  {
-    // compute cross constraint data for contact constraints
-    for (unsigned j=0; j< epd.contact_constraints.size(); j++)
-    {
-      // reset _MM
-      _MM.set_zero(3, 3);
-
-      // check whether i==j (single contact constraint)
-      if (i == j)
-      {
-        // compute matrix / vector for contact constraint i
-        _v.set_zero(3);
-        epd.contact_constraints[i]->compute_constraint_data(_MM, _v);
-
-        // setup appropriate parts of contact inertia matrices
-        RowIteratord_const data = _MM.row_iterator_begin();
-        *CnCn = *data++;
-        *CnCs = *data++;
-        *CnCt = *data; data += 2; // advance past Cs_iM_CnT
-        *CsCs = *data++;
-        *CsCt = *data; data += 3; // advance to Ct_iM_CtT
-        *CtCt = *data;
-
-        // setup appropriate parts of contact velocities
-        data = _v.row_iterator_begin();
-        epd.Cn_v[i] = *data++;
-        epd.Cs_v[i] = *data++;
-        epd.Ct_v[i] = *data;
-      }
-      else
-      {
-        // compute matrix for cross constraint
-        epd.contact_constraints[i]->compute_cross_constraint_data(*epd.contact_constraints[j], _MM);
-
-        // setup appropriate parts of contact inertia matrices
-        RowIteratord_const data = _MM.row_iterator_begin();
-        *CnCn = *data++;
-        *CnCs = *data++;
-        *CnCt = *data; data += 2; // advance to Cs_iM_CsT
-        *CsCs = *data++;
-        *CsCt = *data; data += 3; // advance to Ct_iM_CtT
-        *CtCt = *data;
-      }
-
-      // advance the iterators
-      CnCn++;
-      CnCs++;
-      CnCt++;
-      CsCs++;
-      CsCt++;
-      CtCt++;
-    }
-
-    // compute cross constraint data for contact/limit constraints
-    for (unsigned j=0; j< epd.limit_constraints.size(); j++)
-    {
-      // reset _MM
-      _MM.set_zero(3, 1);
-
-      // compute matrix for cross constraint
-      epd.contact_constraints[i]->compute_cross_constraint_data(*epd.limit_constraints[j], _MM);
-
-      // setup appropriate parts of contact / limit inertia matrices
-      ColumnIteratord_const data = _MM.column_iterator_begin();
-      epd.Cn_iM_LT(i,j) = *data++;
-      epd.Cs_iM_LT(i,j) = *data++;
-      epd.Ct_iM_LT(i,j) = *data;
-    }
-  }
-
-  // NOTE: no need to update limit constraints of form L_iM_X
-  //       (cross data has already been computed for contact/limit constraints)
-
-  // update cn, l, alpha and kappa
-  z.get_sub_vec(epd.CN_IDX, epd.CS_IDX, epd.cn);
-  z.get_sub_vec(epd.L_IDX, epd.ALPHA_X_IDX, epd.l);
-  z.get_sub_vec(epd.ALPHA_X_IDX, epd.N_VARS, epd.alpha_x);
-
-  // mark active set as contact constraint set
-  epd.N_CONTACT_CONSTRAINTS = epd.N_ACT_CONTACTS;
-  epd.contact_constraint_set.resize(epd.N_CONTACTS);
-  for (unsigned i=0; i< epd.N_ACT_CONTACTS; i++)
-    epd.contact_constraint_set[i] = true;
-  for (unsigned i=epd.N_ACT_CONTACTS; i< epd.N_CONTACTS; i++)
-    epd.contact_constraint_set[i] = false;
-
-  FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::permute_problem() entered" << std::endl;
-}
-
 /**
  * Applies method of Drumwright and Shell to a set of connected constraints
  * \param constraints a set of connected constraints
@@ -756,17 +594,6 @@ void ImpactConstraintHandler::apply_model_to_connected_constraints(const list<Un
     }
   }
 
-  // solve the (non-frictional) linear complementarity problem to determine
-  // the kappa constant
-  solve_frictionless_lcp(_epd, _z);
-
-  // permute the problem
-  permute_problem(_epd, _z);
-
-  // mark all contacts as active
-  _epd.N_ACT_CONTACTS = _epd.N_CONTACTS;
-  _epd.N_ACT_K = _epd.N_K_TOTAL;
-
   // use QP / NQP solver with warm starting to find the solution
   if (use_qp_solver(_epd))
     solve_qp(_z, _epd);
@@ -798,16 +625,6 @@ void ImpactConstraintHandler::apply_model_to_connected_constraints(const list<Un
     FILE_LOG(LOG_CONSTRAINT) << "  restitution v+ minimum: " << minv_plus << std::endl;
     if (minv_plus < 0.0 && minv_plus < minv - NEAR_ZERO)
     {
-      // need to solve another impact problem
-      solve_frictionless_lcp(_epd, _z);
-
-      // update constraint problem data and z
-      permute_problem(_epd, _z);
-
-      // determine N_ACT_K
-      _epd.N_ACT_CONTACTS = _epd.N_CONTACTS;
-      _epd.N_ACT_K = _epd.N_K_TOTAL;
-
       // use QP / NQP solver with warm starting to find the solution
       if (use_qp_solver(_epd))
         solve_qp(_z, _epd);

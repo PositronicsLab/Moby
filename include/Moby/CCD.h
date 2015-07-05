@@ -100,6 +100,9 @@ class CCD : public CollisionDetection
     /// Swept BVs computed during last call to is_contact/update_contacts()
     std::map<CollisionGeometryPtr, BVPtr> _swept_BVs;
 
+    /// Minimum observed distance between two bodies (to make conservative advancement faster in face of numerical error)
+    std::map<sorted_pair<CollisionGeometryPtr>, double> _min_dist_observed;
+
     static BVPtr construct_bounding_sphere(CollisionGeometryPtr cg);
     void sort_AABBs(const std::vector<RigidBodyPtr>& rigid_bodies, double dt);
     void update_bounds_vector(std::vector<std::pair<double, BoundsStruct> >& bounds, AxisType axis, double dt, bool recreate_bvs);
@@ -144,6 +147,8 @@ class CCD : public CollisionDetection
 
     template <class RandomAccessIterator>
     void insertion_sort(RandomAccessIterator begin, RandomAccessIterator end);
+
+
 }; // end class
 
 #include "CCD.inl"

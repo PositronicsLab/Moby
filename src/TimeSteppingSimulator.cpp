@@ -176,13 +176,11 @@ double TimeSteppingSimulator::do_mini_step(double dt)
     calc_pairwise_distances();
 
     // get the conservative advancement step
-    double tc = std::min(dt-h, calc_next_CA_Euler_step(contact_dist_thresh));
+    double tc = std::max(MIN_STEP_SIZE, calc_next_CA_Euler_step(contact_dist_thresh));
     FILE_LOG(LOG_SIMULATOR) << "Conservative advancement step: " << tc << std::endl;
 
-    // if the conservative advancement step is very small, stop trying to
-    // advance 
-//    if (tc < MIN_STEP_SIZE)
-//      break;
+    // don't take too large a step
+    tc = std::min(dt-h, tc); 
 
     // integrate the bodies' positions by h + conservative advancement step
     for (unsigned i=0; i< _bodies.size(); i++)

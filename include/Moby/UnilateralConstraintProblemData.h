@@ -33,9 +33,6 @@ struct UnilateralConstraintProblemData
     N_CONTACTS = q.N_CONTACTS;
     N_CONSTRAINTS = q.N_CONSTRAINTS;
     N_CONSTRAINT_EQNS_IMP = q.N_CONSTRAINT_EQNS_IMP;
-    N_ACT_K = q.N_ACT_K;
-    N_ACT_CONTACTS = q.N_ACT_CONTACTS;
-    N_CONTACT_CONSTRAINTS = q.N_CONTACT_CONSTRAINTS;
     N_GC = q.N_GC;
     kappa = q.kappa;
 
@@ -50,8 +47,6 @@ struct UnilateralConstraintProblemData
     N_VARS = q.N_VARS;  
 
     // copy contact constraints
-    contact_constraint_set = q.contact_constraint_set;
-
     // copy constraint velocities
     Cn_v = q.Cn_v;
     Cs_v = q.Cs_v;
@@ -99,7 +94,6 @@ struct UnilateralConstraintProblemData
   {
     N_K_TOTAL = N_LIN_CONE = N_TRUE_CONE = N_CONTACTS = 0;
     N_CONSTRAINTS = N_CONSTRAINT_EQNS_IMP = 0;
-    N_ACT_K = N_ACT_CONTACTS = N_CONTACT_CONSTRAINTS = 0;
     N_GC = 0;
     kappa = 0.0;
 
@@ -110,7 +104,6 @@ struct UnilateralConstraintProblemData
     ALPHA_X_IDX = 0;
 
     // clear all vectors
-    contact_constraint_set.clear();
     super_bodies.clear();
     constraints.clear();
     contact_constraints.clear();
@@ -287,9 +280,6 @@ struct UnilateralConstraintProblemData
   // total number of variables
   unsigned N_VARS;
 
-  // the total number of linearized friction tangents for *active* contacts
-  unsigned N_ACT_K;
-
   // the total number of linearized friction tangents for contact constraints
   unsigned N_K_TOTAL;
 
@@ -301,12 +291,6 @@ struct UnilateralConstraintProblemData
 
   // the number of contacts (total)
   unsigned N_CONTACTS;
-
-  // the number of contacts (active)
-  unsigned N_ACT_CONTACTS;
-
-  // the number of contact constraints in the optimization problem
-  unsigned N_CONTACT_CONSTRAINTS;
 
   // the number of limits
   unsigned N_LIMITS;
@@ -330,8 +314,6 @@ struct UnilateralConstraintProblemData
   std::vector<UnilateralConstraint*> constraints, contact_constraints, limit_constraints;
 
   // the vector indicating which contact constraints are in the linear constraint set 
-  std::vector<bool> contact_constraint_set;
-
   // cross-constraint terms
   Ravelin::MatrixNd Cn_iM_CnT, Cn_iM_CsT, Cn_iM_CtT, Cn_iM_LT, Cn_iM_JxT;
   Ravelin::MatrixNd            Cs_iM_CsT, Cs_iM_CtT, Cs_iM_LT, Cs_iM_JxT;
