@@ -54,26 +54,42 @@ bool LCP::lcp_fast(const MatrixNd& M, const VectorNd& q, VectorNd& z, double zer
   if (zero_tol < 0.0)
     zero_tol = M.rows() * M.norm_inf() * std::numeric_limits<double>::epsilon();
 
-  // get minimum element of q (really w)
-  unsigned minw = std::min_element(q.begin(), q.end()) - q.begin();
-  if (q[minw] > -zero_tol)
-  {
-    z.set_zero(N);
-    return true;
-  }
-
-  // setup basic and nonbasic variable indices
+  // prepare to setup basic and nonbasic variable indices for z
   _nonbas.clear();
-  _nonbas.push_back(minw); 
   _bas.clear();
-  _bas.resize(N-1);
-  for (unsigned i=0, j=0; i< N; i++)
-    if (i != minw)
-      _bas[j++] = i;
+
+  // see whether to warm-start
+  if (z.size() == q.size())
+  {
+    for (unsigned i=0; i< z.size(); i++)
+    {
+      if (std::fabs(z[i]) < zero_tol)
+        _bas.push_back(i);
+      else
+        _nonbas.push_back(i);
+    }
+  }
+  else
+  {
+    // get minimum element of q (really w)
+    unsigned minw = std::min_element(q.begin(), q.end()) - q.begin();
+    if (q[minw] > -zero_tol)
+    {
+      z.set_zero(N);
+      return true;
+    }
+
+    // setup basic and nonbasic variable indices
+    _nonbas.push_back(minw); 
+    _bas.resize(N-1);
+    for (unsigned i=0, j=0; i< N; i++)
+      if (i != minw)
+        _bas[j++] = i;
+  }
 
   // loop for maximum number of pivots
   const unsigned MAX_PIV = std::max(N*N, (unsigned) 1000);
-  for (unsigned piv=0; piv < MAX_PIV; piv++)
+  for (pivots=0; pivots < MAX_PIV; pivots++)
   {
     // select nonbasic indices
     M.select_square(_nonbas.begin(), _nonbas.end(), _Msub);
@@ -94,7 +110,7 @@ bool LCP::lcp_fast(const MatrixNd& M, const VectorNd& q, VectorNd& z, double zer
 
     // compute w and find minimum value
     _Mmix.mult(_z, _w) += _qbas;
-    minw = (_w.rows() > 0) ? rand_min(_w, zero_tol) : UINF;
+    unsigned minw = (_w.rows() > 0) ? rand_min(_w, zero_tol) : UINF;
 
     // if w >= 0, check whether any component of z < 0
     if (minw == UINF || _w[minw] > -zero_tol)
@@ -203,6 +219,7 @@ bool LCP::lcp_fast_regularized(const MatrixNd& M, const VectorNd& q, VectorNd& z
         if (*mmax.first >= -ZERO_TOL && *mmax.second < ZERO_TOL)
         {
           FILE_LOG(LOG_OPT) << "  solved with no regularization necessary!" << endl;
+          FILE_LOG(LOG_OPT) << "  pivots / total pivots: " << pivots << " " << pivots << endl;
           FILE_LOG(LOG_OPT) << "LCP::lcp_fast_regularized() exited" << endl;
 
           return true;
@@ -224,6 +241,8 @@ bool LCP::lcp_fast_regularized(const MatrixNd& M, const VectorNd& q, VectorNd& z
       FILE_LOG(LOG_OPT) << "  minimum z: " << *std::min_element(z.column_iterator_begin(), z.column_iterator_end()) << std::endl;
     }
   }
+  else
+    FILE_LOG(LOG_OPT) << "  LCP::lcp_fast_regularized() - solver failed with zero regularization" << std::endl;
 
   // update the pivots
   total_piv += pivots;
@@ -263,6 +282,7 @@ bool LCP::lcp_fast_regularized(const MatrixNd& M, const VectorNd& q, VectorNd& z
           if (*mmax.first > -ZERO_TOL && *mmax.second < ZERO_TOL)
           {
             FILE_LOG(LOG_OPT) << "  solved with regularization factor: " << lambda << endl;
+            FILE_LOG(LOG_OPT) << "  pivots / total pivots: " << pivots << " " << total_piv << endl;
             FILE_LOG(LOG_OPT) << "LCP::lcp_fast_regularized() exited" << endl;
             pivots = total_piv;
             return true;

@@ -213,8 +213,14 @@ void ImpactConstraintHandler::solve_qp_work(UnilateralConstraintProblemData& epd
   q.negate();
 
   // attempt fast lcp solve
-  if (!_lcp.lcp_fast_regularized(_MM, _qq, z))
-    throw LCPSolverException();
+  if (!_lcp.lcp_fast_regularized(_MM, _qq, z, -20, 4, -8))
+  {
+    // Lemke does not like warm starting
+    z.set_zero();
+
+    if (!_lcp.lcp_lemke_regularized(_MM, _qq, z))
+      throw LCPSolverException();
+  }
 
   // output reported LCP solution
   FILE_LOG(LOG_CONSTRAINT) << "LCP solution: " << z << std::endl;

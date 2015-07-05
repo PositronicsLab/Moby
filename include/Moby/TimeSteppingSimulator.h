@@ -36,6 +36,9 @@ class TimeSteppingSimulator : public ConstraintSimulator
     virtual double step(double dt);
     boost::shared_ptr<ContactParameters> get_contact_parameters(CollisionGeometryPtr geom1, CollisionGeometryPtr geom2) const;
 
+    // the minimum step that the simulator should take (default = 1e-8)
+    double min_step_size;
+
     /// Determines whether two geometries are not checked
     std::set<sorted_pair<CollisionGeometryPtr> > unchecked_pairs;
 

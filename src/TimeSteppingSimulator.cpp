@@ -45,6 +45,7 @@ using namespace Moby;
 /// Default constructor
 TimeSteppingSimulator::TimeSteppingSimulator()
 {
+  min_step_size = NEAR_ZERO;
 }
 
 /// Steps the simulator forward by the given step size
@@ -152,7 +153,6 @@ void TimeSteppingSimulator::calc_impacting_unilateral_constraint_forces2(double 
 /// Does a full integration cycle (but not necessarily a full step)
 double TimeSteppingSimulator::do_mini_step(double dt)
 {
-  const double MIN_STEP_SIZE = 1e-8;
   VectorNd q, qd, qdd;
   std::vector<VectorNd> qsave;
 
@@ -176,7 +176,7 @@ double TimeSteppingSimulator::do_mini_step(double dt)
     calc_pairwise_distances();
 
     // get the conservative advancement step
-    double tc = std::max(MIN_STEP_SIZE, calc_next_CA_Euler_step(contact_dist_thresh));
+    double tc = std::max(min_step_size, calc_next_CA_Euler_step(contact_dist_thresh));
     FILE_LOG(LOG_SIMULATOR) << "Conservative advancement step: " << tc << std::endl;
 
     // don't take too large a step
@@ -529,6 +529,11 @@ void TimeSteppingSimulator::load_from_xml(shared_ptr<const XMLTree> node, map<st
 
   // first, load all data specified to the ConstraintSimulator object
   ConstraintSimulator::load_from_xml(node, id_map);
+
+  // read the minimum step size
+  XMLAttrib* min_step_attrib = node->get_attrib("min-step-size");
+  if (min_step_attrib)
+    min_step_size = min_step_attrib->get_real_value();
 }
 
 /// Implements Base::save_to_xml()
@@ -539,6 +544,9 @@ void TimeSteppingSimulator::save_to_xml(XMLTreePtr node, list<shared_ptr<const B
 
   // reset the node's name
   node->name = "TimeSteppingSimulator";
+
+  // save the minimum step size
+  node->attribs.insert(XMLAttrib("min-step-size", min_step_size));
 }
 
 

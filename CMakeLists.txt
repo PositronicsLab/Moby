@@ -26,7 +26,8 @@ find_library(QLCPD_FOUND qlcpd-dense /usr/local/lib /usr/lib)
 if (USE_QLCPD AND QLCPD_FOUND)
   set (SOURCES ${SOURCES} QLCPD.cpp)
   set (EXTRA_LIBS qlcpd-dense)
-  add_definitions (-DUSE_QLCPD)
+  set_source_files_properties(src/ImpactConstraintHandler.cpp PROPERTIES COMPILE_FLAGS -DUSE_QLCPD)
+  set_source_files_properties(src/ImpactConstraintHandlerQP.cpp PROPERTIES COMPILE_FLAGS -DUSE_QLCPD)
 endif (USE_QLCPD AND QLCPD_FOUND)
 
 # modify C++ flags
@@ -37,7 +38,8 @@ if (OMP)
   set (CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS})
 endif (OMP)
 if (PROFILE)
-  set (CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "-pg -g")
+  set_source_files_properties(example/driver.cpp PROPERTIES COMPILE_FLAGS -DGOOGLE_PROFILER) 
+  set (EXTRA_LIBS ${EXTRA_LIBS} profiler)
 endif (PROFILE)
 
 # fix the C++ linking error on 64-bit Linux
@@ -59,7 +61,7 @@ find_package (OpenThreads)
 
 # see whether the Anitescu-Potra model should be activated
 if (USE_AP)
-  add_definitions (-DUSE_AP_MODEL)
+  set_source_files_properties(src/ImpactConstraintHandler.cpp PROPERTIES COMPILE_FLAGS -DUSE_AP_MODEL) 
 endif (USE_AP)
 # see whether IPOPT was detected
 if (USE_IPOPT AND IPOPT_FOUND)
