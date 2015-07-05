@@ -12,7 +12,6 @@
 #include <Moby/Plane.h>
 #include <Moby/Log.h>
 #include <Moby/NumericalException.h>
-#include <Moby/PolyhedralPrimitive.h>
 
 // needed for qhull
 extern "C"
@@ -23,21 +22,8 @@ extern "C"
 
 namespace Moby {
 
-/// Represents a polyhedron using a winged-edge (type) data structure
-/**
- * Assume the polygons below:
- *      A
- *    /  \
- *   B---C
- *   \  /
- *    D
- * with edge orientations given as (CA), (AB), (CB), (BD), (DC).
- * An original winged edge data structure use a clockwise traversal.
- * In my modified data structure, one looks at the edge orientation and the
- * face to determine the next edge in a traversal. For example, if one wants
- * to traverse the top polygon in clockwise from edge (CB), one would look at
- * the next edge on the right (nextR).
- */
+class PolyhedralPrimitive;
+
 class Polyhedron 
 {
   public:
@@ -61,8 +47,7 @@ class Polyhedron
     struct Face : public boost::enable_shared_from_this<Face>, public Feature
     {
       virtual ~Face() {}
-      std::list<boost::weak_ptr<Edge> > e; // edges coincident to this face 
-      void find_closest_feature(const Ravelin::Origin3d& p, std::map<boost::shared_ptr<Feature>, double>& distances, double& closest_dist, std::list<boost::shared_ptr<Polyhedron::Feature> >& closest_features);
+      std::list<boost::weak_ptr<Edge> > e; // edges coincident to this face (ccw ordering) 
       Plane get_plane() const;
       boost::shared_ptr<void> data;                // arbitrary user data
     };
@@ -72,26 +57,8 @@ class Polyhedron
     {
       virtual ~Edge() {}
       boost::shared_ptr<Vertex> v1, v2; // vertices of this edge 
-      boost::shared_ptr<Face> faceR, faceL;   // faces coincident to this edge 
-      boost::weak_ptr<Edge> prevR, nextR, prevL, nextL;   // faces coincident to edges 
-      void find_closest_feature(const Ravelin::Origin3d& p, std::map<boost::shared_ptr<Feature>, double>& distances, double& closest_dist, std::list<boost::shared_ptr<Polyhedron::Feature> >& closest_features);
+      boost::shared_ptr<Face> face1, face2;   // faces coincident to this edge 
       boost::shared_ptr<void> data;                // arbitrary user data
-    };
-
-    // iterates over the edges in a face
-    class EdgeFaceIterator
-    {
-      public:
-        EdgeFaceIterator(boost::shared_ptr<Face> f);
-        boost::shared_ptr<Edge> operator*();
-        void advance_cw();
-        void advance_ccw();
-        bool has_cw();
-        bool has_ccw();
-
-      private:
-        boost::shared_ptr<Face> f;
-        boost::shared_ptr<Edge> e, term;
     };
 
     // iterates over the vertices in a face
@@ -105,19 +72,22 @@ class Polyhedron
 
       private:
         boost::shared_ptr<Face> f;
-        boost::shared_ptr<Edge> e, term;
         boost::shared_ptr<Vertex> v;
-        bool ccw;        
+        std::list<boost::weak_ptr<Edge> >::const_reverse_iterator cw_iter;
+        std::list<boost::weak_ptr<Edge> >::const_iterator ccw_iter;
+        bool ccw;
     };
 
     enum LocationType { eInside, eOutside, eOnVertex, eOnEdge, eOnFace };  
 
     Polyhedron();
     Polyhedron(const Polyhedron& p) { _convexity_computed = false; operator=(p); }
+    double vclip(boost::shared_ptr<const PolyhedralPrimitive> pA, boost::shared_ptr<const PolyhedralPrimitive> pB, boost::shared_ptr<const Ravelin::Pose3d> poseA, boost::shared_ptr<const Ravelin::Pose3d> poseB, boost::shared_ptr<const Polyhedron::Feature>& closestA, boost::shared_ptr<const Polyhedron::Feature>& closestB);
+/*
     double find_closest_features(const Ravelin::Origin3d& p, std::list<boost::shared_ptr<Feature> >& closest_features, bool& inside) const;
-    static Polyhedron calc_minkowski_diff(boost::shared_ptr<const PolyhedralPrimitive> pA, boost::shared_ptr<const PolyhedralPrimitive> pB, boost::shared_ptr<const Ravelin::Pose3d> poseA, boost::shared_ptr<const Ravelin::Pose3d> poseB);
+    static Polyhedron calc_minkowski_diff(boost::shared_ptr<const PolyhedralPrimitive> pA, boost::shared_ptr<const PolyhedralPrimitive> pB, boost::shared_ptr<const Ravelin::Pose3d> poseA, boost::shared_ptr<const Ravelin::Pose3d> poseB); */
     Polyhedron& operator=(const Polyhedron& p);
-    void transform(const Ravelin::Transform3d& T);
+    std::vector<boost::shared_ptr<Vertex> >& get_vertices() { return _vertices; }
     const std::vector<boost::shared_ptr<Vertex> >& get_vertices() const { return _vertices; }
     const std::vector<boost::shared_ptr<Edge> >& get_edges() const { return _edges; }
     const std::vector<boost::shared_ptr<Face> >& get_faces() const { return _faces; }
@@ -151,8 +121,31 @@ class Polyhedron
      */ 
     double convexity() { if (!_convexity_computed) determine_convexity(); return _convexity; } 
 
+    /// Gets the Voronoi plane from two input features
+    /**
+     * The function takes the tyoes and the pointers of the two features and returns a plane
+     * If a point is a positive distance away from the plane, then the point is closer to the first feature
+     * If a point is a negative distance away from the plane, then the point is closer to the second feature
+     */
+   
+    enum FeatureType { eVertex, eEdge, eFace };
+    static double calc_dist(FeatureType fA, FeatureType fB, boost::shared_ptr<const Polyhedron::Feature> closestA, boost::shared_ptr<const Polyhedron::Feature> closestB, Ravelin::Transform3d& aTb);
   private:
+    static boost::shared_ptr<Plane> voronoi_plane (FeatureType fA, FeatureType fB, boost::shared_ptr<const Ravelin::Pose3d> pose, boost::shared_ptr<const Polyhedron::Feature>& featureA, boost::shared_ptr<const Polyhedron::Feature>& featureB);
+    static bool clip_edge(boost::shared_ptr<const Polyhedron::Edge> edge, Ravelin::Transform3d fTe, double& min_lambda, double& max_lambda, boost::shared_ptr<const Polyhedron::Feature >& min_N, boost::shared_ptr<const Polyhedron::Feature >& max_N, const std::list<std::pair<boost::shared_ptr<const Polyhedron::Feature>, boost::shared_ptr<Plane> > >& planes_neighbors);
+    bool post_clip_deriv_check(FeatureType& fX, boost::shared_ptr<const Polyhedron::Feature >& X , boost::shared_ptr<const Polyhedron::Edge> edge, Ravelin::Transform3d& xTe, double& min_lambda, double& max_lambda, boost::shared_ptr<const Polyhedron::Feature >& min_N, boost::shared_ptr<const Polyhedron::Feature >& max_N);
+    
+    //void promote_featrues(FeatureType& fA, FeatureType& fB, boost::shared_ptr<const Polyhedron::Feature>& closestA, boost::shared_ptr<const Polyhedron::Feature>& closestB, Ravelin::Transform3d& aTb)
 
+    enum UpdateRule { eDone, eContinue, eInterpenetrating };
+
+    UpdateRule handle_local_minimum(boost::shared_ptr<const Polyhedron::Vertex>& V, FeatureType& fF, boost::shared_ptr<const Polyhedron::Feature>& face,  const Polyhedron& face_poly, const Ravelin::Transform3d& vTf);
+
+    UpdateRule update_vertex_vertex(FeatureType& fA, FeatureType& fB, Ravelin::Transform3d& aTb, boost::shared_ptr<const Polyhedron::Feature>& closestA, boost::shared_ptr<const Polyhedron::Feature>& closestB);
+    UpdateRule update_vertex_edge(FeatureType& fA, FeatureType& fB, Ravelin::Transform3d& aTb, boost::shared_ptr<const Polyhedron::Feature>& closestA, boost::shared_ptr<const Polyhedron::Feature>& closestB);
+    UpdateRule update_vertex_face(FeatureType& fA, FeatureType& fB, Ravelin::Transform3d& aTb, boost::shared_ptr<const Polyhedron::Feature>& closestA, boost::shared_ptr<const Polyhedron::Feature>& closestB, const Polyhedron& face_poly);
+    UpdateRule update_edge_edge(FeatureType& fA, FeatureType& fB, Ravelin::Transform3d& aTb, boost::shared_ptr<const Polyhedron::Feature>& closestA, boost::shared_ptr<const Polyhedron::Feature>& closestB);
+    UpdateRule update_edge_face(FeatureType& fA, FeatureType& fB, Ravelin::Transform3d& aTb, boost::shared_ptr<const Polyhedron::Feature>& closestA, boost::shared_ptr<const Polyhedron::Feature>& closestB);
     static double sqr(double x) { return x*x; }
     void calc_bounding_box();
     static void calc_subexpressions(double w0, double w1, double w2, double& f1, double& f2, double& f3, double& g0, double& g1, double& g2);
@@ -168,6 +161,9 @@ class Polyhedron
 };
 
 std::ostream& operator<<(std::ostream& out, const Polyhedron& m);
+std::ostream& operator<<(std::ostream& out, const Polyhedron::Vertex& m);
+std::ostream& operator<<(std::ostream& out, const Polyhedron::Edge& m);
+std::ostream& operator<<(std::ostream& out, const Polyhedron::Face& m);
 
 #include "Polyhedron.inl"
 

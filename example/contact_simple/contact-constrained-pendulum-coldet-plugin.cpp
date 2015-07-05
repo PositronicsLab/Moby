@@ -112,6 +112,7 @@ class PendulumColdetPlugin : public CollisionDetection
 
       // setup contact point
       Point3d point(0,0,0,GLOBAL);
+point = (p + point)*0.5;
 
       // setup six normals
       Vector3d n1(0,+1,0,GLOBAL);

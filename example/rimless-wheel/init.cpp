@@ -115,6 +115,8 @@ void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map,
   out.close();
   out.open("velocity.dat");
   out.close();
+  out.open("cvio.dat");
+  out.close();
 
   // If use robot is active also init dynamixel controllers
   // get a reference to the EventDrivenSimulator instance

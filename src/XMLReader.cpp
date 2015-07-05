@@ -47,6 +47,7 @@
 #include <Moby/VariableEulerIntegrator.h>
 #include <Moby/GravityForce.h>
 #include <Moby/StokesDragForce.h>
+#include <Moby/Dissipation.h>
 #include <Moby/DampingForce.h>
 #include <Moby/XMLTree.h>
 #include <Moby/SDFReader.h>
@@ -203,8 +204,9 @@ std::map<std::string, BasePtr> XMLReader::construct_ID_map(shared_ptr<XMLTree> m
   // read and construct plugin collision detectors, if any
   process_tag("CollisionDetectionPlugin", moby_tree, &read_coldet_plugin, id_map);  
 
-  // damping forces must be constructed after bodies
+  // damping forces and dissipation must be constructed after bodies
   process_tag("DampingForce", moby_tree, &read_damping_force, id_map);
+  process_tag("Dissipation", moby_tree, &read_dissipation, id_map);
 
   // finally, read and construct the simulator objects -- must be done last
   process_tag("Simulator", moby_tree, &read_simulator, id_map);
@@ -258,6 +260,19 @@ void XMLReader::process_tag(const std::string& tag, shared_ptr<const XMLTree> ro
       process_tag(tag, *i, fn, id_map);
     }
   }
+}
+
+/// Reads and constructs a dissipation object
+void XMLReader::read_dissipation(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
+{
+  // sanity check
+  assert(strcasecmp(node->name.c_str(), "Dissipation") == 0);
+
+  // create a new Base object
+  boost::shared_ptr<Base> b(new Dissipation());
+  
+  // populate the object
+  b->load_from_xml(node, id_map);
 }
 
 /// Reads and constructs a geometry plugin object

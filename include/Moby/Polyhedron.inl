@@ -10,13 +10,13 @@ if ((vei = v_edges.find(std::make_pair(vA, vB))) != v_edges.end()) \
   eAB = vei->second; \
   if (cw) \
   { \
-    assert(!eAB->faceR); \
-    eAB->faceR = f; \
+    assert(!eAB->face1); \
+    eAB->face1 = f; \
   } \
   else \
   { \
-    assert(!eAB->faceL); \
-    eAB->faceL = f; \
+    assert(!eAB->face2); \
+    eAB->face2 = f; \
   } \
 } \
 else if ((vei = v_edges.find(std::make_pair(vB, vA))) != v_edges.end()) \
@@ -24,13 +24,13 @@ else if ((vei = v_edges.find(std::make_pair(vB, vA))) != v_edges.end()) \
   eAB = vei->second; \
   if (cw) \
   { \
-    assert(!eAB->faceL); \
-    eAB->faceL = f; \
+    assert(!eAB->face2); \
+    eAB->face2 = f; \
   } \
   else \
   { \
-    assert(!eAB->faceR); \
-    eAB->faceR = f; \
+    assert(!eAB->face1); \
+    eAB->face1 = f; \
   } \
 } \
 else \
@@ -38,9 +38,9 @@ else \
   eAB = boost::shared_ptr<Polyhedron::Edge>(new Polyhedron::Edge); \
   v_edges[std::make_pair(vA, vB)] = eAB; \
   if (cw) \
-    eAB->faceR = f; \
+    eAB->face1 = f; \
   else \
-    eAB->faceL = f; \
+    eAB->face2 = f; \
   eAB->v1 = vertex_map[vA->point]; \
   eAB->v2 = vertex_map[vB->point]; \
   poly._edges.push_back(eAB); \
@@ -156,6 +156,9 @@ Polyhedron Polyhedron::calc_convex_hull(ForwardIterator begin, ForwardIterator e
       FILE_LOG(LOG_COMPGEOM) << "vertex " << i << ": " << poly._vertices[i]->o << std::endl;
   }
 
+  // TODO: remove this when we can handle non-simplicial facets
+  qh_triangulate();
+
   // need maps for new edges created for simplicial and non-simplicial facets
   std::map<std::pair<vertexT*, vertexT*>, boost::shared_ptr<Polyhedron::Edge> > v_edges;
   std::map<ridgeT*, boost::shared_ptr<Polyhedron::Edge> > r_edges;
@@ -172,13 +175,13 @@ Polyhedron Polyhedron::calc_convex_hull(ForwardIterator begin, ForwardIterator e
     // create a new facet
     boost::shared_ptr<Polyhedron::Face> f(new Polyhedron::Face);
 
-    // see how the facet is oriented
-    bool cw = (facet->toporient ^ qh_ORIENTclock);
-
     // see whether the facet is simplicial- it changes how we must process
     // edges
     if (facet->simplicial)
     {
+      // see how the facet is oriented
+      bool cw = (facet->toporient ^ qh_ORIENTclock);
+
       // edges will be between each vertex; get all vertices in the facet
       vertexT** vertex_pointer = (vertexT**)& ((facet->vertices)->e[0].p); 
       vertexT* v1 = *vertex_pointer++;
@@ -194,13 +197,25 @@ Polyhedron Polyhedron::calc_convex_hull(ForwardIterator begin, ForwardIterator e
       CREATE_LOOKUP(v3, v1, e31);
 
       // add all three edges to the face
-      f->e.push_back(e12);
-      f->e.push_back(e23);
-      f->e.push_back(e31);
+      if (!cw)
+      {
+        f->e.push_back(e12);
+        f->e.push_back(e23);
+        f->e.push_back(e31);
+      }
+      else
+      {
+        f->e.push_back(e12);
+        f->e.push_back(e31);
+        f->e.push_back(e23);
+      }
       assert(e12 != e23 && e12 != e31 && e23 != e31);
     }
     else
     {
+      // setup lists of ccw vertices
+      std::list<vertexT*> ccw_vertices;
+
       // facet is non-simplicial; iterate over the "ridges" (edges)
       ridgeT* ridge;    // for iterating...
       ridgeT** ridgep;  // ...over ridges
@@ -208,6 +223,9 @@ Polyhedron Polyhedron::calc_convex_hull(ForwardIterator begin, ForwardIterator e
       {
         // setup the edge
         boost::shared_ptr<Polyhedron::Edge> e;
+
+        // get whether the ridge is cw or ccw
+        bool cw = ((ridge->top == facet) ^ qh_ORIENTclock);
 
         // see whether the ridge/edge is already in the map
         std::map<ridgeT*, boost::shared_ptr<Polyhedron::Edge> >::const_iterator new_edge_iter = r_edges.find(ridge);
@@ -221,28 +239,73 @@ Polyhedron Polyhedron::calc_convex_hull(ForwardIterator begin, ForwardIterator e
           // get the pointer to the vertices of the ridge
           vertexT** vertex_pointer = (vertexT**)& ((ridge->vertices)->e[0].p); 
           vertexT* vertex = *vertex_pointer;
+          vertexT* v1 = *vertex_pointer;
+          vertexT* v2 = *++vertex_pointer;
 
           // setup the vertices
-          e->v1 = vertex_map[vertex->point];
-          vertex = *++vertex_pointer;
-          e->v2 = vertex_map[vertex->point];
+          e->v1 = vertex_map[v1->point];
+          e->v2 = vertex_map[v2->point];
           assert(e->v1 != e->v2);
 
           // add edge to the vertices
           e->v1->e.push_back(e);
           e->v2->e.push_back(e);
+
+          // add the edge
+          v_edges[std::make_pair(v1, v2)] = e;
+          if (cw) 
+            e->face1 = f;
+          else
+            e->face2 = f;
         }
         else
           e = new_edge_iter->second;
 
-        // setup face- we'll use the convention that faceR is qhull's top
-        // and faceL is qhull's bottom
-        if (ridge->top == facet)
-          e->faceR = f;
-        else
-          e->faceL = f;
+        // get the pointer to the vertices of the ridge
+        vertexT** vertex_pointer = (vertexT**)& ((ridge->vertices)->e[0].p); 
+        vertexT* vertex = *vertex_pointer;
+        vertexT* v1 = *vertex_pointer;
+        vertexT* v2 = *++vertex_pointer;
 
-        // add the edge to the face
+        // setup the vertices
+        vertexT* mini_list[2];
+        mini_list[0] = v1;
+        mini_list[1] = v2;
+
+        // add vertices to the list
+        if (cw)
+          std::swap(mini_list[0], mini_list[1]);
+        ccw_vertices.push_back(mini_list[0]);
+        ccw_vertices.push_back(mini_list[1]);
+
+        // setup face- we'll use the convention that face1 is qhull's top
+        // and face2 is qhull's bottom
+        if (ridge->top == facet)
+          e->face1 = f;
+        else
+          e->face2 = f;
+      }
+
+      // now setup the edge traversal 
+      std::list<vertexT*>::const_iterator ccw_iter = ccw_vertices.begin();
+      while (ccw_iter != ccw_vertices.end())
+      {
+        // get two vertices
+        vertexT* v1 = *ccw_iter++;
+        vertexT* v2 = *ccw_iter++;
+ 
+        // setup the edge
+        boost::shared_ptr<Polyhedron::Edge> e;
+
+        // lookup the edge
+        if ((vei = v_edges.find(std::make_pair(v1, v2))) != v_edges.end())
+          e = vei->second;
+        else if ((vei = v_edges.find(std::make_pair(v2, v1))) != v_edges.end())
+          e = vei->second;
+        else
+          assert(false);
+
+        // add it to the list
         f->e.push_back(e);
       }
     }
@@ -287,66 +350,6 @@ Polyhedron Polyhedron::calc_convex_hull(ForwardIterator begin, ForwardIterator e
         #ifndef NDEBUG
         FILE_LOG(LOG_COMPGEOM) << "  against edge " << emap[e2] << std::endl;
         #endif
-
-        // look for edges matching up
-        if (e->faceL == f)
-        {
-          if (e2->faceL == f)
-          {
-            if (e->v2 == e2->v1)
-            {
-              e->nextL = e2;
-              e2->prevL = e;
-            }
-            else if (e->v1 == e2->v2)
-            {
-              e->prevL = e2;
-              e2->nextL = e;
-            }
-          }
-          else
-          {
-            if (e->v2 == e2->v2)
-            {
-              e->nextL = e2;
-              e2->nextR = e;
-            }
-            else if (e->v1 == e2->v1)
-            {
-              e->prevL = e2;
-              e2->prevR = e;
-            }
-          }
-        }
-        else if (e->faceR == f)
-        {
-          if (e2->faceR == f)
-          {
-            if (e->v2 == e2->v1)
-            {
-              e->nextR = e2;
-              e2->prevR = e;
-            }
-            else if (e->v1 == e2->v1)
-            {
-              e->prevR = e2;
-              e2->nextR = e;
-            }
-          }
-          else if (e2->faceL == f)
-          {
-            if (e->v2 == e2->v2)
-            {
-              e->nextR = e2;
-              e2->nextL = e;
-            }
-            else if (e->v1 == e2->v1)
-            {
-              e->prevR = e2;
-              e2->prevL = e;
-            }
-          }
-        } 
       }
     }      
   }
