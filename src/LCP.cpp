@@ -43,9 +43,12 @@ bool LCP::lcp_fast(const MatrixNd& M, const VectorNd& q, VectorNd& z, double zer
   const unsigned N = q.rows();
   const unsigned UINF = std::numeric_limits<unsigned>::max();
 
+  FILE_LOG(LOG_OPT) << "LCP::lcp_fast() entered" << std::endl;
+
   // look for trivial solution
   if (N == 0)
   {
+    FILE_LOG(LOG_OPT) << "LCP::lcp_fast() - empty problem" << std::endl;
     z.set_zero(0);
     return true;
   }
@@ -61,12 +64,23 @@ bool LCP::lcp_fast(const MatrixNd& M, const VectorNd& q, VectorNd& z, double zer
   // see whether to warm-start
   if (z.size() == q.size())
   {
+    FILE_LOG(LOG_OPT) << "LCP::lcp_fast() - warm starting activated" << std::endl;
+
     for (unsigned i=0; i< z.size(); i++)
     {
       if (std::fabs(z[i]) < zero_tol)
         _bas.push_back(i);
       else
         _nonbas.push_back(i);
+    }
+
+    if (LOGGING(LOG_OPT))
+    {
+      std::ostringstream str;
+      str << " -- non-basic indices:";
+      for (unsigned i=0; i< _nonbas.size(); i++)
+        str << " " << _nonbas[i];
+      FILE_LOG(LOG_OPT) << str.str() << std::endl;
     }
   }
   else
@@ -75,6 +89,7 @@ bool LCP::lcp_fast(const MatrixNd& M, const VectorNd& q, VectorNd& z, double zer
     unsigned minw = std::min_element(q.begin(), q.end()) - q.begin();
     if (q[minw] > -zero_tol)
     {
+      FILE_LOG(LOG_OPT) << "LCP::lcp_fast() - trivial solution found" << std::endl;
       z.set_zero(N);
       return true;
     }
@@ -88,7 +103,8 @@ bool LCP::lcp_fast(const MatrixNd& M, const VectorNd& q, VectorNd& z, double zer
   }
 
   // loop for maximum number of pivots
-  const unsigned MAX_PIV = std::max(N*N, (unsigned) 1000);
+//  const unsigned MAX_PIV = std::max(N*N, (unsigned) 1000);
+  const unsigned MAX_PIV = 2*N;
   for (pivots=0; pivots < MAX_PIV; pivots++)
   {
     // select nonbasic indices
@@ -105,6 +121,7 @@ bool LCP::lcp_fast(const MatrixNd& M, const VectorNd& q, VectorNd& z, double zer
     }
     catch (SingularException e)
     {
+      FILE_LOG(LOG_OPT) << "LCP::lcp_fast() - linear system solve failed" << std::endl;
       return false;
     }
 
@@ -112,11 +129,15 @@ bool LCP::lcp_fast(const MatrixNd& M, const VectorNd& q, VectorNd& z, double zer
     _Mmix.mult(_z, _w) += _qbas;
     unsigned minw = (_w.rows() > 0) ? rand_min(_w, zero_tol) : UINF;
 
+    FILE_LOG(LOG_OPT) << "LCP::lcp_fast() - minimum w after pivot: " << _w[minw] << std::endl;
+
     // if w >= 0, check whether any component of z < 0
     if (minw == UINF || _w[minw] > -zero_tol)
     {
       // find the (a) minimum of z
       unsigned minz = (_z.rows() > 0) ? rand_min(_z, zero_tol) : UINF; 
+      if (LOGGING(LOG_OPT) && _z.rows() > 0)
+        FILE_LOG(LOG_OPT) << "LCP::lcp_fast() - minimum z after pivot: " << _z[minz] << std::endl;
       if (minz < UINF && _z[minz] < -zero_tol)
       {
         // get the original index and remove it from the nonbasic set
@@ -136,11 +157,14 @@ bool LCP::lcp_fast(const MatrixNd& M, const VectorNd& q, VectorNd& z, double zer
         for (unsigned i=0, j=0; j < _nonbas.size(); i++, j++)
           z[_nonbas[j]] = _z[i];
 
+        FILE_LOG(LOG_OPT) << "LCP::lcp_fast() - solution found!" << std::endl;
         return true;
       }
     }
     else
     {
+      FILE_LOG(LOG_OPT) << "(minimum w too negative)" << std::endl;
+
       // one or more components of w violating w >= 0
       // move component of w from basic set to nonbasic set
       unsigned idx = _bas[minw];
@@ -150,16 +174,22 @@ bool LCP::lcp_fast(const MatrixNd& M, const VectorNd& q, VectorNd& z, double zer
 
       // look whether any component of z needs to move to basic set
       unsigned minz = (_z.rows() > 0) ? rand_min(_z, zero_tol) : UINF; 
+      if (LOGGING(LOG_OPT) && _z.rows() > 0)
+        FILE_LOG(LOG_OPT) << "LCP::lcp_fast() - minimum z after pivot: " << _z[minz] << std::endl;
       if (minz < UINF &&_z[minz] < -zero_tol)
       {
         // move index to basic set and continue looping
         unsigned idx = _nonbas[minz];
+        FILE_LOG(LOG_OPT) << "LCP::lcp_fast() - moving index " << idx << " to basic set" << std::endl;
+
         _nonbas.erase(_nonbas.begin()+minz);
         _bas.push_back(idx);
         insertion_sort(_bas.begin(), _bas.end());
       }
     }
   }
+
+  FILE_LOG(LOG_OPT) << "LCP::lcp_fast() - maximum allowable pivots exceeded" << std::endl;
 
   // if we're here, then the maximum number of pivots has been exceeded
   return false;

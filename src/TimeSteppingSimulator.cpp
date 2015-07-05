@@ -140,7 +140,7 @@ void TimeSteppingSimulator::calc_impacting_unilateral_constraint_forces2(double 
   // compute impulses here...
   try
   {
-    _impact_constraint_handler.process_constraints(_rigid_constraints, std::numeric_limits<double>::max());
+    _impact_constraint_handler.process_constraints(_rigid_constraints);
   }
   catch (ImpactToleranceException e)
   {

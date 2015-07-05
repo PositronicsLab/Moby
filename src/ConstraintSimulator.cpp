@@ -335,7 +335,7 @@ void ConstraintSimulator::calc_impacting_unilateral_constraint_forces(double dt)
   // compute impulses here...
   try
   {
-    _impact_constraint_handler.process_constraints(_rigid_constraints, std::numeric_limits<double>::max());
+    _impact_constraint_handler.process_constraints(_rigid_constraints);
   }
   catch (ImpactToleranceException e)
   {

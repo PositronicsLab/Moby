@@ -69,9 +69,8 @@ ImpactConstraintHandler::ImpactConstraintHandler()
 // Processes impacts
 /**
  * \param constraints the vector of constraints
- * \param max_time the maximum time to solve the constraints
  */
-void ImpactConstraintHandler::process_constraints(const vector<UnilateralConstraint>& constraints, double max_time)
+void ImpactConstraintHandler::process_constraints(const vector<UnilateralConstraint>& constraints)
 {
   FILE_LOG(LOG_CONSTRAINT) << "*************************************************************";
   FILE_LOG(LOG_CONSTRAINT) << endl;
@@ -82,7 +81,7 @@ void ImpactConstraintHandler::process_constraints(const vector<UnilateralConstra
 
   // apply the method to all contacts
   if (!constraints.empty())
-    apply_model(constraints, max_time);
+    apply_model(constraints);
   else
     FILE_LOG(LOG_CONSTRAINT) << " (no constraints?!)" << endl;
 
@@ -94,9 +93,8 @@ void ImpactConstraintHandler::process_constraints(const vector<UnilateralConstra
 /// Applies the model to a set of constraints
 /**
  * \param constraints a set of constraints
- * \param max_time the maximum time to solve the constraints
  */
-void ImpactConstraintHandler::apply_model(const vector<UnilateralConstraint>& constraints, double max_time)
+void ImpactConstraintHandler::apply_model(const vector<UnilateralConstraint>& constraints)
 {
   const double INF = std::numeric_limits<double>::max();
   list<UnilateralConstraint*> impacting;
@@ -145,8 +143,6 @@ void ImpactConstraintHandler::apply_model(const vector<UnilateralConstraint>& co
         apply_ap_model_to_connected_constraints(rconstraints);
       }
   #else
-      else if (max_time < INF)
-        apply_model_to_connected_constraints(rconstraints, max_time);
       else
         apply_model_to_connected_constraints(rconstraints);
   #endif
@@ -165,115 +161,6 @@ void ImpactConstraintHandler::apply_model(const vector<UnilateralConstraint>& co
   // if there are any constraints still impacting, throw an exception
   if (!impacting.empty())
     throw ImpactToleranceException(impacting);
-}
-
-/**
- * Applies method of Drumwright and Shell to a set of connected constraints.
- * "Anytime" version
- * \param constraints a set of connected constraints
- */
-void ImpactConstraintHandler::apply_model_to_connected_constraints(const list<UnilateralConstraint*>& constraints, double max_time)
-{
-  double ke_minus = 0.0, ke_plus = 0.0;
-  const unsigned UINF = std::numeric_limits<unsigned>::max();
-
-  FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::apply_model_to_connected_constraints() entered" << endl;
-
-  // reset problem data
-  _epd.reset();
-
-  // save the constraints
-  _epd.constraints = vector<UnilateralConstraint*>(constraints.begin(), constraints.end());
-
-  // determine sets of contact and limit constraints
-  _epd.partition_constraints();
-
-  // compute all constraint cross-terms
-  compute_problem_data(_epd);
-
-  // clear all impulses
-  for (unsigned i=0; i< _epd.N_CONTACTS; i++)
-    _epd.contact_constraints[i]->contact_impulse.set_zero(GLOBAL);
-  for (unsigned i=0; i< _epd.N_LIMITS; i++)
-    _epd.limit_constraints[i]->limit_impulse = 0.0;
-
-  // compute energy
-  if (LOGGING(LOG_CONSTRAINT))
-  {
-    for (unsigned i=0; i< _epd.super_bodies.size(); i++)
-    {
-      double ke = _epd.super_bodies[i]->calc_kinetic_energy();
-      FILE_LOG(LOG_CONSTRAINT) << "  body " << _epd.super_bodies[i]->id << " pre-constraint handling KE: " << ke << endl;
-      ke_minus += ke;
-    }
-  }
-
-  // solve the no-slip linear complementarity problem to determine
-  // the kappa constant
-  VectorNd z;
-  solve_frictionless_lcp(_epd, z);
-
-  // use QP / NQP solver with warm starting to find the solution
-  if (use_qp_solver(_epd))
-    solve_qp(z, _epd, max_time);
-  else
-    solve_nqp(z, _epd, max_time);
-
-  // update the impulses from z
-  update_from_stacked(_epd, z);
-
-  // determine velocities due to impulse application
-  update_constraint_velocities_from_impulses(_epd);
-
-  // get the constraint violation before applying impulses
-  double minv = calc_min_constraint_velocity(_epd);
-
-  // apply restitution
-  if (apply_restitution(_epd, z))
-  {
-    // update the impulses from z
-    update_from_stacked(_epd, z);
-
-    // determine velocities due to impulse application
-    update_constraint_velocities_from_impulses(_epd);
-
-    // check to see whether we need to solve another impact problem
-    double minv_plus = calc_min_constraint_velocity(_epd);
-    FILE_LOG(LOG_CONSTRAINT) << "Applying restitution" << std::endl;
-    FILE_LOG(LOG_CONSTRAINT) << "  compression v+ minimum: " << minv << std::endl;
-    FILE_LOG(LOG_CONSTRAINT) << "  restitution v+ minimum: " << minv_plus << std::endl;
-    if (minv_plus < 0.0 && minv_plus < minv - NEAR_ZERO)
-    {
-      // use QP / NQP solver with warm starting to find the solution
-      if (use_qp_solver(_epd))
-        solve_qp(z, _epd, max_time);
-      else
-        solve_nqp(z, _epd, max_time);
-
-      // update the impulses from z
-      update_from_stacked(_epd, z);
-    }
-    else
-      propagate_impulse_data(_epd);
-  }
-
-  // apply impulses
-  apply_impulses(_epd);
-
-  // compute energy
-  if (LOGGING(LOG_CONSTRAINT))
-  {
-    for (unsigned i=0; i< _epd.super_bodies.size(); i++)
-    {
-      double ke = _epd.super_bodies[i]->calc_kinetic_energy();
-      FILE_LOG(LOG_CONSTRAINT) << "  body " << _epd.super_bodies[i]->id << " post-constraint handling KE: " << ke << endl;
-      ke_plus += ke;
-    }
-    if (ke_plus > ke_minus)
-      FILE_LOG(LOG_CONSTRAINT) << "warning! KE gain detected! energy before=" << ke_minus << " energy after=" << ke_plus << endl;
-  }
-
-  FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::apply_model_to_connected_constraints() exiting" << endl;
 }
 
 /**

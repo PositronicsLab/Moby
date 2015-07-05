@@ -38,12 +38,9 @@ using std::min_element;
 using boost::dynamic_pointer_cast;
 
 /// Solves the quadratic program (potentially solves two QPs, actually)
-void ImpactConstraintHandler::solve_qp(VectorNd& z, UnilateralConstraintProblemData& q, double max_time)
+void ImpactConstraintHandler::solve_qp(VectorNd& z, UnilateralConstraintProblemData& q)
 {
   const unsigned N_TOTAL = q.N_VARS + q.N_CONTACTS + q.N_LIMITS + q.N_K_TOTAL + 1;
-
-  // setup last successful solution
-  _zsuccess = z;
 
   // mark starting time
   tms cstart;
@@ -51,9 +48,6 @@ void ImpactConstraintHandler::solve_qp(VectorNd& z, UnilateralConstraintProblemD
 
   // solve the QP
   solve_qp_work(q, z);
-
-  // save our successful solve
-  _zsuccess = z;
 
   // get the elapsed time
   const long TPS = sysconf(_SC_CLK_TCK);
@@ -160,8 +154,12 @@ void ImpactConstraintHandler::solve_qp_work(UnilateralConstraintProblemData& epd
   FILE_LOG(LOG_CONSTRAINT) << "LCP matrix: " << std::endl << _MM;
   FILE_LOG(LOG_CONSTRAINT) << "LCP vector: " << _qq << std::endl;
 
-  // init z to zero
+  // init z 
   z.resize(_qq.rows());
+
+  // try warmstarting if possible
+  if (z.size() == _zlast.size())
+    z = _zlast;
 
   // solve the LCP using Lemke's algorithm
   #ifdef USE_QLCPD
