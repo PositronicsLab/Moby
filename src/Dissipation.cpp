@@ -4,6 +4,7 @@
  * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
+#include <Moby/RCArticulatedBody.h>
 #include <Moby/DynamicBody.h>
 #include <Moby/Dissipation.h>
 #include <Moby/XMLTree.h>
@@ -28,11 +29,15 @@ Dissipation::Dissipation()
 void Dissipation::apply(const std::vector<DynamicBodyPtr>& bodies)
 {
   const double DECAY = 0.99;
-  VectorNd gv;
 
   // loop through all bodies
   for (unsigned i=0; i< bodies.size(); i++)
   {
+    // see whether the body is articulated
+    RCArticulatedBodyPtr ab = dynamic_pointer_cast<RCArticulatedBody>(bodies[i]);
+    if (!ab)
+      continue;
+
     // get the decay 
     double decay = DECAY;
     std::map<DynamicBodyPtr, double>::const_iterator body_iter;
@@ -40,10 +45,12 @@ void Dissipation::apply(const std::vector<DynamicBodyPtr>& bodies)
       decay = body_iter->second;
 
     // apply the decay 
-    VectorNd gv;
-    bodies[i]->get_generalized_velocity(DynamicBody::eSpatial, gv);
-    gv *= decay;
-    bodies[i]->set_generalized_velocity(DynamicBody::eSpatial, gv);
+    const vector<JointPtr>& joints = ab->get_joints();
+    for (unsigned j=0; j< joints.size(); j++)
+     joints[j]->qd *= decay;
+
+    // update link velocities
+    ab->update_link_velocities();
   }
 }
 
