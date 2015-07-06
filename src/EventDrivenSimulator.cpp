@@ -18,7 +18,6 @@
 #include <Moby/SustainedUnilateralConstraintSolveFailException.h>
 #include <Moby/InvalidStateException.h>
 #include <Moby/InvalidVelocityException.h>
-#include <Moby/Dissipation.h>
 #include <Moby/EventDrivenSimulator.h>
 
 #ifdef USE_OSG

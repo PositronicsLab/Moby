@@ -27,9 +27,10 @@ void stabilize(RigidBodyPtr l1)
   // project back to the constraint manifold
   shared_ptr<Pose3d> l1_pose = boost::const_pointer_cast<Pose3d>(l1->get_pose());
 //  l1_pose->x.normalize(); 
+  P.update_relative_pose(GLOBAL);
 
   std::ofstream out("cvio.dat", std::ostream::app);
-  out << (gTw.x.norm() - 1.0) << std::endl;
+  out << (P.x.norm() - 1.0) << std::endl;
   out.close();
 }
 

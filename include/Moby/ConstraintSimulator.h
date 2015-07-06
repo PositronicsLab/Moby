@@ -19,6 +19,7 @@
 
 namespace Moby {
 
+class Dissipation;
 class ContactParameters;
 class CollisionDetection;
 class CollisionGeometry;
@@ -114,6 +115,9 @@ class ConstraintSimulator : public Simulator
     double calc_CA_step();
     double calc_next_CA_Euler_step(double contact_dist_thresh) const;
     void update_constraint_violations(const std::vector<PairwiseDistInfo>& pairwise_distances);
+
+    /// The dissipation mechanism, if any
+    boost::shared_ptr<Dissipation> _dissipator;
 
     /// Pairwise distances at bodies' current configurations
     std::vector<PairwiseDistInfo> _pairwise_distances;
