@@ -32,11 +32,11 @@
       </RigidBody>
 
     <!-- Setup the simulator -->
-    <TimeSteppingSimulator id="simulator" >
+    <TimeSteppingSimulator id="simulator" min-step-size="1e-8" >
       <DynamicBody dynamic-body-id="box" />
       <DynamicBody dynamic-body-id="ground" />
       <RecurrentForce recurrent-force-id="gravity"  />
-      <ContactParameters object1-id="ground" object2-id="box" epsilon="0" mu-coulomb="0.1" mu-viscous="0" friction-cone-edges="32" />
+      <ContactParameters object1-id="ground" object2-id="box" epsilon="0" mu-coulomb="0.1" mu-viscous="0" />
     </TimeSteppingSimulator>
   </MOBY>
 </XML>
