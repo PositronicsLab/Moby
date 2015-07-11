@@ -147,7 +147,7 @@ double CCD::calc_CA_Euler_step_sphere(const PairwiseDistInfo& pdi)
   std::vector<UnilateralConstraint> contacts;
   find_contacts(pdi.a, pdi.b, std::back_inserter(contacts), NEAR_ZERO);
   if ((contacts.size() == 1 && 
-      std::fabs(contacts.front().calc_constraint_vel()) < 5e-6))
+      std::fabs(contacts.front().calc_constraint_vel()) < NEAR_ZERO*10))
   {
     FILE_LOG(LOG_SIMULATOR) << "-- sphere/primitive contact with relative velocity of " << contacts.front().calc_constraint_vel() << "; reporting infinite conservative advancement time" << std::endl;
     return std::numeric_limits<double>::max();

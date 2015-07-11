@@ -451,6 +451,10 @@ void ConstraintSimulator::calc_pairwise_distances()
     pdi.a = _pairs_to_check[i].first;
     pdi.b = _pairs_to_check[i].second;
     pdi.dist = _coldet->calc_signed_dist(pdi.a, pdi.b, pdi.pa, pdi.pb);
+    Pose3d poseA(*pdi.a->get_pose());
+    Pose3d poseB(*pdi.b->get_pose());
+    poseA.update_relative_pose(GLOBAL);
+    poseB.update_relative_pose(GLOBAL);
     FILE_LOG(LOG_SIMULATOR) << "ConstraintSimulator::calc_pairwise_distances() - signed distance between " << pdi.a->get_single_body()->id << " and " << pdi.b->get_single_body()->id << ": " << pdi.dist << std::endl;
     _pairwise_distances.push_back(pdi);
   }

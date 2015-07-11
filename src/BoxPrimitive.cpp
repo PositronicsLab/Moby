@@ -173,6 +173,7 @@ double BoxPrimitive::calc_signed_dist(shared_ptr<const Primitive> p, Point3d& pt
   // if the primitive is convex, can use vclip 
   if (p->is_convex())
   {
+return std::numeric_limits<double>::max();
     // TODO: implement me!
     assert(false);
   }
@@ -242,19 +243,25 @@ double BoxPrimitive::calc_closest_points(shared_ptr<const SpherePrimitive> s, Po
   // get the sphere radius
   const double R = s->get_radius();
 
-  // get the squared distance
-  double sq_dist = sqr(p[X]-c[X]) + sqr(p[Y]-c[Y]) + sqr(p[Z]-c[Z]) - R*R;
-  if (sq_dist > 0.0)
+  // see whether the point is inside one of the objects
+  double psph_nrm = psph.norm();
+  if (std::fabs(pbox[X]) < HALF_X || std::fabs(pbox[Y]) < HALF_Y ||
+      std::fabs(pbox[Z]) < HALF_Z || psph_nrm < R)
   {
-    // sphere and box are not interpenetrating; find closest point on sphere
-    double psph_nrm = psph.norm();
-    assert(psph_nrm > NEAR_ZERO);
-    psph /= psph_nrm;
-    psph *= R;
-    return std::sqrt(sq_dist);
+    // get the distance to a side of the box
+    double box_dist = std::min(HALF_X - std::fabs(pbox[X]),
+                      std::min(HALF_Y - std::fabs(pbox[Y]),
+                               HALF_Z - std::fabs(pbox[Z])));
+    return -std::min(box_dist, R - psph_nrm);
   }
   else
-    return -std::sqrt(-sq_dist);
+  {
+    // get the closest point on the sphere
+    psph *= (R / psph_nrm);
+
+    // get the squared distance
+    return (Pose3d::transform_point(pbox.pose, psph) - pbox).norm();    
+  }
 }
 
 /// Gets the distance of this box from a sphere
