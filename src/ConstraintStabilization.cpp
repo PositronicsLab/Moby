@@ -48,11 +48,10 @@ void ConstraintStabilization::stabilize()
   VectorNd dq, q;
   std::vector<UnilateralConstraintProblemData> pd;
 
-  // TODO: Bjoern, get all body configurations into one big q vector using 
-  // DynamicBody::num_generalized_coordinates(DynamicBody::eEuler) and 
-  // DynamicBody::get_generalized_coordinates()
-  get_body_configurations(q);
+  std::map<DynamicBodyPtr, unsigned> body_index_map;
 
+  get_body_configurations(q);
+  generate_body_index_map(body_index_map);
   // get the pairwise distances
   vector<PairwiseDistInfo>& pdi = _sim->_pairwise_distances;
 
@@ -66,13 +65,49 @@ void ConstraintStabilization::stabilize()
     // determine dq's
     dq.set_zero(q.size());
     for (unsigned i=0; i< pd.size(); i++)
-      determine_dq(pd[i], dq);
+      determine_dq(pd[i], dq, body_index_map);
 
     // determine s and update q 
     update_q(dq, q);
 
     // update minimum distance
     min_dist = get_min_pairwise_dist(pdi);  
+  }
+}
+
+
+
+void ConstraintStabilization::add_articulate_limit_constraint(std::vector<UnilateralConstraintProblemData>& pd_vector, ArticulatedBodyPtr ab)
+{
+  std::vector<UnilateralConstraint> limits = new std::vector<UnilateralConstraint>();
+  OutputIterator result = limits.begin();
+  ab.find_limits(result);
+  pd_vector.insert(pd_vector.end(), contacts.begin(), contacts.end());
+}
+
+void ConstraintStabilization::add_contact_constraints(std::vector<UnilateralConstraintProblemData>& pd_vector, RigidBodyPtr rb1, RigidBodyPtr rb2)
+{
+  Point3D::p1, p2;
+  std::list<CollisionGeometryPtr> cgs1 = rb1->geometries;
+  std::list<CollisionGeometryPtr> cgs2 = rb2->geometries;
+  BOOST_FOREACH(CollisionGeometryPtr* cg1 , cgs1)
+  {
+
+    BOOST_FOREACH(CollisionGeometryPtr* cg2, cgs2)
+    {
+      double dist = CollisionGeometry::calc_signed_dist(*cg1, *cg2, p1, p2);
+      if(dist < 0)
+      {
+        //TODO: Add constraints generation code
+
+        /*
+        * 1. calc_Minkowski_difference
+        * 2. check where the origin (0,0,0) lies in the polygon (Polyhedron::inside_or_on) 
+        * 3. find closest feature to the origin
+        * 4. the contact limit will be the distance vector from the face to the point
+        */
+      }
+    }
   }
 }
 
@@ -84,13 +119,93 @@ void ConstraintStabilization::compute_problem_data(std::vector<UnilateralConstra
   // clear the problem data vector 
   pd_vector.clear();
 
-  // TODO: Bjoern fill this in
+  // get all bodies
+  std::vector<DynamicBodyPtr> bodies = _sim->_bodies;
+  // TODO: Evan add sweep and prune
+
   // 1) for each pair of bodies in kissing contact, add as many 
   //    UnilateralConstraint objects to constraints as there are 
   //    points of contact between the bodies 
   //    (call _sim->_coldet->find_contacts(.))
+  std::vector<UnilateralConstraint> contacts = _sim->coldet->find_constacts();
+  pd_vector.insert(pd_vector.end(), contacts.begin(), contacts.end());
+  
+  BOOST_FOREACH(DynamicBodyPtr* D_body1, bodies)
+  {
+    RigidBodyPtr rb1, rb2;
+    
+    if(rb1 = boost::dynamic_pointer_cast<RigidBody>(*D_body1))
+    {
+      BOOST_FOREACH(DynamicBodyPtr* D_body2, bodies)
+      {
+        // if the two pointer points to the same body, then no need to add contact
+        if(*D_body1 == *D_body2)
+        {
+          continue;
+        }
+
+        //RigidBody
+        if(rb2 = boost::dynamic_pointer_cast<RigidBody>(*D_body2))
+        {
+          add_contact_constraints(pd_vector, rb1,rb2);
+        }
+        else
+        {
+          ArticulatedBodyPtr ab2 = dynamic_pointer_cast<ArticulatedBody>(*D_body2);
+          add_articulate_limit_constraint(pd_vector, ab2);
+          std::vector<RigidBodyPtr> ls2 = ab2->get_links();
+          BOOST_FOREACH(RigidBodyPtr* l2, ls2)
+          {
+            rb2 = dynamic_pointer_cast<RigidBody> (*l2);
+            add_contact_constraints(pd_vector, rb1, rb2);
+          }
+        }
+      }
+    }
+    // body 1 is a articulated body
+    else
+    {
+      ArticulatedBodyPtr ab1 = dynamic_pointer_cast<ArticulatedBody>(*D_body1);
+      add_articulate_limit_constraint(pd_vector, ab1);
+      std::vector<RigidBodyPtr> ls1 = ab1->get_links();
+
+      BOOST_FOREACH(DynamicBodyPtr* D_body2, bodies)
+      {
+        // if the two pointer points to the same body, then no need to add contact
+        if(*D_body1 == *D_body2)
+        {
+          continue;
+        }
+
+        // since the two pointer are not pointing to the same body, it is ok to start iterating through the first  
+        BOOST_FOREACH(RigidBodyPtr* l1, ls1)
+        {
+          rb1 = *l1;
+          //RigidBody
+          if(rb2 = boost::dynamic_pointer_cast<RigidBody>(*D_body2))
+          {
+            add_contact_constraints(pd_vector, rb1,rb2);
+          }
+          else
+          {
+            ArticulatedBodyPtr ab2 = dynamic_pointer_cast<ArticulatedBody>(*D_body2);
+            add_articulate_limit_constraint(pd_vector, ab2);
+            std::vector<RigidBodyPtr> ls2 = ab2->joints;
+            BOOST_FOREACH(RigidBodyPtr* l2, ls2)
+            {
+              rb2 = *l2;
+              add_contact_constraints(pd_vector, rb1, rb2);
+            }
+          }
+        }
+      }
+    }
+  }
+
   // 2) for each articulated body, add as many UnilateralConstraint objects as
   //    there are joints at their limits
+
+
   // 3) for each pair of bodies in interpenetrating contact, add a single
   //    point of contact at the deepest interpenetrating point with normal
   //    in the direction of the signed distance function. 
@@ -122,10 +237,15 @@ void ConstraintStabilization::compute_problem_data(std::vector<UnilateralConstra
     // now set the unilateral constraint data
     set_unilateral_constraint_data(pd);
 
-    // TODO: Bjoern fill this in
+    
     // set the elements of Cn_v and L_v
     // L_v is always set to zero
     // Cn_v is set to the signed distance between the two bodies
+    for (int i = 0; i < pd.contact_constraints.size())
+    {
+      pd.Cn_v[i] = CollisionGeometry::calc_signed_dist(pd.contact_constraints[i] -> contact_geom1, pd.contact_constraints[i] -> pd.contact_geom2);
+    }
+
   }
 }
 
@@ -300,7 +420,7 @@ void ConstraintStabilization::set_unilateral_constraint_data(UnilateralConstrain
 }
 
 /// Computes deltaq by solving a linear complementarity problem
-void ConstraintStabilization::determine_dq(const UnilateralConstraintProblemData& pd, VectorNd& dq)
+void ConstraintStabilization::determine_dq(const UnilateralConstraintProblemData& pd, VectorNd& dqm, std::map<DynamicBodyPtr, unsigned> body_index_map)
 {
   VectorNd dq_sub;
 
@@ -321,10 +441,19 @@ void ConstraintStabilization::determine_dq(const UnilateralConstraintProblemData
   if (!_lcp.lcp_fast(MM, qq, dq_sub))
     _lcp.lcp_lemke_regularized(MM, qq, dq_sub);
 
-  // TODO: Bjoern, we've solved for the components of dq for an island; now
-  // populate those elements into dq. The tricky part is that only some bodies
-  // are represented in dq_sub, and you have to map those into the appropriate
-  // parts of dq
+
+  // populating dq based on dq_sub
+  unsigned last = 0;
+  for(unsigned i = 0; i< pd.super_bodies.size(); i++)
+  {
+    unsigned start = (body_index_map.find(pd.super_bodies[i]))->second;
+    unsigned coord_num = pd.super_bodies[i]->num_generalized_coordinates(DynamicBody eEuler);
+    for(unsigned j = 0; j < coord_num; j++))
+    {
+      dqm[start+j] = dq_sub[last+j];
+    }
+    last += coord_num;
+  }
 
 }
 
@@ -357,8 +486,9 @@ void ConstraintStabilization::update_q(const VectorNd& dq, VectorNd& q)
   // compute s*
   double sstar = compute_s(pdi);
 
-  // TODO: Bjoern, fill in BLS condition in while loop
-  while (...)
+
+  // TODO: Add gradient term condition
+  while (sstar > s0 + ALPHA * t *(dq))
   {
     // update t
     t *= BETA;
@@ -372,7 +502,7 @@ void ConstraintStabilization::update_q(const VectorNd& dq, VectorNd& q)
     update_body_configuration(qstar);
 
     // compute new pairwise distance information
-    sim->calc_pairwise_distances();
+    _sim->calc_pairwise_distances();
 
     // compute new s*
     sstar = compute_s(pdi);
@@ -387,11 +517,28 @@ double ConstraintStabilization::compute_s(const vector<PairwiseDistInfo>& pdi)
 {
   double s = std::max(get_min_pairwise_dist(pdi), 0.0);
 
-  // TODO: Bjoern, now that 's' has been computed, you need to go through all
-  // of the joint limits for the articulated bodies and make sure that they 
-  // have not become violated also. If a joint limit is already 'active' (it is 
-  // being accounted for in the set of constraints that is being solved for), 
-  // then no need to check it.
+  std::vector<DynamicBodyPtr> bodies = _sim->_bodies;
+
+  // iterate through all joints and check for violated limits
+  for (unsigned i = 0; i < bodies.size(); i++)
+  {
+    ArticulatedBodyPtr art;
+    if(art = dynamic_pointer_cast<ArticulatedBodyPtr>(bodies[i]))
+    {
+      std::vector<JointPtr> joints = art->get_joints();
+      for (unsigned j = 0 ; j < joints.size(); j++)
+      {
+        for (unsigned k = 0 ; k < joints[i]->num_dof(); k++)
+        {
+          double q = joints[i]->q[j];
+
+          // find the largest violation
+          s = std::max(q - joints[i]->hilimit[j], joints[i]->lolimit[j] - q , s)
+        }
+      }
+    }
+
+  //if violated, return amount violated
 
   return s;
 }
@@ -399,18 +546,44 @@ double ConstraintStabilization::compute_s(const vector<PairwiseDistInfo>& pdi)
 /// Gets the body configurations, placing them into q 
 void ConstraintStabilization::get_body_configurations(VectorNd& q)
 {  
-  // TODO: Bjoern, get all body configurations into one big q vector using 
-  // DynamicBody::num_generalized_coordinates(DynamicBody::eEuler) and 
-  // DynamicBody::get_generalized_coordinates()
+
+  std::vector<DynamicBodyPtr> bodies = _sim->_bodies;
+
+  q = new VectorNd();
+
+  BOOST_FOREACH(DynamicBodyPtr* body, bodies){
+    Ravelin::VectorNd nextVector = (*body)->get_generalized_coordinates(DynamicBody::eEuler, nextVector);
+    VectorNd::concat(q,nextVector,q);
+  }
+}
+
+void ConstraintStabilization::generate_body_index_map(std::map<DynamicBodyPtr, unsigned>& body_index_map)
+{
+  std::vector<DynamicBodyPtr> bodies = _sim->_bodies;
+  unsigned curIndex = 0;
+
+  BOOST_FOREACH(DynamicBodyPtr* body, bodies){
+
+    body_index_map.insert(std::Pair<DynamicBodyPtr, unsigned>(*body, curIndex));
+    curIndex += *(body)->num_generalized_coordinates(DynamicBody::eEuler);
+    
+  }
 }
 
 /// Updates the body configurations given q
 void ConstraintStabilization::update_body_configurations(const VectorNd& q)
 {
-  // TODO: Bjoern fill this in
-  // you want to go through all of the bodies in the simulator (_sim->_bodies),
-  // *in order* and set their generalized coordinates 
-  // (set_generalized_coordinates()) using sequential components of q
+
+  std::vector<DynamicBodyPtr> bodies = _sim->_bodies;
+  const unsigned start = 0;
+  BOOST_FOREACH(DynamicBodyPtr* body, bodies){
+    const unsigned ngc = body->num_generalized_coordinates(DynamicBody::eEuler);
+    Ravelin::SharedVectorNd gc_shared = q.segment(last,ngc);
+    body->set_generalized_coordinates(DynamicBody::eEuler, gc_shared);
+    last = ngc;
+  }
+
+
 }
 
 

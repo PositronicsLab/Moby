@@ -31,11 +31,14 @@ class ConstraintStabilization
     void update_body_configurations(const Ravelin::VectorNd& q);
     void update_q(const Ravelin::VectorNd& dq, Ravelin::VectorNd& q);
     void compute_problem_data(std::vector<UnilateralConstraintProblemData>& pd);
+    void add_contact_constraints(std::vector<UnilateralConstraintProblemData>& pd_vector, RigidBodyPtr rb1, RigidBodyPtr rb2);
+    void add_articulate_limit_constraint(std::vector<UnilateralConstraintProblemData>& pd_vector, ArticulatedBodyPtr ab);
     static void set_unilateral_constraint_data(UnilateralConstraintProblemData& pd);
     void determine_dq(const UnilateralConstraintProblemData& pd, Ravelin::VectorNd& dq);
     static double get_min_pairwise_dist(const std::vector<PairwiseDistInfo>& pdi); 
     static double compute_s(const std::vector<PairwiseDistInfo>& pdi);
     static DynamicBodyPtr get_super_body(SingleBodyPtr sb);
+
 
     boost::shared_ptr<EventDrivenSimulator> _sim;
 
