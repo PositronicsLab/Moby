@@ -4,8 +4,8 @@
  * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
-#ifndef _JOINT_H
-#define _JOINT_H
+#ifndef _MOBY_JOINT_H
+#define _MOBY_JOINT_H
 
 #include <boost/weak_ptr.hpp>
 #include <boost/shared_ptr.hpp>
