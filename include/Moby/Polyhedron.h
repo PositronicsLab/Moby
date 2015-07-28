@@ -83,9 +83,10 @@ class Polyhedron
     Polyhedron();
     Polyhedron(const Polyhedron& p) { _convexity_computed = false; operator=(p); }
     static double vclip(boost::shared_ptr<const PolyhedralPrimitive> pA, boost::shared_ptr<const PolyhedralPrimitive> pB, boost::shared_ptr<const Ravelin::Pose3d> poseA, boost::shared_ptr<const Ravelin::Pose3d> poseB, boost::shared_ptr<const Polyhedron::Feature>& closestA, boost::shared_ptr<const Polyhedron::Feature>& closestB);
+    static Polyhedron calc_minkowski_diff(boost::shared_ptr<const PolyhedralPrimitive> pA, boost::shared_ptr<const PolyhedralPrimitive> pB, boost::shared_ptr<const Ravelin::Pose3d> poseA, boost::shared_ptr<const Ravelin::Pose3d> poseB); 
 /*
     double find_closest_features(const Ravelin::Origin3d& p, std::list<boost::shared_ptr<Feature> >& closest_features, bool& inside) const;
-    static Polyhedron calc_minkowski_diff(boost::shared_ptr<const PolyhedralPrimitive> pA, boost::shared_ptr<const PolyhedralPrimitive> pB, boost::shared_ptr<const Ravelin::Pose3d> poseA, boost::shared_ptr<const Ravelin::Pose3d> poseB); */
+*/
     Polyhedron& operator=(const Polyhedron& p);
     std::vector<boost::shared_ptr<Vertex> >& get_vertices() { return _vertices; }
     const std::vector<boost::shared_ptr<Vertex> >& get_vertices() const { return _vertices; }
@@ -133,18 +134,19 @@ class Polyhedron
   private:
     static boost::shared_ptr<Plane> voronoi_plane (FeatureType fA, FeatureType fB, boost::shared_ptr<const Ravelin::Pose3d> pose, boost::shared_ptr<const Polyhedron::Feature>& featureA, boost::shared_ptr<const Polyhedron::Feature>& featureB);
     static bool clip_edge(boost::shared_ptr<const Polyhedron::Edge> edge, Ravelin::Transform3d fTe, double& min_lambda, double& max_lambda, boost::shared_ptr<const Polyhedron::Feature >& min_N, boost::shared_ptr<const Polyhedron::Feature >& max_N, const std::list<std::pair<boost::shared_ptr<const Polyhedron::Feature>, boost::shared_ptr<Plane> > >& planes_neighbors);
- //void promote_featrues(FeatureType& fA, FeatureType& fB, boost::shared_ptr<const Polyhedron::Feature>& closestA, boost::shared_ptr<const Polyhedron::Feature>& closestB, Ravelin::Transform3d& aTb)
+    bool post_clip_deriv_check(FeatureType& fX, boost::shared_ptr<const Polyhedron::Feature >& X , boost::shared_ptr<const Polyhedron::Edge> edge, Ravelin::Transform3d& xTe, double& min_lambda, double& max_lambda, boost::shared_ptr<const Polyhedron::Feature >& min_N, boost::shared_ptr<const Polyhedron::Feature >& max_N);
+    
+    //void promote_featrues(FeatureType& fA, FeatureType& fB, boost::shared_ptr<const Polyhedron::Feature>& closestA, boost::shared_ptr<const Polyhedron::Feature>& closestB, Ravelin::Transform3d& aTb)
 
     enum UpdateRule { eDone, eContinue, eInterpenetrating };
 
-    static UpdateRule post_clip_deriv_check(FeatureType& fX, boost::shared_ptr<const Polyhedron::Feature >& X , boost::shared_ptr<const Polyhedron::Edge> edge, Ravelin::Transform3d& xTe, double& min_lambda, double& max_lambda, boost::shared_ptr<const Polyhedron::Feature >& min_N, boost::shared_ptr<const Polyhedron::Feature >& max_N);
-    static UpdateRule handle_local_minimum(boost::shared_ptr<const Polyhedron::Vertex>& V, FeatureType& fF, boost::shared_ptr<const Polyhedron::Feature>& face,  const Polyhedron& face_poly, const Ravelin::Transform3d& vTf);
+    UpdateRule handle_local_minimum(boost::shared_ptr<const Polyhedron::Vertex>& V, FeatureType& fF, boost::shared_ptr<const Polyhedron::Feature>& face,  const Polyhedron& face_poly, const Ravelin::Transform3d& vTf);
 
-    static UpdateRule update_vertex_vertex(FeatureType& fA, FeatureType& fB, Ravelin::Transform3d& aTb, boost::shared_ptr<const Polyhedron::Feature>& closestA, boost::shared_ptr<const Polyhedron::Feature>& closestB);
-    static UpdateRule update_vertex_edge(FeatureType& fA, FeatureType& fB, Ravelin::Transform3d& aTb, boost::shared_ptr<const Polyhedron::Feature>& closestA, boost::shared_ptr<const Polyhedron::Feature>& closestB);
-    static UpdateRule update_vertex_face(FeatureType& fA, FeatureType& fB, Ravelin::Transform3d& aTb, boost::shared_ptr<const Polyhedron::Feature>& closestA, boost::shared_ptr<const Polyhedron::Feature>& closestB, const Polyhedron& face_poly);
-    static UpdateRule update_edge_edge(FeatureType& fA, FeatureType& fB, Ravelin::Transform3d& aTb, boost::shared_ptr<const Polyhedron::Feature>& closestA, boost::shared_ptr<const Polyhedron::Feature>& closestB);
-    static UpdateRule update_edge_face(FeatureType& fA, FeatureType& fB, Ravelin::Transform3d& aTb, boost::shared_ptr<const Polyhedron::Feature>& closestA, boost::shared_ptr<const Polyhedron::Feature>& closestB);
+    UpdateRule update_vertex_vertex(FeatureType& fA, FeatureType& fB, Ravelin::Transform3d& aTb, boost::shared_ptr<const Polyhedron::Feature>& closestA, boost::shared_ptr<const Polyhedron::Feature>& closestB);
+    UpdateRule update_vertex_edge(FeatureType& fA, FeatureType& fB, Ravelin::Transform3d& aTb, boost::shared_ptr<const Polyhedron::Feature>& closestA, boost::shared_ptr<const Polyhedron::Feature>& closestB);
+    UpdateRule update_vertex_face(FeatureType& fA, FeatureType& fB, Ravelin::Transform3d& aTb, boost::shared_ptr<const Polyhedron::Feature>& closestA, boost::shared_ptr<const Polyhedron::Feature>& closestB, const Polyhedron& face_poly);
+    UpdateRule update_edge_edge(FeatureType& fA, FeatureType& fB, Ravelin::Transform3d& aTb, boost::shared_ptr<const Polyhedron::Feature>& closestA, boost::shared_ptr<const Polyhedron::Feature>& closestB);
+    UpdateRule update_edge_face(FeatureType& fA, FeatureType& fB, Ravelin::Transform3d& aTb, boost::shared_ptr<const Polyhedron::Feature>& closestA, boost::shared_ptr<const Polyhedron::Feature>& closestB);
     static double sqr(double x) { return x*x; }
     void calc_bounding_box();
     static void calc_subexpressions(double w0, double w1, double w2, double& f1, double& f2, double& f3, double& g0, double& g1, double& g2);
