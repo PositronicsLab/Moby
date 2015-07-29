@@ -151,6 +151,401 @@ void TimeSteppingSimulator::calc_impacting_unilateral_constraint_forces2(double 
   }
 }
 
+#define NEW_MINISTEP
+#ifdef NEW_MINISTEP
+/// Does a full integration cycle (but not necessarily a full step)
+double TimeSteppingSimulator::do_mini_step(double dt)
+{
+  static std::vector<DynamicBodyPtr> bodies;
+  if(bodies.empty()){
+    for (unsigned i=0; i< _bodies.size(); i++){
+      RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(_bodies[i]);
+      if(rb)
+        if(!rb->is_enabled())
+          continue;
+      bodies.push_back(_bodies[i]);
+    }
+  }
+  FILE_LOG(LOG_SIMULATOR) << "begin do_mini_step() " << current_time << std::endl;
+  const double INF = std::numeric_limits<double>::max();
+  VectorNd q, qd, qdd, eps;
+  std::vector<VectorNd> qsave, vssave, vesave;
+
+  // init qsave to proper size
+  qsave.resize(bodies.size());
+  vssave.resize(bodies.size());
+  vesave.resize(bodies.size());
+
+  // save generalized coordinates for all bodies
+  for (unsigned i=0; i< bodies.size(); i++){
+    bodies[i]->get_generalized_coordinates(DynamicBody::eEuler, qsave[i]);
+    bodies[i]->get_generalized_velocity(DynamicBody::eEuler, vesave[i]);
+    bodies[i]->get_generalized_velocity(DynamicBody::eSpatial, vssave[i]);
+  }
+  
+  static bool tols_inited = false;
+  if(!tols_inited){
+    tols_inited = true;
+    // init Tolerances
+    for (unsigned i=0; i< bodies.size(); i++){
+      double betav = 0.01, alphav = 1e-1, betaq = 0.01, alphaq = 1e-2;
+      RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(bodies[i]);
+      if(rb){
+        bodies[i]->abs_pos_err_tol.resize(6);
+        bodies[i]->abs_vel_err_tol.resize(6);
+        for(int j=0;j<6;j++){
+          bodies[i]->abs_pos_err_tol[j] = alphaq;
+          bodies[i]->abs_vel_err_tol[j] = alphav;
+        }
+        for(int j=0;j<6;j++){
+          rb->abs_pos_err_tol[j] = alphaq;
+          rb->abs_vel_err_tol[j] = alphav;
+        }
+      } else {
+        ArticulatedBodyPtr ab = dynamic_pointer_cast<ArticulatedBody>(bodies[i]);
+        int nq = ab->num_joint_dof();
+        int N = nq + 6;
+        bodies[i]->abs_pos_err_tol.resize(N);
+        bodies[i]->abs_vel_err_tol.resize(N);
+        for(int j=nq;j<nq+6;j++){
+          bodies[i]->abs_pos_err_tol[j] = alphaq;
+          bodies[i]->abs_vel_err_tol[j] = alphav;
+        }
+        for(int j=0;j<nq;j++){
+          bodies[i]->abs_pos_err_tol[j] = alphaq;
+          bodies[i]->abs_vel_err_tol[j] = alphav;
+        }
+        BOOST_FOREACH(rb, ab->get_links()){
+          for(int j=0;j<6;j++){
+            rb->abs_pos_err_tol[j] = alphaq;
+            rb->abs_vel_err_tol[j] = alphav;
+          }
+        }
+      }
+    }
+  }
+  
+  // set the amount stepped
+  double h = dt;
+ 
+  // initially do CA calculation to save some time
+  // do broad phase collision detection
+  broad_phase(h);
+
+  // compute pairwise distances
+  calc_pairwise_distances();
+
+  // get the conservative advancement step
+  double tc = std::max(min_step_size, calc_next_CA_Euler_step(contact_dist_thresh));
+  FILE_LOG(LOG_SIMULATOR) << "Conservative advancement step (initial): " << tc << std::endl;
+
+  h = std::min(h,tc);
+  
+  std::vector<VectorNd> qesave_large, qssave_large, vsave_large;
+  std::vector<VectorNd> qesave_small, qssave_small, vsave_small;
+  qssave_large.resize(bodies.size());
+  qssave_small.resize(bodies.size());
+  qesave_large.resize(bodies.size());
+  qesave_small.resize(bodies.size());
+  vsave_large.resize(bodies.size());
+  vsave_small.resize(bodies.size());
+  
+  while (true) { // Loop to collisison free time
+    while (true) { // loop to accurate integration
+      //////////////////////////////////////
+      //// INTEGRATION 1 Large and 2 small steps 
+      //////////////////////////////////////
+      
+      FILE_LOG(LOG_SIMULATOR) << "Finding maximum safe (accurate) integration step size: h =" << h << std::endl;
+      
+      //////////////////////////////////////
+      //// INTEGRATION: 1 Large step 
+      // integrate the bodies' positions by h + conservative advancement step
+      for (unsigned i=0; i< bodies.size(); i++)
+      {
+        bodies[i]->set_generalized_coordinates(DynamicBody::eEuler, qsave[i]);
+        (q = vesave[i]) *= (h);
+        q += qsave[i];
+        bodies[i]->set_generalized_coordinates(DynamicBody::eEuler, q);
+        bodies[i]->get_generalized_coordinates(DynamicBody::eSpatial, qssave_large[i]);
+        qesave_large[i] = q;
+      }
+      // compute forward dynamics
+      calc_fwd_dyn();
+  
+      // integrate the bodies' velocities forward by h
+      for (unsigned i=0; i< bodies.size(); i++)
+      {
+        bodies[i]->get_generalized_acceleration(qdd);
+        qdd *= h;
+        (qd = vssave[i]) += qdd;
+        vsave_large[i] = qd;
+      }
+ 
+      //////////////////////////////////////
+      //// INTEGRATION: 2 Small steps 
+      // 1st
+      for (unsigned i=0; i< bodies.size(); i++)
+      {
+        bodies[i]->set_generalized_coordinates(DynamicBody::eEuler, qsave[i]);
+        bodies[i]->set_generalized_velocity(DynamicBody::eSpatial, qd);
+        (q = vesave[i]) *= (h/2.0);
+        q += qsave[i];
+        bodies[i]->set_generalized_coordinates(DynamicBody::eEuler, q);
+      }
+      // compute forward dynamics
+      calc_fwd_dyn();
+  
+      // integrate the bodies' velocities forward by h
+      for (unsigned i=0; i< bodies.size(); i++)
+      {
+        // SI Euler ingegration for step 1 velocity
+        bodies[i]->get_generalized_acceleration(qdd);
+        qdd *= (h/2.0);
+        (qd = vssave[i]) += qdd;
+        bodies[i]->set_generalized_velocity(DynamicBody::eSpatial, qd);
+        bodies[i]->get_generalized_velocity(DynamicBody::eEuler, qd);
+        // Integration position
+        bodies[i]->get_generalized_coordinates(DynamicBody::eEuler, q);
+        qd *= (h/2.0);
+        q += qd;
+        bodies[i]->set_generalized_coordinates(DynamicBody::eEuler, q);
+        bodies[i]->get_generalized_coordinates(DynamicBody::eSpatial, qssave_small[i]);
+        qesave_small[i] = q;
+      }
+      // compute forward dynamics
+      calc_fwd_dyn();
+  
+      // integrate the bodies' velocities forward by h
+      for (unsigned i=0; i< bodies.size(); i++)
+      {
+        // SI Euler ingegration for step 2 velocity
+        bodies[i]->get_generalized_acceleration(qdd);
+        qdd *= (h/2.0);
+        bodies[i]->get_generalized_velocity(DynamicBody::eSpatial, qd);
+        qd += qdd;
+        vsave_small[i] = qd;
+      }
+
+      //////////////////////////////////////
+      ////  CHECK FOR INTEGRATION ACCURACY  
+      //////////////////////////////////////
+      
+      // Set by absolute error calculation, determines the size of the smaller step
+      double min_k = INF;
+      // determine if this integration is successful
+      // NOTE: Relative error sucks
+      double error_exceeded = false;
+      VectorNd energy_error(bodies.size());
+      VectorNd energy_relative_error(bodies.size());
+      for (unsigned i=0; i< bodies.size(); i++)
+      {
+        VectorNd momentum, v1_g,v2_g, v0;
+        MatrixNd M1_g(6,6), M2_g(6,6),I0;
+        int N = M1_g.rows();
+        ArticulatedBodyPtr ab = dynamic_pointer_cast<ArticulatedBody>(bodies[i]);
+        RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(bodies[i]);
+        // if Articulated body, make the rigid body the base
+        if(ab)
+          rb = ab->get_base_link();
+        ReferenceFrameType rftype = rb->get_computation_frame_type();
+        rb->set_computation_frame_type(Moby::eGlobal);
+        {
+          bodies[i]->set_generalized_coordinates(DynamicBody::eEuler, qesave_large[i]);
+          bodies[i]->set_generalized_velocity(DynamicBody::eSpatial, vsave_large[i]);
+          
+          // Get the articulted body inertia
+          if(ab)
+            bodies[i]->get_generalized_inertia(M1_g);
+         
+          N = M1_g.rows();
+         
+          // Correct the velocity to global
+          v1_g = vsave_large[i];
+          const SVelocityd& _xd0 = rb->get_velocity();
+          _xd0.transpose_to_vector(v0);
+          v1_g.segment(N-6,N) = v0;
+          
+          // Correct the inertial to global
+          const SpatialRBInertiad& _J0 = rb->get_inertia();
+          _J0.to_matrix(I0);
+          M1_g.block(N-6,N,N-6,N) = I0;
+         
+        }
+        
+        // Calc energy for this system
+        double energy1 = M1_g.mult(v1_g,momentum).dot(v1_g);
+        
+        {
+          // --- Now do the same for the 2 step case ---
+          bodies[i]->set_generalized_coordinates(DynamicBody::eEuler, qesave_small[i]);
+          bodies[i]->set_generalized_velocity(DynamicBody::eSpatial, vsave_small[i]);
+          
+          // Get the articulted body inertia
+          if(ab)
+            bodies[i]->get_generalized_inertia(M2_g);
+         
+          // Correct the velocity to global
+          v2_g = vsave_small[i];
+          const SVelocityd& _xd0 = rb->get_velocity();
+          rb->_xd0.transpose_to_vector(v0);
+          v2_g.segment(N-6,N) = v0;
+          
+          // Correct the inertial to global
+          const SpatialRBInertiad& _J0 = rb->get_inertia();
+          _J0.to_matrix(I0);
+          M2_g.block(N-6,N,N-6,N) = I0;
+        } 
+        rb->set_computation_frame_type(rftype);
+        
+        // Calc energy for this system
+        double energy2 = M2_g.mult(v2_g,momentum).dot(v2_g);
+
+        energy_error[i] = energy1-energy2;
+        energy_relative_error[i] = energy_error[i]/energy2;
+        //FILE_LOG(LOG_SIMULATOR) << "Velocity -- 1 steps (" <<  bodies[i]->id << ") " << v1_g << std::endl;
+        //FILE_LOG(LOG_SIMULATOR) << "Velocity -- 2 steps (" <<  bodies[i]->id << ") " << v2_g << std::endl;
+        //FILE_LOG(LOG_SIMULATOR) << "Inertia -- 1 steps (" <<  bodies[i]->id << ") " << M1_g << std::endl;
+        //FILE_LOG(LOG_SIMULATOR) << "Inertia -- 2 steps (" <<  bodies[i]->id << ") " << M2_g << std::endl;
+
+        FILE_LOG(LOG_SIMULATOR) << "Energy -- 1 step (" <<  bodies[i]->id << ") " << energy1 << std::endl;
+        FILE_LOG(LOG_SIMULATOR) << "Energy -- 2 steps (" <<  bodies[i]->id << ") " << energy2 << std::endl;
+        FILE_LOG(LOG_SIMULATOR) << "Energy error (" <<  bodies[i]->id << ") " <<  energy_error[i] << std::endl;
+        FILE_LOG(LOG_SIMULATOR) << "Energy relative error (" <<  bodies[i]->id << ") " <<  energy_error[i]/energy2 << std::endl;
+
+        // Position
+        ((bodies[i]->abs_pos_err = qssave_small[i]) -= qssave_large[i]) /= h;
+        // Velocity
+        ((bodies[i]->abs_vel_err = vsave_small[i]) -= vsave_large[i]) /= h;
+        
+        for(int j=0;j<N;j++){
+          // record rel err
+          // if rel err tol exceeded
+          double k = 1.0;
+          // Calc step scale
+          if(fabs(bodies[i]->abs_pos_err[j]) > NEAR_ZERO)
+            k = bodies[i]->abs_pos_err_tol[j]/fabs(bodies[i]->abs_pos_err[j]);
+          min_k = std::min(min_k, k);
+          if(fabs(bodies[i]->abs_vel_err[j]) > NEAR_ZERO)
+            k = bodies[i]->abs_vel_err_tol[j]/fabs(bodies[i]->abs_vel_err[j]);
+          min_k = std::min(min_k, k);
+          
+        }
+     
+        if(fabs(energy_relative_error[i]) > 0.01)
+          // Check if this integration step is accurate enough
+          error_exceeded = true;  
+        
+
+        FILE_LOG(LOG_SIMULATOR) << "absolute position error (" <<  bodies[i]->id << ") " << bodies[i]->abs_pos_err << std::endl;
+        //FILE_LOG(LOG_SIMULATOR) << "relative position error (" <<  bodies[i]->id << ") " << bodies[i]->rel_pos_err << std::endl;
+        FILE_LOG(LOG_SIMULATOR) << "absolute velocity error (" <<  bodies[i]->id << ") " << bodies[i]->abs_vel_err << std::endl;
+        //FILE_LOG(LOG_SIMULATOR) << "relative velocity error (" <<  bodies[i]->id << ") " << bodies[i]->rel_vel_err << std::endl;
+      }
+      
+      // If we exceed relative error bounds
+      if(error_exceeded && h > min_step_size){
+        FILE_LOG(LOG_SIMULATOR) << "Error too high at this step size!: " << h << std::endl;
+        double new_h = 0.9*h*min_k;
+        if(new_h < min_step_size)
+          h = min_step_size;
+        else if(new_h > h)
+          h = 0.9*h;
+        else
+          h = new_h;
+        continue;
+      }
+      break;
+    }
+    FILE_LOG(LOG_SIMULATOR) << "Found maximum safe (accurate) integration step size: h =" << h << std::endl;
+    FILE_LOG(LOG_SIMULATOR) << "Check if a collision occurs in this interval given error bounds" << std::endl;
+
+    // Reset state to start of step
+    for (unsigned i=0; i< bodies.size(); i++){
+      bodies[i]->set_generalized_coordinates(DynamicBody::eEuler, qsave[i]);
+      bodies[i]->set_generalized_coordinates(DynamicBody::eEuler, vesave[i]);
+    }
+
+    // Check if collisions occur in the interval
+    // do broad phase collision detection
+    broad_phase(h);
+
+    // compute pairwise distances
+    calc_pairwise_distances();
+
+    // get the conservative advancement step
+    // NOTE: This calulation is un necessary for our experiments, 
+    // we can be _less_ conservative with contact timing if we want
+    //double tc = std::max(min_step_size, calc_next_CA_Euler_step_error(contact_dist_thresh, epsq, epsv));
+    double tc = min_step_size;
+    try {
+    tc = std::max(min_step_size, calc_next_CA_Euler_step(contact_dist_thresh));
+    FILE_LOG(LOG_SIMULATOR) << "Conservative advancement step (with error bounds): " << tc << std::endl;
+    } catch (...){}
+    // If there is a possible collision in the interval.
+    // set step size to time of collision (conservative estimate)
+    // then check accuracy over that interval
+    if(tc < h){
+      h = tc;
+      // And then restart process
+    } 
+    // Else use current integration values to accurately integrate state
+    // Then pass mini-step function on to rest of stepping function
+    else {
+      // Set third order optimal state (Richardson extrapolation)
+      for (unsigned i=0; i< bodies.size(); i++)
+      {
+        q = qesave_small[i];
+        q *= 2;
+        q -= qesave_large[i];
+        int N = q.rows();
+        
+        Quatd q1(qesave_small[i][N-4],qesave_small[i][N-3],qesave_small[i][N-2],qesave_small[i][N-1]), 
+              q2(qesave_large[i][N-4],qesave_large[i][N-3],qesave_large[i][N-2],qesave_large[i][N-1]);
+        q1.lerp(q2,0.5);
+        q[N-4] = q1.x;
+        q[N-3] = q1.y;
+        q[N-2] = q1.z;
+        q[N-1] = q1.w;
+
+        bodies[i]->set_generalized_coordinates(DynamicBody::eEuler, q);
+        qd = vsave_small[i];
+        qd *= 2;
+        qd -= vsave_large[i];
+        bodies[i]->set_generalized_velocity(DynamicBody::eSpatial, qd);
+      }
+      // End step size adjustment
+      break;
+    }
+  }
+
+
+  FILE_LOG(LOG_SIMULATOR) << "Safe integration ended w/ h = " << h << std::endl;
+
+  // dissipate some energy
+  if (_dissipator)
+    _dissipator->apply(bodies);
+
+  // recompute pairwise distances
+  calc_pairwise_distances();
+
+  // find unilateral constraints
+  find_unilateral_constraints(contact_dist_thresh);
+
+  // handle any impacts
+  calc_impacting_unilateral_constraint_forces(-1.0);
+
+  // update the time
+  current_time += h;
+
+  // do a mini-step callback
+  if (post_mini_step_callback_fn)
+    post_mini_step_callback_fn((ConstraintSimulator*) this);
+
+  FILE_LOG(LOG_SIMULATOR) << "end do_mini_step() " << current_time << std::endl;
+  return h;
+}
+#else
 /// Does a full integration cycle (but not necessarily a full step)
 double TimeSteppingSimulator::do_mini_step(double dt)
 {
@@ -388,6 +783,7 @@ double TimeSteppingSimulator::do_mini_step(double dt)
   return h_accum; 
 */
 }
+#endif
 
 /// Checks to see whether all constraints are met
 bool TimeSteppingSimulator::constraints_met(const std::vector<PairwiseDistInfo>& current_pairwise_distances)

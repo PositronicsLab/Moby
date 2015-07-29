@@ -22,6 +22,7 @@ namespace Moby {
 class DynamicBody : public Visualizable
 {
   friend class EventDrivenSimulator;
+  friend class TimeSteppingSimulator;
 
   public:
     enum GeneralizedCoordinateType { eEuler, eSpatial };
@@ -385,6 +386,8 @@ class DynamicBody : public Visualizable
 
     /// Temporaries for use with integration
     Ravelin::VectorNd gc, gv, gcgv, xp, xv, xa;
+    Ravelin::VectorNd abs_pos_err_tol, rel_pos_err_tol, abs_pos_err, rel_pos_err;
+    Ravelin::VectorNd abs_vel_err_tol, rel_vel_err_tol, abs_vel_err, rel_vel_err;
 
   private:
 
