@@ -9,7 +9,7 @@
 #include <Moby/XMLTree.h>
 #include <Moby/ArticulatedBody.h>
 #include <Moby/RigidBody.h>
-#include <Moby/Dissipation.h>
+#include <Moby/RecurrentForce.h>
 #include <Moby/DynamicBody.h>
 #include <Moby/CollisionGeometry.h>
 #include <Moby/CollisionDetection.h>
@@ -19,6 +19,7 @@
 #include <Moby/SustainedUnilateralConstraintSolveFailException.h>
 #include <Moby/InvalidStateException.h>
 #include <Moby/InvalidVelocityException.h>
+#include <Moby/Dissipation.h>
 #include <Moby/TimeSteppingSimulator.h>
 
 #ifdef USE_OSG

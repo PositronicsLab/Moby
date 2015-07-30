@@ -44,6 +44,11 @@ void ExponentialDissipation::apply(const std::vector<DynamicBodyPtr>& bodies)
     if ((body_iter = _coeffs.find(bodies[i])) != _coeffs.end())
       decay = body_iter->second;
 
+    VectorNd gv;
+    bodies[i]->get_generalized_velocity(DynamicBody::eSpatial, gv);
+    gv *= decay;
+    bodies[i]->set_generalized_velocity(DynamicBody::eSpatial, gv);
+/*
     // apply the decay 
     const vector<JointPtr>& joints = ab->get_joints();
     for (unsigned j=0; j< joints.size(); j++)
@@ -51,6 +56,7 @@ void ExponentialDissipation::apply(const std::vector<DynamicBodyPtr>& bodies)
 
     // update link velocities
     ab->update_link_velocities();
+*/
   }
 }
 
