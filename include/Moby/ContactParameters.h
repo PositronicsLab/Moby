@@ -39,6 +39,9 @@ class ContactParameters : public Base
     /// Coefficient of viscous friction for contact (default is 0.0)
     double mu_viscous;
 
+    /// The contact constraint stabilization term [0, inf], only for when Baumgarte Stabilization used
+    double alpha;
+
     /// Penalty Method Depth Penalty
     double penalty_Kp;
     

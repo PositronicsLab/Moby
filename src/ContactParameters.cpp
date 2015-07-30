@@ -19,6 +19,7 @@ using namespace Moby;
  */
 ContactParameters::ContactParameters()
 {
+  alpha = 0.0;
   epsilon = 0.0;
   mu_coulomb = mu_viscous = 0.0;
   NK = 4;
@@ -32,6 +33,7 @@ ContactParameters::ContactParameters()
  */
 ContactParameters::ContactParameters(BasePtr o1, BasePtr o2) 
 { 
+  alpha = 0.0;
   objects = make_sorted_pair(o1, o2);
   epsilon = 0.0;
   mu_coulomb = mu_viscous = 0.0;
@@ -95,6 +97,11 @@ void ContactParameters::load_from_xml(shared_ptr<const XMLTree> node, std::map<s
   // form the sorted pair
   objects = make_sorted_pair(o1, o2);
 
+  // get the value for the correction term, if specified
+  XMLAttrib* alpha_attr = node->get_attrib("alpha");
+  if (alpha_attr)
+    alpha = alpha_attr->get_real_value();
+
   // get the value for epsilon, if specified
   XMLAttrib* rest_attr = node->get_attrib("epsilon");
   if (rest_attr)
@@ -157,6 +164,9 @@ void ContactParameters::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const 
   // write the two object IDs
   node->attribs.insert(XMLAttrib("object1-id", objects.first->id));
   node->attribs.insert(XMLAttrib("object2-id", objects.second->id));
+
+  // save the stabilization term parameter
+  node->attribs.insert(XMLAttrib("alpha", alpha));
 
   // write the coefficient of epsilon 
   node->attribs.insert(XMLAttrib("epsilon", epsilon));

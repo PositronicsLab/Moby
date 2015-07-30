@@ -119,6 +119,9 @@ class UnilateralConstraint
     /// The collision geometries involved (for contact constraints)
     CollisionGeometryPtr contact_geom1, contact_geom2;
 
+    /// Constraint stabilization term (only for Baumgarte Stabilization)
+    double contact_alpha;
+
     /// The coefficient of Coulomb friction (for contact constraints)
     double contact_mu_coulomb;
 

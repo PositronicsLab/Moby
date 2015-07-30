@@ -532,6 +532,10 @@ void UnilateralConstraint::compute_vconstraint_data(MatrixNd& M, VectorNd& q) co
     // free v1 and allocate v2 and workv
     su2->get_generalized_velocity(DynamicBody::eSpatial, v);
     q += J2.mult(v, workv);
+
+    // add in constraint violation
+    if (signed_violation < 0.0)
+      q[0] += contact_alpha * signed_violation;
   }
   else if (constraint_type == eLimit)
   {
@@ -1266,6 +1270,7 @@ void UnilateralConstraint::set_contact_parameters(const ContactParameters& cpara
   contact_penalty_Kp = cparams.penalty_Kp;
   contact_penalty_Kv = cparams.penalty_Kv;
   contact_epsilon = cparams.epsilon;
+  contact_alpha = cparams.alpha;
   contact_NK = cparams.NK;
   stick_tol = cparams.stick_tol;
   sustained_tol = cparams.sustained_tol;

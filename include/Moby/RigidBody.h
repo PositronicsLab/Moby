@@ -387,6 +387,7 @@ class RigidBody : public SingleBody
     /// Indicates whether the velocity limit has been exceeded
     bool _vel_limit_exceeded;
 
+    // error tolerances for integration w/error control
     Ravelin::VectorNd abs_pos_err_tol, abs_pos_err;
     Ravelin::VectorNd abs_vel_err_tol, abs_vel_err;
 
