@@ -598,10 +598,6 @@ double TimeSteppingSimulator::do_mini_step(double dt)
 
   FILE_LOG(LOG_SIMULATOR) << "Safe integration ended w/ h = " << h << std::endl;
 
-  // dissipate some energy
-  if (_dissipator)
-    _dissipator->apply(bodies);
-
   // recompute pairwise distances
   calc_pairwise_distances();
 
@@ -610,6 +606,10 @@ double TimeSteppingSimulator::do_mini_step(double dt)
 
   // handle any impacts
   calc_impacting_unilateral_constraint_forces(-1.0);
+
+  // dissipate some energy
+  if (_dissipator)
+    _dissipator->apply(bodies);
 
   // update the time
   current_time += h;
@@ -683,10 +683,6 @@ double TimeSteppingSimulator::do_mini_step(double dt)
     _bodies[i]->set_generalized_velocity(DynamicBody::eSpatial, qd);
   }
 
-  // dissipate some energy
-  if (_dissipator)
-    _dissipator->apply(_bodies);
-
   FILE_LOG(LOG_SIMULATOR) << "Integrated velocity by " << h << std::endl;
 
   // recompute pairwise distances
@@ -697,6 +693,10 @@ double TimeSteppingSimulator::do_mini_step(double dt)
 
   // handle any impacts
   calc_impacting_unilateral_constraint_forces(-1.0);
+
+  // dissipate some energy
+  if (_dissipator)
+    _dissipator->apply(_bodies);
 
   // update the time
   current_time += h;
