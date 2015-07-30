@@ -47,7 +47,8 @@
 #include <Moby/VariableEulerIntegrator.h>
 #include <Moby/GravityForce.h>
 #include <Moby/StokesDragForce.h>
-#include <Moby/Dissipation.h>
+#include <Moby/ExponentialDissipation.h>
+#include <Moby/RayleighDissipation.h>
 #include <Moby/DampingForce.h>
 #include <Moby/XMLTree.h>
 #include <Moby/SDFReader.h>
@@ -206,7 +207,8 @@ std::map<std::string, BasePtr> XMLReader::construct_ID_map(shared_ptr<XMLTree> m
 
   // damping forces and dissipation must be constructed after bodies
   process_tag("DampingForce", moby_tree, &read_damping_force, id_map);
-  process_tag("Dissipation", moby_tree, &read_dissipation, id_map);
+  process_tag("ExponentialDissipation", moby_tree, &read_exp_dissipation, id_map);
+  process_tag("RayleighDissipation", moby_tree, &read_rayleigh_dissipation, id_map);
 
   // finally, read and construct the simulator objects -- must be done last
   process_tag("Simulator", moby_tree, &read_simulator, id_map);
@@ -262,14 +264,27 @@ void XMLReader::process_tag(const std::string& tag, shared_ptr<const XMLTree> ro
   }
 }
 
-/// Reads and constructs a dissipation object
-void XMLReader::read_dissipation(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
+/// Reads and constructs an exponential dissipation object
+void XMLReader::read_exp_dissipation(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // sanity check
-  assert(strcasecmp(node->name.c_str(), "Dissipation") == 0);
+  assert(strcasecmp(node->name.c_str(), "ExponentialDissipation") == 0);
 
   // create a new Base object
-  boost::shared_ptr<Base> b(new Dissipation());
+  boost::shared_ptr<Base> b(new ExponentialDissipation());
+  
+  // populate the object
+  b->load_from_xml(node, id_map);
+}
+
+/// Reads and constructs a Rayleigh dissipation object
+void XMLReader::read_rayleigh_dissipation(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
+{
+  // sanity check
+  assert(strcasecmp(node->name.c_str(), "RayleighDissipation") == 0);
+
+  // create a new Base object
+  boost::shared_ptr<Base> b(new RayleighDissipation());
   
   // populate the object
   b->load_from_xml(node, id_map);

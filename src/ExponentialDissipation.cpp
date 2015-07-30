@@ -6,7 +6,7 @@
 
 #include <Moby/RCArticulatedBody.h>
 #include <Moby/DynamicBody.h>
-#include <Moby/Dissipation.h>
+#include <Moby/ExponentialDissipation.h>
 #include <Moby/XMLTree.h>
 
 using std::endl;
@@ -22,11 +22,11 @@ using boost::dynamic_pointer_cast;
 using namespace Ravelin;
 using namespace Moby;
 
-Dissipation::Dissipation()
+ExponentialDissipation::ExponentialDissipation()
 {
 }
 
-void Dissipation::apply(const std::vector<DynamicBodyPtr>& bodies)
+void ExponentialDissipation::apply(const std::vector<DynamicBodyPtr>& bodies)
 {
   const double DECAY = 0.99;
 
@@ -55,13 +55,13 @@ void Dissipation::apply(const std::vector<DynamicBodyPtr>& bodies)
 }
 
 /// Implements Base::load_from_xml()
-void Dissipation::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
+void ExponentialDissipation::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   // call child method
   Base::load_from_xml(node, id_map);
 
   // verify that the name of this node is correct
-  assert(strcasecmp(node->name.c_str(), "Dissipation") == 0);
+  assert(strcasecmp(node->name.c_str(), "ExponentialDissipation") == 0);
 
   // look for coefficients
   std::list<shared_ptr<const XMLTree> > body_nodes = node->find_child_nodes("Body");
@@ -70,7 +70,7 @@ void Dissipation::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::st
     XMLAttrib* id_attr = (*i)->get_attrib("id");
     if (!id_attr)
     {
-      std::cerr << "Dissipation::load_from_xml() - no 'id' specified in 'Body' node" << std::endl;
+      std::cerr << "ExponentialDissipation::load_from_xml() - no 'id' specified in 'Body' node" << std::endl;
       continue;
     }
 
@@ -78,7 +78,7 @@ void Dissipation::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::st
     std::map<std::string, BasePtr>::const_iterator id_map_iter = id_map.find(id_attr->get_string_value());
     if (id_map_iter == id_map.end())
     {
-      std::cerr << "Dissipation::load_from_xml() - id '" << id_attr->get_string_value() << "' not found in id map" << std::endl;
+      std::cerr << "ExponentialDissipation::load_from_xml() - id '" << id_attr->get_string_value() << "' not found in id map" << std::endl;
       continue;
     }
 
@@ -86,7 +86,7 @@ void Dissipation::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::st
     DynamicBodyPtr db = dynamic_pointer_cast<DynamicBody>(id_map_iter->second);
     if (!db)
     {
-      std::cerr << "Dissipation::load_from_xml() - id '" << id_attr->get_string_value() << "' not castable to a dynamic body" << std::endl;
+      std::cerr << "ExponentialDissipation::load_from_xml() - id '" << id_attr->get_string_value() << "' not castable to a dynamic body" << std::endl;
       continue;
     }
 
@@ -94,7 +94,7 @@ void Dissipation::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::st
     XMLAttrib* coeff_attr = (*i)->get_attrib("lambda");
     if (!coeff_attr)
     {
-      std::cerr << "Dissipation::load_from_xml() - no 'lambda' specified in 'Body' node" << std::endl;
+      std::cerr << "ExponentialDissipation::load_from_xml() - no 'lambda' specified in 'Body' node" << std::endl;
       continue;
     }
 
@@ -104,13 +104,13 @@ void Dissipation::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::st
 }
 
 /// Implements Base::save_to_xml()
-void Dissipation::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& shared_objects) const 
+void ExponentialDissipation::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& shared_objects) const 
 {
   // call parent method
   Base::save_to_xml(node, shared_objects);
 
   // (re)set the name of this node
-  node->name = "Dissipation";
+  node->name = "ExponentialDissipation";
 
   // loop through all bodies
   for (std::map<DynamicBodyPtr, double>::const_iterator i = _coeffs.begin(); i != _coeffs.end(); i++)
