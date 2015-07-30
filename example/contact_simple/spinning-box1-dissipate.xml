@@ -21,9 +21,9 @@
     <GravityForce id="gravity" accel="0 -9.81 0"  />
 
     <!-- Rayleigh dissipation function -->
-    <Dissipation id="dissipator" >
-      <Body id="box" lambda="0.00001" />
-    </Dissipation>
+    <ExponentialDissipation id="dissipator" >
+      <Body id="box" lambda="0.999" />
+    </ExponentialDissipation>
 
     <!-- Rigid bodies -->
       <!-- the box -->

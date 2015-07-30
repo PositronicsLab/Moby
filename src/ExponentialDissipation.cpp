@@ -33,10 +33,12 @@ void ExponentialDissipation::apply(const std::vector<DynamicBodyPtr>& bodies)
   // loop through all bodies
   for (unsigned i=0; i< bodies.size(); i++)
   {
+/*
     // see whether the body is articulated
     RCArticulatedBodyPtr ab = dynamic_pointer_cast<RCArticulatedBody>(bodies[i]);
     if (!ab)
       continue;
+*/
 
     // get the decay 
     double decay = DECAY;
