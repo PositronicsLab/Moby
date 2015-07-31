@@ -256,6 +256,18 @@ double TimeSteppingSimulator::do_mini_step(double dt)
       }
       // compute forward dynamics
       calc_fwd_dyn();
+  // recompute pairwise distances
+  calc_pairwise_distances();
+
+  // find unilateral constraints
+  find_unilateral_constraints(contact_dist_thresh);
+
+  // handle any impacts
+  calc_impacting_unilateral_constraint_forces(-1.0);
+
+  // dissipate some energy
+  if (_dissipator)
+    _dissipator->apply(bodies);
   
       // integrate the bodies' velocities forward by h
       for (unsigned i=0; i< bodies.size(); i++)
@@ -279,6 +291,18 @@ double TimeSteppingSimulator::do_mini_step(double dt)
       }
       // compute forward dynamics
       calc_fwd_dyn();
+  // recompute pairwise distances
+  calc_pairwise_distances();
+
+  // find unilateral constraints
+  find_unilateral_constraints(contact_dist_thresh);
+
+  // handle any impacts
+  calc_impacting_unilateral_constraint_forces(-1.0);
+
+  // dissipate some energy
+  if (_dissipator)
+    _dissipator->apply(bodies);
   
       // integrate the bodies' velocities forward by h
       for (unsigned i=0; i< bodies.size(); i++)
@@ -299,6 +323,18 @@ double TimeSteppingSimulator::do_mini_step(double dt)
       }
       // compute forward dynamics
       calc_fwd_dyn();
+  // recompute pairwise distances
+  calc_pairwise_distances();
+
+  // find unilateral constraints
+  find_unilateral_constraints(contact_dist_thresh);
+
+  // handle any impacts
+  calc_impacting_unilateral_constraint_forces(-1.0);
+
+  // dissipate some energy
+  if (_dissipator)
+    _dissipator->apply(bodies);
   
       // integrate the bodies' velocities forward by h
       for (unsigned i=0; i< bodies.size(); i++)
@@ -542,7 +578,8 @@ double TimeSteppingSimulator::do_mini_step(double dt)
       
       Quatd q1(qesave_small[i][N-4],qesave_small[i][N-3],qesave_small[i][N-2],qesave_small[i][N-1]), 
             q2(qesave_large[i][N-4],qesave_large[i][N-3],qesave_large[i][N-2],qesave_large[i][N-1]);
-      //q1.lerp(q2,0.5);
+      q1.slerp(q2,0.5);
+      q1.normalize();
       q[N-4] = q1.x;
       q[N-3] = q1.y;
       q[N-2] = q1.z;
@@ -595,21 +632,7 @@ double TimeSteppingSimulator::do_mini_step(double dt)
     }
   }
 
-
   FILE_LOG(LOG_SIMULATOR) << "Safe integration ended w/ h = " << h << std::endl;
-
-  // recompute pairwise distances
-  calc_pairwise_distances();
-
-  // find unilateral constraints
-  find_unilateral_constraints(contact_dist_thresh);
-
-  // handle any impacts
-  calc_impacting_unilateral_constraint_forces(-1.0);
-
-  // dissipate some energy
-  if (_dissipator)
-    _dissipator->apply(bodies);
 
   // update the time
   current_time += h;
