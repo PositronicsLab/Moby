@@ -203,7 +203,7 @@ static void integrate_velocities(const vector<DynamicBodyPtr>& bodies, double h)
 static void get_coordinates(const vector<DynamicBodyPtr>& bodies, vector<VectorNd>& q)
 {
   for (unsigned i=0; i< bodies.size(); i++)
-    bodies[i]->get_generalized_coordinates(DynamicBody::eSpatial, q[i]);
+    bodies[i]->get_generalized_coordinates(DynamicBody::eEuler, q[i]);
 }
 
 // utility function for do_mini_step(.)
@@ -346,21 +346,22 @@ double TimeSteppingSimulator::record_error(RigidBodyPtr rb)
   double min_k = std::numeric_limits<double>::max();
 
   for(int j=0;j<6;j++){
-        // record rel err
-        // if rel err tol exceeded
-        double k = 1.0;
-        // Calc step scale
-        if(std::fabs(rb->abs_pos_err[j]) > NEAR_ZERO)
-          k = rb->abs_pos_err_tol[j]/std::fabs(rb->abs_pos_err[j]);
-        min_k = std::min(min_k, k);
-        if(std::fabs(rb->abs_vel_err[j]) > NEAR_ZERO)
-          k = rb->abs_vel_err_tol[j]/std::fabs(rb->abs_vel_err[j]);
-        min_k = std::min(min_k, k);
-      }
-      std::cerr << "absolute position error (" <<  rb->id << ") " << rb->abs_pos_err << std::endl;
-      //std::cerr << "relative position error (" <<  rb->id << ") " << rb->rel_pos_err << std::endl;
-      std::cerr << "absolute velocity error (" <<  rb->id << ") " << rb->abs_vel_err << std::endl;
-      //std::cerr << "relative velocity error (" <<  rb->id << ") " << rb->rel_vel_err << std::endl;
+    // record rel err
+    // if rel err tol exceeded
+    double k = 1.0;
+    // Calc step scale
+    if(std::fabs(rb->abs_pos_err[j]) > NEAR_ZERO)
+      k = rb->abs_pos_err_tol[j]/std::fabs(rb->abs_pos_err[j]);
+    min_k = std::min(min_k, k);
+    if(std::fabs(rb->abs_vel_err[j]) > NEAR_ZERO)
+      k = rb->abs_vel_err_tol[j]/std::fabs(rb->abs_vel_err[j]);
+    min_k = std::min(min_k, k);
+  }
+  std::cerr << "absolute position error (" <<  rb->id << ") " << rb->abs_pos_err << std::endl;
+  //std::cerr << "relative position error (" <<  rb->id << ") " << rb->rel_pos_err << std::endl;
+  std::cerr << "absolute velocity error (" <<  rb->id << ") " << rb->abs_vel_err << std::endl;
+  //std::cerr << "relative velocity error (" <<  rb->id << ") " << rb->rel_vel_err << std::endl;
+  return min_k;
 }
 
 // records the error for a dynamic body
@@ -371,7 +372,7 @@ double TimeSteppingSimulator::record_error(DynamicBodyPtr db)
   {
     double min_k = std::numeric_limits<double>::max();
     for (unsigned i=0; i< ab->get_links().size(); i++)
-      std::min(record_error(ab->get_links()[i]), min_k);
+      min_k = std::min(record_error(ab->get_links()[i]), min_k);
     return min_k;
   }
 
@@ -381,7 +382,7 @@ double TimeSteppingSimulator::record_error(DynamicBodyPtr db)
 }
 
 // computes integration error
-bool TimeSteppingSimulator::calc_integration_error(const vector<DynamicBodyPtr>& bodies, double h, const vector<VectorNd>& qe_large, const vector<VectorNd>& v_large, const vector<VectorNd>& qe_small, const vector<VectorNd>& v_small, double& min_k)
+bool TimeSteppingSimulator::calc_integration_error(const vector<DynamicBodyPtr>& bodies, double h, const vector<VectorNd>& qe_large, const vector<VectorNd>& v_large, const vector<VectorNd>& qe_small, const vector<VectorNd>& v_small, double& min_k , std::string flag)
 {
   // determine if this integration is successful
   // NOTE: Relative error sucks
@@ -415,27 +416,30 @@ bool TimeSteppingSimulator::calc_integration_error(const vector<DynamicBodyPtr>&
     //std::cerr << "Inertia -- 1 steps (" <<  bodies[i]->id << ") " << M1_g << std::endl;
     //std::cerr << "Inertia -- 2 steps (" <<  bodies[i]->id << ") " << M2_g << std::endl;
 
-    std::cerr << "Energy -- 1 step (" <<  bodies[i]->id << ") " << Tlarge << std::endl;
-    std::cerr << "Energy -- 2 steps (" <<  bodies[i]->id << ") " << Tsmall << std::endl;
-    std::cerr << "Energy error (" <<  bodies[i]->id << ") " <<  energy_error[i] << std::endl;
-    std::cerr << "Energy relative error (" <<  bodies[i]->id << ") " <<  energy_relative_error[i] << std::endl;
+    std::cerr << flag << "Energy -- 1 step (" <<  bodies[i]->id << ") " << Tlarge << std::endl;
+    std::cerr << flag << "Energy -- 2 steps (" <<  bodies[i]->id << ") " << Tsmall << std::endl;
+    std::cerr << flag << "Energy error (" <<  bodies[i]->id << ") " <<  energy_error[i] << std::endl;
+    std::cerr << flag << "Energy relative error (" <<  bodies[i]->id << ") " <<  energy_relative_error[i] << std::endl;
 
     // record the error for the body
     min_k = record_error(bodies[i]);
 
-    const double LOW_ENERGY = 1.0e-2;
-    const double ENERGY_ABS_TOL = 1.0e-2;
-    const double ENERGY_REL_TOL = 0.05;
+    const double LOW_ENERGY = 1.0e-3;
+    const double ENERGY_ABS_TOL = 1.0e-3;
+    const double ENERGY_REL_TOL = 2e-3;
     if(Tlarge > LOW_ENERGY || Tsmall > LOW_ENERGY){
       if(std::fabs(energy_relative_error[i]) > ENERGY_REL_TOL){
         // Check if this integration step is accurate enough
+        std::cerr << flag << "Limited by relative error: " << energy_relative_error[i] << " of " << Tsmall << std::endl;
         error_exceeded = true;  
       }
     } else if (std::fabs(energy_error[i]) > ENERGY_ABS_TOL){
+        std::cerr << flag << "Limited by absolute error: " << energy_error[i] << " of " << Tsmall << std::endl;
       error_exceeded = true;
     }
 
   }
+  return error_exceeded;
 }
 
 /// Updates position and velocity using Richardson extrapolation
@@ -478,7 +482,6 @@ double TimeSteppingSimulator::do_mini_step(double dt)
   get_active_bodies(_bodies, bodies);
   
   std::cerr << "begin do_mini_step() " << current_time << std::endl;
-  const double INF = std::numeric_limits<double>::max();
   VectorNd q, qd, qdd, eps;
   std::vector<VectorNd> qsave, vssave, vesave;
 
@@ -493,11 +496,14 @@ double TimeSteppingSimulator::do_mini_step(double dt)
     bodies[i]->get_generalized_velocity(DynamicBody::eEuler, vesave[i]);
     bodies[i]->get_generalized_velocity(DynamicBody::eSpatial, vssave[i]);
   }
- 
+
+  // Set rigid body accuracy tolerances
+  const double INF = std::numeric_limits<double>::max();
+  static SVector6d lin_ang_pos_tol(0.01,0.01,0.01,0.1,0.1,0.1);
+  static SVector6d lin_ang_vel_tol(INF,INF,INF,INF,INF,INF);
+  
   // see whether to initialize tolerances
   static bool tols_inited = false;
-  static SVector6d lin_ang_pos_tol(INF,INF,INF,INF,INF,INF);
-  static SVector6d lin_ang_vel_tol(INF,INF,INF,INF,INF,INF);
   if(!tols_inited){
     tols_inited = true;
 
@@ -551,6 +557,7 @@ double TimeSteppingSimulator::do_mini_step(double dt)
       //////////////////////////////////////
       //// INTEGRATION: one large step 
       // integrate the bodies' positions by h + conservative advancement step
+      std::cerr << "one large step: h = " << h << std::endl;
 
       // reset positions and velocities first
       reset_positions_and_velocities(bodies, qsave, vssave);
@@ -563,9 +570,9 @@ double TimeSteppingSimulator::do_mini_step(double dt)
       get_velocities(bodies, v_large);
 
       //////////////////////////////////////
-      //// INTEGRATION: 2 Small steps 
-      // 1st
+      //// INTEGRATION: two small steps 
 
+      std::cerr << "two small steps: h/2 = " << h/2 << std::endl;
       // reset positions and velocities first
       reset_positions_and_velocities(bodies, qsave, vssave);
 
@@ -583,6 +590,7 @@ double TimeSteppingSimulator::do_mini_step(double dt)
       
       // Set by absolute error calculation, determines the size of the smaller step
       double min_k;
+      std::cerr << "calc_integration_error: h = " << h << std::endl;
       bool error_exceeded = calc_integration_error(bodies, h, qe_large, v_large, qe_small, v_small, min_k); 
       
       // If we exceed relative error bounds
@@ -598,7 +606,7 @@ double TimeSteppingSimulator::do_mini_step(double dt)
           h = min_step_size;
         
         continue;
-      }
+      } 
 #if 0
       for (unsigned i=0; i< bodies.size(); i++)
       {
@@ -626,10 +634,12 @@ double TimeSteppingSimulator::do_mini_step(double dt)
     std::cerr << "Found maximum safe (accurate) integration step size (or at min-step-size): h =" << h << std::endl;
     std::cerr << "Check if a collision occurs in this interval given error bounds" << std::endl;
 
+    double min_k;
+    calc_integration_error(bodies, h, qe_large, v_large, qe_small, v_small, min_k,"Final "); 
     // Set third order optimal position (Richardson extrapolation)
     // for conservative advancement (do not update velocity)
     do_richardson(bodies, qe_small, qe_large, v_small, v_large);
-
+    break;
   }
 
 // TODO: let's disable this for now since we're not using for experiment

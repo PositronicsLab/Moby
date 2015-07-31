@@ -64,7 +64,7 @@ class TimeSteppingSimulator : public ConstraintSimulator
     void update_state(RigidBodyPtr rb, double h);
     void update_state(DynamicBodyPtr db, double h);
     void integrate_bodies(const std::vector<DynamicBodyPtr>& bodies, double h);
-    bool calc_integration_error(const std::vector<DynamicBodyPtr>& bodies, double h, const std::vector<Ravelin::VectorNd>& qe_large, const std::vector<Ravelin::VectorNd>& v_large, const std::vector<Ravelin::VectorNd>& qe_small, const std::vector<Ravelin::VectorNd>& v_small, double& min_k);
+    bool calc_integration_error(const std::vector<DynamicBodyPtr>& bodies, double h, const std::vector<Ravelin::VectorNd>& qe_large, const std::vector<Ravelin::VectorNd>& v_large, const std::vector<Ravelin::VectorNd>& qe_small, const std::vector<Ravelin::VectorNd>& v_small, double& min_k, std::string logging_flag = std::string());
 }; // end class
 
 } // end namespace

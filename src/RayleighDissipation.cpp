@@ -40,7 +40,7 @@ void RayleighDissipation::apply(const std::vector<DynamicBodyPtr>& bodies)
     std::map<DynamicBodyPtr, double>::const_iterator body_iter;
     if ((body_iter = _coeffs.find(bodies[i])) != _coeffs.end())
       lambda = body_iter->second;
-
+    std::cerr << "Dissipation Lambda" << lambda << std::endl;
     // get generalized velocity
     bodies[i]->get_generalized_velocity(DynamicBody::eSpatial, v);
 
