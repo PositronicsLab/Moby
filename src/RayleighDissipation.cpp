@@ -28,7 +28,7 @@ RayleighDissipation::RayleighDissipation()
 
 void RayleighDissipation::apply(const std::vector<DynamicBodyPtr>& bodies)
 {
-  const double LAMBDA = 0.99;
+  const double LAMBDA = 0.0;
   VectorNd v, Mv;
   MatrixNd M;
 

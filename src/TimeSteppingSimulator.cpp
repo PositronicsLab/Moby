@@ -424,11 +424,11 @@ bool TimeSteppingSimulator::calc_integration_error(const vector<DynamicBodyPtr>&
     // record the error for the body
     min_k = record_error(bodies[i]);
 
-    const double LOW_ENERGY = 1.0e-3;
-    const double ENERGY_ABS_TOL = 1.0e-3;
+    const double LOW_ENERGY = 1.0e-2;
+    const double ENERGY_ABS_TOL = 1.0e-2;
     const double ENERGY_REL_TOL = 2e-3;
-    if(Tlarge > LOW_ENERGY || Tsmall > LOW_ENERGY){
-      if(std::fabs(energy_relative_error[i]) > ENERGY_REL_TOL){
+    if(Tsmall > LOW_ENERGY && Tlarge > LOW_ENERGY ){
+      if(energy_relative_error[i] > ENERGY_REL_TOL){
         // Check if this integration step is accurate enough
         std::cerr << flag << "Limited by relative error: " << energy_relative_error[i] << " of " << Tsmall << std::endl;
         error_exceeded = true;  
