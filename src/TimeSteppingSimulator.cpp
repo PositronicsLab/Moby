@@ -273,8 +273,11 @@ double TimeSteppingSimulator::do_mini_step(double dt)
       for (unsigned i=0; i< bodies.size(); i++)
       {
         bodies[i]->get_generalized_acceleration(qdd);
+        bodies[i]->get_generalized_velocity(DynamicBody::eSpatial, qd);
+        FILE_LOG(LOG_SIMULATOR) << "qd1" << qd << std::endl;
+        FILE_LOG(LOG_SIMULATOR) << "qdd1" << qdd << std::endl;
         qdd *= h;
-        (qd = vssave[i]) += qdd;
+        qd += qdd;
         vsave_large[i] = qd;
       }
  
@@ -309,9 +312,12 @@ double TimeSteppingSimulator::do_mini_step(double dt)
       {
         // SI Euler ingegration for step 1 velocity
         bodies[i]->get_generalized_acceleration(qdd);
+        bodies[i]->get_generalized_velocity(DynamicBody::eSpatial, qd);
         qdd *= (h/2.0);
-        (qd = vssave[i]) += qdd;
+        qd += qdd;
         bodies[i]->set_generalized_velocity(DynamicBody::eSpatial, qd);
+        FILE_LOG(LOG_SIMULATOR) << "qd2" << qd << std::endl;
+        FILE_LOG(LOG_SIMULATOR) << "qdd2" << qdd << std::endl;
         bodies[i]->get_generalized_velocity(DynamicBody::eEuler, qd);
         // Integration position
         bodies[i]->get_generalized_coordinates(DynamicBody::eEuler, q);
@@ -345,6 +351,8 @@ double TimeSteppingSimulator::do_mini_step(double dt)
         bodies[i]->get_generalized_velocity(DynamicBody::eSpatial, qd);
         qd += qdd;
         vsave_small[i] = qd;
+        FILE_LOG(LOG_SIMULATOR) << "qd3" << qd << std::endl;
+        FILE_LOG(LOG_SIMULATOR) << "qdd3" << qdd << std::endl;
       }
 
       //////////////////////////////////////
