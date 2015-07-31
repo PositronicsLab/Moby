@@ -41,18 +41,21 @@ void RayleighDissipation::apply(const std::vector<DynamicBodyPtr>& bodies)
     if ((body_iter = _coeffs.find(bodies[i])) != _coeffs.end())
       lambda = body_iter->second;
 
-    // get the generalized inertia
-    bodies[i]->get_generalized_inertia(M);
-
     // get generalized velocity
     bodies[i]->get_generalized_velocity(DynamicBody::eSpatial, v);
-    // get the momentum
-    M.mult(v, Mv);
 
     // compute the amount of force necessary to bring the body to rest
     double vnrm_sq = v.norm_sq();
+
     if(vnrm_sq < NEAR_ZERO)
       continue;
+
+    // get the generalized inertia
+    bodies[i]->get_generalized_inertia(M);
+
+    // get the momentum
+    M.mult(v, Mv);
+
     double f = Mv.norm() / std::sqrt(vnrm_sq);
 
     // see whether the force is sufficient

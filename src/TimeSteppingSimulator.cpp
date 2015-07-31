@@ -154,6 +154,8 @@ void TimeSteppingSimulator::calc_impacting_unilateral_constraint_forces2(double 
 
 #define NEW_MINISTEP
 #ifdef NEW_MINISTEP
+
+#define SEMI_IMPLICIT
 /// Does a full integration cycle (but not necessarily a full step)
 double TimeSteppingSimulator::do_mini_step(double dt)
 {
@@ -168,7 +170,7 @@ double TimeSteppingSimulator::do_mini_step(double dt)
       bodies.push_back(_bodies[i]);
     }
   }
-  FILE_LOG(LOG_SIMULATOR) << "begin do_mini_step() " << current_time << std::endl;
+  std::cerr << "begin do_mini_step() " << current_time << std::endl;
   const double INF = std::numeric_limits<double>::max();
   VectorNd q, qd, qdd, eps;
   std::vector<VectorNd> qsave, vssave, vesave;
@@ -178,6 +180,10 @@ double TimeSteppingSimulator::do_mini_step(double dt)
   vssave.resize(bodies.size());
   vesave.resize(bodies.size());
 
+#ifndef SEMI_IMPLICIT
+      // compute forward dynamics using new positions
+      calc_fwd_dyn();
+#endif  
   // save generalized coordinates and velocities for all bodies
   for (unsigned i=0; i< bodies.size(); i++){
     bodies[i]->get_generalized_coordinates(DynamicBody::eEuler, qsave[i]);
@@ -220,11 +226,11 @@ double TimeSteppingSimulator::do_mini_step(double dt)
   //calc_pairwise_distances();
 
   // TODO: read this in properly
-  double min_CA_step_size = 0.005;
+  double min_CA_step_size = 1.0;
 
   // get the conservative advancement step
   //double tc = std::max(min_CA_step_size, calc_next_CA_Euler_step(contact_dist_thresh));
-  //FILE_LOG(LOG_SIMULATOR) << "Conservative advancement step (initial): " << tc << std::endl;
+  //std::cerr << "Conservative advancement step (initial): " << tc << std::endl;
 
   //h = std::min(h,tc);
 
@@ -244,7 +250,7 @@ double TimeSteppingSimulator::do_mini_step(double dt)
       //// INTEGRATION one large and two small steps 
       //////////////////////////////////////
       
-      FILE_LOG(LOG_SIMULATOR) << "Finding maximum safe (accurate) integration step size: h =" << h << std::endl;
+      std::cerr << "Finding maximum safe (accurate) integration step size: h =" << h << std::endl;
       
       //////////////////////////////////////
       //// INTEGRATION: one large step 
@@ -261,11 +267,22 @@ double TimeSteppingSimulator::do_mini_step(double dt)
         qesave_large[i] = q;
       }
 
+#ifdef SEMI_IMPLICIT
       // compute forward dynamics using new positions
       calc_fwd_dyn();
-    // Check if collisions occur in the interval
-    // do broad phase collision detection
-    broad_phase(h);
+#endif  
+  
+      // integrate the bodies' velocities forward by h
+      for (unsigned i=0; i< bodies.size(); i++)
+      {
+        bodies[i]->get_generalized_acceleration(qdd);
+        bodies[i]->get_generalized_velocity(DynamicBody::eSpatial, qd);
+        qdd *= h;
+        qd += qdd;
+      }
+      // Check if collisions occur in the interval
+      // do broad phase collision detection
+      broad_phase(h);
 
       // recompute pairwise distances
       calc_pairwise_distances();
@@ -279,17 +296,11 @@ double TimeSteppingSimulator::do_mini_step(double dt)
       // dissipate some energy
       if (_dissipator)
         _dissipator->apply(bodies);
-  
-      // integrate the bodies' velocities forward by h
       for (unsigned i=0; i< bodies.size(); i++)
       {
-        bodies[i]->get_generalized_acceleration(qdd);
         bodies[i]->get_generalized_velocity(DynamicBody::eSpatial, qd);
-        FILE_LOG(LOG_SIMULATOR) << "qd1" << qd << std::endl;
-        FILE_LOG(LOG_SIMULATOR) << "qdd1" << qdd << std::endl;
-        qdd *= h;
-        qd += qdd;
         vsave_large[i] = qd;
+        std::cerr << "qd1" << qd << std::endl;
       }
  
       //////////////////////////////////////
@@ -303,24 +314,10 @@ double TimeSteppingSimulator::do_mini_step(double dt)
         q += qsave[i];
         bodies[i]->set_generalized_coordinates(DynamicBody::eEuler, q);
       }
+#ifdef SEMI_IMPLICIT
       // compute forward dynamics
       calc_fwd_dyn();
-    // Check if collisions occur in the interval
-    // do broad phase collision detection
-    broad_phase(h/2);
-  // recompute pairwise distances
-  calc_pairwise_distances();
-
-  // find unilateral constraints
-  find_unilateral_constraints(contact_dist_thresh);
-
-  // handle any impacts
-  calc_impacting_unilateral_constraint_forces(-1.0);
-
-  // dissipate some energy
-  if (_dissipator)
-    _dissipator->apply(bodies);
-  
+#endif  
       // integrate the bodies' velocities forward by h
       for (unsigned i=0; i< bodies.size(); i++)
       {
@@ -330,8 +327,32 @@ double TimeSteppingSimulator::do_mini_step(double dt)
         qdd *= (h/2.0);
         qd += qdd;
         bodies[i]->set_generalized_velocity(DynamicBody::eSpatial, qd);
-        FILE_LOG(LOG_SIMULATOR) << "qd2" << qd << std::endl;
-        FILE_LOG(LOG_SIMULATOR) << "qdd2" << qdd << std::endl;
+      }
+
+      // Check if collisions occur in the interval
+      // do broad phase collision detection
+      broad_phase(h/2);
+      // recompute pairwise distances
+      calc_pairwise_distances();
+     
+      // find unilateral constraints
+      find_unilateral_constraints(contact_dist_thresh);
+     
+      // handle any impacts
+      calc_impacting_unilateral_constraint_forces(-1.0);
+     
+      // dissipate some energy
+      if (_dissipator)
+        _dissipator->apply(bodies);
+#ifndef SEMI_IMPLICIT
+      // compute forward dynamics using new positions
+      calc_fwd_dyn();
+#endif  
+
+      for (unsigned i=0; i< bodies.size(); i++)
+      {
+        std::cerr << "qd2" << qd << std::endl;
+        std::cerr << "qdd2" << qdd << std::endl;
         bodies[i]->get_generalized_velocity(DynamicBody::eEuler, qd);
         // Integration position
         bodies[i]->get_generalized_coordinates(DynamicBody::eEuler, q);
@@ -341,24 +362,10 @@ double TimeSteppingSimulator::do_mini_step(double dt)
         bodies[i]->get_generalized_coordinates(DynamicBody::eSpatial, qssave_small[i]);
         qesave_small[i] = q;
       }
+#ifdef SEMI_IMPLICIT
       // compute forward dynamics
       calc_fwd_dyn();
-    // Check if collisions occur in the interval
-    // do broad phase collision detection
-    broad_phase(h/2);
-  // recompute pairwise distances
-  calc_pairwise_distances();
-
-  // find unilateral constraints
-  find_unilateral_constraints(contact_dist_thresh);
-
-  // handle any impacts
-  calc_impacting_unilateral_constraint_forces(-1.0);
-
-  // dissipate some energy
-  if (_dissipator)
-    _dissipator->apply(bodies);
-  
+#endif  
       // integrate the bodies' velocities forward by h
       for (unsigned i=0; i< bodies.size(); i++)
       {
@@ -367,9 +374,29 @@ double TimeSteppingSimulator::do_mini_step(double dt)
         qdd *= (h/2.0);
         bodies[i]->get_generalized_velocity(DynamicBody::eSpatial, qd);
         qd += qdd;
+        bodies[i]->set_generalized_velocity(DynamicBody::eSpatial, qd);
+      }
+      // Check if collisions occur in the interval
+      // do broad phase collision detection
+      broad_phase(h/2);
+      // recompute pairwise distances
+      calc_pairwise_distances();
+      
+      // find unilateral constraints
+      find_unilateral_constraints(contact_dist_thresh);
+     
+      // handle any impacts
+      calc_impacting_unilateral_constraint_forces(-1.0);
+      
+      // dissipate some energy
+      if (_dissipator)
+        _dissipator->apply(bodies);
+      for (unsigned i=0; i< bodies.size(); i++)
+      {
+        bodies[i]->get_generalized_velocity(DynamicBody::eSpatial, qd);
+        // SI Euler ingegration for step 2 velocity
         vsave_small[i] = qd;
-        FILE_LOG(LOG_SIMULATOR) << "qd3" << qd << std::endl;
-        FILE_LOG(LOG_SIMULATOR) << "qdd3" << qdd << std::endl;
+        std::cerr << "qd3" << qd << std::endl;
       }
 
       //////////////////////////////////////
@@ -482,15 +509,15 @@ double TimeSteppingSimulator::do_mini_step(double dt)
 
         energy_error[i] = energy1-energy2;
         energy_relative_error[i] = energy_error[i]/energy2;
-        //FILE_LOG(LOG_SIMULATOR) << "Velocity -- 1 steps (" <<  bodies[i]->id << ") " << v1_g << std::endl;
-        //FILE_LOG(LOG_SIMULATOR) << "Velocity -- 2 steps (" <<  bodies[i]->id << ") " << v2_g << std::endl;
-        //FILE_LOG(LOG_SIMULATOR) << "Inertia -- 1 steps (" <<  bodies[i]->id << ") " << M1_g << std::endl;
-        //FILE_LOG(LOG_SIMULATOR) << "Inertia -- 2 steps (" <<  bodies[i]->id << ") " << M2_g << std::endl;
+        //std::cerr << "Velocity -- 1 steps (" <<  bodies[i]->id << ") " << v1_g << std::endl;
+        //std::cerr << "Velocity -- 2 steps (" <<  bodies[i]->id << ") " << v2_g << std::endl;
+        //std::cerr << "Inertia -- 1 steps (" <<  bodies[i]->id << ") " << M1_g << std::endl;
+        //std::cerr << "Inertia -- 2 steps (" <<  bodies[i]->id << ") " << M2_g << std::endl;
 
-        FILE_LOG(LOG_SIMULATOR) << "Energy -- 1 step (" <<  bodies[i]->id << ") " << energy1 << std::endl;
-        FILE_LOG(LOG_SIMULATOR) << "Energy -- 2 steps (" <<  bodies[i]->id << ") " << energy2 << std::endl;
-        FILE_LOG(LOG_SIMULATOR) << "Energy error (" <<  bodies[i]->id << ") " <<  energy_error[i] << std::endl;
-        FILE_LOG(LOG_SIMULATOR) << "Energy relative error (" <<  bodies[i]->id << ") " <<  energy_relative_error[i] << std::endl;
+        std::cerr << "Energy -- 1 step (" <<  bodies[i]->id << ") " << energy1 << std::endl;
+        std::cerr << "Energy -- 2 steps (" <<  bodies[i]->id << ") " << energy2 << std::endl;
+        std::cerr << "Energy error (" <<  bodies[i]->id << ") " <<  energy_error[i] << std::endl;
+        std::cerr << "Energy relative error (" <<  bodies[i]->id << ") " <<  energy_relative_error[i] << std::endl;
 
         // Position
         ((bodies[i]->abs_pos_err = qssave_small[i]) -= qssave_large[i]) /= h;
@@ -510,10 +537,10 @@ double TimeSteppingSimulator::do_mini_step(double dt)
               k = rb->abs_vel_err_tol[j]/fabs(rb->abs_vel_err[j]);
             min_k = std::min(min_k, k);
           }
-          FILE_LOG(LOG_SIMULATOR) << "absolute position error (" <<  rb->id << ") " << rb->abs_pos_err << std::endl;
-          //FILE_LOG(LOG_SIMULATOR) << "relative position error (" <<  rb->id << ") " << rb->rel_pos_err << std::endl;
-          FILE_LOG(LOG_SIMULATOR) << "absolute velocity error (" <<  rb->id << ") " << rb->abs_vel_err << std::endl;
-          //FILE_LOG(LOG_SIMULATOR) << "relative velocity error (" <<  rb->id << ") " << rb->rel_vel_err << std::endl;
+          std::cerr << "absolute position error (" <<  rb->id << ") " << rb->abs_pos_err << std::endl;
+          //std::cerr << "relative position error (" <<  rb->id << ") " << rb->rel_pos_err << std::endl;
+          std::cerr << "absolute velocity error (" <<  rb->id << ") " << rb->abs_vel_err << std::endl;
+          //std::cerr << "relative velocity error (" <<  rb->id << ") " << rb->rel_vel_err << std::endl;
         } else if (ab) {
           BOOST_FOREACH(RigidBodyPtr rb, ab->get_links()){
             if(rb->is_base())
@@ -530,16 +557,16 @@ double TimeSteppingSimulator::do_mini_step(double dt)
                 k = rb->abs_vel_err_tol[j]/fabs(rb->abs_vel_err[j]);
               min_k = std::min(min_k, k);
             }
-            FILE_LOG(LOG_SIMULATOR) << "absolute position error (" <<  rb->id << ") " << rb->abs_pos_err << std::endl;
-            //FILE_LOG(LOG_SIMULATOR) << "relative position error (" <<  rb->id << ") " << rb->rel_pos_err << std::endl;
-            FILE_LOG(LOG_SIMULATOR) << "absolute velocity error (" <<  rb->id << ") " << rb->abs_vel_err << std::endl;
-            //FILE_LOG(LOG_SIMULATOR) << "relative velocity error (" <<  rb->id << ") " << rb->rel_vel_err << std::endl;
+            std::cerr << "absolute position error (" <<  rb->id << ") " << rb->abs_pos_err << std::endl;
+            //std::cerr << "relative position error (" <<  rb->id << ") " << rb->rel_pos_err << std::endl;
+            std::cerr << "absolute velocity error (" <<  rb->id << ") " << rb->abs_vel_err << std::endl;
+            //std::cerr << "relative velocity error (" <<  rb->id << ") " << rb->rel_vel_err << std::endl;
           }
         }
 
-        const double LOW_ENERGY = 1.0e-4;
-        const double ENERGY_ABS_TOL = 1.0e-4;
-        const double ENERGY_REL_TOL = 1.0e-2;
+        const double LOW_ENERGY = 1.0e-2;
+        const double ENERGY_ABS_TOL = 1.0e-2;
+        const double ENERGY_REL_TOL = 0.05;
         if(energy1 > LOW_ENERGY || energy2 > LOW_ENERGY){
           if(fabs(energy_relative_error[i]) > ENERGY_REL_TOL){
             // Check if this integration step is accurate enough
@@ -553,7 +580,7 @@ double TimeSteppingSimulator::do_mini_step(double dt)
       
       // If we exceed relative error bounds
       if(error_exceeded && h > min_step_size){
-        FILE_LOG(LOG_SIMULATOR) << "Error too high at this step size!: " << h << std::endl;
+        std::cerr << "Error too high at this step size!: " << h << std::endl;
         double new_h = 0.9*h*min_k;
         if(new_h > h)
           h = 0.9*h;
@@ -568,28 +595,28 @@ double TimeSteppingSimulator::do_mini_step(double dt)
 #ifndef NDEBUG
       for (unsigned i=0; i< bodies.size(); i++)
       {
-        FILE_LOG(LOG_SIMULATOR) << "Final Energy error (" <<  bodies[i]->id << ") " <<  energy_error[i] << std::endl;
-        FILE_LOG(LOG_SIMULATOR) << "Final Energy relative error (" <<  bodies[i]->id << ") " <<  energy_relative_error[i] << std::endl;
+        std::cerr << "Final Energy error (" <<  bodies[i]->id << ") " <<  energy_error[i] << std::endl;
+        std::cerr << "Final Energy relative error (" <<  bodies[i]->id << ") " <<  energy_relative_error[i] << std::endl;
         ArticulatedBodyPtr ab = dynamic_pointer_cast<ArticulatedBody>(bodies[i]);
         RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(bodies[i]);
         // if Articulated body, make the rigid body the base
         if(ab)
           rb = ab->get_base_link();
         if(rb){
-          FILE_LOG(LOG_SIMULATOR) << "Final absolute position error (" <<  rb->id << ") " << rb->abs_pos_err << std::endl;
-          FILE_LOG(LOG_SIMULATOR) << "Final absolute velocity error (" <<  rb->id << ") " << rb->abs_vel_err << std::endl;
+          std::cerr << "Final absolute position error (" <<  rb->id << ") " << rb->abs_pos_err << std::endl;
+          std::cerr << "Final absolute velocity error (" <<  rb->id << ") " << rb->abs_vel_err << std::endl;
         } else if (ab) {
           BOOST_FOREACH(RigidBodyPtr rb, ab->get_links()){
-            FILE_LOG(LOG_SIMULATOR) << "Final absolute position error (" <<  rb->id << ") " << rb->abs_pos_err << std::endl;
-            FILE_LOG(LOG_SIMULATOR) << "Final absolute velocity error (" <<  rb->id << ") " << rb->abs_vel_err << std::endl;
+            std::cerr << "Final absolute position error (" <<  rb->id << ") " << rb->abs_pos_err << std::endl;
+            std::cerr << "Final absolute velocity error (" <<  rb->id << ") " << rb->abs_vel_err << std::endl;
           }
         }
       }
 #endif
       break;
     }
-    FILE_LOG(LOG_SIMULATOR) << "Found maximum safe (accurate) integration step size (or at min-step-size): h =" << h << std::endl;
-    FILE_LOG(LOG_SIMULATOR) << "Check if a collision occurs in this interval given error bounds" << std::endl;
+    std::cerr << "Found maximum safe (accurate) integration step size (or at min-step-size): h =" << h << std::endl;
+    std::cerr << "Check if a collision occurs in this interval given error bounds" << std::endl;
 
     // Set third order optimal position (Richardson extrapolation)
     // for conservative advancement (do not update velocity)
@@ -603,7 +630,7 @@ double TimeSteppingSimulator::do_mini_step(double dt)
       
       Quatd q1(qesave_small[i][N-4],qesave_small[i][N-3],qesave_small[i][N-2],qesave_small[i][N-1]), 
             q2(qesave_large[i][N-4],qesave_large[i][N-3],qesave_large[i][N-2],qesave_large[i][N-1]), qR;
-      qR = 2*q1+q2;
+      qR = 2*q1-q2;
       qR.normalize();
       q[N-4] = qR.x;
       q[N-3] = qR.y;
@@ -629,13 +656,13 @@ double TimeSteppingSimulator::do_mini_step(double dt)
     double tc = min_step_size;
     //try {
     tc = std::max(min_CA_step_size, calc_next_CA_Euler_step(contact_dist_thresh));
-    FILE_LOG(LOG_SIMULATOR) << "Conservative advancement step (with error bounds): " << tc << std::endl;
+    std::cerr << "Conservative advancement step (with error bounds): " << tc << std::endl;
     //} catch (...){}
     // If there is a possible collision in the interval.
     // set step size to time of collision (conservative estimate)
     // then check accuracy over that interval
     if(tc < h){
-      FILE_LOG(LOG_SIMULATOR) << "Conservative advancement predicts collision in interval h: " << h << std::endl;
+      std::cerr << "Conservative advancement predicts collision in interval h: " << h << std::endl;
       h = tc;
       // And then restart process
       continue;
@@ -657,7 +684,7 @@ double TimeSteppingSimulator::do_mini_step(double dt)
     }
   }
 
-  FILE_LOG(LOG_SIMULATOR) << "Safe integration ended w/ h = " << h << std::endl;
+  std::cerr << "Safe integration ended w/ h = " << h << std::endl;
 
   // update the time
   current_time += h;
@@ -666,7 +693,7 @@ double TimeSteppingSimulator::do_mini_step(double dt)
   if (post_mini_step_callback_fn)
     post_mini_step_callback_fn((ConstraintSimulator*) this);
 
-  FILE_LOG(LOG_SIMULATOR) << "end do_mini_step() " << current_time << std::endl;
+  std::cerr << "end do_mini_step() " << current_time << std::endl;
   return h;
 }
 #else
