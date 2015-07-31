@@ -157,6 +157,7 @@ void TimeSteppingSimulator::calc_impacting_unilateral_constraint_forces2(double 
 /// Does a full integration cycle (but not necessarily a full step)
 double TimeSteppingSimulator::do_mini_step(double dt)
 {
+  // only process dynamic bodies
   static std::vector<DynamicBodyPtr> bodies;
   if(bodies.empty()){
     for (unsigned i=0; i< _bodies.size(); i++){
@@ -177,21 +178,21 @@ double TimeSteppingSimulator::do_mini_step(double dt)
   vssave.resize(bodies.size());
   vesave.resize(bodies.size());
 
-  // save generalized coordinates for all bodies
+  // save generalized coordinates and velocities for all bodies
   for (unsigned i=0; i< bodies.size(); i++){
     bodies[i]->get_generalized_coordinates(DynamicBody::eEuler, qsave[i]);
     bodies[i]->get_generalized_velocity(DynamicBody::eEuler, vesave[i]);
     bodies[i]->get_generalized_velocity(DynamicBody::eSpatial, vssave[i]);
   }
-  
+ 
+  // see whether to initialize tolerances
   static bool tols_inited = false;
-  //static SVector6d lin_ang_pos_tol(1e-3,1e-3,1e-3,1e-3,1e-3,1e-3);
-  //static SVector6d lin_ang_vel_tol(1e-3,1e-3,1e-3,1e-3,1e-3,1e-3);
   static SVector6d lin_ang_pos_tol(INF,INF,INF,INF,INF,INF);
   static SVector6d lin_ang_vel_tol(INF,INF,INF,INF,INF,INF);
   if(!tols_inited){
     tols_inited = true;
-    // init Tolerances
+
+    // init tolerances
     for (unsigned i=0; i< bodies.size(); i++){
       RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(bodies[i]);
       ArticulatedBodyPtr ab = dynamic_pointer_cast<ArticulatedBody>(bodies[i]);
@@ -210,6 +211,7 @@ double TimeSteppingSimulator::do_mini_step(double dt)
   // set the amount stepped
   double h = dt;
  
+  // EMD: why are these two calls disabled?
   // initially do CA calculation to save some time
   // do broad phase collision detection
   //broad_phase(h);
@@ -217,13 +219,16 @@ double TimeSteppingSimulator::do_mini_step(double dt)
   // compute pairwise distances
   //calc_pairwise_distances();
 
+  // TODO: read this in properly
   double min_CA_step_size = 0.005;
+
   // get the conservative advancement step
   //double tc = std::max(min_CA_step_size, calc_next_CA_Euler_step(contact_dist_thresh));
   //FILE_LOG(LOG_SIMULATOR) << "Conservative advancement step (initial): " << tc << std::endl;
 
   //h = std::min(h,tc);
-  
+
+  //   
   std::vector<VectorNd> qesave_large, qssave_large, vsave_large;
   std::vector<VectorNd> qesave_small, qssave_small, vsave_small;
   qssave_large.resize(bodies.size());
@@ -236,13 +241,13 @@ double TimeSteppingSimulator::do_mini_step(double dt)
   while (true) { // Loop to collisison free time
     while (true) { // loop to accurate integration
       //////////////////////////////////////
-      //// INTEGRATION 1 Large and 2 small steps 
+      //// INTEGRATION one large and two small steps 
       //////////////////////////////////////
       
       FILE_LOG(LOG_SIMULATOR) << "Finding maximum safe (accurate) integration step size: h =" << h << std::endl;
       
       //////////////////////////////////////
-      //// INTEGRATION: 1 Large step 
+      //// INTEGRATION: one large step 
       // integrate the bodies' positions by h + conservative advancement step
       for (unsigned i=0; i< bodies.size(); i++)
       {
@@ -251,26 +256,29 @@ double TimeSteppingSimulator::do_mini_step(double dt)
         (q = vesave[i]) *= (h);
         q += qsave[i];
         bodies[i]->set_generalized_coordinates(DynamicBody::eEuler, q);
+        // EMD: below line is dangerous b/c of likely rpy bugs
         bodies[i]->get_generalized_coordinates(DynamicBody::eSpatial, qssave_large[i]);
         qesave_large[i] = q;
       }
-      // compute forward dynamics
+
+      // compute forward dynamics using new positions
       calc_fwd_dyn();
     // Check if collisions occur in the interval
     // do broad phase collision detection
     broad_phase(h);
-  // recompute pairwise distances
-  calc_pairwise_distances();
 
-  // find unilateral constraints
-  find_unilateral_constraints(contact_dist_thresh);
+      // recompute pairwise distances
+      calc_pairwise_distances();
 
-  // handle any impacts
-  calc_impacting_unilateral_constraint_forces(-1.0);
+      // find unilateral constraints
+      find_unilateral_constraints(contact_dist_thresh);
 
-  // dissipate some energy
-  if (_dissipator)
-    _dissipator->apply(bodies);
+      // handle any impacts
+      calc_impacting_unilateral_constraint_forces(-1.0);
+
+      // dissipate some energy
+      if (_dissipator)
+        _dissipator->apply(bodies);
   
       // integrate the bodies' velocities forward by h
       for (unsigned i=0; i< bodies.size(); i++)
