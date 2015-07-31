@@ -55,6 +55,16 @@ class TimeSteppingSimulator : public ConstraintSimulator
     void step_si_Euler(double dt);
     double calc_next_CA_Euler_step(double contact_dist_thresh) const;
     void calc_impacting_unilateral_constraint_forces2(double dt);
+
+  private:
+    double record_error(RigidBodyPtr rb);
+    double record_error(DynamicBodyPtr db);
+    void store_state(RigidBodyPtr rb);
+    void store_state(DynamicBodyPtr db);
+    void update_state(RigidBodyPtr rb, double h);
+    void update_state(DynamicBodyPtr db, double h);
+    void integrate_bodies(const std::vector<DynamicBodyPtr>& bodies, double h);
+    bool calc_integration_error(const std::vector<DynamicBodyPtr>& bodies, double h, const std::vector<Ravelin::VectorNd>& qe_large, const std::vector<Ravelin::VectorNd>& v_large, const std::vector<Ravelin::VectorNd>& qe_small, const std::vector<Ravelin::VectorNd>& v_small, double& min_k);
 }; // end class
 
 } // end namespace

@@ -246,6 +246,26 @@ class RigidBody : public SingleBody
     RigidBodyPtr get_child_link(JointPtr j) const;
     void check_vel_limit_exceeded_and_update();
 
+    /// Gets the generalized coordinates of this body
+    virtual Ravelin::VectorNd& get_generalized_coordinates(GeneralizedCoordinateType gctype, Ravelin::VectorNd& gc)
+    {
+      const unsigned NGC = num_generalized_coordinates(gctype);
+      gc.resize(NGC);
+      Ravelin::SharedVectorNd gc_shared = gc.segment(0, gc.size());
+      get_generalized_coordinates(gctype, gc_shared);
+      return gc;
+    }
+
+    /// Gets the generalized velocity of this body
+    virtual Ravelin::VectorNd& get_generalized_velocity(GeneralizedCoordinateType gctype, Ravelin::VectorNd& gv)
+    {
+      const unsigned NGC = num_generalized_coordinates(gctype);
+      gv.resize(NGC);
+      Ravelin::SharedVectorNd gv_shared = gv.segment(0, gv.size());
+      get_generalized_velocity(gctype, gv_shared);
+      return gv;
+    }
+
     /// Indicates whether link frame velocity is valid (up-to-date)
     bool _xdi_valid;
 
