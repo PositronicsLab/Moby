@@ -256,6 +256,9 @@ double TimeSteppingSimulator::do_mini_step(double dt)
       }
       // compute forward dynamics
       calc_fwd_dyn();
+    // Check if collisions occur in the interval
+    // do broad phase collision detection
+    broad_phase(h);
   // recompute pairwise distances
   calc_pairwise_distances();
 
@@ -294,6 +297,9 @@ double TimeSteppingSimulator::do_mini_step(double dt)
       }
       // compute forward dynamics
       calc_fwd_dyn();
+    // Check if collisions occur in the interval
+    // do broad phase collision detection
+    broad_phase(h/2);
   // recompute pairwise distances
   calc_pairwise_distances();
 
@@ -329,6 +335,9 @@ double TimeSteppingSimulator::do_mini_step(double dt)
       }
       // compute forward dynamics
       calc_fwd_dyn();
+    // Check if collisions occur in the interval
+    // do broad phase collision detection
+    broad_phase(h/2);
   // recompute pairwise distances
   calc_pairwise_distances();
 
@@ -585,13 +594,13 @@ double TimeSteppingSimulator::do_mini_step(double dt)
       int N = q.rows();
       
       Quatd q1(qesave_small[i][N-4],qesave_small[i][N-3],qesave_small[i][N-2],qesave_small[i][N-1]), 
-            q2(qesave_large[i][N-4],qesave_large[i][N-3],qesave_large[i][N-2],qesave_large[i][N-1]);
-      q1.slerp(q2,0.5);
-      q1.normalize();
-      q[N-4] = q1.x;
-      q[N-3] = q1.y;
-      q[N-2] = q1.z;
-      q[N-1] = q1.w;
+            q2(qesave_large[i][N-4],qesave_large[i][N-3],qesave_large[i][N-2],qesave_large[i][N-1]), qR;
+      qR = 2*q1+q2;
+      qR.normalize();
+      q[N-4] = qR.x;
+      q[N-3] = qR.y;
+      q[N-2] = qR.z;
+      q[N-1] = qR.w;
 
       bodies[i]->set_generalized_coordinates(DynamicBody::eEuler, q);
       // Velocity
