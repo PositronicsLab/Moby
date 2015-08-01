@@ -213,7 +213,7 @@ static void get_velocities(const vector<DynamicBodyPtr>& bodies, vector<VectorNd
     bodies[i]->get_generalized_velocity(DynamicBody::eSpatial, v[i]);
 }
 
-#define SEMI_IMPLICIT
+//#define SEMI_IMPLICIT
 // integrates bodies forward by h
 void TimeSteppingSimulator::integrate_bodies(const vector<DynamicBodyPtr>& bodies, double h)
 { 
@@ -426,7 +426,10 @@ bool TimeSteppingSimulator::calc_integration_error(const vector<DynamicBodyPtr>&
 
     const double LOW_ENERGY = 1.0e-2;
     const double ENERGY_ABS_TOL = 1.0e-2;
-    const double ENERGY_REL_TOL = 2e-3;
+    // NOTE: LINKS TOLERANCE 
+     const double ENERGY_REL_TOL = 5e-4;
+    // NOTE: BOX TOLERANCE
+    //const double ENERGY_REL_TOL = 1e-2;
     if(Tsmall > LOW_ENERGY && Tlarge > LOW_ENERGY ){
       if(energy_relative_error[i] > ENERGY_REL_TOL){
         // Check if this integration step is accurate enough

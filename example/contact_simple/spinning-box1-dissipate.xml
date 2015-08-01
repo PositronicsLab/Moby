@@ -20,10 +20,6 @@
     <!-- Gravity force -->
     <GravityForce id="gravity" accel="0 -9.81 0"  />
 
-    <!-- Rayleigh dissipation function -->
-    <ExponentialDissipation id="dissipator" >
-      <Body id="box" lambda="0.999" />
-    </ExponentialDissipation>
 
     <!-- Rigid bodies -->
       <!-- the box -->
@@ -36,6 +32,16 @@
       <RigidBody id="ground" enabled="false" visualization-id="b3" position="0 -0 0">
         <CollisionGeometry primitive-id="b3" />
       </RigidBody>
+      
+    <!-- Exponential dissipation function -->
+    <ExponentialDissipation id="exp-dissipator">
+      <Body id="box" lambda="0.1" />
+    </ExponentialDissipation>
+    <!-- Rayleigh dissipation function -->
+    <RayleighDissipation id="dissipator">
+      <Body id="box" lambda="1e-6" />
+    </RayleighDissipation>
+
 
     <!-- Setup the simulator -->
     <TimeSteppingSimulator id="simulator" min-step-size="1e-8" dissipator-id="dissipator">
