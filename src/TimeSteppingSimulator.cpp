@@ -152,8 +152,6 @@ void TimeSteppingSimulator::calc_impacting_unilateral_constraint_forces2(double 
   }
 }
 
-#define NEW_MINISTEP
-#ifdef NEW_MINISTEP
 
 // utility function for do_mini_step(.)
 static void reset_positions_and_velocities(const vector<DynamicBodyPtr>& bodies, const vector<VectorNd>& qsave, const vector<VectorNd>& vssave)
@@ -213,7 +211,7 @@ static void get_velocities(const vector<DynamicBodyPtr>& bodies, vector<VectorNd
     bodies[i]->get_generalized_velocity(DynamicBody::eSpatial, v[i]);
 }
 
-//#define SEMI_IMPLICIT
+#define SEMI_IMPLICIT
 // integrates bodies forward by h
 void TimeSteppingSimulator::integrate_bodies(const vector<DynamicBodyPtr>& bodies, double h)
 { 
@@ -239,9 +237,6 @@ void TimeSteppingSimulator::integrate_bodies(const vector<DynamicBodyPtr>& bodie
   find_unilateral_constraints(contact_dist_thresh);
   calc_impacting_unilateral_constraint_forces(-1.0);
 
-  // dissipate energy
-  if (_dissipator)
-    _dissipator->apply(bodies);
 }
 
 // computes the kinetic energy for a rigid body in the global frame
@@ -424,6 +419,9 @@ bool TimeSteppingSimulator::calc_integration_error(const vector<DynamicBodyPtr>&
     // record the error for the body
     min_k = record_error(bodies[i]);
 
+    const double HIGH_ENERGY = 1.0e7;
+    assert( Tsmall < HIGH_ENERGY && Tlarge < HIGH_ENERGY);
+    
     const double LOW_ENERGY = 1.0e-2;
     const double ENERGY_ABS_TOL = 1.0e-2;
     // NOTE: LINKS TOLERANCE 
@@ -477,6 +475,8 @@ static void get_active_bodies(const vector<DynamicBodyPtr>& _bodies, vector<Dyna
   }
 }
 
+#define NEW_MINISTEP
+#ifdef NEW_MINISTEP
 /// Does a full integration cycle (but not necessarily a full step)
 double TimeSteppingSimulator::do_mini_step(double dt)
 {
@@ -568,6 +568,10 @@ double TimeSteppingSimulator::do_mini_step(double dt)
       // integrate bodies forward by h
       integrate_bodies(bodies, h);
 
+      // dissipate energy
+      if (_dissipator)
+        _dissipator->apply(bodies);
+
       // store the new coordinates and velocities
       get_coordinates(bodies, qe_large);
       get_velocities(bodies, v_large);
@@ -582,6 +586,10 @@ double TimeSteppingSimulator::do_mini_step(double dt)
       // integrate bodies by h/2 twice 
       integrate_bodies(bodies, h*0.5);
       integrate_bodies(bodies, h*0.5);
+
+      // dissipate energy
+      if (_dissipator)
+        _dissipator->apply(bodies);
 
       // store the new coordinates and velocities
       get_coordinates(bodies, qe_small);
@@ -699,6 +707,28 @@ double TimeSteppingSimulator::do_mini_step(double dt)
 /// Does a full integration cycle (but not necessarily a full step)
 double TimeSteppingSimulator::do_mini_step(double dt)
 {
+  {  // REMOVE THIS BLOCK
+      // only process dynamic bodies
+    static std::vector<DynamicBodyPtr> bodies;
+    get_active_bodies(_bodies, bodies);
+    
+    VectorNd q, qd, qdd;
+    std::vector<VectorNd> qsave,
+      vssave; // REMOVE THIS
+ 
+    // init qsave to proper size
+    qsave.resize(bodies.size());
+    vssave.resize(bodies.size()); // REMOVE THIS
+ 
+    // save generalized coordinates for all bodies
+    for (unsigned i=0; i< bodies.size(); i++){
+      bodies[i]->get_generalized_coordinates(DynamicBody::eEuler, qsave[i]);
+      bodies[i]->get_generalized_velocity(DynamicBody::eSpatial, vssave[i]); // REMOVE THIS
+    }
+      double min_k; // REMOVE THIS
+      calc_integration_error(bodies, dt, qsave,vssave,qsave,vssave, min_k,"Final ");  // REMOVE THIS
+  }
+    // set the amount stepped
   VectorNd q, qd, qdd;
   std::vector<VectorNd> qsave;
 
