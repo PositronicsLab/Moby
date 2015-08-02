@@ -1132,7 +1132,7 @@ double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<co
 
   // if closest feature of A is null, pick features for A and B arbitrarily
   if(!closestA){
-    std::vector<boost::shared_ptr<Vertex> >::iterator vi = pA->get_polyhedron().get_vertices().begin();
+    std::vector<boost::shared_ptr<Vertex> >::const_iterator vi = pA->get_polyhedron().get_vertices().begin();
     closestA = boost::shared_ptr<Feature>(*vi);
 
     vi = pB->get_polyhedron().get_vertices().begin();

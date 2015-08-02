@@ -77,17 +77,18 @@ void ConstraintStabilization::stabilize()
 }
 
 /// Adds unilateral constraints for joint limits in an articulated body
-void ConstraintStabilization::add_articulate_limit_constraint(std::vector<UnilateralConstraintProblemData>& pd_vector, ArticulatedBodyPtr ab)
+void ConstraintStabilization::add_articulate_limit_constraint(std::vector<UnilateralConstraint>& constraints, ArticulatedBodyPtr ab)
 {
   std::vector<UnilateralConstraint> limits;
-  ab.find_limits(std::back_inserter(limits));
-  pd_vector.insert(pd_vector.end(), contacts.begin(), contacts.end());
+  ab->find_limit_constraints(std::back_inserter(limits));
+  constraints.insert(constraints.end(), limits.begin(), limits.end());
 }
 
 /// Adds contact constraints from a pair of bodies
-void ConstraintStabilization::add_contact_constraints(std::vector<UnilateralConstraintProblemData>& pd_vector, RigidBodyPtr rb1, RigidBodyPtr rb2)
+void ConstraintStabilization::add_contact_constraints(std::vector<UnilateralConstraint>& constraints, RigidBodyPtr rb1, RigidBodyPtr rb2)
 {
-  Point3D p1, p2;
+  boost::shared_ptr<const Pose3d> GLOBAL;
+  Point3d p1, p2;
   std::list<CollisionGeometryPtr>& cgs1 = rb1->geometries;
   std::list<CollisionGeometryPtr>& cgs2 = rb2->geometries;
   BOOST_FOREACH(CollisionGeometryPtr cg1 , cgs1)
@@ -96,17 +97,52 @@ void ConstraintStabilization::add_contact_constraints(std::vector<UnilateralCons
     BOOST_FOREACH(CollisionGeometryPtr cg2, cgs2)
     {
       double dist = CollisionGeometry::calc_signed_dist(cg1, cg2, p1, p2);
-      if(dist < 0.0)
-      {
-        //TODO: Add constraints generation code
+      if(fabs(dist) < NEAR_ZERO)
+        _sim->_coldet->find_contacts(cg1,cg2, constraints);
 
-        /*
-        * 1. calc_Minkowski_difference
-        * 2. check where the origin (0,0,0) lies in the polygon (Polyhedron::inside_or_on) 
-        * 3. find closest feature to the origin
-        * 4. the contact limit will be the distance vector from the face to the point
-        */
-      }
+      // if(dist < 0.0)
+      // {
+
+      //   // 1. calc_Minkowski_difference
+
+      //   Polyhedron minkowski_diff = Polyhedron::calc_minkowski_diff(cg1->get_geometry(), cg2->get_geometry(), cg1->get_pose(), cg2->get_pose());
+
+      //   // 2. check where the origin (0,0,0) lies in the polygon (Polyhedron::inside_or_on) 
+      //   // (May be unnecessary since the signed distance is already negative)
+
+      //   // 3. find closest feature to the origin
+      //   Ravelin::Origin3d o(0,0,0);
+      //   Ravelin::Vector3d origin_vector(o,GLOBAL);
+      //   if(minkowski_diff.inside_or_on(o))
+      //   {
+  
+      //     std::vector<boost::shared_ptr<Polyhedron::Vertex> > vertices = minkowski_diff.get_vertices();
+      //     double min_dist = std::numeric_limits<double>::max();
+      //     boost::shared_ptr<Polyhedron::Vertex> min_vertex;
+      //     Ravelin::Vector3d min_vector;
+      //     for(int i = 0; i < vertices.size(); i++)
+      //     {
+      //       Ravelin::Vector3d vertex_vector (vertices[i]->o,GLOBAL);
+      //       double dist = (origin_vector - vertex_vector).norm();
+      //       if(dist < min_dist)
+      //       {
+      //         min_dist = dist;
+      //         min_vector = vertex_vector - origin_vector;
+              
+      //         // assigning value to vertex
+      //         boost::shared_ptr<std::pair<int, int> > int_pair = boost::static_pointer_cast<std::pair<int, int> >(vertices[i]->data);
+      //         vector<Point3d> v2;
+      //         cg2->get_vertices(poseA, vA);
+      //         min_vertex = cg2->get_geometry()->get_vertices()[int_pair->second];
+      //       }
+      //     }
+      //   // 4. the contact limit will be the distance vector from the face to the point
+      //     UnilateralConstraint uc = CollisionDetection::create_contact(cg1, cg2, min_vertex, min_vector, min_dist);
+      //     constraints.insert(constraints.end(), uc);
+      // }
+
+
+      // }
     }
   }
 }
@@ -127,9 +163,7 @@ void ConstraintStabilization::compute_problem_data(std::vector<UnilateralConstra
   //    UnilateralConstraint objects to constraints as there are 
   //    points of contact between the bodies 
   //    (call _sim->_coldet->find_contacts(.))
-  std::vector<UnilateralConstraint> contacts = _sim->coldet->find_constacts();
-  pd_vector.insert(pd_vector.end(), contacts.begin(), contacts.end());
-  
+ 
   BOOST_FOREACH(DynamicBodyPtr D_body1, bodies)
   {
     RigidBodyPtr rb1, rb2;
@@ -147,17 +181,17 @@ void ConstraintStabilization::compute_problem_data(std::vector<UnilateralConstra
         //RigidBody
         if(rb2 = boost::dynamic_pointer_cast<RigidBody>(D_body2))
         {
-          add_contact_constraints(pd_vector, rb1,rb2);
+          add_contact_constraints(constraints, rb1,rb2);
         }
         else
         {
           ArticulatedBodyPtr ab2 = dynamic_pointer_cast<ArticulatedBody>(D_body2);
-          add_articulate_limit_constraint(pd_vector, ab2);
+          add_articulate_limit_constraint(constraints, ab2);
           const std::vector<RigidBodyPtr>& ls2 = ab2->get_links();
           BOOST_FOREACH(RigidBodyPtr l2, ls2)
           {
             rb2 = dynamic_pointer_cast<RigidBody> (l2);
-            add_contact_constraints(pd_vector, rb1, rb2);
+            add_contact_constraints(constraints, rb1, rb2);
           }
         }
       }
@@ -166,8 +200,8 @@ void ConstraintStabilization::compute_problem_data(std::vector<UnilateralConstra
     else
     {
       ArticulatedBodyPtr ab1 = dynamic_pointer_cast<ArticulatedBody>(D_body1);
-      add_articulate_limit_constraint(pd_vector, ab1);
-      std::vector<RigidBodyPtr>& ls1 = ab1->get_links();
+      add_articulate_limit_constraint(constraints, ab1);
+      std::vector<RigidBodyPtr> ls1 = ab1->get_links();
 
       BOOST_FOREACH(DynamicBodyPtr D_body2, bodies)
       {
@@ -184,17 +218,17 @@ void ConstraintStabilization::compute_problem_data(std::vector<UnilateralConstra
           //RigidBody
           if(rb2 = boost::dynamic_pointer_cast<RigidBody>(D_body2))
           {
-            add_contact_constraints(pd_vector, rb1,rb2);
+            add_contact_constraints(constraints, rb1,rb2);
           }
           else
           {
             ArticulatedBodyPtr ab2 = dynamic_pointer_cast<ArticulatedBody>(D_body2);
-            add_articulate_limit_constraint(pd_vector, ab2);
+            add_articulate_limit_constraint(constraints, ab2);
             const std::vector<RigidBodyPtr>& ls2 = ab2->get_links();
             BOOST_FOREACH(RigidBodyPtr l2, ls2)
             {
               rb2 = l2;
-              add_contact_constraints(pd_vector, rb1, rb2);
+              add_contact_constraints(constraints, rb1, rb2);
             }
           }
         }
@@ -241,9 +275,10 @@ void ConstraintStabilization::compute_problem_data(std::vector<UnilateralConstra
     // set the elements of Cn_v and L_v
     // L_v is always set to zero
     // Cn_v is set to the signed distance between the two bodies
-    for (unsigned i = 0; i < pd.contact_constraints.size())
+    Point3d pa,pb;
+    for (unsigned i = 0; i < pd.contact_constraints.size(); ++i)
     {
-      pd.Cn_v[i] = CollisionGeometry::calc_signed_dist(pd.contact_constraints[i]->contact_geom1, pd.contact_constraints[i]->pd.contact_geom2);
+      pd.Cn_v[i] = CollisionGeometry::calc_signed_dist(pd.contact_constraints[i]->contact_geom1, pd.contact_constraints[i]->contact_geom2, pa, pb);
     }
   }
 }
@@ -486,9 +521,9 @@ void ConstraintStabilization::update_q(const VectorNd& dq, VectorNd& q)
   // compute s*
   double sstar = compute_s(pdi);
 
-
+  double ds = -1.0;
   // TODO: Add gradient term condition
-  while (sstar > s0 + ALPHA * t *(dq))
+  while (sstar > s0 + ALPHA * t *(ds))
   {
     // update t
     t *= BETA;
@@ -499,7 +534,7 @@ void ConstraintStabilization::update_q(const VectorNd& dq, VectorNd& q)
     qstar += q;
 
     // update body configurations
-    update_body_configuration(qstar);
+    update_body_configurations(qstar);
 
     // compute new pairwise distance information
     _sim->calc_pairwise_distances();
@@ -515,15 +550,17 @@ void ConstraintStabilization::update_q(const VectorNd& dq, VectorNd& q)
 /// Computes s based on current pairwise distance info
 double ConstraintStabilization::compute_s(const vector<PairwiseDistInfo>& pdi)
 {
-  double s = std::max(get_min_pairwise_dist(pdi), 0.0);
+  // Since get_min_pairwise_dist() resturns a negative number if penetrated
+  // a negative sign is added
+  double s = std::max(-get_min_pairwise_dist(pdi), 0.0);
 
   std::vector<DynamicBodyPtr> bodies = _sim->_bodies;
 
   // iterate through all joints and check for violated limits
   for (unsigned i = 0; i < bodies.size(); i++)
   {
-    ArticulatedBodyPtr art;
-    if(art = dynamic_pointer_cast<ArticulatedBodyPtr>(bodies[i]))
+    ArticulatedBodyPtr art = dynamic_pointer_cast<Moby::ArticulatedBody>(bodies[i]);
+    if(art)
     {
       std::vector<JointPtr> joints = art->get_joints();
       for (unsigned j = 0 ; j < joints.size(); j++)
@@ -533,11 +570,14 @@ double ConstraintStabilization::compute_s(const vector<PairwiseDistInfo>& pdi)
           double q = joints[i]->q[j];
 
           // find the largest violation
-          s = std::max(q - joints[i]->hilimit[j], joints[i]->lolimit[j] - q , s)
+          double hi_violation = q - joints[i]->hilimit[j];
+          double lo_violation = joints[i]->lolimit[j] - q;
+          double larger_violation = std::max(hi_violation, lo_violation);
+          s = std::max(larger_violation, s);
         }
       }
     }
-
+  }
   //if violated, return amount violated
 
   return s;
@@ -579,10 +619,10 @@ void ConstraintStabilization::update_body_configurations(const VectorNd& q)
 {
 
   std::vector<DynamicBodyPtr> bodies = _sim->_bodies;
-  const unsigned start = 0;
-  BOOST_FOREACH(DynamicBodyPtr* body, bodies){
-    const unsigned ngc = body->num_generalized_coordinates(DynamicBody::eEuler);
-    Ravelin::SharedVectorNd gc_shared = q.segment(last,ngc);
+  unsigned last = 0;
+  BOOST_FOREACH(DynamicBodyPtr body, bodies){
+    unsigned ngc = body->num_generalized_coordinates(DynamicBody::eEuler);
+    Ravelin::SharedConstVectorNd gc_shared = q.segment(last,ngc);
     body->set_generalized_coordinates(DynamicBody::eEuler, gc_shared);
     last = ngc;
   }
