@@ -17,6 +17,7 @@
 #include <Moby/OSGGroupWrapper.h>
 #include <osg/MatrixTransform>
 #include <osg/Matrixd>
+#include "Color.h"
 #endif
 
 // TODO:
@@ -24,7 +25,6 @@
 
 #include <Moby/CylinderPrimitive.h>
 #include <Moby/ConePrimitive.h>
-#include <Moby/TriangleMeshPrimitive.h>
 #include <Moby/IndexedTetraArray.h>
 #include <Moby/Constants.h>
 #include <Moby/Simulator.h>
@@ -816,13 +816,6 @@ PrimitivePtr SDFReader::read_trimesh(shared_ptr<const XMLTree> node)
 {
   // sanity check
   assert(strcasecmp(node->name.c_str(), "TriangleMesh") == 0);
-
-  // TODO: finish implementing this
-  // create a new TriangleMeshPrimitive object
-  boost::shared_ptr<TriangleMeshPrimitive> b(new TriangleMeshPrimitive());
-
-  // populate the object
-//  b->load_from_xml(node, id_map);
 }
 
 /// Reads and constructs the heightmap object
@@ -1038,7 +1031,7 @@ void SDFReader::read_visual_node(shared_ptr<const XMLTree> node, RigidBodyPtr rb
     P = read_pose(node);
 
   // read the geometry type if OSG is used
-  #ifdef USE_OSG
+#ifdef USE_OSG
   shared_ptr<const XMLTree> geom_node = find_one_tag("geometry", node);
   if (geom_node)
   {
@@ -1055,6 +1048,26 @@ void SDFReader::read_visual_node(shared_ptr<const XMLTree> node, RigidBodyPtr rb
     osg::Matrix m;
     to_osg_matrix(P, m);
     tg->setMatrix(m);
+  }
+  shared_ptr<const XMLTree> material_node = find_one_tag("material", node);
+
+  if(material_node){
+    // Change the RGBA color of the link if provided
+    shared_ptr<const XMLTree> color_node = find_one_tag("diffuse", material_node);
+    if (color_node){
+      // get the pose
+      /// Color to add to the rigid body when rendered
+      Ravelin::VectorNd color_rgba = Ravelin::VectorNd::parse(color_node->content);
+ 
+      osg::Group* this_group = rb->get_visualization_data();
+ 
+      for(int i=0;i<this_group->getNumChildren();i++){
+        osg::Node* n = this_group->getChild(i);
+        CcolorVisitor  newColor;
+        newColor.setColor( color_rgba[0], color_rgba[1], color_rgba[2], color_rgba[3] );
+        n->accept( newColor );
+      }
+    }
   }
   #endif
 }
