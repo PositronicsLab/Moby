@@ -15,6 +15,7 @@ namespace Moby {
 class CylinderPrimitive;
 class SpherePrimitive;
 class BoxPrimitive;
+class PolyhedralPrimitive;
 
 /// Represents a heightmap with height zero on the xz plane (primitive can be transformed)
 class PlanePrimitive : public Primitive
@@ -30,7 +31,7 @@ class PlanePrimitive : public Primitive
     void get_vertices(BVPtr bv, boost::shared_ptr<const Ravelin::Pose3d> P, std::vector<Point3d>& vertices) const;
     virtual double calc_dist_and_normal(const Point3d& point, std::vector<Ravelin::Vector3d>& normals) const;
     virtual double calc_signed_dist(boost::shared_ptr<const Primitive> p, Point3d& pthis, Point3d& pp) const;
-    double calc_signed_dist(boost::shared_ptr<const BoxPrimitive> b, Point3d& pthis, Point3d& pb) const;
+    double calc_signed_dist(boost::shared_ptr<const PolyhedralPrimitive> b, Point3d& pthis, Point3d& pb) const;
     double calc_signed_dist(boost::shared_ptr<const CylinderPrimitive> s, Point3d& pthis, Point3d& psph) const;
     double calc_signed_dist(boost::shared_ptr<const SpherePrimitive> s, Point3d& pthis, Point3d& psph) const;
     virtual double calc_signed_dist(const Point3d& p) const;

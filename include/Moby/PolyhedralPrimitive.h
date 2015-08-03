@@ -25,6 +25,7 @@ class PolyhedralPrimitive : public Primitive
 
     PolyhedralPrimitive() : Primitive() { }
     PolyhedralPrimitive(const Ravelin::Pose3d& T) : Primitive(T) { }
+    virtual double calc_signed_dist(boost::shared_ptr<const Primitive> p, Point3d& pthis, Point3d& pp) const;
 
     /// Gets the polyhedron corresponding to this primitive (in its transformed state)
     const Polyhedron& get_polyhedron() const { return _poly; }

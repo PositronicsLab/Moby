@@ -21,7 +21,7 @@
 #include <Moby/CollisionGeometry.h>
 #include <Moby/SpherePrimitive.h>
 #include <Moby/CylinderPrimitive.h>
-#include <Moby/BoxPrimitive.h>
+#include <Moby/PolyhedralPrimitive.h>
 #include <Moby/GJK.h>
 #include <Moby/PlanePrimitive.h>
 
@@ -337,40 +337,43 @@ double PlanePrimitive::calc_signed_dist(shared_ptr<const CylinderPrimitive> pA, 
   return d;
 }
 
-/// Gets the distance from a box primitive
-double PlanePrimitive::calc_signed_dist(shared_ptr<const BoxPrimitive> b, Point3d& pthis, Point3d& pb) const
+/// Gets the distance from a polyhedral primitive
+double PlanePrimitive::calc_signed_dist(shared_ptr<const PolyhedralPrimitive> b, Point3d& pthis, Point3d& pb) const
 {
   const unsigned Y = 1;
 
   assert(_poses.find(const_pointer_cast<Pose3d>(pthis.pose)) != _poses.end());
 
-  // compute the transform from the box to the plane
+  // make sure that the primitive is convex
+  assert(b->is_convex());
+
+  // compute the transform from the primitive to the plane
   Transform3d T = Pose3d::calc_relative_pose(pb.pose, pthis.pose);
 
   // setup initial minimum distance
   double min_dist = std::numeric_limits<double>::max();
 
-  // get the box vertices
-  shared_ptr<BoxPrimitive> bnc = const_pointer_cast<BoxPrimitive>(b);
+  // get the polyhedron vertices
+  shared_ptr<PolyhedralPrimitive> bnc = const_pointer_cast<PolyhedralPrimitive>(b);
   vector<Point3d> verts;
   bnc->get_vertices(pb.pose, verts);
 
-  // find which box vertex is closest in the plane space
+  // find which vertex is closest in the plane space
   for (unsigned i=0; i< verts.size(); i++)
   {
-    // get the box vertex in the plane space
-    Point3d box_vert = T.transform_point(verts[i]);
+    // get the polyhedron vertex in the plane space
+    Point3d p_vert = T.transform_point(verts[i]);
 
     // get the vertex height
-    if (box_vert[Y] < min_dist)
+    if (p_vert[Y] < min_dist)
     {
-      min_dist = box_vert[Y];
+      min_dist = p_vert[Y];
       pb = verts[i];
-      pthis = box_vert;
+      pthis = p_vert;
     }
   }
 
-  // closest point on plane is just the closest point on the box, projected
+  // closest point on plane is just the closest point on the plane, projected
   // to the plane
   pthis[Y] = 0.0;
 
@@ -421,10 +424,10 @@ double PlanePrimitive::calc_signed_dist(shared_ptr<const Primitive> p, Point3d& 
   if (sph)
     return calc_signed_dist(sph, pthis, pp);
 
-  // look for box
-  shared_ptr<const BoxPrimitive> box = dynamic_pointer_cast<const BoxPrimitive>(p);
-  if (box)
-    return calc_signed_dist(box, pthis, pp);
+  // look for polyhedron
+  shared_ptr<const PolyhedralPrimitive> polyhedron = dynamic_pointer_cast<const PolyhedralPrimitive>(p);
+  if (polyhedron)
+    return calc_signed_dist(polyhedron, pthis, pp);
 
 /*
   // if the primitive is convex, can use GJK
