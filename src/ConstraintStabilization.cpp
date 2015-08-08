@@ -91,6 +91,7 @@ void ConstraintStabilization::add_contact_constraints(std::vector<UnilateralCons
   Point3d p1, p2;
   std::list<CollisionGeometryPtr>& cgs1 = rb1->geometries;
   std::list<CollisionGeometryPtr>& cgs2 = rb2->geometries;
+  
   BOOST_FOREACH(CollisionGeometryPtr cg1 , cgs1)
   {
 
@@ -99,50 +100,17 @@ void ConstraintStabilization::add_contact_constraints(std::vector<UnilateralCons
       double dist = CollisionGeometry::calc_signed_dist(cg1, cg2, p1, p2);
       if(fabs(dist) < NEAR_ZERO)
         _sim->_coldet->find_contacts(cg1,cg2, constraints);
-
-      // if(dist < 0.0)
-      // {
-
-      //   // 1. calc_Minkowski_difference
-
-      //   Polyhedron minkowski_diff = Polyhedron::calc_minkowski_diff(cg1->get_geometry(), cg2->get_geometry(), cg1->get_pose(), cg2->get_pose());
-
-      //   // 2. check where the origin (0,0,0) lies in the polygon (Polyhedron::inside_or_on) 
-      //   // (May be unnecessary since the signed distance is already negative)
-
-      //   // 3. find closest feature to the origin
-      //   Ravelin::Origin3d o(0,0,0);
-      //   Ravelin::Vector3d origin_vector(o,GLOBAL);
-      //   if(minkowski_diff.inside_or_on(o))
-      //   {
-  
-      //     std::vector<boost::shared_ptr<Polyhedron::Vertex> > vertices = minkowski_diff.get_vertices();
-      //     double min_dist = std::numeric_limits<double>::max();
-      //     boost::shared_ptr<Polyhedron::Vertex> min_vertex;
-      //     Ravelin::Vector3d min_vector;
-      //     for(int i = 0; i < vertices.size(); i++)
-      //     {
-      //       Ravelin::Vector3d vertex_vector (vertices[i]->o,GLOBAL);
-      //       double dist = (origin_vector - vertex_vector).norm();
-      //       if(dist < min_dist)
-      //       {
-      //         min_dist = dist;
-      //         min_vector = vertex_vector - origin_vector;
-              
-      //         // assigning value to vertex
-      //         boost::shared_ptr<std::pair<int, int> > int_pair = boost::static_pointer_cast<std::pair<int, int> >(vertices[i]->data);
-      //         vector<Point3d> v2;
-      //         cg2->get_vertices(poseA, vA);
-      //         min_vertex = cg2->get_geometry()->get_vertices()[int_pair->second];
-      //       }
-      //     }
-      //   // 4. the contact limit will be the distance vector from the face to the point
-      //     UnilateralConstraint uc = CollisionDetection::create_contact(cg1, cg2, min_vertex, min_vector, min_dist);
-      //     constraints.insert(constraints.end(), uc);
-      // }
-
-
-      // }
+      else
+      {
+        boost::shared_ptr<const Pose3d> pose1(p1.pose);
+        boost::shared_ptr<const Pose3d> pose2(p2.pose);
+        Transform3d _1T2 = Ravelin::Pose3d::calc_relative_pose(pose1, pose2);
+        Point3d p1_2 = _1T2.transform_point(p1);
+        Ravelin::Vector3d normal = p2-p1_2;
+        normal.normalize();
+        UnilateralConstraint uc = CollisionDetection::create_contact(cg1, cg2, p1, normal, -dist);
+        constraints.insert(constraints.end(), uc);
+      }
     }
   }
 }

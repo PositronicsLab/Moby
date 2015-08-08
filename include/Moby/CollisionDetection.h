@@ -57,6 +57,8 @@ class CollisionDetection : public virtual Base
 
   protected:
     static UnilateralConstraint create_contact(CollisionGeometryPtr a, CollisionGeometryPtr b, const Point3d& point, const Ravelin::Vector3d& normal, double violation = 0.0);
+
+  friend class ConstraintStabilization;
 }; // end class
 
 } // end namespace Moby

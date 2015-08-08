@@ -63,7 +63,35 @@ double PolyhedralPrimitive::calc_signed_dist(shared_ptr<const Primitive> p, Poin
       // TODO: Bjoern, this is where you find the closest feature to the origin,
       // return the negation of its distance to the origin, and determine
       // closest points on the two polyhedral primitives
-    }
-  }
-}
 
+      // 3. find closest feature to the origin
+      shared_ptr<const Pose3d> GLOBAL3D;
+      Ravelin::Origin3d o(0,0,0);
+      Ravelin::Vector3d origin_vector(o,GLOBAL3D);
+      
+      std::vector<boost::shared_ptr<Polyhedron::Vertex> > vertices = mdiff.get_vertices();
+      double min_dist = std::numeric_limits<double>::max();
+      boost::shared_ptr<std::pair<int, int> > min_pair;
+      for(int i = 0; i < vertices.size(); i++)
+      {
+        Ravelin::Vector3d vertex_vector (vertices[i]->o,GLOBAL3D);
+        double dist = (origin_vector - vertex_vector).norm();
+        if(dist < min_dist)
+        {
+          min_dist = dist;
+          min_pair= boost::static_pointer_cast<std::pair<int, int> >(vertices[i]->data);
+        }
+      }
+
+      std::vector<boost::shared_ptr<Polyhedron::Vertex> > vvthis = bthis->get_polyhedron().get_vertices();
+      std::vector<boost::shared_ptr<Polyhedron::Vertex> > vvp = bthis->get_polyhedron().get_vertices();
+      boost::shared_ptr<Polyhedron::Vertex> vthis = vvthis[min_pair->first];
+      boost::shared_ptr<Polyhedron::Vertex> vp = vvp[min_pair->second];
+      pthis = vthis->o;
+      pp = vp->o;
+      return -min_dist;
+  }
+  else
+    return dist;
+ } 
+}

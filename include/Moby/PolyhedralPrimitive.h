@@ -59,6 +59,8 @@ class PolyhedralPrimitive : public Primitive
   protected:
     Polyhedron _poly;
 
+
+
 }; // end class
 
 } // end namespace
