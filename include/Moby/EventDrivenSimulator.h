@@ -28,6 +28,7 @@ class CollisionGeometry;
 class EventDrivenSimulator : public TimeSteppingSimulator
 {
   friend class CollisionDetection;
+  friend class ConstraintStabilization;
 
   public:
     EventDrivenSimulator();

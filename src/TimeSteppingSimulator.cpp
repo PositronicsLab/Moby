@@ -98,6 +98,10 @@ double TimeSteppingSimulator::step(double step_size)
   out << d << std::endl;
   out.close();
 
+  // do constraint stabilization
+  shared_ptr<ConstraintSimulator> simulator = dynamic_pointer_cast<ConstraintSimulator>(shared_from_this());
+//  _cstab.stabilize(simulator);
+
   return step_size;
 }
 

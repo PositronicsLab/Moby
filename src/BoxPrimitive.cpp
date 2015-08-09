@@ -170,24 +170,19 @@ double BoxPrimitive::calc_signed_dist(shared_ptr<const Primitive> p, Point3d& pt
     return hmp->calc_signed_dist(bthis, pp, pthis);
   }
 
-  // if the primitive is convex, can use vclip 
-  if (p->is_convex())
+  // if the primitive is polyhedral and convex, can use vclip 
+  shared_ptr<const PolyhedralPrimitive> polyp = dynamic_pointer_cast<const PolyhedralPrimitive>(p);
+  if (polyp && p->is_convex())
   {
-return std::numeric_limits<double>::max();
-    // TODO: implement me!
-    assert(false);
+    shared_ptr<const PolyhedralPrimitive> bthis = dynamic_pointer_cast<const PolyhedralPrimitive>(shared_from_this());
+    shared_ptr<const Pose3d> poseA = pthis.pose;
+    shared_ptr<const Pose3d> poseB = pp.pose;
+    shared_ptr<const Polyhedron::Feature> closestA, closestB;
+    return Polyhedron::vclip(bthis, polyp, poseA, poseB, closestA, closestB); 
   }
 
-  // try box/(non-convex) trimesh
-  shared_ptr<const TriangleMeshPrimitive> trip = dynamic_pointer_cast<const TriangleMeshPrimitive>(p);
-  if (trip)
-  {
-    shared_ptr<const Primitive> bthis = dynamic_pointer_cast<const Primitive>(shared_from_this());
-    return trip->calc_signed_dist(bthis, pp, pthis);
-  }
- 
   // should never get here...
-  assert(false); 
+  assert(false);
   return 0.0;
 }
 

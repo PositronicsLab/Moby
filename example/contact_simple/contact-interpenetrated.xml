@@ -12,7 +12,7 @@
     <Box id="b1" xlen="1" ylen="1" zlen="1" density="1.0" edge-sample-length="1" />
     <Box id="b2" position="0 0 0" xlen="1" ylen="1" zlen="1" density="1.0" edge-sample-length="1" />
 <!--    <Plane id="b3"  /> -->
-    <Box id="b3" xlen="10" ylen=".00001" zlen="10"  />
+    <Box id="b3" xlen="10" ylen=".5" zlen="10"  />
 
     <!-- Integrator -->
     <RungeKuttaIntegrator id="rk4" />
@@ -23,13 +23,13 @@
 
     <!-- Rigid bodies -->
       <!-- the box -->
-      <RigidBody id="box" enabled="true" position="0 .5000 0" angular-velocity="0 100.00 0" visualization-id="b1" linear-velocity="0 0 0">
+      <RigidBody id="box" enabled="true" position="0 .48000 0" aangle="1 0 0 .1" angular-velocity="0 0.00 0" visualization-id="b1" linear-velocity="0 0 0">
         <InertiaFromPrimitive primitive-id="b2" />
         <CollisionGeometry primitive-id="b1" />
       </RigidBody>
 
       <!-- the ground -->
-      <RigidBody id="ground" enabled="false" visualization-id="b3" position="0 -0.000005 0">
+      <RigidBody id="ground" enabled="false" visualization-id="b3" position="0 -0.25 0">
         <CollisionGeometry primitive-id="b3" />
       </RigidBody>
 

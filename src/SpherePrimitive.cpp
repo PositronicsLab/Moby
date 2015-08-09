@@ -15,7 +15,7 @@
 #include <Moby/XMLTree.h>
 #include <Moby/BoundingSphere.h>
 #include <Moby/CollisionGeometry.h>
-#include <Moby/BoxPrimitive.h>
+#include <Moby/PolyhedralPrimitive.h>
 #include <Moby/PlanePrimitive.h>
 #include <Moby/TriangleMeshPrimitive.h>
 #include <Moby/HeightmapPrimitive.h>
@@ -281,12 +281,12 @@ void SpherePrimitive::get_vertices(shared_ptr<const Pose3d> P, std::vector<Point
 /// Finds the signed distance between the sphere and another primitive
 double SpherePrimitive::calc_signed_dist(shared_ptr<const Primitive> p, Point3d& pthis, Point3d& pp) const
 {
-  // first try box/sphere
-  shared_ptr<const BoxPrimitive> boxp = dynamic_pointer_cast<const BoxPrimitive>(p);
-  if (boxp)
+  // first try polyhedron/sphere
+  shared_ptr<const PolyhedralPrimitive> polyp = dynamic_pointer_cast<const PolyhedralPrimitive>(p);
+  if (polyp)
   {
     shared_ptr<const SpherePrimitive> thisp = dynamic_pointer_cast<const SpherePrimitive>(shared_from_this());
-    return boxp->calc_signed_dist(thisp, pp, pthis);
+    return polyp->calc_signed_dist(thisp, pp, pthis);
   }
 
   // now try sphere/sphere
