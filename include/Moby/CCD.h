@@ -10,6 +10,7 @@
 #include <list>
 #include <set>
 #include <map>
+#include <algorithm>
 #include <boost/shared_ptr.hpp>
 #include <Moby/sorted_pair>
 #include <Moby/Log.h>
@@ -60,6 +61,10 @@ class CCD : public CollisionDetection
     // the 3 axes
     enum AxisType { eXAxis, eYAxis, eZAxis };
 
+    unsigned constrain_unsigned(int ii, int maxi){
+      return (unsigned) std::min(std::max(ii,0),maxi);
+    }
+  
     bool lp_seidel(const Ravelin::MatrixNd& A, const Ravelin::VectorNd& b, const Ravelin::VectorNd& c, const Ravelin::VectorNd& l, const Ravelin::VectorNd& u, Ravelin::VectorNd& x);
     Ravelin::VectorNd& insert_component(const Ravelin::VectorNd& x, unsigned k, Ravelin::VectorNd& xn);
     Ravelin::VectorNd& remove_component(const Ravelin::VectorNd& x, unsigned k, Ravelin::VectorNd& xn);
