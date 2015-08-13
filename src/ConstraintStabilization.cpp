@@ -705,7 +705,7 @@ void ConstraintStabilization::update_body_configurations(const VectorNd& q, shar
   unsigned last = 0;
   BOOST_FOREACH(DynamicBodyPtr body, bodies){
     unsigned ngc = body->num_generalized_coordinates(DynamicBody::eEuler);
-    Ravelin::SharedConstVectorNd gc_shared = q.segment(last,ngc);
+    Ravelin::SharedConstVectorNd gc_shared = q.segment(last,last+ngc);
     body->set_generalized_coordinates(DynamicBody::eEuler, gc_shared);
     last = ngc;
   }
