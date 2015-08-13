@@ -68,7 +68,7 @@ double CollisionGeometry::get_farthest_point_distance() const
 }
 
 /// Sets the single body associated with this CollisionGeometry
-void CollisionGeometry::set_single_body(SingleBodyPtr s)
+void CollisionGeometry::set_single_body(shared_ptr<SingleBodyd> s)
 {
   _single_body = s;
   _F->rpose = s->get_pose();
@@ -89,7 +89,7 @@ PrimitivePtr CollisionGeometry::set_geometry(PrimitivePtr primitive)
   if (_single_body.expired())
     throw std::runtime_error("CollisionGeometry::set_geometry() called before single body set!");
 
-  SingleBodyPtr sb(_single_body);
+  shared_ptr<SingleBodyd> sb(_single_body);
   RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(sb);
   if (rb && !Quatd::rel_equal(rb->get_pose()->q, EYE))
   {
@@ -243,7 +243,7 @@ double CollisionGeometry::calc_signed_dist(CollisionGeometryPtr gA, CollisionGeo
   pA.pose = primA->get_pose(gA);
   pB.pose = primB->get_pose(gB);
 
-  FILE_LOG(LOG_COLDET) << "CollisionGeometry::calc_signed_dist() - computing signed distance between " << gA->get_single_body()->id << " and " << gB->get_single_body()->id << std::endl;
+  FILE_LOG(LOG_COLDET) << "CollisionGeometry::calc_signed_dist() - computing signed distance between " << gA->get_single_body()->body_id << " and " << gB->get_single_body()->body_id << std::endl;
 
   // now compute the signed distance
   return primA->calc_signed_dist(primB, pA, pB);

@@ -11,7 +11,7 @@
 #include <set>
 #include <Ravelin/VectorNd.h>
 #include <Ravelin/Pose3d.h>
-#include <Moby/sorted_pair>
+#include <Ravelin/sorted_pair>
 #include <Moby/Base.h>
 #include <Moby/PairwiseDistInfo.h>
 #include <Moby/CollisionGeometry.h>
@@ -41,8 +41,7 @@ class CollisionDetection : public virtual Base
     CollisionDetection() {}
     virtual ~CollisionDetection() {}
     virtual void set_simulator(boost::shared_ptr<ConstraintSimulator> sim) {}
-    virtual void broad_phase(double dt, const std::vector<DynamicBodyPtr>& bodies, std::vector<std::pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check);
-    virtual double calc_CA_step(const PairwiseDistInfo& pdi) = 0;
+    virtual void broad_phase(double dt, const std::vector<ControlledBodyPtr>& bodies, std::vector<std::pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check);
     virtual double calc_CA_Euler_step(const PairwiseDistInfo& pdi) = 0;
     virtual void find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, std::vector<UnilateralConstraint>& contacts, double TOL = NEAR_ZERO) = 0;
 

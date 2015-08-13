@@ -15,7 +15,6 @@
 
 #include <Moby/Base.h>
 #include <Moby/Log.h>
-#include <Moby/Integrator.h>
 #include <Moby/RigidBody.h>
 #include <Moby/ArticulatedBody.h>
 
@@ -30,7 +29,6 @@ class Dissipation;
 class RigidBody;
 class ArticulatedBody;
 class VisualizationData;
-class DynamicBody;
 
 /// Simulator for both unarticulated and articulated rigid bodies without contact
 /**
@@ -44,9 +42,9 @@ class Simulator : public virtual Base
     Simulator();
     virtual ~Simulator(); 
     virtual double step(double step_size);
-    DynamicBodyPtr find_dynamic_body(const std::string& name) const;
-    void add_dynamic_body(DynamicBodyPtr body);
-    void remove_dynamic_body(DynamicBodyPtr body);
+    ControlledBodyPtr find_dynamic_body(const std::string& name) const;
+    void add_dynamic_body(ControlledBodyPtr body);
+    void remove_dynamic_body(ControlledBodyPtr body);
     void update_visualization();
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);  
@@ -57,15 +55,12 @@ class Simulator : public virtual Base
     /// The dissipation mechanism for larger time steps
     boost::shared_ptr<Dissipation> dissipator;
 
-    /// The integrator used to step the simulation
-    boost::shared_ptr<Integrator> integrator;
-
     /// Gets the list of dynamic bodies in the simulator
     /**
      * \note if a dynamic body is articulated, only the articulated body is
      *       returned, not the links
      */
-    const std::vector<DynamicBodyPtr>& get_dynamic_bodies() const { return _bodies; }
+    const std::vector<ControlledBodyPtr>& get_dynamic_bodies() const { return _bodies; }
 
     void add_transient_vdata(osg::Node* vdata);
 
@@ -85,10 +80,9 @@ class Simulator : public virtual Base
     virtual double check_pairwise_constraint_violations(double t) { return 0.0; }
     osg::Group* _persistent_vdata;
     osg::Group* _transient_vdata;
-    void update_bounds() const;
 
     /// The set of bodies in the simulation
-    std::vector<DynamicBodyPtr> _bodies;
+    std::vector<ControlledBodyPtr> _bodies;
   
     /// The derivative at the current time
     Ravelin::VectorNd _current_dx;

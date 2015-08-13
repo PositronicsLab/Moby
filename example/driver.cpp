@@ -13,6 +13,7 @@
 #include <fstream>
 #include <boost/foreach.hpp>
 #include <boost/algorithm/string.hpp>
+#include <Moby/XMLTree.h>
 #include <Moby/XMLReader.h>
 #include <Moby/XMLWriter.h>
 #include <Moby/SDFReader.h>
@@ -30,11 +31,12 @@
 #include <Moby/Log.h>
 #include <Moby/Simulator.h>
 #include <Moby/RigidBody.h>
-#include <Moby/EventDrivenSimulator.h>
+#include <Moby/TimeSteppingSimulator.h>
 
 using boost::shared_ptr;
-using namespace Ravelin;
 using namespace Moby;
+using Ravelin::Vector3d;
+using Ravelin::Vector2d;
 
 /// Handles for dynamic library loading
 std::vector<void*> handles;
@@ -156,7 +158,7 @@ void step(void* arg)
   boost::shared_ptr<Simulator> s = *(boost::shared_ptr<Simulator>*) arg;
 
   // get the simulator as event driven simulation
-  boost::shared_ptr<EventDrivenSimulator> eds = boost::dynamic_pointer_cast<EventDrivenSimulator>( s );
+  boost::shared_ptr<TimeSteppingSimulator> eds = boost::dynamic_pointer_cast<TimeSteppingSimulator>( s );
 
   // see whether to activate logging
   if (ITER >= LOG_START && ITER <= LOG_STOP)
@@ -593,9 +595,9 @@ int main(int argc, char** argv)
   else if (std::string(argv[argc-1]).find(".sdf") != std::string::npos)
   {
     // artificially create the read map
-    shared_ptr<EventDrivenSimulator> eds = SDFReader::read(std::string(argv[argc-1]));
+    shared_ptr<TimeSteppingSimulator> eds = SDFReader::read(std::string(argv[argc-1]));
     READ_MAP[eds->id] = eds;
-    BOOST_FOREACH(DynamicBodyPtr db, eds->get_dynamic_bodies())
+    BOOST_FOREACH(ControlledBodyPtr db, eds->get_dynamic_bodies())
       READ_MAP[db->id] = db;
   }
 

@@ -9,7 +9,7 @@
 #include <Moby/XMLTree.h>
 #include <Moby/ArticulatedBody.h>
 #include <Moby/RigidBody.h>
-#include <Moby/DynamicBody.h>
+#include <Moby/ControlledBody.h>
 #include <Moby/CollisionGeometry.h>
 #include <Moby/CollisionDetection.h>
 #include <Moby/ContactParameters.h>
@@ -135,14 +135,14 @@ VectorNd& EventDrivenSimulator::ode_sustained_constraints(const VectorNd& x, dou
   dx.resize(x.size());
 
   // loop through all bodies, preparing to compute the ODE
-  BOOST_FOREACH(DynamicBodyPtr db, s->_bodies)
+  BOOST_FOREACH(ControlledBodyPtr db, s->_bodies)
   {
     if (db->get_kinematic())
       continue;
 
     // get the number of generalized coordinates and velocities
-    const unsigned NGC = db->num_generalized_coordinates(DynamicBody::eEuler);
-    const unsigned NGV = db->num_generalized_coordinates(DynamicBody::eSpatial);
+    const unsigned NGC = db->num_generalized_coordinates(DynamicBodyd::eEuler);
+    const unsigned NGV = db->num_generalized_coordinates(DynamicBodyd::eSpatial);
 
     // get x for the body
     SharedConstVectorNd xsub = x.segment(idx, idx+NGC+NGV);
@@ -186,7 +186,7 @@ VectorNd& EventDrivenSimulator::ode_sustained_constraints(const VectorNd& x, dou
       s->_rigid_constraints[i].deriv_type = UnilateralConstraint::eAccel;
 
   // loop through all bodies, computing forward dynamics
-  BOOST_FOREACH(DynamicBodyPtr db, s->_bodies)
+  BOOST_FOREACH(ControlledBodyPtr db, s->_bodies)
   {
     if (db->get_kinematic())
       continue;
@@ -201,7 +201,7 @@ VectorNd& EventDrivenSimulator::ode_sustained_constraints(const VectorNd& x, dou
   s->calc_rigid_sustained_unilateral_constraint_forces();
 
   // get super bodies for constraints
-  vector<DynamicBodyPtr> bodies;
+  vector<ControlledBodyPtr> bodies;
   BOOST_FOREACH(const UnilateralConstraint& e, s->_rigid_constraints)
     e.get_super_bodies(std::back_inserter(bodies));
   BOOST_FOREACH(const UnilateralConstraint& e, s->_compliant_constraints)
@@ -210,7 +210,7 @@ VectorNd& EventDrivenSimulator::ode_sustained_constraints(const VectorNd& x, dou
   bodies.erase(std::unique(bodies.begin(), bodies.end()), bodies.end());
 
    // recompute forward dynamics for bodies in constraints
-   BOOST_FOREACH(DynamicBodyPtr body, bodies)
+   BOOST_FOREACH(ControlledBodyPtr body, bodies)
      body->calc_fwd_dyn();
 
   // report accelerations
@@ -246,14 +246,14 @@ VectorNd& EventDrivenSimulator::ode_sustained_constraints(const VectorNd& x, dou
   idx = 0;
 
   // loop through all bodies, computing the ODE
-  BOOST_FOREACH(DynamicBodyPtr db, s->_bodies)
+  BOOST_FOREACH(ControlledBodyPtr db, s->_bodies)
   {
     if (db->get_kinematic())
       continue;
 
     // get the number of generalized coordinates and velocities
-    const unsigned NGC = db->num_generalized_coordinates(DynamicBody::eEuler);
-    const unsigned NGV = db->num_generalized_coordinates(DynamicBody::eSpatial);
+    const unsigned NGC = db->num_generalized_coordinates(DynamicBodyd::eEuler);
+    const unsigned NGV = db->num_generalized_coordinates(DynamicBodyd::eSpatial);
 
     // get dx for the body
     SharedVectorNd dxsub = dx.segment(idx, idx+NGC+NGV);
@@ -299,10 +299,10 @@ double EventDrivenSimulator::step(double step_size)
     if (LOGGING(LOG_SIMULATOR))
     {
       VectorNd q, qd;
-      BOOST_FOREACH(DynamicBodyPtr db, _bodies)
+      BOOST_FOREACH(ControlledBodyPtr db, _bodies)
       {
-        db->get_generalized_coordinates(DynamicBody::eEuler, q);
-        db->get_generalized_velocity(DynamicBody::eSpatial, qd);
+        db->get_generalized_coordinates(DynamicBodyd::eEuler, q);
+        db->get_generalized_velocity(DynamicBodyd::eSpatial, qd);
         FILE_LOG(LOG_SIMULATOR) << " body " << db->id << " Euler coordinates (before): " << q << std::endl;
         FILE_LOG(LOG_SIMULATOR) << " body " << db->id << " spatial velocity (before): " << qd << std::endl;
       }
@@ -490,7 +490,7 @@ EventDrivenSimulator::IntegrationResult EventDrivenSimulator::integrate_generic(
       FILE_LOG(LOG_SIMULATOR) << "Integration with sustained constraints successful" << std::endl;
 
       // check whether velocity estimates have been exceeded
-      BOOST_FOREACH(DynamicBodyPtr db, _bodies)
+      BOOST_FOREACH(ControlledBodyPtr db, _bodies)
       {
         if (db->limit_estimates_exceeded())
         {
@@ -540,7 +540,7 @@ EventDrivenSimulator::IntegrationResult EventDrivenSimulator::integrate_generic(
 /// Validates limit estimates
 void EventDrivenSimulator::validate_limit_estimates()
 {
-  BOOST_FOREACH(DynamicBodyPtr body, _bodies)
+  BOOST_FOREACH(ControlledBodyPtr body, _bodies)
     body->validate_limit_estimates();
 }
 
@@ -553,8 +553,8 @@ void EventDrivenSimulator::save_state()
 
   for (unsigned i=0; i< _bodies.size(); i++)
   {
-    _bodies[i]->get_generalized_coordinates(DynamicBody::eEuler, _qsave[i]);
-    _bodies[i]->get_generalized_velocity(DynamicBody::eSpatial, _qdsave[i]);
+    _bodies[i]->get_generalized_coordinates(DynamicBodyd::eEuler, _qsave[i]);
+    _bodies[i]->get_generalized_velocity(DynamicBodyd::eSpatial, _qdsave[i]);
   }
 }
 
@@ -563,8 +563,8 @@ void EventDrivenSimulator::restore_state()
 {
   for (unsigned i=0; i< _bodies.size(); i++)
   {
-    _bodies[i]->set_generalized_coordinates(DynamicBody::eEuler, _qsave[i]);
-    _bodies[i]->set_generalized_velocity(DynamicBody::eSpatial, _qdsave[i]);
+    _bodies[i]->set_generalized_coordinates(DynamicBodyd::eEuler, _qsave[i]);
+    _bodies[i]->set_generalized_velocity(DynamicBodyd::eSpatial, _qdsave[i]);
   }
 }
 
@@ -646,7 +646,7 @@ double EventDrivenSimulator::calc_CA_step()
   double dt = std::numeric_limits<double>::max();
 
   // do joint limit CA step first (it's faster)
-  BOOST_FOREACH(DynamicBodyPtr db, _bodies)
+  BOOST_FOREACH(ControlledBodyPtr db, _bodies)
   {
     // try to get it as an articulated body
     ArticulatedBodyPtr ab = dynamic_pointer_cast<ArticulatedBody>(db);
@@ -686,7 +686,7 @@ double EventDrivenSimulator::calc_CA_step()
 void EventDrivenSimulator::reset_limit_estimates() const
 {
   // now compute the bounds
-  BOOST_FOREACH(DynamicBodyPtr db, _bodies)
+  BOOST_FOREACH(ControlledBodyPtr db, _bodies)
   {
     // first, reset the limit estimates
     db->reset_limit_estimates();

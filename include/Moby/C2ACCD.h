@@ -11,7 +11,7 @@
 #include <set>
 #include <map>
 #include <boost/shared_ptr.hpp>
-#include <Moby/sorted_pair>
+#include <Ravelin/sorted_pair>
 #include <Moby/Log.h>
 #include <Moby/CollisionDetection.h>
 #include <Moby/ThickTriangle.h>
@@ -34,7 +34,7 @@ class C2ACCD : public CollisionDetection
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     virtual bool is_collision(double epsilon = 0.0);
-    virtual bool is_contact(double dt, const std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> >& q0, const std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> >& q1, std::vector<Event>& contacts);
+    virtual bool is_contact(double dt, const std::vector<std::pair<ControlledBodyPtr, Ravelin::VectorNd> >& q0, const std::vector<std::pair<ControlledBodyPtr, Ravelin::VectorNd> >& q1, std::vector<Event>& contacts);
     virtual void add_collision_geometry(CollisionGeometryPtr geom);
     virtual void remove_collision_geometry(CollisionGeometryPtr geom);
     virtual void remove_all_collision_geometries();
@@ -72,7 +72,7 @@ class C2ACCD : public CollisionDetection
     void add_rigid_body_model(RigidBodyPtr body);
     bool intersect_BV_trees(boost::shared_ptr<BV> a, boost::shared_ptr<BV> b, const Ravelin::Transform3d& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b);
     void check_vertices(double dt, CollisionGeometryPtr a, CollisionGeometryPtr b, BVPtr ob, const std::vector<const Point3d*>& a_verts, const Ravelin::Transform3d bTa_t0, const Ravelin::SVelocityd& a_vel, const Ravelin::SVelocityd& b_vel, double& earliest, std::vector<Event>& local_contacts) const;
-    void check_geoms(double dt, CollisionGeometryPtr a, CollisionGeometryPtr b, const std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> >& q0, const std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> >& q1, std::vector<Event>& contacts); 
+    void check_geoms(double dt, CollisionGeometryPtr a, CollisionGeometryPtr b, const std::vector<std::pair<ControlledBodyPtr, Ravelin::VectorNd> >& q0, const std::vector<std::pair<ControlledBodyPtr, Ravelin::VectorNd> >& q1, std::vector<Event>& contacts); 
     void build_BV_tree(CollisionGeometryPtr geom);
     bool split(BVPtr source, BVPtr& tgt1, BVPtr& tgt2, const Ravelin::Vector3d& axis);
     void split_tris(const Point3d& point, const Ravelin::Vector3d& normal, const IndexedTriArray& orig_mesh, const std::list<unsigned>& ofacets, std::list<unsigned>& pfacets, std::list<unsigned>& nfacets);
@@ -83,8 +83,8 @@ class C2ACCD : public CollisionDetection
     static bool project_and_intersect(const Triangle& t, const Point3d& p);
     void determine_closest_features(const Triangle& ta, const Triangle& tb, Triangle::FeatureType& fa, Triangle::FeatureType& fb, std::vector<Point3d>& contact_points) const;
     void determine_closest_tris(CollisionGeometryPtr a, CollisionGeometryPtr b, const Ravelin::Transform3d& aTb, std::vector<std::pair<Triangle, Triangle> >& closest_tris) const;
-    static DynamicBodyPtr get_super_body(CollisionGeometryPtr a);
-    static unsigned find_body(const std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> >& q, DynamicBodyPtr body);
+    static ControlledBodyPtr get_super_body(CollisionGeometryPtr a);
+    static unsigned find_body(const std::vector<std::pair<ControlledBodyPtr, Ravelin::VectorNd> >& q, ControlledBodyPtr body);
 
     template <class OutputIterator>
     OutputIterator intersect_BV_leafs(BVPtr a, BVPtr b, const Ravelin::Transform3d& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b, OutputIterator output_begin) const;

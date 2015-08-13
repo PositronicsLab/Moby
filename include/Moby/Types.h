@@ -33,7 +33,7 @@ class Contact;
 class Primitive;
 class Base;
 class RecurrentForce;
-class DynamicBody;
+class ControlledBody;
 class XMLTree;
 class OSGGroupWrapper;
 class AABB;
@@ -52,17 +52,11 @@ typedef std::pair<Point3d, Point3d> LineSeg3;
 /// Typedef to make specifying line segments easier
 typedef std::pair<Point2d, Point2d> LineSeg2;
 
-/// reference frame type for reduced-coordinate dynamics computations
-enum ReferenceFrameType { eGlobal, eLink, eLinkInertia, eLinkCOM, eJoint };
-
 /// TessellatedPolyhedron smart pointer
 typedef boost::shared_ptr<TessellatedPolyhedron> TessellatedPolyhedronPtr;
 
 /// Simulator smart pointer
 typedef boost::shared_ptr<Simulator> SimulatorPtr;
-
-/// Single body smart pointer
-typedef boost::shared_ptr<SingleBody> SingleBodyPtr;
 
 /// Rigid body smart pointer
 typedef boost::shared_ptr<RigidBody> RigidBodyPtr;
@@ -92,7 +86,7 @@ typedef boost::shared_ptr<Base> BasePtr;
 typedef boost::shared_ptr<RecurrentForce> RecurrentForcePtr;
 
 /// Dynamic body smart pointer
-typedef boost::shared_ptr<DynamicBody> DynamicBodyPtr;
+typedef boost::shared_ptr<ControlledBody> ControlledBodyPtr;
 
 /// Bounding volume (BV) smart pointer
 typedef boost::shared_ptr<BV> BVPtr;

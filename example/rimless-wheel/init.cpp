@@ -1,7 +1,7 @@
 /*****************************************************************************
  * Initializer for rimless wheel 
  ****************************************************************************/
-#include <Moby/EventDrivenSimulator.h>
+#include <Moby/TimeSteppingSimulator.h>
 #include <Moby/RCArticulatedBody.h>
 #include <Moby/GravityForce.h>
 #include <Ravelin/Pose3d.h>
@@ -17,7 +17,7 @@ using namespace Moby;
 
 Moby::RigidBodyPtr ground;
 Moby::RigidBodyPtr wheel;
-boost::shared_ptr<EventDrivenSimulator> sim;
+boost::shared_ptr<TimeSteppingSimulator> sim;
 boost::shared_ptr<GravityForce> grav;
 
 // setup simulator callback
@@ -38,7 +38,7 @@ void post_step_callback(Simulator* sim)
   out.close(); 
 
   // see whether we are in a ballistic flight phase
-  EventDrivenSimulator* esim = (EventDrivenSimulator*) sim;
+  TimeSteppingSimulator* esim = (TimeSteppingSimulator*) sim;
   boost::shared_ptr<CollisionDetection> coldet = esim->get_collision_detection(); 
   CollisionGeometryPtr cgw = wheel->geometries.front();
   CollisionGeometryPtr cgg = ground->geometries.front();
@@ -119,13 +119,13 @@ void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map,
   out.close();
 
   // If use robot is active also init dynamixel controllers
-  // get a reference to the EventDrivenSimulator instance
+  // get a reference to the TimeSteppingSimulator instance
   for (std::map<std::string, Moby::BasePtr>::const_iterator i = read_map.begin();
        i !=read_map.end(); i++)
   {
     // Find the simulator reference
     if (!sim)
-      sim = boost::dynamic_pointer_cast<EventDrivenSimulator>(i->second);
+      sim = boost::dynamic_pointer_cast<TimeSteppingSimulator>(i->second);
     if (i->first == "WHEEL")
       wheel = boost::dynamic_pointer_cast<RigidBody>(i->second);
     if (i->first == "GROUND")

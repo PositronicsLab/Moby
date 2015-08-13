@@ -58,28 +58,6 @@ Simulator::~Simulator()
   #endif
 }
 
-/// Updates velocity bounds on all bodies
-void Simulator::update_bounds() const
-{
-  // bounds are checked in each body's prepare_calc_ode(.) function
-  // now compute the bounds
-  BOOST_FOREACH(DynamicBodyPtr db, _bodies)
-  {
-    ArticulatedBodyPtr ab = dynamic_pointer_cast<ArticulatedBody>(db);
-    if (ab)
-    {
-      ab->update_joint_vel_limits();
-      BOOST_FOREACH(RigidBodyPtr rb, ab->get_links())
-        rb->update_vel_limits();
-    }
-    else
-    {
-      RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(db);
-      rb->update_vel_limits();
-    }
-  }
-}
-
 /// Computes the ODE of the system
 VectorNd& Simulator::ode(const VectorNd& x, double t, double dt, void* data, VectorNd& dx)
 {
@@ -102,14 +80,17 @@ VectorNd& Simulator::ode(const VectorNd& x, double t, double dt, void* data, Vec
   dx.resize(x.size());
 
   // loop through all bodies, preparing to compute the ODE
-  BOOST_FOREACH(DynamicBodyPtr db, s->_bodies)
+  BOOST_FOREACH(ControlledBodyPtr db, s->_bodies)
   {
     if (db->get_kinematic())
       continue;
 
+    // cast the body as a Ravelin dynamic body
+    shared_ptr<DynamicBodyd> rdb = dynamic_pointer_cast<DynamicBodyd>(db);
+
     // get the number of generalized coordinates and velocities
-    const unsigned NGC = db->num_generalized_coordinates(DynamicBody::eEuler);
-    const unsigned NGV = db->num_generalized_coordinates(DynamicBody::eSpatial);
+    const unsigned NGC = rdb->num_generalized_coordinates(DynamicBodyd::eEuler);
+    const unsigned NGV = rdb->num_generalized_coordinates(DynamicBodyd::eSpatial);
 
     // get x for the body 
     SharedConstVectorNd xsub = x.segment(idx, idx+NGC+NGV);
@@ -125,22 +106,25 @@ VectorNd& Simulator::ode(const VectorNd& x, double t, double dt, void* data, Vec
   s->check_pairwise_constraint_violations(t);
 
   // loop through all bodies, computing forward dynamics 
-  BOOST_FOREACH(DynamicBodyPtr db, s->_bodies)
+  BOOST_FOREACH(ControlledBodyPtr db, s->_bodies)
     if (!db->get_kinematic())
-      db->calc_fwd_dyn();
+      dynamic_pointer_cast<DynamicBodyd>(db)->calc_fwd_dyn();
 
   // reset the index
   idx = 0;
 
   // loop through all bodies, computing the ODE
-  BOOST_FOREACH(DynamicBodyPtr db, s->_bodies)
+  BOOST_FOREACH(ControlledBodyPtr db, s->_bodies)
   {
     if (db->get_kinematic())
       continue;
 
+    // cast the body as a Ravelin dynamic body
+    shared_ptr<DynamicBodyd> rdb = dynamic_pointer_cast<DynamicBodyd>(db);
+
     // get the number of generalized coordinates and velocities
-    const unsigned NGC = db->num_generalized_coordinates(DynamicBody::eEuler);
-    const unsigned NGV = db->num_generalized_coordinates(DynamicBody::eSpatial);
+    const unsigned NGC = rdb->num_generalized_coordinates(DynamicBodyd::eEuler);
+    const unsigned NGV = rdb->num_generalized_coordinates(DynamicBodyd::eSpatial);
 
     // get dx for the body
     SharedVectorNd dxsub = dx.segment(idx, idx+NGC+NGV);
@@ -190,14 +174,14 @@ double Simulator::step(double step_size)
  * Searches unarticulated bodies, articulated bodies, and links of
  * articulated bodies.
  */
-DynamicBodyPtr Simulator::find_dynamic_body(const std::string& name) const
+ControlledBodyPtr Simulator::find_dynamic_body(const std::string& name) const
 {
-  BOOST_FOREACH(DynamicBodyPtr body, _bodies)
+  BOOST_FOREACH(ControlledBodyPtr body, _bodies)
     if (body->id == name)
       return body;
 
   // failed, look through all links of articulated bodies
-  BOOST_FOREACH(DynamicBodyPtr body, _bodies)
+  BOOST_FOREACH(ControlledBodyPtr body, _bodies)
   {
     // try to cast the i'th DynamicBody as an ArticulatedBody
     ArticulatedBodyPtr ab = dynamic_pointer_cast<ArticulatedBody>(body);
@@ -205,22 +189,22 @@ DynamicBodyPtr Simulator::find_dynamic_body(const std::string& name) const
       continue;
     
     // it was castable, get all links
-    const vector<RigidBodyPtr>& links = ab->get_links();
+    const vector<shared_ptr<RigidBodyd> >& links = ab->get_links();
     
     // look through all links for one matching the name
-    BOOST_FOREACH(RigidBodyPtr rb, links)  
-      if (rb->id == name)
-        return rb;
+    BOOST_FOREACH(shared_ptr<RigidBodyd> rb, links)  
+      if (rb->body_id == name)
+        return dynamic_pointer_cast<RigidBody>(rb);
   }
     
-  return DynamicBodyPtr();
+  return ControlledBodyPtr();
 }
 
 /// Removes a dynamic body from the simulator
-void Simulator::remove_dynamic_body(DynamicBodyPtr body)
+void Simulator::remove_dynamic_body(ControlledBodyPtr body)
 {
   // remove the body from the list of bodies
-  std::vector<DynamicBodyPtr>::iterator i = std::find(_bodies.begin(), _bodies.end(), body);
+  std::vector<ControlledBodyPtr>::iterator i = std::find(_bodies.begin(), _bodies.end(), body);
   if (i == _bodies.end())
     return;
   else
@@ -233,19 +217,21 @@ void Simulator::remove_dynamic_body(DynamicBodyPtr body)
   {
     
     // remove visualization data for all links to the persistent visualization data
-    const vector<RigidBodyPtr>& links = abody->get_links();
+    const vector<shared_ptr<RigidBodyd> >& links = abody->get_links();
     for (unsigned i=0; i< links.size(); i++)
     {
-      osg::Node* link_vdata = links[i]->get_visualization_data();
+      RigidBodyPtr link = dynamic_pointer_cast<RigidBody>(links[i]);
+      osg::Node* link_vdata = link->get_visualization_data();
       if (link_vdata)
         _persistent_vdata->removeChild(link_vdata);
     }
     
     // remove visualization data for all joints
-    const vector<JointPtr>& joints = abody->get_joints();
+    const vector<shared_ptr<Jointd> >& joints = abody->get_joints();
     for (unsigned i=0; i< joints.size(); i++)
     {
-      osg::Node* joint_vdata = joints[i]->get_visualization_data();
+      JointPtr joint = dynamic_pointer_cast<Joint>(joints[i]);
+      osg::Node* joint_vdata = joint->get_visualization_data();
       if (joint_vdata)
         _persistent_vdata->removeChild(joint_vdata);
     }
@@ -266,7 +252,7 @@ void Simulator::remove_dynamic_body(DynamicBodyPtr body)
 /**
  * \pre list of bodies is sorted
  */
-void Simulator::add_dynamic_body(DynamicBodyPtr body) 
+void Simulator::add_dynamic_body(ControlledBodyPtr body) 
 {
   // if the body is already present in the simulator, skip it
   if (std::find(_bodies.begin(), _bodies.end(), body) != _bodies.end())
@@ -278,19 +264,21 @@ void Simulator::add_dynamic_body(DynamicBodyPtr body)
   if (abody)
   {
     // add visualization data for all links to the persistent visualization data
-    const vector<RigidBodyPtr>& links = abody->get_links();
+    const vector<shared_ptr<RigidBodyd> >& links = abody->get_links();
     for (unsigned i=0; i< links.size(); i++)
     {
-      osg::Node* link_vdata = links[i]->get_visualization_data();
+      RigidBodyPtr link = dynamic_pointer_cast<RigidBody>(links[i]);
+      osg::Node* link_vdata = link->get_visualization_data();
       if (link_vdata)
         _persistent_vdata->addChild(link_vdata);
     }
     
     // get visualization data for all joints
-    const vector<JointPtr>& joints = abody->get_joints();
+    const vector<shared_ptr<Jointd> >& joints = abody->get_joints();
     for (unsigned i=0; i< joints.size(); i++)
     {
-      osg::Node* joint_vdata = joints[i]->get_visualization_data();
+      JointPtr joint = dynamic_pointer_cast<Joint>(joints[i]);
+      osg::Node* joint_vdata = joint->get_visualization_data();
       if (joint_vdata)
         _persistent_vdata->addChild(joint_vdata);
     }
@@ -316,7 +304,7 @@ void Simulator::add_dynamic_body(DynamicBodyPtr body)
 /// Updates all visualization under the simulator
 void Simulator::update_visualization()
 {
-  BOOST_FOREACH(DynamicBodyPtr body, _bodies)
+  BOOST_FOREACH(ControlledBodyPtr body, _bodies)
     body->update_visualization();
 }
 
@@ -361,21 +349,6 @@ void Simulator::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::stri
       dissipator = dynamic_pointer_cast<Dissipation>(id_iter->second);
   }
 
-  // get the integrator, if specified
-  XMLAttrib* int_id_attr = node->get_attrib("integrator-id");
-  if (int_id_attr)
-  {
-    const std::string& id = int_id_attr->get_string_value(); 
-    if ((id_iter = id_map.find(id)) == id_map.end())
-    {
-      std::cerr << "Simulator::load_from_xml() - could not find" << std::endl;
-      std::cerr << "  integrator w/ID: " << id << " from offending node: ";
-      std::cerr << std::endl << *node;
-    }
-    else
-      integrator = dynamic_pointer_cast<Integrator>(id_iter->second);
-  }
-
   // get all dynamic bodies used in the simulator
   child_nodes = node->find_child_nodes("DynamicBody");
   if (!child_nodes.empty())
@@ -407,7 +380,7 @@ void Simulator::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::stri
         std::cerr << std::endl << *node;
       }
       else
-        add_dynamic_body(dynamic_pointer_cast<DynamicBody>(id_iter->second));
+        add_dynamic_body(dynamic_pointer_cast<ControlledBody>(id_iter->second));
     }
   }
 
@@ -440,7 +413,7 @@ void Simulator::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::stri
       else
       {
         RecurrentForcePtr rf = dynamic_pointer_cast<RecurrentForce>(id_iter->second);
-        BOOST_FOREACH(DynamicBodyPtr db, _bodies)
+        BOOST_FOREACH(ControlledBodyPtr db, _bodies)
           db->get_recurrent_forces().push_back(rf);
       }
     }
@@ -466,15 +439,8 @@ void Simulator::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >&
     shared_objects.push_back(dissipator);
   }
 
-  // save the ID of the integrator
-  if (integrator)
-  {
-    node->attribs.insert(XMLAttrib("integrator-id", integrator->id));
-    shared_objects.push_back(integrator);
-  }
-
   // save the IDs of all dynamic bodies in the simulator
-  BOOST_FOREACH(DynamicBodyPtr body, _bodies)
+  BOOST_FOREACH(ControlledBodyPtr body, _bodies)
   {
     XMLTreePtr child_node(new XMLTree("DynamicBody"));
     node->add_child(child_node);

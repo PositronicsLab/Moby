@@ -258,7 +258,7 @@ struct SustainedUnilateralConstraintProblemData
   std::vector<bool> contact_sticking; // NOTE!:THis value is not calculated yet
 
   // the vector of "super" bodies
-  std::vector<DynamicBodyPtr> super_bodies;
+  std::vector<ControlledBodyPtr> super_bodies;
 
   // the vectors of acceleration-level constraints 
   std::vector<UnilateralConstraint*> constraints, contact_constraints, limit_constraints;

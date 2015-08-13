@@ -10,12 +10,11 @@
 #include <vector>
 #include <map>
 #include <boost/shared_ptr.hpp>
+#include <Ravelin/DynamicBodyd.h>
 #include <Moby/Base.h>
 
 namespace Moby {
 
-class DynamicBody;
-  
 /// Used for applying forces to the simulation on every time step 
 /**
  * Recurrent forces may be constant (like gravity) or vary by the velocity
@@ -28,7 +27,7 @@ class RecurrentForce : public virtual Base
     virtual ~RecurrentForce() { }
     
     /// Abstract method for applying this force/torque to a body
-    virtual void add_force(DynamicBodyPtr body) = 0;  
+    virtual void add_force(boost::shared_ptr<Ravelin::DynamicBodyd> body) = 0;  
 }; // end class
 
 } // end namespace Moby

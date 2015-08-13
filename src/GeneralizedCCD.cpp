@@ -109,7 +109,7 @@ void GeneralizedCCD::remove_articulated_body(ArticulatedBodyPtr abody)
 }
 
 /// Computes the poses from states
-map<CollisionGeometryPtr, GeneralizedCCD::PosePair> GeneralizedCCD::get_poses(const vector<pair<DynamicBodyPtr, VectorNd> >& q0, const vector<pair<DynamicBodyPtr, VectorNd> >& q1)
+map<CollisionGeometryPtr, GeneralizedCCD::PosePair> GeneralizedCCD::get_poses(const vector<pair<ControlledBodyPtr, VectorNd> >& q0, const vector<pair<ControlledBodyPtr, VectorNd> >& q1)
 {
   map<CollisionGeometryPtr, GeneralizedCCD::PosePair> poses;
   map<CollisionGeometryPtr, Pose3d> global_poses_t0, global_poses_tf;
@@ -117,11 +117,11 @@ map<CollisionGeometryPtr, GeneralizedCCD::PosePair> GeneralizedCCD::get_poses(co
   // re-set generalized coordinates to q0
   #ifndef _OPENMP
   for (unsigned i=0; i< q1.size(); i++)
-    q0[i].first->set_generalized_coordinates(DynamicBody::eEuler, q0[i].second);
+    q0[i].first->set_generalized_coordinates(DynamicBodyd::eEuler, q0[i].second);
   #else
   #pragma #omp parallel for
   for (unsigned i=0; i< q1.size(); i++)
-    q0[i].first->set_generalized_coordinates(DynamicBody::eEuler, q0[i].second);
+    q0[i].first->set_generalized_coordinates(DynamicBodyd::eEuler, q0[i].second);
   #endif
 
   // get the poses from all collision geometries 
@@ -136,11 +136,11 @@ map<CollisionGeometryPtr, GeneralizedCCD::PosePair> GeneralizedCCD::get_poses(co
   // set generalized coordinates to q1
   #ifndef _OPENMP
   for (unsigned i=0; i< q0.size(); i++)
-    q1[i].first->set_generalized_coordinates(DynamicBody::eEuler, q1[i].second);
+    q1[i].first->set_generalized_coordinates(DynamicBodyd::eEuler, q1[i].second);
   #else
   #pragma #omp parallel for
   for (unsigned i=0; i< q0.size(); i++)
-    q1[i].first->set_generalized_coordinates(DynamicBody::eEuler, q1[i].second);
+    q1[i].first->set_generalized_coordinates(DynamicBodyd::eEuler, q1[i].second);
   #endif
 
   // get the poses from all collision geometries and save 
@@ -205,11 +205,11 @@ map<CollisionGeometryPtr, GeneralizedCCD::PosePair> GeneralizedCCD::get_poses(co
   // re-set generalized coordinates to q0
   #ifndef _OPENMP
   for (unsigned i=0; i< q1.size(); i++)
-    q0[i].first->set_generalized_coordinates(DynamicBody::eEuler, q0[i].second);
+    q0[i].first->set_generalized_coordinates(DynamicBodyd::eEuler, q0[i].second);
   #else
   #pragma #omp parallel for
   for (unsigned i=0; i< q1.size(); i++)
-    q0[i].first->set_generalized_coordinates(DynamicBody::eEuler, q0[i].second);
+    q0[i].first->set_generalized_coordinates(DynamicBodyd::eEuler, q0[i].second);
   #endif
 
   if (LOGGING(LOG_COLDET))
@@ -235,7 +235,7 @@ map<CollisionGeometryPtr, GeneralizedCCD::PosePair> GeneralizedCCD::get_poses(co
 /**
  * \pre body states are at time tf
  */
-bool GeneralizedCCD::is_contact(double dt, const vector<pair<DynamicBodyPtr, VectorNd> >& q0, const vector<pair<DynamicBodyPtr, VectorNd> >& q1, vector<Event>& contacts)
+bool GeneralizedCCD::is_contact(double dt, const vector<pair<ControlledBodyPtr, VectorNd> >& q0, const vector<pair<ControlledBodyPtr, VectorNd> >& q1, vector<Event>& contacts)
 {
   DStruct ds;
   typedef pair<CollisionGeometryPtr, BVPtr> CG_BV;
@@ -304,7 +304,7 @@ bool GeneralizedCCD::is_contact(double dt, const vector<pair<DynamicBodyPtr, Vec
 /**
  * \pre body states are at time tf
  */
-bool GeneralizedCCD::is_contact(double dt, const vector<pair<DynamicBodyPtr, VectorNd> >& q0, const vector<pair<DynamicBodyPtr, VectorNd> >& q1, vector<Event>& contacts)
+bool GeneralizedCCD::is_contact(double dt, const vector<pair<ControlledBodyPtr, VectorNd> >& q0, const vector<pair<ControlledBodyPtr, VectorNd> >& q1, vector<Event>& contacts)
 {
   DStruct ds;
   typedef pair<CollisionGeometryPtr, BVPtr> CG_BV;

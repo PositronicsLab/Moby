@@ -11,6 +11,7 @@
 #include <Moby/ContactParameters.h>
 
 using boost::shared_ptr;
+using namespace Ravelin;
 using namespace Moby;
 
 /// Constructs a ContactParameters object with no object pointers

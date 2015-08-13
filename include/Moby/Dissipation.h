@@ -15,12 +15,12 @@ class Dissipation : public Base
   public:
     Dissipation();
     virtual ~Dissipation() {}
-    void apply(const std::vector<DynamicBodyPtr>& bodies);
+    void apply(const std::vector<boost::shared_ptr<Ravelin::DynamicBodyd> >& bodies);
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
 
     /// The mapping from bodies to decay coefficients 
-    std::map<DynamicBodyPtr, double> _coeffs; 
+    std::map<boost::shared_ptr<Ravelin::DynamicBodyd>, double> _coeffs; 
 }; // end class
 } // end namespace
 

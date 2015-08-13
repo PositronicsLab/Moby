@@ -35,7 +35,6 @@
 #include <Moby/BoxPrimitive.h>
 #include <Moby/SpherePrimitive.h>
 #include <Moby/FixedJoint.h>
-#include <Moby/MCArticulatedBody.h>
 #include <Moby/RCArticulatedBody.h>
 #include <Moby/PrismaticJoint.h>
 #include <Moby/RevoluteJoint.h>
@@ -558,8 +557,6 @@ void URDFReader::read_limits(shared_ptr<const XMLTree> node, URDFData& data, Joi
           joint->lolimit[0] = lower_attrib->get_real_value();
         if (upper_attrib)
           joint->hilimit[0] = upper_attrib->get_real_value(); 
-        if (effort_attrib)
-          joint->maxforce[0] = effort_attrib->get_real_value();
 
         // multiple tags unsupported
         return;

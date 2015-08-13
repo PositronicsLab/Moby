@@ -7,8 +7,8 @@
 #include <iostream>
 #include <limits>
 #include <queue>
+#include <Ravelin/SpatialArithmeticd.h>
 #include <Moby/RigidBody.h>
-#include <Moby/Spatial.h>
 #include <Moby/Joint.h>
 #include <Moby/XMLTree.h>
 #include <Moby/RCArticulatedBody.h>
@@ -16,11 +16,9 @@
 
 using std::vector;
 using boost::shared_ptr;
+using boost::dynamic_pointer_cast;
 using namespace Ravelin;
 using namespace Moby;
-
-// shared (static) linear algebra object
-LinAlgd Joint::_LA;
 
 /// Initializes the joint
 /**
@@ -28,9 +26,6 @@ LinAlgd Joint::_LA;
  */
 Joint::Joint() : Jointd()
 {
-  // make the constraint type unknown
-  _constraint_type = eUnknown;
-
   // initialize friction coefficients
   mu_fc = mu_fv = (double) 0.0;
 
@@ -55,9 +50,6 @@ Joint::Joint() : Jointd()
  */
 Joint::Joint(boost::weak_ptr<RigidBody> inboard, boost::weak_ptr<RigidBody> outboard) : Jointd()
 {
-  // make the constraint type unknown
-  _constraint_type = eUnknown;
-
   // initialize friction coefficients
   mu_fc = mu_fv = (double) 0.0;
 
@@ -65,8 +57,8 @@ Joint::Joint(boost::weak_ptr<RigidBody> inboard, boost::weak_ptr<RigidBody> outb
   limit_restitution = (double) 0.0;
 
   // set the inboard and outboard links
-  _inboard_link = inboard;
-  _outboard_link = outboard;
+  _inboard_link = RigidBodyPtr(inboard);
+  _outboard_link = RigidBodyPtr(outboard);
 
   // set poses
   RigidBodyPtr ib(inboard);
@@ -84,6 +76,7 @@ Joint::Joint(boost::weak_ptr<RigidBody> inboard, boost::weak_ptr<RigidBody> outb
 /// (Relatively slow) method for determining the joint velocity from current link velocities
 void Joint::determine_q_dot()
 {
+  static LinAlgd LA;
   MatrixNd m, U, V;
   VectorNd S;
 
@@ -91,14 +84,14 @@ void Joint::determine_q_dot()
   const vector<SVelocityd>& s = get_spatial_axes();
 
   // convert to a matrix
-  to_matrix(s, m);
+  SpArithd::to_matrix(s, m);
 
   // compute the SVD
-  _LA.svd(m, U, S, V);
+  LA.svd(m, U, S, V);
 
   // get the velocities in computation frames
-  RigidBodyPtr inboard = get_inboard_link();
-  RigidBodyPtr outboard = get_outboard_link();
+  shared_ptr<RigidBodyd> inboard = get_inboard_link();
+  shared_ptr<RigidBodyd> outboard = get_outboard_link();
   const SVelocityd& vi = inboard->get_velocity();
   const SVelocityd& vo = outboard->get_velocity();
 
@@ -119,24 +112,24 @@ void Joint::set_inboard_link(RigidBodyPtr inboard, bool update_pose)
     return;
 
   // add this joint to the outer joints
-  inboard->_outer_joints.insert(get_this());
+  inboard->_outer_joints.insert(dynamic_pointer_cast<Jointd>(Jointd::shared_from_this()));
 
   // setup F's pose relative to the inboard
   set_inboard_pose(inboard->get_pose(), update_pose);
 
   // update articulated body pointers, if possible
   if (!inboard->get_articulated_body() && !_abody.expired())
-    inboard->set_articulated_body(ArticulatedBodyPtr(_abody));
+    inboard->set_articulated_body(dynamic_pointer_cast<ArticulatedBody>(shared_ptr<ArticulatedBodyd>(_abody)));
   else if (inboard->get_articulated_body() && _abody.expired())
-    set_articulated_body(ArticulatedBodyPtr(inboard->get_articulated_body()));
+    set_articulated_body(dynamic_pointer_cast<ArticulatedBody>(shared_ptr<ArticulatedBodyd>(inboard->get_articulated_body())));
 
   // the articulated body pointers must now be equal; it is
   // conceivable that the user is updating the art. body pointers in an
   // unorthodox manner, but we'll look for this anwyway...
   if (!_abody.expired())
   {
-    ArticulatedBodyPtr abody1(inboard->get_articulated_body());
-    ArticulatedBodyPtr abody2(_abody);
+    ArticulatedBodyPtr abody1(dynamic_pointer_cast<ArticulatedBody>(shared_ptr<ArticulatedBodyd>(inboard->get_articulated_body())));
+    ArticulatedBodyPtr abody2(dynamic_pointer_cast<ArticulatedBody>(shared_ptr<ArticulatedBodyd>(_abody)));
     assert(abody1 == abody2);
   }
 }
@@ -152,7 +145,7 @@ void Joint::set_outboard_link(RigidBodyPtr outboard, bool update_pose)
     return;
 
   // add this joint to the outer joints
-  outboard->_inner_joints.insert(get_this());
+  outboard->_inner_joints.insert(dynamic_pointer_cast<Jointd>(Jointd::shared_from_this()));
 
   // get the outboard pose
   if (outboard->_F->rpose)
@@ -169,17 +162,17 @@ void Joint::set_outboard_link(RigidBodyPtr outboard, bool update_pose)
 
   // use one articulated body pointer to set the other, if possible
   if (!outboard->get_articulated_body() && !_abody.expired())
-    outboard->set_articulated_body(ArticulatedBodyPtr(_abody));
+    outboard->set_articulated_body(dynamic_pointer_cast<ArticulatedBody>(shared_ptr<ArticulatedBodyd>(_abody)));
   else if (outboard->get_articulated_body() && _abody.expired())
-    set_articulated_body(ArticulatedBodyPtr(outboard->get_articulated_body()));
+    set_articulated_body(dynamic_pointer_cast<ArticulatedBody>(outboard->get_articulated_body()));
 
   // the articulated body pointers must now be equal; it is
   // conceivable that the user is updating the art. body pointers in an
   // unorthodox manner, but we'll look for this anwyway...
   if (!_abody.expired())
   {
-    ArticulatedBodyPtr abody1(outboard->get_articulated_body());
-    ArticulatedBodyPtr abody2(_abody);
+    ArticulatedBodyPtr abody1(dynamic_pointer_cast<ArticulatedBody>(outboard->get_articulated_body()));
+    ArticulatedBodyPtr abody2(dynamic_pointer_cast<ArticulatedBody>(get_articulated_body()));
     assert(abody1 == abody2);
   }
 }
@@ -197,27 +190,8 @@ void Joint::init_data()
   const unsigned NDOF = num_dof();
   const unsigned NEQ = num_constraint_eqns();
 
-  qdd.set_zero(NDOF);
-  force.set_zero(NDOF);
-  maxforce.set_one(NDOF) *= std::numeric_limits<double>::max();
   lolimit.set_one(NDOF) *= -std::numeric_limits<double>::max();
   hilimit.set_one(NDOF) *= std::numeric_limits<double>::max();
-  ff.set_zero(NDOF);
-  lambda.set_zero(NEQ);
-  _s.resize(NDOF);
-}
-
-/// Resets the force / torque produced by this joint's actuator and by the joint friction forces
-void Joint::reset_force()
-{
-  force.set_zero(num_dof());
-  ff.set_zero(num_dof());
-}
-
-/// Adds to the force / torque produced by this joint's actuator
-void Joint::add_force(const VectorNd& force)
-{
-  this->force += force;
 }
 
 /// Sets the location of this joint with specified inboard and outboard links
@@ -241,8 +215,8 @@ void Joint::set_location(const Point3d& point, RigidBodyPtr inboard, RigidBodyPt
   set_outboard_link(outboard, false);
 
   // setup joint pointers
-  if (inboard) inboard->add_outer_joint(get_this());
-  if (outboard) outboard->add_inner_joint(get_this());
+  if (inboard) inboard->add_outer_joint(dynamic_pointer_cast<Jointd>(Jointd::shared_from_this()));
+  if (outboard) outboard->add_inner_joint(dynamic_pointer_cast<Jointd>(Jointd::shared_from_this()));
 }
 
 /// Gets the scaled actuator forces
@@ -255,6 +229,29 @@ VectorNd& Joint::get_scaled_force(VectorNd& f)
   f = force;
 
   return f;
+}
+
+/// Gets the articulated body corresponding to this body
+/**
+ * \return a pointer to the articulated body, or NULL if this body is not 
+ *         a link an articulated body
+ */
+ArticulatedBodyPtr Joint::get_articulated_body() 
+{ 
+  if (_abody.expired()) 
+    return ArticulatedBodyPtr();
+  else
+    return dynamic_pointer_cast<ArticulatedBody>(shared_ptr<ArticulatedBodyd>(_abody)); 
+}
+
+/// Sets the articulated body corresponding to this body
+/**
+ * \param body a pointer to the articulated body or NULL if this body is
+ *        not a link in an articulated body
+ */
+void Joint::set_articulated_body(ArticulatedBodyPtr abody) 
+{ 
+  _abody = boost::dynamic_pointer_cast<Ravelin::ArticulatedBodyd>(abody); 
 }
 
 /// Implements Base::load_from_xml()
@@ -270,6 +267,9 @@ void Joint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, 
   
   // load the parent data
   Visualizable::load_from_xml(node, id_map);
+
+  // save the id
+  joint_id = id;
 
   // read the lower limits, if given
   XMLAttrib* lolimit_attr = node->get_attrib("lower-limits");
@@ -287,15 +287,6 @@ void Joint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, 
     hilimit_attr->get_vector_value(hilimit);
     if (hilimit.size() != num_dof())
       throw std::runtime_error("upper-limits read from XML does not match joint DOF");
-  }
-
-  // read the maximum actuator force, if given
-  XMLAttrib* maxforce_attr = node->get_attrib("max-forces");
-  if (maxforce_attr)
-  {
-    maxforce_attr->get_vector_value(maxforce);
-    if (maxforce.size() != num_dof())
-      throw std::runtime_error("max-forces read from XML does not match joint DOF");
   }
 
   // read the joint positions, if given
@@ -446,8 +437,8 @@ void Joint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, 
     if (outboard) set_outboard_link(outboard, true);
 
     // add/replace this as an inner joint
-    if (inboard) inboard->add_outer_joint(get_this());
-    if (outboard) outboard->add_inner_joint(get_this());
+    if (inboard) inboard->add_outer_joint(dynamic_pointer_cast<Jointd>(Jointd::shared_from_this()));
+    if (outboard) outboard->add_inner_joint(dynamic_pointer_cast<Jointd>(Jointd::shared_from_this()));
   }
 }
 
@@ -464,9 +455,6 @@ void Joint::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& sha
   node->attribs.insert(XMLAttrib("lower-limits", lolimit));
   node->attribs.insert(XMLAttrib("upper-limits", hilimit));
 
-  // save the maximum applicable forces by the joint's actuators
-  node->attribs.insert(XMLAttrib("max-forces", maxforce));
-
   // save the joint position and velocity
   node->attribs.insert(XMLAttrib("q", q));
   node->attribs.insert(XMLAttrib("qd", qd));
@@ -482,15 +470,15 @@ void Joint::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& sha
   // save the inboard link, if any
   if (!_inboard_link.expired())
   {
-    RigidBodyPtr inboard(_inboard_link);
-    node->attribs.insert(XMLAttrib("inboard-link-id", inboard->id));
+    shared_ptr<RigidBodyd> inboard(_inboard_link);
+    node->attribs.insert(XMLAttrib("inboard-link-id", inboard->body_id));
   }  
 
   // save the outboard link, if any
   if (!_outboard_link.expired())
   {
-    RigidBodyPtr outboard(_outboard_link);
-    node->attribs.insert(XMLAttrib("outboard-link-id", outboard->id));
+    shared_ptr<RigidBodyd> outboard(_outboard_link);
+    node->attribs.insert(XMLAttrib("outboard-link-id", outboard->body_id));
   }  
 
   // if both inboard and outboard links are set, set the global position
@@ -500,8 +488,8 @@ void Joint::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& sha
   // save the ID articulated body (if any)
   if (!_abody.expired())
   {
-    ArticulatedBodyPtr abody(_abody);
-    node->attribs.insert(XMLAttrib("articulated-body-id", abody->id));
+    shared_ptr<ArticulatedBodyd> abody(_abody);
+    node->attribs.insert(XMLAttrib("articulated-body-id", abody->body_id));
   }
 }
 

@@ -11,7 +11,7 @@
 #endif
 #include <Moby/Constants.h>
 #include <Moby/CompGeom.h>
-#include <Moby/sorted_pair>
+#include <Ravelin/sorted_pair>
 #include <Moby/XMLTree.h>
 #include <Moby/BoundingSphere.h>
 #include <Moby/CollisionGeometry.h>

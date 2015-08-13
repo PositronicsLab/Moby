@@ -9,7 +9,7 @@
 
 #include <Moby/Base.h>
 #include <Moby/Types.h>
-#include <Moby/sorted_pair>
+#include <Ravelin/sorted_pair>
 
 namespace Moby {
 
@@ -22,7 +22,7 @@ class ContactParameters : public Base
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
 
     /// The objects in contact
-    sorted_pair<BasePtr> objects;  
+    Ravelin::sorted_pair<BasePtr> objects;  
 
     /// Coefficient of restitution for contact (default is 0.0)
     double epsilon;

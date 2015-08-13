@@ -8,7 +8,6 @@
 #include <iostream>
 #include <Moby/Constants.h>
 #include <Moby/XMLTree.h>
-#include <Moby/SingleBody.h>
 #include <Moby/RigidBody.h>
 #include <Moby/ArticulatedBody.h>
 #include <Moby/GravityForce.h>
@@ -31,9 +30,9 @@ GravityForce::GravityForce(const GravityForce& source)
 }
 
 /// Adds gravity to a body
-void GravityForce::add_force(DynamicBodyPtr body)
+void GravityForce::add_force(shared_ptr<DynamicBodyd> body)
 {
-  FILE_LOG(LOG_DYNAMICS) << "Adding gravitational force to " << body->id << std::endl;
+  FILE_LOG(LOG_DYNAMICS) << "Adding gravitational force to " << body->body_id << std::endl;
 
   // check to see whether body is a rigid body first 
   shared_ptr<RigidBody> rb = dynamic_pointer_cast<RigidBody>(body);
@@ -53,10 +52,10 @@ void GravityForce::add_force(DynamicBodyPtr body)
     if (ab)
     {
       // get the vector of links
-      const std::vector<RigidBodyPtr>& links = ab->get_links();
+      const std::vector<shared_ptr<RigidBodyd> >& links = ab->get_links();
       
       // apply gravity force to all links
-      BOOST_FOREACH(RigidBodyPtr rb, links)
+      BOOST_FOREACH(shared_ptr<RigidBodyd> rb, links)
       {
         shared_ptr<Pose3d> P(new Pose3d(*rb->get_inertial_pose()));
         P->update_relative_pose(GLOBAL);

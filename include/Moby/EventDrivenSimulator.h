@@ -8,7 +8,7 @@
 #define _EVENT_SIMULATOR_H
 
 #include <map>
-#include <Moby/sorted_pair>
+#include <Ravelin/sorted_pair>
 #include <Moby/Simulator.h>
 #include <Moby/ImpactConstraintHandler.h>
 #include <Moby/PenaltyConstraintHandler.h>
@@ -45,7 +45,7 @@ class EventDrivenSimulator : public TimeSteppingSimulator
     std::vector<Ravelin::VectorNd> _qd0, _qdf, _qdsave;
 
     /// Vectors set and passed to collision detection
-    std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> > _x0, _x1;
+    std::vector<std::pair<ControlledBodyPtr, Ravelin::VectorNd> > _x0, _x1;
 
     /// Gets the shared pointer for this
     boost::shared_ptr<EventDrivenSimulator> get_this() { return boost::dynamic_pointer_cast<EventDrivenSimulator>(shared_from_this()); }

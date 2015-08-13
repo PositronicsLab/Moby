@@ -11,6 +11,7 @@
 #include <list>
 #include <Ravelin/Vector3d.h>
 #include <Ravelin/SForced.h>
+#include <Ravelin/DynamicBodyd.h>
 #include <boost/shared_ptr.hpp>
 #include <Moby/Constants.h>
 #include <Moby/Types.h>
@@ -173,20 +174,20 @@ class UnilateralConstraint
     void compute_aconstraint_data(Ravelin::MatrixNd& M, Ravelin::VectorNd& q) const;
     void compute_cross_aconstraint_data(const UnilateralConstraint& e, Ravelin::MatrixNd& M) const;	
     void compute_cross_contact_contact_vconstraint_data(const UnilateralConstraint& e, Ravelin::MatrixNd& M) const;
-    void compute_cross_contact_contact_vconstraint_data(const UnilateralConstraint& e, Ravelin::MatrixNd& M, DynamicBodyPtr su) const;
-    void compute_cross_contact_contact_vconstraint_data(const UnilateralConstraint& e, Ravelin::MatrixNd& M, DynamicBodyPtr su, const Ravelin::MatrixNd& J) const;
+    void compute_cross_contact_contact_vconstraint_data(const UnilateralConstraint& e, Ravelin::MatrixNd& M, boost::shared_ptr<Ravelin::DynamicBodyd> su) const;
+    void compute_cross_contact_contact_vconstraint_data(const UnilateralConstraint& e, Ravelin::MatrixNd& M, boost::shared_ptr<Ravelin::DynamicBodyd> su, const Ravelin::MatrixNd& J) const;
     void compute_cross_contact_limit_vconstraint_data(const UnilateralConstraint& e, Ravelin::MatrixNd& M) const;
     void compute_cross_limit_contact_vconstraint_data(const UnilateralConstraint& e, Ravelin::MatrixNd& M) const;
     void compute_cross_limit_limit_vconstraint_data(const UnilateralConstraint& e, Ravelin::MatrixNd& M) const;
     void compute_cross_contact_contact_aconstraint_data(const UnilateralConstraint& e, Ravelin::MatrixNd& M) const;
-    void compute_cross_contact_contact_aconstraint_data(const UnilateralConstraint& e, Ravelin::MatrixNd& M, DynamicBodyPtr su) const;
-    void compute_cross_contact_contact_aconstraint_data(const UnilateralConstraint& e, Ravelin::MatrixNd& M, DynamicBodyPtr su, const Ravelin::MatrixNd& J) const;
+    void compute_cross_contact_contact_aconstraint_data(const UnilateralConstraint& e, Ravelin::MatrixNd& M, boost::shared_ptr<Ravelin::DynamicBodyd> su) const;
+    void compute_cross_contact_contact_aconstraint_data(const UnilateralConstraint& e, Ravelin::MatrixNd& M, boost::shared_ptr<Ravelin::DynamicBodyd> su, const Ravelin::MatrixNd& J) const;
     void compute_cross_contact_limit_aconstraint_data(const UnilateralConstraint& e, Ravelin::MatrixNd& M) const;
     void compute_cross_limit_contact_aconstraint_data(const UnilateralConstraint& e, Ravelin::MatrixNd& M) const;
     void compute_cross_limit_limit_aconstraint_data(const UnilateralConstraint& e, Ravelin::MatrixNd& M) const;
     void compute_dotv_data(Ravelin::VectorNd& q) const;
     static bool is_linked(const UnilateralConstraint& e1, const UnilateralConstraint& e2);
-    unsigned get_super_bodies(DynamicBodyPtr& sb1, DynamicBodyPtr& sb2) const;
+    unsigned get_super_bodies(boost::shared_ptr<Ravelin::DynamicBodyd>& sb1, boost::shared_ptr<Ravelin::DynamicBodyd>& sb2) const;
     static void determine_convex_set(std::list<UnilateralConstraint*>& group);
     static void process_convex_set_group(std::list<UnilateralConstraint*>& group);
     static bool is_contact_manifold_2D(const std::list<UnilateralConstraint*>& group);

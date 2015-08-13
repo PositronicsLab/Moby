@@ -8,7 +8,7 @@
 #define _CONSTRAINT_SIMULATOR_H
 
 #include <map>
-#include <Moby/sorted_pair>
+#include <Ravelin/sorted_pair>
 #include <Moby/Simulator.h>
 #include <Moby/ImpactConstraintHandler.h>
 #include <Moby/PenaltyConstraintHandler.h>
@@ -38,10 +38,10 @@ class ConstraintSimulator : public Simulator
     boost::shared_ptr<ContactParameters> get_contact_parameters(CollisionGeometryPtr geom1, CollisionGeometryPtr geom2) const;
 
     /// Determines whether two geometries are not checked
-    std::set<sorted_pair<CollisionGeometryPtr> > unchecked_pairs;
+    std::set<Ravelin::sorted_pair<CollisionGeometryPtr> > unchecked_pairs;
 
     /// Vectors set and passed to collision detection
-    std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> > _x0, _x1;
+    std::vector<std::pair<ControlledBodyPtr, Ravelin::VectorNd> > _x0, _x1;
 
     /// Callback function for getting contact parameters
     boost::shared_ptr<ContactParameters> (*get_contact_parameters_callback_fn)(CollisionGeometryPtr g1, CollisionGeometryPtr g2);
@@ -73,7 +73,7 @@ class ConstraintSimulator : public Simulator
     std::vector<UnilateralConstraint>& get_rigid_constraints() { return _rigid_constraints; }
 
     /// Mapping from objects to contact parameters
-    std::map<sorted_pair<BasePtr>, boost::shared_ptr<ContactParameters> > contact_params;
+    std::map<Ravelin::sorted_pair<BasePtr>, boost::shared_ptr<ContactParameters> > contact_params;
 
     /// If set to 'true' simulator will process contact points for rendering
     bool render_contact_points;
@@ -131,7 +131,7 @@ class ConstraintSimulator : public Simulator
     Ravelin::VectorNd _workV;
 
     /// Interpenetration constraint violation tolerances
-    std::map<sorted_pair<CollisionGeometryPtr>, double> _ip_tolerances;
+    std::map<Ravelin::sorted_pair<CollisionGeometryPtr>, double> _ip_tolerances;
 
     /// The collision detection mechanism
     boost::shared_ptr<CollisionDetection> _coldet;

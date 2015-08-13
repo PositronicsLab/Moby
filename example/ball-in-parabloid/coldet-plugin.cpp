@@ -1,6 +1,6 @@
 #include <Moby/CollisionDetection.h>
 #include <Moby/CCD.h>
-#include <Moby/EventDrivenSimulator.h>
+#include <Moby/TimeSteppingSimulator.h>
 #include <cstdio>
 #define NDEBUG
 using boost::shared_ptr;
@@ -17,7 +17,7 @@ const double A = 10.0, B = 10.0;
 class BallParabloidPlanePlugin : public CollisionDetection
 {
   private:
-    boost::shared_ptr<EventDrivenSimulator> sim;
+    boost::shared_ptr<TimeSteppingSimulator> sim;
     boost::shared_ptr<CCD> ccd;
     RigidBodyPtr ball;
     RigidBodyPtr parabloid;
@@ -27,14 +27,14 @@ class BallParabloidPlanePlugin : public CollisionDetection
   public:
     BallParabloidPlanePlugin() {}
 
-    virtual void set_simulator(boost::shared_ptr<EventDrivenSimulator> sim)
+    virtual void set_simulator(boost::shared_ptr<TimeSteppingSimulator> sim)
     {
       this->sim = sim;
 
       // find the necessary objects
       for (unsigned i=0; i< sim->get_dynamic_bodies().size(); i++)
       {
-        DynamicBodyPtr body = sim->get_dynamic_bodies()[i];
+        ControlledBodyPtr body = sim->get_dynamic_bodies()[i];
         if (body->id == "ball")
           ball = boost::dynamic_pointer_cast<RigidBody>(body);
         else if (body->id == "parabloid")
@@ -58,13 +58,13 @@ class BallParabloidPlanePlugin : public CollisionDetection
     virtual ~BallParabloidPlanePlugin() {}
 
     /// Does broad phase collision detection
-    virtual void broad_phase(double dt, const std::vector<DynamicBodyPtr>& bodies, std::vector<std::pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check)
+    virtual void broad_phase(double dt, const std::vector<ControlledBodyPtr>& bodies, std::vector<std::pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check)
     {
       // clear to_check
       to_check.clear();
 
       // remove the ball and the parabloid from bodies
-      std::vector<DynamicBodyPtr> remainder = bodies;
+      std::vector<ControlledBodyPtr> remainder = bodies;
       for (unsigned i=0; i< remainder.size(); i++)
         if (remainder[i] == ball || remainder[i] == parabloid)
         {
@@ -78,12 +78,6 @@ class BallParabloidPlanePlugin : public CollisionDetection
 
       // now add in collision geometries for the plane and the walker
       to_check.push_back(std::make_pair(parabloid_cg, ball_cg));
-    }
-
-    /// Computes a conservative advancement step for general integration
-    virtual double calc_CA_step(const PairwiseDistInfo& pdi)
-    {
-      return ccd->calc_CA_step(pdi);
     }
 
     /// Computes a conservative advancement step for Euler integration

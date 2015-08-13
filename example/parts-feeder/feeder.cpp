@@ -7,7 +7,7 @@
  boost::shared_ptr<Moby::EventDrivenSimulator> sim;
  Moby::RCArticulatedBodyPtr slide;
 
-void controller_callback(Moby::DynamicBodyPtr dbp, double t, void*)
+void controller_callback(Moby::ControlledBodyPtr dbp, double t, void*)
 {
   double p =  0.001*cos(t*(2.0*M_PI)*500.0);
   double v =  -0.001*sin(t*1000.0) *(2.0*M_PI)*500.0;

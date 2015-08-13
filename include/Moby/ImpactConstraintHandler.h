@@ -57,7 +57,7 @@ class ImpactConstraintHandler
     void update_constraint_velocities_from_impulses(UnilateralConstraintProblemData& q);
     bool apply_restitution(const UnilateralConstraintProblemData& q, Ravelin::VectorNd& z) const;
     bool apply_restitution(UnilateralConstraintProblemData& q) const;
-    static DynamicBodyPtr get_super_body(SingleBodyPtr sb);
+    static boost::shared_ptr<Ravelin::DynamicBodyd> get_super_body(boost::shared_ptr<Ravelin::SingleBodyd> sb);
     static bool use_qp_solver(const UnilateralConstraintProblemData& epd);
     void apply_visc_friction_model(UnilateralConstraintProblemData& epd);
     void apply_no_slip_model(UnilateralConstraintProblemData& epd);

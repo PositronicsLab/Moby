@@ -8,7 +8,7 @@
 #define _TS_SIMULATOR_H
 
 #include <map>
-#include <Moby/sorted_pair>
+#include <Ravelin/sorted_pair>
 #include <Moby/ConstraintSimulator.h>
 #include <Moby/ImpactConstraintHandler.h>
 #include <Moby/PenaltyConstraintHandler.h>
@@ -40,17 +40,17 @@ class TimeSteppingSimulator : public ConstraintSimulator
     double min_step_size;
 
     /// Determines whether two geometries are not checked
-    std::set<sorted_pair<CollisionGeometryPtr> > unchecked_pairs;
+    std::set<Ravelin::sorted_pair<CollisionGeometryPtr> > unchecked_pairs;
 
     /// Vectors set and passed to collision detection
-    std::vector<std::pair<DynamicBodyPtr, Ravelin::VectorNd> > _x0, _x1;
+    std::vector<std::pair<ControlledBodyPtr, Ravelin::VectorNd> > _x0, _x1;
 
     /// Gets the shared pointer for this
     boost::shared_ptr<TimeSteppingSimulator> get_this() { return boost::dynamic_pointer_cast<TimeSteppingSimulator>(shared_from_this()); }
     
   protected:
     bool constraints_met(const std::vector<PairwiseDistInfo>& current_pairwise_distances);
-    std::set<sorted_pair<CollisionGeometryPtr> > get_current_contact_geoms() const;
+    std::set<Ravelin::sorted_pair<CollisionGeometryPtr> > get_current_contact_geoms() const;
     double do_mini_step(double dt);
     void step_si_Euler(double dt);
     double calc_next_CA_Euler_step(double contact_dist_thresh) const;

@@ -10,11 +10,10 @@
 #include <Moby/ArticulatedBody.h>
 #include <Moby/RigidBody.h>
 #include <Moby/Dissipation.h>
-#include <Moby/DynamicBody.h>
+#include <Moby/ControlledBody.h>
 #include <Moby/CollisionGeometry.h>
 #include <Moby/CollisionDetection.h>
 #include <Moby/ContactParameters.h>
-#include <Moby/VariableStepIntegrator.h>
 #include <Moby/ImpactToleranceException.h>
 #include <Moby/SustainedUnilateralConstraintSolveFailException.h>
 #include <Moby/InvalidStateException.h>
@@ -69,12 +68,13 @@ double TimeSteppingSimulator::step(double step_size)
   if (LOGGING(LOG_SIMULATOR))
   {
     VectorNd q, qd;
-    BOOST_FOREACH(DynamicBodyPtr db, _bodies)
+    BOOST_FOREACH(ControlledBodyPtr cb, _bodies)
     {
-      db->get_generalized_coordinates(DynamicBody::eEuler, q);
-      db->get_generalized_velocity(DynamicBody::eSpatial, qd);
-      FILE_LOG(LOG_SIMULATOR) << " body " << db->id << " Euler coordinates (before): " << q << std::endl;
-      FILE_LOG(LOG_SIMULATOR) << " body " << db->id << " spatial velocity (before): " << qd << std::endl;
+      shared_ptr<DynamicBodyd> db = dynamic_pointer_cast<DynamicBodyd>(cb);
+      db->get_generalized_coordinates(DynamicBodyd::eEuler, q);
+      db->get_generalized_velocity(DynamicBodyd::eSpatial, qd);
+      FILE_LOG(LOG_SIMULATOR) << " body " << db->body_id << " Euler coordinates (before): " << q << std::endl;
+      FILE_LOG(LOG_SIMULATOR) << " body " << db->body_id << " spatial velocity (before): " << qd << std::endl;
     }
   }
 
@@ -166,7 +166,10 @@ double TimeSteppingSimulator::do_mini_step(double dt)
 
   // save generalized coordinates for all bodies
   for (unsigned i=0; i< _bodies.size(); i++)
-    _bodies[i]->get_generalized_coordinates(DynamicBody::eEuler, qsave[i]);
+  {
+    shared_ptr<DynamicBodyd> db = dynamic_pointer_cast<DynamicBodyd>(_bodies[i]);
+    db->get_generalized_coordinates(DynamicBodyd::eEuler, qsave[i]);
+  }
 
   // set the amount stepped
   double h = 0.0;
@@ -190,11 +193,12 @@ double TimeSteppingSimulator::do_mini_step(double dt)
     // integrate the bodies' positions by h + conservative advancement step
     for (unsigned i=0; i< _bodies.size(); i++)
     {
-      _bodies[i]->set_generalized_coordinates(DynamicBody::eEuler, qsave[i]);
-      _bodies[i]->get_generalized_velocity(DynamicBody::eEuler, q);
+      shared_ptr<DynamicBodyd> db = dynamic_pointer_cast<DynamicBodyd>(_bodies[i]);
+      db->set_generalized_coordinates(DynamicBodyd::eEuler, qsave[i]);
+      db->get_generalized_velocity(DynamicBodyd::eEuler, q);
       q *= (h + tc);
       q += qsave[i];
-       _bodies[i]->set_generalized_coordinates(DynamicBody::eEuler, q);
+      db->set_generalized_coordinates(DynamicBodyd::eEuler, q);
     }
 
     // update h
@@ -209,16 +213,22 @@ double TimeSteppingSimulator::do_mini_step(double dt)
   // integrate the bodies' velocities forward by h
   for (unsigned i=0; i< _bodies.size(); i++)
   {
-    _bodies[i]->get_generalized_acceleration(qdd);
+    shared_ptr<DynamicBodyd> db = dynamic_pointer_cast<DynamicBodyd>(_bodies[i]);
+    db->get_generalized_acceleration(qdd);
     qdd *= h;
-    _bodies[i]->get_generalized_velocity(DynamicBody::eSpatial, qd);
+    db->get_generalized_velocity(DynamicBodyd::eSpatial, qd);
     qd += qdd;
-    _bodies[i]->set_generalized_velocity(DynamicBody::eSpatial, qd);
+    db->set_generalized_velocity(DynamicBodyd::eSpatial, qd);
   }
 
   // dissipate some energy
   if (_dissipator)
-    _dissipator->apply(_bodies);
+  {
+    vector<shared_ptr<DynamicBodyd> > bodies;
+    BOOST_FOREACH(ControlledBodyPtr cb, _bodies)
+      bodies.push_back(dynamic_pointer_cast<DynamicBodyd>(cb));
+    _dissipator->apply(bodies);
+  }
 
   FILE_LOG(LOG_SIMULATOR) << "Integrated velocity by " << h << std::endl;
 
@@ -256,9 +266,9 @@ double TimeSteppingSimulator::do_mini_step(double dt)
   // save all current body configurations and velocities
   for (unsigned i=0; i< _bodies.size(); i++)
   {
-    _bodies[i]->get_generalized_coordinates(DynamicBody::eEuler, qsave[i]);
-    _bodies[i]->get_generalized_velocity(DynamicBody::eSpatial, vsave[i]);
-    _bodies[i]->get_generalized_velocity(DynamicBody::eEuler, qdsave[i]);
+    _bodies[i]->get_generalized_coordinates(DynamicBodyd::eEuler, qsave[i]);
+    _bodies[i]->get_generalized_velocity(DynamicBodyd::eSpatial, vsave[i]);
+    _bodies[i]->get_generalized_velocity(DynamicBodyd::eEuler, qdsave[i]);
   }
 
   // integrate acceleration in 
@@ -270,7 +280,7 @@ double TimeSteppingSimulator::do_mini_step(double dt)
     // integrate the acceleration into the velocity with a nominal step of 1.0
     _bodies[i]->get_generalized_acceleration(vd);
     v += vd;
-    _bodies[i]->set_generalized_velocity(DynamicBody::eSpatial, v);
+    _bodies[i]->set_generalized_velocity(DynamicBodyd::eSpatial, v);
   }
 
   // compute impacts (if any), getting the new velocity
@@ -280,15 +290,15 @@ double TimeSteppingSimulator::do_mini_step(double dt)
   for (unsigned i=0; i< _bodies.size(); i++)
   {
     // get the generalized velocity
-    _bodies[i]->get_generalized_velocity(DynamicBody::eEuler, deltaqd[i]);
-    _bodies[i]->get_generalized_velocity(DynamicBody::eSpatial, deltav[i]);
+    _bodies[i]->get_generalized_velocity(DynamicBodyd::eEuler, deltaqd[i]);
+    _bodies[i]->get_generalized_velocity(DynamicBodyd::eSpatial, deltav[i]);
 
     // get the old generalized velocity
     deltaqd[i] -= qdsave[i];
     deltav[i] -= vsave[i];
 
     // reset the old generalized velocity
-    _bodies[i]->set_generalized_velocity(DynamicBody::eEuler, qdsave[i]);
+    _bodies[i]->set_generalized_velocity(DynamicBodyd::eEuler, qdsave[i]);
 
     // set the new generalized acceleration
     _bodies[i]->set_generalized_acceleration(deltav[i]);
@@ -461,21 +471,24 @@ double TimeSteppingSimulator::calc_next_CA_Euler_step(double contact_dist_thresh
       continue;
 
     // get limit events in [t, t+dt] (if any)
-    const vector<JointPtr>& joints = ab->get_joints();
+    const vector<shared_ptr<Jointd> >& joints = ab->get_joints();
     for (unsigned i=0; i< joints.size(); i++)
-      for (unsigned j=0; j< joints[i]->num_dof(); j++)
+    {
+      JointPtr joint = dynamic_pointer_cast<Joint>(joints[i]);
+      for (unsigned j=0; j< joint->num_dof(); j++)
       {
-        if (joints[i]->q[j] < joints[i]->hilimit[j] && joints[i]->qd[j] > 0.0)
+        if (joint->q[j] < joint->hilimit[j] && joint->qd[j] > 0.0)
         {
-          double t = (joints[i]->hilimit[j] - joints[i]->q[j])/joints[i]->qd[j];
+          double t = (joint->hilimit[j] - joint->q[j])/joint->qd[j];
           next_event_time = std::min(next_event_time, t);
         }
-        if (joints[i]->q[j] > joints[i]->lolimit[j] && joints[i]->qd[j] < 0.0)
+        if (joint->q[j] > joint->lolimit[j] && joint->qd[j] < 0.0)
         {
-          double t = (joints[i]->lolimit[j] - joints[i]->q[j])/joints[i]->qd[j];
+          double t = (joint->lolimit[j] - joint->q[j])/joint->qd[j];
           next_event_time = std::min(next_event_time, t);
         }
       }
+    }
   }
 
   // if the distance between any pair of bodies is sufficiently small
@@ -492,7 +505,7 @@ double TimeSteppingSimulator::calc_next_CA_Euler_step(double contact_dist_thresh
       // compute an upper bound on the event time
       double event_time = _coldet->calc_CA_Euler_step(pdi);
 
-      FILE_LOG(LOG_SIMULATOR) << "Next contact time between " << pdi.a->get_single_body()->id << " and " << pdi.b->get_single_body()->id << ": " << event_time << std::endl;
+      FILE_LOG(LOG_SIMULATOR) << "Next contact time between " << pdi.a->get_single_body()->body_id << " and " << pdi.b->get_single_body()->body_id << ": " << event_time << std::endl;
 
       // not a current event, find when it could become active
       next_event_time = std::min(next_event_time, event_time);
@@ -517,10 +530,11 @@ void TimeSteppingSimulator::step_si_Euler(double dt)
   if (LOGGING(LOG_SIMULATOR))
   {
     VectorNd q;
-    BOOST_FOREACH(DynamicBodyPtr db, _bodies)
+    BOOST_FOREACH(ControlledBodyPtr cb, _bodies)
     {
-      db->get_generalized_coordinates(DynamicBody::eEuler, q);
-      FILE_LOG(LOG_SIMULATOR) << " body " << db->id << " position (after integration): " << q << std::endl;
+      shared_ptr<DynamicBodyd> db = dynamic_pointer_cast<DynamicBodyd>(cb);
+      db->get_generalized_coordinates(DynamicBodyd::eEuler, q);
+      FILE_LOG(LOG_SIMULATOR) << " body " << db->body_id << " position (after integration): " << q << std::endl;
     }
   }
 

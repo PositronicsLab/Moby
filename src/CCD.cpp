@@ -56,6 +56,8 @@ CCD::CCD()
 {
 }
 
+// TODO: remove this as integrator is Euler 8/11/15
+/*
 /// Computes a conservative advancement step between two collision geometries
 double CCD::calc_CA_step(const PairwiseDistInfo& pdi)
 {
@@ -114,6 +116,7 @@ double CCD::calc_CA_step(const PairwiseDistInfo& pdi)
   // return the maximum safe step
   return maxt;
 }
+*/
 
 /// Computes a conservative advancement step between two collision geometries assuming that velocity is constant over the interval
 double CCD::calc_CA_Euler_step(const PairwiseDistInfo& pdi)
@@ -239,7 +242,7 @@ double CCD::calc_CA_Euler_step_generic(const PairwiseDistInfo& pdi)
 double CCD::calc_max_dist(ArticulatedBodyPtr ab, RigidBodyPtr rb, const Vector3d& n, double rmax)
 {
   // get the base link
-  RigidBodyPtr base = ab->get_base_link();
+  RigidBodyPtr base = dynamic_pointer_cast<RigidBody>(ab->get_base_link());
 
   // get the base link's velocity
   const SVelocityd& base_v0 = Pose3d::transform(GLOBAL, base->get_velocity());
@@ -285,7 +288,7 @@ double CCD::calc_max_dist(RigidBodyPtr rb, const Vector3d& n, double rmax)
 
   // if the body is part of an articulated body, do that calculation instead
   if (rb->get_articulated_body() && rb->get_articulated_body()->get_base_link() != rb)
-    return calc_max_dist(rb->get_articulated_body(), rb, n, rmax);
+    return calc_max_dist(dynamic_pointer_cast<ArticulatedBody>(rb->get_articulated_body()), rb, n, rmax);
 
   // get the velocities at t0
   const SVelocityd& v0 = Pose3d::transform(GLOBAL, rb->get_velocity());
@@ -300,6 +303,8 @@ double CCD::calc_max_dist(RigidBodyPtr rb, const Vector3d& n, double rmax)
   return n.dot(xd0) + Vector3d::cross(w0, n).norm()*rmax;
 }
 
+// NOTE: migration of dynamics computations to Ravelin break this function; slated for removal on 8/10/15
+/*
 /// Solves the LP that maximizes <n, v + w x r>
 double CCD::calc_max_dist_per_t(RigidBodyPtr rb, const Vector3d& n, double rlen)
 {
@@ -360,6 +365,7 @@ double CCD::calc_max_dist_per_t(RigidBodyPtr rb, const Vector3d& n, double rlen)
 
   return std::fabs(dist);
 }
+*/
 
 /// Implements Base::load_from_xml()
 void CCD::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, BasePtr>& id_map)
@@ -384,7 +390,7 @@ void CCD::save_to_xml(XMLTreePtr node, list<shared_ptr<const Base> >& shared_obj
 /****************************************************************************
  Methods for broad phase begin
 ****************************************************************************/
-void CCD::broad_phase(double dt, const vector<DynamicBodyPtr>& bodies, vector<pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check)
+void CCD::broad_phase(double dt, const vector<ControlledBodyPtr>& bodies, vector<pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check)
 {
   FILE_LOG(LOG_COLDET) << "CCD::broad_phase() entered" << std::endl;
 
@@ -397,7 +403,10 @@ void CCD::broad_phase(double dt, const vector<DynamicBodyPtr>& bodies, vector<pa
   {
     ArticulatedBodyPtr ab = dynamic_pointer_cast<ArticulatedBody>(bodies[i]);
     if (ab)
-      rbs.insert(rbs.end(), ab->get_links().begin(), ab->get_links().end());
+    {
+      BOOST_FOREACH(shared_ptr<RigidBodyd> rb, ab->get_links())
+        rbs.push_back(dynamic_pointer_cast<RigidBody>(rb));
+    }
     else
       rbs.push_back(dynamic_pointer_cast<RigidBody>(bodies[i]));
   }
@@ -525,7 +534,7 @@ void CCD::broad_phase(double dt, const vector<DynamicBodyPtr>& bodies, vector<pa
   // now setup pairs to check
   for (map<sorted_pair<CollisionGeometryPtr>, unsigned>::const_iterator i = overlaps.begin(); i != overlaps.end(); i++)
   {
-    FILE_LOG(LOG_COLDET) << i->second << " overlaps between " << i->first.first << " (" << i->first.first->get_single_body()->id << ") and " << i->first.second << " (" << i->first.second->get_single_body()->id << ")" << std::endl;
+    FILE_LOG(LOG_COLDET) << i->second << " overlaps between " << i->first.first << " (" << i->first.first->get_single_body()->body_id << ") and " << i->first.second << " (" << i->first.second->get_single_body()->body_id << ")" << std::endl;
 
     // only consider the pair if they overlap in all three dimensions
     if (i->second < 3)
@@ -571,22 +580,10 @@ BVPtr CCD::get_swept_BV(CollisionGeometryPtr cg, BVPtr bv, double dt)
 
   // get the current velocity and the velocity limits
   const SVelocityd& v = rb->get_velocity();
-  Vector3d v_lo = rb->get_vel_lower_bounds().get_linear();
-  Vector3d v_hi = rb->get_vel_upper_bounds().get_linear();
 
   // compute the swept BV
   BVPtr swept_bv = bv->calc_swept_BV(cg, v*dt);
   FILE_LOG(LOG_BV) << "new BV: " << swept_bv << std::endl;
-
-  // attempt to get the swept BV as a SSL
-  shared_ptr<SSL> ssl = dynamic_pointer_cast<SSL>(swept_bv);
-  if (ssl)
-  {
-    // update the radius
-    ssl->radius += dt*std::max(std::fabs(v_lo[X]), std::fabs(v_hi[X]));
-    ssl->radius += dt*std::max(std::fabs(v_lo[Y]), std::fabs(v_hi[Y]));
-    ssl->radius += dt*std::max(std::fabs(v_lo[Z]), std::fabs(v_hi[Z]));
-  }
 
   // store the bounding volume
   _swept_BVs[cg] = swept_bv;
@@ -651,7 +648,7 @@ void CCD::update_bounds_vector(vector<pair<double, BoundsStruct> >& bounds, Axis
 
     // get the bound for the bounding volume
     Point3d bound = (bounds[i].second.end) ? swept_bv->get_upper_bounds() : swept_bv->get_lower_bounds();
-    FILE_LOG(LOG_COLDET) << "  updating collision geometry: " << geom << "  rigid body: " << geom->get_single_body()->id << std::endl;
+    FILE_LOG(LOG_COLDET) << "  updating collision geometry: " << geom << "  rigid body: " << geom->get_single_body()->body_id << std::endl;
 
     // update the bounds for the given axis
     switch (axis)

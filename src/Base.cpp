@@ -72,7 +72,7 @@ void Base::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, B
   }
 
   // add the ID to the ID map
-  id_map[id] = shared_from_this();
+  id_map[id] = Base::shared_from_this();
 }
 
 /// Method for saving this object to XML

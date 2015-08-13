@@ -25,7 +25,7 @@ using std::pair;
 using namespace Moby;
 
 /// Default broad phase function (checks everything)
-void CollisionDetection::broad_phase(double dt, const std::vector<DynamicBodyPtr>& bodies, std::vector<std::pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check)
+void CollisionDetection::broad_phase(double dt, const std::vector<ControlledBodyPtr>& bodies, std::vector<std::pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check)
 {
   // clear vector of bodies to be checked
   to_check.clear();
@@ -36,7 +36,10 @@ void CollisionDetection::broad_phase(double dt, const std::vector<DynamicBodyPtr
   {
     ArticulatedBodyPtr ab = dynamic_pointer_cast<ArticulatedBody>(bodies[i]);
     if (ab)
-      rbs.insert(rbs.end(), ab->get_links().begin(), ab->get_links().end());
+    {
+      BOOST_FOREACH(shared_ptr<RigidBodyd> link, ab->get_links()) 
+        rbs.push_back(dynamic_pointer_cast<RigidBody>(link));
+    }
     else
       rbs.push_back(dynamic_pointer_cast<RigidBody>(bodies[i]));
   }
@@ -67,9 +70,9 @@ UnilateralConstraint CollisionDetection::create_contact(CollisionGeometryPtr a, 
   // make the body first that comes first alphabetically
   if (LOGGING(LOG_COLDET))
   {
-    SingleBodyPtr sb1 = e.contact_geom1->get_single_body();
-    SingleBodyPtr sb2 = e.contact_geom2->get_single_body();
-    if (sb2->id < sb1->id)
+    shared_ptr<SingleBodyd> sb1 = e.contact_geom1->get_single_body();
+    shared_ptr<SingleBodyd> sb2 = e.contact_geom2->get_single_body();
+    if (sb2->body_id < sb1->body_id)
     {
       std::swap(e.contact_geom1, e.contact_geom2);
       e.contact_normal = -e.contact_normal;

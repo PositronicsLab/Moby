@@ -11,7 +11,7 @@
 #include <set>
 #include <map>
 #include <boost/shared_ptr.hpp>
-#include <Moby/sorted_pair>
+#include <Ravelin/sorted_pair>
 #include <Moby/Log.h>
 #include <Moby/CP.h>
 #include <Moby/SpherePrimitive.h>
@@ -39,8 +39,7 @@ class CCD : public CollisionDetection
     virtual ~CCD() {}
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
-    virtual void broad_phase(double dt, const std::vector<DynamicBodyPtr>& bodies, std::vector<std::pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check);
-    virtual double calc_CA_step(const PairwiseDistInfo& pdi);
+    virtual void broad_phase(double dt, const std::vector<ControlledBodyPtr>& bodies, std::vector<std::pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check);
     virtual double calc_CA_Euler_step(const PairwiseDistInfo& pdi);
     virtual void find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, std::vector<UnilateralConstraint>& contacts, double TOL = NEAR_ZERO)
     {
@@ -56,7 +55,7 @@ class CCD : public CollisionDetection
      *       collisions between geometries for a single body are automatically
      *       not checked and do not need to be added to this set.
      */
-    std::set<sorted_pair<CollisionGeometryPtr> > disabled_pairs;
+    std::set<Ravelin::sorted_pair<CollisionGeometryPtr> > disabled_pairs;
 
   private:
     // the 3 axes
@@ -103,7 +102,7 @@ class CCD : public CollisionDetection
     std::map<CollisionGeometryPtr, BVPtr> _swept_BVs;
 
     /// Minimum observed distance between two bodies (to make conservative advancement faster in face of numerical error)
-    std::map<sorted_pair<CollisionGeometryPtr>, double> _min_dist_observed;
+    std::map<Ravelin::sorted_pair<CollisionGeometryPtr>, double> _min_dist_observed;
 
     static BVPtr construct_bounding_sphere(CollisionGeometryPtr cg);
     void sort_AABBs(const std::vector<RigidBodyPtr>& rigid_bodies, double dt);
@@ -111,7 +110,6 @@ class CCD : public CollisionDetection
     void build_bv_vector(const std::vector<RigidBodyPtr>& rigid_bodies, std::vector<std::pair<double, BoundsStruct> >& bounds);
     BVPtr get_swept_BV(CollisionGeometryPtr geom, BVPtr bv, double dt);
 
-    double calc_max_dist_per_t(RigidBodyPtr rb, const Ravelin::Vector3d& n, double rmax);
     bool intersect_BV_trees(boost::shared_ptr<BV> a, boost::shared_ptr<BV> b, const Ravelin::Transform3d& aTb, CollisionGeometryPtr geom_a, CollisionGeometryPtr geom_b);
 
     template <class OutputIterator>

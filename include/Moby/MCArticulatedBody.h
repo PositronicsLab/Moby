@@ -57,7 +57,7 @@ class MCArticulatedBody : public ArticulatedBody
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     MCArticulatedBodyPtr get_this() { return boost::dynamic_pointer_cast<MCArticulatedBody>(shared_from_this()); }
     boost::shared_ptr<const MCArticulatedBody> get_this() const { return boost::dynamic_pointer_cast<const MCArticulatedBody>(shared_from_this()); }
-    virtual Ravelin::VectorNd& convert_to_generalized_force(SingleBodyPtr link, const Ravelin::SForced& f, const Point3d& p, Ravelin::VectorNd& gf);
+    virtual Ravelin::VectorNd& convert_to_generalized_force(boost::shared_ptr<Ravelin::SingleBodyd> link, const Ravelin::SForced& f, const Point3d& p, Ravelin::VectorNd& gf);
     virtual void update_constraint_data(UnilateralConstraintProblemData& epd);
     virtual void update_velocity(const UnilateralConstraintProblemData& epd);
     virtual void integrate(double t, double h, boost::shared_ptr<Integrator> integrator);

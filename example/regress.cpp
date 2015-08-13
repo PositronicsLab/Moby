@@ -12,8 +12,12 @@
 #include <Moby/Log.h>
 #include <Moby/Simulator.h>
 #include <Moby/RigidBody.h>
+#include <Ravelin/DynamicBodyd.h>
 
-using namespace Ravelin;
+using boost::dynamic_pointer_cast;
+using boost::shared_ptr;
+using Ravelin::VectorNd;
+using Ravelin::DynamicBodyd;
 using namespace Moby;
 
 /// Handle for dynamic library loading
@@ -63,7 +67,7 @@ double get_current_time()
   return (double) t.tv_sec + (double) t.tv_usec * MICROSEC;
 }
 
-bool compbody(DynamicBodyPtr b1, DynamicBodyPtr b2)
+bool compbody(ControlledBodyPtr b1, ControlledBodyPtr b2)
 {
   return b1->id < b2->id;
 }
@@ -75,13 +79,14 @@ bool step(void* arg)
   boost::shared_ptr<Simulator> s = *(boost::shared_ptr<Simulator>*) arg;
 
   // get the generalized coordinates for all bodies in alphabetical order
-  std::vector<DynamicBodyPtr> bodies = s->get_dynamic_bodies();
+  std::vector<ControlledBodyPtr> bodies = s->get_dynamic_bodies();
   std::sort(bodies.begin(), bodies.end(), compbody);
   VectorNd q;
   outfile << s->current_time;
   for (unsigned i=0; i< bodies.size(); i++)  
   {
-    bodies[i]->get_generalized_coordinates(DynamicBody::eEuler, q);
+    shared_ptr<DynamicBodyd> db = dynamic_pointer_cast<DynamicBodyd>(bodies[i]);
+    db->get_generalized_coordinates(DynamicBodyd::eEuler, q);
     for (unsigned j=0; j< q.size(); j++)
       outfile << " " << q[j];
   }

@@ -1,7 +1,7 @@
 /*****************************************************************************
  * "Controller" for sliding to sticking box example 
  ****************************************************************************/
-#include <Moby/EventDrivenSimulator.h>
+#include <Moby/TimeSteppingSimulator.h>
 #include <Moby/RCArticulatedBody.h>
 #include <Moby/GravityForce.h>
 #include <Ravelin/Pose3d.h>
@@ -15,7 +15,7 @@ using namespace Ravelin;
 using namespace Moby;
 
 Moby::RigidBodyPtr box;
-boost::shared_ptr<EventDrivenSimulator> sim;
+boost::shared_ptr<TimeSteppingSimulator> sim;
 boost::shared_ptr<GravityForce> grav;
 
 // setup simulator callback
@@ -82,13 +82,13 @@ void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map,
   out.open("ke.dat");
   out.close();
 
-  // get a reference to the EventDrivenSimulator instance
+  // get a reference to the TimeSteppingSimulator instance
   for (std::map<std::string, Moby::BasePtr>::const_iterator i = read_map.begin();
        i !=read_map.end(); i++)
   {
     // Find the simulator reference
     if (!sim)
-      sim = boost::dynamic_pointer_cast<EventDrivenSimulator>(i->second);
+      sim = boost::dynamic_pointer_cast<TimeSteppingSimulator>(i->second);
     if (i->first == "box")
       box = boost::dynamic_pointer_cast<RigidBody>(i->second);
     if (!grav)

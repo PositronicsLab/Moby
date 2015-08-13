@@ -5,7 +5,7 @@
  ****************************************************************************/
 
 #include <Moby/RCArticulatedBody.h>
-#include <Moby/DynamicBody.h>
+#include <Moby/ControlledBody.h>
 #include <Moby/Dissipation.h>
 #include <Moby/XMLTree.h>
 
@@ -26,7 +26,7 @@ Dissipation::Dissipation()
 {
 }
 
-void Dissipation::apply(const std::vector<DynamicBodyPtr>& bodies)
+void Dissipation::apply(const std::vector<shared_ptr<DynamicBodyd> >& bodies)
 {
   const double DECAY = 0.99;
 
@@ -40,12 +40,12 @@ void Dissipation::apply(const std::vector<DynamicBodyPtr>& bodies)
 
     // get the decay 
     double decay = DECAY;
-    std::map<DynamicBodyPtr, double>::const_iterator body_iter;
+    std::map<shared_ptr<DynamicBodyd>, double>::const_iterator body_iter;
     if ((body_iter = _coeffs.find(bodies[i])) != _coeffs.end())
       decay = body_iter->second;
 
     // apply the decay 
-    const vector<JointPtr>& joints = ab->get_joints();
+    const vector<shared_ptr<Jointd> >& joints = ab->get_joints();
     for (unsigned j=0; j< joints.size(); j++)
      joints[j]->qd *= decay;
 
@@ -83,7 +83,7 @@ void Dissipation::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::st
     }
 
     // attempt to cast the ID as a body 
-    DynamicBodyPtr db = dynamic_pointer_cast<DynamicBody>(id_map_iter->second);
+    shared_ptr<DynamicBodyd> db = dynamic_pointer_cast<DynamicBodyd>(id_map_iter->second);
     if (!db)
     {
       std::cerr << "Dissipation::load_from_xml() - id '" << id_attr->get_string_value() << "' not castable to a dynamic body" << std::endl;
@@ -113,10 +113,10 @@ void Dissipation::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> 
   node->name = "Dissipation";
 
   // loop through all bodies
-  for (std::map<DynamicBodyPtr, double>::const_iterator i = _coeffs.begin(); i != _coeffs.end(); i++)
+  for (std::map<shared_ptr<DynamicBodyd>, double>::const_iterator i = _coeffs.begin(); i != _coeffs.end(); i++)
   {
     XMLTreePtr child_node(new XMLTree("Body"));
-    child_node->attribs.insert(XMLAttrib(i->first->id, i->second));
+    child_node->attribs.insert(XMLAttrib(i->first->body_id, i->second));
     node->add_child(child_node);
   }
 }

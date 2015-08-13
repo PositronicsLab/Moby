@@ -249,8 +249,8 @@ OBB OBB::calc_min_volume_OBB(ForwardIterator begin, ForwardIterator end)
   // triangles to a list that indicates processing should not occur)
   const IndexedTriArray& hull_mesh = hull->get_mesh();
   std::vector<bool> process(hull_mesh.num_tris(), true);
-  std::map<sorted_pair<unsigned>, std::list<unsigned> > ef_map = hull_mesh.determine_edge_facet_map();
-  for (std::map<sorted_pair<unsigned>, std::list<unsigned> >::const_iterator i = ef_map.begin(); i != ef_map.end(); i++)
+  std::map<Ravelin::sorted_pair<unsigned>, std::list<unsigned> > ef_map = hull_mesh.determine_edge_facet_map();
+  for (std::map<Ravelin::sorted_pair<unsigned>, std::list<unsigned> >::const_iterator i = ef_map.begin(); i != ef_map.end(); i++)
   {
     // if the edge is not coplanar, keep processing through the edges
     if (!hull_mesh.is_coplanar(i->first.first, i->first.second))

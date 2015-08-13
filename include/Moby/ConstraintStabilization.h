@@ -8,7 +8,7 @@
 #define _CONSTRAINT_STABILIZATION_H
 
 #include <vector>
-#include <Moby/DynamicBody.h>
+#include <Ravelin/DynamicBodyd.h>
 #include <Moby/LCP.h>
 #include <Moby/UnilateralConstraintProblemData.h>
 #include <Moby/PairwiseDistInfo.h>
@@ -33,12 +33,12 @@ class ConstraintStabilization
     void compute_problem_data(std::vector<UnilateralConstraintProblemData>& pd, boost::shared_ptr<ConstraintSimulator> sim);
     void add_contact_constraints(std::vector<UnilateralConstraint>& constraints, RigidBodyPtr rb1, RigidBodyPtr rb2, boost::shared_ptr<ConstraintSimulator> sim);
     void add_articulate_limit_constraint(std::vector<UnilateralConstraint>& constraints, ArticulatedBodyPtr ab);
-    void generate_body_index_map(std::map<DynamicBodyPtr, unsigned>& body_index_map, boost::shared_ptr<ConstraintSimulator> sim);
+    void generate_body_index_map(std::map<boost::shared_ptr<Ravelin::DynamicBodyd>, unsigned>& body_index_map, boost::shared_ptr<ConstraintSimulator> sim);
     static void set_unilateral_constraint_data(UnilateralConstraintProblemData& pd);
-    void determine_dq(const UnilateralConstraintProblemData& pd, Ravelin::VectorNd& dqm, const std::map<DynamicBodyPtr, unsigned>& body_index_map);
+    void determine_dq(const UnilateralConstraintProblemData& pd, Ravelin::VectorNd& dqm, const std::map<boost::shared_ptr<Ravelin::DynamicBodyd>, unsigned>& body_index_map);
     static double get_min_pairwise_dist(const std::vector<PairwiseDistInfo>& pdi); 
     double compute_s(const std::vector<PairwiseDistInfo>& pdi, boost::shared_ptr<ConstraintSimulator> sim);
-    static DynamicBodyPtr get_super_body(SingleBodyPtr sb);
+    static boost::shared_ptr<Ravelin::DynamicBodyd> get_super_body(boost::shared_ptr<Ravelin::SingleBodyd> sb);
 
     // the LCP solver
     LCP _lcp;

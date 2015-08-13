@@ -7,7 +7,7 @@
 #ifndef _BASE_H
 #define _BASE_H
 
-#include <boost/enable_shared_from_this.hpp>
+#include <Ravelin/virtual_enable_shared_from_this.hpp>
 #include <list>
 #include <string>
 #include <map>
@@ -17,7 +17,7 @@
 namespace Moby {
 
 /// Class from which all Moby classes are derived
-class Base : public boost::enable_shared_from_this<Base>
+class Base : public Ravelin::virtual_enable_shared_from_this<Base>
 {
   public:
     Base();

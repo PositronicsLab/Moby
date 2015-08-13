@@ -16,7 +16,6 @@
 #include <Moby/Constants.h>
 #include <Moby/UnilateralConstraint.h>
 #include <Moby/CollisionGeometry.h>
-#include <Moby/SingleBody.h>
 #include <Moby/RigidBody.h>
 #include <Moby/Log.h>
 #include <Moby/XMLTree.h>
@@ -476,7 +475,7 @@ void ImpactConstraintHandler::apply_model_to_connected_constraints(const list<Un
     for (unsigned i=0; i< _epd.super_bodies.size(); i++)
     {
       double ke = _epd.super_bodies[i]->calc_kinetic_energy();
-      FILE_LOG(LOG_CONSTRAINT) << "  body " << _epd.super_bodies[i]->id << " pre-constraint handling KE: " << ke << endl;
+      FILE_LOG(LOG_CONSTRAINT) << "  body " << _epd.super_bodies[i]->body_id << " pre-constraint handling KE: " << ke << endl;
       ke_minus += ke;
     }
   }
@@ -539,7 +538,7 @@ void ImpactConstraintHandler::apply_model_to_connected_constraints(const list<Un
     for (unsigned i=0; i< _epd.super_bodies.size(); i++)
     {
       double ke = _epd.super_bodies[i]->calc_kinetic_energy();
-      FILE_LOG(LOG_CONSTRAINT) << "  body " << _epd.super_bodies[i]->id << " post-constraint handling KE: " << ke << endl;
+      FILE_LOG(LOG_CONSTRAINT) << "  body " << _epd.super_bodies[i]->body_id << " post-constraint handling KE: " << ke << endl;
       ke_plus += ke;
     }
     if (ke_plus > ke_minus)
@@ -599,8 +598,8 @@ void ImpactConstraintHandler::propagate_impulse_data(const UnilateralConstraintP
 /// Applies impulses to bodies
 void ImpactConstraintHandler::apply_impulses(const UnilateralConstraintProblemData& q)
 {
-  map<DynamicBodyPtr, VectorNd> gj;
-  map<DynamicBodyPtr, VectorNd>::iterator gj_iter;
+  map<shared_ptr<DynamicBodyd>, VectorNd> gj;
+  map<shared_ptr<DynamicBodyd>, VectorNd>::iterator gj_iter;
 
   // loop over all contact constraints first
   for (unsigned i=0; i< q.contact_constraints.size(); i++)
@@ -610,12 +609,12 @@ void ImpactConstraintHandler::apply_impulses(const UnilateralConstraintProblemDa
     SForced w(e.contact_impulse);
 
     // get the two single bodies of the contact
-    SingleBodyPtr sb1 = e.contact_geom1->get_single_body();
-    SingleBodyPtr sb2 = e.contact_geom2->get_single_body();
+    shared_ptr<SingleBodyd> sb1 = e.contact_geom1->get_single_body();
+    shared_ptr<SingleBodyd> sb2 = e.contact_geom2->get_single_body();
 
     // get the two super bodies
-    DynamicBodyPtr b1 = sb1->get_super_body();
-    DynamicBodyPtr b2 = sb2->get_super_body();
+    shared_ptr<DynamicBodyd> b1 = dynamic_pointer_cast<DynamicBodyd>(sb1->get_super_body());
+    shared_ptr<DynamicBodyd> b2 = dynamic_pointer_cast<DynamicBodyd>(sb2->get_super_body());
 
     // convert force on first body to generalized forces
     if ((gj_iter = gj.find(b1)) == gj.end())
@@ -645,8 +644,11 @@ void ImpactConstraintHandler::apply_impulses(const UnilateralConstraintProblemDa
     // get the iterator for the articulated body
     gj_iter = gj.find(ab);
 
+    // cast as an RCArticulatedBody
+    shared_ptr<RCArticulatedBody> rcab = dynamic_pointer_cast<RCArticulatedBody>(ab);
+
     // apply limit impulses to bodies in independent coordinates
-    if (dynamic_pointer_cast<RCArticulatedBody>(ab))
+    if (rcab)
     {
       // get the index of the joint
       unsigned idx = e.limit_joint->get_coord_index() + e.limit_dof;
@@ -654,7 +656,7 @@ void ImpactConstraintHandler::apply_impulses(const UnilateralConstraintProblemDa
       // initialize the vector if necessary
       if (gj_iter == gj.end())
       {
-        gj[ab].set_zero(ab->num_generalized_coordinates(DynamicBody::eSpatial));
+        gj[ab].set_zero(rcab->num_generalized_coordinates(DynamicBodyd::eSpatial));
         gj_iter = gj.find(ab);
       }
 
@@ -671,7 +673,7 @@ void ImpactConstraintHandler::apply_impulses(const UnilateralConstraintProblemDa
   // TODO: apply constraint impulses
 
   // apply all generalized impacts
-  for (map<DynamicBodyPtr, VectorNd>::const_iterator i = gj.begin(); i != gj.end(); i++)
+  for (map<shared_ptr<DynamicBodyd>, VectorNd>::const_iterator i = gj.begin(); i != gj.end(); i++)
     i->first->apply_generalized_impulse(i->second);
 }
 
@@ -702,7 +704,7 @@ void ImpactConstraintHandler::compute_problem_data(UnilateralConstraintProblemDa
   // set total number of generalized coordinates
   q.N_GC = 0;
   for (unsigned i=0; i< q.super_bodies.size(); i++)
-    q.N_GC += q.super_bodies[i]->num_generalized_coordinates(DynamicBody::eSpatial);
+    q.N_GC += q.super_bodies[i]->num_generalized_coordinates(DynamicBodyd::eSpatial);
 
   // initialize constants and set easy to set constants
   q.N_CONTACTS = q.contact_constraints.size();
@@ -956,7 +958,7 @@ void ImpactConstraintHandler::apply_no_slip_model(UnilateralConstraintProblemDat
     for (unsigned i=0; i< _epd.super_bodies.size(); i++)
     {
       double ke = _epd.super_bodies[i]->calc_kinetic_energy();
-      FILE_LOG(LOG_CONSTRAINT) << "  body " << _epd.super_bodies[i]->id << " pre-constraint handling KE: " << ke << endl;
+      FILE_LOG(LOG_CONSTRAINT) << "  body " << _epd.super_bodies[i]->body_id << " pre-constraint handling KE: " << ke << endl;
       ke_minus += ke;
     }
   }
@@ -1338,7 +1340,7 @@ void ImpactConstraintHandler::apply_no_slip_model(UnilateralConstraintProblemDat
     for (unsigned i=0; i< _epd.super_bodies.size(); i++)
     {
       double ke = _epd.super_bodies[i]->calc_kinetic_energy();
-      FILE_LOG(LOG_CONSTRAINT) << "  body " << _epd.super_bodies[i]->id << " post-constraint handling KE: " << ke << endl;
+      FILE_LOG(LOG_CONSTRAINT) << "  body " << _epd.super_bodies[i]->body_id << " post-constraint handling KE: " << ke << endl;
       ke_plus += ke;
     }
     if (ke_plus > ke_minus)
@@ -1469,12 +1471,12 @@ void ImpactConstraintHandler::solve_frictionless_lcp(UnilateralConstraintProblem
 }
 
 /// Gets the super body (articulated if any)
-DynamicBodyPtr ImpactConstraintHandler::get_super_body(SingleBodyPtr sb)
+shared_ptr<DynamicBodyd> ImpactConstraintHandler::get_super_body(shared_ptr<SingleBodyd> sb)
 {
-  ArticulatedBodyPtr ab = sb->get_articulated_body();
+  shared_ptr<ArticulatedBodyd> ab = sb->get_articulated_body();
   if (ab)
     return ab;
   else
-    return sb;
+    return dynamic_pointer_cast<DynamicBodyd>(sb);
 }
 

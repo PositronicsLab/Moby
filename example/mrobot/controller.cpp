@@ -79,7 +79,7 @@ void calc_inverse_dynamics(RCArticulatedBodyPtr robot, const VectorNd& qdd, Vect
 }
 
 // the controller (applies a force)
-void controller(DynamicBodyPtr body, double t, void*)
+void controller(ControlledBodyPtr body, double t, void*)
 {
   // get the robot
   RCArticulatedBodyPtr robot = boost::dynamic_pointer_cast<RCArticulatedBody>(body);
@@ -100,7 +100,7 @@ void controller(DynamicBodyPtr body, double t, void*)
 
 // the controller (feedback + possibly inverse dynamics) 
 /*
-void controller(DynamicBodyPtr body, double t, void*)
+void controller(ControlledBodyPtr body, double t, void*)
 {
   const unsigned LEFT = 0, RIGHT = 1;
   static bool first_time = true;

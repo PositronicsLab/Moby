@@ -24,7 +24,7 @@ void post_step_callback(Simulator* s)
 }
 
 // control function
-void controller(DynamicBodyPtr body, double time, void* controller_data)
+void controller(ControlledBodyPtr body, double time, void* controller_data)
 {
   
 }
@@ -46,7 +46,7 @@ void init(void* separator, const std::map<std::string, Moby::BasePtr>& read_map,
     // example of looking for a body and setting up a callback function for it
 //    if (i->first == "ground")
 //    {
-//      DynamicBodyPtr ground = boost::dynamic_pointer_cast<RigidBody>(i->second);
+//      ControlledBodyPtr ground = boost::dynamic_pointer_cast<RigidBody>(i->second);
 //	assert(ground);
 //      ground->controller = &controller;
 //    }

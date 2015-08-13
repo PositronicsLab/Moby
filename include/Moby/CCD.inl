@@ -368,8 +368,8 @@ OutputIterator CCD::find_contacts_cylinder_plane(CollisionGeometryPtr cgA, Colli
   boost::shared_ptr<PlanePrimitive> pB = boost::dynamic_pointer_cast<PlanePrimitive>(cgB->get_geometry());
 
   FILE_LOG(LOG_COLDET) << "CCD::find_contacts_cylinder_plane() entered with tolerance " << TOL << std::endl;
-  FILE_LOG(LOG_COLDET) << " body A: " << cgA->get_single_body()->id << std::endl;
-  FILE_LOG(LOG_COLDET) << " body B: " << cgB->get_single_body()->id << std::endl;
+  FILE_LOG(LOG_COLDET) << " body A: " << cgA->get_single_body()->body_id << std::endl;
+  FILE_LOG(LOG_COLDET) << " body B: " << cgB->get_single_body()->body_id << std::endl;
 
   // get the pose for the plane primitive
   boost::shared_ptr<const Ravelin::Pose3d> Pplane = pB->get_pose(cgB);
@@ -480,8 +480,8 @@ OutputIterator CCD::find_contacts_sphere_plane(CollisionGeometryPtr cgA, Collisi
   boost::shared_ptr<PlanePrimitive> pB = boost::dynamic_pointer_cast<PlanePrimitive>(cgB->get_geometry());
 
   FILE_LOG(LOG_COLDET) << "CCD::find_contacts_sphere_plane() entered with tolerance " << TOL << std::endl;
-  FILE_LOG(LOG_COLDET) << " body A: " << cgA->get_single_body()->id << std::endl;
-  FILE_LOG(LOG_COLDET) << " body B: " << cgB->get_single_body()->id << std::endl;
+  FILE_LOG(LOG_COLDET) << " body A: " << cgA->get_single_body()->body_id << std::endl;
+  FILE_LOG(LOG_COLDET) << " body B: " << cgB->get_single_body()->body_id << std::endl;
 
   // get the poses for the two primitives
   boost::shared_ptr<const Ravelin::Pose3d> sph_pose = pA->get_pose(cgA);
@@ -530,8 +530,8 @@ OutputIterator CCD::find_contacts_plane_generic(CollisionGeometryPtr cgA, Collis
   BVPtr bvB = pB->get_BVH_root(cgB);
 
   FILE_LOG(LOG_COLDET) << "CCD::find_contacts_plane_generic() entered with tolerance " << TOL << std::endl;
-  FILE_LOG(LOG_COLDET) << " body A: " << cgA->get_single_body()->id << std::endl;
-  FILE_LOG(LOG_COLDET) << " body B: " << cgB->get_single_body()->id << std::endl;
+  FILE_LOG(LOG_COLDET) << " body A: " << cgA->get_single_body()->body_id << std::endl;
+  FILE_LOG(LOG_COLDET) << " body B: " << cgB->get_single_body()->body_id << std::endl;
 
   // get the vertices from B
   cgB->get_vertices(vB);

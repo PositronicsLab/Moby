@@ -10,11 +10,10 @@
 #include <Moby/Dissipation.h>
 #include <Moby/ArticulatedBody.h>
 #include <Moby/RigidBody.h>
-#include <Moby/DynamicBody.h>
+#include <Moby/ControlledBody.h>
 #include <Moby/CollisionGeometry.h>
 #include <Moby/CollisionDetection.h>
 #include <Moby/ContactParameters.h>
-#include <Moby/VariableStepIntegrator.h>
 #include <Moby/ImpactToleranceException.h>
 #include <Moby/SustainedUnilateralConstraintSolveFailException.h>
 #include <Moby/InvalidStateException.h>
@@ -104,31 +103,17 @@ shared_ptr<ContactParameters> ConstraintSimulator::get_contact_parameters(Collis
   // get the two single bodies
   assert(geom1->get_single_body());
   assert(geom2->get_single_body());
-  SingleBodyPtr singlebody1 = geom1->get_single_body();
-  SingleBodyPtr singlebody2 = geom2->get_single_body();
-  BasePtr sb1 = singlebody1;
-  BasePtr sb2 = singlebody2;
-
-  // search for contact geometry 1 and rigid body 2
-  if ((iter = contact_params.find(make_sorted_pair(g1, sb2))) != contact_params.end())
-    return iter->second;
-
-  // search for contact geometry 2 and rigid body 1
-  if ((iter = contact_params.find(make_sorted_pair(g2, sb1))) != contact_params.end())
-    return iter->second;
-
-  // search for both rigid bodies
-  if ((iter = contact_params.find(make_sorted_pair(sb1, sb2))) != contact_params.end())
-    return iter->second;
+  RigidBodyPtr rb1 = dynamic_pointer_cast<RigidBody>(geom1->get_single_body());
+  RigidBodyPtr rb2 = dynamic_pointer_cast<RigidBody>(geom2->get_single_body());
+  BasePtr sb1 = rb1;
+  BasePtr sb2 = rb2;
 
   // get the articulated bodies, if any
-  RigidBodyPtr rb1 = dynamic_pointer_cast<RigidBody>(singlebody1);
-  RigidBodyPtr rb2 = dynamic_pointer_cast<RigidBody>(singlebody2);
   BasePtr ab1, ab2;
   if (rb1)
-    ab1 = rb1->get_articulated_body();
+    ab1 = dynamic_pointer_cast<ArticulatedBody>(rb1->get_articulated_body());
   if (rb2)
-    ab2 = rb2->get_articulated_body();
+    ab2 = dynamic_pointer_cast<ArticulatedBody>(rb2->get_articulated_body());
 
   // check collision geometry 2 and rigid body 2 against articulated body 1
   if (ab1)
@@ -152,6 +137,18 @@ shared_ptr<ContactParameters> ConstraintSimulator::get_contact_parameters(Collis
   if (ab1 && ab2)
     if ((iter = contact_params.find(make_sorted_pair(ab1, ab2))) != contact_params.end())
       return iter->second;
+
+  // search for contact geometry 1 and rigid body 2
+  if ((iter = contact_params.find(make_sorted_pair(g1, sb2))) != contact_params.end())
+    return iter->second;
+
+  // search for contact geometry 2 and rigid body 1
+  if ((iter = contact_params.find(make_sorted_pair(g2, sb1))) != contact_params.end())
+    return iter->second;
+
+  // search for both rigid bodies
+  if ((iter = contact_params.find(make_sorted_pair(sb1, sb2))) != contact_params.end())
+    return iter->second;
 
   // still here?  no contact data found
   return shared_ptr<ContactParameters>();
@@ -401,13 +398,13 @@ void ConstraintSimulator::preprocess_constraint(UnilateralConstraint& e)
     e.set_contact_parameters(*cparams);
   else
   {
-    SingleBodyPtr sb1(e.contact_geom1->get_single_body());
-    SingleBodyPtr sb2(e.contact_geom2->get_single_body());
+    shared_ptr<SingleBodyd> sb1(e.contact_geom1->get_single_body());
+    shared_ptr<SingleBodyd> sb2(e.contact_geom2->get_single_body());
     std::cerr << "ConstraintSimulator::preprocess_constraint() warning- no contact ";
     std::cerr << "data for contact" << std::endl;
     std::cerr << "  between " << e.contact_geom1->id << " (body ";
-    std::cerr << sb1->id << ") and " << e.contact_geom2->id;
-    std::cerr << " (body " << sb2->id << ")" << std::endl;
+    std::cerr << sb1->body_id << ") and " << e.contact_geom2->id;
+    std::cerr << " (body " << sb2->body_id << ")" << std::endl;
     std::cerr << "  ... ignoring" << std::endl;
   }
 }
@@ -419,7 +416,7 @@ void ConstraintSimulator::determine_geometries()
   _geometries.clear();
 
   // determine all geometries
-  BOOST_FOREACH(DynamicBodyPtr db, _bodies)
+  BOOST_FOREACH(ControlledBodyPtr db, _bodies)
   {
     RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(db);
     if (rb)
@@ -427,8 +424,11 @@ void ConstraintSimulator::determine_geometries()
     else
     {
       ArticulatedBodyPtr ab = dynamic_pointer_cast<ArticulatedBody>(db);
-      BOOST_FOREACH(RigidBodyPtr rb, ab->get_links())
+      BOOST_FOREACH(shared_ptr<RigidBodyd> rbd, ab->get_links())
+      {
+        RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(rbd);
         _geometries.insert(_geometries.end(), rb->geometries.begin(), rb->geometries.end());
+      }
     }
   }
 
@@ -456,7 +456,7 @@ void ConstraintSimulator::calc_pairwise_distances()
     Pose3d poseB(*pdi.b->get_pose());
     poseA.update_relative_pose(GLOBAL);
     poseB.update_relative_pose(GLOBAL);
-    FILE_LOG(LOG_SIMULATOR) << "ConstraintSimulator::calc_pairwise_distances() - signed distance between " << pdi.a->get_single_body()->id << " and " << pdi.b->get_single_body()->id << ": " << pdi.dist << std::endl;
+    FILE_LOG(LOG_SIMULATOR) << "ConstraintSimulator::calc_pairwise_distances() - signed distance between " << pdi.a->get_single_body()->body_id << " and " << pdi.b->get_single_body()->body_id << ": " << pdi.dist << std::endl;
     _pairwise_distances.push_back(pdi);
   }
 }
@@ -497,7 +497,7 @@ void ConstraintSimulator::update_constraint_violations(const vector<PairwiseDist
   }
 
   // update joint constraint interpenetration
-  BOOST_FOREACH(DynamicBodyPtr db, _bodies)
+  BOOST_FOREACH(ControlledBodyPtr db, _bodies)
   {
     ArticulatedBodyPtr ab = dynamic_pointer_cast<ArticulatedBody>(db);
     if (ab)
@@ -512,15 +512,18 @@ void ConstraintSimulator::calc_fwd_dyn()
 {
   // clear force accumulators, then add all recurrent and compliant
   // constraint forces
-  BOOST_FOREACH(DynamicBodyPtr db, _bodies)
+  BOOST_FOREACH(ControlledBodyPtr db, _bodies)
   {
+    // get the body as a Ravelin dynamic body
+    shared_ptr<DynamicBodyd> rdb = dynamic_pointer_cast<DynamicBodyd>(db);
+
     // clear the force accumulators on the body
-    db->reset_accumulators();
+    rdb->reset_accumulators();
 
     // add all recurrent forces on the body
     const list<RecurrentForcePtr>& rfs = db->get_recurrent_forces();
     BOOST_FOREACH(RecurrentForcePtr rf, rfs)
-      rf->add_force(db);
+      rf->add_force(rdb);
     
     // call the body's controller
     if (db->controller)
@@ -534,10 +537,13 @@ void ConstraintSimulator::calc_fwd_dyn()
   calc_compliant_unilateral_constraint_forces();
 
   // compute controller forces and call forward dynamics
-  BOOST_FOREACH(DynamicBodyPtr db, _bodies)
+  BOOST_FOREACH(ControlledBodyPtr db, _bodies)
   {
+    // get the body as a Ravelin dynamic body
+    shared_ptr<DynamicBodyd> rdb = dynamic_pointer_cast<DynamicBodyd>(db);
+
     // calculate forward dynamics at state x
-    db->calc_fwd_dyn();
+    rdb->calc_fwd_dyn();
   }
 }
 
@@ -694,8 +700,11 @@ void ConstraintSimulator::load_from_xml(shared_ptr<const XMLTree> node, map<std:
         ArticulatedBodyPtr ab1 = dynamic_pointer_cast<ArticulatedBody>(o1);
         if (ab1)
         {
-          BOOST_FOREACH(RigidBodyPtr rb, ab1->get_links())
+          BOOST_FOREACH(shared_ptr<RigidBodyd> rbd, ab1->get_links())
+          {
+            RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(rbd);
             disabled1.insert(disabled1.end(), rb->geometries.begin(), rb->geometries.end());
+          }
         }
         else
         {
@@ -727,8 +736,11 @@ void ConstraintSimulator::load_from_xml(shared_ptr<const XMLTree> node, map<std:
         ArticulatedBodyPtr ab2 = dynamic_pointer_cast<ArticulatedBody>(o2);
         if (ab2)
         {
-          BOOST_FOREACH(RigidBodyPtr rb, ab2->get_links())
+          BOOST_FOREACH(shared_ptr<RigidBodyd> rbd, ab2->get_links())
+          {
+            RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(rbd);
             disabled2.insert(disabled2.end(), rb->geometries.begin(), rb->geometries.end());
+          }
         }
         else
         {

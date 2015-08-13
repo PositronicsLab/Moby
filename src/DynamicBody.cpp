@@ -1,4 +1,5 @@
-#include <Moby/DynamicBody.h>
+#include <Moby/XMLTree.h>
+#include <Moby/ControlledBody.h>
 
 using namespace Ravelin;
 using namespace Moby;
@@ -8,9 +9,9 @@ using std::list;
 
 /*
 /// Integrates a dynamic body
-void DynamicBody::integrate(double t, double h, shared_ptr<Integrator> integrator)
+void ControlledBody::integrate(double t, double h, shared_ptr<Integrator> integrator)
 {
-  FILE_LOG(LOG_DYNAMICS) << "DynamicBody::integrate() - integrating from " << t << " by " << h << std::endl;
+  FILE_LOG(LOG_DYNAMICS) << "ControlledBody::integrate() - integrating from " << t << " by " << h << std::endl;
 
   if (_kinematic_update)
   {
@@ -36,7 +37,7 @@ void DynamicBody::integrate(double t, double h, shared_ptr<Integrator> integrato
 }
 
 /// Returns the ODE's for position and velocity (concatenated into x)
-VectorNd& DynamicBody::ode_both(const VectorNd& x, double t, double dt, void* data, VectorNd& dx)
+VectorNd& ControlledBody::ode_both(const VectorNd& x, double t, double dt, void* data, VectorNd& dx)
 {
   // get the dynamic body
   shared_ptr<DynamicBody>& db = *((shared_ptr<DynamicBody>*) data);
@@ -51,16 +52,16 @@ VectorNd& DynamicBody::ode_both(const VectorNd& x, double t, double dt, void* da
   xv.resize(NGC_EUL);
   x.get_sub_vec(0, NGC_EUL, xp);
   x.get_sub_vec(NGC_EUL, x.size(), xv);
-  db->set_generalized_coordinates(DynamicBody::eEuler, xp);
-  db->set_generalized_velocity(DynamicBody::eSpatial, xv);
+  db->set_generalized_coordinates(DynamicBodyd::eEuler, xp);
+  db->set_generalized_velocity(DynamicBodyd::eSpatial, xv);
 
   // we need the generalized velocity as Rodrigues coordinates
-  db->get_generalized_velocity(DynamicBody::eEuler, xv);
+  db->get_generalized_velocity(DynamicBodyd::eEuler, xv);
 
   // check whether we could rotate too much
   #ifdef NDEBUG
   if (dt*db->get_aspeed() > M_PI)
-    std::cerr << "DynamicBody::ode_both() warning- angular speed*dt " << (dt*db->get_aspeed()) << " sufficiently high to" << std::endl << "potentially miss events!" << std::endl;
+    std::cerr << "ControlledBody::ode_both() warning- angular speed*dt " << (dt*db->get_aspeed()) << " sufficiently high to" << std::endl << "potentially miss events!" << std::endl;
   #endif
 
   // clear the force accumulators on the body
@@ -87,7 +88,7 @@ VectorNd& DynamicBody::ode_both(const VectorNd& x, double t, double dt, void* da
 */
 
 /// Loads the body's state via XML
-void DynamicBody::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
+void ControlledBody::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
   std::map<std::string, BasePtr>::const_iterator id_iter;
 
@@ -111,7 +112,7 @@ void DynamicBody::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::st
       // make sure that the ID exists
       if (!id_attr)
       {
-        std::cerr << "DynamicBody::load_from_xml() - no recurrent-force-id ";
+        std::cerr << "ControlledBody::load_from_xml() - no recurrent-force-id ";
         std::cerr << "attribute in tag: " << node << std::endl;
         continue;
       }
@@ -120,7 +121,7 @@ void DynamicBody::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::st
       const std::string& id = id_attr->get_string_value(); 
       if ((id_iter = id_map.find(id)) == id_map.end())
       {
-        std::cerr << "DynamicBody::load_from_xml() - could not find" << std::endl;
+        std::cerr << "ControlledBody::load_from_xml() - could not find" << std::endl;
         std::cerr << "  recurrent force w/ID: " << id << " from offending node: " << std::endl << *node;
       }
       else
@@ -133,7 +134,7 @@ void DynamicBody::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::st
 }
 
 /// Implements Base::save_to_xml()
-void DynamicBody::save_to_xml(XMLTreePtr node, list<shared_ptr<const Base> >& shared_objects) const
+void ControlledBody::save_to_xml(XMLTreePtr node, list<shared_ptr<const Base> >& shared_objects) const
 {
   // call the parent save_to_xml() method
   Visualizable::save_to_xml(node, shared_objects);

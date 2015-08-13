@@ -13,7 +13,7 @@
 #include <list>
 #include <string>
 #include <boost/foreach.hpp>
-#include <Moby/sorted_pair>
+#include <Ravelin/sorted_pair>
 #include <Moby/Types.h>
 #include <Moby/Triangle.h>
 #include <Moby/InvalidIndexException.h>
@@ -49,7 +49,7 @@ class IndexedTriArray
     IndexedTriArray& operator=(const IndexedTriArray& mesh);
     std::vector<std::list<unsigned> > determine_vertex_edge_map() const;
     std::vector<std::list<unsigned> > determine_vertex_facet_map() const;
-    std::map<sorted_pair<unsigned>, std::list<unsigned> > determine_edge_facet_map() const;
+    std::map<Ravelin::sorted_pair<unsigned>, std::list<unsigned> > determine_edge_facet_map() const;
     void calc_volume_ints(double volume_ints[10]) const;
 
     /// Gets the indices of facets incident to a vertex
@@ -71,7 +71,7 @@ class IndexedTriArray
     bool is_coplanar(unsigned vidx) const { return std::binary_search(_coplanar_verts.begin(), _coplanar_verts.end(), vidx); }
 
    /// Determines whether an edge (v1,v2) is coplanar (all faces touching the edge are coplanar)
-   bool is_coplanar(unsigned v1, unsigned v2) const { return std::binary_search(_coplanar_edges.begin(), _coplanar_edges.end(), make_sorted_pair(v1, v2)); }
+   bool is_coplanar(unsigned v1, unsigned v2) const { return std::binary_search(_coplanar_edges.begin(), _coplanar_edges.end(), Ravelin::make_sorted_pair(v1, v2)); }
 
   private:
     void determine_coplanar_features();
@@ -80,7 +80,7 @@ class IndexedTriArray
     void calc_incident_facets();
 
     /// Sorted vector of coplanar edges (all facets touching each edge are coplanar)
-    std::vector<sorted_pair<unsigned> > _coplanar_edges;
+    std::vector<Ravelin::sorted_pair<unsigned> > _coplanar_edges;
 
     /// Sorted vector of coplanar vertices (all faces touching each vertex are coplanar)
     std::vector<unsigned> _coplanar_verts;

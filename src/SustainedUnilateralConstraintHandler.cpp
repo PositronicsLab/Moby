@@ -188,7 +188,7 @@ void SustainedUnilateralConstraintHandler::apply_model_to_connected_constraints(
     // apply contact forces and recompute dynamics
     apply_forces(_epd);
 
-    BOOST_FOREACH(DynamicBodyPtr db, _epd.super_bodies)
+    BOOST_FOREACH(ControlledBodyPtr db, _epd.super_bodies)
       db->calc_fwd_dyn();
   }
 
@@ -206,7 +206,7 @@ void SustainedUnilateralConstraintHandler::apply_model_to_connected_constraints(
   apply_forces(_epd);
 
   // calculate problem data again (for debugging)
-  BOOST_FOREACH(DynamicBodyPtr db, _epd.super_bodies)
+  BOOST_FOREACH(ControlledBodyPtr db, _epd.super_bodies)
     db->calc_fwd_dyn();
   compute_problem_data(_epd);
   FILE_LOG(LOG_CONSTRAINT) << "(problem data double-check for debugging) " << _epd.Cn_a << std::endl;
@@ -302,7 +302,7 @@ void SustainedUnilateralConstraintHandler::apply_purely_viscous_model_to_connect
     // apply contact forces and recompute dynamics
     apply_forces(_epd);
 
-    BOOST_FOREACH(DynamicBodyPtr db, _epd.super_bodies)
+    BOOST_FOREACH(ControlledBodyPtr db, _epd.super_bodies)
       db->calc_fwd_dyn();
   }
 
@@ -326,8 +326,8 @@ void SustainedUnilateralConstraintHandler::apply_purely_viscous_model_to_connect
 /// Applies resting constraint forces to bodies and saves the generalized forces
 void SustainedUnilateralConstraintHandler::apply_forces(const SustainedUnilateralConstraintProblemData& q)
 {
-  map<DynamicBodyPtr, VectorNd> gj;
-  map<DynamicBodyPtr, VectorNd>::iterator gj_iter;
+  map<ControlledBodyPtr, VectorNd> gj;
+  map<ControlledBodyPtr, VectorNd>::iterator gj_iter;
 
   // loop over all contact contacts first
   for (unsigned i=0; i< q.contact_constraints.size(); i++)
@@ -337,12 +337,12 @@ void SustainedUnilateralConstraintHandler::apply_forces(const SustainedUnilatera
     SForced w(c.contact_impulse);
 
     // get the two single bodies of the contact
-    SingleBodyPtr sb1 = c.contact_geom1->get_single_body();
-    SingleBodyPtr sb2 = c.contact_geom2->get_single_body();
+    shared_ptr<SingleBodyd> sb1 = c.contact_geom1->get_single_body();
+    shared_ptr<SingleBodyd> sb2 = c.contact_geom2->get_single_body();
 
     // get the two super bodies
-    DynamicBodyPtr b1 = sb1->get_super_body();
-    DynamicBodyPtr b2 = sb2->get_super_body();
+    ControlledBodyPtr b1 = sb1->get_super_body();
+    ControlledBodyPtr b2 = sb2->get_super_body();
 
     // convert force on first body to generalized forces
     if ((gj_iter = gj.find(b1)) == gj.end())
@@ -381,7 +381,7 @@ void SustainedUnilateralConstraintHandler::apply_forces(const SustainedUnilatera
       // initialize the vector if necessary
       if (gj_iter == gj.end())
       {
-        gj[ab].set_zero(ab->num_generalized_coordinates(DynamicBody::eSpatial));
+        gj[ab].set_zero(ab->num_generalized_coordinates(DynamicBodyd::eSpatial));
         gj_iter = gj.find(ab);
       }
 
@@ -396,7 +396,7 @@ void SustainedUnilateralConstraintHandler::apply_forces(const SustainedUnilatera
   }
 
   // apply all generalized forces
-  for (map<DynamicBodyPtr, VectorNd>::const_iterator i = gj.begin(); i != gj.end(); i++)
+  for (map<ControlledBodyPtr, VectorNd>::const_iterator i = gj.begin(); i != gj.end(); i++)
   {
     // apply the force
     i->first->add_generalized_force(i->second);
@@ -627,12 +627,12 @@ void SustainedUnilateralConstraintHandler::compute_problem_data2(SustainedUnilat
     const UnilateralConstraint& e = *q.contact_constraints[i];
 
     // get the two single bodies of the contact
-    SingleBodyPtr sb1 = e.contact_geom1->get_single_body();
-    SingleBodyPtr sb2 = e.contact_geom2->get_single_body();
+    shared_ptr<SingleBodyd> sb1 = e.contact_geom1->get_single_body();
+    shared_ptr<SingleBodyd> sb2 = e.contact_geom2->get_single_body();
 
     // get the two super bodies
-    DynamicBodyPtr b1 = sb1->get_super_body();
-    DynamicBodyPtr b2 = sb2->get_super_body();
+    ControlledBodyPtr b1 = sb1->get_super_body();
+    ControlledBodyPtr b2 = sb2->get_super_body();
 
     // add the super bodies
     q.super_bodies.push_back(b1);
@@ -714,11 +714,11 @@ void SustainedUnilateralConstraintHandler::compute_problem_data2(SustainedUnilat
   q.N_VARS = q.NCT_IDX + q.N_STICKING;
 
   // save the velocities and forces of all bodies in contacts
-  std::map<DynamicBodyPtr, VectorNd> saved_velocities, saved_forces;
+  std::map<ControlledBodyPtr, VectorNd> saved_velocities, saved_forces;
   for (unsigned i=0; i< q.super_bodies.size(); i++)
   {
-    DynamicBodyPtr db = q.super_bodies[i];
-    db->get_generalized_velocity(DynamicBody::eSpatial, saved_velocities[db]);
+    ControlledBodyPtr db = q.super_bodies[i];
+    db->get_generalized_velocity(DynamicBodyd::eSpatial, saved_velocities[db]);
     db->get_generalized_forces(saved_forces[db]);
   }
 
@@ -770,7 +770,7 @@ void SustainedUnilateralConstraintHandler::compute_problem_data2(SustainedUnilat
 
     // apply the impulse along the joint limit
     unsigned index = ci->limit_joint->get_coord_index() + ci->limit_dof;
-    _workv.resize(super->num_generalized_coordinates(DynamicBody::eSpatial));
+    _workv.resize(super->num_generalized_coordinates(DynamicBodyd::eSpatial));
     _workv.set_zero();
     _workv[index] = (ci->limit_upper) ? -1.0 : 1.0; 
     super->apply_generalized_impulse(_workv);
@@ -806,12 +806,12 @@ void SustainedUnilateralConstraintHandler::compute_problem_data2(SustainedUnilat
     P->x = ci->contact_point;
 
     // get the two single bodies of the contact
-    SingleBodyPtr sb1 = ci->contact_geom1->get_single_body();
-    SingleBodyPtr sb2 = ci->contact_geom2->get_single_body();
+    shared_ptr<SingleBodyd> sb1 = ci->contact_geom1->get_single_body();
+    shared_ptr<SingleBodyd> sb2 = ci->contact_geom2->get_single_body();
 
     // get the two super bodies
-    DynamicBodyPtr b1 = sb1->get_super_body();
-    DynamicBodyPtr b2 = sb2->get_super_body();
+    ControlledBodyPtr b1 = sb1->get_super_body();
+    ControlledBodyPtr b2 = sb2->get_super_body();
 
     // apply impulse(s) in the normal direction
     Vector3d f = q.contact_constraints[i]->contact_normal;
@@ -866,12 +866,12 @@ void SustainedUnilateralConstraintHandler::compute_problem_data2(SustainedUnilat
     P->x = ci->contact_point;
 
     // get the two single bodies of the contact
-    SingleBodyPtr sb1 = ci->contact_geom1->get_single_body();
-    SingleBodyPtr sb2 = ci->contact_geom2->get_single_body();
+    shared_ptr<SingleBodyd> sb1 = ci->contact_geom1->get_single_body();
+    shared_ptr<SingleBodyd> sb2 = ci->contact_geom2->get_single_body();
 
     // get the two super bodies
-    DynamicBodyPtr b1 = sb1->get_super_body();
-    DynamicBodyPtr b2 = sb2->get_super_body();
+    ControlledBodyPtr b1 = sb1->get_super_body();
+    ControlledBodyPtr b2 = sb2->get_super_body();
 
     // apply impulse(s) in the tangent direction
     Vector3d f = q.contact_constraints[i]->contact_tan1;
@@ -927,12 +927,12 @@ void SustainedUnilateralConstraintHandler::compute_problem_data2(SustainedUnilat
     P->x = ci->contact_point;
 
     // get the two single bodies of the contact
-    SingleBodyPtr sb1 = ci->contact_geom1->get_single_body();
-    SingleBodyPtr sb2 = ci->contact_geom2->get_single_body();
+    shared_ptr<SingleBodyd> sb1 = ci->contact_geom1->get_single_body();
+    shared_ptr<SingleBodyd> sb2 = ci->contact_geom2->get_single_body();
 
     // get the two super bodies
-    DynamicBodyPtr b1 = sb1->get_super_body();
-    DynamicBodyPtr b2 = sb2->get_super_body();
+    ControlledBodyPtr b1 = sb1->get_super_body();
+    ControlledBodyPtr b2 = sb2->get_super_body();
 
     // apply impulse(s) in the tangent direction
     Vector3d f = q.contact_constraints[i]->contact_tan2;
@@ -970,9 +970,9 @@ void SustainedUnilateralConstraintHandler::compute_problem_data2(SustainedUnilat
   }
 
   // restore the velocities and apply forces to all bodies in contacts
-  for (std::map<DynamicBodyPtr, VectorNd>::const_iterator i = saved_velocities.begin(); i != saved_velocities.end(); i++)
-    i->first->set_generalized_velocity(DynamicBody::eSpatial, i->second);
-  for (std::map<DynamicBodyPtr, VectorNd>::const_iterator i = saved_forces.begin(); i != saved_forces.end(); i++)
+  for (std::map<ControlledBodyPtr, VectorNd>::const_iterator i = saved_velocities.begin(); i != saved_velocities.end(); i++)
+    i->first->set_generalized_velocity(DynamicBodyd::eSpatial, i->second);
+  for (std::map<ControlledBodyPtr, VectorNd>::const_iterator i = saved_forces.begin(); i != saved_forces.end(); i++)
   {
     i->first->reset_accumulators();
     i->first->add_generalized_force(i->second);
@@ -1466,7 +1466,7 @@ bool SustainedUnilateralConstraintHandler::solve_purely_viscous_lcp(SustainedUni
 }
 
 /// Gets the super body (articulated if any)
-DynamicBodyPtr SustainedUnilateralConstraintHandler::get_super_body(SingleBodyPtr sb)
+ControlledBodyPtr SustainedUnilateralConstraintHandler::get_super_body(shared_ptr<SingleBodyd> sb)
 {
   ArticulatedBodyPtr ab = sb->get_articulated_body();
   if (ab)

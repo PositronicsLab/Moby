@@ -25,7 +25,6 @@
 #include <Moby/IndexedTetraArray.h>
 #include <Moby/Constants.h>
 #include <Moby/Simulator.h>
-#include <Moby/EventDrivenSimulator.h>
 #include <Moby/TimeSteppingSimulator.h>
 #include <Moby/RigidBody.h>
 #include <Moby/CollisionGeometry.h>
@@ -38,13 +37,6 @@
 #include <Moby/RevoluteJoint.h>
 #include <Moby/SphericalJoint.h>
 #include <Moby/UniversalJoint.h>
-#include <Moby/BulirschStoerIntegrator.h>
-#include <Moby/RungeKuttaIntegrator.h>
-#include <Moby/RungeKuttaFehlbergIntegrator.h>
-#include <Moby/RungeKuttaImplicitIntegrator.h>
-#include <Moby/ODEPACKIntegrator.h>
-#include <Moby/EulerIntegrator.h>
-#include <Moby/VariableEulerIntegrator.h>
 #include <Moby/GravityForce.h>
 #include <Moby/StokesDragForce.h>
 #include <Moby/Dissipation.h>
@@ -164,15 +156,6 @@ std::map<std::string, BasePtr> XMLReader::construct_ID_map(shared_ptr<XMLTree> m
   process_tag("CSG", moby_tree, &read_CSG, id_map);
 */
 
-  // read and construct all integrators
-  process_tag("EulerIntegrator", moby_tree, &read_euler_integrator, id_map);
-  process_tag("VariableEulerIntegrator", moby_tree, &read_variable_euler_integrator, id_map);
-  process_tag("BulirschStoerIntegrator", moby_tree, &read_bulirsch_stoer_integrator, id_map);
-  process_tag("RungeKuttaIntegrator", moby_tree, &read_rk4_integrator, id_map);
-  process_tag("RungeKuttaFehlbergIntegrator", moby_tree, &read_rkf4_integrator, id_map);
-  process_tag("RungeKuttaImplicitIntegrator", moby_tree, &read_rk4i_integrator, id_map);
-  process_tag("ODEPACKIntegrator", moby_tree, &read_odepack_integrator, id_map);
-
   // read and construct all recurrent forces (except damping)
   process_tag("GravityForce", moby_tree, &read_gravity_force, id_map);
   process_tag("StokesDragForce", moby_tree, &read_stokes_drag_force, id_map);
@@ -210,7 +193,6 @@ std::map<std::string, BasePtr> XMLReader::construct_ID_map(shared_ptr<XMLTree> m
 
   // finally, read and construct the simulator objects -- must be done last
   process_tag("Simulator", moby_tree, &read_simulator, id_map);
-  process_tag("EventDrivenSimulator", moby_tree, &read_event_driven_simulator, id_map);
   process_tag("TimeSteppingSimulator", moby_tree, &read_time_stepping_simulator, id_map);
 
   // output unprocessed tags / attributes
@@ -529,118 +511,6 @@ void XMLReader::read_box(shared_ptr<const XMLTree> node, std::map<std::string, B
   b->load_from_xml(node, id_map);
 }
 
-/// Reads and constructs the EulerIntegrator object
-/**
- * \pre node name is EulerIntegrator
- */
-void XMLReader::read_euler_integrator(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
-{
-  // sanity check
-  assert(strcasecmp(node->name.c_str(), "EulerIntegrator") == 0);
-
-  // only create VectorN integrators
-  boost::shared_ptr<Base> b(new EulerIntegrator());
-
-  // populate the object
-  b->load_from_xml(node, id_map);
-}
-
-/// Reads and constructs the VariableEulerIntegrator object
-/**
- * \pre node name is VariableEulerIntegrator
- */
-void XMLReader::read_variable_euler_integrator(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
-{
-  // sanity check
-  assert(strcasecmp(node->name.c_str(), "VariableEulerIntegrator") == 0);
-
-  // only create VectorN type integrators
-  boost::shared_ptr<Base> b(new VariableEulerIntegrator());
-
-  // populate the object
-  b->load_from_xml(node, id_map);
-}
-
-/// Reads and construct the RungaKuttaFehlbergIntegrator object
-/**
- * \pre node name is BulirschStoerIntegrator
- */
-void XMLReader::read_bulirsch_stoer_integrator(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
-{
-  // sanity check
-  assert(strcasecmp(node->name.c_str(), "BulirschStoerIntegrator") == 0);
-
-  // only create VectorN type integrators
-  boost::shared_ptr<Base> b(new BulirschStoerIntegrator());
-
-  // populate the object
-  b->load_from_xml(node, id_map);
-}
-
-/// Reads and construct the RungaKuttaFehlbergIntegrator object
-/**
- * \pre node name is RungeKuttaFehlbergIntegrator
- */
-void XMLReader::read_rkf4_integrator(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
-{
-  // sanity check
-  assert(strcasecmp(node->name.c_str(), "RungeKuttaFehlbergIntegrator") == 0);
-
-  // only create VectorN type integrators
-  boost::shared_ptr<Base> b(new RungeKuttaFehlbergIntegrator());
-
-  // populate the object
-  b->load_from_xml(node, id_map);
-}
-
-/// Reads and construct the RungaKuttaIntegrator object
-/**
- * \pre node name is RungeKuttaIntegrator
- */
-void XMLReader::read_rk4_integrator(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
-{
-  // sanity check
-  assert(strcasecmp(node->name.c_str(), "RungeKuttaIntegrator") == 0);
-
-  // only create VectorN type integrators
-  boost::shared_ptr<Base> b(new RungeKuttaIntegrator());
-
-  // populate the object
-  b->load_from_xml(node, id_map);
-}
-
-/// Reads and construct the RungaKuttaImplicitIntegrator object
-/**
- * \pre node name is RungeKuttaImplicitIntegrator
- */
-void XMLReader::read_rk4i_integrator(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
-{
-  // sanity check
-  assert(strcasecmp(node->name.c_str(), "RungeKuttaImplicitIntegrator") == 0);
-
-  // only create VectorN type integrators
-  boost::shared_ptr<Base> b(new RungeKuttaImplicitIntegrator());
-
-  // populate the object
-  b->load_from_xml(node, id_map);
-}
-
-/// Reads and construct the ODEPACKIntegrator object
-/**
- * \pre node name is ODEPACKIntegrator
- */
-void XMLReader::read_odepack_integrator(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
-{
-  // sanity check
-  assert(strcasecmp(node->name.c_str(), "ODEPACKIntegrator") == 0);
-
-  // only create VectorN type integrators
-  boost::shared_ptr<Base> b(new ODEPACKIntegrator());
-
-  // populate the object
-  b->load_from_xml(node, id_map);
-}
-
 /// Reads and constructs the TimeSteppingSimulator object
 /**
  * \pre node is named TimeSteppingSimulator
@@ -652,22 +522,6 @@ void XMLReader::read_time_stepping_simulator(shared_ptr<const XMLTree> node, std
 
   // create a new TimeSteppingSimulator object
   boost::shared_ptr<Base> b(new TimeSteppingSimulator());
-  
-  // populate the object
-  b->load_from_xml(node, id_map);
-}
-
-/// Reads and constructs the EventDrivenSimulator object
-/**
- * \pre node is named EventDrivenSimulator
- */
-void XMLReader::read_event_driven_simulator(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
-{
-  // sanity check
-  assert(strcasecmp(node->name.c_str(), "EventDrivenSimulator") == 0);
-
-  // create a new EventDrivenSimulator object
-  boost::shared_ptr<Base> b(new EventDrivenSimulator());
   
   // populate the object
   b->load_from_xml(node, id_map);
@@ -704,19 +558,19 @@ void XMLReader::read_sdf(shared_ptr<const XMLTree> node, std::map<std::string, B
   }
  
   // read the models
-  std::map<std::string, DynamicBodyPtr> model_map = SDFReader::read_models(fname_attr->get_string_value());
+  std::map<std::string, ControlledBodyPtr> model_map = SDFReader::read_models(fname_attr->get_string_value());
  
   XMLAttrib* id_attr = node->get_attrib("id");
   if (!id_attr)
   {
     // populate our ID map with the models
-    for (std::map<std::string, DynamicBodyPtr>::const_iterator i = model_map.begin(); i != model_map.end(); i++)
+    for (std::map<std::string, ControlledBodyPtr>::const_iterator i = model_map.begin(); i != model_map.end(); i++)
       id_map[i->first] = i->second;
   } 
   else 
   {
     // populate our ID map with the models
-    for (std::map<std::string, DynamicBodyPtr>::const_iterator i = model_map.begin(); i != model_map.end(); i++)
+    for (std::map<std::string, ControlledBodyPtr>::const_iterator i = model_map.begin(); i != model_map.end(); i++)
       id_map[id_attr->get_string_value() + "::" + i->first] = i->second;
   }
 }

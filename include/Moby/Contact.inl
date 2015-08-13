@@ -1,7 +1,7 @@
 template <class OutputIterator>
 OutputIterator Contact::get_super_bodies(OutputIterator begin) const
 {
-  DynamicBodyPtr db1, db2;
+  ControlledBodyPtr db1, db2;
   unsigned nb = get_super_bodies(db1, db2);
   switch (nb)
   {

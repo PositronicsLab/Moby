@@ -1,19 +1,18 @@
 #include <Moby/CollisionDetection.h>
 #include <Moby/CCD.h>
-#include <Moby/EventDrivenSimulator.h>
+#include <Moby/TimeSteppingSimulator.h>
 #include <Moby/Log.h>
 #include "params.h"
 #include <cstdio>
 #define NDEBUG
 using boost::shared_ptr;
 using boost::dynamic_pointer_cast;
-using namespace Ravelin;
 using namespace Moby;
 
 class BladePlanePlugin : public CollisionDetection
 {
   private:
-    boost::shared_ptr<EventDrivenSimulator> sim;
+    boost::shared_ptr<TimeSteppingSimulator> sim;
     boost::shared_ptr<CCD> ccd;
     RigidBodyPtr wheel;
     RigidBodyPtr ground_body;
@@ -24,12 +23,12 @@ class BladePlanePlugin : public CollisionDetection
 
     virtual void set_simulator(boost::shared_ptr<ConstraintSimulator> sim)
     {
-      this->sim = boost::dynamic_pointer_cast<EventDrivenSimulator>(sim);
+      this->sim = boost::dynamic_pointer_cast<TimeSteppingSimulator>(sim);
 
       // find the necessary objects
       for (unsigned i=0; i< sim->get_dynamic_bodies().size(); i++)
       {
-        DynamicBodyPtr body = sim->get_dynamic_bodies()[i];
+        ControlledBodyPtr body = sim->get_dynamic_bodies()[i];
         if (body->id == "WHEEL")
           wheel = boost::dynamic_pointer_cast<RigidBody>(body);
         else if (body->id == "GROUND")
@@ -53,13 +52,13 @@ class BladePlanePlugin : public CollisionDetection
     virtual ~BladePlanePlugin() {}
 
     /// Does broad phase collision detection
-    virtual void broad_phase(double dt, const std::vector<DynamicBodyPtr>& bodies, std::vector<std::pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check)
+    virtual void broad_phase(double dt, const std::vector<ControlledBodyPtr>& bodies, std::vector<std::pair<CollisionGeometryPtr, CollisionGeometryPtr> >& to_check)
     {
       // clear to_check
       to_check.clear();
 
       // remove the wheel from bodies
-      std::vector<DynamicBodyPtr> remainder = bodies;
+      std::vector<ControlledBodyPtr> remainder = bodies;
       for (unsigned i=0; i< remainder.size(); i++)
         if (remainder[i] == wheel)
         {
@@ -75,12 +74,6 @@ class BladePlanePlugin : public CollisionDetection
       to_check.push_back(std::make_pair(ground_cg, wheel_cg));
     }
 
-    /// Computes a conservative advancement step for general integration
-    virtual double calc_CA_step(const PairwiseDistInfo& pdi)
-    {
-      return ccd->calc_CA_step(pdi);
-    }
-
     /// Computes a conservative advancement step for Euler integration
     virtual double calc_CA_Euler_step(const PairwiseDistInfo& pdi)
     {
@@ -90,12 +83,12 @@ class BladePlanePlugin : public CollisionDetection
     /// Calculates signed distance between a wheel and a plane
     double calc_signed_dist_wheel_plane(CollisionGeometryPtr wheel_cg, CollisionGeometryPtr ground_cg)
     {
-      Vector3d point, normal;
+      Ravelin::Vector3d point, normal;
       return calc_signed_dist_wheel_plane(wheel_cg,ground_cg,point,normal);
     }
 
     /// Calculates signed distance between a wheel and a plane
-    double calc_signed_dist_wheel_plane(CollisionGeometryPtr wheel_cg, CollisionGeometryPtr ground_cg,Vector3d& pwheel,Vector3d& pground)
+    double calc_signed_dist_wheel_plane(CollisionGeometryPtr wheel_cg, CollisionGeometryPtr ground_cg,Ravelin::Vector3d& pwheel,Ravelin::Vector3d& pground)
     {
       const unsigned Y = 1;
 
@@ -106,14 +99,14 @@ class BladePlanePlugin : public CollisionDetection
       PrimitivePtr plane_geom = dynamic_pointer_cast<Primitive>(ground_cg->get_geometry());
 
       // get the pose for the plane primitive
-      shared_ptr<const Pose3d> Pplane = plane_geom->get_pose(ground_cg);
+      shared_ptr<const Ravelin::Pose3d> Pplane = plane_geom->get_pose(ground_cg);
 
       // get the pose for the wheel 
-      shared_ptr<const Pose3d> Pwheel = wheel_cg->get_pose();
-      FILE_LOG(LOG_COLDET) << "Pose of the wheel: " << Pose3d::calc_relative_pose(Pwheel, GLOBAL) << std::endl;
+      shared_ptr<const Ravelin::Pose3d> Pwheel = wheel_cg->get_pose();
+      FILE_LOG(LOG_COLDET) << "Ravelin::Pose of the wheel: " << Ravelin::Pose3d::calc_relative_pose(Pwheel, GLOBAL) << std::endl;
 
       // get the pose of the center-of-mass of the wheel
-      Transform3d pTb = Pose3d::calc_relative_pose(Pwheel, Pplane);
+      Ravelin::Transform3d pTb = Ravelin::Pose3d::calc_relative_pose(Pwheel, Pplane);
 
       // loop over each spoke
       for (unsigned i=0; i< N_SPOKES; i++)
@@ -153,7 +146,7 @@ class BladePlanePlugin : public CollisionDetection
 
     /// Calculates signed distance between the wheel and a curved ground
 /*
-    double calc_signed_dist_wheel_cos(CollisionGeometryPtr wheel_cg, CollisionGeometryPtr ground_cg,Vector3d& point,Vector3d& normal)
+    double calc_signed_dist_wheel_cos(CollisionGeometryPtr wheel_cg, CollisionGeometryPtr ground_cg,Ravelin::Vector3d& point,Ravelin::Vector3d& normal)
     {
       const unsigned X = 0, Y = 1;
 
@@ -161,13 +154,13 @@ class BladePlanePlugin : public CollisionDetection
       double min_dist = std::numeric_limits<double>::max();
 
       // get the pose for the ground 
-      shared_ptr<const Pose3d> Pground = ground_cg->get_pose();
+      shared_ptr<const Ravelin::Pose3d> Pground = ground_cg->get_pose();
 
       // get the pose for the wheel 
-      shared_ptr<const Pose3d> Pwheel = wheel_cg->get_pose();
+      shared_ptr<const Ravelin::Pose3d> Pwheel = wheel_cg->get_pose();
 
       // get the pose of the center-of-mass of the wheel
-      Transform3d gTw = Pose3d::calc_relative_pose(Pwheel, Pground);
+      Ravelin::Transform3d gTw = Ravelin::Pose3d::calc_relative_pose(Pwheel, Pground);
 
       // loop over each spoke
       for (unsigned i=0; i< N_SPOKES; i++)
@@ -197,13 +190,13 @@ class BladePlanePlugin : public CollisionDetection
           // we need a normal to this tangent, which we'll get by rotating
           // 0 1 0 by a rotation matrix around z by theta1. If the vertical
           // (y) component is negative, we rotate around z by theta1+pi 
-          normal = Vector3d(std::cos(theta1),-std::sin(theta1),0,Pground);
+          normal = Ravelin::Vector3d(std::cos(theta1),-std::sin(theta1),0,Pground);
         }
         if (W > 0.0 && d2 < min_dist)
         {
           min_dist = d2;
           point = p2_ground;
-          normal = Vector3d(0,1,0,Pground);
+          normal = Ravelin::Vector3d(0,1,0,Pground);
         }
       }
 
@@ -225,13 +218,13 @@ class BladePlanePlugin : public CollisionDetection
       PrimitivePtr plane_geom = dynamic_pointer_cast<Primitive>(ground_cg->get_geometry());
 
       // get the pose for the plane primitive
-      shared_ptr<const Pose3d> Pplane = plane_geom->get_pose(ground_cg);
+      shared_ptr<const Ravelin::Pose3d> Pplane = plane_geom->get_pose(ground_cg);
 
       // get the pose for the wheel 
-      shared_ptr<const Pose3d> Pwheel = wheel_cg->get_pose();
+      shared_ptr<const Ravelin::Pose3d> Pwheel = wheel_cg->get_pose();
 
       // get the pose of the center-of-mass of the wheel
-      Transform3d pTb = Pose3d::calc_relative_pose(Pwheel, Pplane);
+      Ravelin::Transform3d pTb = Ravelin::Pose3d::calc_relative_pose(Pwheel, Pplane);
 
       // say whether spoke = 5 or spoke = 0 found
       bool zero_spoke = false;
@@ -274,10 +267,10 @@ class BladePlanePlugin : public CollisionDetection
         // create contact for the first point on the blade (if appropriate) 
         if (p1_plane[Y] < TOL)
         {
-          Point3d p1x_global = Pose3d::transform_point(GLOBAL, p1);
-          Point3d p1y_global = Pose3d::transform_point(GLOBAL, p1_plane_prime);
-          Vector3d normal(0,1,0,Pplane);
-          Vector3d normal_global = Pose3d::transform_vector(GLOBAL, normal);
+          Point3d p1x_global = Ravelin::Pose3d::transform_point(GLOBAL, p1);
+          Point3d p1y_global = Ravelin::Pose3d::transform_point(GLOBAL, p1_plane_prime);
+          Ravelin::Vector3d normal(0,1,0,Pplane);
+          Ravelin::Vector3d normal_global = Ravelin::Pose3d::transform_vector(GLOBAL, normal);
           FILE_LOG(LOG_COLDET) << "found contact between blade " << i << " and ground" << std::endl;
           contacts.push_back(
             CollisionDetection::create_contact(wheel_cg,ground_cg,(p1x_global+p1y_global)*0.5,normal_global,p1_plane[Y])
@@ -288,10 +281,10 @@ class BladePlanePlugin : public CollisionDetection
         if (W > 0.0 && p2_plane[Y] < TOL)
         {
           FILE_LOG(LOG_COLDET) << "found contact between blade " << i << " and ground" << std::endl;
-          Point3d p2x_global = Pose3d::transform_point(GLOBAL, p2);
-          Point3d p2y_global = Pose3d::transform_point(GLOBAL, p2_plane_prime);
-          Vector3d normal(0,1,0,Pplane);
-          Vector3d normal_global = Pose3d::transform_vector(GLOBAL, normal);
+          Point3d p2x_global = Ravelin::Pose3d::transform_point(GLOBAL, p2);
+          Point3d p2y_global = Ravelin::Pose3d::transform_point(GLOBAL, p2_plane_prime);
+          Ravelin::Vector3d normal(0,1,0,Pplane);
+          Ravelin::Vector3d normal_global = Ravelin::Pose3d::transform_vector(GLOBAL, normal);
           contacts.push_back(
             CollisionDetection::create_contact(wheel_cg,ground_cg,(p2x_global+p2y_global)*0.5,normal_global,p2_plane[Y])
               );

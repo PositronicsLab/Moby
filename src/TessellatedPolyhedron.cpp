@@ -7,7 +7,7 @@
 #include <iostream>
 #include <cmath>
 #include <set>
-#include <Moby/sorted_pair>
+#include <Ravelin/sorted_pair>
 #include <Moby/Constants.h>
 #include <Moby/Log.h>
 #include <Moby/CompGeom.h>

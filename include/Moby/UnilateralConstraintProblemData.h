@@ -308,7 +308,7 @@ struct UnilateralConstraintProblemData
   unsigned N_CONSTRAINT_EQNS_IMP;
 
   // the vector of "super" bodies
-  std::vector<DynamicBodyPtr> super_bodies; 
+  std::vector<boost::shared_ptr<Ravelin::DynamicBodyd> > super_bodies; 
 
   // the vectors of constraints
   std::vector<UnilateralConstraint*> constraints, contact_constraints, limit_constraints;

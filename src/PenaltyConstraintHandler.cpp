@@ -15,7 +15,6 @@
 #include <Moby/Constants.h>
 #include <Moby/UnilateralConstraint.h>
 #include <Moby/CollisionGeometry.h>
-#include <Moby/SingleBody.h>
 #include <Moby/RigidBody.h>
 #include <Moby/Log.h>
 #include <Moby/XMLTree.h>
@@ -141,8 +140,8 @@ void PenaltyConstraintHandler::apply_model(const vector<UnilateralConstraint>& c
     Vector3d penalty_force(0,0,0,contact_frame);
 
     // get contacting bodies
-    SingleBodyPtr sba = e.contact_geom1->get_single_body();
-    SingleBodyPtr sbb = e.contact_geom2->get_single_body();
+    shared_ptr<SingleBodyd> sba = e.contact_geom1->get_single_body();
+    shared_ptr<SingleBodyd> sbb = e.contact_geom2->get_single_body();
     assert(sba && sbb);
 
     // get the vels
