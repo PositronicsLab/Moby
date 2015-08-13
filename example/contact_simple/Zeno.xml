@@ -55,7 +55,7 @@
       </RigidBody>
 
     <!-- Setup the simulator -->
-    <EventDrivenSimulator id="simulator" integrator-id="bsi" Euler-step="1e-3" contact-dist-thresh="1e-13">
+    <TimeSteppingSimulator id="simulator" integrator-id="bsi" Euler-step="1e-3" contact-dist-thresh="1e-13">
       <DynamicBody dynamic-body-id="sph1" />
       <DynamicBody dynamic-body-id="sph2" />
       <DynamicBody dynamic-body-id="sph3" />
@@ -66,7 +66,7 @@
       <ContactParameters object1-id="ground" object2-id="sph2" epsilon=".4" mu-coulomb="0.1" mu-viscous="0" friction-cone-edges="16" />
       <ContactParameters object1-id="ground" object2-id="sph3" epsilon=".4" mu-coulomb="0.1" mu-viscous="0" friction-cone-edges="16" />
       <ContactParameters object1-id="ground" object2-id="bullet" epsilon=".05" mu-coulomb="0.1" mu-viscous="0" friction-cone-edges="16" />
-    </EventDrivenSimulator>
+    </TimeSteppingSimulator>
   </MOBY>
 </XML>
 

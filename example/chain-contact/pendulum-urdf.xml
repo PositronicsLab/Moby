@@ -19,12 +19,12 @@
 
     <GravityForce id="gravity" accel="0 -9.81 0" />
 
-  <EventDrivenSimulator integrator-id="euler" collision-detector-id="ccd">
+  <TimeSteppingSimulator integrator-id="euler" collision-detector-id="ccd">
     <RecurrentForce recurrent-force-id="gravity" enabled="true" /> 
     <DynamicBody dynamic-body-id="pendulum" />
     <DynamicBody dynamic-body-id="ground" />
     <ContactParameters object1-id="ground" object2-id="pendulum" restitution="1" mu-coulomb="0" />
-  </EventDrivenSimulator>
+  </TimeSteppingSimulator>
 
   <RCArticulatedBody id="pendulum" fdyn-algorithm="crb" fdyn-algorithm-frame="link" urdf="pendulum.urdf" floating-base="false" />
 

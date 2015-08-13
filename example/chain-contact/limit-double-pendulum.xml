@@ -14,12 +14,12 @@
 
     <GravityForce id="gravity" accel="0 -9.81 0 " />
 
-  <EventDrivenSimulator integrator-id="rk4">
+  <TimeSteppingSimulator integrator-id="rk4">
     <RecurrentForce recurrent-force-id="gravity" /> 
     <DynamicBody dynamic-body-id="chain" />
     <DynamicBody dynamic-body-id="ground" />
     <ContactParameters object1-id="ground" object2-id="chain" mu-coulomb="0" mu-viscous="0" epsilon="0.0"/>
-  </EventDrivenSimulator>
+  </TimeSteppingSimulator>
 
   <RCArticulatedBody id="chain" fdyn-algorithm="crb" fdyn-algorithm-frame="link" floating-base="false">
 

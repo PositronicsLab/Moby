@@ -35,12 +35,12 @@
       </RigidBody>
 
     <!-- Setup the simulator -->
-    <EventDrivenSimulator id="simulator" integrator-id="rk4" Euler-step="0">
+    <TimeSteppingSimulator id="simulator" integrator-id="rk4" Euler-step="0">
       <DynamicBody dynamic-body-id="cylinder" />
       <DynamicBody dynamic-body-id="ground" />
       <RecurrentForce recurrent-force-id="gravity"  />
       <ContactParameters object1-id="ground" object2-id="cylinder" epsilon="0" mu-coulomb="0" mu-viscous="0" friction-cone-edges="4" />
-    </EventDrivenSimulator>
+    </TimeSteppingSimulator>
   </MOBY>
 </XML>
 

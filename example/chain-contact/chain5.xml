@@ -14,7 +14,7 @@
 
     <GravityForce id="gravity" accel="0 -9.81 0 " />
 
-  <EventDrivenSimulator integrator-id="rk4" Euler-step="1e-3">
+  <TimeSteppingSimulator integrator-id="rk4" Euler-step="1e-3">
     <RecurrentForce recurrent-force-id="gravity" /> 
     <DynamicBody dynamic-body-id="chain" />
     <DynamicBody dynamic-body-id="platform" />
@@ -33,7 +33,7 @@
     <ContactParameters object1-id="platform" object2-id="l3" epsilon="0" mu-coulomb="0" />
     <ContactParameters object1-id="platform" object2-id="l4" epsilon="0" mu-coulomb="0" />
     <ContactParameters object1-id="platform" object2-id="l5" epsilon="0" mu-coulomb="0" />
-  </EventDrivenSimulator>
+  </TimeSteppingSimulator>
 
   <RCArticulatedBody id="chain" fdyn-algorithm="crb" fdyn-algorithm-frame="link" floating-base="false">
 

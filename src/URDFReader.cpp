@@ -613,7 +613,7 @@ void URDFReader::read_inertial(shared_ptr<const XMLTree> node, URDFData& data, R
       // verify that inertial properties are good
       Matrix3d inertia_copy = inertia;
       if (mass <= 0.0 || !LA.is_SPD(inertia_copy, -1.0))
-        throw std::runtime_error("Read bad inertial properties"); 
+        link->set_enabled(false); 
 
       // read the inertial frame
       shared_ptr<Pose3d> origin(new Pose3d(read_origin(*i, data)));

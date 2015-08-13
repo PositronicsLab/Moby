@@ -89,8 +89,9 @@ RCArticulatedBodyPtr RCArticulatedBody::clone() const
 /// Compiles this body (updates the link transforms and velocities)
 void RCArticulatedBody::compile()
 {
-  // call parent method first
+  // call parent methods first
   ArticulatedBody::compile();
+  RCArticulatedBodyd::compile();
 
   // verify all links are enabled
   if (!is_floating_base())

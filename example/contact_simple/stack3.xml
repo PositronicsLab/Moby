@@ -67,7 +67,7 @@
 
     <!-- NOTE: replace 'ccd' with 'plugin-ccd' to use the much faster plugin
          collision detector -->
-    <EventDrivenSimulator id="simulator" integrator-id="euler" collision-detector-id="ccd">
+    <TimeSteppingSimulator id="simulator" integrator-id="euler" collision-detector-id="ccd">
       <DynamicBody dynamic-body-id="box1" />
       <DynamicBody dynamic-body-id="box2" />
       <DynamicBody dynamic-body-id="box3" />
@@ -76,7 +76,7 @@
       <ContactParameters object1-id="ground" object2-id="box1" restitution="0" mu-coulomb=".0001" />
       <ContactParameters object1-id="box1" object2-id="box2" restitution="0" mu-coulomb=".0001" />
       <ContactParameters object1-id="box2" object2-id="box3" restitution="0" mu-coulomb=".0001" />
-    </EventDrivenSimulator> 
+    </TimeSteppingSimulator> 
   </MOBY>
 </XML>
 

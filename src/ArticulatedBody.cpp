@@ -20,7 +20,7 @@
 #include <Moby/FixedJoint.h>
 #include <Moby/UniversalJoint.h>
 #include <Moby/PrismaticJoint.h>
-#include <Ravelin/URDFReaderd.h>
+#include <Moby/URDFReader.h>
 
 using namespace Moby;
 using namespace Ravelin;
@@ -284,10 +284,15 @@ void ArticulatedBody::load_from_xml(shared_ptr<const XMLTree> node, std::map<str
 
     // load robots from the URDF
     std::string robot_name;
-    std::vector<shared_ptr<RigidBodyd> > links;
-    std::vector<shared_ptr<Jointd> > joints; 
-    if (URDFReaderd::read(urdf_fname, robot_name, links, joints))
-      set_links_and_joints(links, joints);
+    std::vector<shared_ptr<RigidBody> > links;
+    std::vector<shared_ptr<Joint> > joints; 
+    std::vector<shared_ptr<RigidBodyd> > linksd;
+    std::vector<shared_ptr<Jointd> > jointsd; 
+    if (URDFReader::read(urdf_fname, robot_name, links, joints))
+    {
+      linksd.insert(linksd.end(), links.begin(), links.end());
+      set_links_and_joints(linksd, jointsd);
+    }
     else
       std::cerr << "ArticulatedBody::load_from_xml()- unable to process URDF " << urdf_fname << std::endl;
 

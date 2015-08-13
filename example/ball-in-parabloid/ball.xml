@@ -17,14 +17,14 @@
 
   <GravityForce id="gravity" accel="0 0 -1" />
 
-  <EventDrivenSimulator integrator-id="bs" Euler-step="1e-10" collision-detection-plugin="ball-parabloid-coldet" contact-dist-thresh="1e-13">
+  <TimeSteppingSimulator integrator-id="bs" Euler-step="1e-10" collision-detection-plugin="ball-parabloid-coldet" contact-dist-thresh="1e-13">
     <RecurrentForce recurrent-force-id="gravity" />
     <DynamicBody dynamic-body-id="parabloid" />
     <DynamicBody dynamic-body-id="ball" />
     <DisabledPair object1-id="ball" object2-id="ball"/>
     <ContactParameters object1-id="parabloid" object2-id="ball" epsilon="0" mu-coulomb="0.0" stick-tol="1e-8" />
 <!--    <ContactParameters object1-id="parabloid" object2-id="BOX" epsilon="0" mu-coulomb="100" />-->
-  </EventDrivenSimulator>
+  </TimeSteppingSimulator>
 
   <!-- setup the ball primitive -->
   <Sphere id="sphere" radius="1.0" mass="1.0"/>

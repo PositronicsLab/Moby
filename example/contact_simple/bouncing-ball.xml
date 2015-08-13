@@ -36,12 +36,12 @@
       </RigidBody>
 
     <!-- Setup the simulator -->
-    <EventDrivenSimulator id="simulator" integrator-id="euler" collision-detector-id="ccd" collision-tolerance="1e-4" TOI-tolerance="1e-3">
+    <TimeSteppingSimulator id="simulator" integrator-id="euler" collision-detector-id="ccd" collision-tolerance="1e-4" TOI-tolerance="1e-3">
       <DynamicBody dynamic-body-id="ball" />
       <DynamicBody dynamic-body-id="ground" />
       <RecurrentForce recurrent-force-id="gravity" enabled="true" />
       <ContactParameters object1-id="ground" object2-id="ball" epsilon="0" mu-coulomb=".1" mu-viscous="0" friction-cone-edges="0" />
-    </EventDrivenSimulator> 
+    </TimeSteppingSimulator> 
   </MOBY>
 </XML>
 

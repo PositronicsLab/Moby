@@ -67,12 +67,12 @@
       </RigidBody>
 
     <!-- Setup the simulator -->
-    <EventDrivenSimulator id="simulator" integrator-id="bsi" Euler-step="1e-3" ccontact-dist-thresh="1e-10">
+    <TimeSteppingSimulator id="simulator" integrator-id="bsi" Euler-step="1e-3" ccontact-dist-thresh="1e-10">
       <DisabledPair object1-id="table" object2-id="table"/>
       <DynamicBody dynamic-body-id="table" />
       <DynamicBody dynamic-body-id="ground" />
       <RecurrentForce recurrent-force-id="gravity"  />
       <ContactParameters object1-id="ground" object2-id="table" epsilon="0" mu-coulomb=".1" mu-viscous="0" friction-cone-edges="4" />
-    </EventDrivenSimulator>
+    </TimeSteppingSimulator>
   </MOBY>
 </XML>
