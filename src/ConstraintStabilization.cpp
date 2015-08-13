@@ -27,6 +27,7 @@ ConstraintStabilization::ConstraintStabilization()
 {
   // set tolerance to NEAR_ZERO by default
   eps = NEAR_ZERO;
+
 }
 
 /// Gets the minimum pairwise distance
@@ -44,10 +45,12 @@ double ConstraintStabilization::get_min_pairwise_dist(const vector<PairwiseDistI
 /// Stabilizes the constraints in the simulator
 void ConstraintStabilization::stabilize(shared_ptr<ConstraintSimulator> sim)
 {
+  FILE_LOG(LOG_COLDET) <<"======step start======"<<std::endl;
   VectorNd dq, q;
   std::vector<UnilateralConstraintProblemData> pd;
 
   std::map<DynamicBodyPtr, unsigned> body_index_map;
+
 
   get_body_configurations(q, sim);
   generate_body_index_map(body_index_map, sim);
@@ -57,8 +60,11 @@ void ConstraintStabilization::stabilize(shared_ptr<ConstraintSimulator> sim)
 
   // see whether any pairwise distances are below epsilon
   double min_dist = get_min_pairwise_dist(pdi);
+
+  FILE_LOG(LOG_COLDET) <<"min_dist: "<<min_dist<<std::endl;
   while (min_dist < eps)
   {
+    FILE_LOG(LOG_COLDET) <<"min_dist: "<<min_dist<<std::endl;
     // compute problem data (get M, N, alpha, etc.) 
     compute_problem_data(pd, sim);
 
@@ -67,12 +73,14 @@ void ConstraintStabilization::stabilize(shared_ptr<ConstraintSimulator> sim)
     for (unsigned i=0; i< pd.size(); i++)
       determine_dq(pd[i], dq, body_index_map);
 
+    //FILE_LOG(LOG_COLDET) <<dq<<std::endl;
     // determine s and update q 
     update_q(dq, q, sim);
 
     // update minimum distance
     min_dist = get_min_pairwise_dist(pdi);  
   }
+  FILE_LOG(LOG_COLDET) <<"=====step end ======" << std::endl;
 }
 
 /// Adds unilateral constraints for joint limits in an articulated body
@@ -585,7 +593,7 @@ void ConstraintStabilization::update_q(const VectorNd& dq, VectorNd& q, shared_p
   vector<PairwiseDistInfo>& pdi = sim->_pairwise_distances;
 
   // setup BLS parameters
-  const double ALPHA = 0.05, BETA = 0.8;
+  const double ALPHA = 0.025, BETA = 0.8;
   double t = 1.0;
 
   // compute s at current configuration
@@ -604,7 +612,7 @@ void ConstraintStabilization::update_q(const VectorNd& dq, VectorNd& q, shared_p
 
   // compute s*
   double sstar = compute_s(pdi, sim);
-
+  FILE_LOG(LOG_COLDET)  <<"s0: "<< s0 << std::endl;
   double ds = -1.0;
   // TODO: Add gradient term condition
   while (sstar > s0 + ALPHA * t *(ds))
@@ -625,8 +633,12 @@ void ConstraintStabilization::update_q(const VectorNd& dq, VectorNd& q, shared_p
 
     // compute new s*
     sstar = compute_s(pdi, sim);
+    FILE_LOG(LOG_COLDET) <<sstar<<std::endl;
   }
-
+  FILE_LOG(LOG_COLDET)  << "q:" << q <<std::endl;
+  FILE_LOG(LOG_COLDET)  << "dq:" << dq <<std::endl;
+  FILE_LOG(LOG_COLDET)  << "qstar:" << qstar << std::endl;  
+  FILE_LOG(LOG_COLDET)  <<"===================="<< std::endl;
   // all done? update q
   q = qstar;
 }
