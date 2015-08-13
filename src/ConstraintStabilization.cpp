@@ -7,6 +7,7 @@
 #include <map>
 #include <Moby/Types.h>
 #include <Moby/ConstraintSimulator.h>
+#include <Moby/RCArticulatedBody.h>
 #include <Moby/ConstraintStabilization.h>
 
 using namespace Ravelin;
@@ -233,10 +234,11 @@ void ConstraintStabilization::compute_problem_data(std::vector<UnilateralConstra
     // set number of contact and limit constraints
     pd.N_CONTACTS = pd.contact_constraints.size();
     pd.N_LIMITS = pd.limit_constraints.size(); 
+    pd.N_K_TOTAL = 0;
+    pd.N_TRUE_CONE = 0;
 
     // now set the unilateral constraint data
     set_unilateral_constraint_data(pd);
-
     
     // set the elements of Cn_v and L_v
     // L_v is always set to zero
@@ -420,9 +422,9 @@ void ConstraintStabilization::set_unilateral_constraint_data(UnilateralConstrain
 }
 
 /// Computes deltaq by solving a linear complementarity problem
-void ConstraintStabilization::determine_dq(const UnilateralConstraintProblemData& pd, VectorNd& dqm, const std::map<DynamicBodyPtr, unsigned>& body_index_map)
+void ConstraintStabilization::determine_dq(UnilateralConstraintProblemData& pd, VectorNd& dqm, const std::map<DynamicBodyPtr, unsigned>& body_index_map)
 {
-  VectorNd dq_sub;
+  VectorNd z, dq_sub;
 
   // initialize the LCP matrix and LCP vector
   MatrixNd MM(pd.N_CONTACTS + pd.N_LIMITS, pd.N_CONTACTS + pd.N_LIMITS);
@@ -437,25 +439,141 @@ void ConstraintStabilization::determine_dq(const UnilateralConstraintProblemData
   qq.segment(0, pd.N_CONTACTS) = pd.Cn_v;
   qq.segment(pd.N_CONTACTS, qq.size()) = pd.L_v;
 
-  // solve N*inv(M)*N'*dq = N*alpha for dq_sub
-  if (!_lcp.lcp_fast(MM, qq, dq_sub))
-    _lcp.lcp_lemke_regularized(MM, qq, dq_sub);
+  // solve N*inv(M)*N'*dq = N*alpha for impulses 
+  if (!_lcp.lcp_fast(MM, qq, z))
+    _lcp.lcp_lemke_regularized(MM, qq, z);
 
+  // update velocities
+  update_from_stacked(z, pd);
+  update_velocities(pd);
 
-  // populating dq based on dq_sub
-  unsigned last = 0;
+  // populate dq 
   for(unsigned i = 0; i< pd.super_bodies.size(); i++)
   {
     assert(body_index_map.find(pd.super_bodies[i]) != body_index_map.end());
     unsigned start = (body_index_map.find(pd.super_bodies[i]))->second;
     unsigned coord_num = pd.super_bodies[i]->num_generalized_coordinates(DynamicBody::eEuler);
-    for(unsigned j = 0; j < coord_num; j++)
-    {
-      dqm[start+j] = dq_sub[last+j];
-    }
-    last += coord_num;
+    pd.super_bodies[i]->get_generalized_velocity(DynamicBody::eEuler, dq_sub);  
+    dqm.segment(start, start+coord_num) = dq_sub;
+  }
+}
+
+/// Updates determined impulses in UnilateralConstraintProblemData based on an LCP solution
+void ConstraintStabilization::update_from_stacked(const VectorNd& z, UnilateralConstraintProblemData& pd)
+{
+  // update the problem data
+  pd.update_from_stacked_qp(z);
+
+  // setup a temporary frame
+  shared_ptr<Pose3d> P(new Pose3d);
+
+  // save contact impulses
+  for (unsigned i=0; i< pd.N_CONTACTS; i++)
+  {
+    // setup the contact frame
+    P->q.set_identity();
+    P->x = pd.contact_constraints[i]->contact_point;
+
+    // setup the impulse in the contact frame
+    Vector3d j;
+    j = pd.contact_constraints[i]->contact_normal * pd.cn[i];
+    j += pd.contact_constraints[i]->contact_tan1 * pd.cs[i];
+    j += pd.contact_constraints[i]->contact_tan2 * pd.ct[i];
+
+    // setup the spatial impulse
+    SMomentumd jx(boost::const_pointer_cast<const Pose3d>(P));
+    jx.set_linear(j);
+
+    // transform the impulse to the global frame
+    pd.contact_constraints[i]->contact_impulse += Pose3d::transform(GLOBAL, jx);
   }
 
+  // save limit impulses
+  for (unsigned i=0; i< pd.N_LIMITS; i++)
+  {
+    double limit_impulse = (pd.limit_constraints[i]->limit_upper) ? -pd.l[i] : pd.l[i];
+    pd.limit_constraints[i]->limit_impulse += limit_impulse;
+  }
+}
+
+/// Updates the body velocities based on problem data
+void ConstraintStabilization::update_velocities(const UnilateralConstraintProblemData& pd)
+{
+  VectorNd v; 
+  map<DynamicBodyPtr, VectorNd> gj;
+  map<DynamicBodyPtr, VectorNd>::iterator gj_iter;
+
+  // loop over all contact constraints first
+  for (unsigned i=0; i< pd.contact_constraints.size(); i++)
+  {
+    // get the contact force
+    const UnilateralConstraint& e = *pd.contact_constraints[i];
+    SForced w(e.contact_impulse);
+
+    // get the two single bodies of the contact
+    SingleBodyPtr sb1 = e.contact_geom1->get_single_body();
+    SingleBodyPtr sb2 = e.contact_geom2->get_single_body();
+
+    // get the two super bodies
+    DynamicBodyPtr b1 = sb1->get_super_body();
+    DynamicBodyPtr b2 = sb2->get_super_body();
+
+    // convert force on first body to generalized forces
+    if ((gj_iter = gj.find(b1)) == gj.end())
+      b1->convert_to_generalized_force(sb1, w, gj[b1]);
+    else
+    {
+      b1->convert_to_generalized_force(sb1, w, v);
+      gj_iter->second += v;
+    }
+
+    // convert force on second body to generalized forces
+    if ((gj_iter = gj.find(b2)) == gj.end())
+      b2->convert_to_generalized_force(sb2, -w, gj[b2]);
+    else
+    {
+      b2->convert_to_generalized_force(sb2, -w, v);
+      gj_iter->second += v;
+    }
+  }
+
+  // loop over all limit constraints next
+  for (unsigned i=0; i< pd.limit_constraints.size(); i++)
+  {
+    const UnilateralConstraint& e = *pd.limit_constraints[i];
+    ArticulatedBodyPtr ab = e.limit_joint->get_articulated_body();
+
+    // get the iterator for the articulated body
+    gj_iter = gj.find(ab);
+
+    // apply limit impulses to bodies in independent coordinates
+    if (dynamic_pointer_cast<RCArticulatedBody>(ab))
+    {
+      // get the index of the joint
+      unsigned idx = e.limit_joint->get_coord_index() + e.limit_dof;
+
+      // initialize the vector if necessary
+      if (gj_iter == gj.end())
+      {
+        gj[ab].set_zero(ab->num_generalized_coordinates(DynamicBody::eSpatial));
+        gj_iter = gj.find(ab);
+      }
+
+      // set the limit force
+      gj_iter->second[idx] += e.limit_impulse;
+    }
+    else
+    {
+      // TODO: handle bodies in absolute coordinates here
+      assert(false);
+    }
+  }
+
+  // TODO: apply constraint impulses
+
+  // apply all generalized impacts
+  for (map<DynamicBodyPtr, VectorNd>::const_iterator i = gj.begin(); i != gj.end(); i++)
+    i->first->apply_generalized_impulse(i->second);
 }
 
 /// Updates q doing a backtracking line search

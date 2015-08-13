@@ -11,7 +11,7 @@
     <!-- Primitives -->
     <Box id="b1" xlen="1" ylen="1" zlen="1" density="1.0" edge-sample-length="1" />
     <Box id="b2" position="0 0 0" xlen="1" ylen="1" zlen="1" density="1.0" edge-sample-length="1" />
-<!--    <Plane id="b3"  /> -->
+    <Plane id="p3"  /> 
     <Box id="b3" xlen="10" ylen=".5" zlen="10"  />
 
     <!-- Integrator -->
@@ -30,7 +30,7 @@
 
       <!-- the ground -->
       <RigidBody id="ground" enabled="false" visualization-id="b3" position="0 -0.25 0">
-        <CollisionGeometry primitive-id="b3" />
+        <CollisionGeometry primitive-id="p3" />
       </RigidBody>
 
     <!-- Setup the simulator -->

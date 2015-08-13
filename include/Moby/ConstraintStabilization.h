@@ -35,7 +35,9 @@ class ConstraintStabilization
     void add_articulate_limit_constraint(std::vector<UnilateralConstraint>& constraints, ArticulatedBodyPtr ab);
     void generate_body_index_map(std::map<DynamicBodyPtr, unsigned>& body_index_map, boost::shared_ptr<ConstraintSimulator> sim);
     static void set_unilateral_constraint_data(UnilateralConstraintProblemData& pd);
-    void determine_dq(const UnilateralConstraintProblemData& pd, Ravelin::VectorNd& dqm, const std::map<DynamicBodyPtr, unsigned>& body_index_map);
+    void determine_dq(UnilateralConstraintProblemData& pd, Ravelin::VectorNd& dqm, const std::map<DynamicBodyPtr, unsigned>& body_index_map);
+    void update_from_stacked(const Ravelin::VectorNd& z, UnilateralConstraintProblemData& pd);
+    void update_velocities(const UnilateralConstraintProblemData& pd);
     static double get_min_pairwise_dist(const std::vector<PairwiseDistInfo>& pdi); 
     double compute_s(const std::vector<PairwiseDistInfo>& pdi, boost::shared_ptr<ConstraintSimulator> sim);
     static DynamicBodyPtr get_super_body(SingleBodyPtr sb);
