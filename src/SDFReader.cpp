@@ -477,6 +477,7 @@ JointPtr SDFReader::read_joint(shared_ptr<const XMLTree> node, const std::map<st
 
   // setup the generic components of the joint
   joint->id = name;
+  joint->joint_id = name;
 
   // read in the name of the parent link
   shared_ptr<const XMLTree> parent_tag = find_one_tag("parent", node);
