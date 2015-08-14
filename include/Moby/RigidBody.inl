@@ -7,7 +7,7 @@
 template <class OutputIterator>
 OutputIterator RigidBody::get_parent_links(OutputIterator begin) const
 {
-  BOOST_FOREACH(boost::shared_ptr<Jointd> j, _inner_joints)
+  BOOST_FOREACH(boost::shared_ptr<Ravelin::Jointd> j, _inner_joints)
     *begin++ = get_parent_link(j);
 
   return begin;
@@ -16,7 +16,7 @@ OutputIterator RigidBody::get_parent_links(OutputIterator begin) const
 template <class OutputIterator>
 OutputIterator RigidBody::get_child_links(OutputIterator begin) const
 {
-  BOOST_FOREACH(boost::shared_ptr<Jointd> j, _outer_joints)
+  BOOST_FOREACH(boost::shared_ptr<Ravelin::Jointd> j, _outer_joints)
     *begin++ = get_child_link(j);
 
   return begin;
