@@ -138,105 +138,11 @@ void RCArticulatedBody::compile()
 /// Sets the vector of links and joints
 void RCArticulatedBody::set_links_and_joints(const vector<RigidBodyPtr>& links, const vector<JointPtr>& joints)
 {
-  // setup the processed vector
-  _processed.resize(links.size());
-
-  // clear the vectors of joints
-  _ejoints.clear();
-  _ijoints.clear();
-
-  // set the computation frame type on all links
-  for (unsigned i=0; i< links.size(); i++)
-    links[i]->set_computation_frame_type(_rftype);
-
-  // find the base link and setup a processed map
-  map<RigidBodyPtr, bool> processed;
-  RigidBodyPtr base;
-  for (unsigned i=0; i< joints.size(); i++)
-  {
-    RigidBodyPtr inboard = joints[i]->get_inboard_link();
-    RigidBodyPtr outboard = joints[i]->get_outboard_link();
-    RigidBodyPtr parent = inboard->get_parent_link();
-    if (!parent)
-    {
-      if (base && inboard != base)
-        throw std::runtime_error("Multiple base links detected!");
-      base = inboard;
-    }
-    processed[inboard] = false;
-    processed[outboard] = false;
-  }
-
-  // if there is no clearly defined base link, there are no links *and* there
-  // are joints, we can't do anything
-  if (joints.empty() && links.size() == 1)
-    base = links.front();
-  if (!base)
-    throw std::runtime_error("Could not find base link!");
-
-  // start processed at the base link
-  queue<RigidBodyPtr> link_queue;
-  link_queue.push(base);
-  while (!link_queue.empty())
-  {
-    // get the link at the front of the queue
-    RigidBodyPtr link = link_queue.front();
-    link_queue.pop();
-
-    // if the link has already been processed, no need to process it again
-    if (processed[link])
-      continue;
-
-    // get all outer joints for this link
-    BOOST_FOREACH(shared_ptr<Jointd> joint, link->get_outer_joints())
-    {
-      // see whether the child has already been processed
-      RigidBodyPtr child = dynamic_pointer_cast<RigidBody>(joint->get_outboard_link());
-      if (processed[child])
-        _ijoints.push_back(joint);
-      else
-      {
-        link_queue.push(child);
-        _ejoints.push_back(joint);
-      }
-    }
-
-    // indicate that the link has been processed
-    processed[link] = true;
-  }
-
-  // recalculate the explicit joint degrees-of-freedom of this body
-  _n_joint_DOF_explicit = 0;
-  for (unsigned i=0; i< _ejoints.size(); i++)
-    _n_joint_DOF_explicit += _ejoints[i]->num_dof();
-
-  // mark joints as the correct type
-  for (unsigned i=0; i< _ejoints.size(); i++)
-    _ejoints[i]->set_constraint_type(Jointd::eExplicit);
-  for (unsigned i=0; i< _ijoints.size(); i++)
-    _ijoints[i]->set_constraint_type(Jointd::eImplicit);
-
-  // check to see whether user's numbering scheme is acceptable
-  for (unsigned i=1; i< links.size(); i++)
-  {
-    // look for an unknown constraint
-    BOOST_FOREACH(shared_ptr<Jointd> joint, links[i]->get_inner_joints())
-      if (joint->get_constraint_type() == Jointd::eUnknown)
-        throw std::runtime_error("Unknown constraint type found!");
-
-    // no unknown constraint; look for an explicit constraint
-    if (!links[i]->get_inner_joint_explicit())
-      throw std::runtime_error("Nonzero link does not have an inner explicit joint!");
-  }
-
-  // look whether it's a floating base
-  _floating_base = base->is_enabled();
-
   // call the parent method to update the link indices, etc.
   vector<shared_ptr<RigidBodyd> > d_links;
   vector<shared_ptr<Jointd> > d_joints;
   d_links.insert(d_links.end(), links.begin(), links.end());
-  ArticulatedBody::set_links_and_joints(d_links, d_joints);
+  RCArticulatedBodyd::set_links_and_joints(d_links, d_joints);
 }
 
 /// Implements Base::load_from_xml()
