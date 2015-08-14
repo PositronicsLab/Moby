@@ -81,8 +81,8 @@ class RigidBody : public virtual Ravelin::RigidBodyd, public virtual ControlledB
     Compliance compliance;
 
   private:
-    RigidBodyPtr get_parent_link(JointPtr j) const;
-    RigidBodyPtr get_child_link(JointPtr j) const;
+    RigidBodyPtr get_parent_link(boost::shared_ptr<Ravelin::Jointd> j) const;
+    RigidBodyPtr get_child_link(boost::shared_ptr<Ravelin::Jointd> j) const;
 
 #ifdef USE_OSG
     osg::Node * inertia_viz;
