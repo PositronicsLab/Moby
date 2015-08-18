@@ -15,8 +15,10 @@
 #include <Moby/RigidBody.h>
 #include <Moby/Joint.h>
 #include <Moby/XMLTree.h>
+#include <Moby/SparseJacobian.h>
 #include <Moby/Simulator.h>
 
+using std::map;
 using std::vector;
 using boost::shared_ptr;
 using boost::dynamic_pointer_cast;
@@ -161,6 +163,9 @@ double Simulator::step(double step_size)
 
   // compute forward dynamics and integrate 
   current_time += integrate(step_size);
+
+  // TODO: do any constraint stabilization
+//  _cstab.stabilize(simulator);
 
   // call the callback
   if (post_step_callback_fn)
@@ -315,6 +320,221 @@ void Simulator::add_transient_vdata(osg::Node* vdata)
   _transient_vdata->addChild(vdata);
   #endif
 }
+
+// Solves | M   J' | | x      | = | f | 
+//        | J   0  | | lambda |   | 0 |
+// using M*x = -J'*lambda + f and
+// J*inv(M)*J'lambda = J*inv(M)*f
+void Simulator::solve(const vector<ControlledBodyPtr>& island, const vector<JointPtr>& island_ijoints, const VectorNd& f, VectorNd& x, VectorNd& lambda) const
+{
+  MatrixNd JiMJT_frr, JiM, iMJT, JiMJT, Jm, tmp, tmp2;
+  VectorNd JiMf_frr, JiMf, iMf, lambda_sub; 
+  const unsigned N_SPATIAL = 6;
+  map<shared_ptr<DynamicBodyd>, unsigned> gc_map;
+  std::vector<shared_ptr<DynamicBodyd> > bodies;
+  std::vector<MatrixBlock> inv_inertias;
+
+  // get dynamic bodies in the island and total number of generalized coords
+  unsigned NGC_TOTAL = 0;
+  for (unsigned i=0; i< island.size(); i++)
+  {
+    bodies.push_back(dynamic_pointer_cast<DynamicBodyd>(island[i]));
+    NGC_TOTAL += bodies.back()->num_generalized_coordinates(DynamicBodyd::eSpatial);
+  }
+
+  // get the number of implicit equations in the island
+  unsigned n_implicit_eqns = 0;
+  for (unsigned i=0; i< island_ijoints.size(); i++)
+    n_implicit_eqns += island_ijoints[i]->num_constraint_eqns();
+
+  // if there are no implicit equations, just solve with generalized inertia
+  // matrices
+  if (n_implicit_eqns == 0)
+  {
+    // resize lambda
+    lambda.resize(0);
+
+    for (unsigned i=0, gc_index = 0; i< island.size(); i++)
+    {
+      // get the body
+      shared_ptr<DynamicBodyd> db = bodies[i];
+
+      // get the components of f and x
+      const unsigned NGC = db->num_generalized_coordinates(DynamicBodyd::eSpatial);
+      SharedConstVectorNd f_sub = f.segment(gc_index, gc_index + NGC);
+      SharedVectorNd x_sub = x.segment(gc_index, gc_index + NGC);
+
+      // solve directly
+      db->solve_generalized_inertia(f_sub, x_sub);
+
+      // update gc_index
+      gc_index += NGC;
+    } 
+
+    return;      
+  }
+
+  // setup the gc map
+  for (unsigned i=0, gc_index = 0; i< island.size(); i++)
+  {
+    gc_map[bodies[i]] = gc_index;
+    shared_ptr<DynamicBodyd> db = dynamic_pointer_cast<DynamicBodyd>(island[i]);
+    gc_index += db->num_generalized_coordinates(DynamicBodyd::eSpatial);
+  }
+
+  // compute iMf
+  iMf.resize(NGC_TOTAL);
+  for (unsigned i=0, gc_index = 0; i< bodies.size(); i++)
+  {
+    // add the new inverse inertia block
+    inv_inertias.push_back(MatrixBlock());
+
+    // compute the inverse of the generalized inertia matrix
+    bodies[i]->get_generalized_inertia(inv_inertias.back().block);
+    LinAlgd::inverse_SPD(inv_inertias.back().block);
+
+    // get the number of generalized coordinates for this body
+    const unsigned NGC = bodies[i]->num_generalized_coordinates(DynamicBodyd::eSpatial);
+
+    // get the appropriate parts of the vectors
+    SharedVectorNd iMf_sub = iMf.segment(gc_index, gc_index + NGC);
+    SharedConstVectorNd f_sub = f.segment(gc_index, gc_index + NGC);
+
+    // do the multiplication
+    inv_inertias.back().block.mult(f_sub, iMf_sub);
+
+    // setup the starting row and column indices of the block
+    inv_inertias.back().st_col_idx = inv_inertias.back().st_row_idx = gc_index;
+
+    // update the generalized coordinate index 
+    gc_index += NGC;
+  }
+
+  // form Jacobians here
+  SparseJacobian J;
+  J._rows = n_implicit_eqns;
+  J._cols = NGC_TOTAL;
+  for (unsigned i=0, eq_idx=0; i< island_ijoints.size(); i++)
+  {
+    // resize the temporary matrix
+    tmp.resize(island_ijoints[i]->num_constraint_eqns(), N_SPATIAL);
+
+    // get the inboard and outboard links
+    shared_ptr<RigidBodyd> inboard = island_ijoints[i]->get_inboard_link();
+    shared_ptr<RigidBodyd> outboard = island_ijoints[i]->get_outboard_link();
+
+    // compute the Jacobian w.r.t. the inboard link
+    SharedMatrixNd tmp_in_shared = tmp.block(0, tmp.rows(), 0, tmp.columns());
+    island_ijoints[i]->calc_constraint_jacobian(true, tmp_in_shared);
+
+    // put the Jacobian in independent coordinates if necessary
+    shared_ptr<ArticulatedBodyd> inboard_ab = inboard->get_articulated_body();
+    if (inboard_ab)
+    {
+      // get the reduced coordinate body
+      shared_ptr<RCArticulatedBodyd> rcab = dynamic_pointer_cast<RCArticulatedBodyd>(inboard_ab);
+      if (rcab)
+      {
+        // get the Jacobian and carry out the multiplication
+        rcab->calc_jacobian(GLOBAL, inboard, Jm);
+        tmp.mult(Jm, tmp2);
+        tmp = tmp2;
+      }
+    }
+
+    // add the block to the Jacobian
+    J.blocks.push_back(MatrixBlock());
+    J.blocks.back().block = tmp;
+    J.blocks.back().st_row_idx = eq_idx;
+    J.blocks.back().st_col_idx = gc_map[inboard];
+    
+    // compute the Jacobian w.r.t. the outboard link
+    tmp.resize(island_ijoints[i]->num_constraint_eqns(), N_SPATIAL);
+    SharedMatrixNd tmp_out_shared = tmp.block(0, tmp.rows(), 0, tmp.columns());
+    island_ijoints[i]->calc_constraint_jacobian(false, tmp_out_shared);
+
+    // put the Jacobian in independent coordinates if necessary
+    shared_ptr<ArticulatedBodyd> outboard_ab = outboard->get_articulated_body();
+    if (outboard_ab)
+    {
+      // get the reduced coordinate body
+      shared_ptr<RCArticulatedBodyd> rcab = dynamic_pointer_cast<RCArticulatedBodyd>(outboard_ab);
+      if (rcab)
+      {
+        // get the Jacobian and carry out the multiplication
+        rcab->calc_jacobian(GLOBAL, outboard, Jm);
+        tmp.mult(Jm, tmp2);
+        tmp = tmp2;
+      }
+    }
+
+    // add the block to the Jacobian
+    J.blocks.push_back(MatrixBlock());
+    J.blocks.back().block = tmp;
+    J.blocks.back().st_row_idx = eq_idx;
+    J.blocks.back().st_col_idx = gc_map[outboard];
+
+    // update the equation index
+    eq_idx += island_ijoints[i]->num_constraint_eqns();
+  } 
+
+  // (J*inv(M)*J') * lambda = J*inv(M)*f
+  J.mult(inv_inertias, NGC_TOTAL, JiM);
+  MatrixNd::transpose(JiM, iMJT);
+  J.mult(iMJT, JiMJT);
+  JiM.mult(f, JiMf);
+
+  // form the biggest full rank matrix
+  vector<bool> indices(JiMJT.rows(), false);
+  indices[0] = true;
+  bool last_successful = true;
+  for (unsigned i=1, n_active=1; i< indices.size(); i++)
+  {
+    // see whether the number of indices is maximized
+    if (n_active == NGC_TOTAL)
+      continue;
+
+    // update the number of active indices
+    n_active++;
+
+    // try to add this index
+    indices[i] = true;
+
+    // get the submatrix
+    JiMJT.select_square(indices, JiMJT_frr);
+
+    // attempt to factorize it
+    if (!LinAlgd::factor_chol(JiMJT_frr))
+    {
+      n_active--;
+      indices[i] = false;
+      last_successful = false;
+    }
+    else
+      last_successful = true;
+  }
+
+  // get the appropriate rows of J*inv(M)*f
+  JiMf.select(indices, JiMf_frr);
+
+  // if the last factorization was not successful, refactor
+  if (!last_successful)
+    LinAlgd::factor_chol(JiMJT_frr);
+
+  // solve for lambda_sub
+  lambda_sub = JiMf_frr;
+  LinAlgd::solve_chol_fast(JiMJT, lambda_sub);
+
+  // determine lambda
+  lambda.set_zero(n_implicit_eqns);
+  lambda.set(indices, lambda_sub);
+
+  // now compute x using M*x = -J'*lambda + f and
+  iMJT.mult(lambda, x);
+  x.negate();
+  x += iMf;
+}
+
 
 /// Implements Base::load_from_xml()
 void Simulator::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)

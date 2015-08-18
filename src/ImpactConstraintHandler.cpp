@@ -942,10 +942,9 @@ void ImpactConstraintHandler::apply_visc_friction_model(UnilateralConstraintProb
 /// Solves the no-slip model LCP
 void ImpactConstraintHandler::apply_no_slip_model(UnilateralConstraintProblemData& q)
 {
-  std::vector<unsigned> J_indices, S_indices, T_indices;
+  std::vector<unsigned> S_indices, T_indices;
   const unsigned NCONTACTS = q.N_CONTACTS;
   const unsigned NLIMITS = q.N_LIMITS;
-  const unsigned NIMP = q.N_CONSTRAINT_EQNS_IMP;
   const unsigned N_IDX = 0;
   const unsigned L_IDX = N_IDX + NCONTACTS;
   VectorNd lb, ub, b;
@@ -1015,34 +1014,12 @@ void ImpactConstraintHandler::apply_no_slip_model(UnilateralConstraintProblemDat
   // principle to determine whether a contact direction should be discarded
 
   // ********************************************************
-  // find largest non-singular set of J, S, and T indices
+  // find largest non-singular set of S and T indices
   // ********************************************************
 
-  // loop through joint constraints, forming J*inv(M)*J' and checking condition
-  for (unsigned i=0; i< NIMP; i++)
-  {
-    // add the index tentatively to the set
-    J_indices.push_back(i);
-
-    // select the rows and columns
-    q.Jx_iM_JxT.select_square(J_indices.begin(), J_indices.end(), _Y);
-
-    // skew the matrix away from positive definiteness
-    for (unsigned j=0; j< J_indices.size(); j++)
-      _Y(j,j) -= NEAR_ZERO;
-
-    // attempt Cholesky factorization
-    if (!_LA.factor_chol(_Y))
-      J_indices.pop_back();
-  }
-
-  // get the reduced Jx*iM*Jx' matrix
-  q.Jx_iM_JxT.select_square(J_indices.begin(), J_indices.end(), _rJx_iM_JxT);
-
   // loop through contacts, forming matrix below and checking its condition
-  // | S*inv(M)*S'  S*inv(M)*T' S*inv(M)*J' |
-  // | T*inv(M)*S'  T*inv(M)*T' T*inv(M)*J' |
-  // | J*inv(M)*S'  J*inv(M)*T' J*inv(M)*J' |
+  // | S*inv(M)*S'  S*inv(M)*T' |
+  // | T*inv(M)*S'  T*inv(M)*T' |
   for (unsigned i=0; i< NCONTACTS; i++)
   {
     // update S indices
@@ -1052,29 +1029,18 @@ void ImpactConstraintHandler::apply_no_slip_model(UnilateralConstraintProblemDat
     unsigned S_IDX = 0;
     unsigned T_IDX = S_indices.size();
     unsigned J_IDX = T_IDX + T_indices.size();
-    _Y.resize(J_IDX + J_indices.size(), J_IDX + J_indices.size());
+    _Y.resize(J_IDX, J_IDX);
 
-    // add S/S, T/T, J/J components to 'check' matrix
+    // add S/S, T/T, components to 'check' matrix
     q.Cs_iM_CsT.select_square(S_indices.begin(), S_indices.end(), _MM);
     _Y.set_sub_mat(S_IDX, S_IDX, _MM);
     q.Ct_iM_CtT.select_square(T_indices.begin(), T_indices.end(), _MM);
     _Y.set_sub_mat(T_IDX, T_IDX, _MM);
-    _Y.set_sub_mat(J_IDX, J_IDX, _rJx_iM_JxT);
 
     // add S/T components to 'check' matrix
     q.Cs_iM_CtT.select(S_indices.begin(), S_indices.end(), T_indices.begin(), T_indices.end(), _MM);
     _Y.set_sub_mat(S_IDX, T_IDX, _MM);
     _Y.set_sub_mat(T_IDX, S_IDX, _MM, Ravelin::eTranspose);
-
-    // add S/J components to check matrix
-    q.Cs_iM_JxT.select(S_indices.begin(), S_indices.end(), J_indices.begin(), J_indices.end(), _MM);
-    _Y.set_sub_mat(S_IDX, J_IDX, _MM);
-    _Y.set_sub_mat(J_IDX, S_IDX, _MM, Ravelin::eTranspose);
-
-    // add T/J components to check matrix
-    q.Ct_iM_JxT.select(T_indices.begin(), T_indices.end(), J_indices.begin(), J_indices.end(), _MM);
-    _Y.set_sub_mat(T_IDX, J_IDX, _MM);
-    _Y.set_sub_mat(J_IDX, T_IDX, _MM, Ravelin::eTranspose);
 
     // skew the matrix away from positive definiteness
     for (unsigned j=0; j< _Y.rows(); j++)
@@ -1090,29 +1056,18 @@ void ImpactConstraintHandler::apply_no_slip_model(UnilateralConstraintProblemDat
     // resize the check matrix
     T_IDX = S_indices.size();
     J_IDX = T_IDX + T_indices.size();
-    _Y.resize(J_IDX + J_indices.size(), J_IDX + J_indices.size());
+    _Y.resize(J_IDX, J_IDX);
 
-    // add S/S, T/T, J/J components to 'check' matrix
+    // add S/S, T/T components to 'check' matrix
     q.Cs_iM_CsT.select_square(S_indices.begin(), S_indices.end(), _MM);
     _Y.set_sub_mat(S_IDX, S_IDX, _MM);
     q.Ct_iM_CtT.select_square(T_indices.begin(), T_indices.end(), _MM);
     _Y.set_sub_mat(T_IDX, T_IDX, _MM);
-    _Y.set_sub_mat(J_IDX, J_IDX, _rJx_iM_JxT);
 
     // add S/T components to 'check' matrix
     q.Cs_iM_CtT.select(S_indices.begin(), S_indices.end(), T_indices.begin(), T_indices.end(), _MM);
     _Y.set_sub_mat(S_IDX, T_IDX, _MM);
     _Y.set_sub_mat(T_IDX, S_IDX, _MM, Ravelin::eTranspose);
-
-    // add S/J components to check matrix
-    q.Cs_iM_JxT.select(S_indices.begin(), S_indices.end(), J_indices.begin(), J_indices.end(), _MM);
-    _Y.set_sub_mat(S_IDX, J_IDX, _MM);
-    _Y.set_sub_mat(J_IDX, S_IDX, _MM, Ravelin::eTranspose);
-
-    // add T/J components to check matrix
-    q.Ct_iM_JxT.select(T_indices.begin(), T_indices.end(), J_indices.begin(), J_indices.end(), _MM);
-    _Y.set_sub_mat(T_IDX, J_IDX, _MM);
-    _Y.set_sub_mat(J_IDX, T_IDX, _MM, Ravelin::eTranspose);
 
     // skew the matrix away from positive definiteness
     for (unsigned j=0; j< _Y.rows(); j++)
@@ -1144,29 +1099,18 @@ void ImpactConstraintHandler::apply_no_slip_model(UnilateralConstraintProblemDat
   const unsigned S_IDX = 0;
   const unsigned T_IDX = S_indices.size();
   const unsigned J_IDX = T_IDX + T_indices.size();
-  _Y.resize(J_IDX + J_indices.size(), J_IDX + J_indices.size());
+  _Y.resize(J_IDX, J_IDX);
 
-  // add S/S, T/T, J/J components to X
+  // add S/S, T/T components to X
   q.Cs_iM_CsT.select_square(S_indices.begin(), S_indices.end(), _MM);
   _Y.set_sub_mat(S_IDX, S_IDX, _MM);
   q.Ct_iM_CtT.select_square(T_indices.begin(), T_indices.end(), _MM);
   _Y.set_sub_mat(T_IDX, T_IDX, _MM);
-  _Y.set_sub_mat(J_IDX, J_IDX, _rJx_iM_JxT);
 
   // add S/T components to X
   q.Cs_iM_CtT.select(S_indices.begin(), S_indices.end(), T_indices.begin(), T_indices.end(), _MM);
   _Y.set_sub_mat(S_IDX, T_IDX, _MM);
   _Y.set_sub_mat(T_IDX, S_IDX, _MM, Ravelin::eTranspose);
-
-  // add S/J components to X
-  q.Cs_iM_JxT.select(S_indices.begin(), S_indices.end(), J_indices.begin(), J_indices.end(), _MM);
-  _Y.set_sub_mat(S_IDX, J_IDX, _MM);
-  _Y.set_sub_mat(J_IDX, S_IDX, _MM, Ravelin::eTranspose);
-
-  // add T/J components to X
-  q.Ct_iM_JxT.select(T_indices.begin(), T_indices.end(), J_indices.begin(), J_indices.end(), _MM);
-  _Y.set_sub_mat(T_IDX, J_IDX, _MM);
-  _Y.set_sub_mat(J_IDX, T_IDX, _MM, Ravelin::eTranspose);
 
   // do the Cholesky factorization (should not fail)
   bool success = _LA.factor_chol(_Y);
@@ -1185,19 +1129,15 @@ void ImpactConstraintHandler::apply_no_slip_model(UnilateralConstraintProblemDat
   _MM.set_sub_mat(L_IDX, L_IDX, q.L_iM_LT);
 
   // setup Q*inv(M)*X'
-  _Q_iM_XT.resize(q.N_CONTACTS + q.N_LIMITS, S_indices.size() + T_indices.size() + J_indices.size());
+  _Q_iM_XT.resize(q.N_CONTACTS + q.N_LIMITS, S_indices.size() + T_indices.size());
   q.Cn_iM_CsT.select_columns(S_indices.begin(), S_indices.end(), _workM);
   _Q_iM_XT.set_sub_mat(N_IDX, S_IDX, _workM);
   q.Cn_iM_CtT.select_columns(T_indices.begin(), T_indices.end(), _workM);
   _Q_iM_XT.set_sub_mat(N_IDX, T_IDX, _workM);
-  q.Cn_iM_JxT.select_columns(J_indices.begin(), J_indices.end(), _workM);
-  _Q_iM_XT.set_sub_mat(N_IDX, J_IDX, _workM);
   q.Cs_iM_LT.select_rows(S_indices.begin(), S_indices.end(), _workM);
   _Q_iM_XT.set_sub_mat(L_IDX, S_IDX, _workM, Ravelin::eTranspose);
   q.Ct_iM_LT.select_rows(T_indices.begin(), T_indices.end(), _workM);
   _Q_iM_XT.set_sub_mat(L_IDX, T_IDX, _workM, Ravelin::eTranspose);
-  q.L_iM_JxT.select_columns(J_indices.begin(), J_indices.end(), _workM);
-  _Q_iM_XT.set_sub_mat(L_IDX, J_IDX, _workM);
 
   // compute Y*X*inv(M)*Q'
   MatrixNd::transpose(_Q_iM_XT, _workM);
@@ -1213,13 +1153,11 @@ void ImpactConstraintHandler::apply_no_slip_model(UnilateralConstraintProblemDat
   _qq.set_sub_vec(L_IDX, q.L_v);
 
   // setup X*v
-  _Xv.resize(S_indices.size() + T_indices.size() + J_indices.size());
+  _Xv.resize(S_indices.size() + T_indices.size());
   q.Cs_v.select(S_indices.begin(), S_indices.end(), _workv);
   _Xv.set_sub_vec(S_IDX, _workv);
   q.Ct_v.select(T_indices.begin(), T_indices.end(), _workv);
   _Xv.set_sub_vec(T_IDX, _workv);
-  q.Jx_v.select(J_indices.begin(), J_indices.end(), _workv);
-  _Xv.set_sub_vec(J_IDX, _workv);
 
   // compute Y*X*v
   _YXv = _Xv;
@@ -1293,13 +1231,11 @@ void ImpactConstraintHandler::apply_no_slip_model(UnilateralConstraintProblemDat
   q.l = _v.segment(q.N_CONTACTS, _v.size());
   q.cs.set_zero(q.N_CONTACTS);
   q.ct.set_zero(q.N_CONTACTS);
-  q.alpha_x.set_zero(NIMP);
+  q.alpha_x.set_zero(0);
   SharedConstVectorNd cs_vec = _cs_ct_alphax.segment(S_IDX, T_IDX);
   SharedConstVectorNd ct_vec = _cs_ct_alphax.segment(T_IDX, J_IDX);
-  SharedConstVectorNd alphax_vec = _cs_ct_alphax.segment(J_IDX, _cs_ct_alphax.size());
   q.cs.set(S_indices.begin(), S_indices.end(), cs_vec);
   q.ct.set(T_indices.begin(), T_indices.end(), ct_vec);
-  q.alpha_x.set(J_indices.begin(), J_indices.end(), alphax_vec);
 
   // setup a temporary frame
   shared_ptr<Pose3d> P(new Pose3d);

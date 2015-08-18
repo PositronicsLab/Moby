@@ -142,6 +142,7 @@ void RCArticulatedBody::set_links_and_joints(const vector<RigidBodyPtr>& links, 
   vector<shared_ptr<RigidBodyd> > d_links;
   vector<shared_ptr<Jointd> > d_joints;
   d_links.insert(d_links.end(), links.begin(), links.end());
+  d_joints.insert(d_joints.end(), joints.begin(), joints.end());
   RCArticulatedBodyd::set_links_and_joints(d_links, d_joints);
 }
 

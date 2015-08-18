@@ -15,25 +15,27 @@
 
 namespace Moby {
 
+class Simulator;
 class ConstraintSimulator;
 
 class ConstraintStabilization 
 {
   public:
     ConstraintStabilization();
-    void stabilize(boost::shared_ptr<ConstraintSimulator> sim); 
+    void stabilize(boost::shared_ptr<Simulator> sim); 
 
     // tolerance to solve constraints to
     double eps;
 
   private:
-    void get_body_configurations(Ravelin::VectorNd& q, boost::shared_ptr<ConstraintSimulator> sim);
-    void update_body_configurations(const Ravelin::VectorNd& q, boost::shared_ptr<ConstraintSimulator> sim);
+    void stabilize_bilateral_only(boost::shared_ptr<Simulator> sim); 
+    void get_body_configurations(Ravelin::VectorNd& q, boost::shared_ptr<Simulator> sim);
+    void update_body_configurations(const Ravelin::VectorNd& q, boost::shared_ptr<Simulator> sim);
     void update_q(const Ravelin::VectorNd& dq, Ravelin::VectorNd& q, boost::shared_ptr<ConstraintSimulator> sim);
     void compute_problem_data(std::vector<UnilateralConstraintProblemData>& pd, boost::shared_ptr<ConstraintSimulator> sim);
     void add_contact_constraints(std::vector<UnilateralConstraint>& constraints, RigidBodyPtr rb1, RigidBodyPtr rb2, boost::shared_ptr<ConstraintSimulator> sim);
     void add_articulate_limit_constraint(std::vector<UnilateralConstraint>& constraints, ArticulatedBodyPtr ab);
-    void generate_body_index_map(std::map<boost::shared_ptr<Ravelin::DynamicBodyd>, unsigned>& body_index_map, boost::shared_ptr<ConstraintSimulator> sim);
+    void generate_body_index_map(std::map<boost::shared_ptr<Ravelin::DynamicBodyd>, unsigned>& body_index_map, boost::shared_ptr<Simulator> sim);
     static void set_unilateral_constraint_data(UnilateralConstraintProblemData& pd);
     void determine_dq(const UnilateralConstraintProblemData& pd, Ravelin::VectorNd& dqm, const std::map<boost::shared_ptr<Ravelin::DynamicBodyd>, unsigned>& body_index_map);
     static double get_min_pairwise_dist(const std::vector<PairwiseDistInfo>& pdi); 

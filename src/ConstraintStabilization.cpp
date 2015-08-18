@@ -40,11 +40,22 @@ double ConstraintStabilization::get_min_pairwise_dist(const vector<PairwiseDistI
   return dist;
 }
 
+/// Stabilizes a simulator with only bilateral constraints
+void ConstraintStabilization::stabilize_bilateral_only(shared_ptr<Simulator> s)
+{
+  // TODO: implement this
+}
+
 /// Stabilizes the constraints in the simulator
-void ConstraintStabilization::stabilize(shared_ptr<ConstraintSimulator> sim)
+void ConstraintStabilization::stabilize(shared_ptr<Simulator> s)
 {
   VectorNd dq, q;
   std::vector<UnilateralConstraintProblemData> pd;
+
+  // see whether there can be bilateral constraints only
+  shared_ptr<ConstraintSimulator> sim = dynamic_pointer_cast<ConstraintSimulator>(s);
+  if (!sim)
+    return stabilize_bilateral_only(s); 
 
   std::map<shared_ptr<DynamicBodyd>, unsigned> body_index_map;
 
@@ -551,7 +562,7 @@ double ConstraintStabilization::compute_s(const vector<PairwiseDistInfo>& pdi, s
 }
 
 /// Gets the body configurations, placing them into q 
-void ConstraintStabilization::get_body_configurations(VectorNd& q, shared_ptr<ConstraintSimulator> sim)
+void ConstraintStabilization::get_body_configurations(VectorNd& q, shared_ptr<Simulator> sim)
 {  
   const std::vector<ControlledBodyPtr>& bodies = sim->_bodies;
   unsigned NGC = 0;
@@ -574,7 +585,7 @@ void ConstraintStabilization::get_body_configurations(VectorNd& q, shared_ptr<Co
 }
 
 /// Computes mapping from bodies to generalized coordinate indices 
-void ConstraintStabilization::generate_body_index_map(std::map<shared_ptr<DynamicBodyd>, unsigned>& body_index_map, shared_ptr<ConstraintSimulator> sim)
+void ConstraintStabilization::generate_body_index_map(std::map<shared_ptr<DynamicBodyd>, unsigned>& body_index_map, shared_ptr<Simulator> sim)
 {
   const std::vector<ControlledBodyPtr>& bodies = sim->_bodies;
   unsigned cur_index = 0;
@@ -587,7 +598,7 @@ void ConstraintStabilization::generate_body_index_map(std::map<shared_ptr<Dynami
 }
 
 /// Updates the body configurations given q
-void ConstraintStabilization::update_body_configurations(const VectorNd& q, shared_ptr<ConstraintSimulator> sim)
+void ConstraintStabilization::update_body_configurations(const VectorNd& q, shared_ptr<Simulator> sim)
 {
   const std::vector<ControlledBodyPtr>& bodies = sim->_bodies;
   unsigned last = 0;

@@ -38,6 +38,8 @@ class VisualizationData;
  */
 class Simulator : public virtual Base
 {
+  friend class ConstraintStabilization;
+
   public:
     Simulator();
     virtual ~Simulator(); 
@@ -77,6 +79,7 @@ class Simulator : public virtual Base
     double dynamics_time;
 
   protected:
+    void solve(const std::vector<ControlledBodyPtr>& island, const std::vector<JointPtr>& island_joints, const Ravelin::VectorNd& f, Ravelin::VectorNd& x, Ravelin::VectorNd& lambda) const;
     virtual double check_pairwise_constraint_violations(double t) { return 0.0; }
     osg::Group* _persistent_vdata;
     osg::Group* _transient_vdata;
