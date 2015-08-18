@@ -585,9 +585,12 @@ void ConstraintStabilization::update_velocities(const UnilateralConstraintProble
 }
 
 /// Updates q doing a backtracking line search
+/**
+ * Two body version
+ */
 void ConstraintStabilization::update_q(const VectorNd& dq, VectorNd& q, shared_ptr<ConstraintSimulator> sim)
 {
-  VectorNd qstar;
+  VectorNd qstar, grad;
 
   // get the pairwise distances
   vector<PairwiseDistInfo>& pdi = sim->_pairwise_distances;
@@ -596,8 +599,16 @@ void ConstraintStabilization::update_q(const VectorNd& dq, VectorNd& q, shared_p
   const double ALPHA = 0.025, BETA = 0.8;
   double t = 1.0;
 
-  // compute s at current configuration
-  double s0 = compute_s(pdi, sim); 
+/*
+  // see whether interpenetration between bodies sufficiently greater than zero
+  if (...)
+  {
+    // reduce t, as necessary, until bodies are no longer disjoint at
+    // q + dq*t
+  }
+*/
+  // evaluate f 
+  double f0 = evaluate_f(pdi, sim); 
 
   // compute qstar 
   qstar = dq;
@@ -610,12 +621,18 @@ void ConstraintStabilization::update_q(const VectorNd& dq, VectorNd& q, shared_p
   // compute new pairwise distance information
   sim->calc_pairwise_distances(); 
 
-  // compute s*
-  double sstar = compute_s(pdi, sim);
-  FILE_LOG(LOG_COLDET)  <<"s0: "<< s0 << std::endl;
-  double ds = -1.0;
-  // TODO: Add gradient term condition
-  while (sstar > s0 + ALPHA * t *(ds))
+  // compute f*
+  double fstar = evaluate_f(pdi, sim);
+  FILE_LOG(LOG_COLDET)  <<"f0: "<< f0 << std::endl;
+
+  // compute the gradient of f
+  grad_f(sim, q, f0, grad);
+
+  // compute the dot product of the gradient of f and dq
+  const double DQ_DOT_GRAD_F = grad.dot(dq);
+
+  // do BLS 
+  while (fstar > f0 + ALPHA * t * DQ_DOT_GRAD_F)
   {
     // update t
     t *= BETA;
@@ -631,9 +648,9 @@ void ConstraintStabilization::update_q(const VectorNd& dq, VectorNd& q, shared_p
     // compute new pairwise distance information
     sim->calc_pairwise_distances();
 
-    // compute new s*
-    sstar = compute_s(pdi, sim);
-    FILE_LOG(LOG_COLDET) <<sstar<<std::endl;
+    // compute new f*
+    fstar = evaluate_f(pdi, sim);
+    FILE_LOG(LOG_COLDET) <<fstar<<std::endl;
   }
   FILE_LOG(LOG_COLDET)  << "q:" << q <<std::endl;
   FILE_LOG(LOG_COLDET)  << "dq:" << dq <<std::endl;
@@ -642,6 +659,81 @@ void ConstraintStabilization::update_q(const VectorNd& dq, VectorNd& q, shared_p
   // all done? update q
   q = qstar;
 }
+
+/// Computes the gradient of f
+void ConstraintStabilization::grad_f(shared_ptr<ConstraintSimulator> sim, const VectorNd& q, double f0, VectorNd& grad)
+{
+  const double DQ = 1e-6;
+  VectorNd new_q = q;
+
+  // get the pairwise distances
+  vector<PairwiseDistInfo>& pdi = sim->_pairwise_distances;
+
+  // init the gradient
+  grad.resize(q.size());
+
+  // calculate numerical gradient
+  for (unsigned i=0; i< q.size(); i++)
+  {
+    // update q
+    new_q[i] += DQ;
+     
+    // update body configurations
+    update_body_configurations(new_q, sim);
+
+    // compute new pairwise distance information
+    sim->calc_pairwise_distances(); 
+
+    // evaluate f
+    grad[i] = evaluate_f(pdi, sim) - f0;
+
+    // revert q
+    new_q[i] = q[i];
+  }
+
+  // scale the gradient
+  grad /= DQ;
+}
+
+/// Evaluates f based on current pairwise distance info
+double ConstraintStabilization::evaluate_f(const vector<PairwiseDistInfo>& pdi, shared_ptr<ConstraintSimulator> sim)
+{
+  // set initial value for f 
+  double f = 0.0; 
+
+  // compute f
+  for (unsigned i=0; i< pdi.size(); i++)
+    f -= pdi[i].dist;
+
+/*
+  // iterate through all joints and check for violated limits
+  const std::vector<DynamicBodyPtr>& bodies = sim->_bodies;
+  for (unsigned i = 0; i < bodies.size(); i++)
+  {
+    ArticulatedBodyPtr art = dynamic_pointer_cast<Moby::ArticulatedBody>(bodies[i]);
+    if(art)
+    {
+      std::vector<JointPtr> joints = art->get_joints();
+      for (unsigned j = 0 ; j < joints.size(); j++)
+      {
+        for (unsigned k = 0 ; k < joints[i]->num_dof(); k++)
+        {
+          double q = joints[i]->q[j];
+
+          // find the largest violation
+          double hi_violation = q - joints[i]->hilimit[j];
+          double lo_violation = joints[i]->lolimit[j] - q;
+          double larger_violation = std::max(hi_violation, lo_violation);
+          f = std::max(larger_violation, f);
+        }
+      }
+    }
+  }
+*/
+  //if violated, return amount violated
+  return f;
+}
+
 
 /// Computes s based on current pairwise distance info
 double ConstraintStabilization::compute_s(const vector<PairwiseDistInfo>& pdi, shared_ptr<ConstraintSimulator> sim)
