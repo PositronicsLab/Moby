@@ -45,7 +45,7 @@ double ConstraintStabilization::get_min_pairwise_dist(const vector<PairwiseDistI
 /// Stabilizes the constraints in the simulator
 void ConstraintStabilization::stabilize(shared_ptr<ConstraintSimulator> sim)
 {
-  FILE_LOG(LOG_COLDET) <<"======step start======"<<std::endl;
+  std::cout<<"======step start======"<<std::endl;
   VectorNd dq, q;
   std::vector<UnilateralConstraintProblemData> pd;
 
@@ -64,7 +64,7 @@ void ConstraintStabilization::stabilize(shared_ptr<ConstraintSimulator> sim)
   FILE_LOG(LOG_COLDET) <<"min_dist: "<<min_dist<<std::endl;
   while (min_dist < eps)
   {
-    FILE_LOG(LOG_COLDET) <<"min_dist: "<<min_dist<<std::endl;
+    std::cout <<"min_dist: "<<min_dist<<std::endl;
     // compute problem data (get M, N, alpha, etc.) 
     compute_problem_data(pd, sim);
 
@@ -80,7 +80,7 @@ void ConstraintStabilization::stabilize(shared_ptr<ConstraintSimulator> sim)
     // update minimum distance
     min_dist = get_min_pairwise_dist(pdi);  
   }
-  FILE_LOG(LOG_COLDET) <<"=====step end ======" << std::endl;
+  std::cout <<"=====step end ======" << std::endl;
 }
 
 /// Adds unilateral constraints for joint limits in an articulated body
@@ -109,13 +109,17 @@ void ConstraintStabilization::add_contact_constraints(std::vector<UnilateralCons
         sim->_coldet->find_contacts(cg1,cg2, constraints);
       else
       {
+        boost::shared_ptr<const Pose3d> GLOBAL;
         boost::shared_ptr<const Pose3d> pose1(p1.pose);
         boost::shared_ptr<const Pose3d> pose2(p2.pose);
         Transform3d _1T2 = Ravelin::Pose3d::calc_relative_pose(pose1, pose2);
+        Transform3d _1TG = Ravelin::Pose3d::calc_relative_pose(pose1, GLOBAL);
         Point3d p1_2 = _1T2.transform_point(p1);
+        Point3d p1_g = _1TG.transform_point(p1);
         Ravelin::Vector3d normal = p2-p1_2;
         normal.normalize();
-        UnilateralConstraint uc = CollisionDetection::create_contact(cg1, cg2, p1, normal, -dist);
+        UnilateralConstraint uc = CollisionDetection::create_contact(cg1, cg2, p1_g, normal, -dist);
+        std::cout << "p1: " << p1_g << std::endl << "normal" << normal << std::endl << "dist" << dist<<std::endl;
         constraints.insert(constraints.end(), uc);
       }
     }
@@ -138,7 +142,7 @@ void ConstraintStabilization::compute_problem_data(std::vector<UnilateralConstra
   //    UnilateralConstraint objects to constraints as there are 
   //    points of contact between the bodies 
   //    (call _sim->_coldet->find_contacts(.))
- 
+  std::cout << "*******start adding constraints*******" << std::endl;
   BOOST_FOREACH(DynamicBodyPtr D_body1, bodies)
   {
     RigidBodyPtr rb1, rb2;
@@ -210,7 +214,7 @@ void ConstraintStabilization::compute_problem_data(std::vector<UnilateralConstra
       }
     }
   }
-
+  std::cout << "constraints added" << std::endl;
   // 2) for each articulated body, add as many UnilateralConstraint objects as
   //    there are joints at their limits
 
@@ -610,9 +614,10 @@ void ConstraintStabilization::update_q(const VectorNd& dq, VectorNd& q, shared_p
   // evaluate f 
   double f0 = evaluate_f(pdi, sim); 
 
+
   // compute qstar 
   qstar = dq;
-  qstar *= t;
+  qstar *= t; 
   qstar += q;
 
   // update body configurations
@@ -623,14 +628,13 @@ void ConstraintStabilization::update_q(const VectorNd& dq, VectorNd& q, shared_p
 
   // compute f*
   double fstar = evaluate_f(pdi, sim);
-  FILE_LOG(LOG_COLDET)  <<"f0: "<< f0 << std::endl;
-
+  std::cout  <<"f0: "<< f0 << std::endl;
+  std::cout  <<"fstar: "<< f0 << std::endl;
   // compute the gradient of f
   grad_f(sim, q, f0, grad);
 
   // compute the dot product of the gradient of f and dq
   const double DQ_DOT_GRAD_F = grad.dot(dq);
-
   // do BLS 
   while (fstar > f0 + ALPHA * t * DQ_DOT_GRAD_F)
   {
@@ -650,12 +654,12 @@ void ConstraintStabilization::update_q(const VectorNd& dq, VectorNd& q, shared_p
 
     // compute new f*
     fstar = evaluate_f(pdi, sim);
-    FILE_LOG(LOG_COLDET) <<fstar<<std::endl;
+    std::cout <<fstar<<std::endl;
   }
-  FILE_LOG(LOG_COLDET)  << "q:" << q <<std::endl;
-  FILE_LOG(LOG_COLDET)  << "dq:" << dq <<std::endl;
-  FILE_LOG(LOG_COLDET)  << "qstar:" << qstar << std::endl;  
-  FILE_LOG(LOG_COLDET)  <<"===================="<< std::endl;
+  std::cout  << "q:" << q <<std::endl;
+  std::cout  << "dq:" << dq <<std::endl;
+  std::cout  << "qstar:" << qstar << std::endl;  
+  std::cout  <<"===================="<< std::endl;
   // all done? update q
   q = qstar;
 }
