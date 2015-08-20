@@ -12,16 +12,16 @@ using namespace Ravelin;
 using namespace Moby;
 
 /// Multiplies this sparse Jacobian by a vector
-VectorNd& SparseJacobian::mult(const VectorNd& x, VectorNd& result)
+VectorNd& SparseJacobian::mult(const VectorNd& x, VectorNd& result) const
 {
   VectorNd tmp;
 
   // check for proper size
-  if (_cols != x.size())
+  if (cols != x.size())
     throw MissizeException();
 
   // set the result size
-  result.set_zero(_rows);
+  result.set_zero(rows);
 
   // look for number of blocks 
   if (blocks.size() == 0)
@@ -43,16 +43,16 @@ VectorNd& SparseJacobian::mult(const VectorNd& x, VectorNd& result)
 }
 
 /// Multiplies this sparse Jacobian by a matrix 
-MatrixNd& SparseJacobian::mult(const MatrixNd& x, MatrixNd& result)
+MatrixNd& SparseJacobian::mult(const MatrixNd& x, MatrixNd& result) const
 {
   MatrixNd tmp;
 
   // check for proper size
-  if (_cols != x.rows())
+  if (cols != x.rows())
     throw MissizeException();
 
   // set the result size
-  result.set_zero(_rows, x.columns());
+  result.set_zero(rows, x.columns());
 
   // look for number of blocks 
   if (blocks.size() == 0)
@@ -79,13 +79,96 @@ MatrixNd& SparseJacobian::mult(const MatrixNd& x, MatrixNd& result)
   return result;
 }
 
-/// Multiplies this sparse Jacobian by a block diagonal matrix 
-MatrixNd& SparseJacobian::mult(const vector<MatrixBlock>& x, unsigned result_cols, MatrixNd& result)
+/// Multiplies the transpose of this sparse Jacobian by a matrix 
+MatrixNd& SparseJacobian::transpose_mult(const MatrixNd& x, MatrixNd& result) const
+{
+  MatrixNd tmp;
+
+  // check for proper size
+  if (rows != x.rows())
+    throw MissizeException();
+
+  // set the result size
+  result.set_zero(cols, x.columns());
+
+  // look for number of blocks 
+  if (blocks.size() == 0)
+    return result;
+
+  // loop over each block
+  for (unsigned i=0; i< blocks.size(); i++)
+  {
+    // assume block i is of size r x c
+    // then block of x must be of size c x x.columns() 
+    // and result must be of size r x x.columns()
+    const unsigned R = blocks[i].columns();
+    const unsigned C = blocks[i].rows();
+
+    // get the relevant blocks
+    SharedConstMatrixNd x_block =  x.block(blocks[i].st_col_idx, blocks[i].st_col_idx+C, 0, x.columns());
+    SharedMatrixNd result_block = result.block(blocks[i].st_row_idx, blocks[i].st_row_idx+R, 0, x.columns());
+
+    // do the computation
+    blocks[i].block.transpose_mult(x_block, tmp);
+    result_block += tmp;
+  }
+
+  return result;
+}
+
+/// Multiples this sparse Jacobian by the transpose of another sparse Jacobian
+MatrixNd& SparseJacobian::mult_transpose(const SparseJacobian& M, MatrixNd& result) const
 {
   MatrixNd tmp;
 
   // set the result size
-  result.set_zero(_rows, result_cols);
+  result.set_zero(rows, M.rows);
+
+  // loop over each block
+  for (unsigned i=0; i< blocks.size(); i++)
+  {
+    // assume block i is of size r x c
+    // then input block of x must be of size c x d 
+    // and result must be of size r x d
+    const unsigned R = blocks[i].rows();
+    const unsigned C = blocks[i].columns();
+
+    // loop over each block in M
+    for (unsigned j=0; i< M.blocks.size(); j++)
+    {
+      // see whether there is any intersection between columns in block i
+      // and rows is M.block j
+      
+      // there is a match, see whether the correspondence is perfect
+      if (blocks[i].st_col_idx == M.blocks[j].st_col_idx &&
+          blocks[i].columns() == M.blocks[j].columns())
+      {
+        // get the relevant block of the result
+        SharedMatrixNd result_block = result.block(blocks[i].st_row_idx, blocks[i].st_row_idx+R, M.blocks[j].st_row_idx, M.blocks[j].st_row_idx+M.blocks[j].rows());
+
+        // do the multiplication
+        blocks[i].block.mult_transpose(M.blocks[j].block, tmp);
+        result_block += tmp;
+      }
+      else
+      {
+        // implement this case only as necessary
+        throw std::runtime_error("Not implemented!");
+      }
+    }
+  }
+
+  // resize the result matrix
+  return result;
+}
+
+/// Multiplies this sparse Jacobian by a block diagonal matrix 
+MatrixNd& SparseJacobian::mult(const vector<MatrixBlock>& x, unsigned result_cols, MatrixNd& result) const
+{
+  MatrixNd tmp;
+
+  // set the result size
+  result.set_zero(rows, result_cols);
 
   // look for number of blocks 
   if (blocks.size() == 0 || x.size() == 0)
@@ -125,7 +208,5 @@ MatrixNd& SparseJacobian::mult(const vector<MatrixBlock>& x, unsigned result_col
 
   return result;
 }
-
-
 
 

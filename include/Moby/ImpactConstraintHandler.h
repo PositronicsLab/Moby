@@ -23,6 +23,7 @@
 #include <Moby/Base.h>
 #include <Moby/Types.h>
 #include <Moby/LCP.h>
+#include <Moby/SparseJacobian.h>
 #include <Moby/UnilateralConstraint.h>
 #include <Moby/UnilateralConstraintProblemData.h>
 
@@ -79,6 +80,9 @@ class ImpactConstraintHandler
     static void contact_select(const std::vector<int>& cn_indices, const std::vector<int>& beta_nbeta_c_indices, const Ravelin::MatrixNd& m, Ravelin::MatrixNd& cn_rows, Ravelin::MatrixNd& beta_c_rows);
     static double sqr(double x) { return x*x; }
     void setup_QP(UnilateralConstraintProblemData& epd, Ravelin::SharedMatrixNd& H, Ravelin::SharedVectorNd& c, Ravelin::SharedMatrixNd& M, Ravelin::SharedVectorNd& q, Ravelin::SharedMatrixNd& A, Ravelin::SharedVectorNd& b);
+    static void get_full_rank_implicit_constraints(const SparseJacobian& J, std::vector<bool>& active);
+    static Ravelin::MatrixNd& mult(const std::vector<Ravelin::MatrixNd>& inertias, const Ravelin::MatrixNd& X, Ravelin::MatrixNd& B);
+    static Ravelin::MatrixNd& to_dense(const std::vector<Ravelin::MatrixNd>& J, Ravelin::MatrixNd& B);
 
     Ravelin::LinAlgd _LA;
     LCP _lcp;

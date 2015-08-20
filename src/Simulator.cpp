@@ -409,8 +409,8 @@ void Simulator::solve(const vector<shared_ptr<DynamicBodyd> >& island, const vec
 
   // form Jacobians here
   SparseJacobian J;
-  J._rows = n_implicit_eqns;
-  J._cols = NGC_TOTAL;
+  J.rows = n_implicit_eqns;
+  J.cols = NGC_TOTAL;
   for (unsigned i=0, eq_idx=0; i< island_ijoints.size(); i++)
   {
     // resize the temporary matrix
@@ -489,7 +489,7 @@ void Simulator::solve(const vector<shared_ptr<DynamicBodyd> >& island, const vec
   {
     // see whether the number of indices is maximized
     if (n_active == NGC_TOTAL)
-      continue;
+      break;
 
     // update the number of active indices
     n_active++;

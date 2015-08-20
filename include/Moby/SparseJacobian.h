@@ -30,15 +30,17 @@ struct MatrixBlock
 class SparseJacobian
 {
   public:
-    Ravelin::VectorNd& mult(const Ravelin::VectorNd& x, Ravelin::VectorNd& result); 
-    Ravelin::MatrixNd& mult(const Ravelin::MatrixNd& x, Ravelin::MatrixNd& result); 
-    Ravelin::MatrixNd& mult(const std::vector<MatrixBlock>& M, unsigned result_cols, Ravelin::MatrixNd& result); 
+    Ravelin::VectorNd& mult(const Ravelin::VectorNd& x, Ravelin::VectorNd& result) const; 
+    Ravelin::MatrixNd& mult(const Ravelin::MatrixNd& x, Ravelin::MatrixNd& result) const; 
+    Ravelin::MatrixNd& transpose_mult(const Ravelin::MatrixNd& x, Ravelin::MatrixNd& result) const; 
+    Ravelin::MatrixNd& mult(const std::vector<MatrixBlock>& M, unsigned result_cols, Ravelin::MatrixNd& result) const; 
+    Ravelin::MatrixNd& mult_transpose(const SparseJacobian& M, Ravelin::MatrixNd& result) const; 
 
     // vector of Jacobian blocks
     std::vector<MatrixBlock> blocks;
 
     // the number of rows and columns in the dense Jacobian
-    unsigned _rows, _cols;
+    unsigned rows, cols;
 };
 
 } // end namespace

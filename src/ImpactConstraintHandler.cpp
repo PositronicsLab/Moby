@@ -1403,6 +1403,171 @@ void ImpactConstraintHandler::solve_frictionless_lcp(UnilateralConstraintProblem
   FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::solve_lcp() exited" << std::endl;
 }
 
+/// Multiplies a block diagonal matrix formed of inertia matrices (or inverse inertia matrix) by a matrix
+MatrixNd& ImpactConstraintHandler::mult(const std::vector<MatrixNd>& inertias, const MatrixNd& X, MatrixNd& B)
+{
+  MatrixNd tmp; 
+
+  // resize B and set to zero
+  B.set_zero(X.rows(), X.columns());
+
+  // carry out the multiplication, one block at a time
+  for (unsigned i=0, gc=0; i< inertias.size(); i++)
+  {
+    // get the number of rows from the i'th inertia
+    const unsigned R = inertias[i].rows();
+
+    // get the appropriate blocks from X and B
+    SharedConstMatrixNd X_block = X.block(gc, gc+R, 0, X.columns());
+    SharedMatrixNd B_block = B.block(gc, gc+R, 0, B.columns());
+
+    // do the multiplication
+    inertias[i].mult(X_block, tmp);
+    B_block += tmp;
+
+    // update gc 
+    gc += R;
+  }
+}
+
+/// Converts a sparse form of block diagonal matrices into a dense matrix
+MatrixNd& ImpactConstraintHandler::to_dense(const vector<MatrixNd>& J, MatrixNd& dense)
+{
+  // get the number of rows in all matrices
+  unsigned N = 0;
+  for (unsigned i=0; i< J.size(); i++)
+  {
+    assert(J[i].rows() == J[i].columns());
+    N += J[i].rows();
+  }
+
+  // resize the dense matrix
+  dense.set_zero(N, N);
+
+  // set the blocks
+  for (unsigned i=0, j=0; i< J.size(); i++)
+  {
+    dense.block(j, j+J[i].rows(), j, j+J[i].rows()) = J[i];
+    j += J[i].rows();
+  }
+
+  return dense;
+}
+
+/// Computes the simplification used for X = C'*M*C
+/**
+ * C is defined as the upper left hand block of 
+ *  | M J' |^-1  
+ *  | J 0  |
+ */
+/*
+void ImpactConstraintHandler::compute_X()
+{
+  MatrixNd JiM, iMJT, JiMJT, iJiMJT, HT, HTJiM, G, MG, GTMG;
+  vector<MatrixNd> inv_inertias;
+
+  // TODO: form inverse inertia matrices
+
+  // get the full row rank version of J
+  SparseJacobian J;
+  J._rows = N_ACTIVE;
+  J._cols = Jorig._cols;
+  for (unsigned i=0; i< Jorig.blocks.size(); i++)
+  {
+    unsigned row_start = Jorig.blocks[i].st_row_idx;
+    unsigned row_end = row_start; 
+    while (row_end < Jorig.blocks[i].st_row_idx + Jorig.blocks[i].rows())
+    {
+      // see whether the index is active for row_end
+      if (!active[row_end])
+      {
+        // it's not active, put everything in a block up to this point
+        if (row_end - row_start > 0)
+        {
+          J.blocks.push_back(MatrixBlock());
+          J.blocks.back().st_col_idx = Jorig.blocks[i].st_col_idx;
+          J.blocks.back().st_row_idx = row_start;
+          J.blocks.back().block = Jorig.blocks[i].block.block(row_start - Jorig.blocks[i].st_row_idx, row_end - Jorig.blocks[i].st_row_idx, 0, Jorig.blocks[i].block.columns());
+
+          // update row_start and row_end
+          row_start = row_end + 1;
+          row_end = row_start;
+        }
+      }
+      else
+        row_end++; 
+    }
+  }
+
+  // compute J*inv(M)*J'
+  J.mult(inv_inertias, NGC_TOTAL, JiM);
+  MatrixNd::transpose(JiM, iMJT);
+  J.mult(iMJT, JiMJT);
+
+  // compute H' = (inv(J*inv(M)*J')*J)'
+  iJiMJT = JiMJT;
+  LinAlgd::inverse_SPD(iJiMJT);
+  J.transpose_mult(iJiMJT, HT);
+
+  // compute G
+  HT.mult_transpose(iMJT, HTJiM);
+  mult(inv_inertias, HTJiM, G);
+
+  // form inverse inertia as a single matrix
+  to_dense(inv_inertias, X);
+
+  // compute G'*M*G
+  mult(inertias, G, MG);
+  G.transpose_mult(MG, GTMG);
+
+  // scale G by 2
+  G *= 2.0;
+
+  // compute X
+  X -= G;
+  X += GTMT;
+} 
+*/
+
+/// Gets the full rank set of implicit constraints
+void ImpactConstraintHandler::get_full_rank_implicit_constraints(const SparseJacobian& J, vector<bool>& active)
+{
+  MatrixNd JJT, JJT_sub;
+
+  // resize the set of the active constraints
+  active.resize(J.rows, false);
+
+  // make first constraint active
+  active[0] = true;
+
+  // compute J*J'
+  J.mult_transpose(J, JJT);
+
+  // keep trying to add constraints 
+  for (unsigned i=1, n_active = 1; i< active.size(); i++)
+  {
+    // see whether the number of indices is maximized
+    if (n_active == J.cols)
+      break;
+  
+    // tentatively update the number of active indices
+    n_active++;
+
+    // try to add this indices
+    active[i] = true;
+
+    // get the submatrix
+    JJT.select_square(active, JJT_sub);
+
+    // attempt to factorize it
+    if (!LinAlgd::factor_chol(JJT_sub))
+    {
+      n_active--; 
+      active[i] = false;
+    }
+  }
+}
+
 /// Gets the super body (articulated if any)
 shared_ptr<DynamicBodyd> ImpactConstraintHandler::get_super_body(shared_ptr<SingleBodyd> sb)
 {
