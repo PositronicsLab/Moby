@@ -78,9 +78,14 @@ class Simulator : public virtual Base
     /// User time spent by dynamics on the last step
     double dynamics_time;
 
+    /// Set of implicit joints maintained in the simulation (does not include implicit joints belonging to RCArticulatedBody objects)
+    std::vector<JointPtr> implicit_joints;
+
   protected:
-    void solve(const std::vector<ControlledBodyPtr>& island, const std::vector<JointPtr>& island_joints, const Ravelin::VectorNd& f, Ravelin::VectorNd& x, Ravelin::VectorNd& lambda) const;
+    void solve(const std::vector<boost::shared_ptr<Ravelin::DynamicBodyd> >& island, const std::vector<JointPtr>& island_joints, const Ravelin::VectorNd& f, Ravelin::VectorNd& x, Ravelin::VectorNd& lambda) const;
     virtual double check_pairwise_constraint_violations(double t) { return 0.0; }
+    void find_islands(std::vector<std::vector<boost::shared_ptr<Ravelin::DynamicBodyd> > >& islands);
+    unsigned num_generalized_coordinates(const std::vector<boost::shared_ptr<Ravelin::DynamicBodyd> > & island) const;
     osg::Group* _persistent_vdata;
     osg::Group* _transient_vdata;
 

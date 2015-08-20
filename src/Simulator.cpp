@@ -4,6 +4,7 @@
  * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
+#include <map>
 #include <iostream>
 #ifdef USE_OSG
 #include <osg/Group>
@@ -18,6 +19,9 @@
 #include <Moby/SparseJacobian.h>
 #include <Moby/Simulator.h>
 
+using std::set;
+using std::multimap;
+using std::queue;
 using std::map;
 using std::vector;
 using boost::shared_ptr;
@@ -325,22 +329,16 @@ void Simulator::add_transient_vdata(osg::Node* vdata)
 //        | J   0  | | lambda |   | 0 |
 // using M*x = -J'*lambda + f and
 // J*inv(M)*J'lambda = J*inv(M)*f
-void Simulator::solve(const vector<ControlledBodyPtr>& island, const vector<JointPtr>& island_ijoints, const VectorNd& f, VectorNd& x, VectorNd& lambda) const
+void Simulator::solve(const vector<shared_ptr<DynamicBodyd> >& island, const vector<JointPtr>& island_ijoints, const VectorNd& f, VectorNd& x, VectorNd& lambda) const
 {
   MatrixNd JiMJT_frr, JiM, iMJT, JiMJT, Jm, tmp, tmp2;
   VectorNd JiMf_frr, JiMf, iMf, lambda_sub; 
   const unsigned N_SPATIAL = 6;
   map<shared_ptr<DynamicBodyd>, unsigned> gc_map;
-  std::vector<shared_ptr<DynamicBodyd> > bodies;
   std::vector<MatrixBlock> inv_inertias;
 
   // get dynamic bodies in the island and total number of generalized coords
-  unsigned NGC_TOTAL = 0;
-  for (unsigned i=0; i< island.size(); i++)
-  {
-    bodies.push_back(dynamic_pointer_cast<DynamicBodyd>(island[i]));
-    NGC_TOTAL += bodies.back()->num_generalized_coordinates(DynamicBodyd::eSpatial);
-  }
+  unsigned NGC_TOTAL = num_generalized_coordinates(island);
 
   // get the number of implicit equations in the island
   unsigned n_implicit_eqns = 0;
@@ -357,7 +355,7 @@ void Simulator::solve(const vector<ControlledBodyPtr>& island, const vector<Join
     for (unsigned i=0, gc_index = 0; i< island.size(); i++)
     {
       // get the body
-      shared_ptr<DynamicBodyd> db = bodies[i];
+      shared_ptr<DynamicBodyd> db = island[i];
 
       // get the components of f and x
       const unsigned NGC = db->num_generalized_coordinates(DynamicBodyd::eSpatial);
@@ -377,24 +375,23 @@ void Simulator::solve(const vector<ControlledBodyPtr>& island, const vector<Join
   // setup the gc map
   for (unsigned i=0, gc_index = 0; i< island.size(); i++)
   {
-    gc_map[bodies[i]] = gc_index;
-    shared_ptr<DynamicBodyd> db = dynamic_pointer_cast<DynamicBodyd>(island[i]);
-    gc_index += db->num_generalized_coordinates(DynamicBodyd::eSpatial);
+    gc_map[island[i]] = gc_index;
+    gc_index += island[i]->num_generalized_coordinates(DynamicBodyd::eSpatial);
   }
 
   // compute iMf
   iMf.resize(NGC_TOTAL);
-  for (unsigned i=0, gc_index = 0; i< bodies.size(); i++)
+  for (unsigned i=0, gc_index = 0; i< island.size(); i++)
   {
     // add the new inverse inertia block
     inv_inertias.push_back(MatrixBlock());
 
     // compute the inverse of the generalized inertia matrix
-    bodies[i]->get_generalized_inertia(inv_inertias.back().block);
+    island[i]->get_generalized_inertia(inv_inertias.back().block);
     LinAlgd::inverse_SPD(inv_inertias.back().block);
 
     // get the number of generalized coordinates for this body
-    const unsigned NGC = bodies[i]->num_generalized_coordinates(DynamicBodyd::eSpatial);
+    const unsigned NGC = island[i]->num_generalized_coordinates(DynamicBodyd::eSpatial);
 
     // get the appropriate parts of the vectors
     SharedVectorNd iMf_sub = iMf.segment(gc_index, gc_index + NGC);
@@ -535,6 +532,14 @@ void Simulator::solve(const vector<ControlledBodyPtr>& island, const vector<Join
   x += iMf;
 }
 
+/// Gets the number of generalized coordinates in an island
+unsigned Simulator::num_generalized_coordinates(const vector<shared_ptr<DynamicBodyd> >& island) const
+{
+  unsigned ngc_total = 0;  
+  for (unsigned i=0; i< island.size(); i++)
+    ngc_total += island[i]->num_generalized_coordinates(DynamicBodyd::eSpatial);
+  return ngc_total;
+}
 
 /// Implements Base::load_from_xml()
 void Simulator::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
@@ -636,6 +641,92 @@ void Simulator::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::stri
         BOOST_FOREACH(ControlledBodyPtr db, _bodies)
           db->get_recurrent_forces().push_back(rf);
       }
+    }
+  }
+}
+
+/// Finds islands
+void Simulator::find_islands(vector<vector<shared_ptr<DynamicBodyd> > >& islands)
+{
+  // clear the islands
+  islands.clear();
+
+  // The way that we'll determine the constraint islands is to treat each rigid
+  // body present in the constraints as a node in a graph; nodes will be connected
+  // to other nodes if (a) they are both present in constraint or (b) they are
+  // part of the same articulated body.  Nodes will not be created for disabled
+  // bodies.
+  set<shared_ptr<DynamicBodyd> > nodes;
+  multimap<shared_ptr<DynamicBodyd>, shared_ptr<DynamicBodyd> > edges;
+  typedef multimap<shared_ptr<DynamicBodyd>, shared_ptr<DynamicBodyd> >::const_iterator EdgeIter;
+
+  // first, add all nodes
+  for (unsigned i=0; i< _bodies.size(); i++)
+    nodes.insert(dynamic_pointer_cast<DynamicBodyd>(_bodies[i]));
+
+  // loop through all implicit joints in the simulator
+  for (unsigned i=0; i< implicit_joints.size(); i++)
+  {
+    // get the inboard link and set the dynamic body
+    shared_ptr<RigidBodyd> inboard = implicit_joints[i]->get_inboard_link();
+    if (!inboard->is_enabled())
+      continue;
+    shared_ptr<ArticulatedBodyd> abi = inboard->get_articulated_body();
+    shared_ptr<DynamicBodyd> dbi;
+    if (abi)
+      dbi = abi;
+    else
+      dbi = inboard;
+
+    // get the outboard link and set the dynamic body
+    shared_ptr<RigidBodyd> outboard = implicit_joints[i]->get_outboard_link();
+    if (!outboard->is_enabled())
+      continue;
+    shared_ptr<ArticulatedBodyd> abo = outboard->get_articulated_body();
+    shared_ptr<DynamicBodyd> dbo;
+    if (abo)
+      dbo = abo;
+    else
+      dbo = outboard;
+
+    // add an edge between the bodies
+    edges.insert(std::make_pair(dbi, dbo));
+    edges.insert(std::make_pair(dbo, dbi));
+  }
+
+  // remove nodes from the set until there are no more nodes
+  while (!nodes.empty())
+  {
+    // create a new island
+    islands.push_back(vector<shared_ptr<DynamicBodyd> >());
+
+    // get the node from the front
+    shared_ptr<DynamicBodyd> node = *nodes.begin();
+
+    // create a node queue, with this node added
+    queue<shared_ptr<DynamicBodyd> > node_q;
+    node_q.push(node);
+
+    // loop until the queue is empty
+    while (!node_q.empty())
+    {
+      // get the node off of the front of the node queue
+    // get the node off of the front of the node queue
+      node = node_q.front();
+      node_q.pop();
+
+      // erase the node from the set of nodes
+      nodes.erase(node);
+
+      // add all neighbors of the node that have not been processed already 
+      // to the node queue
+      std::pair<EdgeIter, EdgeIter> neighbors = edges.equal_range(node);
+      for (EdgeIter i = neighbors.first; i != neighbors.second; i++)
+        if (nodes.find(i->second) != nodes.end())
+          node_q.push(i->second);
+
+      // add the node to the island
+      islands.back().push_back(node);
     }
   }
 }

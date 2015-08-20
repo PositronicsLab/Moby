@@ -16,10 +16,10 @@
 
     <GravityForce id="gravity" accel="0 -9.81 0 " />
 
-  <TimeSteppingSimulator integrator-id="bs" Euler-step="1e-0">
+  <Simulator integrator-id="bs" Euler-step="1e-0">
     <RecurrentForce recurrent-force-id="gravity" /> 
     <DynamicBody dynamic-body-id="chain" />
-  </TimeSteppingSimulator>
+  </Simulator>
 
   <RCArticulatedBody id="chain" fdyn-algorithm="crb" fdyn-algorithm-frame="link" floating-base="false">
 
