@@ -29,43 +29,30 @@ class UnilateralConstraint
   public:
     enum UnilateralConstraintType { eNone, eContact, eLimit };
     enum UnilateralConstraintClass { ePositive, eZero, eNegative };
-    enum DerivType { eVel, eAccel};
     enum Compliance { eRigid, eCompliant};
-    enum CoulombFrictionType { eUndetermined, eSlipping, eSticking };
     UnilateralConstraint();
     UnilateralConstraint(const UnilateralConstraint& e) { _contact_frame = boost::shared_ptr<Ravelin::Pose3d>(new Ravelin::Pose3d); *this = e; }
     static void determine_connected_constraints(const std::vector<UnilateralConstraint>& constraints, std::list<std::list<UnilateralConstraint*> >& groups);
     static void remove_inactive_groups(std::list<std::list<UnilateralConstraint*> >& groups);
     UnilateralConstraint& operator=(const UnilateralConstraint& e);
     double calc_contact_vel(const Ravelin::Vector3d& v) const;
-    double calc_contact_accel(const Ravelin::Vector3d& v) const;
-    double calc_contact_accel(const Ravelin::Vector3d& v, const Ravelin::Vector3d& vdot) const;
     double calc_constraint_vel() const;
-    double calc_constraint_accel() const;
-    double calc_vconstraint_tol() const;
-    double calc_aconstraint_tol() const;
+    double calc_constraint_tol() const;
     UnilateralConstraintClass determine_constraint_class() const;
-    CoulombFrictionType get_friction_type() const {return _ftype; }
     bool is_impacting() const { return determine_constraint_class() == eNegative; }
     bool is_resting() const { return determine_constraint_class() == eZero; }
     bool is_separating() const { return determine_constraint_class() == ePositive; }
     void set_contact_parameters(const ContactParameters& cparams);
     void determine_contact_tangents();
-    static void determine_minimal_set(std::list<UnilateralConstraint*>& group);
     boost::shared_ptr<const Ravelin::Pose3d> get_pose() const { return GLOBAL; }
     void compute_constraint_data(Ravelin::MatrixNd& M, Ravelin::VectorNd& q) const;
     void compute_cross_constraint_data(const UnilateralConstraint& e, Ravelin::MatrixNd& M) const;
-    void calc_contact_tan_accel(double& tan1A, double& tan2A) const;
-    void compute_contact_dots();
 
     template <class OutputIterator>
     OutputIterator get_super_bodies(OutputIterator begin) const;
 
     /// The type of constraint
     UnilateralConstraintType constraint_type;
-
-    /// The derivative type of the constraint
-    DerivType deriv_type;
 
     /// Compliance of the constraint
     Compliance compliance;
@@ -99,15 +86,6 @@ class UnilateralConstraint
 
     /// The second tangent direction to the contact normal
     Ravelin::Vector3d contact_tan2;
-
-    /// The time derivative of the contact normal 
-    Ravelin::Vector3d contact_normal_dot;  
-
-    /// The time derivative of the first tangent direction 
-    Ravelin::Vector3d contact_tan1_dot;
-
-    /// The time derivative of the second tangent direction 
-    Ravelin::Vector3d contact_tan2_dot;
 
     /// Impulse that has been applied (for contact constraints)
     /**
@@ -143,12 +121,6 @@ class UnilateralConstraint
     /// Tolerance for the constraint (users never need to modify this)
     double tol;
 
-    /// Sticking tolerance for acceleration-level constraints (users never need to modify this)
-    double stick_tol;
-
-    /// Sustained tolerance for acceleration-level constraints (users never need to modify this)
-    double sustained_tol;
-
     void write_vrml(const std::string& filename, double sphere_radius = 0.1, double normal_length = 1.0) const;
 
   private:
@@ -166,26 +138,12 @@ class UnilateralConstraint
     static Ravelin::MatrixNd JJ, J, Jx, Jy, J1, J2, dJ1, dJ2, workM1, workM2;
     static Ravelin::VectorNd v, workv, workv2;
 
-    // the type of friction contact (acceleration-level only)
-    CoulombFrictionType _ftype;
-    static Ravelin::SAcceld transform(boost::shared_ptr<const Ravelin::Pose3d> pose, const Ravelin::SAcceld& a, const Ravelin::SVelocityd& v);
-    void compute_vconstraint_data(Ravelin::MatrixNd& M, Ravelin::VectorNd& q) const;
-    void compute_cross_vconstraint_data(const UnilateralConstraint& e, Ravelin::MatrixNd& M) const;
-    void compute_aconstraint_data(Ravelin::MatrixNd& M, Ravelin::VectorNd& q) const;
-    void compute_cross_aconstraint_data(const UnilateralConstraint& e, Ravelin::MatrixNd& M) const;	
-    void compute_cross_contact_contact_vconstraint_data(const UnilateralConstraint& e, Ravelin::MatrixNd& M) const;
-    void compute_cross_contact_contact_vconstraint_data(const UnilateralConstraint& e, Ravelin::MatrixNd& M, boost::shared_ptr<Ravelin::DynamicBodyd> su) const;
-    void compute_cross_contact_contact_vconstraint_data(const UnilateralConstraint& e, Ravelin::MatrixNd& M, boost::shared_ptr<Ravelin::DynamicBodyd> su, const Ravelin::MatrixNd& J) const;
-    void compute_cross_contact_limit_vconstraint_data(const UnilateralConstraint& e, Ravelin::MatrixNd& M) const;
-    void compute_cross_limit_contact_vconstraint_data(const UnilateralConstraint& e, Ravelin::MatrixNd& M) const;
-    void compute_cross_limit_limit_vconstraint_data(const UnilateralConstraint& e, Ravelin::MatrixNd& M) const;
-    void compute_cross_contact_contact_aconstraint_data(const UnilateralConstraint& e, Ravelin::MatrixNd& M) const;
-    void compute_cross_contact_contact_aconstraint_data(const UnilateralConstraint& e, Ravelin::MatrixNd& M, boost::shared_ptr<Ravelin::DynamicBodyd> su) const;
-    void compute_cross_contact_contact_aconstraint_data(const UnilateralConstraint& e, Ravelin::MatrixNd& M, boost::shared_ptr<Ravelin::DynamicBodyd> su, const Ravelin::MatrixNd& J) const;
-    void compute_cross_contact_limit_aconstraint_data(const UnilateralConstraint& e, Ravelin::MatrixNd& M) const;
-    void compute_cross_limit_contact_aconstraint_data(const UnilateralConstraint& e, Ravelin::MatrixNd& M) const;
-    void compute_cross_limit_limit_aconstraint_data(const UnilateralConstraint& e, Ravelin::MatrixNd& M) const;
-    void compute_dotv_data(Ravelin::VectorNd& q) const;
+    void compute_cross_contact_contact_constraint_data(const UnilateralConstraint& e, Ravelin::MatrixNd& M) const;
+    void compute_cross_contact_contact_constraint_data(const UnilateralConstraint& e, Ravelin::MatrixNd& M, boost::shared_ptr<Ravelin::DynamicBodyd> su) const;
+    void compute_cross_contact_contact_constraint_data(const UnilateralConstraint& e, Ravelin::MatrixNd& M, boost::shared_ptr<Ravelin::DynamicBodyd> su, const Ravelin::MatrixNd& J) const;
+    void compute_cross_contact_limit_constraint_data(const UnilateralConstraint& e, Ravelin::MatrixNd& M) const;
+    void compute_cross_limit_contact_constraint_data(const UnilateralConstraint& e, Ravelin::MatrixNd& M) const;
+    void compute_cross_limit_limit_constraint_data(const UnilateralConstraint& e, Ravelin::MatrixNd& M) const;
     static bool is_linked(const UnilateralConstraint& e1, const UnilateralConstraint& e2);
     unsigned get_super_bodies(boost::shared_ptr<Ravelin::DynamicBodyd>& sb1, boost::shared_ptr<Ravelin::DynamicBodyd>& sb2) const;
     static void determine_convex_set(std::list<UnilateralConstraint*>& group);

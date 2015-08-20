@@ -117,9 +117,6 @@ void ImpactConstraintHandler::apply_model(const vector<UnilateralConstraint>& co
       for (list<UnilateralConstraint*>::iterator j = i->begin(); j != i->end(); j++)
         FILE_LOG(LOG_CONSTRAINT) << "    constraint: " << std::endl << **j;
 
-      // determine a reduced set of constraints
-      UnilateralConstraint::determine_minimal_set(rconstraints);
-
       // look to see whether all contact constraints have zero or infinite Coulomb friction
       bool all_inf = true, all_frictionless = true;
       BOOST_FOREACH(UnilateralConstraint* e, rconstraints)
