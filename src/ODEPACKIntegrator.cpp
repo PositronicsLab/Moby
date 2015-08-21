@@ -12,10 +12,6 @@ using boost::shared_ptr;
 using namespace Moby;
 using Ravelin::VectorNd;
 
-#ifdef THREADSAFE
-pthread_mutex_t Moby::ODEPACKIntegratorMutex::_odepack_mutex = PTHREAD_MUTEX_INITIALIZER;
-#endif
-
 #ifdef USE_ODEPACK
 extern "C"  {
 
@@ -91,9 +87,6 @@ void ODEPACKIntegrator::integrate(VectorNd& x, VectorNd& (*f)(const VectorNd&, d
   _iwork[6] = 1;             // maximum number of messages printed
 
   // save the derivative function and data
-  #ifdef THREADSAFE
-  pthread_mutex_lock(&ODEPACKIntegratorMutex::_odepack_mutex);
-  #endif
   tnew = time + step_size;
   fn_VectorNd = f;
   fn_data = data;
@@ -102,11 +95,6 @@ void ODEPACKIntegrator::integrate(VectorNd& x, VectorNd& (*f)(const VectorNd&, d
   dlsode_(fdouble_VectorNd, &neq, x.data(), &time, &tout, &itol, 
           &rerr_tolerance, &aerr_tolerance, &itask, &istate, &iopt, 
           &_rwork.front(), &lrw, &_iwork.front(), &liw, NULL, &mf);
-
-  // release the mutex
-  #ifdef THREADSAFE
-  pthread_mutex_unlock(&ODEPACKIntegratorMutex::_odepack_mutex);
-  #endif
 
   // output appropriate error messages, based on istate
   switch (istate)

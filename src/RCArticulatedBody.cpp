@@ -436,7 +436,7 @@ void RCArticulatedBody::compile()
     ridx += _ejoints[i]->num_constraint_eqns();
   }
 
-  // setup explicit joint generalized coordinate and constraint indices
+  // setup implicit joint generalized coordinate and constraint indices
   for (unsigned i=0, cidx = 0, ridx=0; i< _ijoints.size(); i++)
   {
     _ijoints[i]->set_coord_index(cidx);
@@ -1025,13 +1025,12 @@ void RCArticulatedBody::calc_fwd_dyn_loops()
 */
 
 /// Determines the ndof x ngc Jacobian for implicit constraint movement (ndof is the number of degrees of freedom of the implicit constraints)
-// TODO: fix this
 void RCArticulatedBody::determine_implicit_constraint_jacobians(const UnilateralConstraintProblemData& q, MatrixNd& Jx, MatrixNd& Dx) const
 {
 /*
-  SAFESTATIC vector<SVelocityd> so;
-  SAFESTATIC MatrixNd sub, pinv_si;
-  SAFESTATIC VectorNd vsub;
+  vector<SVelocityd> so;
+  MatrixNd sub, pinv_si;
+  VectorNd vsub;
   double Cqi[6], Cqo[6];
   const unsigned NGC = num_generalized_coordinates(DynamicBody::eSpatial);
 
@@ -1178,12 +1177,14 @@ void RCArticulatedBody::determine_implicit_constraint_jacobians(const Unilateral
 }
 
 /// Determines the ndof x ngc Jacobian for implicit constraint movement (ndof is the number of degrees of freedom of the implicit constraints)
-// TODO: fix this
+/*
+ * TODO: seems like we can just replace this w/ si * something...
+ */
 void RCArticulatedBody::determine_implicit_constraint_movement_jacobian(MatrixNd& D)
 {
 /*
-  SAFESTATIC vector<SVelocityd> so;
-  SAFESTATIC MatrixNd sub, pinv_si;
+  vector<SVelocityd> so;
+  MatrixNd sub, pinv_si;
   double Cqi[6], Cqo[6];
   const unsigned NGC = num_generalized_coordinates(DynamicBody::eSpatial);
 
@@ -1309,14 +1310,10 @@ void RCArticulatedBody::determine_implicit_constraint_jacobian(MatrixNd& J)
 */
 
 /// Determines the constraint Jacobian for implicit constraints
-// TODO: fix this
 void RCArticulatedBody::determine_implicit_constraint_jacobian(MatrixNd& J)
 {
-/*
-  SAFESTATIC vector<SVelocityd> so;
-  SAFESTATIC VectorNd sub;
-  double Cqi[6], Cqo[6];
   const unsigned NGC = num_generalized_coordinates(DynamicBody::eSpatial);
+  const unsigned NSPATIAL = 6;
 
   // determine the number of implicit constraint equations
   unsigned NEQ = 0;
@@ -1329,74 +1326,36 @@ void RCArticulatedBody::determine_implicit_constraint_jacobian(MatrixNd& J)
   // get the base link
   RigidBodyPtr base = get_base_link();
 
+  // setup a temporary matrix
+  MatrixNd tmp(NSPATIAL, NGC);
+
   // compute the constraint Jacobian for all implicit constraints
   for (unsigned i=0; i< _ijoints.size(); i++)
   {
     // get the constraint index for this joint
-    unsigned ridx = _ijoints[i]->get_constraint_index();
+    unsigned j = _ijoints[i]->get_constraint_index();
 
     // get the rigid bodies of this joint
     RigidBodyPtr rbi = _ijoints[i]->get_inboard_link();
     RigidBodyPtr rbo = _ijoints[i]->get_outboard_link();
 
-    // get the constraint equations
-    for (unsigned j=0; j< _ijoints[i]->num_constraint_eqns(); j++, ridx++)
-    {
-      // get constraint equations for inner and outer links
-      _ijoints[i]->calc_constraint_jacobian(DynamicBody::eSpatial, rbi, j, Cqi);
-      _ijoints[i]->calc_constraint_jacobian(DynamicBody::eSpatial, rbo, j, Cqo);
+    // get the number of constraint equations for this joint 
+    const unsigned THIS_EQ = _joints[i]->num_constraint_eqns();
 
-      // setup spatial vectors in rbi-centered frame and rbo-centered frame
-      SVector6 svi(Cqi), svo(Cqo);
+    // resize the temporary matrix
+    tmp.resize(THIS_EQ, NGC);
 
-      // special case: floating base
-      if (_floating_base)
-      {
-        RigidBodyPtr base = get_base_link();
-        SpatialTransform X;
-        X.r = base->get_position() - rbi->get_position();
-        SVector6 svix = X.transform(svi);
-        X.r = base->get_position() - rbo->get_position();
-        SVector6 svox = X.transform(svo);
-        for (unsigned k=0; k< 6; k++)
-          J(ridx,k) += svix[k] - svox[k];
-      }
+    // setup the appropriate block of the matrices
+    SharedMatrixNd Cqi = J.block(j, j+THIS_EQ, 0, NGC);
+    SharedMatrixNd Cqo = tmp.block(0, tmp.rows(), 0, NGC);
 
-      // now, loop over explicit joints
-      for (unsigned k=0; k< _ejoints.size(); k++)
-      {
-        // get the links
-        RigidBodyPtr rba = _ejoints[k]->get_inboard_link();
-        RigidBodyPtr rbb = _ejoints[k]->get_outboard_link();
+    // get constraint equations for inner and outer links
+    _ijoints[i]->calc_constraint_jacobian(true, Cqi);
+    _ijoints[i]->calc_constraint_jacobian(false, Cqo);
 
-        // get the coordinate index of the joint
-        unsigned cidx = _ejoints[k]->get_coord_index();
-
-        // get transform for the outboard link
-        const Matrix4& rbbT = rbb->get_pose();
-
-        // get the spatial axes for the joint (in rbb's frame)
-        const vector<SVelocityd>& si = _ejoints[k]->get_spatial_axes(eLink);
-
-        // setup components corresponding to rbi
-        // transform si from rbb's frame to rbi centered frame
-        SpatialTransform X(rbbT, IDENTITY_3x3, rbi->get_position());
-        X.transform(si, so);
-        so.transpose_mult(svi, sub);
-
-        // setup components corresponding to rbo
-        // transform si from rbb's frame to rbo centered frame
-//        SpatialTransform Y(rbbT, IDENTITY_3x3, rbo->get_position());
-//        Y.transform(si, so);
-//        so.transpose_mult(svo, dot);
-//        sub -= dot;
-
-        // update J
-        J.set_sub_mat(ridx,cidx,sub,true);
-      }
-    }
+    // add Cqo to Cqi
+    Cqi += Cqo; 
   }
-*/
 }
 
 /// Determines the time derivative of the constraint Jacobian for implicit constraints
@@ -1404,14 +1363,11 @@ void RCArticulatedBody::determine_implicit_constraint_jacobian(MatrixNd& J)
  * Because this matrix is the product of two matrices, each of which is a
  * function of time, we have to add the results together.
  */
-// TODO: fix this
-void RCArticulatedBody::determine_implicit_constraint_jacobian_dot(MatrixNd& J) const
+/// Determines the constraint Jacobian for implicit constraints
+void RCArticulatedBody::determine_implicit_constraint_jacobian_dot(MatrixNd& J)
 {
-/*
-  SAFESTATIC vector<SVelocityd> so;
-  SAFESTATIC VectorNd sub;
-  double Cqi[6], Cqo[6];
   const unsigned NGC = num_generalized_coordinates(DynamicBody::eSpatial);
+  const unsigned NSPATIAL = 6;
 
   // determine the number of implicit constraint equations
   unsigned NEQ = 0;
@@ -1424,145 +1380,36 @@ void RCArticulatedBody::determine_implicit_constraint_jacobian_dot(MatrixNd& J) 
   // get the base link
   RigidBodyPtr base = get_base_link();
 
-  // Jx * \dot{Jy}
+  // setup a temporary matrix
+  MatrixNd tmp(NSPATIAL, NGC);
+
   // compute the constraint Jacobian for all implicit constraints
   for (unsigned i=0; i< _ijoints.size(); i++)
   {
-    // get the starting constraint index for this joint
-    unsigned ridx = _ijoints[i]->get_constraint_index();
+    // get the constraint index for this joint
+    unsigned j = _ijoints[i]->get_constraint_index();
 
     // get the rigid bodies of this joint
     RigidBodyPtr rbi = _ijoints[i]->get_inboard_link();
     RigidBodyPtr rbo = _ijoints[i]->get_outboard_link();
 
-    // get the constraint equations
-    for (unsigned j=0; j< _ijoints[i]->num_constraint_eqns(); j++, ridx++)
-    {
-      // get constraint equations for inner and outer links
-      _ijoints[i]->calc_constraint_jacobian(DynamicBody::eSpatial, rbi, j, Cqi);
-      _ijoints[i]->calc_constraint_jacobian(DynamicBody::eSpatial, rbo, j, Cqo);
+    // get the number of constraint equations for this joint 
+    const unsigned THIS_EQ = _joints[i]->num_constraint_eqns();
 
-      // setup spatial vectors
-      SVector6 svi(Cqi), svo(Cqo);
+    // resize the temporary matrix
+    tmp.resize(THIS_EQ, NGC);
 
-      // special case: floating base
-      if (_floating_base)
-      {
-        RigidBodyPtr base = get_base_link();
-        SpatialTransform X;
-        X.r = base->get_position() - rbi->get_position();
-        SVector6 svix = X.transform(svi);
-        X.r = base->get_position() - rbo->get_position();
-        SVector6 svox = X.transform(svo);
-        for (unsigned k=0; k< 6; k++)
-          J(ridx,k) += svix[k] - svox[k];
-      }
+    // setup the appropriate block of the matrices
+    SharedMatrixNd Cqi = J.block(j, j+THIS_EQ, 0, NGC);
+    SharedMatrixNd Cqo = tmp.block(0, tmp.rows(), 0, NGC);
 
-      // now, loop over explicit joints
-      for (unsigned k=0; k< _ejoints.size(); k++)
-      {
-        // get the coordinate index for the joint
-        unsigned cidx = _ejoints[k]->get_coord_index();
+    // get constraint equations for inner and outer links
+    _ijoints[i]->calc_constraint_jacobian_dot(true, Cqi);
+    _ijoints[i]->calc_constraint_jacobian_dot(false, Cqo);
 
-        // get the links
-        RigidBodyPtr rba = _ejoints[k]->get_inboard_link();
-        RigidBodyPtr rbb = _ejoints[k]->get_outboard_link();
-
-        // get transform for the outboard link
-        const Matrix4& rbbT = rbb->get_pose();
-
-        // get the time derivative of the spatial axes for the joint
-        const vector<SVelocityd>& si_dot = _ejoints[k]->get_spatial_axes_dot(eLink);
-
-        // setup components corresponding to rbi
-        // transform si from rbb's frame to rbi centered frame
-        SpatialTransform X(rbbT, IDENTITY_3x3, rbi->get_position());
-        X.transform(si_dot, so);
-        so.transpose_mult(svi, sub);
-
-        // setup components corresponding to rbo
-        // transform si from rbb's frame to rbo centered frame
-//        SpatialTransform Y(rbbT, IDENTITY_3x3, rbo->get_position());
-//        Y.transform(si_dot, so);
-//        so.transpose_mult(svo, dot);
-//        sub -= dot;
-
-        // update J
-        J.set_sub_mat(ridx,cidx,sub,true);
-      }
-    }
+    // add Cqo to Cqi
+    Cqi += Cqo; 
   }
-
-  // \dot{Jx} * Jy
-  // compute the constraint Jacobian for all implicit constraints
-  for (unsigned i=0, r=0; i< _ijoints.size(); i++)
-  {
-    // get the starting constraint index for this joint
-    unsigned ridx = _ijoints[i]->get_constraint_index();
-
-    // get the rigid bodies of this joint
-    RigidBodyPtr rbi = _ijoints[i]->get_inboard_link();
-    RigidBodyPtr rbo = _ijoints[i]->get_outboard_link();
-
-    // get the constraint equations
-    for (unsigned j=0; j< _ijoints[i]->num_constraint_eqns(); j++, ridx++)
-    {
-      // get constraint equations for inner and outer links
-      _ijoints[i]->calc_constraint_jacobian_dot(DynamicBody::eSpatial, rbi, j, Cqi);
-      _ijoints[i]->calc_constraint_jacobian_dot(DynamicBody::eSpatial, rbo, j, Cqo);
-
-      // setup spatial vectors
-      SVector6 svi(Cqi), svo(Cqo);
-
-      // special case: floating base
-      if (_floating_base)
-      {
-        RigidBodyPtr base = get_base_link();
-        SpatialTransform X;
-        X.r = base->get_position() - rbi->get_position();
-        SVector6 svix = X.transform(svi);
-        X.r = base->get_position() - rbo->get_position();
-        SVector6 svox = X.transform(svo);
-        for (unsigned k=0; k< 6; k++)
-          J(ridx,k) += svix[k] - svox[k];
-      }
-
-      // now, loop over explicit joints
-      for (unsigned k=0; k< _ejoints.size(); k++)
-      {
-        // get the coordinate index
-        unsigned cidx = _ejoints[k]->get_coord_index();
-
-        // get the links
-        RigidBodyPtr rba = _ejoints[k]->get_inboard_link();
-        RigidBodyPtr rbb = _ejoints[k]->get_outboard_link();
-
-        // get transform for the outboard link
-        const Matrix4& rbbT = rbb->get_pose();
-
-        // get the spatial axes for the joint
-        const vector<SVelocityd>& si = _ejoints[k]->get_spatial_axes(eLink);
-
-        // setup components corresponding to rbi
-        // transform si from rbb's frame to rbi centered frame
-        SpatialTransform X(rbbT, IDENTITY_3x3, rbi->get_position());
-        X.transform(si, so);
-        so.transpose_mult(svi, sub);
-
-        // setup components corresponding to rbo
-        // transform si from rbb's frame to rbo centered frame
-//        SpatialTransform Y(rbbT, IDENTITY_3x3, rbo->get_position());
-//        Y.transform(si, so);
-//        so.transpose_mult(svo, dot);
-//        sub -= dot;
-
-        // update J
-        for (unsigned b=0; b< sub.size(); b++)
-            J(ridx,cidx+b) += sub[b];
-      }
-    }
-  }
-*/
 }
 
 /// Sets the generalized acceleration for this body

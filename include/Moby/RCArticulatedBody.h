@@ -177,7 +177,7 @@ class RCArticulatedBody : public ArticulatedBody
     void determine_implicit_constraint_movement_jacobian(Ravelin::MatrixNd& D);
     void determine_implicit_constraint_jacobians(const UnilateralConstraintProblemData& q, Ravelin::MatrixNd& Jx, Ravelin::MatrixNd& Dx) const;
     void determine_implicit_constraint_jacobian(Ravelin::MatrixNd& J);
-    void determine_implicit_constraint_jacobian_dot(Ravelin::MatrixNd& J) const;
+    void determine_implicit_constraint_jacobian_dot(Ravelin::MatrixNd& J);
     void set_implicit_constraint_forces(const Ravelin::VectorNd& lambda);
 }; // end class
 

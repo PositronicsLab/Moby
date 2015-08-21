@@ -259,10 +259,6 @@ class CompGeom
     static bool test_edge_tri(const Point3d& a, const Point3d& b, const Triangle& t, unsigned i0, unsigned i1);
     static bool test_point_in_tri(const Point3d& p, const Triangle& t, unsigned i0, unsigned i1);
     static bool test_coplanar_tri_tri(const Ravelin::Vector3d& N, const Triangle& t1, const Triangle& t2);
-
-    #ifdef THREADSAFE
-    static pthread_mutex_t _qhull_mutex;
-    #endif
 }; // end class
 
 /// Specialized one-parameter computational geometry routines

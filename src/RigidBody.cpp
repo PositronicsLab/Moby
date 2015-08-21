@@ -108,8 +108,7 @@ void RigidBody::reset_limit_estimates()
   // mark velocity limits as not exceeded
  _vel_limit_exceeded = false;
 
-  shared_ptr<const Pose3d> F_const = boost::const_pointer_cast<const Pose3d>(_F);
-  SVelocityd v = Pose3d::transform(F_const, get_velocity());
+  SVelocityd v = Pose3d::transform(_F, get_velocity());
   for (unsigned i=0; i< SPATIAL_DIM; i++)
   {
     _vel_limit_lo[i] = v[i];
@@ -135,8 +134,7 @@ void RigidBody::update_vel_limits()
   // mark limit as not exceeded
   _vel_limit_exceeded = false;
 
-  shared_ptr<const Pose3d> F_const = boost::const_pointer_cast<const Pose3d>(_F);
-  SVelocityd v = Pose3d::transform(F_const, get_velocity());
+  SVelocityd v = Pose3d::transform(_F, get_velocity());
   for (unsigned i=0; i< SPATIAL_DIM; i++)
   {
     if (v[i] < _vel_limit_lo[i])
@@ -165,8 +163,7 @@ void RigidBody::check_vel_limit_exceeded_and_update()
 {
   const unsigned SPATIAL_DIM = 6;
 
-  shared_ptr<const Pose3d> F_const = boost::const_pointer_cast<const Pose3d>(_F);
-  SVelocityd v = Pose3d::transform(F_const, get_velocity());
+  SVelocityd v = Pose3d::transform(_F, get_velocity());
   for (unsigned i=0; i< SPATIAL_DIM; i++)
   {
     if (v[i] < _vel_limit_lo[i])
@@ -369,6 +366,7 @@ void RigidBody::calc_fwd_dyn()
     SForced f = sum_forces() - calc_euler_torques();
     SAcceld xdd = J.inverse_mult(f);
 
+FILE_LOG(LOG_SIMULATOR) << "Dynamics: " << Pose3d::transform(_F2, xdd, _xdcom) << std::endl;
     // set the acceleration
     switch (_rftype)
     {
@@ -451,8 +449,7 @@ void RigidBody::set_enabled(bool flag)
 void RigidBody::set_velocity(const SVelocityd& xd)
 {
   // set the velocity
-  shared_ptr<const Pose3d> F2_const = boost::const_pointer_cast<const Pose3d>(_F2);
-  _xdcom = Pose3d::transform(F2_const, xd);
+  _xdcom = Pose3d::transform(_F2, xd);
 
   // invalidate the remaining velocities
   _xdi_valid = _xdj_valid = _xdm_valid = _xd0_valid = false;
@@ -681,28 +678,19 @@ const SVelocityd& RigidBody::get_velocity()
 
     case eLink:
       if (!_xdi_valid)
-      {
-        shared_ptr<const Pose3d> F_const = boost::const_pointer_cast<const Pose3d>(_F);
-        _xdi = Pose3d::transform(F_const, _xdcom);
-      }
+        _xdi = Pose3d::transform(_F, _xdcom);
       _xdi_valid = true;
       return _xdi;
 
     case eLinkInertia:
       if (!_xdm_valid)
-      {
-        shared_ptr<const Pose3d> jF_const = boost::const_pointer_cast<const Pose3d>(_jF);
-        _xdm = Pose3d::transform(jF_const, _xdcom);
-      }
+        _xdm = Pose3d::transform(_jF, _xdcom);
       _xdm_valid = true;
       return _xdm;
 
     case eJoint:
       if (!_xdj_valid)
-      {
-        shared_ptr<const Pose3d> F_const = boost::const_pointer_cast<const Pose3d>((is_base()) ? _F : get_inner_joint_explicit()->get_pose());
-        _xdj = Pose3d::transform(F_const,  _xdcom);
-      }
+        _xdj = Pose3d::transform((is_base()) ? _F : get_inner_joint_explicit()->get_pose(), _xdcom);
       _xdj_valid = true;
       return _xdj;
 
@@ -1007,8 +995,7 @@ Vector3d RigidBody::calc_point_vel(const Point3d& point) const
   Vector3d r = Pose3d::transform_point(_F, point);
 
   // get the velocity in the body frame
-  shared_ptr<const Pose3d> F_const = boost::const_pointer_cast<const Pose3d>(_F);
-  SVelocityd xd = Pose3d::transform(F_const, _xd0);
+  SVelocityd xd = Pose3d::transform(_F, _xd0);
 
   // compute the point velocity - in the body frame
   Vector3d pv = xd.get_linear() + Vector3d::cross(xd.get_angular(), r);
@@ -1086,8 +1073,7 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
   XMLAttrib* position_attr = node->get_attrib("position");
   XMLAttrib* rpy_attr = node->get_attrib("rpy");
   XMLAttrib* quat_attr = node->get_attrib("quat");
-  XMLAttrib* aangle_attr = node->get_attrib("aangle");
-  if (position_attr || rpy_attr || quat_attr || aangle_attr)
+  if (position_attr || rpy_attr || quat_attr)
   {
     Pose3d T;
     if (position_attr)
@@ -1096,21 +1082,14 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
       T.q = quat_attr->get_quat_value();
     else if (rpy_attr)
       T.q = rpy_attr->get_rpy_value();
-    else if (aangle_attr)
-    {
-      VectorNd aa_vec;
-      aangle_attr->get_vector_value(aa_vec);
-      T.q = AAngled(aa_vec[0], aa_vec[1], aa_vec[2], aa_vec[3]);
-    }
     set_pose(T);
   }
 
   // read the inertial frame here...
   XMLAttrib* com_attr = node->get_attrib("inertial-relative-com");
   XMLAttrib* J_rpy_attr = node->get_attrib("inertial-relative-rpy");
-  XMLAttrib* J_aangle_attr = node->get_attrib("inertial-relative-aangle");
   XMLAttrib* J_quat_attr = node->get_attrib("inertial-relative-quat");
-  if (com_attr || J_rpy_attr || J_aangle_attr || J_quat_attr)
+  if (com_attr || J_rpy_attr || J_quat_attr)
   {
     shared_ptr<Pose3d> newjF(new Pose3d);
     newjF->rpose = _jF;
@@ -1122,12 +1101,6 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
       newjF->q = J_quat_attr->get_quat_value();
     else if (J_rpy_attr)
       newjF->q = J_rpy_attr->get_rpy_value();
-    else if (J_aangle_attr)
-    {
-      VectorNd aa_vec;
-      aangle_attr->get_vector_value(aa_vec);
-      newjF->q = AAngled(aa_vec[0], aa_vec[1], aa_vec[2], aa_vec[3]);
-    }
 
     // update newjF to refer to _jF's pose
     newjF->update_relative_pose(_jF->rpose);
@@ -1216,18 +1189,11 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
 
       // read the relative transformation, if specified
       XMLAttrib* rel_origin_attr = (*i)->get_attrib("relative-origin");
-      XMLAttrib* rel_aangle_attr = (*i)->get_attrib("relative-aangle");
       XMLAttrib* rel_rpy_attr = (*i)->get_attrib("relative-rpy");
       if (rel_origin_attr)
         rTR->x = rel_origin_attr->get_origin_value();
       if (rel_rpy_attr)
         rTR->q = rel_rpy_attr->get_rpy_value();
-      else if (rel_aangle_attr)
-      {
-        VectorNd aa_vec;
-        aangle_attr->get_vector_value(aa_vec);
-        rTR->q = AAngled(aa_vec[0], aa_vec[1], aa_vec[2], aa_vec[3]);
-      }
       rTR->rpose = Fxx;
       Jx.pose = rTR;
 
@@ -1337,8 +1303,7 @@ void RigidBody::save_to_xml(XMLTreePtr node, list<shared_ptr<const Base> >& shar
   shared_ptr<Pose3d> TARGET(new Pose3d);
   TARGET->rpose = _F;
   TARGET->q = Quatd::invert(_F->q);
-    shared_ptr<const Pose3d> TARGET_const = boost::const_pointer_cast<const Pose3d>(TARGET);
-  SVelocityd v = Pose3d::transform(TARGET_const, _xd0);
+  SVelocityd v = Pose3d::transform(TARGET, _xd0);
   node->attribs.insert(XMLAttrib("linear-velocity", v.get_linear()));
   node->attribs.insert(XMLAttrib("angular-velocity", v.get_angular()));
 
@@ -1507,8 +1472,7 @@ void RigidBody::apply_impulse(const SMomentumd& w)
     SVelocityd dxd = get_inertia().inverse_mult(wx);
 
     // update linear and angular velocities
-    shared_ptr<const Pose3d> F2_const = boost::const_pointer_cast<const Pose3d>(_F2);
-    _xdcom += Pose3d::transform(F2_const, dxd);
+    _xdcom += Pose3d::transform(_F2, dxd);
 
     // see whether we can update any velocities
     if (dxd.pose == _F)
@@ -1817,19 +1781,6 @@ SharedVectorNd& RigidBody::get_generalized_velocity(GeneralizedCoordinateType gc
     get_generalized_velocity_generic(gctype, gv);
 
   return gv;
-}
-
-/// Sets the generalized acceleration of this rigid body
-void RigidBody::set_generalized_acceleration(const SharedVectorNd& ga)
-{
-  // if this body part of an articulated body, call that function instead
-  if (!_abody.expired())
-  {
-    ArticulatedBodyPtr ab(_abody);
-    ab->set_generalized_acceleration(ga);
-  }
-  else
-    set_generalized_acceleration_generic(ga);
 }
 
 /// Gets the generalized acceleration of this body
@@ -2304,5 +2255,4 @@ std::ostream& Moby::operator<<(std::ostream& out, Moby::RigidBody& rb)
 
   return out;
 }
-
 

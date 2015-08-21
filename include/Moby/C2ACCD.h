@@ -92,9 +92,6 @@ class C2ACCD : public CollisionDetection
     template <class InputIterator, class OutputIterator>
     OutputIterator get_vertices(const IndexedTriArray& tris, InputIterator fselect_begin, InputIterator fselect_end, OutputIterator output);
 
-    // lock for the contact set 
-    pthread_mutex_t _contact_mutex;
-
     // mapping from CollisionGeometry pointers to root SSRs
     std::map<CollisionGeometryPtr, boost::shared_ptr<SSR> > _root_SSRs;
 

@@ -392,7 +392,7 @@ double PlanePrimitive::calc_signed_dist(shared_ptr<const SpherePrimitive> s, Poi
   Point3d ps_c(0.0, 0.0, 0.0, ps.pose);
   Point3d ps_c_this = T.transform_point(ps_c);
 
-  // get the lowest point on the sphere (toward the heightmap)
+  // get the lowest point on the sphere (toward the plane)
   Vector3d vdir(0.0, -1.0*s->get_radius(), 0.0, pthis.pose);
 
   // get the lowest point on the sphere

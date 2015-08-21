@@ -141,6 +141,7 @@ class Joint : public Visualizable, public virtual Ravelin::Jointd
   protected:
     void determine_q_dot();
     void invalidate_pose_vectors() { get_outboard_link()->invalidate_pose_vectors(); }
+    void convert_to_gc(Ravelin::MatrixNd& Jin, Ravelin::MatrixNd& Jout);
 
     /// Computes the constraint Jacobian for this joint with respect to the given body in Rodrigues parameters
     /**

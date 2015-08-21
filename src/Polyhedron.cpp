@@ -24,6 +24,51 @@ using std::make_pair;
 using std::endl;
 using std::list;
 
+#define CREATE_LOOKUP(vA, vB, eAB) { \
+if ((vei = v_edges.find(std::make_pair(vA, vB))) != v_edges.end()) \
+{ \
+  eAB = vei->second; \
+  if (cw) \
+  { \
+    assert(!eAB->face1); \
+    eAB->face1 = f; \
+  } \
+  else \
+  { \
+    assert(!eAB->face2); \
+    eAB->face2 = f; \
+  } \
+} \
+else if ((vei = v_edges.find(std::make_pair(vB, vA))) != v_edges.end()) \
+{ \
+  eAB = vei->second; \
+  if (cw) \
+  { \
+    assert(!eAB->face2); \
+    eAB->face2 = f; \
+  } \
+  else \
+  { \
+    assert(!eAB->face1); \
+    eAB->face1 = f; \
+  } \
+} \
+else \
+{ \
+  eAB = boost::shared_ptr<Polyhedron::Edge>(new Polyhedron::Edge); \
+  v_edges[std::make_pair(vA, vB)] = eAB; \
+  if (cw) \
+    eAB->face1 = f; \
+  else \
+    eAB->face2 = f; \
+  eAB->v1 = vertex_map[vA->point]; \
+  eAB->v2 = vertex_map[vB->point]; \
+  poly._edges.push_back(eAB); \
+  eAB->v1->e.push_back(eAB); \
+  eAB->v2->e.push_back(eAB); \
+} \
+}
+
 /// Gets the plane containing a face
 Plane Polyhedron::Face::get_plane() const
 {
@@ -100,9 +145,11 @@ Polyhedron& Polyhedron::operator=(const Polyhedron& p)
  *         is the index of a vertex from the first polyhedron and the second
  *         integer is the index of a vertex from the second polyhedron.
  */
-/*
 Polyhedron Polyhedron::calc_minkowski_diff(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<const PolyhedralPrimitive> pB, shared_ptr<const Pose3d> poseA, shared_ptr<const Pose3d> poseB)
 {
+  const unsigned X = 0, Y = 1, Z = 2;
+  const int DIM = 3;
+
   // get the vertices of A
   vector<Point3d> vA;
   pA->get_vertices(poseA, vA);
@@ -121,27 +168,40 @@ Polyhedron Polyhedron::calc_minkowski_diff(shared_ptr<const PolyhedralPrimitive>
   for (unsigned i=0; i< vB.size(); i++)
     vB[i] = wTposeB.transform_point(vB[i]);
 
-  // subtract vertices of B from vertices of A in the global frame
+  // subtract vertices of B from vertices of A in the global frame, saving
+  // original vertices that they came from
   const unsigned NVERTS = vA.size() * vB.size();
-  vector<shared_ptr<Polyhedron::Vertex> > vnew(NVERTS);
+  vector<shared_ptr<Polyhedron::Vertex> > verts(NVERTS);
   for (unsigned i=0, k=0; i< vA.size(); i++)
     for (unsigned j=0; j< vB.size(); j++, k++)
     {
-      vnew[k] = shared_ptr<Polyhedron::Vertex>(new Polyhedron::Vertex);
-      vnew[k]->o = Origin3d(vA[i]) - Origin3d(vB[j]); 
+      verts[k] = shared_ptr<Polyhedron::Vertex>(new Polyhedron::Vertex);
+      verts[k]->o = Origin3d(vA[i]) - Origin3d(vB[j]); 
       shared_ptr<std::pair<int, int> > intpair(new std::pair<int, int>(i, j));
-      vnew[k]->data = intpair;
+      verts[k]->data = intpair;
     }
 
-  // ******************* compute convex hull begins *******************
-  const unsigned X = 0, Y = 1, Z = 2;
+  // setup mapping for qhull
+  map<coordT*, shared_ptr<Polyhedron::Vertex> > vertex_map;
+  vector<coordT> qhull_points;
+  qhull_points.resize(NVERTS*DIM);
+  coordT* points_begin = &qhull_points.front();
+  unsigned j=0;
+  for (unsigned i=0, j=0; i< NVERTS; i++)
+  {
+    vertex_map[points_begin+j] = verts[i];
+    qhull_points[j++] = verts[i]->o[X];
+    qhull_points[j++] = verts[i]->o[Y];
+    qhull_points[j++] = verts[i]->o[Z];
+  }
+
+  // ******************* prepare to calculate convex hull *******************
   int exit_code;
   int curlong, totlong;
   char flags[] = "qhull Fx";  // TODO: remove Fx option?
   FILE* outfile, * errfile;
 
   // setup constants for qhull
-  const int DIM = 3;
   const int N_POINTS = NVERTS; 
   const boolT IS_MALLOC = false;
   if (N_POINTS < 4)
@@ -160,42 +220,14 @@ Polyhedron Polyhedron::calc_minkowski_diff(shared_ptr<const PolyhedralPrimitive>
     assert(errfile);
   } 
 
-  // setup the points
-  std::map<coordT*, boost::shared_ptr<Polyhedron::Vertex> > vertex_map;
-  std::vector<coordT> qhull_points;
-  qhull_points.resize(N_POINTS*DIM);
-  coordT* points_begin = &qhull_points.front();
-  unsigned j=0;
-  for (unsigned i = 0, j=0; i< NVERTS; i++) 
-  {
-    vertex_map[points_begin+j] = vnew[i];
-    qhull_points[j++] = vnew[i]->o[X];
-    qhull_points[j++] = vnew[i]->o[Y];
-    qhull_points[j++] = vnew[i]->o[Z];
-  }
-
-  // lock the qhull mutex -- qhull is non-reentrant
-  #ifdef THREADSAFE
-  pthread_mutex_lock(&CompGeom::_qhull_mutex);
-  #endif  
-
+  // construct the convex hull
   // execute qhull  
   exit_code = qh_new_qhull(DIM, N_POINTS, points_begin, IS_MALLOC, flags, outfile, errfile);
-  if (exit_code != 0)
+  if (exit_code)
   {
-    // points are not collinear.. unsure of the error...
-    FILE_LOG(LOG_COMPGEOM) << "Polyhedron::calc_convex_hull() - unable to execute qhull on points:" << std::endl;
-    for (unsigned i=0; i< NVERTS; i++)
-      FILE_LOG(LOG_COMPGEOM) << "  " << vnew[i] << std::endl;
-
     // free qhull memory
     qh_freeqhull(!qh_ALL);
     qh_memfreeshort(&curlong, &totlong);
-
-    // release the mutex, since we're not using qhull anymore
-    #ifdef THREADSAFE
-    pthread_mutex_unlock(&CompGeom::_qhull_mutex);
-    #endif
 
     // close the error stream, if necessary
     if (!LOGGING(LOG_COMPGEOM))
@@ -224,6 +256,9 @@ Polyhedron Polyhedron::calc_minkowski_diff(shared_ptr<const PolyhedralPrimitive>
       FILE_LOG(LOG_COMPGEOM) << "vertex " << i << ": " << poly._vertices[i]->o << std::endl;
   }
 
+  // triangulate
+  qh_triangulate();
+
   // need maps for new edges created for simplicial and non-simplicial facets
   std::map<std::pair<vertexT*, vertexT*>, boost::shared_ptr<Polyhedron::Edge> > v_edges;
   std::map<ridgeT*, boost::shared_ptr<Polyhedron::Edge> > r_edges;
@@ -240,13 +275,13 @@ Polyhedron Polyhedron::calc_minkowski_diff(shared_ptr<const PolyhedralPrimitive>
     // create a new facet
     boost::shared_ptr<Polyhedron::Face> f(new Polyhedron::Face);
 
-    // see how the facet is oriented
-    bool cw = (facet->toporient ^ qh_ORIENTclock);
-
     // see whether the facet is simplicial- it changes how we must process
     // edges
     if (facet->simplicial)
     {
+      // see how the facet is oriented
+      bool cw = (facet->toporient ^ qh_ORIENTclock);
+
       // edges will be between each vertex; get all vertices in the facet
       vertexT** vertex_pointer = (vertexT**)& ((facet->vertices)->e[0].p); 
       vertexT* v1 = *vertex_pointer++;
@@ -262,13 +297,25 @@ Polyhedron Polyhedron::calc_minkowski_diff(shared_ptr<const PolyhedralPrimitive>
       CREATE_LOOKUP(v3, v1, e31);
 
       // add all three edges to the face
-      f->e.push_back(e12);
-      f->e.push_back(e23);
-      f->e.push_back(e31);
+      if (!cw)
+      {
+        f->e.push_back(e12);
+        f->e.push_back(e23);
+        f->e.push_back(e31);
+      }
+      else
+      {
+        f->e.push_back(e12);
+        f->e.push_back(e31);
+        f->e.push_back(e23);
+      }
       assert(e12 != e23 && e12 != e31 && e23 != e31);
     }
     else
     {
+      // setup lists of ccw vertices
+      std::list<vertexT*> ccw_vertices;
+
       // facet is non-simplicial; iterate over the "ridges" (edges)
       ridgeT* ridge;    // for iterating...
       ridgeT** ridgep;  // ...over ridges
@@ -276,6 +323,9 @@ Polyhedron Polyhedron::calc_minkowski_diff(shared_ptr<const PolyhedralPrimitive>
       {
         // setup the edge
         boost::shared_ptr<Polyhedron::Edge> e;
+
+        // get whether the ridge is cw or ccw
+        bool cw = ((ridge->top == facet) ^ qh_ORIENTclock);
 
         // see whether the ridge/edge is already in the map
         std::map<ridgeT*, boost::shared_ptr<Polyhedron::Edge> >::const_iterator new_edge_iter = r_edges.find(ridge);
@@ -289,19 +339,44 @@ Polyhedron Polyhedron::calc_minkowski_diff(shared_ptr<const PolyhedralPrimitive>
           // get the pointer to the vertices of the ridge
           vertexT** vertex_pointer = (vertexT**)& ((ridge->vertices)->e[0].p); 
           vertexT* vertex = *vertex_pointer;
+          vertexT* v1 = *vertex_pointer;
+          vertexT* v2 = *++vertex_pointer;
 
           // setup the vertices
-          e->v1 = vertex_map[vertex->point];
-          vertex = *++vertex_pointer;
-          e->v2 = vertex_map[vertex->point];
+          e->v1 = vertex_map[v1->point];
+          e->v2 = vertex_map[v2->point];
           assert(e->v1 != e->v2);
 
           // add edge to the vertices
           e->v1->e.push_back(e);
           e->v2->e.push_back(e);
+
+          // add the edge
+          v_edges[std::make_pair(v1, v2)] = e;
+          if (cw) 
+            e->face1 = f;
+          else
+            e->face2 = f;
         }
         else
           e = new_edge_iter->second;
+
+        // get the pointer to the vertices of the ridge
+        vertexT** vertex_pointer = (vertexT**)& ((ridge->vertices)->e[0].p); 
+        vertexT* vertex = *vertex_pointer;
+        vertexT* v1 = *vertex_pointer;
+        vertexT* v2 = *++vertex_pointer;
+
+        // setup the vertices
+        vertexT* mini_list[2];
+        mini_list[0] = v1;
+        mini_list[1] = v2;
+
+        // add vertices to the list
+        if (cw)
+          std::swap(mini_list[0], mini_list[1]);
+        ccw_vertices.push_back(mini_list[0]);
+        ccw_vertices.push_back(mini_list[1]);
 
         // setup face- we'll use the convention that face1 is qhull's top
         // and face2 is qhull's bottom
@@ -309,8 +384,28 @@ Polyhedron Polyhedron::calc_minkowski_diff(shared_ptr<const PolyhedralPrimitive>
           e->face1 = f;
         else
           e->face2 = f;
+      }
 
-        // add the edge to the face
+      // now setup the edge traversal 
+      std::list<vertexT*>::const_iterator ccw_iter = ccw_vertices.begin();
+      while (ccw_iter != ccw_vertices.end())
+      {
+        // get two vertices
+        vertexT* v1 = *ccw_iter++;
+        vertexT* v2 = *ccw_iter++;
+ 
+        // setup the edge
+        boost::shared_ptr<Polyhedron::Edge> e;
+
+        // lookup the edge
+        if ((vei = v_edges.find(std::make_pair(v1, v2))) != v_edges.end())
+          e = vei->second;
+        else if ((vei = v_edges.find(std::make_pair(v2, v1))) != v_edges.end())
+          e = vei->second;
+        else
+          assert(false);
+
+        // add it to the list
         f->e.push_back(e);
       }
     }
@@ -355,66 +450,6 @@ Polyhedron Polyhedron::calc_minkowski_diff(shared_ptr<const PolyhedralPrimitive>
         #ifndef NDEBUG
         FILE_LOG(LOG_COMPGEOM) << "  against edge " << emap[e2] << std::endl;
         #endif
-
-        // look for edges matching up
-        if (e->face2 == f)
-        {
-          if (e2->face2 == f)
-          {
-            if (e->v2 == e2->v1)
-            {
-              e->nextL = e2;
-              e2->prevL = e;
-            }
-            else if (e->v1 == e2->v2)
-            {
-              e->prevL = e2;
-              e2->nextL = e;
-            }
-          }
-          else
-          {
-            if (e->v2 == e2->v2)
-            {
-              e->nextL = e2;
-              e2->nextR = e;
-            }
-            else if (e->v1 == e2->v1)
-            {
-              e->prevL = e2;
-              e2->prevR = e;
-            }
-          }
-        }
-        else if (e->face1 == f)
-        {
-          if (e2->face1 == f)
-          {
-            if (e->v2 == e2->v1)
-            {
-              e->nextR = e2;
-              e2->prevR = e;
-            }
-            else if (e->v1 == e2->v1)
-            {
-              e->prevR = e2;
-              e2->nextR = e;
-            }
-          }
-          else if (e2->face2 == f)
-          {
-            if (e->v2 == e2->v2)
-            {
-              e->nextR = e2;
-              e2->nextL = e;
-            }
-            else if (e->v1 == e2->v1)
-            {
-              e->prevR = e2;
-              e2->prevL = e;
-            }
-          }
-        } 
       }
     }      
   }
@@ -422,11 +457,6 @@ Polyhedron Polyhedron::calc_minkowski_diff(shared_ptr<const PolyhedralPrimitive>
   // free qhull memory
   qh_freeqhull(!qh_ALL);
   qh_memfreeshort(&curlong, &totlong);
-
-  // release the qhull mutex
-  #ifdef THREADSAFE
-  pthread_mutex_unlock(&CompGeom::_qhull_mutex);
-  #endif 
 
   // close the error stream, if necessary
   if (!LOGGING(LOG_COMPGEOM))
@@ -439,11 +469,8 @@ Polyhedron Polyhedron::calc_minkowski_diff(shared_ptr<const PolyhedralPrimitive>
   // calculate the axis-aligned bounding box  
   poly.calc_bounding_box();
 
-  // ******************* compute convex hull ends *******************
-
   return poly;
 }
-*/
 
 /// Calculates the bounding box
 void Polyhedron::calc_bounding_box()

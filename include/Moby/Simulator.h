@@ -90,6 +90,9 @@ class Simulator : public virtual Base
     /// The set of bodies in the simulation
     std::vector<DynamicBodyPtr> _bodies;
   
+    // implicit joint constraints that don't "belong" to any one body
+    std::vector<JointPtr> _implicit_constraints;
+
     /// The derivative at the current time
     Ravelin::VectorNd _current_dx;
 
@@ -101,6 +104,7 @@ class Simulator : public virtual Base
 
   private:
     static Ravelin::VectorNd& ode(const Ravelin::VectorNd& x, double t, double dt, void* data, Ravelin::VectorNd& dx);
+    void find_islands(std::vector<std::vector<DynamicBodyPtr> >& islands);    
 }; // end class
 
 // include inline functions

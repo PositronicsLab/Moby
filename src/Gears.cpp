@@ -35,6 +35,32 @@ Gears::Gears(boost::weak_ptr<RigidBody> inboard, boost::weak_ptr<RigidBody> outb
   _ratio = 1.0;
 }  
 
+/// Evaluates the joint constraint
+void Gears::evaluate_constraints(double C[])
+{
+  // constraint always evaluates to zero
+  C[0] = 0.0;
+}
+
+/// Evaluates the time derivative of the constraint
+void Gears::evaluate_constraint_dot(double C[])
+{
+  // constraint always evaluates to zero
+  C[0] = 0.0;
+}
+
+/// Computes the constraint Jacobian
+void Gears::calc_constraint_jacobian(bool inboard, SharedMatrixNd& Cq)
+{
+  // TODO: setup the relationship
+}
+
+/// Computes the time derivative of the constraint Jacobian
+void Gears::calc_constraint_jacobian_dot(bool inboard, SharedMatrixNd& Cq)
+{
+  // TODO: setup the relationship
+}
+
 /// Implements Base::load_from_xml()
 void Gears::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {
@@ -47,7 +73,7 @@ void Gears::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, 
   // read the gear ratio, if given
   XMLAttrib* gear_ratio_attrib = node->get_attrib("gear-ratio");
   if (gear_ratio_attrib)
-    gear_ratio_attrib->get_real_value(_ratio);
+    _ratio = gear_ratio_attrib->get_real_value();
 }
 
 /// Implements Base::save_to_xml()

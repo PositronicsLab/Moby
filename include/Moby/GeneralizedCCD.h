@@ -151,12 +151,6 @@ class GeneralizedCCD : public CollisionDetection
     /// Swept BVs computed during last call to is_contact/update_contacts()
     std::map<CollisionGeometryPtr, std::map<BVPtr, BVPtr> > _swept_BVs;
 
-    // lock for the contact map
-    pthread_mutex_t _contact_mutex;
-
-    // lock for the swept BVs
-    pthread_mutex_t _swept_BVs_mutex;
-
     /// AABB bounds (x-axis)
     std::vector<std::pair<double, BoundsStruct> > _x_bounds;
 

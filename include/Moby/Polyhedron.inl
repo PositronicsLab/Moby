@@ -106,11 +106,6 @@ Polyhedron Polyhedron::calc_convex_hull(ForwardIterator begin, ForwardIterator e
     qhull_points[j++] = verts[i]->o[Z];
   }
 
-  // lock the qhull mutex -- qhull is non-reentrant
-  #ifdef THREADSAFE
-  pthread_mutex_lock(&CompGeom::_qhull_mutex);
-  #endif  
-
   // execute qhull  
   exit_code = qh_new_qhull(DIM, N_POINTS, points_begin, IS_MALLOC, flags, outfile, errfile);
   if (exit_code != 0)
@@ -123,11 +118,6 @@ Polyhedron Polyhedron::calc_convex_hull(ForwardIterator begin, ForwardIterator e
     // free qhull memory
     qh_freeqhull(!qh_ALL);
     qh_memfreeshort(&curlong, &totlong);
-
-    // release the mutex, since we're not using qhull anymore
-    #ifdef THREADSAFE
-    pthread_mutex_unlock(&CompGeom::_qhull_mutex);
-    #endif
 
     // close the error stream, if necessary
     if (!LOGGING(LOG_COMPGEOM))
@@ -357,11 +347,6 @@ Polyhedron Polyhedron::calc_convex_hull(ForwardIterator begin, ForwardIterator e
   // free qhull memory
   qh_freeqhull(!qh_ALL);
   qh_memfreeshort(&curlong, &totlong);
-
-  // release the qhull mutex
-  #ifdef THREADSAFE
-  pthread_mutex_unlock(&CompGeom::_qhull_mutex);
-  #endif 
 
   // close the error stream, if necessary
   if (!LOGGING(LOG_COMPGEOM))

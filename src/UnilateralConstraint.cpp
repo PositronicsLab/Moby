@@ -22,8 +22,6 @@
 
 #include <Moby/Constants.h>
 #include <Moby/CompGeom.h>
-#include <Moby/SingleBody.h>
-#include <Moby/Spatial.h>
 #include <Moby/RigidBody.h>
 #include <Moby/RCArticulatedBody.h>
 #include <Moby/CollisionGeometry.h>

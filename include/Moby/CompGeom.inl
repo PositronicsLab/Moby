@@ -263,11 +263,6 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Point3d*>::calc_
     j += DIM;
   }
 
-  // lock the qhull mutex -- qhull is non-reentrant
-  #ifdef THREADSAFE
-  pthread_mutex_lock(&CompGeom::_qhull_mutex);
-  #endif  
-
   // execute qhull  
   exit_code = qh_new_qhull(DIM, N_POINTS, points_begin, IS_MALLOC, flags, outfile, errfile);
   if (exit_code != 0)
@@ -280,11 +275,6 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Point3d*>::calc_
     // free qhull memory
     qh_freeqhull(!qh_ALL);
     qh_memfreeshort(&curlong, &totlong);
-
-    // release the mutex, since we're not using qhull anymore
-    #ifdef THREADSAFE
-    pthread_mutex_unlock(&CompGeom::_qhull_mutex);
-    #endif
 
     // close the error stream, if necessary
     if (!LOGGING(LOG_COMPGEOM))
@@ -302,11 +292,6 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Point3d*>::calc_
   // free qhull memory
   qh_freeqhull(!qh_ALL);
   qh_memfreeshort(&curlong, &totlong);
-
-  // release the qhull mutex
-  #ifdef THREADSAFE
-  pthread_mutex_unlock(&CompGeom::_qhull_mutex);
-  #endif 
 
   // close the error stream, if necessary
   if (!LOGGING(LOG_COMPGEOM))
@@ -789,11 +774,6 @@ TessellatedPolyhedronPtr CompGeomSpecOne<ForwardIterator, Point3d>::calc_convex_
   for (ForwardIterator i = first; i != last; i++)
     FILE_LOG(LOG_COMPGEOM) << *i << std::endl;
 
-  // lock the qhull mutex -- qhull is non-reentrant
-  #ifdef THREADSAFE
-  pthread_mutex_lock(&CompGeom::_qhull_mutex);
-  #endif  
-
   // execute qhull  
   exit_code = qh_new_qhull(DIM, N_POINTS, points_begin, IS_MALLOC, flags, outfile, errfile);
   if (exit_code)
@@ -801,11 +781,6 @@ TessellatedPolyhedronPtr CompGeomSpecOne<ForwardIterator, Point3d>::calc_convex_
     // free qhull memory
     qh_freeqhull(!qh_ALL);
     qh_memfreeshort(&curlong, &totlong);
-
-    // qhull failed -- perhaps the dimensionality is 2 rather than 3?
-    #ifdef THREADSAFE
-    pthread_mutex_unlock(&CompGeom::_qhull_mutex);
-    #endif
 
     // close the error stream, if necessary
     if (!LOGGING(LOG_COMPGEOM))
@@ -869,11 +844,6 @@ TessellatedPolyhedronPtr CompGeomSpecOne<ForwardIterator, Point3d>::calc_convex_
   qh_memfreeshort(&curlong, &totlong);
   assert(!curlong && !totlong);
   
-  // release the qhull mutex
-  #ifdef THREADSAFE
-  pthread_mutex_unlock(&CompGeom::_qhull_mutex);
-  #endif  
-
   // if the there aren't enough triangles, can't create the polyhedron
   assert(facets.size() >= 4);
 
@@ -1709,11 +1679,6 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Point2d>::calc_c
     j += DIM;
   }
 
-  // lock the qhull mutex -- qhull is non-reentrant
-  #ifdef THREADSAFE
-  pthread_mutex_lock(&CompGeom::_qhull_mutex);
-  #endif  
-
   // execute qhull  
   exit_code = qh_new_qhull(DIM, N_POINTS, points_begin, IS_MALLOC, flags, outfile, errfile);
   if (exit_code != 0)
@@ -1726,11 +1691,6 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Point2d>::calc_c
     // free qhull memory
     qh_freeqhull(!qh_ALL);
     qh_memfreeshort(&curlong, &totlong);
-
-    // release the mutex, since we're not using qhull anymore
-    #ifdef THREADSAFE
-    pthread_mutex_unlock(&CompGeom::_qhull_mutex);
-    #endif
 
     // close the error stream, if necessary
     if (!LOGGING(LOG_COMPGEOM))
@@ -1764,11 +1724,6 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Point2d>::calc_c
   // free qhull memory
   qh_freeqhull(!qh_ALL);
   qh_memfreeshort(&curlong, &totlong);
-
-  // release the qhull mutex
-  #ifdef THREADSAFE
-  pthread_mutex_unlock(&CompGeom::_qhull_mutex);
-  #endif  
 
   // construct the set of processed vertex
   std::set<Point2d*> processed;
@@ -2418,11 +2373,6 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Point2d*>::calc_
     j += DIM;
   }
 
-  // lock the qhull mutex -- qhull is non-reentrant
-  #ifdef THREADSAFE
-  pthread_mutex_lock(&CompGeom::_qhull_mutex);
-  #endif  
-
   // execute qhull  
   exit_code = qh_new_qhull(DIM, N_POINTS, points_begin, IS_MALLOC, flags, outfile, errfile);
   if (exit_code != 0)
@@ -2435,11 +2385,6 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Point2d*>::calc_
     // free qhull memory
     qh_freeqhull(!qh_ALL);
     qh_memfreeshort(&curlong, &totlong);
-
-    // release the mutex, since we're not using qhull anymore
-    #ifdef THREADSAFE
-    pthread_mutex_unlock(&CompGeom::_qhull_mutex);
-    #endif
 
     // close the error stream, if necessary
     if (!LOGGING(LOG_COMPGEOM))
@@ -2474,11 +2419,6 @@ OutputIterator CompGeomSpecTwo<ForwardIterator, OutputIterator, Point2d*>::calc_
   // free qhull memory
   qh_freeqhull(!qh_ALL);
   qh_memfreeshort(&curlong, &totlong);
-
-  // release the qhull mutex
-  #ifdef THREADSAFE
-  pthread_mutex_unlock(&CompGeom::_qhull_mutex);
-  #endif  
 
   // construct the set of processed vertex
   std::set<Point2d*> processed;
@@ -2668,11 +2608,6 @@ TessellatedPolyhedronPtr CompGeom::calc_hs_intersection(ForwardIterator start, F
     j += DIM;
   }
 
-  // lock the qhull mutex -- qhull is non-reentrant
-  #ifdef THREADSAFE
-  pthread_mutex_lock(&CompGeom::_qhull_mutex);
-  #endif
-
   // execute qhull
   int exit_code = qh_new_qhull(DIM, nspaces, qhull_hs.get(), IS_MALLOC, (char*) flags.str().c_str(), outfile, errfile);
   if (exit_code)
@@ -2680,11 +2615,6 @@ TessellatedPolyhedronPtr CompGeom::calc_hs_intersection(ForwardIterator start, F
     // free qhull memory
     qh_freeqhull(!qh_ALL);
     qh_memfreeshort(&curlong, &totlong);
-
-    // qhull failed
-    #ifdef THREADSAFE
-    pthread_mutex_unlock(&CompGeom::_qhull_mutex);
-    #endif
 
     // close the error stream, if necessary
     if (!LOGGING(LOG_COMPGEOM))
@@ -2742,11 +2672,6 @@ TessellatedPolyhedronPtr CompGeom::calc_hs_intersection(ForwardIterator start, F
   qh_memfreeshort(&curlong, &totlong);
   assert(!curlong && !totlong);
   
-  // release the qhull mutex
-  #ifdef THREADSAFE
-  pthread_mutex_unlock(&CompGeom::_qhull_mutex);
-  #endif
-
   // now, calculate the convex hull of the intersection points  
   TessellatedPolyhedronPtr p = calc_convex_hull(points.begin(), points.end());
 

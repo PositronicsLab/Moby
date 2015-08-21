@@ -17,14 +17,6 @@
 
 namespace Moby {
 
-class ODEPACKIntegratorMutex
-{
-  public:
-    #ifdef THREADSAFE
-    static pthread_mutex_t _odepack_mutex;
-    #endif
-};
-
 /// A class for performing integration using the ODEPACK library (optional)
 class ODEPACKIntegrator : public VariableStepIntegrator
 {

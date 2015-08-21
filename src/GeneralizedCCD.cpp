@@ -60,8 +60,6 @@ GeneralizedCCD::GeneralizedCCD()
 {
   eps_tolerance = std::sqrt(std::numeric_limits<double>::epsilon());
   _max_dexp = std::numeric_limits<unsigned>::max();
-  pthread_mutex_init(&_contact_mutex, NULL);
-  pthread_mutex_init(&_swept_BVs_mutex, NULL);
   _rebuild_bounds_vecs = true;
   return_all_contacts = true;
 }
@@ -553,19 +551,8 @@ void GeneralizedCCD::check_geoms(double dt, CollisionGeometryPtr a, const PosePa
       }
   }
   else
-  {
-    #ifdef _OPENMP
-    pthread_mutex_lock(&_contact_mutex);
-    #endif
-
-    // insert the contacts from these geometries into the contact map of all
     // geometries
     contacts.insert(contacts.end(), local_contacts.begin(), local_contacts.end());
-
-    #ifdef _OPENMP
-    pthread_mutex_unlock(&_contact_mutex);
-    #endif
-  }
 
   if (LOGGING(LOG_COLDET))
   {
@@ -693,13 +680,7 @@ BVPtr GeneralizedCCD::get_swept_BV(CollisionGeometryPtr cg, BVPtr bv, const Pose
 
   // see whether the velocity-expanded BV has already been calculated
   map<BVPtr, BVPtr>::const_iterator vj;
-  #ifdef _OPENMP
-  pthread_mutex_lock(&_swept_BVs_mutex);
-  #endif
   vj = vi->second.find(bv);
-  #ifdef _OPENMP
-  pthread_mutex_unlock(&_swept_BVs_mutex);
-  #endif
   if (vj != vi->second.end())
     return vj->second;
 
@@ -718,13 +699,7 @@ BVPtr GeneralizedCCD::get_swept_BV(CollisionGeometryPtr cg, BVPtr bv, const Pose
   FILE_LOG(LOG_BV) << "new BV: " << swept_bv << std::endl;
 
   // store the bounding volume
-  #ifdef _OPENMP
-  pthread_mutex_lock(&_swept_BVs_mutex);
-  #endif
   vi->second[bv] = swept_bv;
-  #ifdef _OPENMP
-  pthread_mutex_unlock(&_swept_BVs_mutex);
-  #endif
 
   return swept_bv;
 }

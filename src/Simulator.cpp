@@ -185,6 +185,116 @@ double Simulator::step(double step_size)
   return step_size;
 }
 
+/*
+/// Computes forward dynamics for an island with given implicit constraints
+void Simulator::calc_fwd_dyn(const std::vector<DynamicBodyPtr>& island, const std::vector<JointPtr>& implicit_constraints)
+{
+  // if there are no implicit constraints, just compute forward dynamics as
+  // usual
+
+  // get indices for each body in the island
+
+  // get Jacobians and time derivatives for all implicit constraints
+
+  // get generalized velocities (v)
+
+  // get generalized inertias
+
+  // compute \dot{J}*v
+
+  // compute J*inv(M)*J'
+
+  // compute inv(M)*fext
+
+  // compute the constraint forces
+
+  // compute the accelerations
+}
+*/
+
+/// Finds islands according to the implicit constraints
+void Simulator::find_islands(vector<vector<DynamicBodyPtr> >& islands)
+{
+  FILE_LOG(LOG_CONSTRAINT) << "Simulator::find_islands() entered" << std::endl;
+
+  // clear the islands 
+  islands.clear();
+
+  // get all nodes
+  std::set<DynamicBodyPtr> nodes;
+  for (unsigned i=0; i< _bodies.size(); i++)
+  {
+    RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(_bodies[i]);
+    if (!rb || rb->is_enabled())
+      nodes.insert(_bodies[i]); 
+  }
+
+  // Now, we'll remove nodes from the set until there are no more nodes.
+  // For each removed node, we'll get add all constraints that contain the single 
+  // body to the group; all neighboring nodes will then be processed.
+  while (!nodes.empty())
+  {
+    // get the node from the front
+    DynamicBodyPtr node = *nodes.begin();
+
+    // add a vector to the constraint groups
+    islands.push_back(vector<DynamicBodyPtr>());
+    islands.back().push_back(node);
+    FILE_LOG(LOG_CONSTRAINT) << " -- constraints in group: " << std::endl;
+
+    // create a node queue, with this node added
+    std::queue<DynamicBodyPtr> node_q;
+    node_q.push(node);
+
+    // loop until the queue is empty
+    while (!node_q.empty())
+    {
+      // get the node off of the front of the node queue
+      node = node_q.front();
+      node_q.pop();
+
+      // erase the node from the set of nodes
+      nodes.erase(node);
+
+      // loop through all constraints
+      for (vector<JointPtr>::const_iterator i = _implicit_constraints.begin(); i != _implicit_constraints.end(); )
+      {
+        DynamicBodyPtr db1 = (*i)->get_inboard_link()->get_super_body();
+        DynamicBodyPtr db2 = (*i)->get_outboard_link()->get_super_body();
+
+        // see whether one of the bodies is equal to the node
+        if (db1 == node)
+        {
+          // verify that body is not disabled
+          RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(db2);
+          if (!rb || rb->is_enabled())
+          {
+            node_q.push(db2); 
+            islands.back().push_back(db2);
+          }
+        }
+        else if (db2 == node)
+        {
+          // verify that body is not disabled
+          RigidBodyPtr rb = dynamic_pointer_cast<RigidBody>(db1);
+          if (!rb || rb->is_enabled())
+          {
+            node_q.push(db1); 
+            islands.back().push_back(db1);
+          }
+        }
+      }
+    }
+
+    // make the vector of islands unique
+    vector<DynamicBodyPtr>& last_island = islands.back(); 
+    std::sort(last_island.begin(), last_island.end());
+    islands.back().erase(std::unique(last_island.begin(), last_island.end()), last_island.end());
+  }
+
+  FILE_LOG(LOG_SIMULATOR) << "Simulator::find_islands() exited" << std::endl;
+}
+
 /// Finds the dynamic body in the simulator, if any
 /**
  * Searches unarticulated bodies, articulated bodies, and links of

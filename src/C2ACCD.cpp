@@ -82,7 +82,6 @@ C2ACCD::C2ACCD()
 {
   eps_tolerance = 1e-5;
   alpha_tolerance = 1e-2;
-  pthread_mutex_init(&_contact_mutex, NULL);
   return_all_contacts = true;
 }
 
