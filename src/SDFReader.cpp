@@ -818,7 +818,10 @@ ControlledBodyPtr SDFReader::read_model(shared_ptr<const XMLTree> node, map<Rigi
 
     // set the name
     if (name_attr)
+    {
       rb->id = name_attr->get_string_value();
+      rb->body_id = rb->id;
+    }
 
     // see whether the model is static
     shared_ptr<const XMLTree> static_node = find_one_tag("static", node);
@@ -897,7 +900,10 @@ ControlledBodyPtr SDFReader::read_model(shared_ptr<const XMLTree> node, map<Rigi
 
     // set the name
     if (name_attr)
+    {
       rcab->id = name_attr->get_string_value();
+      rcab->body_id = rcab->id;
+    }
 
     return rcab;
   }
@@ -918,7 +924,10 @@ RigidBodyPtr SDFReader::read_link(shared_ptr<const XMLTree> node, shared_ptr<SDF
   // get the link name
   XMLAttrib* name_attr = node->get_attrib("name");
   if (name_attr)
+  {
     rb->id = name_attr->get_string_value();
+    rb->body_id = rb->id;
+  }
 
   // set default inertial properties (according to SDF 1.5)
   SpatialRBInertiad J;
