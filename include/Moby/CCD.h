@@ -46,6 +46,9 @@ class CCD : public CollisionDetection
     {
       find_contacts(cgA, cgB, std::back_inserter(contacts), TOL);
     }
+    static unsigned constrain_unsigned(int ii, int maxi){
+     return (unsigned) std::min(std::max(ii,0),maxi);
+    }
 
     template <class OutputIterator>
     OutputIterator find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL = NEAR_ZERO);
