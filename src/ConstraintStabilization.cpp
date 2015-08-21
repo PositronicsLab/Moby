@@ -64,7 +64,7 @@ void ConstraintStabilization::stabilize(shared_ptr<ConstraintSimulator> sim)
   FILE_LOG(LOG_COLDET) <<"min_dist: "<<min_dist<<std::endl;
   while (min_dist < eps)
   {
-    std::cout <<"min_dist: "<<min_dist<<std::endl;
+    //std::cout <<"min_dist: "<<min_dist<<std::endl;
     // compute problem data (get M, N, alpha, etc.) 
     compute_problem_data(pd, sim);
 
@@ -119,7 +119,7 @@ void ConstraintStabilization::add_contact_constraints(std::vector<UnilateralCons
         Ravelin::Vector3d normal = p2-p1_2;
         normal.normalize();
         UnilateralConstraint uc = CollisionDetection::create_contact(cg1, cg2, p1_g, normal, -dist);
-        std::cout << "p1: " << p1_g << std::endl << "normal" << normal << std::endl << "dist" << dist<<std::endl;
+        //std::cout << "p1: " << p1_g << std::endl << "normal" << normal << std::endl << "dist" << dist<<std::endl;
         constraints.insert(constraints.end(), uc);
       }
     }
@@ -142,7 +142,7 @@ void ConstraintStabilization::compute_problem_data(std::vector<UnilateralConstra
   //    UnilateralConstraint objects to constraints as there are 
   //    points of contact between the bodies 
   //    (call _sim->_coldet->find_contacts(.))
-  std::cout << "*******start adding constraints*******" << std::endl;
+  //std::cout << "*******start adding constraints*******" << std::endl;
   BOOST_FOREACH(DynamicBodyPtr D_body1, bodies)
   {
     RigidBodyPtr rb1, rb2;
@@ -214,7 +214,7 @@ void ConstraintStabilization::compute_problem_data(std::vector<UnilateralConstra
       }
     }
   }
-  std::cout << "constraints added" << std::endl;
+  //std::cout << "constraints added" << std::endl;
   // 2) for each articulated body, add as many UnilateralConstraint objects as
   //    there are joints at their limits
 
@@ -629,7 +629,6 @@ void ConstraintStabilization::update_q(const VectorNd& dq, VectorNd& q, shared_p
   // compute f*
   double fstar = evaluate_f(pdi, sim);
   std::cout  <<"f0: "<< f0 << std::endl;
-  std::cout  <<"fstar: "<< f0 << std::endl;
   // compute the gradient of f
   grad_f(sim, q, f0, grad);
 
@@ -654,10 +653,12 @@ void ConstraintStabilization::update_q(const VectorNd& dq, VectorNd& q, shared_p
 
     // compute new f*
     fstar = evaluate_f(pdi, sim);
-    std::cout <<fstar<<std::endl;
+    //std::cout <<fstar<<std::endl;
   }
   std::cout  << "q:" << q <<std::endl;
   std::cout  << "dq:" << dq <<std::endl;
+  std::cout  << "t:" << t <<std::endl;
+  std::cout  <<"fstar: "<< fstar << std::endl;
   std::cout  << "qstar:" << qstar << std::endl;  
   std::cout  <<"===================="<< std::endl;
   // all done? update q
