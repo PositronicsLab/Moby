@@ -153,6 +153,10 @@ void TimeSteppingSimulator::calc_impacting_unilateral_constraint_forces2(double 
     std::cerr << "warning: impacting constraint tolerances exceeded" << std::endl;
     #endif
   }
+  // call the post-force application callback, if any
+  if (constraint_post_callback_fn)
+    (*constraint_post_callback_fn)(_rigid_constraints, constraint_post_callback_data);
+          
 }
 
 /// Does a full integration cycle (but not necessarily a full step)
@@ -203,9 +207,15 @@ double TimeSteppingSimulator::do_mini_step(double dt)
 
   FILE_LOG(LOG_SIMULATOR) << "Position integration ended w/h = " << h << std::endl;
 
+  // recompute pairwise distances
+  calc_pairwise_distances();
+  
+  // find unilateral constraints
+  find_unilateral_constraints(contact_dist_thresh);
+
   // compute forward dynamics
   calc_fwd_dyn();
-
+  
   // integrate the bodies' velocities forward by h
   for (unsigned i=0; i< _bodies.size(); i++)
   {
@@ -214,20 +224,25 @@ double TimeSteppingSimulator::do_mini_step(double dt)
     _bodies[i]->get_generalized_velocity(DynamicBody::eSpatial, qd);
     qd += qdd;
     _bodies[i]->set_generalized_velocity(DynamicBody::eSpatial, qd);
+    FILE_LOG(LOG_SIMULATOR) << "Pre-contact qd: " << qd << std::endl;
   }
+  
+#ifndef NDEBUG
+  // Logging
+  for (unsigned i=0; i< _bodies.size(); i++)
+  {
+    VectorNd q;
+    _bodies[i]->get_generalized_coordinates(DynamicBody::eEuler, q);
+    FILE_LOG(LOG_SIMULATOR) << "Pre-contact q: " << q << std::endl;
+  }
+#endif
 
   // dissipate some energy
   if (_dissipator)
     _dissipator->apply(_bodies);
 
   FILE_LOG(LOG_SIMULATOR) << "Integrated velocity by " << h << std::endl;
-
-  // recompute pairwise distances
-  calc_pairwise_distances();
-
-  // find unilateral constraints
-  find_unilateral_constraints(contact_dist_thresh);
-
+  
   // handle any impacts
   calc_impacting_unilateral_constraint_forces(-1.0);
 
