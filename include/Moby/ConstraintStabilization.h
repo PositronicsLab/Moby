@@ -39,10 +39,11 @@ class ConstraintStabilization
     void update_from_stacked(const Ravelin::VectorNd& z, UnilateralConstraintProblemData& pd);
     void update_velocities(const UnilateralConstraintProblemData& pd);
     static double get_min_pairwise_dist(const std::vector<PairwiseDistInfo>& pdi); 
-    double compute_s(const std::vector<PairwiseDistInfo>& pdi, boost::shared_ptr<ConstraintSimulator> sim);
-    double evaluate_f(const std::vector<PairwiseDistInfo>& pdi, boost::shared_ptr<ConstraintSimulator> sim);
-    void grad_f(boost::shared_ptr<ConstraintSimulator> sim, const Ravelin::VectorNd& q, double f0, Ravelin::VectorNd& grad);
     static DynamicBodyPtr get_super_body(SingleBodyPtr sb);
+    double ridders(double x1, double x2, double fx1, double fx2, unsigned i, const Ravelin::VectorNd& dq, const Ravelin::VectorNd& q, boost::shared_ptr<ConstraintSimulator> sim);
+    double eval(double t, unsigned i, const Ravelin::VectorNd& dq, const Ravelin::VectorNd& q, boost::shared_ptr<ConstraintSimulator> sim);
+    static void save_velocities(boost::shared_ptr<ConstraintSimulator> sim, std::vector<Ravelin::VectorNd>& qd);
+    static void restore_velocities(boost::shared_ptr<ConstraintSimulator> sim, const std::vector<Ravelin::VectorNd>& qd);
 
     // the LCP solver
     LCP _lcp;

@@ -4,6 +4,28 @@
  * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
+/**
+ * Thoughts about separating bodies:
+ *
+ * If we really want to separate bodies with minimum work, then we'll have to
+ * solve an optimal motion planning problem (fun!)- not going to be fast enough 
+ * for most simulations. 
+ *
+ * If we apply a force to the bodies at the "wrong" contact point (like pushing
+ * the box out of the plane), this will not lead to an increase in signed
+ * distance.
+ *
+ * If we separate bodies using the vector of minimum translational distance as
+ * the normal and we put a contact point halfway through the two bodies
+ * (this actually will have no effect on torque), then that will locally
+ * minimize the work necessary to separate the bodies. A root finding process
+ * can be used to determine when the bodies will be separated.
+ *
+ * The other concern is what to do when the bodies are separated. If two
+ * bodies are separated, then then the root finding process can determine
+ * when (if ever) they come into contact.
+ */
+
 #include <map>
 #include <Moby/Types.h>
 #include <Moby/ConstraintSimulator.h>
@@ -27,7 +49,24 @@ ConstraintStabilization::ConstraintStabilization()
 {
   // set tolerance to NEAR_ZERO by default
   eps = NEAR_ZERO;
+}
 
+/// Saves the velocities before constraint stabilization
+void ConstraintStabilization::save_velocities(shared_ptr<ConstraintSimulator> sim, vector<VectorNd>& qd)
+{
+  qd.clear();
+  for (unsigned i = 0; i< sim->_bodies.size(); i++)
+  {
+    qd.push_back(VectorNd());
+    sim->_bodies[i]->get_generalized_velocity(DynamicBody::eSpatial, qd.back());
+  }
+}
+
+/// Restores the velocities after constraint stabilization
+void ConstraintStabilization::restore_velocities(shared_ptr<ConstraintSimulator> sim, const vector<VectorNd>& qd)
+{
+  for (unsigned i = 0; i< sim->_bodies.size(); i++)
+    sim->_bodies[i]->set_generalized_velocity(DynamicBody::eSpatial, qd[i]);
 }
 
 /// Gets the minimum pairwise distance
@@ -45,12 +84,15 @@ double ConstraintStabilization::get_min_pairwise_dist(const vector<PairwiseDistI
 /// Stabilizes the constraints in the simulator
 void ConstraintStabilization::stabilize(shared_ptr<ConstraintSimulator> sim)
 {
-  std::cout<<"======step start======"<<std::endl;
-  VectorNd dq, q;
+  FILE_LOG(LOG_SIMULATOR)<< "======constraint stabilization start======"<<std::endl;
+  VectorNd dq, q, v;
   std::vector<UnilateralConstraintProblemData> pd;
+  std::vector<VectorNd> qd_save;
 
   std::map<DynamicBodyPtr, unsigned> body_index_map;
 
+  // save the generalized velocities
+  save_velocities(sim, qd_save);
 
   get_body_configurations(q, sim);
   generate_body_index_map(body_index_map, sim);
@@ -61,10 +103,19 @@ void ConstraintStabilization::stabilize(shared_ptr<ConstraintSimulator> sim)
   // see whether any pairwise distances are below epsilon
   double min_dist = get_min_pairwise_dist(pdi);
 
-  FILE_LOG(LOG_COLDET) <<"min_dist: "<<min_dist<<std::endl;
+  FILE_LOG(LOG_SIMULATOR) <<"minimum pairwise distance (before stabilization loop): "<<min_dist<<std::endl;
+  unsigned iterations = 0;
   while (min_dist < eps)
   {
-    //std::cout <<"min_dist: "<<min_dist<<std::endl;
+    // zero body velocities first (we only want to change positions based on
+    // our updates)
+    for (unsigned i=0; i< sim->_bodies.size(); i++)
+    {
+      sim->_bodies[i]->get_generalized_velocity(DynamicBody::eSpatial, v);
+      v.set_zero();
+      sim->_bodies[i]->set_generalized_velocity(DynamicBody::eSpatial, v);
+    }
+
     // compute problem data (get M, N, alpha, etc.) 
     compute_problem_data(pd, sim);
 
@@ -73,14 +124,19 @@ void ConstraintStabilization::stabilize(shared_ptr<ConstraintSimulator> sim)
     for (unsigned i=0; i< pd.size(); i++)
       determine_dq(pd[i], dq, body_index_map);
 
-    //FILE_LOG(LOG_COLDET) <<dq<<std::endl;
     // determine s and update q 
     update_q(dq, q, sim);
 
     // update minimum distance
     min_dist = get_min_pairwise_dist(pdi);  
+    iterations++;
   }
-  std::cout <<"=====step end ======" << std::endl;
+
+  // restore the generalized velocities
+  restore_velocities(sim, qd_save);
+
+  FILE_LOG(LOG_SIMULATOR) << iterations << " iterations required" << std::endl;
+  FILE_LOG(LOG_SIMULATOR) <<"=====constraint stabilization end ======" << std::endl;
 }
 
 /// Adds unilateral constraints for joint limits in an articulated body
@@ -98,16 +154,22 @@ void ConstraintStabilization::add_contact_constraints(std::vector<UnilateralCons
   Point3d p1, p2;
   std::list<CollisionGeometryPtr>& cgs1 = rb1->geometries;
   std::list<CollisionGeometryPtr>& cgs2 = rb2->geometries;
-  
+ 
   BOOST_FOREACH(CollisionGeometryPtr cg1 , cgs1)
   {
-
     BOOST_FOREACH(CollisionGeometryPtr cg2, cgs2)
     {
+      // only process each pair once
+      if (cg1.get() >= cg2.get())
+        continue;
+
       double dist = CollisionGeometry::calc_signed_dist(cg1, cg2, p1, p2);
-      if(fabs(dist) < NEAR_ZERO)
+
+      // case 1: bodies are "kissing" 
+      if (std::fabs(dist) < NEAR_ZERO)
         sim->_coldet->find_contacts(cg1,cg2, constraints);
-      else
+      // case 2: bodies are separated      
+      else if (dist >= NEAR_ZERO)
       {
         boost::shared_ptr<const Pose3d> GLOBAL;
         boost::shared_ptr<const Pose3d> pose1(p1.pose);
@@ -118,8 +180,35 @@ void ConstraintStabilization::add_contact_constraints(std::vector<UnilateralCons
         Point3d p1_g = _1TG.transform_point(p1);
         Ravelin::Vector3d normal = p2-p1_2;
         normal.normalize();
-        UnilateralConstraint uc = CollisionDetection::create_contact(cg1, cg2, p1_g, normal, -dist);
-        //std::cout << "p1: " << p1_g << std::endl << "normal" << normal << std::endl << "dist" << dist<<std::endl;
+        UnilateralConstraint uc = CollisionDetection::create_contact(cg1, cg2, p1_g, normal, dist);
+        //FILE_LOG(LOG_SIMULATOR) << "p1: " << p1_g << std::endl << "normal" << normal << std::endl << "dist" << dist<<std::endl;
+        constraints.insert(constraints.end(), uc);
+      }
+      // case 3: bodies are properly interpenetrating
+      else
+      {
+        // get the two rigid bodies
+        RigidBodyPtr rb1 = dynamic_pointer_cast<RigidBody>(cg1->get_single_body());
+        RigidBodyPtr rb2 = dynamic_pointer_cast<RigidBody>(cg2->get_single_body());
+
+        // get the two poses of the rigid bodies
+        boost::shared_ptr<const Pose3d> pose1 = rb1->get_inertial_pose();
+        boost::shared_ptr<const Pose3d> pose2 = rb2->get_inertial_pose();
+
+        // get the centers of mass in the global frame
+        Vector3d rb1_c(0.0, 0.0, 0.0, pose1);
+        Vector3d rb2_c(0.0, 0.0, 0.0, pose2);
+        Vector3d rb1_c0 = Pose3d::transform_point(GLOBAL, rb1_c);
+        Vector3d rb2_c0 = Pose3d::transform_point(GLOBAL, rb2_c);       
+
+        // setup the contact point directly between them
+        Point3d cp = rb1_c0*0.5 + rb2_c0*0.5;
+
+        // setup the normal to point toward body 1
+        Vector3d normal = Vector3d::normalize(rb1_c0 - rb2_c0);
+
+        UnilateralConstraint uc = CollisionDetection::create_contact(cg1, cg2, cp, normal, dist);
+        //FILE_LOG(LOG_SIMULATOR) << "p1: " << p1_g << std::endl << "normal" << normal << std::endl << "dist" << dist<<std::endl;
         constraints.insert(constraints.end(), uc);
       }
     }
@@ -142,12 +231,12 @@ void ConstraintStabilization::compute_problem_data(std::vector<UnilateralConstra
   //    UnilateralConstraint objects to constraints as there are 
   //    points of contact between the bodies 
   //    (call _sim->_coldet->find_contacts(.))
-  //std::cout << "*******start adding constraints*******" << std::endl;
+  //FILE_LOG(LOG_SIMULATOR) << "*******start adding constraints*******" << std::endl;
   BOOST_FOREACH(DynamicBodyPtr D_body1, bodies)
   {
     RigidBodyPtr rb1, rb2;
     
-    if(rb1 = boost::dynamic_pointer_cast<RigidBody>(D_body1))
+    if((rb1 = boost::dynamic_pointer_cast<RigidBody>(D_body1)))
     {
       BOOST_FOREACH(DynamicBodyPtr D_body2, bodies)
       {
@@ -158,7 +247,7 @@ void ConstraintStabilization::compute_problem_data(std::vector<UnilateralConstra
         }
 
         //RigidBody
-        if(rb2 = boost::dynamic_pointer_cast<RigidBody>(D_body2))
+        if((rb2 = boost::dynamic_pointer_cast<RigidBody>(D_body2)))
         {
           add_contact_constraints(constraints, rb1,rb2, sim);
         }
@@ -195,7 +284,7 @@ void ConstraintStabilization::compute_problem_data(std::vector<UnilateralConstra
         {
           rb1 = l1;
           //RigidBody
-          if(rb2 = boost::dynamic_pointer_cast<RigidBody>(D_body2))
+          if((rb2 = boost::dynamic_pointer_cast<RigidBody>(D_body2)))
           {
             add_contact_constraints(constraints, rb1,rb2, sim);
           }
@@ -214,7 +303,7 @@ void ConstraintStabilization::compute_problem_data(std::vector<UnilateralConstra
       }
     }
   }
-  //std::cout << "constraints added" << std::endl;
+  //FILE_LOG(LOG_SIMULATOR) << "constraints added" << std::endl;
   // 2) for each articulated body, add as many UnilateralConstraint objects as
   //    there are joints at their limits
 
@@ -258,7 +347,7 @@ void ConstraintStabilization::compute_problem_data(std::vector<UnilateralConstra
     Point3d pa,pb;
     for (unsigned i = 0; i < pd.contact_constraints.size(); ++i)
     {
-      pd.Cn_v[i] = CollisionGeometry::calc_signed_dist(pd.contact_constraints[i]->contact_geom1, pd.contact_constraints[i]->contact_geom2, pa, pb);
+      pd.Cn_v[i] = CollisionGeometry::calc_signed_dist(pd.contact_constraints[i]->contact_geom1, pd.contact_constraints[i]->contact_geom2, pa, pb) - eps;
     }
   }
 }
@@ -451,6 +540,8 @@ void ConstraintStabilization::determine_dq(UnilateralConstraintProblemData& pd, 
   qq.segment(0, pd.N_CONTACTS) = pd.Cn_v;
   qq.segment(pd.N_CONTACTS, qq.size()) = pd.L_v;
 
+  FILE_LOG(LOG_SIMULATOR) << "# of constraints in determine_dq(): " << qq.size() << std::endl;
+
   // solve N*inv(M)*N'*dq = N*alpha for impulses 
   if (!_lcp.lcp_fast(MM, qq, z))
     _lcp.lcp_lemke_regularized(MM, qq, z);
@@ -596,184 +687,55 @@ void ConstraintStabilization::update_q(const VectorNd& dq, VectorNd& q, shared_p
 {
   VectorNd qstar, grad;
 
-  // get the pairwise distances
+  // copy the pairwise distances
   vector<PairwiseDistInfo>& pdi = sim->_pairwise_distances;
+  vector<PairwiseDistInfo> pdi_old = pdi;
 
-  // setup BLS parameters
-  const double ALPHA = 0.025, BETA = 0.8;
+  // find the pairwise distances at q + dq
+  qstar = dq;
+  qstar += q;
+  update_body_configurations(qstar, sim);
+  sim->calc_pairwise_distances();
+
+  // we may have to find roots for all pairwise distance functions
+  vector<bool> bracket;
+  for (unsigned i=0; i< pdi.size(); i++)
+  {
+    // look for penetrating and then not penetrating
+    if (pdi_old[i].dist < 0.0 && pdi[i].dist > 0.0)
+      bracket.push_back(true);
+    else if (pdi_old[i].dist > 0.0 && pdi[i].dist < 0.0)
+      bracket.push_back(true);
+    else
+      bracket.push_back(false); 
+  }
+
+  // NOTE: if there is no sign change at the endpoints, there may still be
+  //       a sign change at some point in between, which means that after the
+  //       root finding process, it is possible that two bodies could be
+  //       interpenetrating that we didn't expect to be interpenetrating
+  //       or that two bodies could be separated by an unexpected amount 
+
+  // setup initial t
   double t = 1.0;
 
-/*
-  // see whether interpenetration between bodies sufficiently greater than zero
-  if (...)
+  // iterate over all brackets
+  for (unsigned i=0; i< bracket.size(); i++)
   {
-    // reduce t, as necessary, until bodies are no longer disjoint at
-    // q + dq*t
+    // verify that we check this bracket 
+    if (!bracket[i])
+      continue;
+
+    // call Ridder's method to determine new t
+    double root = ridders(0, t, pdi_old[i].dist, pdi[i].dist, i, dq, q, sim);
+    if (root > 0.0 && root < 1.0)
+      t = std::min(root, t);
   }
-*/
-  // evaluate f 
-  double f0 = evaluate_f(pdi, sim); 
 
-
-  // compute qstar 
-  qstar = dq;
-  qstar *= t; 
-  qstar += q;
-
-  // update body configurations
-  update_body_configurations(qstar, sim);
-
-  // compute new pairwise distance information
-  sim->calc_pairwise_distances(); 
-
-  // compute f*
-  double fstar = evaluate_f(pdi, sim);
-  std::cout  <<"f0: "<< f0 << std::endl;
-  // compute the gradient of f
-  grad_f(sim, q, f0, grad);
-
-  // compute the dot product of the gradient of f and dq
-  const double DQ_DOT_GRAD_F = grad.dot(dq);
-  // do BLS 
-  while (fstar > f0 + ALPHA * t * DQ_DOT_GRAD_F)
-  {
-    // update t
-    t *= BETA;
-
-    // update q
-    qstar = dq;
-    qstar *= t;
-    qstar += q;
-
-    // update body configurations
-    update_body_configurations(qstar, sim);
-
-    // compute new pairwise distance information
-    sim->calc_pairwise_distances();
-
-    // compute new f*
-    fstar = evaluate_f(pdi, sim);
-    //std::cout <<fstar<<std::endl;
-  }
-  std::cout  << "q:" << q <<std::endl;
-  std::cout  << "dq:" << dq <<std::endl;
-  std::cout  << "t:" << t <<std::endl;
-  std::cout  <<"fstar: "<< fstar << std::endl;
-  std::cout  << "qstar:" << qstar << std::endl;  
-  std::cout  <<"===================="<< std::endl;
   // all done? update q
-  q = qstar;
-}
-
-/// Computes the gradient of f
-void ConstraintStabilization::grad_f(shared_ptr<ConstraintSimulator> sim, const VectorNd& q, double f0, VectorNd& grad)
-{
-  const double DQ = 1e-6;
-  VectorNd new_q = q;
-
-  // get the pairwise distances
-  vector<PairwiseDistInfo>& pdi = sim->_pairwise_distances;
-
-  // init the gradient
-  grad.resize(q.size());
-
-  // calculate numerical gradient
-  for (unsigned i=0; i< q.size(); i++)
-  {
-    // update q
-    new_q[i] += DQ;
-     
-    // update body configurations
-    update_body_configurations(new_q, sim);
-
-    // compute new pairwise distance information
-    sim->calc_pairwise_distances(); 
-
-    // evaluate f
-    grad[i] = evaluate_f(pdi, sim) - f0;
-
-    // revert q
-    new_q[i] = q[i];
-  }
-
-  // scale the gradient
-  grad /= DQ;
-}
-
-/// Evaluates f based on current pairwise distance info
-double ConstraintStabilization::evaluate_f(const vector<PairwiseDistInfo>& pdi, shared_ptr<ConstraintSimulator> sim)
-{
-  // set initial value for f 
-  double f = 0.0; 
-
-  // compute f
-  for (unsigned i=0; i< pdi.size(); i++)
-    f -= pdi[i].dist;
-
-/*
-  // iterate through all joints and check for violated limits
-  const std::vector<DynamicBodyPtr>& bodies = sim->_bodies;
-  for (unsigned i = 0; i < bodies.size(); i++)
-  {
-    ArticulatedBodyPtr art = dynamic_pointer_cast<Moby::ArticulatedBody>(bodies[i]);
-    if(art)
-    {
-      std::vector<JointPtr> joints = art->get_joints();
-      for (unsigned j = 0 ; j < joints.size(); j++)
-      {
-        for (unsigned k = 0 ; k < joints[i]->num_dof(); k++)
-        {
-          double q = joints[i]->q[j];
-
-          // find the largest violation
-          double hi_violation = q - joints[i]->hilimit[j];
-          double lo_violation = joints[i]->lolimit[j] - q;
-          double larger_violation = std::max(hi_violation, lo_violation);
-          f = std::max(larger_violation, f);
-        }
-      }
-    }
-  }
-*/
-  //if violated, return amount violated
-  return f;
-}
-
-
-/// Computes s based on current pairwise distance info
-double ConstraintStabilization::compute_s(const vector<PairwiseDistInfo>& pdi, shared_ptr<ConstraintSimulator> sim)
-{
-  // Since get_min_pairwise_dist() resturns a negative number if penetrated
-  // a negative sign is added
-  double s = std::max(-get_min_pairwise_dist(pdi), 0.0);
-
-  const std::vector<DynamicBodyPtr>& bodies = sim->_bodies;
-
-  // iterate through all joints and check for violated limits
-  for (unsigned i = 0; i < bodies.size(); i++)
-  {
-    ArticulatedBodyPtr art = dynamic_pointer_cast<Moby::ArticulatedBody>(bodies[i]);
-    if(art)
-    {
-      std::vector<JointPtr> joints = art->get_joints();
-      for (unsigned j = 0 ; j < joints.size(); j++)
-      {
-        for (unsigned k = 0 ; k < joints[i]->num_dof(); k++)
-        {
-          double q = joints[i]->q[j];
-
-          // find the largest violation
-          double hi_violation = q - joints[i]->hilimit[j];
-          double lo_violation = joints[i]->lolimit[j] - q;
-          double larger_violation = std::max(hi_violation, lo_violation);
-          s = std::max(larger_violation, s);
-        }
-      }
-    }
-  }
-  //if violated, return amount violated
-
-  return s;
+  qstar = dq;
+  qstar *= t;
+  q += qstar;
 }
 
 /// Gets the body configurations, placing them into q 
@@ -818,8 +780,92 @@ void ConstraintStabilization::update_body_configurations(const VectorNd& q, shar
     body->set_generalized_coordinates(DynamicBody::eEuler, gc_shared);
     last = ngc;
   }
-
-
 }
 
+/// sign function
+static double sign(double x, double y)
+{
+  if (y > 0.0)
+    return std::fabs(x);
+  else 
+    return -std::fabs(x);
+}
 
+/// Evaluates the function for root finding
+double ConstraintStabilization::eval(double t, unsigned i, const VectorNd& dq, const VectorNd& q, shared_ptr<ConstraintSimulator> sim)
+{
+  static VectorNd qstar;
+
+  // setup qstar
+  qstar = dq;
+  qstar *= t;
+  qstar += q; 
+
+  // update body configurations
+  update_body_configurations(qstar, sim);
+
+  // compute new pairwise distance information
+  sim->calc_pairwise_distances(); 
+
+  return sim->_pairwise_distances[i].dist - eps;
+}
+
+/// Ridders method for root finding
+double ConstraintStabilization::ridders(double x1, double x2, double fl, double fh, unsigned idx, const VectorNd& dq, const VectorNd& q, shared_ptr<ConstraintSimulator> sim)
+{
+  const unsigned MAX_ITERATIONS = 5;
+  const double TOL = 1e-4;
+  double ans=std::numeric_limits<double>::max(),fm,fnew,s,xh,xl,xm,xnew;
+
+  if ((fl > 0.0 && fh < 0.0) || (fl < 0.0 && fh > 0.0)) 
+  {
+    xl=x1;
+    xh=x2;
+    ans = std::numeric_limits<double>::max();
+    for (unsigned j=0;j< MAX_ITERATIONS;j++) 
+    { 
+      xm=0.5*(xl+xh);
+      fm=eval(xm, idx, dq, q, sim); // First of two function evaluations per iteration
+      s=std::sqrt(fm*fm-fl*fh); 
+      if (s == 0.0) 
+        return ans;
+      xnew=xm+(xm-xl)*((fl >= fh ? 1.0 : -1.0)*fm/s); // Updating formula
+      ans=xnew;
+      fnew=eval(ans, idx, dq, q, sim);
+      if (std::fabs(fnew) < TOL)
+        return (fl < 0.0) ? xl : xh; 
+      if (sign(fm,fnew) != fm) 
+      {
+        xl=xm;
+        fl=fm;
+        xh=ans;
+        fh=fnew;
+      } 
+      else if (sign(fl,fnew) != fl) 
+      { 
+        xh=ans;
+        fh=fnew;
+      } 
+      else if (sign(fh,fnew) != fh) 
+      {
+        xl=ans; // second of two function evaluations per iteration.
+        fl=fnew; // Bookkeeping to keep the root bracketed on next iteration.
+      } 
+      else 
+        assert(false);
+    }
+
+    // if here, maximum iterations have been exceeded
+  }
+  else 
+  {
+     if (fl == 0.0) 
+       return x1;
+     if (fh == 0.0) 
+       return x2;
+
+     throw std::runtime_error("Root was not bracketed");
+  }
+
+  return 0.0; // Never get here. 
+}
