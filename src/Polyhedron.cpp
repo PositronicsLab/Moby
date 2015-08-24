@@ -1132,10 +1132,10 @@ double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<co
 
   // if closest feature of A is null, pick features for A and B arbitrarily
   if(!closestA){
-    std::vector<boost::shared_ptr<Vertex> >::const_iterator vi = pA->get_polyhedron().get_vertices().begin();
+    std::vector<boost::shared_ptr<Face> >::const_iterator vi = pA->get_polyhedron().get_faces().begin();
     closestA = boost::shared_ptr<Feature>(*vi);
 
-    vi = pB->get_polyhedron().get_vertices().begin();
+    vi = pB->get_polyhedron().get_faces().begin();
     closestB = boost::shared_ptr<Feature>(*vi);
   
   }
@@ -1176,10 +1176,16 @@ double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<co
       // otherwise, we have converged
       double dist = calc_dist(fA, fB, closestA, closestB, aTb);
 
+      std::cout<< "converged" << std::endl;
       if (r == eInterpenetrating)
+      {
+        std::cout<< "penetrating" << std::endl;
         return -dist;
+      }
       else
+      {
         return dist; 
+      }
     }
     // handle vertex/edge cases
     else if (fA == eVertex && fB == eEdge)
@@ -1196,10 +1202,16 @@ double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<co
       // otherwise, we have converged
       double dist = calc_dist(fA, fB, closestA, closestB, aTb);
 
+      std::cout<< "converged" << std::endl;
       if (r == eInterpenetrating)
+      {
+        std::cout<< "penetrating" << std::endl;
         return -dist;
+      }
       else
+      {
         return dist; 
+      }
     }
     else if (fB == eVertex && fA == eEdge)
     {
@@ -1215,10 +1227,16 @@ double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<co
       // otherwise, we have converged
       double dist = calc_dist(fB, fA, closestB, closestA, bTa);
 
+      std::cout<< "converged" << std::endl;
       if (r == eInterpenetrating)
+      {
+        std::cout<< "penetrating" << std::endl;
         return -dist;
+      }
       else
+      {
         return dist; 
+      }
     }
     // handle edge/edge case
     else if (fA == eEdge && fB == eEdge)
@@ -1236,10 +1254,16 @@ double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<co
       // otherwise, we have converged
       double dist = calc_dist(fA, fB, closestA, closestB, aTb);
 
+      std::cout<< "converged" << std::endl;
       if (r == eInterpenetrating)
+      {
+        std::cout<< "penetrating" << std::endl;
         return -dist;
+      }
       else
+      {
         return dist; 
+      }
     }
     // handle edge/face cases
     else if (fA == eEdge && fB == eFace)
@@ -1256,10 +1280,16 @@ double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<co
       // otherwise, we have converged
       double dist = calc_dist(fA, fB, closestA, closestB, aTb);
 
+      std::cout<< "converged" << std::endl;
       if (r == eInterpenetrating)
+      {
+        std::cout<< "penetrating" << std::endl;
         return -dist;
+      }
       else
+      {
         return dist; 
+      }
     }
     else if (fB == eEdge && fA == eFace)
     {
@@ -1276,10 +1306,16 @@ double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<co
       // otherwise, we have converged
       double dist = calc_dist(fB, fA, closestB, closestA, bTa);
 
+      std::cout<< "converged" << std::endl;
       if (r == eInterpenetrating)
+      {
+        std::cout<< "penetrating" << std::endl;
         return -dist;
+      }
       else
+      {
         return dist; 
+      }
     }
     // handle face/face case
     else if (fA == eFace && fB == eFace)
@@ -1307,13 +1343,18 @@ double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<co
 
       // otherwise, we have converged
       double dist = calc_dist(fA, fB, closestA, closestB, aTb);
-
+      std::cout<< "converged" << std::endl;
       if (r == eInterpenetrating)
+      {
+        std::cout<< "penetrating" << std::endl;
         return -dist;
+      }
       else
+      {
         return dist; 
-    }
-    //handle face/vertex case
+      }
+
+    }    //handle face/vertex case
     else if (fB == eVertex && fA == eFace)
     {
       boost::shared_ptr<const Polyhedron::Face> a = boost::static_pointer_cast<const Polyhedron::Face>(closestA);
@@ -1329,10 +1370,16 @@ double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<co
       // otherwise, we have converged
       double dist = calc_dist(fB, fA, closestB, closestA, bTa);
 
+      std::cout<< "converged" << std::endl;
       if (r == eInterpenetrating)
+      {
+        std::cout<< "penetrating" << std::endl;
         return -dist;
+      }
       else
+      {
         return dist; 
+      }
     }
   }
 }
@@ -2033,7 +2080,7 @@ bool Polyhedron::clip_edge(boost::shared_ptr<const Polyhedron::Edge> edge, Trans
     boost::shared_ptr<const Polyhedron::Feature> N=(*pni).first;
     boost::shared_ptr<Plane> P=(*pni).second;
     double lambda;
-    std::cout<< *P <<std::endl;
+    std::cout<< "Edge clipping plane: " << *P <<std::endl;
     //calculate the distance from the two end of the edge to the plane
     double dt = P->calc_signed_distance(t);
     double dh = P->calc_signed_distance(h);
@@ -2685,7 +2732,7 @@ Polyhedron::UpdateRule Polyhedron::update_edge_edge(FeatureType& fA, FeatureType
     if(min_N==max_N && min_N)
     {
       closestB=min_N;
-      fA=eFace;
+      fB=eFace;
       return eContinue;
     }
     else
