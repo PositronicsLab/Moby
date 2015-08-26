@@ -23,6 +23,8 @@ OutputIterator CCD::find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr
       return find_contacts_plane_generic(cgB, cgA, output_begin, TOL);
     else if (boost::dynamic_pointer_cast<SpherePrimitive>(pB))
       return find_contacts_box_sphere(cgA, cgB, output_begin, TOL);
+    else if (boost::dynamic_pointer_cast<PolyhedralPrimitive>(pB))
+      return find_contacts_polyhedron_polyhedron(cgA, cgB, output_begin, TOL);
   }
   else if (boost::dynamic_pointer_cast<HeightmapPrimitive>(pA))
   {
