@@ -34,6 +34,7 @@ class SparseJacobian
     Ravelin::MatrixNd& mult(const Ravelin::MatrixNd& x, Ravelin::MatrixNd& result) const; 
     Ravelin::MatrixNd& transpose_mult(const Ravelin::MatrixNd& x, Ravelin::MatrixNd& result) const; 
     Ravelin::MatrixNd& mult(const std::vector<MatrixBlock>& M, unsigned result_cols, Ravelin::MatrixNd& result) const; 
+    Ravelin::MatrixNd& mult(const std::vector<Ravelin::MatrixNd>& M, Ravelin::MatrixNd& result) const; 
     Ravelin::MatrixNd& mult_transpose(const SparseJacobian& M, Ravelin::MatrixNd& result) const; 
 
     // vector of Jacobian blocks

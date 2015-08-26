@@ -146,9 +146,6 @@ class UnilateralConstraint
     void compute_cross_limit_limit_constraint_data(const UnilateralConstraint& e, Ravelin::MatrixNd& M) const;
     static bool is_linked(const UnilateralConstraint& e1, const UnilateralConstraint& e2);
     unsigned get_super_bodies(boost::shared_ptr<Ravelin::DynamicBodyd>& sb1, boost::shared_ptr<Ravelin::DynamicBodyd>& sb2) const;
-    static void determine_convex_set(std::list<UnilateralConstraint*>& group);
-    static void process_convex_set_group(std::list<UnilateralConstraint*>& group);
-    static bool is_contact_manifold_2D(const std::list<UnilateralConstraint*>& group);
 
     template <class BidirectionalIterator>
     static void insertion_sort(BidirectionalIterator begin, BidirectionalIterator end);

@@ -83,6 +83,12 @@ class ImpactConstraintHandler
     static void get_full_rank_implicit_constraints(const SparseJacobian& J, std::vector<bool>& active);
     static Ravelin::MatrixNd& mult(const std::vector<Ravelin::MatrixNd>& inertias, const Ravelin::MatrixNd& X, Ravelin::MatrixNd& B);
     static Ravelin::MatrixNd& to_dense(const std::vector<Ravelin::MatrixNd>& J, Ravelin::MatrixNd& B);
+    static void get_generalized_velocity(const UnilateralConstraintProblemData& epd, Ravelin::VectorNd& v);
+    static void compute_limit_components(const Ravelin::MatrixNd& X, UnilateralConstraintProblemData& epd);
+    static void compute_X(UnilateralConstraintProblemData& epd, Ravelin::MatrixNd& X);
+    static void update_generalized_velocities(const UnilateralConstraintProblemData& epd, const Ravelin::VectorNd& dv); 
+    static void add_contact_to_Jacobian(const UnilateralConstraint& c, SparseJacobian& Cn, SparseJacobian& Cs, SparseJacobian& Ct, const std::map<boost::shared_ptr<Ravelin::DynamicBodyd>, unsigned>& gc_map, unsigned contact_index);
+    static void add_contact_dir_to_Jacobian(boost::shared_ptr<Ravelin::RigidBodyd> rb, boost::shared_ptr<Ravelin::ArticulatedBodyd> ab, SparseJacobian& C, const Ravelin::Vector3d& contact_point, const Ravelin::Vector3d& d, const std::map<boost::shared_ptr<Ravelin::DynamicBodyd>, unsigned>& gc_map, unsigned contact_index);
 
     Ravelin::LinAlgd _LA;
     LCP _lcp;
@@ -107,7 +113,7 @@ class ImpactConstraintHandler
     Ravelin::VectorNd _cs_visc, _ct_visc;
 
     // temporaries for solve_no_slip_lcp()
-    Ravelin::MatrixNd _rJx_iM_JxT, _Y, _Q_iM_XT, _workM, _workM2;
+    Ravelin::MatrixNd _rJx_iM_JxT, _Y, _Q_X_XT, _workM, _workM2;
     Ravelin::VectorNd _YXv, _Xv, _cs_ct_alphax;
 
     // interior-point solver "application"

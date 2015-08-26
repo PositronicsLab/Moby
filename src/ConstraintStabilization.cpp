@@ -320,21 +320,21 @@ void ConstraintStabilization::set_unilateral_constraint_data(UnilateralConstrain
   pd.N_TRUE_CONE = 0; 
 
   // initialize the problem matrices / vectors
-  pd.Cn_iM_CnT.set_zero(pd.N_CONTACTS, pd.N_CONTACTS);
-  pd.Cn_iM_CsT.set_zero(pd.N_CONTACTS, pd.N_CONTACTS);
-  pd.Cn_iM_CtT.set_zero(pd.N_CONTACTS, pd.N_CONTACTS);
-  pd.Cn_iM_LT.set_zero(pd.N_CONTACTS, pd.N_LIMITS);
-  pd.Cn_iM_JxT.set_zero(pd.N_CONTACTS, pd.N_CONSTRAINT_EQNS_IMP);
-  pd.Cs_iM_CsT.set_zero(pd.N_CONTACTS, pd.N_CONTACTS);
-  pd.Cs_iM_CtT.set_zero(pd.N_CONTACTS, pd.N_CONTACTS);
-  pd.Cs_iM_LT.set_zero(pd.N_CONTACTS, pd.N_LIMITS);
-  pd.Cs_iM_JxT.set_zero(pd.N_CONTACTS, pd.N_CONSTRAINT_EQNS_IMP);
-  pd.Ct_iM_CtT.set_zero(pd.N_CONTACTS, pd.N_CONTACTS);
-  pd.Ct_iM_LT.set_zero(pd.N_CONTACTS, pd.N_LIMITS);
-  pd.Ct_iM_JxT.set_zero(pd.N_CONTACTS, pd.N_CONSTRAINT_EQNS_IMP);
-  pd.L_iM_LT.set_zero(pd.N_LIMITS, pd.N_LIMITS);
-  pd.L_iM_JxT.set_zero(pd.N_LIMITS, pd.N_CONSTRAINT_EQNS_IMP);
-  pd.Jx_iM_JxT.set_zero(pd.N_CONSTRAINT_EQNS_IMP, pd.N_CONSTRAINT_EQNS_IMP);
+  pd.Cn_X_CnT.set_zero(pd.N_CONTACTS, pd.N_CONTACTS);
+  pd.Cn_X_CsT.set_zero(pd.N_CONTACTS, pd.N_CONTACTS);
+  pd.Cn_X_CtT.set_zero(pd.N_CONTACTS, pd.N_CONTACTS);
+  pd.Cn_X_LT.set_zero(pd.N_CONTACTS, pd.N_LIMITS);
+  pd.Cn_X_JxT.set_zero(pd.N_CONTACTS, pd.N_CONSTRAINT_EQNS_IMP);
+  pd.Cs_X_CsT.set_zero(pd.N_CONTACTS, pd.N_CONTACTS);
+  pd.Cs_X_CtT.set_zero(pd.N_CONTACTS, pd.N_CONTACTS);
+  pd.Cs_X_LT.set_zero(pd.N_CONTACTS, pd.N_LIMITS);
+  pd.Cs_X_JxT.set_zero(pd.N_CONTACTS, pd.N_CONSTRAINT_EQNS_IMP);
+  pd.Ct_X_CtT.set_zero(pd.N_CONTACTS, pd.N_CONTACTS);
+  pd.Ct_X_LT.set_zero(pd.N_CONTACTS, pd.N_LIMITS);
+  pd.Ct_X_JxT.set_zero(pd.N_CONTACTS, pd.N_CONSTRAINT_EQNS_IMP);
+  pd.L_X_LT.set_zero(pd.N_LIMITS, pd.N_LIMITS);
+  pd.L_X_JxT.set_zero(pd.N_LIMITS, pd.N_CONSTRAINT_EQNS_IMP);
+  pd.Jx_X_JxT.set_zero(pd.N_CONSTRAINT_EQNS_IMP, pd.N_CONSTRAINT_EQNS_IMP);
   pd.Cn_v.set_zero(pd.N_CONTACTS);
   pd.Cs_v.set_zero(pd.N_CONTACTS);
   pd.Ct_v.set_zero(pd.N_CONTACTS);
@@ -344,7 +344,6 @@ void ConstraintStabilization::set_unilateral_constraint_data(UnilateralConstrain
   pd.cs.set_zero(pd.N_CONTACTS);
   pd.ct.set_zero(pd.N_CONTACTS);
   pd.l.set_zero(pd.N_LIMITS);
-  pd.alpha_x.set_zero(pd.N_CONSTRAINT_EQNS_IMP);
 
   // setup indices
   pd.CN_IDX = 0;
@@ -353,16 +352,15 @@ void ConstraintStabilization::set_unilateral_constraint_data(UnilateralConstrain
   pd.NCS_IDX = pd.CS_IDX;
   pd.NCT_IDX = pd.CS_IDX;
   pd.L_IDX = pd.CS_IDX;
-  pd.ALPHA_X_IDX = pd.L_IDX + pd.N_LIMITS;
-  pd.N_VARS = pd.ALPHA_X_IDX + pd.N_CONSTRAINT_EQNS_IMP;
+  pd.N_VARS = pd.L_IDX + pd.N_LIMITS;
 
   // get iterators to the proper matrices
-  RowIteratord CnCn = pd.Cn_iM_CnT.row_iterator_begin();
-  RowIteratord CnCs = pd.Cn_iM_CsT.row_iterator_begin();
-  RowIteratord CnCt = pd.Cn_iM_CtT.row_iterator_begin();
-  RowIteratord CsCs = pd.Cs_iM_CsT.row_iterator_begin();
-  RowIteratord CsCt = pd.Cs_iM_CtT.row_iterator_begin();
-  RowIteratord CtCt = pd.Ct_iM_CtT.row_iterator_begin();
+  RowIteratord CnCn = pd.Cn_X_CnT.row_iterator_begin();
+  RowIteratord CnCs = pd.Cn_X_CsT.row_iterator_begin();
+  RowIteratord CnCt = pd.Cn_X_CtT.row_iterator_begin();
+  RowIteratord CsCs = pd.Cs_X_CsT.row_iterator_begin();
+  RowIteratord CsCt = pd.Cs_X_CtT.row_iterator_begin();
+  RowIteratord CtCt = pd.Ct_X_CtT.row_iterator_begin();
 
   // process contact constraints, setting up matrices
   for (unsigned i=0; i< pd.contact_constraints.size(); i++)
@@ -400,7 +398,7 @@ void ConstraintStabilization::set_unilateral_constraint_data(UnilateralConstrain
 
       // setup appropriate parts of contact / limit inertia matrices
       ColumnIteratord_const data = MM.column_iterator_begin();
-      pd.Cn_iM_LT(i,j) = *data++;
+      pd.Cn_X_LT(i,j) = *data++;
     }
   }
 
@@ -411,7 +409,7 @@ void ConstraintStabilization::set_unilateral_constraint_data(UnilateralConstrain
     pd.limit_constraints[i]->compute_constraint_data(MM, v);
 
     // setup appropriate entry of limit inertia matrix and limit velocity
-    pd.L_iM_LT(i,i) = MM.data()[0];
+    pd.L_X_LT(i,i) = MM.data()[0];
 
     // compute cross/cross limit constraint data
     for (unsigned j=i+1; j< pd.limit_constraints.size(); j++)
@@ -423,7 +421,7 @@ void ConstraintStabilization::set_unilateral_constraint_data(UnilateralConstrain
       pd.limit_constraints[i]->compute_cross_constraint_data(*pd.limit_constraints[j], MM);
 
       // setup appropriate part of limit / limit inertia matrix
-      pd.L_iM_LT(i,j) = pd.L_iM_LT(j,i) = MM.data()[0];
+      pd.L_X_LT(i,j) = pd.L_X_LT(j,i) = MM.data()[0];
     }
 
     // NOTE: cross data has already been computed for contact/limit constraints
@@ -440,11 +438,11 @@ void ConstraintStabilization::determine_dq(const UnilateralConstraintProblemData
   VectorNd qq(pd.N_CONTACTS + pd.N_LIMITS);
 
   // setup the LCP matrix and LCP vector
-  MM.block(0, pd.N_CONTACTS, 0, pd.N_CONTACTS) = pd.Cn_iM_CnT;
-  MM.block(0, pd.N_CONTACTS, pd.N_CONTACTS, MM.columns()) = pd.Cn_iM_LT;
-  SharedMatrixNd L_iM_CnT_block = MM.block(pd.N_CONTACTS, MM.rows(), 0, pd.N_CONTACTS);
-  MatrixNd::transpose(pd.Cn_iM_LT, L_iM_CnT_block);
-  MM.block(pd.N_CONTACTS, MM.rows(), pd.N_CONTACTS, MM.columns()) = pd.L_iM_LT;
+  MM.block(0, pd.N_CONTACTS, 0, pd.N_CONTACTS) = pd.Cn_X_CnT;
+  MM.block(0, pd.N_CONTACTS, pd.N_CONTACTS, MM.columns()) = pd.Cn_X_LT;
+  SharedMatrixNd L_X_CnT_block = MM.block(pd.N_CONTACTS, MM.rows(), 0, pd.N_CONTACTS);
+  MatrixNd::transpose(pd.Cn_X_LT, L_X_CnT_block);
+  MM.block(pd.N_CONTACTS, MM.rows(), pd.N_CONTACTS, MM.columns()) = pd.L_X_LT;
   qq.segment(0, pd.N_CONTACTS) = pd.Cn_v;
   qq.segment(pd.N_CONTACTS, qq.size()) = pd.L_v;
 

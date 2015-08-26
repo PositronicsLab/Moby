@@ -124,39 +124,56 @@ MatrixNd& SparseJacobian::mult_transpose(const SparseJacobian& M, MatrixNd& resu
   // set the result size
   result.set_zero(rows, M.rows);
 
+  // get the blocks from M
+  const std::vector<MatrixBlock>& x = M.blocks;
+
+  // look for number of blocks 
+  if (blocks.size() == 0 || x.size() == 0)
+    return result;
+
   // loop over each block
   for (unsigned i=0; i< blocks.size(); i++)
   {
     // assume block i is of size r x c
     // then input block of x must be of size c x d 
     // and result must be of size r x d
-    const unsigned R = blocks[i].rows();
-    const unsigned C = blocks[i].columns();
+    const unsigned RSTART = blocks[i].st_col_idx;
+    const unsigned CSTART = blocks[i].st_row_idx;
+    const unsigned REND = RSTART + blocks[i].rows();
+    const unsigned CEND = CSTART + blocks[i].columns();
 
-    // loop over each block in M
-    for (unsigned j=0; i< M.blocks.size(); j++)
+    // loop over each input block
+    for (unsigned j=0; j< x.size(); j++)
     {
-      // see whether there is any intersection between columns in block i
-      // and rows is M.block j
-      
-      // there is a match, see whether the correspondence is perfect
-      if (blocks[i].st_col_idx == M.blocks[j].st_col_idx &&
-          blocks[i].columns() == M.blocks[j].columns())
-      {
-        // get the relevant block of the result
-        SharedMatrixNd result_block = result.block(blocks[i].st_row_idx, blocks[i].st_row_idx+R, M.blocks[j].st_row_idx, M.blocks[j].st_row_idx+M.blocks[j].rows());
+      // get x column start and end
+      const unsigned X_CSTART = x[j].st_col_idx;
+      const unsigned X_CEND = X_CSTART + x[j].columns();
 
-        // do the multiplication
-        blocks[i].block.mult_transpose(M.blocks[j].block, tmp);
-        result_block += tmp;
-      }
-      else
-      {
-        // implement this case only as necessary
-        throw std::runtime_error("Not implemented!");
-      }
+      // see whether the two blocks overlap 
+      if (X_CEND < CSTART || X_CSTART >= CEND)
+        continue;
+
+      // get x row start and end
+      const unsigned X_RSTART = x[j].st_row_idx;
+      const unsigned X_REND = X_RSTART + x[j].rows();
+
+      // get the common columns start and end
+      const unsigned C_CSTART = std::max(CSTART, X_CSTART);
+      const unsigned C_CEND = std::min(CEND, X_CEND);
+
+      // get the result block - it's easiest
+      SharedMatrixNd result_block = result.block(RSTART, REND, X_RSTART, X_REND);
+
+      // get the appropriate blocks of the input matrices
+      SharedConstMatrixNd i_block =  blocks[i].block.block(0, blocks[i].block.rows(), C_CSTART - CSTART, C_CEND - CSTART);
+      SharedConstMatrixNd x_block =  x[j].block.block(0, x[j].rows(), C_CSTART - X_CSTART, C_CEND - X_CSTART);
+
+      // do the computation
+      i_block.mult_transpose(x_block, tmp);
+      result_block += tmp;
     }
   }
+
 
   // resize the result matrix
   return result;
@@ -180,6 +197,73 @@ MatrixNd& SparseJacobian::mult(const vector<MatrixBlock>& x, unsigned result_col
     // assume block i is of size r x c
     // then input block of x must be of size c x d 
     // and result must be of size r x d
+    const unsigned RSTART = blocks[i].st_col_idx;
+    const unsigned CSTART = blocks[i].st_row_idx;
+    const unsigned REND = RSTART + blocks[i].rows();
+    const unsigned CEND = CSTART + blocks[i].columns();
+
+    // loop over each input block
+    for (unsigned j=0; j< x.size(); j++)
+    {
+      // get x row start and end
+      const unsigned X_RSTART = x[j].st_row_idx;
+      const unsigned X_REND = X_RSTART + x[j].rows();
+
+      // see whether the two blocks overlap 
+      if (X_REND < CSTART || X_RSTART >= CEND)
+        continue;
+
+      // get x column start and end
+      const unsigned X_CSTART = x[j].st_col_idx;
+      const unsigned X_CEND = X_CSTART + x[j].columns();
+
+      // get the common columns start and end
+      const unsigned C_CSTART = std::max(CSTART, X_RSTART);
+      const unsigned C_CEND = std::min(CEND, X_REND);
+
+      // get the result block - it's easiest
+      SharedMatrixNd result_block = result.block(RSTART, REND, X_CSTART, X_CEND);
+
+      // get the appropriate blocks of the input matrices
+      SharedConstMatrixNd i_block =  blocks[i].block.block(0, blocks[i].block.rows(), C_CSTART - CSTART, C_CEND - CSTART);
+      SharedConstMatrixNd x_block =  x[j].block.block(C_CSTART - X_RSTART, C_CEND - X_RSTART, 0, x[j].columns());
+
+      // do the computation
+      i_block.mult(x_block, tmp);
+      result_block += tmp;
+    }
+  }
+
+  return result;
+}
+
+/// Multiplies this sparse Jacobian by a block diagonal matrix 
+MatrixNd& SparseJacobian::mult(const vector<MatrixNd>& x, MatrixNd& result) const
+{
+  MatrixNd tmp;
+  vector<unsigned> st_row_idx(x.size());
+
+  // get the total number of columns
+  st_row_idx.push_back(0);
+  for (unsigned i=0; i< x.size(); i++)
+  {
+    assert(x[i].rows() == x[i].columns());
+    st_row_idx.push_back(st_row_idx.back() + x[i].rows());
+  }
+
+  // set the result size
+  result.set_zero(rows, st_row_idx.back());
+
+  // look for number of blocks 
+  if (blocks.size() == 0 || x.size() == 0)
+    return result;
+
+  // loop over each block
+  for (unsigned i=0; i< blocks.size(); i++)
+  {
+    // assume block i is of size r x c
+    // then input block of x must be of size c x d 
+    // and result must be of size r x d
     const unsigned R = blocks[i].rows();
     const unsigned C = blocks[i].columns();
 
@@ -187,7 +271,7 @@ MatrixNd& SparseJacobian::mult(const vector<MatrixBlock>& x, unsigned result_col
     for (unsigned j=0; i< x.size(); j++)
     {
       // see whether the two correspond
-      if (blocks[i].st_col_idx != x[j].st_row_idx)
+      if (blocks[i].st_col_idx != st_row_idx[j])
         continue;
 
       // get D
@@ -198,10 +282,10 @@ MatrixNd& SparseJacobian::mult(const vector<MatrixBlock>& x, unsigned result_col
         throw MissizeException();
 
       // get the relevant block of the result
-      SharedMatrixNd result_block = result.block(blocks[i].st_row_idx, blocks[i].st_row_idx+R, x[j].st_col_idx, x[j].st_col_idx+D);
+      SharedMatrixNd result_block = result.block(blocks[i].st_row_idx, blocks[i].st_row_idx+R, st_row_idx[j], st_row_idx[j]+D);
 
       // do the computation
-      blocks[i].block.mult(x[j].block, tmp);
+      blocks[i].block.mult(x[j], tmp);
       result_block += tmp;
     }
   }
