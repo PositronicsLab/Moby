@@ -609,6 +609,41 @@ void Simulator::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::stri
     }
   }
 
+  // clear the vector of implicit constraints
+  implicit_joints.clear();
+
+  // get all dynamic bodies used in the simulator
+  child_nodes = node->find_child_nodes("ImplicitConstraint");
+  if (!child_nodes.empty())
+  {
+    // process all ImplicitConstraint nodes
+    for (std::list<shared_ptr<const XMLTree> >::const_iterator i = child_nodes.begin(); i != child_nodes.end(); i++)
+    {
+      // verify that the dynamic-body-id attribute exists
+      XMLAttrib* id_attr = (*i)->get_attrib("joint-id");
+
+      // make sure that the ID exists
+      if (!id_attr)
+      {
+        std::cerr << "Simulator::load_from_xml() - no joint-id ";
+        std::cerr << "attribute in " << std::endl << "  offending node: ";
+        std::cerr << *i << std::endl;
+        continue;
+      }
+
+      // look for the joint with that ID
+      const std::string& id = id_attr->get_string_value(); 
+      if ((id_iter = id_map.find(id))== id_map.end())
+      {
+        std::cerr << "Simulator::load_from_xml() - could not find" << std::endl;
+        std::cerr << "  dynamic body w/ID: '" << id << "' from offending node:";
+        std::cerr << std::endl << *node;
+      }
+      else
+        implicit_joints.push_back(dynamic_pointer_cast<Joint>(id_iter->second));
+    }
+  }
+
   // get all recurrent forces used in the simulator -- note: this must be done
   // *after* all bodies have been loaded
   child_nodes = node->find_child_nodes("RecurrentForce");

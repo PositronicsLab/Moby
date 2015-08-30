@@ -105,8 +105,8 @@ MatrixNd& SparseJacobian::transpose_mult(const MatrixNd& x, MatrixNd& result) co
     const unsigned C = blocks[i].rows();
 
     // get the relevant blocks
-    SharedConstMatrixNd x_block =  x.block(blocks[i].st_col_idx, blocks[i].st_col_idx+C, 0, x.columns());
-    SharedMatrixNd result_block = result.block(blocks[i].st_row_idx, blocks[i].st_row_idx+R, 0, x.columns());
+    SharedConstMatrixNd x_block =  x.block(blocks[i].st_row_idx, blocks[i].st_row_idx+C, 0, x.columns());
+    SharedMatrixNd result_block = result.block(blocks[i].st_col_idx, blocks[i].st_col_idx+R, 0, x.columns());
 
     // do the computation
     blocks[i].block.transpose_mult(x_block, tmp);
@@ -268,17 +268,20 @@ MatrixNd& SparseJacobian::mult(const vector<MatrixNd>& x, MatrixNd& result) cons
     const unsigned C = blocks[i].columns();
 
     // loop over each input block
-    for (unsigned j=0; i< x.size(); j++)
+    for (unsigned j=0, k=0; j< x.size(); j++)
     {
       // see whether the two correspond
-      if (blocks[i].st_col_idx != st_row_idx[j])
+      if (blocks[i].st_col_idx != k)
+      {
+        k += x[j].rows();
         continue;
+      }
 
       // get D
       const unsigned D = x[j].columns(); 
 
       // verify that the blocks are the appropriate size
-      if (C != x[j].rows())
+      if (C != D)
         throw MissizeException();
 
       // get the relevant block of the result
@@ -287,10 +290,27 @@ MatrixNd& SparseJacobian::mult(const vector<MatrixNd>& x, MatrixNd& result) cons
       // do the computation
       blocks[i].block.mult(x[j], tmp);
       result_block += tmp;
+      
+      // update k
+      k += x[j].rows();
     }
   }
 
   return result;
 }
 
+/// Converts a sparse Jacobian to a dense matrix (for debugging purposes)
+MatrixNd& SparseJacobian::to_dense(MatrixNd& M) const
+{
+  M.set_zero(rows, cols);
+
+  for (unsigned i=0; i< blocks.size(); i++)
+  {
+    const unsigned R = blocks[i].rows();
+    const unsigned C = blocks[i].columns();
+    M.block(blocks[i].st_row_idx, blocks[i].st_row_idx+R, blocks[i].st_col_idx, blocks[i].st_col_idx+C) = blocks[i].block;
+  }
+
+  return M;
+}
 

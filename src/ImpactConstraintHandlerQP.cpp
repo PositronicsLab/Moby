@@ -93,9 +93,6 @@ double ImpactConstraintHandler::calc_ke(UnilateralConstraintProblemData& q, cons
  */
 void ImpactConstraintHandler::solve_qp_work(UnilateralConstraintProblemData& epd, VectorNd& z)
 {
-  // implicit constraints not handled at the moment
-  assert(epd.N_CONSTRAINT_EQNS_IMP == 0);
-
   FILE_LOG(LOG_CONSTRAINT) << "  Cn * inv(M) * Cn': " << std::endl << epd.Cn_X_CnT;
   FILE_LOG(LOG_CONSTRAINT) << "  Cn * inv(M) * Cs': " << std::endl << epd.Cn_X_CsT;
   FILE_LOG(LOG_CONSTRAINT) << "  Cn * inv(M) * Ct': " << std::endl << epd.Cn_X_CtT;
@@ -262,9 +259,6 @@ void ImpactConstraintHandler::solve_qp_work(UnilateralConstraintProblemData& epd
  */
 void ImpactConstraintHandler::setup_QP(UnilateralConstraintProblemData& epd, SharedMatrixNd& H, SharedVectorNd& c, SharedMatrixNd& M, SharedVectorNd& q, SharedMatrixNd& A, SharedVectorNd& b)
 {
-  // implicit constraints not handled at the moment
-  assert(epd.N_CONSTRAINT_EQNS_IMP == 0);
-
   FILE_LOG(LOG_CONSTRAINT) << "  Cn * inv(M) * Cn': " << std::endl << epd.Cn_X_CnT;
   FILE_LOG(LOG_CONSTRAINT) << "  Cn * inv(M) * Cs': " << std::endl << epd.Cn_X_CsT;
   FILE_LOG(LOG_CONSTRAINT) << "  Cn * inv(M) * Ct': " << std::endl << epd.Cn_X_CtT;

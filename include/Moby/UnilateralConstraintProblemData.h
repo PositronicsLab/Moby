@@ -11,6 +11,8 @@
 
 namespace Moby {
 
+class Simulator;
+
 struct UnilateralConstraintProblemData
 {
   // setup reasonable defaults
@@ -28,6 +30,7 @@ struct UnilateralConstraintProblemData
   // copies constraint problem data
   UnilateralConstraintProblemData& copy_from(const UnilateralConstraintProblemData& q)
   {
+    simulator = q.simulator;
     N_K_TOTAL = q.N_K_TOTAL;
     N_LIN_CONE = q.N_LIN_CONE;
     N_TRUE_CONE = q.N_TRUE_CONE;
@@ -81,7 +84,8 @@ struct UnilateralConstraintProblemData
     island_ijoints = q.island_ijoints;
     J = q.J;
     Jfull = q.Jfull;
-    J_iM_JT = q.J_iM_JT;
+    Jx_iM_JxT = q.Jx_iM_JxT;
+    iM_JxT = q.iM_JxT;
     active = q.active;
 
     // copy limit indices
@@ -92,6 +96,7 @@ struct UnilateralConstraintProblemData
     cs = q.cs;
     ct = q.ct;
     l = q.l;
+    lambda = q.lambda;
 
     return *this;
   }
@@ -99,6 +104,7 @@ struct UnilateralConstraintProblemData
   // resets all constraint problem data
   void reset()
   {
+    simulator.reset();
     N_K_TOTAL = N_LIN_CONE = N_TRUE_CONE = N_CONTACTS = 0;
     N_CONSTRAINTS = N_CONSTRAINT_EQNS_IMP = 0;
     N_GC = 0;
@@ -119,7 +125,8 @@ struct UnilateralConstraintProblemData
     island_ijoints.clear();
     J.blocks.clear();
     Jfull.blocks.clear();
-    J_iM_JT.resize(0,0);
+    Jx_iM_JxT.resize(0,0);
+    iM_JxT.resize(0,0);
     active.clear();
 
     // reset all Ravelin::VectorNd sizes
@@ -132,6 +139,7 @@ struct UnilateralConstraintProblemData
     cs.resize(0);
     ct.resize(0);
     l.resize(0);
+    lambda.resize(0);
 
     // reset all MatrixN sizes
     Cn_X_CnT.resize(0,0);
@@ -316,20 +324,26 @@ struct UnilateralConstraintProblemData
 
   // the vector indicating which contact constraints are in the linear constraint set 
   // cross-constraint terms
-  Ravelin::MatrixNd Cn_X_CnT, Cn_X_CsT, Cn_X_CtT, Cn_X_LT, Cn_X_JxT;
-  Ravelin::MatrixNd            Cs_X_CsT, Cs_X_CtT, Cs_X_LT, Cs_X_JxT;
-  Ravelin::MatrixNd                       Ct_X_CtT, Ct_X_LT, Ct_X_JxT;
+  Ravelin::MatrixNd Cn_X_CnT, Cn_X_CsT, Cn_X_CtT, Cn_X_LT,    Cn_X_JxT;
+  Ravelin::MatrixNd            Cs_X_CsT, Cs_X_CtT, Cs_X_LT,   Cs_X_JxT;
+  Ravelin::MatrixNd                       Ct_X_CtT, Ct_X_LT,  Ct_X_JxT;
   Ravelin::MatrixNd                                   L_X_LT, L_X_JxT;
-  Ravelin::MatrixNd                                            Jx_X_JxT;
+  Ravelin::MatrixNd                                           Jx_X_JxT;
+
+  // bilateral constraint inertia terms 
+  Ravelin::MatrixNd iM_JxT, Jx_iM_JxT;
 
   // X times Jacobian transposes
-  Ravelin::MatrixNd X_CnT, X_CsT, X_CtT, X_LT;
+  Ravelin::MatrixNd X_CnT, X_CsT, X_CtT, X_LT, X_JxT;
 
   // vector-based terms
   Ravelin::VectorNd Cn_v, Cs_v, Ct_v, L_v, Jx_v;
 
   // impulse magnitudes determined by solve_qp()
   Ravelin::VectorNd cn, cs, ct, l;
+
+  // bilateral constraint impulses
+  Ravelin::VectorNd lambda;
 
   // active implicit bilateral constraints
   std::vector<bool> active;
@@ -343,11 +357,11 @@ struct UnilateralConstraintProblemData
   // the implicit constraint Jacobian (reduced)
   SparseJacobian J;
 
-  // the implicit constraint inertia matrix
-  Ravelin::MatrixNd J_iM_JT; 
-
   // indices in the generalized coordinates of the various limits
   std::vector<unsigned> limit_indices;
+
+  // a pointer to the simulator
+  boost::shared_ptr<Simulator> simulator;
 }; // end struct
 
 } // end namespace Moby

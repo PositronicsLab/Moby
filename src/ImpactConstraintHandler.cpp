@@ -22,6 +22,7 @@
 #include <Moby/ImpactToleranceException.h>
 #include <Moby/NumericalException.h>
 #include <Moby/ImpactConstraintHandler.h>
+#include <Moby/Simulator.h>
 #ifdef HAVE_IPOPT
 #include <Moby/NQP_IPOPT.h>
 #include <Moby/LCP_IPOPT.h>
@@ -170,6 +171,9 @@ void ImpactConstraintHandler::apply_visc_friction_model_to_connected_constraints
   // reset problem data
   _epd.reset();
 
+  // set the simulator
+  _epd.simulator = _simulator;
+
   // save the constraints
   _epd.constraints = vector<UnilateralConstraint*>(constraints.begin(), constraints.end());
 
@@ -212,9 +216,6 @@ void ImpactConstraintHandler::apply_visc_friction_model_to_connected_constraints
     }
   }
 
-  // apply impulses
-  apply_impulses(_epd);
-
   FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::apply_visc_friction_model_to_connected_constraints() exiting" << endl;
 }
 
@@ -228,6 +229,9 @@ void ImpactConstraintHandler::apply_no_slip_model_to_connected_constraints(const
 
   // reset problem data
   _epd.reset();
+
+  // set the simulator
+  _epd.simulator = _simulator;
 
   // save the constraints
   _epd.constraints = vector<UnilateralConstraint*>(constraints.begin(), constraints.end());
@@ -270,9 +274,6 @@ void ImpactConstraintHandler::apply_no_slip_model_to_connected_constraints(const
       apply_no_slip_model(_epd);
     }
   }
-
-  // apply impulses
-  apply_impulses(_epd);
 
   FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::apply_no_slip_model_to_connected_constraints() exiting" << endl;
 }
@@ -326,15 +327,23 @@ void ImpactConstraintHandler::update_from_stacked(UnilateralConstraintProblemDat
 
   // compute lambda here using
   // | M  J' | | dv     | = | f | where f is all impulses
-  // | J  0  | | lambda |   | 0 |
-  // J*inv(M)*J'*lambda = -J*inv(M)*(N'*cn + S'*cs + T'*ct)
-  q.J.mult(dv, tmpv);
-  tmpv.negate();
+  // | J  0  | | lambda |   | -J*v |
+  // J*inv(M)*J'*lambda = -J*inv(M)*(N'*cn + S'*cs + T'*ct) - J*v
+  q.J.mult(dv, q.lambda);
+  q.lambda.negate();
+  q.lambda -= q.Jx_v;
+  FILE_LOG(LOG_CONSTRAINT) << "dv: " << dv << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "bilateral constraint forces: " << q.lambda << std::endl;
 
   // solve for lambda
-  MatrixNd tmpM = q.J_iM_JT;
+  MatrixNd tmpM = q.Jx_iM_JxT;
   LinAlgd::factor_chol(tmpM);
-  LinAlgd::solve_chol_fast(tmpM, tmpv);
+  LinAlgd::solve_chol_fast(tmpM, q.lambda);
+
+  // update dv
+  dv += q.iM_JxT.mult(q.lambda, tmpv);
+  FILE_LOG(LOG_CONSTRAINT) << "inv(M)*J'*lambda: " << tmpv << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "dv (2): " << dv << std::endl;
 
   // update the bodies' velocities
   update_generalized_velocities(q, dv);
@@ -342,7 +351,7 @@ void ImpactConstraintHandler::update_from_stacked(UnilateralConstraintProblemDat
   // setup the full lambda
   VectorNd lambda;
   lambda.set_zero(q.N_CONSTRAINT_EQNS_IMP);
-  lambda.set(q.active, tmpv);
+  lambda.set(q.active, q.lambda);
 
   // push lambda back into individual joint lambdas
   for (unsigned i=0, j=0; i< q.island_ijoints.size(); i++)
@@ -480,6 +489,9 @@ void ImpactConstraintHandler::apply_model_to_connected_constraints(const list<Un
   // reset problem data
   _epd.reset();
 
+  // set the simulator
+  _epd.simulator = _simulator;
+
   // save the constraints
   _epd.constraints = vector<UnilateralConstraint*>(constraints.begin(), constraints.end());
 
@@ -542,10 +554,8 @@ void ImpactConstraintHandler::apply_model_to_connected_constraints(const list<Un
     }
   }
 
-  // apply impulses
-  apply_impulses(_epd);
-
   // for debugging
+/*
   if (LOGGING(LOG_CONSTRAINT))
   { 
     FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler debugging check (slow) " << std::endl;
@@ -564,7 +574,7 @@ void ImpactConstraintHandler::apply_model_to_connected_constraints(const list<Un
     if (ke_plus > ke_minus)
       FILE_LOG(LOG_CONSTRAINT) << "warning! KE gain detected! energy before=" << ke_minus << " energy after=" << ke_plus << endl;
   }
-
+*/
   FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::apply_model_to_connected_constraints() exiting" << endl;
 }
 
@@ -1467,7 +1477,7 @@ static bool IsTrue(bool x) { return x; }
  */
 void ImpactConstraintHandler::compute_X(UnilateralConstraintProblemData& q, MatrixNd& X)
 {
-  MatrixNd JiM, iMJT, iJ_iM_JT, HT, HTJiM, G, MG, GTMG;
+  MatrixNd JiM, iJ_iM_JT, HT, HTJiM, G, MG, GTMG;
   vector<MatrixNd> inertias, inv_inertias;
 
   // count number of active constraints
@@ -1477,15 +1487,21 @@ void ImpactConstraintHandler::compute_X(UnilateralConstraintProblemData& q, Matr
   for (unsigned i=0; i< q.super_bodies.size(); i++)
   {
     inertias.push_back(MatrixNd());
-    q.super_bodies[i]->get_generalized_inertia(inertias.back());
-    inv_inertias.push_back(inertias.back());
-    LinAlgd::inverse_SPD(inv_inertias.back());
+    shared_ptr<RigidBodyd> rb = dynamic_pointer_cast<RigidBodyd>(q.super_bodies[i]);
+    if (rb->is_enabled())
+    {
+      q.super_bodies[i]->get_generalized_inertia(inertias.back());
+      inv_inertias.push_back(inertias.back());
+      LinAlgd::inverse_SPD(inv_inertias.back());
+    }
+    else
+      inv_inertias.push_back(MatrixNd());
   } 
 
   // get the full row rank version of J
   q.J.rows = N_ACTIVE;
   q.J.cols = q.Jfull.cols;
-  for (unsigned i=0; i< q.Jfull.blocks.size(); i++)
+  for (unsigned i=0, j=0; i< q.Jfull.blocks.size(); i++)
   {
     unsigned row_start = q.Jfull.blocks[i].st_row_idx;
     unsigned row_end = row_start; 
@@ -1499,8 +1515,11 @@ void ImpactConstraintHandler::compute_X(UnilateralConstraintProblemData& q, Matr
         {
           q.J.blocks.push_back(MatrixBlock());
           q.J.blocks.back().st_col_idx = q.Jfull.blocks[i].st_col_idx;
-          q.J.blocks.back().st_row_idx = row_start;
+          q.J.blocks.back().st_row_idx = j;
           q.J.blocks.back().block = q.Jfull.blocks[i].block.block(row_start - q.Jfull.blocks[i].st_row_idx, row_end - q.Jfull.blocks[i].st_row_idx, 0, q.Jfull.blocks[i].block.columns());
+
+          // update j
+          j += row_end - row_start;
 
           // update row_start and row_end
           row_start = row_end + 1;
@@ -1510,20 +1529,29 @@ void ImpactConstraintHandler::compute_X(UnilateralConstraintProblemData& q, Matr
       else
         row_end++; 
     }
+
+    // add the last block if necessary
+    if (row_end - row_start > 0)
+    {
+      q.J.blocks.push_back(MatrixBlock());
+      q.J.blocks.back().st_col_idx = q.Jfull.blocks[i].st_col_idx;
+      q.J.blocks.back().st_row_idx = j;
+      q.J.blocks.back().block = q.Jfull.blocks[i].block.block(row_start - q.Jfull.blocks[i].st_row_idx, row_end - q.Jfull.blocks[i].st_row_idx, 0, q.Jfull.blocks[i].block.columns());
+    }
   }
 
   // compute J*inv(M)*J'
   q.J.mult(inv_inertias, JiM);
-  MatrixNd::transpose(JiM, iMJT);
-  q.J.mult(iMJT, q.J_iM_JT);
+  MatrixNd::transpose(JiM, q.iM_JxT);
+  q.J.mult(q.iM_JxT, q.Jx_iM_JxT);
 
   // compute H' = (inv(J*inv(M)*J')*J)'
-  iJ_iM_JT = q.J_iM_JT;
+  iJ_iM_JT = q.Jx_iM_JxT;
   LinAlgd::inverse_SPD(iJ_iM_JT);
   q.J.transpose_mult(iJ_iM_JT, HT);
 
   // compute G
-  HT.mult_transpose(iMJT, HTJiM);
+  HT.mult_transpose(q.iM_JxT, HTJiM);
   mult(inv_inertias, HTJiM, G);
 
   // form inverse inertia as a single matrix
@@ -1539,6 +1567,14 @@ void ImpactConstraintHandler::compute_X(UnilateralConstraintProblemData& q, Matr
   // compute X
   X -= G;
   X += GTMG;
+/*
+  for (unsigned i=0, j=0; i< q.super_bodies.size(); i++)
+  {
+    const unsigned NGC = q.super_bodies->num_generalized_coordinates(DynamicBodyd::eSpatial);
+    SharedConstMatrixNd Gshared = G.block(j, j+NGC, j, j+NGC);
+    SharedConstMatrixNd GTMT
+    j += NGC;
+*/
 } 
 
 /// Gets the full rank set of implicit constraints
@@ -1548,6 +1584,8 @@ void ImpactConstraintHandler::get_full_rank_implicit_constraints(const SparseJac
 
   // resize the set of the active constraints
   active.resize(J.rows, false);
+  if (active.empty())
+    return;
 
   // make first constraint active
   active[0] = true;
@@ -1600,6 +1638,15 @@ void ImpactConstraintHandler::compute_limit_components(const MatrixNd& X, Unilat
   q.X_LT.resize(q.N_GC, q.N_LIMITS);
   for (unsigned i=0; i< q.N_LIMITS; i++)
     q.X_LT.column(i) = X.row(q.limit_indices[i]);
+
+  // compute L_X_LT
+  q.L_X_LT.resize(q.N_LIMITS, q.N_LIMITS);
+  for (unsigned i=0; i< q.N_LIMITS; i++)
+    for (unsigned j=i; j< q.N_LIMITS; j++)
+    {
+      q.L_X_LT(i,j) = X.row(q.limit_indices[i])[q.limit_indices[j]];
+      q.L_X_LT(j,i) = q.L_X_LT(i,j);
+    }    
 
   // compute L_v
   q.L_v.resize(q.N_LIMITS);
@@ -1676,6 +1723,10 @@ void ImpactConstraintHandler::add_contact_dir_to_Jacobian(shared_ptr<RigidBodyd>
   const unsigned N_SPATIAL = 6;
   MatrixNd contact_wrench(1, N_SPATIAL), Jm, tmp;
 
+  // check whether the body is enabled
+  if (!rb->is_enabled())
+    return;
+
   // get the vector from the center of mass to the contact point 
   Vector3d x0(Pose3d::calc_relative_pose(rb->get_inertial_pose(), GLOBAL).x, GLOBAL);
   Vector3d r = contact_point - x0; 
@@ -1728,8 +1779,6 @@ void ImpactConstraintHandler::compute_problem_data(UnilateralConstraintProblemDa
   VectorNd v;
   MatrixNd X, tmp, tmp2, Jm;
 
-  // TODO: add island implicit joint constraints to q
-
   // determine set of "super" bodies from contact constraints
   q.super_bodies.clear();
   for (unsigned i=0; i< q.contact_constraints.size(); i++)
@@ -1748,6 +1797,29 @@ void ImpactConstraintHandler::compute_problem_data(UnilateralConstraintProblemDa
   // make super bodies vector unique
   std::sort(q.super_bodies.begin(), q.super_bodies.end());
   q.super_bodies.erase(std::unique(q.super_bodies.begin(), q.super_bodies.end()), q.super_bodies.end());
+
+  // prepare to compute the number of implicit constraint equations from islands
+  q.N_CONSTRAINT_EQNS_IMP = 0;
+
+  // add island implicit joint constraints to q
+  for (unsigned i=0; i< q.simulator->implicit_joints.size(); i++)
+  {
+    // see whether a body from the implicit constraint matches a body in the
+    // island
+    JointPtr j = q.simulator->implicit_joints[i];
+    shared_ptr<DynamicBodyd> in = j->get_inboard_link()->get_super_body();
+    shared_ptr<DynamicBodyd> out = j->get_outboard_link()->get_super_body();
+    if (std::binary_search(q.super_bodies.begin(), q.super_bodies.end(), in))
+    {
+      q.island_ijoints.push_back(j);
+      q.N_CONSTRAINT_EQNS_IMP += j->num_constraint_eqns();
+    }
+    else if ( std::binary_search(q.super_bodies.begin(), q.super_bodies.end(), out))
+    {
+      q.island_ijoints.push_back(j);
+      q.N_CONSTRAINT_EQNS_IMP += j->num_constraint_eqns();
+    }
+  }
 
   // set total number of generalized coordinates
   q.N_GC = 0;
@@ -1866,55 +1938,61 @@ void ImpactConstraintHandler::compute_problem_data(UnilateralConstraintProblemDa
     shared_ptr<RigidBodyd> outboard = q.island_ijoints[i]->get_outboard_link();
 
     // compute the Jacobian w.r.t. the inboard link
-    SharedMatrixNd tmp_in_shared = tmp.block(0, tmp.rows(), 0, tmp.columns());
-    q.island_ijoints[i]->calc_constraint_jacobian(true, tmp_in_shared);
-
-    // put the Jacobian in independent coordinates if necessary
-    shared_ptr<ArticulatedBodyd> inboard_ab = inboard->get_articulated_body();
-    if (inboard_ab)
+    if (inboard->is_enabled())
     {
-      // get the reduced coordinate body
-      shared_ptr<RCArticulatedBodyd> rcab = dynamic_pointer_cast<RCArticulatedBodyd>(inboard_ab);
-      if (rcab)
-      {
-        // get the Jacobian and carry out the multiplication
-        rcab->calc_jacobian(GLOBAL, inboard, Jm);
-        tmp.mult(Jm, tmp2);
-        tmp = tmp2;
-      }
-    }
+      SharedMatrixNd tmp_in_shared = tmp.block(0, tmp.rows(), 0, tmp.columns());
+      q.island_ijoints[i]->calc_constraint_jacobian(true, tmp_in_shared);
 
-    // add the block to the Jacobian
-    q.Jfull.blocks.push_back(MatrixBlock());
-    q.Jfull.blocks.back().block = tmp;
-    q.Jfull.blocks.back().st_row_idx = eq_idx;
-    q.Jfull.blocks.back().st_col_idx = gc_map[inboard];
+      // put the Jacobian in independent coordinates if necessary
+      shared_ptr<ArticulatedBodyd> inboard_ab = inboard->get_articulated_body();
+      if (inboard_ab)
+      {
+        // get the reduced coordinate body
+        shared_ptr<RCArticulatedBodyd> rcab = dynamic_pointer_cast<RCArticulatedBodyd>(inboard_ab);
+        if (rcab)
+        {
+          // get the Jacobian and carry out the multiplication
+          rcab->calc_jacobian(GLOBAL, inboard, Jm);
+          tmp.mult(Jm, tmp2);
+          tmp = tmp2;
+        }
+      }
     
-    // compute the Jacobian w.r.t. the outboard link
-    tmp.resize(q.island_ijoints[i]->num_constraint_eqns(), N_SPATIAL);
-    SharedMatrixNd tmp_out_shared = tmp.block(0, tmp.rows(), 0, tmp.columns());
-    q.island_ijoints[i]->calc_constraint_jacobian(false, tmp_out_shared);
-
-    // put the Jacobian in independent coordinates if necessary
-    shared_ptr<ArticulatedBodyd> outboard_ab = outboard->get_articulated_body();
-    if (outboard_ab)
-    {
-      // get the reduced coordinate body
-      shared_ptr<RCArticulatedBodyd> rcab = dynamic_pointer_cast<RCArticulatedBodyd>(outboard_ab);
-      if (rcab)
-      {
-        // get the Jacobian and carry out the multiplication
-        rcab->calc_jacobian(GLOBAL, outboard, Jm);
-        tmp.mult(Jm, tmp2);
-        tmp = tmp2;
-      }
+      // add the block to the Jacobian
+      q.Jfull.blocks.push_back(MatrixBlock());
+      q.Jfull.blocks.back().block = tmp;
+      q.Jfull.blocks.back().st_row_idx = eq_idx;
+      q.Jfull.blocks.back().st_col_idx = gc_map[inboard];
     }
+ 
+    if (outboard->is_enabled())
+    {
+      // compute the Jacobian w.r.t. the outboard link
+      tmp.resize(q.island_ijoints[i]->num_constraint_eqns(), N_SPATIAL);
+      SharedMatrixNd tmp_out_shared = tmp.block(0, tmp.rows(), 0, tmp.columns());
+      q.island_ijoints[i]->calc_constraint_jacobian(false, tmp_out_shared);
 
-    // add the block to the Jacobian
-    q.Jfull.blocks.push_back(MatrixBlock());
-    q.Jfull.blocks.back().block = tmp;
-    q.Jfull.blocks.back().st_row_idx = eq_idx;
-    q.Jfull.blocks.back().st_col_idx = gc_map[outboard];
+      // put the Jacobian in independent coordinates if necessary
+      shared_ptr<ArticulatedBodyd> outboard_ab = outboard->get_articulated_body();
+      if (outboard_ab)
+      {
+        // get the reduced coordinate body
+        shared_ptr<RCArticulatedBodyd> rcab = dynamic_pointer_cast<RCArticulatedBodyd>(outboard_ab);
+        if (rcab)
+        {
+          // get the Jacobian and carry out the multiplication
+          rcab->calc_jacobian(GLOBAL, outboard, Jm);
+          tmp.mult(Jm, tmp2);
+          tmp = tmp2;
+        }
+      }
+
+      // add the block to the Jacobian
+      q.Jfull.blocks.push_back(MatrixBlock());
+      q.Jfull.blocks.back().block = tmp;
+      q.Jfull.blocks.back().st_row_idx = eq_idx;
+      q.Jfull.blocks.back().st_col_idx = gc_map[outboard];
+    }
 
     // update the equation index
     eq_idx += q.island_ijoints[i]->num_constraint_eqns();
@@ -1930,6 +2008,11 @@ void ImpactConstraintHandler::compute_problem_data(UnilateralConstraintProblemDa
   // setup Jacobians for Cn, Cs, Ct
   SparseJacobian Cn, Cs, Ct;
 
+  // setup the number of columns in each Jacobian
+  Cn.cols = q.N_GC;
+  Cs.cols = q.N_GC;
+  Ct.cols = q.N_GC;
+
   // process all contact constraints
   for (unsigned i=0; i< q.contact_constraints.size(); i++)
     add_contact_to_Jacobian(*q.contact_constraints[i], Cn, Cs, Ct, gc_map, i); 
@@ -1937,7 +2020,8 @@ void ImpactConstraintHandler::compute_problem_data(UnilateralConstraintProblemDa
   // compute X_CnT, X_CsT, and X_CtT
   Cn.mult(X, tmp);  MatrixNd::transpose(tmp, q.X_CnT);
   Cs.mult(X, tmp);  MatrixNd::transpose(tmp, q.X_CsT);
-  Ct.mult(X, tmp);  MatrixNd::transpose(tmp, q.X_LT);
+  Ct.mult(X, tmp);  MatrixNd::transpose(tmp, q.X_CtT);
+  q.J.mult(X, tmp); MatrixNd::transpose(tmp, q.X_JxT);
   
   // compute limit components - must do this first
   compute_limit_components(X, q);
@@ -1947,20 +2031,29 @@ void ImpactConstraintHandler::compute_problem_data(UnilateralConstraintProblemDa
   Cn.mult(q.X_CsT, q.Cn_X_CsT);  
   Cn.mult(q.X_CtT, q.Cn_X_CtT);  
   Cn.mult(q.X_LT,  q.Cn_X_LT);  
+  Cn.mult(q.X_JxT,  q.Cn_X_JxT);
 
   // compute problem data for Cs rows
-  Cs.mult(q.X_CsT, q.Cn_X_CsT);  
-  Cs.mult(q.X_CtT, q.Cn_X_CtT);  
-  Cs.mult(q.X_LT,  q.Cn_X_LT);  
+  Cs.mult(q.X_CsT, q.Cs_X_CsT);  
+  Cs.mult(q.X_CtT, q.Cs_X_CtT);  
+  Cs.mult(q.X_LT,  q.Cs_X_LT);  
+  Cs.mult(q.X_JxT,  q.Cs_X_JxT);  
 
   // compute problem data for Ct rows
-  Ct.mult(q.X_CtT, q.Cn_X_CtT);  
-  Ct.mult(q.X_LT,  q.Cn_X_LT);  
+  Ct.mult(q.X_CtT, q.Ct_X_CtT);  
+  Ct.mult(q.X_LT,  q.Ct_X_LT);  
+  Ct.mult(q.X_JxT,  q.Ct_X_JxT);  
+
+  // compute problem data for limit rows
+  q.L_X_JxT.resize(q.N_LIMITS, q.N_CONSTRAINT_EQNS_IMP);
+  for (unsigned i=0; i< q.N_LIMITS; i++)
+    q.L_X_JxT.row(i) = q.X_JxT.row(q.limit_indices[i]);
 
   // compute vectors
   Cn.mult(v, q.Cn_v);
   Cs.mult(v, q.Cs_v);
   Ct.mult(v, q.Ct_v);
+  q.J.mult(v, q.Jx_v);
 
 /*
   // process contact constraints, setting up matrices

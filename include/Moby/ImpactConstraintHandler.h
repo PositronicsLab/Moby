@@ -35,6 +35,8 @@ class LCP_IPOPT;
 /// Defines the mechanism for handling impact constraints
 class ImpactConstraintHandler
 {
+  friend class ConstraintSimulator;
+
   public:
     ImpactConstraintHandler();
     void process_constraints(const std::vector<UnilateralConstraint>& constraints);
@@ -95,6 +97,9 @@ class ImpactConstraintHandler
 
     // persistent constraint data
     UnilateralConstraintProblemData _epd;
+
+    // a pointer to the simulator
+    boost::shared_ptr<Simulator> _simulator;
 
     // temporaries for compute_problem_data(), solve_qp_work(), solve_lcp(), and apply_impulses()
     Ravelin::MatrixNd _MM;
