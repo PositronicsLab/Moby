@@ -933,7 +933,7 @@ osg::Node* UnilateralConstraint::to_visualization_data() const
  * \param constraints the list of constraints
  * \param groups the islands of connected constraints on return
  */
-void UnilateralConstraint::determine_connected_constraints(const vector<UnilateralConstraint>& constraints, list<list<UnilateralConstraint*> >& groups)
+void UnilateralConstraint::determine_connected_constraints(const vector<UnilateralConstraint>& constraints, const vector<JointPtr>& implicit_joints, list<list<UnilateralConstraint*> >& groups)
 {
   FILE_LOG(LOG_CONSTRAINT) << "UnilateralConstraint::determine_connected_contacts() entered" << std::endl;
 
@@ -955,7 +955,7 @@ void UnilateralConstraint::determine_connected_constraints(const vector<Unilater
   multimap<shared_ptr<SingleBodyd>, shared_ptr<SingleBodyd> > edges;
   typedef multimap<shared_ptr<SingleBodyd>, shared_ptr<SingleBodyd> >::const_iterator EdgeIter;
 
-  // get all single bodies present in the constraints
+  // get all single bodies present in the unilateral constraints
   for (list<UnilateralConstraint*>::const_iterator i = constraints_copy.begin(); i != constraints_copy.end(); i++)
   {
     if ((*i)->constraint_type == UnilateralConstraint::eContact)
@@ -983,6 +983,22 @@ void UnilateralConstraint::determine_connected_constraints(const vector<Unilater
       assert(false);
   }
 
+  // get all single bodies present in the implicit bilateral constraints
+  // add nodes and create edges between them
+  for (unsigned i=0; i< implicit_joints.size(); i++)
+  {
+    JointPtr j = implicit_joints[i];
+    shared_ptr<RigidBodyd> inboard = j->get_inboard_link();
+    shared_ptr<RigidBodyd> outboard = j->get_outboard_link();
+    if (inboard->is_enabled() && outboard->is_enabled())
+    {
+      nodes.insert(inboard);
+      nodes.insert(outboard);
+      edges.insert(std::make_pair(inboard, outboard));
+      edges.insert(std::make_pair(outboard, inboard));
+    }
+  } 
+
   FILE_LOG(LOG_CONSTRAINT) << " -- single bodies in constraints:" << std::endl;
   if (LOGGING(LOG_CONSTRAINT))
     for (set<shared_ptr<SingleBodyd> >::const_iterator i = nodes.begin(); i != nodes.end(); i++)
@@ -1005,6 +1021,22 @@ void UnilateralConstraint::determine_connected_constraints(const vector<Unilater
 
     // indicate that the articulated body will now have been processed
     ab_processed.insert(abody);
+
+     // process all implicit joints in the articulated body
+    const vector<shared_ptr<Jointd> >& implicit_joints = abody->get_implicit_joints();
+    for (unsigned i=0; i< implicit_joints.size(); i++)
+    {
+      shared_ptr<Jointd> j = implicit_joints[i];
+      shared_ptr<RigidBodyd> inboard = j->get_inboard_link();
+      shared_ptr<RigidBodyd> outboard = j->get_outboard_link();
+      if (inboard->is_enabled() && outboard->is_enabled())
+      {
+        nodes.insert(inboard);
+        nodes.insert(outboard);
+        edges.insert(std::make_pair(inboard, outboard));
+        edges.insert(std::make_pair(outboard, inboard));
+      }
+    }   
 
     // get all links in the articulated body
     const vector<shared_ptr<RigidBodyd> >& links = abody->get_links();

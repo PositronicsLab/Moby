@@ -32,7 +32,7 @@ class UnilateralConstraint
     enum Compliance { eRigid, eCompliant};
     UnilateralConstraint();
     UnilateralConstraint(const UnilateralConstraint& e) { _contact_frame = boost::shared_ptr<Ravelin::Pose3d>(new Ravelin::Pose3d); *this = e; }
-    static void determine_connected_constraints(const std::vector<UnilateralConstraint>& constraints, std::list<std::list<UnilateralConstraint*> >& groups);
+    static void determine_connected_constraints(const std::vector<UnilateralConstraint>& constraints, const std::vector<JointPtr>& implicit_joints, std::list<std::list<UnilateralConstraint*> >& groups);
     static void remove_inactive_groups(std::list<std::list<UnilateralConstraint*> >& groups);
     UnilateralConstraint& operator=(const UnilateralConstraint& e);
     double calc_contact_vel(const Ravelin::Vector3d& v) const;

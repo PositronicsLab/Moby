@@ -103,7 +103,7 @@ void ImpactConstraintHandler::apply_model(const vector<UnilateralConstraint>& co
   // determine sets of connected constraints
   // **********************************************************
   list<list<UnilateralConstraint*> > groups;
-  UnilateralConstraint::determine_connected_constraints(constraints, groups);
+  UnilateralConstraint::determine_connected_constraints(constraints, _simulator->implicit_joints, groups);
   UnilateralConstraint::remove_inactive_groups(groups);
 
   // **********************************************************
@@ -300,8 +300,13 @@ void ImpactConstraintHandler::update_from_stacked(UnilateralConstraintProblemDat
     // setup the impulse in the contact frame
     Vector3d j;
     j = q.contact_constraints[i]->contact_normal * q.cn[i];
-    j += q.contact_constraints[i]->contact_tan1 * q.cs[i];
-    j += q.contact_constraints[i]->contact_tan2 * q.ct[i];
+
+    // look whether friction is accounted for
+    if (q.cs.size() > 0)
+    {
+      j += q.contact_constraints[i]->contact_tan1 * q.cs[i];
+      j += q.contact_constraints[i]->contact_tan2 * q.ct[i];
+    }
 
     // setup the spatial impulse
     SMomentumd jx(boost::const_pointer_cast<const Pose3d>(P));
@@ -1465,7 +1470,6 @@ MatrixNd& ImpactConstraintHandler::to_dense(const vector<MatrixNd>& J, MatrixNd&
   return dense;
 }
 
-
 /// Function for counting
 static bool IsTrue(bool x) { return x; }
 
@@ -1525,6 +1529,11 @@ void ImpactConstraintHandler::compute_X(UnilateralConstraintProblemData& q, Matr
           row_start = row_end + 1;
           row_end = row_start;
         }
+        else
+        {
+          row_start = row_end + 1;
+          row_end = row_start;
+        }
       }
       else
         row_end++; 
@@ -1581,6 +1590,7 @@ void ImpactConstraintHandler::compute_X(UnilateralConstraintProblemData& q, Matr
 void ImpactConstraintHandler::get_full_rank_implicit_constraints(const SparseJacobian& J, vector<bool>& active)
 {
   MatrixNd JJT, JJT_sub;
+  const double DEREGULARIZATION_FACTOR = NEAR_ZERO;
 
   // resize the set of the active constraints
   active.resize(J.rows, false);
@@ -1608,6 +1618,11 @@ void ImpactConstraintHandler::get_full_rank_implicit_constraints(const SparseJac
 
     // get the submatrix
     JJT.select_square(active, JJT_sub);
+
+    // deregularize
+    RowIteratord row_iter = JJT_sub.row_iterator_begin();
+    for (unsigned j=0; j< JJT_sub.rows(); j++, row_iter += (JJT_sub.rows()+1))
+      *row_iter -= DEREGULARIZATION_FACTOR;
 
     // attempt to factorize it
     if (!LinAlgd::factor_chol(JJT_sub))

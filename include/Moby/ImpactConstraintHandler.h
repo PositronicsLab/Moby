@@ -36,6 +36,7 @@ class LCP_IPOPT;
 class ImpactConstraintHandler
 {
   friend class ConstraintSimulator;
+  friend class ConstraintStabilization;
 
   public:
     ImpactConstraintHandler();
@@ -55,7 +56,7 @@ class ImpactConstraintHandler
     void apply_visc_friction_model_to_connected_constraints(const std::list<UnilateralConstraint*>& constraints);
     void apply_no_slip_model_to_connected_constraints(const std::list<UnilateralConstraint*>& constraints);
     void apply_ap_model_to_connected_constraints(const std::list<UnilateralConstraint*>& constraints);
-    void update_from_stacked(UnilateralConstraintProblemData& q, const Ravelin::VectorNd& z);
+    static void update_from_stacked(UnilateralConstraintProblemData& q, const Ravelin::VectorNd& z);
     double calc_min_constraint_velocity(const UnilateralConstraintProblemData& q) const;
     void update_constraint_velocities_from_impulses(UnilateralConstraintProblemData& q);
     bool apply_restitution(const UnilateralConstraintProblemData& q, Ravelin::VectorNd& z) const;

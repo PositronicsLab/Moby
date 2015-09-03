@@ -11,12 +11,9 @@
     <Sphere id="sph2" radius=".1" mass="1" />
     <Cylinder id="cyl" radius=".01" height="1" mass="1" rpy="0 1.5708 0" position="0 .5 0"/>
 
-    <EulerIntegrator id="euler" />
-    <BulirschStoerIntegrator id="bs" abs-err-tol="0.00000001" rel-err-tol="0"/>
-
     <GravityForce id="gravity" accel="0 -9.81 0 " />
 
-  <Simulator integrator-id="bs" Euler-step="1e-0">
+  <Simulator Euler-step="1e-0">
     <RecurrentForce recurrent-force-id="gravity" /> 
     <DynamicBody dynamic-body-id="chain" />
   </Simulator>

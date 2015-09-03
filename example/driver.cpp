@@ -130,7 +130,7 @@ std::map<std::string, BasePtr> READ_MAP;
 
 /// Pointer to the controller's initializer, called once (if any)
 typedef void (*init_t)(void*, const std::map<std::string, BasePtr>&, double);
-std::list<init_t> INIT;
+std::vector<init_t> INIT;
 
 /// Checks whether was compiled with OpenSceneGraph support
 bool check_osg()

@@ -8,37 +8,38 @@
 
   <MOBY>
     <Cylinder id="c" radius="1" height="5" num-rings="100" num-circle-points="25" density="1.0" /> 
+    <Box id="b1" xlen="2" ylen="5" zlen="2" density="10.0" />
     <Box id="b3" xlen="1" ylen="10" zlen="1" density="10.0" />
+    <Plane id="plane" />
 
     <!-- integrators, collision and contact methods, forces, fdyn algos -->
-    <RungeKuttaIntegrator id="rk4" />
     <GravityForce id="gravity" accel="0 -9.81 0 " />
 
     <!-- the simulator -->
-    <TimeSteppingSimulator integrator-id="rk4">
+    <TimeSteppingSimulator min-step-size="1e-3">
       <RecurrentForce recurrent-force-id="gravity" /> 
       <DynamicBody dynamic-body-id="chain" />
       <DynamicBody dynamic-body-id="platform" />
       <DisabledPair object1-id="l1" object2-id="l2" />
-      <ContactParameters object1-id="platform" object2-id="chain" mu-coulomb="1" mu-viscous=".1" />
+      <ContactParameters object1-id="platform" object2-id="chain" mu-coulomb="1"  />
     </TimeSteppingSimulator>
     
     <!-- the chain -->
-    <RCArticulatedBody id="chain" floating-base="false" fdyn-algorithm="crb" fdyn-algorithm-frame="link"> 
+    <RCArticulatedBody id="chain" floating-base="false" fdyn-algorithm="crb" fdyn-algorithm-frame="link-com"> 
 
       <!-- links in the chain -->
       <RigidBody id="base" position="0 0 0">
         <InertiaFromPrimitive primitive-id="c" />
       </RigidBody>
 
-      <RigidBody id="l1" position="0 -2.5 0" rpy="0 0 0" visualization-id="c">
-        <InertiaFromPrimitive primitive-id="c" />
-        <CollisionGeometry primitive-id="c" />
+      <RigidBody id="l1" position="0 -2.5 0" rpy="0 0 0" visualization-id="b1">
+        <InertiaFromPrimitive primitive-id="b1" />
+        <CollisionGeometry primitive-id="b1" />
       </RigidBody>
 
-      <RigidBody id="l2" position="0 -7.5 0" rpy="0 0 0" visualization-id="c">
-        <InertiaFromPrimitive primitive-id="c" />
-        <CollisionGeometry primitive-id="c" />
+      <RigidBody id="l2" position="0 -7.5 0" rpy="0 0 0" visualization-id="b1">
+        <InertiaFromPrimitive primitive-id="b1" />
+        <CollisionGeometry primitive-id="b1" />
       </RigidBody>
 
       <!-- joints in the chain -->
@@ -48,8 +49,8 @@
 
     <!-- setup the platform rigid body; it is not active -->
     <RigidBody id="platform" enabled="false"
-      position="0 -20 0" visualization-id="b3" >
-        <CollisionGeometry primitive-id="b3" />
+      position="0 -11 0" visualization-id="plane" >
+        <CollisionGeometry primitive-id="plane" />
     </RigidBody>
 
   </MOBY>

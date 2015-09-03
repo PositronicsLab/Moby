@@ -11,8 +11,8 @@
     <!-- Primitives -->
     <Box id="b1" xlen="1" ylen="1" zlen="1" density="1.0" edge-sample-length="1" />
     <Box id="b2" position="0 0 0" xlen="1" ylen="1" zlen="1" density="1.0" edge-sample-length="1" />
-<!--    <Plane id="b3"  /> -->
-    <Box id="b3" xlen="10" ylen=".00001" zlen="10"  />
+    <Plane id="b3"  /> 
+<!--    <Box id="b3" xlen="10" ylen=".00001" zlen="10"  /> -->
 
     <!-- Integrator -->
     <RungeKuttaIntegrator id="rk4" />
