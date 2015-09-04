@@ -53,7 +53,7 @@ ConstraintStabilization::ConstraintStabilization()
   eps = NEAR_ZERO;
 
   // set bilateral tolerance
-  bilateral_eps = NEAR_ZERO;
+  bilateral_eps = 1e-6;
 }
 
 /// Saves the velocities before constraint stabilization
@@ -164,7 +164,11 @@ void ConstraintStabilization::stabilize(shared_ptr<ConstraintSimulator> sim)
     FILE_LOG(LOG_SIMULATOR) << "dq: " << dq << std::endl;
 
     // determine s and update q 
-    update_q(dq, q, sim);
+    if (!update_q(dq, q, sim))
+    {
+      FILE_LOG(LOG_SIMULATOR) << " -- failed to effectively finish the constraint stabilization process!" << std::endl;
+      break;
+    }
 
     // update minimum distance
     min_dist = get_min_pairwise_dist(pdi);  
@@ -267,8 +271,10 @@ void ConstraintStabilization::add_contact_constraints(std::vector<UnilateralCons
 /// Computes the constraint data
 void ConstraintStabilization::compute_problem_data(std::vector<UnilateralConstraintProblemData>& pd_vector, shared_ptr<ConstraintSimulator> sim)
 {
-  std::vector<UnilateralConstraint> constraints;
   VectorNd tmpv;
+
+  // clear the constraints vector
+  constraints.clear();
 
   // clear the problem data vector 
   pd_vector.clear();
@@ -415,6 +421,12 @@ void ConstraintStabilization::compute_problem_data(std::vector<UnilateralConstra
 
     // select proper constraints
     tmpv.select(pd.active, pd.Jx_v);    
+
+    // clear all impulses
+    for (unsigned i=0; i< pd.N_CONTACTS; i++)
+      pd.contact_constraints[i]->contact_impulse.set_zero(GLOBAL);
+    for (unsigned i=0; i< pd.N_LIMITS; i++)
+      pd.limit_constraints[i]->limit_impulse = 0;
   }
 }
 
@@ -733,10 +745,6 @@ void ConstraintStabilization::determine_dq(UnilateralConstraintProblemData& pd, 
     pd.super_bodies[i]->get_generalized_velocity(DynamicBodyd::eEuler, dq_sub);  
     dqm.segment(start, start+coord_num) = dq_sub;
   }
-
-double save = dqm[1];
-dqm.set_zero();
-dqm[1] = save;
 }
 
 /// Updates determined impulses in UnilateralConstraintProblemData based on an LCP solution
@@ -758,8 +766,6 @@ void ConstraintStabilization::update_from_stacked(const VectorNd& z, UnilateralC
     // setup the impulse in the contact frame
     Vector3d j;
     j = pd.contact_constraints[i]->contact_normal * pd.cn[i];
-    j += pd.contact_constraints[i]->contact_tan1 * pd.cs[i];
-    j += pd.contact_constraints[i]->contact_tan2 * pd.ct[i];
 
     // setup the spatial impulse
     SMomentumd jx(boost::const_pointer_cast<const Pose3d>(P));
@@ -858,11 +864,11 @@ void ConstraintStabilization::update_velocities(const UnilateralConstraintProble
 /**
  * Two body version
  */
-void ConstraintStabilization::update_q(const VectorNd& dq, VectorNd& q, shared_ptr<ConstraintSimulator> sim)
+bool ConstraintStabilization::update_q(const VectorNd& dq, VectorNd& q, shared_ptr<ConstraintSimulator> sim)
 {
   VectorNd qstar, grad;
   vector<double> C, C_old;
-  const double MIN_T = 1e-8;
+  const double MIN_T = 1e-5;
 
   // evaluate the implicit constraints
   evaluate_implicit_constraints(sim, C_old);
@@ -952,7 +958,7 @@ void ConstraintStabilization::update_q(const VectorNd& dq, VectorNd& q, shared_p
   // for values that aren't bracketed, further decrease t until there is
   // no increase in error
   const double BETA = 0.6;
-  while (t > MIN_T)
+  while (true)
   {
     // indicate that we do *not* keep looping unless otherwise specified
     bool stop = true;
@@ -970,7 +976,7 @@ void ConstraintStabilization::update_q(const VectorNd& dq, VectorNd& q, shared_p
     if (stop)
     {
       for (unsigned i=0; i< bilateral_bracket.size(); i++)
-      if (!bilateral_bracket[i] && std::fabs(C[i]) > std::fabs(C_old[i]) + bilateral_eps)
+      if (!bilateral_bracket[i] && std::fabs(C[i]) > std::fabs(C_old[i]))
       {
         stop = false;
         break;
@@ -983,6 +989,10 @@ void ConstraintStabilization::update_q(const VectorNd& dq, VectorNd& q, shared_p
 
     // update t
     t *= BETA;
+
+    // if t is too small, quit
+    if (t < MIN_T)
+      return false;
 
     // determine new qstar if necessary 
     qstar = dq;
@@ -999,6 +1009,8 @@ void ConstraintStabilization::update_q(const VectorNd& dq, VectorNd& q, shared_p
 
   // update q
   q = qstar;
+
+  return true;
 }
 
 /// Gets the body configurations, placing them into q 

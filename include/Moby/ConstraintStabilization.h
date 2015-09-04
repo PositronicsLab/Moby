@@ -32,7 +32,7 @@ class ConstraintStabilization
   private:
     void get_body_configurations(Ravelin::VectorNd& q, boost::shared_ptr<ConstraintSimulator> sim);
     void update_body_configurations(const Ravelin::VectorNd& q, boost::shared_ptr<ConstraintSimulator> sim);
-    void update_q(const Ravelin::VectorNd& dq, Ravelin::VectorNd& q, boost::shared_ptr<ConstraintSimulator> sim);
+    bool update_q(const Ravelin::VectorNd& dq, Ravelin::VectorNd& q, boost::shared_ptr<ConstraintSimulator> sim);
     void compute_problem_data(std::vector<UnilateralConstraintProblemData>& pd, boost::shared_ptr<ConstraintSimulator> sim);
     void add_contact_constraints(std::vector<UnilateralConstraint>& constraints, boost::shared_ptr<Ravelin::RigidBodyd> rb1, boost::shared_ptr<Ravelin::RigidBodyd> rb2, boost::shared_ptr<ConstraintSimulator> sim);
     void add_articulate_limit_constraint(std::vector<UnilateralConstraint>& constraints, boost::shared_ptr<Ravelin::ArticulatedBodyd> ab);
@@ -54,6 +54,9 @@ class ConstraintStabilization
 
     // the LCP solver
     LCP _lcp;
+
+    // the unilateral constraints
+    std::vector<UnilateralConstraint> constraints;
 }
 ;
 

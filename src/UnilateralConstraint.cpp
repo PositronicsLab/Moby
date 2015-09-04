@@ -57,9 +57,9 @@ UnilateralConstraint::UnilateralConstraint()
   limit_epsilon = (double) 0.0;
   limit_upper = false;
   limit_impulse = (double) 0.0;
-  contact_normal.set_zero();
-  contact_impulse.set_zero();
-  contact_point.set_zero();
+  contact_normal.set_zero(GLOBAL);
+  contact_impulse.set_zero(GLOBAL);
+  contact_point.set_zero(GLOBAL);
   contact_mu_coulomb = (double) 0.0;
   contact_mu_viscous = (double) 0.0;
   contact_penalty_Kp = (double) 0.0;
