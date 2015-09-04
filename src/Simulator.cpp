@@ -19,6 +19,7 @@
 #include <Moby/SparseJacobian.h>
 #include <Moby/Simulator.h>
 
+using std::list;
 using std::set;
 using std::multimap;
 using std::queue;
@@ -325,13 +326,153 @@ void Simulator::add_transient_vdata(osg::Node* vdata)
   #endif
 }
 
+/// Prepares to calculate forward dynamics for bodies
+void Simulator::precalc_fwd_dyn()
+{
+  // clear force accumulators, then add all recurrent and compliant
+  // constraint forces
+  BOOST_FOREACH(ControlledBodyPtr db, _bodies)
+  {
+    // get the body as a Ravelin dynamic body
+    shared_ptr<DynamicBodyd> rdb = dynamic_pointer_cast<DynamicBodyd>(db);
+
+    // clear the force accumulators on the body
+    rdb->reset_accumulators();
+
+    // add all recurrent forces on the body
+    const list<RecurrentForcePtr>& rfs = db->get_recurrent_forces();
+    BOOST_FOREACH(RecurrentForcePtr rf, rfs)
+      rf->add_force(rdb);
+    
+    // call the body's controller
+    if (db->controller)
+    {
+      FILE_LOG(LOG_DYNAMICS) << "Computing controller forces for " << db->id << std::endl;
+      (*db->controller)(db, current_time, db->controller_arg);
+    }
+  }
+}
+
+/// Calculates forward dynamics for bodies (does not consider unilateral constraints)
+void Simulator::calc_fwd_dyn(double dt)
+{
+  VectorNd dv, lambda, f;
+  vector<JointPtr> island_ijoints; 
+
+  // get the simulator pointer
+  shared_ptr<Simulator> shared_this = dynamic_pointer_cast<Simulator>(shared_from_this());
+
+  // find islands
+  vector<vector<shared_ptr<DynamicBodyd> > > islands; 
+  find_islands(islands);
+
+  // calculate forward dynamics for each island 
+  for (unsigned i=0; i< islands.size(); i++)
+  {
+    // get the i'th island
+    vector<shared_ptr<DynamicBodyd> >& island = islands[i];
+
+    // sort the island so that we can search it
+    std::sort(island.begin(), island.end());
+
+    // clear the set of implicit joints 
+    island_ijoints.clear();
+
+    // get the implicit joints in the island
+    for (unsigned j=0; j< implicit_joints.size(); j++)
+    {
+      // get the inboard and outboard links for the joint
+      shared_ptr<RigidBodyd> ib = implicit_joints[j]->get_inboard_link();
+      shared_ptr<RigidBodyd> ob = implicit_joints[j]->get_outboard_link();
+
+      // get the super bodies 
+      shared_ptr<DynamicBodyd> ib_super = ib->get_super_body(); 
+      shared_ptr<DynamicBodyd> ob_super = ob->get_super_body(); 
+
+      if (std::binary_search(island.begin(), island.end(), ib_super) ||
+          std::binary_search(island.begin(), island.end(), ob_super))
+        island_ijoints.push_back(implicit_joints[j]);
+    }
+
+    // get all implicit joints from articulated bodies in the island
+    for (unsigned j=0; j< island.size(); j++)
+    {
+      // see whether the body is articulated
+      shared_ptr<ArticulatedBodyd> ab = dynamic_pointer_cast<ArticulatedBodyd>(island[j]);
+      if (!ab)
+        continue;
+
+      // get the implicit joints for this body
+      const vector<shared_ptr<Jointd> >& ijoints = ab->get_implicit_joints();
+
+      // add the joints
+      for (unsigned k=0; k< ijoints.size(); k++)
+        island_ijoints.push_back(dynamic_pointer_cast<Joint>(ijoints[k]));
+    }
+
+    // get number of implicit constraints
+    const unsigned N_IMPLICIT = island_ijoints.size();
+  
+    // if there are no implicit constraints, just call calc_fwd_dyn(.) on
+    // each body
+    if (N_IMPLICIT == 0)
+    {
+      for (unsigned j=0; j< island.size(); j++)
+      {
+        // get the body
+        shared_ptr<DynamicBodyd> db = dynamic_pointer_cast<DynamicBodyd>(island[j]); 
+
+        // no implicit constraints? just calculate forward dynamics for the body
+        db->calc_fwd_dyn();
+      }
+    }
+    else // there are implicit constraints - must go through the solve process
+    {
+      // get the total number of generalized coordinates for the island
+      const unsigned NGC_TOTAL = num_generalized_coordinates(island);
+
+      // setup f
+      f.resize(NGC_TOTAL);
+      for (unsigned i=0, gc_index = 0; i< island.size(); i++)
+      {
+        const unsigned NGC = island[i]->num_generalized_coordinates(DynamicBodyd::eSpatial);
+        SharedVectorNd f_sub = f.segment(gc_index, gc_index + NGC);
+        island[i]->get_generalized_forces(f_sub);
+        gc_index += NGC;
+      }
+
+      // compute change in velocity and constraint forces
+      solve(island, island_ijoints, f, dv, lambda);
+
+      // set accelerations
+      dv /= dt;
+      for (unsigned i=0, gc_index = 0; i< island.size(); i++)
+      {
+        const unsigned NGC = island[i]->num_generalized_coordinates(DynamicBodyd::eSpatial);
+        SharedConstVectorNd dv_sub = dv.segment(gc_index, gc_index + NGC);
+        island[i]->set_generalized_acceleration(dv_sub);
+        gc_index += NGC;
+      }
+
+      // populate constraint forces
+      for (unsigned i=0, c_index = 0; i< island_ijoints.size(); i++)
+      {
+        const unsigned NEQ = island_ijoints[i]->num_constraint_eqns();
+        SharedConstVectorNd lambda_sub = lambda.segment(c_index, c_index + NEQ);
+        island_ijoints[i]->lambda = lambda_sub;
+        c_index += NEQ;
+      }
+    }
+  }
+}
+
 // Solves | M   J' | | x      | = | f | 
 //        | J   0  | | lambda |   | 0 |
 // using M*x = -J'*lambda + f and
 // J*inv(M)*J'lambda = J*inv(M)*f
 void Simulator::solve(const vector<shared_ptr<DynamicBodyd> >& island, const vector<JointPtr>& island_ijoints, const VectorNd& f, VectorNd& x, VectorNd& lambda) const
 {
-  MatrixNd JiMJT_frr, JiM, iMJT, JiMJT, Jm, tmp, tmp2;
+  MatrixNd JiMJT_frr, JiM, iMJT, iMJT_frr, JiMJT, Jm, tmp, tmp2;
   VectorNd JiMf_frr, JiMf, iMf, lambda_sub; 
   const unsigned N_SPATIAL = 6;
   map<shared_ptr<DynamicBodyd>, unsigned> gc_map;
@@ -516,18 +657,24 @@ void Simulator::solve(const vector<shared_ptr<DynamicBodyd> >& island, const vec
 
   // if the last factorization was not successful, refactor
   if (!last_successful)
+  {
+    JiMJT.select_square(indices, JiMJT_frr);
     LinAlgd::factor_chol(JiMJT_frr);
+  }
 
   // solve for lambda_sub
   lambda_sub = JiMf_frr;
-  LinAlgd::solve_chol_fast(JiMJT, lambda_sub);
+  LinAlgd::solve_chol_fast(JiMJT_frr, lambda_sub);
 
-  // determine lambda
+  // reform iMJT
+  iMJT.select_columns(indices, iMJT_frr);
+
+  // set lambda
   lambda.set_zero(n_implicit_eqns);
   lambda.set(indices, lambda_sub);
 
   // now compute x using M*x = -J'*lambda + f and
-  iMJT.mult(lambda, x);
+  iMJT_frr.mult(lambda_sub, x);
   x.negate();
   x += iMf;
 }
@@ -697,7 +844,13 @@ void Simulator::find_islands(vector<vector<shared_ptr<DynamicBodyd> > >& islands
 
   // first, add all nodes
   for (unsigned i=0; i< _bodies.size(); i++)
-    nodes.insert(dynamic_pointer_cast<DynamicBodyd>(_bodies[i]));
+  {
+    shared_ptr<DynamicBodyd> db = dynamic_pointer_cast<DynamicBodyd>(_bodies[i]);
+    shared_ptr<RigidBodyd> rb = dynamic_pointer_cast<RigidBodyd>(db);
+    if (rb && !rb->is_enabled())
+      continue;
+    nodes.insert(db);
+  }
 
   // loop through all implicit joints in the simulator
   for (unsigned i=0; i< implicit_joints.size(); i++)

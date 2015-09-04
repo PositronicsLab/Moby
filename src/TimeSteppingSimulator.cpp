@@ -207,8 +207,14 @@ double TimeSteppingSimulator::do_mini_step(double dt)
 
   FILE_LOG(LOG_SIMULATOR) << "Position integration ended w/h = " << h << std::endl;
 
+  // prepare to calculate forward dynamics
+  precalc_fwd_dyn();
+
+  // apply compliant unilateral constraint forces
+  calc_compliant_unilateral_constraint_forces();
+
   // compute forward dynamics
-  calc_fwd_dyn();
+  calc_fwd_dyn(h);
 
   // integrate the bodies' velocities forward by h
   for (unsigned i=0; i< _bodies.size(); i++)

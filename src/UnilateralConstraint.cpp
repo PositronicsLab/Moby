@@ -933,12 +933,13 @@ osg::Node* UnilateralConstraint::to_visualization_data() const
  * \param constraints the list of constraints
  * \param groups the islands of connected constraints on return
  */
-void UnilateralConstraint::determine_connected_constraints(const vector<UnilateralConstraint>& constraints, const vector<JointPtr>& implicit_joints, list<list<UnilateralConstraint*> >& groups)
+void UnilateralConstraint::determine_connected_constraints(const vector<UnilateralConstraint>& constraints, const vector<JointPtr>& implicit_joints, list<list<UnilateralConstraint*> >& groups, list<list<shared_ptr<DynamicBodyd> > >& remaining_islands)
 {
   FILE_LOG(LOG_CONSTRAINT) << "UnilateralConstraint::determine_connected_contacts() entered" << std::endl;
 
   // clear the groups
   groups.clear();
+  remaining_islands.clear();
 
   // copy the list of constraints -- only ones with geometry
   list<UnilateralConstraint*> constraints_copy;
@@ -1077,6 +1078,9 @@ void UnilateralConstraint::determine_connected_constraints(const vector<Unilater
     std::queue<shared_ptr<SingleBodyd> > node_q;
     node_q.push(node);
 
+    // setup a set of processed nodes
+    std::set<shared_ptr<SingleBodyd> > processed_nodes;
+
     // loop until the queue is empty
     while (!node_q.empty())
     {
@@ -1084,14 +1088,14 @@ void UnilateralConstraint::determine_connected_constraints(const vector<Unilater
       node = node_q.front();
       node_q.pop();
 
-      // erase the node from the set of nodes
-      nodes.erase(node);
+      // indicate that the node has now been processed
+      processed_nodes.insert(node);
 
       // add all neighbors of the node that have not been processed already 
       // to the node queue
       std::pair<EdgeIter, EdgeIter> neighbors = edges.equal_range(node);
       for (EdgeIter i = neighbors.first; i != neighbors.second; i++)
-        if (nodes.find(i->second) != nodes.end())
+        if (processed_nodes.find(i->second) == processed_nodes.end())
           node_q.push(i->second);
 
       // loop through all remaining constraints
@@ -1128,6 +1132,49 @@ void UnilateralConstraint::determine_connected_constraints(const vector<Unilater
         else
           assert(false);
       }
+
+      // if no unilateral constraints have been added, add to remaining islands
+      if (groups.back().empty())
+      {
+        // don't need an empty group of unilateral constraints
+        groups.pop_back();
+
+        // create a new island
+        remaining_islands.push_back(list<shared_ptr<DynamicBodyd> >());
+
+        // create a secondary node q and secondary processing set
+        std::queue<shared_ptr<SingleBodyd> > node_q2;
+        std::set<shared_ptr<SingleBodyd> > processed_nodes2;        
+
+        // add the node to the queue
+        node_q2.push(node);
+
+        // find all connected bodies
+        while (!node_q2.empty())
+        {
+          // get the node off of the front of the node queue
+          node = node_q2.front();
+          node_q2.pop();
+
+          // indicate that the node has now been processed
+          processed_nodes2.insert(node);
+
+          // add the super body of this node to the island
+          remaining_islands.back().push_back(node->get_super_body());
+
+          // add all neighbors of the node that have not been processed already 
+          // to the node queue
+          std::pair<EdgeIter, EdgeIter> neighbors = edges.equal_range(node);
+          for (EdgeIter i = neighbors.first; i != neighbors.second; i++)
+            if (processed_nodes2.find(i->second) == processed_nodes2.end())
+              node_q2.push(i->second);
+        }
+
+        // finally, make the island of super bodies unique
+        list<shared_ptr<DynamicBodyd> >& island = remaining_islands.back();
+        island.sort();
+        island.erase(std::unique(island.begin(), island.end()), island.end());
+      } 
     }
   }
 

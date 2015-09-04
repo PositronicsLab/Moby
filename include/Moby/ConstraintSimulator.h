@@ -92,7 +92,6 @@ class ConstraintSimulator : public Simulator
   protected:
     void calc_impacting_unilateral_constraint_forces(double dt);
     void find_unilateral_constraints(double min_contact_dist);
-    void calc_fwd_dyn();
     void calc_compliant_unilateral_constraint_forces();
     void preprocess_constraint(UnilateralConstraint& e);
     void determine_geometries();

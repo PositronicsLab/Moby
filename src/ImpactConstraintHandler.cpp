@@ -102,8 +102,9 @@ void ImpactConstraintHandler::apply_model(const vector<UnilateralConstraint>& co
   // **********************************************************
   // determine sets of connected constraints
   // **********************************************************
+  list<list<shared_ptr<DynamicBodyd> > > remaining_islands;
   list<list<UnilateralConstraint*> > groups;
-  UnilateralConstraint::determine_connected_constraints(constraints, _simulator->implicit_joints, groups);
+  UnilateralConstraint::determine_connected_constraints(constraints, _simulator->implicit_joints, groups, remaining_islands);
   UnilateralConstraint::remove_inactive_groups(groups);
 
   // **********************************************************
@@ -158,6 +159,12 @@ void ImpactConstraintHandler::apply_model(const vector<UnilateralConstraint>& co
   // if there are any constraints still impacting, throw an exception
   if (!impacting.empty())
     throw ImpactToleranceException(impacting);
+
+  // finally, handle islands without unilateral constraints
+  for (list<list<shared_ptr<DynamicBodyd> > >::iterator i = remaining_islands.begin(); i != remaining_islands.end(); i++)
+  {
+    // TODO: handle these here...
+  }
 }
 
 /**

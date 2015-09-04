@@ -88,6 +88,8 @@ class Simulator : public virtual Base
     unsigned num_generalized_coordinates(const std::vector<boost::shared_ptr<Ravelin::DynamicBodyd> > & island) const;
     osg::Group* _persistent_vdata;
     osg::Group* _transient_vdata;
+    void calc_fwd_dyn(double dt);
+    void precalc_fwd_dyn();
 
     /// The set of bodies in the simulation
     std::vector<ControlledBodyPtr> _bodies;

@@ -235,7 +235,7 @@ void ConstraintStabilization::add_contact_constraints(std::vector<UnilateralCons
         normal.normalize();
         UnilateralConstraint uc = CollisionDetection::create_contact(cg1, cg2, p1_g, normal, dist);
         //FILE_LOG(LOG_SIMULATOR) << "p1: " << p1_g << std::endl << "normal" << normal << std::endl << "dist" << dist<<std::endl;
-        constraints.insert(constraints.end(), uc);
+        constraints.insert(constraints.end(), uc); 
       }
       // case 3: bodies are properly interpenetrating
       else
@@ -369,10 +369,11 @@ void ConstraintStabilization::compute_problem_data(std::vector<UnilateralConstra
   //    in the direction of the signed distance function. 
 
   // find islands
+  list<list<shared_ptr<DynamicBodyd> > > remaining_islands;
   list<list<UnilateralConstraint*> > islands;
-  UnilateralConstraint::determine_connected_constraints(constraints, sim->implicit_joints, islands);
+  UnilateralConstraint::determine_connected_constraints(constraints, sim->implicit_joints, islands, remaining_islands);
 
-  // process islands
+  // process unilateral constraint islands
   BOOST_FOREACH(list<UnilateralConstraint*>& island, islands)
   {
     // setup a UnilateralConstraintProblemData object
@@ -427,6 +428,47 @@ void ConstraintStabilization::compute_problem_data(std::vector<UnilateralConstra
       pd.contact_constraints[i]->contact_impulse.set_zero(GLOBAL);
     for (unsigned i=0; i< pd.N_LIMITS; i++)
       pd.limit_constraints[i]->limit_impulse = 0;
+  }
+
+  // process islands composed completely of bilateral constraints
+  BOOST_FOREACH(list<shared_ptr<DynamicBodyd> >& island, remaining_islands)
+  {
+    // setup a UnilateralConstraintProblemData object
+    pd_vector.push_back(UnilateralConstraintProblemData());
+    UnilateralConstraintProblemData& pd = pd_vector.back();
+
+    // set a pointer to the simulator
+    pd.simulator = sim;
+
+    // set number of contact and limit constraints
+    pd.N_CONTACTS = 0;
+    pd.N_LIMITS = 0; 
+    pd.N_K_TOTAL = 0;
+    pd.N_TRUE_CONE = 0;
+
+    // now set the unilateral constraint data
+    set_unilateral_constraint_data(pd);
+    
+    // set Cn_v and L_v
+    pd.Cn_v.resize(0);
+    pd.L_v.resize(0);
+
+    // set Jx_v
+    double C[6];
+    tmpv.resize(pd.N_CONSTRAINT_EQNS_IMP);
+    for (unsigned i=0, j=0; i< pd.island_ijoints.size(); i++)
+    {
+      pd.island_ijoints[i]->evaluate_constraints(C);
+      for (unsigned k=0; k< pd.island_ijoints[i]->num_constraint_eqns(); k++)
+        tmpv[j++] = C[k];
+    }
+
+    // select proper constraints
+    tmpv.select(pd.active, pd.Jx_v);    
+
+    // clear all impulses
+    pd.contact_constraints.clear();
+    pd.limit_constraints.clear();
   }
 }
 
@@ -860,6 +902,9 @@ void ConstraintStabilization::update_velocities(const UnilateralConstraintProble
     i->first->apply_generalized_impulse(i->second);
 }
 
+/// Simple squaring function
+static double sqr(double x) { return x*x; }
+
 /// Updates q doing a backtracking line search
 /**
  * Two body version
@@ -868,10 +913,16 @@ bool ConstraintStabilization::update_q(const VectorNd& dq, VectorNd& q, shared_p
 {
   VectorNd qstar, grad;
   vector<double> C, C_old;
-  const double MIN_T = 1e-5;
+  const double MIN_T = NEAR_ZERO;
 
   // evaluate the implicit constraints
   evaluate_implicit_constraints(sim, C_old);
+
+  // compute old bilateral constraint violations
+  double old_bilateral_cvio = 0.0;
+  for (unsigned i=0; i< C_old.size(); i++)
+    old_bilateral_cvio += sqr(C_old[i]);
+  old_bilateral_cvio = std::sqrt(old_bilateral_cvio);
 
   // copy the pairwise distances
   vector<PairwiseDistInfo>& pdi = sim->_pairwise_distances;
@@ -972,20 +1023,20 @@ bool ConstraintStabilization::update_q(const VectorNd& dq, VectorNd& q, shared_p
         break;
       }
 
-    // now check bilateral brackets
+    // now check bilateral constraints 
     if (stop)
     {
-      for (unsigned i=0; i< bilateral_bracket.size(); i++)
-      if (!bilateral_bracket[i] && std::fabs(C[i]) > std::fabs(C_old[i]))
-      {
-        stop = false;
-        break;
-      }
-    }
+      double bilateral_cvio = 0.0;
+      for (unsigned i=0; i< C.size(); i++)
+          bilateral_cvio += sqr(C[i]);
+      bilateral_cvio = std::sqrt(bilateral_cvio);
 
-    // see whether we can still stop
-    if (stop)
-      break;
+      FILE_LOG(LOG_SIMULATOR) << "Old bilateral constraint violation: " << old_bilateral_cvio << " New: " << bilateral_cvio << std::endl;
+
+      // see whether we can still stop
+      if (bilateral_cvio < old_bilateral_cvio)
+        break;
+    }
 
     // update t
     t *= BETA;
@@ -1005,6 +1056,7 @@ bool ConstraintStabilization::update_q(const VectorNd& dq, VectorNd& q, shared_p
     evaluate_implicit_constraints(sim, C);
   }
 
+  FILE_LOG(LOG_SIMULATOR) << "t: " << t << std::endl;
   FILE_LOG(LOG_SIMULATOR) << "new q (from update_q): " << q << std::endl;
 
   // update q

@@ -510,46 +510,6 @@ void ConstraintSimulator::update_constraint_violations(const vector<PairwiseDist
   FILE_LOG(LOG_SIMULATOR) << "ConstraintSimulator::update_constraint_violations() exited" << std::endl;
 }
 
-/// Computes forward dynamics for all bodies
-void ConstraintSimulator::calc_fwd_dyn()
-{
-  // clear force accumulators, then add all recurrent and compliant
-  // constraint forces
-  BOOST_FOREACH(ControlledBodyPtr db, _bodies)
-  {
-    // get the body as a Ravelin dynamic body
-    shared_ptr<DynamicBodyd> rdb = dynamic_pointer_cast<DynamicBodyd>(db);
-
-    // clear the force accumulators on the body
-    rdb->reset_accumulators();
-
-    // add all recurrent forces on the body
-    const list<RecurrentForcePtr>& rfs = db->get_recurrent_forces();
-    BOOST_FOREACH(RecurrentForcePtr rf, rfs)
-      rf->add_force(rdb);
-    
-    // call the body's controller
-    if (db->controller)
-    {
-      FILE_LOG(LOG_DYNAMICS) << "Computing controller forces for " << db->id << std::endl;
-      (*db->controller)(db, current_time, db->controller_arg);
-    }
-  }
-
-  // calculate compliant constraint forces
-  calc_compliant_unilateral_constraint_forces();
-
-  // compute controller forces and call forward dynamics
-  BOOST_FOREACH(ControlledBodyPtr db, _bodies)
-  {
-    // get the body as a Ravelin dynamic body
-    shared_ptr<DynamicBodyd> rdb = dynamic_pointer_cast<DynamicBodyd>(db);
-
-    // calculate forward dynamics at state x
-    rdb->calc_fwd_dyn();
-  }
-}
-
 /// Finds the set of unilateral constraints
 void ConstraintSimulator::find_unilateral_constraints(double contact_dist_thresh)
 {
