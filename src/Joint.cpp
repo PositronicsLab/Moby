@@ -115,7 +115,8 @@ void Joint::set_inboard_link(RigidBodyPtr inboard, bool update_pose)
   inboard->_outer_joints.insert(dynamic_pointer_cast<Jointd>(Jointd::shared_from_this()));
 
   // setup F's pose relative to the inboard
-  set_inboard_pose(inboard->get_pose(), update_pose);
+  if (!inboard->_F->rpose)
+    set_inboard_pose(inboard->get_pose(), update_pose);
 
   // update articulated body pointers, if possible
   if (!inboard->get_articulated_body() && !_abody.expired())
@@ -147,12 +148,9 @@ void Joint::set_outboard_link(RigidBodyPtr outboard, bool update_pose)
   // add this joint to the outer joints
   outboard->_inner_joints.insert(dynamic_pointer_cast<Jointd>(Jointd::shared_from_this()));
 
-  // get the outboard pose
-  if (outboard->_F->rpose)
-    throw std::runtime_error("Joint::set_inboard_link() - relative pose on inboard link already set");
-
-  // setup Fb's pose relative to the outboard 
-  set_outboard_pose(outboard->_F, update_pose);
+  // set the outboard pose, if necessary 
+  if (!outboard->_F->rpose)
+    set_outboard_pose(outboard->_F, update_pose);
 
   // setup the frame
   outboard->_xdj.pose = get_pose();

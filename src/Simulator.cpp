@@ -472,7 +472,7 @@ void Simulator::calc_fwd_dyn(double dt)
 // J*inv(M)*J'lambda = J*inv(M)*f
 void Simulator::solve(const vector<shared_ptr<DynamicBodyd> >& island, const vector<JointPtr>& island_ijoints, const VectorNd& f, VectorNd& x, VectorNd& lambda) const
 {
-  MatrixNd JiMJT_frr, JiM, iMJT, iMJT_frr, JiMJT, Jm, tmp, tmp2;
+  MatrixNd JiMJT_frr, JiM, iMJT, iMJT_frr, JiMJT, Jm, tmp;
   VectorNd JiMf_frr, JiMf, iMf, lambda_sub; 
   const unsigned N_SPATIAL = 6;
   map<shared_ptr<DynamicBodyd>, unsigned> gc_map;
@@ -554,63 +554,27 @@ void Simulator::solve(const vector<shared_ptr<DynamicBodyd> >& island, const vec
   J.cols = NGC_TOTAL;
   for (unsigned i=0, eq_idx=0; i< island_ijoints.size(); i++)
   {
-    // resize the temporary matrix
-    tmp.resize(island_ijoints[i]->num_constraint_eqns(), N_SPATIAL);
-
     // get the inboard and outboard links
     shared_ptr<RigidBodyd> inboard = island_ijoints[i]->get_inboard_link();
     shared_ptr<RigidBodyd> outboard = island_ijoints[i]->get_outboard_link();
 
-    // compute the Jacobian w.r.t. the inboard link
-    SharedMatrixNd tmp_in_shared = tmp.block(0, tmp.rows(), 0, tmp.columns());
-    island_ijoints[i]->calc_constraint_jacobian(true, tmp_in_shared);
-
-    // put the Jacobian in independent coordinates if necessary
-    shared_ptr<ArticulatedBodyd> inboard_ab = inboard->get_articulated_body();
-    if (inboard_ab)
+    // add the block to the Jacobian
+    if (inboard->is_enabled())
     {
-      // get the reduced coordinate body
-      shared_ptr<RCArticulatedBodyd> rcab = dynamic_pointer_cast<RCArticulatedBodyd>(inboard_ab);
-      if (rcab)
-      {
-        // get the Jacobian and carry out the multiplication
-        rcab->calc_jacobian(GLOBAL, inboard, Jm);
-        tmp.mult(Jm, tmp2);
-        tmp = tmp2;
-      }
+      J.blocks.push_back(MatrixBlock());
+      island_ijoints[i]->calc_constraint_jacobian(true, J.blocks.back().block);
+      J.blocks.back().st_row_idx = eq_idx;
+      J.blocks.back().st_col_idx = gc_map[inboard];
     }
 
     // add the block to the Jacobian
-    J.blocks.push_back(MatrixBlock());
-    J.blocks.back().block = tmp;
-    J.blocks.back().st_row_idx = eq_idx;
-    J.blocks.back().st_col_idx = gc_map[inboard];
-    
-    // compute the Jacobian w.r.t. the outboard link
-    tmp.resize(island_ijoints[i]->num_constraint_eqns(), N_SPATIAL);
-    SharedMatrixNd tmp_out_shared = tmp.block(0, tmp.rows(), 0, tmp.columns());
-    island_ijoints[i]->calc_constraint_jacobian(false, tmp_out_shared);
-
-    // put the Jacobian in independent coordinates if necessary
-    shared_ptr<ArticulatedBodyd> outboard_ab = outboard->get_articulated_body();
-    if (outboard_ab)
+    if (outboard->is_enabled())
     {
-      // get the reduced coordinate body
-      shared_ptr<RCArticulatedBodyd> rcab = dynamic_pointer_cast<RCArticulatedBodyd>(outboard_ab);
-      if (rcab)
-      {
-        // get the Jacobian and carry out the multiplication
-        rcab->calc_jacobian(GLOBAL, outboard, Jm);
-        tmp.mult(Jm, tmp2);
-        tmp = tmp2;
-      }
+      J.blocks.push_back(MatrixBlock());
+      island_ijoints[i]->calc_constraint_jacobian(false, J.blocks.back().block);
+      J.blocks.back().st_row_idx = eq_idx;
+      J.blocks.back().st_col_idx = gc_map[outboard];
     }
-
-    // add the block to the Jacobian
-    J.blocks.push_back(MatrixBlock());
-    J.blocks.back().block = tmp;
-    J.blocks.back().st_row_idx = eq_idx;
-    J.blocks.back().st_col_idx = gc_map[outboard];
 
     // update the equation index
     eq_idx += island_ijoints[i]->num_constraint_eqns();
@@ -625,7 +589,7 @@ void Simulator::solve(const vector<shared_ptr<DynamicBodyd> >& island, const vec
   // form the biggest full rank matrix
   vector<bool> indices(JiMJT.rows(), false);
   indices[0] = true;
-  bool last_successful = true;
+  bool last_successful = false;
   for (unsigned i=1, n_active=1; i< indices.size(); i++)
   {
     // see whether the number of indices is maximized

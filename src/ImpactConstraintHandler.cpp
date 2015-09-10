@@ -1799,7 +1799,7 @@ void ImpactConstraintHandler::compute_problem_data(UnilateralConstraintProblemDa
   const unsigned UINF = std::numeric_limits<unsigned>::max();
   const unsigned N_SPATIAL = 6;
   VectorNd v;
-  MatrixNd X, tmp, tmp2, Jm;
+  MatrixNd X, tmp, Jm;
 
   // determine set of "super" bodies from contact constraints
   q.super_bodies.clear();
@@ -1962,56 +1962,20 @@ void ImpactConstraintHandler::compute_problem_data(UnilateralConstraintProblemDa
     // compute the Jacobian w.r.t. the inboard link
     if (inboard->is_enabled())
     {
-      SharedMatrixNd tmp_in_shared = tmp.block(0, tmp.rows(), 0, tmp.columns());
-      q.island_ijoints[i]->calc_constraint_jacobian(true, tmp_in_shared);
-
-      // put the Jacobian in independent coordinates if necessary
-      shared_ptr<ArticulatedBodyd> inboard_ab = inboard->get_articulated_body();
-      if (inboard_ab)
-      {
-        // get the reduced coordinate body
-        shared_ptr<RCArticulatedBodyd> rcab = dynamic_pointer_cast<RCArticulatedBodyd>(inboard_ab);
-        if (rcab)
-        {
-          // get the Jacobian and carry out the multiplication
-          rcab->calc_jacobian(GLOBAL, inboard, Jm);
-          tmp.mult(Jm, tmp2);
-          tmp = tmp2;
-        }
-      }
-    
       // add the block to the Jacobian
       q.Jfull.blocks.push_back(MatrixBlock());
-      q.Jfull.blocks.back().block = tmp;
+      MatrixNd& block = q.Jfull.blocks.back().block;
+      q.island_ijoints[i]->calc_constraint_jacobian(true, block);
       q.Jfull.blocks.back().st_row_idx = eq_idx;
       q.Jfull.blocks.back().st_col_idx = gc_map[inboard];
     }
  
     if (outboard->is_enabled())
     {
-      // compute the Jacobian w.r.t. the outboard link
-      tmp.resize(q.island_ijoints[i]->num_constraint_eqns(), N_SPATIAL);
-      SharedMatrixNd tmp_out_shared = tmp.block(0, tmp.rows(), 0, tmp.columns());
-      q.island_ijoints[i]->calc_constraint_jacobian(false, tmp_out_shared);
-
-      // put the Jacobian in independent coordinates if necessary
-      shared_ptr<ArticulatedBodyd> outboard_ab = outboard->get_articulated_body();
-      if (outboard_ab)
-      {
-        // get the reduced coordinate body
-        shared_ptr<RCArticulatedBodyd> rcab = dynamic_pointer_cast<RCArticulatedBodyd>(outboard_ab);
-        if (rcab)
-        {
-          // get the Jacobian and carry out the multiplication
-          rcab->calc_jacobian(GLOBAL, outboard, Jm);
-          tmp.mult(Jm, tmp2);
-          tmp = tmp2;
-        }
-      }
-
       // add the block to the Jacobian
       q.Jfull.blocks.push_back(MatrixBlock());
-      q.Jfull.blocks.back().block = tmp;
+      MatrixNd& block = q.Jfull.blocks.back().block;
+      q.island_ijoints[i]->calc_constraint_jacobian(false, block);
       q.Jfull.blocks.back().st_row_idx = eq_idx;
       q.Jfull.blocks.back().st_col_idx = gc_map[outboard];
     }

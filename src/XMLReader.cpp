@@ -37,6 +37,7 @@
 #include <Moby/RevoluteJoint.h>
 #include <Moby/SphericalJoint.h>
 #include <Moby/UniversalJoint.h>
+#include <Moby/Gears.h>
 #include <Moby/GravityForce.h>
 #include <Moby/StokesDragForce.h>
 #include <Moby/Dissipation.h>
@@ -177,6 +178,7 @@ std::map<std::string, BasePtr> XMLReader::construct_ID_map(shared_ptr<XMLTree> m
   process_tag("SphericalJoint", moby_tree, &read_spherical_joint, id_map);
   process_tag("UniversalJoint", moby_tree, &read_universal_joint, id_map);
   process_tag("FixedJoint", moby_tree, &read_fixed_joint, id_map);
+  process_tag("Gears", moby_tree, &read_gears, id_map);
   process_tag("JointPlugin", moby_tree, &read_joint_plugin, id_map);
 
   // read and construct all articulated bodies
@@ -767,6 +769,19 @@ void XMLReader::read_spherical_joint(shared_ptr<const XMLTree> node, std::map<st
   
   // populate the object
   sj->load_from_xml(node, id_map);
+}
+
+/// Reads and constructs the Gears object
+void XMLReader::read_gears(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
+{
+  // sanity check
+  assert(strcasecmp(node->name.c_str(), "Gears") == 0);
+
+  // create a new Gears object
+  boost::shared_ptr<Gears> gears(new Gears());
+  
+  // populate the object
+  gears->load_from_xml(node, id_map);
 }
 
 /// Reads and constructs the FixedJoint object
