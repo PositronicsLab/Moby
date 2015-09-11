@@ -338,13 +338,13 @@ void ImpactConstraintHandler::update_from_stacked(UnilateralConstraintProblemDat
   dv += q.X_LT.mult(q.l, tmpv);
 
   // compute lambda here using
-  // | M  J' | | dv     | = | f | where f is all impulses
+  // | M  J' | | dv     | = | 0 | 
   // | J  0  | | lambda |   | -J*v |
-  // J*inv(M)*J'*lambda = -J*inv(M)*(N'*cn + S'*cs + T'*ct) - J*v
-  q.J.mult(dv, q.lambda);
-  q.lambda.negate();
-  q.lambda -= q.Jx_v;
-  FILE_LOG(LOG_CONSTRAINT) << "dv: " << dv << std::endl;
+  // M*dv + J'*lambda = 0
+  // dv = -inv(M)*J'*lambda
+  // -J*inv(M)*J'*lambda = -J*v
+  q.lambda = q.Jx_v;
+  FILE_LOG(LOG_CONSTRAINT) << "J*dv (constraint velocities): " << dv << std::endl;
   FILE_LOG(LOG_CONSTRAINT) << "bilateral constraint forces: " << q.lambda << std::endl;
 
   // solve for lambda
@@ -353,9 +353,9 @@ void ImpactConstraintHandler::update_from_stacked(UnilateralConstraintProblemDat
   LinAlgd::solve_chol_fast(tmpM, q.lambda);
 
   // update dv
-  dv += q.iM_JxT.mult(q.lambda, tmpv);
+  dv -= q.iM_JxT.mult(q.lambda, tmpv);
   FILE_LOG(LOG_CONSTRAINT) << "inv(M)*J'*lambda: " << tmpv << std::endl;
-  FILE_LOG(LOG_CONSTRAINT) << "dv (2): " << dv << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "change in velocity after incorporating joint constraints: " << dv << std::endl;
 
   // update the bodies' velocities
   update_generalized_velocities(q, dv);
@@ -1604,14 +1604,11 @@ void ImpactConstraintHandler::get_full_rank_implicit_constraints(const SparseJac
   if (active.empty())
     return;
 
-  // make first constraint active
-  active[0] = true;
-
   // compute J*J'
   J.mult_transpose(J, JJT);
 
   // keep trying to add constraints 
-  for (unsigned i=1, n_active = 1; i< active.size(); i++)
+  for (unsigned i=0, n_active = 0; i< active.size(); i++)
   {
     // see whether the number of indices is maximized
     if (n_active == J.cols)

@@ -588,9 +588,8 @@ void Simulator::solve(const vector<shared_ptr<DynamicBodyd> >& island, const vec
 
   // form the biggest full rank matrix
   vector<bool> indices(JiMJT.rows(), false);
-  indices[0] = true;
   bool last_successful = false;
-  for (unsigned i=1, n_active=1; i< indices.size(); i++)
+  for (unsigned i=0, n_active=0; i< indices.size(); i++)
   {
     // see whether the number of indices is maximized
     if (n_active == NGC_TOTAL)

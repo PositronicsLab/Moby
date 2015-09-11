@@ -99,11 +99,20 @@ double ConstraintStabilization::evaluate_implicit_constraints(shared_ptr<Constra
   // clear C - we'll build it as we go
   C.clear();
 
+// taller = negative
   // evaluate all constraints in the simulator
   for (unsigned i=0; i< sim->implicit_joints.size(); i++)
   {
     sim->implicit_joints[i]->evaluate_constraints(eval);
     std::copy(eval, eval+sim->implicit_joints[i]->num_constraint_eqns(), std::back_inserter(C));
+  }
+
+  if (LOGGING(LOG_CONSTRAINT))
+  {
+    std::stringstream C_str;
+    for (unsigned i=0; i< C.size(); i++)
+      C_str << " " << C[i]; 
+    FILE_LOG(LOG_CONSTRAINT) << "Constraint evaluations:" << C_str.str() << std::endl;
   }
 
   // get the maximum value and minimum value of C

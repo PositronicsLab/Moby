@@ -1069,6 +1069,7 @@ void UnilateralConstraint::determine_connected_constraints(const vector<Unilater
   {
     // get the node from the front
     shared_ptr<SingleBodyd> node = *nodes.begin();
+    nodes.erase(node);
 
     // add a list to the contact groups
     groups.push_back(list<UnilateralConstraint*>());
