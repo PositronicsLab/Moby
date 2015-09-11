@@ -99,7 +99,10 @@ double ConstraintStabilization::evaluate_implicit_constraints(shared_ptr<Constra
   // clear C - we'll build it as we go
   C.clear();
 
-// taller = negative
+  // no need to continue if there are no implicit constraints
+  if(sim->implicit_joints.size() == 0)
+    return 0.0;
+
   // evaluate all constraints in the simulator
   for (unsigned i=0; i< sim->implicit_joints.size(); i++)
   {
