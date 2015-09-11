@@ -746,6 +746,9 @@ PrimitivePtr SDFReader::read_trimesh(shared_ptr<const XMLTree> node)
 {
   // sanity check
   assert(strcasecmp(node->name.c_str(), "TriangleMesh") == 0);
+  // TODO: Implement this tri-mesh import
+  PrimitivePtr b;
+  return b;
 }
 
 /// Reads and constructs the heightmap object

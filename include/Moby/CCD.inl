@@ -171,12 +171,14 @@ template <class OutputIterator>
 OutputIterator CCD::find_contacts_vertex_vertex(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, boost::shared_ptr<Polyhedron::Vertex> v1, boost::shared_ptr<Polyhedron::Vertex> v2, double signed_dist, OutputIterator output_begin){
 
   //TODO: Implement this(maybe)
+  return output_begin;
 }
 
 template <class OutputIterator>
 OutputIterator CCD::find_contacts_vertex_edge(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, boost::shared_ptr<Polyhedron::Vertex> v, boost::shared_ptr<Polyhedron::Edge> e, double signed_dist, OutputIterator output_begin){
 
   //TODO: Implement this(maybe)
+  return output_begin;
 }
 
 template <class OutputIterator>
@@ -188,13 +190,14 @@ OutputIterator CCD::find_contacts_vertex_face(CollisionGeometryPtr cgA, Collisio
   Ravelin::Vector3d normal(Ravelin::Origin3d(fB->get_plane().get_normal()), cgB->get_pose());
 
   *output_begin++ = create_contact(cgA, cgB, p, normal, signed_dist);
-
+  return output_begin;
 }
 
 template <class OutputIterator>
 OutputIterator CCD::find_contacts_edge_edge(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, boost::shared_ptr<Polyhedron::Edge> e1, boost::shared_ptr<Polyhedron::Edge> e2, double signed_dist, OutputIterator output_begin){
 
   //TODO: Implement this(maybe)
+  return output_begin;
 }
 
 template <class OutputIterator>
@@ -262,6 +265,7 @@ OutputIterator CCD::find_contacts_edge_face(CollisionGeometryPtr cgA, CollisionG
   //adding output
   *output_begin++ = create_contact(cgA, cgB, c1, normal0, signed_dist);
   *output_begin++ = create_contact(cgA, cgB, c2, normal0, signed_dist);
+  return output_begin;
 }
 
 
@@ -311,6 +315,7 @@ OutputIterator CCD::find_contacts_face_face(CollisionGeometryPtr cgA, CollisionG
   for(unsigned i=0;i<isect.size();i++){
     *output_begin++ = create_contact(cgA, cgB, isect[i], -normal_0, signed_dist);  
   }
+  return output_begin;
 }
 
 

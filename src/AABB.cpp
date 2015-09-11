@@ -205,7 +205,7 @@ std::ostream& AABB::to_vrml(std::ostream& out, const Pose3d& T) const
   out << "  rotation " << rot.x << " " << rot.y << " " << rot.z << " " << rot.angle << endl;
   out << "  scale " << l[X] << " " << l[Y] << " " << l[Z] << endl;
   out << "  children Shape {" << endl;
-  out << "    appearance Appearance { material Material { diffuseColor " << out << color[X] << " " << color[Y] << " " << color[Z] << " } }";
+  out << "    appearance Appearance { material Material { diffuseColor " << color[X] << " " << color[Y] << " " << color[Z] << " } }";
   out << "    geometry IndexedLineSet {" << endl;
   out << "      coord Coordinate { point [";
   BOOST_FOREACH(const Point3d& vertex, vertices)
