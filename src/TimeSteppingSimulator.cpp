@@ -98,6 +98,13 @@ double TimeSteppingSimulator::step(double step_size)
   out << d << std::endl;
   out.close();
 
+<<<<<<< Updated upstream
+=======
+  // do constraint stabilization
+  shared_ptr<ConstraintSimulator> simulator = dynamic_pointer_cast<ConstraintSimulator>(shared_from_this());
+  _cstab.stabilize(simulator);
+
+>>>>>>> Stashed changes
   return step_size;
 }
 
@@ -167,6 +174,8 @@ double TimeSteppingSimulator::do_mini_step(double dt)
   // set the amount stepped
   double h = 0.0;
 
+// get the minimum pairwise distance
+double min_pairwise_dist = 
   // integrate positions until a new event is detected
   while (h < dt)
   {
@@ -235,158 +244,6 @@ double TimeSteppingSimulator::do_mini_step(double dt)
     post_mini_step_callback_fn((ConstraintSimulator*) this);
 
   return h;
-/*
-  VectorNd q, qd, qdd, v, vd;
-  std::vector<VectorNd> qsave, qdsave, vsave, deltaqd, deltav;
-  std::list<sorted_pair<CollisionGeometryPtr> > geom_diff;
-  const double MIN_STEP_SIZE = 1e-10;
-
-  // init qsave to proper size
-  qsave.resize(_bodies.size());
-  vsave.resize(_bodies.size());
-  qdsave.resize(_bodies.size());
-  deltaqd.resize(_bodies.size());
-  deltav.resize(_bodies.size());
-
-
-  // save all current body configurations and velocities
-  for (unsigned i=0; i< _bodies.size(); i++)
-  {
-    _bodies[i]->get_generalized_coordinates(DynamicBody::eEuler, qsave[i]);
-    _bodies[i]->get_generalized_velocity(DynamicBody::eSpatial, vsave[i]);
-    _bodies[i]->get_generalized_velocity(DynamicBody::eEuler, qdsave[i]);
-  }
-
-  // integrate acceleration in 
-  for (unsigned i=0; i< _bodies.size(); i++)
-  {
-    // get the current velocity  
-    v = vsave[i]; 
-   
-    // integrate the acceleration into the velocity with a nominal step of 1.0
-    _bodies[i]->get_generalized_acceleration(vd);
-    v += vd;
-    _bodies[i]->set_generalized_velocity(DynamicBody::eSpatial, v);
-  }
-
-  // compute impacts (if any), getting the new velocity
-  calc_impacting_unilateral_constraint_forces2(-1.0);
-
-  // get the change in velocity 
-  for (unsigned i=0; i< _bodies.size(); i++)
-  {
-    // get the generalized velocity
-    _bodies[i]->get_generalized_velocity(DynamicBody::eEuler, deltaqd[i]);
-    _bodies[i]->get_generalized_velocity(DynamicBody::eSpatial, deltav[i]);
-
-    // get the old generalized velocity
-    deltaqd[i] -= qdsave[i];
-    deltav[i] -= vsave[i];
-
-    // reset the old generalized velocity
-    _bodies[i]->set_generalized_velocity(DynamicBody::eEuler, qdsave[i]);
-
-    // set the new generalized acceleration
-    _bodies[i]->set_generalized_acceleration(deltav[i]);
-  }
-
-  // setup amount remaining to step
-  double dt_remaining = dt;  
-
-  // get contacts between geometries
-  find_unilateral_constraints(contact_dist_thresh);
-  std::set<sorted_pair<CollisionGeometryPtr> > contact_geoms = get_current_contact_geoms(); 
-
-  // copy the pairwise distance vector
-  vector<PairwiseDistInfo> current_pairwise_distances = _pairwise_distances;
-
-  // setup backtracking constant
-  const double BETA = 0.9;
-  FILE_LOG(LOG_SIMULATOR) << "About to check whether backtracking necessary using dt=" << dt_remaining << std::endl;
-
-  // determine maximum step
-  step_forward(dt_remaining, qsave, qdsave, deltaqd);
-  calc_pairwise_distances();
-  if (!constraints_met(current_pairwise_distances))
-  {
-    while (dt_remaining > MIN_STEP_SIZE)
-    {
-      dt_remaining *= BETA;
-      step_forward(dt_remaining, qsave, qdsave, deltaqd);
-      calc_pairwise_distances();
-      if (constraints_met(current_pairwise_distances))
-        break; 
-    }
-  }
-  
-  FILE_LOG(LOG_SIMULATOR) << "Found maximum dt=" << dt_remaining << std::endl;
-
-  // setup accumulator for h
-  double h_accum = 0.0;
-
-  // get contacts between geometries
-  step_forward(0.0, qsave, qdsave, deltaqd);
-  calc_pairwise_distances();
-
-  // loop until we have a new contact made
-  while (h_accum < dt_remaining)
-  {
-    // get the time of the next event(s), skipping events at current step
-    double h = std::min(calc_next_CA_Euler_step(contact_dist_thresh), dt_remaining);
-    FILE_LOG(LOG_SIMULATOR) << "stepping bodies tentatively forward by " << h << std::endl;
-    if (h < MIN_STEP_SIZE)
-      h = std::min(MIN_STEP_SIZE, dt_remaining);
-
-    // step forward by h 
-    step_forward(h_accum+h, qsave, qdsave, deltaqd);
-
-    // recompute pairwise distance
-    calc_pairwise_distances();
-
-    // see whether any new contacts were made
-    geom_diff.clear();
-    find_unilateral_constraints(contact_dist_thresh);
-    std::set<sorted_pair<CollisionGeometryPtr> > new_contact_geoms = get_current_contact_geoms(); 
-    std::set_difference(new_contact_geoms.begin(), new_contact_geoms.end(), contact_geoms.begin(), contact_geoms.end(), std::back_inserter(geom_diff));
-    if (!geom_diff.empty())
-    {
-      step_forward(h_accum+h, qsave, qdsave, deltaqd);
-      calc_pairwise_distances();
-      if (LOGGING(LOG_SIMULATOR))
-      {
-        for (unsigned i=0; i< _pairwise_distances.size(); i++)
-          if (_pairwise_distances[i].dist < 0.0)
-            FILE_LOG(LOG_SIMULATOR) << "minimum distance: " << _pairwise_distances[i].dist << std::endl;
-      }
-      FILE_LOG(LOG_SIMULATOR) << "new contact reported: quitting" << std::endl;
-      break;
-    }
-
-    // update h_accum
-    h_accum += h;
-    dt_remaining -= h;
-  }
-
-  // update rigid constraints
-  for (unsigned i=0; i< _rigid_constraints.size(); i++)
-  {
-    _rigid_constraints[i].contact_impulse *= h_accum;
-    _rigid_constraints[i].limit_impulse *= h_accum;
-  }
-
-  // call the post application callback, if any
-  if (constraint_post_callback_fn)
-    (*constraint_post_callback_fn)(_rigid_constraints, constraint_post_callback_data);
-
-  if (LOGGING(LOG_SIMULATOR))
-  {
-    for (unsigned i=0; i< _pairwise_distances.size(); i++)
-      if (_pairwise_distances[i].dist < 0.0)
-        FILE_LOG(LOG_SIMULATOR) << "minimum distance: " << _pairwise_distances[i].dist << std::endl;
-  }
-
-  return h_accum; 
-*/
 }
 
 /// Checks to see whether all constraints are met
