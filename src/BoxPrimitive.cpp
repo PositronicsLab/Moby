@@ -307,6 +307,9 @@ void BoxPrimitive::set_size(double xlen, double ylen, double zlen)
     i->second->l[Z] = _zlen * (double) 0.5;
   }
 
+  // update the polyhedron
+  construct_polyhedron();
+
   // need to update visualization
   update_visualization();
 }
