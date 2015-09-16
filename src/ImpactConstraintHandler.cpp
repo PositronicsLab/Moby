@@ -80,10 +80,7 @@ void ImpactConstraintHandler::process_constraints(const vector<UnilateralConstra
   FILE_LOG(LOG_CONSTRAINT) << endl;
 
   // apply the method to all contacts
-  if (!constraints.empty())
-    apply_model(constraints);
-  else
-    FILE_LOG(LOG_CONSTRAINT) << " (no constraints?!)" << endl;
+  apply_model(constraints);
 
   FILE_LOG(LOG_CONSTRAINT) << "*************************************************************" << endl;
   FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::process_constraints() exited" << endl;
@@ -98,11 +95,12 @@ void ImpactConstraintHandler::apply_model(const vector<UnilateralConstraint>& co
 {
   const double INF = std::numeric_limits<double>::max();
   list<UnilateralConstraint*> impacting;
+  VectorNd dv, v, f, lambda;
 
   // **********************************************************
   // determine sets of connected constraints
   // **********************************************************
-  list<list<shared_ptr<DynamicBodyd> > > remaining_islands;
+  list<vector<shared_ptr<DynamicBodyd> > > remaining_islands;
   list<list<UnilateralConstraint*> > groups;
   UnilateralConstraint::determine_connected_constraints(constraints, _simulator->implicit_joints, groups, remaining_islands);
   UnilateralConstraint::remove_inactive_groups(groups);
@@ -160,10 +158,76 @@ void ImpactConstraintHandler::apply_model(const vector<UnilateralConstraint>& co
   if (!impacting.empty())
     throw ImpactToleranceException(impacting);
 
-  // finally, handle islands without unilateral constraints
-  for (list<list<shared_ptr<DynamicBodyd> > >::iterator i = remaining_islands.begin(); i != remaining_islands.end(); i++)
+  // process islands composed completely of bilateral constraints
+  BOOST_FOREACH(vector<shared_ptr<DynamicBodyd> >& island, remaining_islands)
   {
-    // TODO: handle these here...
+    // sort the island so we can search it
+    std::sort(island.begin(), island.end());
+
+    // setup a set of implicit joints
+    vector<JointPtr> island_ijoints;
+
+    // get the implicit joints in the island
+    const vector<JointPtr>& implicit_joints = _simulator->implicit_joints;
+    for (unsigned j=0; j< implicit_joints.size(); j++)
+    {
+      // get the inboard and outboard links for the joint
+      shared_ptr<RigidBodyd> ib = implicit_joints[j]->get_inboard_link();
+      shared_ptr<RigidBodyd> ob = implicit_joints[j]->get_outboard_link();
+
+      // get the super bodies 
+      shared_ptr<DynamicBodyd> ib_super = ib->get_super_body(); 
+      shared_ptr<DynamicBodyd> ob_super = ob->get_super_body(); 
+
+      if (std::binary_search(island.begin(), island.end(), ib_super) ||
+          std::binary_search(island.begin(), island.end(), ob_super))
+        island_ijoints.push_back(implicit_joints[j]);
+    }
+
+    // get all implicit joints from articulated bodies in the island
+    for (unsigned j=0; j< island.size(); j++)
+    {
+      // see whether the body is articulated
+      shared_ptr<ArticulatedBodyd> ab = dynamic_pointer_cast<ArticulatedBodyd>(island[j]);
+      if (!ab)
+        continue;
+
+      // get the implicit joints for this body
+      const vector<shared_ptr<Jointd> >& ijoints = ab->get_implicit_joints();
+
+      // add the joints
+      for (unsigned k=0; k< ijoints.size(); k++)
+        island_ijoints.push_back(dynamic_pointer_cast<Joint>(ijoints[k]));
+    }
+
+    // get the total number of generalized coordinates for the island
+    const unsigned NGC_TOTAL = _simulator->num_generalized_coordinates(island);
+
+    // setup f
+    f.set_zero(NGC_TOTAL);
+
+    // compute change in velocity and constraint forces
+    _simulator->solve(island, island_ijoints, f, dv, lambda);
+
+    // set new velocities 
+    for (unsigned i=0, gc_index = 0; i< island.size(); i++)
+    {
+      const unsigned NGC = island[i]->num_generalized_coordinates(DynamicBodyd::eSpatial);
+      SharedConstVectorNd dv_sub = dv.segment(gc_index, gc_index + NGC);
+      island[i]->get_generalized_velocity(DynamicBodyd::eSpatial, v);
+      v += dv_sub;
+      island[i]->set_generalized_velocity(DynamicBodyd::eSpatial, v);
+      gc_index += NGC;
+    }
+
+    // populate constraint forces
+    for (unsigned i=0, c_index = 0; i< island_ijoints.size(); i++)
+    {
+      const unsigned NEQ = island_ijoints[i]->num_constraint_eqns();
+      SharedConstVectorNd lambda_sub = lambda.segment(c_index, c_index + NEQ);
+      island_ijoints[i]->lambda = lambda_sub;
+      c_index += NEQ;
+    }
   }
 }
 
@@ -346,6 +410,10 @@ void ImpactConstraintHandler::update_from_stacked(UnilateralConstraintProblemDat
   q.lambda = q.Jx_v;
   FILE_LOG(LOG_CONSTRAINT) << "J*dv (constraint velocities): " << dv << std::endl;
   FILE_LOG(LOG_CONSTRAINT) << "bilateral constraint forces: " << q.lambda << std::endl;
+MatrixNd tmp;
+  FILE_LOG(LOG_CONSTRAINT) << "Jx " << std::endl << q.Jfull.to_dense(tmp);
+  FILE_LOG(LOG_CONSTRAINT) << "inv(M)*Jx' " << std::endl << q.iM_JxT;
+  FILE_LOG(LOG_CONSTRAINT) << "J*inv(M)*Jx' " << std::endl << q.Jx_iM_JxT;
 
   // solve for lambda
   MatrixNd tmpM = q.Jx_iM_JxT;
@@ -356,6 +424,14 @@ void ImpactConstraintHandler::update_from_stacked(UnilateralConstraintProblemDat
   dv -= q.iM_JxT.mult(q.lambda, tmpv);
   FILE_LOG(LOG_CONSTRAINT) << "inv(M)*J'*lambda: " << tmpv << std::endl;
   FILE_LOG(LOG_CONSTRAINT) << "change in velocity after incorporating joint constraints: " << dv << std::endl;
+
+  // compute J*dv
+  if (LOGGING(LOG_CONSTRAINT))
+  {
+    VectorNd tmpv;
+    q.Jfull.mult(dv, tmpv);
+    FILE_LOG(LOG_CONSTRAINT) << "predicted constraint velocity: " << tmpv << std::endl; 
+  }
 
   // update the bodies' velocities
   update_generalized_velocities(q, dv);
@@ -1510,6 +1586,7 @@ void ImpactConstraintHandler::compute_X(UnilateralConstraintProblemData& q, Matr
   } 
 
   // get the full row rank version of J
+  q.J.blocks.clear();
   q.J.rows = N_ACTIVE;
   q.J.cols = q.Jfull.cols;
   for (unsigned i=0, j=0; i< q.Jfull.blocks.size(); i++)
@@ -1524,13 +1601,11 @@ void ImpactConstraintHandler::compute_X(UnilateralConstraintProblemData& q, Matr
         // it's not active, put everything in a block up to this point
         if (row_end - row_start > 0)
         {
+          const unsigned N_SUBTRACTED = std::count(q.active.begin(), q.active.begin()+q.Jfull.blocks[i].st_row_idx, false);
           q.J.blocks.push_back(MatrixBlock());
           q.J.blocks.back().st_col_idx = q.Jfull.blocks[i].st_col_idx;
-          q.J.blocks.back().st_row_idx = j;
+          q.J.blocks.back().st_row_idx = q.Jfull.blocks[i].st_row_idx - N_SUBTRACTED;
           q.J.blocks.back().block = q.Jfull.blocks[i].block.block(row_start - q.Jfull.blocks[i].st_row_idx, row_end - q.Jfull.blocks[i].st_row_idx, 0, q.Jfull.blocks[i].block.columns());
-
-          // update j
-          j += row_end - row_start;
 
           // update row_start and row_end
           row_start = row_end + 1;
@@ -1549,9 +1624,10 @@ void ImpactConstraintHandler::compute_X(UnilateralConstraintProblemData& q, Matr
     // add the last block if necessary
     if (row_end - row_start > 0)
     {
+       const unsigned N_SUBTRACTED = std::count(q.active.begin(), q.active.begin()+q.Jfull.blocks[i].st_row_idx, false);
       q.J.blocks.push_back(MatrixBlock());
       q.J.blocks.back().st_col_idx = q.Jfull.blocks[i].st_col_idx;
-      q.J.blocks.back().st_row_idx = j;
+      q.J.blocks.back().st_row_idx = q.Jfull.blocks[i].st_row_idx - N_SUBTRACTED;
       q.J.blocks.back().block = q.Jfull.blocks[i].block.block(row_start - q.Jfull.blocks[i].st_row_idx, row_end - q.Jfull.blocks[i].st_row_idx, 0, q.Jfull.blocks[i].block.columns());
     }
   }
@@ -1728,6 +1804,11 @@ void ImpactConstraintHandler::add_contact_to_Jacobian(const UnilateralConstraint
   shared_ptr<ArticulatedBodyd> su1 = dynamic_pointer_cast<ArticulatedBodyd>(b1->get_super_body());
   shared_ptr<ArticulatedBodyd> su2 = dynamic_pointer_cast<ArticulatedBodyd>(b2->get_super_body());
 
+  // add a row to each Jacobian
+  Cn.rows++;
+  Cs.rows++;
+  Ct.rows++;
+
   // do this six times, one for each body and each direction
   add_contact_dir_to_Jacobian(rb1, su1, Cn, c.contact_point, c.contact_normal, gc_map, contact_idx);
   add_contact_dir_to_Jacobian(rb2, su2, Cn, c.contact_point, -c.contact_normal, gc_map, contact_idx);
@@ -1785,9 +1866,6 @@ void ImpactConstraintHandler::add_contact_dir_to_Jacobian(shared_ptr<RigidBodyd>
     assert(gc_map.find(rb) != gc_map.end());
     C.blocks.back().st_col_idx = gc_map.find(rb)->second;
   }
-
-  // update the number of rows in the sparse Jacobian
-  C.rows++;
 }
 
 /// Computes the data to the LCP / QP problems
@@ -1981,7 +2059,7 @@ void ImpactConstraintHandler::compute_problem_data(UnilateralConstraintProblemDa
     eq_idx += q.island_ijoints[i]->num_constraint_eqns();
   } 
 
-
+std::cout << "J (full): " << q.Jfull.to_dense(tmp);
   // determine active set of implicit constraints
   get_full_rank_implicit_constraints(q.Jfull, q.active);
 

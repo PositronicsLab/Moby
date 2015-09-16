@@ -38,7 +38,7 @@ void Gears::evaluate_constraints(double C[])
 }
 
 /// Evaluates the time derivative of the constraint
-void Gears::evaluate_constraint_dot(double C[])
+void Gears::evaluate_constraints_dot(double C[])
 {
   // constraint always evaluates to zero
   C[0] = 0.0;

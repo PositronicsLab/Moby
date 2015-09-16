@@ -38,7 +38,7 @@ class Gears : public Joint
     virtual void set_inboard_pose(boost::shared_ptr<const Ravelin::Pose3d> link, bool update_joint_pose);
     virtual void set_outboard_pose(boost::shared_ptr<const Ravelin::Pose3d> link, bool update_joint_pose);
     virtual void evaluate_constraints(double C[]);
-    virtual void evaluate_constraint_dot(double C[]);
+    virtual void evaluate_constraints_dot(double C[]);
     virtual void calc_constraint_jacobian(bool inboard, Ravelin::MatrixNd& Cq);
     virtual void calc_constraint_jacobian_dot(bool inboard, Ravelin::MatrixNd& Cq);
     virtual unsigned num_dof() const { return 0; }

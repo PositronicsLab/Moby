@@ -109,7 +109,7 @@ double TimeSteppingSimulator::step(double step_size)
 void TimeSteppingSimulator::calc_impacting_unilateral_constraint_forces2(double dt)
 {
   // if there are no constraints, quit now
-  if (_rigid_constraints.empty())
+  if (_rigid_constraints.empty() && implicit_joints.empty())
     return;
 
   // call the callback function, if any

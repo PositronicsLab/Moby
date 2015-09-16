@@ -445,7 +445,8 @@ void Simulator::calc_fwd_dyn(double dt)
       solve(island, island_ijoints, f, dv, lambda);
 
       // set accelerations
-      dv /= dt;
+      if (dt > 0.0)
+        dv /= dt;
       for (unsigned i=0, gc_index = 0; i< island.size(); i++)
       {
         const unsigned NGC = island[i]->num_generalized_coordinates(DynamicBodyd::eSpatial);

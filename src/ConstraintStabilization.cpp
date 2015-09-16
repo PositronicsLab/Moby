@@ -156,6 +156,7 @@ void ConstraintStabilization::stabilize(shared_ptr<ConstraintSimulator> sim)
   while (min_dist < eps || max_vio > bilateral_eps)
   {
     FILE_LOG(LOG_SIMULATOR) <<"maximum constraint violation: "<< max_vio <<std::endl;
+
     // zero body velocities first (we only want to change positions based on
     // our updates)
     for (unsigned i=0; i< sim->_bodies.size(); i++)
@@ -208,75 +209,58 @@ void ConstraintStabilization::add_articulate_limit_constraint(std::vector<Unilat
 }
 
 /// Adds contact constraints from a pair of bodies
-void ConstraintStabilization::add_contact_constraints(std::vector<UnilateralConstraint>& constraints, shared_ptr<RigidBodyd> rigidbody1, shared_ptr<RigidBodyd> rigidbody2, shared_ptr<ConstraintSimulator> sim)
+void ConstraintStabilization::add_contact_constraints(std::vector<UnilateralConstraint>& constraints, CollisionGeometryPtr cg1, CollisionGeometryPtr cg2, shared_ptr<ConstraintSimulator> sim)
 {
   boost::shared_ptr<const Pose3d> GLOBAL;
   Point3d p1, p2;
 
-  // get the two rigid bodies
-  RigidBodyPtr rb1 = dynamic_pointer_cast<RigidBody>(rigidbody1);
-  RigidBodyPtr rb2 = dynamic_pointer_cast<RigidBody>(rigidbody2);
+  double dist = CollisionGeometry::calc_signed_dist(cg1, cg2, p1, p2);
 
-  std::list<CollisionGeometryPtr>& cgs1 = rb1->geometries;
-  std::list<CollisionGeometryPtr>& cgs2 = rb2->geometries;
- 
-  BOOST_FOREACH(CollisionGeometryPtr cg1 , cgs1)
+  // case 1: bodies are "kissing" 
+  if (std::fabs(dist) < NEAR_ZERO)
+    sim->_coldet->find_contacts(cg1,cg2, constraints);
+  // case 2: bodies are separated      
+  else if (dist >= NEAR_ZERO)
   {
-    BOOST_FOREACH(CollisionGeometryPtr cg2, cgs2)
-    {
-      // only process each pair once
-      if (cg1.get() >= cg2.get())
-        continue;
+    boost::shared_ptr<const Pose3d> GLOBAL;
+    boost::shared_ptr<const Pose3d> pose1(p1.pose);
+    boost::shared_ptr<const Pose3d> pose2(p2.pose);
+    Transform3d _1T2 = Ravelin::Pose3d::calc_relative_pose(pose1, pose2);
+    Transform3d _1TG = Ravelin::Pose3d::calc_relative_pose(pose1, GLOBAL);
+    Point3d p1_2 = _1T2.transform_point(p1);
+    Point3d p1_g = _1TG.transform_point(p1);
+    Ravelin::Vector3d normal = p2-p1_2;
+    normal.normalize();
+    UnilateralConstraint uc = CollisionDetection::create_contact(cg1, cg2, p1_g, normal, dist);
+    //FILE_LOG(LOG_SIMULATOR) << "p1: " << p1_g << std::endl << "normal" << normal << std::endl << "dist" << dist<<std::endl;
+    constraints.insert(constraints.end(), uc); 
+  }
+  // case 3: bodies are properly interpenetrating
+  else
+  {
+    // get the two rigid bodies
+    shared_ptr<RigidBodyd> rb1 = dynamic_pointer_cast<RigidBody>(cg1->get_single_body());
+    shared_ptr<RigidBodyd> rb2 = dynamic_pointer_cast<RigidBody>(cg2->get_single_body());
 
-      double dist = CollisionGeometry::calc_signed_dist(cg1, cg2, p1, p2);
+    // get the two poses of the rigid bodies
+    boost::shared_ptr<const Pose3d> pose1 = rb1->get_inertial_pose();
+    boost::shared_ptr<const Pose3d> pose2 = rb2->get_inertial_pose();
 
-      // case 1: bodies are "kissing" 
-      if (std::fabs(dist) < NEAR_ZERO)
-        sim->_coldet->find_contacts(cg1,cg2, constraints);
-      // case 2: bodies are separated      
-      else if (dist >= NEAR_ZERO)
-      {
-        boost::shared_ptr<const Pose3d> GLOBAL;
-        boost::shared_ptr<const Pose3d> pose1(p1.pose);
-        boost::shared_ptr<const Pose3d> pose2(p2.pose);
-        Transform3d _1T2 = Ravelin::Pose3d::calc_relative_pose(pose1, pose2);
-        Transform3d _1TG = Ravelin::Pose3d::calc_relative_pose(pose1, GLOBAL);
-        Point3d p1_2 = _1T2.transform_point(p1);
-        Point3d p1_g = _1TG.transform_point(p1);
-        Ravelin::Vector3d normal = p2-p1_2;
-        normal.normalize();
-        UnilateralConstraint uc = CollisionDetection::create_contact(cg1, cg2, p1_g, normal, dist);
-        //FILE_LOG(LOG_SIMULATOR) << "p1: " << p1_g << std::endl << "normal" << normal << std::endl << "dist" << dist<<std::endl;
-        constraints.insert(constraints.end(), uc); 
-      }
-      // case 3: bodies are properly interpenetrating
-      else
-      {
-        // get the two rigid bodies
-        shared_ptr<RigidBodyd> rb1 = dynamic_pointer_cast<RigidBody>(cg1->get_single_body());
-        shared_ptr<RigidBodyd> rb2 = dynamic_pointer_cast<RigidBody>(cg2->get_single_body());
+    // get the centers of mass in the global frame
+    Vector3d rb1_c(0.0, 0.0, 0.0, pose1);
+    Vector3d rb2_c(0.0, 0.0, 0.0, pose2);
+    Vector3d rb1_c0 = Pose3d::transform_point(GLOBAL, rb1_c);
+    Vector3d rb2_c0 = Pose3d::transform_point(GLOBAL, rb2_c);       
 
-        // get the two poses of the rigid bodies
-        boost::shared_ptr<const Pose3d> pose1 = rb1->get_inertial_pose();
-        boost::shared_ptr<const Pose3d> pose2 = rb2->get_inertial_pose();
+    // setup the contact point directly between them
+    Point3d cp = rb1_c0*0.5 + rb2_c0*0.5;
 
-        // get the centers of mass in the global frame
-        Vector3d rb1_c(0.0, 0.0, 0.0, pose1);
-        Vector3d rb2_c(0.0, 0.0, 0.0, pose2);
-        Vector3d rb1_c0 = Pose3d::transform_point(GLOBAL, rb1_c);
-        Vector3d rb2_c0 = Pose3d::transform_point(GLOBAL, rb2_c);       
+    // setup the normal to point toward body 1
+    Vector3d normal = Vector3d::normalize(rb1_c0 - rb2_c0);
 
-        // setup the contact point directly between them
-        Point3d cp = rb1_c0*0.5 + rb2_c0*0.5;
-
-        // setup the normal to point toward body 1
-        Vector3d normal = Vector3d::normalize(rb1_c0 - rb2_c0);
-
-        UnilateralConstraint uc = CollisionDetection::create_contact(cg1, cg2, cp, normal, dist);
-        //FILE_LOG(LOG_SIMULATOR) << "p1: " << p1_g << std::endl << "normal" << normal << std::endl << "dist" << dist<<std::endl;
-        constraints.insert(constraints.end(), uc);
-      }
-    }
+    UnilateralConstraint uc = CollisionDetection::create_contact(cg1, cg2, cp, normal, dist);
+    //FILE_LOG(LOG_SIMULATOR) << "p1: " << p1_g << std::endl << "normal" << normal << std::endl << "dist" << dist<<std::endl;
+    constraints.insert(constraints.end(), uc);
   }
 }
 
@@ -293,84 +277,28 @@ void ConstraintStabilization::compute_problem_data(std::vector<UnilateralConstra
 
   // get all bodies
   const std::vector<shared_ptr<ControlledBody> >& bodies = sim->_bodies;
-  // TODO: Evan add sweep and prune
 
-  // 1) for each pair of bodies in kissing contact, add as many 
-  //    UnilateralConstraint objects to constraints as there are 
-  //    points of contact between the bodies 
-  //    (call _sim->_coldet->find_contacts(.))
-  //FILE_LOG(LOG_SIMULATOR) << "*******start adding constraints*******" << std::endl;
-  BOOST_FOREACH(shared_ptr<ControlledBody> D_body1, bodies)
-  {
-    shared_ptr<RigidBodyd> rb1, rb2;
-    
-    if((rb1 = boost::dynamic_pointer_cast<RigidBody>(D_body1)))
+  // get the collision detection mechanism
+  shared_ptr<CollisionDetection> coldet = sim->get_collision_detection();
+
+  // do broad phase collision detection here
+  coldet->broad_phase(0.0, bodies, _pairs_to_check);
+
+  // remove pairs that are unchecked
+  for (unsigned i=0; i< _pairs_to_check.size(); )
+    if (sim->unchecked_pairs.find(make_sorted_pair(_pairs_to_check[i].first, _pairs_to_check[i].second)) != sim->unchecked_pairs.end())
     {
-      BOOST_FOREACH(shared_ptr<ControlledBody> D_body2, bodies)
-      {
-        // if the two pointer points to the same body, then no need to add contact
-        if(D_body1 == D_body2)
-        {
-          continue;
-        }
-
-        //RigidBody
-        if((rb2 = boost::dynamic_pointer_cast<RigidBodyd>(D_body2)))
-        {
-          add_contact_constraints(constraints, rb1,rb2, sim);
-        }
-        else
-        {
-          shared_ptr<ArticulatedBodyd> ab2 = dynamic_pointer_cast<ArticulatedBody>(D_body2);
-          add_articulate_limit_constraint(constraints, ab2);
-          const std::vector<shared_ptr<RigidBodyd> >& ls2 = ab2->get_links();
-          BOOST_FOREACH(shared_ptr<RigidBodyd> l2, ls2)
-          {
-            rb2 = dynamic_pointer_cast<RigidBody> (l2);
-            add_contact_constraints(constraints, rb1, rb2, sim);
-          }
-        }
-      }
+      _pairs_to_check[i] = _pairs_to_check.back();
+      _pairs_to_check.pop_back();
     }
-    // body 1 is a articulated body
     else
-    {
-      shared_ptr<ArticulatedBodyd> ab1 = dynamic_pointer_cast<ArticulatedBody>(D_body1);
-      add_articulate_limit_constraint(constraints, ab1);
-      const std::vector<shared_ptr<RigidBodyd> >& ls1 = ab1->get_links();
+      i++;
 
-      BOOST_FOREACH(shared_ptr<ControlledBody> D_body2, bodies)
-      {
-        // if the two pointer points to the same body, then no need to add contact
-        if(D_body1 == D_body2)
-        {
-          continue;
-        }
+  // now add contact constraints for each checked pair
+  typedef std::pair<CollisionGeometryPtr, CollisionGeometryPtr> CheckPair;
+  BOOST_FOREACH(CheckPair& to_check, _pairs_to_check)
+    add_contact_constraints(constraints, to_check.first, to_check.second, sim);
 
-        // since the two pointer are not pointing to the same body, it is ok to start iterating through the first  
-        BOOST_FOREACH(shared_ptr<RigidBodyd> l1, ls1)
-        {
-          rb1 = l1;
-          //RigidBody
-          if((rb2 = boost::dynamic_pointer_cast<RigidBody>(D_body2)))
-          {
-            add_contact_constraints(constraints, rb1,rb2, sim);
-          }
-          else
-          {
-            shared_ptr<ArticulatedBodyd> ab2 = dynamic_pointer_cast<ArticulatedBody>(D_body2);
-            add_articulate_limit_constraint(constraints, ab2);
-            const std::vector<shared_ptr<RigidBodyd> >& ls2 = ab2->get_links();
-            BOOST_FOREACH(shared_ptr<RigidBodyd> l2, ls2)
-            {
-              rb2 = l2;
-              add_contact_constraints(constraints, rb1, rb2, sim);
-            }
-          }
-        }
-      }
-    }
-  }
   //FILE_LOG(LOG_SIMULATOR) << "constraints added" << std::endl;
   // 2) for each articulated body, add as many UnilateralConstraint objects as
   //    there are joints at their limits
@@ -381,7 +309,7 @@ void ConstraintStabilization::compute_problem_data(std::vector<UnilateralConstra
   //    in the direction of the signed distance function. 
 
   // find islands
-  list<list<shared_ptr<DynamicBodyd> > > remaining_islands;
+  list<vector<shared_ptr<DynamicBodyd> > > remaining_islands;
   list<list<UnilateralConstraint*> > islands;
   UnilateralConstraint::determine_connected_constraints(constraints, sim->implicit_joints, islands, remaining_islands);
 
@@ -443,7 +371,7 @@ void ConstraintStabilization::compute_problem_data(std::vector<UnilateralConstra
   }
 
   // process islands composed completely of bilateral constraints
-  BOOST_FOREACH(list<shared_ptr<DynamicBodyd> >& island, remaining_islands)
+  BOOST_FOREACH(vector<shared_ptr<DynamicBodyd> >& island, remaining_islands)
   {
     // setup a UnilateralConstraintProblemData object
     pd_vector.push_back(UnilateralConstraintProblemData());
@@ -452,19 +380,9 @@ void ConstraintStabilization::compute_problem_data(std::vector<UnilateralConstra
     // set a pointer to the simulator
     pd.simulator = sim;
 
-    // set number of contact and limit constraints
-    pd.N_CONTACTS = 0;
-    pd.N_LIMITS = 0; 
-    pd.N_K_TOTAL = 0;
-    pd.N_TRUE_CONE = 0;
-
     // now set the unilateral constraint data
-    set_unilateral_constraint_data(pd);
+    set_bilateral_only_constraint_data(pd, island);
     
-    // set Cn_v and L_v
-    pd.Cn_v.resize(0);
-    pd.L_v.resize(0);
-
     // set Jx_v
     double C[6];
     tmpv.resize(pd.N_CONSTRAINT_EQNS_IMP);
@@ -485,13 +403,189 @@ void ConstraintStabilization::compute_problem_data(std::vector<UnilateralConstra
 }
 
 /// Gets the super body (articulated if any)
-shared_ptr<DynamicBodyd> ConstraintStabilization::get_super_body(shared_ptr<SingleBodyd> sb)
+shared_ptr<DynamicBodyd> ConstraintStabilization::get_super_body(shared_ptr<RigidBodyd> sb)
 {
+  if (!sb->is_enabled())
+    return shared_ptr<DynamicBodyd>();
   shared_ptr<ArticulatedBodyd> ab = sb->get_articulated_body();
   if (ab)
     return ab;
   else
     return sb;
+}
+
+/// Computes the data to the LCP / QP problems
+void ConstraintStabilization::set_bilateral_only_constraint_data(UnilateralConstraintProblemData& q, const vector<shared_ptr<DynamicBodyd> >& island)
+{
+  const unsigned UINF = std::numeric_limits<unsigned>::max();
+  const unsigned N_SPATIAL = 6;
+  MatrixNd X, tmp;
+  VectorNd v;
+
+  // determine set of "super" bodies 
+  q.super_bodies.clear();
+  for (unsigned i=0; i< island.size(); i++)
+  {
+    // get the super bodies
+    shared_ptr<DynamicBodyd> sb = get_super_body(dynamic_pointer_cast<RigidBodyd>(island[i]));
+    if (sb)
+      q.super_bodies.push_back(sb);
+  }
+
+  // make super bodies vector unique
+  std::sort(q.super_bodies.begin(), q.super_bodies.end());
+  q.super_bodies.erase(std::unique(q.super_bodies.begin(), q.super_bodies.end()), q.super_bodies.end());
+
+  // prepare to compute the number of implicit constraint equations from islands
+  q.N_CONSTRAINT_EQNS_IMP = 0;
+
+  // add island implicit joint constraints to q
+  for (unsigned i=0; i< q.simulator->implicit_joints.size(); i++)
+  {
+    // see whether a body from the implicit constraint matches a body in the
+    // island
+    JointPtr j = q.simulator->implicit_joints[i];
+    shared_ptr<DynamicBodyd> in = j->get_inboard_link()->get_super_body();
+    shared_ptr<DynamicBodyd> out = j->get_outboard_link()->get_super_body();
+    if (std::binary_search(q.super_bodies.begin(), q.super_bodies.end(), in))
+    {
+      q.island_ijoints.push_back(j);
+      q.N_CONSTRAINT_EQNS_IMP += j->num_constraint_eqns();
+    }
+    else if ( std::binary_search(q.super_bodies.begin(), q.super_bodies.end(), out))
+    {
+      q.island_ijoints.push_back(j);
+      q.N_CONSTRAINT_EQNS_IMP += j->num_constraint_eqns();
+    }
+  }
+
+  // set total number of generalized coordinates
+  q.N_GC = 0;
+  for (unsigned i=0; i< q.super_bodies.size(); i++)
+    q.N_GC += q.super_bodies[i]->num_generalized_coordinates(DynamicBodyd::eSpatial);
+
+  // initialize constants and set easy to set constants
+  q.N_CONTACTS = q.N_LIMITS = 0;
+
+  // setup constants related to articulated bodies
+  for (unsigned i=0; i< q.super_bodies.size(); i++)
+  {
+    ArticulatedBodyPtr abody = dynamic_pointer_cast<ArticulatedBody>(q.super_bodies[i]);
+    if (abody) {
+      q.N_CONSTRAINT_EQNS_IMP += abody->num_constraint_eqns_implicit();
+    }
+  }
+
+  // setup no friction constraints
+  q.N_LIN_CONE = q.N_K_TOTAL = q.N_TRUE_CONE = 0; 
+
+  // initialize the problem matrices / vectors
+  q.Cn_X_CnT.set_zero(q.N_CONTACTS, q.N_CONTACTS);
+  q.Cn_X_CsT.set_zero(q.N_CONTACTS, 0);
+  q.Cn_X_CtT.set_zero(q.N_CONTACTS, 0);
+  q.Cn_X_LT.set_zero(q.N_CONTACTS, q.N_LIMITS);
+  q.Cn_X_JxT.set_zero(q.N_CONTACTS, q.N_CONSTRAINT_EQNS_IMP);
+  q.Cs_X_CsT.set_zero(0, 0);
+  q.Cs_X_CtT.set_zero(0, 0);
+  q.Cs_X_LT.set_zero(0, q.N_LIMITS);
+  q.Cs_X_JxT.set_zero(0, q.N_CONSTRAINT_EQNS_IMP);
+  q.Ct_X_CtT.set_zero(0, 0);
+  q.Ct_X_LT.set_zero(0, q.N_LIMITS);
+  q.Ct_X_JxT.set_zero(0, q.N_CONSTRAINT_EQNS_IMP);
+  q.L_X_LT.set_zero(q.N_LIMITS, q.N_LIMITS);
+  q.L_X_JxT.set_zero(q.N_LIMITS, q.N_CONSTRAINT_EQNS_IMP);
+  q.Jx_X_JxT.set_zero(q.N_CONSTRAINT_EQNS_IMP, q.N_CONSTRAINT_EQNS_IMP);
+  q.Cn_v.set_zero(q.N_CONTACTS);
+  q.Cs_v.set_zero(0);
+  q.Ct_v.set_zero(0);
+  q.L_v.set_zero(q.N_LIMITS);
+  q.Jx_v.set_zero(q.N_CONSTRAINT_EQNS_IMP);
+  q.cn.set_zero(q.N_CONTACTS);
+  q.cs.set_zero(0);
+  q.ct.set_zero(0);
+  q.l.set_zero(q.N_LIMITS);
+
+  // setup indices
+  q.CN_IDX = 0;
+  q.CS_IDX = q.CN_IDX + q.N_CONTACTS;
+  q.CT_IDX = q.CS_IDX;
+  q.NCS_IDX = q.CT_IDX;
+  q.NCT_IDX = q.NCS_IDX;
+  q.L_IDX = q.NCT_IDX;
+  q.N_VARS = q.L_IDX + q.N_LIMITS;
+
+  // get generalized velocity
+  ImpactConstraintHandler::get_generalized_velocity(q, v);
+
+  // setup the gc map
+  map<shared_ptr<DynamicBodyd>, unsigned> gc_map;
+  for (unsigned i=0, gc_index = 0; i< q.super_bodies.size(); i++)
+  {
+    gc_map[q.super_bodies[i]] = gc_index;
+    unsigned NGC = q.super_bodies[i]->num_generalized_coordinates(DynamicBodyd::eSpatial);
+    gc_index += NGC;
+  }
+
+  // get the total number of implicit constraint equations
+  unsigned n_implicit_eqns = 0;
+  for (unsigned i=0; i< q.island_ijoints.size(); i++)
+    n_implicit_eqns += q.island_ijoints[i]->num_constraint_eqns();
+
+  // prepare to setup Jacobian
+  q.Jfull.rows = n_implicit_eqns;
+  q.Jfull.cols = q.N_GC;
+
+  // determine implicit constraint Jacobian
+  for (unsigned i=0, eq_idx=0; i< q.island_ijoints.size(); i++)
+  {
+    // resize the temporary matrix
+    tmp.resize(q.island_ijoints[i]->num_constraint_eqns(), N_SPATIAL);
+
+    // get the inboard and outboard links
+    shared_ptr<RigidBodyd> inboard = q.island_ijoints[i]->get_inboard_link();
+    shared_ptr<RigidBodyd> outboard = q.island_ijoints[i]->get_outboard_link();
+
+    // compute the Jacobian w.r.t. the inboard link
+    if (inboard->is_enabled())
+    {
+      // add the block to the Jacobian
+      q.Jfull.blocks.push_back(MatrixBlock());
+      q.island_ijoints[i]->calc_constraint_jacobian(true, q.Jfull.blocks.back().block);
+      q.Jfull.blocks.back().st_row_idx = eq_idx;
+      q.Jfull.blocks.back().st_col_idx = gc_map[inboard];
+    }
+ 
+    if (outboard->is_enabled())
+    {
+      // add the block to the Jacobian
+      q.Jfull.blocks.push_back(MatrixBlock());
+      q.island_ijoints[i]->calc_constraint_jacobian(false, q.Jfull.blocks.back().block);
+      q.Jfull.blocks.back().st_row_idx = eq_idx;
+      q.Jfull.blocks.back().st_col_idx = gc_map[outboard];
+    }
+
+    // update the equation index
+    eq_idx += q.island_ijoints[i]->num_constraint_eqns();
+  } 
+
+  // determine active set of implicit constraints
+  ImpactConstraintHandler::get_full_rank_implicit_constraints(q.Jfull, q.active);
+
+  // compute X
+  ImpactConstraintHandler::compute_X(q, X);
+
+  // setup Jacobian for Cn
+  SparseJacobian Cn;
+  Cn.cols = q.N_GC;
+
+  // setup Jacobian for J
+  q.J.mult(X, tmp); MatrixNd::transpose(tmp, q.X_JxT);
+
+  // setup X*other Jacobians
+  q.X_CnT.resize(q.N_GC, 0);
+  q.X_CsT.resize(q.N_GC, 0);
+  q.X_CtT.resize(q.N_GC, 0);
+  q.X_LT.resize(q.N_GC, 0);
 }
 
 /// Computes the data to the LCP / QP problems
@@ -506,8 +600,19 @@ void ConstraintStabilization::set_unilateral_constraint_data(UnilateralConstrain
   q.super_bodies.clear();
   for (unsigned i=0; i< q.contact_constraints.size(); i++)
   {
-    q.super_bodies.push_back(get_super_body(q.contact_constraints[i]->contact_geom1->get_single_body()));
-    q.super_bodies.push_back(get_super_body(q.contact_constraints[i]->contact_geom2->get_single_body()));
+    // get the rigid bodies involved
+    shared_ptr<RigidBodyd> rb1 = dynamic_pointer_cast<RigidBodyd>(q.contact_constraints[i]->contact_geom1->get_single_body());
+    shared_ptr<RigidBodyd> rb2 = dynamic_pointer_cast<RigidBodyd>(q.contact_constraints[i]->contact_geom2->get_single_body());
+
+    // get the super bodies
+    shared_ptr<DynamicBodyd> sb1 = get_super_body(rb1);
+    shared_ptr<DynamicBodyd> sb2 = get_super_body(rb2);
+
+    // add the super bodies, if desired
+    if (sb1)
+      q.super_bodies.push_back(sb1);
+    if (sb2)
+      q.super_bodies.push_back(sb2);
   }
 
   // determine set of "super" bodies from limit constraints
@@ -664,7 +769,6 @@ void ConstraintStabilization::set_unilateral_constraint_data(UnilateralConstrain
     eq_idx += q.island_ijoints[i]->num_constraint_eqns();
   } 
 
-
   // determine active set of implicit constraints
   ImpactConstraintHandler::get_full_rank_implicit_constraints(q.Jfull, q.active);
 
@@ -686,8 +790,8 @@ void ConstraintStabilization::set_unilateral_constraint_data(UnilateralConstrain
   q.J.mult(X, tmp); MatrixNd::transpose(tmp, q.X_JxT);
 
   // setup X_CsT, X_CtT
-  q.X_CsT.resize(q.X_CnT.rows(), 0);
-  q.X_CtT.resize(q.X_CnT.rows(), 0);
+  q.X_CsT.resize(q.N_GC, 0);
+  q.X_CtT.resize(q.N_GC, 0);
   
   // compute limit components - must do this first
   ImpactConstraintHandler::compute_limit_components(X, q);
@@ -719,6 +823,9 @@ void ConstraintStabilization::add_contact_to_Jacobian(const UnilateralConstraint
   // get the super bodies
   shared_ptr<ArticulatedBodyd> su1 = dynamic_pointer_cast<ArticulatedBodyd>(b1->get_super_body());
   shared_ptr<ArticulatedBodyd> su2 = dynamic_pointer_cast<ArticulatedBodyd>(b2->get_super_body());
+
+  // add a row to the Jacobian
+  Cn.rows++;
 
   // do this six times, one for each body and each direction
   ImpactConstraintHandler::add_contact_dir_to_Jacobian(rb1, su1, Cn, c.contact_point, c.contact_normal, gc_map, contact_idx);
@@ -760,42 +867,6 @@ void ConstraintStabilization::determine_dq(UnilateralConstraintProblemData& pd, 
     unsigned coord_num = pd.super_bodies[i]->num_generalized_coordinates(DynamicBodyd::eEuler);
     pd.super_bodies[i]->get_generalized_velocity(DynamicBodyd::eEuler, dq_sub);  
     dqm.segment(start, start+coord_num) = dq_sub;
-  }
-}
-
-/// Updates determined impulses in UnilateralConstraintProblemData based on an LCP solution
-void ConstraintStabilization::update_from_stacked(const VectorNd& z, UnilateralConstraintProblemData& pd)
-{
-  // update the problem data
-  pd.update_from_stacked_qp(z);
-
-  // setup a temporary frame
-  shared_ptr<Pose3d> P(new Pose3d);
-
-  // save contact impulses
-  for (unsigned i=0; i< pd.N_CONTACTS; i++)
-  {
-    // setup the contact frame
-    P->q.set_identity();
-    P->x = pd.contact_constraints[i]->contact_point;
-
-    // setup the impulse in the contact frame
-    Vector3d j;
-    j = pd.contact_constraints[i]->contact_normal * pd.cn[i];
-
-    // setup the spatial impulse
-    SMomentumd jx(boost::const_pointer_cast<const Pose3d>(P));
-    jx.set_linear(j);
-
-    // transform the impulse to the global frame
-    pd.contact_constraints[i]->contact_impulse += Pose3d::transform(GLOBAL, jx);
-  }
-
-  // save limit impulses
-  for (unsigned i=0; i< pd.N_LIMITS; i++)
-  {
-    double limit_impulse = (pd.limit_constraints[i]->limit_upper) ? -pd.l[i] : pd.l[i];
-    pd.limit_constraints[i]->limit_impulse += limit_impulse;
   }
 }
 
@@ -1060,6 +1131,7 @@ void ConstraintStabilization::get_body_configurations(VectorNd& q, shared_ptr<Co
     shared_ptr<DynamicBodyd> body = dynamic_pointer_cast<DynamicBodyd>(cb);
     SharedVectorNd body_gcs = q.segment(start, start + body->num_generalized_coordinates(DynamicBodyd::eEuler));
     body->get_generalized_coordinates(DynamicBodyd::eEuler, body_gcs);
+    start += body->num_generalized_coordinates(DynamicBodyd::eEuler);
   }
 }
 
@@ -1086,7 +1158,7 @@ void ConstraintStabilization::update_body_configurations(const VectorNd& q, shar
     unsigned ngc = body->num_generalized_coordinates(DynamicBodyd::eEuler);
     Ravelin::SharedConstVectorNd gc_shared = q.segment(last,last+ngc);
     body->set_generalized_coordinates(DynamicBodyd::eEuler, gc_shared);
-    last = ngc;
+    last += ngc;
   }
 }
 
@@ -1222,7 +1294,7 @@ double ConstraintStabilization::ridders_bilateral(double x1, double x2, double f
       ans=xnew;
       fnew=eval_bilateral(ans, idx, dq, q, sim);
       if (std::fabs(fnew) < TOL)
-        return (fl < 0.0) ? xl : xh; 
+        return ans; 
       if (sign(fm,fnew) != fm) 
       {
         xl=xm;

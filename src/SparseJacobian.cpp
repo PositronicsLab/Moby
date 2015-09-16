@@ -137,8 +137,8 @@ MatrixNd& SparseJacobian::mult_transpose(const SparseJacobian& M, MatrixNd& resu
     // assume block i is of size r x c
     // then input block of x must be of size c x d 
     // and result must be of size r x d
-    const unsigned RSTART = blocks[i].st_col_idx;
-    const unsigned CSTART = blocks[i].st_row_idx;
+    const unsigned RSTART = blocks[i].st_row_idx;
+    const unsigned CSTART = blocks[i].st_col_idx;
     const unsigned REND = RSTART + blocks[i].rows();
     const unsigned CEND = CSTART + blocks[i].columns();
 
@@ -197,8 +197,8 @@ MatrixNd& SparseJacobian::mult(const vector<MatrixBlock>& x, unsigned result_col
     // assume block i is of size r x c
     // then input block of x must be of size c x d 
     // and result must be of size r x d
-    const unsigned RSTART = blocks[i].st_col_idx;
-    const unsigned CSTART = blocks[i].st_row_idx;
+    const unsigned RSTART = blocks[i].st_row_idx;
+    const unsigned CSTART = blocks[i].st_col_idx;
     const unsigned REND = RSTART + blocks[i].rows();
     const unsigned CEND = CSTART + blocks[i].columns();
 
@@ -264,28 +264,29 @@ MatrixNd& SparseJacobian::mult(const vector<MatrixNd>& x, MatrixNd& result) cons
     // assume block i is of size r x c
     // then input block of x must be of size c x d 
     // and result must be of size r x d
-    const unsigned R = blocks[i].rows();
-    const unsigned C = blocks[i].columns();
+    const unsigned RSTART = blocks[i].st_row_idx;
+    const unsigned CSTART = blocks[i].st_col_idx;
+    const unsigned REND = RSTART + blocks[i].rows();
+    const unsigned CEND = CSTART + blocks[i].columns();
 
     // loop over each input block
     for (unsigned j=0, k=0; j< x.size(); j++)
     {
-      // see whether the two correspond
-      if (blocks[i].st_col_idx != k)
+      // get x column start and end
+      const unsigned X_RCSTART = k;
+      const unsigned X_RCEND = k + x[j].rows();
+
+      // see whether the two blocks are compatible 
+      if (CSTART != X_RCSTART)
       {
         k += x[j].rows();
         continue;
       }
-
-      // get D
-      const unsigned D = x[j].columns(); 
-
-      // verify that the blocks are the appropriate size
-      if (C != D)
-        throw MissizeException();
+      else 
+        assert(X_RCEND == CEND);
 
       // get the relevant block of the result
-      SharedMatrixNd result_block = result.block(blocks[i].st_row_idx, blocks[i].st_row_idx+R, st_row_idx[j], st_row_idx[j]+D);
+      SharedMatrixNd result_block = result.block(RSTART, REND, X_RCSTART, X_RCEND);
 
       // do the computation
       blocks[i].block.mult(x[j], tmp);
@@ -296,6 +297,7 @@ MatrixNd& SparseJacobian::mult(const vector<MatrixNd>& x, MatrixNd& result) cons
     }
   }
 
+  // get the total number of columns
   return result;
 }
 

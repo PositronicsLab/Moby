@@ -40,7 +40,7 @@ double Simulator::integrate(double dt, ForwardIterator begin, ForwardIterator en
     db->get_generalized_coordinates(Ravelin::DynamicBodyd::eEuler, gc);
     gv *= dt;
     gc += gv;
-    db->set_generalized_coordinates(Ravelin::DynamicBodyd::eSpatial, gc);
+    db->set_generalized_coordinates(Ravelin::DynamicBodyd::eEuler, gc);
   } 
 
   // tabulate dynamics computation

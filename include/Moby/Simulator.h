@@ -39,6 +39,7 @@ class VisualizationData;
 class Simulator : public virtual Base
 {
   friend class ConstraintStabilization;
+  friend class ImpactConstraintHandler;
 
   public:
     Simulator();

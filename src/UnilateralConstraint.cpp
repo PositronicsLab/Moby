@@ -933,7 +933,7 @@ osg::Node* UnilateralConstraint::to_visualization_data() const
  * \param constraints the list of constraints
  * \param groups the islands of connected constraints on return
  */
-void UnilateralConstraint::determine_connected_constraints(const vector<UnilateralConstraint>& constraints, const vector<JointPtr>& implicit_joints, list<list<UnilateralConstraint*> >& groups, list<list<shared_ptr<DynamicBodyd> > >& remaining_islands)
+void UnilateralConstraint::determine_connected_constraints(const vector<UnilateralConstraint>& constraints, const vector<JointPtr>& implicit_joints, list<list<UnilateralConstraint*> >& groups, list<vector<shared_ptr<DynamicBodyd> > >& remaining_islands)
 {
   FILE_LOG(LOG_CONSTRAINT) << "UnilateralConstraint::determine_connected_contacts() entered" << std::endl;
 
@@ -1141,7 +1141,7 @@ void UnilateralConstraint::determine_connected_constraints(const vector<Unilater
         groups.pop_back();
 
         // create a new island
-        remaining_islands.push_back(list<shared_ptr<DynamicBodyd> >());
+        remaining_islands.push_back(vector<shared_ptr<DynamicBodyd> >());
 
         // create a secondary node q and secondary processing set
         std::queue<shared_ptr<SingleBodyd> > node_q2;
@@ -1172,8 +1172,8 @@ void UnilateralConstraint::determine_connected_constraints(const vector<Unilater
         }
 
         // finally, make the island of super bodies unique
-        list<shared_ptr<DynamicBodyd> >& island = remaining_islands.back();
-        island.sort();
+        vector<shared_ptr<DynamicBodyd> >& island = remaining_islands.back();
+        std::sort(island.begin(), island.end());
         island.erase(std::unique(island.begin(), island.end()), island.end());
       } 
     }

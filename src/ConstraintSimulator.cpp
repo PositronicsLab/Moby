@@ -298,7 +298,7 @@ void ConstraintSimulator::visualize_contact( UnilateralConstraint& constraint )
 void ConstraintSimulator::calc_impacting_unilateral_constraint_forces(double dt)
 {
   // if there are no constraints, quit now
-  if (_rigid_constraints.empty())
+  if (_rigid_constraints.empty() && implicit_joints.empty())
     return;
 
   // call the callback function, if any
@@ -319,7 +319,7 @@ void ConstraintSimulator::calc_impacting_unilateral_constraint_forces(double dt)
     }
 
   // if there are no impacts, return
-  if (none_impacting)
+  if (none_impacting && implicit_joints.empty())
     return;
 
   // if the setting is enabled, draw all contact constraints
