@@ -991,10 +991,12 @@ void UnilateralConstraint::determine_connected_constraints(const vector<Unilater
     JointPtr j = implicit_joints[i];
     shared_ptr<RigidBodyd> inboard = j->get_inboard_link();
     shared_ptr<RigidBodyd> outboard = j->get_outboard_link();
+    if (inboard->is_enabled())
+      nodes.insert(inboard);
+    if (outboard->is_enabled())
+      nodes.insert(outboard);
     if (inboard->is_enabled() && outboard->is_enabled())
     {
-      nodes.insert(inboard);
-      nodes.insert(outboard);
       edges.insert(std::make_pair(inboard, outboard));
       edges.insert(std::make_pair(outboard, inboard));
     }

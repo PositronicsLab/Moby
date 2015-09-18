@@ -23,9 +23,9 @@
 /*
 #include <Moby/TriangleMeshPrimitive.h>
 #include <Moby/CSG.h>
-#include <Moby/CylinderPrimitive.h>
 #include <Moby/ConePrimitive.h>
 */
+#include <Moby/CylinderPrimitive.h>
 #include <Ravelin/AAngled.h>
 #include <Moby/Primitive.h>
 #include <Moby/IndexedTetraArray.h>
@@ -824,8 +824,8 @@ PrimitivePtr URDFReader::read_primitive(shared_ptr<const XMLTree> node, URDFData
       // read geometry 
       if ((primitive = read_box(*i, data)))
         return primitive;
-//      else if ((primitive = read_cylinder(*i, data)))
-//        return primitive;
+      else if ((primitive = read_cylinder(*i, data)))
+        return primitive;
       else if ((primitive = read_sphere(*i, data)))
         return primitive;
 //      else if ((primitive = read_trimesh(*i, data)))
@@ -887,6 +887,7 @@ shared_ptr<TriangleMeshPrimitive> URDFReader::read_trimesh(shared_ptr<const XMLT
 
   return shared_ptr<TriangleMeshPrimitive>();
 }
+*/
 
 /// Reads a cylinder primitive
 shared_ptr<CylinderPrimitive> URDFReader::read_cylinder(shared_ptr<const XMLTree> node, URDFData& data)
@@ -915,7 +916,6 @@ shared_ptr<CylinderPrimitive> URDFReader::read_cylinder(shared_ptr<const XMLTree
 
   return shared_ptr<CylinderPrimitive>();
 }
-*/
 
 /// Reads a sphere primitive
 shared_ptr<SpherePrimitive> URDFReader::read_sphere(shared_ptr<const XMLTree> node, URDFData& data)

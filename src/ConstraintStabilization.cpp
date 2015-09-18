@@ -1275,7 +1275,7 @@ double ConstraintStabilization::ridders_unilateral(double x1, double x2, double 
 double ConstraintStabilization::ridders_bilateral(double x1, double x2, double fl, double fh, unsigned idx, const VectorNd& dq, const VectorNd& q, shared_ptr<ConstraintSimulator> sim)
 {
   const unsigned MAX_ITERATIONS = 5;
-  const double TOL = 1e-4;
+  const double TOL = std::sqrt(bilateral_eps);
   double ans=std::numeric_limits<double>::max(),fm,fnew,s,xh,xl,xm,xnew;
 
   if ((fl > 0.0 && fh < 0.0) || (fl < 0.0 && fh > 0.0)) 

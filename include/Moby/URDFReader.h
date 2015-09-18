@@ -64,7 +64,7 @@ class URDFReader
 //    static boost::shared_ptr<TriangleMeshPrimitive> read_trimesh(boost::shared_ptr<const XMLTree> node, URDFData& data);
     static boost::shared_ptr<SpherePrimitive> read_sphere(boost::shared_ptr<const XMLTree> node, URDFData& data);
     static boost::shared_ptr<BoxPrimitive> read_box(boost::shared_ptr<const XMLTree> node, URDFData& data);
-//    static boost::shared_ptr<CylinderPrimitive> read_cylinder(boost::shared_ptr<const XMLTree> node, URDFData& data);
+    static boost::shared_ptr<CylinderPrimitive> read_cylinder(boost::shared_ptr<const XMLTree> node, URDFData& data);
     static Ravelin::Matrix3d read_inertia(boost::shared_ptr<const XMLTree> node, URDFData& data);
     static double read_mass(boost::shared_ptr<const XMLTree> node, URDFData& data);
     static Ravelin::Pose3d read_origin(boost::shared_ptr<const XMLTree> node, URDFData& data);

@@ -291,6 +291,7 @@ void ArticulatedBody::load_from_xml(shared_ptr<const XMLTree> node, std::map<str
     if (URDFReader::read(urdf_fname, robot_name, links, joints))
     {
       linksd.insert(linksd.end(), links.begin(), links.end());
+      jointsd.insert(jointsd.end(), joints.begin(), joints.end());
       set_links_and_joints(linksd, jointsd);
     }
     else

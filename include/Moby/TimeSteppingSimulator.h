@@ -54,7 +54,6 @@ class TimeSteppingSimulator : public ConstraintSimulator
     double do_mini_step(double dt);
     void step_si_Euler(double dt);
     double calc_next_CA_Euler_step(double contact_dist_thresh) const;
-    void calc_impacting_unilateral_constraint_forces2(double dt);
 }; // end class
 
 } // end namespace

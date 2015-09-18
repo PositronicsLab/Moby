@@ -158,6 +158,8 @@ void ImpactConstraintHandler::apply_model(const vector<UnilateralConstraint>& co
   if (!impacting.empty())
     throw ImpactToleranceException(impacting);
 
+// NOTE: this should already be handled for dynamics calculations
+/*
   // process islands composed completely of bilateral constraints
   BOOST_FOREACH(vector<shared_ptr<DynamicBodyd> >& island, remaining_islands)
   {
@@ -218,6 +220,7 @@ void ImpactConstraintHandler::apply_model(const vector<UnilateralConstraint>& co
       v += dv_sub;
       island[i]->set_generalized_velocity(DynamicBodyd::eSpatial, v);
       gc_index += NGC;
+      FILE_LOG(LOG_DYNAMICS) << "new velocity for " << island[i]->body_id << ": " << v << std::endl;
     }
 
     // populate constraint forces
@@ -229,6 +232,7 @@ void ImpactConstraintHandler::apply_model(const vector<UnilateralConstraint>& co
       c_index += NEQ;
     }
   }
+*/
 }
 
 /**
