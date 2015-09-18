@@ -173,8 +173,10 @@ double TimeSteppingSimulator::do_mini_step(double dt)
     db->get_generalized_acceleration(qdd);
     qdd *= h;
     db->get_generalized_velocity(DynamicBodyd::eSpatial, qd);
+    FILE_LOG(LOG_DYNAMICS) << "old velocity: " << qd << std::endl; 
     qd += qdd;
     db->set_generalized_velocity(DynamicBodyd::eSpatial, qd);
+    FILE_LOG(LOG_DYNAMICS) << "new velocity: " << qd << std::endl; 
   }
 
   // dissipate some energy

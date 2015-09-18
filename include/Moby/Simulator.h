@@ -83,7 +83,7 @@ class Simulator : public virtual Base
     std::vector<JointPtr> implicit_joints;
 
   protected:
-    void solve(const std::vector<boost::shared_ptr<Ravelin::DynamicBodyd> >& island, const std::vector<JointPtr>& island_joints, const Ravelin::VectorNd& f, Ravelin::VectorNd& x, Ravelin::VectorNd& lambda) const;
+    void solve(const std::vector<boost::shared_ptr<Ravelin::DynamicBodyd> >& island, const std::vector<JointPtr>& island_joints, const Ravelin::VectorNd& v, const Ravelin::VectorNd& f, double dt, Ravelin::VectorNd& a, Ravelin::VectorNd& lambda) const;
     virtual double check_pairwise_constraint_violations(double t) { return 0.0; }
     void find_islands(std::vector<std::vector<boost::shared_ptr<Ravelin::DynamicBodyd> > >& islands);
     unsigned num_generalized_coordinates(const std::vector<boost::shared_ptr<Ravelin::DynamicBodyd> > & island) const;

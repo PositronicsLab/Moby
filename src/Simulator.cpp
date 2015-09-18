@@ -356,7 +356,7 @@ void Simulator::precalc_fwd_dyn()
 /// Calculates forward dynamics for bodies (does not consider unilateral constraints)
 void Simulator::calc_fwd_dyn(double dt)
 {
-  VectorNd v, a, lambda, f, tmpv;
+  VectorNd v, a, lambda, f;
   MatrixNd M;
   vector<JointPtr> island_ijoints; 
 
@@ -442,20 +442,18 @@ void Simulator::calc_fwd_dyn(double dt)
         gc_index += NGC;
       }
 
-      // add in current momenta to f
+      // get current velocities 
+      v.resize(NGC_TOTAL);
       for (unsigned i=0, gc_index = 0; i< island.size(); i++)
       {
         const unsigned NGC = island[i]->num_generalized_coordinates(DynamicBodyd::eSpatial);
-        SharedVectorNd f_sub = f.segment(gc_index, gc_index + NGC);
-        island[i]->get_generalized_velocity(DynamicBodyd::eSpatial, v);
-        island[i]->get_generalized_inertia(M);
-        M.mult(v, tmpv);
-        f_sub += tmpv;
+        SharedVectorNd v_sub = v.segment(gc_index, gc_index + NGC);
+        island[i]->get_generalized_velocity(DynamicBodyd::eSpatial, v_sub);
         gc_index += NGC;
       }
 
       // compute acceleration and constraint forces
-      solve(island, island_ijoints, f, a, lambda);
+      solve(island, island_ijoints, v, f, dt, a, lambda);
 
       // set accelerations
       for (unsigned i=0, gc_index = 0; i< island.size(); i++)
@@ -478,14 +476,14 @@ void Simulator::calc_fwd_dyn(double dt)
   }
 }
 
-// Solves | M   J' | | x      | = | f | 
+// Solves | M   J' | | a      | = | v + inv(M)*f*dt | 
 //        | J   0  | | lambda |   | 0 |
-// using M*x = -J'*lambda + f and
-// J*inv(M)*J'lambda = J*inv(M)*f
-void Simulator::solve(const vector<shared_ptr<DynamicBodyd> >& island, const vector<JointPtr>& island_ijoints, const VectorNd& f, VectorNd& x, VectorNd& lambda) const
+// using M*a = -J'*lambda + M*v + f*dt and
+// J*inv(M)*J'*lambda = J*v + J*inv(M)*f*dt
+void Simulator::solve(const vector<shared_ptr<DynamicBodyd> >& island, const vector<JointPtr>& island_ijoints, const VectorNd& v, const VectorNd& f, double dt, VectorNd& a, VectorNd& lambda) const
 {
   MatrixNd JiMJT_frr, JiM, iMJT, iMJT_frr, JiMJT, Jm, tmp;
-  VectorNd JiMf_frr, JiMf, iMf, lambda_sub; 
+  VectorNd JiMf_frr, JiMf, iMf, Jv, Jv_frr, lambda_sub; 
   const unsigned N_SPATIAL = 6;
   map<shared_ptr<DynamicBodyd>, unsigned> gc_map;
   std::vector<MatrixBlock> inv_inertias;
@@ -513,10 +511,10 @@ void Simulator::solve(const vector<shared_ptr<DynamicBodyd> >& island, const vec
       // get the components of f and x
       const unsigned NGC = db->num_generalized_coordinates(DynamicBodyd::eSpatial);
       SharedConstVectorNd f_sub = f.segment(gc_index, gc_index + NGC);
-      SharedVectorNd x_sub = x.segment(gc_index, gc_index + NGC);
+      SharedVectorNd a_sub = a.segment(gc_index, gc_index + NGC);
 
       // solve directly
-      db->solve_generalized_inertia(f_sub, x_sub);
+      db->solve_generalized_inertia(f_sub, a_sub);
 
       // update gc_index
       gc_index += NGC;
@@ -532,7 +530,7 @@ void Simulator::solve(const vector<shared_ptr<DynamicBodyd> >& island, const vec
     gc_index += island[i]->num_generalized_coordinates(DynamicBodyd::eSpatial);
   }
 
-  // compute iMf
+  // compute iMf*dt
   iMf.resize(NGC_TOTAL);
   for (unsigned i=0, gc_index = 0; i< island.size(); i++)
   {
@@ -559,6 +557,7 @@ void Simulator::solve(const vector<shared_ptr<DynamicBodyd> >& island, const vec
     // update the generalized coordinate index 
     gc_index += NGC;
   }
+  iMf *= dt;
 
   // form Jacobians here
   SparseJacobian J;
@@ -598,11 +597,12 @@ void Simulator::solve(const vector<shared_ptr<DynamicBodyd> >& island, const vec
     FILE_LOG(LOG_DYNAMICS) << "dense J: " << std::endl << tmp;
   }
 
-  // (J*inv(M)*J') * lambda = J*inv(M)*f
+  // (J*inv(M)*J') * lambda = J*v + J*inv(M)*f*h
   J.mult(inv_inertias, NGC_TOTAL, JiM);
   MatrixNd::transpose(JiM, iMJT);
   J.mult(iMJT, JiMJT);
-  JiM.mult(f, JiMf);
+  JiM.mult(f, JiMf) *= dt;
+  J.mult(v, Jv);
 
   // form the biggest full rank matrix
   vector<bool> indices(JiMJT.rows(), false);
@@ -633,15 +633,29 @@ void Simulator::solve(const vector<shared_ptr<DynamicBodyd> >& island, const vec
       last_successful = true;
   }
 
-  // get the appropriate rows of J*inv(M)*f
+  // get the appropriate rows of J*v
+  Jv.select(indices, Jv_frr);
+  FILE_LOG(LOG_DYNAMICS) << "v: " << v << std::endl;
+  FILE_LOG(LOG_DYNAMICS) << "J*v: " << Jv_frr << std::endl;
+
+  // get the appropriate rows of J*inv(M)*f and J*v
   JiMf.select(indices, JiMf_frr);
   FILE_LOG(LOG_DYNAMICS) << "J*inv(M)*f: " << JiMf_frr << std::endl;
+  Jv.select(indices, Jv_frr);
+  JiMf_frr += Jv_frr;
+  FILE_LOG(LOG_DYNAMICS) << "J*inv(M)*f (combined w/v): " << JiMf_frr << std::endl;
 
   // if the last factorization was not successful, refactor
   if (!last_successful)
   {
     JiMJT.select_square(indices, JiMJT_frr);
     LinAlgd::factor_chol(JiMJT_frr);
+  }
+
+  if (LOGGING(LOG_DYNAMICS))
+  {
+    JiMJT.select_square(indices, tmp);
+    FILE_LOG(LOG_DYNAMICS) << "J*inv(M)*J': " << std::endl << tmp;
   }
 
   // solve for lambda_sub
@@ -656,12 +670,13 @@ void Simulator::solve(const vector<shared_ptr<DynamicBodyd> >& island, const vec
   lambda.set(indices, lambda_sub);
   FILE_LOG(LOG_DYNAMICS) << "lambda: " << lambda << std::endl;
 
-  // now compute x using M*x = -J'*lambda + f and
-  iMJT_frr.mult(lambda_sub, x);
-  x.negate();
-  x += iMf;
+  // now compute a using M*a = -J'*lambda + f and
+  iMJT_frr.mult(lambda_sub, a);
+  a.negate();
+  a += iMf;
+  a /= dt;
 
-  FILE_LOG(LOG_DYNAMICS) << "dv: " << x << std::endl;
+  FILE_LOG(LOG_DYNAMICS) << "a: " << a << std::endl;
 }
 
 /// Gets the number of generalized coordinates in an island
