@@ -403,7 +403,29 @@ void ConstraintStabilization::compute_problem_data(std::vector<UnilateralConstra
 }
 
 /// Gets the super body (articulated if any)
-shared_ptr<DynamicBodyd> ConstraintStabilization::get_super_body(shared_ptr<RigidBodyd> sb)
+shared_ptr<DynamicBodyd> ConstraintStabilization::get_super_body(shared_ptr<DynamicBodyd> sb)
+{
+  shared_ptr<ArticulatedBodyd> ab = dynamic_pointer_cast<ArticulatedBodyd>(sb);
+  if (ab)
+    return ab;
+  else
+  {
+    shared_ptr<RigidBodyd> rb = dynamic_pointer_cast<RigidBodyd>(sb);
+    if (rb)
+    {
+      if (!rb->is_enabled())
+        return shared_ptr<DynamicBodyd>();
+      ab = rb->get_articulated_body();
+      if (ab)
+        return ab;
+    }
+    else
+      return shared_ptr<DynamicBodyd>();
+  }
+}
+
+/// Gets the super body (articulated if any)
+shared_ptr<DynamicBodyd> ConstraintStabilization::get_super_body_from_rigid_body(shared_ptr<RigidBodyd> sb)
 {
   if (!sb->is_enabled())
     return shared_ptr<DynamicBodyd>();
@@ -427,7 +449,7 @@ void ConstraintStabilization::set_bilateral_only_constraint_data(UnilateralConst
   for (unsigned i=0; i< island.size(); i++)
   {
     // get the super bodies
-    shared_ptr<DynamicBodyd> sb = get_super_body(dynamic_pointer_cast<RigidBodyd>(island[i]));
+    shared_ptr<DynamicBodyd> sb = get_super_body(island[i]);
     if (sb)
       q.super_bodies.push_back(sb);
   }
@@ -605,8 +627,8 @@ void ConstraintStabilization::set_unilateral_constraint_data(UnilateralConstrain
     shared_ptr<RigidBodyd> rb2 = dynamic_pointer_cast<RigidBodyd>(q.contact_constraints[i]->contact_geom2->get_single_body());
 
     // get the super bodies
-    shared_ptr<DynamicBodyd> sb1 = get_super_body(rb1);
-    shared_ptr<DynamicBodyd> sb2 = get_super_body(rb2);
+    shared_ptr<DynamicBodyd> sb1 = get_super_body_from_rigid_body(rb1);
+    shared_ptr<DynamicBodyd> sb2 = get_super_body_from_rigid_body(rb2);
 
     // add the super bodies, if desired
     if (sb1)
@@ -619,7 +641,7 @@ void ConstraintStabilization::set_unilateral_constraint_data(UnilateralConstrain
   for (unsigned i=0; i< q.limit_constraints.size(); i++)
   {
     RigidBodyPtr outboard = q.limit_constraints[i]->limit_joint->get_outboard_link();
-    q.super_bodies.push_back(get_super_body(outboard));
+    q.super_bodies.push_back(get_super_body_from_rigid_body(outboard));
   }
 
   // make super bodies vector unique
@@ -972,6 +994,13 @@ bool ConstraintStabilization::update_q(const VectorNd& dq, VectorNd& q, shared_p
   // copy the pairwise distances
   vector<PairwiseDistInfo>& pdi = sim->_pairwise_distances;
   vector<PairwiseDistInfo> pdi_old = pdi;
+if (LOGGING(LOG_CONSTRAINT))
+{
+std::ostringstream values;
+for (unsigned i=0; i< pdi_old.size(); i++)
+  values << " " << pdi_old[i].dist;
+FILE_LOG(LOG_CONSTRAINT) << "old pdi:" << values.str() << std::endl;
+}
 
   // find the pairwise distances and implicit constraint evaluations at q + dq
   qstar = dq;
@@ -980,17 +1009,21 @@ bool ConstraintStabilization::update_q(const VectorNd& dq, VectorNd& q, shared_p
   sim->calc_pairwise_distances();
   evaluate_implicit_constraints(sim, C);
 
+  // evaluate new pdi
+  vector<PairwiseDistInfo> pdi_new = pdi;
+
   // we may have to find roots for all pairwise distances
   vector<bool> unilateral_bracket;
   for (unsigned i=0; i< pdi.size(); i++)
   {
     // look for penetrating and then not penetrating
-    if (pdi_old[i].dist < 0.0 && pdi[i].dist > 0.0)
+    if (pdi_old[i].dist < 0.0 && pdi_new[i].dist > 0.0)
       unilateral_bracket.push_back(true);
-    else if (pdi_old[i].dist > 0.0 && pdi[i].dist < 0.0)
+    else if (pdi_old[i].dist > 0.0 && pdi_new[i].dist < 0.0)
       unilateral_bracket.push_back(true);
     else
       unilateral_bracket.push_back(false); 
+    FILE_LOG(LOG_CONSTRAINT) << "Unilateral bracket " << i << ": " << unilateral_bracket[i] << std::endl;
   }
 
   // add brackets for the implicit constraints
@@ -1023,12 +1056,12 @@ bool ConstraintStabilization::update_q(const VectorNd& dq, VectorNd& q, shared_p
       continue;
 
     // call Ridder's method to determine new t
-    double root = ridders_unilateral(0, t, pdi_old[i].dist, pdi[i].dist, i, dq, q, sim);
+    double root = ridders_unilateral(0, t, pdi_old[i].dist, pdi_new[i].dist, i, dq, q, sim);
     if (root > 0.0 && root < 1.0)
       t = std::min(root, t);
   }
 
-  // iterate over all biilateral brackets
+  // iterate over all bilateral brackets
   for (unsigned i=0; i< bilateral_bracket.size(); i++)
   {
     // verify that we check this bracket 

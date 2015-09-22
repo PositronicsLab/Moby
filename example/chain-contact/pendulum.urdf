@@ -1,8 +1,8 @@
 <robot name="pendulum">
 
     <joint name="pendulum_joint" type="continuous">
-      <origin xyz="0.18 0 0.0" rpy="3.14159625 0 0"/>
-      <axis xyz="-1 0 0"/>
+      <origin xyz="0 0.18 0.0" rpy="0 0 0"/>
+      <axis xyz="0 0 1"/>
       <parent link="world"/>
       <child link="pendulum_link"/>
       <dynamics damping="0.01"/>
@@ -23,13 +23,13 @@
     <link name="pendulum_link">
       <inertial>
         <mass value="0.05" />
-        <origin xyz="0.0 0.0 0.25" rpy="0 0 0" />
+        <origin xyz="0.25 0 0" rpy="0 0 0" />
         <inertia  ixx="0.001" ixy="0.0" ixz="0.0"
                   iyy="0.001" iyz="0.0"
                   izz="0.001" />
       </inertial>
       <visual>
-        <origin xyz="0 0 0.25" rpy="0 0 0" />
+        <origin xyz="0.25 0 0" rpy="0 0 0" />
         <geometry>
           <sphere radius="0.03"/>
         </geometry>
@@ -58,7 +58,7 @@
                   izz="0.001" />
       </inertial>
       <visual>
-        <origin xyz="0 0 0.125" rpy="0 0 0" />
+        <origin xyz="0.125 0 0" rpy="0 1.5708 0" />
         <geometry>
           <cylinder radius="0.01" length="0.25"/>
         </geometry>

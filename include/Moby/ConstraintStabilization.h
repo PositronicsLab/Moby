@@ -43,7 +43,8 @@ class ConstraintStabilization
     void update_from_stacked(const Ravelin::VectorNd& z, UnilateralConstraintProblemData& pd);
     void update_velocities(const UnilateralConstraintProblemData& pd);
     static double get_min_pairwise_dist(const std::vector<PairwiseDistInfo>& pdi); 
-    static boost::shared_ptr<Ravelin::DynamicBodyd> get_super_body(boost::shared_ptr<Ravelin::RigidBodyd> sb);
+    static boost::shared_ptr<Ravelin::DynamicBodyd> get_super_body_from_rigid_body(boost::shared_ptr<Ravelin::RigidBodyd> sb);
+    static boost::shared_ptr<Ravelin::DynamicBodyd> get_super_body(boost::shared_ptr<Ravelin::DynamicBodyd> sb);
     double ridders_unilateral(double x1, double x2, double fx1, double fx2, unsigned i, const Ravelin::VectorNd& dq, const Ravelin::VectorNd& q, boost::shared_ptr<ConstraintSimulator> sim);
     double ridders_bilateral(double x1, double x2, double fx1, double fx2, unsigned i, const Ravelin::VectorNd& dq, const Ravelin::VectorNd& q, boost::shared_ptr<ConstraintSimulator> sim);
     double eval_unilateral(double t, unsigned i, const Ravelin::VectorNd& dq, const Ravelin::VectorNd& q, boost::shared_ptr<ConstraintSimulator> sim);

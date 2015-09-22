@@ -13,6 +13,7 @@
 #include <fstream>
 #include <boost/foreach.hpp>
 #include <boost/algorithm/string.hpp>
+#include <Ravelin/Log.h>
 #include <Moby/XMLTree.h>
 #include <Moby/XMLReader.h>
 #include <Moby/XMLWriter.h>
@@ -162,15 +163,21 @@ void step(void* arg)
 
   // see whether to activate logging
   if (ITER >= LOG_START && ITER <= LOG_STOP)
-    Log<OutputToFile>::reporting_level = LOG_REPORTING_LEVEL;
+  {
+    Moby::Log<OutputToFile>::reporting_level = LOG_REPORTING_LEVEL;
+    Ravelin::Log<OutputToFile>::reporting_level = LOG_REPORTING_LEVEL;
+  }
   else
-    Log<OutputToFile>::reporting_level = 0;
+  {
+    Moby::Log<OutputToFile>::reporting_level = 0;
+    Ravelin::Log<OutputToFile>::reporting_level = 0;
+  }
 
   // output the iteration #
   if (OUTPUT_ITER_NUM)
     std::cout << "iteration: " << ITER << "  simulation time: " << s->current_time << std::endl;
-  if (Log<OutputToFile>::reporting_level > 0)
-    FILE_LOG(Log<OutputToFile>::reporting_level) << "iteration: " << ITER << "  simulation time: " << s->current_time << std::endl;
+  if (Moby::Log<OutputToFile>::reporting_level > 0)
+    FILE_LOG(Moby::Log<OutputToFile>::reporting_level) << "iteration: " << ITER << "  simulation time: " << s->current_time << std::endl;
 
   // only update the graphics if it is necessary; update visualization first
   // in case simulator takes some time to perform first step
@@ -542,12 +549,14 @@ int main(int argc, char** argv)
     else if (option.find("-lf=") != std::string::npos)
     {
       std::string fname(&argv[i][TWOCHAR_ARG]);
-      OutputToFile::stream.open(fname.c_str());
+      Moby::OutputToFile::stream.open(fname.c_str());
+      Ravelin::OutputToFile::stream.open(fname.c_str());
     }  
     else if (option.find("-l=") != std::string::npos)
     {
       LOG_REPORTING_LEVEL = std::atoi(&argv[i][ONECHAR_ARG]);
-      Log<OutputToFile>::reporting_level = LOG_REPORTING_LEVEL;
+      Moby::Log<OutputToFile>::reporting_level = LOG_REPORTING_LEVEL;
+      Ravelin::Log<OutputToFile>::reporting_level = LOG_REPORTING_LEVEL;
     }
     else if (option.find("-lt=") != std::string::npos)
     {

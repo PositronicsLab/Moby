@@ -1579,7 +1579,7 @@ void ImpactConstraintHandler::compute_X(UnilateralConstraintProblemData& q, Matr
   {
     inertias.push_back(MatrixNd());
     shared_ptr<RigidBodyd> rb = dynamic_pointer_cast<RigidBodyd>(q.super_bodies[i]);
-    if (rb->is_enabled())
+    if (!rb || rb->is_enabled())
     {
       q.super_bodies[i]->get_generalized_inertia(inertias.back());
       inv_inertias.push_back(inertias.back());
