@@ -232,7 +232,7 @@ void ConstraintStabilization::add_contact_constraints(std::vector<UnilateralCons
     Ravelin::Vector3d normal = p2-p1_2;
     normal.normalize();
     UnilateralConstraint uc = CollisionDetection::create_contact(cg1, cg2, p1_g, normal, dist);
-    //FILE_LOG(LOG_SIMULATOR) << "p1: " << p1_g << std::endl << "normal" << normal << std::endl << "dist" << dist<<std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << "creating contact between separated bodies: " << cg1->get_single_body()->body_id << " and " << cg2->get_single_body()->body_id << std::endl;
     constraints.insert(constraints.end(), uc); 
   }
   // case 3: bodies are properly interpenetrating
@@ -259,8 +259,9 @@ void ConstraintStabilization::add_contact_constraints(std::vector<UnilateralCons
     Vector3d normal = Vector3d::normalize(rb1_c0 - rb2_c0);
 
     UnilateralConstraint uc = CollisionDetection::create_contact(cg1, cg2, cp, normal, dist);
-    //FILE_LOG(LOG_SIMULATOR) << "p1: " << p1_g << std::endl << "normal" << normal << std::endl << "dist" << dist<<std::endl;
     constraints.insert(constraints.end(), uc);
+    FILE_LOG(LOG_CONSTRAINT) << "creating contact between interpenetrating bodies " << rb1->body_id << " and " << rb2->body_id << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << "contact: " << std::endl << uc;
   }
 }
 
@@ -873,6 +874,8 @@ void ConstraintStabilization::determine_dq(UnilateralConstraintProblemData& pd, 
   qq.segment(pd.N_CONTACTS, qq.size()) = pd.L_v;
 
   FILE_LOG(LOG_SIMULATOR) << "# of constraints in determine_dq(): " << qq.size() << std::endl;
+  FILE_LOG(LOG_SIMULATOR) << "MM: " << std::endl << MM;
+  FILE_LOG(LOG_SIMULATOR) << "qq: " << qq << std::endl;
 
   // solve N*inv(M)*N'*dq = N*alpha for impulses 
   if (!_lcp.lcp_fast(MM, qq, z))
@@ -994,13 +997,6 @@ bool ConstraintStabilization::update_q(const VectorNd& dq, VectorNd& q, shared_p
   // copy the pairwise distances
   vector<PairwiseDistInfo>& pdi = sim->_pairwise_distances;
   vector<PairwiseDistInfo> pdi_old = pdi;
-if (LOGGING(LOG_CONSTRAINT))
-{
-std::ostringstream values;
-for (unsigned i=0; i< pdi_old.size(); i++)
-  values << " " << pdi_old[i].dist;
-FILE_LOG(LOG_CONSTRAINT) << "old pdi:" << values.str() << std::endl;
-}
 
   // find the pairwise distances and implicit constraint evaluations at q + dq
   qstar = dq;
@@ -1061,6 +1057,8 @@ FILE_LOG(LOG_CONSTRAINT) << "old pdi:" << values.str() << std::endl;
       t = std::min(root, t);
   }
 
+  FILE_LOG(LOG_CONSTRAINT) << " t determined from Ridder's method: " << t << std::endl; 
+
   // iterate over all bilateral brackets
   for (unsigned i=0; i< bilateral_bracket.size(); i++)
   {
@@ -1094,12 +1092,17 @@ FILE_LOG(LOG_CONSTRAINT) << "old pdi:" << values.str() << std::endl;
 
     // check unilateral brackets first
     for (unsigned i=0; i< unilateral_bracket.size(); i++)
+    {
+      if (!unilateral_bracket[i])
+        FILE_LOG(LOG_CONSTRAINT) << " old distance " << pdi_old[i].dist << " new distance: " << pdi[i].dist << " stop? " << (!(pdi[i].dist < 0.0 && 
+          pdi_old[i].dist > pdi[i].dist)) << std::endl;
       if (!unilateral_bracket[i] && pdi[i].dist < 0.0 && 
           pdi_old[i].dist > pdi[i].dist)
       {
         stop = false;
         break;
       }
+    }
 
     // now check bilateral constraints 
     if (stop)
@@ -1112,7 +1115,7 @@ FILE_LOG(LOG_CONSTRAINT) << "old pdi:" << values.str() << std::endl;
       FILE_LOG(LOG_SIMULATOR) << "Old bilateral constraint violation: " << old_bilateral_cvio << " New: " << bilateral_cvio << std::endl;
 
       // see whether we can still stop
-      if (bilateral_cvio < old_bilateral_cvio)
+      if (bilateral_cvio < bilateral_eps || bilateral_cvio < old_bilateral_cvio)
         break;
     }
 

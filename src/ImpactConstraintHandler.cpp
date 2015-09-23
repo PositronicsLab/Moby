@@ -2063,7 +2063,6 @@ void ImpactConstraintHandler::compute_problem_data(UnilateralConstraintProblemDa
     eq_idx += q.island_ijoints[i]->num_constraint_eqns();
   } 
 
-std::cout << "J (full): " << q.Jfull.to_dense(tmp);
   // determine active set of implicit constraints
   get_full_rank_implicit_constraints(q.Jfull, q.active);
 
