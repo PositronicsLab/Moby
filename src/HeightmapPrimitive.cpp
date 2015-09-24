@@ -158,6 +158,10 @@ void HeightmapPrimitive::get_vertices(shared_ptr<const Pose3d> P, vector<Point3d
     }
 }
 
+unsigned constrain_unsigned(int ii, int maxi){
+  return (unsigned) std::min(std::max(ii,0),maxi);
+}
+
 /// Computes the height at a particular point
 double HeightmapPrimitive::calc_height(const Point3d& p) const
 {
@@ -169,11 +173,9 @@ double HeightmapPrimitive::calc_height(const Point3d& p) const
   const unsigned qz = p[Z];
 
   // determine the indices 
-  unsigned i = (unsigned) ((qx+_width*0.5)*(_heights.rows()-1)/_width);
-  unsigned j = (unsigned) ((qz+_depth*0.5)*(_heights.columns()-1)/_depth);
-  assert(i < _heights.rows());
-  assert(j < _heights.columns());
-
+  unsigned i = constrain_unsigned((qx+_width*0.5)*(_heights.rows()-1)/_width,_heights.rows()-1);
+  unsigned j = constrain_unsigned((qz+_depth*0.5)*(_heights.columns()-1)/_depth,_heights.columns()-1);
+  
   // setup inputs
   double x0 = -_width*0.5+_width*i/(_heights.rows()-1);
   double z0 = -_depth*0.5+_depth*j/(_heights.columns()-1);
@@ -204,10 +206,8 @@ void HeightmapPrimitive::calc_gradient(const Point3d& p, double& gx, double& gz)
   const unsigned qz = p[Z];
 
   // determine the indices 
-  unsigned i = (unsigned) (qx*(_heights.rows()-1)/_width + _width*0.5);
-  unsigned j = (unsigned) (qz*(_heights.columns()-1)/_depth + _depth*0.5);
-  assert(i < _heights.rows());
-  assert(j < _heights.columns());
+  unsigned i = constrain_unsigned(qx*(_heights.rows()-1)/_width + _width*0.5,_heights.rows()-1);
+  unsigned j = constrain_unsigned(qz*(_heights.columns()-1)/_depth + _depth*0.5,_heights.columns()-1);
 
   // setup inputs
   double x0 = -_width*0.5+_width*i/(_heights.rows()-1);
@@ -278,7 +278,7 @@ osg::Node* HeightmapPrimitive::create_visualization()
   const float BLUE = (float) rand() / RAND_MAX;
   osg::Material* mat = new osg::Material;
   mat->setColorMode(osg::Material::DIFFUSE);
-  mat->setDiffuse(osg::Material::FRONT, osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f));
+  mat->setDiffuse(osg::Material::FRONT_AND_BACK, osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f));
   subgroup->getOrCreateStateSet()->setAttribute(mat);
 
   // create the vertex array
@@ -342,6 +342,8 @@ osg::Node* HeightmapPrimitive::create_visualization()
 /// Computes the distance from a sphere primitive
 double HeightmapPrimitive::calc_signed_dist(shared_ptr<const SpherePrimitive> s, Point3d& pthis, Point3d& ps) const
 {
+
+  FILE_LOG(LOG_COLDET) << "HeightmapPrimitive::calc_signed_dist() - computing signed distance "  << std::endl;
   const unsigned X = 0, Z = 2;
   assert(_poses.find(const_pointer_cast<Pose3d>(pthis.pose)) != _poses.end());
   Point3d ps_prime = ps;
@@ -360,7 +362,8 @@ double HeightmapPrimitive::calc_signed_dist(shared_ptr<const SpherePrimitive> s,
   Point3d sphere_lowest = ps_c_this + vdir; 
 
   // get the height of the sphere center
-  double min_dist = calc_height(sphere_lowest);  
+  //double min_dist = calc_height(sphere_lowest);  
+  double min_dist = std::numeric_limits<int>::max();  
   ps = T.inverse_transform_point(sphere_lowest); 
 
   // get the corners of the bounding box in this frame
@@ -372,20 +375,27 @@ double HeightmapPrimitive::calc_signed_dist(shared_ptr<const SpherePrimitive> s,
   bv_hi[Z] += s->get_radius();
 
   // get the lower i and j indices
-  unsigned lowi = (unsigned) ((bv_lo[X]+_width*0.5)*(_heights.rows()-1)/_width);
-  unsigned lowj = (unsigned) ((bv_lo[Z]+_depth*0.5)*(_heights.columns()-1)/_depth);
+  unsigned lowi = constrain_unsigned((bv_lo[X]+_width*0.5)*(_heights.rows()-1)/_width,_heights.rows()-1);
+  unsigned lowj = constrain_unsigned((bv_lo[Z]+_depth*0.5)*(_heights.columns()-1)/_depth,_heights.columns()-1);
 
   // get the upper i and j indices
-  unsigned upi = (unsigned) ((bv_hi[X]+_width*0.5)*(_heights.rows()-1)/_width)+1;
-  unsigned upj = (unsigned) ((bv_hi[Z]+_depth*0.5)*(_heights.columns()-1)/_depth)+1;
+  unsigned upi = constrain_unsigned(((bv_hi[X]+_width*0.5)*(_heights.rows()-1)/_width)+1,_heights.rows()-1);
+  unsigned upj = constrain_unsigned(((bv_hi[Z]+_depth*0.5)*(_heights.columns()-1)/_depth)+1,_heights.columns()-1);
 
+  FILE_LOG(LOG_COLDET) << "i = [" << lowi << ":" << upi << "]" << std::endl;
+  FILE_LOG(LOG_COLDET) << "j = [" << lowj << ":" << upj << "]" << std::endl;
   // iterate over all points in the bounding region
-  for (unsigned i=lowi; i<= upi; i++)
-    for (unsigned j=lowj; j< upj; j++)
+  FILE_LOG(LOG_COLDET) << "size = (" << _width << "," << _depth << ")" << std::endl;
+  FILE_LOG(LOG_COLDET) << "sizei = (" << _heights.rows() << "," << _heights.columns() << ")" << std::endl;
+
+  for (unsigned i=lowi; i<= upi &&  i < _heights.rows(); i++)
+    for (unsigned j=lowj; j<= upj && j < _heights.columns(); j++)
     {
       // compute the point on the heightmap
       double x = -_width*0.5+_width*i/(_heights.rows()-1);
       double z = -_depth*0.5+_depth*j/(_heights.columns()-1);
+      FILE_LOG(LOG_COLDET) << "p = (" << x << "," << z << "," << _heights(i,j) << ")" << std::endl;
+      FILE_LOG(LOG_COLDET) << "pi = (" << i << "," << j << "," << _heights(i,j) << ")" << std::endl;
       Point3d p(x, _heights(i,j), z, pthis.pose);
       Point3d ps_prime = Pose3d::transform_point(ps.pose, p);
 
@@ -400,6 +410,7 @@ double HeightmapPrimitive::calc_signed_dist(shared_ptr<const SpherePrimitive> s,
       }
     }
 
+  FILE_LOG(LOG_COLDET) << "min_dist "  << min_dist << std::endl;
   return min_dist;
 }
 
