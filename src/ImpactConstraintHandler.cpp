@@ -1850,7 +1850,7 @@ void ImpactConstraintHandler::add_contact_dir_to_Jacobian(shared_ptr<RigidBodyd>
     if (rcab)
     {
       // get the Jacobian and carry out the multiplication
-      rcab->calc_jacobian(GLOBAL, rb, Jm);
+      rcab->calc_jacobian(rb->get_mixed_pose(), rb, Jm);
       contact_wrench.mult(Jm, tmp);
       contact_wrench = tmp;
     }
