@@ -31,7 +31,7 @@ if (USE_QLCPD AND QLCPD_FOUND)
 endif (USE_QLCPD AND QLCPD_FOUND)
 
 # modify C++ flags
-set (CMAKE_CXX_FLAGS "-std=c++0x") 
+set (CMAKE_CXX_FLAGS "-std=c++11") 
 
 # modify C++ flags
 add_definitions (-DSAFESTATIC=static)

@@ -804,7 +804,10 @@ std::ostream& Moby::operator<<(std::ostream& o, const UnilateralConstraint& e)
     else
       o << "geom2: (undefined)" << std::endl;
 
-    o << "contact point / normal pose: " << ((e.contact_point.pose) ? Pose3d(*e.contact_point.pose).update_relative_pose(GLOBAL) : GLOBAL) << std::endl;
+    Pose3d P;
+    P.rpose = e.contact_point.pose;
+    P.update_relative_pose(GLOBAL);
+    o << "contact point / normal pose: " << P << std::endl;
     o << "contact point: " << e.contact_point << std::endl;
     shared_ptr<SingleBodyd> sba = e.contact_geom1->get_single_body();
     shared_ptr<SingleBodyd> sbb = e.contact_geom2->get_single_body();
