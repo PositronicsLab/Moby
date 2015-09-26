@@ -239,6 +239,12 @@ add_library(contact-constrained-pendulum-init MODULE example/contact_simple/cont
 target_link_libraries(contact-constrained-pendulum-coldet-plugin Moby Ravelin)
 target_link_libraries(contact-constrained-pendulum-init Moby Ravelin)
 
+#sims-in-code examples
+add_executable(sim-in-code-block example/sims-in-code/block.cpp)
+target_link_libraries(sim-in-code-block Moby Ravelin)
+add_executable(sim-in-code-pendulum example/sims-in-code/pendulum.cpp)
+target_link_libraries(sim-in-code-pendulum Moby Ravelin)
+
 # setup source file
 install (CODE "file(WRITE setup.sh \"#!/bin/bash\nexport MOBY_PLUGIN_PATH=${CMAKE_INSTALL_PREFIX}/lib/Moby/plugins\n\n\")")
 install (FILES ${CMAKE_BINARY_DIR}/setup.sh DESTINATION share/Moby)
