@@ -54,7 +54,7 @@ int main( void ) {
     link->get_recurrent_forces().push_back( g );
   
     //link->set_pose( Ravelin::Pose3d( Ravelin::Quatd::normalize(Ravelin::Quatd(1,0,0,1)), Ravelin::Origin3d(0,0,-0.5) ) ); 
-    link->set_pose( Ravelin::Pose3d( Ravelin::Quatd::normalize(Ravelin::Quatd(0,0,0,1)), Ravelin::Origin3d(.5,-0.5,.5) ) ); 
+    link->set_pose( Ravelin::Pose3d( Ravelin::Quatd::normalize(Ravelin::Quatd(0,0,0,1)), Ravelin::Origin3d(0,-0.5,0) ) ); 
     links.push_back( link ); 
   }
 
@@ -74,7 +74,7 @@ int main( void ) {
 
   sim->add_dynamic_body( ab );
 
-  Viewer viewer( sim, Ravelin::Origin3d(-4,0,-1), Ravelin::Origin3d(0,0,-1), Ravelin::Origin3d(0,0,1) );
+  Viewer viewer( sim, Ravelin::Origin3d(-5,0,-1), Ravelin::Origin3d(0,0,-1), Ravelin::Origin3d(0,0,1) );
 
 /*
   boost::shared_ptr<Ravelin::Pose3d> impulse_pos( new Ravelin::Pose3d( Ravelin::Quatd::normalize(Ravelin::Quatd(0,1,0,1)), Ravelin::Origin3d(0,0,-0.5)) );
