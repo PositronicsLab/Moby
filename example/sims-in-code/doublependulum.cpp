@@ -38,7 +38,7 @@ int main( void ) {
     base->id = "base";
     base->set_visualization_data( box->create_visualization() );
     base->set_inertia( box->get_inertia() );
-    base->set_enabled( true );
+    base->set_enabled( false );
   
     base->set_pose( Ravelin::Pose3d( Ravelin::Quatd::normalize(Ravelin::Quatd(0,0,0,1)), Ravelin::Origin3d(0,0,0) ) ); 
     links.push_back( base );
@@ -63,7 +63,7 @@ int main( void ) {
   boost::shared_ptr<Moby::RevoluteJoint> joint1( new Moby::RevoluteJoint() );
   {
     joint1->id = "joint1";
-    joint1->set_location( Ravelin::Vector3d(0,0,0,Moby::GLOBAL), base, link1 );
+    joint1->set_location( Ravelin::Vector3d(0,0,0,base->get_inertial_pose()), base, link1 );
     joint1->set_axis( Ravelin::Vector3d(1,0,0,Moby::GLOBAL) );
 
     joints.push_back( joint1 );
@@ -85,7 +85,7 @@ int main( void ) {
   boost::shared_ptr<Moby::RevoluteJoint> joint2( new Moby::RevoluteJoint() );
   {
     joint2->id = "joint2";
-    joint2->set_location( Ravelin::Vector3d(0,-0.5,0,link1->get_pose()), link1, link2 );
+    joint2->set_location( Ravelin::Vector3d(0,-0.5,0,link1->get_inertial_pose()), link1, link2 );
     joint2->set_axis( Ravelin::Vector3d(1,0,0,Moby::GLOBAL) );
 
     joints.push_back( joint2 );

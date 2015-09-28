@@ -4,9 +4,8 @@
 #include <Moby/EulerIntegrator.h>
 #include <Moby/GravityForce.h>
 #include <Moby/BoxPrimitive.h>
-#include <Moby/CylinderPrimitive.h>
 #include <Moby/RCArticulatedBody.h>
-#include <Moby/RevoluteJoint.h>
+#include <Moby/PrismaticJoint.h>
 #include <Moby/Log.h>
 
 #include "viewer.h"
@@ -23,14 +22,14 @@ int main( void ) {
   g->gravity = Ravelin::Vector3d( 0, 0, -9.8 );
 
   Moby::RCArticulatedBodyPtr ab( new Moby::RCArticulatedBody() );
-  ab->id = "pendulum";
+  ab->id = "gripper";
   ab->algorithm_type = Moby::RCArticulatedBody::eCRB;
 
   std::vector< Moby::RigidBodyPtr > links;
   Moby::RigidBodyPtr base( new Moby::RigidBody() );
   {
-    Moby::PrimitivePtr box( new Moby::BoxPrimitive(0.1,0.1,0.1) );
-    box->set_mass( 1000 );
+    Moby::PrimitivePtr box( new Moby::BoxPrimitive(0.05,1.0,0.05) );
+    box->set_mass( 1 );
 
     // static
     base->id = "base";
@@ -44,27 +43,34 @@ int main( void ) {
 
   Moby::RigidBodyPtr link( new Moby::RigidBody() );
   {
-    Moby::PrimitivePtr cylinder( new Moby::CylinderPrimitive(0.025,1) );
-    cylinder->set_mass( 1 );
+    Moby::PrimitivePtr box( new Moby::BoxPrimitive(0.05,0.05,0.5) );
+    box->set_mass( 1 );
 
     link->id = "link";
-    link->set_visualization_data( cylinder->create_visualization() );
-    link->set_inertia( cylinder->get_inertia() );
+    link->set_visualization_data( box->create_visualization() );
+    link->set_inertia( box->get_inertia() );
     link->set_enabled( true );
     link->get_recurrent_forces().push_back( g );
   
     //link->set_pose( Ravelin::Pose3d( Ravelin::Quatd::normalize(Ravelin::Quatd(1,0,0,1)), Ravelin::Origin3d(0,0,-0.5) ) ); 
-    link->set_pose( Ravelin::Pose3d( Ravelin::Quatd::normalize(Ravelin::Quatd(0,0,0,1)), Ravelin::Origin3d(0,-0.5,0) ) ); 
+    link->set_pose( Ravelin::Pose3d( Ravelin::Quatd::normalize(Ravelin::Quatd(0,0,0,1)), Ravelin::Origin3d(0,0,-0.275) ) ); 
     links.push_back( link ); 
   }
 
   std::vector< Moby::JointPtr > joints;
-  boost::shared_ptr<Moby::RevoluteJoint> joint( new Moby::RevoluteJoint() );
+  boost::shared_ptr<Moby::PrismaticJoint> joint( new Moby::PrismaticJoint() );
   {
     joint->id = "joint";
     joint->set_location( Ravelin::Vector3d(0,0,0,base->get_pose()), base, link );
     joint->set_axis( Ravelin::Vector3d(1,0,0,Moby::GLOBAL) );
+    joint->set_constraint_type(Moby::Joint::eExplicit);
+    //joint->lolimit = -0.5;
+    //joint->hilimit = 0.5;
 
+    std::cout << "joint: { lolimit[" << joint->lolimit << "], hilimit[" << joint->hilimit << "], maxforce[" << joint->maxforce <<"] }" << std::endl;
+    //joint->maxforce = Ravelin::VectorNd(1);
+    //maxforce[0]
+    
     joints.push_back( joint );
   }
 
@@ -77,13 +83,19 @@ int main( void ) {
   Viewer viewer( sim, Ravelin::Origin3d(-5,0,-1), Ravelin::Origin3d(0,0,-1), Ravelin::Origin3d(0,0,1) );
 
 /*
-  boost::shared_ptr<Ravelin::Pose3d> impulse_pos( new Ravelin::Pose3d( Ravelin::Quatd::normalize(Ravelin::Quatd(0,1,0,1)), Ravelin::Origin3d(0,0,-0.5)) );
-  Ravelin::SForced impulse(0,100,0,0,0,0,impulse_pos);
+  boost::shared_ptr<Ravelin::Pose3d> impulse_pos( new Ravelin::Pose3d( Ravelin::Quatd::normalize(Ravelin::Quatd(1,0,0,1)), Ravelin::Origin3d(0,0,-0.5)) );
+  Ravelin::SForced impulse(100,0,0,0,0,0,impulse_pos);
   link->add_force( impulse );
 */
-  
+
+  Ravelin::VectorNd f(1);
+  f[0] = 1000;
+  joint->add_force(f);
+
   while(true) {
     if( !viewer.update() ) break;
+
+    joint->add_force(f);
 
     sim->step( 0.001 );
     Ravelin::Pose3d pose = *link->get_pose();
