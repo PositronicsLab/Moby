@@ -9,51 +9,9 @@
 #include <Moby/RevoluteJoint.h>
 #include <Moby/Log.h>
 
-//#define USE_OSG
-
-#ifdef USE_OSG
-#include <osgViewer/Viewer>
-#include <osgViewer/ViewerEventHandlers>
-#include <osg/Geode>
-#include <osgDB/ReadFile>
-#include <osgDB/WriteFile>
-#include <osgGA/TrackballManipulator>
-#include <osgGA/StateSetManipulator>
-#endif
-
-
-#ifdef USE_OSG
-/// The OpenInventor group node for Moby
-osg::Group* MOBY_GROUP;
-/// The OpenInventor root group node for this application
-osg::Group* MAIN_GROUP;
-/// Pointer to the viewer
-osgViewer::Viewer* viewer_pointer;
-#endif
+#include "viewer.h"
 
 int main( void ) {
-  // setup osg vectors
-  #ifdef USE_OSG
-  osgViewer::Viewer viewer;
-  viewer.setThreadingModel(osgViewer::Viewer::SingleThreaded);
-  viewer_pointer = &viewer;
-
-  // setup the window
-  viewer_pointer->setUpViewInWindow(0, 0, 1024, 1024);
-
-  osg::Vec3d position_osg(-4,0,-1);
-  osg::Vec3d target_osg(0, 0, -1);
-  osg::Vec3d up_osg(0, 0, 1);
-  // set the camera view
-  if (viewer_pointer && viewer_pointer->getCameraManipulator())
-  {
-  osg::Camera* camera = viewer_pointer->getCamera();
-  camera->setViewMatrixAsLookAt(position_osg, target_osg, up_osg);
-  // setup the manipulator using the camera, if necessary
-  viewer_pointer->getCameraManipulator()->setHomePosition(position_osg, target_osg, up_osg);
-  }
-  #endif
-
   boost::shared_ptr<Moby::Simulator> sim( new Moby::Simulator() );
   sim->integrator = boost::shared_ptr<Moby::Integrator>( new Moby::EulerIntegrator() );
 
@@ -66,7 +24,7 @@ int main( void ) {
   std::vector< Moby::RigidBodyPtr > links;
   Moby::RigidBodyPtr base( new Moby::RigidBody() );
   {
-    Moby::PrimitivePtr box( new Moby::BoxPrimitive(1,1,1) );
+    Moby::PrimitivePtr box( new Moby::BoxPrimitive(0.1,0.1,0.1) );
     box->set_mass( 1000 );
 
     // static
@@ -76,7 +34,7 @@ int main( void ) {
     base->set_enabled( true );
     //base->get_recurrent_forces().push_back( g );
   
-    base->set_pose( Ravelin::Pose3d( Ravelin::Quatd(0,0,0,1), Ravelin::Origin3d(0,0,0) ) ); 
+    base->set_pose( Ravelin::Pose3d( Ravelin::Quatd::normalize(Ravelin::Quatd(0,0,0,1)), Ravelin::Origin3d(0,0,0) ) ); 
     links.push_back( base );
   }
 
@@ -91,7 +49,8 @@ int main( void ) {
     link->set_enabled( true );
     link->get_recurrent_forces().push_back( g );
   
-    link->set_pose( Ravelin::Pose3d( Ravelin::Quatd(0,0,0,1), Ravelin::Origin3d(0,0,-0.5) ) ); 
+    //link->set_pose( Ravelin::Pose3d( Ravelin::Quatd::normalize(Ravelin::Quatd(1,0,0,1)), Ravelin::Origin3d(0,0,-0.5) ) ); 
+    link->set_pose( Ravelin::Pose3d( Ravelin::Quatd::normalize(Ravelin::Quatd(0,0,0,1)), Ravelin::Origin3d(0,-0.5,0) ) ); 
     links.push_back( link ); 
   }
 
@@ -109,17 +68,21 @@ int main( void ) {
 
   sim->add_dynamic_body( ab );
 
+  Viewer viewer( sim, Ravelin::Origin3d(-4,0,-1), Ravelin::Origin3d(0,0,-1), Ravelin::Origin3d(0,0,1) );
+
 /*
   boost::shared_ptr<Ravelin::Pose3d> impulse_pos( new Ravelin::Pose3d( Ravelin::Quatd::normalize(Ravelin::Quatd(0,1,0,1)), Ravelin::Origin3d(0,0,-0.5)) );
   Ravelin::SForced impulse(0,100,0,0,0,0,impulse_pos);
   link->add_force( impulse );
 */
-  for( unsigned i = 0; i < 10; i++ ) {
+  
+  while(true) {
+    if( !viewer.update() ) break;
+
     sim->step( 0.001 );
     boost::shared_ptr<const Ravelin::Pose3d> pose = link->get_pose();
-    std::cout << "step: " << i << " x: " << pose->x << std::endl;
+    std::cout << "t: " << sim->current_time << " x: " << pose->x << std::endl;
 
-    sim->update_visualization();
   }
 
   return 0;

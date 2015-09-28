@@ -6,6 +6,8 @@
 #include <Moby/GravityForce.h>
 #include <Moby/Log.h>
 
+#include "viewer.h"
+
 int main( void ) {
 
   boost::shared_ptr<Moby::Simulator> sim( new Moby::Simulator() );
@@ -28,10 +30,14 @@ int main( void ) {
 
   sim->add_dynamic_body( rb );
 
-  for( unsigned i = 0; i < 10; i++ ) {
+  Viewer viewer( sim, Ravelin::Origin3d(0,0,4), Ravelin::Origin3d(0,0,0), Ravelin::Origin3d(1,0,0) );  
+
+  while(true) {
+    if( !viewer.update() ) break;
+
     sim->step( 0.001 );
     boost::shared_ptr<const Ravelin::Pose3d> pose = rb->get_pose();
-    std::cout << "step: " << i << " x: " << pose->x << std::endl;
+    std::cout << "t: " << sim->current_time << " x: " << pose->x << std::endl;
   }
 
   return 0;
