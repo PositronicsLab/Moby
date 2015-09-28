@@ -12,6 +12,10 @@
 #include "viewer.h"
 
 int main( void ) {
+
+// uncomment to log dynamics
+//  Moby::Log<Moby::OutputToFile>::reporting_level = 7;
+
   boost::shared_ptr<Moby::Simulator> sim( new Moby::Simulator() );
   sim->integrator = boost::shared_ptr<Moby::Integrator>( new Moby::EulerIntegrator() );
 
@@ -20,6 +24,7 @@ int main( void ) {
 
   Moby::RCArticulatedBodyPtr ab( new Moby::RCArticulatedBody() );
   ab->id = "pendulum";
+  ab->algorithm_type = Moby::RCArticulatedBody::eCRB;
 
   std::vector< Moby::RigidBodyPtr > links;
   Moby::RigidBodyPtr base( new Moby::RigidBody() );
@@ -32,7 +37,6 @@ int main( void ) {
     base->set_visualization_data( box->create_visualization() );
     base->set_inertia( box->get_inertia() );
     base->set_enabled( true );
-    //base->get_recurrent_forces().push_back( g );
   
     base->set_pose( Ravelin::Pose3d( Ravelin::Quatd::normalize(Ravelin::Quatd(0,0,0,1)), Ravelin::Origin3d(0,0,0) ) ); 
     links.push_back( base );
@@ -50,7 +54,7 @@ int main( void ) {
     link->get_recurrent_forces().push_back( g );
   
     //link->set_pose( Ravelin::Pose3d( Ravelin::Quatd::normalize(Ravelin::Quatd(1,0,0,1)), Ravelin::Origin3d(0,0,-0.5) ) ); 
-    link->set_pose( Ravelin::Pose3d( Ravelin::Quatd::normalize(Ravelin::Quatd(0,0,0,1)), Ravelin::Origin3d(0,-0.5,0) ) ); 
+    link->set_pose( Ravelin::Pose3d( Ravelin::Quatd::normalize(Ravelin::Quatd(0,0,0,1)), Ravelin::Origin3d(.5,-0.5,.5) ) ); 
     links.push_back( link ); 
   }
 
@@ -65,6 +69,8 @@ int main( void ) {
   }
 
   ab->set_links_and_joints( links, joints );
+  ab->get_recurrent_forces().push_back( g );
+  ab->set_floating_base(false);
 
   sim->add_dynamic_body( ab );
 
@@ -80,8 +86,9 @@ int main( void ) {
     if( !viewer.update() ) break;
 
     sim->step( 0.001 );
-    boost::shared_ptr<const Ravelin::Pose3d> pose = link->get_pose();
-    std::cout << "t: " << sim->current_time << " x: " << pose->x << std::endl;
+    Ravelin::Pose3d pose = *link->get_pose();
+    pose.update_relative_pose(Moby::GLOBAL);
+    std::cout << "t: " << sim->current_time << " x: " << pose.x << std::endl;
 
   }
 
