@@ -1565,7 +1565,7 @@ bool CompGeomSpecOne<ForwardIterator, Point2d>::intersect_seg_convex_polygon(For
     Ravelin::Vector2d ni(edge[1], -edge[0]);
     double N = -Ravelin::Vector2d::dot(ni, seg.first-*i);
     double D = Ravelin::Vector2d::dot(dS, ni);
-    if (std::fabs(D) < 0.0)
+    if (std::fabs(D) < tol)
     {
       // segment is parallel to this edge
       if (N < tol)
