@@ -87,8 +87,10 @@ double PolyhedralPrimitive::calc_signed_dist(shared_ptr<const Primitive> p, Poin
       std::vector<boost::shared_ptr<Polyhedron::Vertex> > vvp = bthis->get_polyhedron().get_vertices();
       boost::shared_ptr<Polyhedron::Vertex> vthis = vvthis[min_pair->first];
       boost::shared_ptr<Polyhedron::Vertex> vp = vvp[min_pair->second];
-      pthis = vthis->o;
-      pp = vp->o;
+      Point3d ppthis(vthis->o, bthis->get_pose());
+      pthis = ppthis;
+      Point3d ppp(vp->o, polyp->get_pose());
+      pp = ppp;
       return -min_dist;
   }
   else
