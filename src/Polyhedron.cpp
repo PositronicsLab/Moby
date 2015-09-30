@@ -1243,7 +1243,7 @@ double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<co
     {
       boost::shared_ptr<const Polyhedron::Edge> a = boost::static_pointer_cast<const Polyhedron::Edge>(closestA);
       boost::shared_ptr<const Polyhedron::Edge> b = boost::static_pointer_cast<const Polyhedron::Edge>(closestB);
-      FILE_LOG(LOG_COLDET) << "=====Entering Edge Edge Case=====" << std::endl <<*a << std::endl << *b <<std::endl;
+      FILE_LOG(LOG_COLDET)<< "=====Entering Edge Edge Case=====" << std::endl <<*a << std::endl << *b <<std::endl;
 
       Polyhedron::UpdateRule r = update_edge_edge(fA, fB, aTb, closestA, closestB);
       
@@ -2088,13 +2088,13 @@ bool Polyhedron::clip_edge(boost::shared_ptr<const Polyhedron::Edge> edge, Trans
     FILE_LOG(LOG_COLDET)<< dh <<std::endl;
 
     //if the edge is completely clipped
-    if (dt<0 && dh<0)
+    if (dt<-NEAR_ZERO && dh<-NEAR_ZERO)
     {
       min_N=max_N=N;
       return false;
     }
     //if only one side is clipped
-    else if(dt<0)
+    else if(dt<-NEAR_ZERO)
     {  
       //Find lambda
       lambda = dt/(dt-dh);
@@ -2110,7 +2110,7 @@ bool Polyhedron::clip_edge(boost::shared_ptr<const Polyhedron::Edge> edge, Trans
           return false;
       }
     }
-    else if (dh<0)
+    else if (dh<-NEAR_ZERO)
     {
       // find lambda
       lambda = dt/(dt-dh);
@@ -2235,7 +2235,7 @@ bool Polyhedron::post_clip_deriv_check(FeatureType& fX, boost::shared_ptr<const 
     Ravelin::Vector3d vx = t+u*min_lambda;
     vx.pose = GLOBAL3D;
     // if the signed distance is negatve, we need to reverse the sign
-    if(p.calc_signed_distance(vx)<0)
+    if(p.calc_signed_distance(vx)<-NEAR_ZERO)
       Ddot_min = -Ddot_min;
 
     // calculate dDot_max
@@ -2244,12 +2244,12 @@ bool Polyhedron::post_clip_deriv_check(FeatureType& fX, boost::shared_ptr<const 
     vx = t+u*max_lambda;
     vx.pose = GLOBAL3D;
     // if the signed distance is negatve, we need to reverse the sign
-    if(p.calc_signed_distance(vx)<0)
+    if(p.calc_signed_distance(vx)<-NEAR_ZERO)
       Ddot_max = -Ddot_max;
   }
 
   // check whether it is posible to update X
-  if(min_N && Ddot_min>0)
+  if(min_N && Ddot_min>NEAR_ZERO)
   {
     X = min_N;
     if (boost::dynamic_pointer_cast<const Polyhedron::Vertex>(min_N))
@@ -2258,7 +2258,7 @@ bool Polyhedron::post_clip_deriv_check(FeatureType& fX, boost::shared_ptr<const 
       fX = eFace;
     return true; 
   }
-  else if(max_N && Ddot_max<0)
+  else if(max_N && Ddot_max<-NEAR_ZERO)
   {
     X = max_N;
     if (boost::dynamic_pointer_cast<const Polyhedron::Vertex>(max_N))
@@ -2302,7 +2302,7 @@ Polyhedron::UpdateRule Polyhedron::handle_local_minimum(boost::shared_ptr<const 
     }
   }
 
-  if (d_max <= 0)
+  if (d_max < NEAR_ZERO)
     return eInterpenetrating;
 
   face = f0;
@@ -2336,7 +2336,7 @@ Polyhedron::UpdateRule Polyhedron::update_vertex_vertex(FeatureType& fA, Feature
 
     FILE_LOG(LOG_COLDET)<< *vp <<std::endl<<vp->calc_signed_distance(vectorB)<<std::endl;
 
-    if (vp->calc_signed_distance(vectorB) < 0.0)
+    if (vp->calc_signed_distance(vectorB) < -NEAR_ZERO)
     {
       // vertex B violates plane from this edge; update vA to eA
       closestA = e;
@@ -2361,7 +2361,7 @@ Polyhedron::UpdateRule Polyhedron::update_vertex_vertex(FeatureType& fA, Feature
 
     FILE_LOG(LOG_COLDET)<< *vp <<std::endl<<vp->calc_signed_distance(vectorA)<<std::endl;
 
-    if(vp->calc_signed_distance(vectorA) < 0)
+    if(vp->calc_signed_distance(vectorA) < -NEAR_ZERO)
     {
       // vertex A violates plane from this edge; update vB to eA
       closestB = e;
@@ -2394,7 +2394,7 @@ Polyhedron::UpdateRule Polyhedron::update_vertex_edge(FeatureType& fA, FeatureTy
 
   FILE_LOG(LOG_COLDET)<< *(edgeB->v1) << std::endl << *vp<< std::endl << vp->calc_signed_distance(vectA) << std::endl;
   double dist = vp->calc_signed_distance(vectA);
-  if( dist< 0 || fabs(dist) < NEAR_ZERO )
+  if( dist< -NEAR_ZERO || fabs(dist) < NEAR_ZERO )
   {
     // vA violates plane; update edge to coincident plane
     closestB = N;
@@ -2409,7 +2409,7 @@ Polyhedron::UpdateRule Polyhedron::update_vertex_edge(FeatureType& fA, FeatureTy
 
   FILE_LOG(LOG_COLDET)<< *vp<< std::endl << vp->calc_signed_distance(vectA) << std::endl;
   dist = vp->calc_signed_distance(vectA);
-  if( dist< 0 || fabs(dist) < NEAR_ZERO )
+  if( dist< -NEAR_ZERO || fabs(dist) < NEAR_ZERO )
   {
     // vA violates plane; update edge to coincident plane
     closestB = N;
@@ -2423,7 +2423,7 @@ Polyhedron::UpdateRule Polyhedron::update_vertex_edge(FeatureType& fA, FeatureTy
 
   FILE_LOG(LOG_COLDET)<< *vp<< std::endl << vp->calc_signed_distance(vectA) << std::endl;
 
-  if(vp->calc_signed_distance(vectA) < 0)
+  if(vp->calc_signed_distance(vectA) < -NEAR_ZERO)
   {
     // vA violates plane; update edge to coincident plane
     closestB = N;
@@ -2437,7 +2437,7 @@ Polyhedron::UpdateRule Polyhedron::update_vertex_edge(FeatureType& fA, FeatureTy
 
   FILE_LOG(LOG_COLDET)<< *vp<< std::endl << vp->calc_signed_distance(vectA) << std::endl;
 
-  if (vp->calc_signed_distance(vectA) < 0)
+  if (vp->calc_signed_distance(vectA) < -NEAR_ZERO)
   {
     // vA violates plane; update edge to coincident plane
     closestB = N;
@@ -2539,7 +2539,7 @@ Polyhedron::UpdateRule Polyhedron::update_vertex_face(FeatureType& fA, FeatureTy
   Ravelin::Vector3d normal_b = p_b.get_normal();
   normal_b.pose = aTb.source;
   Ravelin::Vector3d normal_a = aTb.transform_vector(normal_b);
-  FILE_LOG(LOG_COLDET)<< "The Face is " << *faceB <<std::endl << "Normal before transformation is " <<normal_b <<endl << "normal after transformation is " << normal_a << std::endl;
+  FILE_LOG(LOG_COLDET) << "The Face is " << *faceB <<std::endl << "Normal before transformation is " <<normal_b <<endl << "normal after transformation is " << normal_a << std::endl;
 
   // find a random vertex from face b
   boost::shared_ptr<Polyhedron::Face> faceB_non_const = boost::const_pointer_cast<Polyhedron::Face>(faceB);
@@ -2552,7 +2552,7 @@ Polyhedron::UpdateRule Polyhedron::update_vertex_face(FeatureType& fA, FeatureTy
 
   double D_va = p_a.calc_signed_distance(vectorA);
 
-  FILE_LOG(LOG_COLDET)<< v1_b << " , " << v1_a <<std::endl << vectorA << std::endl << p_a << std::endl << D_va << std::endl;
+  FILE_LOG(LOG_COLDET) << v1_b << " , " << v1_a <<std::endl << vectorA << std::endl << p_a << std::endl << D_va << std::endl;
 
 
 
@@ -2570,8 +2570,8 @@ Polyhedron::UpdateRule Polyhedron::update_vertex_face(FeatureType& fA, FeatureTy
     // calculate D(V')
     Ravelin::Vector3d vectorA_prime(v_prime->o, aTb.target);
     double D_v_prime = p_a.calc_signed_distance(vectorA_prime);
-    FILE_LOG(LOG_COLDET) << "v_prime: " << *v_prime << std::endl;
-    if(std::fabs(D_va) > std::fabs(D_v_prime))
+    FILE_LOG(LOG_COLDET) << "v_prime: " << *v_prime << std::endl << "D_v_prime: " << D_v_prime << std::endl << "D_va: " << D_va <<std::endl;
+    if(std::fabs(D_va) - std::fabs(D_v_prime) > NEAR_ZERO)
     {
       // vertex B violates plane from this edge; update vA to eA
       closestA = e;
@@ -2579,10 +2579,10 @@ Polyhedron::UpdateRule Polyhedron::update_vertex_face(FeatureType& fA, FeatureTy
       return eContinue;
     }    
   }
-
+  FILE_LOG(LOG_COLDET) << "edge test complete" << std::endl;
   // if there are no edge pointing to the face and the
   // vertex is absolutely out of the polyhedron. We are done 
-    if (D_va > 0)
+    if (D_va > NEAR_ZERO)
       return eDone;
   // if the point has negative distance, it might be inside the polyhedron
   // handle_local_minimum will be used to test this and update.
@@ -2833,7 +2833,7 @@ Polyhedron::UpdateRule Polyhedron::update_edge_face(FeatureType& fA, FeatureType
       // if the signed distance is negatve, we need to reverse the sign
       Ravelin::Vector3d vx = t+u*min_lambda;
       vx.pose = GLOBAL3D;
-      if (p.calc_signed_distance(vx) < 0)
+      if (p.calc_signed_distance(vx) < -NEAR_ZERO)
         Ddot_min = -Ddot_min;
 
       // calculate dDot_max
@@ -2842,11 +2842,11 @@ Polyhedron::UpdateRule Polyhedron::update_edge_face(FeatureType& fA, FeatureType
 
       // if the signed distance is negatve, we need to reverse the sign
       vx.pose = GLOBAL3D;
-      if(p.calc_signed_distance(vx) < 0)
+      if(p.calc_signed_distance(vx) < -NEAR_ZERO)
         Ddot_max = -Ddot_max;
 
       // check which Edge to update to
-      if(min_N && Ddot_min > 0)
+      if(min_N && Ddot_min > NEAR_ZERO)
       {
         // find the neighbor edge that has tail as its vertex
         // get the one of the two neighbor edges
@@ -2882,7 +2882,7 @@ Polyhedron::UpdateRule Polyhedron::update_edge_face(FeatureType& fA, FeatureType
         // the current edge is not the shortest distance one, do everything again with the updated edge
         continue; 
       }
-      else if (max_N && Ddot_max < 0)
+      else if (max_N && Ddot_max < -NEAR_ZERO)
       {
         // find the neighboring edge that has head as its vertex
         // get the two neighboring edges
@@ -2945,7 +2945,9 @@ Polyhedron::UpdateRule Polyhedron::update_edge_face(FeatureType& fA, FeatureType
   double min_d = p.calc_signed_distance(min_vx);
   double max_d = p.calc_signed_distance(max_vx);
 
-  if (min_d*max_d <= 0)
+  FILE_LOG(LOG_COLDET) << "min_: vx" << min_vx << std::endl << "max_vx: " << max_vx <<std::endl; 
+
+  if (min_d*max_d < NEAR_ZERO)
     return eInterpenetrating;
   
   Ravelin::Vector3d n = p.get_normal();
@@ -2955,10 +2957,10 @@ Polyhedron::UpdateRule Polyhedron::update_edge_face(FeatureType& fA, FeatureType
   double dDot_min = Ravelin::Vector3d::dot(u,n);
 
   // if the signed distance is negatve, we need to reverse the sign
-  if (min_d < 0)
+  if (min_d < -NEAR_ZERO)
     dDot_min=-dDot_min;
 
-  if (dDot_min >= 0)
+  if (dDot_min >= -NEAR_ZERO)
   {
     if (min_N)
     {
