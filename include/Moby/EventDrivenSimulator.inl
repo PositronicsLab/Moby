@@ -26,8 +26,14 @@ double EventDrivenSimulator::integrate_with_sustained_constraints(double step_si
     // ignore it
     if ((*i)->get_kinematic())
     {
-      if ((*i)->controller)
+      if ((*i)->controller) 
+      {
         (*(*i)->controller)(*i, current_time, (*i)->controller_arg);
+      }
+      else if ((*i)->controller_callback) 
+      {
+        (*i)->controller_callback(*i, current_time, (*i)->controller_arg);
+      }
 
       // ignore body otherwise
       continue;

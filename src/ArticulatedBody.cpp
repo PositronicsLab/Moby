@@ -145,6 +145,11 @@ void ArticulatedBody::ode_noexcept(SharedConstVectorNd& x, double t, double dt, 
   {
     FILE_LOG(LOG_DYNAMICS) << "Computing controller forces for " << id << std::endl;
     (*controller)(shared_this, t, controller_arg);
+  } 
+  else if (controller_callback) 
+  {
+    FILE_LOG(LOG_DYNAMICS) << "Computing controller forces for " << id << std::endl;
+    controller_callback(shared_this, t, controller_arg);
   }
 
   // calculate forward dynamics at state x
@@ -203,6 +208,11 @@ void ArticulatedBody::prepare_to_calc_ode_sustained_constraints(SharedConstVecto
     FILE_LOG(LOG_DYNAMICS) << "Computing controller forces for " << id << std::endl;
     (*controller)(shared_this, t, controller_arg);
   }
+  else if (controller_callback) 
+  {
+    FILE_LOG(LOG_DYNAMICS) << "Computing controller forces for " << id << std::endl;
+    controller_callback(shared_this, t, controller_arg);
+  }
 }
 
 /// Prepares to compute the ODE  
@@ -245,8 +255,14 @@ void ArticulatedBody::prepare_to_calc_ode(SharedConstVectorNd& x, double t, doub
     rf->add_force(shared_this);
 
   // call the body's controller
-  if (controller)
+  if (controller) 
+  {
     (*controller)(shared_this, t, controller_arg);
+  }
+  else if (controller_callback)
+  {
+    controller_callback(shared_this, t, controller_arg);
+  }
 }
 
 /// Returns the ODE's for position and velocity (concatenated into x)

@@ -2149,6 +2149,11 @@ void RigidBody::ode_noexcept(SharedConstVectorNd& x, double t, double dt, void* 
     FILE_LOG(LOG_DYNAMICS) << "Computing controller forces for " << id << std::endl;
     (*controller)(shared_this, t, controller_arg);
   }
+  else if (controller_callback) 
+  {
+    FILE_LOG(LOG_DYNAMICS) << "Computing controller forces for " << id << std::endl;
+    controller_callback(shared_this, t, controller_arg);
+  }
 
   // calculate forward dynamics at state x
   calc_fwd_dyn();
@@ -2188,6 +2193,11 @@ void RigidBody::prepare_to_calc_ode(SharedConstVectorNd& x, double t, double dt,
   {
     FILE_LOG(LOG_DYNAMICS) << "Computing controller forces for " << id << std::endl;
     (*controller)(shared_this, t, controller_arg);
+  }
+  else if (controller_callback) 
+  {
+    FILE_LOG(LOG_DYNAMICS) << "Computing controller forces for " << id << std::endl;
+    controller_callback(shared_this, t, controller_arg);
   }
 }
 

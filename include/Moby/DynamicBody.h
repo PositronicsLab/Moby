@@ -16,6 +16,8 @@
 #include <Moby/Visualizable.h>
 #include <Moby/RecurrentForce.h>
 
+#include <boost/function.hpp>
+
 namespace Moby {
 
 /// Superclass for deformable bodies and single and multi-rigid bodies  
@@ -29,6 +31,7 @@ class DynamicBody : public Visualizable
     DynamicBody() 
     { 
       controller = NULL; 
+      controller_callback = NULL;
       _kinematic_update = false;
     }
 
@@ -327,6 +330,14 @@ class DynamicBody : public Visualizable
       Ravelin::SharedVectorNd gf_shared = gf.segment(0, gf.size());
       convert_to_generalized_force(body, w, gf_shared);
       return gf;
+    }
+
+    typedef boost::function<void (boost::shared_ptr<DynamicBody>, const double&, void*)> controller_callback_fn;
+
+    controller_callback_fn controller_callback;
+
+    void register_controller_callback( controller_callback_fn cb ) {
+      controller_callback = cb;
     }
 
     /// The controller callback, if any, for this body

@@ -1319,6 +1319,11 @@ void EventDrivenSimulator::calc_fwd_dyn()
       FILE_LOG(LOG_DYNAMICS) << "Computing controller forces for " << db->id << std::endl;
       (*db->controller)(db, current_time, db->controller_arg);
     }
+    else if (db->controller_callback)
+    {
+      FILE_LOG(LOG_DYNAMICS) << "Computing controller forces for " << db->id << std::endl;
+      db->controller_callback(db, current_time, db->controller_arg);
+    }
   }
 
   // calculate compliant constraint forces
