@@ -2101,12 +2101,12 @@ bool Polyhedron::clip_edge(boost::shared_ptr<const Polyhedron::Edge> edge, Trans
 
       //if the current lambda is larger than the minimum possible lambda
       //We have to update the minimum lambda
-      if (lambda>min_lambda)
+      if (lambda-min_lambda > NEAR_ZERO)
       {
         min_lambda = lambda;
         min_N = N;
         //if the edge is completely clipped
-        if (min_lambda>max_lambda)
+        if (min_lambda-max_lambda > NEAR_ZERO)
           return false;
       }
     }
@@ -2117,13 +2117,13 @@ bool Polyhedron::clip_edge(boost::shared_ptr<const Polyhedron::Edge> edge, Trans
 
       // if the current lambda is smaller than the maximum possible lambda
       // we have to update the minimum lambda
-      if(lambda<max_lambda)
+      if(lambda-max_lambda > NEAR_ZERO)
       {
         max_lambda = lambda;
         max_N = N;
 
         //if the edge is completely clipped
-        if(max_lambda < min_lambda)
+        if(max_lambda - min_lambda < -NEAR_ZERO)
           return false;
       }
     }
@@ -2182,7 +2182,7 @@ bool Polyhedron::post_clip_deriv_check(FeatureType& fX, boost::shared_ptr<const 
         Ravelin::Vector3d v = t+u*min_lambda;
         v.pose = GLOBAL3D;
         // if the signed distance is negative, we need to reverse the sign
-        if(p.calc_signed_distance(v)<0)
+        if(p.calc_signed_distance(v)<-NEAR_ZERO)
         {
           Ddot_min = -Ddot_min;
         }
@@ -2213,7 +2213,7 @@ bool Polyhedron::post_clip_deriv_check(FeatureType& fX, boost::shared_ptr<const 
 
         v.pose = GLOBAL3D;
         // if the signed distance is negatve, we need to reverse the sign
-        if(p.calc_signed_distance(v)<0)
+        if(p.calc_signed_distance(v)<-NEAR_ZERO)
           Ddot_max = -Ddot_max;
       }
     }
@@ -2247,6 +2247,9 @@ bool Polyhedron::post_clip_deriv_check(FeatureType& fX, boost::shared_ptr<const 
     if(p.calc_signed_distance(vx)<-NEAR_ZERO)
       Ddot_max = -Ddot_max;
   }
+
+  FILE_LOG(LOG_COLDET) << "Ddot_max: " << Ddot_max <<std::endl;
+  FILE_LOG(LOG_COLDET) << "Ddot_min: " << Ddot_min <<std::endl;
 
   // check whether it is posible to update X
   if(min_N && Ddot_min>NEAR_ZERO)
@@ -2295,7 +2298,7 @@ Polyhedron::UpdateRule Polyhedron::handle_local_minimum(boost::shared_ptr<const 
     Plane p = f->get_plane();
     double d = p.calc_signed_distance(vf);
     FILE_LOG(LOG_COLDET) << "The distance between the vertex "<< vf << " and face " << *f << " is " << d << std::endl;
-    if (d > d_max)
+    if (d - d_max > NEAR_ZERO)
     {
       d_max = d;
       f0 = f;
@@ -2624,6 +2627,11 @@ Polyhedron::UpdateRule Polyhedron::update_edge_edge(FeatureType& fA, FeatureType
 
     // clip edge
     bool clip_result = clip_edge(edgeB, aTb, min_lambda, max_lambda, min_N, max_N, planes_neighbors);
+    FILE_LOG(LOG_COLDET) << "min_lambda: " << min_lambda <<std::endl;
+    FILE_LOG(LOG_COLDET) << "max_lambda: " << max_lambda <<std::endl;
+    FILE_LOG(LOG_COLDET) << "min_N: " << min_N <<std::endl;
+    FILE_LOG(LOG_COLDET) << "max_N: " << max_N <<std::endl;
+
 
     //check if the edge is completely clipped by one features
     if(min_N==max_N && min_N)
@@ -2655,6 +2663,10 @@ Polyhedron::UpdateRule Polyhedron::update_edge_edge(FeatureType& fA, FeatureType
     planes_neighbors.push_back(pn);
 
     clip_result=clip_edge(edgeB, aTb, min_lambda, max_lambda, min_N, max_N, planes_neighbors);
+    FILE_LOG(LOG_COLDET) << "min_lambda: " << min_lambda <<std::endl;
+    FILE_LOG(LOG_COLDET) << "max_lambda: " << max_lambda <<std::endl;
+    FILE_LOG(LOG_COLDET) << "min_N: " << min_N <<std::endl;
+    FILE_LOG(LOG_COLDET) << "max_N: " << max_N <<std::endl;
 
     // check whether the edge is completely clipped by one feature
     if(min_N==max_N && min_N)
@@ -2695,6 +2707,10 @@ Polyhedron::UpdateRule Polyhedron::update_edge_edge(FeatureType& fA, FeatureType
     planes_neighbors.push_back(pn);
 
     bool clip_result = clip_edge(edgeA, bTa, min_lambda, max_lambda, min_N, max_N, planes_neighbors);
+    FILE_LOG(LOG_COLDET) << "min_lambda: " << min_lambda <<std::endl;
+    FILE_LOG(LOG_COLDET) << "max_lambda: " << max_lambda <<std::endl;
+    FILE_LOG(LOG_COLDET) << "min_N: " << min_N <<std::endl;
+    FILE_LOG(LOG_COLDET) << "max_N: " << max_N <<std::endl;
 
     // check whether the edge is completely clipped by one feature
     if (min_N==max_N && min_N)
@@ -2727,6 +2743,10 @@ Polyhedron::UpdateRule Polyhedron::update_edge_edge(FeatureType& fA, FeatureType
     planes_neighbors.push_back(pn);
 
     clip_result=clip_edge(edgeA, bTa, min_lambda, max_lambda, min_N, max_N, planes_neighbors);
+    FILE_LOG(LOG_COLDET) << "min_lambda: " << min_lambda <<std::endl;
+    FILE_LOG(LOG_COLDET) << "max_lambda: " << max_lambda <<std::endl;
+    FILE_LOG(LOG_COLDET) << "min_N: " << min_N <<std::endl;
+    FILE_LOG(LOG_COLDET) << "max_N: " << max_N <<std::endl;
 
     // check whether the edge is completely clipped by one feature
     if(min_N==max_N && min_N)
@@ -2771,7 +2791,7 @@ Polyhedron::UpdateRule Polyhedron::update_edge_face(FeatureType& fA, FeatureType
     planes_neighbors.push_back(pn);
   }
 
-  // clipp edge
+  // clip edge
   double min_lambda = 0;
   double max_lambda = 1;
   boost::shared_ptr<const Polyhedron::Feature > min_N, max_N;
@@ -2799,6 +2819,7 @@ Polyhedron::UpdateRule Polyhedron::update_edge_face(FeatureType& fA, FeatureType
     while (true)
     {
       //clip feature A with the two Edge-Vertex voronoi-plane of cur_edge
+
       boost::shared_ptr<const Polyhedron::Edge> cur_edge = boost::static_pointer_cast<const Polyhedron::Edge>(cur_feature);
       planes_neighbors.clear();
       boost::shared_ptr<const Polyhedron::Feature> tail = cur_edge->v1;
@@ -2824,26 +2845,27 @@ Polyhedron::UpdateRule Polyhedron::update_edge_face(FeatureType& fA, FeatureType
       // placeholders for the derivative minimum/maximum
       double Ddot_min,Ddot_max;
 
-      // calculate dDot_min
-      Plane p = faceB->get_plane();
-      Ravelin::Vector3d n = p.get_normal();
-      n.pose = bTa.target;
-      Ddot_min = Ravelin::Vector3d::dot(u,n);
+      // calculate dDot_min using vertex formula
+      if(min_N)
+      {
+        boost::shared_ptr<const Polyhedron::Vertex > vB = boost::static_pointer_cast<const Polyhedron::Vertex>(min_N);
+        Ravelin::Vector3d v(vB->o, bTa.target);
+        Ddot_min = Ravelin::Vector3d::dot(u,(t+min_lambda*u-v));
+      }
+      if(max_N)
+      {
+        boost::shared_ptr<const Polyhedron::Vertex > vB = boost::static_pointer_cast<const Polyhedron::Vertex>(max_N);
+        Ravelin::Vector3d v(vB->o, bTa.target);
+        Ddot_max = Ravelin::Vector3d::dot(u,(t+max_lambda*u-v));
+      }
 
-      // if the signed distance is negatve, we need to reverse the sign
-      Ravelin::Vector3d vx = t+u*min_lambda;
-      vx.pose = GLOBAL3D;
-      if (p.calc_signed_distance(vx) < -NEAR_ZERO)
-        Ddot_min = -Ddot_min;
-
-      // calculate dDot_max
-      Ddot_max = Ravelin::Vector3d::dot(u,n);
-      vx = t+u*max_lambda;
-
-      // if the signed distance is negatve, we need to reverse the sign
-      vx.pose = GLOBAL3D;
-      if(p.calc_signed_distance(vx) < -NEAR_ZERO)
-        Ddot_max = -Ddot_max;
+      FILE_LOG(LOG_COLDET) << "cur_edge: " << *cur_edge <<std::endl;
+      FILE_LOG(LOG_COLDET) << "min_lambda: " << min_lambda <<std::endl;
+      FILE_LOG(LOG_COLDET) << "max_lambda: " << max_lambda <<std::endl;
+      FILE_LOG(LOG_COLDET) << "min_N: " << min_N <<std::endl;
+      FILE_LOG(LOG_COLDET) << "max_N: " << max_N <<std::endl;
+      FILE_LOG(LOG_COLDET) << "Ddot_min: " << Ddot_min <<std::endl;
+      FILE_LOG(LOG_COLDET) << "Ddot_max: " << Ddot_max <<std::endl;
 
       // check which Edge to update to
       if(min_N && Ddot_min > NEAR_ZERO)
@@ -2928,7 +2950,7 @@ Polyhedron::UpdateRule Polyhedron::update_edge_face(FeatureType& fA, FeatureType
     return eContinue;
   }
 
-
+  // not fully clipped
   Ravelin::Vector3d t_a(edgeA->v1->o, aTb.target);
   Ravelin::Vector3d h_a(edgeA->v2->o, aTb.target);
   Ravelin::Vector3d t = bTa.transform_point(t_a);
@@ -2947,6 +2969,7 @@ Polyhedron::UpdateRule Polyhedron::update_edge_face(FeatureType& fA, FeatureType
 
   FILE_LOG(LOG_COLDET) << "min_: vx" << min_vx << std::endl << "max_vx: " << max_vx <<std::endl; 
 
+  //check for interpenetration
   if (min_d*max_d < NEAR_ZERO)
     return eInterpenetrating;
   
@@ -2960,6 +2983,7 @@ Polyhedron::UpdateRule Polyhedron::update_edge_face(FeatureType& fA, FeatureType
   if (min_d < -NEAR_ZERO)
     dDot_min=-dDot_min;
 
+  //return the vertex that is closer to the face
   if (dDot_min >= -NEAR_ZERO)
   {
     if (min_N)
