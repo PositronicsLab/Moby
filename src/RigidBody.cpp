@@ -522,7 +522,7 @@ void RigidBody::ode_noexcept(SharedConstVectorNd& x, double t, double dt, void* 
   SharedVectorNd dgv = dx.segment(NGC_EUL, x.size());
 
   // set the state and velocity
-  set_generalized_coordinates(DynamicBodyd::eEuler, gc);
+  set_generalized_coordinates_euler(gc);
   set_generalized_velocity(DynamicBodyd::eSpatial, gv);
 
   // we need the generalized velocity as Rodrigues coordinates
@@ -562,7 +562,7 @@ void RigidBody::prepare_to_calc_ode(SharedConstVectorNd& x, double t, double dt,
   const SharedVectorNd gv = x.segment(NGC_EUL, x.size()).get();
 
   // set the state and velocity
-  set_generalized_coordinates(DynamicBodyd::eEuler, gc);
+  set_generalized_coordinates_euler(gc);
   set_generalized_velocity(DynamicBodyd::eSpatial, gv);
 
   // clear the force accumulators on the body

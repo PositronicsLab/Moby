@@ -86,7 +86,7 @@ bool step(void* arg)
   for (unsigned i=0; i< bodies.size(); i++)  
   {
     shared_ptr<DynamicBodyd> db = dynamic_pointer_cast<DynamicBodyd>(bodies[i]);
-    db->get_generalized_coordinates(DynamicBodyd::eEuler, q);
+    db->get_generalized_coordinates_euler(q);
     for (unsigned j=0; j< q.size(); j++)
       outfile << " " << q[j];
   }

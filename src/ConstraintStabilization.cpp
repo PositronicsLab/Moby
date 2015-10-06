@@ -1168,7 +1168,7 @@ void ConstraintStabilization::get_body_configurations(VectorNd& q, shared_ptr<Co
   {
     shared_ptr<DynamicBodyd> body = dynamic_pointer_cast<DynamicBodyd>(cb);
     SharedVectorNd body_gcs = q.segment(start, start + body->num_generalized_coordinates(DynamicBodyd::eEuler));
-    body->get_generalized_coordinates(DynamicBodyd::eEuler, body_gcs);
+    body->get_generalized_coordinates_euler(body_gcs);
     start += body->num_generalized_coordinates(DynamicBodyd::eEuler);
   }
 }
@@ -1195,7 +1195,7 @@ void ConstraintStabilization::update_body_configurations(const VectorNd& q, shar
     shared_ptr<DynamicBodyd> body = dynamic_pointer_cast<DynamicBodyd>(cb);
     unsigned ngc = body->num_generalized_coordinates(DynamicBodyd::eEuler);
     Ravelin::SharedConstVectorNd gc_shared = q.segment(last,last+ngc);
-    body->set_generalized_coordinates(DynamicBodyd::eEuler, gc_shared);
+    body->set_generalized_coordinates_euler(gc_shared);
     last += ngc;
   }
 }
