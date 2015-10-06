@@ -31,9 +31,6 @@ if (USE_QLCPD AND QLCPD_FOUND)
 endif (USE_QLCPD AND QLCPD_FOUND)
 
 # modify C++ flags
-set (CMAKE_CXX_FLAGS "-std=c++11") 
-
-# modify C++ flags
 add_definitions (-DSAFESTATIC=static)
 if (OMP)
   find_package (OpenMP REQUIRED)
@@ -214,35 +211,35 @@ file (WRITE ${CMAKE_BINARY_DIR}/setup.sh "#!/bin/bash\nexport MOBY_PLUGIN_PATH=$
 # plugins
 # sphere plugin
 add_library(sphere-plugin MODULE example/contact_simple/sphere-plugin.cpp)
-target_link_libraries(sphere-plugin Moby Ravelin)
+target_link_libraries(sphere-plugin Moby)
 
 # box plugin
 add_library(box-plugin MODULE example/contact_simple/box-plugin.cpp)
-target_link_libraries(box-plugin Moby Ravelin)
+target_link_libraries(box-plugin Moby)
 
 # rimless wheel plugins
 add_library(rimless-wheel-coldet-plugin MODULE example/rimless-wheel/coldet-plugin.cpp)
 add_library(rimless-wheel-init MODULE example/rimless-wheel/init.cpp)
-target_link_libraries(rimless-wheel-init Moby Ravelin)
-target_link_libraries(rimless-wheel-coldet-plugin Moby Ravelin)
+target_link_libraries(rimless-wheel-init Moby)
+target_link_libraries(rimless-wheel-coldet-plugin Moby)
 
 # ball in parabloid plugins
 add_library(ball-parabloid-coldet-plugin MODULE example/ball-in-parabloid/coldet-plugin.cpp)
 add_library(ball-parabloid-init MODULE example/ball-in-parabloid/init.cpp)
-target_link_libraries(ball-parabloid-init Moby Ravelin)
-target_link_libraries(ball-parabloid-coldet-plugin Moby Ravelin)
+target_link_libraries(ball-parabloid-init Moby)
+target_link_libraries(ball-parabloid-coldet-plugin Moby)
 
 # passive dynamic walker plugins
 add_library(passive-walker-init MODULE example/passive-walker/init.cpp)
 add_library(passive-walker-coldet-plugin MODULE example/passive-walker/coldet-plugin.cpp)
-target_link_libraries(passive-walker-init Moby Ravelin)
-target_link_libraries(passive-walker-coldet-plugin Moby Ravelin)
+target_link_libraries(passive-walker-init Moby)
+target_link_libraries(passive-walker-coldet-plugin Moby)
 
 # contact constrained pendulum plugins
 add_library(contact-constrained-pendulum-coldet-plugin MODULE example/contact_simple/contact-constrained-pendulum-coldet-plugin.cpp)
 add_library(contact-constrained-pendulum-init MODULE example/contact_simple/contact-constrained-pendulum-init.cpp)
-target_link_libraries(contact-constrained-pendulum-coldet-plugin Moby Ravelin)
-target_link_libraries(contact-constrained-pendulum-init Moby Ravelin)
+target_link_libraries(contact-constrained-pendulum-coldet-plugin Moby)
+target_link_libraries(contact-constrained-pendulum-init Moby)
 
 # setup source file
 install (CODE "file(WRITE setup.sh \"#!/bin/bash\nexport MOBY_PLUGIN_PATH=${CMAKE_INSTALL_PREFIX}/lib/Moby/plugins\n\n\")")

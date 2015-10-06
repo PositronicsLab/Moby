@@ -33,6 +33,8 @@
 #include <Moby/ConstraintSimulator.h>
 #include <Moby/RCArticulatedBody.h>
 #include <Moby/ConstraintStabilization.h>
+#include <boost/algorithm/minmax_element.hpp>
+#include <utility>
 
 using namespace Ravelin;
 using namespace Moby;
@@ -119,7 +121,7 @@ double ConstraintStabilization::evaluate_implicit_constraints(shared_ptr<Constra
   }
 
   // get the maximum value and minimum value of C
-  std::pair<std::vector<double>::const_iterator, std::vector<double>::const_iterator> mmelm = std::minmax_element(C.begin(), C.end());
+  std::pair<std::vector<double>::const_iterator, std::vector<double>::const_iterator> mmelm = boost::minmax_element(C.begin(), C.end());
   return (std::fabs(*mmelm.first) > std::fabs(*mmelm.second)) ? std::fabs(*mmelm.first) : std::fabs(*mmelm.second);
 }
 
