@@ -37,6 +37,7 @@ class XMLReader
     static void read_dissipation(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     static void read_heightmap(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     static void read_plane(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
+    static void read_torus(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     static void read_box(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     static void read_sphere(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     static void read_cylinder(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);

@@ -9,7 +9,7 @@ set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/CMakeModules)
 include_directories ("include")
 
 # setup library sources
-set (SOURCES AABB.cpp ArticulatedBody.cpp Base.cpp BoundingSphere.cpp BoxPrimitive.cpp BV.cpp CCD.cpp CollisionDetection.cpp CollisionGeometry.cpp CompGeom.cpp ConePrimitive.cpp ConstraintSimulator.cpp ConstraintStabilization.cpp ContactParameters.cpp CP.cpp CylinderPrimitive.cpp DampingForce.cpp Dissipation.cpp DynamicBody.cpp FixedJoint.cpp Gears.cpp GJK.cpp GravityForce.cpp HeightmapPrimitive.cpp ImpactConstraintHandler.cpp ImpactConstraintHandlerNQP.cpp ImpactConstraintHandlerLCP.cpp ImpactConstraintHandlerQP.cpp IndexedTetraArray.cpp IndexedTriArray.cpp Joint.cpp LCP.cpp Log.cpp OBB.cpp OSGGroupWrapper.cpp PenaltyConstraintHandler.cpp PlanePrimitive.cpp PolyhedralPrimitive.cpp Polyhedron.cpp Primitive.cpp PrismaticJoint.cpp RCArticulatedBody.cpp RevoluteJoint.cpp RigidBody.cpp SDFReader.cpp Simulator.cpp SparseJacobian.cpp SpherePrimitive.cpp SphericalJoint.cpp SSL.cpp SSR.cpp StokesDragForce.cpp TessellatedPolyhedron.cpp Tetrahedron.cpp ThickTriangle.cpp TimeSteppingSimulator.cpp Triangle.cpp TriangleMeshPrimitive.cpp UnilateralConstraint.cpp UniversalJoint.cpp URDFReader.cpp Visualizable.cpp XMLReader.cpp XMLTree.cpp XMLWriter.cpp)
+set (SOURCES AABB.cpp ArticulatedBody.cpp Base.cpp BoundingSphere.cpp BoxPrimitive.cpp BV.cpp CCD.cpp CollisionDetection.cpp CollisionGeometry.cpp CompGeom.cpp ConePrimitive.cpp ConstraintSimulator.cpp ConstraintStabilization.cpp ContactParameters.cpp CP.cpp CylinderPrimitive.cpp DampingForce.cpp Dissipation.cpp DynamicBody.cpp FixedJoint.cpp Gears.cpp GJK.cpp GravityForce.cpp HeightmapPrimitive.cpp ImpactConstraintHandler.cpp ImpactConstraintHandlerNQP.cpp ImpactConstraintHandlerLCP.cpp ImpactConstraintHandlerQP.cpp IndexedTetraArray.cpp IndexedTriArray.cpp Joint.cpp LCP.cpp Log.cpp OBB.cpp OSGGroupWrapper.cpp PenaltyConstraintHandler.cpp PlanePrimitive.cpp PolyhedralPrimitive.cpp Polyhedron.cpp Primitive.cpp PrismaticJoint.cpp RCArticulatedBody.cpp RevoluteJoint.cpp RigidBody.cpp SDFReader.cpp Simulator.cpp SparseJacobian.cpp SpherePrimitive.cpp SphericalJoint.cpp SSL.cpp SSR.cpp StokesDragForce.cpp TessellatedPolyhedron.cpp Tetrahedron.cpp ThickTriangle.cpp TimeSteppingSimulator.cpp TorusPrimitive.cpp Triangle.cpp TriangleMeshPrimitive.cpp UnilateralConstraint.cpp UniversalJoint.cpp URDFReader.cpp Visualizable.cpp XMLReader.cpp XMLTree.cpp XMLWriter.cpp)
 #set (SOURCES MCArticulatedBody.cpp)
 
 # build options
@@ -96,6 +96,7 @@ if (USE_OSG AND OSG_FOUND)
         include_directories (${OSGVIEWER_INCLUDE_DIR})
         include_directories (${OPENTHREADS_INCLUDE_DIR})
         add_definitions (-DUSE_OSG)
+        set (SOURCES ${SOURCES} OsgTorus.cpp)
       else (OPENTHREADS_FOUND)
         unset (OSG_FOUND)
       endif (OPENTHREADS_FOUND)
