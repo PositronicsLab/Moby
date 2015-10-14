@@ -9,7 +9,7 @@ set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/CMakeModules)
 include_directories ("include")
 
 # setup library sources
-set (SOURCES AABB.cpp ArticulatedBody.cpp Base.cpp BoundingSphere.cpp BoxPrimitive.cpp BV.cpp CCD.cpp CollisionDetection.cpp CollisionGeometry.cpp CompGeom.cpp ConePrimitive.cpp ConstraintSimulator.cpp ConstraintStabilization.cpp ContactParameters.cpp CP.cpp CylinderPrimitive.cpp DampingForce.cpp Dissipation.cpp DynamicBody.cpp FixedJoint.cpp Gears.cpp GJK.cpp GravityForce.cpp HeightmapPrimitive.cpp ImpactConstraintHandler.cpp ImpactConstraintHandlerNQP.cpp ImpactConstraintHandlerLCP.cpp ImpactConstraintHandlerQP.cpp IndexedTetraArray.cpp IndexedTriArray.cpp Joint.cpp LCP.cpp Log.cpp OBB.cpp OSGGroupWrapper.cpp PenaltyConstraintHandler.cpp PlanePrimitive.cpp PolyhedralPrimitive.cpp Polyhedron.cpp Primitive.cpp PrismaticJoint.cpp RCArticulatedBody.cpp RevoluteJoint.cpp RigidBody.cpp SDFReader.cpp Simulator.cpp SparseJacobian.cpp SpherePrimitive.cpp SphericalJoint.cpp SSL.cpp SSR.cpp StokesDragForce.cpp TessellatedPolyhedron.cpp Tetrahedron.cpp ThickTriangle.cpp TimeSteppingSimulator.cpp Triangle.cpp TriangleMeshPrimitive.cpp UnilateralConstraint.cpp UniversalJoint.cpp URDFReader.cpp Visualizable.cpp XMLReader.cpp XMLTree.cpp XMLWriter.cpp)
+set (SOURCES AABB.cpp ArticulatedBody.cpp Base.cpp BoundingSphere.cpp BoxPrimitive.cpp BV.cpp CCD.cpp CollisionDetection.cpp CollisionGeometry.cpp CompGeom.cpp ConePrimitive.cpp ConstraintSimulator.cpp ConstraintStabilization.cpp ContactParameters.cpp CP.cpp CylinderPrimitive.cpp DampingForce.cpp Dissipation.cpp DynamicBody.cpp FixedJoint.cpp Gears.cpp GJK.cpp GravityForce.cpp HeightmapPrimitive.cpp ImpactConstraintHandler.cpp ImpactConstraintHandlerNQP.cpp ImpactConstraintHandlerLCP.cpp ImpactConstraintHandlerQP.cpp IndexedTetraArray.cpp IndexedTriArray.cpp Joint.cpp LCP.cpp Log.cpp OBB.cpp OSGGroupWrapper.cpp PenaltyConstraintHandler.cpp PlanePrimitive.cpp PolyhedralPrimitive.cpp Polyhedron.cpp Primitive.cpp PrismaticJoint.cpp RCArticulatedBody.cpp RevoluteJoint.cpp RigidBody.cpp SDFReader.cpp Simulator.cpp SparseJacobian.cpp SpherePrimitive.cpp SphericalJoint.cpp SSL.cpp SSR.cpp StokesDragForce.cpp TessellatedPolyhedron.cpp Tetrahedron.cpp ThickTriangle.cpp TimeSteppingSimulator.cpp TorusPrimitive.cpp Triangle.cpp TriangleMeshPrimitive.cpp UnilateralConstraint.cpp UniversalJoint.cpp URDFReader.cpp Visualizable.cpp XMLReader.cpp XMLTree.cpp XMLWriter.cpp)
 #set (SOURCES MCArticulatedBody.cpp)
 
 # build options
@@ -29,9 +29,6 @@ if (USE_QLCPD AND QLCPD_FOUND)
   set_source_files_properties(src/ImpactConstraintHandler.cpp PROPERTIES COMPILE_FLAGS -DUSE_QLCPD)
   set_source_files_properties(src/ImpactConstraintHandlerQP.cpp PROPERTIES COMPILE_FLAGS -DUSE_QLCPD)
 endif (USE_QLCPD AND QLCPD_FOUND)
-
-# modify C++ flags
-set (CMAKE_CXX_FLAGS "-std=c++11") 
 
 # modify C++ flags
 add_definitions (-DSAFESTATIC=static)
@@ -99,6 +96,7 @@ if (USE_OSG AND OSG_FOUND)
         include_directories (${OSGVIEWER_INCLUDE_DIR})
         include_directories (${OPENTHREADS_INCLUDE_DIR})
         add_definitions (-DUSE_OSG)
+        set (SOURCES ${SOURCES} OsgTorus.cpp)
       else (OPENTHREADS_FOUND)
         unset (OSG_FOUND)
       endif (OPENTHREADS_FOUND)
@@ -214,35 +212,35 @@ file (WRITE ${CMAKE_BINARY_DIR}/setup.sh "#!/bin/bash\nexport MOBY_PLUGIN_PATH=$
 # plugins
 # sphere plugin
 add_library(sphere-plugin MODULE example/contact_simple/sphere-plugin.cpp)
-target_link_libraries(sphere-plugin Moby Ravelin)
+target_link_libraries(sphere-plugin Moby)
 
 # box plugin
 add_library(box-plugin MODULE example/contact_simple/box-plugin.cpp)
-target_link_libraries(box-plugin Moby Ravelin)
+target_link_libraries(box-plugin Moby)
 
 # rimless wheel plugins
 add_library(rimless-wheel-coldet-plugin MODULE example/rimless-wheel/coldet-plugin.cpp)
 add_library(rimless-wheel-init MODULE example/rimless-wheel/init.cpp)
-target_link_libraries(rimless-wheel-init Moby Ravelin)
-target_link_libraries(rimless-wheel-coldet-plugin Moby Ravelin)
+target_link_libraries(rimless-wheel-init Moby)
+target_link_libraries(rimless-wheel-coldet-plugin Moby)
 
 # ball in parabloid plugins
 add_library(ball-parabloid-coldet-plugin MODULE example/ball-in-parabloid/coldet-plugin.cpp)
 add_library(ball-parabloid-init MODULE example/ball-in-parabloid/init.cpp)
-target_link_libraries(ball-parabloid-init Moby Ravelin)
-target_link_libraries(ball-parabloid-coldet-plugin Moby Ravelin)
+target_link_libraries(ball-parabloid-init Moby)
+target_link_libraries(ball-parabloid-coldet-plugin Moby)
 
 # passive dynamic walker plugins
 add_library(passive-walker-init MODULE example/passive-walker/init.cpp)
 add_library(passive-walker-coldet-plugin MODULE example/passive-walker/coldet-plugin.cpp)
-target_link_libraries(passive-walker-init Moby Ravelin)
-target_link_libraries(passive-walker-coldet-plugin Moby Ravelin)
+target_link_libraries(passive-walker-init Moby)
+target_link_libraries(passive-walker-coldet-plugin Moby)
 
 # contact constrained pendulum plugins
 add_library(contact-constrained-pendulum-coldet-plugin MODULE example/contact_simple/contact-constrained-pendulum-coldet-plugin.cpp)
 add_library(contact-constrained-pendulum-init MODULE example/contact_simple/contact-constrained-pendulum-init.cpp)
-target_link_libraries(contact-constrained-pendulum-coldet-plugin Moby Ravelin)
-target_link_libraries(contact-constrained-pendulum-init Moby Ravelin)
+target_link_libraries(contact-constrained-pendulum-coldet-plugin Moby)
+target_link_libraries(contact-constrained-pendulum-init Moby)
 
 # setup source file
 install (CODE "file(WRITE setup.sh \"#!/bin/bash\nexport MOBY_PLUGIN_PATH=${CMAKE_INSTALL_PREFIX}/lib/Moby/plugins\n\n\")")

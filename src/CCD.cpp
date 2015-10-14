@@ -736,6 +736,14 @@ BVPtr CCD::construct_bounding_sphere(CollisionGeometryPtr cg)
     return sph;
   }
 
+  // look for torus primitive (also an easy case)
+  shared_ptr<TorusPrimitive> torus_p = dynamic_pointer_cast<TorusPrimitive>(p);
+  if (torus_p)
+  {
+    sph->radius = torus_p->get_major_radius() + torus_p->get_minor_radius();
+    return sph;
+  }
+
   // look for box primitive (also an easy case)
   shared_ptr<BoxPrimitive> box_p = dynamic_pointer_cast<BoxPrimitive>(p);
   if (box_p)

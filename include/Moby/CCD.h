@@ -15,6 +15,7 @@
 #include <Moby/Log.h>
 #include <Moby/CP.h>
 #include <Moby/SpherePrimitive.h>
+#include <Moby/TorusPrimitive.h>
 #include <Moby/PolyhedralPrimitive.h>
 #include <Moby/PairwiseDistInfo.h>
 #include <Moby/HeightmapPrimitive.h>
@@ -126,6 +127,9 @@ class CCD : public CollisionDetection
 
     template <class OutputIterator>
     OutputIterator find_contacts_plane_generic(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL);
+
+    template <class OutputIterator>
+    OutputIterator find_contacts_torus_plane(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL);
 
     template <class OutputIterator>
     OutputIterator find_contacts_sphere_plane(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL);

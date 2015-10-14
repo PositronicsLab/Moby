@@ -38,6 +38,8 @@ OutputIterator CCD::find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr
       return find_contacts_sphere_plane(cgB, cgA, output_begin, TOL);
     else if (boost::dynamic_pointer_cast<CylinderPrimitive>(pB))
       return find_contacts_cylinder_plane(cgB, cgA, output_begin, TOL);
+    else if (boost::dynamic_pointer_cast<TorusPrimitive>(pB))
+      return find_contacts_torus_plane(cgB, cgA, output_begin, TOL);
     else
       return find_contacts_plane_generic(cgA, cgB, output_begin, TOL);
   }
@@ -50,6 +52,13 @@ OutputIterator CCD::find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr
   {
     if (boost::dynamic_pointer_cast<PolyhedralPrimitive>(pB))
       return find_contacts_polyhedron_polyhedron(cgA, cgB, output_begin, TOL);
+  }
+  else if (boost::dynamic_pointer_cast<TorusPrimitive>(pA))
+  {
+    if (boost::dynamic_pointer_cast<PlanePrimitive>(pB))
+    {
+      return find_contacts_torus_plane(cgA, cgB, output_begin, TOL);
+    }
   }
   else // no special case for A
   {
@@ -971,6 +980,167 @@ OutputIterator CCD::find_contacts_box_sphere(CollisionGeometryPtr cgA, Collision
 
   // create the contact
   *o++ = create_contact(cgA, cgB, p, normal, dist);
+
+  return o;
+}
+
+/// Gets contact points between a torus and a plane 
+template <class OutputIterator>
+OutputIterator CCD::find_contacts_torus_plane(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator o, double TOL)
+{
+  const unsigned Z = 2;
+  const double EPS = NEAR_ZERO * 100.0;
+
+  FILE_LOG(LOG_COLDET) << "CCD::find_contacts_torus_plane(.) entered" << std::endl;
+
+  // get the plane and torus primitives
+  PrimitivePtr plane_geom = boost::dynamic_pointer_cast<Primitive>(cgB->get_geometry());
+  boost::shared_ptr<TorusPrimitive> torus_geom = boost::dynamic_pointer_cast<TorusPrimitive>(cgA->get_geometry());
+
+  // get the major and minor radii
+  const double R = torus_geom->get_major_radius(); 
+  const double r = torus_geom->get_minor_radius(); 
+
+  // get the poses for the primitives
+  boost::shared_ptr<const Ravelin::Pose3d> Pplane = plane_geom->get_pose(cgB);
+  boost::shared_ptr<const Ravelin::Pose3d> Ptorus = torus_geom->get_pose(cgA); 
+
+  // get the transformation from the torus's space to the plane's space
+  Ravelin::Transform3d tPp = Ravelin::Pose3d::calc_relative_pose(Pplane, Ptorus);
+
+  // Z column of rotation matrix (plane to torus)
+  // is plane normal in torus frame
+  Ravelin::Vector3d n_plane = tPp.transform_vector(Ravelin::Vector3d(0.0, 1.0, 0.0, Pplane));
+  n_plane.normalize();
+
+  // Convert to global coords for output
+  Ravelin::Vector3d normal = Ravelin::Pose3d::transform_vector(GLOBAL,n_plane);
+
+  // Torus axis is z-axis in torus frame
+  Ravelin::Vector3d k(0,0,1,Ptorus);
+
+  // Set intitial value of distance to contact
+  double d = std::numeric_limits<double>::infinity();
+
+  // if Torus is aligned with plane:
+  // Return distance torus origin to
+  // closest point on plane less pipe r
+  double n_dot_k = n_plane.dot(k);
+  if (std::fabs(n_dot_k) > 1.0-EPS){
+    // d = depth
+    // p0 = plane origin, p = plane normal
+    // l0 = line origin, l = line direction
+
+    // plane origin: plane origin in torus frame
+    // line origin: torus origin in torus frame
+    Point3d p0(tPp.x,Ptorus), l0(0,0,0,Ptorus);
+
+    // plane normal: plane normal in torus frame
+    // line direction: torus k axis
+    Ravelin::Vector3d n = n_plane,l = k;
+
+    // distance torus to closest point on plane is:
+    // distance torus origin to closest point on plane
+    // - distance torus edge to torus origin
+    d = (p0 - l0).dot(n)/(l.dot(n)) - r;
+    if (d > TOL)
+      return o;
+
+    // Contact point is a random point on the
+    // circular manifold of contact
+    double t = (double) rand()/RAND_MAX * M_PI - M_PI_2;
+    Point3d p_torus(R*std::cos(t),R*std::sin(t),-r,Ptorus);
+    Point3d point = Ravelin::Pose3d::transform_point(GLOBAL,p_torus);
+    FILE_LOG(LOG_COLDET) << " -- Torus is parallel to plane"<< std::endl;
+    FILE_LOG(LOG_COLDET) << "Point: "<<  point << std::endl;
+    FILE_LOG(LOG_COLDET) << "Normal: "<<  normal << std::endl;
+    FILE_LOG(LOG_COLDET) << "distance: "<<  d << std::endl;
+    FILE_LOG(LOG_COLDET) << "<< end calc_signed_dist_torus_plane(.)" << std::endl;
+
+    // create the contact
+    *o++ = create_contact(cgA, cgB, point, normal, d);
+
+    return o;
+  }
+
+  //((n_plane x axis_torus) x axis_torus)
+  Ravelin::Vector3d d_ring = Ravelin::Vector3d::cross(Ravelin::Vector3d::cross(n_plane,k), k);
+  d_ring.normalize();
+
+  // if Torus is _|_ with plane:
+  // Return distance torus to plane less pipe r and ring R
+  if(std::fabs(n_dot_k) < EPS){
+    // d = depth
+    // p0 = plane origin, p = plane normal
+    // l0 = line origin, l = line direction
+
+    // plane origin: plane origin in torus frame
+    // line origin: torus origin in torus frame
+    Point3d p0 = tPp.transform_point(Point3d(0.0, 0.0, 0.0, Pplane)), l0(0,0,0,Ptorus);
+
+    // plane normal: plane normal in torus frame
+    // line direction: on xy-plane of torus
+    //   parallel to plane normal in torus frame
+    Ravelin::Vector3d n = n_plane,l = d_ring;
+    d = (p0 - l0).dot(n)/(l.dot(n)) - (r+R);
+    if (d > TOL)
+      return o;
+
+    Point3d p_torus = d*l + l0;
+    Point3d point = Ravelin::Pose3d::transform_point(Moby::GLOBAL,p_torus);
+    FILE_LOG(LOG_COLDET) << " -- Torus is perpendicular to plane"<< std::endl;
+    FILE_LOG(LOG_COLDET) << "Point: "<<  point << std::endl;
+    FILE_LOG(LOG_COLDET) << "Normal: "<<  normal << std::endl;
+    FILE_LOG(LOG_COLDET) << "distance: "<<  d << std::endl;
+    FILE_LOG(LOG_COLDET) << "<< end calc_signed_dist_torus_plane(.)" << std::endl;
+
+    // create the contact
+    *o++ = create_contact(cgA, cgB, point, normal, d);
+
+    return o;
+  }
+
+  //   ((d_ring x axis_torus) x n_plane ) x (d_ring x axis_torus)
+  //    ^ tangent to pipe   ^
+  //   ^ _|_ to plane normal            ^
+  //   ^ toward plane on torus pipe                             ^
+  Ravelin::Vector3d d_pipe = Ravelin::Vector3d::cross(
+                      Ravelin::Vector3d::cross(Ravelin::Vector3d::cross(d_ring,k),n_plane),
+                      Ravelin::Vector3d::cross(-d_ring,k)
+                      );
+  d_pipe.normalize();
+
+  // d = depth
+  // p0 = plane origin, p = plane normal
+  // l0 = line origin, l = line direction
+
+  // plane origin: plane origin in torus frame
+  // line origin: torus origin in torus frame
+  Point3d p0(tPp.x,Ptorus), l0 = R * d_ring;
+
+  // plane normal: plane normal in torus frame
+  // line direction: on xy-plane of torus
+  //   parallel to plane normal in torus frame
+  Ravelin::Vector3d n = n_plane,l = d_pipe;
+  d = (p0 - l0).dot(n)/(l.dot(n)) - r;
+  if (d > TOL)
+    return o;
+
+  //point on torus closest to plane;
+  Point3d p_torus = R * d_ring + r * d_pipe;
+  p_torus.pose = Ptorus;
+  // TODO: find the point in the torus's space such that
+  //       tPp.transform_point(.) results in the value of y closest to
+  //       negative infinity
+  Point3d point = Ravelin::Pose3d::transform_point(Moby::GLOBAL,p_torus);
+
+  // create the contact
+  *o++ = create_contact(cgA, cgB, point, normal, d);
+
+  FILE_LOG(LOG_COLDET) << "Point: "<<  point << std::endl;
+  FILE_LOG(LOG_COLDET) << "Normal: "<<  normal << std::endl;
+  FILE_LOG(LOG_COLDET) << "distance: "<<  d << std::endl;
+  FILE_LOG(LOG_COLDET) << "<< end calc_signed_dist_torus_plane(.)" << std::endl;
 
   return o;
 }

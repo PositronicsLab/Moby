@@ -71,7 +71,7 @@ double TimeSteppingSimulator::step(double step_size)
     BOOST_FOREACH(ControlledBodyPtr cb, _bodies)
     {
       shared_ptr<DynamicBodyd> db = dynamic_pointer_cast<DynamicBodyd>(cb);
-      db->get_generalized_coordinates(DynamicBodyd::eEuler, q);
+      db->get_generalized_coordinates_euler(q);
       db->get_generalized_velocity(DynamicBodyd::eSpatial, qd);
       FILE_LOG(LOG_SIMULATOR) << " body " << db->body_id << " Euler coordinates (before): " << q << std::endl;
       FILE_LOG(LOG_SIMULATOR) << " body " << db->body_id << " spatial velocity (before): " << qd << std::endl;
@@ -120,7 +120,7 @@ double TimeSteppingSimulator::do_mini_step(double dt)
   for (unsigned i=0; i< _bodies.size(); i++)
   {
     shared_ptr<DynamicBodyd> db = dynamic_pointer_cast<DynamicBodyd>(_bodies[i]);
-    db->get_generalized_coordinates(DynamicBodyd::eEuler, qsave[i]);
+    db->get_generalized_coordinates_euler(qsave[i]);
   }
 
   // set the amount stepped
@@ -146,11 +146,11 @@ double TimeSteppingSimulator::do_mini_step(double dt)
     for (unsigned i=0; i< _bodies.size(); i++)
     {
       shared_ptr<DynamicBodyd> db = dynamic_pointer_cast<DynamicBodyd>(_bodies[i]);
-      db->set_generalized_coordinates(DynamicBodyd::eEuler, qsave[i]);
+      db->set_generalized_coordinates_euler(qsave[i]);
       db->get_generalized_velocity(DynamicBodyd::eEuler, q);
       q *= (h + tc);
       q += qsave[i];
-      db->set_generalized_coordinates(DynamicBodyd::eEuler, q);
+      db->set_generalized_coordinates_euler(q);
     }
 
     // update h
@@ -341,7 +341,7 @@ void TimeSteppingSimulator::step_si_Euler(double dt)
     BOOST_FOREACH(ControlledBodyPtr cb, _bodies)
     {
       shared_ptr<DynamicBodyd> db = dynamic_pointer_cast<DynamicBodyd>(cb);
-      db->get_generalized_coordinates(DynamicBodyd::eEuler, q);
+      db->get_generalized_coordinates_euler(q);
       FILE_LOG(LOG_SIMULATOR) << " body " << db->body_id << " position (after integration): " << q << std::endl;
     }
   }

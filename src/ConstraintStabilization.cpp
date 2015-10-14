@@ -33,6 +33,8 @@
 #include <Moby/ConstraintSimulator.h>
 #include <Moby/RCArticulatedBody.h>
 #include <Moby/ConstraintStabilization.h>
+#include <boost/algorithm/minmax_element.hpp>
+#include <utility>
 
 using namespace Ravelin;
 using namespace Moby;
@@ -119,7 +121,7 @@ double ConstraintStabilization::evaluate_implicit_constraints(shared_ptr<Constra
   }
 
   // get the maximum value and minimum value of C
-  std::pair<std::vector<double>::const_iterator, std::vector<double>::const_iterator> mmelm = std::minmax_element(C.begin(), C.end());
+  std::pair<std::vector<double>::const_iterator, std::vector<double>::const_iterator> mmelm = boost::minmax_element(C.begin(), C.end());
   return (std::fabs(*mmelm.first) > std::fabs(*mmelm.second)) ? std::fabs(*mmelm.first) : std::fabs(*mmelm.second);
 }
 
@@ -1166,7 +1168,7 @@ void ConstraintStabilization::get_body_configurations(VectorNd& q, shared_ptr<Co
   {
     shared_ptr<DynamicBodyd> body = dynamic_pointer_cast<DynamicBodyd>(cb);
     SharedVectorNd body_gcs = q.segment(start, start + body->num_generalized_coordinates(DynamicBodyd::eEuler));
-    body->get_generalized_coordinates(DynamicBodyd::eEuler, body_gcs);
+    body->get_generalized_coordinates_euler(body_gcs);
     start += body->num_generalized_coordinates(DynamicBodyd::eEuler);
   }
 }
@@ -1193,7 +1195,7 @@ void ConstraintStabilization::update_body_configurations(const VectorNd& q, shar
     shared_ptr<DynamicBodyd> body = dynamic_pointer_cast<DynamicBodyd>(cb);
     unsigned ngc = body->num_generalized_coordinates(DynamicBodyd::eEuler);
     Ravelin::SharedConstVectorNd gc_shared = q.segment(last,last+ngc);
-    body->set_generalized_coordinates(DynamicBodyd::eEuler, gc_shared);
+    body->set_generalized_coordinates_euler(gc_shared);
     last += ngc;
   }
 }

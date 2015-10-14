@@ -133,7 +133,7 @@ void controller_callback(ControlledBodyPtr dbp, double t, void*)
   static double last_t;
   double h = t-last_t;
   last_t = t;
-  walker->get_generalized_coordinates( DynamicBodyd::eEuler,x);
+  walker->get_generalized_coordinates_euler(x);
   walker->get_generalized_velocity( DynamicBodyd::eEuler,xd);
 
   const std::vector<shared_ptr<RigidBodyd> >& links = walker->get_links();
@@ -217,7 +217,7 @@ void init(void* separator, const std::map<std::string, BasePtr>& read_map, doubl
 
   // Set initial conditions from ruina paper
   Ravelin::VectorNd x,xd;
-  walker->get_generalized_coordinates( DynamicBodyd::eEuler,x);
+  walker->get_generalized_coordinates_euler(x);
   walker->get_generalized_velocity( DynamicBodyd::eSpatial,xd);
 
   x[1] = 0; // x
@@ -321,7 +321,7 @@ void init(void* separator, const std::map<std::string, BasePtr>& read_map, doubl
   lfoot_geom = dynamic_pointer_cast<RigidBody>(walker->find_link("LLEG"))->geometries.front();
   rfoot_geom = dynamic_pointer_cast<RigidBody>(walker->find_link("RLEG"))->geometries.front();
 
-  walker->set_generalized_coordinates( DynamicBodyd::eEuler,x);
+  walker->set_generalized_coordinates_euler(x);
   walker->set_generalized_velocity( DynamicBodyd::eSpatial,xd);
 
   walker->set_floating_base(false);

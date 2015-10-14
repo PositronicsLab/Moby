@@ -85,7 +85,7 @@ void ArticulatedBody::ode_noexcept(SharedConstVectorNd& x, double t, double dt, 
   SharedConstVectorNd gv = x.segment(NGC_EUL, x.size());
 
   // set the state
-  set_generalized_coordinates(DynamicBodyd::eEuler, gc);
+  set_generalized_coordinates_euler(gc);
 
   // set the velocity 
   set_generalized_velocity(DynamicBodyd::eSpatial, gv);
@@ -131,7 +131,7 @@ void ArticulatedBody::prepare_to_calc_ode_sustained_constraints(SharedConstVecto
   SharedConstVectorNd gv = x.segment(NGC_EUL, x.size());
 
   // set the state
-  set_generalized_coordinates(DynamicBodyd::eEuler, gc);
+  set_generalized_coordinates_euler(gc);
   if (is_joint_constraint_violated())
     throw InvalidStateException();
 
@@ -168,7 +168,7 @@ void ArticulatedBody::prepare_to_calc_ode(SharedConstVectorNd& x, double t, doub
   SharedConstVectorNd gv = x.segment(NGC_EUL, x.size());
 
   // set the state
-  set_generalized_coordinates(DynamicBodyd::eEuler, gc);
+  set_generalized_coordinates_euler(gc);
   if (is_joint_constraint_violated())
     throw InvalidStateException();
 

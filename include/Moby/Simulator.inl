@@ -11,7 +11,7 @@
 template <class ForwardIterator>
 double Simulator::integrate(double dt, ForwardIterator begin, ForwardIterator end)
 {
-  Ravelin::VectorNd gc, gv, ga;
+  Ravelin::VectorNd gc, gv, ga, gve;
   std::vector<JointPtr> island_ijoints;
 
   // begin timing dynamics
@@ -28,19 +28,22 @@ double Simulator::integrate(double dt, ForwardIterator begin, ForwardIterator en
   // velocities to calculate new generalized coordinates 
   for (unsigned j=0; j< _bodies.size(); j++)
   {
+    // NOTE: coordinates must be set first to ensure that frame information
+    // is correct for velocities: mixed pose will be incorrect if
+    // generalized_velocity is set first
     boost::shared_ptr<Ravelin::DynamicBodyd> db = boost::dynamic_pointer_cast<Ravelin::DynamicBodyd>(_bodies[j]); 
     db->get_generalized_acceleration(ga);
     db->get_generalized_velocity(Ravelin::DynamicBodyd::eSpatial, gv);
+    db->get_generalized_velocity(Ravelin::DynamicBodyd::eEuler, gve);
     ga *= dt;
     gv += ga;
-    db->set_generalized_velocity(Ravelin::DynamicBodyd::eSpatial, gv);
 
     // integrate the generalized position forward
-    db->get_generalized_velocity(Ravelin::DynamicBodyd::eEuler, gv);
-    db->get_generalized_coordinates(Ravelin::DynamicBodyd::eEuler, gc);
-    gv *= dt;
-    gc += gv;
-    db->set_generalized_coordinates(Ravelin::DynamicBodyd::eEuler, gc);
+    gve *= dt;
+    db->get_generalized_coordinates_euler(gc);
+    gc += gve;
+    db->set_generalized_coordinates_euler(gc);
+    db->set_generalized_velocity(Ravelin::DynamicBodyd::eSpatial, gv);
   } 
 
   // tabulate dynamics computation
