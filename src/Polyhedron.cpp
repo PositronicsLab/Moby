@@ -1416,7 +1416,7 @@ double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<co
 ///Check if only one face of the two polyhedron is penetrated by checking if the edge of the penetrated face is penetrating
 ///assuming no fully interpenetration
 ///TODO add fully interpenetration detection
-bool is_one_face_penetration(boost::shared_ptr<const Polyhedron::Feature>& fFace, boost::shared_ptr<const PolyhedralPrimitive> pE, boost::shared_ptr<const Polyhedron::Feature>& fEdge, Ravelin::Transform3d& fTe)
+bool Polyhedron::is_one_face_penetration(boost::shared_ptr<const Polyhedron::Feature>& fFace, boost::shared_ptr<const PolyhedralPrimitive> pE, boost::shared_ptr<const Polyhedron::Feature>& fEdge, Ravelin::Transform3d& fTe)
 {
   // 1.Cast pointers 
   boost::shared_ptr<const Polyhedron::Face> f = boost::static_pointer_cast<const Polyhedron::Face>(fFace);
@@ -1488,7 +1488,7 @@ bool is_one_face_penetration(boost::shared_ptr<const Polyhedron::Feature>& fFace
 
 }
 
-void find_deepest_feature(boost::shared_ptr<const Polyhedron::Feature>& face, boost::shared_ptr<const Polyhedron::Feature>& edge, Ravelin::Transform3d& fTe)
+void Polyhedron::find_deepest_feature(boost::shared_ptr<const Polyhedron::Feature>& face, boost::shared_ptr<const Polyhedron::Feature>& edge, Ravelin::Transform3d& fTe)
 {
   //1.cur_vertex = the vertices of the edge that is penetrating 
 
@@ -1558,7 +1558,7 @@ void find_deepest_feature(boost::shared_ptr<const Polyhedron::Feature>& face, bo
   return;
 }
 
-double minkowski_optimum_distance(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<const PolyhedralPrimitive> pB, Ravelin::Transform3d& aTb)
+double Polyhedron::minkowski_optimum_distance(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<const PolyhedralPrimitive> pB, Ravelin::Transform3d& aTb)
 {
   shared_ptr<const Pose3d> GLOBAL3D;
   Ravelin::Origin3d o(0,0,0);
