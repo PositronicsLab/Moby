@@ -1635,7 +1635,6 @@ std::ostream& Moby::operator<<(std::ostream& o, const UnilateralConstraint& e)
     else
       o << "geom2: (undefined)" << std::endl;
 
-    o << "contact point / normal pose: " << ((e.contact_point.pose) ? Pose3d(*e.contact_point.pose).update_relative_pose(GLOBAL) : GLOBAL) << std::endl;
     o << "contact point: " << e.contact_point << std::endl;
     o << "normal: " << e.contact_normal << "  normal dot: " << e.contact_normal_dot << std::endl;
     o << "tangent 1: " << e.contact_tan1 << "  tan1 dot: " << e.contact_tan1_dot << std::endl;

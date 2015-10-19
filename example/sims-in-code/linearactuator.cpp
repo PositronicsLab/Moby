@@ -13,7 +13,7 @@
 int main( void ) {
 
 // uncomment to log dynamics
-//  Moby::Log<Moby::OutputToFile>::reporting_level = 7;
+  Moby::Log<Moby::OutputToFile>::reporting_level = 7;
 
   boost::shared_ptr<Moby::Simulator> sim( new Moby::Simulator() );
   sim->integrator = boost::shared_ptr<Moby::Integrator>( new Moby::EulerIntegrator() );

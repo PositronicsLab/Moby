@@ -846,7 +846,7 @@ void CRBAlgorithm::calc_fwd_dyn_floating_base(RCArticulatedBodyPtr body)
 
   if (LOGGING(LOG_DYNAMICS))
   {
-    Pose3d base_pose = links[0]->get_pose();
+    Pose3d base_pose = *links[0]->get_pose();
     base_pose.update_relative_pose(GLOBAL);
     FILE_LOG(LOG_DYNAMICS) << "base pose: " << base_pose << std::endl;
   }
@@ -985,13 +985,12 @@ void CRBAlgorithm::calc_generalized_forces(SForced& f0, VectorNd& C)
     // **** compute acceleration
 
     // add this link's contribution
-    Pose3d::transform(_a[i].pose, s, _sprime);
+    Pose3d::transform(vx.pose, s, _sprime);
     if (_sprime.empty())
       _a[i].set_zero(vx.pose);
     else
     {
       SVelocityd sqd = mult(_sprime, qd);
-      sqd.pose = vx.pose;
       _a[i] = vx.cross(sqd);
     }
     if (!sdot.empty())
