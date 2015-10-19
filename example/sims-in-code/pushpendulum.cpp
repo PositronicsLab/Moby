@@ -14,6 +14,46 @@
 #include "viewer.h"
 
 //----------------------------------------------------------------------------
+// the push controller applies an impulse to the pendulum arm once
+// setting the pendulum in motion
+void push_controller( Moby::DynamicBodyPtr dbp, double t, void* ) {
+  static bool pushed = false;
+
+  // only apply the force once
+  if( pushed ) return;
+
+  // cast the dynamic body to an articulated body
+  Moby::ArticulatedBodyPtr ab = boost::dynamic_pointer_cast<Moby::ArticulatedBody>( dbp );
+  if( !ab ) {
+    std::cout << "Failed to cast DynamicBody as ArticulatedBody" << std::endl;
+    std::cout << "Failed to push arm" << std::endl;
+    pushed = true;  // disable the controller
+    return;
+  } 
+  
+  // find the arm link
+  std::vector<Moby::RigidBodyPtr> rbs = ab->get_links();
+  Moby::RigidBodyPtr arm;
+  for(std::vector<Moby::RigidBodyPtr>::iterator it = rbs.begin(); it != rbs.end(); it++) {
+    if( (*it)->id == "arm" ) arm = *it;
+  }
+  if( !arm ) {
+    std::cout << "Failed to find arm" << std::endl;
+    std::cout << "Failed to push arm" << std::endl;
+    pushed = true;  // disable the controller
+    return;
+  } 
+
+  // apply the impulse to the link
+  boost::shared_ptr<Ravelin::Pose3d> impulse_pos( new Ravelin::Pose3d( Ravelin::Quatd::normalize(Ravelin::Quatd(0,1,0,1)), Ravelin::Origin3d(0,0,-0.5)) );
+  Ravelin::SForced impulse(0,2500,0,0,0,0,impulse_pos);
+  arm->add_force( impulse );
+
+  // disable the controller
+  pushed = true; 
+}
+
+//----------------------------------------------------------------------------
 int main( void ) {
 
 // uncomment to log dynamics
@@ -74,8 +114,8 @@ int main( void ) {
     arm->get_recurrent_forces().push_back( g );   // add the gravity force to the arm
  
     // compute the pose of the arm 
-    Ravelin::Quatd rotation(Ravelin::Quatd::normalize(Ravelin::Quatd(0,0,0,1)));
-    Ravelin::Origin3d position(0,-0.5,0);
+    Ravelin::Quatd rotation(Ravelin::Quatd::normalize(Ravelin::Quatd(1,0,0,1)));
+    Ravelin::Origin3d position(0,0,-0.5);
     Ravelin::Pose3d pose( rotation, position );
     arm->set_pose( pose ); 
 
@@ -109,6 +149,8 @@ int main( void ) {
   pendulum->get_recurrent_forces().push_back( g );
   // pendulum has a fixed base
   pendulum->set_floating_base(false);
+  // set the controller function
+  pendulum->controller = &push_controller;
  
   // add the pendulum to the simulaiton
   sim->add_dynamic_body( pendulum );

@@ -1,6 +1,9 @@
+/*----------------------------------------------------------------------------
+----------------------------------------------------------------------------*/
 #include <iostream>
 #include <boost/shared_ptr.hpp>
-#include <Moby/Simulator.h>
+//#include <Moby/Simulator.h>
+#include <Moby/TimeSteppingSimulator.h>
 #include <Moby/EulerIntegrator.h>
 #include <Moby/GravityForce.h>
 #include <Moby/BoxPrimitive.h>
@@ -10,12 +13,52 @@
 
 #include "viewer.h"
 
+//----------------------------------------------------------------------------
+// the push controller applies an impulse to the link once
+/*----------------------------------------------------------------------------
+----------------------------------------------------------------------------*/
+void push_controller( Moby::DynamicBodyPtr dbp, double t, void* ) {
+  static bool pushed = false;
+
+  // only apply the force once
+  if( pushed ) return;
+
+  // cast the dynamic body to an articulated body
+  Moby::ArticulatedBodyPtr ab = boost::dynamic_pointer_cast<Moby::ArticulatedBody>( dbp );
+  if( !ab ) {
+    std::cout << "Failed to cast DynamicBody as ArticulatedBody" << std::endl;
+    std::cout << "Failed to push link" << std::endl;
+    pushed = true;  // disable the controller
+    return;
+  } 
+  
+  std::vector<Moby::JointPtr> js = ab->get_joints();
+  Moby::JointPtr joint;
+  for(std::vector<Moby::JointPtr>::iterator it = js.begin(); it != js.end(); it++) {
+    if( (*it)->id == "joint" ) joint = *it;
+  }
+  if( !link ) {
+    std::cout << "Failed to find joint" << std::endl;
+    std::cout << "Failed to push joint" << std::endl;
+    pushed = true;  // disable the controller
+    return;
+  } 
+
+  Ravelin::VectorNd f(1);
+  f[0] = 1000;
+  joint->add_force(f);
+
+  // disable the controller
+  pushed = true; 
+}
+
+//----------------------------------------------------------------------------
 int main( void ) {
 
 // uncomment to log dynamics
   Moby::Log<Moby::OutputToFile>::reporting_level = 7;
 
-  boost::shared_ptr<Moby::Simulator> sim( new Moby::Simulator() );
+  boost::shared_ptr<Moby::TimeSteppingSimulator> sim( new Moby::TimeSteppingSimulator() );
   sim->integrator = boost::shared_ptr<Moby::Integrator>( new Moby::EulerIntegrator() );
 
   boost::shared_ptr<Moby::GravityForce> g( new Moby::GravityForce() );
@@ -52,7 +95,6 @@ int main( void ) {
     link->set_enabled( true );
     link->get_recurrent_forces().push_back( g );
   
-    //link->set_pose( Ravelin::Pose3d( Ravelin::Quatd::normalize(Ravelin::Quatd(1,0,0,1)), Ravelin::Origin3d(0,0,-0.5) ) ); 
     link->set_pose( Ravelin::Pose3d( Ravelin::Quatd::normalize(Ravelin::Quatd(0,0,0,1)), Ravelin::Origin3d(0,0,-0.275) ) ); 
     links.push_back( link ); 
   }
@@ -62,48 +104,32 @@ int main( void ) {
   {
     joint->id = "joint";
     joint->set_location( Ravelin::Vector3d(0,0,0,base->get_pose()), base, link );
-    joint->set_axis( Ravelin::Vector3d(1,0,0,Moby::GLOBAL) );
-    joint->set_constraint_type(Moby::Joint::eExplicit);
-    //joint->lolimit = -0.5;
-    //joint->hilimit = 0.5;
+    joint->set_axis( Ravelin::Vector3d(0,1,0,Moby::GLOBAL) );
+    joint->lolimit = -0.5;
+    joint->hilimit = 0.5;
 
-    std::cout << "joint: { lolimit[" << joint->lolimit << "], hilimit[" << joint->hilimit << "], maxforce[" << joint->maxforce <<"] }" << std::endl;
-    //joint->maxforce = Ravelin::VectorNd(1);
-    //maxforce[0]
-    
     joints.push_back( joint );
   }
 
   ab->set_links_and_joints( links, joints );
   ab->get_recurrent_forces().push_back( g );
   ab->set_floating_base(false);
+  ab->controller = &push_controller;
 
   sim->add_dynamic_body( ab );
 
   Viewer viewer( sim, Ravelin::Origin3d(-5,0,-1), Ravelin::Origin3d(0,0,-1), Ravelin::Origin3d(0,0,1) );
 
-/*
-  boost::shared_ptr<Ravelin::Pose3d> impulse_pos( new Ravelin::Pose3d( Ravelin::Quatd::normalize(Ravelin::Quatd(1,0,0,1)), Ravelin::Origin3d(0,0,-0.5)) );
-  Ravelin::SForced impulse(100,0,0,0,0,0,impulse_pos);
-  link->add_force( impulse );
-*/
-
-  Ravelin::VectorNd f(1);
-  f[0] = 1000;
-  joint->add_force(f);
-
   while(true) {
     if( !viewer.update() ) break;
-
-    joint->add_force(f);
 
     sim->step( 0.001 );
     Ravelin::Pose3d pose = *link->get_pose();
     pose.update_relative_pose(Moby::GLOBAL);
     std::cout << "t: " << sim->current_time << " x: " << pose.x << std::endl;
-
   }
 
   return 0;
 }
+//----------------------------------------------------------------------------
 
