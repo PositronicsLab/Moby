@@ -17,6 +17,7 @@
 #include <Moby/CompGeom.h>
 #include <Ravelin/sorted_pair>
 #include <Moby/XMLTree.h>
+#include <Moby/TorusPrimitive.h>
 #include <Moby/BoundingSphere.h>
 #include <Moby/CollisionGeometry.h>
 #include <Moby/SpherePrimitive.h>
@@ -203,7 +204,7 @@ osg::Node* PlanePrimitive::create_visualization()
   const float BLUE = (float) rand() / RAND_MAX;
   osg::Material* mat = new osg::Material;
   mat->setColorMode(osg::Material::DIFFUSE);
-  mat->setDiffuse(osg::Material::FRONT, osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f));
+  mat->setDiffuse(osg::Material::FRONT, osg::Vec4(1.0f, 1.0f, 1.0f, 0.0f));
   subgroup->getOrCreateStateSet()->setAttribute(mat);
 
   // create the plane
@@ -428,6 +429,16 @@ double PlanePrimitive::calc_signed_dist(shared_ptr<const Primitive> p, Point3d& 
   shared_ptr<const PolyhedralPrimitive> polyhedron = dynamic_pointer_cast<const PolyhedralPrimitive>(p);
   if (polyhedron)
     return calc_signed_dist(polyhedron, pthis, pp);
+
+  // look for torus
+  shared_ptr<const TorusPrimitive> torus = dynamic_pointer_cast<const TorusPrimitive>(p);
+  if (torus)
+  {
+    shared_ptr<const PlanePrimitive> shared_plane = dynamic_pointer_cast<const PlanePrimitive>(shared_from_this());
+    shared_ptr<const Primitive> shared_this = shared_plane;
+    return torus->calc_signed_dist(shared_this, pp, pthis);
+  }
+ 
 
 /*
   // if the primitive is convex, can use GJK

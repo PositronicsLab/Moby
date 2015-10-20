@@ -990,6 +990,7 @@ OutputIterator CCD::find_contacts_torus_plane(CollisionGeometryPtr cgA, Collisio
 {
   const unsigned Z = 2;
   const double EPS = NEAR_ZERO * 100.0;
+  const unsigned MAX_CONTACTS = 4;
 
   FILE_LOG(LOG_COLDET) << "CCD::find_contacts_torus_plane(.) entered" << std::endl;
 
@@ -1046,19 +1047,21 @@ OutputIterator CCD::find_contacts_torus_plane(CollisionGeometryPtr cgA, Collisio
     if (d > TOL)
       return o;
 
-    // Contact point is a random point on the
-    // circular manifold of contact
-    double t = (double) rand()/RAND_MAX * M_PI - M_PI_2;
-    Point3d p_torus(R*std::cos(t),R*std::sin(t),-r,Ptorus);
-    Point3d point = Ravelin::Pose3d::transform_point(GLOBAL,p_torus);
-    FILE_LOG(LOG_COLDET) << " -- Torus is parallel to plane"<< std::endl;
-    FILE_LOG(LOG_COLDET) << "Point: "<<  point << std::endl;
-    FILE_LOG(LOG_COLDET) << "Normal: "<<  normal << std::endl;
-    FILE_LOG(LOG_COLDET) << "distance: "<<  d << std::endl;
-    FILE_LOG(LOG_COLDET) << "<< end calc_signed_dist_torus_plane(.)" << std::endl;
+    // iterate over maximum number of contacts 
+    for (unsigned i=0; i< MAX_CONTACTS; i++)
+    { 
+      double t = (double) i/MAX_CONTACTS * (2.0 * M_PI) - M_PI;
+      Point3d p_torus(R*std::cos(t),R*std::sin(t),-r,Ptorus);
+      Point3d point = Ravelin::Pose3d::transform_point(GLOBAL,p_torus);
+      FILE_LOG(LOG_COLDET) << " -- Torus is parallel to plane"<< std::endl;
+      FILE_LOG(LOG_COLDET) << "Point: "<<  point << std::endl;
+      FILE_LOG(LOG_COLDET) << "Normal: "<<  normal << std::endl;
+      FILE_LOG(LOG_COLDET) << "distance: "<<  d << std::endl;
+      FILE_LOG(LOG_COLDET) << "<< end calc_signed_dist_torus_plane(.)" << std::endl;
 
-    // create the contact
-    *o++ = create_contact(cgA, cgB, point, normal, d);
+      // create the contact
+      *o++ = create_contact(cgA, cgB, point, normal, d);
+    }
 
     return o;
   }

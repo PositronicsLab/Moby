@@ -20,10 +20,10 @@ osg::Geode* OsgTorus::operator()() const
  
    if(create_body)
    {
-     float inner = this->getInnerRadius();
-     float outer = this->getOuterRadius();
-     float tube_radius = (outer - inner)*0.5;
-     float avg_center = (inner+outer)*0.5;
+     float C = this->getMinorRadius();
+     float A = this->getMajorRadius();
+//     float A = (outer - inner)*0.5;
+//     float C = (inner+outer)*0.5;
  
      float start_sweep = this->getStartSweep();
      float end_sweep = this->getEndSweep();
@@ -45,11 +45,11 @@ osg::Geode* OsgTorus::operator()() const
        float next_cosPhi = cosf(phi+dphi);
        float next_sinPhi = sinf(phi+dphi);
  
-       float z = tube_radius*sinPhi;
-       float yPrime = avg_center + tube_radius*cosPhi;
+       float z = A*sinPhi;
+       float yPrime = C + A*cosPhi;
  
-       float next_z = tube_radius*next_sinPhi;
-       float next_yPrime = avg_center + tube_radius*next_cosPhi;
+       float next_z = A*next_sinPhi;
+       float next_yPrime = C + A*next_cosPhi;
  
        float old_x = yPrime*cosf(-dsweep);
        float old_y = yPrime*sinf(-dsweep);
@@ -141,10 +141,8 @@ osg::Geode* OsgTorus::operator()() const
          float dPhi = osg::DegreesToRadians(360.0) / (float)circle_cuts;
  
          // define center point
-         float tube_radius = (this->getInnerRadius() - this->getOuterRadius());
-         float avg_center = (this->getInnerRadius() + this->getOuterRadius())*0.5;
-         start_vertices->push_back( osg::Vec3(cosStartSweep*avg_center,
-                                              sinStartSweep*avg_center,
+         start_vertices->push_back( osg::Vec3(cosStartSweep*C,
+                                              sinStartSweep*C,
                                               0.0f) );
  
          for(int i=0; i<circle_cuts; i++)
@@ -152,8 +150,8 @@ osg::Geode* OsgTorus::operator()() const
            float phi = dPhi*(float)i;
            float cosPhi = cosf(phi);
            float sinPhi = cosf(phi);
-           float yPrime = avg_center + tube_radius*cosPhi;
-           float z = tube_radius*sinPhi;
+           float yPrime = C + A*cosPhi;
+           float z = A*sinPhi;
            float x = cosStartSweep*yPrime;
            float y = sinStartSweep*yPrime;
  
