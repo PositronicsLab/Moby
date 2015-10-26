@@ -987,6 +987,7 @@ double BoxPrimitive::calc_dist_and_normal(const Point3d& point, std::vector<Vect
 
     // normalize the normal vector
     normal.normalize();
+    normals.push_back(normal);
   }
 
   return (inside) ? intDist : std::sqrt(sqrDist);
