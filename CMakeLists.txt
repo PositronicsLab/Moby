@@ -165,9 +165,12 @@ if (USE_OSG AND OSG_FOUND)
   target_link_libraries (Moby ${OSGMANIPULATOR_LIBRARIES})
 endif (USE_OSG AND OSG_FOUND)
 
+add_library(MobyDriver "" "" example/driver.cpp)
+target_link_libraries (MobyDriver Moby)
+
 # build the tools?
 if (BUILD_TOOLS)
-  add_executable(moby-driver example/driver.cpp)
+  add_executable(moby-driver example/main.cpp)
   if (USE_OSG AND OSG_FOUND)
     add_executable(moby-view example/view.cpp)
   endif (USE_OSG AND OSG_FOUND)
@@ -180,7 +183,7 @@ if (BUILD_TOOLS)
   add_executable(moby-convexify example/convexify.cpp)
   add_executable(moby-adjust-center example/adjust-center.cpp)
   add_executable(moby-center example/center.cpp)
-  target_link_libraries(moby-driver Moby)
+  target_link_libraries(moby-driver MobyDriver Moby)
   if (USE_OSG AND OSG_FOUND)
     target_link_libraries(moby-render ${OSG_LIBRARIES})
     target_link_libraries(moby-render ${OSGVIEWER_LIBRARIES})
@@ -261,6 +264,7 @@ install (TARGETS sphere-plugin DESTINATION lib/Moby/plugins)
 
 # setup install locations for library
 install (TARGETS Moby DESTINATION lib)
+install (TARGETS MobyDriver DESTINATION lib)
 
 # setup install locations for binaries
 install (TARGETS moby-driver DESTINATION bin)
