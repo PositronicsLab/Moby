@@ -29,6 +29,7 @@
 #include <Moby/RigidBody.h>
 #include <Moby/CollisionGeometry.h>
 #include <Moby/BoxPrimitive.h>
+#include <Moby/TorusPrimitive.h>
 #include <Moby/SpherePrimitive.h>
 #include <Moby/FixedJoint.h>
 //#include <Moby/MCArticulatedBody.h>
@@ -145,6 +146,7 @@ std::map<std::string, BasePtr> XMLReader::construct_ID_map(shared_ptr<XMLTree> m
 
   // read and construct all primitives
   process_tag("Box", moby_tree, &read_box, id_map);
+  process_tag("Torus", moby_tree, &read_torus, id_map);
   process_tag("Sphere", moby_tree, &read_sphere, id_map);
   process_tag("Cylinder", moby_tree, &read_cylinder, id_map);
   process_tag("Cone", moby_tree, &read_cone, id_map);
@@ -495,6 +497,19 @@ void XMLReader::read_heightmap(shared_ptr<const XMLTree> node, std::map<std::str
 
   // create a new Heightmap object
   boost::shared_ptr<Base> b(new HeightmapPrimitive());
+  
+  // populate the object
+  b->load_from_xml(node, id_map);
+}
+
+/// Reads and constructs the TorusPrimitive object
+void XMLReader::read_torus(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
+{  
+  // sanity check
+  assert(strcasecmp(node->name.c_str(), "Torus") == 0);
+
+  // create a new TorusPrimitive object
+  boost::shared_ptr<Base> b(new TorusPrimitive());
   
   // populate the object
   b->load_from_xml(node, id_map);

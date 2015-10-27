@@ -64,7 +64,7 @@ double PolyhedralPrimitive::calc_signed_dist(shared_ptr<const Primitive> p, Poin
       // return the negation of its distance to the origin, and determine
       // closest points on the two polyhedral primitives
 
-      // 3. find closest feature to the origin
+      // find closest feature to the origin
       shared_ptr<const Pose3d> GLOBAL3D;
       Ravelin::Origin3d o(0,0,0);
       Ravelin::Vector3d origin_vector(o,GLOBAL3D);

@@ -1121,6 +1121,8 @@ bool Polyhedron::VertexFaceIterator::has_next()
   }
 }
 
+
+
 /// Executes the V-Clip algorithm on two polyhedra, determining closest features and signed distance
 double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<const PolyhedralPrimitive> pB, shared_ptr<const Pose3d> poseA, shared_ptr<const Pose3d> poseB, shared_ptr<const Polyhedron::Feature>& closestA, shared_ptr<const Polyhedron::Feature>& closestB)
 {
@@ -1278,16 +1280,29 @@ double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<co
         continue;
 
       // otherwise, we have converged
-      double dist = calc_dist(fA, fB, closestA, closestB, aTb);
+      double dist;
+
+      //start searching for penetration 
 
       FILE_LOG(LOG_COLDET)<< "converged" << std::endl;
       if (r == eInterpenetrating)
       {
+        if(is_one_face_penetration(closestB, pA, closestA, bTa))
+        { 
+          find_deepest_feature(closestB, closestA, bTa);
+          dist = calc_dist(fA, fB, closestA, closestB, aTb);
+        }
+        else
+        {
+          dist = minkowski_optimum_distance(pA,pB,aTb);
+        }
+
         FILE_LOG(LOG_COLDET)<< "penetrating" << std::endl;
         return -dist;
       }
       else
       {
+        dist = calc_dist(fA, fB, closestA, closestB, aTb);
         return dist; 
       }
     }
@@ -1304,16 +1319,29 @@ double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<co
         continue;
 
       // otherwise, we have converged
-      double dist = calc_dist(fB, fA, closestB, closestA, bTa);
+      double dist;
+
+      //start searching for penetration 
 
       FILE_LOG(LOG_COLDET)<< "converged" << std::endl;
       if (r == eInterpenetrating)
       {
+        if(is_one_face_penetration(closestA, pB, closestB, aTb))
+        { 
+          find_deepest_feature(closestA, closestB, aTb);
+          dist = calc_dist(fA, fB, closestA, closestB, aTb);
+        }
+        else
+        {
+          dist = minkowski_optimum_distance(pA,pB,aTb);
+        }
+
         FILE_LOG(LOG_COLDET)<< "penetrating" << std::endl;
         return -dist;
       }
       else
       {
+        dist = calc_dist(fA, fB, closestA, closestB, aTb);
         return dist; 
       }
     }
@@ -1384,6 +1412,173 @@ double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<co
   }
 }
 
+
+///Check if only one face of the two polyhedron is penetrated by checking if the edge of the penetrated face is penetrating
+///assuming no fully interpenetration
+///TODO add fully interpenetration detection
+bool Polyhedron::is_one_face_penetration(boost::shared_ptr<const Polyhedron::Feature>& fFace, boost::shared_ptr<const PolyhedralPrimitive> pE, boost::shared_ptr<const Polyhedron::Feature>& fEdge, Ravelin::Transform3d& fTe)
+{
+  // 1.Cast pointers 
+  boost::shared_ptr<const Polyhedron::Face> f = boost::static_pointer_cast<const Polyhedron::Face>(fFace);
+  boost::shared_ptr<const Polyhedron::Edge> e = boost::static_pointer_cast<const Polyhedron::Edge>(fEdge);
+
+  // Creating triangles base on the vertices of the faces in pE
+  // Assumption : All the faces are triangular
+   // The code should have a better performance if the faces are sorted based on how close they are to the edge
+
+  std::vector<boost::shared_ptr<Polyhedron::Face> > facesE = pE->get_polyhedron().get_faces();
+  std::vector<Triangle> triangles;
+  for(std::vector<boost::shared_ptr<Polyhedron::Face> >::const_iterator fEi = facesE.begin(); fEi != facesE.end(); ++fEi)
+  {
+    boost::shared_ptr<Polyhedron::Face> curFace(*fEi);
+    Polyhedron::VertexFaceIterator vfi(curFace, true);
+    std::vector<Ravelin::Vector3d> vface;
+
+    while (vfi.has_next())
+    {
+      boost::shared_ptr<Polyhedron::Vertex> temp_vertex = *vfi;
+      Ravelin::Vector3d vertex_vector_e(temp_vertex->o, fTe.source);
+      Ravelin::Vector3d vertex_vector_f = fTe.transform_point(vertex_vector_e);
+      vface.push_back(vertex_vector_f);
+    }
+
+    //Adding the last vertex into the vector since the last vertex is not added
+    boost::shared_ptr<Polyhedron::Vertex> temp_vertex = *vfi;
+    Ravelin::Vector3d vertex_vector_e(temp_vertex->o, fTe.source);
+    Ravelin::Vector3d vertex_vector_f = fTe.transform_point(vertex_vector_e);
+    vface.push_back(vertex_vector_f);
+
+    if(vface.size() == 3)
+    {
+      Triangle t(vface[0], vface[1], vface[2]);
+      triangles.push_back(t);
+    }
+    else if(vface.size() > 3)
+    {
+       // TODO: Add triangulating so that the algorithm works for non-triangular faces
+    }
+    
+  }
+
+
+  // 2.For all edge in fFace
+  std::list<boost::weak_ptr<Polyhedron::Edge> > edgesF = f->e;
+
+  for(std::list<boost::weak_ptr<Polyhedron::Edge> >::const_iterator eiF = edgesF.begin(); eiF != edgesF.end(); ++eiF)
+  {
+  //creating segment
+    boost::shared_ptr<Polyhedron::Edge> cur_edge(*eiF);
+    Ravelin::Vector3d v1 (cur_edge->v1->o, fTe.target);
+    Ravelin::Vector3d v2 (cur_edge->v2->o, fTe.target);
+    LineSeg3 edge_seg(v1,v2);
+
+    //place holders
+    Point3d p1,p2;
+
+    //check if the edge intersect with any triangles
+    for(std::vector<Triangle>::const_iterator ti = triangles.begin(); ti != triangles.end(); ++ti)
+    {
+      if(CompGeom::intersect_seg_tri(edge_seg,*ti,p1,p2) != CompGeom::eSegTriNoIntersect)
+        return false;
+    }
+  }
+
+  //if it does not return true.
+  return true;
+
+}
+
+void Polyhedron::find_deepest_feature(boost::shared_ptr<const Polyhedron::Feature>& face, boost::shared_ptr<const Polyhedron::Feature>& edge, Ravelin::Transform3d& fTe)
+{
+  //1.cur_vertex = the vertices of the edge that is penetrating 
+
+
+  boost::shared_ptr<Polyhedron::Vertex> cur_vertex; 
+  boost::shared_ptr<const Polyhedron::Edge> e = boost::static_pointer_cast<const Polyhedron::Edge>(edge);
+  boost::shared_ptr<const Polyhedron::Face> f = boost::static_pointer_cast<const Polyhedron::Face>(face);
+
+  Plane p = f->get_plane();
+  Ravelin::Vector3d norm = p.get_normal();
+  norm.pose = fTe.target;
+  p.set_normal(norm);
+  boost::shared_ptr<Polyhedron::Vertex> v1 = e->v1;
+
+  Ravelin::Vector3d v1_e(v1->o,fTe.source);
+  Ravelin::Vector3d v1_f = fTe.transform_point(v1_e);
+
+  if(p.calc_signed_distance(v1_f)<NEAR_ZERO)
+  {
+    cur_vertex = v1;
+  }
+  else
+  {
+    cur_vertex = e->v2;
+  }
+
+
+  while(true)
+  {
+    boost::shared_ptr<Polyhedron::Vertex> next_vertex;
+    Ravelin::Vector3d cur_vector (cur_vertex->o, fTe.source);
+    double cur_dist = p.calc_signed_distance(cur_vector);
+    std::list<boost::weak_ptr<Polyhedron::Edge> > es = cur_vertex->e;
+
+    for (std::list<boost::weak_ptr<Polyhedron::Edge> >::const_iterator ei = es.begin(); ei != es.end(); ++ei)
+    {
+
+      //find the vertex that is not cur_vertex
+      boost::shared_ptr<const Polyhedron::Edge> cur_e(*ei);
+      boost::shared_ptr<Polyhedron::Vertex> v = e->v1;
+
+      if(v == cur_vertex)
+      {
+        v = e->v2;
+      }
+
+      Ravelin::Vector3d v_e(v->o,fTe.source);
+      Ravelin::Vector3d v_f = fTe.transform_point(v_e);
+      double v_dist = p.calc_signed_distance(v_f);
+      if(cur_dist - v_dist > NEAR_ZERO)
+      {
+        next_vertex = v;
+        cur_dist = v_dist;
+      }
+        
+    }
+
+    //nothing to update to
+    if(!next_vertex)
+    {
+      break;
+    }
+
+  }
+
+  edge = cur_vertex;
+  return;
+}
+
+double Polyhedron::minkowski_optimum_distance(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<const PolyhedralPrimitive> pB, Ravelin::Transform3d& aTb)
+{
+  shared_ptr<const Pose3d> GLOBAL3D;
+  Ravelin::Origin3d o(0,0,0);
+  Ravelin::Vector3d origin_vector(o,GLOBAL3D);
+  Polyhedron mdiff = Polyhedron::calc_minkowski_diff(pA, pB, aTb.target, aTb.source);
+  std::vector<boost::shared_ptr<Polyhedron::Face> > faces = mdiff.get_faces();
+  double min_dist = std::numeric_limits<double>::max();
+  
+  for(std::vector<boost::shared_ptr<Polyhedron::Face> >::const_iterator fi = faces.begin(); fi != faces.end(); ++fi)
+  {
+    double dist = (*fi)->get_plane().calc_signed_distance(origin_vector);
+    if(min_dist - dist < NEAR_ZERO)
+    {
+      min_dist = dist;
+    }
+  }
+
+  return min_dist;
+
+}
 /*// promotes the result features to the highest possible dimension
 void promote_featrues(FeatureType& fA, FeatureType& fB, boost::shared_ptr<const Polyhedron::Feature>& closestA, boost::shared_ptr<const Polyhedron::Feature>& closestB, Ravelin::Transform3d& aTb)
 {
