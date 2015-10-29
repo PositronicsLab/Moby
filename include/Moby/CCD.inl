@@ -20,6 +20,8 @@ OutputIterator CCD::find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr
   {
     if (boost::dynamic_pointer_cast<PlanePrimitive>(pB))
       return find_contacts_plane_generic(cgB, cgA, output_begin, TOL);
+    else if (boost::dynamic_pointer_cast<BoxPrimitive>(pB))
+      return find_contacts_box_box(cgA, cgB, output_begin, TOL);
     else if (boost::dynamic_pointer_cast<SpherePrimitive>(pB))
       return find_contacts_box_sphere(cgA, cgB, output_begin, TOL);
   }
@@ -896,6 +898,8 @@ OutputIterator CCD::find_contacts_sphere_sphere(CollisionGeometryPtr cgA, Collis
 template <class OutputIterator>
 OutputIterator CCD::find_contacts_box_box(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator o, double TOL)
 {
+  return find_contacts_generic(cgA, cgB , o, TOL);
+
   // get the two boxes
   boost::shared_ptr<BoxPrimitive> bA = boost::dynamic_pointer_cast<BoxPrimitive>(cgA->get_geometry());
   boost::shared_ptr<BoxPrimitive> bB = boost::dynamic_pointer_cast<BoxPrimitive>(cgB->get_geometry());

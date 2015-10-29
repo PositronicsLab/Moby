@@ -1131,6 +1131,9 @@ double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<co
   // get the transformation between A and B, and vice versa
   Transform3d aTb = Pose3d::calc_relative_pose(poseB, poseA);
   Transform3d bTa = aTb.inverse(); 
+  FILE_LOG(LOG_COLDET) << "poseA: "<< *poseA << std::endl;
+  FILE_LOG(LOG_COLDET) << "poseB: "<< *poseB << std::endl;
+  FILE_LOG(LOG_COLDET) << "aTb: " << aTb << std::endl;
 
   // if closest feature of A is null, pick features for A and B arbitrarily
   if(!closestA){
@@ -1289,11 +1292,13 @@ double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<co
       {
         if(is_one_face_penetration(closestB, pA, closestA, bTa))
         { 
+          FILE_LOG(LOG_COLDET) << "Quick Case" << std::endl;
           find_deepest_feature(closestB, closestA, bTa);
           dist = calc_dist(fA, fB, closestA, closestB, aTb);
         }
         else
         {
+          FILE_LOG(LOG_COLDET) << "Slow Case" << std::endl;          
           dist = minkowski_optimum_distance(pA,pB,aTb);
         }
 
@@ -1328,11 +1333,13 @@ double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<co
       {
         if(is_one_face_penetration(closestA, pB, closestB, aTb))
         { 
+          FILE_LOG(LOG_COLDET) << "Quick Case" << std::endl;
           find_deepest_feature(closestA, closestB, aTb);
           dist = calc_dist(fA, fB, closestA, closestB, aTb);
         }
         else
         {
+          FILE_LOG(LOG_COLDET) << "Slow Case" << std::endl;
           dist = minkowski_optimum_distance(pA,pB,aTb);
         }
 
@@ -1440,6 +1447,7 @@ bool Polyhedron::is_one_face_penetration(boost::shared_ptr<const Polyhedron::Fea
       Ravelin::Vector3d vertex_vector_e(temp_vertex->o, fTe.source);
       Ravelin::Vector3d vertex_vector_f = fTe.transform_point(vertex_vector_e);
       vface.push_back(vertex_vector_f);
+      vfi.advance();
     }
 
     //Adding the last vertex into the vector since the last vertex is not added
@@ -1460,6 +1468,7 @@ bool Polyhedron::is_one_face_penetration(boost::shared_ptr<const Polyhedron::Fea
     
   }
 
+  FILE_LOG(LOG_COLDET) << "finish adding triangles"<<std::endl;
 
   // 2.For all edge in fFace
   std::list<boost::weak_ptr<Polyhedron::Edge> > edgesF = f->e;
@@ -1569,8 +1578,10 @@ double Polyhedron::minkowski_optimum_distance(shared_ptr<const PolyhedralPrimiti
   
   for(std::vector<boost::shared_ptr<Polyhedron::Face> >::const_iterator fi = faces.begin(); fi != faces.end(); ++fi)
   {
-    double dist = (*fi)->get_plane().calc_signed_distance(origin_vector);
-    if(min_dist - dist < NEAR_ZERO)
+
+    double dist = fabs((*fi)->get_plane().calc_signed_distance(origin_vector));
+    FILE_LOG(LOG_COLDET) << dist << std::endl;
+    if(min_dist - dist > NEAR_ZERO)
     {
       min_dist = dist;
     }
@@ -2190,7 +2201,7 @@ boost::shared_ptr<Plane> Polyhedron::voronoi_plane (FeatureType fA, FeatureType 
     }
     
     // the signed distance should be negative, so if the signed distance is positive, we have to reverse the vector
-    if (result->calc_signed_distance(Ravelin::Vector3d(test_vert->o, pose)) > 0)
+    if (result->calc_signed_distance(Ravelin::Vector3d(test_vert->o, pose)) > NEAR_ZERO)
     {
       result->set_normal(-(result->get_normal()));
       result->offset = -(result->offset);
@@ -2215,7 +2226,7 @@ boost::shared_ptr<Plane> Polyhedron::voronoi_plane (FeatureType fA, FeatureType 
     //find the cross product between them to find the Voronoi plane normal
     Ravelin::Vector3d voronoi_normal = Ravelin::Vector3d::cross(edge_vector, face_normal);
     voronoi_normal.normalize();
-    FILE_LOG(LOG_COLDET) << face_normal << std::endl << edge_vector << std::endl << voronoi_normal << std::endl;
+    FILE_LOG(LOG_COLDET) << "face_normal: " << face_normal << std::endl << "edge_vector: " << edge_vector << std::endl << "voronoi_normal: "<<voronoi_normal << std::endl;
 
     // create the Voronoi plane    
     result = boost::shared_ptr<Plane>( new Plane(voronoi_normal,v1));
@@ -2248,7 +2259,7 @@ boost::shared_ptr<Plane> Polyhedron::voronoi_plane (FeatureType fA, FeatureType 
     
     FILE_LOG(LOG_COLDET) << "edgeB: " << *edgeB << "filp test vertex: "<< *test_vert << std::endl << "filp test distance:" << result->calc_signed_distance(Ravelin::Vector3d(test_vert->o, pose)) <<std::endl;
     // the signed distance should be positive, so if the signed distance is negative, we have to reverse the vector
-    if (result->calc_signed_distance(Ravelin::Vector3d(test_vert->o, pose)) < 0)
+    if (result->calc_signed_distance(Ravelin::Vector3d(test_vert->o, pose)) < -NEAR_ZERO)
     {
       result->set_normal(-(result->get_normal()));
       result->offset = -(result->offset);
@@ -2267,6 +2278,11 @@ bool Polyhedron::clip_edge(boost::shared_ptr<const Polyhedron::Edge> edge, Trans
   Ravelin::Vector3d h_e(edge->v2->o, fTe.source);
   Ravelin::Vector3d t = fTe.transform_point(t_e);
   Ravelin::Vector3d h = fTe.transform_point(h_e);
+  FILE_LOG(LOG_COLDET)<< "fTe " << fTe <<std::endl;
+  FILE_LOG(LOG_COLDET)<< "t_e: " << t_e <<std::endl;
+  FILE_LOG(LOG_COLDET)<< "h_e: " << h_e <<std::endl;
+  FILE_LOG(LOG_COLDET)<< "t: " << t <<std::endl;
+  FILE_LOG(LOG_COLDET)<< "h: " << h <<std::endl;
   //iterating through the pair list
   std::list< std::pair< boost::shared_ptr<const Polyhedron::Feature >, boost::shared_ptr<Plane> > >::const_iterator pni;
   for (pni=planes_neighbors.begin();pni!=planes_neighbors.end();++pni)
@@ -2279,8 +2295,8 @@ bool Polyhedron::clip_edge(boost::shared_ptr<const Polyhedron::Edge> edge, Trans
     //calculate the distance from the two end of the edge to the plane
     double dt = P->calc_signed_distance(t);
     double dh = P->calc_signed_distance(h);
-    FILE_LOG(LOG_COLDET)<< dt <<std::endl;
-    FILE_LOG(LOG_COLDET)<< dh <<std::endl;
+    FILE_LOG(LOG_COLDET)<< "dt: " << dt <<std::endl;
+    FILE_LOG(LOG_COLDET)<< "dh: " << dh <<std::endl;
 
     //if the edge is completely clipped
     if (dt<-NEAR_ZERO && dh<-NEAR_ZERO)
@@ -3019,8 +3035,8 @@ Polyhedron::UpdateRule Polyhedron::update_edge_face(FeatureType& fA, FeatureType
       planes_neighbors.clear();
       boost::shared_ptr<const Polyhedron::Feature> tail = cur_edge->v1;
       boost::shared_ptr<const Polyhedron::Feature> head = cur_edge->v2;
-      boost::shared_ptr<Plane> const vp_t = voronoi_plane(F_EDGE, F_VERTEX, aTb.source, cur_feature, tail);
-      boost::shared_ptr<Plane> const vp_h = voronoi_plane(F_EDGE, F_VERTEX, aTb.source, cur_feature, head);
+      boost::shared_ptr<Plane> const vp_t = voronoi_plane(F_VERTEX, F_EDGE, aTb.source, tail, cur_feature);
+      boost::shared_ptr<Plane> const vp_h = voronoi_plane(F_VERTEX, F_EDGE, aTb.source, head, cur_feature);
       std::pair<boost::shared_ptr<const Polyhedron::Feature>, boost::shared_ptr<Plane> > np_t(tail,vp_t);
       std::pair<boost::shared_ptr<const Polyhedron::Feature>, boost::shared_ptr<Plane> > np_h(head,vp_h);
       planes_neighbors.push_back(np_t);
