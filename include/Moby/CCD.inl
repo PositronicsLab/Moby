@@ -1079,7 +1079,8 @@ OutputIterator CCD::find_contacts_torus_plane(CollisionGeometryPtr cgA, Collisio
 
     // plane origin: plane origin in torus frame
     // line origin: torus origin in torus frame
-    Point3d p0 = tPp.transform_point(Point3d(0.0, 0.0, 0.0, Pplane)), l0(0,0,0,Ptorus);
+    Point3d p0 = tPp.transform_point(Point3d(0.0, 0.0, 0.0, Pplane));
+    Point3d l0(0,0,0,Ptorus);
 
     // plane normal: plane normal in torus frame
     // line direction: on xy-plane of torus
@@ -1089,7 +1090,7 @@ OutputIterator CCD::find_contacts_torus_plane(CollisionGeometryPtr cgA, Collisio
     if (d > TOL)
       return o;
 
-    Point3d p_torus = d*l + l0;
+    Point3d p_torus = l*(d + r + R) + l0;
     Point3d point = Ravelin::Pose3d::transform_point(Moby::GLOBAL,p_torus);
     FILE_LOG(LOG_COLDET) << " -- Torus is perpendicular to plane"<< std::endl;
     FILE_LOG(LOG_COLDET) << "Point: "<<  point << std::endl;

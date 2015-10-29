@@ -8,6 +8,7 @@
 #include <boost/foreach.hpp>
 #include <boost/algorithm/minmax_element.hpp>
 #include <limits>
+#include <algorithm>
 #include <set>
 #include <cmath>
 #include <numeric>
@@ -22,7 +23,8 @@
 #include <Moby/ImpactToleranceException.h>
 #include <Moby/NumericalException.h>
 #include <Moby/ImpactConstraintHandler.h>
-#include <Moby/Simulator.h>
+#include <Moby/ConstraintSimulator.h>
+#include <Moby/SignedDistDot.h>
 #ifdef HAVE_IPOPT
 #include <Moby/NQP_IPOPT.h>
 #include <Moby/LCP_IPOPT.h>
@@ -1879,13 +1881,41 @@ void ImpactConstraintHandler::compute_problem_data(UnilateralConstraintProblemDa
   const unsigned N_SPATIAL = 6;
   VectorNd v;
   MatrixNd X, tmp, Jm;
-
+ 
   // determine set of "super" bodies from contact constraints
   q.super_bodies.clear();
   for (unsigned i=0; i< q.contact_constraints.size(); i++)
   {
     q.super_bodies.push_back(get_super_body(q.contact_constraints[i]->contact_geom1->get_single_body()));
     q.super_bodies.push_back(get_super_body(q.contact_constraints[i]->contact_geom2->get_single_body()));
+  }
+
+  // make vector super bodies unique
+  std::sort(q.super_bodies.begin(), q.super_bodies.end());
+  q.super_bodies.erase(std::unique(q.super_bodies.begin(), q.super_bodies.end()), q.super_bodies.end());
+
+  // get the signed distances
+  q.signed_distances = _simulator->get_pairwise_distances();
+
+  // remove signed distances that do not correspond to a contact- we do not
+  // want to consider those (bodies may be well separated)
+  for (unsigned i=0; i< q.signed_distances.size(); i++)
+  {
+    // get the two single bodies involved in contact
+    shared_ptr<SingleBodyd> s1 = q.signed_distances[i].a->get_single_body();
+    shared_ptr<SingleBodyd> s2 = q.signed_distances[i].b->get_single_body();
+
+    // get the two super bodies involved in contact
+    shared_ptr<DynamicBodyd> sb1 = ImpactConstraintHandler::get_super_body(s1); 
+    shared_ptr<DynamicBodyd> sb2 = ImpactConstraintHandler::get_super_body(s2);
+
+    // see whether we must consider this signed distance
+    if (std::binary_search(q.super_bodies.begin(), q.super_bodies.end(), sb1) ||        std::binary_search(q.super_bodies.begin(), q.super_bodies.end(), sb2))
+      continue;
+
+    // remove the signed distance
+    q.signed_distances[i] = q.signed_distances.back();
+    q.signed_distances.pop_back();
   }
 
   // determine set of "super" bodies from limit constraints
@@ -2119,104 +2149,7 @@ void ImpactConstraintHandler::compute_problem_data(UnilateralConstraintProblemDa
   Ct.mult(v, q.Ct_v);
   q.J.mult(v, q.Jx_v);
 
-/*
-  // process contact constraints, setting up matrices
-  for (unsigned i=0; i< q.contact_constraints.size(); i++)
-  {
-    // compute cross constraint data for contact constraints
-    for (unsigned j=0; j< q.contact_constraints.size(); j++)
-    {
-      // reset _MM
-      _MM.set_zero(3, 3);
-
-      // check whether i==j (single contact constraint)
-      if (i == j)
-      {
-        // compute matrix / vector for contact constraint i
-        _v.set_zero(3);
-        q.contact_constraints[i]->compute_constraint_data(_MM, _v);
-
-        // setup appropriate parts of contact inertia matrices
-        RowIteratord_const data = _MM.row_iterator_begin();
-        *CnCn = *data++;
-        *CnCs = *data++;
-        *CnCt = *data; data += 2; // advance past Cs_X_CnT
-        *CsCs = *data++;
-        *CsCt = *data; data += 3; // advance to Ct_X_CtT
-        *CtCt = *data;
-
-        // setup appropriate parts of contact velocities
-        data = _v.row_iterator_begin();
-        q.Cn_v[i] = *data++;
-        q.Cs_v[i] = *data++;
-        q.Ct_v[i] = *data;
-      }
-      else
-      {
-        // compute matrix for cross constraint
-        q.contact_constraints[i]->compute_cross_constraint_data(*q.contact_constraints[j], _MM);
-
-        // setup appropriate parts of contact inertia matrices
-        RowIteratord_const data = _MM.row_iterator_begin();
-        *CnCn = *data++;
-        *CnCs = *data++;
-        *CnCt = *data; data += 2; // advance to Cs_X_CsT
-        *CsCs = *data++;
-        *CsCt = *data; data += 3; // advance to Ct_X_CtT
-        *CtCt = *data;
-      }
-
-      // advance the iterators
-      CnCn++;
-      CnCs++;
-      CnCt++;
-      CsCs++;
-      CsCt++;
-      CtCt++;
-    }
-
-    // compute cross constraint data for contact/limit constraints
-    for (unsigned j=0; j< q.limit_constraints.size(); j++)
-    {
-      // reset _MM
-      _MM.set_zero(3, 1);
-
-      // compute matrix for cross constraint
-      q.contact_constraints[i]->compute_cross_constraint_data(*q.limit_constraints[j], _MM);
-
-      // setup appropriate parts of contact / limit inertia matrices
-      ColumnIteratord_const data = _MM.column_iterator_begin();
-      q.Cn_X_LT(i,j) = *data++;
-      q.Cs_X_LT(i,j) = *data++;
-      q.Ct_X_LT(i,j) = *data;
-    }
-  }
-
-  // process limit constraints, setting up matrices
-  for (unsigned i=0; i< q.limit_constraints.size(); i++)
-  {
-    // compute matrix / vector for contact constraint i
-    q.limit_constraints[i]->compute_constraint_data(_MM, _v);
-
-    // setup appropriate entry of limit inertia matrix and limit velocity
-    q.L_X_LT(i,i) = _MM.data()[0];
-    q.L_v[i] = _v.data()[0];
-
-    // compute cross/cross limit constraint data
-    for (unsigned j=i+1; j< q.limit_constraints.size(); j++)
-    {
-      // reset _MM
-      _MM.resize(1,1);
-
-      // compute matrix for cross constraint
-      q.limit_constraints[i]->compute_cross_constraint_data(*q.limit_constraints[j], _MM);
-
-      // setup appropriate part of limit / limit inertia matrix
-      q.L_X_LT(i,j) = q.L_iM_LT(j,i) = _MM.data()[0];
-    }
-
-    // NOTE: cross data has already been computed for contact/limit constraints
-  }
- */
+  // compute signed distance Jacobians
+  SignedDistDot::compute_signed_dist_dot_Jacobians(q, q.Cdot_iM_CnT, q.Cdot_iM_CsT, q.Cdot_iM_CtT, q.Cdot_iM_LT);
 }
 
