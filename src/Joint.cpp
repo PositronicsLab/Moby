@@ -482,7 +482,10 @@ void Joint::save_to_xml(XMLTreePtr node, std::list<shared_ptr<const Base> >& sha
 
   // if both inboard and outboard links are set, set the global position
   if (!_inboard_link.expired() && !_outboard_link.expired())
-    node->attribs.insert(XMLAttrib("location", get_location()));
+  {
+    Origin3d loc(Pose3d::transform_point(GLOBAL, get_location()));
+    node->attribs.insert(XMLAttrib("location", loc));
+  }
 
   // save the ID articulated body (if any)
   if (!_abody.expired())

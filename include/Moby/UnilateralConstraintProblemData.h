@@ -5,6 +5,8 @@
 #include <vector>
 #include <Ravelin/MatrixNd.h>
 #include <Ravelin/VectorNd.h>
+#include <Ravelin/sorted_pair>
+#include <Moby/PairwiseDistInfo.h>
 #include <Moby/SparseJacobian.h>
 #include <Moby/UnilateralConstraint.h>
 #include <Moby/Types.h>
@@ -55,6 +57,9 @@ struct UnilateralConstraintProblemData
     L_v = q.L_v;
     Jx_v = q.Jx_v;
 
+    // copy the signed distances
+    signed_distances = q.signed_distances;
+
     // the vector of "super" bodies
     super_bodies = q.super_bodies; 
 
@@ -79,6 +84,12 @@ struct UnilateralConstraintProblemData
     L_X_LT = q.L_X_LT;
     L_X_JxT = q.L_X_JxT;
     Jx_X_JxT = q.Jx_X_JxT;
+
+    // copy Cdot Jacobians
+    Cdot_iM_CnT = q.Cdot_iM_CnT; 
+    Cdot_iM_CsT = q.Cdot_iM_CsT; 
+    Cdot_iM_CtT = q.Cdot_iM_CtT; 
+    Cdot_iM_LT = q.Cdot_iM_LT; 
 
     // copy implicit constraints, Jacobian, and related terms
     island_ijoints = q.island_ijoints;
@@ -121,6 +132,9 @@ struct UnilateralConstraintProblemData
     limit_constraints.clear();
     limit_indices.clear();
 
+    // clear signed distances
+    signed_distances.clear();
+
     // clear implicit constraint related stuff
     island_ijoints.clear();
     J.blocks.clear();
@@ -157,6 +171,10 @@ struct UnilateralConstraintProblemData
     L_X_LT.resize(0,0);
     L_X_JxT.resize(0,0);
     Jx_X_JxT.resize(0,0);
+    Cdot_iM_CnT.resize(0,0);
+    Cdot_iM_CsT.resize(0,0);
+    Cdot_iM_CtT.resize(0,0);
+    Cdot_iM_LT.resize(0,0);
   }
 
   // sets up indices for a QP
@@ -316,6 +334,9 @@ struct UnilateralConstraintProblemData
   // the number of implicit joint constraint equations (total)
   unsigned N_CONSTRAINT_EQNS_IMP;
 
+  // pairwise distances between rigid bodies
+  std::vector<PairwiseDistInfo> signed_distances;
+
   // the vector of "super" bodies
   std::vector<boost::shared_ptr<Ravelin::DynamicBodyd> > super_bodies; 
 
@@ -335,6 +356,9 @@ struct UnilateralConstraintProblemData
 
   // X times Jacobian transposes
   Ravelin::MatrixNd X_CnT, X_CsT, X_CtT, X_LT, X_JxT;
+
+  // Cdot Jacobians
+  Ravelin::MatrixNd Cdot_iM_CnT, Cdot_iM_CsT, Cdot_iM_CtT, Cdot_iM_LT;
 
   // vector-based terms
   Ravelin::VectorNd Cn_v, Cs_v, Ct_v, L_v, Jx_v;

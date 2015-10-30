@@ -414,22 +414,18 @@ void ImpactConstraintHandler::setup_QP(UnilateralConstraintProblemData& epd, Sha
   (nCt_v = Ct_v).negate();
   L_v = epd.L_v;
 
+  // incorporate contact compliance
+  ColumnIteratord Hiter = H.column_iterator_begin(); 
+  for (unsigned i=0; i< N_CONTACTS; i++, Hiter+=N_VARS+1)
+    *Hiter += epd.contact_constraints[i]->contact_compliance;
+
   // ------- setup M/q -------
   // setup the Cn*v+ >= 0 constraint
   // Cn*(inv(M)*impulses + v) >= 0, Cn*inv(M)*impulses >= -Cn*v
   row_start = 0; row_end = N_CONTACTS;
   M.block(row_start, row_end, 0, M.columns()) = H.block(0, N_CONTACTS, 0, H.columns());
-/*
-  M.set_sub_mat(row_start, xCN_IDX, epd.Cn_X_CnT, eTranspose);
-  M.set_sub_mat(row_start, xCS_IDX, epd.Cn_X_CsT, eTranspose);
-  M.set_sub_mat(row_start, xCT_IDX, epd.Cn_X_CtT, eTranspose);
-  M.set_sub_mat(row_start, xNCS_IDX, epd.Cn_X_CsT, eTranspose);
-  M.set_sub_mat(row_start, xNCT_IDX, epd.Cn_X_CtT, eTranspose);
-  M.set_sub_mat(row_start, xL_IDX, epd.Cn_X_LT, eTranspose);
-  M.block(row_start, row_end, xNCS_IDX, xL_IDX).negate();
-*/
-  FILE_LOG(LOG_CONSTRAINT) << "M: " << std::endl << M;
   q.set_sub_vec(row_start, epd.Cn_v);
+  FILE_LOG(LOG_CONSTRAINT) << "M: " << std::endl << M;
   row_start = row_end; row_end += epd.N_LIMITS;
 
   // setup the L*v+ >= 0 constraint

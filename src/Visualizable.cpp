@@ -27,25 +27,11 @@ Visualizable::Visualizable()
   #ifdef USE_OSG
   // create the OSGGroupWrapper
   _vizdata = OSGGroupWrapperPtr(new OSGGroupWrapper);
-
-  // create the transform 
-  _group = new osg::MatrixTransform;
-
-  // ref the group 
-  _group->ref();
-
-  // NOTE: the non-const cast below is potentially dangerous, but I don't
-  // think it will be a problem
-//  _group->addChild((osg::Group*) _vizdata->get_group());
-  _group->addChild(_vizdata->get_group());
   #endif
 }
 
 Visualizable::~Visualizable()
 {
-  #ifdef USE_OSG
-  _group->unref();
-  #endif
 }
 
 /// Sets the visualization relative pose
@@ -65,13 +51,6 @@ void Visualizable::set_visualization_data(OSGGroupWrapperPtr vdata)
   #ifdef USE_OSG
   // store the OSGGroupWrapper
   _vizdata = vdata;
-
-  // get the group 
-  osg::Group* vgroup = _vizdata->get_group();
-
-  // replace and add the child
-  _group->removeChildren(0, _group->getNumChildren());
-  _group->addChild(vgroup);
   #endif
 }
 
@@ -81,12 +60,6 @@ void Visualizable::set_visualization_data(osg::Node* vdata)
   #ifdef USE_OSG
   // create a new OSGGroupWrapper using the vdata
   _vizdata = OSGGroupWrapperPtr(new OSGGroupWrapper(vdata));
-
-  // clear all children
-  _group->removeChildren(0, _group->getNumChildren());
-
-  // add the separator from the OSGGroupWrapper to this separator
-  _group->addChild((osg::Node*) _vizdata->get_group());
   #endif
 }
 
@@ -141,7 +114,7 @@ void Visualizable::update_visualization()
   // update the transform
   osg::Matrixd m;
   to_osg_matrix(T0, m);
-  _group->setMatrix(m);
+  ((osg::MatrixTransform*) _vizdata->get_group())->setMatrix(m);
   #endif
 }
 
@@ -149,7 +122,7 @@ void Visualizable::update_visualization()
 osg::Group* Visualizable::get_visualization_data() const
 {
   #ifdef USE_OSG
-  return (osg::Group*) _group;
+  return _vizdata->get_group();
   #else
   return NULL;
   #endif

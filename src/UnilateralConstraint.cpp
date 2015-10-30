@@ -634,6 +634,7 @@ void UnilateralConstraint::set_contact_parameters(const ContactParameters& cpara
   contact_penalty_Kp = cparams.penalty_Kp;
   contact_penalty_Kv = cparams.penalty_Kv;
   contact_epsilon = cparams.epsilon;
+  contact_compliance = cparams.compliance;
   contact_NK = cparams.NK;
 
   // redetermine contact tangents

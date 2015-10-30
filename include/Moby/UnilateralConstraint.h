@@ -60,6 +60,9 @@ class UnilateralConstraint
     /// The joint at which the limit is reached (for limit constraints)
     JointPtr limit_joint;
 
+    // the contact compliance (inverse of stiffness)
+    double contact_compliance;
+
     /// Signed violation for this constraint
     double signed_violation;
 
