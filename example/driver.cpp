@@ -68,7 +68,7 @@ namespace Moby{
   double LAST_STEP_TIME = 0;
   
   /// The current simulation iteration
-  unsigned ITER = 0;
+  unsigned ITER = 1;
   
   /// Interval for offscreen renders (0=offscreen renders active for first and last iterations)
   unsigned IMAGE_IVAL = -1;
@@ -245,8 +245,6 @@ namespace Moby{
       s->step(STEP_SIZE);
     }
     
-    // update the iteration #
-    ITER++;
     
     // output the frame rate, if desired
     if (OUTPUT_FRAME_RATE)
@@ -300,6 +298,10 @@ namespace Moby{
     if (ITER >= MAX_ITER || s->current_time > MAX_TIME){
       return false;
     }
+    
+    // update the iteration #
+    ITER++;
+    
     return true;
   }
   
