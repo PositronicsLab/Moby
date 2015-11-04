@@ -687,15 +687,15 @@ OutputIterator CCD::find_contacts_sphere_heightmap(CollisionGeometryPtr cgA, Col
   const Ravelin::MatrixNd& heights = hmB->get_heights();
 
   // get the lower i and j indices
-  unsigned lowi = (unsigned) ((bv_lo[X]+width*0.5)*(heights.rows()-1)/width);
-  unsigned lowj = (unsigned) ((bv_lo[Z]+depth*0.5)*(heights.columns()-1)/depth);
+  unsigned lowi = constrain_unsigned((bv_lo[X]+width*0.5)*(heights.rows()-1)/width,heights.rows()-1);
+  unsigned lowj = constrain_unsigned((bv_lo[Z]+depth*0.5)*(heights.columns()-1)/depth,heights.columns()-1);
 
   // get the upper i and j indices
-  unsigned upi = (unsigned) ((bv_hi[X]+width*0.5)*(heights.rows()-1)/width)+1;
-  unsigned upj = (unsigned) ((bv_hi[Z]+depth*0.5)*(heights.columns()-1)/depth)+1;
+  unsigned upi = constrain_unsigned(((bv_hi[X]+width*0.5)*(heights.rows()-1)/width)+1,heights.rows()-1);
+  unsigned upj = constrain_unsigned(((bv_hi[Z]+depth*0.5)*(heights.columns()-1)/depth)+1,heights.columns()-1);
 
   // iterate over all points in the bounding region
-  for (unsigned i=lowi; i<= upi; i++)
+  for (unsigned i=lowi; i< upi; i++)
     for (unsigned j=lowj; j< upj; j++)
     {
       // compute the point on the heightmap
@@ -805,12 +805,12 @@ OutputIterator CCD::find_contacts_convex_heightmap(CollisionGeometryPtr cgA, Col
   const Ravelin::MatrixNd& heights = hmB->get_heights();
 
   // get the lower i and j indices
-  unsigned lowi = (unsigned) ((bv_lo[X]+width*0.5)*(heights.rows()-1)/width);
-  unsigned lowj = (unsigned) ((bv_lo[Z]+depth*0.5)*(heights.columns()-1)/depth);
+  unsigned lowi = constrain_unsigned((bv_lo[X]+width*0.5)*(heights.rows()-1)/width,heights.rows()-1);
+  unsigned lowj = constrain_unsigned((bv_lo[Z]+depth*0.5)*(heights.columns()-1)/depth,heights.columns()-1);
 
   // get the upper i and j indices
-  unsigned upi = (unsigned) ((bv_hi[X]+width*0.5)*(heights.rows()-1)/width)+1;
-  unsigned upj = (unsigned) ((bv_hi[Z]+depth*0.5)*(heights.columns()-1)/depth)+1;
+  unsigned upi = constrain_unsigned(((bv_hi[X]+width*0.5)*(heights.rows()-1)/width)+1,heights.rows()-1);
+  unsigned upj = constrain_unsigned(((bv_hi[Z]+depth*0.5)*(heights.columns()-1)/depth)+1,heights.columns()-1);
 
   // iterate over all points in the bounding region
   for (unsigned i=lowi; i<= upi; i++)
