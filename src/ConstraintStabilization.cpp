@@ -1243,8 +1243,8 @@ double ConstraintStabilization::ridders_unilateral(double x1, double x2, double 
       xnew=xm+(xm-xl)*((fl >= fh ? 1.0 : -1.0)*fm/s); // Updating formula
       ans=xnew;
       fnew=eval_unilateral(ans, idx, dq, q, sim);
-      if (std::fabs(fnew) < TOL)
-        return (fl < 0.0) ? xl : xh; 
+      if (std::fabs(fnew) < TOL && fnew >= 0.0)
+        return xnew;
       if (sign(fm,fnew) != fm) 
       {
         xl=xm;

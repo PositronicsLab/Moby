@@ -101,7 +101,7 @@ double TimeSteppingSimulator::step(double step_size)
   // do constraint stabilization
   shared_ptr<ConstraintSimulator> simulator = dynamic_pointer_cast<ConstraintSimulator>(shared_from_this());
   FILE_LOG(LOG_SIMULATOR) << "stabilization started" << std::endl;
-//  _cstab.stabilize(simulator);
+  _cstab.stabilize(simulator);
   FILE_LOG(LOG_SIMULATOR) << "stabilization done" << std::endl;
 
   return step_size;
