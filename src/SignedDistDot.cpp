@@ -40,7 +40,7 @@ double SignedDistDot::calc_signed_dist(shared_ptr<SingleBodyd> sb1, shared_ptr<S
  * Phi(q(t_0 + \Delta t))_{t_0} \approx Phi(q(t_0)) + d/dt Phi(q(t_0)) * dt ==>
  * d/dt Phi(q(t_0)) \approx (Phi(q(t_0 + \Delta t)) - Phi(q(t_0))/dt 
  */
-void SignedDistDot::compute_signed_dist_dot_Jacobians(UnilateralConstraintProblemData& q, MatrixNd& Cdot_iM_CnT, MatrixNd& Cdot_iM_CsT, MatrixNd& Cdot_iM_CtT, MatrixNd& Cdot_iM_LT)
+void SignedDistDot::compute_signed_dist_dot_Jacobians(UnilateralConstraintProblemData& q, MatrixNd& Cdot_iM_CnT, MatrixNd& Cdot_iM_CsT, MatrixNd& Cdot_iM_CtT, MatrixNd& Cdot_iM_LT, VectorNd& Cdot_v)
 {
   const double DT = NEAR_ZERO;
   vector<shared_ptr<DynamicBodyd> > tmp_supers1, tmp_supers2, isect;
@@ -77,12 +77,39 @@ void SignedDistDot::compute_signed_dist_dot_Jacobians(UnilateralConstraintProble
   for (unsigned i=0; i< ubodies.size(); i++)
     ubodies[i]->get_generalized_velocity(DynamicBodyd::eSpatial, gv_map[ubodies[i]]);
 
+  // resize Cdot(v)
+  Cdot_v.resize(q.signed_distances.size());
+
+  // for each pair of bodies
+  for (unsigned k=0; k< q.signed_distances.size(); k++)
+  {
+    // get the two single bodies
+    shared_ptr<SingleBodyd> s1 = q.signed_distances[k].a->get_single_body();
+    shared_ptr<SingleBodyd> s2 = q.signed_distances[k].b->get_single_body();
+
+    // get the signed distance between the two bodies
+    double phi = q.signed_distances[k].dist;
+
+    // integrates bodies' positions forward
+    integrate_positions(isect, DT);
+
+    // compute the signed distance function
+    double phi_new = calc_signed_dist(s1, s2);
+
+    // set the appropriate entry of Cdot(v) 
+    Cdot_v[k] = (phi_new - phi)/DT;  
+
+    // restore coordinates and velocities
+    restore_coords_and_velocities(isect, gc_map, gv_map);
+  }  
+
   // resize the Jacobians
   Cdot_iM_CnT.resize(q.signed_distances.size(), q.N_CONTACTS);
   Cdot_iM_CsT.resize(q.signed_distances.size(), q.N_CONTACTS);
   Cdot_iM_CtT.resize(q.signed_distances.size(), q.N_CONTACTS);
   Cdot_iM_LT.resize(q.signed_distances.size(), q.N_LIMITS);
 
+  // prepare iterators for contacts
   ColumnIteratord Cn_iter = Cdot_iM_CnT.column_iterator_begin();
   ColumnIteratord Cs_iter = Cdot_iM_CsT.column_iterator_begin();
   ColumnIteratord Ct_iter = Cdot_iM_CtT.column_iterator_begin();

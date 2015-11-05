@@ -110,16 +110,22 @@ void ImpactConstraintHandler::solve_qp_work(UnilateralConstraintProblemData& epd
 
   // setup new indices
   const unsigned N_CONTACTS = epd.N_CONTACTS;
-  const unsigned xCN_IDX = 0;
-  const unsigned xCS_IDX = xCN_IDX + N_CONTACTS;
-  const unsigned xCT_IDX = xCS_IDX + N_CONTACTS;
-  const unsigned xNCS_IDX = xCT_IDX + N_CONTACTS;
-  const unsigned xNCT_IDX = xNCS_IDX + N_CONTACTS;
-  const unsigned xL_IDX = xNCT_IDX + N_CONTACTS;
+  const unsigned CN_IDX = 0;
+  const unsigned CS_IDX = CN_IDX + N_CONTACTS;
+  const unsigned CT_IDX = CS_IDX + N_CONTACTS;
+  const unsigned NCS_IDX = CT_IDX + N_CONTACTS;
+  const unsigned NCT_IDX = NCS_IDX + N_CONTACTS;
+  const unsigned xL_IDX = NCT_IDX + N_CONTACTS;
   const unsigned N_VARS = xL_IDX + epd.N_LIMITS;
 
   // init the QP matrix and vector
-  const unsigned N_INEQUAL = epd.N_CONTACTS + epd.N_K_TOTAL + epd.N_LIMITS + 1;
+  #ifdef USE_SIGNED_DIST_CONSTRAINT
+  const unsigned N_INEQUAL = epd.N_CONTACTS + epd.N_K_TOTAL + epd.N_LIMITS
+                             + epd.Cdot_v.size();
+  #else
+  const unsigned N_INEQUAL = epd.N_CONTACTS + epd.N_K_TOTAL + epd.N_LIMITS;
+  #endif
+
   _MM.set_zero(N_VARS + N_INEQUAL, N_VARS + N_INEQUAL);
   _qq.resize(_MM.rows());
 
@@ -278,16 +284,21 @@ void ImpactConstraintHandler::setup_QP(UnilateralConstraintProblemData& epd, Sha
   const unsigned N_CONTACTS = epd.N_CONTACTS;
 
   // setup new indices
-  const unsigned xCN_IDX = 0;
-  const unsigned xCS_IDX = xCN_IDX + N_CONTACTS;
-  const unsigned xCT_IDX = xCS_IDX + N_CONTACTS;
-  const unsigned xNCS_IDX = xCT_IDX + N_CONTACTS;
-  const unsigned xNCT_IDX = xNCS_IDX + N_CONTACTS;
-  const unsigned xL_IDX = xNCT_IDX + N_CONTACTS;
+  const unsigned CN_IDX = 0;
+  const unsigned CS_IDX = CN_IDX + N_CONTACTS;
+  const unsigned CT_IDX = CS_IDX + N_CONTACTS;
+  const unsigned NCS_IDX = CT_IDX + N_CONTACTS;
+  const unsigned NCT_IDX = NCS_IDX + N_CONTACTS;
+  const unsigned xL_IDX = NCT_IDX + N_CONTACTS;
   const unsigned N_VARS = xL_IDX + epd.N_LIMITS;
 
   // init the QP matrix and vector
+  #ifdef USE_SIGNED_DIST_CONSTRAINT
+  const unsigned N_INEQUAL = epd.N_CONTACTS + epd.N_K_TOTAL + epd.N_LIMITS
+                             + epd.Cn_v.size();
+  #else
   const unsigned N_INEQUAL = epd.N_CONTACTS + epd.N_K_TOTAL + epd.N_LIMITS;
+  #endif
 
   // setup row (block) 1 -- Cn * iM * [Cn' Cs Ct' -Cs' -Ct' L' ]
   unsigned col_start = 0, col_end = epd.N_CONTACTS;
@@ -399,11 +410,11 @@ void ImpactConstraintHandler::setup_QP(UnilateralConstraintProblemData& epd, Sha
   epd.L_X_LT.get_sub_mat(0, epd.N_LIMITS, 0, epd.N_LIMITS, L_X_LT);
 
   // get shared vectors to components of c
-  SharedVectorNd Cn_v = c.segment(xCN_IDX, xCS_IDX);
-  SharedVectorNd Cs_v = c.segment(xCS_IDX, xCT_IDX);
-  SharedVectorNd Ct_v = c.segment(xCT_IDX, xNCS_IDX);
-  SharedVectorNd nCs_v = c.segment(xNCS_IDX, xNCT_IDX);
-  SharedVectorNd nCt_v = c.segment(xNCT_IDX, xL_IDX);
+  SharedVectorNd Cn_v = c.segment(CN_IDX, CS_IDX);
+  SharedVectorNd Cs_v = c.segment(CS_IDX, CT_IDX);
+  SharedVectorNd Ct_v = c.segment(CT_IDX, NCS_IDX);
+  SharedVectorNd nCs_v = c.segment(NCS_IDX, NCT_IDX);
+  SharedVectorNd nCt_v = c.segment(NCT_IDX, xL_IDX);
   SharedVectorNd L_v = c.segment(xL_IDX, N_VARS);
 
   // setup c
@@ -429,7 +440,7 @@ void ImpactConstraintHandler::setup_QP(UnilateralConstraintProblemData& epd, Sha
   row_start = row_end; row_end += epd.N_LIMITS;
 
   // setup the L*v+ >= 0 constraint
-  M.block(row_start, row_end, xCN_IDX, N_VARS) = L_block;
+  M.block(row_start, row_end, CN_IDX, N_VARS) = L_block;
   q.set_sub_vec(row_start, epd.L_v);
   row_start = row_end; row_end += epd.N_CONTACTS;
 
@@ -446,17 +457,31 @@ void ImpactConstraintHandler::setup_QP(UnilateralConstraintProblemData& epd, Sha
       double theta = (double) j/(epd.contact_constraints[i]->contact_NK/2-1) * M_PI_2;
       const double ct = std::cos(theta);
       const double st = std::sin(theta);
-      M(row_start, xCN_IDX+i) = epd.contact_constraints[i]->contact_mu_coulomb;
-      M(row_start, xCS_IDX+i) = -ct;
-      M(row_start, xNCS_IDX+i) = -ct;
-      M(row_start, xCT_IDX+i) = -st;
-      M(row_start, xNCT_IDX+i) = -st;
+      M(row_start, CN_IDX+i) = epd.contact_constraints[i]->contact_mu_coulomb;
+      M(row_start, CS_IDX+i) = -ct;
+      M(row_start, NCS_IDX+i) = -ct;
+      M(row_start, CT_IDX+i) = -st;
+      M(row_start, NCT_IDX+i) = -st;
 
       // setup the viscous friction component
       q[row_start] = epd.contact_constraints[i]->contact_mu_viscous * vel;
       row_start++;
     }
   }
+
+  // setup the Cdot*inv(M)*x + Cdot \geq 0 constraint
+  #ifdef USE_SIGNED_DIST_CONSTRAINT
+  M.block(row_start, row_start+epd.Cdot_v.size(), CN_IDX, CS_IDX) = epd.Cdot_iM_CnT;
+  M.block(row_start, row_start+epd.Cdot_v.size(), CS_IDX, CT_IDX) = epd.Cdot_iM_CsT;
+  M.block(row_start, row_start+epd.Cdot_v.size(), NCS_IDX, NCT_IDX) = epd.Cdot_iM_CsT;
+  M.block(row_start, row_start+epd.Cdot_v.size(), NCS_IDX, NCT_IDX).negate();
+  M.block(row_start, row_start+epd.Cdot_v.size(), CT_IDX, NCS_IDX) = epd.Cdot_iM_CtT;
+  M.block(row_start, row_start+epd.Cdot_v.size(), NCT_IDX, M.columns()) = epd.Cdot_iM_CtT;
+  M.block(row_start, row_start+epd.Cdot_v.size(), NCT_IDX, M.columns()).negate();
+  q.segment(row_start, row_start+epd.Cdot_v.size()) = epd.Cdot_v;
+  q.segment(row_start, row_start+epd.Cdot_v.size()).negate();
+  row_start += epd.Cdot_v.size();
+  #endif
 
   // negate q
   q.negate();

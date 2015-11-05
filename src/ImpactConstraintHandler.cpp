@@ -2150,6 +2150,8 @@ void ImpactConstraintHandler::compute_problem_data(UnilateralConstraintProblemDa
   q.J.mult(v, q.Jx_v);
 
   // compute signed distance Jacobians
-//  SignedDistDot::compute_signed_dist_dot_Jacobians(q, q.Cdot_iM_CnT, q.Cdot_iM_CsT, q.Cdot_iM_CtT, q.Cdot_iM_LT);
+  #ifdef USE_SIGNED_DIST_CONSTRAINT
+  SignedDistDot::compute_signed_dist_dot_Jacobians(q, q.Cdot_iM_CnT, q.Cdot_iM_CsT, q.Cdot_iM_CtT, q.Cdot_iM_LT, q.Cdot_v);
+  #endif
 }
 

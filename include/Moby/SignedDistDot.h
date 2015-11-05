@@ -27,7 +27,7 @@ class SignedDistDot
   friend class ConstraintStabilization;
 
   public:
-    static void compute_signed_dist_dot_Jacobians(UnilateralConstraintProblemData& q, Ravelin::MatrixNd& CnT, Ravelin::MatrixNd& CsT, Ravelin::MatrixNd& CtT, Ravelin::MatrixNd& LT);
+    static void compute_signed_dist_dot_Jacobians(UnilateralConstraintProblemData& q, Ravelin::MatrixNd& CnT, Ravelin::MatrixNd& CsT, Ravelin::MatrixNd& CtT, Ravelin::MatrixNd& LT, Ravelin::VectorNd& Cdot_v);
 
   private:
     static double calc_signed_dist(boost::shared_ptr<Ravelin::SingleBodyd> sb1, boost::shared_ptr<Ravelin::SingleBodyd> sb2);

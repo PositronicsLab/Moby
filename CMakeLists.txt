@@ -20,6 +20,7 @@ option (USE_AP "Use the Anitescu-Potra contact model?" OFF)
 option (USE_QLCPD "Build against QLCPD library?" OFF)
 option (VISUALIZE_INERTIA "Visualize moments of inertia?" OFF)
 option (PROFILE "Build for profiling?" OFF)
+option (USE_SIGNED_DIST_CONSTRAINT "Use signed distance constraint? (experimental)" OFF)
 
 # look for QLCPD
 find_library(QLCPD_FOUND qlcpd-dense /usr/local/lib /usr/lib)
@@ -41,6 +42,10 @@ if (PROFILE)
   set_source_files_properties(example/driver.cpp PROPERTIES COMPILE_FLAGS -DGOOGLE_PROFILER) 
   set (EXTRA_LIBS ${EXTRA_LIBS} profiler)
 endif (PROFILE)
+if (USE_SIGNED_DIST_CONSTRAINT)
+  set_source_files_properties(src/ImpactConstraintHandler.cpp PROPERTIES COMPILE_FLAGS -DUSE_SIGNED_DIST_CONSTRAINT)
+  set_source_files_properties(src/ImpactConstraintHandlerQP.cpp PROPERTIES COMPILE_FLAGS -DUSE_SIGNED_DIST_CONSTRAINT)
+endif (USE_SIGNED_DIST_CONSTRAINT)
 
 # fix the C++ linking error on 64-bit Linux
 set (CMAKE_CXX_LINK_EXECUTABLE "${CMAKE_CXX_LINK_EXECUTABLE} -ldl")

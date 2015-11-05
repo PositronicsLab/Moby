@@ -85,6 +85,9 @@ struct UnilateralConstraintProblemData
     L_X_JxT = q.L_X_JxT;
     Jx_X_JxT = q.Jx_X_JxT;
 
+    // copy Cdot_v
+    Cdot_v = q.Cdot_v;
+
     // copy Cdot Jacobians
     Cdot_iM_CnT = q.Cdot_iM_CnT; 
     Cdot_iM_CsT = q.Cdot_iM_CsT; 
@@ -171,6 +174,7 @@ struct UnilateralConstraintProblemData
     L_X_LT.resize(0,0);
     L_X_JxT.resize(0,0);
     Jx_X_JxT.resize(0,0);
+    Cdot_v.resize(0);
     Cdot_iM_CnT.resize(0,0);
     Cdot_iM_CsT.resize(0,0);
     Cdot_iM_CtT.resize(0,0);
@@ -359,6 +363,9 @@ struct UnilateralConstraintProblemData
 
   // Cdot Jacobians
   Ravelin::MatrixNd Cdot_iM_CnT, Cdot_iM_CsT, Cdot_iM_CtT, Cdot_iM_LT;
+
+  // Cdot(v)
+  Ravelin::VectorNd Cdot_v;
 
   // vector-based terms
   Ravelin::VectorNd Cn_v, Cs_v, Ct_v, L_v, Jx_v;
