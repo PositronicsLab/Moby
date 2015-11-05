@@ -91,7 +91,13 @@ void SignedDistDot::compute_signed_dist_dot_Jacobians(UnilateralConstraintProble
     double phi = q.signed_distances[k].dist;
 
     // integrates bodies' positions forward
-    integrate_positions(isect, DT);
+    shared_ptr<DynamicBodyd> sup1 = ImpactConstraintHandler::get_super_body(s1);
+    shared_ptr<DynamicBodyd> sup2 = ImpactConstraintHandler::get_super_body(s2);
+    tmp_supers1.clear();
+    tmp_supers1.push_back(sup1);
+    if (sup1 != sup2)
+      tmp_supers1.push_back(sup2);
+    integrate_positions(tmp_supers1, DT);
 
     // compute the signed distance function
     double phi_new = calc_signed_dist(s1, s2);
@@ -100,7 +106,7 @@ void SignedDistDot::compute_signed_dist_dot_Jacobians(UnilateralConstraintProble
     Cdot_v[k] = (phi_new - phi)/DT;  
 
     // restore coordinates and velocities
-    restore_coords_and_velocities(isect, gc_map, gv_map);
+    restore_coords_and_velocities(tmp_supers1, gc_map, gv_map);
   }  
 
   // resize the Jacobians
@@ -169,7 +175,7 @@ void SignedDistDot::compute_signed_dist_dot_Jacobians(UnilateralConstraintProble
       double phi_new = calc_signed_dist(s1, s2);
 
       // set the appropriate entry of the Jacobian
-      *Cn_iter = (phi_new - phi)/DT;  Cn_iter++;
+      *Cn_iter = (phi_new - phi)/DT - q.Cdot_v[k];  Cn_iter++;
 
       // restore coordinates and velocities
       restore_coords_and_velocities(isect, gc_map, gv_map);
@@ -185,7 +191,7 @@ void SignedDistDot::compute_signed_dist_dot_Jacobians(UnilateralConstraintProble
       phi_new = calc_signed_dist(s1, s2);
 
       // set the appropriate entry of the Jacobian
-      *Cs_iter = (phi_new - phi)/DT;  Cs_iter++;
+      *Cs_iter = (phi_new - phi)/DT - q.Cdot_v[k];  Cs_iter++;
 
       // restore coordinates and velocities
       restore_coords_and_velocities(isect, gc_map, gv_map);
@@ -201,7 +207,7 @@ void SignedDistDot::compute_signed_dist_dot_Jacobians(UnilateralConstraintProble
       phi_new = calc_signed_dist(s1, s2);
 
       // set the appropriate entry of the Jacobian
-      *Ct_iter = (phi_new - phi)/DT;  Ct_iter++;
+      *Ct_iter = (phi_new - phi)/DT - q.Cdot_v[k];  Ct_iter++;
 
       // restore coordinates and velocities
       restore_coords_and_velocities(isect, gc_map, gv_map);
@@ -233,7 +239,7 @@ void SignedDistDot::compute_signed_dist_dot_Jacobians(UnilateralConstraintProble
       double phi_new = calc_signed_dist(s1, s2);
 
       // set the appropriate entry of the Jacobian
-      *L_iter = (phi_new - phi)/DT;  L_iter++;
+      *L_iter = (phi_new - phi)/DT - q.Cdot_v[k];  L_iter++;
 
       // restore coordinates and velocities
       restore_coords_and_velocities(isect, gc_map, gv_map);

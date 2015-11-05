@@ -279,6 +279,10 @@ void ImpactConstraintHandler::setup_QP(UnilateralConstraintProblemData& epd, Sha
   FILE_LOG(LOG_CONSTRAINT) << "  Cs * v: " << epd.Cs_v << std::endl;
   FILE_LOG(LOG_CONSTRAINT) << "  Ct * v: " << epd.Ct_v << std::endl;
   FILE_LOG(LOG_CONSTRAINT) << "  L * v: " << epd.L_v << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "  Cdot * inv(M) * Cn': " << std::endl << epd.Cdot_iM_CnT;
+  FILE_LOG(LOG_CONSTRAINT) << "  Cdot * inv(M) * Cs': " << std::endl << epd.Cdot_iM_CsT;
+  FILE_LOG(LOG_CONSTRAINT) << "  Cdot * inv(M) * Ct': " << std::endl << epd.Cdot_iM_CtT;
+  FILE_LOG(LOG_CONSTRAINT) << "  Cdot(v): " << epd.Cdot_v << std::endl;
 
   // get useful constants
   const unsigned N_CONTACTS = epd.N_CONTACTS;
