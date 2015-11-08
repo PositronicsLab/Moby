@@ -89,9 +89,6 @@ VectorNd& Simulator::ode(const VectorNd& x, double t, double dt, void* data, Vec
   // loop through all bodies, preparing to compute the ODE
   BOOST_FOREACH(ControlledBodyPtr db, s->_bodies)
   {
-    if (db->get_kinematic())
-      continue;
-
     // cast the body as a Ravelin dynamic body
     shared_ptr<DynamicBodyd> rdb = dynamic_pointer_cast<DynamicBodyd>(db);
 
@@ -114,8 +111,7 @@ VectorNd& Simulator::ode(const VectorNd& x, double t, double dt, void* data, Vec
 
   // loop through all bodies, computing forward dynamics 
   BOOST_FOREACH(ControlledBodyPtr db, s->_bodies)
-    if (!db->get_kinematic())
-      dynamic_pointer_cast<DynamicBodyd>(db)->calc_fwd_dyn();
+    dynamic_pointer_cast<DynamicBodyd>(db)->calc_fwd_dyn();
 
   // reset the index
   idx = 0;
@@ -123,9 +119,6 @@ VectorNd& Simulator::ode(const VectorNd& x, double t, double dt, void* data, Vec
   // loop through all bodies, computing the ODE
   BOOST_FOREACH(ControlledBodyPtr db, s->_bodies)
   {
-    if (db->get_kinematic())
-      continue;
-
     // cast the body as a Ravelin dynamic body
     shared_ptr<DynamicBodyd> rdb = dynamic_pointer_cast<DynamicBodyd>(db);
 
@@ -329,6 +322,8 @@ void Simulator::add_transient_vdata(osg::Node* vdata)
 /// Prepares to calculate forward dynamics for bodies
 void Simulator::precalc_fwd_dyn()
 {
+  VectorNd tmp;
+
   // clear force accumulators, then add all recurrent and compliant
   // constraint forces
   BOOST_FOREACH(ControlledBodyPtr db, _bodies)
@@ -347,9 +342,152 @@ void Simulator::precalc_fwd_dyn()
     // call the body's controller
     if (db->controller)
     {
+      // get the clone as a dynamic body
+      shared_ptr<DynamicBodyd> dbc = dynamic_pointer_cast<DynamicBodyd>(db->clone);
+
+      // update the clone
+      rdb->get_generalized_coordinates_euler(tmp);
+      dbc->set_generalized_coordinates_euler(tmp);    
+      rdb->get_generalized_velocity(DynamicBodyd::eSpatial, tmp);
+      dbc->set_generalized_velocity(DynamicBodyd::eSpatial, tmp);
+
+      // get the generalized forces
+      (*db->controller)(tmp, current_time, db->controller_arg);
+
       FILE_LOG(LOG_DYNAMICS) << "Computing controller forces for " << db->id << std::endl;
-      (*db->controller)(db, current_time, db->controller_arg);
+
+      // apply the generalized forces
+      rdb->add_generalized_force(tmp);
     }
+  }
+}
+
+/// Applies a generalized impulse to a dynamic body
+/**
+ * This function takes implicit constraints into account.
+ */
+void Simulator::apply_impulse(shared_ptr<DynamicBodyd> db, const SharedVectorNd& gj)
+{
+  VectorNd f, v, dv, lambda;
+  vector<shared_ptr<DynamicBodyd> > island;
+  vector<shared_ptr<Joint> > island_ijoints;
+
+  // determine any implicit constraints connected to this body, adding it to
+  // an island
+  island.push_back(db);
+  for (unsigned i=0; i< implicit_joints.size(); i++)
+  {
+    // get the inboard and outboard links
+    shared_ptr<RigidBodyd> inboard = implicit_joints[i]->get_inboard_link();
+    shared_ptr<RigidBodyd> outboard = implicit_joints[i]->get_outboard_link();
+
+    // get the super bodies for the inboard and outboard links
+    shared_ptr<DynamicBodyd> inboard_sb = inboard->get_super_body();
+    shared_ptr<DynamicBodyd> outboard_sb = inboard->get_super_body();
+
+    // if one of these bodies matches db, add the other body to the island,
+    // and add the joint
+    if (inboard_sb == db)
+    {
+      island.push_back(outboard_sb);
+      island_ijoints.push_back(implicit_joints[i]);
+    }
+    else if (outboard_sb == db)
+    {
+      island.push_back(inboard_sb);
+      island_ijoints.push_back(implicit_joints[i]);
+    }
+  }
+
+  // make the island unique
+  std::sort(island.begin(), island.end());
+  island.erase(std::unique(island.begin(), island.end()), island.end());
+
+  // get all implicit joints from articulated bodies in the island
+  for (unsigned i=0; i< island.size(); i++)
+  {
+    // see whether the body is articulated
+    shared_ptr<ArticulatedBodyd> ab = dynamic_pointer_cast<ArticulatedBodyd>(island[i]);
+    if (!ab)
+      continue;
+
+    // get the implicit joints for this body
+    const vector<shared_ptr<Jointd> >& ijoints = ab->get_implicit_joints();
+
+    // add the joints
+    for (unsigned k=0; k< ijoints.size(); k++)
+      island_ijoints.push_back(dynamic_pointer_cast<Joint>(ijoints[k]));
+  }
+
+  // get number of implicit constraints
+  const unsigned N_IMPLICIT = island_ijoints.size();
+ 
+  // if there are no implicit joints, call the unconstrained function
+  if (N_IMPLICIT == 0)
+  {
+    // try to cast to a rigid body
+    shared_ptr<RigidBodyd> rb = dynamic_pointer_cast<RigidBodyd>(db);
+    if (rb)
+      rb->RigidBodyd::apply_generalized_impulse(gj);
+    else
+    {
+      shared_ptr<RCArticulatedBodyd> rcab = dynamic_pointer_cast<RCArticulatedBodyd>(db);
+      if (rcab)
+        rcab->RCArticulatedBodyd::apply_generalized_impulse(gj);
+    }
+
+    return;
+  }
+
+  // get the total number of generalized coordinates for the body and the island
+  const unsigned NGC = db->num_generalized_coordinates(DynamicBodyd::eSpatial);
+  const unsigned NGC_TOTAL = num_generalized_coordinates(island);
+
+  // get the gc index for db 
+  unsigned gc_index = 0;
+  for (unsigned i=0; i< island.size(); i++)
+  {
+    if (db == island[i])
+      break;
+    else
+      gc_index += island[i]->num_generalized_coordinates(DynamicBodyd::eSpatial);
+  }
+
+  // setup f
+  f.set_zero(NGC_TOTAL);
+  f.segment(gc_index, gc_index + NGC) = gj;
+
+  // get current velocities 
+  v.resize(NGC_TOTAL);
+  for (unsigned i=0, gc_index = 0; i< island.size(); i++)
+  {
+    const unsigned NGC = island[i]->num_generalized_coordinates(DynamicBodyd::eSpatial);
+    SharedVectorNd v_sub = v.segment(gc_index, gc_index + NGC);
+    island[i]->get_generalized_velocity(DynamicBodyd::eSpatial, v_sub);
+    gc_index += NGC;
+  }
+
+  // compute change in velocity and constraint forces
+  solve(island, island_ijoints, v, f, 1.0, dv, lambda);
+
+  // update velocities 
+  for (unsigned i=0, gc_index = 0; i< island.size(); i++)
+  {
+    const unsigned NGC = island[i]->num_generalized_coordinates(DynamicBodyd::eSpatial);
+    SharedVectorNd v_sub = v.segment(gc_index, gc_index + NGC);
+    SharedConstVectorNd dv_sub = dv.segment(gc_index, gc_index + NGC);
+    v_sub += dv_sub;
+    island[i]->set_generalized_velocity(DynamicBodyd::eSpatial, v_sub);
+    gc_index += NGC;
+  }
+
+  // populate constraint forces
+  for (unsigned i=0, c_index = 0; i< island_ijoints.size(); i++)
+  {
+    const unsigned NEQ = island_ijoints[i]->num_constraint_eqns();
+    SharedConstVectorNd lambda_sub = lambda.segment(c_index, c_index + NEQ);
+    island_ijoints[i]->lambda = lambda_sub;
+    c_index += NEQ;
   }
 }
 

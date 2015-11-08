@@ -61,12 +61,12 @@ class RigidBody : public virtual Ravelin::RigidBodyd, public virtual ControlledB
     bool is_descendant_link(boost::shared_ptr<const RigidBody> query) const;
     RigidBodyPtr get_parent_link() const;
     JointPtr get_inner_joint_explicit() const;
-    virtual void ode_noexcept(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data, Ravelin::SharedVectorNd& dx);
     virtual void prepare_to_calc_ode(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data);
     virtual void prepare_to_calc_ode_sustained_constraints(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data) { prepare_to_calc_ode(x, t, dt, data); }
     virtual void ode(double t, double dt, void* data, Ravelin::SharedVectorNd& dx);
     virtual void set_articulated_body(boost::shared_ptr<ArticulatedBody> body);
     virtual void set_inertia(const Ravelin::SpatialRBInertiad& J);
+    virtual void apply_generalized_impulse(const Ravelin::SharedVectorNd& gj);
 
     template <class OutputIterator>
     OutputIterator get_parent_links(OutputIterator begin) const;

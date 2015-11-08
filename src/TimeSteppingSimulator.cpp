@@ -274,10 +274,6 @@ double TimeSteppingSimulator::calc_next_CA_Euler_step(double contact_dist_thresh
     if (!ab)
       continue;
 
-    // if the body is kinematically controlled, do nothing
-    if (ab->get_kinematic())
-      continue;
-
     // get limit events in [t, t+dt] (if any)
     const vector<shared_ptr<Jointd> >& joints = ab->get_joints();
     for (unsigned i=0; i< joints.size(); i++)
