@@ -153,7 +153,7 @@ namespace Moby{
   }
   
   /// runs the simulator and updates all transforms
-  bool step(void* arg)
+  bool step(boost::shared_ptr<Simulator> s)
   {
 #ifdef USE_OSG
     if (ONSCREEN_RENDER)
@@ -163,8 +163,6 @@ namespace Moby{
       viewer_pointer->frame();
     }
 #endif
-    // get the simulator pointer
-    boost::shared_ptr<Simulator> s = *(boost::shared_ptr<Simulator>*) arg;
     
     // get the simulator as event driven simulation
     boost::shared_ptr<TimeSteppingSimulator> eds = boost::dynamic_pointer_cast<TimeSteppingSimulator>( s );
@@ -531,7 +529,7 @@ namespace Moby{
   
   // where everything begins...
   
-  int init(int argc, char** argv, void* arg)
+  int init(int argc, char** argv, boost::shared_ptr<Simulator>& s)
   {
     // get the simulator pointer
     const unsigned ONECHAR_ARG = 3, TWOCHAR_ARG = 4;
@@ -672,8 +670,6 @@ namespace Moby{
       // TODO: setup offscreen renderer here
     }
 #endif
-    //shared_ptr<Simulator> s;
-    shared_ptr<Simulator> &s = *(boost::shared_ptr<Simulator>*) arg;
     // get the (only) simulation object
     for (std::map<std::string, BasePtr>::const_iterator i = READ_MAP.begin(); i != READ_MAP.end(); i++)
     {
@@ -787,13 +783,13 @@ namespace Moby{
   int init(int argc, char** argv){
     boost::shared_ptr<Simulator> s;
     
-    init(argc,argv,(void*) &s);
+    init(argc,argv,s);
     
     // begin rendering
     bool stop_sim = false;
     while (!stop_sim)
     {
-      stop_sim = !step((void*) &s);
+      stop_sim = !step(s);
     }
     
     close();

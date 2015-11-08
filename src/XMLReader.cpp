@@ -32,6 +32,7 @@
 #include <Moby/TorusPrimitive.h>
 #include <Moby/SpherePrimitive.h>
 #include <Moby/FixedJoint.h>
+#include <Moby/PlanarJoint.h>
 //#include <Moby/MCArticulatedBody.h>
 #include <Moby/RCArticulatedBody.h>
 #include <Moby/PrismaticJoint.h>
@@ -47,7 +48,10 @@
 #include <Moby/SDFReader.h>
 #include <Moby/XMLReader.h>
 
+using std::vector;
 using boost::shared_ptr;
+using boost::dynamic_pointer_cast;
+using namespace Ravelin;
 using namespace Moby;
 
 /// Reads an XML file and constructs all read objects
@@ -180,6 +184,7 @@ std::map<std::string, BasePtr> XMLReader::construct_ID_map(shared_ptr<XMLTree> m
   process_tag("SphericalJoint", moby_tree, &read_spherical_joint, id_map);
   process_tag("UniversalJoint", moby_tree, &read_universal_joint, id_map);
   process_tag("FixedJoint", moby_tree, &read_fixed_joint, id_map);
+  process_tag("PlanarJoint", moby_tree, &read_planar_joint, id_map);
   process_tag("Gears", moby_tree, &read_gears, id_map);
   process_tag("JointPlugin", moby_tree, &read_joint_plugin, id_map);
 
@@ -582,13 +587,49 @@ void XMLReader::read_sdf(shared_ptr<const XMLTree> node, std::map<std::string, B
   {
     // populate our ID map with the models
     for (std::map<std::string, ControlledBodyPtr>::const_iterator i = model_map.begin(); i != model_map.end(); i++)
+    {
       id_map[i->first] = i->second;
+
+      // for articulated bodies, name every link and joint
+      shared_ptr<ArticulatedBody> ab = dynamic_pointer_cast<ArticulatedBody>(i->second);
+      if (ab)
+      {
+        // first name links
+        const vector<shared_ptr<RigidBodyd> >& links = ab->get_links();
+        for (unsigned j=0; j< links.size(); j++)
+          id_map[links[j]->body_id] = dynamic_pointer_cast<RigidBody>(links[j]);
+
+        // now name joints
+        const vector<shared_ptr<Jointd> >& joints = ab->get_joints();
+        for (unsigned j=0; j< joints.size(); j++)
+          id_map[joints[j]->joint_id] = dynamic_pointer_cast<Joint>(joints[j]);
+      }
+    }
   } 
   else 
   {
     // populate our ID map with the models
     for (std::map<std::string, ControlledBodyPtr>::const_iterator i = model_map.begin(); i != model_map.end(); i++)
+    {
+      // set the id for the model (done this way in case the SDF is read in
+      // multiple times)
       id_map[id_attr->get_string_value() + "::" + i->first] = i->second;
+
+      // for articulated bodies, name every link and joint
+      shared_ptr<ArticulatedBody> ab = dynamic_pointer_cast<ArticulatedBody>(i->second);
+      if (ab)
+      {
+        // first name links
+        const vector<shared_ptr<RigidBodyd> >& links = ab->get_links();
+        for (unsigned j=0; j< links.size(); j++)
+          id_map[id_attr->get_string_value() + "::" + links[j]->body_id] = dynamic_pointer_cast<RigidBody>(links[j]);
+
+        // now name joints
+        const vector<shared_ptr<Jointd> >& joints = ab->get_joints();
+        for (unsigned j=0; j< joints.size(); j++)
+          id_map[id_attr->get_string_value() + "::" + joints[j]->joint_id] = dynamic_pointer_cast<Joint>(joints[j]);
+      }
+    }
   }
 }
 
@@ -797,6 +838,19 @@ void XMLReader::read_gears(shared_ptr<const XMLTree> node, std::map<std::string,
   
   // populate the object
   gears->load_from_xml(node, id_map);
+}
+
+/// Reads and constructs the PlanarJoint object
+void XMLReader::read_planar_joint(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
+{
+  // sanity check
+  assert(strcasecmp(node->name.c_str(), "PlanarJoint") == 0);
+
+  // create a new PlanarJoint object
+  boost::shared_ptr<PlanarJoint> pj(new PlanarJoint());
+  
+  // populate the object
+  pj->load_from_xml(node, id_map);
 }
 
 /// Reads and constructs the FixedJoint object

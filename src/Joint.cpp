@@ -107,31 +107,14 @@ void Joint::determine_q_dot()
 /// Sets the pointer to the inboard link for this joint (and updates the spatial axes, if the outboard link has been set)
 void Joint::set_inboard_link(RigidBodyPtr inboard, bool update_pose)
 {
-  _inboard_link = inboard;
   if (!inboard)
-    return;
+    throw std::runtime_error("Inboard link is null!");
 
-  // add this joint to the outer joints
-  inboard->_outer_joints.insert(dynamic_pointer_cast<Jointd>(Jointd::shared_from_this()));
+  // set the inboard link pointer
+  _inboard_link = inboard;
 
   // setup F's pose relative to the inboard
   set_inboard_pose(inboard->_F, update_pose);
-
-  // update articulated body pointers, if possible
-  if (!inboard->get_articulated_body() && !_abody.expired())
-    inboard->set_articulated_body(dynamic_pointer_cast<ArticulatedBody>(shared_ptr<ArticulatedBodyd>(_abody)));
-  else if (inboard->get_articulated_body() && _abody.expired())
-    set_articulated_body(dynamic_pointer_cast<ArticulatedBody>(shared_ptr<ArticulatedBodyd>(inboard->get_articulated_body())));
-
-  // the articulated body pointers must now be equal; it is
-  // conceivable that the user is updating the art. body pointers in an
-  // unorthodox manner, but we'll look for this anwyway...
-  if (!_abody.expired())
-  {
-    ArticulatedBodyPtr abody1(dynamic_pointer_cast<ArticulatedBody>(shared_ptr<ArticulatedBodyd>(inboard->get_articulated_body())));
-    ArticulatedBodyPtr abody2(dynamic_pointer_cast<ArticulatedBody>(shared_ptr<ArticulatedBodyd>(_abody)));
-    assert(abody1 == abody2);
-  }
 }
 
 /// Sets the pointer to the outboard link for this joint
@@ -140,40 +123,14 @@ void Joint::set_inboard_link(RigidBodyPtr inboard, bool update_pose)
  */
 void Joint::set_outboard_link(RigidBodyPtr outboard, bool update_pose)
 {
-  _outboard_link = outboard;
   if (!outboard)
-    return;
+    throw std::runtime_error("Outboard link is null!");
 
-  // add this joint to the outer joints
-  outboard->_inner_joints.insert(dynamic_pointer_cast<Jointd>(Jointd::shared_from_this()));
+  // set the pointer
+  _outboard_link = outboard;
 
   // set the outboard pose, if necessary 
   set_outboard_pose(outboard->_F, update_pose);
-
-  // setup the frame *if this link doesn't already have a parent*
-  if (!outboard->_xdj.pose)
-  {
-    outboard->_xdj.pose = get_pose();
-    outboard->_xddj.pose = get_pose();
-    outboard->_Jj.pose = get_pose();
-    outboard->_forcej.pose = get_pose();
-  }
-
-  // use one articulated body pointer to set the other, if possible
-  if (!outboard->get_articulated_body() && !_abody.expired())
-    outboard->set_articulated_body(dynamic_pointer_cast<ArticulatedBody>(shared_ptr<ArticulatedBodyd>(_abody)));
-  else if (outboard->get_articulated_body() && _abody.expired())
-    set_articulated_body(dynamic_pointer_cast<ArticulatedBody>(outboard->get_articulated_body()));
-
-  // the articulated body pointers must now be equal; it is
-  // conceivable that the user is updating the art. body pointers in an
-  // unorthodox manner, but we'll look for this anwyway...
-  if (!_abody.expired())
-  {
-    ArticulatedBodyPtr abody1(dynamic_pointer_cast<ArticulatedBody>(outboard->get_articulated_body()));
-    ArticulatedBodyPtr abody2(dynamic_pointer_cast<ArticulatedBody>(get_articulated_body()));
-    assert(abody1 == abody2);
-  }
 }
 
 /// Sets the number of degrees-of-freedom for this joint
@@ -212,10 +169,6 @@ void Joint::set_location(const Point3d& point, RigidBodyPtr inboard, RigidBodyPt
   // set inboard and outboard links
   set_inboard_link(inboard, false);
   set_outboard_link(outboard, false);
-
-  // setup joint pointers
-  if (inboard) inboard->add_outer_joint(dynamic_pointer_cast<Jointd>(Jointd::shared_from_this()));
-  if (outboard) outboard->add_inner_joint(dynamic_pointer_cast<Jointd>(Jointd::shared_from_this()));
 }
 
 /// Gets the scaled actuator forces
@@ -434,10 +387,6 @@ void Joint::load_from_xml(shared_ptr<const XMLTree> node, std::map<std::string, 
     // set the inboard and outboard links, as specified
     if (inboard) set_inboard_link(inboard, true);
     if (outboard) set_outboard_link(outboard, true);
-
-    // add/replace this as an inner joint
-    if (inboard) inboard->add_outer_joint(dynamic_pointer_cast<Jointd>(Jointd::shared_from_this()));
-    if (outboard) outboard->add_inner_joint(dynamic_pointer_cast<Jointd>(Jointd::shared_from_this()));
   }
 }
 
