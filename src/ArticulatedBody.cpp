@@ -71,52 +71,6 @@ void ArticulatedBody::integrate(double t, double h, shared_ptr<Integrator> integ
 }
 */
 
-/// Returns the ODE's for position and velocity (concatenated into x) without throwing an exception
-void ArticulatedBody::ode_noexcept(SharedConstVectorNd& x, double t, double dt, void* data, SharedVectorNd& dx)
-{
-  // get the shared pointer to this
-  ArticulatedBodyPtr shared_this = dynamic_pointer_cast<ArticulatedBody>(ArticulatedBodyd::shared_from_this());
-
-  // get the articulated body
-  const unsigned NGC_EUL = num_generalized_coordinates(eEuler);
-
-  // get the coordinates and velocity from x
-  SharedConstVectorNd gc = x.segment(0, NGC_EUL);
-  SharedConstVectorNd gv = x.segment(NGC_EUL, x.size());
-
-  // set the state
-  set_generalized_coordinates_euler(gc);
-
-  // set the velocity 
-  set_generalized_velocity(DynamicBodyd::eSpatial, gv);
-
-  // get the derivatives of coordinates and velocity from dx
-  SharedVectorNd dgc = dx.segment(0, NGC_EUL);
-  SharedVectorNd dgv = dx.segment(NGC_EUL, x.size());
-
-  // we need the generalized velocity as Rodrigues coordinates
-  get_generalized_velocity(DynamicBodyd::eEuler, dgc);
-
-  // clear the force accumulators on the body
-  reset_accumulators();
-
-  // add all recurrent forces on the body
-  const list<RecurrentForcePtr>& rfs = get_recurrent_forces();
-  BOOST_FOREACH(RecurrentForcePtr rf, rfs)
-    rf->add_force(shared_this);
-
-  // call the body's controller
-  if (controller)
-  {
-    FILE_LOG(LOG_DYNAMICS) << "Computing controller forces for " << id << std::endl;
-    (*controller)(shared_this, t, controller_arg);
-  }
-
-  // calculate forward dynamics at state x
-  calc_fwd_dyn();
-  get_generalized_acceleration(dgv);
-}
-
 /// Prepares to compute the ODE  
 void ArticulatedBody::prepare_to_calc_ode_sustained_constraints(SharedConstVectorNd& x, double t, double dt, void* data)
 {
@@ -149,8 +103,24 @@ void ArticulatedBody::prepare_to_calc_ode_sustained_constraints(SharedConstVecto
   // call the body's controller
   if (controller)
   {
+    VectorNd tmp;
+
+    // get the clone as a dynamic body
+    shared_ptr<DynamicBodyd> db = dynamic_pointer_cast<DynamicBodyd>(clone);
+
+    // update the clone
+    get_generalized_coordinates_euler(tmp);
+    db->set_generalized_coordinates_euler(tmp);    
+    get_generalized_velocity(DynamicBodyd::eSpatial, tmp);
+    db->set_generalized_velocity(DynamicBodyd::eSpatial, tmp);
+
+    // get the generalized forces
+    (*controller)(tmp, t, controller_arg);
+
     FILE_LOG(LOG_DYNAMICS) << "Computing controller forces for " << id << std::endl;
-    (*controller)(shared_this, t, controller_arg);
+
+    // apply the generalized forces
+    add_generalized_force(tmp);
   }
 }
 
@@ -185,7 +155,26 @@ void ArticulatedBody::prepare_to_calc_ode(SharedConstVectorNd& x, double t, doub
 
   // call the body's controller
   if (controller)
-    (*controller)(shared_this, t, controller_arg);
+  {
+    VectorNd tmp;
+
+    // get the clone as a dynamic body
+    shared_ptr<DynamicBodyd> db = dynamic_pointer_cast<DynamicBodyd>(clone);
+
+    // update the clone
+    get_generalized_coordinates_euler(tmp);
+    db->set_generalized_coordinates_euler(tmp);    
+    get_generalized_velocity(DynamicBodyd::eSpatial, tmp);
+    db->set_generalized_velocity(DynamicBodyd::eSpatial, tmp);
+
+    // get the generalized forces
+    (*controller)(tmp, t, controller_arg);
+
+    FILE_LOG(LOG_DYNAMICS) << "Computing controller forces for " << id << std::endl;
+
+    // apply the generalized forces
+    add_generalized_force(tmp);
+  }
 }
 
 /// Returns the ODE's for position and velocity (concatenated into x)

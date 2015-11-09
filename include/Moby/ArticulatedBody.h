@@ -33,7 +33,6 @@ class ArticulatedBody : public virtual Ravelin::ArticulatedBodyd, public virtual
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     void update_joint_constraint_violations();
     bool is_joint_constraint_violated() const;
-    virtual void ode_noexcept(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data, Ravelin::SharedVectorNd& dx);
     virtual void prepare_to_calc_ode(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data);
     virtual void prepare_to_calc_ode_sustained_constraints(Ravelin::SharedConstVectorNd& x, double t, double dt, void* data);
     virtual void ode(double t, double dt, void* data, Ravelin::SharedVectorNd& dx);

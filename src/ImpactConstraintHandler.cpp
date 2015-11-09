@@ -1886,8 +1886,12 @@ void ImpactConstraintHandler::compute_problem_data(UnilateralConstraintProblemDa
   q.super_bodies.clear();
   for (unsigned i=0; i< q.contact_constraints.size(); i++)
   {
-    q.super_bodies.push_back(get_super_body(q.contact_constraints[i]->contact_geom1->get_single_body()));
-    q.super_bodies.push_back(get_super_body(q.contact_constraints[i]->contact_geom2->get_single_body()));
+    shared_ptr<DynamicBodyd> sb1 = get_super_body(q.contact_constraints[i]->contact_geom1->get_single_body());
+    shared_ptr<DynamicBodyd> sb2 = get_super_body(q.contact_constraints[i]->contact_geom2->get_single_body());
+    if (sb1->is_enabled())
+      q.super_bodies.push_back(sb1);
+    if (sb2->is_enabled())
+      q.super_bodies.push_back(sb2);
   }
 
   // make vector super bodies unique

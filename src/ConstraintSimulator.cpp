@@ -527,11 +527,7 @@ void ConstraintSimulator::find_unilateral_constraints(double contact_dist_thresh
     if (!ab)
       continue;
 
-    // if the body is kinematically controlled, do nothing
-    if (ab->get_kinematic())
-      continue;
-
-    // get limit constraints
+     // get limit constraints
     ab->find_limit_constraints(std::back_inserter(_rigid_constraints));
   }
 

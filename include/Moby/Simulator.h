@@ -28,6 +28,7 @@ namespace Moby {
 class Dissipation;
 class RigidBody;
 class ArticulatedBody;
+class RCArticulatedBody;
 class VisualizationData;
 
 /// Simulator for both unarticulated and articulated rigid bodies without contact
@@ -40,6 +41,8 @@ class Simulator : public virtual Base
 {
   friend class ConstraintStabilization;
   friend class ImpactConstraintHandler;
+  friend class RigidBody;
+  friend class RCArticulatedBody;
 
   public:
     Simulator();
@@ -83,6 +86,7 @@ class Simulator : public virtual Base
     std::vector<JointPtr> implicit_joints;
 
   protected:
+    void apply_impulse(boost::shared_ptr<Ravelin::DynamicBodyd> db, const Ravelin::SharedVectorNd& gj);
     void solve(const std::vector<boost::shared_ptr<Ravelin::DynamicBodyd> >& island, const std::vector<JointPtr>& island_joints, const Ravelin::VectorNd& v, const Ravelin::VectorNd& f, double dt, Ravelin::VectorNd& a, Ravelin::VectorNd& lambda) const;
     virtual double check_pairwise_constraint_violations(double t) { return 0.0; }
     void find_islands(std::vector<std::vector<boost::shared_ptr<Ravelin::DynamicBodyd> > >& islands);
