@@ -265,7 +265,7 @@ void ArticulatedBody::load_from_xml(shared_ptr<const XMLTree> node, std::map<str
   // assert(strcasecmp(node->name().c_str(), "MCArticulatedBody") == 0);
 
   // see whether to load the model from a URDF file
-  XMLAttrib* urdf_attr = node->get_attrib("urdf");
+  XMLAttrib* urdf_attr = node->get_attrib("urdf-filename");
   if (urdf_attr)
   {
     // get the URDF filename
