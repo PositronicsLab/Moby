@@ -36,6 +36,7 @@ class ConstraintSimulator : public Simulator
     virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
     boost::shared_ptr<ContactParameters> get_contact_parameters(CollisionGeometryPtr geom1, CollisionGeometryPtr geom2) const;
+    const std::vector<PairwiseDistInfo>& get_pairwise_distances() const { return _pairwise_distances; }
 
     /// Determines whether two geometries are not checked
     std::set<Ravelin::sorted_pair<CollisionGeometryPtr> > unchecked_pairs;

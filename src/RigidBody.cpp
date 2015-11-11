@@ -15,6 +15,7 @@
 #include <Moby/XMLTree.h>
 #include <Moby/Joint.h>
 #include <Moby/Log.h>
+#include <Moby/Simulator.h>
 #include <Moby/RigidBody.h>
 #ifdef USE_OSG
 #include "Color.h"
@@ -47,6 +48,13 @@ RigidBody::RigidBody()
 {
   // setup visualization pose
   _vF->rpose = _F;
+}
+
+/// Applies a generalized impulse to the rigid body (calls the simulator)
+void RigidBody::apply_generalized_impulse(const SharedVectorNd& gj)
+{
+  shared_ptr<Simulator> s(simulator);
+  s->apply_impulse(RigidBodyd::get_this(), gj);
 }
 
 /// Sets the rigid body inertia for this body
@@ -504,50 +512,6 @@ JointPtr RigidBody::get_inner_joint_explicit() const
   return dynamic_pointer_cast<Joint>(RigidBodyd::get_inner_joint_explicit());
 }
 
-/// Returns the ODE's for position and velocity (concatenated into x)
-void RigidBody::ode_noexcept(SharedConstVectorNd& x, double t, double dt, void* data, SharedVectorNd& dx)
-{
-  // get the number of generalized coordinates
-  const unsigned NGC_EUL = num_generalized_coordinates(eEuler);
-
-  // get the shared pointer to this
-  RigidBodyPtr shared_this = dynamic_pointer_cast<RigidBody>(Base::shared_from_this());
-
-  // get the generalized coordinates and velocity
-  const SharedVectorNd gc = x.segment(0, NGC_EUL).get();
-  const SharedVectorNd gv = x.segment(NGC_EUL, x.size()).get();
-
-  // get the derivative of generalized coordinates and velocity
-  SharedVectorNd dgc = dx.segment(0, NGC_EUL);
-  SharedVectorNd dgv = dx.segment(NGC_EUL, x.size());
-
-  // set the state and velocity
-  set_generalized_coordinates_euler(gc);
-  set_generalized_velocity(DynamicBodyd::eSpatial, gv);
-
-  // we need the generalized velocity as Rodrigues coordinates
-  get_generalized_velocity(DynamicBodyd::eEuler, dgc);
-
-  // clear the force accumulators on the body
-  reset_accumulators();
-
-  // add all recurrent forces on the body
-  const list<RecurrentForcePtr>& rfs = get_recurrent_forces();
-  BOOST_FOREACH(RecurrentForcePtr rf, rfs)
-    rf->add_force(shared_this);
-
-  // call the body's controller
-  if (controller)
-  {
-    FILE_LOG(LOG_DYNAMICS) << "Computing controller forces for " << id << std::endl;
-    (*controller)(shared_this, t, controller_arg);
-  }
-
-  // calculate forward dynamics at state x
-  calc_fwd_dyn();
-  get_generalized_acceleration(dgv);
-}
-
 /// Prepares to compute the ODE
 void RigidBody::prepare_to_calc_ode(SharedConstVectorNd& x, double t, double dt, void* data)
 {
@@ -576,8 +540,24 @@ void RigidBody::prepare_to_calc_ode(SharedConstVectorNd& x, double t, double dt,
   // call the body's controller
   if (controller)
   {
+    VectorNd tmp;
+
+    // get the clone as a dynamic body
+    shared_ptr<DynamicBodyd> db = dynamic_pointer_cast<DynamicBodyd>(clone);
+
+    // update the clone
+    get_generalized_coordinates_euler(tmp);
+    db->set_generalized_coordinates_euler(tmp);    
+    get_generalized_velocity(DynamicBodyd::eSpatial, tmp);
+    db->set_generalized_velocity(DynamicBodyd::eSpatial, tmp);
+
+    // get the generalized forces
+    (*controller)(tmp, t, controller_arg);
+
     FILE_LOG(LOG_DYNAMICS) << "Computing controller forces for " << id << std::endl;
-    (*controller)(shared_this, t, controller_arg);
+
+    // apply the generalized forces
+    add_generalized_force(tmp);
   }
 }
 

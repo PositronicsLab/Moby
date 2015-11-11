@@ -12,6 +12,7 @@
 #include <Moby/XMLTree.h>
 #include <Moby/NumericalException.h>
 #include <Moby/XMLReader.h>
+#include <Moby/Simulator.h>
 #include <Moby/RCArticulatedBody.h>
 
 using boost::shared_ptr;
@@ -31,6 +32,13 @@ using namespace Moby;
  */
 RCArticulatedBody::RCArticulatedBody()
 {
+}
+
+/// Applies a generalized impulse to the rigid body (calls the simulator)
+void RCArticulatedBody::apply_generalized_impulse(const SharedVectorNd& gj)
+{
+  shared_ptr<Simulator> s(simulator);
+  s->apply_impulse(RCArticulatedBodyd::get_this(), gj);
 }
 
 /// Clones this

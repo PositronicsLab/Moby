@@ -20,6 +20,8 @@ OutputIterator CCD::find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr
   {
     if (boost::dynamic_pointer_cast<PlanePrimitive>(pB))
       return find_contacts_plane_generic(cgB, cgA, output_begin, TOL);
+    else if (boost::dynamic_pointer_cast<BoxPrimitive>(pB))
+      return find_contacts_box_box(cgA, cgB, output_begin, TOL);
     else if (boost::dynamic_pointer_cast<SpherePrimitive>(pB))
       return find_contacts_box_sphere(cgA, cgB, output_begin, TOL);
   }
@@ -685,15 +687,15 @@ OutputIterator CCD::find_contacts_sphere_heightmap(CollisionGeometryPtr cgA, Col
   const Ravelin::MatrixNd& heights = hmB->get_heights();
 
   // get the lower i and j indices
-  unsigned lowi = (unsigned) ((bv_lo[X]+width*0.5)*(heights.rows()-1)/width);
-  unsigned lowj = (unsigned) ((bv_lo[Z]+depth*0.5)*(heights.columns()-1)/depth);
+  unsigned lowi = constrain_unsigned((bv_lo[X]+width*0.5)*(heights.rows()-1)/width,heights.rows()-1);
+  unsigned lowj = constrain_unsigned((bv_lo[Z]+depth*0.5)*(heights.columns()-1)/depth,heights.columns()-1);
 
   // get the upper i and j indices
-  unsigned upi = (unsigned) ((bv_hi[X]+width*0.5)*(heights.rows()-1)/width)+1;
-  unsigned upj = (unsigned) ((bv_hi[Z]+depth*0.5)*(heights.columns()-1)/depth)+1;
+  unsigned upi = constrain_unsigned(((bv_hi[X]+width*0.5)*(heights.rows()-1)/width)+1,heights.rows()-1);
+  unsigned upj = constrain_unsigned(((bv_hi[Z]+depth*0.5)*(heights.columns()-1)/depth)+1,heights.columns()-1);
 
   // iterate over all points in the bounding region
-  for (unsigned i=lowi; i<= upi; i++)
+  for (unsigned i=lowi; i< upi; i++)
     for (unsigned j=lowj; j< upj; j++)
     {
       // compute the point on the heightmap
@@ -803,12 +805,12 @@ OutputIterator CCD::find_contacts_convex_heightmap(CollisionGeometryPtr cgA, Col
   const Ravelin::MatrixNd& heights = hmB->get_heights();
 
   // get the lower i and j indices
-  unsigned lowi = (unsigned) ((bv_lo[X]+width*0.5)*(heights.rows()-1)/width);
-  unsigned lowj = (unsigned) ((bv_lo[Z]+depth*0.5)*(heights.columns()-1)/depth);
+  unsigned lowi = constrain_unsigned((bv_lo[X]+width*0.5)*(heights.rows()-1)/width,heights.rows()-1);
+  unsigned lowj = constrain_unsigned((bv_lo[Z]+depth*0.5)*(heights.columns()-1)/depth,heights.columns()-1);
 
   // get the upper i and j indices
-  unsigned upi = (unsigned) ((bv_hi[X]+width*0.5)*(heights.rows()-1)/width)+1;
-  unsigned upj = (unsigned) ((bv_hi[Z]+depth*0.5)*(heights.columns()-1)/depth)+1;
+  unsigned upi = constrain_unsigned(((bv_hi[X]+width*0.5)*(heights.rows()-1)/width)+1,heights.rows()-1);
+  unsigned upj = constrain_unsigned(((bv_hi[Z]+depth*0.5)*(heights.columns()-1)/depth)+1,heights.columns()-1);
 
   // iterate over all points in the bounding region
   for (unsigned i=lowi; i<= upi; i++)
@@ -896,6 +898,8 @@ OutputIterator CCD::find_contacts_sphere_sphere(CollisionGeometryPtr cgA, Collis
 template <class OutputIterator>
 OutputIterator CCD::find_contacts_box_box(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator o, double TOL)
 {
+  return find_contacts_generic(cgA, cgB , o, TOL);
+
   // get the two boxes
   boost::shared_ptr<BoxPrimitive> bA = boost::dynamic_pointer_cast<BoxPrimitive>(cgA->get_geometry());
   boost::shared_ptr<BoxPrimitive> bB = boost::dynamic_pointer_cast<BoxPrimitive>(cgB->get_geometry());
@@ -1079,7 +1083,8 @@ OutputIterator CCD::find_contacts_torus_plane(CollisionGeometryPtr cgA, Collisio
 
     // plane origin: plane origin in torus frame
     // line origin: torus origin in torus frame
-    Point3d p0 = tPp.transform_point(Point3d(0.0, 0.0, 0.0, Pplane)), l0(0,0,0,Ptorus);
+    Point3d p0 = tPp.transform_point(Point3d(0.0, 0.0, 0.0, Pplane));
+    Point3d l0(0,0,0,Ptorus);
 
     // plane normal: plane normal in torus frame
     // line direction: on xy-plane of torus
@@ -1089,7 +1094,7 @@ OutputIterator CCD::find_contacts_torus_plane(CollisionGeometryPtr cgA, Collisio
     if (d > TOL)
       return o;
 
-    Point3d p_torus = d*l + l0;
+    Point3d p_torus = l*(d + r + R) + l0;
     Point3d point = Ravelin::Pose3d::transform_point(Moby::GLOBAL,p_torus);
     FILE_LOG(LOG_COLDET) << " -- Torus is perpendicular to plane"<< std::endl;
     FILE_LOG(LOG_COLDET) << "Point: "<<  point << std::endl;

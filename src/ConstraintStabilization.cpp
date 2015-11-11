@@ -218,11 +218,8 @@ void ConstraintStabilization::add_contact_constraints(std::vector<UnilateralCons
 
   double dist = CollisionGeometry::calc_signed_dist(cg1, cg2, p1, p2);
 
-  // case 1: bodies are "kissing" 
-  if (std::fabs(dist) < NEAR_ZERO)
-    sim->_coldet->find_contacts(cg1,cg2, constraints);
-  // case 2: bodies are separated      
-  else if (dist >= NEAR_ZERO)
+  // case 1: bodies are clearly separated      
+  if (dist >= NEAR_ZERO)
   {
     boost::shared_ptr<const Pose3d> GLOBAL;
     boost::shared_ptr<const Pose3d> pose1(p1.pose);
@@ -237,34 +234,9 @@ void ConstraintStabilization::add_contact_constraints(std::vector<UnilateralCons
     FILE_LOG(LOG_CONSTRAINT) << "creating contact between separated bodies: " << cg1->get_single_body()->body_id << " and " << cg2->get_single_body()->body_id << std::endl;
     constraints.insert(constraints.end(), uc); 
   }
-  // case 3: bodies are properly interpenetrating
-  else
-  {
-    // get the two rigid bodies
-    shared_ptr<RigidBodyd> rb1 = dynamic_pointer_cast<RigidBody>(cg1->get_single_body());
-    shared_ptr<RigidBodyd> rb2 = dynamic_pointer_cast<RigidBody>(cg2->get_single_body());
-
-    // get the two poses of the rigid bodies
-    boost::shared_ptr<const Pose3d> pose1 = rb1->get_inertial_pose();
-    boost::shared_ptr<const Pose3d> pose2 = rb2->get_inertial_pose();
-
-    // get the centers of mass in the global frame
-    Vector3d rb1_c(0.0, 0.0, 0.0, pose1);
-    Vector3d rb2_c(0.0, 0.0, 0.0, pose2);
-    Vector3d rb1_c0 = Pose3d::transform_point(GLOBAL, rb1_c);
-    Vector3d rb2_c0 = Pose3d::transform_point(GLOBAL, rb2_c);       
-
-    // setup the contact point directly between them
-    Point3d cp = rb1_c0*0.5 + rb2_c0*0.5;
-
-    // setup the normal to point toward body 1
-    Vector3d normal = Vector3d::normalize(rb1_c0 - rb2_c0);
-
-    UnilateralConstraint uc = CollisionDetection::create_contact(cg1, cg2, cp, normal, dist);
-    constraints.insert(constraints.end(), uc);
-    FILE_LOG(LOG_CONSTRAINT) << "creating contact between interpenetrating bodies " << rb1->body_id << " and " << rb2->body_id << std::endl;
-    FILE_LOG(LOG_CONSTRAINT) << "contact: " << std::endl << uc;
-  }
+  // case 2: bodies are contacting/interpenetrated 
+  else// (std::fabs(dist) < NEAR_ZERO)
+    sim->_coldet->find_contacts(cg1,cg2, constraints);
 }
 
 /// Computes the constraint data
@@ -1271,8 +1243,8 @@ double ConstraintStabilization::ridders_unilateral(double x1, double x2, double 
       xnew=xm+(xm-xl)*((fl >= fh ? 1.0 : -1.0)*fm/s); // Updating formula
       ans=xnew;
       fnew=eval_unilateral(ans, idx, dq, q, sim);
-      if (std::fabs(fnew) < TOL)
-        return (fl < 0.0) ? xl : xh; 
+      if (std::fabs(fnew) < TOL && fnew >= 0.0)
+        return xnew;
       if (sign(fm,fnew) != fm) 
       {
         xl=xm;

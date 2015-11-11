@@ -9,7 +9,7 @@ set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/CMakeModules)
 include_directories ("include")
 
 # setup library sources
-set (SOURCES AABB.cpp ArticulatedBody.cpp Base.cpp BoundingSphere.cpp BoxPrimitive.cpp BV.cpp CCD.cpp CollisionDetection.cpp CollisionGeometry.cpp CompGeom.cpp ConePrimitive.cpp ConstraintSimulator.cpp ConstraintStabilization.cpp ContactParameters.cpp CP.cpp CylinderPrimitive.cpp DampingForce.cpp Dissipation.cpp DynamicBody.cpp FixedJoint.cpp Gears.cpp GJK.cpp GravityForce.cpp HeightmapPrimitive.cpp ImpactConstraintHandler.cpp ImpactConstraintHandlerNQP.cpp ImpactConstraintHandlerLCP.cpp ImpactConstraintHandlerQP.cpp IndexedTetraArray.cpp IndexedTriArray.cpp Joint.cpp LCP.cpp Log.cpp OBB.cpp OSGGroupWrapper.cpp PenaltyConstraintHandler.cpp PlanePrimitive.cpp PolyhedralPrimitive.cpp Polyhedron.cpp Primitive.cpp PrismaticJoint.cpp RCArticulatedBody.cpp RevoluteJoint.cpp RigidBody.cpp SDFReader.cpp Simulator.cpp SparseJacobian.cpp SpherePrimitive.cpp SphericalJoint.cpp SSL.cpp SSR.cpp StokesDragForce.cpp TessellatedPolyhedron.cpp Tetrahedron.cpp ThickTriangle.cpp TimeSteppingSimulator.cpp TorusPrimitive.cpp Triangle.cpp TriangleMeshPrimitive.cpp UnilateralConstraint.cpp UniversalJoint.cpp URDFReader.cpp Visualizable.cpp XMLReader.cpp XMLTree.cpp XMLWriter.cpp)
+set (SOURCES AABB.cpp ArticulatedBody.cpp Base.cpp BoundingSphere.cpp BoxPrimitive.cpp BV.cpp CCD.cpp CollisionDetection.cpp CollisionGeometry.cpp CompGeom.cpp ConePrimitive.cpp ConstraintSimulator.cpp ConstraintStabilization.cpp ContactParameters.cpp ControlledBody.cpp CP.cpp CylinderPrimitive.cpp DampingForce.cpp Dissipation.cpp FixedJoint.cpp Gears.cpp GJK.cpp GravityForce.cpp HeightmapPrimitive.cpp ImpactConstraintHandler.cpp ImpactConstraintHandlerNQP.cpp ImpactConstraintHandlerLCP.cpp ImpactConstraintHandlerQP.cpp IndexedTetraArray.cpp IndexedTriArray.cpp Joint.cpp LCP.cpp Log.cpp OBB.cpp OSGGroupWrapper.cpp PenaltyConstraintHandler.cpp PlanarJoint.cpp PlanePrimitive.cpp PolyhedralPrimitive.cpp Polyhedron.cpp Primitive.cpp PrismaticJoint.cpp RCArticulatedBody.cpp RevoluteJoint.cpp RigidBody.cpp SDFReader.cpp Simulator.cpp SparseJacobian.cpp SpherePrimitive.cpp SphericalJoint.cpp SignedDistDot.cpp SSL.cpp SSR.cpp StokesDragForce.cpp TessellatedPolyhedron.cpp Tetrahedron.cpp ThickTriangle.cpp TimeSteppingSimulator.cpp TorusPrimitive.cpp Triangle.cpp TriangleMeshPrimitive.cpp UnilateralConstraint.cpp UniversalJoint.cpp URDFReader.cpp Visualizable.cpp XMLReader.cpp XMLTree.cpp XMLWriter.cpp)
 #set (SOURCES MCArticulatedBody.cpp)
 
 # build options
@@ -20,6 +20,7 @@ option (USE_AP "Use the Anitescu-Potra contact model?" OFF)
 option (USE_QLCPD "Build against QLCPD library?" OFF)
 option (VISUALIZE_INERTIA "Visualize moments of inertia?" OFF)
 option (PROFILE "Build for profiling?" OFF)
+option (USE_SIGNED_DIST_CONSTRAINT "Use signed distance constraint? (experimental)" OFF)
 
 # look for QLCPD
 find_library(QLCPD_FOUND qlcpd-dense /usr/local/lib /usr/lib)
@@ -41,6 +42,10 @@ if (PROFILE)
   set_source_files_properties(example/driver.cpp PROPERTIES COMPILE_FLAGS -DGOOGLE_PROFILER) 
   set (EXTRA_LIBS ${EXTRA_LIBS} profiler)
 endif (PROFILE)
+if (USE_SIGNED_DIST_CONSTRAINT)
+  set_source_files_properties(src/ImpactConstraintHandler.cpp PROPERTIES COMPILE_FLAGS -DUSE_SIGNED_DIST_CONSTRAINT)
+  set_source_files_properties(src/ImpactConstraintHandlerQP.cpp PROPERTIES COMPILE_FLAGS -DUSE_SIGNED_DIST_CONSTRAINT)
+endif (USE_SIGNED_DIST_CONSTRAINT)
 
 # fix the C++ linking error on 64-bit Linux
 set (CMAKE_CXX_LINK_EXECUTABLE "${CMAKE_CXX_LINK_EXECUTABLE} -ldl")
@@ -166,9 +171,12 @@ if (USE_OSG AND OSG_FOUND)
   target_link_libraries (Moby ${OSGMANIPULATOR_LIBRARIES})
 endif (USE_OSG AND OSG_FOUND)
 
+add_library(MobyDriver "" "" example/driver.cpp)
+target_link_libraries (MobyDriver Moby)
+
 # build the tools?
 if (BUILD_TOOLS)
-  add_executable(moby-driver example/driver.cpp)
+  add_executable(moby-driver example/main.cpp)
   if (USE_OSG AND OSG_FOUND)
     add_executable(moby-view example/view.cpp)
   endif (USE_OSG AND OSG_FOUND)
@@ -181,7 +189,7 @@ if (BUILD_TOOLS)
   add_executable(moby-convexify example/convexify.cpp)
   add_executable(moby-adjust-center example/adjust-center.cpp)
   add_executable(moby-center example/center.cpp)
-  target_link_libraries(moby-driver Moby)
+  target_link_libraries(moby-driver MobyDriver Moby)
   if (USE_OSG AND OSG_FOUND)
     target_link_libraries(moby-render ${OSG_LIBRARIES})
     target_link_libraries(moby-render ${OSGVIEWER_LIBRARIES})
@@ -262,6 +270,7 @@ install (TARGETS sphere-plugin DESTINATION lib/Moby/plugins)
 
 # setup install locations for library
 install (TARGETS Moby DESTINATION lib)
+install (TARGETS MobyDriver DESTINATION lib)
 
 # setup install locations for binaries
 install (TARGETS moby-driver DESTINATION bin)

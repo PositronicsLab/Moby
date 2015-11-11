@@ -33,6 +33,9 @@ class ContactParameters : public Base
     /// Coefficient of viscous friction for contact (default is 0.0)
     double mu_viscous;
 
+    /// contact compliance (inverse of stiffness- zero compliance equals true rigidity)
+    double compliance;
+
     /// Penalty Method Depth Penalty
     double penalty_Kp;
     

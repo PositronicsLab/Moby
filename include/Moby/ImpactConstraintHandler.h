@@ -29,6 +29,7 @@
 
 namespace Moby {
 
+class ConstraintSimulator;
 class NQP_IPOPT;
 class LCP_IPOPT;
 
@@ -41,6 +42,7 @@ class ImpactConstraintHandler
   public:
     ImpactConstraintHandler();
     void process_constraints(const std::vector<UnilateralConstraint>& constraints);
+    static boost::shared_ptr<Ravelin::DynamicBodyd> get_super_body(boost::shared_ptr<Ravelin::SingleBodyd> sb);
 
     /// If set to true, uses the interior-point solver (default is false)
     bool use_ip_solver;
@@ -52,6 +54,7 @@ class ImpactConstraintHandler
     double ip_eps;
 
   private:
+    static void compute_signed_dist_dot_Jacobian(UnilateralConstraintProblemData& q, Ravelin::MatrixNd& J);
     void solve_frictionless_lcp(UnilateralConstraintProblemData& q, Ravelin::VectorNd& z);
     void apply_visc_friction_model_to_connected_constraints(const std::list<UnilateralConstraint*>& constraints);
     void apply_no_slip_model_to_connected_constraints(const std::list<UnilateralConstraint*>& constraints);
@@ -61,7 +64,6 @@ class ImpactConstraintHandler
     void update_constraint_velocities_from_impulses(UnilateralConstraintProblemData& q);
     bool apply_restitution(const UnilateralConstraintProblemData& q, Ravelin::VectorNd& z) const;
     bool apply_restitution(UnilateralConstraintProblemData& q) const;
-    static boost::shared_ptr<Ravelin::DynamicBodyd> get_super_body(boost::shared_ptr<Ravelin::SingleBodyd> sb);
     static bool use_qp_solver(const UnilateralConstraintProblemData& epd);
     void apply_visc_friction_model(UnilateralConstraintProblemData& epd);
     void apply_no_slip_model(UnilateralConstraintProblemData& epd);
@@ -92,6 +94,7 @@ class ImpactConstraintHandler
     static void update_generalized_velocities(const UnilateralConstraintProblemData& epd, const Ravelin::VectorNd& dv); 
     static void add_contact_to_Jacobian(const UnilateralConstraint& c, SparseJacobian& Cn, SparseJacobian& Cs, SparseJacobian& Ct, const std::map<boost::shared_ptr<Ravelin::DynamicBodyd>, unsigned>& gc_map, unsigned contact_index);
     static void add_contact_dir_to_Jacobian(boost::shared_ptr<Ravelin::RigidBodyd> rb, boost::shared_ptr<Ravelin::ArticulatedBodyd> ab, SparseJacobian& C, const Ravelin::Vector3d& contact_point, const Ravelin::Vector3d& d, const std::map<boost::shared_ptr<Ravelin::DynamicBodyd>, unsigned>& gc_map, unsigned contact_index);
+    static double calc_signed_dist(boost::shared_ptr<Ravelin::SingleBodyd> sb1, boost::shared_ptr<Ravelin::SingleBodyd> sb2);
 
     Ravelin::LinAlgd _LA;
     LCP _lcp;
@@ -100,7 +103,7 @@ class ImpactConstraintHandler
     UnilateralConstraintProblemData _epd;
 
     // a pointer to the simulator
-    boost::shared_ptr<Simulator> _simulator;
+    boost::shared_ptr<ConstraintSimulator> _simulator;
 
     // temporaries for compute_problem_data(), solve_qp_work(), solve_lcp(), and apply_impulses()
     Ravelin::MatrixNd _MM;

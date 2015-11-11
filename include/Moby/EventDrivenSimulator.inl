@@ -18,17 +18,6 @@ double EventDrivenSimulator::integrate_with_sustained_constraints(double step_si
   unsigned state_sz = 0;
   for (ForwardIterator i = begin; i != end; i++)
   {
-    // if the body is kinematically updated, call its controller and otherwise
-    // ignore it
-    if ((*i)->get_kinematic())
-    {
-      if ((*i)->controller)
-        (*(*i)->controller)(*i, current_time, (*i)->controller_arg);
-
-      // ignore body otherwise
-      continue;
-    }
-
     // update the state size
     state_sz += (*i)->num_generalized_coordinates(DynamicBody::eEuler);
     state_sz += (*i)->num_generalized_coordinates(DynamicBody::eSpatial);
@@ -41,10 +30,6 @@ double EventDrivenSimulator::integrate_with_sustained_constraints(double step_si
   unsigned idx = 0;
   for (ForwardIterator i = begin; i != end; i++)
   {
-    // see whether to skip the body
-    if ((*i)->get_kinematic())
-      continue;
-
     // get number of generalized coordinates and velocities
     const unsigned NGC = (*i)->num_generalized_coordinates(DynamicBody::eEuler);
     const unsigned NGV = (*i)->num_generalized_coordinates(DynamicBody::eSpatial);
@@ -63,10 +48,6 @@ double EventDrivenSimulator::integrate_with_sustained_constraints(double step_si
   idx = 0;
   for (ForwardIterator i = begin; i != end; i++)
   {
-    // see whether to skip the body
-    if ((*i)->get_kinematic())
-      continue;
-
     // get number of generalized coordinates and velocities
     const unsigned NGC = (*i)->num_generalized_coordinates(DynamicBody::eEuler);
     const unsigned NGV = (*i)->num_generalized_coordinates(DynamicBody::eSpatial);

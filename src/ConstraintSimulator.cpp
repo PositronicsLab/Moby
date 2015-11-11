@@ -332,7 +332,7 @@ void ConstraintSimulator::calc_impacting_unilateral_constraint_forces(double dt)
   }
 
   // set simulator pointer
-  _impact_constraint_handler._simulator = dynamic_pointer_cast<Simulator>(shared_from_this());
+  _impact_constraint_handler._simulator = dynamic_pointer_cast<ConstraintSimulator>(shared_from_this());
 
   // compute impulses here...
   try
@@ -527,11 +527,7 @@ void ConstraintSimulator::find_unilateral_constraints(double contact_dist_thresh
     if (!ab)
       continue;
 
-    // if the body is kinematically controlled, do nothing
-    if (ab->get_kinematic())
-      continue;
-
-    // get limit constraints
+     // get limit constraints
     ab->find_limit_constraints(std::back_inserter(_rigid_constraints));
   }
 

@@ -634,6 +634,7 @@ void UnilateralConstraint::set_contact_parameters(const ContactParameters& cpara
   contact_penalty_Kp = cparams.penalty_Kp;
   contact_penalty_Kv = cparams.penalty_Kv;
   contact_epsilon = cparams.epsilon;
+  contact_compliance = cparams.compliance;
   contact_NK = cparams.NK;
 
   // redetermine contact tangents
@@ -1115,6 +1116,7 @@ void UnilateralConstraint::determine_connected_constraints(const vector<Unilater
           // see whether one of the bodies is equal to the node
           if (sb1 == node || sb2 == node)
           {
+            assert(!groups.empty());
             groups.back().push_back(*i);
             i = constraints_copy.erase(i);
             continue;
@@ -1128,6 +1130,7 @@ void UnilateralConstraint::determine_connected_constraints(const vector<Unilater
           RigidBodyPtr outboard = (*i)->limit_joint->get_outboard_link();
           if (inboard == node || outboard == node)
           {
+            assert(!groups.empty());
             groups.back().push_back(*i);
             i = constraints_copy.erase(i);
             continue;
@@ -1138,49 +1141,49 @@ void UnilateralConstraint::determine_connected_constraints(const vector<Unilater
         else
           assert(false);
       }
+    }
 
-      // if no unilateral constraints have been added, add to remaining islands
-      if (groups.back().empty())
+    // if no unilateral constraints have been added, add to remaining islands
+    if (groups.back().empty())
+    {
+      // don't need an empty group of unilateral constraints
+      groups.pop_back();
+
+      // create a new island
+      remaining_islands.push_back(vector<shared_ptr<DynamicBodyd> >());
+
+      // create a secondary node q and secondary processing set
+      std::queue<shared_ptr<SingleBodyd> > node_q2;
+      std::set<shared_ptr<SingleBodyd> > processed_nodes2;        
+
+      // add the node to the queue
+      node_q2.push(node);
+
+      // find all connected bodies
+      while (!node_q2.empty())
       {
-        // don't need an empty group of unilateral constraints
-        groups.pop_back();
+        // get the node off of the front of the node queue
+        node = node_q2.front();
+        node_q2.pop();
 
-        // create a new island
-        remaining_islands.push_back(vector<shared_ptr<DynamicBodyd> >());
+        // indicate that the node has now been processed
+        processed_nodes2.insert(node);
 
-        // create a secondary node q and secondary processing set
-        std::queue<shared_ptr<SingleBodyd> > node_q2;
-        std::set<shared_ptr<SingleBodyd> > processed_nodes2;        
+        // add the super body of this node to the island
+        remaining_islands.back().push_back(node->get_super_body());
 
-        // add the node to the queue
-        node_q2.push(node);
+        // add all neighbors of the node that have not been processed already 
+        // to the node queue
+        std::pair<EdgeIter, EdgeIter> neighbors = edges.equal_range(node);
+        for (EdgeIter i = neighbors.first; i != neighbors.second; i++)
+          if (processed_nodes2.find(i->second) == processed_nodes2.end())
+            node_q2.push(i->second);
+      }
 
-        // find all connected bodies
-        while (!node_q2.empty())
-        {
-          // get the node off of the front of the node queue
-          node = node_q2.front();
-          node_q2.pop();
-
-          // indicate that the node has now been processed
-          processed_nodes2.insert(node);
-
-          // add the super body of this node to the island
-          remaining_islands.back().push_back(node->get_super_body());
-
-          // add all neighbors of the node that have not been processed already 
-          // to the node queue
-          std::pair<EdgeIter, EdgeIter> neighbors = edges.equal_range(node);
-          for (EdgeIter i = neighbors.first; i != neighbors.second; i++)
-            if (processed_nodes2.find(i->second) == processed_nodes2.end())
-              node_q2.push(i->second);
-        }
-
-        // finally, make the island of super bodies unique
-        vector<shared_ptr<DynamicBodyd> >& island = remaining_islands.back();
-        std::sort(island.begin(), island.end());
-        island.erase(std::unique(island.begin(), island.end()), island.end());
-      } 
+      // finally, make the island of super bodies unique
+      vector<shared_ptr<DynamicBodyd> >& island = remaining_islands.back();
+      std::sort(island.begin(), island.end());
+      island.erase(std::unique(island.begin(), island.end()), island.end());
     }
   }
 
