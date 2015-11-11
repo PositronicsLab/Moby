@@ -229,7 +229,7 @@ void RCArticulatedBody::load_from_xml(shared_ptr<const XMLTree> node, map<string
 
   // transform the body, if desired
   XMLAttrib* xlat_attr = node->get_attrib("translate");
-  XMLAttrib* rotate_attr = node->get_attrib("rotate");
+  XMLAttrib* rotate_attr = node->get_attrib("rpy");
 
   if (rotate_attr)
   {
