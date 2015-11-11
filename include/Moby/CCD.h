@@ -70,10 +70,6 @@ class CCD : public CollisionDetection
     static double calc_max_dist(ArticulatedBodyPtr ab, RigidBodyPtr rb, const Ravelin::Vector3d& n, double rmax);
     static double calc_max_dist(RigidBodyPtr rb, const Ravelin::Vector3d& n, double rmax);
     static double calc_max_step(RigidBodyPtr rbA, RigidBodyPtr rbB, const Ravelin::Vector3d& n, double rmaxA, double rmaxB, double dist);
-    bool lp_seidel(const Ravelin::MatrixNd& A, const Ravelin::VectorNd& b, const Ravelin::VectorNd& c, const Ravelin::VectorNd& l, const Ravelin::VectorNd& u, Ravelin::VectorNd& x);
-    Ravelin::VectorNd& insert_component(const Ravelin::VectorNd& x, unsigned k, Ravelin::VectorNd& xn);
-    Ravelin::VectorNd& remove_component(const Ravelin::VectorNd& x, unsigned k, Ravelin::VectorNd& xn);
-    double finitize(double x);
 
     // structure for doing broad phase collision detection
     struct BoundsStruct
@@ -151,9 +147,6 @@ class CCD : public CollisionDetection
 
     template <class OutputIterator>
     OutputIterator find_contacts_box_sphere(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL);
-
-    template <class OutputIterator>
-    OutputIterator find_contacts_box_box(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL);
 
     template <class RandomAccessIterator>
     void insertion_sort(RandomAccessIterator begin, RandomAccessIterator end);

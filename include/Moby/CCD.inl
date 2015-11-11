@@ -21,7 +21,7 @@ OutputIterator CCD::find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr
     if (boost::dynamic_pointer_cast<PlanePrimitive>(pB))
       return find_contacts_plane_generic(cgB, cgA, output_begin, TOL);
     else if (boost::dynamic_pointer_cast<BoxPrimitive>(pB))
-      return find_contacts_box_box(cgA, cgB, output_begin, TOL);
+      return find_contacts_polyhedron_polyhedron(cgA, cgB, output_begin, TOL);
     else if (boost::dynamic_pointer_cast<SpherePrimitive>(pB))
       return find_contacts_box_sphere(cgA, cgB, output_begin, TOL);
   }
@@ -85,6 +85,7 @@ OutputIterator CCD::find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr
 template <class OutputIterator>
 OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL)
 {
+  std::vector<std::pair<Ravelin::Vector3d, double> > hs;
   enum FeatureType { eNone, eVertex, eEdge, eFace };
   FeatureType featA = eNone, featB = eNone;
   boost::shared_ptr<Polyhedron::Vertex> vA, vB;
@@ -94,6 +95,10 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
   // get the two primitives
   boost::shared_ptr<const PolyhedralPrimitive> pA = boost::dynamic_pointer_cast<const PolyhedralPrimitive>(cgA->get_geometry());
   boost::shared_ptr<const PolyhedralPrimitive> pB = boost::dynamic_pointer_cast<const PolyhedralPrimitive>(cgB->get_geometry());
+
+  // get the two polyhedra
+  const Polyhedron& polyA = pA->get_polyhedron();
+  const Polyhedron& polyB = pB->get_polyhedron();
 
   // get the two poses
   boost::shared_ptr<const Ravelin::Pose3d> poseA = pA->get_pose(cgA);
@@ -108,6 +113,51 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
   if (dist > TOL)
     return output_begin; 
 
+  // case #2: use volume of intersection
+  if (dist <= 0.0)
+  {
+    // get the normals and faces from polyhedron A, transforming to global frame
+    for (unsigned i=0; i< polyA.get_faces().size(); i++)
+    {
+      // get the face
+      boost::shared_ptr<Polyhedron::Face> f = polyA.get_faces()[i];
+
+      // get the plane corresponding to the face
+      Plane p = f->get_plane();
+
+      // transform the plane
+
+      // save the halfspace
+    }
+
+    // get the normals and faces from polyhedron B, transforming to global frame
+    for (unsigned i=0; i< polyB.get_faces().size(); i++)
+    {
+      // get the face
+      boost::shared_ptr<Polyhedron::Face> f = polyB.get_faces()[i];
+
+      // get the plane corresponding to the face
+      Plane p = f->get_plane();
+
+      // transform the plane
+
+      // save the halfspace
+    }
+
+
+    // find the interior point
+    Ravelin::Origin3d ip;
+    dist = CompGeom::find_hs_interior_point(hs.begin(), hs.end(), ip);
+
+    // calculate the half-space intersection
+    TessellatedPolyhedronPtr tpoly = CompGeom::calc_hs_intersection(hs.begin(), hs.end(), ip);
+
+    // determine the normal
+
+    // get each vertex, creating a contact point
+  }
+
+  // case #3: use closest features
   // get the type of the first feature
   if (boost::dynamic_pointer_cast<const Polyhedron::Vertex>(closestA))
   {
@@ -892,55 +942,6 @@ OutputIterator CCD::find_contacts_sphere_sphere(CollisionGeometryPtr cgA, Collis
   *o++ = create_contact(cgA, cgB, p, n, dist);
 
   return o;
-}
-
-/// Gets the distance of this box from a sphere
-template <class OutputIterator>
-OutputIterator CCD::find_contacts_box_box(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator o, double TOL)
-{
-  return find_contacts_generic(cgA, cgB , o, TOL);
-
-  // get the two boxes
-  boost::shared_ptr<BoxPrimitive> bA = boost::dynamic_pointer_cast<BoxPrimitive>(cgA->get_geometry());
-  boost::shared_ptr<BoxPrimitive> bB = boost::dynamic_pointer_cast<BoxPrimitive>(cgB->get_geometry());
-
-  // get the relevant poses for both
-  boost::shared_ptr<const Ravelin::Pose3d> bA_pose = bA->get_pose(cgA);
-  boost::shared_ptr<const Ravelin::Pose3d> bB_pose = bB->get_pose(cgB);
-
-  // find closest points
-  Point3d pboxA(bA_pose), pboxB(bB_pose);
-  double dist = CP::find_cpoint(bA, bB, bA_pose, bB_pose, pboxA, pboxB);
-  if (dist > TOL)
-    return o;
-
-  // if the distance between them is greater than zero, return the midpoint
-  // of the two points as the contact point
-  Point3d p;
-  if (dist > NEAR_ZERO)
-  {
-    Ravelin::Vector3d normal;
-    Point3d pboxA_global = Ravelin::Pose3d::transform_point(GLOBAL, pboxA);
-    Point3d pboxB_global = Ravelin::Pose3d::transform_point(GLOBAL, pboxB);
-    p = (pboxA_global + pboxB_global)*0.5;
-    normal = Ravelin::Vector3d::normalize(pboxB_global - pboxA_global);
-
-    // create the contact
-    *o++ = create_contact(cgA, cgB, p, normal, dist);
-  }
-  else
-  {
-    std::vector<Ravelin::Vector3d> normals;
-    p = Ravelin::Pose3d::transform_point(GLOBAL, pboxA);
-    bA->calc_dist_and_normal(pboxA, normals);
-
-    // create the contacts
-    for (unsigned i=0; i< normals.size(); i++)
-      *o++ = create_contact(cgA, cgB, p, normals[i], dist);
-  }
-
-  // call generic find contacts find
-  return find_contacts_generic(cgA, cgB, o, TOL);
 }
 
 /// Gets contact points between a box and a sphere

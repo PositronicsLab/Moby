@@ -2562,9 +2562,8 @@ TessellatedPolyhedronPtr CompGeom::calc_convex_hull(ForwardIterator first, Forwa
  * \return the minimum distance from a halfspace of the interior point; if
  *         the point is negative, there is no interior point
  */
-/*
 template <class ForwardIterator>
-double CompGeom::find_hs_interior_point(ForwardIterator start, ForwardIterator end, Point3d& point)
+double CompGeom::find_hs_interior_point(ForwardIterator start, ForwardIterator end, Ravelin::Origin3d& point)
 {
   assert(std::numeric_limits<double>::has_infinity);
   const double inf = std::numeric_limits<double>::max();
@@ -2600,7 +2599,7 @@ double CompGeom::find_hs_interior_point(ForwardIterator start, ForwardIterator e
 
   // do linear programming
   Ravelin::VectorNd x;
-  if (!Optimization::lp(A, b, c, l, u, x))
+  if (!LP::lp_seidel(A, b, c, l, u, x))
     return -1.0;
 
   // verify that x[3] is not zero
@@ -2608,12 +2607,11 @@ double CompGeom::find_hs_interior_point(ForwardIterator start, ForwardIterator e
     return -1.0;
 
   // determine interior point
-  point = Ravelin::Vector3d(x[0]/x[3], x[1]/x[3], x[2]/x[3]);
+  point = Ravelin::Origin3d(x[0]/x[3], x[1]/x[3], x[2]/x[3]);
 
   // return the distance
   return x[4]/x[3];
 }
-*/
 
 /// Computes the halfspace intersection, returning the result as a convex polyhedron
 /**
@@ -2623,7 +2621,7 @@ double CompGeom::find_hs_interior_point(ForwardIterator start, ForwardIterator e
  * \return a pointer to the created polyhedron or a NULL pointer if unsuccessful
  */
 template <class ForwardIterator>
-TessellatedPolyhedronPtr CompGeom::calc_hs_intersection(ForwardIterator start, ForwardIterator end, const Ravelin::VectorNd& interior_point)
+TessellatedPolyhedronPtr CompGeom::calc_hs_intersection(ForwardIterator start, ForwardIterator end, const Ravelin::Origin3d& interior_point)
 {
   const int DIM = 4;
   const boolT IS_MALLOC = false;

@@ -28,6 +28,7 @@
 #include <Moby/FastThreadable.h>
 #include <Moby/TessellatedPolyhedron.h>
 #include <Moby/Log.h>
+#include <Moby/LP.h>
 #include <Moby/NumericalException.h>
 #include <Moby/Types.h>
 
@@ -201,10 +202,10 @@ class CompGeom
     static Point3d calc_centroid_3D(ForwardIterator first, ForwardIterator last);
     
     template <class ForwardIterator>
-    static TessellatedPolyhedronPtr calc_hs_intersection(ForwardIterator start, ForwardIterator end, const Ravelin::VectorNd& interior_point);
+    static TessellatedPolyhedronPtr calc_hs_intersection(ForwardIterator start, ForwardIterator end, const Ravelin::Origin3d& interior_point);
 
     template <class ForwardIterator>
-    static double find_hs_interior_point(ForwardIterator start, ForwardIterator end, Point3d& point);
+    static double find_hs_interior_point(ForwardIterator start, ForwardIterator end, Ravelin::Origin3d& point);
 
     template <class ForwardIterator>
     static unsigned calc_dimensionality(ForwardIterator first, ForwardIterator last, double tol = NEAR_ZERO);
