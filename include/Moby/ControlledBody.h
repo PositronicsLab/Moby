@@ -34,10 +34,7 @@ class ControlledBody : public virtual Visualizable
     virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
 
     /// The controller callback, if any, for this body
-    Ravelin::VectorNd& (*controller)(Ravelin::VectorNd&, double, void*);
-
-    /// Clone of this body to be passed to the controller
-    boost::shared_ptr<ControlledBody> clone;
+    Ravelin::VectorNd& (*controller)(boost::shared_ptr<ControlledBody> body, Ravelin::VectorNd&, double, void*);
 
     /// Argument to be passed to the controller
     void* controller_arg;

@@ -345,17 +345,8 @@ void Simulator::precalc_fwd_dyn()
     // call the body's controller
     if (db->controller)
     {
-      // get the clone as a dynamic body
-      shared_ptr<DynamicBodyd> dbc = dynamic_pointer_cast<DynamicBodyd>(db->clone);
-
-      // update the clone
-      rdb->get_generalized_coordinates_euler(tmp);
-      dbc->set_generalized_coordinates_euler(tmp);    
-      rdb->get_generalized_velocity(DynamicBodyd::eSpatial, tmp);
-      dbc->set_generalized_velocity(DynamicBodyd::eSpatial, tmp);
-
       // get the generalized forces
-      (*db->controller)(tmp, current_time, db->controller_arg);
+      (*db->controller)(db, tmp, current_time, db->controller_arg);
 
       FILE_LOG(LOG_DYNAMICS) << "Computing controller forces for " << db->id << std::endl;
 

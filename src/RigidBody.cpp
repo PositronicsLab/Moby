@@ -542,17 +542,8 @@ void RigidBody::prepare_to_calc_ode(SharedConstVectorNd& x, double t, double dt,
   {
     VectorNd tmp;
 
-    // get the clone as a dynamic body
-    shared_ptr<DynamicBodyd> db = dynamic_pointer_cast<DynamicBodyd>(clone);
-
-    // update the clone
-    get_generalized_coordinates_euler(tmp);
-    db->set_generalized_coordinates_euler(tmp);    
-    get_generalized_velocity(DynamicBodyd::eSpatial, tmp);
-    db->set_generalized_velocity(DynamicBodyd::eSpatial, tmp);
-
     // get the generalized forces
-    (*controller)(tmp, t, controller_arg);
+    (*controller)(dynamic_pointer_cast<ControlledBody>(RigidBodyd::shared_from_this()), tmp, t, controller_arg);
 
     FILE_LOG(LOG_DYNAMICS) << "Computing controller forces for " << id << std::endl;
 
