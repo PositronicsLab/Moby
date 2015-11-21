@@ -51,8 +51,8 @@ using std::list;
 
 ConstraintStabilization::ConstraintStabilization()
 {
-  // set unilateral tolerance to NEAR_ZERO by default
-  eps = NEAR_ZERO;
+  // set unilateral tolerance to negative NEAR_ZERO by default
+  eps = -NEAR_ZERO;
 
   // set bilateral tolerance
   bilateral_eps = 1e-6;
@@ -137,7 +137,7 @@ void ConstraintStabilization::stabilize(shared_ptr<ConstraintSimulator> sim)
   std::map<shared_ptr<DynamicBodyd>, unsigned> body_index_map;
 
   // save the generalized velocities
-  save_velocities(sim, qd_save);
+//  save_velocities(sim, qd_save);
 
   // get the body configurations and setup the body index map
   get_body_configurations(q, sim);
@@ -159,6 +159,7 @@ void ConstraintStabilization::stabilize(shared_ptr<ConstraintSimulator> sim)
   {
     FILE_LOG(LOG_SIMULATOR) <<"maximum constraint violation: "<< max_vio <<std::endl;
 
+/*
     // zero body velocities first (we only want to change positions based on
     // our updates)
     for (unsigned i=0; i< sim->_bodies.size(); i++)
@@ -168,7 +169,7 @@ void ConstraintStabilization::stabilize(shared_ptr<ConstraintSimulator> sim)
       v.set_zero();
       db->set_generalized_velocity(DynamicBodyd::eSpatial, v);
     }
-
+*/
     // compute problem data (get M, N, alpha, etc.) 
     compute_problem_data(pd, sim);
 
@@ -195,7 +196,7 @@ void ConstraintStabilization::stabilize(shared_ptr<ConstraintSimulator> sim)
   }
 
   // restore the generalized velocities
-  restore_velocities(sim, qd_save);
+//  restore_velocities(sim, qd_save);
 
   FILE_LOG(LOG_SIMULATOR) << iterations << " iterations required" << std::endl;
   FILE_LOG(LOG_SIMULATOR) <<"=====constraint stabilization end ======" << std::endl;
@@ -322,7 +323,7 @@ void ConstraintStabilization::compute_problem_data(std::vector<UnilateralConstra
     Point3d pa,pb;
     for (unsigned i = 0; i < pd.contact_constraints.size(); ++i)
     {
-      pd.Cn_v[i] = CollisionGeometry::calc_signed_dist(pd.contact_constraints[i]->contact_geom1, pd.contact_constraints[i]->contact_geom2, pa, pb) - std::sqrt(eps);
+      pd.Cn_v[i] = CollisionGeometry::calc_signed_dist(pd.contact_constraints[i]->contact_geom1, pd.contact_constraints[i]->contact_geom2, pa, pb) - std::sqrt(std::fabs(eps));
     }
 
     // set Jx_v
@@ -1197,7 +1198,7 @@ double ConstraintStabilization::eval_unilateral(double t, unsigned i, const Vect
   // compute new pairwise distance information
   sim->calc_pairwise_distances(); 
 
-  return sim->_pairwise_distances[i].dist - eps;
+  return sim->_pairwise_distances[i].dist;
 }
 
 /// Evaluates the function for root finding
