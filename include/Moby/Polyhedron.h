@@ -136,7 +136,7 @@ class Polyhedron
     static bool clip_edge(boost::shared_ptr<const Polyhedron::Edge> edge, Ravelin::Transform3d fTe, double& min_lambda, double& max_lambda, boost::shared_ptr<const Polyhedron::Feature >& min_N, boost::shared_ptr<const Polyhedron::Feature >& max_N, const std::list<std::pair<boost::shared_ptr<const Polyhedron::Feature>, boost::shared_ptr<Plane> > >& planes_neighbors);
     static bool post_clip_deriv_check(FeatureType& fX, boost::shared_ptr<const Polyhedron::Feature >& X , boost::shared_ptr<const Polyhedron::Edge> edge, Ravelin::Transform3d& xTe, double& min_lambda, double& max_lambda, boost::shared_ptr<const Polyhedron::Feature >& min_N, boost::shared_ptr<const Polyhedron::Feature >& max_N);
     static bool is_one_face_penetration(boost::shared_ptr<const Polyhedron::Feature>& fFace, boost::shared_ptr<const PolyhedralPrimitive> pE, boost::shared_ptr<const Polyhedron::Feature>& fEdge, Ravelin::Transform3d& fTe);
-    static void find_deepest_feature(boost::shared_ptr<const Polyhedron::Feature>& face, boost::shared_ptr<const Polyhedron::Feature>& edge, Ravelin::Transform3d& fTe);
+    static void find_deepest_feature(boost::shared_ptr<const Polyhedron::Feature>& face, boost::shared_ptr<const Polyhedron::Feature>& edge, Moby::Polyhedron::FeatureType& fE, Ravelin::Transform3d& fTe);
     static double minkowski_optimum_distance(boost::shared_ptr<const PolyhedralPrimitive> pA, boost::shared_ptr<const PolyhedralPrimitive> pB, Ravelin::Transform3d& aTb);
 
     //void promote_featrues(FeatureType& fA, FeatureType& fB, boost::shared_ptr<const Polyhedron::Feature>& closestA, boost::shared_ptr<const Polyhedron::Feature>& closestB, Ravelin::Transform3d& aTb)
@@ -159,9 +159,13 @@ class Polyhedron
     double _convexity;
     bool _convexity_computed;
 
+
+
     std::vector<boost::shared_ptr<Vertex> > _vertices;
     std::vector<boost::shared_ptr<Face> > _faces;
     std::vector<boost::shared_ptr<Edge> > _edges;
+
+
 };
 
 std::ostream& operator<<(std::ostream& out, const Polyhedron& m);
