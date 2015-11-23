@@ -85,13 +85,15 @@ OutputIterator CCD::find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr
 template <class OutputIterator>
 OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, OutputIterator output_begin, double TOL)
 {
+  const double INF = std::numeric_limits<double>::max();
   std::vector<std::pair<Ravelin::Vector3d, double> > hs;
   enum FeatureType { eNone, eVertex, eEdge, eFace };
   FeatureType featA = eNone, featB = eNone;
   boost::shared_ptr<Polyhedron::Vertex> vA, vB;
   boost::shared_ptr<Polyhedron::Edge> eA, eB;
   boost::shared_ptr<Polyhedron::Face> fA, fB;
-
+  TessellatedPolyhedronPtr tpoly;
+ 
   // get the two primitives
   boost::shared_ptr<const PolyhedralPrimitive> pA = boost::dynamic_pointer_cast<const PolyhedralPrimitive>(cgA->get_geometry());
   boost::shared_ptr<const PolyhedralPrimitive> pB = boost::dynamic_pointer_cast<const PolyhedralPrimitive>(cgB->get_geometry());
@@ -104,6 +106,10 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
   boost::shared_ptr<const Ravelin::Pose3d> poseA = pA->get_pose(cgA);
   boost::shared_ptr<const Ravelin::Pose3d> poseB = pB->get_pose(cgB);
 
+  // get transforms to global frame
+  Ravelin::Transform3d wTa = Ravelin::Pose3d::calc_relative_pose(poseA, GLOBAL);
+  Ravelin::Transform3d wTb = Ravelin::Pose3d::calc_relative_pose(poseB, GLOBAL);
+
   // call v-clip
   boost::shared_ptr<const Polyhedron::Feature> closestA;
   boost::shared_ptr<const Polyhedron::Feature> closestB;
@@ -113,48 +119,177 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
   if (dist > TOL)
     return output_begin; 
 
-  // case #2: use volume of intersection
+  // case #1: use volume of intersection
   if (dist <= 0.0)
   {
-    // get the normals and faces from polyhedron A, transforming to global frame
-    for (unsigned i=0; i< polyA.get_faces().size(); i++)
-    {
-      // get the face
-      boost::shared_ptr<Polyhedron::Face> f = polyA.get_faces()[i];
-
-      // get the plane corresponding to the face
-      Plane p = f->get_plane();
-
-      // transform the plane
-
-      // save the halfspace
-    }
-
-    // get the normals and faces from polyhedron B, transforming to global frame
-    for (unsigned i=0; i< polyB.get_faces().size(); i++)
-    {
-      // get the face
-      boost::shared_ptr<Polyhedron::Face> f = polyB.get_faces()[i];
-
-      // get the plane corresponding to the face
-      Plane p = f->get_plane();
-
-      // transform the plane
-
-      // save the halfspace
-    }
-
+    // get the halfspaces
+    PolyhedralPrimitive::get_halfspaces(polyA, poseA, wTa, std::back_inserter(hs));
+    PolyhedralPrimitive::get_halfspaces(polyB, poseB, wTb, std::back_inserter(hs));
 
     // find the interior point
     Ravelin::Origin3d ip;
     dist = CompGeom::find_hs_interior_point(hs.begin(), hs.end(), ip);
 
     // calculate the half-space intersection
-    TessellatedPolyhedronPtr tpoly = CompGeom::calc_hs_intersection(hs.begin(), hs.end(), ip);
+    try
+    {
+      tpoly = CompGeom::calc_hs_intersection(hs.begin(), hs.end(), ip);
+    }
+    catch (NumericalException e)
+    {
+      // case #2: polyhedra are kissing
 
-    // determine the normal
+      // setup the normal
+      Ravelin::Vector3d normal;
+
+      // init sets of vertices
+      std::set<boost::shared_ptr<Polyhedron::Vertex> > vertsA, vertsB;
+
+      // get all faces on the interior point plane from polyhedron A
+      for (unsigned i=0; i< polyA.get_faces().size(); i++)
+      {
+        // get the plane containing the face; face thinks it is in global frame
+        // but it really is in poseA's frame
+        Plane uplane = polyA.get_faces()[i]->get_plane();
+        Ravelin::Vector3d nnew = uplane.get_normal();
+        nnew.pose = poseA;
+        uplane.set_normal(nnew);
+
+        // transform the plane
+        Plane plane = uplane.transform(wTa);
+
+        // compute the signed distance from the interior point
+        // if signed distance is greater than zero, don't store the vertices 
+        double sdist = plane.calc_signed_distance(Point3d(ip, GLOBAL));
+        if (std::fabs(sdist) > NEAR_ZERO)
+          continue;
+
+        // add all vertices of the face to the set
+        BOOST_FOREACH(boost::weak_ptr<Polyhedron::Edge> we, polyA.get_faces()[i]->e)
+        {
+          boost::shared_ptr<Polyhedron::Edge> e(we);
+          vertsA.insert(e->v1);
+          vertsA.insert(e->v2);
+        }
+      }
+
+      // get all faces on the interior point plane from polyhedron B; pick
+      // normal from this too
+      bool normal_unset = true;
+      for (unsigned i=0; i< polyB.get_faces().size(); i++)
+      {
+        // get the plane containing the face; face thinks it is in global frame
+        // but it really is in poseB's frame
+        Plane uplane = polyB.get_faces()[i]->get_plane();
+        Ravelin::Vector3d nnew = uplane.get_normal();
+        nnew.pose = poseB;
+        uplane.set_normal(nnew);
+
+        // transform the plane
+        Plane plane = uplane.transform(wTb);
+
+        // compute the signed distance from the interior point
+        // if signed distance is greater than zero, don't store the vertices 
+        double sdist = plane.calc_signed_distance(Point3d(ip, GLOBAL));
+        if (std::fabs(sdist) > NEAR_ZERO)
+          continue;
+
+        // add all vertices of the face to the set
+        BOOST_FOREACH(boost::weak_ptr<Polyhedron::Edge> we, polyB.get_faces()[i]->e)
+        {
+          boost::shared_ptr<Polyhedron::Edge> e(we);
+          vertsB.insert(e->v1);
+          vertsB.insert(e->v2);
+        }
+
+        // ALSO, if the normal hasn't been set, set it
+        if (normal_unset)
+        {
+          normal_unset = false;
+          normal = plane.get_normal();
+        }
+      }
+
+      // compute the convex hulls of the two sets of vertices
+      std::vector<Point3d> voA, voB, hullA, hullB;
+      BOOST_FOREACH(boost::shared_ptr<Polyhedron::Vertex> v, vertsA)
+        voA.push_back(wTa.transform_point(Point3d(v->o, poseA)));
+      BOOST_FOREACH(boost::shared_ptr<Polyhedron::Vertex> v, vertsB)
+        voB.push_back(wTb.transform_point(Point3d(v->o, poseB)));
+      CompGeom::calc_convex_hull(voA.begin(), voA.end(), normal, std::back_inserter(hullA));
+      CompGeom::calc_convex_hull(voB.begin(), voB.end(), normal, std::back_inserter(hullB));
+
+      // compute the intersection of the convex hulls 
+      std::vector<Point3d> isect;
+      CompGeom::intersect_convex_polygons(hullA.begin(), hullA.end(), 
+                                          hullB.begin(), hullB.end(), normal, 
+                                          std::back_inserter(isect));
+
+      // create the contacts
+      for (unsigned i=0; i< isect.size(); i++)
+        *output_begin++ = create_contact(cgA, cgB, isect[i], normal, 0.0);
+
+      return output_begin;
+    }
+
+    // setup minimum distance, contact normal, and the contact plane offset
+    double min_dist = INF;
+    Ravelin::Vector3d normal(GLOBAL);
+    double offset = INF;
+
+    // get the vertices from the polyhedron
+    const std::vector<Ravelin::Origin3d>& vertices = tpoly->get_vertices();
+ 
+    // determine the normal; the normal will be from the face that
+    // yields the minimum maximum distance
+    const std::vector<IndexedTri>& facets = tpoly->get_facets();
+    for (unsigned i=0; i< facets.size(); i++)
+    {
+      // setup a triangle
+      Triangle tri(Point3d(vertices[facets[i].a], GLOBAL), 
+                   Point3d(vertices[facets[i].b], GLOBAL),
+                   Point3d(vertices[facets[i].c], GLOBAL));
+
+      // TODO: ensure that the plane containing this triangle is from 
+      // polyhedron B by checking that signed distances from all vertices of B 
+      // are negative
+      // NOTE: this is currently an O(n) operation, but it could be turned into
+      //       an O(lg N) one
+
+      // get the reverse of the normal
+      Ravelin::Vector3d ncand = -tri.calc_normal();
+
+      // TODO: get the extremal point in the direction of the inverse normal
+      // NOTE: this is currently an O(n) operation, but it could be turned into
+      //       an O(lg N) one
+      Point3d p;
+      assert(false);
+
+      // compute the distance of the extremal point from the face
+      double dist = ncand.dot(p);
+      assert(dist > -NEAR_ZERO);
+      if (dist < min_dist)
+      {
+        // if the absolute distance is less than the minimum, we've found our
+        // normal
+        min_dist = dist;
+        normal = -ncand;
+        offset = normal.dot(Point3d(vertices[facets[i].a], GLOBAL));
+      }
+    }
 
     // get each vertex, creating a contact point
+    for (unsigned i=0; i< vertices.size(); i++)
+    {
+      // compute the interpenetration depth
+      double depth = normal.dot(Point3d(vertices[i], GLOBAL)) - offset;
+      assert(depth < NEAR_ZERO);
+
+      // create the contact
+      *output_begin++ = create_contact(cgA, cgB, Point3d(vertices[i], GLOBAL), normal, depth);
+    }
+
+    return output_begin;
   }
 
   // case #3: use closest features
@@ -371,7 +506,7 @@ OutputIterator CCD::find_contacts_face_face(CollisionGeometryPtr cgA, CollisionG
   
   //intersectiong 2 faces
   std::vector<Point3d> isect;
-  CompGeom::intersect_polygons(v3dA.begin(),v3dA.end(),v3dB.begin(),v3dB.end(),normal_0,std::back_inserter(isect));
+  CompGeom::intersect_convex_polygons(v3dA.begin(),v3dA.end(),v3dB.begin(),v3dB.end(),normal_0,std::back_inserter(isect));
   //adding output
   for(unsigned i=0;i<isect.size();i++){
     *output_begin++ = create_contact(cgA, cgB, isect[i], -normal_0, signed_dist);  

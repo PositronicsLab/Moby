@@ -342,7 +342,7 @@ void ConstraintSimulator::calc_impacting_unilateral_constraint_forces(double dt)
   catch (ImpactToleranceException e)
   {
     #ifndef NDEBUG
-    std::cerr << "warning: impacting constraint tolerances exceeded" << std::endl;
+    std::cerr << "warning: constraint tolerances exceeded; constraint velocity violation " << e.violation << std::endl;
     #endif
   }
 

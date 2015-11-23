@@ -150,91 +150,21 @@ void ImpactConstraintHandler::apply_model(const vector<UnilateralConstraint>& co
         FILE_LOG(LOG_CONSTRAINT) << "    constraint: " << std::endl << **j;
   }
 
+  // setup amount of constraint violation
+  double max_vio = std::numeric_limits<double>::max();
+
   // determine whether there are any impacting constraints remaining
   for (list<list<UnilateralConstraint*> >::const_iterator i = groups.begin(); i != groups.end(); i++)
     for (list<UnilateralConstraint*>::const_iterator j = i->begin(); j != i->end(); j++)
       if ((*j)->determine_constraint_class() == UnilateralConstraint::eNegative)
+      {
+        max_vio = std::min(max_vio, (*j)->calc_constraint_vel());
         impacting.push_back(*j);
+      }
 
   // if there are any constraints still impacting, throw an exception
   if (!impacting.empty())
-    throw ImpactToleranceException(impacting);
-
-// NOTE: this should already be handled for dynamics calculations
-/*
-  // process islands composed completely of bilateral constraints
-  BOOST_FOREACH(vector<shared_ptr<DynamicBodyd> >& island, remaining_islands)
-  {
-    // sort the island so we can search it
-    std::sort(island.begin(), island.end());
-
-    // setup a set of implicit joints
-    vector<JointPtr> island_ijoints;
-
-    // get the implicit joints in the island
-    const vector<JointPtr>& implicit_joints = _simulator->implicit_joints;
-    for (unsigned j=0; j< implicit_joints.size(); j++)
-    {
-      // get the inboard and outboard links for the joint
-      shared_ptr<RigidBodyd> ib = implicit_joints[j]->get_inboard_link();
-      shared_ptr<RigidBodyd> ob = implicit_joints[j]->get_outboard_link();
-
-      // get the super bodies 
-      shared_ptr<DynamicBodyd> ib_super = ib->get_super_body(); 
-      shared_ptr<DynamicBodyd> ob_super = ob->get_super_body(); 
-
-      if (std::binary_search(island.begin(), island.end(), ib_super) ||
-          std::binary_search(island.begin(), island.end(), ob_super))
-        island_ijoints.push_back(implicit_joints[j]);
-    }
-
-    // get all implicit joints from articulated bodies in the island
-    for (unsigned j=0; j< island.size(); j++)
-    {
-      // see whether the body is articulated
-      shared_ptr<ArticulatedBodyd> ab = dynamic_pointer_cast<ArticulatedBodyd>(island[j]);
-      if (!ab)
-        continue;
-
-      // get the implicit joints for this body
-      const vector<shared_ptr<Jointd> >& ijoints = ab->get_implicit_joints();
-
-      // add the joints
-      for (unsigned k=0; k< ijoints.size(); k++)
-        island_ijoints.push_back(dynamic_pointer_cast<Joint>(ijoints[k]));
-    }
-
-    // get the total number of generalized coordinates for the island
-    const unsigned NGC_TOTAL = _simulator->num_generalized_coordinates(island);
-
-    // setup f
-    f.set_zero(NGC_TOTAL);
-
-    // compute change in velocity and constraint forces
-    _simulator->solve(island, island_ijoints, f, dv, lambda);
-
-    // set new velocities 
-    for (unsigned i=0, gc_index = 0; i< island.size(); i++)
-    {
-      const unsigned NGC = island[i]->num_generalized_coordinates(DynamicBodyd::eSpatial);
-      SharedConstVectorNd dv_sub = dv.segment(gc_index, gc_index + NGC);
-      island[i]->get_generalized_velocity(DynamicBodyd::eSpatial, v);
-      v += dv_sub;
-      island[i]->set_generalized_velocity(DynamicBodyd::eSpatial, v);
-      gc_index += NGC;
-      FILE_LOG(LOG_DYNAMICS) << "new velocity for " << island[i]->body_id << ": " << v << std::endl;
-    }
-
-    // populate constraint forces
-    for (unsigned i=0, c_index = 0; i< island_ijoints.size(); i++)
-    {
-      const unsigned NEQ = island_ijoints[i]->num_constraint_eqns();
-      SharedConstVectorNd lambda_sub = lambda.segment(c_index, c_index + NEQ);
-      island_ijoints[i]->lambda = lambda_sub;
-      c_index += NEQ;
-    }
-  }
-*/
+    throw ImpactToleranceException(impacting, max_vio);
 }
 
 /**

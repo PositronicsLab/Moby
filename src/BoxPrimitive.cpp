@@ -144,6 +144,8 @@ void BoxPrimitive::construct_polyhedron()
 
   // compute the convex hull
   _poly = Polyhedron::calc_convex_hull(v, v+N_BOX_VERTS); 
+  assert(_poly.get_faces().size() == 6 || _poly.get_faces().size() == 12);
+  assert(_poly.get_vertices().size() == 8);
 }
 
 /// Computes the signed distance from the box to a primitive
@@ -172,14 +174,8 @@ double BoxPrimitive::calc_signed_dist(shared_ptr<const Primitive> p, Point3d& pt
 
   // if the primitive is polyhedral and convex, can use vclip 
   shared_ptr<const PolyhedralPrimitive> polyp = dynamic_pointer_cast<const PolyhedralPrimitive>(p);
-  if (polyp && p->is_convex())
-  {
-    shared_ptr<const PolyhedralPrimitive> bthis = dynamic_pointer_cast<const PolyhedralPrimitive>(shared_from_this());
-    shared_ptr<const Pose3d> poseA = pthis.pose;
-    shared_ptr<const Pose3d> poseB = pp.pose;
-    shared_ptr<const Polyhedron::Feature> closestA, closestB;
-    return Polyhedron::vclip(bthis, polyp, poseA, poseB, closestA, closestB); 
-  }
+  if (polyp)
+    return PolyhedralPrimitive::calc_signed_dist(polyp, pthis, pp);
 
   // should never get here...
   assert(false);

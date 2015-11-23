@@ -104,7 +104,7 @@ void Primitive::remove_collision_geometry(CollisionGeometryPtr g)
 {
   map<weak_ptr<CollisionGeometry>, shared_ptr<Pose3d> >::iterator i = _cg_poses.find(g);
   if (i == _cg_poses.end())
-    throw std::runtime_error("Primitive::get_pose() - collision geometry not found!");
+    throw std::runtime_error("Primitive::remove_collision_geometry() - collision geometry not found!");
 
   assert(_poses.find(i->second) != _poses.end());
   _poses.erase(i->second);

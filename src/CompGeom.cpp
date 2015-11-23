@@ -1687,6 +1687,19 @@ Matrix3d CompGeom::calc_3D_to_2D_matrix(const Vector3d& normal)
  * \return the offset necessary to add to the Z-coordinate of a 3D vector 
  *         converted from 2D using the transpose of R
  */
+double CompGeom::determine_3D_to_2D_offset(const Point3d& o, const Matrix3d& R)
+{
+  const unsigned Z = 2;
+  return (R * Origin3d(o))[Z];
+}
+
+/// Computes the offset in converting a 3D vector to 2D
+/**
+ * \param v a vector in 3D
+ * \param R the 3D-to-2D projection matrix
+ * \return the offset necessary to add to the Z-coordinate of a 3D vector 
+ *         converted from 2D using the transpose of R
+ */
 double CompGeom::determine_3D_to_2D_offset(const Origin3d& o, const Matrix3d& R)
 {
   const unsigned Z = 2;
@@ -1995,6 +2008,29 @@ long double CompGeom::area(const Point2d& a, const Point2d& b, const Point2d& c)
   long double a1 = (b[X] - a[X]) * (c[Y] - a[Y]);
   long double a2 = (c[X] - a[X]) * (b[Y] - a[Y]);
   return a1 - a2;
+}
+
+/// Gets the sign of the area of two vectors with respect to an arbitrary center
+CompGeom::OrientationType CompGeom::area_sign(const Origin2d& a, const Origin2d& b, const Origin2d& c, double tol)
+{
+  assert(tol >= 0.0);  
+
+  const unsigned X = 0, Y = 1;
+  long double a1 = (b[X] - a[X]) * (c[Y] - a[Y]);
+  long double a2 = (c[X] - a[X]) * (b[Y] - a[Y]);
+
+  // see whether a1 and a2 are relatively equal
+//  if (rel_equal(a1, a2, tol))
+//    return eOn;
+
+  // get the area
+  double x = a1 - a2;
+
+if (x < tol && x > -tol)
+  return eOn;
+
+  // return the proper sign
+  return (x > 0.0) ? eLeft : eRight;
 }
 
 /// Gets the sign of the area of two vectors with respect to an arbitrary center

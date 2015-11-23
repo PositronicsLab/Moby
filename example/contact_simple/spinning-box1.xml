@@ -14,10 +14,6 @@
     <Plane id="plane" position="0 -.000005 0" /> 
     <Box id="b3" xlen="10" ylen=".00001" zlen="10"  />
 
-    <!-- Integrator -->
-    <RungeKuttaIntegrator id="rk4" />
-    <BulirschStoerIntegrator id="bsi" />
-
     <!-- Gravity force -->
     <GravityForce id="gravity" accel="0 -9.81 0"  />
 
