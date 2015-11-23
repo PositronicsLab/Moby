@@ -1149,3 +1149,24 @@ std::ostream& Moby::operator<<(std::ostream& out, const TessellatedPolyhedron& p
   return out;
 }
 
+Ravelin::Origin3d TessellatedPolyhedron::find_extreme_distance(Ravelin::Vector3d direction)
+{
+  boost::shared_ptr<Ravelin::Pose3d> GLOBAL3D;
+  std::vector<Ravelin::Origin3d> vs = _mesh.get_vertices();
+  std::vector<Ravelin::Origin3d>::const_iterator vi;
+  double max = std::numeric_limits<double>::min();
+  Ravelin::Origin3d max_vertex;
+  for ( vi = vs.begin(); vi != vs.end(); vi++)
+  {
+    Ravelin::Vector3d v(*vi, GLOBAL);
+    double temp = Ravelin::Vector3d::dot(v,direction);
+    if( temp > max)
+    {
+      max = temp;
+      max_vertex = v;
+    }
+     
+  }
+  return max_vertex;
+
+}

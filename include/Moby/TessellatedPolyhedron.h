@@ -67,6 +67,9 @@ class TessellatedPolyhedron
     /// Determines whether this polyhedron convex (to w/in floating point tolerance)
     bool is_convex() { return convexity() < NEAR_ZERO; }
 
+    ///find the extreme vertex on direction of the polyhedron 
+    Ravelin::Origin3d find_extreme_distance(Ravelin::Vector3d direction);
+
     /// Gets the convexity of this polyhedron 
     /**
      * Convexity values less than epsilon (where epsilon is some number near
