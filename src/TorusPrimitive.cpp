@@ -8,6 +8,7 @@
 #include <osg/Shape>
 #include <osg/ShapeDrawable>
 #include <osg/Geode>
+#include "OsgTorus.h"
 #endif
 #include <Moby/XMLTree.h>
 #include <Moby/SpherePrimitive.h>
@@ -17,7 +18,6 @@
 #include <Moby/HeightmapPrimitive.h>
 #include <Moby/TorusPrimitive.h>
 #include <Moby/PlanePrimitive.h>
-#include "OsgTorus.h"
 
 using boost::shared_ptr;
 using boost::const_pointer_cast;

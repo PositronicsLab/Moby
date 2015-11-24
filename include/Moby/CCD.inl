@@ -250,20 +250,28 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
                    Point3d(vertices[facets[i].b], GLOBAL),
                    Point3d(vertices[facets[i].c], GLOBAL));
 
-      // TODO: ensure that the plane containing this triangle is from 
+      // ensure that the plane containing this triangle is from 
       // polyhedron B by checking that signed distances from all vertices of B 
       // are negative
       // NOTE: this is currently an O(n) operation, but it could be turned into
       //       an O(lg N) one
+      bool skip = false;
+      for (unsigned j=0; j< polyB.get_vertices().size(); j++)
+        if (std::fabs(tri.calc_signed_dist(Point3d(polyB.get_vertices()[j]->o, GLOBAL))) > NEAR_ZERO)
+        {
+          skip = true;
+          break;
+        }
+      if (skip)
+        continue; 
 
       // get the reverse of the normal
       Ravelin::Vector3d ncand = -tri.calc_normal();
 
-      // TODO: get the extremal point in the direction of the inverse normal
+      // get the extremal point in the direction of the inverse normal
       // NOTE: this is currently an O(n) operation, but it could be turned into
       //       an O(lg N) one
-      Point3d p;
-      assert(false);
+      Point3d p(tpoly->find_extreme_vertex(Ravelin::Origin3d(ncand)), GLOBAL);
 
       // compute the distance of the extremal point from the face
       double dist = ncand.dot(p);

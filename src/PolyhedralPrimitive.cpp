@@ -82,20 +82,12 @@ double PolyhedralPrimitive::calc_signed_dist(shared_ptr<const PolyhedralPrimitiv
                  Point3d(vertices[facets[i].b], GLOBAL),
                  Point3d(vertices[facets[i].c], GLOBAL));
 
-    // TODO: ensure that the plane containing this triangle is from 
-    // polyhedron B by checking that signed distances from all vertices of B 
-    // are negative
-    // NOTE: this is currently an O(n) operation, but it could be turned into
-    //       an O(lg N) one
-
     // get the reverse of the normal
     Ravelin::Vector3d ncand = -tri.calc_normal();
 
-    // TODO: get the extremal point in the direction of the inverse normal
     // NOTE: this is currently an O(n) operation, but it could be turned into
     //       an O(lg N) one
-    Point3d p;
-    assert(false);
+    Point3d p(tpoly->find_extreme_vertex(Ravelin::Origin3d(ncand)), GLOBAL);
 
     // compute the distance of the extremal point from the face
     double dist = ncand.dot(p);

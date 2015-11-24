@@ -770,9 +770,11 @@ namespace Moby{
     for(size_t i = 0; i < handles.size(); ++i){
       dlclose(handles[i]);
     }
-    
+   
+#ifdef USE_OSG 
     delete viewer_pointer;
-    
+#endif    
+
 #ifdef GOOGLE_PROFILER
     ProfilerStop();
 #endif
