@@ -257,11 +257,14 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
       //       an O(lg N) one
       bool skip = false;
       for (unsigned j=0; j< polyB.get_vertices().size(); j++)
-        if (std::fabs(tri.calc_signed_dist(Point3d(polyB.get_vertices()[j]->o, GLOBAL))) > NEAR_ZERO)
+      {
+        Point3d v = wTb.transform_point(Point3d(polyB.get_vertices()[j]->o, poseB));
+        if (tri.calc_signed_dist(v) > NEAR_ZERO)
         {
           skip = true;
           break;
         }
+      }
       if (skip)
         continue; 
 
@@ -281,8 +284,8 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
         // if the absolute distance is less than the minimum, we've found our
         // normal
         min_dist = dist;
-        normal = -ncand;
-        offset = normal.dot(Point3d(vertices[facets[i].a], GLOBAL));
+        normal = ncand;
+        offset = -normal.dot(Point3d(vertices[facets[i].a], GLOBAL));
       }
     }
 

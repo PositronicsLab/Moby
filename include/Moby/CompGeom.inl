@@ -2772,7 +2772,7 @@ double CompGeom::find_hs_interior_point(ForwardIterator start, ForwardIterator e
   l[0] = -mag;        u[0] = mag;
   l[1] = -mag;        u[1] = mag;
   l[2] = -mag;        u[2] = mag;
-  l[3] = -NEAR_ZERO;  u[3] = mag;
+  l[3] = -mag;        u[3] = mag;
 
   // setup the optimization vector
   // we want to maximize the distance from any constraint, so:

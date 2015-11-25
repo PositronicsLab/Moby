@@ -323,7 +323,7 @@ void ConstraintStabilization::compute_problem_data(std::vector<UnilateralConstra
     Point3d pa,pb;
     for (unsigned i = 0; i < pd.contact_constraints.size(); ++i)
     {
-      pd.Cn_v[i] = CollisionGeometry::calc_signed_dist(pd.contact_constraints[i]->contact_geom1, pd.contact_constraints[i]->contact_geom2, pa, pb) - std::sqrt(std::fabs(eps));
+      pd.Cn_v[i] = pd.contact_constraints[i]->signed_violation;//CollisionGeometry::calc_signed_dist(pd.contact_constraints[i]->contact_geom1, pd.contact_constraints[i]->contact_geom2, pa, pb) - std::sqrt(std::fabs(eps));
     }
 
     // set Jx_v

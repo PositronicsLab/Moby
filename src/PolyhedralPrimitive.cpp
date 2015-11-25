@@ -68,7 +68,6 @@ double PolyhedralPrimitive::calc_signed_dist(shared_ptr<const PolyhedralPrimitiv
 
  // setup minimum distance and the contact plane offset
   double min_dist = INF;
-  double offset = INF;
 
   // get the vertices from the polyhedron
   const std::vector<Ravelin::Origin3d>& vertices = tpoly->get_vertices();
@@ -82,22 +81,22 @@ double PolyhedralPrimitive::calc_signed_dist(shared_ptr<const PolyhedralPrimitiv
                  Point3d(vertices[facets[i].b], GLOBAL),
                  Point3d(vertices[facets[i].c], GLOBAL));
 
-    // get the reverse of the normal
+    // get the reverse of the normal and the offset
     Ravelin::Vector3d ncand = -tri.calc_normal();
+    double offset = tri.calc_offset(ncand);
 
     // NOTE: this is currently an O(n) operation, but it could be turned into
     //       an O(lg N) one
     Point3d p(tpoly->find_extreme_vertex(Ravelin::Origin3d(ncand)), GLOBAL);
 
     // compute the distance of the extremal point from the face
-    double dist = ncand.dot(p);
+    double dist = ncand.dot(p) - offset;
     assert(dist > -NEAR_ZERO);
     if (dist < min_dist)
     {
       // if the absolute distance is less than the minimum, we've found our
       // normal
       min_dist = dist;
-      offset = -ncand.dot(Point3d(vertices[facets[i].a], GLOBAL));
     }
   }
 
