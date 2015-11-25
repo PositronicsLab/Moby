@@ -2755,25 +2755,35 @@ double CompGeom::find_hs_interior_point(ForwardIterator start, ForwardIterator e
 {
   assert(std::numeric_limits<double>::has_infinity);
   const double inf = std::numeric_limits<double>::max();
-  const unsigned D = 5;
+  const unsigned D = 4;
   const unsigned N = distance(start, end);
 
+  // find the biggest magnitude number on the magnitudes
+  double mag = 0.0;
+  for (ForwardIterator i = start; i != end; i++)
+    mag = std::max(mag, std::fabs(i->second));
+
+  // increase magnitude by a factor of 10
+  mag *= 10.0;
+
   // setup the limits on the variables
+  // dimensions 1,2,3 correspond to x,y,z
   Ravelin::VectorNd l(D), u(D);
-  l[0] = -1.0;        u[0] = 1.0;
-  l[1] = -1.0;        u[1] = 1.0;
-  l[2] = -1.0;        u[2] = 1.0;
-  l[3] = 0;            u[3] = inf;
-  l[4] = 0;            u[4] = 1.0;
+  l[0] = -mag;        u[0] = mag;
+  l[1] = -mag;        u[1] = mag;
+  l[2] = -mag;        u[2] = mag;
+  l[3] = -NEAR_ZERO;  u[3] = mag;
 
   // setup the optimization vector
+  // we want to maximize the distance from any constraint, so:
+  // n'*x + s <= d  (where s >= 0)
   Ravelin::VectorNd c = Ravelin::VectorNd::zero(D);
   c[D-1] = 1.0;
 
   // setup b
-  Ravelin::VectorNd b = Ravelin::VectorNd::zero(N);
+  Ravelin::VectorNd b(N);
 
-  // setup A
+  // setup A: n'*x(1:3) - d <= 0
   Ravelin::MatrixNd A(N,D);
   unsigned i = 0;
   for (; start != end; start++, i++)
@@ -2781,8 +2791,8 @@ double CompGeom::find_hs_interior_point(ForwardIterator start, ForwardIterator e
     A(i,0) = start->first[0];
     A(i,1) = start->first[1];
     A(i,2) = start->first[2];
-    A(i,3) = -start->second;
-    A(i,4) = 1.0;
+    A(i,3) = 1.0;
+    b[i] = start->second;
   }
 
   // do linear programming
@@ -2790,15 +2800,11 @@ double CompGeom::find_hs_interior_point(ForwardIterator start, ForwardIterator e
   if (!LP::lp_seidel(A, b, c, l, u, x))
     return -1.0;
 
-  // verify that x[3] is not zero
-  if (x[3] <= std::numeric_limits<double>::epsilon())
-    return -1.0;
-
   // determine interior point
-  point = Ravelin::Origin3d(x[0]/x[3], x[1]/x[3], x[2]/x[3]);
+  point = Ravelin::Origin3d(x[0], x[1], x[2]);
 
   // return the distance
-  return x[4]/x[3];
+  return x[3];
 }
 
 /// Computes the halfspace intersection, returning the result as a convex polyhedron
