@@ -86,9 +86,13 @@ class EventDrivenSimulator : public TimeSteppingSimulator
     double calc_CA_step();
     double calc_next_CA_step(double contact_dist_thresh) const;
     void reset_limit_estimates() const;
+    void update_constraint_violations(const std::vector<PairwiseDistInfo>& pairwise_distances);
 
     /// Interpenetration constraint violation tolerances
     std::map<sorted_pair<CollisionGeometryPtr>, double> _ip_tolerances;
+
+    /// Interpenetration constraint violation tolerances
+    std::map<Ravelin::sorted_pair<CollisionGeometryPtr>, double> _ip_tolerances;
 
     /// Velocity tolerances
     /**

@@ -116,7 +116,6 @@ class ConstraintSimulator : public Simulator
 
     double calc_CA_step();
     double calc_next_CA_Euler_step(double contact_dist_thresh) const;
-    void update_constraint_violations(const std::vector<PairwiseDistInfo>& pairwise_distances);
 
     /// The constraint stabilization mechanism
     ConstraintStabilization _cstab;
@@ -129,9 +128,6 @@ class ConstraintSimulator : public Simulator
 
     /// Work vector
     Ravelin::VectorNd _workV;
-
-    /// Interpenetration constraint violation tolerances
-    std::map<Ravelin::sorted_pair<CollisionGeometryPtr>, double> _ip_tolerances;
 
     /// The collision detection mechanism
     boost::shared_ptr<CollisionDetection> _coldet;

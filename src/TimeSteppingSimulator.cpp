@@ -91,13 +91,6 @@ double TimeSteppingSimulator::step(double step_size)
   if (post_step_callback_fn)
     post_step_callback_fn(this);
 
-  std::ofstream out("cvio.dat", std::ostream::app);
-  double d = std::numeric_limits<double>::max();
-  for (unsigned i=0; i< _pairwise_distances.size(); i++)
-    d = std::min(d, _pairwise_distances[i].dist);
-  out << d << std::endl;
-  out.close();
-
   // do constraint stabilization
   shared_ptr<ConstraintSimulator> simulator = dynamic_pointer_cast<ConstraintSimulator>(shared_from_this());
   FILE_LOG(LOG_SIMULATOR) << "stabilization started" << std::endl;
@@ -135,8 +128,15 @@ double TimeSteppingSimulator::do_mini_step(double dt)
     // compute pairwise distances
     calc_pairwise_distances();
 
+    // get the conservative step 
+    double CA_step = calc_next_CA_Euler_step(contact_dist_thresh);
+
+    // look for impact
+    if (CA_step <= 0.0)
+      break;
+
     // get the conservative advancement step
-    double tc = std::max(min_step_size, calc_next_CA_Euler_step(contact_dist_thresh));
+    double tc = std::max(min_step_size, CA_step);
     FILE_LOG(LOG_SIMULATOR) << "Conservative advancement step: " << tc << std::endl;
 
     // don't take too large a step

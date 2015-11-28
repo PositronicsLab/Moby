@@ -80,6 +80,35 @@ bool EventDrivenSimulator::UnilateralConstraintCmp::operator()(const UnilateralC
   }
 }
 
+/// Updates constraint violation at beginning of integration step
+void EventDrivenSimulator::update_constraint_violations(const vector<PairwiseDistInfo>& pairwise_distances)
+{
+  FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::update_constraint_violations() entered" << std::endl;
+
+  // set possible constraint violation
+  BOOST_FOREACH(const PairwiseDistInfo& pdi, pairwise_distances)
+  {
+    // only process if neither of the bodies is compliant
+    RigidBodyPtr rba = dynamic_pointer_cast<RigidBody>(pdi.a->get_single_body());
+    RigidBodyPtr rbb = dynamic_pointer_cast<RigidBody>(pdi.b->get_single_body());
+    if (rba->compliance == RigidBody::eCompliant || 
+        rbb->compliance == RigidBody::eCompliant)
+      continue; 
+
+    _ip_tolerances[make_sorted_pair(pdi.a, pdi.b)] = std::min(pdi.dist, -NEAR_ZERO);
+  }
+
+  // update joint constraint interpenetration
+  BOOST_FOREACH(ControlledBodyPtr db, _bodies)
+  {
+    ArticulatedBodyPtr ab = dynamic_pointer_cast<ArticulatedBody>(db);
+    if (ab)
+      ab->update_joint_constraint_violations();
+  }
+
+  FILE_LOG(LOG_SIMULATOR) << "EventDrivenSimulator::update_constraint_violations() exited" << std::endl;
+}
+
 /// Handles sustained rigid unilateral constraints 
 void EventDrivenSimulator::calc_rigid_sustained_unilateral_constraint_forces()
 {

@@ -211,10 +211,10 @@ double CCD::calc_CA_Euler_step_generic(const PairwiseDistInfo& pdi)
   }
 
   // compute the distance that body A can move toward body B
-  double dist_per_tA = calc_max_dist(rbA, -n0, dist);
+  double dist_per_tA = calc_max_dist(rbA, -n0, _rmax[cgA]);
 
   // compute the distance that body B can move toward body A
-  double dist_per_tB = calc_max_dist(rbB, n0, dist); 
+  double dist_per_tB = calc_max_dist(rbB, n0, _rmax[cgB]); 
 
   // compute the total distance
   double total_dist_per_t = dist_per_tA + dist_per_tB;
@@ -238,7 +238,8 @@ double CCD::calc_CA_Euler_step_generic(const PairwiseDistInfo& pdi)
 double CCD::calc_next_CA_Euler_step_generic(const PairwiseDistInfo& pdi)
 {
   const double INF = std::numeric_limits<double>::max();
-  const double MIN_STEP = NEAR_ZERO;
+  const double MIN_STEP = 1e-5;
+  const double ZERO_VEL = NEAR_ZERO;
 
   // get the contacts
   vector<UnilateralConstraint> contacts;
@@ -256,6 +257,28 @@ double CCD::calc_next_CA_Euler_step_generic(const PairwiseDistInfo& pdi)
   vector<Vector3d> contact_points(contacts.size());
   for (unsigned i=0; i< contacts.size(); i++)
     contact_points[i] = contacts[i].contact_point;
+
+  if (LOGGING(LOG_COLDET))
+  {
+    for (unsigned i=0; i< contact_points.size(); i++)
+      FILE_LOG(LOG_COLDET) << "CCD::::calc_next_CA_Euler_step_generic() contact point: " << contact_points[i] << std::endl;
+  }
+
+  // if the constraint velocity is non-zero at a contact point, contact 
+  // manifold is changing- return minimum step size (for now) 
+  for (unsigned i=0; i< contacts.size(); i++)
+  {
+    const double CVEL = contacts[i].calc_contact_vel(contacts[i].contact_normal);
+    FILE_LOG(LOG_COLDET) << "CCD::calc_next_CA_Euler_step_generic() - contact point velocity: " << CVEL << std::endl;
+/*
+    if (CVEL > ZERO_VEL)
+      return MIN_STEP;
+    else if (CVEL < -ZERO_VEL)
+      return 0.0;
+*/
+    if (CVEL < -ZERO_VEL)
+      return 0.0;
+  }
 
   // if there are three or more contact points, contact points define a plane, 
   // and constraint velocity at all points of contact is zero, return infinity
@@ -281,52 +304,51 @@ double CCD::calc_next_CA_Euler_step_generic(const PairwiseDistInfo& pdi)
       }
     }
 
-    // get the projection matrix
-    Matrix3d R = CompGeom::calc_3D_to_2D_matrix(c.contact_normal);
+    FILE_LOG(LOG_COLDET) << "CCD::calc_next_CA_Euler_step_generic() - checking whether contact points are a 2-simplex" << std::endl;
 
-    // project the points to 2D
-    list<Origin2d> points_2D;
-    CompGeom::to_2D(contact_points.begin(), contact_points.end(), R, std::back_inserter(points_2D));
+    // just need to find one non-collinear set of points
+    bool twosimplex = false;
+    for (unsigned i=2; i< contact_points.size(); i++)
+      if (!CompGeom::collinear(contact_points[0], contact_points[1],
+                               contact_points[2]))
+      {
+        twosimplex = true;
+        break;
+      }
 
-    // compute the convex hull of the points
-    list<Origin2d> hull;
-    CompGeom::calc_convex_hull(points_2D.begin(), points_2D.end(), std::back_inserter(hull)); 
-
-    // get the area of the polygon
-    double area = CompGeom::calc_polygon_area(hull.begin(), hull.end()); 
-
-    // if the area is zero, polygon is degenerate; go through polygonal
+    // if it's not a two simplex, go through polygonal
     // process; otherwise, continue below
-    if (std::fabs(area) > NEAR_ZERO)
+    if (twosimplex)
     {
-      // if the constraint velocity is approximately zero at each contact 
-      // point, we can return infinity
-      for (unsigned i=0; i< contacts.size(); i++)
-        if (std::fabs(contacts[i].calc_contact_vel(contacts[i].contact_normal)) > NEAR_ZERO)
-          return MIN_STEP;
+      FILE_LOG(LOG_COLDET) << "CCD::calc_next_CA_Euler_step_generic() - contact points lie on a proper 2-simplex" << std::endl;
+
       return INF;
     }
   }
 
+  // get the two geometries
+  shared_ptr<CollisionGeometry> cgA = c.contact_geom1;
+  shared_ptr<CollisionGeometry> cgB = c.contact_geom2; 
+
   // contacts do not form a plane; first get two rigid bodies 
-  shared_ptr<RigidBodyd> rbA = dynamic_pointer_cast<RigidBodyd>(pdi.a->get_single_body());
-  shared_ptr<RigidBodyd> rbB = dynamic_pointer_cast<RigidBodyd>(pdi.b->get_single_body());
+  shared_ptr<RigidBodyd> rbA = dynamic_pointer_cast<RigidBodyd>(cgA->get_single_body());
+  shared_ptr<RigidBodyd> rbB = dynamic_pointer_cast<RigidBodyd>(cgB->get_single_body());
 
   // now get relative velocities at centers-of-mass
   SVelocityd vA = Pose3d::transform(rbA->get_mixed_pose(), rbA->get_velocity());
   SVelocityd vB = Pose3d::transform(rbB->get_mixed_pose(), rbB->get_velocity());
 
   // contacts do not form a plane; many pairwise cases follow
-  shared_ptr<PolyhedralPrimitive> pA = dynamic_pointer_cast<PolyhedralPrimitive>(pdi.a->get_geometry());
+  shared_ptr<PolyhedralPrimitive> pA = dynamic_pointer_cast<PolyhedralPrimitive>(cgA->get_geometry());
   if (pA)
   {
     // look for another polyhedron
-    shared_ptr<PolyhedralPrimitive> pB = dynamic_pointer_cast<PolyhedralPrimitive>(pdi.b->get_geometry());
+    shared_ptr<PolyhedralPrimitive> pB = dynamic_pointer_cast<PolyhedralPrimitive>(cgB->get_geometry());
     if (pB)
     {
       // compute the relative velocity at each polyhedron's pose
-      shared_ptr<const Pose3d> poseA = pA->get_pose(pdi.a);
-      shared_ptr<const Pose3d> poseB = pB->get_pose(pdi.b);
+      shared_ptr<const Pose3d> poseA = pA->get_pose(cgA);
+      shared_ptr<const Pose3d> poseB = pB->get_pose(cgB);
       Transform3d aTb = Pose3d::calc_relative_pose(poseB, poseA);
 
       // get the velocity in the A pose
@@ -340,11 +362,11 @@ double CCD::calc_next_CA_Euler_step_generic(const PairwiseDistInfo& pdi)
     }
 
     // look for a plane
-    shared_ptr<PlanePrimitive> planeB = dynamic_pointer_cast<PlanePrimitive>(pdi.b->get_geometry());
+    shared_ptr<PlanePrimitive> planeB = dynamic_pointer_cast<PlanePrimitive>(cgB->get_geometry());
     if (planeB)
     {
       // compute the relative velocity at the polyhedron's pose
-      shared_ptr<const Pose3d> poseA = pA->get_pose(pdi.a);
+      shared_ptr<const Pose3d> poseA = pA->get_pose(cgA);
       SVelocityd rv = Pose3d::transform(poseA, rbA->get_velocity()) -
                       Pose3d::transform(poseA, rbB->get_velocity());
 
@@ -353,15 +375,15 @@ double CCD::calc_next_CA_Euler_step_generic(const PairwiseDistInfo& pdi)
   }
 
   // look for plane case
-  shared_ptr<PlanePrimitive> planeA = dynamic_pointer_cast<PlanePrimitive>(pdi.a->get_geometry());
+  shared_ptr<PlanePrimitive> planeA = dynamic_pointer_cast<PlanePrimitive>(cgA->get_geometry());
   if (planeA)
   {
     // look for a polyhedron
-    shared_ptr<PolyhedralPrimitive> pB = dynamic_pointer_cast<PolyhedralPrimitive>(pdi.b->get_geometry());
+    shared_ptr<PolyhedralPrimitive> pB = dynamic_pointer_cast<PolyhedralPrimitive>(cgB->get_geometry());
     if (pB)
     {
       // compute the relative velocity at the polyhedron's pose
-      shared_ptr<const Pose3d> poseB = pB->get_pose(pdi.b);
+      shared_ptr<const Pose3d> poseB = pB->get_pose(cgB);
       SVelocityd rv = Pose3d::transform(poseB, rbA->get_velocity()) -
                       Pose3d::transform(poseB, rbB->get_velocity());
 
@@ -379,10 +401,13 @@ double CCD::calc_next_CA_Euler_step_generic(const PairwiseDistInfo& pdi)
  * \param nA the contact normal in frame A, given that polyhedron is defined in frame A
  * \param offset the offset of the contact plane
  */
-double CCD::calc_next_CA_Euler_step_polyhedron_plane(shared_ptr<PolyhedralPrimitive> p, const SVelocityd& rv, shared_ptr<const Pose3d> P, const Vector3d& normal, double offset)
+double CCD::calc_next_CA_Euler_step_polyhedron_plane(shared_ptr<PolyhedralPrimitive> p, const SVelocityd& rv, shared_ptr<const Pose3d> P, const Vector3d& normal, double offset0)
 {
   const double INF = std::numeric_limits<double>::max();
   double max_step = INF;
+
+  // for illustration purposes, assume that polyhedron is body A, plane is
+  // body B, contact normal is [0 1 0], and A's linear velocity is [0 -1 0]
 
   // get the polyhedron and its vertices
   const Polyhedron& poly = p->get_polyhedron();
@@ -391,11 +416,18 @@ double CCD::calc_next_CA_Euler_step_polyhedron_plane(shared_ptr<PolyhedralPrimit
   // get the normal in P's frame
   Vector3d nP = Pose3d::transform_vector(P, normal);
 
+  // get the new offset
+  Vector3d p0 = normal * offset0;
+  const double offset = nP.dot(Pose3d::transform_point(P, p0));
+
   // get the Euclidean norm of the angular velocity
   double av_norm = rv.get_angular().norm();
 
   // compute the dot product of the relative linear velocity and the normal
-  double lv_dot_n = nP.dot(rv.get_linear());
+  double lv_dot_n = -nP.dot(rv.get_linear());
+
+  FILE_LOG(LOG_COLDET) << "CCD::calc_next_CA_Euler_step_polyhedron_plane(): contact normal: " << normal << " offset: " << offset0 << std::endl;  
+  FILE_LOG(LOG_COLDET) << "  lv'n: " << lv_dot_n << std::endl;  
 
   // loop over all vertices of the polyhedron (assumed to be in P frame)
   for (unsigned i=0; i< v.size(); i++)
@@ -408,6 +440,7 @@ double CCD::calc_next_CA_Euler_step_polyhedron_plane(shared_ptr<PolyhedralPrimit
 
     // compute the distance from the vertex to the contact plane <n, x> = d
     double dist = nP.dot(vertex) - offset;
+    FILE_LOG(LOG_COLDET) << "vertex: " << Pose3d::transform_point(GLOBAL, vertex) << " distance: " << dist << " speed: " << std::max(0.0, lv_dot_n + av_norm*r) << "  max step: " << dist/std::max(0.0, lv_dot_n + av_norm*r) << std::endl;  
 
     // if the distance is effectively zero, ignore the vertex
     if (dist < NEAR_ZERO)
@@ -428,14 +461,19 @@ double CCD::calc_next_CA_Euler_step_polyhedron_plane(shared_ptr<PolyhedralPrimit
  * \param nA the contact normal in frame A, given that polyhedron is defined in frame A
  * \param offset the offset of the contact plane
  */
-double CCD::calc_next_CA_Euler_step_polyhedron_polyhedron(shared_ptr<PolyhedralPrimitive> pA, shared_ptr<PolyhedralPrimitive> pB, shared_ptr<const Pose3d> poseA, shared_ptr<const Pose3d> poseB, const SVelocityd& rvA, const SVelocityd& rvB, const Vector3d& n0, double offset)
+double CCD::calc_next_CA_Euler_step_polyhedron_polyhedron(shared_ptr<PolyhedralPrimitive> pA, shared_ptr<PolyhedralPrimitive> pB, shared_ptr<const Pose3d> poseA, shared_ptr<const Pose3d> poseB, const SVelocityd& rvA, const SVelocityd& rvB, const Vector3d& n0, double offset0)
 {
   const double INF = std::numeric_limits<double>::max();
   double max_step = INF;
 
   // get the normal in A and B's frames
   Vector3d nA = Pose3d::transform_vector(poseA, n0);
-  Vector3d nB = Pose3d::transform_vector(poseB, n0);
+  Vector3d nB = Pose3d::transform_vector(poseB, -n0);
+
+  // compute offsets w.r.t. nA/nB frame
+  Vector3d p0 = n0 * offset0;
+  const double offsetA = nA.dot(Pose3d::transform_point(poseA, p0));
+  const double offsetB = nB.dot(Pose3d::transform_point(poseB, p0));
 
   // get the polyhedra and vertices
   const Polyhedron& polyA = pA->get_polyhedron();
@@ -448,7 +486,7 @@ double CCD::calc_next_CA_Euler_step_polyhedron_polyhedron(shared_ptr<PolyhedralP
   double avB_norm = rvB.get_angular().norm();
 
   // compute the dot products of the relative linear velocities and the normals
-  double lvA_dot_n = nA.dot(rvA.get_linear());
+  double lvA_dot_n = -nA.dot(rvA.get_linear());
   double lvB_dot_n = nB.dot(rvB.get_linear());
 
   // loop over all vertices of polyhedron A 
@@ -461,7 +499,7 @@ double CCD::calc_next_CA_Euler_step_polyhedron_polyhedron(shared_ptr<PolyhedralP
     Vector3d vertex(vA[i]->o, poseB);
 
     // compute the distance from the vertex to the contact plane <n, x> = d
-    double dist = nA.dot(vertex) - offset;
+    double dist = nA.dot(vertex) - offsetA;
 
     // if the distance is effectively zero, ignore the vertex
     if (dist < NEAR_ZERO)
@@ -484,7 +522,7 @@ double CCD::calc_next_CA_Euler_step_polyhedron_polyhedron(shared_ptr<PolyhedralP
     Vector3d vertex(vB[i]->o, poseB);
 
     // compute the distance from the vertex to the contact plane <n, x> = d
-    double dist = nB.dot(vertex) - offset;
+    double dist = nB.dot(vertex) - offsetB;
 
     // if the distance is effectively zero, ignore the vertex
     if (dist < NEAR_ZERO)
@@ -499,7 +537,6 @@ double CCD::calc_next_CA_Euler_step_polyhedron_polyhedron(shared_ptr<PolyhedralP
 
   return max_step;
 }
-
 
 /// Computes the maximum velocity along a particular direction (n)
 double CCD::calc_max_dist(ArticulatedBodyPtr ab, RigidBodyPtr rb, const Vector3d& n, double rmax)
