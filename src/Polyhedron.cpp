@@ -2509,7 +2509,7 @@ Polyhedron::UpdateRule Polyhedron::handle_local_minimum(boost::shared_ptr<const 
   boost::shared_ptr<Ravelin::Pose3d> GLOBAL3D; 
 
   //check whether the vertex has a negative distance with all faces in face_poly
-  double d_max = std::numeric_limits<double>::min();
+  double d_max = -std::numeric_limits<double>::max();
   const std::vector<boost::shared_ptr<Face> >& faces = face_poly.get_faces();
   std::vector<boost::shared_ptr<Face> >::const_iterator fi;
   Ravelin::Vector3d v(V->o, fTv.source);
