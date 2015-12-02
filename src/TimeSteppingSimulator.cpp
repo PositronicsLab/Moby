@@ -94,9 +94,19 @@ double TimeSteppingSimulator::step(double step_size)
   // do constraint stabilization
   shared_ptr<ConstraintSimulator> simulator = dynamic_pointer_cast<ConstraintSimulator>(shared_from_this());
   FILE_LOG(LOG_SIMULATOR) << "stabilization started" << std::endl;
-  _cstab.stabilize(simulator);
+  cstab.stabilize(simulator);
   FILE_LOG(LOG_SIMULATOR) << "stabilization done" << std::endl;
 
+  // after stabilization, velocities may be in an impacting state; correct
+  // (NOTE: pairwise distances should already have been computed)
+/*
+  // find unilateral constraints
+  calc_pairwise_distances();
+  find_unilateral_constraints(contact_dist_thresh);
+
+  // handle any impacts
+  calc_impacting_unilateral_constraint_forces(-1.0);
+*/
   return step_size;
 }
 
