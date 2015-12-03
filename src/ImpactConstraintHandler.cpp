@@ -279,6 +279,9 @@ void ImpactConstraintHandler::apply_no_slip_model_to_connected_constraints(const
     {
       // need to solve another impact problem
       apply_no_slip_model(_epd);
+
+      // update the impulses from z
+      update_from_stacked(_epd, _z);
     }
   }
 
@@ -1323,6 +1326,60 @@ void ImpactConstraintHandler::apply_no_slip_model(UnilateralConstraintProblemDat
       FILE_LOG(LOG_CONSTRAINT) << "warning! KE gain detected! energy before=" << ke_minus << " energy after=" << ke_plus << endl;
   }
 
+  // get the change in velocity
+  VectorNd dv, tmpv;
+  q.X_CnT.mult(q.cn, dv);
+  dv += q.X_CsT.mult(q.cs, tmpv);
+  dv += q.X_CtT.mult(q.ct, tmpv);
+  dv += q.X_LT.mult(q.l, tmpv);
+
+  // compute lambda here using
+  // | M  J' | | dv     | = | 0 | 
+  // | J  0  | | lambda |   | -J*v |
+  // M*dv + J'*lambda = 0
+  // dv = -inv(M)*J'*lambda
+  // -J*inv(M)*J'*lambda = -J*v
+  q.lambda = q.Jx_v;
+  FILE_LOG(LOG_CONSTRAINT) << "J*dv (constraint velocities): " << dv << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "bilateral constraint forces: " << q.lambda << std::endl;
+MatrixNd tmp;
+  FILE_LOG(LOG_CONSTRAINT) << "Jx " << std::endl << q.Jfull.to_dense(tmp);
+  FILE_LOG(LOG_CONSTRAINT) << "inv(M)*Jx' " << std::endl << q.iM_JxT;
+  FILE_LOG(LOG_CONSTRAINT) << "J*inv(M)*Jx' " << std::endl << q.Jx_iM_JxT;
+
+  // solve for lambda
+  MatrixNd tmpM = q.Jx_iM_JxT;
+  LinAlgd::factor_chol(tmpM);
+  LinAlgd::solve_chol_fast(tmpM, q.lambda);
+
+  // update dv
+  dv -= q.iM_JxT.mult(q.lambda, tmpv);
+  FILE_LOG(LOG_CONSTRAINT) << "inv(M)*J'*lambda: " << tmpv << std::endl;
+  FILE_LOG(LOG_CONSTRAINT) << "change in velocity after incorporating joint constraints: " << dv << std::endl;
+
+  // compute J*dv
+  if (LOGGING(LOG_CONSTRAINT))
+  {
+    VectorNd tmpv;
+    q.Jfull.mult(dv, tmpv);
+    FILE_LOG(LOG_CONSTRAINT) << "predicted constraint velocity: " << tmpv << std::endl; 
+  }
+
+  // update the bodies' velocities
+  update_generalized_velocities(q, dv);
+
+  // setup the full lambda
+  VectorNd lambda;
+  lambda.set_zero(q.N_CONSTRAINT_EQNS_IMP);
+  lambda.set(q.active, q.lambda);
+
+  // push lambda back into individual joint lambdas
+  for (unsigned i=0, j=0; i< q.island_ijoints.size(); i++)
+  {
+    const unsigned NEQ = q.island_ijoints[i]->num_constraint_eqns();
+    q.island_ijoints[i]->lambda = lambda.segment(j, j+NEQ);
+    j += NEQ;
+  }
 
   FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::solve_no_slip_lcp() exited" << std::endl;
 }
