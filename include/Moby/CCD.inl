@@ -145,22 +145,27 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
       // init sets of vertices
       std::set<boost::shared_ptr<Polyhedron::Vertex> > vertsA, vertsB;
 
+      // get the interior point in poseA and poseB
+      Point3d ipA = Ravelin::Pose3d::transform_point(poseA, Point3d(ip, GLOBAL));
+      Point3d ipB = Ravelin::Pose3d::transform_point(poseB, Point3d(ip, GLOBAL));
+
+      // get all faces on the interior point plane from polyhedron B; pick
+      // normal from this too
+      bool normal_unset = true, bad_normal_A = false;
+
       // get all faces on the interior point plane from polyhedron A
       for (unsigned i=0; i< polyA.get_faces().size(); i++)
       {
         // get the plane containing the face; face thinks it is in global frame
         // but it really is in poseA's frame
-        Plane uplane = polyA.get_faces()[i]->get_plane();
-        Ravelin::Vector3d nnew = uplane.get_normal();
+        Plane plane = polyA.get_faces()[i]->get_plane();
+        Ravelin::Vector3d nnew = plane.get_normal();
         nnew.pose = poseA;
-        uplane.set_normal(nnew);
-
-        // transform the plane
-        Plane plane = uplane.transform(wTa);
+        plane.set_normal(nnew);
 
         // compute the signed distance from the interior point
         // if signed distance is greater than zero, don't store the vertices 
-        double sdist = plane.calc_signed_distance(Point3d(ip, GLOBAL));
+        double sdist = plane.calc_signed_distance(ipA);
         if (std::fabs(sdist) > NEAR_ZERO)
           continue;
 
@@ -171,28 +176,55 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
           vertsA.insert(e->v1);
           vertsA.insert(e->v2);
         }
+
+        // if the normal hasn't been set, set it
+        if (normal_unset)
+        {
+          normal_unset = false;
+          normal = -wTa.transform_vector(plane.get_normal());
+        }
+        else
+        {
+          // normal has already been set; make sure normal is aligned with
+          // set normal
+          if (normal.dot(-wTa.transform_vector(plane.get_normal())) < 1.0 - NEAR_ZERO)
+            bad_normal_A = true; 
+        } 
       }
 
-      // get all faces on the interior point plane from polyhedron B; pick
-      // normal from this too
-      bool normal_unset = true;
+      // see whether we need to try to reset the normal
+      if (bad_normal_A)
+        normal_unset = true;
+
+      // loop over B's faces
       for (unsigned i=0; i< polyB.get_faces().size(); i++)
       {
         // get the plane containing the face; face thinks it is in global frame
         // but it really is in poseB's frame
-        Plane uplane = polyB.get_faces()[i]->get_plane();
-        Ravelin::Vector3d nnew = uplane.get_normal();
+        Plane plane = polyB.get_faces()[i]->get_plane();
+        Ravelin::Vector3d nnew = plane.get_normal();
         nnew.pose = poseB;
-        uplane.set_normal(nnew);
-
-        // transform the plane
-        Plane plane = uplane.transform(wTb);
+        plane.set_normal(nnew);
 
         // compute the signed distance from the interior point
         // if signed distance is greater than zero, don't store the vertices 
-        double sdist = plane.calc_signed_distance(Point3d(ip, GLOBAL));
+        double sdist = plane.calc_signed_distance(ipB);
         if (std::fabs(sdist) > NEAR_ZERO)
           continue;
+
+        // if the normal hasn't been set, set it
+        if (normal_unset)
+        {
+          normal_unset = false;
+          normal = wTb.transform_vector(plane.get_normal());
+        }
+        else
+        {
+          // normal has already been set; make sure normal is aligned with
+          // set normal
+          if (normal.dot(wTb.transform_vector(plane.get_normal())) < 1.0 - NEAR_ZERO)
+            return output_begin; 
+        } 
 
         // add all vertices of the face to the set
         BOOST_FOREACH(boost::weak_ptr<Polyhedron::Edge> we, polyB.get_faces()[i]->e)
@@ -200,13 +232,6 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
           boost::shared_ptr<Polyhedron::Edge> e(we);
           vertsB.insert(e->v1);
           vertsB.insert(e->v2);
-        }
-
-        // ALSO, if the normal hasn't been set, set it
-        if (normal_unset)
-        {
-          normal_unset = false;
-          normal = plane.get_normal();
         }
       }
 

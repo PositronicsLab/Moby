@@ -247,7 +247,11 @@ double CCD::calc_next_CA_Euler_step_generic(const PairwiseDistInfo& pdi)
 
   // ensure that at least one contact was found
   if (contacts.empty())
-    throw std::runtime_error("No contacts found and at least one expected");
+  {
+//    throw std::runtime_error("No contacts found and at least one expected");
+      std::cerr << "No contacts found and at least one expected" << std::endl;
+      return INF;
+  }
 
   // get the contact offset <n, x> = d
   const UnilateralConstraint& c = contacts.front();
