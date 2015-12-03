@@ -128,7 +128,7 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
 
     // find the interior point
     Ravelin::Origin3d ip;
-    dist = CompGeom::find_hs_interior_point(hs.begin(), hs.end(), ip);
+    dist = -CompGeom::find_hs_interior_point(hs.begin(), hs.end(), ip);
 
     // calculate the half-space intersection
     try
@@ -296,21 +296,24 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
       // get the reverse of the normal
       Ravelin::Vector3d ncand = -tri.calc_normal();
 
+      // get the offset
+      double offset_cand = tri.calc_offset(ncand);
+
       // get the extremal point in the direction of the inverse normal
       // NOTE: this is currently an O(n) operation, but it could be turned into
       //       an O(lg N) one
       Point3d p(tpoly->find_extreme_vertex(Ravelin::Origin3d(ncand)), GLOBAL);
 
       // compute the distance of the extremal point from the face
-      double dist = ncand.dot(p);
+      double dist = ncand.dot(p) - offset_cand;
       assert(dist > -NEAR_ZERO);
       if (dist < min_dist)
       {
         // if the absolute distance is less than the minimum, we've found our
         // normal
         min_dist = dist;
-        normal = ncand;
-        offset = -normal.dot(Point3d(vertices[facets[i].a], GLOBAL));
+        normal = -ncand;
+        offset = -offset_cand; 
       }
     }
 
