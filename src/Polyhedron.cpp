@@ -1299,7 +1299,7 @@ double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<co
         else
         {
           FILE_LOG(LOG_COLDET) << "Slow Case" << std::endl;          
-          dist = -1.0;//minkowski_optimum_distance(pA,pB,aTb);
+          return -1.0;//minkowski_optimum_distance(pA,pB,aTb);
         }
 
         FILE_LOG(LOG_COLDET)<< "penetrating" << std::endl;
@@ -1340,7 +1340,7 @@ double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<co
         else
         {
           FILE_LOG(LOG_COLDET) << "Slow Case" << std::endl;
-          dist = -1.0;//minkowski_optimum_distance(pA,pB,aTb);
+          return -1.0;//minkowski_optimum_distance(pA,pB,aTb);
         }
 
         FILE_LOG(LOG_COLDET)<< "penetrating" << std::endl;
