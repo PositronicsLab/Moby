@@ -1165,9 +1165,9 @@ SpatialRBInertiad SDFReader::read_inertial(shared_ptr<const XMLTree> node, Rigid
   shared_ptr<const XMLTree> pose_node = find_one_tag("pose", node);
   if (pose_node)
   {
-    Pose3d P = read_pose(node);
-    P.rpose = rb->get_pose();
-    rb->set_inertial_pose(P);
+    shared_ptr<Pose3d> P(new Pose3d(read_pose(node)));
+    P->rpose = rb->get_pose();
+    J.pose = P; 
   }
 
   // find the inertia

@@ -137,7 +137,7 @@ void ConstraintStabilization::stabilize(shared_ptr<ConstraintSimulator> sim)
   std::map<shared_ptr<DynamicBodyd>, unsigned> body_index_map;
 
   // save the generalized velocities
-//  save_velocities(sim, qd_save);
+  save_velocities(sim, qd_save);
 
   // get the body configurations and setup the body index map
   get_body_configurations(q, sim);
@@ -159,7 +159,6 @@ void ConstraintStabilization::stabilize(shared_ptr<ConstraintSimulator> sim)
   {
     FILE_LOG(LOG_SIMULATOR) <<"maximum constraint violation: "<< max_vio <<std::endl;
 
-/*
     // zero body velocities first (we only want to change positions based on
     // our updates)
     for (unsigned i=0; i< sim->_bodies.size(); i++)
@@ -169,7 +168,7 @@ void ConstraintStabilization::stabilize(shared_ptr<ConstraintSimulator> sim)
       v.set_zero();
       db->set_generalized_velocity(DynamicBodyd::eSpatial, v);
     }
-*/
+
     // compute problem data (get M, N, alpha, etc.) 
     compute_problem_data(pd, sim);
 
@@ -179,7 +178,7 @@ void ConstraintStabilization::stabilize(shared_ptr<ConstraintSimulator> sim)
       determine_dq(pd[i], dq, body_index_map);
     FILE_LOG(LOG_SIMULATOR) << "dq: " << dq << std::endl;
 
-    // determine s and update q 
+    // determine s and update q; NOTE: update q computes the pairwise distances 
     if (!update_q(dq, q, sim))
     {
       FILE_LOG(LOG_SIMULATOR) << " -- failed to effectively finish the constraint stabilization process!" << std::endl;
@@ -196,7 +195,11 @@ void ConstraintStabilization::stabilize(shared_ptr<ConstraintSimulator> sim)
   }
 
   // restore the generalized velocities
-//  restore_velocities(sim, qd_save);
+  restore_velocities(sim, qd_save);
+
+  // after stabilization, velocities may be in an impacting state; correct
+//  sim->find_unilateral_constraints(sim->contact_dist_thresh);
+//  sim->calc_impacting_unilateral_constraint_forces(-1.0); 
 
   FILE_LOG(LOG_SIMULATOR) << iterations << " iterations required" << std::endl;
   FILE_LOG(LOG_SIMULATOR) <<"=====constraint stabilization end ======" << std::endl;
@@ -233,11 +236,21 @@ void ConstraintStabilization::add_contact_constraints(std::vector<UnilateralCons
     normal.normalize();
     UnilateralConstraint uc = CollisionDetection::create_contact(cg1, cg2, p1_g, normal, dist);
     FILE_LOG(LOG_CONSTRAINT) << "creating contact between separated bodies: " << cg1->get_single_body()->body_id << " and " << cg2->get_single_body()->body_id << std::endl;
+    FILE_LOG(LOG_CONSTRAINT) << uc << std::endl;
     constraints.insert(constraints.end(), uc); 
   }
   // case 2: bodies are contacting/interpenetrated 
   else// (std::fabs(dist) < NEAR_ZERO)
+  {
+    FILE_LOG(LOG_CONSTRAINT) << "creating contacts between interpenetrating/contacting bodies: " << cg1->get_single_body()->body_id << " and " << cg2->get_single_body()->body_id << std::endl;
+    const unsigned OLD_CONSTRAINTS_SZ = constraints.size();
     sim->_coldet->find_contacts(cg1,cg2, constraints);
+    if (LOGGING(LOG_CONSTRAINT))
+    {
+      for (unsigned i=OLD_CONSTRAINTS_SZ; i< constraints.size(); i++)
+        FILE_LOG(LOG_CONSTRAINT) << constraints[i] << std::endl;
+    }
+  }
 }
 
 /// Computes the constraint data
@@ -973,6 +986,7 @@ bool ConstraintStabilization::update_q(const VectorNd& dq, VectorNd& q, shared_p
   vector<PairwiseDistInfo>& pdi = sim->_pairwise_distances;
   vector<PairwiseDistInfo> pdi_old = pdi;
 
+  FILE_LOG(LOG_CONSTRAINT) << "...about to compute unilateral brackets" << std::endl;
   // find the pairwise distances and implicit constraint evaluations at q + dq
   qstar = dq;
   qstar += q;
@@ -1225,8 +1239,8 @@ double ConstraintStabilization::eval_bilateral(double t, unsigned i, const Vecto
 /// Ridders method for root finding
 double ConstraintStabilization::ridders_unilateral(double x1, double x2, double fl, double fh, unsigned idx, const VectorNd& dq, const VectorNd& q, shared_ptr<ConstraintSimulator> sim)
 {
-  const unsigned MAX_ITERATIONS = 5;
-  const double TOL = 1e-4;
+  const unsigned MAX_ITERATIONS = 25;
+  const double TOL = 1e-6;
   double ans=std::numeric_limits<double>::max(),fm,fnew,s,xh,xl,xm,xnew;
 
   if ((fl > 0.0 && fh < 0.0) || (fl < 0.0 && fh > 0.0)) 
@@ -1285,8 +1299,8 @@ double ConstraintStabilization::ridders_unilateral(double x1, double x2, double 
 /// Ridders method for root finding
 double ConstraintStabilization::ridders_bilateral(double x1, double x2, double fl, double fh, unsigned idx, const VectorNd& dq, const VectorNd& q, shared_ptr<ConstraintSimulator> sim)
 {
-  const unsigned MAX_ITERATIONS = 5;
-  const double TOL = std::sqrt(bilateral_eps);
+  const unsigned MAX_ITERATIONS = 25;
+  const double TOL = 1e-6;
   double ans=std::numeric_limits<double>::max(),fm,fnew,s,xh,xl,xm,xnew;
 
   if ((fl > 0.0 && fh < 0.0) || (fl < 0.0 && fh > 0.0)) 

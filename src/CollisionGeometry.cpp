@@ -62,7 +62,7 @@ double CollisionGeometry::get_farthest_point_distance() const
   shared_ptr<const CollisionGeometry> cg_const = dynamic_pointer_cast<const CollisionGeometry>(shared_from_this());
   CollisionGeometryPtr cg = const_pointer_cast<CollisionGeometry>(cg_const);
   shared_ptr<const Pose3d> P = primitive->get_pose(cg);
-  Transform3d rbTp = Pose3d::calc_relative_pose(P, rb->get_inertial_pose());
+  Transform3d rbTp = Pose3d::calc_relative_pose(P, rb->get_pose());
 
   return r + rbTp.x.norm();
 }

@@ -1821,7 +1821,7 @@ void ImpactConstraintHandler::add_contact_dir_to_Jacobian(shared_ptr<RigidBodyd>
     return;
 
   // get the vector from the center of mass to the contact point 
-  Vector3d x0(Pose3d::calc_relative_pose(rb->get_inertial_pose(), GLOBAL).x, GLOBAL);
+  Vector3d x0(Pose3d::calc_relative_pose(rb->get_pose(), GLOBAL).x, GLOBAL);
   Vector3d r = contact_point - x0; 
 
   // compute r x d

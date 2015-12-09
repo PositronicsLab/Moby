@@ -110,7 +110,7 @@ void RigidBody::set_inertia(const SpatialRBInertiad& inertia)
 
     Ravelin::Quatd q_Jdiag(r_Jdiag);
     Ravelin::Transform3d iPose
-        = Ravelin::Pose3d::calc_relative_pose(get_inertial_pose(),get_pose());
+        = Ravelin::Pose3d::calc_relative_pose(get_pose(),get_pose());
     q_Jdiag *= iPose.q;
     Transf->setAttitude(osg::Quat(q_Jdiag.x,q_Jdiag.y,q_Jdiag.z,q_Jdiag.w));
     Transf->setPosition(osg::Vec3(iPose.x[0],iPose.x[1],iPose.x[2]));
@@ -178,7 +178,7 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
   XMLAttrib* mass_attr = node->get_attrib("mass");
   if (mass_attr)
   {
-    SpatialRBInertiad J = Pose3d::transform(_jF, get_inertia());
+    SpatialRBInertiad J = Pose3d::transform(_F, get_inertia());
     J.m = mass_attr->get_real_value();
     set_inertia(J);
   }
@@ -187,7 +187,7 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
   XMLAttrib* inertia_attr = node->get_attrib("inertia");
   if (inertia_attr)
   {
-    SpatialRBInertiad J = Pose3d::transform(_jF, get_inertia());
+    SpatialRBInertiad J = Pose3d::transform(_F, get_inertia());
     inertia_attr->get_matrix_value(J.J);
     set_inertia(J);
   }
@@ -213,38 +213,6 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
       T.q = AAngled(aa_vec[0], aa_vec[1], aa_vec[2], aa_vec[3]);
     }
     set_pose(T);
-  }
-
-  // read the inertial frame here...
-  XMLAttrib* com_attr = node->get_attrib("inertial-relative-com");
-  XMLAttrib* J_rpy_attr = node->get_attrib("inertial-relative-rpy");
-  XMLAttrib* J_aangle_attr = node->get_attrib("inertial-relative-aangle");
-  XMLAttrib* J_quat_attr = node->get_attrib("inertial-relative-quat");
-  if (com_attr || J_rpy_attr || J_aangle_attr || J_quat_attr)
-  {
-    shared_ptr<Pose3d> newjF(new Pose3d);
-    newjF->rpose = _jF;
-    
-    // read the com
-    if (com_attr)
-      newjF->x = com_attr->get_origin_value();
-    if (J_quat_attr)
-      newjF->q = J_quat_attr->get_quat_value();
-    else if (J_rpy_attr)
-      newjF->q = J_rpy_attr->get_rpy_value();
-    else if (J_aangle_attr)
-    {
-      VectorNd aa_vec;
-      aangle_attr->get_vector_value(aa_vec);
-      newjF->q = AAngled(aa_vec[0], aa_vec[1], aa_vec[2], aa_vec[3]);
-    }
-
-    // update newjF to refer to _jF's pose
-    newjF->update_relative_pose(_jF->rpose);
-    *_jF = *newjF;
-
-    // update the mixed pose
-    update_mixed_pose();
   }
 
   // set the collision geometries, if provided
@@ -278,7 +246,7 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
   if (!ifp_nodes.empty())
   {
     // set inertia to zero initially
-    SpatialRBInertiad J(_jF);
+    SpatialRBInertiad J(_F);
 
     // loop over all InertiaFromPrimitive nodes
     for (list<shared_ptr<const XMLTree> >::const_iterator i = ifp_nodes.begin(); i != ifp_nodes.end(); i++)
@@ -319,7 +287,7 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
       Fxx->update_relative_pose(GLOBAL);  // account for relative pose chain
 
       // now make the relative pose for Fxx be the inertial frame for this
-      Fxx->rpose = _jF;
+      Fxx->rpose = _F;
 
       // set the relative pose initially to identity for this primitive
       shared_ptr<Pose3d> rTR(new Pose3d);
@@ -342,24 +310,11 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
       Jx.pose = rTR;
 
       // transform the inertia and update the inertia for this
-      J += Pose3d::transform(_jF, Jx);
+      J += Pose3d::transform(_F, Jx);
     }
 
-    // get the offset of J and subtract it from _jF
-    shared_ptr<Pose3d> newjF(new Pose3d);
-    newjF->x = J.h;
-    newjF->rpose = _jF;
-    SpatialRBInertiad Jnew = Pose3d::transform(newjF, J);
-
-    // set _jF to be newJF;
-    newjF->update_relative_pose(_jF->rpose);
-    *_jF = *newjF;
-
-    // update the mixed pose
-    update_mixed_pose();
-
-    // set the mass and inertia of the RigidBody additively
-    set_inertia(Jnew);
+   // set the mass and inertia of the RigidBody additively
+    set_inertia(J);
   }
 
   // read the linear and/or velocity of the body, if provided
@@ -440,8 +395,8 @@ void RigidBody::save_to_xml(XMLTreePtr node, list<shared_ptr<const Base> >& shar
   node->attribs.insert(XMLAttrib("quat", F0.q));
 
   // save the inertial frame
-  node->attribs.insert(XMLAttrib("inertial-relative-com", rb->get_inertial_pose()->x));
-  node->attribs.insert(XMLAttrib("inertial-relative-quat", rb->get_inertial_pose()->q));
+  node->attribs.insert(XMLAttrib("inertial-relative-com", rb->get_pose()->x));
+  node->attribs.insert(XMLAttrib("inertial-relative-quat", rb->get_pose()->q));
 
   // save the linear and angular velocities
   shared_ptr<Pose3d> TARGET(new Pose3d);
@@ -600,7 +555,6 @@ std::ostream& Moby::operator<<(std::ostream& out, Moby::RigidBody& rb)
   {
     case eGlobal:        out << "global" << endl; break;
     case eLink:          out << "link inertia" << endl; break;
-    case eLinkInertia:   out << "link" << endl; break;
     case eLinkCOM:       out << "link c.o.m." << endl; break;
     case eJoint:         out << "joint" << endl; break;
     default:
@@ -617,9 +571,6 @@ std::ostream& Moby::operator<<(std::ostream& out, Moby::RigidBody& rb)
   }
 
   // write inertial info
-  shared_ptr<const Pose3d> jF = rb.get_inertial_pose();
-  out << "  relative c.o.m.: " << jF->x << endl;
-  out << "  relative inertial frame: " << AAngled(jF->q) << endl;
   out << "  mass: " << rb.get_inertia().m << endl;
   out << "  inertia: " << endl << rb.get_inertia().J;
 

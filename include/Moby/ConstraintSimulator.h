@@ -38,6 +38,9 @@ class ConstraintSimulator : public Simulator
     boost::shared_ptr<ContactParameters> get_contact_parameters(CollisionGeometryPtr geom1, CollisionGeometryPtr geom2) const;
     const std::vector<PairwiseDistInfo>& get_pairwise_distances() const { return _pairwise_distances; }
 
+    /// The constraint stabilization mechanism
+    ConstraintStabilization cstab;
+
     /// Determines whether two geometries are not checked
     std::set<Ravelin::sorted_pair<CollisionGeometryPtr> > unchecked_pairs;
 
@@ -116,9 +119,6 @@ class ConstraintSimulator : public Simulator
 
     double calc_CA_step();
     double calc_next_CA_Euler_step(double contact_dist_thresh) const;
-
-    /// The constraint stabilization mechanism
-    ConstraintStabilization _cstab;
 
     /// The dissipation mechanism, if any
     boost::shared_ptr<Dissipation> _dissipator;

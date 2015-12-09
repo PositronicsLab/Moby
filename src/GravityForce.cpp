@@ -38,7 +38,7 @@ void GravityForce::add_force(shared_ptr<DynamicBodyd> body)
   shared_ptr<RigidBody> rb = dynamic_pointer_cast<RigidBody>(body);
   if (rb)
   {
-    shared_ptr<Pose3d> P(new Pose3d(*rb->get_inertial_pose()));
+    shared_ptr<Pose3d> P(new Pose3d(*rb->get_pose()));
     P->update_relative_pose(GLOBAL);
     P->q.set_identity();
     SForced w(boost::const_pointer_cast<const Pose3d>(P));
@@ -57,7 +57,7 @@ void GravityForce::add_force(shared_ptr<DynamicBodyd> body)
       // apply gravity force to all links
       BOOST_FOREACH(shared_ptr<RigidBodyd> rb, links)
       {
-        shared_ptr<Pose3d> P(new Pose3d(*rb->get_inertial_pose()));
+        shared_ptr<Pose3d> P(new Pose3d(*rb->get_pose()));
         P->update_relative_pose(GLOBAL);
         P->q.set_identity();
         SForced w(boost::const_pointer_cast<const Pose3d>(P));

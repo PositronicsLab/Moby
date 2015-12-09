@@ -571,12 +571,12 @@ void ConstraintSimulator::load_from_xml(shared_ptr<const XMLTree> node, map<std:
   // read the unilateral constraint stabilization tolerance, if any
   XMLAttrib* unilateral_cstab_tol_attrib = node->get_attrib("unilateral-stabilization-tol");
   if (unilateral_cstab_tol_attrib)
-    _cstab.eps = unilateral_cstab_tol_attrib->get_real_value();
+    cstab.eps = unilateral_cstab_tol_attrib->get_real_value();
 
   // read the bilateral constraint stabilization tolerance, if any
   XMLAttrib* bilateral_cstab_tol_attrib = node->get_attrib("bilateral-stabilization-tol");
   if (bilateral_cstab_tol_attrib)
-    _cstab.bilateral_eps = bilateral_cstab_tol_attrib->get_real_value();
+    cstab.bilateral_eps = bilateral_cstab_tol_attrib->get_real_value();
 
   // read the contact distance threshold, if any
   XMLAttrib* contact_dist_thresh_attrib = node->get_attrib("contact-dist-thresh");
@@ -709,8 +709,8 @@ void ConstraintSimulator::save_to_xml(XMLTreePtr node, list<shared_ptr<const Bas
   node->name = "ConstraintSimulator";
 
   // save the constraint stabilization tolerances
-  node->attribs.insert(XMLAttrib("unilateral-stabilization-tol", _cstab.eps));
-  node->attribs.insert(XMLAttrib("bilateral-stabilization-tol", _cstab.bilateral_eps));
+  node->attribs.insert(XMLAttrib("unilateral-stabilization-tol", cstab.eps));
+  node->attribs.insert(XMLAttrib("bilateral-stabilization-tol", cstab.bilateral_eps));
 
   // save the dissipation mechanism
   if (_dissipator)

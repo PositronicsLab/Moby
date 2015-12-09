@@ -217,8 +217,6 @@ void RCArticulatedBody::load_from_xml(shared_ptr<const XMLTree> node, map<string
       set_computation_frame_type(eGlobal);
     else if (strcasecmp(frame.c_str(), "link") == 0)
       set_computation_frame_type(eLink);
-    else if (strcasecmp(frame.c_str(), "linkinertia") == 0 || strcasecmp(frame.c_str(), "link-inertia") == 0)
-      set_computation_frame_type(eLinkInertia);
     else if (strcasecmp(frame.c_str(), "linkcom") == 0 || strcasecmp(frame.c_str(), "link-com") == 0)
       set_computation_frame_type(eLinkCOM);
     else if (strcasecmp(frame.c_str(), "joint") == 0)
@@ -284,8 +282,6 @@ void RCArticulatedBody::save_to_xml(XMLTreePtr node, list<shared_ptr<const Base>
     node->attribs.insert(XMLAttrib("fdyn-algorithm-frame", string("link")));
   else if (get_computation_frame_type() == eLinkCOM)
     node->attribs.insert(XMLAttrib("fdyn-algorithm-frame", string("linkcom")));
-  else if (get_computation_frame_type() == eLinkInertia)
-    node->attribs.insert(XMLAttrib("fdyn-algorithm-frame", string("linkinertia")));
   else
   {
     assert(get_computation_frame_type() == eJoint);
