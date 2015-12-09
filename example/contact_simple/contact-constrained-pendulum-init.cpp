@@ -22,7 +22,7 @@ boost::shared_ptr<GravityForce> grav;
 void stabilize(RigidBodyPtr l1)
 {
   // get the pose of the link
-  Pose3d P = *l1->get_inertial_pose();
+  Pose3d P = *l1->get_pose();
   double err = P.x.norm() - 1.0;
 
   // project the position of l1 back to the unit sphere
@@ -50,7 +50,7 @@ void post_step_callback(Simulator* sim)
    
   // output the energy of the link
   std::ofstream out("energy.dat", std::ostream::app);
-  Transform3d gTw = Pose3d::calc_relative_pose(l1->get_inertial_pose(), GLOBAL);
+  Transform3d gTw = Pose3d::calc_relative_pose(l1->get_pose(), GLOBAL);
   double KE = l1->calc_kinetic_energy();
   double PE = l1->get_inertia().m*(gTw.x[Y]+1.0)*-grav->gravity[Y];
   out << KE << " " << PE << " " << (KE+PE) << std::endl;

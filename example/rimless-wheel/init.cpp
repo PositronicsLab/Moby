@@ -26,7 +26,7 @@ void post_step_callback(Simulator* sim)
   const unsigned Z = 2;
   std::ofstream out("energy.dat", std::ostream::app);
   double KE = wheel->calc_kinetic_energy();
-  Transform3d gTw = Pose3d::calc_relative_pose(wheel->get_inertial_pose(), GLOBAL);
+  Transform3d gTw = Pose3d::calc_relative_pose(wheel->get_pose(), GLOBAL);
   double PE = wheel->get_inertia().m*gTw.x[Z]*-grav->gravity[Z];
   out << sim->current_time << " " << KE << " " << PE << " " << (KE+PE) << std::endl;
   out.close();

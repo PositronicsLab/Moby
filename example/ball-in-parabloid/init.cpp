@@ -27,7 +27,7 @@ void post_step_callback(Simulator* sim)
   // output the energy of the ball
   std::ofstream out("energy.dat", std::ostream::app);
   double KE = ball->calc_kinetic_energy();
-  Transform3d gTw = Pose3d::calc_relative_pose(ball->get_inertial_pose(), GLOBAL);
+  Transform3d gTw = Pose3d::calc_relative_pose(ball->get_pose(), GLOBAL);
   double PE = ball->get_inertia().m*gTw.x[Z]*-grav->gravity[Z];
   out << KE << " " << PE << " " << (KE+PE) << std::endl;
   out.close();

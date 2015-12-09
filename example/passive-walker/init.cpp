@@ -49,8 +49,8 @@ void post_step_callback(Simulator* s)
   double KE = walker->calc_kinetic_energy();
   shared_ptr<RigidBodyd> base = walker->get_links().front();
   shared_ptr<RigidBodyd> l1 = walker->get_links().back();
-  Transform3d gTb = Pose3d::calc_relative_pose(base->get_inertial_pose(), GLOBAL);
-  Transform3d gTl1 = Pose3d::calc_relative_pose(l1->get_inertial_pose(), GLOBAL);
+  Transform3d gTb = Pose3d::calc_relative_pose(base->get_pose(), GLOBAL);
+  Transform3d gTl1 = Pose3d::calc_relative_pose(l1->get_pose(), GLOBAL);
   double PEb = base->get_inertia().m*gTb.x[Z]*-grav->gravity[Z];
   double PEl1 = l1->get_inertia().m*gTl1.x[Z]*-grav->gravity[Z];
   out << KE << " " << (PEb+PEl1) << " " << (KE+PEb+PEl1) << std::endl;
@@ -140,7 +140,7 @@ void controller_callback(ControlledBodyPtr dbp, double t, void*)
   std::cout << "Time = " << t << std::endl;
 
   for(int i=0;i<links.size();i++){
-    boost::shared_ptr<const Ravelin::Pose3d> Ipose = links[i]->get_inertial_pose();
+    boost::shared_ptr<const Ravelin::Pose3d> Ipose = links[i]->get_pose();
     boost::shared_ptr<const Ravelin::Pose3d> Lpose = links[i]->get_pose();
 
     std::cout << links[i]->body_id << std::endl;
