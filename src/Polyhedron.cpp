@@ -2762,8 +2762,6 @@ Polyhedron::UpdateRule Polyhedron::update_vertex_face(FeatureType& fA, FeatureTy
   }
 
   // check whether there are edges from V pointing toward F
-  // here we convert the frame of the vertices which may not be the fastest solution
-  // may be better if the plane is converted
   // Transforming plane B to A
   Plane p_b = faceB->get_plane();
   Ravelin::Vector3d normal_b = p_b.get_normal();
@@ -2783,7 +2781,6 @@ Polyhedron::UpdateRule Polyhedron::update_vertex_face(FeatureType& fA, FeatureTy
   double D_va = p_a.calc_signed_distance(vectorA);
 
   FILE_LOG(LOG_COLDET) << v1_b << " , " << v1_a <<std::endl << vectorA << std::endl << p_a << std::endl << D_va << std::endl;
-
 
 
   es = vertA->e;
@@ -3031,7 +3028,7 @@ Polyhedron::UpdateRule Polyhedron::update_edge_face(FeatureType& fA, FeatureType
   // check whether the edge is completely clipped
   if(!clip_result)
   {
-
+    FILE_LOG(LOG_COLDET)<< "Edge completely excluded, looking for the closes feature of the face" <<std::endl;  
     //Initializing the start edge and the iterator
     boost::shared_ptr<const Polyhedron::Feature > cur_feature;
     boost::shared_ptr<const Polyhedron::Feature > prev_feature;
@@ -3056,8 +3053,8 @@ Polyhedron::UpdateRule Polyhedron::update_edge_face(FeatureType& fA, FeatureType
       planes_neighbors.clear();
       boost::shared_ptr<const Polyhedron::Feature> tail = cur_edge->v1;
       boost::shared_ptr<const Polyhedron::Feature> head = cur_edge->v2;
-      boost::shared_ptr<Plane> const vp_t = voronoi_plane(F_VERTEX, F_EDGE, aTb.source, tail, cur_feature);
-      boost::shared_ptr<Plane> const vp_h = voronoi_plane(F_VERTEX, F_EDGE, aTb.source, head, cur_feature);
+      boost::shared_ptr<Plane> const vp_t = voronoi_plane(F_EDGE, F_VERTEX, aTb.source, cur_feature, tail);
+      boost::shared_ptr<Plane> const vp_h = voronoi_plane(F_EDGE, F_VERTEX, aTb.source, cur_feature, head);
       std::pair<boost::shared_ptr<const Polyhedron::Feature>, boost::shared_ptr<Plane> > np_t(tail,vp_t);
       std::pair<boost::shared_ptr<const Polyhedron::Feature>, boost::shared_ptr<Plane> > np_h(head,vp_h);
       planes_neighbors.push_back(np_t);
