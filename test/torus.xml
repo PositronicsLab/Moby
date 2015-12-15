@@ -1,0 +1,39 @@
+<!-- A torus --> 
+
+<XML>
+  <DRIVER>
+    <camera position="0 0 10" target="0 0 0" up="0 1 0" />
+    <window location="0 0" size="640 480" />
+  </DRIVER>
+
+  <MOBY>
+    <!-- Primitives -->
+    <Torus id="torus-prim" major-radius=".7" minor-radius=".3" mass="1" aangle="1 0 0 0" />
+    <Plane id="plane"  />  
+    <Box id="b3" xlen="10" ylen=".00001" zlen="10" position="0 -.00005 0" />  
+
+    <!-- Gravity force -->
+    <GravityForce id="gravity" accel="0 -9.81 0"  />
+
+    <!-- Rigid bodies -->
+      <!-- the box -->
+      <RigidBody id="torus" enabled="true" aangle="1 0 0 0.0" position="0 1.000 0" angular-velocity="0.10 0 -10" visualization-id="torus-prim" linear-velocity="10.0 0 0">
+        <InertiaFromPrimitive primitive-id="torus-prim" />
+        <CollisionGeometry primitive-id="torus-prim" />
+      </RigidBody>
+
+      <!-- the ground -->
+      <RigidBody id="ground" enabled="false" visualization-id="b3" position="0 -0.0 0">
+        <CollisionGeometry primitive-id="plane" />
+      </RigidBody>
+
+    <!-- Setup the simulator -->
+    <TimeSteppingSimulator id="simulator" min-step-size="1e-3">
+      <DynamicBody dynamic-body-id="torus" />
+      <DynamicBody dynamic-body-id="ground" />
+      <RecurrentForce recurrent-force-id="gravity"  />
+      <ContactParameters object1-id="ground" object2-id="torus" epsilon="0" mu-coulomb="100" mu-viscous="0" friction-cone-edges="4" />
+    </TimeSteppingSimulator>
+  </MOBY>
+</XML>
+

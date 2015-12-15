@@ -220,7 +220,8 @@ void ConstraintStabilization::add_contact_constraints(std::vector<UnilateralCons
   boost::shared_ptr<const Pose3d> GLOBAL;
   Point3d p1, p2;
 
-  double dist = CollisionGeometry::calc_signed_dist(cg1, cg2, p1, p2);
+  // compute the signed distance between the geometries
+  double dist = sim->get_collision_detection()->calc_signed_dist(cg1, cg2, p1, p2);
 
   // case 1: bodies are clearly separated      
   if (dist >= NEAR_ZERO)
