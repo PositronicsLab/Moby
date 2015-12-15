@@ -2399,8 +2399,8 @@ bool Polyhedron::post_clip_deriv_check(FeatureType& fX, boost::shared_ptr<const 
       // if the neighbor is not a vertex, it must be a face
       else
       {
-        boost::shared_ptr<const Polyhedron::Face> fX =  boost::static_pointer_cast<const Polyhedron::Face>(min_N);
-        Plane p = fX->get_plane();
+        boost::shared_ptr<const Polyhedron::Face> faceX =  boost::static_pointer_cast<const Polyhedron::Face>(min_N);
+        Plane p = faceX->get_plane();
         Ravelin::Vector3d n = p.get_normal();
         n.pose = xTe.target;
 
@@ -2428,8 +2428,8 @@ bool Polyhedron::post_clip_deriv_check(FeatureType& fX, boost::shared_ptr<const 
       // if the neighbor is not a vertex, it must be a face
       else
       {
-        boost::shared_ptr<const Polyhedron::Face> fX =  boost::static_pointer_cast<const Polyhedron::Face>(max_N);
-        Plane p = fX->get_plane();
+        boost::shared_ptr<const Polyhedron::Face> faceX =  boost::static_pointer_cast<const Polyhedron::Face>(max_N);
+        Plane p = faceX->get_plane();
         Ravelin::Vector3d n = p.get_normal();
         n.pose = xTe.target;
 
@@ -2477,6 +2477,14 @@ bool Polyhedron::post_clip_deriv_check(FeatureType& fX, boost::shared_ptr<const 
 
   FILE_LOG(LOG_COLDET) << "Ddot_max: " << Ddot_max <<std::endl;
   FILE_LOG(LOG_COLDET) << "Ddot_min: " << Ddot_min <<std::endl;
+  FILE_LOG(LOG_COLDET) << "max: " << max_N <<std::endl;
+  FILE_LOG(LOG_COLDET) << "maxV: " << boost::dynamic_pointer_cast<const Polyhedron::Vertex>(max_N) <<std::endl;
+  FILE_LOG(LOG_COLDET) << "maxF: " << boost::dynamic_pointer_cast<const Polyhedron::Face>(max_N) <<std::endl;
+
+  FILE_LOG(LOG_COLDET) << "min: " << min_N <<std::endl;
+  FILE_LOG(LOG_COLDET) << "minV: " << boost::dynamic_pointer_cast<const Polyhedron::Vertex>(min_N) <<std::endl;
+  FILE_LOG(LOG_COLDET) << "minF: " << boost::dynamic_pointer_cast<const Polyhedron::Face>(min_N) <<std::endl;
+
 
   // check whether it is posible to update X
   if(min_N && Ddot_min>NEAR_ZERO)
@@ -2486,6 +2494,8 @@ bool Polyhedron::post_clip_deriv_check(FeatureType& fX, boost::shared_ptr<const 
       fX = eVertex;  
     else if (boost::dynamic_pointer_cast<const Polyhedron::Face>(min_N))
       fX = eFace;
+    else
+      fX = eEdge;
     return true; 
   }
   else if(max_N && Ddot_max<-NEAR_ZERO)
@@ -2495,6 +2505,8 @@ bool Polyhedron::post_clip_deriv_check(FeatureType& fX, boost::shared_ptr<const 
       fX = eVertex;  
     else if (boost::dynamic_pointer_cast<const Polyhedron::Face>(max_N))
       fX = eFace;
+    else 
+      fX = eEdge;
     return true; 
   }
 
