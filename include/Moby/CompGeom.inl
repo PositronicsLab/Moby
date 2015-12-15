@@ -2897,6 +2897,11 @@ TessellatedPolyhedronPtr CompGeom::calc_hs_intersection(ForwardIterator start, F
     if (facet->offset > 0)
     {
       // facet has infinite offset
+      qh_freeqhull(!qh_ALL);
+      qh_memfreeshort(&curlong, &totlong);
+      assert(!curlong && !totlong);
+
+      throw NumericalException();
       return TessellatedPolyhedronPtr();
     }
     coordT* point = (coordT*) qh_memalloc(qh normal_size);
@@ -2918,6 +2923,13 @@ TessellatedPolyhedronPtr CompGeom::calc_hs_intersection(ForwardIterator start, F
         {
           // facet has infinite offset
           qh_memfree(point, qh normal_size);
+
+          // free qhull memory
+          qh_freeqhull(!qh_ALL);
+          qh_memfreeshort(&curlong, &totlong);
+          assert(!curlong && !totlong);
+
+          throw NumericalException();
           return TessellatedPolyhedronPtr();
         }
       }
