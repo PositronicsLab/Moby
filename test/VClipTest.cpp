@@ -56,6 +56,7 @@ using namespace Moby;
 
         Origin3d q_trans(trans_q_x, trans_q_y, trans_q_z);
         Quatd q_quat(quat_q_x, quat_q_y, quat_q_z, quat_q_w);
+        q_quat.normalize();
 
 
         boost::shared_ptr<Ravelin::Pose3d> p_pose (new Pose3d(Origin3d(0, 0, 0)));
@@ -68,7 +69,6 @@ using namespace Moby;
         Point3d pointp(p_pose);
         Point3d pointq(q_pose);
         double dist_vclip = p->calc_signed_dist(q, pointp, pointq);
-//        double dist_vclip = Polyhedron::vclip(p, q, p_pose, q_pose, closestP, closestQ);
 
         TessellatedPolyhedronPtr m_diff = TessellatedPolyhedron::minkowski(*p_tess, p_pose, *q_tess, q_pose);
 
@@ -187,7 +187,7 @@ using namespace Moby;
 
         Origin3d q_trans(trans_q_x, trans_q_y, trans_q_z);
         Quatd q_quat(quat_q_x, quat_q_y, quat_q_z, quat_q_w);
-
+        q_quat.normalize();
 
         boost::shared_ptr<Ravelin::Pose3d> p_pose (new Pose3d(Origin3d(0, 0, 0)));
         boost::shared_ptr<Ravelin::Pose3d> q_pose (new Pose3d(q_quat,q_trans));
@@ -196,7 +196,9 @@ using namespace Moby;
         boost::shared_ptr<const Polyhedron::Feature> closestQ = *(q->get_polyhedron().get_faces().begin());
        
        //calculating distance using vclip
-        double dist_vclip = Polyhedron::vclip(p, q, p_pose, q_pose, closestP, closestQ);
+        Point3d pointp(p_pose);
+        Point3d pointq(q_pose);
+        double dist_vclip = p->calc_signed_dist(q, pointp, pointq);
 
         TessellatedPolyhedronPtr m_diff = TessellatedPolyhedron::minkowski(*p_tess, p_pose, *q_tess, q_pose);
 

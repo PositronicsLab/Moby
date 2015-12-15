@@ -33,19 +33,20 @@ void find(const map<std::string, BasePtr>& read_map, shared_ptr<TimeSteppingSimu
 
 TEST(Boxes, ConstraintViolation)
 {
-  const double TOL = 1e-3;
-  const double DT = 1e-1;
+  const double TOL = 1e-6;
+  const double DT = 1e-2;
   const std::string FNAME("box.xml");
   const std::string BOX_ID("box");
   shared_ptr<TimeSteppingSimulator> sim;
   shared_ptr<RigidBody> box;
   const unsigned NTIMES = 100;
 
-/*
   // log contact 
   Moby::Log<Moby::OutputToFile>::reporting_level = (LOG_SIMULATOR | LOG_CONSTRAINT);
   Moby::OutputToFile::stream.open("logging.out");
-*/
+
+  // log energy
+  std::ofstream energy_out("energy.dat");
 
   // do this multiple times
   for (unsigned j=0; j< NTIMES; j++)
@@ -61,7 +62,8 @@ TEST(Boxes, ConstraintViolation)
 
     // set tolerance for constraint stabilization and minimum step size
 //    sim->min_step_size = TOL/10000.0;
-    sim->min_step_size = 1e-5;
+//    sim->min_step_size = 1e-5;
+    sim->min_step_size = 1e-1;
     sim->cstab.eps = -NEAR_ZERO;
 
     // modify the initial orientation of the box
@@ -108,8 +110,12 @@ TEST(Boxes, ConstraintViolation)
       for (unsigned i=0; i< pdi.size(); i++)
         max_vio = std::min(max_vio, pdi[i].dist);
 
+      // get the kinetic energy of the box
+      double KE = box->calc_kinetic_energy();
+      energy_out << KE << std::endl;
+
       // see whether there is no kinetic energy
-      if (box->calc_kinetic_energy() < 1e-6)
+      if (KE < 1e-6)
       {
         if (sim->current_time - no_KE_time > 0.5)
           break;
@@ -123,6 +129,7 @@ TEST(Boxes, ConstraintViolation)
     // only want to print out one message about violation
     EXPECT_GT(max_vio, -TOL);
     std::cerr << "+" << std::flush;
+    energy_out.close();
   }
 }
 
