@@ -1131,6 +1131,8 @@ double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<co
   // get the transformation between A and B, and vice versa
   Transform3d aTb = Pose3d::calc_relative_pose(poseB, poseA);
   Transform3d bTa = aTb.inverse(); 
+
+  FILE_LOG(LOG_COLDET) << "===========V-clip started========"<< std::endl;
   FILE_LOG(LOG_COLDET) << "poseA: "<< *poseA << std::endl;
   FILE_LOG(LOG_COLDET) << "poseB: "<< *poseB << std::endl;
   FILE_LOG(LOG_COLDET) << "aTb: " << aTb << std::endl;
@@ -3044,7 +3046,8 @@ Polyhedron::UpdateRule Polyhedron::update_edge_face(FeatureType& fA, FeatureType
     //Initializing the start edge and the iterator
     boost::shared_ptr<const Polyhedron::Feature > cur_feature;
     boost::shared_ptr<const Polyhedron::Feature > prev_feature;
-    if(min_N)
+
+    if(min_lambda+max_lambda>1.0)
       cur_feature = min_N;
     else
       cur_feature = max_N;
