@@ -3047,10 +3047,22 @@ Polyhedron::UpdateRule Polyhedron::update_edge_face(FeatureType& fA, FeatureType
     boost::shared_ptr<const Polyhedron::Feature > cur_feature;
     boost::shared_ptr<const Polyhedron::Feature > prev_feature;
 
-    if(min_lambda+max_lambda>1.0)
-      cur_feature = min_N;
-    else
+    // hueristic: choose min_N or max_N, based on which
+    // corresponding region contains more of edge being clipped.
+    // if(min_lambda+max_lambda>1.0)
+    //   cur_feature = min_N;
+    // else
+    //   cur_feature = max_N;
+
+    // Randomly choose from min_N and max_N
+    int n_choice = rand() % 2;
+    if(!min_N || n_choice == 1)
+    {
       cur_feature = max_N;
+    }else
+    {
+      cur_feature = min_N;
+    }
 
     for (ei = es.begin(); ei != es.end(); ++ei)
     {
