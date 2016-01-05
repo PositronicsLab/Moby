@@ -1383,8 +1383,8 @@ double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<co
       FILE_LOG(LOG_COLDET)<< "converged" << std::endl;
       if (r == eInterpenetrating)
       {
-        FILE_LOG(LOG_COLDET)<< "penetrating" << std::endl;
-        return -dist;
+        FILE_LOG(LOG_COLDET) << "Slow Case" << std::endl;
+        return -1.0;
       }
       else
       {
@@ -1410,8 +1410,8 @@ double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<co
       FILE_LOG(LOG_COLDET)<< "converged" << std::endl;
       if (r == eInterpenetrating)
       {
-        FILE_LOG(LOG_COLDET)<< "penetrating" << std::endl;
-        return -dist;
+        FILE_LOG(LOG_COLDET) << "Slow Case" << std::endl;
+        return -1.0;
       }
       else
       {
@@ -2812,7 +2812,7 @@ Polyhedron::UpdateRule Polyhedron::update_vertex_face(FeatureType& fA, FeatureTy
     Ravelin::Vector3d vectorA_prime(v_prime->o, aTb.target);
     double D_v_prime = p_a.calc_signed_distance(vectorA_prime);
     FILE_LOG(LOG_COLDET) << "v_prime: " << *v_prime << std::endl << "D_v_prime: " << D_v_prime << std::endl << "D_va: " << D_va <<std::endl;
-    if(std::fabs(D_va) - std::fabs(D_v_prime) > NEAR_ZERO)
+    if( D_va*(D_va - D_v_prime) > NEAR_ZERO)
     {
       // vertex B violates plane from this edge; update vA to eA
       closestA = e;
