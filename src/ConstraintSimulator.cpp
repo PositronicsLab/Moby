@@ -578,6 +578,11 @@ void ConstraintSimulator::load_from_xml(shared_ptr<const XMLTree> node, map<std:
   if (bilateral_cstab_tol_attrib)
     cstab.bilateral_eps = bilateral_cstab_tol_attrib->get_real_value();
 
+  // read the maximum number of constraint stabilization iterations, if any
+  XMLAttrib* cstab_max_iter_attrib = node->get_attrib("constraint-stabilization-max-iterations");
+  if (cstab_max_iter_attrib)
+    cstab.max_iterations = cstab_max_iter_attrib->get_unsigned_value();
+
   // read the contact distance threshold, if any
   XMLAttrib* contact_dist_thresh_attrib = node->get_attrib("contact-dist-thresh");
   if (contact_dist_thresh_attrib)
@@ -708,9 +713,10 @@ void ConstraintSimulator::save_to_xml(XMLTreePtr node, list<shared_ptr<const Bas
   // reset the node's name
   node->name = "ConstraintSimulator";
 
-  // save the constraint stabilization tolerances
+  // save the constraint stabilization parameters 
   node->attribs.insert(XMLAttrib("unilateral-stabilization-tol", cstab.eps));
   node->attribs.insert(XMLAttrib("bilateral-stabilization-tol", cstab.bilateral_eps));
+  node->attribs.insert(XMLAttrib("constraint-stabilization-max-iterations", cstab.max_iterations));
 
   // save the dissipation mechanism
   if (_dissipator)

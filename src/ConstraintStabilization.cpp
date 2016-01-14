@@ -51,6 +51,9 @@ using std::list;
 
 ConstraintStabilization::ConstraintStabilization()
 {
+  // set maximum iterations to infinity
+  max_iterations = std::numeric_limits<unsigned>::max();
+
   // set unilateral tolerance to negative NEAR_ZERO by default
   eps = -NEAR_ZERO;
 
@@ -192,6 +195,12 @@ void ConstraintStabilization::stabilize(shared_ptr<ConstraintSimulator> sim)
     max_vio = evaluate_implicit_constraints(sim, C);
 
     iterations++;
+    if (iterations == max_iterations)
+    {
+      FILE_LOG(LOG_SIMULATOR) << " -- maximum number of iterations reached" << std::endl;
+      FILE_LOG(LOG_SIMULATOR) << " -- failed to effectively finish the constraint stabilization process!" << std::endl;
+      break;
+    }
   }
 
   // restore the generalized velocities
@@ -986,6 +995,9 @@ bool ConstraintStabilization::update_q(const VectorNd& dq, VectorNd& q, shared_p
   // copy the pairwise distances
   vector<PairwiseDistInfo>& pdi = sim->_pairwise_distances;
   vector<PairwiseDistInfo> pdi_old = pdi;
+
+  if (LOGGING(LOG_CONSTRAINT))
+    sim->calc_pairwise_distances();
 
   FILE_LOG(LOG_CONSTRAINT) << "...about to compute unilateral brackets" << std::endl;
   // find the pairwise distances and implicit constraint evaluations at q + dq

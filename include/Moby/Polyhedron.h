@@ -26,6 +26,8 @@ class PolyhedralPrimitive;
 
 class Polyhedron 
 {
+  friend class TessellatedPolyhedron;
+
   public:
     class Edge;
 
@@ -159,13 +161,9 @@ class Polyhedron
     double _convexity;
     bool _convexity_computed;
 
-
-
     std::vector<boost::shared_ptr<Vertex> > _vertices;
     std::vector<boost::shared_ptr<Face> > _faces;
     std::vector<boost::shared_ptr<Edge> > _edges;
-
-
 };
 
 std::ostream& operator<<(std::ostream& out, const Polyhedron& m);

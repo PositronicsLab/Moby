@@ -24,6 +24,7 @@
 #include <Moby/CylinderPrimitive.h>
 #include <Moby/CollisionDetection.h>
 #include <Moby/BV.h>
+#include <Moby/GJK.h>
 #include <Moby/Polyhedron.h>
 
 namespace Moby {

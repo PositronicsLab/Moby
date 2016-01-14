@@ -7,6 +7,7 @@
 #include <Moby/SpherePrimitive.h>
 #include <Moby/HeightmapPrimitive.h>
 #include <Moby/PlanePrimitive.h>
+#include <Moby/GJK.h>
 #include <Moby/PolyhedralPrimitive.h>
 
 using std::vector;

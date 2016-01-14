@@ -29,6 +29,9 @@ class ConstraintStabilization
     // tolerance to solve bilateral constraints to
     double bilateral_eps;
 
+    // maximum number of iterations for constraint stabilization
+    unsigned max_iterations;
+
   private:
     void get_body_configurations(Ravelin::VectorNd& q, boost::shared_ptr<ConstraintSimulator> sim);
     void update_body_configurations(const Ravelin::VectorNd& q, boost::shared_ptr<ConstraintSimulator> sim);
