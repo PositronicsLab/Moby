@@ -4,6 +4,7 @@
  * License (obtainable from http://www.apache.org/licenses/LICENSE-2.0).
  ****************************************************************************/
 
+#include <queue>
 #include <iostream>
 #include <cmath>
 #include <set>
@@ -131,7 +132,6 @@ std::cout << "edge: " << facets[i].b << " " << facets[i].c << std::endl;
     {
       out << facets[i].a << " " << facets[i].c << " -1, ";
       marked.insert(make_pair(facets[i].a, facets[i].c));
-std::cout << "edge: " << facets[i].a << " " << facets[i].c << std::endl;
     }
   }
   out << " ] } }" << std::endl;
@@ -197,6 +197,272 @@ void TessellatedPolyhedron::operator=(const TessellatedPolyhedron& p)
   _bb_max = p._bb_max;
   _convexity = p._convexity;
   _convexity_computed = p._convexity_computed;
+}
+
+/// Creates a polyhedron from this tessellated polyhedron
+Polyhedron TessellatedPolyhedron::to_polyhedron() const
+{
+  // setup vector of processed triangles
+  std::vector<bool> processed(_mesh.num_tris(), false);
+
+  // create vertices
+  std::vector<shared_ptr<Polyhedron::Vertex> > vertices(_mesh.get_vertices().size());
+  for (unsigned i=0; i< vertices.size(); i++)
+  {
+    vertices[i] = shared_ptr<Polyhedron::Vertex>(new Polyhedron::Vertex);
+    vertices[i]->o = _mesh.get_vertices()[i];
+  }
+
+  // process all faces in the tessellated polyhedron, creating faces and edges
+  std::map<std::pair<unsigned, unsigned>, shared_ptr<Polyhedron::Edge> > edge_map;
+  std::vector<shared_ptr<Polyhedron::Edge> > edges;
+  std::vector<shared_ptr<Polyhedron::Face> > faces;
+  for (unsigned i=0; i< _mesh.num_tris(); i++)
+  {
+    // if the triangle has already been processed, do not process it twice
+    if (processed[i])
+      continue;
+
+    // get the plane
+    Triangle tri = _mesh.get_triangle(i, GLOBAL);
+    Vector3d normal = tri.calc_normal();
+    double offset = tri.calc_offset(normal);
+
+    // setup the vector of faces
+    std::vector<unsigned> coplanar_faces;
+
+    // do a breadth first search from tri i, locating all coplanar triangles 
+    // add all coincident triangles to the queue
+    std::queue<unsigned> q;
+    q.push(i);
+    while (!q.empty())
+    {
+      // get the index of the facet off the front of the queue
+      unsigned j = q.front();
+      q.pop(); 
+
+      // indicate that the triangle is processed
+      processed[j] = true;
+
+      // add the facet to the vector of faces
+      coplanar_faces.push_back(j);
+
+      // get the incident vertices, turning those into incident facets
+      std::set<unsigned> incident_facets;
+      const IndexedTri& it = _mesh.get_facets()[j];
+      const std::list<unsigned>& incident_fa = _mesh.get_incident_facets(it.a);
+      const std::list<unsigned>& incident_fb = _mesh.get_incident_facets(it.b);
+      const std::list<unsigned>& incident_fc = _mesh.get_incident_facets(it.c);
+      incident_facets.insert(incident_fa.begin(), incident_fa.end());     
+      incident_facets.insert(incident_fb.begin(), incident_fb.end());     
+      incident_facets.insert(incident_fc.begin(), incident_fc.end());     
+ 
+      BOOST_FOREACH(unsigned k, incident_facets)
+      {
+        // don't process a triangle twice
+        if (processed[k])
+          continue;
+
+        // get the triangle
+        Triangle cand_tri = _mesh.get_triangle(k, GLOBAL);
+        Vector3d cand_normal = cand_tri.calc_normal();
+        double cand_offset = cand_tri.calc_offset(cand_normal);
+
+        // if the triangles are coplanar, add to the queue
+        if (std::fabs(cand_offset - offset) < NEAR_ZERO &&
+            std::fabs(cand_normal.dot(normal) - 1.0) < NEAR_ZERO)
+          q.push(k);
+      }
+    }
+
+    // create a single face
+    faces.push_back(shared_ptr<Polyhedron::Face>(new Polyhedron::Face));
+
+    // setup the set of edges
+    std::map<std::pair<unsigned, unsigned>, unsigned> edge_set;
+    for (unsigned j=0; j< coplanar_faces.size(); j++)
+    {
+      const IndexedTri& it = _mesh.get_facets()[coplanar_faces[j]];
+
+      if (it.a < it.b)
+        edge_set[std::make_pair(it.a, it.b)]++;
+      else
+        edge_set[std::make_pair(it.b, it.a)]++;
+
+      if (it.b < it.c)
+        edge_set[std::make_pair(it.b, it.c)]++;
+      else
+        edge_set[std::make_pair(it.c, it.b)]++;
+
+      if (it.c < it.a) 
+        edge_set[std::make_pair(it.c, it.a)]++;
+      else
+        edge_set[std::make_pair(it.a, it.c)]++;
+    }
+
+    // if an edge belongs to multiple faces, remove it; simultaneously, create
+    // edges as necessary
+    for (std::map<std::pair<unsigned, unsigned>, unsigned>::iterator iter = edge_set.begin(); iter != edge_set.end(); )
+    {
+      if (iter->second > 1)
+      {
+        edge_set.erase(iter++);
+        continue;
+      }
+
+      // if the edge has not already been created in the edge map, create it
+      std::map<std::pair<unsigned, unsigned>, shared_ptr<Polyhedron::Edge> >::const_iterator em_iter;
+      if ((em_iter = edge_map.find(iter->first)) == edge_map.end())
+      {
+        shared_ptr<Polyhedron::Edge> e(new Polyhedron::Edge);
+        edges.push_back(e);
+        edge_map[iter->first] = e;
+
+        // set the face pointer
+        e->face1 = faces.back();
+ 
+        // set the vertex pointers
+        e->v1 = vertices[iter->first.first];
+        e->v2 = vertices[iter->first.second];
+      }
+      else
+      {
+        // set the second face pointer
+        shared_ptr<Polyhedron::Edge> e = em_iter->second; 
+        assert(!e->face2);
+        e->face2 = faces.back();
+      }
+
+      // update the iterator
+      iter++;
+    }
+
+    // to store the edges coincident to this face in a ccw ordering, we do
+    // the following
+    // 1. select an arbitrary edge (X)
+    // 2. add X to the face walk, remove X from the edge set
+    // 3. find the two edges that touch this edge: Y and Z 
+    // 4. propose an ordering (a,b,c, for example)
+    // 5. if dot(normal, cross(b - a, c - b)) < 0, add Z to
+    //    the face walk and set X = Z; otherwise, add Y to the face walk and
+    //    set X = Y
+    // 6. remove X from the edge set
+    // 7. find the edge W remaining in the edge set that is coincident to X
+    // 8. add W to the face walk
+    // 9. set X = W
+    // 10. repeat (6) until there is exactly one edge remaining; add this
+    //     edge to the face walk 
+
+    // arbitrary edge is first edge (1)
+    std::pair<unsigned, unsigned> Xij = edge_set.begin()->first;
+    shared_ptr<Polyhedron::Edge> eX = edge_map[Xij];
+    edge_set.erase(edge_set.begin());
+
+    // add X to the face walk (2) 
+    faces.back()->e.push_back(eX); 
+
+    // search for the two edges (3)
+    shared_ptr<Polyhedron::Edge> eY, eZ;
+    std::pair<unsigned, unsigned> Yij, Zij; 
+    for (std::map<std::pair<unsigned, unsigned>, unsigned>::const_iterator j = edge_set.begin(); j != edge_set.end(); j++)
+    {
+      if (j->first.first == Xij.first || j->first.first == Xij.second ||
+          j->first.second == Xij.first || j->first.second == Xij.second)
+      {
+        if (!eY)
+        {
+          Yij = j->first;
+          eY = edge_map[Yij];
+        }
+        else
+        {
+          Zij = j->first;
+          eZ = edge_map[Zij];
+        }
+      }
+    }
+
+    // ensure that there were two edges found
+    assert(eY && eZ);
+
+    // try X followed by Y (4)
+    // NOTE: we'll set b to the shared vertex
+    Vector3d a(eX->v1->o, GLOBAL);
+    Vector3d b(eX->v2->o, GLOBAL);
+    Vector3d c;
+    if (eX->v2 == eY->v1)
+      c = Vector3d(eY->v2->o, GLOBAL);
+    else
+    {
+      if (eX->v2 == eY->v2)
+        c = Vector3d(eY->v1->o, GLOBAL);
+      else
+      {
+        // b is not the shared vertex; make it so
+        std::swap(a, b);
+        if (eX->v1 == eY->v1)
+          c = Vector3d(eY->v2->o, GLOBAL);
+        else if (eX->v2 == eY->v2)
+          c = Vector3d(eY->v1->o, GLOBAL);
+        else
+          assert(false);
+       }
+    }
+
+    // see whether the proposed ordering needs to be reversed (5)
+    if (normal.dot(Vector3d::cross(b - a, c - b)) < 0.0)
+    {
+      eX = eZ;
+      Xij = Zij;
+    }
+    else
+    {
+      eX = eY; 
+      Xij = Yij; 
+    }     
+
+    // loop until exactly one edge remains (10)
+    while (edge_set.size() > 1)
+    {
+      // remove new X from the edge set (6)  
+      edge_set.erase(Xij);
+
+      // find the edge remaining in the edge set that is coincident to X (7)
+      for (std::map<std::pair<unsigned, unsigned>, unsigned>::const_iterator j = edge_set.begin(); j != edge_set.end(); j++)
+      {
+        if (j->first.first == Xij.first || j->first.first == Xij.second ||
+            j->first.second == Xij.first || j->first.second == Xij.second)
+        {
+          // we have found edge w
+          std::pair<unsigned, unsigned> Wij = j->first;
+          shared_ptr<Polyhedron::Edge> eW = edge_map[Wij];
+
+          // add W to the face walk (8) 
+          faces.back()->e.push_back(eW);
+
+          // set X = W (9)
+          Xij = Wij;
+          eW = eX; 
+        }
+      }
+    }
+
+    // add last edge to face walk (10)
+    Xij = edge_set.begin()->first; 
+    eX = edge_map[Xij];
+    faces.back()->e.push_back(eX);
+  }
+
+  // create the polyhedron
+  Polyhedron p;
+  p._vertices = vertices;
+  p._edges = edges;
+  p._faces = faces;
+  p._bb_min = _bb_min;
+  p._bb_max = _bb_max;
+  p._convexity = _convexity;
+  p._convexity_computed = _convexity_computed;
+  return p;
 }
 
 /// Computes the Minkowski sum of two convex polyhedra
