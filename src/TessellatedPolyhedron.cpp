@@ -350,8 +350,7 @@ Polyhedron TessellatedPolyhedron::to_polyhedron() const
     // 7. find the edge W remaining in the edge set that is coincident to X
     // 8. add W to the face walk
     // 9. set X = W
-    // 10. repeat (6) until there is exactly one edge remaining; add this
-    //     edge to the face walk 
+    // 10. repeat (6) until there is exactly one edge remaining
 
     // arbitrary edge is first edge (1)
     std::pair<unsigned, unsigned> Xij = edge_set.begin()->first;
@@ -421,6 +420,9 @@ Polyhedron TessellatedPolyhedron::to_polyhedron() const
       Xij = Yij; 
     }     
 
+    // add the new X to the face walk
+    faces.back()->e.push_back(eX);
+
     // loop until exactly one edge remains (10)
     while (edge_set.size() > 1)
     {
@@ -446,11 +448,6 @@ Polyhedron TessellatedPolyhedron::to_polyhedron() const
         }
       }
     }
-
-    // add last edge to face walk (10)
-    Xij = edge_set.begin()->first; 
-    eX = edge_map[Xij];
-    faces.back()->e.push_back(eX);
   }
 
   // create the polyhedron
