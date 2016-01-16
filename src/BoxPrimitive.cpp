@@ -277,6 +277,12 @@ double BoxPrimitive::calc_signed_dist(shared_ptr<const SpherePrimitive> s, Point
   return dist;
 }
 
+/// Overrides the PolyhedronPrimitive::set_polyhedron(.)
+void BoxPrimitive::set_polyhedron(const Polyhedron& p)
+{
+  throw std::runtime_error("Called set_polyhedron(.) on BoxPrimitive");
+}
+
 /// Sets the size of this box
 /**
  * \note forces recomputation of the mesh

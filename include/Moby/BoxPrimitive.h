@@ -23,6 +23,7 @@ class BoxPrimitive : public PolyhedralPrimitive
     BoxPrimitive(double xlen, double ylen, double zlen);
     BoxPrimitive(double xlen, double ylen, double zlen, const Ravelin::Pose3d& T);
     BoxPrimitive(const Ravelin::Pose3d& T);
+    virtual void set_polyhedron(const Polyhedron& p);
     void set_size(double xlen, double ylen, double zlen);
     virtual unsigned num_facets() const { return 6; }
     virtual bool is_convex() const { return true; }

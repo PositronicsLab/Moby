@@ -26,12 +26,13 @@ class PolyhedralPrimitive : public Primitive
     PolyhedralPrimitive() : Primitive() { }
     PolyhedralPrimitive(const Ravelin::Pose3d& T) : Primitive(T) { }
     virtual double calc_signed_dist(boost::shared_ptr<const Primitive> p, Point3d& pthis, Point3d& pp) const;
+    virtual void set_polyhedron(const Polyhedron& p);
 
     /// Gets the polyhedron corresponding to this primitive (in its transformed state)
     const Polyhedron& get_polyhedron() const { return _poly; }
 
     // Gets the number of facets in this primitive
-    virtual unsigned num_facets() const = 0;
+    virtual unsigned num_facets() const { return _poly.get_faces().size();}
 
 /*
     // Gets the bounding radius of this primitive
@@ -56,6 +57,7 @@ class PolyhedralPrimitive : public Primitive
   static OutputIterator get_halfspaces(const Polyhedron& poly, boost::shared_ptr<const Ravelin::Pose3d> pose, const Ravelin::Transform3d& wTpose, OutputIterator output_begin);
 
   protected:
+    void calc_mass_properties();
     double calc_signed_dist(boost::shared_ptr<const PolyhedralPrimitive> p, Point3d& pthis, Point3d& pp) const;
     Polyhedron _poly;
 }; // end class
