@@ -69,6 +69,13 @@ else \
 } \
 }
 
+/// Determines whether the polyhedron is convex
+void Polyhedron::determine_convexity()
+{
+  throw std::runtime_error("Implement me!");
+  _convexity_computed = true;
+}
+
 /// Gets the plane containing a face
 Plane Polyhedron::Face::get_plane() const
 {
