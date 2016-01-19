@@ -1,7 +1,7 @@
 // viewer.cpp
 #ifdef USE_OSG
 #include <osgDB/WriteFile>
-#include <osg/CameraNode>
+#include <osg/Camera>
 #include <osgViewer/Viewer>
 #include <osg/Node>
 #include <osg/PositionAttitudeTransform>
@@ -23,7 +23,7 @@
 std::string sceneFile;
 int WIDTH, HEIGHT;
 
-class SnapImageDrawCallback : public ::osg::CameraNode::DrawCallback
+class SnapImageDrawCallback : public ::osg::Camera::DrawCallback
 {
        public:
        SnapImageDrawCallback()
@@ -35,7 +35,7 @@ class SnapImageDrawCallback : public ::osg::CameraNode::DrawCallback
        const std::string& getFileName() const { return _filename; }
        void setSnapImageOnNextFrame(bool flag) { _snapImageOnNextFrame = flag; }
        bool getSnapImageOnNextFrame() const { return _snapImageOnNextFrame; }
-       virtual void operator () (const ::osg::CameraNode& camera) const
+       virtual void operator () (const ::osg::Camera& camera) const
        {
          if (!_snapImageOnNextFrame) return;
 //         ::osg::notify(::osg::NOTICE) << "Saving screen image to '"<<_filename<<"'"<< std::endl;
