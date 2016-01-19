@@ -16,7 +16,7 @@ using boost::shared_ptr;
 using namespace Ravelin;
 using namespace Moby;
 
-double PolyhedralPrimitive::calc_dist_and_normal(const Point3d& p, std::vector<Vector3d>& normals)
+double PolyhedralPrimitive::calc_dist_and_normal(const Point3d& p, std::vector<Vector3d>& normals) const
 {
   throw std::runtime_error("Implement me!");
   return 0.0;
