@@ -3,6 +3,7 @@
 #include <Moby/TimeSteppingSimulator.h>
 #include <Moby/Log.h>
 #include <cstdio>
+#include <stdlib.h>
 #define NDEBUG
 using boost::shared_ptr;
 using boost::dynamic_pointer_cast;
@@ -333,6 +334,10 @@ class EllipsePlanePlugin : public CollisionDetection
     /// Finds contacts between two collision geometries
     virtual void  find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, std::vector<UnilateralConstraint>& contacts, double TOL = NEAR_ZERO)
     {
+      // updates the ellipse
+      e.x = std::atoi(getenv("ELLIPSE_X_RAD"));
+      e.y = std::atoi(getenv("ELLIPSE_Y_RAD"));
+
       if (cgA == ellipse_cg && cgB == ground_cg)
         find_contacts_ellipse_plane(cgA, cgB, contacts);
       else if (cgA == ellipse_cg && cgB == wall_pos_cg)
@@ -352,6 +357,10 @@ class EllipsePlanePlugin : public CollisionDetection
     /// Computes signed distance between geometries
     virtual double calc_signed_dist(CollisionGeometryPtr cgA, CollisionGeometryPtr cgB, Point3d& pA, Point3d& pB)
     {
+      // updates the ellipse
+      e.x = std::atoi(getenv("ELLIPSE_X_RAD"));
+      e.y = std::atoi(getenv("ELLIPSE_Y_RAD"));
+
       // only handle specific case
       if (cgA == ellipse_cg && cgB == ground_cg)
         return calc_signed_dist_ellipse_plane(cgA, cgB, pA, pB);

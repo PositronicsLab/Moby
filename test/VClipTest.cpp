@@ -26,7 +26,7 @@ using namespace Moby;
     const double TOL = 1e-6;
     const double TRANS_RND_MAX = 10.0;
     const double TRANS_RND_MIN = 2.5;
-    const int MAX_ITERATION = 1000;
+    const int MAX_ITERATION = 1;
 
     std::vector<Origin3d> v(8);
       v[0] = Origin3d(-1.0, -1.0, -1.0);
@@ -44,6 +44,10 @@ using namespace Moby;
 
     TessellatedPolyhedronPtr p_tess = CompGeom::calc_convex_hull(v.begin(), v.end());
     TessellatedPolyhedronPtr q_tess = CompGeom::calc_convex_hull(v.begin(), v.end());
+    Polyhedron p_test = p_tess->to_polyhedron();
+std::ofstream out("box.wrl");
+    Polyhedron::to_vrml(out, p_test);
+out.close();
 
     double trans_q_x, trans_q_y, trans_q_z, quat_q_x, quat_q_y, quat_q_z, quat_q_w;
     double total_vc, total_m;

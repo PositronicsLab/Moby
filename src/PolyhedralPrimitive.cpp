@@ -16,6 +16,36 @@ using boost::shared_ptr;
 using namespace Ravelin;
 using namespace Moby;
 
+double PolyhedralPrimitive::calc_dist_and_normal(const Point3d& p, std::vector<Vector3d>& normals)
+{
+  throw std::runtime_error("Implement me!");
+  return 0.0;
+}
+
+osg::Node* PolyhedralPrimitive::create_visualization()
+{
+  throw std::runtime_error("Implement me!");
+  return NULL;
+}
+
+BVPtr PolyhedralPrimitive::get_BVH_root(CollisionGeometryPtr geom)
+{
+  throw std::runtime_error("Implement me!");
+  return BVPtr();
+}
+
+void PolyhedralPrimitive::get_vertices(shared_ptr<const Pose3d> P, std::vector<Point3d>& vertices) const
+{
+  throw std::runtime_error("Implement me!");
+}
+
+shared_ptr<const IndexedTriArray> PolyhedralPrimitive::get_mesh(boost::shared_ptr<const Pose3d> P)
+{
+  throw std::runtime_error("Implement me!");
+  return shared_ptr<const IndexedTriArray>();
+}
+
+
 /// Sets the polyhedron corresponding to this primitive
 /**
  * Should only be done when the primitive hasn't been transformed.
