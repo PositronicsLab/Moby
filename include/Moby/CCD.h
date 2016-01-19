@@ -13,7 +13,6 @@
 #include <boost/shared_ptr.hpp>
 #include <Ravelin/sorted_pair>
 #include <Moby/Log.h>
-#include <Moby/CP.h>
 #include <Moby/SpherePrimitive.h>
 #include <Moby/TorusPrimitive.h>
 #include <Moby/PolyhedralPrimitive.h>

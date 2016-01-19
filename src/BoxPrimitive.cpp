@@ -18,8 +18,6 @@
 #include <Moby/Constants.h>
 #include <Moby/CollisionGeometry.h>
 #include <Moby/HeightmapPrimitive.h>
-#include <Moby/CP.h>
-#include <Moby/GJK.h>
 #include <Moby/QP.h>
 #include <Moby/BoxPrimitive.h>
 
