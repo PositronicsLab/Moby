@@ -20,7 +20,7 @@ using namespace Moby;
 bool PolyhedralPrimitive::is_convex() const
 {
   // abuse the const keyword
-  Primitive* pnc = (Primitive*) &_poly;
+  Polyhedron* pnc = (Polyhedron*) &_poly;
   return pnc->is_convex();
 }
 

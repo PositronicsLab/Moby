@@ -51,8 +51,8 @@ using std::list;
 
 ConstraintStabilization::ConstraintStabilization()
 {
-  // set maximum iterations to infinity
-  max_iterations = std::numeric_limits<unsigned>::max();
+  // set maximum iterations to ten, by default 
+  max_iterations = 10;
 
   // set unilateral tolerance to negative NEAR_ZERO by default
   eps = -NEAR_ZERO;
@@ -160,6 +160,7 @@ void ConstraintStabilization::stabilize(shared_ptr<ConstraintSimulator> sim)
   unsigned iterations = 0;
   while (min_dist < eps || max_vio > bilateral_eps)
   {
+    FILE_LOG(LOG_SIMULATOR) <<"minimum pairwise distance: "<<min_dist<<std::endl;
     FILE_LOG(LOG_SIMULATOR) <<"maximum constraint violation: "<< max_vio <<std::endl;
 
     // zero body velocities first (we only want to change positions based on
@@ -1253,7 +1254,7 @@ double ConstraintStabilization::eval_bilateral(double t, unsigned i, const Vecto
 double ConstraintStabilization::ridders_unilateral(double x1, double x2, double fl, double fh, unsigned idx, const VectorNd& dq, const VectorNd& q, shared_ptr<ConstraintSimulator> sim)
 {
   const unsigned MAX_ITERATIONS = 25;
-  const double TOL = 1e-6;
+  const double TOL = 1e-4;
   double ans=std::numeric_limits<double>::max(),fm,fnew,s,xh,xl,xm,xnew;
 
   if ((fl > 0.0 && fh < 0.0) || (fl < 0.0 && fh > 0.0)) 

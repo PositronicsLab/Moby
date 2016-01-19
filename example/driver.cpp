@@ -627,7 +627,7 @@ namespace Moby{
       else if (option.find("-mt=") != std::string::npos)
       {
         MAX_TIME = std::atof(&argv[i][TWOCHAR_ARG]);
-        assert(MAX_TIME > 0);
+        assert(MAX_TIME >= 0.0);
       }
       else if (option.find("-x=") != std::string::npos)
       {
