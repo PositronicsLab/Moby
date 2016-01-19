@@ -26,7 +26,7 @@ class PolyhedralPrimitive : public Primitive
     PolyhedralPrimitive() : Primitive() { }
     PolyhedralPrimitive(const Ravelin::Pose3d& T) : Primitive(T) { }
     virtual double calc_signed_dist(boost::shared_ptr<const Primitive> p, Point3d& pthis, Point3d& pp) const;
-    virtual double calc_dist_and_normal(const Point3d& p, std::vector<Ravelin::Vector3d>& normals);
+    virtual double calc_dist_and_normal(const Point3d& p, std::vector<Ravelin::Vector3d>& normals) const;
     virtual osg::Node* create_visualization();
     virtual BVPtr get_BVH_root(CollisionGeometryPtr geom);
     virtual void set_polyhedron(const Polyhedron& p);
