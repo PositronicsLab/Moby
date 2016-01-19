@@ -16,6 +16,14 @@ using boost::shared_ptr;
 using namespace Ravelin;
 using namespace Moby;
 
+/// Determines whether the primitive is convex
+bool PolyhedralPrimitive::is_convex() const
+{
+  // abuse the const keyword
+  Primitive* pnc = (Primitive*) &_poly;
+  return pnc->is_convex();
+}
+
 double PolyhedralPrimitive::calc_dist_and_normal(const Point3d& p, std::vector<Vector3d>& normals) const
 {
   throw std::runtime_error("Implement me!");
