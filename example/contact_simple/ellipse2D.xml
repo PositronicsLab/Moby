@@ -43,7 +43,7 @@
     <CollisionDetectionPlugin id="coldet" plugin="libellipse-plane-coldet-plugin.so" />
 
     <!-- Setup the simulator -->
-    <TimeSteppingSimulator id="simulator" collision-detection-plugin="coldet" unilateral-stabilization-tol="-1e-5" min-step-size=".001">
+    <TimeSteppingSimulator id="simulator" collision-detection-plugin="coldet" constraint-stabilization-max-iterations="50" min-step-size=".0001">
       <DynamicBody dynamic-body-id="ellipse" />
       <DynamicBody dynamic-body-id="ground" />
       <DynamicBody dynamic-body-id="wall_pos" />
