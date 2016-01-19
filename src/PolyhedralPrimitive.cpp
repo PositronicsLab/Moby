@@ -16,6 +16,33 @@ using boost::shared_ptr;
 using namespace Ravelin;
 using namespace Moby;
 
+/// Sets the polyhedron corresponding to this primitive
+/**
+ * Should only be done when the primitive hasn't been transformed.
+ */
+void PolyhedralPrimitive::set_polyhedron(const Polyhedron& p)
+{
+  const unsigned X = 0, Y = 1, Z = 2;
+
+  // verify no transformation
+  Matrix3d R = _F->q;
+  double trace = R(X,X) + R(Y,Y) + R(Z,Z);
+  if (_F->x.norm() > NEAR_ZERO || std::fabs(trace - 3.0) > NEAR_ZERO)
+    throw std::runtime_error("set_polyhedron() should only be called with identity pose");
+
+  // set the polyhedron
+  _poly = p;
+
+  // calculate mass properties
+  calc_mass_properties();
+}
+
+/// Calculates mass properties for the polyhedron
+void PolyhedralPrimitive::calc_mass_properties()
+{
+  std::cerr << "Polyhedral::calc_mass_properties() - implement me!" << std::endl;
+}
+
 /// Computes the signed distance between two polyhedra
 double PolyhedralPrimitive::calc_signed_dist(shared_ptr<const PolyhedralPrimitive> p, Point3d& pthis, Point3d& pp) const
 {

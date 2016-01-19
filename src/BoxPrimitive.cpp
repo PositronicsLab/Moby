@@ -141,7 +141,7 @@ void BoxPrimitive::construct_polyhedron()
   v[7][X] = +_xlen*0.5;  v[7][Y] = +_ylen*0.5;  v[7][Z] = +_zlen*0.5; 
 
   // compute the convex hull
-  _poly = Polyhedron::calc_convex_hull(v, v+N_BOX_VERTS); 
+  _poly = CompGeom::calc_convex_hull(v, v+N_BOX_VERTS)->to_polyhedron(); 
   assert(_poly.get_faces().size() == 6 || _poly.get_faces().size() == 12);
   assert(_poly.get_vertices().size() == 8);
 }
@@ -273,6 +273,12 @@ double BoxPrimitive::calc_signed_dist(shared_ptr<const SpherePrimitive> s, Point
     psph = sph_c + v*((s->get_radius() + std::min(dist,0.0))/vnorm);
 
   return dist;
+}
+
+/// Overrides the PolyhedronPrimitive::set_polyhedron(.)
+void BoxPrimitive::set_polyhedron(const Polyhedron& p)
+{
+  throw std::runtime_error("Called set_polyhedron(.) on BoxPrimitive");
 }
 
 /// Sets the size of this box
