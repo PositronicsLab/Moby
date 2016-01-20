@@ -324,8 +324,8 @@ Polyhedron TessellatedPolyhedron::to_polyhedron() const
         // set the vertex pointers
         e->v1 = vertices[iter->first.first];
         e->v2 = vertices[iter->first.second];
-        e->v1.push_back(e);
-        e->v2.push_back(e);
+        e->v1->e.push_back(e);
+        e->v2->e.push_back(e);
       }
       else
       {
