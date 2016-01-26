@@ -1237,6 +1237,7 @@ bool Polyhedron::VertexFaceIterator::has_next()
 /// Executes the V-Clip algorithm on two polyhedra, determining closest features and signed distance
 double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<const PolyhedralPrimitive> pB, shared_ptr<const Pose3d> poseA, shared_ptr<const Pose3d> poseB, shared_ptr<const Polyhedron::Feature>& closestA, shared_ptr<const Polyhedron::Feature>& closestB)
 {
+ // return -1.0;
   FeatureType fA, fB;
 
   // get the transformation between A and B, and vice versa
@@ -1530,7 +1531,7 @@ double Polyhedron::vclip(shared_ptr<const PolyhedralPrimitive> pA, shared_ptr<co
       }
     }
   }
-}
+  }
 
 
 ///Check if only one face of the two polyhedron is penetrated by checking if the edge of the penetrated face is penetrating
@@ -1576,7 +1577,8 @@ bool Polyhedron::is_one_face_penetration(boost::shared_ptr<const Polyhedron::Fea
     }
     else if(vface.size() > 3)
     {
-       FILE_LOG(LOG_COLDET) << "faces are not triangles"<<std::endl;// TODO: Add triangulating so that the algorithm works for non-triangular faces
+      FILE_LOG(LOG_COLDET) << "faces are not triangles"<<std::endl;// TODO: Add triangulating so that the algorithm works for non-triangular faces
+      CompGeom::triangulate_convex_polygon(vface.begin(),vface.end(),std::back_inserter(triangles));
     }
     
   }
@@ -1815,7 +1817,8 @@ boost::shared_ptr<Polyhedron::Feature> Polyhedron::find_closest_feature(const Or
 /// Computes the distance between two features
 double Polyhedron::calc_dist(FeatureType fA, FeatureType fB, boost::shared_ptr<const Polyhedron::Feature> closestA, boost::shared_ptr<const Polyhedron::Feature> closestB, Ravelin::Transform3d& aTb)
 {
-  // case1: vertex vs. vertex
+
+//  case1: vertex vs. vertex
   if (fA == eVertex && fB == eVertex)
   {
     // cast pointers
@@ -2928,6 +2931,8 @@ Polyhedron::UpdateRule Polyhedron::update_vertex_face(FeatureType& fA, FeatureTy
 
   es = vertA->e;
 
+  FILE_LOG(LOG_COLDET) << "edge list size: " <<es.size() <<std::endl;
+
   for(ei=es.begin(); ei!=es.end(); ++ei)
   {
     //find the vertex V' of e that is not vertA
@@ -3184,8 +3189,16 @@ Polyhedron::UpdateRule Polyhedron::update_edge_face(FeatureType& fA, FeatureType
     //   cur_feature = max_N;
 
     // Randomly choose from min_N and max_N
-    int n_choice = rand() % 2;
-    if(!min_N || n_choice == 1)
+
+    if(min_N && max_N)
+    {
+      int n_choice = rand() % 2;
+      if(n_choice)
+        cur_feature = min_N;
+      else
+        cur_feature = max_N;
+    }
+    else if(!min_N)
     {
       cur_feature = max_N;
     }else
