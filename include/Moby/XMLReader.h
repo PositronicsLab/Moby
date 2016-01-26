@@ -42,7 +42,7 @@ class XMLReader
     static void read_sphere(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     static void read_cylinder(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     static void read_cone(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
-    static void read_trimesh(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
+    static void read_polyhedron(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     static void read_tetramesh(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     static void read_CSG(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
     static void read_primitive_plugin(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);

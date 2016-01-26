@@ -20,9 +20,6 @@
 #include "Color.h"
 #endif
 
-// TODO:
-// implement triangle mesh
-
 #include <Moby/CylinderPrimitive.h>
 #include <Moby/ConePrimitive.h>
 #include <Moby/IndexedTetraArray.h>
@@ -33,6 +30,8 @@
 #include <Moby/BoxPrimitive.h>
 #include <Moby/HeightmapPrimitive.h>
 #include <Moby/PlanePrimitive.h>
+#include <Moby/PolyhedralPrimitive.h>
+#include <Moby/TriangleMeshPrimitive.h>
 #include <Moby/SpherePrimitive.h>
 #include <Moby/FixedJoint.h>
 //#include <Moby/MCArticulatedBody.h>
@@ -54,6 +53,9 @@ using std::list;
 using boost::shared_ptr;
 using namespace Moby;
 using namespace Ravelin;
+
+std::vector<shared_ptr<OSGGroupWrapper> > SDFReader::_osg_wrappers;
+std::vector<shared_ptr<Primitive> > SDFReader::_primitives;
 
 #ifdef USE_OSG
 /// Copies this matrix to an OpenSceneGraph Matrixd object
@@ -388,6 +390,13 @@ unsigned SDFReader::read_uint(shared_ptr<const XMLTree> node)
 {
   // convert the string to a uint
   return (unsigned) std::atoi(node->content.c_str());
+}
+
+/// Reads a string value
+std::string SDFReader::read_string(shared_ptr<const XMLTree> node)
+{
+  // convert the string to a uint
+  return node->content;
 }
 
 /// Reads a double value
@@ -741,13 +750,83 @@ PrimitivePtr SDFReader::read_plane(shared_ptr<const XMLTree> node)
   return b;
 }
 
-/// Reads and constructs the TriangleMeshPrimitive object
+/// Reads and constructs an OSGGroupWrapper object for meshes
+shared_ptr<OSGGroupWrapper> SDFReader::read_OSG_file(shared_ptr<const XMLTree> node)
+{
+  // sanity check
+  assert(strcasecmp(node->name.c_str(), "mesh") == 0);
+
+  // get the filename
+  shared_ptr<const XMLTree> uri_node = find_one_tag("uri", node);
+  if (!uri_node)
+    throw std::runtime_error("Expected a 'uri' subnode under 'mesh' node");
+ 
+  // construct the OSGGroupWrapper
+  std::string fname = read_string(uri_node);
+  shared_ptr<OSGGroupWrapper> osgg(new OSGGroupWrapper(fname));
+  return osgg; 
+}
+
+/// Reads and constructs the PolyhedralPrimitive object
+PrimitivePtr SDFReader::read_polyhedron(shared_ptr<const XMLTree> node)
+{
+  // sanity check
+  assert(strcasecmp(node->name.c_str(), "mesh") == 0);
+
+  // get the filename
+  shared_ptr<const XMLTree> uri_node = find_one_tag("uri", node);
+  if (!uri_node)
+    throw std::runtime_error("Expected a 'uri' subnode under 'mesh' node");
+  
+  // ensure that the file is a Wavefront OBJ
+  std::string fname = read_string(uri_node);
+  std::string fname_lower = fname;
+  std::transform(fname.begin(), fname.end(), fname_lower.begin(), ::tolower);
+  unsigned st = fname_lower.find(".obj");
+  if (st != fname_lower.size()-4)
+    throw std::runtime_error("Expect 'uri' to be of type Wavefront .obj");
+
+  // read in the file using an indexed triangle array
+  IndexedTriArray ita = IndexedTriArray::read_from_obj(fname);
+
+  // get all of the vertices and compute the convex hull (yielding a
+  // tessellated polyhedron)
+  const std::vector<Origin3d>& vertices = ita.get_vertices();
+  TessellatedPolyhedronPtr tessellated_poly = CompGeom::calc_convex_hull(vertices.begin(), vertices.end());   
+
+  // convert the tessellated polyhedron to a standard polyhedron
+  Polyhedron poly;
+  tessellated_poly->to_polyhedron(poly);
+
+  // create the polyhedral primitive object 
+  shared_ptr<PolyhedralPrimitive> p(new PolyhedralPrimitive);
+  p->set_polyhedron(poly);
+
+  return p;
+}
+
+/// Reads and constructs the trianglemesh primitive object
 PrimitivePtr SDFReader::read_trimesh(shared_ptr<const XMLTree> node)
 {
   // sanity check
-  assert(strcasecmp(node->name.c_str(), "TriangleMesh") == 0);
-  // TODO: Implement this tri-mesh import
-  PrimitivePtr b;
+  assert(strcasecmp(node->name.c_str(), "mesh") == 0);
+
+  // get the filename
+  shared_ptr<const XMLTree> uri_node = find_one_tag("uri", node);
+  if (!uri_node)
+    throw std::runtime_error("Expected a 'uri' subnode under 'mesh' node");
+  
+  // ensure that the file is a Wavefront OBJ
+  std::string fname = read_string(uri_node);
+  std::string fname_lower = fname;
+  std::transform(fname.begin(), fname.end(), fname_lower.begin(), ::tolower);
+  unsigned st = fname_lower.find(".obj");
+  if (st != fname_lower.size()-4)
+    throw std::runtime_error("Expect 'uri' to be of type Wavefront .obj");
+
+  // create a new TriangleMesh object
+  boost::shared_ptr<TriangleMeshPrimitive> b(new TriangleMeshPrimitive(fname, false));
+
   return b;
 }
 
@@ -983,8 +1062,8 @@ void SDFReader::read_visual_node(shared_ptr<const XMLTree> node, RigidBodyPtr rb
     group->addChild(tg);
 
     // add the primitive to the transform
-    PrimitivePtr geom = read_geometry(geom_node);
-    tg->addChild(geom->get_visualization());
+    osg::Node* geom = read_visual_geometry(geom_node);
+    tg->addChild(geom);
 
     // set the transform
     osg::Matrix m;
@@ -1092,6 +1171,64 @@ void SDFReader::read_surface(shared_ptr<const XMLTree> node, shared_ptr<SDFReade
   }
 }
 
+/// Reads visual geometry
+osg::Node* SDFReader::read_visual_geometry(shared_ptr<const XMLTree> node)
+{
+  #ifdef USE_OSG
+  // look for a box
+  shared_ptr<const XMLTree> box_node = find_one_tag("box", node);
+  if (box_node)
+  {
+    _primitives.push_back(read_box(box_node));
+    return _primitives.back()->get_visualization();
+  }
+
+  // look for a cylinder
+  shared_ptr<const XMLTree> cylinder_node = find_one_tag("cylinder", node);
+  if (cylinder_node)
+  {
+    _primitives.push_back(read_cylinder(cylinder_node));
+    return _primitives.back()->get_visualization();
+  }
+
+  // look for a sphere
+  shared_ptr<const XMLTree> sphere_node = find_one_tag("sphere", node);
+  if (sphere_node)
+  {
+    _primitives.push_back(read_sphere(sphere_node));
+    return _primitives.back()->get_visualization();
+  }
+
+  // look for a heightmap
+  shared_ptr<const XMLTree> heightmap_node = find_one_tag("heightmap", node);
+  if (heightmap_node)
+  {
+    _primitives.push_back(read_heightmap(heightmap_node));
+    return _primitives.back()->get_visualization();
+  }
+
+  // look for a triangle mesh
+  shared_ptr<const XMLTree> trimesh_node = find_one_tag("mesh", node);
+  if (trimesh_node)
+  {
+    _osg_wrappers.push_back(read_OSG_file(trimesh_node));
+    return _osg_wrappers.back()->get_group();
+  }
+
+  // look for a plane
+  shared_ptr<const XMLTree> plane_node = find_one_tag("plane", node);
+  if (plane_node)
+  {
+    _primitives.push_back(read_plane(plane_node));
+    return _primitives.back()->get_visualization();
+  }
+
+  // shouldn't still be here...
+  throw std::runtime_error("Geometry tag found that we couldn't handle!");
+  #endif
+  return NULL;
+}
+
 /// Reads geometry
 PrimitivePtr SDFReader::read_geometry(shared_ptr<const XMLTree> node)
 {
@@ -1118,7 +1255,7 @@ PrimitivePtr SDFReader::read_geometry(shared_ptr<const XMLTree> node)
   // look for a triangle mesh
   shared_ptr<const XMLTree> trimesh_node = find_one_tag("mesh", node);
   if (trimesh_node)
-    return read_trimesh(trimesh_node);
+    return read_polyhedron(trimesh_node);
 
   // look for a plane
   shared_ptr<const XMLTree> plane_node = find_one_tag("plane", node);

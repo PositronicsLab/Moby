@@ -33,6 +33,9 @@ class PolyhedralPrimitive : public Primitive
     virtual void get_vertices(boost::shared_ptr<const Ravelin::Pose3d> P, std::vector<Point3d>& vertices) const;
     virtual boost::shared_ptr<const IndexedTriArray> get_mesh(boost::shared_ptr<const Ravelin::Pose3d> P);
     virtual bool is_convex() const;
+    virtual void load_from_xml(boost::shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map);
+    virtual void save_to_xml(XMLTreePtr node, std::list<boost::shared_ptr<const Base> >& shared_objects) const;
+    virtual void set_pose(const Ravelin::Pose3d& P);
 
     /// Gets the polyhedron corresponding to this primitive (in its transformed state)
     const Polyhedron& get_polyhedron() const { return _poly; }

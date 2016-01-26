@@ -336,6 +336,104 @@ void TimeSteppingSimulator::step_si_Euler(double dt)
   FILE_LOG(LOG_SIMULATOR) << "-- doing semi-implicit Euler step" << std::endl;
   const double INF = std::numeric_limits<double>::max();
 
+  VectorNd q, qd, qdd;
+  std::vector<VectorNd> qsave;
+
+  // init qsave to proper size
+  qsave.resize(_bodies.size());
+
+  // save generalized coordinates for all bodies
+  for (unsigned i=0; i< _bodies.size(); i++)
+  {
+    shared_ptr<DynamicBodyd> db = dynamic_pointer_cast<DynamicBodyd>(_bodies[i]);
+    db->get_generalized_coordinates_euler(qsave[i]);
+  }
+
+  // do broad phase collision detection
+  broad_phase(dt);
+
+  // compute pairwise distances
+  calc_pairwise_distances();
+
+  // integrate the bodies' positions by dt 
+  for (unsigned i=0; i< _bodies.size(); i++)
+  {
+    shared_ptr<DynamicBodyd> db = dynamic_pointer_cast<DynamicBodyd>(_bodies[i]);
+    db->set_generalized_coordinates_euler(qsave[i]);
+    db->get_generalized_velocity(DynamicBodyd::eEuler, q);
+    q *= dt;
+    q += qsave[i];
+    db->set_generalized_coordinates_euler(q);
+  }
+
+  // prepare to calculate forward dynamics
+  precalc_fwd_dyn();
+
+  // apply compliant unilateral constraint forces
+  calc_compliant_unilateral_constraint_forces();
+
+  // compute forward dynamics
+  calc_fwd_dyn(dt);
+
+  // integrate the bodies' velocities forward by dt 
+  for (unsigned i=0; i< _bodies.size(); i++)
+  {
+    shared_ptr<DynamicBodyd> db = dynamic_pointer_cast<DynamicBodyd>(_bodies[i]);
+    db->get_generalized_acceleration(qdd);
+    qdd *= dt;
+    db->get_generalized_velocity(DynamicBodyd::eSpatial, qd);
+    FILE_LOG(LOG_DYNAMICS) << "old velocity: " << qd << std::endl; 
+    qd += qdd;
+    db->set_generalized_velocity(DynamicBodyd::eSpatial, qd);
+    FILE_LOG(LOG_DYNAMICS) << "new velocity: " << qd << std::endl; 
+  }
+
+  // dissipate some energy
+  if (_dissipator)
+  {
+    vector<shared_ptr<DynamicBodyd> > bodies;
+    BOOST_FOREACH(ControlledBodyPtr cb, _bodies)
+      bodies.push_back(dynamic_pointer_cast<DynamicBodyd>(cb));
+    _dissipator->apply(bodies);
+  }
+
+  // recompute pairwise distances
+  calc_pairwise_distances();
+
+  // find unilateral constraints
+  find_unilateral_constraints(contact_dist_thresh);
+
+  // handle any impacts
+  calc_impacting_unilateral_constraint_forces(-1.0);
+
+  // update the time
+  current_time += dt;
+
+  // do a mini-step callback
+  if (post_mini_step_callback_fn)
+    post_mini_step_callback_fn((ConstraintSimulator*) this);
+
+  if (LOGGING(LOG_SIMULATOR))
+  {
+    VectorNd q;
+    BOOST_FOREACH(ControlledBodyPtr cb, _bodies)
+    {
+      shared_ptr<DynamicBodyd> db = dynamic_pointer_cast<DynamicBodyd>(cb);
+      db->get_generalized_coordinates_euler(q);
+      FILE_LOG(LOG_SIMULATOR) << " body " << db->body_id << " position (after integration): " << q << std::endl;
+    }
+  }
+
+  FILE_LOG(LOG_SIMULATOR) << "-- semi-implicit Euler step completed" << std::endl;
+}
+
+/// Does a semi-implicit step (version with conservative advancement)
+/*
+void TimeSteppingSimulator::step_si_Euler(double dt)
+{
+  FILE_LOG(LOG_SIMULATOR) << "-- doing semi-implicit Euler step" << std::endl;
+  const double INF = std::numeric_limits<double>::max();
+
   // do a number of mini-steps until integrated forward fully
   double h = 0.0;
   while (h < dt)
@@ -354,6 +452,7 @@ void TimeSteppingSimulator::step_si_Euler(double dt)
 
   FILE_LOG(LOG_SIMULATOR) << "-- semi-implicit Euler step completed" << std::endl;
 }
+*/
 
 /// Implements Base::load_from_xml()
 void TimeSteppingSimulator::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, BasePtr>& id_map)

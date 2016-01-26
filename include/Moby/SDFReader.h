@@ -33,6 +33,8 @@ class SDFReader
     
   private:
     enum TupleType { eNone, eVectorN, eVector3, eQuat };
+    static std::vector<boost::shared_ptr<Primitive> > _primitives; 
+    static std::vector<boost::shared_ptr<OSGGroupWrapper> > _osg_wrappers; 
 
     struct SurfaceData
     {
@@ -45,6 +47,7 @@ class SDFReader
     static void read_surface(boost::shared_ptr<const XMLTree> node, boost::shared_ptr<SurfaceData>& sd);
     static boost::shared_ptr<TimeSteppingSimulator> read_world(boost::shared_ptr<const XMLTree> node);
     static std::vector<ControlledBodyPtr> read_models(boost::shared_ptr<const XMLTree> node, boost::shared_ptr<TimeSteppingSimulator> sim);
+    static std::string read_string(boost::shared_ptr<const XMLTree> node);
     static unsigned read_uint(boost::shared_ptr<const XMLTree> node);
     static double read_double(boost::shared_ptr<const XMLTree> node);
     static bool read_bool(boost::shared_ptr<const XMLTree> node);
@@ -53,6 +56,7 @@ class SDFReader
     static boost::shared_ptr<const XMLTree> find_one_tag(const std::string& tag, boost::shared_ptr<const XMLTree> root);
     static std::list<boost::shared_ptr<const XMLTree> > find_tag(const std::string& tag, boost::shared_ptr<const XMLTree> root);
     static void find_tag(const std::string& tag, boost::shared_ptr<const XMLTree> root, std::list<boost::shared_ptr<const XMLTree> >& l);
+    static boost::shared_ptr<OSGGroupWrapper> read_OSG_file(boost::shared_ptr<const XMLTree> node);
     static PrimitivePtr read_heightmap(boost::shared_ptr<const XMLTree> node);
     static PrimitivePtr read_plane(boost::shared_ptr<const XMLTree> node);
     static PrimitivePtr read_box(boost::shared_ptr<const XMLTree> node);
@@ -60,10 +64,12 @@ class SDFReader
     static PrimitivePtr read_cylinder(boost::shared_ptr<const XMLTree> node);
     static PrimitivePtr read_cone(boost::shared_ptr<const XMLTree> node);
     static PrimitivePtr read_trimesh(boost::shared_ptr<const XMLTree> node);
+    static PrimitivePtr read_polyhedron(boost::shared_ptr<const XMLTree> node);
     static ControlledBodyPtr read_model(boost::shared_ptr<const XMLTree> node, std::map<RigidBodyPtr, boost::shared_ptr<SurfaceData> >& sdata);
     static RigidBodyPtr read_link(boost::shared_ptr<const XMLTree> node, boost::shared_ptr<SurfaceData>& sdata);
     static void read_collision_node(boost::shared_ptr<const XMLTree> node, RigidBodyPtr rb, boost::shared_ptr<SurfaceData>& sd);
     static void read_visual_node(boost::shared_ptr<const XMLTree> node, RigidBodyPtr rb);
+    static osg::Node* read_visual_geometry(boost::shared_ptr<const XMLTree> node);
     static PrimitivePtr read_geometry(boost::shared_ptr<const XMLTree> node);
     static Ravelin::Pose3d read_pose(boost::shared_ptr<const XMLTree> node);
     static Ravelin::SpatialRBInertiad read_inertial(boost::shared_ptr<const XMLTree> node, RigidBodyPtr rb);

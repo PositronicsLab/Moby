@@ -51,8 +51,8 @@ using std::list;
 
 ConstraintStabilization::ConstraintStabilization()
 {
-  // set maximum iterations to ten, by default 
-  max_iterations = 10;
+  // set maximum iterations to infinity, by default 
+  max_iterations = std::numeric_limits<unsigned>::infinity();
 
   // set unilateral tolerance to negative NEAR_ZERO by default
   eps = -NEAR_ZERO;
@@ -347,7 +347,7 @@ void ConstraintStabilization::compute_problem_data(std::vector<UnilateralConstra
     Point3d pa,pb;
     for (unsigned i = 0; i < pd.contact_constraints.size(); ++i)
     {
-      pd.Cn_v[i] = pd.contact_constraints[i]->signed_violation;//CollisionGeometry::calc_signed_dist(pd.contact_constraints[i]->contact_geom1, pd.contact_constraints[i]->contact_geom2, pa, pb) - std::sqrt(std::fabs(eps));
+      pd.Cn_v[i] = pd.contact_constraints[i]->signed_violation - NEAR_ZERO;//CollisionGeometry::calc_signed_dist(pd.contact_constraints[i]->contact_geom1, pd.contact_constraints[i]->contact_geom2, pa, pb) - std::sqrt(std::fabs(eps));
     }
 
     // set Jx_v
@@ -879,6 +879,7 @@ void ConstraintStabilization::determine_dq(UnilateralConstraintProblemData& pd, 
   // solve N*inv(M)*N'*dq = N*alpha for impulses 
   if (!_lcp.lcp_fast(MM, qq, z))
     _lcp.lcp_lemke_regularized(MM, qq, z);
+  FILE_LOG(LOG_SIMULATOR) << "zz: " << z << std::endl;
 
   // update velocities
   ImpactConstraintHandler::update_from_stacked(pd, z);

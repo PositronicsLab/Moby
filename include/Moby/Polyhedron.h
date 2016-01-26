@@ -89,32 +89,36 @@ class Polyhedron
 /*
     double find_closest_features(const Ravelin::Origin3d& p, std::list<boost::shared_ptr<Feature> >& closest_features, bool& inside) const;
 */
+    boost::shared_ptr<Polyhedron::Feature> find_closest_feature(const Ravelin::Origin3d& p, unsigned closest_facet) const;
     Polyhedron& operator=(const Polyhedron& p);
+    Polyhedron shallow_copy() const;
     std::vector<boost::shared_ptr<Vertex> >& get_vertices() { return _vertices; }
     const std::vector<boost::shared_ptr<Vertex> >& get_vertices() const { return _vertices; }
     const std::vector<boost::shared_ptr<Edge> >& get_edges() const { return _edges; }
     const std::vector<boost::shared_ptr<Face> >& get_faces() const { return _faces; }
     bool inside(const Ravelin::Origin3d& point, double tol = NEAR_ZERO);
     bool inside_or_on(const Ravelin::Origin3d& point, double tol = NEAR_ZERO);
-    LocationType location(const Ravelin::Origin3d& point, double tol = NEAR_ZERO) const;
+    LocationType location(const Ravelin::Origin3d& point, boost::shared_ptr<Polyhedron::Feature>& closest_feature, double tol = NEAR_ZERO) const;
     static void to_vrml(std::ostream& out, const Polyhedron& p, Ravelin::Origin3d diffuse_color = Ravelin::Origin3d(1,1,1), bool wireframe = false);
     double calc_volume() const;
     bool degenerate() const;
+    void write_to_obj(const std::string& filename) const;
+    Polyhedron transform(const Ravelin::Transform3d& T) const;
 
     template <class ForwardIterator>
     static Polyhedron calc_convex_hull(ForwardIterator begin, ForwardIterator end);
 
     /// Gets the signed distance and closest facet to a point
-    double calc_signed_distance(const Ravelin::Origin3d& point, unsigned& closest_facet);
+    double calc_signed_distance(const Ravelin::Origin3d& point, unsigned& closest_facet) const;
 
     /// Gets the signed distance from a point to the polyhedron
-    double calc_signed_distance(const Ravelin::Origin3d& point) { unsigned discard; return calc_signed_distance(point, discard); }
+    double calc_signed_distance(const Ravelin::Origin3d& point) const { unsigned discard; return calc_signed_distance(point, discard); }
 
     /// Gets the corners of the axis-aligned bounding box of this polyhedron
     std::pair<Ravelin::Origin3d, Ravelin::Origin3d> get_bounding_box_corners() const { return std::make_pair(_bb_min, _bb_max); }
 
     /// Determines whether this polyhedron convex (to w/in floating point tolerance)
-    bool is_convex() { return convexity() < NEAR_ZERO; }
+    bool is_convex() { return convexity() < std::sqrt(NEAR_ZERO); }
 
     /// Gets the convexity of this polyhedron 
     /**

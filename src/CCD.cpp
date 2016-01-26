@@ -1056,6 +1056,14 @@ BVPtr CCD::construct_bounding_sphere(CollisionGeometryPtr cg)
     return sph;
   }
 
+  // look for generic polyhedral primitive
+  shared_ptr<PolyhedralPrimitive> pp = dynamic_pointer_cast<PolyhedralPrimitive>(p);
+  if (pp)
+  {
+    sph->radius = pp->get_bounding_radius();
+    return sph;
+  }
+
   // look for cone primitive
   shared_ptr<ConePrimitive> cone_p = dynamic_pointer_cast<ConePrimitive>(p);
   if (cone_p)

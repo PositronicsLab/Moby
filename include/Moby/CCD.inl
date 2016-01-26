@@ -20,7 +20,7 @@ OutputIterator CCD::find_contacts(CollisionGeometryPtr cgA, CollisionGeometryPtr
   {
     if (boost::dynamic_pointer_cast<PlanePrimitive>(pB))
       return find_contacts_plane_generic(cgB, cgA, output_begin, TOL);
-    else if (boost::dynamic_pointer_cast<BoxPrimitive>(pB))
+    else if (boost::dynamic_pointer_cast<PolyhedralPrimitive>(pB))
       return find_contacts_polyhedron_polyhedron(cgA, cgB, output_begin, TOL);
     else if (boost::dynamic_pointer_cast<SpherePrimitive>(pB))
       return find_contacts_box_sphere(cgA, cgB, output_begin, TOL);
@@ -234,6 +234,10 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
           vertsB.insert(e->v2);
         }
       }
+
+      // if normal isn't set, quit
+      if (normal_unset)
+       return output_begin;
 
       // compute the convex hulls of the two sets of vertices
       std::vector<Point3d> voA, voB, hullA, hullB;
@@ -764,10 +768,6 @@ OutputIterator CCD::find_contacts_plane_generic(CollisionGeometryPtr cgA, Collis
 
   // get the plane primitive
   boost::shared_ptr<PlanePrimitive> pA = boost::dynamic_pointer_cast<PlanePrimitive>(cgA->get_geometry());
-
-  // get the bounding volume for cgB
-  PrimitivePtr pB = cgB->get_geometry();
-  BVPtr bvB = pB->get_BVH_root(cgB);
 
   FILE_LOG(LOG_COLDET) << "CCD::find_contacts_plane_generic() entered with tolerance " << TOL << std::endl;
   FILE_LOG(LOG_COLDET) << " body A: " << cgA->get_single_body()->body_id << std::endl;

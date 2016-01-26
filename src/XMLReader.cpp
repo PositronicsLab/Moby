@@ -17,7 +17,6 @@
 #include <Moby/OSGGroupWrapper.h>
 #endif
 
-#include <Moby/TriangleMeshPrimitive.h>
 #include <Moby/HeightmapPrimitive.h>
 #include <Moby/PlanePrimitive.h>
 #include <Moby/CylinderPrimitive.h>
@@ -156,8 +155,8 @@ std::map<std::string, BasePtr> XMLReader::construct_ID_map(shared_ptr<XMLTree> m
   process_tag("Cone", moby_tree, &read_cone, id_map);
   process_tag("Heightmap", moby_tree, &read_heightmap, id_map);
   process_tag("Plane", moby_tree, &read_plane, id_map);
+  process_tag("Polyhedron", moby_tree, &read_polyhedron, id_map);
 /*
-  process_tag("TriangleMesh", moby_tree, &read_trimesh, id_map);
   process_tag("TetraMesh", moby_tree, &read_tetramesh, id_map);
   process_tag("PrimitivePlugin", moby_tree, &read_primitive_plugin, id_map);
   process_tag("CSG", moby_tree, &read_CSG, id_map);
@@ -468,17 +467,17 @@ void XMLReader::read_tetramesh(shared_ptr<const XMLTree> node, std::map<std::str
 //  b->load_from_xml(node, id_map);
 }
 
-/// Reads and constructs the TriangleMeshPrimitive object
-void XMLReader::read_trimesh(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
+/// Reads and constructs the PolyhedralPrimitive object
+void XMLReader::read_polyhedron(shared_ptr<const XMLTree> node, std::map<std::string, BasePtr>& id_map)
 {  
   // sanity check
-  assert(strcasecmp(node->name.c_str(), "TriangleMesh") == 0);
+  assert(strcasecmp(node->name.c_str(), "Polyhedron") == 0);
 
-  // create a new TriangleMeshPrimitive object
-//  boost::shared_ptr<Base> b(new TriangleMeshPrimitive());
+  // create a new PolyhedralPrimitive object
+  boost::shared_ptr<Base> b(new PolyhedralPrimitive());
   
   // populate the object
-//  b->load_from_xml(node, id_map);
+  b->load_from_xml(node, id_map);
 }
 
 /// Reads and constructs a plane object

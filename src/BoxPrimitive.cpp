@@ -141,7 +141,7 @@ void BoxPrimitive::construct_polyhedron()
   v[7][X] = +_xlen*0.5;  v[7][Y] = +_ylen*0.5;  v[7][Z] = +_zlen*0.5; 
 
   // compute the convex hull
-  _poly = CompGeom::calc_convex_hull(v, v+N_BOX_VERTS)->to_polyhedron(); 
+  CompGeom::calc_convex_hull(v, v+N_BOX_VERTS)->to_polyhedron(_poly); 
   assert(_poly.get_faces().size() == 6 || _poly.get_faces().size() == 12);
   assert(_poly.get_vertices().size() == 8);
 }

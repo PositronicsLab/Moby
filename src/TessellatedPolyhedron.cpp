@@ -200,7 +200,7 @@ void TessellatedPolyhedron::operator=(const TessellatedPolyhedron& p)
 }
 
 /// Creates a polyhedron from this tessellated polyhedron
-Polyhedron TessellatedPolyhedron::to_polyhedron() const
+void TessellatedPolyhedron::to_polyhedron(Polyhedron& p) const
 {
   // setup vector of processed triangles
   std::vector<bool> processed(_mesh.num_tris(), false);
@@ -242,6 +242,8 @@ Polyhedron TessellatedPolyhedron::to_polyhedron() const
       q.pop(); 
 
       // indicate that the triangle is processed
+      if (processed[j])
+        continue;
       processed[j] = true;
 
       // add the facet to the vector of faces
@@ -259,10 +261,6 @@ Polyhedron TessellatedPolyhedron::to_polyhedron() const
  
       BOOST_FOREACH(unsigned k, incident_facets)
       {
-        // don't process a triangle twice
-        if (processed[k])
-          continue;
-
         // get the triangle
         Triangle cand_tri = _mesh.get_triangle(k, GLOBAL);
         Vector3d cand_normal = cand_tri.calc_normal();
@@ -278,7 +276,7 @@ Polyhedron TessellatedPolyhedron::to_polyhedron() const
     // create a single face
     faces.push_back(shared_ptr<Polyhedron::Face>(new Polyhedron::Face));
 
-    // setup the set of edges
+    // setup the set of edges in the face
     std::map<std::pair<unsigned, unsigned>, unsigned> edge_set;
     for (unsigned j=0; j< coplanar_faces.size(); j++)
     {
@@ -300,8 +298,8 @@ Polyhedron TessellatedPolyhedron::to_polyhedron() const
         edge_set[std::make_pair(it.a, it.c)]++;
     }
 
-    // if an edge belongs to multiple faces, remove it; simultaneously, create
-    // edges as necessary
+    // if an edge belongs to multiple coplanar faces, remove it from the 
+    // set of edges around the polygon; simultaneously, create edges as necessary
     for (std::map<std::pair<unsigned, unsigned>, unsigned>::iterator iter = edge_set.begin(); iter != edge_set.end(); )
     {
       if (iter->second > 1)
@@ -338,6 +336,10 @@ Polyhedron TessellatedPolyhedron::to_polyhedron() const
       // update the iterator
       iter++;
     }
+
+    // verify that the number of edges is equal to the number of coplanar faces
+    // plus 2
+    assert(edge_set.size() == coplanar_faces.size() + 2);
 
     // to store the edges coincident to this face in a ccw ordering, we do
     // the following
@@ -377,6 +379,7 @@ Polyhedron TessellatedPolyhedron::to_polyhedron() const
         }
         else
         {
+          assert(!eZ);
           Zij = j->first;
           eZ = edge_map[Zij];
         }
@@ -429,9 +432,11 @@ Polyhedron TessellatedPolyhedron::to_polyhedron() const
     while (edge_set.size() > 1)
     {
       // remove new X from the edge set (6)  
+      assert(edge_set.find(Xij) != edge_set.end());
       edge_set.erase(Xij);
 
       // find the edge remaining in the edge set that is coincident to X (7)
+      bool edge_found = false;
       for (std::map<std::pair<unsigned, unsigned>, unsigned>::const_iterator j = edge_set.begin(); j != edge_set.end(); j++)
       {
         if (j->first.first == Xij.first || j->first.first == Xij.second ||
@@ -446,14 +451,15 @@ Polyhedron TessellatedPolyhedron::to_polyhedron() const
 
           // set X = W (9)
           Xij = Wij;
-          eW = eX; 
+          edge_found = true;
+          break; 
         }
       }
+      assert(edge_found);
     }
   }
 
   // create the polyhedron
-  Polyhedron p;
   p._vertices = vertices;
   p._edges = edges;
   p._faces = faces;
@@ -461,7 +467,6 @@ Polyhedron TessellatedPolyhedron::to_polyhedron() const
   p._bb_max = _bb_max;
   p._convexity = _convexity;
   p._convexity_computed = _convexity_computed;
-  return p;
 }
 
 /// Computes the Minkowski sum of two convex polyhedra

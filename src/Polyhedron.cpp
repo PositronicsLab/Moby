@@ -72,7 +72,24 @@ else \
 /// Determines whether the polyhedron is convex
 void Polyhedron::determine_convexity()
 {
-  throw std::runtime_error("Implement me!");
+  // set convexity to -inf to begin
+  _convexity = -std::numeric_limits<double>::max();
+
+  // iterate over each face
+  for (unsigned i=0; i< _faces.size(); i++)
+  {
+    // get the plane for the face
+    Plane p = _faces[i]->get_plane();
+
+    // get the pose for the plane
+    shared_ptr<const Pose3d> pose = p.get_pose();
+
+    // get the maximum signed distance from any vertex to the face 
+    for (unsigned j=0; j< _vertices.size(); j++)
+      _convexity = std::max(_convexity, p.calc_signed_distance(Point3d(_vertices[j]->o, pose)));
+  }
+
+  // indicate that convexity has been calculated
   _convexity_computed = true;
 }
 
@@ -134,15 +151,102 @@ Polyhedron::Polyhedron()
 /// Assignment operator
 Polyhedron& Polyhedron::operator=(const Polyhedron& p)
 {
+  // copy easy things
   _bb_min = p._bb_min;
   _bb_max = p._bb_max;
   _convexity = p._convexity;
   _convexity_computed = p._convexity_computed;
-  _edges = p._edges;
-  _vertices = p._vertices;
-  _faces = p._faces;
+
+  // clear vertices, edges, and faces
+  _vertices.clear();
+  _edges.clear();
+  _faces.clear();
+
+  // make a copy of vertices 
+  std::map<shared_ptr<Polyhedron::Vertex>, shared_ptr<Polyhedron::Vertex> > v_copy;
+  for (unsigned i=0; i< p._vertices.size(); i++)
+  {
+    shared_ptr<Polyhedron::Vertex> v(new Polyhedron::Vertex);
+    v->o = p._vertices[i]->o;
+    v_copy[p._vertices[i]] = v;
+    v->data = p._vertices[i]->data;
+    _vertices.push_back(v);
+  }
+
+  // make a copy of edges
+  std::map<shared_ptr<Polyhedron::Edge>, shared_ptr<Polyhedron::Edge> > e_copy;
+  for (unsigned i=0; i< p._edges.size(); i++)
+  {
+    shared_ptr<Polyhedron::Edge> e(new Polyhedron::Edge);
+    e->v1 = v_copy[p._edges[i]->v1];
+    e->v2 = v_copy[p._edges[i]->v2];
+    e_copy[p._edges[i]] = e;
+    e->data = p._edges[i]->data;
+    _edges.push_back(e);
+  }
+
+  // make a copy of faces
+  std::map<shared_ptr<Polyhedron::Face>, shared_ptr<Polyhedron::Face> > f_copy;
+  for (unsigned i=0; i< p._faces.size(); i++)
+  {
+    shared_ptr<Polyhedron::Face> f(new Polyhedron::Face);
+    BOOST_FOREACH(weak_ptr<Edge> e, p._faces[i]->e)
+      f->e.push_back(e_copy[shared_ptr<Edge>(e)]);
+    f->data = p._faces[i]->data;
+    f_copy[p._faces[i]] = f;
+    _faces.push_back(f);
+  }
+
+  // update edge pointers for vertices
+  for (unsigned i=0; i< _vertices.size(); i++)
+    BOOST_FOREACH(weak_ptr<Edge> e, p._vertices[i]->e)
+      _vertices[i]->e.push_back(e_copy[shared_ptr<Edge>(e)]);
+
+  // update face pointers for edges
+  for (unsigned i=0; i< _edges.size(); i++)
+  {
+    _edges[i]->face1 = f_copy[p._edges[i]->face1];
+    _edges[i]->face2 = f_copy[p._edges[i]->face2];
+  }
 
   return *this;
+}
+
+/// Does a shallow copy of this polyhedron
+Polyhedron Polyhedron::shallow_copy() const
+{
+  Polyhedron p;
+  p._bb_min = _bb_min;
+  p._bb_max = _bb_max;
+  p._convexity = _convexity;
+  p._convexity_computed = _convexity_computed;
+  p._edges = _edges;
+  p._vertices = _vertices;
+  p._faces = _faces;
+
+  return p;
+}
+
+/// Transforms a polyhedron
+Polyhedron Polyhedron::transform(const Transform3d& T) const
+{
+  // copy this
+  Polyhedron p = *this;
+
+  // get the vertices
+  std::vector<shared_ptr<Vertex> >& v = p._vertices;
+
+  // transform the vertices
+  for (unsigned i=0; i< v.size(); i++)
+    v[i]->o = Origin3d(T.transform_point(Point3d(v[i]->o, T.source)));
+
+  return p;    
+}
+
+/// Writes the polyhedron to Wavefront OBJ format 
+void Polyhedron::write_to_obj(const std::string& filename) const
+{
+  throw std::runtime_error("Implement me!");
 }
 
 /// Computes the Minkowski difference of two polyhedral primitives
@@ -1689,6 +1793,24 @@ void promote_featrues(FeatureType& fA, FeatureType& fB, boost::shared_ptr<const 
 
 }
 */
+
+/// Calculates the signed distance of the polyhedron from the point
+/**
+ * \param closest_facet the closest facet to the point on return
+ */
+double Polyhedron::calc_signed_distance(const Origin3d& p, unsigned& closest_facet) const
+{
+  throw std::runtime_error("Implement me!");
+}
+
+/// Finds the closest feature of the polyhedron to the point, given the closest facet
+/**
+ * \param closest_facet the closest facet to the point on return
+ */
+boost::shared_ptr<Polyhedron::Feature> Polyhedron::find_closest_feature(const Origin3d& p, unsigned closest_facet) const
+{
+  throw std::runtime_error("Implement me!");
+}
 
 /// Computes the distance between two features
 double Polyhedron::calc_dist(FeatureType fA, FeatureType fB, boost::shared_ptr<const Polyhedron::Feature> closestA, boost::shared_ptr<const Polyhedron::Feature> closestB, Ravelin::Transform3d& aTb)
