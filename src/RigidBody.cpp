@@ -152,14 +152,18 @@ void RigidBody::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, B
   XMLAttrib* color_attr = node->get_attrib("color");
   if (color_attr){
     color_attr->get_vector_value(color_rgba);
+    if (color_rgba.size() != 4)
+      std::cerr << "RigidBody::load_from_xml() - 'color' must be a four-dimensional vector (RGBA)" << std::endl;
+    else
+    {
+      osg::Group* this_group = _vizdata->get_group();
 
-    osg::Group* this_group = _vizdata->get_group();
-
-    for(int i=0;i<this_group->getNumChildren();i++){
-      osg::Node* n = this_group->getChild(i);
-      CcolorVisitor  newColor;
-      newColor.setColor( color_rgba[0], color_rgba[1], color_rgba[2], color_rgba[3] );
-      n->accept( newColor );
+      for(int i=0;i<this_group->getNumChildren();i++){
+        osg::Node* n = this_group->getChild(i);
+        CcolorVisitor  newColor;
+        newColor.setColor( color_rgba[0], color_rgba[1], color_rgba[2], color_rgba[3] );
+        n->accept( newColor );
+      }
     }
   }
   #endif
