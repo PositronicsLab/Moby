@@ -280,6 +280,7 @@ void ArticulatedBody::load_from_xml(shared_ptr<const XMLTree> node, std::map<str
   joint_node_names.push_back("UniversalJoint");
   joint_node_names.push_back("FixedJoint");
   joint_node_names.push_back("JointPlugin");
+  joint_node_names.push_back("Gears");
 
   // read the set of joint nodes and concatenate them into a single list
   list<shared_ptr<const XMLTree> > joint_nodes = node->find_child_nodes(joint_node_names);
