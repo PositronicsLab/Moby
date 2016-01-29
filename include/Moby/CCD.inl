@@ -288,16 +288,17 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
       for (unsigned j=0; j< polyB.get_vertices().size(); j++)
       {
         Point3d v = wTb.transform_point(Point3d(polyB.get_vertices()[j]->o, poseB));
-        if (tri.calc_signed_dist(v) > NEAR_ZERO)
+        double tri_dist = tri.calc_signed_dist(v);
+        if (tri_dist > NEAR_ZERO)
         {
           skip = true;
           break;
         }
       }
       if (skip)
-        continue; 
+        continue;
 
-      // get the reverse of the normal
+      // get the reverse of the normal 
       Ravelin::Vector3d ncand = -tri.calc_normal();
 
       // get the offset
@@ -310,6 +311,7 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
 
       // compute the distance of the extremal point from the face
       double dist = ncand.dot(p) - offset_cand;
+      FILE_LOG(LOG_COLDET) << "candidate normal: " << tri.calc_normal() << " signed dist: " << dist << std::endl;
       assert(dist > -NEAR_ZERO);
       if (dist < min_dist)
       {
@@ -320,6 +322,7 @@ OutputIterator CCD::find_contacts_polyhedron_polyhedron(CollisionGeometryPtr cgA
         offset = -offset_cand; 
       }
     }
+    FILE_LOG(LOG_COLDET) << "contact normal: " << normal << std::endl;
 
     // get each vertex, creating a contact point
     for (unsigned i=0; i< vertices.size(); i++)

@@ -1,0 +1,59 @@
+<!-- a double pendulum with fixed base -->
+
+<XML>
+  <DRIVER step-size="0.01">
+    <camera position="0 0 10" target="0 0 0" up="0 1 0" />
+    <window location="0 0" size="640 480" />
+  </DRIVER>
+
+  <MOBY>
+    <Cylinder id="c" radius="1" height="5" num-rings="100" num-circle-points="25" density="1.0" /> 
+    <Box id="b1" xlen="2" ylen="5" zlen="2" density="10.0" />
+    <Box id="b3" xlen="1" ylen="10" zlen="1" density="10.0" />
+    <Plane id="plane" />
+    <Box id="plane-viz" xlen="25" zlen="25" ylen="100" />
+
+    <!-- integrators, collision and contact methods, forces, fdyn algos -->
+    <GravityForce id="gravity" accel="0 -9.81 0 " />
+
+    <!-- the simulator -->
+    <TimeSteppingSimulator min-step-size="1e-3">
+      <RecurrentForce recurrent-force-id="gravity" /> 
+      <DynamicBody dynamic-body-id="chain" />
+      <DynamicBody dynamic-body-id="platform" />
+      <DisabledPair object1-id="l1" object2-id="l2" />
+      <ContactParameters object1-id="platform" object2-id="chain" mu-coulomb="1"  />
+    </TimeSteppingSimulator>
+    
+    <!-- the chain -->
+    <RCArticulatedBody id="chain" floating-base="false" > 
+
+      <!-- links in the chain -->
+      <RigidBody id="base" position="0 0 0">
+        <InertiaFromPrimitive primitive-id="c" />
+      </RigidBody>
+
+      <RigidBody id="l1" position="0 -2.5 0" rpy="0 0 0" visualization-id="b1" color=".25 0 .5 1">
+        <InertiaFromPrimitive primitive-id="b1" />
+        <CollisionGeometry primitive-id="b1" />
+      </RigidBody>
+
+      <RigidBody id="l2" position="0 -7.5 0" rpy="0 0 0" visualization-id="b1" color=".5 0 .25 1">
+        <InertiaFromPrimitive primitive-id="b1" />
+        <CollisionGeometry primitive-id="b1" />
+      </RigidBody>
+
+      <!-- joints in the chain -->
+      <RevoluteJoint id="q" q="1.57079632679490" qd="0" location="0 0 0" inboard-link-id="base" outboard-link-id="l1" axis="0 0 1" />
+      <RevoluteJoint id="q2" q="0" qd="0" location="0 -5 0" inboard-link-id="l1" outboard-link-id="l2" axis="0 0 1" />
+    </RCArticulatedBody>
+
+    <!-- setup the platform rigid body; it is not active -->
+    <RigidBody id="platform" enabled="false" position="0 -9 0" color=".25 .25 .25 0">
+        <CollisionGeometry primitive-id="plane" />
+	<Visualization visualization-id="plane-viz" visualization-rel-origin="0 -50 0" />
+    </RigidBody>
+
+  </MOBY>
+</XML>
+

@@ -1,0 +1,40 @@
+<!-- A box sitting on a ground plane.  -->
+
+<XML>
+  <DRIVER step-size="0.01">
+    <camera position="0 5 10" target="0 .5 0" up="0 1 0" />
+    <window location="0 0" size="640 480" />
+  </DRIVER>
+
+  <MOBY>
+    <!-- Primitives -->
+    <Box id="b1" xlen="1" ylen="1" zlen="1" mass="1.0" />
+    <Plane id="plane" />
+    <Box id="box-viz" xlen="10" ylen="100" zlen="10" />
+
+    <!-- Gravity force -->
+    <GravityForce id="gravity" accel="0 -9.81 0"  />
+
+    <!-- Rigid bodies -->
+      <!-- the box -->
+      <RigidBody id="box" enabled="true" position="0 .5000 0" aangle="0 0 1 0.52360" visualization-id="b1" color="0 .5 .25 1">
+        <InertiaFromPrimitive primitive-id="b1" />
+        <CollisionGeometry primitive-id="b1" />
+      </RigidBody>
+
+      <!-- the ground -->
+      <RigidBody id="ground" enabled="false" aangle="0 0 1 0.52360" color=".25 .25 .25 0" position="0 0 0">
+        <CollisionGeometry primitive-id="plane" /> 
+        <Visualization visualization-id="box-viz" visualization-rel-origin="0 -50 0" />
+      </RigidBody>
+
+    <!-- Setup the simulator -->
+    <TimeSteppingSimulator id="simulator">
+      <DynamicBody dynamic-body-id="box" />
+      <DynamicBody dynamic-body-id="ground" />
+      <RecurrentForce recurrent-force-id="gravity"  />
+      <ContactParameters object1-id="ground" object2-id="box" epsilon="0" mu-coulomb="0.54" mu-viscous="0" friction-cone-edges="32" />
+    </TimeSteppingSimulator> 
+  </MOBY>
+</XML>
+

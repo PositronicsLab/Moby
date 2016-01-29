@@ -38,7 +38,7 @@ class ConstraintStabilization
     bool update_q(const Ravelin::VectorNd& dq, Ravelin::VectorNd& q, boost::shared_ptr<ConstraintSimulator> sim);
     void compute_problem_data(std::vector<UnilateralConstraintProblemData>& pd, boost::shared_ptr<ConstraintSimulator> sim);
     void add_contact_constraints(std::vector<UnilateralConstraint>& constraints, CollisionGeometryPtr cg1, CollisionGeometryPtr cg2, boost::shared_ptr<ConstraintSimulator> sim);
-    void add_articulate_limit_constraint(std::vector<UnilateralConstraint>& constraints, boost::shared_ptr<Ravelin::ArticulatedBodyd> ab);
+    void add_limit_constraints(const std::vector<ControlledBodyPtr>& bodies, std::vector<UnilateralConstraint>& constraints);
     void generate_body_index_map(std::map<boost::shared_ptr<Ravelin::DynamicBodyd>, unsigned>& body_index_map, boost::shared_ptr<ConstraintSimulator> sim);
     static void set_unilateral_constraint_data(UnilateralConstraintProblemData& pd);
     static void set_bilateral_only_constraint_data(UnilateralConstraintProblemData& q, const std::vector<boost::shared_ptr<Ravelin::DynamicBodyd> >& island);
@@ -55,7 +55,8 @@ class ConstraintStabilization
     static void save_velocities(boost::shared_ptr<ConstraintSimulator> sim, std::vector<Ravelin::VectorNd>& qd);
     static void restore_velocities(boost::shared_ptr<ConstraintSimulator> sim, const std::vector<Ravelin::VectorNd>& qd);
     static void add_contact_to_Jacobian(const UnilateralConstraint& c, SparseJacobian& Cn, const std::map<boost::shared_ptr<Ravelin::DynamicBodyd>, unsigned>& gc_map, unsigned contact_idx);
-    static double evaluate_implicit_constraints(boost::shared_ptr<ConstraintSimulator> sim, std::vector<double>& C);
+    static double evaluate_unilateral_constraints(boost::shared_ptr<ConstraintSimulator> sim, std::vector<double>& uC);
+    static double evaluate_bilateral_constraints(boost::shared_ptr<ConstraintSimulator> sim, std::vector<double>& C);
 
     // the LCP solver
     LCP _lcp;

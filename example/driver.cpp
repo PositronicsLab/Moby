@@ -58,8 +58,8 @@ namespace Moby{
   /// The default simulation step size
   const double DEFAULT_STEP_SIZE = .001;
   
-  /// The simulation step size
-  double STEP_SIZE = DEFAULT_STEP_SIZE;
+  /// The simulation step size (set to negative initially as a flag)
+  double STEP_SIZE = -1.0;
   
   /// The time of the first simulation step
   double FIRST_STEP_TIME = -1;
@@ -71,19 +71,19 @@ namespace Moby{
   unsigned ITER = 1;
   
   /// Interval for offscreen renders (0=offscreen renders active for first and last iterations)
-  unsigned IMAGE_IVAL = -1;
+  int IMAGE_IVAL = -1;
   
   /// Interval for 3D outputs (0=3D outputs active for first and last iterations)
-  unsigned THREED_IVAL = -1;
+  int THREED_IVAL = -1;
   
   /// Interval for pickling
-  unsigned PICKLE_IVAL = -1;
+  int PICKLE_IVAL = -1;
   
   /// Determines whether to do onscreen rendering (false by default)
   bool ONSCREEN_RENDER = false;
   
   /// Last pickle iteration
-  unsigned LAST_PICKLE = -1;
+  int LAST_PICKLE = -1;
   
   /// Extension/format for 3D outputs (default=Wavefront obj)
   char THREED_EXT[5] = "obj";
@@ -102,7 +102,7 @@ namespace Moby{
   double TOTAL_TIME = 0.0;
   
   /// Last 3D output iteration and time output
-  unsigned LAST_3D_WRITTEN = -1;
+  int LAST_3D_WRITTEN = -1;
   
   /// Last image iteration output
   unsigned LAST_IMG_WRITTEN = -1;
@@ -265,7 +265,7 @@ namespace Moby{
 
       // output the image, if desired
 #ifdef USE_OSG
-      if (IMAGE_IVAL == 0)
+      if (IMAGE_IVAL > 0)
       {
         char buffer[128];
         sprintf(buffer, "driver.out.%08u.png", ++LAST_IMG_WRITTEN);
@@ -273,7 +273,7 @@ namespace Moby{
       }
       
       // output the 3D file, if desired
-      if (THREED_IVAL == 0)
+      if (THREED_IVAL > 0)
       {
         // write the file (fails silently)
         char buffer[128];
@@ -283,7 +283,7 @@ namespace Moby{
 #endif
       
       // serialize the simulation, if desired
-      if (PICKLE_IVAL == 0)
+      if (PICKLE_IVAL > 0)
       {
         // write the file (fails silently)
         char buffer[128];
@@ -518,6 +518,11 @@ namespace Moby{
       chdir(cwd.get());
       return;
     }
+
+    // look for the step size attribute; only set it if it's not set already
+    XMLAttrib* step_size_attr = driver_tree->get_attrib("step-size");
+    if (step_size_attr && STEP_SIZE < 0.0)
+      STEP_SIZE = step_size_attr->get_real_value();
     
     // process tags
     process_tag("window", driver_tree, process_window_tag);
@@ -786,8 +791,12 @@ namespace Moby{
     boost::shared_ptr<Simulator> s;
     
     init(argc,argv,s);
-    
-    // begin rendering
+
+    // if the step size is negative, set the step size to a default
+    if (STEP_SIZE < 0.0)
+      STEP_SIZE = DEFAULT_STEP_SIZE;
+
+    // begin simulating 
     bool stop_sim = false;
     while (!stop_sim)
     {

@@ -500,7 +500,7 @@ double CCD::calc_next_CA_Euler_step_polyhedron_polyhedron(shared_ptr<PolyhedralP
     double r = vA[i]->o.norm();
 
     // get the vertex in the pose
-    Vector3d vertex(vA[i]->o, poseB);
+    Vector3d vertex(vA[i]->o, poseA);
 
     // compute the distance from the vertex to the contact plane <n, x> = d
     double dist = nA.dot(vertex) - offsetA;

@@ -331,6 +331,7 @@ double TimeSteppingSimulator::calc_next_CA_Euler_step(double contact_dist_thresh
 }
 
 /// Does a semi-implicit step
+/*
 void TimeSteppingSimulator::step_si_Euler(double dt)
 {
   FILE_LOG(LOG_SIMULATOR) << "-- doing semi-implicit Euler step" << std::endl;
@@ -426,9 +427,9 @@ void TimeSteppingSimulator::step_si_Euler(double dt)
 
   FILE_LOG(LOG_SIMULATOR) << "-- semi-implicit Euler step completed" << std::endl;
 }
+*/
 
 /// Does a semi-implicit step (version with conservative advancement)
-/*
 void TimeSteppingSimulator::step_si_Euler(double dt)
 {
   FILE_LOG(LOG_SIMULATOR) << "-- doing semi-implicit Euler step" << std::endl;
@@ -452,7 +453,6 @@ void TimeSteppingSimulator::step_si_Euler(double dt)
 
   FILE_LOG(LOG_SIMULATOR) << "-- semi-implicit Euler step completed" << std::endl;
 }
-*/
 
 /// Implements Base::load_from_xml()
 void TimeSteppingSimulator::load_from_xml(shared_ptr<const XMLTree> node, map<std::string, BasePtr>& id_map)

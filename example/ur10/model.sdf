@@ -36,6 +36,10 @@
       <child>base_link</child>
       <parent>world</parent>
       <axis>
+        <limit>
+          <lower>-0.00001</lower>
+          <upper>0.00001</upper>
+        </limit>
         <use_parent_model_frame>1</use_parent_model_frame>
         <xyz>0 0 1</xyz>
       </axis>
@@ -76,6 +80,12 @@
       <parent>base_link</parent>
       <axis>
         <xyz>0 0 1</xyz>
+        <limit>
+          <lower>-6.28319</lower>
+          <upper>6.28319</upper>
+          <effort>330</effort>
+          <velocity>2.16</velocity>
+        </limit>
         <use_parent_model_frame>0</use_parent_model_frame>
       </axis>
     </joint>
@@ -115,6 +125,12 @@
       <parent>shoulder_link</parent>
       <axis>
         <xyz>0 1 0</xyz>
+        <limit>
+          <lower>-6.28319</lower>
+          <upper>6.28319</upper>
+          <effort>330</effort>
+          <velocity>2.16</velocity>
+        </limit>
         <use_parent_model_frame>1</use_parent_model_frame>
       </axis>
     </joint>
@@ -146,6 +162,12 @@
       <parent>upper_arm_link</parent>
       <axis>
         <xyz>0 1 0</xyz>
+        <limit>
+          <lower>-6.28319</lower>
+          <upper>6.28319</upper>
+          <effort>150</effort>
+          <velocity>3.15</velocity>
+        </limit>
         <use_parent_model_frame>1</use_parent_model_frame>
       </axis>
     </joint>
@@ -185,6 +207,12 @@
       <parent>forearm_link</parent>
       <axis>
         <xyz>0 1 0</xyz>
+        <limit>
+          <lower>-6.28319</lower>
+          <upper>6.28319</upper>
+          <effort>54</effort>
+          <velocity>3.2</velocity>
+        </limit>
         <use_parent_model_frame>1</use_parent_model_frame>
       </axis>
     </joint>
@@ -224,6 +252,12 @@
       <parent>wrist_1_link</parent>
       <axis>
         <xyz>0 0 -1</xyz>
+        <limit>
+          <lower>-6.28319</lower>
+          <upper>6.28319</upper>
+          <effort>54</effort>
+          <velocity>3.2</velocity>
+        </limit>
         <use_parent_model_frame>1</use_parent_model_frame>
       </axis>
     </joint>
@@ -263,6 +297,12 @@
       <parent>wrist_2_link</parent>
       <axis>
         <xyz>0 1 0</xyz>
+        <limit>
+          <lower>-6.28319</lower>
+          <upper>6.28319</upper>
+          <effort>54</effort>
+          <velocity>3.2</velocity>
+        </limit>
         <use_parent_model_frame>1</use_parent_model_frame>
       </axis>
     </joint>
@@ -323,6 +363,10 @@
       <child>hand</child>
       <axis>
         <xyz>0 0 1</xyz>
+        <limit>
+          <lower>-.00001</lower>
+          <upper>0.00001</upper>
+        </limit>
       </axis>
     </joint>
 
@@ -470,6 +514,10 @@
           <friction>0.0</friction>
         </dynamics>
         <xyz>1 0 0</xyz>
+        <limit>
+          <lower>-0.00001</lower>
+          <upper>0.014</upper>
+        </limit>
       </axis>
     </joint>
 
@@ -482,6 +530,10 @@
           <friction>0.0</friction>
         </dynamics>
         <xyz>1 0 0</xyz>
+        <limit>
+          <lower>-0.014</lower>
+          <upper>0.00001</upper>
+        </limit>
       </axis>
     </joint>
     <!-- end: schunk mpg 80 hand -->

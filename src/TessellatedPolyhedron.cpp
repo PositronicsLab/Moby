@@ -1427,15 +1427,19 @@ const Ravelin::Origin3d& TessellatedPolyhedron::find_extreme_vertex(const Raveli
   std::vector<Ravelin::Origin3d>::const_iterator max_vertex;
 
   // iterate through all vertices
+  FILE_LOG(LOG_COLDET) << "TessellatedPolyhedron::find_extreme_vertex(.) entered" << std::endl;
   for (std::vector<Ravelin::Origin3d>::const_iterator vi = vs.begin(); vi != vs.end(); vi++)
   {
     double dot = (*vi).dot(direction);
+    FILE_LOG(LOG_COLDET) << "checking vertex: " << *vi << " dot: " << dot << std::endl;
     if( dot > max_dot)
     {
       max_dot = dot;
       max_vertex = vi;
     }
   }
+  FILE_LOG(LOG_COLDET) << " extreme vertex: " << *max_vertex << std::endl;
+  FILE_LOG(LOG_COLDET) << "TessellatedPolyhedron::find_extreme_vertex(.) exited" << std::endl;
 
   return *max_vertex;
 }

@@ -1,0 +1,38 @@
+<!-- An example demonstrating setting a joint tare value -->
+
+<XML>
+  <DRIVER>
+    <camera position="0 0 10" target="0 0 0" up="0 1 0" />
+    <window location="0 0" size="640 480" />
+  </DRIVER>
+
+  <MOBY>
+    <Sphere id="sphere" radius="1.5811" mass="1" />
+    <Sphere id="sph2" radius=".1" mass="1" />
+    <Cylinder id="cyl" radius=".01" height="1" mass="1" rpy="0 1.5708 0" position="0 .5 0"/>
+
+    <GravityForce id="gravity" accel="0 -9.81 0 " />
+
+  <Simulator>
+    <RecurrentForce recurrent-force-id="gravity" /> 
+    <DynamicBody dynamic-body-id="pendulum" />
+  </Simulator>
+
+  <RCArticulatedBody id="pendulum" fdyn-algorithm="crb" fdyn-algorithm-frame="link" floating-base="false">
+
+      <RigidBody id="base" position="0 0 0">
+        <InertiaFromPrimitive primitive-id="sphere" />
+      </RigidBody>
+
+      <RigidBody id="l1" position="1 0 0" rpy="0 0 1.57079632679490" color="1 0 0 0">
+        <InertiaFromPrimitive primitive-id="sphere" />
+        <Visualization visualization-id="cyl" />
+        <Visualization visualization-id="sph2" />
+      </RigidBody>
+
+      <RevoluteJoint id="q" q="1.57079632679490" q-tare="-1.57079632679490" qd="0" location="0 0 0" inboard-link-id="base" outboard-link-id="l1" axis="0 0 1" />
+    </RCArticulatedBody>
+
+  </MOBY>
+</XML>
+

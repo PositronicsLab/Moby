@@ -218,12 +218,8 @@ endif (BUILD_TOOLS)
 file (WRITE ${CMAKE_BINARY_DIR}/setup.sh "#!/bin/bash\nexport MOBY_PLUGIN_PATH=${CMAKE_BINARY_DIR}\n\n")
 
 # plugins
-# sphere plugin
-add_library(sphere-plugin MODULE example/contact_simple/sphere-plugin.cpp)
-target_link_libraries(sphere-plugin Moby)
-
 # box plugin
-add_library(box-plugin MODULE example/contact_simple/box-plugin.cpp)
+add_library(box-plugin MODULE example/simple-contact/box-plugin.cpp)
 target_link_libraries(box-plugin Moby)
 
 # rimless wheel plugins
@@ -232,12 +228,6 @@ add_library(rimless-wheel-init MODULE example/rimless-wheel/init.cpp)
 target_link_libraries(rimless-wheel-init Moby)
 target_link_libraries(rimless-wheel-coldet-plugin Moby)
 
-# ball in parabloid plugins
-add_library(ball-parabloid-coldet-plugin MODULE example/ball-in-parabloid/coldet-plugin.cpp)
-add_library(ball-parabloid-init MODULE example/ball-in-parabloid/init.cpp)
-target_link_libraries(ball-parabloid-init Moby)
-target_link_libraries(ball-parabloid-coldet-plugin Moby)
-
 # passive dynamic walker plugins
 add_library(passive-walker-init MODULE example/passive-walker/init.cpp)
 add_library(passive-walker-coldet-plugin MODULE example/passive-walker/coldet-plugin.cpp)
@@ -245,8 +235,8 @@ target_link_libraries(passive-walker-init Moby)
 target_link_libraries(passive-walker-coldet-plugin Moby)
 
 # contact constrained pendulum plugins
-add_library(contact-constrained-pendulum-coldet-plugin MODULE example/contact_simple/contact-constrained-pendulum-coldet-plugin.cpp)
-add_library(contact-constrained-pendulum-init MODULE example/contact_simple/contact-constrained-pendulum-init.cpp)
+add_library(contact-constrained-pendulum-coldet-plugin MODULE example/contact-constrained-pendulum/contact-constrained-pendulum-coldet-plugin.cpp)
+add_library(contact-constrained-pendulum-init MODULE example/contact-constrained-pendulum/contact-constrained-pendulum-init.cpp)
 target_link_libraries(contact-constrained-pendulum-coldet-plugin Moby)
 target_link_libraries(contact-constrained-pendulum-init Moby)
 
@@ -261,12 +251,9 @@ install (TARGETS contact-constrained-pendulum-coldet-plugin DESTINATION lib/Moby
 install (TARGETS contact-constrained-pendulum-init DESTINATION lib/Moby/plugins)
 install (TARGETS passive-walker-init DESTINATION lib/Moby/plugins)
 install (TARGETS passive-walker-coldet-plugin DESTINATION lib/Moby/plugins)
-install (TARGETS ball-parabloid-init DESTINATION lib/Moby/plugins)
-install (TARGETS ball-parabloid-coldet-plugin DESTINATION lib/Moby/plugins)
 install (TARGETS rimless-wheel-init DESTINATION lib/Moby/plugins)
 install (TARGETS rimless-wheel-coldet-plugin DESTINATION lib/Moby/plugins)
 install (TARGETS box-plugin DESTINATION lib/Moby/plugins)
-install (TARGETS sphere-plugin DESTINATION lib/Moby/plugins)
 
 # setup install locations for library
 install (TARGETS Moby DESTINATION lib)
@@ -287,7 +274,7 @@ install (TARGETS moby-center DESTINATION bin)
 install (DIRECTORY ${CMAKE_SOURCE_DIR}/include/Moby DESTINATION include)
 
 # setup install locations for examples
-install (DIRECTORY ${CMAKE_SOURCE_DIR}/example/contact_simple DESTINATION share/Moby)
+install (DIRECTORY ${CMAKE_SOURCE_DIR}/example/simple-contact DESTINATION share/Moby)
 install (DIRECTORY ${CMAKE_SOURCE_DIR}/example/chain-contact DESTINATION share/Moby)
 
 # uninstall target

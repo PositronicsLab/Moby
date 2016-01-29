@@ -83,20 +83,50 @@ void ConstraintStabilization::restore_velocities(shared_ptr<ConstraintSimulator>
   }
 }
 
-/// Gets the minimum pairwise distance
-double ConstraintStabilization::get_min_pairwise_dist(const vector<PairwiseDistInfo>& pdi)
+/// Get the maximum amount of unilateral constraint violation
+double ConstraintStabilization::evaluate_unilateral_constraints(shared_ptr<ConstraintSimulator> sim, vector<double>& uC)
 {
-  // set distance to infinite initially
-  double dist = std::numeric_limits<double>::max();
+  // set violation to infinite initially
+  double vio = std::numeric_limits<double>::max();
 
+  // clear uC
+  uC.clear();
+
+  // get the maximum amount of unilateral constraint violation
+  const vector<PairwiseDistInfo>& pdi = sim->_pairwise_distances;
   for (unsigned i=0; i< pdi.size(); i++)
-    dist = std::min(dist, pdi[i].dist);
+  {
+    uC.push_back(pdi[i].dist);
+    vio = std::min(vio, uC.back());
+  }
 
-  return dist;
+  // look at all articulated bodies
+  const vector<ControlledBodyPtr>& bodies = sim->get_dynamic_bodies();
+  for (unsigned i=0; i< bodies.size(); i++)
+  {
+    shared_ptr<RCArticulatedBodyd> rcab = dynamic_pointer_cast<RCArticulatedBodyd>(bodies[i]);
+    if (rcab)
+    {
+      const std::vector<shared_ptr<Jointd> >& joints = rcab->get_joints();
+      for (unsigned j=0; j< joints.size(); j++)
+      {
+        shared_ptr<Joint> joint = dynamic_pointer_cast<Joint>(joints[i]); 
+        for (unsigned k=0; k< joint->num_dof(); k++)
+        {
+          uC.push_back(joint->q[k] > joint->hilimit[k]);
+          vio = std::min(vio, uC.back());
+          uC.push_back(joint->q[k] - joint->lolimit[k]);
+          vio = std::min(vio, uC.back());
+        }
+      }
+    }
+  }
+
+  return vio;
 }
 
 /// Evaluates implicit bilateral constraints and returns the most significant violation
-double ConstraintStabilization::evaluate_implicit_constraints(shared_ptr<ConstraintSimulator> sim, vector<double>& C)
+double ConstraintStabilization::evaluate_bilateral_constraints(shared_ptr<ConstraintSimulator> sim, vector<double>& C)
 {
   const unsigned SPATIAL_DIM = 6;
   double eval[SPATIAL_DIM];
@@ -135,7 +165,7 @@ void ConstraintStabilization::stabilize(shared_ptr<ConstraintSimulator> sim)
   VectorNd dq, q, v;
   std::vector<UnilateralConstraintProblemData> pd;
   std::vector<VectorNd> qd_save;
-  std::vector<double> C;
+  std::vector<double> C, uC;
 
   std::map<shared_ptr<DynamicBodyd>, unsigned> body_index_map;
 
@@ -147,21 +177,27 @@ void ConstraintStabilization::stabilize(shared_ptr<ConstraintSimulator> sim)
   generate_body_index_map(body_index_map, sim);
 
   // evaluate the bilateral constraints
-  double max_vio = evaluate_implicit_constraints(sim, C);
-
-  // get the pairwise distances
-  vector<PairwiseDistInfo>& pdi = sim->_pairwise_distances;
+  double max_bvio = evaluate_bilateral_constraints(sim, C);
 
   // see whether any pairwise distances are below epsilon
-  double min_dist = get_min_pairwise_dist(pdi);
+  double max_uvio = evaluate_unilateral_constraints(sim, uC);
 
-  FILE_LOG(LOG_SIMULATOR) <<"minimum pairwise distance (before stabilization loop): "<<min_dist<<std::endl;
-  FILE_LOG(LOG_SIMULATOR) <<"maximum constraint violation (before stabilization loop): "<< max_vio <<std::endl;
+  FILE_LOG(LOG_SIMULATOR) <<"maximum unilateral constraint violation (before stabilization loop): "<< max_uvio <<std::endl;
+  FILE_LOG(LOG_SIMULATOR) <<"maximum bilateral constraint violation (before stabilization loop): "<< max_bvio <<std::endl;
+
   unsigned iterations = 0;
-  while (min_dist < eps || max_vio > bilateral_eps)
+  while (max_uvio < eps || max_bvio > bilateral_eps)
   {
-    FILE_LOG(LOG_SIMULATOR) <<"minimum pairwise distance: "<<min_dist<<std::endl;
-    FILE_LOG(LOG_SIMULATOR) <<"maximum constraint violation: "<< max_vio <<std::endl;
+    // look for maximum iterations
+    if (iterations == max_iterations)
+    {
+      FILE_LOG(LOG_SIMULATOR) << " -- maximum number of iterations reached" << std::endl;
+      FILE_LOG(LOG_SIMULATOR) << " -- failed to effectively finish the constraint stabilization process!" << std::endl;
+      break;
+    }
+
+    FILE_LOG(LOG_SIMULATOR) <<"maximum unilateral constraint violation: "<< max_uvio <<std::endl;
+    FILE_LOG(LOG_SIMULATOR) <<"maximum bilateral constraint violation: "<< max_bvio <<std::endl;
 
     // zero body velocities first (we only want to change positions based on
     // our updates)
@@ -190,18 +226,12 @@ void ConstraintStabilization::stabilize(shared_ptr<ConstraintSimulator> sim)
     }
 
     // update minimum distance
-    min_dist = get_min_pairwise_dist(pdi);  
+    max_uvio = evaluate_unilateral_constraints(sim, uC);
 
     // update constraint violation
-    max_vio = evaluate_implicit_constraints(sim, C);
+    max_bvio = evaluate_bilateral_constraints(sim, C);
 
     iterations++;
-    if (iterations == max_iterations)
-    {
-      FILE_LOG(LOG_SIMULATOR) << " -- maximum number of iterations reached" << std::endl;
-      FILE_LOG(LOG_SIMULATOR) << " -- failed to effectively finish the constraint stabilization process!" << std::endl;
-      break;
-    }
   }
 
   // restore the generalized velocities
@@ -216,12 +246,49 @@ void ConstraintStabilization::stabilize(shared_ptr<ConstraintSimulator> sim)
 }
 
 /// Adds unilateral constraints for joint limits in an articulated body
-void ConstraintStabilization::add_articulate_limit_constraint(std::vector<UnilateralConstraint>& constraints, shared_ptr<ArticulatedBodyd> abody)
+void ConstraintStabilization::add_limit_constraints(const vector<ControlledBodyPtr>& bodies, std::vector<UnilateralConstraint>& constraints)
 {
-  ArticulatedBodyPtr ab = dynamic_pointer_cast<ArticulatedBody>(abody);
-  std::vector<UnilateralConstraint> limits;
-  ab->find_limit_constraints(std::back_inserter(limits));
-  constraints.insert(constraints.end(), limits.begin(), limits.end());
+  const double INF = std::numeric_limits<double>::max();
+
+  // loop through all bodies looking for constraints
+  for (unsigned i=0; i< bodies.size(); i++)
+  {
+    shared_ptr<RCArticulatedBodyd> rcab = dynamic_pointer_cast<RCArticulatedBodyd>(bodies[i]);
+    if (rcab)
+    {
+      const std::vector<shared_ptr<Jointd> >& joints = rcab->get_joints();
+      for (unsigned j=0; j< joints.size(); j++)
+      {
+        shared_ptr<Joint> joint = dynamic_pointer_cast<Joint>(joints[i]); 
+        for (unsigned k=0; k< joint->num_dof(); k++)
+        {
+          // only add an upper limit constraint if the upper limit < inf
+          if (joint->hilimit[k] < INF)
+          {
+            UnilateralConstraint e;
+            e.constraint_type = UnilateralConstraint::eLimit;
+            e.limit_joint = joint;
+            e.limit_dof = k;
+            e.limit_epsilon = 0.0;
+            e.limit_upper = true;
+            constraints.push_back(e);
+          }
+
+          // only add a lower limit constraint if the lower limit > -inf
+          if (joint->lolimit[k] > -INF)
+          {
+            UnilateralConstraint e;
+            e.constraint_type = UnilateralConstraint::eLimit;
+            e.limit_joint = joint;
+            e.limit_dof = k;
+            e.limit_epsilon = 0.0;
+            e.limit_upper = false;
+            constraints.push_back(e);
+          }
+        }
+      }
+    }
+  }
 }
 
 /// Adds contact constraints from a pair of bodies
@@ -299,6 +366,9 @@ void ConstraintStabilization::compute_problem_data(std::vector<UnilateralConstra
   BOOST_FOREACH(CheckPair& to_check, _pairs_to_check)
     add_contact_constraints(constraints, to_check.first, to_check.second, sim);
 
+  // add limit constraints
+  add_limit_constraints(bodies, constraints);
+
   //FILE_LOG(LOG_SIMULATOR) << "constraints added" << std::endl;
   // 2) for each articulated body, add as many UnilateralConstraint objects as
   //    there are joints at their limits
@@ -341,14 +411,22 @@ void ConstraintStabilization::compute_problem_data(std::vector<UnilateralConstra
     // now set the unilateral constraint data
     set_unilateral_constraint_data(pd);
     
-    // set the elements of Cn_v and L_v
-    // L_v is always set to zero
+    // set the elements of Cn_v 
     // Cn_v is set to the signed distance between the two bodies
     Point3d pa,pb;
     for (unsigned i = 0; i < pd.contact_constraints.size(); ++i)
     {
       pd.Cn_v[i] = pd.contact_constraints[i]->signed_violation - NEAR_ZERO;//CollisionGeometry::calc_signed_dist(pd.contact_constraints[i]->contact_geom1, pd.contact_constraints[i]->contact_geom2, pa, pb) - std::sqrt(std::fabs(eps));
     }
+
+    // set the elements of L_v 
+    for (unsigned i=0; i< pd.limit_constraints.size(); i++)
+    {
+      JointPtr j = pd.limit_constraints[i]->limit_joint;
+      UnilateralConstraint* u = pd.limit_constraints[i];
+      unsigned dof = u->limit_dof;
+      pd.L_v[i] = (u->limit_upper) ? j->hilimit[dof] - j->q[dof] : j->q[dof] - j->lolimit[dof];
+    } 
 
     // set Jx_v
     double C[6];
@@ -982,11 +1060,12 @@ static double sqr(double x) { return x*x; }
 bool ConstraintStabilization::update_q(const VectorNd& dq, VectorNd& q, shared_ptr<ConstraintSimulator> sim)
 {
   VectorNd qstar, grad;
-  vector<double> C, C_old;
+  vector<double> C, C_old, uC, uC_old;
   const double MIN_T = NEAR_ZERO;
 
-  // evaluate the implicit constraints
-  evaluate_implicit_constraints(sim, C_old);
+  // evaluate the constraints
+  evaluate_unilateral_constraints(sim, uC_old);
+  evaluate_bilateral_constraints(sim, C_old);
 
   // compute old bilateral constraint violations
   double old_bilateral_cvio = 0.0;
@@ -994,32 +1073,22 @@ bool ConstraintStabilization::update_q(const VectorNd& dq, VectorNd& q, shared_p
     old_bilateral_cvio += sqr(C_old[i]);
   old_bilateral_cvio = std::sqrt(old_bilateral_cvio);
 
-  // copy the pairwise distances
-  vector<PairwiseDistInfo>& pdi = sim->_pairwise_distances;
-  vector<PairwiseDistInfo> pdi_old = pdi;
-
-  if (LOGGING(LOG_CONSTRAINT))
-    sim->calc_pairwise_distances();
-
   FILE_LOG(LOG_CONSTRAINT) << "...about to compute unilateral brackets" << std::endl;
   // find the pairwise distances and implicit constraint evaluations at q + dq
   qstar = dq;
   qstar += q;
   update_body_configurations(qstar, sim);
-  sim->calc_pairwise_distances();
-  evaluate_implicit_constraints(sim, C);
-
-  // evaluate new pdi
-  vector<PairwiseDistInfo> pdi_new = pdi;
+  evaluate_unilateral_constraints(sim, uC); 
+  evaluate_bilateral_constraints(sim, C);
 
   // we may have to find roots for all pairwise distances
   vector<bool> unilateral_bracket;
-  for (unsigned i=0; i< pdi.size(); i++)
+  for (unsigned i=0; i< uC.size(); i++)
   {
-    // look for penetrating and then not penetrating
-    if (pdi_old[i].dist < 0.0 && pdi_new[i].dist > 0.0)
+    // look for violating and then not violating 
+    if (uC_old[i] < 0.0 && uC[i] > 0.0)
       unilateral_bracket.push_back(true);
-    else if (pdi_old[i].dist > 0.0 && pdi_new[i].dist < 0.0)
+    else if (uC_old[i] > 0.0 && uC[i] < 0.0)
       unilateral_bracket.push_back(true);
     else
       unilateral_bracket.push_back(false); 
@@ -1056,7 +1125,7 @@ bool ConstraintStabilization::update_q(const VectorNd& dq, VectorNd& q, shared_p
       continue;
 
     // call Ridder's method to determine new t
-    double root = ridders_unilateral(0, t, pdi_old[i].dist, pdi_new[i].dist, i, dq, q, sim);
+    double root = ridders_unilateral(0, t, uC_old[i], uC[i], i, dq, q, sim);
     if (root > 0.0 && root < 1.0)
       t = std::min(root, t);
   }
@@ -1083,8 +1152,8 @@ bool ConstraintStabilization::update_q(const VectorNd& dq, VectorNd& q, shared_p
 
   // re-evaluate signed distances and bilateral constraints
   update_body_configurations(qstar, sim);
-  sim->calc_pairwise_distances();
-  evaluate_implicit_constraints(sim, C);
+  evaluate_unilateral_constraints(sim, uC); 
+  evaluate_bilateral_constraints(sim, C);
 
   // for values that aren't bracketed, further decrease t until there is
   // no increase in error
@@ -1098,10 +1167,10 @@ bool ConstraintStabilization::update_q(const VectorNd& dq, VectorNd& q, shared_p
     for (unsigned i=0; i< unilateral_bracket.size(); i++)
     {
       if (!unilateral_bracket[i])
-        FILE_LOG(LOG_CONSTRAINT) << " old distance " << pdi_old[i].dist << " new distance: " << pdi[i].dist << " stop? " << (!(pdi[i].dist < 0.0 && 
-          pdi_old[i].dist > pdi[i].dist)) << std::endl;
-      if (!unilateral_bracket[i] && pdi[i].dist < 0.0 && 
-          pdi_old[i].dist > pdi[i].dist)
+        FILE_LOG(LOG_CONSTRAINT) << " old distance " << uC_old[i] << " new distance: " << uC[i] << " stop? " << (!(uC[i] < 0.0 && 
+          uC_old[i] > uC[i])) << std::endl;
+      if (!unilateral_bracket[i] && uC[i] < 0.0 && 
+          uC_old[i] > uC[i])
       {
         stop = false;
         break;
@@ -1137,8 +1206,8 @@ bool ConstraintStabilization::update_q(const VectorNd& dq, VectorNd& q, shared_p
 
     // re-evaluate signed distances and bilateral constraints
     update_body_configurations(qstar, sim);
-    sim->calc_pairwise_distances();
-    evaluate_implicit_constraints(sim, C);
+    evaluate_bilateral_constraints(sim, C);
+    evaluate_unilateral_constraints(sim, uC);
   }
 
   FILE_LOG(LOG_SIMULATOR) << "t: " << t << std::endl;
@@ -1211,10 +1280,12 @@ static double sign(double x, double y)
     return -std::fabs(x);
 }
 
+// TODO: update this
 /// Evaluates the function for root finding
 double ConstraintStabilization::eval_unilateral(double t, unsigned i, const VectorNd& dq, const VectorNd& q, shared_ptr<ConstraintSimulator> sim)
 {
   static VectorNd qstar;
+  std::vector<double> uC;
 
   // setup qstar
   qstar = dq;
@@ -1225,9 +1296,9 @@ double ConstraintStabilization::eval_unilateral(double t, unsigned i, const Vect
   update_body_configurations(qstar, sim);
 
   // compute new pairwise distance information
-  sim->calc_pairwise_distances(); 
+  evaluate_unilateral_constraints(sim, uC); 
 
-  return sim->_pairwise_distances[i].dist;
+  return uC[i];
 }
 
 /// Evaluates the function for root finding
@@ -1245,7 +1316,7 @@ double ConstraintStabilization::eval_bilateral(double t, unsigned i, const Vecto
   update_body_configurations(qstar, sim);
 
   // compute new constraint evaluations
-  evaluate_implicit_constraints(sim, C); 
+  evaluate_bilateral_constraints(sim, C); 
 
   return C[i];
 }
