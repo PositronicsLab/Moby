@@ -1653,11 +1653,11 @@ void Polyhedron::find_deepest_feature(boost::shared_ptr<const Polyhedron::Featur
 
       //find the vertex that is not cur_vertex
       boost::shared_ptr<const Polyhedron::Edge> cur_e(*ei);
-      boost::shared_ptr<Polyhedron::Vertex> v = e->v1;
+      boost::shared_ptr<Polyhedron::Vertex> v = cur_e->v1;
 
       if(v == cur_vertex)
       {
-        v = e->v2;
+        v = cur_e->v2;
       }
 
       Ravelin::Vector3d v_e(v->o,fTe.source);
