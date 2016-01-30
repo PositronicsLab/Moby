@@ -208,6 +208,9 @@ void ImpactConstraintHandler::apply_visc_friction_model_to_connected_constraints
   // apply restitution
   if (apply_restitution(_epd))
   {
+    // update the impulses from z
+    update_from_stacked(_epd);
+
     // determine velocities due to impulse application
     update_constraint_velocities_from_impulses(_epd);
 
@@ -267,6 +270,9 @@ void ImpactConstraintHandler::apply_no_slip_model_to_connected_constraints(const
   // apply restitution
   if (apply_restitution(_epd))
   {
+    // update the body velocity
+    update_from_stacked(_epd);
+
     // determine velocities due to impulse application
     update_constraint_velocities_from_impulses(_epd);
 
@@ -288,15 +294,9 @@ void ImpactConstraintHandler::apply_no_slip_model_to_connected_constraints(const
   FILE_LOG(LOG_CONSTRAINT) << "ImpactConstraintHandler::apply_no_slip_model_to_connected_constraints() exiting" << endl;
 }
 
-/// Updates determined impulses in UnilateralConstraintProblemData based on a QP/NQP solution
-void ImpactConstraintHandler::update_from_stacked(UnilateralConstraintProblemData& q, const VectorNd& z)
+/// Updates determined impulses in UnilateralConstraintProblemData based on a QP/NQP solution; assumes impulses have already been saved
+void ImpactConstraintHandler::update_from_stacked(UnilateralConstraintProblemData& q)
 {
-  // save impulses in q
-  if (use_qp_solver(q))
-    q.update_from_stacked_qp(z);
-  else
-    q.update_from_stacked_nqp(z);
-
   // setup a temporary frame
   shared_ptr<Pose3d> P(new Pose3d);
 
@@ -333,12 +333,19 @@ void ImpactConstraintHandler::update_from_stacked(UnilateralConstraintProblemDat
     q.limit_constraints[i]->limit_impulse += limit_impulse;
   }
 
+  // get the signed limit impulse
+  VectorNd ls;
+  ls = q.l;
+  for (unsigned i=0; i< q.N_LIMITS; i++)
+    if (q.limit_constraints[i]->limit_upper)
+      ls[i] = -ls[i];
+
   // get the change in velocity
   VectorNd dv, tmpv;
   q.X_CnT.mult(q.cn, dv);
   dv += q.X_CsT.mult(q.cs, tmpv);
   dv += q.X_CtT.mult(q.ct, tmpv);
-  dv += q.X_LT.mult(q.l, tmpv);
+  dv += q.X_LT.mult(ls, tmpv);
 
   // compute lambda here using
   // | M  J' | | dv     | = | 0 | 
@@ -387,6 +394,19 @@ MatrixNd tmp;
     q.island_ijoints[i]->lambda = lambda.segment(j, j+NEQ);
     j += NEQ;
   }
+}
+
+/// Updates determined impulses in UnilateralConstraintProblemData based on a QP/NQP solution
+void ImpactConstraintHandler::update_from_stacked(UnilateralConstraintProblemData& q, const VectorNd& z)
+{
+  // save impulses in q
+  if (use_qp_solver(q))
+    q.update_from_stacked_qp(z);
+  else
+    q.update_from_stacked_nqp(z);
+
+  // compute new velocities
+  update_from_stacked(q);
 }
 
 /// Gets the minimum constraint velocity
@@ -1326,12 +1346,19 @@ void ImpactConstraintHandler::apply_no_slip_model(UnilateralConstraintProblemDat
       FILE_LOG(LOG_CONSTRAINT) << "warning! KE gain detected! energy before=" << ke_minus << " energy after=" << ke_plus << endl;
   }
 
+  // get signed joint limit impulse
+  VectorNd l;
+  l = q.l;
+  for (unsigned i=0; i< q.N_LIMITS; i++)
+    if (q.limit_constraints[i]->limit_upper)
+      l[i] = -l[i];
+
   // get the change in velocity
   VectorNd dv, tmpv;
   q.X_CnT.mult(q.cn, dv);
   dv += q.X_CsT.mult(q.cs, tmpv);
   dv += q.X_CtT.mult(q.ct, tmpv);
-  dv += q.X_LT.mult(q.l, tmpv);
+  dv += q.X_LT.mult(l, tmpv);
 
   // compute lambda here using
   // | M  J' | | dv     | = | 0 | 
@@ -1743,7 +1770,7 @@ void ImpactConstraintHandler::compute_limit_components(const MatrixNd& X, Unilat
     const UnilateralConstraint& u = *q.limit_constraints[i];
     q.L_v[i] = u.limit_joint->qd[u.limit_dof];
     if (u.limit_upper)
-      q.L_v[i] = q.L_v[i];
+      q.L_v[i] = -q.L_v[i];
   }
 }
 
