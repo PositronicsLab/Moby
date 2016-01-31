@@ -93,6 +93,9 @@ double ConstraintStabilization::evaluate_unilateral_constraints(shared_ptr<Const
   // clear uC
   uC.clear();
 
+  // calculate the pairwise distances
+  sim->calc_pairwise_distances();
+
   // get the maximum amount of unilateral constraint violation
   const vector<PairwiseDistInfo>& pdi = sim->_pairwise_distances;
   for (unsigned i=0; i< pdi.size(); i++)
@@ -498,6 +501,8 @@ shared_ptr<DynamicBodyd> ConstraintStabilization::get_super_body(shared_ptr<Dyna
       ab = rb->get_articulated_body();
       if (ab)
         return ab;
+      else
+        return sb;
     }
     else
       return shared_ptr<DynamicBodyd>();
